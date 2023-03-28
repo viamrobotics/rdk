@@ -16,6 +16,10 @@ export class StreamManager {
   }
 
   setCameraManager (cameraName:string) {
+    const manager = this.cameraManagers.get(cameraName);
+    if (manager) {
+      return manager;
+    }
     const tempManager = new CameraManager(this.client, cameraName, this.streamClient);
     this.cameraManagers.set(cameraName, tempManager);
     return tempManager;

@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, watch } from 'vue';
-import { $ref } from 'vue/macros';
 import { displayError } from '../../lib/error';
 import {
   CameraClient,
@@ -28,7 +27,7 @@ const imgEl = $ref<HTMLImageElement>();
 let cameraOn = $ref(false);
 let cameraFrameIntervalId = $ref(-1);
 let isLive = false;
-let cameraManager = $ref<CameraManager>();
+const cameraManager = $ref<CameraManager>(props.streamManager.setCameraManager(props.cameraName));
 
 const clearFrameInterval = () => {
   window.clearInterval(cameraFrameIntervalId);
@@ -36,10 +35,10 @@ const clearFrameInterval = () => {
 
 const viewCameraFrame = (time: number) => {
   clearFrameInterval();
-  cameraManager!.setImageSrc(imgEl);
+  cameraManager.setImageSrc(imgEl);
   if (time > 0) {
     cameraFrameIntervalId = window.setInterval(() => {
-      cameraManager!.setImageSrc(imgEl);
+      cameraManager.setImageSrc(imgEl);
     }, Number(time) * 1000);
   }
 };
@@ -48,14 +47,6 @@ const updateCameraRefreshRate = () => {
   if (props.refreshRate !== 'Live') {
     viewCameraFrame(selectedMap[props.refreshRate as keyof typeof selectedMap]);
   }
-};
-
-const setupManager = () => {
-  let tempManager = props.streamManager.cameraManagers.get(props.cameraName);
-  if (tempManager) {
-    tempManager = props.streamManager.setCameraManager(props.cameraName);
-  }
-  cameraManager = tempManager;
 };
 
 const exportScreenshot = async (cameraName: string) => {
@@ -73,23 +64,21 @@ const exportScreenshot = async (cameraName: string) => {
 };
 
 const videoStream = $computed(() => {
-  return cameraManager!.videoStream;
+  return cameraManager.videoStream;
 });
-
-setupManager();
 
 onMounted(() => {
   cameraOn = true;
   if (props.refreshRate === 'Live') {
     isLive = true;
-    cameraManager!.addStream();
+    cameraManager.addStream();
   }
   updateCameraRefreshRate();
 });
 
 onUnmounted(() => {
   if (isLive) {
-    cameraManager!.removeStream();
+    cameraManager.removeStream();
   }
   cameraOn = false;
   isLive = false;
@@ -100,11 +89,11 @@ onUnmounted(() => {
 watch(() => props.refreshRate, () => {
   if (isLive && props.refreshRate !== 'Live') {
     isLive = false;
-    cameraManager!.removeStream();
+    cameraManager.removeStream();
   }
   if (isLive === false && props.refreshRate === 'Live') {
     isLive = true;
-    cameraManager!.addStream();
+    cameraManager.addStream();
   }
   updateCameraRefreshRate();
 });
