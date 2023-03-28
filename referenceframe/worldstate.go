@@ -69,9 +69,9 @@ func WorldStateToProtobuf(worldState *WorldState) (*commonpb.WorldState, error) 
 	}, nil
 }
 
-// ToWorldFrame takes a frame system and a set of inputs for that frame system and converts all the geometries
+// ObstaclesInWorldFrame takes a frame system and a set of inputs for that frame system and converts all the obstacles
 // in the WorldState such that they are in the frame system's World reference frame.
-func (ws *WorldState) ToWorldFrame(fs FrameSystem, inputs map[string][]Input) (*WorldState, error) {
+func (ws *WorldState) ObstaclesInWorldFrame(fs FrameSystem, inputs map[string][]Input) (*GeometriesInFrame, error) {
 	transformGeometriesToWorldFrame := func(gfs []*GeometriesInFrame) (*GeometriesInFrame, error) {
 		nameCheck := make(map[string]bool)
 		allGeometries := make([]spatial.Geometry, 0, len(gfs))
@@ -104,11 +104,5 @@ func (ws *WorldState) ToWorldFrame(fs FrameSystem, inputs map[string][]Input) (*
 	if ws == nil {
 		ws = &WorldState{}
 	}
-	obstacles, err := transformGeometriesToWorldFrame(ws.Obstacles)
-	if err != nil {
-		return nil, err
-	}
-	return &WorldState{
-		Obstacles: []*GeometriesInFrame{obstacles},
-	}, nil
+	return transformGeometriesToWorldFrame(ws.Obstacles)
 }
