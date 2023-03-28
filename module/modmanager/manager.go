@@ -4,6 +4,7 @@ package modmanager
 import (
 	"context"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"sync"
 	"time"
@@ -27,6 +28,7 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/utils"
 )
 
 var validateConfigTimeout = 5 * time.Second
@@ -75,9 +77,7 @@ func (mgr *Manager) Close(ctx context.Context) error {
 		if mod.conn != nil {
 			err = multierr.Combine(err, mod.conn.Close())
 		}
-		if mod.process != nil {
-			err = multierr.Combine(err, mod.process.Stop())
-		}
+		err = multierr.Combine(err, mod.stopProcess())
 	}
 	return err
 }
@@ -111,7 +111,7 @@ func (mgr *Manager) add(ctx context.Context, cfg config.Module, reconfigure bool
 	var success bool
 	defer func() {
 		if !success {
-			if err := mod.process.Stop(); err != nil {
+			if err := mod.stopProcess(); err != nil {
 				mgr.logger.Error(err)
 			}
 		}
@@ -174,7 +174,7 @@ func (mgr *Manager) remove(modName string, reconfigure bool) error {
 	}
 
 	if mod.process != nil {
-		if err := mod.process.Stop(); err != nil {
+		if err := mod.stopProcess(); err != nil {
 			return errors.WithMessage(err, "error while stopping module "+modName)
 		}
 	}
@@ -424,6 +424,19 @@ func (m *module) startProcess(ctx context.Context, parentAddr string, logger gol
 		}
 		break
 	}
+	return nil
+}
+
+func (m *module) stopProcess() error {
+	if m.process == nil {
+		return nil
+	}
+
+	if err := m.process.Stop(); err != nil {
+		return err
+	}
+
+	utils.UncheckedErrorFunc(func() error { return os.Remove(m.addr) })
 	return nil
 }
 
