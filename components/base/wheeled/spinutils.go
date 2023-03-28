@@ -3,19 +3,103 @@ package wheeled
 import (
 	"context"
 	"math"
+	"sync"
 	"time"
 
+	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/components/base"
+	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/movementsensor"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/registry"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-func (base *wheeledBase) spinWithMovementSensor(
+type sensorBase struct {
+	generic.Unimplemented
+	logger golog.Logger
+
+	workers    sync.WaitGroup
+	base       base.LocalBase
+	sensorMu   sync.Mutex
+	sensorCtx  context.Context
+	sensorDone func()
+
+	allSensors  []movementsensor.MovementSensor
+	orientation movementsensor.MovementSensor
+}
+
+func makeBaseWithSensors(
+	ctx context.Context,
+	base base.LocalBase,
+	deps registry.Dependencies,
+	cfg config.Component,
+	logger golog.Logger) (base.LocalBase, error) {
+	// spawn a new context for sensors so we don't add many background workers
+	// TODO RSDK-2384 something is cancelling base context in the actuating API calls
+	attr, ok := cfg.ConvertedAttributes.(*AttrConfig)
+	if !ok {
+		return nil, rdkutils.NewUnexpectedTypeError(attr, &AttrConfig{})
+	}
+
+	s := &sensorBase{base: base, logger: logger}
+
+	s.sensorCtx, s.sensorDone = context.WithCancel(context.Background())
+
+	var omsName string
+	for _, msName := range attr.MovementSensor {
+		ms, err := movementsensor.FromDependencies(deps, msName)
+		if err != nil {
+			return nil, errors.Wrapf(err, "no movement_sensor namesd (%s)", msName)
+		}
+		s.allSensors = append(s.allSensors, ms)
+		props, err := ms.Properties(ctx, nil)
+		if props.OrientationSupported && err == nil {
+			s.orientation = ms
+			omsName = msName
+		}
+	}
+	s.logger.Debugf("using sensor %s as orientation sensor for base", omsName)
+
+	return s, nil
+}
+
+func (base *sensorBase) stopSensors() {
+	if len(base.allSensors) != 0 {
+		base.sensorDone()
+		base.sensorCtx, base.sensorDone = context.WithCancel(context.Background())
+	}
+}
+
+// Spin commands a base to turn about its center at a angular speed and for a specific angle.
+// TODO RSDK-2356 (rh) changing the angle here also changed the speed of the base
+// TODO RSDK-2362 check choppiness of movement when run as a remote.
+func (s *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
+	s.logger.Debugf("received a Spin with angleDeg:%.2f, degsPerSec:%.2f", angleDeg, degsPerSec)
+
+	if s.orientation != nil {
+		s.workers.Add(1)
+		utils.ManagedGo(func() {
+			// runAll calls GoFor, which blocks until the timed operation is done, or returns nil if a zero is passed in
+			// the code inside this goroutine would block the sensor for loop if taken out
+			if err := s.base.Spin(ctx, angleDeg, degsPerSec, extra); err != nil {
+				s.logger.Error(err)
+			}
+		}, s.workers.Done)
+		return s.spinWithMovementSensor(s.sensorCtx, angleDeg, degsPerSec)
+	}
+	s.stopSensors()
+	return s.base.Spin(ctx, angleDeg, degsPerSec, nil)
+}
+
+func (s *sensorBase) spinWithMovementSensor(
 	ctx context.Context, angleDeg, degsPerSec float64,
 ) error {
-	startYaw, err := getCurrentYaw(ctx, base.orientation)
+	startYaw, err := getCurrentYaw(ctx, s.orientation)
 	if err != nil {
 		return err
 	} // from 0 -> 360
@@ -24,7 +108,7 @@ func (base *wheeledBase) spinWithMovementSensor(
 	turnCount := 0
 	errCounter := 0
 
-	base.activeBackgroundWorkers.Add(1)
+	s.workers.Add(1)
 	utils.ManagedGo(func() {
 		ticker := time.NewTicker(yawPollTime)
 		for {
@@ -40,11 +124,11 @@ func (base *wheeledBase) spinWithMovementSensor(
 				return
 			case <-ticker.C:
 				// imu readings are limited from 0 -> 360
-				currYaw, err := getCurrentYaw(ctx, base.orientation)
+				currYaw, err := getCurrentYaw(ctx, s.orientation)
 				if err != nil {
 					errCounter++
 					if errCounter > 100 {
-						base.logger.Error(errors.Wrap(
+						s.logger.Error(errors.Wrap(
 							err, "imu sensor unreachable, 100 error counts when trying to read yaw angle"))
 						return
 					}
@@ -63,11 +147,11 @@ func (base *wheeledBase) spinWithMovementSensor(
 				}
 
 				if sensorDebug {
-					base.logger.Debugf("minTravel %t, atTarget %t, overshot %t", minTravel, atTarget, overShot)
-					base.logger.Debugf("angleDeg %.2f, increment %.2f, turnCount %d, fullTurns %d",
+					s.logger.Debugf("minTravel %t, atTarget %t, overshot %t", minTravel, atTarget, overShot)
+					s.logger.Debugf("angleDeg %.2f, increment %.2f, turnCount %d, fullTurns %d",
 						angleDeg, increment, turnCount, fullTurns)
-					base.logger.Debugf("currYaw %.2f, startYaw %.2f, targetYaw %.2f", currYaw, startYaw, targetYaw)
 				}
+				s.logger.Debugf("currYaw %.2f, startYaw %.2f, targetYaw %.2f", currYaw, startYaw, targetYaw)
 
 				// poll the sensor for the current error in angle
 				// check if we've overshot our target by the errTarget value
@@ -75,11 +159,11 @@ func (base *wheeledBase) spinWithMovementSensor(
 				if fullTurns == 0 {
 					if (atTarget && minTravel) || (overShot && minTravel) {
 						ticker.Stop()
-						if err := base.Stop(ctx, nil); err != nil {
+						if err := s.Stop(ctx, nil); err != nil {
 							return
 						}
 						if sensorDebug {
-							base.logger.Debugf(
+							s.logger.Debugf(
 								"stopping base with errAngle:%.2f, overshot? %t",
 								math.Abs(targetYaw-currYaw), overShot)
 						}
@@ -87,11 +171,11 @@ func (base *wheeledBase) spinWithMovementSensor(
 				} else {
 					if (turnCount >= fullTurns) && atTarget {
 						ticker.Stop()
-						if err := base.Stop(ctx, nil); err != nil {
+						if err := s.Stop(ctx, nil); err != nil {
 							return
 						}
 						if sensorDebug {
-							base.logger.Debugf(
+							s.logger.Debugf(
 								"stopping base with errAngle:%.2f, overshot? %t, fullTurns %d, turnCount %d",
 								math.Abs(targetYaw-currYaw), overShot, fullTurns, turnCount)
 						}
@@ -99,7 +183,7 @@ func (base *wheeledBase) spinWithMovementSensor(
 				}
 			}
 		}
-	}, base.activeBackgroundWorkers.Done)
+	}, s.workers.Done)
 	return nil
 }
 
@@ -181,4 +265,46 @@ func hasOverShot(angle, start, target, dir float64) bool {
 		// the overshoot range is the outside range between the start and target
 		return !angleBetween(angle, start, target)
 	}
+}
+
+func (s *sensorBase) MoveStraight(
+	ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{},
+) error {
+	s.stopSensors()
+	return s.base.MoveStraight(ctx, distanceMm, mmPerSec, extra)
+}
+
+func (s *sensorBase) SetVelocity(
+	ctx context.Context, linear, angular r3.Vector, extra map[string]interface{},
+) error {
+	s.stopSensors()
+	return s.base.SetVelocity(ctx, linear, angular, extra)
+}
+
+func (s *sensorBase) SetPower(
+	ctx context.Context, linear, angular r3.Vector, extra map[string]interface{},
+) error {
+	s.stopSensors()
+	return s.base.SetPower(ctx, linear, angular, extra)
+}
+
+func (s *sensorBase) Stop(ctx context.Context, extra map[string]interface{}) error {
+	s.stopSensors()
+	return s.base.Stop(ctx, extra)
+}
+
+func (s *sensorBase) IsMoving(ctx context.Context) (bool, error) {
+	return s.base.IsMoving(ctx)
+}
+
+func (s *sensorBase) Width(ctx context.Context) (int, error) {
+	return s.base.Width(ctx)
+}
+
+func (s *sensorBase) Close(ctx context.Context) error {
+	base, isWheeled := rdkutils.UnwrapProxy(s.base).(*wheeledBase)
+	if isWheeled {
+		return base.Close(ctx)
+	}
+	return nil
 }
