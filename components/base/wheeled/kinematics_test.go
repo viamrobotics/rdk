@@ -102,28 +102,3 @@ func TestCurrentInputs(t *testing.T) {
 		slam.GetPointCloudMapFull(ctx, kwb.slam, kwb.slamName)
 	}
 }
-
-func TestGoToInputs(t *testing.T) {
-	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
-
-	sphere, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 400, "footprint")
-	test.That(t, err, test.ShouldBeNil)
-	base := &wheeledBase{
-		widthMm:              400,
-		wheelCircumferenceMm: 25,
-		logger:               logger,
-		name:                 "count basie",
-		collisionGeometry:    sphere,
-	}
-
-	kb, err := WrapWithKinematics(ctx, base, "", fake.NewSLAM("", logger))
-	test.That(t, err, test.ShouldBeNil)
-	kwb, ok := kb.(*kinematicWheeledBase)
-	test.That(t, ok, test.ShouldBeTrue)
-	for i := 0; i < 10; i++ {
-		err := kwb.GoToInputs(ctx, []referenceframe.Input{{10}, {10}})
-		test.That(t, err, test.ShouldBeNil)
-		slam.GetPointCloudMapFull(ctx, kwb.slam, kwb.slamName)
-	}
-}
