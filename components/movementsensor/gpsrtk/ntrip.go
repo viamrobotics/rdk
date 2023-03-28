@@ -53,7 +53,7 @@ func newNtripCorrectionSource(ctx context.Context, cfg config.Component, logger 
 		logger:     logger,
 		// Overloaded boards can have flaky I2C busses. Only report errors if at least 5 of the
 		// last 10 attempts have failed.
-		err:        movementsensor.NewLastError(10, 5),
+		err: movementsensor.NewLastError(10, 5),
 	}
 
 	// Init ntripInfo from attributes
