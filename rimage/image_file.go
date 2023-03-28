@@ -133,6 +133,7 @@ func readImageFromFile(path string) (image.Image, error) {
 	}
 }
 
+// GetPath returns the path of board2 based on the working directory.
 func GetPath() (string, error) {
 	path, err := os.Getwd()
 	if err != nil {
