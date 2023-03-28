@@ -159,7 +159,7 @@ func (c *AppClient) ensureLoggedIn() error {
 	}
 
 	if c.conf.Auth == nil {
-		return errors.New("not logged in")
+		return errors.New("not logged in: try $viam auth to re-authenticate")
 	}
 
 	if c.conf.Auth.IsExpired() {
