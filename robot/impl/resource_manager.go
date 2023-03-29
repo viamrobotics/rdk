@@ -438,6 +438,7 @@ func (manager *resourceManager) completeConfig(
 				if err != nil {
 					manager.logger.Errorw("modular service config validation error", "resource", s.ResourceName(), "model", s.Model, "error", err)
 					wrap.err = errors.Wrap(err, "config validation error found in modular service: "+sCfg.Name)
+					continue
 				}
 			}
 
