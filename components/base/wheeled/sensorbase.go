@@ -19,10 +19,11 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
+var errTarget = 5.0
+
 const (
 	yawPollTime = 10 * time.Millisecond
-	errTarget   = 5
-	errTurn     = 2
+	errTurn     = 2.0
 	oneTurn     = 360
 	increment   = 0.1
 	sensorDebug = false
@@ -117,6 +118,9 @@ func (s *sensorBase) spinWithMovementSensor(
 	} // from 0 -> 360
 
 	targetYaw, dir, fullTurns := findSpinParams(angleDeg, degsPerSec, startYaw)
+	if fullTurns > 0 {
+		errTarget = errTurn
+	}
 	turnCount := 0
 	errCounter := 0
 
@@ -162,8 +166,8 @@ func (s *sensorBase) spinWithMovementSensor(
 					s.logger.Debugf("minTravel %t, atTarget %t, overshot %t", minTravel, atTarget, overShot)
 					s.logger.Debugf("angleDeg %.2f, increment %.2f, turnCount %d, fullTurns %d",
 						angleDeg, increment, turnCount, fullTurns)
+					s.logger.Debugf("currYaw %.2f, startYaw %.2f, targetYaw %.2f", currYaw, startYaw, targetYaw)
 				}
-				s.logger.Debugf("currYaw %.2f, startYaw %.2f, targetYaw %.2f", currYaw, startYaw, targetYaw)
 
 				// poll the sensor for the current error in angle
 				// check if we've overshot our target by the errTarget value
