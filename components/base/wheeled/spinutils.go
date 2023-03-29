@@ -60,6 +60,7 @@ func makeBaseWithSensors(
 
 	s.sensorCtx, s.sensorDone = context.WithCancel(context.Background())
 
+	s.logger.Debug("adding movement sensors to base")
 	var omsName string
 	for _, msName := range attr.MovementSensor {
 		ms, err := movementsensor.FromDependencies(deps, msName)
@@ -91,6 +92,7 @@ func (s *sensorBase) stopSensors() {
 // TODO RSDK-2362 check choppiness of movement when run as a remote.
 func (s *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
 	s.logger.Debugf("received a Spin with angleDeg:%.2f, degsPerSec:%.2f", angleDeg, degsPerSec)
+	s.stopSensors()
 
 	if s.orientation != nil {
 		s.workers.Add(1)
