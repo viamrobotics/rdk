@@ -972,12 +972,14 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	for _, name := range filtered.resources.Names() {
 		for i, c := range newConfig.Components {
 			if c.ResourceName() == name {
-				newConfig.Components = append(newConfig.Components[:i], newConfig.Components[i+1:]...)
+				newConfig.Components[i] = newConfig.Components[len(newConfig.Components)-1]
+				newConfig.Components = newConfig.Components[:len(newConfig.Components)-1]
 			}
 		}
 		for i, s := range newConfig.Services {
 			if s.ResourceName() == name {
-				newConfig.Services = append(newConfig.Services[:i], newConfig.Services[i+1:]...)
+				newConfig.Services[i] = newConfig.Services[len(newConfig.Services)-1]
+				newConfig.Services = newConfig.Services[:len(newConfig.Services)-1]
 			}
 		}
 	}
