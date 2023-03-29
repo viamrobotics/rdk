@@ -34,7 +34,8 @@ func testGetDrivers() []driver.Driver {
 	}
 	withProps := newFakeDriver("some label", []prop.Media{props})
 	withoutProps := newFakeDriver("another label", []prop.Media{})
-	return []driver.Driver{withProps, withoutProps}
+	isISP := newFakeDriver("some-isp-label", []prop.Media{props})
+	return []driver.Driver{withProps, withoutProps, isISP}
 }
 
 func TestDiscoveryWebcam(t *testing.T) {
