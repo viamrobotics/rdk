@@ -173,10 +173,8 @@ func (mgr *Manager) remove(modName string, reconfigure bool) error {
 		return errors.Errorf("cannot remove module %s as it does not exist", modName)
 	}
 
-	if mod.process != nil {
-		if err := mod.stopProcess(); err != nil {
-			return errors.WithMessage(err, "error while stopping module "+modName)
-		}
+	if err := mod.stopProcess(); err != nil {
+		return errors.WithMessage(err, "error while stopping module "+modName)
 	}
 
 	// Do not close connection or deregister resources if module is being reconfigured.
@@ -431,12 +429,18 @@ func (m *module) stopProcess() error {
 	if m.process == nil {
 		return nil
 	}
+	defer utils.UncheckedErrorFunc(func() error {
+		// Attempt to remove module's .sock file if module did not remove it
+		// already.
+		if _, err := os.Stat(m.addr); err == nil {
+			return os.Remove(m.addr)
+		}
+		return nil
+	})
 
 	if err := m.process.Stop(); err != nil {
 		return err
 	}
-
-	utils.UncheckedErrorFunc(func() error { return os.Remove(m.addr) })
 	return nil
 }
 

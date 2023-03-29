@@ -177,6 +177,14 @@ func (m *Module) Start(ctx context.Context) error {
 	m.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer m.activeBackgroundWorkers.Done()
+		defer utils.UncheckedErrorFunc(func() error {
+			// Attempt to remove module's .sock file if parent did not remove it
+			// already.
+			if _, err := os.Stat(m.addr); err == nil {
+				return os.Remove(m.addr)
+			}
+			return nil
+		})
 		m.logger.Infof("server listening at %v", lis.Addr())
 		if err := m.server.Serve(lis); err != nil {
 			m.logger.Errorf("failed to serve: %v", err)
