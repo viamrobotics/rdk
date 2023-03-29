@@ -19,11 +19,10 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-var errTarget = 5.0
-
 const (
 	yawPollTime = 10 * time.Millisecond
 	errTurn     = 2.0
+	errTarget   = 5.0
 	oneTurn     = 360
 	increment   = 0.1
 	sensorDebug = false
@@ -118,8 +117,9 @@ func (s *sensorBase) spinWithMovementSensor(
 	} // from 0 -> 360
 
 	targetYaw, dir, fullTurns := findSpinParams(angleDeg, degsPerSec, startYaw)
+	errBound := errTarget
 	if fullTurns > 0 {
-		errTarget = errTurn
+		errBound = errTurn
 	}
 	turnCount := 0
 	errCounter := 0
@@ -152,7 +152,7 @@ func (s *sensorBase) spinWithMovementSensor(
 				}
 				errCounter = 0 // reset reading error count to zero if we are successfully reading again
 
-				atTarget, overShot, minTravel := getTurnState(currYaw, startYaw, targetYaw, dir, angleDeg)
+				atTarget, overShot, minTravel := getTurnState(currYaw, startYaw, targetYaw, dir, angleDeg, errBound)
 
 				// if the imu yaw reading is close to 360, we are nearing a full turn,
 				// so we adjust the current reading by 360 * the number of turns we've done
@@ -203,8 +203,8 @@ func (s *sensorBase) spinWithMovementSensor(
 	return nil
 }
 
-func getTurnState(currYaw, startYaw, targetYaw, dir, angleDeg float64) (atTarget, overShot, minTravel bool) {
-	atTarget = math.Abs(targetYaw-currYaw) < errTarget
+func getTurnState(currYaw, startYaw, targetYaw, dir, angleDeg, errorBound float64) (atTarget, overShot, minTravel bool) {
+	atTarget = math.Abs(targetYaw-currYaw) < errorBound
 	overShot = hasOverShot(currYaw, startYaw, targetYaw, dir)
 	minTravel = math.Abs(currYaw-startYaw) > math.Abs(angleDeg*increment)
 	return atTarget, overShot, minTravel

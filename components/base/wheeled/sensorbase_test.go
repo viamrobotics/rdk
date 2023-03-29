@@ -37,7 +37,7 @@ func TestSpinWithMSMath(t *testing.T) {
 	} {
 		t.Run(stops.name, func(t *testing.T) {
 			at, over, min := getTurnState(
-				stops.curr, stops.start, stops.target, stops.dir, stops.angleDeg)
+				stops.curr, stops.start, stops.target, stops.dir, stops.angleDeg, errTarget)
 			test.That(t, at, test.ShouldEqual, stops.atTarget[0])
 			test.That(t, over, test.ShouldEqual, stops.atTarget[1])
 			test.That(t, min, test.ShouldEqual, stops.atTarget[2])
