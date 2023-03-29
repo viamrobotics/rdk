@@ -1,4 +1,4 @@
-interface StreamState {
+export interface StreamState {
   'on' : boolean,
   'live' : boolean,
   'name' : string
