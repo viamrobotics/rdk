@@ -25,7 +25,6 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-
 var modelname = resource.NewDefaultModel("wheeled")
 
 // AttrConfig is how you configure a wheeled base.
