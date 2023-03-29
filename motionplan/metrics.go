@@ -8,7 +8,7 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-const OrientationDistanceScaling = 10.
+const orientationDistanceScaling = 10.
 
 // StateMetric are functions which, given a StateInput, produces some score. Lower is better.
 // This is used for gradient descent to converge upon a goal pose, for example.
@@ -73,7 +73,7 @@ func NewSquaredNormMetric(goal spatial.Pose) StateMetric {
 	weightedSqNormDist := func(query *StateInput) float64 {
 		delta := spatial.PoseDelta(goal, query.Position)
 		// Increase weight for orientation since it's a small number
-		return delta.Point().Norm2() + spatial.QuatToR3AA(delta.Orientation().Quaternion()).Mul(OrientationDistanceScaling).Norm2()
+		return delta.Point().Norm2() + spatial.QuatToR3AA(delta.Orientation().Quaternion()).Mul(orientationDistanceScaling).Norm2()
 	}
 	return weightedSqNormDist
 }

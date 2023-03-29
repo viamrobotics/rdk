@@ -6,7 +6,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 )
 
-// InverseKinematics defines an interface which, provided with a goal position and seed inputs, will output all found
+// InverseKinematics defines an interface which, provided with seed inputs and a Metric to minimize to zero, will output all found
 // solutions to the provided channel until cancelled or otherwise completes.
 type InverseKinematics interface {
 	// Solve receives a context, the goal arm position, and current joint angles.

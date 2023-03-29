@@ -354,15 +354,15 @@ IK:
 				arcPass, failName := mp.planOpts.CheckSegmentConstraints(stepArc)
 
 				if arcPass {
-					cScore := mp.planOpts.GoalArcScore(stepArc)
-					if cScore < mp.planOpts.MinScore && mp.planOpts.MinScore > 0 {
+					score := mp.planOpts.goalArcScore(stepArc)
+					if score < mp.planOpts.MinScore && mp.planOpts.MinScore > 0 {
 						solutions = map[float64][]frame.Input{}
-						solutions[cScore] = step
+						solutions[score] = step
 						// good solution, stopping early
 						break IK
 					}
 
-					solutions[cScore] = step
+					solutions[score] = step
 					if len(solutions) >= nSolutions {
 						// sufficient solutions found, stopping early
 						break IK

@@ -69,7 +69,7 @@ const (
 // NewBasicPlannerOptions specifies a set of basic options for the planner.
 func newBasicPlannerOptions() *plannerOptions {
 	opt := &plannerOptions{}
-	opt.GoalArcScore = JointMetric
+	opt.goalArcScore = JointMetric
 	opt.DistanceFunc = L2InputMetric
 	opt.pathMetric = NewZeroMetric() // By default, the distance to the valid manifold is zero, unless constraints say otherwise
 	// opt.goalMetric is intentionally unset as it is likely dependent on the goal itself.
@@ -96,7 +96,7 @@ func newBasicPlannerOptions() *plannerOptions {
 type plannerOptions struct {
 	ConstraintHandler
 	goalMetric   StateMetric // Distance function which converges to the final goal position
-	GoalArcScore SegmentMetric
+	goalArcScore SegmentMetric
 	pathMetric   StateMetric // Distance function which converges on the valid manifold of intermediate path states
 
 	extra map[string]interface{}

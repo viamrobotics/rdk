@@ -337,8 +337,7 @@ func newCollisionConstraint(
 			return false
 		}
 
-		collisions := cg.collisions()
-		return len(collisions) == 0
+		return len(cg.collisions()) == 0
 	}
 	return constraint, nil
 }
