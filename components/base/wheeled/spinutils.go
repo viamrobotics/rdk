@@ -91,7 +91,6 @@ func (s *sensorBase) stopSensors() {
 // TODO RSDK-2356 (rh) changing the angle here also changed the speed of the base
 // TODO RSDK-2362 check choppiness of movement when run as a remote.
 func (s *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
-	s.logger.Debugf("received a Spin with angleDeg:%.2f, degsPerSec:%.2f", angleDeg, degsPerSec)
 	s.stopSensors()
 
 	if s.orientation != nil {
