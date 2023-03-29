@@ -178,6 +178,18 @@ func (svc *builtIn) SetMode(ctx context.Context, mode navigation.Mode, extra map
 	return nil
 }
 
+func (svc *builtIn) computeCurrentBearing(ctx context.Context, path []*geo.Point) (float64, error) {
+	props, err := svc.movementSensor.Properties(ctx, nil)
+	if err != nil {
+		return 0, err
+	}
+	if props.CompassHeadingSupported {
+		return svc.movementSensor.CompassHeading(ctx, nil)
+	}
+	pathLen := len(path)
+	return fixAngle(path[pathLen-2].BearingTo(path[pathLen-1])), nil
+}
+
 func (svc *builtIn) startWaypoint(extra map[string]interface{}) error {
 	svc.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
@@ -207,8 +219,10 @@ func (svc *builtIn) startWaypoint(extra map[string]interface{}) error {
 					return errors.New("not enough gps data")
 				}
 
-				pathLen := len(path)
-				currentBearing := fixAngle(path[pathLen-2].BearingTo(path[pathLen-1]))
+				currentBearing, err := svc.computeCurrentBearing(ctx, path)
+				if err != nil {
+					return err
+				}
 
 				bearingToGoal, distanceToGoal, err := svc.waypointDirectionAndDistanceToGo(ctx, currentLoc)
 				if err != nil {
