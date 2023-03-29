@@ -78,9 +78,9 @@ func testOrbslamMap(t *testing.T, svc slam.Service) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pcd, test.ShouldNotBeNil)
 
-	pointcloudStream, err := pointcloud.ReadPCD(bytes.NewReader(pcd))
-	t.Logf("Pointcloud points: %v", pointcloudStream.Size())
-	test.That(t, pointcloudStream.Size(), test.ShouldBeGreaterThanOrEqualTo, 100)
+	pointcloud, err := pointcloud.ReadPCD(bytes.NewReader(pcd))
+	t.Logf("Pointcloud points: %v", pointcloud.Size())
+	test.That(t, pointcloud.Size(), test.ShouldBeGreaterThanOrEqualTo, 100)
 }
 
 // Checks the orbslam position within a defined tolerance
@@ -122,13 +122,13 @@ func testOrbslamPosition(t *testing.T, svc slam.Service, mode, actionMode string
 
 // Checks the orbslam internal state.
 func testOrbslamInternalState(t *testing.T, svc slam.Service, dataDir string) {
-	internalStateStream, err := slam.GetInternalStateFull(context.Background(), svc, "test")
+	internalState, err := slam.GetInternalStateFull(context.Background(), svc, "test")
 	test.That(t, err, test.ShouldBeNil)
 
 	// Save the data from the call to GetInternalStateStream for use in next test.
 	timeStamp := time.Now()
 	filename := filepath.Join(dataDir, "map", "orbslam_int_color_camera_data_"+timeStamp.UTC().Format(slamTimeFormat)+".osa")
-	err = os.WriteFile(filename, internalStateStream, 0644)
+	err = os.WriteFile(filename, internalState, 0644)
 	test.That(t, err, test.ShouldBeNil)
 }
 

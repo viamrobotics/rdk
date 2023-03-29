@@ -401,7 +401,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 	from, to spatialmath.Pose,
 	seedMap map[string][]referenceframe.Input,
 	worldState *referenceframe.WorldState,
-	cons *pb.Constraints,
+	constraints *pb.Constraints,
 	planningOpts map[string]interface{},
 ) (*plannerOptions, error) {
 	planAlg := ""
@@ -411,20 +411,20 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 
 	opt.extra = planningOpts
 
-	err := opt.createCollisionConstraints(
+	// add collision constraints
+	collisionConstraints, err := newCollisionConstraints(
 		pm.frame,
 		pm.fs,
 		worldState,
 		seedMap,
-		cons.GetCollisionSpecification(),
-		defaultGetCollisionDepth,
-		pm.logger,
+		constraints.GetCollisionSpecification(), defaultGetCollisionDepth,
 	)
 	if err != nil {
 		return nil, err
 	}
+	opt.AddConstraints(collisionConstraints)
 
-	hasTopoConstraint := opt.addPbTopoConstraints(from, to, cons)
+	hasTopoConstraint := opt.addPbTopoConstraints(from, to, constraints)
 	if hasTopoConstraint {
 		planAlg = "cbirrt"
 	}
@@ -517,7 +517,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 			// time to run the first planning attempt before falling back
 			try1["timeout"] = defaultFallbackTimeout
 			try1["planning_alg"] = "rrtstar"
-			try1Opt, err := pm.plannerSetupFromMoveRequest(from, to, seedMap, worldState, cons, try1)
+			try1Opt, err := pm.plannerSetupFromMoveRequest(from, to, seedMap, worldState, constraints, try1)
 			if err != nil {
 				return nil, err
 			}

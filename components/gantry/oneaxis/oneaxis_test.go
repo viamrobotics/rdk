@@ -298,6 +298,7 @@ func TestHome(t *testing.T) {
 	}
 	fakegantry = &oneAxis{
 		motor:     fakeMotor,
+		logger:    logger,
 		limitType: "onePinOneLength",
 	}
 	err = fakegantry.Home(ctx)
@@ -625,11 +626,11 @@ func TestMoveToPosition(t *testing.T) {
 	}
 	pos := []float64{1, 2}
 	err := fakegantry.MoveToPosition(ctx, pos, &referenceframe.WorldState{}, nil)
-	test.That(t, err.Error(), test.ShouldEqual, "oneAxis gantry MoveToPosition needs 1 position, got: 2")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "needs 1 position to move")
 
 	pos = []float64{1}
 	err = fakegantry.MoveToPosition(ctx, pos, &referenceframe.WorldState{}, nil)
-	test.That(t, err.Error(), test.ShouldEqual, "oneAxis gantry position out of range, got 1.00 max is 0.00")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "out of range")
 
 	fakegantry.lengthMm = float64(4)
 	fakegantry.positionLimits = []float64{0, 4}
@@ -785,19 +786,19 @@ func TestGoToInputs(t *testing.T) {
 		logger:          logger,
 	}
 	err := fakegantry.GoToInputs(ctx, inputs)
-	test.That(t, err.Error(), test.ShouldEqual, "oneAxis gantry MoveToPosition needs 1 position, got: 0")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "needs 1 position to move")
 
 	inputs = []referenceframe.Input{{Value: 1.0}, {Value: 2.0}}
 	err = fakegantry.GoToInputs(ctx, inputs)
-	test.That(t, err.Error(), test.ShouldEqual, "oneAxis gantry MoveToPosition needs 1 position, got: 2")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "needs 1 position to move")
 
 	inputs = []referenceframe.Input{{Value: -1.0}}
 	err = fakegantry.GoToInputs(ctx, inputs)
-	test.That(t, err.Error(), test.ShouldEqual, "oneAxis gantry position out of range, got -1.00 max is 1.00")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "out of range")
 
 	inputs = []referenceframe.Input{{Value: 4.0}}
 	err = fakegantry.GoToInputs(ctx, inputs)
-	test.That(t, err.Error(), test.ShouldEqual, "oneAxis gantry position out of range, got 4.00 max is 1.00")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "out of range")
 
 	inputs = []referenceframe.Input{{Value: 1.0}}
 	err = fakegantry.GoToInputs(ctx, inputs)
