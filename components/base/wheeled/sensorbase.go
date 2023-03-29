@@ -25,7 +25,7 @@ const (
 	errTurn     = 2
 	oneTurn     = 360
 	increment   = 0.1
-	sensorDebug = true
+	sensorDebug = false
 )
 
 type sensorBase struct {
