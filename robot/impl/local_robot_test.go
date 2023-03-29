@@ -2364,10 +2364,10 @@ func TestOrphanedResources(t *testing.T) {
 	// Assert that adding base 'b' back re-adds 'm' and slam service 's'.
 	r.Reconfigure(ctx, cfg)
 
-	res, err = r.ResourceByName(base.Named("b"))
+	_, err = r.ResourceByName(base.Named("b"))
 	test.That(t, err, test.ShouldBeNil)
-	res, err = r.ResourceByName(motor.Named("m"))
+	_, err = r.ResourceByName(motor.Named("m"))
 	test.That(t, err, test.ShouldBeNil)
-	res, err = r.ResourceByName(slam.Named("s"))
+	_, err = r.ResourceByName(slam.Named("s"))
 	test.That(t, err, test.ShouldBeNil)
 }
