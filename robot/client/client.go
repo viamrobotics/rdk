@@ -325,7 +325,7 @@ func (rc *RobotClient) connect(ctx context.Context) error {
 
 	client := pb.NewRobotServiceClient(conn)
 
-	refClient := grpcreflect.NewClient(rc.backgroundCtx, reflectpb.NewServerReflectionClient(conn))
+	refClient := grpcreflect.NewClientV1Alpha(rc.backgroundCtx, reflectpb.NewServerReflectionClient(conn))
 
 	rc.conn = conn
 	rc.client = client
