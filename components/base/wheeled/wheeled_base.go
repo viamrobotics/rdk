@@ -125,6 +125,8 @@ type wheeledBase struct {
 }
 
 func (base *wheeledBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
+	base.logger.Debugf("received a Spin with angleDeg:%.2f, degsPerSec:%.2f", angleDeg, degsPerSec)
+
 	ctx, done := base.opMgr.New(ctx)
 	defer done()
 
