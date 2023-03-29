@@ -1151,8 +1151,8 @@ github.com/pion/logging v0.2.2/go.mod h1:k0/tDVsRCX2Mb2ZEmTqNa7CWsQPc+YYCB7Q+5pa
 github.com/pion/mdns v0.0.5/go.mod h1:UgssrvdD3mxpi8tMxAXbsppL3vJ4Jipw1mTCW+al01g=
 github.com/pion/mdns v0.0.7 h1:P0UB4Sr6xDWEox0kTVxF0LmQihtCbSAdW0H2nEgkA3U=
 github.com/pion/mdns v0.0.7/go.mod h1:4iP2UbeFhLI/vWju/bw6ZfwjJzk0z8DNValjGxR/dD8=
-github.com/pion/mediadevices v0.4.1-0.20230320003250-11bf55f80ca8 h1:r/pGHQirhLySYi8E3nGCIrE5LT6E6cgzRMFsgvTulRc=
-github.com/pion/mediadevices v0.4.1-0.20230320003250-11bf55f80ca8/go.mod h1:/43QYMXuX9XwTygetEYO3bZZVxDu3xiBMOEIbPe0Hfc=
+github.com/pion/mediadevices v0.4.1-0.20230329214258-b9ce5bb861da h1:mPtztuyHnkBKtz/lyD7K+mjV1DpLayq38NyllU90G6I=
+github.com/pion/mediadevices v0.4.1-0.20230329214258-b9ce5bb861da/go.mod h1:nev2iZBKt2BEUBqQJtQizuHlsUsHqCEvxSrYjVAB9rE=
 github.com/pion/randutil v0.1.0 h1:CFG1UdESneORglEsnimhUjf33Rwjubwj6xfiOXBa3mA=
 github.com/pion/randutil v0.1.0/go.mod h1:XcJrSMMbbMRhASFVOlj/5hQial/Y8oH/HVo7TBZq+j8=
 github.com/pion/rtcp v1.2.9/go.mod h1:qVPhiCzAm4D/rxb6XzKeyZiQK69yJpbUDJSF7TgrqNo=
