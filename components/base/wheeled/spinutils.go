@@ -313,6 +313,7 @@ func (s *sensorBase) Width(ctx context.Context) (int, error) {
 }
 
 func (s *sensorBase) Close(ctx context.Context) error {
+	s.stopSensors()
 	base, isWheeled := rdkutils.UnwrapProxy(s.base).(*wheeledBase)
 	if isWheeled {
 		return base.Close(ctx)
