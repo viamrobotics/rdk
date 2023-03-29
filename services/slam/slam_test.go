@@ -87,7 +87,6 @@ func TestFromRobot(t *testing.T) {
 		svc2, err := slam.FromRobot(r, "garbage")
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, svc2, test.ShouldBeNil)
-
 	})
 }
 
