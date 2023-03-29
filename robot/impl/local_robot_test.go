@@ -2309,6 +2309,12 @@ func TestOrphanedResources(t *testing.T) {
 				Type:      motor.SubtypeName,
 				DependsOn: []string{"b"},
 			},
+			{
+				Name:      "m1",
+				Model:     fakeModel,
+				Type:      motor.SubtypeName,
+				DependsOn: []string{"m"},
+			},
 		},
 		Services: []config.Service{
 			{
@@ -2335,6 +2341,12 @@ func TestOrphanedResources(t *testing.T) {
 				Type:      motor.SubtypeName,
 				DependsOn: []string{"b"},
 			},
+			{
+				Name:      "m1",
+				Model:     fakeModel,
+				Type:      motor.SubtypeName,
+				DependsOn: []string{"m"},
+			},
 		},
 		Services: []config.Service{
 			{
@@ -2355,6 +2367,9 @@ func TestOrphanedResources(t *testing.T) {
 	res, err = r.ResourceByName(motor.Named("m"))
 	test.That(t, err, test.ShouldBeError,
 		rutils.NewResourceNotFoundError(motor.Named("m")))
+	res, err = r.ResourceByName(motor.Named("m1"))
+	test.That(t, err, test.ShouldBeError,
+		rutils.NewResourceNotFoundError(motor.Named("m1")))
 	test.That(t, res, test.ShouldBeNil)
 	res, err = r.ResourceByName(slam.Named("s"))
 	test.That(t, err, test.ShouldBeError,
@@ -2367,6 +2382,8 @@ func TestOrphanedResources(t *testing.T) {
 	_, err = r.ResourceByName(base.Named("b"))
 	test.That(t, err, test.ShouldBeNil)
 	_, err = r.ResourceByName(motor.Named("m"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = r.ResourceByName(motor.Named("m1"))
 	test.That(t, err, test.ShouldBeNil)
 	_, err = r.ResourceByName(slam.Named("s"))
 	test.That(t, err, test.ShouldBeNil)
