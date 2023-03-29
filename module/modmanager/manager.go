@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -31,7 +32,10 @@ import (
 	"go.viam.com/rdk/robot"
 )
 
-var validateConfigTimeout = 5 * time.Second
+var (
+	validateConfigTimeout   = 5 * time.Second
+	gracefullyExitedMessage = "exit status 143"
+)
 
 // NewManager returns a Manager.
 func NewManager(r robot.LocalRobot) (modmaninterface.ModuleManager, error) {
@@ -435,7 +439,10 @@ func (m *module) stopProcess() error {
 		return nil
 	})
 
-	if err := m.process.Stop(); err != nil {
+	// Stop managed process and swallow 143 errors. Some stopped modules may return
+	// "exit status 143" indicating a graceful exit after SIGTERM.
+	if err := m.process.Stop(); err != nil &&
+		!strings.Contains(err.Error(), gracefullyExitedMessage) {
 		return err
 	}
 	return nil
