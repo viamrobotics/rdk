@@ -7,9 +7,9 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-	"go.viam.com/rdk/services/slam"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/slam/slam_copy/config"
 )
 
