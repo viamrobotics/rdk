@@ -36,8 +36,8 @@ import (
 	"go.viam.com/rdk/services/slam/internal/testhelper"
 	"go.viam.com/rdk/testutils/inject"
 	rdkutils "go.viam.com/rdk/utils"
-	slamConfig "go.viam.com/slam/config"
-	slamTesthelper "go.viam.com/slam/testhelper"
+	slamConfig "go.viam.com/rdk/services/slam/slam_copy/config"
+	slamTesthelper "go.viam.com/rdk/services/slam/slam_copy/testhelper"
 )
 
 const (
