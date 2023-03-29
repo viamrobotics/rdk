@@ -117,6 +117,7 @@ func Discover(ctx context.Context, getDrivers func() []driver.Driver) (*pb.Webca
 				}
 				wc.Properties = append(wc.Properties, pbProp)
 			}
+			webcams = append(webcams, wc)
 		}
 	}
 	return &pb.Webcams{Webcams: webcams}, nil
