@@ -102,21 +102,22 @@ func Discover(ctx context.Context, getDrivers func() []driver.Driver) (*pb.Webca
 
 		labelParts := strings.Split(driverInfo.Label, mediadevicescamera.LabelSeparator)
 		label := labelParts[0]
-		wc := &pb.Webcam{
-			Label:      label,
-			Status:     string(d.Status()),
-			Properties: make([]*pb.Property, 0, len(d.Properties())),
-		}
-
-		for _, prop := range props {
-			pbProp := &pb.Property{
-				WidthPx:     int32(prop.Video.Width),
-				HeightPx:    int32(prop.Video.Height),
-				FrameFormat: string(prop.Video.FrameFormat),
+		if !strings.Contains(label, "-isp-") {
+			wc := &pb.Webcam{
+				Label:      label,
+				Status:     string(d.Status()),
+				Properties: make([]*pb.Property, 0, len(d.Properties())),
 			}
-			wc.Properties = append(wc.Properties, pbProp)
+
+			for _, prop := range props {
+				pbProp := &pb.Property{
+					WidthPx:     int32(prop.Video.Width),
+					HeightPx:    int32(prop.Video.Height),
+					FrameFormat: string(prop.Video.FrameFormat),
+				}
+				wc.Properties = append(wc.Properties, pbProp)
+			}
 		}
-		webcams = append(webcams, wc)
 	}
 	return &pb.Webcams{Webcams: webcams}, nil
 }
