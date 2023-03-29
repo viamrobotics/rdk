@@ -411,6 +411,7 @@ func (manager *resourceManager) completeConfig(
 				if err != nil {
 					manager.logger.Errorw("modular component config validation error", "resource", c.ResourceName(), "model", c.Model, "error", err)
 					wrap.err = errors.Wrap(err, "config validation error found in modular component: "+c.Name)
+					continue
 				}
 			}
 
@@ -433,15 +434,10 @@ func (manager *resourceManager) completeConfig(
 			// Check for modular Validation errors.
 			sCfg := config.ServiceConfigToShared(s)
 			if robot.ModuleManager().Provides(sCfg) {
-				if manager.opts.untrustedEnv {
-					wrap.err = errors.Wrap(err, errModularResourcesDisabled.Error())
-					continue
-				} else {
-					_, err = robot.ModuleManager().ValidateConfig(ctx, sCfg)
-					if err != nil {
-						manager.logger.Errorw("modular service config validation error", "resource", s.ResourceName(), "model", s.Model, "error", err)
-						wrap.err = errors.Wrap(err, "config validation error found in modular service: "+sCfg.Name)
-					}
+				_, err = robot.ModuleManager().ValidateConfig(ctx, sCfg)
+				if err != nil {
+					manager.logger.Errorw("modular service config validation error", "resource", s.ResourceName(), "model", s.Model, "error", err)
+					wrap.err = errors.Wrap(err, "config validation error found in modular service: "+sCfg.Name)
 				}
 			}
 
