@@ -143,18 +143,8 @@ func motionPlanInternal(ctx context.Context,
 
 	steps := []map[string][]frame.Input{}
 
-	// Get parentage of solver frame. This will also verify the frame is in the frame system
-	solveFrame := fs.Frame(f.Name())
-	if solveFrame == nil {
-		return nil, frame.NewFrameMissingError(f.Name())
-	}
-	solveFrameList, err := fs.TracebackFrame(solveFrame)
-	if err != nil {
-		return nil, err
-	}
-
 	// Create a frame to solve for, and an IK solver with that frame.
-	sf, err := newSolverFrame(fs, solveFrameList, goal.Parent(), seedMap)
+	sf, err := newSolverFrame(fs, f.Name(), goal.Parent(), seedMap)
 	if err != nil {
 		return nil, err
 	}
