@@ -23,13 +23,13 @@ type SegmentInput struct {
 }
 
 // Given a constraint input with only frames and input positions, calculates the corresponding poses as needed.
-func (ci *SegmentInput) resolveInputsToPositions() error {
-	if ci.StartPosition == nil {
-		if ci.Frame != nil {
-			if ci.StartConfiguration != nil {
-				pos, err := ci.Frame.Transform(ci.StartConfiguration)
+func resolveSegmentInputsToPositions(segment *SegmentInput) error {
+	if segment.StartPosition == nil {
+		if segment.Frame != nil {
+			if segment.StartConfiguration != nil {
+				pos, err := segment.Frame.Transform(segment.StartConfiguration)
 				if err == nil {
-					ci.StartPosition = pos
+					segment.StartPosition = pos
 				} else {
 					return err
 				}
@@ -40,12 +40,12 @@ func (ci *SegmentInput) resolveInputsToPositions() error {
 			return errors.New("invalid constraint input")
 		}
 	}
-	if ci.EndPosition == nil {
-		if ci.Frame != nil {
-			if ci.EndConfiguration != nil {
-				pos, err := ci.Frame.Transform(ci.EndConfiguration)
+	if segment.EndPosition == nil {
+		if segment.Frame != nil {
+			if segment.EndConfiguration != nil {
+				pos, err := segment.Frame.Transform(segment.EndConfiguration)
 				if err == nil {
-					ci.EndPosition = pos
+					segment.EndPosition = pos
 				} else {
 					return err
 				}
@@ -69,13 +69,13 @@ type StateInput struct {
 }
 
 // Given a constraint input with only frames and input positions, calculates the corresponding poses as needed.
-func (ci *StateInput) resolveInputsToPositions() error {
-	if ci.Position == nil {
-		if ci.Frame != nil {
-			if ci.Configuration != nil {
-				pos, err := ci.Frame.Transform(ci.Configuration)
+func resolveStateInputsToPositions(state *StateInput) error {
+	if state.Position == nil {
+		if state.Frame != nil {
+			if state.Configuration != nil {
+				pos, err := state.Frame.Transform(state.Configuration)
 				if err == nil {
-					ci.Position = pos
+					state.Position = pos
 				} else {
 					return err
 				}
@@ -138,7 +138,7 @@ func (c *ConstraintHandler) CheckSegmentConstraints(segment *SegmentInput) (bool
 // part of the segment is valid, then `false, nil` is returned.
 func (c *ConstraintHandler) CheckStateConstraintsAcrossSegment(ci *SegmentInput, resolution float64) (bool, *SegmentInput) {
 	// ensure we have cartesian positions
-	err := ci.resolveInputsToPositions()
+	err := resolveSegmentInputsToPositions(ci)
 	if err != nil {
 		return false, nil
 	}
@@ -150,7 +150,7 @@ func (c *ConstraintHandler) CheckStateConstraintsAcrossSegment(ci *SegmentInput,
 		interp := float64(i) / float64(steps)
 		interpConfig := referenceframe.InterpolateInputs(ci.StartConfiguration, ci.EndConfiguration, interp)
 		interpC := &StateInput{Frame: ci.Frame, Configuration: interpConfig}
-		err = interpC.resolveInputsToPositions()
+		err = resolveStateInputsToPositions(interpC)
 		if err != nil {
 			return false, nil
 		}
@@ -384,7 +384,7 @@ func NewSlerpOrientationConstraint(start, goal spatial.Pose, tolerance float64) 
 	}
 
 	validFunc := func(state *StateInput) bool {
-		err := state.resolveInputsToPositions()
+		err := resolveStateInputsToPositions(state)
 		if err != nil {
 			return false
 		}
@@ -422,7 +422,7 @@ func NewPlaneConstraint(pNorm, pt r3.Vector, writingAngle, epsilon float64) (Sta
 	}
 
 	validFunc := func(state *StateInput) bool {
-		err := state.resolveInputsToPositions()
+		err := resolveStateInputsToPositions(state)
 		if err != nil {
 			return false
 		}
@@ -446,7 +446,7 @@ func NewLineConstraint(pt1, pt2 r3.Vector, tolerance float64) (StateConstraint, 
 	}
 
 	validFunc := func(state *StateInput) bool {
-		err := state.resolveInputsToPositions()
+		err := resolveStateInputsToPositions(state)
 		if err != nil {
 			return false
 		}

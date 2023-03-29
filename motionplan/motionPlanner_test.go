@@ -97,14 +97,14 @@ func constrainedXArmMotion() (*planConfig, error) {
 
 	oFunc := orientDistToRegion(pos.Orientation(), 0.1)
 	oFuncMet := func(from *StateInput) float64 {
-		err := from.resolveInputsToPositions()
+		err := resolveStateInputsToPositions(from)
 		if err != nil {
 			return math.Inf(1)
 		}
 		return oFunc(from.Position.Orientation())
 	}
 	orientConstraint := func(cInput *StateInput) bool {
-		err := cInput.resolveInputsToPositions()
+		err := resolveStateInputsToPositions(cInput)
 		if err != nil {
 			return false
 		}

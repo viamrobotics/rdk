@@ -55,7 +55,7 @@ func TestConstraintPath(t *testing.T) {
 
 	test.That(t, err, test.ShouldBeNil)
 	ci := &SegmentInput{StartConfiguration: homePos, EndConfiguration: toPos, Frame: modelXarm}
-	err = ci.resolveInputsToPositions()
+	err = resolveSegmentInputsToPositions(ci)
 	test.That(t, err, test.ShouldBeNil)
 
 	handler := &ConstraintHandler{}
@@ -76,7 +76,7 @@ func TestConstraintPath(t *testing.T) {
 
 	badInterpPos := frame.FloatsToInputs([]float64{6.2, 0, 0, 0, 0, 0})
 	ciBad := &SegmentInput{StartConfiguration: homePos, EndConfiguration: badInterpPos, Frame: modelXarm}
-	err = ciBad.resolveInputsToPositions()
+	err = resolveSegmentInputsToPositions(ciBad)
 	test.That(t, err, test.ShouldBeNil)
 	ok, failCI = handler.CheckSegmentAndStateValidity(ciBad, 0.5)
 	test.That(t, failCI, test.ShouldNotBeNil) // With linear constraint, should be valid at the first step
