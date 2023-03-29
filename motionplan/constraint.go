@@ -108,9 +108,9 @@ type ConstraintHandler struct {
 // Return values are:
 // -- a bool representing whether all constraints passed
 // -- if failing, a string naming the failed constraint.
-func (c *ConstraintHandler) CheckStateConstraints(cInput *StateInput) (bool, string) {
+func (c *ConstraintHandler) CheckStateConstraints(state *StateInput) (bool, string) {
 	for name, cFunc := range c.stateConstraints {
-		pass := cFunc(cInput)
+		pass := cFunc(state)
 		if !pass {
 			return false, name
 		}
@@ -122,9 +122,9 @@ func (c *ConstraintHandler) CheckStateConstraints(cInput *StateInput) (bool, str
 // Return values are:
 // -- a bool representing whether all constraints passed
 // -- if failing, a string naming the failed constraint.
-func (c *ConstraintHandler) CheckSegmentConstraints(cInput *SegmentInput) (bool, string) {
+func (c *ConstraintHandler) CheckSegmentConstraints(segment *SegmentInput) (bool, string) {
 	for name, cFunc := range c.segmentConstraints {
-		pass := cFunc(cInput)
+		pass := cFunc(segment)
 		if !pass {
 			return false, name
 		}
@@ -171,8 +171,8 @@ func (c *ConstraintHandler) CheckStateConstraintsAcrossSegment(ci *SegmentInput,
 // CheckSegmentAndStateValidity will check an segment input and confirm that it 1) meets all segment constraints, and 2) meets all
 // state constraints across the segment at some resolution. If it fails an intermediate state, it will return the shortest valid segment,
 // provided that segment also meets segment constraints.
-func (c *ConstraintHandler) CheckSegmentAndStateValidity(cInput *SegmentInput, resolution float64) (bool, *SegmentInput) {
-	valid, subSegment := c.CheckStateConstraintsAcrossSegment(cInput, resolution)
+func (c *ConstraintHandler) CheckSegmentAndStateValidity(segment *SegmentInput, resolution float64) (bool, *SegmentInput) {
+	valid, subSegment := c.CheckStateConstraintsAcrossSegment(segment, resolution)
 	if !valid {
 		if subSegment != nil {
 			subSegmentValid, _ := c.CheckSegmentConstraints(subSegment)
@@ -183,7 +183,7 @@ func (c *ConstraintHandler) CheckSegmentAndStateValidity(cInput *SegmentInput, r
 		return false, nil
 	}
 	// all states are valid
-	valid, _ = c.CheckSegmentConstraints(cInput)
+	valid, _ = c.CheckSegmentConstraints(segment)
 	return valid, nil
 }
 
@@ -326,8 +326,8 @@ func newCollisionConstraint(
 	}
 
 	// create constraint from reference collision graph
-	constraint := func(cInput *StateInput) bool {
-		internal, err := cInput.Frame.Geometries(cInput.Configuration)
+	constraint := func(state *StateInput) bool {
+		internal, err := state.Frame.Geometries(state.Configuration)
 		if err != nil && internal == nil {
 			return false
 		}
@@ -351,8 +351,8 @@ func NewAbsoluteLinearInterpolatingConstraint(from, to spatial.Pose, linTol, ori
 	lineConstraint, lineMetric := NewLineConstraint(from.Point(), to.Point(), linTol)
 	interpMetric := CombineMetrics(orientMetric, lineMetric)
 
-	f := func(cInput *StateInput) bool {
-		return orientConstraint(cInput) && lineConstraint(cInput)
+	f := func(state *StateInput) bool {
+		return orientConstraint(state) && lineConstraint(state)
 	}
 	return f, interpMetric
 }
@@ -372,24 +372,24 @@ func NewProportionalLinearInterpolatingConstraint(from, to spatial.Pose, epsilon
 func NewSlerpOrientationConstraint(start, goal spatial.Pose, tolerance float64) (StateConstraint, StateMetric) {
 	origDist := math.Max(orientDist(start.Orientation(), goal.Orientation()), defaultEpsilon)
 
-	gradFunc := func(cInput *StateInput) float64 {
-		sDist := orientDist(start.Orientation(), cInput.Position.Orientation())
+	gradFunc := func(state *StateInput) float64 {
+		sDist := orientDist(start.Orientation(), state.Position.Orientation())
 		gDist := 0.
 
 		// If origDist is less than or equal to defaultEpsilon, then the starting and ending orientations are the same and we do not need
 		// to compute the distance to the ending orientation
 		if origDist > defaultEpsilon {
-			gDist = orientDist(goal.Orientation(), cInput.Position.Orientation())
+			gDist = orientDist(goal.Orientation(), state.Position.Orientation())
 		}
 		return (sDist + gDist) - origDist
 	}
 
-	validFunc := func(cInput *StateInput) bool {
-		err := cInput.resolveInputsToPositions()
+	validFunc := func(state *StateInput) bool {
+		err := state.resolveInputsToPositions()
 		if err != nil {
 			return false
 		}
-		return gradFunc(cInput) < tolerance
+		return gradFunc(state) < tolerance
 	}
 
 	return validFunc, gradFunc
@@ -416,18 +416,18 @@ func NewPlaneConstraint(pNorm, pt r3.Vector, writingAngle, epsilon float64) (Sta
 	}
 
 	// TODO: do we need to care about trajectory here? Probably, but not yet implemented
-	gradFunc := func(cInput *StateInput) float64 {
-		pDist := planeDist(cInput.Position.Point())
-		oDist := dFunc(cInput.Position.Orientation())
+	gradFunc := func(state *StateInput) float64 {
+		pDist := planeDist(state.Position.Point())
+		oDist := dFunc(state.Position.Orientation())
 		return pDist*pDist + oDist*oDist
 	}
 
-	validFunc := func(cInput *StateInput) bool {
-		err := cInput.resolveInputsToPositions()
+	validFunc := func(state *StateInput) bool {
+		err := state.resolveInputsToPositions()
 		if err != nil {
 			return false
 		}
-		return gradFunc(cInput) < epsilon*epsilon
+		return gradFunc(state) < epsilon*epsilon
 	}
 
 	return validFunc, gradFunc
@@ -442,16 +442,16 @@ func NewLineConstraint(pt1, pt2 r3.Vector, tolerance float64) (StateConstraint, 
 		tolerance = defaultEpsilon
 	}
 
-	gradFunc := func(cInput *StateInput) float64 {
-		return math.Max(spatial.DistToLineSegment(pt1, pt2, cInput.Position.Point())-tolerance, 0)
+	gradFunc := func(state *StateInput) float64 {
+		return math.Max(spatial.DistToLineSegment(pt1, pt2, state.Position.Point())-tolerance, 0)
 	}
 
-	validFunc := func(cInput *StateInput) bool {
-		err := cInput.resolveInputsToPositions()
+	validFunc := func(state *StateInput) bool {
+		err := state.resolveInputsToPositions()
 		if err != nil {
 			return false
 		}
-		return gradFunc(cInput) == 0
+		return gradFunc(state) == 0
 	}
 
 	return validFunc, gradFunc

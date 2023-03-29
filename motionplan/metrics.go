@@ -8,6 +8,8 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+const OrientationDistanceScaling = 10.
+
 // StateMetric are functions which, given a StateInput, produces some score. Lower is better.
 // This is used for gradient descent to converge upon a goal pose, for example.
 type StateMetric func(*StateInput) float64
@@ -71,7 +73,7 @@ func NewSquaredNormMetric(goal spatial.Pose) StateMetric {
 	weightedSqNormDist := func(query *StateInput) float64 {
 		delta := spatial.PoseDelta(goal, query.Position)
 		// Increase weight for orientation since it's a small number
-		return delta.Point().Norm2() + spatial.QuatToR3AA(delta.Orientation().Quaternion()).Mul(10.).Norm2()
+		return delta.Point().Norm2() + spatial.QuatToR3AA(delta.Orientation().Quaternion()).Mul(OrientationDistanceScaling).Norm2()
 	}
 	return weightedSqNormDist
 }
@@ -80,35 +82,35 @@ func NewSquaredNormMetric(goal spatial.Pose) StateMetric {
 // of the ov of the goal given.
 func NewPoseFlexOVMetric(goal spatial.Pose, alpha float64) StateMetric {
 	oDistFunc := orientDistToRegion(goal.Orientation(), alpha)
-	return func(cInput *StateInput) float64 {
-		pDist := cInput.Position.Point().Distance(goal.Point())
-		oDist := oDistFunc(cInput.Position.Orientation())
+	return func(state *StateInput) float64 {
+		pDist := state.Position.Point().Distance(goal.Point())
+		oDist := oDistFunc(state.Position.Orientation())
 		return pDist*pDist + oDist*oDist
 	}
 }
 
 // NewPositionOnlyMetric returns a Metric that reports the point-wise distance between two poses without regard for orientation.
 // This is useful for scenarios where there are not enough DOF to control orientation, but arbitrary spatial points may
-// still be arived at.
+// still be arrived at.
 func NewPositionOnlyMetric(goal spatial.Pose) StateMetric {
-	return func(cInput *StateInput) float64 {
-		pDist := cInput.Position.Point().Distance(goal.Point())
+	return func(state *StateInput) float64 {
+		pDist := state.Position.Point().Distance(goal.Point())
 		return pDist * pDist
 	}
 }
 
 // JointMetric is a metric which will sum the squared differences in each input from start to end.
-func JointMetric(cInput *SegmentInput) float64 {
+func JointMetric(segment *SegmentInput) float64 {
 	jScore := 0.
-	for i, f := range cInput.StartConfiguration {
-		jScore += math.Abs(f.Value - cInput.EndConfiguration[i].Value)
+	for i, f := range segment.StartConfiguration {
+		jScore += math.Abs(f.Value - segment.EndConfiguration[i].Value)
 	}
 	return jScore
 }
 
-// DirectL2InputComparison is a metric which will return a L2 norm of the StartConfiguration and EndConfiguration in an arc input.
-func DirectL2InputComparison(cInput *SegmentInput) float64 {
-	return referenceframe.InputsL2Distance(cInput.StartConfiguration, cInput.EndConfiguration)
+// L2InputMetric is a metric which will return a L2 norm of the StartConfiguration and EndConfiguration in an arc input.
+func L2InputMetric(segment *SegmentInput) float64 {
+	return referenceframe.InputsL2Distance(segment.StartConfiguration, segment.EndConfiguration)
 }
 
 // TODO(pl): Writing a PenetrationDepthMetric will allow cbirrt to path along the sides of obstacles rather than terminating

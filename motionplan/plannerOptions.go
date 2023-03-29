@@ -70,7 +70,7 @@ const (
 func newBasicPlannerOptions() *plannerOptions {
 	opt := &plannerOptions{}
 	opt.GoalArcScore = JointMetric
-	opt.DistanceFunc = DirectL2InputComparison
+	opt.DistanceFunc = L2InputMetric
 	opt.pathMetric = NewZeroMetric() // By default, the distance to the valid manifold is zero, unless constraints say otherwise
 	// opt.goalMetric is intentionally unset as it is likely dependent on the goal itself.
 
