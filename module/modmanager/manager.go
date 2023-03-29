@@ -84,10 +84,10 @@ func (mgr *Manager) Close(ctx context.Context) error {
 
 // Add adds and starts a new resource module.
 func (mgr *Manager) Add(ctx context.Context, cfg config.Module) error {
-	return mgr.add(ctx, cfg, false)
+	return mgr.add(ctx, cfg)
 }
 
-func (mgr *Manager) add(ctx context.Context, cfg config.Module, reconfigure bool) error {
+func (mgr *Manager) add(ctx context.Context, cfg config.Module) error {
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
 
@@ -125,10 +125,7 @@ func (mgr *Manager) add(ctx context.Context, cfg config.Module, reconfigure bool
 		return errors.WithMessage(err, "error while waiting for module to be ready "+mod.name)
 	}
 
-	// Do not re-register resources if module is being reconfigured.
-	if !reconfigure {
-		mod.registerResources(mgr, mgr.logger)
-	}
+	mod.registerResources(mgr, mgr.logger)
 
 	success = true
 	return nil
@@ -146,7 +143,7 @@ func (mgr *Manager) Reconfigure(ctx context.Context, cfg config.Module) error {
 		return err
 	}
 
-	if err := mgr.add(ctx, cfg, true); err != nil {
+	if err := mgr.add(ctx, cfg); err != nil {
 		return err
 	}
 
@@ -177,17 +174,17 @@ func (mgr *Manager) remove(modName string, reconfigure bool) error {
 		return errors.WithMessage(err, "error while stopping module "+modName)
 	}
 
-	// Do not close connection or deregister resources if module is being reconfigured.
+	// Do not close connection if module is being reconfigured.
 	if !reconfigure {
 		if mod.conn != nil {
 			if err := mod.conn.Close(); err != nil {
 				return errors.WithMessage(err, "error while closing connection from module "+modName)
 			}
 		}
+	}
 
-		if err := mod.deregisterResources(); err != nil {
-			return errors.WithMessage(err, "error while deregistering resources for module "+modName)
-		}
+	if err := mod.deregisterResources(); err != nil {
+		return errors.WithMessage(err, "error while deregistering resources for module "+modName)
 	}
 
 	for r, m := range mgr.rMap {
