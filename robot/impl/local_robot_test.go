@@ -2332,7 +2332,7 @@ func TestOrphanedResources(t *testing.T) {
 		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	}()
 
-	// Assert that removing base 'b' removes motor 'm' and slam service 's'.
+	// Assert that removing base 'b' removes motors 'm' and 'm1' and slam service 's'.
 	cfg2 := &config.Config{
 		Components: []config.Component{
 			{
@@ -2367,6 +2367,7 @@ func TestOrphanedResources(t *testing.T) {
 	res, err = r.ResourceByName(motor.Named("m"))
 	test.That(t, err, test.ShouldBeError,
 		rutils.NewResourceNotFoundError(motor.Named("m")))
+	test.That(t, res, test.ShouldBeNil)
 	res, err = r.ResourceByName(motor.Named("m1"))
 	test.That(t, err, test.ShouldBeError,
 		rutils.NewResourceNotFoundError(motor.Named("m1")))
@@ -2376,7 +2377,7 @@ func TestOrphanedResources(t *testing.T) {
 		rutils.NewResourceNotFoundError(slam.Named("s")))
 	test.That(t, res, test.ShouldBeNil)
 
-	// Assert that adding base 'b' back re-adds 'm' and slam service 's'.
+	// Assert that adding base 'b' back re-adds 'm' and 'm1' and slam service 's'.
 	r.Reconfigure(ctx, cfg)
 
 	_, err = r.ResourceByName(base.Named("b"))
