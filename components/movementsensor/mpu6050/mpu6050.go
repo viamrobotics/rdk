@@ -204,7 +204,7 @@ func NewMpu6050(
 				// Record `err` no matter what: even if it's nil, that's useful information.
 				sensor.err.Set(err)
 				if err != nil {
-					sensor.logger.Infof("error reading MPU6050 sensor: '%s'", err)
+					sensor.logger.Errorf("error reading MPU6050 sensor: '%s'", err)
 					continue
 				}
 
