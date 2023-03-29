@@ -180,12 +180,16 @@ const querySensors = () => {
   }
   const req = new sensorsApi.GetSensorsRequest();
   req.setName(sensorsName);
-  props.client.sensorsService.getSensors(req, new grpc.Metadata(), (err, resp) => {
-    if (err) {
-      return displayError(err);
+  props.client.sensorsService.getSensors(
+    req,
+    new grpc.Metadata(),
+    (err: ServiceError, resp: sensorsApi.GetSensorsResponse) => {
+      if (err) {
+        return displayError(err);
+      }
+      sensorNames = resp!.toObject().sensorNamesList;
     }
-    sensorNames = resp!.toObject().sensorNamesList;
-  });
+  );
 };
 
 const fixRawStatus = (resource: commonApi.ResourceName.AsObject, statusToFix: unknown) => {
@@ -261,21 +265,22 @@ const restartStatusStream = () => {
   streamReq.setEvery(new Duration().setNanos(500_000_000));
 
   statusStream = props.client.robotService.streamStatus(streamReq);
-
-  statusStream.on('data', (response) => {
-    updateStatus(response.getStatusList());
-    lastStatusTS = Date.now();
-  });
-  statusStream.on('status', (newStatus) => {
-    if (!ConnectionClosedError.isError(newStatus.details)) {
-      console.error('error streaming robot status', newStatus);
-    }
-    statusStream = null;
-  });
-  statusStream.on('end', () => {
-    console.error('done streaming robot status');
-    statusStream = null;
-  });
+  if (statusStream !== null) {
+    statusStream.on('data', (response) => {
+      updateStatus(response.getStatusList());
+      lastStatusTS = Date.now();
+    });
+    statusStream.on('status', (newStatus) => {
+      if (!ConnectionClosedError.isError(newStatus.details)) {
+        console.error('error streaming robot status', newStatus);
+      }
+      statusStream = null;
+    });
+    statusStream.on('end', () => {
+      console.error('done streaming robot status');
+      statusStream = null;
+    });
+  }
 };
 
 // query metadata service every 0.5s
@@ -284,57 +289,66 @@ const queryMetadata = () => {
     let resourcesChanged = false;
     let shouldRestartStatusStream = !(resourcesOnce && statusStream);
 
-    props.client.robotService.resourceNames(new robotApi.ResourceNamesRequest(), new grpc.Metadata(), (err, resp) => {
-      if (err) {
-        reject(err);
-        return;
-      }
-
-      if (!resp) {
-        reject(new Error('An unexpected issue occured.'));
-        return;
-      }
-
-      const { resourcesList } = resp.toObject();
-
-      const differences = new Set(resources.map((name) => resourceNameToString(name)));
-      const resourceSet = new Set(resourcesList.map((name) => resourceNameToString(name)));
-
-      for (const elem of resourceSet) {
-        if (differences.has(elem)) {
-          differences.delete(elem);
-        } else {
-          differences.add(elem);
+    props.client.robotService.resourceNames(
+      new robotApi.ResourceNamesRequest(),
+      new grpc.Metadata(),
+      (err: ServiceError, resp: robotApi.ResourceNamesResponse) => {
+        if (err) {
+          reject(err);
+          return;
         }
-      }
 
-      if (differences.size > 0) {
-        resourcesChanged = true;
+        if (!resp) {
+          reject(new Error('An unexpected issue occured.'));
+          return;
+        }
 
-        // restart status stream if resource difference includes a resource we care about
-        for (const elem of differences) {
-          const resource = stringToResourceName(elem);
-          if (
-            resource.namespace === 'rdk' &&
-            resource.type === 'component' &&
-            relevantSubtypesForStatus.includes(resource.subtype!)
-          ) {
-            shouldRestartStatusStream = true;
-            break;
+        const { resourcesList } = resp.toObject();
+
+        const differences: Set<string> = new Set(
+          resources.map((name: commonApi.ResourceName.AsObject) =>
+            resourceNameToString(name))
+        );
+        const resourceSet = new Set(
+          resourcesList.map((name) => resourceNameToString(name))
+        );
+
+        for (const elem of resourceSet) {
+          if (differences.has(elem)) {
+            differences.delete(elem);
+          } else {
+            differences.add(elem);
           }
         }
-      }
 
-      resources = resourcesList;
-      resourcesOnce = true;
-      if (resourcesChanged === true) {
-        querySensors();
+        if (differences.size > 0) {
+          resourcesChanged = true;
+
+          // restart status stream if resource difference includes a resource we care about
+          for (const elem of differences) {
+            const resource = stringToResourceName(elem);
+            if (
+              resource.namespace === 'rdk' &&
+              resource.type === 'component' &&
+              relevantSubtypesForStatus.includes(resource.subtype!)
+            ) {
+              shouldRestartStatusStream = true;
+              break;
+            }
+          }
+        }
+
+        resources = resourcesList;
+        resourcesOnce = true;
+        if (resourcesChanged === true) {
+          querySensors();
+        }
+        if (shouldRestartStatusStream === true) {
+          restartStatusStream();
+        }
+        resolve(resources);
       }
-      if (shouldRestartStatusStream === true) {
-        restartStatusStream();
-      }
-      resolve(resources);
-    });
+    );
   });
 };
 
@@ -343,21 +357,25 @@ const fetchCurrentOps = () => {
     const req = new robotApi.GetOperationsRequest();
 
     const now = Date.now();
-    props.client.robotService.getOperations(req, new grpc.Metadata(), (err, resp) => {
-      if (err) {
-        reject(err);
-        return;
-      }
-      appConnectionManager.rtt = Math.max(Date.now() - now, 0);
+    props.client.robotService.getOperations(
+      req,
+      new grpc.Metadata(),
+      (err: ServiceError, resp: robotApi.GetOperationsResponse) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        appConnectionManager.rtt = Math.max(Date.now() - now, 0);
 
-      if (!resp) {
-        reject(new Error('An unexpected issue occurred.'));
-        return;
-      }
+        if (!resp) {
+          reject(new Error('An unexpected issue occurred.'));
+          return;
+        }
 
-      const list = resp.toObject().operationsList;
-      resolve(list);
-    });
+        const list = resp.toObject().operationsList;
+        resolve(list);
+      }
+    );
   });
 };
 
@@ -392,26 +410,30 @@ const fetchCurrentSessions = () => {
   return new Promise<robotApi.Session.AsObject[]>((resolve, reject) => {
     const req = new robotApi.GetSessionsRequest();
 
-    props.client.robotService.getSessions(req, new grpc.Metadata(), (err, resp) => {
-      if (err) {
-        if ((err as ServiceError).code === grpc.Code.Unimplemented) {
-          sessionsSupported = false;
+    props.client.robotService.getSessions(
+      req,
+      new grpc.Metadata(),
+      (err: ServiceError, resp: robotApi.GetSessionsResponse) => {
+        if (err) {
+          if (err.code === grpc.Code.Unimplemented) {
+            sessionsSupported = false;
+          }
+          reject(err);
+          return;
         }
-        reject(err);
-        return;
-      }
 
-      if (!resp) {
-        reject(new Error('An unexpected issue occurred.'));
-        return;
-      }
+        if (!resp) {
+          reject(new Error('An unexpected issue occurred.'));
+          return;
+        }
 
-      const list = resp.toObject().sessionsList;
-      list.sort((sess1, sess2) => {
-        return sess1.id < sess2.id ? -1 : 1;
-      });
-      resolve(list);
-    });
+        const list = resp.toObject().sessionsList;
+        list.sort((sess1, sess2) => {
+          return sess1.id < sess2.id ? -1 : 1;
+        });
+        resolve(list);
+      }
+    );
   });
 };
 
