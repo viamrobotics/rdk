@@ -3,7 +3,7 @@
 
 import { $ref, $computed } from 'vue/macros';
 import { grpc } from '@improbable-eng/grpc-web';
-import { Client, commonApi, ServiceError, slamApi } from '@viamrobotics/sdk';
+import { Client, commonApi, ResponseStream, ServiceError, slamApi } from '@viamrobotics/sdk';
 import { displayError, isServiceError } from '../lib/error';
 import { rcLogConditionally } from '../lib/log';
 import PCD from './pcd/pcd-view.vue';
@@ -50,7 +50,8 @@ const fetchSLAMMap = (name: string): Promise<Uint8Array> => {
     rcLogConditionally(req);
     const chunks: Uint8Array[] = [];
 
-    const getPointCloudMapStream = props.client.slamService.getPointCloudMapStream(req);
+    const getPointCloudMapStream: ResponseStream<slamApi.GetPointCloudMapStreamResponse> =
+      props.client.slamService.getPointCloudMapStream(req);
     getPointCloudMapStream.on('data', (res) => {
       const chunk = res.getPointCloudPcdChunk_asU8();
       chunks.push(chunk);
@@ -80,13 +81,17 @@ const fetchSLAMPose = (name: string): Promise<commonApi.Pose> => {
   return new Promise((resolve, reject): void => {
     const req = new slamApi.GetPositionNewRequest();
     req.setName(name);
-    props.client.slamService.getPositionNew(req, new grpc.Metadata(), (error, res): void => {
-      if (error) {
-        reject(error);
-        return;
+    props.client.slamService.getPositionNew(
+      req,
+      new grpc.Metadata(),
+      (error: ServiceError, res: slamApi.GetPositionNewResponse): void => {
+        if (error) {
+          reject(error);
+          return;
+        }
+        resolve(res!.getPose()!);
       }
-      resolve(res!.getPose()!);
-    });
+    );
   });
 };
 
