@@ -165,6 +165,9 @@ func NewMpu6050(
 		logger:            logger,
 		backgroundContext: backgroundContext,
 		cancelFunc:        cancelFunc,
+		// On overloaded boards, the I2C bus can become flaky. Only report errors if at least 5 of
+		// the last 10 attempts to talk to the device have failed.
+		err: movementsensor.NewLastError(10, 5),
 	}
 
 	// To check that we're able to talk to the chip, we should be able to read register 117 and get
@@ -198,9 +201,10 @@ func NewMpu6050(
 			select {
 			case <-timer.C:
 				rawData, err := sensor.readBlock(sensor.backgroundContext, 59, 14)
+				// Record `err` no matter what: even if it's nil, that's useful information.
+				sensor.err.Set(err)
 				if err != nil {
-					sensor.logger.Infof("error reading MPU6050 sensor: '%s'", err)
-					sensor.err.Set(err)
+					sensor.logger.Errorf("error reading MPU6050 sensor: '%s'", err)
 					continue
 				}
 
