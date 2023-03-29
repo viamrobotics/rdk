@@ -79,9 +79,16 @@ func init() {
 				return nil, err
 			}
 
-			base, err = makeBaseWithSensors(ctx, base, deps, cfg, logger)
-			if err != nil {
-				return nil, err
+			attr, ok := cfg.ConvertedAttributes.(*AttrConfig)
+			if !ok {
+				return nil, rdkutils.NewUnexpectedTypeError(attr, &AttrConfig{})
+			}
+
+			if len(attr.MovementSensor) > 0 {
+				base, err = makeBaseWithSensors(ctx, base, deps, cfg, logger)
+				if err != nil {
+					return nil, err
+				}
 			}
 
 			return base, nil
