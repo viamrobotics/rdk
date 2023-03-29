@@ -46,8 +46,9 @@ var unknownSubtype = resource.NewSubtype(resource.ResourceNamespaceRDK,
 	resource.SubtypeName(""))
 
 var (
-	errShellServiceDisabled = errors.New("shell service disabled in an untrusted environment")
-	errProcessesDisabled    = errors.New("processes disabled in an untrusted environment")
+	errShellServiceDisabled     = errors.New("shell service disabled in an untrusted environment")
+	errProcessesDisabled        = errors.New("processes disabled in an untrusted environment")
+	errModularResourcesDisabled = errors.New("modular resources disabled in untrusted environment")
 )
 
 type translateToName func(string) (resource.Name, bool)
@@ -410,7 +411,6 @@ func (manager *resourceManager) completeConfig(
 				if err != nil {
 					manager.logger.Errorw("modular component config validation error", "resource", c.ResourceName(), "model", c.Model, "error", err)
 					wrap.err = errors.Wrap(err, "config validation error found in modular component: "+c.Name)
-					continue
 				}
 			}
 
@@ -433,11 +433,15 @@ func (manager *resourceManager) completeConfig(
 			// Check for modular Validation errors.
 			sCfg := config.ServiceConfigToShared(s)
 			if robot.ModuleManager().Provides(sCfg) {
-				_, err = robot.ModuleManager().ValidateConfig(ctx, sCfg)
-				if err != nil {
-					manager.logger.Errorw("modular service config validation error", "resource", s.ResourceName(), "model", s.Model, "error", err)
-					wrap.err = errors.Wrap(err, "config validation error found in modular service: "+sCfg.Name)
+				if manager.opts.untrustedEnv {
+					wrap.err = errors.Wrap(err, errModularResourcesDisabled.Error())
 					continue
+				} else {
+					_, err = robot.ModuleManager().ValidateConfig(ctx, sCfg)
+					if err != nil {
+						manager.logger.Errorw("modular service config validation error", "resource", s.ResourceName(), "model", s.Model, "error", err)
+						wrap.err = errors.Wrap(err, "config validation error found in modular service: "+sCfg.Name)
+					}
 				}
 			}
 
@@ -593,6 +597,9 @@ func (manager *resourceManager) processService(ctx context.Context,
 	old interface{},
 	robot *localRobot,
 ) (interface{}, error) {
+	if manager.opts.untrustedEnv && robot.ModuleManager().Provides(config.ServiceConfigToShared(c)) {
+		return nil, errModularResourcesDisabled
+	}
 	if old == nil {
 		return robot.newService(ctx, c)
 	}
@@ -653,6 +660,9 @@ func (manager *resourceManager) processComponent(ctx context.Context,
 	old interface{},
 	r *localRobot,
 ) (interface{}, error) {
+	if manager.opts.untrustedEnv && r.ModuleManager().Provides(conf) {
+		return nil, errModularResourcesDisabled
+	}
 	if old == nil {
 		return r.newResource(ctx, conf)
 	}
