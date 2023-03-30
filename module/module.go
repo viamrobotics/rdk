@@ -505,7 +505,7 @@ func (m *Module) OperationManager() *operation.Manager {
 }
 
 // addConvertAttributesToConfig uses the MapAttributeConverter to fill in the
-// ConvertedAttributes field from the Attributes
+// ConvertedAttributes field from the Attributes.
 func addConvertAttributesToConfig(cfg *config.Component) error {
 	// Try to find map converter for a component.
 	cType := resource.NewSubtype(cfg.Namespace, cfg.API.ResourceType, cfg.API.ResourceSubtype)
