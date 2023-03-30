@@ -6,6 +6,7 @@ package eva
 import (
 	"bytes"
 	"context"
+
 	// for embedding model file.
 	_ "embed"
 	"encoding/json"
@@ -399,6 +400,11 @@ func (e *eva) GoToInputs(ctx context.Context, goal []referenceframe.Input) error
 		return err
 	}
 	return e.MoveToJointPositions(ctx, positionDegs, nil)
+}
+
+// AllInputs returns the current inputs of the arm.
+func (e *eva) AllInputs(ctx context.Context, goals [][]referenceframe.Input) error {
+	return nil
 }
 
 // Model returns the kinematics model of the eva arm, also has all Frame information.
