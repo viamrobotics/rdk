@@ -34,9 +34,9 @@ import (
 	"go.viam.com/rdk/services/slam/grpchelper"
 	"go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
-	slamConfig "go.viam.com/slam/config"
-	"go.viam.com/slam/dataprocess"
-	slamUtils "go.viam.com/slam/utils"
+	slamConfig "go.viam.com/rdk/services/slam/slam_copy/config"
+	"go.viam.com/rdk/services/slam/slam_copy/dataprocess"
+	slamUtils "go.viam.com/rdk/services/slam/slam_copy/utils"
 )
 
 var (
