@@ -107,7 +107,7 @@ func TestUniqueCollisions(t *testing.T) {
 	test.That(t, internalGeometries, test.ShouldNotBeNil)
 	cg, err = newCollisionGraph(internalGeometries.Geometries(), internalGeometries.Geometries(), zeroPositionCG, true)
 	test.That(t, err, test.ShouldBeNil)
-	expectedCollisions := []Collision{{"xArm6:base_top", "xArm6:wrist_link", -41.6}, {"xArm6:wrist_link", "xArm6:upper_arm", -48.1}}
+	expectedCollisions := []Collision{{"xArm6:base_top", "xArm6:wrist_link", -66.6}, {"xArm6:wrist_link", "xArm6:upper_arm", -48.1}}
 	test.That(t, collisionListsAlmostEqual(cg.collisions(), expectedCollisions), test.ShouldBeTrue)
 
 	// case 3: add a collision specification that the last element of expectedCollisions should be ignored

@@ -14,7 +14,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls';
 import { filterResources } from '../../lib/resource';
 import { toast } from '../../lib/toast';
-import { Client, commonApi, motionApi } from '@viamrobotics/sdk';
+import { Client, commonApi, motionApi, ServiceError } from '@viamrobotics/sdk';
 import InfoButton from '../info-button.vue';
 
 const props = defineProps<{
@@ -450,14 +450,16 @@ const handleMove = () => {
   componentName.setName(gripper.name);
   req.setComponentName(componentName);
 
-  props.client.motionService.move(req, new grpc.Metadata(), (error, response) => {
-    if (error) {
-      toast.error(`Error moving: ${error}`);
-      return;
-    }
+  props.client.motionService.move(
+    req, new grpc.Metadata(), (error: ServiceError, response: motionApi.MoveResponse) => {
+      if (error) {
+        toast.error(`Error moving: ${error}`);
+        return;
+      }
 
-    toast.success(`Move success: ${response!.getSuccess()}`);
-  });
+      toast.success(`Move success: ${response!.getSuccess()}`);
+    }
+  );
 };
 
 const handleCenter = () => {

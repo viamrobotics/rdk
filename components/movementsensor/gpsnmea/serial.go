@@ -93,6 +93,7 @@ func NewSerialGPSNMEA(ctx context.Context, attr *AttrConfig, logger golog.Logger
 		baudRate:           uint(baudRate),
 		correctionBaudRate: uint(correctionBaudRate),
 		disableNmea:        disableNmea,
+		err:                movementsensor.NewLastError(1, 1),
 	}
 
 	if err := g.Start(ctx); err != nil {

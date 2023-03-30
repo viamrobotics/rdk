@@ -1,7 +1,6 @@
 <script setup lang="ts">
 
 import { onMounted, onUnmounted } from 'vue';
-import { $ref, $computed, $$ } from 'vue/macros';
 import { onClickOutside } from '@vueuse/core';
 import { BaseClient, Client, type ServiceError, commonApi } from '@viamrobotics/sdk';
 import { filterResources } from '../lib/resource';
@@ -10,6 +9,7 @@ import KeyboardInput, { type Keys } from './keyboard-input.vue';
 import Camera from './camera/camera.vue';
 import { rcLogConditionally } from '../lib/log';
 import { selectedMap } from '../lib/camera-state';
+import type { StreamManager } from './camera/stream-manager';
 
 const enum Keymap {
   LEFT = 'a',
@@ -22,6 +22,7 @@ const props = defineProps<{
   name: string;
   resources: commonApi.ResourceName.AsObject[];
   client: Client;
+  streamManager:StreamManager
 }>();
 
 type Tabs = 'Keyboard' | 'Discrete'
@@ -271,7 +272,6 @@ onUnmounted(() => {
   stop();
   window.removeEventListener('visibilitychange', handleVisibilityChange);
 });
-
 </script>
 
 <template>
@@ -464,7 +464,7 @@ onUnmounted(() => {
             :key="`base ${camera.name}`"
           >
             <Camera
-              v-show="openCameras[camera.name]"
+              v-if="openCameras[camera.name]"
               :camera-name="camera.name"
               parent-name="base"
               :client="client"
@@ -473,7 +473,7 @@ onUnmounted(() => {
               :show-export-screenshot="false"
               :refresh-rate="refreshFrequency"
               :trigger-refresh="triggerRefresh"
-              :toggle="openCameras[camera.name]?openCameras[camera.name]:false"
+              :stream-manager="props.streamManager"
             />
           </template>
         </div>

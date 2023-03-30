@@ -7,21 +7,21 @@ import type {
 import Camera from './camera.vue';
 import PCD from '../pcd/pcd.vue';
 import { selectedMap } from '../../lib/camera-state';
+import type { StreamManager } from './stream-manager';
 
 const props = defineProps<{
   resources: commonApi.ResourceName.AsObject[],
+  streamManager: StreamManager,
   client: Client,
   parentName: string
 }>();
 
 const openCameras = $ref<Record<string, boolean | undefined>>({});
 const refreshFrequency = $ref<Record<string, string | undefined>>({});
-
 const triggerRefresh = $ref(false);
 
 const setupCamera = (cameraName: string) => {
   openCameras[cameraName] = !openCameras[cameraName];
-
   for (const camera of props.resources) {
     if (!refreshFrequency[camera.name]) {
       refreshFrequency[camera.name] = 'Live';
@@ -73,16 +73,16 @@ const setupCamera = (cameraName: string) => {
       </div>
 
       <Camera
-        v-show="openCameras[camera.name]"
+        v-if="openCameras[camera.name]"
         :key="camera.name"
         :camera-name="camera.name"
         :parent-name="parentName"
         :client="client"
         :resources="resources"
         :show-export-screenshot="true"
-        :refresh-rate="refreshFrequency[camera.name]? refreshFrequency[camera.name]: 'Live'"
+        :refresh-rate="refreshFrequency[camera.name]"
         :trigger-refresh="triggerRefresh"
-        :toggle="openCameras[camera.name]? openCameras[camera.name]:false"
+        :stream-manager="props.streamManager"
       />
 
       <PCD

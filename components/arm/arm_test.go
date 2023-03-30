@@ -540,8 +540,8 @@ func TestXArm6Locations(t *testing.T) {
 		}
 		checkMap["rdk:component:arm:lower_forearm"] = r3.Vector{
 			131.000000000000000000000000,
-			0.000000000000000000000000,
-			274.000000000000000000000000,
+			-27.500000000000000000000000,
+			274.200000000000000000000000,
 		}
 		checkMap["rdk:component:arm:wrist_link"] = r3.Vector{
 			206.000000000000000000000000,
@@ -556,6 +556,7 @@ func TestXArm6Locations(t *testing.T) {
 		b := locationCheckTestHelper(geomMap, checkMap)
 		test.That(t, b, test.ShouldBeTrue)
 	})
+	//nolint:dupl
 	t.Run("location check1", func(t *testing.T) {
 		checkMap := make(map[string]r3.Vector)
 		checkMap["rdk:component:arm:base_top"] = r3.Vector{
@@ -574,9 +575,9 @@ func TestXArm6Locations(t *testing.T) {
 			516.742582359123957758129109,
 		}
 		checkMap["rdk:component:arm:lower_forearm"] = r3.Vector{
-			155.916014884677508689492242,
-			-0.000000000000000289509481,
-			298.848170597876446663576644,
+			158.566974381217988820935716,
+			-27.362614545145717670493468,
+			299.589614460540474283334333,
 		}
 		checkMap["rdk:component:arm:wrist_link"] = r3.Vector{
 			259.050559200277916716004256,
@@ -591,6 +592,7 @@ func TestXArm6Locations(t *testing.T) {
 		b := locationCheckTestHelper(geomMap, checkMap)
 		test.That(t, b, test.ShouldBeTrue)
 	})
+	//nolint:dupl
 	t.Run("location check2", func(t *testing.T) {
 		checkMap := make(map[string]r3.Vector)
 		checkMap["rdk:component:arm:base_top"] = r3.Vector{
@@ -609,9 +611,9 @@ func TestXArm6Locations(t *testing.T) {
 			530.142781900699674224597402,
 		}
 		checkMap["rdk:component:arm:lower_forearm"] = r3.Vector{
-			175.357954329185588449036004,
-			0.000000000000000363462780,
-			331.043246286488795249169925,
+			180.312201371473605604478507,
+			-26.951830890634148829576588,
+			333.355009225598280409030849,
 		}
 		checkMap["rdk:component:arm:wrist_link"] = r3.Vector{
 			297.258065257027055849903263,

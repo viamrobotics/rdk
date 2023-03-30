@@ -18,8 +18,8 @@ import (
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/slam/internal/testhelper"
 	"go.viam.com/rdk/spatialmath"
-	slamConfig "go.viam.com/slam/config"
-	slamTesthelper "go.viam.com/slam/testhelper"
+	slamConfig "go.viam.com/rdk/services/slam/slam_copy/config"
+	slamTesthelper "go.viam.com/rdk/services/slam/slam_copy/testhelper"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 )
@@ -69,7 +69,7 @@ func testCartographerInternalState(t *testing.T, svc slam.Service, dataDir strin
 	internalState, err := slam.GetInternalStateFull(context.Background(), svc, "test")
 	test.That(t, err, test.ShouldBeNil)
 
-	// Save the data from the call to GetInternalStateStream for use in next test.
+	// Save the data from the call to GetInternalState for use in next test.
 	timeStamp := time.Now()
 	filename := filepath.Join(dataDir, "map", "map_data_"+timeStamp.UTC().Format(slamTimeFormat)+".pbstream")
 	err = os.WriteFile(filename, internalState, 0644)
