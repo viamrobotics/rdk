@@ -1,0 +1,10 @@
+{
+    "modules": [
+        {
+            "name": "c1",
+            "type": "camera",
+            "model": "fake",
+            "attributes": {}
+        }
+    ]
+}
