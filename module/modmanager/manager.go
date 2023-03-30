@@ -135,68 +135,80 @@ func (mgr *Manager) add(ctx context.Context, cfg config.Module) error {
 	return nil
 }
 
-// Reconfigure reconfigures an existing resource module.
-func (mgr *Manager) Reconfigure(ctx context.Context, cfg config.Module) error {
-	module, exists := mgr.modules[cfg.Name]
+// Reconfigure reconfigures an existing resource module and returns the names of
+// now orphaned resources.
+func (mgr *Manager) Reconfigure(ctx context.Context, cfg config.Module) ([]resource.Name, error) {
+	mod, exists := mgr.modules[cfg.Name]
 	if !exists {
-		return errors.Errorf("cannot reconfigure module %s as it does not exist", cfg.Name)
+		return nil, errors.Errorf("cannot reconfigure module %s as it does not exist", cfg.Name)
 	}
-	handledResources := module.resources
+	handledResources := mod.resources
 
-	if err := mgr.remove(cfg.Name, true); err != nil {
-		return err
+	if err := mgr.remove(mod); err != nil {
+		return nil, err
 	}
 
 	if err := mgr.add(ctx, cfg); err != nil {
-		return err
+		return nil, err
 	}
 
-	// add old module process' resources to new module.
-	for _, res := range handledResources {
+	// add old module process' resources to new module; warn if new module cannot
+	// handle old resource and consider that resource orphaned.
+	var orphanedResourceNames []resource.Name
+	for name, res := range handledResources {
 		if _, err := mgr.AddResource(ctx, res.cfg, res.deps); err != nil {
-			return errors.WithMessage(err, "error while re-adding resource to module "+cfg.Name)
+			mgr.logger.Warnf("error while re-adding resource %s to module %s: %v",
+				name, cfg.Name, err)
+			orphanedResourceNames = append(orphanedResourceNames, name)
 		}
 	}
-	return nil
+	return orphanedResourceNames, nil
 }
 
-// Remove removes and stops an existing resource module.
-func (mgr *Manager) Remove(modName string) error {
-	return mgr.remove(modName, false)
+// Remove removes and stops an existing resource module and returns the names of
+// now orphaned resources.
+func (mgr *Manager) Remove(modName string) ([]resource.Name, error) {
+	mod, exists := mgr.modules[modName]
+	if !exists {
+		return nil, errors.Errorf("cannot remove module %s as it does not exist", modName)
+	}
+	handledResources := mod.resources
+
+	if err := mgr.remove(mod); err != nil {
+		return nil, err
+	}
+
+	var orphanedResourceNames []resource.Name
+	for name := range handledResources {
+		orphanedResourceNames = append(orphanedResourceNames, name)
+	}
+	return orphanedResourceNames, nil
 }
 
-func (mgr *Manager) remove(modName string, reconfigure bool) error {
+func (mgr *Manager) remove(mod *module) error {
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
 
-	mod, exists := mgr.modules[modName]
-	if !exists {
-		return errors.Errorf("cannot remove module %s as it does not exist", modName)
-	}
-
 	if err := mod.stopProcess(); err != nil {
-		return errors.WithMessage(err, "error while stopping module "+modName)
+		return errors.WithMessage(err, "error while stopping module "+mod.name)
 	}
 
-	// Do not close connection if module is being reconfigured.
-	if !reconfigure {
-		if mod.conn != nil {
-			if err := mod.conn.Close(); err != nil {
-				return errors.WithMessage(err, "error while closing connection from module "+modName)
-			}
+	if mod.conn != nil {
+		if err := mod.conn.Close(); err != nil {
+			return errors.WithMessage(err, "error while closing connection from module "+mod.name)
 		}
 	}
 
 	if err := mod.deregisterResources(); err != nil {
-		return errors.WithMessage(err, "error while deregistering resources for module "+modName)
+		return errors.WithMessage(err, "error while deregistering resources for module "+mod.name)
 	}
 
 	for r, m := range mgr.rMap {
-		if m.name == modName {
+		if m == mod {
 			delete(mgr.rMap, r)
 		}
 	}
-	delete(mgr.modules, modName)
+	delete(mgr.modules, mod.name)
 	return nil
 }
 

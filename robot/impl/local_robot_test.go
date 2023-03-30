@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"net"
+	"os/exec"
 	"path"
 	"strings"
 	"testing"
@@ -42,6 +43,8 @@ import (
 	"go.viam.com/rdk/components/movementsensor"
 	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/examples/customresources/apis/gizmoapi"
+	"go.viam.com/rdk/examples/customresources/apis/summationapi"
 	rgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
@@ -2387,5 +2390,125 @@ func TestOrphanedResources(t *testing.T) {
 	_, err = r.ResourceByName(motor.Named("m1"))
 	test.That(t, err, test.ShouldBeNil)
 	_, err = r.ResourceByName(slam.Named("s"))
+	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestModularOrphanedResources(t *testing.T) {
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+
+	// Precompile modules to avoid timeout issues when building takes too long.
+	builder := exec.Command("go", "build", ".")
+	builder.Dir = rutils.ResolveFile("examples/customresources/demos/complexmodule")
+	out, err := builder.CombinedOutput()
+	test.That(t, string(out), test.ShouldEqual, "")
+	test.That(t, err, test.ShouldBeNil)
+	builder = exec.Command("go", "build", ".")
+	builder.Dir = rutils.ResolveFile("examples/customresources/demos/simplemodule")
+	out, err = builder.CombinedOutput()
+	test.That(t, string(out), test.ShouldEqual, "")
+	test.That(t, err, test.ShouldBeNil)
+
+	// Manually define models, as importing them can cause double registration.
+	gizmoModel := resource.NewModel(resource.Namespace("acme"), resource.ModelFamilyName("demo"),
+		resource.ModelName("mygizmo"))
+	summationModel := resource.NewModel(resource.Namespace("acme"), resource.ModelFamilyName("demo"),
+		resource.ModelName("mysum"))
+
+	cfg := &config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "mod",
+				ExePath: rutils.ResolveFile("examples/customresources/demos/complexmodule/run.sh"),
+			},
+		},
+		Components: []config.Component{
+			{
+				Name:      "g",
+				Namespace: "acme",
+				Model:     gizmoModel,
+				Type:      resource.SubtypeName("gizmo"),
+			},
+		},
+		Services: []config.Service{
+			{
+				Name:      "s",
+				Namespace: "acme",
+				Model:     summationModel,
+				Type:      resource.SubtypeName("summation"),
+			},
+		},
+	}
+	r, err := robotimpl.New(ctx, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+	}()
+
+	// Assert that reconfiguring module 'mod' to a new module that does not handle
+	// old resources removes modular component 'g' and modular service 's'.
+	cfg2 := &config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "mod",
+				ExePath: rutils.ResolveFile("examples/customresources/demos/simplemodule/run.sh"),
+			},
+		},
+		Components: []config.Component{
+			{
+				Name:      "g",
+				Namespace: "acme",
+				Model:     gizmoModel,
+				Type:      resource.SubtypeName("gizmo"),
+			},
+		},
+		Services: []config.Service{
+			{
+				Name:      "s",
+				Namespace: "acme",
+				Model:     summationModel,
+				Type:      resource.SubtypeName("summation"),
+			},
+		},
+	}
+	r.Reconfigure(ctx, cfg2)
+
+	res, err := r.ResourceByName(gizmoapi.Named("g"))
+	test.That(t, err, test.ShouldBeError,
+		rutils.NewResourceNotFoundError(gizmoapi.Named("g")))
+	test.That(t, res, test.ShouldBeNil)
+	res, err = r.ResourceByName(summationapi.Named("s"))
+	test.That(t, err, test.ShouldBeError,
+		rutils.NewResourceNotFoundError(summationapi.Named("s")))
+	test.That(t, res, test.ShouldBeNil)
+
+	// Remove module entirely.
+	cfg3 := &config.Config{
+		Components: []config.Component{
+			{
+				Name:      "g",
+				Namespace: "acme",
+				Model:     gizmoModel,
+				Type:      resource.SubtypeName("gizmo"),
+			},
+		},
+		Services: []config.Service{
+			{
+				Name:      "s",
+				Namespace: "acme",
+				Model:     summationModel,
+				Type:      resource.SubtypeName("summation"),
+			},
+		},
+	}
+	r.Reconfigure(ctx, cfg3)
+
+	// Assert that adding module 'mod' back with original executable path re-adds
+	// modular component 'g' and modular service 's'.
+	r.Reconfigure(ctx, cfg)
+
+	_, err = r.ResourceByName(gizmoapi.Named("g"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = r.ResourceByName(summationapi.Named("s"))
 	test.That(t, err, test.ShouldBeNil)
 }
