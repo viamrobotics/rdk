@@ -217,7 +217,7 @@ func NewAdxl345(
 		configuredRegisterValues: configuredRegisterValues,
 		interruptsFound:          make(map[InterruptID]int),
 		ticksChanMap:             make(map[board.DigitalInterrupt]chan board.Tick),
-    
+
 		// On overloaded boards, sometimes the I2C bus can be flaky. Only report errors if at least
 		// 5 of the last 10 times we've tried interacting with the device have had problems.
 		err: movementsensor.NewLastError(10, 5),
