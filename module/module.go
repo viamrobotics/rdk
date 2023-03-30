@@ -178,8 +178,7 @@ func (m *Module) Start(ctx context.Context) error {
 	utils.PanicCapturingGo(func() {
 		defer m.activeBackgroundWorkers.Done()
 		defer utils.UncheckedErrorFunc(func() error {
-			// Attempt to remove module's .sock file if parent did not remove it
-			// already.
+			// Attempt to remove module's .sock file.
 			if _, err := os.Stat(m.addr); err == nil {
 				return os.Remove(m.addr)
 			}
