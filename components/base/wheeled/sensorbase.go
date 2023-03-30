@@ -60,7 +60,6 @@ func makeBaseWithSensors(
 
 	s.sensorCtx, s.sensorDone = context.WithCancel(context.Background())
 
-	s.logger.Debug("adding movement sensors to base")
 	var omsName string
 	for _, msName := range attr.MovementSensor {
 		ms, err := movementsensor.FromDependencies(deps, msName)
