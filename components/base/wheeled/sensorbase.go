@@ -93,22 +93,13 @@ func (s *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ext
 		return s.base.Spin(ctx, angleDeg, degsPerSec, nil)
 	}
 
-	var returnErr error
-	base, isWheeled := rdkutils.UnwrapProxy(s.base).(*wheeledBase)
-	if isWheeled {
-		s.workers.Add(1)
-		utils.ManagedGo(func() {
-			rpm, _ := base.spinMath(angleDeg, degsPerSec)
-
-			// runAll calls GoFor, which blocks until the timed operation is done, or returns nil if a zero is passed in
-			// the code inside this goroutine would block the sensor for loop if taken out
-			if err := base.runAll(ctx, -rpm, 0, rpm, 0); err != nil {
-				returnErr = err
-			}
-		}, s.workers.Done)
-		return s.stopSpinWithSensor(s.sensorCtx, angleDeg, degsPerSec)
-	}
-	return returnErr
+	s.workers.Add(1)
+	utils.ManagedGo(func() {
+		if err := s.base.SetVelocity(ctx, r3.Vector{}, r3.Vector{Z: angleDeg}, nil); err != nil {
+			s.logger.Error(err)
+		}
+	}, s.workers.Done)
+	return s.stopSpinWithSensor(s.sensorCtx, angleDeg, degsPerSec)
 }
 
 func (s *sensorBase) stopSpinWithSensor(
