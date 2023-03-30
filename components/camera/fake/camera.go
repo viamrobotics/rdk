@@ -4,7 +4,6 @@ package fake
 import (
 	"bytes"
 	"context"
-
 	// for embedding board image file.
 	_ "embed"
 	"image"
