@@ -359,15 +359,7 @@ var (
 // FromDependencies is a helper for getting the named camera from a collection of
 // dependencies.
 func FromDependencies(deps registry.Dependencies, name string) (Camera, error) {
-	res, ok := deps[Named(name)]
-	if !ok {
-		return nil, utils.DependencyNotFoundError(name)
-	}
-	part, ok := res.(Camera)
-	if !ok {
-		return nil, DependencyTypeError(name, res)
-	}
-	return part, nil
+	return registry.ComponentFromDependencies[Camera](deps, Named(name))
 }
 
 // FromRobot is a helper for getting the named Camera from the given Robot.

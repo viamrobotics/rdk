@@ -126,15 +126,7 @@ var (
 // FromDependencies is a helper for getting the named motor from a collection of
 // dependencies.
 func FromDependencies(deps registry.Dependencies, name string) (Motor, error) {
-	res, ok := deps[Named(name)]
-	if !ok {
-		return nil, utils.DependencyNotFoundError(name)
-	}
-	part, ok := res.(Motor)
-	if !ok {
-		return nil, DependencyTypeError(name, res)
-	}
-	return part, nil
+	return registry.ComponentFromDependencies[Motor](deps, Named(name))
 }
 
 // NewUnimplementedInterfaceError is used when there is a failed interface check.
