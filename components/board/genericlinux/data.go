@@ -60,10 +60,7 @@ func noBoardError(modelName string) error {
 
 // GetGPIOBoardMappings attempts to find a compatible board-pin mapping for the given mappings.
 func GetGPIOBoardMappings(modelName string, boardInfoMappings map[string]BoardInformation) (map[int]GPIOBoardMapping, error) {
-	const (
-		compatiblePath = "/proc/device-tree/compatible"
-		idsPath        = "/proc/device-tree/chosen/plugin-manager/ids"
-	)
+	const compatiblePath = "/proc/device-tree/compatible"
 
 	compatiblesRd, err := os.ReadFile(compatiblePath)
 	if err != nil {
