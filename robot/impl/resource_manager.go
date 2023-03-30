@@ -46,9 +46,8 @@ var unknownSubtype = resource.NewSubtype(resource.ResourceNamespaceRDK,
 	resource.SubtypeName(""))
 
 var (
-	errShellServiceDisabled     = errors.New("shell service disabled in an untrusted environment")
-	errProcessesDisabled        = errors.New("processes disabled in an untrusted environment")
-	errModularResourcesDisabled = errors.New("modular resources disabled in untrusted environment")
+	errShellServiceDisabled = errors.New("shell service disabled in an untrusted environment")
+	errProcessesDisabled    = errors.New("processes disabled in an untrusted environment")
 )
 
 type translateToName func(string) (resource.Name, bool)
@@ -594,9 +593,6 @@ func (manager *resourceManager) processService(ctx context.Context,
 	old interface{},
 	robot *localRobot,
 ) (interface{}, error) {
-	if manager.opts.untrustedEnv && robot.ModuleManager().Provides(config.ServiceConfigToShared(c)) {
-		return nil, errModularResourcesDisabled
-	}
 	if old == nil {
 		return robot.newService(ctx, c)
 	}
@@ -657,9 +653,6 @@ func (manager *resourceManager) processComponent(ctx context.Context,
 	old interface{},
 	r *localRobot,
 ) (interface{}, error) {
-	if manager.opts.untrustedEnv && r.ModuleManager().Provides(conf) {
-		return nil, errModularResourcesDisabled
-	}
 	if old == nil {
 		return r.newResource(ctx, conf)
 	}

@@ -47,6 +47,7 @@ const (
 )
 
 var _ = robot.LocalRobot(&localRobot{})
+var errModularResourcesDisabled = errors.New("modular resources disabled in untrusted environment")
 
 // localRobot satisfies robot.LocalRobot and defers most
 // logic to its manager.
@@ -506,11 +507,14 @@ func newWithResources(
 		return nil, err
 	}
 	r.modules = modMgr
-
-	for _, mod := range cfg.Modules {
-		err := r.modules.Add(ctx, mod)
-		if err != nil {
-			return nil, err
+	if r.manager.opts.untrustedEnv {
+		logger.Error(errModularResourcesDisabled)
+	} else {
+		for _, mod := range cfg.Modules {
+			err := r.modules.Add(ctx, mod)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 
