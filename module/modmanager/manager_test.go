@@ -172,19 +172,18 @@ func TestModManagerFunctions(t *testing.T) {
 	modCfg.ExePath = utils.ResolveFile("module/modmanager/data/simplemoduleruncopy.sh")
 
 	// Reconfigure module with new ExePath.
-	err = mgr.Reconfigure(ctx, modCfg)
+	orphanedResourceNames, err := mgr.Reconfigure(ctx, modCfg)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, orphanedResourceNames, test.ShouldBeNil)
 
 	// counter1 should still be provided by reconfigured module.
 	ok = mgr.IsModularResource(rNameCounter1)
 	test.That(t, ok, test.ShouldBeTrue)
-	ret, err = counter.DoCommand(ctx, map[string]interface{}{"command": "get"})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, ret["total"], test.ShouldEqual, 0)
 
 	t.Log("test RemoveModule")
-	err = mgr.Remove("simple-module")
+	orphanedResourceNames, err = mgr.Remove("simple-module")
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, orphanedResourceNames, test.ShouldResemble, []resource.Name{rNameCounter1})
 
 	ok = mgr.IsModularResource(rNameCounter1)
 	test.That(t, ok, test.ShouldBeFalse)
