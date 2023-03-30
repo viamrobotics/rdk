@@ -1,7 +1,7 @@
 <script setup lang="ts">
 
 import { grpc } from '@improbable-eng/grpc-web';
-import { Client, servoApi } from '@viamrobotics/sdk';
+import { Client, ServiceError, servoApi } from '@viamrobotics/sdk';
 import { displayError } from '../lib/error';
 import { rcLogConditionally } from '../lib/log';
 
@@ -33,7 +33,7 @@ const move = (amount: number) => {
   req.setAngleDeg(angle);
 
   rcLogConditionally(req);
-  props.client.servoService.move(req, new grpc.Metadata(), (error) => {
+  props.client.servoService.move(req, new grpc.Metadata(), (error: ServiceError) => {
     if (error) {
       return displayError(error);
     }

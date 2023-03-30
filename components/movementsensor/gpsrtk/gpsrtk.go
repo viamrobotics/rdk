@@ -189,6 +189,7 @@ func newRTKMovementSensor(
 		cancelCtx:  cancelCtx,
 		cancelFunc: cancelFunc,
 		logger:     logger,
+		err:        movementsensor.NewLastError(1, 1),
 	}
 
 	g.inputProtocol = attr.CorrectionSource
