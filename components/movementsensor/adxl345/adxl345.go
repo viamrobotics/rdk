@@ -214,6 +214,7 @@ func NewAdxl345(
 		cancelContext:            cancelContext,
 		cancelFunc:               cancelFunc,
 		configuredRegisterValues: configuredRegisterValues,
+		interruptsFound:          make(map[InterruptID]int),
 	}
 
 	// To check that we're able to talk to the chip, we should be able to read register 0 and get
@@ -266,12 +267,13 @@ func NewAdxl345(
 			}
 		}
 	})
-	sensor.interruptsFound = make(map[InterruptID]int)
-	if err := sensor.readInterrupts(sensor.cancelContext); err != nil {
+
+	if _, err := sensor.readByte(ctx, IntSourceAddr); err != nil {
 		// shut down goroutine reading sensor in the background
 		sensor.cancelFunc()
 		return nil, err
 	}
+
 	if err := sensor.configureInterruptRegisters(ctx, interruptConfigurations[IntMapAddr]); err != nil {
 		// shut down goroutine reading sensor in the background
 		sensor.cancelFunc()
