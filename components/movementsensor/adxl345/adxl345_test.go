@@ -7,7 +7,8 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-	"go.viam.com/test"
+
+	// "go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/movementsensor"
@@ -15,6 +16,8 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/test"
+	"go.viam.com/utils/testutils"
 )
 
 func nowNanosTest() uint64 {
@@ -32,6 +35,7 @@ func TestInterrupts(t *testing.T) {
 	i2cHandle := &inject.I2CHandle{}
 	i2cHandle.CloseFunc = func() error { return nil }
 	i2cHandle.WriteByteDataFunc = func(context.Context, byte, byte) error { return nil }
+	// The data returned from the readByteFunction is intended to signify which interrupts have gone off
 	i2cHandle.ReadByteDataFunc = func(context.Context, byte) (byte, error) { return byte(1<<6 + 1<<2), nil }
 	// i2cHandle.ReadBlockDataFunc gets called multiple times. The first time we need the first byte to be 0xE5 and the next
 	// time we need 6 bytes. This return provides more data than necessary for the first call to the function but allows
@@ -53,7 +57,7 @@ func TestInterrupts(t *testing.T) {
 
 	tap := &TapAttrConfig{
 		AccelerometerPin: 1,
-		InterruptPin:     "int2",
+		InterruptPin:     "int1",
 	}
 
 	ff := &FreeFallAttrConfig{
@@ -73,12 +77,28 @@ func TestInterrupts(t *testing.T) {
 		},
 	}
 
-	t.Run("interrupts have been found correctly when both are configured to the same pin", func(t *testing.T) {
+	t.Run("new adxl has interrupt counts set to 1", func(t *testing.T) {
 		adxl, err := NewAdxl345(ctx, deps, cfg, logger)
-		interrupt.Tick(context.Background(), true, nowNanosTest())
 		test.That(t, err, test.ShouldBeNil)
 
-		readings, err := adxl.Readings(ctx, map[string]interface{}{})
+		readings, err := adxl.Readings(context.Background(), map[string]interface{}{})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, readings["freefall_count"], test.ShouldEqual, 0)
+		test.That(t, readings["single_tap_count"], test.ShouldEqual, 0)
+	})
+
+	t.Run("interrupts have been found correctly when both are configured to the same pin", func(t *testing.T) {
+		adxl, err := NewAdxl345(ctx, deps, cfg, logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		interrupt.Tick(context.Background(), true, nowNanosTest())
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			readings, err := adxl.Readings(context.Background(), map[string]interface{}{})
+			test.That(tb, err, test.ShouldBeNil)
+			test.That(tb, readings["freefall_count"], test.ShouldNotBeZeroValue)
+		})
+
+		readings, err := adxl.Readings(context.Background(), map[string]interface{}{})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, readings["freefall_count"], test.ShouldEqual, 1)
 		test.That(t, readings["single_tap_count"], test.ShouldEqual, 1)
@@ -97,7 +117,14 @@ func TestInterrupts(t *testing.T) {
 		}
 
 		adxl, err := NewAdxl345(ctx, deps, cfg, logger)
+		test.That(t, err, test.ShouldBeNil)
+
 		interrupt.Tick(context.Background(), true, nowNanosTest())
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			readings, err := adxl.Readings(context.Background(), map[string]interface{}{})
+			test.That(tb, err, test.ShouldBeNil)
+			test.That(tb, readings["single_tap_count"], test.ShouldNotBeZeroValue)
+		})
 		test.That(t, err, test.ShouldBeNil)
 
 		readings, err := adxl.Readings(ctx, map[string]interface{}{})
@@ -119,8 +146,14 @@ func TestInterrupts(t *testing.T) {
 		}
 
 		adxl, err := NewAdxl345(ctx, deps, cfg, logger)
-		interrupt.Tick(context.Background(), true, nowNanosTest())
 		test.That(t, err, test.ShouldBeNil)
+
+		interrupt.Tick(context.Background(), true, nowNanosTest())
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			readings, err := adxl.Readings(context.Background(), map[string]interface{}{})
+			test.That(tb, err, test.ShouldBeNil)
+			test.That(tb, readings["freefall_count"], test.ShouldNotBeZeroValue)
+		})
 
 		readings, err := adxl.Readings(ctx, map[string]interface{}{})
 		test.That(t, err, test.ShouldBeNil)
