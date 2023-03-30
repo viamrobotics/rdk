@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"sync"
 	"time"
 
 	"github.com/edaniels/golog"
@@ -116,9 +115,8 @@ type wheeledBase struct {
 	right     []motor.Motor
 	allMotors []motor.Motor
 
-	opMgr                   operation.SingleOperationManager
-	activeBackgroundWorkers *sync.WaitGroup
-	logger                  golog.Logger
+	opMgr  operation.SingleOperationManager
+	logger golog.Logger
 
 	name              string
 	collisionGeometry spatialmath.Geometry
@@ -133,7 +131,7 @@ func (base *wheeledBase) Spin(ctx context.Context, angleDeg, degsPerSec float64,
 	// Stop the motors if the speed is 0
 	if math.Abs(degsPerSec) < 0.0001 {
 		if err := base.Stop(ctx, nil); err != nil {
-			return errors.Errorf("error when trying to spin at a speed of 0: %v", err)
+			return err
 		}
 	}
 	// Spin math
@@ -143,7 +141,7 @@ func (base *wheeledBase) Spin(ctx context.Context, angleDeg, degsPerSec float64,
 }
 
 // MoveStraight commands a base to drive forward or backwards  at a linear speed and for a specific distance.
-// TODO RSDK-2362 check choppiness of movement when run as a remote.
+
 func (base *wheeledBase) MoveStraight(
 	ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{},
 ) error {
@@ -225,7 +223,7 @@ func (base *wheeledBase) differentialDrive(forward, left float64) (float64, floa
 }
 
 // SetVelocity commands the base to move at the input linear and angular velocities.
-// TODO RSDK-2362 check choppiness of movement when run as a remote.
+
 func (base *wheeledBase) SetVelocity(
 	ctx context.Context, linear, angular r3.Vector, extra map[string]interface{},
 ) error {
@@ -239,7 +237,7 @@ func (base *wheeledBase) SetVelocity(
 }
 
 // SetPower commands the base motors to run at powers correspoinding to input linear and angular powers.
-// TODO RSDK-2362 check choppiness of movement when run as a remote.
+
 func (base *wheeledBase) SetPower(
 	ctx context.Context, linear, angular r3.Vector, extra map[string]interface{},
 ) error {
@@ -391,12 +389,11 @@ func createWheeledBase(
 	}
 
 	base := &wheeledBase{
-		widthMm:                 attr.WidthMM,
-		wheelCircumferenceMm:    attr.WheelCircumferenceMM,
-		spinSlipFactor:          attr.SpinSlipFactor,
-		logger:                  logger,
-		activeBackgroundWorkers: &sync.WaitGroup{},
-		name:                    cfg.Name,
+		widthMm:              attr.WidthMM,
+		wheelCircumferenceMm: attr.WheelCircumferenceMM,
+		spinSlipFactor:       attr.SpinSlipFactor,
+		logger:               logger,
+		name:                 cfg.Name,
 	}
 
 	if base.spinSlipFactor == 0 {
