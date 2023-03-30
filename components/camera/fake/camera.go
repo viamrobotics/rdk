@@ -4,6 +4,7 @@ package fake
 import (
 	"bytes"
 	"context"
+
 	// for embedding board image file.
 	_ "embed"
 	"image"
@@ -208,8 +209,6 @@ func (c *Camera) getColorImage() (*rimage.Image, error) {
 
 // getDepthImage always returns the same depth image of a chess board.
 func (c *Camera) getDepthImage(ctx context.Context) (*rimage.DepthMap, error) {
-	// path := utils.ResolveFile("components/camera/fake/board2_gray.png")
-	// dm, err := rimage.NewDepthMapFromFile(ctx, path)
 	decoded, _, err := image.Decode(bytes.NewReader(board2Gray))
 	if err != nil {
 		return nil, err
