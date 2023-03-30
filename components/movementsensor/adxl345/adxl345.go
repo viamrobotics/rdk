@@ -217,6 +217,10 @@ func NewAdxl345(
 		configuredRegisterValues: configuredRegisterValues,
 		interruptsFound:          make(map[InterruptID]int),
 		ticksChanMap:             make(map[board.DigitalInterrupt]chan board.Tick),
+    
+		// On overloaded boards, sometimes the I2C bus can be flaky. Only report errors if at least
+		// 5 of the last 10 times we've tried interacting with the device have had problems.
+		err: movementsensor.NewLastError(10, 5),
 	}
 
 	// To check that we're able to talk to the chip, we should be able to read register 0 and get
@@ -251,10 +255,10 @@ func NewAdxl345(
 			case <-timer.C:
 				// The registers with data are 0x32 through 0x37: two bytes each for X, Y, and Z.
 				rawData, err := sensor.readBlock(sensor.cancelContext, 0x32, 6)
+				// Record the errors no matter what: if the error is nil, that's useful information
+				// that will prevent errors from being returned later.
+				sensor.err.Set(err)
 				if err != nil {
-					sensor.mu.Lock()
-					sensor.err.Set(err)
-					sensor.mu.Unlock()
 					continue
 				}
 

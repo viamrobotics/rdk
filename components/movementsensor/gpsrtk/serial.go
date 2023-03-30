@@ -68,6 +68,7 @@ func newSerialCorrectionSource(ctx context.Context, cfg config.Component, logger
 		cancelCtx:  cancelCtx,
 		cancelFunc: cancelFunc,
 		logger:     logger,
+		err:        movementsensor.NewLastError(1, 1),
 	}
 
 	serialPath := attr.SerialCorrectionPath
