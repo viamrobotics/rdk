@@ -267,7 +267,6 @@ func (base *wheeledBase) SetPower(
 }
 
 // returns rpm, revolutions for a spin motion.
-// TODO - RSDK-2356 check math for output speeds.
 func (base *wheeledBase) spinMath(angleDeg, degsPerSec float64) (float64, float64) {
 	wheelTravel := base.spinSlipFactor * float64(base.widthMm) * math.Pi * angleDeg / 360.0
 	revolutions := wheelTravel / float64(base.wheelCircumferenceMm)
@@ -308,8 +307,7 @@ func (base *wheeledBase) straightDistanceToMotorInputs(distanceMm int, mmPerSec 
 	return rpm, rotations
 }
 
-// WaitForMotorsToStop is unused except for tests, polls all motors to see if they're on
-// TODO: Audit in  RSDK-1880.
+// WaitForMotorsToStop is unused except for tests, polls all motors to see if they're on.
 func (base *wheeledBase) WaitForMotorsToStop(ctx context.Context) error {
 	for {
 		if !utils.SelectContextOrWait(ctx, 10*time.Millisecond) {
