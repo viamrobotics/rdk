@@ -50,13 +50,13 @@ const fetchSLAMMap = (name: string): Promise<Uint8Array> => {
     rcLogConditionally(req);
     const chunks: Uint8Array[] = [];
 
-    const getPointCloudMapStream: ResponseStream<slamApi.GetPointCloudMapStreamResponse> =
-      props.client.slamService.getPointCloudMapStream(req);
-    getPointCloudMapStream.on('data', (res) => {
+    const getPointCloudMap: ResponseStream<slamApi.GetPointCloudMapResponse> =
+      props.client.slamService.getPointCloudMap(req);
+    getPointCloudMap.on('data', (res) => {
       const chunk = res.getPointCloudPcdChunk_asU8();
       chunks.push(chunk);
     });
-    getPointCloudMapStream.on('status', (status) => {
+    getPointCloudMap.on('status', (status) => {
       if (status.code !== 0) {
         const error = {
           message: status.details,
@@ -66,7 +66,7 @@ const fetchSLAMMap = (name: string): Promise<Uint8Array> => {
         reject(error);
       }
     });
-    getPointCloudMapStream.on('end', (end) => {
+    getPointCloudMap.on('end', (end) => {
       if (end === undefined || end.code !== 0) {
         // the error will be logged in the 'status' callback
         return;
