@@ -142,6 +142,13 @@ func (c *client) GoToInputs(ctx context.Context, goal []referenceframe.Input) er
 	return c.MoveToJointPositions(ctx, c.model.ProtobufFromInput(goal), nil)
 }
 
+func (c *client) AllInputs(ctx context.Context, goals [][]referenceframe.Input) error {
+	if c.model == nil {
+		return errArmClientModelNotValid
+	}
+	return c.AllInputs(ctx, goals)
+}
+
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
 }

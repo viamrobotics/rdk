@@ -181,6 +181,11 @@ func (wrapper *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, 
 	return wrapper.model.InputFromProtobuf(res), nil
 }
 
+// AllInputs returns the current inputs of the arm.
+func (wrapper *Arm) AllInputs(ctx context.Context, goals [][]referenceframe.Input) error {
+	return nil
+}
+
 // GoToInputs moves the arm to the specified goal inputs.
 func (wrapper *Arm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
 	// check that joint positions are not out of bounds

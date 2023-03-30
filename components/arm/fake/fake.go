@@ -227,6 +227,11 @@ func (a *Arm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error
 	return a.MoveToJointPositions(ctx, positionDegs, nil)
 }
 
+// AllInputs returns the current inputs of the arm.
+func (a *Arm) AllInputs(ctx context.Context, goals [][]referenceframe.Input) error {
+	return nil
+}
+
 // Close does nothing.
 func (a *Arm) Close() {
 	a.CloseCount++

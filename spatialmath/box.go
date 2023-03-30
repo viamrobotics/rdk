@@ -79,6 +79,10 @@ func (b *box) String() string {
 	return fmt.Sprintf("Type: Box, Dims: X:%.0f, Y:%.0f, Z:%.0f", 2*b.halfSize[0], 2*b.halfSize[1], 2*b.halfSize[2])
 }
 
+func (b *box) Dimensions() []float64 {
+	return []float64{b.halfSize[0], b.halfSize[1], b.halfSize[2]}
+}
+
 func (b *box) MarshalJSON() ([]byte, error) {
 	config, err := NewGeometryConfig(b)
 	if err != nil {

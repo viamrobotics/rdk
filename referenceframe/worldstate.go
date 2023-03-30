@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
 
+	"go.viam.com/rdk/spatialmath"
 	spatial "go.viam.com/rdk/spatialmath"
 )
 
@@ -111,4 +113,59 @@ func (ws *WorldState) ToWorldFrame(fs FrameSystem, inputs map[string][]Input) (*
 	return &WorldState{
 		Obstacles: []*GeometriesInFrame{obstacles},
 	}, nil
+}
+
+func BufferedWorldstate(ws *WorldState, buffer float64) (*WorldState, error) {
+	var gif []*GeometriesInFrame
+	for _, geosInFrame := range ws.Obstacles {
+		geoms := geosInFrame.Geometries()
+		parent := geosInFrame.Parent()
+		obstacles := []spatialmath.Geometry{}
+		for _, geo := range geoms {
+			cfg, err := spatialmath.NewGeometryConfig(geo)
+			if err != nil {
+				return nil, err
+			}
+			dims := geo.Dimensions()
+			centerPose := geo.Pose()
+
+			switch cfg.Type {
+			case spatial.PointType:
+				newSphere, err := spatialmath.NewSphere(centerPose, buffer, geo.Label())
+				if err != nil {
+					return nil, err
+				}
+
+				obstacles = append(obstacles, newSphere)
+
+			case spatial.BoxType:
+				newDims := r3.Vector{
+					X: dims[0] + buffer,
+					Y: dims[1] + buffer,
+					Z: dims[2] + buffer,
+				}
+				newBox, err := spatialmath.NewBox(centerPose, newDims, geo.Label())
+				if err != nil {
+					return nil, err
+				}
+
+				obstacles = append(obstacles, newBox)
+
+			case spatial.SphereType:
+				newRadius := dims[0] + buffer
+				newSphere, err := spatialmath.NewSphere(centerPose, newRadius, geo.Label())
+				if err != nil {
+					return nil, err
+				}
+
+				obstacles = append(obstacles, newSphere)
+
+				// case spatial.CapsuleType: // todo
+			}
+		}
+		obstaclesInFrame := NewGeometriesInFrame(parent, obstacles)
+		gif = append(gif, obstaclesInFrame)
+	}
+	worldState := &WorldState{Obstacles: gif, Transforms: ws.Transforms}
+	return worldState, nil
 }
