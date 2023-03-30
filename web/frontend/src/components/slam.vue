@@ -45,18 +45,18 @@ const concatArrayU8 = (arrays: Uint8Array[]) => {
 
 const fetchSLAMMap = (name: string): Promise<Uint8Array> => {
   return new Promise((resolve, reject) => {
-    const req = new slamApi.GetPointCloudMapStreamRequest();
+    const req = new slamApi.GetPointCloudMapRequest();
     req.setName(name);
     rcLogConditionally(req);
     const chunks: Uint8Array[] = [];
 
-    const getPointCloudMapStream: ResponseStream<slamApi.GetPointCloudMapStreamResponse> =
-      props.client.slamService.getPointCloudMapStream(req);
-    getPointCloudMapStream.on('data', (res) => {
+    const getPointCloudMap: ResponseStream<slamApi.GetPointCloudMapResponse> =
+      props.client.slamService.getPointCloudMap(req);
+    getPointCloudMap.on('data', (res) => {
       const chunk = res.getPointCloudPcdChunk_asU8();
       chunks.push(chunk);
     });
-    getPointCloudMapStream.on('status', (status) => {
+    getPointCloudMap.on('status', (status) => {
       if (status.code !== 0) {
         const error = {
           message: status.details,
@@ -66,7 +66,7 @@ const fetchSLAMMap = (name: string): Promise<Uint8Array> => {
         reject(error);
       }
     });
-    getPointCloudMapStream.on('end', (end) => {
+    getPointCloudMap.on('end', (end) => {
       if (end === undefined || end.code !== 0) {
         // the error will be logged in the 'status' callback
         return;
@@ -79,12 +79,12 @@ const fetchSLAMMap = (name: string): Promise<Uint8Array> => {
 
 const fetchSLAMPose = (name: string): Promise<commonApi.Pose> => {
   return new Promise((resolve, reject): void => {
-    const req = new slamApi.GetPositionNewRequest();
+    const req = new slamApi.GetPositionRequest();
     req.setName(name);
-    props.client.slamService.getPositionNew(
+    props.client.slamService.getPosition(
       req,
       new grpc.Metadata(),
-      (error: ServiceError, res: slamApi.GetPositionNewResponse): void => {
+      (error: ServiceError, res: slamApi.GetPositionResponse): void => {
         if (error) {
           reject(error);
           return;
