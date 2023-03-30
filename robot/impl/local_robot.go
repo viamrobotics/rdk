@@ -46,8 +46,10 @@ const (
 	packageManagerName internalServiceName = "packagemanager"
 )
 
-var _ = robot.LocalRobot(&localRobot{})
-var errModularResourcesDisabled = errors.New("modular resources disabled in untrusted environment")
+var (
+	_                           = robot.LocalRobot(&localRobot{})
+	errModularResourcesDisabled = errors.New("modular resources disabled in untrusted environment")
+)
 
 // localRobot satisfies robot.LocalRobot and defers most
 // logic to its manager.
