@@ -50,7 +50,6 @@ func makeBaseWithSensors(
 	logger golog.Logger,
 ) (base.LocalBase, error) {
 	// spawn a new context for sensors so we don't add many background workers
-	// TODO RSDK-2384 something is cancelling base context in the actuating API calls
 	attr, ok := cfg.ConvertedAttributes.(*AttrConfig)
 	if !ok {
 		return nil, rdkutils.NewUnexpectedTypeError(attr, &AttrConfig{})
