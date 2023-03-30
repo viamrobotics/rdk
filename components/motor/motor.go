@@ -139,11 +139,6 @@ func NewUnimplementedLocalInterfaceError(actual interface{}) error {
 	return utils.NewUnimplementedInterfaceError((*LocalMotor)(nil), actual)
 }
 
-// DependencyTypeError is used when a resource doesn't implement the expected interface.
-func DependencyTypeError(name string, actual interface{}) error {
-	return utils.DependencyTypeError(name, (*Motor)(nil), actual)
-}
-
 // FromRobot is a helper for getting the named motor from the given Robot.
 func FromRobot(r robot.Robot, name string) (Motor, error) {
 	return robot.ResourceFromRobot[Motor](r, Named(name))
