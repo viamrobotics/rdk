@@ -57,11 +57,11 @@ func TestFakeSLAMGetInternalState(t *testing.T) {
 		expectedData, err := os.ReadFile(path)
 		test.That(t, err, test.ShouldBeNil)
 
-		data := getDataFromStream(t, slamSvc.GetInternalStateStream, slamSvc.Name)
+		data := getDataFromStream(t, slamSvc.GetInternalState, slamSvc.Name)
 		test.That(t, len(data), test.ShouldBeGreaterThan, 0)
 		test.That(t, data, test.ShouldResemble, expectedData)
 
-		data2 := getDataFromStream(t, slamSvc.GetInternalStateStream, slamSvc.Name)
+		data2 := getDataFromStream(t, slamSvc.GetInternalState, slamSvc.Name)
 		test.That(t, len(data2), test.ShouldBeGreaterThan, 0)
 		test.That(t, data, test.ShouldResemble, data2)
 		test.That(t, data2, test.ShouldResemble, expectedData)
@@ -73,7 +73,7 @@ func TestFakeSLAMGetPointMap(t *testing.T) {
 	t.Run(testName, func(t *testing.T) {
 		slamSvc := NewSLAM("test", golog.NewTestLogger(t))
 
-		data := getDataFromStream(t, slamSvc.GetPointCloudMapStream, slamSvc.Name)
+		data := getDataFromStream(t, slamSvc.GetPointCloudMap, slamSvc.Name)
 		test.That(t, len(data), test.ShouldBeGreaterThan, 0)
 
 		path := filepath.Clean(artifact.MustPath(fmt.Sprintf(pcdTemplate, datasetDirectory, slamSvc.getCount())))
@@ -82,7 +82,7 @@ func TestFakeSLAMGetPointMap(t *testing.T) {
 
 		test.That(t, data, test.ShouldResemble, expectedData)
 
-		data2 := getDataFromStream(t, slamSvc.GetPointCloudMapStream, slamSvc.Name)
+		data2 := getDataFromStream(t, slamSvc.GetPointCloudMap, slamSvc.Name)
 		test.That(t, len(data2), test.ShouldBeGreaterThan, 0)
 
 		path2 := filepath.Clean(artifact.MustPath(fmt.Sprintf(pcdTemplate, datasetDirectory, slamSvc.getCount())))
@@ -120,11 +120,11 @@ func verifyGetPointCloudMapStateful(t *testing.T, slamSvc *SLAM) {
 	testDataCount := maxDataCount
 	getPointCloudMapResults := []float64{}
 	getPositionResults := []spatialmath.Pose{}
-	getInternalStateStreamResults := []int{}
+	getInternalStateResults := []int{}
 
-	// Call GetPointCloudMapStream twice for every testData artifact
+	// Call GetPointCloudMap twice for every testData artifact
 	for i := 0; i < testDataCount*2; i++ {
-		f, err := slamSvc.GetPointCloudMapStream(context.Background(), slamSvc.Name)
+		f, err := slamSvc.GetPointCloudMap(context.Background(), slamSvc.Name)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, f, test.ShouldNotBeNil)
 		pcd, err := helperConcatenateChunksToFull(f)
@@ -139,39 +139,39 @@ func verifyGetPointCloudMapStateful(t *testing.T, slamSvc *SLAM) {
 		test.That(t, err, test.ShouldBeNil)
 		getPositionResults = append(getPositionResults, p)
 
-		f, err = slamSvc.GetInternalStateStream(context.Background(), slamSvc.Name)
+		f, err = slamSvc.GetInternalState(context.Background(), slamSvc.Name)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, f, test.ShouldNotBeNil)
 		internalState, err := helperConcatenateChunksToFull(f)
 		test.That(t, err, test.ShouldBeNil)
-		getInternalStateStreamResults = append(getInternalStateStreamResults, len(internalState))
+		getInternalStateResults = append(getInternalStateResults, len(internalState))
 	}
 
 	getPositionResultsFirst := getPositionResults[len(getPositionResults)/2:]
 	getPositionResultsLast := getPositionResults[:len(getPositionResults)/2]
 
-	getInternalStateStreamResultsFirst := getInternalStateStreamResults[len(getInternalStateStreamResults)/2:]
-	getInternalStateStreamResultsLast := getInternalStateStreamResults[:len(getInternalStateStreamResults)/2]
+	getInternalStateResultsFirst := getInternalStateResults[len(getInternalStateResults)/2:]
+	getInternalStateResultsLast := getInternalStateResults[:len(getInternalStateResults)/2]
 
 	getPointCloudMapResultsFirst := getPointCloudMapResults[len(getPointCloudMapResults)/2:]
 	getPointCloudMapResultsLast := getPointCloudMapResults[:len(getPointCloudMapResults)/2]
 
 	// Confirm that the first half of the
 	// results equal the last.
-	// This proves that each call to GetPointCloudMapStream
-	// advances the test data (both for GetPointCloudMapStream & other endpoints)
+	// This proves that each call to GetPointCloudMap
+	// advances the test data (both for GetPointCloudMap & other endpoints)
 	// over a dataset of size maxDataCount that loops around.
 	test.That(t, getPositionResultsFirst, test.ShouldResemble, getPositionResultsLast)
-	test.That(t, getInternalStateStreamResultsFirst, test.ShouldResemble, getInternalStateStreamResultsLast)
+	test.That(t, getInternalStateResultsFirst, test.ShouldResemble, getInternalStateResultsLast)
 	test.That(t, getPointCloudMapResultsFirst, test.ShouldResemble, getPointCloudMapResultsLast)
 
 	// Confirm that the first half of the
 	// results do NOT equal the last half in reverse.
-	// This proves that each call to GetPointCloudMapStream
-	// advances the test data (both for GetPointCloudMapStream & other endpoints)
+	// This proves that each call to GetPointCloudMap
+	// advances the test data (both for GetPointCloudMap & other endpoints)
 	// over a dataset of size maxDataCount that loops around.
 	test.That(t, getPositionResultsFirst, test.ShouldNotResemble, reverse(getPositionResultsLast))
-	test.That(t, getInternalStateStreamResultsFirst, test.ShouldNotResemble, reverse(getInternalStateStreamResultsLast))
+	test.That(t, getInternalStateResultsFirst, test.ShouldNotResemble, reverse(getInternalStateResultsLast))
 	test.That(t, getPointCloudMapResultsFirst, test.ShouldNotResemble, reverse(getPointCloudMapResultsLast))
 }
 

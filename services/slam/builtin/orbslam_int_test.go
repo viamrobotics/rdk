@@ -19,8 +19,8 @@ import (
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/slam/internal/testhelper"
 	"go.viam.com/rdk/spatialmath"
-	slamConfig "go.viam.com/slam/config"
-	slamTesthelper "go.viam.com/slam/testhelper"
+	slamConfig "go.viam.com/rdk/services/slam/slam_copy/config"
+	slamTesthelper "go.viam.com/rdk/services/slam/slam_copy/testhelper"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
@@ -125,7 +125,7 @@ func testOrbslamInternalState(t *testing.T, svc slam.Service, dataDir string) {
 	internalState, err := slam.GetInternalStateFull(context.Background(), svc, "test")
 	test.That(t, err, test.ShouldBeNil)
 
-	// Save the data from the call to GetInternalStateStream for use in next test.
+	// Save the data from the call to GetInternalState for use in next test.
 	timeStamp := time.Now()
 	filename := filepath.Join(dataDir, "map", "orbslam_int_color_camera_data_"+timeStamp.UTC().Format(slamTimeFormat)+".osa")
 	err = os.WriteFile(filename, internalState, 0644)

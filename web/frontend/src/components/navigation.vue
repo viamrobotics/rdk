@@ -138,70 +138,80 @@ const initNavigation = async () => {
     req.setName(props.name);
 
     rcLogConditionally(req);
-    props.client.navigationService.getWaypoints(req, new grpc.Metadata(), (err, resp) => {
-      grpcCallback(err, resp, false);
+    props.client.navigationService.getWaypoints(
+      req,
+      new grpc.Metadata(),
+      (err: ServiceError, resp: navigationApi.GetWaypointsResponse) => {
+        grpcCallback(err, resp, false);
 
-      if (err) {
-        updateTimerId = window.setTimeout(updateWaypoints, 1000);
-        return;
-      }
-
-      let waypoints: navigationApi.Waypoint[] = [];
-
-      if (resp) {
-        waypoints = resp.getWaypointsList();
-      }
-
-      const currentWaypoints: Record<string, google.maps.Marker> = {};
-
-      for (const waypoint of waypoints) {
-        const pos = {
-          lat: waypoint.getLocation()?.getLatitude() ?? 0,
-          lng: waypoint.getLocation()?.getLongitude() ?? 0,
-        };
-
-        const posStr = JSON.stringify(pos);
-
-        if (knownWaypoints[posStr]) {
-          currentWaypoints[posStr] = knownWaypoints[posStr]!;
-          continue;
+        if (err) {
+          updateTimerId = window.setTimeout(updateWaypoints, 1000);
+          return;
         }
 
-        localLabelCounter += 1;
+        let waypoints: navigationApi.Waypoint[] = [];
 
-        const marker = new window.google.maps.Marker({
-          position: pos,
-          map,
-          label: `${localLabelCounter}`,
-        });
+        if (resp) {
+          waypoints = resp.getWaypointsList();
+        }
 
-        currentWaypoints[posStr] = marker;
-        knownWaypoints[posStr] = marker;
+        const currentWaypoints: Record<string, google.maps.Marker> = {};
 
-        marker.addListener('click', () => {
-          console.log('clicked on marker', pos);
-        });
+        for (const waypoint of waypoints) {
+          const pos = {
+            lat: waypoint.getLocation()?.getLatitude() ?? 0,
+            lng: waypoint.getLocation()?.getLongitude() ?? 0,
+          };
 
-        marker.addListener('dblclick', () => {
-          const waypointRequest = new navigationApi.RemoveWaypointRequest();
-          waypointRequest.setName(props.name);
-          waypointRequest.setId(waypoint.getId());
+          const posStr = JSON.stringify(pos);
 
-          rcLogConditionally(req);
-          props.client.navigationService.removeWaypoint(waypointRequest, new grpc.Metadata(), grpcCallback);
-        });
+          if (knownWaypoints[posStr]) {
+            currentWaypoints[posStr] = knownWaypoints[posStr]!;
+            continue;
+          }
+
+          localLabelCounter += 1;
+
+          const marker = new window.google.maps.Marker({
+            position: pos,
+            map,
+            label: `${localLabelCounter}`,
+          });
+
+          currentWaypoints[posStr] = marker;
+          knownWaypoints[posStr] = marker;
+
+          marker.addListener('click', () => {
+            console.log('clicked on marker', pos);
+          });
+
+          marker.addListener('dblclick', () => {
+            const waypointRequest = new navigationApi.RemoveWaypointRequest();
+            waypointRequest.setName(props.name);
+            waypointRequest.setId(waypoint.getId());
+
+            rcLogConditionally(req);
+            props.client.navigationService.removeWaypoint(
+              waypointRequest,
+              new grpc.Metadata(),
+              grpcCallback
+            );
+          });
+        }
+
+        const waypointsToDelete = Object.keys(knownWaypoints).filter(
+          (elem) => !(elem in currentWaypoints)
+        );
+
+        for (const key of waypointsToDelete) {
+          const marker = knownWaypoints[key]!;
+          marker.setMap(null);
+          delete knownWaypoints[key];
+        }
+
+        updateTimerId = window.setTimeout(updateWaypoints, 1000);
       }
-
-      const waypointsToDelete = Object.keys(knownWaypoints).filter((elem) => !(elem in currentWaypoints));
-
-      for (const key of waypointsToDelete) {
-        const marker = knownWaypoints[key]!;
-        marker.setMap(null);
-        delete knownWaypoints[key];
-      }
-
-      updateTimerId = window.setTimeout(updateWaypoints, 1000);
-    });
+    );
   };
 
   updateWaypoints();
@@ -213,26 +223,33 @@ const initNavigation = async () => {
     req.setName(props.name);
 
     rcLogConditionally(req);
-    props.client.navigationService.getLocation(req, new grpc.Metadata(), (err, resp) => {
-      grpcCallback(err, resp, false);
+    props.client.navigationService.getLocation(
+      req,
+      new grpc.Metadata(),
+      (err: ServiceError, resp: navigationApi.GetLocationResponse) => {
+        grpcCallback(err, resp, false);
 
-      if (err) {
+        if (err) {
+          setTimeout(updateLocation, 1000);
+          return;
+        }
+
+        const pos = {
+          lat: resp?.getLocation()?.getLatitude() ?? 0,
+          lng: resp?.getLocation()?.getLongitude() ?? 0,
+        };
+
+        if (!centered) {
+          centered = true;
+          map.setCenter(pos);
+        }
+
+        locationMarker.setPosition(pos);
+        locationMarker.setMap(map);
+
         setTimeout(updateLocation, 1000);
-        return;
       }
-
-      const pos = { lat: resp?.getLocation()?.getLatitude() ?? 0, lng: resp?.getLocation()?.getLongitude() ?? 0 };
-
-      if (!centered) {
-        centered = true;
-        map.setCenter(pos);
-      }
-
-      locationMarker.setPosition(pos);
-      locationMarker.setMap(map);
-
-      setTimeout(updateLocation, 1000);
-    });
+    );
   };
   updateLocation();
 };

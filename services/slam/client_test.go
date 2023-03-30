@@ -60,7 +60,7 @@ func TestClientWorkingService(t *testing.T) {
 		return poseSucc, componentRefSucc, nil
 	}
 
-	workingSLAMService.GetPointCloudMapStreamFunc = func(ctx context.Context, name string) (func() ([]byte, error), error) {
+	workingSLAMService.GetPointCloudMapFunc = func(ctx context.Context, name string) (func() ([]byte, error), error) {
 		reader := bytes.NewReader(pcd)
 		clientBuffer := make([]byte, chunkSizePointCloud)
 		f := func() ([]byte, error) {
@@ -73,7 +73,7 @@ func TestClientWorkingService(t *testing.T) {
 		return f, nil
 	}
 
-	workingSLAMService.GetInternalStateStreamFunc = func(ctx context.Context, name string) (func() ([]byte, error), error) {
+	workingSLAMService.GetInternalStateFunc = func(ctx context.Context, name string) (func() ([]byte, error), error) {
 		reader := bytes.NewReader(internalStateSucc)
 		clientBuffer := make([]byte, chunkSizeInternalState)
 		f := func() ([]byte, error) {
@@ -214,11 +214,11 @@ func TestFailingClient(t *testing.T) {
 		return nil, "", errors.New("failure to get position")
 	}
 
-	failingSLAMService.GetPointCloudMapStreamFunc = func(ctx context.Context, name string) (func() ([]byte, error), error) {
+	failingSLAMService.GetPointCloudMapFunc = func(ctx context.Context, name string) (func() ([]byte, error), error) {
 		return nil, errors.New("failure during get pointcloud map stream")
 	}
 
-	failingSLAMService.GetInternalStateStreamFunc = func(ctx context.Context, name string) (func() ([]byte, error), error) {
+	failingSLAMService.GetInternalStateFunc = func(ctx context.Context, name string) (func() ([]byte, error), error) {
 		return nil, errors.New("failure during get internal state stream")
 	}
 
@@ -241,9 +241,9 @@ func TestFailingClient(t *testing.T) {
 		ctx := context.Background()
 		cancelCtx, cancelFunc := context.WithCancel(ctx)
 		cancelFunc()
-		_, err = failingSLAMClient.GetPointCloudMapStream(cancelCtx, nameFail)
+		_, err = failingSLAMClient.GetPointCloudMap(cancelCtx, nameFail)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "context cancel")
-		_, err = failingSLAMClient.GetInternalStateStream(cancelCtx, nameFail)
+		_, err = failingSLAMClient.GetInternalState(cancelCtx, nameFail)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "context cancel")
 
 		// test get position
@@ -265,14 +265,14 @@ func TestFailingClient(t *testing.T) {
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 
-	failingSLAMService.GetPointCloudMapStreamFunc = func(ctx context.Context, name string) (func() ([]byte, error), error) {
+	failingSLAMService.GetPointCloudMapFunc = func(ctx context.Context, name string) (func() ([]byte, error), error) {
 		f := func() ([]byte, error) {
 			return nil, errors.New("failure during callback")
 		}
 		return f, nil
 	}
 
-	failingSLAMService.GetInternalStateStreamFunc = func(ctx context.Context, name string) (func() ([]byte, error), error) {
+	failingSLAMService.GetInternalStateFunc = func(ctx context.Context, name string) (func() ([]byte, error), error) {
 		f := func() ([]byte, error) {
 			return nil, errors.New("failure during callback")
 		}

@@ -2,7 +2,7 @@
 
 import { computed, ref } from 'vue';
 import { Struct } from 'google-protobuf/google/protobuf/struct_pb';
-import { Client, commonApi, genericApi } from '@viamrobotics/sdk';
+import { Client, commonApi, ServiceError } from '@viamrobotics/sdk';
 import { toast } from '../lib/toast';
 import { resourceNameToString } from '../lib/resource';
 import { rcLogConditionally } from '../lib/log';
@@ -23,28 +23,31 @@ const doCommand = (name: string, command: string) => {
   if (!name || !command) {
     return;
   }
-  const request = new genericApi.DoCommandRequest();
+  const request = new commonApi.DoCommandRequest();
   request.setName(name);
   request.setCommand(Struct.fromJavaScript(JSON.parse(command)));
 
   executing.value = true;
   rcLogConditionally(request);
-  props.client.genericService.doCommand(request, (error, response) => {
-    if (error) {
-      toast.error(`Error executing command on ${name}: ${error}`);
-      executing.value = false;
-      return;
-    }
+  props.client.genericService.doCommand(
+    request,
+    (error: ServiceError, response: commonApi.DoCommandResponse) => {
+      if (error) {
+        toast.error(`Error executing command on ${name}: ${error}`);
+        executing.value = false;
+        return;
+      }
 
-    if (!response) {
-      toast.error(`Invalid response when executing command on ${name}`);
-      executing.value = false;
-      return;
-    }
+      if (!response) {
+        toast.error(`Invalid response when executing command on ${name}`);
+        executing.value = false;
+        return;
+      }
 
-    output.value = JSON.stringify(response?.getResult()?.toObject(), null, '\t');
-    executing.value = false;
-  });
+      output.value = JSON.stringify(response?.getResult()?.toObject(), null, '\t');
+      executing.value = false;
+    }
+  );
 };
 
 const namesToPrettySelect = (resourcesToPretty: commonApi.ResourceName.AsObject[]): string => {
