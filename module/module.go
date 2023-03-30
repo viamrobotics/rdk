@@ -276,7 +276,7 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 	}
 
 	if err := addConvertAttributesToConfig(cfg); err != nil {
-		return nil, errors.Wrapf(err, "unable to convert attributes for validation")
+		return nil, errors.Wrapf(err, "unable to convert attributes when adding resource")
 	}
 
 	var res interface{}
