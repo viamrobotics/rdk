@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-
-	// "go.viam.com/utils/testutils"
+	"go.viam.com/test"
+	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/movementsensor"
@@ -16,8 +16,6 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
-	"go.viam.com/test"
-	"go.viam.com/utils/testutils"
 )
 
 func nowNanosTest() uint64 {
