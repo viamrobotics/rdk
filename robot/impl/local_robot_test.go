@@ -38,6 +38,7 @@ import (
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/gripper"
+	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/components/movementsensor"
 	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/config"
@@ -59,6 +60,7 @@ import (
 	"go.viam.com/rdk/services/navigation"
 	_ "go.viam.com/rdk/services/register"
 	"go.viam.com/rdk/services/sensors"
+	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
 	rtestutils "go.viam.com/rdk/testutils"
@@ -2287,5 +2289,103 @@ func TestCheckMaxInstanceSkipRemote(t *testing.T) {
 	test.That(t, maxInstance, test.ShouldEqual, 2)
 
 	_, err = r.ResourceByName(datamanager.Named("remote:builtin"))
+	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestOrphanedResources(t *testing.T) {
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+
+	cfg := &config.Config{
+		Components: []config.Component{
+			{
+				Name:  "b",
+				Model: fakeModel,
+				Type:  base.SubtypeName,
+			},
+			{
+				Name:      "m",
+				Model:     fakeModel,
+				Type:      motor.SubtypeName,
+				DependsOn: []string{"b"},
+			},
+			{
+				Name:      "m1",
+				Model:     fakeModel,
+				Type:      motor.SubtypeName,
+				DependsOn: []string{"m"},
+			},
+		},
+		Services: []config.Service{
+			{
+				Namespace: resource.ResourceNamespaceRDK,
+				Name:      "s",
+				Model:     fakeModel,
+				Type:      slam.SubtypeName,
+				DependsOn: []string{"b"},
+			},
+		},
+	}
+	r, err := robotimpl.New(ctx, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+	}()
+
+	// Assert that removing base 'b' removes motors 'm' and 'm1' and slam service 's'.
+	cfg2 := &config.Config{
+		Components: []config.Component{
+			{
+				Name:      "m",
+				Model:     fakeModel,
+				Type:      motor.SubtypeName,
+				DependsOn: []string{"b"},
+			},
+			{
+				Name:      "m1",
+				Model:     fakeModel,
+				Type:      motor.SubtypeName,
+				DependsOn: []string{"m"},
+			},
+		},
+		Services: []config.Service{
+			{
+				Namespace: resource.ResourceNamespaceRDK,
+				Name:      "s",
+				Model:     fakeModel,
+				Type:      slam.SubtypeName,
+				DependsOn: []string{"b"},
+			},
+		},
+	}
+	r.Reconfigure(ctx, cfg2)
+
+	res, err := r.ResourceByName(base.Named("b"))
+	test.That(t, err, test.ShouldBeError,
+		rutils.NewResourceNotFoundError(base.Named("b")))
+	test.That(t, res, test.ShouldBeNil)
+	res, err = r.ResourceByName(motor.Named("m"))
+	test.That(t, err, test.ShouldBeError,
+		rutils.NewResourceNotFoundError(motor.Named("m")))
+	test.That(t, res, test.ShouldBeNil)
+	res, err = r.ResourceByName(motor.Named("m1"))
+	test.That(t, err, test.ShouldBeError,
+		rutils.NewResourceNotFoundError(motor.Named("m1")))
+	test.That(t, res, test.ShouldBeNil)
+	res, err = r.ResourceByName(slam.Named("s"))
+	test.That(t, err, test.ShouldBeError,
+		rutils.NewResourceNotFoundError(slam.Named("s")))
+	test.That(t, res, test.ShouldBeNil)
+
+	// Assert that adding base 'b' back re-adds 'm' and 'm1' and slam service 's'.
+	r.Reconfigure(ctx, cfg)
+
+	_, err = r.ResourceByName(base.Named("b"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = r.ResourceByName(motor.Named("m"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = r.ResourceByName(motor.Named("m1"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = r.ResourceByName(slam.Named("s"))
 	test.That(t, err, test.ShouldBeNil)
 }

@@ -18,8 +18,8 @@ import (
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/slam/internal/testhelper"
 	"go.viam.com/rdk/spatialmath"
-	slamConfig "go.viam.com/slam/config"
-	slamTesthelper "go.viam.com/slam/testhelper"
+	slamConfig "go.viam.com/rdk/services/slam/slam_copy/config"
+	slamTesthelper "go.viam.com/rdk/services/slam/slam_copy/testhelper"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 )

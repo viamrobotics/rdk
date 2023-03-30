@@ -968,6 +968,21 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	if err != nil {
 		allErrs = multierr.Combine(allErrs, err)
 	}
+	// Remove orphaned resources (dependents of removed resources) from newConfig.
+	for _, name := range filtered.resources.Names() {
+		for i, c := range newConfig.Components {
+			if c.ResourceName() == name {
+				newConfig.Components[i] = newConfig.Components[len(newConfig.Components)-1]
+				newConfig.Components = newConfig.Components[:len(newConfig.Components)-1]
+			}
+		}
+		for i, s := range newConfig.Services {
+			if s.ResourceName() == name {
+				newConfig.Services[i] = newConfig.Services[len(newConfig.Services)-1]
+				newConfig.Services = newConfig.Services[:len(newConfig.Services)-1]
+			}
+		}
+	}
 	// Second we update the resource graph.
 	// We pass a search function to look for dependencies, we should find them either in the current config or in the modified.
 	err = r.manager.updateResources(ctx, diff, func(name string) (resource.Name, bool) {
