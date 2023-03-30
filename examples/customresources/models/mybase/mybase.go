@@ -56,7 +56,7 @@ func (base *MyBase) Reconfigure(cfg config.Component, deps registry.Dependencies
 	if !ok {
 		return utils.NewUnexpectedTypeError(baseConfig, cfg.ConvertedAttributes)
 	}
-	err := errors.New("")
+	var err error
 
 	base.left, err = motor.FromDependencies(deps, baseConfig.LeftMotor)
 	if err != nil {

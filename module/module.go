@@ -504,7 +504,7 @@ func (m *Module) OperationManager() *operation.Manager {
 	return m.operations
 }
 
-// addConvertAttributesToConfig uses the SeriviceMapAttributeConverter to fill in the
+// addConvertAttributesToConfig uses the MapAttributeConverter to fill in the
 // ConvertedAttributes field from the Attributes
 func addConvertAttributesToConfig(cfg *config.Component) error {
 	// Try to find map converter for a component.
