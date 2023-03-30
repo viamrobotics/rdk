@@ -25,7 +25,7 @@ const (
 	errTarget   = 5.0
 	oneTurn     = 360
 	increment   = 0.1
-	sensorDebug = false
+	sensorDebug = true
 )
 
 type sensorBase struct {
@@ -74,7 +74,7 @@ func makeBaseWithSensors(
 			omsName = msName
 		}
 	}
-	s.logger.Debugf("using sensor %s as orientation sensor for base", omsName)
+	s.logger.Infof("using sensor %s as orientation sensor for base", omsName)
 
 	return s, nil
 }
@@ -88,27 +88,32 @@ func (s *sensorBase) stopSensors() {
 }
 
 // Spin commands a base to turn about its center at a angular speed and for a specific angle.
-// TODO RSDK-2356 (rh) changing the angle here also changed the speed of the base
-// TODO RSDK-2362 check choppiness of movement when run as a remote.
 func (s *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
 	s.stopSensors()
 
-	if s.orientation != nil {
+	if s.orientation == nil {
+		return s.base.Spin(ctx, angleDeg, degsPerSec, nil)
+	}
+
+	var returnErr error
+	base, isWheeled := rdkutils.UnwrapProxy(s.base).(*wheeledBase)
+	if isWheeled {
 		s.workers.Add(1)
 		utils.ManagedGo(func() {
+			rpm, _ := base.spinMath(angleDeg, degsPerSec)
+
 			// runAll calls GoFor, which blocks until the timed operation is done, or returns nil if a zero is passed in
 			// the code inside this goroutine would block the sensor for loop if taken out
-			if err := s.base.Spin(ctx, angleDeg, degsPerSec, extra); err != nil {
-				s.logger.Error(err)
+			if err := base.runAll(ctx, -rpm, 0, rpm, 0); err != nil {
+				returnErr = err
 			}
 		}, s.workers.Done)
-		return s.spinWithMovementSensor(s.sensorCtx, angleDeg, degsPerSec)
+		return s.stopSpinWithSensor(s.sensorCtx, angleDeg, degsPerSec)
 	}
-	s.stopSensors()
-	return s.base.Spin(ctx, angleDeg, degsPerSec, nil)
+	return returnErr
 }
 
-func (s *sensorBase) spinWithMovementSensor(
+func (s *sensorBase) stopSpinWithSensor(
 	ctx context.Context, angleDeg, degsPerSec float64,
 ) error {
 	startYaw, err := getCurrentYaw(ctx, s.orientation)
@@ -127,6 +132,7 @@ func (s *sensorBase) spinWithMovementSensor(
 	s.workers.Add(1)
 	utils.ManagedGo(func() {
 		ticker := time.NewTicker(yawPollTime)
+		defer ticker.Stop()
 		for {
 			select {
 			case <-ctx.Done():
@@ -145,7 +151,10 @@ func (s *sensorBase) spinWithMovementSensor(
 					errCounter++
 					if errCounter > 100 {
 						s.logger.Error(errors.Wrap(
-							err, "imu sensor unreachable, 100 error counts when trying to read yaw angle"))
+							err, "imu sensor unreachable, 100 error counts when trying to read yaw angle, stopping base"))
+						if err := s.Stop(ctx, nil); err != nil {
+							s.logger.Error(err)
+						}
 						return
 					}
 					return
@@ -216,9 +225,7 @@ func getCurrentYaw(ctx context.Context, ms movementsensor.MovementSensor,
 	defer done()
 	orientation, err := ms.Orientation(ctx, nil)
 	if err != nil {
-		return 0, errors.Wrap(
-			err, "error getting orientation from sensor, spin will proceed without sensor feedback",
-		)
+		return 0, err
 	}
 	// Add Pi  to make the computation for overshoot simpler
 	// turns imus from -180 -> 180 to a 0 -> 360 range

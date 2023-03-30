@@ -10,10 +10,14 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/components/movementsensor"
+	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 	rdkutils "go.viam.com/rdk/utils"
@@ -278,11 +282,10 @@ func TestSpinWithMovementSensor(t *testing.T) {
 		right:                []motor.Motor{&m},
 		allMotors:            []motor.Motor{&m},
 
-		opMgr:                   operation.SingleOperationManager{},
-		activeBackgroundWorkers: &sync.WaitGroup{},
-		logger:                  logger,
-		name:                    "basie",
-		collisionGeometry:       nil,
+		opMgr:             operation.SingleOperationManager{},
+		logger:            logger,
+		name:              "basie",
+		collisionGeometry: nil,
 	}
 
 	sensorBase := &sensorBase{
@@ -295,9 +298,44 @@ func TestSpinWithMovementSensor(t *testing.T) {
 		orientation:   ms,
 	}
 
-	err := sensorBase.spinWithMovementSensor(sensorBase.sensorCtx, 10, 50)
+	err := sensorBase.stopSpinWithSensor(sensorBase.sensorCtx, 10, 50)
 	test.That(t, err, test.ShouldBeNil)
 	// we have no way of stopping the sensor in this little test
 	// so we stop runnign goroutines manually and test our function
 	sensorBase.stopSensors()
+}
+
+var sConfig config.Component = config.Component{
+	Name:  "test",
+	Type:  base.Subtype.ResourceSubtype,
+	Model: resource.Model{Name: "wheeled_base"},
+	ConvertedAttributes: &AttrConfig{
+		WidthMM:              100,
+		WheelCircumferenceMM: 1000,
+		Left:                 []string{"fl-m", "bl-m"},
+		Right:                []string{"fr-m", "br-m"},
+		MovementSensor:       []string{"ms"},
+	},
+}
+
+func TestSensorBase(t *testing.T) {
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+	deps, err := testCfg.Validate("path")
+	test.That(t, err, test.ShouldBeNil)
+	motorDeps := fakeMotorDependencies(t, deps)
+	wheeled, err := createWheeledBase(context.Background(), motorDeps, testCfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, wheeled, test.ShouldNotBeNil)
+
+	msDeps := make(registry.Dependencies)
+	msDeps[movementsensor.Named("ms")] = &inject.MovementSensor{
+		PropertiesFuncExtraCap: map[string]interface{}{},
+		PropertiesFunc: func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
+			return &movementsensor.Properties{OrientationSupported: true}, nil
+		},
+	}
+	sensorBase, err := makeBaseWithSensors(ctx, wheeled, msDeps, sConfig, logger)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, sensorBase, test.ShouldNotBeNil)
 }
