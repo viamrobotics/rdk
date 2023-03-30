@@ -2,7 +2,10 @@
 package fake
 
 import (
+	"bytes"
 	"context"
+	// for embedding board image file.
+	_ "embed"
 	"image"
 
 	"github.com/edaniels/golog"
@@ -19,6 +22,12 @@ import (
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
 )
+
+//go:embed board2.png
+var board2 []byte
+
+//go:embed board2_gray.png
+var board2Gray []byte
 
 var model = resource.NewDefaultModel("fake")
 
@@ -184,11 +193,11 @@ func (c *Camera) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 
 // getColorImage always returns the same color image of a chess board.
 func (c *Camera) getColorImage() (*rimage.Image, error) {
-	path := utils.ResolveFile("components/camera/fake/board2.png")
-	img, err := rimage.NewImageFromFile(path)
+	decoded, _, err := image.Decode(bytes.NewReader(board2))
 	if err != nil {
 		return nil, err
 	}
+	img := rimage.ConvertImage(decoded)
 	if c.Height == initialHeight && c.Width == initialWidth {
 		return img, nil
 	}
@@ -199,8 +208,13 @@ func (c *Camera) getColorImage() (*rimage.Image, error) {
 
 // getDepthImage always returns the same depth image of a chess board.
 func (c *Camera) getDepthImage(ctx context.Context) (*rimage.DepthMap, error) {
-	path := utils.ResolveFile("components/camera/fake/board2_gray.png")
-	dm, err := rimage.NewDepthMapFromFile(ctx, path)
+	// path := utils.ResolveFile("components/camera/fake/board2_gray.png")
+	// dm, err := rimage.NewDepthMapFromFile(ctx, path)
+	decoded, _, err := image.Decode(bytes.NewReader(board2Gray))
+	if err != nil {
+		return nil, err
+	}
+	dm, err := rimage.ConvertImageToDepthMap(ctx, decoded)
 	if err != nil {
 		return nil, err
 	}
