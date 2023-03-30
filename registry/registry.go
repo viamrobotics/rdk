@@ -13,7 +13,7 @@ import (
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/mitchellh/copystructure"
 	"github.com/pkg/errors"
-	util "go.viam.com/utils"
+	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
 
@@ -304,7 +304,7 @@ func FindValidServiceModels(rName resource.Name) []resource.Model {
 			splitName := strings.Split(key, "/")
 			model, err := resource.NewModelFromString(splitName[1])
 			if err != nil {
-				util.UncheckedError(err)
+				viamutils.UncheckedError(err)
 				continue
 			}
 			validModels = append(validModels, model)

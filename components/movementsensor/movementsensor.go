@@ -115,11 +115,6 @@ func NewUnimplementedInterfaceError(actual interface{}) error {
 	return utils.NewUnimplementedInterfaceError((*MovementSensor)(nil), actual)
 }
 
-// DependencyTypeError is used when a resource doesn't implement the expected interface.
-func DependencyTypeError(name string, actual interface{}) error {
-	return utils.DependencyTypeError(name, (*MovementSensor)(nil), actual)
-}
-
 // FromRobot is a helper for getting the named MovementSensor from the given Robot.
 func FromRobot(r robot.Robot, name string) (MovementSensor, error) {
 	return robot.ResourceFromRobot[MovementSensor](r, Named(name))

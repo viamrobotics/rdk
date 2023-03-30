@@ -70,11 +70,6 @@ func NewUnimplementedInterfaceError(actual interface{}) error {
 	return utils.NewUnimplementedInterfaceError((*AudioInput)(nil), actual)
 }
 
-// DependencyTypeError is used when a resource doesn't implement the expected interface.
-func DependencyTypeError(name string, actual interface{}) error {
-	return utils.DependencyTypeError(name, (*AudioInput)(nil), actual)
-}
-
 // WrapWithReconfigurable wraps an audio input with a reconfigurable and locking interface.
 func WrapWithReconfigurable(r interface{}, name resource.Name) (resource.Reconfigurable, error) {
 	i, ok := r.(AudioInput)

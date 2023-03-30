@@ -71,11 +71,6 @@ func NewUnimplementedInterfaceError(actual interface{}) error {
 	return utils.NewUnimplementedInterfaceError((*Encoder)(nil), actual)
 }
 
-// DependencyTypeError is used when a resource doesn't implement the expected interface.
-func DependencyTypeError(name string, actual interface{}) error {
-	return utils.DependencyTypeError(name, (*Encoder)(nil), actual)
-}
-
 // FromRobot is a helper for getting the named encoder from the given Robot.
 func FromRobot(r robot.Robot, name string) (Encoder, error) {
 	return robot.ResourceFromRobot[Encoder](r, Named(name))
