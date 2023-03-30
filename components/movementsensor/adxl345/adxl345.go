@@ -154,6 +154,7 @@ type adxl345 struct {
 	interruptsEnabled        byte
 	interruptsFound          map[InterruptID]int
 	configuredRegisterValues map[byte]byte
+	ticksChanMap             map[board.DigitalInterrupt]chan board.Tick
 
 	// Lock the mutex when you want to read or write either the acceleration or the last error.
 	mu                 sync.Mutex
@@ -215,6 +216,7 @@ func NewAdxl345(
 		cancelFunc:               cancelFunc,
 		configuredRegisterValues: configuredRegisterValues,
 		interruptsFound:          make(map[InterruptID]int),
+		ticksChanMap:             make(map[board.DigitalInterrupt]chan board.Tick),
 	}
 
 	// To check that we're able to talk to the chip, we should be able to read register 0 and get
@@ -301,6 +303,8 @@ func NewAdxl345(
 
 	for _, interrupt := range interruptMap {
 		ticksChan := make(chan board.Tick)
+		interrupt.AddCallback(ticksChan)
+		sensor.ticksChanMap[interrupt] = ticksChan
 		sensor.startInterruptMonitoring(interrupt, ticksChan)
 	}
 
@@ -309,8 +313,6 @@ func NewAdxl345(
 
 func (adxl *adxl345) startInterruptMonitoring(interrupt board.DigitalInterrupt, ticksChan chan board.Tick) {
 	utils.PanicCapturingGo(func() {
-		interrupt.AddCallback(ticksChan)
-		defer interrupt.RemoveCallback(ticksChan)
 		for {
 			select {
 			case <-adxl.cancelContext.Done():
@@ -554,6 +556,11 @@ func (adxl *adxl345) Properties(ctx context.Context, extra map[string]interface{
 func (adxl *adxl345) Close(ctx context.Context) {
 	adxl.mu.Lock()
 	defer adxl.mu.Unlock()
+
+	for interrupt, channel := range adxl.ticksChanMap {
+		interrupt.RemoveCallback(channel)
+	}
+
 	// Put the chip into standby mode by setting the Power Control register (0x2D) to 0.
 	err := adxl.writeByte(ctx, 0x2D, 0x00)
 	if err != nil {
