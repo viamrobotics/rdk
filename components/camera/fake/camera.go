@@ -89,9 +89,6 @@ func (at *Attrs) Validate() error {
 	if at.Width%2 != 0 {
 		return errors.Errorf("odd-number resolutions cannot be rendered, cannot use a width of %d", at.Width)
 	}
-	if at.Height > 0 && at.Width > 0 {
-		return errors.New("only height or width can be specified, not both")
-	}
 	return nil
 }
 
