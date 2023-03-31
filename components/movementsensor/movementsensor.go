@@ -107,7 +107,7 @@ var (
 // FromDependencies is a helper for getting the named movementsensor from a collection of
 // dependencies.
 func FromDependencies(deps registry.Dependencies, name string) (MovementSensor, error) {
-	return registry.ComponentFromDependencies[MovementSensor](deps, Named(name))
+	return registry.ResourceFromDependencies[MovementSensor](deps, Named(name))
 }
 
 // NewUnimplementedInterfaceError is used when there is a failed interface check.

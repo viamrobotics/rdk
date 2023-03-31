@@ -88,7 +88,7 @@ type Gantry interface {
 // FromDependencies is a helper for getting the named gantry from a collection of
 // dependencies.
 func FromDependencies(deps registry.Dependencies, name string) (Gantry, error) {
-	return registry.ComponentFromDependencies[Gantry](deps, Named(name))
+	return registry.ResourceFromDependencies[Gantry](deps, Named(name))
 }
 
 // A LocalGantry represents a Gantry that can report whether it is moving or not.

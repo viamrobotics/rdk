@@ -187,7 +187,7 @@ var (
 // FromDependencies is a helper for getting the named board from a collection of
 // dependencies.
 func FromDependencies(deps registry.Dependencies, name string) (Board, error) {
-	return registry.ComponentFromDependencies[Board](deps, Named(name))
+	return registry.ResourceFromDependencies[Board](deps, Named(name))
 }
 
 // FromRobot is a helper for getting the named board from the given Robot.

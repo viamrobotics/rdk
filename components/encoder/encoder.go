@@ -63,7 +63,7 @@ var (
 // FromDependencies is a helper for getting the named encoder from a collection of
 // dependencies.
 func FromDependencies(deps registry.Dependencies, name string) (Encoder, error) {
-	return registry.ComponentFromDependencies[Encoder](deps, Named(name))
+	return registry.ResourceFromDependencies[Encoder](deps, Named(name))
 }
 
 // NewUnimplementedInterfaceError is used when there is a failed interface check.

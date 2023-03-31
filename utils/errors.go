@@ -33,6 +33,11 @@ func DependencyTypeError(name string, expected, actual interface{}) error {
 	return errors.Errorf("dependency %q should be an implementation of %s but it was a %T", name, typeStr(expected), actual)
 }
 
+// GenericDependencyTypeError is used when a resource doesn't implement the expected interface.
+func GenericDependencyTypeError[T any](name string, actual interface{}) error {
+	return DependencyTypeError(name, (*T)(nil), actual)
+}
+
 // NewUnexpectedTypeError is used when there is a type mismatch.
 func NewUnexpectedTypeError(expected, actual interface{}) error {
 	return errors.Errorf("expected %s but got %T", typeStr(expected), actual)

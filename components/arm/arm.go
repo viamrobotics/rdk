@@ -141,7 +141,7 @@ func NewUnimplementedLocalInterfaceError(actual interface{}) error {
 // FromDependencies is a helper for getting the named arm from a collection of
 // dependencies.
 func FromDependencies(deps registry.Dependencies, name string) (Arm, error) {
-	return registry.ComponentFromDependencies[Arm](deps, Named(name))
+	return registry.ResourceFromDependencies[Arm](deps, Named(name))
 }
 
 // FromRobot is a helper for getting the named Arm from the given Robot.

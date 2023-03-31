@@ -122,7 +122,7 @@ var (
 // FromDependencies is a helper for getting the named audio input from a collection of
 // dependencies.
 func FromDependencies(deps registry.Dependencies, name string) (AudioInput, error) {
-	return registry.ComponentFromDependencies[AudioInput](deps, Named(name))
+	return registry.ResourceFromDependencies[AudioInput](deps, Named(name))
 }
 
 // FromRobot is a helper for getting the named audio input from the given Robot.

@@ -186,7 +186,7 @@ var (
 // FromDependencies is a helper for getting the named input controller from a collection of
 // dependencies.
 func FromDependencies(deps registry.Dependencies, name string) (Controller, error) {
-	return registry.ComponentFromDependencies[Controller](deps, Named(name))
+	return registry.ResourceFromDependencies[Controller](deps, Named(name))
 }
 
 // FromRobot is a helper for getting the named input controller from the given Robot.

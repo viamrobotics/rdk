@@ -325,14 +325,9 @@ type ReconfigurableService interface {
 	Reconfigure(ctx context.Context, cfg config.Service, deps Dependencies) error
 }
 
-// DependencyTypeError is used when a resource doesn't implement the expected interface.
-func DependencyTypeError[T any](name string, actual interface{}) error {
-	return utils.DependencyTypeError(name, (*T)(nil), actual)
-}
-
-// ComponentFromDependencies returns a named component from a collection of
+// ResourceFromDependencies returns a named component from a collection of
 // dependencies.
-func ComponentFromDependencies[T any](deps Dependencies, name resource.Name) (T, error) {
+func ResourceFromDependencies[T any](deps Dependencies, name resource.Name) (T, error) {
 	var zero T
 	res, ok := deps[(name)]
 	if !ok {
@@ -341,7 +336,7 @@ func ComponentFromDependencies[T any](deps Dependencies, name resource.Name) (T,
 	part, ok := res.(T)
 
 	if !ok {
-		return zero, DependencyTypeError[T](name.Name, res)
+		return zero, utils.GenericDependencyTypeError[T](name.Name, res)
 	}
 	return part, nil
 }
