@@ -336,7 +336,7 @@ func ResourceFromDependencies[T any](deps Dependencies, name resource.Name) (T, 
 	part, ok := res.(T)
 
 	if !ok {
-		return zero, utils.GenericDependencyTypeError[T](name.Name, res)
+		return zero, utils.DependencyTypeError[T](name.Name, res)
 	}
 	return part, nil
 }
