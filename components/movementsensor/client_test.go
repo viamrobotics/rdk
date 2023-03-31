@@ -51,7 +51,8 @@ func TestClient(t *testing.T) {
 		"linear_acceleration": r3.Vector{X: 0, Y: 0, Z: aclZ},
 		"angular_velocity":    spatialmath.AngularVelocity{X: 0, Y: 0, Z: ang},
 		"compass":             heading,
-		"orientation":         ori.OrientationVectorDegrees()}
+		"orientation":         ori.OrientationVectorDegrees(),
+	}
 
 	injectMovementSensor := &inject.MovementSensor{}
 	injectMovementSensor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
