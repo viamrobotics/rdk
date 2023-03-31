@@ -84,7 +84,6 @@ func (kwb *kinematicWheeledBase) GoToInputs(ctx context.Context, goal []referenc
 	desiredHeading := math.Atan2(currentPt.Z-goal[1].Value, currentPt.X-goal[0].Value)
 	distance := math.Hypot(currentPt.Z-goal[1].Value, currentPt.X-goal[0].Value)
 
-
 	// TODO: we do want the pitch here but this is domain limited to -90 to 90, need math to fix this
 	heading := utils.RadToDeg(currentPose.Orientation().EulerAngles().Pitch)
 	// While base is not at the goal

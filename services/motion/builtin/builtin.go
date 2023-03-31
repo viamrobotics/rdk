@@ -11,6 +11,8 @@ import (
 
 	servicepb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/components/base"
+	"go.viam.com/rdk/components/base/wheeled"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
@@ -21,6 +23,7 @@ import (
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/services/motion"
+	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -90,16 +93,7 @@ func (ms *builtIn) Move(
 	goalPose, _ := tf.(*referenceframe.PoseInFrame)
 
 	// the goal is to move the component to goalPose which is specified in coordinates of goalFrameName
-	output, err := motionplan.PlanMotion(ctx,
-		logger,
-		goalPose,
-		movingFrame,
-		fsInputs,
-		frameSys,
-		worldState,
-		constraints,
-		extra,
-	)
+	output, err := motionplan.PlanMotion(ctx, logger, goalPose, movingFrame, fsInputs, frameSys, worldState, constraints, extra)
 	if err != nil {
 		return false, err
 	}
@@ -194,16 +188,37 @@ func (ms *builtIn) GetPose(
 	supplementalTransforms []*referenceframe.LinkInFrame,
 	extra map[string]interface{},
 ) (*referenceframe.PoseInFrame, error) {
-	if destinationFrame == "" {
-		destinationFrame = referenceframe.World
+	// if destinationFrame == "" {
+	// 	destinationFrame = referenceframe.World
+	// }
+	// return ms.r.TransformPose(
+	// 	ctx,
+	// 	referenceframe.NewPoseInFrame(
+	// 		componentName.ShortName(),
+	// 		spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0}),
+	// 	),
+	// 	destinationFrame,
+	// 	supplementalTransforms,
+	// )
+	component, err := ms.r.ResourceByName(componentName)
+	if err != nil {
+		return nil, err
 	}
-	return ms.r.TransformPose(
-		ctx,
-		referenceframe.NewPoseInFrame(
-			componentName.ShortName(),
-			spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0}),
-		),
-		destinationFrame,
-		supplementalTransforms,
-	)
+	base, ok := component.(base.Base)
+	if !ok {
+		return nil, errors.New("not a base")
+	}
+	slam, err := slam.FromRobot(ms.r, "run-slam")
+	if err != nil {
+		return nil, err
+	}
+	kb, err := wheeled.WrapWithKinematics(ctx, base, "run-slam", slam)
+	if err != nil {
+		return nil, err
+	}
+	inputs, err := kb.CurrentInputs(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewPoseFromPoint(r3.Vector{inputs[0].Value, inputs[1].Value, 0})), nil
 }
