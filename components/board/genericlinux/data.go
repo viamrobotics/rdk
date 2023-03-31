@@ -62,8 +62,8 @@ func noBoardError(modelName string) error {
 // describes a GPIO chip within sysfs.
 type gpioChipData struct {
 	Dir   string // Pseudofile within sysfs to interact with this chip
-	Base  int // Taken from the /base pseudofile in sysfs: offset to the start of the lines
-	Ngpio int // Taken from the /ngpio pseudofile in sysfs: number of lines on the chip
+	Base  int    // Taken from the /base pseudofile in sysfs: offset to the start of the lines
+	Ngpio int    // Taken from the /ngpio pseudofile in sysfs: number of lines on the chip
 }
 
 // GetGPIOBoardMappings attempts to find a compatible board-pin mapping for the given mappings.
@@ -187,8 +187,8 @@ func getGpioChipDefs(pinDefs []PinDefinition) (map[string]gpioChipData, error) {
 			}
 
 			gpioChipInfo[gpioChipName] = gpioChipData{
-				Dir: chipFileName,
-				Base: int(baseParsed),
+				Dir:   chipFileName,
+				Base:  int(baseParsed),
 				Ngpio: int(ngpioParsed),
 			}
 			break
@@ -206,8 +206,8 @@ func getBoardMapping(pinDefs []PinDefinition, gpioChipInfo map[string]gpioChipDa
 
 		chipInfo, ok := gpioChipInfo[pinDef.GPIOChipSysFSDir]
 		if !ok {
-			return nil, fmt.Errorf("Unknown GPIO device %s for pin %d",
-			                       pinDef.GPIOChipSysFSDir, key)
+			return nil, fmt.Errorf("unknown GPIO device %s for pin %d",
+				pinDef.GPIOChipSysFSDir, key)
 		}
 
 		chipRelativeID, ok := pinDef.GPIOChipRelativeIDs[chipInfo.Ngpio]
