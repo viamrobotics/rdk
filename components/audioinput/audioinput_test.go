@@ -82,7 +82,7 @@ func TestFromDependencies(t *testing.T) {
 	test.That(t, res.Close(context.Background()), test.ShouldBeNil)
 
 	res, err = audioinput.FromDependencies(deps, fakeAudioInputName)
-	test.That(t, err, test.ShouldBeError, audioinput.DependencyTypeError(fakeAudioInputName, "string"))
+	test.That(t, err, test.ShouldBeError, rutils.DependencyTypeError[audioinput.AudioInput](fakeAudioInputName, "string"))
 	test.That(t, res, test.ShouldBeNil)
 
 	res, err = audioinput.FromDependencies(deps, missingAudioInputName)

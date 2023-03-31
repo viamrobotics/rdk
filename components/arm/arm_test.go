@@ -37,6 +37,15 @@ const (
 	missingArmName = "arm5"
 )
 
+func setupDependencies(t *testing.T) registry.Dependencies {
+	t.Helper()
+
+	deps := make(registry.Dependencies)
+	deps[arm.Named(testArmName)] = &mock{Name: testArmName}
+	deps[arm.Named(fakeArmName)] = "not a arm"
+	return deps
+}
+
 func setupInjectRobot() *inject.Robot {
 	arm1 := &mockLocal{Name: testArmName}
 	r := &inject.Robot{}
@@ -94,6 +103,22 @@ func TestNamesFromRobot(t *testing.T) {
 
 	names := arm.NamesFromRobot(r)
 	test.That(t, names, test.ShouldResemble, []string{testArmName})
+}
+
+func TestFromDependencies(t *testing.T) {
+	deps := setupDependencies(t)
+
+	res, err := arm.FromDependencies(deps, testArmName)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, res, test.ShouldNotBeNil)
+
+	res, err = arm.FromDependencies(deps, fakeArmName)
+	test.That(t, err, test.ShouldBeError, rutils.DependencyTypeError[arm.Arm](fakeArmName, "string"))
+	test.That(t, res, test.ShouldBeNil)
+
+	res, err = arm.FromDependencies(deps, missingArmName)
+	test.That(t, err, test.ShouldBeError, rutils.DependencyNotFoundError(missingArmName))
+	test.That(t, res, test.ShouldBeNil)
 }
 
 func TestStatusValid(t *testing.T) {
