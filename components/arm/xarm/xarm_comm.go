@@ -385,7 +385,7 @@ func (x *xArm) MoveToJointPositions(ctx context.Context, newPositions *pb.JointP
 		return nil
 	}
 
-	// every step except the last, skipped if diff is small enough
+	// every step except the last, skipped if diff is small enough. Note that if diff calculations are small enough, nSteps could be zero, leading to a bad situation inside the loop
 	for i := 1; i < nSteps; i++ {
 		step := referenceframe.InputsToFloats(referenceframe.InterpolateInputs(from, to, float64(i)/float64(nSteps)))
 		err := sendMoveJointsCmd(ctx, step)
