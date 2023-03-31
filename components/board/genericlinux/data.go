@@ -68,6 +68,8 @@ func GetGPIOBoardMappings(modelName string, boardInfoMappings map[string]BoardIn
 	return getBoardMapping(pinDefs)
 }
 
+// getCompatiblePinDefs returns a list of pin definitions, from the first BoardInformation struct
+// that appears compatible with the machine we're running on.
 func getCompatiblePinDefs(modelName string, boardInfoMappings map[string]BoardInformation) ([]PinDefinition, error) {
 	const compatiblePath = "/proc/device-tree/compatible"
 
@@ -96,14 +98,18 @@ func getCompatiblePinDefs(modelName string, boardInfoMappings map[string]BoardIn
 	return pinDefs, nil
 }
 
-func getBoardMapping(pinDefs []PinDefinition,) (map[int]GPIOBoardMapping, error) {
+func getBoardMapping(pinDefs []PinDefinition) (map[int]GPIOBoardMapping, error) {
+	// What we really want is a mapping from the names of GPIO chips to tuples of their sysfs
+	// directory name, base number, and ngpio (line count). However, because Go doesn't have native
+	// support for tuples, we make a separate mapping for each one.
 	gpioChipDirs := map[string]string{}
 	gpioChipBase := map[string]int{}
 	gpioChipNgpio := map[string]int{}
 
 	sysfsPrefixes := []string{"/sys/devices/", "/sys/devices/platform/", "/sys/devices/platform/bus@100000/"}
 
-	// Get the GPIO chip offsets
+	// Get a set of all the chip names with duplicates removed. Go doesn't have native set objects,
+	// so we use a map whose values are ignored.
 	gpioChipNames := make(map[string]struct{}, len(pinDefs))
 	for _, pinDef := range pinDefs {
 		if pinDef.GPIOChipSysFSDir == "" {
@@ -111,6 +117,8 @@ func getBoardMapping(pinDefs []PinDefinition,) (map[int]GPIOBoardMapping, error)
 		}
 		gpioChipNames[pinDef.GPIOChipSysFSDir] = struct{}{}
 	}
+
+	// For each chip, add entries to the 3 maps previously defined.
 	for gpioChipName := range gpioChipNames {
 		var gpioChipDir string
 		for _, prefix := range sysfsPrefixes {
