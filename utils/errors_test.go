@@ -13,7 +13,7 @@ func TestDependencyTypeError(t *testing.T) {
 		actual   interface{}
 		errStr   string
 	}
-	var t1 = tc{"one", "exp1", "actual1", `dependency "one" should be an implementation of *string but it was a string`}
+	t1 := tc{"one", "exp1", "actual1", `dependency "one" should be an implementation of *string but it was a string`}
 	err := DependencyTypeError[string](t1.name, t1.actual)
 	test.That(t, err.Error(), test.ShouldContainSubstring, t1.errStr)
 
@@ -38,7 +38,6 @@ func TestDependencyTypeError(t *testing.T) {
 	t1 = tc{"six", someStruct{}, 7, `dependency "six" should be an implementation of *utils.someStruct but it was a int`}
 	err = DependencyTypeError[someStruct](t1.name, t1.actual)
 	test.That(t, err.Error(), test.ShouldContainSubstring, t1.errStr)
-
 }
 
 func TestNewUnexpectedTypeError(t *testing.T) {
