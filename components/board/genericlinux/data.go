@@ -58,6 +58,14 @@ func noBoardError(modelName string) error {
 	return fmt.Errorf("could not determine %q model", modelName)
 }
 
+// gpioChipData is a struct used solely within GetGPIOBoardMappings and its sub-pieces. It
+// describes a GPIO chip within sysfs.
+type gpioChipData struct {
+	Dir   string // Pseudofile within sysfs to interact with this chip
+	Base  int // Taken from the /base pseudofile in sysfs: offset to the start of the lines
+	Ngpio int // Taken from the /ngpio pseudofile in sysfs: number of lines on the chip
+}
+
 // GetGPIOBoardMappings attempts to find a compatible board-pin mapping for the given mappings.
 func GetGPIOBoardMappings(modelName string, boardInfoMappings map[string]BoardInformation) (map[int]GPIOBoardMapping, error) {
 	pinDefs, err := getCompatiblePinDefs(modelName, boardInfoMappings)
@@ -101,12 +109,6 @@ func getCompatiblePinDefs(modelName string, boardInfoMappings map[string]BoardIn
 		return nil, noBoardError(modelName)
 	}
 	return pinDefs, nil
-}
-
-type gpioChipData struct {
-	Dir   string // Pseudofile within sysfs to interact with this chip
-	Base  int // Taken from the /base pseudofile in sysfs: offset to the start of the lines
-	Ngpio int // Taken from the /ngpio pseudofile in sysfs: number of lines on the chip
 }
 
 func getGpioChipDefs(pinDefs []PinDefinition) (map[string]gpioChipData, error) {
