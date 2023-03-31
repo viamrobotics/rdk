@@ -63,7 +63,7 @@ func (base *MyBase) Reconfigure(cfg config.Component, deps registry.Dependencies
 		return errors.Wrapf(err, "unable to get motor %v for mybase", baseConfig.LeftMotor)
 	}
 
-	base.right, err = motor.FromDependencies(deps, baseConfig.LeftMotor)
+	base.right, err = motor.FromDependencies(deps, baseConfig.RightMotor)
 	if err != nil {
 		return errors.Wrapf(err, "unable to get motor %v for mybase", baseConfig.RightMotor)
 	}
