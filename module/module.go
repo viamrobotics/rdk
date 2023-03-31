@@ -275,7 +275,7 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 		return nil, err
 	}
 
-	if err := addConvertAttributesToConfig(cfg); err != nil {
+	if err := addConvertAttributes(cfg); err != nil {
 		return nil, errors.Wrapf(err, "unable to convert attributes when adding resource")
 	}
 
@@ -401,7 +401,7 @@ func (m *Module) ValidateConfig(ctx context.Context,
 		return nil, err
 	}
 
-	if err := addConvertAttributesToConfig(c); err != nil {
+	if err := addConvertAttributes(c); err != nil {
 		return nil, errors.Wrapf(err, "unable to convert attributes for validation")
 	}
 
@@ -506,14 +506,13 @@ func (m *Module) OperationManager() *operation.Manager {
 
 // addConvertAttributesToConfig uses the MapAttributeConverter to fill in the
 // ConvertedAttributes field from the Attributes.
-func addConvertAttributesToConfig(cfg *config.Component) error {
+func addConvertAttributes(cfg *config.Component) error {
 	// Try to find map converter for a component.
-	cType := resource.NewSubtype(cfg.Namespace, cfg.API.ResourceType, cfg.API.ResourceSubtype)
-	conv := config.FindMapConverter(cType, cfg.Model)
+	conv := config.FindMapConverter(cfg.API, cfg.Model)
 	// If no map converter for a component exists, try to find map converter for a
 	// service.
 	if conv == nil {
-		conv = config.FindServiceMapConverter(cType, cfg.Model)
+		conv = config.FindServiceMapConverter(cfg.API, cfg.Model)
 	}
 	if conv != nil {
 		converted, err := conv(cfg.Attributes)
