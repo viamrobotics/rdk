@@ -423,66 +423,64 @@ func (ua *URArm) MoveToJointPositionRadians(ctx context.Context, radians []float
 	)
 
 	_, err := ua.connControl.Write([]byte(cmd))
-	if err != nil {
-		return err
-	}
+	return err
 
-	retried := false
-	slept := 0
-	for {
-		good := true
-		state, err := ua.State()
-		if err != nil {
-			return err
-		}
+	// retried := false
+	// slept := 0
+	// for {
+	// 	good := true
+	// 	state, err := ua.State()
+	// 	if err != nil {
+	// 		return err
+	// 	}
 
-		for idx, r := range radians {
-			if blend == 0 {
-				if math.Round(r*100) != math.Round(state.Joints[idx].Qactual*100) {
-					good = false
-				}
-			} else {
-				if math.Abs(r-state.Joints[idx].Qactual)*100 > blend*1000 {
-					good = false
-				}
-			}
-		}
+	// 	for idx, r := range radians {
+	// 		if blend == 0 {
+	// 			if math.Round(r*100) != math.Round(state.Joints[idx].Qactual*100) {
+	// 				good = false
+	// 			}
+	// 		} else {
+	// 			if math.Abs(r-state.Joints[idx].Qactual)*100 > blend*1000 {
+	// 				good = false
+	// 			}
+	// 		}
+	// 	}
 
-		if good {
-			return nil
-		}
+	// 	if good {
+	// 		return nil
+	// 	}
 
-		err = ua.getAndResetRuntimeError()
-		if err != nil {
-			return err
-		}
+	// 	err = ua.getAndResetRuntimeError()
+	// 	if err != nil {
+	// 		return err
+	// 	}
 
-		if slept > 5000 && !retried {
-			_, err := ua.connControl.Write([]byte(cmd))
-			if err != nil {
-				return err
-			}
-			retried = true
-		}
+	// 	if slept > 5000 && !retried {
+	// 		_, err := ua.connControl.Write([]byte(cmd))
+	// 		if err != nil {
+	// 			return err
+	// 		}
+	// 		retried = true
+	// 	}
 
-		if slept > 10000 {
-			return errors.Errorf("can't reach joint position.\n want: %f %f %f %f %f %f\n   at: %f %f %f %f %f %f",
-				radians[0], radians[1], radians[2], radians[3], radians[4], radians[5],
-				state.Joints[0].Qactual,
-				state.Joints[1].Qactual,
-				state.Joints[2].Qactual,
-				state.Joints[3].Qactual,
-				state.Joints[4].Qactual,
-				state.Joints[5].Qactual,
-			)
-		}
+	// 	if slept > 10000 {
+	// 		return errors.Errorf("can't reach joint position.\n want: %f %f %f %f %f %f\n   at: %f %f %f %f %f %f",
+	// 			radians[0], radians[1], radians[2], radians[3], radians[4], radians[5],
+	// 			state.Joints[0].Qactual,
+	// 			state.Joints[1].Qactual,
+	// 			state.Joints[2].Qactual,
+	// 			state.Joints[3].Qactual,
+	// 			state.Joints[4].Qactual,
+	// 			state.Joints[5].Qactual,
+	// 		)
+	// 	}
 
-		// TODO(erh): make responsive on new message
-		if !goutils.SelectContextOrWait(ctx, 10*time.Millisecond) {
-			return ctx.Err()
-		}
-		slept += 10
-	}
+	// 	// TODO(erh): make responsive on new message
+	// 	if !goutils.SelectContextOrWait(ctx, 10*time.Millisecond) {
+	// 		return ctx.Err()
+	// 	}
+	// 	slept += 10
+	// }
 }
 
 // CurrentInputs TODO.
@@ -529,9 +527,54 @@ func (ua *URArm) AllInputs(ctx context.Context, goals [][]referenceframe.Input) 
 		}
 		fmt.Println("blend: ", blend)
 
-		if err := ua.MoveToJointPositionRadians(ctx, referenceframe.JointPositionsToRadians(positionDegs), blend); err != nil {
-			return err
+		if i == 0 {
+			if err := ua.MoveToJointPositionRadians(ctx, referenceframe.JointPositionsToRadians(positionDegs), blend); err != nil {
+				return err
+			}
+		} else {
+			// check here to see if we should send the next waypoint
+			slept := 0
+			prevWayPoint := referenceframe.JointPositionsToRadians(ua.model.ProtobufFromInput(goals[i-1]))
+			fmt.Println("prevWayPoint: ", prevWayPoint)
+			for {
+				good := true
+				state, err := ua.State()
+				if err != nil {
+					return err
+				}
+				fmt.Println("blend*1000: ", blend*1000.)
+				fmt.Println("pre good: ", good)
+				for idx, r := range prevWayPoint {
+					fmt.Println("math.Abs(r-state.Joints[idx].Qactual)*100: ", math.Abs(r-state.Joints[idx].Qactual)*100)
+					if math.Abs(r-state.Joints[idx].Qactual)*100 > blend*1000. {
+						good = false
+					}
+				}
+				fmt.Println("post good: ", good)
+				if good {
+					fmt.Println("entered good conditional")
+					break
+				}
+				fmt.Println(" ")
+				err = ua.getAndResetRuntimeError()
+				if err != nil {
+					return err
+				}
+				if slept > 10000 {
+					return errors.New("ya code is wack son")
+				}
+				// TODO(erh): make responsive on new message
+				if !goutils.SelectContextOrWait(ctx, 10*time.Millisecond) {
+					return ctx.Err()
+				}
+				slept += 10
+			}
+			if err := ua.MoveToJointPositionRadians(ctx, referenceframe.JointPositionsToRadians(positionDegs), blend); err != nil {
+				return err
+			}
+
 		}
+
 		current, _ = ua.JointPositions(ctx, nil)
 		currentVal = referenceframe.JointPositionsToRadians(current)
 		fmt.Println("jp after moving: ", currentVal)
