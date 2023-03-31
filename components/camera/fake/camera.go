@@ -168,14 +168,19 @@ func fakeModel(width, height int) (*transform.PinholeCameraModel, int, int) {
 // Camera is a fake camera that always returns the same image.
 type Camera struct {
 	generic.Echo
-	Name   string
-	Model  *transform.PinholeCameraModel
-	Width  int
-	Height int
+	Name            string
+	Model           *transform.PinholeCameraModel
+	Width           int
+	Height          int
+	cacheImage      *image.RGBA
+	cachePointCloud *pointcloud.PointCloud
 }
 
 // Read always returns the same image of a yellow to blue gradient.
 func (c *Camera) Read(ctx context.Context) (image.Image, func(), error) {
+	if c.cacheImage != nil {
+		return c.cacheImage, func() {}, nil
+	}
 	width := float64(c.Width)
 	height := float64(c.Height)
 	img := image.NewRGBA(image.Rect(0, 0, c.Width, c.Height))
@@ -197,6 +202,9 @@ func (c *Camera) Read(ctx context.Context) (image.Image, func(), error) {
 
 // NextPointCloud always returns a pointcloud of a yellow to blue gradient, with the depth determined by the intensity of blue.
 func (c *Camera) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+	if c.cachePointCloud != nil {
+		return *c.cachePointCloud, nil
+	}
 	dm := pointcloud.New()
 	width := float64(c.Width)
 	height := float64(c.Height)
