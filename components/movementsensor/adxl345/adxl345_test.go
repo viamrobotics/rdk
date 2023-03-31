@@ -22,6 +22,15 @@ func nowNanosTest() uint64 {
 	return uint64(time.Now().UnixNano())
 }
 
+func sendInterrupt(ctx context.Context, adxl movementsensor.MovementSensor, t *testing.T, interrupt board.DigitalInterrupt, key string) {
+	interrupt.Tick(ctx, true, nowNanosTest())
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		readings, err := adxl.Readings(ctx, map[string]interface{}{})
+		test.That(tb, err, test.ShouldBeNil)
+		test.That(tb, readings[key], test.ShouldNotBeZeroValue)
+	})
+}
+
 func TestInterrupts(t *testing.T) {
 	ctx := context.Background()
 
@@ -75,11 +84,11 @@ func TestInterrupts(t *testing.T) {
 		},
 	}
 
-	t.Run("new adxl has interrupt counts set to 1", func(t *testing.T) {
+	t.Run("new adxl has interrupt counts set to 0", func(t *testing.T) {
 		adxl, err := NewAdxl345(ctx, deps, cfg, logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		readings, err := adxl.Readings(context.Background(), map[string]interface{}{})
+		readings, err := adxl.Readings(ctx, map[string]interface{}{})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, readings["freefall_count"], test.ShouldEqual, 0)
 		test.That(t, readings["single_tap_count"], test.ShouldEqual, 0)
@@ -89,14 +98,9 @@ func TestInterrupts(t *testing.T) {
 		adxl, err := NewAdxl345(ctx, deps, cfg, logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		interrupt.Tick(context.Background(), true, nowNanosTest())
-		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			readings, err := adxl.Readings(context.Background(), map[string]interface{}{})
-			test.That(tb, err, test.ShouldBeNil)
-			test.That(tb, readings["freefall_count"], test.ShouldNotBeZeroValue)
-		})
+		sendInterrupt(ctx, adxl, t, interrupt, "freefall_count")
 
-		readings, err := adxl.Readings(context.Background(), map[string]interface{}{})
+		readings, err := adxl.Readings(ctx, map[string]interface{}{})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, readings["freefall_count"], test.ShouldEqual, 1)
 		test.That(t, readings["single_tap_count"], test.ShouldEqual, 1)
@@ -117,13 +121,7 @@ func TestInterrupts(t *testing.T) {
 		adxl, err := NewAdxl345(ctx, deps, cfg, logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		interrupt.Tick(context.Background(), true, nowNanosTest())
-		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			readings, err := adxl.Readings(context.Background(), map[string]interface{}{})
-			test.That(tb, err, test.ShouldBeNil)
-			test.That(tb, readings["single_tap_count"], test.ShouldNotBeZeroValue)
-		})
-		test.That(t, err, test.ShouldBeNil)
+		sendInterrupt(ctx, adxl, t, interrupt, "single_tap_count")
 
 		readings, err := adxl.Readings(ctx, map[string]interface{}{})
 		test.That(t, err, test.ShouldBeNil)
@@ -146,12 +144,7 @@ func TestInterrupts(t *testing.T) {
 		adxl, err := NewAdxl345(ctx, deps, cfg, logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		interrupt.Tick(context.Background(), true, nowNanosTest())
-		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			readings, err := adxl.Readings(context.Background(), map[string]interface{}{})
-			test.That(tb, err, test.ShouldBeNil)
-			test.That(tb, readings["freefall_count"], test.ShouldNotBeZeroValue)
-		})
+		sendInterrupt(ctx, adxl, t, interrupt, "freefall_count")
 
 		readings, err := adxl.Readings(ctx, map[string]interface{}{})
 		test.That(t, err, test.ShouldBeNil)

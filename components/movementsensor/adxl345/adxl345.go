@@ -154,7 +154,8 @@ type adxl345 struct {
 	interruptsEnabled        byte
 	interruptsFound          map[InterruptID]int
 	configuredRegisterValues map[byte]byte
-	ticksChanMap             map[board.DigitalInterrupt]chan board.Tick
+	// Used only to remove the callbacks from the interrupts upon closing component.
+	interruptChannels map[board.DigitalInterrupt]chan board.Tick
 
 	// Lock the mutex when you want to read or write either the acceleration or the last error.
 	mu                 sync.Mutex
@@ -216,7 +217,7 @@ func NewAdxl345(
 		cancelFunc:               cancelFunc,
 		configuredRegisterValues: configuredRegisterValues,
 		interruptsFound:          make(map[InterruptID]int),
-		ticksChanMap:             make(map[board.DigitalInterrupt]chan board.Tick),
+		interruptChannels:        make(map[board.DigitalInterrupt]chan board.Tick),
 
 		// On overloaded boards, sometimes the I2C bus can be flaky. Only report errors if at least
 		// 5 of the last 10 times we've tried interacting with the device have had problems.
@@ -274,6 +275,7 @@ func NewAdxl345(
 		}
 	})
 
+	// Clear out the source register upon starting the component
 	if _, err := sensor.readByte(ctx, IntSourceAddr); err != nil {
 		// shut down goroutine reading sensor in the background
 		sensor.cancelFunc()
@@ -308,7 +310,7 @@ func NewAdxl345(
 	for _, interrupt := range interruptMap {
 		ticksChan := make(chan board.Tick)
 		interrupt.AddCallback(ticksChan)
-		sensor.ticksChanMap[interrupt] = ticksChan
+		sensor.interruptChannels[interrupt] = ticksChan
 		sensor.startInterruptMonitoring(ticksChan)
 	}
 
@@ -561,7 +563,7 @@ func (adxl *adxl345) Close(ctx context.Context) {
 	adxl.mu.Lock()
 	defer adxl.mu.Unlock()
 
-	for interrupt, channel := range adxl.ticksChanMap {
+	for interrupt, channel := range adxl.interruptChannels {
 		interrupt.RemoveCallback(channel)
 	}
 
