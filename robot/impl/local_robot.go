@@ -767,9 +767,13 @@ func (r *localRobot) updateDefaultServices(ctx context.Context) {
 	}
 }
 
-// Refresh does nothing for now.
+// Refresh causes the web service to reload it's subtype service maps from the actual robot resources.
 func (r *localRobot) Refresh(ctx context.Context) error {
-	return nil
+	svc, err := r.webService()
+	if err != nil {
+		return err
+	}
+	return svc.RefreshResources()
 }
 
 // FrameSystemConfig returns the info of each individual part that makes up a robot's frame system.

@@ -217,6 +217,9 @@ type Service interface {
 	// StartModule starts the module server socket.
 	StartModule(context.Context) error
 
+	// RefreshResources reloads the grpc-service subtypes with current robot Resources
+	RefreshResources() error
+
 	// Returns the address and port the web service listens on.
 	Address() string
 
@@ -391,7 +394,7 @@ func (svc *webService) StartModule(ctx context.Context) error {
 	if err := svc.modServer.RegisterServiceServer(ctx, &pb.RobotService_ServiceDesc, grpcserver.New(svc.r)); err != nil {
 		return err
 	}
-	if err := svc.initResources(); err != nil {
+	if err := svc.RefreshResources(); err != nil {
 		return err
 	}
 	if err := svc.initSubtypeServices(ctx, true); err != nil {
@@ -732,7 +735,7 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 		return err
 	}
 
-	if err := svc.initResources(); err != nil {
+	if err := svc.RefreshResources(); err != nil {
 		return err
 	}
 
@@ -1000,21 +1003,16 @@ func (svc *webService) initAuthHandlers(listenerTCPAddr *net.TCPAddr, options we
 }
 
 // Populate subtype services with robot resources.
-func (svc *webService) initResources() error {
+func (svc *webService) RefreshResources() error {
 	resources := make(map[resource.Name]interface{})
 	for _, name := range svc.r.ResourceNames() {
 		resource, err := svc.r.ResourceByName(name)
 		if err != nil {
 			continue
 		}
-
 		resources[name] = resource
 	}
-	if err := svc.updateResources(resources); err != nil {
-		return err
-	}
-
-	return nil
+	return svc.updateResources(resources)
 }
 
 // Register every subtype resource grpc service here.
