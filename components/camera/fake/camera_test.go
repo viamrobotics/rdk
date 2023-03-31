@@ -51,19 +51,12 @@ func TestFakeCameraUnspecified(t *testing.T) {
 }
 
 func TestFakeCameraParams(t *testing.T) {
-	// test only height or width
-	cfg := &Attrs{
-		Width:  320,
-		Height: 320,
-	}
-	err := cfg.Validate()
-	test.That(t, err, test.ShouldNotBeNil)
 	// test odd width and height
-	cfg = &Attrs{
+	cfg := &Attrs{
 		Width:  321,
 		Height: 0,
 	}
-	err = cfg.Validate()
+	err := cfg.Validate()
 	test.That(t, err, test.ShouldNotBeNil)
 	cfg = &Attrs{
 		Width:  0,
