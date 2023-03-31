@@ -120,7 +120,6 @@ func getBoardMapping(pinDefs []PinDefinition) (map[int]GPIOBoardMapping, error) 
 
 	// For each chip, add entries to the 3 maps previously defined.
 	for gpioChipName := range gpioChipNames {
-		gpioChipInfo[gpioChipName] = gpioChipData{} // We'll fill this in later
 		var gpioChipDir string
 		for _, prefix := range sysfsPrefixes {
 			d := prefix + gpioChipName
@@ -140,11 +139,12 @@ func getBoardMapping(pinDefs []PinDefinition) (map[int]GPIOBoardMapping, error) 
 		if err != nil {
 			return nil, err
 		}
+		var chipFileName string
 		for _, file := range files {
 			if !strings.HasPrefix(file.Name(), "gpiochip") {
 				continue
 			}
-			gpioChipInfo[gpioChipName].Dir = file.Name()
+			chipFileName = file.Name()
 			break
 		}
 
@@ -168,7 +168,6 @@ func getBoardMapping(pinDefs []PinDefinition) (map[int]GPIOBoardMapping, error) 
 			if err != nil {
 				return nil, err
 			}
-			gpioChipInfo[gpioChipName].Base = int(baseParsed)
 
 			ngpioFn := filepath.Join(gpioChipGPIODir, file.Name(), "ngpio")
 			//nolint:gosec
@@ -180,7 +179,12 @@ func getBoardMapping(pinDefs []PinDefinition) (map[int]GPIOBoardMapping, error) 
 			if err != nil {
 				return nil, err
 			}
-			gpioChipInfo[gpioChipName].Ngpio = int(ngpioParsed)
+
+			gpioChipInfo[gpioChipName] = gpioChipData{
+				Dir: chipFileName,
+				Base: int(baseParsed),
+				Ngpio: int(ngpioParsed),
+			}
 			break
 		}
 	}
