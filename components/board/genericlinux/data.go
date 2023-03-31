@@ -65,7 +65,12 @@ func GetGPIOBoardMappings(modelName string, boardInfoMappings map[string]BoardIn
 		return nil, err
 	}
 
-	return getBoardMapping(pinDefs)
+	gpioChipInfo, err := getGpioChipDefs(pinDefs)
+	if err != nil {
+		return nil, err
+	}
+
+	return getBoardMapping(pinDefs, gpioChipInfo)
 }
 
 // getCompatiblePinDefs returns a list of pin definitions, from the first BoardInformation struct
@@ -104,7 +109,7 @@ type gpioChipData struct {
 	Ngpio int // Taken from the /ngpio pseudofile in sysfs: number of lines on the chip
 }
 
-func getBoardMapping(pinDefs []PinDefinition) (map[int]GPIOBoardMapping, error) {
+func getGpioChipDefs(pinDefs []PinDefinition) (map[string]gpioChipData, error) {
 	gpioChipInfo := map[string]gpioChipData{}
 	sysfsPrefixes := []string{"/sys/devices/", "/sys/devices/platform/", "/sys/devices/platform/bus@100000/"}
 
@@ -118,7 +123,6 @@ func getBoardMapping(pinDefs []PinDefinition) (map[int]GPIOBoardMapping, error) 
 		gpioChipNames[pinDef.GPIOChipSysFSDir] = struct{}{}
 	}
 
-	// For each chip, add entries to the 3 maps previously defined.
 	for gpioChipName := range gpioChipNames {
 		var gpioChipDir string
 		for _, prefix := range sysfsPrefixes {
@@ -189,6 +193,10 @@ func getBoardMapping(pinDefs []PinDefinition) (map[int]GPIOBoardMapping, error) 
 		}
 	}
 
+	return gpioChipInfo, nil
+}
+
+func getBoardMapping(pinDefs []PinDefinition, gpioChipInfo map[string]gpioChipData) (map[int]GPIOBoardMapping, error) {
 	data := make(map[int]GPIOBoardMapping, len(pinDefs))
 
 	for _, pinDef := range pinDefs {
