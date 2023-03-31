@@ -173,7 +173,7 @@ type Camera struct {
 	Width           int
 	Height          int
 	cacheImage      *image.RGBA
-	cachePointCloud *pointcloud.PointCloud
+	cachePointCloud pointcloud.PointCloud
 }
 
 // Read always returns the same image of a yellow to blue gradient.
@@ -196,14 +196,14 @@ func (c *Camera) Read(ctx context.Context) (image.Image, func(), error) {
 			img.Set(int(x), int(y), thisColor)
 		}
 	}
-
+	c.cacheImage = img
 	return rimage.ConvertImage(img), func() {}, nil
 }
 
 // NextPointCloud always returns a pointcloud of a yellow to blue gradient, with the depth determined by the intensity of blue.
 func (c *Camera) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
 	if c.cachePointCloud != nil {
-		return *c.cachePointCloud, nil
+		return c.cachePointCloud, nil
 	}
 	dm := pointcloud.New()
 	width := float64(c.Width)
@@ -223,5 +223,6 @@ func (c *Camera) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 			}
 		}
 	}
+	c.cachePointCloud = dm
 	return dm, nil
 }
