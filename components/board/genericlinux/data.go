@@ -240,9 +240,18 @@ func getPwmChipDefs(pinDefs []PinDefinition) (map[string]pwmChipData, error) {
 			}
 			found = true
 			chipPath := fmt.Sprintf("/sys/class/pwm/%s", file.Name())
-			baseInt := -1 // TODO: implement these.
-			npwmInt := -1
-			pwmChipsInfo[chipName] = pwmChipData{Dir: chipPath, Base: baseInt, Npwm: npwmInt}
+
+			base, err := readIntFile(filepath.Join(chipPath, "base"))
+			if err != nil {
+				return nil, err
+			}
+
+			npwm, err := readIntFile(filepath.Join(chipPath, "npwm"))
+			if err != nil {
+				return nil, err
+			}
+
+			pwmChipsInfo[chipName] = pwmChipData{Dir: chipPath, Base: base, Npwm: npwm}
 			break
 		}
 		if !found {
