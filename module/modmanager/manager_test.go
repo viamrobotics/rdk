@@ -171,7 +171,6 @@ func TestModManagerFunctions(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Log("test UntrustedEnv")
-	myRobot.UntrustedEnv = true
 	mgr, err = NewManager(myRobot, modmanageroptions.Options{UntrustedEnv: true})
 	test.That(t, err, test.ShouldBeNil)
 
