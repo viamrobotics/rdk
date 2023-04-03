@@ -239,6 +239,7 @@ func getBoardMapping(pinDefs []PinDefinition, gpioChipsInfo map[string]gpioChipD
 			}
 		} else {
 			if pinDef.PWMChipSysFSDir == "" {
+				// This pin isn't supposed to have hardware PWM support; all is well.
 				pwmChipInfo = dummyPwmInfo
 			} else {
 				return nil, fmt.Errorf("unknown PWM device %s for pin %d",
