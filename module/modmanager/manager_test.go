@@ -67,8 +67,14 @@ func TestModManagerFunctions(t *testing.T) {
 	err = mod.startProcess(ctx, parentAddr, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	err = mod.dial()
+	err = mod.dial(nil)
 	test.That(t, err, test.ShouldBeNil)
+
+	// check that dial can re-use connections.
+	oldConn := mod.conn
+	err = mod.dial(mod.conn)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, mod.conn, test.ShouldResemble, oldConn)
 
 	err = mod.checkReady(ctx, parentAddr)
 	test.That(t, err, test.ShouldBeNil)
@@ -167,6 +173,10 @@ func TestModManagerFunctions(t *testing.T) {
 	// Re-add counter1.
 	_, err = mgr.AddResource(ctx, cfgCounter1, nil)
 	test.That(t, err, test.ShouldBeNil)
+	// Add 24 to counter and ensure 'total' gets reset after reconfiguration.
+	ret, err = counter.DoCommand(ctx, map[string]interface{}{"command": "add", "value": 24})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, ret["total"], test.ShouldEqual, 24)
 
 	// Change underlying binary path of module to be a copy of simplemodule/run.sh.
 	modCfg.ExePath = utils.ResolveFile("module/modmanager/data/simplemoduleruncopy.sh")
@@ -179,6 +189,9 @@ func TestModManagerFunctions(t *testing.T) {
 	// counter1 should still be provided by reconfigured module.
 	ok = mgr.IsModularResource(rNameCounter1)
 	test.That(t, ok, test.ShouldBeTrue)
+	ret, err = counter.DoCommand(ctx, map[string]interface{}{"command": "get"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, ret["total"], test.ShouldEqual, 0)
 
 	t.Log("test RemoveModule")
 	orphanedResourceNames, err = mgr.Remove("simple-module")
@@ -187,6 +200,9 @@ func TestModManagerFunctions(t *testing.T) {
 
 	ok = mgr.IsModularResource(rNameCounter1)
 	test.That(t, ok, test.ShouldBeFalse)
+	_, err = counter.DoCommand(ctx, map[string]interface{}{"command": "get"})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "the client connection is closing")
 
 	err = goutils.TryClose(ctx, counter)
 	test.That(t, err, test.ShouldBeNil)

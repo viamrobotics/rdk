@@ -6,7 +6,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
@@ -32,10 +31,7 @@ import (
 	"go.viam.com/rdk/robot"
 )
 
-var (
-	validateConfigTimeout   = 5 * time.Second
-	gracefullyExitedMessage = "exit status 143"
-)
+var validateConfigTimeout = 5 * time.Second
 
 // NewManager returns a Manager.
 func NewManager(r robot.LocalRobot) (modmaninterface.ModuleManager, error) {
@@ -88,10 +84,10 @@ func (mgr *Manager) Close(ctx context.Context) error {
 
 // Add adds and starts a new resource module.
 func (mgr *Manager) Add(ctx context.Context, cfg config.Module) error {
-	return mgr.add(ctx, cfg)
+	return mgr.add(ctx, cfg, nil)
 }
 
-func (mgr *Manager) add(ctx context.Context, cfg config.Module) error {
+func (mgr *Manager) add(ctx context.Context, cfg config.Module, conn *grpc.ClientConn) error {
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
 
@@ -121,7 +117,8 @@ func (mgr *Manager) add(ctx context.Context, cfg config.Module) error {
 		}
 	}()
 
-	if err := mod.dial(); err != nil {
+	// dial will re-use conn if it's non-nil (module being added in a Reconfigure).
+	if err := mod.dial(conn); err != nil {
 		return errors.WithMessage(err, "error while dialing module "+mod.name)
 	}
 
@@ -143,13 +140,19 @@ func (mgr *Manager) Reconfigure(ctx context.Context, cfg config.Module) ([]resou
 		return nil, errors.Errorf("cannot reconfigure module %s as it does not exist", cfg.Name)
 	}
 	handledResources := mod.resources
-
-	if err := mgr.remove(mod); err != nil {
-		return nil, err
+	var handledResourceNames []resource.Name
+	for name := range handledResources {
+		handledResourceNames = append(handledResourceNames, name)
 	}
 
-	if err := mgr.add(ctx, cfg); err != nil {
-		return nil, err
+	if err := mgr.remove(mod, true); err != nil {
+		// If removal fails, assume all handled resources are orphaned.
+		return handledResourceNames, err
+	}
+
+	if err := mgr.add(ctx, cfg, mod.conn); err != nil {
+		// If re-addition fails, assume all handled resources are orphaned.
+		return handledResourceNames, err
 	}
 
 	// add old module process' resources to new module; warn if new module cannot
@@ -174,18 +177,14 @@ func (mgr *Manager) Remove(modName string) ([]resource.Name, error) {
 	}
 	handledResources := mod.resources
 
-	if err := mgr.remove(mod); err != nil {
-		return nil, err
-	}
-
 	var orphanedResourceNames []resource.Name
 	for name := range handledResources {
 		orphanedResourceNames = append(orphanedResourceNames, name)
 	}
-	return orphanedResourceNames, nil
+	return orphanedResourceNames, mgr.remove(mod, false)
 }
 
-func (mgr *Manager) remove(mod *module) error {
+func (mgr *Manager) remove(mod *module, reconfigure bool) error {
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
 
@@ -193,9 +192,12 @@ func (mgr *Manager) remove(mod *module) error {
 		return errors.WithMessage(err, "error while stopping module "+mod.name)
 	}
 
-	if mod.conn != nil {
-		if err := mod.conn.Close(); err != nil {
-			return errors.WithMessage(err, "error while closing connection from module "+mod.name)
+	// Do not close connection if module is being reconfigured.
+	if !reconfigure {
+		if mod.conn != nil {
+			if err := mod.conn.Close(); err != nil {
+				return errors.WithMessage(err, "error while closing connection from module "+mod.name)
+			}
 		}
 	}
 
@@ -359,23 +361,28 @@ func (mgr *Manager) getModule(cfg config.Component) (*module, bool) {
 	return nil, false
 }
 
-func (m *module) dial() error {
-	var err error
-	// TODO(PRODUCT-343): session support probably means interceptors here
-	m.conn, err = grpc.Dial(
-		"unix://"+m.addr,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithChainUnaryInterceptor(
-			grpc_retry.UnaryClientInterceptor(),
-			operation.UnaryClientInterceptor,
-		),
-		grpc.WithChainStreamInterceptor(
-			grpc_retry.StreamClientInterceptor(),
-			operation.StreamClientInterceptor,
-		),
-	)
-	if err != nil {
-		return errors.WithMessage(err, "module startup failed")
+// dial will use the passed-in connection to make a new module service client
+// or Dial m.addr if the passed-in connection is nil.
+func (m *module) dial(conn *grpc.ClientConn) error {
+	m.conn = conn
+	if m.conn == nil {
+		// TODO(PRODUCT-343): session support probably means interceptors here
+		var err error
+		m.conn, err = grpc.Dial(
+			"unix://"+m.addr,
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+			grpc.WithChainUnaryInterceptor(
+				grpc_retry.UnaryClientInterceptor(),
+				operation.UnaryClientInterceptor,
+			),
+			grpc.WithChainStreamInterceptor(
+				grpc_retry.StreamClientInterceptor(),
+				operation.StreamClientInterceptor,
+			),
+		)
+		if err != nil {
+			return errors.WithMessage(err, "module startup failed")
+		}
 	}
 	m.client = pb.NewModuleServiceClient(m.conn)
 	return nil
@@ -453,8 +460,7 @@ func (m *module) stopProcess() error {
 
 	// Stop managed process and swallow 143 errors. Some stopped modules may return
 	// "exit status 143" indicating a graceful exit after SIGTERM.
-	if err := m.process.Stop(); err != nil &&
-		!strings.Contains(err.Error(), gracefullyExitedMessage) {
+	if err := m.process.Stop(); err != nil {
 		return err
 	}
 	return nil
