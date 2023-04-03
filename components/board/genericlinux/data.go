@@ -124,6 +124,17 @@ func getCompatiblePinDefs(modelName string, boardInfoMappings map[string]BoardIn
 	return pinDefs, nil
 }
 
+// A helper function: we read the contents of filePath and return its integer value.
+func readIntFile(filePath string) (int, error) {
+	//nolint:gosec
+	contents, err := os.ReadFile(filePath)
+	if err != nil {
+		return -1, err
+	}
+	resultInt64, err := strconv.ParseInt(strings.TrimSpace(string(contents)), 10, 64)
+	return int(resultInt64), err
+}
+
 func getGpioChipDefs(pinDefs []PinDefinition) (map[string]gpioChipData, error) {
 	gpioChipsInfo := map[string]gpioChipData{}
 	sysfsPrefixes := []string{"/sys/devices/", "/sys/devices/platform/", "/sys/devices/platform/bus@100000/"}
@@ -177,32 +188,20 @@ func getGpioChipDefs(pinDefs []PinDefinition) (map[string]gpioChipData, error) {
 				continue
 			}
 
-			baseFn := filepath.Join(gpioChipGPIODir, file.Name(), "base")
-			//nolint:gosec
-			baseRd, err := os.ReadFile(baseFn)
-			if err != nil {
-				return nil, err
-			}
-			baseParsed, err := strconv.ParseInt(strings.TrimSpace(string(baseRd)), 10, 64)
+			base, err := readIntFile(filepath.Join(gpioChipGPIODir, file.Name(), "base"))
 			if err != nil {
 				return nil, err
 			}
 
-			ngpioFn := filepath.Join(gpioChipGPIODir, file.Name(), "ngpio")
-			//nolint:gosec
-			ngpioRd, err := os.ReadFile(ngpioFn)
-			if err != nil {
-				return nil, err
-			}
-			ngpioParsed, err := strconv.ParseInt(strings.TrimSpace(string(ngpioRd)), 10, 64)
+			ngpio, err := readIntFile(filepath.Join(gpioChipGPIODir, file.Name(), "ngpio"))
 			if err != nil {
 				return nil, err
 			}
 
 			gpioChipsInfo[gpioChipName] = gpioChipData{
 				Dir:   chipFileName,
-				Base:  int(baseParsed),
-				Ngpio: int(ngpioParsed),
+				Base:  base,
+				Ngpio: ngpio,
 			}
 			break
 		}
