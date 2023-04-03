@@ -4,12 +4,10 @@ TOOL_BIN = bin/gotools/$(shell uname -s)-$(shell uname -m)
 
 PATH_WITH_TOOLS="`pwd`/$(TOOL_BIN):`pwd`/node_modules/.bin:${PATH}"
 
-# this is needed for older model pis and pi zeros
-LONG_PLT=$(shell uname -m | grep -qe 'armv[6,7]l' && echo -Wl,--long-plt)
-
 GIT_REVISION = $(shell git rev-parse HEAD | tr -d '\n')
 TAG_VERSION?=$(shell etc/tag_version.sh)
-LDFLAGS = -ldflags "-s -w -extldflags '$(LONG_PLT) -static-libgcc -static-libstdc++ -Wl,-Bstatic -ljpeg -lx264 -lnlopt -ltensorflowlite_c -lstdc++ -Wl,-Bdynamic' -X 'go.viam.com/rdk/config.Version=${TAG_VERSION}' -X 'go.viam.com/rdk/config.GitRevision=${GIT_REVISION}'"
+LDFLAGS = -ldflags "-s -w -extld="$(shell pwd)/etc/ld_wrapper.sh" -X 'go.viam.com/rdk/config.Version=${TAG_VERSION}' -X 'go.viam.com/rdk/config.GitRevision=${GIT_REVISION}'"
+
 # BUILD_TAGS = osusergo,netgo
 # GO_BUILD_TAGS = -tags $(BUILD_TAGS)
 # LINT_BUILD_TAGS = --build-tags $(BUILD_TAGS)
@@ -92,6 +90,9 @@ test-integration:
 
 server: build-web
 	go build $(GO_BUILD_TAGS) $(LDFLAGS) -o $(BIN_OUTPUT_PATH)/viam-server web/cmd/server/main.go
+
+server-static: build-web
+	VIAM_STATIC_BUILD=1 go build $(GO_BUILD_TAGS) $(LDFLAGS) -o $(BIN_OUTPUT_PATH)/viam-server web/cmd/server/main.go
 
 clean-all:
 	git clean -fxd
