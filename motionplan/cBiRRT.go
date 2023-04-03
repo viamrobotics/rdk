@@ -285,16 +285,11 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 
 		dist := mp.planOpts.DistanceFunc(&Segment{StartConfiguration: near.Q(), EndConfiguration: target.Q()})
 		oldDist := mp.planOpts.DistanceFunc(&Segment{StartConfiguration: oldNear.Q(), EndConfiguration: target.Q()})
-		nearDist := mp.planOpts.DistanceFunc(&Segment{StartConfiguration: near.Q(), EndConfiguration: oldNear.Q()})
 		switch {
 		case dist < mp.algOpts.JointSolveDist:
 			mchan <- near
 			return
 		case dist > oldDist:
-			mchan <- oldNear
-			return
-		case i > 2 && nearDist < math.Pow(mp.algOpts.JointSolveDist, 3):
-			// not moving enough to make meaningful progress. Do not trigger on first iteration.
 			mchan <- oldNear
 			return
 		}
@@ -319,6 +314,13 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 		newNear = mp.constrainNear(ctx, randseed, oldNear.Q(), newNear)
 
 		if newNear != nil {
+			nearDist := mp.planOpts.DistanceFunc(&Segment{StartConfiguration: oldNear.Q(), EndConfiguration: newNear})
+			if nearDist < math.Pow(mp.algOpts.JointSolveDist, 3) {
+				// We've arrived back at very nearly the same configuration again; stop solving and send back oldNear.
+				// Do not add the near-identical configuration to the RRT map
+				mchan <- oldNear
+				return
+			}
 			// constrainNear will ensure path between oldNear and newNear satisfies constraints along the way
 			near = &basicNode{q: newNear}
 			rrtMap[near] = oldNear
