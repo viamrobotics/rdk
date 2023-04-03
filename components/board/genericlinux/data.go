@@ -67,12 +67,10 @@ type gpioChipData struct {
 }
 
 // pwmChipData is a struct used solely within GetGPIOBoardMappings and its sub-pieces. It
-// describes a PWM chip within sysfs. It has the exact same form as gpioChipData, but we make it a
-// separate type so you can't accidentally use one when you should have used the other.
+// describes a PWM chip within sysfs.
 type pwmChipData struct {
 	Dir  string // Absolute path to pseudofile within sysfs to interact with this chip
-	Base int    // Taken from the /base pseudofile in sysfs: offset to the start of the lines
-	Npwm int    // Taken from the /ngpio pseudofile in sysfs: number of lines on the chip
+	Npwm int    // Taken from the /npwm pseudofile in sysfs: number of lines on the chip
 }
 
 // GetGPIOBoardMappings attempts to find a compatible board-pin mapping for the given mappings.
@@ -91,7 +89,8 @@ func GetGPIOBoardMappings(modelName string, boardInfoMappings map[string]BoardIn
 		return nil, err
 	}
 
-	return getBoardMapping(pinDefs, gpioChipsInfo, pwmChipsInfo)
+	mapping, err := getBoardMapping(pinDefs, gpioChipsInfo, pwmChipsInfo)
+	return mapping, err
 }
 
 // getCompatiblePinDefs returns a list of pin definitions, from the first BoardInformation struct
@@ -241,17 +240,12 @@ func getPwmChipDefs(pinDefs []PinDefinition) (map[string]pwmChipData, error) {
 			found = true
 			chipPath := fmt.Sprintf("/sys/class/pwm/%s", file.Name())
 
-			base, err := readIntFile(filepath.Join(chipPath, "base"))
-			if err != nil {
-				return nil, err
-			}
-
 			npwm, err := readIntFile(filepath.Join(chipPath, "npwm"))
 			if err != nil {
 				return nil, err
 			}
 
-			pwmChipsInfo[chipName] = pwmChipData{Dir: chipPath, Base: base, Npwm: npwm}
+			pwmChipsInfo[chipName] = pwmChipData{Dir: chipPath, Npwm: npwm}
 			break
 		}
 		if !found {
@@ -265,7 +259,7 @@ func getBoardMapping(pinDefs []PinDefinition, gpioChipsInfo map[string]gpioChipD
 	data := make(map[int]GPIOBoardMapping, len(pinDefs))
 
 	// For "use" on pins that don't have hardware PWMs
-	dummyPwmInfo := pwmChipData{Dir: "", Base: 0, Npwm: -1}
+	dummyPwmInfo := pwmChipData{Dir: "", Npwm: -1}
 
 	for _, pinDef := range pinDefs {
 		key := pinDef.PinNumberBoard
@@ -303,7 +297,7 @@ func getBoardMapping(pinDefs []PinDefinition, gpioChipsInfo map[string]gpioChipD
 			GPIOGlobal:     gpioChipInfo.Base + chipRelativeID,
 			GPIOName:       pinDef.PinNameCVM,
 			PWMSysFsDir:    pwmChipInfo.Dir,
-			PWMID:          pwmChipInfo.Base + pinDef.PWMID,
+			PWMID:          pinDef.PWMID,
 			HWPWMSupported: pinDef.PWMID != -1,
 		}
 	}
