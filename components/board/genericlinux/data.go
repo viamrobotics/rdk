@@ -66,6 +66,15 @@ type gpioChipData struct {
 	Ngpio int    // Taken from the /ngpio pseudofile in sysfs: number of lines on the chip
 }
 
+// pwmChipData is a struct used solely within GetGPIOBoardMappings and its sub-pieces. It
+// describes a PWM chip within sysfs. It has the exact same form as gpioChipData, but we make it a
+// separate type so you can't accidentally use one when you should have used the other.
+type pwmChipData struct {
+	Dir   string // Pseudofile within sysfs to interact with this chip
+	Base  int    // Taken from the /base pseudofile in sysfs: offset to the start of the lines
+	Ngpio int    // Taken from the /ngpio pseudofile in sysfs: number of lines on the chip
+}
+
 // GetGPIOBoardMappings attempts to find a compatible board-pin mapping for the given mappings.
 func GetGPIOBoardMappings(modelName string, boardInfoMappings map[string]BoardInformation) (map[int]GPIOBoardMapping, error) {
 	pinDefs, err := getCompatiblePinDefs(modelName, boardInfoMappings)
@@ -78,7 +87,12 @@ func GetGPIOBoardMappings(modelName string, boardInfoMappings map[string]BoardIn
 		return nil, err
 	}
 
-	return getBoardMapping(pinDefs, gpioChipInfo)
+	pwmChipInfo, err := getPwmChipDefs(pinDefs)
+	if err != nil {
+		return nil, err
+	}
+
+	return getBoardMapping(pinDefs, gpioChipInfo, pwmChipInfo)
 }
 
 // getCompatiblePinDefs returns a list of pin definitions, from the first BoardInformation struct
@@ -198,7 +212,11 @@ func getGpioChipDefs(pinDefs []PinDefinition) (map[string]gpioChipData, error) {
 	return gpioChipInfo, nil
 }
 
-func getBoardMapping(pinDefs []PinDefinition, gpioChipInfo map[string]gpioChipData) (map[int]GPIOBoardMapping, error) {
+func getPwmChipDefs(pinDefs []PinDefinition) (map[string]pwmChipData, error) {
+	return nil, errors.New("unimplemented")
+}
+
+func getBoardMapping(pinDefs []PinDefinition, gpioChipInfo map[string]gpioChipData, pwmChipInfo map[string]pwmChipData) (map[int]GPIOBoardMapping, error) {
 	data := make(map[int]GPIOBoardMapping, len(pinDefs))
 
 	for _, pinDef := range pinDefs {
