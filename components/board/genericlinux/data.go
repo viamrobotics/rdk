@@ -224,10 +224,10 @@ func getPwmChipDefs(pinDefs []PinDefinition) (map[string]pwmChipData, error) {
 	// Now, look for all chips whose names we found.
 	pwmChipsInfo := map[string]pwmChipData{}
 	for chipName := range pwmChipNames {
-		chipDir := fmt.Sprintf("/sys/devices/platform/%s/pwm", chipName)
 		// There should be a single directory within /sys/devices/platform/<chipName>/pwm/, whose
 		// name is mirrored in /sys/class/pwm. That's the one we want to use.
 		// TODO[RSDK-2332]: make this universally usable by all genericlinux boards.
+		chipDir := fmt.Sprintf("/sys/devices/platform/%s/pwm", chipName)
 		files, err := os.ReadDir(chipDir)
 		if err != nil {
 			return nil, err
