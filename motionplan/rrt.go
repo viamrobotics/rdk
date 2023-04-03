@@ -79,7 +79,7 @@ func initRRTSolutions(ctx context.Context, mp motionPlanner, seed []referencefra
 	}
 
 	// the smallest interpolated distance between the start and end input represents a lower bound on cost
-	optimalCost := mp.opt().DistanceFunc(&SegmentInput{StartConfiguration: seed, EndConfiguration: solutions[0].Q()})
+	optimalCost := mp.opt().DistanceFunc(&Segment{StartConfiguration: seed, EndConfiguration: solutions[0].Q()})
 	rrt.maps.optNode = newCostNode(solutions[0].Q(), optimalCost)
 
 	// Check for direct interpolation for the subset of IK solutions within some multiple of optimal
@@ -88,7 +88,7 @@ func initRRTSolutions(ctx context.Context, mp motionPlanner, seed []referencefra
 	// initialize maps and check whether direct interpolation is an option
 	for _, solution := range solutions {
 		if canInterp {
-			cost := mp.opt().DistanceFunc(&SegmentInput{StartConfiguration: seed, EndConfiguration: solution.Q()})
+			cost := mp.opt().DistanceFunc(&Segment{StartConfiguration: seed, EndConfiguration: solution.Q()})
 			if cost < optimalCost*defaultOptimalityMultiple {
 				if mp.checkPath(seed, solution.Q()) {
 					rrt.steps = []node{seedNode, solution}

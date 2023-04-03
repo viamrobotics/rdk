@@ -89,7 +89,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 	if len(ik.lowerBound) == 0 || len(ik.upperBound) == 0 {
 		return errBadBounds
 	}
-	mInput := &StateInput{Frame: ik.model}
+	mInput := &State{Frame: ik.model}
 
 	// x is our joint positions
 	// Gradient is, under the hood, a unsafe C structure that we are meant to mutate in place.

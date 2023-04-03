@@ -45,7 +45,7 @@ func EvaluatePlan(plan [][]referenceframe.Input, distFunc SegmentMetric) (totalC
 		return math.Inf(1)
 	}
 	for i := 0; i < len(plan)-1; i++ {
-		cost := distFunc(&SegmentInput{StartConfiguration: plan[i], EndConfiguration: plan[i+1]})
+		cost := distFunc(&Segment{StartConfiguration: plan[i], EndConfiguration: plan[i+1]})
 		totalCost += cost
 	}
 	return totalCost

@@ -223,7 +223,7 @@ func (mp *rrtStarConnectMotionPlanner) extend(
 
 		// check to see if a shortcut is possible, and rewire the node if it is
 		neighborNode := neighbor.node.(*costNode)
-		connectionCost := mp.planOpts.DistanceFunc(&SegmentInput{
+		connectionCost := mp.planOpts.DistanceFunc(&Segment{
 			StartConfiguration: neighborNode.Q(),
 			EndConfiguration:   targetNode.Q(),
 		})

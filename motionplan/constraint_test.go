@@ -54,8 +54,8 @@ func TestConstraintPath(t *testing.T) {
 	modelXarm, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "")
 
 	test.That(t, err, test.ShouldBeNil)
-	ci := &SegmentInput{StartConfiguration: homePos, EndConfiguration: toPos, Frame: modelXarm}
-	err = resolveSegmentInputsToPositions(ci)
+	ci := &Segment{StartConfiguration: homePos, EndConfiguration: toPos, Frame: modelXarm}
+	err = resolveSegmentsToPositions(ci)
 	test.That(t, err, test.ShouldBeNil)
 
 	handler := &ConstraintHandler{}
@@ -75,8 +75,8 @@ func TestConstraintPath(t *testing.T) {
 	test.That(t, len(handler.StateConstraints()), test.ShouldEqual, 1)
 
 	badInterpPos := frame.FloatsToInputs([]float64{6.2, 0, 0, 0, 0, 0})
-	ciBad := &SegmentInput{StartConfiguration: homePos, EndConfiguration: badInterpPos, Frame: modelXarm}
-	err = resolveSegmentInputsToPositions(ciBad)
+	ciBad := &Segment{StartConfiguration: homePos, EndConfiguration: badInterpPos, Frame: modelXarm}
+	err = resolveSegmentsToPositions(ciBad)
 	test.That(t, err, test.ShouldBeNil)
 	ok, failCI = handler.CheckSegmentAndStateValidity(ciBad, 0.5)
 	test.That(t, failCI, test.ShouldNotBeNil) // With linear constraint, should be valid at the first step
@@ -133,7 +133,7 @@ func TestLineFollow(t *testing.T) {
 
 	validFunc, gradFunc := NewLineConstraint(p1.Point(), p2.Point(), 0.001)
 
-	pointGrad := gradFunc(&StateInput{Position: query})
+	pointGrad := gradFunc(&State{Position: query})
 	test.That(t, pointGrad, test.ShouldBeLessThan, 0.001*0.001)
 
 	fs := frame.NewEmptySimpleFrameSystem("test")
@@ -159,7 +159,7 @@ func TestLineFollow(t *testing.T) {
 	opt.AddStateConstraint("whiteboard", validFunc)
 
 	ok, lastGood := opt.CheckSegmentAndStateValidity(
-		&SegmentInput{
+		&Segment{
 			StartConfiguration: sf.InputFromProtobuf(mp1),
 			EndConfiguration:   sf.InputFromProtobuf(mp2),
 			Frame:              sf,
@@ -169,7 +169,7 @@ func TestLineFollow(t *testing.T) {
 	test.That(t, ok, test.ShouldBeFalse)
 	// lastGood.StartConfiguration and EndConfiguration should pass constraints
 	lastGood.Frame = sf
-	stateCheck := &StateInput{Configuration: lastGood.StartConfiguration, Frame: lastGood.Frame}
+	stateCheck := &State{Configuration: lastGood.StartConfiguration, Frame: lastGood.Frame}
 	pass, _ := opt.CheckStateConstraints(stateCheck)
 	test.That(t, pass, test.ShouldBeTrue)
 
@@ -227,7 +227,7 @@ func TestCollisionConstraints(t *testing.T) {
 	// loop through cases and check constraint handler processes them correctly
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("Test %d", i), func(t *testing.T) {
-			response, failName := handler.CheckStateConstraints(&StateInput{Configuration: c.input, Frame: model})
+			response, failName := handler.CheckStateConstraints(&State{Configuration: c.input, Frame: model})
 			test.That(t, response, test.ShouldEqual, c.expected)
 			test.That(t, failName, test.ShouldEqual, c.failName)
 		})
@@ -268,7 +268,7 @@ func BenchmarkCollisionConstraints(b *testing.B) {
 	// loop through cases and check constraint handler processes them correctly
 	for n = 0; n < b.N; n++ {
 		rfloats := frame.GenerateRandomConfiguration(model, rseed)
-		b1, _ = handler.CheckStateConstraints(&StateInput{Configuration: frame.FloatsToInputs(rfloats), Frame: model})
+		b1, _ = handler.CheckStateConstraints(&State{Configuration: frame.FloatsToInputs(rfloats), Frame: model})
 	}
 	bt = b1
 }

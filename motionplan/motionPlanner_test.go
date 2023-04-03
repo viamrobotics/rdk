@@ -96,15 +96,15 @@ func constrainedXArmMotion() (*planConfig, error) {
 	orientMetric := NewPoseFlexOVMetric(pos, 0.09)
 
 	oFunc := orientDistToRegion(pos.Orientation(), 0.1)
-	oFuncMet := func(from *StateInput) float64 {
-		err := resolveStateInputsToPositions(from)
+	oFuncMet := func(from *State) float64 {
+		err := resolveStatesToPositions(from)
 		if err != nil {
 			return math.Inf(1)
 		}
 		return oFunc(from.Position.Orientation())
 	}
-	orientConstraint := func(cInput *StateInput) bool {
-		err := resolveStateInputsToPositions(cInput)
+	orientConstraint := func(cInput *State) bool {
+		err := resolveStatesToPositions(cInput)
 		if err != nil {
 			return false
 		}
@@ -315,7 +315,7 @@ func testPlanner(t *testing.T, plannerFunc plannerConstructor, config planConfig
 	// test that path doesn't violate constraints
 	test.That(t, len(path), test.ShouldBeGreaterThanOrEqualTo, 2)
 	for j := 0; j < len(path)-1; j++ {
-		ok, _ := cfg.Options.ConstraintHandler.CheckSegmentAndStateValidity(&SegmentInput{
+		ok, _ := cfg.Options.ConstraintHandler.CheckSegmentAndStateValidity(&Segment{
 			StartConfiguration: path[j],
 			EndConfiguration:   path[j+1],
 			Frame:              cfg.RobotFrame,

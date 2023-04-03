@@ -36,7 +36,7 @@ func kNearestNeighbors(planOpts *plannerOptions, rrtMap map[node]node, target []
 
 	allCosts := make([]*neighbor, 0)
 	for node := range rrtMap {
-		dist := planOpts.DistanceFunc(&SegmentInput{
+		dist := planOpts.DistanceFunc(&Segment{
 			StartConfiguration: target,
 			EndConfiguration:   node.Q(),
 		})
@@ -66,7 +66,7 @@ func (nm *neighborManager) nearestNeighbor(
 	bestDist := math.Inf(1)
 	var best node
 	for k := range rrtMap {
-		dist := planOpts.DistanceFunc(&SegmentInput{
+		dist := planOpts.DistanceFunc(&Segment{
 			StartConfiguration: seed,
 			EndConfiguration:   k.Q(),
 		})
@@ -144,7 +144,7 @@ func (nm *neighborManager) nnWorker(ctx context.Context, planOpts *plannerOption
 		case k := <-nm.nnKeys:
 			if k != nil {
 				nm.nnLock.RLock()
-				dist := planOpts.DistanceFunc(&SegmentInput{
+				dist := planOpts.DistanceFunc(&Segment{
 					StartConfiguration: nm.seedPos,
 					EndConfiguration:   k.Q(),
 				})

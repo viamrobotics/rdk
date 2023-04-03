@@ -15,10 +15,10 @@ func TestSqNormMetric(t *testing.T) {
 	p2 := spatial.NewPoseFromPoint(r3.Vector{0, 0, 10})
 	sqMet := NewSquaredNormMetric(p1)
 
-	d1 := sqMet(&StateInput{Position: p1})
+	d1 := sqMet(&State{Position: p1})
 	test.That(t, d1, test.ShouldAlmostEqual, 0)
 	sqMet = NewSquaredNormMetric(p2)
-	d2 := sqMet(&StateInput{Position: p1})
+	d2 := sqMet(&State{Position: p1})
 	test.That(t, d2, test.ShouldAlmostEqual, 100)
 }
 
@@ -36,7 +36,7 @@ func TestBasicMetric(t *testing.T) {
 
 var (
 	ov     = &spatial.OrientationVector{math.Pi / 2, 0, 0, -1}
-	p1b    = &StateInput{Position: spatial.NewPose(r3.Vector{1, 2, 3}, ov)}
+	p1b    = &State{Position: spatial.NewPose(r3.Vector{1, 2, 3}, ov)}
 	p2b    = spatial.NewPose(r3.Vector{2, 3, 4}, ov)
 	result float64
 )

@@ -82,7 +82,7 @@ func TestSimpleLinearMotion(t *testing.T) {
 		cbirrt.constrainedExtend(ctx, cbirrt.randseed, goalMap, near2, seedReached, m1chan)
 	})
 	goalReached := <-m1chan
-	dist := opt.DistanceFunc(&SegmentInput{StartConfiguration: seedReached.Q(), EndConfiguration: goalReached.Q()})
+	dist := opt.DistanceFunc(&Segment{StartConfiguration: seedReached.Q(), EndConfiguration: goalReached.Q()})
 	test.That(t, dist < cOpt.JointSolveDist, test.ShouldBeTrue)
 
 	corners[seedReached] = true
