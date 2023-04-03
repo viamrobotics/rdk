@@ -70,7 +70,7 @@ type gpioChipData struct {
 // describes a PWM chip within sysfs. It has the exact same form as gpioChipData, but we make it a
 // separate type so you can't accidentally use one when you should have used the other.
 type pwmChipData struct {
-	Dir  string // Pseudofile within sysfs to interact with this chip
+	Dir  string // Absolute path to pseudofile within sysfs to interact with this chip
 	Base int    // Taken from the /base pseudofile in sysfs: offset to the start of the lines
 	Npwm int    // Taken from the /ngpio pseudofile in sysfs: number of lines on the chip
 }
