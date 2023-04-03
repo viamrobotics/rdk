@@ -86,7 +86,6 @@ func GetGPIOBoardMappings(modelName string, boardInfoMappings map[string]BoardIn
 	if err != nil {
 		return nil, err
 	}
-
 	pwmChipsInfo, err := getPwmChipDefs(pinDefs)
 	if err != nil {
 		return nil, err
@@ -213,7 +212,45 @@ func getGpioChipDefs(pinDefs []PinDefinition) (map[string]gpioChipData, error) {
 }
 
 func getPwmChipDefs(pinDefs []PinDefinition) (map[string]pwmChipData, error) {
-	return nil, errors.New("unimplemented")
+	// First, collect the names of all relevant PWM chips with duplicates removed. Go doesn't have
+	// native set objects, so we use a map whose values are ignored.
+	pwmChipNames := make(map[string]struct{}, len(pinDefs))
+	for _, pinDef := range pinDefs {
+		if pinDef.PWMChipSysFSDir == "" {
+			continue
+		}
+		pwmChipNames[pinDef.PWMChipSysFSDir] = struct{}{}
+	}
+
+	// Now, look for all chips whose names we found.
+	pwmChipsInfo := map[string]pwmChipData{}
+	for chipName := range pwmChipNames {
+		chipDir := fmt.Sprintf("/sys/devices/platform/%s/pwm", chipName)
+		// There should be a single directory within /sys/devices/platform/<chipName>/pwm/, whose
+		// name is mirrored in /sys/class/pwm. That's the one we want to use.
+		// TODO[RSDK-2332]: make this universally usable by all genericlinux boards.
+		files, err := os.ReadDir(chipDir)
+		if err != nil {
+			return nil, err
+		}
+
+		found := false
+		for _, file := range files {
+			if !(strings.Contains(file.Name(), "pwmchip") && file.IsDir()) {
+				continue
+			}
+			found = true
+			chipPath := fmt.Sprintf("/sys/class/pwm/%s", file.Name())
+			baseInt := -1 // TODO: implement these.
+			npwmInt := -1
+			pwmChipsInfo[chipName] = pwmChipData{Dir: chipPath, Base: baseInt, Npwm: npwmInt}
+			break
+		}
+		if !found {
+			return nil, fmt.Errorf("unable to find PWM device %s", chipName)
+		}
+	}
+	return pwmChipsInfo, nil
 }
 
 func getBoardMapping(pinDefs []PinDefinition, gpioChipsInfo map[string]gpioChipData, pwmChipsInfo map[string]pwmChipData) (map[int]GPIOBoardMapping, error) {
