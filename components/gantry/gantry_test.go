@@ -80,7 +80,7 @@ func TestFromDependencies(t *testing.T) {
 	test.That(t, lengths1, test.ShouldResemble, lengths)
 
 	res, err = gantry.FromDependencies(deps, fakeGantryName)
-	test.That(t, err, test.ShouldBeError, gantry.DependencyTypeError(fakeGantryName, "string"))
+	test.That(t, err, test.ShouldBeError, rutils.DependencyTypeError[gantry.Gantry](fakeGantryName, "string"))
 	test.That(t, res, test.ShouldBeNil)
 
 	res, err = gantry.FromDependencies(deps, missingGantryName)

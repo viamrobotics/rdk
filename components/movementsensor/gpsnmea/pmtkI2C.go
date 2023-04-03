@@ -79,6 +79,9 @@ func NewPmtkI2CGPSNMEA(
 		cancelFunc:  cancelFunc,
 		logger:      logger,
 		disableNmea: disableNmea,
+		// Overloaded boards can have flaky I2C busses. Only report errors if at least 5 of the
+		// last 10 attempts have failed.
+		err: movementsensor.NewLastError(10, 5),
 	}
 
 	if err := g.Start(ctx); err != nil {
@@ -134,16 +137,19 @@ func (g *PmtkI2CNMEAMovementSensor) Start(ctx context.Context) error {
 			if !g.disableNmea {
 				// Opening an i2c handle blocks the whole bus, so we open/close each loop so other things also have a chance to use it
 				handle, err := g.bus.OpenHandle(g.addr)
+				// Record the error value no matter what. If it's nil, this will help suppress
+				// ephemeral errors later.
+				g.err.Set(err)
 				if err != nil {
 					g.logger.Errorf("can't open gps i2c handle: %s", err)
-					g.err.Set(err)
 					return
 				}
 				buffer, err := handle.Read(ctx, 1024)
+				g.err.Set(err)
 				hErr := handle.Close()
+				g.err.Set(hErr)
 				if hErr != nil {
 					g.logger.Errorf("failed to close handle: %s", hErr)
-					g.err.Set(err)
 					return
 				}
 				if err != nil {

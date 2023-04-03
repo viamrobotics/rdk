@@ -73,7 +73,9 @@ func (base *MyBase) Reconfigure(cfg config.Component, deps registry.Dependencies
 	if base.left == nil || base.right == nil {
 		return errors.Errorf(`mybase %q needs both "motorL" and "motorR"`, cfg.Name)
 	}
-	return nil
+
+	// Good practice to stop motors, but also this effectively tests https://viam.atlassian.net/browse/RSDK-2496
+	return multierr.Combine(base.left.Stop(context.Background(), nil), base.right.Stop(context.Background(), nil))
 }
 
 type MyBaseConfig struct {
