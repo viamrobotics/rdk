@@ -458,8 +458,6 @@ func (m *module) stopProcess() error {
 		return nil
 	})
 
-	// Stop managed process and swallow 143 errors. Some stopped modules may return
-	// "exit status 143" indicating a graceful exit after SIGTERM.
 	if err := m.process.Stop(); err != nil {
 		return err
 	}
