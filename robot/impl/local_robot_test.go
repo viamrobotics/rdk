@@ -2512,3 +2512,144 @@ func TestModularOrphanedResources(t *testing.T) {
 	_, err = r.ResourceByName(summationapi.Named("s"))
 	test.That(t, err, test.ShouldBeNil)
 }
+
+func TestMixedOrphanedResources(t *testing.T) {
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+
+	// Precompile modules to avoid timeout issues when building takes too long.
+	builder := exec.Command("go", "build", ".")
+	builder.Dir = rutils.ResolveFile("examples/customresources/demos/complexmodule")
+	out, err := builder.CombinedOutput()
+	test.That(t, string(out), test.ShouldEqual, "")
+	test.That(t, err, test.ShouldBeNil)
+	builder = exec.Command("go", "build", ".")
+	builder.Dir = rutils.ResolveFile("examples/customresources/demos/simplemodule")
+	out, err = builder.CombinedOutput()
+	test.That(t, string(out), test.ShouldEqual, "")
+	test.That(t, err, test.ShouldBeNil)
+
+	// Manually define model, as importing it can cause double registration.
+	gizmoModel := resource.NewModel(resource.Namespace("acme"), resource.ModelFamilyName("demo"),
+		resource.ModelName("mygizmo"))
+
+	cfg := &config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "mod",
+				ExePath: rutils.ResolveFile("examples/customresources/demos/complexmodule/run.sh"),
+			},
+		},
+		Components: []config.Component{
+			{
+				Name:      "g",
+				Namespace: "acme",
+				Model:     gizmoModel,
+				Type:      resource.SubtypeName("gizmo"),
+				DependsOn: []string{"m"},
+			},
+			{
+				Name:  "m",
+				Model: fakeModel,
+				Type:  motor.SubtypeName,
+			},
+			{
+				Name:      "m1",
+				Model:     fakeModel,
+				Type:      motor.SubtypeName,
+				DependsOn: []string{"g"},
+			},
+		},
+	}
+	r, err := robotimpl.New(ctx, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+	}()
+
+	// Assert that reconfiguring module 'mod' to a new module that does not handle
+	// 'g' removes modular component 'g' and its dependent 'm1' and leaves 'm' as-is.
+	cfg2 := &config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "mod",
+				ExePath: rutils.ResolveFile("examples/customresources/demos/simplemodule/run.sh"),
+			},
+		},
+		Components: []config.Component{
+			{
+				Name:      "g",
+				Namespace: "acme",
+				Model:     gizmoModel,
+				Type:      resource.SubtypeName("gizmo"),
+				DependsOn: []string{"m"},
+			},
+			{
+				Name:  "m",
+				Model: fakeModel,
+				Type:  motor.SubtypeName,
+			},
+			{
+				Name:      "m1",
+				Model:     fakeModel,
+				Type:      motor.SubtypeName,
+				DependsOn: []string{"g"},
+			},
+		},
+	}
+	r.Reconfigure(ctx, cfg2)
+
+	res, err := r.ResourceByName(gizmoapi.Named("g"))
+	test.That(t, err, test.ShouldBeError,
+		rutils.NewResourceNotFoundError(gizmoapi.Named("g")))
+	test.That(t, res, test.ShouldBeNil)
+	res, err = r.ResourceByName(motor.Named("m1"))
+	test.That(t, err, test.ShouldBeError,
+		rutils.NewResourceNotFoundError(motor.Named("m1")))
+	test.That(t, res, test.ShouldBeNil)
+	_, err = r.ResourceByName(motor.Named("m"))
+	test.That(t, err, test.ShouldBeNil)
+
+	// Remove module entirely.
+	cfg3 := &config.Config{
+		Components: []config.Component{
+			{
+				Name:      "g",
+				Namespace: "acme",
+				Model:     gizmoModel,
+				Type:      resource.SubtypeName("gizmo"),
+				DependsOn: []string{"m"},
+			},
+			{
+				Name:  "m",
+				Model: fakeModel,
+				Type:  motor.SubtypeName,
+			},
+			{
+				Name:      "m1",
+				Model:     fakeModel,
+				Type:      motor.SubtypeName,
+				DependsOn: []string{"g"},
+			},
+		},
+	}
+	r.Reconfigure(ctx, cfg3)
+
+	// Assert that adding module 'mod' back with original executable path re-adds
+	// modular component 'g' and its dependent 'm1', and that 'm' is still present.
+	r.Reconfigure(ctx, cfg)
+
+	_, err = r.ResourceByName(gizmoapi.Named("g"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = r.ResourceByName(motor.Named("m1"))
+	test.That(t, err, test.ShouldBeNil)
+	m, err := r.ResourceByName(motor.Named("m"))
+	test.That(t, err, test.ShouldBeNil)
+
+	// Assert that motor 'm' can still be used.
+	motorM, ok := m.(motor.Motor)
+	test.That(t, ok, test.ShouldBeTrue)
+	isMoving, err := motorM.IsMoving(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, isMoving, test.ShouldBeFalse)
+}
