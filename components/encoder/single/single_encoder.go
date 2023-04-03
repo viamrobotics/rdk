@@ -1,4 +1,4 @@
-package encoder
+package single
 
 /*
 	This driver implements a single-wire odometer, such as LM393, as an encoder.
@@ -32,6 +32,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -43,7 +44,7 @@ var singlemodelname = resource.NewDefaultModel("single")
 
 func init() {
 	registry.RegisterComponent(
-		Subtype,
+		encoder.Subtype,
 		singlemodelname,
 		registry.Component{Constructor: func(
 			ctx context.Context,
@@ -55,13 +56,13 @@ func init() {
 		}})
 
 	config.RegisterComponentAttributeMapConverter(
-		Subtype,
+		encoder.Subtype,
 		singlemodelname,
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf SingleWireConfig
+			var conf AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
 		},
-		&SingleWireConfig{})
+		&AttrConfig{})
 }
 
 // DirectionAware lets you ask what direction something is moving. Only used for SingleEncoder for now, unclear future.
@@ -70,7 +71,7 @@ type DirectionAware interface {
 	DirectionMoving() int64
 }
 
-// SingleEncoder keeps track of a motor position using a rotary encoder.
+// SingleEncoder keeps track of a motor position using a rotary encoder.s
 type SingleEncoder struct {
 	generic.Unimplemented
 	name     string
@@ -85,18 +86,18 @@ type SingleEncoder struct {
 }
 
 // SingleWirePin describes the configuration of Pins for a Single encoder.
-type SingleWirePin struct {
+type SinglePin struct {
 	I string `json:"i"`
 }
 
-// SingleWireConfig describes the configuration of a single encoder.
-type SingleWireConfig struct {
-	Pins      SingleWirePin `json:"pins"`
-	BoardName string        `json:"board"`
+// AttrConfig describes the configuration of a single encoder.
+type AttrConfig struct {
+	Pins      SinglePin `json:"pins"`
+	BoardName string    `json:"board"`
 }
 
 // Validate ensures all parts of the config are valid.
-func (cfg *SingleWireConfig) Validate(path string) ([]string, error) {
+func (cfg *AttrConfig) Validate(path string) ([]string, error) {
 	var deps []string
 
 	if cfg.Pins.I == "" {
@@ -122,8 +123,8 @@ func NewSingleEncoder(
 	deps registry.Dependencies,
 	rawConfig config.Component,
 	logger golog.Logger,
-) (*SingleEncoder, error) {
-	cfg, ok := rawConfig.ConvertedAttributes.(*SingleWireConfig)
+) (encoder.Encoder, error) {
+	cfg, ok := rawConfig.ConvertedAttributes.(*AttrConfig)
 	if !ok {
 		return nil, rutils.NewUnexpectedTypeError(cfg, rawConfig.ConvertedAttributes)
 	}
@@ -181,14 +182,14 @@ func (e *SingleEncoder) Start(ctx context.Context) {
 	}, e.activeBackgroundWorkers.Done)
 }
 
-// TicksCount returns the current position.
-func (e *SingleEncoder) TicksCount(ctx context.Context, extra map[string]interface{}) (float64, error) {
+// GetPosition returns the current position.
+func (e *SingleEncoder) GetPosition(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	res := atomic.LoadInt64(&e.position)
 	return float64(res), nil
 }
 
-// Reset sets the current position of the motor (adjusted by a given offset).
-func (e *SingleEncoder) Reset(ctx context.Context, offset float64, extra map[string]interface{}) error {
+// ResetPosition sets the current position of the motor (adjusted by a given offset).
+func (e *SingleEncoder) ResetPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
 	offsetInt := int64(math.Round(offset))
 	atomic.StoreInt64(&e.position, offsetInt)
 	return nil

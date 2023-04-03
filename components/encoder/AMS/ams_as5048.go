@@ -1,4 +1,4 @@
-package encoder
+package AMS
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -36,7 +37,7 @@ var waitTimeNano = (1.0 / 50.0) * 1000000000.0
 
 func init() {
 	registry.RegisterComponent(
-		Subtype,
+		encoder.Subtype,
 		modelName,
 		registry.Component{
 			Constructor: func(
@@ -50,19 +51,19 @@ func init() {
 		},
 	)
 	config.RegisterComponentAttributeMapConverter(
-		Subtype,
+		encoder.Subtype,
 		modelName,
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf AS5048Config
+			var conf AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
 		},
-		&AS5048Config{},
+		&AttrConfig{},
 	)
 }
 
 // AS5048Config contains the connection information for
 // configuring an AS5048 encoder.
-type AS5048Config struct {
+type AttrConfig struct {
 	BoardName string `json:"board"`
 	// We include connection type here in anticipation for
 	// future SPI support
@@ -72,7 +73,7 @@ type AS5048Config struct {
 
 // Validate checks the attributes of an initialized config
 // for proper values.
-func (conf *AS5048Config) Validate(path string) ([]string, error) {
+func (conf *AttrConfig) Validate(path string) ([]string, error) {
 	var deps []string
 
 	connType := conf.ConnectionType
@@ -140,8 +141,8 @@ type AS5048 struct {
 func newAS5048Encoder(
 	ctx context.Context, deps registry.Dependencies,
 	cfg config.Component, logger *zap.SugaredLogger,
-) (*AS5048, error) {
-	attr, ok := cfg.ConvertedAttributes.(*AS5048Config)
+) (encoder.Encoder, error) {
+	attr, ok := cfg.ConvertedAttributes.(*AttrConfig)
 	if !ok {
 		return nil, rdkutils.NewUnexpectedTypeError(attr, cfg.ConvertedAttributes)
 	}
@@ -177,7 +178,7 @@ func newAS5048Encoder(
 }
 
 func (enc *AS5048) startPositionLoop(ctx context.Context) error {
-	if err := enc.Reset(ctx, 0.0, map[string]interface{}{}); err != nil {
+	if err := enc.ResetPosition(ctx, 0.0, map[string]interface{}{}); err != nil {
 		return err
 	}
 	enc.activeBackgroundWorkers.Add(1)
@@ -243,13 +244,13 @@ func (enc *AS5048) updatePosition(ctx context.Context) error {
 	return nil
 }
 
-// TicksCount returns the total number of rotations detected
+// GetPosition returns the total number of rotations detected
 // by the encoder (rather than a number of pulse state transitions)
 // because this encoder is absolute and not incremental. As a result
 // a user MUST set ticks_per_rotation on the config of the corresponding
 // motor to 1. Any other value will result in completely incorrect
 // position measurements by the motor.
-func (enc *AS5048) TicksCount(
+func (enc *AS5048) GetPosition(
 	ctx context.Context, extra map[string]interface{},
 ) (float64, error) {
 	enc.mu.RLock()
@@ -258,11 +259,11 @@ func (enc *AS5048) TicksCount(
 	return ticks, nil
 }
 
-// Reset sets the current position measured by the encoder to be considered
-// its new zero position. If the offset provided is not 0.0, it also
-// sets the positionOffset attribute and adjusts all future recorded
+// ResetPosition sets the current position measured by the encoder to be
+// considered its new zero position. If the offset provided is not 0.0, it
+// also sets the positionOffset attribute and adjusts all future recorded
 // positions by that offset (until the function is called again).
-func (enc *AS5048) Reset(
+func (enc *AS5048) ResetPosition(
 	ctx context.Context, offset float64, extra map[string]interface{},
 ) error {
 	enc.mu.Lock()
@@ -303,9 +304,10 @@ func (enc *AS5048) Reset(
 
 // Close stops the position loop of the encoder when the component
 // is closed.
-func (enc *AS5048) Close() {
+func (enc *AS5048) Close() error {
 	enc.cancel()
 	enc.activeBackgroundWorkers.Wait()
+	return nil
 }
 
 // readByteDataFromBus opens a handle for the bus adhoc to perform a single read

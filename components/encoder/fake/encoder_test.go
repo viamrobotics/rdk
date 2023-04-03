@@ -15,24 +15,24 @@ func TestEncoder(t *testing.T) {
 
 	// Get and set position
 	t.Run("get and set position", func(t *testing.T) {
-		pos, err := e.TicksCount(ctx, nil)
+		pos, err := e.GetPosition(ctx, nil)
 		test.That(t, pos, test.ShouldEqual, 0)
 		test.That(t, err, test.ShouldBeNil)
 
 		err = e.SetPosition(ctx, 1)
 		test.That(t, err, test.ShouldBeNil)
 
-		pos, err = e.TicksCount(ctx, nil)
+		pos, err = e.GetPosition(ctx, nil)
 		test.That(t, pos, test.ShouldEqual, 1)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
 	// Reset
 	t.Run("reset to zero", func(t *testing.T) {
-		err := e.Reset(ctx, 0, nil)
+		err := e.ResetPosition(ctx, 0, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		pos, err := e.TicksCount(ctx, nil)
+		pos, err := e.GetPosition(ctx, nil)
 		test.That(t, pos, test.ShouldEqual, 0)
 		test.That(t, err, test.ShouldBeNil)
 	})
@@ -61,7 +61,7 @@ func TestEncoder(t *testing.T) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			pos, err := e.TicksCount(ctx, nil)
+			pos, err := e.GetPosition(ctx, nil)
 			test.That(tb, pos, test.ShouldBeGreaterThan, 0)
 			test.That(tb, err, test.ShouldBeNil)
 		})

@@ -39,12 +39,12 @@ var Subtype = resource.NewSubtype(
 
 // A Encoder turns a position into a signal.
 type Encoder interface {
-	// TicksCount returns number of ticks since last zeroing
-	TicksCount(ctx context.Context, extra map[string]interface{}) (float64, error)
+	// GetPosition returns number of ticks since last zeroing
+	GetPosition(ctx context.Context, extra map[string]interface{}) (float64, error)
 
-	// Reset sets the current position of the motor (adjusted by a given offset)
+	// ResetPosition sets the current position of the motor (adjusted by a given offset)
 	// to be its new zero position.
-	Reset(ctx context.Context, offset float64, extra map[string]interface{}) error
+	ResetPosition(ctx context.Context, offset float64, extra map[string]interface{}) error
 
 	generic.Generic
 }
@@ -58,6 +58,7 @@ var (
 	_ = Encoder(&reconfigurableEncoder{})
 	_ = resource.Reconfigurable(&reconfigurableEncoder{})
 	_ = resource.Reconfigurable(&reconfigurableEncoder{})
+	_ = viamutils.ContextCloser(&reconfigurableEncoder{})
 )
 
 // FromDependencies is a helper for getting the named encoder from a collection of
@@ -103,16 +104,16 @@ func (r *reconfigurableEncoder) DoCommand(ctx context.Context, cmd map[string]in
 	return r.actual.DoCommand(ctx, cmd)
 }
 
-func (r *reconfigurableEncoder) TicksCount(ctx context.Context, extra map[string]interface{}) (float64, error) {
+func (r *reconfigurableEncoder) GetPosition(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.TicksCount(ctx, extra)
+	return r.actual.GetPosition(ctx, extra)
 }
 
-func (r *reconfigurableEncoder) Reset(ctx context.Context, offset float64, extra map[string]interface{}) error {
+func (r *reconfigurableEncoder) ResetPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.Reset(ctx, offset, extra)
+	return r.actual.ResetPosition(ctx, offset, extra)
 }
 
 func (r *reconfigurableEncoder) Close(ctx context.Context) error {
