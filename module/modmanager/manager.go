@@ -4,6 +4,7 @@ package modmanager
 import (
 	"context"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"sync"
 	"time"
@@ -13,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/module/v1"
+	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -42,13 +44,19 @@ func NewManager(r robot.LocalRobot) (modmaninterface.ModuleManager, error) {
 }
 
 type module struct {
-	name    string
-	exe     string
-	process pexec.ManagedProcess
-	handles modlib.HandlerMap
-	conn    *grpc.ClientConn
-	client  pb.ModuleServiceClient
-	addr    string
+	name      string
+	exe       string
+	process   pexec.ManagedProcess
+	handles   modlib.HandlerMap
+	conn      *grpc.ClientConn
+	client    pb.ModuleServiceClient
+	addr      string
+	resources map[resource.Name]*addedResource
+}
+
+type addedResource struct {
+	cfg  config.Component
+	deps []string
 }
 
 // Manager is the root structure for the module system.
@@ -62,22 +70,19 @@ type Manager struct {
 
 // Close terminates module connections and processes.
 func (mgr *Manager) Close(ctx context.Context) error {
-	mgr.mu.Lock()
-	defer mgr.mu.Unlock()
 	var err error
 	for _, mod := range mgr.modules {
-		if mod.conn != nil {
-			err = multierr.Combine(err, mod.conn.Close())
-		}
-		if mod.process != nil {
-			err = multierr.Combine(err, mod.process.Stop())
-		}
+		err = multierr.Combine(err, mgr.remove(mod, false))
 	}
 	return err
 }
 
 // Add adds and starts a new resource module.
 func (mgr *Manager) Add(ctx context.Context, cfg config.Module) error {
+	return mgr.add(ctx, cfg, nil)
+}
+
+func (mgr *Manager) add(ctx context.Context, cfg config.Module, conn *grpc.ClientConn) error {
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
 
@@ -86,7 +91,7 @@ func (mgr *Manager) Add(ctx context.Context, cfg config.Module) error {
 		return nil
 	}
 
-	mod := &module{name: cfg.Name, exe: cfg.ExePath}
+	mod := &module{name: cfg.Name, exe: cfg.ExePath, resources: map[resource.Name]*addedResource{}}
 	mgr.modules[cfg.Name] = mod
 
 	parentAddr, err := mgr.r.ModuleAddress()
@@ -101,13 +106,14 @@ func (mgr *Manager) Add(ctx context.Context, cfg config.Module) error {
 	var success bool
 	defer func() {
 		if !success {
-			if err := mod.process.Stop(); err != nil {
+			if err := mod.stopProcess(); err != nil {
 				mgr.logger.Error(err)
 			}
 		}
 	}()
 
-	if err := mod.dial(); err != nil {
+	// dial will re-use conn if it's non-nil (module being added in a Reconfigure).
+	if err := mod.dial(conn); err != nil {
 		return errors.WithMessage(err, "error while dialing module "+mod.name)
 	}
 
@@ -118,6 +124,88 @@ func (mgr *Manager) Add(ctx context.Context, cfg config.Module) error {
 	mod.registerResources(mgr, mgr.logger)
 
 	success = true
+	return nil
+}
+
+// Reconfigure reconfigures an existing resource module and returns the names of
+// now orphaned resources.
+func (mgr *Manager) Reconfigure(ctx context.Context, cfg config.Module) ([]resource.Name, error) {
+	mod, exists := mgr.modules[cfg.Name]
+	if !exists {
+		return nil, errors.Errorf("cannot reconfigure module %s as it does not exist", cfg.Name)
+	}
+	handledResources := mod.resources
+	var handledResourceNames []resource.Name
+	for name := range handledResources {
+		handledResourceNames = append(handledResourceNames, name)
+	}
+
+	if err := mgr.remove(mod, true); err != nil {
+		// If removal fails, assume all handled resources are orphaned.
+		return handledResourceNames, err
+	}
+
+	if err := mgr.add(ctx, cfg, mod.conn); err != nil {
+		// If re-addition fails, assume all handled resources are orphaned.
+		return handledResourceNames, err
+	}
+
+	// add old module process' resources to new module; warn if new module cannot
+	// handle old resource and consider that resource orphaned.
+	var orphanedResourceNames []resource.Name
+	for name, res := range handledResources {
+		if _, err := mgr.AddResource(ctx, res.cfg, res.deps); err != nil {
+			mgr.logger.Warnf("error while re-adding resource %s to module %s: %v",
+				name, cfg.Name, err)
+			orphanedResourceNames = append(orphanedResourceNames, name)
+		}
+	}
+	return orphanedResourceNames, nil
+}
+
+// Remove removes and stops an existing resource module and returns the names of
+// now orphaned resources.
+func (mgr *Manager) Remove(modName string) ([]resource.Name, error) {
+	mod, exists := mgr.modules[modName]
+	if !exists {
+		return nil, errors.Errorf("cannot remove module %s as it does not exist", modName)
+	}
+	handledResources := mod.resources
+
+	var orphanedResourceNames []resource.Name
+	for name := range handledResources {
+		orphanedResourceNames = append(orphanedResourceNames, name)
+	}
+	return orphanedResourceNames, mgr.remove(mod, false)
+}
+
+func (mgr *Manager) remove(mod *module, reconfigure bool) error {
+	mgr.mu.Lock()
+	defer mgr.mu.Unlock()
+
+	if err := mod.stopProcess(); err != nil {
+		return errors.WithMessage(err, "error while stopping module "+mod.name)
+	}
+
+	// Do not close connection if module is being reconfigured.
+	if !reconfigure {
+		if mod.conn != nil {
+			if err := mod.conn.Close(); err != nil {
+				return errors.WithMessage(err, "error while closing connection from module "+mod.name)
+			}
+		}
+	}
+
+	if err := mod.deregisterResources(); err != nil {
+		return errors.WithMessage(err, "error while deregistering resources for module "+mod.name)
+	}
+
+	for r, m := range mgr.rMap {
+		if m == mod {
+			delete(mgr.rMap, r)
+		}
+	}
+	delete(mgr.modules, mod.name)
 	return nil
 }
 
@@ -148,6 +236,7 @@ func (mgr *Manager) AddResource(ctx context.Context, cfg config.Component, deps 
 		return nil, err
 	}
 	mgr.rMap[cfg.ResourceName()] = module
+	module.resources[cfg.ResourceName()] = &addedResource{cfg, deps}
 
 	c := registry.ResourceSubtypeLookup(cfg.ResourceName().Subtype)
 	if c == nil || c.RPCClient == nil {
@@ -175,6 +264,7 @@ func (mgr *Manager) ReconfigureResource(ctx context.Context, cfg config.Componen
 	if err != nil {
 		return err
 	}
+	module.resources[cfg.ResourceName()] = &addedResource{cfg, deps}
 
 	return nil
 }
@@ -204,6 +294,7 @@ func (mgr *Manager) RemoveResource(ctx context.Context, name resource.Name) erro
 		return errors.Errorf("resource %+v not found in module", name)
 	}
 	delete(mgr.rMap, name)
+	delete(module.resources, name)
 	_, err := module.client.RemoveResource(ctx, &pb.RemoveResourceRequest{Name: name.String()})
 	return err
 }
@@ -265,23 +356,28 @@ func (mgr *Manager) getModule(cfg config.Component) (*module, bool) {
 	return nil, false
 }
 
-func (m *module) dial() error {
-	var err error
-	// TODO(PRODUCT-343): session support probably means interceptors here
-	m.conn, err = grpc.Dial(
-		"unix://"+m.addr,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithChainUnaryInterceptor(
-			grpc_retry.UnaryClientInterceptor(),
-			operation.UnaryClientInterceptor,
-		),
-		grpc.WithChainStreamInterceptor(
-			grpc_retry.StreamClientInterceptor(),
-			operation.StreamClientInterceptor,
-		),
-	)
-	if err != nil {
-		return errors.WithMessage(err, "module startup failed")
+// dial will use the passed-in connection to make a new module service client
+// or Dial m.addr if the passed-in connection is nil.
+func (m *module) dial(conn *grpc.ClientConn) error {
+	m.conn = conn
+	if m.conn == nil {
+		// TODO(PRODUCT-343): session support probably means interceptors here
+		var err error
+		m.conn, err = grpc.Dial(
+			"unix://"+m.addr,
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+			grpc.WithChainUnaryInterceptor(
+				grpc_retry.UnaryClientInterceptor(),
+				operation.UnaryClientInterceptor,
+			),
+			grpc.WithChainStreamInterceptor(
+				grpc_retry.StreamClientInterceptor(),
+				operation.StreamClientInterceptor,
+			),
+		)
+		if err != nil {
+			return errors.WithMessage(err, "module startup failed")
+		}
 	}
 	m.client = pb.NewModuleServiceClient(m.conn)
 	return nil
@@ -344,6 +440,25 @@ func (m *module) startProcess(ctx context.Context, parentAddr string, logger gol
 	return nil
 }
 
+func (m *module) stopProcess() error {
+	if m.process == nil {
+		return nil
+	}
+	defer utils.UncheckedErrorFunc(func() error {
+		// Attempt to remove module's .sock file if module did not remove it
+		// already.
+		if _, err := os.Stat(m.addr); err == nil {
+			return os.Remove(m.addr)
+		}
+		return nil
+	})
+
+	if err := m.process.Stop(); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (m *module) registerResources(mgr modmaninterface.ModuleManager, logger golog.Logger) {
 	for api, models := range m.handles {
 		known := registry.ResourceSubtypeLookup(api.Subtype)
@@ -372,6 +487,24 @@ func (m *module) registerResources(mgr modmaninterface.ModuleManager, logger gol
 			logger.Errorf("invalid module type: %s", api.Subtype.Type)
 		}
 	}
+}
+
+func (m *module) deregisterResources() error {
+	for api, models := range m.handles {
+		switch api.Subtype.ResourceType {
+		case resource.ResourceTypeComponent:
+			for _, model := range models {
+				registry.DeregisterComponent(api.Subtype, model)
+			}
+		case resource.ResourceTypeService:
+			for _, model := range models {
+				registry.DeregisterService(api.Subtype, model)
+			}
+		default:
+			return errors.Errorf("invalid module type: %s", api.Subtype.Type)
+		}
+	}
+	return nil
 }
 
 // DepsToNames converts a dependency list to a simple string slice.
