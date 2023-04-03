@@ -70,14 +70,9 @@ type Manager struct {
 
 // Close terminates module connections and processes.
 func (mgr *Manager) Close(ctx context.Context) error {
-	mgr.mu.Lock()
-	defer mgr.mu.Unlock()
 	var err error
 	for _, mod := range mgr.modules {
-		if mod.conn != nil {
-			err = multierr.Combine(err, mod.conn.Close())
-		}
-		err = multierr.Combine(err, mod.stopProcess())
+		err = multierr.Combine(err, mgr.remove(mod, false))
 	}
 	return err
 }
