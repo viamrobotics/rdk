@@ -4,12 +4,15 @@ TOOL_BIN = bin/gotools/$(shell uname -s)-$(shell uname -m)
 
 PATH_WITH_TOOLS="`pwd`/$(TOOL_BIN):`pwd`/node_modules/.bin:${PATH}"
 
+# this is needed for older model pis and pi zeros
+LONG_PLT=$(shell uname -m | grep -qe 'armv[6,7]l' && echo -Wl,--long-plt)
+
 GIT_REVISION = $(shell git rev-parse HEAD | tr -d '\n')
 TAG_VERSION?=$(shell etc/tag_version.sh)
-LDFLAGS = -ldflags "$(shell etc/set_plt.sh) -s -w -extldflags '-static -lstdc++ -lm' -X 'go.viam.com/rdk/config.Version=${TAG_VERSION}' -X 'go.viam.com/rdk/config.GitRevision=${GIT_REVISION}'"
-BUILD_TAGS=osusergo,netgo
-GO_BUILD_TAGS = -tags $(BUILD_TAGS)
-LINT_BUILD_TAGS = --build-tags $(BUILD_TAGS)
+LDFLAGS = -ldflags "-s -w -extldflags '$(LONG_PLT) -static-libgcc -static-libstdc++ -Wl,-Bstatic -ljpeg -lx264 -lnlopt -ltensorflowlite_c -lstdc++ -Wl,-Bdynamic' -X 'go.viam.com/rdk/config.Version=${TAG_VERSION}' -X 'go.viam.com/rdk/config.GitRevision=${GIT_REVISION}'"
+# BUILD_TAGS = osusergo,netgo
+# GO_BUILD_TAGS = -tags $(BUILD_TAGS)
+# LINT_BUILD_TAGS = --build-tags $(BUILD_TAGS)
 
 default: build lint server
 
@@ -88,7 +91,7 @@ test-integration:
 	cd services/slam/builtin && sudo --preserve-env=APPIMAGE_EXTRACT_AND_RUN go test -v -run TestCartographerIntegration
 
 server: build-web
-	go build $(GO_BUILD_TAGS) $(LDFLAGS) -o $(BIN_OUTPUT_PATH)/server web/cmd/server/main.go
+	go build $(GO_BUILD_TAGS) $(LDFLAGS) -o $(BIN_OUTPUT_PATH)/viam-server web/cmd/server/main.go
 
 clean-all:
 	git clean -fxd

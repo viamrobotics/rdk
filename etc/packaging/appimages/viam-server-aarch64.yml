@@ -10,8 +10,10 @@ script:
  - cp ./install ./postupdate "$TARGET_APPDIR/aix.d/"
  - chmod 755 "$TARGET_APPDIR/aix.d/install" "$TARGET_APPDIR/aix.d/postupdate"
  - cp ./viam-server.service "$TARGET_APPDIR/"
- - go install github.com/Otterverse/aix@latest
+ - go install -ldflags "-s -w" -tags osusergo,netgo github.com/Otterverse/aix@latest
  - cp `go env GOPATH`/bin/aix "$TARGET_APPDIR/usr/bin/"
+ - upx --best --lzma "$TARGET_APPDIR/usr/bin/viam-server"
+ - upx --best --lzma "$TARGET_APPDIR/usr/bin/aix"
  - cp `which env` "$TARGET_APPDIR/usr/bin/"
  - chmod 755 "$TARGET_APPDIR/usr/bin/"*
 
@@ -32,16 +34,8 @@ AppDir:
     - sourceline: deb [trusted=yes] http://deb.debian.org/debian bullseye main
     - sourceline: deb [trusted=yes] http://deb.debian.org/debian-security bullseye-security main
     - sourceline: deb [trusted=yes] http://deb.debian.org/debian bullseye-updates main
-    - sourceline: deb [trusted=yes] https://us-apt.pkg.dev/projects/static-file-server-310021 bullseye main
-    - sourceline: deb [trusted=yes] http://archive.raspberrypi.org/debian/ bullseye main
     include:
     - bash
-    - libnlopt0
-    - libx264-160
-    - libtensorflowlite2
-    - libpigpio1
-    - libopus0
-    - libjpeg62-turbo
   files:
     include: []
     exclude:
