@@ -279,8 +279,8 @@ func getBoardMapping(pinDefs []PinDefinition, gpioChipsInfo map[string]gpioChipD
 		pwmChipInfo, ok := pwmChipsInfo[pinDef.PWMChipSysFSDir]
 		if ok {
 			if pinDef.PWMID >= pwmChipInfo.Npwm {
-				return nil, fmt.Errorf("too high PWM ID %s for pin %d",
-					pinDef.PWMID, key)
+				return nil, fmt.Errorf("too high PWM ID %d for pin %d (npwm is %d for chip %s)",
+					pinDef.PWMID, key, pwmChipInfo.Npwm, pinDef.PWMChipSysFSDir)
 			}
 		} else {
 			if pinDef.PWMChipSysFSDir == "" {
