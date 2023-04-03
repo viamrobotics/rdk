@@ -275,6 +275,10 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 		return nil, err
 	}
 
+	if err := addConvertedAttributes(cfg); err != nil {
+		return nil, errors.Wrapf(err, "unable to convert attributes when adding resource")
+	}
+
 	var res interface{}
 	switch cfg.API.ResourceType {
 	case resource.ResourceTypeComponent:
@@ -397,20 +401,12 @@ func (m *Module) ValidateConfig(ctx context.Context,
 		return nil, err
 	}
 
-	// Try to find map converter for a component.
-	cType := resource.NewSubtype(c.Namespace, c.API.ResourceType, c.API.ResourceSubtype)
-	conv := config.FindMapConverter(cType, c.Model)
-	// If no map converter for a component exists, try to find map converter for a
-	// service.
-	if conv == nil {
-		conv = config.FindServiceMapConverter(cType, c.Model)
+	if err := addConvertedAttributes(c); err != nil {
+		return nil, errors.Wrapf(err, "unable to convert attributes for validation")
 	}
-	if conv != nil {
-		converted, err := conv(c.Attributes)
-		if err != nil {
-			return nil, errors.Wrapf(err, "error converting attributes for resource")
-		}
-		validator, ok := converted.(Validator)
+
+	if c.ConvertedAttributes != nil {
+		validator, ok := c.ConvertedAttributes.(Validator)
 		if ok {
 			implicitDeps, err := validator.Validate(c.Name)
 			if err != nil {
@@ -506,4 +502,24 @@ func (m *Module) AddModelFromRegistry(ctx context.Context, api resource.Subtype,
 // OperationManager returns the operation manager for the module.
 func (m *Module) OperationManager() *operation.Manager {
 	return m.operations
+}
+
+// addConvertedAttributesToConfig uses the MapAttributeConverter to fill in the
+// ConvertedAttributes field from the Attributes.
+func addConvertedAttributes(cfg *config.Component) error {
+	// Try to find map converter for a component.
+	conv := config.FindMapConverter(cfg.API, cfg.Model)
+	// If no map converter for a component exists, try to find map converter for a
+	// service.
+	if conv == nil {
+		conv = config.FindServiceMapConverter(cfg.API, cfg.Model)
+	}
+	if conv != nil {
+		converted, err := conv(cfg.Attributes)
+		if err != nil {
+			return errors.Wrapf(err, "error converting attributes for resource")
+		}
+		cfg.ConvertedAttributes = converted
+	}
+	return nil
 }
