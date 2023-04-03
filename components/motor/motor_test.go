@@ -80,7 +80,7 @@ func TestFromDependencies(t *testing.T) {
 	test.That(t, result, test.ShouldResemble, position)
 
 	res, err = motor.FromDependencies(deps, fakeMotorName)
-	test.That(t, err, test.ShouldBeError, motor.DependencyTypeError(fakeMotorName, "string"))
+	test.That(t, err, test.ShouldBeError, rutils.DependencyTypeError[motor.Motor](fakeMotorName, "string"))
 	test.That(t, res, test.ShouldBeNil)
 
 	res, err = motor.FromDependencies(deps, missingMotorName)

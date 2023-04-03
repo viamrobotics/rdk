@@ -138,23 +138,10 @@ func NewUnimplementedLocalInterfaceError(actual interface{}) error {
 	return utils.NewUnimplementedInterfaceError((*LocalArm)(nil), actual)
 }
 
-// DependencyTypeError is used when a resource doesn't implement the expected interface.
-func DependencyTypeError(name string, actual interface{}) error {
-	return utils.DependencyTypeError(name, (*Arm)(nil), actual)
-}
-
 // FromDependencies is a helper for getting the named arm from a collection of
 // dependencies.
 func FromDependencies(deps registry.Dependencies, name string) (Arm, error) {
-	res, ok := deps[Named(name)]
-	if !ok {
-		return nil, utils.DependencyNotFoundError(name)
-	}
-	part, ok := res.(Arm)
-	if !ok {
-		return nil, DependencyTypeError(name, res)
-	}
-	return part, nil
+	return registry.ResourceFromDependencies[Arm](deps, Named(name))
 }
 
 // FromRobot is a helper for getting the named Arm from the given Robot.

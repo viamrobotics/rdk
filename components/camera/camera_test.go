@@ -89,7 +89,7 @@ func TestFromDependencies(t *testing.T) {
 	test.That(t, res.Close(context.Background()), test.ShouldBeNil)
 
 	res, err = camera.FromDependencies(deps, fakeCameraName)
-	test.That(t, err, test.ShouldBeError, camera.DependencyTypeError(fakeCameraName, "string"))
+	test.That(t, err, test.ShouldBeError, rutils.DependencyTypeError[camera.Camera](fakeCameraName, "string"))
 	test.That(t, res, test.ShouldBeNil)
 
 	res, err = camera.FromDependencies(deps, missingCameraName)

@@ -58,12 +58,33 @@ func noBoardError(modelName string) error {
 	return fmt.Errorf("could not determine %q model", modelName)
 }
 
+// gpioChipData is a struct used solely within GetGPIOBoardMappings and its sub-pieces. It
+// describes a GPIO chip within sysfs.
+type gpioChipData struct {
+	Dir   string // Pseudofile within sysfs to interact with this chip
+	Base  int    // Taken from the /base pseudofile in sysfs: offset to the start of the lines
+	Ngpio int    // Taken from the /ngpio pseudofile in sysfs: number of lines on the chip
+}
+
 // GetGPIOBoardMappings attempts to find a compatible board-pin mapping for the given mappings.
 func GetGPIOBoardMappings(modelName string, boardInfoMappings map[string]BoardInformation) (map[int]GPIOBoardMapping, error) {
-	const (
-		compatiblePath = "/proc/device-tree/compatible"
-		idsPath        = "/proc/device-tree/chosen/plugin-manager/ids"
-	)
+	pinDefs, err := getCompatiblePinDefs(modelName, boardInfoMappings)
+	if err != nil {
+		return nil, err
+	}
+
+	gpioChipInfo, err := getGpioChipDefs(pinDefs)
+	if err != nil {
+		return nil, err
+	}
+
+	return getBoardMapping(pinDefs, gpioChipInfo)
+}
+
+// getCompatiblePinDefs returns a list of pin definitions, from the first BoardInformation struct
+// that appears compatible with the machine we're running on.
+func getCompatiblePinDefs(modelName string, boardInfoMappings map[string]BoardInformation) ([]PinDefinition, error) {
+	const compatiblePath = "/proc/device-tree/compatible"
 
 	compatiblesRd, err := os.ReadFile(compatiblePath)
 	if err != nil {
@@ -87,14 +108,15 @@ func GetGPIOBoardMappings(modelName string, boardInfoMappings map[string]BoardIn
 	if pinDefs == nil {
 		return nil, noBoardError(modelName)
 	}
+	return pinDefs, nil
+}
 
-	gpioChipDirs := map[string]string{}
-	gpioChipBase := map[string]int{}
-	gpioChipNgpio := map[string]int{}
-
+func getGpioChipDefs(pinDefs []PinDefinition) (map[string]gpioChipData, error) {
+	gpioChipInfo := map[string]gpioChipData{}
 	sysfsPrefixes := []string{"/sys/devices/", "/sys/devices/platform/", "/sys/devices/platform/bus@100000/"}
 
-	// Get the GPIO chip offsets
+	// Get a set of all the chip names with duplicates removed. Go doesn't have native set objects,
+	// so we use a map whose values are ignored.
 	gpioChipNames := make(map[string]struct{}, len(pinDefs))
 	for _, pinDef := range pinDefs {
 		if pinDef.GPIOChipSysFSDir == "" {
@@ -102,6 +124,7 @@ func GetGPIOBoardMappings(modelName string, boardInfoMappings map[string]BoardIn
 		}
 		gpioChipNames[pinDef.GPIOChipSysFSDir] = struct{}{}
 	}
+
 	for gpioChipName := range gpioChipNames {
 		var gpioChipDir string
 		for _, prefix := range sysfsPrefixes {
@@ -122,11 +145,12 @@ func GetGPIOBoardMappings(modelName string, boardInfoMappings map[string]BoardIn
 		if err != nil {
 			return nil, err
 		}
+		var chipFileName string
 		for _, file := range files {
 			if !strings.HasPrefix(file.Name(), "gpiochip") {
 				continue
 			}
-			gpioChipDirs[gpioChipName] = file.Name()
+			chipFileName = file.Name()
 			break
 		}
 
@@ -150,7 +174,6 @@ func GetGPIOBoardMappings(modelName string, boardInfoMappings map[string]BoardIn
 			if err != nil {
 				return nil, err
 			}
-			gpioChipBase[gpioChipName] = int(baseParsed)
 
 			ngpioFn := filepath.Join(gpioChipGPIODir, file.Name(), "ngpio")
 			//nolint:gosec
@@ -162,27 +185,40 @@ func GetGPIOBoardMappings(modelName string, boardInfoMappings map[string]BoardIn
 			if err != nil {
 				return nil, err
 			}
-			gpioChipNgpio[gpioChipName] = int(ngpioParsed)
+
+			gpioChipInfo[gpioChipName] = gpioChipData{
+				Dir:   chipFileName,
+				Base:  int(baseParsed),
+				Ngpio: int(ngpioParsed),
+			}
 			break
 		}
 	}
 
+	return gpioChipInfo, nil
+}
+
+func getBoardMapping(pinDefs []PinDefinition, gpioChipInfo map[string]gpioChipData) (map[int]GPIOBoardMapping, error) {
 	data := make(map[int]GPIOBoardMapping, len(pinDefs))
 
 	for _, pinDef := range pinDefs {
 		key := pinDef.PinNumberBoard
 
-		chipGPIONgpio := gpioChipNgpio[pinDef.GPIOChipSysFSDir]
-		chipGPIOBase := gpioChipBase[pinDef.GPIOChipSysFSDir]
-		chipRelativeID, ok := pinDef.GPIOChipRelativeIDs[chipGPIONgpio]
+		chipInfo, ok := gpioChipInfo[pinDef.GPIOChipSysFSDir]
+		if !ok {
+			return nil, fmt.Errorf("unknown GPIO device %s for pin %d",
+				pinDef.GPIOChipSysFSDir, key)
+		}
+
+		chipRelativeID, ok := pinDef.GPIOChipRelativeIDs[chipInfo.Ngpio]
 		if !ok {
 			chipRelativeID = pinDef.GPIOChipRelativeIDs[-1]
 		}
 
 		data[key] = GPIOBoardMapping{
-			GPIOChipDev:    gpioChipDirs[pinDef.GPIOChipSysFSDir],
+			GPIOChipDev:    chipInfo.Dir,
 			GPIO:           chipRelativeID,
-			GPIOGlobal:     chipGPIOBase + chipRelativeID,
+			GPIOGlobal:     chipInfo.Base + chipRelativeID,
 			GPIOName:       pinDef.PinNameCVM,
 			PWMSysFsDir:    pinDef.PWMChipSysFSDir,
 			PWMID:          pinDef.PWMID,

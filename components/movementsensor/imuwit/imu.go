@@ -208,7 +208,7 @@ func NewWit(
 		)
 	}
 
-	i := wit{logger: logger}
+	i := wit{logger: logger, err: movementsensor.NewLastError(1, 1)}
 	logger.Debugf("initializing wit serial connection with parameters: %+v", options)
 	var err error
 	i.port, err = slib.Open(options)

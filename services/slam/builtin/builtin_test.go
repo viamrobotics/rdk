@@ -36,8 +36,8 @@ import (
 	"go.viam.com/rdk/services/slam/internal/testhelper"
 	"go.viam.com/rdk/testutils/inject"
 	rdkutils "go.viam.com/rdk/utils"
-	slamConfig "go.viam.com/slam/config"
-	slamTesthelper "go.viam.com/slam/testhelper"
+	slamConfig "go.viam.com/rdk/services/slam/slam_copy/config"
+	slamTesthelper "go.viam.com/rdk/services/slam/slam_copy/testhelper"
 )
 
 const (
@@ -982,14 +982,14 @@ func TestEndpointFailures(t *testing.T) {
 	test.That(t, frame, test.ShouldBeEmpty)
 	test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "error getting SLAM position")
 
-	callbackPointCloud, err := svc.GetPointCloudMapStream(context.Background(), "hi")
+	callbackPointCloud, err := svc.GetPointCloudMap(context.Background(), "hi")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, callbackPointCloud, test.ShouldNotBeNil)
 	chunkPCD, err := callbackPointCloud()
 	test.That(t, err.Error(), test.ShouldContainSubstring, "error receiving pointcloud chunk")
 	test.That(t, chunkPCD, test.ShouldBeNil)
 
-	callbackInternalState, err := svc.GetInternalStateStream(context.Background(), "hi")
+	callbackInternalState, err := svc.GetInternalState(context.Background(), "hi")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, callbackInternalState, test.ShouldNotBeNil)
 	chunkInternalState, err := callbackInternalState()

@@ -70,11 +70,11 @@ var twoAxes = []gantry.Gantry{
 
 func TestValidate(t *testing.T) {
 	fakecfg := &AttrConfig{SubAxes: []string{}}
-	err := fakecfg.Validate("path")
+	_, err := fakecfg.Validate("path")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "need at least one axis")
 
 	fakecfg = &AttrConfig{SubAxes: []string{"singleaxis"}}
-	err = fakecfg.Validate("path")
+	_, err = fakecfg.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
 }
 

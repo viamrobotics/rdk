@@ -88,15 +88,7 @@ type Gantry interface {
 // FromDependencies is a helper for getting the named gantry from a collection of
 // dependencies.
 func FromDependencies(deps registry.Dependencies, name string) (Gantry, error) {
-	res, ok := deps[Named(name)]
-	if !ok {
-		return nil, utils.DependencyNotFoundError(name)
-	}
-	part, ok := res.(Gantry)
-	if !ok {
-		return nil, DependencyTypeError(name, res)
-	}
-	return part, nil
+	return registry.ResourceFromDependencies[Gantry](deps, Named(name))
 }
 
 // A LocalGantry represents a Gantry that can report whether it is moving or not.
@@ -112,11 +104,6 @@ func NewUnimplementedInterfaceError(actual interface{}) error {
 // NewUnimplementedLocalInterfaceError is used when there is a failed interface check.
 func NewUnimplementedLocalInterfaceError(actual interface{}) error {
 	return utils.NewUnimplementedInterfaceError((*Gantry)(nil), actual)
-}
-
-// DependencyTypeError is used when a resource doesn't implement the expected interface.
-func DependencyTypeError(name string, actual interface{}) error {
-	return utils.DependencyTypeError(name, (*Gantry)(nil), actual)
 }
 
 // FromRobot is a helper for getting the named gantry from the given Robot.

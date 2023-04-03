@@ -199,7 +199,7 @@ type GeometriesInFrame struct {
 
 	// This is an internal data structure used for O(1) access to named sub-geometries.
 	// Do not access directly. This will not be accurate for unnamed geometries.
-	geometriesMap map[string]spatialmath.Geometry
+	nameIndexMap map[string]int
 }
 
 // Parent returns the name of the frame in which the geometries were observed.
@@ -218,11 +218,11 @@ func (gF *GeometriesInFrame) Geometries() []spatialmath.Geometry {
 // GeometryByName returns the named geometry if it exists in the GeometriesInFrame, and nil otherwise.
 // If multiple geometries exist with identical names one will be chosen at random.
 func (gF *GeometriesInFrame) GeometryByName(name string) spatialmath.Geometry {
-	if gF.geometriesMap == nil {
+	if gF.nameIndexMap == nil {
 		return nil
 	}
-	if geom, ok := gF.geometriesMap[name]; ok {
-		return geom
+	if i, ok := gF.nameIndexMap[name]; ok {
+		return gF.geometries[i]
 	}
 	return nil
 }
@@ -239,15 +239,14 @@ func (gF *GeometriesInFrame) Transform(tf *PoseInFrame) Transformable {
 
 // NewGeometriesInFrame generates a new GeometriesInFrame.
 func NewGeometriesInFrame(frame string, geometries []spatialmath.Geometry) *GeometriesInFrame {
-	geometriesMap := map[string]spatialmath.Geometry{}
-	for _, geometry := range geometries {
-		geometriesMap[geometry.Label()] = geometry
+	nameIndexMap := make(map[string]int)
+	for i, geometry := range geometries {
+		nameIndexMap[geometry.Label()] = i
 	}
-
 	return &GeometriesInFrame{
-		frame:         frame,
-		geometries:    geometries,
-		geometriesMap: geometriesMap,
+		frame:        frame,
+		geometries:   geometries,
+		nameIndexMap: nameIndexMap,
 	}
 }
 

@@ -2,7 +2,7 @@
 
 import { onMounted, onUnmounted } from 'vue';
 import { grpc } from '@improbable-eng/grpc-web';
-import { Client, movementSensorApi as movementsensorApi } from '@viamrobotics/sdk';
+import { Client, movementSensorApi as movementsensorApi, ServiceError } from '@viamrobotics/sdk';
 import type{ commonApi } from '@viamrobotics/sdk';
 import { displayError } from '../lib/error';
 import { rcLogConditionally } from '../lib/log';
@@ -29,17 +29,21 @@ const refresh = async () => {
     req.setName(props.name);
 
     rcLogConditionally(req);
-    props.client.movementSensorService.getProperties(req, new grpc.Metadata(), (err, resp) => {
-      if (err) {
-        if (err.message === 'Response closed without headers') {
-          refreshId = window.setTimeout(refresh, 500);
-          return;
+    props.client.movementSensorService.getProperties(
+      req,
+      new grpc.Metadata(),
+      (err: ServiceError, resp: movementsensorApi.GetPropertiesResponse) => {
+        if (err) {
+          if (err.message === 'Response closed without headers') {
+            refreshId = window.setTimeout(refresh, 500);
+            return;
+          }
+          return displayError(err);
         }
-        return displayError(err);
-      }
 
-      resolve(resp!.toObject());
-    });
+        resolve(resp!.toObject());
+      }
+    );
   });
 
   if (properties?.orientationSupported) {
@@ -47,13 +51,17 @@ const refresh = async () => {
     req.setName(props.name);
 
     rcLogConditionally(req);
-    props.client.movementSensorService.getOrientation(req, new grpc.Metadata(), (err, resp) => {
-      if (err) {
-        return displayError(err);
-      }
+    props.client.movementSensorService.getOrientation(
+      req,
+      new grpc.Metadata(),
+      (err: ServiceError, resp: movementsensorApi.GetOrientationResponse) => {
+        if (err) {
+          return displayError(err);
+        }
 
-      orientation = resp!.toObject().orientation;
-    });
+        orientation = resp!.toObject().orientation;
+      }
+    );
   }
 
   if (properties?.angularVelocitySupported) {
@@ -61,13 +69,17 @@ const refresh = async () => {
     req.setName(props.name);
 
     rcLogConditionally(req);
-    props.client.movementSensorService.getAngularVelocity(req, new grpc.Metadata(), (err, resp) => {
-      if (err) {
-        return displayError(err);
-      }
+    props.client.movementSensorService.getAngularVelocity(
+      req,
+      new grpc.Metadata(),
+      (err: ServiceError, resp: movementsensorApi.GetAngularVelocityResponse) => {
+        if (err) {
+          return displayError(err);
+        }
 
-      angularVelocity = resp!.toObject().angularVelocity;
-    });
+        angularVelocity = resp!.toObject().angularVelocity;
+      }
+    );
   }
 
   if (properties?.linearAccelerationSupported) {
@@ -75,13 +87,17 @@ const refresh = async () => {
     req.setName(props.name);
 
     rcLogConditionally(req);
-    props.client.movementSensorService.getLinearAcceleration(req, new grpc.Metadata(), (err, resp) => {
-      if (err) {
-        return displayError(err);
-      }
+    props.client.movementSensorService.getLinearAcceleration(
+      req,
+      new grpc.Metadata(),
+      (err: ServiceError, resp: movementsensorApi.GetLinearAccelerationResponse) => {
+        if (err) {
+          return displayError(err);
+        }
 
-      linearAcceleration = resp!.toObject().linearAcceleration;
-    });
+        linearAcceleration = resp!.toObject().linearAcceleration;
+      }
+    );
   }
 
   if (properties?.linearVelocitySupported) {
@@ -89,13 +105,17 @@ const refresh = async () => {
     req.setName(props.name);
 
     rcLogConditionally(req);
-    props.client.movementSensorService.getLinearVelocity(req, new grpc.Metadata(), (err, resp) => {
-      if (err) {
-        return displayError(err);
-      }
+    props.client.movementSensorService.getLinearVelocity(
+      req,
+      new grpc.Metadata(),
+      (err: ServiceError, resp: movementsensorApi.GetLinearVelocityResponse) => {
+        if (err) {
+          return displayError(err);
+        }
 
-      linearVelocity = resp!.toObject().linearVelocity;
-    });
+        linearVelocity = resp!.toObject().linearVelocity;
+      }
+    );
   }
 
   if (properties?.compassHeadingSupported) {
@@ -103,13 +123,17 @@ const refresh = async () => {
     req.setName(props.name);
 
     rcLogConditionally(req);
-    props.client.movementSensorService.getCompassHeading(req, new grpc.Metadata(), (err, resp) => {
-      if (err) {
-        return displayError(err);
-      }
+    props.client.movementSensorService.getCompassHeading(
+      req,
+      new grpc.Metadata(),
+      (err: ServiceError, resp: movementsensorApi.GetCompassHeadingResponse) => {
+        if (err) {
+          return displayError(err);
+        }
 
-      compassHeading = resp!.toObject().value;
-    });
+        compassHeading = resp!.toObject().value;
+      }
+    );
   }
 
   if (properties?.positionSupported) {
@@ -117,15 +141,19 @@ const refresh = async () => {
     req.setName(props.name);
 
     rcLogConditionally(req);
-    props.client.movementSensorService.getPosition(req, new grpc.Metadata(), (err, resp) => {
-      if (err) {
-        return displayError(err);
-      }
+    props.client.movementSensorService.getPosition(
+      req,
+      new grpc.Metadata(),
+      (err: ServiceError, resp: movementsensorApi.GetPositionResponse) => {
+        if (err) {
+          return displayError(err);
+        }
 
-      const temp = resp!.toObject();
-      coordinate = temp.coordinate;
-      altitudeMm = temp.altitudeMm;
-    });
+        const temp = resp!.toObject();
+        coordinate = temp.coordinate;
+        altitudeMm = temp.altitudeMm;
+      }
+    );
   }
 
   refreshId = window.setTimeout(refresh, 500);
