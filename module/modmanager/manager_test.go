@@ -74,7 +74,7 @@ func TestModManagerFunctions(t *testing.T) {
 	oldConn := mod.conn
 	err = mod.dial(mod.conn)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, mod.conn, test.ShouldResemble, oldConn)
+	test.That(t, mod.conn, test.ShouldEqual, oldConn)
 
 	err = mod.checkReady(ctx, parentAddr)
 	test.That(t, err, test.ShouldBeNil)
