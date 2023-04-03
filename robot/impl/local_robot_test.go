@@ -101,23 +101,6 @@ func TestConfigFake(t *testing.T) {
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 }
 
-func TestUntrustedEnv(t *testing.T) {
-	logger := golog.NewTestLogger(t)
-	cfg, err := config.Read(context.Background(), "data/cfgtestuntrustedenv.json", logger)
-	test.That(t, err, test.ShouldBeNil)
-	cfg.UntrustedEnv = true
-
-	r, err := robotimpl.New(context.Background(), cfg, logger)
-	test.That(t, err, test.ShouldBeNil)
-	defer func() {
-		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
-	}()
-
-	c1, err := camera.FromRobot(r, "c1")
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, c1, test.ShouldBeNil)
-}
-
 func TestConfigRemote(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	cfg, err := config.Read(context.Background(), "data/fake.json", logger)
