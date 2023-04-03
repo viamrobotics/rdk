@@ -70,9 +70,9 @@ type gpioChipData struct {
 // describes a PWM chip within sysfs. It has the exact same form as gpioChipData, but we make it a
 // separate type so you can't accidentally use one when you should have used the other.
 type pwmChipData struct {
-	Dir   string // Pseudofile within sysfs to interact with this chip
-	Base  int    // Taken from the /base pseudofile in sysfs: offset to the start of the lines
-	Ngpio int    // Taken from the /ngpio pseudofile in sysfs: number of lines on the chip
+	Dir  string // Pseudofile within sysfs to interact with this chip
+	Base int    // Taken from the /base pseudofile in sysfs: offset to the start of the lines
+	Npwm int    // Taken from the /ngpio pseudofile in sysfs: number of lines on the chip
 }
 
 // GetGPIOBoardMappings attempts to find a compatible board-pin mapping for the given mappings.
@@ -219,27 +219,45 @@ func getPwmChipDefs(pinDefs []PinDefinition) (map[string]pwmChipData, error) {
 func getBoardMapping(pinDefs []PinDefinition, gpioChipsInfo map[string]gpioChipData, pwmChipsInfo map[string]pwmChipData) (map[int]GPIOBoardMapping, error) {
 	data := make(map[int]GPIOBoardMapping, len(pinDefs))
 
+	// For "use" on pins that don't have hardware PWMs
+	dummyPwmInfo := pwmChipData{Dir: "", Base: 0, Npwm: -1}
+
 	for _, pinDef := range pinDefs {
 		key := pinDef.PinNumberBoard
 
-		chipInfo, ok := gpioChipsInfo[pinDef.GPIOChipSysFSDir]
+		gpioChipInfo, ok := gpioChipsInfo[pinDef.GPIOChipSysFSDir]
 		if !ok {
 			return nil, fmt.Errorf("unknown GPIO device %s for pin %d",
 				pinDef.GPIOChipSysFSDir, key)
 		}
 
-		chipRelativeID, ok := pinDef.GPIOChipRelativeIDs[chipInfo.Ngpio]
+		pwmChipInfo, ok := pwmChipsInfo[pinDef.PWMChipSysFSDir]
+		if ok {
+			if pinDef.PWMID >= pwmChipInfo.Npwm {
+				return nil, fmt.Errorf("too high PWM ID %s for pin %d",
+					pinDef.PWMID, key)
+			}
+		} else {
+			if pinDef.PWMChipSysFSDir == "" {
+				pwmChipInfo = dummyPwmInfo
+			} else {
+				return nil, fmt.Errorf("unknown PWM device %s for pin %d",
+					pinDef.GPIOChipSysFSDir, key)
+			}
+		}
+
+		chipRelativeID, ok := pinDef.GPIOChipRelativeIDs[gpioChipInfo.Ngpio]
 		if !ok {
 			chipRelativeID = pinDef.GPIOChipRelativeIDs[-1]
 		}
 
 		data[key] = GPIOBoardMapping{
-			GPIOChipDev:    chipInfo.Dir,
+			GPIOChipDev:    gpioChipInfo.Dir,
 			GPIO:           chipRelativeID,
-			GPIOGlobal:     chipInfo.Base + chipRelativeID,
+			GPIOGlobal:     gpioChipInfo.Base + chipRelativeID,
 			GPIOName:       pinDef.PinNameCVM,
-			PWMSysFsDir:    pinDef.PWMChipSysFSDir,
-			PWMID:          pinDef.PWMID,
+			PWMSysFsDir:    pwmChipInfo.Dir,
+			PWMID:          pwmChipInfo.Base + pinDef.PWMID,
 			HWPWMSupported: pinDef.PWMID != -1,
 		}
 	}
