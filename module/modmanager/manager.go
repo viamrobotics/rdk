@@ -22,6 +22,7 @@ import (
 	"go.viam.com/rdk/config"
 	rdkgrpc "go.viam.com/rdk/grpc"
 	modlib "go.viam.com/rdk/module"
+	modmanageroptions "go.viam.com/rdk/module/modmanager/options"
 	"go.viam.com/rdk/module/modmaninterface"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
@@ -29,15 +30,19 @@ import (
 	"go.viam.com/rdk/robot"
 )
 
-var validateConfigTimeout = 5 * time.Second
+var (
+	validateConfigTimeout       = 5 * time.Second
+	errModularResourcesDisabled = errors.New("modular resources disabled in untrusted environment")
+)
 
 // NewManager returns a Manager.
-func NewManager(r robot.LocalRobot) (modmaninterface.ModuleManager, error) {
+func NewManager(r robot.LocalRobot, options modmanageroptions.Options) (modmaninterface.ModuleManager, error) {
 	return &Manager{
-		logger:  r.Logger().Named("modmanager"),
-		modules: map[string]*module{},
-		r:       r,
-		rMap:    map[resource.Name]*module{},
+		logger:       r.Logger().Named("modmanager"),
+		modules:      map[string]*module{},
+		r:            r,
+		rMap:         map[resource.Name]*module{},
+		untrustedEnv: options.UntrustedEnv,
 	}, nil
 }
 
@@ -53,11 +58,12 @@ type module struct {
 
 // Manager is the root structure for the module system.
 type Manager struct {
-	mu      sync.RWMutex
-	logger  golog.Logger
-	modules map[string]*module
-	r       robot.LocalRobot
-	rMap    map[resource.Name]*module
+	mu           sync.RWMutex
+	logger       golog.Logger
+	modules      map[string]*module
+	r            robot.LocalRobot
+	rMap         map[resource.Name]*module
+	untrustedEnv bool
 }
 
 // Close terminates module connections and processes.
@@ -78,6 +84,10 @@ func (mgr *Manager) Close(ctx context.Context) error {
 
 // Add adds and starts a new resource module.
 func (mgr *Manager) Add(ctx context.Context, cfg config.Module) error {
+	if mgr.untrustedEnv {
+		return errModularResourcesDisabled
+	}
+
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
 
