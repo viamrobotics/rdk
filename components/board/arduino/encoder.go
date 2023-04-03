@@ -103,7 +103,7 @@ func (cfg *EncoderConfig) Validate(path string) ([]string, error) {
 }
 
 // TicksCount returns number of ticks since last zeroing.
-func (e *Encoder) TicksCount(ctx context.Context, extra map[string]interface{}) (float64, error) {
+func (e *Encoder) GetPosition(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	res, err := e.board.runCommand("motor-position " + e.name)
 	if err != nil {
 		return 0, err
@@ -119,7 +119,7 @@ func (e *Encoder) TicksCount(ctx context.Context, extra map[string]interface{}) 
 
 // Reset sets the current position of the motor (adjusted by a given offset)
 // to be its new zero position.
-func (e *Encoder) Reset(ctx context.Context, offset float64, extra map[string]interface{}) error {
+func (e *Encoder) ResetPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
 	if err := encoder.ValidateIntegerOffset(offset); err != nil {
 		return err
 	}

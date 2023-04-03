@@ -1,4 +1,4 @@
-package encoder
+package incremental
 
 import (
 	"context"
@@ -10,6 +10,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -20,7 +21,7 @@ var incrModel = resource.NewDefaultModel("incremental")
 
 func init() {
 	registry.RegisterComponent(
-		Subtype,
+		encoder.Subtype,
 		incrModel,
 		registry.Component{Constructor: func(
 			ctx context.Context,
@@ -32,13 +33,13 @@ func init() {
 		}})
 
 	config.RegisterComponentAttributeMapConverter(
-		Subtype,
+		encoder.Subtype,
 		incrModel,
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf IncrementalConfig
+			var conf AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
 		},
-		&IncrementalConfig{})
+		&AttrConfig{})
 }
 
 // IncrementalEncoder keeps track of a motor position using a rotary incremental encoder.
@@ -62,14 +63,14 @@ type IncrementalPins struct {
 	B string `json:"b"`
 }
 
-// IncrementalConfig describes the configuration of a quadrature encoder.
-type IncrementalConfig struct {
+// AttrConfig describes the configuration of a quadrature encoder.
+type AttrConfig struct {
 	Pins      IncrementalPins `json:"pins"`
 	BoardName string          `json:"board"`
 }
 
 // Validate ensures all parts of the config are valid.
-func (config *IncrementalConfig) Validate(path string) ([]string, error) {
+func (config *AttrConfig) Validate(path string) ([]string, error) {
 	var deps []string
 
 	if config.Pins.A == "" {
@@ -93,10 +94,10 @@ func NewIncrementalEncoder(
 	deps registry.Dependencies,
 	cfg config.Component,
 	logger golog.Logger,
-) (*IncrementalEncoder, error) {
+) (encoder.Encoder, error) {
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	e := &IncrementalEncoder{logger: logger, CancelCtx: cancelCtx, cancelFunc: cancelFunc, position: 0, pRaw: 0, pState: 0}
-	if cfg, ok := cfg.ConvertedAttributes.(*IncrementalConfig); ok {
+	if cfg, ok := cfg.ConvertedAttributes.(*AttrConfig); ok {
 		board, err := board.FromDependencies(deps, cfg.BoardName)
 		if err != nil {
 			return nil, err
@@ -230,16 +231,16 @@ func (e *IncrementalEncoder) Start(ctx context.Context) {
 	}, e.activeBackgroundWorkers.Done)
 }
 
-// TicksCount returns number of ticks since last zeroing.
-func (e *IncrementalEncoder) TicksCount(ctx context.Context, extra map[string]interface{}) (float64, error) {
+// GetPosition returns number of ticks since last zeroing.
+func (e *IncrementalEncoder) GetPosition(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	res := atomic.LoadInt64(&e.position)
 	return float64(res), nil
 }
 
-// Reset sets the current position of the motor (adjusted by a given offset)
+// ResetPosition sets the current position of the motor (adjusted by a given offset)
 // to be its new zero position..
-func (e *IncrementalEncoder) Reset(ctx context.Context, offset float64, extra map[string]interface{}) error {
-	if err := ValidateIntegerOffset(offset); err != nil {
+func (e *IncrementalEncoder) ResetPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
+	if err := encoder.ValidateIntegerOffset(offset); err != nil {
 		return err
 	}
 	offsetInt := int64(offset)
