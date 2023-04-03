@@ -51,6 +51,9 @@ func newNtripCorrectionSource(ctx context.Context, cfg config.Component, logger 
 		cancelCtx:  cancelCtx,
 		cancelFunc: cancelFunc,
 		logger:     logger,
+		// Overloaded boards can have flaky I2C busses. Only report errors if at least 5 of the
+		// last 10 attempts have failed.
+		err: movementsensor.NewLastError(10, 5),
 	}
 
 	// Init ntripInfo from attributes
@@ -169,8 +172,10 @@ func (n *ntripCorrectionSource) Start(ready chan<- bool) {
 	n.activeBackgroundWorkers.Add(1)
 	defer n.activeBackgroundWorkers.Done()
 	err := n.Connect()
+	// Record the "error" value no matter what. If it's nil, this will prevent us from reporting
+	// transitory errors later.
+	n.err.Set(err)
 	if err != nil {
-		n.err.Set(err)
 		return
 	}
 
@@ -183,8 +188,8 @@ func (n *ntripCorrectionSource) Start(ready chan<- bool) {
 	ready <- true
 
 	err = n.GetStream()
+	n.err.Set(err)
 	if err != nil {
-		n.err.Set(err)
 		return
 	}
 
@@ -206,8 +211,8 @@ func (n *ntripCorrectionSource) Start(ready chan<- bool) {
 			if msg == nil {
 				n.logger.Debug("No message... reconnecting to stream...")
 				err = n.GetStream()
+				n.err.Set(err)
 				if err != nil {
-					n.err.Set(err)
 					return
 				}
 

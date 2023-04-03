@@ -182,12 +182,18 @@ func (r *localRobot) Close(ctx context.Context) error {
 	if r.cloudConn != nil {
 		err = multierr.Combine(err, r.cloudConn.Close())
 	}
+	if r.manager != nil {
+		err = multierr.Combine(err, r.manager.Close(ctx, r))
+	}
+	if r.modules != nil {
+		err = multierr.Combine(err, r.modules.Close(ctx))
+	}
+	if r.packageManager != nil {
+		err = multierr.Combine(err, r.packageManager.Close())
+	}
 
 	err = multierr.Combine(
 		err,
-		r.manager.Close(ctx, r),
-		r.modules.Close(ctx),
-		r.packageManager.Close(),
 		goutils.TryClose(ctx, web),
 	)
 	r.sessionManager.Close()
@@ -761,9 +767,13 @@ func (r *localRobot) updateDefaultServices(ctx context.Context) {
 	}
 }
 
-// Refresh does nothing for now.
+// Refresh causes the web service to reload it's subtype service maps from the actual robot resources.
 func (r *localRobot) Refresh(ctx context.Context) error {
-	return nil
+	svc, err := r.webService()
+	if err != nil {
+		return err
+	}
+	return svc.RefreshResources()
 }
 
 // FrameSystemConfig returns the info of each individual part that makes up a robot's frame system.
@@ -961,6 +971,21 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	filtered, err := r.manager.FilterFromConfig(ctx, diff.Removed, r.logger)
 	if err != nil {
 		allErrs = multierr.Combine(allErrs, err)
+	}
+	// Remove orphaned resources (dependents of removed resources) from newConfig.
+	for _, name := range filtered.resources.Names() {
+		for i, c := range newConfig.Components {
+			if c.ResourceName() == name {
+				newConfig.Components[i] = newConfig.Components[len(newConfig.Components)-1]
+				newConfig.Components = newConfig.Components[:len(newConfig.Components)-1]
+			}
+		}
+		for i, s := range newConfig.Services {
+			if s.ResourceName() == name {
+				newConfig.Services[i] = newConfig.Services[len(newConfig.Services)-1]
+				newConfig.Services = newConfig.Services[:len(newConfig.Services)-1]
+			}
+		}
 	}
 	// Second we update the resource graph.
 	// We pass a search function to look for dependencies, we should find them either in the current config or in the modified.

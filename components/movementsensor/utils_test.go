@@ -67,12 +67,12 @@ func TestGetHeading(t *testing.T) {
 }
 
 func TestNoErrors(t *testing.T) {
-	le := LastError{}
+	le := NewLastError(1, 1)
 	test.That(t, le.Get(), test.ShouldBeNil)
 }
 
 func TestOneError(t *testing.T) {
-	le := LastError{}
+	le := NewLastError(1, 1)
 
 	le.Set(errors.New("it's a test error"))
 	test.That(t, le.Get(), test.ShouldNotBeNil)
@@ -81,11 +81,31 @@ func TestOneError(t *testing.T) {
 }
 
 func TestTwoErrors(t *testing.T) {
-	le := LastError{}
+	le := NewLastError(1, 1)
 
 	le.Set(errors.New("first"))
 	le.Set(errors.New("second"))
 
 	err := le.Get()
 	test.That(t, err.Error(), test.ShouldEqual, "second")
+}
+
+func TestSuppressRareErrors(t *testing.T) {
+	le := NewLastError(2, 2) // Only report if 2 of the last 2 are non-nil errors
+
+	test.That(t, le.Get(), test.ShouldBeNil)
+	le.Set(nil)
+	test.That(t, le.Get(), test.ShouldBeNil)
+	le.Set(errors.New("one"))
+	test.That(t, le.Get(), test.ShouldBeNil)
+	le.Set(nil)
+	test.That(t, le.Get(), test.ShouldBeNil)
+	le.Set(errors.New("two"))
+	test.That(t, le.Get(), test.ShouldBeNil)
+	le.Set(errors.New("three")) // Two errors in a row!
+
+	err := le.Get()
+	test.That(t, err.Error(), test.ShouldEqual, "three")
+	// and now that we've returned an error, the history is cleared out again.
+	test.That(t, le.Get(), test.ShouldBeNil)
 }
