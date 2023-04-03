@@ -2513,6 +2513,23 @@ func TestModularOrphanedResources(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
+var (
+	doodadModel   = resource.NewDefaultModel("mydoodad")
+	doodadSubtype = resource.NewDefaultSubtype("doodad", resource.ResourceTypeComponent)
+)
+
+// doodad is an RDK-built component that depends on a modular gizmo.
+type doodad struct {
+	gizmo gizmoapi.Gizmo
+}
+
+// doThroughGizmo calls the underlying gizmo's DoCommand.
+func (d *doodad) doThroughGizmo(ctx context.Context,
+	cmd map[string]interface{},
+) (map[string]interface{}, error) {
+	return d.gizmo.DoCommand(ctx, cmd)
+}
+
 func TestMixedOrphanedResources(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
@@ -2529,9 +2546,38 @@ func TestMixedOrphanedResources(t *testing.T) {
 	test.That(t, string(out), test.ShouldEqual, "")
 	test.That(t, err, test.ShouldBeNil)
 
-	// Manually define model, as importing it can cause double registration.
+	// Manually define gizmo model, as importing it from mygizmo can cause double
+	// registration.
 	gizmoModel := resource.NewModel(resource.Namespace("acme"), resource.ModelFamilyName("demo"),
 		resource.ModelName("mygizmo"))
+
+	// Register a doodad constructor and defer its deregistration.
+	registry.RegisterComponent(doodadSubtype, doodadModel, registry.Component{
+		Constructor: func(
+			ctx context.Context,
+			deps registry.Dependencies,
+			cfg config.Component,
+			logger golog.Logger,
+		) (interface{}, error) {
+			newDoodad := &doodad{}
+			for rName, res := range deps {
+				if rName.Subtype == gizmoapi.Subtype {
+					gizmo, ok := res.(gizmoapi.Gizmo)
+					if !ok {
+						return nil, errors.Errorf("resource %s is not a gizmo", rName.Name)
+					}
+					newDoodad.gizmo = gizmo
+				}
+			}
+			if newDoodad.gizmo == nil {
+				return nil, errors.Errorf("doodad %s must depend on a gizmo", cfg.Name)
+			}
+			return newDoodad, nil
+		},
+	})
+	defer func() {
+		registry.DeregisterComponent(doodadSubtype, doodadModel)
+	}()
 
 	cfg := &config.Config{
 		Modules: []config.Module{
@@ -2554,9 +2600,9 @@ func TestMixedOrphanedResources(t *testing.T) {
 				Type:  motor.SubtypeName,
 			},
 			{
-				Name:      "m1",
-				Model:     fakeModel,
-				Type:      motor.SubtypeName,
+				Name:      "d",
+				Model:     doodadModel,
+				Type:      resource.SubtypeName("doodad"),
 				DependsOn: []string{"g"},
 			},
 		},
@@ -2568,7 +2614,7 @@ func TestMixedOrphanedResources(t *testing.T) {
 	}()
 
 	// Assert that reconfiguring module 'mod' to a new module that does not handle
-	// 'g' removes modular component 'g' and its dependent 'm1' and leaves 'm' as-is.
+	// 'g' removes modular component 'g' and its dependent 'd' and leaves 'm' as-is.
 	cfg2 := &config.Config{
 		Modules: []config.Module{
 			{
@@ -2590,9 +2636,9 @@ func TestMixedOrphanedResources(t *testing.T) {
 				Type:  motor.SubtypeName,
 			},
 			{
-				Name:      "m1",
-				Model:     fakeModel,
-				Type:      motor.SubtypeName,
+				Name:      "d",
+				Model:     doodadModel,
+				Type:      resource.SubtypeName("doodad"),
 				DependsOn: []string{"g"},
 			},
 		},
@@ -2603,9 +2649,9 @@ func TestMixedOrphanedResources(t *testing.T) {
 	test.That(t, err, test.ShouldBeError,
 		rutils.NewResourceNotFoundError(gizmoapi.Named("g")))
 	test.That(t, res, test.ShouldBeNil)
-	res, err = r.ResourceByName(motor.Named("m1"))
+	res, err = r.ResourceByName(resource.NameFromSubtype(doodadSubtype, "d"))
 	test.That(t, err, test.ShouldBeError,
-		rutils.NewResourceNotFoundError(motor.Named("m1")))
+		rutils.NewResourceNotFoundError(resource.NameFromSubtype(doodadSubtype, "d")))
 	test.That(t, res, test.ShouldBeNil)
 	_, err = r.ResourceByName(motor.Named("m"))
 	test.That(t, err, test.ShouldBeNil)
@@ -2626,9 +2672,9 @@ func TestMixedOrphanedResources(t *testing.T) {
 				Type:  motor.SubtypeName,
 			},
 			{
-				Name:      "m1",
-				Model:     fakeModel,
-				Type:      motor.SubtypeName,
+				Name:      "d",
+				Model:     doodadModel,
+				Type:      resource.SubtypeName("doodad"),
 				DependsOn: []string{"g"},
 			},
 		},
@@ -2636,20 +2682,22 @@ func TestMixedOrphanedResources(t *testing.T) {
 	r.Reconfigure(ctx, cfg3)
 
 	// Assert that adding module 'mod' back with original executable path re-adds
-	// modular component 'g' and its dependent 'm1', and that 'm' is still present.
+	// modular component 'd' and its dependent 'd', and that 'm' is still present.
 	r.Reconfigure(ctx, cfg)
 
 	_, err = r.ResourceByName(gizmoapi.Named("g"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = r.ResourceByName(motor.Named("m1"))
+	d, err := r.ResourceByName(resource.NameFromSubtype(doodadSubtype, "d"))
 	test.That(t, err, test.ShouldBeNil)
-	m, err := r.ResourceByName(motor.Named("m"))
+	_, err = r.ResourceByName(motor.Named("m"))
 	test.That(t, err, test.ShouldBeNil)
 
-	// Assert that motor 'm' can still be used.
-	motorM, ok := m.(motor.Motor)
+	// Assert that doodad 'd' can make gRPC calls through underlying 'g'.
+	doodadD, ok := d.(*doodad)
 	test.That(t, ok, test.ShouldBeTrue)
-	isMoving, err := motorM.IsMoving(ctx)
+	cmd := map[string]interface{}{"foo": "bar"}
+	resp, err := doodadD.doThroughGizmo(ctx, cmd)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, isMoving, test.ShouldBeFalse)
+	test.That(t, resp, test.ShouldNotBeNil)
+	test.That(t, resp, test.ShouldResemble, cmd)
 }
