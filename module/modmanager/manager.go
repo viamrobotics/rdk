@@ -134,6 +134,15 @@ func (mgr *Manager) AddResource(ctx context.Context, cfg config.Component, deps 
 	if err != nil {
 		return nil, err
 	}
+
+	svc, ok := mgr.r.(robot.Refresher)
+	if !ok {
+		return nil, errors.New("robot can't refresh resources")
+	}
+	if err = svc.Refresh(ctx); err != nil {
+		return nil, err
+	}
+
 	_, err = module.client.AddResource(ctx, &pb.AddResourceRequest{Config: cfgProto, Dependencies: deps})
 	if err != nil {
 		return nil, err

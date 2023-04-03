@@ -8,15 +8,15 @@ import (
 	pb "go.viam.com/api/service/slam/v1"
 )
 
-// GetPointCloudMapStreamCallback helps a client request the point cloud stream from a SLAM server,
+// GetPointCloudMapCallback helps a client request the point cloud stream from a SLAM server,
 // returning a callback function for accessing the stream data.
-func GetPointCloudMapStreamCallback(ctx context.Context, name string, slamClient pb.SLAMServiceClient) (func() ([]byte, error), error) {
-	req := &pb.GetPointCloudMapStreamRequest{Name: name}
+func GetPointCloudMapCallback(ctx context.Context, name string, slamClient pb.SLAMServiceClient) (func() ([]byte, error), error) {
+	req := &pb.GetPointCloudMapRequest{Name: name}
 
 	// If the target gRPC server returns an error status, this call doesn't return an error.
 	// Instead, the error status will be returned to the first call to resp.Recv().
 	// This call only returns an error if the connection to the target gRPC server can't be established, is canceled, etc.
-	resp, err := slamClient.GetPointCloudMapStream(ctx, req)
+	resp, err := slamClient.GetPointCloudMap(ctx, req)
 	if err != nil {
 		return nil, errors.Wrap(err, "error getting the pointcloud map from the SLAM client")
 	}
@@ -33,15 +33,15 @@ func GetPointCloudMapStreamCallback(ctx context.Context, name string, slamClient
 	return f, nil
 }
 
-// GetInternalStateStreamCallback helps a client request the internal state stream from a SLAM server,
+// GetInternalStateCallback helps a client request the internal state stream from a SLAM server,
 // returning a callback function for accessing the stream data.
-func GetInternalStateStreamCallback(ctx context.Context, name string, slamClient pb.SLAMServiceClient) (func() ([]byte, error), error) {
-	req := &pb.GetInternalStateStreamRequest{Name: name}
+func GetInternalStateCallback(ctx context.Context, name string, slamClient pb.SLAMServiceClient) (func() ([]byte, error), error) {
+	req := &pb.GetInternalStateRequest{Name: name}
 
 	// If the target gRPC server returns an error status, this call doesn't return an error.
 	// Instead, the error status will be returned to the first call to resp.Recv().
 	// This call only returns an error if the connection to the target gRPC server can't be established, is canceled, etc.
-	resp, err := slamClient.GetInternalStateStream(ctx, req)
+	resp, err := slamClient.GetInternalState(ctx, req)
 	if err != nil {
 		return nil, errors.Wrap(err, "error getting the internal state from the SLAM client")
 	}
