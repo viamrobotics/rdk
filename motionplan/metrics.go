@@ -113,5 +113,5 @@ func L2InputMetric(segment *Segment) float64 {
 	return referenceframe.InputsL2Distance(segment.StartConfiguration, segment.EndConfiguration)
 }
 
-// TODO(pl): Writing a PenetrationDepthMetric will allow cbirrt to path along the sides of obstacles rather than terminating
+// TODO(RSDK-2557): Writing a PenetrationDepthMetric will allow cbirrt to path along the sides of obstacles rather than terminating
 // the RRT tree when an obstacle is hit
