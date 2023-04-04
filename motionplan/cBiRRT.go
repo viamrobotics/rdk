@@ -269,8 +269,9 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 	near, target node,
 	mchan chan node,
 ) {
-	// Once per extend, allow qstep to be doubled as a means to escape from configurations which gradient descend to their seed
-	qstep := mp.algOpts.qstep
+	// Allow qstep to be doubled as a means to escape from configurations which gradient descend to their seed
+	qstep := make([]float64, len(mp.algOpts.qstep))
+	copy(qstep, mp.algOpts.qstep)
 	doubled := false
 
 	oldNear := near
@@ -337,7 +338,10 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 					return
 				}
 			}
-			qstep = mp.algOpts.qstep
+			if doubled {
+				copy(qstep, mp.algOpts.qstep)
+				doubled = false
+			}
 			// constrainNear will ensure path between oldNear and newNear satisfies constraints along the way
 			near = &basicNode{q: newNear}
 			rrtMap[near] = oldNear
