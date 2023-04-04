@@ -84,6 +84,10 @@ func (mgr *Manager) Close(ctx context.Context) error {
 }
 
 // Add adds and starts a new resource module.
+func (mgr *Manager) Add(ctx context.Context, cfg config.Module) error {
+	return mgr.add(ctx, cfg, nil)
+}
+
 func (mgr *Manager) add(ctx context.Context, cfg config.Module, conn *grpc.ClientConn) error {
 	if mgr.untrustedEnv {
 		return errModularResourcesDisabled
