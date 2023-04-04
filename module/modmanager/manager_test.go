@@ -15,6 +15,7 @@ import (
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/config"
+	modmanageroptions "go.viam.com/rdk/module/modmanager/options"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
@@ -59,7 +60,7 @@ func TestModManagerFunctions(t *testing.T) {
 	}
 
 	t.Log("test Helpers")
-	mgr, err := NewManager(myRobot)
+	mgr, err := NewManager(myRobot, modmanageroptions.Options{UntrustedEnv: false})
 	test.That(t, err, test.ShouldBeNil)
 
 	mod := &module{name: "test", exe: modExe}
@@ -93,7 +94,7 @@ func TestModManagerFunctions(t *testing.T) {
 	test.That(t, mod.process.Stop(), test.ShouldBeNil)
 
 	t.Log("test AddModule")
-	mgr, err = NewManager(myRobot)
+	mgr, err = NewManager(myRobot, modmanageroptions.Options{UntrustedEnv: false})
 	test.That(t, err, test.ShouldBeNil)
 
 	modCfg := config.Module{
@@ -209,6 +210,17 @@ func TestModManagerFunctions(t *testing.T) {
 
 	err = mgr.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)
+
+	t.Log("test UntrustedEnv")
+	mgr, err = NewManager(myRobot, modmanageroptions.Options{UntrustedEnv: true})
+	test.That(t, err, test.ShouldBeNil)
+
+	modCfg = config.Module{
+		Name:    "simple-module",
+		ExePath: modExe,
+	}
+	err = mgr.Add(ctx, modCfg)
+	test.That(t, err, test.ShouldEqual, errModularResourcesDisabled)
 }
 
 func TestModManagerValidation(t *testing.T) {
@@ -261,7 +273,7 @@ func TestModManagerValidation(t *testing.T) {
 	}
 
 	t.Log("adding complex module")
-	mgr, err := NewManager(myRobot)
+	mgr, err := NewManager(myRobot, modmanageroptions.Options{UntrustedEnv: false})
 	test.That(t, err, test.ShouldBeNil)
 
 	modCfg := config.Module{
