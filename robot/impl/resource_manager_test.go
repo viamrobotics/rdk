@@ -498,7 +498,6 @@ func TestManagerAdd(t *testing.T) {
 		grabPose *referenceframe.PoseInFrame,
 		worldState *referenceframe.WorldState,
 		constraints *motionpb.Constraints,
-		slamName resource.Name,
 		extra map[string]interface{},
 	) (bool, error) {
 		return false, nil
