@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"runtime"
+	"sync"
 
 	tflite "github.com/mattn/go-tflite"
 	"github.com/pkg/errors"
@@ -23,6 +24,7 @@ type TFLiteStruct struct {
 	interpreterOptions *tflite.InterpreterOptions
 	Info               *TFLiteInfo
 	modelPath          string
+	Mu                 sync.Mutex
 }
 
 // Interpreter interface holds methods used by a tflite interpreter.
@@ -123,6 +125,7 @@ func (loader TFLiteModelLoader) Load(modelPath string) (*TFLiteStruct, error) {
 		interpreterOptions: loader.interpreterOptions,
 		Info:               info,
 		modelPath:          modelPath,
+		Mu:                 sync.Mutex{},
 	}
 
 	return modelStruct, nil
