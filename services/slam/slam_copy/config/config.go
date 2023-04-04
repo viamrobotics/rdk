@@ -53,7 +53,6 @@ type AttrConfig struct {
 	MapRateSec          *int              `json:"map_rate_sec"`
 	Port                string            `json:"port"`
 	DeleteProcessedData *bool             `json:"delete_processed_data"`
-	Dev                 bool              `json:"dev"`
 }
 
 // NewAttrConfig creates a SLAM config from a service config.
