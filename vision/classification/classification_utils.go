@@ -17,12 +17,14 @@ func Overlay(img image.Image, classifications Classifications) (image.Image, err
 	x := 30
 	y := 30
 	for _, classification := range classifications {
-		rimage.DrawString(gimg,
-			fmt.Sprintf("%v: %.2f", classification.Label(), classification.Score()),
-			image.Point{x, y},
-			color.NRGBA{255, 0, 0, 255},
-			30)
-		y += 30
+		if classification.Label() != "VIAM_UNKNOWN" {
+			rimage.DrawString(gimg,
+				fmt.Sprintf("%v: %.2f", classification.Label(), classification.Score()),
+				image.Point{x, y},
+				color.NRGBA{255, 0, 0, 255},
+				30)
+			y += 30
+		}
 	}
 	return gimg.Image(), nil
 }
