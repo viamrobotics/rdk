@@ -8,19 +8,19 @@ import { MapControls } from 'three/examples/jsm/controls/OrbitControls';
 import { PCDLoader } from 'three/examples/jsm/loaders/PCDLoader';
 import type { commonApi } from '@viamrobotics/sdk';
 
-// this color map is viridis
-const colorMapViridis = [
-  [253, 231, 37],
-  [181, 222, 43],
-  [110, 206, 88],
-  [53, 183, 121],
-  [31, 158, 137],
-  [38, 130, 142],
-  [49, 104, 142],
-  [62, 73, 137],
-  [72, 40, 120],
-  [68,1,84]
-]
+// // this color map is viridis. Leaving commented for if we want to change the color map
+// const colorMapViridis = [
+//   [253, 231, 37],
+//   [181, 222, 43],
+//   [110, 206, 88],
+//   [53, 183, 121],
+//   [31, 158, 137],
+//   [38, 130, 142],
+//   [49, 104, 142],
+//   [62, 73, 137],
+//   [72, 40, 120],
+//   [68,1,84]
+// ]
 
 // this color map is greyscale
 const colorMapGrey = [
@@ -139,13 +139,12 @@ const updateCloud = (pointcloud: Uint8Array) => {
   raycaster.objects = [intersectionPlane];
 
   const colors = points.geometry.attributes.color;
-  colors
   
   for(let i = 0; i < colors.count; i+=1){
-    const viridis = colorBuckets(colors.getZ(i));
-    colors.setXYZ(i,viridis['x'],viridis['y'],viridis['z']);
+    const colorMapPoint = colorBuckets(colors.getZ(i));
+    colors.setXYZ(i,colorMapPoint['x'],colorMapPoint['y'],colorMapPoint['z']);
   }
-// debugger
+  
   scene.add(points);
   scene.add(marker);
   scene.add(intersectionPlane);
@@ -159,9 +158,6 @@ const updatePose = (newPose: commonApi.Pose) => {
 };
 
 const colorBuckets = (currColor: number): THREE.Vector3 =>{
-  // if (currColor == 0){
-  //   return new THREE.Vector3(.8,.8,.8)
-  // }
   return colorMapGrey.map(([a,b,c]) => 
   new THREE.Vector3(a,b,c).multiplyScalar(1/255)
   )[probToColorMapBucket(currColor, colorMapGrey.length)]
