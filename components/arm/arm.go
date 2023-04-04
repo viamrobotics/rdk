@@ -92,9 +92,8 @@ type Arm interface {
 	EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error)
 
 	// MoveToPosition moves the arm to the given absolute position.
-	// The worldState argument should be treated as optional by all implementing drivers
 	// This will block until done or a new operation cancels this one
-	MoveToPosition(ctx context.Context, pose spatialmath.Pose, worldState *referenceframe.WorldState, extra map[string]interface{}) error
+	MoveToPosition(ctx context.Context, pose spatialmath.Pose, extra map[string]interface{}) error
 
 	// MoveToJointPositions moves the arm's joints to the given positions.
 	// This will block until done or a new operation cancels this one
@@ -207,12 +206,11 @@ func (r *reconfigurableArm) EndPosition(ctx context.Context, extra map[string]in
 func (r *reconfigurableArm) MoveToPosition(
 	ctx context.Context,
 	pose spatialmath.Pose,
-	worldState *referenceframe.WorldState,
 	extra map[string]interface{},
 ) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.MoveToPosition(ctx, pose, worldState, extra)
+	return r.actual.MoveToPosition(ctx, pose, extra)
 }
 
 func (r *reconfigurableArm) MoveToJointPositions(ctx context.Context, positionDegs *pb.JointPositions, extra map[string]interface{}) error {
