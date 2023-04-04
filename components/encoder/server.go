@@ -6,6 +6,7 @@ import (
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/encoder/v1"
+
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/subtype"
 )
@@ -33,6 +34,7 @@ func (s *subtypeServer) getEncoder(name string) (Encoder, error) {
 	return enc, nil
 }
 
+// GetPosition reports the position of the encoder.
 func (s *subtypeServer) GetPosition(
 	ctx context.Context,
 	req *pb.GetPositionRequest,
@@ -52,24 +54,24 @@ func (s *subtypeServer) GetPosition(
 
 // ResetPosition sets the current position of the motor specified by the request
 // (adjusted by a given offset) to be its new zero position.
-func (server *subtypeServer) ResetPosition(
+func (s *subtypeServer) ResetPosition(
 	ctx context.Context,
 	req *pb.ResetPositionRequest,
 ) (*pb.ResetPositionResponse, error) {
 	encName := req.GetName()
-	enc, err := server.getEncoder(encName)
+	enc, err := s.getEncoder(encName)
 	if err != nil {
-		return nil, errors.Errorf("no encoder (%s) found", &encName)
+		return nil, errors.Errorf("no encoder (%s) found", encName)
 	}
 
 	return &pb.ResetPositionResponse{}, enc.ResetPosition(ctx, req.GetOffset(), req.Extra.AsMap())
 }
 
 // DoCommand receives arbitrary commands.
-func (server *subtypeServer) DoCommand(ctx context.Context,
+func (s *subtypeServer) DoCommand(ctx context.Context,
 	req *commonpb.DoCommandRequest,
 ) (*commonpb.DoCommandResponse, error) {
-	enc, err := server.getEncoder(req.GetName())
+	enc, err := s.getEncoder(req.GetName())
 	if err != nil {
 		return nil, err
 	}

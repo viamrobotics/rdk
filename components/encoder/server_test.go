@@ -58,7 +58,6 @@ func TestServerGetPosition(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
-//nolint:dupl
 func TestServerResetPosition(t *testing.T) {
 	encoderServer, workingEncoder, failingEncoder, _ := newServer()
 

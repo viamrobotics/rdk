@@ -255,9 +255,7 @@ func TestClose(t *testing.T) {
 	test.That(t, actualEncoder1.reconfCount, test.ShouldEqual, 1)
 }
 
-var (
-	position = 5.5
-)
+var position = 5.5
 
 type mock struct {
 	Name string
@@ -288,6 +286,4 @@ func (m *mock) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[s
 type mockLocal struct {
 	mock
 	Name string
-
-	goTillStopCount int
 }
