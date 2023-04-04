@@ -17,6 +17,8 @@ import (
 	"go.viam.com/utils"
 	vprotoutils "go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
+	"google.golang.org/grpc/codes"
+	grpcstatus "google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -322,20 +324,19 @@ func (s *Server) StreamStatus(req *pb.StreamStatusRequest, streamServer pb.Robot
 	ticker := time.NewTicker(every)
 	defer ticker.Stop()
 	for {
-		select {
-		case <-streamServer.Context().Done():
+		if !utils.SelectContextOrWaitChan(streamServer.Context(), ticker.C) {
 			return streamServer.Context().Err()
-		default:
 		}
-		select {
-		case <-streamServer.Context().Done():
-			return streamServer.Context().Err()
-		case <-ticker.C:
-		}
+
 		status, err := s.GetStatus(streamServer.Context(), &pb.GetStatusRequest{ResourceNames: req.ResourceNames})
-		if err != nil {
+		switch {
+		case err == nil:
+		case grpcstatus.Code(err) == codes.Unimplemented:
+			return nil
+		default:
 			return err
 		}
+
 		if err := streamServer.Send(&pb.StreamStatusResponse{Status: status.Status}); err != nil {
 			return err
 		}
@@ -358,7 +359,10 @@ func (s *Server) StopAll(ctx context.Context, req *pb.StopAllRequest) (*pb.StopA
 // lapses, any resources that have safety heart monitored methods, where this session was the last caller
 // on the resource, will be stopped.
 func (s *Server) StartSession(ctx context.Context, req *pb.StartSessionRequest) (*pb.StartSessionResponse, error) {
-	authUID, _ := rpc.ContextAuthSubject(ctx)
+	var authUID string
+	if authEntity, ok := rpc.ContextAuthEntity(ctx); ok {
+		authUID = authEntity.Entity
+	}
 	if _, ok := session.FromContext(ctx); ok {
 		return nil, errors.New("session already exists")
 	}
@@ -413,7 +417,10 @@ func peerConnectionInfoToProto(info rpc.PeerConnectionInfo) *pb.PeerConnectionIn
 
 // SendSessionHeartbeat sends a heartbeat to the given session.
 func (s *Server) SendSessionHeartbeat(ctx context.Context, req *pb.SendSessionHeartbeatRequest) (*pb.SendSessionHeartbeatResponse, error) {
-	authUID, _ := rpc.ContextAuthSubject(ctx)
+	var authUID string
+	if authEntity, ok := rpc.ContextAuthEntity(ctx); ok {
+		authUID = authEntity.Entity
+	}
 	sessID, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, err

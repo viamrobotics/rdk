@@ -164,6 +164,7 @@ func newCameraMono(
 			trackedPos:    r3.Vector{X: 0, Y: 0, Z: 0},
 			trackedOrient: spatialmath.NewOrientationVector(),
 		},
+		err: movementsensor.NewLastError(1, 1),
 	}
 
 	co.stream = gostream.NewEmbeddedVideoStream(cam)

@@ -14,6 +14,7 @@ import (
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -89,6 +90,13 @@ type LocalBase interface {
 	Width(ctx context.Context) (int, error)
 }
 
+// KinematicBase is an interface for Bases that also satisfy the ModelFramer and InputEnabled interfaces.
+type KinematicBase interface {
+	Base
+	referenceframe.ModelFramer
+	referenceframe.InputEnabled
+}
+
 var (
 	_ = Base(&reconfigurableBase{})
 	_ = LocalBase(&reconfigurableLocalBase{})
@@ -100,15 +108,7 @@ var (
 // FromDependencies is a helper for getting the named base from a collection of
 // dependencies.
 func FromDependencies(deps registry.Dependencies, name string) (Base, error) {
-	res, ok := deps[Named(name)]
-	if !ok {
-		return nil, utils.DependencyNotFoundError(name)
-	}
-	part, ok := res.(Base)
-	if !ok {
-		return nil, DependencyTypeError(name, res)
-	}
-	return part, nil
+	return registry.ResourceFromDependencies[Base](deps, Named(name))
 }
 
 // NewUnimplementedInterfaceError is used when there is a failed interface check.
@@ -119,11 +119,6 @@ func NewUnimplementedInterfaceError(actual interface{}) error {
 // NewUnimplementedLocalInterfaceError is used when there is a failed interface check.
 func NewUnimplementedLocalInterfaceError(actual interface{}) error {
 	return utils.NewUnimplementedInterfaceError((*LocalBase)(nil), actual)
-}
-
-// DependencyTypeError is used when a resource doesn't implement the expected interface.
-func DependencyTypeError(name string, actual interface{}) error {
-	return utils.DependencyTypeError(name, (*Base)(nil), actual)
 }
 
 // FromRobot is a helper for getting the named base from the given Robot.

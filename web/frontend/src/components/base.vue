@@ -9,6 +9,7 @@ import KeyboardInput, { type Keys } from './keyboard-input.vue';
 import Camera from './camera/camera.vue';
 import { rcLogConditionally } from '../lib/log';
 import { selectedMap } from '../lib/camera-state';
+import type { StreamManager } from './camera/stream-manager';
 
 const enum Keymap {
   LEFT = 'a',
@@ -21,6 +22,7 @@ const props = defineProps<{
   name: string;
   resources: commonApi.ResourceName.AsObject[];
   client: Client;
+  streamManager:StreamManager
 }>();
 
 type Tabs = 'Keyboard' | 'Discrete'
@@ -126,10 +128,10 @@ const digestInput = async () => {
     await baseClient.setPower(linear, angular);
   } catch (error) {
     displayError(error as ServiceError);
+  }
 
-    if (pressed.size <= 0) {
-      stop();
-    }
+  if (pressed.size <= 0) {
+    stop();
   }
 };
 
@@ -219,6 +221,12 @@ const handleVisibilityChange = () => {
   }
 };
 
+const handleOnBlur = () => {
+  if (pressed.size <= 0) {
+    stop();
+  }
+};
+
 const handleToggle = () => {
   if (keyboardStates.isActive) {
     return;
@@ -252,6 +260,9 @@ onClickOutside($$(root), () => {
 onMounted(() => {
   window.addEventListener('visibilitychange', handleVisibilityChange);
 
+  // Safety measure for system prompts, etc.
+  window.addEventListener('blur', handleOnBlur);
+
   for (const camera of resources) {
     openCameras[camera.name] = false;
   }
@@ -261,7 +272,6 @@ onUnmounted(() => {
   stop();
   window.removeEventListener('visibilitychange', handleVisibilityChange);
 });
-
 </script>
 
 <template>
@@ -454,7 +464,7 @@ onUnmounted(() => {
             :key="`base ${camera.name}`"
           >
             <Camera
-              v-show="openCameras[camera.name]"
+              v-if="openCameras[camera.name]"
               :camera-name="camera.name"
               parent-name="base"
               :client="client"
@@ -463,6 +473,7 @@ onUnmounted(() => {
               :show-export-screenshot="false"
               :refresh-rate="refreshFrequency"
               :trigger-refresh="triggerRefresh"
+              :stream-manager="props.streamManager"
             />
           </template>
         </div>

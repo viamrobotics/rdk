@@ -2,15 +2,16 @@
 import { onMounted, onUnmounted, watch } from 'vue';
 import { displayError } from '../../lib/error';
 import {
-  StreamClient,
   CameraClient,
   Client,
   commonApi,
   ServiceError,
 } from '@viamrobotics/sdk';
-import { cameraStreamStates, selectedMap } from '../../lib/camera-state';
+import { selectedMap } from '../../lib/camera-state';
+import type { CameraManager } from './camera-manager';
+import type { StreamManager } from './stream-manager';
 
-const props = defineProps<{
+const props = defineProps< {
   cameraName: string;
   parentName: string;
   resources: commonApi.ResourceName.AsObject[];
@@ -18,116 +19,34 @@ const props = defineProps<{
   showExportScreenshot: boolean;
   refreshRate: string | undefined;
   triggerRefresh: boolean;
+  streamManager:StreamManager;
 }>();
 
-let videoStream = $ref<MediaStream>();
 const imgEl = $ref<HTMLImageElement>();
 
 let cameraOn = $ref(false);
 let cameraFrameIntervalId = $ref(-1);
-let camerasOn = $ref(0);
-
-const manageStreamStates = (cameraIsOn: boolean) => {
-  cameraStreamStates.set(`${props.parentName}-${props.cameraName}`, {
-    on: cameraIsOn,
-    live: true,
-    name: props.cameraName,
-  });
-
-  let counter = 0;
-  for (const value of cameraStreamStates.values()) {
-    if (value.name === props.cameraName && value.on) {
-      counter += 1;
-    }
-  }
-  camerasOn = counter;
-};
-
-const viewCamera = async (isOn: boolean) => {
-  const streams = new StreamClient(props.client);
-
-  streams.on('track', (event) => {
-    let [eventStream] = event.streams;
-    eventStream = event.streams[0];
-    if (!eventStream) {
-      throw new Error('expected event stream to exist');
-    }
-    // Ignore event if received for the wrong stream, in the case of multiple cameras
-    if (eventStream.id !== props.cameraName) {
-      return;
-    }
-    videoStream = eventStream;
-  });
-
-  if (props.refreshRate === 'Live') {
-    manageStreamStates(isOn);
-
-    if (camerasOn === 1) {
-      try {
-        await streams.add(props.cameraName);
-      } catch (error) {
-        displayError(error as ServiceError);
-      }
-    } else if (camerasOn === 0) {
-      try {
-        await streams.remove(props.cameraName);
-      } catch (error) {
-        displayError(error as ServiceError);
-      }
-    }
-  }
-};
-
-const viewFrame = async (cameraName: string) => {
-  let blob;
-  try {
-    blob = await new CameraClient(props.client, cameraName).renderFrame('image/jpeg');
-  } catch (error) {
-    displayError(error as ServiceError);
-    return;
-  }
-
-  imgEl.setAttribute('src', URL.createObjectURL(blob));
-};
+let isLive = false;
+const cameraManager = $ref<CameraManager>(props.streamManager.setCameraManager(props.cameraName));
 
 const clearFrameInterval = () => {
   window.clearInterval(cameraFrameIntervalId);
 };
 
-const viewCameraFrame = (cameraName: string, time: number) => {
+const viewCameraFrame = (time: number) => {
   clearFrameInterval();
-
-  // Live
-  if (time === -1) {
-    return;
-  }
-
-  viewFrame(cameraName);
+  cameraManager.setImageSrc(imgEl);
   if (time > 0) {
     cameraFrameIntervalId = window.setInterval(() => {
-      viewFrame(cameraName);
+      cameraManager.setImageSrc(imgEl);
     }, Number(time) * 1000);
   }
 };
 
-const selectCameraView = () => {
-  clearFrameInterval();
-  const selectedInterval: number = selectedMap[props.refreshRate as keyof typeof selectedMap];
-
-  if (props.refreshRate === 'Live') {
-    viewCamera(true);
-  } else {
-    viewCamera(false);
-
-    viewCameraFrame(props.cameraName, selectedInterval);
+const updateCameraRefreshRate = () => {
+  if (props.refreshRate !== 'Live') {
+    viewCameraFrame(selectedMap[props.refreshRate as keyof typeof selectedMap]);
   }
-};
-
-const refreshCamera = () => {
-  const selectedInterval: number = selectedMap[props.refreshRate as keyof typeof selectedMap];
-
-  viewCameraFrame(props.cameraName, selectedInterval);
-  clearFrameInterval();
 };
 
 const exportScreenshot = async (cameraName: string) => {
@@ -144,37 +63,51 @@ const exportScreenshot = async (cameraName: string) => {
   window.open(URL.createObjectURL(blob), '_blank');
 };
 
+const videoStream = $computed(() => {
+  return cameraManager.videoStream;
+});
+
 onMounted(() => {
   cameraOn = true;
-
-  clearFrameInterval();
-
-  selectCameraView();
+  if (props.refreshRate === 'Live') {
+    isLive = true;
+    cameraManager.addStream();
+  }
+  updateCameraRefreshRate();
 });
 
 onUnmounted(() => {
+  if (isLive) {
+    cameraManager.removeStream();
+  }
   cameraOn = false;
-  manageStreamStates(false);
+  isLive = false;
   clearFrameInterval();
 });
 
-// on prop change select camera view
+// on refreshRate change update camera and manage live connections
 watch(() => props.refreshRate, () => {
-  selectCameraView();
+  if (isLive && props.refreshRate !== 'Live') {
+    isLive = false;
+    cameraManager.removeStream();
+  }
+  if (isLive === false && props.refreshRate === 'Live') {
+    isLive = true;
+    cameraManager.addStream();
+  }
+  updateCameraRefreshRate();
 });
 
 // on prop change refresh camera
 watch(() => props.triggerRefresh, () => {
-  refreshCamera();
+  updateCameraRefreshRate();
 });
 
 </script>
 
 <template>
   <div class="flex flex-col gap-2">
-    <template
-      v-if="cameraOn"
-    >
+    <template v-if="cameraOn">
       <v-button
         v-if="cameraOn && props.showExportScreenshot"
         :aria-label="`View Camera: ${cameraName}`"

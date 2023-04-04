@@ -17,6 +17,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/utils"
 )
 
 var (
@@ -27,19 +28,19 @@ var (
 func init() {
 	registry.RegisterComponent(base.Subtype, Model, registry.Component{Constructor: newBase})
 
-  // Use RegisterComponentAttributeMapConverter to register a custom configuration
+	// Use RegisterComponentAttributeMapConverter to register a custom configuration
 	// struct that has a Validate(string) ([]string, error) method.
 	//
 	// The Validate method will automatically be called in RDK's module manager to
 	// Validate the MyBase's configuration and register implicit dependencies.
 	config.RegisterComponentAttributeMapConverter(
-    base.Subtype,
-    Model,
-    func(attributes config.AttributeMap) (interface{}, error) {
-      var conf MyBaseConfig
-      return config.TransformAttributeMapToStruct(&conf, attributes)
-    },
-    &MyBaseConfig{})
+		base.Subtype,
+		Model,
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf MyBaseConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		},
+		&MyBaseConfig{})
 }
 
 func newBase(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
@@ -51,26 +52,24 @@ func newBase(ctx context.Context, deps registry.Dependencies, config config.Comp
 func (base *MyBase) Reconfigure(cfg config.Component, deps registry.Dependencies) error {
 	base.left = nil
 	base.right = nil
-	for n, d := range deps {
-		switch n.Name {
-		case cfg.Attributes.String("motorL"):
-			m, ok := d.(motor.Motor)
-			if !ok {
-				return errors.Errorf("resource %s is not a motor", n.Name)
-			}
-			base.left = m
-		case cfg.Attributes.String("motorR"):
-			m, ok := d.(motor.Motor)
-			if !ok {
-				return errors.Errorf("resource %s is not a motor", n.Name)
-			}
-			base.right = m
-		default:
-			continue
-		}
+	baseConfig, ok := cfg.ConvertedAttributes.(*MyBaseConfig)
+	if !ok {
+		return utils.NewUnexpectedTypeError(baseConfig, cfg.ConvertedAttributes)
+	}
+	var err error
+
+	base.left, err = motor.FromDependencies(deps, baseConfig.LeftMotor)
+	if err != nil {
+		return errors.Wrapf(err, "unable to get motor %v for mybase", baseConfig.LeftMotor)
 	}
 
-	return nil
+	base.right, err = motor.FromDependencies(deps, baseConfig.RightMotor)
+	if err != nil {
+		return errors.Wrapf(err, "unable to get motor %v for mybase", baseConfig.RightMotor)
+	}
+
+	// Good practice to stop motors, but also this effectively tests https://viam.atlassian.net/browse/RSDK-2496
+	return multierr.Combine(base.left.Stop(context.Background(), nil), base.right.Stop(context.Background(), nil))
 }
 
 type MyBaseConfig struct {

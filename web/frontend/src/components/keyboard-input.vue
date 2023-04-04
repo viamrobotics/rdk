@@ -3,6 +3,7 @@
 
 export type Keys = 'w' | 'a' | 's' | 'd'
 
+import { $ref } from 'vue/macros';
 import { mdiArrowUp as w, mdiRestore as a, mdiReload as d, mdiArrowDown as s } from '@mdi/js';
 import Icon from './icon.vue';
 import { watch, onUnmounted } from 'vue';
@@ -125,7 +126,7 @@ onUnmounted(() => {
         <button
           v-for="key in lineKeys"
           :key="key"
-          class="flex items-center gap-1.5 border border-gray-500 px-3 py-1 outline-none uppercase"
+          class="select-none flex items-center gap-1.5 border border-gray-500 px-3 py-1 outline-none uppercase"
           :class="{
             'bg-gray-200 text-gray-800': pressedKeys[key],
             'bg-white': !pressedKeys[key],

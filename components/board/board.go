@@ -7,6 +7,7 @@ package board
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/edaniels/golog"
 	commonpb "go.viam.com/api/common/v1"
@@ -27,11 +28,6 @@ import (
 // NewUnimplementedInterfaceError is used when there is a failed interface check.
 func NewUnimplementedInterfaceError(actual interface{}) error {
 	return utils.NewUnimplementedInterfaceError((*Board)(nil), actual)
-}
-
-// DependencyTypeError is used when a resource doesn't implement the expected interface.
-func DependencyTypeError(name string, actual interface{}) error {
-	return utils.DependencyTypeError(name, (*Board)(nil), actual)
 }
 
 func init() {
@@ -117,6 +113,11 @@ type Board interface {
 	// ModelAttributes returns attributes related to the model of this board.
 	ModelAttributes() ModelAttributes
 
+	// SetPowerMode sets the board to the given power mode. If
+	// provided, the board will exit the given power mode after
+	// the specified duration.
+	SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *time.Duration) error
+
 	generic.Generic
 }
 
@@ -186,15 +187,7 @@ var (
 // FromDependencies is a helper for getting the named board from a collection of
 // dependencies.
 func FromDependencies(deps registry.Dependencies, name string) (Board, error) {
-	res, ok := deps[Named(name)]
-	if !ok {
-		return nil, utils.DependencyNotFoundError(name)
-	}
-	part, ok := res.(Board)
-	if !ok {
-		return nil, DependencyTypeError(name, res)
-	}
-	return part, nil
+	return registry.ResourceFromDependencies[Board](deps, Named(name))
 }
 
 // FromRobot is a helper for getting the named board from the given Robot.
@@ -361,6 +354,12 @@ func (r *reconfigurableBoard) ModelAttributes() ModelAttributes {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.ModelAttributes()
+}
+
+func (r *reconfigurableBoard) SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *time.Duration) error {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.SetPowerMode(ctx, mode, duration)
 }
 
 // Close attempts to cleanly close each part of the board.
