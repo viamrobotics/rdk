@@ -126,7 +126,7 @@ onUnmounted(() => {
         <button
           v-for="key in lineKeys"
           :key="key"
-          class="select-none flex items-center gap-1.5 border border-gray-500 px-3 py-1 uppercase outline-none"
+          class="flex select-none items-center gap-1.5 border border-gray-500 px-3 py-1 uppercase outline-none"
           :class="{
             'bg-gray-200 text-gray-800': pressedKeys[key],
             'bg-white': !pressedKeys[key],
