@@ -26,7 +26,7 @@ func TestConfig(t *testing.T) {
 	t.Run("valid config", func(t *testing.T) {
 		ic := AttrConfig{
 			BoardName: "main",
-			Pins:      SinglePin{I: "10"},
+			Pins:      Pin{I: "10"},
 		}
 
 		rawcfg := config.Component{Name: "enc1", ConvertedAttributes: &ic}
@@ -58,7 +58,7 @@ func TestEnconder(t *testing.T) {
 
 	ic := AttrConfig{
 		BoardName: "main",
-		Pins:      SinglePin{I: "10"},
+		Pins:      Pin{I: "10"},
 	}
 
 	rawcfg := config.Component{Name: "enc1", ConvertedAttributes: &ic}
@@ -66,7 +66,7 @@ func TestEnconder(t *testing.T) {
 	t.Run("run forward", func(t *testing.T) {
 		enc, err := NewSingleEncoder(ctx, deps, rawcfg, golog.NewTestLogger(t))
 		test.That(t, err, test.ShouldBeNil)
-		enc2 := enc.(*SingleEncoder)
+		enc2 := enc.(*Encoder)
 		defer enc2.Close()
 
 		m := &FakeDir{1} // forward
@@ -86,7 +86,7 @@ func TestEnconder(t *testing.T) {
 	t.Run("run backward", func(t *testing.T) {
 		enc, err := NewSingleEncoder(ctx, deps, rawcfg, golog.NewTestLogger(t))
 		test.That(t, err, test.ShouldBeNil)
-		enc2 := enc.(*SingleEncoder)
+		enc2 := enc.(*Encoder)
 		defer enc2.Close()
 
 		m := &FakeDir{-1} // backward
@@ -108,7 +108,7 @@ func TestEnconder(t *testing.T) {
 	t.Run("run no direction", func(t *testing.T) {
 		enc, err := NewSingleEncoder(ctx, deps, rawcfg, golog.NewTestLogger(t))
 		test.That(t, err, test.ShouldBeNil)
-		enc2 := enc.(*SingleEncoder)
+		enc2 := enc.(*Encoder)
 		defer enc2.Close()
 
 		err = enc2.I.Tick(context.Background(), true, uint64(time.Now().UnixNano()))
@@ -127,7 +127,7 @@ func TestEnconder(t *testing.T) {
 	t.Run("reset position", func(t *testing.T) {
 		enc, err := NewSingleEncoder(ctx, deps, rawcfg, golog.NewTestLogger(t))
 		test.That(t, err, test.ShouldBeNil)
-		enc2 := enc.(*SingleEncoder)
+		enc2 := enc.(*Encoder)
 		defer enc2.Close()
 
 		// set to a positive int
@@ -169,7 +169,7 @@ func TestEnconder(t *testing.T) {
 	t.Run("reset position and tick", func(t *testing.T) {
 		enc, err := NewSingleEncoder(ctx, deps, rawcfg, golog.NewTestLogger(t))
 		test.That(t, err, test.ShouldBeNil)
-		enc2 := enc.(*SingleEncoder)
+		enc2 := enc.(*Encoder)
 		defer enc2.Close()
 
 		m := &FakeDir{1} // forward

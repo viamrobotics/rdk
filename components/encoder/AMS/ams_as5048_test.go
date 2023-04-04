@@ -1,4 +1,4 @@
-package AMS
+package ams
 
 import (
 	"math"

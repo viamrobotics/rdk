@@ -45,7 +45,7 @@ func TestMotorEncoder1(t *testing.T) {
 	}
 	interrupt := &board.BasicDigitalInterrupt{}
 
-	e := &single.SingleEncoder{I: interrupt, CancelCtx: context.Background()}
+	e := &single.Encoder{I: interrupt, CancelCtx: context.Background()}
 	e.AttachDirectionalAwareness(&fakeDirectionAware{m: fakeMotor})
 	e.Start(context.Background())
 	dirFMotor, err := NewEncodedMotor(config.Component{}, cfg, fakeMotor, e, logger)
@@ -278,7 +278,7 @@ func TestMotorEncoderIncremental(t *testing.T) {
 	defer undo()
 
 	type testHarness struct {
-		Encoder   *incremental.IncrementalEncoder
+		Encoder   *incremental.Encoder
 		EncoderA  board.DigitalInterrupt
 		EncoderB  board.DigitalInterrupt
 		RealMotor *fakemotor.Motor
@@ -295,7 +295,7 @@ func TestMotorEncoderIncremental(t *testing.T) {
 		}
 		encoderA := &board.BasicDigitalInterrupt{}
 		encoderB := &board.BasicDigitalInterrupt{}
-		encoder := &incremental.IncrementalEncoder{A: encoderA, B: encoderB, CancelCtx: context.Background()}
+		encoder := &incremental.Encoder{A: encoderA, B: encoderB, CancelCtx: context.Background()}
 		encoder.Start(context.Background())
 
 		motorIfc, err := NewEncodedMotor(config.Component{}, cfg, fakeMotor, encoder, logger)
@@ -597,7 +597,7 @@ func TestWrapMotorWithEncoder(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		fakeMotor := &fakemotor.Motor{}
 		b.Digitals["a"] = &board.BasicDigitalInterrupt{}
-		e := &single.SingleEncoder{I: b.Digitals["a"], CancelCtx: context.Background()}
+		e := &single.Encoder{I: b.Digitals["a"], CancelCtx: context.Background()}
 		e.AttachDirectionalAwareness(&fakeDirectionAware{m: fakeMotor})
 		e.Start(context.Background())
 
@@ -624,7 +624,7 @@ func TestWrapMotorWithEncoder(t *testing.T) {
 		fakeMotor := &fakemotor.Motor{}
 		b.Digitals["a"] = &board.BasicDigitalInterrupt{}
 		b.Digitals["b"] = &board.BasicDigitalInterrupt{}
-		e := &incremental.IncrementalEncoder{A: b.Digitals["a"], B: b.Digitals["b"], CancelCtx: context.Background()}
+		e := &incremental.Encoder{A: b.Digitals["a"], B: b.Digitals["b"], CancelCtx: context.Background()}
 		e.Start(context.Background())
 
 		m, err := WrapMotorWithEncoder(
@@ -656,7 +656,7 @@ func TestDirFlipMotor(t *testing.T) {
 	}
 	interrupt := &board.BasicDigitalInterrupt{}
 
-	e := &single.SingleEncoder{I: interrupt, CancelCtx: context.Background()}
+	e := &single.Encoder{I: interrupt, CancelCtx: context.Background()}
 	e.AttachDirectionalAwareness(&fakeDirectionAware{m: dirflipFakeMotor})
 	e.Start(context.Background())
 	dirFMotor, err := NewEncodedMotor(config.Component{}, cfg, dirflipFakeMotor, e, logger)
