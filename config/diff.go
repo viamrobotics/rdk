@@ -32,6 +32,7 @@ type ModifiedConfigDiff struct {
 	Processes  []pexec.ProcessConfig
 	Services   []Service
 	Packages   []PackageConfig
+	Modules    []Module
 }
 
 // DiffConfigs returns the difference between the two given configs
@@ -70,7 +71,10 @@ func DiffConfigs(left, right Config, revealSensitiveConfigDiffs bool) (_ *Diff, 
 	processesDifferent := diffProcesses(left.Processes, right.Processes, &diff) || different
 
 	different = processesDifferent || different
-	different = diffPackages(left.Packages, right.Packages, &diff) || different
+	packagesDifferent := diffPackages(left.Packages, right.Packages, &diff) || different
+
+	different = packagesDifferent || different
+	different = diffModules(left.Modules, right.Modules, &diff) || different
 
 	diff.ResourcesEqual = !different
 
@@ -171,6 +175,7 @@ func (diff *Diff) String() string {
 	return diff.PrettyDiff
 }
 
+//nolint:dupl
 func diffRemotes(left, right []Remote, diff *Diff) bool {
 	leftIndex := make(map[string]int)
 	leftM := make(map[string]Remote)
@@ -296,6 +301,7 @@ func diffProcess(left, right pexec.ProcessConfig, diff *Diff) bool {
 	return true
 }
 
+//nolint:dupl
 func diffPackages(left, right []PackageConfig, diff *Diff) bool {
 	leftIndex := make(map[string]int)
 	leftM := make(map[string]PackageConfig)
@@ -446,4 +452,46 @@ func diffTLS(leftTLS, rightTLS *tls.Config) bool {
 		return true
 	}
 	return false
+}
+
+//nolint:dupl
+func diffModules(leftModules, rightModules []Module, diff *Diff) bool {
+	leftIndex := make(map[string]int)
+	leftM := make(map[string]Module)
+	for idx, l := range leftModules {
+		leftM[l.Name] = l
+		leftIndex[l.Name] = idx
+	}
+
+	var removed []int
+
+	var different bool
+	for _, r := range rightModules {
+		l, ok := leftM[r.Name]
+		delete(leftM, r.Name)
+		if ok {
+			different = diffModule(l, r, diff) || different
+			continue
+		}
+		diff.Added.Modules = append(diff.Added.Modules, r)
+		different = true
+	}
+
+	for k := range leftM {
+		removed = append(removed, leftIndex[k])
+		different = true
+	}
+	sort.Ints(removed)
+	for _, idx := range removed {
+		diff.Removed.Modules = append(diff.Removed.Modules, leftModules[idx])
+	}
+	return different
+}
+
+func diffModule(left, right Module, diff *Diff) bool {
+	if reflect.DeepEqual(left, right) {
+		return false
+	}
+	diff.Modified.Modules = append(diff.Modified.Modules, right)
+	return true
 }

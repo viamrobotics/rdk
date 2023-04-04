@@ -67,16 +67,17 @@ func TestMoveFailures(t *testing.T) {
 
 func TestMove1(t *testing.T) {
 	var err error
-	ms := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
 	ctx := context.Background()
 
 	t.Run("succeeds when all frame info in config", func(t *testing.T) {
+		ms := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
 		grabPose := referenceframe.NewPoseInFrame("c", spatialmath.NewPoseFromPoint(r3.Vector{0, -30, -50}))
 		_, err = ms.Move(ctx, gripper.Named("pieceGripper"), grabPose, &referenceframe.WorldState{}, nil, slam.Named(""), nil)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
 	t.Run("succeeds when mobile component can be solved for destinations in own frame", func(t *testing.T) {
+		ms := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
 		grabPose := referenceframe.NewPoseInFrame("pieceArm", spatialmath.NewPoseFromPoint(r3.Vector{0, -30, -50}))
 		_, err = ms.Move(
 			ctx,
@@ -90,6 +91,7 @@ func TestMove1(t *testing.T) {
 	})
 
 	t.Run("succeeds when immobile component can be solved for destinations in own frame", func(t *testing.T) {
+		ms := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
 		grabPose := referenceframe.NewPoseInFrame("pieceGripper", spatialmath.NewPoseFromPoint(r3.Vector{0, -30, -50}))
 		_, err = ms.Move(
 			ctx, 
@@ -104,6 +106,7 @@ func TestMove1(t *testing.T) {
 	})
 
 	t.Run("succeeds with supplemental info in world state", func(t *testing.T) {
+		ms := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
 		testPose := spatialmath.NewPose(
 			r3.Vector{X: 1., Y: 2., Z: 3.},
 			&spatialmath.R4AA{Theta: math.Pi / 2, RX: 0., RY: 1., RZ: 0.},
@@ -171,9 +174,9 @@ func TestMoveWithObstacles(t *testing.T) {
 
 func TestMoveSingleComponent(t *testing.T) {
 	var err error
-	ms := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
 
 	t.Run("succeeds when all frame info in config", func(t *testing.T) {
+		ms := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
 		grabPose := referenceframe.NewPoseInFrame("c", spatialmath.NewPoseFromPoint(r3.Vector{-25, 30, 0}))
 		_, err = ms.MoveSingleComponent(
 			context.Background(),
@@ -186,6 +189,7 @@ func TestMoveSingleComponent(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 	})
 	t.Run("fails due to gripper not being an arm", func(t *testing.T) {
+		ms := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
 		grabPose := referenceframe.NewPoseInFrame("c", spatialmath.NewPoseFromPoint(r3.Vector{-20, -30, -40}))
 		_, err = ms.MoveSingleComponent(
 			context.Background(),
@@ -198,9 +202,8 @@ func TestMoveSingleComponent(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
-	ms = setupMotionServiceFromConfig(t, "../data/moving_arm.json")
-
 	t.Run("succeeds with supplemental info in world state", func(t *testing.T) {
+		ms := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
 		homePose, err := ms.GetPose(context.Background(), arm.Named("pieceArm"), "", nil, nil)
 		test.That(t, err, test.ShouldBeNil)
 
