@@ -22,7 +22,7 @@ func (e *Encoder) ResetPosition(ctx context.Context, offset float64, extra map[s
 	return e.ResetPositionFunc(ctx, offset, extra)
 }
 
-// Position calls the injected Position or the real version.
+// GetPosition calls the injected Position or the real version.
 func (e *Encoder) GetPosition(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	if e.GetPositionFunc == nil {
 		return e.Encoder.GetPosition(ctx, extra)

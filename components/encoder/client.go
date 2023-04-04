@@ -5,9 +5,10 @@ import (
 
 	"github.com/edaniels/golog"
 	pb "go.viam.com/api/component/encoder/v1"
-	"go.viam.com/rdk/protoutils"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/structpb"
+
+	"go.viam.com/rdk/protoutils"
 )
 
 // client implements EncoderServiceClient.
@@ -29,7 +30,7 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 	}
 }
 
-// GetPosition returns number of ticks since last zeroing
+// GetPosition returns number of ticks since last zeroing.
 func (c *client) GetPosition(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	ext, err := structpb.NewStruct(extra)
 	if err != nil {
