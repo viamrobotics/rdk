@@ -1,4 +1,7 @@
 // Package nanopi implements a nanopi based board.
+// This is an experimental package.
+// Supported functionality: GPIO pins, I2C, SPI, Software PWM
+// Unsupported functionality: Digital Interrupts, Hardware PWM
 package nanopi
 
 import (
