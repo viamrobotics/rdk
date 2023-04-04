@@ -1,18 +1,17 @@
-package single
-
 /*
-	This driver implements a single-wire odometer, such as LM393, as an encoder.
-	This allows the attached motor to determine its relative position.
-	This class of encoders requires a single digital interrupt pin.
+Package single implements a single-wire odometer, such as LM393, as an encoder.
+This allows the attached motor to determine its relative position.
+This class of encoders requires a single digital interrupt pin.
 
-	This encoder must be connected to a motor (or another component that supports encoders
-	and reports the direction it is moving) in order to record readings.
-	The motor indicates in which direction it is spinning, thus indicating if the encoder
-	should increment or decrement reading value.
+This encoder must be connected to a motor (or another component that supports encoders
+and reports the direction it is moving) in order to record readings.
+The motor indicates in which direction it is spinning, thus indicating if the encoder
+should increment or decrement reading value.
 
-	Resetting a position must set the position to an int64. A floating point input will be rounded.
+Resetting a position must set the position to an int64. A floating point input will be rounded.
 
-	Sample configuration:
+Sample configuration:
+
 	{
 		"pins" : {
 			"i": 10
@@ -20,6 +19,7 @@ package single
 		"board": "pi"
 	}
 */
+package single
 
 import (
 	"context"
@@ -65,14 +65,14 @@ func init() {
 		&AttrConfig{})
 }
 
-// DirectionAware lets you ask what direction something is moving. Only used for SingleEncoder for now, unclear future.
+// DirectionAware lets you ask what direction something is moving. Only used for Encoder for now, unclear future.
 // DirectionMoving returns -1 if the motor is currently turning backwards, 1 if forwards and 0 if off.
 type DirectionAware interface {
 	DirectionMoving() int64
 }
 
-// SingleEncoder keeps track of a motor position using a rotary encoder.s
-type SingleEncoder struct {
+// Encoder keeps track of a motor position using a rotary encoder.s.
+type Encoder struct {
 	generic.Unimplemented
 	name     string
 	I        board.DigitalInterrupt
@@ -85,15 +85,15 @@ type SingleEncoder struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
-// SingleWirePin describes the configuration of Pins for a Single encoder.
-type SinglePin struct {
+// Pin describes the configuration of Pins for a Single encoder.
+type Pin struct {
 	I string `json:"i"`
 }
 
 // AttrConfig describes the configuration of a single encoder.
 type AttrConfig struct {
-	Pins      SinglePin `json:"pins"`
-	BoardName string    `json:"board"`
+	Pins      Pin    `json:"pins"`
+	BoardName string `json:"board"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -113,11 +113,11 @@ func (cfg *AttrConfig) Validate(path string) ([]string, error) {
 }
 
 // AttachDirectionalAwareness to pre-created encoder.
-func (e *SingleEncoder) AttachDirectionalAwareness(da DirectionAware) {
+func (e *Encoder) AttachDirectionalAwareness(da DirectionAware) {
 	e.m = da
 }
 
-// NewSingleEncoder creates a new SingleEncoder.
+// NewSingleEncoder creates a new Encoder.
 func NewSingleEncoder(
 	ctx context.Context,
 	deps registry.Dependencies,
@@ -130,7 +130,7 @@ func NewSingleEncoder(
 	}
 
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
-	e := &SingleEncoder{name: rawConfig.Name, logger: logger, CancelCtx: cancelCtx, cancelFunc: cancelFunc, position: 0}
+	e := &Encoder{name: rawConfig.Name, logger: logger, CancelCtx: cancelCtx, cancelFunc: cancelFunc, position: 0}
 
 	board, err := board.FromDependencies(deps, cfg.BoardName)
 	if err != nil {
@@ -139,7 +139,7 @@ func NewSingleEncoder(
 
 	e.I, ok = board.DigitalInterruptByName(cfg.Pins.I)
 	if !ok {
-		return nil, errors.Errorf("cannot find pin (%s) for SingleEncoder", cfg.Pins.I)
+		return nil, errors.Errorf("cannot find pin (%s) for Encoder", cfg.Pins.I)
 	}
 
 	e.Start(ctx)
@@ -147,8 +147,8 @@ func NewSingleEncoder(
 	return e, nil
 }
 
-// Start starts the SingleEncoder background thread.
-func (e *SingleEncoder) Start(ctx context.Context) {
+// Start starts the Encoder background thread.
+func (e *Encoder) Start(ctx context.Context) {
 	encoderChannel := make(chan board.Tick)
 	e.I.AddCallback(encoderChannel)
 	e.activeBackgroundWorkers.Add(1)
@@ -183,21 +183,21 @@ func (e *SingleEncoder) Start(ctx context.Context) {
 }
 
 // GetPosition returns the current position.
-func (e *SingleEncoder) GetPosition(ctx context.Context, extra map[string]interface{}) (float64, error) {
+func (e *Encoder) GetPosition(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	res := atomic.LoadInt64(&e.position)
 	return float64(res), nil
 }
 
 // ResetPosition sets the current position of the motor (adjusted by a given offset).
-func (e *SingleEncoder) ResetPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
+func (e *Encoder) ResetPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
 	offsetInt := int64(math.Round(offset))
 	atomic.StoreInt64(&e.position, offsetInt)
 	return nil
 }
 
-// Close shuts down the SingleEncoder.
-func (e *SingleEncoder) Close() error {
-	e.logger.Debug("Closing SingleEncoder")
+// Close shuts down the Encoder.
+func (e *Encoder) Close() error {
+	e.logger.Debug("Closing Encoder")
 	e.cancelFunc()
 	e.activeBackgroundWorkers.Wait()
 	return nil

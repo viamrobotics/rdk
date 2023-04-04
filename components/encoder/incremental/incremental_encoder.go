@@ -1,3 +1,4 @@
+// Package incremental implements an incremental encoder
 package incremental
 
 import (
@@ -42,8 +43,8 @@ func init() {
 		&AttrConfig{})
 }
 
-// IncrementalEncoder keeps track of a motor position using a rotary incremental encoder.
-type IncrementalEncoder struct {
+// Encoder keeps track of a motor position using a rotary incremental encoder.
+type Encoder struct {
 	A, B     board.DigitalInterrupt
 	position int64
 	pRaw     int64
@@ -57,16 +58,16 @@ type IncrementalEncoder struct {
 	generic.Unimplemented
 }
 
-// IncrementalPins describes the configuration of Pins for a quadrature encoder.
-type IncrementalPins struct {
+// Pins describes the configuration of Pins for a quadrature encoder.
+type Pins struct {
 	A string `json:"a"`
 	B string `json:"b"`
 }
 
 // AttrConfig describes the configuration of a quadrature encoder.
 type AttrConfig struct {
-	Pins      IncrementalPins `json:"pins"`
-	BoardName string          `json:"board"`
+	Pins      Pins   `json:"pins"`
+	BoardName string `json:"board"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -88,7 +89,7 @@ func (config *AttrConfig) Validate(path string) ([]string, error) {
 	return deps, nil
 }
 
-// NewIncrementalEncoder creates a new IncrementalEncoder.
+// NewIncrementalEncoder creates a new Encoder.
 func NewIncrementalEncoder(
 	ctx context.Context,
 	deps registry.Dependencies,
@@ -96,7 +97,7 @@ func NewIncrementalEncoder(
 	logger golog.Logger,
 ) (encoder.Encoder, error) {
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
-	e := &IncrementalEncoder{logger: logger, CancelCtx: cancelCtx, cancelFunc: cancelFunc, position: 0, pRaw: 0, pState: 0}
+	e := &Encoder{logger: logger, CancelCtx: cancelCtx, cancelFunc: cancelFunc, position: 0, pRaw: 0, pState: 0}
 	if cfg, ok := cfg.ConvertedAttributes.(*AttrConfig); ok {
 		board, err := board.FromDependencies(deps, cfg.BoardName)
 		if err != nil {
@@ -120,8 +121,8 @@ func NewIncrementalEncoder(
 	return nil, errors.New("encoder config for incremental Encoder is not valid")
 }
 
-// Start starts the IncrementalEncoder background thread.
-func (e *IncrementalEncoder) Start(ctx context.Context) {
+// Start starts the Encoder background thread.
+func (e *Encoder) Start(ctx context.Context) {
 	/**
 	  a rotary encoder looks like
 
@@ -232,14 +233,14 @@ func (e *IncrementalEncoder) Start(ctx context.Context) {
 }
 
 // GetPosition returns number of ticks since last zeroing.
-func (e *IncrementalEncoder) GetPosition(ctx context.Context, extra map[string]interface{}) (float64, error) {
+func (e *Encoder) GetPosition(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	res := atomic.LoadInt64(&e.position)
 	return float64(res), nil
 }
 
 // ResetPosition sets the current position of the motor (adjusted by a given offset)
 // to be its new zero position..
-func (e *IncrementalEncoder) ResetPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
+func (e *Encoder) ResetPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
 	if err := encoder.ValidateIntegerOffset(offset); err != nil {
 		return err
 	}
@@ -250,20 +251,20 @@ func (e *IncrementalEncoder) ResetPosition(ctx context.Context, offset float64, 
 }
 
 // RawPosition returns the raw position of the encoder.
-func (e *IncrementalEncoder) RawPosition() int64 {
+func (e *Encoder) RawPosition() int64 {
 	return atomic.LoadInt64(&e.pRaw)
 }
 
-func (e *IncrementalEncoder) inc() {
+func (e *Encoder) inc() {
 	atomic.AddInt64(&e.pRaw, 1)
 }
 
-func (e *IncrementalEncoder) dec() {
+func (e *Encoder) dec() {
 	atomic.AddInt64(&e.pRaw, -1)
 }
 
-// Close shuts down the IncrementalEncoder.
-func (e *IncrementalEncoder) Close() error {
+// Close shuts down the Encoder.
+func (e *Encoder) Close() error {
 	e.logger.Debug("Closing incremental Encoder")
 	e.cancelFunc()
 	e.activeBackgroundWorkers.Wait()

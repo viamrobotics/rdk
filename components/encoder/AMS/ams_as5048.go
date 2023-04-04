@@ -1,4 +1,5 @@
-package AMS
+// Package ams implements the AMS_AS5048 encoder
+package ams
 
 import (
 	"context"
@@ -61,7 +62,7 @@ func init() {
 	)
 }
 
-// AS5048Config contains the connection information for
+// AttrConfig contains the connection information for
 // configuring an AS5048 encoder.
 type AttrConfig struct {
 	BoardName string `json:"board"`

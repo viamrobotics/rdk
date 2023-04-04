@@ -107,7 +107,7 @@ func TestConfig3(t *testing.T) {
 		TicksPerRotation: 10000,
 	})
 	test.That(t, cfg.Components[3].ConvertedAttributes, test.ShouldResemble, &incremental.AttrConfig{
-		Pins: incremental.IncrementalPins{
+		Pins: incremental.Pins{
 			A: "encoder-steering-b",
 			B: "encoder-steering-a",
 		},
