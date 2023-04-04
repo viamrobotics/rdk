@@ -8,19 +8,21 @@ import { MapControls } from 'three/examples/jsm/controls/OrbitControls';
 import { PCDLoader } from 'three/examples/jsm/loaders/PCDLoader';
 import type { commonApi } from '@viamrobotics/sdk';
 
-// // this color map is viridis. Leaving commented for if we want to change the color map
-// const colorMapViridis = [
-//   [253, 231, 37],
-//   [181, 222, 43],
-//   [110, 206, 88],
-//   [53, 183, 121],
-//   [31, 158, 137],
-//   [38, 130, 142],
-//   [49, 104, 142],
-//   [62, 73, 137],
-//   [72, 40, 120],
-//   [68,1,84]
-// ]
+/*
+ * // Leaving additional color map commented for if we want to change to a different scheme.
+ * // const colorMapViridis = [
+ * //   [253, 231, 37],
+ * //   [181, 222, 43],
+ * //   [110, 206, 88],
+ * //   [53, 183, 121],
+ * //   [31, 158, 137],
+ * //   [38, 130, 142],
+ * //   [49, 104, 142],
+ * //   [62, 73, 137],
+ * //   [72, 40, 120],
+ * //   [68,1,84]
+ * // ]
+ */
 
 // this color map is greyscale
 const colorMapGrey = [
@@ -33,8 +35,8 @@ const colorMapGrey = [
   [109, 109, 109],
   [95, 95, 95],
   [74, 74, 74],
-  [0, 0, 0]
-]
+  [0, 0, 0],
+];
 
 const props = defineProps<{
   name: string
@@ -106,6 +108,21 @@ const disposeScene = () => {
   scene.clear();
 };
 
+// Find the desired color bucket for a given probability. This assumes the probability will be a value from 0 to 100
+const probToColorMapBucket = (normProb: number, numBuckets: number): number => {
+  const prob = Math.max(Math.min(100, normProb * 255), 0);
+  return Math.floor((numBuckets - 1) * prob / 100);
+};
+
+/*
+ * Map the color of a pixel to a color bucket value.
+ * normProb is the probability value normalized by the size of a byte(255) to be between 0 to 1.
+ */
+const colorBuckets = (normProb: number): THREE.Vector3 => {
+  return colorMapGrey.map(([red, green, blue]) =>
+    new THREE.Vector3(red, green, blue).multiplyScalar(1 / 255))[probToColorMapBucket(normProb, colorMapGrey.length)]!;
+};
+
 const updateCloud = (pointcloud: Uint8Array) => {
   disposeScene();
 
@@ -139,12 +156,14 @@ const updateCloud = (pointcloud: Uint8Array) => {
   raycaster.objects = [intersectionPlane];
 
   const colors = points.geometry.attributes.color;
-  
-  for(let i = 0; i < colors.count; i+=1){
-    const colorMapPoint = colorBuckets(colors.getZ(i));
-    colors.setXYZ(i,colorMapPoint['x'],colorMapPoint['y'],colorMapPoint['z']);
+  // if the PCD has a color attribute defined, convert those colors using the colorMap
+  if (colors instanceof THREE.BufferAttribute || colors instanceof THREE.InterleavedBufferAttribute) {
+    for (let i = 0; i < colors.count; i += 1) {
+      const colorMapPoint = colorBuckets(colors.getZ(i));
+      colors.setXYZ(i, colorMapPoint.x, colorMapPoint.y, colorMapPoint.z);
+    }
   }
-  
+
   scene.add(points);
   scene.add(marker);
   scene.add(intersectionPlane);
@@ -156,17 +175,6 @@ const updatePose = (newPose: commonApi.Pose) => {
   marker.position.setX(x);
   marker.position.setZ(z);
 };
-
-const colorBuckets = (currColor: number): THREE.Vector3 =>{
-  return colorMapGrey.map(([a,b,c]) => 
-  new THREE.Vector3(a,b,c).multiplyScalar(1/255)
-  )[probToColorMapBucket(currColor, colorMapGrey.length)]
-}
-
-const probToColorMapBucket = (normProb: number, numBuckets: number): number =>{ 
-  const prob = normProb*255
-  return Math.floor((numBuckets-1)*prob/100)
-}
 
 onMounted(() => {
   container?.append(canvas);
