@@ -15,6 +15,7 @@ import (
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/config"
+	modmanageroptions "go.viam.com/rdk/module/modmanager/options"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
@@ -58,8 +59,8 @@ func TestModManagerFunctions(t *testing.T) {
 		return parentAddr, nil
 	}
 
-	t.Log("test AddModuleHelpers")
-	mgr, err := NewManager(myRobot)
+	t.Log("test Helpers")
+	mgr, err := NewManager(myRobot, modmanageroptions.Options{UntrustedEnv: false})
 	test.That(t, err, test.ShouldBeNil)
 
 	mod := &module{name: "test", exe: modExe}
@@ -67,8 +68,14 @@ func TestModManagerFunctions(t *testing.T) {
 	err = mod.startProcess(ctx, parentAddr, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	err = mod.dial()
+	err = mod.dial(nil)
 	test.That(t, err, test.ShouldBeNil)
+
+	// check that dial can re-use connections.
+	oldConn := mod.conn
+	err = mod.dial(mod.conn)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, mod.conn, test.ShouldEqual, oldConn)
 
 	err = mod.checkReady(ctx, parentAddr)
 	test.That(t, err, test.ShouldBeNil)
@@ -78,16 +85,16 @@ func TestModManagerFunctions(t *testing.T) {
 	test.That(t, reg, test.ShouldNotBeNil)
 	test.That(t, reg.Constructor, test.ShouldNotBeNil)
 
-	test.That(t, mgr.Close(ctx), test.ShouldBeNil)
-	test.That(t, mod.process.Stop(), test.ShouldBeNil)
-
-	registry.DeregisterComponent(generic.Subtype, myCounterModel)
-
+	err = mod.deregisterResources()
+	test.That(t, err, test.ShouldBeNil)
 	reg = registry.ComponentLookup(generic.Subtype, myCounterModel)
 	test.That(t, reg, test.ShouldBeNil)
 
+	test.That(t, mgr.Close(ctx), test.ShouldBeNil)
+	test.That(t, mod.process.Stop(), test.ShouldBeNil)
+
 	t.Log("test AddModule")
-	mgr, err = NewManager(myRobot)
+	mgr, err = NewManager(myRobot, modmanageroptions.Options{UntrustedEnv: false})
 	test.That(t, err, test.ShouldBeNil)
 
 	modCfg := config.Module{
@@ -163,11 +170,57 @@ func TestModManagerFunctions(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no resource with name")
 
+	t.Log("test ReconfigureModule")
+	// Re-add counter1.
+	_, err = mgr.AddResource(ctx, cfgCounter1, nil)
+	test.That(t, err, test.ShouldBeNil)
+	// Add 24 to counter and ensure 'total' gets reset after reconfiguration.
+	ret, err = counter.DoCommand(ctx, map[string]interface{}{"command": "add", "value": 24})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, ret["total"], test.ShouldEqual, 24)
+
+	// Change underlying binary path of module to be a copy of simplemodule/run.sh.
+	modCfg.ExePath = utils.ResolveFile("module/modmanager/data/simplemoduleruncopy.sh")
+
+	// Reconfigure module with new ExePath.
+	orphanedResourceNames, err := mgr.Reconfigure(ctx, modCfg)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, orphanedResourceNames, test.ShouldBeNil)
+
+	// counter1 should still be provided by reconfigured module.
+	ok = mgr.IsModularResource(rNameCounter1)
+	test.That(t, ok, test.ShouldBeTrue)
+	ret, err = counter.DoCommand(ctx, map[string]interface{}{"command": "get"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, ret["total"], test.ShouldEqual, 0)
+
+	t.Log("test RemoveModule")
+	orphanedResourceNames, err = mgr.Remove("simple-module")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, orphanedResourceNames, test.ShouldResemble, []resource.Name{rNameCounter1})
+
+	ok = mgr.IsModularResource(rNameCounter1)
+	test.That(t, ok, test.ShouldBeFalse)
+	_, err = counter.DoCommand(ctx, map[string]interface{}{"command": "get"})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "the client connection is closing")
+
 	err = goutils.TryClose(ctx, counter)
 	test.That(t, err, test.ShouldBeNil)
 
 	err = mgr.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)
+
+	t.Log("test UntrustedEnv")
+	mgr, err = NewManager(myRobot, modmanageroptions.Options{UntrustedEnv: true})
+	test.That(t, err, test.ShouldBeNil)
+
+	modCfg = config.Module{
+		Name:    "simple-module",
+		ExePath: modExe,
+	}
+	err = mgr.Add(ctx, modCfg)
+	test.That(t, err, test.ShouldEqual, errModularResourcesDisabled)
 }
 
 func TestModManagerValidation(t *testing.T) {
@@ -220,7 +273,7 @@ func TestModManagerValidation(t *testing.T) {
 	}
 
 	t.Log("adding complex module")
-	mgr, err := NewManager(myRobot)
+	mgr, err := NewManager(myRobot, modmanageroptions.Options{UntrustedEnv: false})
 	test.That(t, err, test.ShouldBeNil)
 
 	modCfg := config.Module{
