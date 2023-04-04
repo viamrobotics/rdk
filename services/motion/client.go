@@ -12,6 +12,7 @@ import (
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
 )
 
 // client implements MotionServiceClient.
@@ -40,7 +41,6 @@ func (c *client) Move(
 	destination *referenceframe.PoseInFrame,
 	worldState *referenceframe.WorldState,
 	constraints *pb.Constraints,
-	slamName resource.Name,
 	extra map[string]interface{},
 ) (bool, error) {
 	ext, err := vprotoutils.StructToStructPb(extra)
@@ -52,11 +52,34 @@ func (c *client) Move(
 		return false, err
 	}
 	resp, err := c.client.Move(ctx, &pb.MoveRequest{
+		Name:          c.name,
+		ComponentName: protoutils.ResourceNameToProto(componentName),
+		Destination:   referenceframe.PoseInFrameToProtobuf(destination),
+		WorldState:    worldStateMsg,
+		Constraints:   constraints,
+		Extra:         ext,
+	})
+	if err != nil {
+		return false, err
+	}
+	return resp.Success, nil
+}
+
+func (c *client) MoveOnMap(
+	ctx context.Context,
+	componentName resource.Name,
+	destination spatialmath.Pose,
+	slamName resource.Name,
+	extra map[string]interface{},
+) (bool, error) {
+	ext, err := vprotoutils.StructToStructPb(extra)
+	if err != nil {
+		return false, err
+	}
+	resp, err := c.client.MoveOnMap(ctx, &pb.MoveOnMapRequest{
 		Name:            c.name,
 		ComponentName:   protoutils.ResourceNameToProto(componentName),
-		Destination:     referenceframe.PoseInFrameToProtobuf(destination),
-		WorldState:      worldStateMsg,
-		Constraints:     constraints,
+		Destination:     spatialmath.PoseToProtobuf(destination),
 		SlamServiceName: protoutils.ResourceNameToProto(slamName),
 		Extra:           ext,
 	})
