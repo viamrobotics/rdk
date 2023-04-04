@@ -87,6 +87,9 @@ func NewTFLiteDetector(
 
 	// This function to be returned is the detector.
 	return func(ctx context.Context, img image.Image) ([]objectdetection.Detection, error) {
+		model.Mu.Lock()
+		defer model.Mu.Unlock()
+
 		origW, origH := img.Bounds().Dx(), img.Bounds().Dy()
 		resizedImg := resize.Resize(inHeight, inWidth, img, resize.Bilinear)
 		outTensors, err := tfliteInfer(ctx, model, resizedImg)
