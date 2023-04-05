@@ -166,9 +166,9 @@ type gpioStepper struct {
 	lock  sync.Mutex
 	opMgr operation.SingleOperationManager
 
-	position      int64
-	threadStarted bool
-	target        int64
+	stepPosition       int64
+	threadStarted      bool
+	targetStepPositoon int64
 	generic.Unimplemented
 }
 
@@ -190,7 +190,6 @@ func (m *gpioStepper) startThread(ctx context.Context) {
 		return
 	}
 
-	m.logger.Debugf("thread started %t", m.threadStarted)
 	m.threadStarted = true
 	go m.doRun(ctx)
 }
@@ -212,13 +211,15 @@ func (m *gpioStepper) doCycle(ctx context.Context) (time.Duration, error) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
-	if m.position == m.target {
-		return minDelayNanoSec * time.Nanosecond, nil
+	// thread waits until something changes the target posiiton in the
+	// gpiostepper struct
+	if m.stepPosition == m.targetStepPositoon {
+		return 5 * time.Millisecond, nil
 	}
 
 	// TODO: Setting PWM here works much better than steps to set speed
 	// Redo this part with PWM logic.
-	err := m.doStep(ctx, m.position < m.target)
+	err := m.doStep(ctx, m.stepPosition < m.targetStepPositoon)
 	if err != nil {
 		return time.Second, fmt.Errorf("error stepping %w", err)
 	}
@@ -233,9 +234,9 @@ func (m *gpioStepper) doStep(ctx context.Context, forward bool) error {
 	}
 
 	if forward {
-		m.position++
+		m.stepPosition++
 	} else {
-		m.position--
+		m.stepPosition--
 	}
 
 	if err := m.stepPin.Set(ctx, false, nil); err != nil {
@@ -313,7 +314,7 @@ func (m *gpioStepper) goForMath(ctx context.Context, rpm, revolutions float64) e
 		return errors.New("thread not started")
 	}
 
-	m.target += d * int64(math.Abs(revolutions)*float64(m.stepsPerRotation))
+	m.targetStepPositoon += d * int64(math.Abs(revolutions)*float64(m.stepsPerRotation))
 
 	return nil
 }
@@ -369,7 +370,7 @@ func (m *gpioStepper) GoTillStop(ctx context.Context, rpm float64, stopFunc func
 func (m *gpioStepper) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
-	m.position = int64(offset * float64(m.stepsPerRotation))
+	m.stepPosition = int64(offset * float64(m.stepsPerRotation))
 	return nil
 }
 
@@ -379,7 +380,7 @@ func (m *gpioStepper) ResetZeroPosition(ctx context.Context, offset float64, ext
 func (m *gpioStepper) Position(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
-	return float64(m.position) / float64(m.stepsPerRotation), nil
+	return float64(m.stepPosition) / float64(m.stepsPerRotation), nil
 }
 
 // Properties returns the status of whether the motor supports certain optional features.
@@ -393,7 +394,7 @@ func (m *gpioStepper) Properties(ctx context.Context, extra map[string]interface
 func (m *gpioStepper) IsMoving(ctx context.Context) (bool, error) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
-	return m.position != m.target, nil
+	return m.stepPosition != m.targetStepPositoon, nil
 }
 
 // Stop turns the power to the motor off immediately, without any gradual step down.
@@ -407,7 +408,7 @@ func (m *gpioStepper) Stop(ctx context.Context, extra map[string]interface{}) er
 func (m *gpioStepper) stop() {
 	m.lock.Lock()
 	defer m.lock.Unlock()
-	m.target = m.position
+	m.targetStepPositoon = m.stepPosition
 }
 
 // IsPowered returns whether or not the motor is currently on. It also returns the percent power
