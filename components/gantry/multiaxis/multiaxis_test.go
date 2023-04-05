@@ -220,7 +220,7 @@ func TestModelFrame(t *testing.T) {
 }
 
 func createComplexDeps() registry.Dependencies {
-	var position1 = []float64{6, 5}
+	position1 := []float64{6, 5}
 	mAx1 := &inject.Gantry{
 		PositionFunc: func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 			return position1, nil
@@ -241,7 +241,7 @@ func createComplexDeps() registry.Dependencies {
 		},
 	}
 
-	var position2 = []float64{9, 8, 7}
+	position2 := []float64{9, 8, 7}
 	mAx2 := &inject.Gantry{
 		PositionFunc: func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 			return position2, nil
@@ -302,7 +302,6 @@ func TestComplexMultiAxis(t *testing.T) {
 	})
 
 	t.Run("test that subaxes have moved through local gantry and ", func(t *testing.T) {
-
 		extra := map[string]interface{}{"move": true}
 		err = g.MoveToPosition(ctx, []float64{1, 2, 3, 4, 5}, extra)
 		test.That(t, err, test.ShouldBeNil)
@@ -312,7 +311,7 @@ func TestComplexMultiAxis(t *testing.T) {
 		test.That(t, pos, test.ShouldNotResemble, []float64{6, 5, 9, 8, 7})
 
 		// This section tests out that each subaxes has moved, and moved the correct amount
-		// acording to it's input lengths
+		// according to it's input lengths
 		currG, ok := g.(*multiAxis)
 		test.That(t, ok, test.ShouldBeTrue)
 
