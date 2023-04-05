@@ -10,7 +10,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
@@ -25,6 +24,12 @@ import (
 
 var model = resource.NewDefaultModel("gpiostepper")
 
+const (
+	minDelayNanoSec = 10
+	minToSec        = 60.0
+	secondToNano    = 1e9
+)
+
 // PinConfig defines the mapping of where motor are wired.
 type PinConfig struct {
 	Step          string `json:"step"`
@@ -33,21 +38,34 @@ type PinConfig struct {
 	EnablePinLow  string `json:"en_low,omitempty"`
 }
 
-// Config describes the configuration of a motor.
-type Config struct {
+// AttrConfig describes the configuration of a motor.
+type AttrConfig struct {
 	Pins             PinConfig `json:"pins"`
 	BoardName        string    `json:"board"`
-	StepperDelay     uint      `json:"stepper_delay_usec,omitempty"` // When using stepper motors, the time to remain high
+	StepperDelay     int       `json:"stepper_delay_usec,omitempty"` // When using stepper motors, the time to remain high
 	TicksPerRotation int       `json:"ticks_per_rotation"`
 }
 
 // Validate ensures all parts of the config are valid.
-func (config *Config) Validate(path string) ([]string, error) {
+func (cfg *AttrConfig) Validate(path string) ([]string, error) {
 	var deps []string
-	if config.BoardName == "" {
+	if cfg.BoardName == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
 	}
-	deps = append(deps, config.BoardName)
+
+	if cfg.TicksPerRotation == 0 {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "ticks_per_rotation")
+	}
+
+	if cfg.Pins.Step == "" {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "ticks_per_rotation")
+	}
+
+	if cfg.Pins.Direction == "" {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "ticks_per_rotation")
+	}
+
+	deps = append(deps, cfg.BoardName)
 	return deps, nil
 }
 
@@ -67,15 +85,15 @@ func init() {
 		motor.Subtype,
 		model,
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf Config
+			var conf AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
 		},
-		&Config{},
+		&AttrConfig{},
 	)
 }
 
-func getBoardFromRobotConfig(deps registry.Dependencies, config config.Component) (board.Board, *Config, error) {
-	motorConfig, ok := config.ConvertedAttributes.(*Config)
+func getBoardFromRobotConfig(deps registry.Dependencies, config config.Component) (board.Board, *AttrConfig, error) {
+	motorConfig, ok := config.ConvertedAttributes.(*AttrConfig)
 	if !ok {
 		return nil, nil, rdkutils.NewUnexpectedTypeError(motorConfig, config.ConvertedAttributes)
 	}
@@ -89,7 +107,7 @@ func getBoardFromRobotConfig(deps registry.Dependencies, config config.Component
 	return b, motorConfig, nil
 }
 
-func newGPIOStepper(ctx context.Context, b board.Board, mc Config, name string,
+func newGPIOStepper(ctx context.Context, b board.Board, mc AttrConfig, name string,
 	logger golog.Logger,
 ) (motor.Motor, error) {
 	if mc.TicksPerRotation == 0 {
@@ -99,42 +117,35 @@ func newGPIOStepper(ctx context.Context, b board.Board, mc Config, name string,
 	m := &gpioStepper{
 		theBoard:         b,
 		stepsPerRotation: mc.TicksPerRotation,
-		stepperDelay:     mc.StepperDelay,
+		stepperDelay:     time.Duration(mc.StepperDelay * secondToNano), // TODO (rh) maybe unnecessary
 		logger:           logger,
 		motorName:        name,
 	}
 
-	if mc.Pins.EnablePinHigh != "" {
-		enablePinHigh, err := b.GPIOPinByName(mc.Pins.EnablePinHigh)
-		if err != nil {
-			return nil, err
-		}
-		m.enablePinHigh = enablePinHigh
-	}
-	if mc.Pins.EnablePinLow != "" {
-		enablePinLow, err := b.GPIOPinByName(mc.Pins.EnablePinLow)
-		if err != nil {
-			return nil, err
-		}
-		m.enablePinLow = enablePinLow
-	}
-	if mc.Pins.Step != "" {
-		stepPin, err := b.GPIOPinByName(mc.Pins.Step)
-		if err != nil {
-			return nil, err
-		}
-		m.stepPin = stepPin
-	}
-	if mc.Pins.Direction != "" {
-		directionPin, err := b.GPIOPinByName(mc.Pins.Direction)
-		if err != nil {
-			return nil, err
-		}
-		m.dirPin = directionPin
+	var err error
+
+	m.stepPin, err = b.GPIOPinByName(mc.Pins.Step)
+	if err != nil {
+		return nil, err
 	}
 
-	if err := m.Validate(); err != nil {
+	m.dirPin, err = b.GPIOPinByName(mc.Pins.Direction)
+	if err != nil {
 		return nil, err
+	}
+
+	// only set enable pins if they exist
+	if mc.Pins.EnablePinHigh != "" {
+		m.enablePinHigh, err = b.GPIOPinByName(mc.Pins.EnablePinHigh)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if mc.Pins.EnablePinLow != "" {
+		m.enablePinLow, err = b.GPIOPinByName(mc.Pins.EnablePinLow)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	m.startThread(ctx)
@@ -145,7 +156,7 @@ type gpioStepper struct {
 	// config
 	theBoard                    board.Board
 	stepsPerRotation            int
-	stepperDelay                uint
+	stepperDelay                time.Duration
 	enablePinHigh, enablePinLow board.GPIOPin
 	stepPin, dirPin             board.GPIOPin
 	logger                      golog.Logger
@@ -155,36 +166,10 @@ type gpioStepper struct {
 	lock  sync.Mutex
 	opMgr operation.SingleOperationManager
 
-	stepPosition         int64
-	threadStarted        bool
-	targetStepPosition   int64
-	targetStepsPerSecond int64
+	position      int64
+	threadStarted bool
+	target        int64
 	generic.Unimplemented
-}
-
-// validate if this config is valid.
-func (m *gpioStepper) Validate() error {
-	if m.theBoard == nil {
-		return errors.New("need a board for gpioStepper")
-	}
-
-	if m.stepsPerRotation == 0 {
-		return errors.New("need to set 'steps per rotation' for gpioStepper")
-	}
-
-	if m.stepperDelay == 0 {
-		m.stepperDelay = 20
-	}
-
-	if m.stepPin == nil {
-		return errors.New("need a 'step' pin for gpioStepper")
-	}
-
-	if m.dirPin == nil {
-		return errors.New("need a 'dir' pin for gpioStepper")
-	}
-
-	return nil
 }
 
 // SetPower sets the percentage of power the motor should employ between 0-1.
@@ -205,6 +190,7 @@ func (m *gpioStepper) startThread(ctx context.Context) {
 		return
 	}
 
+	m.logger.Debugf("thread started %t", m.threadStarted)
 	m.threadStarted = true
 	go m.doRun(ctx)
 }
@@ -213,7 +199,7 @@ func (m *gpioStepper) doRun(ctx context.Context) {
 	for {
 		sleep, err := m.doCycle(ctx)
 		if err != nil {
-			m.logger.Info("error in gpioStepper %w", err)
+			m.logger.Errorf("error cycling gpioStepper (%s) %w", m.motorName, err)
 		}
 
 		if !utils.SelectContextOrWait(ctx, sleep) {
@@ -226,37 +212,37 @@ func (m *gpioStepper) doCycle(ctx context.Context) (time.Duration, error) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
-	if m.stepPosition == m.targetStepPosition {
-		return 5 * time.Millisecond, nil
+	if m.position == m.target {
+		return minDelayNanoSec * time.Nanosecond, nil
 	}
 
-	err := m.doStep(ctx, m.stepPosition < m.targetStepPosition)
+	// TODO: Setting PWM here works much better than steps to set speed
+	// Redo this part with PWM logic.
+	err := m.doStep(ctx, m.position < m.target)
 	if err != nil {
 		return time.Second, fmt.Errorf("error stepping %w", err)
 	}
 
-	return time.Duration(int64(time.Microsecond*1000*1000) / int64(math.Abs(float64(m.targetStepsPerSecond)))), nil
+	return m.stepperDelay, nil
 }
 
 // have to be locked to call.
 func (m *gpioStepper) doStep(ctx context.Context, forward bool) error {
-	err := multierr.Combine(
-		m.enable(ctx, true),
-		m.stepPin.Set(ctx, true, nil),
-		m.dirPin.Set(ctx, forward, nil),
-	)
-	if err != nil {
+	if err := m.stepPin.Set(ctx, true, nil); err != nil {
 		return err
 	}
 
-	time.Sleep(time.Duration(m.stepperDelay) * time.Microsecond)
-
 	if forward {
-		m.stepPosition++
+		m.position++
 	} else {
-		m.stepPosition--
+		m.position--
 	}
-	return m.stepPin.Set(ctx, false, nil)
+
+	if err := m.stepPin.Set(ctx, false, nil); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // GoFor instructs the motor to go in a specific direction for a specific amount of
@@ -271,7 +257,7 @@ func (m *gpioStepper) GoFor(ctx context.Context, rpm, revolutions float64, extra
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
 
-	err := m.goForInternal(ctx, rpm, revolutions)
+	err := m.goForMath(ctx, rpm, revolutions)
 	if err != nil {
 		return errors.Wrapf(err, "error in GoFor from motor (%s)", m.motorName)
 	}
@@ -283,35 +269,51 @@ func (m *gpioStepper) GoFor(ctx context.Context, rpm, revolutions float64, extra
 	return m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m, m.Stop)
 }
 
-func (m *gpioStepper) goForInternal(ctx context.Context, rpm, revolutions float64) error {
+func (m *gpioStepper) goForMath(ctx context.Context, rpm, revolutions float64) error {
 	if revolutions == 0 {
+		// go a large number of revolutions if 0 is passed in, at the desired speed
 		revolutions = 1000000.0
 	}
-	var d int64 = 1
-
-	if math.Signbit(revolutions) != math.Signbit(rpm) {
-		d = -1
-	}
-
-	revolutions = math.Abs(revolutions)
-	rpm = math.Abs(rpm) * float64(d)
 
 	if math.Abs(rpm) < 0.1 {
+		m.logger.Debug("motor (%s) speed less than .1 rev_per_min, stopping", m.motorName)
 		return m.Stop(ctx, nil)
 	}
 
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
+	// set the direction pin here,not in the thread, so we're handling only one pin in the goroutine
+	var d int64 = 1
+	if math.Signbit(revolutions) != math.Signbit(rpm) {
+		d = -1
+		if err := m.dirPin.Set(ctx, false, nil); err != nil {
+			return err
+		}
+	} else {
+		if err := m.dirPin.Set(ctx, true, nil); err != nil {
+			return err
+		}
+	}
+
+	// enable the motors for movement
+	if err := m.enable(ctx, true); err != nil {
+		return err
+	}
+
+	// calculate delay between steps for the thread in the gorootuine that we started in component creation
+	delay := minToSec * secondToNano / (math.Abs(rpm) * float64(m.stepsPerRotation))
+	if delay < minDelayNanoSec {
+		delay = minDelayNanoSec
+		m.logger.Infof("calculated delay less thanminimum delay for stepper motor setting to %+v", time.Duration(delay))
+	}
+	m.stepperDelay = time.Duration(delay)
+
 	if !m.threadStarted {
 		return errors.New("thread not started")
 	}
 
-	m.targetStepPosition += int64(float64(d) * revolutions * float64(m.stepsPerRotation))
-	m.targetStepsPerSecond = int64(rpm * float64(m.stepsPerRotation) / 60.0)
-	if m.targetStepsPerSecond == 0 {
-		m.targetStepsPerSecond = 1
-	}
+	m.target += d * int64(math.Abs(revolutions)*float64(m.stepsPerRotation))
 
 	return nil
 }
@@ -326,6 +328,14 @@ func (m *gpioStepper) GoTo(ctx context.Context, rpm, positionRevolutions float64
 	}
 	moveDistance := positionRevolutions - curPos
 
+	// don't want to move if we're already at target, and want to skip GoFor's 0 rpm
+	// move forever condition
+	if rdkutils.Float64AlmostEqual(moveDistance, 0, 0.1) {
+		m.logger.Debugf("GoTo distance nearly zero for motor (%s), not moving", m.motorName)
+		return nil
+	}
+
+	m.logger.Debugf("motor (%s) going to %.2f at rpm %.2f", m.motorName, moveDistance, math.Abs(rpm))
 	return m.GoFor(ctx, math.Abs(rpm), moveDistance, extra)
 }
 
@@ -359,7 +369,7 @@ func (m *gpioStepper) GoTillStop(ctx context.Context, rpm float64, stopFunc func
 func (m *gpioStepper) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
-	m.stepPosition = int64(offset * float64(m.stepsPerRotation))
+	m.position = int64(offset * float64(m.stepsPerRotation))
 	return nil
 }
 
@@ -369,7 +379,7 @@ func (m *gpioStepper) ResetZeroPosition(ctx context.Context, offset float64, ext
 func (m *gpioStepper) Position(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
-	return float64(m.stepPosition) / float64(m.stepsPerRotation), nil
+	return float64(m.position) / float64(m.stepsPerRotation), nil
 }
 
 // Properties returns the status of whether the motor supports certain optional features.
@@ -383,7 +393,7 @@ func (m *gpioStepper) Properties(ctx context.Context, extra map[string]interface
 func (m *gpioStepper) IsMoving(ctx context.Context) (bool, error) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
-	return m.stepPosition != m.targetStepPosition, nil
+	return m.position != m.target, nil
 }
 
 // Stop turns the power to the motor off immediately, without any gradual step down.
@@ -397,8 +407,7 @@ func (m *gpioStepper) Stop(ctx context.Context, extra map[string]interface{}) er
 func (m *gpioStepper) stop() {
 	m.lock.Lock()
 	defer m.lock.Unlock()
-	m.targetStepPosition = m.stepPosition
-	m.targetStepsPerSecond = 0
+	m.target = m.position
 }
 
 // IsPowered returns whether or not the motor is currently on. It also returns the percent power
