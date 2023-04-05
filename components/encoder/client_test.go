@@ -88,7 +88,9 @@ func TestClient(t *testing.T) {
 		err = workingEncoderClient.ResetPosition(context.Background(), 0.5, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		pos, err := workingEncoderClient.GetPosition(context.Background(), nil)
+		pos, err := workingEncoderClient.GetPosition(
+			context.Background(),
+			map[string]interface{}{"foo": "bar", "baz": []interface{}{1., 2., 3.}})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, 42.0)
 
