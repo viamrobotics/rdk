@@ -64,6 +64,7 @@ func (mgs *MotionService) Move(
 	return mgs.MoveFunc(ctx, componentName, destination, worldState, constraints, extra)
 }
 
+// MoveOnMap calls the inkected MoveOnMap or the real variant.
 func (mgs *MotionService) MoveOnMap(
 	ctx context.Context,
 	componentName resource.Name,
