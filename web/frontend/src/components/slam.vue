@@ -3,11 +3,16 @@
 
 import { $ref, $computed } from 'vue/macros';
 import { grpc } from '@improbable-eng/grpc-web';
-import { Client, commonApi, ResponseStream, ServiceError, slamApi } from '@viamrobotics/sdk';
+import { toast } from '../lib/toast';
+import * as THREE from 'three';
+import { Client, commonApi, ResponseStream, ServiceError, slamApi, motionApi } from '@viamrobotics/sdk';
 import { displayError, isServiceError } from '../lib/error';
 import { rcLogConditionally } from '../lib/log';
 import PCD from './pcd/pcd-view.vue';
+import { copyToClipboardWithToast } from '../lib/copy-to-clipboard';
 import Slam2dRender from './slam-2d-render.vue';
+import { filterResources } from '../lib/resource';
+import { Value } from 'google-protobuf/google/protobuf/struct_pb';
 
 type MapAndPose = { map: Uint8Array, pose: commonApi.Pose}
 
@@ -95,6 +100,77 @@ const fetchSLAMPose = (name: string): Promise<commonApi.Pose> => {
   });
 };
 
+let threeJPos = new THREE.Vector3( );
+let moveClick = $ref(true);
+
+const executeMove = async () => {
+  moveClick = false
+  const req = new motionApi.MoveRequest();
+  // set request name
+  req.setName("builtin");
+
+  
+  fetchSLAMPose(props.name).then(value => {
+    // set pose in frame
+    const sentPose = new commonApi.Pose
+    sentPose.setX(Math.abs(threeJPos.x - value.getX()))
+    sentPose.setY(Math.abs(threeJPos.z - value.getY()))
+    sentPose.setZ(value.getZ())
+    sentPose.setOX(value.getOX())
+    sentPose.setOY(value.getOY())
+    sentPose.setOZ(value.getOZ())
+    sentPose.setTheta(value.getTheta())
+  
+    let pif = new commonApi.PoseInFrame
+    pif.setReferenceFrame("world");
+    pif.setPose(sentPose);
+    req.setDestination(pif);
+
+    //set SLAM resource name
+    const slamResourceName = new commonApi.ResourceName
+    slamResourceName.setNamespace("rdk")
+    slamResourceName.setType("service")
+    slamResourceName.setSubtype("slam")
+    slamResourceName.setName(props.name)
+    req.setSlamServiceName(slamResourceName)
+
+    //set component name
+    const baseResource = filterResources(props.resources, 'rdk', 'component', 'base')
+    const baseResourceName = new commonApi.ResourceName
+    baseResourceName.setNamespace("rdk")
+    baseResourceName.setType("component")
+    baseResourceName.setSubtype("base")
+    baseResourceName.setName(baseResource[0]!.name)
+    
+    
+
+    // set worldstate
+    const wrldst = new commonApi.WorldState
+    req.setWorldState(wrldst)
+
+    // set constraints
+    req.setConstraints(undefined)
+
+    // execute the actual call to validate e2e plumbing
+    props.client.motionService.move(req, new grpc.Metadata(), (error, response) => {
+      if (error) {
+        // console.log(error)
+        toast.error(`Error moving: ${error}`);
+        return;
+      }
+      console.log('success')
+      toast.success(`Move success: ${response!.getSuccess()}`);
+      return;
+    });
+  })
+}
+
+let isOpen = $ref(false)
+
+
+
+
+
 const refresh2d = async (name: string) => {
   const map = await fetchSLAMMap(name);
   const returnedPose = await fetchSLAMPose(name);
@@ -105,9 +181,24 @@ const refresh2d = async (name: string) => {
   return mapAndPose;
 };
 
+let x = 0;
+let y = 0;
+let z = 0;
+let o_x = 0;
+let o_y = 0;
+let o_z = 0;
+let theta = 0;
+
 const handleRefresh2dResponse = (response: MapAndPose): void => {
   pointcloud = response.map;
   pose = response.pose;
+  x = +pose?.getX()!.toFixed(1)!;
+  y = +pose?.getY()!.toFixed(1)!;
+  z = +pose?.getZ()!.toFixed(1)!;
+  o_x = +pose?.getOX()!.toFixed(1)!;
+  o_y = +pose?.getOY()!.toFixed(1)!;
+  o_z = +pose?.getOZ()!.toFixed(1)!;
+  theta = +pose?.getTheta()!.toFixed(1)!;
   pointCloudUpdateCount += 1;
 };
 
@@ -222,38 +313,59 @@ const refresh3dMap = () => {
   updateSLAM3dRefreshFrequency(props.name, selected3dValue);
 };
 
+const handle2dRenderClick = (event: THREE.Vector3) => {
+  threeJPos = event
+}
+
+const baseCopyPosition = () => {
+  const position: JSON = <JSON><unknown>{
+    "x": x,
+    "y": y,
+    "z": z,
+    "o_x": o_x,
+    "o_y": o_y,
+    "o_z": o_z,
+    "theta": theta
+  }
+  const asString = JSON.stringify(position)
+  copyToClipboardWithToast(asString)
+};
+
+const executeDelete = () => {
+  console.log('clicked delete')
+}
+
 </script>
 
 <template>
   <v-collapse
     :title="props.name"
     class="slam"
+    @toggle="toggle2dExpand()"
   >
     <v-breadcrumbs
       slot="title"
       crumbs="slam"
     />
-    <div class="h-auto border-x border-b border-black p-2">
-      <div class="container mx-auto">
-        <div class="pt-4">
-          <div class="flex items-center gap-2">
-            <v-switch
-              id="showImage"
-              :value="show2d ? 'on' : 'off'"
-              @input="toggle2dExpand()"
-            />
-            <span class="pr-2">View SLAM Map (2D)</span>
-          </div>
-          <div class="float-right pb-4">
+    <v-button
+        slot="header"
+        icon="stop-circle"
+        variant="danger"
+        label="STOP"
+        :disabled="moveClick ? 'true' : 'false'"
+      />
+    <div class="flex flex-wrap sm:flex-nowrap gap-4 border border-t-0 border-black">
+        <div class="flex flex-col gap-4 p-4 min-w-fit">
+          <div class="float-left pb-4">
             <div class="flex">
-              <div
-                v-if="show2d"
-                class="w-64"
-              >
-                <p class="font-label mb-1 text-gray-800">
-                  Refresh frequency
+              <div class="w-64">
+                <p class="mb-1 text-gray-800 font-bold">
+                  Map
                 </p>
                 <div class="relative">
+                  <p class="text-xs mb-1 text-gray-500 ">
+                      Refresh frequency
+                  </p>
                   <select
                     v-model="selected2dValue"
                     class="
@@ -263,7 +375,7 @@ const refresh3dMap = () => {
                     aria-label="Default select example"
                     @change="selectSLAM2dRefreshFrequency()"
                   >
-                    <option value="manual">
+                    <option value="manual" class="pb-5">
                       Manual Refresh
                     </option>
                     <option value="30">
@@ -295,101 +407,86 @@ const refresh3dMap = () => {
                   </div>
                 </div>
               </div>
-              <div class="px-2 pt-7">
+              <div class="px-2 pt-11">
                 <v-button
-                  v-if="show2d"
+                  label="Refresh"  
                   icon="refresh"
-                  label="Refresh"
                   @click="refresh2dMap()"
                 />
               </div>
             </div>
-          </div>
-          <Slam2dRender
-            v-if="loaded2d && show2d"
-            :point-cloud-update-count="pointCloudUpdateCount"
-            :pointcloud="pointcloud"
-            :pose="pose"
-            :name="name"
-            :resources="resources"
-            :client="client"
-          />
-        </div>
-        <div class="pt-4">
-          <div class="flex items-center gap-2">
-            <v-switch
-              :value="show3d ? 'on' : 'off'"
-              @input="toggle3dExpand()"
-            />
-            <span class="pr-2">View SLAM Map (3D))</span>
-          </div>
-          <div class="float-right pb-4">
-            <div class="flex">
-              <div
-                v-if="show3d"
-                class="w-64"
-              >
-                <p class="font-label mb-1 text-gray-800">
-                  Refresh frequency
-                </p>
-                <div class="relative">
-                  <select
-                    v-model="selected3dValue"
-                    class="
-                      m-0 w-full appearance-none border border-solid border-black bg-white bg-clip-padding px-3 py-1.5
-                      text-xs font-normal text-gray-700 focus:outline-none
-                    "
-                    aria-label="Default select example"
-                    @change="selectSLAMPCDRefreshFrequency()"
-                  >
-                    <option value="manual">
-                      Manual Refresh
-                    </option>
-                    <option value="30">
-                      Every 30 seconds
-                    </option>
-                    <option value="10">
-                      Every 10 seconds
-                    </option>
-                    <option value="5">
-                      Every 5 seconds
-                    </option>
-                    <option value="1">
-                      Every second
-                    </option>
-                  </select>
-                  <div
-                    class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2"
-                  >
-                    <svg
-                      class="h-4 w-4 stroke-2 text-gray-700"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      stroke-linejoin="round"
-                      stroke-linecap="round"
-                      fill="none"
-                    >
-                      <path d="M18 16L12 22L6 16" />
-                    </svg>
-                  </div>
-                </div>
+            <hr class="my-4 border-t border-gray-400">
+            <div class="flex flex-row">
+              <p class="mb-1 text-gray-800 font-bold pr-52">
+                  Ending Position
+              </p>
+              <v-icon
+                name='trash'
+                @click="executeDelete()"
+              />
+            </div>
+            <div class="flex flex-row pb-2">
+              <div class="flex flex-col pr-20">
+                <p class="text-xs"> x </p>
               </div>
-              <div class="px-2 pt-7">
-                <v-button
-                  v-if="show3d"
-                  icon="refresh"
-                  label="Refresh"
-                  @click="refresh3dMap()"
-                />
+              <div class="flex flex-col">
+                <p class="text-xs"> y </p>
+              </div>
+
+            </div>
+            <v-button  
+              class="pt-1"
+              label="Move"
+              variant="success"
+              icon="play-circle-filled"
+              @click="executeMove()"
+            />
+          </div>
+        </div>
+        <div class="justify-start gap-4 sm:border-l border-black">
+        <div v-if="loaded2d && show2d">
+          <div class="flex flex-row pl-5 pt-3">
+            <div class="flex flex-col">
+              <p class="text-xs"> Current Position </p>
+                <div class="flex flex-row">
+                  <p class="pr-2 text-xs items-end"> x </p>
+                  <p >{{ x }}</p>
+                  <p class="pl-7 pr-2 text-xs"> y </p>
+                  <p>{{ y }}</p>
+                  <p class="pl-7 pr-2 text-xs"> z </p>
+                  <p>{{ z }}</p>
+                </div>
+            </div>
+            <div class="flex flex-col pl-10">
+              <p class="text-xs"> Current Orientation </p>
+              <div class="flex flex-row">
+                <p class="pr-2 text-xs"> o_x </p>
+                <p>{{ o_x }}</p>
+                <p class="pl-7 pr-2 text-xs"> o_y </p>
+                <p>{{ o_y }}</p>
+                <p class="pl-7 pr-2 text-xs"> o_z </p>
+                <p>{{ o_z }}</p>
+                <p class="pl-7 pr-2 text-xs"> &theta; </p>
+                <p>{{ theta }}</p>
               </div>
             </div>
+            <div class="pl-4 pt-2">
+              <v-icon
+                name="copy"
+                @click="baseCopyPosition()"
+              >
+              </v-icon>
+            </div>
           </div>
-          <PCD
-            v-if="show3d"
-            :resources="resources"
-            :pointcloud="pointcloud"
-            :client="client"
-          />
+          <Slam2dRender
+              :point-cloud-update-count="pointCloudUpdateCount"
+              :pointcloud="pointcloud"
+              :pose="pose"
+              :name="name"
+              :resources="resources"
+              :client="client"
+              @click="handle2dRenderClick"
+           />
         </div>
       </div>
     </div>

@@ -3,6 +3,7 @@ package motion
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/edaniels/golog"
 	pb "go.viam.com/api/service/motion/v1"
@@ -43,6 +44,7 @@ func (c *client) Move(
 	slamName resource.Name,
 	extra map[string]interface{},
 ) (bool, error) {
+	fmt.Println("services/motion/client.go")
 	ext, err := vprotoutils.StructToStructPb(extra)
 	if err != nil {
 		return false, err
