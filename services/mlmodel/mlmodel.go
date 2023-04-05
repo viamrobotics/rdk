@@ -1,3 +1,5 @@
+// Package mlmodel defines the client and server for a service that can take in a map of
+// input tensors/arrays, pass them through an inference engine, and then return a map output tensors/arrays.
 package mlmodel
 
 import (
@@ -7,10 +9,14 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	servicepb "go.viam.com/api/service/mlmodel/v1"
+	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/utils"
+	goutils "go.viam.com/utils"
+	vprotoutils "go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
-	"google.golang.org/protobuf/types/known/structpb"
 )
 
 func init() {
@@ -34,25 +40,25 @@ func init() {
 
 type Service interface {
 	Infer(ctx context.Context, input map[string]interface{}) (map[string]interface{}, error)
-	Metadata(ctx context.Context) (ModelMetadata, error)
+	Metadata(ctx context.Context) (MLMetadata, error)
 }
 
-type ModelMetadata struct {
-	modelName        string
-	modelType        string // e.g. object_detector, text_classifier
-	modelDescription string
-	inputs           []TensorInfo
-	outputs          []TensorInfo
+type MLMetadata struct {
+	ModelName        string
+	ModelType        string // e.g. object_detector, text_classifier
+	ModelDescription string
+	Inputs           []TensorInfo
+	Outputs          []TensorInfo
 }
 
-func (mm ModelMetadata) ToProto() (*servicepb.Metadata, error) {
+func (mm MLMetadata) ToProto() (*servicepb.Metadata, error) {
 	pbmm := &servicepb.Metadata{
-		Name:        mm.modelName,
-		Type:        mm.modelType,
-		Description: mm.modelDescription,
+		Name:        mm.ModelName,
+		Type:        mm.ModelType,
+		Description: mm.ModelDescription,
 	}
-	inputInfo := make([]*servicepb.TensorInfo, 0, len(mm.inputs))
-	for _, inp := range mm.inputs {
+	inputInfo := make([]*servicepb.TensorInfo, 0, len(mm.Inputs))
+	for _, inp := range mm.Inputs {
 		inproto, err := inp.ToProto()
 		if err != nil {
 			return nil, err
@@ -60,8 +66,8 @@ func (mm ModelMetadata) ToProto() (*servicepb.Metadata, error) {
 		inputInfo = append(inputInfo, inproto)
 	}
 	pbmm.InputInfo = inputInfo
-	outputInfo := make([]*servicepb.TensorInfo, 0, len(mm.output))
-	for _, outp := range mm.outputs {
+	outputInfo := make([]*servicepb.TensorInfo, 0, len(mm.Outputs))
+	for _, outp := range mm.Outputs {
 		outproto, err := outp.ToProto()
 		if err != nil {
 			return nil, err
@@ -73,23 +79,23 @@ func (mm ModelMetadata) ToProto() (*servicepb.Metadata, error) {
 }
 
 type TensorInfo struct {
-	name            string // e.g. bounding_boxes
-	description     string
-	dataType        string // e.g. uint8, float32, int
-	nDim            int    // number of dimensions in the array
-	associatedFiles []File
-	extra           map[string]interface{}
+	Name            string // e.g. bounding_boxes
+	Description     string
+	DataType        string // e.g. uint8, float32, int
+	NDim            int    // number of dimensions in the array
+	AssociatedFiles []File
+	Extra           map[string]interface{}
 }
 
 func (tf TensorInfo) ToProto() (*servicepb.TensorInfo, error) {
 	pbtf := &servicepb.TensorInfo{
-		Name:        tf.name,
-		Description: tf.description,
-		DataType:    tf.dataType,
-		NDim:        tf.nDim,
+		Name:        tf.Name,
+		Description: tf.Description,
+		DataType:    tf.DataType,
+		NDim:        int32(tf.NDim),
 	}
-	associatedFiles := make([]*servicepb.File, 0, len(tf.associatedFiles))
-	for _, af := range mm.associatedFiles {
+	associatedFiles := make([]*servicepb.File, 0, len(tf.AssociatedFiles))
+	for _, af := range tf.AssociatedFiles {
 		afproto, err := af.ToProto()
 		if err != nil {
 			return nil, err
@@ -97,7 +103,7 @@ func (tf TensorInfo) ToProto() (*servicepb.TensorInfo, error) {
 		associatedFiles = append(associatedFiles, afproto)
 	}
 	pbtf.AssociatedFiles = associatedFiles
-	extra, err := structpb.NewStruct(af.extra)
+	extra, err := vprotoutils.StructToStructPb(tf.Extra)
 	if err != nil {
 		return nil, err
 	}
@@ -106,25 +112,25 @@ func (tf TensorInfo) ToProto() (*servicepb.TensorInfo, error) {
 }
 
 type File struct {
-	name        string // e.g. category_labels.txt
-	description string
-	labelType   LabelType // TENSOR_VALUE, or TENSOR_AXIS
+	Name        string // e.g. category_labels.txt
+	Description string
+	LabelType   LabelType // TENSOR_VALUE, or TENSOR_AXIS
 }
 
 func (f File) ToProto() (*servicepb.File, error) {
 	pbf := &servicepb.File{
-		Name:        f.name,
-		Description: f.description,
+		Name:        f.Name,
+		Description: f.Description,
 	}
-	switch f.labelType {
+	switch f.LabelType {
 	case LabelTypeUnspecified:
-		pbf.LabelType = servicepb.LABEL_TYPE_UNSPECIFIED
+		pbf.LabelType = servicepb.LabelType_LABEL_TYPE_UNSPECIFIED
 	case LabelTypeTensorValue:
-		pbf.LabelType = servicepb.LABEL_TYPE_TENSOR_VALUE
+		pbf.LabelType = servicepb.LabelType_LABEL_TYPE_TENSOR_VALUE
 	case LabelTypeTensorAxis:
-		pbf.LabelType = servicepb.LABEL_TYPE_TENSOR_AXIS
+		pbf.LabelType = servicepb.LabelType_LABEL_TYPE_TENSOR_AXIS
 	default:
-		return nil, errors.Errorf("do not know about label type %q in ML Model protobuf", f.labelType)
+		return nil, errors.Errorf("do not know about ML Model associated file LabelType %q", f.LabelType)
 	}
 	return pbf, nil
 }
@@ -141,9 +147,9 @@ const (
 )
 
 var (
-	_ = Service(&reconfigurableMLModel{})
-	_ = resource.Reconfigurable(&reconfigurableMLModel{})
-	_ = goutils.ContextCloser(&reconfigurableMLModel{})
+	_ = Service(&reconfigurableMLModelService{})
+	_ = resource.Reconfigurable(&reconfigurableMLModelService{})
+	_ = goutils.ContextCloser(&reconfigurableMLModelService{})
 )
 
 // SubtypeName is the name of the type of service.
@@ -187,10 +193,16 @@ func (svc *reconfigurableMLModelService) Infer(ctx context.Context, input map[st
 	return svc.actual.Infer(ctx, input)
 }
 
-func (svc *reconfigurableMLModelService) Metadata(ctx context.Context) (ModelMetadata, error) {
+func (svc *reconfigurableMLModelService) Metadata(ctx context.Context) (MLMetadata, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 	return svc.actual.Metadata(ctx)
+}
+
+func (svc *reconfigurableMLModelService) Close(ctx context.Context) error {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return goutils.TryClose(ctx, svc.actual)
 }
 
 // Reconfigure replaces the old ML Model Service with a new ML Model Service.

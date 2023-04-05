@@ -5,7 +5,8 @@ import (
 
 	pb "go.viam.com/api/service/mlmodel/v1"
 	"go.viam.com/rdk/subtype"
-	"google.golang.org/protobuf/types/known/structpb"
+	"go.viam.com/rdk/utils"
+	vprotoutils "go.viam.com/utils/protoutils"
 )
 
 // subtypeServer implements the MLModelService from mlmodel.proto.
@@ -40,7 +41,7 @@ func (server *subtypeServer) Infer(ctx context.Context, req *pb.InferRequest) (*
 	if err != nil {
 		return nil, err
 	}
-	outputData, err := structpb.NewStruct(od)
+	outputData, err := vprotoutils.StructToStructPb(od)
 	if err != nil {
 		return nil, err
 	}
