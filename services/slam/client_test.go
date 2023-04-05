@@ -108,7 +108,7 @@ func TestClientWorkingService(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		workingSLAMClient := slam.NewClientFromConn(context.Background(), conn, slam.Named(nameSucc).String(), logger)
+		workingSLAMClient := slam.NewClientFromConn(context.Background(), conn, nameSucc, logger)
 		// test get position
 		pose, componentRef, err := workingSLAMClient.GetPosition(context.Background())
 		test.That(t, err, test.ShouldBeNil)
@@ -235,7 +235,7 @@ func TestFailingClient(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		failingSLAMClient := slam.NewClientFromConn(context.Background(), conn, slam.Named(nameFail).String(), logger)
+		failingSLAMClient := slam.NewClientFromConn(context.Background(), conn, nameFail, logger)
 
 		// testing context cancel for streaming apis
 		ctx := context.Background()
@@ -283,7 +283,7 @@ func TestFailingClient(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		failingSLAMClient := slam.NewClientFromConn(context.Background(), conn, slam.Named(nameFail).String(), logger)
+		failingSLAMClient := slam.NewClientFromConn(context.Background(), conn, nameFail, logger)
 
 		// test get pointcloud map
 		fullBytesPCD, err := slam.GetPointCloudMapFull(context.Background(), failingSLAMClient)
