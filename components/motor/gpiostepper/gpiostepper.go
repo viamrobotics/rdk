@@ -46,29 +46,6 @@ type AttrConfig struct {
 	TicksPerRotation int       `json:"ticks_per_rotation"`
 }
 
-// Validate ensures all parts of the config are valid.
-func (cfg *AttrConfig) Validate(path string) ([]string, error) {
-	var deps []string
-	if cfg.BoardName == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
-	}
-
-	if cfg.TicksPerRotation == 0 {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "ticks_per_rotation")
-	}
-
-	if cfg.Pins.Step == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "ticks_per_rotation")
-	}
-
-	if cfg.Pins.Direction == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "ticks_per_rotation")
-	}
-
-	deps = append(deps, cfg.BoardName)
-	return deps, nil
-}
-
 func init() {
 	_motor := registry.Component{
 		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
@@ -124,16 +101,6 @@ func newGPIOStepper(ctx context.Context, b board.Board, mc AttrConfig, name stri
 
 	var err error
 
-	m.stepPin, err = b.GPIOPinByName(mc.Pins.Step)
-	if err != nil {
-		return nil, err
-	}
-
-	m.dirPin, err = b.GPIOPinByName(mc.Pins.Direction)
-	if err != nil {
-		return nil, err
-	}
-
 	// only set enable pins if they exist
 	if mc.Pins.EnablePinHigh != "" {
 		m.enablePinHigh, err = b.GPIOPinByName(mc.Pins.EnablePinHigh)
@@ -146,6 +113,16 @@ func newGPIOStepper(ctx context.Context, b board.Board, mc AttrConfig, name stri
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	m.stepPin, err = b.GPIOPinByName(mc.Pins.Step)
+	if err != nil {
+		return nil, err
+	}
+
+	m.dirPin, err = b.GPIOPinByName(mc.Pins.Direction)
+	if err != nil {
+		return nil, err
 	}
 
 	m.startThread(ctx)
@@ -168,8 +145,31 @@ type gpioStepper struct {
 
 	stepPosition       int64
 	threadStarted      bool
-	targetStepPositoon int64
+	targetStepPosition int64
 	generic.Unimplemented
+}
+
+// Validate ensures all parts of the config are valid.
+func (cfg *AttrConfig) Validate(path string) ([]string, error) {
+	var deps []string
+	if cfg.BoardName == "" {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
+	}
+
+	if cfg.TicksPerRotation == 0 {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "ticks_per_rotation")
+	}
+
+	if cfg.Pins.Step == "" {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "ticks_per_rotation")
+	}
+
+	if cfg.Pins.Direction == "" {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "ticks_per_rotation")
+	}
+
+	deps = append(deps, cfg.BoardName)
+	return deps, nil
 }
 
 // SetPower sets the percentage of power the motor should employ between 0-1.
@@ -213,13 +213,13 @@ func (m *gpioStepper) doCycle(ctx context.Context) (time.Duration, error) {
 
 	// thread waits until something changes the target posiiton in the
 	// gpiostepper struct
-	if m.stepPosition == m.targetStepPositoon {
+	if m.stepPosition == m.targetStepPosition {
 		return 5 * time.Millisecond, nil
 	}
 
 	// TODO: Setting PWM here works much better than steps to set speed
 	// Redo this part with PWM logic.
-	err := m.doStep(ctx, m.stepPosition < m.targetStepPositoon)
+	err := m.doStep(ctx, m.stepPosition < m.targetStepPosition)
 	if err != nil {
 		return time.Second, fmt.Errorf("error stepping %w", err)
 	}
@@ -297,7 +297,7 @@ func (m *gpioStepper) goForMath(ctx context.Context, rpm, revolutions float64) e
 		}
 	}
 
-	// enable the motors for movement
+	// enable the motors for movement if enable pins exist
 	if err := m.enable(ctx, true); err != nil {
 		return err
 	}
@@ -306,7 +306,9 @@ func (m *gpioStepper) goForMath(ctx context.Context, rpm, revolutions float64) e
 	delay := minToSec * secondToNano / (math.Abs(rpm) * float64(m.stepsPerRotation))
 	if delay < minDelayNanoSec {
 		delay = minDelayNanoSec
-		m.logger.Infof("calculated delay less thanminimum delay for stepper motor setting to %+v", time.Duration(delay))
+		m.logger.Infof(
+			"calculated delay less thanthe minimum delay for stepper motor setting to %+v", time.Duration(delay),
+		)
 	}
 	m.stepperDelay = time.Duration(delay)
 
@@ -314,7 +316,7 @@ func (m *gpioStepper) goForMath(ctx context.Context, rpm, revolutions float64) e
 		return errors.New("thread not started")
 	}
 
-	m.targetStepPositoon += d * int64(math.Abs(revolutions)*float64(m.stepsPerRotation))
+	m.targetStepPosition += d * int64(math.Abs(revolutions)*float64(m.stepsPerRotation))
 
 	return nil
 }
@@ -394,7 +396,7 @@ func (m *gpioStepper) Properties(ctx context.Context, extra map[string]interface
 func (m *gpioStepper) IsMoving(ctx context.Context) (bool, error) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
-	return m.stepPosition != m.targetStepPositoon, nil
+	return m.stepPosition != m.targetStepPosition, nil
 }
 
 // Stop turns the power to the motor off immediately, without any gradual step down.
@@ -408,7 +410,7 @@ func (m *gpioStepper) Stop(ctx context.Context, extra map[string]interface{}) er
 func (m *gpioStepper) stop() {
 	m.lock.Lock()
 	defer m.lock.Unlock()
-	m.targetStepPositoon = m.stepPosition
+	m.targetStepPosition = m.stepPosition
 }
 
 // IsPowered returns whether or not the motor is currently on. It also returns the percent power
