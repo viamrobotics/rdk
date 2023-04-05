@@ -42,8 +42,7 @@ const colorMapGrey = [
   [74, 74, 74],
   [0, 0, 0],
 ].map(([red, green, blue]) =>
-    new THREE.Vector3(red, green, blue).multiplyScalar(1 / 255));
-};
+  new THREE.Vector3(red, green, blue).multiplyScalar(1 / 255));
 
 const props = defineProps<{
   name: string
