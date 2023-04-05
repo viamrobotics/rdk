@@ -76,9 +76,6 @@ func NewTFLiteClassifier(ctx context.Context, conf *vision.VisModelConfig,
 
 	// This function that gets returned should be the Classifier
 	return func(ctx context.Context, img image.Image) (classification.Classifications, error) {
-		model.Mu.Lock()
-		defer model.Mu.Unlock()
-		
 		// resize the image according to the expected dims
 		resizedImg := resize.Resize(inHeight, inWidth, img, resize.Bilinear)
 		outTensor, err := tfliteInfer(ctx, model, resizedImg)
