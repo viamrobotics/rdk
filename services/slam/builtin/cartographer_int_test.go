@@ -17,9 +17,9 @@ import (
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/slam/internal/testhelper"
-	"go.viam.com/rdk/spatialmath"
 	slamConfig "go.viam.com/rdk/services/slam/slam_copy/config"
 	slamTesthelper "go.viam.com/rdk/services/slam/slam_copy/testhelper"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 )
@@ -30,7 +30,7 @@ const (
 
 // Checks the cartographer map and confirms there at least 100 map points.
 func testCartographerMap(t *testing.T, svc slam.Service) {
-	pcd, err := slam.GetPointCloudMapFull(context.Background(), svc, "test")
+	pcd, err := slam.GetPointCloudMapFull(context.Background(), svc)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pcd, test.ShouldNotBeNil)
 
@@ -46,7 +46,7 @@ func testCartographerPosition(t *testing.T, svc slam.Service, expectedComponentR
 	expectedOri := &spatialmath.R4AA{Theta: 0, RX: 0, RY: 1, RZ: 0}
 	toleranceOri := 0.5
 
-	position, componentRef, err := svc.GetPosition(context.Background(), "test")
+	position, componentRef, err := svc.GetPosition(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, componentRef, test.ShouldEqual, expectedComponentRef)
 
@@ -66,7 +66,7 @@ func testCartographerPosition(t *testing.T, svc slam.Service, expectedComponentR
 
 // Checks the cartographer internal state.
 func testCartographerInternalState(t *testing.T, svc slam.Service, dataDir string) {
-	internalState, err := slam.GetInternalStateFull(context.Background(), svc, "test")
+	internalState, err := slam.GetInternalStateFull(context.Background(), svc)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Save the data from the call to GetInternalState for use in next test.

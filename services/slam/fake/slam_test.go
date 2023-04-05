@@ -23,7 +23,7 @@ func TestFakeSLAMGetPosition(t *testing.T) {
 	expectedComponentReference := ""
 	slamSvc := NewSLAM("test", golog.NewTestLogger(t))
 
-	p, componentReference, err := slamSvc.GetPosition(context.Background(), slamSvc.Name)
+	p, componentReference, err := slamSvc.GetPosition(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, componentReference, test.ShouldEqual, expectedComponentReference)
 
@@ -35,7 +35,7 @@ func TestFakeSLAMGetPosition(t *testing.T) {
 		&spatialmath.Quaternion{Real: 0.9999999087728241, Imag: 0, Jmag: 0.0005374749356603168, Kmag: 0})
 	test.That(t, spatialmath.PoseAlmostEqual(p, expectedPose), test.ShouldBeTrue)
 
-	p2, componentReference, err := slamSvc.GetPosition(context.Background(), slamSvc.Name)
+	p2, componentReference, err := slamSvc.GetPosition(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, componentReference, test.ShouldEqual, expectedComponentReference)
 	test.That(t, p, test.ShouldResemble, p2)
@@ -57,11 +57,11 @@ func TestFakeSLAMGetInternalState(t *testing.T) {
 		expectedData, err := os.ReadFile(path)
 		test.That(t, err, test.ShouldBeNil)
 
-		data := getDataFromStream(t, slamSvc.GetInternalState, slamSvc.Name)
+		data := getDataFromStream(t, slamSvc.GetInternalState)
 		test.That(t, len(data), test.ShouldBeGreaterThan, 0)
 		test.That(t, data, test.ShouldResemble, expectedData)
 
-		data2 := getDataFromStream(t, slamSvc.GetInternalState, slamSvc.Name)
+		data2 := getDataFromStream(t, slamSvc.GetInternalState)
 		test.That(t, len(data2), test.ShouldBeGreaterThan, 0)
 		test.That(t, data, test.ShouldResemble, data2)
 		test.That(t, data2, test.ShouldResemble, expectedData)
@@ -73,7 +73,7 @@ func TestFakeSLAMGetPointMap(t *testing.T) {
 	t.Run(testName, func(t *testing.T) {
 		slamSvc := NewSLAM("test", golog.NewTestLogger(t))
 
-		data := getDataFromStream(t, slamSvc.GetPointCloudMap, slamSvc.Name)
+		data := getDataFromStream(t, slamSvc.GetPointCloudMap)
 		test.That(t, len(data), test.ShouldBeGreaterThan, 0)
 
 		path := filepath.Clean(artifact.MustPath(fmt.Sprintf(pcdTemplate, datasetDirectory, slamSvc.getCount())))
@@ -82,7 +82,7 @@ func TestFakeSLAMGetPointMap(t *testing.T) {
 
 		test.That(t, data, test.ShouldResemble, expectedData)
 
-		data2 := getDataFromStream(t, slamSvc.GetPointCloudMap, slamSvc.Name)
+		data2 := getDataFromStream(t, slamSvc.GetPointCloudMap)
 		test.That(t, len(data2), test.ShouldBeGreaterThan, 0)
 
 		path2 := filepath.Clean(artifact.MustPath(fmt.Sprintf(pcdTemplate, datasetDirectory, slamSvc.getCount())))
@@ -95,12 +95,8 @@ func TestFakeSLAMGetPointMap(t *testing.T) {
 	})
 }
 
-func getDataFromStream(
-	t *testing.T,
-	sFunc func(ctx context.Context, name string) (func() ([]byte, error), error),
-	name string,
-) []byte {
-	f, err := sFunc(context.Background(), name)
+func getDataFromStream(t *testing.T, sFunc func(ctx context.Context) (func() ([]byte, error), error)) []byte {
+	f, err := sFunc(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, f, test.ShouldNotBeNil)
 	data, err := helperConcatenateChunksToFull(f)
@@ -124,7 +120,7 @@ func verifyGetPointCloudMapStateful(t *testing.T, slamSvc *SLAM) {
 
 	// Call GetPointCloudMap twice for every testData artifact
 	for i := 0; i < testDataCount*2; i++ {
-		f, err := slamSvc.GetPointCloudMap(context.Background(), slamSvc.Name)
+		f, err := slamSvc.GetPointCloudMap(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, f, test.ShouldNotBeNil)
 		pcd, err := helperConcatenateChunksToFull(f)
@@ -135,11 +131,11 @@ func verifyGetPointCloudMapStateful(t *testing.T, slamSvc *SLAM) {
 		getPointCloudMapResults = append(getPointCloudMapResults, pc.MetaData().MaxX)
 		test.That(t, err, test.ShouldBeNil)
 
-		p, _, err := slamSvc.GetPosition(context.Background(), slamSvc.Name)
+		p, _, err := slamSvc.GetPosition(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		getPositionResults = append(getPositionResults, p)
 
-		f, err = slamSvc.GetInternalState(context.Background(), slamSvc.Name)
+		f, err = slamSvc.GetInternalState(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, f, test.ShouldNotBeNil)
 		internalState, err := helperConcatenateChunksToFull(f)
