@@ -153,7 +153,7 @@ func (e *eva) EndPosition(ctx context.Context, extra map[string]interface{}) (sp
 func (e *eva) MoveToPosition(ctx context.Context, pos spatialmath.Pose, extra map[string]interface{}) error {
 	ctx, done := e.opMgr.New(ctx)
 	defer done()
-	return arm.Move(ctx, e.robot, e, pos, &referenceframe.WorldState{})
+	return arm.Move(ctx, e.robot, e, pos)
 }
 
 func (e *eva) MoveToJointPositions(ctx context.Context, newPositions *pb.JointPositions, extra map[string]interface{}) error {
