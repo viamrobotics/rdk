@@ -14,7 +14,6 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
-	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
@@ -48,6 +47,16 @@ func (m *mock) Move(
 	grabPose *referenceframe.PoseInFrame,
 	worldState *referenceframe.WorldState,
 	constraints *servicepb.Constraints,
+	extra map[string]interface{},
+) (bool, error) {
+	m.moveCount++
+	return false, nil
+}
+
+func (m *mock) MoveOnMap(
+	ctx context.Context,
+	componentName resource.Name,
+	destination spatialmath.Pose,
 	slamName resource.Name,
 	extra map[string]interface{},
 ) (bool, error) {
@@ -102,7 +111,6 @@ func TestFromRobot(t *testing.T) {
 		grabPose,
 		&referenceframe.WorldState{},
 		nil,
-		slam.Named(""),
 		map[string]interface{}{},
 	)
 	test.That(t, err, test.ShouldBeNil)
