@@ -41,7 +41,9 @@ const colorMapGrey = [
   [95, 95, 95],
   [74, 74, 74],
   [0, 0, 0],
-];
+].map(([red, green, blue]) =>
+    new THREE.Vector3(red, green, blue).multiplyScalar(1 / 255));
+};
 
 const props = defineProps<{
   name: string
@@ -124,8 +126,7 @@ const probToColorMapBucket = (normProb: number, numBuckets: number): number => {
  * normProb is the probability value normalized by the size of a byte(255) to be between 0 to 1.
  */
 const colorBuckets = (normProb: number): THREE.Vector3 => {
-  return colorMapGrey.map(([red, green, blue]) =>
-    new THREE.Vector3(red, green, blue).multiplyScalar(1 / 255))[probToColorMapBucket(normProb, colorMapGrey.length)]!;
+  return colorMapGrey[probToColorMapBucket(normProb, colorMapGrey.length)]!;
 };
 
 const updateCloud = (pointcloud: Uint8Array) => {
