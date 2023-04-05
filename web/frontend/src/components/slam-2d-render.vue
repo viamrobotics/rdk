@@ -10,6 +10,8 @@ import type { commonApi } from '@viamrobotics/sdk';
 
 /*
  * // Leaving additional color map commented for if we want to change to a different scheme.
+ * generated with: https://waldyrious.net/viridis-palette-generator/
+ * more info: https://cran.r-project.org/web/packages/viridis/vignettes/intro-to-viridis.html
  * // const colorMapViridis = [
  * //   [253, 231, 37],
  * //   [181, 222, 43],
@@ -24,7 +26,10 @@ import type { commonApi } from '@viamrobotics/sdk';
  * // ]
  */
 
-// this color map is greyscale
+/*
+ * this color map is greyscale
+ * generated with: https://grayscale.design/app
+ */
 const colorMapGrey = [
   [247, 247, 247],
   [239, 239, 239],
