@@ -42,18 +42,18 @@ type PinConfig struct {
 type Config struct {
 	Pins             PinConfig `json:"pins"`
 	BoardName        string    `json:"board"`
-	StepperDelay     int       `json:"stepper_delay_usec,omitempty"` // When using stepper motors, the time to remain high
+	StepperDelay     uint      `json:"stepper_delay_usec,omitempty"` // When using stepper motors, the time to remain high
 	TicksPerRotation int       `json:"ticks_per_rotation"`
 }
 
 // Validate ensures all parts of the config are valid.
-func (cfg *Config) Validate(path string) ([]string, error) {
+func (config *Config) Validate(path string) ([]string, error) {
 	var deps []string
-	if cfg.BoardName == "" {
+	if config.BoardName == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
 	}
 
-	deps = append(deps, cfg.BoardName)
+	deps = append(deps, config.BoardName)
 	return deps, nil
 }
 
@@ -278,7 +278,7 @@ func (m *gpioStepper) GoFor(ctx context.Context, rpm, revolutions float64, extra
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
 
-	err := m.goForMath(ctx, rpm, revolutions)
+	err := m.goForInternal(ctx, rpm, revolutions)
 	if err != nil {
 		return errors.Wrapf(err, "error in GoFor from motor (%s)", m.motorName)
 	}
@@ -290,7 +290,7 @@ func (m *gpioStepper) GoFor(ctx context.Context, rpm, revolutions float64, extra
 	return m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m, m.Stop)
 }
 
-func (m *gpioStepper) goForMath(ctx context.Context, rpm, revolutions float64) error {
+func (m *gpioStepper) goForInternal(ctx context.Context, rpm, revolutions float64) error {
 	if revolutions == 0 {
 		// go a large number of revolutions if 0 is passed in, at the desired speed
 		revolutions = 1000000.0
