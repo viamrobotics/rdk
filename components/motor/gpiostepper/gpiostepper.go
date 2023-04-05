@@ -25,9 +25,7 @@ import (
 var model = resource.NewDefaultModel("gpiostepper")
 
 const (
-	minDelayNanoSec = 10
-	minToSec        = 60.0
-	secondToNano    = 1e9
+	minDelayNanos = time.Duration(10)
 )
 
 // PinConfig defines the mapping of where motor are wired.
@@ -105,7 +103,7 @@ func newGPIOStepper(ctx context.Context, b board.Board, mc Config, name string,
 	m := &gpioStepper{
 		theBoard:         b,
 		stepsPerRotation: mc.TicksPerRotation,
-		stepperDelay:     time.Duration(mc.StepperDelay * secondToNano), // TODO (rh) maybe unnecessary
+		stepperDelay:     time.Duration(mc.StepperDelay * uint(time.Microsecond)), // TODO (rh) maybe unnecessary
 		logger:           logger,
 		motorName:        name,
 	}
@@ -293,7 +291,7 @@ func (m *gpioStepper) GoFor(ctx context.Context, rpm, revolutions float64, extra
 func (m *gpioStepper) goForInternal(ctx context.Context, rpm, revolutions float64) error {
 	if revolutions == 0 {
 		// go a large number of revolutions if 0 is passed in, at the desired speed
-		revolutions = 1000000.0
+		revolutions = 1000000
 	}
 
 	if math.Abs(rpm) < 0.1 {
@@ -323,14 +321,13 @@ func (m *gpioStepper) goForInternal(ctx context.Context, rpm, revolutions float6
 	}
 
 	// calculate delay between steps for the thread in the gorootuine that we started in component creation
-	delay := minToSec * secondToNano / (math.Abs(rpm) * float64(m.stepsPerRotation))
-	if delay < minDelayNanoSec {
-		delay = minDelayNanoSec
+	m.stepperDelay = time.Duration(time.Minute) / time.Duration(math.Abs(rpm)*float64(m.stepsPerRotation))
+	if m.stepperDelay < minDelayNanos {
+		m.stepperDelay = minDelayNanos
 		m.logger.Debugf(
-			"calculated delay less than the minimum delay for stepper motor setting to %+v", time.Duration(delay),
+			"calculated delay less than the minimum delay for stepper motor setting to %+v", m.stepperDelay,
 		)
 	}
-	m.stepperDelay = time.Duration(delay)
 
 	if !m.threadStarted {
 		return errors.New("thread not started")
