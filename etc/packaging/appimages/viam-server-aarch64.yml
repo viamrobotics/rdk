@@ -12,7 +12,7 @@ script:
  - cp ./viam-server.service "$TARGET_APPDIR/"
  - go install -ldflags "-s -w" -tags osusergo,netgo github.com/Otterverse/aix@latest
  - cp `go env GOPATH`/bin/aix "$TARGET_APPDIR/usr/bin/"
- - upx --best --lzma "$TARGET_APPDIR/usr/bin/viam-server"
+ - upx -l "$TARGET_APPDIR/usr/bin/viam-server" || upx --best --lzma "$TARGET_APPDIR/usr/bin/viam-server"
  - upx --best --lzma "$TARGET_APPDIR/usr/bin/aix"
  - cp `which env` "$TARGET_APPDIR/usr/bin/"
  - chmod 755 "$TARGET_APPDIR/usr/bin/"*

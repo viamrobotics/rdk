@@ -93,6 +93,9 @@ server: build-web
 
 server-static: build-web
 	VIAM_STATIC_BUILD=1 go build $(GO_BUILD_TAGS) $(LDFLAGS) -o $(BIN_OUTPUT_PATH)/viam-server web/cmd/server/main.go
+	if [ -z "${NO_UPX}" ]; then\
+		upx --best --lzma $(BIN_OUTPUT_PATH)/viam-server;\
+	fi
 
 clean-all:
 	git clean -fxd
