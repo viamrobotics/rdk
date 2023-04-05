@@ -12,7 +12,6 @@ import (
 	"go.viam.com/utils/protoutils"
 
 	"go.viam.com/rdk/components/arm"
-	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
@@ -54,12 +53,7 @@ func TestServer(t *testing.T) {
 		extraOptions = extra
 		return positionDegs1, nil
 	}
-	injectArm.MoveToPositionFunc = func(
-		ctx context.Context,
-		ap spatialmath.Pose,
-		worldState *referenceframe.WorldState,
-		extra map[string]interface{},
-	) error {
+	injectArm.MoveToPositionFunc = func(ctx context.Context, ap spatialmath.Pose, extra map[string]interface{}) error {
 		capArmPos = ap
 		extraOptions = extra
 		return nil
@@ -83,12 +77,7 @@ func TestServer(t *testing.T) {
 	injectArm2.JointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
 		return nil, errors.New("can't get joint positions")
 	}
-	injectArm2.MoveToPositionFunc = func(
-		ctx context.Context,
-		ap spatialmath.Pose,
-		worldState *referenceframe.WorldState,
-		extra map[string]interface{},
-	) error {
+	injectArm2.MoveToPositionFunc = func(ctx context.Context, ap spatialmath.Pose, extra map[string]interface{}) error {
 		capArmPos = ap
 		return errors.New("can't move to pose")
 	}

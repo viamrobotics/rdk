@@ -53,12 +53,7 @@ func TestClient(t *testing.T) {
 		extraOptions = extra
 		return jointPos1, nil
 	}
-	injectArm.MoveToPositionFunc = func(
-		ctx context.Context,
-		ap spatialmath.Pose,
-		worldState *referenceframe.WorldState,
-		extra map[string]interface{},
-	) error {
+	injectArm.MoveToPositionFunc = func(ctx context.Context, ap spatialmath.Pose, extra map[string]interface{}) error {
 		capArmPos = ap
 		extraOptions = extra
 		return nil
@@ -83,12 +78,7 @@ func TestClient(t *testing.T) {
 	injectArm2.JointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (*componentpb.JointPositions, error) {
 		return jointPos2, nil
 	}
-	injectArm2.MoveToPositionFunc = func(
-		ctx context.Context,
-		ap spatialmath.Pose,
-		worldState *referenceframe.WorldState,
-		extra map[string]interface{},
-	) error {
+	injectArm2.MoveToPositionFunc = func(ctx context.Context, ap spatialmath.Pose, extra map[string]interface{}) error {
 		capArmPos = ap
 		return nil
 	}
@@ -143,7 +133,7 @@ func TestClient(t *testing.T) {
 		test.That(t, jointPos.String(), test.ShouldResemble, jointPos1.String())
 		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{"foo": "JointPositions"})
 
-		err = arm1Client.MoveToPosition(context.Background(), pos2, &referenceframe.WorldState{}, map[string]interface{}{"foo": "MoveToPosition"})
+		err = arm1Client.MoveToPosition(context.Background(), pos2, map[string]interface{}{"foo": "MoveToPosition"})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, spatialmath.PoseAlmostEqual(capArmPos, pos2), test.ShouldBeTrue)
 
