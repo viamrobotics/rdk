@@ -3,6 +3,7 @@ package builtin
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/edaniels/golog"
@@ -53,7 +54,6 @@ func (ms *builtIn) Move(
 	destination *referenceframe.PoseInFrame,
 	worldState *referenceframe.WorldState,
 	constraints *servicepb.Constraints,
-	slamName resource.Name,
 	extra map[string]interface{},
 ) (bool, error) {
 	operation.CancelOtherWithLabel(ctx, "motion-service")
@@ -118,6 +118,17 @@ func (ms *builtIn) Move(
 		}
 	}
 	return true, nil
+}
+
+// MoveOnMap will move the given component
+func (ms *builtIn) MoveOnMap(
+	ctx context.Context,
+	componentName resource.Name,
+	destination spatialmath.Pose,
+	slamName resource.Name,
+	extra map[string]interface{},
+) (bool, error) {
+	return false, errors.New("this is not implemented yet")
 }
 
 // MoveSingleComponent will pass through a move command to a component with a MoveToPosition method that takes a pose. Arms are the only
