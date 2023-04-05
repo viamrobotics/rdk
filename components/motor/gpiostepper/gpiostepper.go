@@ -40,7 +40,7 @@ type PinConfig struct {
 type Config struct {
 	Pins             PinConfig `json:"pins"`
 	BoardName        string    `json:"board"`
-	StepperDelay     uint      `json:"stepper_delay_usec,omitempty"` // When using stepper motors, the time to remain high
+	StepperDelay     int       `json:"stepper_delay_usec,omitempty"` // When using stepper motors, the time to remain high
 	TicksPerRotation int       `json:"ticks_per_rotation"`
 }
 
@@ -103,7 +103,7 @@ func newGPIOStepper(ctx context.Context, b board.Board, mc Config, name string,
 	m := &gpioStepper{
 		theBoard:         b,
 		stepsPerRotation: mc.TicksPerRotation,
-		stepperDelay:     time.Duration(mc.StepperDelay * uint(time.Microsecond)), // TODO (rh) maybe unnecessary
+		stepperDelay:     time.Duration(mc.StepperDelay) * time.Microsecond, // TODO (rh) maybe unnecessary
 		logger:           logger,
 		motorName:        name,
 	}
