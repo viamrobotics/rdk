@@ -232,7 +232,8 @@ func getPwmChipDefs(pinDefs []PinDefinition) (map[string]pwmChipData, error) {
 		directoriesToSearch := []string{
 			// Example boards which use each location:
 			// Jetson Orin AGX       BeagleBone AI64                     Intel UP 4000
-			"/sys/devices/platform", "/sys/devices/platform/bus@100000", "/sys/devices/pci0000:00"}
+			"/sys/devices/platform", "/sys/devices/platform/bus@100000", "/sys/devices/pci0000:00",
+		}
 		for _, baseDir := range directoriesToSearch {
 			// For exactly one baseDir, there should be a directory at <baseDir>/<chipName>/pwm/,
 			// which contains a single sub-directory whose name is mirrored in /sys/class/pwm.
@@ -268,7 +269,8 @@ func getPwmChipDefs(pinDefs []PinDefinition) (map[string]pwmChipData, error) {
 	return pwmChipsInfo, nil
 }
 
-func getBoardMapping(pinDefs []PinDefinition, gpioChipsInfo map[string]gpioChipData, pwmChipsInfo map[string]pwmChipData) (map[int]GPIOBoardMapping, error) {
+func getBoardMapping(pinDefs []PinDefinition, gpioChipsInfo map[string]gpioChipData,
+	pwmChipsInfo map[string]pwmChipData) (map[int]GPIOBoardMapping, error) {
 	data := make(map[int]GPIOBoardMapping, len(pinDefs))
 
 	// For "use" on pins that don't have hardware PWMs
