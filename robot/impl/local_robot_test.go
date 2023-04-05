@@ -734,7 +734,6 @@ func (da *dummyArm) EndPosition(ctx context.Context, extra map[string]interface{
 func (da *dummyArm) MoveToPosition(
 	ctx context.Context,
 	pose spatialmath.Pose,
-	worldState *referenceframe.WorldState,
 	extra map[string]interface{},
 ) error {
 	return nil
