@@ -103,12 +103,7 @@ func newMultiAxis(
 }
 
 // MoveToPosition moves along an axis using inputs in millimeters.
-func (g *multiAxis) MoveToPosition(
-	ctx context.Context,
-	positions []float64,
-	worldState *referenceframe.WorldState,
-	extra map[string]interface{},
-) error {
+func (g *multiAxis) MoveToPosition(ctx context.Context, positions []float64, extra map[string]interface{}) error {
 	ctx, done := g.opMgr.New(ctx)
 	defer done()
 
@@ -118,23 +113,22 @@ func (g *multiAxis) MoveToPosition(
 
 	if len(positions) != len(g.lengthsMm) {
 		return errors.Errorf(
-			"number of input positions %v does not match total gantry axes length %v",
+			"number of input positions %v does not match total gantry axes count %v",
 			len(positions), len(g.lengthsMm),
 		)
 	}
 
-	jdx := 0
+	idx := 0
 	for _, subAx := range g.subAxes {
-
 		subAxNum, err := subAx.Lengths(ctx, extra)
 		if err != nil {
 			return err
 		}
 
-		pos := positions[jdx : jdx+len(subAxNum)]
-		jdx += len(subAxNum)
+		pos := positions[idx : idx+len(subAxNum)]
+		idx += len(subAxNum)
 
-		err = subAx.MoveToPosition(ctx, pos, worldState, extra)
+		err = subAx.MoveToPosition(ctx, pos, extra)
 		if err != nil && !errors.Is(err, context.Canceled) {
 			return err
 		}
@@ -150,7 +144,7 @@ func (g *multiAxis) GoToInputs(ctx context.Context, goal []referenceframe.Input)
 	ctx, done := g.opMgr.New(ctx)
 	defer done()
 
-	return g.MoveToPosition(ctx, referenceframe.InputsToFloats(goal), &referenceframe.WorldState{}, nil)
+	return g.MoveToPosition(ctx, referenceframe.InputsToFloats(goal), nil)
 }
 
 // Position returns the position in millimeters.

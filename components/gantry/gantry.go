@@ -69,9 +69,8 @@ type Gantry interface {
 	Position(ctx context.Context, extra map[string]interface{}) ([]float64, error)
 
 	// MoveToPosition is in meters
-	// The worldState argument should be treated as optional by all implementing drivers
 	// This will block until done or a new operation cancels this one
-	MoveToPosition(ctx context.Context, positionsMm []float64, worldState *referenceframe.WorldState, extra map[string]interface{}) error
+	MoveToPosition(ctx context.Context, positionsMm []float64, extra map[string]interface{}) error
 
 	// Lengths is the length of gantries in meters
 	Lengths(ctx context.Context, extra map[string]interface{}) ([]float64, error)
@@ -205,15 +204,10 @@ func (g *reconfigurableGantry) Lengths(ctx context.Context, extra map[string]int
 }
 
 // position is in meters.
-func (g *reconfigurableGantry) MoveToPosition(
-	ctx context.Context,
-	positionsMm []float64,
-	worldState *referenceframe.WorldState,
-	extra map[string]interface{},
-) error {
+func (g *reconfigurableGantry) MoveToPosition(ctx context.Context, positionsMm []float64, extra map[string]interface{}) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	return g.actual.MoveToPosition(ctx, positionsMm, worldState, extra)
+	return g.actual.MoveToPosition(ctx, positionsMm, extra)
 }
 
 func (g *reconfigurableGantry) Stop(ctx context.Context, extra map[string]interface{}) error {
