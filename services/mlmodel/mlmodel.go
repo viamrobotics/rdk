@@ -1,13 +1,16 @@
-package mlmodels
+package mlmodel
 
 import (
 	"context"
 	"sync"
 
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
+	servicepb "go.viam.com/api/service/mlmodel/v1"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/utils/rpc"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 func init() {
@@ -42,6 +45,33 @@ type ModelMetadata struct {
 	outputs          []TensorInfo
 }
 
+func (mm ModelMetadata) ToProto() (*servicepb.Metadata, error) {
+	pbmm := &servicepb.Metadata{
+		Name:        mm.modelName,
+		Type:        mm.modelType,
+		Description: mm.modelDescription,
+	}
+	inputInfo := make([]*servicepb.TensorInfo, 0, len(mm.inputs))
+	for _, inp := range mm.inputs {
+		inproto, err := inp.ToProto()
+		if err != nil {
+			return nil, err
+		}
+		inputInfo = append(inputInfo, inproto)
+	}
+	pbmm.InputInfo = inputInfo
+	outputInfo := make([]*servicepb.TensorInfo, 0, len(mm.output))
+	for _, outp := range mm.outputs {
+		outproto, err := outp.ToProto()
+		if err != nil {
+			return nil, err
+		}
+		outputInfo = append(outputInfo, outproto)
+	}
+	pbmm.OutputInfo = outputInfo
+	return pbmm, nil
+}
+
 type TensorInfo struct {
 	name            string // e.g. bounding_boxes
 	description     string
@@ -51,16 +81,61 @@ type TensorInfo struct {
 	extra           map[string]interface{}
 }
 
+func (tf TensorInfo) ToProto() (*servicepb.TensorInfo, error) {
+	pbtf := &servicepb.TensorInfo{
+		Name:        tf.name,
+		Description: tf.description,
+		DataType:    tf.dataType,
+		NDim:        tf.nDim,
+	}
+	associatedFiles := make([]*servicepb.File, 0, len(tf.associatedFiles))
+	for _, af := range mm.associatedFiles {
+		afproto, err := af.ToProto()
+		if err != nil {
+			return nil, err
+		}
+		associatedFiles = append(associatedFiles, afproto)
+	}
+	pbtf.AssociatedFiles = associatedFiles
+	extra, err := structpb.NewStruct(af.extra)
+	if err != nil {
+		return nil, err
+	}
+	pbtf.Extra = extra
+	return pbtf, nil
+}
+
 type File struct {
 	name        string // e.g. category_labels.txt
 	description string
 	labelType   LabelType // TENSOR_VALUE, or TENSOR_AXIS
 }
 
+func (f File) ToProto() (*servicepb.File, error) {
+	pbf := &servicepb.File{
+		Name:        f.name,
+		Description: f.description,
+	}
+	switch f.labelType {
+	case LabelTypeUnspecified:
+		pbf.LabelType = servicepb.LABEL_TYPE_UNSPECIFIED
+	case LabelTypeTensorValue:
+		pbf.LabelType = servicepb.LABEL_TYPE_TENSOR_VALUE
+	case LabelTypeTensorAxis:
+		pbf.LabelType = servicepb.LABEL_TYPE_TENSOR_AXIS
+	default:
+		return nil, errors.Errorf("do not know about label type %q in ML Model protobuf", f.labelType)
+	}
+	return pbf, nil
+}
+
+// LabelType describes how labels from the file are assigned to the sensors. TENSOR_VALUE means that
+// labels are the actual value in the tensor. TENSOR_AXIS means that labels are positional within the
+// tensor axis.
 type LabelType string
 
 const (
-	LabelTypeUnspecified = LabelType("")
+	LabelTypeUnspecified = LabelType("UNSPECIFIED")
 	LabelTypeTensorValue = LabelType("TENSOR_VALUE")
 	LabelTypeTensorAxis  = LabelType("TENSOR_AXIS")
 )
@@ -72,7 +147,7 @@ var (
 )
 
 // SubtypeName is the name of the type of service.
-const SubtypeName = resource.SubtypeName("mlmodels")
+const SubtypeName = resource.SubtypeName("mlmodel")
 
 // Subtype is a constant that identifies the ML model service resource subtype.
 var Subtype = resource.NewSubtype(

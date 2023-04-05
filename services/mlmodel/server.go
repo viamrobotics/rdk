@@ -1,13 +1,14 @@
-package mlmodels
+package mlmodel
 
 import (
 	"context"
 
+	pb "go.viam.com/api/service/mlmodel/v1"
 	"go.viam.com/rdk/subtype"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
-// subtypeServer implements the MLModelService from mlmodels.proto.
+// subtypeServer implements the MLModelService from mlmodel.proto.
 type subtypeServer struct {
 	pb.UnimplementedMLModelServiceServer
 	subtypeSvc subtype.Service
@@ -43,5 +44,24 @@ func (server *subtypeServer) Infer(ctx context.Context, req *pb.InferRequest) (*
 	if err != nil {
 		return nil, err
 	}
-	return &pb.InferResponse{OutputData: outputData}, err
+	return &pb.InferResponse{OutputData: outputData}, nil
+}
+
+func (server *subtypeServer) Metadata(
+	ctx context.Context,
+	req *pb.MetadataRequest,
+) (*pb.MetadataResponse, error) {
+	svc, err := server.service(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	md, err := svc.Metadata(ctx)
+	if err != nil {
+		return nil, err
+	}
+	metadata, err := md.ToProto()
+	if err != nil {
+		return nil, err
+	}
+	return &pb.MetadataResponse{Metadata: metadata}, nil
 }
