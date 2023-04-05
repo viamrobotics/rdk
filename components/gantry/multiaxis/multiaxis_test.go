@@ -218,3 +218,67 @@ func TestModelFrame(t *testing.T) {
 	model = fakemultiaxis.ModelFrame()
 	test.That(t, model, test.ShouldNotBeNil)
 }
+
+func createComplexDeps() registry.Dependencies {
+	mAx1 := &inject.Gantry{
+		PositionFunc: func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+			return []float64{6, 5}, nil
+		},
+		MoveToPositionFunc: func(ctx context.Context, pos []float64, ws *referenceframe.WorldState, extra map[string]interface{}) error {
+			return nil
+		},
+		LengthsFunc: func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+			return []float64{0, 1}, nil
+		},
+		StopFunc: func(ctx context.Context, extra map[string]interface{}) error {
+			return nil
+		},
+	}
+
+	mAx2 := &inject.Gantry{
+		PositionFunc: func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+			return []float64{9, 8, 7}, nil
+		},
+		MoveToPositionFunc: func(ctx context.Context, pos []float64, ws *referenceframe.WorldState, extra map[string]interface{}) error {
+			return nil
+		},
+		LengthsFunc: func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+			return []float64{2, 3, 4}, nil
+		},
+		StopFunc: func(ctx context.Context, extra map[string]interface{}) error {
+			return nil
+		},
+	}
+	fakeMotor := &fm.Motor{}
+
+	deps := make(registry.Dependencies)
+	deps[gantry.Named("1")] = mAx1
+	deps[gantry.Named("2")] = mAx2
+	deps[motor.Named(fakeMotor.Name)] = fakeMotor
+	return deps
+}
+
+func TestComplexMultiAxis(t *testing.T) {
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+	cfg := config.Component{
+		Name: "complexGantry",
+		ConvertedAttributes: &AttrConfig{
+			SubAxes: []string{"1", "2"},
+		},
+	}
+	deps := createComplexDeps()
+
+	g, err := newMultiAxis(ctx, deps, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	err = g.MoveToPosition(ctx, []float64{1, 2, 3, 4, 5, 6}, &referenceframe.WorldState{}, nil)
+	test.That(t, err, test.ShouldNotBeNil)
+
+	pos, err := g.Position(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pos, test.ShouldResemble, []float64{6, 5, 9, 8, 7})
+
+	err = g.MoveToPosition(ctx, []float64{1, 2, 3, 4, 5}, &referenceframe.WorldState{}, nil)
+	test.That(t, err, test.ShouldBeNil)
+}
