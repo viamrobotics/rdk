@@ -33,8 +33,8 @@ type PinConfig struct {
 	EnablePinLow  string `json:"en_low,omitempty"`
 }
 
-// Config describes the configuration of a motor.
-type Config struct {
+// AttrConfig describes the configuration of a motor.
+type AttrConfig struct {
 	Pins             PinConfig `json:"pins"`
 	BoardName        string    `json:"board"`
 	StepperDelay     uint      `json:"stepper_delay_usec,omitempty"` // When using stepper motors, the time to remain high
@@ -42,24 +42,33 @@ type Config struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (config *Config) Validate(path string) ([]string, error) {
+func (cfg *AttrConfig) Validate(path string) ([]string, error) {
 	var deps []string
-	if config.BoardName == "" {
+	if cfg.BoardName == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
 	}
-	deps = append(deps, config.BoardName)
+	if cfg.TicksPerRotation == 0 {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "ticks_per_rotation")
+	}
+	if cfg.Pins.Direction == "" {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "dir")
+	}
+	if cfg.Pins.Step == "" {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "step")
+	}
+	deps = append(deps, cfg.BoardName)
 	return deps, nil
 }
 
 func init() {
 	_motor := registry.Component{
-		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-			actualBoard, motorConfig, err := getBoardFromRobotConfig(deps, config)
+		Constructor: func(ctx context.Context, deps registry.Dependencies, cfg config.Component, logger golog.Logger) (interface{}, error) {
+			actualBoard, motorConfig, err := getBoardFromRobotConfig(deps, cfg)
 			if err != nil {
 				return nil, err
 			}
 
-			return newGPIOStepper(ctx, actualBoard, *motorConfig, config.Name, logger)
+			return newGPIOStepper(ctx, actualBoard, *motorConfig, cfg.Name, logger)
 		},
 	}
 	registry.RegisterComponent(motor.Subtype, model, _motor)
@@ -67,17 +76,17 @@ func init() {
 		motor.Subtype,
 		model,
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf Config
+			var conf AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
 		},
-		&Config{},
+		&AttrConfig{},
 	)
 }
 
-func getBoardFromRobotConfig(deps registry.Dependencies, config config.Component) (board.Board, *Config, error) {
-	motorConfig, ok := config.ConvertedAttributes.(*Config)
+func getBoardFromRobotConfig(deps registry.Dependencies, cfg config.Component) (board.Board, *AttrConfig, error) {
+	motorConfig, ok := cfg.ConvertedAttributes.(*AttrConfig)
 	if !ok {
-		return nil, nil, rdkutils.NewUnexpectedTypeError(motorConfig, config.ConvertedAttributes)
+		return nil, nil, rdkutils.NewUnexpectedTypeError(motorConfig, cfg.ConvertedAttributes)
 	}
 	if motorConfig.BoardName == "" {
 		return nil, nil, errors.New("expected board name in config for motor")
@@ -89,7 +98,7 @@ func getBoardFromRobotConfig(deps registry.Dependencies, config config.Component
 	return b, motorConfig, nil
 }
 
-func newGPIOStepper(ctx context.Context, b board.Board, mc Config, name string,
+func newGPIOStepper(ctx context.Context, b board.Board, mc AttrConfig, name string,
 	logger golog.Logger,
 ) (motor.Motor, error) {
 	if mc.TicksPerRotation == 0 {
@@ -104,36 +113,29 @@ func newGPIOStepper(ctx context.Context, b board.Board, mc Config, name string,
 		motorName:        name,
 	}
 
+	var err error
+
+	// only set enable pins if they exist
 	if mc.Pins.EnablePinHigh != "" {
-		enablePinHigh, err := b.GPIOPinByName(mc.Pins.EnablePinHigh)
+		m.enablePinHigh, err = b.GPIOPinByName(mc.Pins.EnablePinHigh)
 		if err != nil {
 			return nil, err
 		}
-		m.enablePinHigh = enablePinHigh
 	}
 	if mc.Pins.EnablePinLow != "" {
-		enablePinLow, err := b.GPIOPinByName(mc.Pins.EnablePinLow)
+		m.enablePinLow, err = b.GPIOPinByName(mc.Pins.EnablePinLow)
 		if err != nil {
 			return nil, err
 		}
-		m.enablePinLow = enablePinLow
-	}
-	if mc.Pins.Step != "" {
-		stepPin, err := b.GPIOPinByName(mc.Pins.Step)
-		if err != nil {
-			return nil, err
-		}
-		m.stepPin = stepPin
-	}
-	if mc.Pins.Direction != "" {
-		directionPin, err := b.GPIOPinByName(mc.Pins.Direction)
-		if err != nil {
-			return nil, err
-		}
-		m.dirPin = directionPin
 	}
 
-	if err := m.Validate(); err != nil {
+	m.stepPin, err = b.GPIOPinByName(mc.Pins.Step)
+	if err != nil {
+		return nil, err
+	}
+
+	m.dirPin, err = b.GPIOPinByName(mc.Pins.Direction)
+	if err != nil {
 		return nil, err
 	}
 
@@ -160,31 +162,6 @@ type gpioStepper struct {
 	targetStepPosition   int64
 	targetStepsPerSecond int64
 	generic.Unimplemented
-}
-
-// validate if this config is valid.
-func (m *gpioStepper) Validate() error {
-	if m.theBoard == nil {
-		return errors.New("need a board for gpioStepper")
-	}
-
-	if m.stepsPerRotation == 0 {
-		return errors.New("need to set 'steps per rotation' for gpioStepper")
-	}
-
-	if m.stepperDelay == 0 {
-		m.stepperDelay = 20
-	}
-
-	if m.stepPin == nil {
-		return errors.New("need a 'step' pin for gpioStepper")
-	}
-
-	if m.dirPin == nil {
-		return errors.New("need a 'dir' pin for gpioStepper")
-	}
-
-	return nil
 }
 
 // SetPower sets the percentage of power the motor should employ between 0-1.
