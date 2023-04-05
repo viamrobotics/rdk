@@ -52,7 +52,7 @@ func TestComplexModule(t *testing.T) {
 
 	server := pexec.NewManagedProcess(pexec.ProcessConfig{
 		Name: "bash",
-		Args: []string{"-c", "exec bin/`uname`-`uname -m`/server -config " + cfgFilename},
+		Args: []string{"-c", "exec bin/`uname`-`uname -m`/viam-server -config " + cfgFilename},
 		CWD:  utils.ResolveFile("./"),
 		Log:  true,
 	}, logger)
@@ -380,7 +380,7 @@ func TestValidationFailure(t *testing.T) {
 
 	server := pexec.NewManagedProcess(pexec.ProcessConfig{
 		Name: "bash",
-		Args: []string{"-c", "exec bin/`uname`-`uname -m`/server -config " + cfgFilename},
+		Args: []string{"-c", "exec bin/`uname`-`uname -m`/viam-server -config " + cfgFilename},
 		CWD:  utils.ResolveFile("./"),
 		Log:  true,
 	}, logger)
