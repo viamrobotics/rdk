@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"runtime"
+	"runtime/debug"
 	"sync"
 	"time"
 
@@ -194,6 +195,8 @@ func (m *Module) Start(ctx context.Context) error {
 
 // Close shuts down the module and grpc server.
 func (m *Module) Close(ctx context.Context) {
+	m.logger.Warn("Module Close called")
+	debug.PrintStack()
 	m.closeOnce.Do(func() {
 		m.mu.Lock()
 		parent := m.parent
@@ -213,6 +216,8 @@ func (m *Module) Close(ctx context.Context) {
 
 // GetParentResource returns a resource from the parent robot by name.
 func (m *Module) GetParentResource(ctx context.Context, name resource.Name) (interface{}, error) {
+	m.logger.Warnf("Module GetParentResource called %#v", name)
+	debug.PrintStack()
 	if err := m.connectParent(ctx); err != nil {
 		return nil, err
 	}
@@ -244,6 +249,7 @@ func (m *Module) connectParent(ctx context.Context) error {
 
 // SetReady can be set to false if the module is not ready (ex. waiting on hardware).
 func (m *Module) SetReady(ready bool) {
+	m.logger.Warnf("Module SetReady called %#v", ready)
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.ready = ready
@@ -251,6 +257,7 @@ func (m *Module) SetReady(ready bool) {
 
 // Ready receives the parent address and reports api/model combos the module is ready to service.
 func (m *Module) Ready(ctx context.Context, req *pb.ReadyRequest) (*pb.ReadyResponse, error) {
+	m.logger.Warnf("Module Ready called %#v", req.GetParentAddress())
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.parentAddr = req.GetParentAddress()
@@ -263,6 +270,7 @@ func (m *Module) Ready(ctx context.Context, req *pb.ReadyRequest) (*pb.ReadyResp
 
 // AddResource receives the component/service configuration from the parent.
 func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*pb.AddResourceResponse, error) {
+	m.logger.Warnf("Module AddResource called Dependencies: %#v, config: %#v", req.Dependencies, req.Config)
 	deps := make(registry.Dependencies)
 	for _, c := range req.Dependencies {
 		name, err := resource.NewFromString(c)
@@ -318,6 +326,7 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 
 // ReconfigureResource receives the component/service configuration from the parent.
 func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureResourceRequest) (*pb.ReconfigureResourceResponse, error) {
+	m.logger.Warnf("Module ReconfigureResource called Dependencies: %#v, config: %#v", req.Dependencies, req.Config)
 	var res interface{}
 	deps := make(registry.Dependencies)
 	for _, c := range req.Dependencies {
@@ -402,6 +411,7 @@ type Validator interface {
 func (m *Module) ValidateConfig(ctx context.Context,
 	req *pb.ValidateConfigRequest,
 ) (*pb.ValidateConfigResponse, error) {
+	m.logger.Warnf("Module ValidateConfig called config: %#v", req.Config)
 	c, err := config.ComponentConfigFromProto(req.Config)
 	if err != nil {
 		return nil, err
@@ -429,6 +439,7 @@ func (m *Module) ValidateConfig(ctx context.Context,
 
 // RemoveResource receives the request for resource removal.
 func (m *Module) RemoveResource(ctx context.Context, req *pb.RemoveResourceRequest) (*pb.RemoveResourceResponse, error) {
+	m.logger.Warnf("Module RemoveResource called name: %#v", req.Name)
 	slowWatcher, slowWatcherCancel := utils.SlowGoroutineWatcher(
 		30*time.Second, fmt.Sprintf("module resource %q is taking a while to remove", req.Name), m.logger)
 	defer func() {
