@@ -20,7 +20,7 @@ func Test1(t *testing.T) {
 
 	b := &fakeboard.Board{GPIOPins: make(map[string]*fakeboard.GPIOPin)}
 
-	mc := Config{}
+	mc := AttrConfig{}
 	c := config.Component{
 		Name: "fake_gpiostepper",
 	}

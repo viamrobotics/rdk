@@ -32,11 +32,11 @@ import (
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/slam/grpchelper"
-	"go.viam.com/rdk/spatialmath"
-	rdkutils "go.viam.com/rdk/utils"
 	slamConfig "go.viam.com/rdk/services/slam/slam_copy/config"
 	"go.viam.com/rdk/services/slam/slam_copy/dataprocess"
 	slamUtils "go.viam.com/rdk/services/slam/slam_copy/utils"
+	"go.viam.com/rdk/spatialmath"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 var (
@@ -170,8 +170,6 @@ type builtIn struct {
 	port       string
 	dataRateMs int
 	mapRateSec int
-
-	dev bool
 
 	cancelFunc              func()
 	logger                  golog.Logger
@@ -353,7 +351,6 @@ func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.S
 		useLiveData:           useLiveData,
 		deleteProcessedData:   deleteProcessedData,
 		port:                  port,
-		dev:                   svcConfig.Dev,
 		dataRateMs:            dataRateMsec,
 		mapRateSec:            mapRateSec,
 		cancelFunc:            cancelFunc,

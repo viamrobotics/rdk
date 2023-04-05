@@ -21,6 +21,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/module/modmanager"
+	modmanageroptions "go.viam.com/rdk/module/modmanager/options"
 	modif "go.viam.com/rdk/module/modmaninterface"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/pointcloud"
@@ -507,12 +508,11 @@ func newWithResources(
 		return nil, err
 	}
 
-	modMgr, err := modmanager.NewManager(r)
+	modMgr, err := modmanager.NewManager(r, modmanageroptions.Options{UntrustedEnv: r.manager.opts.untrustedEnv})
 	if err != nil {
 		return nil, err
 	}
 	r.modules = modMgr
-
 	for _, mod := range cfg.Modules {
 		err := r.modules.Add(ctx, mod)
 		if err != nil {
