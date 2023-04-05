@@ -7,7 +7,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/gantry"
@@ -117,9 +116,16 @@ func (g *multiAxis) MoveToPosition(
 		return errors.Errorf("need position inputs for %v-axis gantry, have %v positions", len(g.subAxes), len(positions))
 	}
 
+	if len(positions) != len(g.lengthsMm) {
+		return errors.Errorf(
+			"number of input positions %v does not match total gantry axes length %v",
+			len(positions), len(g.lengthsMm),
+		)
+	}
+
 	jdx := 0
-	var errs error
 	for _, subAx := range g.subAxes {
+
 		subAxNum, err := subAx.Lengths(ctx, extra)
 		if err != nil {
 			return err
@@ -130,10 +136,10 @@ func (g *multiAxis) MoveToPosition(
 
 		err = subAx.MoveToPosition(ctx, pos, worldState, extra)
 		if err != nil && !errors.Is(err, context.Canceled) {
-			errs = multierr.Combine(errs, err)
+			return err
 		}
 	}
-	return errs
+	return nil
 }
 
 // GoToInputs moves the gantry to a goal position in the Gantry frame.
