@@ -11,12 +11,12 @@ import (
 type method int64
 
 const (
-	ticksCount method = iota
+	getPosition method = iota
 )
 
 func (m method) String() string {
-	if m == ticksCount {
-		return "TicksCount"
+	if m == getPosition {
+		return "GetPosition"
 	}
 	return "Unknown"
 }
@@ -26,7 +26,7 @@ type Ticks struct {
 	Ticks int64
 }
 
-func newTicksCountCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+func newGetPositionCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	encoder, err := assertEncoder(resource)
 	if err != nil {
 		return nil, err
@@ -35,7 +35,7 @@ func newTicksCountCollector(resource interface{}, params data.CollectorParams) (
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
 		v, err := encoder.GetPosition(ctx, nil)
 		if err != nil {
-			return nil, data.FailedToReadErr(params.ComponentName, ticksCount.String(), err)
+			return nil, data.FailedToReadErr(params.ComponentName, getPosition.String(), err)
 		}
 		return Ticks{Ticks: int64(v)}, nil
 	})
