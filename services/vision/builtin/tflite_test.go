@@ -288,8 +288,10 @@ func classifyTwoImages(picPanda *rimage.Image, picLion *rimage.Image, got classi
 	resultPanda := make(chan classification.Classifications)
 	resultLion := make(chan classification.Classifications)
 
-	go gotWithCallback(picPanda, resultPanda, got)
-	go gotWithCallback(picLion, resultLion, got)
+	for i := 0; i < 5; i++ {
+		go gotWithCallback(picPanda, resultPanda, got)
+		go gotWithCallback(picLion, resultLion, got)
+	}
 
 	valuePanda := <-resultPanda
 	valueLion := <-resultLion
