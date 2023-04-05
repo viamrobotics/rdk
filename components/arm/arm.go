@@ -342,7 +342,7 @@ func WrapWithReconfigurable(r interface{}, name resource.Name) (resource.Reconfi
 }
 
 // Move is a helper function to abstract away movement for general arms.
-func Move(ctx context.Context, r robot.Robot, a Arm, dst spatialmath.Pose, worldState *referenceframe.WorldState) error {
+func Move(ctx context.Context, r robot.Robot, a Arm, dst spatialmath.Pose) error {
 	joints, err := a.JointPositions(ctx, nil)
 	if err != nil {
 		return err
@@ -356,7 +356,7 @@ func Move(ctx context.Context, r robot.Robot, a Arm, dst spatialmath.Pose, world
 		return err
 	}
 
-	solution, err := Plan(ctx, r, a, dst, worldState)
+	solution, err := Plan(ctx, r, a, dst)
 	if err != nil {
 		return err
 	}
@@ -370,10 +370,9 @@ func Plan(
 	r robot.Robot,
 	a Arm,
 	dst spatialmath.Pose,
-	worldState *referenceframe.WorldState,
 ) ([][]referenceframe.Input, error) {
 	// build the framesystem
-	fs, err := framesystem.RobotFrameSystem(ctx, r, worldState.Transforms)
+	fs, err := framesystem.RobotFrameSystem(ctx, r, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -382,11 +381,6 @@ func Plan(
 
 	// PlanRobotMotion needs a frame system which contains the frame being solved for
 	if fs.Frame(armName) == nil {
-		if worldState != nil {
-			if len(worldState.Obstacles) != 0 || len(worldState.Transforms) != 0 {
-				return nil, errors.New("arm must be in frame system to use worldstate")
-			}
-		}
 		armFrame := a.ModelFrame()
 		jp, err := a.JointPositions(ctx, nil)
 		if err != nil {
@@ -394,7 +388,7 @@ func Plan(
 		}
 		return motionplan.PlanFrameMotion(ctx, r.Logger(), dst, armFrame, armFrame.InputFromProtobuf(jp), defaultArmPlannerOptions, nil)
 	}
-	solutionMap, err := motionplan.PlanRobotMotion(ctx, destination, a.ModelFrame(), r, fs, worldState, defaultArmPlannerOptions, nil)
+	solutionMap, err := motionplan.PlanRobotMotion(ctx, destination, a.ModelFrame(), r, fs, nil, defaultArmPlannerOptions, nil)
 	if err != nil {
 		return nil, err
 	}

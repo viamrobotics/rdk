@@ -360,7 +360,7 @@ func (ua *URArm) MoveToPosition(ctx context.Context, pos spatialmath.Pose, extra
 	if usingHostedKinematics {
 		return ua.moveWithURHostedKinematics(ctx, pos)
 	}
-	return arm.Move(ctx, ua.robot, ua, pos, &referenceframe.WorldState{})
+	return arm.Move(ctx, ua.robot, ua, pos)
 }
 
 // MoveToJointPositions TODO.

@@ -434,7 +434,7 @@ func TestOOBArm(t *testing.T) {
 
 	t.Run("Move fails when OOB", func(t *testing.T) {
 		pose = spatialmath.NewPoseFromPoint(r3.Vector{200, 200, 200})
-		err := arm.Move(context.Background(), &inject.Robot{}, injectedArm, pose, &referenceframe.WorldState{})
+		err := arm.Move(context.Background(), &inject.Robot{}, injectedArm, pose)
 		u := "cartesian movements are not allowed when arm joints are out of bounds"
 		v := "joint 0 input out of bounds, input 12.56637 needs to be within range [6.28319 -6.28319]"
 		s := strings.Join([]string{u, v}, ": ")
