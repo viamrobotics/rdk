@@ -23,8 +23,8 @@ type pwmDevice struct {
 	logger golog.Logger
 }
 
-func newPwmDevice(chipPath string, line int, logger golog.Logger) (*pwmDevice, error) {
-	return &pwmDevice{chipPath: chipPath, line: line, logger: logger}, nil
+func newPwmDevice(chipPath string, line int, logger golog.Logger) *pwmDevice {
+	return &pwmDevice{chipPath: chipPath, line: line, logger: logger}
 }
 
 func writeValue(filepath string, value uint64) error {
