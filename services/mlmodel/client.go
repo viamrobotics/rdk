@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/edaniels/golog"
-	"github.com/pkg/errors"
 	pb "go.viam.com/api/service/mlmodel/v1"
 	vprotoutils "go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
@@ -122,7 +121,8 @@ func protoToFile(pbf *pb.File) (File, error) {
 	case pb.LabelType_LABEL_TYPE_TENSOR_AXIS:
 		f.LabelType = LabelTypeTensorAxis
 	default:
-		return File{}, errors.Errorf("do not know about label type %q in ML Model protobuf", pbf.LabelType)
+		// this should never happen as long as all possible enums are included in the switch
+		f.LabelType = LabelTypeUnspecified
 	}
 	return f, nil
 }

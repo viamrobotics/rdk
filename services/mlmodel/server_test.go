@@ -70,7 +70,7 @@ func TestServerMetadata(t *testing.T) {
 	test.That(t, outInfo[3].GetName(), test.ShouldEqual, "locations")
 	test.That(t, outInfo[3].GetNDim(), test.ShouldEqual, 3)
 
-	// Multiple Servies names Valid
+	// Multiple Services names Valid
 	omMap = map[resource.Name]interface{}{
 		mlmodel.Named(testMLModelServiceName):  mockSrv,
 		mlmodel.Named(testMLModelServiceName2): mockSrv,

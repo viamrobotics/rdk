@@ -6,7 +6,6 @@ import (
 	"context"
 
 	"github.com/edaniels/golog"
-	"github.com/pkg/errors"
 	servicepb "go.viam.com/api/service/mlmodel/v1"
 	vprotoutils "go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
@@ -135,14 +134,15 @@ func (f File) toProto() (*servicepb.File, error) {
 		Description: f.Description,
 	}
 	switch f.LabelType {
-	case LabelTypeUnspecified:
+	case LabelTypeUnspecified, "":
 		pbf.LabelType = servicepb.LabelType_LABEL_TYPE_UNSPECIFIED
 	case LabelTypeTensorValue:
 		pbf.LabelType = servicepb.LabelType_LABEL_TYPE_TENSOR_VALUE
 	case LabelTypeTensorAxis:
 		pbf.LabelType = servicepb.LabelType_LABEL_TYPE_TENSOR_AXIS
 	default:
-		return nil, errors.Errorf("do not know about ML Model associated file LabelType %q", f.LabelType)
+		// if we don't know the label type, then just assign unspecified
+		pbf.LabelType = servicepb.LabelType_LABEL_TYPE_UNSPECIFIED
 	}
 	return pbf, nil
 }
