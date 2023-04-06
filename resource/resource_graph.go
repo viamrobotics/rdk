@@ -174,8 +174,8 @@ func (g *Graph) Names() []Name {
 	return names
 }
 
-// FindNodesByShortNameAndSubtype will look for resources matching both the subtype and the Name.
-func (g *Graph) FindNodesByShortNameAndSubtype(name Name) []Name {
+// FindNodesBySimpleNameAndSubtype will look for resources matching both the subtype and the Name.
+func (g *Graph) FindNodesBySimpleNameAndSubtype(name Name) []Name {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	var ret []Name
