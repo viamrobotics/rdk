@@ -35,7 +35,7 @@ type BasicOctree struct {
 type basicOctreeNode struct {
 	nodeType NodeType
 	children []*BasicOctree
-	point    PointAndData
+	point    *PointAndData
 	maxVal   int
 }
 

@@ -5,6 +5,8 @@ import (
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
+
+	"go.viam.com/rdk/spatialmath"
 )
 
 // emptyProb is assigned to nodes who have no value specified.
@@ -15,7 +17,7 @@ func newLeafNodeEmpty() basicOctreeNode {
 	octNode := basicOctreeNode{
 		children: nil,
 		nodeType: leafNodeEmpty,
-		point:    PointAndData{},
+		point:    nil,
 		maxVal:   emptyProb,
 	}
 	return octNode
@@ -26,7 +28,7 @@ func newInternalNode(tree []*BasicOctree) basicOctreeNode {
 	octNode := basicOctreeNode{
 		children: tree,
 		nodeType: internalNode,
-		point:    PointAndData{},
+		point:    nil,
 		maxVal:   emptyProb,
 	}
 	return octNode
@@ -37,7 +39,7 @@ func newLeafNodeFilled(p r3.Vector, d Data) basicOctreeNode {
 	octNode := basicOctreeNode{
 		children: nil,
 		nodeType: leafNodeFilled,
-		point:    PointAndData{P: p, D: d},
+		point:    &PointAndData{P: p, D: d},
 		maxVal:   getRawVal(d),
 	}
 	return octNode
@@ -200,4 +202,55 @@ func getCenterFromPcMetaData(meta MetaData) r3.Vector {
 // Helper function for calculating the max side length of a pointcloud based on its metadata.
 func getMaxSideLengthFromPcMetaData(meta MetaData) float64 {
 	return math.Max((meta.MaxX - meta.MinX), math.Max((meta.MaxY-meta.MinY), (meta.MaxZ-meta.MinZ)))
+}
+
+// GeometryOctreeCollision will return whether a given geometry is in collision with a given point.
+func GeometryOctreeCollision(geom spatialmath.Geometry, octree *BasicOctree, threshold int, buffer float64) (bool, error) {
+	if octree.MaxVal() < threshold {
+		return false, nil
+	}
+	ocbox, err := spatialmath.NewBox(
+		spatialmath.NewPoseFromPoint(octree.center),
+		r3.Vector{octree.sideLength, octree.sideLength, octree.sideLength},
+		"",
+	)
+	if err != nil {
+		return false, err
+	}
+
+	// Check whether our geom collides with the area represented by the octree. If false,
+	collide, err := geom.CollidesWith(ocbox)
+	if err != nil {
+		return false, err
+	}
+	if !collide {
+		return false, nil
+	}
+
+	if octree.node.point != nil {
+		ptGeom, err := spatialmath.NewSphere(spatialmath.NewPoseFromPoint(octree.node.point.P), buffer, "")
+		if err != nil {
+			return false, err
+		}
+		ptCollide, err := geom.CollidesWith(ptGeom)
+		if err != nil {
+			return false, err
+		}
+		if ptCollide {
+			return true, nil
+		}
+	}
+
+	if len(octree.node.children) > 0 {
+		for _, child := range octree.node.children {
+			collide, err = GeometryOctreeCollision(geom, child, threshold, buffer)
+			if err != nil {
+				return false, err
+			}
+			if collide {
+				return true, nil
+			}
+		}
+	}
+	return false, nil
 }

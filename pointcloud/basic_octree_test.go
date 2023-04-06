@@ -666,7 +666,7 @@ func TestCachedMaxProbability(t *testing.T) {
 		filledNode := basicOctreeNode{
 			children: nil,
 			nodeType: leafNodeFilled,
-			point:    PointAndData{P: r3.Vector{}, D: d},
+			point:    &PointAndData{P: r3.Vector{}, D: d},
 			maxVal:   emptyProb,
 		}
 		test.That(t, node, test.ShouldResemble, filledNode)
