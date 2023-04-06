@@ -12,7 +12,7 @@ if [[ "$(whoami)" == "root" ]]; then
 	exit 1
 fi
 
-if [[ ! "$(command -v apt-get)" ]]; then
+if [[ ! "$(hash apt-get)" ]]; then
   echo "Unable to find APT package handling utility (apt-get)"
   echo "Are you sure you're on a Debian-based Linux variant (e.g. Ubuntu)?"
   exit 1
@@ -41,7 +41,7 @@ install_kernel_headers() {
 }
 
 install_v4l2loopback(){
-  if [[ "$(command -v v4l2loopback-ctl)" ]];  then
+  if [[ "$(hash v4l2loopback-ctl)" ]];  then
     echo "v4l2loopback already installed"
     return
   fi
@@ -50,7 +50,7 @@ install_v4l2loopback(){
 }
 
 install_gstreamer(){
-  if [[ "$(command -v gst-launch-1.0)" ]]; then
+  if [[ "$(hash gst-launch-1.0)" ]]; then
     echo "gstreamer already installed"
     return
   fi
@@ -63,9 +63,9 @@ install_gstreamer(){
 
 allow_modprobe_as_superuser() {
   SUDOER_FILE=/etc/sudoers.d/v4l2loopback
-  if [[ -f $SUDOER_FILE ]]; then
-    echo "$SUDOER_FILE already exists"
-    exit
+  if [[ -f $SUDOER_FILE && "$(sudo grep -q "$USER.*NOPASSWD.*modprobe" /etc/sudoers.d/v4l2loopback)" ]]; then
+    echo "$SUDOER_FILE already allows $USER to use modprobe without password"
+    return
   fi
 
   echo "$SUDOER_FILE not found"
