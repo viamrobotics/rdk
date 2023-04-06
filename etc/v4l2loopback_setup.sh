@@ -2,12 +2,17 @@
 
 set -euo pipefail
 
-if [ "$(whoami)" == "root" ]; then
-	echo "Please do not run this script directly as root. Use your normal development user account."
+if [[ -z "$BASH_VERSION" ]] ; then
+    echo "Please run this script ($0) with bash, or execute it directly" >&2
+    exit 1
+fi
+
+if [[ "$(whoami)" == "root" ]]; then
+	echo "Please do not run this script directly as root. Use your normal development user account." >&2
 	exit 1
 fi
 
-if ! apt-get --version >/dev/null 2>&1; then
+if [[ ! "$(command -v apt-get)" ]]; then
   echo "Unable to find APT package handling utility (apt-get)"
   echo "Are you sure you're on a Debian-based Linux variant (e.g. Ubuntu)?"
   exit 1
@@ -26,7 +31,7 @@ install_kernel_headers() {
 	EOS
 	echo "done"
 
-	if [ -f /var/run/reboot-required ]; then
+	if [[ -f /var/run/reboot-required ]]; then
       echo "Reboot required!"
       echo "Run script after reboot"
       exit 1
@@ -38,7 +43,7 @@ install_kernel_headers() {
 }
 
 install_v4l2loopback(){
-  if command -v v4l2loopback-ctl > /dev/null 2>&1; then
+  if [[ "$(command -v v4l2loopback-ctl)" ]];  then
     echo "v4l2loopback already installed"
     return
   fi
@@ -49,7 +54,7 @@ install_v4l2loopback(){
 }
 
 install_gstreamer(){
-  if command -v gst-launch-1.0 --version > /dev/null 2>&1; then
+  if [[ "$(command -v gst-launch-1.0)" ]]; then
     echo "gstreamer already installed"
     return
   fi
@@ -64,7 +69,7 @@ install_gstreamer(){
 
 allow_modprobe_as_superuser() {
   SUDOER_FILE=/etc/sudoers.d/v4l2loopback
-  if [ -f $SUDOER_FILE ]; then
+  if [[ -f $SUDOER_FILE ]]; then
     echo "$SUDOER_FILE already exists"
     exit
   fi
