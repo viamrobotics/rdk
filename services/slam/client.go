@@ -25,6 +25,7 @@ type client struct {
 
 // NewClientFromConn constructs a new Client from the connection passed in.
 func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Service {
+	logger.Warnf("client.go NewClientFromConn called name: %#v, conn: %#v\n", name, conn)
 	grpcClient := pb.NewSLAMServiceClient(conn)
 	c := &client{
 		name:   name,
@@ -38,6 +39,7 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 // GetPosition creates a request, calls the slam service GetPosition, and parses the response into a Pose with a component reference string.
 func (c *client) GetPosition(ctx context.Context, name string) (spatialmath.Pose, string, error) {
 	ctx, span := trace.StartSpan(ctx, "slam::client::GetPosition")
+	c.logger.Warnf("client.go GetPosition called name: %#v\n", name)
 	defer span.End()
 
 	req := &pb.GetPositionRequest{
@@ -60,6 +62,7 @@ func (c *client) GetPosition(ctx context.Context, name string) (spatialmath.Pose
 func (c *client) GetPointCloudMap(ctx context.Context, name string) (func() ([]byte, error), error) {
 	ctx, span := trace.StartSpan(ctx, "slam::client::GetPointCloudMap")
 	defer span.End()
+	c.logger.Warnf("client.go GetPointCloudMap called name: %#v\n", name)
 
 	return grpchelper.GetPointCloudMapCallback(ctx, name, c.client)
 }
@@ -69,6 +72,7 @@ func (c *client) GetPointCloudMap(ctx context.Context, name string) (func() ([]b
 func (c *client) GetInternalState(ctx context.Context, name string) (func() ([]byte, error), error) {
 	ctx, span := trace.StartSpan(ctx, "slam::client::GetInternalState")
 	defer span.End()
+	c.logger.Warnf("client.go GetInternalState called name: %#v\n", name)
 
 	return grpchelper.GetInternalStateCallback(ctx, name, c.client)
 }
@@ -76,6 +80,7 @@ func (c *client) GetInternalState(ctx context.Context, name string) (func() ([]b
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	ctx, span := trace.StartSpan(ctx, "slam::client::DoCommand")
 	defer span.End()
+	c.logger.Warnf("client.go DoCommand called name: %#v\n", cmd)
 
 	return rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
 }

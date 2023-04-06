@@ -4,6 +4,7 @@ package slam
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"sync"
 
@@ -26,6 +27,7 @@ import (
 func init() {
 	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
 		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
+			fmt.Printf("slam.go RegisterRPCService called rpcServer: %#v, subtypeSvc: %#v\n", rpcServer, subtypeSvc)
 			return rpcServer.RegisterServiceServer(
 				ctx,
 				&pb.SLAMService_ServiceDesc,
@@ -35,6 +37,7 @@ func init() {
 		},
 		RPCServiceDesc: &pb.SLAMService_ServiceDesc,
 		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
+			logger.Warnf("slam.go RPCClient called name: %#v, conn: %#v\n", name, conn)
 			return NewClientFromConn(ctx, conn, name, logger)
 		},
 		Reconfigurable: WrapWithReconfigurable,
