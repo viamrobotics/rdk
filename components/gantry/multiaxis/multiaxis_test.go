@@ -301,31 +301,35 @@ func TestComplexMultiAxis(t *testing.T) {
 		test.That(t, pos, test.ShouldResemble, []float64{6, 5, 9, 8, 7})
 	})
 
-	t.Run("test that subaxes have moved through local gantry and ", func(t *testing.T) {
-		extra := map[string]interface{}{"move": true}
-		err = g.MoveToPosition(ctx, []float64{1, 2, 3, 4, 5}, extra)
-		test.That(t, err, test.ShouldBeNil)
-
-		pos, err := g.Position(ctx, nil)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, pos, test.ShouldNotResemble, []float64{6, 5, 9, 8, 7})
-
-		// This section tests out that each subaxes has moved, and moved the correct amount
-		// according to it's input lengths
-		currG, ok := g.(*multiAxis)
-		test.That(t, ok, test.ShouldBeTrue)
-
-		idx := 0
-		for _, subAx := range currG.subAxes {
-			lengths, err := subAx.Lengths(ctx, nil)
+	t.Run(
+		"test that multiaxis moves and each subaxes moves correctly",
+		func(t *testing.T) {
+			extra := map[string]interface{}{"move": true}
+			err = g.MoveToPosition(ctx, []float64{1, 2, 3, 4, 5}, extra)
 			test.That(t, err, test.ShouldBeNil)
 
-			subAxPos, err := subAx.Position(ctx, nil)
+			pos, err := g.Position(ctx, nil)
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, len(subAxPos), test.ShouldEqual, len(lengths))
+			test.That(t, pos, test.ShouldNotResemble, []float64{6, 5, 9, 8, 7})
 
-			test.That(t, subAxPos, test.ShouldResemble, pos[idx:idx+len(lengths)])
-			idx += len(lengths)
-		}
-	})
+			// This section tests out that each subaxes has moved, and moved the correct amount
+			// according to it's input lengths
+			currG, ok := g.(*multiAxis)
+			test.That(t, ok, test.ShouldBeTrue)
+
+			// This loop mimics the loop in MoveToposition to check that the correct
+			// positions are sent to each subaxis
+			idx := 0
+			for _, subAx := range currG.subAxes {
+				lengths, err := subAx.Lengths(ctx, nil)
+				test.That(t, err, test.ShouldBeNil)
+
+				subAxPos, err := subAx.Position(ctx, nil)
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, len(subAxPos), test.ShouldEqual, len(lengths))
+
+				test.That(t, subAxPos, test.ShouldResemble, pos[idx:idx+len(lengths)])
+				idx += len(lengths)
+			}
+		})
 }
