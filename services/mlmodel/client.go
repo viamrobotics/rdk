@@ -51,15 +51,11 @@ func (c *client) Metadata(ctx context.Context) (MLMetadata, error) {
 	if err != nil {
 		return MLMetadata{}, err
 	}
-	metadata, err := protoToMetadata(resp.Metadata)
-	if err != nil {
-		return MLMetadata{}, err
-	}
-	return metadata, nil
+	return protoToMetadata(resp.Metadata), nil
 }
 
 // protoToMetadata takes a pb.Metadata protobuf message and turns it into an MLMetadata struct.
-func protoToMetadata(pbmd *pb.Metadata) (MLMetadata, error) {
+func protoToMetadata(pbmd *pb.Metadata) MLMetadata {
 	metadata := MLMetadata{
 		ModelName:        pbmd.Name,
 		ModelType:        pbmd.Type,
@@ -67,27 +63,19 @@ func protoToMetadata(pbmd *pb.Metadata) (MLMetadata, error) {
 	}
 	inputData := make([]TensorInfo, 0, len(pbmd.InputInfo))
 	for _, idproto := range pbmd.InputInfo {
-		id, err := protoToTensorInfo(idproto)
-		if err != nil {
-			return MLMetadata{}, err
-		}
-		inputData = append(inputData, id)
+		inputData = append(inputData, protoToTensorInfo(idproto))
 	}
 	metadata.Inputs = inputData
 	outputData := make([]TensorInfo, 0, len(pbmd.OutputInfo))
 	for _, odproto := range pbmd.OutputInfo {
-		od, err := protoToTensorInfo(odproto)
-		if err != nil {
-			return MLMetadata{}, err
-		}
-		outputData = append(outputData, od)
+		outputData = append(outputData, protoToTensorInfo(odproto))
 	}
 	metadata.Outputs = outputData
-	return metadata, nil
+	return metadata
 }
 
 // protoToTensorInfo takes a pb.TensorInfo protobuf message and turns it into an TensorInfo struct.
-func protoToTensorInfo(pbti *pb.TensorInfo) (TensorInfo, error) {
+func protoToTensorInfo(pbti *pb.TensorInfo) TensorInfo {
 	ti := TensorInfo{
 		Name:        pbti.Name,
 		Description: pbti.Description,
@@ -97,18 +85,14 @@ func protoToTensorInfo(pbti *pb.TensorInfo) (TensorInfo, error) {
 	}
 	associatedFiles := make([]File, 0, len(pbti.AssociatedFiles))
 	for _, afproto := range pbti.AssociatedFiles {
-		af, err := protoToFile(afproto)
-		if err != nil {
-			return TensorInfo{}, err
-		}
-		associatedFiles = append(associatedFiles, af)
+		associatedFiles = append(associatedFiles, protoToFile(afproto))
 	}
 	ti.AssociatedFiles = associatedFiles
-	return ti, nil
+	return ti
 }
 
 // protoToFile takes a pb.File protobuf message and turns it into an File struct.
-func protoToFile(pbf *pb.File) (File, error) {
+func protoToFile(pbf *pb.File) File {
 	f := File{
 		Name:        pbf.Name,
 		Description: pbf.Description,
@@ -124,5 +108,5 @@ func protoToFile(pbf *pb.File) (File, error) {
 		// this should never happen as long as all possible enums are included in the switch
 		f.LabelType = LabelTypeUnspecified
 	}
-	return f, nil
+	return f
 }

@@ -104,11 +104,7 @@ func (tf TensorInfo) toProto() (*servicepb.TensorInfo, error) {
 	}
 	associatedFiles := make([]*servicepb.File, 0, len(tf.AssociatedFiles))
 	for _, af := range tf.AssociatedFiles {
-		afproto, err := af.toProto()
-		if err != nil {
-			return nil, err
-		}
-		associatedFiles = append(associatedFiles, afproto)
+		associatedFiles = append(associatedFiles, af.toProto())
 	}
 	pbtf.AssociatedFiles = associatedFiles
 	extra, err := vprotoutils.StructToStructPb(tf.Extra)
@@ -128,7 +124,7 @@ type File struct {
 }
 
 // toProto turns the File struct into a protobuf message.
-func (f File) toProto() (*servicepb.File, error) {
+func (f File) toProto() *servicepb.File {
 	pbf := &servicepb.File{
 		Name:        f.Name,
 		Description: f.Description,
@@ -144,7 +140,7 @@ func (f File) toProto() (*servicepb.File, error) {
 		// if we don't know the label type, then just assign unspecified
 		pbf.LabelType = servicepb.LabelType_LABEL_TYPE_UNSPECIFIED
 	}
-	return pbf, nil
+	return pbf
 }
 
 // LabelType describes how labels from the file are assigned to the tensors. TENSOR_VALUE means that

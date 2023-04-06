@@ -30,7 +30,6 @@ func setupInjectRobot() (*inject.Robot, *mockDetector) {
 type mockDetector struct {
 	mlmodel.Service
 	inferCount  int
-	name        string
 	reconfCount int
 }
 
