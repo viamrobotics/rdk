@@ -416,7 +416,17 @@ func loadLabels(filename string) ([]string, error) {
 	for scanner.Scan() {
 		labels = append(labels, scanner.Text())
 	}
+
+	if len(labels) == 1 {
+		labels = strings.Split(labels[0], " ")
+	}
+
+	if len(labels) == 1 {
+		labels = strings.Split(labels[0], ",")
+	}
+
 	return labels, nil
+
 }
 
 // getIndex just returns the index of an int in an array of ints
