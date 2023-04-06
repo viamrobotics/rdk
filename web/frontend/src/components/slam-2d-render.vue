@@ -9,25 +9,8 @@ import { PCDLoader } from 'three/examples/jsm/loaders/PCDLoader';
 import type { commonApi } from '@viamrobotics/sdk';
 
 /*
- * // Leaving additional color map commented for if we want to change to a different scheme.
- * generated with: https://waldyrious.net/viridis-palette-generator/
- * more info: https://cran.r-project.org/web/packages/viridis/vignettes/intro-to-viridis.html
- * // const colorMapViridis = [
- * //   [253, 231, 37],
- * //   [181, 222, 43],
- * //   [110, 206, 88],
- * //   [53, 183, 121],
- * //   [31, 158, 137],
- * //   [38, 130, 142],
- * //   [49, 104, 142],
- * //   [62, 73, 137],
- * //   [72, 40, 120],
- * //   [68,1,84]
- * // ]
- */
-
-/*
- * this color map is greyscale
+ * this color map is greyscale. The color map is being used map probability values of a PCD
+ * into different color buckets provided by the color map.
  * generated with: https://grayscale.design/app
  */
 const colorMapGrey = [
@@ -43,6 +26,25 @@ const colorMapGrey = [
   [0, 0, 0],
 ].map(([red, green, blue]) =>
   new THREE.Vector3(red, green, blue).multiplyScalar(1 / 255));
+
+/*
+ * // Leaving additional color map commented for if we want to change to a different scheme.
+ * generated with: https://waldyrious.net/viridis-palette-generator/
+ * more info: https://cran.r-project.org/web/packages/viridis/vignettes/intro-to-viridis.html
+ * // const colorMapViridis = [
+ * //   [253, 231, 37],
+ * //   [181, 222, 43],
+ * //   [110, 206, 88],
+ * //   [53, 183, 121],
+ * //   [31, 158, 137],
+ * //   [38, 130, 142],
+ * //   [49, 104, 142],
+ * //   [62, 73, 137],
+ * //   [72, 40, 120],
+ * //   [68,1,84]
+ * // ].map(([red, green, blue]) =>
+ * // new THREE.Vector3(red, green, blue).multiplyScalar(1 / 255));
+ */
 
 const props = defineProps<{
   name: string
