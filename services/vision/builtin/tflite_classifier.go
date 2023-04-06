@@ -4,7 +4,6 @@ package builtin
 
 import (
 	"context"
-	"fmt"
 	"image"
 	"runtime"
 	"strconv"
@@ -20,6 +19,8 @@ import (
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision/classification"
 )
+
+var LABEL_OUTPUT_MISMATCH = errors.New("Invalid Label File: Number of labels does not match number of model outputs. Labels must be separated by a newline, comma or space.")
 
 // TFLiteClassifierConfig specifies the fields necessary for creating a TFLite classifier.
 type TFLiteClassifierConfig struct {
@@ -86,6 +87,9 @@ func NewTFLiteClassifier(ctx context.Context, conf *vision.VisModelConfig,
 
 		classifications, err := unpackClassificationTensor(ctx, outTensor, model, labels)
 		if err != nil {
+			if err == LABEL_OUTPUT_MISMATCH {
+				logger.Fatal(err)
+			}
 			return nil, err
 		}
 		return classifications, nil
@@ -117,7 +121,7 @@ func unpackClassificationTensor(ctx context.Context, tensor []interface{},
 	out := make(classification.Classifications, 0, len(outConf))
 	if len(labels) > 0 {
 		if len(labels) != len(outConf) {
-			return nil, errors.New(fmt.Sprintf("Invalid Label File: Number of labels (%v) does not match number of model outputs (%v). Labels must be separated by a newline, comma or space.", len(labels), len(outConf)))
+			return nil, LABEL_OUTPUT_MISMATCH
 		}
 
 		for i, c := range outConf {
