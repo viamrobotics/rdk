@@ -7,8 +7,8 @@ if [[ -z "$BASH_VERSION" ]] ; then
     exit 1
 fi
 
-if [[ "$(whoami)" == "root" ]]; then
-	echo "Please do not run this script directly as root. Use your normal development user account." >&2
+if [[ "$(whoami)" != "root" ]]; then
+	echo "Please do run this script directly as root" >&2
 	exit 1
 fi
 
@@ -19,14 +19,14 @@ if [[ ! "$(hash apt-get)" ]]; then
 fi
 
 install_dependencies() {
-  sudo apt-get install --assume-yes kmod git make gcc libelf-dev
+  apt-get install --assume-yes kmod git make gcc libelf-dev
 }
 
 install_kernel_headers() {
   echo "updating kernel module..."
-	sudo apt-get --assume-yes update
-	sudo apt-get --assume-yes dist-upgrade
-	sudo apt-get --assume-yes upgrade
+	apt-get --assume-yes update
+	apt-get --assume-yes dist-upgrade
+	apt-get --assume-yes upgrade
 	echo "done"
 
 	if [[ -f /var/run/reboot-required ]]; then
@@ -36,7 +36,7 @@ install_kernel_headers() {
   fi
 
   echo "installing kernel headers..."
-  sudo apt-get --assume-yes install "linux-headers-$(uname -r)" || sudo apt-get --assume-yes install linux-headers
+  apt-get --assume-yes install "linux-headers-$(uname -r)" || apt-get --assume-yes install linux-headers
   echo "done"
 }
 
@@ -46,7 +46,7 @@ install_v4l2loopback(){
     return
   fi
 
-	sudo apt-get install --assume-yes v4l2loopback-dkms v4l2loopback-utils
+	apt-get install --assume-yes v4l2loopback-dkms v4l2loopback-utils
 }
 
 install_gstreamer(){
@@ -55,16 +55,16 @@ install_gstreamer(){
     return
   fi
 
-	sudo apt-get install --assume-yes libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstreamer-plugins-bad1.0-dev
-	sudo apt-get install --assume-yes gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad
-	sudo apt-get install --assume-yes gstreamer1.0-plugins-ugly gstreamer1.0-libav gstreamer1.0-tools gstreamer1.0-x
-	sudo apt-get install --assume-yes gstreamer1.0-alsa gstreamer1.0-gl gstreamer1.0-gtk3 gstreamer1.0-qt5 gstreamer1.0-pulseaudio
+	apt-get install --assume-yes libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstreamer-plugins-bad1.0-dev
+	apt-get install --assume-yes gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad
+	apt-get install --assume-yes gstreamer1.0-plugins-ugly gstreamer1.0-libav gstreamer1.0-tools gstreamer1.0-x
+	apt-get install --assume-yes gstreamer1.0-alsa gstreamer1.0-gl gstreamer1.0-gtk3 gstreamer1.0-qt5 gstreamer1.0-pulseaudio
 }
 
 allow_modprobe_as_superuser() {
   SUDOER_FILE=/etc/sudoers.d/v4l2loopback
-  if [[ -f $SUDOER_FILE && "$(sudo grep -q "$USER.*NOPASSWD.*modprobe" /etc/sudoers.d/v4l2loopback)" ]]; then
-    echo "$SUDOER_FILE already allows $USER to use modprobe without password"
+  if [[ -f $SUDOER_FILE && "$(grep -q "$SUDO_USER.*NOPASSWD.*modprobe" /etc/sudoers.d/v4l2loopback)" ]]; then
+    echo "$SUDOER_FILE already allows $SUDO_USER to use modprobe without password"
     return
   fi
 
@@ -78,7 +78,7 @@ allow_modprobe_as_superuser() {
     [yY][eE][sS]|[yY]|'')
       echo
       echo "Allowing the current user to run 'sudo modprobe' without a password...";
-      echo "$USER ALL = NOPASSWD: $(which modprobe)" | sudo EDITOR='tee -a' visudo -f $SUDOER_FILE
+      echo "$SUDO_USER ALL = NOPASSWD: $(which modprobe)" | EDITOR='tee -a' visudo -f $SUDOER_FILE
       echo "Done."
       echo
       ;;
