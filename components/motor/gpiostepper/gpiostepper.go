@@ -192,6 +192,9 @@ func (m *gpioStepper) startThread(ctx context.Context) {
 func (m *gpioStepper) doRun(ctx context.Context) {
 	for {
 		sleep, err := m.doCycle(ctx)
+		if sleep != 5*time.Millisecond {
+			m.logger.Debugf("sleep time retruned is %v", sleep)
+		}
 		if err != nil {
 			m.logger.Errorf("error cycling gpioStepper (%s) %w", m.motorName, err)
 		}
@@ -219,17 +222,22 @@ func (m *gpioStepper) doCycle(ctx context.Context) (time.Duration, error) {
 		return time.Second, fmt.Errorf("error stepping %w", err)
 	}
 
-	return m.stepperDelay, nil
+	return 2 * m.stepperDelay, nil
 }
 
 // have to be locked to call.
 func (m *gpioStepper) doStep(ctx context.Context, forward bool) error {
-	if err := multierr.Combine(
+	err := multierr.Combine(
 		m.enable(ctx, true),
 		m.dirPin.Set(ctx, forward, nil),
-		m.stepPin.Set(ctx, true, nil)); err != nil {
+		m.stepPin.Set(ctx, true, nil))
+
+	if err != nil {
 		return err
 	}
+
+	m.logger.Debugf("stpper delay in doStep %v", m.stepperDelay)
+	time.Sleep(m.stepperDelay)
 
 	if forward {
 		m.stepPosition++
@@ -240,6 +248,7 @@ func (m *gpioStepper) doStep(ctx context.Context, forward bool) error {
 	if err := m.stepPin.Set(ctx, false, nil); err != nil {
 		return err
 	}
+	time.Sleep(m.stepperDelay)
 
 	return nil
 }
@@ -280,7 +289,6 @@ func (m *gpioStepper) goForInternal(ctx context.Context, rpm, revolutions float6
 	}
 
 	var d int64 = 1
-
 	if math.Signbit(revolutions) != math.Signbit(rpm) {
 		d = -1
 	}
@@ -289,7 +297,7 @@ func (m *gpioStepper) goForInternal(ctx context.Context, rpm, revolutions float6
 	defer m.lock.Unlock()
 
 	// calculate delay between steps for the thread in the gorootuine that we started in component creation
-	m.stepperDelay = time.Duration(time.Minute) / time.Duration(math.Abs(rpm)*float64(m.stepsPerRotation))
+	m.stepperDelay = time.Duration(int64(float64(time.Minute) / (math.Abs(rpm) * float64(m.stepsPerRotation))))
 	if m.stepperDelay < minDelayNanos {
 		m.stepperDelay = minDelayNanos
 		m.logger.Debugf(
