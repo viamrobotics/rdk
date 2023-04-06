@@ -102,12 +102,7 @@ func newMultiAxis(
 }
 
 // MoveToPosition moves along an axis using inputs in millimeters.
-func (g *multiAxis) MoveToPosition(
-	ctx context.Context,
-	positions []float64,
-	worldState *referenceframe.WorldState,
-	extra map[string]interface{},
-) error {
+func (g *multiAxis) MoveToPosition(ctx context.Context, positions []float64, extra map[string]interface{}) error {
 	ctx, done := g.opMgr.New(ctx)
 	defer done()
 
@@ -122,7 +117,7 @@ func (g *multiAxis) MoveToPosition(
 			return err
 		}
 
-		err = subAx.MoveToPosition(ctx, positions[idx:idx+len(subAxNum)-1], worldState, extra)
+		err = subAx.MoveToPosition(ctx, positions[idx:idx+len(subAxNum)-1], extra)
 		if err != nil {
 			return err
 		}
@@ -146,7 +141,7 @@ func (g *multiAxis) GoToInputs(ctx context.Context, goal []referenceframe.Input)
 			return err
 		}
 
-		err = subAx.MoveToPosition(ctx, referenceframe.InputsToFloats(goal[idx:idx+len(subAxNum)-1]), &referenceframe.WorldState{}, nil)
+		err = subAx.MoveToPosition(ctx, referenceframe.InputsToFloats(goal[idx:idx+len(subAxNum)-1]), nil)
 		if err != nil {
 			return err
 		}
