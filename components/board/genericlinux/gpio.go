@@ -306,16 +306,7 @@ func gpioInitialize(cancelCtx context.Context, gpioMappings map[int]GPIOBoardMap
 			logger:     logger,
 		}
 		if mapping.HWPWMSupported {
-			hwPwm, err := newPwmDevice(mapping.PWMSysFsDir, mapping.PWMID, logger)
-			if err != nil {
-				// Close all interrupt pins before we return the error, so they're not in use next
-				// time we try to initialize the board.
-				for _, interrupt := range interrupts {
-					err = multierr.Combine(err, interrupt.Close())
-				}
-				return nil, nil, err
-			}
-			pin.hwPwm = hwPwm
+			pin.hwPwm = newPwmDevice(mapping.PWMSysFsDir, mapping.PWMID, logger)
 		}
 		pins[fmt.Sprintf("%d", pinNumber)] = pin
 	}
