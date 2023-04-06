@@ -725,7 +725,7 @@ func (manager *resourceManager) wrapResource(name resource.Name, config interfac
 	// the first thing we need to do is seek if the resource name already exists as an unknownType, if so
 	// we need to replace it
 	if old, ok := manager.resources.FindNodeByName(name.Name); ok && old.ResourceType == unknownTypeName {
-		manager.logger.Errorw("renaming resource", "old", old, "new", name)
+		manager.logger.Debugw("renaming resource", "old", old, "new", name)
 		if err := manager.resources.RenameNode(*old, name); err != nil {
 			manager.logger.Errorw("error renaming a resource", "error", err)
 		}
@@ -869,7 +869,7 @@ func (manager *resourceManager) ResourceByName(name resource.Name) (interface{},
 	}
 	// if we haven't found a resource of this name then we are going to look into remote resources to find it.
 	if !ok && !name.ContainsRemoteNames() {
-		keys := manager.resources.FindNodesByShortNameAndSubtype(name)
+		keys := manager.resources.FindNodesBySimpleNameAndSubtype(name)
 		if len(keys) > 1 {
 			return nil, rutils.NewRemoteResourceClashError(name.Name)
 		}
