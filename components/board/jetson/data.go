@@ -362,10 +362,10 @@ var boardInfoMappings = map[string]genericlinux.BoardInformation{
 		},
 	},
 	jetsonOrin: {
-		// For pins whose Broadcom SOC channel is -1 (pins 8, 10, 27, and 28), we added these
-		// pin definitions ourselves because they're not present in
+		// There are 4 pins whose Broadcom SOC channel is -1 (pins 8, 10, 27, and 28). We added
+		// these pin definitions ourselves because they're not present in
 		// https://github.com/NVIDIA/jetson-gpio/blob/master/lib/python/Jetson/GPIO/gpio_pin_data.py
-		// We were unable to find the broadcom channel numbers for these pins, but (as of March
+		// We were unable to find the broadcom channel numbers for these pins, but (as of April
 		// 2023) Viam doesn't use those values for anything anyway.
 		[]genericlinux.PinDefinition{
 			{map[int]int{164: 106}, map[int]string{164: "PQ.06"}, "2200000.gpio", 7, 4, "MCLK05", "GP66", "", -1},
