@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
+	"github.com/nfnt/resize"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
@@ -258,22 +259,19 @@ func TestMoreClassifierModels(t *testing.T) {
 func TestInvalidLabels(t *testing.T) {
 	ctx := context.Background()
 
-	// Test that a classifier would give an expected output on the redpanda image
 	pic, err := rimage.NewImageFromFile(artifact.MustPath("vision/tflite/redpanda.jpeg"))
 	test.That(t, err, test.ShouldBeNil)
 
 	modelLoc := artifact.MustPath("vision/tflite/mobilenetv2_class.tflite")
-	cfg := vision.VisModelConfig{
-		Name: "testclassifier", Type: "tflite_classifier",
-		Parameters: config.AttributeMap{
-			"model_path":  modelLoc,
-			"label_path":  artifact.MustPath("vision/classification/object_labels.txt"), // mismatched labels and model
-			"num_threads": 2,
-		},
-	}
-	got, _, err := NewTFLiteClassifier(ctx, &cfg, golog.NewTestLogger(t))
-	test.That(t, err, test.ShouldBeNil)
-	classifications, err := got(ctx, pic)
-	test.That(t, err, test.ShouldNotBeNil)
+	labelPath := artifact.MustPath("vision/classification/object_labels.txt")
+	numThreads := 2
+
+	labels, err := loadLabels(labelPath)
+	model, err := addTFLiteModel(ctx, modelLoc, &numThreads)
+	resizedImg := resize.Resize(100, 100, pic, resize.Bilinear)
+	outTensor, err := tfliteInfer(ctx, model, resizedImg)
+
+	classifications, err := unpackClassificationTensor(ctx, outTensor, model, labels)
+	test.That(t, err, test.ShouldResemble, LABEL_OUTPUT_MISMATCH)
 	test.That(t, classifications, test.ShouldBeNil)
 }
