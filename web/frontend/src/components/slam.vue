@@ -31,6 +31,7 @@ let show2d = $ref(false);
 let show3d = $ref(false);
 let refresh2DCancelled = true;
 let refresh3DCancelled = true;
+let updatedDest = $ref(false);
 
 const loaded2d = $computed(() => (pointcloud !== undefined && pose !== undefined));
 
@@ -100,7 +101,8 @@ const fetchSLAMPose = (name: string): Promise<commonApi.Pose> => {
   });
 };
 
-let threeJPos = new THREE.Vector3( );
+let threeJPos = $ref(new THREE.Vector3( ));
+// let threeJPos = new THREE.Vector3( );
 let moveClick = $ref(true);
 
 const executeMove = async () => {
@@ -164,11 +166,6 @@ const executeMove = async () => {
     });
   })
 }
-
-let isOpen = $ref(false)
-
-
-
 
 
 const refresh2d = async (name: string) => {
@@ -317,6 +314,16 @@ const handle2dRenderClick = (event: THREE.Vector3) => {
   threeJPos = event
 }
 
+const handleUpdateX = (event: CustomEvent<{ value: string }>) => {
+  threeJPos.x = Number.parseFloat(event.detail.value)
+  updatedDest = true
+}
+
+const handleUpdateY = (event: CustomEvent<{ value: string }>) => {
+  threeJPos.z = Number.parseFloat(event.detail.value)
+  updatedDest = true
+}
+
 const baseCopyPosition = () => {
   const position: JSON = <JSON><unknown>{
     "x": x,
@@ -353,7 +360,7 @@ const executeDelete = () => {
         variant="danger"
         label="STOP"
         :disabled="moveClick ? 'true' : 'false'"
-      />
+    />
     <div class="flex flex-wrap sm:flex-nowrap gap-4 border border-t-0 border-black">
         <div class="flex flex-col gap-4 p-4 min-w-fit">
           <div class="float-left pb-4">
@@ -409,7 +416,7 @@ const executeDelete = () => {
               </div>
               <div class="px-2 pt-11">
                 <v-button
-                  label="Refresh"  
+                  label="Refresh"
                   icon="refresh"
                   @click="refresh2dMap()"
                 />
@@ -426,12 +433,24 @@ const executeDelete = () => {
               />
             </div>
             <div class="flex flex-row pb-2">
-              <div class="flex flex-col pr-20">
-                <p class="text-xs"> x </p>
-              </div>
-              <div class="flex flex-col">
-                <p class="text-xs"> y </p>
-              </div>
+              
+              <v-input
+                type='number'
+                label='x'
+                incrementor='slider'
+                :value="threeJPos.x"
+                step='0.1'
+                @input="handleUpdateX($event)"
+              />
+              <v-input
+                class="pl-2"
+                type='number'
+                label='y'
+                incrementor='slider'
+                :value="threeJPos.z"
+                step='0.1'
+                @input="handleUpdateY($event)"
+              />
 
             </div>
             <v-button  
@@ -485,6 +504,8 @@ const executeDelete = () => {
               :name="name"
               :resources="resources"
               :client="client"
+              :dest-exists='updatedDest'
+              :dest-vector='threeJPos'
               @click="handle2dRenderClick"
            />
         </div>
