@@ -135,12 +135,12 @@ func TestGoToInputs(t *testing.T) {
 	err := fakemultiaxis.GoToInputs(ctx, inputs)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	fakemultiaxis = &multiAxis{subAxes: threeAxes}
+	fakemultiaxis = &multiAxis{subAxes: threeAxes, lengthsMm: []float64{1, 2, 3}}
 	inputs = []referenceframe.Input{{Value: 1}, {Value: 2}, {Value: 3}}
 	err = fakemultiaxis.GoToInputs(ctx, inputs)
 	test.That(t, err, test.ShouldBeNil)
 
-	fakemultiaxis = &multiAxis{subAxes: twoAxes}
+	fakemultiaxis = &multiAxis{subAxes: twoAxes, lengthsMm: []float64{1, 2}}
 	inputs = []referenceframe.Input{{Value: 1}, {Value: 2}}
 	err = fakemultiaxis.GoToInputs(ctx, inputs)
 	test.That(t, err, test.ShouldBeNil)
