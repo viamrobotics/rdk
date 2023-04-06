@@ -85,7 +85,6 @@ func NewTFLiteClassifier(ctx context.Context, conf *vision.VisModelConfig,
 		}
 		classifications, err := unpackClassificationTensor(ctx, outTensor, model, labels)
 		if err != nil {
-			logger.Error(err)
 			return nil, err
 		}
 		return classifications, nil
@@ -114,12 +113,12 @@ func unpackClassificationTensor(ctx context.Context, tensor []interface{},
 		return nil, errors.New("output type not valid. try uint8 or float32")
 	}
 
-	if len(labels) != len(outConf) {
-		return nil, errors.New(fmt.Sprintf("Invalid Label File: Number of labels (%v) does not match number of model outputs (%v). Labels must be separated by a newline, comma or space.", len(labels), len(outConf)))
-	}
-
 	out := make(classification.Classifications, 0, len(outConf))
 	if len(labels) > 0 {
+		if len(labels) != len(outConf) {
+			return nil, errors.New(fmt.Sprintf("Invalid Label File: Number of labels (%v) does not match number of model outputs (%v). Labels must be separated by a newline, comma or space.", len(labels), len(outConf)))
+		}
+
 		for i, c := range outConf {
 			out = append(out, classification.NewClassification(c, labels[i]))
 		}

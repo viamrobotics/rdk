@@ -254,3 +254,26 @@ func TestMoreClassifierModels(t *testing.T) {
 	test.That(t, bestClass[0].Label(), test.ShouldResemble, "292")
 	test.That(t, bestClass[0].Score(), test.ShouldBeGreaterThan, 0.93)
 }
+
+func TestInvalidLabels(t *testing.T) {
+	ctx := context.Background()
+
+	// Test that a classifier would give an expected output on the redpanda image
+	pic, err := rimage.NewImageFromFile(artifact.MustPath("vision/tflite/redpanda.jpeg"))
+	test.That(t, err, test.ShouldBeNil)
+
+	modelLoc := artifact.MustPath("vision/tflite/mobilenetv2_class.tflite")
+	cfg := vision.VisModelConfig{
+		Name: "testclassifier", Type: "tflite_classifier",
+		Parameters: config.AttributeMap{
+			"model_path":  modelLoc,
+			"label_path":  artifact.MustPath("vision/classification/object_labels.txt"), // mismatched labels and model
+			"num_threads": 2,
+		},
+	}
+	got, _, err := NewTFLiteClassifier(ctx, &cfg, golog.NewTestLogger(t))
+	test.That(t, err, test.ShouldBeNil)
+	classifications, err := got(ctx, pic)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, classifications, test.ShouldBeNil)
+}
