@@ -29,7 +29,7 @@ func init() {
 	genericlinux.RegisterBoard(modelName, gpioMappings, false)
 }
 
-// isJetsonOrinAGX returns true if the device is a Jetson Orin AGX Developer Kit.
+// IsJetsonOrinAGX returns true if the device is a Jetson Orin AGX Developer Kit.
 func IsJetsonOrinAGX() bool {
 	const devicePath = "/sys/firmware/devicetree/base/model"
 	if runtime.GOOS == "linux" && runtime.GOARCH == "arm64" {
@@ -47,8 +47,21 @@ func IsJetsonOrinAGX() bool {
 	}
 }
 
-// IsECamCUOAGXConnected returns true if the e-CAM20_CUOAGX duaghter-baoard is connected.
-func IsCAM20CUOAGXConnected() bool {
+// PrintECamCUOAGXError returns a string with the error message for the e-CAM20_CUOAGX.
+func PrintCAM20CUOAGXError() string {
+	if isAR0234DriverInstalled() {
+		if isCAM20CUOAGXConnected() {
+			return "e-CAM20_CUOAGX daughter board is connected and the AR0234 driver is installed but the video capture interface requested is not avialable. Please ensure camera is connected, driver is working correctly, and the video interface is available"
+		} else {
+			return "e-CAM20_CUOAGX daughter board is not connected or not powerd on. Please check daughterboard conenction to the Orin AGX over the J509 connector."
+		}
+	} else {
+		return "The E-Con Systems AR0234 driver is not installed. Please follow instructions for driver installation and verify with 'dmesg | grep ar0234'."
+	}
+}
+
+// isECamCUOAGXConnected returns true if the e-CAM20_CUOAGX duaghter-baoard is connected.
+func isCAM20CUOAGXConnected() bool {
 	const i2cPath = "/dev/i2c-30"
 	if _, err := os.Stat(i2cPath); os.IsNotExist(err) {
 		return false
@@ -57,25 +70,12 @@ func IsCAM20CUOAGXConnected() bool {
 	}
 }
 
-// IsAR0234DriverInstalled returns true if the ar0234.ko driver is installed.
-func IsAR0234DriverInstalled() bool {
+// isAR0234DriverInstalled returns true if the ar0234.ko driver is installed.
+func isAR0234DriverInstalled() bool {
 	const driverPath = "/lib/modules/5.10.104/extra/ar0234.ko"
 	if _, err := os.Stat(driverPath); os.IsNotExist(err) {
 		return false
 	} else {
 		return true
-	}
-}
-
-// PrintECamCUOAGXError returns a string with the error message for the e-CAM20_CUOAGX.
-func PrintCAM20CUOAGXError() string {
-	if IsAR0234DriverInstalled() {
-		if IsCAM20CUOAGXConnected() {
-			return "e-CAM20_CUOAGX daughter board is connected and the AR0234 driver is installed but the video capture interface requested is not avialable. Please ensure camera is connected, driver is working correctly, and the video interface is available"
-		} else {
-			return "e-CAM20_CUOAGX daughter board is not connected or not powerd on. Please check daughterboard conenction to the Orin AGX over the J509 connector."
-		}
-	} else {
-		return "The E-Con Systems AR0234 driver is not installed. Please follow instructions for driver installation and verify with 'dmesg | grep ar0234'."
 	}
 }
