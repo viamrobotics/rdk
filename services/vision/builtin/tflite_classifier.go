@@ -87,9 +87,6 @@ func NewTFLiteClassifier(ctx context.Context, conf *vision.VisModelConfig,
 
 		classifications, err := unpackClassificationTensor(ctx, outTensor, model, labels)
 		if err != nil {
-			if err == LABEL_OUTPUT_MISMATCH {
-				logger.Fatal(err)
-			}
 			return nil, err
 		}
 		return classifications, nil
