@@ -47,20 +47,20 @@ func IsJetsonOrinAGX() bool {
 	}
 }
 
-// PrintECamCUOAGXError returns a string with the error message for the e-CAM20_CUOAGX.
+// PrintECamCUOAGXError returns a string with the error message for the e-CAM20_CUOAGX camera setup.
 func PrintCAM20CUOAGXError() string {
 	if isAR0234DriverInstalled() {
 		if isCAM20CUOAGXConnected() {
-			return "e-CAM20_CUOAGX daughter board is connected and the AR0234 driver is installed but the video capture interface requested is not avialable. Please ensure camera is connected, driver is working correctly, and the video interface is available"
+			return "e-CAM20_CUOAGX daughter-board is connected and the AR0234 driver is installed, but the video capture interface requested is not avialable. Please ensure camera is connected, driver is working correctly, and the video interface is available."
 		} else {
-			return "e-CAM20_CUOAGX daughter board is not connected or not powerd on. Please check daughterboard conenction to the Orin AGX over the J509 connector."
+			return "e-CAM20_CUOAGX daughter-board is not connected or not powerd on. Please check daughter-board conenction to the Orin AGX over the J509 connector."
 		}
 	} else {
-		return "The E-Con Systems AR0234 driver is not installed. Please follow instructions for driver installation and verify with 'dmesg | grep ar0234'."
+		return "The E-Con Systems AR0234 driver is not installed. Please follow instructions for driver installation and verify with 'dmesg | grep ar0234' command."
 	}
 }
 
-// isECamCUOAGXConnected returns true if the e-CAM20_CUOAGX duaghter-baoard is connected.
+// isECamCUOAGXConnected returns true if the e-CAM20_CUOAGX daughter-board is connected.
 func isCAM20CUOAGXConnected() bool {
 	const i2cPath = "/dev/i2c-30"
 	if _, err := os.Stat(i2cPath); os.IsNotExist(err) {
@@ -70,7 +70,7 @@ func isCAM20CUOAGXConnected() bool {
 	}
 }
 
-// isAR0234DriverInstalled returns true if the ar0234.ko driver is installed.
+// isAR0234DriverInstalled returns true if the AR0234 module is installed.
 func isAR0234DriverInstalled() bool {
 	const driverPath = "/lib/modules/5.10.104/extra/ar0234.ko"
 	if _, err := os.Stat(driverPath); os.IsNotExist(err) {
