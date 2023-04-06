@@ -270,7 +270,8 @@ func getPwmChipDefs(pinDefs []PinDefinition) (map[string]pwmChipData, error) {
 }
 
 func getBoardMapping(pinDefs []PinDefinition, gpioChipsInfo map[string]gpioChipData,
-	pwmChipsInfo map[string]pwmChipData) (map[int]GPIOBoardMapping, error) {
+	pwmChipsInfo map[string]pwmChipData,
+) (map[int]GPIOBoardMapping, error) {
 	data := make(map[int]GPIOBoardMapping, len(pinDefs))
 
 	// For "use" on pins that don't have hardware PWMs
