@@ -159,10 +159,10 @@ const (
 	// LabelTypeUnspecified means the label type is not known.
 	LabelTypeUnspecified = LabelType("UNSPECIFIED")
 	// LabelTypeTensorValue means the labels are assigned by the actual value in the tensor
-	// e.g. for 4 results and 3 categories e.g. [0, 1, 2, 1].
+	// e.g. for 4 results and 3 categories : [0, 1, 2, 1].
 	LabelTypeTensorValue = LabelType("TENSOR_VALUE")
 	// LabelTypeTensorAxis means labels are assigned by the position within the tensor axis
-	// for 4 results and 3 categories e.g. [[.8, .1, .1], [.2, .7, .1], [.1, .1, .8],[.05, .9, .05]].
+	// e.g. for 4 results and 3 categories : [[.8, .1, .1], [.2, .7, .1], [.1, .1, .8],[.05, .9, .05]].
 	LabelTypeTensorAxis = LabelType("TENSOR_AXIS")
 )
 
