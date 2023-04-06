@@ -176,7 +176,8 @@ do_brew(){
 	brew "protobuf@3"
 
 	# unpinned
-	brew "nlopt"
+	brew "canon"
+	brew "nlopt-static"
 	brew "x264"
 	brew "opus"
 	brew "protoc-gen-grpc-web"
@@ -206,7 +207,7 @@ if [ "$(uname)" == "Linux" ]; then
 	elif [ "$(uname -m)" == "x86_64" ]; then
 		do_linux
 	else
-		echo -e "\033[41m""Native dev environment is only supported on Debian/Bullseye (x86_64 and aarch64), but brew-based support is avaialble for generic Linux/x86_64 and Darwin (MacOS).""\033[0m"
+		echo -e "\033[41m""Native dev environment is only supported on Debian/Bullseye (x86_64 and aarch64), but brew-based support is available for generic Linux/x86_64 and Darwin (MacOS).""\033[0m"
 		exit 1
 	fi
 elif [ "$(uname)" == "Darwin" ]; then
