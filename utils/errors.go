@@ -20,7 +20,7 @@ func NewResourceNotAvailableError(name resource.Name, err error) error {
 
 // NewRemoteResourceClashError is used when you are more than one resource with the same name exist.
 func NewRemoteResourceClashError(name string) error {
-	return errors.Errorf("more that one remote resources with name %q exists", name)
+	return errors.Errorf("more than one remote resources with name %q exists", name)
 }
 
 // DependencyNotFoundError is used when a resource is not found in a dependencies.
