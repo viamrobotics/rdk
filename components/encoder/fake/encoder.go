@@ -3,10 +3,12 @@ package fake
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"time"
 
 	"github.com/edaniels/golog"
+	pb "go.viam.com/api/component/encoder/v1"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/encoder"
@@ -66,7 +68,11 @@ type Encoder struct {
 }
 
 // GetPosition returns the current position in terms of ticks.
-func (e *Encoder) GetPosition(ctx context.Context, extra map[string]interface{}) (float64, error) {
+func (e *Encoder) GetPosition(ctx context.Context, positionType *pb.PositionType, extra map[string]interface{}) (float64, error) {
+	if positionType != nil && *positionType == pb.PositionType_POSITION_TYPE_ANGLE_DEGREES {
+		err := errors.New("Encoder does not support PositionType Angle Degrees")
+		return 0, err
+	}
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	return float64(e.position), nil
@@ -102,14 +108,19 @@ func (e *Encoder) Start(cancelCtx context.Context) {
 
 // ResetPosition sets the current position of the motor (adjusted by a given offset)
 // to be its new zero position.
-func (e *Encoder) ResetPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
-	if err := encoder.ValidateIntegerOffset(offset); err != nil {
-		return err
-	}
+func (e *Encoder) ResetPosition(ctx context.Context, extra map[string]interface{}) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	e.position = int64(offset)
+	e.position = int64(0)
 	return nil
+}
+
+// GetProperties returns a list of all the position types that are supported by a given encoder.
+func (e *Encoder) GetProperties(ctx context.Context, extra map[string]interface{}) (map[encoder.Feature]bool, error) {
+	return map[encoder.Feature]bool{
+		encoder.TicksCountSupported:   true,
+		encoder.AngleDegreesSupported: true,
+	}, nil
 }
 
 // SetSpeed sets the speed of the fake motor the encoder is measuring.

@@ -8,6 +8,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	pb "go.viam.com/api/component/encoder/v1"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
@@ -233,21 +234,30 @@ func (e *Encoder) Start(ctx context.Context) {
 }
 
 // GetPosition returns number of ticks since last zeroing.
-func (e *Encoder) GetPosition(ctx context.Context, extra map[string]interface{}) (float64, error) {
+func (e *Encoder) GetPosition(ctx context.Context, positionType *pb.PositionType, extra map[string]interface{}) (float64, error) {
+	if positionType != nil && *positionType == pb.PositionType_POSITION_TYPE_ANGLE_DEGREES {
+		err := errors.New("Encoder does not support PositionType Angle Degrees")
+		return 0, err
+	}
 	res := atomic.LoadInt64(&e.position)
 	return float64(res), nil
 }
 
 // ResetPosition sets the current position of the motor (adjusted by a given offset)
 // to be its new zero position..
-func (e *Encoder) ResetPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
-	if err := encoder.ValidateIntegerOffset(offset); err != nil {
-		return err
-	}
-	offsetInt := int64(offset)
+func (e *Encoder) ResetPosition(ctx context.Context, extra map[string]interface{}) error {
+	offsetInt := int64(0)
 	atomic.StoreInt64(&e.position, offsetInt)
 	atomic.StoreInt64(&e.pRaw, (offsetInt<<1)|atomic.LoadInt64(&e.pRaw)&0x1)
 	return nil
+}
+
+// GetProperties returns a list of all the position types that are supported by a given encoder.
+func (e *Encoder) GetProperties(ctx context.Context, extra map[string]interface{}) (map[encoder.Feature]bool, error) {
+	return map[encoder.Feature]bool{
+		encoder.TicksCountSupported:   true,
+		encoder.AngleDegreesSupported: false,
+	}, nil
 }
 
 // RawPosition returns the raw position of the encoder.

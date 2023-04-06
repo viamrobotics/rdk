@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
-	"github.com/pkg/errors"
+	pb "go.viam.com/api/component/encoder/v1"
 	viamutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/generic"
@@ -40,11 +40,13 @@ var Subtype = resource.NewSubtype(
 // A Encoder turns a position into a signal.
 type Encoder interface {
 	// GetPosition returns number of ticks since last zeroing
-	GetPosition(ctx context.Context, extra map[string]interface{}) (float64, error)
+	GetPosition(ctx context.Context, positionType *pb.PositionType, extra map[string]interface{}) (float64, error)
 
-	// ResetPosition sets the current position of the motor (adjusted by a given offset)
-	// to be its new zero position.
-	ResetPosition(ctx context.Context, offset float64, extra map[string]interface{}) error
+	// ResetPosition sets the current position of the motor to be its new zero position.
+	ResetPosition(ctx context.Context, extra map[string]interface{}) error
+
+	// GetProperties returns a list of all the position types that are supported by a given encoder
+	GetProperties(ctx context.Context, extra map[string]interface{}) (map[Feature]bool, error)
 
 	generic.Generic
 }
@@ -104,16 +106,26 @@ func (r *reconfigurableEncoder) DoCommand(ctx context.Context, cmd map[string]in
 	return r.actual.DoCommand(ctx, cmd)
 }
 
-func (r *reconfigurableEncoder) GetPosition(ctx context.Context, extra map[string]interface{}) (float64, error) {
+func (r *reconfigurableEncoder) GetPosition(
+	ctx context.Context,
+	positionType *pb.PositionType,
+	extra map[string]interface{},
+) (float64, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.GetPosition(ctx, extra)
+	return r.actual.GetPosition(ctx, positionType, extra)
 }
 
-func (r *reconfigurableEncoder) ResetPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
+func (r *reconfigurableEncoder) ResetPosition(ctx context.Context, extra map[string]interface{}) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.ResetPosition(ctx, offset, extra)
+	return r.actual.ResetPosition(ctx, extra)
+}
+
+func (r *reconfigurableEncoder) GetProperties(ctx context.Context, extra map[string]interface{}) (map[Feature]bool, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.GetProperties(ctx, extra)
 }
 
 func (r *reconfigurableEncoder) Close(ctx context.Context) error {
@@ -151,17 +163,4 @@ func WrapWithReconfigurable(r interface{}, name resource.Name) (resource.Reconfi
 		return reconfigurable, nil
 	}
 	return &reconfigurableEncoder{name: name, actual: m}, nil
-}
-
-// ValidateIntegerOffset returns an error if a non-integral value for offset
-// is passed to Reset for an incremental encoder (these encoders count based on
-// square-wave pulses and so cannot be supplied an offset that is not an integer).
-func ValidateIntegerOffset(offset float64) error {
-	if offset != float64(int64(offset)) {
-		return errors.Errorf(
-			"incremental encoders can only reset with integer value offsets, value passed was %f",
-			offset,
-		)
-	}
-	return nil
 }
