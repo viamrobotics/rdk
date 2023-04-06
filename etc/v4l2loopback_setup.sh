@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -euo pipefail
+
 if [ "$(whoami)" == "root" ]; then
 	echo "Please do not run this script directly as root. Use your normal development user account."
 	exit 1
