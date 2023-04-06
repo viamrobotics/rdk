@@ -432,9 +432,9 @@ func TestOOBArm(t *testing.T) {
 		test.That(t, pose, test.ShouldNotBeNil)
 	})
 
-	t.Run("MoveToPosition fails when OOB", func(t *testing.T) {
+	t.Run("Move fails when OOB", func(t *testing.T) {
 		pose = spatialmath.NewPoseFromPoint(r3.Vector{200, 200, 200})
-		err := arm.Move(context.Background(), &inject.Robot{}, injectedArm, pose, &referenceframe.WorldState{})
+		err := arm.Move(context.Background(), &inject.Robot{}, injectedArm, pose)
 		u := "cartesian movements are not allowed when arm joints are out of bounds"
 		v := "joint 0 input out of bounds, input 12.56637 needs to be within range [6.28319 -6.28319]"
 		s := strings.Join([]string{u, v}, ": ")
@@ -479,7 +479,7 @@ func TestOOBArm(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		testLinearMove := r3.Vector{homePose.Point().X + 20, homePose.Point().Y, homePose.Point().Z}
 		testPose := spatialmath.NewPoseFromPoint(testLinearMove)
-		err = injectedArm.MoveToPosition(context.Background(), testPose, &referenceframe.WorldState{}, nil)
+		err = injectedArm.MoveToPosition(context.Background(), testPose, nil)
 		test.That(t, err, test.ShouldBeNil)
 	})
 

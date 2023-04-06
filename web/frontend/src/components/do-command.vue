@@ -85,7 +85,7 @@ const namesToPrettySelect = (resourcesToPretty: commonApi.ResourceName.AsObject[
         class="mb-4"
         @input="selectedComponent = $event.detail.value"
       />
-      <div class="flex flex-wrap h-full w-full flex-row gap-2">
+      <div class="flex h-full w-full flex-row flex-wrap gap-2">
         <div class="h-full w-full">
           <p class="text-large">
             Input
