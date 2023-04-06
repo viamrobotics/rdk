@@ -116,12 +116,12 @@ func TestMoveToPosition(t *testing.T) {
 	err := fakemultiaxis.MoveToPosition(ctx, positions, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	fakemultiaxis = &multiAxis{subAxes: threeAxes}
+	fakemultiaxis = &multiAxis{subAxes: threeAxes, lengthsMm: []float64{1, 2, 3}}
 	positions = []float64{1, 2, 3}
 	err = fakemultiaxis.MoveToPosition(ctx, positions, nil)
 	test.That(t, err, test.ShouldBeNil)
 
-	fakemultiaxis = &multiAxis{subAxes: twoAxes}
+	fakemultiaxis = &multiAxis{subAxes: twoAxes, lengthsMm: []float64{1, 2}}
 	positions = []float64{1, 2}
 	err = fakemultiaxis.MoveToPosition(ctx, positions, nil)
 	test.That(t, err, test.ShouldBeNil)
