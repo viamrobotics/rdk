@@ -59,6 +59,7 @@ func (c *client) Metadata(ctx context.Context) (MLMetadata, error) {
 	return metadata, nil
 }
 
+// ProtoToMetadata takes a pb.Metadata protobuf message and turns it into an MLMetadata struct.
 func ProtoToMetadata(pbmd *pb.Metadata) (MLMetadata, error) {
 	metadata := MLMetadata{
 		ModelName:        pbmd.Name,
@@ -86,6 +87,7 @@ func ProtoToMetadata(pbmd *pb.Metadata) (MLMetadata, error) {
 	return metadata, nil
 }
 
+// ProtoToTensorInfo takes a pb.TensorInfo protobuf message and turns it into an TensorInfo struct.
 func ProtoToTensorInfo(pbti *pb.TensorInfo) (TensorInfo, error) {
 	ti := TensorInfo{
 		Name:        pbti.Name,
@@ -106,6 +108,7 @@ func ProtoToTensorInfo(pbti *pb.TensorInfo) (TensorInfo, error) {
 	return ti, nil
 }
 
+// ProtoToFile takes a pb.File protobuf message and turns it into an File struct.
 func ProtoToFile(pbf *pb.File) (File, error) {
 	f := File{
 		Name:        pbf.Name,

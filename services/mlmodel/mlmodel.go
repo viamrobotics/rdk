@@ -39,11 +39,16 @@ func init() {
 	})
 }
 
+// Service defines the ML Model interface, which takes a map of inputs, runs it through
+// an inference engine, and creates a map of outputs. Metadata is necessary in order to build
+// the struct that will decode that map[string]interface{} correctly.
 type Service interface {
 	Infer(ctx context.Context, input map[string]interface{}) (map[string]interface{}, error)
 	Metadata(ctx context.Context) (MLMetadata, error)
 }
 
+// MLMetadata contains the metadata of the model file, such as the name of the model, what
+// kind of model it is, and the expected tensor/array shape and types of the inputs and outputs of the model.
 type MLMetadata struct {
 	ModelName        string
 	ModelType        string // e.g. object_detector, text_classifier
@@ -52,6 +57,7 @@ type MLMetadata struct {
 	Outputs          []TensorInfo
 }
 
+// ToProto turns the MLMetadata struct into a protobuf message.
 func (mm MLMetadata) ToProto() (*servicepb.Metadata, error) {
 	pbmm := &servicepb.Metadata{
 		Name:        mm.ModelName,
@@ -79,6 +85,10 @@ func (mm MLMetadata) ToProto() (*servicepb.Metadata, error) {
 	return pbmm, nil
 }
 
+// TensorInfo contains all the information necessary to build a struct from the input and output maps.
+// it describes the name of the output field, what data type it has, and how many dimensions the
+// array/tensor will have. AssociatedFiles points to where more information is located, e.g. in case the ints
+// within the array/tensor need to be converted into a string.
 type TensorInfo struct {
 	Name            string // e.g. bounding_boxes
 	Description     string
@@ -88,6 +98,7 @@ type TensorInfo struct {
 	Extra           map[string]interface{}
 }
 
+// ToProto turns the TensorInfo struct into a protobuf message.
 func (tf TensorInfo) ToProto() (*servicepb.TensorInfo, error) {
 	pbtf := &servicepb.TensorInfo{
 		Name:        tf.Name,
@@ -112,12 +123,19 @@ func (tf TensorInfo) ToProto() (*servicepb.TensorInfo, error) {
 	return pbtf, nil
 }
 
+// File contains information about how to interpret the numbers within the tensor/array. The label type
+// describes how to read the tensor in order to successfully label the numbers.
+// For Example, the detector found 4 detections, and the File contains 3 possible categories.
+// If the tensor is labeled by TENSOR_VALUE, the tensor in the output could look like [0, 1, 2, 1].
+// If instead, the File was labeled TENSOR_AXIS, the output tensor would hold the probability
+// of each category for one detection like this: [[.8, .1, .1], [.2, .7, .1], [.1, .1, .8],[.05, .9, .05]].
 type File struct {
 	Name        string // e.g. category_labels.txt
 	Description string
 	LabelType   LabelType // TENSOR_VALUE, or TENSOR_AXIS
 }
 
+// ToProto turns the File struct into a protobuf message.
 func (f File) ToProto() (*servicepb.File, error) {
 	pbf := &servicepb.File{
 		Name:        f.Name,
@@ -142,9 +160,14 @@ func (f File) ToProto() (*servicepb.File, error) {
 type LabelType string
 
 const (
+	// LabelTypeUnspecified means the label type is not known.
 	LabelTypeUnspecified = LabelType("UNSPECIFIED")
+	// LabelTypeTensorValue means the labels are assigned by the actual value in the tensor
+	// for 4 detections and 3 categories e.g. [0, 1, 2, 1].
 	LabelTypeTensorValue = LabelType("TENSOR_VALUE")
-	LabelTypeTensorAxis  = LabelType("TENSOR_AXIS")
+	// LabelTypeTensorAxis means labels are assigned by the position within the tensor axis
+	// for 4 detections and 3 categories e.g. [[.8, .1, .1], [.2, .7, .1], [.1, .1, .8],[.05, .9, .05]].
+	LabelTypeTensorAxis = LabelType("TENSOR_AXIS")
 )
 
 var (

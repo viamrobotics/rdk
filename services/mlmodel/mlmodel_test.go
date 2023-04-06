@@ -32,7 +32,6 @@ type mockDetector struct {
 	inferCount  int
 	name        string
 	reconfCount int
-	cmd         map[string]interface{}
 }
 
 func (m *mockDetector) Infer(
