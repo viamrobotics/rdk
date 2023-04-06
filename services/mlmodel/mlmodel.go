@@ -125,10 +125,6 @@ func (tf TensorInfo) ToProto() (*servicepb.TensorInfo, error) {
 
 // File contains information about how to interpret the numbers within the tensor/array. The label type
 // describes how to read the tensor in order to successfully label the numbers.
-// For Example, the detector found 4 detections, and the File contains 3 possible categories.
-// If the tensor is labeled by TENSOR_VALUE, the tensor in the output could look like [0, 1, 2, 1].
-// If instead, the File was labeled TENSOR_AXIS, the output tensor would hold the probability
-// of each category for one detection like this: [[.8, .1, .1], [.2, .7, .1], [.1, .1, .8],[.05, .9, .05]].
 type File struct {
 	Name        string // e.g. category_labels.txt
 	Description string
@@ -154,7 +150,7 @@ func (f File) ToProto() (*servicepb.File, error) {
 	return pbf, nil
 }
 
-// LabelType describes how labels from the file are assigned to the sensors. TENSOR_VALUE means that
+// LabelType describes how labels from the file are assigned to the tensors. TENSOR_VALUE means that
 // labels are the actual value in the tensor. TENSOR_AXIS means that labels are positional within the
 // tensor axis.
 type LabelType string
@@ -163,10 +159,10 @@ const (
 	// LabelTypeUnspecified means the label type is not known.
 	LabelTypeUnspecified = LabelType("UNSPECIFIED")
 	// LabelTypeTensorValue means the labels are assigned by the actual value in the tensor
-	// for 4 detections and 3 categories e.g. [0, 1, 2, 1].
+	// e.g. for 4 results and 3 categories e.g. [0, 1, 2, 1].
 	LabelTypeTensorValue = LabelType("TENSOR_VALUE")
 	// LabelTypeTensorAxis means labels are assigned by the position within the tensor axis
-	// for 4 detections and 3 categories e.g. [[.8, .1, .1], [.2, .7, .1], [.1, .1, .8],[.05, .9, .05]].
+	// for 4 results and 3 categories e.g. [[.8, .1, .1], [.2, .7, .1], [.1, .1, .8],[.05, .9, .05]].
 	LabelTypeTensorAxis = LabelType("TENSOR_AXIS")
 )
 
