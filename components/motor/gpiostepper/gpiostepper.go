@@ -10,6 +10,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
@@ -223,7 +224,10 @@ func (m *gpioStepper) doCycle(ctx context.Context) (time.Duration, error) {
 
 // have to be locked to call.
 func (m *gpioStepper) doStep(ctx context.Context, forward bool) error {
-	if err := m.stepPin.Set(ctx, true, nil); err != nil {
+	if err := multierr.Combine(
+		m.enable(ctx, true),
+		m.dirPin.Set(ctx, forward, nil),
+		m.stepPin.Set(ctx, true, nil)); err != nil {
 		return err
 	}
 
@@ -275,26 +279,14 @@ func (m *gpioStepper) goForInternal(ctx context.Context, rpm, revolutions float6
 		return m.Stop(ctx, nil)
 	}
 
-	m.lock.Lock()
-	defer m.lock.Unlock()
-
-	// set the direction pin here,not in the thread, so we're handling only one pin in the goroutine
 	var d int64 = 1
+
 	if math.Signbit(revolutions) != math.Signbit(rpm) {
 		d = -1
-		if err := m.dirPin.Set(ctx, false, nil); err != nil {
-			return err
-		}
-	} else {
-		if err := m.dirPin.Set(ctx, true, nil); err != nil {
-			return err
-		}
 	}
 
-	// enable the motors for movement if enable pins exist
-	if err := m.enable(ctx, true); err != nil {
-		return err
-	}
+	m.lock.Lock()
+	defer m.lock.Unlock()
 
 	// calculate delay between steps for the thread in the gorootuine that we started in component creation
 	m.stepperDelay = time.Duration(time.Minute) / time.Duration(math.Abs(rpm)*float64(m.stepsPerRotation))
