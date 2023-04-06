@@ -417,6 +417,7 @@ func loadLabels(filename string) ([]string, error) {
 		labels = append(labels, scanner.Text())
 	}
 
+	// if the labels come out as one line, try splitting that line by spaces or commas to extract labels
 	if len(labels) == 1 {
 		labels = strings.Split(labels[0], " ")
 	}
@@ -426,7 +427,6 @@ func loadLabels(filename string) ([]string, error) {
 	}
 
 	return labels, nil
-
 }
 
 // getIndex just returns the index of an int in an array of ints
