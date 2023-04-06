@@ -4,6 +4,7 @@ package slam
 
 import (
 	"context"
+	"fmt"
 	"io"
 
 	"github.com/pkg/errors"
@@ -25,6 +26,7 @@ type subtypeServer struct {
 
 // NewServer constructs a the slam gRPC service server.
 func NewServer(s subtype.Service) pb.SLAMServiceServer {
+	fmt.Printf("server.go NewServer called subtype.Service: %#v\n", s)
 	return &subtypeServer{subtypeSvc: s}
 }
 
@@ -46,6 +48,7 @@ func (server *subtypeServer) GetPosition(ctx context.Context, req *pb.GetPositio
 ) {
 	ctx, span := trace.StartSpan(ctx, "slam::server::GetPosition")
 	defer span.End()
+	fmt.Printf("server.go GetPosition called req: %#v\n", req)
 
 	svc, err := server.service(req.Name)
 	if err != nil {
@@ -72,6 +75,7 @@ func (server *subtypeServer) GetPointCloudMap(req *pb.GetPointCloudMapRequest,
 
 	ctx, span := trace.StartSpan(ctx, "slam::server::GetPointCloudMap")
 	defer span.End()
+	fmt.Printf("server.go GetPointCloudMap called req: %#v\n", req)
 
 	svc, err := server.service(req.Name)
 	if err != nil {
@@ -110,6 +114,7 @@ func (server *subtypeServer) GetInternalState(req *pb.GetInternalStateRequest,
 	ctx := context.Background()
 	ctx, span := trace.StartSpan(ctx, "slam::server::GetInternalState")
 	defer span.End()
+	fmt.Printf("server.go GetInternalState called req: %#v\n", req)
 
 	svc, err := server.service(req.Name)
 	if err != nil {
@@ -146,6 +151,7 @@ func (server *subtypeServer) DoCommand(ctx context.Context,
 ) (*commonpb.DoCommandResponse, error) {
 	ctx, span := trace.StartSpan(ctx, "slam::server::DoCommand")
 	defer span.End()
+	fmt.Printf("server.go DoCommand called req: %#v\n", req)
 
 	svc, err := server.service(req.Name)
 	if err != nil {
