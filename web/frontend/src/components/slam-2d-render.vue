@@ -114,7 +114,10 @@ const disposeScene = () => {
   scene.clear();
 };
 
-// Find the desired color bucket for a given probability. This assumes the probability will be a value from 0 to 100
+/*
+ * Find the desired color bucket for a given probability. This assumes the probability will be a value from 0 to 100
+ * ticket to add testing: https://viam.atlassian.net/browse/RSDK-2606
+ */
 const probToColorMapBucket = (normProb: number, numBuckets: number): number => {
   const prob = Math.max(Math.min(100, normProb * 255), 0);
   return Math.floor((numBuckets - 1) * prob / 100);
@@ -123,6 +126,7 @@ const probToColorMapBucket = (normProb: number, numBuckets: number): number => {
 /*
  * Map the color of a pixel to a color bucket value.
  * normProb is the probability value normalized by the size of a byte(255) to be between 0 to 1.
+ * ticket to add testing: https://viam.atlassian.net/browse/RSDK-2606
  */
 const colorBuckets = (normProb: number): THREE.Vector3 => {
   return colorMapGrey[probToColorMapBucket(normProb, colorMapGrey.length)]!;
@@ -164,6 +168,11 @@ const updateCloud = (pointcloud: Uint8Array) => {
   // if the PCD has a color attribute defined, convert those colors using the colorMap
   if (colors instanceof THREE.BufferAttribute || colors instanceof THREE.InterleavedBufferAttribute) {
     for (let i = 0; i < colors.count; i += 1) {
+
+      /*
+       * Probability is currently assumed to be held in the rgb field of the PCD map, on a scale of 0 to 100.
+       * ticket to look into this further https://viam.atlassian.net/browse/RSDK-2605
+       */
       const colorMapPoint = colorBuckets(colors.getZ(i));
       colors.setXYZ(i, colorMapPoint.x, colorMapPoint.y, colorMapPoint.z);
     }
