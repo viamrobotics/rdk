@@ -61,7 +61,7 @@ func (server *subtypeServer) Metadata(
 	if err != nil {
 		return nil, err
 	}
-	metadata, err := md.ToProto()
+	metadata, err := md.toProto()
 	if err != nil {
 		return nil, err
 	}

@@ -4,12 +4,10 @@ package mlmodel
 
 import (
 	"context"
-	"sync"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	servicepb "go.viam.com/api/service/mlmodel/v1"
-	goutils "go.viam.com/utils"
 	vprotoutils "go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 
@@ -34,8 +32,7 @@ func init() {
 		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
 			return NewClientFromConn(ctx, conn, name, logger)
 		},
-		Reconfigurable: WrapWithReconfigurable,
-		MaxInstance:    resource.DefaultMaxInstance,
+		MaxInstance: resource.DefaultMaxInstance,
 	})
 }
 
@@ -57,8 +54,8 @@ type MLMetadata struct {
 	Outputs          []TensorInfo
 }
 
-// ToProto turns the MLMetadata struct into a protobuf message.
-func (mm MLMetadata) ToProto() (*servicepb.Metadata, error) {
+// toProto turns the MLMetadata struct into a protobuf message.
+func (mm MLMetadata) toProto() (*servicepb.Metadata, error) {
 	pbmm := &servicepb.Metadata{
 		Name:        mm.ModelName,
 		Type:        mm.ModelType,
@@ -66,7 +63,7 @@ func (mm MLMetadata) ToProto() (*servicepb.Metadata, error) {
 	}
 	inputInfo := make([]*servicepb.TensorInfo, 0, len(mm.Inputs))
 	for _, inp := range mm.Inputs {
-		inproto, err := inp.ToProto()
+		inproto, err := inp.toProto()
 		if err != nil {
 			return nil, err
 		}
@@ -75,7 +72,7 @@ func (mm MLMetadata) ToProto() (*servicepb.Metadata, error) {
 	pbmm.InputInfo = inputInfo
 	outputInfo := make([]*servicepb.TensorInfo, 0, len(mm.Outputs))
 	for _, outp := range mm.Outputs {
-		outproto, err := outp.ToProto()
+		outproto, err := outp.toProto()
 		if err != nil {
 			return nil, err
 		}
@@ -98,8 +95,8 @@ type TensorInfo struct {
 	Extra           map[string]interface{}
 }
 
-// ToProto turns the TensorInfo struct into a protobuf message.
-func (tf TensorInfo) ToProto() (*servicepb.TensorInfo, error) {
+// toProto turns the TensorInfo struct into a protobuf message.
+func (tf TensorInfo) toProto() (*servicepb.TensorInfo, error) {
 	pbtf := &servicepb.TensorInfo{
 		Name:        tf.Name,
 		Description: tf.Description,
@@ -108,7 +105,7 @@ func (tf TensorInfo) ToProto() (*servicepb.TensorInfo, error) {
 	}
 	associatedFiles := make([]*servicepb.File, 0, len(tf.AssociatedFiles))
 	for _, af := range tf.AssociatedFiles {
-		afproto, err := af.ToProto()
+		afproto, err := af.toProto()
 		if err != nil {
 			return nil, err
 		}
@@ -131,8 +128,8 @@ type File struct {
 	LabelType   LabelType // TENSOR_VALUE, or TENSOR_AXIS
 }
 
-// ToProto turns the File struct into a protobuf message.
-func (f File) ToProto() (*servicepb.File, error) {
+// toProto turns the File struct into a protobuf message.
+func (f File) toProto() (*servicepb.File, error) {
 	pbf := &servicepb.File{
 		Name:        f.Name,
 		Description: f.Description,
@@ -166,12 +163,6 @@ const (
 	LabelTypeTensorAxis = LabelType("TENSOR_AXIS")
 )
 
-var (
-	_ = Service(&reconfigurableMLModelService{})
-	_ = resource.Reconfigurable(&reconfigurableMLModelService{})
-	_ = goutils.ContextCloser(&reconfigurableMLModelService{})
-)
-
 // SubtypeName is the name of the type of service.
 const SubtypeName = resource.SubtypeName("mlmodel")
 
@@ -195,61 +186,4 @@ func FromRobot(r robot.Robot, name string) (Service, error) {
 // NewUnimplementedInterfaceError is used when there is a failed interface check.
 func NewUnimplementedInterfaceError(actual interface{}) error {
 	return utils.NewUnimplementedInterfaceError((*Service)(nil), actual)
-}
-
-type reconfigurableMLModelService struct {
-	mu     sync.RWMutex
-	name   resource.Name
-	actual Service
-}
-
-func (svc *reconfigurableMLModelService) Name() resource.Name {
-	return svc.name
-}
-
-func (svc *reconfigurableMLModelService) Infer(ctx context.Context, input map[string]interface{}) (map[string]interface{}, error) {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	return svc.actual.Infer(ctx, input)
-}
-
-func (svc *reconfigurableMLModelService) Metadata(ctx context.Context) (MLMetadata, error) {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	return svc.actual.Metadata(ctx)
-}
-
-func (svc *reconfigurableMLModelService) Close(ctx context.Context) error {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	return goutils.TryClose(ctx, svc.actual)
-}
-
-// Reconfigure replaces the old ML Model Service with a new ML Model Service.
-func (svc *reconfigurableMLModelService) Reconfigure(ctx context.Context, newSvc resource.Reconfigurable) error {
-	svc.mu.Lock()
-	defer svc.mu.Unlock()
-	rSvc, ok := newSvc.(*reconfigurableMLModelService)
-	if !ok {
-		return utils.NewUnexpectedTypeError(svc, newSvc)
-	}
-	if err := goutils.TryClose(ctx, svc.actual); err != nil {
-		golog.Global().Errorw("error closing old", "error", err)
-	}
-	svc.actual = rSvc.actual
-	return nil
-}
-
-// WrapWithReconfigurable wraps a ML Model Service as a Reconfigurable.
-func WrapWithReconfigurable(s interface{}, name resource.Name) (resource.Reconfigurable, error) {
-	svc, ok := s.(Service)
-	if !ok {
-		return nil, NewUnimplementedInterfaceError(s)
-	}
-
-	if reconfigurable, ok := s.(*reconfigurableMLModelService); ok {
-		return reconfigurable, nil
-	}
-
-	return &reconfigurableMLModelService{name: name, actual: svc}, nil
 }

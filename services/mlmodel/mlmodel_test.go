@@ -127,25 +127,3 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(mlmodel.Named(testMLModelServiceName)))
 	test.That(t, svc, test.ShouldBeNil)
 }
-
-func TestReconfigurable(t *testing.T) {
-	actualSvc1 := &mockDetector{name: "svc1"}
-	reconfSvc1, err := mlmodel.WrapWithReconfigurable(actualSvc1, resource.Name{})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, reconfSvc1, test.ShouldNotBeNil)
-
-	actualSvc2 := &mockDetector{name: "svc2"}
-	reconfSvc2, err := mlmodel.WrapWithReconfigurable(actualSvc2, resource.Name{})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, reconfSvc2, test.ShouldNotBeNil)
-	test.That(t, actualSvc1.reconfCount, test.ShouldEqual, 0)
-
-	err = reconfSvc1.Reconfigure(context.Background(), reconfSvc2)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, reconfSvc1, test.ShouldResemble, reconfSvc2)
-	test.That(t, actualSvc1.reconfCount, test.ShouldEqual, 1)
-
-	err = reconfSvc1.Reconfigure(context.Background(), nil)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(reconfSvc1, nil))
-}

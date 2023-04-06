@@ -52,15 +52,15 @@ func (c *client) Metadata(ctx context.Context) (MLMetadata, error) {
 	if err != nil {
 		return MLMetadata{}, err
 	}
-	metadata, err := ProtoToMetadata(resp.Metadata)
+	metadata, err := protoToMetadata(resp.Metadata)
 	if err != nil {
 		return MLMetadata{}, err
 	}
 	return metadata, nil
 }
 
-// ProtoToMetadata takes a pb.Metadata protobuf message and turns it into an MLMetadata struct.
-func ProtoToMetadata(pbmd *pb.Metadata) (MLMetadata, error) {
+// protoToMetadata takes a pb.Metadata protobuf message and turns it into an MLMetadata struct.
+func protoToMetadata(pbmd *pb.Metadata) (MLMetadata, error) {
 	metadata := MLMetadata{
 		ModelName:        pbmd.Name,
 		ModelType:        pbmd.Type,
@@ -68,7 +68,7 @@ func ProtoToMetadata(pbmd *pb.Metadata) (MLMetadata, error) {
 	}
 	inputData := make([]TensorInfo, 0, len(pbmd.InputInfo))
 	for _, idproto := range pbmd.InputInfo {
-		id, err := ProtoToTensorInfo(idproto)
+		id, err := protoToTensorInfo(idproto)
 		if err != nil {
 			return MLMetadata{}, err
 		}
@@ -77,7 +77,7 @@ func ProtoToMetadata(pbmd *pb.Metadata) (MLMetadata, error) {
 	metadata.Inputs = inputData
 	outputData := make([]TensorInfo, 0, len(pbmd.OutputInfo))
 	for _, odproto := range pbmd.OutputInfo {
-		od, err := ProtoToTensorInfo(odproto)
+		od, err := protoToTensorInfo(odproto)
 		if err != nil {
 			return MLMetadata{}, err
 		}
@@ -87,8 +87,8 @@ func ProtoToMetadata(pbmd *pb.Metadata) (MLMetadata, error) {
 	return metadata, nil
 }
 
-// ProtoToTensorInfo takes a pb.TensorInfo protobuf message and turns it into an TensorInfo struct.
-func ProtoToTensorInfo(pbti *pb.TensorInfo) (TensorInfo, error) {
+// protoToTensorInfo takes a pb.TensorInfo protobuf message and turns it into an TensorInfo struct.
+func protoToTensorInfo(pbti *pb.TensorInfo) (TensorInfo, error) {
 	ti := TensorInfo{
 		Name:        pbti.Name,
 		Description: pbti.Description,
@@ -98,7 +98,7 @@ func ProtoToTensorInfo(pbti *pb.TensorInfo) (TensorInfo, error) {
 	}
 	associatedFiles := make([]File, 0, len(pbti.AssociatedFiles))
 	for _, afproto := range pbti.AssociatedFiles {
-		af, err := ProtoToFile(afproto)
+		af, err := protoToFile(afproto)
 		if err != nil {
 			return TensorInfo{}, err
 		}
@@ -108,8 +108,8 @@ func ProtoToTensorInfo(pbti *pb.TensorInfo) (TensorInfo, error) {
 	return ti, nil
 }
 
-// ProtoToFile takes a pb.File protobuf message and turns it into an File struct.
-func ProtoToFile(pbf *pb.File) (File, error) {
+// protoToFile takes a pb.File protobuf message and turns it into an File struct.
+func protoToFile(pbf *pb.File) (File, error) {
 	f := File{
 		Name:        pbf.Name,
 		Description: pbf.Description,
