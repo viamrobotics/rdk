@@ -8,18 +8,32 @@ import (
 	"github.com/edaniels/golog"
 	pb "go.viam.com/api/component/encoder/v1"
 	viamutils "go.viam.com/utils"
+	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 )
 
 func init() {
 	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
 		Reconfigurable: WrapWithReconfigurable,
+		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
+			return rpcServer.RegisterServiceServer(
+				ctx,
+				&pb.EncoderService_ServiceDesc,
+				NewServer(subtypeSvc),
+				pb.RegisterEncoderServiceHandlerFromEndpoint,
+			)
+		},
+		RPCServiceDesc: &pb.EncoderService_ServiceDesc,
+		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
+			return NewClientFromConn(ctx, conn, name, logger)
+		},
 	})
 	data.RegisterCollector(data.MethodMetadata{
 		Subtype:    Subtype,
@@ -58,7 +72,6 @@ func Named(name string) resource.Name {
 
 var (
 	_ = Encoder(&reconfigurableEncoder{})
-	_ = resource.Reconfigurable(&reconfigurableEncoder{})
 	_ = resource.Reconfigurable(&reconfigurableEncoder{})
 	_ = viamutils.ContextCloser(&reconfigurableEncoder{})
 )
