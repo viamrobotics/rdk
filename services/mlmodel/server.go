@@ -4,9 +4,10 @@ import (
 	"context"
 
 	pb "go.viam.com/api/service/mlmodel/v1"
+	vprotoutils "go.viam.com/utils/protoutils"
+
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
-	vprotoutils "go.viam.com/utils/protoutils"
 )
 
 // subtypeServer implements the MLModelService from mlmodel.proto.

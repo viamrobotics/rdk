@@ -65,7 +65,7 @@ func ProtoToMetadata(pbmd *pb.Metadata) (MLMetadata, error) {
 		ModelType:        pbmd.Type,
 		ModelDescription: pbmd.Description,
 	}
-	inputData := make([]TensorInfo, len(pbmd.InputInfo))
+	inputData := make([]TensorInfo, 0, len(pbmd.InputInfo))
 	for _, idproto := range pbmd.InputInfo {
 		id, err := ProtoToTensorInfo(idproto)
 		if err != nil {
@@ -74,7 +74,7 @@ func ProtoToMetadata(pbmd *pb.Metadata) (MLMetadata, error) {
 		inputData = append(inputData, id)
 	}
 	metadata.Inputs = inputData
-	outputData := make([]TensorInfo, len(pbmd.OutputInfo))
+	outputData := make([]TensorInfo, 0, len(pbmd.OutputInfo))
 	for _, odproto := range pbmd.OutputInfo {
 		od, err := ProtoToTensorInfo(odproto)
 		if err != nil {
@@ -94,7 +94,7 @@ func ProtoToTensorInfo(pbti *pb.TensorInfo) (TensorInfo, error) {
 		NDim:        int(pbti.NDim),
 		Extra:       pbti.Extra.AsMap(),
 	}
-	associatedFiles := make([]File, len(pbti.AssociatedFiles))
+	associatedFiles := make([]File, 0, len(pbti.AssociatedFiles))
 	for _, afproto := range pbti.AssociatedFiles {
 		af, err := ProtoToFile(afproto)
 		if err != nil {

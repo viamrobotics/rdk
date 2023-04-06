@@ -6,17 +6,19 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
+	"github.com/mitchellh/mapstructure"
 	pb "go.viam.com/api/service/mlmodel/v1"
+	"go.viam.com/test"
+	"go.viam.com/utils"
+	"go.viam.com/utils/rpc"
+	"google.golang.org/grpc"
+
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/mlmodel"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
-	"go.viam.com/test"
-	"go.viam.com/utils"
-	"go.viam.com/utils/rpc"
-	"google.golang.org/grpc"
 )
 
 func TestClient(t *testing.T) {
@@ -35,7 +37,7 @@ func TestClient(t *testing.T) {
 	resourceSubtype := registry.ResourceSubtypeLookup(mlmodel.Subtype)
 	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, svc)
 	inputData := map[string]interface{}{
-		"image": [][]uint8{[]uint8{10, 10, 255, 0, 0, 255, 255, 0, 100}},
+		"image": [][]uint8{{10, 10, 255, 0, 0, 255, 255, 0, 100}},
 	}
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()
@@ -58,6 +60,19 @@ func TestClient(t *testing.T) {
 		result, err := client.Infer(context.Background(), inputData)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(result), test.ShouldEqual, 4)
+		// decode the map[string]interface{} into a struct
+		temp := struct {
+			NDetections      []int32       `mapstructure:"n_detections"`
+			ConfidenceScores [][]float32   `mapstructure:"confidence_scores"`
+			Labels           [][]int32     `mapstructure:"labels"`
+			Locations        [][][]float32 `mapstructure:"locations"`
+		}{}
+		err = mapstructure.Decode(result, &temp)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, temp.NDetections[0], test.ShouldEqual, 3)
+		test.That(t, len(temp.ConfidenceScores[0]), test.ShouldEqual, 3)
+		test.That(t, len(temp.Labels[0]), test.ShouldEqual, 3)
+		test.That(t, temp.Locations[0][0], test.ShouldResemble, []float32{0.1, 0.4, 0.22, 0.4})
 		// nil data should work too
 		result, err = client.Infer(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
@@ -68,6 +83,18 @@ func TestClient(t *testing.T) {
 		test.That(t, meta.ModelName, test.ShouldEqual, "fake_detector")
 		test.That(t, meta.ModelType, test.ShouldEqual, "object_detector")
 		test.That(t, meta.ModelDescription, test.ShouldEqual, "desc")
+		t.Logf("inputs: %v", meta.Inputs)
+		test.That(t, len(meta.Inputs), test.ShouldEqual, 1)
+		test.That(t, len(meta.Outputs), test.ShouldEqual, 4)
+		outInfo := meta.Outputs
+		test.That(t, outInfo[0].Name, test.ShouldEqual, "n_detections")
+		test.That(t, len(outInfo[0].AssociatedFiles), test.ShouldEqual, 0)
+		test.That(t, outInfo[2].Name, test.ShouldEqual, "labels")
+		test.That(t, len(outInfo[2].AssociatedFiles), test.ShouldEqual, 1)
+		test.That(t, outInfo[2].AssociatedFiles[0].Name, test.ShouldEqual, "category_labels.txt")
+		test.That(t, outInfo[2].AssociatedFiles[0].LabelType, test.ShouldEqual, mlmodel.LabelTypeTensorValue)
+		test.That(t, outInfo[3].Name, test.ShouldEqual, "locations")
+		test.That(t, outInfo[3].NDim, test.ShouldEqual, 3)
 
 		// close the client
 		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)

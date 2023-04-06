@@ -4,13 +4,15 @@ import (
 	"context"
 	"testing"
 
+	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/service/mlmodel/v1"
+	"go.viam.com/test"
+	vprotoutils "go.viam.com/utils/protoutils"
+
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/mlmodel"
 	"go.viam.com/rdk/subtype"
-	"go.viam.com/test"
-	vprotoutils "go.viam.com/utils/protoutils"
 )
 
 func newServer(omMap map[resource.Name]interface{}) (pb.MLModelServiceServer, error) {
@@ -56,6 +58,17 @@ func TestServerMetadata(t *testing.T) {
 	test.That(t, resp.Metadata.GetName(), test.ShouldEqual, "fake_detector")
 	test.That(t, resp.Metadata.GetType(), test.ShouldEqual, "object_detector")
 	test.That(t, resp.Metadata.GetDescription(), test.ShouldEqual, "desc")
+	test.That(t, len(resp.Metadata.GetInputInfo()), test.ShouldEqual, 1)
+	test.That(t, len(resp.Metadata.GetOutputInfo()), test.ShouldEqual, 4)
+	outInfo := resp.Metadata.GetOutputInfo()
+	test.That(t, outInfo[0].GetName(), test.ShouldEqual, "n_detections")
+	test.That(t, len(outInfo[0].GetAssociatedFiles()), test.ShouldEqual, 0)
+	test.That(t, outInfo[2].GetName(), test.ShouldEqual, "labels")
+	test.That(t, len(outInfo[2].GetAssociatedFiles()), test.ShouldEqual, 1)
+	test.That(t, outInfo[2].GetAssociatedFiles()[0].GetName(), test.ShouldEqual, "category_labels.txt")
+	test.That(t, outInfo[2].GetAssociatedFiles()[0].GetLabelType(), test.ShouldEqual, 1)
+	test.That(t, outInfo[3].GetName(), test.ShouldEqual, "locations")
+	test.That(t, outInfo[3].GetNDim(), test.ShouldEqual, 3)
 
 	// Multiple Servies names Valid
 	omMap = map[resource.Name]interface{}{
@@ -82,7 +95,7 @@ func TestServerMetadata(t *testing.T) {
 
 func TestServerInfer(t *testing.T) {
 	inputData := map[string]interface{}{
-		"image": [][]uint8{[]uint8{10, 10, 255, 0, 0, 255, 255, 0, 100}},
+		"image": [][]uint8{{10, 10, 255, 0, 0, 255, 255, 0, 100}},
 	}
 	inputProto, err := vprotoutils.StructToStructPb(inputData)
 	test.That(t, err, test.ShouldBeNil)
@@ -102,4 +115,17 @@ func TestServerInfer(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	outMap := resp.OutputData.AsMap()
 	test.That(t, len(outMap), test.ShouldEqual, 4)
+	// decode the map[string]interface{} into a struct
+	temp := struct {
+		NDetections      []int32       `mapstructure:"n_detections"`
+		ConfidenceScores [][]float32   `mapstructure:"confidence_scores"`
+		Labels           [][]int32     `mapstructure:"labels"`
+		Locations        [][][]float32 `mapstructure:"locations"`
+	}{}
+	err = mapstructure.Decode(outMap, &temp)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, temp.NDetections[0], test.ShouldEqual, 3)
+	test.That(t, len(temp.ConfidenceScores[0]), test.ShouldEqual, 3)
+	test.That(t, len(temp.Labels[0]), test.ShouldEqual, 3)
+	test.That(t, temp.Locations[0][0], test.ShouldResemble, []float32{0.1, 0.4, 0.22, 0.4})
 }

@@ -9,14 +9,15 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	servicepb "go.viam.com/api/service/mlmodel/v1"
+	goutils "go.viam.com/utils"
+	vprotoutils "go.viam.com/utils/protoutils"
+	"go.viam.com/utils/rpc"
+
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
-	goutils "go.viam.com/utils"
-	vprotoutils "go.viam.com/utils/protoutils"
-	"go.viam.com/utils/rpc"
 )
 
 func init() {

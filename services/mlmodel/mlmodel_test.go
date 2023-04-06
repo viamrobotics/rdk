@@ -4,11 +4,13 @@ import (
 	"context"
 	"testing"
 
+	"github.com/mitchellh/mapstructure"
+	"go.viam.com/test"
+
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/mlmodel"
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
-	"go.viam.com/test"
 )
 
 const (
@@ -41,12 +43,12 @@ func (m *mockDetector) Infer(
 	// this is a possible form of what a detection tensor with 3 detection in 1 image would look like
 	outputMap := make(map[string]interface{})
 	outputMap["n_detections"] = []int32{3}
-	outputMap["confidence_scores"] = [][]float32{[]float32{0.9084375, 0.7359375, 0.33984375}}
-	outputMap["labels"] = [][]int32{[]int32{0, 0, 4}}
-	outputMap["locations"] = [][][]float32{[][]float32{
-		[]float32{0.1, 0.4, 0.22, 0.4},
-		[]float32{0.02, 0.22, 0.77, 0.90},
-		[]float32{0.40, 0.50, 0.40, 0.50},
+	outputMap["confidence_scores"] = [][]float32{{0.9084375, 0.7359375, 0.33984375}}
+	outputMap["labels"] = [][]int32{{0, 0, 4}}
+	outputMap["locations"] = [][][]float32{{
+		{0.1, 0.4, 0.22, 0.4},
+		{0.02, 0.22, 0.77, 0.90},
+		{0.40, 0.50, 0.40, 0.50},
 	}}
 	return outputMap, nil
 }
@@ -97,7 +99,19 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(result), test.ShouldEqual, 4)
 	test.That(t, svc1.inferCount, test.ShouldEqual, 1)
-
+	// decode the map[string]interface{} into a struct
+	temp := struct {
+		NDetections      []int32       `mapstructure:"n_detections"`
+		ConfidenceScores [][]float32   `mapstructure:"confidence_scores"`
+		Labels           [][]int32     `mapstructure:"labels"`
+		Locations        [][][]float32 `mapstructure:"locations"`
+	}{}
+	err = mapstructure.Decode(result, &temp)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, temp.NDetections[0], test.ShouldEqual, 3)
+	test.That(t, len(temp.ConfidenceScores[0]), test.ShouldEqual, 3)
+	test.That(t, len(temp.Labels[0]), test.ShouldEqual, 3)
+	test.That(t, temp.Locations[0][0], test.ShouldResemble, []float32{0.1, 0.4, 0.22, 0.4})
 	// remove resource
 	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 		return "not an ml model", nil
