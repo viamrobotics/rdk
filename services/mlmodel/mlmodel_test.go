@@ -55,7 +55,7 @@ func (m *mockDetector) Metadata(ctx context.Context) (mlmodel.MLMetadata, error)
 	md := mlmodel.MLMetadata{
 		ModelName:        "fake_detector",
 		ModelType:        "object_detector",
-		ModelDescription: "this fake detector always returns the same 3 detections",
+		ModelDescription: "desc",
 	}
 	md.Inputs = []mlmodel.TensorInfo{
 		{Name: "image", Description: "i0", DataType: "uint8", NDim: 2},
