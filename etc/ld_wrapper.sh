@@ -19,7 +19,12 @@ fi
 
 # exec early if we're not actually filtering anything
 if [[ -z "${VIAM_STATIC_BUILD}" ]]; then
-	exec "$REAL_LD" ${ARGS[@]}
+	exec "$REAL_LD" "${ARGS[@]}"
+fi
+
+if [[ `uname` != "Linux" ]]; then
+	echo "Static building is currently only supported under Linux"
+	exit 1
 fi
 
 # list of linker arguments to ignore
