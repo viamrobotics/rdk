@@ -20,7 +20,7 @@ type GPIOBoardMapping struct {
 	GPIO           int
 	GPIOGlobal     int
 	GPIOName       string
-	PWMSysFsDir    string
+	PWMSysFsDir    string // Absolute path to the directory, empty string for none
 	PWMID          int
 	HWPWMSupported bool
 }
