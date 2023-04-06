@@ -8,6 +8,7 @@ GIT_REVISION = $(shell git rev-parse HEAD | tr -d '\n')
 TAG_VERSION?=$(shell etc/tag_version.sh)
 LDFLAGS = -ldflags "-s -w -extld="$(shell pwd)/etc/ld_wrapper.sh" -X 'go.viam.com/rdk/config.Version=${TAG_VERSION}' -X 'go.viam.com/rdk/config.GitRevision=${GIT_REVISION}'"
 
+# build tags are not currently needed, but leaving placeholders in case future requirements need a tag again
 # BUILD_TAGS = osusergo,netgo
 # GO_BUILD_TAGS = -tags $(BUILD_TAGS)
 # LINT_BUILD_TAGS = --build-tags $(BUILD_TAGS)
@@ -26,6 +27,7 @@ build-web: web/runtime-shared/static/control.js
 
 # only generate static files when source has changed.
 web/runtime-shared/static/control.js: web/frontend/src/*/* web/frontend/src/*/*/* web/frontend/src/*.* web/frontend/scripts/* web/frontend/*.*
+	rm -rf web/runtime-shared/static
 	npm ci --audit=false --prefix web/frontend
 	export NODE_OPTIONS=--openssl-legacy-provider && node --version 2>/dev/null || unset NODE_OPTIONS;\
 	npm run build-prod --prefix web/frontend
