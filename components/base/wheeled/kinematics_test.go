@@ -60,7 +60,7 @@ func TestWrapWithKinematics(t *testing.T) {
 			if err != nil {
 				return
 			}
-			kwb, ok := kb.(*kinematicWheeledBase)
+			kwb, ok := wb.(*kinematicWheeledBase)
 			test.That(t, ok, test.ShouldBeTrue)
 			limits := kwb.model.DoF()
 			test.That(t, limits[0].Min, test.ShouldBeLessThan, 0)
@@ -88,7 +88,7 @@ func TestCurrentInputs(t *testing.T) {
 		collisionGeometry:    sphere,
 	}
 
-	kb, err := WrapWithKinematics(ctx, base, "", fake.NewSLAM("", logger))
+	kb, err := base.WrapWithKinematics(ctx, fake.NewSLAM("", logger))
 	test.That(t, err, test.ShouldBeNil)
 	kwb, ok := kb.(*kinematicWheeledBase)
 	test.That(t, ok, test.ShouldBeTrue)

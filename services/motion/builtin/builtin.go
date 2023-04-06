@@ -3,7 +3,6 @@ package builtin
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/edaniels/golog"
@@ -12,7 +11,6 @@ import (
 	servicepb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/base"
-	"go.viam.com/rdk/components/base/wheeled"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
@@ -25,6 +23,7 @@ import (
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
 )
 
 func init() {
@@ -60,11 +59,10 @@ func (ms *builtIn) Move(
 	extra map[string]interface{},
 ) (bool, error) {
 	operation.CancelOtherWithLabel(ctx, "motion-service")
-	logger := ms.r.Logger()
 
 	// get goal frame
 	goalFrameName := destination.Parent()
-	logger.Debugf("goal given in frame of %q", goalFrameName)
+	ms.logger.Debugf("goal given in frame of %q", goalFrameName)
 
 	frameSys, err := framesystem.RobotFrameSystem(ctx, ms.r, worldState.Transforms)
 	if err != nil {
@@ -79,7 +77,7 @@ func (ms *builtIn) Move(
 
 	movingFrame := frameSys.Frame(componentName.ShortName())
 
-	logger.Debugf("frame system inputs: %v", fsInputs)
+	ms.logger.Debugf("frame system inputs: %v", fsInputs)
 	if movingFrame == nil {
 		return false, fmt.Errorf("component named %s not found in robot frame system", componentName.ShortName())
 	}
@@ -93,7 +91,7 @@ func (ms *builtIn) Move(
 	goalPose, _ := tf.(*referenceframe.PoseInFrame)
 
 	// the goal is to move the component to goalPose which is specified in coordinates of goalFrameName
-	output, err := motionplan.PlanMotion(ctx, logger, goalPose, movingFrame, fsInputs, frameSys, worldState, constraints, extra)
+	output, err := motionplan.PlanMotion(ctx, ms.logger, goalPose, movingFrame, fsInputs, frameSys, worldState, constraints, extra)
 	if err != nil {
 		return false, err
 	}
@@ -114,7 +112,8 @@ func (ms *builtIn) Move(
 	return true, nil
 }
 
-// MoveOnMap will move the given component
+// MoveOnMap will move the given component to the given destination on the slam map generated from a slam service specified by slamName.
+// Bases are the only component that supports this.
 func (ms *builtIn) MoveOnMap(
 	ctx context.Context,
 	componentName resource.Name,
@@ -122,7 +121,39 @@ func (ms *builtIn) MoveOnMap(
 	slamName resource.Name,
 	extra map[string]interface{},
 ) (bool, error) {
-	return false, errors.New("this is not implemented yet")
+	operation.CancelOtherWithLabel(ctx, "motion-service")
+
+	// get the SLAM Service from the slamName
+	slam, err := slam.FromRobot(ms.r, slamName.ShortName())
+	if err != nil {
+		return false, fmt.Errorf("SLAM service named %s not found", slamName)
+	}
+
+	// create a KinematicBase from the componentName
+	b, err := base.FromRobot(ms.r, componentName.ShortName())
+	if err != nil {
+		return false, fmt.Errorf(
+			"only Base components are supported for MoveOnMap: could not find an Base named %v",
+			componentName.ShortName(),
+		)
+	}
+	fmt.Println("I AM GOING CRAZY RIGHT NOW")
+	kw, ok := utils.UnwrapProxy(b).(base.KinematicWrappable)
+	if !ok {
+		return false, fmt.Errorf("cannot move base of type %T because it is not KinematicWrappable", b)
+	}
+	kb, err := kw.WrapWithKinematics(ctx, slam)
+	if err != nil {
+		return false, err
+	}
+
+	// get current position
+	inputs, err := kb.CurrentInputs(ctx)
+	if err != nil {
+		return false, err
+	}
+	ms.logger.Debugf("base position: %v", inputs)
+	return true, nil
 }
 
 // MoveSingleComponent will pass through a move command to a component with a MoveToPosition method that takes a pose. Arms are the only
@@ -138,21 +169,19 @@ func (ms *builtIn) MoveSingleComponent(
 	extra map[string]interface{},
 ) (bool, error) {
 	operation.CancelOtherWithLabel(ctx, "motion-service")
-	logger := ms.r.Logger()
 
-	components := robot.AllResourcesByName(ms.r, componentName.ShortName())
-	if len(components) != 1 {
-		return false, fmt.Errorf("got %d resources instead of 1 for (%s)", len(components), componentName.ShortName())
-	}
-	movableArm, ok := components[0].(arm.Arm)
-	if !ok {
-		return false, fmt.Errorf("%v(%T) is not an Arm and cannot MoveToPosition with a Pose", componentName.ShortName(), components[0])
+	arm, err := arm.FromRobot(ms.r, componentName.ShortName())
+	if err != nil {
+		return false, fmt.Errorf(
+			"only Arm components are supported for MoveSingleComponent: could not find an Arm named %v",
+			componentName.ShortName(),
+		)
 	}
 
 	// get destination pose in frame of movable component
 	goalPose := destination.Pose()
 	if destination.Parent() != componentName.ShortName() {
-		logger.Debugf("goal given in frame of %q", destination.Parent())
+		ms.logger.Debugf("goal given in frame of %q", destination.Parent())
 
 		frameSys, err := framesystem.RobotFrameSystem(ctx, ms.r, worldState.Transforms)
 		if err != nil {
@@ -163,7 +192,7 @@ func (ms *builtIn) MoveSingleComponent(
 		if err != nil {
 			return false, err
 		}
-		logger.Debugf("frame system inputs: %v", fsInputs)
+		ms.logger.Debugf("frame system inputs: %v", fsInputs)
 
 		// re-evaluate goalPose to be in the frame we're going to move in
 		tf, err := frameSys.Transform(fsInputs, destination, componentName.ShortName()+"_origin")
@@ -172,13 +201,10 @@ func (ms *builtIn) MoveSingleComponent(
 		}
 		goalPoseInFrame, _ := tf.(*referenceframe.PoseInFrame)
 		goalPose = goalPoseInFrame.Pose()
-		logger.Debugf("converted goal pose %q", spatialmath.PoseToProtobuf(goalPose))
+		ms.logger.Debugf("converted goal pose %q", spatialmath.PoseToProtobuf(goalPose))
 	}
-	err := movableArm.MoveToPosition(ctx, goalPose, extra)
-	if err == nil {
-		return true, nil
-	}
-	return false, err
+	err = arm.MoveToPosition(ctx, goalPose, extra)
+	return err == nil, err
 }
 
 func (ms *builtIn) GetPose(
@@ -188,37 +214,16 @@ func (ms *builtIn) GetPose(
 	supplementalTransforms []*referenceframe.LinkInFrame,
 	extra map[string]interface{},
 ) (*referenceframe.PoseInFrame, error) {
-	// if destinationFrame == "" {
-	// 	destinationFrame = referenceframe.World
-	// }
-	// return ms.r.TransformPose(
-	// 	ctx,
-	// 	referenceframe.NewPoseInFrame(
-	// 		componentName.ShortName(),
-	// 		spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0}),
-	// 	),
-	// 	destinationFrame,
-	// 	supplementalTransforms,
-	// )
-	component, err := ms.r.ResourceByName(componentName)
-	if err != nil {
-		return nil, err
+	if destinationFrame == "" {
+		destinationFrame = referenceframe.World
 	}
-	base, ok := component.(base.Base)
-	if !ok {
-		return nil, errors.New("not a base")
-	}
-	slam, err := slam.FromRobot(ms.r, "run-slam")
-	if err != nil {
-		return nil, err
-	}
-	kb, err := wheeled.WrapWithKinematics(ctx, base, "run-slam", slam)
-	if err != nil {
-		return nil, err
-	}
-	inputs, err := kb.CurrentInputs(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewPoseFromPoint(r3.Vector{inputs[0].Value, inputs[1].Value, 0})), nil
+	return ms.r.TransformPose(
+		ctx,
+		referenceframe.NewPoseInFrame(
+			componentName.ShortName(),
+			spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0}),
+		),
+		destinationFrame,
+		supplementalTransforms,
+	)
 }
