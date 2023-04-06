@@ -7,6 +7,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	pb "go.viam.com/api/component/encoder/v1"
 	rdkutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
@@ -103,7 +104,11 @@ func (cfg *EncoderConfig) Validate(path string) ([]string, error) {
 }
 
 // GetPosition returns number of ticks since last zeroing.
-func (e *Encoder) GetPosition(ctx context.Context, extra map[string]interface{}) (float64, error) {
+func (e *Encoder) GetPosition(ctx context.Context, positionType *pb.PositionType, extra map[string]interface{}) (float64, error) {
+	if positionType != nil && *positionType == pb.PositionType_POSITION_TYPE_ANGLE_DEGREES {
+		err := errors.New("Encoder does not support PositionType Angle Degrees")
+		return 0, err
+	}
 	res, err := e.board.runCommand("motor-position " + e.name)
 	if err != nil {
 		return 0, err
@@ -119,11 +124,16 @@ func (e *Encoder) GetPosition(ctx context.Context, extra map[string]interface{})
 
 // ResetPosition sets the current position of the motor (adjusted by a given offset)
 // to be its new zero position.
-func (e *Encoder) ResetPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
-	if err := encoder.ValidateIntegerOffset(offset); err != nil {
-		return err
-	}
-	offsetInt := int64(offset)
+func (e *Encoder) ResetPosition(ctx context.Context, extra map[string]interface{}) error {
+	offsetInt := int64(0)
 	_, err := e.board.runCommand(fmt.Sprintf("motor-zero %s %d", e.name, offsetInt))
 	return err
+}
+
+// GetProperties returns a list of all the position types that are supported by a given encoder.
+func (e *Encoder) GetProperties(ctx context.Context, extra map[string]interface{}) (map[encoder.Feature]bool, error) {
+	return map[encoder.Feature]bool{
+		encoder.TicksCountSupported:   true,
+		encoder.AngleDegreesSupported: false,
+	}, nil
 }

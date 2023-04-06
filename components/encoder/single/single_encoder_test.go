@@ -6,11 +6,13 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	pb "go.viam.com/api/component/encoder/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/components/board"
 	fakeboard "go.viam.com/rdk/components/board/fake"
+	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 )
@@ -77,7 +79,7 @@ func TestEnconder(t *testing.T) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			ticks, err := enc.GetPosition(context.Background(), nil)
+			ticks, err := enc.GetPosition(context.Background(), nil, nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, ticks, test.ShouldEqual, 1)
 		})
@@ -97,7 +99,7 @@ func TestEnconder(t *testing.T) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			ticks, err := enc.GetPosition(context.Background(), nil)
+			ticks, err := enc.GetPosition(context.Background(), nil, nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, ticks, test.ShouldEqual, -1)
 		})
@@ -119,7 +121,7 @@ func TestEnconder(t *testing.T) {
 		// by the encoder worker
 		time.Sleep(50 * time.Millisecond)
 
-		ticks, err := enc.GetPosition(context.Background(), nil)
+		ticks, err := enc.GetPosition(context.Background(), nil, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ticks, test.ShouldEqual, 0)
 	})
@@ -130,38 +132,10 @@ func TestEnconder(t *testing.T) {
 		enc2 := enc.(*Encoder)
 		defer enc2.Close()
 
-		// set to a positive int
-		err = enc.ResetPosition(context.Background(), 5.0, nil)
+		// reset position to 0
+		err = enc.ResetPosition(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
-		ticks, err := enc.GetPosition(context.Background(), nil)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, ticks, test.ShouldEqual, 5)
-
-		// set to a negative int
-		err = enc.ResetPosition(context.Background(), -5.0, nil)
-		test.That(t, err, test.ShouldBeNil)
-		ticks, err = enc.GetPosition(context.Background(), nil)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, ticks, test.ShouldEqual, -5)
-
-		// set to a positive float
-		err = enc.ResetPosition(context.Background(), 1.2, nil)
-		test.That(t, err, test.ShouldBeNil)
-		ticks, err = enc.GetPosition(context.Background(), nil)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, ticks, test.ShouldEqual, 1)
-
-		// set to a negative float
-		err = enc.ResetPosition(context.Background(), -1000.999, nil)
-		test.That(t, err, test.ShouldBeNil)
-		ticks, err = enc.GetPosition(context.Background(), nil)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, ticks, test.ShouldEqual, -1001)
-
-		// set to 09
-		err = enc.ResetPosition(context.Background(), 0, nil)
-		test.That(t, err, test.ShouldBeNil)
-		ticks, err = enc.GetPosition(context.Background(), nil)
+		ticks, err := enc.GetPosition(context.Background(), nil, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ticks, test.ShouldEqual, 0)
 	})
@@ -181,15 +155,15 @@ func TestEnconder(t *testing.T) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			ticks, err := enc.GetPosition(context.Background(), nil)
+			ticks, err := enc.GetPosition(context.Background(), nil, nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, ticks, test.ShouldEqual, 1)
 		})
 
 		// reset tick
-		err = enc.ResetPosition(context.Background(), 0, nil)
+		err = enc.ResetPosition(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
-		ticks, err := enc.GetPosition(context.Background(), nil)
+		ticks, err := enc.GetPosition(context.Background(), nil, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ticks, test.ShouldEqual, 0)
 
@@ -199,9 +173,61 @@ func TestEnconder(t *testing.T) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			ticks, err := enc.GetPosition(context.Background(), nil)
+			ticks, err := enc.GetPosition(context.Background(), nil, nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, ticks, test.ShouldEqual, 1)
+		})
+	})
+	t.Run("specify correct position type", func(t *testing.T) {
+		enc, err := NewSingleEncoder(ctx, deps, rawcfg, golog.NewTestLogger(t))
+		test.That(t, err, test.ShouldBeNil)
+		enc2 := enc.(*Encoder)
+		defer enc2.Close()
+
+		m := &FakeDir{1} // forward
+		enc2.AttachDirectionalAwareness(m)
+
+		err = enc2.I.Tick(context.Background(), true, uint64(time.Now().UnixNano()))
+		test.That(t, err, test.ShouldBeNil)
+
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			ticks, err := enc.GetPosition(context.Background(), pb.PositionType_POSITION_TYPE_TICKS_COUNT.Enum(), nil)
+			test.That(tb, err, test.ShouldBeNil)
+			test.That(tb, ticks, test.ShouldEqual, 1)
+		})
+	})
+	t.Run("specify wrong position type", func(t *testing.T) {
+		enc, err := NewSingleEncoder(ctx, deps, rawcfg, golog.NewTestLogger(t))
+		test.That(t, err, test.ShouldBeNil)
+		enc2 := enc.(*Encoder)
+		defer enc2.Close()
+
+		m := &FakeDir{-1} // backward
+		enc2.AttachDirectionalAwareness(m)
+
+		err = enc2.I.Tick(context.Background(), true, uint64(time.Now().UnixNano()))
+		test.That(t, err, test.ShouldBeNil)
+
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			ticks, err := enc.GetPosition(context.Background(), pb.PositionType_POSITION_TYPE_ANGLE_DEGREES.Enum(), nil)
+			test.That(tb, err, test.ShouldNotBeNil)
+			test.That(tb, ticks, test.ShouldEqual, 0)
+		})
+	})
+	t.Run("get properties", func(t *testing.T) {
+		enc, err := NewSingleEncoder(ctx, deps, rawcfg, golog.NewTestLogger(t))
+		test.That(t, err, test.ShouldBeNil)
+		enc2 := enc.(*Encoder)
+		defer enc2.Close()
+
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			props, err := enc.GetProperties(ctx, nil)
+			test.That(tb, err, test.ShouldBeNil)
+			test.That(tb, props[encoder.TicksCountSupported], test.ShouldBeTrue)
+			test.That(tb, props[encoder.AngleDegreesSupported], test.ShouldBeFalse)
 		})
 	})
 }
