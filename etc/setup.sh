@@ -52,6 +52,12 @@ do_bullseye(){
 	export GOPRIVATE=github.com/viamrobotics/*,go.viam.com/*
 	EOS
 
+	go install github.com/viamrobotics/canon@latest
+	if [ -z $GOBIN ]; then
+		GOBIN="`go env GOPATH`/bin"
+	fi
+	sudo ln -sf "$GOBIN/canon" /usr/local/bin/canon
+
 	mod_profiles
 	check_gcloud_auth
 }
