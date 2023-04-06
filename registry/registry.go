@@ -329,7 +329,7 @@ type ReconfigurableService interface {
 // dependencies.
 func ResourceFromDependencies[T any](deps Dependencies, name resource.Name) (T, error) {
 	var zero T
-	res, ok := deps[(name)]
+	res, ok := deps[name]
 	if !ok {
 		return zero, utils.DependencyNotFoundError(name.Name)
 	}
