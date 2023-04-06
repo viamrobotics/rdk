@@ -6,7 +6,6 @@ import (
 	"net"
 	"os"
 	"runtime"
-	"runtime/debug"
 	"sync"
 	"time"
 
@@ -196,7 +195,6 @@ func (m *Module) Start(ctx context.Context) error {
 // Close shuts down the module and grpc server.
 func (m *Module) Close(ctx context.Context) {
 	m.logger.Warn("Module Close called")
-	debug.PrintStack()
 	m.closeOnce.Do(func() {
 		m.mu.Lock()
 		parent := m.parent
@@ -217,7 +215,6 @@ func (m *Module) Close(ctx context.Context) {
 // GetParentResource returns a resource from the parent robot by name.
 func (m *Module) GetParentResource(ctx context.Context, name resource.Name) (interface{}, error) {
 	m.logger.Warnf("Module GetParentResource called %#v", name)
-	debug.PrintStack()
 	if err := m.connectParent(ctx); err != nil {
 		return nil, err
 	}
