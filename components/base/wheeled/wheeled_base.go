@@ -223,7 +223,6 @@ func (base *wheeledBase) differentialDrive(forward, left float64) (float64, floa
 }
 
 // SetVelocity commands the base to move at the input linear and angular velocities.
-
 func (base *wheeledBase) SetVelocity(
 	ctx context.Context, linear, angular r3.Vector, extra map[string]interface{},
 ) error {
