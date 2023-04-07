@@ -3,7 +3,6 @@ package motion
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -115,7 +114,6 @@ func (svc *reconfigurableMotionService) Move(
 	slamName resource.Name,
 	extra map[string]interface{},
 ) (bool, error) {
-	fmt.Println("services/motion/motion.go")
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 	return svc.actual.Move(ctx, componentName, destination, worldState, constraints, slamName, extra)

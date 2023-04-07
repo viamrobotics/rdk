@@ -3,7 +3,6 @@ package motion
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
@@ -41,28 +40,20 @@ func (server *subtypeServer) service(serviceName string) (Service, error) {
 }
 
 func (server *subtypeServer) Move(ctx context.Context, req *pb.MoveRequest) (*pb.MoveResponse, error) {
-	fmt.Println("services/motion/server.go")
 	svc, err := server.service(req.Name)
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("1")
 	worldState, err := referenceframe.WorldStateFromProtobuf(req.GetWorldState())
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("2")
 	var slamServiceName resource.Name
 	if protoName := req.GetSlamServiceName(); protoName != nil {
 		slamServiceName = protoutils.ResourceNameFromProto(protoName)
 	} else {
 		slamServiceName = slam.Named("")
 	}
-	fmt.Println("3")
-	fmt.Println("req.GetComponentName(): ", req.GetComponentName())
-	fmt.Println("req.GetDestination(): ", req.GetDestination())
-	fmt.Println("req.GetConstraints(): ", req.GetConstraints())
-	fmt.Println("req.Extra.AsMap(): ", req.Extra.AsMap())
 	success, err := svc.Move(
 		ctx,
 		protoutils.ResourceNameFromProto(req.GetComponentName()),
