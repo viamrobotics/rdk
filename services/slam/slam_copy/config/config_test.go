@@ -151,7 +151,6 @@ func TestNewAttrConf(t *testing.T) {
 		cfgService.Attributes["map_rate_sec"] = 1002
 		cfgService.Attributes["port"] = "47"
 		cfgService.Attributes["delete_processed_data"] = true
-		cfgService.Attributes["dev"] = false
 
 		cfgService.Attributes["config_params"] = map[string]string{
 			"mode":    "test mode",
@@ -166,7 +165,6 @@ func TestNewAttrConf(t *testing.T) {
 		test.That(t, cfg.DataRateMsec, test.ShouldEqual, cfgService.Attributes["data_rate_msec"])
 		test.That(t, *cfg.MapRateSec, test.ShouldEqual, cfgService.Attributes["map_rate_sec"])
 		test.That(t, cfg.Port, test.ShouldEqual, cfgService.Attributes["port"])
-		test.That(t, cfg.Dev, test.ShouldEqual, cfgService.Attributes["dev"])
 		test.That(t, cfg.ConfigParams, test.ShouldResemble, cfgService.Attributes["config_params"])
 	})
 }

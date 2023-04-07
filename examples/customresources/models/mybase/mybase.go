@@ -17,6 +17,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/utils"
 )
 
 var (
@@ -51,27 +52,20 @@ func newBase(ctx context.Context, deps registry.Dependencies, config config.Comp
 func (base *MyBase) Reconfigure(cfg config.Component, deps registry.Dependencies) error {
 	base.left = nil
 	base.right = nil
-	for n, d := range deps {
-		switch n.Name {
-		case cfg.Attributes.String("motorL"):
-			m, ok := d.(motor.Motor)
-			if !ok {
-				return errors.Errorf("resource %s is not a motor", n.Name)
-			}
-			base.left = m
-		case cfg.Attributes.String("motorR"):
-			m, ok := d.(motor.Motor)
-			if !ok {
-				return errors.Errorf("resource %s is not a motor", n.Name)
-			}
-			base.right = m
-		default:
-			continue
-		}
+	baseConfig, ok := cfg.ConvertedAttributes.(*MyBaseConfig)
+	if !ok {
+		return utils.NewUnexpectedTypeError(baseConfig, cfg.ConvertedAttributes)
+	}
+	var err error
+
+	base.left, err = motor.FromDependencies(deps, baseConfig.LeftMotor)
+	if err != nil {
+		return errors.Wrapf(err, "unable to get motor %v for mybase", baseConfig.LeftMotor)
 	}
 
-	if base.left == nil || base.right == nil {
-		return errors.Errorf(`mybase %q needs both "motorL" and "motorR"`, cfg.Name)
+	base.right, err = motor.FromDependencies(deps, baseConfig.RightMotor)
+	if err != nil {
+		return errors.Wrapf(err, "unable to get motor %v for mybase", baseConfig.RightMotor)
 	}
 
 	// Good practice to stop motors, but also this effectively tests https://viam.atlassian.net/browse/RSDK-2496

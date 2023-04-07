@@ -50,7 +50,7 @@ const (
 )
 
 var (
-	reservedChars         = [...]string{":"}
+	reservedChars         = [...]string{":", "+"} // colons are delimiters for remote names, plus signs are used for WebRTC track names.
 	resRegexValidator     = regexp.MustCompile(`^([\w-]+:[\w-]+:(?:[\w-]+))\/?([\w-]+:(?:[\w-]+:)*)?(.+)?$`)
 	subtypeRegexValidator = regexp.MustCompile(`^([\w-]+):([\w-]+):([\w-]+)$`)
 	// DefaultServiceModel is used for builtin services.
@@ -295,8 +295,8 @@ func (n Name) String() string {
 	return name
 }
 
-// NewReservedCharacterUsedError is used when a reserved character is wrongly used in a name.
-func NewReservedCharacterUsedError(val, reservedChar string) error {
+// errReservedCharacterUsed is used when a reserved character is wrongly used in a name.
+func errReservedCharacterUsed(val, reservedChar string) error {
 	return errors.Errorf("reserved character %s used in name:%q", reservedChar, val)
 }
 
@@ -304,7 +304,7 @@ func NewReservedCharacterUsedError(val, reservedChar string) error {
 func ContainsReservedCharacter(val string) error {
 	for _, char := range reservedChars {
 		if strings.Contains(val, char) {
-			return NewReservedCharacterUsedError(val, char)
+			return errReservedCharacterUsed(val, char)
 		}
 	}
 	return nil
