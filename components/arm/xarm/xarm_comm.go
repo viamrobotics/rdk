@@ -423,7 +423,7 @@ func (x *xArm) MoveToPosition(ctx context.Context, pos spatialmath.Pose, extra m
 			return err
 		}
 	}
-	if err := arm.Move(ctx, x.robot, x, pos); err != nil {
+	if err := arm.Move(ctx, x.logger, x, pos); err != nil {
 		return err
 	}
 	return x.opMgr.WaitForSuccess(

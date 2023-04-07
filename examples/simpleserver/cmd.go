@@ -14,7 +14,6 @@ import (
 	"go.viam.com/rdk/resource"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/robot/web"
-	"go.viam.com/rdk/testutils/inject"
 )
 
 var logger = golog.NewDebugLogger("simpleserver")
@@ -32,7 +31,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 			ArmModel: "ur5e",
 		},
 	}
-	arm1, err := fake.NewArm(&inject.Robot{}, cfg, logger)
+	arm1, err := fake.NewArm(cfg, logger)
 	if err != nil {
 		return err
 	}

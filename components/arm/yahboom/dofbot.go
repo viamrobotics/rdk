@@ -26,7 +26,6 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -93,8 +92,8 @@ func (config *AttrConfig) Validate(path string) error {
 
 func init() {
 	registry.RegisterComponent(arm.Subtype, ModelName, registry.Component{
-		RobotConstructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			return NewDofBot(ctx, r, config, logger)
+		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
+			return NewDofBot(ctx, deps, config, logger)
 		},
 	})
 
@@ -110,7 +109,6 @@ type Dofbot struct {
 	generic.Unimplemented
 	handle  board.I2CHandle
 	model   referenceframe.Model
-	robot   robot.Robot
 	mu      sync.Mutex
 	muMove  sync.Mutex
 	logger  golog.Logger
@@ -119,7 +117,7 @@ type Dofbot struct {
 }
 
 // NewDofBot is a constructor to create a new dofbot arm.
-func NewDofBot(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.LocalArm, error) {
+func NewDofBot(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (arm.LocalArm, error) {
 	var err error
 
 	attr, ok := config.ConvertedAttributes.(*AttrConfig)
@@ -129,9 +127,8 @@ func NewDofBot(ctx context.Context, r robot.Robot, config config.Component, logg
 
 	a := Dofbot{}
 	a.logger = logger
-	a.robot = r
 
-	b, err := board.FromRobot(r, attr.Board)
+	b, err := board.FromDependencies(deps, attr.Board)
 	if err != nil {
 		return nil, err
 	}
@@ -177,7 +174,7 @@ func (a *Dofbot) EndPosition(ctx context.Context, extra map[string]interface{}) 
 func (a *Dofbot) MoveToPosition(ctx context.Context, pos spatialmath.Pose, extra map[string]interface{}) error {
 	ctx, done := a.opMgr.New(ctx)
 	defer done()
-	return arm.Move(ctx, a.robot, a, pos)
+	return arm.Move(ctx, a.logger, a, pos)
 }
 
 // MoveToJointPositions moves the arm's joints to the given positions.

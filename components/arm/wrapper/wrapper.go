@@ -6,7 +6,7 @@ import (
 
 	"github.com/edaniels/golog"
 	pb "go.viam.com/api/component/arm/v1"
-	"go.viam.com/utils"
+	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/generic"
@@ -16,8 +16,8 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
 )
 
 // AttrConfig is used for converting config attributes.
@@ -32,7 +32,7 @@ var model = resource.NewDefaultModel("wrapper_arm")
 func (cfg *AttrConfig) Validate(path string) ([]string, error) {
 	var deps []string
 	if cfg.ArmName == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "arm-name")
+		return nil, goutils.NewConfigValidationFieldRequiredError(path, "arm-name")
 	}
 	if _, err := referenceframe.ModelFromPath(cfg.ModelFilePath, ""); err != nil {
 		return nil, err
@@ -43,8 +43,8 @@ func (cfg *AttrConfig) Validate(path string) ([]string, error) {
 
 func init() {
 	registry.RegisterComponent(arm.Subtype, model, registry.Component{
-		RobotConstructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			return NewWrapperArm(config, r, logger)
+		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
+			return NewWrapperArm(config, deps, logger)
 		},
 	})
 
@@ -64,18 +64,23 @@ type Arm struct {
 	model  referenceframe.Model
 	actual arm.Arm
 	logger golog.Logger
-	robot  robot.Robot
 	opMgr  operation.SingleOperationManager
 }
 
 // NewWrapperArm returns a wrapper component for another arm.
-func NewWrapperArm(cfg config.Component, r robot.Robot, logger golog.Logger) (arm.LocalArm, error) {
-	modelPath := cfg.ConvertedAttributes.(*AttrConfig).ModelFilePath
+func NewWrapperArm(cfg config.Component, deps registry.Dependencies, logger golog.Logger) (arm.LocalArm, error) {
+	attrs, ok := cfg.ConvertedAttributes.(*AttrConfig)
+	if !ok {
+		return nil, utils.NewUnexpectedTypeError(attrs, cfg.ConvertedAttributes)
+	}
+
+	modelPath := attrs.ModelFilePath
 	model, err := referenceframe.ModelFromPath(modelPath, cfg.Name)
 	if err != nil {
 		return nil, err
 	}
-	wrappedArm, err := arm.FromRobot(r, cfg.ConvertedAttributes.(*AttrConfig).ArmName)
+
+	wrappedArm, err := arm.FromDependencies(deps, attrs.ArmName)
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +89,6 @@ func NewWrapperArm(cfg config.Component, r robot.Robot, logger golog.Logger) (ar
 		model:  model,
 		actual: wrappedArm,
 		logger: logger,
-		robot:  r,
 	}, nil
 }
 
@@ -130,7 +134,7 @@ func (wrapper *Arm) EndPosition(ctx context.Context, extra map[string]interface{
 func (wrapper *Arm) MoveToPosition(ctx context.Context, pos spatialmath.Pose, extra map[string]interface{}) error {
 	ctx, done := wrapper.opMgr.New(ctx)
 	defer done()
-	return arm.Move(ctx, wrapper.robot, wrapper, pos)
+	return arm.Move(ctx, wrapper.logger, wrapper, pos)
 }
 
 // MoveToJointPositions sets the joints.
