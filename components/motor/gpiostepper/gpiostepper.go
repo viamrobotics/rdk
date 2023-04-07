@@ -224,7 +224,7 @@ func (m *gpioStepper) doRun(ctx context.Context) {
 	for {
 		sleep, err := m.doCycle(ctx)
 		if err != nil {
-			m.logger.Errorf("error cycling gpioStepper (%s) %w", m.motorName, err)
+			m.logger.Warnf("error cycling gpioStepper (%s) %s", m.motorName, err.Error())
 		}
 
 		if !utils.SelectContextOrWait(ctx, sleep) {
@@ -267,13 +267,15 @@ func (m *gpioStepper) doStep(ctx context.Context, forward bool) error {
 	if err != nil {
 		return err
 	}
+	// stay high for half the delay
+	time.Sleep(m.stepperDelay / 2)
 
 	if err := m.stepPin.Set(ctx, false, nil); err != nil {
 		return err
 	}
 
-	// only need a fast pin set and then a delay
-	time.Sleep(m.stepperDelay)
+	// stay low for the other half
+	time.Sleep(m.stepperDelay / 2)
 
 	if forward {
 		m.stepPosition++
