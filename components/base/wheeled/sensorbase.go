@@ -78,13 +78,16 @@ func makeBaseWithSensors(
 	return s, nil
 }
 
-func (s *sensorBase) SetPollActive(isActive bool) {
+// setPollActive determines whether we want the sensor loop to run ad stop the base with sensor feedback
+// should be set to false everywhere except when sensor feedback is need to stop movement.
+func (s *sensorBase) setPollActive(isActive bool) {
 	s.sensorMu.Lock()
 	s.pollingActive = isActive
 	s.sensorMu.Unlock()
 }
 
-func (s *sensorBase) IsPollActive() bool {
+// isPollActive gets whether the base is actively polling a sensor.
+func (s *sensorBase) isPollActive() bool {
 	s.sensorMu.Lock()
 	defer s.sensorMu.Unlock()
 	return s.pollingActive
@@ -92,8 +95,8 @@ func (s *sensorBase) IsPollActive() bool {
 
 // Spin commands a base to turn about its center at a angular speed and for a specific angle.
 func (s *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
+	s.setPollActive(false)
 	if s.orientation == nil {
-		s.SetPollActive(false)
 		return s.base.Spin(ctx, angleDeg, degsPerSec, nil)
 	}
 
@@ -103,13 +106,13 @@ func (s *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ext
 			s.logger.Error(err)
 		}
 	}, s.workers.Done)
-	s.SetPollActive(true)
 	return s.stopSpinWithSensor(s.sensorCtx, angleDeg, degsPerSec)
 }
 
 func (s *sensorBase) stopSpinWithSensor(
 	ctx context.Context, angleDeg, degsPerSec float64,
 ) error {
+	// this is the only are
 	startYaw, err := getCurrentYaw(ctx, s.orientation)
 	if err != nil {
 		return err
@@ -128,21 +131,13 @@ func (s *sensorBase) stopSpinWithSensor(
 		ticker := time.NewTicker(yawPollTime)
 		defer ticker.Stop()
 		for {
-			if !s.IsPollActive() {
-				ticker.Stop()
+			// check if we want to poll the sensor at all
+			if !s.isPollActive() {
 				return
 			}
 			select {
 			case <-ctx.Done():
-				s.SetPollActive(false)
-				ticker.Stop()
-				return
-			default:
-			}
-			select {
-			case <-ctx.Done():
-				s.SetPollActive(false)
-				ticker.Stop()
+				s.setPollActive(false)
 				return
 			case <-ticker.C:
 				// imu readings are limited from 0 -> 360
@@ -183,11 +178,10 @@ func (s *sensorBase) stopSpinWithSensor(
 				// check if we've travelled at all
 				if fullTurns == 0 {
 					if (atTarget && minTravel) || (overShot && minTravel) {
-						ticker.Stop()
+						s.setPollActive(false)
 						if err := s.Stop(ctx, nil); err != nil {
 							return
 						}
-						s.SetPollActive(false)
 
 						if sensorDebug {
 							s.logger.Debugf(
@@ -197,12 +191,10 @@ func (s *sensorBase) stopSpinWithSensor(
 					}
 				} else {
 					if (turnCount >= fullTurns) && atTarget {
-						ticker.Stop()
-						s.SetPollActive(false)
+						s.setPollActive(false)
 						if err := s.Stop(ctx, nil); err != nil {
 							return
 						}
-						s.SetPollActive(false)
 
 						if sensorDebug {
 							s.logger.Debugf(
@@ -298,26 +290,26 @@ func hasOverShot(angle, start, target, dir float64) bool {
 func (s *sensorBase) MoveStraight(
 	ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{},
 ) error {
-	s.SetPollActive(false)
+	s.setPollActive(false)
 	return s.base.MoveStraight(ctx, distanceMm, mmPerSec, extra)
 }
 
 func (s *sensorBase) SetVelocity(
 	ctx context.Context, linear, angular r3.Vector, extra map[string]interface{},
 ) error {
-	s.SetPollActive(false)
+	s.setPollActive(false)
 	return s.base.SetVelocity(ctx, linear, angular, extra)
 }
 
 func (s *sensorBase) SetPower(
 	ctx context.Context, linear, angular r3.Vector, extra map[string]interface{},
 ) error {
-	s.SetPollActive(false)
+	s.setPollActive(false)
 	return s.base.SetPower(ctx, linear, angular, extra)
 }
 
 func (s *sensorBase) Stop(ctx context.Context, extra map[string]interface{}) error {
-	s.SetPollActive(false)
+	s.setPollActive(false)
 	return s.base.Stop(ctx, extra)
 }
 
@@ -330,7 +322,7 @@ func (s *sensorBase) Width(ctx context.Context) (int, error) {
 }
 
 func (s *sensorBase) Close(ctx context.Context) error {
-	s.SetPollActive(false)
+	s.setPollActive(false)
 	base, isWheeled := rdkutils.UnwrapProxy(s.base).(*wheeledBase)
 	if isWheeled {
 		return base.Close(ctx)
