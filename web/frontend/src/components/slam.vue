@@ -58,14 +58,13 @@ const fetchSLAMMap = (name: string): Promise<Uint8Array> => {
     req.setName(name);
     rcLogConditionally(req);
     const chunks: Uint8Array[] = [];
-
     const getPointCloudMap: ResponseStream<slamApi.GetPointCloudMapResponse> =
       props.client.slamService.getPointCloudMap(req);
-    getPointCloudMap.on('data', (res: { getPointCloudPcdChunk_asU8(): Uint8Array }) => {
+    getPointCloudMap.on('data', (res) => {
       const chunk = res.getPointCloudPcdChunk_asU8();
       chunks.push(chunk);
     });
-    getPointCloudMap.on('status', (status: { code: number, details: string, metadata: string }) => {
+    getPointCloudMap.on('status', (status) => {
       if (status.code !== 0) {
         const error = {
           message: status.details,
@@ -75,7 +74,7 @@ const fetchSLAMMap = (name: string): Promise<Uint8Array> => {
         reject(error);
       }
     });
-    getPointCloudMap.on('end', (end: { code: number }) => {
+    getPointCloudMap.on('end', (end) => {
       if (end === undefined || end.code !== 0) {
         // the error will be logged in the 'status' callback
         return;
@@ -446,7 +445,7 @@ const executeDelete = () => {
               :client="client"
               :dest-exists='updatedDest'
               :dest-vector='threeJPos'
-              @click="handle2dRenderClick"
+              @click="handle2dRenderClick($event)"
            />
         </div>
       </div>

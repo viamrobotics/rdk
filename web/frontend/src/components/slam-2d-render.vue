@@ -57,6 +57,7 @@ const raycaster = new MouseRaycaster({ camera, canvas, recursive: false });
 raycaster.addEventListener('click', async (event) => {
   const [intersection] = event.intersections as THREE.Intersection[];
   if (intersection && intersection.point) {
+    scene.remove()
     emit('click', intersection.point)
   }
 });
@@ -216,7 +217,7 @@ const updateCloud = (pointcloud: Uint8Array) => {
   scene.add(axesHelper2);
   scene.add(gridHelper);
   scene.add(points);
-  scene.add(intersectionPlane);
+  scene.add(intersectionPlane);  
   updatePose(props.pose!)
 };
 
@@ -230,7 +231,7 @@ const updatePose = async (newPose: commonApi.Pose) => {
     const x = props.destVector!.x
     const z = props.destVector!.z
     const destMarker = scene.getObjectByName('Marker') ?? await makeMarker(destUrl, "Marker", 0.1)
-    destMarker.position.set(x, 0, z)
+    destMarker.position.set(x +.6, 0, z-1.24)
   }
   
 };
@@ -257,7 +258,7 @@ onUnmounted(() => {
 watch(() => [props.destVector?.x, props.destVector?.z, props.destExists], async () => {
   if (props.destVector && props.destExists) {
     const marker =  scene.getObjectByName('Marker') ?? await makeMarker(destUrl, "Marker", 0.1)
-    marker.position.set(props.destVector.x +.6, 0, props.destVector.z-1.24)
+    marker.position.set(props.destVector.x +1.2, 0, props.destVector.z-2.44)
   }
   if (!props.destExists) {
     const marker =  scene.getObjectByName('Marker')
