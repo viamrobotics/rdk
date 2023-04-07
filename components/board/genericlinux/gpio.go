@@ -117,7 +117,7 @@ func (pin *gpioPin) setInternal(isHigh bool) (err error) {
 		value = 0
 	}
 
-	if err := pin.openGpioFd(/* isInput= */ false); err != nil {
+	if err := pin.openGpioFd( /* isInput= */ false); err != nil {
 		return err
 	}
 
@@ -131,7 +131,7 @@ func (pin *gpioPin) Get(
 	pin.mu.Lock()
 	defer pin.mu.Unlock()
 
-	if err := pin.openGpioFd(/* isInput= */ true); err != nil {
+	if err := pin.openGpioFd( /* isInput= */ true); err != nil {
 		return false, err
 	}
 
