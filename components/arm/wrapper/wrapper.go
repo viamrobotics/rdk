@@ -127,15 +127,10 @@ func (wrapper *Arm) EndPosition(ctx context.Context, extra map[string]interface{
 }
 
 // MoveToPosition sets the position.
-func (wrapper *Arm) MoveToPosition(
-	ctx context.Context,
-	pos spatialmath.Pose,
-	worldState *referenceframe.WorldState,
-	extra map[string]interface{},
-) error {
+func (wrapper *Arm) MoveToPosition(ctx context.Context, pos spatialmath.Pose, extra map[string]interface{}) error {
 	ctx, done := wrapper.opMgr.New(ctx)
 	defer done()
-	return arm.Move(ctx, wrapper.robot, wrapper, pos, worldState)
+	return arm.Move(ctx, wrapper.robot, wrapper, pos)
 }
 
 // MoveToJointPositions sets the joints.

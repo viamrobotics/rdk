@@ -343,28 +343,24 @@ func (ua *URArm) EndPosition(ctx context.Context, extra map[string]interface{}) 
 
 // MoveToPosition moves the arm to the specified cartesian position.
 // If the UR arm was configured with "arm_hosted_kinematics = 'true'" or extra["arm_hosted_kinematics"] = true is specified at runtime
-// this command will use the kinematics hosted by the Universal Robots arm.  If these are used with obstacles
-// or interaction spaces embedded in the world state an error will  be thrown, as the hosted planning does not support these constraints.
-func (ua *URArm) MoveToPosition(
-	ctx context.Context,
-	pos spatialmath.Pose,
-	worldState *referenceframe.WorldState,
-	extra map[string]interface{},
-) error {
+// this command will use the kinematics hosted by the Universal Robots arm.
+func (ua *URArm) MoveToPosition(ctx context.Context, pos spatialmath.Pose, extra map[string]interface{}) error {
 	if !ua.inRemoteMode {
 		return errors.New("UR5 is in local mode; use the polyscope to switch it to remote control mode")
 	}
 	ctx, done := ua.opMgr.New(ctx)
 	defer done()
 
-	usingHostedKinematics, err := ua.useURHostedKinematics(worldState, extra)
-	if err != nil {
-		return err
+	// Apply config hook first; if runtime setting exists, use that instead
+	usingHostedKinematics := ua.urHostedKinematics
+	if runtimeKinematicsSetting, ok := extra["arm_hosted_kinematics"].(bool); ok {
+		usingHostedKinematics = runtimeKinematicsSetting
 	}
+
 	if usingHostedKinematics {
 		return ua.moveWithURHostedKinematics(ctx, pos)
 	}
-	return arm.Move(ctx, ua.robot, ua, pos, worldState)
+	return arm.Move(ctx, ua.robot, ua, pos)
 }
 
 // MoveToJointPositions TODO.
@@ -647,28 +643,6 @@ func reader(ctx context.Context, conn net.Conn, ua *URArm, onHaveData func()) er
 			ua.logger.Debugf("ur: unknown messageType: %v size: %d %v\n", buf[0], len(buf), buf)
 		}
 	}
-}
-
-const errURHostedKinematics = "cannot use UR hosted kinematics with obstacles or interaction spaces"
-
-func (ua *URArm) useURHostedKinematics(worldState *referenceframe.WorldState, extra map[string]interface{}) (bool, error) {
-	// function to error out if trying to use world state with hosted kinematics
-	checkWorldState := func(usingHostedKinematics bool) (bool, error) {
-		if usingHostedKinematics && worldState != nil && len(worldState.Obstacles) != 0 {
-			return false, errors.New(errURHostedKinematics)
-		}
-		return usingHostedKinematics, nil
-	}
-
-	// if runtime preference is specified, obey that
-	if extra != nil {
-		if usingAtRuntime, ok := extra["arm_hosted_kinematics"].(bool); ok {
-			return checkWorldState(usingAtRuntime)
-		}
-	}
-
-	// otherwise default to option provided at config time
-	return checkWorldState(ua.urHostedKinematics)
 }
 
 func (ua *URArm) moveWithURHostedKinematics(ctx context.Context, pose spatialmath.Pose) error {
