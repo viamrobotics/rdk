@@ -19,6 +19,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/camera/v1"
+	"go.viam.com/rdk/components/board/jetson"
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
@@ -222,6 +223,7 @@ func getLabelFromVideoSource(src gostream.VideoSource, logger golog.Logger) stri
 	return labels[0]
 }
 
+<<<<<<< HEAD
 // NewWebcam returns a new source based on a webcam discovered from the given config.
 func NewWebcam(
 	ctx context.Context,
@@ -229,6 +231,25 @@ func NewWebcam(
 	conf resource.Config,
 	logger golog.Logger,
 ) (camera.Camera, error) {
+=======
+// NewWebcamSource returns a new source based on a webcam discovered from the given attributes.
+func NewWebcamSource(ctx context.Context, name string, attrs *WebcamAttrs, logger golog.Logger) (camera.Camera, error) {
+	cam, err := findAndMakeCamera(ctx, attrs, attrs.Path, logger)
+	if err != nil {
+		if jetson.IsJetsonOrinAGX() {
+			return nil, errors.Wrap(err, jetson.PrintCAM20CUOAGXError())
+		}
+		return nil, errors.Wrap(err, "cannot find video source for camera")
+	}
+
+	logger = logger.With("camera_name", name)
+	label := attrs.Path
+	if label == "" {
+		label = getLabelFromCamera(cam, logger)
+		logger = logger.With("camera_label", label)
+	}
+
+>>>>>>> 79170d07b (Print error for AGX camera failed init)
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	cam := &monitoredWebcam{
 		Named:          conf.ResourceName().AsNamed(),
