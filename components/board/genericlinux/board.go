@@ -277,8 +277,13 @@ func (b *sysfsBoard) DigitalInterruptByName(name string) (board.DigitalInterrupt
 		return nil, false // It's not a GPIO pin either. Give up.
 	}
 
-	// TODO: fix this line
-	interrupt, err := createDigitalInterrupt(context, digint_config, gpioMappings, activeBackgroundWorkers)
+	defaultInterruptConfig = board.DigitalInterruptConfig{
+		Name: name,
+		Pin:  name,
+		Type: "basic",
+	}
+	interrupt, err := createDigitalInterrupt(b.cancelCtx, defaultInterruptConfig, b.gpioMappings,
+	                                         b.activeBackgroundWorkers)
 	if err != nil {
 		b.logger.Errorf("Unable to create digital interrupt pin on the fly: %s", err)
 		return nil, false
