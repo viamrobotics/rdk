@@ -65,21 +65,21 @@ func (slamSvc *SLAM) GetPosition(ctx context.Context, name string) (spatialmath.
 	return fakeGetPosition(ctx, datasetDirectory, slamSvc)
 }
 
-// GetPointCloudMapStream returns a callback function which will return the next chunk of the current pointcloud
+// GetPointCloudMap returns a callback function which will return the next chunk of the current pointcloud
 // map.
-func (slamSvc *SLAM) GetPointCloudMapStream(ctx context.Context, name string) (func() ([]byte, error), error) {
-	ctx, span := trace.StartSpan(ctx, "slam::fake::GetPointCloudMapStream")
+func (slamSvc *SLAM) GetPointCloudMap(ctx context.Context, name string) (func() ([]byte, error), error) {
+	ctx, span := trace.StartSpan(ctx, "slam::fake::GetPointCloudMap")
 	defer span.End()
 	slamSvc.incrementDataCount()
-	return fakeGetPointCloudMapStream(ctx, datasetDirectory, slamSvc)
+	return fakeGetPointCloudMap(ctx, datasetDirectory, slamSvc)
 }
 
-// GetInternalStateStream returns a callback function which will return the next chunk of the current internal
+// GetInternalState returns a callback function which will return the next chunk of the current internal
 // state of the slam algo.
-func (slamSvc *SLAM) GetInternalStateStream(ctx context.Context, name string) (func() ([]byte, error), error) {
-	ctx, span := trace.StartSpan(ctx, "slam::fake::GetInternalStateStream")
+func (slamSvc *SLAM) GetInternalState(ctx context.Context, name string) (func() ([]byte, error), error) {
+	ctx, span := trace.StartSpan(ctx, "slam::fake::GetInternalState")
 	defer span.End()
-	return fakeGetInternalStateStream(ctx, datasetDirectory, slamSvc)
+	return fakeGetInternalState(ctx, datasetDirectory, slamSvc)
 }
 
 // incrementDataCount is not thread safe but that is ok as we only intend a single user to be interacting
