@@ -1,52 +1,55 @@
-package vision
+package vision_test
 
 import (
+	"context"
+	"image"
 	"testing"
 
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/services/vision"
+	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/vision/objectdetection"
 	"go.viam.com/test"
-
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/robot/packages"
 )
 
-func TestAttributesWalker(t *testing.T) {
-	makeVisionAttributes := func(modelPath, labelPath string) *Attributes {
-		return &Attributes{
-			ModelRegistry: []VisModelConfig{
-				{
-					Name: "my_classifier",
-					Type: "classifications",
-					Parameters: config.AttributeMap{
-						"model_path":  modelPath,
-						"label_path":  labelPath,
-						"num_threads": 1,
-					},
-				},
-			},
-		}
+const (
+	testVisionServiceName = "vision1"
+	testVisionServiceName = "vision2"
+)
+
+func TestFromRobot(t *testing.T) {
+	svc1 := &inject.VisionService{}
+	sv1.DetectionFunc = func(ctx context.Context, img image.Image, extra map[string]interface{}) ([]objectdetection.Detection, error) {
+		det1 := objectdetection.NewDetection(image.Rectangle{}, 0.5, "yes")
+		return []objectdetection.Detection{det1}, nil
 	}
-
-	visionAttrs := makeVisionAttributes("/some/path/on/robot/model.tflite", "/other/path/on/robot/textFile.txt")
-	visionAttrsWithRefs := makeVisionAttributes("${packages.test_model}/model.tflite", "${packages.test_model}/textFile.txt")
-	visionAttrsOneRef := makeVisionAttributes("/some/path/on/robot/model.tflite", "${packages.test_model}/textFile.txt")
-
-	packageManager := packages.NewNoopManager()
-
-	testAttributesWalker := func(t *testing.T, attrs *Attributes, expectedModelPath, expectedLabelPath string) {
-		newAttrs, err := attrs.Walk(packages.NewPackagePathVisitor(packageManager))
-		test.That(t, err, test.ShouldBeNil)
-
-		test.That(t, newAttrs.(*Attributes).ModelRegistry, test.ShouldNotBeNil)
-		test.That(t, newAttrs.(*Attributes).ModelRegistry, test.ShouldHaveLength, 1)
-		test.That(t, newAttrs.(*Attributes).ModelRegistry[0].Name, test.ShouldEqual, "my_classifier")
-		test.That(t, newAttrs.(*Attributes).ModelRegistry[0].Type, test.ShouldEqual, "classifications")
-		test.That(t, newAttrs.(*Attributes).ModelRegistry[0].Parameters, test.ShouldNotBeNil)
-		test.That(t, newAttrs.(*Attributes).ModelRegistry[0].Parameters["model_path"], test.ShouldEqual, expectedModelPath)
-		test.That(t, newAttrs.(*Attributes).ModelRegistry[0].Parameters["label_path"], test.ShouldEqual, expectedLabelPath)
-		test.That(t, newAttrs.(*Attributes).ModelRegistry[0].Parameters["num_threads"], test.ShouldEqual, 1)
+	r := &inject.Robot{}
+	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+		return svc1, nil
 	}
+	svc, err := vision.FromRobot(r, testVisionServiceName)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, svc, test.ShouldNotBeNil)
+	result, err := svc.Detections(context.Backgroun(), nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(result), test.ShouldEqual, 1)
+	test.That(t, result[0].Score(), test.ShouldEqual, 0.5)
+}
 
-	testAttributesWalker(t, visionAttrs, "/some/path/on/robot/model.tflite", "/other/path/on/robot/textFile.txt")
-	testAttributesWalker(t, visionAttrsWithRefs, "test_model/model.tflite", "test_model/textFile.txt")
-	testAttributesWalker(t, visionAttrsOneRef, "/some/path/on/robot/model.tflite", "test_model/textFile.txt")
+func TestNewService(t *testing.T) {
+	r := &inject.Robot{}
+	simpleDetector := func(context.Context, image.Image) ([]objectdetection.Detection, error) {
+		det1 := objectdetection.NewDetection(image.Rectangle{}, 0.5, "yes")
+		return []objectdetection.Detection{det1}, nil
+	}
+	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+		return svc1, nil
+	}
+	svc, err := vision.NewService("testService", simpleDetector, r)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, svc, test.ShouldNotBeNil)
+	result, err := svc.Detections(context.Backgroun(), nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(result), test.ShouldEqual, 1)
+	test.That(t, result[0].Score(), test.ShouldEqual, 0.5)
 }
