@@ -277,8 +277,16 @@ func (b *sysfsBoard) DigitalInterruptByName(name string) (board.DigitalInterrupt
 		return nil, false // It's not a GPIO pin either. Give up.
 	}
 
-	// TODO(RSDK-2345): If the name is numerical and doesn't already exist, create it here anyway.
-	return nil, false
+	// TODO: fix this line
+	interrupt, err := createDigitalInterrupt(context, digint_config, gpioMappings, activeBackgroundWorkers)
+	if err != nil {
+		b.logger.Errorf("Unable to create digital interrupt pin on the fly: %s", err)
+		return nil, false
+	}
+
+	b.interrupts[name] = interrupt
+	delete(b.gpios, name)
+	return interrupt, true
 }
 
 func (b *sysfsBoard) SPINames() []string {
