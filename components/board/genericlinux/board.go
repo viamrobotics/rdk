@@ -254,11 +254,30 @@ func (b *sysfsBoard) AnalogReaderByName(name string) (board.AnalogReader, bool) 
 }
 
 func (b *sysfsBoard) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool) {
-	// TODO(RSDK-2345): If the name is numerical and doesn't already exist, create it here anyway.
+	if b.usePeriphGpio {
+		return nil, false // Digital interrupts aren't supported.
+	}
+
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
 	interrupt, ok := b.interrupts[name]
 	if ok {
 		return interrupt.interrupt, true
 	}
+
+	// Otherwise, the name is not something we recognize yet. If it looks numeric and appears to be
+	// a GPIO pin, we'll remove its GPIO capabilities and turn it into a digital interrupt.
+	if _, err := strconv.Atoi(name); err != nil {
+		return nil, false // Non-numeric name, just give up.
+	}
+
+	gpio, ok := b.gpios[name]
+	if !ok {
+		return nil, false // It's not a GPIO pin either. Give up.
+	}
+
+	// TODO(RSDK-2345): If the name is numerical and doesn't already exist, create it here anyway.
 	return nil, false
 }
 
