@@ -5,26 +5,26 @@ package gpiostepper
 // using high/low direction pins and pulses to step the motor armatures, the package can also set enable
 // pins high or low if the driver needs them to power the stepper motor armatures
 /*
-	Compatibility tested:
-	Stepper Motors:  	NEMA
-	Motor Controler: 	DRV8825, A4998, L298N igus-drylin D8(X)
-	Resources:
-			DRV8825: 	https://lastminuteengineers.com/drv8825-stepper-motor-driver-arduino-tutorial/
-			A4998:	https://lastminuteengineers.com/a4988-stepper-motor-driver-arduino-tutorial/
-			L298N: https://lastminuteengineers.com/stepper-motor-l298n-arduino-tutorial/
+   Compatibility tested:
+   Stepper Motors:     NEMA
+   Motor Driver:   DRV8825, A4998, L298N igus-drylin D8(X)
+   Resources:
+           DRV8825:    https://lastminuteengineers.com/drv8825-stepper-motor-driver-arduino-tutorial/
+           A4998:  https://lastminuteengineers.com/a4988-stepper-motor-driver-arduino-tutorial/
+           L298N: https://lastminuteengineers.com/stepper-motor-l298n-arduino-tutorial/
 
-	This driver will drive the motor using a step piulse with a delay that matches the speed calculated by:
-	stepperDelay (ns) := 1min / (rpm (revs_per_minute) * spr (steps_per_revolution))
-	The motor will then step and increment its own position until it has reached a target or has been stopped.
+   This driver will drive the motor using a step pulse with a delay that matches the speed calculated by:
+   stepperDelay (ns) := 1min / (rpm (revs_per_minute) * spr (steps_per_revolution))
+   The motor will then step and increment its position until it has reached a target or has been stopped.
 
-	Configuration:
-	The only requirements are to specify a step pin to send pulses and a direction pin to set the direction.
-	Enabling current to flow through the armature and holding a position can be done by setting enable pins on
-	hardware that supports that functionality.
+   Configuration:
+   The only requirements are to specify a step pin to send pulses and a direction pin to set the direction.
+   Enabling current to flow through the armature and holding a position can be done by setting enable pins on
+   hardware that supports that functionality.
 
-	An optional configurable stepper_delay parameter configures the minimum delay to set a pulse to high
-	for a particular stepper motor. This is usually motor specific and can be calculated using phase
-	resistance and induction data from the datasheet of your stepper motor.
+   An optional configurable stepper_delay parameter configures the minimum delay to set a pulse to high
+   for a particular stepper motor. This is usually motor specific and can be calculated using phase
+   resistance and induction data from the datasheet of your stepper motor.
 */
 
 import (
