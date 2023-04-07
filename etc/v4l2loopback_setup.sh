@@ -23,20 +23,19 @@ install_dependencies() {
 }
 
 install_kernel_headers() {
-  echo "updating kernel module..."
-	apt-get --assume-yes update
-	apt-get --assume-yes dist-upgrade
-	apt-get --assume-yes upgrade
-	echo "done"
-
-	if [[ -f /var/run/reboot-required ]]; then
-      echo "Reboot required!"
-      echo "Run script after reboot"
-      exit 1
+  echo "installing kernel headers..."
+  # Source: https://gist.github.com/jperkin/c37a574379ef71e339361954be96be12
+  if ! grep -q "Raspberry Pi" /proc/device-tree/model ; then
+    apt-get --assume-yes install "linux-headers-$(uname -r)"
+    echo "done"
+    return
   fi
 
-  echo "installing kernel headers..."
-  apt-get --assume-yes install "linux-headers-$(uname -r)" || apt-get --assume-yes install linux-headers
+  apt install --assume-yes git bc bison flex libssl-dev python2
+  wget https://raw.githubusercontent.com/RPi-Distro/rpi-source/master/rpi-source -O /usr/local/bin/rpi-source
+  chmod +x /usr/local/bin/rpi-source
+  rpi-source -q --tag-update
+  rpi-source
   echo "done"
 }
 
@@ -89,6 +88,7 @@ allow_modprobe_as_superuser() {
   esac
 }
 
+apt-get update --assume-yes
 # In order to build kernel modules (i.e. v4l2loopback) you must have the kernel headers installed
 install_kernel_headers
 install_dependencies
