@@ -5,16 +5,15 @@ package vision
 import (
 	"context"
 	"image"
-	"sync"
 
 	"github.com/edaniels/golog"
-	"github.com/invopop/jsonschema"
 	"github.com/pkg/errors"
+	"go.opencensus.io/trace"
 	servicepb "go.viam.com/api/service/vision/v1"
-	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -22,7 +21,8 @@ import (
 	"go.viam.com/rdk/utils"
 	viz "go.viam.com/rdk/vision"
 	"go.viam.com/rdk/vision/classification"
-	objdet "go.viam.com/rdk/vision/objectdetection"
+	"go.viam.com/rdk/vision/objectdetection"
+	"go.viam.com/rdk/vision/segmentation"
 )
 
 func init() {
@@ -39,51 +39,31 @@ func init() {
 		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
 			return NewClientFromConn(ctx, conn, name, logger)
 		},
-		Reconfigurable: WrapWithReconfigurable,
-		MaxInstance:    resource.DefaultMaxInstance,
+		MaxInstance: resource.DefaultMaxInstance,
 	})
 }
 
 // A Service that implements various computer vision algorithms like detection and segmentation.
 type Service interface {
-	// model parameters
-	GetModelParameterSchema(ctx context.Context, modelType VisModelType, extra map[string]interface{}) (*jsonschema.Schema, error)
-	// detector methods
-	DetectorNames(ctx context.Context, extra map[string]interface{}) ([]string, error)
-	AddDetector(ctx context.Context, cfg VisModelConfig, extra map[string]interface{}) error
-	RemoveDetector(ctx context.Context, detectorName string, extra map[string]interface{}) error
-	DetectionsFromCamera(ctx context.Context, cameraName, detectorName string, extra map[string]interface{}) ([]objdet.Detection, error)
-	Detections(ctx context.Context, img image.Image, detectorName string, extra map[string]interface{}) ([]objdet.Detection, error)
+	DetectionsFromCamera(ctx context.Context, cameraName string, extra map[string]interface{}) ([]objectdetection.Detection, error)
+	Detections(ctx context.Context, img image.Image, extra map[string]interface{}) ([]objectdetection.Detection, error)
 	// classifier methods
-	ClassifierNames(ctx context.Context, extra map[string]interface{}) ([]string, error)
-	AddClassifier(ctx context.Context, cfg VisModelConfig, extra map[string]interface{}) error
-	RemoveClassifier(ctx context.Context, classifierName string, extra map[string]interface{}) error
 	ClassificationsFromCamera(
 		ctx context.Context,
-		cameraName, classifierName string,
+		cameraName string,
 		n int,
 		extra map[string]interface{},
 	) (classification.Classifications, error)
 	Classifications(
 		ctx context.Context,
 		img image.Image,
-		classifierName string,
 		n int,
 		extra map[string]interface{},
 	) (classification.Classifications, error)
 	// segmenter methods
-	SegmenterNames(ctx context.Context, extra map[string]interface{}) ([]string, error)
-	AddSegmenter(ctx context.Context, cfg VisModelConfig, extra map[string]interface{}) error
-	RemoveSegmenter(ctx context.Context, segmenterName string, extra map[string]interface{}) error
-	GetObjectPointClouds(ctx context.Context, cameraName, segmenterName string, extra map[string]interface{}) ([]*viz.Object, error)
+	GetObjectPointClouds(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error)
 	resource.Generic
 }
-
-var (
-	_ = Service(&reconfigurableVision{})
-	_ = resource.Reconfigurable(&reconfigurableVision{})
-	_ = goutils.ContextCloser(&reconfigurableVision{})
-)
 
 // NewUnimplementedInterfaceError is used when there is a failed interface check.
 func NewUnimplementedInterfaceError(actual interface{}) error {
@@ -111,238 +91,132 @@ func FromRobot(r robot.Robot, name string) (Service, error) {
 	return robot.ResourceFromRobot[Service](r, Named(name))
 }
 
-// FindFirstName returns name of first vision service found.
-func FindFirstName(r robot.Robot) string {
-	for _, val := range robot.NamesBySubtype(r, Subtype) {
-		return val
+// vizModel wraps the vision model with all the interface methods.
+type vizModel struct {
+	generic.Unimplemented
+	name          string
+	model         interface{} // can be any combo of detector, classifier, 3D_segmenter
+	r             robot.Robot // in order to get access to all cameras
+	isDetector    bool
+	isClassifier  bool
+	is3DSegmenter bool
+}
+
+// NewService wraps the vision model in the struct that fulfills the vision service interface.
+func NewService(name string, model interface{}, r robot.Robot) (Service, error) {
+	_, isDetector := model.(objectdetection.Detector)
+	_, isClassifier := model.(classification.Classifier)
+	_, is3DSegmenter := model.(segmentation.Segmenter)
+	if !isDetector && !isClassifier && !is3DSegmenter {
+		return nil, errors.New("model does not fulfill any method of the vision service. It is neither a detector, nor classifier, nor 3D segmenter.")
 	}
-	return ""
+	return &vizModel{name, model, r, isDetector, isClassifier, isSegmenter}, nil
 }
 
-// FirstFromRobot returns the first vision service on this robot.
-func FirstFromRobot(r robot.Robot) (Service, error) {
-	vis, err := FirstFromLocalRobot(r)
-	if err != nil {
-		name := FindFirstName(r)
-		return FromRobot(r, name)
-	}
-	return vis, err
-}
-
-// FirstFromLocalRobot returns the first vision service on this main robot.
-// This will specifically ignore remote resources.
-func FirstFromLocalRobot(r robot.Robot) (Service, error) {
-	for _, n := range r.ResourceNames() {
-		if n.Subtype == Subtype && !n.ContainsRemoteNames() {
-			return FromRobot(r, n.ShortName())
-		}
-	}
-	return nil, errors.New("could not find service")
-}
-
-// VisModelType defines what vision models are known by the vision service.
-type VisModelType string
-
-// VisModelConfig specifies the name of the detector, the type of detector,
-// and the necessary parameters needed to build the detector.
-type VisModelConfig struct {
-	Name       string              `json:"name"`
-	Type       string              `json:"type"`
-	Parameters config.AttributeMap `json:"parameters"`
-}
-
-// Attributes contains a list of the user-provided details necessary to register a new vision service.
-type Attributes struct {
-	ModelRegistry []VisModelConfig `json:"register_models"`
-}
-
-// Walk implements the config.Walker interface.
-func (a *Attributes) Walk(visitor config.Visitor) (interface{}, error) {
-	for i, cfg := range a.ModelRegistry {
-		name, err := visitor.Visit(cfg.Name)
-		if err != nil {
-			return nil, err
-		}
-		cfg.Name = name.(string)
-
-		typ, err := visitor.Visit(cfg.Type)
-		if err != nil {
-			return nil, err
-		}
-		cfg.Type = typ.(string)
-
-		params, err := cfg.Parameters.Walk(visitor)
-		if err != nil {
-			return nil, err
-		}
-		cfg.Parameters = params.(config.AttributeMap)
-
-		a.ModelRegistry[i] = cfg
-	}
-
-	return a, nil
-}
-
-type reconfigurableVision struct {
-	mu     sync.RWMutex
-	name   resource.Name
-	actual Service
-}
-
-func (svc *reconfigurableVision) Name() resource.Name {
-	return svc.name
-}
-
-func (svc *reconfigurableVision) GetModelParameterSchema(
-	ctx context.Context,
-	modelType VisModelType,
-	extra map[string]interface{},
-) (*jsonschema.Schema, error) {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	return svc.actual.GetModelParameterSchema(ctx, modelType, extra)
-}
-
-func (svc *reconfigurableVision) DetectorNames(ctx context.Context, extra map[string]interface{}) ([]string, error) {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	return svc.actual.DetectorNames(ctx, extra)
-}
-
-func (svc *reconfigurableVision) AddDetector(ctx context.Context, cfg VisModelConfig, extra map[string]interface{}) error {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	return svc.actual.AddDetector(ctx, cfg, extra)
-}
-
-func (svc *reconfigurableVision) RemoveDetector(ctx context.Context, detectorName string, extra map[string]interface{}) error {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	return svc.actual.RemoveDetector(ctx, detectorName, extra)
-}
-
-func (svc *reconfigurableVision) DetectionsFromCamera(
-	ctx context.Context,
-	cameraName, detectorName string,
-	extra map[string]interface{},
-) ([]objdet.Detection, error) {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	return svc.actual.DetectionsFromCamera(ctx, cameraName, detectorName, extra)
-}
-
-func (svc *reconfigurableVision) Detections(
+// Detections returns the detections of given image if the model implements objectdetector.Detector.
+func (vm *vizModel) Detections(
 	ctx context.Context,
 	img image.Image,
-	detectorName string,
 	extra map[string]interface{},
-) ([]objdet.Detection, error) {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	return svc.actual.Detections(ctx, img, detectorName, extra)
+) ([]objectdetection.Detection, error) {
+	ctx, span := trace.StartSpan(ctx, "service::vision::Detections::"+vm.name)
+	defer span.End()
+	if detector, ok := vm.model.(objectdetection.Detector); ok {
+		return detector(ctx, img)
+	}
+	return nil, errors.Errorf("vision model %q does not implement a Detector", vm.name)
 }
 
-func (svc *reconfigurableVision) ClassifierNames(ctx context.Context, extra map[string]interface{}) ([]string, error) {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	return svc.actual.ClassifierNames(ctx, extra)
-}
-
-func (svc *reconfigurableVision) AddClassifier(ctx context.Context, cfg VisModelConfig, extra map[string]interface{}) error {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	return svc.actual.AddClassifier(ctx, cfg, extra)
-}
-
-func (svc *reconfigurableVision) RemoveClassifier(ctx context.Context, classifierName string, extra map[string]interface{}) error {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	return svc.actual.RemoveDetector(ctx, classifierName, extra)
-}
-
-func (svc *reconfigurableVision) ClassificationsFromCamera(ctx context.Context, cameraName,
-	classifierName string, n int, extra map[string]interface{},
-) (classification.Classifications, error) {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	return svc.actual.ClassificationsFromCamera(ctx, cameraName, classifierName, n, extra)
-}
-
-func (svc *reconfigurableVision) Classifications(ctx context.Context, img image.Image,
-	classifierName string, n int, extra map[string]interface{},
-) (classification.Classifications, error) {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	return svc.actual.Classifications(ctx, img, classifierName, n, extra)
-}
-
-func (svc *reconfigurableVision) SegmenterNames(ctx context.Context, extra map[string]interface{}) ([]string, error) {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	return svc.actual.SegmenterNames(ctx, extra)
-}
-
-func (svc *reconfigurableVision) AddSegmenter(ctx context.Context, cfg VisModelConfig, extra map[string]interface{}) error {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	return svc.actual.AddSegmenter(ctx, cfg, extra)
-}
-
-func (svc *reconfigurableVision) RemoveSegmenter(ctx context.Context, segmenterName string, extra map[string]interface{}) error {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	return svc.actual.RemoveSegmenter(ctx, segmenterName, extra)
-}
-
-func (svc *reconfigurableVision) GetObjectPointClouds(ctx context.Context,
-	cameraName,
-	segmenterName string,
+// DetectionsFromCamera returns the detections of the next image from the given camera.
+func (vm *vizModel) DetectionsFromCamera(
+	ctx context.Context,
+	cameraName string,
 	extra map[string]interface{},
-) ([]*viz.Object, error) {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	return svc.actual.GetObjectPointClouds(ctx, cameraName, segmenterName, extra)
+) ([]objectdetection.Detection, error) {
+	ctx, span := trace.StartSpan(ctx, "service::vision::DetectionsFromCamera::"+vm.name)
+	defer span.End()
+	if !vm.isDetector {
+		return nil, errors.Errorf("vision model %q does not implement a Detector", vm.name)
+	}
+	cam, err := camera.FromRobot(vm.r, cameraName)
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not find camera named %s", cameraName)
+	}
+	img, release, err := camera.ReadImage(ctx, cam)
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not get image from %s", cameraName)
+	}
+	defer release()
+	if detector, ok := vm.model.(objectdetection.Detector); ok {
+		return detector(ctx, img)
+	}
+	return nil, errors.Errorf("vision model %q does not implement a Detector", vm.name)
 }
 
-func (svc *reconfigurableVision) DoCommand(ctx context.Context,
-	cmd map[string]interface{},
-) (map[string]interface{}, error) {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	return svc.actual.DoCommand(ctx, cmd)
+// Classifications returns the classifications of given image if the model implements classifications.Classifier
+func (vm *vizModel) Classifications(
+	ctx context.Context,
+	img image.Image,
+	n int,
+	extra map[string]interface{},
+) (classification.Classifications, error) {
+	ctx, span := trace.StartSpan(ctx, "service::vision::Classifications::"+vm.name)
+	defer span.End()
+	if classifier, ok := vm.model.(classification.Classifier); ok {
+		fullClassifications, err := classifier(ctx, img)
+		if err != nil {
+			return nil, errors.Wrap(err, "could not get classifications from image")
+		}
+		return fullClassifications.TopN(n)
+	}
+	return nil, errors.Errorf("vision model %q does not implement a Classifier", vm.name)
 }
 
-func (svc *reconfigurableVision) Close(ctx context.Context) error {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	return goutils.TryClose(ctx, svc.actual)
+// ClassificationsFromCamera returns the classifications of the next image from the given camera.
+func (vm *vizModel) ClassificationsFromCamera(
+	ctx context.Context,
+	cameraName string,
+	n int,
+	extra map[string]interface{},
+) (classification.Classifications, error) {
+	ctx, span := trace.StartSpan(ctx, "service::vision::ClassificationsFromCamera::"+vm.name)
+	defer span.End()
+	if !vm.isClassifier {
+		return nil, errors.Errorf("vision model %q does not implement a Classifier", vm.name)
+	}
+	cam, err := camera.FromRobot(vm.r, cameraName)
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not find camera named %s", cameraName)
+	}
+	img, release, err := camera.ReadImage(ctx, cam)
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not get image from %s", cameraName)
+	}
+	defer release()
+	if classifier, ok := vm.model.(classification.Classifier); ok {
+		fullClassifications, err := classifier(ctx, img)
+		if err != nil {
+			return nil, errors.Wrap(err, "could not get classifications from image")
+		}
+		return fullClassifications.TopN(n)
+	}
+	return nil, errors.Errorf("vision model %q does not implement a Classifier", vm.name)
 }
 
-// Reconfigure replaces the old vision service with a new vision.
-func (svc *reconfigurableVision) Reconfigure(ctx context.Context, newSvc resource.Reconfigurable) error {
-	svc.mu.Lock()
-	defer svc.mu.Unlock()
-	rSvc, ok := newSvc.(*reconfigurableVision)
-	if !ok {
-		return utils.NewUnexpectedTypeError(svc, newSvc)
+// GetObjectPointClouds returns all the found objects in a 3D image if the model implements segmentation.Segmenter
+func (vm *vizModel) GetObjectPointClouds(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
+	ctx, span := trace.StartSpan(ctx, "service::vision::GetObjectPointClouds::"+vm.name)
+	defer span.End()
+	cam, err := camera.FromRobot(vm.r, cameraName)
+	if err != nil {
+		return nil, err
 	}
-	if err := goutils.TryClose(ctx, svc.actual); err != nil {
-		golog.Global().Errorw("error closing old", "error", err)
+	if segmenter, ok := vm.model.(segmentation.Segmenter); ok {
+		return segmenter(ctx, cam)
 	}
-	svc.actual = rSvc.actual
-	return nil
+	return nil, errors.Errorf("vision model %q does not implement a 3D segmenter", vm.name)
 }
 
-// WrapWithReconfigurable wraps a vision service as a Reconfigurable.
-func WrapWithReconfigurable(s interface{}, name resource.Name) (resource.Reconfigurable, error) {
-	svc, ok := s.(Service)
-	if !ok {
-		return nil, NewUnimplementedInterfaceError(s)
-	}
-
-	if reconfigurable, ok := s.(*reconfigurableVision); ok {
-		return reconfigurable, nil
-	}
-
-	return &reconfigurableVision{name: name, actual: svc}, nil
+func (vm *vizModel) Close(ctx context.Context) error {
+	return utils.TryClose(ctx, vm.model)
 }

@@ -3,5 +3,5 @@ package register
 
 import (
 	// for vision models.
-	_ "go.viam.com/rdk/services/vision/builtin"
+	_ "go.viam.com/rdk/services/vision/colordetector"
 )
