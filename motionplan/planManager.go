@@ -491,7 +491,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 			orientTol = defaultOrientationDeviation
 		}
 		constraint, pathMetric := NewAbsoluteLinearInterpolatingConstraint(from, to, linTol, orientTol)
-		opt.AddStateConstraint(defaultLinearConstraintName, constraint)
+		opt.AddStateConstraint(defaultLinearConstraintDesc, constraint)
 		opt.pathMetric = pathMetric
 	case PseudolinearMotionProfile:
 		tolerance, ok := planningOpts["tolerance"].(float64)
@@ -500,7 +500,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 			tolerance = defaultPseudolinearTolerance
 		}
 		constraint, pathMetric := NewProportionalLinearInterpolatingConstraint(from, to, tolerance)
-		opt.AddStateConstraint(defaultPseudolinearConstraintName, constraint)
+		opt.AddStateConstraint(defaultPseudolinearConstraintDesc, constraint)
 		opt.pathMetric = pathMetric
 	case OrientationMotionProfile:
 		tolerance, ok := planningOpts["tolerance"].(float64)
@@ -509,7 +509,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 			tolerance = defaultOrientationDeviation
 		}
 		constraint, pathMetric := NewSlerpOrientationConstraint(from, to, tolerance)
-		opt.AddStateConstraint(defaultOrientationConstraintName, constraint)
+		opt.AddStateConstraint(defaultOrientationConstraintDesc, constraint)
 		opt.pathMetric = pathMetric
 	case PositionOnlyMotionProfile:
 		opt.SetGoalMetric(NewPositionOnlyMetric(to))
