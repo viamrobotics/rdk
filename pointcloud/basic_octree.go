@@ -148,7 +148,7 @@ func (octree *BasicOctree) CollidesWithGeometry(geom spatialmath.Geometry, thres
 			return false, err
 		}
 
-		// Check whether our geom collides with the area represented by the octree. If false,
+		// Check whether our geom collides with the area represented by the octree. If false, we can skip
 		collide, err := geom.CollidesWith(ocbox)
 		if err != nil {
 			return false, err
@@ -156,15 +156,13 @@ func (octree *BasicOctree) CollidesWithGeometry(geom spatialmath.Geometry, thres
 		if !collide {
 			return false, nil
 		}
-		if len(octree.node.children) > 0 {
-			for _, child := range octree.node.children {
-				collide, err = child.CollidesWithGeometry(geom, threshold, buffer)
-				if err != nil {
-					return false, err
-				}
-				if collide {
-					return true, nil
-				}
+		for _, child := range octree.node.children {
+			collide, err = child.CollidesWithGeometry(geom, threshold, buffer)
+			if err != nil {
+				return false, err
+			}
+			if collide {
+				return true, nil
 			}
 		}
 	case leafNodeEmpty:
