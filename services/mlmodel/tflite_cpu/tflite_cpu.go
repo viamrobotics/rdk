@@ -1,9 +1,8 @@
-// tfliteCPU is a package to implement a tfliteCPU in the ML model service
-package tfliteCPU
+// Package tflitecpu is meant to implement a tfliteCPU in the ML model service
+package tflitecpu
 
 import (
 	"context"
-	"go.viam.com/rdk/robot"
 	fp "path/filepath"
 	"strconv"
 	"strings"
@@ -17,6 +16,7 @@ import (
 	"go.viam.com/rdk/ml/inference/tflite_metadata"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/mlmodel"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/utils"
@@ -30,8 +30,8 @@ func init() {
 	})
 }
 
-// TFLiteDetectorConfig contains the parameters specific to a tflite_cpu
-// implementation of the MLMS (machine learning model service).
+// TFLiteConfig contains the parameters specific to a tflite_cpu implementation
+// of the MLMS (machine learning model service).
 type TFLiteConfig struct {
 	// this should come from the attributes part of the tflite_cpu instance of the MLMS
 	ModelPath  string  `json:"model_path"`
@@ -46,7 +46,7 @@ type TFLiteCPUModel struct {
 	metadata *mlmodel.MLMetadata
 }
 
-// NewTFLiteCPUModel is a constructor that builds a tflite cpu implementation of the MLMS
+// NewTFLiteCPUModel is a constructor that builds a tflite cpu implementation of the MLMS.
 func newTFLiteCPUModel(ctx context.Context, r robot.Robot, conf config.Service, logger golog.Logger) (*TFLiteCPUModel, error) {
 	ctx, span := trace.StartSpan(ctx, "service::mlmodel::NewTFLiteCPUModel")
 	defer span.End()
@@ -65,7 +65,7 @@ func newTFLiteCPUModel(ctx context.Context, r robot.Robot, conf config.Service, 
 	return CreateTFLiteCPUModel(ctx, params)
 }
 
-// CreateTFLiteCPUModel is a constructor that builds a tflite cpu implementation of the MLMS
+// CreateTFLiteCPUModel is a constructor that builds a tflite cpu implementation of the MLMS.
 func CreateTFLiteCPUModel(ctx context.Context, params *TFLiteConfig) (*TFLiteCPUModel, error) {
 	// Given those params, add the model
 	model, err := addTFLiteModel(ctx, params.ModelPath, &params.NumThreads)
@@ -178,7 +178,7 @@ func getTensorInfo(m *TFLiteCPUModel, inputT *tflite_metadata.TensorMetadataT) m
 			Name:        inputT.AssociatedFiles[i].Name,
 			Description: inputT.AssociatedFiles[i].Description,
 		}
-		switch inputT.AssociatedFiles[i].Type { // nolint:exhaustivegit
+		switch inputT.AssociatedFiles[i].Type { //nolint:exhaustive
 		case tflite_metadata.AssociatedFileTypeTENSOR_AXIS_LABELS:
 			outFile.LabelType = mlmodel.LabelTypeTensorAxis
 		case tflite_metadata.AssociatedFileTypeTENSOR_VALUE_LABELS:
