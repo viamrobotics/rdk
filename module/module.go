@@ -521,6 +521,7 @@ func (m *Module) OperationManager() *operation.Manager {
 // addConvertedAttributesToConfig uses the MapAttributeConverter to fill in the
 // ConvertedAttributes field from the Attributes.
 func addConvertedAttributes(cfg *config.Component) error {
+	fmt.Printf("module.addConvertedAttributes %#v/n", cfg)
 	// Try to find map converter for a component.
 	conv := config.FindMapConverter(cfg.API, cfg.Model)
 	// If no map converter for a component exists, try to find map converter for a
