@@ -29,22 +29,14 @@ build-web: web/runtime-shared/static/control.js
 web/runtime-shared/static/control.js: web/frontend/src/*/* web/frontend/src/*/*/* web/frontend/src/*.* web/frontend/scripts/* web/frontend/*.*
 	rm -rf web/runtime-shared/static
 	npm ci --audit=false --prefix web/frontend
-	export NODE_OPTIONS=--openssl-legacy-provider && node --version 2>/dev/null || unset NODE_OPTIONS;\
 	npm run build-prod --prefix web/frontend
 
 tool-install:
-	GOBIN=`pwd`/$(TOOL_BIN) go install google.golang.org/protobuf/cmd/protoc-gen-go \
-		github.com/bufbuild/buf/cmd/protoc-gen-buf-breaking \
-		github.com/bufbuild/buf/cmd/protoc-gen-buf-lint \
-		github.com/pseudomuto/protoc-gen-doc/cmd/protoc-gen-doc \
-		google.golang.org/grpc/cmd/protoc-gen-go-grpc \
-		github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway \
-		github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2 \
+	GOBIN=`pwd`/$(TOOL_BIN) go install \
 		github.com/edaniels/golinters/cmd/combined \
 		github.com/golangci/golangci-lint/cmd/golangci-lint \
 		github.com/AlekSi/gocov-xml \
 		github.com/axw/gocov/gocov \
-		github.com/bufbuild/buf/cmd/buf \
 		gotest.tools/gotestsum \
 		github.com/rhysd/actionlint/cmd/actionlint
 

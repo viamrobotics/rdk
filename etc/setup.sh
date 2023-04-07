@@ -52,11 +52,15 @@ do_bullseye(){
 	export GOPRIVATE=github.com/viamrobotics/*,go.viam.com/*
 	EOS
 
+	# canon
 	go install github.com/viamrobotics/canon@latest
 	if [ -z $GOBIN ]; then
 		GOBIN="`go env GOPATH`/bin"
 	fi
 	sudo ln -sf "$GOBIN/canon" /usr/local/bin/canon
+
+	# upx
+	curl -L https://github.com/upx/upx/releases/download/v4.0.2/upx-4.0.2-arm64_linux.tar.xz | sudo tar -C /usr/local/bin/ --strip-components=1 --wildcards -xJv '*/upx'
 
 	mod_profiles
 	check_gcloud_auth
@@ -88,8 +92,8 @@ do_linux(){
 	export CGO_LDFLAGS=-L/home/linuxbrew/.linuxbrew/lib
 	export CGO_CFLAGS=-I/home/linuxbrew/.linuxbrew/include
 	export GOPRIVATE=github.com/viamrobotics/*,go.viam.com/*
-	export CC=gcc-11
-	export CXX=g++-11
+	export CC=gcc-12
+	export CXX=g++-12
 	export PATH="\$PATH:\$(ruby -e 'puts Gem.user_dir')/bin"
 	EOS
 
@@ -171,35 +175,31 @@ do_brew(){
 	# Has to be after the install so the brew eval can run
 	source ~/.viamdevrc
 
-	brew bundle --file=- <<-EOS
+	brew bundle -v --file=- <<-EOS
 	# viam tap
 	tap  "viamrobotics/brews"
 
 	# pinned
-	brew "gcc@11"
-	brew "go@1.19"
-	brew "node@18"
-	brew "protobuf@3"
+	brew "go@1.20", link: true, conflicts_with: ["go"]
+	brew "node@18", link: true, conflicts_with: ["node"]
+	brew "gcc@12", link: true, conflicts_with: ["gcc"]
 
 	# unpinned
 	brew "canon"
-	brew "nlopt-static"
-	brew "x264"
-	brew "opus"
-	brew "protoc-gen-grpc-web"
 	brew "pkg-config"
-	brew "ffmpeg"
+	brew "nlopt-static"
+	brew "x264", args: ["build-from-source"]
 	brew "jpeg-turbo"
+	brew "ffmpeg"
 	brew "tensorflowlite" # Needs to be last
-
 	EOS
 
 	if [ $? -ne 0 ]; then
 		exit 1
 	fi
 
-	brew unlink "gcc" "go" "node" "protobuf"
-	brew link --overwrite "gcc@11" "go@1.19" "node@18" "protobuf@3" || exit 1
+	# due to a missing bottle in homebrew, this has to be installed on its own
+	brew install upx
 
 	echo "Brew installed software versions..."
 	brew list --version
