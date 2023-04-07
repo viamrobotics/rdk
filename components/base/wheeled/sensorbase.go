@@ -112,6 +112,10 @@ func (s *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ext
 func (s *sensorBase) stopSpinWithSensor(
 	ctx context.Context, angleDeg, degsPerSec float64,
 ) error {
+	// // check if we want to poll the sensor at all
+	// if !s.isPollActive() {
+	// 	return nil
+	// }
 	// this is the only are
 	startYaw, err := getCurrentYaw(ctx, s.orientation)
 	if err != nil {
@@ -131,10 +135,6 @@ func (s *sensorBase) stopSpinWithSensor(
 		ticker := time.NewTicker(yawPollTime)
 		defer ticker.Stop()
 		for {
-			// check if we want to poll the sensor at all
-			if !s.isPollActive() {
-				return
-			}
 			select {
 			case <-ctx.Done():
 				s.setPollActive(false)
