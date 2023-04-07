@@ -77,6 +77,7 @@ type Encoder struct {
 	A, B  string
 	name  string
 
+	positionType pb.PositionType
 	generic.Unimplemented
 }
 
@@ -104,22 +105,26 @@ func (cfg *EncoderConfig) Validate(path string) ([]string, error) {
 }
 
 // GetPosition returns number of ticks since last zeroing.
-func (e *Encoder) GetPosition(ctx context.Context, positionType *pb.PositionType, extra map[string]interface{}) (float64, error) {
+func (e *Encoder) GetPosition(
+	ctx context.Context,
+	positionType *pb.PositionType,
+	extra map[string]interface{},
+) (float64, pb.PositionType, error) {
 	if positionType != nil && *positionType == pb.PositionType_POSITION_TYPE_ANGLE_DEGREES {
-		err := errors.New("Encoder does not support PositionType Angle Degrees")
-		return 0, err
+		err := errors.New("Encoder does not support PositionType Angle Degrees, use a different PositionType")
+		return 0, *positionType, err
 	}
 	res, err := e.board.runCommand("motor-position " + e.name)
 	if err != nil {
-		return 0, err
+		return 0, e.positionType, err
 	}
 
 	ticks, err := strconv.ParseInt(res, 10, 64)
 	if err != nil {
-		return 0, fmt.Errorf("couldn't parse # ticks (%s) : %w", res, err)
+		return 0, e.positionType, fmt.Errorf("couldn't parse # ticks (%s) : %w", res, err)
 	}
 
-	return float64(ticks), nil
+	return float64(ticks), e.positionType, nil
 }
 
 // ResetPosition sets the current position of the motor (adjusted by a given offset)

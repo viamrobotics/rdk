@@ -132,6 +132,7 @@ type Encoder struct {
 	positionOffset          float64
 	rotations               int
 	connectionType          string
+	positionType            pb.PositionType
 	i2cBus                  board.I2C
 	i2cAddr                 byte
 	cancelCtx               context.Context
@@ -254,14 +255,14 @@ func (enc *Encoder) updatePosition(ctx context.Context) error {
 // position measurements by the motor.
 func (enc *Encoder) GetPosition(
 	ctx context.Context, positionType *pb.PositionType, extra map[string]interface{},
-) (float64, error) {
+) (float64, pb.PositionType, error) {
 	enc.mu.RLock()
 	defer enc.mu.RUnlock()
 	if positionType != nil && *positionType == pb.PositionType_POSITION_TYPE_ANGLE_DEGREES {
-		return enc.position, nil
+		return enc.position, enc.positionType, nil
 	}
 	ticks := float64(enc.rotations) + enc.position/360.0
-	return ticks, nil
+	return ticks, enc.positionType, nil
 }
 
 // ResetPosition sets the current position measured by the encoder to be

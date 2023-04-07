@@ -39,16 +39,34 @@ func TestClient(t *testing.T) {
 		actualExtra = extra
 		return nil
 	}
-	workingEncoder.GetPositionFunc = func(ctx context.Context, positionType *pb.PositionType, extra map[string]interface{}) (float64, error) {
+	workingEncoder.GetPositionFunc = func(
+		ctx context.Context,
+		positionType *pb.PositionType,
+		extra map[string]interface{},
+	) (float64, pb.PositionType, error) {
 		actualExtra = extra
-		return 42.0, nil
+		return 42.0, pb.PositionType_POSITION_TYPE_UNSPECIFIED, nil
+	}
+	workingEncoder.GetPropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (map[encoder.Feature]bool, error) {
+		actualExtra = extra
+		return map[encoder.Feature]bool{
+			encoder.TicksCountSupported:   true,
+			encoder.AngleDegreesSupported: false,
+		}, nil
 	}
 
 	failingEncoder.ResetPositionFunc = func(ctx context.Context, extra map[string]interface{}) error {
 		return errors.New("set to zero failed")
 	}
-	failingEncoder.GetPositionFunc = func(ctx context.Context, positionType *pb.PositionType, extra map[string]interface{}) (float64, error) {
-		return 0, errors.New("position unavailable")
+	failingEncoder.GetPositionFunc = func(
+		ctx context.Context,
+		positionType *pb.PositionType,
+		extra map[string]interface{},
+	) (float64, pb.PositionType, error) {
+		return 0, pb.PositionType_POSITION_TYPE_UNSPECIFIED, errors.New("position unavailable")
+	}
+	failingEncoder.GetPropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (map[encoder.Feature]bool, error) {
+		return nil, errors.New("get properties failed")
 	}
 
 	resourceMap := map[resource.Name]interface{}{
@@ -88,12 +106,13 @@ func TestClient(t *testing.T) {
 		err = workingEncoderClient.ResetPosition(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		pos, err := workingEncoderClient.GetPosition(
+		pos, positionType, err := workingEncoderClient.GetPosition(
 			context.Background(),
-			pb.PositionType_POSITION_TYPE_UNSPECIFIED.Enum(),
+			nil,
 			map[string]interface{}{"foo": "bar", "baz": []interface{}{1., 2., 3.}})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, 42.0)
+		test.That(t, positionType, test.ShouldEqual, pb.PositionType_POSITION_TYPE_UNSPECIFIED)
 
 		test.That(t, actualExtra, test.ShouldResemble, map[string]interface{}{"foo": "bar", "baz": []interface{}{1., 2., 3.}})
 
@@ -110,7 +129,7 @@ func TestClient(t *testing.T) {
 		err = failingEncoderClient.ResetPosition(context.Background(), nil)
 		test.That(t, err, test.ShouldNotBeNil)
 
-		pos, err := failingEncoderClient.GetPosition(context.Background(), pb.PositionType_POSITION_TYPE_UNSPECIFIED.Enum(), nil)
+		pos, _, err := failingEncoderClient.GetPosition(context.Background(), pb.PositionType_POSITION_TYPE_UNSPECIFIED.Enum(), nil)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, pos, test.ShouldEqual, 0.0)
 
@@ -122,7 +141,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		workingEncoderDialedClient := encoder.NewClientFromConn(context.Background(), conn, testEncoderName, logger)
 
-		pos, err := workingEncoderDialedClient.GetPosition(context.Background(), pb.PositionType_POSITION_TYPE_UNSPECIFIED.Enum(), nil)
+		pos, _, err := workingEncoderDialedClient.GetPosition(context.Background(), pb.PositionType_POSITION_TYPE_UNSPECIFIED.Enum(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, 42.0)
 

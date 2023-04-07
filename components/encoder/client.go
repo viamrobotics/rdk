@@ -31,21 +31,25 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 }
 
 // GetPosition returns number of ticks since last zeroing.
-func (c *client) GetPosition(ctx context.Context, positionType *pb.PositionType, extra map[string]interface{}) (float64, error) {
+func (c *client) GetPosition(
+	ctx context.Context,
+	positionType *pb.PositionType,
+	extra map[string]interface{},
+) (float64, pb.PositionType, error) {
 	ext, err := structpb.NewStruct(extra)
 	if err != nil {
-		return 0, err
+		return 0, pb.PositionType_POSITION_TYPE_UNSPECIFIED, err
 	}
-	req := &pb.GetPositionRequest{Name: c.name, Extra: ext}
+	req := &pb.GetPositionRequest{Name: c.name, PositionType: positionType, Extra: ext}
 	resp, err := c.client.GetPosition(ctx, req)
 	if err != nil {
-		return 0, err
+		return 0, pb.PositionType_POSITION_TYPE_UNSPECIFIED, err
 	}
-	return float64(resp.Value), nil
+	return float64(resp.Value), resp.PositionType, nil
 }
 
-// ResetPosition sets the current position of the motor (adjusted by a given offset)
-// to be its new zero position.
+// ResetPosition sets the current position of
+// the encoder to be its new zero position.
 func (c *client) ResetPosition(ctx context.Context, extra map[string]interface{}) error {
 	ext, err := structpb.NewStruct(extra)
 	if err != nil {
