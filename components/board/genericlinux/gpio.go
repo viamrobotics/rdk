@@ -24,14 +24,14 @@ type gpioPin struct {
 	// These values should both be considered immutable.
 	devicePath string
 	offset     uint32
-	line       *gpio.Line
 
 	// These values are mutable. Lock the mutex when interacting with them.
+	line            *gpio.Line
+	isInput         bool
 	swPwmRunning    bool
 	hwPwm           *pwmDevice // Defined in hw_pwm.go, will be nil for pins that don't support it.
 	pwmFreqHz       uint
 	pwmDutyCyclePct float64
-	isInput         bool
 
 	mu        sync.Mutex
 	cancelCtx context.Context
