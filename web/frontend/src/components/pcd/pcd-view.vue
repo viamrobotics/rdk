@@ -6,7 +6,6 @@
  * This is causing memory leaks.
  */
 
-import { grpc } from '@improbable-eng/grpc-web';
 import { onMounted, onUnmounted, watch } from 'vue';
 import * as THREE from 'three';
 import { PCDLoader } from 'three/examples/jsm/loaders/PCDLoader';
@@ -14,7 +13,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls';
 import { filterResources } from '../../lib/resource';
 import { toast } from '../../lib/toast';
-import { Client, commonApi, motionApi, ServiceError } from '@viamrobotics/sdk';
+import { Client, commonApi, MotionClient } from '@viamrobotics/sdk';
 import InfoButton from '../info-button.vue';
 
 const props = defineProps<{
@@ -23,6 +22,14 @@ const props = defineProps<{
   cameraName?: string
   client: Client
 }>();
+
+const motion = $computed(() => filterResources(props.resources, 'rdk', 'service', 'motion')[0]);
+const motionClient = $computed(() => {
+  if (motion === undefined) {
+    return;
+  }
+  return new MotionClient(props.client, motion.name);
+});
 
 const container = $ref<HTMLDivElement>();
 
@@ -412,7 +419,7 @@ const handleCanvasMouseUp = (event: MouseEvent) => {
   setPoint(vec3);
 };
 
-const handleMove = () => {
+const handleMove = async () => {
   const [gripper] = filterResources(props.resources, 'rdk', 'component', 'gripper');
 
   if (gripper === undefined) {
@@ -424,14 +431,11 @@ const handleMove = () => {
    * We are deliberately just getting the first motion service to ensure this will not break.
    * May want to allow for more services in the future
    */
-  const [motion] = filterResources(props.resources, 'rdk', 'service', 'motion');
-
-  if (motion === undefined) {
+  if (motionClient === undefined) {
     toast.error('No motion service detected.');
     return;
   }
 
-  const req = new motionApi.MoveRequest();
   const cameraPoint = new commonApi.Pose();
 
   cameraPoint.setX(click.x);
@@ -441,25 +445,18 @@ const handleMove = () => {
   const pose = new commonApi.PoseInFrame();
   pose.setReferenceFrame(props.cameraName!);
   pose.setPose(cameraPoint);
-  req.setDestination(pose);
-  req.setName(motion.name);
   const componentName = new commonApi.ResourceName();
   componentName.setNamespace(gripper.namespace);
   componentName.setType(gripper.type);
   componentName.setSubtype(gripper.subtype);
   componentName.setName(gripper.name);
-  req.setComponentName(componentName);
 
-  props.client.motionService.move(
-    req, new grpc.Metadata(), (error: ServiceError, response: motionApi.MoveResponse) => {
-      if (error) {
-        toast.error(`Error moving: ${error}`);
-        return;
-      }
-
-      toast.success(`Move success: ${response!.getSuccess()}`);
-    }
-  );
+  try {
+    const success = await motionClient.move(pose, componentName);
+    toast.success(`Move success: ${success}`);
+  } catch (error) {
+    toast.error(`Error moving: ${error}`);
+  }
 };
 
 const handleCenter = () => {
