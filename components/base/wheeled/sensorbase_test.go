@@ -302,7 +302,10 @@ func TestSpinWithMovementSensor(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	// we have no way of stopping the sensor in this little test
 	// so we stop runnign goroutines manually and test our function
-	sensorBase.stopSensors()
+	// sensorBase.stopSensors()
+	sensorBase.SetPollActive(false)
+	sensorBase.sensorDone()
+
 }
 
 var sConfig config.Component = config.Component{
