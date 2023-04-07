@@ -70,7 +70,7 @@ func (ds *detectorSource) Read(ctx context.Context) (image.Image, func(), error)
 	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::detector::Read")
 	defer span.End()
 	// get the bounding boxes from the service
-	srv, err := vision.FirstFromRobot(ds.r)
+	srv, err := vision.FromRobot(ds.r, ds.detectorName)
 	if err != nil {
 		return nil, nil, fmt.Errorf("source_detector cant find vision service: %w", err)
 	}
@@ -79,7 +79,7 @@ func (ds *detectorSource) Read(ctx context.Context) (image.Image, func(), error)
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not get next source image: %w", err)
 	}
-	dets, err := srv.Detections(ctx, img, ds.detectorName, map[string]interface{}{})
+	dets, err := srv.Detections(ctx, img, map[string]interface{}{})
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not get detections: %w", err)
 	}

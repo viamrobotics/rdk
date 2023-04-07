@@ -79,7 +79,7 @@ func (cs *classifierSource) Read(ctx context.Context) (image.Image, func(), erro
 	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::classifier::Read")
 	defer span.End()
 
-	srv, err := vision.FirstFromRobot(cs.r)
+	srv, err := vision.FromRobot(cs.r, cs.classifierName)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "source_classifier can't find vision service")
 	}
@@ -88,7 +88,7 @@ func (cs *classifierSource) Read(ctx context.Context) (image.Image, func(), erro
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "could not get next source image")
 	}
-	classifications, err := srv.Classifications(ctx, img, cs.classifierName, int(cs.maxClassifications), map[string]interface{}{})
+	classifications, err := srv.Classifications(ctx, img, int(cs.maxClassifications), map[string]interface{}{})
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "could not get classifications")
 	}

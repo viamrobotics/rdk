@@ -23,6 +23,7 @@ import (
 	"go.viam.com/rdk/vision/classification"
 	"go.viam.com/rdk/vision/objectdetection"
 	"go.viam.com/rdk/vision/segmentation"
+	goutils "go.viam.com/utils"
 )
 
 func init() {
@@ -110,7 +111,14 @@ func NewService(name string, model interface{}, r robot.Robot) (Service, error) 
 	if !isDetector && !isClassifier && !is3DSegmenter {
 		return nil, errors.New("model does not fulfill any method of the vision service. It is neither a detector, nor classifier, nor 3D segmenter.")
 	}
-	return &vizModel{name, model, r, isDetector, isClassifier, isSegmenter}, nil
+	return &vizModel{
+		name:          name,
+		model:         model,
+		r:             r,
+		isDetector:    isDetector,
+		isClassifier:  isClassifier,
+		is3DSegmenter: is3DSegmenter,
+	}, nil
 }
 
 // Detections returns the detections of given image if the model implements objectdetector.Detector.
@@ -218,5 +226,5 @@ func (vm *vizModel) GetObjectPointClouds(ctx context.Context, cameraName string,
 }
 
 func (vm *vizModel) Close(ctx context.Context) error {
-	return utils.TryClose(ctx, vm.model)
+	return goutils.TryClose(ctx, vm.model)
 }
