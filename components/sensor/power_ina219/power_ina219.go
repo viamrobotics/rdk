@@ -24,18 +24,18 @@ import (
 var modelname = resource.NewDefaultModel("power_ina219")
 
 const (
-	milliAmp             = 1000 * 1000 // milliAmp = 1000 microAmpere * 1000 nanoAmpere
-	milliOhm             = 1000 * 1000 // milliOhm = 1000 microOhm * 1000 nanoOhm
-	defaultI2Caddr       = 0x40
-	senseResistor        = 100 * milliOhm  // .1 ohm
-	maxCurrent           = 3200 * milliAmp // 3.2 amp
-	calibratescale       = ((int64(1000*milliAmp) * int64(1000*milliOhm)) / 100000) << 12
-	configRegister       = 0x00
-	shuntVoltageRegister = 0x01
-	busVoltageRegister   = 0x02
-	powerRegister        = 0x03
-	currentRegister      = 0x04
-	calibrationRegister  = 0x05
+	milliAmp                   = 1000 * 1000 // milliAmp = 1000 microAmpere * 1000 nanoAmpere
+	milliOhm                   = 1000 * 1000 // milliOhm = 1000 microOhm * 1000 nanoOhm
+	defaultI2Caddr             = 0x40
+	senseResistor        int64 = 100 * milliOhm  // .1 ohm
+	maxCurrent           int64 = 3200 * milliAmp // 3.2 amp
+	calibratescale             = ((int64(1000*milliAmp) * int64(1000*milliOhm)) / 100000) << 12
+	configRegister             = 0x00
+	shuntVoltageRegister       = 0x01
+	busVoltageRegister         = 0x02
+	powerRegister              = 0x03
+	currentRegister            = 0x04
+	calibrationRegister        = 0x05
 )
 
 // AttrConfig is used for converting config attributes.
@@ -146,11 +146,11 @@ func (d *ina219) calibrate() error {
 	}
 
 	d.currentLSB = maxCurrent / (1 << 15)
-	d.powerLSB = int64((maxCurrent*20 + (1 << 14)) / (1 << 15))
+	d.powerLSB = (maxCurrent*20 + (1 << 14)) / (1 << 15)
 	// Calibration Register = 0.04096 / (current LSB * Shunt Resistance)
 	// Where lsb is in Amps and resistance is in ohms.
 	// Calibration register is 16 bits.
-	cal := calibratescale / (d.currentLSB * int64(senseResistor))
+	cal := calibratescale / (d.currentLSB * senseResistor)
 	if cal >= (1 << 16) {
 		return fmt.Errorf("ina219 calibrate: calibration register value invalid %d", cal)
 	}
