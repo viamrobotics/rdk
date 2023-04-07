@@ -419,11 +419,11 @@ func loadLabels(filename string) ([]string, error) {
 
 	// if the labels come out as one line, try splitting that line by spaces or commas to extract labels
 	if len(labels) == 1 {
-		labels = strings.Split(labels[0], " ")
+		labels = strings.Split(labels[0], ",")
 	}
 
 	if len(labels) == 1 {
-		labels = strings.Split(labels[0], ",")
+		labels = strings.Split(labels[0], " ")
 	}
 
 	return labels, nil

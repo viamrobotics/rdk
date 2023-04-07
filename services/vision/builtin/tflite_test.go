@@ -275,3 +275,11 @@ func TestInvalidLabels(t *testing.T) {
 	test.That(t, err, test.ShouldResemble, LABEL_OUTPUT_MISMATCH)
 	test.That(t, classifications, test.ShouldBeNil)
 }
+
+func TestSpaceDelineatedLabels(t *testing.T) {
+	labelPath := artifact.MustPath("vision/classification/lorem.txt")
+
+	labels, err := loadLabels(labelPath)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(labels), test.ShouldEqual, 10)
+}
