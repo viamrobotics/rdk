@@ -357,26 +357,36 @@ func TestBasicOctreeCollision(t *testing.T) {
 
 	test.That(t, startPC.Size(), test.ShouldEqual, basicOct.Size())
 
-	// create a far away non-colliding obstacle
+	// create a non-colliding obstacle far away from any octree point
 	far, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{1, 2, 3}, "far")
 	test.That(t, err, test.ShouldBeNil)
-	near, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{-2445, 0, 3855}), r3.Vector{1, 2, 3}, "near")
+	// create a non-colliding obstacle near an octree point
+	near, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{-2443, 0, 3855}), r3.Vector{1, 2, 3}, "near")
 	test.That(t, err, test.ShouldBeNil)
-	hit, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{-2445, 0, 3855}), r3.Vector{12, 2, 30}, "hit")
+	// create a colliding obstacle overlapping an octree point
+	hit, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{-2443, 0, 3855}), r3.Vector{12, 2, 30}, "hit")
 	test.That(t, err, test.ShouldBeNil)
+	// create a colliding obstacle overlapping an octree point that has sub-threshold probability
 	lowprob, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{-2471, 0, 3790}), r3.Vector{3, 2, 3}, "lowprob")
 	test.That(t, err, test.ShouldBeNil)
 
-	collides, err := GeometryOctreeCollision(far, basicOct, 80, 1.0)
+	collides, err := basicOct.CollidesWithGeometry(far, 80, 1.0)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, collides, test.ShouldBeFalse)
-	collides, err = GeometryOctreeCollision(near, basicOct, 80, 1.0)
+
+	collides, err = basicOct.CollidesWithGeometry(near, 80, 1.0)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, collides, test.ShouldBeFalse)
-	collides, err = GeometryOctreeCollision(lowprob, basicOct, 80, 1.0)
+	// Test `near` again with a large buffer that should now collide
+	collides, err = basicOct.CollidesWithGeometry(near, 80, 10.0)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, collides, test.ShouldBeTrue)
+
+	collides, err = basicOct.CollidesWithGeometry(lowprob, 80, 1.0)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, collides, test.ShouldBeFalse)
-	collides, err = GeometryOctreeCollision(hit, basicOct, 80, 1.0)
+
+	collides, err = basicOct.CollidesWithGeometry(hit, 80, 1.0)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, collides, test.ShouldBeTrue)
 }
