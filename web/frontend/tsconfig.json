@@ -30,8 +30,6 @@
     "noUncheckedIndexedAccess": true,
     "noImplicitOverride": true,
     "forceConsistentCasingInFileNames": true,
-    "importsNotUsedAsValues": "error",
-    "sourceMap": true,
     "lib": [
       "ESNext",
       "DOM",

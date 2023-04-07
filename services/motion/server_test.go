@@ -63,7 +63,6 @@ func TestServerMove(t *testing.T) {
 		destination *referenceframe.PoseInFrame,
 		worldState *referenceframe.WorldState,
 		constraints *pb.Constraints,
-		slamName resource.Name,
 		extra map[string]interface{},
 	) (bool, error) {
 		return false, passedErr
@@ -79,7 +78,6 @@ func TestServerMove(t *testing.T) {
 		destination *referenceframe.PoseInFrame,
 		worldState *referenceframe.WorldState,
 		constraints *pb.Constraints,
-		slamName resource.Name,
 		extra map[string]interface{},
 	) (bool, error) {
 		return true, nil

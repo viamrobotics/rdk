@@ -14,7 +14,7 @@ type Gantry struct {
 	gantry.LocalGantry
 	DoFunc             func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	PositionFunc       func(ctx context.Context, extra map[string]interface{}) ([]float64, error)
-	MoveToPositionFunc func(ctx context.Context, pos []float64, ws *referenceframe.WorldState, extra map[string]interface{}) error
+	MoveToPositionFunc func(ctx context.Context, pos []float64, extra map[string]interface{}) error
 	LengthsFunc        func(ctx context.Context, extra map[string]interface{}) ([]float64, error)
 	StopFunc           func(ctx context.Context, extra map[string]interface{}) error
 	IsMovingFunc       func(context.Context) (bool, error)
@@ -31,16 +31,11 @@ func (g *Gantry) Position(ctx context.Context, extra map[string]interface{}) ([]
 }
 
 // MoveToPosition calls the injected MoveToPosition or the real version.
-func (g *Gantry) MoveToPosition(
-	ctx context.Context,
-	positions []float64,
-	worldState *referenceframe.WorldState,
-	extra map[string]interface{},
-) error {
+func (g *Gantry) MoveToPosition(ctx context.Context, positions []float64, extra map[string]interface{}) error {
 	if g.MoveToPositionFunc == nil {
-		return g.LocalGantry.MoveToPosition(ctx, positions, worldState, extra)
+		return g.LocalGantry.MoveToPosition(ctx, positions, extra)
 	}
-	return g.MoveToPositionFunc(ctx, positions, worldState, extra)
+	return g.MoveToPositionFunc(ctx, positions, extra)
 }
 
 // Lengths calls the injected Lengths or the real version.

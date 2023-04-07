@@ -415,12 +415,7 @@ func (x *xArm) EndPosition(ctx context.Context, extra map[string]interface{}) (s
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
-func (x *xArm) MoveToPosition(
-	ctx context.Context,
-	pos spatialmath.Pose,
-	worldState *referenceframe.WorldState,
-	extra map[string]interface{},
-) error {
+func (x *xArm) MoveToPosition(ctx context.Context, pos spatialmath.Pose, extra map[string]interface{}) error {
 	ctx, done := x.opMgr.New(ctx)
 	defer done()
 	if !x.started {
@@ -428,7 +423,7 @@ func (x *xArm) MoveToPosition(
 			return err
 		}
 	}
-	if err := arm.Move(ctx, x.robot, x, pos, worldState); err != nil {
+	if err := arm.Move(ctx, x.robot, x, pos); err != nil {
 		return err
 	}
 	return x.opMgr.WaitForSuccess(
