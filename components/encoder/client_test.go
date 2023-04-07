@@ -41,11 +41,11 @@ func TestClient(t *testing.T) {
 	}
 	workingEncoder.GetPositionFunc = func(
 		ctx context.Context,
-		positionType *pb.PositionType,
+		positionType *encoder.PositionType,
 		extra map[string]interface{},
-	) (float64, pb.PositionType, error) {
+	) (float64, encoder.PositionType, error) {
 		actualExtra = extra
-		return 42.0, pb.PositionType_POSITION_TYPE_UNSPECIFIED, nil
+		return 42.0, encoder.PositionType_POSITION_TYPE_UNSPECIFIED, nil
 	}
 	workingEncoder.GetPropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (map[encoder.Feature]bool, error) {
 		actualExtra = extra
@@ -60,10 +60,10 @@ func TestClient(t *testing.T) {
 	}
 	failingEncoder.GetPositionFunc = func(
 		ctx context.Context,
-		positionType *pb.PositionType,
+		positionType *encoder.PositionType,
 		extra map[string]interface{},
-	) (float64, pb.PositionType, error) {
-		return 0, pb.PositionType_POSITION_TYPE_UNSPECIFIED, errors.New("position unavailable")
+	) (float64, encoder.PositionType, error) {
+		return 0, encoder.PositionType_POSITION_TYPE_UNSPECIFIED, errors.New("position unavailable")
 	}
 	failingEncoder.GetPropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (map[encoder.Feature]bool, error) {
 		return nil, errors.New("get properties failed")
@@ -129,7 +129,7 @@ func TestClient(t *testing.T) {
 		err = failingEncoderClient.ResetPosition(context.Background(), nil)
 		test.That(t, err, test.ShouldNotBeNil)
 
-		pos, _, err := failingEncoderClient.GetPosition(context.Background(), pb.PositionType_POSITION_TYPE_UNSPECIFIED.Enum(), nil)
+		pos, _, err := failingEncoderClient.GetPosition(context.Background(), encoder.PositionType_POSITION_TYPE_UNSPECIFIED.Enum(), nil)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, pos, test.ShouldEqual, 0.0)
 
@@ -141,7 +141,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		workingEncoderDialedClient := encoder.NewClientFromConn(context.Background(), conn, testEncoderName, logger)
 
-		pos, _, err := workingEncoderDialedClient.GetPosition(context.Background(), pb.PositionType_POSITION_TYPE_UNSPECIFIED.Enum(), nil)
+		pos, _, err := workingEncoderDialedClient.GetPosition(context.Background(), encoder.PositionType_POSITION_TYPE_UNSPECIFIED.Enum(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, 42.0)
 

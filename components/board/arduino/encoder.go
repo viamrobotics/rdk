@@ -7,7 +7,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-	pb "go.viam.com/api/component/encoder/v1"
 	rdkutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
@@ -77,7 +76,7 @@ type Encoder struct {
 	A, B  string
 	name  string
 
-	positionType pb.PositionType
+	positionType encoder.PositionType
 	generic.Unimplemented
 }
 
@@ -104,13 +103,14 @@ func (cfg *EncoderConfig) Validate(path string) ([]string, error) {
 	return deps, nil
 }
 
-// GetPosition returns number of ticks since last zeroing.
+// GetPosition returns the current position in terms of ticks or
+// degrees, and whether it is a relative or absolute position.
 func (e *Encoder) GetPosition(
 	ctx context.Context,
-	positionType *pb.PositionType,
+	positionType *encoder.PositionType,
 	extra map[string]interface{},
-) (float64, pb.PositionType, error) {
-	if positionType != nil && *positionType == pb.PositionType_POSITION_TYPE_ANGLE_DEGREES {
+) (float64, encoder.PositionType, error) {
+	if positionType != nil && *positionType == encoder.PositionType_POSITION_TYPE_ANGLE_DEGREES {
 		err := errors.New("Encoder does not support PositionType Angle Degrees, use a different PositionType")
 		return 0, *positionType, err
 	}

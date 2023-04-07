@@ -5,11 +5,11 @@ import (
 	pb "go.viam.com/api/component/encoder/v1"
 )
 
-// Feature is an enum representing an optional motor feature.
+// Feature is an enum representing an optional encoder feature.
 type Feature string
 
-// PositionReporting represesnts the feature of a motor being
-// able to report its own position.
+// TicksCountSupported and AngleDegreesSupported represesnts the feature
+// of an encoder being able to report ticks and/or degrees, respectively
 const (
 	TicksCountSupported   Feature = "Ticks"
 	AngleDegreesSupported Feature = "Degrees"

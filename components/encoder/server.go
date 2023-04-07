@@ -34,7 +34,8 @@ func (s *subtypeServer) getEncoder(name string) (Encoder, error) {
 	return enc, nil
 }
 
-// GetPosition reports the position of the encoder.
+// GetPosition returns the current position in terms of ticks or
+// degrees, and whether it is a relative or absolute position.
 func (s *subtypeServer) GetPosition(
 	ctx context.Context,
 	req *pb.GetPositionRequest,
@@ -43,13 +44,15 @@ func (s *subtypeServer) GetPosition(
 	if err != nil {
 		return nil, err
 	}
-	position, positionType, err := enc.GetPosition(ctx, req.PositionType, req.Extra.AsMap())
+	posType, err := ProtoToEncoderPositionType(req.PositionType)
+	position, positionType, err := enc.GetPosition(ctx, &posType, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
+	posType1, err := EncoderToProtoPositionType(&positionType)
 	return &pb.GetPositionResponse{
 		Value:        float32(position),
-		PositionType: positionType,
+		PositionType: posType1,
 	}, nil
 }
 

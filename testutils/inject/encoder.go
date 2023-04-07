@@ -3,8 +3,6 @@ package inject
 import (
 	"context"
 
-	pb "go.viam.com/api/component/encoder/v1"
-
 	"go.viam.com/rdk/components/encoder"
 )
 
@@ -13,7 +11,7 @@ type Encoder struct {
 	encoder.Encoder
 	DoFunc            func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	ResetPositionFunc func(ctx context.Context, extra map[string]interface{}) error
-	GetPositionFunc   func(ctx context.Context, positionType *pb.PositionType, extra map[string]interface{}) (float64, pb.PositionType, error)
+	GetPositionFunc   func(ctx context.Context, positionType *encoder.PositionType, extra map[string]interface{}) (float64, encoder.PositionType, error)
 	GetPropertiesFunc func(ctx context.Context, extra map[string]interface{}) (map[encoder.Feature]bool, error)
 }
 
@@ -25,12 +23,12 @@ func (e *Encoder) ResetPosition(ctx context.Context, extra map[string]interface{
 	return e.ResetPositionFunc(ctx, extra)
 }
 
-// GetPosition calls the injected Position or the real version.
+// GetPosition calls the injected GetPosition or the real version.
 func (e *Encoder) GetPosition(
 	ctx context.Context,
-	positionType *pb.PositionType,
+	positionType *encoder.PositionType,
 	extra map[string]interface{},
-) (float64, pb.PositionType, error) {
+) (float64, encoder.PositionType, error) {
 	if e.GetPositionFunc == nil {
 		return e.Encoder.GetPosition(ctx, positionType, extra)
 	}

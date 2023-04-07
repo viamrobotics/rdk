@@ -29,7 +29,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-	pb "go.viam.com/api/component/encoder/v1"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
@@ -80,7 +79,7 @@ type Encoder struct {
 	position int64
 	m        DirectionAware
 
-	positionType            pb.PositionType
+	positionType            encoder.PositionType
 	logger                  golog.Logger
 	CancelCtx               context.Context
 	cancelFunc              func()
@@ -138,7 +137,7 @@ func NewSingleEncoder(
 		CancelCtx:    cancelCtx,
 		cancelFunc:   cancelFunc,
 		position:     0,
-		positionType: pb.PositionType_POSITION_TYPE_TICKS_COUNT,
+		positionType: encoder.PositionType_POSITION_TYPE_TICKS_COUNT,
 	}
 
 	board, err := board.FromDependencies(deps, cfg.BoardName)
@@ -191,13 +190,14 @@ func (e *Encoder) Start(ctx context.Context) {
 	}, e.activeBackgroundWorkers.Done)
 }
 
-// GetPosition returns the current position.
+// GetPosition returns the current position in terms of ticks or
+// degrees, and whether it is a relative or absolute position.
 func (e *Encoder) GetPosition(
 	ctx context.Context,
-	positionType *pb.PositionType,
+	positionType *encoder.PositionType,
 	extra map[string]interface{},
-) (float64, pb.PositionType, error) {
-	if positionType != nil && *positionType == pb.PositionType_POSITION_TYPE_ANGLE_DEGREES {
+) (float64, encoder.PositionType, error) {
+	if positionType != nil && *positionType == encoder.PositionType_POSITION_TYPE_ANGLE_DEGREES {
 		err := errors.New("Encoder does not support PositionType Angle Degrees, use a different PositionType")
 		return 0, *positionType, err
 	}

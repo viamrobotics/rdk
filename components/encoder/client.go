@@ -30,22 +30,25 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 	}
 }
 
-// GetPosition returns number of ticks since last zeroing.
+// GetPosition returns the current position in terms of ticks or
+// degrees, and whether it is a relative or absolute position.
 func (c *client) GetPosition(
 	ctx context.Context,
-	positionType *pb.PositionType,
+	positionType *PositionType,
 	extra map[string]interface{},
-) (float64, pb.PositionType, error) {
+) (float64, PositionType, error) {
 	ext, err := structpb.NewStruct(extra)
 	if err != nil {
-		return 0, pb.PositionType_POSITION_TYPE_UNSPECIFIED, err
+		return 0, PositionType_POSITION_TYPE_UNSPECIFIED, err
 	}
-	req := &pb.GetPositionRequest{Name: c.name, PositionType: positionType, Extra: ext}
+	posType, err := EncoderToProtoPositionType(positionType)
+	req := &pb.GetPositionRequest{Name: c.name, PositionType: &posType, Extra: ext}
 	resp, err := c.client.GetPosition(ctx, req)
 	if err != nil {
-		return 0, pb.PositionType_POSITION_TYPE_UNSPECIFIED, err
+		return 0, PositionType_POSITION_TYPE_UNSPECIFIED, err
 	}
-	return float64(resp.Value), resp.PositionType, nil
+	posType1, err := ProtoToEncoderPositionType(&resp.PositionType)
+	return float64(resp.Value), posType1, nil
 }
 
 // ResetPosition sets the current position of

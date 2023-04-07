@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-	pb "go.viam.com/api/component/encoder/v1"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/encoder"
@@ -28,11 +27,7 @@ func init() {
 			cfg config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			e := &Encoder{}
-			e.updateRate = cfg.ConvertedAttributes.(*AttrConfig).UpdateRate
-
-			e.Start(ctx)
-			return e, nil
+			return NewFakeEncoder(ctx, cfg)
 		},
 	}
 	registry.RegisterComponent(encoder.Subtype, fakeModel, _encoder)
@@ -44,6 +39,21 @@ func init() {
 			var attr AttrConfig
 			return config.TransformAttributeMapToStruct(&attr, attributes)
 		}, &AttrConfig{})
+}
+
+// NewFakeEncoder creates a new Encoder.
+func NewFakeEncoder(
+	ctx context.Context,
+	cfg config.Component,
+) (encoder.Encoder, error) {
+	e := &Encoder{
+		position:     0,
+		positionType: encoder.PositionType_POSITION_TYPE_TICKS_COUNT,
+	}
+	e.updateRate = cfg.ConvertedAttributes.(*AttrConfig).UpdateRate
+
+	e.Start(ctx)
+	return e, nil
 }
 
 // AttrConfig describes the configuration of a fake encoder.
@@ -60,7 +70,7 @@ func (cfg *AttrConfig) Validate(path string) error {
 type Encoder struct {
 	mu                      sync.Mutex
 	position                int64
-	positionType            pb.PositionType
+	positionType            encoder.PositionType
 	speed                   float64 // ticks per minute
 	updateRate              int64   // update position in start every updateRate ms
 	activeBackgroundWorkers sync.WaitGroup
@@ -68,13 +78,14 @@ type Encoder struct {
 	generic.Unimplemented
 }
 
-// GetPosition returns the current position in terms of ticks.
+// GetPosition returns the current position in terms of ticks or
+// degrees, and whether it is a relative or absolute position.
 func (e *Encoder) GetPosition(
 	ctx context.Context,
-	positionType *pb.PositionType,
+	positionType *encoder.PositionType,
 	extra map[string]interface{},
-) (float64, pb.PositionType, error) {
-	if positionType != nil && *positionType == pb.PositionType_POSITION_TYPE_ANGLE_DEGREES {
+) (float64, encoder.PositionType, error) {
+	if positionType != nil && *positionType == encoder.PositionType_POSITION_TYPE_ANGLE_DEGREES {
 		err := errors.New("Encoder does not support PositionType Angle Degrees, use a different PositionType")
 		return 0, *positionType, err
 	}
@@ -123,7 +134,7 @@ func (e *Encoder) ResetPosition(ctx context.Context, extra map[string]interface{
 // GetProperties returns a list of all the position types that are supported by a given encoder.
 func (e *Encoder) GetProperties(ctx context.Context, extra map[string]interface{}) (map[encoder.Feature]bool, error) {
 	return map[encoder.Feature]bool{
-		encoder.TicksCountSupported:   false,
+		encoder.TicksCountSupported:   true,
 		encoder.AngleDegreesSupported: false,
 	}, nil
 }
