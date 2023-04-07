@@ -142,6 +142,7 @@ func NewxArm(ctx context.Context, cfg config.Component, logger golog.Logger, dof
 		moveHZ:  100.,
 		model:   model,
 		started: false,
+		logger:  logger,
 	}
 
 	err = xA.start(ctx)
