@@ -25,7 +25,7 @@ export interface RawArmStatus extends ArmStatus {
   end_position: Record<string, number>
 }
 
-type Field = 'x' | 'y' | 'z' | 'ox' | 'oy' | 'oz' | 'theta'
+type Field = 'x' | 'y' | 'z' | 'oX' | 'oY' | 'oZ' | 'theta'
 
 const props = defineProps<{
   name: string
@@ -39,9 +39,9 @@ const fieldMap = [
   ['y', 'y'],
   ['z', 'z'],
   ['theta', 'theta'],
-  ['o_x', 'ox'],
-  ['o_y', 'oy'],
-  ['o_z', 'oz'],
+  ['o_x', 'oX'],
+  ['o_y', 'oY'],
+  ['o_z', 'oZ'],
 ] as const;
 
 const toggle = $ref<Record<string, ArmStatus>>({});
@@ -63,9 +63,9 @@ const armModifyAllDoEndPosition = async () => {
     x: 0,
     y: 0,
     z: 0,
-    ox: 0,
-    oy: 0,
-    oz: 0,
+    oX: 0,
+    oY: 0,
+    oZ: 0,
     theta: 0,
   };
 
@@ -112,9 +112,9 @@ const armEndPositionInc = async (updateField: string, amount: number) => {
     x: 0,
     y: 0,
     z: 0,
-    ox: 0,
-    oy: 0,
-    oz: 0,
+    oX: 0,
+    oY: 0,
+    oZ: 0,
     theta: 0,
   };
 
