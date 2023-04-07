@@ -10,7 +10,6 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
-	pb "go.viam.com/api/component/encoder/v1"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
@@ -132,7 +131,7 @@ type Encoder struct {
 	positionOffset          float64
 	rotations               int
 	connectionType          string
-	positionType            pb.PositionType
+	positionType            encoder.PositionType
 	i2cBus                  board.I2C
 	i2cAddr                 byte
 	cancelCtx               context.Context
@@ -155,6 +154,7 @@ func newAS5048Encoder(
 		cancelCtx:      cancelCtx,
 		cancel:         cancel,
 		logger:         logger,
+		positionType:   encoder.PositionType_POSITION_TYPE_TICKS_COUNT,
 	}
 	brd, err := board.FromDependencies(deps, attr.BoardName)
 	if err != nil {
@@ -254,14 +254,16 @@ func (enc *Encoder) updatePosition(ctx context.Context) error {
 // motor to 1. Any other value will result in completely incorrect
 // position measurements by the motor.
 func (enc *Encoder) GetPosition(
-	ctx context.Context, positionType *pb.PositionType, extra map[string]interface{},
-) (float64, pb.PositionType, error) {
+	ctx context.Context, positionType *encoder.PositionType, extra map[string]interface{},
+) (float64, encoder.PositionType, error) {
 	enc.mu.RLock()
 	defer enc.mu.RUnlock()
-	if positionType != nil && *positionType == pb.PositionType_POSITION_TYPE_ANGLE_DEGREES {
+	if positionType != nil && *positionType == encoder.PositionType_POSITION_TYPE_ANGLE_DEGREES {
+		enc.positionType = encoder.PositionType_POSITION_TYPE_ANGLE_DEGREES
 		return enc.position, enc.positionType, nil
 	}
 	ticks := float64(enc.rotations) + enc.position/360.0
+	enc.positionType = encoder.PositionType_POSITION_TYPE_TICKS_COUNT
 	return ticks, enc.positionType, nil
 }
 

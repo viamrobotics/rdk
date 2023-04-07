@@ -43,10 +43,10 @@ func TestServerGetPosition(t *testing.T) {
 
 	failingEncoder.GetPositionFunc = func(
 		ctx context.Context,
-		positionType *pb.PositionType,
+		positionType *encoder.PositionType,
 		extra map[string]interface{},
-	) (float64, pb.PositionType, error) {
-		return 0, pb.PositionType_POSITION_TYPE_UNSPECIFIED, errors.New("position unavailable")
+	) (float64, encoder.PositionType, error) {
+		return 0, encoder.PositionType_POSITION_TYPE_UNSPECIFIED, errors.New("position unavailable")
 	}
 	req = pb.GetPositionRequest{Name: failEncoderName}
 	resp, err = encoderServer.GetPosition(context.Background(), &req)
@@ -55,10 +55,10 @@ func TestServerGetPosition(t *testing.T) {
 
 	workingEncoder.GetPositionFunc = func(
 		ctx context.Context,
-		positionType *pb.PositionType,
+		positionType *encoder.PositionType,
 		extra map[string]interface{},
-	) (float64, pb.PositionType, error) {
-		return 42.0, pb.PositionType_POSITION_TYPE_UNSPECIFIED, nil
+	) (float64, encoder.PositionType, error) {
+		return 42.0, encoder.PositionType_POSITION_TYPE_UNSPECIFIED, nil
 	}
 	req = pb.GetPositionRequest{Name: testEncoderName}
 	resp, err = encoderServer.GetPosition(context.Background(), &req)

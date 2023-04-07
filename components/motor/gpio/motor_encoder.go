@@ -110,16 +110,26 @@ func newEncodedMotor(
 		activeBackgroundWorkers: &sync.WaitGroup{},
 		cfg:                     motorConfig,
 		real:                    localReal,
-		encoder:                 realEncoder,
-		cancelCtx:               cancelCtx,
-		cancel:                  cancel,
-		stateMu:                 &sync.RWMutex{},
-		startedRPMMonitorMu:     &sync.Mutex{},
-		rampRate:                motorConfig.RampRate,
-		maxPowerPct:             motorConfig.MaxPowerPct,
-		logger:                  logger,
-		loop:                    nil,
+		// encoder:                 realEncoder,
+		cancelCtx:           cancelCtx,
+		cancel:              cancel,
+		stateMu:             &sync.RWMutex{},
+		startedRPMMonitorMu: &sync.Mutex{},
+		rampRate:            motorConfig.RampRate,
+		maxPowerPct:         motorConfig.MaxPowerPct,
+		logger:              logger,
+		loop:                nil,
 	}
+
+	props, err := realEncoder.GetProperties(context.Background(), nil)
+	if err != nil {
+		return nil, errors.New("cannot get encoder properties")
+	}
+	if !props[encoder.TicksCountSupported] {
+		return nil,
+			errors.New("cannot create an encoded motor without an encoder that has propery TicksCountSupported")
+	}
+	em.encoder = realEncoder
 
 	if len(motorConfig.ControlLoop.Blocks) != 0 {
 		cLoop, err := control.NewLoop(logger, motorConfig.ControlLoop, em)
