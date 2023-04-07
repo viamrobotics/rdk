@@ -8,11 +8,9 @@ import * as THREE from 'three';
 import { Client, commonApi, ResponseStream, ServiceError, slamApi, motionApi } from '@viamrobotics/sdk';
 import { displayError, isServiceError } from '../lib/error';
 import { rcLogConditionally } from '../lib/log';
-import PCD from './pcd/pcd-view.vue';
 import { copyToClipboardWithToast } from '../lib/copy-to-clipboard';
 import Slam2dRender from './slam-2d-render.vue';
 import { filterResources } from '../lib/resource';
-import { Value } from 'google-protobuf/google/protobuf/struct_pb';
 
 type MapAndPose = { map: Uint8Array, pose: commonApi.Pose}
 
@@ -23,20 +21,25 @@ const props = defineProps<{
 }>();
 
 const selected2dValue = $ref('manual');
-const selected3dValue = $ref('manual');
 let pointCloudUpdateCount = $ref(0);
 let pointcloud = $ref<Uint8Array | undefined>();
 let pose = $ref<commonApi.Pose | undefined>();
 let show2d = $ref(false);
-let show3d = $ref(false);
 let refresh2DCancelled = true;
-let refresh3DCancelled = true;
 let updatedDest = $ref(false);
+let threeJPos = $ref(new THREE.Vector3( ));
+let moveClick = $ref(true);
+let x = 0;
+let y = 0;
+let z = 0;
+let o_x = 0;
+let o_y = 0;
+let o_z = 0;
+let theta = 0;
 
 const loaded2d = $computed(() => (pointcloud !== undefined && pose !== undefined));
 
 let slam2dTimeoutId = -1;
-let slam3dTimeoutId = -1;
 
 const concatArrayU8 = (arrays: Uint8Array[]) => {
   const totalLength = arrays.reduce((acc, value) => acc + value.length, 0);
@@ -101,10 +104,6 @@ const fetchSLAMPose = (name: string): Promise<commonApi.Pose> => {
   });
 };
 
-let threeJPos = $ref(new THREE.Vector3( ));
-// let threeJPos = new THREE.Vector3( );
-let moveClick = $ref(true);
-
 const executeMove = async () => {
   moveClick = false
   const req = new motionApi.MoveRequest();
@@ -143,9 +142,8 @@ const executeMove = async () => {
     baseResourceName.setType("component")
     baseResourceName.setSubtype("base")
     baseResourceName.setName(baseResource[0]!.name)
+    req.setComponentName(baseResourceName)
     
-    
-
     // set worldstate
     const wrldst = new commonApi.WorldState
     req.setWorldState(wrldst)
@@ -156,17 +154,18 @@ const executeMove = async () => {
     // execute the actual call to validate e2e plumbing
     props.client.motionService.move(req, new grpc.Metadata(), (error, response) => {
       if (error) {
-        // console.log(error)
         toast.error(`Error moving: ${error}`);
         return;
       }
-      console.log('success')
       toast.success(`Move success: ${response!.getSuccess()}`);
       return;
     });
   })
 }
 
+const executeStopMove =  () => {
+  console.log('executeStopMove')
+};
 
 const refresh2d = async (name: string) => {
   const map = await fetchSLAMMap(name);
@@ -178,14 +177,6 @@ const refresh2d = async (name: string) => {
   return mapAndPose;
 };
 
-let x = 0;
-let y = 0;
-let z = 0;
-let o_x = 0;
-let o_y = 0;
-let o_z = 0;
-let theta = 0;
-
 const handleRefresh2dResponse = (response: MapAndPose): void => {
   pointcloud = response.map;
   pose = response.pose;
@@ -196,11 +187,6 @@ const handleRefresh2dResponse = (response: MapAndPose): void => {
   o_y = +pose?.getOY()!.toFixed(1)!;
   o_z = +pose?.getOZ()!.toFixed(1)!;
   theta = +pose?.getTheta()!.toFixed(1)!;
-  pointCloudUpdateCount += 1;
-};
-
-const handleRefresh3dResponse = (response: Uint8Array): void => {
-  pointcloud = response;
   pointCloudUpdateCount += 1;
 };
 
@@ -229,23 +215,6 @@ const scheduleRefresh2d = (name: string, time: string) => {
   slam2dTimeoutId = window.setTimeout(timeoutCallback, Number.parseFloat(time) * 1000);
 };
 
-const scheduleRefresh3d = (name: string, time: string) => {
-  const timeoutCallback = async () => {
-    try {
-      const res = await fetchSLAMMap(name);
-      handleRefresh3dResponse(res);
-    } catch (error) {
-      handleError('fetchSLAMMap', error);
-      return;
-    }
-    if (refresh3DCancelled) {
-      return;
-    }
-    scheduleRefresh3d(name, time);
-  };
-  slam3dTimeoutId = window.setTimeout(timeoutCallback, Number.parseFloat(time) * 1000);
-};
-
 const updateSLAM2dRefreshFrequency = async (name: string, time: 'manual' | 'off' | string) => {
   refresh2DCancelled = true;
   window.clearTimeout(slam2dTimeoutId);
@@ -265,49 +234,17 @@ const updateSLAM2dRefreshFrequency = async (name: string, time: 'manual' | 'off'
   }
 };
 
-const updateSLAM3dRefreshFrequency = async (name: string, time: 'manual' | 'off' | string) => {
-  refresh3DCancelled = true;
-  window.clearTimeout(slam3dTimeoutId);
-
-  if (time === 'manual') {
-    try {
-      const res = await fetchSLAMMap(name);
-      handleRefresh3dResponse(res);
-    } catch (error) {
-      handleError('fetchSLAMMap', error);
-    }
-  } else if (time === 'off') {
-    // do nothing
-  } else {
-    refresh3DCancelled = false;
-    scheduleRefresh3d(name, time);
-  }
-};
-
 const toggle2dExpand = () => {
   show2d = !show2d;
   updateSLAM2dRefreshFrequency(props.name, show2d ? selected2dValue : 'off');
-};
-
-const toggle3dExpand = () => {
-  show3d = !show3d;
-  updateSLAM3dRefreshFrequency(props.name, show3d ? selected3dValue : 'off');
 };
 
 const selectSLAM2dRefreshFrequency = () => {
   updateSLAM2dRefreshFrequency(props.name, selected2dValue);
 };
 
-const selectSLAMPCDRefreshFrequency = () => {
-  updateSLAM3dRefreshFrequency(props.name, selected3dValue);
-};
-
 const refresh2dMap = () => {
   updateSLAM2dRefreshFrequency(props.name, selected2dValue);
-};
-
-const refresh3dMap = () => {
-  updateSLAM3dRefreshFrequency(props.name, selected3dValue);
 };
 
 const handle2dRenderClick = (event: THREE.Vector3) => {
@@ -362,6 +299,7 @@ const executeDelete = () => {
         variant="danger"
         label="STOP"
         :disabled="moveClick ? 'true' : 'false'"
+        @click="executeStopMove()"
     />
     <div class="flex flex-wrap sm:flex-nowrap gap-4 border border-t-0 border-black">
         <div class="flex flex-col gap-4 p-4 min-w-fit">

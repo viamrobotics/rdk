@@ -1,7 +1,7 @@
 <script setup lang="ts">
 
 import { $ref } from 'vue/macros';
-import { threeInstance, MouseRaycaster, MeshDiscardMaterial, three } from 'trzy';
+import { threeInstance, MouseRaycaster, MeshDiscardMaterial } from 'trzy';
 import { onMounted, onUnmounted, watch } from 'vue';
 import * as THREE from 'three';
 import { MapControls } from 'three/examples/jsm/controls/OrbitControls';
@@ -62,7 +62,7 @@ raycaster.addEventListener('click', async (event) => {
 });
 
 
-const makeMarker = async (url : string, x: number, z: number, name: string, scalar: number) => {
+const makeMarker = async (url : string, name: string, scalar: number) => {
   const guiData = {
     currentURL: url,
     drawFillShapes: true,
@@ -74,7 +74,7 @@ const makeMarker = async (url : string, x: number, z: number, name: string, scal
   const svgLoader = new SVGLoader();
   const data = await svgLoader.loadAsync(guiData.currentURL)
 
-  const { paths } = data;
+  const { paths } = data!;
 
   const group = new THREE.Group();
   group.scale.multiplyScalar(scalar);
@@ -106,7 +106,6 @@ const makeMarker = async (url : string, x: number, z: number, name: string, scal
 
         const geometry = new THREE.ShapeGeometry( shape );
         const mesh = new THREE.Mesh( geometry.rotateX(-Math.PI / 2).rotateY(Math.PI), material );
-        // mesh.position.set(x+.35, 0, z-.55) 
         group.add( mesh );
 
       }
@@ -132,7 +131,6 @@ const makeMarker = async (url : string, x: number, z: number, name: string, scal
 
         if ( geometry ) {
           const mesh = new THREE.Mesh( geometry.rotateX(-Math.PI / 2).rotateY(Math.PI), material );
-          // mesh.position.set(x+.35, 0, z-.55) 
           group.add( mesh );
         }
       }
@@ -140,15 +138,13 @@ const makeMarker = async (url : string, x: number, z: number, name: string, scal
   }
 
   group.name = name
-  // group.position.set(x+.35, 0, z-.55)
-  // group.position.set(x, 0, z)
   scene.add(group)
   return group
 }
 
 const disposeScene = () => {
   scene.traverse((object) => {
-    if (object.name === 'Marker') {
+    if (object.name === 'Base') {
       return;
     }
 
@@ -221,20 +217,19 @@ const updateCloud = (pointcloud: Uint8Array) => {
   scene.add(gridHelper);
   scene.add(points);
   scene.add(intersectionPlane);
-  
+  updatePose(props.pose!)
 };
 
 const updatePose = async (newPose: commonApi.Pose) => {
   const x = newPose.getX();
   const z = newPose.getZ();
-  
-  const baseMarker = scene.getObjectByName('Base') ?? await makeMarker(baseUrl, 0, 0, "Base", 0.04)
-  baseMarker.position.set(x+.35, 0, z-.55)
+  const baseMarker = scene.getObjectByName('Base') ?? await makeMarker(baseUrl, "Base", 0.04)
+  baseMarker.position.set(x+.35, 0, z-.55)  
 
   if (props.destExists) {
     const x = props.destVector!.x
     const z = props.destVector!.z
-    const destMarker = scene.getObjectByName('Marker') ?? await makeMarker(destUrl, 0, 0, "Marker", 0.25)
+    const destMarker = scene.getObjectByName('Marker') ?? await makeMarker(destUrl, "Marker", 0.1)
     destMarker.position.set(x, 0, z)
   }
   
@@ -261,7 +256,7 @@ onUnmounted(() => {
 
 watch(() => [props.destVector?.x, props.destVector?.z, props.destExists], async () => {
   if (props.destVector && props.destExists) {
-    const marker =  scene.getObjectByName('Marker') ?? await makeMarker(destUrl, props.destVector.x, props.destVector.z, "Marker", 0.05)
+    const marker =  scene.getObjectByName('Marker') ?? await makeMarker(destUrl, "Marker", 0.1)
     marker.position.set(props.destVector.x +.6, 0, props.destVector.z-1.24)
   }
   if (!props.destExists) {
