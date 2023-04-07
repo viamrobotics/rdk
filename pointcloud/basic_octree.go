@@ -137,25 +137,39 @@ func (octree *BasicOctree) CollidesWithGeometry(geom spatialmath.Geometry, thres
 	if octree.MaxVal() < threshold {
 		return false, nil
 	}
-	ocbox, err := spatialmath.NewBox(
-		spatialmath.NewPoseFromPoint(octree.center),
-		r3.Vector{octree.sideLength + buffer, octree.sideLength + buffer, octree.sideLength + buffer},
-		"",
-	)
-	if err != nil {
-		return false, err
-	}
+	switch octree.node.nodeType {
+	case internalNode:
+		ocbox, err := spatialmath.NewBox(
+			spatialmath.NewPoseFromPoint(octree.center),
+			r3.Vector{octree.sideLength + buffer, octree.sideLength + buffer, octree.sideLength + buffer},
+			"",
+		)
+		if err != nil {
+			return false, err
+		}
 
-	// Check whether our geom collides with the area represented by the octree. If false,
-	collide, err := geom.CollidesWith(ocbox)
-	if err != nil {
-		return false, err
-	}
-	if !collide {
+		// Check whether our geom collides with the area represented by the octree. If false,
+		collide, err := geom.CollidesWith(ocbox)
+		if err != nil {
+			return false, err
+		}
+		if !collide {
+			return false, nil
+		}
+		if len(octree.node.children) > 0 {
+			for _, child := range octree.node.children {
+				collide, err = child.CollidesWithGeometry(geom, threshold, buffer)
+				if err != nil {
+					return false, err
+				}
+				if collide {
+					return true, nil
+				}
+			}
+		}
+	case leafNodeEmpty:
 		return false, nil
-	}
-
-	if octree.node.point != nil {
+	case leafNodeFilled:
 		ptGeom, err := spatialmath.NewSphere(spatialmath.NewPoseFromPoint(octree.node.point.P), buffer, "")
 		if err != nil {
 			return false, err
@@ -167,18 +181,6 @@ func (octree *BasicOctree) CollidesWithGeometry(geom spatialmath.Geometry, thres
 		}
 		if ptCollide {
 			return true, nil
-		}
-	}
-
-	if len(octree.node.children) > 0 {
-		for _, child := range octree.node.children {
-			collide, err = child.CollidesWithGeometry(geom, threshold, buffer)
-			if err != nil {
-				return false, err
-			}
-			if collide {
-				return true, nil
-			}
 		}
 	}
 	return false, nil
