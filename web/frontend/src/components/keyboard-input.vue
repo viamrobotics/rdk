@@ -113,20 +113,20 @@ onUnmounted(() => {
   <div>
     <v-switch
       :label="props.isActive ? 'Keyboard Enabled' : 'Keyboard Disabled'"
-      class="pr-4 w-fit"
+      class="w-fit pr-4"
       :value="props.isActive ? 'on' : 'off'"
       @input="toggleKeyboard($event.detail.value)"
     />
-    <div class="flex gap-2 justify-center">
+    <div class="flex justify-center gap-2">
       <div
         v-for="(lineKeys, index) in keysLayout"
         :key="index"
-        class="my-1 flex flex-col self-end gap-2"
+        class="my-1 flex flex-col gap-2 self-end"
       >
         <button
           v-for="key in lineKeys"
           :key="key"
-          class="select-none flex items-center gap-1.5 border border-gray-500 px-3 py-1 outline-none uppercase"
+          class="flex select-none items-center gap-1.5 border border-gray-500 px-3 py-1 uppercase outline-none"
           :class="{
             'bg-gray-200 text-gray-800': pressedKeys[key],
             'bg-white': !pressedKeys[key],

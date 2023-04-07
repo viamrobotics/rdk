@@ -123,43 +123,6 @@ func TestKin1(t *testing.T) {
 	))
 }
 
-func TestUseURHostedKinematics(t *testing.T) {
-	sphere, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 1, "sphere")
-	test.That(t, err, test.ShouldBeNil)
-	obstacles := []spatialmath.Geometry{sphere}
-	gifs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(referenceframe.World, obstacles)}
-
-	// test that under normal circumstances we can use worldstate and our own kinematics
-	ur := URArm{}
-	using, err := ur.useURHostedKinematics(&referenceframe.WorldState{Obstacles: gifs}, nil)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, using, test.ShouldBeFalse)
-
-	// test that extra params can be used to get the arm to use the hosted kinematics
-	extraParams := make(map[string]interface{})
-	extraParams["arm_hosted_kinematics"] = true
-	using, err = ur.useURHostedKinematics(nil, extraParams)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, using, test.ShouldBeTrue)
-
-	// test specifying at config time with no obstacles or extra params at runtime
-	ur.urHostedKinematics = true
-	using, err = ur.useURHostedKinematics(&referenceframe.WorldState{}, nil)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, using, test.ShouldBeTrue)
-
-	// test that we can override the config preference with extra params
-	extraParams["arm_hosted_kinematics"] = false
-	using, err = ur.useURHostedKinematics(&referenceframe.WorldState{Obstacles: gifs}, extraParams)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, using, test.ShouldBeFalse)
-
-	// test obstacles will cause this to error
-	_, err = ur.useURHostedKinematics(&referenceframe.WorldState{Obstacles: gifs}, nil)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldResemble, errURHostedKinematics)
-}
-
 type dhConstants struct {
 	a, d, alpha float64
 }
