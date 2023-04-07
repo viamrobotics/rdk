@@ -3,6 +3,7 @@ package tfliteCPU
 
 import (
 	"context"
+	"go.viam.com/rdk/robot"
 	fp "path/filepath"
 	"strconv"
 	"strings"
@@ -16,7 +17,6 @@ import (
 	"go.viam.com/rdk/ml/inference/tflite_metadata"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/mlmodel"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/utils"
@@ -25,14 +25,14 @@ import (
 func init() {
 	registry.RegisterService(vision.Subtype, resource.DefaultServiceModel, registry.Service{
 		RobotConstructor: func(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (interface{}, error) {
-			return NewTFLiteCPUModel(ctx, r, config, logger)
+			return newTFLiteCPUModel(ctx, r, config, logger)
 		},
 	})
 }
 
 // TFLiteDetectorConfig contains the parameters specific to a tflite_cpu
 // implementation of the MLMS (machine learning model service).
-type TFLiteDetectorConfig struct {
+type TFLiteConfig struct {
 	// this should come from the attributes part of the tflite_cpu instance of the MLMS
 	ModelPath  string  `json:"model_path"`
 	NumThreads int     `json:"num_threads"`
@@ -41,28 +41,32 @@ type TFLiteDetectorConfig struct {
 
 // TFLiteCPUModel is a struct that implements the MLMS.
 type TFLiteCPUModel struct {
-	attrs    TFLiteDetectorConfig
+	attrs    TFLiteConfig
 	model    *inf.TFLiteStruct
 	metadata *mlmodel.MLMetadata
 }
 
 // NewTFLiteCPUModel is a constructor that builds a tflite cpu implementation of the MLMS
-func NewTFLiteCPUModel(ctx context.Context, robot robot.Robot, conf config.Service, logger golog.Logger) (*TFLiteCPUModel, error) {
+func newTFLiteCPUModel(ctx context.Context, r robot.Robot, conf config.Service, logger golog.Logger) (*TFLiteCPUModel, error) {
 	ctx, span := trace.StartSpan(ctx, "service::mlmodel::NewTFLiteCPUModel")
 	defer span.End()
 
 	// Read ML model service parameters into a TFLiteDetectorConfig
-	var t TFLiteDetectorConfig
+	var t TFLiteConfig
 	tfParams, err := config.TransformAttributeMapToStruct(&t, conf.Attributes)
 	if err != nil {
 		return &TFLiteCPUModel{}, errors.New("error getting parameters from config")
 	}
-	params, ok := tfParams.(*TFLiteDetectorConfig)
+	params, ok := tfParams.(*TFLiteConfig)
 	if !ok {
 		err := utils.NewUnexpectedTypeError(params, tfParams)
 		return &TFLiteCPUModel{}, errors.Wrapf(err, "register tflite detector %s", conf.Name)
 	}
+	return CreateTFLiteCPUModel(ctx, params)
+}
 
+// CreateTFLiteCPUModel is a constructor that builds a tflite cpu implementation of the MLMS
+func CreateTFLiteCPUModel(ctx context.Context, params *TFLiteConfig) (*TFLiteCPUModel, error) {
 	// Given those params, add the model
 	model, err := addTFLiteModel(ctx, params.ModelPath, &params.NumThreads)
 	if err != nil {
@@ -116,8 +120,8 @@ func (m *TFLiteCPUModel) Metadata(ctx context.Context) (mlmodel.MLMetadata, erro
 	out.ModelName = md.Name
 	out.ModelDescription = md.Description
 
-	numIn := len(md.SubgraphMetadata[0].InputTensorMetadata)
-	numOut := len(md.SubgraphMetadata[0].OutputTensorMetadata)
+	numIn := m.model.Info.InputTensorCount
+	numOut := m.model.Info.OutputTensorCount
 	inputList := make([]mlmodel.TensorInfo, 0, numIn)
 	outputList := make([]mlmodel.TensorInfo, 0, numOut)
 
@@ -131,13 +135,13 @@ func (m *TFLiteCPUModel) Metadata(ctx context.Context) (mlmodel.MLMetadata, erro
 		if strings.Contains(inputT.Description, "classif") {
 			out.ModelType = "tflite_classifier"
 		}
-		td := getTensorInfo(inputT)
+		td := getTensorInfo(m, inputT)
 		inputList = append(inputList, td)
 	}
 	// Fill in output info to the best of our abilities
 	for i := 0; i < numOut; i++ { // //for each output Tensor
 		outputT := md.SubgraphMetadata[0].OutputTensorMetadata[i]
-		td := getTensorInfo(outputT)
+		td := getTensorInfo(m, outputT)
 		outputList = append(outputList, td)
 	}
 	out.Inputs = inputList
@@ -150,23 +154,30 @@ func (m *TFLiteCPUModel) Metadata(ctx context.Context) (mlmodel.MLMetadata, erro
 // getTensorInfo converts the information from the metadata form to the TensorData struct
 // that we use in the mlmodel. This method doesn't populate Extra or NDim, and only
 // populates DataType if metadata reports a range between 0-255.
-func getTensorInfo(inputT *tflite_metadata.TensorMetadataT) mlmodel.TensorInfo {
+func getTensorInfo(m *TFLiteCPUModel, inputT *tflite_metadata.TensorMetadataT) mlmodel.TensorInfo {
 	td := mlmodel.TensorInfo{ // Fill in what's easy
 		Name:        inputT.Name,
 		Description: inputT.Description,
 		Extra:       nil,
 	}
-	if inputT.Stats.Max[0] == 255 { // Make a guess at this only if we see 255
+
+	switch m.model.Info.InputTensorType {
+	// grab from model info, not metadata
+	case inf.UInt8:
 		td.DataType = "uint8"
+	case inf.Float32:
+		td.DataType = "float32"
+	default:
+		td.DataType = ""
 	}
+
 	// Handle the files
 	fileList := make([]mlmodel.File, 0, len(inputT.AssociatedFiles))
-	for i := 0; i <= len(inputT.AssociatedFiles); i++ {
+	for i := 0; i < len(inputT.AssociatedFiles); i++ {
 		outFile := mlmodel.File{
 			Name:        inputT.AssociatedFiles[i].Name,
 			Description: inputT.AssociatedFiles[i].Description,
 		}
-
 		switch inputT.AssociatedFiles[i].Type { // nolint:exhaustivegit
 		case tflite_metadata.AssociatedFileTypeTENSOR_AXIS_LABELS:
 			outFile.LabelType = mlmodel.LabelTypeTensorAxis
