@@ -590,7 +590,7 @@ func (c *AppClient) RunRobotPartCommand(
 	}()
 
 	refCtx := metadata.NewOutgoingContext(c.c.Context, nil)
-	refClient := grpcreflect.NewClient(refCtx, reflectpb.NewServerReflectionClient(conn))
+	refClient := grpcreflect.NewClientV1Alpha(refCtx, reflectpb.NewServerReflectionClient(conn))
 	reflSource := grpcurl.DescriptorSourceFromServer(c.c.Context, refClient)
 	descSource := reflSource
 

@@ -32,11 +32,11 @@ import (
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/slam/grpchelper"
+	slamConfig "go.viam.com/rdk/services/slam/slam_copy/config"
+	"go.viam.com/rdk/services/slam/slam_copy/dataprocess"
+	slamUtils "go.viam.com/rdk/services/slam/slam_copy/utils"
 	"go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
-	slamConfig "go.viam.com/slam/config"
-	"go.viam.com/slam/dataprocess"
-	slamUtils "go.viam.com/slam/utils"
 )
 
 var (
@@ -171,8 +171,6 @@ type builtIn struct {
 	dataRateMs int
 	mapRateSec int
 
-	dev bool
-
 	cancelFunc              func()
 	logger                  golog.Logger
 	activeBackgroundWorkers sync.WaitGroup
@@ -257,9 +255,9 @@ func (slamSvc *builtIn) GetPosition(ctx context.Context, name string) (spatialma
 	ctx, span := trace.StartSpan(ctx, "slam::builtIn::GetPosition")
 	defer span.End()
 
-	req := &pb.GetPositionNewRequest{Name: name}
+	req := &pb.GetPositionRequest{Name: name}
 
-	resp, err := slamSvc.clientAlgo.GetPositionNew(ctx, req)
+	resp, err := slamSvc.clientAlgo.GetPosition(ctx, req)
 	if err != nil {
 		return nil, "", errors.Wrap(err, "error getting SLAM position")
 	}
@@ -270,22 +268,22 @@ func (slamSvc *builtIn) GetPosition(ctx context.Context, name string) (spatialma
 	return slamUtils.CheckQuaternionFromClientAlgo(pose, componentReference, returnedExt)
 }
 
-// GetPointCloudMapStream creates a request, calls the slam algorithms GetPointCloudMapStream endpoint and returns a callback
+// GetPointCloudMap creates a request, calls the slam algorithms GetPointCloudMap endpoint and returns a callback
 // function which will return the next chunk of the current pointcloud map.
-func (slamSvc *builtIn) GetPointCloudMapStream(ctx context.Context, name string) (func() ([]byte, error), error) {
-	ctx, span := trace.StartSpan(ctx, "slam::builtIn::GetPointCloudMapStream")
+func (slamSvc *builtIn) GetPointCloudMap(ctx context.Context, name string) (func() ([]byte, error), error) {
+	ctx, span := trace.StartSpan(ctx, "slam::builtIn::GetPointCloudMap")
 	defer span.End()
 
-	return grpchelper.GetPointCloudMapStreamCallback(ctx, name, slamSvc.clientAlgo)
+	return grpchelper.GetPointCloudMapCallback(ctx, name, slamSvc.clientAlgo)
 }
 
-// GetInternalStateStream creates a request, calls the slam algorithms GetInternalStateStream endpoint and returns a callback
+// GetInternalState creates a request, calls the slam algorithms GetInternalState endpoint and returns a callback
 // function which will return the next chunk of the current internal state of the slam algo.
-func (slamSvc *builtIn) GetInternalStateStream(ctx context.Context, name string) (func() ([]byte, error), error) {
-	ctx, span := trace.StartSpan(ctx, "slam::builtIn::GetInternalStateStream")
+func (slamSvc *builtIn) GetInternalState(ctx context.Context, name string) (func() ([]byte, error), error) {
+	ctx, span := trace.StartSpan(ctx, "slam::builtIn::GetInternalState")
 	defer span.End()
 
-	return grpchelper.GetInternalStateStreamCallback(ctx, name, slamSvc.clientAlgo)
+	return grpchelper.GetInternalStateCallback(ctx, name, slamSvc.clientAlgo)
 }
 
 // NewBuiltIn returns a new slam service for the given robot.
@@ -353,7 +351,6 @@ func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.S
 		useLiveData:           useLiveData,
 		deleteProcessedData:   deleteProcessedData,
 		port:                  port,
-		dev:                   svcConfig.Dev,
 		dataRateMs:            dataRateMsec,
 		mapRateSec:            mapRateSec,
 		cancelFunc:            cancelFunc,

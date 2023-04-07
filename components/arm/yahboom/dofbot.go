@@ -174,15 +174,10 @@ func (a *Dofbot) EndPosition(ctx context.Context, extra map[string]interface{}) 
 }
 
 // MoveToPosition moves the arm to the given absolute position.
-func (a *Dofbot) MoveToPosition(
-	ctx context.Context,
-	pos spatialmath.Pose,
-	worldState *referenceframe.WorldState,
-	extra map[string]interface{},
-) error {
+func (a *Dofbot) MoveToPosition(ctx context.Context, pos spatialmath.Pose, extra map[string]interface{}) error {
 	ctx, done := a.opMgr.New(ctx)
 	defer done()
-	return arm.Move(ctx, a.robot, a, pos, worldState)
+	return arm.Move(ctx, a.robot, a, pos)
 }
 
 // MoveToJointPositions moves the arm's joints to the given positions.

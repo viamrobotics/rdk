@@ -4,11 +4,12 @@ package fake
 import (
 	"context"
 	"image"
+	"image/color"
+	"math"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
-	"go.viam.com/utils/artifact"
-	"golang.org/x/image/draw"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/generic"
@@ -87,9 +88,6 @@ func (at *Attrs) Validate() error {
 	}
 	if at.Width%2 != 0 {
 		return errors.Errorf("odd-number resolutions cannot be rendered, cannot use a width of %d", at.Width)
-	}
-	if at.Height > 0 && at.Width > 0 {
-		return errors.New("only height or width can be specified, not both")
 	}
 	return nil
 }
@@ -170,59 +168,61 @@ func fakeModel(width, height int) (*transform.PinholeCameraModel, int, int) {
 // Camera is a fake camera that always returns the same image.
 type Camera struct {
 	generic.Echo
-	Name   string
-	Model  *transform.PinholeCameraModel
-	Width  int
-	Height int
+	Name            string
+	Model           *transform.PinholeCameraModel
+	Width           int
+	Height          int
+	cacheImage      *image.RGBA
+	cachePointCloud pointcloud.PointCloud
 }
 
-// Read always returns the same image of a chess board.
+// Read always returns the same image of a yellow to blue gradient.
 func (c *Camera) Read(ctx context.Context) (image.Image, func(), error) {
-	img, err := c.getColorImage()
-	return img, func() {}, err
+	if c.cacheImage != nil {
+		return c.cacheImage, func() {}, nil
+	}
+	width := float64(c.Width)
+	height := float64(c.Height)
+	img := image.NewRGBA(image.Rect(0, 0, c.Width, c.Height))
+
+	totalDist := math.Sqrt(math.Pow(0-width, 2) + math.Pow(0-height, 2))
+
+	var x, y float64
+	for x = 0; x < width; x++ {
+		for y = 0; y < height; y++ {
+			dist := math.Sqrt(math.Pow(0-x, 2) + math.Pow(0-y, 2))
+			dist /= totalDist
+			thisColor := color.RGBA{uint8(255 - (255 * dist)), uint8(255 - (255 * dist)), uint8(0 + (255 * dist)), 255}
+			img.Set(int(x), int(y), thisColor)
+		}
+	}
+	c.cacheImage = img
+	return rimage.ConvertImage(img), func() {}, nil
 }
 
-// NextPointCloud always returns a pointcloud of the chess board.
+// NextPointCloud always returns a pointcloud of a yellow to blue gradient, with the depth determined by the intensity of blue.
 func (c *Camera) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
-	img, err := c.getColorImage()
-	if err != nil {
-		return nil, err
+	if c.cachePointCloud != nil {
+		return c.cachePointCloud, nil
 	}
-	dm, err := c.getDepthImage(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return c.Model.RGBDToPointCloud(img, dm)
-}
+	dm := pointcloud.New()
+	width := float64(c.Width)
+	height := float64(c.Height)
 
-// getColorImage always returns the same color image of a chess board.
-func (c *Camera) getColorImage() (*rimage.Image, error) {
-	img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board2.png"))
-	if err != nil {
-		return nil, err
-	}
-	if c.Height == initialHeight && c.Width == initialWidth {
-		return img, nil
-	}
-	dst := image.NewRGBA(image.Rect(0, 0, c.Width, c.Height))
-	draw.NearestNeighbor.Scale(dst, dst.Bounds(), img, img.Bounds(), draw.Over, nil)
-	return rimage.ConvertImage(dst), nil
-}
+	totalDist := math.Sqrt(math.Pow(0-width, 2) + math.Pow(0-height, 2))
 
-// getDepthImage always returns the same depth image of a chess board.
-func (c *Camera) getDepthImage(ctx context.Context) (*rimage.DepthMap, error) {
-	dm, err := rimage.NewDepthMapFromFile(ctx, artifact.MustPath("rimage/board2_gray.png"))
-	if err != nil {
-		return nil, err
+	var x, y float64
+	for x = 0; x < width; x++ {
+		for y = 0; y < height; y++ {
+			dist := math.Sqrt(math.Pow(0-x, 2) + math.Pow(0-y, 2))
+			dist /= totalDist
+			thisColor := color.NRGBA{uint8(255 - (255 * dist)), uint8(255 - (255 * dist)), uint8(0 + (255 * dist)), 255}
+			err := dm.Set(r3.Vector{X: x, Y: y, Z: 255 * dist}, pointcloud.NewColoredData(thisColor))
+			if err != nil {
+				return nil, err
+			}
+		}
 	}
-	if c.Height == initialHeight && c.Width == initialWidth {
-		return dm, nil
-	}
-	dm2, err := rimage.ConvertImageToGray16(dm)
-	if err != nil {
-		return nil, err
-	}
-	dst := image.NewGray16(image.Rect(0, 0, c.Width, c.Height))
-	draw.NearestNeighbor.Scale(dst, dst.Bounds(), dm2, dm2.Bounds(), draw.Over, nil)
-	return rimage.ConvertImageToDepthMap(ctx, dst)
+	c.cachePointCloud = dm
+	return dm, nil
 }

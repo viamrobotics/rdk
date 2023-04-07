@@ -66,7 +66,7 @@ func newRRTStarConnectMotionPlanner(
 	opt *plannerOptions,
 ) (motionPlanner, error) {
 	if opt == nil {
-		opt = newBasicPlannerOptions()
+		return nil, errNoPlannerOptions
 	}
 	mp, err := newPlanner(frame, seed, logger, opt)
 	if err != nil {
@@ -85,7 +85,7 @@ func (mp *rrtStarConnectMotionPlanner) plan(ctx context.Context,
 ) ([][]referenceframe.Input, error) {
 	solutionChan := make(chan *rrtPlanReturn, 1)
 	utils.PanicCapturingGo(func() {
-		mp.rrtBackgroundRunner(ctx, goal, seed, &rrtParallelPlannerShared{nil, nil, solutionChan})
+		mp.rrtBackgroundRunner(ctx, seed, &rrtParallelPlannerShared{nil, nil, solutionChan})
 	})
 	select {
 	case <-ctx.Done():
@@ -98,7 +98,6 @@ func (mp *rrtStarConnectMotionPlanner) plan(ctx context.Context,
 // rrtBackgroundRunner will execute the plan. Plan() will call rrtBackgroundRunner in a separate thread and wait for results.
 // Separating this allows other things to call rrtBackgroundRunner in parallel allowing the thread-agnostic Plan to be accessible.
 func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
-	goal spatialmath.Pose,
 	seed []referenceframe.Input,
 	rrt *rrtParallelPlannerShared,
 ) {
@@ -107,13 +106,14 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 
 	// setup planner options
 	if mp.planOpts == nil {
-		mp.planOpts = newBasicPlannerOptions()
+		rrt.solutionChan <- &rrtPlanReturn{planerr: errNoPlannerOptions}
+		return
 	}
 
 	mp.start = time.Now()
 
 	if rrt.maps == nil || len(rrt.maps.goalMap) == 0 {
-		planSeed := initRRTSolutions(ctx, mp, goal, seed)
+		planSeed := initRRTSolutions(ctx, mp, seed)
 		if planSeed.planerr != nil || planSeed.steps != nil {
 			rrt.solutionChan <- planSeed
 			return
@@ -223,9 +223,9 @@ func (mp *rrtStarConnectMotionPlanner) extend(
 
 		// check to see if a shortcut is possible, and rewire the node if it is
 		neighborNode := neighbor.node.(*costNode)
-		_, connectionCost := mp.planOpts.DistanceFunc(&ConstraintInput{
-			StartInput: neighborNode.Q(),
-			EndInput:   targetNode.Q(),
+		connectionCost := mp.planOpts.DistanceFunc(&Segment{
+			StartConfiguration: neighborNode.Q(),
+			EndConfiguration:   targetNode.Q(),
 		})
 		cost := connectionCost + targetNode.cost
 		if cost < neighborNode.cost && mp.checkPath(target, neighborNode.Q()) {

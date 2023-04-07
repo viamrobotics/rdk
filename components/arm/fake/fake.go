@@ -169,13 +169,8 @@ func (a *Arm) EndPosition(ctx context.Context, extra map[string]interface{}) (sp
 }
 
 // MoveToPosition sets the position.
-func (a *Arm) MoveToPosition(
-	ctx context.Context,
-	pos spatialmath.Pose,
-	worldState *referenceframe.WorldState,
-	extra map[string]interface{},
-) error {
-	return arm.Move(ctx, a.robot, a, pos, worldState)
+func (a *Arm) MoveToPosition(ctx context.Context, pos spatialmath.Pose, extra map[string]interface{}) error {
+	return arm.Move(ctx, a.robot, a, pos)
 }
 
 // MoveToJointPositions sets the joints.
