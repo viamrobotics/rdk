@@ -36,12 +36,12 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 }
 
 // GetPosition creates a request, calls the slam service GetPosition, and parses the response into a Pose with a component reference string.
-func (c *client) GetPosition(ctx context.Context, name string) (spatialmath.Pose, string, error) {
+func (c *client) GetPosition(ctx context.Context) (spatialmath.Pose, string, error) {
 	ctx, span := trace.StartSpan(ctx, "slam::client::GetPosition")
 	defer span.End()
 
 	req := &pb.GetPositionRequest{
-		Name: name,
+		Name: c.name,
 	}
 
 	resp, err := c.client.GetPosition(ctx, req)
@@ -57,20 +57,20 @@ func (c *client) GetPosition(ctx context.Context, name string) (spatialmath.Pose
 
 // GetPointCloudMap creates a request, calls the slam service GetPointCloudMap and returns a callback
 // function which will return the next chunk of the current pointcloud map when called.
-func (c *client) GetPointCloudMap(ctx context.Context, name string) (func() ([]byte, error), error) {
+func (c *client) GetPointCloudMap(ctx context.Context) (func() ([]byte, error), error) {
 	ctx, span := trace.StartSpan(ctx, "slam::client::GetPointCloudMap")
 	defer span.End()
 
-	return grpchelper.GetPointCloudMapCallback(ctx, name, c.client)
+	return grpchelper.GetPointCloudMapCallback(ctx, c.name, c.client)
 }
 
 // GetInternalState creates a request, calls the slam service GetInternalState and returns a callback
 // function which will return the next chunk of the current internal state of the slam algo when called.
-func (c *client) GetInternalState(ctx context.Context, name string) (func() ([]byte, error), error) {
+func (c *client) GetInternalState(ctx context.Context) (func() ([]byte, error), error) {
 	ctx, span := trace.StartSpan(ctx, "slam::client::GetInternalState")
 	defer span.End()
 
-	return grpchelper.GetInternalStateCallback(ctx, name, c.client)
+	return grpchelper.GetInternalStateCallback(ctx, c.name, c.client)
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {

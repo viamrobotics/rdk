@@ -18,9 +18,9 @@ import (
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/slam/internal/testhelper"
-	"go.viam.com/rdk/spatialmath"
 	slamConfig "go.viam.com/rdk/services/slam/slam_copy/config"
 	slamTesthelper "go.viam.com/rdk/services/slam/slam_copy/testhelper"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
@@ -74,7 +74,7 @@ func releaseImages(t *testing.T, mode slam.Mode) {
 
 // Checks the orbslam map and confirms there are more than zero map points.
 func testOrbslamMap(t *testing.T, svc slam.Service) {
-	pcd, err := slam.GetPointCloudMapFull(context.Background(), svc, "test")
+	pcd, err := slam.GetPointCloudMapFull(context.Background(), svc)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pcd, test.ShouldNotBeNil)
 
@@ -102,7 +102,7 @@ func testOrbslamPosition(t *testing.T, svc slam.Service, mode, actionMode string
 		expectedOri = &spatialmath.R4AA{Theta: 0.002, RX: 0.602, RY: -0.772, RZ: -0.202}
 	}
 
-	position, componentRef, err := svc.GetPosition(context.Background(), "test")
+	position, componentRef, err := svc.GetPosition(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, componentRef, test.ShouldEqual, expectedComponentRef)
 
@@ -122,7 +122,7 @@ func testOrbslamPosition(t *testing.T, svc slam.Service, mode, actionMode string
 
 // Checks the orbslam internal state.
 func testOrbslamInternalState(t *testing.T, svc slam.Service, dataDir string) {
-	internalState, err := slam.GetInternalStateFull(context.Background(), svc, "test")
+	internalState, err := slam.GetInternalStateFull(context.Background(), svc)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Save the data from the call to GetInternalState for use in next test.
