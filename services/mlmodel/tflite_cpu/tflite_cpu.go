@@ -73,9 +73,7 @@ func (m *tfliteCPUModel) Infer(ctx context.Context, input map[string]interface{}
 	outMap := make(map[string]interface{})
 
 	// Grab the image data from the map
-	if imgBytes, ok := input["image"]; !ok {
-		return map[string]interface{}{}, errors.New("could not find image in input map. Give it the name 'image' duh")
-	} else {
+	if imgBytes, ok := input["image"]; ok {
 		// Maybe try some other names but for nowww...
 		outTensors, err := m.model.Infer(imgBytes)
 		if err != nil {
@@ -91,7 +89,10 @@ func (m *tfliteCPUModel) Infer(ctx context.Context, input map[string]interface{}
 				outMap[m.metadata.Outputs[i].Name] = outTensors[i]
 			}
 		}
+	} else {
+		return map[string]interface{}{}, errors.New("could not find image in input map. Give it the name 'image' duh")
 	}
+
 	return outMap, nil
 }
 
@@ -116,6 +117,13 @@ func (m *tfliteCPUModel) Metadata(ctx context.Context) (mlmodel.MLMetadata, erro
 	// Fill in input info to the best of our abilities
 	for i := 0; i < numIn; i++ { // //for each input Tensor
 		inputT := md.SubgraphMetadata[0].InputTensorMetadata[i]
+		// try to guess model type based on description
+		if strings.Contains(inputT.Description, "detect") {
+			out.ModelType = "tflite_detector"
+		}
+		if strings.Contains(inputT.Description, "classif") {
+			out.ModelType = "tflite_classifier"
+		}
 		td := getTensorInfo(inputT)
 		inputList = append(inputList, td)
 	}
