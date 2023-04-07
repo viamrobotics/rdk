@@ -111,7 +111,7 @@ func (c *client) Detections(ctx context.Context, img image.Image, extra map[stri
 
 func (c *client) ClassificationsFromCamera(
 	ctx context.Context,
-	cameraName, string,
+	cameraName string,
 	n int,
 	extra map[string]interface{},
 ) (classification.Classifications, error) {
