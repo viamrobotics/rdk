@@ -338,7 +338,7 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 	}
 
 	if err := addConvertedAttributes(cfg); err != nil {
-		return nil, errors.Wrapf(err, "unable to convert attributes when adding resource")
+		return nil, errors.Wrapf(err, "unable to convert attributes when reconfiguring resource")
 	}
 
 	m.mu.Lock()
