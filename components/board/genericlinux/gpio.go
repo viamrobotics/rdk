@@ -48,8 +48,9 @@ func (pin *gpioPin) openGpioFd(isInput bool) error {
 		if err := pin.closeGpioFd(); err != nil {
 			return err
 		}
+		pin.isInput = isInput
 	}
-	pin.isInput = isInput
+
 	if pin.line != nil {
 		return nil // The pin is already opened, don't re-open it.
 	}
