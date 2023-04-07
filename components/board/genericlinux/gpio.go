@@ -45,7 +45,9 @@ func (pin *gpioPin) openGpioFd(isInput bool) error {
 	if isInput != pin.isInput {
 		// We're switching from an input pin to an output one or vice versa. Close the line and
 		// repoen in the other mode.
-		pin.closeGpioFd()
+		if err := pin.closeGpioFd(); err != nil {
+			return err
+		}
 	}
 	pin.isInput = isInput
 	if pin.line != nil {
