@@ -293,7 +293,11 @@ func (b *sysfsBoard) AnalogReaderNames() []string {
 }
 
 func (b *sysfsBoard) DigitalInterruptNames() []string {
-	return nil
+	names := []string{}
+	for name := range b.interrupts {
+		names = append(names, name)
+	}
+	return names
 }
 
 func (b *sysfsBoard) GPIOPinNames() []string {
