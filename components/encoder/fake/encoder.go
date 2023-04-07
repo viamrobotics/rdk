@@ -60,6 +60,7 @@ func (cfg *AttrConfig) Validate(path string) error {
 type Encoder struct {
 	mu                      sync.Mutex
 	position                int64
+	positionType            pb.PositionType
 	speed                   float64 // ticks per minute
 	updateRate              int64   // update position in start every updateRate ms
 	activeBackgroundWorkers sync.WaitGroup
@@ -68,14 +69,18 @@ type Encoder struct {
 }
 
 // GetPosition returns the current position in terms of ticks.
-func (e *Encoder) GetPosition(ctx context.Context, positionType *pb.PositionType, extra map[string]interface{}) (float64, error) {
+func (e *Encoder) GetPosition(
+	ctx context.Context,
+	positionType *pb.PositionType,
+	extra map[string]interface{},
+) (float64, pb.PositionType, error) {
 	if positionType != nil && *positionType == pb.PositionType_POSITION_TYPE_ANGLE_DEGREES {
-		err := errors.New("Encoder does not support PositionType Angle Degrees")
-		return 0, err
+		err := errors.New("Encoder does not support PositionType Angle Degrees, use a different PositionType")
+		return 0, *positionType, err
 	}
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	return float64(e.position), nil
+	return float64(e.position), e.positionType, nil
 }
 
 // Start starts a background thread to run the encoder.
@@ -118,8 +123,8 @@ func (e *Encoder) ResetPosition(ctx context.Context, extra map[string]interface{
 // GetProperties returns a list of all the position types that are supported by a given encoder.
 func (e *Encoder) GetProperties(ctx context.Context, extra map[string]interface{}) (map[encoder.Feature]bool, error) {
 	return map[encoder.Feature]bool{
-		encoder.TicksCountSupported:   true,
-		encoder.AngleDegreesSupported: true,
+		encoder.TicksCountSupported:   false,
+		encoder.AngleDegreesSupported: false,
 	}, nil
 }
 

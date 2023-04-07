@@ -43,17 +43,18 @@ func (s *subtypeServer) GetPosition(
 	if err != nil {
 		return nil, err
 	}
-	position, err := enc.GetPosition(ctx, req.GetPositionType().Enum(), req.Extra.AsMap())
+	position, positionType, err := enc.GetPosition(ctx, req.PositionType, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
 	return &pb.GetPositionResponse{
-		Value: float32(position),
+		Value:        float32(position),
+		PositionType: positionType,
 	}, nil
 }
 
-// ResetPosition sets the current position of the motor specified by the request
-// (adjusted by a given offset) to be its new zero position.
+// ResetPosition sets the current position of the encoder
+// specified by the request to be its new zero position.
 func (s *subtypeServer) ResetPosition(
 	ctx context.Context,
 	req *pb.ResetPositionRequest,
@@ -75,7 +76,7 @@ func (s *subtypeServer) GetProperties(
 	encoderName := req.GetName()
 	enc, err := s.getEncoder(encoderName)
 	if err != nil {
-		return nil, errors.Errorf("no motor (%s) found", encoderName)
+		return nil, errors.Errorf("no encoder (%s) found", encoderName)
 	}
 	features, err := enc.GetProperties(ctx, req.Extra.AsMap())
 	if err != nil {

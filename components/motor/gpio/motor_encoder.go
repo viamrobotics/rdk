@@ -199,7 +199,7 @@ type EncodedMotorState struct {
 
 // Position returns the position of the motor.
 func (m *EncodedMotor) Position(ctx context.Context, extra map[string]interface{}) (float64, error) {
-	ticks, err := m.encoder.GetPosition(ctx, nil, extra)
+	ticks, _, err := m.encoder.GetPosition(ctx, nil, extra)
 	if err != nil {
 		return 0, err
 	}
@@ -304,7 +304,7 @@ func (m *EncodedMotor) rpmMonitor() {
 	m.startedRPMMonitor = true
 	m.startedRPMMonitorMu.Unlock()
 
-	lastPosFl, err := m.encoder.GetPosition(m.cancelCtx, nil, nil)
+	lastPosFl, _, err := m.encoder.GetPosition(m.cancelCtx, nil, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -328,7 +328,7 @@ func (m *EncodedMotor) rpmMonitor() {
 		case <-timer.C:
 		}
 
-		pos, err := m.encoder.GetPosition(m.cancelCtx, nil, nil)
+		pos, _, err := m.encoder.GetPosition(m.cancelCtx, nil, nil)
 		if err != nil {
 			m.logger.Info("error getting encoder position, sleeping then continuing: %w", err)
 			if !utils.SelectContextOrWait(m.cancelCtx, 100*time.Millisecond) {
@@ -564,7 +564,7 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions float
 
 	numTicks := int64(revolutions * float64(m.cfg.TicksPerRotation))
 
-	pos, err := m.encoder.GetPosition(ctx, nil, nil)
+	pos, _, err := m.encoder.GetPosition(ctx, nil, nil)
 	if err != nil {
 		return err
 	}

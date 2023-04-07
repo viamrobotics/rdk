@@ -78,7 +78,7 @@ func TestEnconder(t *testing.T) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			ticks, err := enc.GetPosition(context.Background(), nil, nil)
+			ticks, _, err := enc.GetPosition(context.Background(), nil, nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, ticks, test.ShouldEqual, 1)
 		})
@@ -97,7 +97,7 @@ func TestEnconder(t *testing.T) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			ticks, err := enc.GetPosition(context.Background(), nil, nil)
+			ticks, _, err := enc.GetPosition(context.Background(), nil, nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, ticks, test.ShouldEqual, -1)
 		})
@@ -112,7 +112,7 @@ func TestEnconder(t *testing.T) {
 		// reset position to 0
 		err = enc.ResetPosition(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
-		ticks, err := enc.GetPosition(context.Background(), nil, nil)
+		ticks, _, err := enc.GetPosition(context.Background(), nil, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ticks, test.ShouldEqual, 0)
 	})
@@ -125,9 +125,10 @@ func TestEnconder(t *testing.T) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			ticks, err := enc.GetPosition(context.Background(), pb.PositionType_POSITION_TYPE_TICKS_COUNT.Enum(), nil)
+			ticks, positionType, err := enc.GetPosition(context.Background(), pb.PositionType_POSITION_TYPE_TICKS_COUNT.Enum(), nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, ticks, test.ShouldEqual, 0)
+			test.That(tb, positionType, test.ShouldEqual, pb.PositionType_POSITION_TYPE_TICKS_COUNT)
 		})
 	})
 	t.Run("specify wrong position type", func(t *testing.T) {
@@ -138,9 +139,10 @@ func TestEnconder(t *testing.T) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			ticks, err := enc.GetPosition(context.Background(), pb.PositionType_POSITION_TYPE_ANGLE_DEGREES.Enum(), nil)
+			ticks, positionType, err := enc.GetPosition(context.Background(), pb.PositionType_POSITION_TYPE_ANGLE_DEGREES.Enum(), nil)
 			test.That(tb, err, test.ShouldNotBeNil)
 			test.That(tb, ticks, test.ShouldEqual, 0)
+			test.That(tb, positionType, test.ShouldEqual, pb.PositionType_POSITION_TYPE_ANGLE_DEGREES)
 		})
 	})
 

@@ -72,7 +72,7 @@ func TestFromDependencies(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res, test.ShouldNotBeNil)
 
-	result, err := res.GetPosition(context.Background(), pb.PositionType_POSITION_TYPE_UNSPECIFIED.Enum(), nil)
+	result, _, err := res.GetPosition(context.Background(), nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldResemble, position)
 
@@ -92,7 +92,7 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res, test.ShouldNotBeNil)
 
-	result, err := res.GetPosition(context.Background(), pb.PositionType_POSITION_TYPE_UNSPECIFIED.Enum(), nil)
+	result, _, err := res.GetPosition(context.Background(), nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldResemble, position)
 
@@ -189,7 +189,7 @@ func TestReconfigurableEncoder(t *testing.T) {
 
 	test.That(t, actualEncoder1.posCount, test.ShouldEqual, 0)
 	test.That(t, actualEncoder2.posCount, test.ShouldEqual, 0)
-	result, err := reconfEncoder1.(encoder.Encoder).GetPosition(context.Background(), pb.PositionType_POSITION_TYPE_UNSPECIFIED.Enum(), nil)
+	result, _, err := reconfEncoder1.(encoder.Encoder).GetPosition(context.Background(), pb.PositionType_POSITION_TYPE_UNSPECIFIED.Enum(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldResemble, position)
 	test.That(t, actualEncoder1.posCount, test.ShouldEqual, 0)
@@ -222,10 +222,16 @@ func TestGetPosition(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, actualEncoder1.posCount, test.ShouldEqual, 0)
-	pos1, err := reconfEncoder1.(encoder.Encoder).GetPosition(context.Background(), pb.PositionType_POSITION_TYPE_UNSPECIFIED.Enum(), nil)
+	pos1, positionType, err := reconfEncoder1.(encoder.Encoder).GetPosition(context.Background(), nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pos1, test.ShouldResemble, position)
 	test.That(t, actualEncoder1.posCount, test.ShouldEqual, 1)
+	test.That(t, positionType, test.ShouldEqual, pb.PositionType_POSITION_TYPE_UNSPECIFIED)
+
+	props, err := reconfEncoder1.(encoder.Encoder).GetProperties(context.Background(), nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, props[encoder.TicksCountSupported], test.ShouldBeTrue)
+	test.That(t, props[encoder.AngleDegreesSupported], test.ShouldBeTrue)
 }
 
 func TestClose(t *testing.T) {
@@ -261,10 +267,14 @@ func (m *mock) ResetPosition(ctx context.Context, extra map[string]interface{}) 
 	return nil
 }
 
-func (m *mock) GetPosition(ctx context.Context, positionType *pb.PositionType, extra map[string]interface{}) (float64, error) {
+func (m *mock) GetPosition(
+	ctx context.Context,
+	positionType *pb.PositionType,
+	extra map[string]interface{},
+) (float64, pb.PositionType, error) {
 	m.posCount++
 	m.extra = extra
-	return position, nil
+	return position, pb.PositionType_POSITION_TYPE_UNSPECIFIED, nil
 }
 
 func (m *mock) GetProperties(ctx context.Context, extra map[string]interface{}) (map[encoder.Feature]bool, error) {

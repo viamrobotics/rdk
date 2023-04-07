@@ -51,6 +51,7 @@ type Encoder struct {
 	pRaw     int64
 	pState   int64
 
+	positionType            pb.PositionType
 	logger                  golog.Logger
 	CancelCtx               context.Context
 	cancelFunc              func()
@@ -98,7 +99,15 @@ func NewIncrementalEncoder(
 	logger golog.Logger,
 ) (encoder.Encoder, error) {
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
-	e := &Encoder{logger: logger, CancelCtx: cancelCtx, cancelFunc: cancelFunc, position: 0, pRaw: 0, pState: 0}
+	e := &Encoder{
+		logger:       logger,
+		CancelCtx:    cancelCtx,
+		cancelFunc:   cancelFunc,
+		position:     0,
+		positionType: pb.PositionType_POSITION_TYPE_TICKS_COUNT,
+		pRaw:         0,
+		pState:       0,
+	}
 	if cfg, ok := cfg.ConvertedAttributes.(*AttrConfig); ok {
 		board, err := board.FromDependencies(deps, cfg.BoardName)
 		if err != nil {
@@ -234,13 +243,17 @@ func (e *Encoder) Start(ctx context.Context) {
 }
 
 // GetPosition returns number of ticks since last zeroing.
-func (e *Encoder) GetPosition(ctx context.Context, positionType *pb.PositionType, extra map[string]interface{}) (float64, error) {
+func (e *Encoder) GetPosition(
+	ctx context.Context,
+	positionType *pb.PositionType,
+	extra map[string]interface{},
+) (float64, pb.PositionType, error) {
 	if positionType != nil && *positionType == pb.PositionType_POSITION_TYPE_ANGLE_DEGREES {
-		err := errors.New("Encoder does not support PositionType Angle Degrees")
-		return 0, err
+		err := errors.New("Encoder does not support PositionType Angle Degrees, use a different PositionType")
+		return 0, *positionType, err
 	}
 	res := atomic.LoadInt64(&e.position)
-	return float64(res), nil
+	return float64(res), e.positionType, nil
 }
 
 // ResetPosition sets the current position of the motor (adjusted by a given offset)
