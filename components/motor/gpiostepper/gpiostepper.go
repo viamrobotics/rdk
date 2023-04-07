@@ -18,7 +18,7 @@ package gpiostepper
    The motor will then step and increment its position until it has reached a target or has been stopped.
 
    Configuration:
-   The only requirements are to specify a step pin to send pulses and a direction pin to set the direction.
+   Required pins: a step pin to send pulses and a direction pin to set the direction.
    Enabling current to flow through the armature and holding a position can be done by setting enable pins on
    hardware that supports that functionality.
 
@@ -50,10 +50,6 @@ import (
 )
 
 var model = resource.NewDefaultModel("gpiostepper")
-
-const (
-	defaultMinDelayNanos = time.Duration(1)
-)
 
 // PinConfig defines the mapping of where motor are wired.
 type PinConfig struct {
@@ -158,7 +154,7 @@ func newGPIOStepper(ctx context.Context, b board.Board, mc AttrConfig, name stri
 		}
 	}
 
-	// set the reuqired step and direction pins
+	// set the required step and direction pins
 	m.stepPin, err = b.GPIOPinByName(mc.Pins.Step)
 	if err != nil {
 		return nil, err
@@ -169,7 +165,7 @@ func newGPIOStepper(ctx context.Context, b board.Board, mc AttrConfig, name stri
 		return nil, err
 	}
 
-	if mc.StepperDelay > int(defaultMinDelayNanos) {
+	if mc.StepperDelay > 0 {
 		m.minDelay = time.Duration(mc.StepperDelay * int(time.Microsecond))
 	}
 
@@ -252,10 +248,9 @@ func (m *gpioStepper) doCycle(ctx context.Context) (time.Duration, error) {
 		return time.Second, fmt.Errorf("error stepping %w", err)
 	}
 
-	// wait twice the stepper delay to signal the duration elapsed and to return from the
-	// doRun thread, otherwise there will be a stretching of time off in the stepper until
-	// the thread realises that the motor is still not at target
-	return 2 * m.stepperDelay, nil
+	// wait the stepper delay to return from the doRun for loop or select
+	// context if the duration has not elapsed.
+	return m.stepperDelay, nil
 }
 
 // have to be locked to call.
