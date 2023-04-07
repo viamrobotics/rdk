@@ -17,6 +17,7 @@ import (
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/component/camera/v1"
+	"go.viam.com/rdk/components/board/jetson"
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
@@ -236,6 +237,9 @@ func getLabelFromCamera(cam camera.Camera, logger golog.Logger) string {
 func NewWebcamSource(ctx context.Context, name string, attrs *WebcamAttrs, logger golog.Logger) (camera.Camera, error) {
 	cam, err := findAndMakeCamera(ctx, attrs, attrs.Path, logger)
 	if err != nil {
+		if jetson.IsJetsonOrinAGX() {
+			return nil, errors.Wrap(err, jetson.PrintCAM20CUOAGXError())
+		}
 		return nil, errors.Wrap(err, "cannot find video source for camera")
 	}
 
