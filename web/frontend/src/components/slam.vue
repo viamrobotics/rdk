@@ -311,6 +311,7 @@ const refresh3dMap = () => {
 };
 
 const handle2dRenderClick = (event: THREE.Vector3) => {
+  updatedDest = true
   threeJPos = event
 }
 
@@ -339,7 +340,8 @@ const baseCopyPosition = () => {
 };
 
 const executeDelete = () => {
-  console.log('clicked delete')
+  updatedDest = false
+  threeJPos = new THREE.Vector3()
 }
 
 </script>

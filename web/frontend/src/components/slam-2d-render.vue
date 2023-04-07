@@ -26,7 +26,7 @@ const props = defineProps<{
 }
 >();
 
-const Baseurl = "data:image/svg+xml,%3Csvg width='31' height='39' viewBox='0 0 31 39' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M3.55907 4.21112L1.70584 2.78033L1.95357 5.10847L4.71496 31.0594L5.08708 34.5565L6.61063 31.3869L11.7355 20.7249L23.5021 21.9458L27.0001 22.3088L24.2164 20.1596L3.55907 4.21112Z' fill='%23BE3536' stroke='%23FCECEA' stroke-width='2'/%3E%3C/svg%3E"
+const baseUrl = "data:image/svg+xml,%3Csvg width='31' height='39' viewBox='0 0 31 39' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M3.55907 4.21112L1.70584 2.78033L1.95357 5.10847L4.71496 31.0594L5.08708 34.5565L6.61063 31.3869L11.7355 20.7249L23.5021 21.9458L27.0001 22.3088L24.2164 20.1596L3.55907 4.21112Z' fill='%23BE3536' stroke='%23FCECEA' stroke-width='2'/%3E%3C/svg%3E"
 const destUrl = "data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cg clip-path='url(%23clip0_2995_26851)'%3E%3Cpath d='M12 22L11.2579 22.6703L12 23.4919L12.7421 22.6703L12 22ZM12 22C12.7421 22.6703 12.7422 22.6701 12.7424 22.67L12.7429 22.6694L12.7443 22.6679L12.749 22.6627L12.7658 22.6439C12.7803 22.6277 12.8012 22.6042 12.8281 22.5737C12.8819 22.5127 12.9599 22.4238 13.0584 22.3094C13.2554 22.0808 13.5352 21.75 13.8702 21.3372C14.5393 20.5127 15.4332 19.3558 16.329 18.0281C17.2228 16.7032 18.1311 15.1902 18.8189 13.6549C19.5008 12.1328 20 10.5148 20 9C20 4.57772 16.4223 1 12 1C7.57772 1 4 4.57772 4 9C4 10.5148 4.49923 12.1328 5.18115 13.6549C5.86894 15.1902 6.77715 16.7032 7.67104 18.0281C8.56684 19.3558 9.46066 20.5127 10.1298 21.3372C10.4648 21.75 10.7446 22.0808 10.9416 22.3094C11.0401 22.4238 11.1181 22.5127 11.1719 22.5737C11.1988 22.6042 11.2197 22.6277 11.2342 22.6439L11.251 22.6627L11.2557 22.6679L11.2571 22.6694L11.2576 22.67C11.2578 22.6701 11.2579 22.6703 12 22ZM8 9C8 6.79228 9.79228 5 12 5C14.2077 5 16 6.79228 16 9C16 10.169 15.3927 11.7756 14.4208 13.5258C13.7032 14.818 12.8343 16.106 12.004 17.2276C11.1827 16.1085 10.3144 14.8168 9.59393 13.5214C8.61458 11.7606 8 10.1512 8 9Z' fill='%23BE3536' stroke='%23FCECEA' stroke-width='2'/%3E%3Cpath d='M12 12.5C13.933 12.5 15.5 10.933 15.5 9C15.5 7.067 13.933 5.5 12 5.5C10.067 5.5 8.5 7.067 8.5 9C8.5 10.933 10.067 12.5 12 12.5Z' fill='%23BE3536' stroke='%23FCECEA' stroke-width='2'/%3E%3C/g%3E%3Cdefs%3E%3CclipPath id='clip0_2995_26851'%3E%3Crect width='24' height='24' fill='white'/%3E%3C/clipPath%3E%3C/defs%3E%3C/svg%3E"
 
 const emit = defineEmits<{(event: 'click', point: THREE.Vector3): void}>()
@@ -57,13 +57,12 @@ const raycaster = new MouseRaycaster({ camera, canvas, recursive: false });
 raycaster.addEventListener('click', async (event) => {
   const [intersection] = event.intersections as THREE.Intersection[];
   if (intersection && intersection.point) {
-    scene.remove()
     emit('click', intersection.point)
   }
 });
 
 
-const makeMarker = async (url : string, x: number, z: number, name: string) => {
+const makeMarker = async (url : string, x: number, z: number, name: string, scalar: number) => {
   const guiData = {
     currentURL: url,
     drawFillShapes: true,
@@ -78,8 +77,7 @@ const makeMarker = async (url : string, x: number, z: number, name: string) => {
   const { paths } = data;
 
   const group = new THREE.Group();
-  // group.scale.multiplyScalar( 0.03 );
-  group.scale.multiplyScalar( 0.25 );
+  group.scale.multiplyScalar(scalar);
   group.position.x = - 70;
   group.position.y = 70;
   group.scale.y *= - 1;
@@ -108,7 +106,7 @@ const makeMarker = async (url : string, x: number, z: number, name: string) => {
 
         const geometry = new THREE.ShapeGeometry( shape );
         const mesh = new THREE.Mesh( geometry.rotateX(-Math.PI / 2).rotateY(Math.PI), material );
-        mesh.position.set(x+.35, 0, z-.55) 
+        // mesh.position.set(x+.35, 0, z-.55) 
         group.add( mesh );
 
       }
@@ -134,7 +132,7 @@ const makeMarker = async (url : string, x: number, z: number, name: string) => {
 
         if ( geometry ) {
           const mesh = new THREE.Mesh( geometry.rotateX(-Math.PI / 2).rotateY(Math.PI), material );
-          mesh.position.set(x+.35, 0, z-.55) 
+          // mesh.position.set(x+.35, 0, z-.55) 
           group.add( mesh );
         }
       }
@@ -142,7 +140,8 @@ const makeMarker = async (url : string, x: number, z: number, name: string) => {
   }
 
   group.name = name
-  group.position.set(x, 0, z)
+  // group.position.set(x+.35, 0, z-.55)
+  // group.position.set(x, 0, z)
   scene.add(group)
   return group
 }
@@ -212,7 +211,7 @@ const updateCloud = (pointcloud: Uint8Array) => {
   axesHelper2.scale.z = 1e5
   axesHelper2.renderOrder = 997
 
-  const gridHelper = new THREE.GridHelper( 1000, 1000, 0xCACACA, 0xCACACA ); // this needs to be updated so it is set to 1m
+  const gridHelper = new THREE.GridHelper( 1000, 100, 0xCACACA, 0xCACACA ); // this needs to be updated so it is set to 1m
   gridHelper.position.set(center.x, 0, center.z);
   gridHelper.renderOrder = 996;
 
@@ -229,18 +228,14 @@ const updatePose = async (newPose: commonApi.Pose) => {
   const x = newPose.getX();
   const z = newPose.getZ();
   
-  scene.getObjectByName('Base') ?? await makeMarker(Baseurl, x, z, "Base")
+  const baseMarker = scene.getObjectByName('Base') ?? await makeMarker(baseUrl, 0, 0, "Base", 0.04)
+  baseMarker.position.set(x+.35, 0, z-.55)
 
-  const destMarker = scene.getObjectByName('Marker') ?? await makeMarker(destUrl, 0, 0, "Marker")
-  // remove old dest marker here
-  console.log("props.destExists: ", props.destExists)
   if (props.destExists) {
-    // place new one here
-    
     const x = props.destVector!.x
     const z = props.destVector!.z
-    console.log(props.destVector)
-    destMarker.position.set(x, 0, z);
+    const destMarker = scene.getObjectByName('Marker') ?? await makeMarker(destUrl, 0, 0, "Marker", 0.25)
+    destMarker.position.set(x, 0, z)
   }
   
 };
@@ -264,10 +259,16 @@ onUnmounted(() => {
   disposeScene();
 });
 
-watch(() => [props.destVector?.x, props.destVector?.z], async () => {
-  console.log(props.destVector)
-  if (props.destVector) {
-    scene.getObjectByName('Marker') ?? await makeMarker(destUrl, props.destVector.x, props.destVector.z, "Marker")
+watch(() => [props.destVector?.x, props.destVector?.z, props.destExists], async () => {
+  if (props.destVector && props.destExists) {
+    const marker =  scene.getObjectByName('Marker') ?? await makeMarker(destUrl, props.destVector.x, props.destVector.z, "Marker", 0.05)
+    marker.position.set(props.destVector.x +.6, 0, props.destVector.z-1.24)
+  }
+  if (!props.destExists) {
+    const marker =  scene.getObjectByName('Marker')
+    if (marker !== undefined){
+      scene.remove(marker)
+    }
   }
 })
 
