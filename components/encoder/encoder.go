@@ -63,25 +63,12 @@ var (
 // FromDependencies is a helper for getting the named encoder from a collection of
 // dependencies.
 func FromDependencies(deps registry.Dependencies, name string) (Encoder, error) {
-	res, ok := deps[Named(name)]
-	if !ok {
-		return nil, utils.DependencyNotFoundError(name)
-	}
-	part, ok := res.(Encoder)
-	if !ok {
-		return nil, DependencyTypeError(name, res)
-	}
-	return part, nil
+	return registry.ResourceFromDependencies[Encoder](deps, Named(name))
 }
 
 // NewUnimplementedInterfaceError is used when there is a failed interface check.
 func NewUnimplementedInterfaceError(actual interface{}) error {
 	return utils.NewUnimplementedInterfaceError((*Encoder)(nil), actual)
-}
-
-// DependencyTypeError is used when a resource doesn't implement the expected interface.
-func DependencyTypeError(name string, actual interface{}) error {
-	return utils.DependencyTypeError(name, (*Encoder)(nil), actual)
 }
 
 // FromRobot is a helper for getting the named encoder from the given Robot.

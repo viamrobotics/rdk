@@ -20,9 +20,6 @@ import (
 const (
 	defaultOptimalityMultiple = 2.0
 	defaultFallbackTimeout    = 1.5
-
-	// set this to true to get collision penetration depth, which is useful for debugging.
-	defaultGetCollisionDepth = false
 )
 
 // planManager is intended to be the single entry point to motion planners, wrapping all others, dealing with fallbacks, etc.
@@ -34,7 +31,12 @@ type planManager struct {
 	fs    referenceframe.FrameSystem
 }
 
-func newPlanManager(frame *solverFrame, fs referenceframe.FrameSystem, logger golog.Logger, seed int) (*planManager, error) {
+func newPlanManager(
+	frame *solverFrame,
+	fs referenceframe.FrameSystem,
+	logger golog.Logger,
+	seed int,
+) (*planManager, error) {
 	//nolint: gosec
 	p, err := newPlanner(frame, rand.New(rand.NewSource(int64(seed))), logger, newBasicPlannerOptions())
 	if err != nil {
@@ -143,7 +145,7 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 	// If we have multiple sub-waypoints, make sure the final goal is not unreachable.
 	if len(goals) > 1 {
 		// Viability check; ensure that the waypoint is not impossible to reach
-		_, err = pm.getSolutions(ctx, goalPos, seed)
+		_, err = planners[0].getSolutions(ctx, seed)
 		if err != nil {
 			return nil, err
 		}
@@ -269,7 +271,7 @@ func (pm *planManager) planParallelRRTMotion(
 	var err error
 	// If we don't pass in pre-made maps, initialize and seed with IK solutions here
 	if maps == nil {
-		planSeed := initRRTSolutions(ctx, pathPlanner, goal, seed)
+		planSeed := initRRTSolutions(ctx, pathPlanner, seed)
 		if planSeed.planerr != nil || planSeed.steps != nil {
 			solutionChan <- planSeed
 			return
@@ -298,7 +300,7 @@ func (pm *planManager) planParallelRRTMotion(
 
 	// start the planner
 	utils.PanicCapturingGo(func() {
-		pathPlanner.rrtBackgroundRunner(plannerctx, goal, seed, &rrtParallelPlannerShared{maps, endpointPreview, plannerChan})
+		pathPlanner.rrtBackgroundRunner(plannerctx, seed, &rrtParallelPlannerShared{maps, endpointPreview, plannerChan})
 	})
 
 	// Wait for results from the planner. This will also handle calling the fallback if needed, and will ultimately return the best path
@@ -334,7 +336,7 @@ func (pm *planManager) planParallelRRTMotion(
 		// If there *was* an error, then either the fallback will not error and will replace it, or the error will be returned
 		if finalSteps.err() == nil {
 			if fallbackPlanner != nil {
-				if ok, score := goodPlan(finalSteps, pathPlanner.opt()); ok {
+				if ok, score := goodPlan(finalSteps, pm.opt()); ok {
 					pm.logger.Debugf("got path with score %f, close enough to optimal %f", score, maps.optNode.cost)
 					fallbackPlanner = nil
 				} else {
@@ -406,23 +408,29 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 ) (*plannerOptions, error) {
 	planAlg := ""
 
+	// This will adjust the goal position to make movements more intuitive when using incrementation near poles
+	to = fixOvIncrement(to, from)
+
 	// Start with normal options
 	opt := newBasicPlannerOptions()
+	opt.SetGoalMetric(NewSquaredNormMetric(to))
 
 	opt.extra = planningOpts
 
 	// add collision constraints
-	collisionConstraints, err := newCollisionConstraints(
+	collisionConstraints, err := createAllCollisionConstraints(
 		pm.frame,
 		pm.fs,
 		worldState,
 		seedMap,
-		constraints.GetCollisionSpecification(), defaultGetCollisionDepth,
+		constraints.GetCollisionSpecification(),
 	)
 	if err != nil {
 		return nil, err
 	}
-	opt.AddConstraints(collisionConstraints)
+	for name, constraint := range collisionConstraints {
+		opt.AddStateConstraint(name, constraint)
+	}
 
 	hasTopoConstraint := opt.addPbTopoConstraints(from, to, constraints)
 	if hasTopoConstraint {
@@ -482,29 +490,29 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 			// Default
 			orientTol = defaultOrientationDeviation
 		}
-		constraint, pathDist := NewAbsoluteLinearInterpolatingConstraint(from, to, linTol, orientTol)
-		opt.AddConstraint(defaultLinearConstraintName, constraint)
-		opt.pathDist = pathDist
+		constraint, pathMetric := NewAbsoluteLinearInterpolatingConstraint(from, to, linTol, orientTol)
+		opt.AddStateConstraint(defaultLinearConstraintName, constraint)
+		opt.pathMetric = pathMetric
 	case PseudolinearMotionProfile:
 		tolerance, ok := planningOpts["tolerance"].(float64)
 		if !ok {
 			// Default
 			tolerance = defaultPseudolinearTolerance
 		}
-		constraint, pathDist := NewProportionalLinearInterpolatingConstraint(from, to, tolerance)
-		opt.AddConstraint(defaultPseudolinearConstraintName, constraint)
-		opt.pathDist = pathDist
+		constraint, pathMetric := NewProportionalLinearInterpolatingConstraint(from, to, tolerance)
+		opt.AddStateConstraint(defaultPseudolinearConstraintName, constraint)
+		opt.pathMetric = pathMetric
 	case OrientationMotionProfile:
 		tolerance, ok := planningOpts["tolerance"].(float64)
 		if !ok {
 			// Default
 			tolerance = defaultOrientationDeviation
 		}
-		constraint, pathDist := NewSlerpOrientationConstraint(from, to, tolerance)
-		opt.AddConstraint(defaultOrientationConstraintName, constraint)
-		opt.pathDist = pathDist
+		constraint, pathMetric := NewSlerpOrientationConstraint(from, to, tolerance)
+		opt.AddStateConstraint(defaultOrientationConstraintName, constraint)
+		opt.pathMetric = pathMetric
 	case PositionOnlyMotionProfile:
-		opt.SetMetric(NewPositionOnlyMetric())
+		opt.SetGoalMetric(NewPositionOnlyMetric(to))
 	case FreeMotionProfile:
 		// No restrictions on motion
 		fallthrough

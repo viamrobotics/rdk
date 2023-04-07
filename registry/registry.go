@@ -13,7 +13,7 @@ import (
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/mitchellh/copystructure"
 	"github.com/pkg/errors"
-	"go.viam.com/utils"
+	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
 
@@ -22,6 +22,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/utils"
 )
 
 type (
@@ -303,7 +304,7 @@ func FindValidServiceModels(rName resource.Name) []resource.Model {
 			splitName := strings.Split(key, "/")
 			model, err := resource.NewModelFromString(splitName[1])
 			if err != nil {
-				utils.UncheckedError(err)
+				viamutils.UncheckedError(err)
 				continue
 			}
 			validModels = append(validModels, model)
@@ -322,4 +323,20 @@ type ReconfigurableComponent interface {
 type ReconfigurableService interface {
 	// Reconfigure reconfigures the resource
 	Reconfigure(ctx context.Context, cfg config.Service, deps Dependencies) error
+}
+
+// ResourceFromDependencies returns a named component from a collection of
+// dependencies.
+func ResourceFromDependencies[T any](deps Dependencies, name resource.Name) (T, error) {
+	var zero T
+	res, ok := deps[(name)]
+	if !ok {
+		return zero, utils.DependencyNotFoundError(name.Name)
+	}
+	part, ok := res.(T)
+
+	if !ok {
+		return zero, utils.DependencyTypeError[T](name.Name, res)
+	}
+	return part, nil
 }

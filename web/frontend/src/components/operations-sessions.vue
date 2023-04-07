@@ -54,7 +54,7 @@ const peerConnectionType = (info?: robotApi.PeerConnectionInfo.AsObject) => {
       <template
         v-if="connectionManager"
       >
-        <div class="flex justify-end mb-4">
+        <div class="mb-4 flex justify-end">
           <label>RTT:</label>
           <v-badge
             v-if="connectionManager.rtt < 50"
@@ -74,7 +74,7 @@ const peerConnectionType = (info?: robotApi.PeerConnectionInfo.AsObject) => {
         </div>
 
         <div class="overflow-auto">
-          <div class="font-bold p-2">
+          <div class="p-2 font-bold">
             Operations
           </div>
           <table class="w-full table-auto border border-black">
@@ -126,7 +126,7 @@ const peerConnectionType = (info?: robotApi.PeerConnectionInfo.AsObject) => {
           v-if="sessionsSupported"
           class="overflow-auto"
         >
-          <div class="font-bold p-2">
+          <div class="p-2 font-bold">
             Sessions
           </div>
           <table class="w-full table-auto border border-black">

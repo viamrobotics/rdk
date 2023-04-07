@@ -3,8 +3,10 @@ package referenceframe
 import (
 	"context"
 	"fmt"
+	"math"
 
 	pb "go.viam.com/api/component/arm/v1"
+	"gonum.org/v1/gonum/floats"
 
 	"go.viam.com/rdk/utils"
 )
@@ -84,4 +86,17 @@ func GetFrameInputs(frame Frame, inputMap map[string][]Input) ([]Input, error) {
 		input = inputMap[frame.Name()]
 	}
 	return input, nil
+}
+
+// InputsL2Distance returns the square of the two-norm between the from and to vectors.
+func InputsL2Distance(from, to []Input) float64 {
+	if len(from) != len(to) {
+		return math.Inf(1)
+	}
+	diff := make([]float64, 0, len(from))
+	for i, f := range from {
+		diff = append(diff, f.Value-to[i].Value)
+	}
+	// 2 is the L value returning a standard L2 Normalization
+	return floats.Norm(diff, 2)
 }

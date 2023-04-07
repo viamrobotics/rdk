@@ -1,4 +1,10 @@
 {
+    "modules": [
+        {
+            "name": "my-module",
+            "executable_path": "path/to/my-module"
+        }
+    ],
     "remotes": [
         {
             "name": "remote1",

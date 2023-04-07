@@ -37,6 +37,15 @@ const (
 	missingArmName = "arm5"
 )
 
+func setupDependencies(t *testing.T) registry.Dependencies {
+	t.Helper()
+
+	deps := make(registry.Dependencies)
+	deps[arm.Named(testArmName)] = &mock{Name: testArmName}
+	deps[arm.Named(fakeArmName)] = "not a arm"
+	return deps
+}
+
 func setupInjectRobot() *inject.Robot {
 	arm1 := &mockLocal{Name: testArmName}
 	r := &inject.Robot{}
@@ -94,6 +103,22 @@ func TestNamesFromRobot(t *testing.T) {
 
 	names := arm.NamesFromRobot(r)
 	test.That(t, names, test.ShouldResemble, []string{testArmName})
+}
+
+func TestFromDependencies(t *testing.T) {
+	deps := setupDependencies(t)
+
+	res, err := arm.FromDependencies(deps, testArmName)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, res, test.ShouldNotBeNil)
+
+	res, err = arm.FromDependencies(deps, fakeArmName)
+	test.That(t, err, test.ShouldBeError, rutils.DependencyTypeError[arm.Arm](fakeArmName, "string"))
+	test.That(t, res, test.ShouldBeNil)
+
+	res, err = arm.FromDependencies(deps, missingArmName)
+	test.That(t, err, test.ShouldBeError, rutils.DependencyNotFoundError(missingArmName))
+	test.That(t, res, test.ShouldBeNil)
 }
 
 func TestStatusValid(t *testing.T) {
@@ -407,9 +432,9 @@ func TestOOBArm(t *testing.T) {
 		test.That(t, pose, test.ShouldNotBeNil)
 	})
 
-	t.Run("MoveToPosition fails when OOB", func(t *testing.T) {
+	t.Run("Move fails when OOB", func(t *testing.T) {
 		pose = spatialmath.NewPoseFromPoint(r3.Vector{200, 200, 200})
-		err := arm.Move(context.Background(), &inject.Robot{}, injectedArm, pose, &referenceframe.WorldState{})
+		err := arm.Move(context.Background(), &inject.Robot{}, injectedArm, pose)
 		u := "cartesian movements are not allowed when arm joints are out of bounds"
 		v := "joint 0 input out of bounds, input 12.56637 needs to be within range [6.28319 -6.28319]"
 		s := strings.Join([]string{u, v}, ": ")
@@ -454,7 +479,7 @@ func TestOOBArm(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		testLinearMove := r3.Vector{homePose.Point().X + 20, homePose.Point().Y, homePose.Point().Z}
 		testPose := spatialmath.NewPoseFromPoint(testLinearMove)
-		err = injectedArm.MoveToPosition(context.Background(), testPose, &referenceframe.WorldState{}, nil)
+		err = injectedArm.MoveToPosition(context.Background(), testPose, nil)
 		test.That(t, err, test.ShouldBeNil)
 	})
 

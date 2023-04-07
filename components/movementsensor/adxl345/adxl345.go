@@ -154,6 +154,8 @@ type adxl345 struct {
 	interruptsEnabled        byte
 	interruptsFound          map[InterruptID]int
 	configuredRegisterValues map[byte]byte
+	// Used only to remove the callbacks from the interrupts upon closing component.
+	interruptChannels map[board.DigitalInterrupt]chan board.Tick
 
 	// Lock the mutex when you want to read or write either the acceleration or the last error.
 	mu                 sync.Mutex
@@ -214,6 +216,9 @@ func NewAdxl345(
 		cancelContext:            cancelContext,
 		cancelFunc:               cancelFunc,
 		configuredRegisterValues: configuredRegisterValues,
+		interruptsFound:          make(map[InterruptID]int),
+		interruptChannels:        make(map[board.DigitalInterrupt]chan board.Tick),
+
 		// On overloaded boards, sometimes the I2C bus can be flaky. Only report errors if at least
 		// 5 of the last 10 times we've tried interacting with the device have had problems.
 		err: movementsensor.NewLastError(10, 5),
@@ -269,12 +274,14 @@ func NewAdxl345(
 			}
 		}
 	})
-	sensor.interruptsFound = make(map[InterruptID]int)
-	if err := sensor.readInterrupts(sensor.cancelContext); err != nil {
+
+	// Clear out the source register upon starting the component
+	if _, err := sensor.readByte(ctx, IntSourceAddr); err != nil {
 		// shut down goroutine reading sensor in the background
 		sensor.cancelFunc()
 		return nil, err
 	}
+
 	if err := sensor.configureInterruptRegisters(ctx, interruptConfigurations[IntMapAddr]); err != nil {
 		// shut down goroutine reading sensor in the background
 		sensor.cancelFunc()
@@ -302,16 +309,16 @@ func NewAdxl345(
 
 	for _, interrupt := range interruptMap {
 		ticksChan := make(chan board.Tick)
-		sensor.startInterruptMonitoring(interrupt, ticksChan)
+		interrupt.AddCallback(ticksChan)
+		sensor.interruptChannels[interrupt] = ticksChan
+		sensor.startInterruptMonitoring(ticksChan)
 	}
 
 	return sensor, nil
 }
 
-func (adxl *adxl345) startInterruptMonitoring(interrupt board.DigitalInterrupt, ticksChan chan board.Tick) {
+func (adxl *adxl345) startInterruptMonitoring(ticksChan chan board.Tick) {
 	utils.PanicCapturingGo(func() {
-		interrupt.AddCallback(ticksChan)
-		defer interrupt.RemoveCallback(ticksChan)
 		for {
 			select {
 			case <-adxl.cancelContext.Done():
@@ -555,6 +562,11 @@ func (adxl *adxl345) Properties(ctx context.Context, extra map[string]interface{
 func (adxl *adxl345) Close(ctx context.Context) {
 	adxl.mu.Lock()
 	defer adxl.mu.Unlock()
+
+	for interrupt, channel := range adxl.interruptChannels {
+		interrupt.RemoveCallback(channel)
+	}
+
 	// Put the chip into standby mode by setting the Power Control register (0x2D) to 0.
 	err := adxl.writeByte(ctx, 0x2D, 0x00)
 	if err != nil {

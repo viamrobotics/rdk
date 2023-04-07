@@ -35,15 +35,17 @@ func TestSimpleLinearMotion(t *testing.T) {
 	m, err := referenceframe.ParseModelJSONFile(rutils.ResolveFile("components/arm/xarm/xarm7_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
+	goalPos := spatialmath.NewPose(r3.Vector{X: 206, Y: 100, Z: 120.5}, &spatialmath.OrientationVectorDegrees{OY: -1})
+
 	opt := newBasicPlannerOptions()
+	opt.SetGoalMetric(NewSquaredNormMetric(goalPos))
 	mp, err := newCBiRRTMotionPlanner(m, rand.New(rand.NewSource(42)), logger, opt)
 	test.That(t, err, test.ShouldBeNil)
 	cbirrt, _ := mp.(*cBiRRTMotionPlanner)
 
-	pos := spatialmath.NewPose(r3.Vector{X: 206, Y: 100, Z: 120.5}, &spatialmath.OrientationVectorDegrees{OY: -1})
 	corners := map[node]bool{}
 
-	solutions, err := mp.getSolutions(ctx, pos, home7)
+	solutions, err := mp.getSolutions(ctx, home7)
 	test.That(t, err, test.ShouldBeNil)
 
 	near1 := &basicNode{q: home7}
@@ -80,7 +82,7 @@ func TestSimpleLinearMotion(t *testing.T) {
 		cbirrt.constrainedExtend(ctx, cbirrt.randseed, goalMap, near2, seedReached, m1chan)
 	})
 	goalReached := <-m1chan
-	_, dist := opt.DistanceFunc(&ConstraintInput{StartInput: seedReached.Q(), EndInput: goalReached.Q()})
+	dist := opt.DistanceFunc(&Segment{StartConfiguration: seedReached.Q(), EndConfiguration: goalReached.Q()})
 	test.That(t, dist < cOpt.JointSolveDist, test.ShouldBeTrue)
 
 	corners[seedReached] = true
