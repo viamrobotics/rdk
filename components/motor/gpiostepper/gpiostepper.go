@@ -1,5 +1,31 @@
-// Package gpiostepper implements a GPIO based stepper motor.
+// Package gpiostepper implements a GPIO based stepper motor
 package gpiostepper
+
+// This package is meant to be used with bipolar stepper motors connected to drivers that drive motors
+// using high/low direction pins and pulses to step the motor armatures, the package can also set enable
+// pins high or low if the driver needs them to power the stepper motor armatures
+/*
+	Compatibility tested:
+	Stepper Motors:  	NEMA
+	Motor Controler: 	DRV8825, A4998, L298N igus-drylin D8(X)
+	Resources:
+			DRV8825: 	https://lastminuteengineers.com/drv8825-stepper-motor-driver-arduino-tutorial/
+			A4998:	https://lastminuteengineers.com/a4988-stepper-motor-driver-arduino-tutorial/
+			L298N: https://lastminuteengineers.com/stepper-motor-l298n-arduino-tutorial/
+
+	This driver will drive the motor using a step piulse with a delay that matches the speed calculated by:
+	stepperDelay (ns) := 1min / (rpm (revs_per_minute) * spr (steps_per_revolution))
+	The motor will then step and increment its own position until it has reached a target or has been stopped.
+
+	Configuration:
+	The only requirements are to specify a step pin to send pulses and a direction pin to set the direction.
+	Enabling current to flow through the armature and holding a position can be done by setting enable pins on
+	hardware that supports that functionality.
+
+	An optional configurable stepper_delay parameter configures the minimum delay to set a pulse to high
+	for a particular stepper motor. This is usually motor specific and can be calculated using phase
+	resistance and induction data from the datasheet of your stepper motor.
+*/
 
 import (
 	"context"
@@ -26,7 +52,7 @@ import (
 var model = resource.NewDefaultModel("gpiostepper")
 
 const (
-	minDelayNanos = time.Duration(10)
+	defaultMinDelayNanos = time.Duration(1)
 )
 
 // PinConfig defines the mapping of where motor are wired.
@@ -112,7 +138,6 @@ func newGPIOStepper(ctx context.Context, b board.Board, mc AttrConfig, name stri
 	m := &gpioStepper{
 		theBoard:         b,
 		stepsPerRotation: mc.TicksPerRotation,
-		stepperDelay:     time.Duration(mc.StepperDelay) * time.Microsecond, // TODO (rh) maybe unnecessary
 		logger:           logger,
 		motorName:        name,
 	}
@@ -133,6 +158,7 @@ func newGPIOStepper(ctx context.Context, b board.Board, mc AttrConfig, name stri
 		}
 	}
 
+	// set the reuqired step and direction pins
 	m.stepPin, err = b.GPIOPinByName(mc.Pins.Step)
 	if err != nil {
 		return nil, err
@@ -141,6 +167,10 @@ func newGPIOStepper(ctx context.Context, b board.Board, mc AttrConfig, name stri
 	m.dirPin, err = b.GPIOPinByName(mc.Pins.Direction)
 	if err != nil {
 		return nil, err
+	}
+
+	if mc.StepperDelay > int(defaultMinDelayNanos) {
+		m.minDelay = time.Duration(mc.StepperDelay * int(time.Microsecond))
 	}
 
 	m.startThread(ctx)
@@ -152,6 +182,7 @@ type gpioStepper struct {
 	theBoard                    board.Board
 	stepsPerRotation            int
 	stepperDelay                time.Duration
+	minDelay                    time.Duration
 	enablePinHigh, enablePinLow board.GPIOPin
 	stepPin, dirPin             board.GPIOPin
 	logger                      golog.Logger
@@ -192,9 +223,6 @@ func (m *gpioStepper) startThread(ctx context.Context) {
 func (m *gpioStepper) doRun(ctx context.Context) {
 	for {
 		sleep, err := m.doCycle(ctx)
-		if sleep != 5*time.Millisecond {
-			m.logger.Debugf("sleep time retruned is %v", sleep)
-		}
 		if err != nil {
 			m.logger.Errorf("error cycling gpioStepper (%s) %w", m.motorName, err)
 		}
@@ -216,12 +244,17 @@ func (m *gpioStepper) doCycle(ctx context.Context) (time.Duration, error) {
 	}
 
 	// TODO: Setting PWM here works much better than steps to set speed
-	// Redo this part with PWM logic.
+	// Redo this part with PWM logic, but also be aware that parallel
+	// logic to the PWM call will need to be implemented to account for position
+	// reporting
 	err := m.doStep(ctx, m.stepPosition < m.targetStepPosition)
 	if err != nil {
 		return time.Second, fmt.Errorf("error stepping %w", err)
 	}
 
+	// wait twice the stepper delay to signal the duration elapsed and to return from the
+	// doRun thread, otherwise there will be a stretching of time off in the stepper until
+	// the thread realises that the motor is still not at target
 	return 2 * m.stepperDelay, nil
 }
 
@@ -231,12 +264,10 @@ func (m *gpioStepper) doStep(ctx context.Context, forward bool) error {
 		m.enable(ctx, true),
 		m.dirPin.Set(ctx, forward, nil),
 		m.stepPin.Set(ctx, true, nil))
-
 	if err != nil {
 		return err
 	}
 
-	m.logger.Debugf("stpper delay in doStep %v", m.stepperDelay)
 	time.Sleep(m.stepperDelay)
 
 	if forward {
@@ -248,7 +279,6 @@ func (m *gpioStepper) doStep(ctx context.Context, forward bool) error {
 	if err := m.stepPin.Set(ctx, false, nil); err != nil {
 		return err
 	}
-	time.Sleep(m.stepperDelay)
 
 	return nil
 }
@@ -298,8 +328,8 @@ func (m *gpioStepper) goForInternal(ctx context.Context, rpm, revolutions float6
 
 	// calculate delay between steps for the thread in the gorootuine that we started in component creation
 	m.stepperDelay = time.Duration(int64(float64(time.Minute) / (math.Abs(rpm) * float64(m.stepsPerRotation))))
-	if m.stepperDelay < minDelayNanos {
-		m.stepperDelay = minDelayNanos
+	if m.stepperDelay < m.minDelay {
+		m.stepperDelay = m.minDelay
 		m.logger.Debugf(
 			"calculated delay less than the minimum delay for stepper motor setting to %+v", m.stepperDelay,
 		)
