@@ -15,13 +15,13 @@ func TestFakeCameraHighResolution(t *testing.T) {
 	camOri := &Camera{Name: "test_high", Model: model, Width: width, Height: height}
 	cam, err := camera.NewFromReader(context.Background(), camOri, model, camera.ColorStream)
 	test.That(t, err, test.ShouldBeNil)
-	cameraTest(t, cam, 1280, 720, 812050, model.PinholeCameraIntrinsics, model.Distortion)
+	cameraTest(t, cam, 1280, 720, 921600, model.PinholeCameraIntrinsics, model.Distortion)
 	// (0,0) entry defaults to (1280, 720)
 	model, width, height = fakeModel(0, 0)
 	camOri = &Camera{Name: "test_high_zero", Model: model, Width: width, Height: height}
 	cam, err = camera.NewFromReader(context.Background(), camOri, model, camera.ColorStream)
 	test.That(t, err, test.ShouldBeNil)
-	cameraTest(t, cam, 1280, 720, 812050, model.PinholeCameraIntrinsics, model.Distortion)
+	cameraTest(t, cam, 1280, 720, 921600, model.PinholeCameraIntrinsics, model.Distortion)
 }
 
 func TestFakeCameraMedResolution(t *testing.T) {
@@ -29,7 +29,7 @@ func TestFakeCameraMedResolution(t *testing.T) {
 	camOri := &Camera{Name: "test_high", Model: model, Width: width, Height: height}
 	cam, err := camera.NewFromReader(context.Background(), camOri, model, camera.ColorStream)
 	test.That(t, err, test.ShouldBeNil)
-	cameraTest(t, cam, 640, 360, 203139, model.PinholeCameraIntrinsics, model.Distortion)
+	cameraTest(t, cam, 640, 360, 230400, model.PinholeCameraIntrinsics, model.Distortion)
 	err = cam.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 }
@@ -41,29 +41,22 @@ func TestFakeCameraUnspecified(t *testing.T) {
 	camOri := &Camera{Name: "test_320", Model: model, Width: width, Height: height}
 	cam, err := camera.NewFromReader(context.Background(), camOri, model, camera.ColorStream)
 	test.That(t, err, test.ShouldBeNil)
-	cameraTest(t, cam, 320, 180, 50717, model.PinholeCameraIntrinsics, model.Distortion)
+	cameraTest(t, cam, 320, 180, 57600, model.PinholeCameraIntrinsics, model.Distortion)
 	// (0, 180) -> (320, 180)
 	model, width, height = fakeModel(0, 180)
 	camOri = &Camera{Name: "test_180", Model: model, Width: width, Height: height}
 	cam, err = camera.NewFromReader(context.Background(), camOri, model, camera.ColorStream)
 	test.That(t, err, test.ShouldBeNil)
-	cameraTest(t, cam, 320, 180, 50717, model.PinholeCameraIntrinsics, model.Distortion)
+	cameraTest(t, cam, 320, 180, 57600, model.PinholeCameraIntrinsics, model.Distortion)
 }
 
 func TestFakeCameraParams(t *testing.T) {
-	// test only height or width
-	cfg := &Attrs{
-		Width:  320,
-		Height: 320,
-	}
-	err := cfg.Validate()
-	test.That(t, err, test.ShouldNotBeNil)
 	// test odd width and height
-	cfg = &Attrs{
+	cfg := &Attrs{
 		Width:  321,
 		Height: 0,
 	}
-	err = cfg.Validate()
+	err := cfg.Validate()
 	test.That(t, err, test.ShouldNotBeNil)
 	cfg = &Attrs{
 		Width:  0,

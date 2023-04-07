@@ -3,6 +3,7 @@ package builtin
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/edaniels/golog"
@@ -53,7 +54,6 @@ func (ms *builtIn) Move(
 	destination *referenceframe.PoseInFrame,
 	worldState *referenceframe.WorldState,
 	constraints *servicepb.Constraints,
-	slamName resource.Name,
 	extra map[string]interface{},
 ) (bool, error) {
 	operation.CancelOtherWithLabel(ctx, "motion-service")
@@ -120,10 +120,22 @@ func (ms *builtIn) Move(
 	return true, nil
 }
 
+// MoveOnMap will move the given component
+func (ms *builtIn) MoveOnMap(
+	ctx context.Context,
+	componentName resource.Name,
+	destination spatialmath.Pose,
+	slamName resource.Name,
+	extra map[string]interface{},
+) (bool, error) {
+	return false, errors.New("this is not implemented yet")
+}
+
 // MoveSingleComponent will pass through a move command to a component with a MoveToPosition method that takes a pose. Arms are the only
 // component that supports this. This method will transform the destination pose, given in an arbitrary frame, into the pose of the arm.
 // The arm will then move its most distal link to that pose. If you instead wish to move any other component than the arm end to that pose,
 // then you must manually adjust the given destination by the transform from the arm end to the intended component.
+// Because this uses an arm's MoveToPosition method when issuing commands, it does not support obstacle avoidance.
 func (ms *builtIn) MoveSingleComponent(
 	ctx context.Context,
 	componentName resource.Name,
@@ -168,7 +180,7 @@ func (ms *builtIn) MoveSingleComponent(
 		goalPose = goalPoseInFrame.Pose()
 		logger.Debugf("converted goal pose %q", spatialmath.PoseToProtobuf(goalPose))
 	}
-	err := movableArm.MoveToPosition(ctx, goalPose, worldState, extra)
+	err := movableArm.MoveToPosition(ctx, goalPose, extra)
 	if err == nil {
 		return true, nil
 	}

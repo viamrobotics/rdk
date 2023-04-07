@@ -23,7 +23,6 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
-	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
@@ -78,7 +77,6 @@ func TestClient(t *testing.T) {
 			destination *referenceframe.PoseInFrame,
 			worldState *referenceframe.WorldState,
 			constraints *servicepb.Constraints,
-			slamName resource.Name,
 			extra map[string]interface{},
 		) (bool, error) {
 			return success, nil
@@ -97,7 +95,7 @@ func TestClient(t *testing.T) {
 				destinationFrame+componentName.Name, spatialmath.NewPoseFromPoint(r3.Vector{1, 2, 3})), nil
 		}
 
-		result, err := client.Move(ctx, resourceName, grabPose, &referenceframe.WorldState{}, nil, slam.Named(""), nil)
+		result, err := client.Move(ctx, resourceName, grabPose, &referenceframe.WorldState{}, nil, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, result, test.ShouldEqual, success)
 
@@ -155,7 +153,6 @@ func TestClient(t *testing.T) {
 			grabPose *referenceframe.PoseInFrame,
 			worldState *referenceframe.WorldState,
 			constraints *servicepb.Constraints,
-			slamName resource.Name,
 			extra map[string]interface{},
 		) (bool, error) {
 			return false, passedErr
@@ -171,7 +168,7 @@ func TestClient(t *testing.T) {
 			return nil, passedErr
 		}
 
-		resp, err := client2.Move(ctx, resourceName, grabPose, &referenceframe.WorldState{}, nil, slam.Named(""), nil)
+		resp, err := client2.Move(ctx, resourceName, grabPose, &referenceframe.WorldState{}, nil, nil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, passedErr.Error())
 		test.That(t, resp, test.ShouldEqual, false)
 		_, err = client2.GetPose(context.Background(), arm.Named("arm1"), "foo", nil, map[string]interface{}{})

@@ -7,30 +7,37 @@ import (
 )
 
 func TestDependencyTypeError(t *testing.T) {
-	for _, tc := range []struct {
+	type tc struct {
 		name     string
 		expected interface{}
 		actual   interface{}
 		errStr   string
-	}{
-		{"one", "exp1", "actual1", `dependency "one" should be an implementation of string but it was a string`},
-		{"two", 1, "actual2", `dependency "two" should be an implementation of int but it was a string`},
-		{"three", nil, "actual3", `dependency "three" should be an implementation of <unknown (nil interface)> but it was a string`},
-
-		// the WRONG way to use this
-		{"four", (someIfc)(nil), 4, `dependency "four" should be an implementation of <unknown (nil interface)> but it was a int`},
-
-		// the right way to use this
-		{"five", (*someIfc)(nil), 5, `dependency "five" should be an implementation of utils.someIfc but it was a int`},
-
-		{"six", (*someStruct)(nil), 6, `dependency "six" should be an implementation of *utils.someStruct but it was a int`},
-		{"seven", someStruct{}, 7, `dependency "seven" should be an implementation of utils.someStruct but it was a int`},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			err := DependencyTypeError(tc.name, tc.expected, tc.actual)
-			test.That(t, err.Error(), test.ShouldContainSubstring, tc.errStr)
-		})
 	}
+	t1 := tc{"one", "exp1", "actual1", `dependency "one" should be an implementation of *string but it was a string`}
+	err := DependencyTypeError[string](t1.name, t1.actual)
+	test.That(t, err.Error(), test.ShouldContainSubstring, t1.errStr)
+
+	t1 = tc{"two", 1, "actual2", `dependency "two" should be an implementation of *int but it was a string`}
+	err = DependencyTypeError[int](t1.name, t1.actual)
+	test.That(t, err.Error(), test.ShouldContainSubstring, t1.errStr)
+
+	// the WRONG way to use this
+	t1 = tc{"three", (someIfc)(nil), 4, `dependency "three" should be an implementation of utils.someIfc but it was a int`}
+	err = DependencyTypeError[someIfc](t1.name, t1.actual)
+	test.That(t, err.Error(), test.ShouldContainSubstring, t1.errStr)
+
+	// the right way to use this
+	t1 = tc{"four", (*someIfc)(nil), 5, `dependency "four" should be an implementation of utils.someIfc but it was a int`}
+	err = DependencyTypeError[someIfc](t1.name, t1.actual)
+	test.That(t, err.Error(), test.ShouldContainSubstring, t1.errStr)
+
+	t1 = tc{"five", (*someStruct)(nil), 6, `dependency "five" should be an implementation of *utils.someStruct but it was a int`}
+	err = DependencyTypeError[someStruct](t1.name, t1.actual)
+	test.That(t, err.Error(), test.ShouldContainSubstring, t1.errStr)
+
+	t1 = tc{"six", someStruct{}, 7, `dependency "six" should be an implementation of *utils.someStruct but it was a int`}
+	err = DependencyTypeError[someStruct](t1.name, t1.actual)
+	test.That(t, err.Error(), test.ShouldContainSubstring, t1.errStr)
 }
 
 func TestNewUnexpectedTypeError(t *testing.T) {

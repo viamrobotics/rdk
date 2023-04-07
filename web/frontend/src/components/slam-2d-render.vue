@@ -52,7 +52,7 @@ scene.add(camera);
 const controls = new MapControls(camera, canvas);
 controls.enableRotate = false;
 
-const raycaster = new MouseRaycaster({ camera, canvas, recursive: false });
+const raycaster = new MouseRaycaster({ camera, renderer, recursive: false });
 
 raycaster.addEventListener('click', async (event) => {
   const [intersection] = event.intersections as THREE.Intersection[];
