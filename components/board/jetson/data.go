@@ -368,10 +368,13 @@ var boardInfoMappings = map[string]genericlinux.BoardInformation{
 		// We were unable to find the broadcom channel numbers for these pins, but (as of April
 		// 2023) Viam doesn't use those values for anything anyway.
 		[]genericlinux.PinDefinition{
+			// Pins 3 and 5 are I2C-only, not GPIO, and thus are not included here.
 			{map[int]int{164: 106}, map[int]string{164: "PQ.06"}, "2200000.gpio", 7, 4, "MCLK05", "GP66", "", -1},
+			// Output-only (due to hardware limitation)
 			{map[int]int{164: 110}, map[int]string{164: "PR.02"}, "2200000.gpio", 8, -1, "UART1_TX", "GP70_UART1_TXD_BOOT2_STRAP", "", -1},
+			// Input-only (due to hardware limitation)
 			{map[int]int{164: 111}, map[int]string{164: "PR.03"}, "2200000.gpio", 10, -1, "UART1_RX", "GP71_UART1_RXD", "", -1},
-			// Output-only (due to base board)
+			// Output-only (due to hardware limitation)
 			{map[int]int{164: 112}, map[int]string{164: "PR.04"}, "2200000.gpio", 11, 17, "UART1_RTS", "GP72_UART1_RTS_N", "", -1},
 			{map[int]int{164: 50}, map[int]string{164: "PH.07"}, "2200000.gpio", 12, 18, "I2S2_CLK", "GP122", "", -1},
 			{map[int]int{164: 108}, map[int]string{164: "PR.00"}, "2200000.gpio", 13, 27, "PWM01", "GP68", "", -1},
@@ -391,6 +394,7 @@ var boardInfoMappings = map[string]genericlinux.BoardInformation{
 			{map[int]int{32: 8}, map[int]string{32: "PBB.00"}, "c2f0000.gpio", 32, 12, "GPIO09", "GP25", "", -1},
 			{map[int]int{32: 2}, map[int]string{32: "PAA.02"}, "c2f0000.gpio", 33, 13, "CAN1_DOUT", "GP19_CAN1_DOUT", "", -1},
 			{map[int]int{164: 53}, map[int]string{164: "PI.02"}, "2200000.gpio", 35, 19, "I2S2_FS", "GP125", "", -1},
+			// Input-only (due to hardware limitation)
 			{map[int]int{164: 113}, map[int]string{164: "PR.05"}, "2200000.gpio", 36, 16, "UART1_CTS", "GP73_UART1_CTS_N", "", -1},
 			{map[int]int{32: 3}, map[int]string{32: "PAA.03"}, "c2f0000.gpio", 37, 26, "CAN1_DIN", "GP20_CAN1_DIN", "", -1},
 			{map[int]int{164: 52}, map[int]string{164: "PI.01"}, "2200000.gpio", 38, 20, "I2S2_DIN", "GP124", "", -1},
