@@ -198,7 +198,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 		default:
 		}
 
-		tryExtend := func(target []referenceframe.Input) (node, node, float64, error) {
+		tryExtend := func(target []referenceframe.Input) (node, node, error) {
 			// attempt to extend maps 1 and 2 towards the target
 			utils.PanicCapturingGo(func() {
 				nm.nearestNeighbor(nmContext, mp.planOpts, target, map1, m1chan)
@@ -211,7 +211,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 			// If ctx is done, nearest neighbors will be invalid and we want to return immediately
 			select {
 			case <-ctx.Done():
-				return nil, nil, 0, ctx.Err()
+				return nil, nil, ctx.Err()
 			default:
 			}
 
@@ -232,24 +232,26 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 			corners[map1reached] = true
 			corners[map2reached] = true
 
-			reachedDelta := mp.planOpts.DistanceFunc(&Segment{StartConfiguration: map1reached.Q(), EndConfiguration: map2reached.Q()})
-			return map1reached, map2reached, reachedDelta, nil
+			return map1reached, map2reached, nil
 		}
 
-		map1reached, map2reached, reachedDelta, err := tryExtend(target)
+		map1reached, map2reached, err := tryExtend(target)
 		if err != nil {
 			rrt.solutionChan <- &rrtPlanReturn{planerr: err, maps: rrt.maps}
 			return
 		}
 
+		reachedDelta := mp.planOpts.DistanceFunc(&Segment{StartConfiguration: map1reached.Q(), EndConfiguration: map2reached.Q()})
+
 		// Second iteration; extend maps 1 and 2 towards the halfway point between where they reached
 		if reachedDelta > mp.algOpts.JointSolveDist {
 			target = referenceframe.InterpolateInputs(map1reached.Q(), map2reached.Q(), 0.5)
-			map1reached, map2reached, reachedDelta, err = tryExtend(target)
+			map1reached, map2reached, err = tryExtend(target)
 			if err != nil {
 				rrt.solutionChan <- &rrtPlanReturn{planerr: err, maps: rrt.maps}
 				return
 			}
+			reachedDelta = mp.planOpts.DistanceFunc(&Segment{StartConfiguration: map1reached.Q(), EndConfiguration: map2reached.Q()})
 		}
 
 		// Solved!
