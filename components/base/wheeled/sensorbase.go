@@ -32,11 +32,12 @@ type sensorBase struct {
 	generic.Unimplemented
 	logger golog.Logger
 
-	workers    sync.WaitGroup
-	base       base.LocalBase
-	sensorMu   sync.Mutex
-	sensorCtx  context.Context
-	sensorDone func()
+	workers       sync.WaitGroup
+	base          base.LocalBase
+	sensorMu      sync.Mutex
+	sensorCtx     context.Context
+	sensorDone    func()
+	pollingActive bool
 
 	allSensors  []movementsensor.MovementSensor
 	orientation movementsensor.MovementSensor
@@ -77,19 +78,22 @@ func makeBaseWithSensors(
 	return s, nil
 }
 
-func (s *sensorBase) stopSensors() {
-	// check if there are movement sensors to stop the sensor loop
-	if len(s.allSensors) != 0 {
-		s.sensorDone()
-		s.sensorCtx, s.sensorDone = context.WithCancel(context.Background())
-	}
+func (s *sensorBase) SetPollActive(isActive bool) {
+	s.sensorMu.Lock()
+	s.pollingActive = isActive
+	s.sensorMu.Unlock()
+}
+
+func (s *sensorBase) IsPollActive() bool {
+	s.sensorMu.Lock()
+	defer s.sensorMu.Unlock()
+	return s.pollingActive
 }
 
 // Spin commands a base to turn about its center at a angular speed and for a specific angle.
 func (s *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
-	s.stopSensors()
-
 	if s.orientation == nil {
+		s.SetPollActive(false)
 		return s.base.Spin(ctx, angleDeg, degsPerSec, nil)
 	}
 
@@ -99,6 +103,7 @@ func (s *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ext
 			s.logger.Error(err)
 		}
 	}, s.workers.Done)
+	s.SetPollActive(true)
 	return s.stopSpinWithSensor(s.sensorCtx, angleDeg, degsPerSec)
 }
 
@@ -123,14 +128,20 @@ func (s *sensorBase) stopSpinWithSensor(
 		ticker := time.NewTicker(yawPollTime)
 		defer ticker.Stop()
 		for {
+			if !s.IsPollActive() {
+				ticker.Stop()
+				return
+			}
 			select {
 			case <-ctx.Done():
+				s.SetPollActive(false)
 				ticker.Stop()
 				return
 			default:
 			}
 			select {
 			case <-ctx.Done():
+				s.SetPollActive(false)
 				ticker.Stop()
 				return
 			case <-ticker.C:
@@ -176,6 +187,8 @@ func (s *sensorBase) stopSpinWithSensor(
 						if err := s.Stop(ctx, nil); err != nil {
 							return
 						}
+						s.SetPollActive(false)
+
 						if sensorDebug {
 							s.logger.Debugf(
 								"stopping base with errAngle:%.2f, overshot? %t",
@@ -185,9 +198,12 @@ func (s *sensorBase) stopSpinWithSensor(
 				} else {
 					if (turnCount >= fullTurns) && atTarget {
 						ticker.Stop()
+						s.SetPollActive(false)
 						if err := s.Stop(ctx, nil); err != nil {
 							return
 						}
+						s.SetPollActive(false)
+
 						if sensorDebug {
 							s.logger.Debugf(
 								"stopping base with errAngle:%.2f, overshot? %t, fullTurns %d, turnCount %d",
@@ -282,26 +298,26 @@ func hasOverShot(angle, start, target, dir float64) bool {
 func (s *sensorBase) MoveStraight(
 	ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{},
 ) error {
-	s.stopSensors()
+	s.SetPollActive(false)
 	return s.base.MoveStraight(ctx, distanceMm, mmPerSec, extra)
 }
 
 func (s *sensorBase) SetVelocity(
 	ctx context.Context, linear, angular r3.Vector, extra map[string]interface{},
 ) error {
-	s.stopSensors()
+	s.SetPollActive(false)
 	return s.base.SetVelocity(ctx, linear, angular, extra)
 }
 
 func (s *sensorBase) SetPower(
 	ctx context.Context, linear, angular r3.Vector, extra map[string]interface{},
 ) error {
-	s.stopSensors()
+	s.SetPollActive(false)
 	return s.base.SetPower(ctx, linear, angular, extra)
 }
 
 func (s *sensorBase) Stop(ctx context.Context, extra map[string]interface{}) error {
-	s.stopSensors()
+	s.SetPollActive(false)
 	return s.base.Stop(ctx, extra)
 }
 
@@ -314,7 +330,7 @@ func (s *sensorBase) Width(ctx context.Context) (int, error) {
 }
 
 func (s *sensorBase) Close(ctx context.Context) error {
-	s.stopSensors()
+	s.SetPollActive(false)
 	base, isWheeled := rdkutils.UnwrapProxy(s.base).(*wheeledBase)
 	if isWheeled {
 		return base.Close(ctx)
