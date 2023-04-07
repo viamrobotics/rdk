@@ -9,14 +9,15 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
 	rdkutils "go.viam.com/rdk/utils"
+	"go.viam.com/utils"
 )
 
 const (
@@ -38,6 +39,8 @@ type sensorBase struct {
 	sensorCtx     context.Context
 	sensorDone    func()
 	pollingActive bool
+	stopSensors   chan bool
+	opMgr         operation.SingleOperationManager
 
 	allSensors  []movementsensor.MovementSensor
 	orientation movementsensor.MovementSensor
@@ -56,9 +59,9 @@ func makeBaseWithSensors(
 		return nil, rdkutils.NewUnexpectedTypeError(attr, &AttrConfig{})
 	}
 
-	s := &sensorBase{base: base, logger: logger}
+	sb := &sensorBase{base: base, logger: logger}
 
-	s.sensorCtx, s.sensorDone = context.WithCancel(context.Background())
+	sb.sensorCtx, sb.sensorDone = context.WithCancel(context.Background())
 
 	var omsName string
 	for _, msName := range attr.MovementSensor {
@@ -66,61 +69,62 @@ func makeBaseWithSensors(
 		if err != nil {
 			return nil, errors.Wrapf(err, "no movement_sensor namesd (%s)", msName)
 		}
-		s.allSensors = append(s.allSensors, ms)
+		sb.allSensors = append(sb.allSensors, ms)
 		props, err := ms.Properties(ctx, nil)
 		if props.OrientationSupported && err == nil {
-			s.orientation = ms
+			sb.orientation = ms
 			omsName = msName
 		}
 	}
-	s.logger.Infof("using sensor %s as orientation sensor for base", omsName)
+	sb.stopSensors = make(chan bool)
 
-	return s, nil
+	sb.logger.Infof("using sensor %s as orientation sensor for base", omsName)
+
+	return sb, nil
 }
 
 // setPollActive determines whether we want the sensor loop to run ad stop the base with sensor feedback
 // should be set to false everywhere except when sensor feedback is need to stop movement.
-func (s *sensorBase) setPollActive(isActive bool) {
-	s.sensorMu.Lock()
-	s.pollingActive = isActive
-	s.sensorMu.Unlock()
+func (sb *sensorBase) setPollActive(isActive bool) {
+	sb.sensorMu.Lock()
+	sb.pollingActive = isActive
+	sb.sensorMu.Unlock()
 }
 
 // isPollActive gets whether the base is actively polling a sensor.
-func (s *sensorBase) isPollActive() bool {
-	s.sensorMu.Lock()
-	defer s.sensorMu.Unlock()
-	return s.pollingActive
+func (sb *sensorBase) isPollActive() bool {
+	sb.sensorMu.Lock()
+	defer sb.sensorMu.Unlock()
+	return sb.pollingActive
 }
 
 // Spin commands a base to turn about its center at a angular speed and for a specific angle.
-func (s *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
-	s.setPollActive(false)
-	if s.orientation == nil {
-		return s.base.Spin(ctx, angleDeg, degsPerSec, nil)
+func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
+	ctx, done := sb.opMgr.New(ctx)
+	defer done()
+
+	if sb.isPollActive() {
+		sb.stopSensors <- true
 	}
 
-	s.workers.Add(1)
+	sb.workers.Add(1)
 	utils.ManagedGo(func() {
-		if err := s.base.SetVelocity(ctx, r3.Vector{}, r3.Vector{Z: angleDeg}, nil); err != nil {
-			s.logger.Error(err)
+		if err := sb.base.SetVelocity(ctx, r3.Vector{}, r3.Vector{Z: angleDeg}, nil); err != nil {
+			sb.logger.Error(err)
 		}
-	}, s.workers.Done)
-	return s.stopSpinWithSensor(s.sensorCtx, angleDeg, degsPerSec)
+	}, sb.workers.Done)
+	return sb.stopSpinWithSensor(sb.sensorCtx, angleDeg, degsPerSec)
 }
 
-func (s *sensorBase) stopSpinWithSensor(
+func (sb *sensorBase) stopSpinWithSensor(
 	ctx context.Context, angleDeg, degsPerSec float64,
 ) error {
-	// // check if we want to poll the sensor at all
-	// if !s.isPollActive() {
-	// 	return nil
-	// }
-	// this is the only are
-	startYaw, err := getCurrentYaw(ctx, s.orientation)
+
+	// imu readings are limited from 0 -> 360
+	startYaw, err := getCurrentYaw(ctx, sb.orientation)
 	if err != nil {
 		return err
-	} // from 0 -> 360
+	}
 
 	targetYaw, dir, fullTurns := findSpinParams(angleDeg, degsPerSec, startYaw)
 	errBound := errTarget
@@ -130,25 +134,38 @@ func (s *sensorBase) stopSpinWithSensor(
 	turnCount := 0
 	errCounter := 0
 
-	s.workers.Add(1)
+	sb.workers.Add(1)
 	utils.ManagedGo(func() {
 		ticker := time.NewTicker(yawPollTime)
 		defer ticker.Stop()
 		for {
+			// check if we want to poll the sensor at all
+			// keepGoing := sb.isPollActive()
+			if !sb.isPollActive() {
+				ticker.Stop()
+			}
+
 			select {
-			case <-ctx.Done():
-				s.setPollActive(false)
+			case <-sb.stopSensors:
+				ticker.Stop()
+			default:
+			}
+
+			select {
+			case <-sb.sensorCtx.Done():
+				sb.setPollActive(false)
 				return
 			case <-ticker.C:
+
 				// imu readings are limited from 0 -> 360
-				currYaw, err := getCurrentYaw(ctx, s.orientation)
+				currYaw, err := getCurrentYaw(ctx, sb.orientation)
 				if err != nil {
 					errCounter++
 					if errCounter > 100 {
-						s.logger.Error(errors.Wrap(
+						sb.logger.Error(errors.Wrap(
 							err, "imu sensor unreachable, 100 error counts when trying to read yaw angle, stopping base"))
-						if err := s.Stop(ctx, nil); err != nil {
-							s.logger.Error(err)
+						if err := sb.Stop(ctx, nil); err != nil {
+							sb.logger.Error(err)
 						}
 						return
 					}
@@ -167,10 +184,10 @@ func (s *sensorBase) stopSpinWithSensor(
 				}
 
 				if sensorDebug {
-					s.logger.Debugf("minTravel %t, atTarget %t, overshot %t", minTravel, atTarget, overShot)
-					s.logger.Debugf("angleDeg %.2f, increment %.2f, turnCount %d, fullTurns %d",
+					sb.logger.Debugf("minTravel %t, atTarget %t, overshot %t", minTravel, atTarget, overShot)
+					sb.logger.Debugf("angleDeg %.2f, increment %.2f, turnCount %d, fullTurns %d",
 						angleDeg, increment, turnCount, fullTurns)
-					s.logger.Debugf("currYaw %.2f, startYaw %.2f, targetYaw %.2f", currYaw, startYaw, targetYaw)
+					sb.logger.Debugf("currYaw %.2f, startYaw %.2f, targetYaw %.2f", currYaw, startYaw, targetYaw)
 				}
 
 				// poll the sensor for the current error in angle
@@ -178,26 +195,24 @@ func (s *sensorBase) stopSpinWithSensor(
 				// check if we've travelled at all
 				if fullTurns == 0 {
 					if (atTarget && minTravel) || (overShot && minTravel) {
-						s.setPollActive(false)
-						if err := s.Stop(ctx, nil); err != nil {
+						if err := sb.Stop(ctx, nil); err != nil {
 							return
 						}
 
 						if sensorDebug {
-							s.logger.Debugf(
+							sb.logger.Debugf(
 								"stopping base with errAngle:%.2f, overshot? %t",
 								math.Abs(targetYaw-currYaw), overShot)
 						}
 					}
 				} else {
 					if (turnCount >= fullTurns) && atTarget {
-						s.setPollActive(false)
-						if err := s.Stop(ctx, nil); err != nil {
+						if err := sb.Stop(ctx, nil); err != nil {
 							return
 						}
 
 						if sensorDebug {
-							s.logger.Debugf(
+							sb.logger.Debugf(
 								"stopping base with errAngle:%.2f, overshot? %t, fullTurns %d, turnCount %d",
 								math.Abs(targetYaw-currYaw), overShot, fullTurns, turnCount)
 						}
@@ -205,7 +220,7 @@ func (s *sensorBase) stopSpinWithSensor(
 				}
 			}
 		}
-	}, s.workers.Done)
+	}, sb.workers.Done)
 	return nil
 }
 
@@ -287,43 +302,48 @@ func hasOverShot(angle, start, target, dir float64) bool {
 	}
 }
 
-func (s *sensorBase) MoveStraight(
+func (sb *sensorBase) MoveStraight(
 	ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{},
 ) error {
-	s.setPollActive(false)
-	return s.base.MoveStraight(ctx, distanceMm, mmPerSec, extra)
+	ctx, done := sb.opMgr.New(ctx)
+	defer done()
+	sb.setPollActive(false)
+	return sb.base.MoveStraight(ctx, distanceMm, mmPerSec, extra)
 }
 
-func (s *sensorBase) SetVelocity(
+func (sb *sensorBase) SetVelocity(
 	ctx context.Context, linear, angular r3.Vector, extra map[string]interface{},
 ) error {
-	s.setPollActive(false)
-	return s.base.SetVelocity(ctx, linear, angular, extra)
+	sb.opMgr.CancelRunning(ctx)
+	sb.setPollActive(false)
+	return sb.base.SetVelocity(ctx, linear, angular, extra)
 }
 
-func (s *sensorBase) SetPower(
+func (sb *sensorBase) SetPower(
 	ctx context.Context, linear, angular r3.Vector, extra map[string]interface{},
 ) error {
-	s.setPollActive(false)
-	return s.base.SetPower(ctx, linear, angular, extra)
+	sb.opMgr.CancelRunning(ctx)
+	sb.setPollActive(false)
+	return sb.base.SetPower(ctx, linear, angular, extra)
 }
 
-func (s *sensorBase) Stop(ctx context.Context, extra map[string]interface{}) error {
-	s.setPollActive(false)
-	return s.base.Stop(ctx, extra)
+func (sb *sensorBase) Stop(ctx context.Context, extra map[string]interface{}) error {
+	sb.opMgr.CancelRunning(ctx)
+	sb.setPollActive(false)
+	return sb.base.Stop(ctx, extra)
 }
 
-func (s *sensorBase) IsMoving(ctx context.Context) (bool, error) {
-	return s.base.IsMoving(ctx)
+func (sb *sensorBase) IsMoving(ctx context.Context) (bool, error) {
+	return sb.base.IsMoving(ctx)
 }
 
-func (s *sensorBase) Width(ctx context.Context) (int, error) {
-	return s.base.Width(ctx)
+func (sb *sensorBase) Width(ctx context.Context) (int, error) {
+	return sb.base.Width(ctx)
 }
 
-func (s *sensorBase) Close(ctx context.Context) error {
-	s.setPollActive(false)
-	base, isWheeled := rdkutils.UnwrapProxy(s.base).(*wheeledBase)
+func (sb *sensorBase) Close(ctx context.Context) error {
+	sb.setPollActive(false)
+	base, isWheeled := rdkutils.UnwrapProxy(sb.base).(*wheeledBase)
 	if isWheeled {
 		return base.Close(ctx)
 	}
