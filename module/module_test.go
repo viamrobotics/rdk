@@ -237,6 +237,23 @@ func TestModuleFunctions(t *testing.T) {
 			`error validating resource: expected "motorL" attribute for mybase "mybase2"`)
 	})
 
+	t.Run("ConvertedAttributes set correctly", func(t *testing.T) {
+		// mybase.Reconfigure attempts to access ConvertedAttributes. Ensure that
+		// Adding and Reconfiguring mybase does not result in error (both
+		// module.AddResource and module.ReconfigureResource should fill in
+		// ConvertedAttributes).
+		deps := []string{motor.Named("motor1").String(), motor.Named("motor2").String()}
+		_, err = m.AddResource(ctx, &pb.AddResourceRequest{
+			Config: myBaseConf, Dependencies: deps,
+		})
+		test.That(t, err, test.ShouldBeNil)
+
+		_, err = m.ReconfigureResource(ctx, &pb.ReconfigureResourceRequest{
+			Config: myBaseConf, Dependencies: deps,
+		})
+		test.That(t, err, test.ShouldBeNil)
+	})
+
 	err = utils.TryClose(ctx, gClient)
 	test.That(t, err, test.ShouldBeNil)
 
