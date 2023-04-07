@@ -268,16 +268,17 @@ func (m *gpioStepper) doStep(ctx context.Context, forward bool) error {
 		return err
 	}
 
+	if err := m.stepPin.Set(ctx, false, nil); err != nil {
+		return err
+	}
+
+	// only need a fast pin set and then a delay
 	time.Sleep(m.stepperDelay)
 
 	if forward {
 		m.stepPosition++
 	} else {
 		m.stepPosition--
-	}
-
-	if err := m.stepPin.Set(ctx, false, nil); err != nil {
-		return err
 	}
 
 	return nil
