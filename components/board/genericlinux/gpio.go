@@ -31,6 +31,7 @@ type gpioPin struct {
 	hwPwm           *pwmDevice // Defined in hw_pwm.go, will be nil for pins that don't support it.
 	pwmFreqHz       uint
 	pwmDutyCyclePct float64
+	isInput         bool
 
 	mu        sync.Mutex
 	cancelCtx context.Context
@@ -40,7 +41,13 @@ type gpioPin struct {
 
 // This is a private helper function that should only be called when the mutex is locked. It sets
 // pin.line to a valid struct or returns an error.
-func (pin *gpioPin) openGpioFd() error {
+func (pin *gpioPin) openGpioFd(isInput bool) error {
+	if isInput != pin.isInput {
+		// We're switching from an input pin to an output one or vice versa. Close the line and
+		// repoen in the other mode.
+		pin.closeGpioFd()
+	}
+	pin.isInput = isInput
 	if pin.line != nil {
 		return nil // The pin is already opened, don't re-open it.
 	}
@@ -59,11 +66,16 @@ func (pin *gpioPin) openGpioFd() error {
 	}
 	defer utils.UncheckedErrorFunc(chip.Close)
 
-	// The 0 just means the default value for this pin is off. We'll set it to the intended value
-	// in Set(), below.
+	direction := gpio.Output
+	if pin.isInput {
+		direction = gpio.Input
+	}
+
+	// The 0 just means the default output value for this pin is off. We'll set it to the intended
+	// value in Set(), below, if this is an output pin.
 	// NOTE: we could pass in extra flags to configure the pin to be open-source or open-drain, but
-	// we haven't done that yet, and instead go with whatever the default on the board is.
-	line, err := chip.OpenLine(pin.offset, 0, gpio.Output, "viam-gpio")
+	// we haven't done that yet, and we instead go with whatever the default on the board is.
+	line, err := chip.OpenLine(pin.offset, 0, direction, "viam-gpio")
 	if err != nil {
 		return err
 	}
@@ -103,7 +115,7 @@ func (pin *gpioPin) setInternal(isHigh bool) (err error) {
 		value = 0
 	}
 
-	if err := pin.openGpioFd(); err != nil {
+	if err := pin.openGpioFd(/* isInput= */ false); err != nil {
 		return err
 	}
 
@@ -117,7 +129,7 @@ func (pin *gpioPin) Get(
 	pin.mu.Lock()
 	defer pin.mu.Unlock()
 
-	if err := pin.openGpioFd(); err != nil {
+	if err := pin.openGpioFd(/* isInput= */ true); err != nil {
 		return false, err
 	}
 
