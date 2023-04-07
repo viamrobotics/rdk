@@ -8,6 +8,7 @@ import (
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
@@ -21,6 +22,7 @@ type DetectionSegmenterConfig struct {
 	ConfidenceThresh float64 `json:"confidence_threshold_pct"`
 	MeanK            int     `json:"mean_k"`
 	Sigma            float64 `json:"sigma"`
+	resource.TriviallyValidateConfig
 }
 
 // ConvertAttributes changes the AttributeMap input into a DetectionSegmenterConfig.

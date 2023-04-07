@@ -145,10 +145,11 @@ func TestTFLiteCPUTextModel(t *testing.T) {
 	test.That(t, got.attrs, test.ShouldNotBeNil)
 	test.That(t, got.metadata, test.ShouldBeNil)
 
-	// Test that the Metadata() errors well when metadata does not exist
+	// Test that the Metadata() does not error even when there is none
+	// Should still populate with something
 	_, err = got.Metadata(ctx)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "metadata does not exist")
-	test.That(t, got.metadata, test.ShouldBeNil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, got.metadata, test.ShouldNotBeNil)
 
 	// Test that the Infer() works even on a text classifier
 	inputMap := make(map[string]interface{})
@@ -157,12 +158,10 @@ func TestTFLiteCPUTextModel(t *testing.T) {
 	gotOutput, err := got.Infer(ctx, inputMap)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, gotOutput, test.ShouldNotBeNil)
-
 	test.That(t, len(gotOutput), test.ShouldEqual, 2)
 	test.That(t, gotOutput["output0"], test.ShouldNotBeNil)
 	test.That(t, gotOutput["output1"], test.ShouldNotBeNil)
 	test.That(t, gotOutput["output2"], test.ShouldBeNil)
-
 	test.That(t, len(gotOutput["output0"].([]float32)), test.ShouldEqual, 384)
 	test.That(t, len(gotOutput["output1"].([]float32)), test.ShouldEqual, 384)
 }
