@@ -76,8 +76,8 @@ func TestClient(t *testing.T) {
 		test.That(t, dets[0].Label(), test.ShouldResemble, "yes")
 		test.That(t, dets[0].Score(), test.ShouldEqual, 0.5)
 		box := dets[0].BoundingBox()
-		test.That(t, box.Min, test.ShouldResemble, image.Point{5, 15})
-		test.That(t, box.Max, test.ShouldResemble, image.Point{10, 20})
+		test.That(t, box.Min, test.ShouldResemble, image.Point{5, 10})
+		test.That(t, box.Max, test.ShouldResemble, image.Point{15, 20})
 
 		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
@@ -93,8 +93,8 @@ func TestClient(t *testing.T) {
 		test.That(t, dets[0].Label(), test.ShouldEqual, "camera")
 		test.That(t, dets[0].Score(), test.ShouldEqual, 0.8)
 		box := dets[0].BoundingBox()
-		test.That(t, box.Min, test.ShouldResemble, image.Point{0, 10})
-		test.That(t, box.Max, test.ShouldResemble, image.Point{0, 20})
+		test.That(t, box.Min, test.ShouldResemble, image.Point{0, 0})
+		test.That(t, box.Max, test.ShouldResemble, image.Point{10, 20})
 
 		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
