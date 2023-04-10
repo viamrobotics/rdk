@@ -44,8 +44,8 @@ const (
 	defaultPseudolinearConstraintDesc   = "Constraint to follow pseudolinear path, with tolerance scaled to path length"
 	defaultOrientationConstraintDesc    = "Constraint to maintain orientation within bounds"
 	defaultObstacleConstraintDesc       = "Collision between the robot and an obstacle"
-	defaultSelfCollisionConstraintDesc  = "Collision between components that are moving"
-	defaultRobotCollisionConstraintDesc = "Collision between different pieces of the robot"
+	defaultSelfCollisionConstraintDesc  = "Collision between two robot components that are moving"
+	defaultRobotCollisionConstraintDesc = "Collision between a robot component that is moving and one that is stationary"
 
 	// When breaking down a path into smaller waypoints, add a waypoint every this many mm of movement.
 	defaultPathStepSize = 10
