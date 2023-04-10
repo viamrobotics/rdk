@@ -23,7 +23,6 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
@@ -389,19 +388,7 @@ func TestOOBArm(t *testing.T) {
 		},
 	}
 
-	injectedRobot := setupInjectRobot()
-	injectedRobot.FrameSystemConfigFunc = func(
-		ctx context.Context,
-		additionalTransforms []*referenceframe.LinkInFrame,
-	) (framesystemparts.Parts, error) {
-		return framesystemparts.Parts{}, nil
-	}
-
-	injectedRobot.LoggerFunc = func() golog.Logger {
-		return logger
-	}
-
-	notReal, err := fake.NewArm(injectedRobot, cfg, logger)
+	notReal, err := fake.NewArm(cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	injectedArm := &inject.Arm{
@@ -434,7 +421,7 @@ func TestOOBArm(t *testing.T) {
 
 	t.Run("Move fails when OOB", func(t *testing.T) {
 		pose = spatialmath.NewPoseFromPoint(r3.Vector{200, 200, 200})
-		err := arm.Move(context.Background(), &inject.Robot{}, injectedArm, pose)
+		err := arm.Move(context.Background(), logger, injectedArm, pose)
 		u := "cartesian movements are not allowed when arm joints are out of bounds"
 		v := "joint 0 input out of bounds, input 12.56637 needs to be within range [6.28319 -6.28319]"
 		s := strings.Join([]string{u, v}, ": ")
@@ -541,9 +528,7 @@ func TestXArm6Locations(t *testing.T) {
 		},
 	}
 
-	injectedRobot := setupInjectRobot()
-
-	notReal, err := fake.NewArm(injectedRobot, cfg, logger)
+	notReal, err := fake.NewArm(cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("home location check", func(t *testing.T) {
@@ -666,9 +651,7 @@ func TestUR5ELocations(t *testing.T) {
 		},
 	}
 
-	injectedRobot := setupInjectRobot()
-
-	notReal, err := fake.NewArm(injectedRobot, cfg, logger)
+	notReal, err := fake.NewArm(cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("home location check", func(t *testing.T) {

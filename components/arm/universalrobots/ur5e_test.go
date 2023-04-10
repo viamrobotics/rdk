@@ -26,7 +26,6 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
 )
 
@@ -344,8 +343,7 @@ func TestArmReconnection(t *testing.T) {
 		},
 	}
 
-	injectRobot := &inject.Robot{}
-	arm, err := URArmConnect(parentCtx, injectRobot, cfg, logger)
+	arm, err := URArmConnect(parentCtx, cfg, logger)
 
 	test.That(t, err, test.ShouldBeNil)
 	ua, ok := arm.(*URArm)
