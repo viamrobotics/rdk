@@ -17,7 +17,7 @@ func TestEncoder(t *testing.T) {
 		UpdateRate: 100,
 	}
 	cfg := config.Component{Name: "enc1", ConvertedAttributes: &ic}
-	e, _ := NewFakeEncoder(ctx, cfg)
+	e, _ := newFakeEncoder(ctx, cfg)
 
 	// Get and set position
 	t.Run("get and set position", func(t *testing.T) {
@@ -78,8 +78,6 @@ func TestEncoder(t *testing.T) {
 		e1 := e.(*Encoder)
 		err := e1.SetSpeed(ctx, 0)
 		test.That(t, err, test.ShouldBeNil)
-
-		// e1.Start(ctx)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()

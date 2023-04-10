@@ -27,7 +27,7 @@ func init() {
 			cfg config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			return NewFakeEncoder(ctx, cfg)
+			return newFakeEncoder(ctx, cfg)
 		},
 	}
 	registry.RegisterComponent(encoder.Subtype, fakeModel, _encoder)
@@ -41,8 +41,8 @@ func init() {
 		}, &AttrConfig{})
 }
 
-// NewFakeEncoder creates a new Encoder.
-func NewFakeEncoder(
+// newFakeEncoder creates a new Encoder.
+func newFakeEncoder(
 	ctx context.Context,
 	cfg config.Component,
 ) (encoder.Encoder, error) {
