@@ -293,6 +293,7 @@ func gpioInitialize(cancelCtx context.Context, gpioMappings map[int]GPIOBoardMap
 	interruptConfigs []board.DigitalInterruptConfig, waitGroup *sync.WaitGroup, logger golog.Logger,
 ) (map[string]*gpioPin, map[string]*digitalInterrupt, error) {
 	interrupts := make(map[string]*digitalInterrupt, len(interruptConfigs))
+	fmt.Printf("interrupts ==========================>", interrupts)
 	for _, config := range interruptConfigs {
 		interrupt, err := createDigitalInterrupt(cancelCtx, config, gpioMappings, waitGroup)
 		if err != nil {
@@ -304,7 +305,7 @@ func gpioInitialize(cancelCtx context.Context, gpioMappings map[int]GPIOBoardMap
 		}
 		interrupts[config.Pin] = interrupt
 	}
-
+	fmt.Printf("interrupts after for loop ===========>", interrupts)
 	pins := make(map[string]*gpioPin)
 	for pinNumber, mapping := range gpioMappings {
 		if _, ok := interrupts[fmt.Sprintf("%d", pinNumber)]; ok {
@@ -325,6 +326,8 @@ func gpioInitialize(cancelCtx context.Context, gpioMappings map[int]GPIOBoardMap
 		}
 		pins[fmt.Sprintf("%d", pinNumber)] = pin
 	}
+
+	fmt.Printf("pins afte the second for loop ======>", pins)
 	return pins, interrupts, nil
 }
 

@@ -40,7 +40,6 @@ var boardInfoMappings = map[string]genericlinux.BoardInformation{
 
 			{map[int]int{28: 0}, map[int]string{}, "AANT0F04:00/upboard-pinctrl.0", 27, 0, "GPIO9", "", "", -1},            // ID_SD
 			{map[int]int{28: 19, 78: 327}, map[int]string{}, "AANT0F04:00/upboard-pinctrl.0", 35, 0, "GPIO13", "", "", -1}, // PCM_FS
-			//{map[int]int{78: 327}, map[int]string{}, "AANT0F04:00/upboard-pinctrl.0", 35, 0, "GPIO13", "", "", -1}, // PCM_FS
 
 			{map[int]int{28: 18}, map[int]string{}, "AANT0F04:00/upboard-pinctrl.0", 12, 0, "GPIO17", "", "", -1}, // PCM_CLK
 			{map[int]int{28: 8}, map[int]string{}, "AANT0F04:00/upboard-pinctrl.0", 24, 0, "GPIO21", "", "", -1},  // SPI_CS0 device: spidev2.0

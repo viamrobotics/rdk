@@ -98,22 +98,22 @@ func GetGPIOBoardMappings(modelName string, boardInfoMappings map[string]BoardIn
 // getCompatiblePinDefs returns a list of pin definitions, from the first BoardInformation struct
 // that appears compatible with the machine we're running on.
 func getCompatiblePinDefs(modelName string, boardInfoMappings map[string]BoardInformation) ([]PinDefinition, error) {
-	var compatiblePath string
-	architecture := getArchitecture()
+	// var compatiblePath string
 
-	if architecture == "x86_64" && architecture != "Unknown" {
-		compatiblePath = "/sys/devices/virtual/dmi/id/board_name"
-	} else {
-		compatiblePath = "/proc/device-tree/compatible"
-	}
+	// if getArchitecture() == "x86_64" {
+	// 	compatiblePath = "/sys/devices/virtual/dmi/id/board_name"
+	// } else {
+	// 	compatiblePath = "/proc/device-tree/compatible"
+	// }
 
-	compatiblesRd, err := os.ReadFile(compatiblePath)
+	compatiblesRd, err := os.ReadFile("/sys/devices/virtual/dmi/id/board_name")
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, noBoardError(modelName)
 		}
 		return nil, err
 	}
+
 	compatibles := utils.NewStringSet(strings.Split(string(compatiblesRd), "\x00")...)
 
 	var pinDefs []PinDefinition
@@ -126,6 +126,7 @@ func getCompatiblePinDefs(modelName string, boardInfoMappings map[string]BoardIn
 		}
 	}
 
+	fmt.Printf("pinDef", pinDefs)
 	if pinDefs == nil {
 		return nil, noBoardError(modelName)
 	}
