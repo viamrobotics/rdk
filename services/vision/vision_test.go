@@ -42,6 +42,7 @@ func (s *simpleDetector) Detect(context.Context, image.Image) ([]objectdetection
 	det1 := objectdetection.NewDetection(image.Rectangle{}, 0.5, "yes")
 	return []objectdetection.Detection{det1}, nil
 }
+
 func TestNewService(t *testing.T) {
 	r := &inject.Robot{}
 	svc, err := vision.NewService("testService", &simpleDetector{}, r)
