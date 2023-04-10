@@ -1,5 +1,31 @@
-// Package gpiostepper implements a GPIO based stepper motor.
+// Package gpiostepper implements a GPIO based stepper motor
 package gpiostepper
+
+// This package is meant to be used with bipolar stepper motors connected to drivers that drive motors
+// using high/low direction pins and pulses to step the motor armatures, the package can also set enable
+// pins high or low if the driver needs them to power the stepper motor armatures
+/*
+   Compatibility tested:
+   Stepper Motors:     NEMA
+   Motor Driver:   DRV8825, A4998, L298N igus-drylin D8(X)
+   Resources:
+           DRV8825:    https://lastminuteengineers.com/drv8825-stepper-motor-driver-arduino-tutorial/
+           A4998:  https://lastminuteengineers.com/a4988-stepper-motor-driver-arduino-tutorial/
+           L298N: https://lastminuteengineers.com/stepper-motor-l298n-arduino-tutorial/
+
+   This driver will drive the motor using a step pulse with a delay that matches the speed calculated by:
+   stepperDelay (ns) := 1min / (rpm (revs_per_minute) * spr (steps_per_revolution))
+   The motor will then step and increment its position until it has reached a target or has been stopped.
+
+   Configuration:
+   Required pins: a step pin to send pulses and a direction pin to set the direction.
+   Enabling current to flow through the armature and holding a position can be done by setting enable pins on
+   hardware that supports that functionality.
+
+   An optional configurable stepper_delay parameter configures the minimum delay to set a pulse to high
+   for a particular stepper motor. This is usually motor specific and can be calculated using phase
+   resistance and induction data from the datasheet of your stepper motor.
+*/
 
 import (
 	"context"
@@ -37,7 +63,7 @@ type PinConfig struct {
 type AttrConfig struct {
 	Pins             PinConfig `json:"pins"`
 	BoardName        string    `json:"board"`
-	StepperDelay     uint      `json:"stepper_delay_usec,omitempty"` // When using stepper motors, the time to remain high
+	StepperDelay     int       `json:"stepper_delay_usec,omitempty"` // When using stepper motors, the time to remain high
 	TicksPerRotation int       `json:"ticks_per_rotation"`
 }
 
@@ -108,7 +134,6 @@ func newGPIOStepper(ctx context.Context, b board.Board, mc AttrConfig, name stri
 	m := &gpioStepper{
 		theBoard:         b,
 		stepsPerRotation: mc.TicksPerRotation,
-		stepperDelay:     mc.StepperDelay,
 		logger:           logger,
 		motorName:        name,
 	}
@@ -129,6 +154,7 @@ func newGPIOStepper(ctx context.Context, b board.Board, mc AttrConfig, name stri
 		}
 	}
 
+	// set the required step and direction pins
 	m.stepPin, err = b.GPIOPinByName(mc.Pins.Step)
 	if err != nil {
 		return nil, err
@@ -139,6 +165,10 @@ func newGPIOStepper(ctx context.Context, b board.Board, mc AttrConfig, name stri
 		return nil, err
 	}
 
+	if mc.StepperDelay > 0 {
+		m.minDelay = time.Duration(mc.StepperDelay * int(time.Microsecond))
+	}
+
 	m.startThread(ctx)
 	return m, nil
 }
@@ -147,7 +177,8 @@ type gpioStepper struct {
 	// config
 	theBoard                    board.Board
 	stepsPerRotation            int
-	stepperDelay                uint
+	stepperDelay                time.Duration
+	minDelay                    time.Duration
 	enablePinHigh, enablePinLow board.GPIOPin
 	stepPin, dirPin             board.GPIOPin
 	logger                      golog.Logger
@@ -157,10 +188,9 @@ type gpioStepper struct {
 	lock  sync.Mutex
 	opMgr operation.SingleOperationManager
 
-	stepPosition         int64
-	threadStarted        bool
-	targetStepPosition   int64
-	targetStepsPerSecond int64
+	stepPosition       int64
+	threadStarted      bool
+	targetStepPosition int64
 	generic.Unimplemented
 }
 
@@ -190,7 +220,7 @@ func (m *gpioStepper) doRun(ctx context.Context) {
 	for {
 		sleep, err := m.doCycle(ctx)
 		if err != nil {
-			m.logger.Info("error in gpioStepper %w", err)
+			m.logger.Warnf("error cycling gpioStepper (%s) %s", m.motorName, err.Error())
 		}
 
 		if !utils.SelectContextOrWait(ctx, sleep) {
@@ -203,37 +233,52 @@ func (m *gpioStepper) doCycle(ctx context.Context) (time.Duration, error) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
+	// thread waits until something changes the target position in the
+	// gpiostepper struct
 	if m.stepPosition == m.targetStepPosition {
 		return 5 * time.Millisecond, nil
 	}
 
+	// TODO: Setting PWM here works much better than steps to set speed
+	// Redo this part with PWM logic, but also be aware that parallel
+	// logic to the PWM call will need to be implemented to account for position
+	// reporting
 	err := m.doStep(ctx, m.stepPosition < m.targetStepPosition)
 	if err != nil {
 		return time.Second, fmt.Errorf("error stepping %w", err)
 	}
 
-	return time.Duration(int64(time.Microsecond*1000*1000) / int64(math.Abs(float64(m.targetStepsPerSecond)))), nil
+	// wait the stepper delay to return from the doRun for loop or select
+	// context if the duration has not elapsed.
+	return m.stepperDelay, nil
 }
 
 // have to be locked to call.
 func (m *gpioStepper) doStep(ctx context.Context, forward bool) error {
 	err := multierr.Combine(
 		m.enable(ctx, true),
-		m.stepPin.Set(ctx, true, nil),
 		m.dirPin.Set(ctx, forward, nil),
-	)
+		m.stepPin.Set(ctx, true, nil))
 	if err != nil {
 		return err
 	}
+	// stay high for half the delay
+	time.Sleep(m.stepperDelay / 2)
 
-	time.Sleep(time.Duration(m.stepperDelay) * time.Microsecond)
+	if err := m.stepPin.Set(ctx, false, nil); err != nil {
+		return err
+	}
+
+	// stay low for the other half
+	time.Sleep(m.stepperDelay / 2)
 
 	if forward {
 		m.stepPosition++
 	} else {
 		m.stepPosition--
 	}
-	return m.stepPin.Set(ctx, false, nil)
+
+	return nil
 }
 
 // GoFor instructs the motor to go in a specific direction for a specific amount of
@@ -262,33 +307,37 @@ func (m *gpioStepper) GoFor(ctx context.Context, rpm, revolutions float64, extra
 
 func (m *gpioStepper) goForInternal(ctx context.Context, rpm, revolutions float64) error {
 	if revolutions == 0 {
-		revolutions = 1000000.0
+		// go a large number of revolutions if 0 is passed in, at the desired speed
+		revolutions = 1000000
 	}
-	var d int64 = 1
-
-	if math.Signbit(revolutions) != math.Signbit(rpm) {
-		d = -1
-	}
-
-	revolutions = math.Abs(revolutions)
-	rpm = math.Abs(rpm) * float64(d)
 
 	if math.Abs(rpm) < 0.1 {
+		m.logger.Debug("motor (%s) speed less than .1 rev_per_min, stopping", m.motorName)
 		return m.Stop(ctx, nil)
+	}
+
+	var d int64 = 1
+	if math.Signbit(revolutions) != math.Signbit(rpm) {
+		d = -1
 	}
 
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
+	// calculate delay between steps for the thread in the gorootuine that we started in component creation
+	m.stepperDelay = time.Duration(int64(float64(time.Minute) / (math.Abs(rpm) * float64(m.stepsPerRotation))))
+	if m.stepperDelay < m.minDelay {
+		m.stepperDelay = m.minDelay
+		m.logger.Debugf(
+			"calculated delay less than the minimum delay for stepper motor setting to %+v", m.stepperDelay,
+		)
+	}
+
 	if !m.threadStarted {
 		return errors.New("thread not started")
 	}
 
-	m.targetStepPosition += int64(float64(d) * revolutions * float64(m.stepsPerRotation))
-	m.targetStepsPerSecond = int64(rpm * float64(m.stepsPerRotation) / 60.0)
-	if m.targetStepsPerSecond == 0 {
-		m.targetStepsPerSecond = 1
-	}
+	m.targetStepPosition += d * int64(math.Abs(revolutions)*float64(m.stepsPerRotation))
 
 	return nil
 }
@@ -303,6 +352,14 @@ func (m *gpioStepper) GoTo(ctx context.Context, rpm, positionRevolutions float64
 	}
 	moveDistance := positionRevolutions - curPos
 
+	// don't want to move if we're already at target, and want to skip GoFor's 0 rpm
+	// move forever condition
+	if rdkutils.Float64AlmostEqual(moveDistance, 0, 0.1) {
+		m.logger.Debugf("GoTo distance nearly zero for motor (%s), not moving", m.motorName)
+		return nil
+	}
+
+	m.logger.Debugf("motor (%s) going to %.2f at rpm %.2f", m.motorName, moveDistance, math.Abs(rpm))
 	return m.GoFor(ctx, math.Abs(rpm), moveDistance, extra)
 }
 
@@ -375,7 +432,6 @@ func (m *gpioStepper) stop() {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 	m.targetStepPosition = m.stepPosition
-	m.targetStepsPerSecond = 0
 }
 
 // IsPowered returns whether or not the motor is currently on. It also returns the percent power

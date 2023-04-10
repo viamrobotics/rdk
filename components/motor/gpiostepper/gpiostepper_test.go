@@ -167,7 +167,6 @@ func Test1(t *testing.T) {
 		wg.Wait()
 
 		test.That(t, ctx.Err(), test.ShouldNotBeNil)
-		test.That(t, m.targetStepsPerSecond, test.ShouldEqual, 0)
 	})
 
 	t.Run("motor testing with large # of revolutions", func(t *testing.T) {
