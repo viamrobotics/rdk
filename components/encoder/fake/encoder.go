@@ -42,6 +42,8 @@ func init() {
 }
 
 // newFakeEncoder creates a new Encoder.
+//
+//nolint:unparam
 func newFakeEncoder(
 	ctx context.Context,
 	cfg config.Component,
@@ -49,9 +51,6 @@ func newFakeEncoder(
 	e := &Encoder{
 		position:     0,
 		positionType: encoder.PositionTypeTICKS,
-	}
-	if e.positionType != encoder.PositionTypeTICKS {
-		return nil, errors.New("could not set PositionType to Ticks")
 	}
 	e.updateRate = cfg.ConvertedAttributes.(*AttrConfig).UpdateRate
 
