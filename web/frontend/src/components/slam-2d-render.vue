@@ -85,7 +85,7 @@ const makeMarker = async (url : string, name: string, scalar: number) => {
 
     const path = paths[ i ];
 
-    const fillColor = path.userData!.style.fill;
+    const fillColor = path?.userData!.style.fill;
     
     if ( guiData.drawFillShapes && fillColor !== undefined && fillColor !== 'none' ) {
       const material = new THREE.MeshBasicMaterial( {
