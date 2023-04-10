@@ -26,10 +26,10 @@ import (
 	"go.viam.com/rdk/vision/objectdetection"
 )
 
-var model = resource.NewDefaultModel("tflite_detector")
+var model_detect = resource.NewDefaultModel("tflite_detector")
 
 func init() {
-	registry.RegisterService(vision.Subtype, model, registry.Service{
+	registry.RegisterService(vision.Subtype, model_detect, registry.Service{
 		RobotConstructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
 			attrs, ok := c.ConvertedAttributes.(*TFLiteDetectorConfig)
 			if !ok {
@@ -40,7 +40,7 @@ func init() {
 	})
 	config.RegisterServiceAttributeMapConverter(
 		vision.Subtype,
-		model,
+		model_detect,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf TFLiteDetectorConfig
 			attrs, err := config.TransformAttributeMapToStruct(&conf, attributes)
