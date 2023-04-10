@@ -74,9 +74,9 @@ var (
 
 // Service describes the functions that are available to the service.
 type Service interface {
-	GetPosition(context.Context, string) (spatialmath.Pose, string, error)
-	GetPointCloudMap(ctx context.Context, name string) (func() ([]byte, error), error)
-	GetInternalState(ctx context.Context, name string) (func() ([]byte, error), error)
+	GetPosition(context.Context) (spatialmath.Pose, string, error)
+	GetPointCloudMap(ctx context.Context) (func() ([]byte, error), error)
+	GetInternalState(ctx context.Context) (func() ([]byte, error), error)
 	resource.Generic
 }
 
@@ -97,10 +97,10 @@ func helperConcatenateChunksToFull(f func() ([]byte, error)) ([]byte, error) {
 }
 
 // GetPointCloudMapFull concatenates the streaming responses from GetPointCloudMap into a full point cloud.
-func GetPointCloudMapFull(ctx context.Context, slamSvc Service, name string) ([]byte, error) {
+func GetPointCloudMapFull(ctx context.Context, slamSvc Service) ([]byte, error) {
 	ctx, span := trace.StartSpan(ctx, "slam::GetPointCloudMapFull")
 	defer span.End()
-	callback, err := slamSvc.GetPointCloudMap(ctx, name)
+	callback, err := slamSvc.GetPointCloudMap(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -109,10 +109,10 @@ func GetPointCloudMapFull(ctx context.Context, slamSvc Service, name string) ([]
 
 // GetInternalStateFull concatenates the streaming responses from GetInternalState into
 // the internal serialized state of the slam algorithm.
-func GetInternalStateFull(ctx context.Context, slamSvc Service, name string) ([]byte, error) {
+func GetInternalStateFull(ctx context.Context, slamSvc Service) ([]byte, error) {
 	ctx, span := trace.StartSpan(ctx, "slam::GetInternalStateFull")
 	defer span.End()
-	callback, err := slamSvc.GetInternalState(ctx, name)
+	callback, err := slamSvc.GetInternalState(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -129,25 +129,22 @@ func (svc *reconfigurableSlam) Name() resource.Name {
 	return svc.name
 }
 
-func (svc *reconfigurableSlam) GetPosition(
-	ctx context.Context,
-	val string,
-) (spatialmath.Pose, string, error) {
+func (svc *reconfigurableSlam) GetPosition(ctx context.Context) (spatialmath.Pose, string, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
-	return svc.actual.GetPosition(ctx, val)
+	return svc.actual.GetPosition(ctx)
 }
 
-func (svc *reconfigurableSlam) GetPointCloudMap(ctx context.Context, name string) (func() ([]byte, error), error) {
+func (svc *reconfigurableSlam) GetPointCloudMap(ctx context.Context) (func() ([]byte, error), error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
-	return svc.actual.GetPointCloudMap(ctx, name)
+	return svc.actual.GetPointCloudMap(ctx)
 }
 
-func (svc *reconfigurableSlam) GetInternalState(ctx context.Context, name string) (func() ([]byte, error), error) {
+func (svc *reconfigurableSlam) GetInternalState(ctx context.Context) (func() ([]byte, error), error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
-	return svc.actual.GetInternalState(ctx, name)
+	return svc.actual.GetInternalState(ctx)
 }
 
 func (svc *reconfigurableSlam) DoCommand(ctx context.Context,

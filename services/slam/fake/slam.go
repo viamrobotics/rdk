@@ -59,7 +59,7 @@ func (slamSvc *SLAM) getCount() int {
 }
 
 // GetPosition returns a Pose and a component reference string of the robot's current location according to SLAM.
-func (slamSvc *SLAM) GetPosition(ctx context.Context, name string) (spatialmath.Pose, string, error) {
+func (slamSvc *SLAM) GetPosition(ctx context.Context) (spatialmath.Pose, string, error) {
 	ctx, span := trace.StartSpan(ctx, "slam::fake::GetPosition")
 	defer span.End()
 	return fakeGetPosition(ctx, datasetDirectory, slamSvc)
@@ -67,7 +67,7 @@ func (slamSvc *SLAM) GetPosition(ctx context.Context, name string) (spatialmath.
 
 // GetPointCloudMap returns a callback function which will return the next chunk of the current pointcloud
 // map.
-func (slamSvc *SLAM) GetPointCloudMap(ctx context.Context, name string) (func() ([]byte, error), error) {
+func (slamSvc *SLAM) GetPointCloudMap(ctx context.Context) (func() ([]byte, error), error) {
 	ctx, span := trace.StartSpan(ctx, "slam::fake::GetPointCloudMap")
 	defer span.End()
 	slamSvc.incrementDataCount()
@@ -76,7 +76,7 @@ func (slamSvc *SLAM) GetPointCloudMap(ctx context.Context, name string) (func() 
 
 // GetInternalState returns a callback function which will return the next chunk of the current internal
 // state of the slam algo.
-func (slamSvc *SLAM) GetInternalState(ctx context.Context, name string) (func() ([]byte, error), error) {
+func (slamSvc *SLAM) GetInternalState(ctx context.Context) (func() ([]byte, error), error) {
 	ctx, span := trace.StartSpan(ctx, "slam::fake::GetInternalState")
 	defer span.End()
 	return fakeGetInternalState(ctx, datasetDirectory, slamSvc)

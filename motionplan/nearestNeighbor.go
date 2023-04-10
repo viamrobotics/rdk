@@ -58,10 +58,12 @@ func (nm *neighborManager) nearestNeighbor(
 	planOpts *plannerOptions,
 	seed []referenceframe.Input,
 	rrtMap map[node]node,
-) node {
+	returnChan chan node,
+) {
 	if len(rrtMap) > neighborsBeforeParallelization && nm.nCPU > 1 {
 		// If the map is large, calculate distances in parallel
-		return nm.parallelNearestNeighbor(ctx, planOpts, seed, rrtMap)
+		returnChan <- nm.parallelNearestNeighbor(ctx, planOpts, seed, rrtMap)
+		return
 	}
 	bestDist := math.Inf(1)
 	var best node
@@ -75,7 +77,7 @@ func (nm *neighborManager) nearestNeighbor(
 			best = k
 		}
 	}
-	return best
+	returnChan <- best
 }
 
 func (nm *neighborManager) parallelNearestNeighbor(

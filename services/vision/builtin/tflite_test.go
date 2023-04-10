@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
+	"github.com/nfnt/resize"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
@@ -253,4 +254,32 @@ func TestMoreClassifierModels(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, bestClass[0].Label(), test.ShouldResemble, "292")
 	test.That(t, bestClass[0].Score(), test.ShouldBeGreaterThan, 0.93)
+}
+
+func TestInvalidLabels(t *testing.T) {
+	ctx := context.Background()
+
+	pic, err := rimage.NewImageFromFile(artifact.MustPath("vision/tflite/redpanda.jpeg"))
+	test.That(t, err, test.ShouldBeNil)
+
+	modelLoc := artifact.MustPath("vision/tflite/mobilenetv2_class.tflite")
+	labelPath := artifact.MustPath("vision/classification/object_labels.txt")
+	numThreads := 2
+
+	labels, err := loadLabels(labelPath)
+	model, err := addTFLiteModel(ctx, modelLoc, &numThreads)
+	resizedImg := resize.Resize(100, 100, pic, resize.Bilinear)
+	outTensor, err := tfliteInfer(ctx, model, resizedImg)
+
+	classifications, err := unpackClassificationTensor(ctx, outTensor, model, labels)
+	test.That(t, err, test.ShouldResemble, LABEL_OUTPUT_MISMATCH)
+	test.That(t, classifications, test.ShouldBeNil)
+}
+
+func TestSpaceDelineatedLabels(t *testing.T) {
+	labelPath := artifact.MustPath("vision/classification/lorem.txt")
+
+	labels, err := loadLabels(labelPath)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(labels), test.ShouldEqual, 10)
 }
