@@ -89,7 +89,8 @@ type TensorInfo struct {
 	Name            string // e.g. bounding_boxes
 	Description     string
 	DataType        string // e.g. uint8, float32, int
-	NDim            int    // number of dimensions in the array
+	Shape           []int  // number of dimensions in the array
+	TensorShape     []int
 	AssociatedFiles []File
 	Extra           map[string]interface{}
 }
@@ -100,8 +101,12 @@ func (tf TensorInfo) toProto() (*servicepb.TensorInfo, error) {
 		Name:        tf.Name,
 		Description: tf.Description,
 		DataType:    tf.DataType,
-		NDim:        int32(tf.NDim),
 	}
+	shape := make([]int32, 0, len(tf.Shape))
+	for _, s := range tf.Shape {
+		shape = append(shape, int32(s))
+	}
+	pbtf.Shape = shape
 	associatedFiles := make([]*servicepb.File, 0, len(tf.AssociatedFiles))
 	for _, af := range tf.AssociatedFiles {
 		associatedFiles = append(associatedFiles, af.toProto())
