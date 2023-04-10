@@ -272,12 +272,11 @@ func (b *sysfsBoard) DigitalInterruptByName(name string) (board.DigitalInterrupt
 		return nil, false // Non-numeric name, just give up.
 	}
 
-	gpio, ok := b.gpios[name]
-	if !ok {
+	if _, ok := b.gpios[name]; !ok {
 		return nil, false // It's not a GPIO pin either. Give up.
 	}
 
-	defaultInterruptConfig = board.DigitalInterruptConfig{
+	defaultInterruptConfig := board.DigitalInterruptConfig{
 		Name: name,
 		Pin:  name,
 		Type: "basic",
@@ -289,8 +288,8 @@ func (b *sysfsBoard) DigitalInterruptByName(name string) (board.DigitalInterrupt
 		return nil, false
 	}
 
-	b.interrupts[name] = interrupt
 	delete(b.gpios, name)
+	b.interrupts[name] = interrupt
 	return interrupt, true
 }
 
