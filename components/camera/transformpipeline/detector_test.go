@@ -18,7 +18,6 @@ import (
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/vision"
-	_ "go.viam.com/rdk/services/vision/builtin"
 )
 
 func writeTempConfig(cfg *config.Config) (string, error) {
