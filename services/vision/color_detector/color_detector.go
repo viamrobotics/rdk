@@ -2,6 +2,7 @@ package colordetector
 
 import (
 	"context"
+	"image"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
@@ -13,6 +14,7 @@ import (
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/utils"
+	"go.viam.com/rdk/vision/objectdetection"
 	objdet "go.viam.com/rdk/vision/objectdetection"
 )
 
@@ -47,6 +49,14 @@ func init() {
 	)
 }
 
+type colorDetector struct {
+	objectdetection.Detector
+}
+
+func (cd *colorDetector) Detect(ctx context.Context, img image.Image) ([]objectdetection.Detection, error) {
+	return cd.Detector(ctx, img)
+}
+
 // registerColorDetector creates a new Color Detector from the config
 func registerColorDetector(ctx context.Context, name string, conf *objdet.ColorDetectorConfig, r robot.Robot, logger golog.Logger) (vision.Service, error) {
 	_, span := trace.StartSpan(ctx, "service::vision::registerColorDetector")
@@ -58,5 +68,5 @@ func registerColorDetector(ctx context.Context, name string, conf *objdet.ColorD
 	if err != nil {
 		return nil, errors.Wrapf(err, "register color detector %s", name)
 	}
-	return vision.NewService(name, detector, r)
+	return vision.NewService(name, &colorDetector{detector}, r)
 }
