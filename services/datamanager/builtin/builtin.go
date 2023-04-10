@@ -102,11 +102,12 @@ type dataCaptureConfigs struct {
 
 // Config describes how to configure the service.
 type Config struct {
-	CaptureDir            string   `json:"capture_dir"`
-	AdditionalSyncPaths   []string `json:"additional_sync_paths"`
-	SyncIntervalMins      float64  `json:"sync_interval_mins"`
-	CaptureDisabled       bool     `json:"capture_disabled"`
-	ScheduledSyncDisabled bool     `json:"sync_disabled"`
+	CaptureDir            string     `json:"capture_dir"`
+	AdditionalSyncPaths   []string   `json:"additional_sync_paths"`
+	AdditionalTags        [][]string `json:"additional_tags"`
+	SyncIntervalMins      float64    `json:"sync_interval_mins"`
+	CaptureDisabled       bool       `json:"capture_disabled"`
+	ScheduledSyncDisabled bool       `json:"sync_disabled"`
 }
 
 // builtIn initializes and orchestrates data capture collectors for registered component/methods.
@@ -123,6 +124,7 @@ type builtIn struct {
 	waitAfterLastModifiedMillis int
 
 	additionalSyncPaths []string
+	additionalTags      [][]string
 	syncDisabled        bool
 	syncIntervalMins    float64
 	syncRoutineCancelFn context.CancelFunc
@@ -143,6 +145,7 @@ func NewBuiltIn(_ context.Context, r robot.Robot, _ config.Service, logger golog
 		lock:                        sync.Mutex{},
 		syncIntervalMins:            0,
 		additionalSyncPaths:         []string{},
+		additionalTags:              [][]string{},
 		waitAfterLastModifiedMillis: 10000,
 		syncerConstructor:           datasync.NewDefaultManager,
 	}
@@ -434,6 +437,7 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 	svc.syncDisabled = svcConfig.ScheduledSyncDisabled
 	svc.syncIntervalMins = svcConfig.SyncIntervalMins
 	svc.additionalSyncPaths = svcConfig.AdditionalSyncPaths
+	svc.additionalTags = svcConfig.AdditionalTags
 
 	// TODO DATA-861: this means that the ticker is reset everytime we call Update with sync enabled, regardless of
 	//      whether or not the interval has changed. We should not do that.
@@ -508,8 +512,11 @@ func (svc *builtIn) sync() {
 	for _, ap := range svc.additionalSyncPaths {
 		toSync = append(toSync, getAllFilesToSync(ap, svc.waitAfterLastModifiedMillis)...)
 	}
-	for _, p := range toSync {
-		svc.syncer.SyncFile(p)
+	for index, p := range toSync {
+		if index == 0 {
+			svc.syncer.SyncFile(p, nil)
+		}
+		svc.syncer.SyncFile(p, svc.additionalTags[index-1])
 	}
 }
 

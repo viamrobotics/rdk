@@ -13,7 +13,7 @@ import (
 // UploadChunkSize defines the size of the data included in each message of a FileUpload stream.
 var UploadChunkSize = 64 * 1024
 
-func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, f *os.File, partID string) error {
+func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, f *os.File, partID string, tags []string) error {
 	stream, err := client.FileUpload(ctx)
 	if err != nil {
 		return err
@@ -24,6 +24,7 @@ func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, f
 		Type:          v1.DataType_DATA_TYPE_FILE,
 		FileName:      filepath.Base(f.Name()),
 		FileExtension: filepath.Ext(f.Name()),
+		Tags:          tags,
 	}
 
 	// Send metadata FileUploadRequest.

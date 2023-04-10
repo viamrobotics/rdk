@@ -9,6 +9,6 @@ func NewNoopManager() Manager {
 	return &noopManager{}
 }
 
-func (m *noopManager) SyncFile(path string) {}
+func (m *noopManager) SyncFile(path string, tags []string) {}
 
 func (m *noopManager) Close() {}

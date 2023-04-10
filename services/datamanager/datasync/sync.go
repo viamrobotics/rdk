@@ -34,7 +34,7 @@ var (
 
 // Manager is responsible for enqueuing files in captureDir and uploading them to the cloud.
 type Manager interface {
-	SyncFile(path string)
+	SyncFile(path string, tags []string)
 	Close()
 }
 
@@ -132,7 +132,7 @@ func (s *syncer) Close() {
 	}
 }
 
-func (s *syncer) SyncFile(path string) {
+func (s *syncer) SyncFile(path string, tags []string) {
 	s.backgroundWorkers.Add(1)
 	goutils.PanicCapturingGo(func() {
 		defer s.backgroundWorkers.Done()
@@ -166,7 +166,7 @@ func (s *syncer) SyncFile(path string) {
 				}
 				s.syncDataCaptureFile(captureFile)
 			} else {
-				s.syncArbitraryFile(f)
+				s.syncArbitraryFile(f, tags)
 			}
 			s.unmarkInProgress(path)
 		}
@@ -197,11 +197,11 @@ func (s *syncer) syncDataCaptureFile(f *datacapture.File) {
 	}
 }
 
-func (s *syncer) syncArbitraryFile(f *os.File) {
+func (s *syncer) syncArbitraryFile(f *os.File, tags []string) {
 	uploadErr := exponentialRetry(
 		s.cancelCtx,
 		func(ctx context.Context) error {
-			err := uploadArbitraryFile(ctx, s.client, f, s.partID)
+			err := uploadArbitraryFile(ctx, s.client, f, s.partID, tags)
 			if err != nil {
 				s.syncErrs <- errors.Wrap(err, fmt.Sprintf("error uploading file %s", f.Name()))
 			}
