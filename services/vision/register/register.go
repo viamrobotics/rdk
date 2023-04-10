@@ -3,5 +3,6 @@ package register
 
 import (
 	// for vision models.
-	_ "go.viam.com/rdk/services/vision/colordetector"
+	_ "go.viam.com/rdk/services/vision/color_detector"
+	_ "go.viam.com/rdk/services/vision/radius_clustering"
 )
