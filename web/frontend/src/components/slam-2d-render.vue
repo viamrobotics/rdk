@@ -27,25 +27,6 @@ const colorMapGrey = [
 ].map(([red, green, blue]) =>
   new THREE.Vector3(red, green, blue).multiplyScalar(1 / 255));
 
-/*
- * // Leaving additional color map commented for if we want to change to a different scheme.
- * generated with: https://waldyrious.net/viridis-palette-generator/
- * more info: https://cran.r-project.org/web/packages/viridis/vignettes/intro-to-viridis.html
- * // const colorMapViridis = [
- * //   [253, 231, 37],
- * //   [181, 222, 43],
- * //   [110, 206, 88],
- * //   [53, 183, 121],
- * //   [31, 158, 137],
- * //   [38, 130, 142],
- * //   [49, 104, 142],
- * //   [62, 73, 137],
- * //   [72, 40, 120],
- * //   [68,1,84]
- * // ].map(([red, green, blue]) =>
- * // new THREE.Vector3(red, green, blue).multiplyScalar(1 / 255));
- */
-
 const props = defineProps<{
   name: string
 
@@ -120,18 +101,18 @@ const disposeScene = () => {
  * Find the desired color bucket for a given probability. This assumes the probability will be a value from 0 to 100
  * ticket to add testing: https://viam.atlassian.net/browse/RSDK-2606
  */
-const probToColorMapBucket = (normProb: number, numBuckets: number): number => {
-  const prob = Math.max(Math.min(100, normProb * 255), 0);
+const probToColorMapBucket = (probability: number, numBuckets: number): number => {
+  const prob = Math.max(Math.min(100, probability * 255), 0);
   return Math.floor((numBuckets - 1) * prob / 100);
 };
 
 /*
  * Map the color of a pixel to a color bucket value.
- * normProb is the probability value normalized by the size of a byte(255) to be between 0 to 1.
+ * probability represents the probability value normalized by the size of a byte(255) to be between 0 to 1.
  * ticket to add testing: https://viam.atlassian.net/browse/RSDK-2606
  */
-const colorBuckets = (normProb: number): THREE.Vector3 => {
-  return colorMapGrey[probToColorMapBucket(normProb, colorMapGrey.length)]!;
+const colorBuckets = (probability: number): THREE.Vector3 => {
+  return colorMapGrey[probToColorMapBucket(probability, colorMapGrey.length)]!;
 };
 
 const updateCloud = (pointcloud: Uint8Array) => {
@@ -168,9 +149,9 @@ const updateCloud = (pointcloud: Uint8Array) => {
 
   const colors = points.geometry.attributes.color;
   // if the PCD has a color attribute defined, convert those colors using the colorMap
-  if (colors instanceof THREE.BufferAttribute || colors instanceof THREE.InterleavedBufferAttribute) {
+  if (colors instanceof THREE.BufferAttribute) {
     for (let i = 0; i < colors.count; i += 1) {
-
+      colors
       /*
        * Probability is currently assumed to be held in the rgb field of the PCD map, on a scale of 0 to 100.
        * ticket to look into this further https://viam.atlassian.net/browse/RSDK-2605
