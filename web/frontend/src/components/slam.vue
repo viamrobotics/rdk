@@ -266,15 +266,15 @@ const handleUpdateY = (event: CustomEvent<{ value: string }>) => {
 };
 
 const baseCopyPosition = () => {
-  let position = {
-    "x": x,
-    "y": y,
-    "z": z,
-    "o_x": oX,
-    "o_y": oY,
-    "o_z": oZ, 
-    "theta": theta,
-  }
+  const position = {
+    x,
+    y,
+    z,
+    o_x: oX,
+    o_y: oY,
+    o_z: oZ,
+    theta,
+  };
 
   const asString = JSON.stringify(position);
   copyToClipboardWithToast(asString);
