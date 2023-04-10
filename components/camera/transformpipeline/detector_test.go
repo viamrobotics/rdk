@@ -18,6 +18,7 @@ import (
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/vision"
+	_ "go.viam.com/rdk/services/vision/register"
 )
 
 func writeTempConfig(cfg *config.Config) (string, error) {
@@ -48,6 +49,38 @@ func buildRobotWithFakeCamera(logger golog.Logger) (robot.Robot, error) {
 		return nil, err
 	}
 	// create fake source camera
+	colorSrv1 := config.Service{
+		Name:  "detector_color",
+		Type:  vision.SubtypeName,
+		Model: resource.NewDefaultModel("color_detector"),
+		Attributes: config.AttributeMap{
+			"detect_color":      "#4F3815",
+			"hue_tolerance_pct": 0.013,
+			"segment_size_px":   15000,
+		},
+	}
+	cfg.Services = append(cfg.Services, colorSrv1)
+	tfliteSrv1 := config.Service{
+		Name:  "object_classifier",
+		Type:  vision.SubtypeName,
+		Model: resource.NewDefaultModel("tflite_classifier"),
+		Attributes: config.AttributeMap{
+			"model_path":  artifact.MustPath("vision/classification/object_classifier.tflite"),
+			"label_path":  artifact.MustPath("vision/classification/object_labels.txt"),
+			"num_threads": 1,
+		},
+	}
+	cfg.Services = append(cfg.Services, tfliteSrv1)
+	tfliteSrv2 := config.Service{
+		Name:  "detector_tflite",
+		Type:  vision.SubtypeName,
+		Model: resource.NewDefaultModel("tflite_detector"),
+		Attributes: config.AttributeMap{
+			"model_path":  artifact.MustPath("vision/tflite/effdet0.tflite"),
+			"num_threads": 1,
+		},
+	}
+	cfg.Services = append(cfg.Services, tfliteSrv2)
 	cameraComp := config.Component{
 		Name:  "fake_cam",
 		Type:  camera.SubtypeName,
@@ -119,22 +152,6 @@ func TestColorDetectionSource(t *testing.T) {
 		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	}()
 
-	// add the detector
-
-	srv, err := vision.FirstFromRobot(r)
-	test.That(t, err, test.ShouldBeNil)
-	detConf := vision.VisModelConfig{
-		Name: "detector_color",
-		Type: "color_detector",
-		Parameters: config.AttributeMap{
-			"detect_color":      "#4F3815",
-			"hue_tolerance_pct": 0.013,
-			"segment_size_px":   15000,
-		},
-	}
-	err = srv.AddDetector(context.Background(), detConf, map[string]interface{}{})
-	test.That(t, err, test.ShouldBeNil)
-
 	detector, err := camera.FromRobot(r, "color_detect")
 	test.That(t, err, test.ShouldBeNil)
 	defer utils.TryClose(ctx, detector)
@@ -156,20 +173,6 @@ func TestTFLiteDetectionSource(t *testing.T) {
 	defer func() {
 		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	}()
-	test.That(t, err, test.ShouldBeNil)
-
-	// add the detector
-	srv, err := vision.FirstFromRobot(r)
-	test.That(t, err, test.ShouldBeNil)
-	detConf := vision.VisModelConfig{
-		Name: "detector_tflite",
-		Type: "tflite_detector",
-		Parameters: config.AttributeMap{
-			"model_path":  artifact.MustPath("vision/tflite/effdet0.tflite"),
-			"num_threads": 1,
-		},
-	}
-	err = srv.AddDetector(context.Background(), detConf, map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 
 	detector, err := camera.FromRobot(r, "tflite_detect")
@@ -194,20 +197,6 @@ func BenchmarkColorDetectionSource(b *testing.B) {
 		test.That(b, r.Close(context.Background()), test.ShouldBeNil)
 	}()
 	test.That(b, err, test.ShouldBeNil)
-	// add the detector
-	srv, err := vision.FirstFromRobot(r)
-	test.That(b, err, test.ShouldBeNil)
-	detConf := vision.VisModelConfig{
-		Name: "detector_color",
-		Type: "color_detector",
-		Parameters: config.AttributeMap{
-			"detect_color":      "#4F3815",
-			"hue_tolerance_pct": 0.055556,
-			"segment_size_px":   15000,
-		},
-	}
-	err = srv.AddDetector(context.Background(), detConf, map[string]interface{}{})
-	test.That(b, err, test.ShouldBeNil)
 	detector, err := camera.FromRobot(r, "color_detect")
 	test.That(b, err, test.ShouldBeNil)
 	defer utils.TryClose(ctx, detector)
@@ -229,19 +218,6 @@ func BenchmarkTFLiteDetectionSource(b *testing.B) {
 	defer func() {
 		test.That(b, r.Close(context.Background()), test.ShouldBeNil)
 	}()
-	test.That(b, err, test.ShouldBeNil)
-	// add the detector
-	srv, err := vision.FirstFromRobot(r)
-	test.That(b, err, test.ShouldBeNil)
-	detConf := vision.VisModelConfig{
-		Name: "detector_tflite",
-		Type: "tflite_detector",
-		Parameters: config.AttributeMap{
-			"model_path":  artifact.MustPath("vision/tflite/effdet0.tflite"),
-			"num_threads": 1,
-		},
-	}
-	err = srv.AddDetector(context.Background(), detConf, map[string]interface{}{})
 	test.That(b, err, test.ShouldBeNil)
 	detector, err := camera.FromRobot(r, "tflite_detect")
 	test.That(b, err, test.ShouldBeNil)
