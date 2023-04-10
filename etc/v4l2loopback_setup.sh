@@ -23,7 +23,7 @@ install_dependencies() {
 }
 
 install_kernel_headers() {
-  echo "installing kernel headers..."
+  echo "downloading kernel headers..."
   # Source: https://gist.github.com/jperkin/c37a574379ef71e339361954be96be12
   if ! grep -q "Raspberry Pi" /proc/device-tree/model ; then
     apt-get --assume-yes install "linux-headers-$(uname -r)"
@@ -31,11 +31,18 @@ install_kernel_headers() {
     return
   fi
 
-  apt install --assume-yes git bc bison flex libssl-dev python2
+  apt install --assume-yes git bc bison flex libssl-dev python2 libncurses5-dev
   wget https://raw.githubusercontent.com/RPi-Distro/rpi-source/master/rpi-source -O /usr/local/bin/rpi-source
   chmod +x /usr/local/bin/rpi-source
   rpi-source -q --tag-update
   rpi-source
+
+  echo "installing kernel headers..."
+  echo "this may take a while"
+  KERNEL_VERSION=$(uname -r)
+  # using --ignore to avoid using all available cores and grinding the OS to a halt.
+  make "-j$(nproc --ignore=1)" modules -C "/lib/modules/${KERNEL_VERSION}/source"
+  make "-j$(nproc --ignore=1)" modules_install -C "/lib/modules/${KERNEL_VERSION}/source"
   echo "done"
 }
 
