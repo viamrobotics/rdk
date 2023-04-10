@@ -44,12 +44,12 @@ func (s *subtypeServer) GetPosition(
 	if err != nil {
 		return nil, err
 	}
-	posType, err := ProtoToEncoderPositionType(req.PositionType)
+	posType := ToEncoderPositionType(req.PositionType)
 	position, positionType, err := enc.GetPosition(ctx, &posType, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
-	posType1, err := EncoderToProtoPositionType(&positionType)
+	posType1 := ToProtoPositionType(&positionType)
 	return &pb.GetPositionResponse{
 		Value:        float32(position),
 		PositionType: posType1,

@@ -110,7 +110,7 @@ func (e *Encoder) GetPosition(
 	positionType *encoder.PositionType,
 	extra map[string]interface{},
 ) (float64, encoder.PositionType, error) {
-	if positionType != nil && *positionType == encoder.PositionType_POSITION_TYPE_ANGLE_DEGREES {
+	if positionType != nil && *positionType == encoder.PositionTypeDEGREES {
 		err := errors.New("Encoder does not support PositionType Angle Degrees, use a different PositionType")
 		return 0, *positionType, err
 	}

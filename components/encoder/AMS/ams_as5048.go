@@ -154,7 +154,7 @@ func newAS5048Encoder(
 		cancelCtx:      cancelCtx,
 		cancel:         cancel,
 		logger:         logger,
-		positionType:   encoder.PositionType_POSITION_TYPE_TICKS_COUNT,
+		positionType:   encoder.PositionTypeTICKS,
 	}
 	brd, err := board.FromDependencies(deps, attr.BoardName)
 	if err != nil {
@@ -258,12 +258,12 @@ func (enc *Encoder) GetPosition(
 ) (float64, encoder.PositionType, error) {
 	enc.mu.RLock()
 	defer enc.mu.RUnlock()
-	if positionType != nil && *positionType == encoder.PositionType_POSITION_TYPE_ANGLE_DEGREES {
-		enc.positionType = encoder.PositionType_POSITION_TYPE_ANGLE_DEGREES
+	if positionType != nil && *positionType == encoder.PositionTypeDEGREES {
+		enc.positionType = encoder.PositionTypeDEGREES
 		return enc.position, enc.positionType, nil
 	}
 	ticks := float64(enc.rotations) + enc.position/360.0
-	enc.positionType = encoder.PositionType_POSITION_TYPE_TICKS_COUNT
+	enc.positionType = encoder.PositionTypeTICKS
 	return ticks, enc.positionType, nil
 }
 

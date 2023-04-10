@@ -9,7 +9,7 @@ import (
 type Feature string
 
 // TicksCountSupported and AngleDegreesSupported represesnts the feature
-// of an encoder being able to report ticks and/or degrees, respectively
+// of an encoder being able to report ticks and/or degrees, respectively.
 const (
 	TicksCountSupported   Feature = "Ticks"
 	AngleDegreesSupported Feature = "Degrees"

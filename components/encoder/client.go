@@ -39,15 +39,15 @@ func (c *client) GetPosition(
 ) (float64, PositionType, error) {
 	ext, err := structpb.NewStruct(extra)
 	if err != nil {
-		return 0, PositionType_POSITION_TYPE_UNSPECIFIED, err
+		return 0, PositionTypeUNSPECIFIED, err
 	}
-	posType, err := EncoderToProtoPositionType(positionType)
+	posType := ToProtoPositionType(positionType)
 	req := &pb.GetPositionRequest{Name: c.name, PositionType: &posType, Extra: ext}
 	resp, err := c.client.GetPosition(ctx, req)
 	if err != nil {
-		return 0, PositionType_POSITION_TYPE_UNSPECIFIED, err
+		return 0, PositionTypeUNSPECIFIED, err
 	}
-	posType1, err := ProtoToEncoderPositionType(&resp.PositionType)
+	posType1 := ToEncoderPositionType(&resp.PositionType)
 	return float64(resp.Value), posType1, nil
 }
 

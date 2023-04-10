@@ -54,18 +54,19 @@ var Subtype = resource.NewSubtype(
 // PositionType is an enum representing the encoders position type.
 type PositionType int32
 
-// PositionReporting represesnts the feature of a motor being
-// able to report its own position.
 const (
-	PositionType_POSITION_TYPE_UNSPECIFIED PositionType = 0
-	// Return type for relative encoders that report
-	// how far they've gone from a start position
-	PositionType_POSITION_TYPE_TICKS_COUNT PositionType = 1
-	// Return type for absolute encoders that report
-	// their position in degrees along the radial axis
-	PositionType_POSITION_TYPE_ANGLE_DEGREES PositionType = 2
+	// PositionTypeUNSPECIFIED is the return type for
+	// when the user has not specified a PositionType.
+	PositionTypeUNSPECIFIED PositionType = 0
+	// PositionTypeTICKS is the return type for relative encoders
+	// that report how far they've gone from a start position.
+	PositionTypeTICKS PositionType = 1
+	// PositionTypeDEGREES is the return type for absolute encoders
+	// that report their position in degrees along the radial axis.
+	PositionTypeDEGREES PositionType = 2
 )
 
+// Enum reveals the value of PositionType.
 func (x PositionType) Enum() *PositionType {
 	p := new(PositionType)
 	*p = x
@@ -199,32 +200,32 @@ func WrapWithReconfigurable(r interface{}, name resource.Name) (resource.Reconfi
 	return &reconfigurableEncoder{name: name, actual: m}, nil
 }
 
-// ProtoToEncoderPositionType takes a GetPositionResponse and returns
+// ToEncoderPositionType takes a GetPositionResponse and returns
 // an equivalent PositionType-to-int map.
-func ProtoToEncoderPositionType(positionType *pb.PositionType) (PositionType, error) {
+func ToEncoderPositionType(positionType *pb.PositionType) PositionType {
 	if positionType == nil {
-		return PositionType_POSITION_TYPE_UNSPECIFIED, nil
+		return PositionTypeUNSPECIFIED
 	}
 	if *positionType == pb.PositionType_POSITION_TYPE_ANGLE_DEGREES {
-		return PositionType_POSITION_TYPE_ANGLE_DEGREES, nil
+		return PositionTypeDEGREES
 	}
 	if *positionType == pb.PositionType_POSITION_TYPE_TICKS_COUNT {
-		return PositionType_POSITION_TYPE_TICKS_COUNT, nil
+		return PositionTypeTICKS
 	}
-	return PositionType_POSITION_TYPE_UNSPECIFIED, nil
+	return PositionTypeUNSPECIFIED
 }
 
-// EncoderToProtoPositionType takes a map of PositionType-to-int (indicating
+// ToProtoPositionType takes a map of PositionType-to-int (indicating
 // the PositionType) and converts it to a GetPositionResponse.
-func EncoderToProtoPositionType(positionType *PositionType) (pb.PositionType, error) {
+func ToProtoPositionType(positionType *PositionType) pb.PositionType {
 	if positionType == nil {
-		return pb.PositionType_POSITION_TYPE_UNSPECIFIED, nil
+		return pb.PositionType_POSITION_TYPE_UNSPECIFIED
 	}
-	if *positionType == PositionType_POSITION_TYPE_ANGLE_DEGREES {
-		return pb.PositionType_POSITION_TYPE_ANGLE_DEGREES, nil
+	if *positionType == PositionTypeDEGREES {
+		return pb.PositionType_POSITION_TYPE_ANGLE_DEGREES
 	}
-	if *positionType == PositionType_POSITION_TYPE_TICKS_COUNT {
-		return pb.PositionType_POSITION_TYPE_TICKS_COUNT, nil
+	if *positionType == PositionTypeTICKS {
+		return pb.PositionType_POSITION_TYPE_TICKS_COUNT
 	}
-	return pb.PositionType_POSITION_TYPE_UNSPECIFIED, nil
+	return pb.PositionType_POSITION_TYPE_UNSPECIFIED
 }

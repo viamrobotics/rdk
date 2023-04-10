@@ -11,7 +11,10 @@ type Encoder struct {
 	encoder.Encoder
 	DoFunc            func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	ResetPositionFunc func(ctx context.Context, extra map[string]interface{}) error
-	GetPositionFunc   func(ctx context.Context, positionType *encoder.PositionType, extra map[string]interface{}) (float64, encoder.PositionType, error)
+	GetPositionFunc   func(ctx context.Context,
+		positionType *encoder.PositionType,
+		extra map[string]interface{},
+	) (float64, encoder.PositionType, error)
 	GetPropertiesFunc func(ctx context.Context, extra map[string]interface{}) (map[encoder.Feature]bool, error)
 }
 

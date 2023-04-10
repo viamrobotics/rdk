@@ -48,7 +48,10 @@ func newFakeEncoder(
 ) (encoder.Encoder, error) {
 	e := &Encoder{
 		position:     0,
-		positionType: encoder.PositionType_POSITION_TYPE_TICKS_COUNT,
+		positionType: encoder.PositionTypeTICKS,
+	}
+	if e.positionType != encoder.PositionTypeTICKS {
+		return nil, errors.New("could not set PositionType to Ticks")
 	}
 	e.updateRate = cfg.ConvertedAttributes.(*AttrConfig).UpdateRate
 
@@ -85,7 +88,7 @@ func (e *Encoder) GetPosition(
 	positionType *encoder.PositionType,
 	extra map[string]interface{},
 ) (float64, encoder.PositionType, error) {
-	if positionType != nil && *positionType == encoder.PositionType_POSITION_TYPE_ANGLE_DEGREES {
+	if positionType != nil && *positionType == encoder.PositionTypeDEGREES {
 		err := errors.New("Encoder does not support PositionType Angle Degrees, use a different PositionType")
 		return 0, *positionType, err
 	}
