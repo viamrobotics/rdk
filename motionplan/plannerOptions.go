@@ -39,14 +39,13 @@ const (
 	// default number of times to try to smooth the path.
 	defaultSmoothIter = 20
 
-	// names of constraints.
-	defaultLinearConstraintName         = "defaultLinearConstraint"
-	defaultPseudolinearConstraintName   = "defaultPseudolinearConstraint"
-	defaultOrientationConstraintName    = "defaultOrientationConstraint"
-	defaultObstacleConstraintName       = "defaultObstacleConstraint"
-	defaultSelfCollisionConstraintName  = "defaultSelfCollisionConstraint"
-	defaultRobotCollisionConstraintName = "defaultRobotCollisionConstraint"
-	defaultJointConstraint              = "defaultJointSwingConstraint"
+	// descriptions of constraints.
+	defaultLinearConstraintDesc         = "Constraint to follow linear path"
+	defaultPseudolinearConstraintDesc   = "Constraint to follow pseudolinear path, with tolerance scaled to path length"
+	defaultOrientationConstraintDesc    = "Constraint to maintain orientation within bounds"
+	defaultObstacleConstraintDesc       = "Collision between the robot and an obstacle"
+	defaultSelfCollisionConstraintDesc  = "Collision between two robot components that are moving"
+	defaultRobotCollisionConstraintDesc = "Collision between a robot component that is moving and one that is stationary"
 
 	// When breaking down a path into smaller waypoints, add a waypoint every this many mm of movement.
 	defaultPathStepSize = 10
@@ -178,7 +177,7 @@ func (p *plannerOptions) addPbLinearConstraints(from, to spatialmath.Pose, pbCon
 		orientTol = defaultOrientationDeviation
 	}
 	constraint, pathDist := NewAbsoluteLinearInterpolatingConstraint(from, to, float64(linTol), float64(orientTol))
-	p.AddStateConstraint(defaultLinearConstraintName, constraint)
+	p.AddStateConstraint(defaultLinearConstraintDesc, constraint)
 
 	p.pathMetric = CombineMetrics(p.pathMetric, pathDist)
 }
@@ -189,6 +188,6 @@ func (p *plannerOptions) addPbOrientationConstraints(from, to spatialmath.Pose, 
 		orientTol = defaultOrientationDeviation
 	}
 	constraint, pathDist := NewSlerpOrientationConstraint(from, to, float64(orientTol))
-	p.AddStateConstraint(defaultLinearConstraintName, constraint)
+	p.AddStateConstraint(defaultLinearConstraintDesc, constraint)
 	p.pathMetric = CombineMetrics(p.pathMetric, pathDist)
 }
