@@ -151,7 +151,7 @@ const updateCloud = (pointcloud: Uint8Array) => {
   // if the PCD has a color attribute defined, convert those colors using the colorMap
   if (colors instanceof THREE.BufferAttribute) {
     for (let i = 0; i < colors.count; i += 1) {
-      colors
+
       /*
        * Probability is currently assumed to be held in the rgb field of the PCD map, on a scale of 0 to 100.
        * ticket to look into this further https://viam.atlassian.net/browse/RSDK-2605
