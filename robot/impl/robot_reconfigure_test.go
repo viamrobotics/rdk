@@ -2502,7 +2502,6 @@ func TestRemoteRobotsGold(t *testing.T) {
 				DependsOn: []string{"bar:pieceArm"},
 			},
 		},
-		Services: []config.Service{},
 		Remotes: []config.Remote{
 			{
 				Name:    "foo",
@@ -2636,6 +2635,388 @@ func TestRemoteRobotsGold(t *testing.T) {
 	utils.SelectContextOrWait(ctx, 2*time.Second)
 
 	test.That(t, rdktestutils.NewResourceNameSet(r.ResourceNames()...), test.ShouldResemble, expectedSet)
+}
+
+func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
+	loggerR := golog.NewDebugLogger("remote")
+
+	fooCfg := &config.Config{
+		Components: []config.Component{
+			{
+				Name:  "pieceArm",
+				Model: resource.NewDefaultModel("fake"),
+				ConvertedAttributes: &fake.AttrConfig{
+					ModelFilePath: "../../components/arm/fake/fake_model.json",
+				},
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      arm.SubtypeName,
+			},
+		},
+	}
+
+	ctx := context.Background()
+
+	foo, err := New(ctx, fooCfg, loggerR)
+	test.That(t, err, test.ShouldBeNil)
+
+	options, listener1, addr1 := robottestutils.CreateBaseOptionsAndListener(t)
+	err = foo.StartWeb(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
+
+	localConfig := &config.Config{
+		Components: []config.Component{
+			{
+				Name:  "arm1",
+				Model: resource.NewDefaultModel("fake"),
+				ConvertedAttributes: &fake.AttrConfig{
+					ModelFilePath: "../../components/arm/fake/fake_model.json",
+				},
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      arm.SubtypeName,
+				DependsOn: []string{"pieceArm"},
+			},
+		},
+		Remotes: []config.Remote{
+			{
+				Name:    "foo",
+				Address: addr1,
+			},
+		},
+	}
+	logger := golog.NewDebugLogger("local")
+	r, err := New(ctx, localConfig, logger)
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), r), test.ShouldBeNil)
+	}()
+	test.That(t, err, test.ShouldBeNil)
+	test.That(
+		t,
+		rdktestutils.NewResourceNameSet(r.ResourceNames()...),
+		test.ShouldResemble,
+		rdktestutils.NewResourceNameSet(
+			motion.Named(resource.DefaultServiceName),
+			vision.Named(resource.DefaultServiceName),
+			sensors.Named(resource.DefaultServiceName),
+			datamanager.Named(resource.DefaultServiceName),
+			arm.Named("foo:pieceArm"),
+			motion.Named("foo:builtin"),
+			vision.Named("foo:builtin"),
+			sensors.Named("foo:builtin"),
+			datamanager.Named("foo:builtin"),
+		),
+	)
+
+	rr, ok := r.(*localRobot)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	rr.triggerConfig <- true
+	utils.SelectContextOrWait(ctx, 2*time.Second)
+
+	expectedSet := rdktestutils.NewResourceNameSet(
+		motion.Named(resource.DefaultServiceName),
+		vision.Named(resource.DefaultServiceName),
+		sensors.Named(resource.DefaultServiceName),
+		datamanager.Named(resource.DefaultServiceName),
+		arm.Named("arm1"),
+		arm.Named("foo:pieceArm"),
+		motion.Named("foo:builtin"),
+		vision.Named("foo:builtin"),
+		sensors.Named("foo:builtin"),
+		datamanager.Named("foo:builtin"),
+	)
+
+	test.That(t, rdktestutils.NewResourceNameSet(r.ResourceNames()...), test.ShouldResemble, expectedSet)
+
+	test.That(t, foo.Close(context.Background()), test.ShouldBeNil)
+	// wait for local_robot to detect that the remote is now offline
+	utils.SelectContextOrWait(ctx, 15*time.Second)
+
+	test.That(
+		t,
+		rdktestutils.NewResourceNameSet(r.ResourceNames()...),
+		test.ShouldResemble,
+		rdktestutils.NewResourceNameSet(
+			motion.Named(resource.DefaultServiceName),
+			vision.Named(resource.DefaultServiceName),
+			sensors.Named(resource.DefaultServiceName),
+			datamanager.Named(resource.DefaultServiceName),
+		),
+	)
+
+	foo2, err := New(ctx, fooCfg, loggerR)
+	test.That(t, err, test.ShouldBeNil)
+
+	defer func() {
+		test.That(t, foo2.Close(context.Background()), test.ShouldBeNil)
+	}()
+
+	// Note: There's a slight chance this test can fail if someone else
+	// claims the port we just released by closing the server.
+	listener1, err = net.Listen("tcp", listener1.Addr().String())
+	test.That(t, err, test.ShouldBeNil)
+	options.Network.Listener = listener1
+	err = foo2.StartWeb(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
+
+	utils.SelectContextOrWait(ctx, 26*time.Second)
+
+	rr, ok = r.(*localRobot)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	rr.triggerConfig <- true
+
+	utils.SelectContextOrWait(ctx, 2*time.Second)
+
+	test.That(t, rdktestutils.NewResourceNameSet(r.ResourceNames()...), test.ShouldResemble, expectedSet)
+}
+
+func TestInferRemoteRobotDependencyConnectAfterStartup(t *testing.T) {
+	loggerR := golog.NewDebugLogger("remote")
+
+	fooCfg := &config.Config{
+		Components: []config.Component{
+			{
+				Name:  "pieceArm",
+				Model: resource.NewDefaultModel("fake"),
+				ConvertedAttributes: &fake.AttrConfig{
+					ModelFilePath: "../../components/arm/fake/fake_model.json",
+				},
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      arm.SubtypeName,
+			},
+		},
+	}
+
+	ctx := context.Background()
+
+	foo, err := New(ctx, fooCfg, loggerR)
+	test.That(t, err, test.ShouldBeNil)
+
+	options, _, addr1 := robottestutils.CreateBaseOptionsAndListener(t)
+
+	localConfig := &config.Config{
+		Components: []config.Component{
+			{
+				Name:  "arm1",
+				Model: resource.NewDefaultModel("fake"),
+				ConvertedAttributes: &fake.AttrConfig{
+					ModelFilePath: "../../components/arm/fake/fake_model.json",
+				},
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      arm.SubtypeName,
+				DependsOn: []string{"pieceArm"},
+			},
+		},
+		Remotes: []config.Remote{
+			{
+				Name:    "foo",
+				Address: addr1,
+			},
+		},
+	}
+	logger := golog.NewDebugLogger("local")
+	r, err := New(ctx, localConfig, logger)
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), r), test.ShouldBeNil)
+	}()
+	test.That(t, err, test.ShouldBeNil)
+	test.That(
+		t,
+		rdktestutils.NewResourceNameSet(r.ResourceNames()...),
+		test.ShouldResemble,
+		rdktestutils.NewResourceNameSet(
+			motion.Named(resource.DefaultServiceName),
+			vision.Named(resource.DefaultServiceName),
+			sensors.Named(resource.DefaultServiceName),
+			datamanager.Named(resource.DefaultServiceName),
+		),
+	)
+	err = foo.StartWeb(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
+
+	rr, ok := r.(*localRobot)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	utils.SelectContextOrWait(ctx, 15*time.Second)
+	rr.triggerConfig <- true
+	utils.SelectContextOrWait(ctx, 2*time.Second)
+
+	expectedSet := rdktestutils.NewResourceNameSet(
+		motion.Named(resource.DefaultServiceName),
+		vision.Named(resource.DefaultServiceName),
+		sensors.Named(resource.DefaultServiceName),
+		datamanager.Named(resource.DefaultServiceName),
+		arm.Named("arm1"),
+		arm.Named("foo:pieceArm"),
+		motion.Named("foo:builtin"),
+		vision.Named("foo:builtin"),
+		sensors.Named("foo:builtin"),
+		datamanager.Named("foo:builtin"),
+	)
+
+	test.That(t, rdktestutils.NewResourceNameSet(r.ResourceNames()...), test.ShouldResemble, expectedSet)
+
+	test.That(t, foo.Close(context.Background()), test.ShouldBeNil)
+	// wait for local_robot to detect that the remote is now offline
+	utils.SelectContextOrWait(ctx, 15*time.Second)
+
+	test.That(
+		t,
+		rdktestutils.NewResourceNameSet(r.ResourceNames()...),
+		test.ShouldResemble,
+		rdktestutils.NewResourceNameSet(
+			motion.Named(resource.DefaultServiceName),
+			vision.Named(resource.DefaultServiceName),
+			sensors.Named(resource.DefaultServiceName),
+			datamanager.Named(resource.DefaultServiceName),
+		),
+	)
+}
+func TestInferRemoteRobotDependencyAmbiguous(t *testing.T) {
+	loggerR := golog.NewDebugLogger("remote")
+
+	remoteCfg := &config.Config{
+		Components: []config.Component{
+			{
+				Name:  "pieceArm",
+				Model: resource.NewDefaultModel("fake"),
+				ConvertedAttributes: &fake.AttrConfig{
+					ModelFilePath: "../../components/arm/fake/fake_model.json",
+				},
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      arm.SubtypeName,
+			},
+		},
+	}
+
+	ctx := context.Background()
+
+	foo, err := New(ctx, remoteCfg, loggerR)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, foo.Close(context.Background()), test.ShouldBeNil)
+	}()
+
+	bar, err := New(ctx, remoteCfg, loggerR)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, bar.Close(context.Background()), test.ShouldBeNil)
+	}()
+
+	options1, _, addr1 := robottestutils.CreateBaseOptionsAndListener(t)
+	err = foo.StartWeb(ctx, options1)
+	test.That(t, err, test.ShouldBeNil)
+
+	options2, _, addr2 := robottestutils.CreateBaseOptionsAndListener(t)
+	err = bar.StartWeb(ctx, options2)
+	test.That(t, err, test.ShouldBeNil)
+
+	localConfig := &config.Config{
+		Components: []config.Component{
+			{
+				Name:  "arm1",
+				Model: resource.NewDefaultModel("fake"),
+				ConvertedAttributes: &fake.AttrConfig{
+					ModelFilePath: "../../components/arm/fake/fake_model.json",
+				},
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      arm.SubtypeName,
+				DependsOn: []string{"pieceArm"},
+			},
+		},
+		Remotes: []config.Remote{
+			{
+				Name:    "foo",
+				Address: addr1,
+			},
+			{
+				Name:    "bar",
+				Address: addr2,
+			},
+		},
+	}
+	logger := golog.NewDebugLogger("local")
+	r, err := New(ctx, localConfig, logger)
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), r), test.ShouldBeNil)
+	}()
+	test.That(t, err, test.ShouldBeNil)
+
+	expectedSet := rdktestutils.NewResourceNameSet(
+		motion.Named(resource.DefaultServiceName),
+		vision.Named(resource.DefaultServiceName),
+		sensors.Named(resource.DefaultServiceName),
+		datamanager.Named(resource.DefaultServiceName),
+		arm.Named("foo:pieceArm"),
+		motion.Named("foo:builtin"),
+		vision.Named("foo:builtin"),
+		sensors.Named("foo:builtin"),
+		datamanager.Named("foo:builtin"),
+		arm.Named("bar:pieceArm"),
+		motion.Named("bar:builtin"),
+		vision.Named("bar:builtin"),
+		sensors.Named("bar:builtin"),
+		datamanager.Named("bar:builtin"),
+	)
+
+	test.That(t, rdktestutils.NewResourceNameSet(r.ResourceNames()...), test.ShouldResemble, expectedSet)
+
+	rr, ok := r.(*localRobot)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	rr.triggerConfig <- true
+	utils.SelectContextOrWait(ctx, 2*time.Second)
+
+	// we expect the robot to correctly detect the ambiguous dependency and not build the resource
+	test.That(t, rdktestutils.NewResourceNameSet(r.ResourceNames()...), test.ShouldResemble, expectedSet)
+
+	// now reconfig with a fully qualified name
+	reConfig := &config.Config{
+		Components: []config.Component{
+			{
+				Name:  "arm1",
+				Model: resource.NewDefaultModel("fake"),
+				ConvertedAttributes: &fake.AttrConfig{
+					ModelFilePath: "../../components/arm/fake/fake_model.json",
+				},
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      arm.SubtypeName,
+				DependsOn: []string{"foo:pieceArm"},
+			},
+		},
+		Remotes: []config.Remote{
+			{
+				Name:    "foo",
+				Address: addr1,
+			},
+			{
+				Name:    "bar",
+				Address: addr2,
+			},
+		},
+	}
+	r.Reconfigure(ctx, reConfig)
+	utils.SelectContextOrWait(ctx, 15*time.Second)
+
+	finalSet := rdktestutils.NewResourceNameSet(
+		motion.Named(resource.DefaultServiceName),
+		vision.Named(resource.DefaultServiceName),
+		sensors.Named(resource.DefaultServiceName),
+		datamanager.Named(resource.DefaultServiceName),
+		arm.Named("foo:pieceArm"),
+		motion.Named("foo:builtin"),
+		vision.Named("foo:builtin"),
+		sensors.Named("foo:builtin"),
+		datamanager.Named("foo:builtin"),
+		arm.Named("bar:pieceArm"),
+		motion.Named("bar:builtin"),
+		vision.Named("bar:builtin"),
+		sensors.Named("bar:builtin"),
+		datamanager.Named("bar:builtin"),
+		arm.Named("arm1"),
+	)
+
+	test.That(t, rdktestutils.NewResourceNameSet(r.ResourceNames()...), test.ShouldResemble, finalSet)
 }
 
 type mockFake struct {
