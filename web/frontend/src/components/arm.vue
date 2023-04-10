@@ -1,5 +1,4 @@
 <script setup lang="ts">
-
 import { ArmClient, Client, type ServiceError } from '@viamrobotics/sdk';
 import { copyToClipboardWithToast } from '../lib/copy-to-clipboard';
 import { displayError } from '../lib/error';
@@ -71,7 +70,7 @@ const armModifyAllDoEndPosition = async () => {
 
   for (const newPiece of newPieces) {
     const [, poseField] = newPiece.endPosition;
-    const field = poseField!.toLowerCase() as Field;
+    const field = poseField! as Field;
     newPose[field] = newPiece.endPositionValue;
   }
   try {
@@ -119,12 +118,15 @@ const armEndPositionInc = async (updateField: string, amount: number) => {
   };
 
   for (const [endPositionField, poseField] of fieldMap) {
+    console.debug('old', old);
+    console.debug('field map', endPositionField, '->', poseField);
+
     const endPositionValue = old[endPositionField] || 0;
-    const field : Field = poseField.toLowerCase() as Field;
+    const field: Field = poseField as Field;
     newPose[field] = endPositionValue;
   }
 
-  const field : Field = updateField.toLowerCase() as Field;
+  const field: Field = updateField as Field;
   newPose[field] += adjustedAmount;
 
   try {
