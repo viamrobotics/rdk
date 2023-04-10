@@ -51473,6 +51473,10 @@
         "hash": "90790cb342b79585a67dc2e4ad5d8be6",
         "size": 88663
       },
+      "lorem.txt": {
+        "hash": "f668c7c4651f39df473a8355fef9fa38",
+        "size": 1162
+      },
       "object_classifier.tflite": {
         "hash": "947c25596dab54a519e08a3d7dfaf6fd",
         "size": 4276352
