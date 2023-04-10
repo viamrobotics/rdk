@@ -23,6 +23,7 @@ const props = defineProps<{
   pose?: commonApi.Pose
   destExists?: boolean
   destVector?: THREE.Vector3
+  axes?: boolean
 }
 >();
 
@@ -190,29 +191,35 @@ const updateCloud = (pointcloud: Uint8Array) => {
   intersectionPlane.position.set(center.x, 0, center.z);
   raycaster.objects = [intersectionPlane];
 
-  // construct grids
-  const axesHelper1 = new THREE.AxesHelper( 5 );
-  axesHelper1.position.set(center.x, 0, center.z);
-  axesHelper1.rotateY(Math.PI/2)
-  axesHelper1.scale.x = 1e5
-  axesHelper1.scale.z = 1e5
-  axesHelper1.renderOrder = 998
-  
-  const axesHelper2 = new THREE.AxesHelper( 5 );
-  axesHelper2.position.set(center.x, 0, center.z);
-  axesHelper2.rotateY(-Math.PI/2)
-  axesHelper2.scale.x = 1e5
-  axesHelper2.scale.z = 1e5
-  axesHelper2.renderOrder = 997
+  if (props.axes == true) {
+      // construct grids
+      const axesHelper1 = new THREE.AxesHelper( 5 );
+      axesHelper1.position.set(center.x, 0, center.z);
+      axesHelper1.rotateY(Math.PI/2)
+      axesHelper1.scale.x = 1e5
+      axesHelper1.scale.z = 1e5
+      axesHelper1.renderOrder = 998
+      axesHelper1.name = "axes1"
+      
+      const axesHelper2 = new THREE.AxesHelper( 5 );
+      axesHelper2.position.set(center.x, 0, center.z);
+      axesHelper2.rotateY(-Math.PI/2)
+      axesHelper2.scale.x = 1e5
+      axesHelper2.scale.z = 1e5
+      axesHelper2.renderOrder = 997
+      axesHelper2.name = "axes2"
 
-  const gridHelper = new THREE.GridHelper( 1000, 100, 0xCACACA, 0xCACACA ); // this needs to be updated so it is set to 1m
-  gridHelper.position.set(center.x, 0, center.z);
-  gridHelper.renderOrder = 996;
+      const gridHelper = new THREE.GridHelper( 1000, 100, 0xCACACA, 0xCACACA ); // this needs to be updated so it is set to 1m
+      gridHelper.position.set(center.x, 0, center.z);
+      gridHelper.renderOrder = 996;
+      gridHelper.name = "grid"
 
-  // add objects to scene  
-  scene.add(axesHelper1);
-  scene.add(axesHelper2);
-  scene.add(gridHelper);
+      // add objects to scene  
+      scene.add(axesHelper1);
+      scene.add(axesHelper2);
+      scene.add(gridHelper);
+  }
+
   scene.add(points);
   scene.add(intersectionPlane);  
   updatePose(props.pose!)

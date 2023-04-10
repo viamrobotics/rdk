@@ -25,6 +25,7 @@ let pointCloudUpdateCount = $ref(0);
 let pointcloud = $ref<Uint8Array | undefined>();
 let pose = $ref<commonApi.Pose | undefined>();
 let show2d = $ref(false);
+let showAxes = $ref(false);
 let refresh2DCancelled = true;
 let updatedDest = $ref(false);
 let threeJPos = $ref(new THREE.Vector3( ));
@@ -280,6 +281,11 @@ const executeDelete = () => {
   threeJPos = new THREE.Vector3()
 }
 
+const toggleAxes = () => {
+  console.log('toggled axes')
+  showAxes = true
+}
+
 </script>
 
 <template>
@@ -399,6 +405,11 @@ const executeDelete = () => {
               icon="play-circle-filled"
               @click="executeMove()"
             />
+            <v-switch
+            label="Show Axes"
+            :value="showAxes  ? 'true' : 'false'"
+            @input="toggleAxes()"
+            />
           </div>
         </div>
         <div class="justify-start gap-4 sm:border-l border-black">
@@ -445,6 +456,7 @@ const executeDelete = () => {
               :client="client"
               :dest-exists='updatedDest'
               :dest-vector='threeJPos'
+              :axes="showAxes"
               @click="handle2dRenderClick($event)"
            />
         </div>
