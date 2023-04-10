@@ -85,19 +85,19 @@ const makeMarker = async (url : string, name: string, scalar: number) => {
 
     const path = paths[ i ];
 
-    const fillColor = path?.userData!.style.fill;
+    const fillColor = path!.userData!.style.fill;
     
     if ( guiData.drawFillShapes && fillColor !== undefined && fillColor !== 'none' ) {
       const material = new THREE.MeshBasicMaterial( {
         color: new THREE.Color().setStyle( fillColor ).convertSRGBToLinear(),
-        opacity: path.userData!.style.fillOpacity,
+        opacity: path!.userData!.style.fillOpacity,
         transparent: true,
         side: THREE.DoubleSide,
         depthWrite: false,
         wireframe: guiData.fillShapesWireframe
       } );
 
-      const shapes = SVGLoader.createShapes( path );
+      const shapes = SVGLoader.createShapes( path! );
 
       for ( let j = 0; j < shapes.length; j ++ ) {
 
@@ -111,22 +111,22 @@ const makeMarker = async (url : string, name: string, scalar: number) => {
 
     }
 
-    const strokeColor = path.userData!.style.stroke;
+    const strokeColor = path!.userData!.style.stroke;
 
     if ( guiData.drawStrokes && strokeColor !== undefined && strokeColor !== 'none' ) {
 
       const material = new THREE.MeshBasicMaterial( {
         color: new THREE.Color().setStyle( strokeColor ).convertSRGBToLinear(),
-        opacity: path.userData!.style.strokeOpacity,
+        opacity: path!.userData!.style.strokeOpacity,
         transparent: true,
         side: THREE.DoubleSide,
         depthWrite: false,
         wireframe: guiData.strokesWireframe
       } );
 
-      for ( let j = 0, jl = path.subPaths.length; j < jl; j ++ ) {
-        const subPath = path.subPaths[ j ];
-        const geometry = SVGLoader.pointsToStroke( subPath.getPoints(), path.userData!.style );
+      for ( let j = 0, jl = path!.subPaths.length; j < jl; j ++ ) {
+        const subPath = path!.subPaths[ j ];
+        const geometry = SVGLoader.pointsToStroke( subPath.getPoints(), path!.userData!.style );
 
         if ( geometry ) {
           const mesh = new THREE.Mesh( geometry.rotateX(-Math.PI / 2).rotateY(Math.PI), material );
@@ -143,7 +143,7 @@ const makeMarker = async (url : string, name: string, scalar: number) => {
 
 const disposeScene = () => {
   scene.traverse((object) => {
-    if (object.name === 'Base') {
+    if (object.name === 'Base' || object.name === 'Marker') {
       return;
     }
 
@@ -283,11 +283,19 @@ watch(() => [props.destVector?.x, props.destVector?.z, props.destExists], async 
 
 watch(() => props.axes, () => {
   const ax1 =  scene.getObjectByName('Axes1')
-  ax1.visible = props.axes
+  if (ax1 != undefined) {
+    ax1.visible = props.axes
+  }
+  
   const ax2 =  scene.getObjectByName('Axes2')
-  ax2.visible = props.axes
+  if (ax2 != undefined) {
+    ax2.visible = props.axes
+  }
+  
   const grid = scene.getObjectByName('Grid')
-  grid.visible = props.axes
+  if (grid != undefined) {
+    grid.visible = props.axes
+  }
 });
 
 watch(() => props.pose, (newPose) => {
