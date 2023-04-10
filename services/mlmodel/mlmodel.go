@@ -31,7 +31,6 @@ func init() {
 		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
 			return NewClientFromConn(ctx, conn, name, logger)
 		},
-		MaxInstance: resource.DefaultMaxInstance,
 	})
 }
 

@@ -40,7 +40,7 @@ import (
 	"go.viam.com/rdk/services/sensors"
 	_ "go.viam.com/rdk/services/sensors/builtin"
 	"go.viam.com/rdk/services/vision"
-	_ "go.viam.com/rdk/services/vision/builtin"
+	_ "go.viam.com/rdk/services/vision/register"
 	rdktestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/robottestutils"
 )
