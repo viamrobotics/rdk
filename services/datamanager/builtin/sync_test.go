@@ -395,7 +395,7 @@ func TestArbitraryFileUpload(t *testing.T) {
 			svcConfig.ScheduledSyncDisabled = tc.scheduleSyncDisabled
 			svcConfig.SyncIntervalMins = syncIntervalMins
 			svcConfig.AdditionalSyncPaths = []string{additionalPathsDir}
-			//	svcConfig.AdditionalTags = [][]string()
+			svcConfig.AdditionalTags = make([][]string, 1)
 			tags := []string{"a", "b"}
 			svcConfig.AdditionalTags[0] = tags
 			svcConfig.CaptureDir = captureDir
