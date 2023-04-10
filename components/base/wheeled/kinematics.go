@@ -58,8 +58,7 @@ func (kwb *kinematicWheeledBase) buildModel(ctx context.Context) (referenceframe
 	}
 
 	// get the limits of the SLAM map to set as the extents of the frame
-	// TODO(RSDK-2393): figure out how to get the slam name here to make the proper call to this method
-	data, err := slam.GetPointCloudMapFull(ctx, kwb.slam, "")
+	data, err := slam.GetPointCloudMapFull(ctx, kwb.slam)
 	if err != nil {
 		return nil, err
 	}

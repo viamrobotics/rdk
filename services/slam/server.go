@@ -52,7 +52,7 @@ func (server *subtypeServer) GetPosition(ctx context.Context, req *pb.GetPositio
 		return nil, err
 	}
 
-	p, componentReference, err := svc.GetPosition(ctx, req.Name)
+	p, componentReference, err := svc.GetPosition(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -78,7 +78,7 @@ func (server *subtypeServer) GetPointCloudMap(req *pb.GetPointCloudMapRequest,
 		return err
 	}
 
-	f, err := svc.GetPointCloudMap(ctx, req.Name)
+	f, err := svc.GetPointCloudMap(ctx)
 	if err != nil {
 		return errors.Wrap(err, "getting callback function from GetPointCloudMap encountered an issue")
 	}
@@ -116,7 +116,7 @@ func (server *subtypeServer) GetInternalState(req *pb.GetInternalStateRequest,
 		return err
 	}
 
-	f, err := svc.GetInternalState(ctx, req.Name)
+	f, err := svc.GetInternalState(ctx)
 	if err != nil {
 		return err
 	}
