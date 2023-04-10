@@ -25,9 +25,13 @@ func TestColorDetector(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	img, err := rimage.NewImageFromFile(artifact.MustPath("vision/objectdetection/detection_test.jpg"))
 	test.That(t, err, test.ShouldBeNil)
+
+	// Does implement Detections
 	det, err := srv.Detections(ctx, img, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, det, test.ShouldHaveLength, 1)
+
+	// Does not implement Classifications
 	_, err = srv.Classifications(ctx, img, 1, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "does not implement")
