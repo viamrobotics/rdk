@@ -13,11 +13,16 @@ import (
 func TestNewTFLiteCPUModel(t *testing.T) {
 	ctx := context.Background()
 	modelLoc := artifact.MustPath("vision/tflite/effdet0.tflite")
+	modelLoc2 := artifact.MustPath("vision/tflite/effnet0.tflite")
 
 	emptyCfg := TFLiteConfig{}
 	cfg := TFLiteConfig{
 		ModelPath:  modelLoc,
-		NumThreads: 1,
+		NumThreads: 2,
+	}
+	cfg2 := TFLiteConfig{
+		ModelPath:  modelLoc2,
+		NumThreads: 2,
 	}
 
 	// Test that empty config gives error about loading model
@@ -63,4 +68,10 @@ func TestNewTFLiteCPUModel(t *testing.T) {
 
 	// TODO: Khari. Make sure that the values are actually CORRECT, not just there.
 	// To also do: Test the tflite classifier and make sure it's vibing too
+
+	pic2, err := rimage.NewImageFromFile(artifact.MustPath("vision/tflite/lion.jpeg"))
+	test.That(t, err, test.ShouldBeNil)
+	imgBytes2 := rimage.ImageToUInt8Buffer(pic2)
+	test.That(t, imgBytes2, test.ShouldNotBeNil)
+
 }
