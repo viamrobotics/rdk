@@ -56,18 +56,26 @@ var xArm6modeljson []byte
 //go:embed xarm7_kinematics.json
 var xArm7modeljson []byte
 
+//go:embed xarmlite_kinematics.json
+var xArmLitemodeljson []byte
+
 // ModelName6DOF is a function used to get the string used to refer to the xarm model of 6 dof.
 var ModelName6DOF = resource.NewDefaultModel("xArm6")
 
 // ModelName7DOF is a function used to get the string used to refer to the xarm model of 7 dof.
 var ModelName7DOF = resource.NewDefaultModel("xArm7")
 
+// ModelNameLite is a function used to get the string used to refer to the xarm lite model of 6 dof.
+var ModelNameLite = resource.NewDefaultModel("xArmLite")
+
 // Model returns the kinematics model of the xarm arm, also has all Frame information.
-func Model(name string, dof int) (referenceframe.Model, error) {
-	switch dof {
-	case 6:
+func Model(name string, modelName resource.ModelName) (referenceframe.Model, error) {
+	switch modelName {
+	case ModelName6DOF.Name:
 		return referenceframe.UnmarshalModelJSON(xArm6modeljson, name)
-	case 7:
+	case ModelNameLite.Name:
+		return referenceframe.UnmarshalModelJSON(xArmLitemodeljson, name)
+	case ModelName7DOF.Name:
 		return referenceframe.UnmarshalModelJSON(xArm7modeljson, name)
 	default:
 		return nil, errors.New("no kinematics model for xarm with specified degrees of freedom")
@@ -78,7 +86,7 @@ func init() {
 	// xArm6
 	registry.RegisterComponent(arm.Subtype, ModelName6DOF, registry.Component{
 		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-			return NewxArm(ctx, config, logger, 6)
+			return NewxArm(ctx, config, logger, ModelName6DOF.Name)
 		},
 	})
 
@@ -93,7 +101,7 @@ func init() {
 	// xArm7
 	registry.RegisterComponent(arm.Subtype, ModelName7DOF, registry.Component{
 		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-			return NewxArm(ctx, config, logger, 7)
+			return NewxArm(ctx, config, logger, ModelName7DOF.Name)
 		},
 	})
 	config.RegisterComponentAttributeMapConverter(arm.Subtype, ModelName7DOF,
@@ -103,10 +111,24 @@ func init() {
 		},
 		&AttrConfig{},
 	)
+
+	// xArmLite
+	registry.RegisterComponent(arm.Subtype, ModelNameLite, registry.Component{
+		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
+			return NewxArm(ctx, config, logger, ModelNameLite.Name)
+		},
+	})
+	config.RegisterComponentAttributeMapConverter(arm.Subtype, ModelNameLite,
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf AttrConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		},
+		&AttrConfig{},
+	)
 }
 
-// NewxArm returns a new xArm with the specified dof.
-func NewxArm(ctx context.Context, cfg config.Component, logger golog.Logger, dof int) (arm.LocalArm, error) {
+// NewxArm returns a new xArm of the specified modelName.
+func NewxArm(ctx context.Context, cfg config.Component, logger golog.Logger, modelName resource.ModelName) (arm.LocalArm, error) {
 	armCfg := cfg.ConvertedAttributes.(*AttrConfig)
 
 	if armCfg.Host == "" {
@@ -128,10 +150,12 @@ func NewxArm(ctx context.Context, cfg config.Component, logger golog.Logger, dof
 		return nil, err
 	}
 
-	model, err := Model(cfg.Name, dof)
+	model, err := Model(cfg.Name, modelName)
 	if err != nil {
 		return nil, err
 	}
+	
+	dof := len(model.DoF())
 
 	xA := xArm{
 		dof:     dof,
