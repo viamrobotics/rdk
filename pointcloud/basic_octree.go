@@ -165,6 +165,7 @@ func (octree *BasicOctree) CollidesWithGeometry(geom spatialmath.Geometry, thres
 				return true, nil
 			}
 		}
+		return false, nil
 	case leafNodeEmpty:
 		return false, nil
 	case leafNodeFilled:
@@ -177,9 +178,7 @@ func (octree *BasicOctree) CollidesWithGeometry(geom spatialmath.Geometry, thres
 		if err != nil {
 			return false, err
 		}
-		if ptCollide {
-			return true, nil
-		}
+		return ptCollide, nil
 	}
-	return false, nil
+	return false, errors.New("unknown octree node type")
 }
