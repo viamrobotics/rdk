@@ -24,7 +24,7 @@ func TestEncoder(t *testing.T) {
 		pos, positionType, err := e.GetPosition(ctx, nil, nil)
 		test.That(t, pos, test.ShouldEqual, 0)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, positionType, test.ShouldEqual, encoder.PositionType_POSITION_TYPE_TICKS_COUNT)
+		test.That(t, positionType, test.ShouldEqual, encoder.PositionTypeTICKS)
 
 		e1 := e.(*Encoder)
 
@@ -49,10 +49,10 @@ func TestEncoder(t *testing.T) {
 	t.Run("specify a type", func(t *testing.T) {
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			ticks, positionType, err := e.GetPosition(context.Background(), encoder.PositionType_POSITION_TYPE_TICKS_COUNT.Enum(), nil)
+			ticks, positionType, err := e.GetPosition(context.Background(), encoder.PositionTypeTICKS.Enum(), nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, ticks, test.ShouldEqual, 0)
-			test.That(tb, positionType, test.ShouldEqual, encoder.PositionType_POSITION_TYPE_TICKS_COUNT)
+			test.That(tb, positionType, test.ShouldEqual, encoder.PositionTypeTICKS)
 		})
 	})
 	t.Run("get properties", func(t *testing.T) {

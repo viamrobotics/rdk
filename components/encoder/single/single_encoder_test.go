@@ -191,10 +191,10 @@ func TestEnconder(t *testing.T) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			ticks, positionType, err := enc.GetPosition(context.Background(), encoder.PositionType_POSITION_TYPE_TICKS_COUNT.Enum(), nil)
+			ticks, positionType, err := enc.GetPosition(context.Background(), encoder.PositionTypeTICKS.Enum(), nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, ticks, test.ShouldEqual, 1)
-			test.That(tb, positionType, test.ShouldEqual, encoder.PositionType_POSITION_TYPE_TICKS_COUNT)
+			test.That(tb, positionType, test.ShouldEqual, encoder.PositionTypeTICKS)
 		})
 	})
 	t.Run("specify wrong position type", func(t *testing.T) {
@@ -211,10 +211,10 @@ func TestEnconder(t *testing.T) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			ticks, positionType, err := enc.GetPosition(context.Background(), encoder.PositionType_POSITION_TYPE_ANGLE_DEGREES.Enum(), nil)
+			ticks, positionType, err := enc.GetPosition(context.Background(), encoder.PositionTypeDEGREES.Enum(), nil)
 			test.That(tb, err, test.ShouldNotBeNil)
 			test.That(tb, ticks, test.ShouldEqual, 0)
-			test.That(tb, positionType, test.ShouldEqual, encoder.PositionType_POSITION_TYPE_ANGLE_DEGREES)
+			test.That(tb, positionType, test.ShouldEqual, encoder.PositionTypeDEGREES)
 		})
 	})
 	t.Run("get properties", func(t *testing.T) {

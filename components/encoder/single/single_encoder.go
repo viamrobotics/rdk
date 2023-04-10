@@ -137,7 +137,7 @@ func NewSingleEncoder(
 		CancelCtx:    cancelCtx,
 		cancelFunc:   cancelFunc,
 		position:     0,
-		positionType: encoder.PositionType_POSITION_TYPE_TICKS_COUNT,
+		positionType: encoder.PositionTypeTICKS,
 	}
 
 	board, err := board.FromDependencies(deps, cfg.BoardName)
@@ -197,7 +197,7 @@ func (e *Encoder) GetPosition(
 	positionType *encoder.PositionType,
 	extra map[string]interface{},
 ) (float64, encoder.PositionType, error) {
-	if positionType != nil && *positionType == encoder.PositionType_POSITION_TYPE_ANGLE_DEGREES {
+	if positionType != nil && *positionType == encoder.PositionTypeDEGREES {
 		err := encoder.NewEncoderTypeUnsupportedError(*positionType)
 		return 0, *positionType, err
 	}

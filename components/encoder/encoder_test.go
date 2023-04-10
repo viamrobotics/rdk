@@ -188,7 +188,10 @@ func TestReconfigurableEncoder(t *testing.T) {
 
 	test.That(t, actualEncoder1.posCount, test.ShouldEqual, 0)
 	test.That(t, actualEncoder2.posCount, test.ShouldEqual, 0)
-	result, _, err := reconfEncoder1.(encoder.Encoder).GetPosition(context.Background(), encoder.PositionType_POSITION_TYPE_UNSPECIFIED.Enum(), nil)
+	result, _, err := reconfEncoder1.(encoder.Encoder).GetPosition(
+		context.Background(),
+		encoder.PositionTypeUNSPECIFIED.Enum(),
+		nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldResemble, position)
 	test.That(t, actualEncoder1.posCount, test.ShouldEqual, 0)
@@ -225,7 +228,7 @@ func TestGetPosition(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pos1, test.ShouldResemble, position)
 	test.That(t, actualEncoder1.posCount, test.ShouldEqual, 1)
-	test.That(t, positionType, test.ShouldEqual, encoder.PositionType_POSITION_TYPE_UNSPECIFIED)
+	test.That(t, positionType, test.ShouldEqual, encoder.PositionTypeUNSPECIFIED)
 
 	props, err := reconfEncoder1.(encoder.Encoder).GetProperties(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
@@ -273,7 +276,7 @@ func (m *mock) GetPosition(
 ) (float64, encoder.PositionType, error) {
 	m.posCount++
 	m.extra = extra
-	return position, encoder.PositionType_POSITION_TYPE_UNSPECIFIED, nil
+	return position, encoder.PositionTypeUNSPECIFIED, nil
 }
 
 func (m *mock) GetProperties(ctx context.Context, extra map[string]interface{}) (map[encoder.Feature]bool, error) {
