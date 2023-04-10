@@ -161,8 +161,11 @@ func (base *wheeledBase) Spin(ctx context.Context, angleDeg, degsPerSec float64,
 	// Stop the motors if the speed is 0
 	if math.Abs(degsPerSec) < 0.0001 {
 		if err := base.Stop(ctx, nil); err != nil {
-			return err
+			return errors.Errorf("error when trying to spin at a speed of 0: %v", err)
 		}
+		// returns if the base spin speed is less than 0.001
+		base.logger.Debugf("base %s received n angular speed for Spin that is less than theminimum, not moving")
+		return nil
 	}
 	// Spin math
 	rpm, revolutions := base.spinMath(angleDeg, degsPerSec)
