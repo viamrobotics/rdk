@@ -20,14 +20,17 @@ import (
 	"go.viam.com/test"
 )
 
+type simpleDetector struct{}
+
+func (s *simpleDetector) Detect(context.Context, image.Image) ([]objectdetection.Detection, error) {
+	det1 := objectdetection.NewDetection(image.Rect(10, 10, 20, 20), 0.5, "yes")
+	return []objectdetection.Detection{det1}, nil
+}
+
 func Test3DSegmentsFromDetector(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	r := &inject.Robot{}
-	simpleDetector := func(context.Context, image.Image) ([]objectdetection.Detection, error) {
-		det1 := objectdetection.NewDetection(image.Rect(10, 10, 20, 20), 0.5, "yes")
-		return []objectdetection.Detection{det1}, nil
-	}
-	svc, err := vision.NewService("testDetector", objectdetection.Detector(simpleDetector), r)
+	svc, err := vision.NewService("testDetector", &simpleDetector{}, r)
 	test.That(t, err, test.ShouldBeNil)
 	cam := &inject.Camera{}
 	cam.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
@@ -98,8 +101,12 @@ func Test3DSegmentsFromDetector(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(objects), test.ShouldEqual, 1)
 	test.That(t, objects[0].Size(), test.ShouldEqual, 2)
-	// does not implement detector
-	_, err = seg.Detections(context.Background(), nil, nil)
+	// does  implement detector
+	dets, err := seg.Detections(context.Background(), nil, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(dets), test.ShouldEqual, 1)
+	// does not implement classifier
+	_, err = seg.Classifications(context.Background(), nil, 1, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "does not implement")
 }
