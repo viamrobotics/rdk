@@ -58,7 +58,7 @@ func TestNewTFLiteCPUModel(t *testing.T) {
 	// Test that the Infer() works on detector
 	pic, err := rimage.NewImageFromFile(artifact.MustPath("vision/tflite/dogscute.jpeg"))
 	test.That(t, err, test.ShouldBeNil)
-	resized := resize.Resize(uint(got.model.Info.InputWidth), uint(got.model.Info.InputHeight), pic, resize.Bilinear)
+	resized := resize.Resize(uint(got.metadata.Inputs[0].Shape[1]), uint(got.metadata.Inputs[0].Shape[2]), pic, resize.Bilinear)
 	imgBytes := rimage.ImageToUInt8Buffer(resized)
 	test.That(t, imgBytes, test.ShouldNotBeNil)
 	inputMap := make(map[string]interface{})
@@ -96,7 +96,7 @@ func TestNewTFLiteCPUModel(t *testing.T) {
 	// Test that the Infer() works on a classifier
 	pic2, err := rimage.NewImageFromFile(artifact.MustPath("vision/tflite/lion.jpeg"))
 	test.That(t, err, test.ShouldBeNil)
-	resized2 := resize.Resize(uint(got2.model.Info.InputWidth), uint(got2.model.Info.InputHeight), pic2, resize.Bilinear)
+	resized2 := resize.Resize(uint(got2.metadata.Inputs[0].Shape[1]), uint(got2.metadata.Inputs[0].Shape[2]), pic2, resize.Bilinear)
 	imgBytes2 := rimage.ImageToUInt8Buffer(resized2)
 	test.That(t, imgBytes2, test.ShouldNotBeNil)
 	inputMap2 := make(map[string]interface{})

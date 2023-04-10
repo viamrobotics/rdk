@@ -147,6 +147,7 @@ func (m *Model) Metadata(ctx context.Context) (mlmodel.MLMetadata, error) {
 		default:
 			td.DataType = ""
 		}
+		td.Shape = m.model.Info.InputShape
 		inputList = append(inputList, td)
 	}
 
@@ -165,7 +166,7 @@ func (m *Model) Metadata(ctx context.Context) (mlmodel.MLMetadata, error) {
 }
 
 // getTensorInfo converts the information from the metadata form to the TensorData struct
-// that we use in the mlmodel. This method doesn't populate Extra or NDim.
+// that we use in the mlmodel. This method doesn't populate Extra.
 func getTensorInfo(inputT *tflite_metadata.TensorMetadataT) mlmodel.TensorInfo {
 	td := mlmodel.TensorInfo{ // Fill in what's easy
 		Name:        inputT.Name,
