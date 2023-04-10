@@ -679,7 +679,7 @@ func (r *localRobot) getDependencies(rName resource.Name) (registry.Dependencies
 	for _, dep := range r.manager.resources.GetAllParentsOf(rName) {
 		r, err := r.ResourceByName(dep)
 		if err != nil {
-			return nil, &registry.DependencyNotReadyError{Name: dep.Name}
+			return nil, &registry.DependencyNotReadyError{Name: dep.ShortName()}
 		}
 		deps[dep] = r
 	}
