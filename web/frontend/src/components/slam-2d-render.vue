@@ -191,39 +191,48 @@ const updateCloud = (pointcloud: Uint8Array) => {
   intersectionPlane.position.set(center.x, 0, center.z);
   raycaster.objects = [intersectionPlane];
 
-  if (props.axes == true) {
-      // construct grids
-      const axesHelper1 = new THREE.AxesHelper( 5 );
-      axesHelper1.position.set(center.x, 0, center.z);
-      axesHelper1.rotateY(Math.PI/2)
-      axesHelper1.scale.x = 1e5
-      axesHelper1.scale.z = 1e5
-      axesHelper1.renderOrder = 998
-      axesHelper1.name = "axes1"
-      
-      const axesHelper2 = new THREE.AxesHelper( 5 );
-      axesHelper2.position.set(center.x, 0, center.z);
-      axesHelper2.rotateY(-Math.PI/2)
-      axesHelper2.scale.x = 1e5
-      axesHelper2.scale.z = 1e5
-      axesHelper2.renderOrder = 997
-      axesHelper2.name = "axes2"
-
-      const gridHelper = new THREE.GridHelper( 1000, 100, 0xCACACA, 0xCACACA ); // this needs to be updated so it is set to 1m
-      gridHelper.position.set(center.x, 0, center.z);
-      gridHelper.renderOrder = 996;
-      gridHelper.name = "grid"
-
-      // add objects to scene  
-      scene.add(axesHelper1);
-      scene.add(axesHelper2);
-      scene.add(gridHelper);
+  if (props.axes) {
+    addGrids(center.x, center.z)
   }
 
   scene.add(points);
   scene.add(intersectionPlane);  
   updatePose(props.pose!)
 };
+
+const addGrids = (x: number, z: number) => {
+  // construct grids
+  const axesHelper1 = new THREE.AxesHelper( 5 );
+  axesHelper1.position.set(x, 0, z);
+  axesHelper1.rotateY(Math.PI/2)
+  axesHelper1.scale.x = 1e5
+  axesHelper1.scale.z = 1e5
+  axesHelper1.renderOrder = 998
+  axesHelper1.name = "Axes1"
+  axesHelper1.visible = props.axes
+
+  
+  const axesHelper2 = new THREE.AxesHelper( 5 );
+  axesHelper2.position.set(x, 0, z);
+  axesHelper2.rotateY(-Math.PI/2)
+  axesHelper2.scale.x = 1e5
+  axesHelper2.scale.z = 1e5
+  axesHelper2.renderOrder = 997
+  axesHelper2.name = "Axes2"
+  axesHelper1.visible = props.axes
+
+  const gridHelper = new THREE.GridHelper( 1000, 100, 0xCACACA, 0xCACACA ); // this needs to be updated so it is set to 1m
+  gridHelper.position.set(x, 0, z);
+  gridHelper.renderOrder = 996;
+  gridHelper.name = "Grid"
+  gridHelper.visible = props.axes
+
+  // add objects to scene  
+  scene.add(axesHelper1);
+  scene.add(axesHelper2);
+  scene.add(gridHelper);
+}
+
 
 const updatePose = async (newPose: commonApi.Pose) => {
   const x = newPose.getX();
@@ -271,6 +280,15 @@ watch(() => [props.destVector?.x, props.destVector?.z, props.destExists], async 
     }
   }
 })
+
+watch(() => props.axes, () => {
+  const ax1 =  scene.getObjectByName('Axes1')
+  ax1.visible = props.axes
+  const ax2 =  scene.getObjectByName('Axes2')
+  ax2.visible = props.axes
+  const grid = scene.getObjectByName('Grid')
+  grid.visible = props.axes
+});
 
 watch(() => props.pose, (newPose) => {
   if (newPose !== undefined) {

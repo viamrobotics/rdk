@@ -25,7 +25,7 @@ let pointCloudUpdateCount = $ref(0);
 let pointcloud = $ref<Uint8Array | undefined>();
 let pose = $ref<commonApi.Pose | undefined>();
 let show2d = $ref(false);
-let showAxes = $ref(false);
+let showAxes = $ref(true);
 let refresh2DCancelled = true;
 let updatedDest = $ref(false);
 let threeJPos = $ref(new THREE.Vector3( ));
@@ -61,11 +61,11 @@ const fetchSLAMMap = (name: string): Promise<Uint8Array> => {
     const chunks: Uint8Array[] = [];
     const getPointCloudMap: ResponseStream<slamApi.GetPointCloudMapResponse> =
       props.client.slamService.getPointCloudMap(req);
-    getPointCloudMap.on('data', (res) => {
+    getPointCloudMap.on('data', (res: { getPointCloudPcdChunk_asU8(): Uint8Array }) => {
       const chunk = res.getPointCloudPcdChunk_asU8();
       chunks.push(chunk);
     });
-    getPointCloudMap.on('status', (status) => {
+    getPointCloudMap.on('status', (status: { code: number, details: string, metadata: string }) => {
       if (status.code !== 0) {
         const error = {
           message: status.details,
@@ -75,7 +75,7 @@ const fetchSLAMMap = (name: string): Promise<Uint8Array> => {
         reject(error);
       }
     });
-    getPointCloudMap.on('end', (end) => {
+    getPointCloudMap.on('end', (end: { code: number }) => {
       if (end === undefined || end.code !== 0) {
         // the error will be logged in the 'status' callback
         return;
@@ -110,57 +110,56 @@ const executeMove = async () => {
   // set request name
   req.setName("builtin");
 
+  const value = await fetchSLAMPose(props.name)  
+  // set pose in frame
+  const sentPose = new commonApi.Pose
+  sentPose.setX(Math.abs(threeJPos.x - value.getX()))
+  sentPose.setY(Math.abs(threeJPos.z - value.getY()))
+  sentPose.setZ(value.getZ())
+  sentPose.setOX(value.getOX())
+  sentPose.setOY(value.getOY())
+  sentPose.setOZ(value.getOZ())
+  sentPose.setTheta(value.getTheta())
+
+  let pif = new commonApi.PoseInFrame
+  pif.setReferenceFrame("world");
+  pif.setPose(sentPose);
+  req.setDestination(pif);
+
+  //set SLAM resource name
+  const slamResourceName = new commonApi.ResourceName
+  slamResourceName.setNamespace("rdk")
+  slamResourceName.setType("service")
+  slamResourceName.setSubtype("slam")
+  slamResourceName.setName(props.name)
+  req.setSlamServiceName(slamResourceName)
+
+  //set component name
+  const baseResource = filterResources(props.resources, 'rdk', 'component', 'base')
+  const baseResourceName = new commonApi.ResourceName
+  baseResourceName.setNamespace("rdk")
+  baseResourceName.setType("component")
+  baseResourceName.setSubtype("base")
+  baseResourceName.setName(baseResource[0]!.name)
+  req.setComponentName(baseResourceName)
   
-  fetchSLAMPose(props.name).then(value => {
-    // set pose in frame
-    const sentPose = new commonApi.Pose
-    sentPose.setX(Math.abs(threeJPos.x - value.getX()))
-    sentPose.setY(Math.abs(threeJPos.z - value.getY()))
-    sentPose.setZ(value.getZ())
-    sentPose.setOX(value.getOX())
-    sentPose.setOY(value.getOY())
-    sentPose.setOZ(value.getOZ())
-    sentPose.setTheta(value.getTheta())
-  
-    let pif = new commonApi.PoseInFrame
-    pif.setReferenceFrame("world");
-    pif.setPose(sentPose);
-    req.setDestination(pif);
+  // set worldstate
+  const wrldst = new commonApi.WorldState
+  req.setWorldState(wrldst)
 
-    //set SLAM resource name
-    const slamResourceName = new commonApi.ResourceName
-    slamResourceName.setNamespace("rdk")
-    slamResourceName.setType("service")
-    slamResourceName.setSubtype("slam")
-    slamResourceName.setName(props.name)
-    req.setSlamServiceName(slamResourceName)
+  // set constraints
+  req.setConstraints(undefined)
 
-    //set component name
-    const baseResource = filterResources(props.resources, 'rdk', 'component', 'base')
-    const baseResourceName = new commonApi.ResourceName
-    baseResourceName.setNamespace("rdk")
-    baseResourceName.setType("component")
-    baseResourceName.setSubtype("base")
-    baseResourceName.setName(baseResource[0]!.name)
-    req.setComponentName(baseResourceName)
-    
-    // set worldstate
-    const wrldst = new commonApi.WorldState
-    req.setWorldState(wrldst)
-
-    // set constraints
-    req.setConstraints(undefined)
-
-    // execute the actual call to validate e2e plumbing
-    props.client.motionService.move(req, new grpc.Metadata(), (error, response) => {
-      if (error) {
-        toast.error(`Error moving: ${error}`);
-        return;
-      }
-      toast.success(`Move success: ${response!.getSuccess()}`);
+  // execute the actual call to validate e2e plumbing
+  props.client.motionService.move(req, new grpc.Metadata(), (error, response) => {
+    if (error) {
+      toast.error(`Error moving: ${error}`);
       return;
-    });
-  })
+    }
+    toast.success(`Move success: ${response!.getSuccess()}`);
+    return;
+  });
+  
 }
 
 const executeStopMove =  () => {
@@ -282,8 +281,7 @@ const executeDelete = () => {
 }
 
 const toggleAxes = () => {
-  console.log('toggled axes')
-  showAxes = true
+  showAxes = !showAxes
 }
 
 </script>
@@ -406,8 +404,9 @@ const toggleAxes = () => {
               @click="executeMove()"
             />
             <v-switch
+            class="pt-2"
             label="Show Axes"
-            :value="showAxes  ? 'true' : 'false'"
+            :value="showAxes ? 'on' : 'off'"
             @input="toggleAxes()"
             />
           </div>
