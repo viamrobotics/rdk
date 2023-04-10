@@ -10,7 +10,8 @@ package wheeled
 
    Any motors can be used for the base motors (encoded, un-encoded, steppers, servos) as long as they update their position
    continuously (not limited to 0-360 or any other domain).
-   Adding a movementsensor that supports Orientation provides feedback to a Spin command to correct the heading. As of April 2023, this feature is experimental.
+   Adding a movementsensor that supports Orientation provides feedback to a Spin command to correct the heading. As of A
+   pril 2023, this feature is experimental.
    Configuring a base with a frame will create a kinematic base that can be used by Viam's motion service to plan paths
    when a SLAM service is also present. This feature is experimental.
 
