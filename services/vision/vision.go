@@ -92,19 +92,22 @@ func FromRobot(r robot.Robot, name string) (Service, error) {
 	return robot.ResourceFromRobot[Service](r, Named(name))
 }
 
+// Detector defines the Detect method as it is used in the objectdetection package
 type Detector interface {
 	Detect(ctx context.Context, img image.Image) ([]objectdetection.Detection, error)
 }
 
-type Segmenter interface {
+// Segmenter3D defines the Segment method as it is used in the segmentation package
+type Segmenter3D interface {
 	Segment(ctx context.Context, c camera.Camera) ([]*vision.Object, error)
 }
 
+// Classifier defines the Classify method as it is used in the classification package
 type Classifier interface {
 	Classify(context.Context, image.Image) (classification.Classifications, error)
 }
 
-// vizModel wraps the vision model with all the interface methods.
+// vizModel wraps the vision model with all the service interface methods.
 type vizModel struct {
 	generic.Unimplemented
 	name          string
@@ -119,7 +122,7 @@ type vizModel struct {
 func NewService(name string, model interface{}, r robot.Robot) (Service, error) {
 	_, isDetector := model.(Detector)
 	_, isClassifier := model.(Classifier)
-	_, is3DSegmenter := model.(Segmenter)
+	_, is3DSegmenter := model.(Segmenter3D)
 	if !isDetector && !isClassifier && !is3DSegmenter {
 		return nil, errors.New("model does not fulfill any method of the vision service. It is neither a detector, nor classifier, nor 3D segmenter.")
 	}
@@ -223,7 +226,7 @@ func (vm *vizModel) ClassificationsFromCamera(
 	return nil, errors.Errorf("vision model %q does not implement a Classifier", vm.name)
 }
 
-// GetObjectPointClouds returns all the found objects in a 3D image if the model implements segmentation.Segmenter
+// GetObjectPointClouds returns all the found objects in a 3D image if the model implements Segmenter3D
 func (vm *vizModel) GetObjectPointClouds(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::GetObjectPointClouds::"+vm.name)
 	defer span.End()
@@ -231,7 +234,7 @@ func (vm *vizModel) GetObjectPointClouds(ctx context.Context, cameraName string,
 	if err != nil {
 		return nil, err
 	}
-	if segmenter, ok := vm.model.(Segmenter); ok {
+	if segmenter, ok := vm.model.(Segmenter3D); ok {
 		return segmenter.Segment(ctx, cam)
 	}
 	return nil, errors.Errorf("vision model %q does not implement a 3D segmenter", vm.name)
