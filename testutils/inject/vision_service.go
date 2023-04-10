@@ -30,6 +30,15 @@ type VisionService struct {
 		cmd map[string]interface{}) (map[string]interface{}, error)
 }
 
+// DetectionsFromCamera calls the injected DetectionsFromCamera or the real variant.
+func (vs *VisionService) DetectionsFromCamera(ctx context.Context, cameraName string, extra map[string]interface{},
+) ([]objectdetection.Detection, error) {
+	if vs.DetectionsFunc == nil {
+		return vs.Service.DetectionsFromCamera(ctx, cameraName, extra)
+	}
+	return vs.DetectionsFromCameraFunc(ctx, cameraName, extra)
+}
+
 // Detections calls the injected Detect or the real variant.
 func (vs *VisionService) Detections(ctx context.Context, img image.Image, extra map[string]interface{},
 ) ([]objectdetection.Detection, error) {
