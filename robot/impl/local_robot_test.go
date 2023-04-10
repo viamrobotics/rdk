@@ -19,6 +19,7 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -1424,7 +1425,7 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 	_, err = r.ResourceByName(arm.Named("remote:pieceArm"))
 	test.That(t, err, test.ShouldBeNil)
 	_, err = r.ResourceByName(arm.Named("pieceArm"))
-	test.That(t, err, test.ShouldBeError, "more that one remote resources with name \"pieceArm\" exists")
+	test.That(t, err, test.ShouldBeError, "more than one remote resources with name \"pieceArm\" exists")
 }
 
 type attrs struct {
