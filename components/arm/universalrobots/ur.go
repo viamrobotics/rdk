@@ -31,7 +31,6 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
@@ -62,8 +61,8 @@ var ur5modeljson []byte
 
 func init() {
 	registry.RegisterComponent(arm.Subtype, ModelName, registry.Component{
-		RobotConstructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			return URArmConnect(ctx, r, config, logger)
+		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
+			return URArmConnect(ctx, config, logger)
 		},
 	})
 
@@ -97,7 +96,6 @@ type URArm struct {
 	activeBackgroundWorkers  *sync.WaitGroup
 	model                    referenceframe.Model
 	opMgr                    operation.SingleOperationManager
-	robot                    robot.Robot
 	urHostedKinematics       bool
 	inRemoteMode             bool
 	dashboardConnection      net.Conn
@@ -157,7 +155,7 @@ func (ua *URArm) Close(ctx context.Context) error {
 }
 
 // URArmConnect TODO.
-func URArmConnect(ctx context.Context, r robot.Robot, cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
+func URArmConnect(ctx context.Context, cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
 	// this is to speed up component build failure if the UR arm is not reachable
 	ctx, cancel := context.WithDeadline(ctx, time.Now().Add(5*time.Second))
 	defer cancel()
@@ -196,7 +194,6 @@ func URArmConnect(ctx context.Context, r robot.Robot, cfg config.Component, logg
 		logger:                   logger,
 		cancel:                   cancel,
 		model:                    model,
-		robot:                    r,
 		urHostedKinematics:       attrs.ArmHostedKinematics,
 		inRemoteMode:             false,
 		readRobotStateConnection: connReadRobotState,
@@ -360,7 +357,7 @@ func (ua *URArm) MoveToPosition(ctx context.Context, pos spatialmath.Pose, extra
 	if usingHostedKinematics {
 		return ua.moveWithURHostedKinematics(ctx, pos)
 	}
-	return arm.Move(ctx, ua.robot, ua, pos)
+	return arm.Move(ctx, ua.logger, ua, pos)
 }
 
 // MoveToJointPositions TODO.
