@@ -185,10 +185,10 @@ const updatePose = async (newPose: commonApi.Pose) => {
   baseMarker.position.set(x + 0.35, 0, z - 0.55);
 
   if (props.destExists) {
-    const { x } = props.destVector!;
-    const { z } = props.destVector!;
+    const destX = props.destVector!.x;
+    const destZ = props.destVector!.y;
     const destMarker = scene.getObjectByName('Marker') ?? await makeMarker(destUrl, 'Marker', 0.1);
-    destMarker.position.set(x + 0.6, 0, z - 1.24);
+    destMarker.position.set(destX + 0.6, 0, destZ - 1.24);
   }
 };
 
@@ -354,7 +354,8 @@ watch(() => props.pointCloudUpdateCount, () => {
           fill="#BE3536"
         />
         <path
-          d="M4.66278 6.032H4.51878L2.76678 2.4H3.51878L4.95078 5.456H5.04678L6.47878 2.4H7.23078L5.47878 6.032H5.33478V8H4.66278V6.032Z"
+          d="M4.66278 6.032H4.51878L2.76678 2.4H3.51878L4.95078 5.456H5.04678L6.47878
+             2.4H7.23078L5.47878 6.032H5.33478V8H4.66278V6.032Z"
           fill="#FCECEA"
         />
         <rect
@@ -366,7 +367,8 @@ watch(() => props.pointCloudUpdateCount, () => {
           fill="#0066CC"
         />
         <path
-          d="M23.6708 22.4L24.9268 24.88H25.0708L26.3268 22.4H27.0628L25.6628 25.144V25.24L27.0628 28H26.3268L25.0708 25.504H24.9268L23.6708 28H22.9348L24.3348 25.24V25.144L22.9348 22.4H23.6708Z"
+          d="M23.6708 22.4L24.9268 24.88H25.0708L26.3268 22.4H27.0628L25.6628 25.144V25.24L27.0628
+             28H26.3268L25.0708 25.504H24.9268L23.6708 28H22.9348L24.3348 25.24V25.144L22.9348 22.4H23.6708Z"
           fill="#E1F3FF"
         />
         <rect
