@@ -9,6 +9,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/generic"
@@ -17,7 +18,6 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
 	rdkutils "go.viam.com/rdk/utils"
-	"go.viam.com/utils"
 )
 
 const (
@@ -26,21 +26,23 @@ const (
 	errTarget   = 5.0
 	oneTurn     = 360
 	increment   = 0.1
-	sensorDebug = true
+	sensorDebug = false
 )
 
 type sensorBase struct {
 	generic.Unimplemented
 	logger golog.Logger
 
-	workers       sync.WaitGroup
-	base          base.LocalBase
+	workers sync.WaitGroup
+	base    base.LocalBase
+	baseCtx context.Context
+
 	sensorMu      sync.Mutex
 	sensorCtx     context.Context
 	sensorDone    func()
-	pollingActive bool
-	stopSensors   chan bool
-	opMgr         operation.SingleOperationManager
+	sensorPolling bool
+
+	opMgr operation.SingleOperationManager
 
 	allSensors  []movementsensor.MovementSensor
 	orientation movementsensor.MovementSensor
@@ -59,9 +61,9 @@ func makeBaseWithSensors(
 		return nil, rdkutils.NewUnexpectedTypeError(attr, &AttrConfig{})
 	}
 
-	sb := &sensorBase{base: base, logger: logger}
+	sb := &sensorBase{base: base, logger: logger, baseCtx: ctx}
 
-	sb.sensorCtx, sb.sensorDone = context.WithCancel(context.Background())
+	// sb.sensorCtx, sb.sensorDone = context.WithCancel(ctx)
 
 	var omsName string
 	for _, msName := range attr.MovementSensor {
@@ -76,26 +78,25 @@ func makeBaseWithSensors(
 			omsName = msName
 		}
 	}
-	sb.stopSensors = make(chan bool)
 
 	sb.logger.Infof("using sensor %s as orientation sensor for base", omsName)
 
 	return sb, nil
 }
 
-// setPollActive determines whether we want the sensor loop to run ad stop the base with sensor feedback
+// setPolling determines whether we want the sensor loop to run ad stop the base with sensor feedback
 // should be set to false everywhere except when sensor feedback is need to stop movement.
-func (sb *sensorBase) setPollActive(isActive bool) {
+func (sb *sensorBase) setPolling(isActive bool) {
 	sb.sensorMu.Lock()
-	sb.pollingActive = isActive
+	sb.sensorPolling = isActive
 	sb.sensorMu.Unlock()
 }
 
-// isPollActive gets whether the base is actively polling a sensor.
-func (sb *sensorBase) isPollActive() bool {
+// isPolling gets whether the base is actively polling a sensor.
+func (sb *sensorBase) isPolling() bool {
 	sb.sensorMu.Lock()
 	defer sb.sensorMu.Unlock()
-	return sb.pollingActive
+	return sb.sensorPolling
 }
 
 // Spin commands a base to turn about its center at a angular speed and for a specific angle.
@@ -103,9 +104,15 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 	ctx, done := sb.opMgr.New(ctx)
 	defer done()
 
-	if sb.isPollActive() {
-		sb.stopSensors <- true
+	// check if a sensor context has been started
+	if sb.sensorDone != nil {
+		sb.sensorDone()
 	}
+
+	// start a sensor context for the sensor loop based on the longstanding base
+	// creator context
+	sb.sensorCtx, sb.sensorDone = context.WithCancel(sb.baseCtx)
+	sb.setPolling(true)
 
 	sb.workers.Add(1)
 	utils.ManagedGo(func() {
@@ -113,13 +120,14 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 			sb.logger.Error(err)
 		}
 	}, sb.workers.Done)
+
+	sb.setPolling(true)
 	return sb.stopSpinWithSensor(sb.sensorCtx, angleDeg, degsPerSec)
 }
 
 func (sb *sensorBase) stopSpinWithSensor(
 	ctx context.Context, angleDeg, degsPerSec float64,
 ) error {
-
 	// imu readings are limited from 0 -> 360
 	startYaw, err := getCurrentYaw(ctx, sb.orientation)
 	if err != nil {
@@ -140,20 +148,14 @@ func (sb *sensorBase) stopSpinWithSensor(
 		defer ticker.Stop()
 		for {
 			// check if we want to poll the sensor at all
-			// keepGoing := sb.isPollActive()
-			if !sb.isPollActive() {
+			// other API calls set this to false so that this for loop stops
+			if !sb.isPolling() {
 				ticker.Stop()
 			}
 
 			select {
-			case <-sb.stopSensors:
+			case <-ctx.Done():
 				ticker.Stop()
-			default:
-			}
-
-			select {
-			case <-sb.sensorCtx.Done():
-				sb.setPollActive(false)
 				return
 			case <-ticker.C:
 
@@ -307,7 +309,7 @@ func (sb *sensorBase) MoveStraight(
 ) error {
 	ctx, done := sb.opMgr.New(ctx)
 	defer done()
-	sb.setPollActive(false)
+	sb.setPolling(false)
 	return sb.base.MoveStraight(ctx, distanceMm, mmPerSec, extra)
 }
 
@@ -315,7 +317,7 @@ func (sb *sensorBase) SetVelocity(
 	ctx context.Context, linear, angular r3.Vector, extra map[string]interface{},
 ) error {
 	sb.opMgr.CancelRunning(ctx)
-	sb.setPollActive(false)
+	sb.setPolling(false)
 	return sb.base.SetVelocity(ctx, linear, angular, extra)
 }
 
@@ -323,13 +325,13 @@ func (sb *sensorBase) SetPower(
 	ctx context.Context, linear, angular r3.Vector, extra map[string]interface{},
 ) error {
 	sb.opMgr.CancelRunning(ctx)
-	sb.setPollActive(false)
+	sb.setPolling(false)
 	return sb.base.SetPower(ctx, linear, angular, extra)
 }
 
 func (sb *sensorBase) Stop(ctx context.Context, extra map[string]interface{}) error {
 	sb.opMgr.CancelRunning(ctx)
-	sb.setPollActive(false)
+	sb.setPolling(false)
 	return sb.base.Stop(ctx, extra)
 }
 
@@ -342,8 +344,8 @@ func (sb *sensorBase) Width(ctx context.Context) (int, error) {
 }
 
 func (sb *sensorBase) Close(ctx context.Context) error {
-	sb.setPollActive(false)
-	base, isWheeled := rdkutils.UnwrapProxy(sb.base).(*wheeledBase)
+	sb.setPolling(false)
+	base, isWheeled := (sb.base).(*wheeledBase)
 	if isWheeled {
 		return base.Close(ctx)
 	}
