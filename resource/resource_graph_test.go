@@ -605,6 +605,46 @@ func TestFindNodeByName(t *testing.T) {
 	test.That(t, ok, test.ShouldBeFalse)
 }
 
+func TestFindRemoteNodesByShortName(t *testing.T) {
+	a := newRemoteName("foo", "namespace", "atype", "asubtype", "A")
+	fooB := newRemoteName("foo", "namespace", "atype", "asubtype", "B")
+	barB := newRemoteName("bar", "namespace", "atype", "asubtype", "B")
+
+	cfgA := []fakeComponent{
+		{
+			Name:      a,
+			DependsOn: []Name{},
+		},
+		{
+			Name:      fooB,
+			DependsOn: []Name{},
+		},
+		{
+			Name:      barB,
+			DependsOn: []Name{},
+		},
+		{
+			Name:      NewName("namespace", "atype", "asubtype", "C"),
+			DependsOn: []Name{},
+		},
+	}
+	gA := NewGraph()
+	test.That(t, gA, test.ShouldNotBeNil)
+	for _, component := range cfgA {
+		gA.AddNode(component.Name, struct{}{})
+		for _, dep := range component.DependsOn {
+			test.That(t, gA.AddChildren(component.Name, dep), test.ShouldBeNil)
+		}
+	}
+	names := gA.FindRemoteNodesByShortName(NewName("namespace", "atype", "asubtype", "A"))
+	test.That(t, newResourceNameSet(names...), test.ShouldResemble, newResourceNameSet(a))
+	names = gA.FindRemoteNodesByShortName(NewName("namespace", "atype", "asubtype", "B"))
+	test.That(t, newResourceNameSet(names...), test.ShouldResemble, newResourceNameSet(fooB, barB))
+	names = gA.FindRemoteNodesByShortName(NewName("namespace", "atype", "asubtype", "C"))
+	test.That(t, names, test.ShouldBeEmpty)
+
+}
+
 var cfgA = []fakeComponent{
 	{
 		Name:      NewName("namespace", "atype", "asubtype", "A"),
@@ -883,5 +923,70 @@ func TestRenameNode(t *testing.T) {
 	}...))
 	test.That(t, newResourceNameSet(out[5]), test.ShouldResemble, newResourceNameSet([]Name{
 		NewName("namespace", "atype", "asubtype", "AA"),
+	}...))
+}
+
+func TestRenameNodeOverwrite(t *testing.T) {
+	g := NewGraph()
+	test.That(t, g, test.ShouldNotBeNil)
+
+	// same as commonCfg but without A defined
+	var testCfg = []fakeComponent{
+		{
+			Name:      NewName("namespace", "atype", "asubtype", "B"),
+			DependsOn: []Name{NewName("namespace", "atype", "asubtype", "A")},
+		},
+		{
+			Name:      NewName("namespace", "atype", "asubtype", "C"),
+			DependsOn: []Name{NewName("namespace", "atype", "asubtype", "B")},
+		},
+		{
+			Name: NewName("namespace", "atype", "asubtype", "D"),
+			DependsOn: []Name{
+				NewName("namespace", "atype", "asubtype", "B"),
+				NewName("namespace", "atype", "asubtype", "E"),
+			},
+		},
+		{
+			Name:      NewName("namespace", "atype", "asubtype", "E"),
+			DependsOn: []Name{NewName("namespace", "atype", "asubtype", "B")},
+		},
+		{
+			Name: NewName("namespace", "atype", "asubtype", "F"),
+			DependsOn: []Name{
+				NewName("namespace", "atype", "asubtype", "A"),
+				NewName("namespace", "atype", "asubtype", "C"),
+				NewName("namespace", "atype", "asubtype", "E"),
+			},
+		},
+		{
+			Name:      NewName("namespace", "atype", "asubtype", "G"),
+			DependsOn: []Name{},
+		},
+	}
+	for _, component := range testCfg {
+		g.AddNode(component.Name, struct{}{})
+		for _, dep := range component.DependsOn {
+			test.That(t, g.AddChildren(component.Name, dep), test.ShouldBeNil)
+		}
+	}
+	test.That(t, g.RenameNode(NewName("namespace", "atype", "asubtype", "A"),
+		NewName("namespace", "atype", "asubtype", "G")), test.ShouldBeNil)
+
+	out := g.TopologicalSort()
+	test.That(t, newResourceNameSet(out[0:3]...), test.ShouldResemble,
+		newResourceNameSet([]Name{
+			NewName("namespace", "atype", "asubtype", "C"),
+			NewName("namespace", "atype", "asubtype", "D"),
+			NewName("namespace", "atype", "asubtype", "F"),
+		}...))
+	test.That(t, newResourceNameSet(out[3]), test.ShouldResemble, newResourceNameSet([]Name{
+		NewName("namespace", "atype", "asubtype", "E"),
+	}...))
+	test.That(t, newResourceNameSet(out[4]), test.ShouldResemble, newResourceNameSet([]Name{
+		NewName("namespace", "atype", "asubtype", "B"),
+	}...))
+	test.That(t, newResourceNameSet(out[5]), test.ShouldResemble, newResourceNameSet([]Name{
+		NewName("namespace", "atype", "asubtype", "G"),
 	}...))
 }

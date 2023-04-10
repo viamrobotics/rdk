@@ -590,6 +590,7 @@ func newWithResources(
 			case <-r.configTimer.C:
 			}
 			if r.manager.anyResourcesNotConfigured() {
+				r.renameUnknownNodes()
 				r.manager.completeConfig(closeCtx, r)
 				r.updateDefaultServices(ctx)
 			}
@@ -903,6 +904,27 @@ func dialRobotClient(
 	return robotClient, nil
 }
 
+// renameUnknownNodes attempts to rename any unknown nodes to match an unambiguous remote resource.
+func (r *localRobot) renameUnknownNodes() {
+	for _, rName := range r.manager.resources.Names() {
+		if rName.ResourceType == unknownTypeName {
+			names := r.manager.resources.FindRemoteNodesByShortName(rName)
+			if len(names) == 0 {
+				r.Logger().Debugw("failed to find matching remote resource for unknown dependency", "dependency", rName)
+				continue
+			} else if len(names) > 1 {
+				r.Logger().Errorw("multiple matches from remote resource for unknown dependency, consider using the fully qualified name for the dependency", "dependency", rName)
+				continue
+			}
+			r.Logger().Debugw("found matching remote resource for unknown dependency, renaming", "dependency", rName, "match", names[0])
+
+			if err := r.manager.resources.RenameNode(rName, names[0]); err != nil {
+				r.Logger().Errorw("failed to rename unknown dependency to remote resource", "err", err)
+			}
+		}
+	}
+}
+
 // Reconfigure will safely reconfigure a robot based on the given config. It will make
 // a best effort to remove no longer in use parts, but if it fails to do so, they could
 // possibly leak resources.
@@ -1036,9 +1058,10 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 		}
 
 		// we are trying to locate a resource that is set as a dependency but do not exist yet
-		r.logger.Debugw("processing unknown  resource", "name", name)
+		r.logger.Debugw("processing unknown resource", "name", name)
 		return resource.NameFromSubtype(unknownSubtype, name), true
 	})
+	r.renameUnknownNodes()
 	if err != nil {
 		allErrs = multierr.Combine(allErrs, err)
 	}

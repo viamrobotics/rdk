@@ -238,13 +238,21 @@ func (g *Graph) renameNode(old, newName Name) error {
 	if _, ok := g.nodes[old]; !ok {
 		return errors.Errorf("old node %q doesn't exists", old)
 	}
-	if _, ok := g.nodes[newName]; ok {
-		return errors.Errorf("new node %q already exists", newName)
+
+	var alreadyExists bool
+	canCombine := g.nodes[old] == nil
+	if _, alreadyExists = g.nodes[newName]; alreadyExists {
+		// if this node already exists, we may be able to combine them in a few cases.
+		if !canCombine {
+			return errors.Errorf("new node %q already exists", newName)
+		}
 	}
 	oldParents := g.getAllParentOf(old)
 	oldChildren := g.getAllChildrenOf(old)
 
-	g.addNode(newName, g.nodes[old])
+	if !alreadyExists && !canCombine {
+		g.addNode(newName, g.nodes[old])
+	}
 	for p := range oldParents {
 		g.removeChildren(old, p)
 		if err := g.addChildren(newName, p); err != nil {
@@ -463,6 +471,29 @@ func (g *Graph) FindNodeByName(name string) (*Name, bool) {
 		}
 	}
 	return nil, false
+}
+
+// FindRemoteNodesByShortName returns found resource names based on short name, and if the resource name
+// passed in does not have remote names, by the simple name.
+func (g *Graph) FindRemoteNodesByShortName(name Name) []Name {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	var ret []Name
+	for k, v := range g.nodes {
+		if !k.ContainsRemoteNames() || v == nil {
+			continue
+		}
+		if name.ContainsRemoteNames() {
+			if name.ShortName() == k.ShortName() {
+				ret = append(ret, k)
+			}
+		} else {
+			if name.Name == k.Name {
+				ret = append(ret, k)
+			}
+		}
+	}
+	return ret
 }
 
 func (g *Graph) isNodeDependingOn(node, child Name) bool {
