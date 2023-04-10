@@ -1,8 +1,10 @@
 package genericlinux
 
 import (
+	"bytes"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -96,7 +98,14 @@ func GetGPIOBoardMappings(modelName string, boardInfoMappings map[string]BoardIn
 // getCompatiblePinDefs returns a list of pin definitions, from the first BoardInformation struct
 // that appears compatible with the machine we're running on.
 func getCompatiblePinDefs(modelName string, boardInfoMappings map[string]BoardInformation) ([]PinDefinition, error) {
-	const compatiblePath = "/proc/device-tree/compatible"
+	var compatiblePath string
+	architecture := getArchitecture()
+
+	if architecture == "x86_64" && architecture != "Unknown" {
+		compatiblePath = "/sys/devices/virtual/dmi/id/board_name"
+	} else {
+		compatiblePath = "/proc/device-tree/compatible"
+	}
 
 	compatiblesRd, err := os.ReadFile(compatiblePath)
 	if err != nil {
@@ -121,6 +130,21 @@ func getCompatiblePinDefs(modelName string, boardInfoMappings map[string]BoardIn
 		return nil, noBoardError(modelName)
 	}
 	return pinDefs, nil
+}
+
+// helper function to get board architecture.
+func getArchitecture() string {
+	cmd := exec.Command("uname", "-m")
+
+	var out bytes.Buffer
+	cmd.Stdout = &out
+
+	err := cmd.Run()
+	if err != nil {
+		return "Unknown"
+	}
+
+	return out.String()
 }
 
 // A helper function: we read the contents of filePath and return its integer value.

@@ -8,7 +8,7 @@ import (
 	"go.viam.com/rdk/components/board/genericlinux"
 )
 
-const modelName = "up4000"
+const modelName = "intel"
 
 func init() {
 	if _, err := host.Init(); err != nil {
