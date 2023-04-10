@@ -249,7 +249,7 @@ func (e *Encoder) GetPosition(
 	extra map[string]interface{},
 ) (float64, encoder.PositionType, error) {
 	if positionType != nil && *positionType == encoder.PositionType_POSITION_TYPE_ANGLE_DEGREES {
-		err := errors.New("Encoder does not support PositionType Angle Degrees, use a different PositionType")
+		err := encoder.NewEncoderTypeUnsupportedError(*positionType)
 		return 0, *positionType, err
 	}
 	res := atomic.LoadInt64(&e.position)
