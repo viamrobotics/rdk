@@ -151,7 +151,7 @@ const executeMove = async () => {
   req.setConstraints(undefined)
 
   // execute the actual call to validate e2e plumbing
-  props.client.motionService.move(req, new grpc.Metadata(), (error, response) => {
+  props.client.motionService.move(req, new grpc.Metadata(), (error: ServiceError, response: motionApi.MoveRequestResponse) => {
     if (error) {
       toast.error(`Error moving: ${error}`);
       return;
