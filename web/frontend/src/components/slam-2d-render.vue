@@ -39,8 +39,6 @@ const { scene, renderer, canvas, run, pause, setCamera } = threeInstance();
 
 const color = new THREE.Color(0xFF_FF_FF);
 renderer.setClearColor(color, 1);
-renderer.outputEncoding = THREE.sRGBEncoding;
-document.body.append(renderer.domElement)
 
 canvas.style.cssText = 'width:100%;height:100%;';
 
@@ -52,12 +50,11 @@ scene.add(camera);
 const controls = new MapControls(camera, canvas);
 controls.enableRotate = false;
 
-const raycaster = new MouseRaycaster({ camera, canvas, recursive: false });
+const raycaster = new MouseRaycaster({ camera, renderer, recursive: false });
 
-raycaster.addEventListener('click', async (event) => {
+raycaster.on('click', async (event) => {
   const [intersection] = event.intersections as THREE.Intersection[];
   if (intersection && intersection.point) {
-    scene.remove()
     emit('click', intersection.point)
   }
 });
