@@ -17,12 +17,24 @@ import (
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/vision"
+	_ "go.viam.com/rdk/services/vision/register"
 )
 
 func buildRobotWithClassifier(logger golog.Logger) (robot.Robot, error) {
 	cfg := &config.Config{}
 
 	// create fake source camera
+	tfliteSrv1 := config.Service{
+		Name:  "object_classifier",
+		Type:  vision.SubtypeName,
+		Model: resource.NewDefaultModel("tflite_classifier"),
+		Attributes: config.AttributeMap{
+			"model_path":  artifact.MustPath("vision/classification/object_classifier.tflite"),
+			"label_path":  artifact.MustPath("vision/classification/object_labels.txt"),
+			"num_threads": 1,
+		},
+	}
+	cfg.Services = append(cfg.Services, tfliteSrv1)
 	cameraComp := config.Component{
 		Name:  "fake_cam",
 		Type:  camera.SubtypeName,
@@ -67,26 +79,6 @@ func buildRobotWithClassifier(logger golog.Logger) (robot.Robot, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	// Add the classification model to the vision service
-	srv, err := vision.FirstFromRobot(r)
-	if err != nil {
-		return nil, err
-	}
-	classConf := vision.VisModelConfig{
-		Name: "object_classifier",
-		Type: "tflite_classifier",
-		Parameters: config.AttributeMap{
-			"model_path":  artifact.MustPath("vision/classification/object_classifier.tflite"),
-			"label_path":  artifact.MustPath("vision/classification/object_labels.txt"),
-			"num_threads": 1,
-		},
-	}
-	err = srv.AddClassifier(context.Background(), classConf, map[string]interface{}{})
-	if err != nil {
-		return nil, err
-	}
-
 	return r, nil
 }
 
