@@ -36,13 +36,15 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, result[0].Score(), test.ShouldEqual, 0.5)
 }
 
+type simpleDetector struct{}
+
+func (s *simpleDetector) Detect(context.Context, image.Image) ([]objectdetection.Detection, error) {
+	det1 := objectdetection.NewDetection(image.Rectangle{}, 0.5, "yes")
+	return []objectdetection.Detection{det1}, nil
+}
 func TestNewService(t *testing.T) {
 	r := &inject.Robot{}
-	simpleDetector := func(context.Context, image.Image) ([]objectdetection.Detection, error) {
-		det1 := objectdetection.NewDetection(image.Rectangle{}, 0.5, "yes")
-		return []objectdetection.Detection{det1}, nil
-	}
-	svc, err := vision.NewService("testService", objectdetection.Detector(simpleDetector), r)
+	svc, err := vision.NewService("testService", &simpleDetector{}, r)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, svc, test.ShouldNotBeNil)
 	result, err := svc.Detections(context.Background(), nil, nil)
