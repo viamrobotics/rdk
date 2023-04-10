@@ -123,15 +123,14 @@ func (pwm *pwmDevice) SetPwm(freqHz uint, dutyCycle float64) (err error) {
 	if err := pwm.export(); err != nil {
 		return err
 	}
-	if err := pwm.disable(); err != nil {
-		// This is (surprisingly) okay: disabling the pin will return errors if its period and
-		// active duration are 0, for example when they haven't been set since the last time the
-		// system was rebooted. If the error was something more serious than that, we'll encounter
-		// it again later in this function, and will return it then. (Note: disabling the pin will
-		// not return errors if the period and active duration are nonzero, even if the pin is
-		// already disabled!)
-		pwm.logger.Debugf("Ignoring trouble disabling HW PWM device %s line %d: %s",
-			pwm.chipPath, pwm.line, err)
+
+	// Intuitively, we should disable the pin, set the new parameters, and then enable it.
+	// However, the BeagleBone AI64 has a weird quirk where you need to enable the pin *before* you
+	// set the parameters, because enabling it later sets the duty cycle to 100% until it gets
+	// modified again. So, enable the PWM signal first and *then* set it to the correct values.
+	// This shouldn't hurt anything on the other boards; it's just not the intuitive order.
+	if err := pwm.enable(); err != nil {
+		return err
 	}
 
 	// Sysfs has a pseudofile named duty_cycle which contains the number of nanoseconds that the
@@ -157,7 +156,7 @@ func (pwm *pwmDevice) SetPwm(freqHz uint, dutyCycle float64) (err error) {
 		return err
 	}
 
-	return pwm.enable()
+	return nil
 }
 
 func (pwm *pwmDevice) Close() error {
