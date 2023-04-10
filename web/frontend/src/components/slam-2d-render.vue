@@ -143,7 +143,7 @@ const makeMarker = async (url : string, name: string, scalar: number) => {
         wireframe: guiData.strokesWireframe,
       });
 
-      for (let j = 0, jl = path!.subPaths.length; j < jl; j = j + 1) {
+      for (let j = 0, jl = path!.subPaths.length; j < jl; j += 1) {
         const subPath = path!.subPaths[j];
         const geometry = SVGLoader.pointsToStroke(subPath.getPoints(), path!.userData!.style);
 

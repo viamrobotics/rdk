@@ -28,14 +28,14 @@ let show2d = $ref(false);
 let showAxes = $ref(true);
 let refresh2DCancelled = true;
 let updatedDest = $ref(false);
-let threeJPos = $ref(new THREE.Vector3( ));
+let threeJPos = $ref(new THREE.Vector3());
 let moveClick = $ref(true);
 let x = 0;
 let y = 0;
 let z = 0;
-let o_x = 0;
-let o_y = 0;
-let o_z = 0;
+let oX = 0;
+let oY = 0;
+let oZ = 0;
 let theta = 0;
 
 const loaded2d = $computed(() => (pointcloud !== undefined && pose !== undefined));
@@ -105,65 +105,69 @@ const fetchSLAMPose = (name: string): Promise<commonApi.Pose> => {
 };
 
 const executeMove = async () => {
-  moveClick = false
+  moveClick = false;
   const req = new motionApi.MoveRequest();
   // set request name
-  req.setName("builtin");
+  req.setName('builtin');
 
-  const value = await fetchSLAMPose(props.name)  
+  const value = await fetchSLAMPose(props.name);
   // set pose in frame
-  const sentPose = new commonApi.Pose
-  sentPose.setX(Math.abs(threeJPos.x - value.getX()))
-  sentPose.setY(Math.abs(threeJPos.z - value.getY()))
-  sentPose.setZ(value.getZ())
-  sentPose.setOX(value.getOX())
-  sentPose.setOY(value.getOY())
-  sentPose.setOZ(value.getOZ())
-  sentPose.setTheta(value.getTheta())
+  const sentPose = new commonApi.Pose();
+  sentPose.setX(Math.abs(threeJPos.x - value.getX()));
+  sentPose.setY(Math.abs(threeJPos.z - value.getY()));
+  sentPose.setZ(value.getZ());
+  sentPose.setOX(value.getOX());
+  sentPose.setOY(value.getOY());
+  sentPose.setOZ(value.getOZ());
+  sentPose.setTheta(value.getTheta());
 
-  let pif = new commonApi.PoseInFrame
-  pif.setReferenceFrame("world");
+  const pif = new commonApi.PoseInFrame();
+  pif.setReferenceFrame('world');
   pif.setPose(sentPose);
   req.setDestination(pif);
 
-  //set SLAM resource name
-  const slamResourceName = new commonApi.ResourceName
-  slamResourceName.setNamespace("rdk")
-  slamResourceName.setType("service")
-  slamResourceName.setSubtype("slam")
-  slamResourceName.setName(props.name)
-  req.setSlamServiceName(slamResourceName)
+  // set SLAM resource name
+  const slamResourceName = new commonApi.ResourceName();
+  slamResourceName.setNamespace('rdk');
+  slamResourceName.setType('service');
+  slamResourceName.setSubtype('slam');
+  slamResourceName.setName(props.name);
+  req.setSlamServiceName(slamResourceName);
 
-  //set component name
-  const baseResource = filterResources(props.resources, 'rdk', 'component', 'base')
-  const baseResourceName = new commonApi.ResourceName
-  baseResourceName.setNamespace("rdk")
-  baseResourceName.setType("component")
-  baseResourceName.setSubtype("base")
-  baseResourceName.setName(baseResource[0]!.name)
-  req.setComponentName(baseResourceName)
-  
+  // set component name
+  const baseResource = filterResources(props.resources, 'rdk', 'component', 'base');
+  const baseResourceName = new commonApi.ResourceName();
+  baseResourceName.setNamespace('rdk');
+  baseResourceName.setType('component');
+  baseResourceName.setSubtype('base');
+  baseResourceName.setName(baseResource[0]!.name);
+  req.setComponentName(baseResourceName);
+
   // set worldstate
-  const wrldst = new commonApi.WorldState
-  req.setWorldState(wrldst)
+  const wrldst = new commonApi.WorldState();
+  req.setWorldState(wrldst);
 
   // set constraints
-  req.setConstraints(undefined)
+  req.setConstraints();
 
   // execute the actual call to validate e2e plumbing
-  props.client.motionService.move(req, new grpc.Metadata(), (error: ServiceError, response: motionApi.MoveRequestResponse) => {
-    if (error) {
-      toast.error(`Error moving: ${error}`);
-      return;
-    }
-    toast.success(`Move success: ${response!.getSuccess()}`);
-    return;
-  });
-  
-}
+  props.client.motionService.move(
+    req,
+    new grpc.Metadata(),
+    (error: ServiceError, response: motionApi.MoveRequestResponse) => {
+      if (error) {
+        toast.error(`Error moving: ${error}`);
+        return;
+      }
+      toast.success(`Move success: ${response!.getSuccess()}`);
 
-const executeStopMove =  () => {
-  console.log('executeStopMove')
+    }
+  );
+
+};
+
+const executeStopMove = () => {
+  console.log('executeStopMove');
 };
 
 const refresh2d = async (name: string) => {
@@ -179,13 +183,13 @@ const refresh2d = async (name: string) => {
 const handleRefresh2dResponse = (response: MapAndPose): void => {
   pointcloud = response.map;
   pose = response.pose;
-  x = +pose?.getX()!.toFixed(1)!;
-  y = +pose?.getY()!.toFixed(1)!;
-  z = +pose?.getZ()!.toFixed(1)!;
-  o_x = +pose?.getOX()!.toFixed(1)!;
-  o_y = +pose?.getOY()!.toFixed(1)!;
-  o_z = +pose?.getOZ()!.toFixed(1)!;
-  theta = +pose?.getTheta()!.toFixed(1)!;
+  x = Number(pose!.getX()!.toFixed(1)!);
+  y = Number(pose!.getY()!.toFixed(1)!);
+  z = Number(pose!.getZ()!.toFixed(1)!);
+  oX = Number(pose!.getOX()!.toFixed(1)!);
+  oY = Number(pose!.getOY()!.toFixed(1)!);
+  oZ = Number(pose!.getOZ()!.toFixed(1)!);
+  theta = Number(pose!.getTheta()!.toFixed(1)!);
   pointCloudUpdateCount += 1;
 };
 
@@ -247,42 +251,43 @@ const refresh2dMap = () => {
 };
 
 const handle2dRenderClick = (event: THREE.Vector3) => {
-  updatedDest = true
-  threeJPos = event
-}
+  updatedDest = true;
+  threeJPos = event;
+};
 
 const handleUpdateX = (event: CustomEvent<{ value: string }>) => {
-  threeJPos.x = Number.parseFloat(event.detail.value)
-  updatedDest = true
-}
+  threeJPos.x = Number.parseFloat(event.detail.value);
+  updatedDest = true;
+};
 
 const handleUpdateY = (event: CustomEvent<{ value: string }>) => {
-  threeJPos.z = Number.parseFloat(event.detail.value)
-  updatedDest = true
-}
+  threeJPos.z = Number.parseFloat(event.detail.value);
+  updatedDest = true;
+};
 
 const baseCopyPosition = () => {
-  const position: JSON = <JSON><unknown>{
+  let position = {
     "x": x,
     "y": y,
     "z": z,
-    "o_x": o_x,
-    "o_y": o_y,
-    "o_z": o_z,
-    "theta": theta
+    "o_x": oX,
+    "o_y": oY,
+    "o_z": oZ, 
+    "theta": theta,
   }
-  const asString = JSON.stringify(position)
-  copyToClipboardWithToast(asString)
+
+  const asString = JSON.stringify(position);
+  copyToClipboardWithToast(asString);
 };
 
 const executeDelete = () => {
-  updatedDest = false
-  threeJPos = new THREE.Vector3()
-}
+  updatedDest = false;
+  threeJPos = new THREE.Vector3();
+};
 
 const toggleAxes = () => {
-  showAxes = !showAxes
-}
+  showAxes = !showAxes;
+};
 
 </script>
 
@@ -297,144 +302,163 @@ const toggleAxes = () => {
       crumbs="slam"
     />
     <v-button
-        slot="header"
-        icon="stop-circle"
-        variant="danger"
-        label="STOP"
-        :disabled="moveClick ? 'true' : 'false'"
-        @click="executeStopMove()"
+      slot="header"
+      icon="stop-circle"
+      variant="danger"
+      label="STOP"
+      :disabled="moveClick ? 'true' : 'false'"
+      @click="executeStopMove()"
     />
-    <div class="flex flex-wrap sm:flex-nowrap gap-4 border border-t-0 border-black">
-        <div class="flex flex-col gap-4 p-4 min-w-fit">
-          <div class="float-left pb-4">
-            <div class="flex">
-              <div class="w-64">
-                <p class="mb-1 text-gray-800 font-bold">
-                  Map
+    <div class="flex flex-wrap gap-4 border border-t-0 border-black sm:flex-nowrap">
+      <div class="flex min-w-fit flex-col gap-4 p-4">
+        <div class="float-left pb-4">
+          <div class="flex">
+            <div class="w-64">
+              <p class="mb-1 font-bold text-gray-800">
+                Map
+              </p>
+              <div class="relative">
+                <p class="mb-1 text-xs text-gray-500 ">
+                  Refresh frequency
                 </p>
-                <div class="relative">
-                  <p class="text-xs mb-1 text-gray-500 ">
-                      Refresh frequency
-                  </p>
-                  <select
-                    v-model="selected2dValue"
-                    class="
+                <select
+                  v-model="selected2dValue"
+                  class="
                       m-0 w-full appearance-none border border-solid border-black bg-white bg-clip-padding px-3 py-1.5
                       text-xs font-normal text-gray-700 focus:outline-none
                     "
-                    aria-label="Default select example"
-                    @change="selectSLAM2dRefreshFrequency()"
+                  aria-label="Default select example"
+                  @change="selectSLAM2dRefreshFrequency()"
+                >
+                  <option
+                    value="manual"
+                    class="pb-5"
                   >
-                    <option value="manual" class="pb-5">
-                      Manual Refresh
-                    </option>
-                    <option value="30">
-                      Every 30 seconds
-                    </option>
-                    <option value="10">
-                      Every 10 seconds
-                    </option>
-                    <option value="5">
-                      Every 5 seconds
-                    </option>
-                    <option value="1">
-                      Every second
-                    </option>
-                  </select>
-                  <div
-                    class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2"
+                    Manual Refresh
+                  </option>
+                  <option value="30">
+                    Every 30 seconds
+                  </option>
+                  <option value="10">
+                    Every 10 seconds
+                  </option>
+                  <option value="5">
+                    Every 5 seconds
+                  </option>
+                  <option value="1">
+                    Every second
+                  </option>
+                </select>
+                <div
+                  class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2"
+                >
+                  <svg
+                    class="h-4 w-4 stroke-2 text-gray-700"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    stroke-linejoin="round"
+                    stroke-linecap="round"
+                    fill="none"
                   >
-                    <svg
-                      class="h-4 w-4 stroke-2 text-gray-700"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      stroke-linejoin="round"
-                      stroke-linecap="round"
-                      fill="none"
-                    >
-                      <path d="M18 16L12 22L6 16" />
-                    </svg>
-                  </div>
+                    <path d="M18 16L12 22L6 16" />
+                  </svg>
                 </div>
               </div>
-              <div class="px-2 pt-11">
-                <v-button
-                  label="Refresh"
-                  icon="refresh"
-                  @click="refresh2dMap()"
-                />
-              </div>
             </div>
-            <hr class="my-4 border-t border-gray-400">
-            <div class="flex flex-row">
-              <p class="mb-1 text-gray-800 font-bold pr-52">
-                  Ending Position
-              </p>
-              <v-icon
-                name='trash'
-                @click="executeDelete()"
+            <div class="px-2 pt-11">
+              <v-button
+                label="Refresh"
+                icon="refresh"
+                @click="refresh2dMap()"
               />
             </div>
-            <div class="flex flex-row pb-2">
-              
-              <v-input
-                type='number'
-                label='x'
-                incrementor='slider'
-                :value="threeJPos.x"
-                step='0.1'
-                @input="handleUpdateX($event)"
-              />
-              <v-input
-                class="pl-2"
-                type='number'
-                label='y'
-                incrementor='slider'
-                :value="threeJPos.z"
-                step='0.1'
-                @input="handleUpdateY($event)"
-              />
-
-            </div>
-            <v-button  
-              class="pt-1"
-              label="Move"
-              variant="success"
-              icon="play-circle-filled"
-              @click="executeMove()"
+          </div>
+          <hr class="my-4 border-t border-gray-400">
+          <div class="flex flex-row">
+            <p class="mb-1 pr-52 font-bold text-gray-800">
+              Ending Position
+            </p>
+            <v-icon
+              name="trash"
+              @click="executeDelete()"
             />
-            <v-switch
+          </div>
+          <div class="flex flex-row pb-2">
+            <v-input
+              type="number"
+              label="x"
+              incrementor="slider"
+              :value="threeJPos.x"
+              step="0.1"
+              @input="handleUpdateX($event)"
+            />
+            <v-input
+              class="pl-2"
+              type="number"
+              label="y"
+              incrementor="slider"
+              :value="threeJPos.z"
+              step="0.1"
+              @input="handleUpdateY($event)"
+            />
+          </div>
+          <v-button
+            class="pt-1"
+            label="Move"
+            variant="success"
+            icon="play-circle-filled"
+            @click="executeMove()"
+          />
+          <v-switch
             class="pt-2"
             label="Show Axes"
             :value="showAxes ? 'on' : 'off'"
             @input="toggleAxes()"
-            />
-          </div>
+          />
         </div>
-        <div class="justify-start gap-4 sm:border-l border-black">
+      </div>
+      <div class="justify-start gap-4 border-black sm:border-l">
         <div v-if="loaded2d && show2d">
           <div class="flex flex-row pl-5 pt-3">
             <div class="flex flex-col">
-              <p class="text-xs"> Current Position </p>
-                <div class="flex flex-row">
-                  <p class="pr-2 text-xs items-end"> x </p>
-                  <p >{{ x }}</p>
-                  <p class="pl-7 pr-2 text-xs"> y </p>
-                  <p>{{ y }}</p>
-                  <p class="pl-7 pr-2 text-xs"> z </p>
-                  <p>{{ z }}</p>
-                </div>
+              <p class="text-xs">
+                Current Position
+              </p>
+              <div class="flex flex-row">
+                <p class="items-end pr-2 text-xs">
+                  x
+                </p>
+                <p>{{ x }}</p>
+                <p class="pl-7 pr-2 text-xs">
+                  y
+                </p>
+                <p>{{ y }}</p>
+                <p class="pl-7 pr-2 text-xs">
+                  z
+                </p>
+                <p>{{ z }}</p>
+              </div>
             </div>
             <div class="flex flex-col pl-10">
-              <p class="text-xs"> Current Orientation </p>
+              <p class="text-xs">
+                Current Orientation
+              </p>
               <div class="flex flex-row">
-                <p class="pr-2 text-xs"> o_x </p>
-                <p>{{ o_x }}</p>
-                <p class="pl-7 pr-2 text-xs"> o_y </p>
-                <p>{{ o_y }}</p>
-                <p class="pl-7 pr-2 text-xs"> o_z </p>
-                <p>{{ o_z }}</p>
-                <p class="pl-7 pr-2 text-xs"> &theta; </p>
+                <p class="pr-2 text-xs">
+                  o_x
+                </p>
+                <p>{{ oX }}</p>
+                <p class="pl-7 pr-2 text-xs">
+                  o_y
+                </p>
+                <p>{{ oY }}</p>
+                <p class="pl-7 pr-2 text-xs">
+                  o_z
+                </p>
+                <p>{{ oZ }}</p>
+                <p class="pl-7 pr-2 text-xs">
+                  &theta;
+                </p>
                 <p>{{ theta }}</p>
               </div>
             </div>
@@ -442,22 +466,21 @@ const toggleAxes = () => {
               <v-icon
                 name="copy"
                 @click="baseCopyPosition()"
-              >
-              </v-icon>
+              />
             </div>
           </div>
           <Slam2dRender
-              :point-cloud-update-count="pointCloudUpdateCount"
-              :pointcloud="pointcloud"
-              :pose="pose"
-              :name="name"
-              :resources="resources"
-              :client="client"
-              :dest-exists='updatedDest'
-              :dest-vector='threeJPos'
-              :axes="showAxes"
-              @click="handle2dRenderClick($event)"
-           />
+            :point-cloud-update-count="pointCloudUpdateCount"
+            :pointcloud="pointcloud"
+            :pose="pose"
+            :name="name"
+            :resources="resources"
+            :client="client"
+            :dest-exists="updatedDest"
+            :dest-vector="threeJPos"
+            :axes="showAxes"
+            @click="handle2dRenderClick($event)"
+          />
         </div>
       </div>
     </div>
