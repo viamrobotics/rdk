@@ -3,13 +3,13 @@
 set -euo pipefail
 
 if [[ -z "$BASH_VERSION" ]] ; then
-    echo "Please run this script ($0) with bash, or execute it directly" >&2
-    exit 1
+  echo "Please run this script ($0) with bash, or execute it directly" >&2
+  exit 1
 fi
 
 if [[ "$(whoami)" != "root" ]]; then
-	echo "Please do run this script directly as root" >&2
-	exit 1
+  echo "Please do run this script directly as root" >&2
+  exit 1
 fi
 
 if [[ ! "$(type apt-get)" ]]; then
@@ -52,7 +52,7 @@ install_v4l2loopback(){
     return
   fi
 
-	apt-get install --assume-yes v4l2loopback-dkms v4l2loopback-utils
+  apt-get install --assume-yes v4l2loopback-dkms v4l2loopback-utils
 }
 
 install_gstreamer(){
@@ -61,10 +61,10 @@ install_gstreamer(){
     return
   fi
 
-	apt-get install --assume-yes libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstreamer-plugins-bad1.0-dev
-	apt-get install --assume-yes gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad
-	apt-get install --assume-yes gstreamer1.0-plugins-ugly gstreamer1.0-libav gstreamer1.0-tools gstreamer1.0-x
-	apt-get install --assume-yes gstreamer1.0-alsa gstreamer1.0-gl gstreamer1.0-gtk3 gstreamer1.0-qt5 gstreamer1.0-pulseaudio
+  apt-get install --assume-yes libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstreamer-plugins-bad1.0-dev
+  apt-get install --assume-yes gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad
+  apt-get install --assume-yes gstreamer1.0-plugins-ugly gstreamer1.0-libav gstreamer1.0-tools gstreamer1.0-x
+  apt-get install --assume-yes gstreamer1.0-alsa gstreamer1.0-gl gstreamer1.0-gtk3 gstreamer1.0-qt5 gstreamer1.0-pulseaudio
 }
 
 allow_modprobe_as_superuser() {
