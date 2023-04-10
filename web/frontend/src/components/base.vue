@@ -269,7 +269,6 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
-  stop();
   window.removeEventListener('visibilitychange', handleVisibilityChange);
 });
 </script>
