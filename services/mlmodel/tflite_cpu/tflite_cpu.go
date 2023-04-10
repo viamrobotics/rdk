@@ -33,7 +33,7 @@ func init() {
 // TFLiteConfig contains the parameters specific to a tflite_cpu implementation
 // of the MLMS (machine learning model service).
 type TFLiteConfig struct {
-	// this should come from the attributes part of the tflite_cpu instance of the MLMS
+	// this should come from the attributes of the tflite_cpu instance of the MLMS
 	ModelPath  string  `json:"model_path"`
 	NumThreads int     `json:"num_threads"`
 	LabelPath  *string `json:"label_path"`
@@ -47,7 +47,7 @@ type Model struct {
 	metadata *mlmodel.MLMetadata
 }
 
-// NewTFLiteCPUModel is a constructor that builds a tflite cpu implementation of the MLMS.
+// newTFLiteCPUModel is a constructor that builds a tflite cpu implementation of the MLMS.
 func newTFLiteCPUModel(ctx context.Context, r robot.Robot, conf config.Service, logger golog.Logger) (*Model, error) {
 	ctx, span := trace.StartSpan(ctx, "service::mlmodel::NewTFLiteCPUModel")
 	defer span.End()
@@ -56,12 +56,12 @@ func newTFLiteCPUModel(ctx context.Context, r robot.Robot, conf config.Service, 
 	var t TFLiteConfig
 	tfParams, err := config.TransformAttributeMapToStruct(&t, conf.Attributes)
 	if err != nil {
-		return &Model{}, errors.New("error getting parameters from config")
+		return &Model{}, errors.Wrapf(err, "error getting parameters from config")
 	}
 	params, ok := tfParams.(*TFLiteConfig)
 	if !ok {
 		err := utils.NewUnexpectedTypeError(params, tfParams)
-		return &Model{}, errors.Wrapf(err, "register tflite detector %s", conf.Name)
+		return &Model{}, errors.Wrapf(err, "can not register tflite cpu model %s", conf.Name)
 	}
 	return CreateTFLiteCPUModel(ctx, params)
 }
@@ -76,9 +76,8 @@ func CreateTFLiteCPUModel(ctx context.Context, params *TFLiteConfig) (*Model, er
 	return &Model{attrs: *params, model: model}, nil
 }
 
-// Infer needs to take the input, search for something that looks like an image
-// and send that image to the tflite inference service.
-// Each new image means a new infer call (for now).
+// Infer takes the input map, finds the image (labeled 'image'), and uses the inference
+// package to return the result from the tflite cpu model as a map.
 func (m *Model) Infer(ctx context.Context, input map[string]interface{}) (map[string]interface{}, error) {
 	_, span := trace.StartSpan(ctx, "service::mlmodel::tflite_cpu::Infer")
 	defer span.End()
@@ -87,7 +86,6 @@ func (m *Model) Infer(ctx context.Context, input map[string]interface{}) (map[st
 
 	// Grab the image data from the map
 	if imgBytes, ok := input["image"]; ok {
-		// Maybe try some other names but for nowww...
 		outTensors, err := m.model.Infer(imgBytes)
 		if err != nil {
 			return nil, errors.Wrap(err, "couldn't infer from model")
@@ -109,9 +107,12 @@ func (m *Model) Infer(ctx context.Context, input map[string]interface{}) (map[st
 	return outMap, nil
 }
 
-// Metadata reads the metadata from your tflite model struct into the metadata struct
-// that we use for mlmodel service.
+// Metadata reads the metadata from your tflite cpu model into the metadata struct
+// that we use for the mlmodel service.
 func (m *Model) Metadata(ctx context.Context) (mlmodel.MLMetadata, error) {
+	_, span := trace.StartSpan(ctx, "service::mlmodel::tflite_cpu::Metadata")
+	defer span.End()
+
 	// model.Metadata() and funnel it into this struct
 	md, err := m.model.Metadata()
 	if err != nil {
@@ -126,8 +127,8 @@ func (m *Model) Metadata(ctx context.Context) (mlmodel.MLMetadata, error) {
 	inputList := make([]mlmodel.TensorInfo, 0, numIn)
 	outputList := make([]mlmodel.TensorInfo, 0, numOut)
 
-	// Fill in input info to the best of our abilities
-	for i := 0; i < numIn; i++ { // //for each input Tensor
+	// Fill in input info to the best of our abilities (normally just 1 tensor)
+	for i := 0; i < numIn; i++ { //for each input Tensor
 		inputT := md.SubgraphMetadata[0].InputTensorMetadata[i]
 		td := getTensorInfo(inputT)
 		// try to guess model type based on input description
@@ -149,22 +150,22 @@ func (m *Model) Metadata(ctx context.Context) (mlmodel.MLMetadata, error) {
 		inputList = append(inputList, td)
 	}
 
-	// Fill in output info to the best of our abilities
-	for i := 0; i < numOut; i++ { // //for each output Tensor
+	// Fill in output info to the best of our abilities (can be >1 tensor)
+	for i := 0; i < numOut; i++ { // for each output Tensor
 		outputT := md.SubgraphMetadata[0].OutputTensorMetadata[i]
 		td := getTensorInfo(outputT)
 		td.DataType = strings.ToLower(m.model.Info.OutputTensorTypes[i]) // grab from model info, not metadata
 		outputList = append(outputList, td)
 	}
+
 	out.Inputs = inputList
 	out.Outputs = outputList
-
 	m.metadata = &out
 	return out, nil
 }
 
 // getTensorInfo converts the information from the metadata form to the TensorData struct
-// that we use in the mlmodel. This method doesn't populate Extra or NDim, and only.
+// that we use in the mlmodel. This method doesn't populate Extra or NDim.
 func getTensorInfo(inputT *tflite_metadata.TensorMetadataT) mlmodel.TensorInfo {
 	td := mlmodel.TensorInfo{ // Fill in what's easy
 		Name:        inputT.Name,
@@ -179,7 +180,7 @@ func getTensorInfo(inputT *tflite_metadata.TensorMetadataT) mlmodel.TensorInfo {
 			Name:        inputT.AssociatedFiles[i].Name,
 			Description: inputT.AssociatedFiles[i].Description,
 		}
-		switch inputT.AssociatedFiles[i].Type { //nolint:exhaustive
+		switch inputT.AssociatedFiles[i].Type { // nolint:exhaustive
 		case tflite_metadata.AssociatedFileTypeTENSOR_AXIS_LABELS:
 			outFile.LabelType = mlmodel.LabelTypeTensorAxis
 		case tflite_metadata.AssociatedFileTypeTENSOR_VALUE_LABELS:
