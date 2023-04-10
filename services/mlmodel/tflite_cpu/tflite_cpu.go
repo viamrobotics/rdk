@@ -48,7 +48,7 @@ type Model struct {
 }
 
 // newTFLiteCPUModel is a constructor that builds a tflite cpu implementation of the MLMS.
-func newTFLiteCPUModel(ctx context.Context, r robot.Robot, conf config.Service, logger golog.Logger) (*Model, error) {
+func newTFLiteCPUModel(ctx context.Context, r robot.Robot, conf config.Service, logger golog.Logger) (*Model, error) { //nolint:unparam
 	ctx, span := trace.StartSpan(ctx, "service::mlmodel::NewTFLiteCPUModel")
 	defer span.End()
 
@@ -128,7 +128,7 @@ func (m *Model) Metadata(ctx context.Context) (mlmodel.MLMetadata, error) {
 	outputList := make([]mlmodel.TensorInfo, 0, numOut)
 
 	// Fill in input info to the best of our abilities (normally just 1 tensor)
-	for i := 0; i < numIn; i++ { //for each input Tensor
+	for i := 0; i < numIn; i++ { // for each input Tensor
 		inputT := md.SubgraphMetadata[0].InputTensorMetadata[i]
 		td := getTensorInfo(inputT)
 		// try to guess model type based on input description
@@ -180,7 +180,7 @@ func getTensorInfo(inputT *tflite_metadata.TensorMetadataT) mlmodel.TensorInfo {
 			Name:        inputT.AssociatedFiles[i].Name,
 			Description: inputT.AssociatedFiles[i].Description,
 		}
-		switch inputT.AssociatedFiles[i].Type { // nolint:exhaustive
+		switch inputT.AssociatedFiles[i].Type { //nolint:exhaustive
 		case tflite_metadata.AssociatedFileTypeTENSOR_AXIS_LABELS:
 			outFile.LabelType = mlmodel.LabelTypeTensorAxis
 		case tflite_metadata.AssociatedFileTypeTENSOR_VALUE_LABELS:
