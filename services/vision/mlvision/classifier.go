@@ -1,4 +1,4 @@
-package mlmodel
+package mlvision
 
 import (
 	"go.viam.com/rdk/services/mlmodel"

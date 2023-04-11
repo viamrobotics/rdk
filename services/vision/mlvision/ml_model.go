@@ -1,4 +1,4 @@
-package mlmodel
+package mlvision
 
 import (
 	"context"
