@@ -79,7 +79,7 @@ func NewFrameSystemFromParts(
 			part.FrameConfig.SetParent(prefix + part.FrameConfig.Parent())
 		}
 		// make the frames from the configs
-		modelFrame, staticOffsetFrame, err := referenceframe.CreateFramesFromPart(part, logger)
+		modelFrame, staticOffsetFrame, err := referenceframe.CreateFramesFromPart(part)
 		if err != nil {
 			return nil, err
 		}

@@ -71,25 +71,66 @@ var (
 	ErrMethodUnimplementedLinearAcceleration = errors.New("linear acceleration unimplemented")
 )
 
-// LastError is an object that stores the most recent error.
+// LastError is an object that stores recent errors. If there have been sufficiently many recent
+// errors, you can retrieve the most recent one.
 type LastError struct {
-	err error
-	mu  sync.Mutex
+	// These values are immutable
+	size      int // The length of errs, below
+	threshold int // How many items in errs must be non-nil for us to give back errors when asked
+
+	// These values are mutable
+	mu    sync.Mutex
+	errs  []error // A list of recent errors, oldest to newest
+	count int     // How many items in errs are non-nil
+}
+
+// NewLastError creates a LastError object which will let you retrieve the most recent error if at
+// least `threshold` of the most recent `size` items put into it are non-nil.
+func NewLastError(size, threshold int) LastError {
+	return LastError{errs: make([]error, size), threshold: threshold}
 }
 
 // Set stores an error to be retrieved later.
 func (le *LastError) Set(err error) {
 	le.mu.Lock()
 	defer le.mu.Unlock()
-	le.err = err
+
+	// Remove the oldest error, and add the newest one.
+	if le.errs[0] != nil {
+		le.count--
+	}
+	if err != nil {
+		le.count++
+	}
+	le.errs = append(le.errs[1:], err)
 }
 
-// Get returns the most-recently-stored error, and sets the stored error to nil.
+// Get returns the most-recently-stored non-nil error if we've had enough recent errors. If we're
+// going to return a non-nil error, we also wipe out all other data so we don't return the same
+// error again next time.
 func (le *LastError) Get() error {
 	le.mu.Lock()
 	defer le.mu.Unlock()
 
-	err := le.err
-	le.err = nil
-	return err
+	if le.count < le.threshold {
+		// Keep our data, in case we're close to the threshold and will return an error next time.
+		return nil
+	}
+
+	// Otherwise, find the most recent error, iterating through the list newest to oldest. Assuming
+	// the threshold is at least 1, there is definitely some error in here to find.
+	var errToReturn error
+	for i := 0; i < len(le.errs); i++ {
+		current := le.errs[len(le.errs)-1-i]
+		if current == nil {
+			continue
+		}
+		errToReturn = current
+		break
+	}
+
+	// Wipe everything out
+	le.errs = make([]error, le.size)
+	le.count = 0
+	return errToReturn
 }

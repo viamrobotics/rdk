@@ -30,11 +30,6 @@ func NewUnimplementedInterfaceError(actual interface{}) error {
 	return utils.NewUnimplementedInterfaceError((*Board)(nil), actual)
 }
 
-// DependencyTypeError is used when a resource doesn't implement the expected interface.
-func DependencyTypeError(name string, actual interface{}) error {
-	return utils.DependencyTypeError(name, (*Board)(nil), actual)
-}
-
 func init() {
 	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
 		Reconfigurable: WrapWithReconfigurable,
@@ -192,15 +187,7 @@ var (
 // FromDependencies is a helper for getting the named board from a collection of
 // dependencies.
 func FromDependencies(deps registry.Dependencies, name string) (Board, error) {
-	res, ok := deps[Named(name)]
-	if !ok {
-		return nil, utils.DependencyNotFoundError(name)
-	}
-	part, ok := res.(Board)
-	if !ok {
-		return nil, DependencyTypeError(name, res)
-	}
-	return part, nil
+	return registry.ResourceFromDependencies[Board](deps, Named(name))
 }
 
 // FromRobot is a helper for getting the named board from the given Robot.

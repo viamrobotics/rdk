@@ -1,4 +1,4 @@
-package encoder
+package ams
 
 import (
 	"math"

@@ -62,24 +62,14 @@ func (c *client) Lengths(ctx context.Context, extra map[string]interface{}) ([]f
 	return lengths.LengthsMm, nil
 }
 
-func (c *client) MoveToPosition(
-	ctx context.Context,
-	positionsMm []float64,
-	worldState *referenceframe.WorldState,
-	extra map[string]interface{},
-) error {
+func (c *client) MoveToPosition(ctx context.Context, positionsMm []float64, extra map[string]interface{}) error {
 	ext, err := protoutils.StructToStructPb(extra)
-	if err != nil {
-		return err
-	}
-	worldStateMsg, err := referenceframe.WorldStateToProtobuf(worldState)
 	if err != nil {
 		return err
 	}
 	_, err = c.client.MoveToPosition(ctx, &pb.MoveToPositionRequest{
 		Name:        c.name,
 		PositionsMm: positionsMm,
-		WorldState:  worldStateMsg,
 		Extra:       ext,
 	})
 	return err
@@ -108,7 +98,7 @@ func (c *client) CurrentInputs(ctx context.Context) ([]referenceframe.Input, err
 }
 
 func (c *client) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	return c.MoveToPosition(ctx, referenceframe.InputsToFloats(goal), &referenceframe.WorldState{}, nil)
+	return c.MoveToPosition(ctx, referenceframe.InputsToFloats(goal), nil)
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {

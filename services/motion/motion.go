@@ -14,6 +14,7 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 )
@@ -44,6 +45,12 @@ type Service interface {
 		destination *referenceframe.PoseInFrame,
 		worldState *referenceframe.WorldState,
 		constraints *servicepb.Constraints,
+		extra map[string]interface{},
+	) (bool, error)
+	MoveOnMap(
+		ctx context.Context,
+		componentName resource.Name,
+		destination spatialmath.Pose,
 		slamName resource.Name,
 		extra map[string]interface{},
 	) (bool, error)
@@ -111,12 +118,23 @@ func (svc *reconfigurableMotionService) Move(
 	destination *referenceframe.PoseInFrame,
 	worldState *referenceframe.WorldState,
 	constraints *servicepb.Constraints,
+	extra map[string]interface{},
+) (bool, error) {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return svc.actual.Move(ctx, componentName, destination, worldState, constraints, extra)
+}
+
+func (svc *reconfigurableMotionService) MoveOnMap(
+	ctx context.Context,
+	componentName resource.Name,
+	destination spatialmath.Pose,
 	slamName resource.Name,
 	extra map[string]interface{},
 ) (bool, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
-	return svc.actual.Move(ctx, componentName, destination, worldState, constraints, slamName, extra)
+	return svc.actual.MoveOnMap(ctx, componentName, destination, slamName, extra)
 }
 
 func (svc *reconfigurableMotionService) MoveSingleComponent(

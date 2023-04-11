@@ -1,6 +1,7 @@
 package pointcloud
 
 import (
+	"math"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -162,7 +163,7 @@ func TestCheckPointPlacement(t *testing.T) {
 }
 
 // Helper function that recursively checks a basic octree's structure and metadata.
-func validateBasicOctree(t *testing.T, bOct *BasicOctree, center r3.Vector, sideLength float64) int {
+func validateBasicOctree(t *testing.T, bOct *BasicOctree, center r3.Vector, sideLength float64) (int, int) {
 	t.Helper()
 
 	test.That(t, sideLength, test.ShouldEqual, bOct.sideLength)
@@ -171,6 +172,7 @@ func validateBasicOctree(t *testing.T, bOct *BasicOctree, center r3.Vector, side
 	validateMetadata(t, bOct)
 
 	var size int
+	maxVal := emptyProb
 	switch bOct.node.nodeType {
 	case internalNode:
 		test.That(t, len(bOct.node.children), test.ShouldEqual, 8)
@@ -206,13 +208,17 @@ func validateBasicOctree(t *testing.T, bOct *BasicOctree, center r3.Vector, side
 				numLeafNodeEmptyNodes++
 			}
 
-			size += validateBasicOctree(t, child, r3.Vector{
+			childSize, childMaxProb := validateBasicOctree(t, child, r3.Vector{
 				X: center.X + i*sideLength/4.,
 				Y: center.Y + j*sideLength/4.,
 				Z: center.Z + k*sideLength/4.,
 			}, sideLength/2.)
+			size += childSize
+			maxVal = int(math.Max(float64(maxVal), float64(childMaxProb)))
 		}
 		test.That(t, size, test.ShouldEqual, bOct.size)
+		test.That(t, bOct.node.maxVal, test.ShouldEqual, maxVal)
+		test.That(t, bOct.node.maxVal, test.ShouldEqual, bOct.MaxVal())
 		test.That(t, numInternalNodes+numLeafNodeEmptyNodes+numLeafNodeFilledNodes, test.ShouldEqual, 8)
 	case leafNodeFilled:
 		test.That(t, len(bOct.node.children), test.ShouldEqual, 0)
@@ -220,13 +226,14 @@ func validateBasicOctree(t *testing.T, bOct *BasicOctree, center r3.Vector, side
 		test.That(t, bOct.checkPointPlacement(bOct.node.point.P), test.ShouldBeTrue)
 		test.That(t, bOct.size, test.ShouldEqual, 1)
 		size = bOct.size
+		maxVal = bOct.node.maxVal
 	case leafNodeEmpty:
 		test.That(t, len(bOct.node.children), test.ShouldEqual, 0)
 		test.That(t, bOct.node.point, test.ShouldResemble, PointAndData{})
 		test.That(t, bOct.size, test.ShouldEqual, 0)
 		size = bOct.size
 	}
-	return size
+	return size, maxVal
 }
 
 // Helper function for checking basic octree metadata.
@@ -307,13 +314,14 @@ func stringBasicOctreeNodeType(n NodeType) string {
 
 //nolint:unused
 func printBasicOctree(logger golog.Logger, bOct *BasicOctree, s string) {
-	logger.Infof("%v %e %e %e - %v | Children: %v Side: %v Size: %v\n", s,
-		bOct.center.X, bOct.center.Y, bOct.center.Z,
-		stringBasicOctreeNodeType(bOct.node.nodeType), len(bOct.node.children), bOct.sideLength, bOct.size)
+	logger.Infof("%v %e %e %e - %v | Children: %v Side: %v Size: %v MaxVal: %f\n",
+		s, bOct.center.X, bOct.center.Y, bOct.center.Z, stringBasicOctreeNodeType(bOct.node.nodeType),
+		len(bOct.node.children), bOct.sideLength, bOct.size, bOct.node.maxVal)
 
 	if bOct.node.nodeType == leafNodeFilled {
-		logger.Infof("%s (%e %e %e) - Val: %v\n", s,
-			bOct.node.point.P.X, bOct.node.point.P.Y, bOct.node.point.P.Z, bOct.node.point.D.Value())
+		logger.Infof("%s (%e %e %e) - Val: %v | MaxVal: %f\n",
+			s, bOct.node.point.P.X, bOct.node.point.P.Y, bOct.node.point.P.Z,
+			bOct.node.point.D.Value(), bOct.node.maxVal)
 	}
 	for _, v := range bOct.node.children {
 		printBasicOctree(logger, v, s+"-+-")

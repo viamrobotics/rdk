@@ -3,8 +3,6 @@ package referenceframe
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
-	"strings"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
@@ -12,7 +10,6 @@ import (
 	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils/protoutils"
 
-	"go.viam.com/rdk/spatialmath"
 	spatial "go.viam.com/rdk/spatialmath"
 )
 
@@ -315,137 +312,6 @@ func (sfs *simpleFrameSystem) FrameSystemSubset(newRoot Frame) (FrameSystem, err
 	return newFS, nil
 }
 
-// FrameSystemToPCD takes in a framesystem and returns a map where all elements are
-// the point representation of their geometry type with respect to the world.
-func FrameSystemToPCD(system FrameSystem, inputs map[string][]Input, logger golog.Logger) (map[string][]r3.Vector, error) {
-	vectorMap := make(map[string][]r3.Vector)
-	geoMap, err := FrameSystemGeometries(system, inputs, logger)
-	if err != nil {
-		return nil, err
-	}
-	for name, geosInFrame := range geoMap {
-		geos := geosInFrame.Geometries()
-		aggregatePoints := []r3.Vector{}
-		for _, g := range geos {
-			asPoints := g.ToPoints(defaultPointDensity)
-			aggregatePoints = append(aggregatePoints, asPoints...)
-		}
-		vectorMap[name] = aggregatePoints
-	}
-	return vectorMap, nil
-}
-
-// FrameSystemGeometries takes in a framesystem and returns a map where all elements
-// are GeometriesInFrame modified to be with respect to the world.
-func FrameSystemGeometries(system FrameSystem, inputs map[string][]Input, logger golog.Logger) (map[string]*GeometriesInFrame, error) {
-	geoMap := make(map[string]*GeometriesInFrame)
-	for _, name := range system.FrameNames() {
-		currentFrame := system.Frame(name)
-		currentInput := inputs[name]
-		// if currentInput is nil and DoF != 0 we chose to omit the
-		// frame entirely as this would return the frame's geometries
-		// in their home or "zero" position, and not in their
-		// current position.
-		if currentInput == nil && len(currentFrame.DoF()) == 0 {
-			currentInput = []Input{}
-		}
-		if currentInput == nil {
-			logger.Debugf("will not transform %v to be with respect to the world as it had no inputs provided", name)
-			continue
-		}
-		geosInFrame, err := currentFrame.Geometries(currentInput)
-		if err != nil {
-			return nil, err
-		}
-		if len(geosInFrame.Geometries()) > 0 {
-			// the parent of the frame is handled by the Transform method.
-			transformed, err := system.Transform(inputs, geosInFrame, World)
-			if err != nil && strings.Contains(err.Error(), "no positions provided for frame with name") {
-				logger.Debugf("%v, unable to handle the transform for %v", err.Error(), name)
-				continue
-			} else if err != nil {
-				return nil, err
-			}
-			transformedGeo := transformed.(*GeometriesInFrame)
-			geoMap[name] = transformedGeo
-		}
-	}
-	return geoMap, nil
-}
-
-func FrameSystemBuffer(system FrameSystem, buffer float64) (FrameSystem, error) {
-	fs := NewEmptySimpleFrameSystem("framesys with buffers around geom")
-	allInputs := StartPositions(system)
-	for _, name := range system.FrameNames() {
-		frame := system.Frame(name)
-		parentFrame, err := system.Parent(frame)
-		if err != nil {
-			return nil, err
-		}
-		input := allInputs[name]
-		geoms, err := frame.Geometries(input)
-		if err != nil {
-			return nil, err
-		}
-		geos := geoms.geometries
-
-		for i := range geos {
-			geo := geos[i]
-			fmt.Println(geo)
-
-			cfg, err := spatialmath.NewGeometryConfig(geo)
-			if err != nil {
-				return nil, err
-			}
-			dims := geo.Dimensions()
-			centerPose := geo.Pose()
-
-			switch cfg.Type {
-			case spatial.PointType:
-				newSphere, err := spatialmath.NewSphere(centerPose, buffer, geo.Label())
-				if err != nil {
-					return nil, err
-				}
-				sphereFrame, err := NewStaticFrameWithGeometry(geo.Label(), centerPose, newSphere)
-				if err != nil {
-					return nil, err
-				}
-				fs.AddFrame(sphereFrame, parentFrame)
-			case spatial.BoxType:
-				newDims := r3.Vector{
-					X: dims[0] + buffer,
-					Y: dims[1] + buffer,
-					Z: dims[2] + buffer,
-				}
-				newBox, err := spatialmath.NewBox(centerPose, newDims, geo.Label())
-				if err != nil {
-					return nil, err
-				}
-				boxFrame, err := NewStaticFrameWithGeometry(geo.Label(), centerPose, newBox)
-				if err != nil {
-					return nil, err
-				}
-				fs.AddFrame(boxFrame, parentFrame)
-			case spatial.SphereType:
-				newRadius := dims[0] + buffer
-				newSphere, err := spatialmath.NewSphere(centerPose, newRadius, geo.Label())
-				if err != nil {
-					return nil, err
-				}
-				sphereFrame, err := NewStaticFrameWithGeometry(geo.Label(), centerPose, newSphere)
-				if err != nil {
-					return nil, err
-				}
-				fs.AddFrame(sphereFrame, parentFrame)
-				// case spatial.CapsuleType: // todo
-			}
-
-		}
-	}
-	return fs, nil
-
-}
-
 // DivideFrameSystem will take a frame system and a frame in that system, and return a new frame system rooted
 // at the given frame and containing all descendents of it, while the original has the frame and its
 // descendents removed. For example, if there is a frame system with two independent rovers, and one rover goes offline,
@@ -521,6 +387,49 @@ func StartPositions(fs FrameSystem) map[string][]Input {
 	return positions
 }
 
+// FrameSystemToPCD takes in a framesystem and returns a map where all elements are
+// the point representation of their geometry type with respect to the world.
+func FrameSystemToPCD(system FrameSystem, inputs map[string][]Input, logger golog.Logger) (map[string][]r3.Vector, error) {
+	vectorMap := make(map[string][]r3.Vector)
+	geometriesInWorldFrame, err := FrameSystemGeometries(system, inputs)
+	if err != nil {
+		logger.Debug(err)
+	}
+	for _, geometries := range geometriesInWorldFrame {
+		for _, geometry := range geometries.Geometries() {
+			vectorMap[geometry.Label()] = geometry.ToPoints(defaultPointDensity)
+		}
+	}
+	return vectorMap, nil
+}
+
+// FrameSystemGeometries takes in a framesystem and returns a map where all elements are GeometriesInFrames with a World reference frame.
+func FrameSystemGeometries(fs FrameSystem, inputMap map[string][]Input) (map[string]*GeometriesInFrame, error) {
+	var errAll error
+	allGeometries := make(map[string]*GeometriesInFrame, 0)
+	for _, name := range fs.FrameNames() {
+		frame := fs.Frame(name)
+		inputs, err := GetFrameInputs(frame, inputMap)
+		if err != nil {
+			errAll = multierr.Append(errAll, err)
+			continue
+		}
+		geosInFrame, err := frame.Geometries(inputs)
+		if err != nil {
+			errAll = multierr.Append(errAll, err)
+			continue
+		}
+		if len(geosInFrame.Geometries()) > 0 {
+			transformed, err := fs.Transform(inputMap, geosInFrame, World)
+			if err != nil {
+				return nil, err
+			}
+			allGeometries[name] = transformed.(*GeometriesInFrame)
+		}
+	}
+	return allGeometries, errAll
+}
+
 // ToProtobuf turns all the interfaces into serializable types.
 func (part *FrameSystemPart) ToProtobuf() (*pb.FrameSystemConfig, error) {
 	if part.FrameConfig == nil {
@@ -590,7 +499,7 @@ func LinkInFrameToFrameSystemPart(transform *LinkInFrame) (*FrameSystemPart, err
 }
 
 // CreateFramesFromPart will gather the frame information and build the frames from the given robot part.
-func CreateFramesFromPart(part *FrameSystemPart, logger golog.Logger) (Frame, Frame, error) {
+func CreateFramesFromPart(part *FrameSystemPart) (Frame, Frame, error) {
 	if part == nil || part.FrameConfig == nil {
 		return nil, nil, errors.New("config for FrameSystemPart is nil")
 	}

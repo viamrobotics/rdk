@@ -7,12 +7,16 @@ import (
 	"github.com/pkg/errors"
 )
 
+// emptyProb is assigned to nodes who have no value specified.
+const emptyProb = math.MinInt
+
 // Creates a new LeafNodeEmpty.
 func newLeafNodeEmpty() basicOctreeNode {
 	octNode := basicOctreeNode{
 		children: nil,
 		nodeType: leafNodeEmpty,
 		point:    PointAndData{},
+		maxVal:   emptyProb,
 	}
 	return octNode
 }
@@ -23,6 +27,7 @@ func newInternalNode(tree []*BasicOctree) basicOctreeNode {
 		children: tree,
 		nodeType: internalNode,
 		point:    PointAndData{},
+		maxVal:   emptyProb,
 	}
 	return octNode
 }
@@ -33,8 +38,17 @@ func newLeafNodeFilled(p r3.Vector, d Data) basicOctreeNode {
 		children: nil,
 		nodeType: leafNodeFilled,
 		point:    PointAndData{P: p, D: d},
+		maxVal:   getRawVal(d),
 	}
 	return octNode
+}
+
+// getRawVal returns the data param as a probability value.
+func getRawVal(d Data) int {
+	if d.HasValue() {
+		return d.Value()
+	}
+	return emptyProb
 }
 
 // Splits a basic octree into multiple octants and will place any stored point in appropriate child
@@ -93,41 +107,44 @@ func (octree *BasicOctree) checkPointPlacement(p r3.Vector) bool {
 // helperSet is used by Set to recursive move through a basic octree while tracking recursion depth.
 // If the maximum recursion depth is reached before a valid node is found for the point it will return
 // an error.
-func (octree *BasicOctree) helperSet(p r3.Vector, d Data, recursionDepth int) error {
+func (octree *BasicOctree) helperSet(p r3.Vector, d Data, recursionDepth int) (int, error) {
 	if recursionDepth >= maxRecursionDepth {
-		return errors.New("error max allowable recursion depth reached")
+		return 0, errors.New("error max allowable recursion depth reached")
 	}
 	if (PointAndData{P: p, D: d} == PointAndData{}) {
-		return nil
+		return 0, nil
 	}
 
 	if !octree.checkPointPlacement(p) {
-		return errors.New("error point is outside the bounds of this octree")
+		return 0, errors.New("error point is outside the bounds of this octree")
 	}
 
+	var err error
 	switch octree.node.nodeType {
 	case internalNode:
 		for _, childNode := range octree.node.children {
 			if childNode.checkPointPlacement(p) {
-				err := childNode.helperSet(p, d, recursionDepth+1)
+				mv, err := childNode.helperSet(p, d, recursionDepth+1)
 				if err == nil {
 					// Update metadata
 					octree.meta.Merge(p, d)
 					octree.size++
+					octree.node.maxVal = int(math.Max(float64(mv), float64(octree.node.maxVal)))
 				}
-				return err
+				return octree.node.maxVal, err
 			}
 		}
-		return errors.New("error invalid internal node detected, please check your tree")
+		return 0, errors.New("error invalid internal node detected, please check your tree")
 
 	case leafNodeFilled:
 		if _, exists := octree.At(p.X, p.Y, p.Z); exists {
 			// Update data in point
 			octree.node.point.D = d
-			return nil
+			octree.node.maxVal = getRawVal(d)
+			return octree.node.maxVal, nil
 		}
 		if err := octree.splitIntoOctants(); err != nil {
-			return errors.Errorf("error in splitting octree into new octants: %v", err)
+			return 0, errors.Errorf("error in splitting octree into new octants: %v", err)
 		}
 		// No update of metadata as the set call below will lead to the InternalNode case due to the octant split
 		return octree.helperSet(p, d, recursionDepth+1)
@@ -137,9 +154,10 @@ func (octree *BasicOctree) helperSet(p r3.Vector, d Data, recursionDepth int) er
 		octree.meta.Merge(p, d)
 		octree.size++
 		octree.node = newLeafNodeFilled(p, d)
+		return octree.node.maxVal, err
 	}
 
-	return nil
+	return 0, errors.New("error attempting to set into invalid node type")
 }
 
 // helperIterate is a recursive helper function for iterating through a basic octree that returns

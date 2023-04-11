@@ -79,7 +79,7 @@ func TestFromDependencies(t *testing.T) {
 	test.That(t, result, test.ShouldEqual, mockGPIO)
 
 	res, err = board.FromDependencies(deps, fakeBoardName)
-	test.That(t, err, test.ShouldBeError, board.DependencyTypeError(fakeBoardName, "string"))
+	test.That(t, err, test.ShouldBeError, rutils.DependencyTypeError[board.Board](fakeBoardName, "string"))
 	test.That(t, res, test.ShouldBeNil)
 
 	res, err = board.FromDependencies(deps, missingBoardName)

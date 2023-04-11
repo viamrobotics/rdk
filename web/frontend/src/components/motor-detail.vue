@@ -161,7 +161,7 @@ onMounted(async () => {
           class="mb-4"
           @input="setMovementType($event.detail.value)"
         />
-        <div class="flex flex-wrap gap-4 mb-4">
+        <div class="mb-4 flex flex-wrap gap-4">
           <div
             v-if="movementType === 'Go To'"
             class="flex flex-wrap gap-2 pt-4"
@@ -231,7 +231,7 @@ onMounted(async () => {
             <div class="w-80">
               <v-slider
                 id="power"
-                class="ml-2 pt-2 max-w-xs"
+                class="ml-2 max-w-xs pt-2"
                 :min="0"
                 :max="100"
                 :step="1"

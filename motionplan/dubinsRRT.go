@@ -64,6 +64,7 @@ func (mp *DubinsRRTMotionPlanner) Plan(ctx context.Context,
 	if planOpts == nil {
 		planOpts = newBasicPlannerOptions()
 	}
+	planOpts.SetGoalMetric(NewSquaredNormMetric(goal))
 
 	utils.PanicCapturingGo(func() {
 		mp.planRunner(ctx, goal, seed, planOpts, solutionChan, 0.1)
@@ -255,15 +256,15 @@ func (mp *DubinsRRTMotionPlanner) checkPath(
 			return false
 		}
 
-		ci := &ConstraintInput{
-			StartPos:   pose1,
-			EndPos:     pose2,
-			StartInput: input1,
-			EndInput:   input2,
-			Frame:      mp.frame,
+		ci := &Segment{
+			StartPosition:      pose1,
+			EndPosition:        pose2,
+			StartConfiguration: input1,
+			EndConfiguration:   input2,
+			Frame:              mp.frame,
 		}
 
-		if ok, _ := planOpts.CheckConstraintPath(ci, mp.Resolution()); !ok {
+		if ok, _ := planOpts.CheckSegmentAndStateValidity(ci, mp.Resolution()); !ok {
 			pathOk = false
 			break
 		}

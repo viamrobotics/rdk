@@ -228,7 +228,7 @@ const armCopyJoints = (status: ArmStatus) => {
       />
     </div>
     <div class="border border-t-0 border-black p-4">
-      <div class="flex flex-wrap gap-4 mb-4">
+      <div class="mb-4 flex flex-wrap gap-4">
         <div
           v-if="toggle[name]"
           class="border border-black p-4"
@@ -244,7 +244,7 @@ const armCopyJoints = (status: ArmStatus) => {
               <label class="py-1 pr-2 text-right">{{ cc.endPosition[1] }}</label>
               <input
                 v-model="cc.endPositionValue"
-                class="border border-black py-1 px-4"
+                class="border border-black px-4 py-1"
               >
             </template>
           </div>
@@ -277,7 +277,7 @@ const armCopyJoints = (status: ArmStatus) => {
               <label class="py-1 pr-2 text-right">Joint {{ bb.joint }}</label>
               <input
                 v-model="bb.jointValue"
-                class="border border-black py-1 px-4"
+                class="border border-black px-4 py-1"
               >
             </template>
           </div>

@@ -11,7 +11,6 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/spatialmath"
 )
 
 // CombinedIK defines the fields necessary to run a combined solver.
@@ -45,32 +44,22 @@ func CreateCombinedIKSolver(model referenceframe.Frame, logger golog.Logger, nCP
 func runSolver(ctx context.Context,
 	solver InverseKinematics,
 	c chan<- []referenceframe.Input,
-	pos spatialmath.Pose,
 	seed []referenceframe.Input,
-	m Metric,
+	m StateMetric,
 	rseed int,
 ) error {
-	return solver.Solve(ctx, c, pos, seed, m, rseed)
+	return solver.Solve(ctx, c, seed, m, rseed)
 }
 
 // Solve will initiate solving for the given position in all child solvers, seeding with the specified initial joint
 // positions. If unable to solve, the returned error will be non-nil.
 func (ik *CombinedIK) Solve(ctx context.Context,
 	c chan<- []referenceframe.Input,
-	newGoal spatialmath.Pose,
 	seed []referenceframe.Input,
-	m Metric,
+	m StateMetric,
 	rseed int,
 ) error {
-	ik.logger.Debugf("starting inputs: %v", seed)
-	startPos, err := ik.model.Transform(seed)
-	if err != nil {
-		return err
-	}
-	// This will adjust the goal position to make movements more intuitive when using incrementation near poles
-	ik.logger.Debugf("starting pose: %v", spatialmath.PoseToProtobuf(startPos))
-	ik.logger.Debugf("goal pose: %v", spatialmath.PoseToProtobuf(newGoal))
-
+	var err error
 	ctxWithCancel, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -86,7 +75,7 @@ func (ik *CombinedIK) Solve(ctx context.Context,
 
 		utils.PanicCapturingGo(func() {
 			defer activeSolvers.Done()
-			errChan <- runSolver(ctxWithCancel, thisSolver, c, newGoal, seed, m, parseed)
+			errChan <- runSolver(ctxWithCancel, thisSolver, c, seed, m, parseed)
 		})
 	}
 
