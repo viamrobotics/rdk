@@ -1,4 +1,5 @@
-package encoder
+// Package ams implements the AMS_AS5048 encoder
+package ams
 
 import (
 	"context"
@@ -12,6 +13,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -36,7 +38,7 @@ var waitTimeNano = (1.0 / 50.0) * 1000000000.0
 
 func init() {
 	registry.RegisterComponent(
-		Subtype,
+		encoder.Subtype,
 		modelName,
 		registry.Component{
 			Constructor: func(
@@ -50,19 +52,19 @@ func init() {
 		},
 	)
 	config.RegisterComponentAttributeMapConverter(
-		Subtype,
+		encoder.Subtype,
 		modelName,
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf AS5048Config
+			var conf AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
 		},
-		&AS5048Config{},
+		&AttrConfig{},
 	)
 }
 
-// AS5048Config contains the connection information for
+// AttrConfig contains the connection information for
 // configuring an AS5048 encoder.
-type AS5048Config struct {
+type AttrConfig struct {
 	BoardName string `json:"board"`
 	// We include connection type here in anticipation for
 	// future SPI support
@@ -72,7 +74,7 @@ type AS5048Config struct {
 
 // Validate checks the attributes of an initialized config
 // for proper values.
-func (conf *AS5048Config) Validate(path string) ([]string, error) {
+func (conf *AttrConfig) Validate(path string) ([]string, error) {
 	var deps []string
 
 	connType := conf.ConnectionType
@@ -120,15 +122,16 @@ func (cfg *I2CAttrConfig) ValidateI2C(path string) error {
 	return nil
 }
 
-// AS5048 is a struct representing an instance of a hardware unit
+// Encoder is a struct representing an instance of a hardware unit
 // in AMS's AS5048 series of Hall-effect encoders.
-type AS5048 struct {
+type Encoder struct {
 	mu                      sync.RWMutex
 	logger                  golog.Logger
 	position                float64
 	positionOffset          float64
 	rotations               int
 	connectionType          string
+	positionType            encoder.PositionType
 	i2cBus                  board.I2C
 	i2cAddr                 byte
 	cancelCtx               context.Context
@@ -140,17 +143,18 @@ type AS5048 struct {
 func newAS5048Encoder(
 	ctx context.Context, deps registry.Dependencies,
 	cfg config.Component, logger *zap.SugaredLogger,
-) (*AS5048, error) {
-	attr, ok := cfg.ConvertedAttributes.(*AS5048Config)
+) (encoder.Encoder, error) {
+	attr, ok := cfg.ConvertedAttributes.(*AttrConfig)
 	if !ok {
 		return nil, rdkutils.NewUnexpectedTypeError(attr, cfg.ConvertedAttributes)
 	}
 	cancelCtx, cancel := context.WithCancel(ctx)
-	res := &AS5048{
+	res := &Encoder{
 		connectionType: attr.ConnectionType,
 		cancelCtx:      cancelCtx,
 		cancel:         cancel,
 		logger:         logger,
+		positionType:   encoder.PositionTypeTICKS,
 	}
 	brd, err := board.FromDependencies(deps, attr.BoardName)
 	if err != nil {
@@ -176,8 +180,8 @@ func newAS5048Encoder(
 	return res, nil
 }
 
-func (enc *AS5048) startPositionLoop(ctx context.Context) error {
-	if err := enc.Reset(ctx, 0.0, map[string]interface{}{}); err != nil {
+func (enc *Encoder) startPositionLoop(ctx context.Context) error {
+	if err := enc.ResetPosition(ctx, map[string]interface{}{}); err != nil {
 		return err
 	}
 	enc.activeBackgroundWorkers.Add(1)
@@ -197,7 +201,7 @@ func (enc *AS5048) startPositionLoop(ctx context.Context) error {
 	return nil
 }
 
-func (enc *AS5048) readPosition(ctx context.Context) (float64, error) {
+func (enc *Encoder) readPosition(ctx context.Context) (float64, error) {
 	// retrieve the 8 most significant bits of the 14-bit resolution
 	// position
 	msB, err := enc.readByteDataFromBus(ctx, enc.i2cBus, enc.i2cAddr, byte(0xFE))
@@ -221,7 +225,7 @@ func convertBytesToAngle(msB, lsB byte) float64 {
 	return (float64(byteData) * scalingFactor)
 }
 
-func (enc *AS5048) updatePosition(ctx context.Context) error {
+func (enc *Encoder) updatePosition(ctx context.Context) error {
 	enc.mu.Lock()
 	defer enc.mu.Unlock()
 	angleDeg, err := enc.readPosition(ctx)
@@ -243,35 +247,37 @@ func (enc *AS5048) updatePosition(ctx context.Context) error {
 	return nil
 }
 
-// TicksCount returns the total number of rotations detected
+// GetPosition returns the total number of rotations detected
 // by the encoder (rather than a number of pulse state transitions)
 // because this encoder is absolute and not incremental. As a result
 // a user MUST set ticks_per_rotation on the config of the corresponding
 // motor to 1. Any other value will result in completely incorrect
 // position measurements by the motor.
-func (enc *AS5048) TicksCount(
-	ctx context.Context, extra map[string]interface{},
-) (float64, error) {
+func (enc *Encoder) GetPosition(
+	ctx context.Context, positionType *encoder.PositionType, extra map[string]interface{},
+) (float64, encoder.PositionType, error) {
 	enc.mu.RLock()
 	defer enc.mu.RUnlock()
+	if positionType != nil && *positionType == encoder.PositionTypeDEGREES {
+		enc.positionType = encoder.PositionTypeDEGREES
+		return enc.position, enc.positionType, nil
+	}
 	ticks := float64(enc.rotations) + enc.position/360.0
-	return ticks, nil
+	enc.positionType = encoder.PositionTypeTICKS
+	return ticks, enc.positionType, nil
 }
 
-// Reset sets the current position measured by the encoder to be considered
-// its new zero position. If the offset provided is not 0.0, it also
-// sets the positionOffset attribute and adjusts all future recorded
-// positions by that offset (until the function is called again).
-func (enc *AS5048) Reset(
-	ctx context.Context, offset float64, extra map[string]interface{},
+// ResetPosition sets the current position measured by the encoder to be
+// considered its new zero position.
+func (enc *Encoder) ResetPosition(
+	ctx context.Context, extra map[string]interface{},
 ) error {
 	enc.mu.Lock()
 	defer enc.mu.Unlock()
 	// NOTE (GV): potential improvement could be writing the offset position
 	// to the zero register of the encoder rather than keeping track
 	// on the struct
-	enc.positionOffset = offset
-	enc.position = 0.0 + offset
+	enc.position = 0.0
 	currentMSB, err := enc.readByteDataFromBus(ctx, enc.i2cBus, enc.i2cAddr, byte(0xFE))
 	if err != nil {
 		return err
@@ -301,16 +307,25 @@ func (enc *AS5048) Reset(
 	return nil
 }
 
+// GetProperties returns a list of all the position types that are supported by a given encoder.
+func (enc *Encoder) GetProperties(ctx context.Context, extra map[string]interface{}) (map[encoder.Feature]bool, error) {
+	return map[encoder.Feature]bool{
+		encoder.TicksCountSupported:   true,
+		encoder.AngleDegreesSupported: true,
+	}, nil
+}
+
 // Close stops the position loop of the encoder when the component
 // is closed.
-func (enc *AS5048) Close() {
+func (enc *Encoder) Close() error {
 	enc.cancel()
 	enc.activeBackgroundWorkers.Wait()
+	return nil
 }
 
 // readByteDataFromBus opens a handle for the bus adhoc to perform a single read
 // and returns the result. The handle is closed at the end.
-func (enc *AS5048) readByteDataFromBus(ctx context.Context, bus board.I2C, addr, register byte) (byte, error) {
+func (enc *Encoder) readByteDataFromBus(ctx context.Context, bus board.I2C, addr, register byte) (byte, error) {
 	i2cHandle, err := bus.OpenHandle(addr)
 	if err != nil {
 		return 0, err
@@ -325,7 +340,7 @@ func (enc *AS5048) readByteDataFromBus(ctx context.Context, bus board.I2C, addr,
 
 // writeByteDataToBus opens a handle for the bus adhoc to perform a single write.
 // The handle is closed at the end.
-func (enc *AS5048) writeByteDataToBus(ctx context.Context, bus board.I2C, addr, register, data byte) error {
+func (enc *Encoder) writeByteDataToBus(ctx context.Context, bus board.I2C, addr, register, data byte) error {
 	i2cHandle, err := bus.OpenHandle(addr)
 	if err != nil {
 		return err
