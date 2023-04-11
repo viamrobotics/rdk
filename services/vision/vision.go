@@ -108,13 +108,13 @@ type Classifier interface {
 
 // vizModel wraps the vision model with all the service interface methods.
 type vizModel struct {
-	generic.Unimplemented
 	name          string
 	model         interface{} // can be any combo of detector, classifier, 3D_segmenter
 	r             robot.Robot // in order to get access to all cameras
 	isDetector    bool
 	isClassifier  bool
 	is3DSegmenter bool
+	generic.Unimplemented
 }
 
 // NewService wraps the vision model in the struct that fulfills the vision service interface.
