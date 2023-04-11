@@ -20,7 +20,7 @@ func TestNewTfLiteDetector(t *testing.T) {
 	modelLoc := artifact.MustPath("vision/tflite/effdet0.tflite")
 	cfg := &TFLiteDetectorConfig{
 		ModelPath:  modelLoc,
-		LabelPath:  nil,
+		LabelPath:  "",
 		NumThreads: 1,
 	}
 	r := &inject.Robot{}
@@ -46,7 +46,7 @@ func TestNewTfLiteClassifier(t *testing.T) {
 	modelLoc := artifact.MustPath("vision/tflite/effnet0.tflite")
 	cfg := &TFLiteClassifierConfig{
 		ModelPath:  modelLoc,
-		LabelPath:  nil,
+		LabelPath:  "",
 		NumThreads: 1,
 	}
 	r := &inject.Robot{}
