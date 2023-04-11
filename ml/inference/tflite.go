@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"runtime"
+	"sync"
 
 	tflite "github.com/mattn/go-tflite"
 	"github.com/pkg/errors"
@@ -23,6 +24,7 @@ type TFLiteStruct struct {
 	interpreterOptions *tflite.InterpreterOptions
 	Info               *TFLiteInfo
 	modelPath          string
+	mu                 sync.Mutex
 }
 
 // Interpreter interface holds methods used by a tflite interpreter.
@@ -123,6 +125,7 @@ func (loader TFLiteModelLoader) Load(modelPath string) (*TFLiteStruct, error) {
 		interpreterOptions: loader.interpreterOptions,
 		Info:               info,
 		modelPath:          modelPath,
+		mu:                 sync.Mutex{},
 	}
 
 	return modelStruct, nil
@@ -174,6 +177,9 @@ func getInfo(inter Interpreter) *TFLiteInfo {
 
 // Infer takes an input array in desired type and returns an array of the output tensors.
 func (model *TFLiteStruct) Infer(inputTensor interface{}) ([]interface{}, error) {
+	model.mu.Lock()
+	defer model.mu.Unlock()
+
 	interpreter := model.interpreter
 	input := interpreter.GetInputTensor(0)
 	status := input.CopyFromBuffer(inputTensor)
