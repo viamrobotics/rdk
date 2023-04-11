@@ -88,9 +88,6 @@ func TestModuleAddModelFromRegistry(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 
-	// myBaseConf2 is missing required attributes "motorL" and "motorR" and should
-	// cause Validation error.
-
 	cfg := &config.Config{Components: []config.Component{
 		{
 			Name:  "motor1",
