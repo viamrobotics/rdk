@@ -18,7 +18,7 @@ import (
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/component/camera/v1"
-	jetsoncamera "go.viam.com/rdk/components/camera/videosource/jetson"
+	jetsoncamera "go.viam.com/rdk/components/camera/platforms/jetson"
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
@@ -240,7 +240,7 @@ func NewWebcamSource(ctx context.Context, name string, attrs *WebcamAttrs, logge
 	if err != nil {
 		if runtime.GOOS == "linux" && runtime.GOARCH == "arm64" {
 			osInfo := jetsoncamera.GetOSInformation()
-			if osInfo.Device == "Jetson AGX Orin" {
+			if osInfo.Device == jetsoncamera.JetsonOrinAGX {
 				return nil, errors.Wrap(err, jetsoncamera.PrintError(osInfo, "AR0234"))
 			}
 		}

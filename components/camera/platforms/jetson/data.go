@@ -1,5 +1,9 @@
 package jetsoncamera
 
+const (
+	JetsonOrinAGX = "Jetson Orin AGX"
+)
+
 type OSInformation struct {
 	Name   string
 	Arch   string
