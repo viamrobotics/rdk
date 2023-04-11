@@ -54,6 +54,7 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 	constraintSpec *pb.Constraints,
 	motionConfig map[string]interface{},
 ) ([][]referenceframe.Input, error) {
+
 	seed, err := pm.frame.mapToSlice(seedMap)
 	if err != nil {
 		return nil, err
@@ -105,14 +106,21 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 
 		from := seedPos
 		for i := 1; i < numSteps; i++ {
+
 			by := float64(i) / float64(numSteps)
 			to := spatialmath.Interpolate(seedPos, goalPos, by)
 			goals = append(goals, to)
-			// augment the worldstate here
-			modifiedWS, err := referenceframe.BufferedWorldstate(worldState, 0.0001)
-			if err != nil {
-				return nil, err
+			var modifiedWS *referenceframe.WorldState
+			if worldState != nil {
+				// augment the worldstate here
+				modifiedWS, err = referenceframe.BufferedWorldstate(worldState, 0.0001)
+				if err != nil {
+					return nil, err
+				}
+			} else {
+
 			}
+
 			opt, err := pm.plannerSetupFromMoveRequest(from, to, seedMap, modifiedWS, constraintSpec, motionConfig)
 			if err != nil {
 				return nil, err
