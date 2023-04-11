@@ -1,18 +1,17 @@
-package encoder
-
 /*
-	This driver implements a single-wire odometer, such as LM393, as an encoder.
-	This allows the attached motor to determine its relative position.
-	This class of encoders requires a single digital interrupt pin.
+Package single implements a single-wire odometer, such as LM393, as an encoder.
+This allows the attached motor to determine its relative position.
+This class of encoders requires a single digital interrupt pin.
 
-	This encoder must be connected to a motor (or another component that supports encoders
-	and reports the direction it is moving) in order to record readings.
-	The motor indicates in which direction it is spinning, thus indicating if the encoder
-	should increment or decrement reading value.
+This encoder must be connected to a motor (or another component that supports encoders
+and reports the direction it is moving) in order to record readings.
+The motor indicates in which direction it is spinning, thus indicating if the encoder
+should increment or decrement reading value.
 
-	Resetting a position must set the position to an int64. A floating point input will be rounded.
+Resetting a position must set the position to an int64. A floating point input will be rounded.
 
-	Sample configuration:
+Sample configuration:
+
 	{
 		"pins" : {
 			"i": 10
@@ -20,6 +19,7 @@ package encoder
 		"board": "pi"
 	}
 */
+package single
 
 import (
 	"context"
@@ -32,6 +32,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -43,7 +44,7 @@ var singlemodelname = resource.NewDefaultModel("single")
 
 func init() {
 	registry.RegisterComponent(
-		Subtype,
+		encoder.Subtype,
 		singlemodelname,
 		registry.Component{Constructor: func(
 			ctx context.Context,
@@ -55,48 +56,49 @@ func init() {
 		}})
 
 	config.RegisterComponentAttributeMapConverter(
-		Subtype,
+		encoder.Subtype,
 		singlemodelname,
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf SingleWireConfig
+			var conf AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
 		},
-		&SingleWireConfig{})
+		&AttrConfig{})
 }
 
-// DirectionAware lets you ask what direction something is moving. Only used for SingleEncoder for now, unclear future.
+// DirectionAware lets you ask what direction something is moving. Only used for Encoder for now, unclear future.
 // DirectionMoving returns -1 if the motor is currently turning backwards, 1 if forwards and 0 if off.
 type DirectionAware interface {
 	DirectionMoving() int64
 }
 
-// SingleEncoder keeps track of a motor position using a rotary encoder.
-type SingleEncoder struct {
+// Encoder keeps track of a motor position using a rotary encoder.s.
+type Encoder struct {
 	generic.Unimplemented
 	name     string
 	I        board.DigitalInterrupt
 	position int64
 	m        DirectionAware
 
+	positionType            encoder.PositionType
 	logger                  golog.Logger
 	CancelCtx               context.Context
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
 }
 
-// SingleWirePin describes the configuration of Pins for a Single encoder.
-type SingleWirePin struct {
+// Pin describes the configuration of Pins for a Single encoder.
+type Pin struct {
 	I string `json:"i"`
 }
 
-// SingleWireConfig describes the configuration of a single encoder.
-type SingleWireConfig struct {
-	Pins      SingleWirePin `json:"pins"`
-	BoardName string        `json:"board"`
+// AttrConfig describes the configuration of a single encoder.
+type AttrConfig struct {
+	Pins      Pin    `json:"pins"`
+	BoardName string `json:"board"`
 }
 
 // Validate ensures all parts of the config are valid.
-func (cfg *SingleWireConfig) Validate(path string) ([]string, error) {
+func (cfg *AttrConfig) Validate(path string) ([]string, error) {
 	var deps []string
 
 	if cfg.Pins.I == "" {
@@ -112,24 +114,31 @@ func (cfg *SingleWireConfig) Validate(path string) ([]string, error) {
 }
 
 // AttachDirectionalAwareness to pre-created encoder.
-func (e *SingleEncoder) AttachDirectionalAwareness(da DirectionAware) {
+func (e *Encoder) AttachDirectionalAwareness(da DirectionAware) {
 	e.m = da
 }
 
-// NewSingleEncoder creates a new SingleEncoder.
+// NewSingleEncoder creates a new Encoder.
 func NewSingleEncoder(
 	ctx context.Context,
 	deps registry.Dependencies,
 	rawConfig config.Component,
 	logger golog.Logger,
-) (*SingleEncoder, error) {
-	cfg, ok := rawConfig.ConvertedAttributes.(*SingleWireConfig)
+) (encoder.Encoder, error) {
+	cfg, ok := rawConfig.ConvertedAttributes.(*AttrConfig)
 	if !ok {
 		return nil, rutils.NewUnexpectedTypeError(cfg, rawConfig.ConvertedAttributes)
 	}
 
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
-	e := &SingleEncoder{name: rawConfig.Name, logger: logger, CancelCtx: cancelCtx, cancelFunc: cancelFunc, position: 0}
+	e := &Encoder{
+		name:         rawConfig.Name,
+		logger:       logger,
+		CancelCtx:    cancelCtx,
+		cancelFunc:   cancelFunc,
+		position:     0,
+		positionType: encoder.PositionTypeTICKS,
+	}
 
 	board, err := board.FromDependencies(deps, cfg.BoardName)
 	if err != nil {
@@ -138,7 +147,7 @@ func NewSingleEncoder(
 
 	e.I, ok = board.DigitalInterruptByName(cfg.Pins.I)
 	if !ok {
-		return nil, errors.Errorf("cannot find pin (%s) for SingleEncoder", cfg.Pins.I)
+		return nil, errors.Errorf("cannot find pin (%s) for Encoder", cfg.Pins.I)
 	}
 
 	e.Start(ctx)
@@ -146,8 +155,8 @@ func NewSingleEncoder(
 	return e, nil
 }
 
-// Start starts the SingleEncoder background thread.
-func (e *SingleEncoder) Start(ctx context.Context) {
+// Start starts the Encoder background thread.
+func (e *Encoder) Start(ctx context.Context) {
 	encoderChannel := make(chan board.Tick)
 	e.I.AddCallback(encoderChannel)
 	e.activeBackgroundWorkers.Add(1)
@@ -181,22 +190,39 @@ func (e *SingleEncoder) Start(ctx context.Context) {
 	}, e.activeBackgroundWorkers.Done)
 }
 
-// TicksCount returns the current position.
-func (e *SingleEncoder) TicksCount(ctx context.Context, extra map[string]interface{}) (float64, error) {
+// GetPosition returns the current position in terms of ticks or
+// degrees, and whether it is a relative or absolute position.
+func (e *Encoder) GetPosition(
+	ctx context.Context,
+	positionType *encoder.PositionType,
+	extra map[string]interface{},
+) (float64, encoder.PositionType, error) {
+	if positionType != nil && *positionType == encoder.PositionTypeDEGREES {
+		err := encoder.NewEncoderTypeUnsupportedError(*positionType)
+		return 0, *positionType, err
+	}
 	res := atomic.LoadInt64(&e.position)
-	return float64(res), nil
+	return float64(res), e.positionType, nil
 }
 
-// Reset sets the current position of the motor (adjusted by a given offset).
-func (e *SingleEncoder) Reset(ctx context.Context, offset float64, extra map[string]interface{}) error {
-	offsetInt := int64(math.Round(offset))
+// ResetPosition sets the current position of the motor (adjusted by a given offset).
+func (e *Encoder) ResetPosition(ctx context.Context, extra map[string]interface{}) error {
+	offsetInt := int64(math.Round(0))
 	atomic.StoreInt64(&e.position, offsetInt)
 	return nil
 }
 
-// Close shuts down the SingleEncoder.
-func (e *SingleEncoder) Close() error {
-	e.logger.Debug("Closing SingleEncoder")
+// GetProperties returns a list of all the position types that are supported by a given encoder.
+func (e *Encoder) GetProperties(ctx context.Context, extra map[string]interface{}) (map[encoder.Feature]bool, error) {
+	return map[encoder.Feature]bool{
+		encoder.TicksCountSupported:   true,
+		encoder.AngleDegreesSupported: false,
+	}, nil
+}
+
+// Close shuts down the Encoder.
+func (e *Encoder) Close() error {
+	e.logger.Debug("Closing Encoder")
 	e.cancelFunc()
 	e.activeBackgroundWorkers.Wait()
 	return nil
