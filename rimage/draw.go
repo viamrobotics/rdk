@@ -29,7 +29,7 @@ func Font() *truetype.Font {
 func DrawString(dc *gg.Context, text string, p image.Point, c color.Color, size float64) {
 	dc.SetFontFace(truetype.NewFace(Font(), &truetype.Options{Size: size}))
 	dc.SetColor(c)
-	dc.DrawString(text, float64(p.X), float64(p.Y))
+	dc.DrawStringWrapped(text, float64(p.X), float64(p.Y), 0, 0, float64(dc.Width()), 1, 0)
 }
 
 // DrawRectangleEmpty draws the given rectangle into the context. The positions of the
