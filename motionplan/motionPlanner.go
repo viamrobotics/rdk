@@ -13,6 +13,7 @@ import (
 	pb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/referenceframe"
 	frame "go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/framesystem"
@@ -49,17 +50,7 @@ func PlanMotion(ctx context.Context,
 	constraintSpec *pb.Constraints,
 	planningOpts map[string]interface{},
 ) ([]map[string][]frame.Input, error) {
-	return motionPlanInternal(
-		ctx,
-		logger,
-		dst,
-		f,
-		seedMap,
-		fs,
-		worldState,
-		constraintSpec,
-		planningOpts,
-	)
+	return motionPlanInternal(ctx, logger, dst, f, seedMap, fs, worldState, constraintSpec, planningOpts)
 }
 
 // PlanRobotMotion plans a motion to destination for a given frame. A robot object is passed in and current position inputs are determined.
@@ -76,18 +67,7 @@ func PlanRobotMotion(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
-
-	return motionPlanInternal(
-		ctx,
-		r.Logger(),
-		dst,
-		f,
-		seedMap,
-		fs,
-		worldState,
-		constraintSpec,
-		planningOpts,
-	)
+	return motionPlanInternal(ctx, r.Logger(), dst, f, seedMap, fs, worldState, constraintSpec, planningOpts)
 }
 
 // PlanFrameMotion plans a motion to destination for a given frame with no frame system. It will create a new FS just for the plan.
@@ -102,23 +82,35 @@ func PlanFrameMotion(ctx context.Context,
 ) ([][]frame.Input, error) {
 	// ephemerally create a framesystem containing just the frame for the solve
 	fs := frame.NewEmptySimpleFrameSystem("")
-	err := fs.AddFrame(f, fs.World())
-	if err != nil {
+	if err := fs.AddFrame(f, fs.World()); err != nil {
 		return nil, err
 	}
 	destination := frame.NewPoseInFrame(frame.World, dst)
 	seedMap := map[string][]frame.Input{f.Name(): seed}
-	solutionMap, err := motionPlanInternal(
-		ctx,
-		logger,
-		destination,
-		f,
-		seedMap,
-		fs,
-		nil,
-		constraintSpec,
-		planningOpts,
-	)
+	solutionMap, err := motionPlanInternal(ctx, logger, destination, f, seedMap, fs, nil, constraintSpec, planningOpts)
+	if err != nil {
+		return nil, err
+	}
+	return FrameStepsFromRobotPath(f.Name(), solutionMap)
+}
+
+func PlanMapMotion(
+	ctx context.Context,
+	logger golog.Logger,
+	dst spatialmath.Pose,
+	f frame.Frame,
+	seed []frame.Input,
+	worldState *referenceframe.WorldState,
+	planningOpts map[string]interface{},
+) ([][]frame.Input, error) {
+	// ephemerally create a framesystem containing just the frame for the solve
+	fs := frame.NewEmptySimpleFrameSystem("")
+	if err := fs.AddFrame(f, fs.World()); err != nil {
+		return nil, err
+	}
+	destination := frame.NewPoseInFrame(frame.World, dst)
+	seedMap := map[string][]frame.Input{f.Name(): seed}
+	solutionMap, err := motionPlanInternal(ctx, logger, destination, f, seedMap, fs, worldState, nil, planningOpts)
 	if err != nil {
 		return nil, err
 	}

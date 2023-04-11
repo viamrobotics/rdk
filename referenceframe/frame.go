@@ -189,15 +189,6 @@ func (sf *tailGeometryStaticFrame) Geometries(input []Input) (*GeometriesInFrame
 	return NewGeometriesInFrame(sf.name, []spatial.Geometry{newGeom}), nil
 }
 
-// noGeometryFrame is a frame wrapper which will always return nil for its geometry. Use this to remove the geometries from any frame.
-type noGeometryFrame struct {
-	Frame
-}
-
-func (nf *noGeometryFrame) Geometries(input []Input) (*GeometriesInFrame, error) {
-	return NewGeometriesInFrame(nf.Name(), nil), nil
-}
-
 // NewStaticFrame creates a frame given a pose relative to its parent. The pose is fixed for all time.
 // Pose is not allowed to be nil.
 func NewStaticFrame(name string, pose spatial.Pose) (Frame, error) {
@@ -219,29 +210,6 @@ func NewStaticFrameWithGeometry(name string, pose spatial.Pose, geometry spatial
 		return nil, errors.New("pose is not allowed to be nil")
 	}
 	return &staticFrame{&baseFrame{name, []Limit{}}, pose, geometry}, nil
-}
-
-// NewStaticFrameFromFrame creates a frame given a pose relative to its parent.  The pose is fixed for all time.
-// It inherits its name and geometry properties from the specified Frame. Pose is not allowed to be nil.
-func NewStaticFrameFromFrame(frame Frame, pose spatial.Pose) (Frame, error) {
-	if pose == nil {
-		return nil, errors.New("pose is not allowed to be nil")
-	}
-	switch f := frame.(type) {
-	case *staticFrame:
-		return NewStaticFrameWithGeometry(frame.Name(), pose, f.geometry)
-	case *translationalFrame:
-		return NewStaticFrameWithGeometry(frame.Name(), pose, f.geometry)
-	case *mobile2DFrame:
-		return NewStaticFrameWithGeometry(frame.Name(), pose, f.geometry)
-	default:
-		return NewStaticFrame(frame.Name(), pose)
-	}
-}
-
-// FrameFromPoint creates a new Frame from a 3D point.
-func FrameFromPoint(name string, point r3.Vector) (Frame, error) {
-	return NewStaticFrame(name, spatial.NewPoseFromPoint(point))
 }
 
 // Transform returns the pose associated with this static referenceframe.
@@ -443,7 +411,7 @@ func (rf *rotationalFrame) ProtobufFromInput(input []Input) *pb.JointPositions {
 // Geometries will always return (nil, nil) for rotationalFrames, as not allowing rotationalFrames to occupy geometries is a
 // design choice made for simplicity. staticFrame and translationalFrame should be used instead.
 func (rf *rotationalFrame) Geometries(input []Input) (*GeometriesInFrame, error) {
-	return nil, fmt.Errorf("Geometries not implemented for type %T", rf)
+	return NewGeometriesInFrame(rf.Name(), nil), nil
 }
 
 // Name returns the name of the referenceframe.

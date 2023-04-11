@@ -6,13 +6,21 @@ import (
 	"math/rand"
 	"testing"
 
+	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"go.uber.org/zap"
 	commonpb "go.viam.com/api/common/v1"
 	motionpb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/components/base"
+	"go.viam.com/rdk/components/base/wheeled"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/referenceframe"
 	frame "go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/services/slam/fake"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
@@ -508,6 +516,40 @@ func TestReachOverArm(t *testing.T) {
 	// the plan should no longer be able to interpolate, but it should still be able to get there
 	opts = map[string]interface{}{"max_ik_solutions": 100, "timeout": 150.0}
 	plan, err = PlanMotion(context.Background(), logger.Sugar(), goal, xarm, frame.StartPositions(fs), fs, nil, nil, opts)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(plan), test.ShouldBeGreaterThan, 2)
+}
+
+func TestPlanMapMotion(t *testing.T) {
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+
+	// build kinematic base
+	testCfg := config.Component{
+		Name:  "test",
+		Type:  base.Subtype.ResourceSubtype,
+		Model: resource.Model{Name: "wheeled_base"},
+		Frame: &referenceframe.LinkConfig{
+			Parent:   referenceframe.World,
+			Geometry: &spatialmath.GeometryConfig{R: 20},
+		},
+		ConvertedAttributes: &wheeled.AttrConfig{},
+	}
+	testBase, err := wheeled.CreateWheeledBase(ctx, registry.Dependencies{}, testCfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	kb, err := testBase.(base.KinematicWrappable).WrapWithKinematics(ctx, fake.NewSLAM("", logger))
+	test.That(t, err, test.ShouldBeNil)
+
+	// test ability to plan
+	inputs, err := kb.CurrentInputs(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	dst := spatialmath.NewPoseFromPoint(r3.Vector{0, 100, 0})
+	box, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{0, 50, 0}), r3.Vector{25, 25, 25}, "impediment")
+	test.That(t, err, test.ShouldBeNil)
+	worldState := &referenceframe.WorldState{Obstacles: []*referenceframe.GeometriesInFrame{
+		referenceframe.NewGeometriesInFrame(referenceframe.World, []spatialmath.Geometry{box}),
+	}}
+	plan, err := PlanMapMotion(ctx, logger, dst, kb.ModelFrame(), inputs, worldState, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(plan), test.ShouldBeGreaterThan, 2)
 }

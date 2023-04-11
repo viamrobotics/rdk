@@ -10,6 +10,7 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/gripper"
 
@@ -22,6 +23,8 @@ import (
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/motion/builtin"
+	"go.viam.com/rdk/services/slam"
+	_ "go.viam.com/rdk/services/slam/fake"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -154,6 +157,19 @@ func TestMoveWithObstacles(t *testing.T) {
 		// This fails due to a large obstacle being in the way
 		test.That(t, err, test.ShouldNotBeNil)
 	})
+}
+
+func TestMoveOnMap(t *testing.T) {
+	ms := setupMotionServiceFromConfig(t, "../data/wheeled_base.json")
+	success, err := ms.MoveOnMap(
+		context.Background(),
+		base.Named("test_base"),
+		spatialmath.NewPoseFromPoint(r3.Vector{Y: 10}),
+		slam.Named("test_slam"),
+		nil,
+	)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, success, test.ShouldBeTrue)
 }
 
 func TestMoveSingleComponent(t *testing.T) {

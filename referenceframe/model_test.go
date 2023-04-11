@@ -99,8 +99,8 @@ func TestModelGeometries(t *testing.T) {
 
 	// test zero pose of model
 	inputs := make([]Input, len(m.DoF()))
-	geometries, _ := m.Geometries(inputs)
-	test.That(t, geometries, test.ShouldNotBeNil)
+	geometries, err := m.Geometries(inputs)
+	test.That(t, err, test.ShouldBeNil)
 	link1 := geometries.GeometryByName("test:link1").Pose().Point()
 	test.That(t, spatial.R3VectorAlmostEqual(link1, r3.Vector{0, 0, 10}, 1e-8), test.ShouldBeTrue)
 	link2 := geometries.GeometryByName("test:link2").Pose().Point()

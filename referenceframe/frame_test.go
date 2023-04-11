@@ -154,8 +154,8 @@ func TestGeometries(t *testing.T) {
 	rf, err := NewRotationalFrame("", spatial.R4AA{3.7, 2.1, 3.1, 4.1}, Limit{5, 6})
 	test.That(t, err, test.ShouldBeNil)
 	geometries, err = rf.Geometries([]Input{})
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, geometries, test.ShouldBeNil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(geometries.Geometries()), test.ShouldEqual, 0)
 
 	// test creating a new mobile frame with a geometry
 	mf, err := NewMobile2DFrame("", []Limit{{-10, 10}, {-10, 10}}, bc)
@@ -167,13 +167,6 @@ func TestGeometries(t *testing.T) {
 	// test creating a new static frame with a geometry
 	expectedBox = bc.Transform(spatial.NewZeroPose())
 	sf, err := NewStaticFrameWithGeometry("", pose, bc)
-	test.That(t, err, test.ShouldBeNil)
-	geometries, err = sf.Geometries([]Input{})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, expectedBox.AlmostEqual(geometries.Geometries()[0]), test.ShouldBeTrue)
-
-	// test inheriting a geometry creator
-	sf, err = NewStaticFrameFromFrame(tf, pose)
 	test.That(t, err, test.ShouldBeNil)
 	geometries, err = sf.Geometries([]Input{})
 	test.That(t, err, test.ShouldBeNil)

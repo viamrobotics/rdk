@@ -121,8 +121,7 @@ func (m *SimpleModel) Geometries(inputs []Input) (*GeometriesInFrame, error) {
 	geometries := make([]spatialmath.Geometry, 0, len(frames))
 	for _, frame := range frames {
 		geometriesInFrame, err := frame.Geometries([]Input{})
-		if geometriesInFrame == nil {
-			// only propagate errors that result in nil geometry
+		if err != nil {
 			multierr.AppendInto(&errAll, err)
 			continue
 		}
@@ -229,11 +228,22 @@ func (m *SimpleModel) inputsToFrames(inputs []Input, collectAll bool) ([]*static
 		}
 		multierr.AppendInto(&err, errNew)
 		if collectAll {
-			tf, err := NewStaticFrameFromFrame(transform, composedTransformation)
+			var geometry spatialmath.Geometry
+			gf, err := transform.Geometries(input)
 			if err != nil {
 				return nil, err
 			}
-			poses = append(poses, tf.(*staticFrame))
+			geometries := gf.Geometries()
+			if len(geometries) == 0 {
+				geometry = nil
+			} else {
+				geometry = geometries[0]
+			}
+			fixedFrame, err := NewStaticFrameWithGeometry(transform.Name(), composedTransformation, geometry)
+			if err != nil {
+				return nil, err
+			}
+			poses = append(poses, fixedFrame.(*staticFrame))
 		}
 		composedTransformation = spatialmath.Compose(composedTransformation, pose)
 	}

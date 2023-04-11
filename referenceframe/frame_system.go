@@ -531,8 +531,14 @@ func CreateFramesFromPart(part *FrameSystemPart) (Frame, Frame, error) {
 		if err != nil {
 			return nil, nil, err
 		}
+		pose, err := staticOriginFrame.Transform([]Input{})
+		if err != nil {
+			return nil, nil, err
+		}
 		if len(offsetGeom.Geometries()) > 0 {
-			modelFrame = &noGeometryFrame{modelFrame}
+			if modelFrame, err = NewStaticFrame(modelFrame.Name(), pose); err != nil {
+				return nil, nil, err
+			}
 		}
 	}
 

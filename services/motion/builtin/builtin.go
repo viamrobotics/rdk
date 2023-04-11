@@ -137,8 +137,8 @@ func (ms *builtIn) MoveOnMap(
 			componentName.ShortName(),
 		)
 	}
-	fmt.Println("I AM GOING CRAZY RIGHT NOW")
-	kw, ok := utils.UnwrapProxy(b).(base.KinematicWrappable)
+	c := utils.UnwrapProxy(b)
+	kw, ok := c.(base.KinematicWrappable)
 	if !ok {
 		return false, fmt.Errorf("cannot move base of type %T because it is not KinematicWrappable", b)
 	}
@@ -152,7 +152,22 @@ func (ms *builtIn) MoveOnMap(
 	if err != nil {
 		return false, err
 	}
-	ms.logger.Debugf("base position: %v", inputs)
+	ms.logger.Infof("base position: %v", inputs)
+
+	// make call to motionplan
+	dst := spatialmath.NewPoseFromPoint(destination.Point())
+	ms.logger.Infof("goal position: %v", dst)
+	plan, err := motionplan.PlanFrameMotion(ctx, ms.logger, dst, kb.ModelFrame(), inputs, nil, extra)
+	if err != nil {
+		return false, err
+	}
+
+	// execute the plan
+	for i := 1; i < len(plan); i++ {
+		if err := kb.GoToInputs(ctx, plan[i]); err != nil {
+			return false, err
+		}
+	}
 	return true, nil
 }
 
