@@ -79,29 +79,17 @@ func registerMLModelVisionService(
 	if err != nil {
 		return nil, err
 	}
-	_, err = attemptToBuildClassifier(mlm)
+	classifyFunc, err = attemptToBuildClassifier(mlm)
 	if err != nil {
 		return nil, err
 	}
 	return &mlModelVisionService{
 		mlm:          mlm,
 		r:            r,
-		classifyFunc: nil,
+		classifyFunc: classifyFunc,
 		detectFunc:   nil,
 		segmentFunc:  nil,
 	}, nil
-}
-
-func attemptToBuildClassifier(mlm mlmodel.Service) (classification.Classifier, error) {
-	return nil, nil
-}
-
-func attemptToBuildDetector(mlm mlmodel.Service) (objectdetection.Detector, error) {
-	return nil, nil
-}
-
-func attemptToBuild3DSegmenter(mlm mlmodel.Service) (segmentation.Segmenter, error) {
-	return nil, nil
 }
 
 // Detections returns the detections of given image if the model implements objectdetector.Detector.
