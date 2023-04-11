@@ -75,13 +75,17 @@ controls.enableRotate = false;
 
 const raycaster = new MouseRaycaster({ camera, renderer, recursive: false });
 
-raycaster.on('click', (event) => {
+raycaster.on('click', (event: THREE.Event) => {
   const [intersection] = event.intersections as THREE.Intersection[];
   if (intersection && intersection.point) {
     emit('click', intersection.point);
   }
 });
 
+/*
+ * svgLoader example for webgl:
+ * https://github.com/mrdoob/three.js/blob/master/examples/webgl_loader_svg.html
+ */
 const makeMarker = async (url : string, name: string, scalar: number) => {
   const guiData = {
     currentURL: url,
@@ -183,13 +187,6 @@ const updatePose = async (newPose: commonApi.Pose) => {
   const z = newPose.getZ();
   const baseMarker = scene.getObjectByName('Base') ?? await makeMarker(baseUrl, 'Base', 0.04);
   baseMarker.position.set(x + 0.35, 0, z - 0.55);
-
-  if (props.destExists) {
-    const destX = props.destVector!.x;
-    const destZ = props.destVector!.y;
-    const destMarker = scene.getObjectByName('Marker') ?? await makeMarker(destUrl, 'Marker', 0.1);
-    destMarker.position.set(destX + 0.6, 0, destZ - 1.24);
-  }
 };
 
 const updateCloud = (pointcloud: Uint8Array) => {
@@ -279,10 +276,12 @@ onUnmounted(() => {
   disposeScene();
 });
 
-watch(() => [props.destVector?.x, props.destVector?.z, props.destExists], async () => {
+watch(() => [props.destVector?.x, props.destVector?.y, props.destExists], async () => {
   if (props.destVector && props.destExists) {
     const marker = scene.getObjectByName('Marker') ?? await makeMarker(destUrl, 'Marker', 0.1);
-    marker.position.set(props.destVector.x + 1.2, 0, props.destVector.z - 2.44);
+    const base = scene.getObjectByName('Base');
+    const convertedCoord = (base!.position.z + 0.55) - props.destVector.y;
+    marker.position.set(props.destVector.x + 1.2, 0, convertedCoord - 2.54);
   }
   if (!props.destExists) {
     const marker = scene.getObjectByName('Marker');

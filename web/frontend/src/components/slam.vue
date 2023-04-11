@@ -106,8 +106,13 @@ const fetchSLAMPose = (name: string): Promise<commonApi.Pose> => {
 
 const executeMove = async () => {
   moveClick = false;
-  const req = new motionApi.MoveRequest();
-  // set request name
+
+  const req = new motionApi.MoveOnMapRequest();
+
+  /*
+   * set request name
+   * here we set the name of the motion service the user is using
+   */
   req.setName('builtin');
 
   const value = await fetchSLAMPose(props.name);
@@ -136,6 +141,7 @@ const executeMove = async () => {
 
   // set component name
   const baseResource = filterResources(props.resources, 'rdk', 'component', 'base');
+  // we are assuming there is only one base that is conducting planning
   const baseResourceName = new commonApi.ResourceName();
   baseResourceName.setNamespace('rdk');
   baseResourceName.setType('component');
@@ -143,15 +149,8 @@ const executeMove = async () => {
   baseResourceName.setName(baseResource[0]!.name);
   req.setComponentName(baseResourceName);
 
-  // set worldstate
-  const wrldst = new commonApi.WorldState();
-  req.setWorldState(wrldst);
-
-  // set constraints
-  req.setConstraints();
-
   // execute the actual call to validate e2e plumbing
-  props.client.motionService.move(
+  props.client.motionService.moveonmap(
     req,
     new grpc.Metadata(),
     (error: ServiceError, response: motionApi.MoveRequestResponse) => {
@@ -159,8 +158,7 @@ const executeMove = async () => {
         toast.error(`Error moving: ${error}`);
         return;
       }
-      toast.success(`Move success: ${response!.getSuccess()}`);
-
+      toast.success(`MoveOnMap success: ${response!.getSuccess()}`);
     }
   );
 
@@ -168,6 +166,12 @@ const executeMove = async () => {
 
 const executeStopMove = () => {
   console.log('executeStopMove');
+  moveClick = true;
+  try {
+    motionApi.stop();
+  } catch (error) {
+    displayError(error as ServiceError);
+  }
 };
 
 const refresh2d = async (name: string) => {
@@ -253,6 +257,7 @@ const refresh2dMap = () => {
 const handle2dRenderClick = (event: THREE.Vector3) => {
   updatedDest = true;
   threeJPos = event;
+  threeJPos.y = z - threeJPos.z;
 };
 
 const handleUpdateX = (event: CustomEvent<{ value: string }>) => {
@@ -261,7 +266,7 @@ const handleUpdateX = (event: CustomEvent<{ value: string }>) => {
 };
 
 const handleUpdateY = (event: CustomEvent<{ value: string }>) => {
-  threeJPos.z = Number.parseFloat(event.detail.value);
+  threeJPos.y = Number.parseFloat(event.detail.value);
   updatedDest = true;
 };
 
@@ -397,7 +402,7 @@ const toggleAxes = () => {
               type="number"
               label="y"
               incrementor="slider"
-              :value="threeJPos.z"
+              :value="threeJPos.y"
               step="0.1"
               @input="handleUpdateY($event)"
             />
