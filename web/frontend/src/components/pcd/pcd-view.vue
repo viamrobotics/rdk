@@ -436,23 +436,21 @@ const handleMove = async () => {
     return;
   }
 
-  const cameraPoint = new commonApi.Pose();
-
-  cameraPoint.setX(click.x);
-  cameraPoint.setY(click.y);
-  cameraPoint.setZ(click.z);
-
-  const pose = new commonApi.PoseInFrame();
-  pose.setReferenceFrame(props.cameraName!);
-  pose.setPose(cameraPoint);
-  const componentName = new commonApi.ResourceName();
-  componentName.setNamespace(gripper.namespace);
-  componentName.setType(gripper.type);
-  componentName.setSubtype(gripper.subtype);
-  componentName.setName(gripper.name);
+  const pose: commonApi.PoseInFrame.AsObject = {
+    referenceFrame: props.cameraName!,
+    pose: {
+      x: click.x,
+      y: click.y,
+      z: click.z,
+      theta: 0,
+      oX: 0,
+      oY: 0,
+      oZ: 0,
+    },
+  };
 
   try {
-    const success = await motionClient.move(pose, componentName);
+    const success = await motionClient.move(pose, gripper);
     toast.success(`Move success: ${success}`);
   } catch (error) {
     toast.error(`Error moving: ${error}`);
