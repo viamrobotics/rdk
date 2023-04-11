@@ -14,7 +14,6 @@ import (
 	"go.uber.org/multierr"
 
 	"go.viam.com/rdk/referenceframe"
-	spatial "go.viam.com/rdk/spatialmath"
 )
 
 var (
@@ -68,9 +67,8 @@ func CreateNloptIKSolver(mdl referenceframe.Frame, logger golog.Logger, iter int
 // Solve runs the actual solver and sends any solutions found to the given channel.
 func (ik *NloptIK) Solve(ctx context.Context,
 	c chan<- []referenceframe.Input,
-	newGoal spatial.Pose,
 	seed []referenceframe.Input,
-	m Metric,
+	m StateMetric,
 	rseed int,
 ) error {
 	//nolint: gosec
@@ -91,6 +89,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 	if len(ik.lowerBound) == 0 || len(ik.upperBound) == 0 {
 		return errBadBounds
 	}
+	mInput := &State{Frame: ik.model}
 
 	// x is our joint positions
 	// Gradient is, under the hood, a unsafe C structure that we are meant to mutate in place.
@@ -100,20 +99,23 @@ func (ik *NloptIK) Solve(ctx context.Context,
 		// Requesting an out-of-bounds transform will result in a non-nil error but will optionally return a correct if invalid pose.
 		// Thus we check if eePos is nil, and if not, continue as normal and ignore errors.
 		// As confirmation, the "input out of bounds" string is checked for in the error text.
-		eePos, err := ik.model.Transform(referenceframe.FloatsToInputs(x))
+		inputs := referenceframe.FloatsToInputs(x)
+		eePos, err := ik.model.Transform(inputs)
 		if eePos == nil || (err != nil && !strings.Contains(err.Error(), referenceframe.OOBErrString)) {
 			ik.logger.Errorw("error calculating eePos in nlopt", "error", err)
 			err = opt.ForceStop()
 			ik.logger.Errorw("forcestop error", "error", err)
 			return 0
 		}
-
-		dist := m(eePos, newGoal)
+		mInput.Configuration = inputs
+		mInput.Position = eePos
+		dist := m(mInput)
 
 		if len(gradient) > 0 {
 			for i := range gradient {
 				x[i] += ik.jump
-				eePos, err := ik.model.Transform(referenceframe.FloatsToInputs(x))
+				inputs = referenceframe.FloatsToInputs(x)
+				eePos, err := ik.model.Transform(inputs)
 				x[i] -= ik.jump
 				if eePos == nil || (err != nil && !strings.Contains(err.Error(), referenceframe.OOBErrString)) {
 					ik.logger.Errorw("error calculating eePos in nlopt", "error", err)
@@ -121,7 +123,9 @@ func (ik *NloptIK) Solve(ctx context.Context,
 					ik.logger.Errorw("forcestop error", "error", err)
 					return 0
 				}
-				dist2 := m(eePos, newGoal)
+				mInput.Configuration = inputs
+				mInput.Position = eePos
+				dist2 := m(mInput)
 
 				gradient[i] = (dist2 - dist) / ik.jump
 			}

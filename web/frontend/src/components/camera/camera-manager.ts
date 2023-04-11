@@ -31,7 +31,7 @@ export class CameraManager {
   open () {
     this.streamClient.add(this.cameraName);
     this.streamClient.on('track', (event) => {
-      const [eventStream] = event.streams;
+      const [eventStream] = (event as { streams: MediaStream[] }).streams;
       if (!eventStream) {
         throw new Error('expected event stream to exist');
       }

@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/spatialmath"
 )
 
 const (
@@ -14,7 +13,7 @@ const (
 
 type rrtParallelPlanner interface {
 	motionPlanner
-	rrtBackgroundRunner(context.Context, spatialmath.Pose, []referenceframe.Input, *rrtParallelPlannerShared)
+	rrtBackgroundRunner(context.Context, []referenceframe.Input, *rrtParallelPlannerShared)
 }
 
 type rrtParallelPlannerShared struct {
@@ -62,7 +61,7 @@ type rrtMaps struct {
 
 // initRRTsolutions will create the maps to be used by a RRT-based algorithm. It will generate IK solutions to pre-populate the goal
 // map, and will check if any of those goals are able to be directly interpolated to.
-func initRRTSolutions(ctx context.Context, mp motionPlanner, goal spatialmath.Pose, seed []referenceframe.Input) *rrtPlanReturn {
+func initRRTSolutions(ctx context.Context, mp motionPlanner, seed []referenceframe.Input) *rrtPlanReturn {
 	rrt := &rrtPlanReturn{
 		maps: &rrtMaps{
 			startMap: map[node]node{},
@@ -73,14 +72,14 @@ func initRRTSolutions(ctx context.Context, mp motionPlanner, goal spatialmath.Po
 	rrt.maps.startMap[seedNode] = nil
 
 	// get many potential end goals from IK solver
-	solutions, err := mp.getSolutions(ctx, goal, seed)
+	solutions, err := mp.getSolutions(ctx, seed)
 	if err != nil {
 		rrt.planerr = err
 		return rrt
 	}
 
 	// the smallest interpolated distance between the start and end input represents a lower bound on cost
-	_, optimalCost := mp.opt().DistanceFunc(&ConstraintInput{StartInput: seed, EndInput: solutions[0].Q()})
+	optimalCost := mp.opt().DistanceFunc(&Segment{StartConfiguration: seed, EndConfiguration: solutions[0].Q()})
 	rrt.maps.optNode = newCostNode(solutions[0].Q(), optimalCost)
 
 	// Check for direct interpolation for the subset of IK solutions within some multiple of optimal
@@ -89,7 +88,7 @@ func initRRTSolutions(ctx context.Context, mp motionPlanner, goal spatialmath.Po
 	// initialize maps and check whether direct interpolation is an option
 	for _, solution := range solutions {
 		if canInterp {
-			_, cost := mp.opt().DistanceFunc(&ConstraintInput{StartInput: seed, EndInput: solution.Q()})
+			cost := mp.opt().DistanceFunc(&Segment{StartConfiguration: seed, EndConfiguration: solution.Q()})
 			if cost < optimalCost*defaultOptimalityMultiple {
 				if mp.checkPath(seed, solution.Q()) {
 					rrt.steps = []node{seedNode, solution}

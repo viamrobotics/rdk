@@ -96,16 +96,25 @@ func constrainedXArmMotion() (*planConfig, error) {
 	orientMetric := NewPoseFlexOVMetric(pos, 0.09)
 
 	oFunc := orientDistToRegion(pos.Orientation(), 0.1)
-	oFuncMet := func(from, to spatialmath.Pose) float64 {
-		return oFunc(from.Orientation())
+	oFuncMet := func(from *State) float64 {
+		err := resolveStatesToPositions(from)
+		if err != nil {
+			return math.Inf(1)
+		}
+		return oFunc(from.Position.Orientation())
 	}
-	orientConstraint := func(o spatialmath.Orientation) bool {
-		return oFunc(o) == 0
+	orientConstraint := func(cInput *State) bool {
+		err := resolveStatesToPositions(cInput)
+		if err != nil {
+			return false
+		}
+
+		return oFunc(cInput.Position.Orientation()) == 0
 	}
 
-	opt.SetMetric(orientMetric)
-	opt.SetPathDist(oFuncMet)
-	opt.AddConstraint("orientation", NewOrientationConstraint(orientConstraint))
+	opt.SetGoalMetric(orientMetric)
+	opt.SetPathMetric(oFuncMet)
+	opt.AddStateConstraint("orientation", orientConstraint)
 
 	return &planConfig{
 		Start:      home7,
@@ -190,23 +199,28 @@ func simple2DMap() (*planConfig, error) {
 		},
 	}
 
+	goal := spatialmath.NewPoseFromPoint(r3.Vector{X: 90, Y: 90, Z: 0})
+
 	// setup planner options
 	opt := newBasicPlannerOptions()
 	startInput := frame.StartPositions(fs)
 	startInput[modelName] = frame.FloatsToInputs([]float64{-90., 90.})
+	opt.SetGoalMetric(NewSquaredNormMetric(goal))
 	sf, err := newSolverFrame(fs, modelName, frame.World, startInput)
 	if err != nil {
 		return nil, err
 	}
-	collisionConstraints, err := newCollisionConstraints(sf, fs, worldState, frame.StartPositions(fs), nil, false)
+	collisionConstraints, err := createAllCollisionConstraints(sf, fs, worldState, frame.StartPositions(fs), nil)
 	if err != nil {
 		return nil, err
 	}
-	opt.AddConstraints(collisionConstraints)
+	for name, constraint := range collisionConstraints {
+		opt.AddStateConstraint(name, constraint)
+	}
 
 	return &planConfig{
 		Start:      startInput[modelName],
-		Goal:       spatialmath.NewPoseFromPoint(r3.Vector{X: 90, Y: 90, Z: 0}),
+		Goal:       goal,
 		RobotFrame: model,
 		Options:    opt,
 	}, nil
@@ -225,21 +239,26 @@ func simpleXArmMotion() (*planConfig, error) {
 		return nil, err
 	}
 
+	goal := spatialmath.NewPoseFromProtobuf(&commonpb.Pose{X: 206, Y: 100, Z: 120, OZ: -1})
+
 	// setup planner options
 	opt := newBasicPlannerOptions()
+	opt.SetGoalMetric(NewSquaredNormMetric(goal))
 	sf, err := newSolverFrame(fs, xarm.Name(), frame.World, frame.StartPositions(fs))
 	if err != nil {
 		return nil, err
 	}
-	collisionConstraints, err := newCollisionConstraints(sf, fs, nil, frame.StartPositions(fs), nil, false)
+	collisionConstraints, err := createAllCollisionConstraints(sf, fs, nil, frame.StartPositions(fs), nil)
 	if err != nil {
 		return nil, err
 	}
-	opt.AddConstraints(collisionConstraints)
+	for name, constraint := range collisionConstraints {
+		opt.AddStateConstraint(name, constraint)
+	}
 
 	return &planConfig{
 		Start:      home7,
-		Goal:       spatialmath.NewPoseFromProtobuf(&commonpb.Pose{X: 206, Y: 100, Z: 120, OZ: -1}),
+		Goal:       goal,
 		RobotFrame: xarm,
 		Options:    opt,
 	}, nil
@@ -255,22 +274,26 @@ func simpleUR5eMotion() (*planConfig, error) {
 	if err = fs.AddFrame(ur5e, fs.Frame(frame.World)); err != nil {
 		return nil, err
 	}
+	goal := spatialmath.NewPoseFromProtobuf(&commonpb.Pose{X: -750, Y: -250, Z: 200, OX: -1})
 
 	// setup planner options
 	opt := newBasicPlannerOptions()
+	opt.SetGoalMetric(NewSquaredNormMetric(goal))
 	sf, err := newSolverFrame(fs, ur5e.Name(), frame.World, frame.StartPositions(fs))
 	if err != nil {
 		return nil, err
 	}
-	collisionConstraints, err := newCollisionConstraints(sf, fs, nil, frame.StartPositions(fs), nil, false)
+	collisionConstraints, err := createAllCollisionConstraints(sf, fs, nil, frame.StartPositions(fs), nil)
 	if err != nil {
 		return nil, err
 	}
-	opt.AddConstraints(collisionConstraints)
+	for name, constraint := range collisionConstraints {
+		opt.AddStateConstraint(name, constraint)
+	}
 
 	return &planConfig{
 		Start:      home6,
-		Goal:       spatialmath.NewPoseFromProtobuf(&commonpb.Pose{X: -750, Y: -250, Z: 200, OX: -1}),
+		Goal:       goal,
 		RobotFrame: ur5e,
 		Options:    opt,
 	}, nil
@@ -292,10 +315,10 @@ func testPlanner(t *testing.T, plannerFunc plannerConstructor, config planConfig
 	// test that path doesn't violate constraints
 	test.That(t, len(path), test.ShouldBeGreaterThanOrEqualTo, 2)
 	for j := 0; j < len(path)-1; j++ {
-		ok, _ := cfg.Options.constraintHandler.CheckConstraintPath(&ConstraintInput{
-			StartInput: path[j],
-			EndInput:   path[j+1],
-			Frame:      cfg.RobotFrame,
+		ok, _ := cfg.Options.ConstraintHandler.CheckSegmentAndStateValidity(&Segment{
+			StartConfiguration: path[j],
+			EndConfiguration:   path[j+1],
+			Frame:              cfg.RobotFrame,
 		}, cfg.Options.Resolution)
 		test.That(t, ok, test.ShouldBeTrue)
 	}

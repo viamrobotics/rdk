@@ -172,6 +172,12 @@ func hasManagedAuthHandlers(handlers []config.AuthHandlerConfig) bool {
 	return false
 }
 
+// validSDPTrackName returns a valid SDP video/audio track name as defined in RFC 4566 (https://www.rfc-editor.org/rfc/rfc4566)
+// where track names should not include colons.
+func validSDPTrackName(name string) string {
+	return strings.ReplaceAll(name, ":", "+")
+}
+
 // allVideoSourcesToDisplay returns every possible video source that could be viewed from
 // the robot.
 func allVideoSourcesToDisplay(theRobot robot.Robot) map[string]gostream.VideoSource {
@@ -182,8 +188,7 @@ func allVideoSourcesToDisplay(theRobot robot.Robot) map[string]gostream.VideoSou
 		if err != nil {
 			continue
 		}
-
-		sources[name] = cam
+		sources[validSDPTrackName(name)] = cam
 	}
 
 	return sources
@@ -199,8 +204,7 @@ func allAudioSourcesToDisplay(theRobot robot.Robot) map[string]gostream.AudioSou
 		if err != nil {
 			continue
 		}
-
-		sources[name] = input
+		sources[validSDPTrackName(name)] = input
 	}
 
 	return sources
