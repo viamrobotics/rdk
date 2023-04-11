@@ -3720,6 +3720,10 @@
       "hash": "dfebe03896ca235803cce73cbaf9c367",
       "size": 364720
     },
+    "collision_pointcloud_0.pcd": {
+      "hash": "879abb9a60152756bcd7cc87cb17252f",
+      "size": 3037564
+    },
     "hello.json": {
       "hash": "1ae7dda8aa1d5a9092383e1f736dfde4",
       "size": 25
@@ -50821,7 +50825,8 @@
             "hash": "ee1396640646861dbcfdda6f3a73d2e8",
             "size": 282
           }
-        }
+        },
+        "position_new": {}
       }
     },
     "locating_in_map.lua": {
