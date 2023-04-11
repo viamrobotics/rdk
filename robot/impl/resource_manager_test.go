@@ -511,7 +511,7 @@ func TestManagerAdd(t *testing.T) {
 	injectVisionService := &inject.VisionService{}
 	injectVisionService.GetObjectPointCloudsFunc = func(
 		ctx context.Context,
-		cameraName, segmenterName string,
+		cameraName string,
 		extra map[string]interface{},
 	) ([]*viz.Object, error) {
 		return []*viz.Object{viz.NewEmptyObject()}, nil

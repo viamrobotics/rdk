@@ -62,7 +62,7 @@ type TFLiteDetectorConfig struct {
 	// this should come from the attributes part of the detector config
 	ModelPath  string  `json:"model_path"`
 	NumThreads int     `json:"num_threads"`
-	LabelPath  *string `json:"label_path"`
+	LabelPath  string  `json:"label_path"`
 	ServiceURL *string `json:"service_url"`
 }
 
@@ -120,12 +120,7 @@ func registerTFLiteDetector(
 		inHeight, inWidth = uint(shape[1]), uint(shape[2])
 	}
 
-	if params.LabelPath == nil {
-		blank := ""
-		params.LabelPath = &blank
-	}
-
-	labelMap, err := loadLabels(*params.LabelPath)
+	labelMap, err := loadLabels(params.LabelPath)
 	if err != nil {
 		logger.Warn("did not retrieve class labels")
 	}
