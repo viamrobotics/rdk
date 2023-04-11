@@ -78,7 +78,7 @@ func (c *client) Stream(
 	ctx context.Context,
 	errHandlers ...gostream.ErrorHandler,
 ) (gostream.VideoStream, error) {
-	cancelCtxWithMIME := gostream.WithMIMETypeHint(c.cancelCtx, gostream.MIMETypeHint(ctx, utils.MimeTypeRawRGBALazy))
+	cancelCtxWithMIME := gostream.WithMIMETypeHint(c.cancelCtx, gostream.MIMETypeHint(ctx, ""))
 	streamCtx, stream, frameCh := gostream.NewMediaStreamForChannel[image.Image](cancelCtxWithMIME)
 
 	c.mu.Lock()
