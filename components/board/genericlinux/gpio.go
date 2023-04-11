@@ -292,6 +292,9 @@ func (pin *gpioPin) Close() error {
 func gpioInitialize(cancelCtx context.Context, gpioMappings map[int]GPIOBoardMapping,
 	interruptConfigs []board.DigitalInterruptConfig, waitGroup *sync.WaitGroup, logger golog.Logger,
 ) (map[string]*gpioPin, map[string]*digitalInterrupt, error) {
+	fmt.Println("Starting to initialize GPIO pins!")
+	fmt.Printf("gpioMappings: ->%v<-\n", gpioMappings)
+	fmt.Printf("interruptConfigs: ->%v<-\n", interruptConfigs)
 	interrupts := make(map[string]*digitalInterrupt, len(interruptConfigs))
 	for _, config := range interruptConfigs {
 		interrupt, err := createDigitalInterrupt(cancelCtx, config, gpioMappings, waitGroup)
@@ -325,6 +328,9 @@ func gpioInitialize(cancelCtx context.Context, gpioMappings map[int]GPIOBoardMap
 		}
 		pins[fmt.Sprintf("%d", pinNumber)] = pin
 	}
+	fmt.Println("Finished initializing GPIO pins!")
+	fmt.Printf("pins: ->%v<-\n", pins)
+	fmt.Printf("interrupts: ->%v<-\n", interrupts)
 	return pins, interrupts, nil
 }
 
