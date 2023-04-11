@@ -3,6 +3,7 @@ package motionplan
 
 import (
 	"context"
+	"fmt"
 	"math/rand"
 	"sort"
 	"time"
@@ -191,6 +192,7 @@ func motionPlanInternal(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("DO WE EVER GET HERE")
 	for _, resultSlice := range resultSlices {
 		stepMap := sf.sliceToMap(resultSlice)
 		steps = append(steps, stepMap)
