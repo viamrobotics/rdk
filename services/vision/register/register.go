@@ -3,8 +3,8 @@ package register
 
 import (
 	// for vision models.
-	_ "go.viam.com/rdk/services/vision/color_detector"
-	_ "go.viam.com/rdk/services/vision/detections_to_3dsegments"
-	_ "go.viam.com/rdk/services/vision/radius_clustering"
+	_ "go.viam.com/rdk/services/vision/colordetector"
+	_ "go.viam.com/rdk/services/vision/detectionstosegments"
+	_ "go.viam.com/rdk/services/vision/radiusclustering"
 	_ "go.viam.com/rdk/services/vision/tflite"
 )
