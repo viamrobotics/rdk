@@ -335,7 +335,7 @@ func printBasicOctree(logger golog.Logger, bOct *BasicOctree, s string) {
 func TestBasicOctreeCollision(t *testing.T) {
 	startPC, err := makeFullPointCloudFromArtifact(
 		t,
-		"slam/example_cartographer_outputs/viam-office-02-22-1/pointcloud/pointcloud_0.pcd",
+		"pointcloud/collision_pointcloud_0.pcd",
 		BasicType,
 	)
 	test.That(t, err, test.ShouldBeNil)
