@@ -2,6 +2,7 @@ package tflitecpu
 
 import (
 	"context"
+	"math/rand"
 	"testing"
 
 	"github.com/nfnt/resize"
@@ -17,6 +18,7 @@ func TestNewTFLiteCPUModel(t *testing.T) {
 	ctx := context.Background()
 	modelLoc := artifact.MustPath("vision/tflite/effdet0.tflite")
 	modelLoc2 := artifact.MustPath("vision/tflite/effnet0.tflite")
+	modelLoc3 := artifact.MustPath("vision/tflite/mobileBERT.tflite")
 	emptyCfg := TFLiteConfig{} // empty config
 	cfg := TFLiteConfig{       // detector config
 		ModelPath:  modelLoc,
@@ -25,6 +27,10 @@ func TestNewTFLiteCPUModel(t *testing.T) {
 	cfg2 := TFLiteConfig{ // classifier config
 		ModelPath:  modelLoc2,
 		NumThreads: 2,
+	}
+	cfg3 := TFLiteConfig{ // text classifier config
+		ModelPath:  modelLoc3,
+		NumThreads: 1,
 	}
 
 	// Test that empty config gives error about loading model
@@ -110,4 +116,41 @@ func TestNewTFLiteCPUModel(t *testing.T) {
 	test.That(t, gotOutput2["probability"].([]uint8)[290], test.ShouldEqual, 0)
 	test.That(t, gotOutput2["probability"].([]uint8)[291], test.ShouldBeGreaterThan, 200) // 291 is lion
 	test.That(t, gotOutput2["probability"].([]uint8)[292], test.ShouldEqual, 0)
+
+	// Test that even a text classifier gives an output with good input
+	got3, err := CreateTFLiteCPUModel(ctx, &cfg3)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, got3.model, test.ShouldNotBeNil)
+	test.That(t, got3.attrs, test.ShouldNotBeNil)
+	test.That(t, got3.metadata, test.ShouldBeNil)
+
+	// Test that the Metadata() errors well when metadata does not exist
+	_, err = got3.Metadata(ctx)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "metadata does not exist")
+	test.That(t, got3.metadata, test.ShouldBeNil)
+
+	// Test that the Infer() works even on a text classifier
+	inputMap3 := make(map[string]interface{})
+	inputMap3["text"] = makeRandomSlice(got3.model.Info.InputHeight) // text model takes
+	test.That(t, len(inputMap3["text"].([]int32)), test.ShouldEqual, 384)
+	gotOutput3, err := got3.Infer(ctx, inputMap3)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, gotOutput3, test.ShouldNotBeNil)
+
+	test.That(t, len(gotOutput3), test.ShouldEqual, 2)
+	test.That(t, gotOutput3["output0"], test.ShouldNotBeNil)
+	test.That(t, gotOutput3["output1"], test.ShouldNotBeNil)
+	test.That(t, gotOutput3["output2"], test.ShouldBeNil)
+
+	test.That(t, len(gotOutput3["output0"].([]float32)), test.ShouldEqual, 384)
+	test.That(t, len(gotOutput3["output1"].([]float32)), test.ShouldEqual, 384)
+}
+
+func makeRandomSlice(length int) []int32 {
+	out := make([]int32, 0, length)
+	for i := 0; i < length; i++ {
+		x := rand.Int31n(100)
+		out = append(out, x)
+	}
+	return out
 }

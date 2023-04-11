@@ -84,27 +84,34 @@ func (m *Model) Infer(ctx context.Context, input map[string]interface{}) (map[st
 
 	outMap := make(map[string]interface{})
 
-	// Grab the image data from the map
-	if imgBytes, ok := input["image"]; ok {
-		outTensors, err := m.model.Infer(imgBytes)
+	f := func(key string) bool { _, ok := input[key]; return ok }
+	doInfer := func(key string) (map[string]interface{}, error) {
+		outTensors, err := m.model.Infer(input[key])
 		if err != nil {
 			return nil, errors.Wrap(err, "couldn't infer from model")
 		}
 		// Fill in the output map with the names from metadata if u have them
 		// Otherwise, do output1, output2, etc.
-		for i := 0; i < len(m.metadata.Outputs); i++ {
-			name := m.metadata.Outputs[i].Name
-			if name == "" {
-				outMap["output"+strconv.Itoa(i)] = outTensors[i]
-			} else {
+		for i := 0; i < len(m.model.Info.OutputTensorTypes); i++ {
+			// name := m.metadata.Outputs[i].Name
+			// if name == "" {
+			if m.metadata != nil {
 				outMap[m.metadata.Outputs[i].Name] = outTensors[i]
+			} else {
+				outMap["output"+strconv.Itoa(i)] = outTensors[i]
 			}
 		}
-	} else {
-		return map[string]interface{}{}, errors.New("could not find image in input map. Give it the name 'image' duh")
+		return outMap, nil
 	}
 
-	return outMap, nil
+	switch {
+	case f("image"):
+		return doInfer("image")
+	case f("text"):
+		return doInfer("text")
+	default:
+		return doInfer("input")
+	}
 }
 
 // Metadata reads the metadata from your tflite cpu model into the metadata struct
