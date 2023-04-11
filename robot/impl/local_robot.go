@@ -913,7 +913,10 @@ func (r *localRobot) renameUnknownNodes() {
 				r.Logger().Debugw("failed to find matching remote resource for unknown dependency", "dependency", rName)
 				continue
 			} else if len(names) > 1 {
-				r.Logger().Errorw("multiple matches from remote resource for unknown dependency, consider using the fully qualified name for the dependency", "dependency", rName)
+				r.Logger().Errorw(
+					"multiple matches from remote resource for unknown dependency, consider using the fully qualified name for the dependency",
+					"dependency", rName,
+				)
 				continue
 			}
 			r.Logger().Debugw("found matching remote resource for unknown dependency, renaming", "dependency", rName, "match", names[0])

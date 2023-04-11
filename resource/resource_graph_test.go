@@ -642,7 +642,6 @@ func TestFindRemoteNodesByShortName(t *testing.T) {
 	test.That(t, newResourceNameSet(names...), test.ShouldResemble, newResourceNameSet(fooB, barB))
 	names = gA.FindRemoteNodesByShortName(NewName("namespace", "atype", "asubtype", "C"))
 	test.That(t, names, test.ShouldBeEmpty)
-
 }
 
 var cfgA = []fakeComponent{
@@ -931,7 +930,7 @@ func TestRenameNodeOverwrite(t *testing.T) {
 	test.That(t, g, test.ShouldNotBeNil)
 
 	// same as commonCfg but without A defined
-	var testCfg = []fakeComponent{
+	testCfg := []fakeComponent{
 		{
 			Name:      NewName("namespace", "atype", "asubtype", "B"),
 			DependsOn: []Name{NewName("namespace", "atype", "asubtype", "A")},

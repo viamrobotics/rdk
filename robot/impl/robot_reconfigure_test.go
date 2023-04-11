@@ -2872,6 +2872,7 @@ func TestInferRemoteRobotDependencyConnectAfterStartup(t *testing.T) {
 		),
 	)
 }
+
 func TestInferRemoteRobotDependencyAmbiguous(t *testing.T) {
 	loggerR := golog.NewDebugLogger("remote")
 
