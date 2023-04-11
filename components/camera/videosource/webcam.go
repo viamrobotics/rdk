@@ -4,6 +4,7 @@ import (
 	"context"
 	"image"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -19,7 +20,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/camera/v1"
-	"go.viam.com/rdk/components/board/jetson"
+	jetsoncamera "go.viam.com/rdk/components/camera/videosource/jetson"
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
@@ -236,8 +237,11 @@ func NewWebcam(
 func NewWebcamSource(ctx context.Context, name string, attrs *WebcamAttrs, logger golog.Logger) (camera.Camera, error) {
 	cam, err := findAndMakeCamera(ctx, attrs, attrs.Path, logger)
 	if err != nil {
-		if jetson.IsJetsonOrinAGX() {
-			return nil, errors.Wrap(err, jetson.PrintCAM20CUOAGXError())
+		if runtime.GOOS == "linux" && runtime.GOARCH == "arm64" {
+			osInfo := jetsoncamera.GetOSInformation()
+			if osInfo.Device == "Jetson AGX Orin" {
+				return nil, errors.Wrap(err, jetsoncamera.PrintError(osInfo, "AR0234"))
+			}
 		}
 		return nil, errors.Wrap(err, "cannot find video source for camera")
 	}
