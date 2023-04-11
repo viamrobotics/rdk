@@ -257,7 +257,6 @@ func TestMoreClassifierModels(t *testing.T) {
 	test.That(t, bestClass[0].Score(), test.ShouldBeGreaterThan, 0.93)
 }
 
-
 func TestOneClassifierOnManyCameras(t *testing.T) {
 	ctx := context.Background()
 
@@ -305,6 +304,7 @@ func gotWithCallback(img *rimage.Image, result chan classification.Classificatio
 	classifications, _ := got(context.Background(), img)
 	result <- classifications
 	return
+}
 
 func TestInvalidLabels(t *testing.T) {
 	ctx := context.Background()
