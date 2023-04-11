@@ -154,7 +154,7 @@ func NewxArm(ctx context.Context, cfg config.Component, logger golog.Logger, mod
 	if err != nil {
 		return nil, err
 	}
-	
+
 	dof := len(model.DoF())
 
 	xA := xArm{

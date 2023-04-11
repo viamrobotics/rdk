@@ -6,7 +6,6 @@ import (
 	"errors"
 	"math"
 	"time"
-	"fmt"
 
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/arm/v1"
@@ -447,8 +446,6 @@ func (x *xArm) JointPositions(ctx context.Context, extra map[string]interface{})
 		idx := i*4 + 1
 		radians = append(radians, float64(rutils.Float32FromBytesLE((jData.params[idx : idx+4]))))
 	}
-	fmt.Println(radians)
-	fmt.Println(referenceframe.JointPositionsFromRadians(radians))
 
 	return referenceframe.JointPositionsFromRadians(radians), nil
 }
