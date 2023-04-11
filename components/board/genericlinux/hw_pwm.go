@@ -151,19 +151,32 @@ func (pwm *pwmDevice) SetPwm(freqHz uint, dutyCycle float64) (err error) {
 	activeDurationNs := uint64(float64(periodNs) * dutyCycle)
 
 	// If we ever try setting the active duration higher than the period (or the period lower than
-	// the active duration), we will get an error. Try setting one, then the other, then the first
-	// one again. If the first of those three had errors by being too small/large, the last one
-	// should take care of it. So, we purposely ignore any errors on the first value we try to
-	// write.
-	if err := pwm.writeLine("period", periodNs); err != nil {
-		// This is okay; we'll change the active duration and then try setting the period again.
-		pwm.logger.Debugf("Ignoring trouble setting the period on HW PWM device %s line %d: %s",
-			pwm.chipPath, pwm.line, err)
-	}
-	if err := pwm.writeLine("duty_cycle", activeDurationNs); err != nil {
+	// the active duration), we will get an error. So, make sure we never do that!
+
+	// The BeagleBone has a weird quirk where, if you don't change the period of active duration
+	// after enabling the PWM line, it just goes high and stays there, rather than blinking at the
+	// intended period. To avoid this, we first set the active duration to 0 and the period to 1 ns,
+	// and then set the period and active duration to their intended values. That way, if you turn
+	// the PWM signal off and on again, it still works because you've changed the values after
+	// (re-)enabling the line. As long as the period is never actually supposed to be 1 ns, this
+	// should work fine.
+
+	// Setting the active duration to 0 should always work: this is guaranteed to be less than the
+	// period.
+	if err := pwm.writeLine("duty_cycle", 0); err != nil {
 		return err
 	}
+	// Now that the active duration is 0, setting the period to any number should work.
+	if err := pwm.writeLine("period", 1); err != nil {
+		return err
+	}
+	// Same thing here: the active duration is 0, so any value should work for the period.
 	if err := pwm.writeLine("period", periodNs); err != nil {
+		return err
+	}
+	// Now that the period is set to its intended value, there should be no trouble setting the
+	// active duration, which is guaranteed to be at most the period.
+	if err := pwm.writeLine("duty_cycle", activeDurationNs); err != nil {
 		return err
 	}
 

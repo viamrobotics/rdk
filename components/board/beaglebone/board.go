@@ -3,8 +3,10 @@ package beaglebone
 
 import (
 	"github.com/edaniels/golog"
-	"github.com/pkg/errors"
+	//"github.com/pkg/errors"
 	"periph.io/x/host/v3"
+
+	"fmt"
 
 	"go.viam.com/rdk/components/board/genericlinux"
 )
@@ -17,10 +19,11 @@ func init() {
 	}
 
 	gpioMappings, err := genericlinux.GetGPIOBoardMappings(modelName, boardInfoMappings)
-	var noBoardErr genericlinux.NoBoardFoundError
-	if errors.As(err, &noBoardErr) {
+	fmt.Printf("beaglebone mappings: ->%s<-\n", gpioMappings)
+	//var noBoardErr genericlinux.NoBoardFoundError
+	if err != nil {
 		golog.Global().Debugw("error getting beaglebone GPIO board mapping", "error", err)
 	}
 
-	genericlinux.RegisterBoard(modelName, gpioMappings, true)
+	genericlinux.RegisterBoard(modelName, gpioMappings, false)
 }
