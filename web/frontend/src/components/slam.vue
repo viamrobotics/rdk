@@ -433,17 +433,17 @@ const toggleAxes = () => {
                 <p class="items-end pr-2 text-xs text-gray-500">
                   x
                 </p>
-                <p>{{ x }}</p>
+                <p class="text-lg">{{ x }}</p>
 
-                <p class="pl-7 pr-2 text-xs text-gray-500">
+                <p class="pl-9 pr-2 text-xs text-gray-500">
                   y
                 </p>
-                <p>{{ y }}</p>
+                <p class="text-lg">{{ y }}</p>
 
-                <p class="pl-7 pr-2 text-xs text-gray-500">
+                <p class="pl-9 pr-2 text-xs text-gray-500">
                   z
                 </p>
-                <p>{{ z }}</p>
+                <p class="text-lg">{{ z }}</p>
               </div>
             </div>
             <div class="flex flex-col pl-10">
@@ -454,22 +454,22 @@ const toggleAxes = () => {
                 <p class="pr-2 text-xs text-gray-500">
                   o<sub>x</sub>
                 </p>
-                <p>{{ oX }}</p>
+                <p class="text-lg">{{ oX }}</p>
 
-                <p class="pl-7 pr-2 text-xs text-gray-500">
+                <p class="pl-9 pr-2 text-xs text-gray-500">
                   o<sub>y</sub>
                 </p>
-                <p>{{ oY }}</p>
+                <p class="text-lg">{{ oY }}</p>
 
-                <p class="pl-7 pr-2 text-xs text-gray-500">
+                <p class="pl-9 pr-2 text-xs text-gray-500">
                   o<sub>z</sub>
                 </p>
-                <p>{{ oZ }}</p>
-                
-                <p class="pl-7 pr-2 text-xs text-gray-500">
+                <p class="text-lg">{{ oZ }}</p>
+
+                <p class="pl-9 pr-2 text-xs text-gray-500">
                   &theta;
                 </p>
-                <p>{{ theta }}</p>
+                <p class="text-lg">{{ theta }}</p>
               </div>
             </div>
             <div class="pl-4 pt-2">
