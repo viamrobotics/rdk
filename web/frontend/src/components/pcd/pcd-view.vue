@@ -14,6 +14,7 @@ import { TransformControls } from 'three/examples/jsm/controls/TransformControls
 import { filterResources } from '../../lib/resource';
 import { toast } from '../../lib/toast';
 import { Client, commonApi, MotionClient } from '@viamrobotics/sdk';
+import type { PoseInFrame } from '@viamrobotics/sdk';
 import InfoButton from '../info-button.vue';
 
 const props = defineProps<{
@@ -436,7 +437,7 @@ const handleMove = async () => {
     return;
   }
 
-  const pose: commonApi.PoseInFrame.AsObject = {
+  const pose: PoseInFrame = {
     referenceFrame: props.cameraName!,
     pose: {
       x: click.x,
