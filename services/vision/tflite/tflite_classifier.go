@@ -56,9 +56,9 @@ var LABEL_OUTPUT_MISMATCH = errors.New("Invalid Label File: Number of labels doe
 // TFLiteClassifierConfig specifies the fields necessary for creating a TFLite classifier.
 type TFLiteClassifierConfig struct {
 	// this should come from the attributes part of the classifier config
-	ModelPath  string  `json:"model_path"`
-	NumThreads int     `json:"num_threads"`
-	LabelPath  *string `json:"label_path"`
+	ModelPath  string `json:"model_path"`
+	NumThreads int    `json:"num_threads"`
+	LabelPath  string `json:"label_path"`
 }
 
 type tfliteClassifier struct {
@@ -110,11 +110,7 @@ func registerTFLiteClassifier(
 		return nil, errors.Wrapf(err, "something wrong with adding the model")
 	}
 
-	if params.LabelPath == nil {
-		blank := ""
-		params.LabelPath = &blank
-	}
-	labels, err := loadLabels(*params.LabelPath)
+	labels, err := loadLabels(params.LabelPath)
 	if err != nil {
 		logger.Warn("did not retrieve class labels")
 	}
