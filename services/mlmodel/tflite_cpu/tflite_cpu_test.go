@@ -131,7 +131,7 @@ func TestNewTFLiteCPUModel(t *testing.T) {
 
 	// Test that the Infer() works even on a text classifier
 	inputMap3 := make(map[string]interface{})
-	inputMap3["text"] = makeRandomSlice(got3.model.Info.InputHeight) // text model takes
+	inputMap3["text"] = makeRandomSlice(got3.model.Info.InputHeight)
 	test.That(t, len(inputMap3["text"].([]int32)), test.ShouldEqual, 384)
 	gotOutput3, err := got3.Infer(ctx, inputMap3)
 	test.That(t, err, test.ShouldBeNil)
