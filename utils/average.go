@@ -7,8 +7,8 @@ import "sync/atomic"
 // used for statistical purposes only due to the use of
 // atomics and not mutexes.
 type RollingAverage struct {
-	data []int64
 	pos  int64
+	data []int64
 }
 
 // NewRollingAverage returns a rolling average computed on the given
