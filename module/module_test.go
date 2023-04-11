@@ -214,11 +214,6 @@ func TestModuleFunctions(t *testing.T) {
 			API:   resource.NewSubtype("rdk", "component", "motor"),
 			Model: resource.NewDefaultModel("fake"),
 		},
-		{
-			Name:  "motor3",
-			API:   resource.NewSubtype("rdk", "component", "motor"),
-			Model: resource.NewDefaultModel("fake"),
-		},
 	}}
 
 	myRobot, err := robotimpl.RobotFromConfig(ctx, cfg, logger)
