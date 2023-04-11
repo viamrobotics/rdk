@@ -59,19 +59,47 @@
                 "y": 85,
                 "z": 85,
                 "translation": {
-                    "x": 82.5,
+                    "x": 43.5,
                     "y": 0,
                     "z": 0
                 }
             }
         },
         {
-            "id": "lower_forearm",
+            "id": "lower_forearm_filler",
             "parent": "forearm_rot",
             "translation": {
                 "x": 0,
                 "y": 0,
+                "z": 0
+            },
+            "geometry": {
+                "r": 40,
+                "l": 200,
+                "translation": {
+                    "x": 0,
+                    "y": 0,
+                    "z": -30
+                }
+            }
+        },
+        {
+            "id": "lower_forearm",
+            "parent": "lower_forearm_filler",
+            "translation": {
+                "x": 0,
+                "y": 0,
                 "z": -227.6
+            },
+            "geometry": {
+                "x": 75,
+                "y": 35,
+                "z": 180,
+                "translation": {
+                    "x": 0,
+                    "y": 60,
+                    "z": -175
+                }
             }
         },
         {
@@ -81,6 +109,16 @@
                 "x": 0,
                 "y": 0,
                 "z": -61.5
+            },
+            "geometry": {
+                "x": 75,
+                "y": 75,
+                "z": 100,
+                "translation": {
+                    "x": 0,
+                    "y": 0,
+                    "z": -50
+                }
             }
         },
         {
