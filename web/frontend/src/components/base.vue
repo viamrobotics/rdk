@@ -1,7 +1,6 @@
 <script setup lang="ts">
 
 import { onMounted, onUnmounted } from 'vue';
-import { $ref, $computed, $$ } from 'vue/macros';
 import { onClickOutside } from '@vueuse/core';
 import { BaseClient, Client, type ServiceError, commonApi } from '@viamrobotics/sdk';
 import { filterResources } from '../lib/resource';
@@ -10,6 +9,7 @@ import KeyboardInput, { type Keys } from './keyboard-input.vue';
 import Camera from './camera/camera.vue';
 import { rcLogConditionally } from '../lib/log';
 import { selectedMap } from '../lib/camera-state';
+import type { StreamManager } from './camera/stream-manager';
 
 const enum Keymap {
   LEFT = 'a',
@@ -22,6 +22,7 @@ const props = defineProps<{
   name: string;
   resources: commonApi.ResourceName.AsObject[];
   client: Client;
+  streamManager:StreamManager
 }>();
 
 type Tabs = 'Keyboard' | 'Discrete'
@@ -268,10 +269,8 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
-  stop();
   window.removeEventListener('visibilitychange', handleVisibilityChange);
 });
-
 </script>
 
 <template>
@@ -293,8 +292,8 @@ onUnmounted(() => {
         @click="stop"
       />
 
-      <div class="flex flex-wrap sm:flex-nowrap gap-4 border border-t-0 border-black">
-        <div class="flex flex-col gap-4 p-4 min-w-fit">
+      <div class="flex flex-wrap gap-4 border border-t-0 border-black sm:flex-nowrap">
+        <div class="flex min-w-fit flex-col gap-4 p-4">
           <h2 class="font-bold">
             Motor Controls
           </h2>
@@ -315,7 +314,7 @@ onUnmounted(() => {
             />
             <v-slider
               id="power"
-              class="pt-2 w-full max-w-xs"
+              class="w-full max-w-xs pt-2"
               :min="0"
               :max="100"
               :step="1"
@@ -434,7 +433,7 @@ onUnmounted(() => {
               />
             </template>
 
-            <div class="flex items-end gap-2 mt-2">
+            <div class="mt-2 flex items-end gap-2">
               <v-select
                 v-model="refreshFrequency"
                 label="Refresh frequency"
@@ -455,7 +454,7 @@ onUnmounted(() => {
         </div>
         <div
           data-parent="base"
-          class="justify-start gap-4 sm:border-l border-black p-4"
+          class="justify-start gap-4 border-black p-4 sm:border-l"
           :class="selectedView === 'Stacked' ? 'flex flex-col' : 'grid grid-cols-2 gap-4'"
         >
           <!-- ******* CAMERAS *******  -->
@@ -464,7 +463,7 @@ onUnmounted(() => {
             :key="`base ${camera.name}`"
           >
             <Camera
-              v-show="openCameras[camera.name]"
+              v-if="openCameras[camera.name]"
               :camera-name="camera.name"
               parent-name="base"
               :client="client"
@@ -473,7 +472,7 @@ onUnmounted(() => {
               :show-export-screenshot="false"
               :refresh-rate="refreshFrequency"
               :trigger-refresh="triggerRefresh"
-              :toggle="openCameras[camera.name]?openCameras[camera.name]:false"
+              :stream-manager="props.streamManager"
             />
           </template>
         </div>

@@ -72,7 +72,7 @@ func (h HandlerMap) ToProto() *pb.HandlerMap {
 // NewHandlerMapFromProto converts protobuf to HandlerMap.
 func NewHandlerMapFromProto(ctx context.Context, pMap *pb.HandlerMap, conn *grpc.ClientConn) (HandlerMap, error) {
 	hMap := make(HandlerMap)
-	refClient := grpcreflect.NewClient(ctx, reflectpb.NewServerReflectionClient(conn))
+	refClient := grpcreflect.NewClientV1Alpha(ctx, reflectpb.NewServerReflectionClient(conn))
 	defer refClient.Reset()
 	reflSource := grpcurl.DescriptorSourceFromServer(ctx, refClient)
 
@@ -177,7 +177,13 @@ func (m *Module) Start(ctx context.Context) error {
 	m.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer m.activeBackgroundWorkers.Done()
-		defer utils.UncheckedErrorFunc(func() error { return os.Remove(m.addr) })
+		defer utils.UncheckedErrorFunc(func() error {
+			// Attempt to remove module's .sock file.
+			if _, err := os.Stat(m.addr); err == nil {
+				return os.Remove(m.addr)
+			}
+			return nil
+		})
 		m.logger.Infof("server listening at %v", lis.Addr())
 		if err := m.server.Serve(lis); err != nil {
 			m.logger.Errorf("failed to serve: %v", err)
@@ -273,6 +279,10 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 	cfg, err := config.ComponentConfigFromProto(req.Config)
 	if err != nil {
 		return nil, err
+	}
+
+	if err := addConvertedAttributes(cfg); err != nil {
+		return nil, errors.Wrapf(err, "unable to convert attributes when adding resource")
 	}
 
 	var res interface{}
@@ -397,20 +407,12 @@ func (m *Module) ValidateConfig(ctx context.Context,
 		return nil, err
 	}
 
-	// Try to find map converter for a component.
-	cType := resource.NewSubtype(c.Namespace, c.API.ResourceType, c.API.ResourceSubtype)
-	conv := config.FindMapConverter(cType, c.Model)
-	// If no map converter for a component exists, try to find map converter for a
-	// service.
-	if conv == nil {
-		conv = config.FindServiceMapConverter(cType, c.Model)
+	if err := addConvertedAttributes(c); err != nil {
+		return nil, errors.Wrapf(err, "unable to convert attributes for validation")
 	}
-	if conv != nil {
-		converted, err := conv(c.Attributes)
-		if err != nil {
-			return nil, errors.Wrapf(err, "error converting attributes for resource")
-		}
-		validator, ok := converted.(Validator)
+
+	if c.ConvertedAttributes != nil {
+		validator, ok := c.ConvertedAttributes.(Validator)
 		if ok {
 			implicitDeps, err := validator.Validate(c.Name)
 			if err != nil {
@@ -506,4 +508,24 @@ func (m *Module) AddModelFromRegistry(ctx context.Context, api resource.Subtype,
 // OperationManager returns the operation manager for the module.
 func (m *Module) OperationManager() *operation.Manager {
 	return m.operations
+}
+
+// addConvertedAttributesToConfig uses the MapAttributeConverter to fill in the
+// ConvertedAttributes field from the Attributes.
+func addConvertedAttributes(cfg *config.Component) error {
+	// Try to find map converter for a component.
+	conv := config.FindMapConverter(cfg.API, cfg.Model)
+	// If no map converter for a component exists, try to find map converter for a
+	// service.
+	if conv == nil {
+		conv = config.FindServiceMapConverter(cfg.API, cfg.Model)
+	}
+	if conv != nil {
+		converted, err := conv(cfg.Attributes)
+		if err != nil {
+			return errors.Wrapf(err, "error converting attributes for resource")
+		}
+		cfg.ConvertedAttributes = converted
+	}
+	return nil
 }

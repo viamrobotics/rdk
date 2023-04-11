@@ -80,7 +80,7 @@ func TestFromBase(t *testing.T) {
 	test.That(t, result, test.ShouldEqual, width)
 
 	res, err = base.FromDependencies(deps, fakeBaseName)
-	test.That(t, err, test.ShouldBeError, base.DependencyTypeError(fakeBaseName, "string"))
+	test.That(t, err, test.ShouldBeError, rutils.DependencyTypeError[base.Base](fakeBaseName, "string"))
 	test.That(t, res, test.ShouldBeNil)
 
 	res, err = base.FromDependencies(deps, missingBaseName)

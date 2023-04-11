@@ -81,7 +81,7 @@ func TestFromDependencies(t *testing.T) {
 	test.That(t, result, test.ShouldResemble, loc)
 
 	s, err = movementsensor.FromDependencies(deps, fakeMovementSensorName)
-	test.That(t, err, test.ShouldBeError, movementsensor.DependencyTypeError(fakeMovementSensorName, "string"))
+	test.That(t, err, test.ShouldBeError, rutils.DependencyTypeError[movementsensor.MovementSensor](fakeMovementSensorName, "string"))
 	test.That(t, s, test.ShouldBeNil)
 
 	s, err = movementsensor.FromDependencies(deps, missingMovementSensorName)

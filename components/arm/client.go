@@ -57,25 +57,15 @@ func (c *client) EndPosition(ctx context.Context, extra map[string]interface{}) 
 	return spatialmath.NewPoseFromProtobuf(resp.Pose), nil
 }
 
-func (c *client) MoveToPosition(
-	ctx context.Context,
-	pose spatialmath.Pose,
-	worldState *referenceframe.WorldState,
-	extra map[string]interface{},
-) error {
+func (c *client) MoveToPosition(ctx context.Context, pose spatialmath.Pose, extra map[string]interface{}) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err
 	}
-	worldStateMsg, err := referenceframe.WorldStateToProtobuf(worldState)
-	if err != nil {
-		return err
-	}
 	_, err = c.client.MoveToPosition(ctx, &pb.MoveToPositionRequest{
-		Name:       c.name,
-		To:         spatialmath.PoseToProtobuf(pose),
-		WorldState: worldStateMsg,
-		Extra:      ext,
+		Name:  c.name,
+		To:    spatialmath.PoseToProtobuf(pose),
+		Extra: ext,
 	})
 	return err
 }

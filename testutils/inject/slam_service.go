@@ -10,34 +10,34 @@ import (
 // SLAMService represents a fake instance of a slam service.
 type SLAMService struct {
 	slam.Service
-	GetPositionFunc            func(ctx context.Context, name string) (spatialmath.Pose, string, error)
-	GetPointCloudMapStreamFunc func(ctx context.Context, name string) (func() ([]byte, error), error)
-	GetInternalStateStreamFunc func(ctx context.Context, name string) (func() ([]byte, error), error)
-	DoCommandFunc              func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+	GetPositionFunc      func(ctx context.Context) (spatialmath.Pose, string, error)
+	GetPointCloudMapFunc func(ctx context.Context) (func() ([]byte, error), error)
+	GetInternalStateFunc func(ctx context.Context) (func() ([]byte, error), error)
+	DoCommandFunc        func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 }
 
 // GetPosition calls the injected GetPositionFunc or the real version.
-func (slamSvc *SLAMService) GetPosition(ctx context.Context, name string) (spatialmath.Pose, string, error) {
+func (slamSvc *SLAMService) GetPosition(ctx context.Context) (spatialmath.Pose, string, error) {
 	if slamSvc.GetPositionFunc == nil {
-		return slamSvc.Service.GetPosition(ctx, name)
+		return slamSvc.Service.GetPosition(ctx)
 	}
-	return slamSvc.GetPositionFunc(ctx, name)
+	return slamSvc.GetPositionFunc(ctx)
 }
 
-// GetPointCloudMapStream calls the injected GetPointCloudMapStream or the real version.
-func (slamSvc *SLAMService) GetPointCloudMapStream(ctx context.Context, name string) (func() ([]byte, error), error) {
-	if slamSvc.GetPointCloudMapStreamFunc == nil {
-		return slamSvc.Service.GetPointCloudMapStream(ctx, name)
+// GetPointCloudMap calls the injected GetPointCloudMap or the real version.
+func (slamSvc *SLAMService) GetPointCloudMap(ctx context.Context) (func() ([]byte, error), error) {
+	if slamSvc.GetPointCloudMapFunc == nil {
+		return slamSvc.Service.GetPointCloudMap(ctx)
 	}
-	return slamSvc.GetPointCloudMapStreamFunc(ctx, name)
+	return slamSvc.GetPointCloudMapFunc(ctx)
 }
 
-// GetInternalStateStream calls the injected GetInternalStateStream or the real version.
-func (slamSvc *SLAMService) GetInternalStateStream(ctx context.Context, name string) (func() ([]byte, error), error) {
-	if slamSvc.GetInternalStateStreamFunc == nil {
-		return slamSvc.Service.GetInternalStateStream(ctx, name)
+// GetInternalState calls the injected GetInternalState or the real version.
+func (slamSvc *SLAMService) GetInternalState(ctx context.Context) (func() ([]byte, error), error) {
+	if slamSvc.GetInternalStateFunc == nil {
+		return slamSvc.Service.GetInternalState(ctx)
 	}
-	return slamSvc.GetInternalStateStreamFunc(ctx, name)
+	return slamSvc.GetInternalStateFunc(ctx)
 }
 
 // DoCommand calls the injected DoCommand or the real variant.

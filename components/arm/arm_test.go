@@ -23,7 +23,6 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
@@ -36,6 +35,15 @@ const (
 	fakeArmName    = "arm4"
 	missingArmName = "arm5"
 )
+
+func setupDependencies(t *testing.T) registry.Dependencies {
+	t.Helper()
+
+	deps := make(registry.Dependencies)
+	deps[arm.Named(testArmName)] = &mock{Name: testArmName}
+	deps[arm.Named(fakeArmName)] = "not a arm"
+	return deps
+}
 
 func setupInjectRobot() *inject.Robot {
 	arm1 := &mockLocal{Name: testArmName}
@@ -94,6 +102,22 @@ func TestNamesFromRobot(t *testing.T) {
 
 	names := arm.NamesFromRobot(r)
 	test.That(t, names, test.ShouldResemble, []string{testArmName})
+}
+
+func TestFromDependencies(t *testing.T) {
+	deps := setupDependencies(t)
+
+	res, err := arm.FromDependencies(deps, testArmName)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, res, test.ShouldNotBeNil)
+
+	res, err = arm.FromDependencies(deps, fakeArmName)
+	test.That(t, err, test.ShouldBeError, rutils.DependencyTypeError[arm.Arm](fakeArmName, "string"))
+	test.That(t, res, test.ShouldBeNil)
+
+	res, err = arm.FromDependencies(deps, missingArmName)
+	test.That(t, err, test.ShouldBeError, rutils.DependencyNotFoundError(missingArmName))
+	test.That(t, res, test.ShouldBeNil)
 }
 
 func TestStatusValid(t *testing.T) {
@@ -364,19 +388,7 @@ func TestOOBArm(t *testing.T) {
 		},
 	}
 
-	injectedRobot := setupInjectRobot()
-	injectedRobot.FrameSystemConfigFunc = func(
-		ctx context.Context,
-		additionalTransforms []*referenceframe.LinkInFrame,
-	) (framesystemparts.Parts, error) {
-		return framesystemparts.Parts{}, nil
-	}
-
-	injectedRobot.LoggerFunc = func() golog.Logger {
-		return logger
-	}
-
-	notReal, err := fake.NewArm(injectedRobot, cfg, logger)
+	notReal, err := fake.NewArm(cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	injectedArm := &inject.Arm{
@@ -407,9 +419,9 @@ func TestOOBArm(t *testing.T) {
 		test.That(t, pose, test.ShouldNotBeNil)
 	})
 
-	t.Run("MoveToPosition fails when OOB", func(t *testing.T) {
+	t.Run("Move fails when OOB", func(t *testing.T) {
 		pose = spatialmath.NewPoseFromPoint(r3.Vector{200, 200, 200})
-		err := arm.Move(context.Background(), &inject.Robot{}, injectedArm, pose, &referenceframe.WorldState{})
+		err := arm.Move(context.Background(), logger, injectedArm, pose)
 		u := "cartesian movements are not allowed when arm joints are out of bounds"
 		v := "joint 0 input out of bounds, input 12.56637 needs to be within range [6.28319 -6.28319]"
 		s := strings.Join([]string{u, v}, ": ")
@@ -454,7 +466,7 @@ func TestOOBArm(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		testLinearMove := r3.Vector{homePose.Point().X + 20, homePose.Point().Y, homePose.Point().Z}
 		testPose := spatialmath.NewPoseFromPoint(testLinearMove)
-		err = injectedArm.MoveToPosition(context.Background(), testPose, &referenceframe.WorldState{}, nil)
+		err = injectedArm.MoveToPosition(context.Background(), testPose, nil)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -516,9 +528,7 @@ func TestXArm6Locations(t *testing.T) {
 		},
 	}
 
-	injectedRobot := setupInjectRobot()
-
-	notReal, err := fake.NewArm(injectedRobot, cfg, logger)
+	notReal, err := fake.NewArm(cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("home location check", func(t *testing.T) {
@@ -540,8 +550,8 @@ func TestXArm6Locations(t *testing.T) {
 		}
 		checkMap["rdk:component:arm:lower_forearm"] = r3.Vector{
 			131.000000000000000000000000,
-			0.000000000000000000000000,
-			274.000000000000000000000000,
+			-27.500000000000000000000000,
+			274.200000000000000000000000,
 		}
 		checkMap["rdk:component:arm:wrist_link"] = r3.Vector{
 			206.000000000000000000000000,
@@ -556,6 +566,7 @@ func TestXArm6Locations(t *testing.T) {
 		b := locationCheckTestHelper(geomMap, checkMap)
 		test.That(t, b, test.ShouldBeTrue)
 	})
+	//nolint:dupl
 	t.Run("location check1", func(t *testing.T) {
 		checkMap := make(map[string]r3.Vector)
 		checkMap["rdk:component:arm:base_top"] = r3.Vector{
@@ -574,9 +585,9 @@ func TestXArm6Locations(t *testing.T) {
 			516.742582359123957758129109,
 		}
 		checkMap["rdk:component:arm:lower_forearm"] = r3.Vector{
-			155.916014884677508689492242,
-			-0.000000000000000289509481,
-			298.848170597876446663576644,
+			158.566974381217988820935716,
+			-27.362614545145717670493468,
+			299.589614460540474283334333,
 		}
 		checkMap["rdk:component:arm:wrist_link"] = r3.Vector{
 			259.050559200277916716004256,
@@ -591,6 +602,7 @@ func TestXArm6Locations(t *testing.T) {
 		b := locationCheckTestHelper(geomMap, checkMap)
 		test.That(t, b, test.ShouldBeTrue)
 	})
+	//nolint:dupl
 	t.Run("location check2", func(t *testing.T) {
 		checkMap := make(map[string]r3.Vector)
 		checkMap["rdk:component:arm:base_top"] = r3.Vector{
@@ -609,9 +621,9 @@ func TestXArm6Locations(t *testing.T) {
 			530.142781900699674224597402,
 		}
 		checkMap["rdk:component:arm:lower_forearm"] = r3.Vector{
-			175.357954329185588449036004,
-			0.000000000000000363462780,
-			331.043246286488795249169925,
+			180.312201371473605604478507,
+			-26.951830890634148829576588,
+			333.355009225598280409030849,
 		}
 		checkMap["rdk:component:arm:wrist_link"] = r3.Vector{
 			297.258065257027055849903263,
@@ -639,9 +651,7 @@ func TestUR5ELocations(t *testing.T) {
 		},
 	}
 
-	injectedRobot := setupInjectRobot()
-
-	notReal, err := fake.NewArm(injectedRobot, cfg, logger)
+	notReal, err := fake.NewArm(cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("home location check", func(t *testing.T) {
