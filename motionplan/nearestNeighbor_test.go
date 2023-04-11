@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"go.viam.com/test"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/referenceframe"
 )
@@ -20,11 +21,16 @@ func TestNearestNeighbor(t *testing.T) {
 		j = iSol
 	}
 	ctx := context.Background()
+	m1chan := make(chan node, 1)
+	defer close(m1chan)
 
 	seed := []referenceframe.Input{{23.1}}
 	// test serial NN
 	opt := newBasicPlannerOptions()
-	nn := nm.nearestNeighbor(ctx, opt, seed, rrtMap)
+	utils.PanicCapturingGo(func() {
+		nm.nearestNeighbor(ctx, opt, seed, rrtMap, m1chan)
+	})
+	nn := <-m1chan
 	test.That(t, nn.Q()[0].Value, test.ShouldAlmostEqual, 23.0)
 
 	for i := 120.0; i < 1100.0; i++ {
@@ -34,6 +40,9 @@ func TestNearestNeighbor(t *testing.T) {
 	}
 	seed = []referenceframe.Input{{723.6}}
 	// test parallel NN
-	nn = nm.nearestNeighbor(ctx, opt, seed, rrtMap)
+	utils.PanicCapturingGo(func() {
+		nm.nearestNeighbor(ctx, opt, seed, rrtMap, m1chan)
+	})
+	nn = <-m1chan
 	test.That(t, nn.Q()[0].Value, test.ShouldAlmostEqual, 724.0)
 }

@@ -625,24 +625,24 @@ func TestMoveToPosition(t *testing.T) {
 		limitHigh: true,
 	}
 	pos := []float64{1, 2}
-	err := fakegantry.MoveToPosition(ctx, pos, &referenceframe.WorldState{}, nil)
+	err := fakegantry.MoveToPosition(ctx, pos, nil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "needs 1 position to move")
 
 	pos = []float64{1}
-	err = fakegantry.MoveToPosition(ctx, pos, &referenceframe.WorldState{}, nil)
+	err = fakegantry.MoveToPosition(ctx, pos, nil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "out of range")
 
 	fakegantry.lengthMm = float64(4)
 	fakegantry.positionLimits = []float64{0, 4}
 	fakegantry.limitSwitchPins = []string{"1", "2"}
-	err = fakegantry.MoveToPosition(ctx, pos, &referenceframe.WorldState{}, nil)
+	err = fakegantry.MoveToPosition(ctx, pos, nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	fakegantry.lengthMm = float64(4)
 	fakegantry.positionLimits = []float64{0.01, .01}
 	fakegantry.limitSwitchPins = []string{"1", "2"}
 	fakegantry.motor = &inject.Motor{StopFunc: func(ctx context.Context, extra map[string]interface{}) error { return errors.New("err") }}
-	err = fakegantry.MoveToPosition(ctx, pos, &referenceframe.WorldState{}, nil)
+	err = fakegantry.MoveToPosition(ctx, pos, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	injectGPIOPin := &inject.GPIOPin{}
@@ -661,7 +661,7 @@ func TestMoveToPosition(t *testing.T) {
 	}
 
 	fakegantry.board = &inject.Board{GPIOPinByNameFunc: func(pin string) (board.GPIOPin, error) { return injectGPIOPin, nil }}
-	err = fakegantry.MoveToPosition(ctx, pos, &referenceframe.WorldState{}, nil)
+	err = fakegantry.MoveToPosition(ctx, pos, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	fakegantry.board = &inject.Board{GPIOPinByNameFunc: func(pin string) (board.GPIOPin, error) { return injectGPIOPinGood, nil }}
@@ -671,13 +671,13 @@ func TestMoveToPosition(t *testing.T) {
 			return errors.New("err")
 		},
 	}
-	err = fakegantry.MoveToPosition(ctx, pos, &referenceframe.WorldState{}, nil)
+	err = fakegantry.MoveToPosition(ctx, pos, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	fakegantry.motor = &inject.Motor{GoToFunc: func(ctx context.Context, rpm, rotations float64, extra map[string]interface{}) error {
 		return nil
 	}}
-	err = fakegantry.MoveToPosition(ctx, pos, &referenceframe.WorldState{}, nil)
+	err = fakegantry.MoveToPosition(ctx, pos, nil)
 	test.That(t, err, test.ShouldBeNil)
 }
 

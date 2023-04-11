@@ -19,7 +19,6 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/utils"
 )
 
@@ -48,7 +47,7 @@ type xArm struct {
 	model    referenceframe.Model
 	started  bool
 	opMgr    operation.SingleOperationManager
-	robot    robot.Robot
+	logger   golog.Logger
 }
 
 //go:embed xarm6_kinematics.json
@@ -78,8 +77,8 @@ func Model(name string, dof int) (referenceframe.Model, error) {
 func init() {
 	// xArm6
 	registry.RegisterComponent(arm.Subtype, ModelName6DOF, registry.Component{
-		RobotConstructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			return NewxArm(ctx, r, config, logger, 6)
+		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
+			return NewxArm(ctx, config, logger, 6)
 		},
 	})
 
@@ -93,8 +92,8 @@ func init() {
 
 	// xArm7
 	registry.RegisterComponent(arm.Subtype, ModelName7DOF, registry.Component{
-		RobotConstructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			return NewxArm(ctx, r, config, logger, 7)
+		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
+			return NewxArm(ctx, config, logger, 7)
 		},
 	})
 	config.RegisterComponentAttributeMapConverter(arm.Subtype, ModelName7DOF,
@@ -107,7 +106,7 @@ func init() {
 }
 
 // NewxArm returns a new xArm with the specified dof.
-func NewxArm(ctx context.Context, r robot.Robot, cfg config.Component, logger golog.Logger, dof int) (arm.LocalArm, error) {
+func NewxArm(ctx context.Context, cfg config.Component, logger golog.Logger, dof int) (arm.LocalArm, error) {
 	armCfg := cfg.ConvertedAttributes.(*AttrConfig)
 
 	if armCfg.Host == "" {
@@ -143,7 +142,7 @@ func NewxArm(ctx context.Context, r robot.Robot, cfg config.Component, logger go
 		moveHZ:  100.,
 		model:   model,
 		started: false,
-		robot:   r,
+		logger:  logger,
 	}
 
 	err = xA.start(ctx)

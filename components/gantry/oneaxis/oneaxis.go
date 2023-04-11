@@ -265,7 +265,7 @@ func (g *oneAxis) homeTwoLimSwitch(ctx context.Context) error {
 	g.positionLimits = []float64{positionA, positionB}
 
 	// Go backwards so limit stops are not hit.
-	x := g.rotationalToLinear(0.8 * g.lengthMm)
+	x := g.linearToRotational(0.8 * g.lengthMm)
 	err = g.motor.GoTo(ctx, g.rpm, x, nil)
 	if err != nil {
 		return err
@@ -302,7 +302,7 @@ func (g *oneAxis) homeEncoder(ctx context.Context) error {
 	return nil
 }
 
-func (g *oneAxis) rotationalToLinear(positions float64) float64 {
+func (g *oneAxis) linearToRotational(positions float64) float64 {
 	theRange := g.positionLimits[1] - g.positionLimits[0]
 	x := positions / g.lengthMm
 	x = g.positionLimits[0] + (x * theRange)
@@ -385,12 +385,7 @@ func (g *oneAxis) Lengths(ctx context.Context, extra map[string]interface{}) ([]
 }
 
 // MoveToPosition moves along an axis using inputs in millimeters.
-func (g *oneAxis) MoveToPosition(
-	ctx context.Context,
-	positions []float64,
-	worldState *referenceframe.WorldState,
-	extra map[string]interface{},
-) error {
+func (g *oneAxis) MoveToPosition(ctx context.Context, positions []float64, extra map[string]interface{}) error {
 	ctx, done := g.opMgr.New(ctx)
 	defer done()
 
@@ -402,7 +397,7 @@ func (g *oneAxis) MoveToPosition(
 		return fmt.Errorf("oneAxis %s out of range (%.2f) min: 0 max: %.2f", g.name, positions[0], g.lengthMm)
 	}
 
-	x := g.rotationalToLinear(positions[0])
+	x := g.linearToRotational(positions[0])
 	// Limit switch errors that stop the motors.
 	// Currently needs to be moved by underlying gantry motor.
 	if len(g.limitSwitchPins) > 0 {
@@ -439,6 +434,7 @@ func (g *oneAxis) MoveToPosition(
 		}
 	}
 
+	g.logger.Debugf("gantry (%s) going to %.2f at speed %.2f", g.name, x, g.rpm)
 	err := g.motor.GoTo(ctx, g.rpm, x, extra)
 	if err != nil {
 		return err
@@ -493,5 +489,5 @@ func (g *oneAxis) CurrentInputs(ctx context.Context) ([]referenceframe.Input, er
 
 // GoToInputs moves the gantry to a goal position in the Gantry frame.
 func (g *oneAxis) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	return g.MoveToPosition(ctx, referenceframe.InputsToFloats(goal), &referenceframe.WorldState{}, nil)
+	return g.MoveToPosition(ctx, referenceframe.InputsToFloats(goal), nil)
 }

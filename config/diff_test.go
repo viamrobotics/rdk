@@ -25,6 +25,12 @@ var (
 
 func TestDiffConfigs(t *testing.T) {
 	config1 := config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "my-module",
+				ExePath: "path/to/my-module",
+			},
+		},
 		Remotes: []config.Remote{
 			{
 				Name:    "remote1",
@@ -94,6 +100,12 @@ func TestDiffConfigs(t *testing.T) {
 	}
 
 	config2 := config.ModifiedConfigDiff{
+		Modules: []config.Module{
+			{
+				Name:    "my-module",
+				ExePath: "new/path/to/my-module",
+			},
+		},
 		Remotes: []config.Remote{
 			{
 				Name:    "remote1",
@@ -305,6 +317,12 @@ func TestDiffConfigs(t *testing.T) {
 					},
 				},
 				Removed: &config.Config{
+					Modules: []config.Module{
+						{
+							Name:    "my-module",
+							ExePath: "path/to/my-module",
+						},
+					},
 					Components: []config.Component{
 						{
 							Namespace: resource.ResourceNamespaceRDK,
