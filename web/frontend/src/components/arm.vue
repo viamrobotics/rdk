@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ArmClient, Client, type ServiceError } from '@viamrobotics/sdk';
+import { ArmClient, Client } from '@viamrobotics/sdk';
+import type { commonApi, ServiceError } from '@viamrobotics/sdk';
 import { copyToClipboardWithToast } from '../lib/copy-to-clipboard';
 import { displayError } from '../lib/error';
 import { roundTo2Decimals } from '../lib/math';
@@ -68,7 +69,7 @@ const stop = async () => {
 const armModifyAllDoEndPosition = async () => {
   const newPieces = toggle[props.name]!.pos_pieces;
 
-  const newPose = {
+  const newPose: commonApi.Pose.AsObject = {
     x: 0,
     y: 0,
     z: 0,
@@ -118,7 +119,7 @@ const armEndPositionInc = async (updateField: string, amount: number) => {
   const arm = props.rawStatus!;
   const old = arm.end_position;
 
-  const newPose = {
+  const newPose: commonApi.Pose.AsObject = {
     x: 0,
     y: 0,
     z: 0,
