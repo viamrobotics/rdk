@@ -9,7 +9,7 @@
             "type": "arm",
             "model": "fake",
             "attributes": {
-                "arm-model": "ur5e"
+                "arm-model": "xArm6"
             }
         },
         {
