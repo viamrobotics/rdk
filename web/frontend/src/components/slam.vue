@@ -429,16 +429,18 @@ const toggleAxes = () => {
               <p class="text-xs">
                 Current Position
               </p>
-              <div class="flex flex-row">
-                <p class="items-end pr-2 text-xs">
+              <div class="flex flex-row items-center">
+                <p class="items-end pr-2 text-xs text-gray-500">
                   x
                 </p>
                 <p>{{ x }}</p>
-                <p class="pl-7 pr-2 text-xs">
+
+                <p class="pl-7 pr-2 text-xs text-gray-500">
                   y
                 </p>
                 <p>{{ y }}</p>
-                <p class="pl-7 pr-2 text-xs">
+
+                <p class="pl-7 pr-2 text-xs text-gray-500">
                   z
                 </p>
                 <p>{{ z }}</p>
@@ -448,20 +450,23 @@ const toggleAxes = () => {
               <p class="text-xs">
                 Current Orientation
               </p>
-              <div class="flex flex-row">
-                <p class="pr-2 text-xs">
-                  o_x
+              <div class="flex flex-row items-center">
+                <p class="pr-2 text-xs text-gray-500">
+                  o<sub>x</sub>
                 </p>
                 <p>{{ oX }}</p>
-                <p class="pl-7 pr-2 text-xs">
-                  o_y
+
+                <p class="pl-7 pr-2 text-xs text-gray-500">
+                  o<sub>y</sub>
                 </p>
                 <p>{{ oY }}</p>
-                <p class="pl-7 pr-2 text-xs">
-                  o_z
+
+                <p class="pl-7 pr-2 text-xs text-gray-500">
+                  o<sub>z</sub>
                 </p>
                 <p>{{ oZ }}</p>
-                <p class="pl-7 pr-2 text-xs">
+                
+                <p class="pl-7 pr-2 text-xs text-gray-500">
                   &theta;
                 </p>
                 <p>{{ theta }}</p>
