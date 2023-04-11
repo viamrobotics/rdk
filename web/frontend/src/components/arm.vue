@@ -43,6 +43,16 @@ const fieldMap = [
   ['o_z', 'oZ'],
 ] as const;
 
+const updateFieldMap = {
+  X: 'x',
+  Y: 'y',
+  Z: 'z',
+  Theta: 'theta',
+  OX: 'oX',
+  OY: 'oY',
+  OZ: 'oZ',
+} as const;
+
 const toggle = $ref<Record<string, ArmStatus>>({});
 
 const armClient = new ArmClient(props.client, props.name, { requestLogger: rcLogConditionally });
@@ -70,9 +80,10 @@ const armModifyAllDoEndPosition = async () => {
 
   for (const newPiece of newPieces) {
     const [, poseField] = newPiece.endPosition;
-    const field = poseField! as Field;
-    newPose[field] = newPiece.endPositionValue;
+    const field: Field = updateFieldMap[poseField!];
+    newPose[field] = Number(newPiece.endPositionValue);
   }
+
   try {
     await armClient.moveToPosition(newPose);
   } catch (error) {
@@ -118,15 +129,12 @@ const armEndPositionInc = async (updateField: string, amount: number) => {
   };
 
   for (const [endPositionField, poseField] of fieldMap) {
-    console.debug('old', old);
-    console.debug('field map', endPositionField, '->', poseField);
-
     const endPositionValue = old[endPositionField] || 0;
-    const field: Field = poseField as Field;
-    newPose[field] = endPositionValue;
+    const field: Field = poseField;
+    newPose[field] = Number(endPositionValue);
   }
 
-  const field: Field = updateField as Field;
+  const field: Field = updateFieldMap[updateField];
   newPose[field] += adjustedAmount;
 
   try {
