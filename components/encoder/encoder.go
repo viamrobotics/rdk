@@ -6,20 +6,34 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
-	"github.com/pkg/errors"
+	pb "go.viam.com/api/component/encoder/v1"
 	viamutils "go.viam.com/utils"
+	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 )
 
 func init() {
 	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
 		Reconfigurable: WrapWithReconfigurable,
+		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
+			return rpcServer.RegisterServiceServer(
+				ctx,
+				&pb.EncoderService_ServiceDesc,
+				NewServer(subtypeSvc),
+				pb.RegisterEncoderServiceHandlerFromEndpoint,
+			)
+		},
+		RPCServiceDesc: &pb.EncoderService_ServiceDesc,
+		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
+			return NewClientFromConn(ctx, conn, name, logger)
+		},
 	})
 	data.RegisterCollector(data.MethodMetadata{
 		Subtype:    Subtype,
@@ -37,14 +51,38 @@ var Subtype = resource.NewSubtype(
 	SubtypeName,
 )
 
+// PositionType is an enum representing the encoders position type.
+type PositionType int32
+
+const (
+	// PositionTypeUNSPECIFIED is the return type for
+	// when the user has not specified a PositionType.
+	PositionTypeUNSPECIFIED PositionType = 0
+	// PositionTypeTICKS is the return type for relative encoders
+	// that report how far they've gone from a start position.
+	PositionTypeTICKS PositionType = 1
+	// PositionTypeDEGREES is the return type for absolute encoders
+	// that report their position in degrees along the radial axis.
+	PositionTypeDEGREES PositionType = 2
+)
+
+// Enum reveals the value of PositionType.
+func (x PositionType) Enum() *PositionType {
+	p := new(PositionType)
+	*p = x
+	return p
+}
+
 // A Encoder turns a position into a signal.
 type Encoder interface {
-	// TicksCount returns number of ticks since last zeroing
-	TicksCount(ctx context.Context, extra map[string]interface{}) (float64, error)
+	// GetPosition returns the current position in terms of ticks or degrees, and whether it is a relative or absolute position.
+	GetPosition(ctx context.Context, positionType *PositionType, extra map[string]interface{}) (float64, PositionType, error)
 
-	// Reset sets the current position of the motor (adjusted by a given offset)
-	// to be its new zero position.
-	Reset(ctx context.Context, offset float64, extra map[string]interface{}) error
+	// ResetPosition sets the current position of the motor to be its new zero position.
+	ResetPosition(ctx context.Context, extra map[string]interface{}) error
+
+	// GetProperties returns a list of all the position types that are supported by a given encoder
+	GetProperties(ctx context.Context, extra map[string]interface{}) (map[Feature]bool, error)
 
 	generic.Generic
 }
@@ -57,7 +95,7 @@ func Named(name string) resource.Name {
 var (
 	_ = Encoder(&reconfigurableEncoder{})
 	_ = resource.Reconfigurable(&reconfigurableEncoder{})
-	_ = resource.Reconfigurable(&reconfigurableEncoder{})
+	_ = viamutils.ContextCloser(&reconfigurableEncoder{})
 )
 
 // FromDependencies is a helper for getting the named encoder from a collection of
@@ -103,16 +141,26 @@ func (r *reconfigurableEncoder) DoCommand(ctx context.Context, cmd map[string]in
 	return r.actual.DoCommand(ctx, cmd)
 }
 
-func (r *reconfigurableEncoder) TicksCount(ctx context.Context, extra map[string]interface{}) (float64, error) {
+func (r *reconfigurableEncoder) GetPosition(
+	ctx context.Context,
+	positionType *PositionType,
+	extra map[string]interface{},
+) (float64, PositionType, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.TicksCount(ctx, extra)
+	return r.actual.GetPosition(ctx, positionType, extra)
 }
 
-func (r *reconfigurableEncoder) Reset(ctx context.Context, offset float64, extra map[string]interface{}) error {
+func (r *reconfigurableEncoder) ResetPosition(ctx context.Context, extra map[string]interface{}) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.Reset(ctx, offset, extra)
+	return r.actual.ResetPosition(ctx, extra)
+}
+
+func (r *reconfigurableEncoder) GetProperties(ctx context.Context, extra map[string]interface{}) (map[Feature]bool, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.GetProperties(ctx, extra)
 }
 
 func (r *reconfigurableEncoder) Close(ctx context.Context) error {
@@ -152,15 +200,32 @@ func WrapWithReconfigurable(r interface{}, name resource.Name) (resource.Reconfi
 	return &reconfigurableEncoder{name: name, actual: m}, nil
 }
 
-// ValidateIntegerOffset returns an error if a non-integral value for offset
-// is passed to Reset for an incremental encoder (these encoders count based on
-// square-wave pulses and so cannot be supplied an offset that is not an integer).
-func ValidateIntegerOffset(offset float64) error {
-	if offset != float64(int64(offset)) {
-		return errors.Errorf(
-			"incremental encoders can only reset with integer value offsets, value passed was %f",
-			offset,
-		)
+// ToEncoderPositionType takes a GetPositionResponse and returns
+// an equivalent PositionType-to-int map.
+func ToEncoderPositionType(positionType *pb.PositionType) PositionType {
+	if positionType == nil {
+		return PositionTypeUNSPECIFIED
 	}
-	return nil
+	if *positionType == pb.PositionType_POSITION_TYPE_ANGLE_DEGREES {
+		return PositionTypeDEGREES
+	}
+	if *positionType == pb.PositionType_POSITION_TYPE_TICKS_COUNT {
+		return PositionTypeTICKS
+	}
+	return PositionTypeUNSPECIFIED
+}
+
+// ToProtoPositionType takes a map of PositionType-to-int (indicating
+// the PositionType) and converts it to a GetPositionResponse.
+func ToProtoPositionType(positionType *PositionType) pb.PositionType {
+	if positionType == nil {
+		return pb.PositionType_POSITION_TYPE_UNSPECIFIED
+	}
+	if *positionType == PositionTypeDEGREES {
+		return pb.PositionType_POSITION_TYPE_ANGLE_DEGREES
+	}
+	if *positionType == PositionTypeTICKS {
+		return pb.PositionType_POSITION_TYPE_TICKS_COUNT
+	}
+	return pb.PositionType_POSITION_TYPE_UNSPECIFIED
 }
