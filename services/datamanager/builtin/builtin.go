@@ -515,8 +515,9 @@ func (svc *builtIn) sync() {
 	for index, p := range toSync {
 		if index == 0 {
 			svc.syncer.SyncFile(p, nil)
+		} else {
+			svc.syncer.SyncFile(p, svc.additionalTags[index-1])
 		}
-		svc.syncer.SyncFile(p, svc.additionalTags[index-1])
 	}
 }
 
