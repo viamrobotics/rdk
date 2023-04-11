@@ -164,7 +164,9 @@ func (base *wheeledBase) Spin(ctx context.Context, angleDeg, degsPerSec float64,
 			return errors.Errorf("error when trying to spin at a speed of 0: %v", err)
 		}
 		// returns if the base spin speed is less than 0.001
-		base.logger.Debugf("base %s received n angular speed for Spin that is less than theminimum, not moving")
+		base.logger.Debugf(
+			"base %s received n angular speed for Spin that is less than theminimum, not moving", base.name,
+		)
 		return nil
 	}
 	// Spin math
