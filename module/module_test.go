@@ -7,13 +7,11 @@ import (
 	"path/filepath"
 	"testing"
 
-	"go.uber.org/zap"
-
 	"github.com/edaniels/golog"
 	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
+	"go.uber.org/zap"
 	v1 "go.viam.com/api/app/v1"
 	pb "go.viam.com/api/module/v1"
-	rdkutils "go.viam.com/rdk/utils"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/protoutils"
@@ -32,10 +30,10 @@ import (
 	"go.viam.com/rdk/examples/customresources/models/mysum"
 	"go.viam.com/rdk/module"
 	"go.viam.com/rdk/registry"
-
-	// "go.viam.com/rdk/registry"
+	// "go.viam.com/rdk/registry".
 	"go.viam.com/rdk/resource"
 	robotimpl "go.viam.com/rdk/robot/impl"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 type MockSumation struct {
@@ -53,7 +51,7 @@ var (
 )
 
 func (c *MockSumationConfig) Validate(path string) ([]string, error) {
-	validateCallCount += 1
+	validateCallCount++
 	if len(c.Motors) < 1 {
 		return c.Motors, errors.New(fmt.Sprintf("Validation error, no motors specified, got config attrs %#v\n", c))
 	}
@@ -74,7 +72,7 @@ func (mock *MockSumationWithReconfigure) Sum(ctx context.Context, nums []float64
 }
 
 func (mock *MockSumationWithReconfigure) Reconfigure(ctx context.Context, cfg config.Service, deps registry.Dependencies) error {
-	reconfigureCallCount += 1
+	reconfigureCallCount++
 	conf, ok := cfg.ConvertedAttributes.(*MockSumationConfig)
 	if !ok {
 		return rdkutils.NewUnexpectedTypeError(conf, cfg.ConvertedAttributes)
@@ -117,7 +115,7 @@ func TestModuleAddModelFromRegistry(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("AddModelFromRegistry", func(t *testing.T) {
-		invalidModel := resource.NewModel("non", "existant", "model")
+		invalidModel := resource.NewModel("non", "existent", "model")
 
 		invalidServiceSubtype := resource.NewSubtype(
 			resource.Namespace("fake"),
@@ -138,7 +136,7 @@ func TestModuleAddModelFromRegistry(t *testing.T) {
 		serviceError := "Unregistered service"
 		componentError := "Unregistered component"
 
-		var tests = []struct {
+		tests := []struct {
 			subtype  resource.Subtype
 			model    resource.Model
 			hasErr   bool
@@ -156,7 +154,7 @@ func TestModuleAddModelFromRegistry(t *testing.T) {
 			{validServiceSubtype, validComponentModel, true, serviceError},
 			{validComponentSubtype, validServiceModel, true, componentError},
 
-			//valid model & subtype
+
 			{validServiceSubtype, validServiceModel, false, ""},
 			{validComponentSubtype, validComponentModel, false, ""},
 		}
