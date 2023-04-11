@@ -347,6 +347,7 @@ func TestBasicOctreeCollision(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	startPC.Iterate(0, 0, func(p r3.Vector, d Data) bool {
+		// Blue channel is used to determine probability in pcds produced by cartographer
 		_, _, blueProb := d.RGB255()
 		d.SetValue(int(blueProb))
 		if err = basicOct.Set(p, d); err != nil {
@@ -370,23 +371,34 @@ func TestBasicOctreeCollision(t *testing.T) {
 	lowprob, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{-2471, 0, 3790}), r3.Vector{3, 2, 3}, "lowprob")
 	test.That(t, err, test.ShouldBeNil)
 
-	collides, err := basicOct.CollidesWithGeometry(far, 80, 1.0)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, collides, test.ShouldBeFalse)
+	t.Run("no collision with box far from octree points", func(t *testing.T) {
+		collides, err := basicOct.CollidesWithGeometry(far, 80, 1.0)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, collides, test.ShouldBeFalse)
+	})
 
-	collides, err = basicOct.CollidesWithGeometry(near, 80, 1.0)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, collides, test.ShouldBeFalse)
-	// Test `near` again with a large buffer that should now collide
-	collides, err = basicOct.CollidesWithGeometry(near, 80, 10.0)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, collides, test.ShouldBeTrue)
+	t.Run("no collision with box near octree points", func(t *testing.T) {
+		collides, err := basicOct.CollidesWithGeometry(near, 80, 1.0)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, collides, test.ShouldBeFalse)
+	})
 
-	collides, err = basicOct.CollidesWithGeometry(lowprob, 80, 1.0)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, collides, test.ShouldBeFalse)
+	t.Run("collision with box near octree points when a large buffer is used", func(t *testing.T) {
+		// Test `near` again with a large buffer that should now collide
+		collides, err := basicOct.CollidesWithGeometry(near, 80, 10.0)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, collides, test.ShouldBeTrue)
+	})
 
-	collides, err = basicOct.CollidesWithGeometry(hit, 80, 1.0)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, collides, test.ShouldBeTrue)
+	t.Run("no collision with box overlapping low-probability octree points", func(t *testing.T) {
+		collides, err := basicOct.CollidesWithGeometry(lowprob, 80, 1.0)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, collides, test.ShouldBeFalse)
+	})
+
+	t.Run("collision with box overlapping octree points", func(t *testing.T) {
+		collides, err := basicOct.CollidesWithGeometry(hit, 80, 1.0)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, collides, test.ShouldBeTrue)
+	})
 }
