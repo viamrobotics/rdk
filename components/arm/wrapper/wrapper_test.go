@@ -67,7 +67,6 @@ func TestUpdateAction(t *testing.T) {
 		model:  model,
 		actual: &inject.Arm{},
 		logger: logger,
-		robot:  &inject.Robot{},
 	}
 
 	// scenario where we do not reconfigure

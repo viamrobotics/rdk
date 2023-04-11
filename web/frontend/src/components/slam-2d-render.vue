@@ -9,6 +9,25 @@ import { PCDLoader } from 'three/examples/jsm/loaders/PCDLoader';
 import type { commonApi } from '@viamrobotics/sdk';
 import { SVGLoader } from 'three/examples/jsm/loaders/SVGLoader';
 
+/*
+ * this color map is greyscale. The color map is being used map probability values of a PCD
+ * into different color buckets provided by the color map.
+ * generated with: https://grayscale.design/app
+ */
+const colorMapGrey = [
+  [247, 247, 247],
+  [239, 239, 239],
+  [223, 223, 223],
+  [202, 202, 202],
+  [168, 168, 168],
+  [135, 135, 135],
+  [109, 109, 109],
+  [95, 95, 95],
+  [74, 74, 74],
+  [0, 0, 0],
+].map(([red, green, blue]) =>
+  new THREE.Vector3(red, green, blue).multiplyScalar(1 / 255));
+
 const props = defineProps<{
   name: string
 
@@ -188,6 +207,24 @@ const updatePose = async (newPose: commonApi.Pose) => {
   const baseMarker = scene.getObjectByName('Base') ?? await makeMarker(baseUrl, 'Base', 0.04);
   baseMarker.position.set(x + 0.35, 0, z - 0.55);
 };
+/*
+ * Find the desired color bucket for a given probability. This assumes the probability will be a value from 0 to 100
+ * ticket to add testing: https://viam.atlassian.net/browse/RSDK-2606
+ */
+const probToColorMapBucket = (probability: number, numBuckets: number): number => {
+  const prob = Math.max(Math.min(100, probability * 255), 0);
+  return Math.floor((numBuckets - 1) * prob / 100);
+};
+
+/*
+ * Map the color of a pixel to a color bucket value.
+ * probability represents the probability value normalized by the size of a byte(255) to be between 0 to 1.
+ * ticket to add testing: https://viam.atlassian.net/browse/RSDK-2606
+ */
+const colorBuckets = (probability: number): THREE.Vector3 => {
+  return colorMapGrey[probToColorMapBucket(probability, colorMapGrey.length)]!;
+};
+
 
 const updateCloud = (pointcloud: Uint8Array) => {
   disposeScene();
@@ -230,6 +267,23 @@ const updateCloud = (pointcloud: Uint8Array) => {
   axesHelper1.renderOrder = 998;
   axesHelper1.name = 'Axes1';
   axesHelper1.visible = props.axes;
+
+  const colors = points.geometry.attributes.color;
+  // if the PCD has a color attribute defined, convert those colors using the colorMap
+  if (colors instanceof THREE.BufferAttribute) {
+    for (let i = 0; i < colors.count; i += 1) {
+
+      /*
+       * Probability is currently assumed to be held in the rgb field of the PCD map, on a scale of 0 to 100.
+       * ticket to look into this further https://viam.atlassian.net/browse/RSDK-2605
+       */
+      const colorMapPoint = colorBuckets(colors.getZ(i));
+      colors.setXYZ(i, colorMapPoint.x, colorMapPoint.y, colorMapPoint.z);
+    }
+  }
+
+  scene.add(points);
+  scene.add(intersectionPlane);
 
   const axesHelper2 = new THREE.AxesHelper(5);
   axesHelper2.position.set(center.x, 0, center.z);
