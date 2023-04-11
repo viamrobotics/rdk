@@ -32,11 +32,11 @@ import (
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/slam/grpchelper"
-	"go.viam.com/rdk/spatialmath"
-	rdkutils "go.viam.com/rdk/utils"
 	slamConfig "go.viam.com/rdk/services/slam/slam_copy/config"
 	"go.viam.com/rdk/services/slam/slam_copy/dataprocess"
 	slamUtils "go.viam.com/rdk/services/slam/slam_copy/utils"
+	"go.viam.com/rdk/spatialmath"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 var (
@@ -155,6 +155,7 @@ func runtimeServiceValidation(
 // builtIn is the structure of the slam service.
 type builtIn struct {
 	generic.Unimplemented
+	name              string
 	primarySensorName string
 	slamLib           slam.LibraryMetadata
 	slamMode          slam.Mode
@@ -170,8 +171,6 @@ type builtIn struct {
 	port       string
 	dataRateMs int
 	mapRateSec int
-
-	dev bool
 
 	cancelFunc              func()
 	logger                  golog.Logger
@@ -253,11 +252,11 @@ func configureCameras(ctx context.Context, svcConfig *slamConfig.AttrConfig, dep
 
 // GetPosition forwards the request for positional data to the slam library's gRPC service. Once a response is received,
 // it is unpacked into a Pose and a component reference string.
-func (slamSvc *builtIn) GetPosition(ctx context.Context, name string) (spatialmath.Pose, string, error) {
+func (slamSvc *builtIn) GetPosition(ctx context.Context) (spatialmath.Pose, string, error) {
 	ctx, span := trace.StartSpan(ctx, "slam::builtIn::GetPosition")
 	defer span.End()
 
-	req := &pb.GetPositionRequest{Name: name}
+	req := &pb.GetPositionRequest{Name: slamSvc.name}
 
 	resp, err := slamSvc.clientAlgo.GetPosition(ctx, req)
 	if err != nil {
@@ -272,20 +271,20 @@ func (slamSvc *builtIn) GetPosition(ctx context.Context, name string) (spatialma
 
 // GetPointCloudMap creates a request, calls the slam algorithms GetPointCloudMap endpoint and returns a callback
 // function which will return the next chunk of the current pointcloud map.
-func (slamSvc *builtIn) GetPointCloudMap(ctx context.Context, name string) (func() ([]byte, error), error) {
+func (slamSvc *builtIn) GetPointCloudMap(ctx context.Context) (func() ([]byte, error), error) {
 	ctx, span := trace.StartSpan(ctx, "slam::builtIn::GetPointCloudMap")
 	defer span.End()
 
-	return grpchelper.GetPointCloudMapCallback(ctx, name, slamSvc.clientAlgo)
+	return grpchelper.GetPointCloudMapCallback(ctx, slamSvc.name, slamSvc.clientAlgo)
 }
 
 // GetInternalState creates a request, calls the slam algorithms GetInternalState endpoint and returns a callback
 // function which will return the next chunk of the current internal state of the slam algo.
-func (slamSvc *builtIn) GetInternalState(ctx context.Context, name string) (func() ([]byte, error), error) {
+func (slamSvc *builtIn) GetInternalState(ctx context.Context) (func() ([]byte, error), error) {
 	ctx, span := trace.StartSpan(ctx, "slam::builtIn::GetInternalState")
 	defer span.End()
 
-	return grpchelper.GetInternalStateCallback(ctx, name, slamSvc.clientAlgo)
+	return grpchelper.GetInternalStateCallback(ctx, slamSvc.name, slamSvc.clientAlgo)
 }
 
 // NewBuiltIn returns a new slam service for the given robot.
@@ -344,6 +343,7 @@ func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.S
 
 	// SLAM Service Object
 	slamSvc := &builtIn{
+		name:                  config.Name,
 		primarySensorName:     primarySensorName,
 		slamLib:               slam.SLAMLibraries[string(config.Model.Name)],
 		slamMode:              slamMode,
@@ -353,7 +353,6 @@ func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.S
 		useLiveData:           useLiveData,
 		deleteProcessedData:   deleteProcessedData,
 		port:                  port,
-		dev:                   svcConfig.Dev,
 		dataRateMs:            dataRateMsec,
 		mapRateSec:            mapRateSec,
 		cancelFunc:            cancelFunc,

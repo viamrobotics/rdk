@@ -214,7 +214,7 @@ onUnmounted(() => {
             </tr>
           </table>
           <a
-            class="underline text-[#045681]"
+            class="text-[#045681] underline"
             :href="`https://www.google.com/maps/search/${coordinate?.latitude},${coordinate?.longitude}`"
           >
             google maps

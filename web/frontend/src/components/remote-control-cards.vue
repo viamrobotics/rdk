@@ -4,8 +4,7 @@
 import { onMounted, onUnmounted } from 'vue';
 import { grpc } from '@improbable-eng/grpc-web';
 import { Duration } from 'google-protobuf/google/protobuf/duration_pb';
-import type { Credentials } from '@viamrobotics/rpc';
-import { ConnectionClosedError } from '@viamrobotics/rpc';
+import { type Credentials, ConnectionClosedError } from '@viamrobotics/rpc';
 import { toast } from '../lib/toast';
 import { displayError } from '../lib/error';
 import { addResizeListeners } from '../lib/resize';
@@ -266,11 +265,11 @@ const restartStatusStream = () => {
 
   statusStream = props.client.robotService.streamStatus(streamReq);
   if (statusStream !== null) {
-    statusStream.on('data', (response) => {
-      updateStatus(response.getStatusList());
+    statusStream.on('data', (response: { getStatusList(): robotApi.Status[] }) => {
+      updateStatus((response).getStatusList());
       lastStatusTS = Date.now();
     });
-    statusStream.on('status', (newStatus) => {
+    statusStream.on('status', (newStatus: { details: unknown }) => {
       if (!ConnectionClosedError.isError(newStatus.details)) {
         console.error('error streaming robot status', newStatus);
       }
@@ -309,8 +308,8 @@ const queryMetadata = () => {
           resources.map((name: commonApi.ResourceName.AsObject) =>
             resourceNameToString(name))
         );
-        const resourceSet = new Set(
-          resourcesList.map((name) => resourceNameToString(name))
+        const resourceSet: Set<string> = new Set(
+          resourcesList.map((name: string) => resourceNameToString(name))
         );
 
         for (const elem of resourceSet) {
@@ -427,7 +426,7 @@ const fetchCurrentSessions = () => {
           return;
         }
 
-        const list = resp.toObject().sessionsList;
+        const list = resp.toObject().sessionsList as { id: string }[];
         list.sort((sess1, sess2) => {
           return sess1.id < sess2.id ? -1 : 1;
         });

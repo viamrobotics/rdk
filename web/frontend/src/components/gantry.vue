@@ -88,7 +88,7 @@ const stop = () => {
             <th class="border border-black p-2">
               {{ pp.axis }}
             </th>
-            <td class="flex p-2 gap-2">
+            <td class="flex gap-2 p-2">
               <v-button
                 class="flex-nowrap"
                 label="--"

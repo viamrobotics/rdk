@@ -587,8 +587,8 @@ watch(() => props.pointcloud, (updated?: Uint8Array) => {
       @mouseup="handleCanvasMouseUp"
     />
 
-    <div class="relative flex flex-wrap w-full items-center justify-between gap-12">
-      <div class="w-full pl-4 pt-2 max-w-xs">
+    <div class="relative flex w-full flex-wrap items-center justify-between gap-12">
+      <div class="w-full max-w-xs pl-4 pt-2">
         <v-slider
           label="Points Scaling"
           min="0.1"
@@ -731,7 +731,7 @@ watch(() => props.pointcloud, (updated?: Uint8Array) => {
       </div>
       <div
         v-if="false"
-        class="flex pt-4 pb-8"
+        class="flex pb-8 pt-4"
       >
         <div class="column">
           <v-radio

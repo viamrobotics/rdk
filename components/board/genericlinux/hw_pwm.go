@@ -8,7 +8,6 @@ package genericlinux
 import (
 	"fmt"
 	"os"
-	"strings"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -24,23 +23,8 @@ type pwmDevice struct {
 	logger golog.Logger
 }
 
-func newPwmDevice(chipName string, line int, logger golog.Logger) (*pwmDevice, error) {
-	// There should be a single directory within /sys/devices/platform/<chipName>/pwm/, whose name
-	// is mirrored in /sys/class/pwm. That's the one we want to use.
-	// TODO[RSDK-2332]: make this universally usable by all genericlinux boards.
-	chipDir := fmt.Sprintf("/sys/devices/platform/%s/pwm", chipName)
-	files, err := os.ReadDir(chipDir)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, file := range files {
-		if strings.Contains(file.Name(), "pwmchip") && file.IsDir() {
-			chipPath := fmt.Sprintf("/sys/class/pwm/%s", file.Name())
-			return &pwmDevice{chipPath: chipPath, line: line, logger: logger}, nil
-		}
-	}
-	return nil, errors.Errorf("Could not find any PWM device with name %s", chipName)
+func newPwmDevice(chipPath string, line int, logger golog.Logger) *pwmDevice {
+	return &pwmDevice{chipPath: chipPath, line: line, logger: logger}
 }
 
 func writeValue(filepath string, value uint64) error {

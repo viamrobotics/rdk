@@ -82,7 +82,7 @@ require (
 	go.uber.org/atomic v1.10.0
 	go.uber.org/multierr v1.10.0
 	go.uber.org/zap v1.24.0
-	go.viam.com/api v0.1.101
+	go.viam.com/api v0.1.108
 	go.viam.com/test v1.1.1-0.20220913152726-5da9916c08a2
 	go.viam.com/utils v0.1.18-0.20230327140716-bfeb34d89117
 	goji.io v2.0.2+incompatible
@@ -97,8 +97,8 @@ require (
 	gopkg.in/src-d/go-billy.v4 v4.3.2
 	gopkg.in/yaml.v2 v2.4.0
 	gotest.tools/gotestsum v1.8.2
-	periph.io/x/conn/v3 v3.6.10
-	periph.io/x/host/v3 v3.7.2
+	periph.io/x/conn/v3 v3.7.0
+	periph.io/x/host/v3 v3.8.1-0.20230331112814-9f0d9f7d76db
 )
 
 require (
@@ -233,7 +233,7 @@ require (
 	github.com/jingyugao/rowserrcheck v1.1.1 // indirect
 	github.com/jirfag/go-printf-func-name v0.0.0-20200119135958-7558a9eaa5af // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
-	github.com/jonboulle/clockwork v0.2.2 // indirect
+	github.com/jonboulle/clockwork v0.3.0 // indirect
 	github.com/julz/importas v0.1.0 // indirect
 	github.com/junk1tm/musttag v0.4.5 // indirect
 	github.com/kisielk/errcheck v1.6.3 // indirect

@@ -302,9 +302,9 @@ func createAllCollisionConstraints(
 		return nil, err
 	}
 	return map[string]StateConstraint{
-		defaultObstacleConstraintName:       obstacleConstraint,
-		defaultSelfCollisionConstraintName:  selfCollisionConstraint,
-		defaultRobotCollisionConstraintName: robotConstraint,
+		defaultObstacleConstraintDesc:       obstacleConstraint,
+		defaultSelfCollisionConstraintDesc:  selfCollisionConstraint,
+		defaultRobotCollisionConstraintDesc: robotConstraint,
 	}, nil
 }
 
