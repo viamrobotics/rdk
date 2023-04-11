@@ -237,6 +237,7 @@ func NewWebcam(
 func NewWebcamSource(ctx context.Context, name string, attrs *WebcamAttrs, logger golog.Logger) (camera.Camera, error) {
 	cam, err := findAndMakeCamera(ctx, attrs, attrs.Path, logger)
 	if err != nil {
+		// If we are on an Orin AGX, we need to check if the daughterboard and the camera driver are installed.
 		if runtime.GOOS == "linux" && runtime.GOARCH == "arm64" {
 			osInfo := jetsoncamera.GetOSInformation()
 			if osInfo.Device == jetsoncamera.JetsonOrinAGX {
