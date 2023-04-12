@@ -492,6 +492,7 @@ func (m *Module) AddModelFromRegistry(ctx context.Context, api resource.Subtype,
 			return err
 		}
 	}
+
 	err := validateRegistered(api, model)
 	if err != nil {
 		return err
@@ -540,18 +541,21 @@ func addConvertedAttributes(cfg *config.Component) error {
 	return nil
 }
 
+// validateRegistered returns an error if the passed-in api and model have not
+// yet been registered.
 func validateRegistered(api resource.Subtype, model resource.Model) error {
 	switch api.ResourceType {
 	case resource.ResourceTypeComponent:
 		creator := registry.ComponentLookup(api, model)
 		if creator == nil || creator.Constructor == nil {
-			return errors.New("Unregistered component")
+			return fmt.Errorf("component with API %s and model %s not yet registered",
+				api, model)
 		}
-
 	case resource.ResourceTypeService:
 		creator := registry.ServiceLookup(api, model)
 		if creator == nil || creator.Constructor == nil {
-			return errors.New("Unregistered service")
+			return fmt.Errorf("service with API %s and model %s not yet registered",
+				api, model)
 		}
 	default:
 		return errors.Errorf("unknown resource type %s", api.ResourceType)
