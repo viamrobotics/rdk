@@ -98,7 +98,6 @@ func GetGPIOBoardMappings(modelName string, boardInfoMappings map[string]BoardIn
 // that appears compatible with the machine we're running on.
 func getCompatiblePinDefs(modelName string, boardInfoMappings map[string]BoardInformation) ([]PinDefinition, error) {
 	var path string
-	fmt.Printf("model ", modelName)
 	const (
 		compatiblePath    = "/proc/device-tree/compatible"
 		compatiblePathDmi = "/sys/devices/virtual/dmi/id/board_name"
@@ -110,11 +109,7 @@ func getCompatiblePinDefs(modelName string, boardInfoMappings map[string]BoardIn
 		path = compatiblePath
 	}
 
-	fmt.Printf("path is ", path)
-
 	compatibles, _ := newStringSetFromFile(modelName, path)
-
-	fmt.Printf("compatibles is ", compatibles)
 
 	var pinDefs []PinDefinition
 	for _, info := range boardInfoMappings {
@@ -133,6 +128,7 @@ func getCompatiblePinDefs(modelName string, boardInfoMappings map[string]BoardIn
 	return pinDefs, nil
 }
 
+// A helper function to process contents of a given file path.
 func newStringSetFromFile(modelName string, path string) (utils.StringSet, error) {
 	content, err := os.ReadFile(path)
 	if err != nil {
@@ -146,7 +142,6 @@ func newStringSetFromFile(modelName string, path string) (utils.StringSet, error
 	content = bytes.TrimSpace(content)
 	content = bytes.ReplaceAll(content, []byte{0x00}, []byte{})
 
-	fmt.Printf("output of new function ", utils.NewStringSet(string(content)))
 	return utils.NewStringSet(string(content)), nil
 }
 
@@ -232,7 +227,6 @@ func getGpioChipDefs(pinDefs []PinDefinition) (map[string]gpioChipData, error) {
 			break
 		}
 	}
-
 	return gpioChipsInfo, nil
 }
 
