@@ -30,7 +30,8 @@ func (s *simpleDetector) Detect(context.Context, image.Image) ([]objectdetection
 func Test3DSegmentsFromDetector(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	r := &inject.Robot{}
-	svc, err := vision.NewService("testDetector", &simpleDetector{}, r)
+	m := &simpleDetector{}
+	svc, err := vision.NewService("testDetector", r, nil, nil, m.Detect, nil)
 	test.That(t, err, test.ShouldBeNil)
 	cam := &inject.Camera{}
 	cam.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
