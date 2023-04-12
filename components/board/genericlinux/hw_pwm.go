@@ -136,7 +136,7 @@ func (pwm *pwmDevice) SetPwm(freqHz uint, dutyCycle float64) (err error) {
 		// period non-zero and enabling it again. Many PWM chips can't handle periods less than 1
 		// microsecond, so let's try setting it to 1000 nanoseconds.
 		pwm.logger.Debugf("Cannot enable HW PWM device %s line %d, will try changing period: %s",
-		                  pwm.chipPath, pwm.line, err)
+			pwm.chipPath, pwm.line, err)
 		if err := pwm.writeLine("period", 1000); err != nil {
 			return err // Not sure what would cause this; call it an error.
 		}
