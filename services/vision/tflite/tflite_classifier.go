@@ -52,9 +52,9 @@ func init() {
 	)
 }
 
-// ErrorLabelMismatch is for when the number of labels in the file does not correspond
+// ErrLabelMismatch is for when the number of labels in the file does not correspond
 // to the number of labels in the tensor.
-var ErrorLabelMismatch = errors.New(
+var ErrLabelMismatch = errors.New(
 	"invalid label file: number of labels does not match number of model outputs. Labels must be separated by a newline, comma or space")
 
 // ClassifierConfig specifies the fields necessary for creating a TFLite classifier.
@@ -156,7 +156,7 @@ func unpackClassificationTensor(ctx context.Context, tensor []interface{},
 	out := make(classification.Classifications, 0, len(outConf))
 	if len(labels) > 0 {
 		if len(labels) != len(outConf) {
-			return nil, ErrorLabelMismatch
+			return nil, ErrLabelMismatch
 		}
 
 		for i, c := range outConf {
