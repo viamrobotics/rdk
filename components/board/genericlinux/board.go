@@ -266,14 +266,15 @@ func (b *sysfsBoard) DigitalInterruptByName(name string) (board.DigitalInterrupt
 		return interrupt.interrupt, true
 	}
 
-	// Otherwise, the name is not something we recognize yet. If it looks numeric and appears to be
-	// a GPIO pin, we'll remove its GPIO capabilities and turn it into a digital interrupt.
-	if _, err := strconv.Atoi(name); err != nil {
-		return nil, false // Non-numeric name, just give up.
+	// Otherwise, the name is not something we recognize yet. If it appears to be a GPIO pin, we'll
+	// remove its GPIO capabilities and turn it into a digital interrupt.
+	gpio, ok := b.gpios[name]
+	if !ok {
+		return nil, false
 	}
-
-	if _, ok := b.gpios[name]; !ok {
-		return nil, false // It's not a GPIO pin either. Give up.
+	if err := gpio.Close(); err != nil {
+		b.logger.Errorf("Unable to close GPIO pin to use as interrupt: %s", err)
+		return nil, false
 	}
 
 	defaultInterruptConfig := board.DigitalInterruptConfig{
