@@ -109,7 +109,10 @@ func getCompatiblePinDefs(modelName string, boardInfoMappings map[string]BoardIn
 		path = compatiblePath
 	}
 
-	compatibles, _ := newStringSetFromFile(modelName, path)
+	compatibles, err := newStringSetFromFile(modelName, path)
+	if err != nil {
+		return nil, errors.Errorf("error while reading board information %v", err)
+	}
 
 	var pinDefs []PinDefinition
 	for _, info := range boardInfoMappings {
@@ -129,7 +132,7 @@ func getCompatiblePinDefs(modelName string, boardInfoMappings map[string]BoardIn
 }
 
 // A helper function to process contents of a given file path.
-func newStringSetFromFile(modelName string, path string) (utils.StringSet, error) {
+func newStringSetFromFile(modelName, path string) (utils.StringSet, error) {
 	content, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
