@@ -117,10 +117,7 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 				if err != nil {
 					return nil, err
 				}
-			} else {
-
 			}
-
 			opt, err := pm.plannerSetupFromMoveRequest(from, to, seedMap, modifiedWS, constraintSpec, motionConfig)
 			if err != nil {
 				return nil, err
