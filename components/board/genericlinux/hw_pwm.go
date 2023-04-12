@@ -132,10 +132,11 @@ func (pwm *pwmDevice) SetPwm(freqHz uint, dutyCycle float64) (err error) {
 	if err := pwm.enable(); err != nil {
 		// If the board is newly booted up, the period (and everything else) might be initialized
 		// to 0, and enabling the pin with a period of 0 results in errors. Let's try making the
-		// period non-zero and enabling it again.
+		// period non-zero and enabling it again. Periods are stored in nanoseconds, but many PWM
+		// chips can't handle periods less than 1 microsecond, so let's try setting it to 1000.
 		pwm.logger.Debugf("Unable to enable HW PWM device %s line %d, will try changing period: %s",
 		                  pwm.chipPath, pwm.line, err)
-		if err := pwm.writeLine("period", 1); err != nil {
+		if err := pwm.writeLine("period", 1000); err != nil {
 			return err // Not sure what would cause this; call it an error.
 		}
 		// Now, try enabling the pin one more time before giving up.
@@ -166,8 +167,9 @@ func (pwm *pwmDevice) SetPwm(freqHz uint, dutyCycle float64) (err error) {
 	if err := pwm.writeLine("duty_cycle", 0); err != nil {
 		return err
 	}
-	// Now that the active duration is 0, setting the period to any number should work.
-	if err := pwm.writeLine("period", 1); err != nil {
+	// Now that the active duration is 0, setting the period to any number should work. Some PWM
+	// chips can't handle periods under 1 microsecond (1000 nanoseconds), though.
+	if err := pwm.writeLine("period", 1000); err != nil {
 		return err
 	}
 	// Same thing here: the active duration is 0, so any value should work for the period.
