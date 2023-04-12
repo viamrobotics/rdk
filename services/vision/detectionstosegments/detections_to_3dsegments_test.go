@@ -6,8 +6,9 @@ import (
 	"image/color"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	"go.viam.com/test"
+
 	"go.viam.com/rdk/components/camera"
 	pc "go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
@@ -17,7 +18,6 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision/objectdetection"
 	"go.viam.com/rdk/vision/segmentation"
-	"go.viam.com/test"
 )
 
 type simpleDetector struct{}
@@ -28,7 +28,6 @@ func (s *simpleDetector) Detect(context.Context, image.Image) ([]objectdetection
 }
 
 func Test3DSegmentsFromDetector(t *testing.T) {
-	logger := golog.NewTestLogger(t)
 	r := &inject.Robot{}
 	m := &simpleDetector{}
 	svc, err := vision.NewService("testDetector", r, nil, nil, m.Detect, nil)
@@ -58,17 +57,17 @@ func Test3DSegmentsFromDetector(t *testing.T) {
 		ConfidenceThresh: 0.2,
 	}
 	// bad registration, no parameters
-	_, err = register3DSegmenterFromDetector(context.Background(), "test_seg", nil, r, logger)
+	_, err = register3DSegmenterFromDetector(context.Background(), "test_seg", nil, r)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot be nil")
 	// bad registration, no such detector
 	params.DetectorName = "noDetector"
-	_, err = register3DSegmenterFromDetector(context.Background(), "test_seg", params, r, logger)
+	_, err = register3DSegmenterFromDetector(context.Background(), "test_seg", params, r)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "could not find necessary dependency")
 	// successful registration
 	params.DetectorName = "testDetector"
-	seg, err := register3DSegmenterFromDetector(context.Background(), "test_rcs", params, r, logger)
+	seg, err := register3DSegmenterFromDetector(context.Background(), "test_rcs", params, r)
 	test.That(t, err, test.ShouldBeNil)
 
 	// fails on not finding camera

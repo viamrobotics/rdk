@@ -6,8 +6,6 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
-	// register cameras for testing.
-
 	pb "go.viam.com/api/service/vision/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"

@@ -1,3 +1,4 @@
+// Package tflite implements a classifer and detector based on tflite files
 package tflite
 
 import (
@@ -5,16 +6,16 @@ import (
 	"context"
 	"image"
 	"os"
+	fp "path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
-
-	fp "path/filepath"
 
 	"github.com/edaniels/golog"
 	"github.com/nfnt/resize"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
+
 	"go.viam.com/rdk/config"
 	inf "go.viam.com/rdk/ml/inference"
 	"go.viam.com/rdk/ml/inference/tflite_metadata"
@@ -26,12 +27,12 @@ import (
 	"go.viam.com/rdk/vision/objectdetection"
 )
 
-var model_detect = resource.NewDefaultModel("tflite_detector")
+var modelDetect = resource.NewDefaultModel("tflite_detector")
 
 func init() {
-	registry.RegisterService(vision.Subtype, model_detect, registry.Service{
+	registry.RegisterService(vision.Subtype, modelDetect, registry.Service{
 		RobotConstructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
-			attrs, ok := c.ConvertedAttributes.(*TFLiteDetectorConfig)
+			attrs, ok := c.ConvertedAttributes.(*DetectorConfig)
 			if !ok {
 				return nil, utils.NewUnexpectedTypeError(attrs, c.ConvertedAttributes)
 			}
@@ -40,25 +41,25 @@ func init() {
 	})
 	config.RegisterServiceAttributeMapConverter(
 		vision.Subtype,
-		model_detect,
+		modelDetect,
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf TFLiteDetectorConfig
+			var conf DetectorConfig
 			attrs, err := config.TransformAttributeMapToStruct(&conf, attributes)
 			if err != nil {
 				return nil, err
 			}
-			result, ok := attrs.(*TFLiteDetectorConfig)
+			result, ok := attrs.(*DetectorConfig)
 			if !ok {
 				return nil, utils.NewUnexpectedTypeError(result, attrs)
 			}
 			return result, nil
 		},
-		&TFLiteDetectorConfig{},
+		&DetectorConfig{},
 	)
 }
 
-// TFLiteDetectorConfig specifies the fields necessary for creating a TFLite detector.
-type TFLiteDetectorConfig struct {
+// DetectorConfig specifies the fields necessary for creating a TFLite detector.
+type DetectorConfig struct {
 	// this should come from the attributes part of the detector config
 	ModelPath  string  `json:"model_path"`
 	NumThreads int     `json:"num_threads"`
@@ -94,7 +95,7 @@ func (tf *tfliteDetector) Close(ctx context.Context) error {
 func registerTFLiteDetector(
 	ctx context.Context,
 	name string,
-	params *TFLiteDetectorConfig,
+	params *DetectorConfig,
 	r robot.Robot,
 	logger golog.Logger,
 ) (vision.Service, error) {

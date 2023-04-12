@@ -4,12 +4,12 @@ import (
 	"context"
 	"testing"
 
-	"github.com/edaniels/golog"
+	"go.viam.com/test"
+	"go.viam.com/utils/artifact"
+
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/vision/objectdetection"
-	"go.viam.com/test"
-	"go.viam.com/utils/artifact"
 )
 
 func TestColorDetector(t *testing.T) {
@@ -20,8 +20,7 @@ func TestColorDetector(t *testing.T) {
 	}
 	ctx := context.Background()
 	r := &inject.Robot{}
-	testlog := golog.NewLogger("testlog")
-	srv, err := registerColorDetector(ctx, "test_cd", &inp, r, testlog)
+	srv, err := registerColorDetector(ctx, "test_cd", &inp, r)
 	test.That(t, err, test.ShouldBeNil)
 	img, err := rimage.NewImageFromFile(artifact.MustPath("vision/objectdetection/detection_test.jpg"))
 	test.That(t, err, test.ShouldBeNil)
@@ -38,10 +37,10 @@ func TestColorDetector(t *testing.T) {
 
 	// with error - bad parameters
 	inp.HueTolerance = 4.0 // value out of range
-	_, err = registerColorDetector(ctx, "test_cd", &inp, r, testlog)
+	_, err = registerColorDetector(ctx, "test_cd", &inp, r)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "hue_tolerance_pct must be between")
 
 	// with error - nil parameters
-	_, err = registerColorDetector(ctx, "test_cd", nil, r, testlog)
+	_, err = registerColorDetector(ctx, "test_cd", nil, r)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot be nil")
 }

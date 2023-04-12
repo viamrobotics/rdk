@@ -1,3 +1,5 @@
+// Package detectionstosegments uses a 2D segmenter and a camera that can project its images
+// to 3D to project the bounding boxes to 3D in order to created a segmented point cloud.
 package detectionstosegments
 
 import (
@@ -27,7 +29,7 @@ func init() {
 			if !ok {
 				return nil, utils.NewUnexpectedTypeError(attrs, c.ConvertedAttributes)
 			}
-			return register3DSegmenterFromDetector(ctx, c.Name, attrs, r, logger)
+			return register3DSegmenterFromDetector(ctx, c.Name, attrs, r)
 		},
 	})
 	config.RegisterServiceAttributeMapConverter(
@@ -49,8 +51,13 @@ func init() {
 	)
 }
 
-// register3DSegmenterFromDetector creates a 3D segmenter from a previously registered detector
-func register3DSegmenterFromDetector(ctx context.Context, name string, conf *segmentation.DetectionSegmenterConfig, r robot.Robot, logger golog.Logger) (vision.Service, error) {
+// register3DSegmenterFromDetector creates a 3D segmenter from a previously registered detector.
+func register3DSegmenterFromDetector(
+	ctx context.Context,
+	name string,
+	conf *segmentation.DetectionSegmenterConfig,
+	r robot.Robot,
+) (vision.Service, error) {
 	_, span := trace.StartSpan(ctx, "service::vision::register3DSegmenterFromDetector")
 	defer span.End()
 	if conf == nil {

@@ -5,11 +5,12 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
-	"go.viam.com/rdk/rimage"
-	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/test"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/artifact"
+
+	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/testutils/inject"
 )
 
 func TestNewTfLiteDetector(t *testing.T) {
@@ -18,7 +19,7 @@ func TestNewTfLiteDetector(t *testing.T) {
 	pic, err := rimage.NewImageFromFile(artifact.MustPath("vision/tflite/dogscute.jpeg"))
 	test.That(t, err, test.ShouldBeNil)
 	modelLoc := artifact.MustPath("vision/tflite/effdet0.tflite")
-	cfg := &TFLiteDetectorConfig{
+	cfg := &DetectorConfig{
 		ModelPath:  modelLoc,
 		LabelPath:  "",
 		NumThreads: 1,
@@ -35,7 +36,6 @@ func TestNewTfLiteDetector(t *testing.T) {
 	test.That(t, gotDetections[0].Label(), test.ShouldResemble, "17")
 	test.That(t, gotDetections[1].Label(), test.ShouldResemble, "17")
 	test.That(t, goutils.TryClose(ctx, got2), test.ShouldBeNil)
-
 }
 
 func TestNewTfLiteClassifier(t *testing.T) {
@@ -44,7 +44,7 @@ func TestNewTfLiteClassifier(t *testing.T) {
 	pic, err := rimage.NewImageFromFile(artifact.MustPath("vision/tflite/lion.jpeg"))
 	test.That(t, err, test.ShouldBeNil)
 	modelLoc := artifact.MustPath("vision/tflite/effnet0.tflite")
-	cfg := &TFLiteClassifierConfig{
+	cfg := &ClassifierConfig{
 		ModelPath:  modelLoc,
 		LabelPath:  "",
 		NumThreads: 1,
