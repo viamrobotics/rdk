@@ -53,6 +53,7 @@ func (m steeringMode) String() string {
 	return "Unknown"
 }
 
+// ModelName is the name of the AgileX model of a base component.
 var ModelName = resource.NewDefaultModel("agilex-limo")
 
 func init() {

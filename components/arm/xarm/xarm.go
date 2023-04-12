@@ -56,10 +56,10 @@ var xArm6modeljson []byte
 //go:embed xarm7_kinematics.json
 var xArm7modeljson []byte
 
-// ModelName6DOF is a function used to get the string used to refer to the xarm model of 6 dof.
+// ModelName6DOF is the name that refers to the xarm model of 6 dof.
 var ModelName6DOF = resource.NewDefaultModel("xArm6")
 
-// ModelName7DOF is a function used to get the string used to refer to the xarm model of 7 dof.
+// ModelName7DOF is the name that refers to the xarm model of 7 dof.
 var ModelName7DOF = resource.NewDefaultModel("xArm7")
 
 // Model returns the kinematics model of the xarm arm, also has all Frame information.

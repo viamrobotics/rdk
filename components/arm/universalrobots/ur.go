@@ -35,7 +35,7 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// ModelName is the resource model.
+// ModelName is the name of the UR5e model of an arm component.
 var ModelName = resource.NewDefaultModel("ur5e")
 
 // AttrConfig is used for converting config attributes.

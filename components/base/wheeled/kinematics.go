@@ -42,8 +42,8 @@ func (base *wheeledBase) WrapWithKinematics(ctx context.Context, slamSvc slam.Se
 		return nil, err
 	}
 	kwb.model, err = Model(
-		kwb.name, 
-		kwb.collisionGeometry, 
+		kwb.name,
+		kwb.collisionGeometry,
 		[]referenceframe.Limit{{Min: dims.MinX, Max: dims.MaxX}, {Min: dims.MinZ, Max: dims.MaxZ}},
 	)
 	if err != nil {
@@ -66,7 +66,7 @@ func (kwb *kinematicWheeledBase) GoToInputs(ctx context.Context, goal []referenc
 	return errors.New("not implemented yet")
 }
 
-// ModelFrame builds the kinematic model associated with the kinematicWheeledBase
+// Model builds the kinematic model associated with the fake base
 // Note that this model is not intended to be registered in the frame system.
 func Model(name string, collisionGeometry spatialmath.Geometry, limits []referenceframe.Limit) (referenceframe.Model, error) {
 	// build the model - SLAM convention is that the XZ plane is the ground plane

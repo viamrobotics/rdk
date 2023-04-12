@@ -27,6 +27,7 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
+// ModelName is the name of the boat model of a base component.
 var ModelName = resource.NewDefaultModel("boat")
 
 func init() {
