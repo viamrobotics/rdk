@@ -24,7 +24,7 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-var modelname = resource.NewDefaultModel("wheeled")
+var ModelName = resource.NewDefaultModel("wheeled")
 
 // AttrConfig is how you configure a wheeled base.
 type AttrConfig struct {
@@ -75,10 +75,10 @@ func init() {
 		},
 	}
 
-	registry.RegisterComponent(base.Subtype, modelname, wheeledBaseComp)
+	registry.RegisterComponent(base.Subtype, ModelName, wheeledBaseComp)
 	config.RegisterComponentAttributeMapConverter(
 		base.Subtype,
-		modelname,
+		ModelName,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
@@ -360,7 +360,7 @@ func CreateWheeledBase(
 		return nil, rdkutils.NewUnexpectedTypeError(attr, &AttrConfig{})
 	}
 
-	base := &wheeledBase{
+	wb := &wheeledBase{
 		widthMm:              attr.WidthMM,
 		wheelCircumferenceMm: attr.WheelCircumferenceMM,
 		spinSlipFactor:       attr.SpinSlipFactor,
@@ -368,8 +368,8 @@ func CreateWheeledBase(
 		name:                 cfg.Name,
 	}
 
-	if base.spinSlipFactor == 0 {
-		base.spinSlipFactor = 1
+	if wb.spinSlipFactor == 0 {
+		wb.spinSlipFactor = 1
 	}
 
 	for _, name := range attr.Left {
@@ -379,9 +379,9 @@ func CreateWheeledBase(
 		}
 		props, err := m.Properties(ctx, nil)
 		if props[motor.PositionReporting] && err != nil {
-			base.logger.Debugf("motor %s can report its position for base", name)
+			wb.logger.Debugf("motor %s can report its position for base", name)
 		}
-		base.left = append(base.left, m)
+		wb.left = append(wb.left, m)
 	}
 
 	for _, name := range attr.Right {
@@ -391,19 +391,19 @@ func CreateWheeledBase(
 		}
 		props, err := m.Properties(ctx, nil)
 		if props[motor.PositionReporting] && err != nil {
-			base.logger.Debugf("motor %s can report its position for base", name)
+			wb.logger.Debugf("motor %s can report its position for base", name)
 		}
-		base.right = append(base.right, m)
+		wb.right = append(wb.right, m)
 	}
 
-	base.allMotors = append(base.allMotors, base.left...)
-	base.allMotors = append(base.allMotors, base.right...)
+	wb.allMotors = append(wb.allMotors, wb.left...)
+	wb.allMotors = append(wb.allMotors, wb.right...)
 
-	collisionGeometry, err := collisionGeometry(cfg)
+	collisionGeometry, err := base.CollisionGeometry(cfg)
 	if err != nil {
 		logger.Warnf("could not build geometry for wheeledBase: %s", err.Error())
 	}
-	base.collisionGeometry = collisionGeometry
+	wb.collisionGeometry = collisionGeometry
 
-	return base, nil
+	return wb, nil
 }

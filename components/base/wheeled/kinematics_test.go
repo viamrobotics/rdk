@@ -13,7 +13,7 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-func TestKinematicBase(t *testing.T) {
+func TestWrapWithKinematics(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 
@@ -54,7 +54,7 @@ func TestKinematicBase(t *testing.T) {
 			kinematicCfg.Frame = frame
 			basic, err := CreateWheeledBase(ctx, motorDeps, kinematicCfg, logger)
 			test.That(t, err, test.ShouldBeNil)
-			wb, err := WrapWithKinematics(ctx, basic.(*wheeledBase), fake.NewSLAM("", logger))
+			wb, err := basic.(*wheeledBase).WrapWithKinematics(ctx, fake.NewSLAM("", logger))
 			test.That(t, err == nil, test.ShouldEqual, tc.success)
 			if err != nil {
 				return

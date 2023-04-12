@@ -7,6 +7,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
+	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/base/v1"
 	viamutils "go.viam.com/utils"
@@ -18,6 +19,8 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/services/slam"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 )
@@ -88,6 +91,10 @@ type LocalBase interface {
 	Base
 	// Width returns the width of the base in millimeters.
 	Width(ctx context.Context) (int, error)
+}
+
+type KinematicWrappable interface {
+	WrapWithKinematics(context.Context, slam.Service) (KinematicBase, error)
 }
 
 // KinematicBase is an interface for Bases that also satisfy the ModelFramer and InputEnabled interfaces.
@@ -289,6 +296,43 @@ func WrapWithReconfigurable(r interface{}, name resource.Name) (resource.Reconfi
 		return reconfigurable, nil
 	}
 	return &reconfigurableLocalBase{actual: localBase, reconfigurableBase: rBase}, nil
+}
+
+func CollisionGeometry(cfg config.Component) (spatialmath.Geometry, error) {
+	// TODO(rb): this is a hacky workaround for not having kinematics for bases yet
+	// we create a sphere that would encompass the config geometry's rotation a full 360 degrees
+	// TODO(RSDK-1014): the orientation of this model will matter for collision checking,
+	// and should match the convention of +Y being forward for bases
+	if cfg.Frame == nil || cfg.Frame.Geometry == nil {
+		return nil, errors.New("base not configured with a geometry on its frame, cannot create collision geometry for it")
+	}
+	geoCfg := cfg.Frame.Geometry
+	r := geoCfg.TranslationOffset.Norm()
+	switch geoCfg.Type {
+	case spatialmath.BoxType:
+		r += r3.Vector{X: geoCfg.X, Y: geoCfg.Y, Z: geoCfg.Z}.Norm() / 2
+	case spatialmath.SphereType:
+		r += geoCfg.R
+	case spatialmath.CapsuleType:
+		r += geoCfg.L / 2
+	case spatialmath.UnknownType:
+		// no type specified, iterate through supported types and try to infer intent
+		if norm := (r3.Vector{X: geoCfg.X, Y: geoCfg.Y, Z: geoCfg.Z}).Norm(); norm > 0 {
+			r += norm / 2
+		} else if geoCfg.L != 0 {
+			r += geoCfg.L / 2
+		} else {
+			r += geoCfg.R
+		}
+	case spatialmath.PointType:
+	default:
+		return nil, spatialmath.ErrGeometryTypeUnsupported
+	}
+	sphere, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), r, geoCfg.Label)
+	if err != nil {
+		return nil, err
+	}
+	return sphere, nil
 }
 
 // A Move describes instructions for a robot to spin followed by moving straight.
