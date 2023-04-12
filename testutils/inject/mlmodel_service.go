@@ -6,7 +6,7 @@ import (
 	"go.viam.com/rdk/services/mlmodel"
 )
 
-// MLModelService represents a fake instance of a slam service.
+// MLModelService represents a fake instance of a mlmodel service.
 type MLModelService struct {
 	mlmodel.Service
 	InferFunc    func(ctx context.Context, input map[string]interface{}) (map[string]interface{}, error)
