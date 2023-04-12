@@ -484,6 +484,11 @@ func (m *Module) addAPIFromRegistry(ctx context.Context, api resource.Subtype) e
 
 // AddModelFromRegistry adds a preregistered component or service model to the module's services.
 func (m *Module) AddModelFromRegistry(ctx context.Context, api resource.Subtype, model resource.Model) error {
+	err := validateRegistered(api, model)
+	if err != nil {
+		return err
+	}
+
 	m.mu.Lock()
 	_, ok := m.services[api]
 	m.mu.Unlock()
@@ -491,11 +496,6 @@ func (m *Module) AddModelFromRegistry(ctx context.Context, api resource.Subtype,
 		if err := m.addAPIFromRegistry(ctx, api); err != nil {
 			return err
 		}
-	}
-
-	err := validateRegistered(api, model)
-	if err != nil {
-		return err
 	}
 
 	creator := registry.ResourceSubtypeLookup(api)
