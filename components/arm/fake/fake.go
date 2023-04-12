@@ -19,7 +19,6 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -37,10 +36,8 @@ type AttrConfig struct {
 
 func modelFromName(model, name string) (referenceframe.Model, error) {
 	switch resource.ModelName(model) {
-	case xarm.ModelName6DOF.Name:
-		return xarm.Model(name, 6)
-	case xarm.ModelName7DOF.Name:
-		return xarm.Model(name, 7)
+	case xarm.ModelName6DOF, xarm.ModelName7DOF, xarm.ModelNameLite:
+		return xarm.Model(name, model)
 	case ur.ModelName.Name:
 		return ur.Model(name)
 	case yahboom.ModelName.Name:
@@ -68,8 +65,8 @@ func (config *AttrConfig) Validate(path string) error {
 
 func init() {
 	registry.RegisterComponent(arm.Subtype, ModelName, registry.Component{
-		RobotConstructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			return NewArm(r, config, logger)
+		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
+			return NewArm(config, logger)
 		},
 	})
 
@@ -85,7 +82,7 @@ func init() {
 }
 
 // NewArm returns a new fake arm.
-func NewArm(r robot.Robot, cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
+func NewArm(cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
 	model, err := buildModel(cfg)
 	if err != nil {
 		return nil, err
@@ -96,7 +93,6 @@ func NewArm(r robot.Robot, cfg config.Component, logger golog.Logger) (arm.Local
 		joints: &pb.JointPositions{Values: make([]float64, len(model.DoF()))},
 		model:  model,
 		logger: logger,
-		robot:  r,
 	}, nil
 }
 
@@ -131,7 +127,6 @@ type Arm struct {
 	CloseCount int
 	logger     golog.Logger
 	model      referenceframe.Model
-	robot      robot.Robot
 }
 
 // UpdateAction helps hinting the reconfiguration process on what strategy to use given a modified config.
@@ -169,13 +164,8 @@ func (a *Arm) EndPosition(ctx context.Context, extra map[string]interface{}) (sp
 }
 
 // MoveToPosition sets the position.
-func (a *Arm) MoveToPosition(
-	ctx context.Context,
-	pos spatialmath.Pose,
-	worldState *referenceframe.WorldState,
-	extra map[string]interface{},
-) error {
-	return arm.Move(ctx, a.robot, a, pos, worldState)
+func (a *Arm) MoveToPosition(ctx context.Context, pos spatialmath.Pose, extra map[string]interface{}) error {
+	return arm.Move(ctx, a.logger, a, pos)
 }
 
 // MoveToJointPositions sets the joints.

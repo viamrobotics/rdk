@@ -34,15 +34,19 @@ type multiAxis struct {
 	logger    golog.Logger
 	model     referenceframe.Model
 	opMgr     operation.SingleOperationManager
+	workers   sync.WaitGroup
 }
 
 // Validate ensures all parts of the config are valid.
-func (config *AttrConfig) Validate(path string) error {
+func (config *AttrConfig) Validate(path string) ([]string, error) {
+	var deps []string
+
 	if len(config.SubAxes) == 0 {
-		return utils.NewConfigValidationError(path, errors.New("need at least one axis"))
+		return nil, utils.NewConfigValidationError(path, errors.New("need at least one axis"))
 	}
 
-	return nil
+	deps = append(deps, config.SubAxes...)
+	return deps, nil
 }
 
 func init() {
@@ -99,17 +103,19 @@ func newMultiAxis(
 }
 
 // MoveToPosition moves along an axis using inputs in millimeters.
-func (g *multiAxis) MoveToPosition(
-	ctx context.Context,
-	positions []float64,
-	worldState *referenceframe.WorldState,
-	extra map[string]interface{},
-) error {
+func (g *multiAxis) MoveToPosition(ctx context.Context, positions []float64, extra map[string]interface{}) error {
 	ctx, done := g.opMgr.New(ctx)
 	defer done()
 
 	if len(positions) == 0 {
 		return errors.Errorf("need position inputs for %v-axis gantry, have %v positions", len(g.subAxes), len(positions))
+	}
+
+	if len(positions) != len(g.lengthsMm) {
+		return errors.Errorf(
+			"number of input positions %v does not match total gantry axes count %v",
+			len(positions), len(g.lengthsMm),
+		)
 	}
 
 	idx := 0
@@ -119,11 +125,13 @@ func (g *multiAxis) MoveToPosition(
 			return err
 		}
 
-		err = subAx.MoveToPosition(ctx, positions[idx:idx+len(subAxNum)-1], worldState, extra)
-		if err != nil {
+		pos := positions[idx : idx+len(subAxNum)]
+		idx += len(subAxNum)
+
+		err = subAx.MoveToPosition(ctx, pos, extra)
+		if err != nil && !errors.Is(err, context.Canceled) {
 			return err
 		}
-		idx += len(subAxNum) - 1
 	}
 	return nil
 }
@@ -136,20 +144,7 @@ func (g *multiAxis) GoToInputs(ctx context.Context, goal []referenceframe.Input)
 	ctx, done := g.opMgr.New(ctx)
 	defer done()
 
-	idx := 0
-	for _, subAx := range g.subAxes {
-		subAxNum, err := subAx.Lengths(ctx, nil)
-		if err != nil {
-			return err
-		}
-
-		err = subAx.MoveToPosition(ctx, referenceframe.InputsToFloats(goal[idx:idx+len(subAxNum)-1]), &referenceframe.WorldState{}, nil)
-		if err != nil {
-			return err
-		}
-		idx += len(subAxNum) - 1
-	}
-	return nil
+	return g.MoveToPosition(ctx, referenceframe.InputsToFloats(goal), nil)
 }
 
 // Position returns the position in millimeters.
@@ -182,15 +177,14 @@ func (g *multiAxis) Lengths(ctx context.Context, extra map[string]interface{}) (
 func (g *multiAxis) Stop(ctx context.Context, extra map[string]interface{}) error {
 	ctx, done := g.opMgr.New(ctx)
 	defer done()
-	wg := sync.WaitGroup{}
 	for _, subAx := range g.subAxes {
 		currG := subAx
-		wg.Add(1)
+		g.workers.Add(1)
 		utils.ManagedGo(func() {
 			if err := currG.Stop(ctx, extra); err != nil {
 				g.logger.Errorw("failed to stop subaxis", "error", err)
 			}
-		}, wg.Done)
+		}, g.workers.Done)
 	}
 	return nil
 }
@@ -205,15 +199,12 @@ func (g *multiAxis) CurrentInputs(ctx context.Context) ([]referenceframe.Input, 
 	if len(g.subAxes) == 0 {
 		return nil, errors.New("no subaxes found for inputs")
 	}
-	inputs := []float64{}
-	for _, subAx := range g.subAxes {
-		in, err := subAx.Position(ctx, nil)
-		if err != nil {
-			return nil, err
-		}
-		inputs = append(inputs, in...)
+	positions, err := g.Position(ctx, nil)
+	if err != nil {
+		return nil, err
 	}
-	return referenceframe.FloatsToInputs(inputs), nil
+
+	return referenceframe.FloatsToInputs(positions), nil
 }
 
 // ModelFrame returns the frame model of the Gantry.

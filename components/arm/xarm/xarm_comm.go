@@ -357,9 +357,9 @@ func (x *xArm) MoveToJointPositions(ctx context.Context, newPositions *pb.JointP
 
 	diff := getMaxDiff(from, to)
 	nSteps := int((diff / float64(x.speed)) * x.moveHZ)
-	for i := 1; i <= nSteps; i++ {
-		step := referenceframe.InputsToFloats(referenceframe.InterpolateInputs(from, to, float64(i)/float64(nSteps)))
 
+	// convenience for structuring and sending individual joint steps
+	sendMoveJointsCmd := func(ctx context.Context, step []float64) error {
 		c := x.newCmd(regMap["MoveJoints"])
 		jFloatBytes := make([]byte, 4)
 		for _, jRad := range step {
@@ -374,14 +374,34 @@ func (x *xArm) MoveToJointPositions(ctx context.Context, newPositions *pb.JointP
 		c.params = append(c.params, 0, 0, 0, 0)
 		c.params = append(c.params, 0, 0, 0, 0)
 		c.params = append(c.params, 0, 0, 0, 0)
-		_, err := x.send(ctx, c, true)
+		_, err = x.send(ctx, c, true)
+
 		if err != nil {
 			return err
 		}
 		if !utils.SelectContextOrWait(ctx, time.Duration(1000000./x.moveHZ)*time.Microsecond) {
 			return ctx.Err()
 		}
+		return nil
 	}
+
+	// every step except the last, skipped if diff is small enough.
+	// Note that if diff calculations are small enough, nSteps could be zero, leading to a bad situation inside the loop
+	for i := 1; i < nSteps; i++ {
+		step := referenceframe.InputsToFloats(referenceframe.InterpolateInputs(from, to, float64(i)/float64(nSteps)))
+		err := sendMoveJointsCmd(ctx, step)
+		if err != nil {
+			return err
+		}
+	}
+
+	// send the last step
+	finalStep := referenceframe.InputsToFloats(to)
+	err = sendMoveJointsCmd(ctx, finalStep)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -395,12 +415,7 @@ func (x *xArm) EndPosition(ctx context.Context, extra map[string]interface{}) (s
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
-func (x *xArm) MoveToPosition(
-	ctx context.Context,
-	pos spatialmath.Pose,
-	worldState *referenceframe.WorldState,
-	extra map[string]interface{},
-) error {
+func (x *xArm) MoveToPosition(ctx context.Context, pos spatialmath.Pose, extra map[string]interface{}) error {
 	ctx, done := x.opMgr.New(ctx)
 	defer done()
 	if !x.started {
@@ -408,7 +423,7 @@ func (x *xArm) MoveToPosition(
 			return err
 		}
 	}
-	if err := arm.Move(ctx, x.robot, x, pos, worldState); err != nil {
+	if err := arm.Move(ctx, x.logger, x, pos); err != nil {
 		return err
 	}
 	return x.opMgr.WaitForSuccess(

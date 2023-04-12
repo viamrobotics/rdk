@@ -3,6 +3,8 @@ package pointcloud
 import (
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
+
+	"go.viam.com/rdk/spatialmath"
 )
 
 const (
@@ -35,7 +37,8 @@ type BasicOctree struct {
 type basicOctreeNode struct {
 	nodeType NodeType
 	children []*BasicOctree
-	point    PointAndData
+	point    *PointAndData
+	maxVal   int
 }
 
 // NewBasicOctree creates a new basic octree with specified center, side and metadata.
@@ -60,10 +63,16 @@ func (octree *BasicOctree) Size() int {
 	return octree.size
 }
 
+// MaxVal returns the max value of all children's data for the passed in octree.
+func (octree *BasicOctree) MaxVal() int {
+	return octree.node.maxVal
+}
+
 // Set recursively iterates through a basic octree, attempting to add a given point and data to the tree after
 // ensuring it falls within the bounds of the given basic octree.
 func (octree *BasicOctree) Set(p r3.Vector, d Data) error {
-	return octree.helperSet(p, d, 0)
+	_, err := octree.helperSet(p, d, 0)
+	return err
 }
 
 // At traverses a basic octree to see if a point exists at the specified location. If a point does exist, its data
@@ -121,4 +130,55 @@ func (octree *BasicOctree) Iterate(numBatches, currentBatch int, fn func(p r3.Ve
 // MetaData returns the metadata of the pointcloud stored in the octree.
 func (octree *BasicOctree) MetaData() MetaData {
 	return octree.meta
+}
+
+// CollidesWithGeometry will return whether a given geometry is in collision with a given point.
+func (octree *BasicOctree) CollidesWithGeometry(geom spatialmath.Geometry, threshold int, buffer float64) (bool, error) {
+	if octree.MaxVal() < threshold {
+		return false, nil
+	}
+	switch octree.node.nodeType {
+	case internalNode:
+		ocbox, err := spatialmath.NewBox(
+			spatialmath.NewPoseFromPoint(octree.center),
+			r3.Vector{octree.sideLength + buffer, octree.sideLength + buffer, octree.sideLength + buffer},
+			"",
+		)
+		if err != nil {
+			return false, err
+		}
+
+		// Check whether our geom collides with the area represented by the octree. If false, we can skip
+		collide, err := geom.CollidesWith(ocbox)
+		if err != nil {
+			return false, err
+		}
+		if !collide {
+			return false, nil
+		}
+		for _, child := range octree.node.children {
+			collide, err = child.CollidesWithGeometry(geom, threshold, buffer)
+			if err != nil {
+				return false, err
+			}
+			if collide {
+				return true, nil
+			}
+		}
+		return false, nil
+	case leafNodeEmpty:
+		return false, nil
+	case leafNodeFilled:
+		ptGeom, err := spatialmath.NewSphere(spatialmath.NewPoseFromPoint(octree.node.point.P), buffer, "")
+		if err != nil {
+			return false, err
+		}
+
+		ptCollide, err := geom.CollidesWith(ptGeom)
+		if err != nil {
+			return false, err
+		}
+		return ptCollide, nil
+	}
+	return false, errors.New("unknown octree node type")
 }

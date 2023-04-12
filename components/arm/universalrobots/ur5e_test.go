@@ -26,7 +26,6 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
 )
 
@@ -121,43 +120,6 @@ func TestKin1(t *testing.T) {
 		r3.Vector{X: -202.31, Y: -577.75, Z: 318.58},
 		&spatialmath.OrientationVectorDegrees{Theta: 51.84, OX: 0.47, OY: -.42, OZ: -.78},
 	))
-}
-
-func TestUseURHostedKinematics(t *testing.T) {
-	sphere, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 1, "sphere")
-	test.That(t, err, test.ShouldBeNil)
-	obstacles := []spatialmath.Geometry{sphere}
-	gifs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(referenceframe.World, obstacles)}
-
-	// test that under normal circumstances we can use worldstate and our own kinematics
-	ur := URArm{}
-	using, err := ur.useURHostedKinematics(&referenceframe.WorldState{Obstacles: gifs}, nil)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, using, test.ShouldBeFalse)
-
-	// test that extra params can be used to get the arm to use the hosted kinematics
-	extraParams := make(map[string]interface{})
-	extraParams["arm_hosted_kinematics"] = true
-	using, err = ur.useURHostedKinematics(nil, extraParams)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, using, test.ShouldBeTrue)
-
-	// test specifying at config time with no obstacles or extra params at runtime
-	ur.urHostedKinematics = true
-	using, err = ur.useURHostedKinematics(&referenceframe.WorldState{}, nil)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, using, test.ShouldBeTrue)
-
-	// test that we can override the config preference with extra params
-	extraParams["arm_hosted_kinematics"] = false
-	using, err = ur.useURHostedKinematics(&referenceframe.WorldState{Obstacles: gifs}, extraParams)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, using, test.ShouldBeFalse)
-
-	// test obstacles will cause this to error
-	_, err = ur.useURHostedKinematics(&referenceframe.WorldState{Obstacles: gifs}, nil)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldResemble, errURHostedKinematics)
 }
 
 type dhConstants struct {
@@ -381,8 +343,7 @@ func TestArmReconnection(t *testing.T) {
 		},
 	}
 
-	injectRobot := &inject.Robot{}
-	arm, err := URArmConnect(parentCtx, injectRobot, cfg, logger)
+	arm, err := URArmConnect(parentCtx, cfg, logger)
 
 	test.That(t, err, test.ShouldBeNil)
 	ua, ok := arm.(*URArm)

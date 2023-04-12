@@ -11,7 +11,7 @@
             "capture_methods": [
               {
                 "method": "ReadImage",
-                "capture_frequency_hz": 20,
+                "capture_frequency_hz": 100,
                 "additional_params": {
                   "mime_type": "image/png"
                 }

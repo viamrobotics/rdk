@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"net"
+	"os/exec"
 	"path"
 	"strings"
 	"testing"
@@ -38,9 +39,12 @@ import (
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/gripper"
+	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/components/movementsensor"
 	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/examples/customresources/apis/gizmoapi"
+	"go.viam.com/rdk/examples/customresources/apis/summationapi"
 	rgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
@@ -59,6 +63,7 @@ import (
 	"go.viam.com/rdk/services/navigation"
 	_ "go.viam.com/rdk/services/register"
 	"go.viam.com/rdk/services/sensors"
+	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
 	rtestutils "go.viam.com/rdk/testutils"
@@ -729,7 +734,6 @@ func (da *dummyArm) EndPosition(ctx context.Context, extra map[string]interface{
 func (da *dummyArm) MoveToPosition(
 	ctx context.Context,
 	pose spatialmath.Pose,
-	worldState *referenceframe.WorldState,
 	extra map[string]interface{},
 ) error {
 	return nil
@@ -1473,13 +1477,13 @@ func TestValidationErrorOnReconfigure(t *testing.T) {
 		t,
 		err,
 		test.ShouldBeError,
-		rutils.NewResourceNotAvailableError(name, errors.New("Config validation error found in component: test: fail")),
+		rutils.NewResourceNotAvailableError(name, errors.New("config validation error found in component: test: fail")),
 	)
 	test.That(t, noBase, test.ShouldBeNil)
 	// Test Service Error
 	s, err := r.ResourceByName(navigation.Named("fake1"))
 	test.That(t, s, test.ShouldBeNil)
-	errTmp := errors.New("resource \"rdk:service:navigation/fake1\" not available: Config validation error found in service: fake1: fail")
+	errTmp := errors.New("resource \"rdk:service:navigation/fake1\" not available: config validation error found in service: fake1: fail")
 	test.That(t, err, test.ShouldBeError, errTmp)
 	// Test Remote Error
 	rem, ok := r.RemoteByName("remote")
@@ -1559,13 +1563,13 @@ func TestConfigStartsInvalidReconfiguresValid(t *testing.T) {
 		t,
 		err,
 		test.ShouldBeError,
-		rutils.NewResourceNotAvailableError(name, errors.New("Config validation error found in component: test: fail")),
+		rutils.NewResourceNotAvailableError(name, errors.New("config validation error found in component: test: fail")),
 	)
 	test.That(t, noBase, test.ShouldBeNil)
 	// Test Service Error
 	s, err := r.ResourceByName(datamanager.Named("fake1"))
 	test.That(t, s, test.ShouldBeNil)
-	errTmp := errors.New("resource \"rdk:service:data_manager/fake1\" not available: Config validation error found in service: fake1: fail")
+	errTmp := errors.New("resource \"rdk:service:data_manager/fake1\" not available: config validation error found in service: fake1: fail")
 	test.That(t, err, test.ShouldBeError, errTmp)
 	// Test Remote Error
 	rem, ok := r.RemoteByName("remote")
@@ -1691,13 +1695,13 @@ func TestConfigStartsValidReconfiguresInvalid(t *testing.T) {
 		t,
 		err,
 		test.ShouldBeError,
-		rutils.NewResourceNotAvailableError(name, errors.New("Config validation error found in component: test: fail")),
+		rutils.NewResourceNotAvailableError(name, errors.New("config validation error found in component: test: fail")),
 	)
 	test.That(t, noBase, test.ShouldBeNil)
 	// Test Service Error
 	s, err = r.ResourceByName(datamanager.Named("fake1"))
 	test.That(t, s, test.ShouldBeNil)
-	errTmp := errors.New("resource \"rdk:service:data_manager/fake1\" not available: Config validation error found in service: fake1: fail")
+	errTmp := errors.New("resource \"rdk:service:data_manager/fake1\" not available: config validation error found in service: fake1: fail")
 	test.That(t, err, test.ShouldBeError, errTmp)
 	// Test Remote Error
 	rem, ok = r.RemoteByName("remote")
@@ -2288,4 +2292,411 @@ func TestCheckMaxInstanceSkipRemote(t *testing.T) {
 
 	_, err = r.ResourceByName(datamanager.Named("remote:builtin"))
 	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestOrphanedResources(t *testing.T) {
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+
+	cfg := &config.Config{
+		Components: []config.Component{
+			{
+				Name:  "b",
+				Model: fakeModel,
+				Type:  base.SubtypeName,
+			},
+			{
+				Name:      "m",
+				Model:     fakeModel,
+				Type:      motor.SubtypeName,
+				DependsOn: []string{"b"},
+			},
+			{
+				Name:      "m1",
+				Model:     fakeModel,
+				Type:      motor.SubtypeName,
+				DependsOn: []string{"m"},
+			},
+		},
+		Services: []config.Service{
+			{
+				Namespace: resource.ResourceNamespaceRDK,
+				Name:      "s",
+				Model:     fakeModel,
+				Type:      slam.SubtypeName,
+				DependsOn: []string{"b"},
+			},
+		},
+	}
+	r, err := robotimpl.New(ctx, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+	}()
+
+	// Assert that removing base 'b' removes motors 'm' and 'm1' and slam service 's'.
+	cfg2 := &config.Config{
+		Components: []config.Component{
+			{
+				Name:      "m",
+				Model:     fakeModel,
+				Type:      motor.SubtypeName,
+				DependsOn: []string{"b"},
+			},
+			{
+				Name:      "m1",
+				Model:     fakeModel,
+				Type:      motor.SubtypeName,
+				DependsOn: []string{"m"},
+			},
+		},
+		Services: []config.Service{
+			{
+				Namespace: resource.ResourceNamespaceRDK,
+				Name:      "s",
+				Model:     fakeModel,
+				Type:      slam.SubtypeName,
+				DependsOn: []string{"b"},
+			},
+		},
+	}
+	r.Reconfigure(ctx, cfg2)
+
+	res, err := r.ResourceByName(base.Named("b"))
+	test.That(t, err, test.ShouldBeError,
+		rutils.NewResourceNotFoundError(base.Named("b")))
+	test.That(t, res, test.ShouldBeNil)
+	res, err = r.ResourceByName(motor.Named("m"))
+	test.That(t, err, test.ShouldBeError,
+		rutils.NewResourceNotFoundError(motor.Named("m")))
+	test.That(t, res, test.ShouldBeNil)
+	res, err = r.ResourceByName(motor.Named("m1"))
+	test.That(t, err, test.ShouldBeError,
+		rutils.NewResourceNotFoundError(motor.Named("m1")))
+	test.That(t, res, test.ShouldBeNil)
+	res, err = r.ResourceByName(slam.Named("s"))
+	test.That(t, err, test.ShouldBeError,
+		rutils.NewResourceNotFoundError(slam.Named("s")))
+	test.That(t, res, test.ShouldBeNil)
+
+	// Assert that adding base 'b' back re-adds 'm' and 'm1' and slam service 's'.
+	r.Reconfigure(ctx, cfg)
+
+	_, err = r.ResourceByName(base.Named("b"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = r.ResourceByName(motor.Named("m"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = r.ResourceByName(motor.Named("m1"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = r.ResourceByName(slam.Named("s"))
+	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestModularOrphanedResources(t *testing.T) {
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+
+	// Precompile modules to avoid timeout issues when building takes too long.
+	builder := exec.Command("go", "build", ".")
+	builder.Dir = rutils.ResolveFile("examples/customresources/demos/complexmodule")
+	out, err := builder.CombinedOutput()
+	test.That(t, string(out), test.ShouldEqual, "")
+	test.That(t, err, test.ShouldBeNil)
+	builder = exec.Command("go", "build", ".")
+	builder.Dir = rutils.ResolveFile("examples/customresources/demos/simplemodule")
+	out, err = builder.CombinedOutput()
+	test.That(t, string(out), test.ShouldEqual, "")
+	test.That(t, err, test.ShouldBeNil)
+
+	// Manually define models, as importing them can cause double registration.
+	gizmoModel := resource.NewModel(resource.Namespace("acme"), resource.ModelFamilyName("demo"),
+		resource.ModelName("mygizmo"))
+	summationModel := resource.NewModel(resource.Namespace("acme"), resource.ModelFamilyName("demo"),
+		resource.ModelName("mysum"))
+
+	cfg := &config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "mod",
+				ExePath: rutils.ResolveFile("examples/customresources/demos/complexmodule/run.sh"),
+			},
+		},
+		Components: []config.Component{
+			{
+				Name:      "g",
+				Namespace: "acme",
+				Model:     gizmoModel,
+				Type:      resource.SubtypeName("gizmo"),
+			},
+		},
+		Services: []config.Service{
+			{
+				Name:      "s",
+				Namespace: "acme",
+				Model:     summationModel,
+				Type:      resource.SubtypeName("summation"),
+			},
+		},
+	}
+	r, err := robotimpl.New(ctx, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+	}()
+
+	// Assert that reconfiguring module 'mod' to a new module that does not handle
+	// old resources removes modular component 'g' and modular service 's'.
+	cfg2 := &config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "mod",
+				ExePath: rutils.ResolveFile("examples/customresources/demos/simplemodule/run.sh"),
+			},
+		},
+		Components: []config.Component{
+			{
+				Name:      "g",
+				Namespace: "acme",
+				Model:     gizmoModel,
+				Type:      resource.SubtypeName("gizmo"),
+			},
+		},
+		Services: []config.Service{
+			{
+				Name:      "s",
+				Namespace: "acme",
+				Model:     summationModel,
+				Type:      resource.SubtypeName("summation"),
+			},
+		},
+	}
+	r.Reconfigure(ctx, cfg2)
+
+	res, err := r.ResourceByName(gizmoapi.Named("g"))
+	test.That(t, err, test.ShouldBeError,
+		rutils.NewResourceNotFoundError(gizmoapi.Named("g")))
+	test.That(t, res, test.ShouldBeNil)
+	res, err = r.ResourceByName(summationapi.Named("s"))
+	test.That(t, err, test.ShouldBeError,
+		rutils.NewResourceNotFoundError(summationapi.Named("s")))
+	test.That(t, res, test.ShouldBeNil)
+
+	// Remove module entirely.
+	cfg3 := &config.Config{
+		Components: []config.Component{
+			{
+				Name:      "g",
+				Namespace: "acme",
+				Model:     gizmoModel,
+				Type:      resource.SubtypeName("gizmo"),
+			},
+		},
+		Services: []config.Service{
+			{
+				Name:      "s",
+				Namespace: "acme",
+				Model:     summationModel,
+				Type:      resource.SubtypeName("summation"),
+			},
+		},
+	}
+	r.Reconfigure(ctx, cfg3)
+
+	// Assert that adding module 'mod' back with original executable path re-adds
+	// modular component 'g' and modular service 's'.
+	r.Reconfigure(ctx, cfg)
+
+	_, err = r.ResourceByName(gizmoapi.Named("g"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = r.ResourceByName(summationapi.Named("s"))
+	test.That(t, err, test.ShouldBeNil)
+}
+
+var (
+	doodadModel   = resource.NewDefaultModel("mydoodad")
+	doodadSubtype = resource.NewDefaultSubtype("doodad", resource.ResourceTypeComponent)
+)
+
+// doodad is an RDK-built component that depends on a modular gizmo.
+type doodad struct {
+	gizmo gizmoapi.Gizmo
+}
+
+// doThroughGizmo calls the underlying gizmo's DoCommand.
+func (d *doodad) doThroughGizmo(ctx context.Context,
+	cmd map[string]interface{},
+) (map[string]interface{}, error) {
+	return d.gizmo.DoCommand(ctx, cmd)
+}
+
+func TestMixedOrphanedResources(t *testing.T) {
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+
+	// Precompile modules to avoid timeout issues when building takes too long.
+	builder := exec.Command("go", "build", ".")
+	builder.Dir = rutils.ResolveFile("examples/customresources/demos/complexmodule")
+	out, err := builder.CombinedOutput()
+	test.That(t, string(out), test.ShouldEqual, "")
+	test.That(t, err, test.ShouldBeNil)
+	builder = exec.Command("go", "build", ".")
+	builder.Dir = rutils.ResolveFile("examples/customresources/demos/simplemodule")
+	out, err = builder.CombinedOutput()
+	test.That(t, string(out), test.ShouldEqual, "")
+	test.That(t, err, test.ShouldBeNil)
+
+	// Manually define gizmo model, as importing it from mygizmo can cause double
+	// registration.
+	gizmoModel := resource.NewModel(resource.Namespace("acme"), resource.ModelFamilyName("demo"),
+		resource.ModelName("mygizmo"))
+
+	// Register a doodad constructor and defer its deregistration.
+	registry.RegisterComponent(doodadSubtype, doodadModel, registry.Component{
+		Constructor: func(
+			ctx context.Context,
+			deps registry.Dependencies,
+			cfg config.Component,
+			logger golog.Logger,
+		) (interface{}, error) {
+			newDoodad := &doodad{}
+			for rName, res := range deps {
+				if rName.Subtype == gizmoapi.Subtype {
+					gizmo, ok := res.(gizmoapi.Gizmo)
+					if !ok {
+						return nil, errors.Errorf("resource %s is not a gizmo", rName.Name)
+					}
+					newDoodad.gizmo = gizmo
+				}
+			}
+			if newDoodad.gizmo == nil {
+				return nil, errors.Errorf("doodad %s must depend on a gizmo", cfg.Name)
+			}
+			return newDoodad, nil
+		},
+	})
+	defer func() {
+		registry.DeregisterComponent(doodadSubtype, doodadModel)
+	}()
+
+	cfg := &config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "mod",
+				ExePath: rutils.ResolveFile("examples/customresources/demos/complexmodule/run.sh"),
+			},
+		},
+		Components: []config.Component{
+			{
+				Name:      "g",
+				Namespace: "acme",
+				Model:     gizmoModel,
+				Type:      resource.SubtypeName("gizmo"),
+				DependsOn: []string{"m"},
+			},
+			{
+				Name:  "m",
+				Model: fakeModel,
+				Type:  motor.SubtypeName,
+			},
+			{
+				Name:      "d",
+				Model:     doodadModel,
+				Type:      resource.SubtypeName("doodad"),
+				DependsOn: []string{"g"},
+			},
+		},
+	}
+	r, err := robotimpl.New(ctx, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+	}()
+
+	// Assert that reconfiguring module 'mod' to a new module that does not handle
+	// 'g' removes modular component 'g' and its dependent 'd' and leaves 'm' as-is.
+	cfg2 := &config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "mod",
+				ExePath: rutils.ResolveFile("examples/customresources/demos/simplemodule/run.sh"),
+			},
+		},
+		Components: []config.Component{
+			{
+				Name:      "g",
+				Namespace: "acme",
+				Model:     gizmoModel,
+				Type:      resource.SubtypeName("gizmo"),
+				DependsOn: []string{"m"},
+			},
+			{
+				Name:  "m",
+				Model: fakeModel,
+				Type:  motor.SubtypeName,
+			},
+			{
+				Name:      "d",
+				Model:     doodadModel,
+				Type:      resource.SubtypeName("doodad"),
+				DependsOn: []string{"g"},
+			},
+		},
+	}
+	r.Reconfigure(ctx, cfg2)
+
+	res, err := r.ResourceByName(gizmoapi.Named("g"))
+	test.That(t, err, test.ShouldBeError,
+		rutils.NewResourceNotFoundError(gizmoapi.Named("g")))
+	test.That(t, res, test.ShouldBeNil)
+	res, err = r.ResourceByName(resource.NameFromSubtype(doodadSubtype, "d"))
+	test.That(t, err, test.ShouldBeError,
+		rutils.NewResourceNotFoundError(resource.NameFromSubtype(doodadSubtype, "d")))
+	test.That(t, res, test.ShouldBeNil)
+	_, err = r.ResourceByName(motor.Named("m"))
+	test.That(t, err, test.ShouldBeNil)
+
+	// Remove module entirely.
+	cfg3 := &config.Config{
+		Components: []config.Component{
+			{
+				Name:      "g",
+				Namespace: "acme",
+				Model:     gizmoModel,
+				Type:      resource.SubtypeName("gizmo"),
+				DependsOn: []string{"m"},
+			},
+			{
+				Name:  "m",
+				Model: fakeModel,
+				Type:  motor.SubtypeName,
+			},
+			{
+				Name:      "d",
+				Model:     doodadModel,
+				Type:      resource.SubtypeName("doodad"),
+				DependsOn: []string{"g"},
+			},
+		},
+	}
+	r.Reconfigure(ctx, cfg3)
+
+	// Assert that adding module 'mod' back with original executable path re-adds
+	// modular component 'd' and its dependent 'd', and that 'm' is still present.
+	r.Reconfigure(ctx, cfg)
+
+	_, err = r.ResourceByName(gizmoapi.Named("g"))
+	test.That(t, err, test.ShouldBeNil)
+	d, err := r.ResourceByName(resource.NameFromSubtype(doodadSubtype, "d"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = r.ResourceByName(motor.Named("m"))
+	test.That(t, err, test.ShouldBeNil)
+
+	// Assert that doodad 'd' can make gRPC calls through underlying 'g'.
+	doodadD, ok := d.(*doodad)
+	test.That(t, ok, test.ShouldBeTrue)
+	cmd := map[string]interface{}{"foo": "bar"}
+	resp, err := doodadD.doThroughGizmo(ctx, cmd)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldNotBeNil)
+	test.That(t, resp, test.ShouldResemble, cmd)
 }

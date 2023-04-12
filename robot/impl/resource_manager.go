@@ -26,6 +26,12 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
+func init() {
+	if err := cleanAppImageEnv(); err != nil {
+		golog.Global().Errorw("error cleaning up app image environement", "error", err)
+	}
+}
+
 const (
 	remoteTypeName  = resource.TypeName("remote")
 	unknownTypeName = resource.TypeName("unk")
@@ -394,14 +400,16 @@ func (manager *resourceManager) completeConfig(
 			// Check for Validation errors.
 			_, err := c.Validate("")
 			if err != nil {
-				wrap.err = errors.Wrap(err, "Config validation error found in component: "+c.Name)
+				manager.logger.Errorw("component config validation error", "resource", c.ResourceName(), "model", c.Model, "error", err)
+				wrap.err = errors.Wrap(err, "config validation error found in component: "+c.Name)
 				continue
 			}
 			// Check for modular Validation errors.
 			if robot.ModuleManager().Provides(c) {
 				_, err = robot.ModuleManager().ValidateConfig(ctx, c)
 				if err != nil {
-					wrap.err = errors.Wrap(err, "Config validation error found in modular component: "+c.Name)
+					manager.logger.Errorw("modular component config validation error", "resource", c.ResourceName(), "model", c.Model, "error", err)
+					wrap.err = errors.Wrap(err, "config validation error found in modular component: "+c.Name)
 					continue
 				}
 			}
@@ -418,7 +426,8 @@ func (manager *resourceManager) completeConfig(
 			// Check for Validation errors.
 			_, err := s.Validate("")
 			if err != nil {
-				wrap.err = errors.Wrap(err, "Config validation error found in service: "+s.Name)
+				manager.logger.Errorw("service config validation error", "resource", s.ResourceName(), "model", s.Model, "error", err)
+				wrap.err = errors.Wrap(err, "config validation error found in service: "+s.Name)
 				continue
 			}
 			// Check for modular Validation errors.
@@ -426,7 +435,8 @@ func (manager *resourceManager) completeConfig(
 			if robot.ModuleManager().Provides(sCfg) {
 				_, err = robot.ModuleManager().ValidateConfig(ctx, sCfg)
 				if err != nil {
-					wrap.err = errors.Wrap(err, "Config validation error found in modular service: "+sCfg.Name)
+					manager.logger.Errorw("modular service config validation error", "resource", s.ResourceName(), "model", s.Model, "error", err)
+					wrap.err = errors.Wrap(err, "config validation error found in modular service: "+sCfg.Name)
 					continue
 				}
 			}
@@ -441,7 +451,8 @@ func (manager *resourceManager) completeConfig(
 		} else if rc, ok := wrap.config.(config.Remote); ok {
 			err := rc.Validate("")
 			if err != nil {
-				wrap.err = errors.Wrap(err, "Config validation error found in remote: "+rc.Name)
+				manager.logger.Errorw("remote config validation error", "remote", rc.Name, "error", err)
+				wrap.err = errors.Wrap(err, "config validation error found in remote: "+rc.Name)
 				continue
 			}
 			rr, err := manager.processRemote(ctx, rc)
@@ -810,9 +821,6 @@ func (manager *resourceManager) updateResources(
 		allErrs = multierr.Combine(allErrs, manager.wrapResource(rName, r, []string{}, fn))
 	}
 	// processes are not added into the resource tree as they belong to a process manager
-	if err := cleanAppImageEnv(); err != nil {
-		manager.logger.Errorw("error cleaning up app image environement", "error", err)
-	}
 
 	for _, p := range config.Added.Processes {
 		if manager.opts.untrustedEnv {

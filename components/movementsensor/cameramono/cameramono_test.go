@@ -41,6 +41,7 @@ var tCo = &cameramono{
 		angVel:        spatialmath.AngularVelocity{X: 10, Y: 20, Z: 30},
 		linVel:        r3.Vector{X: 40, Y: 50, Z: 60},
 	},
+	err: movementsensor.NewLastError(1, 1),
 }
 
 func TestInit(t *testing.T) {

@@ -24,10 +24,12 @@ type gpioPin struct {
 	// These values should both be considered immutable.
 	devicePath string
 	offset     uint32
-	line       *gpio.Line
 
 	// These values are mutable. Lock the mutex when interacting with them.
-	pwmRunning      bool
+	line            *gpio.Line
+	isInput         bool
+	swPwmRunning    bool
+	hwPwm           *pwmDevice // Defined in hw_pwm.go, will be nil for pins that don't support it.
 	pwmFreqHz       uint
 	pwmDutyCyclePct float64
 
@@ -39,9 +41,26 @@ type gpioPin struct {
 
 // This is a private helper function that should only be called when the mutex is locked. It sets
 // pin.line to a valid struct or returns an error.
-func (pin *gpioPin) openGpioFd() error {
+func (pin *gpioPin) openGpioFd(isInput bool) error {
+	if isInput != pin.isInput {
+		// We're switching from an input pin to an output one or vice versa. Close the line and
+		// repoen in the other mode.
+		if err := pin.closeGpioFd(); err != nil {
+			return err
+		}
+		pin.isInput = isInput
+	}
+
 	if pin.line != nil {
-		return nil // If the pin is already opened, don't re-open it.
+		return nil // The pin is already opened, don't re-open it.
+	}
+
+	if pin.hwPwm != nil {
+		// If the pin is currently used by the hardware PWM chip, shut that down before we can open
+		// it for basic GPIO use.
+		if err := pin.hwPwm.Close(); err != nil {
+			return err
+		}
 	}
 
 	chip, err := gpio.OpenChip(pin.devicePath)
@@ -50,15 +69,31 @@ func (pin *gpioPin) openGpioFd() error {
 	}
 	defer utils.UncheckedErrorFunc(chip.Close)
 
-	// The 0 just means the default value for this pin is off. We'll set it to the intended value
-	// in Set(), below.
+	direction := gpio.Output
+	if pin.isInput {
+		direction = gpio.Input
+	}
+
+	// The 0 just means the default output value for this pin is off. We'll set it to the intended
+	// value in Set(), below, if this is an output pin.
 	// NOTE: we could pass in extra flags to configure the pin to be open-source or open-drain, but
-	// we haven't done that yet, and instead go with whatever the default on the board is.
-	line, err := chip.OpenLine(pin.offset, 0, gpio.Output, "viam-gpio")
+	// we haven't done that yet, and we instead go with whatever the default on the board is.
+	line, err := chip.OpenLine(pin.offset, 0, direction, "viam-gpio")
 	if err != nil {
 		return err
 	}
 	pin.line = line
+	return nil
+}
+
+func (pin *gpioPin) closeGpioFd() error {
+	if pin.line == nil {
+		return nil // The pin is already closed.
+	}
+	if err := pin.line.Close(); err != nil {
+		return err
+	}
+	pin.line = nil
 	return nil
 }
 
@@ -69,22 +104,22 @@ func (pin *gpioPin) Set(ctx context.Context, isHigh bool,
 	pin.mu.Lock()
 	defer pin.mu.Unlock()
 
-	if err := pin.openGpioFd(); err != nil {
-		return err
-	}
-
-	pin.pwmRunning = false
+	pin.swPwmRunning = false
 	return pin.setInternal(isHigh)
 }
 
 // This function assumes you've already locked the mutex. It sets the value of a pin without
-// changing whether the pin is part of a PWM loop.
+// changing whether the pin is part of a software PWM loop.
 func (pin *gpioPin) setInternal(isHigh bool) (err error) {
 	var value byte
 	if isHigh {
 		value = 1
 	} else {
 		value = 0
+	}
+
+	if err := pin.openGpioFd( /* isInput= */ false); err != nil {
+		return err
 	}
 
 	return pin.line.SetValue(value)
@@ -97,7 +132,7 @@ func (pin *gpioPin) Get(
 	pin.mu.Lock()
 	defer pin.mu.Unlock()
 
-	if err := pin.openGpioFd(); err != nil {
+	if err := pin.openGpioFd( /* isInput= */ true); err != nil {
 		return false, err
 	}
 
@@ -114,18 +149,42 @@ func (pin *gpioPin) Get(
 // in software, if we're supposed to and one isn't already running.
 func (pin *gpioPin) startSoftwarePWM() error {
 	if pin.pwmDutyCyclePct == 0 || pin.pwmFreqHz == 0 {
-		// We don't have both parameters set up. Stop any PWM loop we might have started already.
-		pin.pwmRunning = false
-		// If we used to have both parameters set but no longer do, turn off the pin!
+		// We don't have both parameters set up. Stop any PWM loop we might have started previously.
+		pin.swPwmRunning = false
+		if pin.hwPwm != nil {
+			return pin.hwPwm.Close()
+		}
+		// If we used to have a software PWM loop, we might have stopped the loop while the pin was
+		// on. Remember to turn it off!
 		return pin.setInternal(false)
 	}
-	if pin.pwmRunning {
-		// We're already running a software PWM loop for this pin, so we don't need another.
+
+	// Otherwise, we need to output a PWM signal.
+	if pin.hwPwm != nil {
+		if pin.pwmFreqHz > 1 {
+			if err := pin.closeGpioFd(); err != nil {
+				return err
+			}
+			pin.swPwmRunning = false // Shut down any software PWM loop that might be running.
+			return pin.hwPwm.SetPwm(pin.pwmFreqHz, pin.pwmDutyCyclePct)
+		}
+		// Although this pin has hardware PWM support, many PWM chips cannot output signals at
+		// frequencies this low. Stop any hardware PWM, and fall through to using a software PWM
+		// loop below.
+		if err := pin.hwPwm.Close(); err != nil {
+			return err
+		}
+	}
+
+	// If we get here, we need a software loop to drive the PWM signal, either because this pin
+	// doesn't have hardware support or because we want to drive it at such a low frequency that
+	// the hardware chip can't do it.
+	if pin.swPwmRunning {
+		// We already have a software PWM loop running. It will pick up the changes on its own.
 		return nil
 	}
 
-	// Otherwise, we'll actually start running.
-	pin.pwmRunning = true
+	pin.swPwmRunning = true
 	pin.waitGroup.Add(1)
 	utils.ManagedGo(pin.softwarePwmLoop, pin.waitGroup.Done)
 	return nil
@@ -144,7 +203,7 @@ func (pin *gpioPin) halfPwmCycle(shouldBeOn bool) bool {
 		pin.mu.Lock()
 		defer pin.mu.Unlock()
 		// Before we modify the pin, check if we should stop running
-		if !pin.pwmRunning {
+		if !pin.swPwmRunning {
 			return false
 		}
 
@@ -221,13 +280,13 @@ func (pin *gpioPin) Close() error {
 	pin.mu.Lock()
 	defer pin.mu.Unlock()
 
-	if pin.line == nil {
-		return nil // Never opened, so no need to close
+	if pin.hwPwm != nil {
+		// Make sure to unexport the sysfs device for hardware PWM on this pin, if it's in use.
+		if err := pin.hwPwm.Close(); err != nil {
+			return err
+		}
 	}
-
-	err := pin.line.Close()
-	pin.line = nil
-	return err
+	return pin.closeGpioFd()
 }
 
 func gpioInitialize(cancelCtx context.Context, gpioMappings map[int]GPIOBoardMapping,
@@ -247,20 +306,24 @@ func gpioInitialize(cancelCtx context.Context, gpioMappings map[int]GPIOBoardMap
 	}
 
 	pins := make(map[string]*gpioPin)
-	for pin, mapping := range gpioMappings {
-		if _, ok := interrupts[fmt.Sprintf("%d", pin)]; ok {
+	for pinNumber, mapping := range gpioMappings {
+		if _, ok := interrupts[fmt.Sprintf("%d", pinNumber)]; ok {
 			logger.Debugf(
 				"Skipping initialization of GPIO pin %s because it's configured as an interrupt",
-				pin)
+				pinNumber)
 			continue
 		}
-		pins[fmt.Sprintf("%d", pin)] = &gpioPin{
+		pin := &gpioPin{
 			devicePath: mapping.GPIOChipDev,
 			offset:     uint32(mapping.GPIO),
 			cancelCtx:  cancelCtx,
 			waitGroup:  waitGroup,
 			logger:     logger,
 		}
+		if mapping.HWPWMSupported {
+			pin.hwPwm = newPwmDevice(mapping.PWMSysFsDir, mapping.PWMID, logger)
+		}
+		pins[fmt.Sprintf("%d", pinNumber)] = pin
 	}
 	return pins, interrupts, nil
 }
@@ -277,7 +340,7 @@ func createDigitalInterrupt(ctx context.Context, config board.DigitalInterruptCo
 ) (*digitalInterrupt, error) {
 	pinInt, err := strconv.Atoi(config.Pin)
 	if err != nil {
-		return nil, errors.Errorf("pin names must be numerical, not '%s'", config.Pin)
+		return nil, errors.Errorf("pin numbers must be numerical, not '%s'", config.Pin)
 	}
 	mapping, ok := gpioMappings[pinInt]
 	if !ok {

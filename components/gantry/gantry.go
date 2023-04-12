@@ -69,9 +69,8 @@ type Gantry interface {
 	Position(ctx context.Context, extra map[string]interface{}) ([]float64, error)
 
 	// MoveToPosition is in meters
-	// The worldState argument should be treated as optional by all implementing drivers
 	// This will block until done or a new operation cancels this one
-	MoveToPosition(ctx context.Context, positionsMm []float64, worldState *referenceframe.WorldState, extra map[string]interface{}) error
+	MoveToPosition(ctx context.Context, positionsMm []float64, extra map[string]interface{}) error
 
 	// Lengths is the length of gantries in meters
 	Lengths(ctx context.Context, extra map[string]interface{}) ([]float64, error)
@@ -88,15 +87,7 @@ type Gantry interface {
 // FromDependencies is a helper for getting the named gantry from a collection of
 // dependencies.
 func FromDependencies(deps registry.Dependencies, name string) (Gantry, error) {
-	res, ok := deps[Named(name)]
-	if !ok {
-		return nil, utils.DependencyNotFoundError(name)
-	}
-	part, ok := res.(Gantry)
-	if !ok {
-		return nil, DependencyTypeError(name, res)
-	}
-	return part, nil
+	return registry.ResourceFromDependencies[Gantry](deps, Named(name))
 }
 
 // A LocalGantry represents a Gantry that can report whether it is moving or not.
@@ -112,11 +103,6 @@ func NewUnimplementedInterfaceError(actual interface{}) error {
 // NewUnimplementedLocalInterfaceError is used when there is a failed interface check.
 func NewUnimplementedLocalInterfaceError(actual interface{}) error {
 	return utils.NewUnimplementedInterfaceError((*Gantry)(nil), actual)
-}
-
-// DependencyTypeError is used when a resource doesn't implement the expected interface.
-func DependencyTypeError(name string, actual interface{}) error {
-	return utils.DependencyTypeError(name, (*Gantry)(nil), actual)
 }
 
 // FromRobot is a helper for getting the named gantry from the given Robot.
@@ -218,15 +204,10 @@ func (g *reconfigurableGantry) Lengths(ctx context.Context, extra map[string]int
 }
 
 // position is in meters.
-func (g *reconfigurableGantry) MoveToPosition(
-	ctx context.Context,
-	positionsMm []float64,
-	worldState *referenceframe.WorldState,
-	extra map[string]interface{},
-) error {
+func (g *reconfigurableGantry) MoveToPosition(ctx context.Context, positionsMm []float64, extra map[string]interface{}) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	return g.actual.MoveToPosition(ctx, positionsMm, worldState, extra)
+	return g.actual.MoveToPosition(ctx, positionsMm, extra)
 }
 
 func (g *reconfigurableGantry) Stop(ctx context.Context, extra map[string]interface{}) error {

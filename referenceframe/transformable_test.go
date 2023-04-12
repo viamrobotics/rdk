@@ -22,15 +22,22 @@ func TestPoseInFrame(t *testing.T) {
 
 func TestGeometriesInFrame(t *testing.T) {
 	pose := spatial.NewPose(r3.Vector{1, 2, 3}, &spatial.OrientationVector{math.Pi / 2, 0, 0, -1})
-	geometry, err := spatial.NewBox(pose, r3.Vector{4, 5, 6}, "")
-	geometryList := []spatial.Geometry{geometry}
+	zero, err := spatial.NewBox(pose, r3.Vector{1, 2, 3}, "zero")
+	test.That(t, err, test.ShouldBeNil)
+	one, err := spatial.NewBox(pose, r3.Vector{2, 3, 4}, "one")
+	test.That(t, err, test.ShouldBeNil)
+	two, err := spatial.NewBox(pose, r3.Vector{3, 4, 5}, "two")
+	test.That(t, err, test.ShouldBeNil)
+	three, err := spatial.NewBox(pose, r3.Vector{4, 5, 6}, "three")
+	test.That(t, err, test.ShouldBeNil)
+	geometryList := []spatial.Geometry{zero, one, two, three}
 
 	test.That(t, err, test.ShouldBeNil)
 	gF := NewGeometriesInFrame("frame", geometryList)
 	test.That(t, gF.Parent(), test.ShouldEqual, "frame")
-	test.That(t, gF.Geometries()[0].AlmostEqual(geometry), test.ShouldBeTrue)
+	test.That(t, one.AlmostEqual(gF.GeometryByName("one")), test.ShouldBeTrue)
 	convertedGF, err := ProtobufToGeometriesInFrame(GeometriesInFrameToProtobuf(gF))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, gF.Parent(), test.ShouldEqual, convertedGF.Parent())
-	test.That(t, gF.Geometries()[0].AlmostEqual(convertedGF.GeometryByName("")), test.ShouldBeTrue)
+	test.That(t, one.AlmostEqual(convertedGF.GeometryByName("one")), test.ShouldBeTrue)
 }

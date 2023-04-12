@@ -325,7 +325,7 @@ func (rc *RobotClient) connect(ctx context.Context) error {
 
 	client := pb.NewRobotServiceClient(conn)
 
-	refClient := grpcreflect.NewClient(rc.backgroundCtx, reflectpb.NewServerReflectionClient(conn))
+	refClient := grpcreflect.NewClientV1Alpha(rc.backgroundCtx, reflectpb.NewServerReflectionClient(conn))
 
 	rc.conn = conn
 	rc.client = client
@@ -562,7 +562,7 @@ func (rc *RobotClient) createClient(name resource.Name) (interface{}, error) {
 		// interacting with it.
 		rc.logger.Errorw("the client registration for resource doesn't exist, you may need to import relevant client package",
 			"resource", name,
-			"import_guess", fmt.Sprintf("go.viam.com/rdk/%s/%s/register", name.ResourceType, name.Subtype))
+			"import_guess", fmt.Sprintf("go.viam.com/rdk/%s/%s/register", name.ResourceType, name.ResourceSubtype))
 		return nil, ErrMissingClientRegistration
 	}
 	// pass in conn

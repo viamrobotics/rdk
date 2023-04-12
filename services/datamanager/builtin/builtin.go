@@ -10,10 +10,10 @@ import (
 	"sync"
 	"time"
 
+	clk "github.com/benbjohnson/clock"
 	"github.com/edaniels/golog"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/data"
@@ -60,6 +60,8 @@ const defaultCaptureQueueSize = 250
 
 // Default bufio.Writer buffer size in bytes.
 const defaultCaptureBufferSize = 4096
+
+var clock = clk.New()
 
 var errCaptureDirectoryConfigurationDisabled = errors.New("changing the capture directory is prohibited in this environment")
 
@@ -113,7 +115,6 @@ type builtIn struct {
 	r                           robot.Robot
 	cfg                         *config.Config
 	logger                      golog.Logger
-	syncLogger                  golog.Logger
 	captureDir                  string
 	captureDisabled             bool
 	collectors                  map[componentMethodMetadata]*collectorAndConfig
@@ -133,22 +134,9 @@ var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), ".viam", "capture")
 
 // NewBuiltIn returns a new data manager service for the given robot.
 func NewBuiltIn(_ context.Context, r robot.Robot, _ config.Service, logger golog.Logger) (datamanager.Service, error) {
-	var syncLogger golog.Logger
-	// Create a production logger for its smart sampling defaults, since if many collectors or upload retries
-	// fail at once, the syncer will otherwise spam logs.
-	productionLogger, err := zap.NewProduction()
-	if err != nil {
-		syncLogger = logger // Default to the provided logger.
-	} else {
-		syncLogger = productionLogger.Sugar()
-	}
-
-	// Set syncIntervalMins = -1 as we rely on initOrUpdateSyncer to instantiate a syncer
-	// on first call to Update, even if syncIntervalMins value is 0, and the default value for int64 is 0.
 	dataManagerSvc := &builtIn{
 		r:                           r,
 		logger:                      logger,
-		syncLogger:                  syncLogger,
 		captureDir:                  viamCaptureDotDir,
 		collectors:                  make(map[componentMethodMetadata]*collectorAndConfig),
 		backgroundWorkers:           sync.WaitGroup{},
@@ -305,6 +293,7 @@ func (svc *builtIn) initializeOrUpdateCollector(
 		QueueSize:     captureQueueSize,
 		BufferSize:    captureBufferSize,
 		Logger:        svc.logger,
+		Clock:         clock,
 	}
 	collector, err := (*collectorConstructor)(res, params)
 	if err != nil {
@@ -324,7 +313,7 @@ func (svc *builtIn) closeSyncer() {
 }
 
 func (svc *builtIn) initSyncer(cfg *config.Config) error {
-	syncer, err := svc.syncerConstructor(svc.logger, cfg, svc.waitAfterLastModifiedMillis)
+	syncer, err := svc.syncerConstructor(svc.logger, cfg)
 	if err != nil {
 		return errors.Wrap(err, "failed to initialize new syncer")
 	}
@@ -361,26 +350,16 @@ func (svc *builtIn) getCollectorFromConfig(attributes dataCaptureConfig) (data.C
 // Sync performs a non-scheduled sync of the data in the capture directory.
 func (svc *builtIn) Sync(_ context.Context, _ map[string]interface{}) error {
 	svc.lock.Lock()
+	defer svc.lock.Unlock()
 	if svc.syncer == nil {
 		err := svc.initSyncer(svc.cfg)
 		if err != nil {
-			svc.lock.Unlock()
 			return err
 		}
 	}
 
-	svc.flushCollectors()
-	svc.syncer.SyncDirectory(svc.captureDir)
-	svc.syncAdditionalSyncPaths()
-	svc.lock.Unlock()
+	svc.sync()
 	return nil
-}
-
-// Syncs files under svc.additionalSyncPaths. If any of the directories do not exist, creates them.
-func (svc *builtIn) syncAdditionalSyncPaths() {
-	for _, dir := range svc.additionalSyncPaths {
-		svc.syncer.SyncDirectory(dir)
-	}
 }
 
 // Update updates the data manager service when the config has changed.
@@ -485,17 +464,20 @@ func (svc *builtIn) startSyncScheduler(intervalMins float64) {
 func (svc *builtIn) cancelSyncScheduler() {
 	if svc.syncRoutineCancelFn != nil {
 		svc.syncRoutineCancelFn()
+		svc.backgroundWorkers.Wait()
 		svc.syncRoutineCancelFn = nil
 	}
 }
 
 func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) {
+	// time.Duration loses precision at low floating point values, so turn intervalMins to milliseconds.
+	intervalMillis := 60000.0 * intervalMins
+	// The ticker must be created before uploadData returns to prevent race conditions between clock.Ticker and
+	// clock.Add in sync_test.go.
+	ticker := clock.Ticker(time.Millisecond * time.Duration(intervalMillis))
 	svc.backgroundWorkers.Add(1)
 	goutils.PanicCapturingGo(func() {
 		defer svc.backgroundWorkers.Done()
-		// time.Duration loses precision at low floating point values, so turn intervalMins to milliseconds.
-		intervalMillis := 60000.0 * intervalMins
-		ticker := time.NewTicker(time.Millisecond * time.Duration(intervalMillis))
 		defer ticker.Stop()
 
 		for {
@@ -512,14 +494,44 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 			case <-ticker.C:
 				svc.lock.Lock()
 				if svc.syncer != nil {
-					svc.flushCollectors()
-					svc.syncer.SyncDirectory(svc.captureDir)
-					svc.syncAdditionalSyncPaths()
+					svc.sync()
 				}
 				svc.lock.Unlock()
 			}
 		}
 	})
+}
+
+func (svc *builtIn) sync() {
+	svc.flushCollectors()
+	toSync := getAllFilesToSync(svc.captureDir, svc.waitAfterLastModifiedMillis)
+	for _, ap := range svc.additionalSyncPaths {
+		toSync = append(toSync, getAllFilesToSync(ap, svc.waitAfterLastModifiedMillis)...)
+	}
+	for _, p := range toSync {
+		svc.syncer.SyncFile(p)
+	}
+}
+
+// nolint
+func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
+	var filePaths []string
+	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		if info.IsDir() {
+			return nil
+		}
+		// If a file was modified within the past lastModifiedMillis seconds, do not sync it (data
+		// may still be being written).
+		timeSinceMod := time.Since(info.ModTime())
+		if timeSinceMod > (time.Duration(lastModifiedMillis)*time.Millisecond) || filepath.Ext(path) == datacapture.FileExt {
+			filePaths = append(filePaths, path)
+		}
+		return nil
+	})
+	return filePaths
 }
 
 // Get the config associated with the data manager service.

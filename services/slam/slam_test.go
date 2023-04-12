@@ -5,6 +5,7 @@ package slam_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"go.viam.com/test"
@@ -13,6 +14,7 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/slam"
+	"go.viam.com/rdk/testutils/inject"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
@@ -61,6 +63,31 @@ func TestReconfigurable(t *testing.T) {
 	err = reconfSvc1.Reconfigure(context.Background(), nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldBeError, rdkutils.NewUnexpectedTypeError(reconfSvc1, nil))
+}
+
+func TestFromRobot(t *testing.T) {
+	testSvcName := "test"
+	svc1 := &mock{name: testSvcName}
+	r := &inject.Robot{
+		ResourceByNameFunc: func(name resource.Name) (interface{}, error) {
+			if name.ShortName() == testSvcName {
+				return svc1, nil
+			}
+			return nil, errors.New("not found")
+		},
+	}
+
+	t.Run("successfully find service", func(t *testing.T) {
+		svc2, err := slam.FromRobot(r, testSvcName)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, svc2, test.ShouldNotBeNil)
+	})
+
+	t.Run("fail to find service", func(t *testing.T) {
+		svc2, err := slam.FromRobot(r, "garbage")
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, svc2, test.ShouldBeNil)
+	})
 }
 
 func TestDoCommand(t *testing.T) {

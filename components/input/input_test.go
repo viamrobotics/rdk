@@ -82,7 +82,7 @@ func TestFromDependencies(t *testing.T) {
 	test.That(t, result, test.ShouldResemble, controls)
 
 	res, err = input.FromDependencies(deps, fakeInputControllerName)
-	test.That(t, err, test.ShouldBeError, input.DependencyTypeError(fakeInputControllerName, "string"))
+	test.That(t, err, test.ShouldBeError, rutils.DependencyTypeError[input.Controller](fakeInputControllerName, "string"))
 	test.That(t, res, test.ShouldBeNil)
 
 	res, err = input.FromDependencies(deps, missingInputControllerName)

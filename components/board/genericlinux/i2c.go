@@ -1,3 +1,6 @@
+//go:build linux
+
+// Package genericlinux is for boards that run Linux. This file is for I2C support on those boards.
 package genericlinux
 
 import (

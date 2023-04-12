@@ -34,7 +34,7 @@ export const createRcApp = (props: {
 
     props.client = new Client(impliedURL, {
       enabled: true,
-      host: window.host,
+      host: props.host,
       signalingAddress: window.webrtcSignalingAddress,
       rtcConfig,
     });

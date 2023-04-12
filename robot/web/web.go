@@ -172,6 +172,12 @@ func hasManagedAuthHandlers(handlers []config.AuthHandlerConfig) bool {
 	return false
 }
 
+// validSDPTrackName returns a valid SDP video/audio track name as defined in RFC 4566 (https://www.rfc-editor.org/rfc/rfc4566)
+// where track names should not include colons.
+func validSDPTrackName(name string) string {
+	return strings.ReplaceAll(name, ":", "+")
+}
+
 // allVideoSourcesToDisplay returns every possible video source that could be viewed from
 // the robot.
 func allVideoSourcesToDisplay(theRobot robot.Robot) map[string]gostream.VideoSource {
@@ -182,8 +188,7 @@ func allVideoSourcesToDisplay(theRobot robot.Robot) map[string]gostream.VideoSou
 		if err != nil {
 			continue
 		}
-
-		sources[name] = cam
+		sources[validSDPTrackName(name)] = cam
 	}
 
 	return sources
@@ -199,8 +204,7 @@ func allAudioSourcesToDisplay(theRobot robot.Robot) map[string]gostream.AudioSou
 		if err != nil {
 			continue
 		}
-
-		sources[name] = input
+		sources[validSDPTrackName(name)] = input
 	}
 
 	return sources
@@ -216,6 +220,9 @@ type Service interface {
 
 	// StartModule starts the module server socket.
 	StartModule(context.Context) error
+
+	// RefreshResources reloads the grpc-service subtypes with current robot Resources
+	RefreshResources() error
 
 	// Returns the address and port the web service listens on.
 	Address() string
@@ -391,7 +398,7 @@ func (svc *webService) StartModule(ctx context.Context) error {
 	if err := svc.modServer.RegisterServiceServer(ctx, &pb.RobotService_ServiceDesc, grpcserver.New(svc.r)); err != nil {
 		return err
 	}
-	if err := svc.initResources(); err != nil {
+	if err := svc.RefreshResources(); err != nil {
 		return err
 	}
 	if err := svc.initSubtypeServices(ctx, true); err != nil {
@@ -732,7 +739,7 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 		return err
 	}
 
-	if err := svc.initResources(); err != nil {
+	if err := svc.RefreshResources(); err != nil {
 		return err
 	}
 
@@ -983,8 +990,6 @@ func (svc *webService) initAuthHandlers(listenerTCPAddr *net.TCPAddr, options we
 					handler.Type,
 					rpc.MakeSimpleMultiAuthHandler(authEntities, locationSecrets),
 				))
-			case rpc.CredentialsType("oauth-web-auth"):
-				// TODO(APP-1412): remove after a week from being deployed
 			case rpc.CredentialsTypeExternal:
 			default:
 				return nil, errors.Errorf("do not know how to handle auth for %q", handler.Type)
@@ -1002,21 +1007,16 @@ func (svc *webService) initAuthHandlers(listenerTCPAddr *net.TCPAddr, options we
 }
 
 // Populate subtype services with robot resources.
-func (svc *webService) initResources() error {
+func (svc *webService) RefreshResources() error {
 	resources := make(map[resource.Name]interface{})
 	for _, name := range svc.r.ResourceNames() {
 		resource, err := svc.r.ResourceByName(name)
 		if err != nil {
 			continue
 		}
-
 		resources[name] = resource
 	}
-	if err := svc.updateResources(resources); err != nil {
-		return err
-	}
-
-	return nil
+	return svc.updateResources(resources)
 }
 
 // Register every subtype resource grpc service here.

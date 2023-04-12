@@ -159,7 +159,7 @@ func (c *AppClient) ensureLoggedIn() error {
 	}
 
 	if c.conf.Auth == nil {
-		return errors.New("not logged in")
+		return errors.New("not logged in: run the following command to authenticate:\n\tviam auth")
 	}
 
 	if c.conf.Auth.IsExpired() {
@@ -590,7 +590,7 @@ func (c *AppClient) RunRobotPartCommand(
 	}()
 
 	refCtx := metadata.NewOutgoingContext(c.c.Context, nil)
-	refClient := grpcreflect.NewClient(refCtx, reflectpb.NewServerReflectionClient(conn))
+	refClient := grpcreflect.NewClientV1Alpha(refCtx, reflectpb.NewServerReflectionClient(conn))
 	reflSource := grpcurl.DescriptorSourceFromServer(c.c.Context, refClient)
 	descSource := reflSource
 

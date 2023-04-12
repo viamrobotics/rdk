@@ -111,7 +111,7 @@ func TestClassifierSource(t *testing.T) {
 	ovImg := rimage.ConvertImage(resImg)
 	// Max classifications was 5, but this image gets classified with just 2 labels, so we
 	// test that each label is present.
-	test.That(t, ovImg.GetXY(35, 28), test.ShouldResemble, rimage.Red)
-	test.That(t, ovImg.GetXY(35, 59), test.ShouldResemble, rimage.Red)
+	test.That(t, ovImg.GetXY(35, 45), test.ShouldResemble, rimage.Red)
+	test.That(t, ovImg.GetXY(35, 58), test.ShouldResemble, rimage.Red)
 	test.That(t, classifier.Close(context.Background()), test.ShouldBeNil)
 }

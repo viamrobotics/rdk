@@ -21,6 +21,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/module/modmanager"
+	modmanageroptions "go.viam.com/rdk/module/modmanager/options"
 	modif "go.viam.com/rdk/module/modmaninterface"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/pointcloud"
@@ -181,12 +182,18 @@ func (r *localRobot) Close(ctx context.Context) error {
 	if r.cloudConn != nil {
 		err = multierr.Combine(err, r.cloudConn.Close())
 	}
+	if r.manager != nil {
+		err = multierr.Combine(err, r.manager.Close(ctx, r))
+	}
+	if r.modules != nil {
+		err = multierr.Combine(err, r.modules.Close(ctx))
+	}
+	if r.packageManager != nil {
+		err = multierr.Combine(err, r.packageManager.Close())
+	}
 
 	err = multierr.Combine(
 		err,
-		r.manager.Close(ctx, r),
-		r.modules.Close(ctx),
-		r.packageManager.Close(),
 		goutils.TryClose(ctx, web),
 	)
 	r.sessionManager.Close()
@@ -501,12 +508,11 @@ func newWithResources(
 		return nil, err
 	}
 
-	modMgr, err := modmanager.NewManager(r)
+	modMgr, err := modmanager.NewManager(r, modmanageroptions.Options{UntrustedEnv: r.manager.opts.untrustedEnv})
 	if err != nil {
 		return nil, err
 	}
 	r.modules = modMgr
-
 	for _, mod := range cfg.Modules {
 		err := r.modules.Add(ctx, mod)
 		if err != nil {
@@ -761,9 +767,13 @@ func (r *localRobot) updateDefaultServices(ctx context.Context) {
 	}
 }
 
-// Refresh does nothing for now.
+// Refresh causes the web service to reload it's subtype service maps from the actual robot resources.
 func (r *localRobot) Refresh(ctx context.Context) error {
-	return nil
+	svc, err := r.webService()
+	if err != nil {
+		return err
+	}
+	return svc.RefreshResources()
 }
 
 // FrameSystemConfig returns the info of each individual part that makes up a robot's frame system.
@@ -957,10 +967,46 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 		r.logger.Debugf("(re)configuring with %+v", diff)
 	}
 
+	modularOrphanedResourceNames, err := r.reconfigureModules(ctx, diff)
+	if err != nil {
+		r.logger.Error(err)
+		return
+	}
+
+	// Before filtering config, manually add modular orphaned resources (resources
+	// handled by removed modules) to diff.Removed.
+	for _, name := range modularOrphanedResourceNames {
+		for _, c := range newConfig.Components {
+			if c.ResourceName() == name {
+				diff.Removed.Components = append(diff.Removed.Components, c)
+			}
+		}
+		for _, s := range newConfig.Services {
+			if s.ResourceName() == name {
+				diff.Removed.Services = append(diff.Removed.Services, s)
+			}
+		}
+	}
+
 	// First we remove resources and their children that are not in the graph.
 	filtered, err := r.manager.FilterFromConfig(ctx, diff.Removed, r.logger)
 	if err != nil {
 		allErrs = multierr.Combine(allErrs, err)
+	}
+	// Remove orphaned resources (dependents of removed resources) from newConfig.
+	for _, name := range filtered.resources.Names() {
+		for i, c := range newConfig.Components {
+			if c.ResourceName() == name {
+				newConfig.Components[i] = newConfig.Components[len(newConfig.Components)-1]
+				newConfig.Components = newConfig.Components[:len(newConfig.Components)-1]
+			}
+		}
+		for i, s := range newConfig.Services {
+			if s.ResourceName() == name {
+				newConfig.Services[i] = newConfig.Services[len(newConfig.Services)-1]
+				newConfig.Services = newConfig.Services[:len(newConfig.Services)-1]
+			}
+		}
 	}
 	// Second we update the resource graph.
 	// We pass a search function to look for dependencies, we should find them either in the current config or in the modified.
@@ -1052,4 +1098,36 @@ func (r *localRobot) checkMaxInstance(subtype resource.Subtype, max int) error {
 		}
 	}
 	return nil
+}
+
+// reconfigureModules will add, remove and reconfigure modules from the module
+// manager as needed depending on the passed-in config diff. It will return the
+// names of now orphaned resources.
+func (r *localRobot) reconfigureModules(ctx context.Context,
+	diff *config.Diff,
+) ([]resource.Name, error) {
+	for _, mod := range diff.Added.Modules {
+		if err := r.modules.Add(ctx, mod); err != nil {
+			return nil, errors.Wrapf(err, "error adding module %s ", mod.Name)
+		}
+	}
+
+	var allOrphanedResourceNames []resource.Name
+	for _, mod := range diff.Modified.Modules {
+		orphanedResourceNames, err := r.modules.Reconfigure(ctx, mod)
+		if err != nil {
+			return nil, errors.Wrapf(err, "error reconfiguring module %s ", mod.Name)
+		}
+		allOrphanedResourceNames = append(allOrphanedResourceNames, orphanedResourceNames...)
+	}
+
+	for _, mod := range diff.Removed.Modules {
+		orphanedResourceNames, err := r.modules.Remove(mod.Name)
+		if err != nil {
+			return nil, errors.Wrapf(err, "error removing module %s ", mod.Name)
+		}
+		allOrphanedResourceNames = append(allOrphanedResourceNames, orphanedResourceNames...)
+	}
+
+	return allOrphanedResourceNames, nil
 }
