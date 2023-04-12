@@ -83,7 +83,7 @@ func (tf *tfliteClassifier) Classify(ctx context.Context, img image.Image) (clas
 	return classifications, nil
 }
 
-func (tf *tfliteClassifier) Close() error {
+func (tf *tfliteClassifier) Close(ctx context.Context) error {
 	return tf.model.Close()
 }
 
@@ -121,9 +121,10 @@ func registerTFLiteClassifier(
 	} else {
 		inHeight, inWidth = uint(shape[1]), uint(shape[2])
 	}
+	m := &tfliteClassifier{inHeight, inWidth, labels, model, logger}
 
 	// This function that gets returned should be the Classifier
-	return vision.NewService(name, &tfliteClassifier{inHeight, inWidth, labels, model, logger}, r)
+	return vision.NewService(name, r, m.Close, m.Classify, nil, nil)
 }
 
 func unpackClassificationTensor(ctx context.Context, tensor []interface{},
