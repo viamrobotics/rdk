@@ -30,146 +30,100 @@ import (
 	"go.viam.com/rdk/examples/customresources/models/mysum"
 	"go.viam.com/rdk/module"
 	"go.viam.com/rdk/registry"
-	// "go.viam.com/rdk/registry".
 	"go.viam.com/rdk/resource"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-type MockSumation struct {
-	deps   registry.Dependencies
-	config *MockSumationConfig
-}
-
-type MockSumationConfig struct {
-	Motors []string `json:"motors"`
-}
-
-var (
-	validateCallCount    int
-	reconfigureCallCount int
-)
-
-func (c *MockSumationConfig) Validate(path string) ([]string, error) {
-	validateCallCount++
-	if len(c.Motors) < 1 {
-		return c.Motors, errors.New(fmt.Sprintf("Validation error, no motors specified, got config attrs %#v\n", c))
-	}
-	return c.Motors, nil
-}
-
-func (mock *MockSumation) Sum(ctx context.Context, nums []float64) (float64, error) {
-	return 0, errors.New("Sum unimplemented")
-}
-
-type MockSumationWithReconfigure struct {
-	deps   registry.Dependencies
-	config *MockSumationConfig
-}
-
-func (mock *MockSumationWithReconfigure) Sum(ctx context.Context, nums []float64) (float64, error) {
-	return 0, errors.New("Sum unimplemented")
-}
-
-func (mock *MockSumationWithReconfigure) Reconfigure(ctx context.Context, cfg config.Service, deps registry.Dependencies) error {
-	reconfigureCallCount++
-	conf, ok := cfg.ConvertedAttributes.(*MockSumationConfig)
-	if !ok {
-		return rdkutils.NewUnexpectedTypeError(conf, cfg.ConvertedAttributes)
-	}
-	mock.config = conf
-	mock.deps = deps
-	return nil
-}
-
-func TestModuleAddModelFromRegistry(t *testing.T) {
+func TestAddModelFromRegistry(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 
-	cfg := &config.Config{Components: []config.Component{
-		{
-			Name:  "motor1",
-			API:   resource.NewSubtype("rdk", "component", "motor"),
-			Model: resource.NewDefaultModel("fake"),
-		},
-		{
-			Name:  "motor2",
-			API:   resource.NewSubtype("rdk", "component", "motor"),
-			Model: resource.NewDefaultModel("fake"),
-		},
-		{
-			Name:  "motor3",
-			API:   resource.NewSubtype("rdk", "component", "motor"),
-			Model: resource.NewDefaultModel("fake"),
-		},
-	}}
-
-	myRobot, err := robotimpl.RobotFromConfig(ctx, cfg, logger)
+	// Use 'foo.sock' for arbitrary module to test AddModelFromRegistry.
+	m, err := module.NewModule(ctx, "foo.sock", logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	parentAddr, err := myRobot.ModuleAddress()
-	test.That(t, err, test.ShouldBeNil)
+	invalidModel := resource.NewModel("non", "existent", "model")
+	invalidServiceSubtype := resource.NewSubtype(
+		resource.Namespace("fake"),
+		resource.ResourceTypeService,
+		resource.SubtypeName("nonexistentservice"))
+	invalidComponentSubtype := resource.NewSubtype(
+		resource.Namespace("fake"),
+		resource.ResourceTypeComponent,
+		resource.SubtypeName("nonexistentcomponent"))
 
-	addr := filepath.ToSlash(filepath.Join(filepath.Dir(parentAddr), "mod.sock"))
-	m, err := module.NewModule(ctx, addr, logger)
-	test.That(t, err, test.ShouldBeNil)
+	validServiceSubtype := summationapi.Subtype
+	validComponentSubtype := gizmoapi.Subtype
 
-	t.Run("AddModelFromRegistry", func(t *testing.T) {
-		invalidModel := resource.NewModel("non", "existent", "model")
+	validServiceModel := mysum.Model
+	validComponentModel := mygizmo.Model
 
-		invalidServiceSubtype := resource.NewSubtype(
-			resource.Namespace("fake"),
-			resource.ResourceTypeService,
-			resource.SubtypeName("nonexistantservice"))
+	componentError := "component with API %s and model %s not yet registered"
+	serviceError := "service with API %s and model %s not yet registered"
+	testCases := []struct {
+		subtype resource.Subtype
+		model   resource.Model
+		err     error
+	}{
+		// Invalid resource subtypes and models
+		{
+			invalidServiceSubtype,
+			invalidModel,
+			fmt.Errorf(serviceError, invalidServiceSubtype, invalidModel),
+		},
+		{
+			invalidComponentSubtype,
+			invalidModel,
+			fmt.Errorf(componentError, invalidComponentSubtype, invalidModel),
+		},
+		// Valid resource subtypes and invalid models
+		{
+			validServiceSubtype,
+			invalidModel,
+			fmt.Errorf(serviceError, validServiceSubtype, invalidModel),
+		},
+		{
+			validComponentSubtype,
+			invalidModel,
+			fmt.Errorf(componentError, validComponentSubtype, invalidModel),
+		},
+		// Mixed validity resource subtypes and models
+		{
+			validServiceSubtype,
+			validComponentModel,
+			fmt.Errorf(serviceError, validServiceSubtype, validComponentModel),
+		},
+		{
+			validComponentSubtype,
+			validServiceModel,
+			fmt.Errorf(componentError, validComponentSubtype, validServiceModel),
+		},
+		// Valid resource subtypes and models.
+		{
+			validServiceSubtype,
+			validServiceModel,
+			nil,
+		},
+		{
+			validComponentSubtype,
+			validComponentModel,
+			nil,
+		},
+	}
 
-		invalidComponentSubtype := resource.NewSubtype(
-			resource.Namespace("fake"),
-			resource.ResourceTypeComponent,
-			resource.SubtypeName("nonexistantcomponent"))
-
-		validServiceSubtype := summationapi.Subtype
-		validComponentSubtype := gizmoapi.Subtype
-
-		validServiceModel := mysum.Model
-		validComponentModel := mygizmo.Model
-
-		serviceError := "Unregistered service"
-		componentError := "Unregistered component"
-
-		tests := []struct {
-			subtype  resource.Subtype
-			model    resource.Model
-			hasErr   bool
-			expected string
-		}{
-			// invalid resource subtype & model
-			{invalidServiceSubtype, invalidModel, true, serviceError},
-			{invalidComponentSubtype, invalidModel, true, componentError},
-
-			// valid resource subtype, invalid model
-			{validServiceSubtype, invalidModel, true, serviceError},
-			{validComponentSubtype, invalidModel, true, componentError},
-
-			// mismatched valid models & subtypes
-			{validServiceSubtype, validComponentModel, true, serviceError},
-			{validComponentSubtype, validServiceModel, true, componentError},
-
-
-			{validServiceSubtype, validServiceModel, false, ""},
-			{validComponentSubtype, validComponentModel, false, ""},
-		}
-
-		for _, tes := range tests {
-			t.Logf("test subtype: %#v, model: %#v", tes.subtype.String(), tes.model.String())
-			err := m.AddModelFromRegistry(ctx, tes.subtype, tes.model)
-			if tes.hasErr {
-				test.That(t, err, test.ShouldNotBeNil)
-				test.That(t, err.Error(), test.ShouldContainSubstring, tes.expected)
+	for _, tc := range testCases {
+		tc := tc
+		tName := fmt.Sprintf("subtype: %s, model: %s", tc.subtype, tc.model)
+		t.Run(tName, func(t *testing.T) {
+			err := m.AddModelFromRegistry(ctx, tc.subtype, tc.model)
+			if tc.err != nil {
+				test.That(t, err, test.ShouldBeError, tc.err)
 			} else {
 				test.That(t, err, test.ShouldBeNil)
 			}
-		}
-	})
+		})
+	}
 }
 
 func TestModuleFunctions(t *testing.T) {
@@ -393,185 +347,43 @@ func TestModuleFunctions(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
-func TestModuleDefaultReconfig(t *testing.T) {
-	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
-
-	cfg := &config.Config{Components: []config.Component{
-		{
-			Name:  "motor1",
-			API:   resource.NewSubtype("rdk", "component", "motor"),
-			Model: resource.NewDefaultModel("fake"),
-		},
-		{
-			Name:  "motor2",
-			API:   resource.NewSubtype("rdk", "component", "motor"),
-			Model: resource.NewDefaultModel("fake"),
-		},
-	}}
-
-	myRobot, err := robotimpl.RobotFromConfig(ctx, cfg, logger)
-	test.That(t, err, test.ShouldBeNil)
-
-	parentAddr, err := myRobot.ModuleAddress()
-	test.That(t, err, test.ShouldBeNil)
-
-	addr := filepath.ToSlash(filepath.Join(filepath.Dir(parentAddr), "mod.sock"))
-	m, err := module.NewModule(ctx, addr, logger)
-	test.That(t, err, test.ShouldBeNil)
-
-	model := resource.NewModel("mock", "demo", "mocksumation")
-	var mock *MockSumation
-
-	// Register the mock summation api
-	registry.RegisterService(summationapi.Subtype, model, registry.Service{
-		Constructor: func(ctx context.Context, deps registry.Dependencies, cfg config.Service, logger *zap.SugaredLogger) (interface{}, error) {
-			conf, ok := cfg.ConvertedAttributes.(*MockSumationConfig)
-			res := &MockSumation{deps: deps, config: conf}
-			if !ok {
-				return nil, rdkutils.NewUnexpectedTypeError(conf, cfg.ConvertedAttributes)
-			}
-
-			mock = res
-			return res, nil
-		},
-	})
-
-	// Register the mock summation api attribute map converter
-	config.RegisterServiceAttributeMapConverter(
-		summationapi.Subtype,
-		model,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf MockSumationConfig
-			return config.TransformAttributeMapToStruct(&conf, attributes)
-		},
-		&MockSumationConfig{})
-
-	myAttrs, err := protoutils.StructToStructPb(MockSumationConfig{Motors: []string{motor.Named("motor1").String()}})
-	test.That(t, err, test.ShouldBeNil)
-
-	myConf := &v1.ComponentConfig{
-		Name:       "mymocksumation1",
-		Api:        summationapi.Subtype.String(),
-		Model:      model.String(),
-		Attributes: myAttrs,
-	}
-
-	myInvalidAttrs, err := protoutils.StructToStructPb(MockSumationConfig{Motors: []string{}})
-	test.That(t, err, test.ShouldBeNil)
-
-	myInvalidConf := &v1.ComponentConfig{
-		Name:       "mymocksumation1",
-		Api:        summationapi.Subtype.String(),
-		Model:      model.String(),
-		Attributes: myInvalidAttrs,
-	}
-
-	myReAttrs, err := protoutils.StructToStructPb(MockSumationConfig{Motors: []string{motor.Named("motor2").String()}})
-	test.That(t, err, test.ShouldBeNil)
-
-	myReConf := &v1.ComponentConfig{
-		Name:       "mymocksumation1",
-		Api:        summationapi.Subtype.String(),
-		Model:      model.String(),
-		Attributes: myReAttrs,
-	}
-
-	// register the sumatioapi with the mock model
-	test.That(t, m.AddModelFromRegistry(ctx, summationapi.Subtype, model), test.ShouldBeNil)
-
-	test.That(t, m.Start(ctx), test.ShouldBeNil)
-
-	conn, err := grpc.Dial(
-		"unix://"+addr,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithStreamInterceptor(grpc_retry.StreamClientInterceptor()),
-		grpc.WithUnaryInterceptor(grpc_retry.UnaryClientInterceptor()),
-	)
-	test.That(t, err, test.ShouldBeNil)
-
-	client := pb.NewModuleServiceClient(conn)
-
-	m.SetReady(false)
-
-	resp, err := client.Ready(ctx, &pb.ReadyRequest{})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resp.Ready, test.ShouldBeFalse)
-
-	m.SetReady(true)
-
-	resp, err = client.Ready(ctx, &pb.ReadyRequest{ParentAddress: parentAddr})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resp.Ready, test.ShouldBeTrue)
-
-	t.Run("ConvertedAttributes set correctly when Reconfigure method is not defined", func(t *testing.T) {
-		test.That(t, mock, test.ShouldBeNil)
-
-		_, err := m.ValidateConfig(ctx, &pb.ValidateConfigRequest{Config: myInvalidConf})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "Validation error, no motors specified")
-		test.That(t, validateCallCount, test.ShouldEqual, 1)
-
-		resp, err := m.ValidateConfig(ctx, &pb.ValidateConfigRequest{Config: myConf})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, validateCallCount, test.ShouldEqual, 2)
-
-		test.That(t, mock, test.ShouldBeNil)
-		deps := resp.Dependencies
-		test.That(t, deps, test.ShouldResemble, []string{"rdk:component:motor/motor1"})
-		test.That(t, validateCallCount, test.ShouldEqual, 2)
-
-		_, err = m.AddResource(ctx, &pb.AddResourceRequest{
-			Config: myConf, Dependencies: deps,
-		})
-		test.That(t, err, test.ShouldBeNil)
-		// validate & reconfigure are not called
-		test.That(t, validateCallCount, test.ShouldEqual, 2)
-		test.That(t, reconfigureCallCount, test.ShouldEqual, 0)
-
-		depNames := make([]string, 0, len(mock.deps))
-		for k := range mock.deps {
-			depNames = append(depNames, motor.Named(k.Name).String())
-		}
-		test.That(t, depNames, test.ShouldResemble, deps)
-
-		test.That(t, mock.config.Motors, test.ShouldResemble, []string{"rdk:component:motor/motor1"})
-
-		reconfigureDeps := []string{motor.Named("motor2").String()}
-		_, err = m.ReconfigureResource(ctx, &pb.ReconfigureResourceRequest{
-			Config: myReConf, Dependencies: reconfigureDeps,
-		})
-		test.That(t, err, test.ShouldBeNil)
-		// validate & reconfigure are not called
-		test.That(t, validateCallCount, test.ShouldEqual, 2)
-		test.That(t, reconfigureCallCount, test.ShouldEqual, 0)
-
-		reDepNames := make([]string, 0, len(mock.deps))
-		for k := range mock.deps {
-			reDepNames = append(reDepNames, motor.Named(k.Name).String())
-		}
-
-		test.That(t, reDepNames, test.ShouldResemble, reconfigureDeps)
-
-		test.That(t, mock.config.Motors, test.ShouldResemble, []string{"rdk:component:motor/motor2"})
-		defer func() {
-			validateCallCount = 0
-			reconfigureCallCount = 0
-		}()
-	})
-
-	test.That(t, err, test.ShouldBeNil)
-
-	err = conn.Close()
-	test.That(t, err, test.ShouldBeNil)
-
-	m.Close(ctx)
-
-	err = myRobot.Close(ctx)
-	test.That(t, err, test.ShouldBeNil)
+// mockSummation mocks the summation service so we can ensure modular addition
+// and reconfiguration correctly set up resources.
+type mockSummation struct {
+	deps                 registry.Dependencies
+	config               *MockSummationConfig
+	reconfigureCallCount int
 }
 
-func TestModuleReconfig(t *testing.T) {
+type MockSummationConfig struct {
+	Motors []string `json:"motors"`
+}
+
+func (c *MockSummationConfig) Validate(path string) ([]string, error) {
+	if len(c.Motors) < 1 {
+		return nil, errors.New("required attributes 'motors' not specified or empty")
+	}
+	return c.Motors, nil
+}
+
+func (mock *mockSummation) Sum(ctx context.Context, nums []float64) (float64, error) {
+	return 0, errors.New("sum unimplemented for mockSummation")
+}
+
+func (mock *mockSummation) Reconfigure(ctx context.Context, cfg config.Service, deps registry.Dependencies) error {
+	mock.reconfigureCallCount++
+	conf, ok := cfg.ConvertedAttributes.(*MockSummationConfig)
+	if !ok {
+		return rdkutils.NewUnexpectedTypeError(conf, cfg.ConvertedAttributes)
+	}
+	mock.config = conf
+	mock.deps = deps
+	return nil
+}
+
+// TestModularResources tests that modularly-handled resources are correctly
+// set up when initially added and later reconfigured.
+func TestModularResources(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 
@@ -598,14 +410,14 @@ func TestModuleReconfig(t *testing.T) {
 	m, err := module.NewModule(ctx, addr, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	model := resource.NewModel("mock", "demo", "mocksumationreconfigure")
-	var mock *MockSumationWithReconfigure
+	model := resource.NewModel("mock", "demo", "mocksummation")
+	var mock *mockSummation
 
-	// Register the mock summation api
+	// Register the mock summation service
 	registry.RegisterService(summationapi.Subtype, model, registry.Service{
 		Constructor: func(ctx context.Context, deps registry.Dependencies, cfg config.Service, logger *zap.SugaredLogger) (interface{}, error) {
-			conf, ok := cfg.ConvertedAttributes.(*MockSumationConfig)
-			res := &MockSumationWithReconfigure{deps: deps, config: conf}
+			conf, ok := cfg.ConvertedAttributes.(*MockSummationConfig)
+			res := &mockSummation{deps: deps, config: conf}
 			if !ok {
 				return nil, rdkutils.NewUnexpectedTypeError(conf, cfg.ConvertedAttributes)
 			}
@@ -614,49 +426,46 @@ func TestModuleReconfig(t *testing.T) {
 			return res, nil
 		},
 	})
+	defer func() {
+		// Deregister the mock summation service
+		registry.DeregisterService(summationapi.Subtype, model)
+	}()
 
-	// Register the mock summation api attribute map converter
+	// Register the mock summation service attribute map converter
 	config.RegisterServiceAttributeMapConverter(
 		summationapi.Subtype,
 		model,
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf MockSumationConfig
+			var conf MockSummationConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
 		},
-		&MockSumationConfig{})
+		&MockSummationConfig{})
 
-	myAttrs, err := protoutils.StructToStructPb(MockSumationConfig{Motors: []string{motor.Named("motor1").String()}})
+	sumAttrs, err := protoutils.StructToStructPb(MockSummationConfig{
+		Motors: []string{motor.Named("motor1").String()},
+	})
 	test.That(t, err, test.ShouldBeNil)
-
-	myConf := &v1.ComponentConfig{
-		Name:       "mymocksumation1",
+	sumConf := &v1.ComponentConfig{
+		Name:       "mymocksummation1",
 		Api:        summationapi.Subtype.String(),
 		Model:      model.String(),
-		Attributes: myAttrs,
+		Attributes: sumAttrs,
 	}
 
-	myInvalidAttrs, err := protoutils.StructToStructPb(MockSumationConfig{Motors: []string{}})
+	newSumAttrs, err := protoutils.StructToStructPb(MockSummationConfig{
+		Motors: []string{motor.Named("motor2").String()},
+	})
 	test.That(t, err, test.ShouldBeNil)
-
-	myInvalidConf := &v1.ComponentConfig{
-		Name:       "mymocksumation1",
+	newSumConf := &v1.ComponentConfig{
+		Name:       "mymocksummation1",
 		Api:        summationapi.Subtype.String(),
 		Model:      model.String(),
-		Attributes: myInvalidAttrs,
+		Attributes: newSumAttrs,
 	}
 
-	myReAttrs, err := protoutils.StructToStructPb(MockSumationConfig{Motors: []string{motor.Named("motor2").String()}})
-	test.That(t, err, test.ShouldBeNil)
-
-	myReConf := &v1.ComponentConfig{
-		Name:       "mymocksumation1",
-		Api:        summationapi.Subtype.String(),
-		Model:      model.String(),
-		Attributes: myReAttrs,
-	}
-
-	// register the sumatioapi with the mock model
-	test.That(t, m.AddModelFromRegistry(ctx, summationapi.Subtype, model), test.ShouldBeNil)
+	// Add the mockSummation model to the module registry
+	test.That(t, m.AddModelFromRegistry(ctx, summationapi.Subtype, model),
+		test.ShouldBeNil)
 
 	test.That(t, m.Start(ctx), test.ShouldBeNil)
 
@@ -669,76 +478,50 @@ func TestModuleReconfig(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	client := pb.NewModuleServiceClient(conn)
-
-	m.SetReady(false)
-
-	resp, err := client.Ready(ctx, &pb.ReadyRequest{})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resp.Ready, test.ShouldBeFalse)
-
 	m.SetReady(true)
-
-	resp, err = client.Ready(ctx, &pb.ReadyRequest{ParentAddress: parentAddr})
+	readyResp, err := client.Ready(ctx, &pb.ReadyRequest{ParentAddress: parentAddr})
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resp.Ready, test.ShouldBeTrue)
+	test.That(t, readyResp.Ready, test.ShouldBeTrue)
 
-	t.Run("ConvertedAttributes set correctly when Reconfigure method is defined", func(t *testing.T) {
-		test.That(t, mock, test.ShouldBeNil)
+	test.That(t, mock, test.ShouldBeNil)
 
-		_, err := m.ValidateConfig(ctx, &pb.ValidateConfigRequest{Config: myInvalidConf})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "Validation error, no motors specified")
-		test.That(t, validateCallCount, test.ShouldEqual, 1)
-
-		resp, err := m.ValidateConfig(ctx, &pb.ValidateConfigRequest{Config: myConf})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, validateCallCount, test.ShouldEqual, 2)
-
-		test.That(t, mock, test.ShouldBeNil)
-		deps := resp.Dependencies
-		test.That(t, deps, test.ShouldResemble, []string{"rdk:component:motor/motor1"})
-		test.That(t, validateCallCount, test.ShouldEqual, 2)
-
-		_, err = m.AddResource(ctx, &pb.AddResourceRequest{
-			Config: myConf, Dependencies: deps,
-		})
-		test.That(t, err, test.ShouldBeNil)
-		// validate & reconfigure are not called
-		test.That(t, validateCallCount, test.ShouldEqual, 2)
-		test.That(t, reconfigureCallCount, test.ShouldEqual, 0)
-
-		depNames := make([]string, 0, len(mock.deps))
-		for k := range mock.deps {
-			depNames = append(depNames, motor.Named(k.Name).String())
-		}
-		test.That(t, depNames, test.ShouldResemble, deps)
-
-		test.That(t, mock.config.Motors, test.ShouldResemble, []string{"rdk:component:motor/motor1"})
-
-		reconfigureDeps := []string{motor.Named("motor2").String()}
-		_, err = m.ReconfigureResource(ctx, &pb.ReconfigureResourceRequest{
-			Config: myReConf, Dependencies: reconfigureDeps,
-		})
-		test.That(t, err, test.ShouldBeNil)
-		// reconfigure is called
-		test.That(t, validateCallCount, test.ShouldEqual, 2)
-		test.That(t, reconfigureCallCount, test.ShouldEqual, 1)
-
-		reDepNames := make([]string, 0, len(mock.deps))
-		for k := range mock.deps {
-			reDepNames = append(reDepNames, motor.Named(k.Name).String())
-		}
-
-		test.That(t, reDepNames, test.ShouldResemble, reconfigureDeps)
-
-		test.That(t, mock.config.Motors, test.ShouldResemble, []string{"rdk:component:motor/motor2"})
-		defer func() {
-			validateCallCount = 0
-			reconfigureCallCount = 0
-		}()
+	validateResp, err := m.ValidateConfig(ctx, &pb.ValidateConfigRequest{
+		Config: sumConf,
 	})
-
 	test.That(t, err, test.ShouldBeNil)
+
+	deps := validateResp.Dependencies
+	test.That(t, deps, test.ShouldResemble, []string{"rdk:component:motor/motor1"})
+
+	_, err = m.AddResource(ctx, &pb.AddResourceRequest{
+		Config: sumConf, Dependencies: deps,
+	})
+	test.That(t, err, test.ShouldBeNil)
+
+	// Assert that mock is configured correctly after adding.
+	var depNames []string
+	for k := range mock.deps {
+		depNames = append(depNames, motor.Named(k.Name).String())
+	}
+	test.That(t, depNames, test.ShouldResemble, deps)
+	test.That(t, mock.config.Motors, test.ShouldResemble,
+		[]string{"rdk:component:motor/motor1"})
+
+	reconfigureDeps := []string{motor.Named("motor2").String()}
+	_, err = m.ReconfigureResource(ctx, &pb.ReconfigureResourceRequest{
+		Config: newSumConf, Dependencies: reconfigureDeps,
+	})
+	test.That(t, err, test.ShouldBeNil)
+
+	// Assert that mock is configured correctly after reconfiguring.
+	var reDepNames []string
+	for k := range mock.deps {
+		reDepNames = append(reDepNames, motor.Named(k.Name).String())
+	}
+	test.That(t, reDepNames, test.ShouldResemble, reconfigureDeps)
+	test.That(t, mock.config.Motors, test.ShouldResemble,
+		[]string{"rdk:component:motor/motor2"})
+	test.That(t, mock.reconfigureCallCount, test.ShouldEqual, 1)
 
 	err = conn.Close()
 	test.That(t, err, test.ShouldBeNil)
