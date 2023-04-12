@@ -219,7 +219,7 @@ func (a *Arm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error
 	return a.MoveToJointPositions(ctx, positionDegs, nil)
 }
 
-// AllInputs returns the current inputs of the arm.
+// AllInputs TODO.
 func (a *Arm) AllInputs(ctx context.Context, goals [][]referenceframe.Input) error {
 	for _, waypoint := range goals {
 		positionDegs := a.model.ProtobufFromInput(waypoint)
