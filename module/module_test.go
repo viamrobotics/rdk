@@ -348,11 +348,10 @@ func TestModuleFunctions(t *testing.T) {
 }
 
 // mockSummation mocks the summation service so we can ensure modular addition
-// and reconfiguration correctly set up resources.
+// and reconfiguration correctly set up resources without a Reconfigure method.
 type mockSummation struct {
-	deps                 registry.Dependencies
-	config               *MockSummationConfig
-	reconfigureCallCount int
+	deps   registry.Dependencies
+	config *MockSummationConfig
 }
 
 type MockSummationConfig struct {
@@ -370,7 +369,17 @@ func (mock *mockSummation) Sum(ctx context.Context, nums []float64) (float64, er
 	return 0, errors.New("sum unimplemented for mockSummation")
 }
 
-func (mock *mockSummation) Reconfigure(ctx context.Context, cfg config.Service, deps registry.Dependencies) error {
+// mockSummationWithReconfigure mocks the summation service so we can ensure
+// modular addition and reconfiguration correctly set up resources with a Reconfigure
+// method.
+type mockSummationWithReconfigure struct {
+	mockSummation
+	reconfigureCallCount int
+}
+
+func (mock *mockSummationWithReconfigure) Reconfigure(ctx context.Context,
+	cfg config.Service, deps registry.Dependencies,
+) error {
 	mock.reconfigureCallCount++
 	conf, ok := cfg.ConvertedAttributes.(*MockSummationConfig)
 	if !ok {
@@ -381,9 +390,10 @@ func (mock *mockSummation) Reconfigure(ctx context.Context, cfg config.Service, 
 	return nil
 }
 
-// TestModularResources tests that modularly-handled resources are correctly
-// set up when initially added and later reconfigured.
-func TestModularResources(t *testing.T) {
+// TestModularResourceWithoutReconfigure tests that modularly-handled resources
+// without a Reconfigure method are correctly set up when initially added and
+// later reconfigured.
+func TestModularResourceWithoutReconfigure(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 
@@ -483,7 +493,154 @@ func TestModularResources(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, readyResp.Ready, test.ShouldBeTrue)
 
-	test.That(t, mock, test.ShouldBeNil)
+	validateResp, err := m.ValidateConfig(ctx, &pb.ValidateConfigRequest{
+		Config: sumConf,
+	})
+	test.That(t, err, test.ShouldBeNil)
+
+	deps := validateResp.Dependencies
+	test.That(t, deps, test.ShouldResemble, []string{"rdk:component:motor/motor1"})
+
+	_, err = m.AddResource(ctx, &pb.AddResourceRequest{
+		Config: sumConf, Dependencies: deps,
+	})
+	test.That(t, err, test.ShouldBeNil)
+
+	// Assert that mock is configured correctly after adding.
+	var depNames []string
+	for k := range mock.deps {
+		depNames = append(depNames, motor.Named(k.Name).String())
+	}
+	test.That(t, depNames, test.ShouldResemble, deps)
+	test.That(t, mock.config.Motors, test.ShouldResemble,
+		[]string{"rdk:component:motor/motor1"})
+
+	reconfigureDeps := []string{motor.Named("motor2").String()}
+	_, err = m.ReconfigureResource(ctx, &pb.ReconfigureResourceRequest{
+		Config: newSumConf, Dependencies: reconfigureDeps,
+	})
+	test.That(t, err, test.ShouldBeNil)
+
+	// Assert that mock is configured correctly after reconfiguring.
+	var reDepNames []string
+	for k := range mock.deps {
+		reDepNames = append(reDepNames, motor.Named(k.Name).String())
+	}
+	test.That(t, reDepNames, test.ShouldResemble, reconfigureDeps)
+	test.That(t, mock.config.Motors, test.ShouldResemble,
+		[]string{"rdk:component:motor/motor2"})
+
+	err = conn.Close()
+	test.That(t, err, test.ShouldBeNil)
+
+	m.Close(ctx)
+
+	err = myRobot.Close(ctx)
+	test.That(t, err, test.ShouldBeNil)
+}
+
+// TestModularResourceWithReconfigure tests that modularly-handled resources
+// with a Reconfigure method are correctly set up when initially added and
+// later reconfigured.
+func TestModularResourceWithReconfigure(t *testing.T) {
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+
+	cfg := &config.Config{Components: []config.Component{
+		{
+			Name:  "motor1",
+			API:   resource.NewSubtype("rdk", "component", "motor"),
+			Model: resource.NewDefaultModel("fake"),
+		},
+		{
+			Name:  "motor2",
+			API:   resource.NewSubtype("rdk", "component", "motor"),
+			Model: resource.NewDefaultModel("fake"),
+		},
+	}}
+
+	myRobot, err := robotimpl.RobotFromConfig(ctx, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	parentAddr, err := myRobot.ModuleAddress()
+	test.That(t, err, test.ShouldBeNil)
+
+	addr := filepath.ToSlash(filepath.Join(filepath.Dir(parentAddr), "mod.sock"))
+	m, err := module.NewModule(ctx, addr, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	model := resource.NewModel("mock", "demo", "mocksummation")
+	var mock *mockSummationWithReconfigure
+
+	// Register the mock summation service
+	registry.RegisterService(summationapi.Subtype, model, registry.Service{
+		Constructor: func(ctx context.Context, deps registry.Dependencies, cfg config.Service, logger *zap.SugaredLogger) (interface{}, error) {
+			conf, ok := cfg.ConvertedAttributes.(*MockSummationConfig)
+			res := &mockSummationWithReconfigure{mockSummation{deps: deps, config: conf}, 0}
+			if !ok {
+				return nil, rdkutils.NewUnexpectedTypeError(conf, cfg.ConvertedAttributes)
+			}
+
+			mock = res
+			return res, nil
+		},
+	})
+	defer func() {
+		// Deregister the mock summation service
+		registry.DeregisterService(summationapi.Subtype, model)
+	}()
+
+	// Register the mock summation service attribute map converter
+	config.RegisterServiceAttributeMapConverter(
+		summationapi.Subtype,
+		model,
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf MockSummationConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		},
+		&MockSummationConfig{})
+
+	sumAttrs, err := protoutils.StructToStructPb(MockSummationConfig{
+		Motors: []string{motor.Named("motor1").String()},
+	})
+	test.That(t, err, test.ShouldBeNil)
+	sumConf := &v1.ComponentConfig{
+		Name:       "mymocksummation1",
+		Api:        summationapi.Subtype.String(),
+		Model:      model.String(),
+		Attributes: sumAttrs,
+	}
+
+	newSumAttrs, err := protoutils.StructToStructPb(MockSummationConfig{
+		Motors: []string{motor.Named("motor2").String()},
+	})
+	test.That(t, err, test.ShouldBeNil)
+	newSumConf := &v1.ComponentConfig{
+		Name:       "mymocksummation1",
+		Api:        summationapi.Subtype.String(),
+		Model:      model.String(),
+		Attributes: newSumAttrs,
+	}
+
+	// Add the mockSummation model to the module registry
+	test.That(t, m.AddModelFromRegistry(ctx, summationapi.Subtype, model),
+		test.ShouldBeNil)
+
+	test.That(t, m.Start(ctx), test.ShouldBeNil)
+
+	conn, err := grpc.Dial(
+		"unix://"+addr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithStreamInterceptor(grpc_retry.StreamClientInterceptor()),
+		grpc.WithUnaryInterceptor(grpc_retry.UnaryClientInterceptor()),
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	client := pb.NewModuleServiceClient(conn)
+	m.SetReady(true)
+	readyResp, err := client.Ready(ctx, &pb.ReadyRequest{ParentAddress: parentAddr})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, readyResp.Ready, test.ShouldBeTrue)
 
 	validateResp, err := m.ValidateConfig(ctx, &pb.ValidateConfigRequest{
 		Config: sumConf,
