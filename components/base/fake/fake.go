@@ -18,7 +18,6 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/slam"
-	"go.viam.com/rdk/spatialmath"
 )
 
 func init() {
@@ -43,25 +42,18 @@ var _ = base.LocalBase(&Base{})
 // Base is a fake base that returns what it was provided in each method.
 type Base struct {
 	generic.Echo
-	Name              string
-	CloseCount        int
-	logger            golog.Logger
-	modelName         string
-	collisionGeometry spatialmath.Geometry
+	Name       string
+	CloseCount int
+	logger     golog.Logger
+	modelName  string
+	geometry   *referenceframe.LinkConfig
 }
 
 // NewBase instantiates a new base of the fake model type.
 func NewBase(ctx context.Context, cfg config.Component, logger golog.Logger) (base.LocalBase, error) {
-	// TODO(rb): This should not ultimately be using the wheeled base package to do this
-	geometry, err := base.CollisionGeometry(cfg)
-	if err != nil {
-		return nil, err
-	}
-
 	return &Base{
 		Name:              cfg.Name,
 		logger:            logger,
-		collisionGeometry: geometry,
 	}, nil
 }
 
@@ -114,6 +106,11 @@ type kinematicBase struct {
 
 // WrapWithKinematics creates a KinematicBase from the fake Base so that it satisfies the ModelFramer and InputEnabled interfaces.
 func (b *Base) WrapWithKinematics(ctx context.Context, slamSvc slam.Service) (base.KinematicBase, error) {
+	geometry, err := base.CollisionGeometry(b.geometry)
+	if err != nil {
+		return nil, err
+	}
+	
 	// gets the extents of the SLAM map
 	data, err := slam.GetPointCloudMapFull(ctx, slamSvc)
 	if err != nil {
@@ -124,7 +121,7 @@ func (b *Base) WrapWithKinematics(ctx context.Context, slamSvc slam.Service) (ba
 		return nil, err
 	}
 	limits := []referenceframe.Limit{{Min: dims.MinX, Max: dims.MaxX}, {Min: dims.MinZ, Max: dims.MaxZ}}
-	model, err := wheeled.Model(b.Name, b.collisionGeometry, limits)
+	model, err := wheeled.Model(b.Name, geometry, limits)
 	if err != nil {
 		return nil, errors.Wrap(err, "fake base cannot be created")
 	}

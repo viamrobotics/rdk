@@ -53,7 +53,7 @@ func (m steeringMode) String() string {
 	return "Unknown"
 }
 
-var modelname = resource.NewDefaultModel("agilex-limo")
+var modelName = resource.NewDefaultModel("agilex-limo")
 
 func init() {
 	controllers = make(map[string]*controller)
@@ -66,10 +66,10 @@ func init() {
 		},
 	}
 
-	registry.RegisterComponent(base.Subtype, modelname, limoBaseComp)
+	registry.RegisterComponent(base.Subtype, modelName, limoBaseComp)
 	config.RegisterComponentAttributeMapConverter(
 		base.Subtype,
-		modelname,
+		modelName,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf Config
 			return config.TransformAttributeMapToStruct(&conf, attributes)

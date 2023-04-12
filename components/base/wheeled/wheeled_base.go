@@ -400,7 +400,7 @@ func CreateWheeledBase(
 	wb.allMotors = append(wb.allMotors, wb.left...)
 	wb.allMotors = append(wb.allMotors, wb.right...)
 
-	collisionGeometry, err := base.CollisionGeometry(cfg)
+	collisionGeometry, err := base.CollisionGeometry(cfg.Frame)
 	if err != nil {
 		logger.Warnf("could not build geometry for wheeledBase: %s", err.Error())
 	}
