@@ -110,6 +110,9 @@ func (ws *WorldState) ObstaclesInWorldFrame(fs FrameSystem, inputs map[string][]
 
 // BufferedWorldstate adds a buffer to all geometries, where buffer is in mm
 func BufferedWorldstate(ws *WorldState, buffer float64) (*WorldState, error) {
+	// TODO: add unit test for this
+	// TODO: need to handle tranforms as well
+	// TODO: this could be refactored
 	var gif []*GeometriesInFrame
 	for _, geosInFrame := range ws.Obstacles {
 		geoms := geosInFrame.Geometries()
@@ -154,7 +157,15 @@ func BufferedWorldstate(ws *WorldState, buffer float64) (*WorldState, error) {
 
 				obstacles = append(obstacles, newSphere)
 
-				// case spatial.CapsuleType: // todo
+			case spatial.CapsuleType:
+				newRadius := dims[0] + buffer
+				newLength := dims[1] + buffer
+				newCapsule, err := spatial.NewCapsule(centerPose, newRadius, newLength, geo.Label())
+				if err != nil {
+					return nil, err
+				}
+
+				obstacles = append(obstacles, newCapsule)
 			}
 		}
 		obstaclesInFrame := NewGeometriesInFrame(parent, obstacles)

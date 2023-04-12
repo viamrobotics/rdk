@@ -85,8 +85,9 @@ func (c *capsule) String() string {
 	return fmt.Sprintf("Type: Capsule, Radius: %.0f, Length: %.0f", c.radius, c.length)
 }
 
+// Dimensions returns the capsule's radius and length.
 func (c *capsule) Dimensions() []float64 {
-	return []float64{c.length, c.radius}
+	return []float64{c.radius, c.length}
 }
 
 // Label returns the label of this capsule.

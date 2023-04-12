@@ -115,11 +115,9 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 
 		from := seedPos
 		for i := 1; i < numSteps; i++ {
-
 			by := float64(i) / float64(numSteps)
 			to := spatialmath.Interpolate(seedPos, goalPos, by)
 			goals = append(goals, to)
-
 			opt, err := pm.plannerSetupFromMoveRequest(from, to, seedMap, modifiedWS, constraintSpec, motionConfig)
 			if err != nil {
 				return nil, err
