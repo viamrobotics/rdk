@@ -2,7 +2,6 @@ package wheeled
 
 import (
 	"context"
-	"math"
 
 	"github.com/pkg/errors"
 
@@ -53,67 +52,13 @@ func (kwb *kinematicWheeledBase) currentPose(ctx context.Context) (spatialmath.P
 }
 
 func (kwb *kinematicWheeledBase) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	// TODO: make a transformation from the component reference to the base frame
-	pose, err := kwb.currentPose(ctx)
-	if err != nil {
-		return nil, err
-	}
-	pt := pose.Point()
-
-	// Need to get X, Z from lidar because Y points down
-	// TODO: make a ticket to give rplidar kinematic information so that you don't have to do this here
-	return []referenceframe.Input{{Value: pt.X}, {Value: pt.Z}}, nil
+	// TODO(RSDK-2311): complete the implementation
+	return []referenceframe.Input{}, errors.New("not implemented yet")
 }
 
 func (kwb *kinematicWheeledBase) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	if kwb.collisionGeometry == nil {
-		return errors.New("cannot move base without a collision geometry")
-	}
-
-	// TODO: may want to save the startPose separately
-	// TODO: code janitor
-	currentPose, err := kwb.currentPose(ctx)
-	if err != nil {
-		return err
-	}
-	currentPt := currentPose.Point()
-	desiredHeading := math.Atan2(currentPt.Z-goal[1].Value, currentPt.X-goal[0].Value)
-	distance := math.Hypot(currentPt.Z-goal[1].Value, currentPt.X-goal[0].Value)
-
-	// TODO: we do want the pitch here but this is domain limited to -90 to 90, need math to fix this
-	heading := utils.RadToDeg(currentPose.Orientation().EulerAngles().Pitch)
-	// While base is not at the goal
-	// TO DO figure out sane threshold.
-	for distance > 5 {
-		// If heading is ok, go forward
-		// Otherwise spin until base is heading correct way
-		// TODO make a threshold
-		if math.Abs(heading-desiredHeading) > 0 {
-			// TODO (rh) create context with cancel
-			// TODO use a speed that is not garbage
-			if err := kwb.Spin(ctx, heading-desiredHeading, 10, nil); err != nil {
-				return err
-			}
-		} else {
-			// TODO check if we are in mm in SLAM and multiply by 1000 if so
-			distance := math.Hypot(currentPt.Z-goal[1].Value, currentPt.X-goal[0].Value)
-			if err := kwb.MoveStraight(ctx, int(distance), 10, nil); err != nil {
-				return err
-			}
-
-		}
-
-		// Calculate current state
-		currentPose, err = kwb.currentPose(ctx)
-		if err != nil {
-			return err
-		}
-		currentPt = currentPose.Point()
-		heading = utils.RadToDeg(currentPose.Orientation().EulerAngles().Pitch)
-		distance = math.Hypot(currentPt.Z-goal[1].Value, currentPt.X-goal[0].Value)
-
-	}
-	return nil
+	// TODO(RSDK-2311): complete the implementation
+	return errors.New("not implemented yet")
 }
 
 // ModelFrame builds the kinematic model associated with the kinematicWheeledBase
