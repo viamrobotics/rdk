@@ -182,6 +182,15 @@ func (wrapper *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, 
 
 // AllInputs returns the current inputs of the arm.
 func (wrapper *Arm) AllInputs(ctx context.Context, goals [][]referenceframe.Input) error {
+	for _, waypoint := range goals {
+		positionDegs := wrapper.model.ProtobufFromInput(waypoint)
+		if err := arm.CheckDesiredJointPositions(ctx, wrapper, positionDegs.Values); err != nil {
+			return err
+		}
+		if err := wrapper.MoveToJointPositions(ctx, positionDegs, nil); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

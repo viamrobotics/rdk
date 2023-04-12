@@ -3,7 +3,6 @@ package referenceframe
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
@@ -11,7 +10,6 @@ import (
 	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils/protoutils"
 
-	"go.viam.com/rdk/spatialmath"
 	spatial "go.viam.com/rdk/spatialmath"
 )
 
@@ -430,79 +428,6 @@ func FrameSystemGeometries(fs FrameSystem, inputMap map[string][]Input) (map[str
 		}
 	}
 	return allGeometries, errAll
-}
-
-func FrameSystemBuffer(system FrameSystem, buffer float64) (FrameSystem, error) {
-	fs := NewEmptySimpleFrameSystem("framesys with buffers around geom")
-	allInputs := StartPositions(system)
-	for _, name := range system.FrameNames() {
-		frame := system.Frame(name)
-		parentFrame, err := system.Parent(frame)
-		if err != nil {
-			return nil, err
-		}
-		input := allInputs[name]
-		geoms, err := frame.Geometries(input)
-		if err != nil {
-			return nil, err
-		}
-		geos := geoms.geometries
-
-		for i := range geos {
-			geo := geos[i]
-			fmt.Println(geo)
-
-			cfg, err := spatialmath.NewGeometryConfig(geo)
-			if err != nil {
-				return nil, err
-			}
-			dims := geo.Dimensions()
-			centerPose := geo.Pose()
-
-			switch cfg.Type {
-			case spatial.PointType:
-				newSphere, err := spatialmath.NewSphere(centerPose, buffer, geo.Label())
-				if err != nil {
-					return nil, err
-				}
-				sphereFrame, err := NewStaticFrameWithGeometry(geo.Label(), centerPose, newSphere)
-				if err != nil {
-					return nil, err
-				}
-				fs.AddFrame(sphereFrame, parentFrame)
-			case spatial.BoxType:
-				newDims := r3.Vector{
-					X: dims[0] + buffer,
-					Y: dims[1] + buffer,
-					Z: dims[2] + buffer,
-				}
-				newBox, err := spatialmath.NewBox(centerPose, newDims, geo.Label())
-				if err != nil {
-					return nil, err
-				}
-				boxFrame, err := NewStaticFrameWithGeometry(geo.Label(), centerPose, newBox)
-				if err != nil {
-					return nil, err
-				}
-				fs.AddFrame(boxFrame, parentFrame)
-			case spatial.SphereType:
-				newRadius := dims[0] + buffer
-				newSphere, err := spatialmath.NewSphere(centerPose, newRadius, geo.Label())
-				if err != nil {
-					return nil, err
-				}
-				sphereFrame, err := NewStaticFrameWithGeometry(geo.Label(), centerPose, newSphere)
-				if err != nil {
-					return nil, err
-				}
-				fs.AddFrame(sphereFrame, parentFrame)
-				// case spatial.CapsuleType: // todo
-			}
-
-		}
-	}
-	return fs, nil
-
 }
 
 // ToProtobuf turns all the interfaces into serializable types.

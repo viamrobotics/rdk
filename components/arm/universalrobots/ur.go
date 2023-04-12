@@ -343,7 +343,6 @@ func (ua *URArm) EndPosition(ctx context.Context, extra map[string]interface{}) 
 // If the UR arm was configured with "arm_hosted_kinematics = 'true'" or extra["arm_hosted_kinematics"] = true is specified at runtime
 // this command will use the kinematics hosted by the Universal Robots arm.
 func (ua *URArm) MoveToPosition(ctx context.Context, pos spatialmath.Pose, extra map[string]interface{}) error {
-	fmt.Println("hello1")
 	if !ua.inRemoteMode {
 		return errors.New("UR5 is in local mode; use the polyscope to switch it to remote control mode")
 	}
@@ -368,6 +367,7 @@ func (ua *URArm) MoveToJointPositions(ctx context.Context, joints *pb.JointPosit
 	if err := arm.CheckDesiredJointPositions(ctx, ua, joints.Values); err != nil {
 		return err
 	}
+	// set blend radius to 0
 	return ua.MoveToJointPositionRadians(ctx, referenceframe.JointPositionsToRadians(joints), 0)
 }
 
@@ -499,21 +499,24 @@ func (ua *URArm) GoToInputs(ctx context.Context, goal []referenceframe.Input) er
 
 // AllInputs TODO.
 func (ua *URArm) AllInputs(ctx context.Context, goals [][]referenceframe.Input) error {
-	fmt.Println("hello5")
 	var blend float64
 	for i, waypoint := range goals {
+		err := ctx.Err() // make sure we haven't been cancelled
+		if err != nil {
+			return err
+		}
+
 		// check that joint positions are not out of bounds
 		positionDegs := ua.model.ProtobufFromInput(waypoint)
 		if err := arm.CheckDesiredJointPositions(ctx, ua, positionDegs.Values); err != nil {
 			return err
 		}
 
-		// set the blend radius
-		// last goal has blend of zero to ensure we end up where we want to end up
+		// set the blend radius (meters)
+		blend = 0.001 // this is 1 mm
+		// first and last goal have blend of zero to ensure we end up where we want to end up
 		if i == 0 || i == len(goals)-1 {
 			blend = 0
-		} else {
-			blend = 0.001
 		}
 		if err := ua.MoveToJointPositionRadians(ctx, referenceframe.JointPositionsToRadians(positionDegs), blend); err != nil {
 			return err
