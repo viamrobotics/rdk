@@ -1,11 +1,13 @@
 package wheeled
 
 import (
+	"bytes"
 	"context"
 
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/components/base"
+	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/spatialmath"
@@ -30,11 +32,20 @@ func (base *wheeledBase) WrapWithKinematics(ctx context.Context, slamSvc slam.Se
 		wheeledBase: wb,
 		slam:        slamSvc,
 	}
-	limits, err := slam.Limits(ctx, slamSvc)
+	// gets the extents of the SLAM map
+	data, err := slam.GetPointCloudMapFull(ctx, slamSvc)
 	if err != nil {
 		return nil, err
 	}
-	kwb.model, err = Model(kwb.name, kwb.collisionGeometry, limits)
+	dims, err := pointcloud.GetPCDMetaData(bytes.NewReader(data))
+	if err != nil {
+		return nil, err
+	}
+	kwb.model, err = Model(
+		kwb.name, 
+		kwb.collisionGeometry, 
+		[]referenceframe.Limit{{Min: dims.MinX, Max: dims.MaxX}, {Min: dims.MinZ, Max: dims.MaxZ}},
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -43,12 +54,6 @@ func (base *wheeledBase) WrapWithKinematics(ctx context.Context, slamSvc slam.Se
 
 func (kwb *kinematicWheeledBase) ModelFrame() referenceframe.Model {
 	return kwb.model
-}
-
-func (kwb *kinematicWheeledBase) currentPose(ctx context.Context) (spatialmath.Pose, error) {
-	// TODO: make a transformation from the component reference to the base frame
-	pose, _, err := kwb.slam.GetPosition(ctx)
-	return pose, err
 }
 
 func (kwb *kinematicWheeledBase) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
