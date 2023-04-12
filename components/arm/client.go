@@ -132,6 +132,7 @@ func (c *client) GoToInputs(ctx context.Context, goal []referenceframe.Input) er
 	return c.MoveToJointPositions(ctx, c.model.ProtobufFromInput(goal), nil)
 }
 
+// TODO: change
 func (c *client) AllInputs(ctx context.Context, goals [][]referenceframe.Input) error {
 	for _, waypoint := range goals {
 		positionDegs := c.model.ProtobufFromInput(waypoint)
