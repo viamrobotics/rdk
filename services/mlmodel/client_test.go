@@ -94,7 +94,8 @@ func TestClient(t *testing.T) {
 		test.That(t, outInfo[2].AssociatedFiles[0].Name, test.ShouldEqual, "category_labels.txt")
 		test.That(t, outInfo[2].AssociatedFiles[0].LabelType, test.ShouldEqual, mlmodel.LabelTypeTensorValue)
 		test.That(t, outInfo[3].Name, test.ShouldEqual, "locations")
-		test.That(t, outInfo[3].NDim, test.ShouldEqual, 3)
+		test.That(t, len(outInfo[3].Shape), test.ShouldEqual, 3)
+		test.That(t, outInfo[3].Shape, test.ShouldResemble, []int{4, 3, 1})
 
 		// close the client
 		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
