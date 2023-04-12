@@ -76,31 +76,26 @@ type pwmChipData struct {
 // GetGPIOBoardMappings attempts to find a compatible board-pin mapping for the given mappings.
 func GetGPIOBoardMappings(modelName string, boardInfoMappings map[string]BoardInformation) (map[int]GPIOBoardMapping, error) {
 	pinDefs, err := getCompatiblePinDefs(modelName, boardInfoMappings)
-	fmt.Printf("in getGPIOBoardMappings for %s: pinDefs is ->%s<-\n", modelName, pinDefs)
 	if err != nil {
 		return nil, err
 	}
 
 	gpioChipsInfo, err := getGpioChipDefs(pinDefs)
-	fmt.Printf("in getGPIOBoardMappings for %s: gpioChipsInfo is ->%s<-\n", modelName, gpioChipsInfo)
 	if err != nil {
 		return nil, err
 	}
 	pwmChipsInfo, err := getPwmChipDefs(pinDefs)
-	fmt.Printf("in getGPIOBoardMappings for %s: pwmChipsInfo is ->%s<-\n", modelName, pwmChipsInfo)
 	if err != nil {
 		return nil, err
 	}
 
 	mapping, err := getBoardMapping(pinDefs, gpioChipsInfo, pwmChipsInfo)
-	fmt.Printf("in getGPIOBoardMappings for %s: mapping is ->%s<-\n", modelName, mapping)
 	return mapping, err
 }
 
 // getCompatiblePinDefs returns a list of pin definitions, from the first BoardInformation struct
 // that appears compatible with the machine we're running on.
 func getCompatiblePinDefs(modelName string, boardInfoMappings map[string]BoardInformation) ([]PinDefinition, error) {
-	fmt.Printf("looking for compatible defs! model '%s' with mappings ->%s<-\n", modelName, boardInfoMappings)
 	const compatiblePath = "/proc/device-tree/compatible"
 
 	compatiblesRd, err := os.ReadFile(compatiblePath)
@@ -112,13 +107,10 @@ func getCompatiblePinDefs(modelName string, boardInfoMappings map[string]BoardIn
 	}
 	compatibles := utils.NewStringSet(strings.Split(string(compatiblesRd), "\x00")...)
 
-	fmt.Printf("looking for compatible boards ->%s<-\n", compatibles)
-
 	var pinDefs []PinDefinition
 	for _, info := range boardInfoMappings {
 		for _, v := range info.Compats {
 			if _, ok := compatibles[v]; ok {
-				fmt.Printf("found compatible! '%s'\n", v)
 				pinDefs = info.PinDefinitions
 				break
 			}
@@ -126,10 +118,8 @@ func getCompatiblePinDefs(modelName string, boardInfoMappings map[string]BoardIn
 	}
 
 	if pinDefs == nil {
-		fmt.Println("no compatible board found")
 		return nil, noBoardError(modelName)
 	}
-	fmt.Printf("compatible board found, returning it: ->%s<-\n", pinDefs)
 	return pinDefs, nil
 }
 
@@ -229,12 +219,10 @@ func getPwmChipDefs(pinDefs []PinDefinition) (map[string]pwmChipData, error) {
 		}
 		pwmChipNames[pinDef.PWMChipSysFSDir] = struct{}{}
 	}
-	fmt.Printf("found pwm chip names: ->%s<-\n", pwmChipNames)
 
 	// Now, look for all chips whose names we found.
 	pwmChipsInfo := map[string]pwmChipData{}
 	for chipName := range pwmChipNames {
-		fmt.Printf("searching for chip %s...\n", chipName)
 		found := false
 
 		// The boards we support might store their PWM devices in several different locations
@@ -253,26 +241,20 @@ func getPwmChipDefs(pinDefs []PinDefinition) (map[string]pwmChipData, error) {
 			chipDir := fmt.Sprintf("%s/%s/pwm", baseDir, chipName)
 			files, err := os.ReadDir(chipDir)
 			if err != nil {
-				fmt.Printf("Can't read %s (%s), continuing...\n", chipDir, err)
 				continue // This was the wrong directory; try the next baseDir.
 			}
-
-			fmt.Printf("found plausible directory: %s\n", chipDir)
 
 			// We've found what looks like the right place to look for things! Now, find the name
 			// of the chip that should be mirrored in /sys/class/pwm/.
 			for _, file := range files {
-				fmt.Printf("examining file %s...\n", file)
 				if !(strings.Contains(file.Name(), "pwmchip") && file.IsDir()) {
 					continue
 				}
 				found = true
 				chipPath := fmt.Sprintf("/sys/class/pwm/%s", file.Name())
-				fmt.Printf("found chipPath: %s\n", chipPath)
 
 				npwm, err := readIntFile(filepath.Join(chipPath, "npwm"))
 				if err != nil {
-					fmt.Printf("can't read npwm for name %s, returning nil\n", chipName)
 					return nil, err
 				}
 
@@ -288,12 +270,10 @@ func getPwmChipDefs(pinDefs []PinDefinition) (map[string]pwmChipData, error) {
 			}
 		}
 		if !found {
-			fmt.Printf("never found device for name %s, returning nil\n", chipName)
-			//return nil, fmt.Errorf("unable to find PWM device %s", chipName)
+			return nil, fmt.Errorf("unable to find PWM device %s", chipName)
 		}
 	}
 
-	fmt.Printf("returning pwm info: ->%s<-\n", pwmChipsInfo)
 	return pwmChipsInfo, nil
 }
 
