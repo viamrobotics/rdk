@@ -42,7 +42,7 @@ const props = defineProps<{
   pose?: commonApi.Pose
   destExists?: boolean
   destVector?: THREE.Vector3
-  axes?: boolean
+  axes?: boolean // axesVisible rename todo
 }
 >();
 
@@ -106,6 +106,7 @@ raycaster.on('click', (event: THREE.Event) => {
  * svgLoader example for webgl:
  * https://github.com/mrdoob/three.js/blob/master/examples/webgl_loader_svg.html
  */
+// 
 const makeMarker = async (url : string, name: string, scalar: number) => {
   const guiData = {
     currentURL: url,
@@ -122,9 +123,9 @@ const makeMarker = async (url : string, name: string, scalar: number) => {
 
   const group = new THREE.Group();
   group.scale.multiplyScalar(scalar);
-  group.position.x = -70;
-  group.position.y = 70;
-  group.scale.y *= -1;
+  // group.position.x = -70; // why is this here
+  // group.position.y = 70;
+  // group.scale.y *= -1; // we likely do not need any of this
 
   for (const path of paths) {
 
@@ -227,6 +228,7 @@ const colorBuckets = (probability: number): THREE.Vector3 => {
 };
 
 
+// rename to updatePC
 const updateCloud = (pointcloud: Uint8Array) => {
   disposeScene();
 
@@ -286,6 +288,8 @@ const updateCloud = (pointcloud: Uint8Array) => {
   scene.add(points);
   scene.add(intersectionPlane);
 
+
+  // have these axes be drawn at 0,0
   const axesHelper2 = new THREE.AxesHelper(5);
   axesHelper2.position.set(center.x, 0, center.z);
   axesHelper2.rotateY(-Math.PI / 2);
@@ -296,6 +300,7 @@ const updateCloud = (pointcloud: Uint8Array) => {
   axesHelper1.visible = props.axes;
 
   // this needs to be updated so it is set to 1m
+  // have these be constants at the top
   const gridHelper = new THREE.GridHelper(1000, 100, 0xCA_CA_CA, 0xCA_CA_CA);
   gridHelper.position.set(center.x, 0, center.z);
   gridHelper.renderOrder = 996;
@@ -309,7 +314,9 @@ const updateCloud = (pointcloud: Uint8Array) => {
 
   scene.add(points);
   scene.add(intersectionPlane);
-  updatePose(props.pose!);
+  updatePose(props.pose!); // only do this if the pose exists
+  // what is pc didnt change but the pose did
+  // then we need this conditional
 };
 
 onMounted(() => {
@@ -331,10 +338,14 @@ onUnmounted(() => {
   disposeScene();
 });
 
+// see if we can just do props.destVector and not the subcomponents
 watch(() => [props.destVector?.x, props.destVector?.y, props.destExists], async () => {
   if (props.destVector && props.destExists) {
+    // update name from marker to destinationMarker
     const marker = scene.getObjectByName('Marker') ?? await makeMarker(destUrl, 'Marker', 0.1);
+    // udpate from base to baseMarker
     const base = scene.getObjectByName('Base');
+    // get rid of this magic number formulation
     const convertedCoord = (base!.position.z + 0.55) - props.destVector.y;
     marker.position.set(props.destVector.x + 1.2, 0, convertedCoord - 2.54);
   }
@@ -347,11 +358,13 @@ watch(() => [props.destVector?.x, props.destVector?.y, props.destExists], async 
 });
 
 watch(() => props.axes, () => {
+  //rename to xy pos
   const ax1 = scene.getObjectByName('Axes1');
   if (ax1 !== undefined) {
     ax1.visible = props.axes;
   }
 
+  // rename to x,y negative
   const ax2 = scene.getObjectByName('Axes2');
   if (ax2 !== undefined) {
     ax2.visible = props.axes;
