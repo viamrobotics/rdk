@@ -6,6 +6,7 @@ import (
 	// for embedding model file.
 	_ "embed"
 	"errors"
+	"fmt"
 	"math"
 	"net"
 	"sync"
@@ -75,7 +76,7 @@ func Model(name, modelName string) (referenceframe.Model, error) {
 	case ModelName7DOF:
 		return referenceframe.UnmarshalModelJSON(xArm7modeljson, name)
 	default:
-		return nil, errors.New("no kinematics model for xarm with specified degrees of freedom")
+		return nil, fmt.Errorf("no kinematics information for xarm of model %s", modelName)
 	}
 }
 
