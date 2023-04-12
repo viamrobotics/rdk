@@ -19,7 +19,6 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
-
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -1884,7 +1883,7 @@ func TestConfigPackageReferenceReplacement(t *testing.T) {
 				Name:  "Vision-Service",
 				Type:  vision.SubtypeName,
 				Model: resource.NewDefaultModel("tflite_classifier"),
-				ConvertedAttributes: &tflite.TFLiteClassifierConfig{
+				ConvertedAttributes: &tflite.ClassifierConfig{
 					ModelPath:  "${packages.package-1}/model.tflite",
 					LabelPath:  "${packages.package-2}/labels.txt",
 					NumThreads: 1,

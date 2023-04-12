@@ -10,6 +10,7 @@ import (
 	"github.com/nfnt/resize"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
+
 	"go.viam.com/rdk/config"
 	inf "go.viam.com/rdk/ml/inference"
 	"go.viam.com/rdk/registry"
@@ -20,12 +21,12 @@ import (
 	"go.viam.com/rdk/vision/classification"
 )
 
-var model_classify = resource.NewDefaultModel("tflite_classifier")
+var modelClassify = resource.NewDefaultModel("tflite_classifier")
 
 func init() {
-	registry.RegisterService(vision.Subtype, model_classify, registry.Service{
+	registry.RegisterService(vision.Subtype, modelClassify, registry.Service{
 		RobotConstructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
-			attrs, ok := c.ConvertedAttributes.(*TFLiteClassifierConfig)
+			attrs, ok := c.ConvertedAttributes.(*ClassifierConfig)
 			if !ok {
 				return nil, utils.NewUnexpectedTypeError(attrs, c.ConvertedAttributes)
 			}
@@ -34,27 +35,30 @@ func init() {
 	})
 	config.RegisterServiceAttributeMapConverter(
 		vision.Subtype,
-		model_classify,
+		modelClassify,
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf TFLiteClassifierConfig
+			var conf ClassifierConfig
 			attrs, err := config.TransformAttributeMapToStruct(&conf, attributes)
 			if err != nil {
 				return nil, err
 			}
-			result, ok := attrs.(*TFLiteClassifierConfig)
+			result, ok := attrs.(*ClassifierConfig)
 			if !ok {
 				return nil, utils.NewUnexpectedTypeError(result, attrs)
 			}
 			return result, nil
 		},
-		&TFLiteClassifierConfig{},
+		&ClassifierConfig{},
 	)
 }
 
-var LABEL_OUTPUT_MISMATCH = errors.New("Invalid Label File: Number of labels does not match number of model outputs. Labels must be separated by a newline, comma or space.")
+// ErrorLabelMismatch is for when the number of labels in the file does not correspond
+// to the number of labels in the tensor.
+var ErrorLabelMismatch = errors.New(
+	"invalid label file: number of labels does not match number of model outputs. Labels must be separated by a newline, comma or space")
 
-// TFLiteClassifierConfig specifies the fields necessary for creating a TFLite classifier.
-type TFLiteClassifierConfig struct {
+// ClassifierConfig specifies the fields necessary for creating a TFLite classifier.
+type ClassifierConfig struct {
 	// this should come from the attributes part of the classifier config
 	ModelPath  string `json:"model_path"`
 	NumThreads int    `json:"num_threads"`
@@ -93,7 +97,7 @@ func (tf *tfliteClassifier) Close(ctx context.Context) error {
 func registerTFLiteClassifier(
 	ctx context.Context,
 	name string,
-	params *TFLiteClassifierConfig,
+	params *ClassifierConfig,
 	r robot.Robot,
 	logger golog.Logger,
 ) (vision.Service, error) {
@@ -152,7 +156,7 @@ func unpackClassificationTensor(ctx context.Context, tensor []interface{},
 	out := make(classification.Classifications, 0, len(outConf))
 	if len(labels) > 0 {
 		if len(labels) != len(outConf) {
-			return nil, LABEL_OUTPUT_MISMATCH
+			return nil, ErrorLabelMismatch
 		}
 
 		for i, c := range outConf {

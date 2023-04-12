@@ -1,3 +1,5 @@
+// Package colordetector uses a heuristic based on hue and connected components to create
+// bounding boxes around objects of a specified color.
 package colordetector
 
 import (
@@ -25,7 +27,7 @@ func init() {
 			if !ok {
 				return nil, utils.NewUnexpectedTypeError(attrs, c.ConvertedAttributes)
 			}
-			return registerColorDetector(ctx, c.Name, attrs, r, logger)
+			return registerColorDetector(ctx, c.Name, attrs, r)
 		},
 	})
 	config.RegisterServiceAttributeMapConverter(
@@ -47,8 +49,13 @@ func init() {
 	)
 }
 
-// registerColorDetector creates a new Color Detector from the config
-func registerColorDetector(ctx context.Context, name string, conf *objdet.ColorDetectorConfig, r robot.Robot, logger golog.Logger) (vision.Service, error) {
+// registerColorDetector creates a new Color Detector from the config.
+func registerColorDetector(
+	ctx context.Context,
+	name string,
+	conf *objdet.ColorDetectorConfig,
+	r robot.Robot,
+) (vision.Service, error) {
 	_, span := trace.StartSpan(ctx, "service::vision::registerColorDetector")
 	defer span.End()
 	if conf == nil {

@@ -1,3 +1,5 @@
+// Package radiusclustering uses the 3D radius clustering algorithm as defined in the
+// RDK vision/segmentation package as vision model.
 package radiusclustering
 
 import (
@@ -25,7 +27,7 @@ func init() {
 			if !ok {
 				return nil, utils.NewUnexpectedTypeError(attrs, c.ConvertedAttributes)
 			}
-			return registerRCSegmenter(ctx, c.Name, attrs, r, logger)
+			return registerRCSegmenter(ctx, c.Name, attrs, r)
 		},
 	})
 	config.RegisterServiceAttributeMapConverter(
@@ -47,8 +49,13 @@ func init() {
 	)
 }
 
-// registerRCSegmenter creates a new 3D radius clustering segmenter from the config
-func registerRCSegmenter(ctx context.Context, name string, conf *segmentation.RadiusClusteringConfig, r robot.Robot, logger golog.Logger) (vision.Service, error) {
+// registerRCSegmenter creates a new 3D radius clustering segmenter from the config.
+func registerRCSegmenter(
+	ctx context.Context,
+	name string,
+	conf *segmentation.RadiusClusteringConfig,
+	r robot.Robot,
+) (vision.Service, error) {
 	_, span := trace.StartSpan(ctx, "service::vision::registerRadiusClustering")
 	defer span.End()
 	if conf == nil {
