@@ -180,7 +180,7 @@ func (wrapper *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, 
 	return wrapper.model.InputFromProtobuf(res), nil
 }
 
-// AllInputs returns the current inputs of the arm.
+// AllInputs TODO.
 func (wrapper *Arm) AllInputs(ctx context.Context, goals [][]referenceframe.Input) error {
 	for _, waypoint := range goals {
 		positionDegs := wrapper.model.ProtobufFromInput(waypoint)
