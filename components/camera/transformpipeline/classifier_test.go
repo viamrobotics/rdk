@@ -82,6 +82,7 @@ func buildRobotWithClassifier(logger golog.Logger) (robot.Robot, error) {
 	return r, nil
 }
 
+//nolint:dupl
 func TestClassifierSource(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx, cancel := context.WithCancel(context.Background())
