@@ -8,23 +8,27 @@ import (
 	"syscall"
 )
 
-func GetOSInformation() OSInformation {
+// GetOSInformation pulls relevant OS attributes as an OSInformation struct
+// Kenrnel and Device will be "unkown" if unable to retreive attribute from the OS
+func DetectOSInformation() OSInformation {
 	osInfo := OSInformation{
-		Name:   runtime.GOOS,
-		Arch:   runtime.GOARCH,
-		Kernel: getKernelVersion(),
-		Device: getDeviceName(),
+		Name:   runtime.GOOS,       // e.g. "linux"
+		Arch:   runtime.GOARCH,     // e.g. "arm64"
+		Kernel: getKernelVersion(), // e.g. "4.9.140-tegra"
+		Device: getDeviceName(),    // e.g. "NVIDIA Jetson AGX Xavier"
 	}
 	return osInfo
 }
 
+// getKernelVersion returns the kernel version
+// or "unkown" if unable to retreive
 func getKernelVersion() string {
-	var utsname syscall.Utsname
-	if err := syscall.Uname(&utsname); err != nil {
-		return ""
+	var utsName syscall.Utsname
+	if err := syscall.Uname(&utsName); err != nil {
+		return "unkown"
 	}
 	var release []byte
-	for _, b := range utsname.Release {
+	for _, b := range utsName.Release {
 		if b == 0 {
 			break
 		}
@@ -33,11 +37,13 @@ func getKernelVersion() string {
 	return string(release)
 }
 
+// getDeviceName returns the model name of the board
+// or "unkown" if unable to retreive
 func getDeviceName() string {
 	devicePath := "/sys/firmware/devicetree/base/model"
 	device, err := os.ReadFile(devicePath)
 	if err != nil {
-		return ""
+		return "unknown"
 	}
 	return string(bytes.TrimRight(device, "\x00"))
 }
@@ -61,6 +67,7 @@ func PrintError(osInfo OSInformation, driver string) string {
 	}
 }
 
+// checkI2CInterface checks if the i2c interface is available
 func checkI2CInterface(i2c string) error {
 	i2cPath := "/dev/" + i2c
 	if _, err := os.Stat(i2cPath); os.IsNotExist(err) {
@@ -70,6 +77,8 @@ func checkI2CInterface(i2c string) error {
 	}
 }
 
+// checkDriverInstalled checks if the driver is installed
+// for the given kernel version and object file target
 func checkDriverInstalled(kernel string, driver string) error {
 	driverPath := "/lib/modules/" + kernel + "/extra/" + driver
 	if _, err := os.Stat(driverPath); os.IsNotExist(err) {

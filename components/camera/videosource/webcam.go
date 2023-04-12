@@ -239,7 +239,7 @@ func NewWebcamSource(ctx context.Context, name string, attrs *WebcamAttrs, logge
 	if err != nil {
 		// If we are on an Orin AGX, we need to check if the daughterboard and the camera driver are installed.
 		if runtime.GOOS == "linux" && runtime.GOARCH == "arm64" {
-			osInfo := jetsoncamera.GetOSInformation()
+			osInfo := jetsoncamera.DetectOSInformation()
 			if osInfo.Device == jetsoncamera.JetsonOrinAGX {
 				return nil, errors.Wrap(err, jetsoncamera.PrintError(osInfo, "AR0234"))
 			}
