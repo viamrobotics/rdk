@@ -33,7 +33,7 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-// ModelName is the resource model.
+// ModelName is the name of the eva model of an arm component.
 var ModelName = resource.NewDefaultModel("eva")
 
 // AttrConfig is used for converting config attributes.

@@ -4,13 +4,13 @@ import (
 	"context"
 	"testing"
 
+	"github.com/edaniels/golog"
+	"go.viam.com/test"
+
+	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/slam/fake"
 	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/test"
-
-	"github.com/edaniels/golog"
-	"go.viam.com/rdk/config"
 )
 
 func TestFakeBase(t *testing.T) {

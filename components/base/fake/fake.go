@@ -23,6 +23,9 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
+// ModelName is the name of the fake model of a base component.
+var ModelName = resource.NewDefaultModel("fake")
+
 // Config is used for converting config attributes.
 type Config struct {
 	BaseModel string `json:"base-model,omitempty"`
@@ -31,7 +34,7 @@ type Config struct {
 func init() {
 	registry.RegisterComponent(
 		base.Subtype,
-		resource.NewDefaultModel("fake"),
+		ModelName,
 		registry.Component{
 			Constructor: func(
 				ctx context.Context,
@@ -57,6 +60,7 @@ type Base struct {
 	collisionGeometry spatialmath.Geometry
 }
 
+// NewBase instantiates a new base of the fake model type.
 func NewBase(ctx context.Context, cfg config.Component, logger golog.Logger) (base.LocalBase, error) {
 	// TODO(rb): This should not ultimately be using the wheeled base package to do this
 	geometry, err := base.CollisionGeometry(cfg)
@@ -119,6 +123,7 @@ type kinematicBase struct {
 	inputs []referenceframe.Input
 }
 
+// WrapWithKinematics creates a KinematicBase from the.
 func (b *Base) WrapWithKinematics(ctx context.Context, slamSvc slam.Service) (base.KinematicBase, error) {
 	// gets the extents of the SLAM map
 	data, err := slam.GetPointCloudMapFull(ctx, slamSvc)

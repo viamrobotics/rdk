@@ -293,9 +293,9 @@ func WrapWithReconfigurable(r interface{}, name resource.Name) (resource.Reconfi
 	return &reconfigurableLocalBase{actual: localBase, reconfigurableBase: rBase}, nil
 }
 
+// CollisionGeometry returns a spherical geometry that will encompass the base if it were to rotate the geometry specified in the config
+// 360 degrees about the Z axis of the reference frame specified in the config.
 func CollisionGeometry(cfg config.Component) (spatialmath.Geometry, error) {
-	// TODO(rb): this is a hacky workaround for not having kinematics for bases yet
-	// we create a sphere that would encompass the config geometry's rotation a full 360 degrees
 	// TODO(RSDK-1014): the orientation of this model will matter for collision checking,
 	// and should match the convention of +Y being forward for bases
 	if cfg.Frame == nil || cfg.Frame.Geometry == nil {
