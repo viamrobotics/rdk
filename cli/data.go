@@ -250,21 +250,19 @@ func (c *AppClient) TabularData(dst string, filter *datapb.Filter) error {
 	w := bufio.NewWriter(dataFile)
 
 	var last string
-	var i int
+	var metadataIdx int
 	for {
 		for count := 0; count < maxRetryCount; count++ {
-			for {
-				resp, err = c.dataClient.TabularDataByFilter(context.Background(), &datapb.TabularDataByFilterRequest{
-					DataRequest: &datapb.DataRequest{
-						Filter: filter,
-						Limit:  maxLimit,
-						Last:   last,
-					},
-					CountOnly: false,
-				})
-				if err == nil {
-					break
-				}
+			resp, err = c.dataClient.TabularDataByFilter(context.Background(), &datapb.TabularDataByFilterRequest{
+				DataRequest: &datapb.DataRequest{
+					Filter: filter,
+					Limit:  maxLimit,
+					Last:   last,
+				},
+				CountOnly: false,
+			})
+			if err == nil {
+				break
 			}
 		}
 		if err != nil {
@@ -273,15 +271,18 @@ func (c *AppClient) TabularData(dst string, filter *datapb.Filter) error {
 
 		last = resp.GetLast()
 		mds := resp.GetMetadata()
+		if len(mds) == 0 {
+			break
+		}
 		for _, md := range mds {
 			mdJSONBytes, err := protojson.Marshal(md)
 			if err != nil {
 				return errors.Wrap(err, "error marshaling metadata")
 			}
 			//nolint:gosec
-			mdFile, err := os.Create(filepath.Join(dst, metadataDir, strconv.Itoa(i)+".json"))
+			mdFile, err := os.Create(filepath.Join(dst, metadataDir, strconv.Itoa(metadataIdx)+".json"))
 			if err != nil {
-				return errors.Wrapf(err, fmt.Sprintf("error creating metadata file for metadata index %d", i))
+				return errors.Wrapf(err, fmt.Sprintf("error creating metadata file for metadata index %d", metadataIdx))
 			}
 			if _, err := mdFile.Write(mdJSONBytes); err != nil {
 				return errors.Wrapf(err, "error writing metadata file %s", mdFile.Name())
@@ -290,7 +291,7 @@ func (c *AppClient) TabularData(dst string, filter *datapb.Filter) error {
 				return errors.Wrapf(err, "error closing metadata file %s", mdFile.Name())
 			}
 
-			i += 1
+			metadataIdx += 1
 		}
 
 		data := resp.GetData()
