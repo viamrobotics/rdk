@@ -283,7 +283,7 @@ func (b *sysfsBoard) DigitalInterruptByName(name string) (board.DigitalInterrupt
 		Type: "basic",
 	}
 	interrupt, err := createDigitalInterrupt(b.cancelCtx, defaultInterruptConfig, b.gpioMappings,
-	                                         &b.activeBackgroundWorkers)
+		&b.activeBackgroundWorkers)
 	if err != nil {
 		b.logger.Errorf("Unable to create digital interrupt pin on the fly: %s", err)
 		return nil, false
