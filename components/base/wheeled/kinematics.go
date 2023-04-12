@@ -11,7 +11,6 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/utils"
 )
 
 type kinematicWheeledBase struct {
@@ -22,12 +21,7 @@ type kinematicWheeledBase struct {
 
 // WrapWithKinematics takes a wheeledBase component and adds a slam service to it
 // It also adds kinematic model so that it can be controlled.
-func (base *wheeledBase) WrapWithKinematics(ctx context.Context, slamSvc slam.Service) (base.KinematicBase, error) {
-	var err error
-	wb, ok := utils.UnwrapProxy(base).(*wheeledBase)
-	if !ok {
-		return nil, errors.Errorf("could not interpret base of type %T as a wheeledBase", base)
-	}
+func (wb *wheeledBase) WrapWithKinematics(ctx context.Context, slamSvc slam.Service) (base.KinematicBase, error) {
 	kwb := &kinematicWheeledBase{
 		wheeledBase: wb,
 		slam:        slamSvc,

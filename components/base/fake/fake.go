@@ -42,7 +42,7 @@ func init() {
 				config config.Component,
 				logger golog.Logger,
 			) (interface{}, error) {
-				return &Base{Name: config.Name}, nil
+				return NewBase(ctx, config, logger)
 			},
 		},
 	)
@@ -123,7 +123,7 @@ type kinematicBase struct {
 	inputs []referenceframe.Input
 }
 
-// WrapWithKinematics creates a KinematicBase from the.
+// WrapWithKinematics creates a KinematicBase from the fake Base so that it satisfies the ModelFramer and InputEnabled interfaces.
 func (b *Base) WrapWithKinematics(ctx context.Context, slamSvc slam.Service) (base.KinematicBase, error) {
 	// gets the extents of the SLAM map
 	data, err := slam.GetPointCloudMapFull(ctx, slamSvc)
