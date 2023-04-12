@@ -124,17 +124,18 @@ func (pwm *pwmDevice) SetPwm(freqHz uint, dutyCycle float64) (err error) {
 		return err
 	}
 
-	// Intuitively, we should disable the pin, set the new parameters, and then enable it.
+	// Intuitively, we should disable the pin, set the new parameters, and then enable it again.
 	// However, the BeagleBone AI64 has a weird quirk where you need to enable the pin *before* you
-	// set the parameters, because enabling it afterwards sets the duty cycle to 100% until it gets
-	// modified again. So, enable the PWM signal first and *then* set it to the correct values.
-	// This shouldn't hurt anything on the other boards; it's just not the intuitive order.
+	// set the parameters, because enabling it afterwards sets the pin constantly high until the
+	// period or duty cycle is modified again. So, enable the PWM signal first and *then* set it to
+	// the correct values. This shouldn't hurt anything on the other boards; it's just not the
+	// intuitive order.
 	if err := pwm.enable(); err != nil {
 		// If the board is newly booted up, the period (and everything else) might be initialized
 		// to 0, and enabling the pin with a period of 0 results in errors. Let's try making the
-		// period non-zero and enabling it again. Periods are stored in nanoseconds, but many PWM
-		// chips can't handle periods less than 1 microsecond, so let's try setting it to 1000.
-		pwm.logger.Debugf("Unable to enable HW PWM device %s line %d, will try changing period: %s",
+		// period non-zero and enabling it again. Many PWM chips can't handle periods less than 1
+		// microsecond, so let's try setting it to 1000 nanoseconds.
+		pwm.logger.Debugf("Cannot enable HW PWM device %s line %d, will try changing period: %s",
 		                  pwm.chipPath, pwm.line, err)
 		if err := pwm.writeLine("period", 1000); err != nil {
 			return err // Not sure what would cause this; call it an error.
@@ -154,13 +155,12 @@ func (pwm *pwmDevice) SetPwm(freqHz uint, dutyCycle float64) (err error) {
 	// If we ever try setting the active duration higher than the period (or the period lower than
 	// the active duration), we will get an error. So, make sure we never do that!
 
-	// The BeagleBone has a weird quirk where, if you don't change the period of active duration
+	// The BeagleBone has a weird quirk where, if you don't change the period or active duration
 	// after enabling the PWM line, it just goes high and stays there, rather than blinking at the
-	// intended period. To avoid this, we first set the active duration to 0 and the period to 1 ns,
-	// and then set the period and active duration to their intended values. That way, if you turn
-	// the PWM signal off and on again, it still works because you've changed the values after
-	// (re-)enabling the line. As long as the period is never actually supposed to be 1 ns, this
-	// should work fine.
+	// intended rate. To avoid this, we first set the active duration to 0 and the period to 1
+	// microsecond, and then set the period and active duration to their intended values. That way,
+	// if you turn the PWM signal off and on again, it still works because you've changed the
+	// values after (re-)enabling the line.
 
 	// Setting the active duration to 0 should always work: this is guaranteed to be less than the
 	// period.

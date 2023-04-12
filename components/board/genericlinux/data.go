@@ -273,7 +273,6 @@ func getPwmChipDefs(pinDefs []PinDefinition) (map[string]pwmChipData, error) {
 			return nil, fmt.Errorf("unable to find PWM device %s", chipName)
 		}
 	}
-
 	return pwmChipsInfo, nil
 }
 
