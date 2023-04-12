@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -98,23 +97,24 @@ func GetGPIOBoardMappings(modelName string, boardInfoMappings map[string]BoardIn
 // getCompatiblePinDefs returns a list of pin definitions, from the first BoardInformation struct
 // that appears compatible with the machine we're running on.
 func getCompatiblePinDefs(modelName string, boardInfoMappings map[string]BoardInformation) ([]PinDefinition, error) {
-	// var compatiblePath string
+	var path string
+	fmt.Printf("model ", modelName)
+	const (
+		compatiblePath    = "/proc/device-tree/compatible"
+		compatiblePathDmi = "/sys/devices/virtual/dmi/id/board_name"
+	)
 
-	// if getArchitecture() == "x86_64" {
-	// 	compatiblePath = "/sys/devices/virtual/dmi/id/board_name"
-	// } else {
-	// 	compatiblePath = "/proc/device-tree/compatible"
-	// }
-
-	compatiblesRd, err := os.ReadFile("/sys/devices/virtual/dmi/id/board_name")
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, noBoardError(modelName)
-		}
-		return nil, err
+	if modelName == "intel" {
+		path = compatiblePathDmi
+	} else {
+		path = compatiblePath
 	}
 
-	compatibles := utils.NewStringSet(strings.Split(string(compatiblesRd), "\x00")...)
+	fmt.Printf("path is ", path)
+
+	compatibles, _ := newStringSetFromFile(modelName, path)
+
+	fmt.Printf("compatibles is ", compatibles)
 
 	var pinDefs []PinDefinition
 	for _, info := range boardInfoMappings {
@@ -126,26 +126,28 @@ func getCompatiblePinDefs(modelName string, boardInfoMappings map[string]BoardIn
 		}
 	}
 
-	fmt.Printf("pinDef", pinDefs)
 	if pinDefs == nil {
 		return nil, noBoardError(modelName)
 	}
+
 	return pinDefs, nil
 }
 
-// helper function to get board architecture.
-func getArchitecture() string {
-	cmd := exec.Command("uname", "-m")
-
-	var out bytes.Buffer
-	cmd.Stdout = &out
-
-	err := cmd.Run()
+func newStringSetFromFile(modelName string, path string) (utils.StringSet, error) {
+	content, err := os.ReadFile(path)
 	if err != nil {
-		return "Unknown"
+		if os.IsNotExist(err) {
+			return nil, noBoardError(modelName)
+		}
+		return nil, err
 	}
 
-	return out.String()
+	// Remove whitespace and null characters from the content
+	content = bytes.TrimSpace(content)
+	content = bytes.ReplaceAll(content, []byte{0x00}, []byte{})
+
+	fmt.Printf("output of new function ", utils.NewStringSet(string(content)))
+	return utils.NewStringSet(string(content)), nil
 }
 
 // A helper function: we read the contents of filePath and return its integer value.
