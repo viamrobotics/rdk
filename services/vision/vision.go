@@ -102,9 +102,17 @@ type vizModel struct {
 }
 
 // NewService wraps the vision model in the struct that fulfills the vision service interface.
-func NewService(name string, r robot.Robot, c func(ctx context.Context) error, cf classification.Classifier, df objectdetection.Detector, s3f segmentation.Segmenter) (Service, error) {
+func NewService(
+	name string,
+	r robot.Robot,
+	c func(ctx context.Context) error,
+	cf classification.Classifier,
+	df objectdetection.Detector,
+	s3f segmentation.Segmenter,
+) (Service, error) {
 	if cf == nil && df == nil && s3f == nil {
-		return nil, errors.New("model does not fulfill any method of the vision service. It is neither a detector, nor classifier, nor 3D segmenter.")
+		return nil, errors.New(
+			"model does not fulfill any method of the vision service. It is neither a detector, nor classifier, nor 3D segmenter")
 	}
 	return &vizModel{
 		name:            name,
@@ -153,7 +161,7 @@ func (vm *vizModel) DetectionsFromCamera(
 	return vm.detectorFunc(ctx, img)
 }
 
-// Classifications returns the classifications of given image if the model implements classifications.Classifier
+// Classifications returns the classifications of given image if the model implements classifications.Classifier.
 func (vm *vizModel) Classifications(
 	ctx context.Context,
 	img image.Image,
@@ -200,7 +208,7 @@ func (vm *vizModel) ClassificationsFromCamera(
 	return fullClassifications.TopN(n)
 }
 
-// GetObjectPointClouds returns all the found objects in a 3D image if the model implements Segmenter3D
+// GetObjectPointClouds returns all the found objects in a 3D image if the model implements Segmenter3D.
 func (vm *vizModel) GetObjectPointClouds(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::GetObjectPointClouds::"+vm.name)
 	defer span.End()

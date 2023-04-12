@@ -5,11 +5,12 @@ import (
 	"image"
 	"testing"
 
+	"go.viam.com/test"
+
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/vision/objectdetection"
-	"go.viam.com/test"
 )
 
 const (
