@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/slam/fake"
 	"go.viam.com/rdk/spatialmath"
@@ -32,7 +31,7 @@ func TestFakeBase(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	b, err := NewBase(ctx, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
-	kb, err := b.(base.KinematicWrappable).WrapWithKinematics(ctx, fake.NewSLAM("test", logger))
+	kb, err := b.(*Base).WrapWithKinematics(ctx, fake.NewSLAM("test", logger))
 	test.That(t, err, test.ShouldBeNil)
 	expected := referenceframe.FloatsToInputs([]float64{10, 11})
 	test.That(t, kb.GoToInputs(ctx, expected), test.ShouldBeNil)
