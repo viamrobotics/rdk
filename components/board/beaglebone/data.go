@@ -17,10 +17,10 @@ var boardInfoMappings = map[string]genericlinux.BoardInformation{
 
 			{map[int]int{128: 89}, map[int]string{}, "600000.gpio", 813, 0, "P8_13", "", "3000000.pwm", 1}, // pwmchip0 V27 EHRPWM0_A
 			{map[int]int{128: 88}, map[int]string{}, "600000.gpio", 819, 0, "P8_19", "", "3000000.pwm", 0}, // pwmchip0 V29 EHRPWM0_B
-			{map[int]int{128: 93}, map[int]string{}, "600000.gpio", 914, 0, "P9_14", "", "3020000.pwm", 0},  // pwmchip4 U27 EHRPWM2_A
-			{map[int]int{128: 94}, map[int]string{}, "600000.gpio", 916, 0, "P9_16", "", "3020000.pwm", 1},  // pwmchip4 U24 EHRPWM2_B
-			{map[int]int{128: 39}, map[int]string{}, "600000.gpio", 921, 0, "P9_21", "", "3010000.pwm", 0},  // pwmchip2
-			{map[int]int{128: 38}, map[int]string{}, "600000.gpio", 922, 0, "P9_22", "", "3010000.pwm", 1},  // pwmchip2 BOOTMODE1
+			{map[int]int{128: 93}, map[int]string{}, "600000.gpio", 914, 0, "P9_14", "", "3020000.pwm", 0}, // pwmchip4 U27 EHRPWM2_A
+			{map[int]int{128: 94}, map[int]string{}, "600000.gpio", 916, 0, "P9_16", "", "3020000.pwm", 1}, // pwmchip4 U24 EHRPWM2_B
+			{map[int]int{128: 39}, map[int]string{}, "600000.gpio", 921, 0, "P9_21", "", "3010000.pwm", 0}, // pwmchip2
+			{map[int]int{128: 38}, map[int]string{}, "600000.gpio", 922, 0, "P9_22", "", "3010000.pwm", 1}, // pwmchip2 BOOTMODE1
 
 			// Timer only PWM
 			{map[int]int{128: 26}, map[int]string{}, "600000.gpio", 832, 0, "P8_32", "", "", -1},
