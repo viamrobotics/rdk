@@ -1,3 +1,4 @@
+// Package intel implements a Intel based board.
 package intel
 
 import (
