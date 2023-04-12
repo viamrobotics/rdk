@@ -496,9 +496,13 @@ func TestAttributeConversion(t *testing.T) {
 		})
 		test.That(t, err, test.ShouldBeNil)
 
-		test.That(t, createDeps1, test.ShouldResemble, deps)
-		test.That(t, createConf1.Attributes, test.ShouldResemble, mockConf.Attributes)
-		test.That(t, createConf1.ConvertedAttributes, test.ShouldImplement, &MockConfig{})
+		_, ok := createDeps1[motor.Named("motor1")]
+		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, createConf1.Attributes.StringSlice("motors"), test.ShouldResemble, []string{motor.Named("motor1").String()})
+
+		mc, ok := createConf1.ConvertedAttributes.(*MockConfig)
+		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, mc.Motors, test.ShouldResemble, []string{motor.Named("motor1").String()})
 	})
 
 	//nolint:dupl
@@ -523,9 +527,13 @@ func TestAttributeConversion(t *testing.T) {
 		})
 		test.That(t, err, test.ShouldBeNil)
 
-		test.That(t, createDeps1, test.ShouldResemble, deps)
-		test.That(t, createConf1.Attributes, test.ShouldResemble, mockConf.Attributes)
-		test.That(t, createConf1.ConvertedAttributes, test.ShouldImplement, &MockConfig{})
+		_, ok := createDeps1[motor.Named("motor2")]
+		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, createConf1.Attributes.StringSlice("motors"), test.ShouldResemble, []string{motor.Named("motor2").String()})
+
+		mc, ok := createConf1.ConvertedAttributes.(*MockConfig)
+		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, mc.Motors, test.ShouldResemble, []string{motor.Named("motor2").String()})
 	})
 
 	t.Run("reconfigurable creation", func(t *testing.T) {
@@ -550,12 +558,15 @@ func TestAttributeConversion(t *testing.T) {
 		})
 		test.That(t, err, test.ShouldBeNil)
 
-		test.That(t, reconfigDeps1, test.ShouldResemble, deps)
-		test.That(t, reconfigConf1.Attributes, test.ShouldResemble, mockReconfigConf.Attributes)
-		test.That(t, reconfigConf1.ConvertedAttributes, test.ShouldImplement, &MockConfig{})
+		_, ok := reconfigDeps1[motor.Named("motor1")]
+		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, reconfigConf1.Attributes.StringSlice("motors"), test.ShouldResemble, []string{motor.Named("motor1").String()})
+
+		mc, ok := reconfigConf1.ConvertedAttributes.(*MockConfig)
+		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, mc.Motors, test.ShouldResemble, []string{motor.Named("motor1").String()})
 	})
 
-	//nolint:dupl
 	t.Run("reconfigurable reconfiguration", func(t *testing.T) {
 		mockAttrs, err := protoutils.StructToStructPb(MockConfig{
 			Motors: []string{motor.Named("motor2").String()},
@@ -577,9 +588,22 @@ func TestAttributeConversion(t *testing.T) {
 		})
 		test.That(t, err, test.ShouldBeNil)
 
-		test.That(t, reconfigDeps2, test.ShouldResemble, deps)
-		test.That(t, reconfigConf2.Attributes, test.ShouldResemble, mockReconfigConf.Attributes)
-		test.That(t, reconfigConf2.ConvertedAttributes, test.ShouldImplement, &MockConfig{})
+		_, ok := reconfigDeps2[motor.Named("motor2")]
+		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, reconfigConf2.Attributes.StringSlice("motors"), test.ShouldResemble, []string{motor.Named("motor2").String()})
+
+		mc, ok := reconfigConf2.ConvertedAttributes.(*MockConfig)
+		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, mc.Motors, test.ShouldResemble, []string{motor.Named("motor2").String()})
+
+		// and as a final confirmation, check that original values weren't modified
+		_, ok = reconfigDeps1[motor.Named("motor1")]
+		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, reconfigConf1.Attributes.StringSlice("motors"), test.ShouldResemble, []string{motor.Named("motor1").String()})
+
+		mc, ok = reconfigConf1.ConvertedAttributes.(*MockConfig)
+		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, mc.Motors, test.ShouldResemble, []string{motor.Named("motor1").String()})
 	})
 
 	err = conn.Close()
