@@ -249,6 +249,7 @@ func (c *AppClient) TabularData(dst string, filter *datapb.Filter) error {
 	}
 	w := bufio.NewWriter(dataFile)
 
+	fmt.Print("Downloading..")
 	var last string
 	var metadataIdx int
 	for {
@@ -261,6 +262,7 @@ func (c *AppClient) TabularData(dst string, filter *datapb.Filter) error {
 				},
 				CountOnly: false,
 			})
+			fmt.Print(".")
 			if err == nil {
 				break
 			}
@@ -316,6 +318,7 @@ func (c *AppClient) TabularData(dst string, filter *datapb.Filter) error {
 		}
 	}
 
+	fmt.Println()
 	if err := w.Flush(); err != nil {
 		return errors.Wrapf(err, "error flushing writer for %s", dataFile.Name())
 	}
