@@ -11,7 +11,7 @@ import (
 )
 
 // Detector returns a slice of object detections from an input image.
-type Detector = func(context.Context, image.Image) ([]Detection, error)
+type Detector func(context.Context, image.Image) ([]Detection, error)
 
 // Build zips up a preprocessor-detector-postprocessor stream into a detector.
 func Build(prep Preprocessor, det Detector, post Postprocessor) (Detector, error) {

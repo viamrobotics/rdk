@@ -2,11 +2,9 @@ package mlvision
 
 import (
 	"context"
-	"image"
 
 	"github.com/edaniels/golog"
 	"go.opencensus.io/trace"
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -14,11 +12,6 @@ import (
 	"go.viam.com/rdk/services/mlmodel"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/utils"
-	viz "go.viam.com/rdk/vision"
-	"go.viam.com/rdk/vision/classification"
-	"go.viam.com/rdk/vision/objectdetection"
-	"go.viam.com/rdk/vision/segmentation"
-	goutils "go.viam.com/utils"
 )
 
 var model = resource.NewDefaultModel("ml_model")
@@ -56,15 +49,6 @@ type MLModelConfig struct {
 	ModelName string `json:"ml_model_name"`
 }
 
-type mlModelVisionService struct {
-	mlm          mlmodel.Service
-	r            robot.Robot
-	classifyFunc classification.Classifier
-	detectFunc   objectdetection.Detector
-	segmentFunc  segmentation.Segmenter
-	generic.Unimplemented
-}
-
 func registerMLModelVisionService(
 	ctx context.Context,
 	name string,
@@ -79,62 +63,18 @@ func registerMLModelVisionService(
 	if err != nil {
 		return nil, err
 	}
-	classifyFunc, err = attemptToBuildClassifier(mlm)
+	classifierFunc, err := attemptToBuildClassifier(mlm)
 	if err != nil {
 		return nil, err
 	}
-	return &mlModelVisionService{
-		mlm:          mlm,
-		r:            r,
-		classifyFunc: classifyFunc,
-		detectFunc:   nil,
-		segmentFunc:  nil,
-	}, nil
-}
-
-// Detections returns the detections of given image if the model implements objectdetector.Detector.
-func (ml *mlModelVisionService) Detections(
-	ctx context.Context,
-	img image.Image,
-	extra map[string]interface{},
-) ([]objectdetection.Detection, error) {
-	return nil, nil
-}
-
-// DetectionsFromCamera returns the detections of the next image from the given camera.
-func (ml *mlModelVisionService) DetectionsFromCamera(
-	ctx context.Context,
-	cameraName string,
-	extra map[string]interface{},
-) ([]objectdetection.Detection, error) {
-	return nil, nil
-}
-
-// Classifications returns the classifications of given image if the model implements classifications.Classifier
-func (ml *mlModelVisionService) Classifications(
-	ctx context.Context,
-	img image.Image,
-	n int,
-	extra map[string]interface{},
-) (classification.Classifications, error) {
-	return nil, nil
-}
-
-// ClassificationsFromCamera returns the classifications of the next image from the given camera.
-func (ml *mlModelVisionService) ClassificationsFromCamera(
-	ctx context.Context,
-	cameraName string,
-	n int,
-	extra map[string]interface{},
-) (classification.Classifications, error) {
-	return nil, nil
-}
-
-// GetObjectPointClouds returns all the found objects in a 3D image if the model implements Segmenter3D
-func (ml *mlModelVisionService) GetObjectPointClouds(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
-	return nil, nil
-}
-
-func (ml *mlModelVisionService) Close(ctx context.Context) error {
-	return goutils.TryClose(ctx, ml.mlm)
+	detectorFunc, err := attemptToBuildDetector(mlm)
+	if err != nil {
+		return nil, err
+	}
+	segmenter3DFunc, err := attemptToBuild3DSegmenter(mlm)
+	if err != nil {
+		return nil, err
+	}
+	// Don't return the model, because you don't want to close the underlying service
+	return vision.NewService(name, r, nil, classifierFunc, detectorFunc, segmenter3DFunc)
 }

@@ -8,14 +8,12 @@ import (
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 
-	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/utils"
-	viz "go.viam.com/rdk/vision"
 	"go.viam.com/rdk/vision/objectdetection"
 	"go.viam.com/rdk/vision/segmentation"
 )
@@ -51,19 +49,6 @@ func init() {
 	)
 }
 
-type detector2segmenter struct {
-	objectdetection.Detector
-	segmentation.Segmenter
-}
-
-func (ds *detector2segmenter) Segment(ctx context.Context, c camera.Camera) ([]*viz.Object, error) {
-	return ds.Segmenter(ctx, c)
-}
-
-func (ds *detector2segmenter) Detect(ctx context.Context, img image.Image) ([]objectdetection.Detection, error) {
-	return ds.Detector(ctx, img)
-}
-
 // register3DSegmenterFromDetector creates a 3D segmenter from a previously registered detector
 func register3DSegmenterFromDetector(ctx context.Context, name string, conf *segmentation.DetectionSegmenterConfig, r robot.Robot, logger golog.Logger) (vision.Service, error) {
 	_, span := trace.StartSpan(ctx, "service::vision::register3DSegmenterFromDetector")
@@ -86,5 +71,5 @@ func register3DSegmenterFromDetector(ctx context.Context, name string, conf *seg
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot create 3D segmenter from detector")
 	}
-	return vision.NewService(name, &detector2segmenter{detector, segmenter}, r)
+	return vision.NewService(name, r, nil, nil, detector, segmenter)
 }
