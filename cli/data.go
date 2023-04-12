@@ -293,7 +293,7 @@ func (c *AppClient) TabularData(dst string, filter *datapb.Filter) error {
 				return errors.Wrapf(err, "error closing metadata file %s", mdFile.Name())
 			}
 
-			metadataIdx += 1
+			metadataIdx++
 		}
 
 		data := resp.GetData()
