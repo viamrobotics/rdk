@@ -662,11 +662,11 @@ func TestCachedMaxProbability(t *testing.T) {
 
 	t.Run("cannot set arbitrary values into the octree", func(t *testing.T) {
 		d := &basicData{value: 0, hasValue: false}
-		node := newLeafNodeFilled(r3.Vector{}, d)
+		node := newLeafNodeFilled(r3.Vector{1, 2, 3}, d)
 		filledNode := basicOctreeNode{
 			children: nil,
 			nodeType: leafNodeFilled,
-			point:    PointAndData{P: r3.Vector{}, D: d},
+			point:    &PointAndData{P: r3.Vector{1, 2, 3}, D: d},
 			maxVal:   emptyProb,
 		}
 		test.That(t, node, test.ShouldResemble, filledNode)
