@@ -138,7 +138,7 @@ func (pwm *pwmDevice) SetPwm(freqHz uint, dutyCycle float64) (err error) {
 		pwm.logger.Debugf("Cannot enable HW PWM device %s line %d, will try changing period: %s",
 			pwm.chipPath, pwm.line, err)
 		if err := pwm.writeLine("period", 1000); err != nil {
-			return err // Not sure what would cause this; call it an error.
+			return err
 		}
 		// Now, try enabling the pin one more time before giving up.
 		if err := pwm.enable(); err != nil {
