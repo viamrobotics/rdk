@@ -30,6 +30,7 @@ let refresh2DCancelled = true;
 let updatedDest = $ref(false);
 let threeJPos = $ref(new THREE.Vector3());
 let moveClick = $ref(true);
+// turn these into a pose & pass them around
 let x = 0;
 let y = 0;
 let z = 0;
@@ -285,9 +286,10 @@ const baseCopyPosition = () => {
   copyToClipboardWithToast(asString);
 };
 
+// update function name to be more clear (include work dest)
 const executeDelete = () => {
   updatedDest = false;
-  threeJPos = new THREE.Vector3();
+  threeJPos = new THREE.Vector3(); // rename this to be clear that it is for the destination marker
 };
 
 const toggleAxes = () => {
