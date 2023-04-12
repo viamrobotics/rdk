@@ -84,7 +84,7 @@ func (tf *tfliteDetector) Detect(ctx context.Context, img image.Image) ([]object
 	return detections, nil
 }
 
-func (tf *tfliteDetector) Close() error {
+func (tf *tfliteDetector) Close(ctx context.Context) error {
 	return tf.model.Close()
 }
 
@@ -124,9 +124,9 @@ func registerTFLiteDetector(
 	if err != nil {
 		logger.Warn("did not retrieve class labels")
 	}
-
+	m := &tfliteDetector{inHeight, inWidth, labelMap, model, logger}
 	// This function to be returned is the detector.
-	return vision.NewService(name, &tfliteDetector{inHeight, inWidth, labelMap, model, logger}, r)
+	return vision.NewService(name, r, m.Close, nil, m.Detect, nil)
 }
 
 // addTFLiteModel uses the loader (default or otherwise) from the inference package

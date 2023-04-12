@@ -29,7 +29,7 @@ func (cc Classifications) TopN(n int) (Classifications, error) {
 }
 
 // A Classifier is defined as a function from an image to a list of Classifications.
-type Classifier = func(context.Context, image.Image) (Classifications, error)
+type Classifier func(context.Context, image.Image) (Classifications, error)
 
 // NewClassification creates a simple 2D classification.
 func NewClassification(score float64, label string) Classification {

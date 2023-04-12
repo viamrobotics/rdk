@@ -19,11 +19,10 @@ import (
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
-	"go.viam.com/rdk/vision"
 	viz "go.viam.com/rdk/vision"
 	"go.viam.com/rdk/vision/classification"
 	"go.viam.com/rdk/vision/objectdetection"
-	goutils "go.viam.com/utils"
+	"go.viam.com/rdk/vision/segmentation"
 )
 
 func init() {
@@ -91,47 +90,29 @@ func FromRobot(r robot.Robot, name string) (Service, error) {
 	return robot.ResourceFromRobot[Service](r, Named(name))
 }
 
-// Detector defines the Detect method as it is used in the objectdetection package
-type Detector interface {
-	Detect(ctx context.Context, img image.Image) ([]objectdetection.Detection, error)
-}
-
-// Segmenter3D defines the Segment method as it is used in the segmentation package
-type Segmenter3D interface {
-	Segment(ctx context.Context, c camera.Camera) ([]*vision.Object, error)
-}
-
-// Classifier defines the Classify method as it is used in the classification package
-type Classifier interface {
-	Classify(context.Context, image.Image) (classification.Classifications, error)
-}
-
 // vizModel wraps the vision model with all the service interface methods.
 type vizModel struct {
-	name          string
-	model         interface{} // can be any combo of detector, classifier, 3D_segmenter
-	r             robot.Robot // in order to get access to all cameras
-	isDetector    bool
-	isClassifier  bool
-	is3DSegmenter bool
+	name            string
+	r               robot.Robot                     // in order to get access to all cameras
+	closerFunc      func(ctx context.Context) error // close the underlying model
+	classifierFunc  classification.Classifier
+	detectorFunc    objectdetection.Detector
+	segmenter3DFunc segmentation.Segmenter
 	generic.Unimplemented
 }
 
 // NewService wraps the vision model in the struct that fulfills the vision service interface.
-func NewService(name string, model interface{}, r robot.Robot) (Service, error) {
-	_, isDetector := model.(Detector)
-	_, isClassifier := model.(Classifier)
-	_, is3DSegmenter := model.(Segmenter3D)
-	if !isDetector && !isClassifier && !is3DSegmenter {
+func NewService(name string, r robot.Robot, c func(ctx context.Context) error, cf classification.Classifier, df objectdetection.Detector, s3f segmentation.Segmenter) (Service, error) {
+	if cf == nil && df == nil && s3f == nil {
 		return nil, errors.New("model does not fulfill any method of the vision service. It is neither a detector, nor classifier, nor 3D segmenter.")
 	}
 	return &vizModel{
-		name:          name,
-		model:         model,
-		r:             r,
-		isDetector:    isDetector,
-		isClassifier:  isClassifier,
-		is3DSegmenter: is3DSegmenter,
+		name:            name,
+		r:               r,
+		closerFunc:      c,
+		classifierFunc:  cf,
+		detectorFunc:    df,
+		segmenter3DFunc: s3f,
 	}, nil
 }
 
@@ -143,10 +124,10 @@ func (vm *vizModel) Detections(
 ) ([]objectdetection.Detection, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::Detections::"+vm.name)
 	defer span.End()
-	if detector, ok := vm.model.(Detector); ok {
-		return detector.Detect(ctx, img)
+	if vm.detectorFunc == nil {
+		return nil, errors.Errorf("vision model %q does not implement a Detector", vm.name)
 	}
-	return nil, errors.Errorf("vision model %q does not implement a Detector", vm.name)
+	return vm.detectorFunc(ctx, img)
 }
 
 // DetectionsFromCamera returns the detections of the next image from the given camera.
@@ -157,7 +138,7 @@ func (vm *vizModel) DetectionsFromCamera(
 ) ([]objectdetection.Detection, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::DetectionsFromCamera::"+vm.name)
 	defer span.End()
-	if !vm.isDetector {
+	if vm.detectorFunc == nil {
 		return nil, errors.Errorf("vision model %q does not implement a Detector", vm.name)
 	}
 	cam, err := camera.FromRobot(vm.r, cameraName)
@@ -169,10 +150,7 @@ func (vm *vizModel) DetectionsFromCamera(
 		return nil, errors.Wrapf(err, "could not get image from %s", cameraName)
 	}
 	defer release()
-	if detector, ok := vm.model.(Detector); ok {
-		return detector.Detect(ctx, img)
-	}
-	return nil, errors.Errorf("vision model %q does not implement a Detector", vm.name)
+	return vm.detectorFunc(ctx, img)
 }
 
 // Classifications returns the classifications of given image if the model implements classifications.Classifier
@@ -184,14 +162,14 @@ func (vm *vizModel) Classifications(
 ) (classification.Classifications, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::Classifications::"+vm.name)
 	defer span.End()
-	if classifier, ok := vm.model.(Classifier); ok {
-		fullClassifications, err := classifier.Classify(ctx, img)
-		if err != nil {
-			return nil, errors.Wrap(err, "could not get classifications from image")
-		}
-		return fullClassifications.TopN(n)
+	if vm.classifierFunc == nil {
+		return nil, errors.Errorf("vision model %q does not implement a Classifier", vm.name)
 	}
-	return nil, errors.Errorf("vision model %q does not implement a Classifier", vm.name)
+	fullClassifications, err := vm.classifierFunc(ctx, img)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not get classifications from image")
+	}
+	return fullClassifications.TopN(n)
 }
 
 // ClassificationsFromCamera returns the classifications of the next image from the given camera.
@@ -203,7 +181,7 @@ func (vm *vizModel) ClassificationsFromCamera(
 ) (classification.Classifications, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::ClassificationsFromCamera::"+vm.name)
 	defer span.End()
-	if !vm.isClassifier {
+	if vm.classifierFunc == nil {
 		return nil, errors.Errorf("vision model %q does not implement a Classifier", vm.name)
 	}
 	cam, err := camera.FromRobot(vm.r, cameraName)
@@ -215,30 +193,30 @@ func (vm *vizModel) ClassificationsFromCamera(
 		return nil, errors.Wrapf(err, "could not get image from %s", cameraName)
 	}
 	defer release()
-	if classifier, ok := vm.model.(Classifier); ok {
-		fullClassifications, err := classifier.Classify(ctx, img)
-		if err != nil {
-			return nil, errors.Wrap(err, "could not get classifications from image")
-		}
-		return fullClassifications.TopN(n)
+	fullClassifications, err := vm.classifierFunc(ctx, img)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not get classifications from image")
 	}
-	return nil, errors.Errorf("vision model %q does not implement a Classifier", vm.name)
+	return fullClassifications.TopN(n)
 }
 
 // GetObjectPointClouds returns all the found objects in a 3D image if the model implements Segmenter3D
 func (vm *vizModel) GetObjectPointClouds(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::GetObjectPointClouds::"+vm.name)
 	defer span.End()
+	if vm.segmenter3DFunc == nil {
+		return nil, errors.Errorf("vision model %q does not implement a 3D segmenter", vm.name)
+	}
 	cam, err := camera.FromRobot(vm.r, cameraName)
 	if err != nil {
 		return nil, err
 	}
-	if segmenter, ok := vm.model.(Segmenter3D); ok {
-		return segmenter.Segment(ctx, cam)
-	}
-	return nil, errors.Errorf("vision model %q does not implement a 3D segmenter", vm.name)
+	return vm.segmenter3DFunc(ctx, cam)
 }
 
 func (vm *vizModel) Close(ctx context.Context) error {
-	return goutils.TryClose(ctx, vm.model)
+	if vm.closerFunc == nil {
+		return nil
+	}
+	return vm.closerFunc(ctx)
 }
