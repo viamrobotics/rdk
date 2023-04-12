@@ -133,10 +133,13 @@ func (c *client) GoToInputs(ctx context.Context, goal []referenceframe.Input) er
 }
 
 func (c *client) AllInputs(ctx context.Context, goals [][]referenceframe.Input) error {
-	if c.model == nil {
-		return errArmClientModelNotValid
+	for _, waypoint := range goals {
+		positionDegs := c.model.ProtobufFromInput(waypoint)
+		if err := c.MoveToJointPositions(ctx, positionDegs, nil); err != nil {
+			return err
+		}
 	}
-	return c.AllInputs(ctx, goals)
+	return nil
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
