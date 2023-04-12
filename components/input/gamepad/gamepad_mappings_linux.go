@@ -273,8 +273,8 @@ var gamepadMappings = map[string]Mapping{
 	},
 }
 
-// GetGamepadMapping returns the mapping for a given model.
-func GetGamepadMapping(model string) (Mapping, bool) {
+// MappingForModel returns the mapping for a given model.
+func MappingForModel(model string) (Mapping, bool) {
 	// Stadia controller device names are unique of the form "StadiaXXXX-XXXX"
 	if strings.HasPrefix(model, stadiaPrefix) {
 		model = stadiaPrefix
