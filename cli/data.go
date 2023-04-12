@@ -241,42 +241,6 @@ func (c *AppClient) TabularData(dst string, filter *datapb.Filter) error {
 
 	var err error
 	var resp *datapb.TabularDataByFilterResponse
-	for count := 0; count < maxRetryCount; count++ {
-		resp, err = c.dataClient.TabularDataByFilter(context.Background(), &datapb.TabularDataByFilterRequest{
-			DataRequest: &datapb.DataRequest{
-				Filter: filter,
-				// TODO DATA-928: Get data in multiple requests. Each response can only return a few MBs of data.
-			},
-			CountOnly: false,
-		})
-		if err == nil {
-			break
-		}
-	}
-	if err != nil {
-		return err
-	}
-
-	mds := resp.GetMetadata()
-	for i, md := range mds {
-		mdJSONBytes, err := protojson.Marshal(md)
-		if err != nil {
-			return errors.Wrap(err, "error marshaling metadata")
-		}
-		//nolint:gosec
-		mdFile, err := os.Create(filepath.Join(dst, metadataDir, strconv.Itoa(i)+".json"))
-		if err != nil {
-			return errors.Wrapf(err, fmt.Sprintf("error creating metadata file for metadata index %d", i))
-		}
-		if _, err := mdFile.Write(mdJSONBytes); err != nil {
-			return errors.Wrapf(err, "error writing metadata file %s", mdFile.Name())
-		}
-		if err := mdFile.Close(); err != nil {
-			return errors.Wrapf(err, "error closing metadata file %s", mdFile.Name())
-		}
-	}
-
-	data := resp.GetData()
 	// TODO: [DATA-640] Support export in additional formats.
 	//nolint:gosec
 	dataFile, err := os.Create(filepath.Join(dst, dataDir, "data"+".ndjson"))
@@ -284,23 +248,70 @@ func (c *AppClient) TabularData(dst string, filter *datapb.Filter) error {
 		return errors.Wrapf(err, "error creating data file")
 	}
 	w := bufio.NewWriter(dataFile)
-	for _, datum := range data {
-		// Write everything as json for now.
-		d := datum.GetData()
-		if d == nil {
-			continue
+
+	var last string
+	var i int
+	for {
+		for count := 0; count < maxRetryCount; count++ {
+			for {
+				resp, err = c.dataClient.TabularDataByFilter(context.Background(), &datapb.TabularDataByFilterRequest{
+					DataRequest: &datapb.DataRequest{
+						Filter: filter,
+						Limit:  maxLimit,
+						Last:   last,
+					},
+					CountOnly: false,
+				})
+				if err == nil {
+					break
+				}
+			}
 		}
-		m := d.AsMap()
-		m["TimeRequested"] = datum.GetTimeRequested()
-		m["TimeReceived"] = datum.GetTimeReceived()
-		m["MetadataIndex"] = datum.GetMetadataIndex()
-		j, err := json.Marshal(m)
 		if err != nil {
-			return errors.Wrap(err, "error marshaling json response")
+			return err
 		}
-		_, err = w.Write(append(j, []byte("\n")...))
-		if err != nil {
-			return errors.Wrapf(err, "error writing reading to file %s", dataFile.Name())
+
+		last = resp.GetLast()
+		mds := resp.GetMetadata()
+		for _, md := range mds {
+			mdJSONBytes, err := protojson.Marshal(md)
+			if err != nil {
+				return errors.Wrap(err, "error marshaling metadata")
+			}
+			//nolint:gosec
+			mdFile, err := os.Create(filepath.Join(dst, metadataDir, strconv.Itoa(i)+".json"))
+			if err != nil {
+				return errors.Wrapf(err, fmt.Sprintf("error creating metadata file for metadata index %d", i))
+			}
+			if _, err := mdFile.Write(mdJSONBytes); err != nil {
+				return errors.Wrapf(err, "error writing metadata file %s", mdFile.Name())
+			}
+			if err := mdFile.Close(); err != nil {
+				return errors.Wrapf(err, "error closing metadata file %s", mdFile.Name())
+			}
+
+			i += 1
+		}
+
+		data := resp.GetData()
+		for _, datum := range data {
+			// Write everything as json for now.
+			d := datum.GetData()
+			if d == nil {
+				continue
+			}
+			m := d.AsMap()
+			m["TimeRequested"] = datum.GetTimeRequested()
+			m["TimeReceived"] = datum.GetTimeReceived()
+			m["MetadataIndex"] = datum.GetMetadataIndex()
+			j, err := json.Marshal(m)
+			if err != nil {
+				return errors.Wrap(err, "error marshaling json response")
+			}
+			_, err = w.Write(append(j, []byte("\n")...))
+			if err != nil {
+				return errors.Wrapf(err, "error writing reading to file %s", dataFile.Name())
+			}
 		}
 	}
 
