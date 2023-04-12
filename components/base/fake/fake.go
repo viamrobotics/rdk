@@ -10,8 +10,6 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/components/base"
-	limo "go.viam.com/rdk/components/base/agilex"
-	"go.viam.com/rdk/components/base/boat"
 	"go.viam.com/rdk/components/base/wheeled"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
@@ -23,18 +21,10 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-// ModelName is the name of the fake model of a base component.
-var ModelName = resource.NewDefaultModel("fake")
-
-// Config is used for converting config attributes.
-type Config struct {
-	BaseModel string `json:"base-model,omitempty"`
-}
-
 func init() {
 	registry.RegisterComponent(
 		base.Subtype,
-		ModelName,
+		resource.NewDefaultModel("fake"),
 		registry.Component{
 			Constructor: func(
 				ctx context.Context,
@@ -71,7 +61,6 @@ func NewBase(ctx context.Context, cfg config.Component, logger golog.Logger) (ba
 	return &Base{
 		Name:              cfg.Name,
 		logger:            logger,
-		modelName:         cfg.ConvertedAttributes.(*Config).BaseModel,
 		collisionGeometry: geometry,
 	}, nil
 }
@@ -135,7 +124,7 @@ func (b *Base) WrapWithKinematics(ctx context.Context, slamSvc slam.Service) (ba
 		return nil, err
 	}
 	limits := []referenceframe.Limit{{Min: dims.MinX, Max: dims.MaxX}, {Min: dims.MinZ, Max: dims.MaxZ}}
-	model, err := buildModel(b.modelName, b.Name, b.collisionGeometry, limits)
+	model, err := wheeled.Model(b.Name, b.collisionGeometry, limits)
 	if err != nil {
 		return nil, errors.Wrap(err, "fake base cannot be created")
 	}
@@ -159,15 +148,4 @@ func (kb *kinematicBase) GoToInputs(ctx context.Context, inputs []referenceframe
 	_, err := kb.model.Transform(inputs)
 	kb.inputs = inputs
 	return err
-}
-
-func buildModel(model, name string, collisionGeometry spatialmath.Geometry, limits []referenceframe.Limit) (referenceframe.Model, error) {
-	switch resource.ModelName(model) {
-	case wheeled.ModelName.Name:
-		return wheeled.Model(name, collisionGeometry, limits)
-	case boat.ModelName.Name, limo.ModelName.Name:
-		return nil, errors.Errorf("base-model %s does not satisfy KinematicBase", model)
-	default:
-		return nil, errors.Errorf("unsupported base-model: %s", model)
-	}
 }
