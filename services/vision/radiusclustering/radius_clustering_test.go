@@ -5,23 +5,21 @@ import (
 	"image/color"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	"go.viam.com/test"
+
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/pointcloud"
 	pc "go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 	rdkutils "go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision/segmentation"
-	"go.viam.com/test"
 )
 
 func TestRadiusClusteringSegmentation(t *testing.T) {
-	logger := golog.NewTestLogger(t)
 	r := &inject.Robot{}
 	cam := &inject.Camera{}
-	cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
+	cam.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
 		return nil, errors.New("no pointcloud")
 	}
 	r.ResourceNamesFunc = func() []resource.Name {
@@ -42,17 +40,17 @@ func TestRadiusClusteringSegmentation(t *testing.T) {
 		MeanKFiltering:     10.,
 	}
 	// bad registration, no parameters
-	_, err := registerRCSegmenter(context.Background(), "test_rcs", nil, r, logger)
+	_, err := registerRCSegmenter(context.Background(), "test_rcs", nil, r)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot be nil")
 	// bad registration, parameters out of bounds
 	params.ClusteringRadiusMm = -3.0
-	_, err = registerRCSegmenter(context.Background(), "test_rcs", params, r, logger)
+	_, err = registerRCSegmenter(context.Background(), "test_rcs", params, r)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "segmenter config error")
 	// successful registration
 	params.ClusteringRadiusMm = 5.0
-	seg, err := registerRCSegmenter(context.Background(), "test_rcs", params, r, logger)
+	seg, err := registerRCSegmenter(context.Background(), "test_rcs", params, r)
 	test.That(t, err, test.ShouldBeNil)
 
 	// fails on not finding camera
@@ -66,8 +64,8 @@ func TestRadiusClusteringSegmentation(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no pointcloud")
 
 	// successful, creates two clusters of points
-	cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
-		cloud := pointcloud.New()
+	cam.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
+		cloud := pc.New()
 		// cluster 1
 		err = cloud.Set(pc.NewVector(1, 1, 1), pc.NewColoredData(color.NRGBA{255, 0, 0, 255}))
 		test.That(t, err, test.ShouldBeNil)

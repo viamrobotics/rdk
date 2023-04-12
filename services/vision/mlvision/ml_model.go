@@ -1,3 +1,5 @@
+// Package mlvision uses an underlying model from the ML model service as a vision model,
+// and wraps the ML model with the vision service methods.
 package mlvision
 
 import (
@@ -5,6 +7,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.opencensus.io/trace"
+
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -45,6 +48,7 @@ func init() {
 	)
 }
 
+// MLModelConfig specifies the parameters needed to turn an ML model into a vision Model.
 type MLModelConfig struct {
 	ModelName string `json:"ml_model_name"`
 }
@@ -56,7 +60,7 @@ func registerMLModelVisionService(
 	r robot.Robot,
 	logger golog.Logger,
 ) (vision.Service, error) {
-	ctx, span := trace.StartSpan(ctx, "service::vision::registerMLModelVisionService")
+	_, span := trace.StartSpan(ctx, "service::vision::registerMLModelVisionService")
 	defer span.End()
 
 	mlm, err := mlmodel.FromRobot(r, params.ModelName)
@@ -65,16 +69,16 @@ func registerMLModelVisionService(
 	}
 	classifierFunc, err := attemptToBuildClassifier(mlm)
 	if err != nil {
-		return nil, err
+		logger.Infof("was not able to turn ml model %q into a classifier", params.ModelName)
 	}
 	detectorFunc, err := attemptToBuildDetector(mlm)
 	if err != nil {
-		return nil, err
+		logger.Infof("was not able to turn ml model %q into a detector", params.ModelName)
 	}
 	segmenter3DFunc, err := attemptToBuild3DSegmenter(mlm)
 	if err != nil {
-		return nil, err
+		logger.Infof("was not able to turn ml model %q into a 3D segmenter", params.ModelName)
 	}
-	// Don't return the model, because you don't want to close the underlying service
+	// Don't return a close function, because you don't want to close the underlying ML service
 	return vision.NewService(name, r, nil, classifierFunc, detectorFunc, segmenter3DFunc)
 }
