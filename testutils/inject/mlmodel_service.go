@@ -23,7 +23,7 @@ func (mlmodelSvc *MLModelService) Infer(ctx context.Context, input map[string]in
 
 // Metadata calls the injected MetadataFunc or the real version.
 func (mlmodelSvc *MLModelService) Metadata(ctx context.Context) (mlmodel.MLMetadata, error) {
-	if mlmodelSvc.InferFunc == nil {
+	if mlmodelSvc.MetadataFunc == nil {
 		return mlmodelSvc.Service.Metadata(ctx)
 	}
 	return mlmodelSvc.MetadataFunc(ctx)
