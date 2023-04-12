@@ -3,7 +3,6 @@
 package slam
 
 import (
-	"bytes"
 	"context"
 	"io"
 	"sync"
@@ -15,8 +14,6 @@ import (
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/pointcloud"
-	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -120,19 +117,6 @@ func GetInternalStateFull(ctx context.Context, slamSvc Service) ([]byte, error) 
 		return nil, err
 	}
 	return helperConcatenateChunksToFull(callback)
-}
-
-// Limits gets the extents of the SLAM map
-func Limits(ctx context.Context, slamSvc Service) ([]referenceframe.Limit, error) {
-	data, err := GetPointCloudMapFull(ctx, slamSvc)
-	if err != nil {
-		return nil, err
-	}
-	dims, err := pointcloud.GetPCDMetaData(bytes.NewReader(data))
-	if err != nil {
-		return nil, err
-	}
-	return []referenceframe.Limit{{Min: dims.MinX, Max: dims.MaxX}, {Min: dims.MinZ, Max: dims.MaxZ}}, nil
 }
 
 type reconfigurableSlam struct {

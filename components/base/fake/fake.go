@@ -2,6 +2,7 @@
 package fake
 
 import (
+	"bytes"
 	"context"
 
 	"github.com/edaniels/golog"
@@ -14,6 +15,7 @@ import (
 	"go.viam.com/rdk/components/base/wheeled"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -118,10 +120,16 @@ type kinematicBase struct {
 }
 
 func (b *Base) WrapWithKinematics(ctx context.Context, slamSvc slam.Service) (base.KinematicBase, error) {
-	limits, err := slam.Limits(ctx, slamSvc)
+	// gets the extents of the SLAM map
+	data, err := slam.GetPointCloudMapFull(ctx, slamSvc)
 	if err != nil {
 		return nil, err
 	}
+	dims, err := pointcloud.GetPCDMetaData(bytes.NewReader(data))
+	if err != nil {
+		return nil, err
+	}
+	limits := []referenceframe.Limit{{Min: dims.MinX, Max: dims.MaxX}, {Min: dims.MinZ, Max: dims.MaxZ}}
 	model, err := buildModel(b.modelName, b.Name, b.collisionGeometry, limits)
 	if err != nil {
 		return nil, errors.Wrap(err, "fake base cannot be created")
