@@ -396,6 +396,15 @@ func (e *eva) GoToInputs(ctx context.Context, goal []referenceframe.Input) error
 
 // AllInputs returns the current inputs of the arm.
 func (e *eva) AllInputs(ctx context.Context, goals [][]referenceframe.Input) error {
+	for _, waypoint := range goals {
+		positionDegs := e.model.ProtobufFromInput(waypoint)
+		if err := arm.CheckDesiredJointPositions(ctx, e, positionDegs.Values); err != nil {
+			return err
+		}
+		if err := e.MoveToJointPositions(ctx, positionDegs, nil); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

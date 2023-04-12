@@ -549,22 +549,3 @@ func TestFrameSystemToPCD(t *testing.T) {
 		test.That(t, asBytes, test.ShouldEqual, checkAgainst)
 	})
 }
-
-func TestBufferGeom(t *testing.T) {
-	fs := NewEmptySimpleFrameSystem("test")
-
-	// add a box to the fs
-	name0 := "frame0"
-	pose0 := spatial.NewPoseFromPoint(r3.Vector{-4, -4, -4})
-	dims0 := r3.Vector{1, 1, 1}
-	geomCreator0, err := spatial.NewBox(pose0, dims0, "box0")
-	test.That(t, err, test.ShouldBeNil)
-	frame0, err := NewStaticFrameWithGeometry(name0, pose0, geomCreator0)
-	test.That(t, err, test.ShouldBeNil)
-	fs.AddFrame(frame0, fs.World())
-
-	// newFS, err := FrameSystemBuffer(fs, 0.5)
-	_, err = FrameSystemBuffer(fs, 0.5)
-	test.That(t, err, test.ShouldBeNil)
-
-}

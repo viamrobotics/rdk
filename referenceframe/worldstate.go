@@ -7,7 +7,6 @@ import (
 	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
 
-	"go.viam.com/rdk/spatialmath"
 	spatial "go.viam.com/rdk/spatialmath"
 )
 
@@ -109,14 +108,15 @@ func (ws *WorldState) ObstaclesInWorldFrame(fs FrameSystem, inputs map[string][]
 	return transformGeometriesToWorldFrame(ws.Obstacles)
 }
 
+// BufferedWorldstate adds a buffer to all geometries, where buffer is in mm
 func BufferedWorldstate(ws *WorldState, buffer float64) (*WorldState, error) {
 	var gif []*GeometriesInFrame
 	for _, geosInFrame := range ws.Obstacles {
 		geoms := geosInFrame.Geometries()
 		parent := geosInFrame.Parent()
-		obstacles := []spatialmath.Geometry{}
+		obstacles := []spatial.Geometry{}
 		for _, geo := range geoms {
-			cfg, err := spatialmath.NewGeometryConfig(geo)
+			cfg, err := spatial.NewGeometryConfig(geo)
 			if err != nil {
 				return nil, err
 			}
@@ -125,7 +125,7 @@ func BufferedWorldstate(ws *WorldState, buffer float64) (*WorldState, error) {
 
 			switch cfg.Type {
 			case spatial.PointType:
-				newSphere, err := spatialmath.NewSphere(centerPose, buffer, geo.Label())
+				newSphere, err := spatial.NewSphere(centerPose, buffer, geo.Label())
 				if err != nil {
 					return nil, err
 				}
@@ -138,7 +138,7 @@ func BufferedWorldstate(ws *WorldState, buffer float64) (*WorldState, error) {
 					Y: dims[1] + buffer,
 					Z: dims[2] + buffer,
 				}
-				newBox, err := spatialmath.NewBox(centerPose, newDims, geo.Label())
+				newBox, err := spatial.NewBox(centerPose, newDims, geo.Label())
 				if err != nil {
 					return nil, err
 				}
@@ -147,7 +147,7 @@ func BufferedWorldstate(ws *WorldState, buffer float64) (*WorldState, error) {
 
 			case spatial.SphereType:
 				newRadius := dims[0] + buffer
-				newSphere, err := spatialmath.NewSphere(centerPose, newRadius, geo.Label())
+				newSphere, err := spatial.NewSphere(centerPose, newRadius, geo.Label())
 				if err != nil {
 					return nil, err
 				}
@@ -160,6 +160,7 @@ func BufferedWorldstate(ws *WorldState, buffer float64) (*WorldState, error) {
 		obstaclesInFrame := NewGeometriesInFrame(parent, obstacles)
 		gif = append(gif, obstaclesInFrame)
 	}
+	// TODO: need to also augment ws.Transforms
 	worldState := &WorldState{Obstacles: gif, Transforms: ws.Transforms}
 	return worldState, nil
 }

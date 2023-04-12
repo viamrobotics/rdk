@@ -444,6 +444,15 @@ func (a *Dofbot) GoToInputs(ctx context.Context, goal []referenceframe.Input) er
 
 // AllInputs returns the current inputs of the arm.
 func (a *Dofbot) AllInputs(ctx context.Context, goals [][]referenceframe.Input) error {
+	for _, waypoint := range goals {
+		positionDegs := a.model.ProtobufFromInput(waypoint)
+		if err := arm.CheckDesiredJointPositions(ctx, a, positionDegs.Values); err != nil {
+			return err
+		}
+		if err := a.MoveToJointPositions(ctx, positionDegs, nil); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
