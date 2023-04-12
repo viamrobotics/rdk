@@ -7,14 +7,12 @@ import (
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 
-	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/utils"
-	viz "go.viam.com/rdk/vision"
 	"go.viam.com/rdk/vision/segmentation"
 )
 
@@ -49,14 +47,6 @@ func init() {
 	)
 }
 
-type radiusClustering struct {
-	segmentation.Segmenter
-}
-
-func (rc *radiusClustering) Segment(ctx context.Context, c camera.Camera) ([]*viz.Object, error) {
-	return rc.Segmenter(ctx, c)
-}
-
 // registerRCSegmenter creates a new 3D radius clustering segmenter from the config
 func registerRCSegmenter(ctx context.Context, name string, conf *segmentation.RadiusClusteringConfig, r robot.Robot, logger golog.Logger) (vision.Service, error) {
 	_, span := trace.StartSpan(ctx, "service::vision::registerRadiusClustering")
@@ -72,5 +62,5 @@ func registerRCSegmenter(ctx context.Context, name string, conf *segmentation.Ra
 	if segmenter == nil {
 		return nil, utils.NewUnexpectedTypeError(segmenter, conf.RadiusClustering)
 	}
-	return vision.NewService(name, &radiusClustering{segmenter}, r)
+	return vision.NewService(name, r, nil, nil, nil, segmenter)
 }
