@@ -1,11 +1,15 @@
 package jetsoncamera
 
+// #include <sys/utsname.h>
+// #include <string.h>
+import "C"
+
 import (
 	"bytes"
 	"fmt"
 	"os"
 	"runtime"
-	"syscall"
+	"unsafe"
 )
 
 // GetOSInformation pulls relevant OS attributes as an OSInformation struct
@@ -23,18 +27,12 @@ func DetectOSInformation() OSInformation {
 // getKernelVersion returns the kernel version
 // or "unkown" if unable to retreive
 func getKernelVersion() string {
-	var utsName syscall.Utsname
-	if err := syscall.Uname(&utsName); err != nil {
-		return "unkown"
+	var utsName C.struct_utsname
+	if C.uname(&utsName) == -1 {
+		return "unknown"
 	}
-	var release []byte
-	for _, b := range utsName.Release {
-		if b == 0 {
-			break
-		}
-		release = append(release, byte(b))
-	}
-	return string(release)
+	release := C.GoString((*C.char)(unsafe.Pointer(&utsName.release[0])))
+	return release
 }
 
 // getDeviceName returns the model name of the board

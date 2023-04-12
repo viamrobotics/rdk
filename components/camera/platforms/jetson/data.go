@@ -1,7 +1,7 @@
 package jetsoncamera
 
 const (
-	JetsonOrinAGX = "Jetson Orin AGX"
+	JetsonOrinAGX = "Jetson AGX Orin"
 )
 
 type OSInformation struct {
