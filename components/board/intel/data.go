@@ -7,6 +7,13 @@ const upboard = "up_4000"
 var boardInfoMappings = map[string]genericlinux.BoardInformation{
 	upboard: {
 		[]genericlinux.PinDefinition{
+			/*
+				pinout for up4000: https://github.com/up-board/up-community/wiki/Pinout_UP4000
+
+				GPIOChipRelativeIDs: {ngpio : base-ngpio}
+				GPIOChipSysFSDir: path to the directory of a chip. Can be found from the output of gpiodetect
+
+			*/
 			// GPIO pin definition
 			{map[int]int{78: 73}, map[int]string{}, "INT3452:01", 29, 0, "GPIO10", "", "", -1},
 			{map[int]int{77: 46}, map[int]string{}, "INT3452:01", 31, 0, "BCM26", "", "", -1},
