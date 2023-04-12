@@ -164,6 +164,7 @@ func TestColorDetectionSource(t *testing.T) {
 	test.That(t, detector.Close(context.Background()), test.ShouldBeNil)
 }
 
+
 func TestTFLiteDetectionSource(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx, cancel := context.WithCancel(context.Background())
