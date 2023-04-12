@@ -16,9 +16,6 @@ import (
 func TestFakeBase(t *testing.T) {
 	cfg := config.Component{
 		Name: "test",
-		ConvertedAttributes: &Config{
-			BaseModel: "wheeled",
-		},
 		Frame: &referenceframe.LinkConfig{
 			Parent: referenceframe.World,
 			Geometry: &spatialmath.GeometryConfig{

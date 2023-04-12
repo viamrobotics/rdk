@@ -53,8 +53,7 @@ func (m steeringMode) String() string {
 	return "Unknown"
 }
 
-// ModelName is the name of the AgileX model of a base component.
-var ModelName = resource.NewDefaultModel("agilex-limo")
+var modelname = resource.NewDefaultModel("agilex-limo")
 
 func init() {
 	controllers = make(map[string]*controller)
@@ -67,10 +66,10 @@ func init() {
 		},
 	}
 
-	registry.RegisterComponent(base.Subtype, ModelName, limoBaseComp)
+	registry.RegisterComponent(base.Subtype, modelname, limoBaseComp)
 	config.RegisterComponentAttributeMapConverter(
 		base.Subtype,
-		ModelName,
+		modelname,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf Config
 			return config.TransformAttributeMapToStruct(&conf, attributes)

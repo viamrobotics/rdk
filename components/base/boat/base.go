@@ -27,8 +27,7 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-// ModelName is the name of the boat model of a base component.
-var ModelName = resource.NewDefaultModel("boat")
+var modelname = resource.NewDefaultModel("boat")
 
 func init() {
 	boatComp := registry.Component{
@@ -38,11 +37,11 @@ func init() {
 			return createBoat(deps, config.ConvertedAttributes.(*boatConfig), logger)
 		},
 	}
-	registry.RegisterComponent(base.Subtype, ModelName, boatComp)
+	registry.RegisterComponent(base.Subtype, modelname, boatComp)
 
 	config.RegisterComponentAttributeMapConverter(
 		base.Subtype,
-		ModelName,
+		modelname,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf boatConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
