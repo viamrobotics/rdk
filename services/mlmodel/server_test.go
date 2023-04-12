@@ -68,7 +68,7 @@ func TestServerMetadata(t *testing.T) {
 	test.That(t, outInfo[2].GetAssociatedFiles()[0].GetName(), test.ShouldEqual, "category_labels.txt")
 	test.That(t, outInfo[2].GetAssociatedFiles()[0].GetLabelType(), test.ShouldEqual, 1)
 	test.That(t, outInfo[3].GetName(), test.ShouldEqual, "locations")
-	test.That(t, outInfo[3].GetNDim(), test.ShouldEqual, 3)
+	test.That(t, outInfo[3].GetShape(), test.ShouldResemble, []int32{4, 3, 1})
 
 	// Multiple Services names Valid
 	omMap = map[resource.Name]interface{}{
