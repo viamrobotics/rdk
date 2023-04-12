@@ -133,6 +133,7 @@ func getCompatiblePinDefs(modelName string, boardInfoMappings map[string]BoardIn
 
 // A helper function to process contents of a given file path.
 func newStringSetFromFile(modelName, path string) (utils.StringSet, error) {
+	//nolint:gosec
 	content, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
