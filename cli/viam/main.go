@@ -240,7 +240,7 @@ func main() {
 							dataFlagPartID, dataFlagPartName, dataFlagComponentType, dataFlagComponentModel, dataFlagComponentName,
 							dataFlagStart, dataFlagEnd, dataFlagMethod, dataFlagMimeTypes, dataFlagParallelDownloads, dataFlagTags),
 						Flags: []cli.Flag{
-							&cli.StringFlag{
+							&cli.PathFlag{
 								Name:     dataFlagDestination,
 								Required: true,
 								Usage:    "output directory for downloaded data",
@@ -829,11 +829,11 @@ func DataCommand(c *cli.Context) error {
 
 	switch c.String(dataFlagDataType) {
 	case dataTypeBinary:
-		if err := client.BinaryData(c.String(dataFlagDestination), filter, c.Uint(dataFlagParallelDownloads)); err != nil {
+		if err := client.BinaryData(c.Path(dataFlagDestination), filter, c.Uint(dataFlagParallelDownloads)); err != nil {
 			return err
 		}
 	case dataTypeTabular:
-		if err := client.TabularData(c.String(dataFlagDestination), filter); err != nil {
+		if err := client.TabularData(c.Path(dataFlagDestination), filter); err != nil {
 			return err
 		}
 	default:
