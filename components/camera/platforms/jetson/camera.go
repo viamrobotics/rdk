@@ -13,19 +13,18 @@ import (
 )
 
 // GetOSInformation pulls relevant OS attributes as an OSInformation struct
-// Kenrnel and Device will be "unkown" if unable to retreive attribute from the OS
+// Kernel and Device will be "unkown" if unable to information
 func DetectOSInformation() OSInformation {
 	osInfo := OSInformation{
-		Name:   runtime.GOOS,       // e.g. "linux"
-		Arch:   runtime.GOARCH,     // e.g. "arm64"
-		Kernel: getKernelVersion(), // e.g. "4.9.140-tegra"
-		Device: getDeviceName(),    // e.g. "NVIDIA Jetson AGX Xavier"
+		Name:   runtime.GOOS,
+		Arch:   runtime.GOARCH,
+		Kernel: getKernelVersion(),
+		Device: getDeviceName(),
 	}
 	return osInfo
 }
 
 // getKernelVersion returns the kernel version
-// or "unkown" if unable to retreive
 func getKernelVersion() string {
 	var utsName C.struct_utsname
 	if C.uname(&utsName) == -1 {
@@ -36,7 +35,6 @@ func getKernelVersion() string {
 }
 
 // getDeviceName returns the model name of the board
-// or "unkown" if unable to retreive
 func getDeviceName() string {
 	devicePath := "/sys/firmware/devicetree/base/model"
 	device, err := os.ReadFile(devicePath)
@@ -46,26 +44,46 @@ func getDeviceName() string {
 	return string(bytes.TrimRight(device, "\x00"))
 }
 
-func PrintError(osInfo OSInformation, driver string) string {
-	value, ok := cameraInfoMappings[driver]
-	if ok {
-		err := checkDriverInstalled(osInfo.Kernel, value.Module)
-		if err != nil {
-			return "The E-Con Systems " + driver + " driver  not installed. Please follow instructions for driver installation and verify with 'dmesg | grep ar0234' command."
-		}
-		for _, i2c := range value.I2C {
-			err := checkI2CInterface(i2c)
-			if err != nil {
-				return "The e-CAM20_CUOAGX daughter-board is not connected or not powerd on. Please check daughter-board conenction to the Orin AGX over the J509 connector."
-			}
-		}
-		return "The e-CAM20_CUOAGX daughter-board is connected and the " + driver + " driver is installed, but the video capture interface requested is not avialable. Please ensure camera is connected, driver is working correctly, and the video interface is available."
-	} else {
-		return "The " + driver + " driver is not supported on this platform."
+// Validate checks if the daughterboard and driver are supported and instlaled on the platform
+func Validate(osInfo OSInformation, daughterboardName string, driverName string) error {
+	board, ok := cameraInfoMappings[osInfo.Device]
+	if !ok {
+		return fmt.Errorf("the %s device is not supported on this platform", osInfo.Device)
 	}
+	daughterboard, ok := board.Daughterboards[daughterboardName]
+	if !ok {
+		return fmt.Errorf("the %s daughterboard is not supported on this platform", daughterboardName)
+	}
+	driver, ok := board.Modules[driverName]
+	if !ok {
+		return fmt.Errorf("the %s driver is not supported on this platform", driverName)
+	}
+	err := checkDaughterBoardConnected(daughterboard)
+	if err != nil {
+		return fmt.Errorf("the %s daughterboard is not connected or not powerd on. Please check daughter-board conenction to the %s", daughterboardName, osInfo.Device)
+	}
+	err = checkDriverInstalled(osInfo.Kernel, driver)
+	if err != nil {
+		return fmt.Errorf("the %s driver not installed. Please follow instructions for driver installation", driverName)
+	}
+
+	return fmt.Errorf("the %s daughterboard is connected and %s camera driver is installed on the %s. please check that the video path is correct and driver is working", daughterboardName, driverName, osInfo.Device)
 }
 
-// checkI2CInterface checks if the i2c interface is available
+// checkDaughterBoardConnected checks if the daughterboard is connected
+func checkDaughterBoardConnected(daughterboard []string) error {
+	// iterate through the daughterboard list
+	for _, i2c := range daughterboard {
+		// check if the i2c interface is available
+		err := checkI2CInterface(i2c)
+		if err != nil {
+			return fmt.Errorf("the e-CAM20_CUOAGX daughter-board is not connected or not powerd on. please check daughter-board conenction to the Orin AGX over the J509 connector")
+		}
+	}
+	return nil
+}
+
+// checkI2CInterface checks if the I2C bus is available
 func checkI2CInterface(i2c string) error {
 	i2cPath := "/dev/" + i2c
 	if _, err := os.Stat(i2cPath); os.IsNotExist(err) {
