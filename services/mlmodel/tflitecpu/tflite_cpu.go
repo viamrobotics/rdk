@@ -24,7 +24,7 @@ import (
 var sModel = resource.NewDefaultModel("tflitecpu")
 
 func init() {
-	registry.RegisterService(vision.Subtype, resource.DefaultServiceModel, registry.Service{
+	registry.RegisterService(vision.Subtype, sModel, registry.Service{
 		Constructor: func(ctx context.Context, deps registry.Dependencies, conf config.Service, logger golog.Logger) (interface{}, error) {
 			svcConfig, ok := conf.ConvertedAttributes.(*TFLiteConfig)
 			if !ok {

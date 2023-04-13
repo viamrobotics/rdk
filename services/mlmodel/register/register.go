@@ -3,5 +3,5 @@ package register
 
 import (
 	// for ML model service  models.
-	_ "go.viam.com/rdk/services/mlmodel/tflite_cpu"
+	_ "go.viam.com/rdk/services/mlmodel/tflitecpu"
 )
