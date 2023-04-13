@@ -21,13 +21,18 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+var sModel = resource.NewDefaultModel("tflitecpu")
+
 func init() {
 	registry.RegisterService(vision.Subtype, resource.DefaultServiceModel, registry.Service{
 		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Service, logger golog.Logger) (interface{}, error) {
-			return newTFLiteCPUModel(ctx, deps, config, logger)
+			svcConfig, ok := config.ConvertedAttributes.(*TFLiteConfig)
+			if !ok {
+				return nil, utils.NewUnexpectedTypeError(svcConfig, config.ConvertedAttributes)
+			}
+			return NewTFLiteCPUModel(ctx, svcConfig)
 		},
 	})
-	sModel := resource.NewDefaultModel("tflitecpu")
 	config.RegisterServiceAttributeMapConverter(mlmodel.Subtype, sModel, func(attributes config.AttributeMap) (interface{}, error) {
 		// Read ML model service parameters into a TFLiteConfig
 		var t TFLiteConfig
@@ -60,29 +65,50 @@ type Model struct {
 	metadata *mlmodel.MLMetadata
 }
 
-// newTFLiteCPUModel is a constructor that builds a tflite cpu implementation of the MLMS.
-//nolint:unparam
-func newTFLiteCPUModel(ctx context.Context, deps registry.Dependencies,
-	conf config.Service, logger golog.Logger,
-) (mlmodel.Service, error) {
-	ctx, span := trace.StartSpan(ctx, "service::mlmodel::NewTFLiteCPUModel")
+// NewTFLiteCPUModel is a constructor that builds a tflite cpu implementation of the MLMS.
+func NewTFLiteCPUModel(ctx context.Context, params *TFLiteConfig) (mlmodel.Service, error) {
+	_, span := trace.StartSpan(ctx, "service::vision::addTFLiteModel")
 	defer span.End()
+	var model *inf.TFLiteStruct
+	var loader *inf.TFLiteModelLoader
+	var err error
 
-	svcConfig, ok := conf.ConvertedAttributes.(*TFLiteConfig)
-	if !ok {
-		return nil, utils.NewUnexpectedTypeError(svcConfig, conf.ConvertedAttributes)
+	addModel := func() (*inf.TFLiteStruct, error) {
+		if params == nil {
+			return nil, errors.New("could not find parameters")
+		}
+		if params.NumThreads <= 0 {
+			loader, err = inf.NewDefaultTFLiteModelLoader()
+		} else {
+			loader, err = inf.NewTFLiteModelLoader(params.NumThreads)
+		}
+		if err != nil {
+			return nil, errors.Wrap(err, "could not get loader")
+		}
+
+		fullpath, err2 := fp.Abs(params.ModelPath)
+		if err2 != nil {
+			model, err = loader.Load(params.ModelPath)
+		} else {
+			model, err = loader.Load(fullpath)
+		}
+
+		if err != nil {
+			if strings.Contains(err.Error(), "failed to load") {
+				if err2 != nil {
+					return nil, errors.Wrapf(err, "file not found at %s", params.ModelPath)
+				}
+				return nil, errors.Wrapf(err, "file not found at %s", fullpath)
+			}
+			return nil, errors.Wrap(err, "loader could not load model")
+		}
+		return model, nil
 	}
-
-	return CreateTFLiteCPUModel(ctx, svcConfig)
-}
-
-// CreateTFLiteCPUModel is a constructor that builds a tflite cpu implementation of the MLMS.
-func CreateTFLiteCPUModel(ctx context.Context, params *TFLiteConfig) (*Model, error) {
-	// Given those params, add the model
-	model, err := addTFLiteModel(ctx, params.ModelPath, &params.NumThreads)
+	model, err = addModel()
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not add model from location %s", params.ModelPath)
 	}
+
 	return &Model{attrs: *params, model: model}, nil
 }
 
@@ -221,42 +247,4 @@ func getTensorInfo(inputT *tflite_metadata.TensorMetadataT) mlmodel.TensorInfo {
 	}
 	td.AssociatedFiles = fileList
 	return td
-}
-
-// addTFLiteModel uses the loader (default or otherwise) from the inference package
-// to register a tflite model. Default is chosen if there's no numThreads given.
-func addTFLiteModel(ctx context.Context, filepath string, numThreads *int) (*inf.TFLiteStruct, error) {
-	_, span := trace.StartSpan(ctx, "service::vision::addTFLiteModel")
-	defer span.End()
-	var model *inf.TFLiteStruct
-	var loader *inf.TFLiteModelLoader
-	var err error
-
-	if numThreads == nil {
-		loader, err = inf.NewDefaultTFLiteModelLoader()
-	} else {
-		loader, err = inf.NewTFLiteModelLoader(*numThreads)
-	}
-	if err != nil {
-		return nil, errors.Wrap(err, "could not get loader")
-	}
-
-	fullpath, err2 := fp.Abs(filepath)
-	if err2 != nil {
-		model, err = loader.Load(filepath)
-	} else {
-		model, err = loader.Load(fullpath)
-	}
-
-	if err != nil {
-		if strings.Contains(err.Error(), "failed to load") {
-			if err2 != nil {
-				return nil, errors.Wrapf(err, "file not found at %s", filepath)
-			}
-			return nil, errors.Wrapf(err, "file not found at %s", fullpath)
-		}
-		return nil, errors.Wrap(err, "loader could not load model")
-	}
-
-	return model, nil
 }
