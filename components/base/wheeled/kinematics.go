@@ -21,11 +21,7 @@ type kinematicWheeledBase struct {
 
 // WrapWithKinematics takes a wheeledBase component and adds a slam service to it
 // It also adds kinematic model so that it can be controlled.
-func (base *wheeledBase) WrapWithKinematics(ctx context.Context, slamSvc slam.Service) (base.KinematicBase, error) {
-	kwb := &kinematicWheeledBase{
-		wheeledBase: base,
-		slam:        slamSvc,
-	}
+func (wb *wheeledBase) WrapWithKinematics(ctx context.Context, slamSvc slam.Service) (base.KinematicBase, error) {
 	// gets the extents of the SLAM map
 	data, err := slam.GetPointCloudMapFull(ctx, slamSvc)
 	if err != nil {
@@ -35,15 +31,19 @@ func (base *wheeledBase) WrapWithKinematics(ctx context.Context, slamSvc slam.Se
 	if err != nil {
 		return nil, err
 	}
-	kwb.model, err = Model(
-		kwb.name,
-		kwb.collisionGeometry,
-		[]referenceframe.Limit{{Min: dims.MinX, Max: dims.MaxX}, {Min: dims.MinZ, Max: dims.MaxZ}},
-	)
+	geometry, err := base.CollisionGeometry(wb.frame)
 	if err != nil {
 		return nil, err
 	}
-	return kwb, err
+	model, err := Model(wb.name, geometry, []referenceframe.Limit{{Min: dims.MinX, Max: dims.MaxX}, {Min: dims.MinZ, Max: dims.MaxZ}})
+	if err != nil {
+		return nil, err
+	}
+	return &kinematicWheeledBase{
+		wheeledBase: wb,
+		slam:        slamSvc,
+		model:       model,
+	}, err
 }
 
 func (kwb *kinematicWheeledBase) ModelFrame() referenceframe.Model {
