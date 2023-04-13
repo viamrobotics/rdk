@@ -337,6 +337,10 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 		return nil, err
 	}
 
+	if err := addConvertedAttributes(cfg); err != nil {
+		return nil, errors.Wrapf(err, "unable to convert attributes when reconfiguring resource")
+	}
+
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -480,6 +484,11 @@ func (m *Module) addAPIFromRegistry(ctx context.Context, api resource.Subtype) e
 
 // AddModelFromRegistry adds a preregistered component or service model to the module's services.
 func (m *Module) AddModelFromRegistry(ctx context.Context, api resource.Subtype, model resource.Model) error {
+	err := validateRegistered(api, model)
+	if err != nil {
+		return err
+	}
+
 	m.mu.Lock()
 	_, ok := m.services[api]
 	m.mu.Unlock()
@@ -490,6 +499,7 @@ func (m *Module) AddModelFromRegistry(ctx context.Context, api resource.Subtype,
 	}
 
 	creator := registry.ResourceSubtypeLookup(api)
+
 	if creator.ReflectRPCServiceDesc == nil {
 		m.logger.Errorf("rpc subtype %s doesn't contain a valid ReflectRPCServiceDesc", api)
 	}
@@ -527,5 +537,29 @@ func addConvertedAttributes(cfg *config.Component) error {
 		}
 		cfg.ConvertedAttributes = converted
 	}
+
+	return nil
+}
+
+// validateRegistered returns an error if the passed-in api and model have not
+// yet been registered.
+func validateRegistered(api resource.Subtype, model resource.Model) error {
+	switch api.ResourceType {
+	case resource.ResourceTypeComponent:
+		creator := registry.ComponentLookup(api, model)
+		if creator == nil || creator.Constructor == nil {
+			return fmt.Errorf("component with API %s and model %s not yet registered",
+				api, model)
+		}
+	case resource.ResourceTypeService:
+		creator := registry.ServiceLookup(api, model)
+		if creator == nil || creator.Constructor == nil {
+			return fmt.Errorf("service with API %s and model %s not yet registered",
+				api, model)
+		}
+	default:
+		return errors.Errorf("unknown resource type %s", api.ResourceType)
+	}
+
 	return nil
 }
