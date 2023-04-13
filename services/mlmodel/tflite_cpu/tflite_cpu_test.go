@@ -3,14 +3,22 @@ package tflitecpu
 import (
 	"context"
 	"math/rand"
+	"net"
+	"reflect"
 	"testing"
 
+	"github.com/edaniels/golog"
 	"github.com/nfnt/resize"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
+	"go.viam.com/utils/rpc"
 
+	viamgrpc "go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/services/mlmodel"
+	"go.viam.com/rdk/subtype"
 )
 
 func TestEmptyTFLiteConfig(t *testing.T) {
@@ -107,10 +115,10 @@ func TestTFLiteCPUClassifier(t *testing.T) {
 	resized := resize.Resize(uint(got.metadata.Inputs[0].Shape[1]), uint(got.metadata.Inputs[0].Shape[2]), pic, resize.Bilinear)
 	imgBytes := rimage.ImageToUInt8Buffer(resized)
 	test.That(t, imgBytes, test.ShouldNotBeNil)
-	inputMap2 := make(map[string]interface{})
-	inputMap2["image"] = imgBytes
+	inputMap := make(map[string]interface{})
+	inputMap["image"] = imgBytes
 
-	gotOutput, err := got.Infer(ctx, inputMap2)
+	gotOutput, err := got.Infer(ctx, inputMap)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, gotOutput, test.ShouldNotBeNil)
 
@@ -158,6 +166,77 @@ func TestTFLiteCPUTextModel(t *testing.T) {
 
 	test.That(t, len(gotOutput["output0"].([]float32)), test.ShouldEqual, 384)
 	test.That(t, len(gotOutput["output1"].([]float32)), test.ShouldEqual, 384)
+}
+
+func TestTFLiteCPUClient(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	listener1, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
+	test.That(t, err, test.ShouldBeNil)
+
+	modelParams := TFLiteConfig{ // classifier config
+		ModelPath:  artifact.MustPath("vision/tflite/effdet0.tflite"),
+		NumThreads: 2,
+	}
+	myModel, err := NewTFLiteCPUModel(context.Background(), &modelParams)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, myModel, test.ShouldNotBeNil)
+
+	omMap := map[resource.Name]interface{}{
+		mlmodel.Named("testName"): myModel,
+	}
+	svc, err := subtype.New(omMap)
+	test.That(t, err, test.ShouldBeNil)
+	resourceSubtype := registry.ResourceSubtypeLookup(mlmodel.Subtype)
+	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, svc)
+
+	go rpcServer.Serve(listener1)
+	defer rpcServer.Stop()
+
+	// Prep img
+	pic, err := rimage.NewImageFromFile(artifact.MustPath("vision/tflite/dogscute.jpeg"))
+	test.That(t, err, test.ShouldBeNil)
+	resized := resize.Resize(320, 320, pic, resize.Bilinear)
+	imgBytes := rimage.ImageToUInt8Buffer(resized)
+	test.That(t, imgBytes, test.ShouldNotBeNil)
+	inputMap := make(map[string]interface{})
+	inputMap["image"] = imgBytes
+
+	conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
+	test.That(t, err, test.ShouldBeNil)
+	client := mlmodel.NewClientFromConn(context.Background(), conn, "testName", logger)
+	// Test call to Metadata
+	gotMD, err := client.Metadata(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, gotMD, test.ShouldNotBeNil)
+	test.That(t, gotMD.ModelType, test.ShouldEqual, "tflite_detector")
+	test.That(t, gotMD.Inputs[0].Name, test.ShouldResemble, "image")
+	test.That(t, gotMD.Outputs[0].Name, test.ShouldResemble, "location")
+	test.That(t, gotMD.Outputs[1].Name, test.ShouldResemble, "category")
+	test.That(t, gotMD.Outputs[2].Name, test.ShouldResemble, "score")
+	test.That(t, gotMD.Outputs[3].Name, test.ShouldResemble, "number of detections")
+	test.That(t, gotMD.Outputs[1].Description, test.ShouldContainSubstring, "categories of the detected boxes")
+	test.That(t, gotMD.Inputs[0].DataType, test.ShouldResemble, "uint8")
+	test.That(t, gotMD.Outputs[0].DataType, test.ShouldResemble, "float32")
+	test.That(t, gotMD.Outputs[1].AssociatedFiles[0].Name, test.ShouldResemble, "labelmap.txt")
+
+	// Test call to Infer
+	gotOutput, err := client.Infer(context.Background(), inputMap)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, gotOutput, test.ShouldNotBeNil)
+	test.That(t, len(gotOutput), test.ShouldEqual, 4)
+	locs := reflect.ValueOf(gotOutput["location"])
+	test.That(t, locs.Len(), test.ShouldEqual, 100)
+	scores := reflect.ValueOf(gotOutput["score"])
+	test.That(t, scores.Len(), test.ShouldEqual, 25)
+	nDets := reflect.ValueOf(gotOutput["number of detections"])
+	test.That(t, nDets.Len(), test.ShouldEqual, 1)
+	test.That(t, nDets.Index(0).Interface().(float64), test.ShouldResemble, float64(25))
+	test.That(t, reflect.TypeOf(gotOutput["category"]).Kind(), test.ShouldResemble, reflect.Slice)
+	cats := reflect.ValueOf(gotOutput["category"])
+	test.That(t, cats.Len(), test.ShouldEqual, 25)
+	test.That(t, cats.Index(0).Interface().(float64), test.ShouldResemble, float64(17)) // 17 is dog
 }
 
 func makeRandomSlice(length int) []int32 {

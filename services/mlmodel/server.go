@@ -2,9 +2,11 @@ package mlmodel
 
 import (
 	"context"
+	"encoding/base64"
 
 	pb "go.viam.com/api/service/mlmodel/v1"
 	vprotoutils "go.viam.com/utils/protoutils"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
@@ -38,7 +40,7 @@ func (server *subtypeServer) Infer(ctx context.Context, req *pb.InferRequest) (*
 	if err != nil {
 		return nil, err
 	}
-	od, err := svc.Infer(ctx, req.InputData.AsMap())
+	od, err := svc.Infer(ctx, asMap(req.InputData))
 	if err != nil {
 		return nil, err
 	}
@@ -47,6 +49,23 @@ func (server *subtypeServer) Infer(ctx context.Context, req *pb.InferRequest) (*
 		return nil, err
 	}
 	return &pb.InferResponse{OutputData: outputData}, nil
+}
+
+// AsMap converts x to a general-purpose Go map.
+// The map values are converted by calling Value.AsInterface.
+func asMap(x *structpb.Struct) map[string]interface{} {
+	f := x.GetFields()
+	vs := make(map[string]interface{}, len(f))
+	for k, in := range f {
+		switch in.GetKind().(type) {
+		case *structpb.Value_StringValue:
+			out, _ := base64.StdEncoding.DecodeString(in.GetStringValue()) //nolint: errcheck
+			vs[k] = out
+		default:
+			vs[k] = in.AsInterface()
+		}
+	}
+	return vs
 }
 
 func (server *subtypeServer) Metadata(

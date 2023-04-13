@@ -37,7 +37,7 @@ func TestClient(t *testing.T) {
 	resourceSubtype := registry.ResourceSubtypeLookup(mlmodel.Subtype)
 	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, svc)
 	inputData := map[string]interface{}{
-		"image": [][]uint8{{10, 10, 255, 0, 0, 255, 255, 0, 100}},
+		"image": []uint8{10, 10, 255, 0, 0, 255, 255, 0, 100},
 	}
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()
