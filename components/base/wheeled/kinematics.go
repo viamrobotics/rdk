@@ -21,9 +21,9 @@ type kinematicWheeledBase struct {
 
 // WrapWithKinematics takes a wheeledBase component and adds a slam service to it
 // It also adds kinematic model so that it can be controlled.
-func (wb *wheeledBase) WrapWithKinematics(ctx context.Context, slamSvc slam.Service) (base.KinematicBase, error) {
+func (base *wheeledBase) WrapWithKinematics(ctx context.Context, slamSvc slam.Service) (base.KinematicBase, error) {
 	kwb := &kinematicWheeledBase{
-		wheeledBase: wb,
+		wheeledBase: base,
 		slam:        slamSvc,
 	}
 	// gets the extents of the SLAM map
