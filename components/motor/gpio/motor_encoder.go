@@ -176,7 +176,7 @@ type EncodedMotor struct {
 	// .01 would ramp very slowly, 1 would ramp instantaneously
 	rampRate         float64
 	maxPowerPct      float64
-	flip             int64 // defaults to 1, becomes -1 if the motor config has a true DirectionFLip bool
+	flip             float64 // defaults to 1, becomes -1 if the motor config has a true DirectionFLip bool
 	ticksPerRotation float64
 
 	rpmMonitorCalls int64
@@ -371,7 +371,7 @@ func (m *EncodedMotor) rpmMonitorPass(pos, lastPos float64, now, lastTime int64,
 	if !regulated {
 		return false
 	}
-	ticksLeft = (m.state.setPoint - pos) * float64(sign(m.state.lastPowerPct)*m.flip)
+	ticksLeft = (m.state.setPoint - pos) * float64(sign(m.state.lastPowerPct)) * m.flip
 
 	// correctly set the ticksLeft accounting for power supplied to the motor and the expected direction of the motor
 	rotationsLeft := float64(ticksLeft) / m.ticksPerRotation
@@ -562,13 +562,13 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions float
 		return err
 	}
 
-	numTicks := int64(revolutions * m.ticksPerRotation)
+	numTicks := revolutions * m.ticksPerRotation
 
 	pos, _, err := m.encoder.GetPosition(ctx, nil, nil)
 	if err != nil {
 		return err
 	}
-	m.state.setPoint = pos + float64(d*numTicks*m.flip)
+	m.state.setPoint = pos + float64(d)*numTicks*m.flip
 
 	_, rpmDebug := getRPMSleepDebug()
 	if rpmDebug {
