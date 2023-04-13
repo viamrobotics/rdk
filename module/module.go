@@ -337,6 +337,10 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 		return nil, err
 	}
 
+	if err := addConvertedAttributes(cfg); err != nil {
+		return nil, errors.Wrapf(err, "unable to convert attributes when reconfiguring resource")
+	}
+
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -488,8 +492,13 @@ func (m *Module) AddModelFromRegistry(ctx context.Context, api resource.Subtype,
 			return err
 		}
 	}
+	err := validateRegistered(api, model)
+	if err != nil {
+		return err
+	}
 
 	creator := registry.ResourceSubtypeLookup(api)
+
 	if creator.ReflectRPCServiceDesc == nil {
 		m.logger.Errorf("rpc subtype %s doesn't contain a valid ReflectRPCServiceDesc", api)
 	}
@@ -527,5 +536,26 @@ func addConvertedAttributes(cfg *config.Component) error {
 		}
 		cfg.ConvertedAttributes = converted
 	}
+
+	return nil
+}
+
+func validateRegistered(api resource.Subtype, model resource.Model) error {
+	switch api.ResourceType {
+	case resource.ResourceTypeComponent:
+		creator := registry.ComponentLookup(api, model)
+		if creator == nil || creator.Constructor == nil {
+			return errors.New("Unregistered component")
+		}
+
+	case resource.ResourceTypeService:
+		creator := registry.ServiceLookup(api, model)
+		if creator == nil || creator.Constructor == nil {
+			return errors.New("Unregistered service")
+		}
+	default:
+		return errors.Errorf("unknown resource type %s", api.ResourceType)
+	}
+
 	return nil
 }
