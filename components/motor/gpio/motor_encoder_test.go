@@ -48,7 +48,7 @@ func TestMotorEncoder1(t *testing.T) {
 	e := &single.Encoder{I: interrupt, CancelCtx: context.Background()}
 	e.AttachDirectionalAwareness(&fakeDirectionAware{m: fakeMotor})
 	e.Start(context.Background())
-	_motor, err := newEncodedMotor(cfg, fakeMotor, e, logger)
+	_motor, err := newEncodedMotor("test", cfg, fakeMotor, e, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, utils.TryClose(context.Background(), _motor), test.ShouldBeNil)
@@ -296,7 +296,7 @@ func TestMotorEncoderIncremental(t *testing.T) {
 		encoder := &incremental.Encoder{A: encoderA, B: encoderB, CancelCtx: context.Background()}
 		encoder.Start(context.Background())
 
-		motor, err := newEncodedMotor(cfg, fakeMotor, encoder, logger)
+		motor, err := newEncodedMotor("test", cfg, fakeMotor, encoder, logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		motor.RPMMonitorStart()
@@ -654,7 +654,7 @@ func TestDirFlipMotor(t *testing.T) {
 	e := &single.Encoder{I: interrupt, CancelCtx: context.Background()}
 	e.AttachDirectionalAwareness(&fakeDirectionAware{m: dirflipFakeMotor})
 	e.Start(context.Background())
-	_dirFMotor, err := newEncodedMotor(cfg, dirflipFakeMotor, e, logger)
+	_dirFMotor, err := newEncodedMotor("test", cfg, dirflipFakeMotor, e, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("Direction flip RPM + | REV + ", func(t *testing.T) {
