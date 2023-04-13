@@ -56,8 +56,8 @@ import (
 
 var modelname = resource.NewDefaultModel("wheeled")
 
-// AttrConfig is how you configure a wheeled base.
-type AttrConfig struct {
+// Config is how you configure a wheeled base.
+type Config struct {
 	WidthMM              int      `json:"width_mm"`
 	WheelCircumferenceMM int      `json:"wheel_circumference_mm"`
 	SpinSlipFactor       float64  `json:"spin_slip_factor,omitempty"`
@@ -67,7 +67,7 @@ type AttrConfig struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (cfg *AttrConfig) Validate(path string) ([]string, error) {
+func (cfg *Config) Validate(path string) ([]string, error) {
 	var deps []string
 
 	if cfg.WidthMM == 0 {
@@ -108,9 +108,9 @@ func init() {
 				return nil, err
 			}
 
-			attr, ok := cfg.ConvertedAttributes.(*AttrConfig)
+			attr, ok := cfg.ConvertedAttributes.(*Config)
 			if !ok {
-				return nil, rdkutils.NewUnexpectedTypeError(attr, &AttrConfig{})
+				return nil, rdkutils.NewUnexpectedTypeError(attr, &Config{})
 			}
 
 			if len(attr.MovementSensor) > 0 {
@@ -129,10 +129,10 @@ func init() {
 		base.Subtype,
 		modelname,
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf AttrConfig
+			var conf Config
 			return config.TransformAttributeMapToStruct(&conf, attributes)
 		},
-		&AttrConfig{})
+		&Config{})
 }
 
 type wheeledBase struct {
@@ -415,15 +415,15 @@ func createWheeledBase(
 	cfg config.Component,
 	logger golog.Logger,
 ) (base.LocalBase, error) {
-	attr, ok := cfg.ConvertedAttributes.(*AttrConfig)
+	conf, ok := cfg.ConvertedAttributes.(*Config)
 	if !ok {
-		return nil, rdkutils.NewUnexpectedTypeError(attr, &AttrConfig{})
+		return nil, rdkutils.NewUnexpectedTypeError(conf, &Config{})
 	}
 
 	base := &wheeledBase{
-		widthMm:              attr.WidthMM,
-		wheelCircumferenceMm: attr.WheelCircumferenceMM,
-		spinSlipFactor:       attr.SpinSlipFactor,
+		widthMm:              conf.WidthMM,
+		wheelCircumferenceMm: conf.WheelCircumferenceMM,
+		spinSlipFactor:       conf.SpinSlipFactor,
 		logger:               logger,
 		name:                 cfg.Name,
 	}
@@ -432,7 +432,7 @@ func createWheeledBase(
 		base.spinSlipFactor = 1
 	}
 
-	for _, name := range attr.Left {
+	for _, name := range conf.Left {
 		m, err := motor.FromDependencies(deps, name)
 		if err != nil {
 			return nil, errors.Wrapf(err, "no left motor named (%s)", name)
@@ -444,7 +444,7 @@ func createWheeledBase(
 		base.left = append(base.left, m)
 	}
 
-	for _, name := range attr.Right {
+	for _, name := range conf.Right {
 		m, err := motor.FromDependencies(deps, name)
 		if err != nil {
 			return nil, errors.Wrapf(err, "no right motor named (%s)", name)

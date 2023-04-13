@@ -22,7 +22,7 @@ var testCfg config.Component = config.Component{
 	Name:  "test",
 	Type:  base.Subtype.ResourceSubtype,
 	Model: resource.Model{Name: "wheeled_base"},
-	ConvertedAttributes: &AttrConfig{
+	ConvertedAttributes: &Config{
 		WidthMM:              100,
 		WheelCircumferenceMM: 1000,
 		Left:                 []string{"fl-m", "bl-m"},
@@ -310,12 +310,12 @@ func TestWheeledBaseConstructor(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
 	// empty config
-	cfg := &AttrConfig{}
+	cfg := &Config{}
 	_, err := cfg.Validate("path")
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// invalid config
-	cfg = &AttrConfig{
+	cfg = &Config{
 		WidthMM:              100,
 		WheelCircumferenceMM: 1000,
 		Left:                 []string{"fl-m", "bl-m"},
@@ -339,7 +339,7 @@ func TestWheeledBaseConstructor(t *testing.T) {
 }
 
 func TestValidate(t *testing.T) {
-	cfg := &AttrConfig{}
+	cfg := &Config{}
 	deps, err := cfg.Validate("path")
 	test.That(t, deps, test.ShouldBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "\"width_mm\" is required")
