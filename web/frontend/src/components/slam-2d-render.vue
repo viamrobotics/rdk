@@ -8,9 +8,12 @@ import { MapControls } from 'three/examples/jsm/controls/OrbitControls';
 import { PCDLoader } from 'three/examples/jsm/loaders/PCDLoader';
 import type { commonApi } from '@viamrobotics/sdk';
 import { SVGLoader } from 'three/examples/jsm/loaders/SVGLoader';
-import { baseUrl } from '../lib/base-url'
-import { destUrl } from '../lib/destination-url'
+import { baseMarkerUrl } from '../lib/base-marker-url'
+import { destMarkerUrl } from '../lib/destination-marker-url'
 
+
+
+const backgroundGridColor = 0xCA_CA_CA
 /*
  * this color map is greyscale. The color map is being used map probability values of a PCD
  * into different color buckets provided by the color map.
@@ -88,17 +91,17 @@ const guiData = {
  * svgLoader example for webgl:
  * https://github.com/mrdoob/three.js/blob/master/examples/webgl_loader_svg.html
  */
-// 
+//
+const svgLoader = new SVGLoader(); 
 const makeMarker = async (url : string, name: string, scalar: number) => {
-  const svgLoader = new SVGLoader();
   const data = await svgLoader.loadAsync(url);
 
   const { paths } = data!;
 
   const group = new THREE.Group();
   group.scale.multiplyScalar(scalar);
-  // group.position.set(-70, 0, 70) // why do we do this? - do we need it?
-  // group.scale.y *= -1; // why do we do this? - do we need it?
+  group.position.set(-70, 0, 70) // why do we do this? - do we need it?
+  group.scale.y *= -1; // why do we do this? - do we need it?
 
   for (const path of paths) {
 
@@ -179,9 +182,11 @@ const disposeScene = () => {
 const updatePose = async (newPose: commonApi.Pose) => {
   const x = newPose.getX();
   const z = newPose.getZ();
-  const baseMarker = scene.getObjectByName('Base') ?? await makeMarker(baseUrl, 'Base', 0.04);
+  const baseMarker = scene.getObjectByName('Base') ?? await makeMarker(baseMarkerUrl, 'Base', 0.04);
   baseMarker.position.set(x + 0.35, 0, z - 0.55);
+  baseMarker.renderOrder = 999;
 };
+
 /*
  * Find the desired color bucket for a given probability. This assumes the probability will be a value from 0 to 100
  * ticket to add testing: https://viam.atlassian.net/browse/RSDK-2606
@@ -200,9 +205,20 @@ const colorBuckets = (probability: number): THREE.Vector3 => {
   return colorMapGrey[probToColorMapBucket(probability, colorMapGrey.length)]!;
 };
 
+const createAxisHelper = (name: string, rotation: number): THREE.AxesHelper => {
+  const axesHelper = new THREE.AxesHelper(5);
+  axesHelper.position.set(0, 0, 0);
+  axesHelper.rotateY(rotation);
+  axesHelper.scale.set(1e5, 1, 1e5)
+  axesHelper.renderOrder = 998;
+  axesHelper.name = name;
+  axesHelper.visible = props.axes;
+  return axesHelper
+}
+
 
 // rename to updatePC
-const updateCloud = (pointcloud: Uint8Array) => {
+const updatePointCloud = (pointcloud: Uint8Array) => {
   disposeScene();
 
   const viewHeight = 1;
@@ -234,16 +250,6 @@ const updateCloud = (pointcloud: Uint8Array) => {
   intersectionPlane.position.set(center.x, 0, center.z);
   raycaster.objects = [intersectionPlane];
 
-  // construct grids
-  const axesHelper1 = new THREE.AxesHelper(5);
-  axesHelper1.position.set(center.x, 0, center.z);
-  axesHelper1.rotateY(Math.PI / 2);
-  axesHelper1.scale.x = 1e5;
-  axesHelper1.scale.z = 1e5;
-  axesHelper1.renderOrder = 998;
-  axesHelper1.name = 'Axes1';
-  axesHelper1.visible = props.axes;
-
   const colors = points.geometry.attributes.color;
   // if the PCD has a color attribute defined, convert those colors using the colorMap
   if (colors instanceof THREE.BufferAttribute) {
@@ -258,38 +264,30 @@ const updateCloud = (pointcloud: Uint8Array) => {
     }
   }
 
-  scene.add(points);
-  scene.add(intersectionPlane);
-
-
-  // have these axes be drawn at 0,0
-  const axesHelper2 = new THREE.AxesHelper(5);
-  axesHelper2.position.set(center.x, 0, center.z);
-  axesHelper2.rotateY(-Math.PI / 2);
-  axesHelper2.scale.x = 1e5;
-  axesHelper2.scale.z = 1e5;
-  axesHelper2.renderOrder = 997;
-  axesHelper2.name = 'Axes2';
-  axesHelper1.visible = props.axes;
+  // construct grids
+  const axesHelper1 = createAxisHelper('Axes1', Math.PI / 2)
+  const axesHelper2 = createAxisHelper('Axes2', -Math.PI / 2)
 
   // this needs to be updated so it is set to 1m
   // have these be constants at the top
-  const gridHelper = new THREE.GridHelper(1000, 100, 0xCA_CA_CA, 0xCA_CA_CA);
-  gridHelper.position.set(center.x, 0, center.z);
+  const gridHelper = new THREE.GridHelper(1000, 100, backgroundGridColor, backgroundGridColor);
+  gridHelper.position.set(0, 0, 0);
   gridHelper.renderOrder = 996;
   gridHelper.name = 'Grid';
   gridHelper.visible = props.axes;
 
   // add objects to scene
-  scene.add(axesHelper1);
-  scene.add(axesHelper2);
-  scene.add(gridHelper);
+  scene.add(
+    axesHelper1,
+    axesHelper2,
+    gridHelper,
+    points,
+    intersectionPlane
+  );
 
-  scene.add(points);
-  scene.add(intersectionPlane);
-  updatePose(props.pose!); // only do this if the pose exists
-  // what is pc didnt change but the pose did
-  // then we need this conditional
+  if (props.pose !== undefined) {
+    updatePose(props.pose!);
+  }
 };
 
 onMounted(() => {
@@ -298,7 +296,7 @@ onMounted(() => {
   run();
 
   if (props.pointcloud !== undefined) {
-    updateCloud(props.pointcloud);
+    updatePointCloud(props.pointcloud);
   }
 
   if (props.pose !== undefined) {
@@ -312,15 +310,15 @@ onUnmounted(() => {
 });
 
 // see if we can just do props.destVector and not the subcomponents
-watch(() => [props.destVector?.x, props.destVector?.y, props.destExists], async () => {
+watch(() => [props.destVector?.x, props.destVector?.z, props.destExists], async () => {
   if (props.destVector && props.destExists) {
     // update name from marker to destinationMarker
-    const marker = scene.getObjectByName('Marker') ?? await makeMarker(destUrl, 'Marker', 0.1);
+    const marker = scene.getObjectByName('Marker') ?? await makeMarker(destMarkerUrl, 'Marker', 0.1);
     // udpate from base to baseMarker
-    const base = scene.getObjectByName('Base');
+    // const base = scene.getObjectByName('Base');
     // get rid of this magic number formulation
-    const convertedCoord = (base!.position.z + 0.55) - props.destVector.y;
-    marker.position.set(props.destVector.x + 1.2, 0, convertedCoord - 2.54);
+    // const convertedCoord = (base!.position.z + 0.55) - props.destVector.y;
+    marker.position.set(props.destVector.x + 1.2, 0, props.destVector.z +2.64 );
   }
   if (!props.destExists) {
     const marker = scene.getObjectByName('Marker');
@@ -362,7 +360,7 @@ watch(() => props.pose, (newPose) => {
 watch(() => props.pointCloudUpdateCount, () => {
   if (props.pointcloud !== undefined) {
     try {
-      updateCloud(props.pointcloud);
+      updatePointCloud(props.pointcloud);
     } catch (error) {
       console.error('failed to update pointcloud', error);
     }
@@ -381,6 +379,7 @@ watch(() => props.pointCloudUpdateCount, () => {
     </p>
     <div class="absolute right-3 top-3">
       <svg
+        class="Axes-Legend"
         width="30"
         height="30"
         viewBox="0 0 30 30"
