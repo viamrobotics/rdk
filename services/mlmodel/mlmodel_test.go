@@ -58,16 +58,16 @@ func (m *mockDetector) Metadata(ctx context.Context) (mlmodel.MLMetadata, error)
 		ModelDescription: "desc",
 	}
 	md.Inputs = []mlmodel.TensorInfo{
-		{Name: "image", Description: "i0", DataType: "uint8", NDim: 2},
+		{Name: "image", Description: "i0", DataType: "uint8", Shape: []int{300, 200}},
 	}
 	md.Outputs = []mlmodel.TensorInfo{
-		{Name: "n_detections", Description: "o0", DataType: "int32", NDim: 1},
-		{Name: "confidence_scores", Description: "o1", DataType: "float32", NDim: 2},
+		{Name: "n_detections", Description: "o0", DataType: "int32", Shape: []int{1}},
+		{Name: "confidence_scores", Description: "o1", DataType: "float32", Shape: []int{3, 1}},
 		{
 			Name:        "labels",
 			Description: "o2",
 			DataType:    "int32",
-			NDim:        2,
+			Shape:       []int{3, 1},
 			AssociatedFiles: []mlmodel.File{
 				{
 					Name:        "category_labels.txt",
@@ -76,7 +76,7 @@ func (m *mockDetector) Metadata(ctx context.Context) (mlmodel.MLMetadata, error)
 				},
 			},
 		},
-		{Name: "locations", Description: "o3", DataType: "float32", NDim: 3},
+		{Name: "locations", Description: "o3", DataType: "float32", Shape: []int{4, 3, 1}},
 	}
 	return md, nil
 }

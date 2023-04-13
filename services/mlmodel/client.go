@@ -80,7 +80,6 @@ func protoToTensorInfo(pbti *pb.TensorInfo) TensorInfo {
 		Name:        pbti.Name,
 		Description: pbti.Description,
 		DataType:    pbti.DataType,
-		NDim:        int(pbti.NDim),
 		Extra:       pbti.Extra.AsMap(),
 	}
 	associatedFiles := make([]File, 0, len(pbti.AssociatedFiles))
@@ -88,6 +87,11 @@ func protoToTensorInfo(pbti *pb.TensorInfo) TensorInfo {
 		associatedFiles = append(associatedFiles, protoToFile(afproto))
 	}
 	ti.AssociatedFiles = associatedFiles
+	shape := make([]int, 0, len(pbti.Shape))
+	for _, s := range pbti.Shape {
+		shape = append(shape, int(s))
+	}
+	ti.Shape = shape
 	return ti
 }
 

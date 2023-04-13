@@ -15,7 +15,7 @@ func newLeafNodeEmpty() basicOctreeNode {
 	octNode := basicOctreeNode{
 		children: nil,
 		nodeType: leafNodeEmpty,
-		point:    PointAndData{},
+		point:    nil,
 		maxVal:   emptyProb,
 	}
 	return octNode
@@ -26,7 +26,7 @@ func newInternalNode(tree []*BasicOctree) basicOctreeNode {
 	octNode := basicOctreeNode{
 		children: tree,
 		nodeType: internalNode,
-		point:    PointAndData{},
+		point:    nil,
 		maxVal:   emptyProb,
 	}
 	return octNode
@@ -37,7 +37,7 @@ func newLeafNodeFilled(p r3.Vector, d Data) basicOctreeNode {
 	octNode := basicOctreeNode{
 		children: nil,
 		nodeType: leafNodeFilled,
-		point:    PointAndData{P: p, D: d},
+		point:    &PointAndData{P: p, D: d},
 		maxVal:   getRawVal(d),
 	}
 	return octNode
