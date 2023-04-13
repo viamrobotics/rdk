@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -98,15 +99,13 @@ func GetGPIOBoardMappings(modelName string, boardInfoMappings map[string]BoardIn
 // that appears compatible with the machine we're running on.
 func getCompatiblePinDefs(modelName string, boardInfoMappings map[string]BoardInformation) ([]PinDefinition, error) {
 	var path string
-	const (
-		compatiblePath    = "/proc/device-tree/compatible"
-		compatiblePathDmi = "/sys/devices/virtual/dmi/id/board_name"
-	)
 
-	if modelName == "intel" {
-		path = compatiblePathDmi
+	arch := runtime.GOARCH
+
+	if arch == "amd64" {
+		path = "/sys/devices/virtual/dmi/id/board_name"
 	} else {
-		path = compatiblePath
+		path = "/proc/device-tree/compatible"
 	}
 
 	compatibles, err := newStringSetFromFile(modelName, path)

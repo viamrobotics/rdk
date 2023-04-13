@@ -17,7 +17,7 @@ var boardInfoMappings = map[string]genericlinux.BoardInformation{
 			// GPIO pin definition
 			{map[int]int{78: 73}, map[int]string{}, "INT3452:01", 29, 0, "GPIO10", "", "", -1},
 			{map[int]int{77: 46}, map[int]string{}, "INT3452:01", 31, 0, "BCM26", "", "", -1},
-			{map[int]int{78: 37}, map[int]string{}, "INT3452:00", 16, 0, "BCM23", "", "", -1},
+
 			{map[int]int{77: 48}, map[int]string{}, "INT3452:01", 18, 0, "BCM24", "", "", -1},
 			{map[int]int{77: 45}, map[int]string{}, "INT3452:01", 22, 0, "BCM25", "", "", -1},
 
@@ -40,6 +40,7 @@ var boardInfoMappings = map[string]genericlinux.BoardInformation{
 			// pwm
 			{map[int]int{78: 35}, map[int]string{}, "INT3452:00", 33, 0, "BMC13_PWM1", "", "", 0}, // PWM1 device: pwmchip1/pwm0
 			{map[int]int{78: 34}, map[int]string{}, "INT3452:00", 32, 0, "BCM12_PWM0", "", "", 0}, // PWM0 device: pwmchip0/pwm0
+			{map[int]int{78: 37}, map[int]string{}, "INT3452:00", 16, 0, "BCM23", "", "", 0},
 
 			{map[int]int{77: 76}, map[int]string{}, "INT3452:01", 7, 0, "BCM4", "", "", -1},        // ADC0 device: ii0:device0
 			{map[int]int{77: 65}, map[int]string{}, "INT3452:01", 19, 0, "BCM10_MOSI", "", "", -1}, // SPI_MOSI
