@@ -7,24 +7,51 @@ import { rcLogConditionally } from '../lib/log';
 
 const props = defineProps<{
   name: string
-  status: {
-    position: Record<string, { value: number }>
-  }
+  // eslint-disable-next-line multiline-comment-style
+  // status: {
+  //   position: Record<string, { value: number }>
+  // }
   client: Client
 }>();
 
-// const encoderClient = new EncoderClient(props.client, props.name, {
-//   requestLogger: rcLogConditionally,
-// });
+const encoderClient = new EncoderClient(props.client, props.name, {
+  requestLogger: rcLogConditionally,
+});
 
 let properties = $ref<encoderApi.GetPropertiesResponse.AsObject | undefined>();
+let position = $ref<encoderApi.GetPositionResponse.AsObject | undefined>();
+let value = $ref(0)
+let posType = $ref(0)
 
-const position = computed(() => {
+position = computed(() => {
   const req = new encoderApi.GetPositionRequest();
-  req.setName(props.name);
-  const resp = props.client.encoderService.getPosition(req, new grpc.Metadata(), displayError);
-  console.log('response:', resp.AsObject);
-  return resp.AsObject[0];
+    req.setName(props.name);
+
+    rcLogConditionally(req);
+    console.log('request:', req.toObject());
+    encoderClient.getPosition(
+      req,
+      new grpc.Metadata(),
+      (err: ServiceError, resp: encoderApi.GetPositionResponse) => {
+        if (err) {
+          return displayError(err);
+        }
+
+        const temp = resp!.toObject();
+        value = temp.value;
+        console.log('value:', value);
+        posType = temp.positionType;
+        console.log('posType:', posType);
+      }
+    );
+
+  return value
+  // const req = new encoderApi.GetPositionRequest();
+  // req.setName(props.name);
+  // console.log('request:', req.toObject());
+  // const resp = encoderClient.getPosition(req, new grpc.Metadata(), displayError);
+  // console.log('response:', resp.getValue());
+  // return resp.AsObject[0];
 });
 
 const reset = () => {
@@ -32,12 +59,13 @@ const reset = () => {
   req.setName(props.name);
 
   rcLogConditionally(req);
-  props.client.encoderService.resetPosition(req, new grpc.Metadata(), displayError);
+  encoderClient.resetPosition(req, new grpc.Metadata(), displayError);
 };
 
 onMounted(async () => {
   try {
-    properties = await props.client.encoderService.getProperties();
+    properties = await encoderClient.getProperties();
+    console.log('props:', properties);
   } catch (error) {
     displayError(error as ServiceError);
   }
@@ -64,7 +92,7 @@ onMounted(async () => {
             Count
           </th>
           <td class="border border-black p-2">
-            {{ status.position.value || 0 }}
+            {{ position || 0 }}
           </td>
         </tr>
         <tr
