@@ -352,8 +352,8 @@ func (m *gpioStepper) GoTo(ctx context.Context, rpm, positionRevolutions float64
 	}
 	moveDistance := positionRevolutions - curPos
 
-	// don't want to move if we're already at target, and want to skip GoFor's 0 rpm
-	// move forever condition
+	// if you call GoFor with 0 revolutions, the motor will spin forever. If we are at the target,
+	// we must avoid this by not calling GoFor.
 	if rdkutils.Float64AlmostEqual(moveDistance, 0, 0.1) {
 		m.logger.Debugf("GoTo distance nearly zero for motor (%s), not moving", m.motorName)
 		return nil
