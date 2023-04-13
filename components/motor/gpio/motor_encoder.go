@@ -246,6 +246,21 @@ func (m *EncodedMotor) RPMMonitorCalls() int64 {
 	return atomic.LoadInt64(&m.rpmMonitorCalls)
 }
 
+// IsRegulated returns if the motor is currently regulated or not.
+func (m *EncodedMotor) IsRegulated() bool {
+	m.stateMu.RLock()
+	regulated := m.state.regulated
+	m.stateMu.RUnlock()
+	return regulated
+}
+
+// SetRegulated sets if the motor should be regulated.
+func (m *EncodedMotor) SetRegulated(b bool) {
+	m.stateMu.Lock()
+	defer m.stateMu.Unlock()
+	m.state.regulated = b
+}
+
 func (m *EncodedMotor) fixPowerPct(powerPct float64) float64 {
 	powerPct = math.Min(powerPct, m.maxPowerPct)
 	powerPct = math.Max(powerPct, -1*m.maxPowerPct)
@@ -324,7 +339,7 @@ func (m *EncodedMotor) rpmMonitor() {
 			}
 			continue
 		}
-		now := float64(time.Now().UnixNano())
+		now := time.Now().UnixNano()
 		if now == lastTime {
 			// this really only happens in testing, b/c we decrease sleep, but nice defense anyway
 			continue
@@ -442,7 +457,7 @@ func (m *EncodedMotor) computeNewPowerPct(currentRPM, desiredRPM float64) float6
 		// to it, and we'll start moving soon.
 		return m.computeRampedPower(lastPowerPct, lastPowerPct*2)
 	}
-	dOverC := desiredRPM / currentRPM
+	dOverC := desiredRPM / currentRPM * m.flip
 	dOverC = math.Min(dOverC, 2)
 	dOverC = math.Max(dOverC, -2)
 
@@ -517,10 +532,11 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions float64) error {
 	m.RPMMonitorStart()
 
-	var d = 1.0
+	var d float64 = 1
+
 	// Backwards
 	if math.Signbit(revolutions) != math.Signbit(rpm) {
-		d *= -1.0
+		d *= -1
 	}
 
 	revolutions = math.Abs(revolutions) * m.flip
