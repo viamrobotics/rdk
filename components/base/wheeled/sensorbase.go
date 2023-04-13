@@ -26,19 +26,18 @@ const (
 	errTarget   = 5.0
 	oneTurn     = 360
 	increment   = 0.1
-	sensorDebug = false
+	sensorDebug = true
 )
 
 type sensorBase struct {
 	generic.Unimplemented
 	logger golog.Logger
 
-	workers sync.WaitGroup
-	base    base.LocalBase
-	baseCtx context.Context
+	activeBackgroundWorkers sync.WaitGroup
+	base                    base.LocalBase
+	baseCtx                 context.Context
 
 	sensorMu      sync.Mutex
-	sensorCtx     context.Context
 	sensorDone    func()
 	sensorPolling bool
 
@@ -56,14 +55,12 @@ func makeBaseWithSensors(
 	logger golog.Logger,
 ) (base.LocalBase, error) {
 	// spawn a new context for sensors so we don't add many background workers
-	attr, ok := cfg.ConvertedAttributes.(*AttrConfig)
+	attr, ok := cfg.ConvertedAttributes.(*Config)
 	if !ok {
-		return nil, rdkutils.NewUnexpectedTypeError(attr, &AttrConfig{})
+		return nil, rdkutils.NewUnexpectedTypeError(attr, &Config{})
 	}
 
 	sb := &sensorBase{base: base, logger: logger, baseCtx: ctx}
-
-	// sb.sensorCtx, sb.sensorDone = context.WithCancel(ctx)
 
 	var omsName string
 	for _, msName := range attr.MovementSensor {
@@ -111,18 +108,18 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 
 	// start a sensor context for the sensor loop based on the longstanding base
 	// creator context
-	sb.sensorCtx, sb.sensorDone = context.WithCancel(sb.baseCtx)
-	sb.setPolling(true)
+	var sensorCtx context.Context
+	sensorCtx, sb.sensorDone = context.WithCancel(sb.baseCtx)
 
-	sb.workers.Add(1)
+	sb.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
 		if err := sb.base.SetVelocity(ctx, r3.Vector{}, r3.Vector{Z: angleDeg}, nil); err != nil {
 			sb.logger.Error(err)
 		}
-	}, sb.workers.Done)
+	}, sb.activeBackgroundWorkers.Done)
 
 	sb.setPolling(true)
-	return sb.stopSpinWithSensor(sb.sensorCtx, angleDeg, degsPerSec)
+	return sb.stopSpinWithSensor(sensorCtx, angleDeg, degsPerSec)
 }
 
 func (sb *sensorBase) stopSpinWithSensor(
@@ -142,7 +139,7 @@ func (sb *sensorBase) stopSpinWithSensor(
 	turnCount := 0
 	errCounter := 0
 
-	sb.workers.Add(1)
+	sb.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
 		ticker := time.NewTicker(yawPollTime)
 		defer ticker.Stop()
@@ -222,7 +219,7 @@ func (sb *sensorBase) stopSpinWithSensor(
 				}
 			}
 		}
-	}, sb.workers.Done)
+	}, sb.activeBackgroundWorkers.Done)
 	return nil
 }
 

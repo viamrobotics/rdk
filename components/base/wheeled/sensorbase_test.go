@@ -292,13 +292,12 @@ func TestSpinWithMovementSensor(t *testing.T) {
 		Unimplemented: generic.Unimplemented{},
 		base:          &base,
 		sensorMu:      sync.Mutex{},
-		sensorCtx:     sensorCtx,
 		sensorDone:    sensorCancel,
 		allSensors:    []movementsensor.MovementSensor{ms},
 		orientation:   ms,
 	}
 
-	err := sensorBase.stopSpinWithSensor(sensorBase.sensorCtx, 10, 50)
+	err := sensorBase.stopSpinWithSensor(sensorCtx, 10, 50)
 	test.That(t, err, test.ShouldBeNil)
 	// we have no way of stopping the sensor in this little test
 	// so we stop runnign goroutines manually and test our function
@@ -311,7 +310,7 @@ var sConfig config.Component = config.Component{
 	Name:  "test",
 	Type:  base.Subtype.ResourceSubtype,
 	Model: resource.Model{Name: "wheeled_base"},
-	ConvertedAttributes: &AttrConfig{
+	ConvertedAttributes: &Config{
 		WidthMM:              100,
 		WheelCircumferenceMM: 1000,
 		Left:                 []string{"fl-m", "bl-m"},
