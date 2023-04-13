@@ -1,5 +1,5 @@
-// Package builtin implements simultaneous localization and mapping
-// This is an Experimental package
+// Package builtin implements simultaneous localization and mapping.
+// This is an Experimental package.
 package builtin
 
 import (
