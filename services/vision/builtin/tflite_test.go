@@ -12,6 +12,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/services/vision"
+	"go.viam.com/rdk/vision/classification"
 )
 
 func BenchmarkAddTFLiteDetector(b *testing.B) {
@@ -254,6 +255,55 @@ func TestMoreClassifierModels(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, bestClass[0].Label(), test.ShouldResemble, "292")
 	test.That(t, bestClass[0].Score(), test.ShouldBeGreaterThan, 0.93)
+}
+
+func TestOneClassifierOnManyCameras(t *testing.T) {
+	ctx := context.Background()
+
+	// Test that one classifier can be used in two goroutines
+	picPanda, err := rimage.NewImageFromFile(artifact.MustPath("vision/tflite/redpanda.jpeg"))
+	test.That(t, err, test.ShouldBeNil)
+	picLion, err := rimage.NewImageFromFile(artifact.MustPath("vision/tflite/lion.jpeg"))
+	test.That(t, err, test.ShouldBeNil)
+
+	modelLoc := artifact.MustPath("vision/tflite/mobilenetv2_class.tflite")
+	cfg := vision.VisModelConfig{
+		Name: "testclassifier",
+		Type: "tflite_classifier",
+		Parameters: config.AttributeMap{
+			"model_path":  modelLoc,
+			"label_path":  "",
+			"num_threads": 2,
+		},
+	}
+	got, _, err := NewTFLiteClassifier(ctx, &cfg, golog.NewTestLogger(t))
+	test.That(t, err, test.ShouldBeNil)
+
+	valuePanda, valueLion := classifyTwoImages(picPanda, picLion, got)
+	test.That(t, valuePanda, test.ShouldNotBeNil)
+	test.That(t, valueLion, test.ShouldNotBeNil)
+}
+
+func classifyTwoImages(picPanda *rimage.Image, picLion *rimage.Image, got classification.Classifier) (classification.Classifications, classification.Classifications) {
+	resultPanda := make(chan classification.Classifications)
+	resultLion := make(chan classification.Classifications)
+
+	go gotWithCallback(picPanda, resultPanda, got)
+	go gotWithCallback(picLion, resultLion, got)
+
+	valuePanda := <-resultPanda
+	valueLion := <-resultLion
+
+	close(resultPanda)
+	close(resultLion)
+
+	return valuePanda, valueLion
+}
+
+func gotWithCallback(img *rimage.Image, result chan classification.Classifications, got classification.Classifier) {
+	classifications, _ := got(context.Background(), img)
+	result <- classifications
+	return
 }
 
 func TestInvalidLabels(t *testing.T) {

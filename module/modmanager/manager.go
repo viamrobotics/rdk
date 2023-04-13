@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -34,6 +35,7 @@ import (
 
 var (
 	validateConfigTimeout       = 5 * time.Second
+	errMessageExitStatus143     = "exit status 143"
 	errModularResourcesDisabled = errors.New("modular resources disabled in untrusted environment")
 )
 
@@ -462,7 +464,10 @@ func (m *module) stopProcess() error {
 		return nil
 	})
 
-	if err := m.process.Stop(); err != nil {
+	// TODO(RSDK-2551): stop ignoring exit status 143 once Python modules handle
+	// SIGTERM correctly.
+	if err := m.process.Stop(); err != nil &&
+		!strings.Contains(err.Error(), errMessageExitStatus143) {
 		return err
 	}
 	return nil

@@ -76,6 +76,7 @@ type Encoder struct {
 	A, B  string
 	name  string
 
+	positionType encoder.PositionType
 	generic.Unimplemented
 }
 
@@ -102,28 +103,42 @@ func (cfg *EncoderConfig) Validate(path string) ([]string, error) {
 	return deps, nil
 }
 
-// TicksCount returns number of ticks since last zeroing.
-func (e *Encoder) TicksCount(ctx context.Context, extra map[string]interface{}) (float64, error) {
+// GetPosition returns the current position in terms of ticks or
+// degrees, and whether it is a relative or absolute position.
+func (e *Encoder) GetPosition(
+	ctx context.Context,
+	positionType *encoder.PositionType,
+	extra map[string]interface{},
+) (float64, encoder.PositionType, error) {
+	if positionType != nil && *positionType == encoder.PositionTypeDEGREES {
+		err := errors.New("Encoder does not support PositionType Angle Degrees, use a different PositionType")
+		return 0, *positionType, err
+	}
 	res, err := e.board.runCommand("motor-position " + e.name)
 	if err != nil {
-		return 0, err
+		return 0, e.positionType, err
 	}
 
 	ticks, err := strconv.ParseInt(res, 10, 64)
 	if err != nil {
-		return 0, fmt.Errorf("couldn't parse # ticks (%s) : %w", res, err)
+		return 0, e.positionType, fmt.Errorf("couldn't parse # ticks (%s) : %w", res, err)
 	}
 
-	return float64(ticks), nil
+	return float64(ticks), e.positionType, nil
 }
 
-// Reset sets the current position of the motor (adjusted by a given offset)
+// ResetPosition sets the current position of the motor (adjusted by a given offset)
 // to be its new zero position.
-func (e *Encoder) Reset(ctx context.Context, offset float64, extra map[string]interface{}) error {
-	if err := encoder.ValidateIntegerOffset(offset); err != nil {
-		return err
-	}
-	offsetInt := int64(offset)
+func (e *Encoder) ResetPosition(ctx context.Context, extra map[string]interface{}) error {
+	offsetInt := int64(0)
 	_, err := e.board.runCommand(fmt.Sprintf("motor-zero %s %d", e.name, offsetInt))
 	return err
+}
+
+// GetProperties returns a list of all the position types that are supported by a given encoder.
+func (e *Encoder) GetProperties(ctx context.Context, extra map[string]interface{}) (map[encoder.Feature]bool, error) {
+	return map[encoder.Feature]bool{
+		encoder.TicksCountSupported:   true,
+		encoder.AngleDegreesSupported: false,
+	}, nil
 }

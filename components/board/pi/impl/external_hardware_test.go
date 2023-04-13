@@ -15,6 +15,7 @@ import (
 	"go.viam.com/rdk/components/board/genericlinux"
 	picommon "go.viam.com/rdk/components/board/pi/common"
 	"go.viam.com/rdk/components/encoder"
+	"go.viam.com/rdk/components/encoder/incremental"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/components/motor/gpio"
 	"go.viam.com/rdk/components/servo"
@@ -147,8 +148,8 @@ func TestPiHardware(t *testing.T) {
 
 	deps := make(registry.Dependencies)
 	_, err = encoderReg.Constructor(ctx, deps, config.Component{
-		Name: "encoder1", ConvertedAttributes: &encoder.IncrementalConfig{
-			Pins: encoder.IncrementalPins{
+		Name: "encoder1", ConvertedAttributes: &incremental.AttrConfig{
+			Pins: incremental.Pins{
 				A: "a",
 				B: "b",
 			},

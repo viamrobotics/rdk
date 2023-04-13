@@ -58,7 +58,7 @@ func (m *mockDetector) Metadata(ctx context.Context) (mlmodel.MLMetadata, error)
 		ModelDescription: "desc",
 	}
 	md.Inputs = []mlmodel.TensorInfo{
-		{Name: "image", Description: "i0", DataType: "uint8", Shape: []int{300, 300}},
+		{Name: "image", Description: "i0", DataType: "uint8", Shape: []int{300, 200}},
 	}
 	md.Outputs = []mlmodel.TensorInfo{
 		{Name: "n_detections", Description: "o0", DataType: "int32", Shape: []int{1}},

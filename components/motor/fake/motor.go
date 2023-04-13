@@ -151,7 +151,7 @@ func (m *Motor) Position(ctx context.Context, extra map[string]interface{}) (flo
 		return 0, errors.New("encoder is not defined")
 	}
 
-	ticks, err := m.Encoder.TicksCount(ctx, extra)
+	ticks, _, err := m.Encoder.GetPosition(ctx, nil, extra)
 	if err != nil {
 		return 0, err
 	}
@@ -338,7 +338,7 @@ func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64, extra map
 		return errors.New("need nonzero TicksPerRotation for motor")
 	}
 
-	err := m.Encoder.Reset(ctx, offset*float64(m.TicksPerRotation), extra)
+	err := m.Encoder.ResetPosition(ctx, extra)
 	if err != nil {
 		return errors.Wrapf(err, "error in ResetZeroPosition from motor (%s)", m.Name)
 	}
