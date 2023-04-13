@@ -90,7 +90,6 @@ type TensorInfo struct {
 	Description     string
 	DataType        string // e.g. uint8, float32, int
 	Shape           []int  // number of dimensions in the array
-	TensorShape     []int
 	AssociatedFiles []File
 	Extra           map[string]interface{}
 }

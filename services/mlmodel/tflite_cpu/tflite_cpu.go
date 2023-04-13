@@ -27,6 +27,20 @@ func init() {
 			return newTFLiteCPUModel(ctx, deps, config, logger)
 		},
 	})
+	sModel := resource.NewDefaultModel("tflitecpu")
+	config.RegisterServiceAttributeMapConverter(mlmodel.Subtype, sModel, func(attributes config.AttributeMap) (interface{}, error) {
+		// Read ML model service parameters into a TFLiteConfig
+		var t TFLiteConfig
+		tfParams, err := config.TransformAttributeMapToStruct(&t, attributes)
+		if err != nil {
+			return nil, errors.Wrapf(err, "error getting parameters from config")
+		}
+		params, ok := tfParams.(*TFLiteConfig)
+		if !ok {
+			return nil, utils.NewUnexpectedTypeError(params, tfParams)
+		}
+		return params, nil
+	}, &TFLiteConfig{})
 }
 
 // TFLiteConfig contains the parameters specific to a tflite_cpu implementation
@@ -47,22 +61,16 @@ type Model struct {
 }
 
 // newTFLiteCPUModel is a constructor that builds a tflite cpu implementation of the MLMS.
-func newTFLiteCPUModel(ctx context.Context, deps registry.Dependencies, conf config.Service, logger golog.Logger) (*Model, error) { //nolint:unparam
+func newTFLiteCPUModel(ctx context.Context, deps registry.Dependencies, conf config.Service, logger golog.Logger) (mlmodel.Service, error) { //nolint:unparam
 	ctx, span := trace.StartSpan(ctx, "service::mlmodel::NewTFLiteCPUModel")
 	defer span.End()
 
-	// Read ML model service parameters into a TFLiteDetectorConfig
-	var t TFLiteConfig
-	tfParams, err := config.TransformAttributeMapToStruct(&t, conf.Attributes)
-	if err != nil {
-		return &Model{}, errors.Wrapf(err, "error getting parameters from config")
-	}
-	params, ok := tfParams.(*TFLiteConfig)
+	svcConfig, ok := conf.ConvertedAttributes.(*TFLiteConfig)
 	if !ok {
-		err := utils.NewUnexpectedTypeError(params, tfParams)
-		return &Model{}, errors.Wrapf(err, "can not register tflite cpu model %s", conf.Name)
+		return nil, utils.NewUnexpectedTypeError(svcConfig, conf.ConvertedAttributes)
 	}
-	return CreateTFLiteCPUModel(ctx, params)
+
+	return CreateTFLiteCPUModel(ctx, svcConfig)
 }
 
 // CreateTFLiteCPUModel is a constructor that builds a tflite cpu implementation of the MLMS.
@@ -70,7 +78,7 @@ func CreateTFLiteCPUModel(ctx context.Context, params *TFLiteConfig) (*Model, er
 	// Given those params, add the model
 	model, err := addTFLiteModel(ctx, params.ModelPath, &params.NumThreads)
 	if err != nil {
-		return &Model{}, errors.Wrapf(err, "could not add model from location %s", params.ModelPath)
+		return nil, errors.Wrapf(err, "could not add model from location %s", params.ModelPath)
 	}
 	return &Model{attrs: *params, model: model}, nil
 }
