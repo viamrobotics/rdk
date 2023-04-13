@@ -259,6 +259,13 @@ func getPwmChipDefs(pinDefs []PinDefinition) (map[string]pwmChipData, error) {
 				}
 
 				pwmChipsInfo[chipName] = pwmChipData{Dir: chipPath, Npwm: npwm}
+				// Now that we've found the chip info, we need to break out of 2 different for
+				// loops, to go on to the next chip name. This is just the first one so far...
+				break
+			}
+			if found {
+				// ...and this is the second one. We've already found the info for the current
+				// chip name, so move on to the next name.
 				break
 			}
 		}

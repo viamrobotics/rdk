@@ -8,6 +8,8 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
+
+	"go.viam.com/rdk/spatialmath"
 )
 
 // Test creation of empty leaf node, filled leaf node and internal node.
@@ -16,7 +18,7 @@ func TestNodeCreation(t *testing.T) {
 		basicOct := newLeafNodeEmpty()
 
 		test.That(t, basicOct.nodeType, test.ShouldResemble, leafNodeEmpty)
-		test.That(t, basicOct.point, test.ShouldResemble, PointAndData{})
+		test.That(t, basicOct.point, test.ShouldBeNil)
 		test.That(t, basicOct.children, test.ShouldBeNil)
 	})
 
@@ -26,7 +28,8 @@ func TestNodeCreation(t *testing.T) {
 		basicOct := newLeafNodeFilled(p, d)
 
 		test.That(t, basicOct.nodeType, test.ShouldResemble, leafNodeFilled)
-		test.That(t, basicOct.point, test.ShouldResemble, PointAndData{P: p, D: d})
+		test.That(t, basicOct.point.P, test.ShouldResemble, p)
+		test.That(t, basicOct.point.D, test.ShouldResemble, d)
 		test.That(t, basicOct.children, test.ShouldBeNil)
 	})
 
@@ -35,7 +38,7 @@ func TestNodeCreation(t *testing.T) {
 		basicOct := newInternalNode(children)
 
 		test.That(t, basicOct.nodeType, test.ShouldResemble, internalNode)
-		test.That(t, basicOct.point, test.ShouldResemble, PointAndData{})
+		test.That(t, basicOct.point, test.ShouldBeNil)
 		test.That(t, basicOct.children, test.ShouldResemble, children)
 	})
 }
@@ -70,7 +73,7 @@ func TestSplitIntoOctants(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(basicOct.node.children), test.ShouldEqual, 8)
 		test.That(t, basicOct.node.nodeType, test.ShouldResemble, internalNode)
-		test.That(t, basicOct.node.point, test.ShouldResemble, PointAndData{})
+		test.That(t, basicOct.node.point, test.ShouldBeNil)
 
 		filledLeaves := []*BasicOctree{}
 		emptyLeaves := []*BasicOctree{}
@@ -176,7 +179,7 @@ func validateBasicOctree(t *testing.T, bOct *BasicOctree, center r3.Vector, side
 	switch bOct.node.nodeType {
 	case internalNode:
 		test.That(t, len(bOct.node.children), test.ShouldEqual, 8)
-		test.That(t, bOct.node.point, test.ShouldResemble, PointAndData{})
+		test.That(t, bOct.node.point, test.ShouldBeNil)
 
 		numLeafNodeFilledNodes := 0
 		numLeafNodeEmptyNodes := 0
@@ -222,14 +225,14 @@ func validateBasicOctree(t *testing.T, bOct *BasicOctree, center r3.Vector, side
 		test.That(t, numInternalNodes+numLeafNodeEmptyNodes+numLeafNodeFilledNodes, test.ShouldEqual, 8)
 	case leafNodeFilled:
 		test.That(t, len(bOct.node.children), test.ShouldEqual, 0)
-		test.That(t, bOct.node.point, test.ShouldNotResemble, PointAndData{})
+		test.That(t, bOct.node.point, test.ShouldNotBeNil)
 		test.That(t, bOct.checkPointPlacement(bOct.node.point.P), test.ShouldBeTrue)
 		test.That(t, bOct.size, test.ShouldEqual, 1)
 		size = bOct.size
 		maxVal = bOct.node.maxVal
 	case leafNodeEmpty:
 		test.That(t, len(bOct.node.children), test.ShouldEqual, 0)
-		test.That(t, bOct.node.point, test.ShouldResemble, PointAndData{})
+		test.That(t, bOct.node.point, test.ShouldBeNil)
 		test.That(t, bOct.size, test.ShouldEqual, 0)
 		size = bOct.size
 	}
@@ -326,4 +329,77 @@ func printBasicOctree(logger golog.Logger, bOct *BasicOctree, s string) {
 	for _, v := range bOct.node.children {
 		printBasicOctree(logger, v, s+"-+-")
 	}
+}
+
+// Test the functionalities involved with converting a pointcloud into a basic octree.
+func TestBasicOctreeCollision(t *testing.T) {
+	startPC, err := makeFullPointCloudFromArtifact(
+		t,
+		"pointcloud/collision_pointcloud_0.pcd",
+		BasicType,
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	center := getCenterFromPcMetaData(startPC.MetaData())
+	maxSideLength := getMaxSideLengthFromPcMetaData(startPC.MetaData())
+
+	basicOct, err := NewBasicOctree(center, maxSideLength)
+	test.That(t, err, test.ShouldBeNil)
+
+	startPC.Iterate(0, 0, func(p r3.Vector, d Data) bool {
+		// Blue channel is used to determine probability in pcds produced by cartographer
+		_, _, blueProb := d.RGB255()
+		d.SetValue(int(blueProb))
+		if err = basicOct.Set(p, d); err != nil {
+			return false
+		}
+		return true
+	})
+
+	test.That(t, startPC.Size(), test.ShouldEqual, basicOct.Size())
+
+	t.Run("no collision with box far from octree points", func(t *testing.T) {
+		// create a non-colliding obstacle far away from any octree point
+		far, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{1, 2, 3}, "far")
+		test.That(t, err, test.ShouldBeNil)
+		collides, err := basicOct.CollidesWithGeometry(far, 80, 1.0)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, collides, test.ShouldBeFalse)
+	})
+
+	t.Run("no collision with box near octree points", func(t *testing.T) {
+		// create a non-colliding obstacle near an octree point
+		near, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{-2443, 0, 3855}), r3.Vector{1, 2, 3}, "near")
+		test.That(t, err, test.ShouldBeNil)
+		collides, err := basicOct.CollidesWithGeometry(near, 80, 1.0)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, collides, test.ShouldBeFalse)
+	})
+
+	t.Run("collision with box near octree points when a large buffer is used", func(t *testing.T) {
+		// create a non-colliding obstacle near an octree point
+		near, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{-2443, 0, 3855}), r3.Vector{1, 2, 3}, "near")
+		test.That(t, err, test.ShouldBeNil)
+		collides, err := basicOct.CollidesWithGeometry(near, 80, 10.0)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, collides, test.ShouldBeTrue)
+	})
+
+	t.Run("no collision with box overlapping low-probability octree points", func(t *testing.T) {
+		// create a colliding obstacle overlapping an octree point that has sub-threshold probability
+		lowprob, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{-2471, 0, 3790}), r3.Vector{3, 2, 3}, "lowprob")
+		test.That(t, err, test.ShouldBeNil)
+		collides, err := basicOct.CollidesWithGeometry(lowprob, 80, 1.0)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, collides, test.ShouldBeFalse)
+	})
+
+	t.Run("collision with box overlapping octree points", func(t *testing.T) {
+		// create a colliding obstacle overlapping an octree point
+		hit, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{-2443, 0, 3855}), r3.Vector{12, 2, 30}, "hit")
+		test.That(t, err, test.ShouldBeNil)
+		collides, err := basicOct.CollidesWithGeometry(hit, 80, 1.0)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, collides, test.ShouldBeTrue)
+	})
 }
