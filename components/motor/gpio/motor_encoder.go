@@ -20,7 +20,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/control"
 	"go.viam.com/rdk/operation"
-	rutils "go.viam.com/rdk/utils"
 )
 
 var (
@@ -73,7 +72,7 @@ func WrapMotorWithEncoder(
 		return nil, err
 	}
 
-	single, isSingle := rutils.UnwrapProxy(e).(*single.Encoder)
+	single, isSingle := e.(*single.Encoder)
 	if isSingle {
 		single.AttachDirectionalAwareness(mm)
 		logger.Info("direction attached to single encoder from encoded motor")

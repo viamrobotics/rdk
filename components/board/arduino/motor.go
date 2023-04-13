@@ -81,7 +81,7 @@ func configureMotorForBoard(
 	config config.Component,
 	motorConfig *gpio.Config,
 	e *Encoder,
-) (motor.LocalMotor, error) {
+) (motor.Motor, error) {
 	if !((motorConfig.Pins.PWM != "" && motorConfig.Pins.Direction != "") || (motorConfig.Pins.A != "" || motorConfig.Pins.B != "")) {
 		return nil, errors.New("arduino needs at least a & b, or dir & pwm pins")
 	}
@@ -132,14 +132,15 @@ func configureMotorForBoard(
 		return nil, fmt.Errorf("got unknown response when configureMotor %s", res)
 	}
 
-	var m motor.LocalMotor
+	var m motor.Motor
 
 	if e != nil {
-		m, err = gpio.NewEncodedMotor(
+		m, err = gpio.WrapMotorWithEncoder(
+			ctx,
+			e,
 			config,
 			*motorConfig,
 			&arduinoMotor{generic.Unimplemented{}, b, *motorConfig, config.Name, true, 0.0},
-			e,
 			b.logger,
 		)
 		if err != nil {
@@ -270,12 +271,6 @@ func (m *arduinoMotor) GoTo(ctx context.Context, rpm, target float64, extra map[
 
 	_, err := m.b.runCommand(fmt.Sprintf("motor-goto %s %d %d", m.name, ticks, ticksPerSecond))
 	return err
-}
-
-// GoTillStop moves a motor until stopped. The "stop" mechanism is up to the underlying motor implementation.
-// This is currently not supported for ardunio controlled motors.
-func (m *arduinoMotor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
-	return errors.New("not supported")
 }
 
 func (m *arduinoMotor) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
