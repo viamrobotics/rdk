@@ -86,7 +86,7 @@ func TestClient(t *testing.T) {
 		t.Logf("inputs: %v", meta.Inputs)
 		test.That(t, len(meta.Inputs), test.ShouldEqual, 1)
 		test.That(t, len(meta.Outputs), test.ShouldEqual, 4)
-		test.That(t, meta.Inputs[0].Shape, test.ShouldResemble, []int{300, 300})
+		test.That(t, meta.Inputs[0].Shape, test.ShouldResemble, []int{300, 200})
 		outInfo := meta.Outputs
 		test.That(t, outInfo[0].Name, test.ShouldEqual, "n_detections")
 		test.That(t, len(outInfo[0].AssociatedFiles), test.ShouldEqual, 0)
