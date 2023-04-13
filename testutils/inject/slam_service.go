@@ -72,9 +72,9 @@ func (slamSvcClient *SLAMServiceClient) GetPosition(ctx context.Context, in *v1.
 	*v1.GetPositionResponse, error,
 ) {
 	if slamSvcClient.GetPositionFunc == nil {
-		return slamSvcClient.SLAMServiceClient.GetPosition(ctx, in, nil)
+		return slamSvcClient.SLAMServiceClient.GetPosition(ctx, in, opts...)
 	}
-	return slamSvcClient.GetPositionFunc(ctx, in, nil)
+	return slamSvcClient.GetPositionFunc(ctx, in, opts...)
 }
 
 // GetPointCloudMap calls the injected GetPointCloudMap or the real version.
@@ -82,9 +82,9 @@ func (slamSvcClient *SLAMServiceClient) GetPointCloudMap(ctx context.Context, in
 	v1.SLAMService_GetPointCloudMapClient, error,
 ) {
 	if slamSvcClient.GetPointCloudMapFunc == nil {
-		return slamSvcClient.SLAMServiceClient.GetPointCloudMap(ctx, in, nil)
+		return slamSvcClient.SLAMServiceClient.GetPointCloudMap(ctx, in, opts...)
 	}
-	return slamSvcClient.GetPointCloudMapFunc(ctx, in, nil)
+	return slamSvcClient.GetPointCloudMapFunc(ctx, in, opts...)
 }
 
 // GetInternalState calls the injected GetInternalState or the real version.
@@ -92,9 +92,9 @@ func (slamSvcClient *SLAMServiceClient) GetInternalState(ctx context.Context, in
 	v1.SLAMService_GetInternalStateClient, error,
 ) {
 	if slamSvcClient.GetInternalStateFunc == nil {
-		return slamSvcClient.SLAMServiceClient.GetInternalState(ctx, in, nil)
+		return slamSvcClient.SLAMServiceClient.GetInternalState(ctx, in, opts...)
 	}
-	return slamSvcClient.GetInternalStateFunc(ctx, in, nil)
+	return slamSvcClient.GetInternalStateFunc(ctx, in, opts...)
 }
 
 // DoCommand calls the injected DoCommand or the real variant.
@@ -102,7 +102,7 @@ func (slamSvcClient *SLAMServiceClient) DoCommand(ctx context.Context, in *commo
 	*commonv1.DoCommandResponse, error,
 ) {
 	if slamSvcClient.DoCommandFunc == nil {
-		return slamSvcClient.SLAMServiceClient.DoCommand(ctx, in, nil)
+		return slamSvcClient.SLAMServiceClient.DoCommand(ctx, in, opts...)
 	}
-	return slamSvcClient.DoCommandFunc(ctx, in, nil)
+	return slamSvcClient.DoCommandFunc(ctx, in, opts...)
 }
