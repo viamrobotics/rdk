@@ -37,6 +37,8 @@ func init() {
 	)
 }
 
+const defaultWidth = 600
+
 var _ = base.LocalBase(&Base{})
 
 // Base is a fake base that returns what it was provided in each method.
@@ -45,15 +47,14 @@ type Base struct {
 	Name       string
 	CloseCount int
 	logger     golog.Logger
-	modelName  string
 	geometry   *referenceframe.LinkConfig
 }
 
 // NewBase instantiates a new base of the fake model type.
 func NewBase(ctx context.Context, cfg config.Component, logger golog.Logger) (base.LocalBase, error) {
 	return &Base{
-		Name:              cfg.Name,
-		logger:            logger,
+		Name:   cfg.Name,
+		logger: logger,
 	}, nil
 }
 
@@ -79,7 +80,7 @@ func (b *Base) SetVelocity(ctx context.Context, linear, angular r3.Vector, extra
 
 // Width returns some arbitrary width.
 func (b *Base) Width(ctx context.Context) (int, error) {
-	return 600, nil
+	return defaultWidth, nil
 }
 
 // Stop does nothing.
@@ -110,7 +111,7 @@ func (b *Base) WrapWithKinematics(ctx context.Context, slamSvc slam.Service) (ba
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// gets the extents of the SLAM map
 	data, err := slam.GetPointCloudMapFull(ctx, slamSvc)
 	if err != nil {
