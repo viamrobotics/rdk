@@ -363,9 +363,9 @@ func (m *EncodedMotor) rpmMonitorPass(pos, lastPos, now, lastTime int64, rpmDebu
 	ticksLeft = (m.state.setPoint - pos) * sign(m.state.lastPowerPct) * m.flip
 	rotationsLeft := float64(ticksLeft) / float64(m.cfg.TicksPerRotation)
 
-	if rotationsLeft <= 0 { // if we have reached goal or overshot, turn off
+	if ticksLeft <= 0 { // if we have reached goal or overshot, turn off
 		if rpmDebug {
-			m.logger.Debugf("rot %.2f, stopping motor", rotationsLeft)
+			m.logger.Debugf("rot %.2f, stopping motor", ticksLeft)
 		}
 		err := m.off(m.cancelCtx)
 		if err != nil {
@@ -378,16 +378,17 @@ func (m *EncodedMotor) rpmMonitorPass(pos, lastPos, now, lastTime int64, rpmDebu
 	// halve and quarter rpm values based on seconds remaining in move
 
 	desiredRPM := m.state.desiredRPM
-	timeLeftSeconds := 60.0 * rotationsLeft / desiredRPM
+	timeLeftSeconds := 60.0 * (ticksLeft / m.ticksPerRotation) / desiredRPM
 
 	desiredRPM = slowDownMath(timeLeftSeconds, desiredRPM, m.rampRate)
 
 	if rpmDebug {
-		m.logger.Debugf(" - rotationsLeft %.2f timeLeftSeconds %.2f rpm(%v -> %v)",
-			rotationsLeft, timeLeftSeconds, m.state.desiredRPM, desiredRPM)
+
+		m.logger.Debugf(" - timeLeftSeconds %.2f rpm(%v -> %v)",
+			timeLeftSeconds, m.state.desiredRPM, desiredRPM)
 	}
 
-	m.rpmMonitorPassSetRpmInLock(currentRPM, desiredRPM, rotationsLeft, rpmDebug)
+	m.determinePower(currentRPM, desiredRPM, rpmDebug)
 
 	return true
 }
@@ -439,7 +440,7 @@ func (m *EncodedMotor) computeNewPowerPct(currentRPM, desiredRPM float64) float6
 		}
 		// We've been putting power to the motor, but it's not moving yet. Try increasing the power
 		// to it, and we'll start moving soon.
-		return m.computeRamp(lastPowerPct, lastPowerPct*2)
+		return m.computeRampedPower(lastPowerPct, lastPowerPct*2)
 	}
 	dOverC := desiredRPM / currentRPM
 	dOverC = math.Min(dOverC, 2)
@@ -458,10 +459,10 @@ func (m *EncodedMotor) computeNewPowerPct(currentRPM, desiredRPM float64) float6
 		neededPowerPct = math.Max(neededPowerPct, -1)
 	}
 
-	return m.computeRamp(lastPowerPct, neededPowerPct)
+	return m.computeRampedPower(lastPowerPct, neededPowerPct)
 }
 
-func (m *EncodedMotor) rpmMonitorPassSetRpmInLock(currentRPM, desiredRPM, rotationsLeft float64, rpmDebug bool) {
+func (m *EncodedMotor) determinePower(currentRPM, desiredRPM float64, rpmDebug bool) {
 	lastPowerPct := m.state.lastPowerPct
 
 	newPowerPct := m.computeNewPowerPct(currentRPM, desiredRPM)
@@ -472,11 +473,6 @@ func (m *EncodedMotor) rpmMonitorPassSetRpmInLock(currentRPM, desiredRPM, rotati
 		return
 	}
 
-	if rpmDebug {
-		m.logger.Debugf("currentRPM: %0.1f desiredRPM: %0.1f lastPowerPct -> newPowerPct: %0.1f -> %0.1f rotations left: %0.1f",
-			currentRPM, desiredRPM, lastPowerPct*100, newPowerPct*100, rotationsLeft)
-	}
-
 	// Otherwise, we change power to the new computed power percentage
 	err := m.setPower(m.cancelCtx, newPowerPct, true)
 	if err != nil {
@@ -484,7 +480,7 @@ func (m *EncodedMotor) rpmMonitorPassSetRpmInLock(currentRPM, desiredRPM, rotati
 	}
 }
 
-func (m *EncodedMotor) computeRamp(oldPower, newPower float64) float64 {
+func (m *EncodedMotor) computeRampedPower(oldPower, newPower float64) float64 {
 	newPower = math.Min(newPower, 1.0)
 	newPower = math.Max(newPower, -1.0)
 
@@ -503,8 +499,6 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 	if rpm == 0 {
 		return motor.NewZeroRPMError()
 	}
-
-	rpm *= m.flip
 
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
@@ -529,8 +523,8 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions float
 		d *= -1.0
 	}
 
-	revolutions = math.Abs(revolutions)
-	rpm = math.Abs(rpm) * d
+	revolutions = math.Abs(revolutions) * m.flip
+	rpm = math.Abs(rpm) * d * m.flip
 
 	m.stateMu.Lock()
 	defer m.stateMu.Unlock()
