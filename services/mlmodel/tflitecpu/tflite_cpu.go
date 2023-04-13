@@ -1,4 +1,4 @@
-// Package tflitecpu is meant to implement a tfliteCPU in the ML model service
+// Package tflitecpu runs tflite model files on the host's CPU, as an implementation the ML model service.
 package tflitecpu
 
 import (
@@ -113,8 +113,8 @@ func NewTFLiteCPUModel(ctx context.Context, params *TFLiteConfig, name string) (
 	return &Model{attrs: *params, model: model, name: name}, nil
 }
 
-// Infer takes the input map, finds the image (labeled 'image'), and uses the inference
-// package to return the result from the tflite cpu model as a map.
+// Infer takes the input map and uses the inference package to
+// return the result from the tflite cpu model as a map.
 func (m *Model) Infer(ctx context.Context, input map[string]interface{}) (map[string]interface{}, error) {
 	_, span := trace.StartSpan(ctx, "service::mlmodel::tflite_cpu::Infer")
 	defer span.End()
