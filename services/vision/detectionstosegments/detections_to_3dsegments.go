@@ -20,7 +20,7 @@ import (
 	"go.viam.com/rdk/vision/segmentation"
 )
 
-var model = resource.NewDefaultModel("detections_to_3dsegments")
+var model = resource.NewDefaultModel("detector_3d_segmenter")
 
 func init() {
 	registry.RegisterService(vision.Subtype, model, registry.Service{
