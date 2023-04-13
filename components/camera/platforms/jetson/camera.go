@@ -13,7 +13,7 @@ import (
 )
 
 // GetOSInformation pulls relevant OS attributes as an OSInformation struct
-// Kernel and Device will be "unkown" if unable to information
+// Kernel and Device will be "unkown" if unable to retrieve info from the filesystem
 func DetectOSInformation() OSInformation {
 	osInfo := OSInformation{
 		Name:   runtime.GOOS,
@@ -44,7 +44,7 @@ func getDeviceName() string {
 	return string(bytes.TrimRight(device, "\x00"))
 }
 
-// Validate checks if the daughterboard and driver are supported and instlaled on the platform
+// Validate checks if the daughterboard and driver are supported and installed on the device
 func Validate(osInfo OSInformation, daughterboardName string, driverName string) error {
 	board, ok := cameraInfoMappings[osInfo.Device]
 	if !ok {
@@ -93,8 +93,8 @@ func checkI2CInterface(i2c string) error {
 	}
 }
 
-// checkDriverInstalled checks if the driver is installed
-// for the given kernel version and object file target
+// checkDriverInstalled checks if the driver is installed for the
+// given kernel version and object file target
 func checkDriverInstalled(kernel string, driver string) error {
 	driverPath := "/lib/modules/" + kernel + "/extra/" + driver
 	if _, err := os.Stat(driverPath); os.IsNotExist(err) {
