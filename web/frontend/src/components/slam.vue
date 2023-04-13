@@ -155,7 +155,6 @@ const executeMove = async () => {
 };
 
 const executeStopMove = () => {
-  console.log('executeStopMove');
   moveClick = true;
   // try {
   //   motionApi.Stop();
