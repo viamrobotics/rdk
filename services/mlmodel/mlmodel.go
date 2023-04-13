@@ -101,16 +101,16 @@ func (tf TensorInfo) toProto() (*servicepb.TensorInfo, error) {
 		Description: tf.Description,
 		DataType:    tf.DataType,
 	}
-	associatedFiles := make([]*servicepb.File, 0, len(tf.AssociatedFiles))
-	for _, af := range tf.AssociatedFiles {
-		associatedFiles = append(associatedFiles, af.toProto())
-	}
-	pbtf.AssociatedFiles = associatedFiles
 	shape := make([]int32, 0, len(tf.Shape))
 	for _, s := range tf.Shape {
 		shape = append(shape, int32(s))
 	}
 	pbtf.Shape = shape
+	associatedFiles := make([]*servicepb.File, 0, len(tf.AssociatedFiles))
+	for _, af := range tf.AssociatedFiles {
+		associatedFiles = append(associatedFiles, af.toProto())
+	}
+	pbtf.AssociatedFiles = associatedFiles
 	extra, err := vprotoutils.StructToStructPb(tf.Extra)
 	if err != nil {
 		return nil, err
