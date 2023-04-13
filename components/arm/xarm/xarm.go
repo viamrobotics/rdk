@@ -66,7 +66,7 @@ const (
 	ModelNameLite = "xArmLite" // ModelNameLite is the name of an xArmLite
 )
 
-// Model returns the kinematics model of the xarm arm, also has all Frame information.
+// Model returns the kinematics model of the xarm arm, which has all Frame information.
 func Model(name, modelName string) (referenceframe.Model, error) {
 	switch modelName {
 	case ModelName6DOF:
