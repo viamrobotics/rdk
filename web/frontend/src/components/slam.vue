@@ -30,14 +30,7 @@ let refresh2DCancelled = true;
 let updatedDest = $ref(false);
 let threeJPos = $ref(new THREE.Vector3());
 let moveClick = $ref(true);
-// turn these into a pose & pass them around
-let x = 0;
-let y = 0;
-let z = 0;
-let oX = 0;
-let oY = 0;
-let oZ = 0;
-let theta = 0;
+let basePose = new commonApi.Pose()
 
 const loaded2d = $computed(() => (pointcloud !== undefined && pose !== undefined));
 
@@ -118,19 +111,15 @@ const executeMove = async () => {
 
   const value = await fetchSLAMPose(props.name);
   // set pose in frame
-  const sentPose = new commonApi.Pose();
-  sentPose.setX(Math.abs(threeJPos.x - value.getX()));
-  sentPose.setY(Math.abs(threeJPos.z - value.getY()));
-  sentPose.setZ(value.getZ());
-  sentPose.setOX(value.getOX());
-  sentPose.setOY(value.getOY());
-  sentPose.setOZ(value.getOZ());
-  sentPose.setTheta(value.getTheta());
-
-  const pif = new commonApi.PoseInFrame();
-  pif.setReferenceFrame('world');
-  pif.setPose(sentPose);
-  req.setDestination(pif);
+  const destination = new commonApi.Pose();
+  destination.setX(Math.abs(threeJPos.x - value.getX()));
+  destination.setY(Math.abs(threeJPos.z - value.getY()));
+  destination.setZ(value.getZ());
+  destination.setOX(value.getOX());
+  destination.setOY(value.getOY());
+  destination.setOZ(value.getOZ());
+  destination.setTheta(value.getTheta());
+  req.setDestination(destination);
 
   // set SLAM resource name
   const slamResourceName = new commonApi.ResourceName();
@@ -151,10 +140,10 @@ const executeMove = async () => {
   req.setComponentName(baseResourceName);
 
   // execute the actual call to validate e2e plumbing
-  props.client.motionService.moveonmap(
+  props.client.motionService.moveOnMap(
     req,
     new grpc.Metadata(),
-    (error: ServiceError, response: motionApi.MoveRequestResponse) => {
+    (error, response) => {
       if (error) {
         toast.error(`Error moving: ${error}`);
         return;
@@ -168,11 +157,11 @@ const executeMove = async () => {
 const executeStopMove = () => {
   console.log('executeStopMove');
   moveClick = true;
-  try {
-    motionApi.stop();
-  } catch (error) {
-    displayError(error as ServiceError);
-  }
+  // try {
+  //   motionApi.Stop();
+  // } catch (error) {
+  //   displayError(error as ServiceError);
+  // }
 };
 
 const refresh2d = async (name: string) => {
@@ -188,13 +177,13 @@ const refresh2d = async (name: string) => {
 const handleRefresh2dResponse = (response: MapAndPose): void => {
   pointcloud = response.map;
   pose = response.pose;
-  x = Number(pose!.getX()!.toFixed(1)!);
-  y = Number(pose!.getY()!.toFixed(1)!);
-  z = Number(pose!.getZ()!.toFixed(1)!);
-  oX = Number(pose!.getOX()!.toFixed(1)!);
-  oY = Number(pose!.getOY()!.toFixed(1)!);
-  oZ = Number(pose!.getOZ()!.toFixed(1)!);
-  theta = Number(pose!.getTheta()!.toFixed(1)!);
+  basePose.setX(Number(pose!.getX()!.toFixed(1)!))
+  basePose.setY(Number(pose!.getY()!.toFixed(1)!))
+  basePose.setZ(Number(pose!.getZ()!.toFixed(1)!))
+  basePose.setOX(Number(pose!.getOX()!.toFixed(1)!))
+  basePose.setOY(Number(pose!.getOY()!.toFixed(1)!))
+  basePose.setOZ(Number(pose!.getOZ()!.toFixed(1)!))
+  basePose.setTheta(Number(pose!.getTheta()!.toFixed(1)!))
   pointCloudUpdateCount += 1;
 };
 
@@ -258,7 +247,7 @@ const refresh2dMap = () => {
 const handle2dRenderClick = (event: THREE.Vector3) => {
   updatedDest = true;
   threeJPos = event;
-  threeJPos.y = z - threeJPos.z;
+  // threeJPos.y = z - threeJPos.z;
 };
 
 const handleUpdateX = (event: CustomEvent<{ value: string }>) => {
@@ -267,23 +256,12 @@ const handleUpdateX = (event: CustomEvent<{ value: string }>) => {
 };
 
 const handleUpdateY = (event: CustomEvent<{ value: string }>) => {
-  threeJPos.y = Number.parseFloat(event.detail.value);
+  threeJPos.z = Number.parseFloat(event.detail.value);
   updatedDest = true;
 };
 
 const baseCopyPosition = () => {
-  const position = {
-    x,
-    y,
-    z,
-    o_x: oX,
-    o_y: oY,
-    o_z: oZ,
-    theta,
-  };
-
-  const asString = JSON.stringify(position);
-  copyToClipboardWithToast(asString);
+  copyToClipboardWithToast(JSON.stringify(basePose.toObject()));
 };
 
 // update function name to be more clear (include work dest)
@@ -402,9 +380,9 @@ const toggleAxes = () => {
             <v-input
               class="pl-2"
               type="number"
-              label="y"
+              label="z"
               incrementor="slider"
-              :value="threeJPos.y"
+              :value="threeJPos.z"
               step="0.1"
               @input="handleUpdateY($event)"
             />
@@ -435,17 +413,17 @@ const toggleAxes = () => {
                 <p class="items-end pr-2 text-xs text-gray-500">
                   x
                 </p>
-                <p class="text-lg">{{ x }}</p>
+                <p>{{ basePose.getX()}}</p>
 
                 <p class="pl-9 pr-2 text-xs text-gray-500">
                   y
                 </p>
-                <p class="text-lg">{{ y }}</p>
+                <p>{{ basePose.getY() }}</p>
 
                 <p class="pl-9 pr-2 text-xs text-gray-500">
                   z
                 </p>
-                <p class="text-lg">{{ z }}</p>
+                <p>{{ basePose.getZ() }}</p>
               </div>
             </div>
             <div class="flex flex-col pl-10">
@@ -456,22 +434,22 @@ const toggleAxes = () => {
                 <p class="pr-2 text-xs text-gray-500">
                   o<sub>x</sub>
                 </p>
-                <p class="text-lg">{{ oX }}</p>
+                <p>{{ basePose.getOX() }}</p>
 
                 <p class="pl-9 pr-2 text-xs text-gray-500">
                   o<sub>y</sub>
                 </p>
-                <p class="text-lg">{{ oY }}</p>
+                <p>{{ basePose.getOY() }}</p>
 
                 <p class="pl-9 pr-2 text-xs text-gray-500">
                   o<sub>z</sub>
                 </p>
-                <p class="text-lg">{{ oZ }}</p>
+                <p>{{ basePose.getOZ() }}</p>
 
                 <p class="pl-9 pr-2 text-xs text-gray-500">
                   &theta;
                 </p>
-                <p class="text-lg">{{ theta }}</p>
+                <p>{{ basePose.getTheta() }}</p>
               </div>
             </div>
             <div class="pl-4 pt-2">

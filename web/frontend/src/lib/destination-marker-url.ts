@@ -1,4 +1,4 @@
-export const destUrl = `data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' fill='none' 
+export const destMarkerUrl = `data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' fill='none' 
                 xmlns='http://www.w3.org/2000/svg'%3E%3Cg clip-path='url(%23clip0_2995_26851)'%3E%3Cpath
                 d='M12 22L11.2579 22.6703L12 23.4919L12.7421 22.6703L12 22ZM12 22C12.7421 22.6703 12.7422 22.6701 
                 12.7424 22.67L12.7429 22.6694L12.7443 22.6679L12.749 22.6627L12.7658 22.6439C12.7803 22.6277 
