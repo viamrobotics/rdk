@@ -40,7 +40,11 @@ func (server *subtypeServer) Infer(ctx context.Context, req *pb.InferRequest) (*
 	if err != nil {
 		return nil, err
 	}
-	od, err := svc.Infer(ctx, asMap(req.InputData))
+	id, err := asMap(req.InputData)
+	if err != nil {
+		return nil, err
+	}
+	od, err := svc.Infer(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -53,19 +57,19 @@ func (server *subtypeServer) Infer(ctx context.Context, req *pb.InferRequest) (*
 
 // AsMap converts x to a general-purpose Go map.
 // The map values are converted by calling Value.AsInterface.
-func asMap(x *structpb.Struct) map[string]interface{} {
+func asMap(x *structpb.Struct) (map[string]interface{}, error) {
 	f := x.GetFields()
 	vs := make(map[string]interface{}, len(f))
 	for k, in := range f {
 		switch in.GetKind().(type) {
 		case *structpb.Value_StringValue:
-			out, _ := base64.StdEncoding.DecodeString(in.GetStringValue()) //nolint: errcheck
+			out, _ := base64.StdEncoding.DecodeString(in.GetStringValue())
 			vs[k] = out
 		default:
 			vs[k] = in.AsInterface()
 		}
 	}
-	return vs
+	return vs, nil
 }
 
 func (server *subtypeServer) Metadata(
