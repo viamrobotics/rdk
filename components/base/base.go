@@ -290,31 +290,3 @@ func WrapWithReconfigurable(r interface{}, name resource.Name) (resource.Reconfi
 	}
 	return &reconfigurableLocalBase{actual: localBase, reconfigurableBase: rBase}, nil
 }
-
-// A Move describes instructions for a robot to spin followed by moving straight.
-type Move struct {
-	DistanceMm int
-	MmPerSec   float64
-	AngleDeg   float64
-	DegsPerSec float64
-	Extra      map[string]interface{}
-}
-
-// DoMove performs the given move on the given base.
-func DoMove(ctx context.Context, move Move, base Base) error {
-	if move.AngleDeg != 0 {
-		err := base.Spin(ctx, move.AngleDeg, move.DegsPerSec, move.Extra)
-		if err != nil {
-			return err
-		}
-	}
-
-	if move.DistanceMm != 0 {
-		err := base.MoveStraight(ctx, move.DistanceMm, move.MmPerSec, move.Extra)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
