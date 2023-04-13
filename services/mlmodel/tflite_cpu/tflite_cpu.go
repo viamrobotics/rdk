@@ -25,10 +25,10 @@ var sModel = resource.NewDefaultModel("tflitecpu")
 
 func init() {
 	registry.RegisterService(vision.Subtype, resource.DefaultServiceModel, registry.Service{
-		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Service, logger golog.Logger) (interface{}, error) {
-			svcConfig, ok := config.ConvertedAttributes.(*TFLiteConfig)
+		Constructor: func(ctx context.Context, deps registry.Dependencies, conf config.Service, logger golog.Logger) (interface{}, error) {
+			svcConfig, ok := conf.ConvertedAttributes.(*TFLiteConfig)
 			if !ok {
-				return nil, utils.NewUnexpectedTypeError(svcConfig, config.ConvertedAttributes)
+				return nil, utils.NewUnexpectedTypeError(svcConfig, conf.ConvertedAttributes)
 			}
 			return NewTFLiteCPUModel(ctx, svcConfig)
 		},

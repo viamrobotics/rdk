@@ -5,8 +5,8 @@ import (
 
 	"github.com/edaniels/golog"
 	pb "go.viam.com/api/service/mlmodel/v1"
-	vprotoutils "go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 // client implements MLModelServiceClient.
@@ -30,7 +30,7 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 }
 
 func (c *client) Infer(ctx context.Context, input map[string]interface{}) (map[string]interface{}, error) {
-	inProto, err := vprotoutils.StructToStructPb(input)
+	inProto, err := structpb.NewStruct(input)
 	if err != nil {
 		return nil, err
 	}
@@ -41,6 +41,7 @@ func (c *client) Infer(ctx context.Context, input map[string]interface{}) (map[s
 	if err != nil {
 		return nil, err
 	}
+
 	return resp.OutputData.AsMap(), nil
 }
 
