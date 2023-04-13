@@ -4,14 +4,18 @@
 package gamepad
 
 import (
+	"strings"
+
 	"github.com/viamrobotics/evdev"
 
 	"go.viam.com/rdk/components/input"
 )
 
-// GamepadMappings contains all the axes/button translations for each model.
+const stadiaPrefix = "Stadia"
+
+// gamepadMappings contains all the axes/button translations for each model.
 // use evtest on linux figure out what maps to what.
-var GamepadMappings = map[string]Mapping{
+var gamepadMappings = map[string]Mapping{
 	// 8BitDo Pro 2 Wireless, S-input mode
 	// Also the Nintendo Switch Pro Controller
 	"Pro Controller": {
@@ -241,4 +245,40 @@ var GamepadMappings = map[string]Mapping{
 			298: input.ButtonMenu,
 		},
 	},
+	// Stadia Controller
+	stadiaPrefix: {
+		Axes: map[evdev.AbsoluteType]input.Control{
+			0:  input.AbsoluteX,
+			1:  input.AbsoluteY,
+			10: input.AbsoluteZ,
+			2:  input.AbsoluteRX,
+			5:  input.AbsoluteRY,
+			9:  input.AbsoluteRZ,
+			16: input.AbsoluteHat0X,
+			17: input.AbsoluteHat0Y,
+		},
+		Buttons: map[evdev.KeyType]input.Control{
+			304: input.ButtonSouth,
+			305: input.ButtonEast,
+			307: input.ButtonWest,
+			308: input.ButtonNorth,
+			310: input.ButtonLT,
+			311: input.ButtonRT,
+			314: input.ButtonSelect,
+			315: input.ButtonStart,
+			316: input.ButtonMenu,
+			317: input.ButtonLThumb,
+			318: input.ButtonRThumb,
+		},
+	},
+}
+
+// MappingForModel returns the mapping for a given model.
+func MappingForModel(model string) (Mapping, bool) {
+	// Stadia controller device names are unique of the form "StadiaXXXX-XXXX"
+	if strings.HasPrefix(model, stadiaPrefix) {
+		model = stadiaPrefix
+	}
+	mapping, ok := gamepadMappings[model]
+	return mapping, ok
 }
