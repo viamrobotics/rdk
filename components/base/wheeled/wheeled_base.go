@@ -412,27 +412,27 @@ func (base *wheeledBase) Width(ctx context.Context) (int, error) {
 func createWheeledBase(
 	ctx context.Context,
 	deps registry.Dependencies,
-	cfg config.Component,
+	conf config.Component,
 	logger golog.Logger,
 ) (base.LocalBase, error) {
-	conf, ok := cfg.ConvertedAttributes.(*Config)
+	newConf, ok := conf.ConvertedAttributes.(*Config)
 	if !ok {
-		return nil, rdkutils.NewUnexpectedTypeError(conf, &Config{})
+		return nil, rdkutils.NewUnexpectedTypeError(newConf, &Config{})
 	}
 
 	base := &wheeledBase{
-		widthMm:              conf.WidthMM,
-		wheelCircumferenceMm: conf.WheelCircumferenceMM,
-		spinSlipFactor:       conf.SpinSlipFactor,
+		widthMm:              newConf.WidthMM,
+		wheelCircumferenceMm: newConf.WheelCircumferenceMM,
+		spinSlipFactor:       newConf.SpinSlipFactor,
 		logger:               logger,
-		name:                 cfg.Name,
+		name:                 conf.Name,
 	}
 
 	if base.spinSlipFactor == 0 {
 		base.spinSlipFactor = 1
 	}
 
-	for _, name := range conf.Left {
+	for _, name := range newConf.Left {
 		m, err := motor.FromDependencies(deps, name)
 		if err != nil {
 			return nil, errors.Wrapf(err, "no left motor named (%s)", name)
@@ -444,7 +444,7 @@ func createWheeledBase(
 		base.left = append(base.left, m)
 	}
 
-	for _, name := range conf.Right {
+	for _, name := range newConf.Right {
 		m, err := motor.FromDependencies(deps, name)
 		if err != nil {
 			return nil, errors.Wrapf(err, "no right motor named (%s)", name)
@@ -459,7 +459,7 @@ func createWheeledBase(
 	base.allMotors = append(base.allMotors, base.left...)
 	base.allMotors = append(base.allMotors, base.right...)
 
-	collisionGeometry, err := collisionGeometry(cfg)
+	collisionGeometry, err := collisionGeometry(conf)
 	if err != nil {
 		logger.Warnf("could not build geometry for wheeledBase: %s", err.Error())
 	}
