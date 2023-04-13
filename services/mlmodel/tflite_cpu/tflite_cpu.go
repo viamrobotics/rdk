@@ -16,7 +16,6 @@ import (
 	"go.viam.com/rdk/ml/inference/tflite_metadata"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/mlmodel"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/utils"
@@ -24,8 +23,8 @@ import (
 
 func init() {
 	registry.RegisterService(vision.Subtype, resource.DefaultServiceModel, registry.Service{
-		RobotConstructor: func(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (interface{}, error) {
-			return newTFLiteCPUModel(ctx, r, config, logger)
+		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Service, logger golog.Logger) (interface{}, error) {
+			return newTFLiteCPUModel(ctx, deps, config, logger)
 		},
 	})
 }
@@ -48,7 +47,7 @@ type Model struct {
 }
 
 // newTFLiteCPUModel is a constructor that builds a tflite cpu implementation of the MLMS.
-func newTFLiteCPUModel(ctx context.Context, r robot.Robot, conf config.Service, logger golog.Logger) (*Model, error) { //nolint:unparam
+func newTFLiteCPUModel(ctx context.Context, deps registry.Dependencies, conf config.Service, logger golog.Logger) (*Model, error) { //nolint:unparam
 	ctx, span := trace.StartSpan(ctx, "service::mlmodel::NewTFLiteCPUModel")
 	defer span.End()
 
@@ -83,10 +82,8 @@ func (m *Model) Infer(ctx context.Context, input map[string]interface{}) (map[st
 	defer span.End()
 
 	outMap := make(map[string]interface{})
-
-	f := func(key string) bool { _, ok := input[key]; return ok }
-	doInfer := func(key string) (map[string]interface{}, error) {
-		outTensors, err := m.model.Infer(input[key])
+	doInfer := func(input interface{}) (map[string]interface{}, error) {
+		outTensors, err := m.model.Infer(input)
 		if err != nil {
 			return nil, errors.Wrap(err, "couldn't infer from model")
 		}
@@ -104,14 +101,23 @@ func (m *Model) Infer(ctx context.Context, input map[string]interface{}) (map[st
 		return outMap, nil
 	}
 
-	switch {
-	case f("image"):
-		return doInfer("image")
-	case f("text"):
-		return doInfer("text")
-	default:
-		return doInfer("input")
+	// If there's only one thing in the input map, use it.
+	if len(input) == 1 {
+		for _, in := range input {
+			return doInfer(in)
+		}
 	}
+	// If you have more than 1 thing
+	if m.metadata != nil {
+		// Use metadata if possible to grab input name
+		return doInfer(input[m.metadata.Inputs[0].Name])
+	}
+	// Try to use "input"
+	if in, ok := input["input"]; ok {
+		return doInfer(in)
+	}
+
+	return nil, errors.New("input map has multiple elements and none are named 'input'")
 }
 
 // Metadata reads the metadata from your tflite cpu model into the metadata struct
@@ -119,6 +125,10 @@ func (m *Model) Infer(ctx context.Context, input map[string]interface{}) (map[st
 func (m *Model) Metadata(ctx context.Context) (mlmodel.MLMetadata, error) {
 	_, span := trace.StartSpan(ctx, "service::mlmodel::tflite_cpu::Metadata")
 	defer span.End()
+
+	if m.metadata != nil {
+		return *m.metadata, nil
+	}
 
 	// model.Metadata() and funnel it into this struct
 	md, err := m.model.Metadata()
