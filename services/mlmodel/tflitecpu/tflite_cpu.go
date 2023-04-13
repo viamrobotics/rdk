@@ -21,7 +21,7 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-var sModel = resource.NewDefaultModel("tflitecpu")
+var sModel = resource.NewDefaultModel("tflite_cpu")
 
 func init() {
 	registry.RegisterService(vision.Subtype, sModel, registry.Service{
@@ -30,7 +30,7 @@ func init() {
 			if !ok {
 				return nil, utils.NewUnexpectedTypeError(svcConfig, conf.ConvertedAttributes)
 			}
-			return NewTFLiteCPUModel(ctx, svcConfig)
+			return NewTFLiteCPUModel(ctx, svcConfig, conf.Name)
 		},
 	})
 	config.RegisterServiceAttributeMapConverter(mlmodel.Subtype, sModel, func(attributes config.AttributeMap) (interface{}, error) {
@@ -60,13 +60,14 @@ type TFLiteConfig struct {
 // Model is a struct that implements the TensorflowLite CPU implementation of the MLMS.
 // It includes the configured parameters, model struct, and associated metadata.
 type Model struct {
+	name     string
 	attrs    TFLiteConfig
 	model    *inf.TFLiteStruct
 	metadata *mlmodel.MLMetadata
 }
 
 // NewTFLiteCPUModel is a constructor that builds a tflite cpu implementation of the MLMS.
-func NewTFLiteCPUModel(ctx context.Context, params *TFLiteConfig) (mlmodel.Service, error) {
+func NewTFLiteCPUModel(ctx context.Context, params *TFLiteConfig, name string) (mlmodel.Service, error) {
 	_, span := trace.StartSpan(ctx, "service::vision::addTFLiteModel")
 	defer span.End()
 	var model *inf.TFLiteStruct
@@ -109,7 +110,7 @@ func NewTFLiteCPUModel(ctx context.Context, params *TFLiteConfig) (mlmodel.Servi
 		return nil, errors.Wrapf(err, "could not add model from location %s", params.ModelPath)
 	}
 
-	return &Model{attrs: *params, model: model}, nil
+	return &Model{attrs: *params, model: model, name: name}, nil
 }
 
 // Infer takes the input map, finds the image (labeled 'image'), and uses the inference
@@ -122,7 +123,7 @@ func (m *Model) Infer(ctx context.Context, input map[string]interface{}) (map[st
 	doInfer := func(input interface{}) (map[string]interface{}, error) {
 		outTensors, err := m.model.Infer(input)
 		if err != nil {
-			return nil, errors.Wrap(err, "couldn't infer from model")
+			return nil, errors.Wrapf(err, "couldn't infer from model %s", m.name)
 		}
 		// Fill in the output map with the names from metadata if u have them
 		// Otherwise, do output1, output2, etc.
