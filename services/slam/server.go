@@ -1,5 +1,3 @@
-// Package slam implements simultaneous localization and mapping
-// This is an Experimental package
 package slam
 
 import (
