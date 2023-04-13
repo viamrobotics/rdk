@@ -128,8 +128,6 @@ func (m *Model) Infer(ctx context.Context, input map[string]interface{}) (map[st
 		// Fill in the output map with the names from metadata if u have them
 		// Otherwise, do output1, output2, etc.
 		for i := 0; i < len(m.model.Info.OutputTensorTypes); i++ {
-			// name := m.metadata.Outputs[i].Name
-			// if name == "" {
 			if m.metadata != nil {
 				outMap[m.metadata.Outputs[i].Name] = outTensors[i]
 			} else {
