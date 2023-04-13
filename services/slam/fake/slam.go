@@ -1,4 +1,4 @@
-// Package fake implements a fake slam service.
+// Package fake implements a fake slam service
 package fake
 
 import (
