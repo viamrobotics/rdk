@@ -3,7 +3,8 @@
 
 import { $ref, $computed } from 'vue/macros';
 import { grpc } from '@improbable-eng/grpc-web';
-import { Client, commonApi, ResponseStream, ServiceError, slamApi } from '@viamrobotics/sdk';
+import { Client, commonApi, ResponseStream, ServiceError, slamApi } from 
+'@viamrobotics/sdk';
 import { displayError, isServiceError } from '../lib/error';
 import { rcLogConditionally } from '../lib/log';
 import PCD from './pcd/pcd-view.vue';
@@ -26,14 +27,20 @@ let show2d = $ref(false);
 let show3d = $ref(false);
 let refresh2DCancelled = true;
 let refresh3DCancelled = true;
+let updatedDest = $ref(false);
+let destinationMarkerPosition = $ref(new THREE.Vector3());
+let moveClick = $ref(true);
+let basePose = new commonApi.Pose()
 
-const loaded2d = $computed(() => (pointcloud !== undefined && pose !== undefined));
+const loaded2d = $computed(() => (pointcloud !== undefined && pose !== 
+undefined));
 
 let slam2dTimeoutId = -1;
 let slam3dTimeoutId = -1;
 
 const concatArrayU8 = (arrays: Uint8Array[]) => {
-  const totalLength = arrays.reduce((acc, value) => acc + value.length, 0);
+  const totalLength = arrays.reduce((acc, value) => acc + value.length, 
+0);
   const result = new Uint8Array(totalLength);
   let length = 0;
   for (const array of arrays) {
@@ -50,13 +57,16 @@ const fetchSLAMMap = (name: string): Promise<Uint8Array> => {
     rcLogConditionally(req);
     const chunks: Uint8Array[] = [];
 
-    const getPointCloudMap: ResponseStream<slamApi.GetPointCloudMapResponse> =
+    const getPointCloudMap: 
+ResponseStream<slamApi.GetPointCloudMapResponse> =
       props.client.slamService.getPointCloudMap(req);
-    getPointCloudMap.on('data', (res: { getPointCloudPcdChunk_asU8(): Uint8Array }) => {
+    getPointCloudMap.on('data', (res: { getPointCloudPcdChunk_asU8(): 
+Uint8Array }) => {
       const chunk = res.getPointCloudPcdChunk_asU8();
       chunks.push(chunk);
     });
-    getPointCloudMap.on('status', (status: { code: number, details: string, metadata: string }) => {
+    getPointCloudMap.on('status', (status: { code: number, details: 
+string, metadata: string }) => {
       if (status.code !== 0) {
         const error = {
           message: status.details,
@@ -93,6 +103,72 @@ const fetchSLAMPose = (name: string): Promise<commonApi.Pose> => {
       }
     );
   });
+};
+
+const executeMove = async () => {
+  moveClick = false;
+
+  const req = new motionApi.MoveOnMapRequest();
+
+  /*
+   * set request name
+   * here we set the name of the motion service the user is using
+   */
+  req.setName('builtin');
+
+  const value = await fetchSLAMPose(props.name);
+  // set pose in frame
+  const destination = new commonApi.Pose();
+  destination.setX(Math.abs(destinationMarkerPosition.x - value.getX()));
+  destination.setY(Math.abs(destinationMarkerPosition.z - value.getY()));
+  destination.setZ(value.getZ());
+  destination.setOX(value.getOX());
+  destination.setOY(value.getOY());
+  destination.setOZ(value.getOZ());
+  destination.setTheta(value.getTheta());
+  req.setDestination(destination);
+
+  // set SLAM resource name
+  const slamResourceName = new commonApi.ResourceName();
+  slamResourceName.setNamespace('rdk');
+  slamResourceName.setType('service');
+  slamResourceName.setSubtype('slam');
+  slamResourceName.setName(props.name);
+  req.setSlamServiceName(slamResourceName);
+
+  // set component name
+  const baseResource = filterResources(props.resources, 'rdk', 
+'component', 'base');
+  // we are assuming there is only one base that is conducting planning
+  const baseResourceName = new commonApi.ResourceName();
+  baseResourceName.setNamespace('rdk');
+  baseResourceName.setType('component');
+  baseResourceName.setSubtype('base');
+  baseResourceName.setName(baseResource[0]!.name);
+  req.setComponentName(baseResourceName);
+
+  // execute the actual call to validate e2e plumbing
+  props.client.motionService.moveOnMap(
+    req,
+    new grpc.Metadata(),
+    (error, response) => {
+      if (error) {
+        toast.error(`Error moving: ${error}`);
+        return;
+      }
+      toast.success(`MoveOnMap success: ${response!.getSuccess()}`);
+    }
+  );
+
+};
+
+const executeStopMove = () => {
+  moveClick = true;
+  // try {
+  //   motionApi.Stop();
+  // } catch (error) {
+  //   displayError(error as ServiceError);
+  // }
 };
 
 const refresh2d = async (name: string) => {
@@ -138,7 +214,8 @@ const scheduleRefresh2d = (name: string, time: string) => {
     }
     scheduleRefresh2d(name, time);
   };
-  slam2dTimeoutId = window.setTimeout(timeoutCallback, Number.parseFloat(time) * 1000);
+  slam2dTimeoutId = window.setTimeout(timeoutCallback, 
+Number.parseFloat(time) * 1000);
 };
 
 const scheduleRefresh3d = (name: string, time: string) => {
@@ -155,10 +232,12 @@ const scheduleRefresh3d = (name: string, time: string) => {
     }
     scheduleRefresh3d(name, time);
   };
-  slam3dTimeoutId = window.setTimeout(timeoutCallback, Number.parseFloat(time) * 1000);
+  slam3dTimeoutId = window.setTimeout(timeoutCallback, 
+Number.parseFloat(time) * 1000);
 };
 
-const updateSLAM2dRefreshFrequency = async (name: string, time: 'manual' | 'off' | string) => {
+const updateSLAM2dRefreshFrequency = async (name: string, time: 'manual' | 
+'off' | string) => {
   refresh2DCancelled = true;
   window.clearTimeout(slam2dTimeoutId);
 
@@ -177,7 +256,8 @@ const updateSLAM2dRefreshFrequency = async (name: string, time: 'manual' | 'off'
   }
 };
 
-const updateSLAM3dRefreshFrequency = async (name: string, time: 'manual' | 'off' | string) => {
+const updateSLAM3dRefreshFrequency = async (name: string, time: 'manual' | 
+'off' | string) => {
   refresh3DCancelled = true;
   window.clearTimeout(slam3dTimeoutId);
 
@@ -198,12 +278,14 @@ const updateSLAM3dRefreshFrequency = async (name: string, time: 'manual' | 'off'
 
 const toggle2dExpand = () => {
   show2d = !show2d;
-  updateSLAM2dRefreshFrequency(props.name, show2d ? selected2dValue : 'off');
+  updateSLAM2dRefreshFrequency(props.name, show2d ? selected2dValue : 
+'off');
 };
 
 const toggle3dExpand = () => {
   show3d = !show3d;
-  updateSLAM3dRefreshFrequency(props.name, show3d ? selected3dValue : 'off');
+  updateSLAM3dRefreshFrequency(props.name, show3d ? selected3dValue : 
+'off');
 };
 
 const selectSLAM2dRefreshFrequency = () => {
@@ -220,6 +302,33 @@ const refresh2dMap = () => {
 
 const refresh3dMap = () => {
   updateSLAM3dRefreshFrequency(props.name, selected3dValue);
+const handle2dRenderClick = (event: THREE.Vector3) => {
+  updatedDest = true;
+  destinationMarkerPosition = event;
+};
+
+const handleUpdateX = (event: CustomEvent<{ value: string }>) => {
+  destinationMarkerPosition.x = Number.parseFloat(event.detail.value);
+  updatedDest = true;
+};
+
+const handleUpdateY = (event: CustomEvent<{ value: string }>) => {
+  destinationMarkerPosition.z = Number.parseFloat(event.detail.value);
+  updatedDest = true;
+};
+
+const baseCopyPosition = () => {
+  copyToClipboardWithToast(JSON.stringify(basePose.toObject()));
+};
+
+// update function name to be more clear (include work dest)
+const executeDelete = () => {
+  updatedDest = false;
+  destinationMarkerPosition = new THREE.Vector3();
+};
+
+const toggleAxes = () => {
+  showAxes = !showAxes;
 };
 
 </script>
@@ -257,7 +366,8 @@ const refresh3dMap = () => {
                   <select
                     v-model="selected2dValue"
                     class="
-                      m-0 w-full appearance-none border border-solid border-black bg-white bg-clip-padding px-3 py-1.5
+                      m-0 w-full appearance-none border border-solid 
+border-black bg-white bg-clip-padding px-3 py-1.5
                       text-xs font-normal text-gray-700 focus:outline-none
                     "
                     aria-label="Default select example"
@@ -280,7 +390,8 @@ const refresh3dMap = () => {
                     </option>
                   </select>
                   <div
-                    class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2"
+                    class="pointer-events-none absolute inset-y-0 right-0 
+flex items-center px-2"
                   >
                     <svg
                       class="h-4 w-4 stroke-2 text-gray-700"
@@ -336,7 +447,8 @@ const refresh3dMap = () => {
                   <select
                     v-model="selected3dValue"
                     class="
-                      m-0 w-full appearance-none border border-solid border-black bg-white bg-clip-padding px-3 py-1.5
+                      m-0 w-full appearance-none border border-solid 
+border-black bg-white bg-clip-padding px-3 py-1.5
                       text-xs font-normal text-gray-700 focus:outline-none
                     "
                     aria-label="Default select example"
@@ -359,7 +471,8 @@ const refresh3dMap = () => {
                     </option>
                   </select>
                   <div
-                    class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2"
+                    class="pointer-events-none absolute inset-y-0 right-0 
+flex items-center px-2"
                   >
                     <svg
                       class="h-4 w-4 stroke-2 text-gray-700"
@@ -395,3 +508,4 @@ const refresh3dMap = () => {
     </div>
   </v-collapse>
 </template>
+
