@@ -3,6 +3,7 @@ package fake
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"time"
 
@@ -26,11 +27,7 @@ func init() {
 			cfg config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			e := &Encoder{}
-			e.updateRate = cfg.ConvertedAttributes.(*AttrConfig).UpdateRate
-
-			e.Start(ctx)
-			return e, nil
+			return newFakeEncoder(ctx, cfg)
 		},
 	}
 	registry.RegisterComponent(encoder.Subtype, fakeModel, _encoder)
@@ -42,6 +39,23 @@ func init() {
 			var attr AttrConfig
 			return config.TransformAttributeMapToStruct(&attr, attributes)
 		}, &AttrConfig{})
+}
+
+// newFakeEncoder creates a new Encoder.
+//
+//nolint:unparam
+func newFakeEncoder(
+	ctx context.Context,
+	cfg config.Component,
+) (encoder.Encoder, error) {
+	e := &Encoder{
+		position:     0,
+		positionType: encoder.PositionTypeTICKS,
+	}
+	e.updateRate = cfg.ConvertedAttributes.(*AttrConfig).UpdateRate
+
+	e.Start(ctx)
+	return e, nil
 }
 
 // AttrConfig describes the configuration of a fake encoder.
@@ -58,6 +72,7 @@ func (cfg *AttrConfig) Validate(path string) error {
 type Encoder struct {
 	mu                      sync.Mutex
 	position                int64
+	positionType            encoder.PositionType
 	speed                   float64 // ticks per minute
 	updateRate              int64   // update position in start every updateRate ms
 	activeBackgroundWorkers sync.WaitGroup
@@ -65,11 +80,20 @@ type Encoder struct {
 	generic.Unimplemented
 }
 
-// TicksCount returns the current position in terms of ticks.
-func (e *Encoder) TicksCount(ctx context.Context, extra map[string]interface{}) (float64, error) {
+// GetPosition returns the current position in terms of ticks or
+// degrees, and whether it is a relative or absolute position.
+func (e *Encoder) GetPosition(
+	ctx context.Context,
+	positionType *encoder.PositionType,
+	extra map[string]interface{},
+) (float64, encoder.PositionType, error) {
+	if positionType != nil && *positionType == encoder.PositionTypeDEGREES {
+		err := errors.New("Encoder does not support PositionType Angle Degrees, use a different PositionType")
+		return 0, *positionType, err
+	}
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	return float64(e.position), nil
+	return float64(e.position), e.positionType, nil
 }
 
 // Start starts a background thread to run the encoder.
@@ -100,16 +124,21 @@ func (e *Encoder) Start(cancelCtx context.Context) {
 	}, e.activeBackgroundWorkers.Done)
 }
 
-// Reset sets the current position of the motor (adjusted by a given offset)
+// ResetPosition sets the current position of the motor (adjusted by a given offset)
 // to be its new zero position.
-func (e *Encoder) Reset(ctx context.Context, offset float64, extra map[string]interface{}) error {
-	if err := encoder.ValidateIntegerOffset(offset); err != nil {
-		return err
-	}
+func (e *Encoder) ResetPosition(ctx context.Context, extra map[string]interface{}) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	e.position = int64(offset)
+	e.position = int64(0)
 	return nil
+}
+
+// GetProperties returns a list of all the position types that are supported by a given encoder.
+func (e *Encoder) GetProperties(ctx context.Context, extra map[string]interface{}) (map[encoder.Feature]bool, error) {
+	return map[encoder.Feature]bool{
+		encoder.TicksCountSupported:   true,
+		encoder.AngleDegreesSupported: false,
+	}, nil
 }
 
 // SetSpeed sets the speed of the fake motor the encoder is measuring.
