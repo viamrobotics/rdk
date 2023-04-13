@@ -18,7 +18,7 @@ func TestEmptyTFLiteConfig(t *testing.T) {
 	emptyCfg := TFLiteConfig{} // empty config
 
 	// Test that empty config gives error about loading model
-	emptyGot, err := CreateTFLiteCPUModel(ctx, &emptyCfg)
+	emptyGot, err := NewTFLiteCPUModel(ctx, &emptyCfg)
 	test.That(t, emptyGot, test.ShouldBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "could not add model")
 }
@@ -32,7 +32,8 @@ func TestTFLiteCPUDetector(t *testing.T) {
 	}
 	// Test that a detector would give the expected output on the dog image
 	// Creating the model should populate model and attrs, but not metadata
-	got, err := CreateTFLiteCPUModel(ctx, &cfg)
+	out, err := NewTFLiteCPUModel(ctx, &cfg)
+	got := out.(*Model)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, got.model, test.ShouldNotBeNil)
 	test.That(t, got.attrs, test.ShouldNotBeNil)
@@ -81,7 +82,8 @@ func TestTFLiteCPUClassifier(t *testing.T) {
 	}
 
 	// Test that the tflite classifier gives the expected output on the lion image
-	got, err := CreateTFLiteCPUModel(ctx, &cfg)
+	out, err := NewTFLiteCPUModel(ctx, &cfg)
+	got := out.(*Model)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, got.model, test.ShouldNotBeNil)
 	test.That(t, got.attrs, test.ShouldNotBeNil)
@@ -129,7 +131,8 @@ func TestTFLiteCPUTextModel(t *testing.T) {
 	}
 
 	// Test that even a text classifier gives an output with good input
-	got, err := CreateTFLiteCPUModel(ctx, &cfg)
+	out, err := NewTFLiteCPUModel(ctx, &cfg)
+	got := out.(*Model)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, got.model, test.ShouldNotBeNil)
 	test.That(t, got.attrs, test.ShouldNotBeNil)
