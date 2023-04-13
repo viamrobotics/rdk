@@ -18,7 +18,7 @@ import (
 	"go.viam.com/rdk/vision/segmentation"
 )
 
-var model = resource.NewDefaultModel("radius_clustering")
+var model = resource.NewDefaultModel("radius_clustering_segmenter")
 
 func init() {
 	registry.RegisterService(vision.Subtype, model, registry.Service{
