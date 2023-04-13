@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/edaniels/golog"
+	"github.com/edaniels/golog"	
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/config"

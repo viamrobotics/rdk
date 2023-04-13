@@ -60,7 +60,7 @@ func (kwb *kinematicWheeledBase) GoToInputs(ctx context.Context, goal []referenc
 	return errors.New("not implemented yet")
 }
 
-// Model builds the kinematic model associated with the fake base
+// Model builds the kinematic model associated with the kinematicWheeledBase
 // Note that this model is not intended to be registered in the frame system.
 func Model(name string, collisionGeometry spatialmath.Geometry, limits []referenceframe.Limit) (referenceframe.Model, error) {
 	// build the model - SLAM convention is that the XZ plane is the ground plane
