@@ -23,29 +23,48 @@ let position = $ref<encoderApi.GetPositionResponse.AsObject | undefined>();
 let value = $ref(0)
 let posType = $ref(0)
 
-position = computed(() => {
-  const req = new encoderApi.GetPositionRequest();
-    req.setName(props.name);
+position = computed(async () => {
+  try {
+    await encoderClient.getPosition();
+    // console.log('pos:', pos);
+  } catch (error) {
+    displayError(error as ServiceError);
+  }
+  // const req = new encoderApi.GetPositionRequest();
+  // req.setName(props.name);
 
-    rcLogConditionally(req);
-    console.log('request:', req.toObject());
-    encoderClient.getPosition(
-      req,
-      new grpc.Metadata(),
-      (err: ServiceError, resp: encoderApi.GetPositionResponse) => {
-        if (err) {
-          return displayError(err);
-        }
+  // rcLogConditionally(req);
+  // console.log('request:', req.toObject());
+  // encoderClient.getPosition(
+  //   req,
+  //   new grpc.Metadata(),
+  //   (err: ServiceError, resp: encoderApi.GetPositionResponse) => {
+  //     if (err) {
+  //       return displayError(err);
+  //     }
 
-        const temp = resp!.toObject();
-        value = temp.value;
-        console.log('value:', value);
-        posType = temp.positionType;
-        console.log('posType:', posType);
-      }
-    );
+  //     const temp = resp!.toObject();
+  //     value = temp.value;
+  //     console.log('value:', value);
+  //     posType = temp.positionType;
+  //     console.log('posType:', posType);
+  //   }
+  // );
 
-  return value
+  // const req = new encoderApi.GetPositionRequest();
+  // req.setName(props.name);
+
+  // rcLogConditionally(req);
+  // const resp = encoderClient.getPosition(req, new grpc.Metadata(), displayError);
+  // console.log(req.toObject());
+  // console.log(resp);
+  
+  // // const temp = resp!.toObject();
+  // value = resp.AsObject.value;
+  // console.log('value:', value);
+  // posType = resp.AsObject.positionType;
+  // console.log('posType:', posType);
+  // return value
   // const req = new encoderApi.GetPositionRequest();
   // req.setName(props.name);
   // console.log('request:', req.toObject());
@@ -65,6 +84,7 @@ const reset = () => {
 onMounted(async () => {
   try {
     properties = await encoderClient.getProperties();
+    console.log('position:', position);
     console.log('props:', properties);
   } catch (error) {
     displayError(error as ServiceError);
@@ -92,7 +112,7 @@ onMounted(async () => {
             Count
           </th>
           <td class="border border-black p-2">
-            {{ position || 0 }}
+            {{ position[0] || 0 }}
           </td>
         </tr>
         <tr
@@ -103,7 +123,7 @@ onMounted(async () => {
             Angle (degrees)
           </th>
           <td class="border border-black p-2">
-            {{ position || 0 }}
+            {{ position[0] || 0 }}
           </td>
         </tr>
       </table>
