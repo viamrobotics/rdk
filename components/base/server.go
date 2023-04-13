@@ -48,12 +48,8 @@ func (s *subtypeServer) MoveStraight(
 	if err != nil {
 		return nil, err
 	}
-	mmPerSec := 500.0 // TODO(erh): this is probably the wrong default
-	reqMmPerSec := req.GetMmPerSec()
-	if reqMmPerSec != 0 {
-		mmPerSec = reqMmPerSec
-	}
-	err = base.MoveStraight(ctx, int(req.DistanceMm), mmPerSec, req.Extra.AsMap())
+
+	err = base.MoveStraight(ctx, int(req.GetDistanceMm()), req.GetMmPerSec(), req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
@@ -71,12 +67,8 @@ func (s *subtypeServer) Spin(
 	if err != nil {
 		return nil, err
 	}
-	degsPerSec := 64.0
-	reqDegsPerSec := req.GetDegsPerSec()
-	if reqDegsPerSec != 0 {
-		degsPerSec = reqDegsPerSec
-	}
-	err = base.Spin(ctx, req.GetAngleDeg(), degsPerSec, req.Extra.AsMap())
+
+	err = base.Spin(ctx, req.GetAngleDeg(), req.GetDegsPerSec(), req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
