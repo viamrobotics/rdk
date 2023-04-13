@@ -63,7 +63,10 @@ func asMap(x *structpb.Struct) (map[string]interface{}, error) {
 	for k, in := range f {
 		switch in.GetKind().(type) {
 		case *structpb.Value_StringValue:
-			out, _ := base64.StdEncoding.DecodeString(in.GetStringValue())
+			out, err := base64.StdEncoding.DecodeString(in.GetStringValue())
+			if err != nil {
+				return nil, err
+			}
 			vs[k] = out
 		default:
 			vs[k] = in.AsInterface()
