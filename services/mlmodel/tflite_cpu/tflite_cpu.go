@@ -61,7 +61,10 @@ type Model struct {
 }
 
 // newTFLiteCPUModel is a constructor that builds a tflite cpu implementation of the MLMS.
-func newTFLiteCPUModel(ctx context.Context, deps registry.Dependencies, conf config.Service, logger golog.Logger) (mlmodel.Service, error) { //nolint:unparam
+//nolint:unparam
+func newTFLiteCPUModel(ctx context.Context, deps registry.Dependencies,
+	conf config.Service, logger golog.Logger,
+) (mlmodel.Service, error) {
 	ctx, span := trace.StartSpan(ctx, "service::mlmodel::NewTFLiteCPUModel")
 	defer span.End()
 
