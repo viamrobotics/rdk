@@ -6,6 +6,7 @@ package intel
 	Supported board: UP4000
 
 */
+
 import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
