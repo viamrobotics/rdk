@@ -53,8 +53,9 @@ type Base struct {
 // NewBase instantiates a new base of the fake model type.
 func NewBase(ctx context.Context, cfg config.Component, logger golog.Logger) (base.LocalBase, error) {
 	return &Base{
-		Name:   cfg.Name,
-		logger: logger,
+		Name:     cfg.Name,
+		logger:   logger,
+		geometry: cfg.Frame,
 	}, nil
 }
 
