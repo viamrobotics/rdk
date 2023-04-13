@@ -4,6 +4,7 @@ package builtin
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -225,6 +226,8 @@ func (svc *builtIn) initializeOrUpdateCollector(
 	// Build metadata.
 	captureMetadata, err := datacapture.BuildCaptureMetadata(config.Type, config.Name,
 		config.Model, config.Method, config.AdditionalParams, config.Tags)
+	log.Println(config.Tags)
+	log.Println(captureMetadata)
 	if err != nil {
 		return nil, err
 	}
@@ -438,6 +441,7 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 	svc.syncIntervalMins = svcConfig.SyncIntervalMins
 	svc.additionalSyncPaths = svcConfig.AdditionalSyncPaths
 	svc.additionalTags = svcConfig.AdditionalTags
+	log.Println(svc.additionalTags)
 
 	// TODO DATA-861: this means that the ticker is reset everytime we call Update with sync enabled, regardless of
 	//      whether or not the interval has changed. We should not do that.
@@ -508,16 +512,17 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 
 func (svc *builtIn) sync() {
 	svc.flushCollectors()
-	toSync := getAllFilesToSync(svc.captureDir, svc.waitAfterLastModifiedMillis)
-	for _, ap := range svc.additionalSyncPaths {
-		toSync = append(toSync, getAllFilesToSync(ap, svc.waitAfterLastModifiedMillis)...)
-	}
-	for index, p := range toSync {
-		if index == 0 {
-			svc.syncer.SyncFile(p, nil)
-		} else {
-			svc.syncer.SyncFile(p, svc.additionalTags[index-1])
+	captureToSync := getAllFilesToSync(svc.captureDir, svc.waitAfterLastModifiedMillis)
+
+	for index, ap := range svc.additionalSyncPaths {
+		arbitraryFilestoSync := getAllFilesToSync(ap, svc.waitAfterLastModifiedMillis)
+		for _, ap := range arbitraryFilestoSync {
+			log.Println(svc.additionalTags[index])
+			svc.syncer.SyncFile(ap, svc.additionalTags[index])
 		}
+	}
+	for _, p := range captureToSync {
+		svc.syncer.SyncFile(p, nil)
 	}
 }
 
