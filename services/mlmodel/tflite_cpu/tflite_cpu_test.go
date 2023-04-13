@@ -70,7 +70,6 @@ func TestTFLiteCPUDetector(t *testing.T) {
 	test.That(t, len(gotOutput["location"].([]float32)), test.ShouldResemble, 100)
 	test.That(t, len(gotOutput["category"].([]float32)), test.ShouldResemble, 25)
 	test.That(t, gotOutput["category"].([]float32)[0], test.ShouldEqual, 17) // 17 is dog
-
 }
 
 func TestTFLiteCPUClassifier(t *testing.T) {
@@ -117,7 +116,6 @@ func TestTFLiteCPUClassifier(t *testing.T) {
 	test.That(t, gotOutput["probability"].([]uint8)[290], test.ShouldEqual, 0)
 	test.That(t, gotOutput["probability"].([]uint8)[291], test.ShouldBeGreaterThan, 200) // 291 is lion
 	test.That(t, gotOutput["probability"].([]uint8)[292], test.ShouldEqual, 0)
-
 }
 
 func TestTFLiteCPUTextModel(t *testing.T) {
