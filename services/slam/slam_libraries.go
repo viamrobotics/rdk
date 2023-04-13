@@ -1,5 +1,3 @@
-// Package slam implements simultaneous localization and mapping
-// This is an Experimental package
 package slam
 
 // TODO 05/12/2022: Both type and constants will be deprecated when data ingestion via GRPC is available
