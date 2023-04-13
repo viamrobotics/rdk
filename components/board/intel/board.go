@@ -1,6 +1,11 @@
-// Package intel implements a Intel based board.
+// Package intel implements an Intel based board.
 package intel
 
+/*
+	Datasheet: https://github.com/up-board/up-community/wiki/Pinout_UP4000
+	Supported board: UP4000
+
+*/
 import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
