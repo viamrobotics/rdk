@@ -20,6 +20,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/control"
 	"go.viam.com/rdk/operation"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 var (
@@ -67,7 +68,7 @@ func WrapMotorWithEncoder(
 		mc.TicksPerRotation = 1
 	}
 
-	mm, err := newEncodedMotor(mc, m, e, logger)
+	mm, err := newEncodedMotor(c.Name, mc, m, e, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -95,6 +96,7 @@ func NewEncodedMotor(
 }
 
 func newEncodedMotor(
+	name string,
 	motorConfig Config,
 	realMotor motor.Motor,
 	realEncoder encoder.Encoder,
@@ -117,6 +119,7 @@ func newEncodedMotor(
 		maxPowerPct:             motorConfig.MaxPowerPct,
 		logger:                  logger,
 		loop:                    nil,
+		motorName:               name,
 	}
 
 	props, err := realEncoder.GetProperties(context.Background(), nil)
@@ -175,6 +178,7 @@ type EncodedMotor struct {
 	cfg                     Config
 	real                    motor.LocalMotor
 	encoder                 encoder.Encoder
+	motorName               string
 
 	stateMu *sync.RWMutex
 	state   EncodedMotorState
@@ -460,7 +464,7 @@ func (m *EncodedMotor) computeNewPowerPct(currentRPM, desiredRPM float64) float6
 		// to it, and we'll start moving soon.
 		return m.computeRamp(lastPowerPct, lastPowerPct*2)
 	}
-	dOverC := desiredRPM / currentRPM * m.flip
+	dOverC := desiredRPM / currentRPM
 	dOverC = math.Min(dOverC, 2)
 	dOverC = math.Max(dOverC, -2)
 
@@ -640,6 +644,13 @@ func (m *EncodedMotor) GoTo(ctx context.Context, rpm, targetPosition float64, ex
 		return err
 	}
 	moveDistance := targetPosition - curPos
+
+	// don't want to move if we're already at target, and want to skip GoFor's 0 rpm
+	// move forever condition
+	if rdkutils.Float64AlmostEqual(moveDistance, 0, 0.1) {
+		m.logger.Debugf("GoTo distance nearly zero for motor (%s), not moving", m.motorName)
+		return nil
+	}
 
 	return m.GoFor(ctx, math.Abs(rpm), moveDistance, extra)
 }
