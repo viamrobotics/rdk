@@ -743,6 +743,7 @@ onUnmounted(() => {
       :key="encoder.name"
       :name="encoder.name"
       :client="client"
+      :encoder="encoder"
       :resources="resources"
     />
 
