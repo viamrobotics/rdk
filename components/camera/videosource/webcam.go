@@ -4,7 +4,6 @@ import (
 	"context"
 	"image"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -47,7 +46,15 @@ func init() {
 			if !ok {
 				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
-			return NewWebcamSource(ctx, config.Name, attrs, logger)
+			cameraSource, err := NewWebcamSource(ctx, config.Name, attrs, logger)
+			if err != nil {
+				// If we are on a Jetson Orin AGX, we need to validate driver and daughterboard setup.
+				osInfo := jetsoncamera.DetectOSInformation()
+				if osInfo.Device == jetsoncamera.OrinAGX {
+					return cameraSource, errors.Wrap(err, jetsoncamera.Validate(osInfo, jetsoncamera.ECAM, jetsoncamera.AR0234).Error())
+				}
+			}
+			return cameraSource, nil
 		}})
 
 	config.RegisterComponentAttributeMapConverter(camera.Subtype, model,
@@ -238,13 +245,6 @@ func getLabelFromCamera(cam camera.Camera, logger golog.Logger) string {
 func NewWebcamSource(ctx context.Context, name string, attrs *WebcamAttrs, logger golog.Logger) (camera.Camera, error) {
 	cam, err := findAndMakeCamera(ctx, attrs, attrs.Path, logger)
 	if err != nil {
-		// If we are on an Orin AGX, we need to check if the daughterboard and the camera driver are installed.
-		if runtime.GOOS == "linux" && runtime.GOARCH == "arm64" {
-			osInfo := jetsoncamera.DetectOSInformation()
-			if osInfo.Device == jetsoncamera.JetsonOrinAGX {
-				return nil, errors.Wrap(err, jetsoncamera.PrintError(osInfo, "AR0234"))
-			}
-		}
 		return nil, errors.Wrap(err, "cannot find video source for camera")
 	}
 
