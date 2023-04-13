@@ -82,10 +82,11 @@ func Model(name, modelName string) (referenceframe.Model, error) {
 
 func init() {
 	for _, armModelName := range []string{ModelName6DOF, ModelName7DOF, ModelNameLite} {
+		localArmModelName := armModelName
 		armModel := resource.NewDefaultModel(resource.ModelName(armModelName))
 		registry.RegisterComponent(arm.Subtype, armModel, registry.Component{
 			Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-				return NewxArm(ctx, config, logger, armModelName)
+				return NewxArm(ctx, config, logger, localArmModelName)
 			},
 		})
 
