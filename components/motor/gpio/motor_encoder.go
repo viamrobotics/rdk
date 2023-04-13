@@ -158,7 +158,7 @@ func newEncodedMotor(
 		em.maxPowerPct = 1.0
 	}
 
-	if em.ticksPerRotation <= 0 {
+	if em.ticksPerRotation == 0 {
 		em.ticksPerRotation = 1
 	}
 
@@ -464,7 +464,7 @@ func (m *EncodedMotor) computeNewPowerPct(currentRPM, desiredRPM float64) float6
 		// to it, and we'll start moving soon.
 		return m.computeRamp(lastPowerPct, lastPowerPct*2)
 	}
-	dOverC := desiredRPM / currentRPM
+	dOverC := desiredRPM / currentRPM * m.flip
 	dOverC = math.Min(dOverC, 2)
 	dOverC = math.Max(dOverC, -2)
 
@@ -645,8 +645,8 @@ func (m *EncodedMotor) GoTo(ctx context.Context, rpm, targetPosition float64, ex
 	}
 	moveDistance := targetPosition - curPos
 
-	// don't want to move if we're already at target, and want to skip GoFor's 0 rpm
-	// move forever condition
+	// if you call GoFor with 0 revolutions, the motor will spin forever. If we are at the target,
+	// we must avoid this by not calling GoFor.
 	if rdkutils.Float64AlmostEqual(moveDistance, 0, 0.1) {
 		m.logger.Debugf("GoTo distance nearly zero for motor (%s), not moving", m.motorName)
 		return nil
