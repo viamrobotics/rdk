@@ -246,7 +246,6 @@ const refresh2dMap = () => {
 const handle2dRenderClick = (event: THREE.Vector3) => {
   updatedDest = true;
   threeJPos = event;
-  // threeJPos.y = z - threeJPos.z;
 };
 
 const handleUpdateX = (event: CustomEvent<{ value: string }>) => {
