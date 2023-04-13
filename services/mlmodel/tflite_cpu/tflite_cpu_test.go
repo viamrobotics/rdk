@@ -19,7 +19,7 @@ func TestEmptyTFLiteConfig(t *testing.T) {
 
 	// Test that empty config gives error about loading model
 	emptyGot, err := CreateTFLiteCPUModel(ctx, &emptyCfg)
-	test.That(t, emptyGot, test.ShouldResemble, &Model{})
+	test.That(t, emptyGot, test.ShouldBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "could not add model")
 }
 
