@@ -77,15 +77,17 @@ func TestWrapWithKinematics(t *testing.T) {
 func TestCurrentInputs(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
-
-	sphere, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 400, "footprint")
-	test.That(t, err, test.ShouldBeNil)
 	base := &wheeledBase{
 		widthMm:              400,
 		wheelCircumferenceMm: 25,
 		logger:               logger,
 		name:                 "count basie",
-		collisionGeometry:    sphere,
+		frame: &referenceframe.LinkConfig{
+			Parent: referenceframe.World,
+			Geometry: &spatialmath.GeometryConfig{
+				R: 400,
+			},
+		},
 	}
 
 	kb, err := base.WrapWithKinematics(ctx, fake.NewSLAM("", logger))
@@ -93,12 +95,12 @@ func TestCurrentInputs(t *testing.T) {
 	kwb, ok := kb.(*kinematicWheeledBase)
 	test.That(t, ok, test.ShouldBeTrue)
 	for i := 0; i < 100; i++ {
-		slam.GetPointCloudMapFull(ctx, kwb.slam, kwb.slamName)
+		slam.GetPointCloudMapFull(ctx, kwb.slam)
 	}
 	for i := 0; i < 10; i++ {
 		inputs, err := kwb.CurrentInputs(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		_ = inputs
-		slam.GetPointCloudMapFull(ctx, kwb.slam, kwb.slamName)
+		slam.GetPointCloudMapFull(ctx, kwb.slam)
 	}
 }
