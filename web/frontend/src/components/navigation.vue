@@ -141,7 +141,7 @@ const initNavigation = async () => {
     props.client.navigationService.getWaypoints(
       req,
       new grpc.Metadata(),
-      (err: ServiceError, resp: navigationApi.GetWaypointsResponse) => {
+      (err: ServiceError | null, resp: navigationApi.GetWaypointsResponse | null) => {
         grpcCallback(err, resp, false);
 
         if (err) {
@@ -226,7 +226,7 @@ const initNavigation = async () => {
     props.client.navigationService.getLocation(
       req,
       new grpc.Metadata(),
-      (err: ServiceError, resp: navigationApi.GetLocationResponse) => {
+      (err: ServiceError | null, resp: navigationApi.GetLocationResponse | null) => {
         grpcCallback(err, resp, false);
 
         if (err) {

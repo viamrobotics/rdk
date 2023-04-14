@@ -182,7 +182,7 @@ const querySensors = () => {
   props.client.sensorsService.getSensors(
     req,
     new grpc.Metadata(),
-    (err: ServiceError, resp: sensorsApi.GetSensorsResponse) => {
+    (err: ServiceError | null, resp: sensorsApi.GetSensorsResponse | null) => {
       if (err) {
         return displayError(err);
       }
@@ -291,7 +291,7 @@ const queryMetadata = () => {
     props.client.robotService.resourceNames(
       new robotApi.ResourceNamesRequest(),
       new grpc.Metadata(),
-      (err: ServiceError, resp: robotApi.ResourceNamesResponse) => {
+      (err: ServiceError | null, resp: robotApi.ResourceNamesResponse | null) => {
         if (err) {
           reject(err);
           return;
@@ -359,7 +359,7 @@ const fetchCurrentOps = () => {
     props.client.robotService.getOperations(
       req,
       new grpc.Metadata(),
-      (err: ServiceError, resp: robotApi.GetOperationsResponse) => {
+      (err: ServiceError | null, resp: robotApi.GetOperationsResponse | null) => {
         if (err) {
           reject(err);
           return;
@@ -412,7 +412,7 @@ const fetchCurrentSessions = () => {
     props.client.robotService.getSessions(
       req,
       new grpc.Metadata(),
-      (err: ServiceError, resp: robotApi.GetSessionsResponse) => {
+      (err: ServiceError | null, resp: robotApi.GetSessionsResponse | null) => {
         if (err) {
           if (err.code === grpc.Code.Unimplemented) {
             sessionsSupported = false;

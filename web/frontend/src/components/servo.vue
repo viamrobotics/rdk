@@ -23,7 +23,7 @@ const stop = () => {
 const move = (amount: number) => {
   const servo = props.rawStatus;
 
-  const oldAngle = servo.position_deg ?? 0;
+  const oldAngle = servo.positionDeg ?? 0;
 
   const angle = oldAngle + amount;
 
@@ -32,7 +32,7 @@ const move = (amount: number) => {
   req.setAngleDeg(angle);
 
   rcLogConditionally(req);
-  props.client.servoService.move(req, new grpc.Metadata(), (error: ServiceError) => {
+  props.client.servoService.move(req, new grpc.Metadata(), (error: ServiceError | null) => {
     if (error) {
       return displayError(error);
     }
