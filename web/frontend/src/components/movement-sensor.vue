@@ -32,7 +32,7 @@ const refresh = async () => {
     props.client.movementSensorService.getProperties(
       req,
       new grpc.Metadata(),
-      (err: ServiceError, resp: movementsensorApi.GetPropertiesResponse) => {
+      (err: ServiceError | null, resp: movementsensorApi.GetPropertiesResponse | null) => {
         if (err) {
           if (err.message === 'Response closed without headers') {
             refreshId = window.setTimeout(refresh, 500);
@@ -54,7 +54,7 @@ const refresh = async () => {
     props.client.movementSensorService.getOrientation(
       req,
       new grpc.Metadata(),
-      (err: ServiceError, resp: movementsensorApi.GetOrientationResponse) => {
+      (err: ServiceError | null, resp: movementsensorApi.GetOrientationResponse | null) => {
         if (err) {
           return displayError(err);
         }
@@ -72,7 +72,7 @@ const refresh = async () => {
     props.client.movementSensorService.getAngularVelocity(
       req,
       new grpc.Metadata(),
-      (err: ServiceError, resp: movementsensorApi.GetAngularVelocityResponse) => {
+      (err: ServiceError | null, resp: movementsensorApi.GetAngularVelocityResponse | null) => {
         if (err) {
           return displayError(err);
         }
@@ -90,7 +90,7 @@ const refresh = async () => {
     props.client.movementSensorService.getLinearAcceleration(
       req,
       new grpc.Metadata(),
-      (err: ServiceError, resp: movementsensorApi.GetLinearAccelerationResponse) => {
+      (err: ServiceError | null, resp: movementsensorApi.GetLinearAccelerationResponse | null) => {
         if (err) {
           return displayError(err);
         }
@@ -108,7 +108,7 @@ const refresh = async () => {
     props.client.movementSensorService.getLinearVelocity(
       req,
       new grpc.Metadata(),
-      (err: ServiceError, resp: movementsensorApi.GetLinearVelocityResponse) => {
+      (err: ServiceError | null, resp: movementsensorApi.GetLinearVelocityResponse | null) => {
         if (err) {
           return displayError(err);
         }
@@ -126,7 +126,7 @@ const refresh = async () => {
     props.client.movementSensorService.getCompassHeading(
       req,
       new grpc.Metadata(),
-      (err: ServiceError, resp: movementsensorApi.GetCompassHeadingResponse) => {
+      (err: ServiceError | null, resp: movementsensorApi.GetCompassHeadingResponse | null) => {
         if (err) {
           return displayError(err);
         }
@@ -144,7 +144,7 @@ const refresh = async () => {
     props.client.movementSensorService.getPosition(
       req,
       new grpc.Metadata(),
-      (err: ServiceError, resp: movementsensorApi.GetPositionResponse) => {
+      (err: ServiceError | null, resp: movementsensorApi.GetPositionResponse | null) => {
         if (err) {
           return displayError(err);
         }
