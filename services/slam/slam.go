@@ -80,8 +80,8 @@ type Service interface {
 	resource.Generic
 }
 
-// Helper function that concatenates the chunks from a streamed grpc endpoint.
-func helperConcatenateChunksToFull(f func() ([]byte, error)) ([]byte, error) {
+// HelperConcatenateChunksToFull concatenates the chunks from a streamed grpc endpoint.
+func HelperConcatenateChunksToFull(f func() ([]byte, error)) ([]byte, error) {
 	var fullBytes []byte
 	for {
 		chunk, err := f()
@@ -104,7 +104,7 @@ func GetPointCloudMapFull(ctx context.Context, slamSvc Service) ([]byte, error) 
 	if err != nil {
 		return nil, err
 	}
-	return helperConcatenateChunksToFull(callback)
+	return HelperConcatenateChunksToFull(callback)
 }
 
 // GetInternalStateFull concatenates the streaming responses from GetInternalState into
@@ -116,7 +116,7 @@ func GetInternalStateFull(ctx context.Context, slamSvc Service) ([]byte, error) 
 	if err != nil {
 		return nil, err
 	}
-	return helperConcatenateChunksToFull(callback)
+	return HelperConcatenateChunksToFull(callback)
 }
 
 type reconfigurableSlam struct {
