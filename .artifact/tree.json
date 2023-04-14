@@ -51562,6 +51562,10 @@
         "hash": "7a24ee403e1606a0956d63dc744f24de",
         "size": 31645
       },
+      "mobileBERT.tflite": {
+        "hash": "c042101edfe4f0fad9ff47447bc3f685",
+        "size": 51808808
+      },
       "mobilenet.tflite": {
         "hash": "66ee95e3edbaa9b3de5138cf1cbb127d",
         "size": 1866640
