@@ -269,8 +269,8 @@ const restartStatusStream = () => {
       updateStatus((response).getStatusList());
       lastStatusTS = Date.now();
     });
-    statusStream.on('status', (newStatus: { details: unknown }) => {
-      if (!ConnectionClosedError.isError(newStatus.details)) {
+    statusStream.on('status', (newStatus?: { details: unknown }) => {
+      if (!ConnectionClosedError.isError(newStatus!.details)) {
         console.error('error streaming robot status', newStatus);
       }
       statusStream = null;
