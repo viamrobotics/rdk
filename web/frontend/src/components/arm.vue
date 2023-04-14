@@ -44,9 +44,12 @@ const fieldMap = [
   ['o_z', 'oZ'],
 ] as const;
 
-const updateFieldMap = {
+const updateFieldMap: Record<string, Field> = {
+  // eslint-disable-next-line id-length
   X: 'x',
+  // eslint-disable-next-line id-length
   Y: 'y',
+  // eslint-disable-next-line id-length
   Z: 'z',
   Theta: 'theta',
   OX: 'oX',
@@ -81,7 +84,7 @@ const armModifyAllDoEndPosition = async () => {
 
   for (const newPiece of newPieces) {
     const [, poseField] = newPiece.endPosition;
-    const field: Field = updateFieldMap[poseField!];
+    const field: Field = updateFieldMap[poseField!]!;
     newPose[field] = Number(newPiece.endPositionValue);
   }
 
@@ -135,7 +138,7 @@ const armEndPositionInc = async (updateField: string, amount: number) => {
     newPose[field] = Number(endPositionValue);
   }
 
-  const field: Field = updateFieldMap[updateField];
+  const field: Field = updateFieldMap[updateField]!;
   newPose[field] += adjustedAmount;
 
   try {
