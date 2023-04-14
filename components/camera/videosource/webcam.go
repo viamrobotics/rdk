@@ -108,6 +108,7 @@ func Discover(_ context.Context, getDrivers func() []driver.Driver) (*pb.Webcams
 			if len(nameParts) > 1 {
 				return nameParts[0], nameParts[1]
 			}
+			// fallback to the label if the name does not have an any additional parts to use.
 			return nameParts[0], label
 		}()
 
