@@ -277,10 +277,11 @@ func (b *sysfsBoard) DigitalInterruptByName(name string) (board.DigitalInterrupt
 		return nil, false
 	}
 
+	const defaultInterruptType = "basic"
 	defaultInterruptConfig := board.DigitalInterruptConfig{
 		Name: name,
 		Pin:  name,
-		Type: "basic",
+		Type: defaultInterruptType,
 	}
 	interrupt, err := createDigitalInterrupt(b.cancelCtx, defaultInterruptConfig, b.gpioMappings,
 		&b.activeBackgroundWorkers)
@@ -325,6 +326,10 @@ func (b *sysfsBoard) AnalogReaderNames() []string {
 }
 
 func (b *sysfsBoard) DigitalInterruptNames() []string {
+	if b.interrupts == nil {
+		return nil
+	}
+
 	names := []string{}
 	for name := range b.interrupts {
 		names = append(names, name)
