@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, toRaw } from 'vue';
 import { grpc } from '@improbable-eng/grpc-web';
-import { Client, encoderApi, EncoderClient, ServiceError } from '@viamrobotics/sdk';
+import { Client, encoderApi, ServiceError } from '@viamrobotics/sdk';
 import { displayError } from '../lib/error';
 import { rcLogConditionally } from '../lib/log';
 
@@ -9,10 +9,6 @@ const props = defineProps<{
   name: string
   client: Client
 }>();
-
-const encoderClient = new EncoderClient(props.client, props.name, {
-  requestLogger: rcLogConditionally,
-});
 
 let properties = $ref<encoderApi.GetPropertiesResponse.AsObject | undefined>();
 let positionTicks = $ref<encoderApi.GetPositionResponse.AsObject | undefined>();
@@ -56,17 +52,42 @@ const refresh = () => {
   refreshId = window.setTimeout(refresh, 500);
 };
 
-const reset = () => {
+const reset = async () => {
   const req = new encoderApi.ResetPositionRequest();
   req.setName(props.name);
 
   rcLogConditionally(req);
-  encoderClient.resetPosition(req, new grpc.Metadata(), displayError);
+  await props.client.encoderService.resetPosition(
+    req,
+    new grpc.Metadata(),
+    (err: ServiceError, resp: encoderApi.ResetPositionResponse) => {
+      if (err) {
+        return displayError(err);
+      }
+    }
+  );
 };
 
 onMounted(async () => {
   try {
-    properties = await encoderClient.getProperties();
+    const req = new encoderApi.GetPropertiesRequest();
+    req.setName(props.name);
+
+    rcLogConditionally(req);
+    await props.client.encoderService.getProperties(
+      req,
+      new grpc.Metadata(),
+      (err: ServiceError, resp: encoderApi.GetPropertiesResponse) => {
+        if (err) {
+          if (err.message === 'Response closed without headers') {
+            refreshId = window.setTimeout(refresh, 500);
+            return;
+          }
+          return displayError(err);
+        }
+        properties = resp!.toObject();
+      }
+    );
     refreshId = window.setTimeout(refresh, 500);
   } catch (error) {
     displayError(error as ServiceError);
