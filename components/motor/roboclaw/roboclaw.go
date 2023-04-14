@@ -1,11 +1,11 @@
 // Package roboclaw is the driver for the roboclaw motor drivers
+// NOTE: This implementation is experimental and incomplete. Expect backward-breaking changes.
 package roboclaw
 
 import (
 	"context"
 	"errors"
 	"fmt"
-	"math"
 	"time"
 
 	"github.com/CPRT/roboclaw"
@@ -75,6 +75,8 @@ func init() {
 }
 
 func getOrCreateConnection(deps registry.Dependencies, config *AttrConfig) (*roboclaw.Roboclaw, error) {
+	// Check if a dependent component hs a roboclaw motor with the same serial config. This allows
+	// multiple motors to share the same controller without stepping on each other.
 	for _, res := range deps {
 		m, ok := rdkutils.UnwrapProxy(res).(*roboclawMotor)
 		if !ok {
@@ -142,8 +144,11 @@ type roboclawMotor struct {
 func (m *roboclawMotor) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
 	m.opMgr.CancelRunning(ctx)
 
-	powerPct = math.Min(powerPct, 1.0)
-	powerPct = math.Max(powerPct, 0.0)
+	if powerPct > 1 {
+		powerPct = 1
+	} else if powerPct < -1 {
+		powerPct = -1
+	}
 
 	switch m.conf.Number {
 	case 1:
@@ -244,9 +249,9 @@ func (m *roboclawMotor) IsPowered(ctx context.Context, extra map[string]interfac
 	}
 	switch m.conf.Number {
 	case 1:
-		return pow1 == 0, m.powerPct, nil
+		return pow1 != 0, m.powerPct, nil
 	case 2:
-		return pow2 == 0, m.powerPct, nil
+		return pow2 != 0, m.powerPct, nil
 	default:
 		return false, 0.0, m.conf.wrongNumberError()
 	}
