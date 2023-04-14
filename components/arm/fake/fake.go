@@ -45,7 +45,7 @@ func modelFromName(model, name string) (referenceframe.Model, error) {
 	case eva.ModelName.Name:
 		return eva.Model(name)
 	default:
-		return nil, errors.Errorf("fake arm cannot be created, unsupported arm_model: %s", model)
+		return nil, errors.Errorf("fake arm cannot be created, unsupported arm-model: %s", model)
 	}
 }
 

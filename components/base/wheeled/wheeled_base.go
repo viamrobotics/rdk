@@ -18,13 +18,14 @@ import (
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-var modelname = resource.NewDefaultModel("wheeled")
+// ModelName is the name of the wheeled model of a base component.
+var ModelName = resource.NewDefaultModel("wheeled")
 
 // AttrConfig is how you configure a wheeled base.
 type AttrConfig struct {
@@ -75,10 +76,10 @@ func init() {
 		},
 	}
 
-	registry.RegisterComponent(base.Subtype, modelname, wheeledBaseComp)
+	registry.RegisterComponent(base.Subtype, ModelName, wheeledBaseComp)
 	config.RegisterComponentAttributeMapConverter(
 		base.Subtype,
-		modelname,
+		ModelName,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
@@ -99,19 +100,19 @@ type wheeledBase struct {
 	opMgr  operation.SingleOperationManager
 	logger golog.Logger
 
-	name              string
-	collisionGeometry spatialmath.Geometry
+	name  string
+	frame *referenceframe.LinkConfig
 }
 
 // Spin commands a base to turn about its center at a angular speed and for a specific angle.
-func (base *wheeledBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
-	ctx, done := base.opMgr.New(ctx)
+func (wb *wheeledBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
+	ctx, done := wb.opMgr.New(ctx)
 	defer done()
-	base.logger.Debugf("received a Spin with angleDeg:%.2f, degsPerSec:%.2f", angleDeg, degsPerSec)
+	wb.logger.Debugf("received a Spin with angleDeg:%.2f, degsPerSec:%.2f", angleDeg, degsPerSec)
 
 	// Stop the motors if the speed is 0
 	if math.Abs(degsPerSec) < 0.0001 {
-		err := base.Stop(ctx, nil)
+		err := wb.Stop(ctx, nil)
 		if err != nil {
 			return errors.Errorf("error when trying to spin at a speed of 0: %v", err)
 		}
@@ -119,20 +120,20 @@ func (base *wheeledBase) Spin(ctx context.Context, angleDeg, degsPerSec float64,
 	}
 
 	// Spin math
-	rpm, revolutions := base.spinMath(angleDeg, degsPerSec)
+	rpm, revolutions := wb.spinMath(angleDeg, degsPerSec)
 
-	return base.runAll(ctx, -rpm, revolutions, rpm, revolutions)
+	return wb.runAll(ctx, -rpm, revolutions, rpm, revolutions)
 }
 
 // MoveStraight commands a base to drive forward or backwards  at a linear speed and for a specific distance.
-func (base *wheeledBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error {
-	ctx, done := base.opMgr.New(ctx)
+func (wb *wheeledBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error {
+	ctx, done := wb.opMgr.New(ctx)
 	defer done()
-	base.logger.Debugf("received a MoveStraight with distanceMM:%d, mmPerSec:%.2f", distanceMm, mmPerSec)
+	wb.logger.Debugf("received a MoveStraight with distanceMM:%d, mmPerSec:%.2f", distanceMm, mmPerSec)
 
 	// Stop the motors if the speed or distance are 0
 	if math.Abs(mmPerSec) < 0.0001 || distanceMm == 0 {
-		err := base.Stop(ctx, nil)
+		err := wb.Stop(ctx, nil)
 		if err != nil {
 			return errors.Errorf("error when trying to move straight at a speed and/or distance of 0: %v", err)
 		}
@@ -140,25 +141,25 @@ func (base *wheeledBase) MoveStraight(ctx context.Context, distanceMm int, mmPer
 	}
 
 	// Straight math
-	rpm, rotations := base.straightDistanceToMotorInputs(distanceMm, mmPerSec)
+	rpm, rotations := wb.straightDistanceToMotorInputs(distanceMm, mmPerSec)
 
-	return base.runAll(ctx, rpm, rotations, rpm, rotations)
+	return wb.runAll(ctx, rpm, rotations, rpm, rotations)
 }
 
 // runsAll the base motors in parallel with the required speeds and rotations.
-func (base *wheeledBase) runAll(ctx context.Context, leftRPM, leftRotations, rightRPM, rightRotations float64) error {
+func (wb *wheeledBase) runAll(ctx context.Context, leftRPM, leftRotations, rightRPM, rightRotations float64) error {
 	fs := []rdkutils.SimpleFunc{}
 
-	for _, m := range base.left {
+	for _, m := range wb.left {
 		fs = append(fs, func(ctx context.Context) error { return m.GoFor(ctx, leftRPM, leftRotations, nil) })
 	}
 
-	for _, m := range base.right {
+	for _, m := range wb.right {
 		fs = append(fs, func(ctx context.Context) error { return m.GoFor(ctx, rightRPM, rightRotations, nil) })
 	}
 
 	if _, err := rdkutils.RunInParallel(ctx, fs); err != nil {
-		return multierr.Combine(err, base.Stop(ctx, nil))
+		return multierr.Combine(err, wb.Stop(ctx, nil))
 	}
 	return nil
 }
@@ -166,10 +167,10 @@ func (base *wheeledBase) runAll(ctx context.Context, leftRPM, leftRotations, rig
 // differentialDrive takes forward and left direction inputs from a first person
 // perspective on a 2D plane and converts them to left and right motor powers. negative
 // forward means backward and negative left means right.
-func (base *wheeledBase) differentialDrive(forward, left float64) (float64, float64) {
+func (wb *wheeledBase) differentialDrive(forward, left float64) (float64, float64) {
 	if forward < 0 {
 		// Mirror the forward turning arc if we go in reverse
-		leftMotor, rightMotor := base.differentialDrive(-forward, left)
+		leftMotor, rightMotor := wb.differentialDrive(-forward, left)
 		return -leftMotor, -rightMotor
 	}
 
@@ -203,48 +204,48 @@ func (base *wheeledBase) differentialDrive(forward, left float64) (float64, floa
 }
 
 // SetVelocity commands the base to move at the input linear and angular velocities.
-func (base *wheeledBase) SetVelocity(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
-	base.opMgr.CancelRunning(ctx)
+func (wb *wheeledBase) SetVelocity(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
+	wb.opMgr.CancelRunning(ctx)
 
-	base.logger.Debugf(
+	wb.logger.Debugf(
 		"received a SetVelocity with linear.X: %.2f, linear.Y: %.2f linear.Z: %.2f (mmPerSec), angular.X: %.2f, angular.Y: %.2f, angular.Z: %.2f",
 		linear.X, linear.Y, linear.Z, angular.X, angular.Y, angular.Z)
 
-	l, r := base.velocityMath(linear.Y, angular.Z)
-	return base.runAll(ctx, l, 0, r, 0)
+	l, r := wb.velocityMath(linear.Y, angular.Z)
+	return wb.runAll(ctx, l, 0, r, 0)
 }
 
 // SetPower commands the base motors to run at powers correspoinding to input linear and angular powers.
-func (base *wheeledBase) SetPower(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
-	base.opMgr.CancelRunning(ctx)
+func (wb *wheeledBase) SetPower(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
+	wb.opMgr.CancelRunning(ctx)
 
-	base.logger.Debugf(
+	wb.logger.Debugf(
 		"received a SetPower with linear.X: %.2f, linear.Y: %.2f linear.Z: %.2f, angular.X: %.2f, angular.Y: %.2f, angular.Z: %.2f",
 		linear.X, linear.Y, linear.Z, angular.X, angular.Y, angular.Z)
 
-	lPower, rPower := base.differentialDrive(linear.Y, angular.Z)
+	lPower, rPower := wb.differentialDrive(linear.Y, angular.Z)
 
 	// Send motor commands
 	var err error
-	for _, m := range base.left {
+	for _, m := range wb.left {
 		err = multierr.Combine(err, m.SetPower(ctx, lPower, extra))
 	}
 
-	for _, m := range base.right {
+	for _, m := range wb.right {
 		err = multierr.Combine(err, m.SetPower(ctx, rPower, extra))
 	}
 
 	if err != nil {
-		return multierr.Combine(err, base.Stop(ctx, nil))
+		return multierr.Combine(err, wb.Stop(ctx, nil))
 	}
 
 	return nil
 }
 
 // returns rpm, revolutions for a spin motion.
-func (base *wheeledBase) spinMath(angleDeg, degsPerSec float64) (float64, float64) {
-	wheelTravel := base.spinSlipFactor * float64(base.widthMm) * math.Pi * angleDeg / 360.0
-	revolutions := wheelTravel / float64(base.wheelCircumferenceMm)
+func (wb *wheeledBase) spinMath(angleDeg, degsPerSec float64) (float64, float64) {
+	wheelTravel := wb.spinSlipFactor * float64(wb.widthMm) * math.Pi * angleDeg / 360.0
+	revolutions := wheelTravel / float64(wb.wheelCircumferenceMm)
 
 	// RPM = revolutions (unit) * deg/sec * (1 rot / 2pi deg) * (60 sec / 1 min) = rot/min
 	rpm := revolutions * degsPerSec * 30 / math.Pi
@@ -254,11 +255,11 @@ func (base *wheeledBase) spinMath(angleDeg, degsPerSec float64) (float64, float6
 }
 
 // calcualtes wheel rpms from overall base linear and angular movement velocity inputs.
-func (base *wheeledBase) velocityMath(mmPerSec, degsPerSec float64) (float64, float64) {
+func (wb *wheeledBase) velocityMath(mmPerSec, degsPerSec float64) (float64, float64) {
 	// Base calculations
 	v := mmPerSec
-	r := float64(base.wheelCircumferenceMm) / (2.0 * math.Pi)
-	l := float64(base.widthMm)
+	r := float64(wb.wheelCircumferenceMm) / (2.0 * math.Pi)
+	l := float64(wb.widthMm)
 
 	w0 := degsPerSec / 180 * math.Pi
 	wL := (v / r) - (l * w0 / (2 * r))
@@ -272,11 +273,11 @@ func (base *wheeledBase) velocityMath(mmPerSec, degsPerSec float64) (float64, fl
 }
 
 // calculates the motor revolutions and speeds that correspond to the reuired distance and linear speeds.
-func (base *wheeledBase) straightDistanceToMotorInputs(distanceMm int, mmPerSec float64) (float64, float64) {
+func (wb *wheeledBase) straightDistanceToMotorInputs(distanceMm int, mmPerSec float64) (float64, float64) {
 	// takes in base speed and distance to calculate motor rpm and total rotations
-	rotations := float64(distanceMm) / float64(base.wheelCircumferenceMm)
+	rotations := float64(distanceMm) / float64(wb.wheelCircumferenceMm)
 
-	rotationsPerSec := mmPerSec / float64(base.wheelCircumferenceMm)
+	rotationsPerSec := mmPerSec / float64(wb.wheelCircumferenceMm)
 	rpm := 60 * rotationsPerSec
 
 	return rpm, rotations
@@ -284,7 +285,7 @@ func (base *wheeledBase) straightDistanceToMotorInputs(distanceMm int, mmPerSec 
 
 // WaitForMotorsToStop is unused except for tests, polls all motors to see if they're on
 // TODO: Audit in  RSDK-1880.
-func (base *wheeledBase) WaitForMotorsToStop(ctx context.Context) error {
+func (wb *wheeledBase) WaitForMotorsToStop(ctx context.Context) error {
 	for {
 		if !utils.SelectContextOrWait(ctx, 10*time.Millisecond) {
 			return ctx.Err()
@@ -293,7 +294,7 @@ func (base *wheeledBase) WaitForMotorsToStop(ctx context.Context) error {
 		anyOn := false
 		anyOff := false
 
-		for _, m := range base.allMotors {
+		for _, m := range wb.allMotors {
 			isOn, _, err := m.IsPowered(ctx, nil)
 			if err != nil {
 				return err
@@ -311,22 +312,22 @@ func (base *wheeledBase) WaitForMotorsToStop(ctx context.Context) error {
 
 		if anyOff {
 			// once one motor turns off, we turn them all off
-			return base.Stop(ctx, nil)
+			return wb.Stop(ctx, nil)
 		}
 	}
 }
 
 // Stop commands the base to stop moving.
-func (base *wheeledBase) Stop(ctx context.Context, extra map[string]interface{}) error {
+func (wb *wheeledBase) Stop(ctx context.Context, extra map[string]interface{}) error {
 	var err error
-	for _, m := range base.allMotors {
+	for _, m := range wb.allMotors {
 		err = multierr.Combine(err, m.Stop(ctx, extra))
 	}
 	return err
 }
 
-func (base *wheeledBase) IsMoving(ctx context.Context) (bool, error) {
-	for _, m := range base.allMotors {
+func (wb *wheeledBase) IsMoving(ctx context.Context) (bool, error) {
+	for _, m := range wb.allMotors {
 		isMoving, _, err := m.IsPowered(ctx, nil)
 		if err != nil {
 			return false, err
@@ -338,14 +339,14 @@ func (base *wheeledBase) IsMoving(ctx context.Context) (bool, error) {
 	return false, nil
 }
 
-// Close is called from the client to close the instance of the base.
-func (base *wheeledBase) Close(ctx context.Context) error {
-	return base.Stop(ctx, nil)
+// Close is called from the client to close the instance of the wheeledBase.
+func (wb *wheeledBase) Close(ctx context.Context) error {
+	return wb.Stop(ctx, nil)
 }
 
 // Width returns the width of the base as configured by the user.
-func (base *wheeledBase) Width(ctx context.Context) (int, error) {
-	return base.widthMm, nil
+func (wb *wheeledBase) Width(ctx context.Context) (int, error) {
+	return wb.widthMm, nil
 }
 
 // CreateWheeledBase returns a new wheeled base defined by the given config.
@@ -360,16 +361,17 @@ func CreateWheeledBase(
 		return nil, rdkutils.NewUnexpectedTypeError(attr, &AttrConfig{})
 	}
 
-	base := &wheeledBase{
+	wb := &wheeledBase{
 		widthMm:              attr.WidthMM,
 		wheelCircumferenceMm: attr.WheelCircumferenceMM,
 		spinSlipFactor:       attr.SpinSlipFactor,
 		logger:               logger,
 		name:                 cfg.Name,
+		frame:                cfg.Frame,
 	}
 
-	if base.spinSlipFactor == 0 {
-		base.spinSlipFactor = 1
+	if wb.spinSlipFactor == 0 {
+		wb.spinSlipFactor = 1
 	}
 
 	for _, name := range attr.Left {
@@ -379,9 +381,9 @@ func CreateWheeledBase(
 		}
 		props, err := m.Properties(ctx, nil)
 		if props[motor.PositionReporting] && err != nil {
-			base.logger.Debugf("motor %s can report its position for base", name)
+			wb.logger.Debugf("motor %s can report its position for base", name)
 		}
-		base.left = append(base.left, m)
+		wb.left = append(wb.left, m)
 	}
 
 	for _, name := range attr.Right {
@@ -391,19 +393,12 @@ func CreateWheeledBase(
 		}
 		props, err := m.Properties(ctx, nil)
 		if props[motor.PositionReporting] && err != nil {
-			base.logger.Debugf("motor %s can report its position for base", name)
+			wb.logger.Debugf("motor %s can report its position for base", name)
 		}
-		base.right = append(base.right, m)
+		wb.right = append(wb.right, m)
 	}
 
-	base.allMotors = append(base.allMotors, base.left...)
-	base.allMotors = append(base.allMotors, base.right...)
-
-	collisionGeometry, err := collisionGeometry(cfg)
-	if err != nil {
-		logger.Warnf("could not build geometry for wheeledBase: %s", err.Error())
-	}
-	base.collisionGeometry = collisionGeometry
-
-	return base, nil
+	wb.allMotors = append(wb.allMotors, wb.left...)
+	wb.allMotors = append(wb.allMotors, wb.right...)
+	return wb, nil
 }
