@@ -63,6 +63,7 @@ jobs:
 
     - name: Verify no uncommitted changes from "${{ matrix.build_lint }}"
       run: |
+        echo -e "[safe]\n\tdirectory = *\n" > /etc/gitconfig
         git init
         git add .
         chown -R testbot .
