@@ -27,40 +27,29 @@ do_bullseye(){
 	echo "deb [signed-by=/usr/share/keyrings/nodesource.gpg] https://deb.nodesource.com/node_18.x $(grep VERSION_CODENAME /etc/os-release | cut -d= -f2) main" > /etc/apt/sources.list.d/nodesource.list
 
 	# Install most things
-	apt-get update && apt-get install -y build-essential nodejs libnlopt-dev libx264-dev libopus-dev libtensorflowlite-dev protobuf-compiler protoc-gen-grpc-web ffmpeg libjpeg62-turbo-dev && apt-get clean
+	apt-get update && apt-get install -y build-essential nodejs libnlopt-dev libx264-dev libtensorflowlite-dev ffmpeg libjpeg62-turbo-dev && apt-get clean
 
 	# Install backports
 	apt-get install -y -t $(grep VERSION_CODENAME /etc/os-release | cut -d= -f2)-backports golang-go
 
 	# Raspberry Pi support
-	grep -q Raspberry /proc/cpuinfo && apt-get install -y wiringpi libpigpio-dev
-	grep -q Raspberry /proc/cpuinfo && exit
+	test "$(uname -m)" = "aarch64" && apt-get install -y libpigpio-dev
 
-	# Other arm64 (bring in pi repo at low priority for build support)
-	test "$(uname -m)" != "aarch64" || curl -fsSL https://archive.raspberrypi.org/debian/raspberrypi.gpg.key | gpg --yes --dearmor -o /usr/share/keyrings/raspberrypi.gpg
-	test "$(uname -m)" != "aarch64" || echo "deb [signed-by=/usr/share/keyrings/raspberrypi.gpg] http://archive.raspberrypi.org/debian/ $(grep VERSION_CODENAME /etc/os-release | cut -d= -f2) main" > /etc/apt/sources.list.d/raspi.list
-	test "$(uname -m)" != "aarch64" || echo -e "Package: *\nPin: origin archive.raspberrypi.org\nPin-Priority: 1" > /etc/apt/preferences.d/raspi-low-prio
-	test "$(uname -m)" != "aarch64" || ( apt-get update && apt-get install -y wiringpi libpigpio-dev && apt-get clean )
+	# upx
+	UPX_URL=https://github.com/upx/upx/releases/download/v4.0.2/upx-4.0.2-amd64_linux.tar.xz
+	if [ "$(uname -m)" = "aarch64" ]; then
+		UPX_URL=https://github.com/upx/upx/releases/download/v4.0.2/upx-4.0.2-arm64_linux.tar.xz
+	fi
+	curl -L "$UPX_URL" | sudo tar -C /usr/local/bin/ --strip-components=1 --wildcards -xJv '*/upx'
+
+	# canon
+	GOBIN=/usr/local/bin go install github.com/viamrobotics/canon@latest
 	EOS
 
 	if [ $? -ne 0 ]; then
 		echo "Package installation failed when running"
 		exit 1
 	fi
-
-	cat > ~/.viamdevrc <<-EOS
-	export GOPRIVATE=github.com/viamrobotics/*,go.viam.com/*
-	EOS
-
-	# canon
-	go install github.com/viamrobotics/canon@latest
-	if [ -z $GOBIN ]; then
-		GOBIN="`go env GOPATH`/bin"
-	fi
-	sudo ln -sf "$GOBIN/canon" /usr/local/bin/canon
-
-	# upx
-	curl -L https://github.com/upx/upx/releases/download/v4.0.2/upx-4.0.2-arm64_linux.tar.xz | sudo tar -C /usr/local/bin/ --strip-components=1 --wildcards -xJv '*/upx'
 
 	mod_profiles
 	check_gcloud_auth
@@ -109,7 +98,6 @@ do_darwin(){
 		exit 1
 	fi
 
-
 	if [ "$(uname -m)" == "arm64" ]; then
 
 		cat > ~/.viamdevrc <<-EOS
@@ -143,15 +131,6 @@ mod_profiles(){
 	test -f ~/.bashrc && ( grep -q viamdevrc ~/.bashrc || echo "source ~/.viamdevrc" >> ~/.bashrc )
 	test -f ~/.zprofile && ( grep -q viamdevrc ~/.zprofile || echo "source ~/.viamdevrc" >> ~/.zprofile )
 	test -f ~/.zshrc && ( grep -q viamdevrc ~/.zshrc || echo "source ~/.viamdevrc" >> ~/.zshrc )
-
-	# We have some private repos for now so exclude them from https in order to utilize SSH keys.
-	git config --global --get-regexp url.ssh://git@github.com/viamrobotics > /dev/null
-	if [ $? -ne 0 ]; then
-		git config --global url.ssh://git@github.com/viamrobotics/rdk.insteadOf https://github.com/viamrobotics/rdk
-		git config --global url.ssh://git@github.com/viamrobotics/api.insteadOf https://github.com/viamrobotics/api
-	fi
-	mkdir -p ~/.ssh
-	grep -q github.com ~/.ssh/known_hosts || ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts
 }
 
 # This workaround is for https://viam.atlassian.net/browse/RSDK-526, without the application default credential file our tests will
