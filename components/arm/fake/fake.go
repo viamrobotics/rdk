@@ -36,10 +36,8 @@ type AttrConfig struct {
 
 func modelFromName(model, name string) (referenceframe.Model, error) {
 	switch resource.ModelName(model) {
-	case xarm.ModelName6DOF.Name:
-		return xarm.Model(name, 6)
-	case xarm.ModelName7DOF.Name:
-		return xarm.Model(name, 7)
+	case xarm.ModelName6DOF, xarm.ModelName7DOF, xarm.ModelNameLite:
+		return xarm.Model(name, model)
 	case ur.ModelName.Name:
 		return ur.Model(name)
 	case yahboom.ModelName.Name:

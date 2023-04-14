@@ -14,6 +14,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/encoder"
+	"go.viam.com/rdk/components/encoder/single"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/config"
@@ -72,7 +73,7 @@ func WrapMotorWithEncoder(
 		return nil, err
 	}
 
-	single, isSingle := rutils.UnwrapProxy(e).(*encoder.SingleEncoder)
+	single, isSingle := rutils.UnwrapProxy(e).(*single.Encoder)
 	if isSingle {
 		single.AttachDirectionalAwareness(mm)
 		logger.Info("direction attached to single encoder from encoded motor")
@@ -109,7 +110,6 @@ func newEncodedMotor(
 		activeBackgroundWorkers: &sync.WaitGroup{},
 		cfg:                     motorConfig,
 		real:                    localReal,
-		encoder:                 realEncoder,
 		cancelCtx:               cancelCtx,
 		cancel:                  cancel,
 		stateMu:                 &sync.RWMutex{},
@@ -119,6 +119,16 @@ func newEncodedMotor(
 		logger:                  logger,
 		loop:                    nil,
 	}
+
+	props, err := realEncoder.GetProperties(context.Background(), nil)
+	if err != nil {
+		return nil, errors.New("cannot get encoder properties")
+	}
+	if !props[encoder.TicksCountSupported] {
+		return nil,
+			encoder.NewEncodedMotorTypeUnsupportedError(props)
+	}
+	em.encoder = realEncoder
 
 	if len(motorConfig.ControlLoop.Blocks) != 0 {
 		cLoop, err := control.NewLoop(logger, motorConfig.ControlLoop, em)
@@ -198,7 +208,7 @@ type EncodedMotorState struct {
 
 // Position returns the position of the motor.
 func (m *EncodedMotor) Position(ctx context.Context, extra map[string]interface{}) (float64, error) {
-	ticks, err := m.encoder.TicksCount(ctx, extra)
+	ticks, _, err := m.encoder.GetPosition(ctx, nil, extra)
 	if err != nil {
 		return 0, err
 	}
@@ -303,7 +313,7 @@ func (m *EncodedMotor) rpmMonitor() {
 	m.startedRPMMonitor = true
 	m.startedRPMMonitorMu.Unlock()
 
-	lastPosFl, err := m.encoder.TicksCount(m.cancelCtx, nil)
+	lastPosFl, _, err := m.encoder.GetPosition(m.cancelCtx, nil, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -327,7 +337,7 @@ func (m *EncodedMotor) rpmMonitor() {
 		case <-timer.C:
 		}
 
-		pos, err := m.encoder.TicksCount(m.cancelCtx, nil)
+		pos, _, err := m.encoder.GetPosition(m.cancelCtx, nil, nil)
 		if err != nil {
 			m.logger.Info("error getting encoder position, sleeping then continuing: %w", err)
 			if !utils.SelectContextOrWait(m.cancelCtx, 100*time.Millisecond) {
@@ -563,7 +573,7 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions float
 
 	numTicks := int64(revolutions * float64(m.cfg.TicksPerRotation))
 
-	pos, err := m.encoder.TicksCount(ctx, nil)
+	pos, _, err := m.encoder.GetPosition(ctx, nil, nil)
 	if err != nil {
 		return err
 	}
@@ -712,5 +722,5 @@ func (m *EncodedMotor) GoTillStop(ctx context.Context, rpm float64, stopFunc fun
 // ResetZeroPosition sets the current position of the motor specified by the request
 // (adjusted by a given offset) to be its new zero position.
 func (m *EncodedMotor) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
-	return m.encoder.Reset(ctx, offset*float64(m.cfg.TicksPerRotation), extra)
+	return m.encoder.ResetPosition(ctx, extra)
 }
