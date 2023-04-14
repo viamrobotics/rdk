@@ -2,6 +2,7 @@ package inject
 
 import (
 	"context"
+	"errors"
 
 	commonv1 "go.viam.com/api/common/v1"
 	v1 "go.viam.com/api/service/slam/v1"
@@ -56,7 +57,6 @@ func (slamSvc *SLAMService) DoCommand(ctx context.Context,
 
 // SLAMServiceClient represents a fake instance of the client the slam service uses to communicate with the underlying SLAM algorithm.
 type SLAMServiceClient struct {
-	v1.SLAMServiceClient
 	GetPositionFunc func(ctx context.Context, in *v1.GetPositionRequest, opts ...grpc.CallOption) (
 		*v1.GetPositionResponse, error)
 	GetPointCloudMapFunc func(ctx context.Context, in *v1.GetPointCloudMapRequest, opts ...grpc.CallOption) (
@@ -72,7 +72,7 @@ func (slamSvcClient *SLAMServiceClient) GetPosition(ctx context.Context, in *v1.
 	*v1.GetPositionResponse, error,
 ) {
 	if slamSvcClient.GetPositionFunc == nil {
-		return slamSvcClient.SLAMServiceClient.GetPosition(ctx, in, opts...)
+		return nil, errors.New("no GetPositionFunc defined for injected SLAM service client")
 	}
 	return slamSvcClient.GetPositionFunc(ctx, in, opts...)
 }
@@ -82,7 +82,7 @@ func (slamSvcClient *SLAMServiceClient) GetPointCloudMap(ctx context.Context, in
 	v1.SLAMService_GetPointCloudMapClient, error,
 ) {
 	if slamSvcClient.GetPointCloudMapFunc == nil {
-		return slamSvcClient.SLAMServiceClient.GetPointCloudMap(ctx, in, opts...)
+		return nil, errors.New("no GetPointCloudMapFunc defined for injected SLAM service client")
 	}
 	return slamSvcClient.GetPointCloudMapFunc(ctx, in, opts...)
 }
@@ -92,7 +92,7 @@ func (slamSvcClient *SLAMServiceClient) GetInternalState(ctx context.Context, in
 	v1.SLAMService_GetInternalStateClient, error,
 ) {
 	if slamSvcClient.GetInternalStateFunc == nil {
-		return slamSvcClient.SLAMServiceClient.GetInternalState(ctx, in, opts...)
+		return nil, errors.New("no GetInternalState defined for injected SLAM service client")
 	}
 	return slamSvcClient.GetInternalStateFunc(ctx, in, opts...)
 }
@@ -102,7 +102,7 @@ func (slamSvcClient *SLAMServiceClient) DoCommand(ctx context.Context, in *commo
 	*commonv1.DoCommandResponse, error,
 ) {
 	if slamSvcClient.DoCommandFunc == nil {
-		return slamSvcClient.SLAMServiceClient.DoCommand(ctx, in, opts...)
+		return nil, errors.New("no DoCommand defined for injected SLAM service client")
 	}
 	return slamSvcClient.DoCommandFunc(ctx, in, opts...)
 }
