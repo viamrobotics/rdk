@@ -75,7 +75,6 @@ func init() {
 }
 
 func getOrCreateConnection(deps registry.Dependencies, config *AttrConfig) (*roboclaw.Roboclaw, error) {
-
 	// Check if a dependent component hs a roboclaw motor with the same serial config. This allows
 	// multiple motors to share the same controller without stepping on each other.
 	for _, res := range deps {
