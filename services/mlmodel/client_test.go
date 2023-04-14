@@ -34,10 +34,10 @@ func TestClient(t *testing.T) {
 	fakeModel := inject.NewMLModelService(testMLModelServiceName)
 	fakeModel.MetadataFunc = injectedMetadataFunc
 	fakeModel.InferFunc = injectedInferFunc
-	omMap := map[resource.Name]resource.Resource{
+	resources := map[resource.Name]resource.Resource{
 		mlmodel.Named(testMLModelServiceName): fakeModel,
 	}
-	svc, err := subtype.New(mlmodel.Subtype, omMap)
+	svc, err := subtype.New(mlmodel.Subtype, resources)
 	test.That(t, err, test.ShouldBeNil)
 	resourceSubtype, ok := registry.ResourceSubtypeLookup(mlmodel.Subtype)
 	test.That(t, ok, test.ShouldBeTrue)

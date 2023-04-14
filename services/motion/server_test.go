@@ -21,8 +21,8 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
-func newServer(omMap map[resource.Name]resource.Resource) (pb.MotionServiceServer, error) {
-	omSvc, err := subtype.New(motion.Subtype, omMap)
+func newServer(resources map[resource.Name]resource.Resource) (pb.MotionServiceServer, error) {
+	omSvc, err := subtype.New(motion.Subtype, resources)
 	if err != nil {
 		return nil, err
 	}
@@ -36,25 +36,25 @@ func TestServerMove(t *testing.T) {
 		Destination:   referenceframe.PoseInFrameToProtobuf(referenceframe.NewPoseInFrame("", spatialmath.NewZeroPose())),
 	}
 
-	omMap := map[resource.Name]resource.Resource{}
-	server, err := newServer(omMap)
+	resources := map[resource.Name]resource.Resource{}
+	server, err := newServer(resources)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = server.Move(context.Background(), grabRequest)
 	test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:service:motion/motion1\" not found"))
 
 	// set up the robot with something that is not an motion service
-	omMap = map[resource.Name]resource.Resource{testMotionServiceName: testutils.NewUnimplementedResource(testMotionServiceName)}
-	server, err = newServer(omMap)
+	resources = map[resource.Name]resource.Resource{testMotionServiceName: testutils.NewUnimplementedResource(testMotionServiceName)}
+	server, err = newServer(resources)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = server.Move(context.Background(), grabRequest)
 	test.That(t, err, test.ShouldBeError, resource.TypeError[motion.Service](testutils.NewUnimplementedResource(testMotionServiceName)))
 
 	// error
 	injectMS := &inject.MotionService{}
-	omMap = map[resource.Name]resource.Resource{
+	resources = map[resource.Name]resource.Resource{
 		testMotionServiceName: injectMS,
 	}
-	server, err = newServer(omMap)
+	server, err = newServer(resources)
 	test.That(t, err, test.ShouldBeNil)
 	passedErr := errors.New("fake move error")
 	injectMS.MoveFunc = func(
@@ -89,11 +89,11 @@ func TestServerMove(t *testing.T) {
 
 	// Multiple Servies names Valid
 	injectMS = &inject.MotionService{}
-	omMap = map[resource.Name]resource.Resource{
+	resources = map[resource.Name]resource.Resource{
 		testMotionServiceName:  injectMS,
 		testMotionServiceName2: injectMS,
 	}
-	server, _ = newServer(omMap)
+	server, _ = newServer(resources)
 	injectMS.MoveFunc = successfulMoveFunc
 	resp, err = server.Move(context.Background(), grabRequest)
 	test.That(t, err, test.ShouldBeNil)
