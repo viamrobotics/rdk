@@ -20,7 +20,6 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/services/mlmodel"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
@@ -41,10 +40,10 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	injectMS := &inject.MotionService{}
-	omMap := map[resource.Name]resource.Resource{
+	resources := map[resource.Name]resource.Resource{
 		testMotionServiceName: injectMS,
 	}
-	svc, err := subtype.New(mlmodel.Subtype, omMap)
+	svc, err := subtype.New(motion.Subtype, resources)
 	test.That(t, err, test.ShouldBeNil)
 	resourceSubtype, ok := registry.ResourceSubtypeLookup(motion.Subtype)
 	test.That(t, ok, test.ShouldBeTrue)

@@ -17,8 +17,8 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
-func newServer(omMap map[resource.Name]resource.Resource) (pb.MLModelServiceServer, error) {
-	omSvc, err := subtype.New(mlmodel.Subtype, omMap)
+func newServer(resources map[resource.Name]resource.Resource) (pb.MLModelServiceServer, error) {
+	omSvc, err := subtype.New(mlmodel.Subtype, resources)
 	if err != nil {
 		return nil, err
 	}
@@ -29,17 +29,17 @@ func TestServerNotFound(t *testing.T) {
 	metadataRequest := &pb.MetadataRequest{
 		Name: testMLModelServiceName,
 	}
-	omMap := map[resource.Name]resource.Resource{}
-	server, err := newServer(omMap)
+	resources := map[resource.Name]resource.Resource{}
+	server, err := newServer(resources)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = server.Metadata(context.Background(), metadataRequest)
 	test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:service:mlmodel/mlmodel1\" not found"))
 
 	// set up the robot with something that is not an ml Model service
-	omMap = map[resource.Name]resource.Resource{
+	resources = map[resource.Name]resource.Resource{
 		mlmodel.Named(testMLModelServiceName): testutils.NewUnimplementedResource(mlmodel.Named(testMLModelServiceName)),
 	}
-	server, err = newServer(omMap)
+	server, err = newServer(resources)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = server.Metadata(context.Background(), metadataRequest)
 	test.That(t,
@@ -55,11 +55,11 @@ func TestServerMetadata(t *testing.T) {
 
 	mockSrv := inject.NewMLModelService(testMLModelServiceName)
 	mockSrv.MetadataFunc = injectedMetadataFunc
-	omMap := map[resource.Name]resource.Resource{
+	resources := map[resource.Name]resource.Resource{
 		mlmodel.Named(testMLModelServiceName): mockSrv,
 	}
 
-	server, err := newServer(omMap)
+	server, err := newServer(resources)
 	test.That(t, err, test.ShouldBeNil)
 	resp, err := server.Metadata(context.Background(), metadataRequest)
 	test.That(t, err, test.ShouldBeNil)
@@ -79,11 +79,11 @@ func TestServerMetadata(t *testing.T) {
 	test.That(t, outInfo[3].GetShape(), test.ShouldResemble, []int32{4, 3, 1})
 
 	// Multiple Services names Valid
-	omMap = map[resource.Name]resource.Resource{
+	resources = map[resource.Name]resource.Resource{
 		mlmodel.Named(testMLModelServiceName):  mockSrv,
 		mlmodel.Named(testMLModelServiceName2): mockSrv,
 	}
-	server, err = newServer(omMap)
+	server, err = newServer(resources)
 	test.That(t, err, test.ShouldBeNil)
 	resp, err = server.Metadata(context.Background(), metadataRequest)
 	test.That(t, err, test.ShouldBeNil)
@@ -158,11 +158,11 @@ func TestServerInfer(t *testing.T) {
 
 	mockSrv := inject.NewMLModelService(testMLModelServiceName)
 	mockSrv.InferFunc = injectedInferFunc
-	omMap := map[resource.Name]resource.Resource{
+	resources := map[resource.Name]resource.Resource{
 		mlmodel.Named(testMLModelServiceName): mockSrv,
 	}
 
-	server, err := newServer(omMap)
+	server, err := newServer(resources)
 	test.That(t, err, test.ShouldBeNil)
 	resp, err := server.Infer(context.Background(), inferRequest)
 	test.That(t, err, test.ShouldBeNil)

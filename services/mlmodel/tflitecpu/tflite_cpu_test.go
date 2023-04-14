@@ -183,10 +183,10 @@ func TestTFLiteCPUClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, myModel, test.ShouldNotBeNil)
 
-	omMap := map[resource.Name]resource.Resource{
+	resources := map[resource.Name]resource.Resource{
 		mlmodel.Named("testName"): myModel,
 	}
-	svc, err := subtype.New(mlmodel.Subtype, omMap)
+	svc, err := subtype.New(mlmodel.Subtype, resources)
 	test.That(t, err, test.ShouldBeNil)
 	resourceSubtype, ok := registry.ResourceSubtypeLookup(mlmodel.Subtype)
 	test.That(t, ok, test.ShouldBeTrue)

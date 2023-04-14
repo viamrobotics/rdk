@@ -35,9 +35,9 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name resource.N
 	// TODO(DATA-853): requires that this support models being changed on the fly, not just at creation
 	// TODO(RSDK-882): will update this so that this is not necessary
 	r := robotpb.NewRobotServiceClient(conn)
-	model, hasModel, err := getModel(ctx, r, name.ShortNameForClient())
-	if err != nil {
-		return nil, err
+	model, modelErr := getModel(ctx, r, name.ShortNameForClient())
+	if modelErr != nil {
+		logger.Errorw("error getting model for arm; will not allow certain methods")
 	}
 	c := &client{
 		Named:  name.AsNamed(),
@@ -45,7 +45,7 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name resource.N
 		client: pbClient,
 		logger: logger,
 	}
-	if hasModel {
+	if modelErr != nil {
 		c.model = model
 	}
 	return c, nil
@@ -153,20 +153,20 @@ func (c *client) IsMoving(ctx context.Context) (bool, error) {
 	return resp.IsMoving, nil
 }
 
-func getModel(ctx context.Context, r robotpb.RobotServiceClient, name string) (referenceframe.Model, bool, error) {
+func getModel(ctx context.Context, r robotpb.RobotServiceClient, name string) (referenceframe.Model, error) {
 	resp, err := r.FrameSystemConfig(ctx, &robotpb.FrameSystemConfigRequest{})
 	if err != nil {
-		return nil, false, err
+		return nil, err
 	}
 	cfgs := resp.GetFrameSystemConfigs()
 	for _, cfg := range cfgs {
 		if cfg.GetFrame().GetReferenceFrame() == name {
 			part, err := referenceframe.ProtobufToFrameSystemPart(cfg)
 			if err == nil {
-				return part.ModelFrame, true, nil
+				return part.ModelFrame, nil
 			}
-			return nil, false, err
+			return nil, err
 		}
 	}
-	return nil, false, nil
+	return nil, nil
 }
