@@ -5,7 +5,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-	vutils "go.viam.com/utils"
+	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/encoder"
@@ -50,15 +50,18 @@ func (config *Config) Validate(path string) ([]string, error) {
 	var deps []string
 
 	if config.BoardName == "" {
-		return nil, vutils.NewConfigValidationFieldRequiredError(path, "board")
+		return nil, goutils.NewConfigValidationFieldRequiredError(path, "board")
 	}
 	deps = append(deps, config.BoardName)
 
 	// If an encoder is present the max_rpm field is optional, in the absence of an encoder the field is required
 	if config.Encoder != "" {
+		if config.TicksPerRotation <= 0 {
+			return nil, goutils.NewConfigValidationError(path, errors.New("ticks_per_rotation should be positive or zero"))
+		}
 		deps = append(deps, config.Encoder)
 	} else if config.MaxRPM <= 0 {
-		return nil, vutils.NewConfigValidationFieldRequiredError(path, "max_rpm")
+		return nil, goutils.NewConfigValidationFieldRequiredError(path, "max_rpm")
 	}
 	return deps, nil
 }
