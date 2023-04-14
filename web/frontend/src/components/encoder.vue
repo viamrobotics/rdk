@@ -15,7 +15,8 @@ const encoderClient = new EncoderClient(props.client, props.name, {
 });
 
 let properties = $ref<encoderApi.GetPropertiesResponse.AsObject | undefined>();
-let position = $ref<encoderApi.GetPositionResponse.AsObject | undefined>();
+let positionTicks = $ref<encoderApi.GetPositionResponse.AsObject | undefined>();
+let positionDegrees = $ref<encoderApi.GetPositionResponse.AsObject | undefined>();
 
 let refreshId = -1;
 
@@ -32,9 +33,25 @@ const refresh = () => {
         return displayError(err);
       }
 
-      position = resp!.toObject();
+      positionTicks = resp!.toObject();
     }
   );
+
+  if (properties!.angleDegreesSupported) {
+    req.setPositionType(2);
+    rcLogConditionally(req);
+    props.client.encoderService.getPosition(
+      req,
+      new grpc.Metadata(),
+      (err: ServiceError, resp: encoderApi.GetPositionResponse) => {
+        if (err) {
+          return displayError(err);
+        }
+
+        positionDegrees = resp!.toObject();
+      }
+    );
+  }
 
   refreshId = window.setTimeout(refresh, 500);
 };
@@ -81,7 +98,7 @@ onUnmounted(() => {
             Count
           </th>
           <td class="border border-black p-2">
-            {{ toRaw(position).value || 0 }}
+            {{ toRaw(positionTicks).value || 0 }}
           </td>
         </tr>
         <tr
@@ -92,7 +109,7 @@ onUnmounted(() => {
             Angle (degrees)
           </th>
           <td class="border border-black p-2">
-            {{ toRaw(position).value || 0 }}
+            {{ toRaw(positionDegrees).value || 0 }}
           </td>
         </tr>
       </table>
