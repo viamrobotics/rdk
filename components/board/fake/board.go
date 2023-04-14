@@ -24,7 +24,7 @@ import (
 
 var _ = board.LocalBoard(&Board{})
 
-// A Config describes the configuration of an arduino board and all of its connected parts.
+// A Config describes the configuration of a fake board and all of its connected parts.
 type Config struct {
 	I2Cs              []board.I2CConfig              `json:"i2cs,omitempty"`
 	SPIs              []board.SPIConfig              `json:"spis,omitempty"`

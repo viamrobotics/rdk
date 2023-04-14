@@ -37,7 +37,7 @@ func TestClient(t *testing.T) {
 	resourceSubtype := registry.ResourceSubtypeLookup(mlmodel.Subtype)
 	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, svc)
 	inputData := map[string]interface{}{
-		"image": [][]uint8{{10, 10, 255, 0, 0, 255, 255, 0, 100}},
+		"image": []uint8{10, 10, 255, 0, 0, 255, 255, 0, 100},
 	}
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()
@@ -86,6 +86,7 @@ func TestClient(t *testing.T) {
 		t.Logf("inputs: %v", meta.Inputs)
 		test.That(t, len(meta.Inputs), test.ShouldEqual, 1)
 		test.That(t, len(meta.Outputs), test.ShouldEqual, 4)
+		test.That(t, meta.Inputs[0].Shape, test.ShouldResemble, []int{300, 200})
 		outInfo := meta.Outputs
 		test.That(t, outInfo[0].Name, test.ShouldEqual, "n_detections")
 		test.That(t, len(outInfo[0].AssociatedFiles), test.ShouldEqual, 0)
@@ -94,7 +95,6 @@ func TestClient(t *testing.T) {
 		test.That(t, outInfo[2].AssociatedFiles[0].Name, test.ShouldEqual, "category_labels.txt")
 		test.That(t, outInfo[2].AssociatedFiles[0].LabelType, test.ShouldEqual, mlmodel.LabelTypeTensorValue)
 		test.That(t, outInfo[3].Name, test.ShouldEqual, "locations")
-		test.That(t, len(outInfo[3].Shape), test.ShouldEqual, 3)
 		test.That(t, outInfo[3].Shape, test.ShouldResemble, []int{4, 3, 1})
 
 		// close the client

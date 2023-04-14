@@ -5,6 +5,7 @@ package builtin
 import (
 	"bufio"
 	"context"
+	"go.viam.com/rdk/rimage"
 	"image"
 	"os"
 	fp "path/filepath"
@@ -145,14 +146,14 @@ func tfliteInfer(ctx context.Context, model *inf.TFLiteStruct, image image.Image
 	// Converts the image to bytes before sending it off
 	switch model.Info.InputTensorType {
 	case inf.UInt8:
-		imgBuff := ImageToUInt8Buffer(image)
+		imgBuff := rimage.ImageToUInt8Buffer(image)
 		out, err := model.Infer(imgBuff)
 		if err != nil {
 			return nil, errors.Wrap(err, "couldn't infer from model")
 		}
 		return out, nil
 	case inf.Float32:
-		imgBuff := ImageToFloatBuffer(image)
+		imgBuff := rimage.ImageToFloatBuffer(image)
 		out, err := model.Infer(imgBuff)
 		if err != nil {
 			return nil, errors.Wrap(err, "couldn't infer from model")
@@ -161,51 +162,6 @@ func tfliteInfer(ctx context.Context, model *inf.TFLiteStruct, image image.Image
 	default:
 		return nil, errors.New("invalid input type. try uint8 or float32")
 	}
-}
-
-// ImageToUInt8Buffer reads an image into a byte slice in the most common sense way.
-// Left to right like a book; R, then G, then B. No funny stuff. Assumes values should be between 0-255.
-func ImageToUInt8Buffer(img image.Image) []byte {
-	output := make([]byte, img.Bounds().Dx()*img.Bounds().Dy()*3)
-	for y := 0; y < img.Bounds().Dy(); y++ {
-		for x := 0; x < img.Bounds().Dx(); x++ {
-			r, g, b, a := img.At(x, y).RGBA()
-			rr, gg, bb, _ := rgbaTo8Bit(r, g, b, a)
-			output[(y*img.Bounds().Dx()+x)*3+0] = rr
-			output[(y*img.Bounds().Dx()+x)*3+1] = gg
-			output[(y*img.Bounds().Dx()+x)*3+2] = bb
-		}
-	}
-	return output
-}
-
-// ImageToFloatBuffer reads an image into a byte slice (buffer) the most common sense way.
-// Left to right like a book; R, then G, then B. No funny stuff. Assumes values between -1 and 1.
-func ImageToFloatBuffer(img image.Image) []float32 {
-	output := make([]float32, img.Bounds().Dx()*img.Bounds().Dy()*3)
-	for y := 0; y < img.Bounds().Dy(); y++ {
-		for x := 0; x < img.Bounds().Dx(); x++ {
-			r, g, b, a := img.At(x, y).RGBA()
-			rr, gg, bb := float32(r)/float32(a)*2-1, float32(g)/float32(a)*2-1, float32(b)/float32(a)*2-1
-			output[(y*img.Bounds().Dx()+x)*3+0] = rr
-			output[(y*img.Bounds().Dx()+x)*3+1] = gg
-			output[(y*img.Bounds().Dx()+x)*3+2] = bb
-		}
-	}
-	return output
-}
-
-// rgbaTo8Bit converts the uint32s from RGBA() to uint8s.
-func rgbaTo8Bit(r, g, b, a uint32) (rr, gg, bb, aa uint8) {
-	r >>= 8
-	rr = uint8(r)
-	g >>= 8
-	gg = uint8(g)
-	b >>= 8
-	bb = uint8(b)
-	a >>= 8
-	aa = uint8(a)
-	return
 }
 
 // unpackTensors takes the model's output tensors as input and reshapes them into objdet.Detections.
