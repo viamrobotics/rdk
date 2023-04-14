@@ -292,6 +292,7 @@ func gpioInitialize(cancelCtx context.Context, gpioMappings map[int]GPIOBoardMap
 ) (map[string]*gpioPin, map[string]*digitalInterrupt, error) {
 	interrupts := make(map[string]*digitalInterrupt, len(interruptConfigs))
 	for _, config := range interruptConfigs {
+		// The createDigitalInterrupt function is in digital_interrupts.go
 		interrupt, err := createDigitalInterrupt(cancelCtx, config, gpioMappings, waitGroup)
 		if err != nil {
 			// Close all pins we've started
