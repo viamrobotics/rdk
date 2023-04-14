@@ -339,7 +339,7 @@ func (wb *wheeledBase) IsMoving(ctx context.Context) (bool, error) {
 	return false, nil
 }
 
-// Close is called from the client to close the instance of the wb.
+// Close is called from the client to close the instance of the wheeledBase.
 func (wb *wheeledBase) Close(ctx context.Context) error {
 	return wb.Stop(ctx, nil)
 }
