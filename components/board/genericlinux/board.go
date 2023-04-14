@@ -254,11 +254,44 @@ func (b *sysfsBoard) AnalogReaderByName(name string) (board.AnalogReader, bool) 
 }
 
 func (b *sysfsBoard) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool) {
-	// TODO(RSDK-2345): If the name is numerical and doesn't already exist, create it here anyway.
+	if b.usePeriphGpio {
+		return nil, false // Digital interrupts aren't supported.
+	}
+
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
 	interrupt, ok := b.interrupts[name]
+	if ok {
+		return interrupt.interrupt, true
+	}
+
+	// Otherwise, the name is not something we recognize yet. If it appears to be a GPIO pin, we'll
+	// remove its GPIO capabilities and turn it into a digital interrupt.
+	gpio, ok := b.gpios[name]
 	if !ok {
 		return nil, false
 	}
+	if err := gpio.Close(); err != nil {
+		b.logger.Errorf("Unable to close GPIO pin to use as interrupt: %s", err)
+		return nil, false
+	}
+
+	const defaultInterruptType = "basic"
+	defaultInterruptConfig := board.DigitalInterruptConfig{
+		Name: name,
+		Pin:  name,
+		Type: defaultInterruptType,
+	}
+	interrupt, err := createDigitalInterrupt(b.cancelCtx, defaultInterruptConfig, b.gpioMappings,
+		&b.activeBackgroundWorkers)
+	if err != nil {
+		b.logger.Errorf("Unable to create digital interrupt pin on the fly: %s", err)
+		return nil, false
+	}
+
+	delete(b.gpios, name)
+	b.interrupts[name] = interrupt
 	return interrupt.interrupt, true
 }
 
@@ -293,7 +326,15 @@ func (b *sysfsBoard) AnalogReaderNames() []string {
 }
 
 func (b *sysfsBoard) DigitalInterruptNames() []string {
-	return nil
+	if b.interrupts == nil {
+		return nil
+	}
+
+	names := []string{}
+	for name := range b.interrupts {
+		names = append(names, name)
+	}
+	return names
 }
 
 func (b *sysfsBoard) GPIOPinNames() []string {
