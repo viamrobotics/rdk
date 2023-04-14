@@ -84,7 +84,7 @@ const fetchSLAMPose = (name: string): Promise<commonApi.Pose> => {
     props.client.slamService.getPosition(
       req,
       new grpc.Metadata(),
-      (error: ServiceError, res: slamApi.GetPositionResponse): void => {
+      (error: ServiceError | null, res: slamApi.GetPositionResponse | null): void => {
         if (error) {
           reject(error);
           return;
