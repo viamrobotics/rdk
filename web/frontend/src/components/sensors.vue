@@ -42,7 +42,7 @@ const getReadings = (inputNames: SensorName[]) => {
 
   rcLogConditionally(req);
   props.client.sensorsService.getReadings(
-    req, new grpc.Metadata(), (error: ServiceError, response: sensorsApi.GetReadingsResponse) => {
+    req, new grpc.Metadata(), (error: ServiceError | null, response: sensorsApi.GetReadingsResponse | null) => {
       if (error) {
         toast.error(error.message);
         return;
