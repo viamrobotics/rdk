@@ -239,7 +239,7 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string
 		return m.setPWM(ctx, powerPct, extra)
 	}
 
-	return errors.New("trying to go backwards but don't have dir or a&b pins")
+	return errors.New("trying to go backwards but don't have dir or a/in1&b/in2 pins")
 }
 
 // If revolutions is 0, the returned wait duration will be 0 representing that
@@ -275,8 +275,7 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 	}
 
 	powerPct, waitDur := goForMath(m.maxRPM, rpm, revolutions)
-	err := m.SetPower(ctx, powerPct, extra)
-	if err != nil {
+	if err := m.SetPower(ctx, powerPct, extra); err != nil {
 		return errors.Wrapf(err, "error in GoFor from motor (%s)", m.motorName)
 	}
 

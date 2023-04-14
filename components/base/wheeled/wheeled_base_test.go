@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/base"
@@ -21,7 +22,7 @@ var testCfg config.Component = config.Component{
 	Name:  "test",
 	Type:  base.Subtype.ResourceSubtype,
 	Model: resource.Model{Name: "wheeled_base"},
-	ConvertedAttributes: &AttrConfig{
+	ConvertedAttributes: &Config{
 		WidthMM:              100,
 		WheelCircumferenceMM: 1000,
 		Left:                 []string{"fl-m", "bl-m"},
@@ -50,7 +51,7 @@ func TestWheelBaseMath(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	motorDeps := fakeMotorDependencies(t, deps)
 
-	baseBase, err := CreateWheeledBase(context.Background(), motorDeps, testCfg, logger)
+	baseBase, err := createWheeledBase(context.Background(), motorDeps, testCfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, baseBase, test.ShouldNotBeNil)
 	base, ok := baseBase.(*wheeledBase)
@@ -60,6 +61,21 @@ func TestWheelBaseMath(t *testing.T) {
 		temp, err := base.Width(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, temp, test.ShouldEqual, 100)
+
+		test.That(t,
+			base.SetPower(ctx, r3.Vector{X: 0, Y: 0, Z: 0}, r3.Vector{X: 0, Y: 0, Z: 1}, nil),
+			test.ShouldBeNil)
+
+		test.That(t,
+			base.SetVelocity(ctx, r3.Vector{X: 0, Y: 0, Z: 0}, r3.Vector{X: 0, Y: 0, Z: 1}, nil),
+			test.ShouldBeNil)
+
+		moving, err := base.IsMoving(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, moving, test.ShouldBeTrue)
+
+		test.That(t, base.Stop(ctx, nil), test.ShouldBeNil)
+		test.That(t, base.Close(ctx), test.ShouldBeNil)
 	})
 
 	t.Run("math_straight", func(t *testing.T) {
@@ -294,12 +310,12 @@ func TestWheeledBaseConstructor(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
 	// empty config
-	cfg := &AttrConfig{}
+	cfg := &Config{}
 	_, err := cfg.Validate("path")
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// invalid config
-	cfg = &AttrConfig{
+	cfg = &Config{
 		WidthMM:              100,
 		WheelCircumferenceMM: 1000,
 		Left:                 []string{"fl-m", "bl-m"},
@@ -313,7 +329,7 @@ func TestWheeledBaseConstructor(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	motorDeps := fakeMotorDependencies(t, deps)
 
-	baseBase, err := CreateWheeledBase(ctx, motorDeps, testCfg, logger)
+	baseBase, err := createWheeledBase(ctx, motorDeps, testCfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	base, ok := baseBase.(*wheeledBase)
 	test.That(t, ok, test.ShouldBeTrue)
@@ -323,7 +339,7 @@ func TestWheeledBaseConstructor(t *testing.T) {
 }
 
 func TestValidate(t *testing.T) {
-	cfg := &AttrConfig{}
+	cfg := &Config{}
 	deps, err := cfg.Validate("path")
 	test.That(t, deps, test.ShouldBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "\"width_mm\" is required")

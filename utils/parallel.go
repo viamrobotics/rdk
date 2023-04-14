@@ -124,7 +124,7 @@ func ParallelForEachPixel(size image.Point, f func(x, y int)) {
 // SimpleFunc is for RunInParallel.
 type SimpleFunc func(ctx context.Context) error
 
-// RunInParallel runs all functions in parallel, return is elapsed time and n error.
+// RunInParallel runs all functions in parallel, return is elapsed time and an error.
 func RunInParallel(ctx context.Context, fs []SimpleFunc) (time.Duration, error) {
 	start := time.Now()
 	ctx, cancel := context.WithCancel(ctx)
