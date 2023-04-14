@@ -157,7 +157,7 @@ func (base *wheeledBase) runAll(ctx context.Context, leftRPM, leftRotations, rig
 		fs = append(fs, func(ctx context.Context) error { return m.GoFor(ctx, rightRPM, rightRotations, nil) })
 	}
 
-	if _, err := rdkutils.RunInParallel(ctx, fs); err != nil {
+	if _, err := rdkutils.RunInParallel(ctx, fs); err != nil && !errors.Is(err, context.Canceled) {
 		return multierr.Combine(err, base.Stop(ctx, nil))
 	}
 	return nil

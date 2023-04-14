@@ -62,15 +62,7 @@ func (server *subtypeServer) GoFor(
 		return nil, errors.Errorf("no motor (%s) found", motorName)
 	}
 
-	// erh: this isn't right semantically.
-	// GoFor with 0 rotations means something important.
-	rVal := 0.0
-	revolutions := req.GetRevolutions()
-	if revolutions != 0 {
-		rVal = revolutions
-	}
-
-	return &pb.GoForResponse{}, motor.GoFor(ctx, req.GetRpm(), rVal, req.Extra.AsMap())
+	return &pb.GoForResponse{}, motor.GoFor(ctx, req.GetRpm(), req.GetRevolutions(), req.Extra.AsMap())
 }
 
 // GetPosition reports the position of the motor of the underlying robot
