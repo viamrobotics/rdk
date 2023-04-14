@@ -306,7 +306,7 @@ func (g *gamepad) connectDev(ctx context.Context) error {
 		}
 		name := dev.Name()
 		name = strings.TrimSpace(name)
-		mapping, ok := GamepadMappings[name]
+		mapping, ok := MappingForModel(name)
 		if ok {
 			g.logger.Infof("found known gamepad: '%s' at %s", name, n)
 			g.dev = dev
@@ -333,7 +333,7 @@ func (g *gamepad) connectDev(ctx context.Context) error {
 				g.logger.Infof("no button mapping for '%s', using default: '%s'", name, defaultMapping)
 				g.dev = dev
 				g.Model = g.dev.Name()
-				g.Mapping = GamepadMappings[defaultMapping]
+				g.Mapping, _ = MappingForModel(defaultMapping)
 				break
 			} else {
 				if err := dev.Close(); err != nil {

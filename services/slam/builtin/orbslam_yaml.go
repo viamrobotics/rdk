@@ -1,4 +1,3 @@
-// This is an Experimental package
 package builtin
 
 import (

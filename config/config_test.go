@@ -24,7 +24,7 @@ import (
 
 	"go.viam.com/rdk/components/board"
 	fakeboard "go.viam.com/rdk/components/board/fake"
-	"go.viam.com/rdk/components/encoder"
+	"go.viam.com/rdk/components/encoder/incremental"
 	fakemotor "go.viam.com/rdk/components/motor/fake"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/referenceframe"
@@ -106,8 +106,8 @@ func TestConfig3(t *testing.T) {
 		MaxPowerPct:      0.5,
 		TicksPerRotation: 10000,
 	})
-	test.That(t, cfg.Components[3].ConvertedAttributes, test.ShouldResemble, &encoder.IncrementalConfig{
-		Pins: encoder.IncrementalPins{
+	test.That(t, cfg.Components[3].ConvertedAttributes, test.ShouldResemble, &incremental.AttrConfig{
+		Pins: incremental.Pins{
 			A: "encoder-steering-b",
 			B: "encoder-steering-a",
 		},

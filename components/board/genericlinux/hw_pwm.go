@@ -14,6 +14,11 @@ import (
 	"github.com/pkg/errors"
 )
 
+// There are times when we need to set the period to some value, any value. It must be a positive
+// number of nanoseconds, but some boards (e.g., the Jetson Orin) cannot tolerate periods below 1
+// microsecond. We'll use 1 millisecond, for added confidence that all boards should support it.
+const safePeriodNs = 1e6
+
 type pwmDevice struct {
 	chipPath string
 	line     int
@@ -123,15 +128,26 @@ func (pwm *pwmDevice) SetPwm(freqHz uint, dutyCycle float64) (err error) {
 	if err := pwm.export(); err != nil {
 		return err
 	}
-	if err := pwm.disable(); err != nil {
-		// This is (surprisingly) okay: disabling the pin will return errors if its period and
-		// active duration are 0, for example when they haven't been set since the last time the
-		// system was rebooted. If the error was something more serious than that, we'll encounter
-		// it again later in this function, and will return it then. (Note: disabling the pin will
-		// not return errors if the period and active duration are nonzero, even if the pin is
-		// already disabled!)
-		pwm.logger.Debugf("Ignoring trouble disabling HW PWM device %s line %d: %s",
+
+	// Intuitively, we should disable the pin, set the new parameters, and then enable it again.
+	// However, the BeagleBone AI64 has a weird quirk where you need to enable the pin *before* you
+	// set the parameters, because enabling it afterwards sets the pin constantly high until the
+	// period or duty cycle is modified again. So, enable the PWM signal first and *then* set it to
+	// the correct values. This shouldn't hurt anything on the other boards; it's just not the
+	// intuitive order.
+	if err := pwm.enable(); err != nil {
+		// If the board is newly booted up, the period (and everything else) might be initialized
+		// to 0, and enabling the pin with a period of 0 results in errors. Let's try making the
+		// period non-zero and enabling it again.
+		pwm.logger.Debugf("Cannot enable HW PWM device %s line %d, will try changing period: %s",
 			pwm.chipPath, pwm.line, err)
+		if err := pwm.writeLine("period", safePeriodNs); err != nil {
+			return err
+		}
+		// Now, try enabling the pin one more time before giving up.
+		if err := pwm.enable(); err != nil {
+			return err
+		}
 	}
 
 	// Sysfs has a pseudofile named duty_cycle which contains the number of nanoseconds that the
@@ -141,23 +157,35 @@ func (pwm *pwmDevice) SetPwm(freqHz uint, dutyCycle float64) (err error) {
 	activeDurationNs := uint64(float64(periodNs) * dutyCycle)
 
 	// If we ever try setting the active duration higher than the period (or the period lower than
-	// the active duration), we will get an error. Try setting one, then the other, then the first
-	// one again. If the first of those three had errors by being too small/large, the last one
-	// should take care of it. So, we purposely ignore any errors on the first value we try to
-	// write.
-	if err := pwm.writeLine("period", periodNs); err != nil {
-		// This is okay; we'll change the active duration and then try setting the period again.
-		pwm.logger.Debugf("Ignoring trouble setting the period on HW PWM device %s line %d: %s",
-			pwm.chipPath, pwm.line, err)
+	// the active duration), we will get an error. So, make sure we never do that!
+
+	// The BeagleBone has a weird quirk where, if you don't change the period or active duration
+	// after enabling the PWM line, it just goes high and stays there, rather than blinking at the
+	// intended rate. To avoid this, we first set the active duration to 0 and the period to 1
+	// microsecond, and then set the period and active duration to their intended values. That way,
+	// if you turn the PWM signal off and on again, it still works because you've changed the
+	// values after (re-)enabling the line.
+
+	// Setting the active duration to 0 should always work: this is guaranteed to be less than the
+	// period.
+	if err := pwm.writeLine("duty_cycle", 0); err != nil {
+		return err
 	}
+	// Now that the active duration is 0, setting the period to any number should work.
+	if err := pwm.writeLine("period", safePeriodNs); err != nil {
+		return err
+	}
+	// Same thing here: the active duration is 0, so any value should work for the period.
+	if err := pwm.writeLine("period", periodNs); err != nil {
+		return err
+	}
+	// Now that the period is set to its intended value, there should be no trouble setting the
+	// active duration, which is guaranteed to be at most the period.
 	if err := pwm.writeLine("duty_cycle", activeDurationNs); err != nil {
 		return err
 	}
-	if err := pwm.writeLine("period", periodNs); err != nil {
-		return err
-	}
 
-	return pwm.enable()
+	return nil
 }
 
 func (pwm *pwmDevice) Close() error {

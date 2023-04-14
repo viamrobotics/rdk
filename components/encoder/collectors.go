@@ -33,7 +33,7 @@ func newTicksCountCollector(resource interface{}, params data.CollectorParams) (
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
-		v, err := encoder.TicksCount(ctx, nil)
+		v, _, err := encoder.GetPosition(ctx, nil, nil)
 		if err != nil {
 			return nil, data.FailedToReadErr(params.ComponentName, ticksCount.String(), err)
 		}
