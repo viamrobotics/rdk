@@ -1,4 +1,4 @@
-name: Build AppImage
+name: Build Semi-Static Binary
 
 on:
   workflow_dispatch:
@@ -11,16 +11,16 @@ env:
   GOPRIVATE: "github.com/viamrobotics/*,go.viam.com/*"
 
 jobs:
-  appimage:
-    name: AppImage Build
+  static:
+    name: Antique Build
     strategy:
       matrix:
         include:
           - arch: [x64, qemu-host]
-            image: ghcr.io/viamrobotics/canon-test:amd64-cache
+            image: ghcr.io/viamrobotics/antique:amd64
             platform: linux/amd64
           - arch: [arm64, qemu-host]
-            image: ghcr.io/viamrobotics/canon-test:arm64-cache
+            image: ghcr.io/viamrobotics/antique:arm64
             platform: linux/arm64
     runs-on: ${{ matrix.arch }}
     container:
@@ -53,51 +53,51 @@ jobs:
       with:
         credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
 
-    - name: Build and Package (PR)
-      if: contains(github.event.pull_request.labels.*.name, 'appimage') || contains(github.event.pull_request.labels.*.name, 'appimage-ignore-tests')
+    - name: Build (PR)
+      if: contains(github.event.pull_request.labels.*.name, 'static-build') || contains(github.event.pull_request.labels.*.name, 'static-ignore-tests')
       run: |
-        make BUILD_CHANNEL="pr-${{ github.event.pull_request.number }}" appimage
+        make BUILD_CHANNEL="pr-${{ github.event.pull_request.number }}" static-release
 
     - name: Upload Files (PR)
-      if: contains(github.event.pull_request.labels.*.name, 'appimage') || contains(github.event.pull_request.labels.*.name, 'appimage-ignore-tests')
+      if: contains(github.event.pull_request.labels.*.name, 'static-build') || contains(github.event.pull_request.labels.*.name, 'static-ignore-tests')
       uses: google-github-actions/upload-cloud-storage@v0.10.4
       with:
         headers: "cache-control: no-cache"
-        path: 'etc/packaging/appimages/deploy/'
+        path: 'bin/'
         destination: 'packages.viam.com/apps/viam-server/'
-        glob: '*'
+        glob: 'viam-server-*'
         parent: false
         gzip: false
 
-    - name: Build and Package (Latest)
+    - name: Build (Latest)
       id: build_test_app
       if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
       run: |
         echo "date=`date +%F`" >> $GITHUB_OUTPUT
-        make BUILD_CHANNEL="latest" appimage
+        make BUILD_CHANNEL="latest" static-release
 
     - name: Upload Files (Testing)
       if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
       uses: google-github-actions/upload-cloud-storage@v0.10.4
       with:
         headers: "cache-control: no-cache"
-        path: 'etc/packaging/appimages/deploy/'
+        path: 'bin/'
         destination: 'packages.viam.com/apps/viam-server/testing/${{ steps.build_test_app.outputs.date }}/${{ github.sha }}/'
-        glob: '*'
+        glob: 'viam-server-*'
         parent: false
         gzip: false
 
-  appimage_test:
-    name: AppImage Test
+  static_test:
+    name: Static Test
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
     strategy:
       matrix:
         arch: [[x64, qemu-host], [arm64, qemu-host]]
-    needs: appimage
+    needs: static
     runs-on: ${{ matrix.arch }}
     timeout-minutes: 15
     outputs:
-      date: ${{ needs.appimage.outputs.date }}
+      date: ${{ needs.static.outputs.date }}
 
     steps:
     - name: Clean Workspace
@@ -106,12 +106,12 @@ jobs:
         sudo chown -R `whoami` ./
         rm -rf ./*
 
-    - name: Test AppImage
+    - name: Test Static Binary
       run: |
         export TEST_DIR=`mktemp -d -t test-viam-server-XXXXXX`
         cd $TEST_DIR
 
-        curl -o viam-server http://packages.viam.com/apps/viam-server/testing/${{ needs.appimage.outputs.date }}/${{ github.sha }}/viam-server-latest-`uname -m`.AppImage
+        curl -o viam-server http://packages.viam.com/apps/viam-server/testing/${{ needs.static.outputs.date }}/${{ github.sha }}/viam-server-latest-`uname -m`
         chmod 755 viam-server
 
         export RAND_PORT=$((30000 + $RANDOM))
@@ -126,9 +126,9 @@ jobs:
         cd - && rm -rf $TEST_DIR
         [ $RET1 == 0 ] && [ $RET1 == 0 ]
 
-  appimage_deploy:
-    name: AppImage Deploy
-    needs: appimage_test
+  static_deploy:
+    name: Static Deploy
+    needs: static_test
     runs-on: ubuntu-latest
 
     steps:
@@ -140,6 +140,6 @@ jobs:
     - name: Set up Cloud SDK
       uses: google-github-actions/setup-gcloud@v1
 
-    - name: Publish AppImage
+    - name: Publish Static Binary
       run: |
-        gsutil mv "gs://packages.viam.com/apps/viam-server/testing/${{ needs.appimage_test.outputs.date }}/${{ github.sha }}/*" "gs://packages.viam.com/apps/viam-server/"
+        gsutil mv "gs://packages.viam.com/apps/viam-server/testing/${{ needs.static_test.outputs.date }}/${{ github.sha }}/*" "gs://packages.viam.com/apps/viam-server/"

@@ -18,3 +18,9 @@ appimage-arm64:
 
 appimage-deploy:
 	gsutil -m -h "Cache-Control: no-cache" cp etc/packaging/appimages/deploy/* gs://packages.viam.com/apps/viam-server/
+
+static-release: server-static
+	rm -rf etc/packaging/static/deploy/
+	mkdir -p etc/packaging/static/deploy/
+	cp $(BIN_OUTPUT_PATH)/viam-server etc/packaging/static/deploy/viam-server-${BUILD_CHANNEL}-$(shell uname -m)
+	cd etc/packaging/appimages && ./package_release.sh
