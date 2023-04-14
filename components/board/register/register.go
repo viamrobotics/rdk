@@ -3,7 +3,6 @@ package register
 
 import (
 	// for boards.
-	_ "go.viam.com/rdk/components/board/arduino"
 	_ "go.viam.com/rdk/components/board/beaglebone"
 	_ "go.viam.com/rdk/components/board/fake"
 	_ "go.viam.com/rdk/components/board/hat/pca9685"
