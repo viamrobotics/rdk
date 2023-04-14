@@ -9,7 +9,7 @@ jobs:
     name:  Motion Benchmarks
     runs-on: [x64, qemu-host]
     container:
-      image: ghcr.io/viamrobotics/canon-test:amd64-cache
+      image: ghcr.io/viamrobotics/canon-test:amd64
       options: --platform linux/amd64
     timeout-minutes: 30
     env:

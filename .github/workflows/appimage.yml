@@ -17,10 +17,10 @@ jobs:
       matrix:
         include:
           - arch: [x64, qemu-host]
-            image: ghcr.io/viamrobotics/canon-test:amd64-cache
+            image: ghcr.io/viamrobotics/canon-test:amd64
             platform: linux/amd64
           - arch: [arm64, qemu-host]
-            image: ghcr.io/viamrobotics/canon-test:arm64-cache
+            image: ghcr.io/viamrobotics/canon-test:arm64
             platform: linux/arm64
     runs-on: ${{ matrix.arch }}
     container:
