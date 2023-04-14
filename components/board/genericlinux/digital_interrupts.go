@@ -1,7 +1,7 @@
 //go:build linux
 
-// Package genericlinux is for Linux boards, and this particular file is for GPIO pins using the
-// ioctl interface, indirectly by way of mkch's gpio package.
+// Package genericlinux is for Linux boards, and this particular file is for digital interrupt pins
+// using the ioctl interface, indirectly by way of mkch's gpio package.
 package genericlinux
 
 import (
