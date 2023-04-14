@@ -80,7 +80,7 @@ type CameraConfig struct {
 }
 
 // Discover webcam attributes.
-func Discover(ctx context.Context, getDrivers func() []driver.Driver) (*pb.Webcams, error) {
+func Discover(_ context.Context, getDrivers func() []driver.Driver) (*pb.Webcams, error) {
 	var webcams []*pb.Webcam
 	drivers := getDrivers()
 	for _, d := range drivers {
@@ -102,7 +102,19 @@ func Discover(ctx context.Context, getDrivers func() []driver.Driver) (*pb.Webca
 
 		labelParts := strings.Split(driverInfo.Label, mediadevicescamera.LabelSeparator)
 		label := labelParts[0]
+
+		name, id := func() (string, string) {
+			nameParts := strings.Split(driverInfo.Name, mediadevicescamera.LabelSeparator)
+			if len(nameParts) > 1 {
+				return nameParts[0], nameParts[1]
+			}
+			// fallback to the label if the name does not have an any additional parts to use.
+			return nameParts[0], label
+		}()
+
 		wc := &pb.Webcam{
+			Name:       name,
+			Id:         id,
 			Label:      label,
 			Status:     string(d.Status()),
 			Properties: make([]*pb.Property, 0, len(d.Properties())),
