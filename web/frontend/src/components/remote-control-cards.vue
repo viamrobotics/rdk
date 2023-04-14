@@ -309,7 +309,7 @@ const queryMetadata = () => {
             resourceNameToString(name))
         );
         const resourceSet: Set<string> = new Set(
-          resourcesList.map((name: string) => resourceNameToString(name))
+          resourcesList.map((name: commonApi.ResourceName.AsObject) => resourceNameToString(name))
         );
 
         for (const elem of resourceSet) {
