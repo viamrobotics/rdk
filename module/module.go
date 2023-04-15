@@ -151,7 +151,7 @@ func NewModule(ctx context.Context, address string, logger *zap.SugaredLogger) (
 
 // NewModuleFromArgs directly parses the command line argument to get its address.
 func NewModuleFromArgs(ctx context.Context, logger *zap.SugaredLogger) (*Module, error) {
-	if len(os.Args) != 2 {
+	if len(os.Args) < 2 {
 		return nil, errors.New("need socket path as command line argument")
 	}
 	return NewModule(ctx, os.Args[1], logger)
