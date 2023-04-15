@@ -25,11 +25,11 @@ jobs:
   slam_integration_test:
     uses: viamrobotics/rdk/.github/workflows/slam-integration-test.yml@static-build
 
-  # appimage:
-  #   needs: test
-  #   uses: viamrobotics/rdk/.github/workflows/appimage.yml@static-build
-  #   secrets:
-  #     GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
+  appimage:
+    needs: test
+    uses: viamrobotics/rdk/.github/workflows/appimage.yml@static-build
+    secrets:
+      GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
   staticbuild:
     needs: test
