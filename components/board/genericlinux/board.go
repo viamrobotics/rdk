@@ -383,7 +383,7 @@ func (b *sysfsBoard) DigitalInterruptByName(name string) (board.DigitalInterrupt
 		return nil, false
 	}
 	if err := gpio.Close(); err != nil {
-		b.logger.Errorf("Unable to close GPIO pin to use as interrupt: %s", err)
+		b.logger.Errorw("failed to close GPIO pin to use as interrupt", "error", err)
 		return nil, false
 	}
 
@@ -395,7 +395,7 @@ func (b *sysfsBoard) DigitalInterruptByName(name string) (board.DigitalInterrupt
 	}
 	interrupt, err := b.createDigitalInterrupt(b.cancelCtx, defaultInterruptConfig, b.gpioMappings)
 	if err != nil {
-		b.logger.Errorf("Unable to create digital interrupt pin on the fly: %s", err)
+		b.logger.Errorw("failed to create digital interrupt pin on the fly", "error", err)
 		return nil, false
 	}
 
