@@ -46,7 +46,7 @@ jobs:
 
     - name: Clean
       run: |
-        make clean-all
+        sudo -u testbot bash -lc 'make clean-all'
 
     - name: Authorize GCP Upload
       uses: google-github-actions/auth@v1
@@ -56,7 +56,7 @@ jobs:
     - name: Build and Package (PR)
       if: contains(github.event.pull_request.labels.*.name, 'appimage') || contains(github.event.pull_request.labels.*.name, 'appimage-ignore-tests')
       run: |
-        make BUILD_CHANNEL="pr-${{ github.event.pull_request.number }}" appimage
+        sudo -u testbot bash -lc 'make BUILD_CHANNEL="pr-${{ github.event.pull_request.number }}" appimage'
 
     - name: Upload Files (PR)
       if: contains(github.event.pull_request.labels.*.name, 'appimage') || contains(github.event.pull_request.labels.*.name, 'appimage-ignore-tests')
@@ -74,7 +74,7 @@ jobs:
       if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
       run: |
         echo "date=`date +%F`" >> $GITHUB_OUTPUT
-        make BUILD_CHANNEL="latest" appimage
+        sudo -u testbot bash -lc 'make BUILD_CHANNEL="latest" appimage'
 
     - name: Upload Files (Testing)
       if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
@@ -142,4 +142,4 @@ jobs:
 
     - name: Publish AppImage
       run: |
-        gsutil mv "gs://packages.viam.com/apps/viam-server/testing/${{ needs.appimage_test.outputs.date }}/${{ github.sha }}/*" "gs://packages.viam.com/apps/viam-server/"
+        gsutil mv "gs://packages.viam.com/apps/viam-server/testing/${{ needs.appimage_test.outputs.date }}/${{ github.sha }}/*" "gs://packages.viam.com/apps/viam-server-SMURF/"

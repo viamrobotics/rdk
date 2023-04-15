@@ -46,7 +46,7 @@ jobs:
 
     # - name: Clean
     #   run: |
-    #     make clean-all
+    #     sudo -u testbot bash -lc 'make clean-all'
 
     - name: Authorize GCP Upload
       uses: google-github-actions/auth@v1
@@ -56,7 +56,7 @@ jobs:
     - name: Build (PR)
       if: contains(github.event.pull_request.labels.*.name, 'static-build') || contains(github.event.pull_request.labels.*.name, 'static-ignore-tests')
       run: |
-        make BUILD_CHANNEL="pr-${{ github.event.pull_request.number }}" static-release
+        sudo -u testbot -lc 'make BUILD_CHANNEL="pr-${{ github.event.pull_request.number }}" static-release'
 
     - name: Upload Files (PR)
       if: contains(github.event.pull_request.labels.*.name, 'static-build') || contains(github.event.pull_request.labels.*.name, 'static-ignore-tests')
@@ -74,7 +74,7 @@ jobs:
       if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
       run: |
         echo "date=`date +%F`" >> $GITHUB_OUTPUT
-        make BUILD_CHANNEL="latest" static-release
+        sudo -u testbot bash -lc 'make BUILD_CHANNEL="latest" static-release'
 
     - name: Upload Files (Testing)
       if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
