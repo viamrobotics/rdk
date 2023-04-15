@@ -46,7 +46,7 @@ var Subtype = resource.NewSubtype(
 	SubtypeName,
 )
 
-// PositionType is an enum representing the encoder's positio.
+// PositionType is an enum representing the encoder's position.
 type PositionType byte
 
 // Known encoder position types.
