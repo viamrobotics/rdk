@@ -44,9 +44,9 @@ jobs:
         ref: ${{ github.event.pull_request.head.sha }}
         fetch-depth: 2
 
-    - name: Clean
-      run: |
-        make clean-all
+    # - name: Clean
+    #   run: |
+    #     make clean-all
 
     - name: Authorize GCP Upload
       uses: google-github-actions/auth@v1

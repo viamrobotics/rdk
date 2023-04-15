@@ -24,5 +24,4 @@ jobs:
 
       - name: Run license finder
         run: |
-          git config --system --add safe.directory '*'
           sudo -u testbot bash -lc 'make license-check'
