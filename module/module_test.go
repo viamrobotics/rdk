@@ -474,8 +474,8 @@ func TestAttributeConversion(t *testing.T) {
 		Model: modelWithReconfigure.String(),
 	}
 
-	//nolint:dupl
-	t.Run("non-reconfigurable creation", func(t *testing.T) {
+	t.Run("non-reconfigurable", func(t *testing.T) {
+		t.Log("creation")
 		mockAttrs, err := protoutils.StructToStructPb(MockConfig{
 			Motors: []string{motor.Named("motor1").String()},
 		})
@@ -503,23 +503,21 @@ func TestAttributeConversion(t *testing.T) {
 		mc, ok := createConf1.ConvertedAttributes.(*MockConfig)
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, mc.Motors, test.ShouldResemble, []string{motor.Named("motor1").String()})
-	})
 
-	//nolint:dupl
-	t.Run("non-reconfigurable recreation", func(t *testing.T) {
-		mockAttrs, err := protoutils.StructToStructPb(MockConfig{
+		t.Log("recreation")
+		mockAttrs, err = protoutils.StructToStructPb(MockConfig{
 			Motors: []string{motor.Named("motor2").String()},
 		})
 		test.That(t, err, test.ShouldBeNil)
 
 		mockConf.Attributes = mockAttrs
 
-		validateResp, err := m.ValidateConfig(ctx, &pb.ValidateConfigRequest{
+		validateResp, err = m.ValidateConfig(ctx, &pb.ValidateConfigRequest{
 			Config: mockConf,
 		})
 		test.That(t, err, test.ShouldBeNil)
 
-		deps := validateResp.Dependencies
+		deps = validateResp.Dependencies
 		test.That(t, deps, test.ShouldResemble, []string{"rdk:component:motor/motor2"})
 
 		_, err = m.ReconfigureResource(ctx, &pb.ReconfigureResourceRequest{
@@ -527,16 +525,17 @@ func TestAttributeConversion(t *testing.T) {
 		})
 		test.That(t, err, test.ShouldBeNil)
 
-		_, ok := createDeps1[motor.Named("motor2")]
+		_, ok = createDeps1[motor.Named("motor2")]
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, createConf1.Attributes.StringSlice("motors"), test.ShouldResemble, []string{motor.Named("motor2").String()})
 
-		mc, ok := createConf1.ConvertedAttributes.(*MockConfig)
+		mc, ok = createConf1.ConvertedAttributes.(*MockConfig)
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, mc.Motors, test.ShouldResemble, []string{motor.Named("motor2").String()})
 	})
 
-	t.Run("reconfigurable creation", func(t *testing.T) {
+	t.Run("reconfigurable", func(t *testing.T) {
+		t.Log("creation")
 		mockAttrs, err := protoutils.StructToStructPb(MockConfig{
 			Motors: []string{motor.Named("motor1").String()},
 		})
@@ -565,22 +564,21 @@ func TestAttributeConversion(t *testing.T) {
 		mc, ok := reconfigConf1.ConvertedAttributes.(*MockConfig)
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, mc.Motors, test.ShouldResemble, []string{motor.Named("motor1").String()})
-	})
 
-	t.Run("reconfigurable reconfiguration", func(t *testing.T) {
-		mockAttrs, err := protoutils.StructToStructPb(MockConfig{
+		t.Log("reconfiguration")
+		mockAttrs, err = protoutils.StructToStructPb(MockConfig{
 			Motors: []string{motor.Named("motor2").String()},
 		})
 		test.That(t, err, test.ShouldBeNil)
 
 		mockReconfigConf.Attributes = mockAttrs
 
-		validateResp, err := m.ValidateConfig(ctx, &pb.ValidateConfigRequest{
+		validateResp, err = m.ValidateConfig(ctx, &pb.ValidateConfigRequest{
 			Config: mockReconfigConf,
 		})
 		test.That(t, err, test.ShouldBeNil)
 
-		deps := validateResp.Dependencies
+		deps = validateResp.Dependencies
 		test.That(t, deps, test.ShouldResemble, []string{"rdk:component:motor/motor2"})
 
 		_, err = m.ReconfigureResource(ctx, &pb.ReconfigureResourceRequest{
@@ -588,11 +586,11 @@ func TestAttributeConversion(t *testing.T) {
 		})
 		test.That(t, err, test.ShouldBeNil)
 
-		_, ok := reconfigDeps2[motor.Named("motor2")]
+		_, ok = reconfigDeps2[motor.Named("motor2")]
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, reconfigConf2.Attributes.StringSlice("motors"), test.ShouldResemble, []string{motor.Named("motor2").String()})
 
-		mc, ok := reconfigConf2.ConvertedAttributes.(*MockConfig)
+		mc, ok = reconfigConf2.ConvertedAttributes.(*MockConfig)
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, mc.Motors, test.ShouldResemble, []string{motor.Named("motor2").String()})
 
