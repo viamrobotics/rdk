@@ -271,7 +271,7 @@ func (base *wheeledBase) velocityMath(mmPerSec, degsPerSec float64) (float64, fl
 	return rpmL, rpmR
 }
 
-// calculates the motor revolutions and speeds that correspond to the reuired distance and linear speeds.
+// calculates the motor revolutions and speeds that correspond to the required distance and linear speeds.
 func (base *wheeledBase) straightDistanceToMotorInputs(distanceMm int, mmPerSec float64) (float64, float64) {
 	// takes in base speed and distance to calculate motor rpm and total rotations
 	rotations := float64(distanceMm) / float64(base.wheelCircumferenceMm)
