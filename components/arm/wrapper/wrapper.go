@@ -88,8 +88,7 @@ func (wrapper *Arm) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	if err != nil {
 		return err
 	}
-	modelPath := newConf.ModelFilePath
-	model, err := referenceframe.ModelFromPath(modelPath, conf.Name)
+	model, err := referenceframe.ModelFromPath(newConf.ModelFilePath, conf.Name)
 	if err != nil {
 		return err
 	}
