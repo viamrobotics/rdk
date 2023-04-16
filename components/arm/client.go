@@ -168,5 +168,5 @@ func getModel(ctx context.Context, r robotpb.RobotServiceClient, name string) (r
 			return nil, err
 		}
 	}
-	return nil, nil
+	return nil, errors.New("mo model found")
 }
