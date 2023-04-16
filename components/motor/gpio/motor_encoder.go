@@ -277,6 +277,13 @@ func (m *EncodedMotor) setPower(ctx context.Context, powerPct float64, internal 
 
 // RPMMonitorStart starts the RPM monitor.
 func (m *EncodedMotor) RPMMonitorStart() {
+	m.startedRPMMonitorMu.Lock()
+	startedRPMMonitor := m.startedRPMMonitor
+	m.startedRPMMonitorMu.Unlock()
+	if startedRPMMonitor {
+		return
+	}
+
 	m.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
 		m.rpmMonitor()
@@ -336,7 +343,8 @@ func (m *EncodedMotor) rpmMonitor() {
 		atomic.AddInt64(&m.rpmMonitorCalls, 1)
 		// TODO: we round down here for absolute encoders, but absolute encoders
 		// should have their own logic separate from incremental
-		inRamp = m.rpmMonitorPass(m.state.setPoint, pos, lastPos, now, lastTime, m.state.regulated, rpmDebug)
+		regulated := m.state.regulated
+		inRamp = m.rpmMonitorPass(m.state.setPoint, pos, lastPos, now, lastTime, regulated, rpmDebug)
 
 		lastPos = pos
 		lastTime = now
@@ -349,7 +357,9 @@ func (m *EncodedMotor) rpmMonitorPass(setPoint, pos, lastPos float64, now, lastT
 	defer m.stateMu.Unlock()
 
 	currentRPM := m.computeRPM(pos, lastPos, now, lastTime)
+	m.stateMu.Lock()
 	m.state.currentRPM = currentRPM
+	m.stateMu.Unlock()
 
 	if !regulated && math.Abs(m.state.desiredRPM) > 0.001 {
 		m.rpmMonitorPassSetRpmInLock(currentRPM, m.state.desiredRPM, -1, rpmDebug)
@@ -360,7 +370,11 @@ func (m *EncodedMotor) rpmMonitorPass(setPoint, pos, lastPos float64, now, lastT
 		return false
 	}
 	// correctly set the ticksLeft accounting for power supplied to the motor and the expected direction of the motor
-	ticksLeft := (setPoint - pos) * sign(m.state.lastPowerPct) * m.flip
+	m.stateMu.Lock()
+	lastPowerPct := m.state.lastPowerPct
+	m.stateMu.Unlock()
+
+	ticksLeft := (setPoint - pos) * sign(lastPowerPct) * m.flip
 
 	rotationsLeft := ticksLeft / m.ticksPerRotation
 
