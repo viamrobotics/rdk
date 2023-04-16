@@ -288,6 +288,13 @@ func (m *EncodedMotor) setPower(ctx context.Context, powerPct float64, internal 
 
 // RPMMonitorStart starts the RPM monitor.
 func (m *EncodedMotor) RPMMonitorStart() {
+	m.startedRPMMonitorMu.Lock()
+	startedRPMMonitor := m.startedRPMMonitor
+	m.startedRPMMonitorMu.Unlock()
+	if startedRPMMonitor {
+		return
+	}
+
 	m.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
 		m.rpmMonitor()
@@ -364,7 +371,9 @@ func (m *EncodedMotor) rpmMonitorPass(pos, lastPos, now, lastTime int64, rpmDebu
 	var ticksLeft int64
 
 	currentRPM := m.computeRPM(pos, lastPos, now, lastTime)
+	m.stateMu.Lock()
 	m.state.currentRPM = currentRPM
+	m.stateMu.Unlock()
 
 	if !m.state.regulated && math.Abs(m.state.desiredRPM) > 0.001 {
 		m.rpmMonitorPassSetRpmInLock(currentRPM, m.state.desiredRPM, -1, rpmDebug)
