@@ -44,9 +44,9 @@ jobs:
         ref: ${{ github.event.pull_request.head.sha }}
         fetch-depth: 2
 
-    - name: Clean
+    - name: Clean and Fix Permissions
       run: |
-        chown testbot:testbot -R .
+        chown testbot:testbot -R ./ /github/home/.npm
         #sudo -u testbot bash -lc 'make clean-all'
 
     - name: Authorize GCP Upload
