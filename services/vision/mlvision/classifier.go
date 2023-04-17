@@ -49,10 +49,10 @@ func attemptToBuildClassifier(mlm mlmodel.Service) (classification.Classifier, e
 			return nil, err
 		}
 
-		probs := outMap["location"].([]float32)
+		probs := outMap["probability"].([]uint8)
 
 		classifications := make(classification.Classifications, 0, len(probs))
-		for i := 0; i < len(classifications); i++ {
+		for i := 0; i < len(probs); i++ {
 			classifications = append(classifications, classification.NewClassification(float64(probs[i]), labels[i]))
 		}
 		return classifications, nil
