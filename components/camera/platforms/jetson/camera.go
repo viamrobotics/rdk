@@ -13,35 +13,45 @@ import (
 )
 
 // GetOSInformation pulls relevant OS attributes as an OSInformation struct
-// Kernel and Device will return "unkown" if unable to retrieve info from the filesystem
-func DetectOSInformation() OSInformation {
+// Kernel and Device will be "unkown" if unable to retrieve info from the filesystem
+// returns an error if unable to retrieve kernel version or device name
+func DetectOSInformation() (OSInformation, error) {
+	kernelVersion, err := getKernelVersion()
+	if err != nil {
+		return OSInformation{}, fmt.Errorf("failed to get kernel version: %w", err)
+	}
+	deviceName, err := getDeviceName()
+	if err != nil {
+		return OSInformation{}, fmt.Errorf("failed to get device name: %w", err)
+	}
 	osInfo := OSInformation{
 		Name:   runtime.GOOS,
 		Arch:   runtime.GOARCH,
-		Kernel: getKernelVersion(),
-		Device: getDeviceName(),
+		Kernel: kernelVersion,
+		Device: deviceName,
 	}
-	return osInfo
+	return osInfo, nil
 }
 
-// getKernelVersion returns the kernel version
-func getKernelVersion() string {
+// getKernelVersion returns the Linux kernel version ($ uname -r)
+func getKernelVersion() (string, error) {
 	var utsName C.struct_utsname
 	if C.uname(&utsName) == -1 {
-		return Unknown
+		return Unknown, fmt.Errorf("uname information unavailable")
 	}
 	release := C.GoString((*C.char)(unsafe.Pointer(&utsName.release[0])))
-	return release
+	return release, nil
 }
 
-// getDeviceName returns the model name of the board
-func getDeviceName() string {
+// getDeviceName returns the model name of the device
+// ($ cat /sys/firmware/devicetree/base/model)
+func getDeviceName() (string, error) {
 	devicePath := "/sys/firmware/devicetree/base/model"
 	device, err := os.ReadFile(devicePath)
 	if err != nil {
-		return Unknown
+		return Unknown, err
 	}
-	return string(bytes.TrimRight(device, "\x00"))
+	return string(bytes.TrimRight(device, "\x00")), nil
 }
 
 // Validate checks if the daughterboard and driver are supported and installed on the device
@@ -71,6 +81,7 @@ func Validate(osInfo OSInformation, daughterboardName string, driverName string)
 }
 
 // checkDaughterBoardConnected checks if the daughterboard is connected
+// by looking for the I2C bus interfaces
 func checkDaughterBoardConnected(daughterboard []string) error {
 	// iterate through the daughterboard list
 	for _, i2c := range daughterboard {
