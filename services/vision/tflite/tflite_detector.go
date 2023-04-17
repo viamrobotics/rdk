@@ -1,11 +1,9 @@
-//go:build !arm && !windows
-
-package builtin
+// Package tflite implements a classifer and detector based on tflite files
+package tflite
 
 import (
 	"bufio"
 	"context"
-	"go.viam.com/rdk/rimage"
 	"image"
 	"os"
 	fp "path/filepath"
@@ -21,42 +19,89 @@ import (
 	"go.viam.com/rdk/config"
 	inf "go.viam.com/rdk/ml/inference"
 	"go.viam.com/rdk/ml/inference/tflite_metadata"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision/objectdetection"
 )
 
-// TFLiteDetectorConfig specifies the fields necessary for creating a TFLite detector.
-type TFLiteDetectorConfig struct {
+var modelDetect = resource.NewDefaultModel("tflite_detector")
+
+func init() {
+	registry.RegisterService(vision.Subtype, modelDetect, registry.Service{
+		RobotConstructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
+			attrs, ok := c.ConvertedAttributes.(*DetectorConfig)
+			if !ok {
+				return nil, utils.NewUnexpectedTypeError(attrs, c.ConvertedAttributes)
+			}
+			return registerTFLiteDetector(ctx, c.Name, attrs, r, logger)
+		},
+	})
+	config.RegisterServiceAttributeMapConverter(
+		vision.Subtype,
+		modelDetect,
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf DetectorConfig
+			attrs, err := config.TransformAttributeMapToStruct(&conf, attributes)
+			if err != nil {
+				return nil, err
+			}
+			result, ok := attrs.(*DetectorConfig)
+			if !ok {
+				return nil, utils.NewUnexpectedTypeError(result, attrs)
+			}
+			return result, nil
+		},
+		&DetectorConfig{},
+	)
+}
+
+// DetectorConfig specifies the fields necessary for creating a TFLite detector.
+type DetectorConfig struct {
 	// this should come from the attributes part of the detector config
 	ModelPath  string  `json:"model_path"`
 	NumThreads int     `json:"num_threads"`
-	LabelPath  *string `json:"label_path"`
+	LabelPath  string  `json:"label_path"`
 	ServiceURL *string `json:"service_url"`
 }
 
-// NewTFLiteDetector creates an RDK detector given a DetectorConfig. In other words, this
+type tfliteDetector struct {
+	inHeight, inWidth uint
+	labelMap          []string
+	model             *inf.TFLiteStruct
+	logger            golog.Logger
+}
+
+func (tf *tfliteDetector) Detect(ctx context.Context, img image.Image) ([]objectdetection.Detection, error) {
+	origW, origH := img.Bounds().Dx(), img.Bounds().Dy()
+	resizedImg := resize.Resize(tf.inHeight, tf.inWidth, img, resize.Bilinear)
+	outTensors, err := tfliteInfer(ctx, tf.model, resizedImg)
+	if err != nil {
+		return nil, err
+	}
+	detections := unpackTensors(ctx, outTensors, tf.model, tf.labelMap, tf.logger, origW, origH)
+	return detections, nil
+}
+
+func (tf *tfliteDetector) Close(ctx context.Context) error {
+	return tf.model.Close()
+}
+
+// registerTFLiteDetector creates an RDK detector given a DetectorConfig. In other words, this
 // function returns a function from image-->[]objectdetection.Detection. It does this by making calls to
 // an inference package and wrapping the result.
-func NewTFLiteDetector(
+func registerTFLiteDetector(
 	ctx context.Context,
-	cfg *vision.VisModelConfig,
+	name string,
+	params *DetectorConfig,
+	r robot.Robot,
 	logger golog.Logger,
-) (objectdetection.Detector, *inf.TFLiteStruct, error) {
-	ctx, span := trace.StartSpan(ctx, "service::vision::NewTFLiteDetector")
+) (vision.Service, error) {
+	ctx, span := trace.StartSpan(ctx, "service::vision::registerTFLiteDetector")
 	defer span.End()
 
-	// Read those parameters into a TFLiteDetectorConfig
-	var t TFLiteDetectorConfig
-	tfParams, err := config.TransformAttributeMapToStruct(&t, cfg.Parameters)
-	if err != nil {
-		return nil, nil, errors.New("error getting parameters from config")
-	}
-	params, ok := tfParams.(*TFLiteDetectorConfig)
-	if !ok {
-		err := utils.NewUnexpectedTypeError(params, tfParams)
-		return nil, nil, errors.Wrapf(err, "register tflite detector %s", cfg.Name)
-	}
 	// Secret but hard limit on num_threads
 	if params.NumThreads > runtime.NumCPU()/4 {
 		params.NumThreads = runtime.NumCPU() / 4
@@ -65,7 +110,7 @@ func NewTFLiteDetector(
 	// Add the model
 	model, err := addTFLiteModel(ctx, params.ModelPath, &params.NumThreads)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "something wrong with adding the model")
+		return nil, errors.Wrap(err, "something wrong with adding the model")
 	}
 
 	var inHeight, inWidth uint
@@ -76,27 +121,13 @@ func NewTFLiteDetector(
 		inHeight, inWidth = uint(shape[1]), uint(shape[2])
 	}
 
-	if params.LabelPath == nil {
-		blank := ""
-		params.LabelPath = &blank
-	}
-
-	labelMap, err := loadLabels(*params.LabelPath)
+	labelMap, err := loadLabels(params.LabelPath)
 	if err != nil {
 		logger.Warn("did not retrieve class labels")
 	}
-
+	m := &tfliteDetector{inHeight, inWidth, labelMap, model, logger}
 	// This function to be returned is the detector.
-	return func(ctx context.Context, img image.Image) ([]objectdetection.Detection, error) {
-		origW, origH := img.Bounds().Dx(), img.Bounds().Dy()
-		resizedImg := resize.Resize(inHeight, inWidth, img, resize.Bilinear)
-		outTensors, err := tfliteInfer(ctx, model, resizedImg)
-		if err != nil {
-			return nil, err
-		}
-		detections := unpackTensors(ctx, outTensors, model, labelMap, logger, origW, origH)
-		return detections, nil
-	}, model, nil
+	return vision.NewService(name, r, m.Close, nil, m.Detect, nil)
 }
 
 // addTFLiteModel uses the loader (default or otherwise) from the inference package
@@ -146,14 +177,14 @@ func tfliteInfer(ctx context.Context, model *inf.TFLiteStruct, image image.Image
 	// Converts the image to bytes before sending it off
 	switch model.Info.InputTensorType {
 	case inf.UInt8:
-		imgBuff := rimage.ImageToUInt8Buffer(image)
+		imgBuff := ImageToUInt8Buffer(image)
 		out, err := model.Infer(imgBuff)
 		if err != nil {
 			return nil, errors.Wrap(err, "couldn't infer from model")
 		}
 		return out, nil
 	case inf.Float32:
-		imgBuff := rimage.ImageToFloatBuffer(image)
+		imgBuff := ImageToFloatBuffer(image)
 		out, err := model.Infer(imgBuff)
 		if err != nil {
 			return nil, errors.Wrap(err, "couldn't infer from model")
@@ -162,6 +193,51 @@ func tfliteInfer(ctx context.Context, model *inf.TFLiteStruct, image image.Image
 	default:
 		return nil, errors.New("invalid input type. try uint8 or float32")
 	}
+}
+
+// ImageToUInt8Buffer reads an image into a byte slice in the most common sense way.
+// Left to right like a book; R, then G, then B. No funny stuff. Assumes values should be between 0-255.
+func ImageToUInt8Buffer(img image.Image) []byte {
+	output := make([]byte, img.Bounds().Dx()*img.Bounds().Dy()*3)
+	for y := 0; y < img.Bounds().Dy(); y++ {
+		for x := 0; x < img.Bounds().Dx(); x++ {
+			r, g, b, a := img.At(x, y).RGBA()
+			rr, gg, bb, _ := rgbaTo8Bit(r, g, b, a)
+			output[(y*img.Bounds().Dx()+x)*3+0] = rr
+			output[(y*img.Bounds().Dx()+x)*3+1] = gg
+			output[(y*img.Bounds().Dx()+x)*3+2] = bb
+		}
+	}
+	return output
+}
+
+// ImageToFloatBuffer reads an image into a byte slice (buffer) the most common sense way.
+// Left to right like a book; R, then G, then B. No funny stuff. Assumes values between -1 and 1.
+func ImageToFloatBuffer(img image.Image) []float32 {
+	output := make([]float32, img.Bounds().Dx()*img.Bounds().Dy()*3)
+	for y := 0; y < img.Bounds().Dy(); y++ {
+		for x := 0; x < img.Bounds().Dx(); x++ {
+			r, g, b, a := img.At(x, y).RGBA()
+			rr, gg, bb := float32(r)/float32(a)*2-1, float32(g)/float32(a)*2-1, float32(b)/float32(a)*2-1
+			output[(y*img.Bounds().Dx()+x)*3+0] = rr
+			output[(y*img.Bounds().Dx()+x)*3+1] = gg
+			output[(y*img.Bounds().Dx()+x)*3+2] = bb
+		}
+	}
+	return output
+}
+
+// rgbaTo8Bit converts the uint32s from RGBA() to uint8s.
+func rgbaTo8Bit(r, g, b, a uint32) (rr, gg, bb, aa uint8) {
+	r >>= 8
+	rr = uint8(r)
+	g >>= 8
+	gg = uint8(g)
+	b >>= 8
+	bb = uint8(b)
+	a >>= 8
+	aa = uint8(a)
+	return
 }
 
 // unpackTensors takes the model's output tensors as input and reshapes them into objdet.Detections.
@@ -372,16 +448,6 @@ func loadLabels(filename string) ([]string, error) {
 	for scanner.Scan() {
 		labels = append(labels, scanner.Text())
 	}
-
-	// if the labels come out as one line, try splitting that line by spaces or commas to extract labels
-	if len(labels) == 1 {
-		labels = strings.Split(labels[0], ",")
-	}
-
-	if len(labels) == 1 {
-		labels = strings.Split(labels[0], " ")
-	}
-
 	return labels, nil
 }
 
