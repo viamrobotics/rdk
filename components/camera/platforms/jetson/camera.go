@@ -13,7 +13,7 @@ import (
 )
 
 // GetOSInformation pulls relevant OS attributes as an OSInformation struct
-// Kernel and Device will be "unkown" if unable to retrieve info from the filesystem
+// Kernel and Device will return "unkown" if unable to retrieve info from the filesystem
 func DetectOSInformation() OSInformation {
 	osInfo := OSInformation{
 		Name:   runtime.GOOS,
@@ -28,7 +28,7 @@ func DetectOSInformation() OSInformation {
 func getKernelVersion() string {
 	var utsName C.struct_utsname
 	if C.uname(&utsName) == -1 {
-		return "unknown"
+		return Unknown
 	}
 	release := C.GoString((*C.char)(unsafe.Pointer(&utsName.release[0])))
 	return release
@@ -39,7 +39,7 @@ func getDeviceName() string {
 	devicePath := "/sys/firmware/devicetree/base/model"
 	device, err := os.ReadFile(devicePath)
 	if err != nil {
-		return "unknown"
+		return Unknown
 	}
 	return string(bytes.TrimRight(device, "\x00"))
 }
