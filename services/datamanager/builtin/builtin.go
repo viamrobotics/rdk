@@ -13,6 +13,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
+	v1 "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/internal/cloud"
@@ -324,7 +325,7 @@ func (svc *builtIn) initSyncer(ctx context.Context) error {
 		return err
 	}
 
-	client := datasync.NewClient(conn)
+	client := v1.NewDataSyncServiceClient(conn)
 
 	syncer, err := svc.syncerConstructor(identity, client, svc.logger)
 	if err != nil {
@@ -396,7 +397,7 @@ func (svc *builtIn) Reconfigure(
 	reinitSyncer := cloudConnSvc != svc.cloudConnSvc
 	svc.cloudConnSvc = cloudConnSvc
 
-	if err := updateDataCaptureConfigs(ctx, deps, svcConfig.ResourceConfigs, svcConfig.CaptureDir); err != nil {
+	if err := updateDataCaptureConfigs(deps, svcConfig.ResourceConfigs, svcConfig.CaptureDir); err != nil {
 		return err
 	}
 
@@ -559,7 +560,6 @@ func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 
 // Build the component configs associated with the data manager service.
 func updateDataCaptureConfigs(
-	ctx context.Context,
 	resources resource.Dependencies,
 	resourceConfigs []*datamanager.DataCaptureConfig,
 	captureDir string,
