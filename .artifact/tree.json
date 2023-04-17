@@ -51566,6 +51566,10 @@
         "hash": "3a047d6fd440b36cbba72e5532ff3548",
         "size": 4563519
       },
+      "effdetlabels.txt": {
+        "hash": "359468bee2538de4c5950190cc1eb002",
+        "size": 699
+      },
       "effnet0.tflite": {
         "hash": "301b893e4701ec6f490c21a2435befbc",
         "size": 7165437
