@@ -5,8 +5,10 @@ const (
 	OrinAGX = "Jetson AGX Orin"
 	Unknown = "unknown"
 	// Daughterboards
+	// https://www.e-consystems.com/nvidia-cameras/jetson-agx-orin-cameras/full-hd-ar0234-color-global-shutter-camera.asp
 	ECAM = "e-CAM20_CUOAGX"
 	// Cameras
+	// https://www.e-consystems.com/camera-modules/ar0234-global-shutter-camera-module.asp
 	AR0234 = "AR0234CS"
 )
 
