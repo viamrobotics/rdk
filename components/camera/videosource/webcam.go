@@ -20,6 +20,7 @@ import (
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
+	jetsoncamera "go.viam.com/rdk/components/camera/platforms/jetson"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/pointcloud"
@@ -45,7 +46,19 @@ func init() {
 			if !ok {
 				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
-			return NewWebcamSource(ctx, config.Name, attrs, logger)
+			cameraSource, err := NewWebcamSource(ctx, config.Name, attrs, logger)
+			if err != nil {
+				// If we are on a Jetson Orin AGX, we need to validate driver and daughterboard setup
+				osInfo, osErr := jetsoncamera.DetectOSInformation()
+				if osErr != nil {
+					return cameraSource, errors.Wrap(err, osErr.Error())
+				}
+				if osInfo.Device == jetsoncamera.OrinAGX {
+					return cameraSource, errors.Wrap(err, jetsoncamera.Validate(osInfo, jetsoncamera.ECAM, jetsoncamera.AR0234).Error())
+				}
+				return cameraSource, err
+			}
+			return cameraSource, nil
 		}})
 
 	config.RegisterComponentAttributeMapConverter(camera.Subtype, model,
