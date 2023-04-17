@@ -280,11 +280,10 @@ func (pin *gpioPin) Close() error {
 	pin.mu.Lock()
 	defer pin.mu.Unlock()
 
-	if pin.hwPwm != nil {
-		// Make sure to unexport the sysfs device for hardware PWM on this pin, if it's in use.
-		if err := pin.hwPwm.Close(); err != nil {
-			return err
-		}
+	// If the entire server is shutting down, it's important to turn off all pins so they don't
+	// continue outputting signals we can no longer control.
+	if err := pin.setInternal(false); err != nil {
+		return err
 	}
 	return pin.closeGpioFd()
 }
