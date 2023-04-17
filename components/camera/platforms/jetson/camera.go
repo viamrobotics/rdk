@@ -14,7 +14,7 @@ import (
 
 // GetOSInformation pulls relevant OS attributes as an OSInformation struct
 // Kernel and Device will be "unkown" if unable to retrieve info from the filesystem
-// returns an error if unable to retrieve kernel version or device name
+// returns an error kernel version or device name are unavailable
 func DetectOSInformation() (OSInformation, error) {
 	kernelVersion, err := getKernelVersion()
 	if err != nil {
