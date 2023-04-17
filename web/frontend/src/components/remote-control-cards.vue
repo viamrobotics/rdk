@@ -34,6 +34,7 @@ import Board from './board.vue';
 import CamerasList from './camera/cameras-list.vue';
 import OperationsSessions from './operations-sessions.vue';
 import DoCommand from './do-command.vue';
+import Encoder from './encoder.vue';
 import Gantry from './gantry.vue';
 import Gripper from './gripper.vue';
 import Gamepad from './gamepad.vue';
@@ -734,6 +735,16 @@ onUnmounted(() => {
       :client="client"
       :resources="resources"
       :stream-manager="streamManager"
+    />
+
+    <!-- ******* ENCODER *******  -->
+    <Encoder
+      v-for="encoder in filterResources(resources, 'rdk', 'component', 'encoder')"
+      :key="encoder.name"
+      :name="encoder.name"
+      :client="client"
+      :encoder="encoder"
+      :resources="resources"
     />
 
     <!-- ******* GANTRY *******  -->
