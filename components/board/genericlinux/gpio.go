@@ -280,7 +280,8 @@ func (pin *gpioPin) Close() error {
 	pin.mu.Lock()
 	defer pin.mu.Unlock()
 
-	// Set the pin to low. That way, we turn it off if the entire server is shutting down.
+	// If the entire server is shutting down, it's important to turn off all pins so they don't
+	// continue outputting signals we will no longer control.
 	if err := pin.setInternal(false); err != nil {
 		return err
 	}
