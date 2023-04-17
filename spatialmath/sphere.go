@@ -60,6 +60,9 @@ func (s *sphere) SetLabel(label string) {
 func (s *sphere) Pose() Pose {
 	return s.pose
 }
+func (s *sphere) Dimensions() []float64 {
+	return []float64{s.radius}
+}
 
 // AlmostEqual compares the sphere with another geometry and checks if they are equivalent.
 func (s *sphere) AlmostEqual(g Geometry) bool {

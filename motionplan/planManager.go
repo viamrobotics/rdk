@@ -54,6 +54,7 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 	constraintSpec *pb.Constraints,
 	motionConfig map[string]interface{},
 ) ([][]referenceframe.Input, error) {
+
 	seed, err := pm.frame.mapToSlice(seedMap)
 	if err != nil {
 		return nil, err
@@ -103,12 +104,21 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 		}
 		numSteps := PathStepCount(seedPos, goalPos, pathStepSize)
 
+		// augment the worldstate to allow safe movement with blend radius
+		var modifiedWS *referenceframe.WorldState
+		if worldState != nil {
+			// we only allow a 1 mm blend radius
+			if modifiedWS, err = referenceframe.BufferedWorldstate(worldState, 1); err != nil {
+				return nil, err
+			}
+		}
+
 		from := seedPos
 		for i := 1; i < numSteps; i++ {
 			by := float64(i) / float64(numSteps)
 			to := spatialmath.Interpolate(seedPos, goalPos, by)
 			goals = append(goals, to)
-			opt, err := pm.plannerSetupFromMoveRequest(from, to, seedMap, worldState, constraintSpec, motionConfig)
+			opt, err := pm.plannerSetupFromMoveRequest(from, to, seedMap, modifiedWS, constraintSpec, motionConfig)
 			if err != nil {
 				return nil, err
 			}

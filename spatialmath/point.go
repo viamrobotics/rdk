@@ -49,6 +49,10 @@ func (pt *point) Pose() Pose {
 	return NewPoseFromPoint(pt.position)
 }
 
+func (pt *point) Dimensions() []float64 {
+	return []float64{pt.position.X, pt.position.Y, pt.position.Z}
+}
+
 // AlmostEqual compares the point with another geometry and checks if they are equivalent.
 func (pt *point) AlmostEqual(g Geometry) bool {
 	other, ok := g.(*point)

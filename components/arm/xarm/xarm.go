@@ -188,6 +188,20 @@ func (x *xArm) GoToInputs(ctx context.Context, goal []referenceframe.Input) erro
 	return x.MoveToJointPositions(ctx, positionDegs, nil)
 }
 
+// AllInputs TODO.
+func (x *xArm) AllInputs(ctx context.Context, goals [][]referenceframe.Input) error {
+	for _, waypoint := range goals {
+		positionDegs := x.model.ProtobufFromInput(waypoint)
+		if err := arm.CheckDesiredJointPositions(ctx, x, positionDegs.Values); err != nil {
+			return err
+		}
+		if err := x.MoveToJointPositions(ctx, positionDegs, nil); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // ModelFrame returns the dynamic frame of the model.
 func (x *xArm) ModelFrame() referenceframe.Model {
 	return x.model

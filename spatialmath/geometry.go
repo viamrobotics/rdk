@@ -24,6 +24,7 @@ type Geometry interface {
 	Label() string   // Label is the name of the geometry
 	String() string  // String is a string representation of the geometry data structure
 	ToPoints(float64) []r3.Vector
+	Dimensions() []float64
 	json.Marshaler
 }
 

@@ -132,6 +132,17 @@ func (c *client) GoToInputs(ctx context.Context, goal []referenceframe.Input) er
 	return c.MoveToJointPositions(ctx, c.model.ProtobufFromInput(goal), nil)
 }
 
+// TODO: change
+func (c *client) AllInputs(ctx context.Context, goals [][]referenceframe.Input) error {
+	for _, waypoint := range goals {
+		positionDegs := c.model.ProtobufFromInput(waypoint)
+		if err := c.MoveToJointPositions(ctx, positionDegs, nil); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
 }

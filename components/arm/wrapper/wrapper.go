@@ -180,6 +180,20 @@ func (wrapper *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, 
 	return wrapper.model.InputFromProtobuf(res), nil
 }
 
+// AllInputs TODO.
+func (wrapper *Arm) AllInputs(ctx context.Context, goals [][]referenceframe.Input) error {
+	for _, waypoint := range goals {
+		positionDegs := wrapper.model.ProtobufFromInput(waypoint)
+		if err := arm.CheckDesiredJointPositions(ctx, wrapper, positionDegs.Values); err != nil {
+			return err
+		}
+		if err := wrapper.MoveToJointPositions(ctx, positionDegs, nil); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // GoToInputs moves the arm to the specified goal inputs.
 func (wrapper *Arm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
 	// check that joint positions are not out of bounds
