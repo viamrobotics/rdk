@@ -207,6 +207,11 @@ func (m *Model) Metadata(ctx context.Context) (mlmodel.MLMetadata, error) {
 	for i := 0; i < numOut; i++ { // for each output Tensor
 		outputT := md.SubgraphMetadata[0].OutputTensorMetadata[i]
 		td := getTensorInfo(outputT)
+		if (strings.Contains(td.Name, "category") || strings.Contains(td.Name, "probability")) &&
+			m.attrs.LabelPath != nil {
+			td.Extra = map[string]interface{}{
+				"labels": *m.attrs.LabelPath}
+		}
 		td.DataType = strings.ToLower(m.model.Info.OutputTensorTypes[i]) // grab from model info, not metadata
 		outputList = append(outputList, td)
 	}
