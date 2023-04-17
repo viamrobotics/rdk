@@ -13,8 +13,7 @@ import { destMarkerUrl } from '../lib/destination-marker-url'
 
 const backgroundGridColor = 0xCA_CA_CA
 /*
- * this color map is greyscale. The color map is being used map 
-probability values of a PCD
+ * this color map is greyscale. The color map is being used map probability values of a PCD
  * into different color buckets provided by the color map.
  * generated with: https://grayscale.design/app
  */
@@ -50,15 +49,13 @@ const props = defineProps<{
 }
 >();
 
-const emit = defineEmits<{(event: 'click', point: THREE.Vector3): 
-void}>();
+const emit = defineEmits<{(event: 'click', point: THREE.Vector3): void}>();
 
 const loader = new PCDLoader();
 
 const container = $ref<HTMLElement>();
 
-const { scene, renderer, canvas, run, pause, setCamera } = 
-threeInstance();
+const { scene, renderer, canvas, run, pause, setCamera } = threeInstance();
 
 const color = new THREE.Color(0xFF_FF_FF);
 renderer.setClearColor(color, 1);
@@ -73,8 +70,7 @@ scene.add(camera);
 const controls = new MapControls(camera, canvas);
 controls.enableRotate = false;
 
-const raycaster = new MouseRaycaster({ camera, renderer, recursive: false 
-});
+const raycaster = new MouseRaycaster({ camera, renderer, recursive: false });
 
 raycaster.on('click', (event: THREE.Event) => {
   const [intersection] = event.intersections as THREE.Intersection[];
@@ -91,8 +87,7 @@ const guiData = {
   };
 /*
  * svgLoader example for webgl:
- * 
-https://github.com/mrdoob/three.js/blob/master/examples/webgl_loader_svg.html
+ * https://github.com/mrdoob/three.js/blob/master/examples/webgl_loader_svg.html
  */
 //
 const svgLoader = new SVGLoader(); 
@@ -110,8 +105,7 @@ const makeMarker = async (url : string, name: string, scalar: number) => {
 
     const fillColor = path!.userData!.style.fill;
 
-    if (guiData.drawFillShapes && fillColor !== undefined && fillColor !== 
-'none') {
+    if (guiData.drawFillShapes && fillColor !== undefined && fillColor !== 'none') {
       const material = new THREE.MeshBasicMaterial({
         color: new THREE.Color().setStyle(fillColor)
           .convertSRGBToLinear(),
@@ -127,8 +121,7 @@ const makeMarker = async (url : string, name: string, scalar: number) => {
       for (const shape of shapes) {
 
         const geometry = new THREE.ShapeGeometry(shape);
-        const mesh = new THREE.Mesh(geometry.rotateX(-Math.PI / 
-2).rotateY(Math.PI), material);
+        const mesh = new THREE.Mesh(geometry.rotateX(-Math.PI / 2).rotateY(Math.PI), material);
         group.add(mesh);
 
       }
@@ -137,8 +130,7 @@ const makeMarker = async (url : string, name: string, scalar: number) => {
 
     const strokeColor = path!.userData!.style.stroke;
 
-    if (guiData.drawStrokes && strokeColor !== undefined && strokeColor 
-!== 'none') {
+    if (guiData.drawStrokes && strokeColor !== undefined && strokeColor !== 'none') {
 
       const material = new THREE.MeshBasicMaterial({
         color: new THREE.Color().setStyle(strokeColor)
@@ -152,12 +144,10 @@ const makeMarker = async (url : string, name: string, scalar: number) => {
 
       for (let j = 0, jl = path!.subPaths.length; j < jl; j += 1) {
         const subPath = path!.subPaths[j];
-        const geometry = SVGLoader.pointsToStroke(subPath.getPoints(), 
-path!.userData!.style);
+        const geometry = SVGLoader.pointsToStroke(subPath.getPoints(), path!.userData!.style);
 
         if (geometry) {
-          const mesh = new THREE.Mesh(geometry.rotateX(-Math.PI / 
-2).rotateY(Math.PI), material);
+          const mesh = new THREE.Mesh(geometry.rotateX(-Math.PI / 2).rotateY(Math.PI), material);
           group.add(mesh);
         }
       }
@@ -190,36 +180,30 @@ const disposeScene = () => {
 const updatePose = async (newPose: commonApi.Pose) => {
   const x = newPose.getX();
   const z = newPose.getZ();
-  const baseMarker = scene.getObjectByName('Base') ?? await 
-makeMarker(baseMarkerUrl, 'Base', 0.04);
+  const baseMarker = scene.getObjectByName('Base') ?? await makeMarker(baseMarkerUrl, 'Base', 0.04);
   baseMarker.position.set(x + 0.35, 0, z - 0.55);
   baseMarker.renderOrder = 999;
 };
 
 /*
- * Find the desired color bucket for a given probability. This assumes the 
-probability will be a value from 0 to 100
+ * Find the desired color bucket for a given probability. This assumes the probability will be a value from 0 to 100
  * ticket to add testing: https://viam.atlassian.net/browse/RSDK-2606
  */
-const probToColorMapBucket = (probability: number, numBuckets: number): 
-number => {
+const probToColorMapBucket = (probability: number, numBuckets: number): number => {
   const prob = Math.max(Math.min(100, probability * 255), 0);
   return Math.floor((numBuckets - 1) * prob / 100);
 };
 
 /*
  * Map the color of a pixel to a color bucket value.
- * probability represents the probability value normalized by the size of 
-a byte(255) to be between 0 to 1.
+ * probability represents the probability value normalized by the size of a byte(255) to be between 0 to 1.
  * ticket to add testing: https://viam.atlassian.net/browse/RSDK-2606
  */
 const colorBuckets = (probability: number): THREE.Vector3 => {
-  return colorMapGrey[probToColorMapBucket(probability, 
-colorMapGrey.length)]!;
+  return colorMapGrey[probToColorMapBucket(probability, colorMapGrey.length)]!;
 };
 
-const createAxisHelper = (name: string, rotation: number): 
-THREE.AxesHelper => {
+const createAxisHelper = (name: string, rotation: number): THREE.AxesHelper => {
   const axesHelper = new THREE.AxesHelper(5);
   axesHelper.position.set(0, 0, 0);
   axesHelper.rotateY(rotation);
@@ -241,8 +225,7 @@ const updatePointCloud = (pointcloud: Uint8Array) => {
   const points = loader.parse(pointcloud.buffer);
   points.geometry.computeBoundingSphere();
 
-  const { radius = 1, center = { x: 0, z: 0 } } = 
-points.geometry.boundingSphere ?? {};
+  const { radius = 1, center = { x: 0, z: 0 } } = points.geometry.boundingSphere ?? {};
   camera.position.set(center.x, 100, center.z);
   camera.lookAt(center.x, 0, center.z);
 
@@ -257,8 +240,7 @@ points.geometry.boundingSphere ?? {};
   controls.maxZoom = radius * 2;
 
   const intersectionPlane = new THREE.Mesh(
-    new THREE.PlaneGeometry(radius * 2, radius * 2, 1, 1).rotateX(-Math.PI 
-/ 2),
+    new THREE.PlaneGeometry(radius * 2, radius * 2, 1, 1).rotateX(-Math.PI / 2),
     new MeshDiscardMaterial()
   );
   intersectionPlane.name = 'Intersection Plane';
@@ -267,30 +249,26 @@ points.geometry.boundingSphere ?? {};
   raycaster.objects = [intersectionPlane];
 
   const colors = points.geometry.attributes.color;
-  // if the PCD has a color attribute defined, convert those colors using 
-the colorMap
+  // if the PCD has a color attribute defined, convert those colors using the colorMap
   if (colors instanceof THREE.BufferAttribute) {
     for (let i = 0; i < colors.count; i += 1) {
 
       /*
-       * Probability is currently assumed to be held in the rgb field of 
-the PCD map, on a scale of 0 to 100.
-       * ticket to look into this further 
-https://viam.atlassian.net/browse/RSDK-2605
+       * Probability is currently assumed to be held in the rgb field of the PCD map, on a scale of 0 to 100.
+       * ticket to look into this further https://viam.atlassian.net/browse/RSDK-2605
        */
       const colorMapPoint = colorBuckets(colors.getZ(i));
       colors.setXYZ(i, colorMapPoint.x, colorMapPoint.y, colorMapPoint.z);
     }
   }
 
-  // construct axes
+  // construct grids
   const axesHelper1 = createAxisHelper('Axes1', Math.PI / 2)
   const axesHelper2 = createAxisHelper('Axes2', -Math.PI / 2)
 
-  // construct grid
   // this needs to be updated so it is set to 1m
-  const gridHelper = new THREE.GridHelper(1000, 100, backgroundGridColor, 
-backgroundGridColor);
+  // have these be constants at the top
+  const gridHelper = new THREE.GridHelper(1000, 100, backgroundGridColor, backgroundGridColor);
   gridHelper.position.set(0, 0, 0);
   gridHelper.renderOrder = 996;
   gridHelper.name = 'Grid';
@@ -330,14 +308,15 @@ onUnmounted(() => {
 });
 
 // see if we can just do props.destVector and not the subcomponents
-watch(() => [props.destVector?.x, props.destVector?.z, props.destExists], 
-async () => {
+watch(() => [props.destVector?.x, props.destVector?.z, props.destExists], async () => {
   if (props.destVector && props.destExists) {
     // update name from marker to destinationMarker
-    const marker = scene.getObjectByName('Marker') ?? await 
-makeMarker(destMarkerUrl, 'Marker', 0.1);
-    marker.position.set(props.destVector.x + 1.2, 0, props.destVector.z 
-+2.64 );
+    const marker = scene.getObjectByName('Marker') ?? await makeMarker(destMarkerUrl, 'Marker', 0.1);
+    // udpate from base to baseMarker
+    // const base = scene.getObjectByName('Base');
+    // get rid of this magic number formulation
+    // const convertedCoord = (base!.position.z + 0.55) - props.destVector.y;
+    marker.position.set(props.destVector.x + 1.2, 0, props.destVector.z +2.64 );
   }
   if (!props.destExists) {
     const marker = scene.getObjectByName('Marker');
@@ -412,8 +391,7 @@ watch(() => props.pointCloudUpdateCount, () => {
           fill="#BE3536"
         />
         <path
-          d="M4.66278 6.032H4.51878L2.76678 2.4H3.51878L4.95078 
-5.456H5.04678L6.47878
+          d="M4.66278 6.032H4.51878L2.76678 2.4H3.51878L4.95078 5.456H5.04678L6.47878
              2.4H7.23078L5.47878 6.032H5.33478V8H4.66278V6.032Z"
           fill="#FCECEA"
         />
@@ -426,10 +404,8 @@ watch(() => props.pointCloudUpdateCount, () => {
           fill="#0066CC"
         />
         <path
-          d="M23.6708 22.4L24.9268 24.88H25.0708L26.3268 
-22.4H27.0628L25.6628 25.144V25.24L27.0628
-             28H26.3268L25.0708 25.504H24.9268L23.6708 28H22.9348L24.3348 
-25.24V25.144L22.9348 22.4H23.6708Z"
+          d="M23.6708 22.4L24.9268 24.88H25.0708L26.3268 22.4H27.0628L25.6628 25.144V25.24L27.0628
+             28H26.3268L25.0708 25.504H24.9268L23.6708 28H22.9348L24.3348 25.24V25.144L22.9348 22.4H23.6708Z"
           fill="#E1F3FF"
         />
         <rect
@@ -467,4 +443,3 @@ watch(() => props.pointCloudUpdateCount, () => {
     </div>
   </div>
 </template>
-
