@@ -906,7 +906,7 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 				}
 
 				// Modify component to add its implicit dependencies.
-				newConfig.Components[i].ImplicitDependsOn = implicitDeps
+				confs[i].ImplicitDependsOn = implicitDeps
 			}
 		}
 	}
