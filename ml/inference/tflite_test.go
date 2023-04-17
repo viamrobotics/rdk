@@ -1,20 +1,11 @@
 package inference
 
 import (
-	"path/filepath"
-	"runtime"
 	"testing"
 
 	tflite "github.com/mattn/go-tflite"
 	"go.viam.com/test"
-)
-
-const badPath string = "bad path"
-
-var (
-	// used to get the path from the root to current directory.
-	_, b, _, _ = runtime.Caller(0)
-	basePath   = filepath.Dir(b)
+	"go.viam.com/utils/artifact"
 )
 
 type fakeInterpreter struct{}
@@ -53,7 +44,7 @@ func goodGetInfo(i Interpreter) *TFLiteInfo {
 
 // TestLoadModel uses a real tflite model to test loading.
 func TestLoadModel(t *testing.T) {
-	tfliteModelPath := basePath + "/testing_files/model_with_metadata.tflite"
+	tfliteModelPath := artifact.MustPath("ml/inference/model_with_metadata.tflite")
 	loader, err := NewDefaultTFLiteModelLoader()
 	test.That(t, err, test.ShouldBeNil)
 	tfliteStruct, err := loader.Load(tfliteModelPath)
@@ -84,13 +75,14 @@ func TestLoadModel(t *testing.T) {
 }
 
 func TestLoadRealBadPath(t *testing.T) {
-	tfliteModelPath := basePath + "/testing_files/does_not_exist.tflite"
 	loader, err := NewDefaultTFLiteModelLoader()
 	test.That(t, err, test.ShouldBeNil)
-	tfliteStruct, err := loader.Load(tfliteModelPath)
+	tfliteStruct, err := loader.Load("67387030-86d5-4eb7-a086-020bd03552cb")
 	test.That(t, tfliteStruct, test.ShouldBeNil)
 	test.That(t, err, test.ShouldBeError, FailedToLoadError("model"))
 }
+
+const badPath string = "bad path"
 
 func TestLoadTFLiteStruct(t *testing.T) {
 	goodInterpreterLoader := func(model *tflite.Model, options *tflite.InterpreterOptions) (Interpreter, error) {
@@ -140,7 +132,7 @@ func TestBadInterpreter(t *testing.T) {
 }
 
 func TestHasMetadata(t *testing.T) {
-	tfliteModelPath := basePath + "/testing_files/model_with_metadata.tflite"
+	tfliteModelPath := artifact.MustPath("ml/inference/model_with_metadata.tflite")
 	loader, err := NewDefaultTFLiteModelLoader()
 	test.That(t, err, test.ShouldBeNil)
 	tfliteStruct, err := loader.Load(tfliteModelPath)
@@ -156,7 +148,7 @@ func TestHasMetadata(t *testing.T) {
 }
 
 func TestNoMetadata(t *testing.T) {
-	tfliteModelPath := basePath + "/testing_files/fizzbuzz_model.tflite"
+	tfliteModelPath := artifact.MustPath("ml/inference/fizzbuzz_model.tflite")
 	loader, err := NewDefaultTFLiteModelLoader()
 	test.That(t, err, test.ShouldBeNil)
 	tfliteStruct, err := loader.Load(tfliteModelPath)

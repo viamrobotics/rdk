@@ -2881,23 +2881,15 @@
       }
     }
   },
-  "component": {
-    "camera": {
-      "ffmpeg": {
-        "testsrc.mpg": {
-          "hash": "3db8bb7ff7845790c0a770dc19b7dd46",
-          "size": 13914
-        }
-      },
-      "transformpipeline": {
-        "vision.json": {
-          "hash": "6a08f5990ff4e77de7265facc1518a67",
-          "size": 84
+  "components": {
+    "arm": {
+      "universalrobots": {
+        "armBlob": {
+          "hash": "71d100e8a0f181f557c7539c7ab0c6a5",
+          "size": 716
         }
       }
-    }
-  },
-  "components": {
+    },
     "camera": {
       "ffmpeg": {
         "testsrc.mpg": {
@@ -3683,6 +3675,22 @@
       }
     }
   },
+  "ml": {
+    "inference": {
+      "fizzbuzz_model.tflite": {
+        "hash": "dff50838ec62afbdd87930ee221db829",
+        "size": 4492
+      },
+      "lite-model_efficientdet_lite0_detection_metadata_1.tflite": {
+        "hash": "3a047d6fd440b36cbba72e5532ff3548",
+        "size": 4563519
+      },
+      "model_with_metadata.tflite": {
+        "hash": "7c2152948ce4b5e00c88568eb559954d",
+        "size": 4036607
+      }
+    }
+  },
   "pointcloud": {
     "bun0.pcd": {
       "hash": "2a8eeb771a594acc62d68b2032b62349",
@@ -3939,6 +3947,14 @@
     "warpsmall1.jpg": {
       "hash": "c36f09f27bc3f355a61fbeb998b9ca71",
       "size": 2891
+    }
+  },
+  "robot": {
+    "packages": {
+      "example.tar.gz": {
+        "hash": "661fdbe98674c6974bb3c5b76cdd3329",
+        "size": 289
+      }
     }
   },
   "robots": {
