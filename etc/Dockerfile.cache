@@ -1,9 +1,10 @@
+ARG MAIN_TAG=ghcr.io/viamrobotics/canon
 ARG BASE_TAG=amd64
 
-FROM ghcr.io/viamrobotics/canon:$BASE_TAG as builder
+FROM $MAIN_TAG:$BASE_TAG as builder
 COPY --chown=1000:1000 ./ /tmp/rdk
-RUN --mount=type=secret,id=netrc,uid=1000,dst=/home/testbot/.netrc sudo -u testbot bash -lc 'cd /tmp/rdk && make build-go lint-go'
+RUN --mount=type=secret,id=netrc,uid=1000,dst=/home/testbot/.netrc sudo -Hu testbot bash -lc 'cd /tmp/rdk && make build-go lint-go'
 
-FROM ghcr.io/viamrobotics/canon:$BASE_TAG
+FROM $MAIN_TAG:$BASE_TAG
 COPY --from=builder --chown=1000:1000 /home/testbot/go /home/testbot/go
 COPY --from=builder --chown=1000:1000 /home/testbot/.cache /home/testbot/.cache

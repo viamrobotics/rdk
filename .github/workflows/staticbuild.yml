@@ -47,7 +47,7 @@ jobs:
     - name: Clean and Fix Permissions
       run: |
         chown -R testbot:testbot .
-        #sudo -Hu testbot bash -lc 'make clean-all'
+        sudo -Hu testbot bash -lc 'make clean-all'
 
     - name: Authorize GCP Upload
       uses: google-github-actions/auth@v1
