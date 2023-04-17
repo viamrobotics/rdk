@@ -13,10 +13,12 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/mlmodel"
 	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/testutils"
+	"go.viam.com/rdk/testutils/inject"
 )
 
-func newServer(omMap map[resource.Name]interface{}) (pb.MLModelServiceServer, error) {
-	omSvc, err := subtype.New(omMap)
+func newServer(resources map[resource.Name]resource.Resource) (pb.MLModelServiceServer, error) {
+	omSvc, err := subtype.New(mlmodel.Subtype, resources)
 	if err != nil {
 		return nil, err
 	}
@@ -27,18 +29,23 @@ func TestServerNotFound(t *testing.T) {
 	metadataRequest := &pb.MetadataRequest{
 		Name: testMLModelServiceName,
 	}
-	omMap := map[resource.Name]interface{}{}
-	server, err := newServer(omMap)
+	resources := map[resource.Name]resource.Resource{}
+	server, err := newServer(resources)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = server.Metadata(context.Background(), metadataRequest)
 	test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:service:mlmodel/mlmodel1\" not found"))
 
 	// set up the robot with something that is not an ml Model service
-	omMap = map[resource.Name]interface{}{mlmodel.Named(testMLModelServiceName): "not ml model"}
-	server, err = newServer(omMap)
+	resources = map[resource.Name]resource.Resource{
+		mlmodel.Named(testMLModelServiceName): testutils.NewUnimplementedResource(mlmodel.Named(testMLModelServiceName)),
+	}
+	server, err = newServer(resources)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = server.Metadata(context.Background(), metadataRequest)
-	test.That(t, err, test.ShouldBeError, mlmodel.NewUnimplementedInterfaceError("string"))
+	test.That(t,
+		err,
+		test.ShouldBeError,
+		resource.TypeError[mlmodel.Service](testutils.NewUnimplementedResource(mlmodel.Named(testMLModelServiceName))))
 }
 
 func TestServerMetadata(t *testing.T) {
@@ -46,12 +53,13 @@ func TestServerMetadata(t *testing.T) {
 		Name: testMLModelServiceName,
 	}
 
-	mockSrv := &mockDetector{}
-	omMap := map[resource.Name]interface{}{
+	mockSrv := inject.NewMLModelService(testMLModelServiceName)
+	mockSrv.MetadataFunc = injectedMetadataFunc
+	resources := map[resource.Name]resource.Resource{
 		mlmodel.Named(testMLModelServiceName): mockSrv,
 	}
 
-	server, err := newServer(omMap)
+	server, err := newServer(resources)
 	test.That(t, err, test.ShouldBeNil)
 	resp, err := server.Metadata(context.Background(), metadataRequest)
 	test.That(t, err, test.ShouldBeNil)
@@ -71,11 +79,11 @@ func TestServerMetadata(t *testing.T) {
 	test.That(t, outInfo[3].GetShape(), test.ShouldResemble, []int32{4, 3, 1})
 
 	// Multiple Services names Valid
-	omMap = map[resource.Name]interface{}{
+	resources = map[resource.Name]resource.Resource{
 		mlmodel.Named(testMLModelServiceName):  mockSrv,
 		mlmodel.Named(testMLModelServiceName2): mockSrv,
 	}
-	server, err = newServer(omMap)
+	server, err = newServer(resources)
 	test.That(t, err, test.ShouldBeNil)
 	resp, err = server.Metadata(context.Background(), metadataRequest)
 	test.That(t, err, test.ShouldBeNil)
@@ -93,6 +101,50 @@ func TestServerMetadata(t *testing.T) {
 	test.That(t, resp.Metadata.GetDescription(), test.ShouldEqual, "desc")
 }
 
+var injectedMetadataFunc = func(ctx context.Context) (mlmodel.MLMetadata, error) {
+	md := mlmodel.MLMetadata{
+		ModelName:        "fake_detector",
+		ModelType:        "object_detector",
+		ModelDescription: "desc",
+	}
+	md.Inputs = []mlmodel.TensorInfo{
+		{Name: "image", Description: "i0", DataType: "uint8", Shape: []int{300, 200}},
+	}
+	md.Outputs = []mlmodel.TensorInfo{
+		{Name: "n_detections", Description: "o0", DataType: "int32", Shape: []int{1}},
+		{Name: "confidence_scores", Description: "o1", DataType: "float32", Shape: []int{3, 1}},
+		{
+			Name:        "labels",
+			Description: "o2",
+			DataType:    "int32",
+			Shape:       []int{3, 1},
+			AssociatedFiles: []mlmodel.File{
+				{
+					Name:        "category_labels.txt",
+					Description: "these labels represent types of plants",
+					LabelType:   mlmodel.LabelTypeTensorValue,
+				},
+			},
+		},
+		{Name: "locations", Description: "o3", DataType: "float32", Shape: []int{4, 3, 1}},
+	}
+	return md, nil
+}
+
+var injectedInferFunc = func(ctx context.Context, input map[string]interface{}) (map[string]interface{}, error) {
+	// this is a possible form of what a detection tensor with 3 detection in 1 image would look like
+	outputMap := make(map[string]interface{})
+	outputMap["n_detections"] = []int32{3}
+	outputMap["confidence_scores"] = [][]float32{{0.9084375, 0.7359375, 0.33984375}}
+	outputMap["labels"] = [][]int32{{0, 0, 4}}
+	outputMap["locations"] = [][][]float32{{
+		{0.1, 0.4, 0.22, 0.4},
+		{0.02, 0.22, 0.77, 0.90},
+		{0.40, 0.50, 0.40, 0.50},
+	}}
+	return outputMap, nil
+}
+
 func TestServerInfer(t *testing.T) {
 	inputData := map[string]interface{}{
 		"image": [][]uint8{{10, 10, 255, 0, 0, 255, 255, 0, 100}},
@@ -104,12 +156,13 @@ func TestServerInfer(t *testing.T) {
 		InputData: inputProto,
 	}
 
-	mockSrv := &mockDetector{}
-	omMap := map[resource.Name]interface{}{
+	mockSrv := inject.NewMLModelService(testMLModelServiceName)
+	mockSrv.InferFunc = injectedInferFunc
+	resources := map[resource.Name]resource.Resource{
 		mlmodel.Named(testMLModelServiceName): mockSrv,
 	}
 
-	server, err := newServer(omMap)
+	server, err := newServer(resources)
 	test.That(t, err, test.ShouldBeNil)
 	resp, err := server.Infer(context.Background(), inferRequest)
 	test.That(t, err, test.ShouldBeNil)

@@ -13,13 +13,25 @@ import (
 )
 
 // StreamVideoSource starts a stream from a video source with a throttled error handler.
-func StreamVideoSource(ctx context.Context, source gostream.VideoSource, stream gostream.Stream, backoffOpts *BackoffTuningOptions) error {
-	return gostream.StreamVideoSourceWithErrorHandler(ctx, source, stream, backoffOpts.getErrorThrottledHandler())
+func StreamVideoSource(
+	ctx context.Context,
+	source gostream.VideoSource,
+	stream gostream.Stream,
+	backoffOpts *BackoffTuningOptions,
+	logger golog.Logger,
+) error {
+	return gostream.StreamVideoSourceWithErrorHandler(ctx, source, stream, backoffOpts.getErrorThrottledHandler(logger))
 }
 
 // StreamAudioSource starts a stream from an audio source with a throttled error handler.
-func StreamAudioSource(ctx context.Context, source gostream.AudioSource, stream gostream.Stream, backoffOpts *BackoffTuningOptions) error {
-	return gostream.StreamAudioSourceWithErrorHandler(ctx, source, stream, backoffOpts.getErrorThrottledHandler())
+func StreamAudioSource(
+	ctx context.Context,
+	source gostream.AudioSource,
+	stream gostream.Stream,
+	backoffOpts *BackoffTuningOptions,
+	logger golog.Logger,
+) error {
+	return gostream.StreamAudioSourceWithErrorHandler(ctx, source, stream, backoffOpts.getErrorThrottledHandler(logger))
 }
 
 // BackoffTuningOptions represents a set of parameters for determining exponential
@@ -51,7 +63,7 @@ func (opts *BackoffTuningOptions) GetSleepTimeFromErrorCount(errorCount int) tim
 	return time.Duration(sleep)
 }
 
-func (opts *BackoffTuningOptions) getErrorThrottledHandler() func(context.Context, error) {
+func (opts *BackoffTuningOptions) getErrorThrottledHandler(logger golog.Logger) func(context.Context, error) {
 	var prevErr error
 	var errorCount int
 	lastErrTime := time.Now()
@@ -71,7 +83,7 @@ func (opts *BackoffTuningOptions) getErrorThrottledHandler() func(context.Contex
 		}
 
 		sleep := opts.GetSleepTimeFromErrorCount(errorCount)
-		golog.Global().Debugw("error getting media", "error", err, "count", errorCount, "sleep", sleep)
+		logger.Debugw("error getting media", "error", err, "count", errorCount, "sleep", sleep)
 		utils.SelectContextOrWait(ctx, sleep)
 	}
 }

@@ -29,7 +29,6 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
@@ -72,29 +71,29 @@ type Config struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (config *Config) Validate(path string) ([]string, error) {
+func (conf *Config) Validate(path string) ([]string, error) {
 	var deps []string
-	if config.BoardName == "" {
+	if conf.BoardName == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
 	}
 
-	if config.Pins.In1 == "" {
+	if conf.Pins.In1 == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "in1")
 	}
 
-	if config.Pins.In2 == "" {
+	if conf.Pins.In2 == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "in2")
 	}
 
-	if config.Pins.In3 == "" {
+	if conf.Pins.In3 == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "in3")
 	}
 
-	if config.Pins.In4 == "" {
+	if conf.Pins.In4 == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "in4")
 	}
 
-	deps = append(deps, config.BoardName)
+	deps = append(deps, conf.BoardName)
 	return deps, nil
 }
 
@@ -104,17 +103,15 @@ func init() {
 	config.RegisterComponentAttributeMapConverter(
 		motor.Subtype,
 		model,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf Config
-			return config.TransformAttributeMapToStruct(&conf, attributes)
-		},
-		&Config{})
+		func(attributes rdkutils.AttributeMap) (interface{}, error) {
+			return config.TransformAttributeMapToStruct(&Config{}, attributes)
+		})
 }
 
-func new28byj(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-	mc, ok := config.ConvertedAttributes.(*Config)
-	if !ok {
-		return nil, rdkutils.NewUnexpectedTypeError(mc, config.ConvertedAttributes)
+func new28byj(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (resource.Resource, error) {
+	mc, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return nil, err
 	}
 
 	b, err := board.FromDependencies(deps, mc.BoardName)
@@ -127,10 +124,11 @@ func new28byj(ctx context.Context, deps registry.Dependencies, config config.Com
 	}
 
 	m := &uln28byj{
+		Named:            conf.ResourceName().AsNamed(),
 		theBoard:         b,
 		ticksPerRotation: mc.TicksPerRotation,
 		logger:           logger,
-		motorName:        config.Name,
+		motorName:        conf.Name,
 	}
 
 	in1, err := b.GPIOPinByName(mc.Pins.In1)
@@ -162,6 +160,8 @@ func new28byj(ctx context.Context, deps registry.Dependencies, config config.Com
 
 // struct is named after the controler uln28byj.
 type uln28byj struct {
+	resource.Named
+	resource.AlwaysRebuild
 	theBoard           board.Board
 	ticksPerRotation   int
 	in1, in2, in3, in4 board.GPIOPin
@@ -175,7 +175,6 @@ type uln28byj struct {
 	stepPosition       int64
 	stepperDelay       time.Duration
 	targetStepPosition int64
-	generic.Unimplemented
 }
 
 // doRun runs the motor till it reaches target step position.

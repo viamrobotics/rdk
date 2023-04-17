@@ -137,11 +137,15 @@ func (x *xArm) send(ctx context.Context, c cmd, checkError bool) (cmd, error) {
 	x.moveLock.Lock()
 	b := c.bytes()
 
+	conn := x.conn.Load()
+	if conn == nil {
+		return cmd{}, errors.New("closed")
+	}
 	// add deadline so we aren't waiting forever
-	if err := x.conn.SetDeadline(time.Now().Add(5 * time.Second)); err != nil {
+	if err := (*conn).SetDeadline(time.Now().Add(5 * time.Second)); err != nil {
 		return cmd{}, err
 	}
-	_, err := x.conn.Write(b)
+	_, err := (*conn).Write(b)
 	if err != nil {
 		x.moveLock.Unlock()
 		return cmd{}, err
@@ -168,7 +172,11 @@ func (x *xArm) send(ctx context.Context, c cmd, checkError bool) (cmd, error) {
 
 func (x *xArm) response(ctx context.Context) (cmd, error) {
 	// Read response header
-	buf, err := utils.ReadBytes(ctx, x.conn, 7)
+	conn := x.conn.Load()
+	if conn == nil {
+		return cmd{}, errors.New("closed")
+	}
+	buf, err := utils.ReadBytes(ctx, (*conn), 7)
 	if err != nil {
 		return cmd{}, err
 	}
@@ -177,7 +185,7 @@ func (x *xArm) response(ctx context.Context) (cmd, error) {
 	c.prot = binary.BigEndian.Uint16(buf[2:4])
 	c.reg = buf[6]
 	length := binary.BigEndian.Uint16(buf[4:6])
-	c.params, err = utils.ReadBytes(ctx, x.conn, int(length-1))
+	c.params, err = utils.ReadBytes(ctx, (*conn), int(length-1))
 	if err != nil {
 		return cmd{}, err
 	}
@@ -336,7 +344,16 @@ func (x *xArm) Close(ctx context.Context) error {
 	if err := x.setMotionState(ctx, 4); err != nil {
 		return err
 	}
-	return x.conn.Close()
+	x.mu.Lock()
+	defer x.mu.Unlock()
+
+	conn := x.conn.Load()
+	if conn == nil {
+		return nil
+	}
+	err := (*conn).Close()
+	x.conn.Store(nil)
+	return err
 }
 
 // MoveToJointPositions moves the arm to the requested joint positions.
@@ -356,7 +373,9 @@ func (x *xArm) MoveToJointPositions(ctx context.Context, newPositions *pb.JointP
 	from := x.model.InputFromProtobuf(curPos)
 
 	diff := getMaxDiff(from, to)
+	x.mu.RLock()
 	nSteps := int((diff / float64(x.speed)) * x.moveHZ)
+	x.mu.Unlock()
 
 	// convenience for structuring and sending individual joint steps
 	sendMoveJointsCmd := func(ctx context.Context, step []float64) error {

@@ -23,15 +23,7 @@ func NewServer(s subtype.Service) pb.EncoderServiceServer {
 
 // getEncoder returns the specified encoder or nil.
 func (s *subtypeServer) getEncoder(name string) (Encoder, error) {
-	resource := s.s.Resource(name)
-	if resource == nil {
-		return nil, errors.Errorf("no Encoder with name (%s)", name)
-	}
-	enc, ok := resource.(Encoder)
-	if !ok {
-		return nil, errors.Errorf("resource with name (%s) is not an Encoder", name)
-	}
-	return enc, nil
+	return subtype.LookupResource[Encoder](s.s, name)
 }
 
 // GetPosition returns the current position in terms of ticks or
@@ -44,15 +36,13 @@ func (s *subtypeServer) GetPosition(
 	if err != nil {
 		return nil, err
 	}
-	posType := ToEncoderPositionType(req.PositionType)
-	position, positionType, err := enc.GetPosition(ctx, &posType, req.Extra.AsMap())
+	position, positionType, err := enc.GetPosition(ctx, ToEncoderPositionType(req.PositionType), req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
-	posType1 := ToProtoPositionType(&positionType)
 	return &pb.GetPositionResponse{
 		Value:        float32(position),
-		PositionType: posType1,
+		PositionType: ToProtoPositionType(positionType),
 	}, nil
 }
 

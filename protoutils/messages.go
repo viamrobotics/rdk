@@ -148,14 +148,16 @@ func DoFromResourceClient(ctx context.Context, svc ClientDoCommander, name strin
 }
 
 // DoFromResourceServer is a helper to allow DoCommand() calls from any server.
-func DoFromResourceServer(ctx context.Context, resource resource.Generic,
+func DoFromResourceServer(
+	ctx context.Context,
+	res resource.Resource,
 	req *commonpb.DoCommandRequest,
 ) (*commonpb.DoCommandResponse, error) {
-	res, err := resource.DoCommand(ctx, req.Command.AsMap())
+	resp, err := res.DoCommand(ctx, req.Command.AsMap())
 	if err != nil {
 		return nil, err
 	}
-	pbRes, err := protoutils.StructToStructPb(res)
+	pbRes, err := protoutils.StructToStructPb(resp)
 	if err != nil {
 		return nil, err
 	}

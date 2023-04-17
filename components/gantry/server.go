@@ -4,7 +4,6 @@ package gantry
 import (
 	"context"
 
-	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/gantry/v1"
 
@@ -26,15 +25,7 @@ func NewServer(s subtype.Service) pb.GantryServiceServer {
 
 // getGantry returns the gantry specified, nil if not.
 func (s *subtypeServer) getGantry(name string) (Gantry, error) {
-	resource := s.s.Resource(name)
-	if resource == nil {
-		return nil, errors.Errorf("no gantry with name (%s)", name)
-	}
-	gantry, ok := resource.(Gantry)
-	if !ok {
-		return nil, errors.Errorf("resource with name (%s) is not a gantry", name)
-	}
-	return gantry, nil
+	return subtype.LookupResource[Gantry](s.s, name)
 }
 
 // GetPosition returns the position of the gantry specified.

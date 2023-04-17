@@ -10,25 +10,27 @@ import (
 
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/resource"
 )
 
 // client implements PoseTrackerServiceClient.
 type client struct {
+	resource.Named
+	resource.TriviallyReconfigurable
 	name   string
-	conn   rpc.ClientConn
 	client pb.PoseTrackerServiceClient
 	logger golog.Logger
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
-func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) PoseTracker {
+func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (PoseTracker, error) {
 	c := pb.NewPoseTrackerServiceClient(conn)
 	return &client{
-		name:   name,
-		conn:   conn,
+		Named:  name.AsNamed(),
+		name:   name.ShortNameForClient(),
 		client: c,
 		logger: logger,
-	}
+	}, nil
 }
 
 func (c *client) Poses(

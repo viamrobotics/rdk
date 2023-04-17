@@ -10,55 +10,57 @@ import (
 	"go.viam.com/rdk/rimage/transform"
 )
 
+//nolint:dupl
 func TestFakeCameraHighResolution(t *testing.T) {
 	model, width, height := fakeModel(1280, 720)
-	camOri := &Camera{Name: "test_high", Model: model, Width: width, Height: height}
-	cam, err := camera.NewFromReader(context.Background(), camOri, model, camera.ColorStream)
+	camOri := &Camera{Named: camera.Named("test_high").AsNamed(), Model: model, Width: width, Height: height}
+	src, err := camera.NewVideoSourceFromReader(context.Background(), camOri, model, camera.ColorStream)
 	test.That(t, err, test.ShouldBeNil)
-	cameraTest(t, cam, 1280, 720, 921600, model.PinholeCameraIntrinsics, model.Distortion)
+	cameraTest(t, src, 1280, 720, 921600, model.PinholeCameraIntrinsics, model.Distortion)
 	// (0,0) entry defaults to (1280, 720)
 	model, width, height = fakeModel(0, 0)
-	camOri = &Camera{Name: "test_high_zero", Model: model, Width: width, Height: height}
-	cam, err = camera.NewFromReader(context.Background(), camOri, model, camera.ColorStream)
+	camOri = &Camera{Named: camera.Named("test_high_zero").AsNamed(), Model: model, Width: width, Height: height}
+	src, err = camera.NewVideoSourceFromReader(context.Background(), camOri, model, camera.ColorStream)
 	test.That(t, err, test.ShouldBeNil)
-	cameraTest(t, cam, 1280, 720, 921600, model.PinholeCameraIntrinsics, model.Distortion)
+	cameraTest(t, src, 1280, 720, 921600, model.PinholeCameraIntrinsics, model.Distortion)
 }
 
 func TestFakeCameraMedResolution(t *testing.T) {
 	model, width, height := fakeModel(640, 360)
-	camOri := &Camera{Name: "test_high", Model: model, Width: width, Height: height}
-	cam, err := camera.NewFromReader(context.Background(), camOri, model, camera.ColorStream)
+	camOri := &Camera{Named: camera.Named("test_high").AsNamed(), Model: model, Width: width, Height: height}
+	src, err := camera.NewVideoSourceFromReader(context.Background(), camOri, model, camera.ColorStream)
 	test.That(t, err, test.ShouldBeNil)
-	cameraTest(t, cam, 640, 360, 230400, model.PinholeCameraIntrinsics, model.Distortion)
-	err = cam.Close(context.Background())
+	cameraTest(t, src, 640, 360, 230400, model.PinholeCameraIntrinsics, model.Distortion)
+	err = src.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 }
 
+//nolint:dupl
 func TestFakeCameraUnspecified(t *testing.T) {
 	// one unspecified side should keep 16:9 aspect ratio
 	// (320, 0) -> (320, 180)
 	model, width, height := fakeModel(320, 0)
-	camOri := &Camera{Name: "test_320", Model: model, Width: width, Height: height}
-	cam, err := camera.NewFromReader(context.Background(), camOri, model, camera.ColorStream)
+	camOri := &Camera{Named: camera.Named("test_320").AsNamed(), Model: model, Width: width, Height: height}
+	src, err := camera.NewVideoSourceFromReader(context.Background(), camOri, model, camera.ColorStream)
 	test.That(t, err, test.ShouldBeNil)
-	cameraTest(t, cam, 320, 180, 57600, model.PinholeCameraIntrinsics, model.Distortion)
+	cameraTest(t, src, 320, 180, 57600, model.PinholeCameraIntrinsics, model.Distortion)
 	// (0, 180) -> (320, 180)
 	model, width, height = fakeModel(0, 180)
-	camOri = &Camera{Name: "test_180", Model: model, Width: width, Height: height}
-	cam, err = camera.NewFromReader(context.Background(), camOri, model, camera.ColorStream)
+	camOri = &Camera{Named: camera.Named("test_180").AsNamed(), Model: model, Width: width, Height: height}
+	src, err = camera.NewVideoSourceFromReader(context.Background(), camOri, model, camera.ColorStream)
 	test.That(t, err, test.ShouldBeNil)
-	cameraTest(t, cam, 320, 180, 57600, model.PinholeCameraIntrinsics, model.Distortion)
+	cameraTest(t, src, 320, 180, 57600, model.PinholeCameraIntrinsics, model.Distortion)
 }
 
 func TestFakeCameraParams(t *testing.T) {
 	// test odd width and height
-	cfg := &Attrs{
+	cfg := &Config{
 		Width:  321,
 		Height: 0,
 	}
 	err := cfg.Validate()
 	test.That(t, err, test.ShouldNotBeNil)
-	cfg = &Attrs{
+	cfg = &Config{
 		Width:  0,
 		Height: 321,
 	}
@@ -68,7 +70,7 @@ func TestFakeCameraParams(t *testing.T) {
 
 func cameraTest(
 	t *testing.T,
-	cam camera.Camera,
+	cam camera.VideoSource,
 	width, height, points int,
 	intrinsics *transform.PinholeCameraIntrinsics,
 	distortion transform.Distorter,

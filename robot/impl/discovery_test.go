@@ -45,17 +45,13 @@ var (
 
 	workingDiscovery = map[string]interface{}{"position": "up"}
 	errFailed        = errors.New("can't get discovery")
-
-	mockReconfigurable = func(resource interface{}, name resource.Name) (resource.Reconfigurable, error) {
-		return nil, nil
-	}
 )
 
 func init() {
 	// Subtype with a working discovery function for a subtype model
 	registry.RegisterResourceSubtype(
 		workingSubtype,
-		registry.ResourceSubtype{Reconfigurable: mockReconfigurable},
+		registry.ResourceSubtype{},
 	)
 
 	registry.RegisterDiscoveryFunction(
@@ -66,13 +62,13 @@ func init() {
 	// Subtype without discovery function
 	registry.RegisterResourceSubtype(
 		noDiscoverSubtype,
-		registry.ResourceSubtype{Reconfigurable: mockReconfigurable},
+		registry.ResourceSubtype{},
 	)
 
 	// Subtype with a failing discovery function for a subtype model
 	registry.RegisterResourceSubtype(
 		failSubtype,
-		registry.ResourceSubtype{Reconfigurable: mockReconfigurable},
+		registry.ResourceSubtype{},
 	)
 
 	registry.RegisterDiscoveryFunction(

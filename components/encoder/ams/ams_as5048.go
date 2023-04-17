@@ -14,11 +14,10 @@ import (
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/encoder"
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	rdkutils "go.viam.com/rdk/utils"
+	rutils "go.viam.com/rdk/utils"
 )
 
 const (
@@ -43,38 +42,36 @@ func init() {
 		registry.Component{
 			Constructor: func(
 				ctx context.Context,
-				deps registry.Dependencies,
-				config config.Component,
+				deps resource.Dependencies,
+				conf resource.Config,
 				logger golog.Logger,
-			) (interface{}, error) {
-				return newAS5048Encoder(ctx, deps, config, logger)
+			) (resource.Resource, error) {
+				return newAS5048Encoder(ctx, deps, conf, logger)
 			},
 		},
 	)
 	config.RegisterComponentAttributeMapConverter(
 		encoder.Subtype,
 		modelName,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf AttrConfig
-			return config.TransformAttributeMapToStruct(&conf, attributes)
+		func(attributes rutils.AttributeMap) (interface{}, error) {
+			return config.TransformAttributeMapToStruct(&Config{}, attributes)
 		},
-		&AttrConfig{},
 	)
 }
 
-// AttrConfig contains the connection information for
+// Config contains the connection information for
 // configuring an AS5048 encoder.
-type AttrConfig struct {
+type Config struct {
 	BoardName string `json:"board"`
 	// We include connection type here in anticipation for
 	// future SPI support
 	ConnectionType string `json:"connection_type"`
-	*I2CAttrConfig `json:"i2c_attributes,omitempty"`
+	*I2CConfig     `json:"i2c_attributes,omitempty"`
 }
 
 // Validate checks the attributes of an initialized config
 // for proper values.
-func (conf *AttrConfig) Validate(path string) ([]string, error) {
+func (conf *Config) Validate(path string) ([]string, error) {
 	var deps []string
 
 	connType := conf.ConnectionType
@@ -91,10 +88,10 @@ func (conf *AttrConfig) Validate(path string) ([]string, error) {
 		if len(conf.BoardName) == 0 {
 			return nil, errors.New("expected nonempty board")
 		}
-		if conf.I2CAttrConfig == nil {
+		if conf.I2CConfig == nil {
 			return nil, errors.New("i2c selected as connection type, but no attributes supplied")
 		}
-		err := conf.I2CAttrConfig.ValidateI2C(path)
+		err := conf.I2CConfig.ValidateI2C(path)
 		if err != nil {
 			return nil, err
 		}
@@ -104,14 +101,14 @@ func (conf *AttrConfig) Validate(path string) ([]string, error) {
 	return deps, nil
 }
 
-// I2CAttrConfig stores the configuration information for I2C connection.
-type I2CAttrConfig struct {
+// I2CConfig stores the configuration information for I2C connection.
+type I2CConfig struct {
 	I2CBus  string `json:"i2c_bus"`
 	I2CAddr int    `json:"i2c_addr"`
 }
 
 // ValidateI2C ensures all parts of the config are valid.
-func (cfg *I2CAttrConfig) ValidateI2C(path string) error {
+func (cfg *I2CConfig) ValidateI2C(path string) error {
 	if cfg.I2CBus == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "i2c_bus")
 	}
@@ -125,59 +122,76 @@ func (cfg *I2CAttrConfig) ValidateI2C(path string) error {
 // Encoder is a struct representing an instance of a hardware unit
 // in AMS's AS5048 series of Hall-effect encoders.
 type Encoder struct {
+	resource.Named
 	mu                      sync.RWMutex
 	logger                  golog.Logger
 	position                float64
 	positionOffset          float64
 	rotations               int
-	connectionType          string
 	positionType            encoder.PositionType
 	i2cBus                  board.I2C
 	i2cAddr                 byte
 	cancelCtx               context.Context
 	cancel                  context.CancelFunc
 	activeBackgroundWorkers sync.WaitGroup
-	generic.Unimplemented
 }
 
 func newAS5048Encoder(
-	ctx context.Context, deps registry.Dependencies,
-	cfg config.Component, logger *zap.SugaredLogger,
+	ctx context.Context,
+	deps resource.Dependencies,
+	conf resource.Config,
+	logger *zap.SugaredLogger,
 ) (encoder.Encoder, error) {
-	attr, ok := cfg.ConvertedAttributes.(*AttrConfig)
-	if !ok {
-		return nil, rdkutils.NewUnexpectedTypeError(attr, cfg.ConvertedAttributes)
-	}
 	cancelCtx, cancel := context.WithCancel(ctx)
 	res := &Encoder{
-		connectionType: attr.ConnectionType,
-		cancelCtx:      cancelCtx,
-		cancel:         cancel,
-		logger:         logger,
-		positionType:   encoder.PositionTypeTICKS,
+		Named:        conf.ResourceName().AsNamed(),
+		cancelCtx:    cancelCtx,
+		cancel:       cancel,
+		logger:       logger,
+		positionType: encoder.PositionTypeTicks,
 	}
-	brd, err := board.FromDependencies(deps, attr.BoardName)
-	if err != nil {
+	if err := res.Reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
-	}
-	localBoard, ok := brd.(board.LocalBoard)
-	if !ok {
-		return nil, errors.Errorf(
-			"board with name %s does not implement the LocalBoard interface", attr.BoardName,
-		)
-	}
-	if res.connectionType == i2cConn {
-		i2c, exists := localBoard.I2CByName(attr.I2CBus)
-		if !exists {
-			return nil, errors.Errorf("unable to find I2C bus: %s", attr.I2CBus)
-		}
-		res.i2cBus = i2c
-		res.i2cAddr = byte(attr.I2CAddr)
 	}
 	if err := res.startPositionLoop(ctx); err != nil {
 		return nil, err
 	}
 	return res, nil
+}
+
+// Reconfigure reconfigures the encoder atomically.
+func (enc *Encoder) Reconfigure(
+	ctx context.Context,
+	deps resource.Dependencies,
+	conf resource.Config,
+) error {
+	newConf, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return err
+	}
+
+	brd, err := board.FromDependencies(deps, newConf.BoardName)
+	if err != nil {
+		return err
+	}
+	localBoard, ok := brd.(board.LocalBoard)
+	if !ok {
+		return errors.Errorf(
+			"board with name %s does not implement the LocalBoard interface", newConf.BoardName,
+		)
+	}
+	i2c, exists := localBoard.I2CByName(newConf.I2CBus)
+	if !exists {
+		return errors.Errorf("unable to find I2C bus: %s", newConf.I2CBus)
+	}
+	enc.mu.Lock()
+	defer enc.mu.Unlock()
+	if enc.i2cBus == i2c || enc.i2cAddr == byte(newConf.I2CAddr) {
+		return nil
+	}
+	enc.i2cBus = i2c
+	enc.i2cAddr = byte(newConf.I2CAddr)
+	return nil
 }
 
 func (enc *Encoder) startPositionLoop(ctx context.Context) error {
@@ -254,16 +268,16 @@ func (enc *Encoder) updatePosition(ctx context.Context) error {
 // motor to 1. Any other value will result in completely incorrect
 // position measurements by the motor.
 func (enc *Encoder) GetPosition(
-	ctx context.Context, positionType *encoder.PositionType, extra map[string]interface{},
+	ctx context.Context, positionType encoder.PositionType, extra map[string]interface{},
 ) (float64, encoder.PositionType, error) {
 	enc.mu.RLock()
 	defer enc.mu.RUnlock()
-	if positionType != nil && *positionType == encoder.PositionTypeDEGREES {
-		enc.positionType = encoder.PositionTypeDEGREES
+	if positionType == encoder.PositionTypeDegrees {
+		enc.positionType = encoder.PositionTypeDegrees
 		return enc.position, enc.positionType, nil
 	}
 	ticks := float64(enc.rotations) + enc.position/360.0
-	enc.positionType = encoder.PositionTypeTICKS
+	enc.positionType = encoder.PositionTypeTicks
 	return ticks, enc.positionType, nil
 }
 

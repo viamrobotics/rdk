@@ -4,7 +4,6 @@ package arm
 import (
 	"context"
 
-	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
 
@@ -27,15 +26,7 @@ func NewServer(s subtype.Service) pb.ArmServiceServer {
 
 // getArm returns the arm specified, nil if not.
 func (s *subtypeServer) getArm(name string) (Arm, error) {
-	resource := s.s.Resource(name)
-	if resource == nil {
-		return nil, errors.Errorf("no arm with name (%s)", name)
-	}
-	arm, ok := resource.(Arm)
-	if !ok {
-		return nil, errors.Errorf("resource with name (%s) is not an arm", name)
-	}
-	return arm, nil
+	return subtype.LookupResource[Arm](s.s, name)
 }
 
 // GetEndPosition returns the position of the arm specified.

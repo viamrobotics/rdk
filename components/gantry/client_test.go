@@ -7,11 +7,9 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-	componentpb "go.viam.com/api/component/gantry/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
-	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/components/gantry"
 	"go.viam.com/rdk/components/generic"
@@ -77,13 +75,15 @@ func TestClient(t *testing.T) {
 	}
 
 	gantrySvc, err := subtype.New(
-		(map[resource.Name]interface{}{gantry.Named(testGantryName): injectGantry, gantry.Named(testGantryName2): injectGantry2}),
+		gantry.Subtype,
+		(map[resource.Name]resource.Resource{gantry.Named(testGantryName): injectGantry, gantry.Named(testGantryName2): injectGantry2}),
 	)
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype := registry.ResourceSubtypeLookup(gantry.Subtype)
+	resourceSubtype, ok := registry.ResourceSubtypeLookup(gantry.Subtype)
+	test.That(t, ok, test.ShouldBeTrue)
 	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, gantrySvc)
 
-	injectGantry.DoFunc = generic.EchoFunc
+	injectGantry.DoFunc = testutils.EchoFunc
 	generic.RegisterService(rpcServer, gantrySvc)
 
 	go rpcServer.Serve(listener1)
@@ -102,13 +102,14 @@ func TestClient(t *testing.T) {
 	t.Run("gantry client 1", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		gantry1Client := gantry.NewClientFromConn(context.Background(), conn, testGantryName, logger)
+		gantry1Client, err := gantry.NewClientFromConn(context.Background(), conn, gantry.Named(testGantryName), logger)
+		test.That(t, err, test.ShouldBeNil)
 
 		// DoCommand
-		resp, err := gantry1Client.DoCommand(context.Background(), generic.TestCommand)
+		resp, err := gantry1Client.DoCommand(context.Background(), testutils.TestCommand)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp["command"], test.ShouldEqual, generic.TestCommand["command"])
-		test.That(t, resp["data"], test.ShouldEqual, generic.TestCommand["data"])
+		test.That(t, resp["command"], test.ShouldEqual, testutils.TestCommand["command"])
+		test.That(t, resp["data"], test.ShouldEqual, testutils.TestCommand["data"])
 
 		pos, err := gantry1Client.Position(context.Background(), map[string]interface{}{"foo": 123, "bar": "234"})
 		test.That(t, err, test.ShouldBeNil)
@@ -137,7 +138,8 @@ func TestClient(t *testing.T) {
 	t.Run("gantry client 2", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		client := resourceSubtype.RPCClient(context.Background(), conn, testGantryName2, logger)
+		client, err := resourceSubtype.RPCClient(context.Background(), conn, gantry.Named(testGantryName2), logger)
+		test.That(t, err, test.ShouldBeNil)
 		gantry2Client, ok := client.(gantry.Gantry)
 		test.That(t, ok, test.ShouldBeTrue)
 
@@ -152,38 +154,4 @@ func TestClient(t *testing.T) {
 
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
-}
-
-func TestClientDialerOption(t *testing.T) {
-	logger := golog.NewTestLogger(t)
-	listener, err := net.Listen("tcp", "localhost:0")
-	test.That(t, err, test.ShouldBeNil)
-	gServer := grpc.NewServer()
-	injectGantry := &inject.Gantry{}
-
-	gantrySvc, err := subtype.New(map[resource.Name]interface{}{gantry.Named(testGantryName): injectGantry})
-	test.That(t, err, test.ShouldBeNil)
-	componentpb.RegisterGantryServiceServer(gServer, gantry.NewServer(gantrySvc))
-
-	go gServer.Serve(listener)
-	defer gServer.Stop()
-
-	td := &testutils.TrackingDialer{Dialer: rpc.NewCachedDialer()}
-	ctx := rpc.ContextWithDialer(context.Background(), td)
-	conn1, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
-	test.That(t, err, test.ShouldBeNil)
-	client1 := gantry.NewClientFromConn(ctx, conn1, testGantryName, logger)
-	test.That(t, td.NewConnections, test.ShouldEqual, 3)
-	conn2, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
-	test.That(t, err, test.ShouldBeNil)
-	client2 := gantry.NewClientFromConn(ctx, conn2, testGantryName, logger)
-	test.That(t, td.NewConnections, test.ShouldEqual, 3)
-
-	err = utils.TryClose(context.Background(), client1)
-	test.That(t, err, test.ShouldBeNil)
-	err = utils.TryClose(context.Background(), client2)
-	test.That(t, err, test.ShouldBeNil)
-
-	test.That(t, conn1.Close(), test.ShouldBeNil)
-	test.That(t, conn2.Close(), test.ShouldBeNil)
 }

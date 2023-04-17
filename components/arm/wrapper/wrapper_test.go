@@ -1,109 +1,78 @@
 package wrapper
 
 import (
+	"context"
 	"testing"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/arm"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 )
 
-func TestUpdateAction(t *testing.T) {
-	logger, logs := golog.NewObservedTestLogger(t)
+func TestReconfigure(t *testing.T) {
+	logger := golog.NewTestLogger(t)
 
-	cfg := config.Component{
+	cfg := resource.Config{
 		Name: "testArm",
-		ConvertedAttributes: &AttrConfig{
+		ConvertedAttributes: &Config{
 			ModelFilePath: "../universalrobots/ur5e.json",
 			ArmName:       "does not exist0",
 		},
 	}
 
-	shouldNotReconfigureCfg := config.Component{
+	armName := arm.Named("foo")
+	cfg1 := resource.Config{
 		Name: "testArm",
-		ConvertedAttributes: &AttrConfig{
+		ConvertedAttributes: &Config{
 			ModelFilePath: "../xarm/xarm6_kinematics.json",
+			ArmName:       armName.ShortName(),
 		},
 	}
 
-	shouldReconfigureCfg := config.Component{
+	cfg1Err := resource.Config{
 		Name: "testArm",
-		ConvertedAttributes: &AttrConfig{
-			ArmName: "does not exist1",
+		ConvertedAttributes: &Config{
+			ModelFilePath: "../xarm/xarm6_kinematics.json",
+			ArmName:       "dne1",
 		},
 	}
 
-	shouldLogErr := config.Component{
+	cfg2Err := resource.Config{
 		Name: "testArm",
-		ConvertedAttributes: &AttrConfig{
+		ConvertedAttributes: &Config{
 			ModelFilePath: "DNE",
+			ArmName:       armName.ShortName(),
 		},
 	}
 
-	type foo struct {
-		daboDee string
-	}
-
-	shouldRebuild := config.Component{
-		Name: "testArm",
-		ConvertedAttributes: &foo{
-			daboDee: "DNE",
-		},
-	}
-
-	attrs, ok := cfg.ConvertedAttributes.(*AttrConfig)
-	test.That(t, ok, test.ShouldBeTrue)
-
-	model, err := referenceframe.ModelFromPath(attrs.ModelFilePath, cfg.Name)
+	conf, err := resource.NativeConfig[*Config](cfg)
 	test.That(t, err, test.ShouldBeNil)
 
+	model, err := referenceframe.ModelFromPath(conf.ModelFilePath, cfg.Name)
+	test.That(t, err, test.ShouldBeNil)
+
+	actualArm := &inject.Arm{}
+
 	wrapperArm := &Arm{
-		Name:   cfg.Name,
+		Named:  cfg.ResourceName().AsNamed(),
 		model:  model,
 		actual: &inject.Arm{},
 		logger: logger,
 	}
 
-	// scenario where we do not reconfigure
-	test.That(t, wrapperArm.UpdateAction(&shouldNotReconfigureCfg), test.ShouldEqual, config.None)
+	deps := resource.Dependencies{armName: actualArm}
 
-	// scenario where we reconfigure
-	test.That(t, wrapperArm.UpdateAction(&shouldReconfigureCfg), test.ShouldEqual, config.Reconfigure)
+	test.That(t, wrapperArm.Reconfigure(context.Background(), deps, cfg1), test.ShouldBeNil)
 
-	// scenario where we log err
-	test.That(t, wrapperArm.UpdateAction(&shouldLogErr), test.ShouldEqual, config.None)
-	test.That(t, len(logs.All()), test.ShouldEqual, 1)
+	err = wrapperArm.Reconfigure(context.Background(), deps, cfg1Err)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "missing from dep")
 
-	// scenario where we rebuild
-	test.That(t, wrapperArm.UpdateAction(&shouldRebuild), test.ShouldEqual, config.Rebuild)
-
-	// wrap with reconfigurable arm to test the codepath that will be executed during reconfigure
-	reconfArm, err := arm.WrapWithReconfigurable(wrapperArm, resource.Name{})
-	test.That(t, err, test.ShouldBeNil)
-
-	// scenario where we do not reconfigure
-	obj, canUpdate := reconfArm.(config.ComponentUpdate)
-	test.That(t, canUpdate, test.ShouldBeTrue)
-	test.That(t, obj.UpdateAction(&shouldNotReconfigureCfg), test.ShouldEqual, config.None)
-
-	// scenario where we reconfigure
-	obj, canUpdate = reconfArm.(config.ComponentUpdate)
-	test.That(t, canUpdate, test.ShouldBeTrue)
-	test.That(t, obj.UpdateAction(&shouldReconfigureCfg), test.ShouldEqual, config.Reconfigure)
-
-	// scenario where we log err
-	obj, canUpdate = reconfArm.(config.ComponentUpdate)
-	test.That(t, canUpdate, test.ShouldBeTrue)
-	test.That(t, obj.UpdateAction(&shouldLogErr), test.ShouldEqual, config.None)
-	test.That(t, len(logs.All()), test.ShouldEqual, 2)
-
-	// scenario where we rebuild
-	obj, canUpdate = reconfArm.(config.ComponentUpdate)
-	test.That(t, canUpdate, test.ShouldBeTrue)
-	test.That(t, obj.UpdateAction(&shouldRebuild), test.ShouldEqual, config.Rebuild)
+	err = wrapperArm.Reconfigure(context.Background(), deps, cfg2Err)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "only files")
 }

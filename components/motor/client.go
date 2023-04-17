@@ -10,25 +10,27 @@ import (
 	"go.viam.com/utils/rpc"
 
 	rprotoutils "go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/resource"
 )
 
 // client implements MotorServiceClient.
 type client struct {
+	resource.Named
+	resource.TriviallyReconfigurable
 	name   string
-	conn   rpc.ClientConn
 	client pb.MotorServiceClient
 	logger golog.Logger
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
-func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Motor {
+func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (Motor, error) {
 	c := pb.NewMotorServiceClient(conn)
 	return &client{
-		name:   name,
-		conn:   conn,
+		Named:  name.AsNamed(),
+		name:   name.ShortNameForClient(),
 		client: c,
 		logger: logger,
-	}
+	}, nil
 }
 
 func (c *client) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {

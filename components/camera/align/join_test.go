@@ -25,23 +25,23 @@ func TestJoin(t *testing.T) {
 	c := conf.FindComponent("join_cam")
 	test.That(t, c, test.ShouldNotBeNil)
 
-	attrs, ok := c.ConvertedAttributes.(*joinAttrs)
+	joinConf, ok := c.ConvertedAttributes.(*joinConfig)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, attrs, test.ShouldNotBeNil)
+	test.That(t, joinConf, test.ShouldNotBeNil)
 	img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board2.png"))
 	test.That(t, err, test.ShouldBeNil)
 	dm, err := rimage.NewDepthMapFromFile(context.Background(), artifact.MustPath("rimage/board2_gray.png"))
 	test.That(t, err, test.ShouldBeNil)
 	// create the source cameras
 	colorSrc := &videosource.StaticSource{ColorImg: img}
-	colorCam, err := camera.NewFromReader(context.Background(), colorSrc, nil, camera.ColorStream)
+	colorVideoSrc, err := camera.NewVideoSourceFromReader(context.Background(), colorSrc, nil, camera.ColorStream)
 	test.That(t, err, test.ShouldBeNil)
 	depthSrc := &videosource.StaticSource{DepthImg: dm}
-	depthCam, err := camera.NewFromReader(context.Background(), depthSrc, nil, camera.DepthStream)
+	depthVideoSrc, err := camera.NewVideoSourceFromReader(context.Background(), depthSrc, nil, camera.DepthStream)
 	test.That(t, err, test.ShouldBeNil)
 
 	// create the join camera
-	is, err := newJoinColorDepth(context.Background(), colorCam, depthCam, attrs, logger)
+	is, err := newJoinColorDepth(context.Background(), colorVideoSrc, depthVideoSrc, joinConf, logger)
 	test.That(t, err, test.ShouldBeNil)
 	// get images and point clouds
 	alignedPointCloud, err := is.NextPointCloud(context.Background())
@@ -53,11 +53,11 @@ func TestJoin(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, outDepth, test.ShouldNotBeNil)
 
-	test.That(t, colorCam.Close(context.Background()), test.ShouldBeNil)
-	test.That(t, depthCam.Close(context.Background()), test.ShouldBeNil)
+	test.That(t, colorVideoSrc.Close(context.Background()), test.ShouldBeNil)
+	test.That(t, depthVideoSrc.Close(context.Background()), test.ShouldBeNil)
 	test.That(t, is.Close(context.Background()), test.ShouldBeNil)
 	// set necessary fields to nil, expect errors
-	attrs.CameraParameters = nil
-	_, err = newJoinColorDepth(context.Background(), colorCam, depthCam, attrs, logger)
+	joinConf.CameraParameters = nil
+	_, err = newJoinColorDepth(context.Background(), colorVideoSrc, depthVideoSrc, joinConf, logger)
 	test.That(t, errors.Is(err, transform.ErrNoIntrinsics), test.ShouldBeTrue)
 }

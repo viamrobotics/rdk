@@ -11,32 +11,32 @@ import (
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/camera/videosource"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/utils"
 )
 
 func TestTransformPipelineColor(t *testing.T) {
 	transformConf := &transformConfig{
 		Source: "source",
 		Pipeline: []Transformation{
-			{Type: "rotate", Attributes: config.AttributeMap{}},
-			{Type: "resize", Attributes: config.AttributeMap{"height_px": 20, "width_px": 10}},
+			{Type: "rotate", Attributes: utils.AttributeMap{}},
+			{Type: "resize", Attributes: utils.AttributeMap{"height_px": 20, "width_px": 10}},
 		},
 	}
 	r := &inject.Robot{}
 	img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board1_small.png"))
 	test.That(t, err, test.ShouldBeNil)
 	source := gostream.NewVideoSource(&videosource.StaticSource{ColorImg: img}, prop.Video{})
-	cam, err := camera.NewFromSource(context.Background(), source, nil, camera.ColorStream)
+	src, err := camera.WrapVideoSourceWithProjector(context.Background(), source, nil, camera.ColorStream)
 	test.That(t, err, test.ShouldBeNil)
-	inImg, _, err := camera.ReadImage(context.Background(), cam)
+	inImg, _, err := camera.ReadImage(context.Background(), src)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, inImg.Bounds().Dx(), test.ShouldEqual, 128)
 	test.That(t, inImg.Bounds().Dy(), test.ShouldEqual, 72)
 
-	color, err := newTransformPipeline(context.Background(), cam, transformConf, r)
+	color, err := newTransformPipeline(context.Background(), src, transformConf, r)
 	test.That(t, err, test.ShouldBeNil)
 
 	outImg, _, err := camera.ReadImage(context.Background(), color)
@@ -66,8 +66,8 @@ func TestTransformPipelineDepth(t *testing.T) {
 		CameraParameters: intrinsics,
 		Source:           "source",
 		Pipeline: []Transformation{
-			{Type: "rotate", Attributes: config.AttributeMap{}},
-			{Type: "resize", Attributes: config.AttributeMap{"height_px": 30, "width_px": 40}},
+			{Type: "rotate", Attributes: utils.AttributeMap{}},
+			{Type: "resize", Attributes: utils.AttributeMap{"height_px": 30, "width_px": 40}},
 		},
 	}
 	r := &inject.Robot{}
@@ -75,14 +75,14 @@ func TestTransformPipelineDepth(t *testing.T) {
 	dm, err := rimage.NewDepthMapFromFile(context.Background(), artifact.MustPath("rimage/board1_gray_small.png"))
 	test.That(t, err, test.ShouldBeNil)
 	source := gostream.NewVideoSource(&videosource.StaticSource{DepthImg: dm}, prop.Video{})
-	cam, err := camera.NewFromSource(context.Background(), source, nil, camera.DepthStream)
+	src, err := camera.WrapVideoSourceWithProjector(context.Background(), source, nil, camera.DepthStream)
 	test.That(t, err, test.ShouldBeNil)
-	inImg, _, err := camera.ReadImage(context.Background(), cam)
+	inImg, _, err := camera.ReadImage(context.Background(), src)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, inImg.Bounds().Dx(), test.ShouldEqual, 128)
 	test.That(t, inImg.Bounds().Dy(), test.ShouldEqual, 72)
 
-	depth, err := newTransformPipeline(context.Background(), cam, transformConf, r)
+	depth, err := newTransformPipeline(context.Background(), src, transformConf, r)
 	test.That(t, err, test.ShouldBeNil)
 
 	outImg, _, err := camera.ReadImage(context.Background(), depth)
@@ -104,19 +104,19 @@ func TestTransformPipelineDepth2(t *testing.T) {
 	transform1 := &transformConfig{
 		Source: "source",
 		Pipeline: []Transformation{
-			{Type: "depth_preprocess", Attributes: config.AttributeMap{}},
-			{Type: "rotate", Attributes: config.AttributeMap{}},
-			{Type: "resize", Attributes: config.AttributeMap{"height_px": 20, "width_px": 10}},
-			{Type: "depth_to_pretty", Attributes: config.AttributeMap{}},
+			{Type: "depth_preprocess", Attributes: utils.AttributeMap{}},
+			{Type: "rotate", Attributes: utils.AttributeMap{}},
+			{Type: "resize", Attributes: utils.AttributeMap{"height_px": 20, "width_px": 10}},
+			{Type: "depth_to_pretty", Attributes: utils.AttributeMap{}},
 		},
 	}
 	transform2 := &transformConfig{
 		Source: "source",
 		Pipeline: []Transformation{
-			{Type: "depth_preprocess", Attributes: config.AttributeMap{}},
-			{Type: "rotate", Attributes: config.AttributeMap{}},
-			{Type: "resize", Attributes: config.AttributeMap{"height_px": 30, "width_px": 40}},
-			{Type: "depth_edges", Attributes: config.AttributeMap{"high_threshold_pct": 0.85, "low_threshold_pct": 0.3, "blur_radius_px": 3.0}},
+			{Type: "depth_preprocess", Attributes: utils.AttributeMap{}},
+			{Type: "rotate", Attributes: utils.AttributeMap{}},
+			{Type: "resize", Attributes: utils.AttributeMap{"height_px": 30, "width_px": 40}},
+			{Type: "depth_edges", Attributes: utils.AttributeMap{"high_threshold_pct": 0.85, "low_threshold_pct": 0.3, "blur_radius_px": 3.0}},
 		},
 	}
 	r := &inject.Robot{}
@@ -181,14 +181,14 @@ func TestPipeIntoPipe(t *testing.T) {
 	transform1 := &transformConfig{
 		CameraParameters: intrinsics1,
 		Source:           "source",
-		Pipeline:         []Transformation{{Type: "rotate", Attributes: config.AttributeMap{}}},
+		Pipeline:         []Transformation{{Type: "rotate", Attributes: utils.AttributeMap{}}},
 	}
 	intrinsics2 := &transform.PinholeCameraIntrinsics{Width: 10, Height: 20}
 	transform2 := &transformConfig{
 		CameraParameters: intrinsics2,
 		Source:           "transform2",
 		Pipeline: []Transformation{
-			{Type: "resize", Attributes: config.AttributeMap{"height_px": 20, "width_px": 10}},
+			{Type: "resize", Attributes: utils.AttributeMap{"height_px": 20, "width_px": 10}},
 		},
 	}
 

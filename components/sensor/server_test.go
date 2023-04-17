@@ -13,18 +13,19 @@ import (
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
 
 func newServer() (pb.SensorServiceServer, *inject.Sensor, *inject.Sensor, error) {
 	injectSensor := &inject.Sensor{}
 	injectSensor2 := &inject.Sensor{}
-	sensors := map[resource.Name]interface{}{
+	sensors := map[resource.Name]resource.Resource{
 		sensor.Named(testSensorName): injectSensor,
 		sensor.Named(failSensorName): injectSensor2,
-		sensor.Named(fakeSensorName): "notSensor",
+		sensor.Named(fakeSensorName): testutils.NewUnimplementedResource(sensor.Named(fakeSensorName)),
 	}
-	sensorSvc, err := subtype.New(sensors)
+	sensorSvc, err := subtype.New(sensor.Subtype, sensors)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -68,10 +69,10 @@ func TestServer(t *testing.T) {
 
 		_, err = sensorServer.GetReadings(context.Background(), &pb.GetReadingsRequest{Name: fakeSensorName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "not a generic sensor")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "expected")
 
 		_, err = sensorServer.GetReadings(context.Background(), &pb.GetReadingsRequest{Name: missingSensorName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no generic sensor")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 	})
 }

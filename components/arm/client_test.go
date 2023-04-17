@@ -12,8 +12,6 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
-	gotestutils "go.viam.com/utils/testutils"
-	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/generic"
@@ -91,13 +89,28 @@ func TestClient(t *testing.T) {
 		return nil
 	}
 
-	armSvc, err := subtype.New(map[resource.Name]interface{}{arm.Named(testArmName): injectArm, arm.Named(testArmName2): injectArm2})
+	armSvc, err := subtype.New(
+		arm.Subtype, map[resource.Name]resource.Resource{arm.Named(testArmName): injectArm, arm.Named(testArmName2): injectArm2})
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype := registry.ResourceSubtypeLookup(arm.Subtype)
+	resourceSubtype, ok := registry.ResourceSubtypeLookup(arm.Subtype)
+	test.That(t, ok, test.ShouldBeTrue)
 	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, armSvc)
 
+	injectRobot := &inject.Robot{}
+	injectRobot.FrameSystemConfigFunc = func(
+		ctx context.Context,
+		additionalTransforms []*referenceframe.LinkInFrame,
+	) (framesystemparts.Parts, error) {
+		return framesystemparts.Parts{}, nil
+	}
+	test.That(t, rpcServer.RegisterServiceServer(
+		context.Background(),
+		&robotpb.RobotService_ServiceDesc,
+		server.New(injectRobot),
+	), test.ShouldBeNil)
+
 	generic.RegisterService(rpcServer, armSvc)
-	injectArm.DoFunc = generic.EchoFunc
+	injectArm.DoFunc = testutils.EchoFunc
 
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()
@@ -115,13 +128,14 @@ func TestClient(t *testing.T) {
 	t.Run("arm client 1", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		arm1Client := arm.NewClientFromConn(context.Background(), conn, testArmName, logger)
+		arm1Client, err := arm.NewClientFromConn(context.Background(), conn, arm.Named(testArmName), logger)
+		test.That(t, err, test.ShouldBeNil)
 
 		// DoCommand
-		resp, err := arm1Client.DoCommand(context.Background(), generic.TestCommand)
+		resp, err := arm1Client.DoCommand(context.Background(), testutils.TestCommand)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp["command"], test.ShouldEqual, generic.TestCommand["command"])
-		test.That(t, resp["data"], test.ShouldEqual, generic.TestCommand["data"])
+		test.That(t, resp["command"], test.ShouldEqual, testutils.TestCommand["command"])
+		test.That(t, resp["data"], test.ShouldEqual, testutils.TestCommand["data"])
 
 		pos, err := arm1Client.EndPosition(context.Background(), map[string]interface{}{"foo": "EndPosition"})
 		test.That(t, err, test.ShouldBeNil)
@@ -156,7 +170,8 @@ func TestClient(t *testing.T) {
 	t.Run("arm client 2", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		client := resourceSubtype.RPCClient(context.Background(), conn, testArmName2, logger)
+		client, err := resourceSubtype.RPCClient(context.Background(), conn, arm.Named(testArmName2), logger)
+		test.That(t, err, test.ShouldBeNil)
 		arm2Client, ok := client.(arm.Arm)
 		test.That(t, ok, test.ShouldBeTrue)
 
@@ -169,97 +184,4 @@ func TestClient(t *testing.T) {
 
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
-}
-
-func TestClientDialerOption(t *testing.T) {
-	logger := golog.NewTestLogger(t)
-	listener, err := net.Listen("tcp", "localhost:0")
-	test.That(t, err, test.ShouldBeNil)
-	gServer := grpc.NewServer()
-	injectArm := &inject.Arm{}
-
-	armSvc, err := subtype.New(map[resource.Name]interface{}{arm.Named(testArmName): injectArm})
-	test.That(t, err, test.ShouldBeNil)
-	componentpb.RegisterArmServiceServer(gServer, arm.NewServer(armSvc))
-
-	go gServer.Serve(listener)
-	defer gServer.Stop()
-
-	td := &testutils.TrackingDialer{Dialer: rpc.NewCachedDialer()}
-	ctx := rpc.ContextWithDialer(context.Background(), td)
-	conn1, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
-	test.That(t, err, test.ShouldBeNil)
-	client1 := arm.NewClientFromConn(ctx, conn1, testArmName, logger)
-	test.That(t, td.NewConnections, test.ShouldEqual, 3)
-	conn2, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
-	test.That(t, err, test.ShouldBeNil)
-	client2 := arm.NewClientFromConn(ctx, conn2, testArmName, logger)
-	test.That(t, td.NewConnections, test.ShouldEqual, 3)
-
-	err = utils.TryClose(context.Background(), client1)
-	test.That(t, err, test.ShouldBeNil)
-	err = utils.TryClose(context.Background(), client2)
-	test.That(t, err, test.ShouldBeNil)
-
-	test.That(t, conn1.Close(), test.ShouldBeNil)
-	test.That(t, conn2.Close(), test.ShouldBeNil)
-}
-
-func TestClientModel(t *testing.T) {
-	logger := golog.NewTestLogger(t)
-
-	// create inject arm
-	var injectArmPosition *componentpb.JointPositions
-	injectArm := &inject.Arm{}
-	injectArm.JointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (*componentpb.JointPositions, error) {
-		return injectArmPosition, nil
-	}
-	injectArm.MoveToJointPositionsFunc = func(ctx context.Context, jp *componentpb.JointPositions, extra map[string]interface{}) error {
-		injectArmPosition = jp
-		return nil
-	}
-
-	// create basic Model for arm
-	json := `{"name": "foo","joints": [{"id": "bar","type": "revolute","parent": "world","axis": {"x": 1},"max": 360,"min": -360}]}`
-
-	model, err := referenceframe.UnmarshalModelJSON([]byte(json), "")
-	test.That(t, err, test.ShouldBeNil)
-
-	// create inject Robot
-	injectRobot := &inject.Robot{}
-	injectRobot.FrameSystemConfigFunc = func(
-		ctx context.Context,
-		additionalTransforms []*referenceframe.LinkInFrame,
-	) (framesystemparts.Parts, error) {
-		return framesystemparts.Parts{&referenceframe.FrameSystemPart{
-			FrameConfig: referenceframe.NewLinkInFrame(referenceframe.World, nil, testArmName, nil),
-			ModelFrame:  model,
-		}}, nil
-	}
-
-	// register services, setup connection
-	var listener net.Listener = gotestutils.ReserveRandomListener(t)
-	gServer := grpc.NewServer()
-	robotpb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
-	armSvc, err := subtype.New(map[resource.Name]interface{}{arm.Named(testArmName): injectArm, arm.Named(testArmName2): injectArm})
-	test.That(t, err, test.ShouldBeNil)
-	componentpb.RegisterArmServiceServer(gServer, arm.NewServer(armSvc))
-	go gServer.Serve(listener)
-	defer gServer.Stop()
-	conn, err := viamgrpc.Dial(context.Background(), listener.Addr().String(), logger)
-	test.That(t, err, test.ShouldBeNil)
-	defer conn.Close()
-
-	// test client
-	armClient := arm.NewClientFromConn(context.Background(), conn, testArmName, logger)
-	defer test.That(t, utils.TryClose(context.Background(), armClient), test.ShouldBeNil)
-
-	modelResponse := armClient.ModelFrame()
-	test.That(t, modelResponse, test.ShouldNotBeNil)
-	expected := []referenceframe.Input{{Value: 90}}
-	err = armClient.GoToInputs(context.Background(), expected)
-	test.That(t, err, test.ShouldBeNil)
-	actual, err := armClient.CurrentInputs(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, expected[0].Value, test.ShouldAlmostEqual, actual[0].Value)
 }

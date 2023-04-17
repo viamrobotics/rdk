@@ -9,7 +9,6 @@ import (
 
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/subtype"
-	"go.viam.com/rdk/utils"
 )
 
 // subtypeServer implements the DataManagerService from datamanager.proto.
@@ -24,15 +23,7 @@ func NewServer(s subtype.Service) pb.DataManagerServiceServer {
 }
 
 func (server *subtypeServer) service(serviceName string) (Service, error) {
-	resource := server.subtypeSvc.Resource(serviceName)
-	if resource == nil {
-		return nil, utils.NewResourceNotFoundError(Named(serviceName))
-	}
-	svc, ok := resource.(Service)
-	if !ok {
-		return nil, NewUnimplementedInterfaceError(resource)
-	}
-	return svc, nil
+	return subtype.LookupResource[Service](server.subtypeSvc, serviceName)
 }
 
 func (server *subtypeServer) Sync(ctx context.Context, req *pb.SyncRequest) (*pb.SyncResponse, error) {

@@ -9,9 +9,9 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/services/vision"
+	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision/classification"
 )
 
@@ -19,14 +19,14 @@ func BenchmarkAddTFLiteDetector(b *testing.B) {
 	modelLoc := artifact.MustPath("vision/tflite/effdet0.tflite")
 	cfg := vision.VisModelConfig{
 		Name: "testdetector", Type: "tflite_detector",
-		Parameters: config.AttributeMap{
+		Parameters: utils.AttributeMap{
 			"model_path":  modelLoc,
 			"label_path":  "",
 			"num_threads": 2,
 		},
 	}
 	ctx := context.Background()
-	logger := golog.NewLogger("benchmark")
+	logger := golog.NewTestLogger(b)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_, _, err := NewTFLiteDetector(ctx, &cfg, logger)
@@ -40,14 +40,14 @@ func BenchmarkGetTFLiteDetections(b *testing.B) {
 	test.That(b, err, test.ShouldBeNil)
 	cfg := vision.VisModelConfig{
 		Name: "testdetector", Type: "tflite_detector",
-		Parameters: config.AttributeMap{
+		Parameters: utils.AttributeMap{
 			"model_path":  modelLoc,
 			"label_path":  "",
 			"num_threads": 2,
 		},
 	}
 	ctx := context.Background()
-	logger := golog.NewLogger("benchmark")
+	logger := golog.NewTestLogger(b)
 	det, model, err := NewTFLiteDetector(ctx, &cfg, logger)
 	test.That(b, model, test.ShouldNotBeNil)
 	test.That(b, err, test.ShouldBeNil)
@@ -75,7 +75,7 @@ func TestNewTfLiteDetector(t *testing.T) {
 	modelLoc := artifact.MustPath("vision/tflite/effdet0.tflite")
 	cfg := vision.VisModelConfig{
 		Name: "testdetector", Type: "tflite_detector",
-		Parameters: config.AttributeMap{
+		Parameters: utils.AttributeMap{
 			"model_path":  modelLoc,
 			"label_path":  "",
 			"num_threads": 1,
@@ -106,7 +106,7 @@ func TestMoreDetectorModels(t *testing.T) {
 	modelLoc := artifact.MustPath("vision/tflite/ssdmobilenet.tflite")
 	cfg := vision.VisModelConfig{
 		Name: "testssddetector", Type: "tflite_detector",
-		Parameters: config.AttributeMap{
+		Parameters: utils.AttributeMap{
 			"model_path":  modelLoc,
 			"label_path":  "",
 			"num_threads": 2,
@@ -127,7 +127,7 @@ func TestMoreDetectorModels(t *testing.T) {
 	modelLoc = artifact.MustPath("vision/tflite/mobilenet.tflite")
 	cfg = vision.VisModelConfig{
 		Name: "mobilenetdetector", Type: "tflite_detector",
-		Parameters: config.AttributeMap{
+		Parameters: utils.AttributeMap{
 			"model_path":  modelLoc,
 			"label_path":  "",
 			"num_threads": 2,
@@ -161,7 +161,7 @@ func TestFileNotFound(t *testing.T) {
 
 	cfg := vision.VisModelConfig{
 		Name: "nofile", Type: "tflite_detector",
-		Parameters: config.AttributeMap{
+		Parameters: utils.AttributeMap{
 			"model_path":  "very/fake/path.tflite",
 			"label_path":  "",
 			"num_threads": 2,
@@ -190,7 +190,7 @@ func TestNewTfLiteClassifier(t *testing.T) {
 	modelLoc := artifact.MustPath("vision/tflite/effnet0.tflite")
 	cfg := vision.VisModelConfig{
 		Name: "testclassifier", Type: "tflite_classifier",
-		Parameters: config.AttributeMap{
+		Parameters: utils.AttributeMap{
 			"model_path":  modelLoc,
 			"label_path":  "",
 			"num_threads": 2,
@@ -219,7 +219,7 @@ func TestMoreClassifierModels(t *testing.T) {
 	modelLoc := artifact.MustPath("vision/tflite/mobilenetv2_class.tflite")
 	cfg := vision.VisModelConfig{
 		Name: "testclassifier", Type: "tflite_classifier",
-		Parameters: config.AttributeMap{
+		Parameters: utils.AttributeMap{
 			"model_path":  modelLoc,
 			"label_path":  "",
 			"num_threads": 2,
@@ -241,7 +241,7 @@ func TestMoreClassifierModels(t *testing.T) {
 	modelLoc = artifact.MustPath("vision/tflite/mobilenetv2_imagenet.tflite")
 	cfg = vision.VisModelConfig{
 		Name: "testclassifier", Type: "tflite_classifier",
-		Parameters: config.AttributeMap{
+		Parameters: utils.AttributeMap{
 			"model_path":  modelLoc,
 			"label_path":  "",
 			"num_threads": 2,
@@ -270,7 +270,7 @@ func TestOneClassifierOnManyCameras(t *testing.T) {
 	cfg := vision.VisModelConfig{
 		Name: "testclassifier",
 		Type: "tflite_classifier",
-		Parameters: config.AttributeMap{
+		Parameters: utils.AttributeMap{
 			"model_path":  modelLoc,
 			"label_path":  "",
 			"num_threads": 2,

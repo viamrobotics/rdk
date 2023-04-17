@@ -167,7 +167,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 	deleteProcessedData := false
 	useLiveData := true
 
-	attrCfg := &slamConfig.AttrConfig{
+	slamConf := &slamConfig.Config{
 		Sensors: sensors,
 		ConfigParams: map[string]string{
 			"mode":              reflect.ValueOf(mode).String(),
@@ -189,7 +189,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 	// Release camera image(s) for service validation
 	releaseImages(t, mode)
 	// Create slam service using a real orbslam binary
-	svc, err := createSLAMService(t, attrCfg, "orbslamv3", logger, true, true)
+	svc, err := createSLAMService(t, slamConf, "orbslamv3", logger, true, true)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Release camera image(s), since orbslam looks for the second most recent image(s)
@@ -222,7 +222,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 		}
 	}
 
-	testOrbslamPosition(t, svc, reflect.ValueOf(mode).String(), "mapping", attrCfg.Sensors[0])
+	testOrbslamPosition(t, svc, reflect.ValueOf(mode).String(), "mapping", slamConf.Sensors[0])
 	testOrbslamMap(t, svc)
 
 	// Close out slam service
@@ -273,7 +273,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 	deleteProcessedData = false
 	useLiveData = false
 
-	attrCfg = &slamConfig.AttrConfig{
+	slamConf = &slamConfig.Config{
 		Sensors: []string{},
 		ConfigParams: map[string]string{
 			"mode":              reflect.ValueOf(mode).String(),
@@ -291,7 +291,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 	}
 
 	// Create slam service using a real orbslam binary
-	svc, err = createSLAMService(t, attrCfg, "orbslamv3", golog.NewTestLogger(t), true, true)
+	svc, err = createSLAMService(t, slamConf, "orbslamv3", golog.NewTestLogger(t), true, true)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Check if orbslam hangs and needs to be shut down
@@ -366,7 +366,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 	deleteProcessedData = true
 	useLiveData = true
 
-	attrCfg = &slamConfig.AttrConfig{
+	slamConf = &slamConfig.Config{
 		Sensors: sensors,
 		ConfigParams: map[string]string{
 			"mode":              reflect.ValueOf(mode).String(),
@@ -386,7 +386,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 	// Release camera image(s) for service validation
 	releaseImages(t, mode)
 	// Create slam service using a real orbslam binary
-	svc, err = createSLAMService(t, attrCfg, "orbslamv3", golog.NewTestLogger(t), true, true)
+	svc, err = createSLAMService(t, slamConf, "orbslamv3", golog.NewTestLogger(t), true, true)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Make sure we initialize from a saved map
@@ -429,7 +429,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 		}
 	}
 
-	testOrbslamPosition(t, svc, reflect.ValueOf(mode).String(), "updating", attrCfg.Sensors[0])
+	testOrbslamPosition(t, svc, reflect.ValueOf(mode).String(), "updating", slamConf.Sensors[0])
 	testOrbslamMap(t, svc)
 
 	// Close out slam service

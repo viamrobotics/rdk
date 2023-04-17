@@ -83,7 +83,6 @@ func NewFakePackageServer(ctx context.Context, logger golog.Logger) (*FakePackag
 	}
 
 	server := &FakePackagesClientAndGCSServer{
-		exitWg:              sync.WaitGroup{},
 		httpserver:          httpServer,
 		httplistener:        httplistener,
 		listener:            rpclistener,

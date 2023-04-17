@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/resource"
 )
 
 type (
@@ -30,6 +31,8 @@ var ErrInvalidPackageRef = errors.New("invalid package reference")
 // Manager provides a managed interface for looking up package paths. This is separated from ManagerSyncer to avoid passing
 // the full sync interface to all components.
 type Manager interface {
+	resource.Resource
+
 	// PackagePath returns the package if it exists and is already downloaded. If it does not exist it returns a ErrPackageMissing error.
 	PackagePath(name PackageName) (string, error)
 

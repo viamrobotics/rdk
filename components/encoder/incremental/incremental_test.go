@@ -12,8 +12,7 @@ import (
 	"go.viam.com/rdk/components/board"
 	fakeboard "go.viam.com/rdk/components/board/fake"
 	"go.viam.com/rdk/components/encoder"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 )
 
 func TestConfig(t *testing.T) {
@@ -21,48 +20,48 @@ func TestConfig(t *testing.T) {
 
 	b := MakeBoard(t)
 
-	deps := make(registry.Dependencies)
+	deps := make(resource.Dependencies)
 	deps[board.Named("main")] = b
 
 	t.Run("valid config", func(t *testing.T) {
-		ic := AttrConfig{
+		ic := Config{
 			BoardName: "main",
 			Pins:      Pins{A: "11", B: "13"},
 		}
 
-		rawcfg := config.Component{Name: "enc1", ConvertedAttributes: &ic}
+		rawcfg := resource.Config{Name: "enc1", ConvertedAttributes: &ic}
 
 		_, err := NewIncrementalEncoder(ctx, deps, rawcfg, golog.NewTestLogger(t))
 
 		test.That(t, err, test.ShouldBeNil)
 	})
 	t.Run("invalid config", func(t *testing.T) {
-		ic := AttrConfig{
+		ic := Config{
 			BoardName: "pi",
 			// Pins intentionally missing
 		}
 
-		rawcfg := config.Component{Name: "enc1", ConvertedAttributes: &ic}
+		rawcfg := resource.Config{Name: "enc1", ConvertedAttributes: &ic}
 
 		_, err := NewIncrementalEncoder(ctx, deps, rawcfg, golog.NewTestLogger(t))
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 }
 
-func TestEnconder(t *testing.T) {
+func TestEncoder(t *testing.T) {
 	ctx := context.Background()
 
 	b := MakeBoard(t)
 
-	deps := make(registry.Dependencies)
+	deps := make(resource.Dependencies)
 	deps[board.Named("main")] = b
 
-	ic := AttrConfig{
+	ic := Config{
 		BoardName: "main",
 		Pins:      Pins{A: "11", B: "13"},
 	}
 
-	rawcfg := config.Component{Name: "enc1", ConvertedAttributes: &ic}
+	rawcfg := resource.Config{Name: "enc1", ConvertedAttributes: &ic}
 
 	t.Run("run forward", func(t *testing.T) {
 		enc, err := NewIncrementalEncoder(ctx, deps, rawcfg, golog.NewTestLogger(t))
@@ -77,7 +76,7 @@ func TestEnconder(t *testing.T) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			ticks, _, err := enc.GetPosition(context.Background(), nil, nil)
+			ticks, _, err := enc.GetPosition(context.Background(), encoder.PositionTypeUnspecified, nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, ticks, test.ShouldEqual, 1)
 		})
@@ -96,7 +95,7 @@ func TestEnconder(t *testing.T) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			ticks, _, err := enc.GetPosition(context.Background(), nil, nil)
+			ticks, _, err := enc.GetPosition(context.Background(), encoder.PositionTypeUnspecified, nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, ticks, test.ShouldEqual, -1)
 		})
@@ -111,7 +110,7 @@ func TestEnconder(t *testing.T) {
 		// reset position to 0
 		err = enc.ResetPosition(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
-		ticks, _, err := enc.GetPosition(context.Background(), nil, nil)
+		ticks, _, err := enc.GetPosition(context.Background(), encoder.PositionTypeUnspecified, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ticks, test.ShouldEqual, 0)
 	})
@@ -124,10 +123,10 @@ func TestEnconder(t *testing.T) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			ticks, positionType, err := enc.GetPosition(context.Background(), encoder.PositionTypeTICKS.Enum(), nil)
+			ticks, positionType, err := enc.GetPosition(context.Background(), encoder.PositionTypeTicks, nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, ticks, test.ShouldEqual, 0)
-			test.That(tb, positionType, test.ShouldEqual, encoder.PositionTypeTICKS)
+			test.That(tb, positionType, test.ShouldEqual, encoder.PositionTypeTicks)
 		})
 	})
 	t.Run("specify wrong position type", func(t *testing.T) {
@@ -138,10 +137,10 @@ func TestEnconder(t *testing.T) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			ticks, positionType, err := enc.GetPosition(context.Background(), encoder.PositionTypeDEGREES.Enum(), nil)
+			_, _, err := enc.GetPosition(context.Background(), encoder.PositionTypeDegrees, nil)
 			test.That(tb, err, test.ShouldNotBeNil)
-			test.That(tb, ticks, test.ShouldEqual, 0)
-			test.That(tb, positionType, test.ShouldEqual, encoder.PositionTypeDEGREES)
+			test.That(tb, err.Error(), test.ShouldContainSubstring, "encoder does not support")
+			test.That(tb, err.Error(), test.ShouldContainSubstring, "degrees")
 		})
 	})
 
@@ -162,21 +161,21 @@ func TestEnconder(t *testing.T) {
 }
 
 func MakeBoard(t *testing.T) *fakeboard.Board {
-	interrupt, _ := board.CreateDigitalInterrupt(board.DigitalInterruptConfig{
+	interrupt11, _ := fakeboard.NewDigitalInterruptWrapper(board.DigitalInterruptConfig{
 		Name: "11",
 		Pin:  "11",
 		Type: "basic",
 	})
 
-	interrupt1, _ := board.CreateDigitalInterrupt(board.DigitalInterruptConfig{
+	interrupt13, _ := fakeboard.NewDigitalInterruptWrapper(board.DigitalInterruptConfig{
 		Name: "13",
 		Pin:  "13",
 		Type: "basic",
 	})
 
-	interrupts := map[string]board.DigitalInterrupt{
-		"11": interrupt,
-		"13": interrupt1,
+	interrupts := map[string]*fakeboard.DigitalInterruptWrapper{
+		"11": interrupt11,
+		"13": interrupt13,
 	}
 
 	b := fakeboard.Board{
