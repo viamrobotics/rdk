@@ -22,6 +22,12 @@ import (
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
+<<<<<<< HEAD
+=======
+	jetsoncamera "go.viam.com/rdk/components/camera/platforms/jetson"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/discovery"
+>>>>>>> ee4451a7b (Add error check for DetectOSInformation)
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage/transform"
@@ -33,12 +39,58 @@ func init() {
 	resource.RegisterComponent(
 		camera.API,
 		model,
+<<<<<<< HEAD
 		resource.Registration[camera.Camera, *WebcamConfig]{
 			Constructor: NewWebcam,
 			Discover: func(ctx context.Context, logger golog.Logger) (interface{}, error) {
 				return Discover(ctx, getVideoDrivers, logger)
 			},
 		})
+=======
+		registry.Component{Constructor: func(
+			ctx context.Context,
+			_ registry.Dependencies,
+			config config.Component,
+			logger golog.Logger,
+		) (interface{}, error) {
+			attrs, ok := config.ConvertedAttributes.(*WebcamAttrs)
+			if !ok {
+				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
+			}
+			cameraSource, err := NewWebcamSource(ctx, config.Name, attrs, logger)
+			if err != nil {
+				// If we are on a Jetson Orin AGX, we need to validate driver and daughterboard setup
+				osInfo, osErr := jetsoncamera.DetectOSInformation()
+				if osErr != nil {
+					return cameraSource, errors.Wrap(err, osErr.Error())
+				}
+				if osInfo.Device == jetsoncamera.OrinAGX {
+					return cameraSource, errors.Wrap(err, jetsoncamera.Validate(osInfo, jetsoncamera.ECAM, jetsoncamera.AR0234).Error())
+				}
+				return cameraSource, err
+			}
+			return cameraSource, nil
+		}})
+
+	config.RegisterComponentAttributeMapConverter(camera.Subtype, model,
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf WebcamAttrs
+			attrs, err := config.TransformAttributeMapToStruct(&conf, attributes)
+			if err != nil {
+				return nil, err
+			}
+			result, ok := attrs.(*WebcamAttrs)
+			if !ok {
+				return nil, utils.NewUnexpectedTypeError(result, attrs)
+			}
+			return result, nil
+		}, &WebcamAttrs{})
+
+	registry.RegisterDiscoveryFunction(
+		discovery.NewQuery(camera.Subtype, model),
+		func(ctx context.Context) (interface{}, error) { return Discover(ctx, getVideoDrivers) },
+	)
+>>>>>>> ee4451a7b (Add error check for DetectOSInformation)
 }
 
 func getVideoDrivers() []driver.Driver {
