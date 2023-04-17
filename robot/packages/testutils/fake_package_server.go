@@ -21,11 +21,11 @@ import (
 	pb "go.viam.com/api/app/packages/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
+	"go.viam.com/utils/artifact"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/config"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 var errPackageMissng = errors.New("package missing")
@@ -69,7 +69,7 @@ func NewFakePackageServer(ctx context.Context, logger golog.Logger) (*FakePackag
 		return nil, err
 	}
 
-	testPackagePath := rdkutils.ResolveFile("robot/packages/testutils/example.tar.gz")
+	testPackagePath := artifact.MustPath("robot/packages/example.tar.gz")
 	checksumForTestPackage, err := checksumFile(testPackagePath)
 	if err != nil {
 		return nil, err

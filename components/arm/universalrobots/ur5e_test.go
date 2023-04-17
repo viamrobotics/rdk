@@ -17,6 +17,7 @@ import (
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 	goutils "go.viam.com/utils"
+	"go.viam.com/utils/artifact"
 	"gonum.org/v1/gonum/mat"
 	"gonum.org/v1/gonum/num/quat"
 
@@ -323,7 +324,7 @@ func TestArmReconnection(t *testing.T) {
 
 	remote.Store(false)
 
-	statusBlob, err := os.ReadFile("armBlob")
+	statusBlob, err := os.ReadFile(artifact.MustPath("components/arm/universalrobots/armBlob"))
 	test.That(t, err, test.ShouldBeNil)
 
 	logger := golog.NewTestLogger(t)
