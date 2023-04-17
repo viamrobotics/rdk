@@ -45,7 +45,7 @@ const props = defineProps<{
   pose?: commonApi.Pose
   destExists?: boolean
   destVector?: THREE.Vector3
-  axes?: boolean // axesVisible rename todo
+  axesVisible?: boolean
 }
 >();
 
@@ -210,7 +210,7 @@ const createAxisHelper = (name: string, rotation: number): THREE.AxesHelper => {
   axesHelper.scale.set(1e5, 1, 1e5)
   axesHelper.renderOrder = 998;
   axesHelper.name = name;
-  axesHelper.visible = props.axes;
+  axesHelper.visible = props.axesVisible;
   return axesHelper
 }
 
@@ -263,8 +263,8 @@ const updatePointCloud = (pointcloud: Uint8Array) => {
   }
 
   // construct grids
-  const axesHelper1 = createAxisHelper('Axes1', Math.PI / 2)
-  const axesHelper2 = createAxisHelper('Axes2', -Math.PI / 2)
+  const axesHelper1 = createAxisHelper('AxesPos', Math.PI / 2)
+  const axesHelper2 = createAxisHelper('AxesNeg', -Math.PI / 2)
 
   // this needs to be updated so it is set to 1m
   // have these be constants at the top
@@ -272,7 +272,7 @@ const updatePointCloud = (pointcloud: Uint8Array) => {
   gridHelper.position.set(0, 0, 0);
   gridHelper.renderOrder = 996;
   gridHelper.name = 'Grid';
-  gridHelper.visible = props.axes;
+  gridHelper.visible = props.axesVisible;
 
   // add objects to scene
   scene.add(
@@ -308,14 +308,10 @@ onUnmounted(() => {
 });
 
 // see if we can just do props.destVector and not the subcomponents
-watch(() => [props.destVector?.x, props.destVector?.z, props.destExists], async () => {
+watch(() => [props.destVector, props.destExists], async () => {
   if (props.destVector && props.destExists) {
     // update name from marker to destinationMarker
     const marker = scene.getObjectByName('Marker') ?? await makeMarker(destMarkerUrl, 'Marker', 0.1);
-    // udpate from base to baseMarker
-    // const base = scene.getObjectByName('Base');
-    // get rid of this magic number formulation
-    // const convertedCoord = (base!.position.z + 0.55) - props.destVector.y;
     marker.position.set(props.destVector.x + 1.2, 0, props.destVector.z +2.64 );
   }
   if (!props.destExists) {
@@ -326,22 +322,20 @@ watch(() => [props.destVector?.x, props.destVector?.z, props.destExists], async 
   }
 });
 
-watch(() => props.axes, () => {
-  //rename to xy pos
-  const ax1 = scene.getObjectByName('Axes1');
+watch(() => props.axesVisible, () => {
+  const ax1 = scene.getObjectByName('AxesPos');
   if (ax1 !== undefined) {
-    ax1.visible = props.axes;
+    ax1.visible = props.axesVisible;
   }
 
-  // rename to x,y negative
-  const ax2 = scene.getObjectByName('Axes2');
+  const ax2 = scene.getObjectByName('AxesNeg');
   if (ax2 !== undefined) {
-    ax2.visible = props.axes;
+    ax2.visible = props.axesVisible;
   }
 
   const grid = scene.getObjectByName('Grid');
   if (grid !== undefined) {
-    grid.visible = props.axes;
+    grid.visible = props.axesVisible;
   }
 });
 

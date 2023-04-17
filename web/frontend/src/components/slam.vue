@@ -28,7 +28,7 @@ let show2d = $ref(false);
 let showAxes = $ref(true);
 let refresh2DCancelled = true;
 let updatedDest = $ref(false);
-let threeJPos = $ref(new THREE.Vector3());
+let destinationMarker = $ref(new THREE.Vector3());
 let moveClick = $ref(true);
 let basePose = new commonApi.Pose()
 
@@ -112,8 +112,8 @@ const executeMove = async () => {
   const value = await fetchSLAMPose(props.name);
   // set pose in frame
   const destination = new commonApi.Pose();
-  destination.setX(Math.abs(threeJPos.x - value.getX()));
-  destination.setY(Math.abs(threeJPos.z - value.getY()));
+  destination.setX(Math.abs(destinationMarker.x - value.getX()));
+  destination.setY(Math.abs(destinationMarker.z - value.getY()));
   destination.setZ(value.getZ());
   destination.setOX(value.getOX());
   destination.setOY(value.getOY());
@@ -139,7 +139,6 @@ const executeMove = async () => {
   baseResourceName.setName(baseResource[0]!.name);
   req.setComponentName(baseResourceName);
 
-  // execute the actual call to validate e2e plumbing
   props.client.motionService.moveOnMap(
     req,
     new grpc.Metadata(),
@@ -156,11 +155,7 @@ const executeMove = async () => {
 
 const executeStopMove = () => {
   moveClick = true;
-  // try {
-  //   motionApi.Stop();
-  // } catch (error) {
-  //   displayError(error as ServiceError);
-  // }
+  // TODO: finish
 };
 
 const refresh2d = async (name: string) => {
@@ -245,16 +240,16 @@ const refresh2dMap = () => {
 
 const handle2dRenderClick = (event: THREE.Vector3) => {
   updatedDest = true;
-  threeJPos = event;
+  destinationMarker = event;
 };
 
 const handleUpdateX = (event: CustomEvent<{ value: string }>) => {
-  threeJPos.x = Number.parseFloat(event.detail.value);
+  destinationMarker.x = Number.parseFloat(event.detail.value);
   updatedDest = true;
 };
 
 const handleUpdateY = (event: CustomEvent<{ value: string }>) => {
-  threeJPos.z = Number.parseFloat(event.detail.value);
+  destinationMarker.z = Number.parseFloat(event.detail.value);
   updatedDest = true;
 };
 
@@ -265,7 +260,7 @@ const baseCopyPosition = () => {
 // update function name to be more clear (include work dest)
 const executeDelete = () => {
   updatedDest = false;
-  threeJPos = new THREE.Vector3(); // rename this to be clear that it is for the destination marker
+  destinationMarker = new THREE.Vector3();
 };
 
 const toggleAxes = () => {
@@ -371,7 +366,7 @@ const toggleAxes = () => {
               type="number"
               label="x"
               incrementor="slider"
-              :value="threeJPos.x"
+              :value="destinationMarker.x"
               step="0.1"
               @input="handleUpdateX($event)"
             />
@@ -380,7 +375,7 @@ const toggleAxes = () => {
               type="number"
               label="z"
               incrementor="slider"
-              :value="threeJPos.z"
+              :value="destinationMarker.z"
               step="0.1"
               @input="handleUpdateY($event)"
             />
@@ -465,8 +460,8 @@ const toggleAxes = () => {
             :resources="resources"
             :client="client"
             :dest-exists="updatedDest"
-            :dest-vector="threeJPos"
-            :axes="showAxes"
+            :dest-vector="destinationMarker"
+            :axesVisible="showAxes"
             @click="handle2dRenderClick($event)"
           />
         </div>
