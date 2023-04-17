@@ -12,6 +12,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 )
 
 // There are times when we need to set the period to some value, any value. It must be a positive
@@ -191,5 +192,7 @@ func (pwm *pwmDevice) SetPwm(freqHz uint, dutyCycle float64) (err error) {
 func (pwm *pwmDevice) Close() error {
 	pwm.mu.Lock()
 	defer pwm.mu.Unlock()
-	return pwm.wrapError(pwm.unexport())
+	err1 := pwm.wrapError(pwm.disable())
+	err2 := pwm.wrapError(pwm.unexport())
+	return multierr.Combine(err1, err2)
 }
