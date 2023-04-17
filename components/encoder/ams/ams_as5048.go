@@ -180,10 +180,6 @@ func (enc *Encoder) Reconfigure(
 			"board with name %s does not implement the LocalBoard interface", newConf.BoardName,
 		)
 	}
-	if newConf.ConnectionType != i2cConn {
-		// should have been caught by validate
-		return errors.Errorf("unsupported connection type %q", newConf.ConnectionType)
-	}
 	i2c, exists := localBoard.I2CByName(newConf.I2CBus)
 	if !exists {
 		return errors.Errorf("unable to find I2C bus: %s", newConf.I2CBus)
