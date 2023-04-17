@@ -14,7 +14,6 @@ import (
 	"github.com/edaniels/gostream"
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
-	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/camera"
@@ -28,11 +27,6 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
 	rdkutils "go.viam.com/rdk/utils"
-)
-
-var (
-	// Robot config which specifies data manager service.
-	configPath = "services/datamanager/data/fake_robot_with_data_manager.json"
 )
 
 func getInjectedRobot() *inject.Robot {
@@ -143,15 +137,6 @@ func TestUntrustedEnv(t *testing.T) {
 		ConvertedAttributes: config,
 	})
 	test.That(t, err, test.ShouldEqual, errCaptureDirectoryConfigurationDisabled)
-}
-
-func getLocalServerConn(rpcServer rpc.Server, logger golog.Logger) (rpc.ClientConn, error) {
-	return rpc.DialDirectGRPC(
-		context.Background(),
-		rpcServer.InternalAddr().String(),
-		logger,
-		rpc.WithInsecure(),
-	)
 }
 
 func getAllFileInfos(dir string) []os.FileInfo {
