@@ -51578,6 +51578,10 @@
         "hash": "9b9d5e11ece4e6fe52246a2851636145",
         "size": 50
       },
+      "imagenetlabels.txt": {
+        "hash": "93b03dc453206b6ce0cd083f96066544",
+        "size": 23685
+      },
       "lion.jpeg": {
         "hash": "7a24ee403e1606a0956d63dc744f24de",
         "size": 31645
