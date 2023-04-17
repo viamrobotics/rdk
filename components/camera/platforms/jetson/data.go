@@ -3,6 +3,7 @@ package jetsoncamera
 const (
 	// Jetson Devices
 	OrinAGX = "Jetson AGX Orin"
+	Unknown = "unknown"
 	// Daughterboards
 	ECAM = "e-CAM20_CUOAGX"
 	// Cameras
