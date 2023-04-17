@@ -37,7 +37,7 @@ func DetectOSInformation() (OSInformation, error) {
 func getKernelVersion() (string, error) {
 	var utsName C.struct_utsname
 	if C.uname(&utsName) == -1 {
-		return Unknown, fmt.Errorf("uname information unavailable")
+		return Unknown, fmt.Errorf("uname information unavailable (%v)", utsName)
 	}
 	release := C.GoString((*C.char)(unsafe.Pointer(&utsName.release[0])))
 	return release, nil
@@ -81,14 +81,12 @@ func Validate(osInfo OSInformation, daughterboardName string, driverName string)
 }
 
 // checkDaughterBoardConnected checks if the daughterboard is connected
-// by looking for the I2C bus interfaces
+// by looking for the I2C bus interfaces associated with the daughterboard
 func checkDaughterBoardConnected(daughterboard []string) error {
-	// iterate through the daughterboard list
 	for _, i2c := range daughterboard {
-		// check if the i2c interface is available
 		err := checkI2CInterface(i2c)
 		if err != nil {
-			return fmt.Errorf("the e-CAM20_CUOAGX daughter-board is not connected or not powerd on. please check daughter-board conenction to the Orin AGX over the J509 connector")
+			return fmt.Errorf("daughterboard not connected: %w", err)
 		}
 	}
 	return nil
