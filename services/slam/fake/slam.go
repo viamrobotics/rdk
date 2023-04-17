@@ -77,7 +77,7 @@ func (slamSvc *SLAM) GetPointCloudMap(ctx context.Context) (func() ([]byte, erro
 // GetInternalState returns a callback function which will return the next chunk of the current internal
 // state of the slam algo.
 func (slamSvc *SLAM) GetInternalState(ctx context.Context) (func() ([]byte, error), error) {
-	ctx, span := trace.StartSpan(ctx, "slam::fake::GetInternalState")
+	ctx, span := trace.StartSpan(ctx, "slam::fake::GetInternalStat")
 	defer span.End()
 	return fakeGetInternalState(ctx, datasetDirectory, slamSvc)
 }

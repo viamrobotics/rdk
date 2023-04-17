@@ -23,7 +23,7 @@ const (
 func CreateTempFolderArchitecture(logger golog.Logger) (string, error) {
 	tmpDir, err := os.MkdirTemp("", "*")
 	if err != nil {
-		return "nil", err
+		return "", err
 	}
 	if err := config.SetupDirectories(tmpDir, logger); err != nil {
 		return "", err
