@@ -303,7 +303,6 @@ func gpioInitialize(cancelCtx context.Context, gpioMappings map[int]GPIOBoardMap
 		}
 		interrupts[config.Pin] = interrupt
 	}
-
 	pins := make(map[string]*gpioPin)
 	for pinNumber, mapping := range gpioMappings {
 		if _, ok := interrupts[fmt.Sprintf("%d", pinNumber)]; ok {
