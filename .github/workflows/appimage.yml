@@ -46,6 +46,7 @@ jobs:
 
     - name: Clean
       run: |
+        chown testbot:testbot -R .
         sudo -u testbot bash -lc 'make clean-all'
 
     - name: Authorize GCP Upload
