@@ -1,7 +1,5 @@
 <script setup lang="ts">
-
-import { grpc } from '@improbable-eng/grpc-web';
-import { Client, gripperApi } from '@viamrobotics/sdk';
+import { type Client, GripperClient } from '@viamrobotics/sdk';
 import { displayError } from '../lib/error';
 import { rcLogConditionally } from '../lib/log';
 
@@ -10,28 +8,32 @@ const props = defineProps<{
   client: Client
 }>();
 
-const stop = () => {
-  const request = new gripperApi.StopRequest();
-  request.setName(props.name);
+const gripperClient = new GripperClient(props.client, props.name, {
+  requestLogger: rcLogConditionally,
+});
 
-  rcLogConditionally(request);
-  props.client.gripperService.stop(request, new grpc.Metadata(), displayError);
+const stop = async () => {
+  try {
+    await gripperClient.stop();
+  } catch (error) {
+    displayError(error);
+  }
 };
 
-const open = () => {
-  const request = new gripperApi.OpenRequest();
-  request.setName(props.name);
-
-  rcLogConditionally(request);
-  props.client.gripperService.open(request, new grpc.Metadata(), displayError);
+const open = async () => {
+  try {
+    await gripperClient.open();
+  } catch (error) {
+    displayError(error);
+  }
 };
 
-const grab = () => {
-  const request = new gripperApi.GrabRequest();
-  request.setName(props.name);
-
-  rcLogConditionally(request);
-  props.client.gripperService.grab(request, new grpc.Metadata(), displayError);
+const grab = async () => {
+  try {
+    await gripperClient.grab();
+  } catch (error) {
+    displayError(error);
+  }
 };
 
 </script>
