@@ -66,7 +66,7 @@ jobs:
         git init
         git add .
         chown -R testbot:testbot .
-        sudo -u testbot bash -lc '${{ matrix.build_lint }}'
+        sudo -Hu testbot bash -lc '${{ matrix.build_lint }}'
         GEN_DIFF=$(git status -s)
 
         if [ -n "$GEN_DIFF" ]; then
@@ -79,7 +79,7 @@ jobs:
       if: matrix.platform == 'linux/amd64'
       run: |
         true
-        #sudo --preserve-env=MONGODB_TEST_OUTPUT_URI,GITHUB_SHA,GITHUB_RUN_ID,GITHUB_RUN_NUMBER,GITHUB_RUN_ATTEMPT,GITHUB_X_PR_BASE_SHA,GITHUB_X_PR_BASE_REF,GITHUB_X_HEAD_REF,GITHUB_X_HEAD_SHA,GITHUB_REPOSITORY -u testbot bash -lc 'make cover test-web'
+        #sudo --preserve-env=MONGODB_TEST_OUTPUT_URI,GITHUB_SHA,GITHUB_RUN_ID,GITHUB_RUN_NUMBER,GITHUB_RUN_ATTEMPT,GITHUB_X_PR_BASE_SHA,GITHUB_X_PR_BASE_REF,GITHUB_X_HEAD_REF,GITHUB_X_HEAD_SHA,GITHUB_REPOSITORY -Hu testbot bash -lc 'make cover test-web'
 
     # Now that RDK is public, can't directly comment without token having full read/write access
     # code-coverage-comment.yml will trigger seperately and post the actual comments
@@ -152,12 +152,12 @@ jobs:
 
       - name: Install dependencies
         run: |
-          sudo apt-get -y install libgtk2.0-0 libgtk-3-0 libgbm-dev libnotify-dev libgconf-2-4 libnss3 libxss1 libasound2 libxtst6 xauth xvfb netcat lsof
+          apt-get -y install libgtk2.0-0 libgtk-3-0 libgbm-dev libnotify-dev libgconf-2-4 libnss3 libxss1 libasound2 libxtst6 xauth xvfb netcat lsof
 
       - name: Run e2e Tests
         run: |
-          chown -R testbot .
-          sudo -u testbot bash -lc 'make build-web test-e2e'
+          chown -R testbot:testbot .
+          sudo -Hu testbot bash -lc 'make build-web test-e2e'
 
   test_passing:
     name: All Tests Passing

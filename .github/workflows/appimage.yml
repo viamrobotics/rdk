@@ -47,7 +47,7 @@ jobs:
     - name: Clean and Fix Permissions
       run: |
         chown testbot:testbot -R .
-        sudo -u testbot bash -lc 'make clean-all'
+        sudo -Hu testbot bash -lc 'echo "SMURF $HOME" && make clean-all'
 
     - name: Authorize GCP Upload
       uses: google-github-actions/auth@v1
@@ -57,7 +57,7 @@ jobs:
     - name: Build and Package (PR)
       if: contains(github.event.pull_request.labels.*.name, 'appimage') || contains(github.event.pull_request.labels.*.name, 'appimage-ignore-tests')
       run: |
-        sudo -u testbot bash -lc 'make BUILD_CHANNEL="pr-${{ github.event.pull_request.number }}" appimage'
+        sudo -Hu testbot bash -lc 'make BUILD_CHANNEL="pr-${{ github.event.pull_request.number }}" appimage'
 
     - name: Upload Files (PR)
       if: contains(github.event.pull_request.labels.*.name, 'appimage') || contains(github.event.pull_request.labels.*.name, 'appimage-ignore-tests')
@@ -75,7 +75,7 @@ jobs:
       if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
       run: |
         echo "date=`date +%F`" >> $GITHUB_OUTPUT
-        sudo -u testbot bash -lc 'make BUILD_CHANNEL="latest" appimage'
+        sudo -Hu testbot bash -lc 'make BUILD_CHANNEL="latest" appimage'
 
     - name: Upload Files (Testing)
       if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
