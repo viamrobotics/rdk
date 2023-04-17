@@ -70,15 +70,15 @@ func registerMLModelVisionService(
 	}
 	classifierFunc, err := attemptToBuildClassifier(mlm)
 	if err != nil {
-		logger.Infof(errors.Wrapf(err, "was not able to turn ml model %q into a classifier", params.ModelName))
+		logger.Infof("%v", errors.Wrapf(err, "was not able to turn ml model %q into a classifier", params.ModelName))
 	}
 	detectorFunc, err := attemptToBuildDetector(mlm)
 	if err != nil {
-		logger.Infof(errors.Wrapf(err, "was not able to turn ml model %q into a detector", params.ModelName))
+		logger.Infof("%v", errors.Wrapf(err, "was not able to turn ml model %q into a detector", params.ModelName))
 	}
 	segmenter3DFunc, err := attemptToBuild3DSegmenter(mlm)
 	if err != nil {
-		logger.Infof(errors.Wrapf(err, "was not able to turn ml model %q into a 3D segmenter", params.ModelName))
+		logger.Infof("%v", errors.Wrapf(err, "was not able to turn ml model %q into a 3D segmenter", params.ModelName))
 	}
 	// Don't return a close function, because you don't want to close the underlying ML service
 	return vision.NewService(name, r, nil, classifierFunc, detectorFunc, segmenter3DFunc)
