@@ -64,7 +64,7 @@ jobs:
       uses: google-github-actions/upload-cloud-storage@v0.10.4
       with:
         headers: "cache-control: no-cache"
-        path: 'bin/'
+        path: 'etc/packaging/static/deploy/'
         destination: 'packages.viam.com/apps/viam-server/'
         glob: 'viam-server-*'
         parent: false
@@ -75,14 +75,14 @@ jobs:
       if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
       run: |
         echo "date=`date +%F`" >> $GITHUB_OUTPUT
-        sudo -Hu testbot bash -lc 'echo "SMURF $HOME" && make BUILD_CHANNEL="latest" static-release'
+        sudo -Hu testbot bash -lc 'make BUILD_CHANNEL="latest" static-release'
 
     - name: Upload Files (Testing)
       if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
       uses: google-github-actions/upload-cloud-storage@v0.10.4
       with:
         headers: "cache-control: no-cache"
-        path: 'bin/'
+        path: 'etc/packaging/static/deploy/'
         destination: 'packages.viam.com/apps/viam-server/testing/${{ steps.build_test_app.outputs.date }}/${{ github.sha }}/'
         glob: 'viam-server-*'
         parent: false
