@@ -3,6 +3,7 @@ package mlvision
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"github.com/nfnt/resize"
 	"github.com/pkg/errors"
 	"go.viam.com/rdk/rimage"
@@ -34,12 +35,14 @@ func attemptToBuildDetector(mlm mlmodel.Service) (objectdetection.Detector, erro
 		// Not true, still do something if we can't get labels
 		return nil, err
 	}
+	fmt.Println(inWidth)
+	fmt.Println(inHeight)
 
 	return func(ctx context.Context, img image.Image) ([]objectdetection.Detection, error) {
 		origW, origH := img.Bounds().Dx(), img.Bounds().Dy()
 		resized := resize.Resize(inWidth, inHeight, img, resize.Bilinear)
-		inMap := make(map[string]interface{}, 1)
-		outMap := make(map[string]interface{}, 5)
+		inMap := make(map[string]interface{})
+		outMap := make(map[string]interface{})
 		switch inType {
 		case "uint8":
 			inMap["image"] = rimage.ImageToUInt8Buffer(resized)
@@ -55,20 +58,23 @@ func attemptToBuildDetector(mlm mlmodel.Service) (objectdetection.Detector, erro
 		}
 
 		locations := outMap["location"].([]float32)
-		categories := outMap["location"].([]float32)
-		scores := outMap["location"].([]float32)
+		categories := outMap["category"].([]float32)
+		scores := outMap["score"].([]float32)
+
+		fmt.Println(labels)
 
 		// Now reshape outMap into Detections
 		// ASSUMING [1 0 3 2] FOR NOW bounding box order
 		detections := make([]objectdetection.Detection, 0, len(categories))
-		for i := 0; i < len(detections); i++ {
+		for i := 0; i < len(scores); i++ {
 			xmin, xmax, ymin, ymax := utils.Clamp(float64(locations[4*i+1]), 0, 1)*float64(origW),
 				utils.Clamp(float64(locations[4*i+0]), 0, 1)*float64(origW),
 				utils.Clamp(float64(locations[4*i+3]), 0, 1)*float64(origH),
 				utils.Clamp(float64(locations[4*i+2]), 0, 1)*float64(origH)
 			rect := image.Rect(int(xmin), int(ymin), int(xmax), int(ymax))
+			labelNum := int(categories[i])
 
-			detections = append(detections, objectdetection.NewDetection(rect, float64(scores[i]), labels[i]))
+			detections = append(detections, objectdetection.NewDetection(rect, float64(scores[i]), labels[labelNum]))
 		}
 		return detections, nil
 	}, nil
