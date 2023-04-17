@@ -901,7 +901,7 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 			if r.modules.Provides(c) {
 				implicitDeps, err := r.modules.ValidateConfig(ctx, c)
 				if err != nil {
-					r.logger.Errorw("Modular config validation error found in component: "+c.Name, "error", err)
+					r.logger.Errorw("modular config validation error found in component: "+c.Name, "error", err)
 					continue
 				}
 
