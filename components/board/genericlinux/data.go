@@ -243,9 +243,12 @@ func getPwmChipDefs(pinDefs []PinDefinition) (map[string]pwmChipData, error) {
 		}
 		pwmChipNames[pinDef.PWMChipSysFSDir] = struct{}{}
 	}
-
+	fmt.Printf("pwmchipNames .........", pwmChipNames)
 	// Now, look for all chips whose names we found.
 	pwmChipsInfo := map[string]pwmChipData{}
+
+	fmt.Printf("pwmchipsInfor stuff....", pwmChipsInfo)
+
 	for chipName := range pwmChipNames {
 		found := false
 
@@ -258,11 +261,13 @@ func getPwmChipDefs(pinDefs []PinDefinition) (map[string]pwmChipData, error) {
 			// Jetson Orin AGX       BeagleBone AI64                     Intel UP 4000
 			"/sys/devices/platform", "/sys/devices/platform/bus@100000", "/sys/devices/pci0000:00",
 		}
+
 		for _, baseDir := range directoriesToSearch {
 			// For exactly one baseDir, there should be a directory at <baseDir>/<chipName>/pwm/,
 			// which contains a single sub-directory whose name is mirrored in /sys/class/pwm.
 			// That's the one we want to use.
 			chipDir := fmt.Sprintf("%s/%s/pwm", baseDir, chipName)
+			fmt.Printf("chipDir,                   ", chipDir)
 			files, err := os.ReadDir(chipDir)
 			if err != nil {
 				continue // This was the wrong directory; try the next baseDir.
@@ -290,6 +295,7 @@ func getPwmChipDefs(pinDefs []PinDefinition) (map[string]pwmChipData, error) {
 			return nil, fmt.Errorf("unable to find PWM device %s", chipName)
 		}
 	}
+	fmt.Printf("pwmchipinfo                   ", pwmChipsInfo)
 	return pwmChipsInfo, nil
 }
 

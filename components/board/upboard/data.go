@@ -1,4 +1,4 @@
-package intel
+package upboard
 
 import "go.viam.com/rdk/components/board/genericlinux"
 
@@ -10,7 +10,7 @@ var boardInfoMappings = map[string]genericlinux.BoardInformation{
 			/*
 				pinout for up4000: https://github.com/up-board/up-community/wiki/Pinout_UP4000
 
-				GPIOChipRelativeIDs: {ngpio : base-ngpio}
+				GPIOChipRelativeIDs: {ngpio : base-linux_gpio_number}
 				GPIOChipSysFSDir: path to the directory of a chip. Can be found from the output of gpiodetect
 
 			*/
@@ -38,9 +38,9 @@ var boardInfoMappings = map[string]genericlinux.BoardInformation{
 			{map[int]int{78: 31}, map[int]string{}, "INT3452:00", 28, 0, "BMC1_ID_SCL", "", "", -1}, // ID_SC device: i2c-0
 
 			// pwm
-			{map[int]int{78: 35}, map[int]string{}, "INT3452:00", 33, 0, "BMC13_PWM1", "", "", 0}, // PWM1 device: pwmchip1/pwm0
-			{map[int]int{78: 34}, map[int]string{}, "INT3452:00", 32, 0, "BCM12_PWM0", "", "", 0}, // PWM0 device: pwmchip0/pwm0
-			{map[int]int{78: 37}, map[int]string{}, "INT3452:00", 16, 0, "BCM23", "", "", 0},
+			{map[int]int{78: 35}, map[int]string{}, "INT3452:00", 33, 0, "BMC13_PWM1", "", "0000:00:1a.0", 0}, // PWM1 device: pwmchip1/pwm0
+			{map[int]int{78: 34}, map[int]string{}, "INT3452:00", 32, 0, "BCM12_PWM0", "", "0000:00:1a.0", 1}, // PWM0 device: pwmchip0/pwm0
+			{map[int]int{78: 37}, map[int]string{}, "INT3452:00", 16, 0, "BCM23", "", "0000:00:1a.0", 3},
 
 			{map[int]int{77: 76}, map[int]string{}, "INT3452:01", 7, 0, "BCM4", "", "", -1},        // ADC0 device: ii0:device0
 			{map[int]int{77: 65}, map[int]string{}, "INT3452:01", 19, 0, "BCM10_MOSI", "", "", -1}, // SPI_MOSI

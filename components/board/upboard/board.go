@@ -1,5 +1,5 @@
-// Package intel implements an Intel based board.
-package intel
+// Package upboard implements an Intel based board.
+package upboard
 
 /*
 	Datasheet: https://github.com/up-board/up-community/wiki/Pinout_UP4000
@@ -15,7 +15,7 @@ import (
 	"go.viam.com/rdk/components/board/genericlinux"
 )
 
-const modelName = "intel"
+const modelName = "upboard"
 
 func init() {
 	if _, err := host.Init(); err != nil {
