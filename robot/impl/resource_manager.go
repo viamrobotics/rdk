@@ -379,20 +379,37 @@ func (manager *resourceManager) mergeResourceRPCSubtypesWithRemote(r robot.Robot
 	}
 }
 
-func (manager *resourceManager) removeMarkedAndClose(ctx context.Context, r *localRobot) ([]resource.Name, error) {
+func (manager *resourceManager) closeResource(ctx context.Context, r *localRobot, res resource.Resource) error {
+	allErrs := utils.TryClose(ctx, res)
+
+	resName := res.Name()
+	if r.modules != nil && r.ModuleManager().IsModularResource(resName) {
+		if err := r.ModuleManager().RemoveResource(ctx, resName); err != nil {
+			allErrs = multierr.Combine(err, errors.Wrap(err, "error removing modular resource for closure"))
+		}
+	}
+
+	return allErrs
+}
+
+// removeMarkedAndClose removes all resources marked for removal from the graph and
+// also closes them. It accepts an alreadyClosed in case some marked resources were
+// already removed (e.g. renamed resources that count as remove + add but need to close
+// before add).
+func (manager *resourceManager) removeMarkedAndClose(
+	ctx context.Context,
+	r *localRobot,
+	alreadyClosed map[resource.Name]struct{},
+) ([]resource.Name, error) {
 	var allErrs error
 	toClose := manager.resources.RemoveMarked()
 	toCloseNames := make([]resource.Name, 0, len(toClose))
 	for _, res := range toClose {
-		allErrs = multierr.Combine(allErrs, utils.TryClose(ctx, res))
-
-		resName := res.Name()
-		toCloseNames = append(toCloseNames, resName)
-		if r.modules != nil && r.ModuleManager().IsModularResource(resName) {
-			if err := r.ModuleManager().RemoveResource(ctx, resName); err != nil {
-				allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error removing modular resource"))
-			}
+		if _, ok := alreadyClosed[res.Name()]; ok {
+			continue
 		}
+		allErrs = multierr.Combine(allErrs, manager.closeResource(ctx, r, res))
+		toCloseNames = append(toCloseNames, res.Name())
 	}
 	return toCloseNames, allErrs
 }
@@ -406,7 +423,7 @@ func (manager *resourceManager) Close(ctx context.Context, r *localRobot) error 
 		allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error stopping process manager"))
 	}
 
-	if _, err := manager.removeMarkedAndClose(ctx, r); err != nil {
+	if _, err := manager.removeMarkedAndClose(ctx, r, nil); err != nil {
 		allErrs = multierr.Combine(allErrs, err)
 	}
 	return allErrs
@@ -880,8 +897,9 @@ func (manager *resourceManager) markRemoved(
 	ctx context.Context,
 	conf *config.Config,
 	logger golog.Logger,
-) (pexec.ProcessManager, map[resource.Name]struct{}) {
+) (pexec.ProcessManager, []resource.Resource, map[resource.Name]struct{}) {
 	processesToClose := newProcessManager(manager.opts, logger)
+	var resourcesToCloseBeforeComplete []resource.Resource
 	markedResourceNames := map[resource.Name]struct{}{}
 	addNames := func(names ...resource.Name) {
 		for _, name := range names {
@@ -906,9 +924,13 @@ func (manager *resourceManager) markRemoved(
 
 	for _, conf := range conf.Remotes {
 		remoteName := fromRemoteNameToRemoteNodeName(conf.Name)
-		if _, ok := manager.resources.Node(remoteName); !ok {
+		resNode, ok := manager.resources.Node(remoteName)
+		if !ok {
 			continue
 		}
+		resourcesToCloseBeforeComplete = append(
+			resourcesToCloseBeforeComplete,
+			&resourceForClosure{Named: remoteName.AsNamed(), closeFunc: resNode.Close})
 		subG, err := manager.resources.SubGraphFrom(remoteName)
 		if err != nil {
 			manager.logger.Errorw("error while getting a subgraph", "error", err)
@@ -919,9 +941,13 @@ func (manager *resourceManager) markRemoved(
 	}
 	for _, compConf := range conf.Components {
 		rName := compConf.ResourceName()
-		if _, ok := manager.resources.Node(rName); !ok {
+		resNode, ok := manager.resources.Node(rName)
+		if !ok {
 			continue
 		}
+		resourcesToCloseBeforeComplete = append(
+			resourcesToCloseBeforeComplete,
+			&resourceForClosure{Named: rName.AsNamed(), closeFunc: resNode.Close})
 		subG, err := manager.resources.SubGraphFrom(rName)
 		if err != nil {
 			manager.logger.Errorw("error while getting a subgraph", "error", err)
@@ -937,9 +963,12 @@ func (manager *resourceManager) markRemoved(
 			continue
 		}
 
-		if _, ok := manager.resources.Node(rName); !ok {
+		resNode, ok := manager.resources.Node(rName)
+		if !ok {
 			continue
 		}
+		resourcesToCloseBeforeComplete = append(resourcesToCloseBeforeComplete,
+			&resourceForClosure{Named: rName.AsNamed(), closeFunc: resNode.Close})
 		subG, err := manager.resources.SubGraphFrom(rName)
 		if err != nil {
 			manager.logger.Errorw("error while getting a subgraph", "error", err)
@@ -948,7 +977,19 @@ func (manager *resourceManager) markRemoved(
 		addNames(subG.Names()...)
 		manager.resources.MarkForRemoval(subG)
 	}
-	return processesToClose, markedResourceNames
+	return processesToClose, resourcesToCloseBeforeComplete, markedResourceNames
+}
+
+// resourceForClosure is used for resources that need to be closed and
+// do not need the actual resource exposed but only its close function.
+type resourceForClosure struct {
+	resource.Named
+	resource.TriviallyReconfigurable
+	closeFunc func(ctx context.Context) error
+}
+
+func (r *resourceForClosure) Close(ctx context.Context) error {
+	return r.closeFunc(ctx)
 }
 
 func remoteDialOptions(config config.Remote, opts resourceManagerOptions) []rpc.DialOption {

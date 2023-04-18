@@ -379,7 +379,7 @@ func TestResourceGraphTopologicalSort(t *testing.T) {
 	gNode, ok := g.Node(NewName("namespace", "atype", "asubtype", "F"))
 	test.That(t, ok, test.ShouldBeTrue)
 	gNode.MarkForRemoval()
-	test.That(t, g.RemoveMarked(), test.ShouldBeEmpty)
+	test.That(t, g.RemoveMarked(), test.ShouldHaveLength, 1)
 	out = g.TopologicalSort()
 	test.That(t, out, test.ShouldResemble, []Name{
 		NewName("namespace", "atype", "asubtype", "E"),
@@ -578,7 +578,7 @@ func TestResourceGraphMergeRemove(t *testing.T) {
 		gB.MergeAdd(gC)
 	}
 	gA.MarkForRemoval(gB)
-	test.That(t, gA.RemoveMarked(), test.ShouldBeEmpty)
+	test.That(t, gA.RemoveMarked(), test.ShouldHaveLength, 10)
 
 	out = gA.TopologicalSort()
 	test.That(t, len(out), test.ShouldEqual, 4)

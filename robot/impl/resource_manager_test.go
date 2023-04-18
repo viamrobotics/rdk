@@ -783,16 +783,21 @@ func TestManagerMarkRemoved(t *testing.T) {
 	manager := managerForTest(ctx, t, logger)
 	test.That(t, manager, test.ShouldNotBeNil)
 
-	checkEmpty := func(procMan pexec.ProcessManager, names map[resource.Name]struct{}) {
+	checkEmpty := func(
+		procMan pexec.ProcessManager,
+		resourcesToCloseBeforeComplete []resource.Resource,
+		names map[resource.Name]struct{},
+	) {
 		t.Helper()
 		test.That(t, names, test.ShouldBeEmpty)
+		test.That(t, resourcesToCloseBeforeComplete, test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(procMan.ProcessIDs()...), test.ShouldBeEmpty)
 	}
 
-	processesToRemove, markedResourceNames := manager.markRemoved(ctx, &config.Config{}, logger)
-	checkEmpty(processesToRemove, markedResourceNames)
+	processesToRemove, resourcesToCloseBeforeComplete, markedResourceNames := manager.markRemoved(ctx, &config.Config{}, logger)
+	checkEmpty(processesToRemove, resourcesToCloseBeforeComplete, markedResourceNames)
 
-	processesToRemove, markedResourceNames = manager.markRemoved(ctx, &config.Config{
+	processesToRemove, resourcesToCloseBeforeComplete, markedResourceNames = manager.markRemoved(ctx, &config.Config{
 		Remotes: []config.Remote{
 			{
 				Name: "what",
@@ -839,9 +844,9 @@ func TestManagerMarkRemoved(t *testing.T) {
 			},
 		},
 	}, logger)
-	checkEmpty(processesToRemove, markedResourceNames)
+	checkEmpty(processesToRemove, resourcesToCloseBeforeComplete, markedResourceNames)
 
-	processesToRemove, markedResourceNames = manager.markRemoved(ctx, &config.Config{
+	processesToRemove, resourcesToCloseBeforeComplete, markedResourceNames = manager.markRemoved(ctx, &config.Config{
 		Components: []resource.Config{
 			{
 				Name:              "what1",
@@ -849,7 +854,7 @@ func TestManagerMarkRemoved(t *testing.T) {
 			},
 		},
 	}, logger)
-	checkEmpty(processesToRemove, markedResourceNames)
+	checkEmpty(processesToRemove, resourcesToCloseBeforeComplete, markedResourceNames)
 
 	test.That(t, manager.Close(ctx, &localRobot{}), test.ShouldBeNil)
 	cancel()
@@ -858,7 +863,7 @@ func TestManagerMarkRemoved(t *testing.T) {
 	manager = managerForTest(ctx, t, logger)
 	test.That(t, manager, test.ShouldNotBeNil)
 
-	processesToRemove, markedResourceNames = manager.markRemoved(ctx, &config.Config{
+	processesToRemove, _, markedResourceNames = manager.markRemoved(ctx, &config.Config{
 		Components: []resource.Config{
 			{
 				Name: "arm2",
@@ -944,7 +949,7 @@ func TestManagerMarkRemoved(t *testing.T) {
 	manager = managerForTest(ctx, t, logger)
 	test.That(t, manager, test.ShouldNotBeNil)
 
-	processesToRemove, markedResourceNames = manager.markRemoved(ctx, &config.Config{
+	processesToRemove, _, markedResourceNames = manager.markRemoved(ctx, &config.Config{
 		Remotes: []config.Remote{
 			{
 				Name: "remote2",
@@ -1063,7 +1068,7 @@ func TestManagerMarkRemoved(t *testing.T) {
 	manager = managerForTest(ctx, t, logger)
 	test.That(t, manager, test.ShouldNotBeNil)
 
-	processesToRemove, markedResourceNames = manager.markRemoved(ctx, &config.Config{
+	processesToRemove, _, markedResourceNames = manager.markRemoved(ctx, &config.Config{
 		Remotes: []config.Remote{
 			{
 				Name: "remote1",
@@ -1344,7 +1349,7 @@ func TestConfigUntrustedEnv(t *testing.T) {
 		})
 		test.That(t, errors.Is(err, errProcessesDisabled), test.ShouldBeTrue)
 
-		processesToClose, _ := manager.markRemoved(ctx, &config.Config{
+		processesToClose, _, _ := manager.markRemoved(ctx, &config.Config{
 			Processes: []pexec.ProcessConfig{{ID: "id1", Name: "echo"}},
 		}, logger)
 		test.That(t, processesToClose.ProcessIDs(), test.ShouldBeEmpty)
@@ -1367,12 +1372,13 @@ func TestConfigUntrustedEnv(t *testing.T) {
 		})
 		test.That(t, errors.Is(err, errShellServiceDisabled), test.ShouldBeTrue)
 
-		_, markedResourceNames := manager.markRemoved(ctx, &config.Config{
+		_, resourcesToCloseBeforeComplete, markedResourceNames := manager.markRemoved(ctx, &config.Config{
 			Services: []resource.Config{{
 				Name: "shell-service",
 				API:  shell.Subtype,
 			}},
 		}, logger)
+		test.That(t, resourcesToCloseBeforeComplete, test.ShouldBeEmpty)
 		test.That(t, markedResourceNames, test.ShouldBeEmpty)
 	})
 }

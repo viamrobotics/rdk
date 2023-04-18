@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -3173,12 +3174,92 @@ func TestReconfigureModelSwitch(t *testing.T) {
 	test.That(t, res3.(*mockFake2).closeCount, test.ShouldEqual, 0)
 }
 
+func TestReconfigureRename(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+
+	mockSubtype := resource.NewSubtype(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.SubtypeName("mock"))
+	mockNamed := func(name string) resource.Name {
+		return resource.NameFromSubtype(mockSubtype, name)
+	}
+	modelName1 := utils.RandomAlphaString(5)
+	model1 := resource.NewDefaultModel(resource.ModelName(modelName1))
+
+	var logicalClock atomic.Int64
+
+	registry.RegisterComponent(mockSubtype, model1, registry.Component{
+		Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger golog.Logger,
+		) (resource.Resource, error) {
+			return &mockFake{
+				Named:        conf.ResourceName().AsNamed(),
+				logicalClock: &logicalClock,
+				createdAt:    int(logicalClock.Add(1)),
+			}, nil
+		},
+	})
+
+	cfg := &config.Config{
+		Components: []resource.Config{
+			{
+				Name:  "one",
+				Model: model1,
+				API:   mockSubtype,
+			},
+		},
+	}
+
+	ctx := context.Background()
+
+	r, err := New(ctx, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+	}()
+
+	name1 := mockNamed("one")
+	name2 := mockNamed("two")
+	res1, err := r.ResourceByName(name1)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, res1.(*mockFake).reconfCount, test.ShouldEqual, 0)
+	test.That(t, res1.(*mockFake).closeCount, test.ShouldEqual, 0)
+	test.That(t, res1.(*mockFake).createdAt, test.ShouldEqual, 1)
+
+	newCfg := &config.Config{
+		Components: []resource.Config{
+			{
+				Name:                "two",
+				Model:               model1,
+				API:                 mockSubtype,
+				ConvertedAttributes: 1,
+			},
+		},
+	}
+
+	r.Reconfigure(ctx, newCfg)
+	res2, err := r.ResourceByName(name2)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, res2, test.ShouldNotEqual, res1)
+	test.That(t, res1.(*mockFake).reconfCount, test.ShouldEqual, 0)
+	test.That(t, res1.(*mockFake).closeCount, test.ShouldEqual, 1)
+	test.That(t, res1.(*mockFake).closedAt, test.ShouldEqual, 2)
+	test.That(t, res2.(*mockFake).createdAt, test.ShouldEqual, 3)
+	test.That(t, res2.(*mockFake).reconfCount, test.ShouldEqual, 0)
+	test.That(t, res2.(*mockFake).closeCount, test.ShouldEqual, 0)
+}
+
 type mockFake struct {
 	resource.Named
-	reconfCount   int
-	failCount     int
-	shouldRebuild bool
-	closeCount    int
+	createdAt      int
+	reconfCount    int
+	reconfiguredAt int64
+	failCount      int
+	shouldRebuild  bool
+	closeCount     int
+	closedAt       int64
+	logicalClock   *atomic.Int64
 }
 
 type mockFakeConfig struct {
@@ -3189,6 +3270,9 @@ type mockFakeConfig struct {
 }
 
 func (m *mockFake) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+	if m.logicalClock != nil {
+		m.reconfiguredAt = m.logicalClock.Add(1)
+	}
 	if m.shouldRebuild {
 		return resource.NewMustRebuildError(conf.ResourceName())
 	}
@@ -3204,6 +3288,9 @@ func (m *mockFake) Reconfigure(ctx context.Context, deps resource.Dependencies, 
 }
 
 func (m *mockFake) Close() {
+	if m.logicalClock != nil {
+		m.closedAt = m.logicalClock.Add(1)
+	}
 	m.closeCount++
 }
 

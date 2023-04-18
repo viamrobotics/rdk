@@ -968,7 +968,7 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	}
 
 	// First we remove resources and their children that are not in the graph.
-	processesToClose, _ := r.manager.markRemoved(ctx, diff.Removed, r.logger)
+	processesToClose, resourcesToCloseBeforeComplete, _ := r.manager.markRemoved(ctx, diff.Removed, r.logger)
 
 	// Second we update the resource graph.
 	allErrs = multierr.Combine(allErrs, r.manager.updateResources(ctx, diff))
@@ -977,10 +977,16 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	allErrs = multierr.Combine(allErrs, processesToClose.Stop())
 
 	// Third we attempt to complete the config (see function for details)
+	alreadyClosed := make(map[resource.Name]struct{}, len(resourcesToCloseBeforeComplete))
+	for _, res := range resourcesToCloseBeforeComplete {
+		allErrs = multierr.Combine(allErrs, r.manager.closeResource(ctx, r, res))
+		// avoid a double close later
+		alreadyClosed[res.Name()] = struct{}{}
+	}
 	r.manager.completeConfig(ctx, r)
 	r.updateWeakDependents(ctx)
 
-	removedNames, removedErr := r.manager.removeMarkedAndClose(ctx, r)
+	removedNames, removedErr := r.manager.removeMarkedAndClose(ctx, r, alreadyClosed)
 	if removedErr != nil {
 		allErrs = multierr.Combine(allErrs, removedErr)
 	}
