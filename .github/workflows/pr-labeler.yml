@@ -2,7 +2,7 @@ name: PR Test Label Manager
 
 on:
   pull_request_target:
-    branches: ['static-build']
+    branches: [ static-build ]
     types: [ opened, synchronize, reopened ]
 
 jobs:
