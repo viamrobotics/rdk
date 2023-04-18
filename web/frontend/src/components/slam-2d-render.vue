@@ -220,8 +220,6 @@ const createAxisHelper = (name: string, rotation: number): THREE.AxesHelper => {
   return axesHelper
 }
 
-
-// rename to updatePC
 const updatePointCloud = (pointcloud: Uint8Array) => {
   disposeScene();
 
