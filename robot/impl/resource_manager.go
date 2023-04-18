@@ -707,7 +707,7 @@ func (manager *resourceManager) processResource(
 	resName := conf.ResourceName()
 	deps, err := r.getDependencies(ctx, resName, gNode)
 	if err != nil {
-		return nil, false, multierr.Combine(err, utils.TryClose(ctx, currentRes))
+		return nil, false, multierr.Combine(err, manager.closeResource(ctx, r, currentRes))
 	}
 
 	isModular := r.ModuleManager().Provides(conf)
@@ -733,14 +733,8 @@ func (manager *resourceManager) processResource(
 	}
 
 	manager.logger.Debugw("rebuilding", "name", resName)
-	if err := utils.TryClose(ctx, currentRes); err != nil {
+	if err := r.manager.closeResource(ctx, r, currentRes); err != nil {
 		manager.logger.Error(err)
-	}
-	if isModular && r.modules != nil && r.ModuleManager().IsModularResource(resName) {
-		if err := r.ModuleManager().RemoveResource(ctx, resName); err != nil {
-			manager.logger.Debugw("error removing modular resource",
-				"name", resName, "error", err)
-		}
 	}
 	newRes, err := r.newResource(ctx, gNode, conf)
 	if err != nil {
