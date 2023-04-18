@@ -66,7 +66,6 @@ func setupDependencies(mockData []byte) (config.Component, registry.Dependencies
 		return mockData[register], nil
 	}
 	i2cHandle.WriteByteDataFunc = func(ctx context.Context, b1, b2 byte) error {
-		mockData[b1] = b2
 		return nil
 	}
 	i2cHandle.CloseFunc = func() error { return nil }
@@ -96,30 +95,32 @@ func TestAMSEncoder(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer utils.TryClose(context.Background(), enc)
 
-	enc1 := enc.(*Encoder)
-	defer enc1.Close()
-	enc1.position = 142
-
 	t.Run("test automatically set to type ticks", func(t *testing.T) {
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			pos, posType, _ := enc.GetPosition(ctx, encoder.PositionTypeUNSPECIFIED.Enum(), nil)
-			test.That(t, pos, test.ShouldAlmostEqual, 0.4, 0.1)
-			test.That(t, posType, test.ShouldEqual, 1)
+			pos, _, _ := enc.GetPosition(ctx, encoder.PositionTypeUNSPECIFIED.Enum(), nil)
+			test.That(t, pos, test.ShouldNotEqual, 0.0)
 		})
+		pos, posType, _ := enc.GetPosition(ctx, encoder.PositionTypeUNSPECIFIED.Enum(), nil)
+		test.That(t, pos, test.ShouldAlmostEqual, 0.4, 0.1)
+		test.That(t, posType, test.ShouldEqual, 1)
 	})
 	t.Run("test ticks type from input", func(t *testing.T) {
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			pos, posType, _ := enc.GetPosition(ctx, encoder.PositionTypeTICKS.Enum(), nil)
-			test.That(t, pos, test.ShouldAlmostEqual, 0.4, 0.1)
-			test.That(t, posType, test.ShouldEqual, 1)
+			pos, _, _ := enc.GetPosition(ctx, encoder.PositionTypeTICKS.Enum(), nil)
+			test.That(t, pos, test.ShouldNotEqual, 0.0)
 		})
+		pos, posType, _ := enc.GetPosition(ctx, encoder.PositionTypeUNSPECIFIED.Enum(), nil)
+		test.That(t, pos, test.ShouldAlmostEqual, 0.4, 0.1)
+		test.That(t, posType, test.ShouldEqual, 1)
 	})
 	t.Run("test degrees type from input", func(t *testing.T) {
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			pos, posType, _ := enc.GetPosition(ctx, encoder.PositionTypeDEGREES.Enum(), nil)
-			test.That(t, pos, test.ShouldAlmostEqual, 142, 0.1)
-			test.That(t, posType, test.ShouldEqual, 2)
+			pos, _, _ := enc.GetPosition(ctx, encoder.PositionTypeTICKS.Enum(), nil)
+			test.That(t, pos, test.ShouldNotEqual, 0.0)
 		})
+		pos, posType, _ := enc.GetPosition(ctx, encoder.PositionTypeDEGREES.Enum(), nil)
+		test.That(t, pos, test.ShouldAlmostEqual, 142, 0.1)
+		test.That(t, posType, test.ShouldEqual, 2)
 	})
 	t.Run("test reset", func(t *testing.T) {
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
