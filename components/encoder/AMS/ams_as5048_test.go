@@ -114,4 +114,15 @@ func TestAMSEncoder(t *testing.T) {
 		test.That(t, pos, test.ShouldAlmostEqual, 142, 0.1)
 		test.That(t, posType, test.ShouldEqual, 2)
 	})
+	t.Run("test reset", func(t *testing.T) {
+		enc.ResetPosition(ctx, nil)
+
+		pos, posType, _ := enc.GetPosition(ctx, encoder.PositionTypeDEGREES.Enum(), nil)
+		test.That(t, pos, test.ShouldAlmostEqual, 0, 0.1)
+		test.That(t, posType, test.ShouldEqual, 2)
+
+		pos, posType, _ = enc.GetPosition(ctx, encoder.PositionTypeTICKS.Enum(), nil)
+		test.That(t, pos, test.ShouldAlmostEqual, 0, 0.1)
+		test.That(t, posType, test.ShouldEqual, 1)
+	})
 }
