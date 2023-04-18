@@ -220,7 +220,7 @@ func (e *Encoder) Start(ctx context.Context) {
 			case 0b1000:
 				fallthrough
 			case 0b1110:
-				e.dec()
+				atomic.AddInt64(&e.pRaw, -1)
 			case 0b0010:
 				fallthrough
 			case 0b0100:
@@ -228,7 +228,7 @@ func (e *Encoder) Start(ctx context.Context) {
 			case 0b1011:
 				fallthrough
 			case 0b1101:
-				e.inc()
+				atomic.AddInt64(&e.pRaw, 1)
 			}
 			atomic.StoreInt64(&e.position, atomic.LoadInt64(&e.pRaw)>>1)
 			e.pState = nState
@@ -271,14 +271,6 @@ func (e *Encoder) GetProperties(ctx context.Context, extra map[string]interface{
 // RawPosition returns the raw position of the encoder.
 func (e *Encoder) RawPosition() int64 {
 	return atomic.LoadInt64(&e.pRaw)
-}
-
-func (e *Encoder) inc() {
-	atomic.AddInt64(&e.pRaw, 1)
-}
-
-func (e *Encoder) dec() {
-	atomic.AddInt64(&e.pRaw, -1)
 }
 
 // Close shuts down the Encoder.
