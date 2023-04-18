@@ -5,8 +5,6 @@ import (
 	"context"
 	"math"
 
-	"github.com/pkg/errors"
-
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
@@ -17,10 +15,8 @@ import (
 
 type kinematicWheeledBase struct {
 	*wheeledBase
-	slam slam.Service
-	// TODO(RSDK-2393): When SLAM services know their own name this can be taken out
-	slamName string
-	model    referenceframe.Model
+	slam  slam.Service
+	model referenceframe.Model
 }
 
 // WrapWithKinematics takes a wheeledBase component and adds a slam service to it
@@ -56,7 +52,7 @@ func (kwb *kinematicWheeledBase) ModelFrame() referenceframe.Model {
 
 func (kwb *kinematicWheeledBase) currentPose(ctx context.Context) (spatialmath.Pose, error) {
 	// TODO: make a transformation from the component reference to the base frame
-	pose, _, err := kwb.slam.GetPosition(ctx, kwb.slamName)
+	pose, _, err := kwb.slam.GetPosition(ctx)
 	return pose, err
 }
 
