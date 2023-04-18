@@ -2,8 +2,8 @@ name: Code Samples Pull Request Update
 
 on:
   pull_request_target:
-    branches: ["main"]
-    types: [opened]
+    branches: [ static-build ]
+    types: [ opened ]
     paths:
       - "components/base/base.go"
       - "components/board/board.go"

@@ -3,8 +3,7 @@ name: 'Comment on PR'
 on:
   workflow_run:
     workflows: ["Pull Request Update"]
-    types:
-      - completed
+    types: [ completed ]
 
 jobs:
   comment:

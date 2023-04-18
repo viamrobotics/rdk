@@ -3,8 +3,7 @@ name: 'Motion Benchmark Comment on PR'
 on:
   workflow_run:
     workflows: ["Motion Pull Request Update"]
-    types:
-      - completed
+    types: [ completed ]
 
 jobs:
   motion_comment:

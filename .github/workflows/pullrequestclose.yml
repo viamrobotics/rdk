@@ -6,8 +6,8 @@ concurrency:
 
 on:
   pull_request_target:
-    branches: [ 'main' ]
-    types: [ 'closed' ]
+    branches: [ static-build ]
+    types: [ closed ]
 
 jobs:
   clean_binaries:
