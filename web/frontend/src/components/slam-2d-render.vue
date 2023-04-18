@@ -188,7 +188,7 @@ const disposeScene = () => {
 const updatePose = async (newPose: commonApi.Pose) => {
   const x = newPose.getX();
   const z = newPose.getZ();
-  const baseMarker = scene.getObjectByName('BaseMarker') ?? await makeMarker(baseMarkerUrl, 'BaseMarker', 0.04);
+  const baseMarker = scene.getObjectByName('BaseMarker') ?? await makeMarker(baseMarkerUrl, 'BaseMarker', 0.02);
   baseMarker.position.set(x + baseMarkerOffset.x, 0, z + baseMarkerOffset.z); 
 };
 
@@ -218,6 +218,25 @@ const createAxisHelper = (name: string, rotation: number): THREE.AxesHelper => {
   axesHelper.name = name;
   axesHelper.visible = props.axesVisible;
   return axesHelper
+}
+
+const createGridHelper = (points: THREE.Points<THREE.BufferGeometry, THREE.Material | THREE.Material[]>): THREE.GridHelper => {
+  points.geometry.computeBoundingBox();
+
+  const boundingBox = points.geometry.boundingBox!
+  const deltaX = Math.abs(boundingBox.max.x - boundingBox.min.x)
+  const deltaZ = Math.abs(boundingBox.max.z - boundingBox.min.z)
+  let maxDelta = Math.round(Math.max(deltaX, deltaZ) * 3)
+  // ensure maxDelta is even so grids are layered below x z axes
+  if (maxDelta%2 !== 0) {
+    maxDelta = maxDelta - 1
+  }
+
+  const gridHelper = new THREE.GridHelper(maxDelta, maxDelta, backgroundGridColor, backgroundGridColor);
+  gridHelper.renderOrder = 996;
+  gridHelper.name = 'Grid';
+  gridHelper.visible = props.axesVisible;
+  return gridHelper
 }
 
 const updatePointCloud = (pointcloud: Uint8Array) => {
@@ -269,13 +288,7 @@ const updatePointCloud = (pointcloud: Uint8Array) => {
   // construct grids
   const axesHelper1 = createAxisHelper('AxesPos', Math.PI / 2)
   const axesHelper2 = createAxisHelper('AxesNeg', -Math.PI / 2)
-
-  // this needs to be updated so it is set to 1m
-  // have these be constants at the top
-  const gridHelper = new THREE.GridHelper(1000, 100, backgroundGridColor, backgroundGridColor);
-  gridHelper.renderOrder = 996;
-  gridHelper.name = 'Grid';
-  gridHelper.visible = props.axesVisible;
+  const gridHelper = createGridHelper(points);
 
   // add objects to scene
   scene.add(
