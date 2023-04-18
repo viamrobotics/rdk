@@ -6,22 +6,17 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
+	"go.viam.com/test"
+
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
-	"go.viam.com/test"
 )
 
 var model = resource.NewDefaultModel("AMS-AS5048")
-
-const (
-	defaultAddressRegister = 117
-	expectedDefaultAddress = 0x68
-	alternateAddress       = 0x69
-)
 
 func TestConvertBytesToAngle(t *testing.T) {
 	// 180 degrees

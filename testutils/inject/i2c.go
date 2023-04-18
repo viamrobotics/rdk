@@ -32,7 +32,7 @@ type I2CHandle struct {
 	CloseFunc          func() error
 }
 
-// WriteByteData calls the injected ReadByteDataFunc or the real version.
+// ReadByteData calls the injected ReadByteDataFunc or the real version.
 func (handle *I2CHandle) ReadByteData(ctx context.Context, register byte) (byte, error) {
 	if handle.ReadByteDataFunc == nil {
 		return handle.I2CHandle.ReadByteData(ctx, register)
