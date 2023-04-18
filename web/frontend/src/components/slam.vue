@@ -56,10 +56,13 @@ const fetchSLAMMap = (name: string): Promise<Uint8Array> => {
       const chunk = res.getPointCloudPcdChunk_asU8();
       chunks.push(chunk);
     });
-    getPointCloudMap.on('status', (status?) => {
-      const { code, details, metadata } = status!;
-      if (code !== 0) {
-        const error = { message: details, code, metadata };
+    getPointCloudMap.on('status', (status: { code: number, details: string, metadata: grpc.Metadata }) => {
+      if (status.code !== 0) {
+        const error = {
+          message: status.details,
+          code: status.code,
+          metadata: status.metadata,
+        };
         reject(error);
       }
     });
