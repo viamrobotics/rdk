@@ -1,7 +1,6 @@
 package resource
 
 import (
-	"context"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -407,21 +406,11 @@ func (g *Graph) RemoveMarked() []Resource {
 			continue
 		}
 		if rNode.MarkedForRemoval() {
-			toClose = append(toClose, &resourceForClosure{Named: name.AsNamed(), closeFunc: rNode.Close})
+			toClose = append(toClose, NewCloseOnlyResource(name, rNode.Close))
 			g.remove(name)
 		}
 	}
 	return toClose
-}
-
-type resourceForClosure struct {
-	Named
-	TriviallyReconfigurable
-	closeFunc func(ctx context.Context) error
-}
-
-func (r *resourceForClosure) Close(ctx context.Context) error {
-	return r.closeFunc(ctx)
 }
 
 // MergeAdd merges two Graphs, if a node exists in both graphs, then it is silently replaced.

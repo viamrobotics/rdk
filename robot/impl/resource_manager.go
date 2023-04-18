@@ -930,7 +930,7 @@ func (manager *resourceManager) markRemoved(
 		}
 		resourcesToCloseBeforeComplete = append(
 			resourcesToCloseBeforeComplete,
-			&resourceForClosure{Named: remoteName.AsNamed(), closeFunc: resNode.Close})
+			resource.NewCloseOnlyResource(remoteName, resNode.Close))
 		subG, err := manager.resources.SubGraphFrom(remoteName)
 		if err != nil {
 			manager.logger.Errorw("error while getting a subgraph", "error", err)
@@ -947,7 +947,7 @@ func (manager *resourceManager) markRemoved(
 		}
 		resourcesToCloseBeforeComplete = append(
 			resourcesToCloseBeforeComplete,
-			&resourceForClosure{Named: rName.AsNamed(), closeFunc: resNode.Close})
+			resource.NewCloseOnlyResource(rName, resNode.Close))
 		subG, err := manager.resources.SubGraphFrom(rName)
 		if err != nil {
 			manager.logger.Errorw("error while getting a subgraph", "error", err)
@@ -968,7 +968,7 @@ func (manager *resourceManager) markRemoved(
 			continue
 		}
 		resourcesToCloseBeforeComplete = append(resourcesToCloseBeforeComplete,
-			&resourceForClosure{Named: rName.AsNamed(), closeFunc: resNode.Close})
+			resource.NewCloseOnlyResource(rName, resNode.Close))
 		subG, err := manager.resources.SubGraphFrom(rName)
 		if err != nil {
 			manager.logger.Errorw("error while getting a subgraph", "error", err)
@@ -978,18 +978,6 @@ func (manager *resourceManager) markRemoved(
 		manager.resources.MarkForRemoval(subG)
 	}
 	return processesToClose, resourcesToCloseBeforeComplete, markedResourceNames
-}
-
-// resourceForClosure is used for resources that need to be closed and
-// do not need the actual resource exposed but only its close function.
-type resourceForClosure struct {
-	resource.Named
-	resource.TriviallyReconfigurable
-	closeFunc func(ctx context.Context) error
-}
-
-func (r *resourceForClosure) Close(ctx context.Context) error {
-	return r.closeFunc(ctx)
 }
 
 func remoteDialOptions(config config.Remote, opts resourceManagerOptions) []rpc.DialOption {

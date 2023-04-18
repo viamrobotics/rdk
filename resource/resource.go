@@ -25,6 +25,7 @@ import (
 
 	"github.com/jhump/protoreflect/desc"
 	"github.com/pkg/errors"
+	"go.viam.com/utils"
 )
 
 // define a few typed strings.
@@ -462,4 +463,20 @@ func AsType[T Resource](from Resource) (T, error) {
 		return zero, TypeError[T](from)
 	}
 	return res, nil
+}
+
+type closeOnlyResource struct {
+	Named
+	TriviallyReconfigurable
+	closeFunc func(ctx context.Context) error
+}
+
+// NewCloseOnlyResource makes a new resource that needs to be closed and
+// does not need the actual resource exposed but only its close function.
+func NewCloseOnlyResource(name Name, closeFunc utils.ContextCloserFunc) Resource {
+	return &closeOnlyResource{Named: name.AsNamed(), closeFunc: closeFunc}
+}
+
+func (r *closeOnlyResource) Close(ctx context.Context) error {
+	return r.closeFunc(ctx)
 }
