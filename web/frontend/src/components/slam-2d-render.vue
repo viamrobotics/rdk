@@ -16,9 +16,11 @@ type svgOffset = {
   z: number
 }
 
+// Note: updating the scale of the destination or base marker requires an offset update
+
 const baseMarkerOffset: svgOffset = {
-  x: 0.35,
-  z: -0.55
+  x: 0.22,
+  z: -0.26
 }
 
 const destinationMarkerOffset: svgOffset = {
@@ -27,6 +29,7 @@ const destinationMarkerOffset: svgOffset = {
 }
 
 const backgroundGridColor = 0xCA_CA_CA
+
 /*
  * this color map is greyscale. The color map is being used map probability values of a PCD
  * into different color buckets provided by the color map.
