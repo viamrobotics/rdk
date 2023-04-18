@@ -687,19 +687,21 @@ func (manager *resourceManager) processResource(
 		return nil, false, err
 	}
 
-	deps, err := r.getDependencies(ctx, conf.ResourceName(), gNode)
+	resName := conf.ResourceName()
+	deps, err := r.getDependencies(ctx, resName, gNode)
 	if err != nil {
 		return nil, false, multierr.Combine(err, utils.TryClose(ctx, currentRes))
 	}
 
-	if r.ModuleManager().Provides(conf) {
-		if err := r.ModuleManager().ReconfigureResource(ctx, conf, modmanager.DepsToNames(deps)); err != nil {
-			return nil, false, err
-		}
-		return currentRes, false, nil
-	}
-
+	isModular := r.ModuleManager().Provides(conf)
 	if gNode.ResourceModel() == conf.Model {
+		if isModular {
+			if err := r.ModuleManager().ReconfigureResource(ctx, conf, modmanager.DepsToNames(deps)); err != nil {
+				return nil, false, err
+			}
+			return currentRes, false, nil
+		}
+
 		err = currentRes.Reconfigure(ctx, deps, conf)
 		if err == nil {
 			return currentRes, false, nil
@@ -710,12 +712,18 @@ func (manager *resourceManager) processResource(
 		}
 	} else {
 		manager.logger.Debugw("resource models differ so it must be rebuilt",
-			"name", conf.ResourceName(), "old_model", gNode.ResourceModel(), "new_model", conf.Model)
+			"name", resName, "old_model", gNode.ResourceModel(), "new_model", conf.Model)
 	}
 
-	manager.logger.Debugw("rebuilding", "name", conf.ResourceName())
+	manager.logger.Debugw("rebuilding", "name", resName)
 	if err := utils.TryClose(ctx, currentRes); err != nil {
 		manager.logger.Error(err)
+	}
+	if isModular && r.modules != nil && r.ModuleManager().IsModularResource(resName) {
+		if err := r.ModuleManager().RemoveResource(ctx, resName); err != nil {
+			manager.logger.Debugw("error removing modular resource",
+				"name", resName, "error", err)
+		}
 	}
 	newRes, err := r.newResource(ctx, gNode, conf)
 	if err != nil {

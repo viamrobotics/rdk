@@ -323,6 +323,7 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 		deps[name] = c
 	}
 
+	// it is assumed the caller robot has handled model differences
 	conf, err := config.ComponentConfigFromProto(req.Config)
 	if err != nil {
 		return nil, err

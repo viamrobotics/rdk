@@ -30,7 +30,8 @@ func TestModularResources(t *testing.T) {
 			resource.ResourceTypeComponent,
 			resource.SubtypeName("anvil"),
 		)
-		compModel = resource.NewModel("acme", "anvil", "2000")
+		compModel  = resource.NewModel("acme", "anvil", "2000")
+		compModel2 = resource.NewModel("acme", "anvil", "3000")
 
 		svcSubtype = resource.NewSubtype(
 			resource.Namespace("acme"),
@@ -67,6 +68,16 @@ func TestModularResources(t *testing.T) {
 				return mod.AddResource(ctx, conf, modmanager.DepsToNames(deps))
 			},
 		})
+		registry.RegisterComponent(compSubtype, compModel2, registry.Component{
+			Constructor: func(
+				ctx context.Context,
+				deps resource.Dependencies,
+				conf resource.Config,
+				logger golog.Logger,
+			) (resource.Resource, error) {
+				return mod.AddResource(ctx, conf, modmanager.DepsToNames(deps))
+			},
+		})
 
 		registry.RegisterResourceSubtype(svcSubtype, registry.ResourceSubtype{ReflectRPCServiceDesc: &desc.ServiceDescriptor{}})
 		registry.RegisterResource(svcSubtype, svcModel, registry.Resource{
@@ -83,6 +94,7 @@ func TestModularResources(t *testing.T) {
 		return actualR, mod, func() {
 			// deregister to not interfere with other tests or when test.count > 1
 			registry.DeregisterResource(compSubtype, compModel)
+			registry.DeregisterResource(compSubtype, compModel2)
 			registry.DeregisterResource(svcSubtype, svcModel)
 			registry.DeregisterResourceSubtype(compSubtype)
 			registry.DeregisterResourceSubtype(svcSubtype)
@@ -329,6 +341,32 @@ func TestModularResources(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		_, err = r.ResourceByName(cfg.ResourceName())
 		test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(cfg.ResourceName()))
+	})
+
+	t.Run("change model", func(t *testing.T) {
+		r, _, teardown := setupTest(t)
+		defer teardown()
+
+		cfg := resource.Config{Name: "oneton", API: compSubtype, Model: compModel, Attributes: utils.AttributeMap{"arg1": "one"}}
+		_, err := cfg.Validate("test", resource.ResourceTypeComponent)
+		test.That(t, err, test.ShouldBeNil)
+
+		r.Reconfigure(context.Background(), &config.Config{
+			Components: []resource.Config{cfg},
+		})
+		res1, err := r.ResourceByName(cfg.ResourceName())
+		test.That(t, err, test.ShouldBeNil)
+
+		cfg2 := resource.Config{Name: "oneton", API: compSubtype, Model: compModel2, Attributes: utils.AttributeMap{"arg1": "one"}}
+		_, err = cfg2.Validate("test", resource.ResourceTypeComponent)
+		test.That(t, err, test.ShouldBeNil)
+
+		r.Reconfigure(context.Background(), &config.Config{
+			Components: []resource.Config{cfg2},
+		})
+		res2, err := r.ResourceByName(cfg2.ResourceName())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, res2, test.ShouldNotEqual, res1)
 	})
 }
 

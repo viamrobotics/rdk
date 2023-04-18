@@ -731,8 +731,8 @@ type dummyArm struct {
 	channel   chan struct{}
 }
 
-func (da *dummyArm) EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
-	return nil, errors.New("fake error")
+func (da *dummyArm) Name() resource.Name {
+	return arm.Named("bad")
 }
 
 func (da *dummyArm) MoveToPosition(
@@ -859,6 +859,10 @@ func TestStopAll(t *testing.T) {
 type dummyBoard struct {
 	board.LocalBoard
 	closeCount int
+}
+
+func (db *dummyBoard) Name() resource.Name {
+	return board.Named("bad")
 }
 
 func (db *dummyBoard) SPINames() []string {
