@@ -12,7 +12,7 @@ jobs:
     name: Audit 3rd-Party Licenses
     runs-on: [x64, qemu-host]
     container:
-      image: ghcr.io/viamrobotics/canon-test:amd64-cache
+      image: ghcr.io/viamrobotics/canon:amd64-cache
       options: --platform linux/amd64
     timeout-minutes: 30
 

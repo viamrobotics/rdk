@@ -3,7 +3,7 @@ viam-rdk:
     default: true
     image_amd64: ghcr.io/viamrobotics/canon:amd64-cache
     image_arm64: ghcr.io/viamrobotics/canon:arm64-cache
-    minimum_date: 2023-04-14T00:00:00.0Z
+    minimum_date: 2023-04-18T00:00:00.0Z
     update_interval: 168h0m0s
     user: testbot
     group: testbot
@@ -12,7 +12,7 @@ viam-rdk:
 viam-rdk-antique:
     image_amd64: ghcr.io/viamrobotics/antique:amd64
     image_arm64: ghcr.io/viamrobotics/antique:arm64
-    minimum_date: 2023-04-14T00:00:00.0Z
+    minimum_date: 2023-04-18T00:00:00.0Z
     update_interval: 168h0m0s
     user: testbot
     group: testbot

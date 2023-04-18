@@ -1,7 +1,7 @@
 name: Pull Request Close
 
 concurrency: 
-  group: pullrequest-untrusted-${{ github.head_ref }}
+  group: pullrequest-${{ github.head_ref }}
   cancel-in-progress: true
 
 on:
@@ -10,8 +10,8 @@ on:
     types: [ 'closed' ]
 
 jobs:
-  appimage_clean:
-    name: Remove PR AppImages
+  clean_binaries:
+    name: Remove PR AppImages/Binaries
     runs-on: ubuntu-latest
 
     steps:

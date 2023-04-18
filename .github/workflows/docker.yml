@@ -20,11 +20,11 @@ jobs:
       matrix:
         include:
           - arch: [x64, qemu-host]
-            image: ghcr.io/viamrobotics/canon-test:amd64
+            image: ghcr.io/viamrobotics/canon:amd64
             platform: linux/amd64
             make_target: 'canon-cache-amd64-ci'
           - arch: [arm64, qemu-host]
-            image: ghcr.io/viamrobotics/canon-test:arm64
+            image: ghcr.io/viamrobotics/canon:arm64
             platform: linux/arm64
             make_target: 'canon-cache-arm64-ci'
     runs-on: ${{ matrix.arch }}
@@ -57,11 +57,11 @@ jobs:
       matrix:
         include:
           - arch: [x64, qemu-host]
-            image: ghcr.io/viamrobotics/canon-test:amd64
+            image: ghcr.io/viamrobotics/canon:amd64
             platform: linux/amd64
             make_target: 'antique-cache-amd64-ci'
           - arch: [arm64, qemu-host]
-            image: ghcr.io/viamrobotics/canon-test:arm64
+            image: ghcr.io/viamrobotics/canon:arm64
             platform: linux/arm64
             make_target: 'antique-cache-arm64-ci'
     runs-on: ${{ matrix.arch }}
