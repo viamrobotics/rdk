@@ -196,6 +196,17 @@ func (e *Encoder) Start(ctx context.Context) {
 		defer e.A.RemoveCallback(chanA)
 		defer e.B.RemoveCallback(chanB)
 		for {
+			// This looks redundant with the other select statement below, but it's not: if we're
+			// supposed to return, we need to do that even if chanA and chanB are full of data, and
+			// the other select statement will pick random cases in that situation. This select
+			// statement guarantees that we'll return if we're supposed to, regardless of whether
+			// there's data in the other channels.
+			select {
+			case <-e.CancelCtx.Done():
+				return
+			default:
+			}
+
 			var tick board.Tick
 
 			select {
