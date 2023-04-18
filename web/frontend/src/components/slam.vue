@@ -150,7 +150,7 @@ const executeMoveOnMap = async () => {
   props.client.motionService.moveOnMap(
     motionServiceReq,
     new grpc.Metadata(),
-    (error, response) => {
+    (error: ServiceError, response: motionApi.MoveOnMapResponse) => {
       if (error) {
         toast.error(`Error moving: ${error}`);
         return;
@@ -161,7 +161,7 @@ const executeMoveOnMap = async () => {
 
 };
 
-const executeStopMove = () => {
+const executeStopMoveOnMap = () => {
   moveClick = true;
   // TODO: finish
 };
@@ -346,7 +346,7 @@ const toggleAxes = () => {
       variant="danger"
       label="STOP"
       :disabled="moveClick ? 'true' : 'false'"
-      @click="executeStopMove()"
+      @click="executeStopMoveOnMap()"
     />
     <div class="flex flex-wrap gap-4 border border-t-0 border-black sm:flex-nowrap">
       <div class="flex min-w-fit flex-col gap-4 p-4">
@@ -446,6 +446,7 @@ const toggleAxes = () => {
             label="Move"
             variant="success"
             icon="play-circle-filled"
+            :disabled="moveClick ? 'false' : 'true'"
             @click="executeMoveOnMap()"
           />
           <v-switch
