@@ -233,7 +233,7 @@ const refresh3dMap = () => {
       slot="title"
       crumbs="slam"
     />
-    <div class="h-auto border-x border-b border-black p-2">
+    <div class="h-auto border-x border-b border-border-1 p-2">
       <div class="container mx-auto">
         <div class="pt-4">
           <div class="flex items-center gap-2">
@@ -257,7 +257,7 @@ const refresh3dMap = () => {
                   <select
                     v-model="selected2dValue"
                     class="
-                      m-0 w-full appearance-none border border-solid border-black bg-white bg-clip-padding px-3 py-1.5
+                      m-0 w-full appearance-none border border-solid border-border-1 bg-white bg-clip-padding px-3 py-1.5
                       text-xs font-normal text-gray-700 focus:outline-none
                     "
                     aria-label="Default select example"
@@ -336,7 +336,7 @@ const refresh3dMap = () => {
                   <select
                     v-model="selected3dValue"
                     class="
-                      m-0 w-full appearance-none border border-solid border-black bg-white bg-clip-padding px-3 py-1.5
+                      m-0 w-full appearance-none border border-solid border-border-1 bg-white bg-clip-padding px-3 py-1.5
                       text-xs font-normal text-gray-700 focus:outline-none
                     "
                     aria-label="Default select example"

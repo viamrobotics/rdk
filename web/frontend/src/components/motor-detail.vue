@@ -153,7 +153,7 @@ onMounted(async () => {
     </div>
 
     <div>
-      <div class="border border-t-0 border-black p-4">
+      <div class="border border-t-0 border-border-1 p-4">
         <v-radio
           label="Set Power"
           :options="properties?.positionReporting ? 'Go, Go For, Go To' : 'Go'"

@@ -62,20 +62,20 @@ const stop = () => {
         @click.stop="stop"
       />
     </div>
-    <div class="overflow-auto border border-t-0 border-black p-4">
-      <table class="border border-t-0 border-black p-4">
+    <div class="overflow-auto border border-t-0 border-border-1 p-4">
+      <table class="border border-t-0 border-border-1 p-4">
         <thead>
           <tr>
-            <th class="border border-black p-2">
+            <th class="border border-border-1 p-2">
               axis
             </th>
             <th
-              class="border border-black p-2"
+              class="border border-border-1 p-2"
               colspan="2"
             >
               position
             </th>
-            <th class="border border-black p-2">
+            <th class="border border-border-1 p-2">
               length
             </th>
           </tr>
@@ -85,7 +85,7 @@ const stop = () => {
             v-for="pp in status.parts"
             :key="pp.axis"
           >
-            <th class="border border-black p-2">
+            <th class="border border-border-1 p-2">
               {{ pp.axis }}
             </th>
             <td class="flex gap-2 p-2">
@@ -107,10 +107,10 @@ const stop = () => {
                 @click="increment(pp.axis, 10)"
               />
             </td>
-            <td class="border border-black p-2">
+            <td class="border border-border-1 p-2">
               {{ pp.pos.toFixed(2) }}
             </td>
-            <td class="border border-black p-2">
+            <td class="border border-border-1 p-2">
               {{ pp.length }}
             </td>
           </tr>
