@@ -841,6 +841,7 @@ func dialRobotClient(
 // Reconfigure will safely reconfigure a robot based on the given config. It will make
 // a best effort to remove no longer in use parts, but if it fails to do so, they could
 // possibly leak resources.
+// The given config is assumed to be owned by the robot now.
 func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) {
 	var allErrs error
 
@@ -949,7 +950,6 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	modularOrphanedResourceNames, err := r.reconfigureModules(ctx, diff)
 	if err != nil {
 		r.logger.Error(err)
-		return
 	}
 
 	// Before filtering config, manually add modular orphaned resources (resources
@@ -992,20 +992,19 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	}
 	for _, removedName := range removedNames {
 		// Remove orphaned resources (dependents of removed resources) from newConfig.
-		for i, c := range newConfig.Components {
+		for i, c := range r.config.Components {
 			if c.ResourceName() == removedName {
-				newConfig.Components[i] = newConfig.Components[len(newConfig.Components)-1]
-				newConfig.Components = newConfig.Components[:len(newConfig.Components)-1]
+				r.config.Components[i] = r.config.Components[len(r.config.Components)-1]
+				r.config.Components = r.config.Components[:len(r.config.Components)-1]
 			}
 		}
-		for i, s := range newConfig.Services {
+		for i, s := range r.config.Services {
 			if s.ResourceName() == removedName {
-				newConfig.Services[i] = newConfig.Services[len(newConfig.Services)-1]
-				newConfig.Services = newConfig.Services[:len(newConfig.Services)-1]
+				r.config.Services[i] = r.config.Services[len(r.config.Services)-1]
+				r.config.Services = r.config.Services[:len(r.config.Services)-1]
 			}
 		}
 	}
-	r.config = newConfig
 
 	// cleanup unused packages after all old resources have been closed above. This ensures
 	// processes are shutdown before any files are deleted they are using.

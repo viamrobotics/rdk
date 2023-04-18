@@ -403,15 +403,15 @@ func (manager *resourceManager) removeMarkedAndClose(
 ) ([]resource.Name, error) {
 	var allErrs error
 	toClose := manager.resources.RemoveMarked()
-	toCloseNames := make([]resource.Name, 0, len(toClose))
+	removedNames := make([]resource.Name, 0, len(toClose))
 	for _, res := range toClose {
+		removedNames = append(removedNames, res.Name())
 		if _, ok := alreadyClosed[res.Name()]; ok {
 			continue
 		}
 		allErrs = multierr.Combine(allErrs, manager.closeResource(ctx, r, res))
-		toCloseNames = append(toCloseNames, res.Name())
 	}
-	return toCloseNames, allErrs
+	return removedNames, allErrs
 }
 
 // Close attempts to close/stop all parts.
