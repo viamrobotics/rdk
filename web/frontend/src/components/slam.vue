@@ -106,13 +106,13 @@ const fetchSLAMPose = (name: string): Promise<commonApi.Pose> => {
 const executeMove = async () => {
   moveClick = false;
 
-  const req = new motionApi.MoveOnMapRequest();
+  const motionServiceReq = new motionApi.MoveOnMapRequest();
 
   /*
    * set request name
    * here we set the name of the motion service the user is using
    */
-  req.setName('builtin');
+   motionServiceReq.setName('builtin');
 
   const value = await fetchSLAMPose(props.name);
   // set pose in frame
@@ -124,7 +124,7 @@ const executeMove = async () => {
   destination.setOY(value.getOY());
   destination.setOZ(value.getOZ());
   destination.setTheta(value.getTheta());
-  req.setDestination(destination);
+  motionServiceReq.setDestination(destination);
 
   // set SLAM resource name
   const slamResourceName = new commonApi.ResourceName();
@@ -132,13 +132,12 @@ const executeMove = async () => {
   slamResourceName.setType('service');
   slamResourceName.setSubtype('slam');
   slamResourceName.setName(props.name);
-  req.setSlamServiceName(slamResourceName);
+  motionServiceReq.setSlamServiceName(slamResourceName);
 
   // set component name
-  const [baseResource] = filterResources(props.resources, 'rdk', 'component', 'base');
-  // we are assuming there is only one base that is conducting planning
+  const baseResource = filterResources(props.resources, 'rdk', 'component', 'base');
   if (baseResource === undefined) {
-    toast.error('No gripper component detected.');
+    toast.error('No base component detected.');
     return;
   }
   const baseResourceName = new commonApi.ResourceName();
@@ -146,10 +145,10 @@ const executeMove = async () => {
   baseResourceName.setType('component');
   baseResourceName.setSubtype('base');
   baseResourceName.setName(baseResource[0]!.name);
-  req.setComponentName(baseResourceName);
-
+  motionServiceReq.setComponentName(baseResourceName);
+  
   props.client.motionService.moveOnMap(
-    req,
+    motionServiceReq,
     new grpc.Metadata(),
     (error, response) => {
       if (error) {
@@ -320,8 +319,7 @@ const baseCopyPosition = () => {
   copyToClipboardWithToast(JSON.stringify(basePose.toObject()));
 };
 
-// update function name to be more clear (include work dest)
-const executeDelete = () => {
+const executeDeleteDestinationMarker = () => {
   updatedDest = false;
   destinationMarker = new THREE.Vector3();
 };
@@ -421,7 +419,7 @@ const toggleAxes = () => {
             </p>
             <v-icon
               name="trash"
-              @click="executeDelete()"
+              @click="executeDeleteDestinationMarker()"
             />
           </div>
           <div class="flex flex-row pb-2">
