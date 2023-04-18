@@ -23,7 +23,7 @@ const baseMarkerOffset: svgOffset = {
 
 const destinationMarkerOffset: svgOffset = {
   x: 1.2,
-  z: -2.64
+  z: -2.52
 }
 
 const backgroundGridColor = 0xCA_CA_CA
@@ -94,12 +94,6 @@ raycaster.on('click', (event: THREE.Event) => {
   }
 });
 
-const guiData = {
-    drawFillShapes: true,
-    drawStrokes: true,
-    fillShapesWireframe: false,
-    strokesWireframe: false,
-  };
 /*
  * svgLoader example for webgl:
  * https://github.com/mrdoob/three.js/blob/master/examples/webgl_loader_svg.html
@@ -120,7 +114,7 @@ const makeMarker = async (url : string, name: string, scalar: number) => {
 
     const fillColor = path!.userData!.style.fill;
 
-    if (guiData.drawFillShapes && fillColor !== undefined && fillColor !== 'none') {
+    if (fillColor !== undefined && fillColor !== 'none') {
       const material = new THREE.MeshBasicMaterial({
         color: new THREE.Color().setStyle(fillColor)
           .convertSRGBToLinear(),
@@ -128,7 +122,7 @@ const makeMarker = async (url : string, name: string, scalar: number) => {
         transparent: true,
         side: THREE.DoubleSide,
         depthWrite: false,
-        wireframe: guiData.fillShapesWireframe,
+        wireframe: false,
       });
 
       const shapes = SVGLoader.createShapes(path!);
@@ -145,7 +139,7 @@ const makeMarker = async (url : string, name: string, scalar: number) => {
 
     const strokeColor = path!.userData!.style.stroke;
 
-    if (guiData.drawStrokes && strokeColor !== undefined && strokeColor !== 'none') {
+    if (strokeColor !== undefined && strokeColor !== 'none') {
 
       const material = new THREE.MeshBasicMaterial({
         color: new THREE.Color().setStyle(strokeColor)
@@ -154,13 +148,11 @@ const makeMarker = async (url : string, name: string, scalar: number) => {
         transparent: true,
         side: THREE.DoubleSide,
         depthWrite: false,
-        wireframe: guiData.strokesWireframe,
+        wireframe: false,
       });
 
-      for (let j = 0, jl = path!.subPaths.length; j < jl; j += 1) {
-        const subPath = path!.subPaths[j];
+      for (const subPath of path!.subPaths) {
         const geometry = SVGLoader.pointsToStroke(subPath.getPoints(), path!.userData!.style);
-
         if (geometry) {
           const mesh = new THREE.Mesh(geometry.rotateX(-Math.PI / 2).rotateY(Math.PI), material);
           group.add(mesh);
@@ -220,7 +212,6 @@ const colorBuckets = (probability: number): THREE.Vector3 => {
 
 const createAxisHelper = (name: string, rotation: number): THREE.AxesHelper => {
   const axesHelper = new THREE.AxesHelper(5);
-  axesHelper.position.set(0, 0, 0);
   axesHelper.rotateY(rotation);
   axesHelper.scale.set(1e5, 1, 1e5)
   axesHelper.renderOrder = 998;
@@ -284,7 +275,6 @@ const updatePointCloud = (pointcloud: Uint8Array) => {
   // this needs to be updated so it is set to 1m
   // have these be constants at the top
   const gridHelper = new THREE.GridHelper(1000, 100, backgroundGridColor, backgroundGridColor);
-  gridHelper.position.set(0, 0, 0);
   gridHelper.renderOrder = 996;
   gridHelper.name = 'Grid';
   gridHelper.visible = props.axesVisible;
