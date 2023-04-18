@@ -3,6 +3,7 @@ package robotimpl
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"os"
 	"reflect"
 	"strings"
@@ -378,29 +379,35 @@ func (manager *resourceManager) mergeResourceRPCSubtypesWithRemote(r robot.Robot
 	}
 }
 
+func (manager *resourceManager) removeMarkedAndClose(ctx context.Context, r *localRobot) ([]resource.Name, error) {
+	var allErrs error
+	toClose := manager.resources.RemoveMarked()
+	toCloseNames := make([]resource.Name, 0, len(toClose))
+	for _, res := range toClose {
+		allErrs = multierr.Combine(allErrs, utils.TryClose(ctx, res))
+
+		resName := res.Name()
+		toCloseNames = append(toCloseNames, resName)
+		if r.modules != nil && r.ModuleManager().IsModularResource(resName) {
+			if err := r.ModuleManager().RemoveResource(ctx, resName); err != nil {
+				allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error removing modular resource"))
+			}
+		}
+	}
+	return toCloseNames, allErrs
+}
+
 // Close attempts to close/stop all parts.
 func (manager *resourceManager) Close(ctx context.Context, r *localRobot) error {
+	manager.resources.MarkForRemoval(manager.resources.Clone())
+
 	var allErrs error
 	if err := manager.processManager.Stop(); err != nil {
 		allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error stopping process manager"))
 	}
 
-	order := manager.resources.TopologicalSort()
-	for _, x := range order {
-		res, ok := manager.resources.Node(x)
-		if !ok {
-			continue
-		}
-
-		if err := res.Close(ctx); err != nil {
-			allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error closing resource"))
-		}
-
-		if r.modules != nil && r.ModuleManager().IsModularResource(x) {
-			if err := r.ModuleManager().RemoveResource(ctx, x); err != nil {
-				allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error removing modular resource"))
-			}
-		}
+	if _, err := manager.removeMarkedAndClose(ctx, r); err != nil {
+		allErrs = multierr.Combine(allErrs, err)
 	}
 	return allErrs
 }
@@ -420,7 +427,13 @@ func (manager *resourceManager) completeConfig(
 		if !ok || !gNode.NeedsReconfigure() {
 			continue
 		}
-		manager.logger.Debugw("now configuring a remote", "resource", resName)
+		var verb string
+		if gNode.IsUninitialized() {
+			verb = "configuring"
+		} else {
+			verb = "reconfiguring"
+		}
+		manager.logger.Debugw(fmt.Sprintf("now %s a remote", verb), "resource", resName)
 		switch resName.Subtype {
 		case client.RemoteSubtype:
 			remConf, err := resource.NativeConfig[config.Remote](gNode.Config())
@@ -478,7 +491,13 @@ func (manager *resourceManager) completeConfig(
 			resName.ResourceType == resource.ResourceTypeService) {
 			continue
 		}
-		manager.logger.Debugw("now configuring resource", "resource", resName)
+		var verb string
+		if gNode.IsUninitialized() {
+			verb = "configuring"
+		} else {
+			verb = "reconfiguring"
+		}
+		manager.logger.Debugw(fmt.Sprintf("now %s resource", verb), "resource", resName)
 		conf := gNode.Config()
 
 		// this is done in config validation but partial start rules require us to check again

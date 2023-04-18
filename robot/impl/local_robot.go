@@ -980,20 +980,20 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	r.manager.completeConfig(ctx, r)
 	r.updateWeakDependents(ctx)
 
-	toClose := r.manager.resources.RemoveMarked()
-	for _, res := range toClose {
-		allErrs = multierr.Combine(allErrs, goutils.TryClose(ctx, res))
-
-		resName := res.Name()
+	removedNames, removedErr := r.manager.removeMarkedAndClose(ctx, r)
+	if removedErr != nil {
+		allErrs = multierr.Combine(allErrs, removedErr)
+	}
+	for _, removedName := range removedNames {
 		// Remove orphaned resources (dependents of removed resources) from newConfig.
 		for i, c := range newConfig.Components {
-			if c.ResourceName() == resName {
+			if c.ResourceName() == removedName {
 				newConfig.Components[i] = newConfig.Components[len(newConfig.Components)-1]
 				newConfig.Components = newConfig.Components[:len(newConfig.Components)-1]
 			}
 		}
 		for i, s := range newConfig.Services {
-			if s.ResourceName() == resName {
+			if s.ResourceName() == removedName {
 				newConfig.Services[i] = newConfig.Services[len(newConfig.Services)-1]
 				newConfig.Services = newConfig.Services[:len(newConfig.Services)-1]
 			}

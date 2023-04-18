@@ -17,6 +17,7 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
+	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 )
 
@@ -39,16 +40,21 @@ func TestModularResources(t *testing.T) {
 		svcModel = resource.NewModel("acme", "signage", "handheld")
 	)
 
-	setupTest := func(t *testing.T) (*localRobot, *resourceManager, *dummyModMan, func()) {
+	setupTest := func(t *testing.T) (*localRobot, *dummyModMan, func()) {
 		logger := golog.NewTestLogger(t)
-		res := newResourceManager(resourceManagerOptions{}, logger)
-		mod := &dummyModMan{}
-		r := &localRobot{
-			manager: res,
-			logger:  logger,
-			config:  &config.Config{},
-			modules: mod,
+		compSubtypeSvc, err := subtype.New(compSubtype, nil)
+		test.That(t, err, test.ShouldBeNil)
+		svcSubtypeSvc, err := subtype.New(svcSubtype, nil)
+		test.That(t, err, test.ShouldBeNil)
+		mod := &dummyModMan{
+			compSubtypeSvc: compSubtypeSvc,
+			svcSubtypeSvc:  svcSubtypeSvc,
 		}
+
+		r, err := New(context.Background(), &config.Config{}, logger)
+		test.That(t, err, test.ShouldBeNil)
+		actualR := r.(*localRobot)
+		actualR.modules = mod
 
 		registry.RegisterResourceSubtype(compSubtype, registry.ResourceSubtype{ReflectRPCServiceDesc: &desc.ServiceDescriptor{}})
 		registry.RegisterComponent(compSubtype, compModel, registry.Component{
@@ -74,17 +80,18 @@ func TestModularResources(t *testing.T) {
 			},
 		})
 
-		return r, res, mod, func() {
+		return actualR, mod, func() {
 			// deregister to not interfere with other tests or when test.count > 1
 			registry.DeregisterResource(compSubtype, compModel)
 			registry.DeregisterResource(svcSubtype, svcModel)
 			registry.DeregisterResourceSubtype(compSubtype)
 			registry.DeregisterResourceSubtype(svcSubtype)
+			test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 		}
 	}
 
 	t.Run("process component", func(t *testing.T) {
-		r, res, mod, teardown := setupTest(t)
+		r, mod, teardown := setupTest(t)
 		defer teardown()
 
 		// modular
@@ -99,7 +106,7 @@ func TestModularResources(t *testing.T) {
 
 		// non-modular
 		cfg3 := resource.Config{
-			Name:                "built-in",
+			Name:                "builtin",
 			API:                 motor.Subtype,
 			Model:               resource.NewDefaultModel("fake"),
 			ConvertedAttributes: &fake.Config{},
@@ -107,43 +114,58 @@ func TestModularResources(t *testing.T) {
 		_, err = cfg3.Validate("test", resource.ResourceTypeComponent)
 		test.That(t, err, test.ShouldBeNil)
 
-		// Add a modular component
-		c, newlyBuilt, err := res.processResource(ctx, cfg, resource.NewUninitializedNode(), r)
+		// changed name
+		cfg4 := resource.Config{Name: "oneton2", API: compSubtype, Model: compModel, Attributes: utils.AttributeMap{"arg1": "two"}}
+		_, err = cfg4.Validate("test", resource.ResourceTypeComponent)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, newlyBuilt, test.ShouldBeTrue)
-		test.That(t, c, test.ShouldNotBeNil)
-		cNode := resource.NewConfiguredGraphNode(cfg, c, cfg.Model)
-		res.resources.AddNode(c.Name(), cNode)
-		test.That(t, mod.needsModCount, test.ShouldEqual, 0)
+
+		// Add a modular component
+		r.Reconfigure(context.Background(), &config.Config{
+			Components: []resource.Config{cfg},
+		})
+		_, err = r.ResourceByName(cfg.ResourceName())
+		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(mod.add), test.ShouldEqual, 1)
 		test.That(t, mod.add[0], test.ShouldResemble, cfg)
 
-		old := cNode
-
 		// Reconfigure a modular component
-		c, newlyBuilt, err = res.processResource(ctx, cfg2, old, r)
+		r.Reconfigure(context.Background(), &config.Config{
+			Components: []resource.Config{cfg2},
+		})
+		_, err = r.ResourceByName(cfg2.ResourceName())
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, newlyBuilt, test.ShouldBeFalse)
-		test.That(t, c, test.ShouldNotBeNil)
-		test.That(t, mod.needsModCount, test.ShouldEqual, 1)
 		test.That(t, len(mod.add), test.ShouldEqual, 1)
 		test.That(t, len(mod.reconf), test.ShouldEqual, 1)
 		test.That(t, mod.reconf[0], test.ShouldResemble, cfg2)
 
 		// Add a non-modular component
-		c, newlyBuilt, err = res.processResource(ctx, cfg3, resource.NewUninitializedNode(), r)
+		r.Reconfigure(context.Background(), &config.Config{
+			Components: []resource.Config{cfg2, cfg3},
+		})
+		_, err = r.ResourceByName(cfg2.ResourceName())
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, newlyBuilt, test.ShouldBeTrue)
-		test.That(t, c, test.ShouldNotBeNil)
-		cNode = resource.NewConfiguredGraphNode(cfg3, c, cfg3.Model)
-		res.resources.AddNode(c.Name(), cNode)
+		_, err = r.ResourceByName(cfg3.ResourceName())
+		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(mod.add), test.ShouldEqual, 1)
 		test.That(t, len(mod.reconf), test.ShouldEqual, 1)
-		test.That(t, mod.needsModCount, test.ShouldEqual, 1)
+
+		// Change the name of a modular component
+		r.Reconfigure(context.Background(), &config.Config{
+			Components: []resource.Config{cfg4, cfg3},
+		})
+		_, err = r.ResourceByName(cfg2.ResourceName())
+		test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(cfg2.ResourceName()))
+		_, err = r.ResourceByName(cfg4.ResourceName())
+		test.That(t, err, test.ShouldBeNil)
+		_, err = r.ResourceByName(cfg3.ResourceName())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, mod.add, test.ShouldResemble, []resource.Config{cfg, cfg4})
+		test.That(t, mod.remove, test.ShouldResemble, []resource.Name{cfg2.ResourceName()})
+		test.That(t, mod.reconf, test.ShouldResemble, []resource.Config{cfg2})
 	})
 
 	t.Run("process service", func(t *testing.T) {
-		r, res, mod, teardown := setupTest(t)
+		r, mod, teardown := setupTest(t)
 		defer teardown()
 
 		// modular
@@ -168,7 +190,7 @@ func TestModularResources(t *testing.T) {
 
 		// non-modular
 		cfg3 := resource.Config{
-			Name:                "built-in",
+			Name:                "builtin",
 			API:                 motion.Subtype,
 			Model:               resource.DefaultServiceModel,
 			ConvertedAttributes: &fake.Config{},
@@ -179,43 +201,38 @@ func TestModularResources(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		// Add a modular service
-		c, newlyBuilt, err := res.processResource(ctx, cfg, resource.NewUninitializedNode(), r)
-		test.That(t, newlyBuilt, test.ShouldBeTrue)
+		r.Reconfigure(context.Background(), &config.Config{
+			Components: []resource.Config{cfg},
+		})
+		_, err = r.ResourceByName(cfg.ResourceName())
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, c, test.ShouldNotBeNil)
-		test.That(t, c.Name(), test.ShouldResemble, cfg.ResourceName())
-		cNode := resource.NewConfiguredGraphNode(cfg, c, cfg.Model)
-		res.resources.AddNode(c.Name(), cNode)
-		test.That(t, mod.needsModCount, test.ShouldEqual, 0)
 		test.That(t, len(mod.add), test.ShouldEqual, 1)
 		test.That(t, mod.add[0], test.ShouldResemble, cfg)
 
-		old := cNode
-
 		// Reconfigure a modular service
-		c, newlyBuilt, err = res.processResource(ctx, cfg2, old, r)
+		r.Reconfigure(context.Background(), &config.Config{
+			Components: []resource.Config{cfg2},
+		})
+		_, err = r.ResourceByName(cfg2.ResourceName())
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, newlyBuilt, test.ShouldBeFalse)
-		test.That(t, c, test.ShouldNotBeNil)
-		test.That(t, mod.needsModCount, test.ShouldEqual, 1)
 		test.That(t, len(mod.add), test.ShouldEqual, 1)
 		test.That(t, len(mod.reconf), test.ShouldEqual, 1)
 		test.That(t, mod.reconf[0], test.ShouldResemble, cfg2)
 
 		// Add a non-modular service
-		c, newlyBuilt, err = res.processResource(ctx, cfg3, resource.NewUninitializedNode(), r)
+		r.Reconfigure(context.Background(), &config.Config{
+			Components: []resource.Config{cfg2, cfg3},
+		})
+		_, err = r.ResourceByName(cfg2.ResourceName())
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, newlyBuilt, test.ShouldBeTrue)
-		test.That(t, c, test.ShouldNotBeNil)
-		cNode = resource.NewConfiguredGraphNode(cfg3, c, cfg3.Model)
-		res.resources.AddNode(c.Name(), cNode)
+		_, err = r.ResourceByName(cfg3.ResourceName())
+		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(mod.add), test.ShouldEqual, 1)
 		test.That(t, len(mod.reconf), test.ShouldEqual, 1)
-		test.That(t, mod.needsModCount, test.ShouldEqual, 1)
 	})
 
 	t.Run("close", func(t *testing.T) {
-		r, res, mod, teardown := setupTest(t)
+		r, mod, teardown := setupTest(t)
 		defer teardown()
 
 		compCfg := resource.Config{Name: "oneton", API: compSubtype, Model: compModel, Attributes: utils.AttributeMap{"arg1": "one"}}
@@ -231,18 +248,14 @@ func TestModularResources(t *testing.T) {
 		_, err = svcCfg.Validate("test", resource.ResourceTypeComponent)
 		test.That(t, err, test.ShouldBeNil)
 
-		c, newlyBuilt, err := res.processResource(ctx, compCfg, resource.NewUninitializedNode(), r)
+		r.Reconfigure(context.Background(), &config.Config{
+			Components: []resource.Config{compCfg, svcCfg},
+		})
+		_, err = r.ResourceByName(compCfg.ResourceName())
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, newlyBuilt, test.ShouldBeTrue)
-		test.That(t, c, test.ShouldNotBeNil)
-		cNode := resource.NewConfiguredGraphNode(compCfg, c, compCfg.Model)
-		res.resources.AddNode(c.Name(), cNode)
-		svc, newlyBuilt, err := res.processResource(ctx, svcCfg, resource.NewUninitializedNode(), r)
+		_, err = r.ResourceByName(svcCfg.ResourceName())
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, newlyBuilt, test.ShouldBeTrue)
-		test.That(t, svc, test.ShouldNotBeNil)
-		cNode = resource.NewConfiguredGraphNode(svcCfg, svc, svcCfg.Model)
-		res.resources.AddNode(svc.Name(), cNode)
+
 		test.That(t, len(mod.add), test.ShouldEqual, 2)
 
 		test.That(t, r.manager.Close(ctx, r), test.ShouldBeNil)
@@ -251,16 +264,71 @@ func TestModularResources(t *testing.T) {
 		test.That(t, len(mod.reconf), test.ShouldEqual, 0)
 		test.That(t, len(mod.remove), test.ShouldEqual, 2)
 		expected := map[resource.Name]struct{}{
-			c.Name():   {},
-			svc.Name(): {},
+			compCfg.ResourceName(): {},
+			svcCfg.ResourceName():  {},
 		}
 		for _, rem := range mod.remove {
 			test.That(t, expected, test.ShouldContainKey, rem)
 			delete(expected, rem)
 		}
 		test.That(t, expected, test.ShouldBeEmpty)
-		test.That(t, mod.isModCount, test.ShouldEqual, 2)
-		test.That(t, mod.needsModCount, test.ShouldEqual, 0)
+	})
+
+	t.Run("builtin depends on previously removed but now added modular", func(t *testing.T) {
+		r, _, teardown := setupTest(t)
+		defer teardown()
+
+		// modular we do not want
+		cfg := resource.Config{Name: "oneton2", API: compSubtype, Model: compModel, Attributes: utils.AttributeMap{"arg1": "one"}}
+		_, err := cfg.Validate("test", resource.ResourceTypeComponent)
+		test.That(t, err, test.ShouldBeNil)
+
+		// non-modular
+		cfg2 := resource.Config{
+			Name:                "builtin",
+			API:                 motor.Subtype,
+			Model:               resource.NewDefaultModel("fake"),
+			ConvertedAttributes: &fake.Config{},
+			ImplicitDependsOn:   []string{"oneton"},
+		}
+		_, err = cfg2.Validate("test", resource.ResourceTypeComponent)
+		test.That(t, err, test.ShouldBeNil)
+
+		// modular we want
+		cfg3 := resource.Config{Name: "oneton", API: compSubtype, Model: compModel, Attributes: utils.AttributeMap{"arg1": "one"}}
+		_, err = cfg3.Validate("test", resource.ResourceTypeComponent)
+		test.That(t, err, test.ShouldBeNil)
+
+		// what we want is originally available
+		r.Reconfigure(context.Background(), &config.Config{
+			Components: []resource.Config{cfg3},
+		})
+		_, err = r.ResourceByName(cfg3.ResourceName())
+		test.That(t, err, test.ShouldBeNil)
+
+		// and then its not but called something else and what wants it cannot get it
+		r.Reconfigure(context.Background(), &config.Config{
+			Components: []resource.Config{cfg, cfg2},
+		})
+		_, err = r.ResourceByName(cfg.ResourceName())
+		test.That(t, err, test.ShouldBeNil)
+		_, err = r.ResourceByName(cfg2.ResourceName())
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "pending")
+		_, err = r.ResourceByName(cfg3.ResourceName())
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(cfg3.ResourceName()))
+
+		// we remove what we do not want and add what we do back in, fixing things
+		r.Reconfigure(context.Background(), &config.Config{
+			Components: []resource.Config{cfg3, cfg2},
+		})
+		_, err = r.ResourceByName(cfg3.ResourceName())
+		test.That(t, err, test.ShouldBeNil)
+		_, err = r.ResourceByName(cfg2.ResourceName())
+		test.That(t, err, test.ShouldBeNil)
+		_, err = r.ResourceByName(cfg.ResourceName())
+		test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(cfg.ResourceName()))
 	})
 }
 
@@ -271,21 +339,31 @@ type dummyRes struct {
 
 type dummyModMan struct {
 	modmaninterface.ModuleManager
-	mu            sync.Mutex
-	add           []resource.Config
-	reconf        []resource.Config
-	remove        []resource.Name
-	isModCount    int
-	needsModCount int
+	mu             sync.Mutex
+	add            []resource.Config
+	reconf         []resource.Config
+	remove         []resource.Name
+	compSubtypeSvc subtype.Service
+	svcSubtypeSvc  subtype.Service
 }
 
 func (m *dummyModMan) AddResource(ctx context.Context, conf resource.Config, deps []string) (resource.Resource, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.add = append(m.add, conf)
-	return &dummyRes{
+	res := &dummyRes{
 		Named: conf.ResourceName().AsNamed(),
-	}, nil
+	}
+	if conf.API.ResourceType == resource.ResourceTypeComponent {
+		if err := m.compSubtypeSvc.Add(conf.ResourceName(), res); err != nil {
+			return nil, err
+		}
+	} else {
+		if err := m.svcSubtypeSvc.Add(conf.ResourceName(), res); err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
 }
 
 func (m *dummyModMan) ReconfigureResource(ctx context.Context, conf resource.Config, deps []string) error {
@@ -299,19 +377,36 @@ func (m *dummyModMan) RemoveResource(ctx context.Context, name resource.Name) er
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.remove = append(m.remove, name)
+	if name.ResourceType == resource.ResourceTypeComponent {
+		if err := m.compSubtypeSvc.Remove(name); err != nil {
+			return err
+		}
+	} else {
+		if err := m.svcSubtypeSvc.Remove(name); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
 func (m *dummyModMan) IsModularResource(name resource.Name) bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.isModCount++
-	return name.Name != "built-in"
+	return name.Name != "builtin"
 }
 
 func (m *dummyModMan) Provides(cfg resource.Config) bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.needsModCount++
-	return cfg.Name != "built-in"
+	return cfg.Name != "builtin"
+}
+
+func (m *dummyModMan) ValidateConfig(ctx context.Context, cfg resource.Config) ([]string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return nil, nil
+}
+
+func (m *dummyModMan) Close(ctx context.Context) error {
+	return nil
 }
