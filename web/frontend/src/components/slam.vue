@@ -8,6 +8,7 @@ import * as THREE from 'three';
 import { Client, commonApi, ResponseStream, ServiceError, slamApi, motionApi } from '@viamrobotics/sdk';
 import { displayError, isServiceError } from '../lib/error';
 import { rcLogConditionally } from '../lib/log';
+import PCD from './pcd/pcd-view.vue';
 import { copyToClipboardWithToast } from '../lib/copy-to-clipboard';
 import Slam2dRender from './slam-2d-render.vue';
 import { filterResources } from '../lib/resource';
@@ -21,12 +22,15 @@ const props = defineProps<{
 }>();
 
 const selected2dValue = $ref('manual');
+const selected3dValue = $ref('manual');
 let pointCloudUpdateCount = $ref(0);
 let pointcloud = $ref<Uint8Array | undefined>();
 let pose = $ref<commonApi.Pose | undefined>();
 let show2d = $ref(false);
+let show3d = $ref(false);
 let showAxes = $ref(true);
 let refresh2DCancelled = true;
+let refresh3DCancelled = true;
 let updatedDest = $ref(false);
 let destinationMarker = $ref(new THREE.Vector3());
 let moveClick = $ref(true);
@@ -35,6 +39,7 @@ let basePose = new commonApi.Pose()
 const loaded2d = $computed(() => (pointcloud !== undefined && pose !== undefined));
 
 let slam2dTimeoutId = -1;
+let slam3dTimeoutId = -1;
 
 const concatArrayU8 = (arrays: Uint8Array[]) => {
   const totalLength = arrays.reduce((acc, value) => acc + value.length, 0);
@@ -130,8 +135,12 @@ const executeMove = async () => {
   req.setSlamServiceName(slamResourceName);
 
   // set component name
-  const baseResource = filterResources(props.resources, 'rdk', 'component', 'base');
+  const [baseResource] = filterResources(props.resources, 'rdk', 'component', 'base');
   // we are assuming there is only one base that is conducting planning
+  if (baseResource === undefined) {
+    toast.error('No gripper component detected.');
+    return;
+  }
   const baseResourceName = new commonApi.ResourceName();
   baseResourceName.setNamespace('rdk');
   baseResourceName.setType('component');
@@ -181,6 +190,11 @@ const handleRefresh2dResponse = (response: MapAndPose): void => {
   pointCloudUpdateCount += 1;
 };
 
+const handleRefresh3dResponse = (response: Uint8Array): void => {
+  pointcloud = response;
+  pointCloudUpdateCount += 1;
+};
+
 const handleError = (errorLocation: string, error: unknown): void => {
   if (isServiceError(error)) {
     displayError(error as ServiceError);
@@ -206,6 +220,24 @@ const scheduleRefresh2d = (name: string, time: string) => {
   slam2dTimeoutId = window.setTimeout(timeoutCallback, Number.parseFloat(time) * 1000);
 };
 
+const scheduleRefresh3d = (name: string, time: string) => {
+  const timeoutCallback = async () => {
+    try {
+      const res = await fetchSLAMMap(name);
+      handleRefresh3dResponse(res);
+    } catch (error) {
+      handleError('fetchSLAMMap', error);
+      return;
+    }
+    if (refresh3DCancelled) {
+      return;
+    }
+    scheduleRefresh3d(name, time);
+  };
+  slam3dTimeoutId = window.setTimeout(timeoutCallback, Number.parseFloat(time) * 1000);
+};
+
+
 const updateSLAM2dRefreshFrequency = async (name: string, time: 'manual' | 'off' | string) => {
   refresh2DCancelled = true;
   window.clearTimeout(slam2dTimeoutId);
@@ -225,6 +257,29 @@ const updateSLAM2dRefreshFrequency = async (name: string, time: 'manual' | 'off'
   }
 };
 
+const updateSLAM3dRefreshFrequency = async (name: string, time: 'manual' | 'off' | string) => {
+  refresh3DCancelled = true;
+  window.clearTimeout(slam3dTimeoutId);
+  if (time === 'manual') {
+    try {
+      const res = await fetchSLAMMap(name);
+      handleRefresh3dResponse(res);
+    } catch (error) {
+      handleError('fetchSLAMMap', error);
+    }
+  } else if (time === 'off') {
+    // do nothing
+  } else {
+    refresh3DCancelled = false;
+    scheduleRefresh3d(name, time);
+  }
+};
+
+const toggle3dExpand = () => {
+  show3d = !show3d;
+  updateSLAM3dRefreshFrequency(props.name, show3d ? selected3dValue : 'off');
+}
+
 const toggle2dExpand = () => {
   show2d = !show2d;
   updateSLAM2dRefreshFrequency(props.name, show2d ? selected2dValue : 'off');
@@ -233,6 +288,14 @@ const toggle2dExpand = () => {
 const selectSLAM2dRefreshFrequency = () => {
   updateSLAM2dRefreshFrequency(props.name, selected2dValue);
 };
+
+const selectSLAMPCDRefreshFrequency = () => {
+  updateSLAM3dRefreshFrequency(props.name, selected3dValue);
+}
+
+const refresh3dMap = () => {
+  updateSLAM3dRefreshFrequency(props.name, selected3dValue);
+}
 
 const refresh2dMap = () => {
   updateSLAM2dRefreshFrequency(props.name, selected2dValue);
@@ -467,5 +530,81 @@ const toggleAxes = () => {
         </div>
       </div>
     </div>
+    <div class="pt-4">
+          <div class="flex items-center gap-2">
+            <v-switch
+              :value="show3d ? 'on' : 'off'"
+              @input="toggle3dExpand()"
+            />
+            <span class="pr-2">View SLAM Map (3D))</span>
+          </div>
+          <div class="float-right pb-4">
+            <div class="flex">
+              <div
+                v-if="show3d"
+                class="w-64"
+              >
+                <p class="font-label mb-1 text-gray-800">
+                  Refresh frequency
+                </p>
+                <div class="relative">
+                  <select
+                    v-model="selected3dValue"
+                    class="
+                      m-0 w-full appearance-none border border-solid border-black bg-white bg-clip-padding px-3 py-1.5
+                      text-xs font-normal text-gray-700 focus:outline-none
+                    "
+                    aria-label="Default select example"
+                    @change="selectSLAMPCDRefreshFrequency()"
+                  >
+                    <option value="manual">
+                      Manual Refresh
+                    </option>
+                    <option value="30">
+                      Every 30 seconds
+                    </option>
+                    <option value="10">
+                      Every 10 seconds
+                    </option>
+                    <option value="5">
+                      Every 5 seconds
+                    </option>
+                    <option value="1">
+                      Every second
+                    </option>
+                  </select>
+                  <div
+                    class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2"
+                  >
+                    <svg
+                      class="h-4 w-4 stroke-2 text-gray-700"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      stroke-linejoin="round"
+                      stroke-linecap="round"
+                      fill="none"
+                    >
+                      <path d="M18 16L12 22L6 16" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+              <div class="px-2 pt-7">
+                <v-button
+                  v-if="show3d"
+                  icon="refresh"
+                  label="Refresh"
+                  @click="refresh3dMap()"
+                />
+              </div>
+            </div>
+          </div>
+          <PCD
+            v-if="show3d"
+            :resources="resources"
+            :pointcloud="pointcloud"
+            :client="client"
+          />
+        </div>
   </v-collapse>
 </template>

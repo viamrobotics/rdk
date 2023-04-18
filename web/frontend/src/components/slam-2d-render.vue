@@ -181,7 +181,7 @@ const updatePose = async (newPose: commonApi.Pose) => {
   const x = newPose.getX();
   const z = newPose.getZ();
   const baseMarker = scene.getObjectByName('Base') ?? await makeMarker(baseMarkerUrl, 'Base', 0.04);
-  baseMarker.position.set(x + 0.35, 0, z - 0.55);
+  baseMarker.position.set(x + 0.35, 0, z - 0.55); 
   baseMarker.renderOrder = 999;
 };
 
