@@ -2458,6 +2458,7 @@ func TestStatusServiceUpdate(t *testing.T) {
 }
 
 func TestRemoteRobotsGold(t *testing.T) {
+	t.Parallel()
 	logger := golog.NewTestLogger(t)
 	cfg, err := config.Read(context.Background(), "data/fake.json", logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -2636,6 +2637,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 }
 
 func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
+	t.Parallel()
 	logger := golog.NewTestLogger(t)
 
 	fooCfg := &config.Config{
@@ -2769,6 +2771,7 @@ func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 }
 
 func TestInferRemoteRobotDependencyConnectAfterStartup(t *testing.T) {
+	t.Parallel()
 	logger := golog.NewTestLogger(t)
 
 	fooCfg := &config.Config{
@@ -2871,6 +2874,7 @@ func TestInferRemoteRobotDependencyConnectAfterStartup(t *testing.T) {
 }
 
 func TestInferRemoteRobotDependencyAmbiguous(t *testing.T) {
+	t.Parallel()
 	logger := golog.NewTestLogger(t)
 
 	remoteCfg := &config.Config{
