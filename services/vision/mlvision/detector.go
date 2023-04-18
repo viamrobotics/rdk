@@ -3,7 +3,6 @@ package mlvision
 import (
 	"bufio"
 	"context"
-	"fmt"
 	"github.com/nfnt/resize"
 	"github.com/pkg/errors"
 	"go.viam.com/rdk/rimage"
@@ -19,24 +18,27 @@ func attemptToBuildDetector(mlm mlmodel.Service) (objectdetection.Detector, erro
 	md, err := mlm.Metadata(context.Background())
 	if err != nil {
 		// If the metadata isn't there
-		// Don't actually do this, still try but this is a placeholder
 		return nil, err
 	}
+
+	// Set up input type, height, width, and labels
 	var inHeight, inWidth uint
-	var inType string
-	if shape := md.Inputs[0].Shape; getIndex(shape, 3) == 1 {
-		inHeight, inWidth = uint(shape[2]), uint(shape[3])
-	} else {
-		inHeight, inWidth = uint(shape[1]), uint(shape[2])
-	}
-	inType = md.Inputs[0].DataType
+	inType := md.Inputs[0].DataType
 	labels, err := getLabelsFromMetadata(md)
 	if err != nil {
 		// Not true, still do something if we can't get labels
 		return nil, err
 	}
-	fmt.Println(inWidth)
-	fmt.Println(inHeight)
+	boxOrder, err := getBoxOrderFromMetadata(md)
+	if err != nil || len(boxOrder) < 4 {
+		boxOrder = []uint32{1, 0, 3, 2}
+	}
+
+	if shape := md.Inputs[0].Shape; getIndex(shape, 3) == 1 {
+		inHeight, inWidth = uint(shape[2]), uint(shape[3])
+	} else {
+		inHeight, inWidth = uint(shape[1]), uint(shape[2])
+	}
 
 	return func(ctx context.Context, img image.Image) ([]objectdetection.Detection, error) {
 		origW, origH := img.Bounds().Dx(), img.Bounds().Dy()
@@ -57,28 +59,46 @@ func attemptToBuildDetector(mlm mlmodel.Service) (objectdetection.Detector, erro
 			return nil, err
 		}
 
-		locations := outMap["location"].([]float32)
-		categories := outMap["category"].([]float32)
-		scores := outMap["score"].([]float32)
-
-		fmt.Println(labels)
+		locations := unpackMe(outMap, "location", md)
+		categories := unpackMe(outMap, "category", md)
+		scores := unpackMe(outMap, "score", md)
 
 		// Now reshape outMap into Detections
-		// ASSUMING [1 0 3 2] FOR NOW bounding box order
 		detections := make([]objectdetection.Detection, 0, len(categories))
 		for i := 0; i < len(scores); i++ {
-			xmin, xmax, ymin, ymax := utils.Clamp(float64(locations[4*i+1]), 0, 1)*float64(origW),
-				utils.Clamp(float64(locations[4*i+0]), 0, 1)*float64(origW),
-				utils.Clamp(float64(locations[4*i+3]), 0, 1)*float64(origH),
-				utils.Clamp(float64(locations[4*i+2]), 0, 1)*float64(origH)
+			xmin, xmax, ymin, ymax := utils.Clamp(locations[4*i+int(boxOrder[0])], 0, 1)*float64(origW),
+				utils.Clamp(locations[4*i+int(boxOrder[1])], 0, 1)*float64(origW),
+				utils.Clamp(locations[4*i+int(boxOrder[2])], 0, 1)*float64(origH),
+				utils.Clamp(locations[4*i+int(boxOrder[3])], 0, 1)*float64(origH)
 			rect := image.Rect(int(xmin), int(ymin), int(xmax), int(ymax))
 			labelNum := int(categories[i])
 
-			detections = append(detections, objectdetection.NewDetection(rect, float64(scores[i]), labels[labelNum]))
+			detections = append(detections, objectdetection.NewDetection(rect, scores[i], labels[labelNum]))
 		}
 		return detections, nil
 	}, nil
 
+}
+
+// Unpack output based on expected type and force it into a []float64
+func unpackMe(inMap map[string]interface{}, name string, md mlmodel.MLMetadata) []float64 {
+	var out []float64
+	me := inMap[name]
+	switch getTensorTypeFromName(name, md) {
+	case "uint8":
+		temp := me.([]uint8)
+		for _, t := range temp {
+			out = append(out, float64(t))
+		}
+	case "float32":
+		temp := me.([]float32)
+		for _, p := range temp {
+			out = append(out, float64(p))
+		}
+	default:
+		return nil
+	}
+	return out
 }
 
 // getIndex just returns the index of an int in an array of ints
@@ -115,4 +135,24 @@ func getLabelsFromMetadata(md mlmodel.MLMetadata) ([]string, error) {
 		}
 	}
 	return nil, errors.New("could not find labels")
+}
+
+func getBoxOrderFromMetadata(md mlmodel.MLMetadata) ([]uint32, error) {
+	for _, o := range md.Outputs {
+		if strings.Contains(o.Name, "location") {
+			if order, ok := o.Extra["boxOrder"]; ok {
+				return order.([]uint32), nil
+			}
+		}
+	}
+	return nil, errors.New("could not grab bbox order")
+}
+
+func getTensorTypeFromName(name string, md mlmodel.MLMetadata) string {
+	for _, o := range md.Outputs {
+		if strings.Contains(strings.ToLower(o.Name), strings.ToLower(name)) {
+			return o.DataType
+		}
+	}
+	return ""
 }

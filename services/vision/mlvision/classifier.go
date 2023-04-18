@@ -8,27 +8,29 @@ import (
 	"go.viam.com/rdk/services/mlmodel"
 	"go.viam.com/rdk/vision/classification"
 	"image"
+	"math"
 )
 
 func attemptToBuildClassifier(mlm mlmodel.Service) (classification.Classifier, error) {
 	md, err := mlm.Metadata(context.Background())
 	if err != nil {
 		// If the metadata isn't there
-		// Don't actually do this, still try but this is a placeholder
 		return nil, err
 	}
+
+	// Set up input type, height, width, and labels
 	var inHeight, inWidth uint
-	var inType string
-	if shape := md.Inputs[0].Shape; getIndex(shape, 3) == 1 {
-		inHeight, inWidth = uint(shape[2]), uint(shape[3])
-	} else {
-		inHeight, inWidth = uint(shape[1]), uint(shape[2])
-	}
-	inType = md.Inputs[0].DataType
+	inType := md.Inputs[0].DataType
 	labels, err := getLabelsFromMetadata(md)
 	if err != nil {
 		// Not true, still do something if we can't get labels
 		return nil, err
+	}
+
+	if shape := md.Inputs[0].Shape; getIndex(shape, 3) == 1 {
+		inHeight, inWidth = uint(shape[2]), uint(shape[3])
+	} else {
+		inHeight, inWidth = uint(shape[1]), uint(shape[2])
 	}
 
 	return func(ctx context.Context, img image.Image) (classification.Classifications, error) {
@@ -49,14 +51,29 @@ func attemptToBuildClassifier(mlm mlmodel.Service) (classification.Classifier, e
 			return nil, err
 		}
 
-		probs := outMap["probability"].([]uint8)
+		probs := unpackMe(outMap, "probability", md)
 
-		classifications := make(classification.Classifications, 0, len(probs))
-		for i := 0; i < len(probs); i++ {
-			classifications = append(classifications, classification.NewClassification(float64(probs[i]), labels[i]))
+		// TODO: Khari, somewhere around here, softmax(probs) --> confs and then use confs
+		confs := softmaxMe(probs)
+
+		classifications := make(classification.Classifications, 0, len(confs))
+		for i := 0; i < len(confs); i++ {
+			classifications = append(classifications, classification.NewClassification(confs[i], labels[i]))
 		}
 		return classifications, nil
 
 	}, nil
 
+}
+
+func softmaxMe(in []float64) []float64 {
+	out := make([]float64, 0, len(in))
+	bigSum := 0.0
+	for _, x := range in {
+		bigSum += math.Exp(x)
+	}
+	for _, x := range in {
+		out = append(out, math.Exp(x)/bigSum)
+	}
+	return out
 }

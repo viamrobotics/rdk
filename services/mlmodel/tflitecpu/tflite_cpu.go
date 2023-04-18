@@ -231,6 +231,14 @@ func getTensorInfo(inputT *tflite_metadata.TensorMetadataT) mlmodel.TensorInfo {
 		Extra:       nil,
 	}
 
+	// Add bounding box info to Extra
+	if strings.Contains(inputT.Name, "location") && (inputT.Content.ContentProperties.Value != nil) {
+		order := inputT.Content.ContentProperties.Value.(*tflite_metadata.BoundingBoxPropertiesT).Index
+		td.Extra = map[string]interface{}{
+			"boxOrder": order,
+		}
+	}
+
 	// Handle the files
 	fileList := make([]mlmodel.File, 0, len(inputT.AssociatedFiles))
 	for i := 0; i < len(inputT.AssociatedFiles); i++ {

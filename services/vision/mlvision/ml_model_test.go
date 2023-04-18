@@ -89,6 +89,7 @@ func TestNewMLClassifier(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, gotTop, test.ShouldNotBeNil)
 	test.That(t, gotTop[0].Label(), test.ShouldContainSubstring, "lion")
-	test.That(t, gotTop[0].Score(), test.ShouldBeGreaterThan, 200)
+	test.That(t, gotTop[0].Score(), test.ShouldBeGreaterThan, 0.99)
+	test.That(t, gotTop[1].Score(), test.ShouldBeLessThan, 0.01)
 
 }
