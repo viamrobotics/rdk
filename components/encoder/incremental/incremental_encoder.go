@@ -94,7 +94,7 @@ func (config *AttrConfig) Validate(path string) ([]string, error) {
 func NewIncrementalEncoder(
 	ctx context.Context,
 	deps registry.Dependencies,
-	cfg config.Component,
+	config config.Component,
 	logger golog.Logger,
 ) (encoder.Encoder, error) {
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
@@ -107,27 +107,28 @@ func NewIncrementalEncoder(
 		pRaw:         0,
 		pState:       0,
 	}
-	if cfg, ok := cfg.ConvertedAttributes.(*AttrConfig); ok {
-		board, err := board.FromDependencies(deps, cfg.BoardName)
-		if err != nil {
-			return nil, err
-		}
 
-		e.A, ok = board.DigitalInterruptByName(cfg.Pins.A)
-		if !ok {
-			return nil, errors.Errorf("cannot find pin (%s) for incremental Encoder", cfg.Pins.A)
-		}
-		e.B, ok = board.DigitalInterruptByName(cfg.Pins.B)
-		if !ok {
-			return nil, errors.Errorf("cannot find pin (%s) for incremental Encoder", cfg.Pins.B)
-		}
-
-		e.Start(ctx)
-
-		return e, nil
+	cfg, ok := config.ConvertedAttributes.(*AttrConfig)
+	if !ok {
+		return nil, errors.New("encoder config for incremental Encoder is not valid")
 	}
 
-	return nil, errors.New("encoder config for incremental Encoder is not valid")
+	board, err := board.FromDependencies(deps, cfg.BoardName)
+	if err != nil {
+		return nil, err
+	}
+
+	e.A, ok = board.DigitalInterruptByName(cfg.Pins.A)
+	if !ok {
+		return nil, errors.Errorf("cannot find pin (%s) for incremental Encoder", cfg.Pins.A)
+	}
+	e.B, ok = board.DigitalInterruptByName(cfg.Pins.B)
+	if !ok {
+		return nil, errors.Errorf("cannot find pin (%s) for incremental Encoder", cfg.Pins.B)
+	}
+
+	e.Start(ctx)
+	return e, nil
 }
 
 // Start starts the Encoder background thread.
