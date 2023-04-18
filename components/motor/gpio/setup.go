@@ -71,7 +71,8 @@ func init() {
 	registry.RegisterComponent(motor.Subtype, model, registry.Component{
 		Constructor: func(ctx context.Context, deps registry.Dependencies, cfg config.Component, logger golog.Logger) (interface{}, error) {
 			return createNewMotor(ctx, deps, cfg, logger)
-		}})
+		},
+	})
 
 	config.RegisterComponentAttributeMapConverter(
 		motor.Subtype,
