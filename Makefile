@@ -79,11 +79,11 @@ test-integration:
 
 server: build-web
 	rm -f $(BIN_OUTPUT_PATH)/viam-server
-	go build $(GO_BUILD_TAGS) $(LDFLAGS) -o $(BIN_OUTPUT_PATH)/viam-server web/cmd/server/main.go
+	go build $(LDFLAGS) -o $(BIN_OUTPUT_PATH)/viam-server web/cmd/server/main.go
 
 server-static: build-web
 	rm -f $(BIN_OUTPUT_PATH)/viam-server
-	VIAM_STATIC_BUILD=1 go build $(GO_BUILD_TAGS) $(LDFLAGS) -o $(BIN_OUTPUT_PATH)/viam-server web/cmd/server/main.go
+	VIAM_STATIC_BUILD=1 go build $(LDFLAGS) -o $(BIN_OUTPUT_PATH)/viam-server web/cmd/server/main.go
 	if [ -z "${NO_UPX}" ]; then\
 		upx --best --lzma $(BIN_OUTPUT_PATH)/viam-server;\
 	fi
