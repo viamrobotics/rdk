@@ -96,7 +96,7 @@ func TestClientWorkingService(t *testing.T) {
 	go workingServer.Serve(listener)
 	defer workingServer.Stop()
 
-	t.Run("test that context canceled stops client", func(t *testing.T) {
+	t.Run("test that cntext canceled stops client", func(t *testing.T) {
 		cancelCtx, cancel := context.WithCancel(context.Background())
 		cancel()
 		_, err = viamgrpc.Dial(cancelCtx, listener.Addr().String(), logger)
