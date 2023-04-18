@@ -308,7 +308,7 @@ func TestMotorEncoderIncremental(t *testing.T) {
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			pos := encoder.RawPosition()
-			test.That(tb, pos, test.ShouldEqual, 0)
+			test.That(tb, pos, test.ShouldEqual, 0.0)
 		})
 
 		return testHarness{

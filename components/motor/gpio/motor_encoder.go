@@ -384,9 +384,8 @@ func (m *EncodedMotor) rpmMonitorPass(pos, lastPos float64, now, lastTime int64,
 		return false
 	}
 
-	var ticksLeft float64
 	// correctly set the ticksLeft accounting for power supplied to the motor and the expected direction of the motor
-	ticksLeft = (m.state.setPoint - pos) * sign(m.state.lastPowerPct) * m.flip
+	ticksLeft := (m.state.setPoint - pos) * sign(m.state.lastPowerPct) * m.flip
 	rotationsLeft := float64(ticksLeft) / float64(m.cfg.TicksPerRotation)
 
 	if rotationsLeft <= 0 { // if we have reached goal or overshot, turn off
