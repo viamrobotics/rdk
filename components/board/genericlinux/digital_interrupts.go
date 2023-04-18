@@ -33,7 +33,7 @@ func createDigitalInterrupt(ctx context.Context, config board.DigitalInterruptCo
 	}
 	mapping, ok := gpioMappings[pinInt]
 	if !ok {
-		return nil, errors.Errorf("Unknown interrupt pin %s", config.Pin)
+		return nil, errors.Errorf("unknown interrupt pin %s", config.Pin)
 	}
 
 	chip, err := gpio.OpenChip(mapping.GPIOChipDev)
