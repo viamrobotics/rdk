@@ -3,11 +3,12 @@ package ams
 import (
 	"context"
 	"math"
-	"sync"
 	"testing"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
+	"go.viam.com/utils"
+	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/encoder"
@@ -93,41 +94,48 @@ func TestAMSEncoder(t *testing.T) {
 	cfg, deps := setupDependencies(positionMockData)
 	enc, err := newAS5048Encoder(ctx, deps, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
+	defer utils.TryClose(context.Background(), enc)
 
-	var wg sync.WaitGroup
-	_, cancel := context.WithCancel(ctx)
-	wg.Add(1)
-	go func() {
-		enc.(*Encoder).position = 142
-		wg.Done()
-	}()
-	cancel()
-	wg.Wait()
+	enc1 := enc.(*Encoder)
+	defer enc1.Close()
+	enc1.position = 142
 
 	t.Run("test automatically set to type ticks", func(t *testing.T) {
-		pos, posType, _ := enc.GetPosition(ctx, encoder.PositionTypeUNSPECIFIED.Enum(), nil)
-		test.That(t, pos, test.ShouldAlmostEqual, 0.4, 0.1)
-		test.That(t, posType, test.ShouldEqual, 1)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			pos, posType, _ := enc.GetPosition(ctx, encoder.PositionTypeUNSPECIFIED.Enum(), nil)
+			test.That(t, pos, test.ShouldAlmostEqual, 0.4, 0.1)
+			test.That(t, posType, test.ShouldEqual, 1)
+		})
 	})
 	t.Run("test ticks type from input", func(t *testing.T) {
-		pos, posType, _ := enc.GetPosition(ctx, encoder.PositionTypeTICKS.Enum(), nil)
-		test.That(t, pos, test.ShouldAlmostEqual, 0.4, 0.1)
-		test.That(t, posType, test.ShouldEqual, 1)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			pos, posType, _ := enc.GetPosition(ctx, encoder.PositionTypeTICKS.Enum(), nil)
+			test.That(t, pos, test.ShouldAlmostEqual, 0.4, 0.1)
+			test.That(t, posType, test.ShouldEqual, 1)
+		})
 	})
 	t.Run("test degrees type from input", func(t *testing.T) {
-		pos, posType, _ := enc.GetPosition(ctx, encoder.PositionTypeDEGREES.Enum(), nil)
-		test.That(t, pos, test.ShouldAlmostEqual, 142, 0.1)
-		test.That(t, posType, test.ShouldEqual, 2)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			pos, posType, _ := enc.GetPosition(ctx, encoder.PositionTypeDEGREES.Enum(), nil)
+			test.That(t, pos, test.ShouldAlmostEqual, 142, 0.1)
+			test.That(t, posType, test.ShouldEqual, 2)
+		})
 	})
 	t.Run("test reset", func(t *testing.T) {
-		enc.ResetPosition(ctx, nil)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			enc.ResetPosition(ctx, nil)
+		})
 
-		pos, posType, _ := enc.GetPosition(ctx, encoder.PositionTypeDEGREES.Enum(), nil)
-		test.That(t, pos, test.ShouldAlmostEqual, 0, 0.1)
-		test.That(t, posType, test.ShouldEqual, 2)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			pos, posType, _ := enc.GetPosition(ctx, encoder.PositionTypeDEGREES.Enum(), nil)
+			test.That(t, pos, test.ShouldAlmostEqual, 0, 0.1)
+			test.That(t, posType, test.ShouldEqual, 2)
+		})
 
-		pos, posType, _ = enc.GetPosition(ctx, encoder.PositionTypeTICKS.Enum(), nil)
-		test.That(t, pos, test.ShouldAlmostEqual, 0, 0.1)
-		test.That(t, posType, test.ShouldEqual, 1)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			pos, posType, _ := enc.GetPosition(ctx, encoder.PositionTypeTICKS.Enum(), nil)
+			test.That(t, pos, test.ShouldAlmostEqual, 0, 0.1)
+			test.That(t, posType, test.ShouldEqual, 1)
+		})
 	})
 }
