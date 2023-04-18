@@ -277,21 +277,22 @@ func (enc *Encoder) ResetPosition(
 	// NOTE (GV): potential improvement could be writing the offset position
 	// to the zero register of the encoder rather than keeping track
 	// on the struct
-	enc.position = 0.0
+
+	// clear current zero position
+	err := enc.writeByteDataToBus(ctx, enc.i2cBus, enc.i2cAddr, byte(0x16), byte(0))
+	if err != nil {
+		return err
+	}
+	err = enc.writeByteDataToBus(ctx, enc.i2cBus, enc.i2cAddr, byte(0x17), byte(0))
+	if err != nil {
+		return err
+	}
+	// read current position
 	currentMSB, err := enc.readByteDataFromBus(ctx, enc.i2cBus, enc.i2cAddr, byte(0xFE))
 	if err != nil {
 		return err
 	}
 	currentLSB, err := enc.readByteDataFromBus(ctx, enc.i2cBus, enc.i2cAddr, byte(0xFF))
-	if err != nil {
-		return err
-	}
-	// clear current zero position
-	err = enc.writeByteDataToBus(ctx, enc.i2cBus, enc.i2cAddr, byte(0x16), byte(0))
-	if err != nil {
-		return err
-	}
-	err = enc.writeByteDataToBus(ctx, enc.i2cBus, enc.i2cAddr, byte(0x17), byte(0))
 	if err != nil {
 		return err
 	}
