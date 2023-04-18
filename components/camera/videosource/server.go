@@ -61,7 +61,7 @@ func init() {
 			if err != nil {
 				return nil, err
 			}
-			src, err := newDualServerSource(ctx, newConf)
+			src, err := newDualServerSource(ctx, newConf, logger)
 			if err != nil {
 				return nil, err
 			}
@@ -83,6 +83,7 @@ type dualServerSource struct {
 	Intrinsics              *transform.PinholeCameraIntrinsics
 	Stream                  camera.ImageType // returns color or depth frame with calls of Next
 	activeBackgroundWorkers sync.WaitGroup
+	logger                  golog.Logger
 }
 
 // dualServerConfig is the attribute struct for dualServerSource.
@@ -96,7 +97,11 @@ type dualServerConfig struct {
 }
 
 // newDualServerSource creates the VideoSource that streams color/depth data from two external servers, one for each channel.
-func newDualServerSource(ctx context.Context, cfg *dualServerConfig) (camera.VideoSource, error) {
+func newDualServerSource(
+	ctx context.Context,
+	cfg *dualServerConfig,
+	logger golog.Logger,
+) (camera.VideoSource, error) {
 	if (cfg.Color == "") || (cfg.Depth == "") {
 		return nil, errors.New("camera 'dual_stream' needs color and depth attributes")
 	}
@@ -105,6 +110,7 @@ func newDualServerSource(ctx context.Context, cfg *dualServerConfig) (camera.Vid
 		DepthURL:   cfg.Depth,
 		Intrinsics: cfg.CameraParameters,
 		Stream:     camera.ImageType(cfg.Stream),
+		logger:     logger,
 	}
 	cameraModel := camera.NewPinholeModelWithBrownConradyDistortion(cfg.CameraParameters, cfg.DistortionParameters)
 	return camera.NewVideoSourceFromReader(
@@ -121,10 +127,10 @@ func (ds *dualServerSource) Read(ctx context.Context) (image.Image, func(), erro
 	defer span.End()
 	switch ds.Stream {
 	case camera.ColorStream, camera.UnspecifiedStream:
-		img, err := readColorURL(ctx, ds.client, ds.ColorURL)
+		img, err := readColorURL(ctx, ds.client, ds.ColorURL, ds.logger)
 		return img, func() {}, err
 	case camera.DepthStream:
-		depth, err := readDepthURL(ctx, ds.client, ds.DepthURL, false)
+		depth, err := readDepthURL(ctx, ds.client, ds.DepthURL, false, ds.logger)
 		return depth, func() {}, err
 	default:
 		return nil, nil, camera.NewUnsupportedImageTypeError(ds.Stream)
@@ -145,7 +151,7 @@ func (ds *dualServerSource) NextPointCloud(ctx context.Context) (pointcloud.Poin
 	viamutils.PanicCapturingGo(func() {
 		defer ds.activeBackgroundWorkers.Done()
 		var err error
-		colorImg, err := readColorURL(ctx, ds.client, ds.ColorURL)
+		colorImg, err := readColorURL(ctx, ds.client, ds.ColorURL, ds.logger)
 		if err != nil {
 			panic(err)
 		}
@@ -157,7 +163,7 @@ func (ds *dualServerSource) NextPointCloud(ctx context.Context) (pointcloud.Poin
 		defer ds.activeBackgroundWorkers.Done()
 		var err error
 		var depthImg image.Image
-		depthImg, err = readDepthURL(ctx, ds.client, ds.DepthURL, true)
+		depthImg, err = readDepthURL(ctx, ds.client, ds.DepthURL, true, ds.logger)
 		depth = depthImg.(*rimage.DepthMap)
 		if err != nil {
 			panic(err)
@@ -179,6 +185,7 @@ type serverSource struct {
 	URL        string
 	stream     camera.ImageType // specifies color, depth
 	Intrinsics *transform.PinholeCameraIntrinsics
+	logger     golog.Logger
 }
 
 // ServerConfig is the attribute struct for serverSource.
@@ -202,10 +209,10 @@ func (s *serverSource) Read(ctx context.Context) (image.Image, func(), error) {
 	defer span.End()
 	switch s.stream {
 	case camera.ColorStream, camera.UnspecifiedStream:
-		img, err := readColorURL(ctx, s.client, s.URL)
+		img, err := readColorURL(ctx, s.client, s.URL, s.logger)
 		return img, func() {}, err
 	case camera.DepthStream:
-		depth, err := readDepthURL(ctx, s.client, s.URL, false)
+		depth, err := readDepthURL(ctx, s.client, s.URL, false, s.logger)
 		return depth, func() {}, err
 	default:
 		return nil, nil, camera.NewUnsupportedImageTypeError(s.stream)
@@ -220,7 +227,7 @@ func (s *serverSource) NextPointCloud(ctx context.Context) (pointcloud.PointClou
 		return nil, transform.NewNoIntrinsicsError("single serverSource has nil intrinsic_parameters")
 	}
 	if s.stream == camera.DepthStream {
-		depth, err := readDepthURL(ctx, s.client, s.URL, true)
+		depth, err := readDepthURL(ctx, s.client, s.URL, true, s.logger)
 		if err != nil {
 			return nil, err
 		}
@@ -242,6 +249,7 @@ func NewServerSource(ctx context.Context, cfg *ServerConfig, logger golog.Logger
 		URL:        cfg.URL,
 		stream:     camera.ImageType(cfg.Stream),
 		Intrinsics: cfg.CameraParameters,
+		logger:     logger,
 	}
 	cameraModel := camera.NewPinholeModelWithBrownConradyDistortion(cfg.CameraParameters, cfg.DistortionParameters)
 	return camera.NewVideoSourceFromReader(

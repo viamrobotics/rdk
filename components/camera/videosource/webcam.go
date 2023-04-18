@@ -52,7 +52,9 @@ func init() {
 
 	registry.RegisterDiscoveryFunction(
 		discovery.NewQuery(camera.Subtype, model),
-		func(ctx context.Context) (interface{}, error) { return Discover(ctx, getVideoDrivers) },
+		func(ctx context.Context, logger golog.Logger) (interface{}, error) {
+			return Discover(ctx, getVideoDrivers, logger)
+		},
 	)
 }
 
@@ -68,7 +70,7 @@ type CameraConfig struct {
 }
 
 // Discover webcam attributes.
-func Discover(_ context.Context, getDrivers func() []driver.Driver) (*pb.Webcams, error) {
+func Discover(_ context.Context, getDrivers func() []driver.Driver, logger golog.Logger) (*pb.Webcams, error) {
 	var webcams []*pb.Webcam
 	drivers := getDrivers()
 	for _, d := range drivers {
@@ -76,15 +78,15 @@ func Discover(_ context.Context, getDrivers func() []driver.Driver) (*pb.Webcams
 
 		props, err := getProperties(d)
 		if len(props) == 0 {
-			golog.Global().Debugw("no properties detected for driver, skipping discovery...", "driver", driverInfo.Label)
+			logger.Debugw("no properties detected for driver, skipping discovery...", "driver", driverInfo.Label)
 			continue
 		} else if err != nil {
-			golog.Global().Debugw("cannot access driver properties, skipping discovery...", "driver", driverInfo.Label, "error", err)
+			logger.Debugw("cannot access driver properties, skipping discovery...", "driver", driverInfo.Label, "error", err)
 			continue
 		}
 
 		if d.Status() == driver.StateRunning {
-			golog.Global().Debugw("driver is in use, skipping discovery...", "driver", driverInfo.Label)
+			logger.Debugw("driver is in use, skipping discovery...", "driver", driverInfo.Label)
 			continue
 		}
 

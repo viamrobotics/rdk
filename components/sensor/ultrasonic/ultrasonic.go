@@ -69,7 +69,6 @@ func init() {
 }
 
 func newSensor(ctx context.Context, deps resource.Dependencies, name resource.Name, config *Config) (sensor.Sensor, error) {
-	golog.Global().Debug("building ultrasonic sensor")
 	s := &Sensor{
 		Named:  name.AsNamed(),
 		config: config,

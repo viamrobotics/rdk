@@ -159,6 +159,7 @@ func TestServerSource(t *testing.T) {
 }
 
 func TestDualServerSource(t *testing.T) {
+	logger := golog.NewTestLogger(t)
 	router, _, expectedColorBytes, expectedDepth := createTestRouter(t)
 	svr := httptest.NewServer(router)
 	defer svr.Close()
@@ -178,7 +179,7 @@ func TestDualServerSource(t *testing.T) {
 		CameraParameters: intrinsics,
 		Stream:           "color",
 	}
-	cam1, err := newDualServerSource(context.Background(), &conf1)
+	cam1, err := newDualServerSource(context.Background(), &conf1, logger)
 	test.That(t, err, test.ShouldBeNil)
 	// read from mock server to get color image
 	img, release, err := camera.ReadImage(context.Background(), cam1)
@@ -200,7 +201,7 @@ func TestDualServerSource(t *testing.T) {
 		CameraParameters: intrinsics,
 		Stream:           "depth",
 	}
-	cam2, err := newDualServerSource(context.Background(), &conf2)
+	cam2, err := newDualServerSource(context.Background(), &conf2, logger)
 	test.That(t, err, test.ShouldBeNil)
 	// read from mock server to get depth image
 	dm, releaseDm, err := camera.ReadImage(context.Background(), cam2)

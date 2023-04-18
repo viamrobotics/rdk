@@ -128,7 +128,9 @@ func TestResourceSubtypeRegistry(t *testing.T) {
 }
 
 func TestDiscoveryFunctionRegistry(t *testing.T) {
-	df := func(ctx context.Context) (interface{}, error) { return []discovery.Discovery{}, nil }
+	df := func(ctx context.Context, logger golog.Logger) (interface{}, error) {
+		return []discovery.Discovery{}, nil
+	}
 	invalidSubtypeQuery := discovery.NewQuery(resource.Subtype{ResourceSubtype: "some subtype"}, resource.Model{Name: "some model"})
 	test.That(t, func() { registry.RegisterDiscoveryFunction(invalidSubtypeQuery, df) }, test.ShouldPanic)
 

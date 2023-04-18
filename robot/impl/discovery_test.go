@@ -56,7 +56,7 @@ func init() {
 
 	registry.RegisterDiscoveryFunction(
 		workingQ,
-		func(ctx context.Context) (interface{}, error) { return workingDiscovery, nil },
+		func(ctx context.Context, logger golog.Logger) (interface{}, error) { return workingDiscovery, nil },
 	)
 
 	// Subtype without discovery function
@@ -73,7 +73,7 @@ func init() {
 
 	registry.RegisterDiscoveryFunction(
 		failQ,
-		func(ctx context.Context) (interface{}, error) { return nil, errFailed },
+		func(ctx context.Context, logger golog.Logger) (interface{}, error) { return nil, errFailed },
 	)
 }
 

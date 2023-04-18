@@ -801,7 +801,7 @@ func (r *localRobot) DiscoverComponents(ctx context.Context, qs []discovery.Quer
 		}
 
 		if discoveryFunction != nil {
-			discovered, err := discoveryFunction(ctx)
+			discovered, err := discoveryFunction(ctx, r.logger.Named("discovery"))
 			if err != nil {
 				return nil, &discovery.DiscoverError{Query: q}
 			}
