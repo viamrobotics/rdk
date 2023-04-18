@@ -11,6 +11,21 @@ import { SVGLoader } from 'three/examples/jsm/loaders/SVGLoader';
 import { baseMarkerUrl } from '../lib/base-marker-url'
 import { destMarkerUrl } from '../lib/destination-marker-url'
 
+type svgOffset = {
+  x: number,
+  z: number
+}
+
+const baseMarkerOffset: svgOffset = {
+  x: 0.35,
+  z: -0.55
+}
+
+const destinationMarkerOffset: svgOffset = {
+  x: 1.2,
+  z: -2.64
+}
+
 const backgroundGridColor = 0xCA_CA_CA
 /*
  * this color map is greyscale. The color map is being used map probability values of a PCD
@@ -156,12 +171,13 @@ const makeMarker = async (url : string, name: string, scalar: number) => {
 
   group.name = name;
   scene.add(group);
+  group.renderOrder = 999;
   return group;
 };
 
 const disposeScene = () => {
   scene.traverse((object) => {
-    if (object.name === 'Base' || object.name === 'Marker') {
+    if (object.name === 'BaseMarker' || object.name === 'DestinationMarker') {
       return;
     }
 
@@ -180,9 +196,8 @@ const disposeScene = () => {
 const updatePose = async (newPose: commonApi.Pose) => {
   const x = newPose.getX();
   const z = newPose.getZ();
-  const baseMarker = scene.getObjectByName('Base') ?? await makeMarker(baseMarkerUrl, 'Base', 0.04);
-  baseMarker.position.set(x + 0.35, 0, z - 0.55); 
-  baseMarker.renderOrder = 999;
+  const baseMarker = scene.getObjectByName('BaseMarker') ?? await makeMarker(baseMarkerUrl, 'BaseMarker', 0.04);
+  baseMarker.position.set(x + baseMarkerOffset.x, 0, z + baseMarkerOffset.z); 
 };
 
 /*
@@ -307,15 +322,13 @@ onUnmounted(() => {
   disposeScene();
 });
 
-// see if we can just do props.destVector and not the subcomponents
-watch(() => [props.destVector, props.destExists], async () => {
+watch(() => [props.destVector!.z, props.destVector!.x, props.destExists], async () => {
   if (props.destVector && props.destExists) {
-    // update name from marker to destinationMarker
-    const marker = scene.getObjectByName('Marker') ?? await makeMarker(destMarkerUrl, 'Marker', 0.1);
-    marker.position.set(props.destVector.x + 1.2, 0, props.destVector.z +2.64 );
+    const marker = scene.getObjectByName('DestinationMarker') ?? await makeMarker(destMarkerUrl, 'DestinationMarker', 0.1);
+    marker.position.set(props.destVector.x + destinationMarkerOffset.x, 0, props.destVector.z + destinationMarkerOffset.z);
   }
   if (!props.destExists) {
-    const marker = scene.getObjectByName('Marker');
+    const marker = scene.getObjectByName('DestinationMarker');
     if (marker !== undefined) {
       scene.remove(marker);
     }
