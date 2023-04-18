@@ -3,6 +3,7 @@ package ams
 import (
 	"context"
 	"math"
+	"sync"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -93,8 +94,17 @@ func TestAMSEncoder(t *testing.T) {
 	enc, err := newAS5048Encoder(ctx, deps, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	t.Run("test automatically set to type ticks", func(t *testing.T) {
+	var wg sync.WaitGroup
+	_, cancel := context.WithCancel(ctx)
+	wg.Add(1)
+	go func() {
 		enc.(*Encoder).position = 142
+		wg.Done()
+	}()
+	cancel()
+	wg.Wait()
+
+	t.Run("test automatically set to type ticks", func(t *testing.T) {
 		pos, posType, _ := enc.GetPosition(ctx, encoder.PositionTypeUNSPECIFIED.Enum(), nil)
 		test.That(t, pos, test.ShouldAlmostEqual, 0.4, 0.1)
 		test.That(t, posType, test.ShouldEqual, 1)
