@@ -95,7 +95,7 @@ func TestAMSEncoder(t *testing.T) {
 
 	t.Run("test automatically set to type ticks", func(t *testing.T) {
 		enc.(*Encoder).position = 142
-		pos, posType, _ := enc.GetPosition(ctx, nil, nil)
+		pos, posType, _ := enc.GetPosition(ctx, encoder.PositionTypeUNSPECIFIED.Enum(), nil)
 		test.That(t, pos, test.ShouldAlmostEqual, 0.4, 0.1)
 		test.That(t, posType, test.ShouldEqual, 1)
 	})
