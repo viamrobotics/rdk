@@ -65,7 +65,7 @@ func WrapMotorWithEncoder(
 		mc.TicksPerRotation = 1
 	}
 
-	mm, err := newEncodedMotor(c.Name, mc, m, e, logger)
+	mm, err := newEncodedMotor(mc, m, e, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -93,7 +93,6 @@ func NewEncodedMotor(
 }
 
 func newEncodedMotor(
-	name string,
 	motorConfig Config,
 	realMotor motor.Motor,
 	realEncoder encoder.Encoder,
@@ -116,7 +115,7 @@ func newEncodedMotor(
 		maxPowerPct:             motorConfig.MaxPowerPct,
 		logger:                  logger,
 		loop:                    nil,
-		motorName:               name,
+		ticksPerRotation:        float64(motorConfig.TicksPerRotation),
 	}
 
 	props, err := realEncoder.GetProperties(context.Background(), nil)
@@ -160,6 +159,10 @@ func newEncodedMotor(
 		em.flip = -1
 	}
 
+	if em.ticksPerRotation == 0 {
+		em.ticksPerRotation = 1
+	}
+
 	_rpmDebug = motorConfig.Debug
 
 	return em, nil
@@ -182,9 +185,10 @@ type EncodedMotor struct {
 	// how fast as we increase power do we do so
 	// valid numbers are (0, 1]
 	// .01 would ramp very slowly, 1 would ramp instantaneously
-	rampRate    float64
-	maxPowerPct float64
-	flip        int64 // defaults to 1, becomes -1 if the motor config has a true DirectionFLip bool
+	rampRate         float64
+	maxPowerPct      float64
+	flip             float64 // defaults to 1, becomes -1 if the motor config has a true DirectionFLip bool
+	ticksPerRotation float64 // defaults to 1
 
 	rpmMonitorCalls int64
 	logger          golog.Logger
@@ -203,7 +207,7 @@ type EncodedMotorState struct {
 	desiredRPM   float64 // <= 0 means worker should do nothing
 	currentRPM   float64
 	lastPowerPct float64
-	setPoint     int64
+	setPoint     float64
 }
 
 // Position returns the position of the motor.
@@ -314,11 +318,10 @@ func (m *EncodedMotor) rpmMonitor() {
 	m.startedRPMMonitor = true
 	m.startedRPMMonitorMu.Unlock()
 
-	lastPosFl, _, err := m.encoder.GetPosition(m.cancelCtx, nil, nil)
+	lastPos, _, err := m.encoder.GetPosition(m.cancelCtx, nil, nil)
 	if err != nil {
 		panic(err)
 	}
-	lastPos := int64(lastPosFl)
 	lastTime := time.Now().UnixNano()
 
 	rpmSleep, rpmDebug := getRPMSleepDebug()
@@ -355,20 +358,17 @@ func (m *EncodedMotor) rpmMonitor() {
 		atomic.AddInt64(&m.rpmMonitorCalls, 1)
 		// TODO: we round down here for absolute encoders, but absolute encoders
 		// should have their own logic separate from incremental
-		roundedPos := int64(math.Floor(pos))
-		inRamp = m.rpmMonitorPass(roundedPos, lastPos, now, lastTime, rpmDebug)
+		inRamp = m.rpmMonitorPass(pos, lastPos, now, lastTime, rpmDebug)
 
-		lastPos = int64(pos)
+		lastPos = pos
 		lastTime = now
 	}
 }
 
 // return is if we are in a ramp phase.
-func (m *EncodedMotor) rpmMonitorPass(pos, lastPos, now, lastTime int64, rpmDebug bool) bool {
+func (m *EncodedMotor) rpmMonitorPass(pos, lastPos float64, now, lastTime int64, rpmDebug bool) bool {
 	m.stateMu.Lock()
 	defer m.stateMu.Unlock()
-
-	var ticksLeft int64
 
 	currentRPM := m.computeRPM(pos, lastPos, now, lastTime)
 	m.stateMu.Lock()
@@ -384,6 +384,7 @@ func (m *EncodedMotor) rpmMonitorPass(pos, lastPos, now, lastTime int64, rpmDebu
 		return false
 	}
 
+	var ticksLeft float64
 	// correctly set the ticksLeft accounting for power supplied to the motor and the expected direction of the motor
 	ticksLeft = (m.state.setPoint - pos) * sign(m.state.lastPowerPct) * m.flip
 	rotationsLeft := float64(ticksLeft) / float64(m.cfg.TicksPerRotation)
@@ -438,7 +439,7 @@ func slowDownMath(timeLeftSeconds, desiredRPM, rampRate float64) float64 {
 	return desiredRPM
 }
 
-func (m *EncodedMotor) computeRPM(pos, lastPos, now, lastTime int64) float64 {
+func (m *EncodedMotor) computeRPM(pos, lastPos float64, now, lastTime int64) float64 {
 	minutes := float64(now-lastTime) / (1e9 * 60)
 	if minutes == 0 {
 		return 0.0
@@ -574,13 +575,13 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions float
 		return err
 	}
 
-	numTicks := int64(revolutions * float64(m.cfg.TicksPerRotation))
+	numTicks := (revolutions * m.ticksPerRotation)
 
 	pos, _, err := m.encoder.GetPosition(ctx, nil, nil)
 	if err != nil {
 		return err
 	}
-	m.state.setPoint = int64(pos) + d*numTicks*m.flip
+	m.state.setPoint = pos + d*numTicks*m.flip
 
 	_, rpmDebug := getRPMSleepDebug()
 	if rpmDebug {

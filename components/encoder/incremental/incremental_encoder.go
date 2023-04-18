@@ -58,7 +58,7 @@ type Encoder struct {
 
 	positionType            encoder.PositionType
 	logger                  golog.Logger
-	CancelCtx               context.Context
+	cancelCtx               context.Context
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
 
@@ -106,7 +106,7 @@ func NewIncrementalEncoder(
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	e := &Encoder{
 		logger:       logger,
-		CancelCtx:    cancelCtx,
+		cancelCtx:    cancelCtx,
 		cancelFunc:   cancelFunc,
 		position:     0,
 		positionType: encoder.PositionTypeTICKS,
@@ -202,7 +202,7 @@ func (e *Encoder) Start(ctx context.Context) {
 			// statement guarantees that we'll return if we're supposed to, regardless of whether
 			// there's data in the other channels.
 			select {
-			case <-e.CancelCtx.Done():
+			case <-e.cancelCtx.Done():
 				return
 			default:
 			}
@@ -210,7 +210,7 @@ func (e *Encoder) Start(ctx context.Context) {
 			var tick board.Tick
 
 			select {
-			case <-e.CancelCtx.Done():
+			case <-e.cancelCtx.Done():
 				return
 			case tick = <-chanA:
 				aLevel = 0
