@@ -46,8 +46,14 @@ func init() {
 // Encoder keeps track of a motor position using a rotary incremental encoder.
 type Encoder struct {
 	A, B     board.DigitalInterrupt
+	// The position is pRaw with the least significant bit chopped off.
 	position int64
+	// pRaw is the number of half-ticks we've gone through: it increments or decrements whenever
+	// either pin on the encoder changes.
 	pRaw     int64
+	// pState is the previous state: the least significant bit is the value of pin A, and the
+	// second-least-significant bit is pin B. It is used to determine whether to increment or
+	// decrement pRaw.
 	pState   int64
 
 	positionType            encoder.PositionType
