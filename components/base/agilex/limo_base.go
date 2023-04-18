@@ -236,7 +236,7 @@ func (base *limoBase) startControlThread() {
 
 		for {
 			utils.SelectContextOrWait(ctx, time.Duration(float64(time.Millisecond)*10))
-			err := base.controlThreadLoop(ctx)
+			err := base.controlThreadLoopPass(ctx)
 			if err != nil {
 				if errors.Is(err, context.Canceled) {
 					return
@@ -247,18 +247,24 @@ func (base *limoBase) startControlThread() {
 	}()
 }
 
-func (base *limoBase) controlThreadLoop(ctx context.Context) error {
+func (base *limoBase) controlThreadLoopPass(ctx context.Context) error {
+
+	base.stateMutex.Lock()
+	linearGoal := base.state.velocityLinearGoal
+	angularGoal := base.state.velocityAngularGoal
+	base.stateMutex.Unlock()
+
 	var err error
 	switch base.driveMode {
 	case DIFFERENTIAL.String():
-		err = base.setMotionCommand(base.state.velocityLinearGoal.Y, -base.state.velocityAngularGoal.Z, 0, 0)
+		err = base.setMotionCommand(linearGoal.Y, -angularGoal.Z, 0, 0)
 	case ACKERMANN.String():
-		r := base.state.velocityLinearGoal.Y / base.state.velocityAngularGoal.Z
+		r := linearGoal.Y / angularGoal.Z
 		if math.Abs(r) < float64(base.width)/2.0 {
 			// Note: Do we need a tolerance comparison here? Don't think so, as velocityLinearGoal.Y should always be exactly zero
 			// when we expect it to be.
 			if r == 0 {
-				r = base.state.velocityAngularGoal.Z / math.Abs(base.state.velocityAngularGoal.Z) * (float64(base.width)/2.0 + 10)
+				r = angularGoal.Z / math.Abs(angularGoal.Z) * (float64(base.width)/2.0 + 10)
 			} else {
 				r = r / math.Abs(r) * (float64(base.width)/2.0 + 10)
 			}
@@ -276,9 +282,9 @@ func (base *limoBase) controlThreadLoop(ctx context.Context) error {
 
 		steeringAngle := innerAngle / base.rightAngleScale
 		// steering angle is in unit of .001 radians
-		err = base.setMotionCommand(base.state.velocityLinearGoal.Y, 0, 0, -steeringAngle*1000)
+		err = base.setMotionCommand(linearGoal.Y, 0, 0, -steeringAngle*1000)
 	case OMNI.String():
-		err = base.setMotionCommand(base.state.velocityLinearGoal.Y, -base.state.velocityAngularGoal.Z, base.state.velocityLinearGoal.X, 0)
+		err = base.setMotionCommand(linearGoal.Y, -angularGoal.Z, linearGoal.X, 0)
 	}
 
 	if ctx.Err() != nil {
