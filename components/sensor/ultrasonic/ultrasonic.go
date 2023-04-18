@@ -3,6 +3,7 @@ package ultrasonic
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"sync"
 	"time"
@@ -81,6 +82,7 @@ func newSensor(ctx context.Context, deps registry.Dependencies, name string, con
 	if !ok {
 		return nil, errors.Errorf("ultrasonic: cannot find board %q", config.Board)
 	}
+	fmt.Printf("about to get interrupt by name: ->%s<-\n", config.EchoInterrupt)
 	i, ok := b.DigitalInterruptByName(config.EchoInterrupt)
 	if !ok {
 		return nil, errors.Errorf("ultrasonic: cannot grab digital interrupt %q", config.EchoInterrupt)

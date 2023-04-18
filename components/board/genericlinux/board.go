@@ -254,7 +254,9 @@ func (b *sysfsBoard) AnalogReaderByName(name string) (board.AnalogReader, bool) 
 }
 
 func (b *sysfsBoard) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool) {
+	fmt.Printf("Start of DigitalInterruptsByName, current list is ->%v<-\n", b.interrupts)
 	if b.usePeriphGpio {
+		fmt.Println("Periph doesn't support interrupts")
 		return nil, false // Digital interrupts aren't supported.
 	}
 
@@ -263,6 +265,7 @@ func (b *sysfsBoard) DigitalInterruptByName(name string) (board.DigitalInterrupt
 
 	interrupt, ok := b.interrupts[name]
 	if ok {
+		fmt.Println("Found interrupt, returning on happy path!")
 		return interrupt.interrupt, true
 	}
 

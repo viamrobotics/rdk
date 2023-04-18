@@ -300,7 +300,7 @@ func gpioInitialize(cancelCtx context.Context, gpioMappings map[int]GPIOBoardMap
 			}
 			return nil, nil, err
 		}
-		interrupts[config.Pin] = interrupt
+		interrupts[config.Name] = interrupt
 	}
 
 	pins := make(map[string]*gpioPin)
