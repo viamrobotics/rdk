@@ -221,8 +221,6 @@ func (e *Encoder) Start(ctx context.Context) {
 				fallthrough
 			case 0b1110:
 				e.dec()
-				atomic.StoreInt64(&e.position, atomic.LoadInt64(&e.pRaw)>>1)
-				e.pState = nState
 			case 0b0010:
 				fallthrough
 			case 0b0100:
@@ -231,9 +229,9 @@ func (e *Encoder) Start(ctx context.Context) {
 				fallthrough
 			case 0b1101:
 				e.inc()
-				atomic.StoreInt64(&e.position, atomic.LoadInt64(&e.pRaw)>>1)
-				e.pState = nState
 			}
+			atomic.StoreInt64(&e.position, atomic.LoadInt64(&e.pRaw)>>1)
+			e.pState = nState
 		}
 	}, e.activeBackgroundWorkers.Done)
 }
