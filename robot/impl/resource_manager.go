@@ -24,6 +24,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/client"
+	"go.viam.com/rdk/robot/web"
 	"go.viam.com/rdk/services/shell"
 	rutils "go.viam.com/rdk/utils"
 )
@@ -393,20 +394,21 @@ func (manager *resourceManager) closeResource(ctx context.Context, r *localRobot
 }
 
 // removeMarkedAndClose removes all resources marked for removal from the graph and
-// also closes them. It accepts an alreadyClosed in case some marked resources were
+// also closes them. It accepts an excludeFromClose in case some marked resources were
 // already removed (e.g. renamed resources that count as remove + add but need to close
-// before add).
+// before add) or need to be removed in a different way (e.g. web internal service last).
 func (manager *resourceManager) removeMarkedAndClose(
 	ctx context.Context,
 	r *localRobot,
-	alreadyClosed map[resource.Name]struct{},
+	excludeFromClose map[resource.Name]struct{},
 ) ([]resource.Name, error) {
 	var allErrs error
 	toClose := manager.resources.RemoveMarked()
 	removedNames := make([]resource.Name, 0, len(toClose))
 	for _, res := range toClose {
-		removedNames = append(removedNames, res.Name())
-		if _, ok := alreadyClosed[res.Name()]; ok {
+		resName := res.Name()
+		removedNames = append(removedNames, resName)
+		if _, ok := excludeFromClose[resName]; ok {
 			continue
 		}
 		allErrs = multierr.Combine(allErrs, manager.closeResource(ctx, r, res))
@@ -423,9 +425,14 @@ func (manager *resourceManager) Close(ctx context.Context, r *localRobot) error 
 		allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error stopping process manager"))
 	}
 
-	if _, err := manager.removeMarkedAndClose(ctx, r, nil); err != nil {
+	// our caller will close web
+	excludeWebFromClose := map[resource.Name]struct{}{
+		web.InternalServiceName: {},
+	}
+	if _, err := manager.removeMarkedAndClose(ctx, r, excludeWebFromClose); err != nil {
 		allErrs = multierr.Combine(allErrs, err)
 	}
+
 	return allErrs
 }
 

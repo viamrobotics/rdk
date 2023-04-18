@@ -64,16 +64,10 @@ type localRobot struct {
 	revealSensitiveConfigDiffs bool
 
 	lastWeakDependentsRound int64
-}
 
-// webService returns the localRobot's web service. Raises if the service has not been initialized.
-func (r *localRobot) webService() (web.Service, error) {
-	return robot.ResourceFromRobot[web.Service](r, web.InternalServiceName)
-}
-
-// fsService returns the localRobot's web service. Raises if the service has not been initialized.
-func (r *localRobot) fsService() (framesystem.Service, error) {
-	return robot.ResourceFromRobot[framesystem.Service](r, framesystem.InternalServiceName)
+	// internal services that are in the graph but we also hold onto
+	webSvc   web.Service
+	frameSvc framesystem.Service
 }
 
 // RemoteByName returns a remote robot by name. If it does not exist
@@ -133,8 +127,12 @@ func (r *localRobot) Close(ctx context.Context) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if web, err := r.webService(); err == nil {
-		web.Stop()
+	// we will stop and close web ourselves since modules need it to be
+	// removed properly and in the right order, so grab it before its removed
+	// from the graph/closed automatically.
+	if r.webSvc != nil {
+		// we may not have the web service if we closed prematurely
+		r.webSvc.Stop()
 	}
 	if r.cancelBackgroundWorkers != nil {
 		close(r.remotesChanged)
@@ -159,6 +157,9 @@ func (r *localRobot) Close(ctx context.Context) error {
 	}
 	if r.packageManager != nil {
 		err = multierr.Combine(err, r.packageManager.Close())
+	}
+	if r.webSvc != nil {
+		err = multierr.Combine(err, r.webSvc.Close())
 	}
 	r.sessionManager.Close()
 	return err
@@ -207,38 +208,22 @@ func (r *localRobot) Logger() golog.Logger {
 
 // StartWeb starts the web server, will return an error if server is already up.
 func (r *localRobot) StartWeb(ctx context.Context, o weboptions.Options) (err error) {
-	webSvc, err := r.webService()
-	if err != nil {
-		return err
-	}
-	return webSvc.Start(ctx, o)
+	return r.webSvc.Start(ctx, o)
 }
 
 // StopWeb stops the web server, will be a noop if server is not up.
 func (r *localRobot) StopWeb() error {
-	webSvc, err := r.webService()
-	if err != nil {
-		return err
-	}
-	return webSvc.Close()
+	return r.webSvc.Close()
 }
 
 // WebAddress return the web service's address.
 func (r *localRobot) WebAddress() (string, error) {
-	webSvc, err := r.webService()
-	if err != nil {
-		return "", err
-	}
-	return webSvc.Address(), nil
+	return r.webSvc.Address(), nil
 }
 
 // ModuleAddress return the module service's address.
 func (r *localRobot) ModuleAddress() (string, error) {
-	webSvc, err := r.webService()
-	if err != nil {
-		return "", err
-	}
-	return webSvc.ModuleAddress(), nil
+	return r.webSvc.ModuleAddress(), nil
 }
 
 // remoteNameByResource returns the remote the resource is pulled from, if found.
@@ -427,16 +412,16 @@ func newWithResources(
 
 	// we assume these never appear in our configs and as such will not be removed from the
 	// resource graph
-	webSvc := web.New(r, logger, rOpts.webOptions...)
-	frameSvc := framesystem.New(ctx, r, logger)
+	r.webSvc = web.New(r, logger, rOpts.webOptions...)
+	r.frameSvc = framesystem.New(ctx, r, logger)
 	if err := r.manager.resources.AddNode(
 		web.InternalServiceName,
-		resource.NewConfiguredGraphNode(resource.Config{}, webSvc, builtinModel)); err != nil {
+		resource.NewConfiguredGraphNode(resource.Config{}, r.webSvc, builtinModel)); err != nil {
 		return nil, err
 	}
 	if err := r.manager.resources.AddNode(
 		framesystem.InternalServiceName,
-		resource.NewConfiguredGraphNode(resource.Config{}, frameSvc, builtinModel)); err != nil {
+		resource.NewConfiguredGraphNode(resource.Config{}, r.frameSvc, builtinModel)); err != nil {
 		return nil, err
 	}
 	if err := r.manager.resources.AddNode(
@@ -450,11 +435,7 @@ func newWithResources(
 		return nil, err
 	}
 
-	webSvc, err := r.webService()
-	if err != nil {
-		return nil, err
-	}
-	if err := webSvc.StartModule(ctx); err != nil {
+	if err := r.webSvc.StartModule(ctx); err != nil {
 		return nil, err
 	}
 
@@ -716,12 +697,7 @@ func (r *localRobot) FrameSystemConfig(
 	ctx context.Context,
 	additionalTransforms []*referenceframe.LinkInFrame,
 ) (framesystemparts.Parts, error) {
-	framesystem, err := r.fsService()
-	if err != nil {
-		return nil, err
-	}
-
-	return framesystem.Config(ctx, additionalTransforms)
+	return r.frameSvc.Config(ctx, additionalTransforms)
 }
 
 // TransformPose will transform the pose of the requested poseInFrame to the desired frame in the robot's frame system.
@@ -731,25 +707,18 @@ func (r *localRobot) TransformPose(
 	dst string,
 	additionalTransforms []*referenceframe.LinkInFrame,
 ) (*referenceframe.PoseInFrame, error) {
-	framesystem, err := r.fsService()
-	if err != nil {
-		return nil, err
-	}
-
-	return framesystem.TransformPose(ctx, pose, dst, additionalTransforms)
+	return r.frameSvc.TransformPose(ctx, pose, dst, additionalTransforms)
 }
 
 // TransformPointCloud will transform the pointcloud to the desired frame in the robot's frame system.
 // Do not move the robot between the generation of the initial pointcloud and the receipt
 // of the transformed pointcloud because that will make the transformations inaccurate.
-func (r *localRobot) TransformPointCloud(ctx context.Context, srcpc pointcloud.PointCloud, srcName, dstName string,
+func (r *localRobot) TransformPointCloud(
+	ctx context.Context,
+	srcpc pointcloud.PointCloud,
+	srcName, dstName string,
 ) (pointcloud.PointCloud, error) {
-	framesystem, err := r.fsService()
-	if err != nil {
-		return nil, err
-	}
-
-	return framesystem.TransformPointCloud(ctx, srcpc, srcName, dstName)
+	return r.frameSvc.TransformPointCloud(ctx, srcpc, srcName, dstName)
 }
 
 // RobotFromConfigPath is a helper to read and process a config given its path and then create a robot based on it.
