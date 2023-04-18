@@ -7,4 +7,3 @@ RUN --mount=type=secret,id=netrc,uid=1000,dst=/home/testbot/.netrc sudo -Hu test
 
 FROM $MAIN_TAG:$BASE_TAG
 COPY --from=builder --chown=1000:1000 /home/testbot/go /home/testbot/go
-COPY --from=builder --chown=1000:1000 /home/testbot/.cache /home/testbot/.cache
