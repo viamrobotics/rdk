@@ -218,7 +218,7 @@ watch(() => props.pointCloudUpdateCount, () => {
   <div class="flex flex-col gap-4">
     <div
       ref="container"
-      class="pcd-container relative w-full border border-border-1"
+      class="pcd-container border-border-1 relative w-full border"
     />
   </div>
 </template>

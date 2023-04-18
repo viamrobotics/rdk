@@ -289,7 +289,7 @@ watch(() => enabled, () => {
       >Disabled</span>
     </div>
 
-    <div class="h-full w-full border border-t-0 border-border-1 p-4">
+    <div class="border-border-1 h-full w-full border border-t-0 p-4">
       <div class="flex flex-row">
         <label class="subtitle mr-2">Enabled</label>
         <v-switch

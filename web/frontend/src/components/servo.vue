@@ -58,7 +58,7 @@ const move = (amount: number) => {
         variant="danger"
         @click="stop"
       />
-      <div class="border border-t-0 border-border-1 p-4">
+      <div class="border-border-1 border border-t-0 p-4">
         <h3 class="mb-1 text-sm">
           Angle: {{ status.positionDeg }}
         </h3>
