@@ -248,7 +248,6 @@ func (base *limoBase) startControlThread() {
 }
 
 func (base *limoBase) controlThreadLoopPass(ctx context.Context) error {
-
 	base.stateMutex.Lock()
 	linearGoal := base.state.velocityLinearGoal
 	angularGoal := base.state.velocityAngularGoal
