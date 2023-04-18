@@ -26,8 +26,8 @@ func TestValidate(t *testing.T) {
 		MinDeg:     ptr(1.5),
 		MaxDeg:     ptr(90.0),
 		StartPos:   ptr(3.5),
-		MinWidthUS: ptr(uint(501)),
-		MaxWidthUS: ptr(uint(2499)),
+		MinWidthUs: ptr(uint(501)),
+		MaxWidthUs: ptr(uint(2499)),
 	}
 
 	deps, err := cfg.Validate("test")
@@ -43,17 +43,17 @@ func TestValidate(t *testing.T) {
 
 	cfg.MaxDeg = ptr(90.0)
 
-	cfg.MinWidthUS = ptr(uint(450))
+	cfg.MinWidthUs = Ptr(uint(450))
 	_, err = cfg.Validate("test")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "error validating \"test\": min_width_us cannot be lower than 500")
-	cfg.MinWidthUS = ptr(uint(501))
+	cfg.MinWidthUs = ptr(uint(501))
 
-	cfg.MaxWidthUS = ptr(uint(2520))
+	cfg.MaxWidthUs = Ptr(uint(2520))
 	_, err = cfg.Validate("test")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "error validating \"test\": max_width_us cannot be higher than 2500")
-	cfg.MaxWidthUS = ptr(uint(2499))
+	cfg.MaxWidthUs = Ptr(uint(2499))
 
 	cfg.StartPos = ptr(91.0)
 	_, err = cfg.Validate("test")

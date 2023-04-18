@@ -37,10 +37,10 @@ type servoConfig struct {
 	// Resolution resolution of the PWM driver (eg number of ticks for a full period) if left or 0
 	// the driver will attempt to estimate the resolution
 	Resolution *uint `json:"pwm_resolution,omitempty"`
-	// MinWidthUS override the safe minimum width in us this affect PWM calculation
-	MinWidthUS *uint `json:"min_width_us,omitempty"`
-	// MaxWidthUS Override the safe maximum width in us this affect PWM calculation
-	MaxWidthUS *uint `json:"max_width_us,omitempty"`
+	// MinWidthUs override the safe minimum width in us this affect PWM calculation
+	MinWidthUs *uint `json:"min_width_us,omitempty"`
+	// MaxWidthUs Override the safe maximum width in us this affect PWM calculation
+	MaxWidthUs *uint `json:"max_width_us,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -70,10 +70,10 @@ func (config *servoConfig) Validate(path string) ([]string, error) {
 	if config.MinDeg != nil && *config.MinDeg < 0 {
 		return nil, viamutils.NewConfigValidationError(path, errors.New("min_angle_deg cannot be lower than 0"))
 	}
-	if config.MinWidthUS != nil && *config.MinWidthUS < minWidthUs {
+	if config.MinWidthUs != nil && *config.MinWidthUs < minWidthUs {
 		return nil, viamutils.NewConfigValidationError(path, errors.Errorf("min_width_us cannot be lower than %d", minWidthUs))
 	}
-	if config.MaxWidthUS != nil && *config.MaxWidthUS > maxWidthUs {
+	if config.MaxWidthUs != nil && *config.MaxWidthUs > maxWidthUs {
 		return nil, viamutils.NewConfigValidationError(path, errors.Errorf("max_width_us cannot be higher than %d", maxWidthUs))
 	}
 	return deps, nil
