@@ -696,7 +696,7 @@ func (manager *resourceManager) processResource(
 
 	manager.logger.Debugw("rebuilding", "name", conf.ResourceName())
 	if err := utils.TryClose(ctx, currentRes); err != nil {
-		return nil, false, err
+		manager.logger.Error(err)
 	}
 	newRes, err := r.newResource(ctx, gNode, conf)
 	if err != nil {
