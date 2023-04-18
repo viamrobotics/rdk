@@ -103,7 +103,7 @@ const fetchSLAMPose = (name: string): Promise<commonApi.Pose> => {
   });
 };
 
-const executeMove = async () => {
+const executeMoveOnMap = async () => {
   moveClick = false;
 
   const motionServiceReq = new motionApi.MoveOnMapRequest();
@@ -310,7 +310,7 @@ const handleUpdateX = (event: CustomEvent<{ value: string }>) => {
   updatedDest = true;
 };
 
-const handleUpdateY = (event: CustomEvent<{ value: string }>) => {
+const handleUpdateZ = (event: CustomEvent<{ value: string }>) => {
   destinationMarker.z = Number.parseFloat(event.detail.value);
   updatedDest = true;
 };
@@ -438,7 +438,7 @@ const toggleAxes = () => {
               incrementor="slider"
               :value="destinationMarker.z"
               step="0.1"
-              @input="handleUpdateY($event)"
+              @input="handleUpdateZ($event)"
             />
           </div>
           <v-button
@@ -446,7 +446,7 @@ const toggleAxes = () => {
             label="Move"
             variant="success"
             icon="play-circle-filled"
-            @click="executeMove()"
+            @click="executeMoveOnMap()"
           />
           <v-switch
             class="pt-2"
@@ -534,7 +534,7 @@ const toggleAxes = () => {
               :value="show3d ? 'on' : 'off'"
               @input="toggle3dExpand()"
             />
-            <span class="pr-2">View SLAM Map (3D))</span>
+            <span class="pr-2">View SLAM Map (3D)</span>
           </div>
           <div class="float-right pb-4">
             <div class="flex">
