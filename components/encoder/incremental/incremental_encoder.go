@@ -252,11 +252,11 @@ func (e *Encoder) GetPosition(
 }
 
 // ResetPosition sets the current position of the motor (adjusted by a given offset)
-// to be its new zero position..
+// to be its new zero position.
 func (e *Encoder) ResetPosition(ctx context.Context, extra map[string]interface{}) error {
-	offsetInt := int64(0)
-	atomic.StoreInt64(&e.position, offsetInt)
-	atomic.StoreInt64(&e.pRaw, (offsetInt<<1)|atomic.LoadInt64(&e.pRaw)&0x1)
+	zero := int64(0)
+	atomic.StoreInt64(&e.position, zero)
+	atomic.StoreInt64(&e.pRaw, (zero<<1)|atomic.LoadInt64(&e.pRaw)&0x1)
 	return nil
 }
 
