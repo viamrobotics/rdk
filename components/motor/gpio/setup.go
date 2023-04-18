@@ -68,39 +68,11 @@ func (config *Config) Validate(path string) ([]string, error) {
 
 // init registers a pi motor based on pigpio.
 func init() {
-	comp := registry.Component{
-		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-			actualBoard, motorConfig, err := getBoardFromRobotConfig(deps, config)
-			if err != nil {
-				return nil, err
-			}
+	registry.RegisterComponent(motor.Subtype, model, registry.Component{
+		Constructor: func(ctx context.Context, deps registry.Dependencies, cfg config.Component, logger golog.Logger) (interface{}, error) {
+			return createNewMotor(ctx, deps, cfg, logger)
+		}})
 
-			m, err := NewMotor(actualBoard, *motorConfig, config.Name, logger)
-			if err != nil {
-				return nil, err
-			}
-			if motorConfig.Encoder != "" {
-				e, err := encoder.FromDependencies(deps, motorConfig.Encoder)
-				if err != nil {
-					return nil, err
-				}
-
-				m, err = WrapMotorWithEncoder(ctx, e, config, *motorConfig, m, logger)
-				if err != nil {
-					return nil, err
-				}
-			}
-
-			err = m.Stop(ctx, nil)
-			if err != nil {
-				return nil, err
-			}
-
-			return m, nil
-		},
-	}
-
-	registry.RegisterComponent(motor.Subtype, model, comp)
 	config.RegisterComponentAttributeMapConverter(
 		motor.Subtype,
 		model,
@@ -125,4 +97,34 @@ func getBoardFromRobotConfig(deps registry.Dependencies, config config.Component
 		return nil, nil, err
 	}
 	return b, motorConfig, nil
+}
+
+func createNewMotor(ctx context.Context, deps registry.Dependencies, cfg config.Component, logger golog.Logger) (interface{}, error) {
+	actualBoard, motorConfig, err := getBoardFromRobotConfig(deps, cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	m, err := NewMotor(actualBoard, *motorConfig, cfg.Name, logger)
+	if err != nil {
+		return nil, err
+	}
+	if motorConfig.Encoder != "" {
+		e, err := encoder.FromDependencies(deps, motorConfig.Encoder)
+		if err != nil {
+			return nil, err
+		}
+
+		m, err = WrapMotorWithEncoder(ctx, e, cfg, *motorConfig, m, logger)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	err = m.Stop(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return m, nil
 }
