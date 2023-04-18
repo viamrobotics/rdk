@@ -28,5 +28,6 @@ func Overlay(img image.Image, classifications Classifications) (image.Image, err
 				30)
 			y += 30
 		}
+	}
 	return gimg.Image(), nil
 }
