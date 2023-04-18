@@ -5,7 +5,6 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/edaniels/golog"
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/referenceframe"
@@ -177,11 +176,9 @@ func (conf *Config) validate(path string, defaultType TypeName) ([]string, error
 	if defaultType == ResourceTypeService {
 		// If services do not have names use the name builtin
 		if conf.Name == "" {
-			golog.Global().Debugw("no name given, defaulting name to builtin")
 			conf.Name = DefaultServiceName
 		}
 		if conf.Model.Name == "" {
-			golog.Global().Debugw("no model given; using default")
 			conf.Model = DefaultServiceModel
 		}
 	}
