@@ -277,7 +277,8 @@ func (enc *Encoder) ResetPosition(
 	// NOTE (GV): potential improvement could be writing the offset position
 	// to the zero register of the encoder rather than keeping track
 	// on the struct
-
+	enc.position = 0
+	enc.rotations = 0
 	// clear current zero position
 	err := enc.writeByteDataToBus(ctx, enc.i2cBus, enc.i2cAddr, byte(0x16), byte(0))
 	if err != nil {
