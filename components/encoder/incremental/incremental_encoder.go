@@ -190,12 +190,6 @@ func (e *Encoder) Start(ctx context.Context) {
 		defer e.A.RemoveCallback(chanA)
 		defer e.B.RemoveCallback(chanB)
 		for {
-			select {
-			case <-e.CancelCtx.Done():
-				return
-			default:
-			}
-
 			var tick board.Tick
 
 			select {
