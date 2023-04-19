@@ -225,7 +225,7 @@ func (w *GraphNode) SetNeedsUpdate() {
 
 // setUnresolvedDependencies sets names that are yet to be resolved as
 // dependencies for the node. Not that even an empty list will still
-// set needsDependencyResolution to true. if no resolution is needed,
+// set needsDependencyResolution to true. If no resolution is needed,
 // you would call setDependenciesResolved. The resource graph calls
 // these internally.
 func (w *GraphNode) setUnresolvedDependencies(names ...string) {
