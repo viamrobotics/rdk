@@ -18,10 +18,6 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
-var model = resource.NewDefaultModel("AMS-AS5048")
-
-var writeData = make(map[byte]byte)
-
 func TestConvertBytesToAngle(t *testing.T) {
 	// 180 degrees
 	msB := byte(math.Pow(2.0, 7.0))
@@ -54,7 +50,7 @@ func setupDependencies(mockData []byte) (config.Component, registry.Dependencies
 
 	cfg := config.Component{
 		Name:  "encoder",
-		Model: model,
+		Model: modelName,
 		Type:  encoder.SubtypeName,
 		ConvertedAttributes: &AttrConfig{
 			BoardName:      testBoardName,
@@ -126,7 +122,7 @@ func TestAMSEncoder(t *testing.T) {
 	})
 }
 
-func setupDependenciesWithWrite(mockData []byte) (config.Component, registry.Dependencies) {
+func setupDependenciesWithWrite(mockData []byte, writeData map[byte]byte) (config.Component, registry.Dependencies) {
 	testBoardName := "board"
 	i2cName := "i2c"
 
@@ -137,7 +133,7 @@ func setupDependenciesWithWrite(mockData []byte) (config.Component, registry.Dep
 
 	cfg := config.Component{
 		Name:  "encoder",
-		Model: model,
+		Model: modelName,
 		Type:  encoder.SubtypeName,
 		ConvertedAttributes: &AttrConfig{
 			BoardName:      testBoardName,
@@ -175,8 +171,10 @@ func TestAMSEncoderReset(t *testing.T) {
 	positionMockData[0xFE] = 100
 	positionMockData[0xFF] = 60
 
+	var writeData = make(map[byte]byte)
+
 	logger := golog.NewTestLogger(t)
-	cfg, deps := setupDependenciesWithWrite(positionMockData)
+	cfg, deps := setupDependenciesWithWrite(positionMockData, writeData)
 	enc, err := newAS5048Encoder(ctx, deps, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer utils.TryClose(context.Background(), enc)
