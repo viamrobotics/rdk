@@ -171,8 +171,6 @@ func (s *i2cCorrectionSource) Reader() (io.ReadCloser, error) {
 func (s *i2cCorrectionSource) Close() error {
 	s.mu.Lock()
 	s.cancelFunc()
-	s.mu.Unlock()
-	s.activeBackgroundWorkers.Wait()
 
 	// close correction reader
 	if s.correctionReader != nil {
@@ -181,6 +179,9 @@ func (s *i2cCorrectionSource) Close() error {
 		}
 		s.correctionReader = nil
 	}
+
+	s.mu.Unlock()
+	s.activeBackgroundWorkers.Wait()
 
 	if err := s.err.Get(); err != nil && !errors.Is(err, context.Canceled) {
 		return err
