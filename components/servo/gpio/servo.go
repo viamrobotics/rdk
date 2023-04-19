@@ -133,7 +133,7 @@ func newGPIOServo(ctx context.Context, deps resource.Dependencies, conf resource
 	}
 	if newConf.Frequency != nil {
 		if *newConf.Frequency > 450 || *newConf.Frequency == 0 {
-			return nil, errors.Errorf("PWM frequencies should not be above 450Hz or 0, have %d", frequency)
+			return nil, errors.Errorf("PWM frequencies should not be above 450Hz or 0, have %d", newConf.Frequency)
 		}
 
 		err = pin.SetPWMFreq(ctx, *newConf.Frequency, nil)
