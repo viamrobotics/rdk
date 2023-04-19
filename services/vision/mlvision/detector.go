@@ -3,22 +3,24 @@ package mlvision
 import (
 	"bufio"
 	"context"
+	"image"
+	"os"
+	"strconv"
+	"strings"
+
 	"github.com/nfnt/resize"
 	"github.com/pkg/errors"
+
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/services/mlmodel"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision/objectdetection"
-	"image"
-	"os"
-	"strings"
 )
 
 func attemptToBuildDetector(mlm mlmodel.Service) (objectdetection.Detector, error) {
 	md, err := mlm.Metadata(context.Background())
 	if err != nil {
-		// If the metadata isn't there
-		return nil, err
+		return nil, errors.Wrapf(err, "could not find metadata")
 	}
 
 	// Set up input type, height, width, and labels
@@ -26,8 +28,7 @@ func attemptToBuildDetector(mlm mlmodel.Service) (objectdetection.Detector, erro
 	inType := md.Inputs[0].DataType
 	labels, err := getLabelsFromMetadata(md)
 	if err != nil {
-		// Not true, still do something if we can't get labels
-		return nil, err
+		labels = nil
 	}
 	boxOrder, err := getBoxOrderFromMetadata(md)
 	if err != nil || len(boxOrder) < 4 {
@@ -73,14 +74,17 @@ func attemptToBuildDetector(mlm mlmodel.Service) (objectdetection.Detector, erro
 			rect := image.Rect(int(xmin), int(ymin), int(xmax), int(ymax))
 			labelNum := int(categories[i])
 
-			detections = append(detections, objectdetection.NewDetection(rect, scores[i], labels[labelNum]))
+			if labels != nil {
+				detections = append(detections, objectdetection.NewDetection(rect, scores[i], labels[labelNum]))
+			} else {
+				detections = append(detections, objectdetection.NewDetection(rect, scores[i], strconv.Itoa(labelNum)))
+			}
 		}
 		return detections, nil
 	}, nil
-
 }
 
-// Unpack output based on expected type and force it into a []float64
+// Unpack output based on expected type and force it into a []float64.
 func unpackMe(inMap map[string]interface{}, name string, md mlmodel.MLMetadata) []float64 {
 	var out []float64
 	me := inMap[name]
@@ -117,7 +121,7 @@ func getLabelsFromMetadata(md mlmodel.MLMetadata) ([]string, error) {
 		if strings.Contains(o.Name, "category") || strings.Contains(o.Name, "probability") {
 			if labelPath, ok := o.Extra["labels"]; ok {
 				labels := []string{}
-				f, err := os.Open(labelPath.(string)) //nolint:gosec
+				f, err := os.Open(labelPath.(string))
 				if err != nil {
 					return nil, err
 				}

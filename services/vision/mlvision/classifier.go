@@ -2,20 +2,22 @@ package mlvision
 
 import (
 	"context"
+	"image"
+	"math"
+	"strconv"
+
 	"github.com/nfnt/resize"
 	"github.com/pkg/errors"
+
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/services/mlmodel"
 	"go.viam.com/rdk/vision/classification"
-	"image"
-	"math"
 )
 
 func attemptToBuildClassifier(mlm mlmodel.Service) (classification.Classifier, error) {
 	md, err := mlm.Metadata(context.Background())
 	if err != nil {
-		// If the metadata isn't there
-		return nil, err
+		return nil, errors.Wrapf(err, "could not find metadata")
 	}
 
 	// Set up input type, height, width, and labels
@@ -23,8 +25,7 @@ func attemptToBuildClassifier(mlm mlmodel.Service) (classification.Classifier, e
 	inType := md.Inputs[0].DataType
 	labels, err := getLabelsFromMetadata(md)
 	if err != nil {
-		// Not true, still do something if we can't get labels
-		return nil, err
+		labels = nil
 	}
 
 	if shape := md.Inputs[0].Shape; getIndex(shape, 3) == 1 {
@@ -35,35 +36,33 @@ func attemptToBuildClassifier(mlm mlmodel.Service) (classification.Classifier, e
 
 	return func(ctx context.Context, img image.Image) (classification.Classifications, error) {
 		resized := resize.Resize(inWidth, inHeight, img, resize.Bilinear)
-		inMap := make(map[string]interface{}, 1)
-		outMap := make(map[string]interface{}, 5)
+		inMap := make(map[string]interface{})
+		outMap := make(map[string]interface{})
 		switch inType {
 		case "uint8":
 			inMap["image"] = rimage.ImageToUInt8Buffer(resized)
-			outMap, err = mlm.Infer(ctx, inMap)
 		case "float32":
 			inMap["image"] = rimage.ImageToFloatBuffer(resized)
-			outMap, err = mlm.Infer(ctx, inMap)
 		default:
 			return nil, errors.New("invalid input type. try uint8 or float32")
 		}
+		outMap, err = mlm.Infer(ctx, inMap)
 		if err != nil {
 			return nil, err
 		}
 
 		probs := unpackMe(outMap, "probability", md)
-
-		// TODO: Khari, somewhere around here, softmax(probs) --> confs and then use confs
 		confs := softmaxMe(probs)
-
 		classifications := make(classification.Classifications, 0, len(confs))
 		for i := 0; i < len(confs); i++ {
-			classifications = append(classifications, classification.NewClassification(confs[i], labels[i]))
+			if labels != nil {
+				classifications = append(classifications, classification.NewClassification(confs[i], labels[i]))
+			} else {
+				classifications = append(classifications, classification.NewClassification(confs[i], strconv.Itoa(i)))
+			}
 		}
 		return classifications, nil
-
 	}, nil
-
 }
 
 func softmaxMe(in []float64) []float64 {

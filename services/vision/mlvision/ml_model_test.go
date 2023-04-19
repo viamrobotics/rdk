@@ -2,13 +2,13 @@ package mlvision
 
 import (
 	"context"
-	"go.viam.com/rdk/services/mlmodel/tflitecpu"
 	"testing"
 
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/services/mlmodel/tflitecpu"
 )
 
 func TestNewMLDetector(t *testing.T) {
@@ -30,6 +30,8 @@ func TestNewMLDetector(t *testing.T) {
 
 	// Test that a detector would give the expected output on the dog image
 	out, err := tflitecpu.NewTFLiteCPUModel(ctx, &cfg, "myMLDet")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, out, test.ShouldNotBeNil)
 	check, err := out.Metadata(ctx)
 	test.That(t, check, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldBeNil)
@@ -48,7 +50,6 @@ func TestNewMLDetector(t *testing.T) {
 	test.That(t, gotDetections[1].Score(), test.ShouldBeGreaterThan, 0.7)
 	test.That(t, gotDetections[0].Label(), test.ShouldResemble, "Dog")
 	test.That(t, gotDetections[1].Label(), test.ShouldResemble, "Dog")
-
 }
 
 func TestNewMLClassifier(t *testing.T) {
@@ -71,6 +72,8 @@ func TestNewMLClassifier(t *testing.T) {
 
 	// Test that a classifier would give the expected result on the lion image
 	out, err := tflitecpu.NewTFLiteCPUModel(ctx, &cfg, "myMLClassif")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, out, test.ShouldNotBeNil)
 	check, err := out.Metadata(ctx)
 	test.That(t, check, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldBeNil)
@@ -91,5 +94,4 @@ func TestNewMLClassifier(t *testing.T) {
 	test.That(t, gotTop[0].Label(), test.ShouldContainSubstring, "lion")
 	test.That(t, gotTop[0].Score(), test.ShouldBeGreaterThan, 0.99)
 	test.That(t, gotTop[1].Score(), test.ShouldBeLessThan, 0.01)
-
 }
