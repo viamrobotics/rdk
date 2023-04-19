@@ -68,9 +68,9 @@ func attemptToBuildDetector(mlm mlmodel.Service) (objectdetection.Detector, erro
 		// Now reshape outMap into Detections
 		detections := make([]objectdetection.Detection, 0, len(categories))
 		for i := 0; i < len(scores); i++ {
-			xmin, xmax, ymin, ymax := utils.Clamp(locations[4*i+getIndex(boxOrder, 0)], 0, 1)*float64(origW),
-				utils.Clamp(locations[4*i+getIndex(boxOrder, 2)], 0, 1)*float64(origW),
+			xmin, ymin, xmax, ymax := utils.Clamp(locations[4*i+getIndex(boxOrder, 0)], 0, 1)*float64(origW),
 				utils.Clamp(locations[4*i+getIndex(boxOrder, 1)], 0, 1)*float64(origH),
+				utils.Clamp(locations[4*i+getIndex(boxOrder, 2)], 0, 1)*float64(origW),
 				utils.Clamp(locations[4*i+getIndex(boxOrder, 3)], 0, 1)*float64(origH)
 			rect := image.Rect(int(xmin), int(ymin), int(xmax), int(ymax))
 			labelNum := int(categories[i])
@@ -142,7 +142,7 @@ func getLabelsFromMetadata(md mlmodel.MLMetadata) []string {
 }
 
 // getBoxOrderFromMetadata returns a slice of ints--the bounding box
-// printout order where 0=xmin, 1=xmax, 2=ymin, 3=ymax
+// display order, where 0=xmin, 1=ymin, 2=xmax, 3=ymax
 func getBoxOrderFromMetadata(md mlmodel.MLMetadata) ([]int, error) {
 	for _, o := range md.Outputs {
 		if strings.Contains(o.Name, "location") {
