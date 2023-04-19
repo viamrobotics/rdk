@@ -178,6 +178,7 @@ func newGPIOServo(ctx context.Context, deps resource.Dependencies, conf resource
 		currPct:   0,
 	}
 
+	// TODO: do we need both these Move calls? I think the if statement fires no matter what.
 	if err := servo.Move(ctx, uint32(startPos), nil); err != nil {
 		return nil, errors.Wrap(err, "couldn't move servo to start position")
 	}
