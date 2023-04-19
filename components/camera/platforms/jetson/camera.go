@@ -6,9 +6,12 @@ import "C"
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"runtime"
+	"syscall"
 	"unsafe"
 )
 
@@ -84,28 +87,47 @@ func checkDaughterBoardConnected(daughterboard []string) error {
 	for _, i2c := range daughterboard {
 		err := checkI2CInterface(i2c)
 		if err != nil {
-			return fmt.Errorf("daughterboard not connected: %w", err)
+			return fmt.Errorf("unable to verify that daughterboard is connected: %w", err)
 		}
 	}
 	return nil
 }
 
 // checkI2CInterface checks if the I2C bus is available
-func checkI2CInterface(i2c string) error {
-	i2cPath := "/dev/" + i2c
-	if _, err := os.Stat(i2cPath); os.IsNotExist(err) {
-		return fmt.Errorf("i2c interface %s not available", i2c)
-	} else {
-		return nil
+func checkI2CInterface(bus string) error {
+	i2cPath := filepath.Join("/dev", bus)
+	if err := checkFileExists(i2cPath); err != nil {
+		return fmt.Errorf("unable to verify that i2c bus is available: %w", err)
 	}
+	return nil
 }
 
 // checkDriverInstalled checks if the driver is installed for the
 // given kernel version and object file target
 func checkDriverInstalled(kernel string, driver string) error {
-	driverPath := "/lib/modules/" + kernel + "/extra/" + driver
-	if _, err := os.Stat(driverPath); os.IsNotExist(err) {
-		return fmt.Errorf("driver %s not installed", driver)
+	driverPath := filepath.Join("/lib/modules", kernel, "extra", driver)
+	if err := checkFileExists(driverPath); err != nil {
+		return fmt.Errorf("unable to verify that camera driver is installed: %w", err)
+	}
+	return nil
+}
+
+// checkFileExists is a helper function that wraps os.Stat
+// errors are parsed to return a more specific error message
+func checkFileExists(path string) error {
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return fmt.Errorf("%s does not exist", path)
+	} else if err != nil {
+		switch {
+		case os.IsPermission(err):
+			return fmt.Errorf("permission denied when trying to access %s", path)
+		case errors.Is(err, syscall.ENOSPC):
+			return fmt.Errorf("device is out of space. unable to check %s", path)
+		case errors.Is(err, syscall.ENOMEM):
+			return fmt.Errorf("device is out of memory. unable to check %s", path)
+		default:
+			return fmt.Errorf("unable to access %s", path)
+		}
 	} else {
 		return nil
 	}
