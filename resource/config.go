@@ -38,7 +38,7 @@ type Config struct {
 
 // NativeConfig returns the native config from the given config via its
 // converted attributes. When generics are better in go to support a mapping
-// of Models -> T's (cannot right because of type instantiation rules), then
+// of Models -> T's (cannot right now because of type instantiation rules), then
 // this should be a method on the type and hide away both Attributes and
 // ConvertedAttributes.
 func NativeConfig[T any](conf Config) (T, error) {
