@@ -58,7 +58,7 @@ func getDeviceName() (string, error) {
 }
 
 // Validate checks if the daughterboard and driver are supported and installed on the device
-func Validate(osInfo OSInformation, daughterboardName string, driverName string) error {
+func DetectError(osInfo OSInformation, daughterboardName string, driverName string) error {
 	board, ok := cameraInfoMappings[osInfo.Device]
 	if !ok {
 		return fmt.Errorf("the %s device is not supported on this platform", osInfo.Device)

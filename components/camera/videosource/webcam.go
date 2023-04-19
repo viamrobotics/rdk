@@ -65,7 +65,7 @@ func init() {
 					return cameraSource, errors.Wrap(err, osErr.Error())
 				}
 				if osInfo.Device == jetsoncamera.OrinAGX {
-					return cameraSource, errors.Wrap(err, jetsoncamera.Validate(osInfo, jetsoncamera.ECAM, jetsoncamera.AR0234).Error())
+					return cameraSource, errors.Wrap(err, jetsoncamera.DetectError(osInfo, jetsoncamera.ECAM, jetsoncamera.AR0234).Error())
 				}
 				return cameraSource, err
 			}
