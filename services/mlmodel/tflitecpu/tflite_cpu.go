@@ -210,7 +210,8 @@ func (m *Model) Metadata(ctx context.Context) (mlmodel.MLMetadata, error) {
 		if (strings.Contains(td.Name, "category") || strings.Contains(td.Name, "probability")) &&
 			m.attrs.LabelPath != nil {
 			td.Extra = map[string]interface{}{
-				"labels": *m.attrs.LabelPath}
+				"labels": *m.attrs.LabelPath,
+			}
 		}
 		td.DataType = strings.ToLower(m.model.Info.OutputTensorTypes[i]) // grab from model info, not metadata
 		outputList = append(outputList, td)

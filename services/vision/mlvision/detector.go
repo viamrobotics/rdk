@@ -17,6 +17,13 @@ import (
 	"go.viam.com/rdk/vision/objectdetection"
 )
 
+const (
+	// UInt8 is one of the possible input/output types for tensors.
+	UInt8 = "uint8"
+	// Float32 is one of the possible input/output types for tensors.
+	Float32 = "float32"
+)
+
 func attemptToBuildDetector(mlm mlmodel.Service) (objectdetection.Detector, error) {
 	md, err := mlm.Metadata(context.Background())
 	if err != nil {
@@ -45,17 +52,15 @@ func attemptToBuildDetector(mlm mlmodel.Service) (objectdetection.Detector, erro
 		origW, origH := img.Bounds().Dx(), img.Bounds().Dy()
 		resized := resize.Resize(inWidth, inHeight, img, resize.Bilinear)
 		inMap := make(map[string]interface{})
-		outMap := make(map[string]interface{})
 		switch inType {
-		case "uint8":
+		case UInt8:
 			inMap["image"] = rimage.ImageToUInt8Buffer(resized)
-			outMap, err = mlm.Infer(ctx, inMap)
-		case "float32":
+		case Float32:
 			inMap["image"] = rimage.ImageToFloatBuffer(resized)
-			outMap, err = mlm.Infer(ctx, inMap)
 		default:
 			return nil, errors.New("invalid input type. try uint8 or float32")
 		}
+		outMap, err := mlm.Infer(ctx, inMap)
 		if err != nil {
 			return nil, err
 		}
@@ -89,12 +94,12 @@ func unpackMe(inMap map[string]interface{}, name string, md mlmodel.MLMetadata) 
 	var out []float64
 	me := inMap[name]
 	switch getTensorTypeFromName(name, md) {
-	case "uint8":
+	case UInt8:
 		temp := me.([]uint8)
 		for _, t := range temp {
 			out = append(out, float64(t))
 		}
-	case "float32":
+	case Float32:
 		temp := me.([]float32)
 		for _, p := range temp {
 			out = append(out, float64(p))

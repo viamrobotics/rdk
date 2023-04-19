@@ -37,16 +37,15 @@ func attemptToBuildClassifier(mlm mlmodel.Service) (classification.Classifier, e
 	return func(ctx context.Context, img image.Image) (classification.Classifications, error) {
 		resized := resize.Resize(inWidth, inHeight, img, resize.Bilinear)
 		inMap := make(map[string]interface{})
-		outMap := make(map[string]interface{})
 		switch inType {
-		case "uint8":
+		case UInt8:
 			inMap["image"] = rimage.ImageToUInt8Buffer(resized)
-		case "float32":
+		case Float32:
 			inMap["image"] = rimage.ImageToFloatBuffer(resized)
 		default:
 			return nil, errors.New("invalid input type. try uint8 or float32")
 		}
-		outMap, err = mlm.Infer(ctx, inMap)
+		outMap, err := mlm.Infer(ctx, inMap)
 		if err != nil {
 			return nil, err
 		}
