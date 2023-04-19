@@ -484,7 +484,7 @@ func (m *module) registerResources(mgr modmaninterface.ModuleManager, logger gol
 			}
 		case resource.ResourceTypeService:
 			for _, model := range models {
-				registry.RegisterResource(api.Subtype, model, registry.Resource{
+				registry.RegisterService(api.Subtype, model, registry.Resource{
 					Constructor: func(
 						ctx context.Context,
 						deps resource.Dependencies,
