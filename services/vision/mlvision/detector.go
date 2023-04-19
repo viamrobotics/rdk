@@ -33,10 +33,7 @@ func attemptToBuildDetector(mlm mlmodel.Service) (objectdetection.Detector, erro
 	// Set up input type, height, width, and labels
 	var inHeight, inWidth uint
 	inType := md.Inputs[0].DataType
-	labels, err := getLabelsFromMetadata(md)
-	if err != nil {
-		labels = nil
-	}
+	labels := getLabelsFromMetadata(md)
 	boxOrder, err := getBoxOrderFromMetadata(md)
 	if err != nil || len(boxOrder) < 4 {
 		boxOrder = []uint32{1, 0, 3, 2}
@@ -65,9 +62,9 @@ func attemptToBuildDetector(mlm mlmodel.Service) (objectdetection.Detector, erro
 			return nil, err
 		}
 
-		locations := unpackMe(outMap, "location", md)
-		categories := unpackMe(outMap, "category", md)
-		scores := unpackMe(outMap, "score", md)
+		locations := unpack(outMap, "location", md)
+		categories := unpack(outMap, "category", md)
+		scores := unpack(outMap, "score", md)
 
 		// Now reshape outMap into Detections
 		detections := make([]objectdetection.Detection, 0, len(categories))
@@ -90,7 +87,7 @@ func attemptToBuildDetector(mlm mlmodel.Service) (objectdetection.Detector, erro
 }
 
 // Unpack output based on expected type and force it into a []float64.
-func unpackMe(inMap map[string]interface{}, name string, md mlmodel.MLMetadata) []float64 {
+func unpack(inMap map[string]interface{}, name string, md mlmodel.MLMetadata) []float64 {
 	var out []float64
 	me := inMap[name]
 	switch getTensorTypeFromName(name, md) {
@@ -110,25 +107,24 @@ func unpackMe(inMap map[string]interface{}, name string, md mlmodel.MLMetadata) 
 	return out
 }
 
-// getIndex just returns the index of an int in an array of ints
-// Will return -1 if it's not there.
-func getIndex(s []int, num int) int {
-	for i, v := range s {
-		if v == num {
-			return i
+func getTensorTypeFromName(name string, md mlmodel.MLMetadata) string {
+	for _, o := range md.Outputs {
+		if strings.Contains(strings.ToLower(o.Name), strings.ToLower(name)) {
+			return o.DataType
 		}
 	}
-	return -1
+	return ""
 }
 
-func getLabelsFromMetadata(md mlmodel.MLMetadata) ([]string, error) {
+// getLabelsFromMetadata returns a slice of strings--the intended labels
+func getLabelsFromMetadata(md mlmodel.MLMetadata) []string {
 	for _, o := range md.Outputs {
 		if strings.Contains(o.Name, "category") || strings.Contains(o.Name, "probability") {
 			if labelPath, ok := o.Extra["labels"]; ok {
 				labels := []string{}
 				f, err := os.Open(labelPath.(string))
 				if err != nil {
-					return nil, err
+					return nil
 				}
 				defer func() {
 					if err := f.Close(); err != nil {
@@ -139,13 +135,15 @@ func getLabelsFromMetadata(md mlmodel.MLMetadata) ([]string, error) {
 				for scanner.Scan() {
 					labels = append(labels, scanner.Text())
 				}
-				return labels, nil
+				return labels
 			}
 		}
 	}
-	return nil, errors.New("could not find labels")
+	return nil
 }
 
+// getBoxOrderFromMetadata returns a slice of ints--the bounding box
+// printout order where 0=xmin, 1=xmax, 2=ymin, 3=ymax
 func getBoxOrderFromMetadata(md mlmodel.MLMetadata) ([]uint32, error) {
 	for _, o := range md.Outputs {
 		if strings.Contains(o.Name, "location") {
@@ -157,11 +155,13 @@ func getBoxOrderFromMetadata(md mlmodel.MLMetadata) ([]uint32, error) {
 	return nil, errors.New("could not grab bbox order")
 }
 
-func getTensorTypeFromName(name string, md mlmodel.MLMetadata) string {
-	for _, o := range md.Outputs {
-		if strings.Contains(strings.ToLower(o.Name), strings.ToLower(name)) {
-			return o.DataType
+// getIndex returns the index of an int in an array of ints
+// Will return -1 if it's not there.
+func getIndex(s []int, num int) int {
+	for i, v := range s {
+		if v == num {
+			return i
 		}
 	}
-	return ""
+	return -1
 }

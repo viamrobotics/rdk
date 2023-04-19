@@ -23,10 +23,7 @@ func attemptToBuildClassifier(mlm mlmodel.Service) (classification.Classifier, e
 	// Set up input type, height, width, and labels
 	var inHeight, inWidth uint
 	inType := md.Inputs[0].DataType
-	labels, err := getLabelsFromMetadata(md)
-	if err != nil {
-		labels = nil
-	}
+	labels := getLabelsFromMetadata(md)
 
 	if shape := md.Inputs[0].Shape; getIndex(shape, 3) == 1 {
 		inHeight, inWidth = uint(shape[2]), uint(shape[3])
@@ -50,8 +47,8 @@ func attemptToBuildClassifier(mlm mlmodel.Service) (classification.Classifier, e
 			return nil, err
 		}
 
-		probs := unpackMe(outMap, "probability", md)
-		confs := softmaxMe(probs)
+		probs := unpack(outMap, "probability", md)
+		confs := softmax(probs)
 		classifications := make(classification.Classifications, 0, len(confs))
 		for i := 0; i < len(confs); i++ {
 			if labels != nil {
@@ -64,7 +61,8 @@ func attemptToBuildClassifier(mlm mlmodel.Service) (classification.Classifier, e
 	}, nil
 }
 
-func softmaxMe(in []float64) []float64 {
+// softmax takes the input slice and applies the softmax function
+func softmax(in []float64) []float64 {
 	out := make([]float64, 0, len(in))
 	bigSum := 0.0
 	for _, x := range in {
