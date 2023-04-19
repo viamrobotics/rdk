@@ -44,7 +44,7 @@ const setupCamera = (cameraName: string) => {
       crumbs="camera"
     />
 
-    <div class="flex flex-col gap-4 border-x border-b border-black p-4">
+    <div class="border-border-1 flex flex-col gap-4 border-x border-b p-4">
       <v-switch
         :label="camera.name"
         :aria-label="openCameras[camera.name] ? `Hide Camera: ${camera.name}` : `View Camera: ${camera.name}`"
