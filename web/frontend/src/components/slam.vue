@@ -567,9 +567,8 @@ const toggleAxes = () => {
                   <select
                     v-model="selected3dValue"
                     class="
-                      m-0 w-full appearance-none border border-solid border-black bg-white bg-clip-padding px-3 py-1.5
-                      text-xs font-normal text-gray-700 focus:outline-none
-                    "
+                      border-border-1 m-0 w-full appearance-none border border-solid bg-white
+                      bg-clip-padding px-3 py-1.5 text-xs font-normal text-gray-700 focus:outline-none"
                     aria-label="Default select example"
                     @change="selectSLAMPCDRefreshFrequency()"
                   >

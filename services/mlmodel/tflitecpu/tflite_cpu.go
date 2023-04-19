@@ -17,14 +17,13 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/mlmodel"
-	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/utils"
 )
 
 var sModel = resource.NewDefaultModel("tflite_cpu")
 
 func init() {
-	registry.RegisterService(vision.Subtype, sModel, registry.Service{
+	registry.RegisterService(mlmodel.Subtype, sModel, registry.Service{
 		Constructor: func(ctx context.Context, deps registry.Dependencies, conf config.Service, logger golog.Logger) (interface{}, error) {
 			svcConfig, ok := conf.ConvertedAttributes.(*TFLiteConfig)
 			if !ok {
