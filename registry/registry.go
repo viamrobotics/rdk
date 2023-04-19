@@ -117,7 +117,7 @@ func RegisterService(subtype resource.Subtype, model resource.Model, res Service
 	RegisterResource(subtype, model, res)
 }
 
-// RegisterComponent registers a model for a component with and its construction info. Its a helper for
+// RegisterComponent registers a model for a component and its construction info. It's a helper for
 // RegisterResource.
 func RegisterComponent(subtype resource.Subtype, model resource.Model, res Component) {
 	if subtype.ResourceType != resource.ResourceTypeComponent {
