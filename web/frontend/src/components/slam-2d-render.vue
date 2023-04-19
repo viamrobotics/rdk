@@ -11,24 +11,26 @@ import { SVGLoader } from 'three/examples/jsm/loaders/SVGLoader';
 import { baseMarkerUrl } from '../lib/base-marker-url'
 import { destMarkerUrl } from '../lib/destination-marker-url'
 
-type svgOffset = {
+type SvgOffset = {
   x: number,
   z: number
 }
 
 // Note: updating the scale of the destination or base marker requires an offset update
 
-const baseMarkerOffset: svgOffset = {
+const baseMarkerOffset: SvgOffset = {
   x: 0.22,
   z: -0.26
 }
 
-const destinationMarkerOffset: svgOffset = {
+const destinationMarkerOffset: SvgOffset = {
   x: 1.2,
   z: -2.52
 }
 
 const backgroundGridColor = 0xCA_CA_CA
+
+const gridSubparts = ['AxesPos', 'AxesNeg', 'Grid']
 
 /*
  * this color map is greyscale. The color map is being used map probability values of a PCD
@@ -110,8 +112,6 @@ const makeMarker = async (url : string, name: string, scalar: number) => {
 
   const group = new THREE.Group();
   group.scale.multiplyScalar(scalar);
-  group.position.set(-70, 0, 70) // why do we do this? - do we need it?
-  group.scale.y *= -1; // why do we do this? - do we need it?
 
   for (const path of paths) {
 
@@ -340,19 +340,11 @@ watch(() => [props.destVector!.z, props.destVector!.x, props.destExists], async 
 });
 
 watch(() => props.axesVisible, () => {
-  const ax1 = scene.getObjectByName('AxesPos');
-  if (ax1 !== undefined) {
-    ax1.visible = props.axesVisible;
-  }
-
-  const ax2 = scene.getObjectByName('AxesNeg');
-  if (ax2 !== undefined) {
-    ax2.visible = props.axesVisible;
-  }
-
-  const grid = scene.getObjectByName('Grid');
-  if (grid !== undefined) {
-    grid.visible = props.axesVisible;
+  for (const gridPart of gridSubparts) {
+    const part = scene.getObjectByName(gridPart);
+    if (part !== undefined) {
+      part.visible = props.axesVisible
+    }
   }
 });
 

@@ -4,6 +4,7 @@
 import { $ref, $computed } from 'vue/macros';
 import { grpc } from '@improbable-eng/grpc-web';
 import { toast } from '../lib/toast';
+import { Struct } from 'google-protobuf/google/protobuf/struct_pb';
 import * as THREE from 'three';
 import { Client, commonApi, ResponseStream, ServiceError, slamApi, motionApi } from '@viamrobotics/sdk';
 import { displayError, isServiceError } from '../lib/error';
@@ -134,8 +135,8 @@ const executeMoveOnMap = async () => {
   motionServiceReq.setSlamServiceName(slamResourceName);
 
   // set component name
-  const baseResource = filterResources(props.resources, 'rdk', 'component', 'base');
-  if (baseResource === undefined) {
+  const baseResources = filterResources(props.resources, 'rdk', 'component', 'base');
+  if (baseResources === undefined) {
     toast.error('No base component detected.');
     return;
   }
@@ -143,8 +144,15 @@ const executeMoveOnMap = async () => {
   baseResourceName.setNamespace('rdk');
   baseResourceName.setType('component');
   baseResourceName.setSubtype('base');
-  baseResourceName.setName(baseResource[0]!.name);
+  baseResourceName.setName(baseResources[0]!.name);
   motionServiceReq.setComponentName(baseResourceName);
+
+  // set extra as position-only constraint
+  motionServiceReq.setExtra(
+    Struct.fromJavaScript({
+      motion_profile: "position_only"
+    })
+  )
   
   props.client.motionService.moveOnMap(
     motionServiceReq,
@@ -170,7 +178,7 @@ const executeStopMoveOnMap = () => {
         toast.error(`Error moving: ${error}`);
         return;
       }
-      toast.success(`MoveOnMap success: ${response!.getSuccess()}`);
+      toast.success(`Stopped MoveOnMap: ${response!.getSuccess()}`);
     }
   ).cancel
 };
