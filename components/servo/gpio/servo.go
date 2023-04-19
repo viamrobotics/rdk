@@ -23,10 +23,10 @@ const (
 	maxWidthUs    uint    = 2500 // absolute maximum PWM width
 )
 
-// We want to distinguish values that are 0 because the user set them to 0, and ones that are 0
+// We want to distinguish values that are 0 because the user set them to 0 from ones that are 0
 // because that's the default when the user didn't set them. Consequently, all numerical fields in
-// this struct are pointers. They'll be nil if they were unset, and point to some value (possibly
-// 0!) if they were set.
+// this struct are pointers. They'll be nil if they were unset, and point to a value (possibly 0!)
+// if they were set.
 type servoConfig struct {
 	Pin   string `json:"pin"`   // Pin is a GPIO pin with PWM capabilities.
 	Board string `json:"board"` // Board is a board that exposes GPIO pins.
@@ -57,6 +57,7 @@ func (config *servoConfig) Validate(path string) ([]string, error) {
 	if config.Pin == "" {
 		return nil, viamutils.NewConfigValidationFieldRequiredError(path, "pin")
 	}
+
 	if config.StartPos != nil {
 		minDeg := defaultMinDeg
 		maxDeg := defaultMaxDeg
@@ -68,9 +69,10 @@ func (config *servoConfig) Validate(path string) ([]string, error) {
 		}
 		if *config.StartPos < minDeg || *config.StartPos > maxDeg {
 			return nil, viamutils.NewConfigValidationError(path,
-				errors.Errorf("starting_position_degs should be between %.1f and %.1f", minDeg, maxDeg))
+				errors.Errorf("starting_position_deg should be between minimum (%.1f) and maximum (%.1f) positions", minDeg, maxDeg))
 		}
 	}
+
 	if config.MinDeg != nil && *config.MinDeg < 0 {
 		return nil, viamutils.NewConfigValidationError(path, errors.New("min_angle_deg cannot be lower than 0"))
 	}
