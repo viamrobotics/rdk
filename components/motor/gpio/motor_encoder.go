@@ -216,7 +216,7 @@ func (m *EncodedMotor) Position(ctx context.Context, extra map[string]interface{
 		return 0, err
 	}
 
-	return ticks / float64(m.cfg.TicksPerRotation), nil
+	return ticks / m.ticksPerRotation, nil
 }
 
 // DirectionMoving returns the direction we are currently mpving in, with 1 representing
@@ -389,7 +389,7 @@ func (m *EncodedMotor) rpmMonitorPass(pos, lastPos float64, now, lastTime int64,
 
 	// correctly set the ticksLeft accounting for power supplied to the motor and the expected direction of the motor
 	ticksLeft := (setPoint - pos) * sign(lastPowerPct) * m.flip
-	rotationsLeft := float64(ticksLeft) / float64(m.ticksPerRotation)
+	rotationsLeft := ticksLeft / m.ticksPerRotation
 
 	if rotationsLeft <= 0 { // if we have reached goal or overshot, turn off
 		if rpmDebug {
@@ -447,7 +447,7 @@ func (m *EncodedMotor) computeRPM(pos, lastPos float64, now, lastTime int64) flo
 	if minutes == 0 {
 		return 0.0
 	}
-	rotations := float64(pos-lastPos) / float64(m.cfg.TicksPerRotation)
+	rotations := (pos - lastPos) / (m.ticksPerRotation)
 	return rotations / minutes
 }
 

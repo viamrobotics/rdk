@@ -69,9 +69,7 @@ func (config *Config) Validate(path string) ([]string, error) {
 // init registers a pi motor based on pigpio.
 func init() {
 	registry.RegisterComponent(motor.Subtype, model, registry.Component{
-		Constructor: func(ctx context.Context, deps registry.Dependencies, cfg config.Component, logger golog.Logger) (interface{}, error) {
-			return createNewMotor(ctx, deps, cfg, logger)
-		},
+		Constructor: createNewMotor,
 	})
 
 	config.RegisterComponentAttributeMapConverter(
