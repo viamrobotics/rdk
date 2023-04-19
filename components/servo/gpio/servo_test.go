@@ -60,14 +60,14 @@ func TestValidate(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(),
 		test.ShouldContainSubstring,
-		"error validating \"test\": starting_position_degs should be between 1.5 and 90.0")
+		"error validating \"test\": starting_position_deg should be between minimum (1.5) and maximum (90.0) positions")
 
 	cfg.StartPos = ptr(1.0)
 	_, err = cfg.Validate("test")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(),
 		test.ShouldContainSubstring,
-		"error validating \"test\": starting_position_degs should be between 1.5 and 90.0")
+		"error validating \"test\": starting_position_deg should be between minimum (1.5) and maximum (90.0) positions")
 
 	cfg.StartPos = ptr(199.0)
 	cfg.MaxDeg = nil
@@ -76,7 +76,7 @@ func TestValidate(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(),
 		test.ShouldContainSubstring,
-		"error validating \"test\": starting_position_degs should be between 0.0 and 180.0")
+		"error validating \"test\": starting_position_deg should be between minimum (0.0) and maximum (180.0) positions")
 
 	cfg.StartPos = ptr(0.0)
 	_, err = cfg.Validate("test")
