@@ -23,6 +23,10 @@ const (
 	maxWidthUs    uint    = 2500 // absolute maximum PWM width
 )
 
+// We want to distinguish values that are 0 because the user set them to 0, and ones that are 0
+// because that's the default when the user didn't set them. Consequently, all numerical fields in
+// this struct are pointers. They'll be nil if they were unset, and point to some value (possibly
+// 0!) if they were set.
 type servoConfig struct {
 	Pin   string `json:"pin"`   // Pin is a GPIO pin with PWM capabilities.
 	Board string `json:"board"` // Board is a board that exposes GPIO pins.
