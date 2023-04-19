@@ -171,7 +171,7 @@ func TestAMSEncoderReset(t *testing.T) {
 	positionMockData[0xFE] = 100
 	positionMockData[0xFF] = 60
 
-	var writeData = make(map[byte]byte)
+	writeData := make(map[byte]byte)
 
 	logger := golog.NewTestLogger(t)
 	cfg, deps := setupDependenciesWithWrite(positionMockData, writeData)
