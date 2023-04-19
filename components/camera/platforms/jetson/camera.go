@@ -68,12 +68,10 @@ func Validate(osInfo OSInformation, daughterboardName string, driverName string)
 	if !ok {
 		return fmt.Errorf("the %s driver is not supported on this platform", driverName)
 	}
-	err := checkDaughterBoardConnected(daughterboard)
-	if err != nil {
+	if err := checkDaughterBoardConnected(daughterboard); err != nil {
 		return fmt.Errorf("the %s daughterboard is not connected or not powerd on. Please check daughter-board conenction to the %s", daughterboardName, osInfo.Device)
 	}
-	err = checkDriverInstalled(osInfo.Kernel, driver)
-	if err != nil {
+	if err := checkDriverInstalled(osInfo.Kernel, driver); err != nil {
 		return fmt.Errorf("the %s driver not installed. Please follow instructions for driver installation", driverName)
 	}
 
