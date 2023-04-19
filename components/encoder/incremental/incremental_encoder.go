@@ -45,10 +45,16 @@ func init() {
 
 // Encoder keeps track of a motor position using a rotary incremental encoder.
 type Encoder struct {
-	A, B     board.DigitalInterrupt
+	A, B board.DigitalInterrupt
+	// The position is pRaw with the least significant bit chopped off.
 	position int64
-	pRaw     int64
-	pState   int64
+	// pRaw is the number of half-ticks we've gone through: it increments or decrements whenever
+	// either pin on the encoder changes.
+	pRaw int64
+	// pState is the previous state: the least significant bit is the value of pin A, and the
+	// second-least-significant bit is pin B. It is used to determine whether to increment or
+	// decrement pRaw.
+	pState int64
 
 	positionType            encoder.PositionType
 	logger                  golog.Logger
@@ -94,7 +100,7 @@ func (config *AttrConfig) Validate(path string) ([]string, error) {
 func NewIncrementalEncoder(
 	ctx context.Context,
 	deps registry.Dependencies,
-	cfg config.Component,
+	config config.Component,
 	logger golog.Logger,
 ) (encoder.Encoder, error) {
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
@@ -107,27 +113,28 @@ func NewIncrementalEncoder(
 		pRaw:         0,
 		pState:       0,
 	}
-	if cfg, ok := cfg.ConvertedAttributes.(*AttrConfig); ok {
-		board, err := board.FromDependencies(deps, cfg.BoardName)
-		if err != nil {
-			return nil, err
-		}
 
-		e.A, ok = board.DigitalInterruptByName(cfg.Pins.A)
-		if !ok {
-			return nil, errors.Errorf("cannot find pin (%s) for incremental Encoder", cfg.Pins.A)
-		}
-		e.B, ok = board.DigitalInterruptByName(cfg.Pins.B)
-		if !ok {
-			return nil, errors.Errorf("cannot find pin (%s) for incremental Encoder", cfg.Pins.B)
-		}
-
-		e.Start(ctx)
-
-		return e, nil
+	cfg, ok := config.ConvertedAttributes.(*AttrConfig)
+	if !ok {
+		return nil, errors.New("encoder config for incremental Encoder is not valid")
 	}
 
-	return nil, errors.New("encoder config for incremental Encoder is not valid")
+	board, err := board.FromDependencies(deps, cfg.BoardName)
+	if err != nil {
+		return nil, err
+	}
+
+	e.A, ok = board.DigitalInterruptByName(cfg.Pins.A)
+	if !ok {
+		return nil, errors.Errorf("cannot find pin (%s) for incremental Encoder", cfg.Pins.A)
+	}
+	e.B, ok = board.DigitalInterruptByName(cfg.Pins.B)
+	if !ok {
+		return nil, errors.Errorf("cannot find pin (%s) for incremental Encoder", cfg.Pins.B)
+	}
+
+	e.Start(ctx)
+	return e, nil
 }
 
 // Start starts the Encoder background thread.
@@ -189,6 +196,11 @@ func (e *Encoder) Start(ctx context.Context) {
 		defer e.A.RemoveCallback(chanA)
 		defer e.B.RemoveCallback(chanB)
 		for {
+			// This looks redundant with the other select statement below, but it's not: if we're
+			// supposed to return, we need to do that even if chanA and chanB are full of data, and
+			// the other select statement will pick random cases in that situation. This select
+			// statement guarantees that we'll return if we're supposed to, regardless of whether
+			// there's data in the other channels.
 			select {
 			case <-e.CancelCtx.Done():
 				return
@@ -223,9 +235,7 @@ func (e *Encoder) Start(ctx context.Context) {
 			case 0b1000:
 				fallthrough
 			case 0b1110:
-				e.dec()
-				atomic.StoreInt64(&e.position, atomic.LoadInt64(&e.pRaw)>>1)
-				e.pState = nState
+				atomic.AddInt64(&e.pRaw, -1)
 			case 0b0010:
 				fallthrough
 			case 0b0100:
@@ -233,10 +243,10 @@ func (e *Encoder) Start(ctx context.Context) {
 			case 0b1011:
 				fallthrough
 			case 0b1101:
-				e.inc()
-				atomic.StoreInt64(&e.position, atomic.LoadInt64(&e.pRaw)>>1)
-				e.pState = nState
+				atomic.AddInt64(&e.pRaw, 1)
 			}
+			atomic.StoreInt64(&e.position, atomic.LoadInt64(&e.pRaw)>>1)
+			e.pState = nState
 		}
 	}, e.activeBackgroundWorkers.Done)
 }
@@ -257,11 +267,10 @@ func (e *Encoder) GetPosition(
 }
 
 // ResetPosition sets the current position of the motor (adjusted by a given offset)
-// to be its new zero position..
+// to be its new zero position.
 func (e *Encoder) ResetPosition(ctx context.Context, extra map[string]interface{}) error {
-	offsetInt := int64(0)
-	atomic.StoreInt64(&e.position, offsetInt)
-	atomic.StoreInt64(&e.pRaw, (offsetInt<<1)|atomic.LoadInt64(&e.pRaw)&0x1)
+	atomic.StoreInt64(&e.position, 0)
+	atomic.StoreInt64(&e.pRaw, atomic.LoadInt64(&e.pRaw)&0x1)
 	return nil
 }
 
@@ -276,14 +285,6 @@ func (e *Encoder) GetProperties(ctx context.Context, extra map[string]interface{
 // RawPosition returns the raw position of the encoder.
 func (e *Encoder) RawPosition() int64 {
 	return atomic.LoadInt64(&e.pRaw)
-}
-
-func (e *Encoder) inc() {
-	atomic.AddInt64(&e.pRaw, 1)
-}
-
-func (e *Encoder) dec() {
-	atomic.AddInt64(&e.pRaw, -1)
 }
 
 // Close shuts down the Encoder.
