@@ -16,6 +16,8 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
+	"go.viam.com/rdk/services/mlmodel"
+	_ "go.viam.com/rdk/services/mlmodel/register"
 	"go.viam.com/rdk/services/vision"
 	_ "go.viam.com/rdk/services/vision/register"
 )
@@ -26,8 +28,8 @@ func buildRobotWithClassifier(logger golog.Logger) (robot.Robot, error) {
 	// create fake source camera
 	tfliteSrv1 := config.Service{
 		Name:  "object_classifier",
-		Type:  vision.SubtypeName,
-		Model: resource.NewDefaultModel("tflite_classifier"),
+		Type:  mlmodel.SubtypeName,
+		Model: resource.NewDefaultModel("tflite_cpu"),
 		Attributes: config.AttributeMap{
 			"model_path":  artifact.MustPath("vision/classification/object_classifier.tflite"),
 			"label_path":  artifact.MustPath("vision/classification/object_labels.txt"),
@@ -35,6 +37,16 @@ func buildRobotWithClassifier(logger golog.Logger) (robot.Robot, error) {
 		},
 	}
 	cfg.Services = append(cfg.Services, tfliteSrv1)
+	visionSrv1 := config.Service{
+		Name:  "vision_classifier",
+		Type:  vision.SubtypeName,
+		Model: resource.NewDefaultModel("ml_model"),
+		Attributes: config.AttributeMap{
+			"ml_model_name": "object_classifier",
+		},
+		DependsOn: []string{"object_classifier"},
+	}
+	cfg.Services = append(cfg.Services, visionSrv1)
 	cameraComp := config.Component{
 		Name:  "fake_cam",
 		Type:  camera.SubtypeName,
@@ -57,7 +69,7 @@ func buildRobotWithClassifier(logger golog.Logger) (robot.Robot, error) {
 				{
 					"type": "classifications",
 					"attributes": config.AttributeMap{
-						"classifier_name":      "object_classifier",
+						"classifier_name":      "vision_classifier",
 						"confidence_threshold": 0.35,
 						"max_classifications":  5,
 					},
