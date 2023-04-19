@@ -223,10 +223,8 @@ func (e *Encoder) Start(ctx context.Context) {
 					bLevel = 1
 				}
 			}
-
 			nState := aLevel | (bLevel << 1)
 			if e.pState == nState {
-				e.logger.Debugf("unexpected non-transition interrupt! State is %d", e.pState)
 				continue
 			}
 			switch (e.pState << 2) | nState {
