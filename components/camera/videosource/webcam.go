@@ -62,7 +62,7 @@ func init() {
 				// If we are on a Jetson Orin AGX, we need to validate driver and daughterboard setup
 				osInfo, osErr := jetsoncamera.DetectOSInformation()
 				if osErr != nil {
-					return cameraSource, errors.Wrap(err, osErr.Error())
+					return cameraSource, err
 				}
 				if osInfo.Device == jetsoncamera.OrinAGX {
 					return cameraSource, errors.Wrap(err, jetsoncamera.DetectError(osInfo, jetsoncamera.ECAM, jetsoncamera.AR0234).Error())
