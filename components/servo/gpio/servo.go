@@ -201,9 +201,9 @@ func mapDegToDutyCylePct(minUs, maxUs uint, minDeg, maxDeg, deg float64, frequen
 	degRange := maxDeg - minDeg
 	uSRange := float64(maxUs - minUs)
 
-	scale := uSRange / degRange
+	usPerDeg := uSRange / degRange
 
-	pwmWidthUs := float64(minUs) + (deg-minDeg)*scale
+	pwmWidthUs := float64(minUs) + (deg-minDeg)*usPerDeg
 	return (pwmWidthUs / (1000 * 1000)) / period
 }
 
@@ -217,9 +217,9 @@ func mapDutyCylePctToDeg(minUs, maxUs uint, minDeg, maxDeg, pct float64, frequen
 	pwmWidthUs = math.Max(float64(minUs), pwmWidthUs)
 	pwmWidthUs = math.Min(float64(maxUs), pwmWidthUs)
 
-	scale := degRange / uSRange
+	degsPerUs := degRange / uSRange
 
-	return math.Round(minDeg + (pwmWidthUs-float64(minUs))*scale)
+	return math.Round(minDeg + (pwmWidthUs-float64(minUs))*degsPerUs)
 }
 
 // Attempt to find the PWM resolution assuming a hardware PWM
