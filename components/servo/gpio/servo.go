@@ -19,27 +19,27 @@ import (
 const (
 	defaultMinDeg float64 = 0.0
 	defaultMaxDeg float64 = 180.0
-	minWidthUs    uint    = 500  // absolute minimum pwm width
-	maxWidthUs    uint    = 2500 // absolute maximum pwm width
+	minWidthUs    uint    = 500  // absolute minimum PWM width
+	maxWidthUs    uint    = 2500 // absolute maximum PWM width
 )
 
 type servoConfig struct {
-	Pin   string `json:"pin"`   // Pin a GPIO pin with pwm capabilities
-	Board string `json:"board"` // Board a board that exposes GPIO pins
-	// MinDeg minimum angle the servo can reach, note this doesn't affect PWM calculation
+	Pin   string `json:"pin"`   // Pin is a GPIO pin with PWM capabilities.
+	Board string `json:"board"` // Board is a board that exposes GPIO pins.
+	// MinDeg is the minimum angle the servo can reach. Note this doesn't affect PWM calculation.
 	MinDeg *float64 `json:"min_angle_deg,omitempty"`
-	// MaxDeg maximum angle the servo can reach, note this doesn't affect PWM calculation
+	// MaxDeg is the maximum angle the servo can reach. Note this doesn't affect PWM calculation.
 	MaxDeg *float64 `json:"max_angle_deg,omitempty"`
-	// StartPos starting position of the servo in degree
+	// StartPos is the starting position of the servo in degrees.
 	StartPos *float64 `json:"starting_position_deg,omitempty"`
-	// Frequency when set the servo driver will attempt to change the GPIO pin's Frequency
+	// Frequency at which to drive the PWM
 	Frequency *uint `json:"frequency_hz,omitempty"`
-	// Resolution resolution of the PWM driver (eg number of ticks for a full period) if left or 0
-	// the driver will attempt to estimate the resolution
+	// Resolution of the PWM driver (eg number of ticks for a full period). If omitted or 0, the
+	// driver will attempt to estimate the resolution.
 	Resolution *uint `json:"pwm_resolution,omitempty"`
-	// MinWidthUs override the safe minimum width in us this affect PWM calculation
+	// MinWidthUs overrides the safe minimum PWM width in microseconds.
 	MinWidthUs *uint `json:"min_width_us,omitempty"`
-	// MaxWidthUs Override the safe maximum width in us this affect PWM calculation
+	// MaxWidthUs overrides the safe maximum PWM width in microseconds.
 	MaxWidthUs *uint `json:"max_width_us,omitempty"`
 }
 
