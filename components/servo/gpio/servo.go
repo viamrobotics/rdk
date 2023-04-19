@@ -238,6 +238,8 @@ func (s *servoGPIO) findPWMResolution(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "couldn't find PWM resolution")
 	}
+
+	// The direction will be towards whichever extreme duration (minUs or maxUs) is farther away.
 	dir := 1.0
 	lDist := s.currPct*periodUs - float64(s.minUs)
 	rDist := float64(s.maxUs) - s.currPct*periodUs
