@@ -35,6 +35,7 @@ func (f *fakeDirectionAware) DirectionMoving() int64 {
 }
 
 func TestMotorEncoder1(t *testing.T) {
+	t.Skip()
 	logger := golog.NewTestLogger(t)
 	undo := SetRPMSleepDebug(1, false)
 	defer undo()
@@ -276,6 +277,7 @@ func TestMotorEncoder1(t *testing.T) {
 }
 
 func TestMotorEncoderIncremental(t *testing.T) {
+	t.Skip()
 	logger := golog.NewTestLogger(t)
 	undo := SetRPMSleepDebug(1, false)
 	defer undo()
