@@ -125,9 +125,10 @@ func (m *mux) makeCallbacks(eventOut input.Event) {
 }
 
 // Close terminates background worker threads.
-func (m *mux) Close() {
+func (m *mux) Close(ctx context.Context) error {
 	m.cancelFunc()
 	m.activeBackgroundWorkers.Wait()
+	return nil
 }
 
 // Controls lists the unique input.Controls for the combined sources.

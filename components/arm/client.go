@@ -23,6 +23,7 @@ var errArmClientModelNotValid = errors.New("unable to retrieve a valid arm model
 type client struct {
 	resource.Named
 	resource.TriviallyReconfigurable
+	resource.TriviallyCloseable
 	name   string
 	client pb.ArmServiceClient
 	model  referenceframe.Model

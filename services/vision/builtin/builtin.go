@@ -79,7 +79,7 @@ func (vs *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, 
 		return err
 	}
 
-	if err := vs.Close(); err != nil {
+	if err := vs.Close(ctx); err != nil {
 		vs.logger.Errorw("error closing", "error", err)
 	}
 	vs.mu.Lock()
@@ -347,7 +347,7 @@ func (vs *builtIn) GetObjectPointClouds(
 }
 
 // Close removes all existing detectors from the vision service.
-func (vs *builtIn) Close() error {
+func (vs *builtIn) Close(ctx context.Context) error {
 	vs.mu.Lock()
 	defer vs.mu.Unlock()
 	models := vs.modReg.ModelNames()

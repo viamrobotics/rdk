@@ -67,7 +67,7 @@ func TestEncoder(t *testing.T) {
 		enc, err := NewIncrementalEncoder(ctx, deps, rawcfg, golog.NewTestLogger(t))
 		test.That(t, err, test.ShouldBeNil)
 		enc2 := enc.(*Encoder)
-		defer enc2.Close()
+		defer enc2.Close(context.Background())
 
 		err = enc2.B.Tick(context.Background(), true, uint64(time.Now().UnixNano()))
 		test.That(t, err, test.ShouldBeNil)
@@ -86,7 +86,7 @@ func TestEncoder(t *testing.T) {
 		enc, err := NewIncrementalEncoder(ctx, deps, rawcfg, golog.NewTestLogger(t))
 		test.That(t, err, test.ShouldBeNil)
 		enc2 := enc.(*Encoder)
-		defer enc2.Close()
+		defer enc2.Close(context.Background())
 
 		err = enc2.A.Tick(context.Background(), false, uint64(time.Now().UnixNano()))
 		test.That(t, err, test.ShouldBeNil)
@@ -105,7 +105,7 @@ func TestEncoder(t *testing.T) {
 		enc, err := NewIncrementalEncoder(ctx, deps, rawcfg, golog.NewTestLogger(t))
 		test.That(t, err, test.ShouldBeNil)
 		enc2 := enc.(*Encoder)
-		defer enc2.Close()
+		defer enc2.Close(context.Background())
 
 		// reset position to 0
 		err = enc.ResetPosition(context.Background(), nil)
@@ -119,7 +119,7 @@ func TestEncoder(t *testing.T) {
 		enc, err := NewIncrementalEncoder(ctx, deps, rawcfg, golog.NewTestLogger(t))
 		test.That(t, err, test.ShouldBeNil)
 		enc2 := enc.(*Encoder)
-		defer enc2.Close()
+		defer enc2.Close(context.Background())
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
@@ -133,7 +133,7 @@ func TestEncoder(t *testing.T) {
 		enc, err := NewIncrementalEncoder(ctx, deps, rawcfg, golog.NewTestLogger(t))
 		test.That(t, err, test.ShouldBeNil)
 		enc2 := enc.(*Encoder)
-		defer enc2.Close()
+		defer enc2.Close(context.Background())
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
@@ -148,7 +148,7 @@ func TestEncoder(t *testing.T) {
 		enc, err := NewIncrementalEncoder(ctx, deps, rawcfg, golog.NewTestLogger(t))
 		test.That(t, err, test.ShouldBeNil)
 		enc2 := enc.(*Encoder)
-		defer enc2.Close()
+		defer enc2.Close(context.Background())
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()

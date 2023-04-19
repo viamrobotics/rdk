@@ -67,7 +67,7 @@ func TestEncoder(t *testing.T) {
 		enc, err := NewSingleEncoder(ctx, deps, rawcfg, golog.NewTestLogger(t))
 		test.That(t, err, test.ShouldBeNil)
 		enc2 := enc.(*Encoder)
-		defer enc2.Close()
+		defer enc2.Close(context.Background())
 
 		m := &FakeDir{1} // forward
 		enc2.AttachDirectionalAwareness(m)
@@ -87,7 +87,7 @@ func TestEncoder(t *testing.T) {
 		enc, err := NewSingleEncoder(ctx, deps, rawcfg, golog.NewTestLogger(t))
 		test.That(t, err, test.ShouldBeNil)
 		enc2 := enc.(*Encoder)
-		defer enc2.Close()
+		defer enc2.Close(context.Background())
 
 		m := &FakeDir{-1} // backward
 		enc2.AttachDirectionalAwareness(m)
@@ -109,7 +109,7 @@ func TestEncoder(t *testing.T) {
 		enc, err := NewSingleEncoder(ctx, deps, rawcfg, golog.NewTestLogger(t))
 		test.That(t, err, test.ShouldBeNil)
 		enc2 := enc.(*Encoder)
-		defer enc2.Close()
+		defer enc2.Close(context.Background())
 
 		err = enc2.I.Tick(context.Background(), true, uint64(time.Now().UnixNano()))
 		test.That(t, err, test.ShouldBeNil)
@@ -128,7 +128,7 @@ func TestEncoder(t *testing.T) {
 		enc, err := NewSingleEncoder(ctx, deps, rawcfg, golog.NewTestLogger(t))
 		test.That(t, err, test.ShouldBeNil)
 		enc2 := enc.(*Encoder)
-		defer enc2.Close()
+		defer enc2.Close(context.Background())
 
 		// reset position to 0
 		err = enc.ResetPosition(context.Background(), nil)
@@ -142,7 +142,7 @@ func TestEncoder(t *testing.T) {
 		enc, err := NewSingleEncoder(ctx, deps, rawcfg, golog.NewTestLogger(t))
 		test.That(t, err, test.ShouldBeNil)
 		enc2 := enc.(*Encoder)
-		defer enc2.Close()
+		defer enc2.Close(context.Background())
 
 		m := &FakeDir{1} // forward
 		enc2.AttachDirectionalAwareness(m)
@@ -180,7 +180,7 @@ func TestEncoder(t *testing.T) {
 		enc, err := NewSingleEncoder(ctx, deps, rawcfg, golog.NewTestLogger(t))
 		test.That(t, err, test.ShouldBeNil)
 		enc2 := enc.(*Encoder)
-		defer enc2.Close()
+		defer enc2.Close(context.Background())
 
 		m := &FakeDir{1} // forward
 		enc2.AttachDirectionalAwareness(m)
@@ -200,7 +200,7 @@ func TestEncoder(t *testing.T) {
 		enc, err := NewSingleEncoder(ctx, deps, rawcfg, golog.NewTestLogger(t))
 		test.That(t, err, test.ShouldBeNil)
 		enc2 := enc.(*Encoder)
-		defer enc2.Close()
+		defer enc2.Close(context.Background())
 
 		m := &FakeDir{-1} // backward
 		enc2.AttachDirectionalAwareness(m)
@@ -219,7 +219,7 @@ func TestEncoder(t *testing.T) {
 		enc, err := NewSingleEncoder(ctx, deps, rawcfg, golog.NewTestLogger(t))
 		test.That(t, err, test.ShouldBeNil)
 		enc2 := enc.(*Encoder)
-		defer enc2.Close()
+		defer enc2.Close(context.Background())
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()

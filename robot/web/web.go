@@ -244,9 +244,6 @@ type Service interface {
 
 	// Returns the unix socket path the module server listens on.
 	ModuleAddress() string
-
-	// Close closes the web server
-	Close() error
 }
 
 // StreamServer manages streams and displays.
@@ -516,7 +513,7 @@ func (svc *webService) Stop() {
 }
 
 // Close closes a webService via calls to its Cancel func.
-func (svc *webService) Close() error {
+func (svc *webService) Close(ctx context.Context) error {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
 	var err error

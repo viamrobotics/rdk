@@ -43,6 +43,7 @@ func init() {
 type Gripper struct {
 	resource.Named
 	resource.TriviallyReconfigurable
+	resource.TriviallyCloseable
 }
 
 // ModelFrame returns the dynamic frame of the model.

@@ -62,6 +62,7 @@ func newCounter(ctx context.Context, deps resource.Dependencies, conf resource.C
 // counter is the representation of this model. It holds only a "total" count.
 type counter struct {
 	resource.Named
+	resource.TriviallyCloseable
 	total int64
 }
 

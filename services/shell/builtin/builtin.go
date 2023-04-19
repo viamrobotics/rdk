@@ -140,6 +140,7 @@ func (svc *builtIn) Shell(ctx context.Context, extra map[string]interface{}) (ch
 	return input, output, nil
 }
 
-func (svc *builtIn) Close() {
+func (svc *builtIn) Close(ctx context.Context) error {
 	svc.activeBackgroundWorkers.Wait()
+	return nil
 }

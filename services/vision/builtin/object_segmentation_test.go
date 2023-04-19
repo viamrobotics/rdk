@@ -8,7 +8,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/camera"
@@ -284,6 +283,6 @@ func TestFullClientServerLoop(t *testing.T) {
 		test.That(t, box.Label(), test.ShouldEqual, expectedLabel)
 	}
 
-	test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
+	test.That(t, client.Close(context.Background()), test.ShouldBeNil)
 	test.That(t, conn.Close(), test.ShouldBeNil)
 }

@@ -227,8 +227,9 @@ func (a *Arm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error
 }
 
 // Close does nothing.
-func (a *Arm) Close() {
+func (a *Arm) Close(ctx context.Context) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.CloseCount++
+	return nil
 }

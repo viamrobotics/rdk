@@ -203,9 +203,10 @@ func (c *Controller) RegisterControlCallback(
 }
 
 // Close terminates background worker threads.
-func (c *Controller) Close() {
+func (c *Controller) Close(ctx context.Context) error {
 	c.cancelFunc()
 	c.activeBackgroundWorkers.Wait()
+	return nil
 }
 
 func (c *Controller) makeCallbacks(ctx context.Context, eventOut input.Event) {

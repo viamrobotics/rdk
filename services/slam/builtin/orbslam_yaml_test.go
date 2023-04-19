@@ -15,7 +15,6 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 	"gopkg.in/yaml.v2"
 
 	"go.viam.com/rdk/rimage/transform"
@@ -126,7 +125,7 @@ func TestOrbslamYAMLNew(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		grpcServer.Stop()
-		test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
+		test.That(t, svc.Close(context.Background()), test.ShouldBeNil)
 
 		yamlFileTimeStampGood, yamlFilePathGood, err := findLastYAML(name)
 
@@ -164,7 +163,7 @@ func TestOrbslamYAMLNew(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		grpcServer.Stop()
-		test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
+		test.That(t, svc.Close(context.Background()), test.ShouldBeNil)
 
 		// Should have the same name due to map being found
 		yamlFileTimeStampGood, yamlFilePathGood, err := findLastYAML(name)
@@ -190,7 +189,7 @@ func TestOrbslamYAMLNew(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		grpcServer.Stop()
-		test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
+		test.That(t, svc.Close(context.Background()), test.ShouldBeNil)
 
 		yamlFileTimeStampGood, yamlFilePathGood, err := findLastYAML(name)
 

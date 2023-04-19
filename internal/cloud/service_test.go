@@ -24,7 +24,7 @@ func TestNotCloudManaged(t *testing.T) {
 	svc := cloud.NewCloudConnectionService(nil, logger)
 	_, _, err := svc.AcquireConnection(context.Background())
 	test.That(t, err, test.ShouldEqual, cloud.ErrNotCloudManaged)
-	test.That(t, svc.Close(), test.ShouldBeNil)
+	test.That(t, svc.Close(context.Background()), test.ShouldBeNil)
 	_, _, err = svc.AcquireConnection(context.Background())
 	test.That(t, err, test.ShouldEqual, cloud.ErrNotCloudManaged)
 }
@@ -120,7 +120,7 @@ func TestCloudManaged(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp.Message, test.ShouldEqual, "hello")
 
-	test.That(t, svc.Close(), test.ShouldBeNil)
+	test.That(t, svc.Close(context.Background()), test.ShouldBeNil)
 	_, err = echoClient1.Echo(context.Background(), &echopb.EchoRequest{
 		Message: "hello",
 	})
@@ -191,7 +191,7 @@ func TestCloudManagedWithAuth(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, status.Code(err), test.ShouldEqual, codes.Unauthenticated)
 
-	test.That(t, svc.Close(), test.ShouldBeNil)
+	test.That(t, svc.Close(context.Background()), test.ShouldBeNil)
 
 	conf = &config.Cloud{
 		AppAddress: fmt.Sprintf("http://%s", addr),
@@ -266,7 +266,7 @@ func TestCloudManagedWithAuth(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp.Message, test.ShouldEqual, "hello")
 
-	test.That(t, svc.Close(), test.ShouldBeNil)
+	test.That(t, svc.Close(context.Background()), test.ShouldBeNil)
 	_, err = echoClient1.Echo(context.Background(), &echopb.EchoRequest{
 		Message: "hello",
 	})

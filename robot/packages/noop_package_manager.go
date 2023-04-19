@@ -47,7 +47,7 @@ func (m *noopManager) RefPath(refPath string) (string, error) {
 }
 
 // Close manager.
-func (m *noopManager) Close() error {
+func (m *noopManager) Close(ctx context.Context) error {
 	return nil
 }
 

@@ -147,7 +147,7 @@ func (r *localRobot) Close(ctx context.Context) error {
 
 	var err error
 	if r.cloudConnSvc != nil {
-		err = multierr.Combine(err, r.cloudConnSvc.Close())
+		err = multierr.Combine(err, r.cloudConnSvc.Close(ctx))
 	}
 	if r.manager != nil {
 		err = multierr.Combine(err, r.manager.Close(ctx, r))
@@ -156,10 +156,10 @@ func (r *localRobot) Close(ctx context.Context) error {
 		err = multierr.Combine(err, r.modules.Close(ctx))
 	}
 	if r.packageManager != nil {
-		err = multierr.Combine(err, r.packageManager.Close())
+		err = multierr.Combine(err, r.packageManager.Close(ctx))
 	}
 	if r.webSvc != nil {
-		err = multierr.Combine(err, r.webSvc.Close())
+		err = multierr.Combine(err, r.webSvc.Close(ctx))
 	}
 	r.sessionManager.Close()
 	return err
@@ -181,8 +181,10 @@ func (r *localRobot) StopAll(ctx context.Context, extra map[resource.Name]map[st
 			continue
 		}
 
-		if err := resource.StopResource(ctx, res, extra[name]); err != nil {
-			resourceErrs = append(resourceErrs, name.Name)
+		if actuator, ok := res.(resource.Actuator); ok {
+			if err := actuator.Stop(ctx, extra[name]); err != nil {
+				resourceErrs = append(resourceErrs, name.Name)
+			}
 		}
 	}
 
@@ -212,8 +214,8 @@ func (r *localRobot) StartWeb(ctx context.Context, o weboptions.Options) (err er
 }
 
 // StopWeb stops the web server, will be a noop if server is not up.
-func (r *localRobot) StopWeb() error {
-	return r.webSvc.Close()
+func (r *localRobot) StopWeb(ctx context.Context) error {
+	return r.webSvc.Close(ctx)
 }
 
 // WebAddress return the web service's address.

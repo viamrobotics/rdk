@@ -345,7 +345,7 @@ func (b *numatoBoard) SetPowerMode(ctx context.Context, mode pb.PowerMode, durat
 	return grpc.UnimplementedError
 }
 
-func (b *numatoBoard) Close() error {
+func (b *numatoBoard) Close(ctx context.Context) error {
 	atomic.AddInt32(&b.closed, 1)
 	if err := b.port.Close(); err != nil {
 		return err
@@ -412,7 +412,7 @@ func connect(ctx context.Context, name resource.Name, conf *Config, logger golog
 
 	ver, err := b.doSendReceive(ctx, "ver")
 	if err != nil {
-		return nil, multierr.Combine(b.Close(), err)
+		return nil, multierr.Combine(b.Close(ctx), err)
 	}
 	b.logger.Debugw("numato startup", "version", ver)
 

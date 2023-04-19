@@ -125,7 +125,11 @@ func getBoardFromRobotConfig(deps resource.Dependencies, conf resource.Config) (
 	return b, motorConfig, nil
 }
 
-func newGPIOStepper(ctx context.Context, b board.Board, mc Config, name resource.Name,
+func newGPIOStepper(
+	ctx context.Context,
+	b board.Board,
+	mc Config,
+	name resource.Name,
 	logger golog.Logger,
 ) (motor.Motor, error) {
 	if mc.TicksPerRotation == 0 {
@@ -177,6 +181,7 @@ func newGPIOStepper(ctx context.Context, b board.Board, mc Config, name resource
 type gpioStepper struct {
 	resource.Named
 	resource.AlwaysRebuild
+	resource.TriviallyCloseable
 
 	// config
 	theBoard                    board.Board

@@ -61,6 +61,9 @@ func Named(name string) resource.Name {
 // Gantry is used for controlling gantries of N axis.
 type Gantry interface {
 	resource.Resource
+	resource.Actuator
+	referenceframe.ModelFramer
+	referenceframe.InputEnabled
 
 	// Position returns the position in meters
 	Position(ctx context.Context, extra map[string]interface{}) ([]float64, error)
@@ -71,13 +74,6 @@ type Gantry interface {
 
 	// Lengths is the length of gantries in meters
 	Lengths(ctx context.Context, extra map[string]interface{}) ([]float64, error)
-
-	// Stop stops the gantry. It is assumed the gantry stops immediately.
-	Stop(ctx context.Context, extra map[string]interface{}) error
-
-	referenceframe.ModelFramer
-	referenceframe.InputEnabled
-	resource.MovingCheckable
 }
 
 // FromDependencies is a helper for getting the named gantry from a collection of

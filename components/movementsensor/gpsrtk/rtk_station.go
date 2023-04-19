@@ -130,7 +130,7 @@ type rtkStation struct {
 type correctionSource interface {
 	Reader() (io.ReadCloser, error)
 	Start(ready chan<- bool)
-	Close() error
+	Close(ctx context.Context) error
 }
 
 type i2cBusAddr struct {
@@ -324,14 +324,14 @@ func (r *rtkStation) Start(ctx context.Context) {
 }
 
 // Close shuts down the rtkStation.
-func (r *rtkStation) Close() error {
+func (r *rtkStation) Close(ctx context.Context) error {
 	r.mu.Lock()
 	r.cancelFunc()
 	r.mu.Unlock()
 	r.activeBackgroundWorkers.Wait()
 
 	// close correction source
-	err := r.correction.Close()
+	err := r.correction.Close(ctx)
 	if err != nil {
 		return err
 	}

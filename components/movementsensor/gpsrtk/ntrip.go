@@ -245,7 +245,7 @@ func (n *ntripCorrectionSource) Reader() (io.ReadCloser, error) {
 }
 
 // Close shuts down the ntripCorrectionSource and closes all connections to the caster.
-func (n *ntripCorrectionSource) Close() error {
+func (n *ntripCorrectionSource) Close(ctx context.Context) error {
 	n.logger.Debug("Closing ntrip client")
 	n.mu.Lock()
 	n.cancelFunc()

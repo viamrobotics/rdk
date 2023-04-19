@@ -17,7 +17,12 @@ import (
 
 func init() {
 	registry.RegisterComponent(gantry.Subtype, resource.NewDefaultModel("fake"), registry.Component{
-		Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (resource.Resource, error) {
+		Constructor: func(
+			ctx context.Context,
+			_ resource.Dependencies,
+			conf resource.Config,
+			logger golog.Logger,
+		) (resource.Resource, error) {
 			return NewGantry(conf.ResourceName()), nil
 		},
 	})
@@ -28,6 +33,7 @@ func NewGantry(name resource.Name) gantry.Gantry {
 	return &Gantry{
 		testutils.NewUnimplementedResource(name),
 		resource.TriviallyReconfigurable{},
+		resource.TriviallyCloseable{},
 		[]float64{1.2},
 		[]float64{5},
 		r3.Vector{1, 0, 0},
@@ -39,6 +45,7 @@ func NewGantry(name resource.Name) gantry.Gantry {
 type Gantry struct {
 	resource.Named
 	resource.TriviallyReconfigurable
+	resource.TriviallyCloseable
 	positionsMm  []float64
 	lengths      []float64
 	axis         r3.Vector

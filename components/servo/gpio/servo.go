@@ -98,6 +98,7 @@ func init() {
 type servoGPIO struct {
 	resource.Named
 	resource.AlwaysRebuild
+	resource.TriviallyCloseable
 	pin       board.GPIOPin
 	min       float64
 	max       float64

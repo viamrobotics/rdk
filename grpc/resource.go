@@ -19,13 +19,14 @@ var UnimplementedError = status.Error(codes.Unimplemented, codes.Unimplemented.S
 // RPC information dervied on demand.
 type ForeignResource struct {
 	resource.Named
+	resource.TriviallyCloseable
 	conn rpc.ClientConn
 }
 
 // NewForeignResource returns an ForeignResource for the given resource name and
 // connection serving it.
 func NewForeignResource(name resource.Name, conn rpc.ClientConn) *ForeignResource {
-	return &ForeignResource{name.AsNamed(), conn}
+	return &ForeignResource{Named: name.AsNamed(), conn: conn}
 }
 
 // Reconfigure always fails.

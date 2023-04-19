@@ -18,6 +18,7 @@ func NewUnimplementedResource(name resource.Name) resource.Resource {
 type unimplResource struct {
 	resource.Named
 	resource.AlwaysRebuild
+	resource.TriviallyCloseable
 }
 
 var (

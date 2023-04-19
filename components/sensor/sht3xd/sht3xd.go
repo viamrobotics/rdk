@@ -119,6 +119,7 @@ func newSensor(
 type sht3xd struct {
 	resource.Named
 	resource.AlwaysRebuild
+	resource.TriviallyCloseable
 	logger golog.Logger
 
 	bus  board.I2C

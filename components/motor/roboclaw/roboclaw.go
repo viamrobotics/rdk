@@ -137,6 +137,7 @@ var _ = motor.LocalMotor(&roboclawMotor{})
 type roboclawMotor struct {
 	resource.Named
 	resource.AlwaysRebuild
+	resource.TriviallyCloseable
 	conn *roboclaw.Roboclaw
 	conf *Config
 

@@ -6,7 +6,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	fakeboard "go.viam.com/rdk/components/board/fake"
@@ -98,7 +97,7 @@ func TestTMCStepperMotor(t *testing.T) {
 	}, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
-		test.That(t, utils.TryClose(context.Background(), m), test.ShouldBeNil)
+		test.That(t, m.Close(context.Background()), test.ShouldBeNil)
 	}()
 	motorDep, ok := m.(motor.Motor)
 	test.That(t, ok, test.ShouldBeTrue)
@@ -670,7 +669,7 @@ func TestTMCStepperMotor(t *testing.T) {
 
 		m, err := motorReg.Constructor(context.Background(), deps, resource.Config{Name: "motor1", ConvertedAttributes: &mc}, logger)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, utils.TryClose(context.Background(), m), test.ShouldBeNil)
+		test.That(t, m.Close(context.Background()), test.ShouldBeNil)
 	})
 
 	t.Run("test under-limit current settings", func(*testing.T) {
@@ -698,7 +697,7 @@ func TestTMCStepperMotor(t *testing.T) {
 
 		m, err := motorReg.Constructor(context.Background(), deps, resource.Config{Name: "motor1", ConvertedAttributes: &mc}, logger)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, utils.TryClose(context.Background(), m), test.ShouldBeNil)
+		test.That(t, m.Close(context.Background()), test.ShouldBeNil)
 	})
 
 	//nolint:dupl
@@ -728,6 +727,6 @@ func TestTMCStepperMotor(t *testing.T) {
 
 		m, err := motorReg.Constructor(context.Background(), deps, resource.Config{Name: "motor1", ConvertedAttributes: &mc}, logger)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, utils.TryClose(context.Background(), m), test.ShouldBeNil)
+		test.That(t, m.Close(context.Background()), test.ShouldBeNil)
 	})
 }

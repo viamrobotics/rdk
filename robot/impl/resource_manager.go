@@ -13,7 +13,6 @@ import (
 	"github.com/jhump/protoreflect/desc"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
 
@@ -380,11 +379,11 @@ func (manager *resourceManager) mergeResourceRPCSubtypesWithRemote(r robot.Robot
 	}
 }
 
-func (manager *resourceManager) closeResource(ctx context.Context, r *localRobot, res resource.Resource) error {
-	allErrs := utils.TryClose(ctx, res)
+func (manager *resourceManager) closeResource(ctx context.Context, r robot.LocalRobot, res resource.Resource) error {
+	allErrs := res.Close(ctx)
 
 	resName := res.Name()
-	if r.modules != nil && r.ModuleManager().IsModularResource(resName) {
+	if modMan := r.ModuleManager(); modMan != nil && modMan.IsModularResource(resName) {
 		if err := r.ModuleManager().RemoveResource(ctx, resName); err != nil {
 			allErrs = multierr.Combine(err, errors.Wrap(err, "error removing modular resource for closure"))
 		}
@@ -399,7 +398,7 @@ func (manager *resourceManager) closeResource(ctx context.Context, r *localRobot
 // before add) or need to be removed in a different way (e.g. web internal service last).
 func (manager *resourceManager) removeMarkedAndClose(
 	ctx context.Context,
-	r *localRobot,
+	r robot.LocalRobot,
 	excludeFromClose map[resource.Name]struct{},
 ) ([]resource.Name, error) {
 	var allErrs error
@@ -417,7 +416,7 @@ func (manager *resourceManager) removeMarkedAndClose(
 }
 
 // Close attempts to close/stop all parts.
-func (manager *resourceManager) Close(ctx context.Context, r *localRobot) error {
+func (manager *resourceManager) Close(ctx context.Context, r robot.LocalRobot) error {
 	manager.resources.MarkForRemoval(manager.resources.Clone())
 
 	var allErrs error

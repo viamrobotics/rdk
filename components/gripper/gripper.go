@@ -55,6 +55,8 @@ func Named(name string) resource.Name {
 // A Gripper represents a physical robotic gripper.
 type Gripper interface {
 	resource.Resource
+	resource.Actuator
+	referenceframe.ModelFramer
 
 	// Open opens the gripper.
 	// This will block until done or a new operation cancels this one
@@ -64,12 +66,6 @@ type Gripper interface {
 	// returns true if we grabbed something.
 	// This will block until done or a new operation cancels this one
 	Grab(ctx context.Context, extra map[string]interface{}) (bool, error)
-
-	// Stop stops the gripper. It is assumed the gripper stops immediately.
-	Stop(ctx context.Context, extra map[string]interface{}) error
-
-	referenceframe.ModelFramer
-	resource.MovingCheckable
 }
 
 // ErrStopUnimplemented is used for when Stop is unimplemented.

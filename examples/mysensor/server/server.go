@@ -46,6 +46,7 @@ var _ = sensor.Sensor(&mySensor{})
 type mySensor struct {
 	resource.Named
 	resource.AlwaysRebuild
+	resource.TriviallyCloseable
 }
 
 // Readings always returns "hello world".

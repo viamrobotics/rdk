@@ -26,6 +26,7 @@ import (
 type client struct {
 	resource.Named
 	resource.TriviallyReconfigurable
+	resource.TriviallyCloseable
 	mu                      sync.Mutex
 	name                    string
 	conn                    rpc.ClientConn

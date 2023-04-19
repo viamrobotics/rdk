@@ -276,7 +276,7 @@ func (g *PmtkI2CNMEAMovementSensor) Readings(ctx context.Context, extra map[stri
 }
 
 // Close shuts down the SerialNMEAMOVEMENTSENSOR.
-func (g *PmtkI2CNMEAMovementSensor) Close() error {
+func (g *PmtkI2CNMEAMovementSensor) Close(ctx context.Context) error {
 	g.cancelFunc()
 	g.activeBackgroundWorkers.Wait()
 

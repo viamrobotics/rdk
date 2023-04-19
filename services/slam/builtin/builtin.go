@@ -366,7 +366,7 @@ func NewBuiltIn(ctx context.Context, deps resource.Dependencies, conf resource.C
 	var success bool
 	defer func() {
 		if !success {
-			if err := slamSvc.Close(); err != nil {
+			if err := slamSvc.Close(ctx); err != nil {
 				logger.Errorw("error closing out after error", "error", err)
 			}
 		}
@@ -394,7 +394,7 @@ func NewBuiltIn(ctx context.Context, deps resource.Dependencies, conf resource.C
 }
 
 // Close out of all slam related processes.
-func (slamSvc *builtIn) Close() error {
+func (slamSvc *builtIn) Close(ctx context.Context) error {
 	defer func() {
 		if slamSvc.clientAlgoClose != nil {
 			goutils.UncheckedErrorFunc(slamSvc.clientAlgoClose)

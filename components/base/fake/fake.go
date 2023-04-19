@@ -91,8 +91,9 @@ func (b *Base) IsMoving(ctx context.Context) (bool, error) {
 }
 
 // Close does nothing.
-func (b *Base) Close() {
+func (b *Base) Close(ctx context.Context) error {
 	b.CloseCount++
+	return nil
 }
 
 type kinematicBase struct {

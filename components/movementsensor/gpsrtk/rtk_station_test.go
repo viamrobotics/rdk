@@ -124,7 +124,7 @@ func TestRTK(t *testing.T) {
 	g, err := newRTKStation(ctx, deps, conf, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, g.Name(), test.ShouldResemble, conf.ResourceName())
-	test.That(t, utils.TryClose(context.Background(), g), test.ShouldBeNil)
+	test.That(t, g.Close(context.Background()), test.ShouldBeNil)
 
 	// test serial connection source
 	path := "/dev/serial/by-id/usb-u-blox_AG_-_www.u-blox.com_u-blox_GNSS_receiver-if00"
@@ -175,7 +175,7 @@ func TestRTK(t *testing.T) {
 	g, err = newRTKStation(ctx, deps, conf, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, g.Name(), test.ShouldResemble, conf.ResourceName())
-	test.That(t, utils.TryClose(context.Background(), g), test.ShouldBeNil)
+	test.That(t, g.Close(context.Background()), test.ShouldBeNil)
 
 	// test invalid source
 	conf = resource.Config{
@@ -216,7 +216,7 @@ func TestClose(t *testing.T) {
 	n.info = makeMockNtripClient()
 	g.correction = n
 
-	err := g.Close()
+	err := g.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)
 
 	g = rtkStation{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
@@ -228,7 +228,7 @@ func TestClose(t *testing.T) {
 	}
 	g.correction = s
 
-	err = g.Close()
+	err = g.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)
 
 	g = rtkStation{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
@@ -240,7 +240,7 @@ func TestClose(t *testing.T) {
 	}
 	g.correction = i
 
-	err = g.Close()
+	err = g.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)
 }
 

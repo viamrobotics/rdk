@@ -19,6 +19,7 @@ import (
 type client struct {
 	resource.Named
 	resource.TriviallyReconfigurable
+	resource.TriviallyCloseable
 	name   string
 	client pb.BaseServiceClient
 	logger golog.Logger

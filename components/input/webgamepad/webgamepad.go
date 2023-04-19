@@ -42,6 +42,7 @@ var _ = input.Controller(&webGamepad{})
 type webGamepad struct {
 	resource.Named
 	resource.TriviallyReconfigurable
+	resource.TriviallyCloseable
 	controls   []input.Control
 	lastEvents map[input.Control]input.Event
 	mu         sync.RWMutex

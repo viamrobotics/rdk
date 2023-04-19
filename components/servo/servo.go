@@ -51,17 +51,14 @@ var Subtype = resource.NewSubtype(
 // A Servo represents a physical servo connected to a board.
 type Servo interface {
 	resource.Resource
+	resource.Actuator
+
 	// Move moves the servo to the given angle (0-180 degrees)
 	// This will block until done or a new operation cancels this one
 	Move(ctx context.Context, angleDeg uint32, extra map[string]interface{}) error
 
 	// Position returns the current set angle (degrees) of the servo.
 	Position(ctx context.Context, extra map[string]interface{}) (uint32, error)
-
-	// Stop stops the servo. It is assumed the servo stops immediately.
-	Stop(ctx context.Context, extra map[string]interface{}) error
-
-	resource.MovingCheckable
 }
 
 // Named is a helper for getting the named Servo's typed resource name.

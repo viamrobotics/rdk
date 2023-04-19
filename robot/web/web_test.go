@@ -272,7 +272,7 @@ func TestWebWithAuth(t *testing.T) {
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, arm1Position, test.ShouldResemble, pos)
 
-				test.That(t, utils.TryClose(context.Background(), arm1), test.ShouldBeNil)
+				test.That(t, arm1.Close(context.Background()), test.ShouldBeNil)
 				test.That(t, conn.Close(), test.ShouldBeNil)
 
 				conn, err = rgrpc.Dial(context.Background(), addr, logger,
@@ -290,7 +290,7 @@ func TestWebWithAuth(t *testing.T) {
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, arm1Position, test.ShouldResemble, pos)
 
-				test.That(t, utils.TryClose(context.Background(), arm1), test.ShouldBeNil)
+				test.That(t, arm1.Close(context.Background()), test.ShouldBeNil)
 				test.That(t, conn.Close(), test.ShouldBeNil)
 
 				conn, err = rgrpc.Dial(context.Background(), addr, logger,
@@ -308,7 +308,7 @@ func TestWebWithAuth(t *testing.T) {
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, arm1Position, test.ShouldResemble, pos)
 
-				test.That(t, utils.TryClose(context.Background(), arm1), test.ShouldBeNil)
+				test.That(t, arm1.Close(context.Background()), test.ShouldBeNil)
 				test.That(t, conn.Close(), test.ShouldBeNil)
 
 				if tc.EntityName != "" {
@@ -346,7 +346,7 @@ func TestWebWithAuth(t *testing.T) {
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, arm1Position, test.ShouldResemble, pos)
 
-				test.That(t, utils.TryClose(context.Background(), arm1), test.ShouldBeNil)
+				test.That(t, arm1.Close(context.Background()), test.ShouldBeNil)
 				test.That(t, conn.Close(), test.ShouldBeNil)
 
 				conn, err = rgrpc.Dial(context.Background(), addr, logger,
@@ -365,7 +365,7 @@ func TestWebWithAuth(t *testing.T) {
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, arm1Position, test.ShouldResemble, pos)
 
-				test.That(t, utils.TryClose(context.Background(), arm1), test.ShouldBeNil)
+				test.That(t, arm1.Close(context.Background()), test.ShouldBeNil)
 				test.That(t, conn.Close(), test.ShouldBeNil)
 			}
 
@@ -552,7 +552,7 @@ func TestWebWithBadAuthHandlers(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "do not know how")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "unknown")
-	test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
+	test.That(t, svc.Close(context.Background()), test.ShouldBeNil)
 
 	svc = web.New(injectRobot, logger)
 
@@ -567,7 +567,7 @@ func TestWebWithBadAuthHandlers(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "non-empty")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "api-key")
-	test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
+	test.That(t, svc.Close(context.Background()), test.ShouldBeNil)
 }
 
 func TestWebReconfigure(t *testing.T) {
@@ -609,9 +609,9 @@ func TestWebReconfigure(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, position, test.ShouldResemble, newPos)
 
-	test.That(t, utils.TryClose(context.Background(), arm1), test.ShouldBeNil)
-	test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
-	test.That(t, utils.TryClose(context.Background(), aClient), test.ShouldBeNil)
+	test.That(t, arm1.Close(context.Background()), test.ShouldBeNil)
+	test.That(t, svc.Close(context.Background()), test.ShouldBeNil)
+	test.That(t, aClient.Close(context.Background()), test.ShouldBeNil)
 
 	// now start it with the arm already in it
 	ctx, robot2 := setupRobotCtx(t)
@@ -670,8 +670,8 @@ func TestWebReconfigure(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, position, test.ShouldResemble, pos2)
 
-	test.That(t, utils.TryClose(context.Background(), arm1), test.ShouldBeNil)
-	test.That(t, utils.TryClose(context.Background(), svc2), test.ShouldBeNil)
+	test.That(t, arm1.Close(context.Background()), test.ShouldBeNil)
+	test.That(t, svc2.Close(context.Background()), test.ShouldBeNil)
 	test.That(t, conn.Close(), test.ShouldBeNil)
 }
 

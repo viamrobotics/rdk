@@ -84,6 +84,7 @@ func init() {
 type softGripper struct {
 	resource.Named
 	resource.AlwaysRebuild
+	resource.TriviallyCloseable
 
 	theBoard board.Board
 

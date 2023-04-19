@@ -98,6 +98,7 @@ func newCounter(
 
 // counter is the representation of this model. It holds only a "total" count.
 type counter struct {
+	resource.TriviallyCloseable
 	name  resource.Name
 	total int64
 }

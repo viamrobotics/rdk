@@ -20,7 +20,6 @@ import (
 	"github.com/edaniels/gostream"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
 	"google.golang.org/grpc"
 
@@ -534,7 +533,7 @@ func TestGeneralNew(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		grpcServer.Stop()
-		test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
+		test.That(t, svc.Close(context.Background()), test.ShouldBeNil)
 	})
 
 	t.Run("New slam service with bad camera", func(t *testing.T) {
@@ -602,7 +601,7 @@ func TestCartographerNew(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		grpcServer.Stop()
-		test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
+		test.That(t, svc.Close(context.Background()), test.ShouldBeNil)
 	})
 
 	t.Run("New cartographer service with lidar that errors during call to NextPointCloud", func(t *testing.T) {
@@ -661,7 +660,7 @@ func TestORBSLAMNew(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		grpcServer.Stop()
-		test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
+		test.That(t, svc.Close(context.Background()), test.ShouldBeNil)
 	})
 
 	t.Run("New orbslamv3 service in slam mode rgbd that errors due to a single camera", func(t *testing.T) {
@@ -696,7 +695,7 @@ func TestORBSLAMNew(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, expectedError)
 
 		grpcServer.Stop()
-		test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
+		test.That(t, svc.Close(context.Background()), test.ShouldBeNil)
 	})
 
 	t.Run("New orbslamv3 service that errors due to not being able to get camera properties", func(t *testing.T) {
@@ -717,7 +716,7 @@ func TestORBSLAMNew(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, expectedError)
 
 		grpcServer.Stop()
-		test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
+		test.That(t, svc.Close(context.Background()), test.ShouldBeNil)
 	})
 
 	t.Run("New orbslamv3 service in slam mode rgbd that errors due cameras in the wrong order", func(t *testing.T) {
@@ -751,7 +750,7 @@ func TestORBSLAMNew(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		grpcServer.Stop()
-		test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
+		test.That(t, svc.Close(context.Background()), test.ShouldBeNil)
 	})
 
 	t.Run("New orbslamv3 service with camera that errors during call to Next", func(t *testing.T) {
@@ -824,7 +823,7 @@ func TestCartographerDataProcess(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	grpcServer.Stop()
-	test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
+	test.That(t, svc.Close(context.Background()), test.ShouldBeNil)
 
 	slamSvc := svc.(testhelper.Service)
 
@@ -870,7 +869,7 @@ func TestCartographerDataProcess(t *testing.T) {
 		test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "bad_lidar")
 	})
 
-	test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
+	test.That(t, svc.Close(context.Background()), test.ShouldBeNil)
 
 	closeOutSLAMService(t, name)
 }
@@ -897,7 +896,7 @@ func TestORBSLAMDataProcess(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	grpcServer.Stop()
-	test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
+	test.That(t, svc.Close(context.Background()), test.ShouldBeNil)
 
 	slamSvc := svc.(testhelper.Service)
 
@@ -948,7 +947,7 @@ func TestORBSLAMDataProcess(t *testing.T) {
 		test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "bad_camera")
 	})
 
-	test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
+	test.That(t, svc.Close(context.Background()), test.ShouldBeNil)
 
 	closeOutSLAMService(t, name)
 }
@@ -995,7 +994,7 @@ func TestEndpointFailures(t *testing.T) {
 	test.That(t, chunkInternalState, test.ShouldBeNil)
 
 	grpcServer.Stop()
-	test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
+	test.That(t, svc.Close(context.Background()), test.ShouldBeNil)
 
 	closeOutSLAMService(t, name)
 }
@@ -1046,7 +1045,7 @@ func TestSLAMProcessSuccess(t *testing.T) {
 		}
 
 		grpcServer.Stop()
-		test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
+		test.That(t, svc.Close(context.Background()), test.ShouldBeNil)
 	})
 
 	t.Run("Test offline SLAM process with default parameters", func(t *testing.T) {
@@ -1088,7 +1087,7 @@ func TestSLAMProcessSuccess(t *testing.T) {
 		}
 
 		grpcServer.Stop()
-		test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
+		test.That(t, svc.Close(context.Background()), test.ShouldBeNil)
 	})
 
 	closeOutSLAMService(t, name)
@@ -1140,7 +1139,7 @@ func TestSLAMProcessFail(t *testing.T) {
 	})
 
 	grpcServer.Stop()
-	test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
+	test.That(t, svc.Close(context.Background()), test.ShouldBeNil)
 
 	closeOutSLAMService(t, name)
 }

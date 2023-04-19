@@ -42,6 +42,7 @@ func newNav(ctx context.Context, deps resource.Dependencies, conf resource.Confi
 type navSvc struct {
 	resource.Named
 	resource.AlwaysRebuild
+	resource.TriviallyCloseable
 	mu        sync.RWMutex
 	loc       *geo.Point
 	logger    golog.Logger

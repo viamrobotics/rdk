@@ -137,7 +137,7 @@ func TestCloseSerial(t *testing.T) {
 		logger:     logger,
 	}
 
-	err := g.Close()
+	err := g.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)
 }
 

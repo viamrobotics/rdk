@@ -55,7 +55,7 @@ var Subtype = resource.NewSubtype(
 // A Motor represents a physical motor connected to a board.
 type Motor interface {
 	resource.Resource
-	resource.MovingCheckable
+	resource.Actuator
 
 	// SetPower sets the percentage of power the motor should employ between -1 and 1.
 	// Negative power implies a backward directional rotational
@@ -85,9 +85,6 @@ type Motor interface {
 
 	// Properties returns whether or not the motor supports certain optional features.
 	Properties(ctx context.Context, extra map[string]interface{}) (map[Feature]bool, error)
-
-	// Stop turns the power to the motor off immediately, without any gradual step down.
-	Stop(ctx context.Context, extra map[string]interface{}) error
 
 	// IsPowered returns whether or not the motor is currently on, and the percent power (between 0
 	// and 1, if the motor is off then the percent power will be 0).

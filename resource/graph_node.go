@@ -6,7 +6,6 @@ import (
 	"sync/atomic"
 
 	"github.com/pkg/errors"
-	"go.viam.com/utils"
 )
 
 // A GraphNode contains the current state of a resource.
@@ -266,7 +265,7 @@ func (w *GraphNode) Close(ctx context.Context) error {
 	}
 	current := w.current
 	w.current = nil
-	return utils.TryClose(ctx, current)
+	return current.Close(ctx)
 }
 
 func (w *GraphNode) replace(other *GraphNode) error {

@@ -199,7 +199,7 @@ func TestWorkingClient(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err, test.ShouldHaveSameTypeAs, viamgrpc.UnimplementedError)
 
-		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
+		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
 	}
 
 	t.Run("New client from connection", func(t *testing.T) {

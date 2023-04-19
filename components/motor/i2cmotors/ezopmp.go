@@ -92,6 +92,7 @@ func init() {
 type Ezopmp struct {
 	resource.Named
 	resource.AlwaysRebuild
+	resource.TriviallyCloseable
 	board       board.Board
 	bus         board.I2C
 	I2CAddress  byte

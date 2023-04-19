@@ -284,10 +284,10 @@ func (m *Motor) IsPowered(ctx context.Context, extra map[string]interface{}) (bo
 }
 
 // Close stops the motor and marks the axis inactive.
-func (m *Motor) Close() {
+func (m *Motor) Close(ctx context.Context) error {
 	active := m.isAxisActive()
 	if !active {
-		return
+		return nil
 	}
 
 	err := m.Stop(context.Background(), nil)
@@ -300,7 +300,7 @@ func (m *Motor) Close() {
 	m.c.activeAxes[m.Channel] = false
 	for _, active = range m.c.activeAxes {
 		if active {
-			return
+			return nil
 		}
 	}
 	if m.c.port != nil {
@@ -312,6 +312,7 @@ func (m *Motor) Close() {
 	globalMu.Lock()
 	defer globalMu.Unlock()
 	delete(controllers, m.c.serialDevice)
+	return nil
 }
 
 func (m *Motor) isAxisActive() bool {

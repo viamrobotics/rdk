@@ -81,6 +81,7 @@ func TestSafetyMonitorForMetadata(t *testing.T) {
 type myThing struct {
 	resource.Named
 	resource.AlwaysRebuild
+	resource.TriviallyCloseable
 }
 
 type myStream struct {

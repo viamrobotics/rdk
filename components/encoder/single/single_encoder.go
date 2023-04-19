@@ -175,7 +175,7 @@ func (e *Encoder) Reconfigure(
 	if !needRestart {
 		return nil
 	}
-	utils.UncheckedError(e.Close())
+	utils.UncheckedError(e.Close(ctx))
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	e.CancelCtx = cancelCtx
 	e.cancelFunc = cancelFunc
@@ -258,7 +258,7 @@ func (e *Encoder) GetProperties(ctx context.Context, extra map[string]interface{
 }
 
 // Close shuts down the Encoder.
-func (e *Encoder) Close() error {
+func (e *Encoder) Close(ctx context.Context) error {
 	e.cancelFunc()
 	e.activeBackgroundWorkers.Wait()
 	return nil

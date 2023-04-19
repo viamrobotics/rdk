@@ -110,6 +110,7 @@ func newSensor(name resource.Name, path string, baud int, modbusID byte) sensor.
 type Sensor struct {
 	resource.Named
 	resource.AlwaysRebuild
+	resource.TriviallyCloseable
 	path     string
 	baud     int
 	modbusID byte

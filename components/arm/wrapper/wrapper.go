@@ -63,6 +63,7 @@ func init() {
 // Arm wraps a partial implementation of another arm.
 type Arm struct {
 	resource.Named
+	resource.TriviallyCloseable
 	mu     sync.RWMutex
 	model  referenceframe.Model
 	actual arm.Arm

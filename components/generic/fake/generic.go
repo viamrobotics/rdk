@@ -33,4 +33,5 @@ func newGeneric(name resource.Name) resource.Resource {
 type Generic struct {
 	resource.Named
 	resource.TriviallyReconfigurable
+	resource.TriviallyCloseable
 }

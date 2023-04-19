@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"net"
 	"sync"
-	"sync/atomic"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
@@ -51,17 +50,18 @@ const (
 
 type xArm struct {
 	resource.Named
-	mu       sync.RWMutex
 	dof      int
 	tid      uint16
-	conn     atomic.Pointer[net.Conn]
-	speed    float32 // speed=max joint radians per second
 	moveHZ   float64 // Number of joint positions to send per second
 	moveLock sync.Mutex
 	model    referenceframe.Model
 	started  bool
 	opMgr    operation.SingleOperationManager
 	logger   golog.Logger
+
+	mu    sync.RWMutex
+	conn  net.Conn
+	speed float32 // speed=max joint radians per second
 }
 
 //go:embed xarm6_kinematics.json
@@ -159,17 +159,16 @@ func (x *xArm) Reconfigure(ctx context.Context, deps resource.Dependencies, conf
 	defer x.mu.Unlock()
 
 	newAddr := net.JoinHostPort(newConf.Host, newConf.parsedPort)
-	conn := x.conn.Load()
-	if conn == nil || (*conn).RemoteAddr().String() != newAddr {
+	if x.conn == nil || x.conn.RemoteAddr().String() != newAddr {
 		var d net.Dialer
 		newConn, err := d.DialContext(ctx, "tcp", newAddr)
 		if err != nil {
 			return err
 		}
-		if err := (*conn).Close(); err != nil {
+		if err := x.conn.Close(); err != nil {
 			x.logger.Warnw("error closing old connection but will continue with reconfiguration", "error", err)
 		}
-		x.conn.Store(&newConn)
+		x.conn = newConn
 
 		if err := x.start(ctx); err != nil {
 			return errors.Wrap(err, "failed to start on reconfigure")

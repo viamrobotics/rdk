@@ -100,6 +100,7 @@ var _ = motor.LocalMotor(&Motor{})
 type Motor struct {
 	resource.Named
 	resource.AlwaysRebuild
+	resource.TriviallyCloseable
 
 	mu     sync.Mutex
 	opMgr  operation.SingleOperationManager

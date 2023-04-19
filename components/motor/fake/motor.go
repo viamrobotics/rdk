@@ -93,6 +93,7 @@ var _ motor.LocalMotor = &Motor{}
 // direction.
 type Motor struct {
 	resource.Named
+	resource.TriviallyCloseable
 	mu                sync.Mutex
 	powerPct          float64
 	Board             string

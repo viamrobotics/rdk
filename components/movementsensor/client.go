@@ -23,6 +23,7 @@ var _ = sensor.Sensor(&client{})
 type client struct {
 	resource.Named
 	resource.TriviallyReconfigurable
+	resource.TriviallyCloseable
 	name   string
 	client pb.MovementSensorServiceClient
 	logger golog.Logger

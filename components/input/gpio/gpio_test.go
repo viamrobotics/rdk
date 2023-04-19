@@ -10,7 +10,6 @@ import (
 	"github.com/edaniels/golog"
 	"go.uber.org/zap"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/components/board"
@@ -166,7 +165,7 @@ func setup(t *testing.T) *setupResult {
 
 func teardown(t *testing.T, s *setupResult) {
 	t.Helper()
-	test.That(t, utils.TryClose(context.Background(), s.dev), test.ShouldBeNil)
+	test.That(t, s.dev.Close(context.Background()), test.ShouldBeNil)
 }
 
 func TestGPIOInput(t *testing.T) {

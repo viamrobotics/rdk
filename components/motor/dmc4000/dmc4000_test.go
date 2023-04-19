@@ -7,7 +7,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/components/motor/dmc4000"
@@ -119,7 +118,7 @@ func TestDMC4000Motor(t *testing.T) {
 			[]string{"STA", "SCA", "TEA"},
 			[]string{" :", " 4\r\n:", " 0\r\n:"},
 		)
-		test.That(t, utils.TryClose(context.Background(), m), test.ShouldBeNil)
+		test.That(t, m.Close(context.Background()), test.ShouldBeNil)
 		waitTx(t, resChan)
 	}()
 	motorDep, ok := m.(motor.Motor)

@@ -47,9 +47,6 @@ type Manager interface {
 type ManagerSyncer interface {
 	Manager
 
-	// Close the manager
-	Close() error
-
 	// Sync will download and create the symbolic logic links to all the given PackageConfig. Sync will not remove any unused
 	// data packages. You must call Cleanup() to remove leftovers. Sync will block until all packages are loaded to the file system.
 	// Sync should only be used by one goroutine at once.

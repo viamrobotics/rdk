@@ -87,6 +87,7 @@ func newGripper(deps resource.Dependencies, conf resource.Config) (gripper.Gripp
 type dofGripper struct {
 	resource.Named
 	resource.AlwaysRebuild
+	resource.TriviallyCloseable
 	dofArm *yahboom.Dofbot
 	opMgr  operation.SingleOperationManager
 }

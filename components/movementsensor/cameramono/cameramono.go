@@ -259,11 +259,12 @@ func (co *cameramono) getDt(startTime, endTime time.Time) (float64, bool) {
 }
 
 // Close closes all the channels and threads.
-func (co *cameramono) Close() {
+func (co *cameramono) Close(ctx context.Context) error {
 	co.cancelFunc()
 	co.activeBackgroundWorkers.Wait()
 	err := co.stream.Close(co.cancelCtx)
 	co.err.Set(err)
+	return nil
 }
 
 // Position gets the position of the moving object calculated by visual odometry.

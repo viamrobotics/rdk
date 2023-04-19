@@ -2515,7 +2515,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 	}
 	r, err := New(ctx, localConfig, logger.Named("local"))
 	defer func() {
-		test.That(t, utils.TryClose(context.Background(), r), test.ShouldBeNil)
+		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	}()
 	test.That(t, err, test.ShouldBeNil)
 	test.That(
@@ -2682,7 +2682,7 @@ func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 	}
 	r, err := New(ctx, localConfig, logger.Named("local"))
 	defer func() {
-		test.That(t, utils.TryClose(context.Background(), r), test.ShouldBeNil)
+		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	}()
 	test.That(t, err, test.ShouldBeNil)
 	test.That(
@@ -2813,7 +2813,7 @@ func TestInferRemoteRobotDependencyConnectAfterStartup(t *testing.T) {
 	}
 	r, err := New(ctx, localConfig, logger.Named("local"))
 	defer func() {
-		test.That(t, utils.TryClose(context.Background(), r), test.ShouldBeNil)
+		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	}()
 	test.That(t, err, test.ShouldBeNil)
 	test.That(
@@ -2934,7 +2934,7 @@ func TestInferRemoteRobotDependencyAmbiguous(t *testing.T) {
 	}
 	r, err := New(ctx, localConfig, logger.Named("local"))
 	defer func() {
-		test.That(t, utils.TryClose(context.Background(), r), test.ShouldBeNil)
+		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	}()
 	test.That(t, err, test.ShouldBeNil)
 
@@ -3287,11 +3287,12 @@ func (m *mockFake) Reconfigure(ctx context.Context, deps resource.Dependencies, 
 	return nil
 }
 
-func (m *mockFake) Close() {
+func (m *mockFake) Close(ctx context.Context) error {
 	if m.logicalClock != nil {
 		m.closedAt = m.logicalClock.Add(1)
 	}
 	m.closeCount++
+	return nil
 }
 
 func (m *mockFakeConfig) Validate(path string) ([]string, error) {
@@ -3311,6 +3312,7 @@ func (m *mockFake2) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	return errors.New("oh no")
 }
 
-func (m *mockFake2) Close() {
+func (m *mockFake2) Close(ctx context.Context) error {
 	m.closeCount++
+	return nil
 }

@@ -40,9 +40,11 @@ type someIfc Resource
 type someRes1 struct {
 	Named
 	TriviallyReconfigurable
+	TriviallyCloseable
 }
 
 type someRes2 struct {
 	Named
 	TriviallyReconfigurable
+	TriviallyCloseable
 }

@@ -193,12 +193,12 @@ func NewMotor(ctx context.Context, c *Config, name resource.Name, logger golog.L
 }
 
 // Close stops the motor and marks the axis inactive.
-func (m *Motor) Close() {
+func (m *Motor) Close(ctx context.Context) error {
 	m.c.mu.Lock()
 	active := m.c.activeAxes[m.Axis]
 	m.c.mu.Unlock()
 	if !active {
-		return
+		return nil
 	}
 	err := m.Stop(context.Background(), nil)
 	if err != nil {
@@ -210,7 +210,7 @@ func (m *Motor) Close() {
 	m.c.activeAxes[m.Axis] = false
 	for _, active = range m.c.activeAxes {
 		if active {
-			return
+			return nil
 		}
 	}
 	if m.c.port != nil {
@@ -222,6 +222,7 @@ func (m *Motor) Close() {
 	globalMu.Lock()
 	defer globalMu.Unlock()
 	delete(controllers, m.c.serialDevice)
+	return nil
 }
 
 func newController(c *Config, logger golog.Logger) (*controller, error) {

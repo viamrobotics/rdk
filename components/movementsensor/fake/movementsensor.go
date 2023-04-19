@@ -112,7 +112,7 @@ func (f *MovementSensor) Properties(ctx context.Context, extra map[string]interf
 func (f *MovementSensor) Start(ctx context.Context) error { return nil }
 
 // Close returns the fix of a fake gps movementsensor.
-func (f *MovementSensor) Close() error {
+func (f *MovementSensor) Close(ctx context.Context) error {
 	return nil
 }
 

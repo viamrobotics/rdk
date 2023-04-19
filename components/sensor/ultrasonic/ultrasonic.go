@@ -179,7 +179,7 @@ func (s *Sensor) Readings(ctx context.Context, extra map[string]interface{}) (ma
 }
 
 // Close remove interrupt callback of ultrasonic sensor.
-func (s *Sensor) Close() error {
+func (s *Sensor) Close(ctx context.Context) error {
 	s.cancelFunc()
 	return nil
 }

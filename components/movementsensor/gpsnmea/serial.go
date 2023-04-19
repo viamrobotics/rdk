@@ -227,7 +227,7 @@ func (g *SerialNMEAMovementSensor) Properties(ctx context.Context, extra map[str
 }
 
 // Close shuts down the SerialNMEAMovementSensor.
-func (g *SerialNMEAMovementSensor) Close() error {
+func (g *SerialNMEAMovementSensor) Close(ctx context.Context) error {
 	g.logger.Debug("Closing SerialNMEAMovementSensor")
 	g.cancelFunc()
 	defer g.activeBackgroundWorkers.Wait()

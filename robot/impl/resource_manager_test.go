@@ -186,7 +186,7 @@ func TestManagerForRemoteRobot(t *testing.T) {
 
 	manager := managerForDummyRobot(injectRobot)
 	defer func() {
-		test.That(t, utils.TryClose(context.Background(), manager), test.ShouldBeNil)
+		test.That(t, manager.Close(context.Background(), injectRobot), test.ShouldBeNil)
 	}()
 
 	armNames := []resource.Name{arm.Named("arm1"), arm.Named("arm2")}
@@ -251,7 +251,7 @@ func TestManagerMergeNamesWithRemotes(t *testing.T) {
 
 	manager := managerForDummyRobot(injectRobot)
 	defer func() {
-		test.That(t, utils.TryClose(context.Background(), manager), test.ShouldBeNil)
+		test.That(t, manager.Close(context.Background(), injectRobot), test.ShouldBeNil)
 	}()
 	manager.addRemote(
 		context.Background(),
@@ -381,7 +381,7 @@ func TestManagerResourceRemoteName(t *testing.T) {
 
 	manager := managerForDummyRobot(injectRobot)
 	defer func() {
-		test.That(t, utils.TryClose(context.Background(), manager), test.ShouldBeNil)
+		test.That(t, manager.Close(context.Background(), injectRobot), test.ShouldBeNil)
 	}()
 
 	injectRemote := &inject.Robot{}
@@ -416,7 +416,7 @@ func TestManagerWithSameNameInRemoteNoPrefix(t *testing.T) {
 
 	manager := managerForDummyRobot(injectRobot)
 	defer func() {
-		test.That(t, utils.TryClose(context.Background(), manager), test.ShouldBeNil)
+		test.That(t, manager.Close(context.Background(), injectRobot), test.ShouldBeNil)
 	}()
 	manager.addRemote(
 		context.Background(),
@@ -443,7 +443,7 @@ func TestManagerWithSameNameInBaseAndRemote(t *testing.T) {
 
 	manager := managerForDummyRobot(injectRobot)
 	defer func() {
-		test.That(t, utils.TryClose(context.Background(), manager), test.ShouldBeNil)
+		test.That(t, manager.Close(context.Background(), injectRobot), test.ShouldBeNil)
 	}()
 	manager.addRemote(
 		context.Background(),
@@ -1429,7 +1429,7 @@ func TestManagerResourceRPCSubtypes(t *testing.T) {
 
 	manager := managerForDummyRobot(injectRobot)
 	defer func() {
-		test.That(t, utils.TryClose(context.Background(), manager), test.ShouldBeNil)
+		test.That(t, manager.Close(context.Background(), injectRobot), test.ShouldBeNil)
 	}()
 
 	subtype1 := resource.NewSubtype("acme", resource.ResourceTypeComponent, "huwat")
@@ -1578,7 +1578,7 @@ func TestManagerEmptyResourceDesc(t *testing.T) {
 
 	manager := managerForDummyRobot(injectRobot)
 	defer func() {
-		test.That(t, utils.TryClose(context.Background(), manager), test.ShouldBeNil)
+		test.That(t, manager.Close(context.Background(), injectRobot), test.ShouldBeNil)
 	}()
 
 	subtypes := manager.ResourceRPCSubtypes()
@@ -1729,6 +1729,7 @@ func TestResourceCreationPanic(t *testing.T) {
 
 type mock struct {
 	resource.Named
+	resource.TriviallyCloseable
 	reconfigCount int
 }
 

@@ -168,7 +168,7 @@ func (s *i2cCorrectionSource) Reader() (io.ReadCloser, error) {
 }
 
 // Close shuts down the i2cCorrectionSource.
-func (s *i2cCorrectionSource) Close() error {
+func (s *i2cCorrectionSource) Close(ctx context.Context) error {
 	s.mu.Lock()
 	s.cancelFunc()
 

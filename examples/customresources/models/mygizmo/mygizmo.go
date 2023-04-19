@@ -34,6 +34,7 @@ func init() {
 
 type myActualGizmo struct {
 	resource.Named
+	resource.TriviallyCloseable
 	mu    sync.Mutex
 	myArg string
 }

@@ -124,7 +124,7 @@ func (m *cloudManager) RefPath(refPath string) (string, error) {
 }
 
 // Close manager.
-func (m *cloudManager) Close() error {
+func (m *cloudManager) Close(ctx context.Context) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 

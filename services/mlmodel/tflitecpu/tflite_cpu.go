@@ -57,6 +57,7 @@ type TFLiteConfig struct {
 type Model struct {
 	resource.Named
 	resource.AlwaysRebuild
+	resource.TriviallyCloseable
 	attrs    TFLiteConfig
 	model    *inf.TFLiteStruct
 	metadata *mlmodel.MLMetadata

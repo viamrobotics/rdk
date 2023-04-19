@@ -37,6 +37,7 @@ type Sensor struct {
 	mu sync.Mutex
 	resource.Named
 	resource.TriviallyReconfigurable
+	resource.TriviallyCloseable
 }
 
 // Readings always returns the set values.

@@ -13,7 +13,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	pb "go.viam.com/api/app/v1"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 
 	"go.viam.com/rdk/components/arm"
@@ -36,7 +35,7 @@ func TestNewWatcherNoop(t *testing.T) {
 	case <-timer.C:
 	}
 
-	test.That(t, utils.TryClose(context.Background(), watcher), test.ShouldBeNil)
+	test.That(t, watcher.Close(), test.ShouldBeNil)
 }
 
 func TestNewWatcherFile(t *testing.T) {
@@ -181,7 +180,7 @@ func TestNewWatcherFile(t *testing.T) {
 	newConf = <-watcher.Config()
 	test.That(t, newConf, test.ShouldResemble, &confToWrite)
 
-	test.That(t, utils.TryClose(context.Background(), watcher), test.ShouldBeNil)
+	test.That(t, watcher.Close(), test.ShouldBeNil)
 }
 
 func TestNewWatcherCloud(t *testing.T) {
@@ -373,5 +372,5 @@ func TestNewWatcherCloud(t *testing.T) {
 	newConf = <-watcher.Config()
 	test.That(t, newConf, test.ShouldResemble, &confToExpect)
 
-	test.That(t, utils.TryClose(context.Background(), watcher), test.ShouldBeNil)
+	test.That(t, watcher.Close(), test.ShouldBeNil)
 }

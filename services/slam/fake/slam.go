@@ -40,6 +40,7 @@ var _ = slam.Service(&SLAM{})
 type SLAM struct {
 	resource.Named
 	resource.TriviallyReconfigurable
+	resource.TriviallyCloseable
 	dataCount int
 	logger    golog.Logger
 }

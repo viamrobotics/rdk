@@ -763,6 +763,10 @@ func (da *dummyArm) DoCommand(ctx context.Context, cmd map[string]interface{}) (
 	return nil, ctx.Err()
 }
 
+func (da *dummyArm) Close(ctx context.Context) error {
+	return nil
+}
+
 func TestStopAll(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	channel := make(chan struct{})
@@ -885,8 +889,9 @@ func (db *dummyBoard) ModelAttributes() board.ModelAttributes {
 	return board.ModelAttributes{}
 }
 
-func (db *dummyBoard) Close() {
+func (db *dummyBoard) Close(ctx context.Context) error {
 	db.closeCount++
+	return nil
 }
 
 func TestNewTeardown(t *testing.T) {
@@ -1279,7 +1284,7 @@ func TestStatusRemote(t *testing.T) {
 	ctx := context.Background()
 	r, err := robotimpl.New(ctx, remoteConfig, logger)
 	defer func() {
-		test.That(t, utils.TryClose(context.Background(), r), test.ShouldBeNil)
+		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	}()
 	test.That(t, err, test.ShouldBeNil)
 
@@ -1398,7 +1403,7 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 
 	r, err := robotimpl.New(ctx, remoteConfig, logger)
 	defer func() {
-		test.That(t, utils.TryClose(context.Background(), r), test.ShouldBeNil)
+		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	}()
 	test.That(t, err, test.ShouldBeNil)
 
@@ -1630,7 +1635,7 @@ func TestConfigStartsValidReconfiguresInvalid(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, robotRemote, test.ShouldNotBeNil)
 	defer func() {
-		test.That(t, utils.TryClose(context.Background(), robotRemote), test.ShouldBeNil)
+		test.That(t, robotRemote.Close(context.Background()), test.ShouldBeNil)
 	}()
 	options1, _, addr1 := robottestutils.CreateBaseOptionsAndListener(t)
 	err = robotRemote.StartWeb(context.Background(), options1)
@@ -1953,7 +1958,7 @@ func TestReconnectRemote(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, robot, test.ShouldNotBeNil)
 	defer func() {
-		test.That(t, utils.TryClose(context.Background(), robot), test.ShouldBeNil)
+		test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
 	}()
 	err = robot.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
@@ -1976,7 +1981,7 @@ func TestReconnectRemote(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, robot, test.ShouldNotBeNil)
 	defer func() {
-		test.That(t, utils.TryClose(context.Background(), robot1), test.ShouldBeNil)
+		test.That(t, robot1.Close(context.Background()), test.ShouldBeNil)
 	}()
 
 	err = robot1.StartWeb(ctx1, options1)
@@ -1984,7 +1989,7 @@ func TestReconnectRemote(t *testing.T) {
 
 	robotClient := robottestutils.NewRobotClient(t, logger, addr1, time.Second)
 	defer func() {
-		test.That(t, utils.TryClose(context.Background(), robotClient), test.ShouldBeNil)
+		test.That(t, robotClient.Close(context.Background()), test.ShouldBeNil)
 	}()
 
 	a1, err := arm.FromRobot(robot1, "arm1")
@@ -2007,7 +2012,7 @@ func TestReconnectRemote(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// close/disconnect the robot
-	test.That(t, robot.StopWeb(), test.ShouldBeNil)
+	test.That(t, robot.StopWeb(context.Background()), test.ShouldBeNil)
 	test.That(t, <-remoteRobotClient.Changed(), test.ShouldBeTrue)
 	test.That(t, len(remoteRobotClient.ResourceNames()), test.ShouldEqual, 0)
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
@@ -2067,7 +2072,7 @@ func TestReconnectRemoteChangeConfig(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, robot, test.ShouldNotBeNil)
 	defer func() {
-		test.That(t, utils.TryClose(context.Background(), robot), test.ShouldBeNil)
+		test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
 	}()
 	err = robot.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
@@ -2089,7 +2094,7 @@ func TestReconnectRemoteChangeConfig(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, robot, test.ShouldNotBeNil)
 	defer func() {
-		test.That(t, utils.TryClose(context.Background(), robot1), test.ShouldBeNil)
+		test.That(t, robot1.Close(context.Background()), test.ShouldBeNil)
 	}()
 
 	err = robot1.StartWeb(ctx1, options1)
@@ -2097,7 +2102,7 @@ func TestReconnectRemoteChangeConfig(t *testing.T) {
 
 	robotClient := robottestutils.NewRobotClient(t, logger, addr1, time.Second)
 	defer func() {
-		test.That(t, utils.TryClose(context.Background(), robotClient), test.ShouldBeNil)
+		test.That(t, robotClient.Close(context.Background()), test.ShouldBeNil)
 	}()
 
 	a1, err := arm.FromRobot(robot1, "arm1")
@@ -2120,7 +2125,7 @@ func TestReconnectRemoteChangeConfig(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// close/disconnect the robot
-	test.That(t, utils.TryClose(context.Background(), robot), test.ShouldBeNil)
+	test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
 	test.That(t, <-remoteRobotClient.Changed(), test.ShouldBeTrue)
 	test.That(t, len(remoteRobotClient.ResourceNames()), test.ShouldEqual, 0)
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
@@ -2557,6 +2562,7 @@ var (
 type doodad struct {
 	resource.Named
 	resource.AlwaysRebuild
+	resource.TriviallyCloseable
 	gizmo gizmoapi.Gizmo
 }
 

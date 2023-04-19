@@ -160,7 +160,9 @@ func TestReconfigure(t *testing.T) {
 		speed:  float32(utils.DegToRad(float64(conf.Speed))),
 		logger: golog.NewTestLogger(t),
 	}
-	xArm.conn.Store(&conn1)
+	xArm.mu.Lock()
+	xArm.conn = conn1
+	xArm.mu.Unlock()
 
 	ctx := context.Background()
 
@@ -168,13 +170,19 @@ func TestReconfigure(t *testing.T) {
 	prevSpeed := xArm.speed
 	test.That(t, xArm.Reconfigure(ctx, nil, cfg), test.ShouldBeNil)
 
-	test.That(t, xArm.conn.Load(), test.ShouldEqual, &conn1)
+	xArm.mu.Lock()
+	currentConn := xArm.conn
+	xArm.mu.Unlock()
+	test.That(t, currentConn, test.ShouldEqual, &conn1)
 	test.That(t, xArm.speed, test.ShouldEqual, prevSpeed)
 
 	// scenario where we do not reconnect
 	test.That(t, xArm.Reconfigure(ctx, nil, shouldNotReconnectCfg), test.ShouldBeNil)
 
-	test.That(t, xArm.conn.Load(), test.ShouldEqual, &conn1)
+	xArm.mu.Lock()
+	currentConn = xArm.conn
+	xArm.mu.Unlock()
+	test.That(t, currentConn, test.ShouldEqual, &conn1)
 	test.That(t, xArm.speed, test.ShouldEqual, float32(utils.DegToRad(float64(confNotReconnect.Speed))))
 
 	// scenario where we have to reconnect
@@ -182,6 +190,9 @@ func TestReconfigure(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "failed to start")
 
-	test.That(t, xArm.conn.Load(), test.ShouldNotEqual, &conn1)
+	xArm.mu.Lock()
+	currentConn = xArm.conn
+	xArm.mu.Unlock()
+	test.That(t, currentConn, test.ShouldNotEqual, &conn1)
 	test.That(t, xArm.speed, test.ShouldEqual, float32(utils.DegToRad(float64(confNotReconnect.Speed))))
 }

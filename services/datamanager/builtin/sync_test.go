@@ -601,6 +601,6 @@ func (noop *noopCloudConnectionService) AcquireConnection(ctx context.Context) (
 	return "hello", nil, nil
 }
 
-func (noop *noopCloudConnectionService) Close() error {
+func (noop *noopCloudConnectionService) Close(ctx context.Context) error {
 	return nil
 }

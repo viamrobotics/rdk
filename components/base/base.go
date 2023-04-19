@@ -57,6 +57,7 @@ func Named(name string) resource.Name {
 // A Base represents a physical base of a robot.
 type Base interface {
 	resource.Resource
+	resource.Actuator
 
 	// MoveStraight moves the robot straight a given distance at a given speed.
 	// If a distance or speed of zero is given, the base will stop.
@@ -73,11 +74,6 @@ type Base interface {
 	// linear is in mmPerSec
 	// angular is in degsPerSec
 	SetVelocity(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error
-
-	// Stop stops the base. It is assumed the base stops immediately.
-	Stop(ctx context.Context, extra map[string]interface{}) error
-
-	resource.MovingCheckable
 }
 
 // A LocalBase represents a physical base of a robot that can report the width of itself.

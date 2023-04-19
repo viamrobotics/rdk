@@ -14,7 +14,6 @@ import (
 	"net/http"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/edaniels/golog"
@@ -99,8 +98,7 @@ type eva struct {
 
 	frameJSON []byte
 
-	opMgr  operation.SingleOperationManager
-	closed atomic.Bool
+	opMgr operation.SingleOperationManager
 }
 
 // NewEva TODO.
@@ -136,9 +134,6 @@ func NewEva(ctx context.Context, conf resource.Config, logger golog.Logger) (arm
 }
 
 func (e *eva) JointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
-	if err := e.checkNotClosed(); err != nil {
-		return nil, err
-	}
 	data, err := e.DataSnapshot(ctx)
 	if err != nil {
 		return &pb.JointPositions{}, err
@@ -148,9 +143,6 @@ func (e *eva) JointPositions(ctx context.Context, extra map[string]interface{}) 
 
 // EndPosition computes and returns the current cartesian position.
 func (e *eva) EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
-	if err := e.checkNotClosed(); err != nil {
-		return nil, err
-	}
 	joints, err := e.JointPositions(ctx, extra)
 	if err != nil {
 		return nil, err
@@ -160,19 +152,12 @@ func (e *eva) EndPosition(ctx context.Context, extra map[string]interface{}) (sp
 
 // MoveToPosition moves the arm to the specified cartesian position.
 func (e *eva) MoveToPosition(ctx context.Context, pos spatialmath.Pose, extra map[string]interface{}) error {
-	if err := e.checkNotClosed(); err != nil {
-		return err
-	}
 	ctx, done := e.opMgr.New(ctx)
 	defer done()
 	return arm.Move(ctx, e.logger, e, pos)
 }
 
 func (e *eva) MoveToJointPositions(ctx context.Context, newPositions *pb.JointPositions, extra map[string]interface{}) error {
-	if err := e.checkNotClosed(); err != nil {
-		return err
-	}
-
 	// check that joint positions are not out of bounds
 	if err := arm.CheckDesiredJointPositions(ctx, e, newPositions.Values); err != nil {
 		return err
@@ -337,23 +322,14 @@ func (e *eva) stop(ctx context.Context) error {
 }
 
 func (e *eva) Stop(ctx context.Context, extra map[string]interface{}) error {
-	if err := e.checkNotClosed(); err != nil {
-		return err
-	}
 	return e.stop(ctx)
 }
 
 func (e *eva) IsMoving(ctx context.Context) (bool, error) {
-	if err := e.checkNotClosed(); err != nil {
-		return false, err
-	}
 	return e.opMgr.OpRunning(), nil
 }
 
 func (e *eva) DataSnapshot(ctx context.Context) (evaData, error) {
-	if err := e.checkNotClosed(); err != nil {
-		return evaData{}, err
-	}
 	type Temp struct {
 		Snapshot evaData
 	}
@@ -410,9 +386,6 @@ func (e *eva) ModelFrame() referenceframe.Model {
 }
 
 func (e *eva) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	if err := e.checkNotClosed(); err != nil {
-		return nil, err
-	}
 	res, err := e.JointPositions(ctx, nil)
 	if err != nil {
 		return nil, err
@@ -421,9 +394,6 @@ func (e *eva) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error)
 }
 
 func (e *eva) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	if err := e.checkNotClosed(); err != nil {
-		return err
-	}
 	positionDegs := e.model.ProtobufFromInput(goal)
 	if err := arm.CheckDesiredJointPositions(ctx, e, positionDegs.Values); err != nil {
 		return err
@@ -431,18 +401,7 @@ func (e *eva) GoToInputs(ctx context.Context, goal []referenceframe.Input) error
 	return e.MoveToJointPositions(ctx, positionDegs, nil)
 }
 
-func (e *eva) checkNotClosed() error {
-	if e.closed.Load() {
-		return errors.New("closed")
-	}
-	return nil
-}
-
 func (e *eva) Close(ctx context.Context) error {
-	if e.closed.Load() {
-		return nil
-	}
-	e.closed.Store(true)
 	return e.stop(ctx)
 }
 

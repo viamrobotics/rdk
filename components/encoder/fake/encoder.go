@@ -88,6 +88,7 @@ func (cfg *Config) Validate(path string) error {
 // fakeEncoder keeps track of a fake motor position.
 type fakeEncoder struct {
 	resource.Named
+	resource.TriviallyCloseable
 
 	mu                      sync.RWMutex
 	position                int64

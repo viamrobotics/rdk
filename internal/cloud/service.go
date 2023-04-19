@@ -35,7 +35,6 @@ var InternalServiceName = resource.NameFromSubtype(Subtype, "builtin")
 type ConnectionService interface {
 	resource.Resource
 	AcquireConnection(ctx context.Context) (string, rpc.ClientConn, error)
-	Close() error
 }
 
 // NewCloudConnectionService makes a new cloud connection service to get gRPC connections
@@ -82,7 +81,7 @@ func (cm *cloudManagedService) AcquireConnection(ctx context.Context) (string, r
 	return cm.cloudCfg.ID, conn, err
 }
 
-func (cm *cloudManagedService) Close() error {
+func (cm *cloudManagedService) Close(ctx context.Context) error {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 

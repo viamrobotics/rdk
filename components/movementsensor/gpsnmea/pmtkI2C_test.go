@@ -94,7 +94,7 @@ func TestNewI2CMovementSensor(t *testing.T) {
 	passErr := "board " + testBoardName + " is not local"
 	if err == nil || err.Error() != passErr {
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, gutils.TryClose(context.Background(), g), test.ShouldBeNil)
+		test.That(t, g.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, g, test.ShouldNotBeNil)
 	}
 }
@@ -151,6 +151,6 @@ func TestCloseI2C(t *testing.T) {
 		logger:     logger,
 	}
 
-	err := g.Close()
+	err := g.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 }

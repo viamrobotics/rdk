@@ -10,7 +10,6 @@ import (
 	componentpb "go.viam.com/api/component/arm/v1"
 	robotpb "go.viam.com/api/robot/v1"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/arm"
@@ -163,7 +162,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, arm.ErrStopUnimplemented.Error())
 		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{"foo": "Stop"})
 
-		test.That(t, utils.TryClose(context.Background(), arm1Client), test.ShouldBeNil)
+		test.That(t, arm1Client.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 

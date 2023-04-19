@@ -208,6 +208,7 @@ func newSensor(
 type bme280 struct {
 	resource.Named
 	resource.AlwaysRebuild
+	resource.TriviallyCloseable
 	logger golog.Logger
 
 	bus         board.I2C

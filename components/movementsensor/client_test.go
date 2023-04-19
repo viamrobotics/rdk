@@ -10,7 +10,6 @@ import (
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/generic"
@@ -189,7 +188,7 @@ func TestClient(t *testing.T) {
 		test.That(t, rs1["compass"], test.ShouldResemble, rs["compass"])
 		test.That(t, rs1["orientation"], test.ShouldResemble, rs["orientation"])
 
-		test.That(t, utils.TryClose(context.Background(), gps1Client), test.ShouldBeNil)
+		test.That(t, gps1Client.Close(context.Background()), test.ShouldBeNil)
 
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
@@ -222,7 +221,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get location")
 
-		test.That(t, utils.TryClose(context.Background(), gps2Client), test.ShouldBeNil)
+		test.That(t, gps2Client.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 }

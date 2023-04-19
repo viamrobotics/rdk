@@ -26,6 +26,7 @@ type Servo struct {
 	angle uint32
 	resource.Named
 	resource.TriviallyReconfigurable
+	resource.TriviallyCloseable
 }
 
 // Move sets the given angle.

@@ -281,6 +281,9 @@ func (r *Robot) ModuleManager() modmaninterface.ModuleManager {
 	r.Mu.RLock()
 	defer r.Mu.RUnlock()
 	if r.ModuleManagerFunc == nil {
+		if r.LocalRobot == nil {
+			return nil
+		}
 		return r.LocalRobot.ModuleManager()
 	}
 	return r.ModuleManagerFunc()

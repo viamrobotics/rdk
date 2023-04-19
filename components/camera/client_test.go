@@ -13,7 +13,6 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/camera"
@@ -186,7 +185,7 @@ func TestClient(t *testing.T) {
 		test.That(t, resp["command"], test.ShouldEqual, testutils.TestCommand["command"])
 		test.That(t, resp["data"], test.ShouldEqual, testutils.TestCommand["data"])
 
-		test.That(t, utils.TryClose(context.Background(), camera1Client), test.ShouldBeNil)
+		test.That(t, camera1Client.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 	t.Run("camera client depth", func(t *testing.T) {
@@ -208,7 +207,7 @@ func TestClient(t *testing.T) {
 		test.That(t, imageReleased, test.ShouldBeTrue)
 		imageReleasedMu.Unlock()
 
-		test.That(t, utils.TryClose(context.Background(), cameraDepthClient), test.ShouldBeNil)
+		test.That(t, cameraDepthClient.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 

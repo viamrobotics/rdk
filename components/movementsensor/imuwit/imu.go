@@ -330,7 +330,7 @@ func (imu *wit) parseWIT(line string) error {
 }
 
 // Close shuts down wit and closes imu.port.
-func (imu *wit) Close() error {
+func (imu *wit) Close(ctx context.Context) error {
 	imu.logger.Debug("Closing wit motion imu")
 	imu.cancelFunc()
 	imu.activeBackgroundWorkers.Wait()

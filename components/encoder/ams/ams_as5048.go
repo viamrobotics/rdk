@@ -333,7 +333,7 @@ func (enc *Encoder) GetProperties(ctx context.Context, extra map[string]interfac
 
 // Close stops the position loop of the encoder when the component
 // is closed.
-func (enc *Encoder) Close() error {
+func (enc *Encoder) Close(ctx context.Context) error {
 	enc.cancel()
 	enc.activeBackgroundWorkers.Wait()
 	return nil

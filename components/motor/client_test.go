@@ -8,7 +8,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/generic"
@@ -162,7 +161,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, actualExtra, test.ShouldResemble, map[string]interface{}{"foo": "bar", "baz": []interface{}{1., 2., 3.}})
 
-		test.That(t, utils.TryClose(context.Background(), workingMotorClient), test.ShouldBeNil)
+		test.That(t, workingMotorClient.Close(context.Background()), test.ShouldBeNil)
 
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
@@ -201,7 +200,7 @@ func TestClient(t *testing.T) {
 		err = failingMotorClient.Stop(context.Background(), nil)
 		test.That(t, err, test.ShouldNotBeNil)
 
-		test.That(t, utils.TryClose(context.Background(), failingMotorClient), test.ShouldBeNil)
+		test.That(t, failingMotorClient.Close(context.Background()), test.ShouldBeNil)
 	})
 
 	t.Run("dialed client tests for working motor", func(t *testing.T) {
@@ -232,7 +231,7 @@ func TestClient(t *testing.T) {
 		test.That(t, powerPct, test.ShouldEqual, 42.0)
 		test.That(t, err, test.ShouldBeNil)
 
-		test.That(t, utils.TryClose(context.Background(), workingMotorDialedClient), test.ShouldBeNil)
+		test.That(t, workingMotorDialedClient.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 
@@ -254,7 +253,7 @@ func TestClient(t *testing.T) {
 		test.That(t, powerPct, test.ShouldEqual, 0.0)
 		test.That(t, err, test.ShouldNotBeNil)
 
-		test.That(t, utils.TryClose(context.Background(), failingMotorDialedClient), test.ShouldBeNil)
+		test.That(t, failingMotorDialedClient.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 	test.That(t, conn.Close(), test.ShouldBeNil)

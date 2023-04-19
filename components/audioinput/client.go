@@ -23,6 +23,7 @@ import (
 type client struct {
 	resource.Named
 	resource.TriviallyReconfigurable
+	resource.TriviallyCloseable
 	conn                    rpc.ClientConn
 	client                  pb.AudioInputServiceClient
 	logger                  golog.Logger

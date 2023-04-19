@@ -111,6 +111,7 @@ func (svc *frameSystemService) Name() resource.Name {
 // configs, and the remote robot configs.
 type frameSystemService struct {
 	resource.Named
+	resource.TriviallyCloseable
 	mu          sync.RWMutex
 	r           robot.Robot
 	localParts  framesystemparts.Parts                     // gotten from the local robot's config.Config

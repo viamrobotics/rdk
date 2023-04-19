@@ -27,6 +27,7 @@ var errUnimplemented = errors.New("unimplemented")
 type client struct {
 	resource.Named
 	resource.TriviallyReconfigurable
+	resource.TriviallyCloseable
 	client pb.BoardServiceClient
 	logger golog.Logger
 

@@ -8,7 +8,6 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/base"
@@ -123,7 +122,7 @@ func TestClient(t *testing.T) {
 	workingBaseClient, err := base.NewClientFromConn(context.Background(), conn, base.Named(testBaseName), logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
-		test.That(t, utils.TryClose(context.Background(), workingBaseClient), test.ShouldBeNil)
+		test.That(t, workingBaseClient.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	}()
 
@@ -185,7 +184,7 @@ func TestClient(t *testing.T) {
 		err = failingBaseClient.Stop(context.Background(), nil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, brokenBaseErrMsg)
 
-		test.That(t, utils.TryClose(context.Background(), failingBaseClient), test.ShouldBeNil)
+		test.That(t, failingBaseClient.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 }

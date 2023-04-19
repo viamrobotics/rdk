@@ -195,7 +195,7 @@ func TestNewRTKMovementSensor(t *testing.T) {
 		g, err := newRTKMovementSensor(ctx, deps, conf, logger)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, g.Name(), test.ShouldResemble, conf.ResourceName())
-		test.That(t, utils.TryClose(context.Background(), g), test.ShouldBeNil)
+		test.That(t, g.Close(context.Background()), test.ShouldBeNil)
 	})
 
 	t.Run("invalid protocol", func(t *testing.T) {
@@ -289,7 +289,7 @@ func TestCloseRTK(t *testing.T) {
 	}
 	g.nmeamovementsensor = &fake.MovementSensor{}
 
-	err := g.Close()
+	err := g.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)
 }
 

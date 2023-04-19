@@ -373,6 +373,7 @@ func TestModularResources(t *testing.T) {
 type dummyRes struct {
 	resource.Named
 	resource.AlwaysRebuild
+	resource.TriviallyCloseable
 }
 
 type dummyModMan struct {

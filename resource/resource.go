@@ -70,8 +70,13 @@ type Resource interface {
 	// cannot be guaranteed, then usage of AlwaysRebuild or TriviallyReconfigurable
 	// is permissible.
 	Reconfigure(ctx context.Context, deps Dependencies, conf Config) error
+
 	// DoCommand sends/receives arbitrary data
 	DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+
+	// Close must safely shut down the resource and prevent further use.
+	// Later reconfiguration may allow a resource to be "open" again.
+	Close(ctx context.Context) error
 }
 
 // Dependencies are a set of resources that a resource requires for reconfiguration.
@@ -373,39 +378,13 @@ func ContainsReservedCharacter(val string) error {
 	return nil
 }
 
-// MovingCheckable is implemented when a resource of a robot returns whether it is moving or not.
-type MovingCheckable interface {
+// Actuator is any resource that can move.
+type Actuator interface {
 	// IsMoving returns whether the resource is moving or not
 	IsMoving(context.Context) (bool, error)
-}
 
-// Stoppable is implemented when a resource of a robot can stop its movement.
-type Stoppable interface {
 	// Stop stops all movement for the resource
 	Stop(context.Context, map[string]interface{}) error
-}
-
-// OldStoppable will be deprecated soon. See Stoppable.
-// TODO[RSDK-328].
-type OldStoppable interface {
-	// Stop stops all movement for the resource
-	Stop(context.Context) error
-}
-
-// StopResource attempts to stops the given resource.
-func StopResource(ctx context.Context, res interface{}, extra map[string]interface{}) error {
-	sr, ok := res.(Stoppable)
-	if ok {
-		return sr.Stop(ctx, extra)
-	}
-
-	// TODO[njooma]: OldStoppable - Will be deprecated
-	osr, ok := res.(OldStoppable)
-	if ok {
-		return osr.Stop(ctx)
-	}
-
-	return nil
 }
 
 // ErrDoUnimplemented is returned if the DoCommand methods is not implemented.
@@ -417,6 +396,16 @@ type TriviallyReconfigurable struct{}
 
 // Reconfigure always succeeds.
 func (t TriviallyReconfigurable) Reconfigure(ctx context.Context, deps Dependencies, conf Config) error {
+	return nil
+}
+
+// TriviallyCloseable is to be embedded by any resource that does not care about
+// handling Closes. When is used, it is assumed that the resource does not need
+// to return errors when furture non-Close methods are called.
+type TriviallyCloseable struct{}
+
+// Close always returns no error.
+func (t TriviallyCloseable) Close(ctx context.Context) error {
 	return nil
 }
 

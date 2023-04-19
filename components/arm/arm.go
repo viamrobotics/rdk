@@ -82,6 +82,9 @@ func Named(name string) resource.Name {
 // An Arm represents a physical robotic arm that exists in three-dimensional space.
 type Arm interface {
 	resource.Resource
+	resource.Actuator
+	referenceframe.ModelFramer
+	referenceframe.InputEnabled
 
 	// EndPosition returns the current position of the arm.
 	EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error)
@@ -96,13 +99,6 @@ type Arm interface {
 
 	// JointPositions returns the current joint positions of the arm.
 	JointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error)
-
-	// Stop stops the arm. It is assumed the arm stops immediately.
-	Stop(ctx context.Context, extra map[string]interface{}) error
-
-	referenceframe.ModelFramer
-	referenceframe.InputEnabled
-	resource.MovingCheckable
 }
 
 // ErrStopUnimplemented is used for when Stop is unimplemented.

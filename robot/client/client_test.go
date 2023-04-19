@@ -697,7 +697,7 @@ func TestClientDisconnect(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
-		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
+		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
 	}()
 
 	test.That(t, client.Connected(), test.ShouldBeTrue)
@@ -785,7 +785,7 @@ func TestClientUnaryDisconnectHandler(t *testing.T) {
 	})
 
 	defer func() {
-		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
+		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
 	}()
 	gServer.Stop()
 }
@@ -866,7 +866,7 @@ func TestClientStreamDisconnectHandler(t *testing.T) {
 	})
 
 	defer func() {
-		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
+		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
 	}()
 	gServer.Stop()
 }
@@ -874,6 +874,7 @@ func TestClientStreamDisconnectHandler(t *testing.T) {
 type mockType struct {
 	resource.Named
 	resource.AlwaysRebuild
+	resource.TriviallyCloseable
 }
 
 func TestClientReconnect(t *testing.T) {
@@ -934,7 +935,7 @@ func TestClientReconnect(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
-		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
+		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
 	}()
 
 	test.That(t, len(client.ResourceNames()), test.ShouldEqual, 2)
@@ -1030,7 +1031,7 @@ func TestClientRefreshNoReconfigure(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
-		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
+		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
 	}()
 
 	close(allow)
@@ -1433,7 +1434,7 @@ func TestClientStatus(t *testing.T) {
 		_, err = client2.Status(context.Background(), []resource.Name{})
 		test.That(t, err.Error(), test.ShouldContainSubstring, passedErr.Error())
 
-		test.That(t, utils.TryClose(context.Background(), client2), test.ShouldBeNil)
+		test.That(t, client2.Close(context.Background()), test.ShouldBeNil)
 	})
 }
 

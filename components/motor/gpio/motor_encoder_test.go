@@ -8,7 +8,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/components/board"
@@ -57,7 +56,7 @@ func TestMotorEncoder1(t *testing.T) {
 	motorDep, ok := dirFMotor.(*EncodedMotor)
 	test.That(t, ok, test.ShouldBeTrue)
 	defer func() {
-		test.That(t, utils.TryClose(context.Background(), motorDep), test.ShouldBeNil)
+		test.That(t, motorDep.Close(context.Background()), test.ShouldBeNil)
 	}()
 
 	t.Run("encoded motor testing the basics", func(t *testing.T) {
@@ -323,7 +322,7 @@ func TestMotorEncoderIncremental(t *testing.T) {
 			encB,
 			fakeMotor,
 			motor,
-			func() { test.That(t, utils.TryClose(context.Background(), motor), test.ShouldBeNil) },
+			func() { test.That(t, motor.Close(context.Background()), test.ShouldBeNil) },
 		}
 	}
 
@@ -595,7 +594,7 @@ func TestWrapMotorWithEncoder(t *testing.T) {
 		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, m, test.ShouldEqual, fakeMotor)
-		test.That(t, utils.TryClose(context.Background(), m), test.ShouldBeNil)
+		test.That(t, m.Close(context.Background()), test.ShouldBeNil)
 	})
 
 	t.Run("wrap motor with single encoder", func(t *testing.T) {
@@ -624,7 +623,7 @@ func TestWrapMotorWithEncoder(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		_, ok := m.(*EncodedMotor)
 		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, utils.TryClose(context.Background(), m), test.ShouldBeNil)
+		test.That(t, m.Close(context.Background()), test.ShouldBeNil)
 	})
 
 	t.Run("wrap motor with hall encoder", func(t *testing.T) {
@@ -656,7 +655,7 @@ func TestWrapMotorWithEncoder(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		_, ok := m.(*EncodedMotor)
 		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, utils.TryClose(context.Background(), m), test.ShouldBeNil)
+		test.That(t, m.Close(context.Background()), test.ShouldBeNil)
 	})
 }
 

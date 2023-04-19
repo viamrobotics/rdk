@@ -1045,4 +1045,5 @@ func TestResourceGraphResolveDependencies(t *testing.T) {
 type someResource struct {
 	Named
 	TriviallyReconfigurable
+	TriviallyCloseable
 }

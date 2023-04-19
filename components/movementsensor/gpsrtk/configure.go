@@ -1,6 +1,7 @@
 package gpsrtk
 
 import (
+	"context"
 	"fmt"
 	"io"
 
@@ -419,7 +420,7 @@ func (c *configCommand) saveAllConfigs() error {
 }
 
 // Close closes all open ports used in configuration.
-func (c *configCommand) Close() error {
+func (c *configCommand) Close(ctx context.Context) error {
 	// close port reader if serial
 	if c.writePort != nil {
 		if err := c.writePort.Close(); err != nil {

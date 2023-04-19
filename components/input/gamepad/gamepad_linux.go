@@ -364,7 +364,7 @@ func (g *gamepad) connectDev(ctx context.Context) error {
 }
 
 // Close terminates background worker threads.
-func (g *gamepad) Close() {
+func (g *gamepad) Close(ctx context.Context) error {
 	g.cancelFunc()
 	g.activeBackgroundWorkers.Wait()
 	if g.dev != nil {
@@ -372,6 +372,7 @@ func (g *gamepad) Close() {
 			g.logger.Error(err)
 		}
 	}
+	return nil
 }
 
 // Controls lists the inputs of the gamepad.

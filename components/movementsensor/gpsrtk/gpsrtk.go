@@ -719,13 +719,13 @@ func (g *RTKMovementSensor) Readings(ctx context.Context, extra map[string]inter
 }
 
 // Close shuts down the RTKMOVEMENTSENSOR.
-func (g *RTKMovementSensor) Close() error {
+func (g *RTKMovementSensor) Close(ctx context.Context) error {
 	g.mu.Lock()
 	g.cancelFunc()
 	g.mu.Unlock()
 	g.activeBackgroundWorkers.Wait()
 
-	if err := g.nmeamovementsensor.Close(); err != nil {
+	if err := g.nmeamovementsensor.Close(ctx); err != nil {
 		return err
 	}
 

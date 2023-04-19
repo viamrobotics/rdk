@@ -162,6 +162,7 @@ func new28byj(ctx context.Context, deps resource.Dependencies, conf resource.Con
 type uln28byj struct {
 	resource.Named
 	resource.AlwaysRebuild
+	resource.TriviallyCloseable
 	theBoard           board.Board
 	ticksPerRotation   int
 	in1, in2, in3, in4 board.GPIOPin

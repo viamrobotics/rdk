@@ -25,7 +25,7 @@ type Config struct {
 	Frame     *referenceframe.LinkConfig `json:"frame,omitempty"`
 	DependsOn []string                   `json:"depends_on"`
 	// could be components in the future but right now its services.
-	AssociatedResourceConfigs []AssociatedResourceConfig `json:"service_config"`
+	AssociatedResourceConfigs []AssociatedResourceConfig `json:"service_configs"`
 
 	Attributes          utils.AttributeMap `json:"attributes"`
 	ConvertedAttributes interface{}        `json:"-"`

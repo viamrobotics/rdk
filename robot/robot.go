@@ -104,7 +104,7 @@ type LocalRobot interface {
 	StartWeb(ctx context.Context, o weboptions.Options) error
 
 	// StopWeb stops the web server, will be a noop if server is not up.
-	StopWeb() error
+	StopWeb(ctx context.Context) error
 
 	// WebAddress returns the address of the web service.
 	WebAddress() (string, error)

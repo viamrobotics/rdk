@@ -8,7 +8,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/generic"
@@ -78,7 +77,7 @@ func TestClient(t *testing.T) {
 		test.That(t, resp["cmd"], test.ShouldEqual, testutils.TestCommand["cmd"])
 		test.That(t, resp["data"], test.ShouldEqual, testutils.TestCommand["data"])
 
-		test.That(t, utils.TryClose(context.Background(), workingGenericClient), test.ShouldBeNil)
+		test.That(t, workingGenericClient.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 
@@ -91,7 +90,7 @@ func TestClient(t *testing.T) {
 		_, err = failingGenericClient.DoCommand(context.Background(), testutils.TestCommand)
 		test.That(t, err, test.ShouldNotBeNil)
 
-		test.That(t, utils.TryClose(context.Background(), failingGenericClient), test.ShouldBeNil)
+		test.That(t, failingGenericClient.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 

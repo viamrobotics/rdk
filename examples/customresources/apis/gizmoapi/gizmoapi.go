@@ -216,6 +216,7 @@ func newSvcClientFromConn(conn rpc.ClientConn, name resource.Name, logger golog.
 type serviceClient struct {
 	resource.Named
 	resource.AlwaysRebuild
+	resource.TriviallyCloseable
 	client pb.GizmoServiceClient
 	logger golog.Logger
 }

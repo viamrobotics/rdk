@@ -168,7 +168,7 @@ func (s *serialCorrectionSource) Reader() (io.ReadCloser, error) {
 }
 
 // Close shuts down the serialCorrectionSource and closes s.port.
-func (s *serialCorrectionSource) Close() error {
+func (s *serialCorrectionSource) Close(ctx context.Context) error {
 	s.mu.Lock()
 	s.cancelFunc()
 	s.mu.Unlock()

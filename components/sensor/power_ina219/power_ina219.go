@@ -123,6 +123,7 @@ func newSensor(
 type ina219 struct {
 	resource.Named
 	resource.AlwaysRebuild
+	resource.TriviallyCloseable
 	logger     golog.Logger
 	bus        board.I2C
 	addr       byte

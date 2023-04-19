@@ -355,7 +355,7 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 	}
 
 	m.logger.Debugw("rebuilding", "name", conf.ResourceName())
-	if err := utils.TryClose(ctx, res); err != nil {
+	if err := res.Close(ctx); err != nil {
 		m.logger.Error(err)
 	}
 

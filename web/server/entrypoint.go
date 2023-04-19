@@ -325,7 +325,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 
 				if !diff.NetworkEqual {
 					// TODO(RSDK-2694): use internal web service reconfiguration instead
-					if err := myRobot.StopWeb(); err != nil {
+					if err := myRobot.StopWeb(ctx); err != nil {
 						s.logger.Errorw("reconfiguration failed: error stopping web service while reconfiguring", "error", err)
 						continue
 					}

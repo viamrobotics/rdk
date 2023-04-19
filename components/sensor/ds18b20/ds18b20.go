@@ -63,6 +63,7 @@ func newSensor(name resource.Name, id string) sensor.Sensor {
 type Sensor struct {
 	resource.Named
 	resource.AlwaysRebuild
+	resource.TriviallyCloseable
 	OneWireID     string
 	OneWireFamily string
 }

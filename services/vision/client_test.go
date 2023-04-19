@@ -8,7 +8,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
 	"go.viam.com/utils/rpc"
 
@@ -81,7 +80,7 @@ func TestClient(t *testing.T) {
 		test.That(t, parameterNames, test.ShouldContain, "clustering_radius_mm")
 		test.That(t, parameterNames, test.ShouldContain, "mean_k_filtering")
 
-		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
+		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 	t.Run("detector names", func(t *testing.T) {
@@ -95,7 +94,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, names, test.ShouldContain, "detect_red")
 
-		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
+		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 	t.Run("add detector", func(t *testing.T) {
@@ -127,7 +126,7 @@ func TestClient(t *testing.T) {
 		err = client.AddDetector(context.Background(), cfg, map[string]interface{}{})
 		test.That(t, err, test.ShouldBeNil)
 
-		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
+		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 	t.Run("get detections from cam", func(t *testing.T) {
@@ -149,7 +148,7 @@ func TestClient(t *testing.T) {
 		_, err = client.DetectionsFromCamera(context.Background(), "no_camera", "detect_red", map[string]interface{}{})
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
-		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
+		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 	t.Run("get detections from img", func(t *testing.T) {
@@ -178,7 +177,7 @@ func TestClient(t *testing.T) {
 		test.That(t, dets[0].Label(), test.ShouldResemble, "17")
 		test.That(t, dets[0].Score(), test.ShouldBeGreaterThan, 0.78)
 
-		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
+		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 	t.Run("segmenters", func(t *testing.T) {
@@ -217,7 +216,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, names, test.ShouldNotContain, "new_segmenter")
 
-		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
+		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 	t.Run("add/remove/classifiernames", func(t *testing.T) {
@@ -271,7 +270,7 @@ func TestClient(t *testing.T) {
 		test.That(t, names, test.ShouldNotContain, "new_class")
 		test.That(t, names, test.ShouldContain, "better_class")
 
-		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
+		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 
@@ -293,7 +292,7 @@ func TestClient(t *testing.T) {
 		_, err = client.ClassificationsFromCamera(context.Background(), "no_camera", "better_class", 3, map[string]interface{}{})
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
-		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
+		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 	t.Run("get classifications from img", func(t *testing.T) {
@@ -311,7 +310,7 @@ func TestClient(t *testing.T) {
 		test.That(t, classifs[0].Label(), test.ShouldResemble, "291")
 		test.That(t, classifs[0].Score(), test.ShouldBeGreaterThan, 0.82)
 
-		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
+		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 
@@ -362,7 +361,7 @@ func TestInjectedServiceClient(t *testing.T) {
 		test.That(t, resp["command"], test.ShouldEqual, testutils.TestCommand["command"])
 		test.That(t, resp["data"], test.ShouldEqual, testutils.TestCommand["data"])
 
-		test.That(t, utils.TryClose(context.Background(), workingDialedClient), test.ShouldBeNil)
+		test.That(t, workingDialedClient.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 	t.Run("test segmentation", func(t *testing.T) {
@@ -407,7 +406,7 @@ func TestInjectedServiceClient(t *testing.T) {
 			test.That(t, box, test.ShouldNotBeNil)
 			test.That(t, box.AlmostEqual(expectedBoxes[0]) || box.AlmostEqual(expectedBoxes[1]), test.ShouldBeTrue)
 		}
-		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
+		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 }

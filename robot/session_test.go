@@ -837,6 +837,7 @@ var _ = motor.Motor(&dummyMotor{})
 type dummyMotor struct {
 	resource.Named
 	resource.AlwaysRebuild
+	resource.TriviallyCloseable
 	mu     sync.Mutex
 	stopCh chan struct{}
 }
@@ -885,6 +886,7 @@ var _ = base.Base(&dummyBase{})
 type dummyBase struct {
 	resource.Named
 	resource.AlwaysRebuild
+	resource.TriviallyCloseable
 	mu     sync.Mutex
 	stopCh chan struct{}
 }
@@ -929,6 +931,7 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name resource.N
 type dummyClient struct {
 	resource.Named
 	resource.AlwaysRebuild
+	resource.TriviallyCloseable
 	name   string
 	client echopb.TestEchoServiceClient
 }
@@ -938,9 +941,14 @@ func (c *dummyClient) Stop(ctx context.Context, extra map[string]interface{}) er
 	return err
 }
 
+func (c *dummyClient) IsMoving(context.Context) (bool, error) {
+	return false, nil
+}
+
 type dummyEcho struct {
 	resource.Named
 	resource.AlwaysRebuild
+	resource.TriviallyCloseable
 	mu     sync.Mutex
 	stopCh chan struct{}
 }
@@ -955,6 +963,10 @@ func (e *dummyEcho) Stop(ctx context.Context, extra map[string]interface{}) erro
 	defer e.mu.Unlock()
 	close(e.stopCh)
 	return nil
+}
+
+func (e *dummyEcho) IsMoving(context.Context) (bool, error) {
+	return false, nil
 }
 
 type echoServer struct {
@@ -997,8 +1009,10 @@ func (srv *echoServer) Stop(ctx context.Context, req *echopb.StopRequest) (*echo
 	if err != nil {
 		return nil, err
 	}
-	if err := resource.StopResource(ctx, res, nil); err != nil {
-		return nil, err
+	if actuator, ok := res.(resource.Actuator); ok {
+		if err := actuator.Stop(ctx, nil); err != nil {
+			return nil, err
+		}
 	}
 	return &echopb.StopResponse{}, nil
 }

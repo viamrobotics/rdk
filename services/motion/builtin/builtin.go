@@ -49,6 +49,7 @@ type builtIn struct {
 	resource.Named
 	// TODO(RSDK-2693): This should support reconfiguration and not use the robot constructor
 	resource.TriviallyReconfigurable
+	resource.TriviallyCloseable
 	r      robot.Robot
 	logger golog.Logger
 }

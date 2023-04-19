@@ -558,7 +558,7 @@ func (adxl *adxl345) Properties(ctx context.Context, extra map[string]interface{
 }
 
 // Puts the chip into standby mode.
-func (adxl *adxl345) Close(ctx context.Context) {
+func (adxl *adxl345) Close(ctx context.Context) error {
 	adxl.mu.Lock()
 	defer adxl.mu.Unlock()
 
@@ -569,6 +569,7 @@ func (adxl *adxl345) Close(ctx context.Context) {
 	// Put the chip into standby mode by setting the Power Control register (0x2D) to 0.
 	err := adxl.writeByte(ctx, 0x2D, 0x00)
 	if err != nil {
-		adxl.logger.Errorf("Unable to turn off ADXL345 accelerometer: '%s'", err)
+		adxl.logger.Errorf("unable to turn off ADXL345 accelerometer: '%s'", err)
 	}
+	return nil
 }

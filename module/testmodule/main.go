@@ -55,6 +55,7 @@ func newHelper(ctx context.Context, deps resource.Dependencies, conf resource.Co
 type helper struct {
 	resource.Named
 	resource.TriviallyReconfigurable
+	resource.TriviallyCloseable
 	logger golog.Logger
 }
 

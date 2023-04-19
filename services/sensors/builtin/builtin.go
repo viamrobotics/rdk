@@ -50,6 +50,7 @@ func NewBuiltIn(ctx context.Context, deps resource.Dependencies, conf resource.C
 
 type builtIn struct {
 	resource.Named
+	resource.TriviallyCloseable
 	mu      sync.RWMutex
 	sensors map[resource.Name]sensor.Sensor
 	logger  golog.Logger

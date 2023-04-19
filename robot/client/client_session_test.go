@@ -724,6 +724,7 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name resource.N
 type dummyClient struct {
 	resource.Named
 	resource.AlwaysRebuild
+	resource.TriviallyCloseable
 	name   string
 	client echopb.EchoResourceServiceClient
 }
@@ -731,6 +732,7 @@ type dummyClient struct {
 type dummyEcho struct {
 	resource.Named
 	resource.AlwaysRebuild
+	resource.TriviallyCloseable
 	mu        sync.Mutex
 	capSessID uuid.UUID
 }

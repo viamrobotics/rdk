@@ -106,6 +106,7 @@ var _ = servo.Servo(&piPigpioServo{})
 type piPigpioServo struct {
 	resource.Named
 	resource.AlwaysRebuild
+	resource.TriviallyCloseable
 	pin         C.uint
 	pinname     string
 	res         C.int

@@ -98,7 +98,7 @@ var modelname = resource.NewDefaultModel("gps-nmea")
 type NmeaMovementSensor interface {
 	movementsensor.MovementSensor
 	Start(ctx context.Context) error          // Initialize and run MovementSensor
-	Close() error                             // Close MovementSensor
+	Close(ctx context.Context) error          // Close MovementSensor
 	ReadFix(ctx context.Context) (int, error) // Returns the fix quality of the current MovementSensor measurements
 }
 

@@ -659,7 +659,7 @@ func (b *sysfsBoard) SetPowerMode(ctx context.Context, mode pb.PowerMode, durati
 	return grpc.UnimplementedError
 }
 
-func (b *sysfsBoard) Close() error {
+func (b *sysfsBoard) Close(ctx context.Context) error {
 	b.mu.Lock()
 	b.cancelFunc()
 	b.mu.Unlock()

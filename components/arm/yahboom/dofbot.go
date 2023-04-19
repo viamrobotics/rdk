@@ -451,6 +451,6 @@ func (a *Dofbot) GoToInputs(ctx context.Context, goal []referenceframe.Input) er
 }
 
 // Close closes the arm.
-func (a *Dofbot) Close() error {
+func (a *Dofbot) Close(ctx context.Context) error {
 	return a.handle.Close()
 }

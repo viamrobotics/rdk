@@ -104,6 +104,7 @@ func init() {
 type Motor struct {
 	resource.Named
 	resource.AlwaysRebuild
+	resource.TriviallyCloseable
 	board       board.Board
 	bus         board.SPI
 	csPin       string

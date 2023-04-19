@@ -9,7 +9,6 @@ import (
 	"github.com/edaniels/golog"
 	pb "go.viam.com/api/component/encoder/v1"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/encoder"
@@ -124,7 +123,7 @@ func TestClient(t *testing.T) {
 
 		test.That(t, actualExtra, test.ShouldResemble, map[string]interface{}{"foo": "bar", "baz": []interface{}{1., 2., 3.}})
 
-		test.That(t, utils.TryClose(context.Background(), workingEncoderClient), test.ShouldBeNil)
+		test.That(t, workingEncoderClient.Close(context.Background()), test.ShouldBeNil)
 
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
@@ -141,7 +140,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, pos, test.ShouldEqual, 0.0)
 
-		test.That(t, utils.TryClose(context.Background(), failingEncoderClient), test.ShouldBeNil)
+		test.That(t, failingEncoderClient.Close(context.Background()), test.ShouldBeNil)
 	})
 
 	t.Run("dialed client tests for working encoder", func(t *testing.T) {
@@ -156,7 +155,7 @@ func TestClient(t *testing.T) {
 		err = workingEncoderDialedClient.ResetPosition(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		test.That(t, utils.TryClose(context.Background(), workingEncoderDialedClient), test.ShouldBeNil)
+		test.That(t, workingEncoderDialedClient.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 
@@ -165,7 +164,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		failingEncoderDialedClient := encoder.NewClientFromConn(context.Background(), conn, encoder.Named(failEncoderName), logger)
 
-		test.That(t, utils.TryClose(context.Background(), failingEncoderDialedClient), test.ShouldBeNil)
+		test.That(t, failingEncoderDialedClient.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 	test.That(t, conn.Close(), test.ShouldBeNil)

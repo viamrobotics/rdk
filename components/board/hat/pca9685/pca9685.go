@@ -82,6 +82,7 @@ func init() {
 type PCA9685 struct {
 	resource.Named
 	resource.AlwaysRebuild
+	resource.TriviallyCloseable
 
 	mu                  sync.RWMutex
 	address             byte

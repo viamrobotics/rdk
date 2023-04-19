@@ -15,6 +15,7 @@ import (
 type client struct {
 	resource.Named
 	resource.TriviallyReconfigurable
+	resource.TriviallyCloseable
 	name   string
 	conn   rpc.ClientConn
 	client pb.MLModelServiceClient

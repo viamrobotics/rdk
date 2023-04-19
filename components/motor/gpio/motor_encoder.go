@@ -633,12 +633,13 @@ func (m *EncodedMotor) IsPowered(ctx context.Context, extra map[string]interface
 }
 
 // Close cleanly shuts down the motor.
-func (m *EncodedMotor) Close() {
+func (m *EncodedMotor) Close(ctx context.Context) error {
 	if m.loop != nil {
 		m.loop.Stop()
 	}
 	m.cancel()
 	m.activeBackgroundWorkers.Wait()
+	return nil
 }
 
 // GoTo instructs the motor to go to a specific position (provided in revolutions from home/zero),

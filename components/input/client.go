@@ -22,6 +22,7 @@ import (
 type client struct {
 	resource.Named
 	resource.TriviallyReconfigurable
+	resource.TriviallyCloseable
 	client pb.InputControllerServiceClient
 	logger golog.Logger
 
@@ -351,7 +352,7 @@ func (c *client) execCallback(ctx context.Context, event Event) {
 }
 
 // Close cleanly closes the underlying connections.
-func (c *client) Close() error {
+func (c *client) Close(ctx context.Context) error {
 	if c.cancelBackgroundWorkers != nil {
 		c.cancelBackgroundWorkers()
 		c.cancelBackgroundWorkers = nil
