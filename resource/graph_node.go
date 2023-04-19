@@ -12,7 +12,7 @@ import (
 // A GraphNode contains the current state of a resource.
 // It starts out as either uninitialized, unconfigured, or configured.
 // Based on these states, the underlying Resource may or may not be available.
-// Additioanlly, the node can be informed that the resource either needs to be
+// Additionally, the node can be informed that the resource either needs to be
 // updated or eventually removed. During its life, errors may be set on the
 // node to indicate that the resource is no longer available to external users.
 type GraphNode struct {
