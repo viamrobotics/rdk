@@ -17,6 +17,8 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
+	"go.viam.com/rdk/services/mlmodel"
+	_ "go.viam.com/rdk/services/mlmodel/register"
 	"go.viam.com/rdk/services/vision"
 	_ "go.viam.com/rdk/services/vision/register"
 )
@@ -62,8 +64,8 @@ func buildRobotWithFakeCamera(logger golog.Logger) (robot.Robot, error) {
 	cfg.Services = append(cfg.Services, colorSrv1)
 	tfliteSrv1 := config.Service{
 		Name:  "object_classifier",
-		Type:  vision.SubtypeName,
-		Model: resource.NewDefaultModel("tflite_classifier"),
+		Type:  mlmodel.SubtypeName,
+		Model: resource.NewDefaultModel("tflite_cpu"),
 		Attributes: config.AttributeMap{
 			"model_path":  artifact.MustPath("vision/classification/object_classifier.tflite"),
 			"label_path":  artifact.MustPath("vision/classification/object_labels.txt"),
@@ -71,16 +73,37 @@ func buildRobotWithFakeCamera(logger golog.Logger) (robot.Robot, error) {
 		},
 	}
 	cfg.Services = append(cfg.Services, tfliteSrv1)
+	visionSrv1 := config.Service{
+		Name:  "vision_classifier",
+		Type:  vision.SubtypeName,
+		Model: resource.NewDefaultModel("ml_model"),
+		Attributes: config.AttributeMap{
+			"ml_model_name": "object_classifier",
+		},
+		DependsOn: []string{"object_classifier"},
+	}
+	cfg.Services = append(cfg.Services, visionSrv1)
 	tfliteSrv2 := config.Service{
 		Name:  "detector_tflite",
-		Type:  vision.SubtypeName,
-		Model: resource.NewDefaultModel("tflite_detector"),
+		Type:  mlmodel.SubtypeName,
+		Model: resource.NewDefaultModel("tflite_cpu"),
 		Attributes: config.AttributeMap{
 			"model_path":  artifact.MustPath("vision/tflite/effdet0.tflite"),
+			"label_path":  artifact.MustPath("vision/tflite/effdetlabels.txt"),
 			"num_threads": 1,
 		},
 	}
 	cfg.Services = append(cfg.Services, tfliteSrv2)
+	visionSrv2 := config.Service{
+		Name:  "vision_detector",
+		Type:  vision.SubtypeName,
+		Model: resource.NewDefaultModel("ml_model"),
+		Attributes: config.AttributeMap{
+			"ml_model_name": "detector_tflite",
+		},
+		DependsOn: []string{"detector_tflite"},
+	}
+	cfg.Services = append(cfg.Services, visionSrv2)
 	cameraComp := config.Component{
 		Name:  "fake_cam",
 		Type:  camera.SubtypeName,
@@ -122,7 +145,7 @@ func buildRobotWithFakeCamera(logger golog.Logger) (robot.Robot, error) {
 				{
 					"type": "detections",
 					"attributes": config.AttributeMap{
-						"detector_name":        "detector_tflite",
+						"detector_name":        "vision_detector",
 						"confidence_threshold": 0.35,
 					},
 				},
@@ -182,8 +205,8 @@ func TestTFLiteDetectionSource(t *testing.T) {
 	resImg, _, err := camera.ReadImage(ctx, detector)
 	test.That(t, err, test.ShouldBeNil)
 	ovImg := rimage.ConvertImage(resImg)
-	test.That(t, ovImg.GetXY(624, 402), test.ShouldResemble, rimage.Red)
-	test.That(t, ovImg.GetXY(816, 648), test.ShouldResemble, rimage.Red)
+	test.That(t, ovImg.GetXY(624, 458), test.ShouldResemble, rimage.Red)
+	test.That(t, ovImg.GetXY(716, 627), test.ShouldResemble, rimage.Red)
 	test.That(t, detector.Close(context.Background()), test.ShouldBeNil)
 }
 
