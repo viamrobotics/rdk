@@ -35,7 +35,7 @@ let updatedDest = $ref(false);
 let destinationMarker = $ref(new THREE.Vector3());
 let moveClick = $ref(true);
 let basePose = new commonApi.Pose()
-let motionServiceReq = new motionApi.MoveOnMapRequest();
+const motionServiceReq = new motionApi.MoveOnMapRequest();
 
 const loaded2d = $computed(() => (pointcloud !== undefined && pose !== undefined));
 
