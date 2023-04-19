@@ -127,6 +127,8 @@ func newGPIOServo(ctx context.Context, deps resource.Dependencies, conf resource
 		return nil, errors.Wrap(err, "couldn't get servo pin")
 	}
 
+	// If the frequency isn't specified in the config, we'll use whatever it's currently set to
+	// instead.
 	frequency, err := pin.PWMFreq(ctx, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "couldn't get servo pin pwm frequency")
