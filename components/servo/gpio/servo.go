@@ -99,8 +99,8 @@ type servoGPIO struct {
 	resource.AlwaysRebuild
 	resource.TriviallyCloseable
 	pin       board.GPIOPin
-	min       float64
-	max       float64
+	minDeg    float64
+	maxDeg    float64
 	logger    golog.Logger
 	opMgr     operation.SingleOperationManager
 	frequency uint
@@ -166,8 +166,8 @@ func newGPIOServo(ctx context.Context, deps resource.Dependencies, conf resource
 
 	servo := &servoGPIO{
 		Named:     conf.ResourceName().AsNamed(),
-		min:       minDeg,
-		max:       maxDeg,
+		minDeg:    minDeg,
+		maxDeg:    maxDeg,
 		frequency: frequency,
 		pin:       pin,
 		logger:    logger,
@@ -291,13 +291,13 @@ func (s *servoGPIO) Move(ctx context.Context, ang uint32, extra map[string]inter
 	ctx, done := s.opMgr.New(ctx)
 	defer done()
 	angle := float64(ang)
-	if angle < s.min {
-		angle = s.min
+	if angle < s.minDeg {
+		angle = s.minDeg
 	}
-	if angle > s.max {
-		angle = s.max
+	if angle > s.maxDeg {
+		angle = s.maxDeg
 	}
-	pct := mapDegToDutyCylePct(s.minUs, s.maxUs, s.min, s.max, angle, s.frequency)
+	pct := mapDegToDutyCylePct(s.minUs, s.maxUs, s.minDeg, s.maxDeg, angle, s.frequency)
 	if s.pwmRes != 0 {
 		realTick := math.Round(pct * float64(s.pwmRes))
 		pct = realTick / float64(s.pwmRes)
@@ -315,7 +315,7 @@ func (s *servoGPIO) Position(ctx context.Context, extra map[string]interface{}) 
 	if err != nil {
 		return 0, errors.Wrap(err, "couldn't get servo pin duty cycle")
 	}
-	return uint32(mapDutyCylePctToDeg(s.minUs, s.maxUs, s.min, s.max, pct, s.frequency)), nil
+	return uint32(mapDutyCylePctToDeg(s.minUs, s.maxUs, s.minDeg, s.maxDeg, pct, s.frequency)), nil
 }
 
 // Stop stops the servo. It is assumed the servo stops immediately.
