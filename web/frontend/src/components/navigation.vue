@@ -303,7 +303,7 @@ onUnmounted(() => {
       slot="title"
       crumbs="navigation"
     />
-    <div class="flex flex-col gap-2 border border-t-0 border-black p-4">
+    <div class="border-border-1 flex flex-col gap-2 border border-t-0 p-4">
       <div class="flex h-full w-full flex-row items-end gap-2">
         <v-input
           label="Google Maps API Key"
