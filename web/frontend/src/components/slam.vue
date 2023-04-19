@@ -35,6 +35,7 @@ let updatedDest = $ref(false);
 let destinationMarker = $ref(new THREE.Vector3());
 let moveClick = $ref(true);
 let basePose = new commonApi.Pose()
+let motionServiceReq = new motionApi.MoveOnMapRequest();
 
 const loaded2d = $computed(() => (pointcloud !== undefined && pose !== undefined));
 
@@ -106,13 +107,11 @@ const fetchSLAMPose = (name: string): Promise<commonApi.Pose> => {
 const executeMoveOnMap = async () => {
   moveClick = false;
 
-  const motionServiceReq = new motionApi.MoveOnMapRequest();
-
   /*
    * set request name
    * here we set the name of the motion service the user is using
    */
-   motionServiceReq.setName('builtin');
+  motionServiceReq.setName('builtin');
 
   const value = await fetchSLAMPose(props.name);
   // set pose in frame
@@ -163,7 +162,17 @@ const executeMoveOnMap = async () => {
 
 const executeStopMoveOnMap = () => {
   moveClick = true;
-  // TODO: finish
+  props.client.motionService.moveOnMap(
+    motionServiceReq,
+    new grpc.Metadata(),
+    (error: ServiceError | null, response: motionApi.MoveOnMapResponse | null) => {
+      if (error) {
+        toast.error(`Error moving: ${error}`);
+        return;
+      }
+      toast.success(`MoveOnMap success: ${response!.getSuccess()}`);
+    }
+  ).cancel
 };
 
 const refresh2d = async (name: string) => {
