@@ -146,10 +146,10 @@ func newGPIOServo(ctx context.Context, deps resource.Dependencies, conf resource
 	}
 
 	minDeg := defaultMinDeg
-	maxDeg := defaultMaxDeg
 	if newConf.MinDeg != nil {
 		minDeg = *newConf.MinDeg
 	}
+	maxDeg := defaultMaxDeg
 	if newConf.MaxDeg != nil {
 		maxDeg = *newConf.MaxDeg
 	}
@@ -158,10 +158,10 @@ func newGPIOServo(ctx context.Context, deps resource.Dependencies, conf resource
 		startPos = *newConf.StartPos
 	}
 	minUs := minWidthUs
-	maxUs := maxWidthUs
 	if newConf.MinWidthUS != nil {
 		minUs = *newConf.MinWidthUS
 	}
+	maxUs := maxWidthUs
 	if newConf.MaxWidthUS != nil {
 		maxUs = *newConf.MaxWidthUS
 	}
