@@ -108,7 +108,7 @@ var (
 	subtypeRegistry  = map[resource.Subtype]ResourceSubtype{}
 )
 
-// RegisterService registers a model for a service with and its construction info. Its a helper for
+// RegisterService registers a model for a service and its construction info. It's a helper for
 // RegisterResource.
 func RegisterService(subtype resource.Subtype, model resource.Model, res Service) {
 	if subtype.ResourceType != resource.ResourceTypeService {
