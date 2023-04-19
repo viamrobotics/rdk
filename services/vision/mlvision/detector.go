@@ -36,9 +36,8 @@ func attemptToBuildDetector(mlm mlmodel.Service) (objectdetection.Detector, erro
 	labels := getLabelsFromMetadata(md)
 	boxOrder, err := getBoxOrderFromMetadata(md)
 	if err != nil || len(boxOrder) < 4 {
-		boxOrder = []uint32{1, 0, 3, 2}
+		boxOrder = []int{1, 0, 3, 2}
 	}
-
 	if shape := md.Inputs[0].Shape; getIndex(shape, 3) == 1 {
 		inHeight, inWidth = uint(shape[2]), uint(shape[3])
 	} else {
@@ -69,10 +68,10 @@ func attemptToBuildDetector(mlm mlmodel.Service) (objectdetection.Detector, erro
 		// Now reshape outMap into Detections
 		detections := make([]objectdetection.Detection, 0, len(categories))
 		for i := 0; i < len(scores); i++ {
-			xmin, xmax, ymin, ymax := utils.Clamp(locations[4*i+int(boxOrder[0])], 0, 1)*float64(origW),
-				utils.Clamp(locations[4*i+int(boxOrder[1])], 0, 1)*float64(origW),
-				utils.Clamp(locations[4*i+int(boxOrder[2])], 0, 1)*float64(origH),
-				utils.Clamp(locations[4*i+int(boxOrder[3])], 0, 1)*float64(origH)
+			xmin, xmax, ymin, ymax := utils.Clamp(locations[4*i+getIndex(boxOrder, 0)], 0, 1)*float64(origW),
+				utils.Clamp(locations[4*i+getIndex(boxOrder, 2)], 0, 1)*float64(origW),
+				utils.Clamp(locations[4*i+getIndex(boxOrder, 1)], 0, 1)*float64(origH),
+				utils.Clamp(locations[4*i+getIndex(boxOrder, 3)], 0, 1)*float64(origH)
 			rect := image.Rect(int(xmin), int(ymin), int(xmax), int(ymax))
 			labelNum := int(categories[i])
 
@@ -144,11 +143,15 @@ func getLabelsFromMetadata(md mlmodel.MLMetadata) []string {
 
 // getBoxOrderFromMetadata returns a slice of ints--the bounding box
 // printout order where 0=xmin, 1=xmax, 2=ymin, 3=ymax
-func getBoxOrderFromMetadata(md mlmodel.MLMetadata) ([]uint32, error) {
+func getBoxOrderFromMetadata(md mlmodel.MLMetadata) ([]int, error) {
 	for _, o := range md.Outputs {
 		if strings.Contains(o.Name, "location") {
-			if order, ok := o.Extra["boxOrder"]; ok {
-				return order.([]uint32), nil
+			out := make([]int, 0, 4)
+			if order, ok := o.Extra["boxOrder"].([]uint32); ok {
+				for _, o := range order {
+					out = append(out, int(o))
+				}
+				return out, nil
 			}
 		}
 	}

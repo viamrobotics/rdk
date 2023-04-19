@@ -32,7 +32,10 @@ func TestNewTfLiteDetector(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, gotDetections[0].Score(), test.ShouldBeGreaterThan, 0.789)
 	test.That(t, gotDetections[1].Score(), test.ShouldBeGreaterThan, 0.7)
-
+	test.That(t, gotDetections[0].BoundingBox().Min.X, test.ShouldEqual, 126)
+	test.That(t, gotDetections[0].BoundingBox().Min.Y, test.ShouldEqual, 42)
+	test.That(t, gotDetections[0].BoundingBox().Max.X, test.ShouldEqual, 199)
+	test.That(t, gotDetections[0].BoundingBox().Max.Y, test.ShouldEqual, 162)
 	test.That(t, gotDetections[0].Label(), test.ShouldResemble, "17")
 	test.That(t, gotDetections[1].Label(), test.ShouldResemble, "17")
 	test.That(t, goutils.TryClose(ctx, got2), test.ShouldBeNil)
