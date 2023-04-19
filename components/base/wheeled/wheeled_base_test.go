@@ -165,20 +165,28 @@ func TestWheelBaseMath(t *testing.T) {
 	// Spin tests
 	t.Run("spin math", func(t *testing.T) {
 		rpms, rotations := base.spinMath(90, 10)
-		test.That(t, rpms, test.ShouldAlmostEqual, 7.5, 0.001)
+		test.That(t, rpms, test.ShouldAlmostEqual, 0.523, 0.001)
 		test.That(t, rotations, test.ShouldAlmostEqual, 0.0785, 0.001)
 
 		rpms, rotations = base.spinMath(-90, 10)
-		test.That(t, rpms, test.ShouldAlmostEqual, -7.5, 0.001)
+		test.That(t, rpms, test.ShouldAlmostEqual, -0.523, 0.001)
 		test.That(t, rotations, test.ShouldAlmostEqual, 0.0785, 0.001)
 
 		rpms, rotations = base.spinMath(90, -10)
-		test.That(t, rpms, test.ShouldAlmostEqual, -7.5, 0.001)
+		test.That(t, rpms, test.ShouldAlmostEqual, -0.523, 0.001)
 		test.That(t, rotations, test.ShouldAlmostEqual, 0.0785, 0.001)
 
 		rpms, rotations = base.spinMath(-90, -10)
-		test.That(t, rpms, test.ShouldAlmostEqual, 7.5, 0.001)
+		test.That(t, rpms, test.ShouldAlmostEqual, 0.523, 0.001)
 		test.That(t, rotations, test.ShouldAlmostEqual, 0.0785, 0.001)
+
+		rpms, rotations = base.spinMath(60, 10)
+		test.That(t, rpms, test.ShouldAlmostEqual, 0.523, 0.001)
+		test.That(t, rotations, test.ShouldAlmostEqual, 0.0523, 0.001)
+
+		rpms, rotations = base.spinMath(30, 10)
+		test.That(t, rpms, test.ShouldAlmostEqual, 0.523, 0.001)
+		test.That(t, rotations, test.ShouldAlmostEqual, 0.0261, 0.001)
 	})
 	t.Run("spin block", func(t *testing.T) {
 		go func() {
