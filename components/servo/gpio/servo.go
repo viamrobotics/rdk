@@ -195,9 +195,9 @@ func newGPIOServo(ctx context.Context, deps resource.Dependencies, conf resource
 
 // Given minUs, maxUs, deg and frequency attempt to calculate the corresponding duty cycle pct.
 func mapDegToDutyCylePct(minUs, maxUs uint, minDeg, maxDeg, deg float64, frequency uint) float64 {
-	period := 1.0 / float64(frequency) // dutyCycle in s
-	degRange := maxDeg - minDeg        // servo moves from minDeg to maxDeg
-	uSRange := float64(maxUs - minUs)  // pulse width between minUs to maxUs
+	period := 1.0 / float64(frequency)
+	degRange := maxDeg - minDeg
+	uSRange := float64(maxUs - minUs)
 
 	scale := uSRange / degRange
 
@@ -207,10 +207,10 @@ func mapDegToDutyCylePct(minUs, maxUs uint, minDeg, maxDeg, deg float64, frequen
 
 // Given minUs, maxUs, deg and frequency returns the corresponding duty cycle pct.
 func mapDutyCylePctToDeg(minUs, maxUs uint, minDeg, maxDeg, pct float64, frequency uint) float64 {
-	period := 1.0 / float64(frequency) // dutyCycle in s
+	period := 1.0 / float64(frequency)
 	pwmWidthUs := pct * period * 1000 * 1000
-	degRange := maxDeg - minDeg       // servo moves from minDeg to maxDeg
-	uSRange := float64(maxUs - minUs) // pulse width between minUs to maxUs
+	degRange := maxDeg - minDeg
+	uSRange := float64(maxUs - minUs)
 
 	pwmWidthUs = math.Max(float64(minUs), pwmWidthUs)
 	pwmWidthUs = math.Min(float64(maxUs), pwmWidthUs)
