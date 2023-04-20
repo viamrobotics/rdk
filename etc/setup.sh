@@ -13,7 +13,7 @@ fi
 do_bullseye(){
 	sudo bash <<-EOS
 	# Basic tools
-	apt-get update && apt-get install -y curl wget gpg sudo nano less git file fuse && apt-get clean
+	apt-get update && apt-get install -y curl gpg git
 
 	# Backports repo
 	echo "deb http://deb.debian.org/debian $(grep VERSION_CODENAME /etc/os-release | cut -d= -f2)-backports main" > /etc/apt/sources.list.d/backports.list
@@ -27,7 +27,7 @@ do_bullseye(){
 	echo "deb [signed-by=/usr/share/keyrings/nodesource.gpg] https://deb.nodesource.com/node_18.x $(grep VERSION_CODENAME /etc/os-release | cut -d= -f2) main" > /etc/apt/sources.list.d/nodesource.list
 
 	# Install most things
-	apt-get update && apt-get install -y build-essential nodejs libnlopt-dev libx264-dev libtensorflowlite-dev ffmpeg libjpeg62-turbo-dev && apt-get clean
+	apt-get update && apt-get install -y build-essential nodejs libnlopt-dev libx264-dev libtensorflowlite-dev ffmpeg libjpeg62-turbo-dev
 
 	# Install backports
 	apt-get install -y -t $(grep VERSION_CODENAME /etc/os-release | cut -d= -f2)-backports golang-go
@@ -40,31 +40,33 @@ do_bullseye(){
 	if [ "$(uname -m)" = "aarch64" ]; then
 		UPX_URL=https://github.com/upx/upx/releases/download/v4.0.2/upx-4.0.2-arm64_linux.tar.xz
 	fi
-	curl -L "$UPX_URL" | sudo tar -C /usr/local/bin/ --strip-components=1 --wildcards -xJv '*/upx'
+	curl -L "\$UPX_URL" | tar -C /usr/local/bin/ --strip-components=1 --wildcards -xJv '*/upx'
 
 	# canon
 	GOBIN=/usr/local/bin go install github.com/viamrobotics/canon@latest
+
+	# license_finder
+	apt-get install -y ruby && gem install license_finder
 	EOS
 
 	if [ $? -ne 0 ]; then
-		echo "Package installation failed when running"
+		echo "Package installation failed, please retry."
 		exit 1
 	fi
 
-	mod_profiles
 	check_gcloud_auth
 }
 
 do_linux(){
 	if apt-get --version > /dev/null 2>&1; then
 		# Debian/Ubuntu
-		INSTALL_CMD="apt-get install --assume-yes build-essential procps curl file git"
+		INSTALL_CMD="apt-get install --assume-yes build-essential procps curl file git debianutils"
 	elif pacman --version > /dev/null 2>&1; then
 		# Arch
-		INSTALL_CMD="pacman -Sy --needed --noconfirm base-devel procps-ng curl git"
+		INSTALL_CMD="pacman -Sy --needed --noconfirm base-devel procps-ng curl git which"
 	elif yum --version > /dev/null 2>&1; then
 		# Fedora/Redhat
-		INSTALL_CMD="yum -y install procps-ng curl file git libxcrypt-compat && yum -y groupinstall 'Development Tools'"
+		INSTALL_CMD="yum -y install procps-ng curl git which libstdc++-static && yum -y groupinstall 'Development Tools'"
 	fi
 
 	sudo bash -c "$INSTALL_CMD"
@@ -78,19 +80,15 @@ do_linux(){
 	cat > ~/.viamdevrc <<-EOS
 	eval "\$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
 	export LIBRARY_PATH=/home/linuxbrew/.linuxbrew/lib
+	export LD_LIBRARY_PATH=/home/linuxbrew/.linuxbrew/lib
 	export CGO_LDFLAGS=-L/home/linuxbrew/.linuxbrew/lib
 	export CGO_CFLAGS=-I/home/linuxbrew/.linuxbrew/include
-	export GOPRIVATE=github.com/viamrobotics/*,go.viam.com/*
-	export CC=gcc-12
-	export CXX=g++-12
-	export PATH="\$PATH:\$(ruby -e 'puts Gem.user_dir')/bin"
 	EOS
 
 	do_brew
 	mod_profiles
 	check_gcloud_auth
 }
-
 
 do_darwin(){
 	if ! gcc --version >/dev/null 2>&1; then
@@ -99,25 +97,17 @@ do_darwin(){
 	fi
 
 	if [ "$(uname -m)" == "arm64" ]; then
-
 		cat > ~/.viamdevrc <<-EOS
 		eval "\$(/opt/homebrew/bin/brew shellenv)"
 		export LIBRARY_PATH=/opt/homebrew/lib
 		export CGO_LDFLAGS=-L/opt/homebrew/lib
 		export CGO_CFLAGS=-I/opt/homebrew/include
-		export GOPRIVATE=github.com/viamrobotics/*,go.viam.com/*
-		export PATH="\$PATH:\$(ruby -e 'puts Gem.user_dir')/bin"
 		EOS
-
   	else # assuming x86_64, but untested
-
 		cat > ~/.viamdevrc <<-EOS
 		eval "\$(/usr/local/bin/brew shellenv)"
 		export LIBRARY_PATH=/usr/local/lib
-		export GOPRIVATE=github.com/viamrobotics/*,go.viam.com/*
-		export PATH="\$PATH:\$(ruby -e 'puts Gem.user_dir')/bin"
 		EOS
-
 	fi
 
 	do_brew
@@ -149,8 +139,6 @@ do_brew(){
 	# Install brew
 	brew --version > /dev/null 2>&1 || bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" || exit 1
 
-	gem install license_finder --conservative
-
 	# Has to be after the install so the brew eval can run
 	source ~/.viamdevrc
 
@@ -161,7 +149,6 @@ do_brew(){
 	# pinned
 	brew "go@1.20", link: true, conflicts_with: ["go"]
 	brew "node@18", link: true, conflicts_with: ["node"]
-	brew "gcc@12", link: true, conflicts_with: ["gcc"]
 
 	# unpinned
 	brew "canon"
@@ -170,10 +157,12 @@ do_brew(){
 	brew "x264", args: ["build-from-source"]
 	brew "jpeg-turbo"
 	brew "ffmpeg"
+	brew "licensefinder"
 	brew "tensorflowlite" # Needs to be last
 	EOS
 
 	if [ $? -ne 0 ]; then
+		echo "Package installation failed when running brew command, please retry."
 		exit 1
 	fi
 
@@ -188,17 +177,18 @@ do_brew(){
 
 if [ "$(uname)" == "Linux" ]; then
 	if [ "$(grep VERSION_CODENAME /etc/os-release | cut -d= -f2)" == "bullseye" ]; then
-		do_bullseye
+		NO_PROFILE=1
+		do_bullseye || exit 1
 	elif [ "$(uname -m)" == "x86_64" ]; then
-		do_linux
+		do_linux || exit 1
 	else
 		echo -e "\033[41m""Native dev environment is only supported on Debian/Bullseye (x86_64 and aarch64), but brew-based support is available for generic Linux/x86_64 and Darwin (MacOS).""\033[0m"
 		exit 1
 	fi
 elif [ "$(uname)" == "Darwin" ]; then
-	do_darwin
+	do_darwin || exit 1
 fi
 
 echo -e "\033[0;32m""Dev environment setup is complete!""\033[0m"
-echo -e "Don't forget to restart your shell, or execute: ""\033[41m""source ~/.viamdevrc""\033[0m"
+test -n "$NO_PROFILE" || echo -e "Don't forget to restart your shell, or execute: ""\033[41m""source ~/.viamdevrc""\033[0m"
 exit 0

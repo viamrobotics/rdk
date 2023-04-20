@@ -7,9 +7,6 @@ on:
       GCP_CREDENTIALS:
         required: true
 
-env:
-  GOPRIVATE: "github.com/viamrobotics/*,go.viam.com/*"
-
 jobs:
   static:
     name: Antique Build
@@ -28,7 +25,7 @@ jobs:
       options: --platform ${{ matrix.platform }}
     timeout-minutes: 15
     outputs:
-      date: ${{ steps.build_test_app.outputs.date }}
+      date: ${{ steps.build_test_binary.outputs.date }}
 
     steps:
     - name: Check out main branch code
@@ -71,7 +68,7 @@ jobs:
         gzip: false
 
     - name: Build (Latest)
-      id: build_test_app
+      id: build_test_binary
       if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
       run: |
         echo "date=`date +%F`" >> $GITHUB_OUTPUT
@@ -83,7 +80,7 @@ jobs:
       with:
         headers: "cache-control: no-cache"
         path: 'etc/packaging/static/deploy/'
-        destination: 'packages.viam.com/apps/viam-server/testing/static/${{ steps.build_test_app.outputs.date }}/${{ github.sha }}/'
+        destination: 'packages.viam.com/apps/viam-server/testing/static/${{ steps.build_test_binary.outputs.date }}/${{ github.sha }}/'
         glob: 'viam-server-*'
         parent: false
         gzip: false

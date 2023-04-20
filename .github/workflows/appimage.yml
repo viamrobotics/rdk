@@ -7,9 +7,6 @@ on:
       GCP_CREDENTIALS:
         required: true
 
-env:
-  GOPRIVATE: "github.com/viamrobotics/*,go.viam.com/*"
-
 jobs:
   appimage:
     name: AppImage Build
