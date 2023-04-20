@@ -261,10 +261,11 @@ func (s *servoGPIO) findPWMResolution(ctx context.Context) error {
 			return errors.Errorf("giving up searching for the resolution tried to match %.7f but got %.7f", realPct, r2)
 		}
 	}
+
 	resolution := []int{16, 15, 14, 12, 8}
 	for _, r := range resolution {
 		val := (1 << r) - 1
-		pct := currPct + dir*1/float64(val)
+		pct := currPct + dir/float64(val)
 		err := s.pin.SetPWM(ctx, pct, nil)
 		if err != nil {
 			return errors.Wrap(err, "couldn't search for PWM resolution")
