@@ -2,6 +2,7 @@ package mlvision
 
 import (
 	"context"
+	"sync"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -308,6 +309,40 @@ func TestOneClassifierOnManyCameras(t *testing.T) {
 	test.That(t, valueLion, test.ShouldNotBeNil)
 }
 
+func TestMultipleClassifiersOneModel(t *testing.T) {
+	modelLoc := artifact.MustPath("vision/tflite/mobilenetv2_class.tflite")
+	cfg := tflitecpu.TFLiteConfig{
+		ModelPath:  modelLoc,
+		NumThreads: 2,
+	}
+	ctx := context.Background()
+	out, err := tflitecpu.NewTFLiteCPUModel(ctx, &cfg, "testClassifier")
+	test.That(t, err, test.ShouldBeNil)
+
+	Classifier1, err := attemptToBuildClassifier(out)
+	test.That(t, err, test.ShouldBeNil)
+
+	Classifier2, err := attemptToBuildClassifier(out)
+	test.That(t, err, test.ShouldBeNil)
+
+	picPanda, err := rimage.NewImageFromFile(artifact.MustPath("vision/tflite/redpanda.jpeg"))
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	go func() {
+		defer wg.Done()
+		getNClassifications(t, ctx, picPanda, 10, Classifier1)
+	}()
+
+	go func() {
+		defer wg.Done()
+		getNClassifications(t, ctx, picPanda, 10, Classifier2)
+	}()
+
+	wg.Wait()
+}
+
 func classifyTwoImages(picPanda, picLion *rimage.Image,
 	got classification.Classifier,
 ) (classification.Classifications, classification.Classifications) {
@@ -329,4 +364,19 @@ func classifyTwoImages(picPanda, picLion *rimage.Image,
 func gotWithCallback(img *rimage.Image, result chan classification.Classifications, got classification.Classifier) {
 	classifications, _ := got(context.Background(), img)
 	result <- classifications
+}
+
+func getNClassifications(t *testing.T, ctx context.Context, img *rimage.Image, N int, c classification.Classifier) []classification.Classifications {
+	t.Helper()
+	results := make([]classification.Classifications, N)
+	var err error
+
+	for i := 0; i < N; i++ {
+		results[i], err = c(ctx, img)
+		test.That(t, err, test.ShouldBeNil)
+		res, err := results[i].TopN(1)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, res[0].Score(), test.ShouldNotBeNil)
+	}
+	return results
 }
