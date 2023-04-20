@@ -51,7 +51,7 @@
             "type": "encoder",
             "model": "fake",
             "attributes": {
-                "update_rate_msec": 2
+                "update_rate_msec": 200
             }
         },
         {

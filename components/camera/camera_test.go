@@ -37,6 +37,10 @@ func (s *simpleSource) Read(ctx context.Context) (image.Image, func(), error) {
 	return img, func() {}, err
 }
 
+func (s *simpleSource) Close(ctx context.Context) error {
+	return nil
+}
+
 type simpleSourceWithPCD struct {
 	filePath string
 }
@@ -49,6 +53,10 @@ func (s *simpleSourceWithPCD) Read(ctx context.Context) (image.Image, func(), er
 
 func (s *simpleSourceWithPCD) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
 	return nil, nil
+}
+
+func (s *simpleSourceWithPCD) Close(ctx context.Context) error {
+	return nil
 }
 
 func TestNewPinholeModelWithBrownConradyDistortion(t *testing.T) {

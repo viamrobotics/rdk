@@ -39,6 +39,10 @@ func (videoSource *mockErrorVideoSource) Read(ctx context.Context) (image.Image,
 	return nil, nil, errImageRetrieval
 }
 
+func (videoSource *mockErrorVideoSource) Close(ctx context.Context) error {
+	return nil
+}
+
 type mockStream struct {
 	name               string
 	streamingReadyFunc func() <-chan struct{}

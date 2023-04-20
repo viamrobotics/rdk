@@ -26,7 +26,6 @@ import (
 
 	"github.com/jhump/protoreflect/desc"
 	"github.com/pkg/errors"
-	"go.viam.com/utils"
 )
 
 // define a few typed strings.
@@ -483,7 +482,7 @@ type closeOnlyResource struct {
 
 // NewCloseOnlyResource makes a new resource that needs to be closed and
 // does not need the actual resource exposed but only its close function.
-func NewCloseOnlyResource(name Name, closeFunc utils.ContextCloserFunc) Resource {
+func NewCloseOnlyResource(name Name, closeFunc func(ctx context.Context) error) Resource {
 	return &closeOnlyResource{Named: name.AsNamed(), closeFunc: closeFunc}
 }
 
