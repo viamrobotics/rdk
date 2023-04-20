@@ -36,7 +36,7 @@ type Config struct {
 }
 
 func init() {
-	registry.RegisterComponent(input.Subtype, modelname, registry.Resource{Constructor: NewController})
+	registry.RegisterComponent(input.Subtype, modelname, registry.Resource[input.Controller]{Constructor: NewController})
 
 	config.RegisterComponentAttributeMapConverter(
 		input.Subtype,

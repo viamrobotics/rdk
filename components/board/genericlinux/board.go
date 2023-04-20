@@ -72,12 +72,12 @@ func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping, useP
 	registry.RegisterComponent(
 		board.Subtype,
 		resource.NewDefaultModel(resource.ModelName(modelName)),
-		registry.Resource{Constructor: func(
+		registry.Resource[board.Board]{Constructor: func(
 			ctx context.Context,
 			_ resource.Dependencies,
 			conf resource.Config,
 			logger golog.Logger,
-		) (resource.Resource, error) {
+		) (board.Board, error) {
 			return newBoard(ctx, conf, gpioMappings, usePeriphGpio, logger)
 		}})
 	config.RegisterComponentAttributeMapConverter(

@@ -29,12 +29,12 @@ import (
 	"go.viam.com/rdk/vision/segmentation"
 )
 
-func newServer(m map[resource.Name]resource.Resource) (pb.VisionServiceServer, error) {
-	svc, err := resource.NewSubtypeCollection(vision.Subtype, m)
+func newServer(m map[resource.Name]vision.Service) (pb.VisionServiceServer, error) {
+	coll, err := resource.NewSubtypeCollection(vision.Subtype, m)
 	if err != nil {
 		return nil, err
 	}
-	return vision.NewServer(svc), nil
+	return vision.NewServer(coll), nil
 }
 
 func TestVisionServerFailures(t *testing.T) {
@@ -43,22 +43,14 @@ func TestVisionServerFailures(t *testing.T) {
 	}
 
 	// no service
-	m := map[resource.Name]resource.Resource{}
+	m := map[resource.Name]vision.Service{}
 	server, err := newServer(m)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = server.GetDetectorNames(context.Background(), nameRequest)
 	test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:service:vision/vision1\" not found"))
 
-	// set up the robot with something that is not a vision service
-	m = map[resource.Name]resource.Resource{visName1: testutils.NewUnimplementedResource(visName1)}
-	server, err = newServer(m)
-	test.That(t, err, test.ShouldBeNil)
-	_, err = server.GetDetectorNames(context.Background(), nameRequest)
-	test.That(t, err, test.ShouldBeError, resource.TypeError[vision.Service](testutils.NewUnimplementedResource(visName1)))
-
-	// correct server
 	injectVS := &inject.VisionService{}
-	m = map[resource.Name]resource.Resource{
+	m = map[resource.Name]vision.Service{
 		visName1: injectVS,
 	}
 	server, err = newServer(m)
@@ -74,7 +66,7 @@ func TestVisionServerFailures(t *testing.T) {
 
 func TestServerGetParameterSchema(t *testing.T) {
 	srv, r := createService(t)
-	m := map[resource.Name]resource.Resource{
+	m := map[resource.Name]vision.Service{
 		visName1: srv,
 	}
 	server, err := newServer(m)
@@ -95,7 +87,7 @@ func TestServerGetParameterSchema(t *testing.T) {
 
 func TestServerGetDetectorNames(t *testing.T) {
 	injectVS := &inject.VisionService{}
-	m := map[resource.Name]resource.Resource{
+	m := map[resource.Name]vision.Service{
 		visName1: injectVS,
 	}
 	server, err := newServer(m)
@@ -120,7 +112,7 @@ func TestServerGetDetectorNames(t *testing.T) {
 
 func TestServerAddDetector(t *testing.T) {
 	srv, r := createService(t)
-	m := map[resource.Name]resource.Resource{
+	m := map[resource.Name]vision.Service{
 		visName1: srv,
 	}
 	server, err := newServer(m)
@@ -186,7 +178,7 @@ func TestServerGetDetections(t *testing.T) {
 	visName := vision.FindFirstName(r)
 	srv, err := vision.FromRobot(r, visName)
 	test.That(t, err, test.ShouldBeNil)
-	m := map[resource.Name]resource.Resource{
+	m := map[resource.Name]vision.Service{
 		vision.Named(visName): srv,
 	}
 	server, err := newServer(m)
@@ -248,7 +240,7 @@ func TestServerGetDetections(t *testing.T) {
 
 func TestServerAddRemoveSegmenter(t *testing.T) {
 	srv, r := createService(t)
-	m := map[resource.Name]resource.Resource{
+	m := map[resource.Name]vision.Service{
 		visName1: srv,
 	}
 	server, err := newServer(m)
@@ -323,7 +315,7 @@ func TestServerSegmentationGetObjects(t *testing.T) {
 		}
 		return nil, errors.Errorf("no segmenter with name %s", segmenterName)
 	}
-	m := map[resource.Name]resource.Resource{
+	m := map[resource.Name]vision.Service{
 		visName1: injectVision,
 	}
 	server, err := newServer(m)
@@ -365,7 +357,7 @@ func TestServerSegmentationGetObjects(t *testing.T) {
 
 func TestServerSegmentationAddRemove(t *testing.T) {
 	srv, r := createService(t)
-	m := map[resource.Name]resource.Resource{
+	m := map[resource.Name]vision.Service{
 		visName1: srv,
 	}
 	server, err := newServer(m)
@@ -413,7 +405,7 @@ func TestServerSegmentationAddRemove(t *testing.T) {
 
 func TestServerAddRemoveClassifier(t *testing.T) {
 	srv, r := createService(t)
-	m := map[resource.Name]resource.Resource{
+	m := map[resource.Name]vision.Service{
 		visName1: srv,
 	}
 	server, err := newServer(m)
@@ -468,7 +460,7 @@ func TestServerGetClassifications(t *testing.T) {
 	visName := vision.FindFirstName(r)
 	srv, err := vision.FromRobot(r, visName)
 	test.That(t, err, test.ShouldBeNil)
-	m := map[resource.Name]resource.Resource{
+	m := map[resource.Name]vision.Service{
 		vision.Named(visName): srv,
 	}
 	server, err := newServer(m)
@@ -543,7 +535,7 @@ func TestServerGetClassifications(t *testing.T) {
 }
 
 func TestServerDoCommand(t *testing.T) {
-	resourceMap := map[resource.Name]resource.Resource{
+	resourceMap := map[resource.Name]vision.Service{
 		visName1: &inject.VisionService{
 			DoCommandFunc: testutils.EchoFunc,
 		},

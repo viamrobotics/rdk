@@ -86,10 +86,11 @@ func TestClientWorkingService(t *testing.T) {
 		return f, nil
 	}
 
-	workingSvc, err := resource.NewSubtypeCollection(slam.Subtype, map[resource.Name]resource.Resource{slam.Named(nameSucc): workingSLAMService})
+	workingSvc, err := resource.NewSubtypeCollection(slam.Subtype, map[resource.Name]slam.Service{slam.Named(nameSucc): workingSLAMService})
 	test.That(t, err, test.ShouldBeNil)
 
-	resourceSubtype, ok := registry.ResourceSubtypeLookup(slam.Subtype)
+	resourceSubtype, ok, err := registry.ResourceSubtypeLookup[slam.Service](slam.Subtype)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
 	resourceSubtype.RegisterRPCService(context.Background(), workingServer, workingSvc)
 
@@ -223,10 +224,11 @@ func TestFailingClient(t *testing.T) {
 		return nil, errors.New("failure during get internal state")
 	}
 
-	failingSvc, err := resource.NewSubtypeCollection(slam.Subtype, map[resource.Name]resource.Resource{slam.Named(nameFail): failingSLAMService})
+	failingSvc, err := resource.NewSubtypeCollection(slam.Subtype, map[resource.Name]slam.Service{slam.Named(nameFail): failingSLAMService})
 	test.That(t, err, test.ShouldBeNil)
 
-	resourceSubtype, ok := registry.ResourceSubtypeLookup(slam.Subtype)
+	resourceSubtype, ok, err := registry.ResourceSubtypeLookup[slam.Service](slam.Subtype)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
 	resourceSubtype.RegisterRPCService(context.Background(), failingServer, failingSvc)
 

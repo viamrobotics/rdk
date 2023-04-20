@@ -19,7 +19,6 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/navigation"
-	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -113,16 +112,17 @@ func TestClient(t *testing.T) {
 		return errors.New("failure to remove waypoint")
 	}
 
-	workingSvc, err := resource.NewSubtypeCollection(navigation.Subtype, map[resource.Name]resource.Resource{
+	workingSvc, err := resource.NewSubtypeCollection(navigation.Subtype, map[resource.Name]navigation.Service{
 		testSvcName1: workingNavigationService,
 	})
 	test.That(t, err, test.ShouldBeNil)
-	failingSvc, err := resource.NewSubtypeCollection(navigation.Subtype, map[resource.Name]resource.Resource{
+	failingSvc, err := resource.NewSubtypeCollection(navigation.Subtype, map[resource.Name]navigation.Service{
 		testSvcName1: failingNavigationService,
 	})
 	test.That(t, err, test.ShouldBeNil)
 
-	resourceSubtype, ok := registry.ResourceSubtypeLookup(navigation.Subtype)
+	resourceSubtype, ok, err := registry.ResourceSubtypeLookup[navigation.Service](navigation.Subtype)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
 	resourceSubtype.RegisterRPCService(context.Background(), workingServer, workingSvc)
 	servicepb.RegisterNavigationServiceServer(failingServer, navigation.NewServer(failingSvc))

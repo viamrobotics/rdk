@@ -49,7 +49,7 @@ func TestClient(t *testing.T) {
 	}
 	svc, err := resource.NewSubtypeCollection(vision.Subtype, m)
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype, ok,err := registry.ResourceSubtypeLookup[vision.Service](vision.Subtype)
+	resourceSubtype, ok, err := registry.ResourceSubtypeLookup[vision.Service](vision.Subtype)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, svc), test.ShouldBeNil)
@@ -325,14 +325,15 @@ func TestInjectedServiceClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	injectVision := &inject.VisionService{}
-	osMap := map[resource.Name]resource.Resource{
+	osMap := map[resource.Name]vision.Service{
 		visName1: injectVision,
 	}
 	svc, err := resource.NewSubtypeCollection(vision.Subtype, osMap)
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype, ok := registry.ResourceSubtypeLookup(vision.Subtype)
+	resourceSubtype, ok, err := registry.ResourceSubtypeLookup[vision.Service](vision.Subtype)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, svc)
+	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, svc), test.ShouldBeNil)
 
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()

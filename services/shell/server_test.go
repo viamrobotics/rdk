@@ -11,21 +11,20 @@ import (
 
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/shell"
-	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
 
-func newServer(sMap map[resource.Name]resource.Resource) (pb.ShellServiceServer, error) {
-	sSvc, err := resource.NewSubtypeCollection(shell.Subtype, sMap)
+func newServer(sMap map[resource.Name]shell.Service) (pb.ShellServiceServer, error) {
+	coll, err := resource.NewSubtypeCollection(shell.Subtype, sMap)
 	if err != nil {
 		return nil, err
 	}
-	return shell.NewServer(sSvc), nil
+	return shell.NewServer(coll), nil
 }
 
 func TestServerDoCommand(t *testing.T) {
-	resourceMap := map[resource.Name]resource.Resource{
+	resourceMap := map[resource.Name]shell.Service{
 		testSvcName1: &inject.ShellService{
 			DoCommandFunc: testutils.EchoFunc,
 		},

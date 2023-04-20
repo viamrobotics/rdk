@@ -63,7 +63,7 @@ func (m *internalStateServerMock) Send(chunk *pb.GetInternalStateResponse) error
 
 func TestWorkingServer(t *testing.T) {
 	injectSvc := &inject.SLAMService{}
-	resourceMap := map[resource.Name]resource.Resource{
+	resourceMap := map[resource.Name]slam.Service{
 		slam.Named(testSlamServiceName): injectSvc,
 	}
 	injectSubtypeSvc, err := resource.NewSubtypeCollection(slam.Subtype, resourceMap)
@@ -144,7 +144,7 @@ func TestWorkingServer(t *testing.T) {
 	})
 
 	t.Run("Multiple services Valid", func(t *testing.T) {
-		resourceMap = map[resource.Name]resource.Resource{
+		resourceMap = map[resource.Name]slam.Service{
 			slam.Named(testSlamServiceName):  injectSvc,
 			slam.Named(testSlamServiceName2): injectSvc,
 		}
@@ -207,7 +207,7 @@ func TestWorkingServer(t *testing.T) {
 
 func TestFailingServer(t *testing.T) {
 	injectSvc := &inject.SLAMService{}
-	resourceMap := map[resource.Name]resource.Resource{
+	resourceMap := map[resource.Name]slam.Service{
 		slam.Named(testSlamServiceName): injectSvc,
 	}
 	injectSubtypeSvc, err := resource.NewSubtypeCollection(slam.Subtype, resourceMap)
@@ -275,35 +275,7 @@ func TestFailingServer(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "callback error")
 	})
 
-	resourceMap = map[resource.Name]resource.Resource{
-		slam.Named(testSlamServiceName): testutils.NewUnimplementedResource(slam.Named(testSlamServiceName)),
-	}
-	injectSubtypeSvc, _ = resource.NewSubtypeCollection(slam.Subtype, resourceMap)
-	slamServer = slam.NewServer(injectSubtypeSvc)
-
-	t.Run("failing on improper service interface", func(t *testing.T) {
-		improperImplErr := resource.TypeError[slam.Service](testutils.NewUnimplementedResource(slam.Named(testSlamServiceName)))
-
-		// Get position
-		getPositionReq := &pb.GetPositionRequest{Name: testSlamServiceName}
-		getPositionResp, err := slamServer.GetPosition(context.Background(), getPositionReq)
-		test.That(t, getPositionResp, test.ShouldBeNil)
-		test.That(t, err, test.ShouldBeError, improperImplErr)
-
-		// Get pointcloud map
-		mockPointCloudServer := makePointCloudServerMock()
-		getPointCloudMapReq := &pb.GetPointCloudMapRequest{Name: testSlamServiceName}
-		err = slamServer.GetPointCloudMap(getPointCloudMapReq, mockPointCloudServer)
-		test.That(t, err, test.ShouldBeError, improperImplErr)
-
-		// Get internal state
-		getInternalStateReq := &pb.GetInternalStateRequest{Name: testSlamServiceName}
-		mockInternalStateServer := makeInternalStateServerMock()
-		err = slamServer.GetInternalState(getInternalStateReq, mockInternalStateServer)
-		test.That(t, err, test.ShouldBeError, improperImplErr)
-	})
-
-	injectSubtypeSvc, _ = resource.NewSubtypeCollection(slam.Subtype, map[resource.Name]resource.Resource{})
+	injectSubtypeSvc, _ = resource.NewSubtypeCollection(slam.Subtype, map[resource.Name]slam.Service{})
 	slamServer = slam.NewServer(injectSubtypeSvc)
 	t.Run("failing on nonexistent server", func(t *testing.T) {
 		// test unary endpoint using GetPosition
@@ -322,7 +294,7 @@ func TestFailingServer(t *testing.T) {
 
 func TestServerDoCommand(t *testing.T) {
 	testSvcName1 := slam.Named("svc1")
-	resourceMap := map[resource.Name]resource.Resource{
+	resourceMap := map[resource.Name]slam.Service{
 		testSvcName1: &inject.SLAMService{
 			DoCommandFunc: testutils.EchoFunc,
 		},

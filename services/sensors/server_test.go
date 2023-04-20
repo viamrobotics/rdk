@@ -15,39 +15,30 @@ import (
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/sensors"
-	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
 
-func newServer(sMap map[resource.Name]resource.Resource) (pb.SensorsServiceServer, error) {
-	sSvc, err := resource.NewSubtypeCollection(sensors.Subtype, sMap)
+func newServer(sMap map[resource.Name]sensors.Service) (pb.SensorsServiceServer, error) {
+	coll, err := resource.NewSubtypeCollection(sensors.Subtype, sMap)
 	if err != nil {
 		return nil, err
 	}
-	return sensors.NewServer(sSvc), nil
+	return sensors.NewServer(coll), nil
 }
 
 func TestServerGetSensors(t *testing.T) {
 	t.Run("no sensors service", func(t *testing.T) {
-		sMap := map[resource.Name]resource.Resource{}
+		sMap := map[resource.Name]sensors.Service{}
 		server, err := newServer(sMap)
 		test.That(t, err, test.ShouldBeNil)
 		_, err = server.GetSensors(context.Background(), &pb.GetSensorsRequest{})
 		test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:service:sensors/\" not found"))
 	})
 
-	t.Run("not sensors service", func(t *testing.T) {
-		sMap := map[resource.Name]resource.Resource{testSvcName1: testutils.NewUnimplementedResource(testSvcName1)}
-		server, err := newServer(sMap)
-		test.That(t, err, test.ShouldBeNil)
-		_, err = server.GetSensors(context.Background(), &pb.GetSensorsRequest{Name: testSvcName1.ShortName()})
-		test.That(t, err, test.ShouldBeError, resource.TypeError[sensors.Service](testutils.NewUnimplementedResource(testSvcName1)))
-	})
-
 	t.Run("failed Sensors", func(t *testing.T) {
 		injectSensors := &inject.SensorsService{}
-		sMap := map[resource.Name]resource.Resource{
+		sMap := map[resource.Name]sensors.Service{
 			testSvcName1: injectSensors,
 		}
 		server, err := newServer(sMap)
@@ -62,7 +53,7 @@ func TestServerGetSensors(t *testing.T) {
 
 	t.Run("working Sensors", func(t *testing.T) {
 		injectSensors := &inject.SensorsService{}
-		sMap := map[resource.Name]resource.Resource{
+		sMap := map[resource.Name]sensors.Service{
 			testSvcName1: injectSensors,
 		}
 		server, err := newServer(sMap)
@@ -92,28 +83,16 @@ func TestServerGetSensors(t *testing.T) {
 
 func TestServerGetReadings(t *testing.T) {
 	t.Run("no sensors service", func(t *testing.T) {
-		sMap := map[resource.Name]resource.Resource{}
+		sMap := map[resource.Name]sensors.Service{}
 		server, err := newServer(sMap)
 		test.That(t, err, test.ShouldBeNil)
 		_, err = server.GetReadings(context.Background(), &pb.GetReadingsRequest{})
 		test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:service:sensors/\" not found"))
 	})
 
-	t.Run("not sensors service", func(t *testing.T) {
-		sMap := map[resource.Name]resource.Resource{
-			testSvcName1: testutils.NewUnimplementedResource(testSvcName1),
-		}
-		server, err := newServer(sMap)
-		test.That(t, err, test.ShouldBeNil)
-		_, err = server.GetReadings(context.Background(), &pb.GetReadingsRequest{Name: testSvcName1.ShortName()})
-		test.That(t, err, test.ShouldBeError, resource.TypeError[sensors.Service](
-			testutils.NewUnimplementedResource(testSvcName1),
-		))
-	})
-
 	t.Run("failed Readings", func(t *testing.T) {
 		injectSensors := &inject.SensorsService{}
-		sMap := map[resource.Name]resource.Resource{
+		sMap := map[resource.Name]sensors.Service{
 			testSvcName1: injectSensors,
 		}
 		server, err := newServer(sMap)
@@ -134,7 +113,7 @@ func TestServerGetReadings(t *testing.T) {
 
 	t.Run("working Readings", func(t *testing.T) {
 		injectSensors := &inject.SensorsService{}
-		sMap := map[resource.Name]resource.Resource{
+		sMap := map[resource.Name]sensors.Service{
 			testSvcName1: injectSensors,
 		}
 		server, err := newServer(sMap)
@@ -184,7 +163,7 @@ func TestServerGetReadings(t *testing.T) {
 }
 
 func TestServerDoCommand(t *testing.T) {
-	resourceMap := map[resource.Name]resource.Resource{
+	resourceMap := map[resource.Name]sensors.Service{
 		testSvcName1: &inject.SensorsService{
 			DoCommandFunc: testutils.EchoFunc,
 		},

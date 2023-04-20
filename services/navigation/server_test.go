@@ -15,7 +15,6 @@ import (
 
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/navigation"
-	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -59,7 +58,7 @@ func createWaypoints() ([]navigation.Waypoint, []*pb.Waypoint) {
 
 func TestServer(t *testing.T) {
 	injectSvc := &inject.NavigationService{}
-	resourceMap := map[resource.Name]resource.Resource{
+	resourceMap := map[resource.Name]navigation.Service{
 		testSvcName1: injectSvc,
 		testSvcName2: injectSvc,
 	}
@@ -328,50 +327,7 @@ func TestServer(t *testing.T) {
 		test.That(t, resp, test.ShouldBeNil)
 	})
 
-	resourceMap = map[resource.Name]resource.Resource{
-		testSvcName1: testutils.NewUnimplementedResource(testSvcName1),
-	}
-	injectSubtypeSvc, _ = resource.NewSubtypeCollection(navigation.Subtype, resourceMap)
-	navServer = navigation.NewServer(injectSubtypeSvc)
-
-	t.Run("failing on improper service interface", func(t *testing.T) {
-		improperImplErr := resource.TypeError[navigation.Service](testutils.NewUnimplementedResource(testSvcName1))
-
-		getModeReq := &pb.GetModeRequest{Name: testSvcName1.ShortName()}
-		getModeResp, err := navServer.GetMode(context.Background(), getModeReq)
-		test.That(t, getModeResp, test.ShouldBeNil)
-		test.That(t, err, test.ShouldBeError, improperImplErr)
-
-		setModeReq := &pb.SetModeRequest{
-			Name: testSvcName1.ShortName(),
-			Mode: pb.Mode_MODE_MANUAL,
-		}
-		setModeResp, err := navServer.SetMode(context.Background(), setModeReq)
-		test.That(t, err, test.ShouldBeError, improperImplErr)
-		test.That(t, setModeResp, test.ShouldBeNil)
-
-		getLocReq := &pb.GetLocationRequest{Name: testSvcName1.ShortName()}
-		getLocResp, err := navServer.GetLocation(context.Background(), getLocReq)
-		test.That(t, err, test.ShouldBeError, improperImplErr)
-		test.That(t, getLocResp, test.ShouldBeNil)
-
-		waypointReq := &pb.GetWaypointsRequest{Name: testSvcName1.ShortName()}
-		waypointResp, err := navServer.GetWaypoints(context.Background(), waypointReq)
-		test.That(t, err, test.ShouldBeError, improperImplErr)
-		test.That(t, waypointResp, test.ShouldBeNil)
-
-		addWptReq := &pb.AddWaypointRequest{Name: testSvcName1.ShortName()}
-		addWptResp, err := navServer.AddWaypoint(context.Background(), addWptReq)
-		test.That(t, err, test.ShouldBeError, improperImplErr)
-		test.That(t, addWptResp, test.ShouldBeNil)
-
-		remWptReq := &pb.RemoveWaypointRequest{Name: testSvcName1.ShortName()}
-		remWptResp, err := navServer.RemoveWaypoint(context.Background(), remWptReq)
-		test.That(t, remWptResp, test.ShouldBeNil)
-		test.That(t, err, test.ShouldBeError, improperImplErr)
-	})
-
-	injectSubtypeSvc, _ = resource.NewSubtypeCollection(navigation.Subtype, map[resource.Name]resource.Resource{})
+	injectSubtypeSvc, _ = resource.NewSubtypeCollection(navigation.Subtype, map[resource.Name]navigation.Service{})
 	navServer = navigation.NewServer(injectSubtypeSvc)
 	t.Run("failing on nonexistent server", func(t *testing.T) {
 		req := &pb.GetModeRequest{Name: testSvcName1.ShortName()}
@@ -381,7 +337,7 @@ func TestServer(t *testing.T) {
 	})
 	t.Run("multiple services valid", func(t *testing.T) {
 		injectSvc = &inject.NavigationService{}
-		resourceMap = map[resource.Name]resource.Resource{
+		resourceMap = map[resource.Name]navigation.Service{
 			testSvcName1: injectSvc,
 			testSvcName2: injectSvc,
 		}
@@ -403,7 +359,7 @@ func TestServer(t *testing.T) {
 }
 
 func TestServerDoCommand(t *testing.T) {
-	resourceMap := map[resource.Name]resource.Resource{
+	resourceMap := map[resource.Name]navigation.Service{
 		testSvcName1: &inject.NavigationService{
 			DoCommandFunc: testutils.EchoFunc,
 		},
