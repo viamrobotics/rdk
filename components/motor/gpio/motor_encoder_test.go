@@ -277,7 +277,7 @@ func TestMotorEncoder1(t *testing.T) {
 }
 
 func TestMotorEncoderIncremental(t *testing.T) {
-	t.Skip()
+	// t.Skip()
 	logger := golog.NewTestLogger(t)
 	undo := SetRPMSleepDebug(1, false)
 	defer undo()
