@@ -2,7 +2,6 @@ package mlvision
 
 import (
 	"context"
-	"github.com/edaniels/golog"
 	"image"
 	"strconv"
 
@@ -15,7 +14,7 @@ import (
 	"go.viam.com/rdk/vision/objectdetection"
 )
 
-func attemptToBuildDetector(mlm mlmodel.Service, logger golog.Logger) (objectdetection.Detector, error) {
+func attemptToBuildDetector(mlm mlmodel.Service) (objectdetection.Detector, error) {
 	md, err := mlm.Metadata(context.Background())
 	if err != nil {
 		return nil, errors.New("could not get any metadata")

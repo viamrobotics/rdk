@@ -172,7 +172,7 @@ func (m *Model) Metadata(ctx context.Context) (mlmodel.MLMetadata, error) {
 	if err != nil {
 		blindMD := m.blindFillMetadata()
 		m.metadata = &blindMD
-		m.logger.Warn("could not find metadata in tflite file")
+		m.logger.Infof("%v", errors.Wrapf(err, "could not find metadata in tflite file"))
 		return blindMD, nil
 	}
 	out := mlmodel.MLMetadata{}

@@ -71,7 +71,6 @@ func TestNewMLDetector(t *testing.T) {
 	// Set it up as a ML Model
 
 	ctx := context.Background()
-	logger := golog.NewLogger("testLogger")
 	modelLoc := artifact.MustPath("vision/tflite/effdet0.tflite")
 	labelLoc := artifact.MustPath("vision/tflite/effdetlabels.txt")
 	cfg := tflitecpu.TFLiteConfig{ // detector config
@@ -100,7 +99,7 @@ func TestNewMLDetector(t *testing.T) {
 	test.That(t, check.Outputs[1].Name, test.ShouldResemble, "category")
 	test.That(t, check.Outputs[1].Extra["labels"], test.ShouldNotBeNil)
 
-	gotDetector, err := attemptToBuildDetector(out, logger)
+	gotDetector, err := attemptToBuildDetector(out)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, gotDetector, test.ShouldNotBeNil)
 
@@ -119,7 +118,7 @@ func TestNewMLDetector(t *testing.T) {
 	outNL, err := tflitecpu.NewTFLiteCPUModel(ctx, &noLabelCfg, "myOtherMLDet")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, outNL, test.ShouldNotBeNil)
-	gotDetectorNL, err := attemptToBuildDetector(outNL, logger)
+	gotDetectorNL, err := attemptToBuildDetector(outNL)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, gotDetectorNL, test.ShouldNotBeNil)
 	gotDetectionsNL, err := gotDetectorNL(ctx, pic)
@@ -136,7 +135,6 @@ func TestNewMLDetector(t *testing.T) {
 
 func TestNewMLClassifier(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewLogger("testLogger")
 	modelLoc := artifact.MustPath("vision/tflite/effnet0.tflite")
 	labelLoc := artifact.MustPath("vision/tflite/imagenetlabels.txt")
 
@@ -164,7 +162,7 @@ func TestNewMLClassifier(t *testing.T) {
 	test.That(t, check.Outputs[0].Name, test.ShouldResemble, "probability")
 	test.That(t, check.Outputs[0].Extra["labels"], test.ShouldNotBeNil)
 
-	gotClassifier, err := attemptToBuildClassifier(out, logger)
+	gotClassifier, err := attemptToBuildClassifier(out)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, gotClassifier, test.ShouldNotBeNil)
 
@@ -182,7 +180,7 @@ func TestNewMLClassifier(t *testing.T) {
 	outNL, err := tflitecpu.NewTFLiteCPUModel(ctx, &noLabelCfg, "myOtherMLClassif")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, outNL, test.ShouldNotBeNil)
-	gotClassifierNL, err := attemptToBuildClassifier(outNL, logger)
+	gotClassifierNL, err := attemptToBuildClassifier(outNL)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, gotClassifierNL, test.ShouldNotBeNil)
 	gotClassificationsNL, err := gotClassifierNL(ctx, pic)
@@ -223,7 +221,7 @@ func TestMoreMLDetectors(t *testing.T) {
 	test.That(t, check.Inputs[0].Shape, test.ShouldResemble, []int{1, 320, 320, 3})
 	test.That(t, check.Inputs[0].DataType, test.ShouldResemble, "float32")
 
-	gotDetector, err := attemptToBuildDetector(outModel, golog.NewLogger("testLogger"))
+	gotDetector, err := attemptToBuildDetector(outModel)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, gotDetector, test.ShouldNotBeNil)
 
@@ -233,11 +231,63 @@ func TestMoreMLDetectors(t *testing.T) {
 	test.That(t, gotDetections[1].Score(), test.ShouldBeGreaterThan, 0.8)
 	test.That(t, gotDetections[0].Label(), test.ShouldResemble, "17")
 	test.That(t, gotDetections[1].Label(), test.ShouldResemble, "17")
-
 }
 
 func TestMoreMLClassifiers(t *testing.T) {
+	// Test that mobileNet classifier gives expected output on the redpanda image
+	ctx := context.Background()
+	modelLoc := artifact.MustPath("vision/tflite/mobilenetv2_class.tflite")
+	pic, err := rimage.NewImageFromFile(artifact.MustPath("vision/tflite/redpanda.jpeg"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pic, test.ShouldNotBeNil)
+	cfg := tflitecpu.TFLiteConfig{
+		ModelPath:  modelLoc,
+		NumThreads: 2,
+	}
+	outModel, err := tflitecpu.NewTFLiteCPUModel(ctx, &cfg, "mobileNet")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, outModel, test.ShouldNotBeNil)
+	check, err := outModel.Metadata(ctx)
+	test.That(t, check, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeNil)
 
+	gotClassifier, err := attemptToBuildClassifier(outModel)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, gotClassifier, test.ShouldNotBeNil)
+
+	gotClassifications, err := gotClassifier(ctx, pic)
+	test.That(t, err, test.ShouldBeNil)
+	bestClass, err := gotClassifications.TopN(1)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, bestClass[0].Label(), test.ShouldResemble, "390")
+	test.That(t, bestClass[0].Score(), test.ShouldBeGreaterThan, 0.93)
+
+	// Test that mobileNet imageNet classifier gives expected output on lion image
+	modelLoc = artifact.MustPath("vision/tflite/mobilenetv2_imagenet.tflite")
+	pic, err = rimage.NewImageFromFile(artifact.MustPath("vision/tflite/lion.jpeg"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pic, test.ShouldNotBeNil)
+	cfg = tflitecpu.TFLiteConfig{
+		ModelPath:  modelLoc,
+		NumThreads: 2,
+	}
+	outModel, err = tflitecpu.NewTFLiteCPUModel(ctx, &cfg, "mobileNet")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, outModel, test.ShouldNotBeNil)
+	check, err = outModel.Metadata(ctx)
+	test.That(t, check, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeNil)
+
+	gotClassifier, err = attemptToBuildClassifier(outModel)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, gotClassifier, test.ShouldNotBeNil)
+	gotClassifications, err = gotClassifier(ctx, pic)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, gotClassifications, test.ShouldNotBeNil)
+	bestClass, err = gotClassifications.TopN(1)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, bestClass[0].Label(), test.ShouldResemble, "292")
+	test.That(t, bestClass[0].Score(), test.ShouldBeGreaterThan, 0.93)
 }
 
 func TestLabelReader(t *testing.T) {
@@ -301,7 +351,7 @@ func TestOneClassifierOnManyCameras(t *testing.T) {
 	out, err := tflitecpu.NewTFLiteCPUModel(ctx, &cfg, "testClassifier")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, out, test.ShouldNotBeNil)
-	outClassifier, err := attemptToBuildClassifier(out, golog.NewLogger("testLogger"))
+	outClassifier, err := attemptToBuildClassifier(out)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, outClassifier, test.ShouldNotBeNil)
 	valuePanda, valueLion := classifyTwoImages(picPanda, picLion, outClassifier)

@@ -10,9 +10,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/montanaflynn/stats"
-
 	"github.com/edaniels/golog"
+	"github.com/montanaflynn/stats"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 
@@ -82,19 +81,19 @@ func registerMLModelVisionService(
 	if err != nil {
 		return nil, err
 	}
-	classifierFunc, err := attemptToBuildClassifier(mlm, logger)
+	classifierFunc, err := attemptToBuildClassifier(mlm)
 	if err != nil {
 		logger.Infof("%v", errors.Wrapf(err, "was not able to turn ml model %q into a classifier", params.ModelName))
 	} else {
 		logger.Infof("model %q fulfills a vision service ciassifier", params.ModelName)
 	}
-	detectorFunc, err := attemptToBuildDetector(mlm, logger)
+	detectorFunc, err := attemptToBuildDetector(mlm)
 	if err != nil {
 		logger.Infof("%v", errors.Wrapf(err, "was not able to turn ml model %q into a detector", params.ModelName))
 	} else {
 		logger.Infof("model %q fulfills a vision service detector", params.ModelName)
 	}
-	segmenter3DFunc, err := attemptToBuild3DSegmenter(mlm, logger)
+	segmenter3DFunc, err := attemptToBuild3DSegmenter(mlm)
 	if err != nil {
 		logger.Infof("%v", errors.Wrapf(err, "was not able to turn ml model %q into a 3D segmenter", params.ModelName))
 	} else {
@@ -125,7 +124,7 @@ func unpack(inMap map[string]interface{}, name string, md mlmodel.MLMetadata) []
 	return out
 }
 
-// getTensorTypeFromName uses the metadata to find the expected type of the tensor
+// getTensorTypeFromName uses the metadata to find the expected type of the tensor.
 func getTensorTypeFromName(name string, md mlmodel.MLMetadata) string {
 	for _, o := range md.Outputs {
 		if strings.Contains(strings.ToLower(o.Name), strings.ToLower(name)) {
@@ -133,7 +132,10 @@ func getTensorTypeFromName(name string, md mlmodel.MLMetadata) string {
 		}
 		if strings.Contains(name, "output") {
 			_, after, _ := strings.Cut(name, "output")
-			saveI, _ := strconv.Atoi(after)
+			saveI, err := strconv.Atoi(after)
+			if err != nil {
+				return ""
+			}
 			return md.Outputs[saveI].DataType
 		}
 	}
