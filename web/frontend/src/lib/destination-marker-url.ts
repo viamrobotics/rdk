@@ -17,4 +17,4 @@ export const destMarkerUrl = `data:image/svg+xml,%3Csvg width='24' height='24' v
                 stroke='%23FCECEA' stroke-width='2'/%3E%3C/g%3E%3Cdefs%3E%3CclipPath 
                 id='clip0_2995_26851'%3E%3Crect width='24' height='24' 
                 fill='white'/%3E%3C/clipPath%3E%3C/defs%3E%3C/svg%3E`;
-                
+
