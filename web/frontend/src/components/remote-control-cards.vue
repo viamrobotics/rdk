@@ -739,7 +739,7 @@ onUnmounted(() => {
 
     <!-- ******* ENCODER *******  -->
     <Encoder
-      v-for="encoder in filterRdkComponentsWithStatus(resources, status, 'encoder')"
+      v-for="encoder in filterResources(resources, 'rdk', 'component', 'encoder')"
       :key="encoder.name"
       :name="encoder.name"
       :client="client"

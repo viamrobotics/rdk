@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, toRaw } from 'vue';
 import { grpc } from '@improbable-eng/grpc-web';
-import { Client, encoderApi, ServiceError } from '@viamrobotics/sdk';
+import { Client, encoderApi, type ServiceError } from '@viamrobotics/sdk';
 import { displayError } from '../lib/error';
 import { rcLogConditionally } from '../lib/log';
 
@@ -27,7 +27,7 @@ const refresh = () => {
   props.client.encoderService.getPosition(
     req,
     new grpc.Metadata(),
-    (error: ServiceError, resp: encoderApi.GetPositionResponse) => {
+    (error: ServiceError | null, resp: encoderApi.GetPositionResponse) => {
       if (error) {
         return displayError(error as ServiceError);
       }
@@ -63,7 +63,7 @@ const reset = async () => {
   await props.client.encoderService.resetPosition(
     req,
     new grpc.Metadata(),
-    (error: ServiceError) => {
+    (error: ServiceError | null) => {
       if (error) {
         return displayError(error as ServiceError);
       }
