@@ -277,13 +277,13 @@ func TestMotorEncoder1(t *testing.T) {
 }
 
 func TestMotorEncoderIncremental(t *testing.T) {
-	t.Skip()
+	// t.Skip()
 	logger := golog.NewTestLogger(t)
 	undo := SetRPMSleepDebug(1, false)
 	defer undo()
 
 	type testHarness struct {
-		Encoder   incremental.Encoder
+		Encoder   *incremental.Encoder
 		EncoderA  board.DigitalInterrupt
 		EncoderB  board.DigitalInterrupt
 		RealMotor *fakemotor.Motor
@@ -317,7 +317,7 @@ func TestMotorEncoderIncremental(t *testing.T) {
 		})
 
 		return testHarness{
-			*encoder,
+			encoder,
 			encoderA,
 			encoderB,
 			fakeMotor,
