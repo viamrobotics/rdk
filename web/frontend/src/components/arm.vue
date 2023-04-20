@@ -1,6 +1,6 @@
 <script setup lang="ts">
-
-import { ArmClient, Client, type ServiceError } from '@viamrobotics/sdk';
+import { ArmClient, Client } from '@viamrobotics/sdk';
+import type { Pose, ServiceError } from '@viamrobotics/sdk';
 import { copyToClipboardWithToast } from '../lib/copy-to-clipboard';
 import { displayError } from '../lib/error';
 import { roundTo2Decimals } from '../lib/math';
@@ -25,7 +25,7 @@ export interface RawArmStatus extends ArmStatus {
   end_position: Record<string, number>
 }
 
-type Field = 'x' | 'y' | 'z' | 'ox' | 'oy' | 'oz' | 'theta'
+type Field = 'x' | 'y' | 'z' | 'oX' | 'oY' | 'oZ' | 'theta'
 
 const props = defineProps<{
   name: string
@@ -39,10 +39,20 @@ const fieldMap = [
   ['y', 'y'],
   ['z', 'z'],
   ['theta', 'theta'],
-  ['o_x', 'ox'],
-  ['o_y', 'oy'],
-  ['o_z', 'oz'],
+  ['o_x', 'oX'],
+  ['o_y', 'oY'],
+  ['o_z', 'oZ'],
 ] as const;
+
+const updateFieldMap: Record<string, Field> = {
+  X: 'x',
+  Y: 'y',
+  Z: 'z',
+  Theta: 'theta',
+  OX: 'oX',
+  OY: 'oY',
+  OZ: 'oZ',
+} as const;
 
 const toggle = $ref<Record<string, ArmStatus>>({});
 
@@ -59,21 +69,22 @@ const stop = async () => {
 const armModifyAllDoEndPosition = async () => {
   const newPieces = toggle[props.name]!.pos_pieces;
 
-  const newPose = {
+  const newPose: Pose = {
     x: 0,
     y: 0,
     z: 0,
-    ox: 0,
-    oy: 0,
-    oz: 0,
+    oX: 0,
+    oY: 0,
+    oZ: 0,
     theta: 0,
   };
 
   for (const newPiece of newPieces) {
     const [, poseField] = newPiece.endPosition;
-    const field = poseField!.toLowerCase() as Field;
-    newPose[field] = newPiece.endPositionValue;
+    const field: Field = updateFieldMap[poseField!]!;
+    newPose[field] = Number(newPiece.endPositionValue);
   }
+
   try {
     await armClient.moveToPosition(newPose);
   } catch (error) {
@@ -108,23 +119,23 @@ const armEndPositionInc = async (updateField: string, amount: number) => {
   const arm = props.rawStatus!;
   const old = arm.end_position;
 
-  const newPose = {
+  const newPose: Pose = {
     x: 0,
     y: 0,
     z: 0,
-    ox: 0,
-    oy: 0,
-    oz: 0,
+    oX: 0,
+    oY: 0,
+    oZ: 0,
     theta: 0,
   };
 
   for (const [endPositionField, poseField] of fieldMap) {
     const endPositionValue = old[endPositionField] || 0;
-    const field : Field = poseField.toLowerCase() as Field;
-    newPose[field] = endPositionValue;
+    const field: Field = poseField;
+    newPose[field] = Number(endPositionValue);
   }
 
-  const field : Field = updateField.toLowerCase() as Field;
+  const field: Field = updateFieldMap[updateField]!;
   newPose[field] += adjustedAmount;
 
   try {
