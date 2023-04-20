@@ -31,6 +31,10 @@ import (
 	"go.viam.com/utils/rpc"
 )
 
+// This test ends up being a great validation of the logical clock on resource graph node
+// modifications since the base depends on something it needs during initialization that
+// needs to be added to the web service before it normally would be avalilable after completing
+// a config cycle.
 func TestComplexModule(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
@@ -409,6 +413,6 @@ func TestValidationFailure(t *testing.T) {
 	// Assert that Validation failure is present in server output, but build failure
 	// is not.
 	test.That(t, logs.FilterMessageSnippet(
-		"Modular config validation error found in component: base1").Len(), test.ShouldEqual, 1)
+		"modular config validation error found in component: base1").Len(), test.ShouldEqual, 1)
 	test.That(t, logs.FilterMessageSnippet("error building component").Len(), test.ShouldEqual, 0)
 }

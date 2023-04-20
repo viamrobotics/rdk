@@ -12,8 +12,6 @@ import (
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/movementsensor"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -21,7 +19,7 @@ import (
 func TestValidateConfig(t *testing.T) {
 	boardName := "local"
 	t.Run("fails with no board supplied", func(t *testing.T) {
-		cfg := AttrConfig{
+		cfg := Config{
 			I2cBus: "thing",
 		}
 		deps, err := cfg.Validate("path")
@@ -31,7 +29,7 @@ func TestValidateConfig(t *testing.T) {
 	})
 
 	t.Run("fails with no I2C bus", func(t *testing.T) {
-		cfg := AttrConfig{
+		cfg := Config{
 			BoardName: boardName,
 		}
 		deps, err := cfg.Validate("path")
@@ -41,7 +39,7 @@ func TestValidateConfig(t *testing.T) {
 	})
 
 	t.Run("adds board name to dependencies on success", func(t *testing.T) {
-		cfg := AttrConfig{
+		cfg := Config{
 			BoardName: boardName,
 			I2cBus:    "thing2",
 		}
@@ -59,11 +57,11 @@ func TestInitializationFailureOnChipCommunication(t *testing.T) {
 	i2cName := "i2c"
 
 	t.Run("fails on read error", func(t *testing.T) {
-		cfg := config.Component{
+		cfg := resource.Config{
 			Name:  "movementsensor",
 			Model: model,
-			Type:  movementsensor.SubtypeName,
-			ConvertedAttributes: &AttrConfig{
+			API:   movementsensor.Subtype,
+			ConvertedAttributes: &Config{
 				BoardName: testBoardName,
 				I2cBus:    i2cName,
 			},
@@ -85,7 +83,7 @@ func TestInitializationFailureOnChipCommunication(t *testing.T) {
 			}
 			return i2c, true
 		}
-		deps := registry.Dependencies{
+		deps := resource.Dependencies{
 			resource.NameFromSubtype(board.Subtype, testBoardName): mockBoard,
 		}
 		sensor, err := NewMpu6050(context.Background(), deps, cfg, logger)
@@ -95,11 +93,11 @@ func TestInitializationFailureOnChipCommunication(t *testing.T) {
 	})
 
 	t.Run("fails on unexpected address", func(t *testing.T) {
-		cfg := config.Component{
+		cfg := resource.Config{
 			Name:  "movementsensor",
 			Model: model,
-			Type:  movementsensor.SubtypeName,
-			ConvertedAttributes: &AttrConfig{
+			API:   movementsensor.Subtype,
+			ConvertedAttributes: &Config{
 				BoardName:              testBoardName,
 				I2cBus:                 i2cName,
 				UseAlternateI2CAddress: true,
@@ -121,7 +119,7 @@ func TestInitializationFailureOnChipCommunication(t *testing.T) {
 			}
 			return i2c, true
 		}
-		deps := registry.Dependencies{
+		deps := resource.Dependencies{
 			resource.NameFromSubtype(board.Subtype, testBoardName): mockBoard,
 		}
 		sensor, err := NewMpu6050(context.Background(), deps, cfg, logger)
@@ -136,11 +134,11 @@ func TestSuccessfulInitializationAndClose(t *testing.T) {
 	testBoardName := "board"
 	i2cName := "i2c"
 
-	cfg := config.Component{
+	cfg := resource.Config{
 		Name:  "movementsensor",
 		Model: model,
-		Type:  movementsensor.SubtypeName,
-		ConvertedAttributes: &AttrConfig{
+		API:   movementsensor.Subtype,
+		ConvertedAttributes: &Config{
 			BoardName:              testBoardName,
 			I2cBus:                 i2cName,
 			UseAlternateI2CAddress: true,
@@ -170,25 +168,25 @@ func TestSuccessfulInitializationAndClose(t *testing.T) {
 		}
 		return i2c, true
 	}
-	deps := registry.Dependencies{
+	deps := resource.Dependencies{
 		resource.NameFromSubtype(board.Subtype, testBoardName): mockBoard,
 	}
 	sensor, err := NewMpu6050(context.Background(), deps, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
-	err = utils.TryClose(context.Background(), sensor)
+	err = sensor.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, closeWasCalled, test.ShouldBeTrue)
 }
 
-func setupDependencies(mockData []byte) (config.Component, registry.Dependencies) {
+func setupDependencies(mockData []byte) (resource.Config, resource.Dependencies) {
 	testBoardName := "board"
 	i2cName := "i2c"
 
-	cfg := config.Component{
+	cfg := resource.Config{
 		Name:  "movementsensor",
 		Model: model,
-		Type:  movementsensor.SubtypeName,
-		ConvertedAttributes: &AttrConfig{
+		API:   movementsensor.Subtype,
+		ConvertedAttributes: &Config{
 			BoardName:              testBoardName,
 			I2cBus:                 i2cName,
 			UseAlternateI2CAddress: true,
@@ -214,7 +212,7 @@ func setupDependencies(mockData []byte) (config.Component, registry.Dependencies
 		}
 		return i2c, true
 	}
-	return cfg, registry.Dependencies{
+	return cfg, resource.Dependencies{
 		resource.NameFromSubtype(board.Subtype, testBoardName): mockBoard,
 	}
 }
@@ -242,7 +240,7 @@ func TestLinearAcceleration(t *testing.T) {
 	cfg, deps := setupDependencies(linearAccelMockData)
 	sensor, err := NewMpu6050(context.Background(), deps, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
-	defer utils.TryClose(context.Background(), sensor)
+	defer sensor.Close(context.Background())
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		linAcc, err := sensor.LinearAcceleration(context.Background(), nil)
 		test.That(tb, err, test.ShouldBeNil)
@@ -278,7 +276,7 @@ func TestAngularVelocity(t *testing.T) {
 	cfg, deps := setupDependencies(angVelMockData)
 	sensor, err := NewMpu6050(context.Background(), deps, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
-	defer utils.TryClose(context.Background(), sensor)
+	defer sensor.Close(context.Background())
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		angVel, err := sensor.AngularVelocity(context.Background(), nil)
 		test.That(tb, err, test.ShouldBeNil)
@@ -304,7 +302,7 @@ func TestTemperature(t *testing.T) {
 	cfg, deps := setupDependencies(temperatureMockData)
 	sensor, err := NewMpu6050(context.Background(), deps, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
-	defer utils.TryClose(context.Background(), sensor)
+	defer sensor.Close(context.Background())
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		readings, err := sensor.Readings(context.Background(), nil)
 		test.That(tb, err, test.ShouldBeNil)

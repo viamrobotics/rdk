@@ -61,7 +61,7 @@ type derivative struct {
 	cfg     BlockConfig
 	stencil derivativeStencil
 	px      [][]float64
-	y       []Signal
+	y       []*Signal
 	logger  golog.Logger
 }
 
@@ -85,7 +85,7 @@ func derive(x []float64, dt time.Duration, stencil *derivativeStencil) (float64,
 	return y, nil
 }
 
-func (d *derivative) Next(ctx context.Context, x []Signal, dt time.Duration) ([]Signal, bool) {
+func (d *derivative) Next(ctx context.Context, x []*Signal, dt time.Duration) ([]*Signal, bool) {
 	if d.stencil.Type == "backward" {
 		for idx, s := range x {
 			d.px[idx] = append(d.px[idx][1:], s.GetSignalValueAt(0))
@@ -122,7 +122,7 @@ func (d *derivative) reset() error {
 		return errors.Errorf("unsupported derive_type %s for block %s", d.cfg.Attribute.String("derive_type"), d.cfg.Name)
 	}
 	d.px = make([][]float64, len(d.cfg.DependsOn))
-	d.y = make([]Signal, len(d.cfg.DependsOn))
+	d.y = make([]*Signal, len(d.cfg.DependsOn))
 	for i := range d.px {
 		d.px[i] = make([]float64, len(d.stencil.Coeffs))
 		d.y[i] = makeSignal(d.cfg.Name)
@@ -143,7 +143,7 @@ func (d *derivative) Reset(ctx context.Context) error {
 	return d.reset()
 }
 
-func (d *derivative) Output(ctx context.Context) []Signal {
+func (d *derivative) Output(ctx context.Context) []*Signal {
 	return d.y
 }
 

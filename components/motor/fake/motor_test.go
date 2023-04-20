@@ -8,16 +8,21 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/testutils"
 
-	fakeencoder "go.viam.com/rdk/components/encoder/fake"
+	"go.viam.com/rdk/components/encoder/fake"
 	"go.viam.com/rdk/components/motor"
+	"go.viam.com/rdk/resource"
 )
 
 func TestMotorInit(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
 
+	enc, err := fake.NewEncoder(context.Background(), resource.Config{
+		ConvertedAttributes: &fake.Config{},
+	})
+	test.That(t, err, test.ShouldBeNil)
 	m := &Motor{
-		Encoder:           &fakeencoder.Encoder{},
+		Encoder:           enc.(fake.Encoder),
 		Logger:            logger,
 		PositionReporting: true,
 		MaxRPM:            60,
@@ -37,17 +42,19 @@ func TestGoFor(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
 
+	enc, err := fake.NewEncoder(context.Background(), resource.Config{
+		ConvertedAttributes: &fake.Config{},
+	})
+	test.That(t, err, test.ShouldBeNil)
 	m := &Motor{
-		Encoder:           &fakeencoder.Encoder{},
+		Encoder:           enc.(fake.Encoder),
 		Logger:            logger,
 		PositionReporting: true,
 		MaxRPM:            60,
 		TicksPerRotation:  1,
 	}
 
-	m.Encoder.Start(ctx)
-
-	err := m.GoFor(ctx, 0, 1, nil)
+	err = m.GoFor(ctx, 0, 1, nil)
 	test.That(t, err, test.ShouldBeError, motor.NewZeroRPMError())
 	err = m.GoFor(ctx, 60, 1, nil)
 	test.That(t, err, test.ShouldBeNil)
@@ -64,16 +71,19 @@ func TestGoTo(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
 
+	enc, err := fake.NewEncoder(context.Background(), resource.Config{
+		ConvertedAttributes: &fake.Config{},
+	})
+	test.That(t, err, test.ShouldBeNil)
 	m := &Motor{
-		Encoder:           &fakeencoder.Encoder{},
+		Encoder:           enc.(fake.Encoder),
 		Logger:            logger,
 		PositionReporting: true,
 		MaxRPM:            60,
 		TicksPerRotation:  1,
 	}
 
-	m.Encoder.Start(ctx)
-	err := m.GoTo(ctx, 60, 1, nil)
+	err = m.GoTo(ctx, 60, 1, nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
@@ -88,15 +98,20 @@ func TestGoTillStop(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
 
+	enc, err := fake.NewEncoder(context.Background(), resource.Config{
+		ConvertedAttributes: &fake.Config{},
+	})
+	test.That(t, err, test.ShouldBeNil)
 	m := &Motor{
-		Encoder:           &fakeencoder.Encoder{},
+		Named:             motor.Named("foo").AsNamed(),
+		Encoder:           enc.(fake.Encoder),
 		Logger:            logger,
 		PositionReporting: true,
 		MaxRPM:            60,
 		TicksPerRotation:  1,
 	}
 
-	err := m.GoTillStop(ctx, 0, func(ctx context.Context) bool { return false })
+	err = m.GoTillStop(ctx, 0, func(ctx context.Context) bool { return false })
 	test.That(t, err, test.ShouldNotBeNil)
 }
 
@@ -104,15 +119,19 @@ func TestResetZeroPosition(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
 
+	enc, err := fake.NewEncoder(context.Background(), resource.Config{
+		ConvertedAttributes: &fake.Config{},
+	})
+	test.That(t, err, test.ShouldBeNil)
 	m := &Motor{
-		Encoder:           &fakeencoder.Encoder{},
+		Encoder:           enc.(fake.Encoder),
 		Logger:            logger,
 		PositionReporting: true,
 		MaxRPM:            60,
 		TicksPerRotation:  1,
 	}
 
-	err := m.ResetZeroPosition(ctx, 0, nil)
+	err = m.ResetZeroPosition(ctx, 0, nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	pos, err := m.Position(ctx, nil)
@@ -124,15 +143,19 @@ func TestPower(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
 
+	enc, err := fake.NewEncoder(context.Background(), resource.Config{
+		ConvertedAttributes: &fake.Config{},
+	})
+	test.That(t, err, test.ShouldBeNil)
 	m := &Motor{
-		Encoder:           &fakeencoder.Encoder{},
+		Encoder:           enc.(fake.Encoder),
 		Logger:            logger,
 		PositionReporting: true,
 		MaxRPM:            60,
 		TicksPerRotation:  1,
 	}
 
-	err := m.SetPower(ctx, 1.0, nil)
+	err = m.SetPower(ctx, 1.0, nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	powerPct := m.PowerPct()

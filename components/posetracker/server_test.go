@@ -13,7 +13,6 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
 )
 
@@ -29,17 +28,16 @@ func newServer() (pb.PoseTrackerServiceServer, *inject.PoseTracker, *inject.Pose
 	injectPT1 := &inject.PoseTracker{}
 	injectPT2 := &inject.PoseTracker{}
 
-	resourceMap := map[resource.Name]interface{}{
+	resourceMap := map[resource.Name]posetracker.PoseTracker{
 		posetracker.Named(workingPTName): injectPT1,
 		posetracker.Named(failingPTName): injectPT2,
-		posetracker.Named(notPTName):     "not a pose tracker",
 	}
 
-	injectSvc, err := subtype.New(resourceMap)
+	injectSvc, err := resource.NewSubtypeCollection(posetracker.Subtype, resourceMap)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	return posetracker.NewServer(injectSvc), injectPT1, injectPT2, nil
+	return posetracker.NewRPCServiceServer(injectSvc).(pb.PoseTrackerServiceServer), injectPT1, injectPT2, nil
 }
 
 func TestGetPoses(t *testing.T) {
@@ -69,15 +67,6 @@ func TestGetPoses(t *testing.T) {
 		}
 		resp, err := ptServer.GetPoses(context.Background(), &req)
 		test.That(t, err, test.ShouldBeError, poseFailureErr)
-		test.That(t, resp, test.ShouldBeNil)
-	})
-
-	t.Run("get poses fails on improperly implemented pose tracker", func(t *testing.T) {
-		req := pb.GetPosesRequest{
-			Name: notPTName, BodyNames: []string{bodyName},
-		}
-		resp, err := ptServer.GetPoses(context.Background(), &req)
-		test.That(t, err, test.ShouldBeError, posetracker.NewResourceIsNotPoseTracker(notPTName))
 		test.That(t, resp, test.ShouldBeNil)
 	})
 

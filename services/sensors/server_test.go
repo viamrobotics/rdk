@@ -11,45 +11,35 @@ import (
 	"go.viam.com/utils/protoutils"
 	"google.golang.org/protobuf/types/known/structpb"
 
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/movementsensor"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/sensors"
-	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
 
-func newServer(sMap map[resource.Name]interface{}) (pb.SensorsServiceServer, error) {
-	sSvc, err := subtype.New(sMap)
+func newServer(sMap map[resource.Name]sensors.Service) (pb.SensorsServiceServer, error) {
+	coll, err := resource.NewSubtypeCollection(sensors.Subtype, sMap)
 	if err != nil {
 		return nil, err
 	}
-	return sensors.NewServer(sSvc), nil
+	return sensors.NewRPCServiceServer(coll).(pb.SensorsServiceServer), nil
 }
 
 func TestServerGetSensors(t *testing.T) {
 	t.Run("no sensors service", func(t *testing.T) {
-		sMap := map[resource.Name]interface{}{}
+		sMap := map[resource.Name]sensors.Service{}
 		server, err := newServer(sMap)
 		test.That(t, err, test.ShouldBeNil)
 		_, err = server.GetSensors(context.Background(), &pb.GetSensorsRequest{})
 		test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:service:sensors/\" not found"))
 	})
 
-	t.Run("not sensors service", func(t *testing.T) {
-		sMap := map[resource.Name]interface{}{sensors.Named(testSvcName1): "not sensors"}
-		server, err := newServer(sMap)
-		test.That(t, err, test.ShouldBeNil)
-		_, err = server.GetSensors(context.Background(), &pb.GetSensorsRequest{Name: testSvcName1})
-		test.That(t, err, test.ShouldBeError, sensors.NewUnimplementedInterfaceError("string"))
-	})
-
 	t.Run("failed Sensors", func(t *testing.T) {
 		injectSensors := &inject.SensorsService{}
-		sMap := map[resource.Name]interface{}{
-			sensors.Named(testSvcName1): injectSensors,
+		sMap := map[resource.Name]sensors.Service{
+			testSvcName1: injectSensors,
 		}
 		server, err := newServer(sMap)
 		test.That(t, err, test.ShouldBeNil)
@@ -57,14 +47,14 @@ func TestServerGetSensors(t *testing.T) {
 		injectSensors.SensorsFunc = func(ctx context.Context, extra map[string]interface{}) ([]resource.Name, error) {
 			return nil, passedErr
 		}
-		_, err = server.GetSensors(context.Background(), &pb.GetSensorsRequest{Name: testSvcName1})
+		_, err = server.GetSensors(context.Background(), &pb.GetSensorsRequest{Name: testSvcName1.ShortName()})
 		test.That(t, err, test.ShouldBeError, passedErr)
 	})
 
 	t.Run("working Sensors", func(t *testing.T) {
 		injectSensors := &inject.SensorsService{}
-		sMap := map[resource.Name]interface{}{
-			sensors.Named(testSvcName1): injectSensors,
+		sMap := map[resource.Name]sensors.Service{
+			testSvcName1: injectSensors,
 		}
 		server, err := newServer(sMap)
 		test.That(t, err, test.ShouldBeNil)
@@ -79,7 +69,7 @@ func TestServerGetSensors(t *testing.T) {
 		ext, err := protoutils.StructToStructPb(extra)
 		test.That(t, err, test.ShouldBeNil)
 
-		resp, err := server.GetSensors(context.Background(), &pb.GetSensorsRequest{Name: testSvcName1, Extra: ext})
+		resp, err := server.GetSensors(context.Background(), &pb.GetSensorsRequest{Name: testSvcName1.ShortName(), Extra: ext})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, extraOptions, test.ShouldResemble, extra)
 
@@ -93,25 +83,17 @@ func TestServerGetSensors(t *testing.T) {
 
 func TestServerGetReadings(t *testing.T) {
 	t.Run("no sensors service", func(t *testing.T) {
-		sMap := map[resource.Name]interface{}{}
+		sMap := map[resource.Name]sensors.Service{}
 		server, err := newServer(sMap)
 		test.That(t, err, test.ShouldBeNil)
 		_, err = server.GetReadings(context.Background(), &pb.GetReadingsRequest{})
 		test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:service:sensors/\" not found"))
 	})
 
-	t.Run("not sensors service", func(t *testing.T) {
-		sMap := map[resource.Name]interface{}{sensors.Named(testSvcName1): "not sensors"}
-		server, err := newServer(sMap)
-		test.That(t, err, test.ShouldBeNil)
-		_, err = server.GetReadings(context.Background(), &pb.GetReadingsRequest{Name: testSvcName1})
-		test.That(t, err, test.ShouldBeError, sensors.NewUnimplementedInterfaceError("string"))
-	})
-
 	t.Run("failed Readings", func(t *testing.T) {
 		injectSensors := &inject.SensorsService{}
-		sMap := map[resource.Name]interface{}{
-			sensors.Named(testSvcName1): injectSensors,
+		sMap := map[resource.Name]sensors.Service{
+			testSvcName1: injectSensors,
 		}
 		server, err := newServer(sMap)
 		test.That(t, err, test.ShouldBeNil)
@@ -122,7 +104,7 @@ func TestServerGetReadings(t *testing.T) {
 			return nil, passedErr
 		}
 		req := &pb.GetReadingsRequest{
-			Name:        testSvcName1,
+			Name:        testSvcName1.ShortName(),
 			SensorNames: []*commonpb.ResourceName{},
 		}
 		_, err = server.GetReadings(context.Background(), req)
@@ -131,8 +113,8 @@ func TestServerGetReadings(t *testing.T) {
 
 	t.Run("working Readings", func(t *testing.T) {
 		injectSensors := &inject.SensorsService{}
-		sMap := map[resource.Name]interface{}{
-			sensors.Named(testSvcName1): injectSensors,
+		sMap := map[resource.Name]sensors.Service{
+			testSvcName1: injectSensors,
 		}
 		server, err := newServer(sMap)
 		test.That(t, err, test.ShouldBeNil)
@@ -155,7 +137,7 @@ func TestServerGetReadings(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		req := &pb.GetReadingsRequest{
-			Name:        testSvcName1,
+			Name:        testSvcName1.ShortName(),
 			SensorNames: []*commonpb.ResourceName{},
 			Extra:       ext,
 		}
@@ -181,18 +163,18 @@ func TestServerGetReadings(t *testing.T) {
 }
 
 func TestServerDoCommand(t *testing.T) {
-	resourceMap := map[resource.Name]interface{}{
-		sensors.Named(testSvcName1): &inject.SensorsService{
-			DoCommandFunc: generic.EchoFunc,
+	resourceMap := map[resource.Name]sensors.Service{
+		testSvcName1: &inject.SensorsService{
+			DoCommandFunc: testutils.EchoFunc,
 		},
 	}
 	server, err := newServer(resourceMap)
 	test.That(t, err, test.ShouldBeNil)
 
-	cmd, err := protoutils.StructToStructPb(generic.TestCommand)
+	cmd, err := protoutils.StructToStructPb(testutils.TestCommand)
 	test.That(t, err, test.ShouldBeNil)
 	doCommandRequest := &commonpb.DoCommandRequest{
-		Name:    testSvcName1,
+		Name:    testSvcName1.ShortName(),
 		Command: cmd,
 	}
 	doCommandResponse, err := server.DoCommand(context.Background(), doCommandRequest)

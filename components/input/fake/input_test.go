@@ -7,10 +7,9 @@ import (
 
 	"github.com/pkg/errors"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/input"
-	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/resource"
 )
 
 func setupDefaultInput(t *testing.T) *InputController {
@@ -26,17 +25,17 @@ var (
 
 func setupDefinedInput(t *testing.T) *InputController {
 	t.Helper()
-	attr := Config{
+	conf := Config{
 		controls:         controls,
 		EventValue:       &value,
 		CallbackDelaySec: float64(delay/time.Millisecond) / 1000,
 	}
-	return setupInputWithCfg(t, attr)
+	return setupInputWithCfg(t, conf)
 }
 
-func setupInputWithCfg(t *testing.T, attr Config) *InputController {
+func setupInputWithCfg(t *testing.T, conf Config) *InputController {
 	t.Helper()
-	input, err := NewInputController(context.Background(), config.Component{ConvertedAttributes: &attr})
+	input, err := NewInputController(context.Background(), resource.Config{ConvertedAttributes: &conf})
 	test.That(t, err, test.ShouldBeNil)
 	return input.(*InputController)
 }
@@ -66,7 +65,7 @@ func TestControl(t *testing.T) {
 				i = setupDefinedInput(t)
 			}
 			defer func() {
-				test.That(t, utils.TryClose(context.Background(), i), test.ShouldBeNil)
+				test.That(t, i.Close(context.Background()), test.ShouldBeNil)
 			}()
 			actual, err := i.Controls(context.Background(), nil)
 			test.That(t, err, test.ShouldBeNil)
@@ -93,7 +92,7 @@ func TestEvents(t *testing.T) {
 				i = setupDefinedInput(t)
 			}
 			defer func() {
-				test.That(t, utils.TryClose(context.Background(), i), test.ShouldBeNil)
+				test.That(t, i.Close(context.Background()), test.ShouldBeNil)
 			}()
 			actual, err := i.Events(context.Background(), nil)
 			test.That(t, err, test.ShouldBeNil)
@@ -118,7 +117,7 @@ func TestEvents(t *testing.T) {
 func TestRegisterControlCallback(t *testing.T) {
 	i := setupDefinedInput(t)
 	defer func() {
-		test.That(t, utils.TryClose(context.Background(), i), test.ShouldBeNil)
+		test.That(t, i.Close(context.Background()), test.ShouldBeNil)
 	}()
 	calledEnough := make(chan struct{})
 	var (
@@ -147,7 +146,7 @@ func TestRegisterControlCallback(t *testing.T) {
 func TestTriggerEvent(t *testing.T) {
 	i := setupDefaultInput(t)
 	defer func() {
-		test.That(t, utils.TryClose(context.Background(), i), test.ShouldBeNil)
+		test.That(t, i.Close(context.Background()), test.ShouldBeNil)
 	}()
 	err := i.TriggerEvent(context.Background(), input.Event{}, nil)
 	test.That(t, err, test.ShouldBeError, errors.New("unsupported"))

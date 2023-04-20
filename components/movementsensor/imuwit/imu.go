@@ -36,10 +36,7 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/movementsensor"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	rutils "go.viam.com/rdk/utils"
@@ -49,17 +46,17 @@ var model = resource.NewDefaultModel("imu-wit")
 
 var baudRateList = [...]uint{115200, 9600, 0}
 
-// AttrConfig is used for converting a witmotion IMU MovementSensor config attributes.
-type AttrConfig struct {
+// Config is used for converting a witmotion IMU MovementSensor config attributes.
+type Config struct {
 	Port     string `json:"serial_path"`
 	BaudRate uint   `json:"serial_baud_rate,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
-func (cfg *AttrConfig) Validate(path string) error {
+func (cfg *Config) Validate(path string) ([]string, error) {
 	// Validating serial path
 	if cfg.Port == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "serial_path")
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "serial_path")
 	}
 
 	// Validating baud rate
@@ -70,33 +67,21 @@ func (cfg *AttrConfig) Validate(path string) error {
 		}
 	}
 	if !isValid {
-		return utils.NewConfigValidationError(path, errors.Errorf("Baud rate is not in %v", baudRateList))
+		return nil, utils.NewConfigValidationError(path, errors.Errorf("Baud rate is not in %v", baudRateList))
 	}
 
-	return nil
+	return nil, nil
 }
 
 func init() {
-	registry.RegisterComponent(movementsensor.Subtype, model, registry.Component{
-		Constructor: func(
-			ctx context.Context,
-			deps registry.Dependencies,
-			cfg config.Component,
-			logger golog.Logger,
-		) (interface{}, error) {
-			return NewWit(ctx, deps, cfg, logger)
-		},
+	resource.RegisterComponent(movementsensor.Subtype, model, resource.Registration[movementsensor.MovementSensor, *Config]{
+		Constructor: NewWit,
 	})
-
-	config.RegisterComponentAttributeMapConverter(movementsensor.Subtype, model,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var attr AttrConfig
-			return config.TransformAttributeMapToStruct(&attr, attributes)
-		},
-		&AttrConfig{})
 }
 
 type wit struct {
+	resource.Named
+	resource.AlwaysRebuild
 	angularVelocity spatialmath.AngularVelocity
 	orientation     spatialmath.EulerAngles
 	acceleration    r3.Vector
@@ -109,8 +94,7 @@ type wit struct {
 	port                    io.ReadWriteCloser
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
-	generic.Unimplemented
-	logger golog.Logger
+	logger                  golog.Logger
 }
 
 func (imu *wit) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
@@ -183,34 +167,37 @@ func (imu *wit) Properties(ctx context.Context, extra map[string]interface{}) (*
 // NewWit creates a new Wit IMU.
 func NewWit(
 	ctx context.Context,
-	deps registry.Dependencies,
-	cfg config.Component,
+	deps resource.Dependencies,
+	conf resource.Config,
 	logger golog.Logger,
 ) (movementsensor.MovementSensor, error) {
-	conf, ok := cfg.ConvertedAttributes.(*AttrConfig)
-	if !ok {
-		return nil, rutils.NewUnexpectedTypeError(conf, cfg.ConvertedAttributes)
+	newConf, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return nil, err
 	}
 
 	options := slib.OpenOptions{
-		PortName:        conf.Port,
+		PortName:        newConf.Port,
 		BaudRate:        115200,
 		DataBits:        8,
 		StopBits:        1,
 		MinimumReadSize: 1,
 	}
 
-	if conf.BaudRate > 0 {
-		options.BaudRate = conf.BaudRate
+	if newConf.BaudRate > 0 {
+		options.BaudRate = newConf.BaudRate
 	} else {
 		logger.Warnf(
 			"no valid serial_baud_rate set, setting to default of %d, baud rate of wit imus are: %v", options.BaudRate, baudRateList,
 		)
 	}
 
-	i := wit{logger: logger, err: movementsensor.NewLastError(1, 1)}
+	i := wit{
+		Named:  conf.ResourceName().AsNamed(),
+		logger: logger,
+		err:    movementsensor.NewLastError(1, 1),
+	}
 	logger.Debugf("initializing wit serial connection with parameters: %+v", options)
-	var err error
 	i.port, err = slib.Open(options)
 	if err != nil {
 		return nil, err
@@ -329,7 +316,7 @@ func (imu *wit) parseWIT(line string) error {
 }
 
 // Close shuts down wit and closes imu.port.
-func (imu *wit) Close() error {
+func (imu *wit) Close(ctx context.Context) error {
 	imu.logger.Debug("Closing wit motion imu")
 	imu.cancelFunc()
 	imu.activeBackgroundWorkers.Wait()

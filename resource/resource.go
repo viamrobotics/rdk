@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"regexp"
 	"strings"
 
@@ -47,6 +48,9 @@ const (
 	ResourceTypeService   = TypeName("service")
 	DefaultServiceName    = "builtin"
 	DefaultMaxInstance    = 1
+
+	// NamespaceRDKInternal is the namespace to use for internal services.
+	NamespaceRDKInternal = Namespace("rdk-internal")
 )
 
 var (
@@ -56,6 +60,55 @@ var (
 	// DefaultServiceModel is used for builtin services.
 	DefaultServiceModel = NewDefaultModel("builtin")
 )
+
+// A Resource is the fundamental building block of a robot; it is either a component or a service
+// that is accessible through robot. In general, some other specific type that is the component
+// or service implements this interface. All resources must know their own name and be able
+// to reconfigure themselves (or signal that they must be rebuilt).
+// Resources that fail to reconfigure or rebuild may be closed and must return
+// errors when in a closed state for all non Close methods.
+type Resource interface {
+	Name() Name
+
+	// Reconfigure must reconfigure the resource atomically and in place. If this
+	// cannot be guaranteed, then usage of AlwaysRebuild or TriviallyReconfigurable
+	// is permissible.
+	Reconfigure(ctx context.Context, deps Dependencies, conf Config) error
+
+	// DoCommand sends/receives arbitrary data
+	DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+
+	// Close must safely shut down the resource and prevent further use.
+	// Close must be idempotent.
+	// Later reconfiguration may allow a resource to be "open" again.
+	Close(ctx context.Context) error
+}
+
+// Dependencies are a set of resources that a resource requires for reconfiguration.
+type Dependencies map[Name]Resource
+
+// FromDependencies returns a named component from a collection of dependencies.
+func FromDependencies[T Resource](resources Dependencies, name Name) (T, error) {
+	var zero T
+	res, err := resources.Lookup(name)
+	if err != nil {
+		return zero, DependencyNotFoundError(name)
+	}
+	typedRes, ok := res.(T)
+	if !ok {
+		return zero, DependencyTypeError[T](name, res)
+	}
+	return typedRes, nil
+}
+
+// Lookup searches for a given dependency by name.
+func (d Dependencies) Lookup(name Name) (Resource, error) {
+	res, ok := d[name]
+	if !ok {
+		return nil, DependencyNotFoundError(name)
+	}
+	return res, nil
+}
 
 // Type represents a known component/service type of a robot.
 type Type struct {
@@ -173,6 +226,20 @@ type Name struct {
 	Name   string
 }
 
+// UnmarshalJSON unmarshals a resource name from a string.
+func (n *Name) UnmarshalJSON(data []byte) error {
+	var s string
+	if err := json.Unmarshal(data, &s); err != nil {
+		return err
+	}
+	newN, err := NewFromString(s)
+	if err != nil {
+		return err
+	}
+	*n = newN
+	return nil
+}
+
 // NewName creates a new Name based on parameters passed in.
 func NewName(namespace Namespace, rType TypeName, subtype SubtypeName, name string) Name {
 	resourceSubtype := NewSubtype(namespace, rType, subtype)
@@ -270,6 +337,12 @@ func (n Name) ShortName() string {
 	return nameR
 }
 
+// ShortNameForClient returns the short name to be used in client calls (e.g. remotes)
+// assuming a remote is already in the name.
+func (n Name) ShortNameForClient() string {
+	return n.PopRemote().ShortName()
+}
+
 // Validate ensures that important fields exist and are valid.
 func (n Name) Validate() error {
 	if n.Name == "" {
@@ -310,102 +383,110 @@ func ContainsReservedCharacter(val string) error {
 	return nil
 }
 
-// ReconfigureResource tries to reconfigure/replace an old resource with a new one.
-func ReconfigureResource(ctx context.Context, old, newR interface{}) (interface{}, error) {
-	if old == nil {
-		// if the oldPart was never created, replace directly with the new resource
-		return newR, nil
-	}
-
-	oldPart, oldResourceIsReconfigurable := old.(Reconfigurable)
-	newPart, newResourceIsReconfigurable := newR.(Reconfigurable)
-
-	switch {
-	case oldResourceIsReconfigurable != newResourceIsReconfigurable:
-		// this is an indicator of a serious constructor problem
-		// for the resource subtype.
-		reconfError := errors.Errorf(
-			"new type %T is reconfigurable whereas old type %T is not",
-			newR, old)
-		if oldResourceIsReconfigurable {
-			reconfError = errors.Errorf(
-				"old type %T is reconfigurable whereas new type %T is not",
-				old, newR)
-		}
-		return nil, reconfError
-	case oldResourceIsReconfigurable && newResourceIsReconfigurable:
-		// if we are dealing with a reconfigurable resource
-		// use the new resource to reconfigure the old one.
-		if err := oldPart.Reconfigure(ctx, newPart); err != nil {
-			return nil, err
-		}
-		return old, nil
-	case !oldResourceIsReconfigurable && !newResourceIsReconfigurable:
-		// if we are not dealing with a reconfigurable resource
-		// we want to close the old resource and replace it with the
-		// new.
-		if err := utils.TryClose(ctx, old); err != nil {
-			return nil, err
-		}
-		return newR, nil
-	default:
-		return nil, errors.Errorf("unexpected outcome during reconfiguration of type %T and type %T",
-			old, newR)
-	}
-}
-
-// Reconfigurable is implemented when component/service of a robot is reconfigurable.
-type Reconfigurable interface {
-	// TODO(RSDK-895): hold over until all resources have names. This doesn't guarantee
-	// everything is named since everything may not be a reconfigurable (but should be).
-	Name() Name
-	// Reconfigure reconfigures the resource
-	Reconfigure(ctx context.Context, newResource Reconfigurable) error
-}
-
-// Updateable is implemented when component/service of a robot should be updated after the robot reconfiguration process is done.
-type Updateable interface {
-	// Update updates the resource
-	Update(context.Context, map[Name]interface{}) error
-}
-
-// MovingCheckable is implemented when a resource of a robot returns whether it is moving or not.
-type MovingCheckable interface {
+// Actuator is any resource that can move.
+type Actuator interface {
 	// IsMoving returns whether the resource is moving or not
 	IsMoving(context.Context) (bool, error)
-}
 
-// Stoppable is implemented when a resource of a robot can stop its movement.
-type Stoppable interface {
 	// Stop stops all movement for the resource
 	Stop(context.Context, map[string]interface{}) error
 }
 
-// OldStoppable will be deprecated soon. See Stoppable.
-// TODO[RSDK-328].
-type OldStoppable interface {
-	// Stop stops all movement for the resource
-	Stop(context.Context) error
-}
+// ErrDoUnimplemented is returned if the DoCommand methods is not implemented.
+var ErrDoUnimplemented = errors.New("DoCommand unimplemented")
 
-// StopResource attempts to stops the given resource.
-func StopResource(ctx context.Context, res interface{}, extra map[string]interface{}) error {
-	sr, ok := res.(Stoppable)
-	if ok {
-		return sr.Stop(ctx, extra)
-	}
+// TriviallyReconfigurable is to be embedded by any resource that does not care about
+// changes to its config or dependencies.
+type TriviallyReconfigurable struct{}
 
-	// TODO[njooma]: OldStoppable - Will be deprecated
-	osr, ok := res.(OldStoppable)
-	if ok {
-		return osr.Stop(ctx)
-	}
-
+// Reconfigure always succeeds.
+func (t TriviallyReconfigurable) Reconfigure(ctx context.Context, deps Dependencies, conf Config) error {
 	return nil
 }
 
-// Generic is a resource that allows the execution of DoCommand.
-type Generic interface {
-	// DoCommand sends/receives arbitrary data
+// TriviallyCloseable is to be embedded by any resource that does not care about
+// handling Closes. When is used, it is assumed that the resource does not need
+// to return errors when furture non-Close methods are called.
+type TriviallyCloseable struct{}
+
+// Close always returns no error.
+func (t TriviallyCloseable) Close(ctx context.Context) error {
+	return nil
+}
+
+// TriviallyValidateConfig is to be embedded by any resource config that does not care about
+// its validation or implicit dependencies; use this carefully.
+type TriviallyValidateConfig struct{}
+
+// Validate always succeeds and produces no dependencies.
+func (t TriviallyValidateConfig) Validate(path string) ([]string, error) {
+	return nil, nil
+}
+
+var noNativeConfigType = reflect.TypeOf(NoNativeConfig{})
+
+// NoNativeConfig is used by types that have no significant native config.
+type NoNativeConfig struct {
+	TriviallyValidateConfig
+}
+
+// AlwaysRebuild is to be embedded by any resource that must always rebuild
+// and not reconfigure.
+type AlwaysRebuild struct{}
+
+// Reconfigure always returns a must rebuild error.
+func (a AlwaysRebuild) Reconfigure(ctx context.Context, deps Dependencies, conf Config) error {
+	return NewMustRebuildError(conf.ResourceName())
+}
+
+// Named is to be embedded by any resource that just needs to return a name.
+type Named interface {
+	Name() Name
 	DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+}
+
+type selfNamed struct {
+	name Name
+}
+
+// Name returns the name of the resource.
+func (s selfNamed) Name() Name {
+	return s.name
+}
+
+// DoCommand always returns unimplemented but can be implemented by the embedder.
+func (s selfNamed) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return nil, ErrDoUnimplemented
+}
+
+// AsNamed is a helper to let this name return itself as a basic resource that does
+// nothing.
+func (n Name) AsNamed() Named {
+	return selfNamed{n}
+}
+
+// AsType attempts to get a more specific interface from the resource.
+func AsType[T Resource](from Resource) (T, error) {
+	res, ok := from.(T)
+	if !ok {
+		var zero T
+		return zero, TypeError[T](from)
+	}
+	return res, nil
+}
+
+type closeOnlyResource struct {
+	Named
+	TriviallyReconfigurable
+	closeFunc func(ctx context.Context) error
+}
+
+// NewCloseOnlyResource makes a new resource that needs to be closed and
+// does not need the actual resource exposed but only its close function.
+func NewCloseOnlyResource(name Name, closeFunc utils.ContextCloserFunc) Resource {
+	return &closeOnlyResource{Named: name.AsNamed(), closeFunc: closeFunc}
+}
+
+func (r *closeOnlyResource) Close(ctx context.Context) error {
+	return r.closeFunc(ctx)
 }

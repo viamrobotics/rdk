@@ -10,36 +10,24 @@ import (
 
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/subtype"
-	"go.viam.com/rdk/utils"
 )
 
 // subtypeServer implements the MotionService from motion.proto.
 type subtypeServer struct {
 	pb.UnimplementedMotionServiceServer
-	subtypeSvc subtype.Service
+	coll resource.SubtypeCollection[Service]
 }
 
-// NewServer constructs a motion gRPC service server.
-func NewServer(s subtype.Service) pb.MotionServiceServer {
-	return &subtypeServer{subtypeSvc: s}
-}
-
-func (server *subtypeServer) service(serviceName string) (Service, error) {
-	resource := server.subtypeSvc.Resource(serviceName)
-	if resource == nil {
-		return nil, utils.NewResourceNotFoundError(Named(serviceName))
-	}
-	svc, ok := resource.(Service)
-	if !ok {
-		return nil, NewUnimplementedInterfaceError(resource)
-	}
-	return svc, nil
+// NewRPCServiceServer constructs a motion gRPC service server.
+// It is intentionally untyped to prevent use outside of tests.
+func NewRPCServiceServer(coll resource.SubtypeCollection[Service]) interface{} {
+	return &subtypeServer{coll: coll}
 }
 
 func (server *subtypeServer) Move(ctx context.Context, req *pb.MoveRequest) (*pb.MoveResponse, error) {
-	svc, err := server.service(req.Name)
+	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -59,7 +47,7 @@ func (server *subtypeServer) Move(ctx context.Context, req *pb.MoveRequest) (*pb
 }
 
 func (server *subtypeServer) MoveOnMap(ctx context.Context, req *pb.MoveOnMapRequest) (*pb.MoveOnMapResponse, error) {
-	svc, err := server.service(req.Name)
+	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +65,7 @@ func (server *subtypeServer) MoveSingleComponent(
 	ctx context.Context,
 	req *pb.MoveSingleComponentRequest,
 ) (*pb.MoveSingleComponentResponse, error) {
-	svc, err := server.service(req.Name)
+	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -96,7 +84,7 @@ func (server *subtypeServer) MoveSingleComponent(
 }
 
 func (server *subtypeServer) GetPose(ctx context.Context, req *pb.GetPoseRequest) (*pb.GetPoseResponse, error) {
-	svc, err := server.service(req.Name)
+	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +106,7 @@ func (server *subtypeServer) GetPose(ctx context.Context, req *pb.GetPoseRequest
 func (server *subtypeServer) DoCommand(ctx context.Context,
 	req *commonpb.DoCommandRequest,
 ) (*commonpb.DoCommandResponse, error) {
-	svc, err := server.service(req.Name)
+	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}

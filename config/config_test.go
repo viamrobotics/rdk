@@ -15,7 +15,6 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/lestrrat-go/jwx/jwk"
-	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils/jwks"
@@ -40,8 +39,10 @@ func TestConfigRobot(t *testing.T) {
 
 	test.That(t, cfg.Components, test.ShouldHaveLength, 4)
 	test.That(t, len(cfg.Remotes), test.ShouldEqual, 2)
-	test.That(t, cfg.Remotes[0], test.ShouldResemble, config.Remote{Name: "one", Address: "foo"})
-	test.That(t, cfg.Remotes[1], test.ShouldResemble, config.Remote{Name: "two", Address: "bar"})
+	test.That(t, cfg.Remotes[0].Name, test.ShouldEqual, "one")
+	test.That(t, cfg.Remotes[0].Address, test.ShouldEqual, "foo")
+	test.That(t, cfg.Remotes[1].Name, test.ShouldEqual, "two")
+	test.That(t, cfg.Remotes[1].Address, test.ShouldEqual, "bar")
 
 	// test that gripper geometry is being added correctly
 	component := cfg.FindComponent("pieceGripper")
@@ -53,18 +54,6 @@ func TestConfigRobot(t *testing.T) {
 
 func TestConfig3(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	type temp struct {
-		X int
-		Y string
-	}
-
-	subtype := resource.NewSubtype(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, "foo")
-	config.RegisterComponentAttributeConverter(subtype, resource.NewDefaultModel("eliot"), "bar", func(sub interface{}) (interface{}, error) {
-		t := &temp{}
-		err := mapstructure.Decode(sub, t)
-		return t, err
-	},
-	)
 
 	test.That(t, os.Setenv("TEST_THING_FOO", "5"), test.ShouldBeNil)
 	cfg, err := config.Read(context.Background(), "data/config3.json", logger)
@@ -80,12 +69,6 @@ func TestConfig3(t *testing.T) {
 	test.That(t, cfg.Components[0].Attributes.String("xxxx"), test.ShouldEqual, "")
 	test.That(t, cfg.Components[0].Attributes.Has("foo"), test.ShouldEqual, true)
 	test.That(t, cfg.Components[0].Attributes.Has("xxxx"), test.ShouldEqual, false)
-
-	bb := cfg.Components[0].Attributes["bar"]
-	b := bb.(*temp)
-	test.That(t, b.X, test.ShouldEqual, 6)
-	test.That(t, b.Y, test.ShouldEqual, "eliot")
-
 	test.That(t, cfg.Components[0].Attributes.Float64("bar5", 1.1), test.ShouldEqual, 5.17)
 	test.That(t, cfg.Components[0].Attributes.Float64("bar5-no", 1.1), test.ShouldEqual, 1.1)
 
@@ -106,7 +89,7 @@ func TestConfig3(t *testing.T) {
 		MaxPowerPct:      0.5,
 		TicksPerRotation: 10000,
 	})
-	test.That(t, cfg.Components[3].ConvertedAttributes, test.ShouldResemble, &incremental.AttrConfig{
+	test.That(t, cfg.Components[3].ConvertedAttributes, test.ShouldResemble, &incremental.Config{
 		Pins: incremental.Pins{
 			A: "encoder-steering-b",
 			B: "encoder-steering-a",
@@ -121,108 +104,124 @@ func TestConfig3(t *testing.T) {
 }
 
 func TestConfigEnsure(t *testing.T) {
+	logger := golog.NewTestLogger(t)
 	var emptyConfig config.Config
-	test.That(t, emptyConfig.Ensure(false), test.ShouldBeNil)
+	test.That(t, emptyConfig.Ensure(false, logger), test.ShouldBeNil)
 
 	invalidCloud := config.Config{
 		Cloud: &config.Cloud{},
 	}
-	err := invalidCloud.Ensure(false)
+	err := invalidCloud.Ensure(false, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `cloud`)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `"id" is required`)
 	invalidCloud.Cloud.ID = "some_id"
-	err = invalidCloud.Ensure(false)
+	err = invalidCloud.Ensure(false, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `"secret" is required`)
-	err = invalidCloud.Ensure(true)
+	err = invalidCloud.Ensure(true, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `"fqdn" is required`)
 	invalidCloud.Cloud.Secret = "my_secret"
-	test.That(t, invalidCloud.Ensure(false), test.ShouldBeNil)
-	test.That(t, invalidCloud.Ensure(true), test.ShouldNotBeNil)
+	test.That(t, invalidCloud.Ensure(false, logger), test.ShouldBeNil)
+	test.That(t, invalidCloud.Ensure(true, logger), test.ShouldNotBeNil)
 	invalidCloud.Cloud.Secret = ""
 	invalidCloud.Cloud.FQDN = "wooself"
-	err = invalidCloud.Ensure(true)
+	err = invalidCloud.Ensure(true, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `"local_fqdn" is required`)
 	invalidCloud.Cloud.LocalFQDN = "yeeself"
-	test.That(t, invalidCloud.Ensure(true), test.ShouldBeNil)
+	test.That(t, invalidCloud.Ensure(true, logger), test.ShouldBeNil)
 
 	invalidRemotes := config.Config{
 		DisablePartialStart: true,
 		Remotes:             []config.Remote{{}},
 	}
-	err = invalidRemotes.Ensure(false)
+	err = invalidRemotes.Ensure(false, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `remotes.0`)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
-	invalidRemotes.Remotes[0].Name = "foo"
-	err = invalidRemotes.Ensure(false)
+	invalidRemotes.Remotes[0] = config.Remote{
+		Name: "foo",
+	}
+	err = invalidRemotes.Ensure(false, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `"address" is required`)
-	invalidRemotes.Remotes[0].Address = "bar"
-	test.That(t, invalidRemotes.Ensure(false), test.ShouldBeNil)
+	invalidRemotes.Remotes[0] = config.Remote{
+		Name:    "foo",
+		Address: "bar",
+	}
+	test.That(t, invalidRemotes.Ensure(false, logger), test.ShouldBeNil)
 
 	invalidComponents := config.Config{
 		DisablePartialStart: true,
-		Components:          []config.Component{{}},
+		Components:          []resource.Config{{}},
 	}
-	err = invalidComponents.Ensure(false)
+	err = invalidComponents.Ensure(false, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `components.0`)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
-	invalidComponents.Components[0] = config.Component{
-		Name:      "foo",
-		Namespace: "rdk",
-		Type:      "base",
-		Model:     fakeModel,
+	invalidComponents.Components[0] = resource.Config{
+		Name:                "foo",
+		DeprecatedNamespace: "rdk",
+		DeprecatedSubtype:   "base",
+		Model:               fakeModel,
 	}
 
-	test.That(t, invalidComponents.Ensure(false), test.ShouldBeNil)
+	test.That(t, invalidComponents.Ensure(false, logger), test.ShouldBeNil)
 
-	c1 := config.Component{Namespace: resource.ResourceNamespaceRDK, Name: "c1", Type: "base", Model: resource.NewDefaultModel("c1")}
-	c2 := config.Component{
-		Namespace: resource.ResourceNamespaceRDK, Name: "c2", Type: "base", Model: resource.NewDefaultModel("c2"),
+	c1 := resource.Config{
+		DeprecatedNamespace: resource.ResourceNamespaceRDK,
+		Name:                "c1",
+		DeprecatedSubtype:   "base",
+		Model:               resource.NewDefaultModel("c1"),
+	}
+	c2 := resource.Config{
+		DeprecatedNamespace: resource.ResourceNamespaceRDK, Name: "c2", DeprecatedSubtype: "base", Model: resource.NewDefaultModel("c2"),
 		DependsOn: []string{"c1"},
 	}
-	c3 := config.Component{
-		Namespace: resource.ResourceNamespaceRDK, Name: "c3", Type: "base", Model: resource.NewDefaultModel("c3"),
+	c3 := resource.Config{
+		DeprecatedNamespace: resource.ResourceNamespaceRDK, Name: "c3", DeprecatedSubtype: "base", Model: resource.NewDefaultModel("c3"),
 		DependsOn: []string{"c1", "c2"},
 	}
-	c4 := config.Component{
-		Namespace: resource.ResourceNamespaceRDK, Name: "c4", Type: "base", Model: resource.NewDefaultModel("c4"),
+	c4 := resource.Config{
+		DeprecatedNamespace: resource.ResourceNamespaceRDK, Name: "c4", DeprecatedSubtype: "base", Model: resource.NewDefaultModel("c4"),
 		DependsOn: []string{"c1", "c3"},
 	}
-	c5 := config.Component{
-		Namespace: resource.ResourceNamespaceRDK, Name: "c5", Type: "base", Model: resource.NewDefaultModel("c5"),
+	c5 := resource.Config{
+		DeprecatedNamespace: resource.ResourceNamespaceRDK, Name: "c5", DeprecatedSubtype: "base", Model: resource.NewDefaultModel("c5"),
 		DependsOn: []string{"c2", "c4"},
 	}
-	c6 := config.Component{Namespace: resource.ResourceNamespaceRDK, Type: "base", Name: "c6", Model: resource.NewDefaultModel("c6")}
-	c7 := config.Component{
-		Namespace: resource.ResourceNamespaceRDK, Name: "c7", Type: "base", Model: resource.NewDefaultModel("c7"),
+	c6 := resource.Config{
+		DeprecatedNamespace: resource.ResourceNamespaceRDK,
+		DeprecatedSubtype:   "base",
+		Name:                "c6",
+		Model:               resource.NewDefaultModel("c6"),
+	}
+	c7 := resource.Config{
+		DeprecatedNamespace: resource.ResourceNamespaceRDK, Name: "c7", DeprecatedSubtype: "base", Model: resource.NewDefaultModel("c7"),
 		DependsOn: []string{"c6", "c4"},
 	}
 	components := config.Config{
 		DisablePartialStart: true,
-		Components:          []config.Component{c7, c6, c5, c3, c4, c1, c2},
+		Components:          []resource.Config{c7, c6, c5, c3, c4, c1, c2},
 	}
-	err = components.Ensure(false)
+	err = components.Ensure(false, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	invalidProcesses := config.Config{
 		DisablePartialStart: true,
 		Processes:           []pexec.ProcessConfig{{}},
 	}
-	err = invalidProcesses.Ensure(false)
+	err = invalidProcesses.Ensure(false, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `processes.0`)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `"id" is required`)
 	invalidProcesses.Processes[0].ID = "bar"
-	err = invalidProcesses.Ensure(false)
+	err = invalidProcesses.Ensure(false, logger)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
 	invalidProcesses.Processes[0].Name = "foo"
-	test.That(t, invalidProcesses.Ensure(false), test.ShouldBeNil)
+	test.That(t, invalidProcesses.Ensure(false, logger), test.ShouldBeNil)
 
 	invalidNetwork := config.Config{
 		Network: config.NetworkConfig{
@@ -231,64 +230,64 @@ func TestConfigEnsure(t *testing.T) {
 			},
 		},
 	}
-	err = invalidNetwork.Ensure(false)
+	err = invalidNetwork.Ensure(false, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `network`)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `both tls`)
 
 	invalidNetwork.Network.TLSCertFile = ""
 	invalidNetwork.Network.TLSKeyFile = "hey"
-	err = invalidNetwork.Ensure(false)
+	err = invalidNetwork.Ensure(false, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `network`)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `both tls`)
 
 	invalidNetwork.Network.TLSCertFile = "dude"
-	test.That(t, invalidNetwork.Ensure(false), test.ShouldBeNil)
+	test.That(t, invalidNetwork.Ensure(false, logger), test.ShouldBeNil)
 
 	invalidNetwork.Network.TLSCertFile = ""
 	invalidNetwork.Network.TLSKeyFile = ""
-	test.That(t, invalidNetwork.Ensure(false), test.ShouldBeNil)
+	test.That(t, invalidNetwork.Ensure(false, logger), test.ShouldBeNil)
 
 	test.That(t, invalidNetwork.Network.Sessions.HeartbeatWindow, test.ShouldNotBeNil)
 	test.That(t, invalidNetwork.Network.Sessions.HeartbeatWindow, test.ShouldEqual, config.DefaultSessionHeartbeatWindow)
 
 	invalidNetwork.Network.Sessions.HeartbeatWindow = time.Millisecond
-	err = invalidNetwork.Ensure(false)
+	err = invalidNetwork.Ensure(false, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `heartbeat_window`)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `between`)
 
 	invalidNetwork.Network.Sessions.HeartbeatWindow = 2 * time.Minute
-	err = invalidNetwork.Ensure(false)
+	err = invalidNetwork.Ensure(false, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `heartbeat_window`)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `between`)
 
 	invalidNetwork.Network.Sessions.HeartbeatWindow = 10 * time.Millisecond
-	test.That(t, invalidNetwork.Ensure(false), test.ShouldBeNil)
+	test.That(t, invalidNetwork.Ensure(false, logger), test.ShouldBeNil)
 
 	invalidNetwork.Network.BindAddress = "woop"
-	err = invalidNetwork.Ensure(false)
+	err = invalidNetwork.Ensure(false, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `bind_address`)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `missing port`)
 
 	invalidNetwork.Network.BindAddress = "woop"
 	invalidNetwork.Network.Listener = &net.TCPListener{}
-	err = invalidNetwork.Ensure(false)
+	err = invalidNetwork.Ensure(false, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `only set one of`)
 
 	invalidAuthConfig := config.Config{
 		Auth: config.AuthConfig{},
 	}
-	test.That(t, invalidAuthConfig.Ensure(false), test.ShouldBeNil)
+	test.That(t, invalidAuthConfig.Ensure(false, logger), test.ShouldBeNil)
 
 	invalidAuthConfig.Auth.Handlers = []config.AuthHandlerConfig{
 		{Type: rpc.CredentialsTypeAPIKey},
 	}
-	err = invalidAuthConfig.Ensure(false)
+	err = invalidAuthConfig.Ensure(false, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `auth.handlers.0`)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `required`)
@@ -296,7 +295,7 @@ func TestConfigEnsure(t *testing.T) {
 
 	validAPIKeyHandler := config.AuthHandlerConfig{
 		Type: rpc.CredentialsTypeAPIKey,
-		Config: config.AttributeMap{
+		Config: rutils.AttributeMap{
 			"key": "foo",
 		},
 	}
@@ -305,7 +304,7 @@ func TestConfigEnsure(t *testing.T) {
 		validAPIKeyHandler,
 		validAPIKeyHandler,
 	}
-	err = invalidAuthConfig.Ensure(false)
+	err = invalidAuthConfig.Ensure(false, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `auth.handlers.1`)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `duplicate`)
@@ -315,7 +314,7 @@ func TestConfigEnsure(t *testing.T) {
 		validAPIKeyHandler,
 		{Type: "unknown"},
 	}
-	err = invalidAuthConfig.Ensure(false)
+	err = invalidAuthConfig.Ensure(false, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `auth.handlers.1`)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `do not know how`)
@@ -324,97 +323,98 @@ func TestConfigEnsure(t *testing.T) {
 	invalidAuthConfig.Auth.Handlers = []config.AuthHandlerConfig{
 		validAPIKeyHandler,
 	}
-	test.That(t, invalidAuthConfig.Ensure(false), test.ShouldBeNil)
+	test.That(t, invalidAuthConfig.Ensure(false, logger), test.ShouldBeNil)
 
-	validAPIKeyHandler.Config = config.AttributeMap{
+	validAPIKeyHandler.Config = rutils.AttributeMap{
 		"keys": []string{},
 	}
 	invalidAuthConfig.Auth.Handlers = []config.AuthHandlerConfig{
 		validAPIKeyHandler,
 	}
-	err = invalidAuthConfig.Ensure(false)
+	err = invalidAuthConfig.Ensure(false, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `auth.handlers.0`)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `required`)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `key`)
 
-	validAPIKeyHandler.Config = config.AttributeMap{
+	validAPIKeyHandler.Config = rutils.AttributeMap{
 		"keys": []string{"one", "two"},
 	}
 	invalidAuthConfig.Auth.Handlers = []config.AuthHandlerConfig{
 		validAPIKeyHandler,
 	}
 
-	test.That(t, invalidAuthConfig.Ensure(false), test.ShouldBeNil)
+	test.That(t, invalidAuthConfig.Ensure(false, logger), test.ShouldBeNil)
 }
 
 func TestConfigEnsurePartialStart(t *testing.T) {
+	logger := golog.NewTestLogger(t)
 	var emptyConfig config.Config
-	test.That(t, emptyConfig.Ensure(false), test.ShouldBeNil)
+	test.That(t, emptyConfig.Ensure(false, logger), test.ShouldBeNil)
 
 	invalidCloud := config.Config{
 		Cloud: &config.Cloud{},
 	}
-	err := invalidCloud.Ensure(false)
+	err := invalidCloud.Ensure(false, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `cloud`)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `"id" is required`)
 	invalidCloud.Cloud.ID = "some_id"
-	err = invalidCloud.Ensure(false)
+	err = invalidCloud.Ensure(false, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `"secret" is required`)
-	err = invalidCloud.Ensure(true)
+	err = invalidCloud.Ensure(true, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `"fqdn" is required`)
 	invalidCloud.Cloud.Secret = "my_secret"
-	test.That(t, invalidCloud.Ensure(false), test.ShouldBeNil)
-	test.That(t, invalidCloud.Ensure(true), test.ShouldNotBeNil)
+	test.That(t, invalidCloud.Ensure(false, logger), test.ShouldBeNil)
+	test.That(t, invalidCloud.Ensure(true, logger), test.ShouldNotBeNil)
 	invalidCloud.Cloud.Secret = ""
 	invalidCloud.Cloud.FQDN = "wooself"
-	err = invalidCloud.Ensure(true)
+	err = invalidCloud.Ensure(true, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `"local_fqdn" is required`)
 	invalidCloud.Cloud.LocalFQDN = "yeeself"
-	test.That(t, invalidCloud.Ensure(true), test.ShouldBeNil)
+	test.That(t, invalidCloud.Ensure(true, logger), test.ShouldBeNil)
 
 	invalidRemotes := config.Config{
 		Remotes: []config.Remote{{}},
 	}
-	err = invalidRemotes.Ensure(false)
+	err = invalidRemotes.Ensure(false, logger)
 	test.That(t, err, test.ShouldBeNil)
 	invalidRemotes.Remotes[0].Name = "foo"
-	err = invalidRemotes.Ensure(false)
+	err = invalidRemotes.Ensure(false, logger)
 	test.That(t, err, test.ShouldBeNil)
 	invalidRemotes.Remotes[0].Address = "bar"
-	test.That(t, invalidRemotes.Ensure(false), test.ShouldBeNil)
+	test.That(t, invalidRemotes.Ensure(false, logger), test.ShouldBeNil)
 
 	invalidComponents := config.Config{
-		Components: []config.Component{{}},
+		Components: []resource.Config{{}},
 	}
-	err = invalidComponents.Ensure(false)
+	err = invalidComponents.Ensure(false, logger)
 	test.That(t, err, test.ShouldBeNil)
 	invalidComponents.Components[0].Name = "foo"
 
-	c1 := config.Component{Namespace: resource.ResourceNamespaceRDK, Name: "c1"}
-	c2 := config.Component{Namespace: resource.ResourceNamespaceRDK, Name: "c2", DependsOn: []string{"c1"}}
-	c3 := config.Component{Namespace: resource.ResourceNamespaceRDK, Name: "c3", DependsOn: []string{"c1", "c2"}}
-	c4 := config.Component{Namespace: resource.ResourceNamespaceRDK, Name: "c4", DependsOn: []string{"c1", "c3"}}
-	c5 := config.Component{Namespace: resource.ResourceNamespaceRDK, Name: "c5", DependsOn: []string{"c2", "c4"}}
-	c6 := config.Component{Namespace: resource.ResourceNamespaceRDK, Name: "c6"}
-	c7 := config.Component{Namespace: resource.ResourceNamespaceRDK, Name: "c7", DependsOn: []string{"c6", "c4"}}
+	c1 := resource.Config{DeprecatedNamespace: resource.ResourceNamespaceRDK, Name: "c1"}
+	c2 := resource.Config{DeprecatedNamespace: resource.ResourceNamespaceRDK, Name: "c2", DependsOn: []string{"c1"}}
+	c3 := resource.Config{DeprecatedNamespace: resource.ResourceNamespaceRDK, Name: "c3", DependsOn: []string{"c1", "c2"}}
+	c4 := resource.Config{DeprecatedNamespace: resource.ResourceNamespaceRDK, Name: "c4", DependsOn: []string{"c1", "c3"}}
+	c5 := resource.Config{DeprecatedNamespace: resource.ResourceNamespaceRDK, Name: "c5", DependsOn: []string{"c2", "c4"}}
+	c6 := resource.Config{DeprecatedNamespace: resource.ResourceNamespaceRDK, Name: "c6"}
+	c7 := resource.Config{DeprecatedNamespace: resource.ResourceNamespaceRDK, Name: "c7", DependsOn: []string{"c6", "c4"}}
 	components := config.Config{
-		Components: []config.Component{c7, c6, c5, c3, c4, c1, c2},
+		Components: []resource.Config{c7, c6, c5, c3, c4, c1, c2},
 	}
-	err = components.Ensure(false)
+	err = components.Ensure(false, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	invalidProcesses := config.Config{
 		Processes: []pexec.ProcessConfig{{}},
 	}
-	err = invalidProcesses.Ensure(false)
+	err = invalidProcesses.Ensure(false, logger)
 	test.That(t, err, test.ShouldBeNil)
 	invalidProcesses.Processes[0].Name = "foo"
-	test.That(t, invalidProcesses.Ensure(false), test.ShouldBeNil)
+	test.That(t, invalidProcesses.Ensure(false, logger), test.ShouldBeNil)
 
 	invalidNetwork := config.Config{
 		Network: config.NetworkConfig{
@@ -423,46 +423,46 @@ func TestConfigEnsurePartialStart(t *testing.T) {
 			},
 		},
 	}
-	err = invalidNetwork.Ensure(false)
+	err = invalidNetwork.Ensure(false, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `network`)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `both tls`)
 
 	invalidNetwork.Network.TLSCertFile = ""
 	invalidNetwork.Network.TLSKeyFile = "hey"
-	err = invalidNetwork.Ensure(false)
+	err = invalidNetwork.Ensure(false, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `network`)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `both tls`)
 
 	invalidNetwork.Network.TLSCertFile = "dude"
-	test.That(t, invalidNetwork.Ensure(false), test.ShouldBeNil)
+	test.That(t, invalidNetwork.Ensure(false, logger), test.ShouldBeNil)
 
 	invalidNetwork.Network.TLSCertFile = ""
 	invalidNetwork.Network.TLSKeyFile = ""
-	test.That(t, invalidNetwork.Ensure(false), test.ShouldBeNil)
+	test.That(t, invalidNetwork.Ensure(false, logger), test.ShouldBeNil)
 
 	invalidNetwork.Network.BindAddress = "woop"
-	err = invalidNetwork.Ensure(false)
+	err = invalidNetwork.Ensure(false, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `bind_address`)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `missing port`)
 
 	invalidNetwork.Network.BindAddress = "woop"
 	invalidNetwork.Network.Listener = &net.TCPListener{}
-	err = invalidNetwork.Ensure(false)
+	err = invalidNetwork.Ensure(false, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `only set one of`)
 
 	invalidAuthConfig := config.Config{
 		Auth: config.AuthConfig{},
 	}
-	test.That(t, invalidAuthConfig.Ensure(false), test.ShouldBeNil)
+	test.That(t, invalidAuthConfig.Ensure(false, logger), test.ShouldBeNil)
 
 	invalidAuthConfig.Auth.Handlers = []config.AuthHandlerConfig{
 		{Type: rpc.CredentialsTypeAPIKey},
 	}
-	err = invalidAuthConfig.Ensure(false)
+	err = invalidAuthConfig.Ensure(false, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `auth.handlers.0`)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `required`)
@@ -470,7 +470,7 @@ func TestConfigEnsurePartialStart(t *testing.T) {
 
 	validAPIKeyHandler := config.AuthHandlerConfig{
 		Type: rpc.CredentialsTypeAPIKey,
-		Config: config.AttributeMap{
+		Config: rutils.AttributeMap{
 			"key": "foo",
 		},
 	}
@@ -479,7 +479,7 @@ func TestConfigEnsurePartialStart(t *testing.T) {
 		validAPIKeyHandler,
 		validAPIKeyHandler,
 	}
-	err = invalidAuthConfig.Ensure(false)
+	err = invalidAuthConfig.Ensure(false, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `auth.handlers.1`)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `duplicate`)
@@ -489,7 +489,7 @@ func TestConfigEnsurePartialStart(t *testing.T) {
 		validAPIKeyHandler,
 		{Type: "unknown"},
 	}
-	err = invalidAuthConfig.Ensure(false)
+	err = invalidAuthConfig.Ensure(false, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `auth.handlers.1`)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `do not know how`)
@@ -498,51 +498,28 @@ func TestConfigEnsurePartialStart(t *testing.T) {
 	invalidAuthConfig.Auth.Handlers = []config.AuthHandlerConfig{
 		validAPIKeyHandler,
 	}
-	test.That(t, invalidAuthConfig.Ensure(false), test.ShouldBeNil)
+	test.That(t, invalidAuthConfig.Ensure(false, logger), test.ShouldBeNil)
 
-	validAPIKeyHandler.Config = config.AttributeMap{
+	validAPIKeyHandler.Config = rutils.AttributeMap{
 		"keys": []string{},
 	}
 	invalidAuthConfig.Auth.Handlers = []config.AuthHandlerConfig{
 		validAPIKeyHandler,
 	}
-	err = invalidAuthConfig.Ensure(false)
+	err = invalidAuthConfig.Ensure(false, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `auth.handlers.0`)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `required`)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `key`)
 
-	validAPIKeyHandler.Config = config.AttributeMap{
+	validAPIKeyHandler.Config = rutils.AttributeMap{
 		"keys": []string{"one", "two"},
 	}
 	invalidAuthConfig.Auth.Handlers = []config.AuthHandlerConfig{
 		validAPIKeyHandler,
 	}
 
-	test.That(t, invalidAuthConfig.Ensure(false), test.ShouldBeNil)
-}
-
-func TestValidNameRegex(t *testing.T) {
-	// validNameRegex is the pattern that matches to a valid name.
-	// The name must begin with a letter i.e. [a-zA-Z],
-	// and the body can only contain 0 or more numbers, letters, dashes and underscores i.e. [-\w]*.
-	name := "justLetters"
-	test.That(t, config.ValidNameRegex.MatchString(name), test.ShouldBeTrue)
-	name = "numbersAndLetters1"
-	test.That(t, config.ValidNameRegex.MatchString(name), test.ShouldBeTrue)
-	name = "letters-and-dashes"
-	test.That(t, config.ValidNameRegex.MatchString(name), test.ShouldBeTrue)
-	name = "letters_and_underscores"
-	test.That(t, config.ValidNameRegex.MatchString(name), test.ShouldBeTrue)
-
-	name = "1number"
-	test.That(t, config.ValidNameRegex.MatchString(name), test.ShouldBeFalse)
-	name = "a!"
-	test.That(t, config.ValidNameRegex.MatchString(name), test.ShouldBeFalse)
-	name = "s p a c e s"
-	test.That(t, config.ValidNameRegex.MatchString(name), test.ShouldBeFalse)
-	name = "period."
-	test.That(t, config.ValidNameRegex.MatchString(name), test.ShouldBeFalse)
+	test.That(t, invalidAuthConfig.Ensure(false, logger), test.ShouldBeNil)
 }
 
 func TestRemoteValidate(t *testing.T) {
@@ -556,10 +533,15 @@ func TestRemoteValidate(t *testing.T) {
 			Frame:   lc,
 		}
 
-		err := validRemote.Validate("path")
+		_, err := validRemote.Validate("path")
 		test.That(t, err, test.ShouldBeNil)
-		validRemote.Name = "foo.remote"
-		err = validRemote.Validate("path")
+
+		validRemote = config.Remote{
+			Name:    "foo.remote",
+			Address: "address",
+			Frame:   lc,
+		}
+		_, err = validRemote.Validate("path")
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(
 			t,
@@ -786,49 +768,53 @@ ph2C/7IgjA==
 
 func TestAuthConfigEnsure(t *testing.T) {
 	t.Run("unknown handler", func(t *testing.T) {
+		logger := golog.NewTestLogger(t)
 		config := config.Config{
 			Auth: config.AuthConfig{
 				Handlers: []config.AuthHandlerConfig{
 					{
 						Type:   "some-type",
-						Config: config.AttributeMap{"key": "abc123"},
+						Config: rutils.AttributeMap{"key": "abc123"},
 					},
 				},
 			},
 		}
 
-		err := config.Ensure(true)
+		err := config.Ensure(true, logger)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "do not know how to handle auth for \"some-type\"")
 	})
 
 	t.Run("api-key handler", func(t *testing.T) {
+		logger := golog.NewTestLogger(t)
 		config := config.Config{
 			Auth: config.AuthConfig{
 				Handlers: []config.AuthHandlerConfig{
 					{
 						Type:   rpc.CredentialsTypeAPIKey,
-						Config: config.AttributeMap{"key": "abc123"},
+						Config: rutils.AttributeMap{"key": "abc123"},
 					},
 				},
 			},
 		}
 
-		err := config.Ensure(true)
+		err := config.Ensure(true, logger)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
 	t.Run("external auth with invalid keyset", func(t *testing.T) {
+		logger := golog.NewTestLogger(t)
 		config := config.Config{
 			Auth: config.AuthConfig{
 				ExternalAuthConfig: &config.ExternalAuthConfig{},
 			},
 		}
 
-		err := config.Ensure(true)
+		err := config.Ensure(true, logger)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "failed to parse jwks")
 	})
 
 	t.Run("external auth valid config", func(t *testing.T) {
+		logger := golog.NewTestLogger(t)
 		algTypes := map[string]bool{
 			"RS256": true,
 			"RS384": true,
@@ -853,7 +839,7 @@ func TestAuthConfigEnsure(t *testing.T) {
 				},
 			}
 
-			err = config.Ensure(true)
+			err = config.Ensure(true, logger)
 			test.That(t, err, test.ShouldBeNil)
 
 			test.That(t, config.Auth.ExternalAuthConfig.ValidatedKeySet, test.ShouldNotBeNil)
@@ -863,6 +849,7 @@ func TestAuthConfigEnsure(t *testing.T) {
 	})
 
 	t.Run("web-oauth invalid alg type", func(t *testing.T) {
+		logger := golog.NewTestLogger(t)
 		badTypes := []string{"invalid", "", "nil"} // nil is a special case and is not set.
 		for _, badType := range badTypes {
 			t.Run(fmt.Sprintf(" with %s", badType), func(t *testing.T) {
@@ -887,13 +874,14 @@ func TestAuthConfigEnsure(t *testing.T) {
 					},
 				}
 
-				err = config.Ensure(true)
+				err = config.Ensure(true, logger)
 				test.That(t, err.Error(), test.ShouldContainSubstring, "invalid alg")
 			})
 		}
 	})
 
 	t.Run("external auth no keys", func(t *testing.T) {
+		logger := golog.NewTestLogger(t)
 		config := config.Config{
 			Auth: config.AuthConfig{
 				ExternalAuthConfig: &config.ExternalAuthConfig{
@@ -902,13 +890,13 @@ func TestAuthConfigEnsure(t *testing.T) {
 			},
 		}
 
-		err := config.Ensure(true)
+		err := config.Ensure(true, logger)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "must contain at least 1 key")
 	})
 }
 
-func keysetToAttributeMap(t *testing.T, keyset jwks.KeySet) config.AttributeMap {
+func keysetToAttributeMap(t *testing.T, keyset jwks.KeySet) rutils.AttributeMap {
 	t.Helper()
 
 	// hack around marshaling the KeySet into pb.Struct. Passing interface directly
@@ -916,7 +904,7 @@ func keysetToAttributeMap(t *testing.T, keyset jwks.KeySet) config.AttributeMap 
 	jwksAsJSON, err := json.Marshal(keyset)
 	test.That(t, err, test.ShouldBeNil)
 
-	jwksAsInterface := config.AttributeMap{}
+	jwksAsInterface := rutils.AttributeMap{}
 	err = json.Unmarshal(jwksAsJSON, &jwksAsInterface)
 	test.That(t, err, test.ShouldBeNil)
 

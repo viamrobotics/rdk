@@ -45,13 +45,13 @@ func main() {
 	}
 	if *imgPtr != "" {
 		src := &simpleSource{*imgPtr}
-		cam, err := camera.NewFromReader(context.Background(), src, nil, camera.UnspecifiedStream)
+		videoSrc, err := camera.NewVideoSourceFromReader(context.Background(), src, nil, camera.UnspecifiedStream)
 		if err != nil {
 			logger.Fatal(err)
 		}
-		pipeline(cam, *threshPtr, *satPtr, *valPtr, *sizePtr, *colorPtr, logger)
+		pipeline(videoSrc, *threshPtr, *satPtr, *valPtr, *sizePtr, *colorPtr, logger)
 	} else {
-		cfg := &videosource.ServerAttrs{
+		cfg := &videosource.ServerConfig{
 			URL:    *urlPtr,
 			Stream: *streamPtr,
 		}

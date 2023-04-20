@@ -12,30 +12,31 @@ import (
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/components/motor/fake"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 )
 
-var testCfg config.Component = config.Component{
-	Name:  "test",
-	Type:  base.Subtype.ResourceSubtype,
-	Model: resource.Model{Name: "wheeled_base"},
-	ConvertedAttributes: &AttrConfig{
-		WidthMM:              100,
-		WheelCircumferenceMM: 1000,
-		Left:                 []string{"fl-m", "bl-m"},
-		Right:                []string{"fr-m", "br-m"},
-	},
+func newTestCfg() resource.Config {
+	return resource.Config{
+		Name:  "test",
+		API:   base.Subtype,
+		Model: resource.Model{Name: "wheeled_base"},
+		ConvertedAttributes: &Config{
+			WidthMM:              100,
+			WheelCircumferenceMM: 1000,
+			Left:                 []string{"fl-m", "bl-m"},
+			Right:                []string{"fr-m", "br-m"},
+		},
+	}
 }
 
-func fakeMotorDependencies(t *testing.T, deps []string) registry.Dependencies {
+func fakeMotorDependencies(t *testing.T, deps []string) resource.Dependencies {
 	t.Helper()
 	logger := golog.NewTestLogger(t)
 
-	result := make(registry.Dependencies)
+	result := make(resource.Dependencies)
 	for _, dep := range deps {
 		result[motor.Named(dep)] = &fake.Motor{
+			Named:  motor.Named(dep).AsNamed(),
 			MaxRPM: 60,
 			Logger: logger,
 		}
@@ -46,7 +47,8 @@ func fakeMotorDependencies(t *testing.T, deps []string) registry.Dependencies {
 func TestWheelBaseMath(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
-	deps, err := testCfg.Validate("path")
+	testCfg := newTestCfg()
+	deps, err := testCfg.Validate("path", resource.ResourceTypeComponent)
 	test.That(t, err, test.ShouldBeNil)
 	motorDeps := fakeMotorDependencies(t, deps)
 
@@ -302,12 +304,12 @@ func TestWheeledBaseConstructor(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
 	// empty config
-	cfg := &AttrConfig{}
+	cfg := &Config{}
 	_, err := cfg.Validate("path")
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// invalid config
-	cfg = &AttrConfig{
+	cfg = &Config{
 		WidthMM:              100,
 		WheelCircumferenceMM: 1000,
 		Left:                 []string{"fl-m", "bl-m"},
@@ -317,7 +319,8 @@ func TestWheeledBaseConstructor(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// valid config
-	deps, err := testCfg.Validate("path")
+	testCfg := newTestCfg()
+	deps, err := testCfg.Validate("path", resource.ResourceTypeComponent)
 	test.That(t, err, test.ShouldBeNil)
 	motorDeps := fakeMotorDependencies(t, deps)
 
@@ -331,7 +334,7 @@ func TestWheeledBaseConstructor(t *testing.T) {
 }
 
 func TestValidate(t *testing.T) {
-	cfg := &AttrConfig{}
+	cfg := &Config{}
 	deps, err := cfg.Validate("path")
 	test.That(t, deps, test.ShouldBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "\"width_mm\" is required")

@@ -13,7 +13,7 @@ type endpoint struct {
 	mu     sync.Mutex
 	ctr    Controllable
 	cfg    BlockConfig
-	y      []Signal
+	y      []*Signal
 	logger golog.Logger
 }
 
@@ -25,22 +25,22 @@ func newEndpoint(config BlockConfig, logger golog.Logger, ctr Controllable) (Blo
 	return e, nil
 }
 
-func (e *endpoint) Next(ctx context.Context, x []Signal, dt time.Duration) ([]Signal, bool) {
+func (e *endpoint) Next(ctx context.Context, x []*Signal, dt time.Duration) ([]*Signal, bool) {
 	if len(x) == 1 {
 		power := x[0].GetSignalValueAt(0)
 		if e.ctr != nil {
 			err := e.ctr.SetPower(ctx, power, nil)
 			if err != nil {
-				return []Signal{}, false
+				return []*Signal{}, false
 			}
 		}
-		return []Signal{}, false
+		return []*Signal{}, false
 	}
 	if len(x) == 0 {
 		if e.ctr != nil {
 			pos, err := e.ctr.Position(ctx, nil)
 			if err != nil {
-				return []Signal{}, false
+				return []*Signal{}, false
 			}
 			e.y[0].SetSignalValueAt(0, pos)
 		}
@@ -53,7 +53,7 @@ func (e *endpoint) reset() error {
 	if !e.cfg.Attribute.Has("motor_name") {
 		return errors.Errorf("endpoint %s should have a motor_name field", e.cfg.Name)
 	}
-	e.y = make([]Signal, 1)
+	e.y = make([]*Signal, 1)
 	e.y[0] = makeSignal(e.cfg.Name)
 	return nil
 }
@@ -71,7 +71,7 @@ func (e *endpoint) UpdateConfig(ctx context.Context, config BlockConfig) error {
 	return e.reset()
 }
 
-func (e *endpoint) Output(ctx context.Context) []Signal {
+func (e *endpoint) Output(ctx context.Context) []*Signal {
 	return e.y
 }
 

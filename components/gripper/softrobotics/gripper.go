@@ -11,20 +11,16 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/gripper"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 var modelname = resource.NewDefaultModel("softrobotics")
 
-// AttrConfig is the config for a trossen gripper.
-type AttrConfig struct {
+// Config is the config for a trossen gripper.
+type Config struct {
 	Board        string `json:"board"`
 	Open         string `json:"open"`
 	Close        string `json:"close"`
@@ -33,7 +29,7 @@ type AttrConfig struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (cfg *AttrConfig) Validate(path string) ([]string, error) {
+func (cfg *Config) Validate(path string) ([]string, error) {
 	var deps []string
 	if cfg.Board == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
@@ -57,21 +53,20 @@ func (cfg *AttrConfig) Validate(path string) ([]string, error) {
 }
 
 func init() {
-	registry.RegisterComponent(gripper.Subtype, modelname, registry.Component{
-		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
+	resource.RegisterComponent(gripper.Subtype, modelname, resource.Registration[gripper.Gripper, *Config]{
+		Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger golog.Logger,
+		) (gripper.Gripper, error) {
 			b, err := board.FromDependencies(deps, "local")
 			if err != nil {
 				return nil, err
 			}
-			return newGripper(b, config, logger)
+			return newGripper(b, conf, logger)
 		},
 	})
-
-	config.RegisterComponentAttributeMapConverter(gripper.Subtype, modelname,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf AttrConfig
-			return config.TransformAttributeMapToStruct(&conf, attributes)
-		}, &AttrConfig{})
 }
 
 // softGripper TODO
@@ -79,6 +74,10 @@ func init() {
 // open is 5
 // close is 6.
 type softGripper struct {
+	resource.Named
+	resource.AlwaysRebuild
+	resource.TriviallyCloseable
+
 	theBoard board.Board
 
 	psi board.AnalogReader
@@ -87,34 +86,34 @@ type softGripper struct {
 
 	logger golog.Logger
 	opMgr  operation.SingleOperationManager
-	generic.Unimplemented
 }
 
 // newGripper TODO.
-func newGripper(b board.Board, cfg config.Component, logger golog.Logger) (gripper.LocalGripper, error) {
-	attr, ok := cfg.ConvertedAttributes.(*AttrConfig)
-	if !ok {
-		return nil, rdkutils.NewUnexpectedTypeError(attr, cfg.ConvertedAttributes)
+func newGripper(b board.Board, conf resource.Config, logger golog.Logger) (gripper.Gripper, error) {
+	newConf, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return nil, err
 	}
 
 	psi, ok := b.AnalogReaderByName("psi")
 	if !ok {
 		return nil, errors.New("failed to find analog reader 'psi'")
 	}
-	pinOpen, err := b.GPIOPinByName(attr.Open)
+	pinOpen, err := b.GPIOPinByName(newConf.Open)
 	if err != nil {
 		return nil, err
 	}
-	pinClose, err := b.GPIOPinByName(attr.Close)
+	pinClose, err := b.GPIOPinByName(newConf.Close)
 	if err != nil {
 		return nil, err
 	}
-	pinPower, err := b.GPIOPinByName(attr.Power)
+	pinPower, err := b.GPIOPinByName(newConf.Power)
 	if err != nil {
 		return nil, err
 	}
 
 	theGripper := &softGripper{
+		Named:    conf.ResourceName().AsNamed(),
 		theBoard: b,
 		psi:      psi,
 		pinOpen:  pinOpen,

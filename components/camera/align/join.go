@@ -15,58 +15,47 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 var joinModel = resource.NewDefaultModel("join_color_depth")
 
 //nolint:dupl
 func init() {
-	registry.RegisterComponent(camera.Subtype, joinModel,
-		registry.Component{Constructor: func(ctx context.Context, deps registry.Dependencies,
-			config config.Component, logger golog.Logger,
-		) (interface{}, error) {
-			attrs, ok := config.ConvertedAttributes.(*joinAttrs)
-			if !ok {
-				return nil, rdkutils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
-			}
-			colorName := attrs.Color
-			color, err := camera.FromDependencies(deps, colorName)
-			if err != nil {
-				return nil, fmt.Errorf("no color camera (%s): %w", colorName, err)
-			}
+	resource.RegisterComponent(camera.Subtype, joinModel,
+		resource.Registration[camera.Camera, *joinConfig]{
+			Constructor: func(ctx context.Context, deps resource.Dependencies,
+				conf resource.Config, logger golog.Logger,
+			) (camera.Camera, error) {
+				newConf, err := resource.NativeConfig[*joinConfig](conf)
+				if err != nil {
+					return nil, err
+				}
+				colorName := newConf.Color
+				color, err := camera.FromDependencies(deps, colorName)
+				if err != nil {
+					return nil, fmt.Errorf("no color camera (%s): %w", colorName, err)
+				}
 
-			depthName := attrs.Depth
-			depth, err := camera.FromDependencies(deps, depthName)
-			if err != nil {
-				return nil, fmt.Errorf("no depth camera (%s): %w", depthName, err)
-			}
-			return newJoinColorDepth(ctx, color, depth, attrs, logger)
-		}})
-
-	config.RegisterComponentAttributeMapConverter(camera.Subtype, joinModel,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf joinAttrs
-			attrs, err := config.TransformAttributeMapToStruct(&conf, attributes)
-			if err != nil {
-				return nil, err
-			}
-			result, ok := attrs.(*joinAttrs)
-			if !ok {
-				return nil, rdkutils.NewUnexpectedTypeError(result, attrs)
-			}
-			return result, nil
-		}, &joinAttrs{})
+				depthName := newConf.Depth
+				depth, err := camera.FromDependencies(deps, depthName)
+				if err != nil {
+					return nil, fmt.Errorf("no depth camera (%s): %w", depthName, err)
+				}
+				src, err := newJoinColorDepth(ctx, color, depth, newConf, logger)
+				if err != nil {
+					return nil, err
+				}
+				return camera.FromVideoSource(conf.ResourceName(), src), nil
+			},
+		})
 }
 
-// joinAttrs is the attribute struct for aligning.
-type joinAttrs struct {
+// joinConfig is the attribute struct for aligning.
+type joinConfig struct {
 	ImageType            string                             `json:"output_image_type"`
 	Color                string                             `json:"color_camera_name"`
 	Depth                string                             `json:"depth_camera_name"`
@@ -75,7 +64,7 @@ type joinAttrs struct {
 	DistortionParameters *transform.BrownConrady            `json:"distortion_parameters,omitempty"`
 }
 
-func (cfg *joinAttrs) Validate(path string) ([]string, error) {
+func (cfg *joinConfig) Validate(path string) ([]string, error) {
 	var deps []string
 	if cfg.Color == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "color_camera_name")
@@ -99,24 +88,24 @@ type joinColorDepth struct {
 }
 
 // newJoinColorDepth creates a gostream.VideoSource that aligned color and depth channels.
-func newJoinColorDepth(ctx context.Context, color, depth camera.Camera, attrs *joinAttrs, logger golog.Logger,
-) (camera.Camera, error) {
-	if attrs.CameraParameters == nil {
+func newJoinColorDepth(ctx context.Context, color, depth camera.VideoSource, conf *joinConfig, logger golog.Logger,
+) (camera.VideoSource, error) {
+	if conf.CameraParameters == nil {
 		return nil, errors.Wrap(transform.ErrNoIntrinsics, "intrinsic_parameters field in attributes cannot be empty")
 	}
-	imgType := camera.ImageType(attrs.ImageType)
+	imgType := camera.ImageType(conf.ImageType)
 	videoSrc := &joinColorDepth{
 		color:     gostream.NewEmbeddedVideoStream(color),
-		colorName: attrs.Color,
+		colorName: conf.Color,
 		depth:     gostream.NewEmbeddedVideoStream(depth),
-		depthName: attrs.Depth,
-		projector: attrs.CameraParameters,
+		depthName: conf.Depth,
+		projector: conf.CameraParameters,
 		imageType: imgType,
-		debug:     attrs.Debug,
+		debug:     conf.Debug,
 		logger:    logger,
 	}
-	cameraModel := camera.NewPinholeModelWithBrownConradyDistortion(attrs.CameraParameters, attrs.DistortionParameters)
-	return camera.NewFromReader(
+	cameraModel := camera.NewPinholeModelWithBrownConradyDistortion(conf.CameraParameters, conf.DistortionParameters)
+	return camera.NewVideoSourceFromReader(
 		ctx,
 		videoSrc,
 		&cameraModel,

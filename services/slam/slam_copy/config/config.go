@@ -6,7 +6,7 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
-	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/resource"
 )
 
 // newError returns an error specific to a failure in the SLAM config.
@@ -43,8 +43,8 @@ func DetermineUseLiveData(logger golog.Logger, liveData *bool, sensors []string)
 	return useLiveData, nil
 }
 
-// AttrConfig describes how to configure the SLAM service.
-type AttrConfig struct {
+// Config describes how to configure the SLAM service.
+type Config struct {
 	Sensors             []string          `json:"sensors"`
 	ConfigParams        map[string]string `json:"config_params"`
 	DataDirectory       string            `json:"data_dir"`
@@ -55,52 +55,51 @@ type AttrConfig struct {
 	DeleteProcessedData *bool             `json:"delete_processed_data"`
 }
 
-// NewAttrConfig creates a SLAM config from a service config.
-func NewAttrConfig(cfg config.Service) (*AttrConfig, error) {
-	attrCfg := &AttrConfig{}
-
-	if _, err := config.TransformAttributeMapToStruct(attrCfg, cfg.Attributes); err != nil {
-		return &AttrConfig{}, newError(err.Error())
+// NewConfig creates a SLAM config from a service config.
+func NewConfig(conf resource.Config) (*Config, error) {
+	slamConf, err := resource.TransformAttributeMap[*Config](conf.Attributes)
+	if err != nil {
+		return &Config{}, newError(err.Error())
 	}
 
 	// This temporary value will be replaced once we are using rdk's validation
-	if _, err := attrCfg.Validate("services.slam.attributes.fake"); err != nil {
-		return &AttrConfig{}, newError(err.Error())
+	if _, err := slamConf.Validate("services.slam.attributes.fake"); err != nil {
+		return &Config{}, newError(err.Error())
 	}
 
-	return attrCfg, nil
+	return slamConf, nil
 }
 
 // Validate creates the list of implicit dependencies.
-func (config *AttrConfig) Validate(path string) ([]string, error) {
-	if config.ConfigParams["mode"] == "" {
+func (conf *Config) Validate(path string) ([]string, error) {
+	if conf.ConfigParams["mode"] == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "config_params[mode]")
 	}
 
-	if config.DataDirectory == "" {
+	if conf.DataDirectory == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "data_dir")
 	}
 
-	if config.UseLiveData == nil {
+	if conf.UseLiveData == nil {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "use_live_data")
 	}
 
-	if config.DataRateMsec < 0 {
+	if conf.DataRateMsec < 0 {
 		return nil, errors.New("cannot specify data_rate_msec less than zero")
 	}
 
-	if config.MapRateSec != nil && *config.MapRateSec < 0 {
+	if conf.MapRateSec != nil && *conf.MapRateSec < 0 {
 		return nil, errors.New("cannot specify map_rate_sec less than zero")
 	}
 
-	deps := config.Sensors
+	deps := conf.Sensors
 
 	return deps, nil
 }
 
 // GetOptionalParameters sets any unset optional config parameters to the values passed to this function,
 // and returns them.
-func GetOptionalParameters(config *AttrConfig, defaultPort string,
+func GetOptionalParameters(config *Config, defaultPort string,
 	defaultDataRateMsec, defaultMapRateSec int, logger golog.Logger,
 ) (string, int, int, bool, bool, error) {
 	port := config.Port

@@ -4,43 +4,26 @@ package movementsensor
 import (
 	"context"
 	"errors"
-	"sync"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	pb "go.viam.com/api/component/movementsensor/v1"
-	viamutils "go.viam.com/utils"
-	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/sensor"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/subtype"
-	"go.viam.com/rdk/utils"
 )
 
 // Properties tells you what a MovementSensor supports.
 type Properties pb.GetPropertiesResponse
 
 func init() {
-	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
-		Reconfigurable: WrapWithReconfigurable,
-		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
-			return rpcServer.RegisterServiceServer(
-				ctx,
-				&pb.MovementSensorService_ServiceDesc,
-				NewServer(subtypeSvc),
-				pb.RegisterMovementSensorServiceHandlerFromEndpoint,
-			)
-		},
-		RPCServiceDesc: &pb.MovementSensorService_ServiceDesc,
-		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
-			return NewClientFromConn(ctx, conn, name, logger)
-		},
+	resource.RegisterSubtype(Subtype, resource.SubtypeRegistration[MovementSensor]{
+		RPCServiceServerConstructor: NewRPCServiceServer,
+		RPCServiceHandler:           pb.RegisterMovementSensorServiceHandlerFromEndpoint,
+		RPCServiceDesc:              &pb.MovementSensorService_ServiceDesc,
+		RPCClient:                   NewClientFromConn,
 	})
 
 	registerCollector("Position", func(ctx context.Context, ms MovementSensor) (interface{}, error) {
@@ -85,6 +68,7 @@ func Named(name string) resource.Name {
 
 // A MovementSensor reports information about the robot's direction, position and speed.
 type MovementSensor interface {
+	sensor.Sensor
 	Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error)                // (lat, long), altitude (mm)
 	LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error)                    // mm / sec
 	AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) // radians / sec
@@ -93,26 +77,12 @@ type MovementSensor interface {
 	Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error)
 	Properties(ctx context.Context, extra map[string]interface{}) (*Properties, error)
 	Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32, error) // in mm
-	generic.Generic
-	sensor.Sensor
 }
-
-var (
-	_ = MovementSensor(&reconfigurableMovementSensor{})
-	_ = sensor.Sensor(&reconfigurableMovementSensor{})
-	_ = resource.Reconfigurable(&reconfigurableMovementSensor{})
-	_ = viamutils.ContextCloser(&reconfigurableMovementSensor{})
-)
 
 // FromDependencies is a helper for getting the named movementsensor from a collection of
 // dependencies.
-func FromDependencies(deps registry.Dependencies, name string) (MovementSensor, error) {
-	return registry.ResourceFromDependencies[MovementSensor](deps, Named(name))
-}
-
-// NewUnimplementedInterfaceError is used when there is a failed interface check.
-func NewUnimplementedInterfaceError(actual interface{}) error {
-	return utils.NewUnimplementedInterfaceError((*MovementSensor)(nil), actual)
+func FromDependencies(deps resource.Dependencies, name string) (MovementSensor, error) {
+	return resource.FromDependencies[MovementSensor](deps, Named(name))
 }
 
 // FromRobot is a helper for getting the named MovementSensor from the given Robot.
@@ -185,120 +155,4 @@ func Readings(ctx context.Context, g MovementSensor, extra map[string]interface{
 	}
 
 	return readings, nil
-}
-
-type reconfigurableMovementSensor struct {
-	mu     sync.RWMutex
-	name   resource.Name
-	actual MovementSensor
-}
-
-func (r *reconfigurableMovementSensor) Name() resource.Name {
-	return r.name
-}
-
-func (r *reconfigurableMovementSensor) Close(ctx context.Context) error {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return viamutils.TryClose(ctx, r.actual)
-}
-
-func (r *reconfigurableMovementSensor) ProxyFor() interface{} {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual
-}
-
-func (r *reconfigurableMovementSensor) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.DoCommand(ctx, cmd)
-}
-
-func (r *reconfigurableMovementSensor) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.Position(ctx, extra)
-}
-
-func (r *reconfigurableMovementSensor) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.LinearAcceleration(ctx, extra)
-}
-
-func (r *reconfigurableMovementSensor) AngularVelocity(
-	ctx context.Context,
-	extra map[string]interface{},
-) (spatialmath.AngularVelocity, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.AngularVelocity(ctx, extra)
-}
-
-func (r *reconfigurableMovementSensor) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.LinearVelocity(ctx, extra)
-}
-
-func (r *reconfigurableMovementSensor) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.Orientation(ctx, extra)
-}
-
-func (r *reconfigurableMovementSensor) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.CompassHeading(ctx, extra)
-}
-
-func (r *reconfigurableMovementSensor) Properties(ctx context.Context, extra map[string]interface{}) (*Properties, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.Properties(ctx, extra)
-}
-
-func (r *reconfigurableMovementSensor) Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.Accuracy(ctx, extra)
-}
-
-func (r *reconfigurableMovementSensor) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.Readings(ctx, extra)
-}
-
-func (r *reconfigurableMovementSensor) Reconfigure(ctx context.Context, newMovementSensor resource.Reconfigurable) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	return r.reconfigure(ctx, newMovementSensor)
-}
-
-func (r *reconfigurableMovementSensor) reconfigure(ctx context.Context, newMovementSensor resource.Reconfigurable) error {
-	actual, ok := newMovementSensor.(*reconfigurableMovementSensor)
-	if !ok {
-		return utils.NewUnexpectedTypeError(r, newMovementSensor)
-	}
-	if err := viamutils.TryClose(ctx, r.actual); err != nil {
-		golog.Global().Errorw("error closing old", "error", err)
-	}
-	r.actual = actual.actual
-	return nil
-}
-
-// WrapWithReconfigurable - if MovementSensor is already a reconfigurableMovementSensor, then nothing is done.
-// Otherwise wraps in a Reconfigurable.
-func WrapWithReconfigurable(r interface{}, name resource.Name) (resource.Reconfigurable, error) {
-	ms, ok := r.(MovementSensor)
-	if !ok {
-		return nil, NewUnimplementedInterfaceError(r)
-	}
-	if reconfigurable, ok := ms.(*reconfigurableMovementSensor); ok {
-		return reconfigurable, nil
-	}
-	return &reconfigurableMovementSensor{name: name, actual: ms}, nil
 }

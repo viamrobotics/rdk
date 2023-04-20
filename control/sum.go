@@ -19,7 +19,7 @@ const (
 type sum struct {
 	mu        sync.Mutex
 	cfg       BlockConfig
-	y         []Signal
+	y         []*Signal
 	operation map[string]sumOperand
 	logger    golog.Logger
 }
@@ -32,7 +32,7 @@ func newSum(config BlockConfig, logger golog.Logger) (Block, error) {
 	return s, nil
 }
 
-func (b *sum) Next(ctx context.Context, x []Signal, dt time.Duration) ([]Signal, bool) {
+func (b *sum) Next(ctx context.Context, x []*Signal, dt time.Duration) ([]*Signal, bool) {
 	if len(x) != len(b.operation) {
 		return b.y, false
 	}
@@ -71,7 +71,7 @@ func (b *sum) reset() error {
 		}
 		b.operation[b.cfg.DependsOn[idx]] = sumOperand(c)
 	}
-	b.y = make([]Signal, 1)
+	b.y = make([]*Signal, 1)
 	b.y[0] = makeSignal(b.cfg.Name)
 	return nil
 }
@@ -89,7 +89,7 @@ func (b *sum) UpdateConfig(ctx context.Context, config BlockConfig) error {
 	return b.reset()
 }
 
-func (b *sum) Output(ctx context.Context) []Signal {
+func (b *sum) Output(ctx context.Context) []*Signal {
 	return b.y
 }
 

@@ -13,13 +13,13 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	pb "go.viam.com/api/app/v1"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/config/testutils"
 	"go.viam.com/rdk/resource"
+	rutils "go.viam.com/rdk/utils"
 )
 
 func TestNewWatcherNoop(t *testing.T) {
@@ -35,7 +35,7 @@ func TestNewWatcherNoop(t *testing.T) {
 	case <-timer.C:
 	}
 
-	test.That(t, utils.TryClose(context.Background(), watcher), test.ShouldBeNil)
+	test.That(t, watcher.Close(), test.ShouldBeNil)
 }
 
 func TestNewWatcherFile(t *testing.T) {
@@ -64,14 +64,14 @@ func TestNewWatcherFile(t *testing.T) {
 
 	confToWrite := config.Config{
 		ConfigFilePath: temp.Name(),
-		Components: []config.Component{
+		Components: []resource.Config{
 			{
-				Namespace: resource.ResourceNamespaceRDK,
-				Type:      arm.Subtype.ResourceSubtype,
-				API:       arm.Subtype,
-				Name:      "hello",
-				Model:     resource.NewDefaultModel("hello"),
-				Attributes: config.AttributeMap{
+				DeprecatedNamespace: resource.ResourceNamespaceRDK,
+				DeprecatedSubtype:   arm.Subtype.ResourceSubtype,
+				API:                 arm.Subtype,
+				Name:                "hello",
+				Model:               resource.NewDefaultModel("hello"),
+				Attributes: rutils.AttributeMap{
 					"world": 1.0,
 				},
 			},
@@ -90,20 +90,21 @@ func TestNewWatcherFile(t *testing.T) {
 		}},
 	}
 	writeConf(&confToWrite)
+	test.That(t, confToWrite.Ensure(false, logger), test.ShouldBeNil)
 
 	newConf := <-watcher.Config()
 	test.That(t, newConf, test.ShouldResemble, &confToWrite)
 
 	confToWrite = config.Config{
 		ConfigFilePath: temp.Name(),
-		Components: []config.Component{
+		Components: []resource.Config{
 			{
-				Namespace: resource.ResourceNamespaceRDK,
-				Type:      arm.Subtype.ResourceSubtype,
-				API:       arm.Subtype,
-				Name:      "world",
-				Model:     resource.NewDefaultModel("world"),
-				Attributes: config.AttributeMap{
+				DeprecatedNamespace: resource.ResourceNamespaceRDK,
+				DeprecatedSubtype:   arm.Subtype.ResourceSubtype,
+				API:                 arm.Subtype,
+				Name:                "world",
+				Model:               resource.NewDefaultModel("world"),
+				Attributes: rutils.AttributeMap{
 					"hello": 1.0,
 				},
 			},
@@ -122,6 +123,7 @@ func TestNewWatcherFile(t *testing.T) {
 		}},
 	}
 	writeConf(&confToWrite)
+	test.That(t, confToWrite.Ensure(false, logger), test.ShouldBeNil)
 
 	newConf = <-watcher.Config()
 	test.That(t, newConf, test.ShouldResemble, &confToWrite)
@@ -147,14 +149,14 @@ func TestNewWatcherFile(t *testing.T) {
 
 	confToWrite = config.Config{
 		ConfigFilePath: temp.Name(),
-		Components: []config.Component{
+		Components: []resource.Config{
 			{
-				Namespace: resource.ResourceNamespaceRDK,
-				Type:      arm.Subtype.ResourceSubtype,
-				API:       arm.Subtype,
-				Name:      "woo",
-				Model:     resource.NewDefaultModel("woo"),
-				Attributes: config.AttributeMap{
+				DeprecatedNamespace: resource.ResourceNamespaceRDK,
+				DeprecatedSubtype:   arm.Subtype.ResourceSubtype,
+				API:                 arm.Subtype,
+				Name:                "woo",
+				Model:               resource.NewDefaultModel("woo"),
+				Attributes: rutils.AttributeMap{
 					"wah": 1.0,
 				},
 			},
@@ -173,11 +175,12 @@ func TestNewWatcherFile(t *testing.T) {
 		}},
 	}
 	writeConf(&confToWrite)
+	test.That(t, confToWrite.Ensure(false, logger), test.ShouldBeNil)
 
 	newConf = <-watcher.Config()
 	test.That(t, newConf, test.ShouldResemble, &confToWrite)
 
-	test.That(t, utils.TryClose(context.Background(), watcher), test.ShouldBeNil)
+	test.That(t, watcher.Close(), test.ShouldBeNil)
 }
 
 func TestNewWatcherCloud(t *testing.T) {
@@ -238,14 +241,14 @@ func TestNewWatcherCloud(t *testing.T) {
 
 	confToReturn = config.Config{
 		Cloud: newCloudConf(),
-		Components: []config.Component{
+		Components: []resource.Config{
 			{
-				Namespace: resource.ResourceNamespaceRDK,
-				Type:      arm.Subtype.ResourceSubtype,
-				API:       arm.Subtype,
-				Name:      "hello",
-				Model:     resource.NewDefaultModel("hello"),
-				Attributes: config.AttributeMap{
+				DeprecatedNamespace: resource.ResourceNamespaceRDK,
+				DeprecatedSubtype:   arm.Subtype.ResourceSubtype,
+				API:                 arm.Subtype,
+				Name:                "hello",
+				Model:               resource.NewDefaultModel("hello"),
+				Attributes: rutils.AttributeMap{
 					"world": 1.0,
 				},
 			},
@@ -272,20 +275,21 @@ func TestNewWatcherCloud(t *testing.T) {
 	confToExpect := confToReturn
 	confToExpect.Cloud.TLSCertificate = certsToReturn.TLSCertificate
 	confToExpect.Cloud.TLSPrivateKey = certsToReturn.TLSPrivateKey
+	test.That(t, confToExpect.Ensure(true, logger), test.ShouldBeNil)
 
 	newConf := <-watcher.Config()
 	test.That(t, newConf, test.ShouldResemble, &confToExpect)
 
 	confToReturn = config.Config{
 		Cloud: newCloudConf(),
-		Components: []config.Component{
+		Components: []resource.Config{
 			{
-				Namespace: resource.ResourceNamespaceRDK,
-				Type:      arm.Subtype.ResourceSubtype,
-				API:       arm.Subtype,
-				Name:      "world",
-				Model:     resource.NewDefaultModel("world"),
-				Attributes: config.AttributeMap{
+				DeprecatedNamespace: resource.ResourceNamespaceRDK,
+				DeprecatedSubtype:   arm.Subtype.ResourceSubtype,
+				API:                 arm.Subtype,
+				Name:                "world",
+				Model:               resource.NewDefaultModel("world"),
+				Attributes: rutils.AttributeMap{
 					"hello": 1.0,
 				},
 			},
@@ -310,6 +314,7 @@ func TestNewWatcherCloud(t *testing.T) {
 	confToExpect = confToReturn
 	confToExpect.Cloud.TLSCertificate = certsToReturn.TLSCertificate
 	confToExpect.Cloud.TLSPrivateKey = certsToReturn.TLSPrivateKey
+	test.That(t, confToExpect.Ensure(true, logger), test.ShouldBeNil)
 
 	newConf = <-watcher.Config()
 	test.That(t, newConf, test.ShouldResemble, &confToExpect)
@@ -331,14 +336,14 @@ func TestNewWatcherCloud(t *testing.T) {
 
 	confToReturn = config.Config{
 		Cloud: newCloudConf(),
-		Components: []config.Component{
+		Components: []resource.Config{
 			{
-				Namespace: resource.ResourceNamespaceRDK,
-				Type:      arm.Subtype.ResourceSubtype,
-				API:       arm.Subtype,
-				Name:      "woo",
-				Model:     resource.NewDefaultModel("woo"),
-				Attributes: config.AttributeMap{
+				DeprecatedNamespace: resource.ResourceNamespaceRDK,
+				DeprecatedSubtype:   arm.Subtype.ResourceSubtype,
+				API:                 arm.Subtype,
+				Name:                "woo",
+				Model:               resource.NewDefaultModel("woo"),
+				Attributes: rutils.AttributeMap{
 					"wah": 1.0,
 				},
 			},
@@ -362,9 +367,10 @@ func TestNewWatcherCloud(t *testing.T) {
 	confToExpect = confToReturn
 	confToExpect.Cloud.TLSCertificate = certsToReturn.TLSCertificate
 	confToExpect.Cloud.TLSPrivateKey = certsToReturn.TLSPrivateKey
+	test.That(t, confToExpect.Ensure(true, logger), test.ShouldBeNil)
 
 	newConf = <-watcher.Config()
 	test.That(t, newConf, test.ShouldResemble, &confToExpect)
 
-	test.That(t, utils.TryClose(context.Background(), watcher), test.ShouldBeNil)
+	test.That(t, watcher.Close(), test.ShouldBeNil)
 }

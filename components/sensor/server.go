@@ -4,36 +4,22 @@ package sensor
 import (
 	"context"
 
-	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/sensor/v1"
 
 	"go.viam.com/rdk/protoutils"
-	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/resource"
 )
 
 // subtypeServer implements the SensorService from sensor.proto.
 type subtypeServer struct {
 	pb.UnimplementedSensorServiceServer
-	s subtype.Service
+	coll resource.SubtypeCollection[Sensor]
 }
 
-// NewServer constructs an sensor gRPC service subtypeServer.
-func NewServer(s subtype.Service) pb.SensorServiceServer {
-	return &subtypeServer{s: s}
-}
-
-// getSensor returns the sensor specified, nil if not.
-func (s *subtypeServer) getSensor(name string) (Sensor, error) {
-	resource := s.s.Resource(name)
-	if resource == nil {
-		return nil, errors.Errorf("no generic sensor with name (%s)", name)
-	}
-	sensor, ok := resource.(Sensor)
-	if !ok {
-		return nil, errors.Errorf("resource with name (%s) is not a generic sensor", name)
-	}
-	return sensor, nil
+// NewRPCServiceServer constructs an sensor gRPC service subtypeServer.
+func NewRPCServiceServer(coll resource.SubtypeCollection[Sensor]) interface{} {
+	return &subtypeServer{coll: coll}
 }
 
 // GetReadings returns the most recent readings from the given Sensor.
@@ -41,7 +27,7 @@ func (s *subtypeServer) GetReadings(
 	ctx context.Context,
 	req *pb.GetReadingsRequest,
 ) (*pb.GetReadingsResponse, error) {
-	sensorDevice, err := s.getSensor(req.Name)
+	sensorDevice, err := s.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +46,7 @@ func (s *subtypeServer) GetReadings(
 func (s *subtypeServer) DoCommand(ctx context.Context,
 	req *commonpb.DoCommandRequest,
 ) (*commonpb.DoCommandResponse, error) {
-	sensorDevice, err := s.getSensor(req.Name)
+	sensorDevice, err := s.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
