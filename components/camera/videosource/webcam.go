@@ -285,7 +285,8 @@ func (c *monitoredWebcam) Reconfigure(
 	}
 	c.logger.Debug("reinitializing driver")
 
-	if err := c.reconnectCamera(newConf, newConf.Path); err != nil {
+	c.targetPath = newConf.Path
+	if err := c.reconnectCamera(newConf); err != nil {
 		return err
 	}
 
@@ -353,8 +354,10 @@ type monitoredWebcam struct {
 	exposedSwapper   gostream.HotSwappableVideoSource
 	exposedProjector camera.VideoSource
 
-	originalLabel string
-	conf          WebcamConfig
+	// this is returned to us as a label in mediadevices but our config
+	// treats it as a video path.
+	targetPath string
+	conf       WebcamConfig
 
 	cancelCtx               context.Context
 	cancel                  func()
@@ -393,7 +396,7 @@ func (c *monitoredWebcam) isCameraConnected() (bool, error) {
 }
 
 // reconnectCamera assumes a write lock is held.
-func (c *monitoredWebcam) reconnectCamera(conf *WebcamConfig, originalLabel string) error {
+func (c *monitoredWebcam) reconnectCamera(conf *WebcamConfig) error {
 	if c.underlyingSource != nil {
 		c.logger.Debug("closing current camera")
 		if err := c.underlyingSource.Close(c.cancelCtx); err != nil {
@@ -402,7 +405,7 @@ func (c *monitoredWebcam) reconnectCamera(conf *WebcamConfig, originalLabel stri
 		c.underlyingSource = nil
 	}
 
-	newSrc, foundLabel, err := findAndMakeVideoSource(c.cancelCtx, conf, originalLabel, c.logger)
+	newSrc, foundLabel, err := findAndMakeVideoSource(c.cancelCtx, conf, c.targetPath, c.logger)
 	if err != nil {
 		return errors.Wrap(err, "failed to find camera")
 	}
@@ -415,12 +418,10 @@ func (c *monitoredWebcam) reconnectCamera(conf *WebcamConfig, originalLabel stri
 	c.underlyingSource = newSrc
 	c.disconnected = false
 	c.closed = false
-	if originalLabel == "" {
-		c.originalLabel = foundLabel
-	} else {
-		c.originalLabel = originalLabel
+	if c.targetPath == "" {
+		c.targetPath = foundLabel
 	}
-	c.logger = c.originalLogger.With("camera_label", foundLabel)
+	c.logger = c.originalLogger.With("camera_label", c.targetPath)
 
 	return nil
 }
@@ -466,7 +467,7 @@ func (c *monitoredWebcam) Monitor() {
 						c.mu.Lock()
 						defer c.mu.Unlock()
 
-						if err := c.reconnectCamera(&c.conf, c.originalLabel); err != nil {
+						if err := c.reconnectCamera(&c.conf); err != nil {
 							c.logger.Errorw("failed to reconnect camera", "error", err)
 							return true
 						}
