@@ -473,7 +473,7 @@ func (m *module) registerResources(mgr modmaninterface.ModuleManager, logger gol
 		switch api.Subtype.ResourceType {
 		case resource.ResourceTypeComponent:
 			for _, model := range models {
-				resource.RegisterComponent(api.Subtype, model, resource.Registration[resource.Resource, any]{
+				resource.RegisterComponent(api.Subtype, model, resource.Registration[resource.Resource, resource.NoNativeConfig]{
 					Constructor: func(
 						ctx context.Context,
 						deps resource.Dependencies,
@@ -486,7 +486,7 @@ func (m *module) registerResources(mgr modmaninterface.ModuleManager, logger gol
 			}
 		case resource.ResourceTypeService:
 			for _, model := range models {
-				resource.RegisterService(api.Subtype, model, resource.Registration[resource.Resource, any]{
+				resource.RegisterService(api.Subtype, model, resource.Registration[resource.Resource, resource.NoNativeConfig]{
 					Constructor: func(
 						ctx context.Context,
 						deps resource.Dependencies,

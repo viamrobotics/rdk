@@ -61,7 +61,6 @@ func init() {
 				}
 				return NewPigpio(ctx, conf.ResourceName(), boardConfig, logger)
 			},
-			AttributeMapConverter: resource.TransformAttributeMap[*genericlinux.Config],
 		})
 }
 

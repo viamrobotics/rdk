@@ -35,6 +35,7 @@ var ModelName = resource.NewDefaultModel("eva")
 
 // Config is used for converting config attributes.
 type Config struct {
+	resource.TriviallyValidateConfig
 	Token string `json:"token"`
 	Host  string `json:"host"`
 }

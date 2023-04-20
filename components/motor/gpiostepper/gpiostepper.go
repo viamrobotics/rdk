@@ -98,7 +98,6 @@ func init() {
 
 			return newGPIOStepper(ctx, actualBoard, *motorConfig, conf.ResourceName(), logger)
 		},
-		AttributeMapConverter: resource.TransformAttributeMap[*Config],
 	})
 }
 

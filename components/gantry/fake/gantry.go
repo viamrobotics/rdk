@@ -15,7 +15,7 @@ import (
 )
 
 func init() {
-	resource.RegisterComponent(gantry.Subtype, resource.NewDefaultModel("fake"), resource.Registration[gantry.Gantry, any]{
+	resource.RegisterComponent(gantry.Subtype, resource.NewDefaultModel("fake"), resource.Registration[gantry.Gantry, resource.NoNativeConfig]{
 		Constructor: func(
 			ctx context.Context,
 			_ resource.Dependencies,

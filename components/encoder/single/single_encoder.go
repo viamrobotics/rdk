@@ -43,8 +43,7 @@ func init() {
 		encoder.Subtype,
 		singlemodelname,
 		resource.Registration[encoder.Encoder, *Config]{
-			Constructor:           NewSingleEncoder,
-			AttributeMapConverter: resource.TransformAttributeMap[*Config],
+			Constructor: NewSingleEncoder,
 		})
 }
 

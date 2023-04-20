@@ -87,7 +87,7 @@ func (c *Config) Ensure(fromCloud bool, logger golog.Logger) error {
 	}
 
 	for idx := 0; idx < len(c.Remotes); idx++ {
-		if err := c.Remotes[idx].Validate(fmt.Sprintf("%s.%d", "remotes", idx)); err != nil {
+		if _, err := c.Remotes[idx].Validate(fmt.Sprintf("%s.%d", "remotes", idx)); err != nil {
 			if c.DisablePartialStart {
 				return err
 			}
@@ -289,13 +289,13 @@ type RemoteAuth struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (config *Remote) Validate(path string) error {
+func (config *Remote) Validate(path string) ([]string, error) {
 	if config.alreadyValidated {
-		return config.cachedErr
+		return nil, config.cachedErr
 	}
 	config.cachedErr = config.validate(path)
 	config.alreadyValidated = true
-	return config.cachedErr
+	return nil, config.cachedErr
 }
 
 func (config *Remote) validate(path string) error {

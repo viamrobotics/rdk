@@ -17,6 +17,7 @@ var modelname = resource.NewDefaultModel("fake")
 
 // Config is used for converting fake movementsensor attributes.
 type Config struct {
+	resource.TriviallyValidateConfig
 	ConnectionType string `json:"connection_type,omitempty"`
 }
 
@@ -35,7 +36,6 @@ func init() {
 					Named: conf.ResourceName().AsNamed(),
 				}), nil
 			},
-			AttributeMapConverter: resource.TransformAttributeMap[*Config],
 		})
 }
 

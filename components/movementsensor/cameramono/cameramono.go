@@ -94,7 +94,6 @@ func init() {
 			) (movementsensor.MovementSensor, error) {
 				return newCameraMono(deps, conf, logger)
 			},
-			AttributeMapConverter: resource.TransformAttributeMap[*Config],
 		})
 }
 

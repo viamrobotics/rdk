@@ -35,9 +35,8 @@ var (
 	failModel   = resource.NewDefaultModel("failModel")
 	failQ       = resource.NewDiscoveryQuery(failSubtype, failModel)
 
-	noDiscoverSubtype = resource.NewSubtype(resource.Namespace("acme"), resource.ResourceTypeComponent, resource.SubtypeName("no-discovery"))
-	noDiscoverModel   = resource.NewDefaultModel("nodiscoverModel")
-	noDiscoverQ       = resource.DiscoveryQuery{failSubtype, noDiscoverModel}
+	noDiscoverModel = resource.NewDefaultModel("nodiscoverModel")
+	noDiscoverQ     = resource.DiscoveryQuery{failSubtype, noDiscoverModel}
 
 	missingQ = resource.NewDiscoveryQuery(failSubtype, resource.NewDefaultModel("missing"))
 
@@ -46,33 +45,19 @@ var (
 )
 
 func init() {
-	// Subtype with a working discovery function for a subtype model
-	resource.RegisterSubtype(
-		workingSubtype,
-		resource.SubtypeRegistration[resource.Resource]{},
-	)
+	resource.Register(workingQ.API, workingQ.Model, resource.Registration[resource.Resource, resource.NoNativeConfig]{
+		Constructor: func(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (resource.Resource, error) {
+			return nil, errors.New("no")
+		},
+		Discover: func(ctx context.Context, logger golog.Logger) (interface{}, error) { return workingDiscovery, nil },
+	})
 
-	resource.RegisterDiscoveryFunction(
-		workingQ,
-		func(ctx context.Context, logger golog.Logger) (interface{}, error) { return workingDiscovery, nil },
-	)
-
-	// Subtype without discovery function
-	resource.RegisterSubtype(
-		noDiscoverSubtype,
-		resource.SubtypeRegistration[resource.Resource]{},
-	)
-
-	// Subtype with a failing discovery function for a subtype model
-	resource.RegisterSubtype(
-		failSubtype,
-		resource.SubtypeRegistration[resource.Resource]{},
-	)
-
-	resource.RegisterDiscoveryFunction(
-		failQ,
-		func(ctx context.Context, logger golog.Logger) (interface{}, error) { return nil, errFailed },
-	)
+	resource.Register(failQ.API, failQ.Model, resource.Registration[resource.Resource, resource.NoNativeConfig]{
+		Constructor: func(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (resource.Resource, error) {
+			return nil, errors.New("no")
+		},
+		Discover: func(ctx context.Context, logger golog.Logger) (interface{}, error) { return nil, errFailed },
+	})
 }
 
 func TestDiscovery(t *testing.T) {

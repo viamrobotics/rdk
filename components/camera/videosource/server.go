@@ -45,7 +45,6 @@ func init() {
 				}
 				return camera.FromVideoSource(conf.ResourceName(), src), nil
 			},
-			AttributeMapConverter: resource.TransformAttributeMap[*ServerConfig],
 		})
 	resource.RegisterComponent(camera.Subtype, modelDual,
 		resource.Registration[camera.Camera, *dualServerConfig]{
@@ -62,7 +61,6 @@ func init() {
 				}
 				return camera.FromVideoSource(conf.ResourceName(), src), nil
 			},
-			AttributeMapConverter: resource.TransformAttributeMap[*dualServerConfig],
 		})
 }
 
@@ -80,6 +78,7 @@ type dualServerSource struct {
 
 // dualServerConfig is the attribute struct for dualServerSource.
 type dualServerConfig struct {
+	resource.TriviallyValidateConfig
 	CameraParameters     *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters,omitempty"`
 	DistortionParameters *transform.BrownConrady            `json:"distortion_parameters,omitempty"`
 	Stream               string                             `json:"stream"`
@@ -182,6 +181,7 @@ type serverSource struct {
 
 // ServerConfig is the attribute struct for serverSource.
 type ServerConfig struct {
+	resource.TriviallyValidateConfig
 	CameraParameters     *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters,omitempty"`
 	DistortionParameters *transform.BrownConrady            `json:"distortion_parameters,omitempty"`
 	Stream               string                             `json:"stream"`

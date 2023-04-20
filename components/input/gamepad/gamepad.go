@@ -17,7 +17,7 @@ import (
 var modelname = resource.NewDefaultModel("gamepad")
 
 func init() {
-	resource.RegisterComponent(input.Subtype, modelname, resource.Registration[input.Controller, any]{
+	resource.RegisterComponent(input.Subtype, modelname, resource.Registration[input.Controller, resource.NoNativeConfig]{
 		Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (input.Controller, error) {
 			return nil, errors.New("gamepad input currently only supported on linux")
 		},

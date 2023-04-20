@@ -20,7 +20,7 @@ func init() {
 	resource.RegisterService(
 		slam.Subtype,
 		model,
-		resource.Registration[slam.Service, any]{
+		resource.Registration[slam.Service, resource.NoNativeConfig]{
 			Constructor: func(
 				ctx context.Context,
 				_ resource.Dependencies,

@@ -76,15 +76,15 @@ type Config struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (conf *Config) Validate(path string) error {
+func (conf *Config) Validate(path string) ([]string, error) {
 	if err := conf.Store.Validate(fmt.Sprintf("%s.%s", path, "store")); err != nil {
-		return err
+		return nil, err
 	}
 	if conf.BaseName == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "base")
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "base")
 	}
 	if conf.MovementSensorName == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "movement_sensor")
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "movement_sensor")
 	}
-	return nil
+	return nil, nil
 }

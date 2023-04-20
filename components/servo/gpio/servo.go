@@ -84,8 +84,7 @@ var model = resource.NewDefaultModel("gpio")
 func init() {
 	resource.RegisterComponent(servo.Subtype, model,
 		resource.Registration[servo.Servo, *servoConfig]{
-			Constructor:           newGPIOServo,
-			AttributeMapConverter: resource.TransformAttributeMap[*servoConfig],
+			Constructor: newGPIOServo,
 		})
 }
 

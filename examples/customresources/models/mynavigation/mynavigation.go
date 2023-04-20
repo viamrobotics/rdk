@@ -20,7 +20,7 @@ var Model = resource.NewModel(
 )
 
 func init() {
-	resource.RegisterService(navigation.Subtype, Model, resource.Registration[navigation.Service, any]{
+	resource.RegisterService(navigation.Subtype, Model, resource.Registration[navigation.Service, resource.NoNativeConfig]{
 		Constructor: newNav,
 	})
 }

@@ -41,28 +41,28 @@ type Config struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (conf *Config) Validate(path string) error {
+func (conf *Config) Validate(path string) ([]string, error) {
 	for idx, c := range conf.SPIs {
 		if err := c.Validate(fmt.Sprintf("%s.%s.%d", path, "spis", idx)); err != nil {
-			return err
+			return nil, err
 		}
 	}
 	for idx, c := range conf.I2Cs {
 		if err := c.Validate(fmt.Sprintf("%s.%s.%d", path, "i2cs", idx)); err != nil {
-			return err
+			return nil, err
 		}
 	}
 	for idx, c := range conf.Analogs {
 		if err := c.Validate(fmt.Sprintf("%s.%s.%d", path, "analogs", idx)); err != nil {
-			return err
+			return nil, err
 		}
 	}
 	for idx, c := range conf.DigitalInterrupts {
 		if err := c.Validate(fmt.Sprintf("%s.%s.%d", path, "digital_interrupts", idx)); err != nil {
-			return err
+			return nil, err
 		}
 	}
-	return nil
+	return nil, nil
 }
 
 // RegisterBoard registers a sysfs based board of the given model.
@@ -79,7 +79,6 @@ func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping, useP
 			) (board.Board, error) {
 				return newBoard(ctx, conf, gpioMappings, usePeriphGpio, logger)
 			},
-			AttributeMapConverter: resource.TransformAttributeMap[*Config],
 		})
 }
 

@@ -23,21 +23,23 @@ import (
 )
 
 func init() {
-	resource.RegisterService(motion.Subtype, resource.DefaultServiceModel, resource.Registration[motion.Service, any]{
-		DeprecatedRobotConstructor: func(
-			ctx context.Context,
-			r any,
-			conf resource.Config,
-			logger golog.Logger,
-		) (motion.Service, error) {
-			actualR, err := utils.AssertType[robot.Robot](r)
-			if err != nil {
-				return nil, err
-			}
-			return NewBuiltIn(ctx, actualR, conf, logger)
-		},
-	})
-	resource.AddDefaultService(motion.Named(resource.DefaultServiceName))
+	resource.RegisterDefaultService(
+		motion.Subtype,
+		resource.DefaultServiceModel,
+		resource.Registration[motion.Service, resource.NoNativeConfig]{
+			DeprecatedRobotConstructor: func(
+				ctx context.Context,
+				r any,
+				conf resource.Config,
+				logger golog.Logger,
+			) (motion.Service, error) {
+				actualR, err := utils.AssertType[robot.Robot](r)
+				if err != nil {
+					return nil, err
+				}
+				return NewBuiltIn(ctx, actualR, conf, logger)
+			},
+		})
 }
 
 // NewBuiltIn returns a new move and grab service for the given robot.

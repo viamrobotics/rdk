@@ -108,12 +108,12 @@ type Config struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (cfg *Config) Validate(path string) error {
+func (cfg *Config) Validate(path string) ([]string, error) {
 	if cfg.SerialPath == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "serial_path")
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "serial_path")
 	}
 
-	return nil
+	return nil, nil
 }
 
 func init() {
@@ -127,7 +127,6 @@ func init() {
 			}
 			return NewMotor(ctx, newConf, conf.ResourceName(), logger)
 		},
-		AttributeMapConverter: resource.TransformAttributeMap[*Config],
 	})
 }
 

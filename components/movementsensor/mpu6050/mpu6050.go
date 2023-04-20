@@ -69,8 +69,7 @@ func (conf *Config) Validate(path string) ([]string, error) {
 
 func init() {
 	resource.RegisterComponent(movementsensor.Subtype, model, resource.Registration[movementsensor.MovementSensor, *Config]{
-		Constructor:           NewMpu6050,
-		AttributeMapConverter: resource.TransformAttributeMap[*Config],
+		Constructor: NewMpu6050,
 	})
 }
 

@@ -19,7 +19,7 @@ var Model = resource.NewModel(
 )
 
 func init() {
-	resource.RegisterComponent(gizmoapi.Subtype, Model, resource.Registration[gizmoapi.Gizmo, any]{
+	resource.RegisterComponent(gizmoapi.Subtype, Model, resource.Registration[gizmoapi.Gizmo, resource.NoNativeConfig]{
 		Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,

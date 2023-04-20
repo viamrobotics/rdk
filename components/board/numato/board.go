@@ -58,18 +58,17 @@ func init() {
 
 				return connect(ctx, conf.ResourceName(), newConf, logger)
 			},
-			AttributeMapConverter: resource.TransformAttributeMap[*Config],
 		})
 }
 
 // Validate ensures all parts of the config are valid.
-func (conf *Config) Validate(path string) error {
+func (conf *Config) Validate(path string) ([]string, error) {
 	for idx, conf := range conf.Analogs {
 		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "analogs", idx)); err != nil {
-			return err
+			return nil, err
 		}
 	}
-	return nil
+	return nil, nil
 }
 
 type mask []byte

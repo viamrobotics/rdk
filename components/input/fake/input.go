@@ -25,13 +25,13 @@ func init() {
 			Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, _ golog.Logger) (input.Controller, error) {
 				return NewInputController(ctx, conf)
 			},
-			AttributeMapConverter: resource.TransformAttributeMap[*Config],
 		},
 	)
 }
 
 // Config can list input structs (with their states), define event values and callback delays.
 type Config struct {
+	resource.TriviallyValidateConfig
 	controls []input.Control
 
 	// EventValue will dictate the value of the events returned. Random between -1 to 1 if unset.

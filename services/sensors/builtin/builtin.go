@@ -15,7 +15,7 @@ import (
 )
 
 func init() {
-	resource.RegisterService(sensors.Subtype, resource.DefaultServiceModel, resource.Registration[sensors.Service, any]{
+	resource.RegisterDefaultService(sensors.Subtype, resource.DefaultServiceModel, resource.Registration[sensors.Service, resource.NoNativeConfig]{
 		Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
@@ -31,7 +31,6 @@ func init() {
 		// sensors 2. use a heuristic to detect it or 3. encode it in proto.
 		WeakDependencies: []internal.ResourceMatcher{internal.ComponentDependencyWildcardMatcher},
 	})
-	resource.AddDefaultService(sensors.Named(resource.DefaultServiceName))
 }
 
 // NewBuiltIn returns a new default sensor service for the given robot.

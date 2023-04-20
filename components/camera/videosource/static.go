@@ -44,7 +44,6 @@ func init() {
 				}
 				return camera.FromVideoSource(conf.ResourceName(), src), nil
 			},
-			AttributeMapConverter: resource.TransformAttributeMap[*fileSourceConfig],
 		})
 }
 
@@ -57,6 +56,7 @@ type fileSource struct {
 
 // fileSourceConfig is the attribute struct for fileSource.
 type fileSourceConfig struct {
+	resource.TriviallyValidateConfig
 	CameraParameters     *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters,omitempty"`
 	DistortionParameters *transform.BrownConrady            `json:"distortion_parameters,omitempty"`
 	Debug                bool                               `json:"debug,omitempty"`

@@ -25,6 +25,7 @@ import (
 
 // Config is the attribute struct for ffmpeg cameras.
 type Config struct {
+	resource.TriviallyValidateConfig
 	CameraParameters     *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters,omitempty"`
 	DistortionParameters *transform.BrownConrady            `json:"distortion_parameters,omitempty"`
 	Debug                bool                               `json:"debug,omitempty"`
@@ -56,7 +57,6 @@ func init() {
 			}
 			return camera.FromVideoSource(conf.ResourceName(), src), nil
 		},
-		AttributeMapConverter: resource.TransformAttributeMap[*Config],
 	})
 }
 

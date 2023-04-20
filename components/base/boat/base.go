@@ -33,7 +33,6 @@ func init() {
 		) (base.Base, error) {
 			return createBoat(deps, conf, logger)
 		},
-		AttributeMapConverter: resource.TransformAttributeMap[*boatConfig],
 	}
 	resource.RegisterComponent(base.Subtype, modelname, boatComp)
 }

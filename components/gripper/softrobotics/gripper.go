@@ -66,7 +66,6 @@ func init() {
 			}
 			return newGripper(b, conf, logger)
 		},
-		AttributeMapConverter: resource.TransformAttributeMap[*Config],
 	})
 }
 

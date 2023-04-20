@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
+	"github.com/google/uuid"
 	"github.com/jhump/protoreflect/grpcreflect"
 	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/test"
@@ -14,6 +15,7 @@ import (
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/arm/fake"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/utils"
 )
 
 var (
@@ -29,8 +31,10 @@ func TestComponentRegistry(t *testing.T) {
 		return &fake.Arm{Named: conf.ResourceName().AsNamed()}, nil
 	}
 	modelName := resource.Model{Name: "x"}
-	test.That(t, func() { resource.Register(acme.Subtype, modelName, resource.Registration[arm.Arm, any]{}) }, test.ShouldPanic)
-	resource.Register(acme.Subtype, modelName, resource.Registration[arm.Arm, any]{Constructor: rf})
+	test.That(t, func() {
+		resource.Register(acme.Subtype, modelName, resource.Registration[arm.Arm, resource.NoNativeConfig]{})
+	}, test.ShouldPanic)
+	resource.Register(acme.Subtype, modelName, resource.Registration[arm.Arm, resource.NoNativeConfig]{Constructor: rf})
 
 	resInfo, ok := resource.LookupRegistration(acme.Subtype, modelName)
 	test.That(t, ok, test.ShouldBeTrue)
@@ -49,9 +53,9 @@ func TestComponentRegistry(t *testing.T) {
 
 	modelName2 := resource.DefaultServiceModel
 	test.That(t, func() {
-		resource.Register(testService.Subtype, modelName2, resource.Registration[arm.Arm, any]{})
+		resource.Register(testService.Subtype, modelName2, resource.Registration[arm.Arm, resource.NoNativeConfig]{})
 	}, test.ShouldPanic)
-	resource.Register(testService.Subtype, modelName2, resource.Registration[arm.Arm, any]{Constructor: rf})
+	resource.Register(testService.Subtype, modelName2, resource.Registration[arm.Arm, resource.NoNativeConfig]{Constructor: rf})
 
 	resInfo, ok = resource.LookupRegistration(testService.Subtype, modelName2)
 	test.That(t, resInfo, test.ShouldNotBeNil)
@@ -89,6 +93,13 @@ func TestResourceSubtypeRegistry(t *testing.T) {
 			RPCServiceServerConstructor: sf,
 			RPCServiceDesc:              &pb.RobotService_ServiceDesc,
 		})
+	}, test.ShouldPanic)
+	test.That(t, func() {
+		resource.RegisterSubtypeWithAssociation(acme.Subtype, resource.SubtypeRegistration[arm.Arm]{
+			Status:                      statf,
+			RPCServiceServerConstructor: sf,
+			RPCServiceDesc:              &pb.RobotService_ServiceDesc,
+		}, resource.AssociatedConfigRegistration[any]{})
 	}, test.ShouldPanic)
 	resource.RegisterSubtype(acme.Subtype, resource.SubtypeRegistration[arm.Arm]{
 		Status:                      statf,
@@ -161,6 +172,17 @@ func TestResourceSubtypeRegistry(t *testing.T) {
 			RPCServiceHandler:           pb.RegisterRobotServiceHandlerFromEndpoint,
 		})
 	}, test.ShouldPanic)
+	test.That(t, func() {
+		resource.RegisterSubtypeWithAssociation(subtype4, resource.SubtypeRegistration[arm.Arm]{
+			RPCServiceServerConstructor: sf,
+			RPCClient:                   rcf,
+			RPCServiceHandler:           pb.RegisterRobotServiceHandlerFromEndpoint,
+		}, resource.AssociatedConfigRegistration[any]{
+			WithName: func(resName resource.Name, resAssociation any) error {
+				return nil
+			},
+		})
+	}, test.ShouldPanic)
 
 	resource.DeregisterSubtype(subtype3)
 	_, ok, err = resource.LookupSubtypeRegistration[arm.Arm](subtype3)
@@ -168,19 +190,126 @@ func TestResourceSubtypeRegistry(t *testing.T) {
 	test.That(t, ok, test.ShouldBeFalse)
 }
 
-func TestDiscoveryFunctionRegistry(t *testing.T) {
+func TestResourceSubtypeRegistryWithAssociation(t *testing.T) {
+	statf := func(context.Context, arm.Arm) (interface{}, error) {
+		return nil, errors.New("one")
+	}
+	sf := func(subtypeColl resource.SubtypeCollection[arm.Arm]) interface{} {
+		return nil
+	}
+
+	type someType struct {
+		Field1  string `json:"field1"`
+		capName resource.Name
+	}
+
+	someName := resource.NewName(resource.Namespace(uuid.NewString()), resource.ResourceTypeComponent, button, "button1")
+	resource.RegisterSubtypeWithAssociation(someName.Subtype, resource.SubtypeRegistration[arm.Arm]{
+		Status:                      statf,
+		RPCServiceServerConstructor: sf,
+		RPCServiceHandler:           pb.RegisterRobotServiceHandlerFromEndpoint,
+		RPCServiceDesc:              &pb.RobotService_ServiceDesc,
+	}, resource.AssociatedConfigRegistration[*someType]{
+		WithName: func(resName resource.Name, resAssociation *someType) error {
+			resAssociation.capName = resName
+			return nil
+		},
+	})
+	reg, ok := resource.LookupAssociatedConfigRegistration(someName.Subtype)
+	test.That(t, ok, test.ShouldBeTrue)
+	assoc, err := reg.AttributeMapConverter(utils.AttributeMap{"field1": "hey"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, assoc.(*someType).Field1, test.ShouldEqual, "hey")
+	test.That(t, assoc.(*someType).capName, test.ShouldResemble, resource.Name{})
+	test.That(t, reg.WithName(arm.Named("foo"), assoc), test.ShouldBeNil)
+	test.That(t, assoc.(*someType).capName, test.ShouldResemble, arm.Named("foo"))
+}
+
+func TestDiscoveryFunctions(t *testing.T) {
 	df := func(ctx context.Context, logger golog.Logger) (interface{}, error) {
 		return []resource.Discovery{}, nil
 	}
-	invalidSubtypeQuery := resource.NewDiscoveryQuery(resource.Subtype{ResourceSubtype: "some subtype"}, resource.Model{Name: "some model"})
-	test.That(t, func() { resource.RegisterDiscoveryFunction(invalidSubtypeQuery, df) }, test.ShouldPanic)
-
 	validSubtypeQuery := resource.NewDiscoveryQuery(acme.Subtype, resource.Model{Name: "some model"})
-	_, ok := resource.LookupDiscoveryFunction(validSubtypeQuery)
+	_, ok := resource.LookupRegistration(validSubtypeQuery.API, validSubtypeQuery.Model)
 	test.That(t, ok, test.ShouldBeFalse)
 
-	test.That(t, func() { resource.RegisterDiscoveryFunction(validSubtypeQuery, df) }, test.ShouldNotPanic)
-	acmeDF, ok := resource.LookupDiscoveryFunction(validSubtypeQuery)
+	rf := func(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (arm.Arm, error) {
+		return &fake.Arm{Named: conf.ResourceName().AsNamed()}, nil
+	}
+
+	resource.Register(validSubtypeQuery.API, validSubtypeQuery.Model, resource.Registration[arm.Arm, resource.NoNativeConfig]{
+		Constructor: rf,
+		Discover:    df,
+	})
+
+	reg, ok := resource.LookupRegistration(validSubtypeQuery.API, validSubtypeQuery.Model)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, acmeDF, test.ShouldEqual, df)
+	test.That(t, reg.Discover, test.ShouldEqual, df)
+}
+
+func TestTransformAttributeMap(t *testing.T) {
+	type myType struct {
+		A          string            `json:"a"`
+		B          string            `json:"b"`
+		Attributes map[string]string `json:"attributes"`
+	}
+
+	attrs := utils.AttributeMap{
+		"a": "1",
+		"b": "2",
+		"c": "3",
+		"d": "4",
+		"e": 5,
+	}
+	transformed, err := resource.TransformAttributeMap[*myType](attrs)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, transformed, test.ShouldResemble, &myType{
+		A: "1",
+		B: "2",
+		Attributes: map[string]string{
+			"c": "3",
+			"d": "4",
+		},
+	})
+
+	transformed, err = resource.TransformAttributeMap[*myType](attrs)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, transformed, test.ShouldResemble, &myType{
+		A: "1",
+		B: "2",
+		Attributes: map[string]string{
+			"c": "3",
+			"d": "4",
+		},
+	})
+
+	type myExtendedType struct {
+		A          string             `json:"a"`
+		B          string             `json:"b"`
+		Attributes utils.AttributeMap `json:"attributes"`
+	}
+
+	transformedExt, err := resource.TransformAttributeMap[*myExtendedType](attrs)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, transformedExt, test.ShouldResemble, &myExtendedType{
+		A: "1",
+		B: "2",
+		Attributes: utils.AttributeMap{
+			"c": "3",
+			"d": "4",
+			"e": 5,
+		},
+	})
+
+	transformedExt, err = resource.TransformAttributeMap[*myExtendedType](attrs)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, transformedExt, test.ShouldResemble, &myExtendedType{
+		A: "1",
+		B: "2",
+		Attributes: utils.AttributeMap{
+			"c": "3",
+			"d": "4",
+			"e": 5,
+		},
+	})
 }

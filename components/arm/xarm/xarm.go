@@ -104,7 +104,6 @@ func init() {
 			) (arm.Arm, error) {
 				return NewxArm(ctx, conf, logger, localArmModelName)
 			},
-			AttributeMapConverter: resource.TransformAttributeMap[*Config],
 		})
 	}
 }

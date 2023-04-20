@@ -21,6 +21,7 @@ var modelname = resource.NewDefaultModel("ds18b20")
 
 // Config is used for converting config attributes.
 type Config struct {
+	resource.TriviallyValidateConfig
 	UniqueID string `json:"unique_id"`
 }
 
@@ -41,7 +42,6 @@ func init() {
 				}
 				return newSensor(conf.ResourceName(), newConf.UniqueID), nil
 			},
-			AttributeMapConverter: resource.TransformAttributeMap[*Config],
 		})
 }
 

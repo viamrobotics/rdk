@@ -96,8 +96,7 @@ func (conf *Config) Validate(path string) ([]string, error) {
 
 func init() {
 	resource.RegisterComponent(motor.Subtype, model, resource.Registration[motor.Motor, *Config]{
-		Constructor:           new28byj,
-		AttributeMapConverter: resource.TransformAttributeMap[*Config],
+		Constructor: new28byj,
 	})
 }
 

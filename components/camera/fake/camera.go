@@ -38,7 +38,6 @@ func init() {
 			) (camera.Camera, error) {
 				return NewCamera(ctx, cfg)
 			},
-			AttributeMapConverter: resource.TransformAttributeMap[*Config],
 		})
 }
 
@@ -51,7 +50,7 @@ func NewCamera(
 	if err != nil {
 		return nil, err
 	}
-	paramErr := newConf.Validate()
+	_, paramErr := newConf.Validate("")
 	if paramErr != nil {
 		return nil, paramErr
 	}
@@ -76,14 +75,14 @@ type Config struct {
 }
 
 // Validate checks that the config attributes are valid for a fake camera.
-func (conf *Config) Validate() error {
+func (conf *Config) Validate(path string) ([]string, error) {
 	if conf.Height%2 != 0 {
-		return errors.Errorf("odd-number resolutions cannot be rendered, cannot use a height of %d", conf.Height)
+		return nil, errors.Errorf("odd-number resolutions cannot be rendered, cannot use a height of %d", conf.Height)
 	}
 	if conf.Width%2 != 0 {
-		return errors.Errorf("odd-number resolutions cannot be rendered, cannot use a width of %d", conf.Width)
+		return nil, errors.Errorf("odd-number resolutions cannot be rendered, cannot use a width of %d", conf.Width)
 	}
-	return nil
+	return nil, nil
 }
 
 var fakeIntrinsics = &transform.PinholeCameraIntrinsics{

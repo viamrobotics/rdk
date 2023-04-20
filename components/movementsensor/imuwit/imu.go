@@ -53,10 +53,10 @@ type Config struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (cfg *Config) Validate(path string) error {
+func (cfg *Config) Validate(path string) ([]string, error) {
 	// Validating serial path
 	if cfg.Port == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "serial_path")
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "serial_path")
 	}
 
 	// Validating baud rate
@@ -67,16 +67,15 @@ func (cfg *Config) Validate(path string) error {
 		}
 	}
 	if !isValid {
-		return utils.NewConfigValidationError(path, errors.Errorf("Baud rate is not in %v", baudRateList))
+		return nil, utils.NewConfigValidationError(path, errors.Errorf("Baud rate is not in %v", baudRateList))
 	}
 
-	return nil
+	return nil, nil
 }
 
 func init() {
 	resource.RegisterComponent(movementsensor.Subtype, model, resource.Registration[movementsensor.MovementSensor, *Config]{
-		Constructor:           NewWit,
-		AttributeMapConverter: resource.TransformAttributeMap[*Config],
+		Constructor: NewWit,
 	})
 }
 

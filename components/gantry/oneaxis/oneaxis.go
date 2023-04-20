@@ -88,8 +88,7 @@ func (cfg *Config) validate() ([]string, error) {
 
 func init() {
 	resource.RegisterComponent(gantry.Subtype, modelname, resource.Registration[gantry.Gantry, *Config]{
-		Constructor:           newOneAxis,
-		AttributeMapConverter: resource.TransformAttributeMap[*Config],
+		Constructor: newOneAxis,
 	})
 }
 

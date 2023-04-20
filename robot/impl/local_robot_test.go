@@ -776,7 +776,7 @@ func TestStopAll(t *testing.T) {
 	resource.RegisterComponent(
 		arm.Subtype,
 		modelName,
-		resource.Registration[arm.Arm, any]{Constructor: func(
+		resource.Registration[arm.Arm, resource.NoNativeConfig]{Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
@@ -901,7 +901,7 @@ func TestNewTeardown(t *testing.T) {
 	resource.RegisterComponent(
 		board.Subtype,
 		modelName,
-		resource.Registration[board.Board, any]{Constructor: func(
+		resource.Registration[board.Board, resource.NoNativeConfig]{Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
@@ -912,7 +912,7 @@ func TestNewTeardown(t *testing.T) {
 	resource.RegisterComponent(
 		gripper.Subtype,
 		modelName,
-		resource.Registration[gripper.Gripper, any]{Constructor: func(
+		resource.Registration[gripper.Gripper, resource.NoNativeConfig]{Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
@@ -1461,8 +1461,8 @@ type someConfig struct {
 	Thing string
 }
 
-func (someConfig) Validate(path string) error {
-	return errors.New("fail")
+func (someConfig) Validate(path string) ([]string, error) {
+	return nil, errors.New("fail")
 }
 
 func TestValidationErrorOnReconfigure(t *testing.T) {
@@ -2594,7 +2594,7 @@ func TestMixedOrphanedResources(t *testing.T) {
 		resource.ModelName("mygizmo"))
 
 	// Register a doodad constructor and defer its deregistration.
-	resource.RegisterComponent(doodadSubtype, doodadModel, resource.Registration[resource.Resource, any]{
+	resource.RegisterComponent(doodadSubtype, doodadModel, resource.Registration[resource.Resource, resource.NoNativeConfig]{
 		Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,

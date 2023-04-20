@@ -95,7 +95,6 @@ func init() {
 
 				return theServo, nil
 			},
-			AttributeMapConverter: resource.TransformAttributeMap[*picommon.ServoConfig],
 		},
 	)
 }

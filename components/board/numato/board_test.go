@@ -115,11 +115,12 @@ func TestConfigValidate(t *testing.T) {
 	validConfig := Config{}
 
 	validConfig.Analogs = []board.AnalogConfig{{}}
-	err := validConfig.Validate("path")
+	_, err := validConfig.Validate("path")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `path.analogs.0`)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
 
 	validConfig.Analogs = []board.AnalogConfig{{Name: "bar"}}
-	test.That(t, validConfig.Validate("path"), test.ShouldBeNil)
+	_, err = validConfig.Validate("path")
+	test.That(t, err, test.ShouldBeNil)
 }

@@ -67,7 +67,6 @@ func init() {
 			) (board.Board, error) {
 				return New(ctx, deps, conf)
 			},
-			AttributeMapConverter: resource.TransformAttributeMap[*Config],
 		})
 }
 

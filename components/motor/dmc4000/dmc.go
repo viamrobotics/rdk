@@ -64,6 +64,7 @@ type Motor struct {
 
 // Config adds DMC-specific config options.
 type Config struct {
+	resource.TriviallyValidateConfig
 	DirectionFlip    bool    `json:"dir_flip,omitempty"` // Flip the direction of the signal sent if there is a Dir pin
 	MaxRPM           float64 `json:"max_rpm,omitempty"`
 	MaxAcceleration  float64 `json:"max_acceleration_rpm_per_sec,omitempty"`
@@ -94,7 +95,6 @@ func init() {
 			}
 			return NewMotor(ctx, newConf, conf.ResourceName(), logger)
 		},
-		AttributeMapConverter: resource.TransformAttributeMap[*Config],
 	})
 }
 

@@ -71,28 +71,6 @@ func init() {
 				return resource.TransformAttributeMap[*extrinsicsConfig](attributes)
 			},
 		})
-
-	resource.RegisterComponentAttributeMapConverter(camera.Subtype, extrinsicsModel,
-		func(attributes rdkutils.AttributeMap) (interface{}, error) {
-			if !attributes.Has("camera_system") {
-				return nil, errors.New("missing camera_system")
-			}
-
-			b, err := json.Marshal(attributes["camera_system"])
-			if err != nil {
-				return nil, err
-			}
-			matrices, err := transform.NewDepthColorIntrinsicsExtrinsicsFromBytes(b)
-			if err != nil {
-				return nil, err
-			}
-			if err := matrices.CheckValid(); err != nil {
-				return nil, err
-			}
-			attributes["camera_system"] = matrices
-
-			return resource.TransformAttributeMap[*extrinsicsConfig](attributes)
-		})
 }
 
 // extrinsicsConfig is the attribute struct for aligning.

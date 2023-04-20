@@ -28,11 +28,11 @@ type Config struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (cfg *Config) Validate(path string) error {
+func (cfg *Config) Validate(path string) ([]string, error) {
 	if cfg.Host == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "host")
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "host")
 	}
-	return nil
+	return nil, nil
 }
 
 func init() {
@@ -44,7 +44,6 @@ func init() {
 			}
 			return newGripper(ctx, conf.ResourceName(), newConf.Host, logger)
 		},
-		AttributeMapConverter: resource.TransformAttributeMap[*Config],
 	})
 }
 

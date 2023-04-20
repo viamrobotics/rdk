@@ -1604,7 +1604,7 @@ func TestReconfigure(t *testing.T) {
 
 	resource.RegisterSubtype(Subtype, resource.SubtypeRegistration[resource.Resource]{})
 
-	resource.Register(Subtype, resource.DefaultServiceModel, resource.Registration[resource.Resource, any]{
+	resource.Register(Subtype, resource.DefaultServiceModel, resource.Registration[resource.Resource, resource.NoNativeConfig]{
 		Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
@@ -1672,7 +1672,7 @@ func TestResourceCreationPanic(t *testing.T) {
 		)
 		model := resource.NewDefaultModel("test")
 
-		resource.RegisterComponent(subtype, model, resource.Registration[resource.Resource, any]{
+		resource.RegisterComponent(subtype, model, resource.Registration[resource.Resource, resource.NoNativeConfig]{
 			Constructor: func(ctx context.Context, deps resource.Dependencies, c resource.Config, logger golog.Logger) (resource.Resource, error) {
 				panic("hello")
 			},
@@ -1699,7 +1699,7 @@ func TestResourceCreationPanic(t *testing.T) {
 			subtypeName,
 		)
 
-		resource.Register(subtype, resource.DefaultServiceModel, resource.Registration[resource.Resource, any]{
+		resource.Register(subtype, resource.DefaultServiceModel, resource.Registration[resource.Resource, resource.NoNativeConfig]{
 			Constructor: func(
 				ctx context.Context,
 				deps resource.Dependencies,

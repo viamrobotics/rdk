@@ -36,14 +36,14 @@ func TestConfigWalker(t *testing.T) {
 		newConf, err := conf.Walk(packages.NewPackagePathVisitor(packageManager))
 		test.That(t, err, test.ShouldBeNil)
 
-		test.That(t, newConf.(*Config).ModelRegistry, test.ShouldNotBeNil)
-		test.That(t, newConf.(*Config).ModelRegistry, test.ShouldHaveLength, 1)
-		test.That(t, newConf.(*Config).ModelRegistry[0].Name, test.ShouldEqual, "my_classifier")
-		test.That(t, newConf.(*Config).ModelRegistry[0].Type, test.ShouldEqual, "classifications")
-		test.That(t, newConf.(*Config).ModelRegistry[0].Parameters, test.ShouldNotBeNil)
-		test.That(t, newConf.(*Config).ModelRegistry[0].Parameters["model_path"], test.ShouldEqual, expectedModelPath)
-		test.That(t, newConf.(*Config).ModelRegistry[0].Parameters["label_path"], test.ShouldEqual, expectedLabelPath)
-		test.That(t, newConf.(*Config).ModelRegistry[0].Parameters["num_threads"], test.ShouldEqual, 1)
+		test.That(t, newConf.ModelRegistry, test.ShouldNotBeNil)
+		test.That(t, newConf.ModelRegistry, test.ShouldHaveLength, 1)
+		test.That(t, newConf.ModelRegistry[0].Name, test.ShouldEqual, "my_classifier")
+		test.That(t, newConf.ModelRegistry[0].Type, test.ShouldEqual, "classifications")
+		test.That(t, newConf.ModelRegistry[0].Parameters, test.ShouldNotBeNil)
+		test.That(t, newConf.ModelRegistry[0].Parameters["model_path"], test.ShouldEqual, expectedModelPath)
+		test.That(t, newConf.ModelRegistry[0].Parameters["label_path"], test.ShouldEqual, expectedLabelPath)
+		test.That(t, newConf.ModelRegistry[0].Parameters["num_threads"], test.ShouldEqual, 1)
 	}
 
 	testConfigWalker(t, visionConf, "/some/path/on/robot/model.tflite", "/other/path/on/robot/textFile.txt")

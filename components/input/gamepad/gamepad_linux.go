@@ -28,14 +28,14 @@ var modelname = resource.NewDefaultModel("gamepad")
 
 // Config is used for converting config attributes.
 type Config struct {
+	resource.TriviallyValidateConfig
 	DevFile       string `json:"dev_file,omitempty"`
 	AutoReconnect bool   `json:"auto_reconnect,omitempty"`
 }
 
 func init() {
 	resource.RegisterComponent(input.Subtype, modelname, resource.Registration[input.Controller, *Config]{
-		Constructor:           NewController,
-		AttributeMapConverter: resource.TransformAttributeMap[*Config],
+		Constructor: NewController,
 	})
 }
 

@@ -34,13 +34,13 @@ func init() {
 			}
 			return NewTFLiteCPUModel(ctx, svcConf, conf.ResourceName())
 		},
-		AttributeMapConverter: resource.TransformAttributeMap[*TFLiteConfig],
 	})
 }
 
 // TFLiteConfig contains the parameters specific to a tflite_cpu implementation
 // of the MLMS (machine learning model service).
 type TFLiteConfig struct {
+	resource.TriviallyValidateConfig
 	// this should come from the attributes of the tflite_cpu instance of the MLMS
 	ModelPath  string  `json:"model_path"`
 	NumThreads int     `json:"num_threads"`

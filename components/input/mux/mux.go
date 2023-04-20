@@ -17,13 +17,13 @@ var modelname = resource.NewDefaultModel("mux")
 
 func init() {
 	resource.RegisterComponent(input.Subtype, modelname, resource.Registration[input.Controller, *Config]{
-		Constructor:           NewController,
-		AttributeMapConverter: resource.TransformAttributeMap[*Config],
+		Constructor: NewController,
 	})
 }
 
 // Config is used for converting config attributes.
 type Config struct {
+	resource.TriviallyValidateConfig
 	Sources []string `json:"sources"`
 }
 

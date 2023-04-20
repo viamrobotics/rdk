@@ -23,8 +23,7 @@ func init() {
 		encoder.Subtype,
 		incrModel,
 		resource.Registration[encoder.Encoder, *Config]{
-			Constructor:           NewIncrementalEncoder,
-			AttributeMapConverter: resource.TransformAttributeMap[*Config],
+			Constructor: NewIncrementalEncoder,
 		})
 }
 

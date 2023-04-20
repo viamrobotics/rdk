@@ -41,12 +41,12 @@ func init() {
 				// would be to reuse the monitored webcam code.
 				return audioinput.FromAudioSource(conf.ResourceName(), src)
 			},
-			AttributeMapConverter: resource.TransformAttributeMap[*Config],
 		})
 }
 
 // Config is the attribute struct for microphones.
 type Config struct {
+	resource.TriviallyValidateConfig
 	Path        string `json:"audio_path"`
 	PathPattern string `json:"audio_path_pattern"`
 	Debug       bool   `json:"debug"`

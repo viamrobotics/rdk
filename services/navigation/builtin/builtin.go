@@ -35,7 +35,6 @@ func init() {
 		) (navigation.Service, error) {
 			return NewBuiltIn(ctx, deps, conf, logger)
 		},
-		AttributeMapConverter: resource.TransformAttributeMap[*Config],
 	})
 }
 

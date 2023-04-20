@@ -533,7 +533,7 @@ func TestRemoteValidate(t *testing.T) {
 			Frame:   lc,
 		}
 
-		err := validRemote.Validate("path")
+		_, err := validRemote.Validate("path")
 		test.That(t, err, test.ShouldBeNil)
 
 		validRemote = config.Remote{
@@ -541,7 +541,7 @@ func TestRemoteValidate(t *testing.T) {
 			Address: "address",
 			Frame:   lc,
 		}
-		err = validRemote.Validate("path")
+		_, err = validRemote.Validate("path")
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(
 			t,

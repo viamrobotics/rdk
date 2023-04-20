@@ -91,8 +91,7 @@ func init() {
 		movementsensor.Subtype,
 		stationModel,
 		resource.Registration[movementsensor.MovementSensor, *StationConfig]{
-			Constructor:           newRTKStation,
-			AttributeMapConverter: resource.TransformAttributeMap[*StationConfig],
+			Constructor: newRTKStation,
 		})
 }
 

@@ -91,7 +91,7 @@ func (manager *resourceManager) addRemote(
 	rName := fromRemoteNameToRemoteNodeName(c.Name)
 	if gNode == nil {
 		gNode = resource.NewConfiguredGraphNode(resource.Config{
-			ConvertedAttributes: c,
+			ConvertedAttributes: &c,
 		}, rr, builtinModel)
 		if err := manager.resources.AddNode(rName, gNode); err != nil {
 			manager.logger.Errorw("failed to add new node for remote", "name", rName, "error", err)
@@ -457,7 +457,7 @@ func (manager *resourceManager) completeConfig(
 		manager.logger.Debugw(fmt.Sprintf("now %s a remote", verb), "resource", resName)
 		switch resName.Subtype {
 		case client.RemoteSubtype:
-			remConf, err := resource.NativeConfig[config.Remote](gNode.Config())
+			remConf, err := resource.NativeConfig[*config.Remote](gNode.Config())
 			if err != nil {
 				manager.logger.Errorw(
 					"remote config error",
@@ -467,18 +467,18 @@ func (manager *resourceManager) completeConfig(
 				continue
 			}
 			// this is done in config validation but partial start rules require us to check again
-			if err := remConf.Validate(""); err != nil {
+			if _, err := remConf.Validate(""); err != nil {
 				manager.logger.Errorw("remote config validation error", "remote", remConf.Name, "error", err)
 				gNode.SetLastError(errors.Wrap(err, "config validation error found in remote: "+remConf.Name))
 				continue
 			}
-			rr, err := manager.processRemote(ctx, remConf)
+			rr, err := manager.processRemote(ctx, *remConf)
 			if err != nil {
 				manager.logger.Errorw("error connecting to remote", "remote", remConf.Name, "error", err)
 				gNode.SetLastError(errors.Wrap(err, "remote connection error"))
 				continue
 			}
-			manager.addRemote(ctx, rr, gNode, remConf)
+			manager.addRemote(ctx, rr, gNode, *remConf)
 			rr.SetParentNotifier(func() {
 				rName := remConf.Name
 				if robot.closeContext.Err() != nil {
@@ -630,7 +630,8 @@ func cleanAppImageEnv() error {
 }
 
 // newRemotes constructs all remotes defined and integrates their parts in.
-func (manager *resourceManager) processRemote(ctx context.Context,
+func (manager *resourceManager) processRemote(
+	ctx context.Context,
 	config config.Remote,
 ) (*client.RobotClient, error) {
 	dialOpts := remoteDialOptions(config, manager.opts)
@@ -794,7 +795,8 @@ func (manager *resourceManager) updateResources(
 	}
 	for _, r := range conf.Added.Remotes {
 		rName := fromRemoteNameToRemoteNodeName(r.Name)
-		allErrs = multierr.Combine(allErrs, manager.markResourceForUpdate(rName, resource.Config{ConvertedAttributes: r}, []string{}))
+		rCopy := r
+		allErrs = multierr.Combine(allErrs, manager.markResourceForUpdate(rName, resource.Config{ConvertedAttributes: &rCopy}, []string{}))
 	}
 	for _, c := range conf.Modified.Components {
 		rName := c.ResourceName()
@@ -813,7 +815,8 @@ func (manager *resourceManager) updateResources(
 	}
 	for _, r := range conf.Modified.Remotes {
 		rName := fromRemoteNameToRemoteNodeName(r.Name)
-		allErrs = multierr.Combine(allErrs, manager.markResourceForUpdate(rName, resource.Config{ConvertedAttributes: r}, []string{}))
+		rCopy := r
+		allErrs = multierr.Combine(allErrs, manager.markResourceForUpdate(rName, resource.Config{ConvertedAttributes: &rCopy}, []string{}))
 	}
 
 	// processes are not added into the resource tree as they belong to a process manager

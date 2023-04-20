@@ -57,7 +57,7 @@ func TestModularResources(t *testing.T) {
 
 		resource.RegisterSubtype(compSubtype,
 			resource.SubtypeRegistration[resource.Resource]{ReflectRPCServiceDesc: &desc.ServiceDescriptor{}})
-		resource.RegisterComponent(compSubtype, compModel, resource.Registration[resource.Resource, any]{
+		resource.RegisterComponent(compSubtype, compModel, resource.Registration[resource.Resource, resource.NoNativeConfig]{
 			Constructor: func(
 				ctx context.Context,
 				deps resource.Dependencies,
@@ -67,7 +67,7 @@ func TestModularResources(t *testing.T) {
 				return mod.AddResource(ctx, conf, modmanager.DepsToNames(deps))
 			},
 		})
-		resource.RegisterComponent(compSubtype, compModel2, resource.Registration[resource.Resource, any]{
+		resource.RegisterComponent(compSubtype, compModel2, resource.Registration[resource.Resource, resource.NoNativeConfig]{
 			Constructor: func(
 				ctx context.Context,
 				deps resource.Dependencies,
@@ -80,7 +80,7 @@ func TestModularResources(t *testing.T) {
 
 		resource.RegisterSubtype(svcSubtype,
 			resource.SubtypeRegistration[resource.Resource]{ReflectRPCServiceDesc: &desc.ServiceDescriptor{}})
-		resource.Register(svcSubtype, svcModel, resource.Registration[resource.Resource, any]{
+		resource.Register(svcSubtype, svcModel, resource.Registration[resource.Resource, resource.NoNativeConfig]{
 			Constructor: func(
 				ctx context.Context,
 				deps resource.Dependencies,

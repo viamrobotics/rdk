@@ -19,7 +19,7 @@ var Model = resource.NewModel(
 )
 
 func init() {
-	resource.RegisterService(summationapi.Subtype, Model, resource.Registration[summationapi.Summation, any]{
+	resource.RegisterService(summationapi.Subtype, Model, resource.Registration[summationapi.Summation, resource.NoNativeConfig]{
 		Constructor: newMySum,
 	})
 }

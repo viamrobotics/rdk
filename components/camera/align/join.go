@@ -51,7 +51,6 @@ func init() {
 				}
 				return camera.FromVideoSource(conf.ResourceName(), src), nil
 			},
-			AttributeMapConverter: resource.TransformAttributeMap[*joinConfig],
 		})
 }
 

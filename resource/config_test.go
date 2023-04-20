@@ -12,7 +12,6 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/testutils"
-	"go.viam.com/rdk/utils"
 )
 
 var (
@@ -480,34 +479,6 @@ func TestServiceValidate(t *testing.T) {
 			}
 			deps, err := invalidConf.Validate("path", resource.ResourceTypeService)
 			test.That(t, deps, test.ShouldBeNil)
-			test.That(t, err, test.ShouldBeNil)
-		})
-	})
-
-	t.Run("Attributes", func(t *testing.T) {
-		t.Run("config invalid", func(t *testing.T) {
-			invalidConf := resource.Config{
-				Name:              "frame1",
-				DeprecatedSubtype: "frame_system",
-				Attributes:        utils.AttributeMap{"attr": &testutils.FakeConvertedAttributes{Thing: ""}},
-			}
-			_, err := invalidConf.Validate("path", resource.ResourceTypeService)
-			test.That(t, err, test.ShouldNotBeNil)
-			test.That(t, err.Error(), test.ShouldContainSubstring, `"Thing" is required`)
-		})
-
-		t.Run("config valid", func(t *testing.T) {
-			invalidConf := resource.Config{
-				Name:              "frame1",
-				DeprecatedSubtype: "frame_system",
-				Attributes: utils.AttributeMap{
-					"attr": testutils.FakeConvertedAttributes{
-						Thing: "i am a thing!",
-					},
-					"attr2": "boop",
-				},
-			}
-			_, err := invalidConf.Validate("path", resource.ResourceTypeService)
 			test.That(t, err, test.ShouldBeNil)
 		})
 	})

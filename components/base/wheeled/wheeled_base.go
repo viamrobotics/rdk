@@ -71,7 +71,6 @@ func init() {
 		) (base.Base, error) {
 			return CreateWheeledBase(ctx, deps, conf, logger)
 		},
-		AttributeMapConverter: resource.TransformAttributeMap[*Config],
 	}
 
 	resource.RegisterComponent(base.Subtype, ModelName, wheeledBaseComp)

@@ -59,7 +59,6 @@ func init() {
 				}
 				return newSensor(ctx, deps, conf.ResourceName(), newConf)
 			},
-			AttributeMapConverter: resource.TransformAttributeMap[*Config],
 		})
 }
 

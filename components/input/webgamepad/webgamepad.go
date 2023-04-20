@@ -16,7 +16,7 @@ import (
 var modelname = resource.NewDefaultModel("webgamepad")
 
 func init() {
-	resource.RegisterComponent(input.Subtype, modelname, resource.Registration[input.Controller, any]{
+	resource.RegisterComponent(input.Subtype, modelname, resource.Registration[input.Controller, resource.NoNativeConfig]{
 		Constructor: NewController,
 	})
 }

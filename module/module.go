@@ -371,12 +371,6 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 	return &pb.ReconfigureResourceResponse{}, coll.ReplaceOne(conf.ResourceName(), newRes)
 }
 
-// Validator is a resource configuration object that implements Validate.
-type Validator interface {
-	// Validate ensures that the object is valid and returns any implicit dependencies.
-	Validate(path string) ([]string, error)
-}
-
 // ValidateConfig receives the validation request for a resource from the parent.
 func (m *Module) ValidateConfig(ctx context.Context,
 	req *pb.ValidateConfigRequest,
@@ -391,14 +385,11 @@ func (m *Module) ValidateConfig(ctx context.Context,
 	}
 
 	if c.ConvertedAttributes != nil {
-		validator, ok := c.ConvertedAttributes.(Validator)
-		if ok {
-			implicitDeps, err := validator.Validate(c.Name)
-			if err != nil {
-				return nil, errors.Wrapf(err, "error validating resource")
-			}
-			return &pb.ValidateConfigResponse{Dependencies: implicitDeps}, nil
+		implicitDeps, err := c.ConvertedAttributes.Validate(c.Name)
+		if err != nil {
+			return nil, errors.Wrapf(err, "error validating resource")
 		}
+		return &pb.ValidateConfigResponse{Dependencies: implicitDeps}, nil
 	}
 
 	// Resource configuration object does not implement Validate, but return an
@@ -504,15 +495,15 @@ func (m *Module) OperationManager() *operation.Manager {
 // ConvertedAttributes field from the Attributes.
 func addConvertedAttributes(cfg *resource.Config) error {
 	// Try to find map converter for a resource.
-	conv := resource.FindMapConverter(cfg.API, cfg.Model)
-	if conv != nil {
-		converted, err := conv(cfg.Attributes)
-		if err != nil {
-			return errors.Wrapf(err, "error converting attributes for resource")
-		}
-		cfg.ConvertedAttributes = converted
+	reg, ok := resource.LookupRegistration(cfg.API, cfg.Model)
+	if !ok || reg.AttributeMapConverter == nil {
+		return nil
 	}
-
+	converted, err := reg.AttributeMapConverter(cfg.Attributes)
+	if err != nil {
+		return errors.Wrapf(err, "error converting attributes for resource")
+	}
+	cfg.ConvertedAttributes = converted
 	return nil
 }
 

@@ -40,8 +40,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 
 func init() {
 	resource.RegisterComponent(arm.Subtype, model, resource.Registration[arm.Arm, *Config]{
-		Constructor:           NewWrapperArm,
-		AttributeMapConverter: resource.TransformAttributeMap[*Config],
+		Constructor: NewWrapperArm,
 	})
 }
 

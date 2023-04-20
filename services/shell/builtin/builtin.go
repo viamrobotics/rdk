@@ -19,7 +19,7 @@ import (
 )
 
 func init() {
-	resource.RegisterService(shell.Subtype, resource.DefaultServiceModel, resource.Registration[shell.Service, any]{
+	resource.RegisterService(shell.Subtype, resource.DefaultServiceModel, resource.Registration[shell.Service, resource.NoNativeConfig]{
 		Constructor: func(ctx context.Context, dep resource.Dependencies, c resource.Config, logger golog.Logger) (shell.Service, error) {
 			return NewBuiltIn(c.ResourceName(), logger)
 		},

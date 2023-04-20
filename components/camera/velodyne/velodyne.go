@@ -73,15 +73,15 @@ type Config struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (conf *Config) Validate(path string) error {
+func (conf *Config) Validate(path string) ([]string, error) {
 	if conf.Port == 0 {
-		return gutils.NewConfigValidationFieldRequiredError(path, "port")
+		return nil, gutils.NewConfigValidationFieldRequiredError(path, "port")
 	}
 
 	if conf.TTLMS == 0 {
-		return gutils.NewConfigValidationFieldRequiredError(path, "ttl_ms")
+		return nil, gutils.NewConfigValidationFieldRequiredError(path, "ttl_ms")
 	}
-	return nil
+	return nil, nil
 }
 
 var modelname = resource.NewDefaultModel("velodyne")
@@ -114,7 +114,6 @@ func init() {
 
 				return New(ctx, conf.ResourceName(), logger, port, ttl)
 			},
-			AttributeMapConverter: resource.TransformAttributeMap[*Config],
 		})
 }
 

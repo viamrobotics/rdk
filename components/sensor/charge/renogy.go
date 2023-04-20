@@ -29,6 +29,7 @@ var modelname = resource.NewDefaultModel("renogy")
 
 // Config is used for converting config attributes.
 type Config struct {
+	resource.TriviallyValidateConfig
 	Path     string `json:"serial_path"`
 	Baud     int    `json:"serial_baud_rate"`
 	ModbusID byte   `json:"modbus_id"`
@@ -78,7 +79,6 @@ func init() {
 				return newSensor(conf.ResourceName(), newConf.Path,
 					newConf.Baud, newConf.ModbusID), nil
 			},
-			AttributeMapConverter: resource.TransformAttributeMap[*Config],
 		})
 }
 

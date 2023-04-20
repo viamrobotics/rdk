@@ -48,7 +48,7 @@ func modelFromName(model, name string) (referenceframe.Model, error) {
 }
 
 // Validate ensures all parts of the config are valid.
-func (conf *Config) Validate(path string) error {
+func (conf *Config) Validate(path string) ([]string, error) {
 	var err error
 	switch {
 	case conf.ArmModel != "" && conf.ModelFilePath != "":
@@ -58,13 +58,12 @@ func (conf *Config) Validate(path string) error {
 	case conf.ArmModel == "" && conf.ModelFilePath != "":
 		_, err = referenceframe.ModelFromPath(conf.ModelFilePath, "")
 	}
-	return err
+	return nil, err
 }
 
 func init() {
 	resource.RegisterComponent(arm.Subtype, ModelName, resource.Registration[arm.Arm, *Config]{
-		Constructor:           NewArm,
-		AttributeMapConverter: resource.TransformAttributeMap[*Config],
+		Constructor: NewArm,
 	})
 }
 

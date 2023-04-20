@@ -21,7 +21,7 @@ func init() {
 	resource.RegisterComponent(
 		base.Subtype,
 		resource.NewDefaultModel("fake"),
-		resource.Registration[base.Base, any]{
+		resource.Registration[base.Base, resource.NoNativeConfig]{
 			Constructor: func(
 				ctx context.Context,
 				deps resource.Dependencies,

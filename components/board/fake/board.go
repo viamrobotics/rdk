@@ -32,33 +32,33 @@ type Config struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (conf *Config) Validate(path string) error {
+func (conf *Config) Validate(path string) ([]string, error) {
 	for idx, conf := range conf.SPIs {
 		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "spis", idx)); err != nil {
-			return err
+			return nil, err
 		}
 	}
 	for idx, conf := range conf.I2Cs {
 		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "i2cs", idx)); err != nil {
-			return err
+			return nil, err
 		}
 	}
 	for idx, conf := range conf.Analogs {
 		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "analogs", idx)); err != nil {
-			return err
+			return nil, err
 		}
 	}
 	for idx, conf := range conf.DigitalInterrupts {
 		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "digital_interrupts", idx)); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
 	if conf.FailNew {
-		return errors.New("whoops")
+		return nil, errors.New("whoops")
 	}
 
-	return nil
+	return nil, nil
 }
 
 var modelName = resource.NewDefaultModel("fake")
@@ -76,7 +76,6 @@ func init() {
 			) (board.Board, error) {
 				return NewBoard(ctx, cfg, logger)
 			},
-			AttributeMapConverter: resource.TransformAttributeMap[*Config],
 		})
 }
 

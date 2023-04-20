@@ -74,7 +74,6 @@ func init() {
 			}
 			return m, nil
 		},
-		AttributeMapConverter: resource.TransformAttributeMap[*Config],
 	})
 }
 

@@ -74,7 +74,6 @@ func init() {
 			) (slam.Service, error) {
 				return NewBuiltIn(ctx, deps, c, logger, false)
 			},
-			AttributeMapConverter: resource.TransformAttributeMap[*slamConfig.Config],
 		})
 	}
 }

@@ -11,7 +11,6 @@ import (
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/utils"
 )
 
 func TestFromReaderValidate(t *testing.T) {
@@ -75,71 +74,4 @@ func TestFromReaderValidate(t *testing.T) {
 	}
 	test.That(t, expected.Ensure(false, logger), test.ShouldBeNil)
 	test.That(t, conf, test.ShouldResemble, expected)
-}
-
-func TestTransformAttributeMap(t *testing.T) {
-	type myType struct {
-		A          string            `json:"a"`
-		B          string            `json:"b"`
-		Attributes map[string]string `json:"attributes"`
-	}
-
-	attrs := utils.AttributeMap{
-		"a": "1",
-		"b": "2",
-		"c": "3",
-		"d": "4",
-		"e": 5,
-	}
-	transformed, err := resource.TransformAttributeMap[*myType](attrs)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, transformed, test.ShouldResemble, &myType{
-		A: "1",
-		B: "2",
-		Attributes: map[string]string{
-			"c": "3",
-			"d": "4",
-		},
-	})
-
-	transformed, err = resource.TransformAttributeMap[*myType](attrs)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, transformed, test.ShouldResemble, &myType{
-		A: "1",
-		B: "2",
-		Attributes: map[string]string{
-			"c": "3",
-			"d": "4",
-		},
-	})
-
-	type myExtendedType struct {
-		A          string             `json:"a"`
-		B          string             `json:"b"`
-		Attributes utils.AttributeMap `json:"attributes"`
-	}
-
-	transformedExt, err := resource.TransformAttributeMap[*myExtendedType](attrs)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, transformedExt, test.ShouldResemble, &myExtendedType{
-		A: "1",
-		B: "2",
-		Attributes: utils.AttributeMap{
-			"c": "3",
-			"d": "4",
-			"e": 5,
-		},
-	})
-
-	transformedExt, err = resource.TransformAttributeMap[*myExtendedType](attrs)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, transformedExt, test.ShouldResemble, &myExtendedType{
-		A: "1",
-		B: "2",
-		Attributes: utils.AttributeMap{
-			"c": "3",
-			"d": "4",
-			"e": 5,
-		},
-	})
 }

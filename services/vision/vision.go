@@ -126,11 +126,12 @@ type VisModelConfig struct {
 
 // Config contains a list of the user-provided details necessary to register a new vision service.
 type Config struct {
+	resource.TriviallyValidateConfig
 	ModelRegistry []VisModelConfig `json:"register_models"`
 }
 
 // Walk implements the config.Walker interface.
-func (conf *Config) Walk(visitor utils.Visitor) (interface{}, error) {
+func (conf *Config) Walk(visitor utils.Visitor) (*Config, error) {
 	for i, cfg := range conf.ModelRegistry {
 		name, err := visitor.Visit(cfg.Name)
 		if err != nil {

@@ -5,6 +5,8 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/mitchellh/mapstructure"
+	"github.com/pkg/errors"
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/referenceframe"
@@ -28,7 +30,7 @@ type Config struct {
 	AssociatedResourceConfigs []AssociatedResourceConfig `json:"service_configs"`
 
 	Attributes          utils.AttributeMap `json:"attributes"`
-	ConvertedAttributes interface{}        `json:"-"`
+	ConvertedAttributes ConfigValidator    `json:"-"`
 	ImplicitDependsOn   []string           `json:"-"`
 
 	alreadyValidated   bool
@@ -201,31 +203,8 @@ func (conf *Config) validate(path string, defaultType TypeName) ([]string, error
 	if err := conf.API.Validate(); err != nil {
 		return nil, err
 	}
-
-	for key, value := range conf.Attributes {
-		fieldPath := fmt.Sprintf("%s.%s", path, key)
-		switch v := value.(type) {
-		case validator:
-			if err := v.Validate(fieldPath); err != nil {
-				return nil, err
-			}
-		case DependencyValidator:
-			validatedDeps, err := v.Validate(fieldPath)
-			if err != nil {
-				return nil, err
-			}
-			deps = append(deps, validatedDeps...)
-		default:
-			continue
-		}
-	}
-	switch v := conf.ConvertedAttributes.(type) {
-	case validator:
-		if err := v.Validate(path); err != nil {
-			return nil, err
-		}
-	case DependencyValidator:
-		validatedDeps, err := v.Validate(path)
+	if conf.ConvertedAttributes != nil {
+		validatedDeps, err := conf.ConvertedAttributes.Validate(path)
 		if err != nil {
 			return nil, err
 		}
@@ -234,13 +213,69 @@ func (conf *Config) validate(path string, defaultType TypeName) ([]string, error
 	return deps, nil
 }
 
-// A DependencyValidator validates a configuration and also
+// A ConfigValidator validates a configuration and also
 // returns dependencies that were implicitly discovered.
-// TODO(erd): move somewhere?
-type DependencyValidator interface {
+type ConfigValidator interface {
 	Validate(path string) ([]string, error)
 }
 
-type validator interface {
-	Validate(path string) error
+// TransformAttributeMap uses an attribute map to transform attributes to the prescribed format.
+func TransformAttributeMap[T any](attributes utils.AttributeMap) (T, error) {
+	var out T
+
+	var forResult interface{}
+
+	toT := reflect.TypeOf(out)
+	if toT == nil {
+		// nothing to transform
+		return out, nil
+	}
+	if toT.Kind() == reflect.Ptr {
+		// needs to be allocated then
+		var ok bool
+		out, ok = reflect.New(toT.Elem()).Interface().(T)
+		if !ok {
+			return out, errors.Errorf("failed to allocate default config type %T", out)
+		}
+		forResult = out
+	} else {
+		forResult = &out
+	}
+
+	var md mapstructure.Metadata
+	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
+		TagName:  "json",
+		Result:   forResult,
+		Metadata: &md,
+	})
+	if err != nil {
+		return out, err
+	}
+	if err := decoder.Decode(attributes); err != nil {
+		return out, err
+	}
+	if attributes.Has("attributes") || len(md.Unused) == 0 {
+		return out, nil
+	}
+	// set as many unused attributes as possible
+	toV := reflect.ValueOf(out)
+	if toV.Kind() == reflect.Ptr {
+		toV = toV.Elem()
+	}
+	if attrsV := toV.FieldByName("Attributes"); attrsV.IsValid() &&
+		attrsV.Kind() == reflect.Map &&
+		attrsV.Type().Key().Kind() == reflect.String {
+		if attrsV.IsNil() {
+			attrsV.Set(reflect.MakeMap(attrsV.Type()))
+		}
+		mapValueType := attrsV.Type().Elem()
+		for _, key := range md.Unused {
+			val := attributes[key]
+			valV := reflect.ValueOf(val)
+			if valV.Type().AssignableTo(mapValueType) {
+				attrsV.SetMapIndex(reflect.ValueOf(key), valV)
+			}
+		}
+	}
+	return out, nil
 }

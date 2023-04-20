@@ -375,8 +375,9 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger golog.Logge
 	cfg.ConfigFilePath = unprocessedConfig.ConfigFilePath
 
 	// See if default service already exists in the config
-	unconfiguredDefaultServices := make(map[resource.Subtype]resource.Name, len(resource.DefaultServices))
-	for _, name := range resource.DefaultServices {
+	defaultServices := resource.DefaultServices()
+	unconfiguredDefaultServices := make(map[resource.Subtype]resource.Name, len(defaultServices))
+	for _, name := range defaultServices {
 		unconfiguredDefaultServices[name.Subtype] = name
 	}
 	for _, c := range cfg.Services {
@@ -414,15 +415,14 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger golog.Logge
 			resCfgsPerSubtype[copied.API] = append(resCfgsPerSubtype[copied.API], &confs[idx])
 			resName := copied.ResourceName()
 
-			conv := resource.FindMapConverter(resName.Subtype, conf.Model)
-			// inner attributes may have their own converters
-			if conv == nil {
+			reg, ok := resource.LookupRegistration(resName.Subtype, copied.Model)
+			if !ok || reg.AttributeMapConverter == nil {
 				continue
 			}
 
-			converted, err := conv(conf.Attributes)
+			converted, err := reg.AttributeMapConverter(conf.Attributes)
 			if err != nil {
-				return errors.Wrapf(err, "error converting attributes for (%s, %s)", resName.Subtype, conf.Model)
+				return errors.Wrapf(err, "error converting attributes for (%s, %s)", resName.Subtype, copied.Model)
 			}
 			confs[idx].Attributes = nil
 			confs[idx].ConvertedAttributes = converted
@@ -440,15 +440,15 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger golog.Logge
 	convertAndAssociateResourceConfigs := func(resName *resource.Name, associatedCfgs []resource.AssociatedResourceConfig) error {
 		for subIdx, associatedConf := range associatedCfgs {
 			assocSubtype := associatedConf.AssociatedSubtype()
-			conv, attachName, ok := resource.FindAssociationConfigConverter(assocSubtype)
+			conv, ok := resource.LookupAssociatedConfigRegistration(assocSubtype)
 			if !ok {
 				continue
 			}
 
 			var converted interface{} = associatedConf.Attributes
-			if conv != nil {
+			if conv.AttributeMapConverter != nil {
 				var err error
-				converted, err = conv(associatedConf.Attributes)
+				converted, err = conv.AttributeMapConverter(associatedConf.Attributes)
 				if err != nil {
 					return errors.Wrap(err, "error converting associated resource config attributes")
 				}
@@ -457,18 +457,18 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger golog.Logge
 			}
 
 			if resName != nil {
-				if err := attachName(*resName, converted); err != nil {
+				if err := conv.WithName(*resName, converted); err != nil {
 					return errors.Wrap(err, "error attaching resource name to associated resource config")
 				}
 			} // otherwise we assume the resource name is already in the associated config
 
 			// always associate
 			for _, assocConf := range resCfgsPerSubtype[assocSubtype] {
-				associate, ok := resource.FindAssocationConfigLinker(assocSubtype, assocConf.Model)
-				if !ok {
+				reg, ok := resource.LookupRegistration(assocSubtype, assocConf.Model)
+				if !ok || reg.AssociatedConfigLinker == nil {
 					continue
 				}
-				if err := associate(assocConf, converted); err != nil {
+				if err := reg.AssociatedConfigLinker(assocConf.ConvertedAttributes, converted); err != nil {
 					return errors.Wrapf(err, "error associating resource association config to resource %q", assocConf.Model)
 				}
 			}

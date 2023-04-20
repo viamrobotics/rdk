@@ -33,7 +33,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 
 	// We first put our component's constructor in the registry, then tell the module to load it
 	// Note that all resources must be added before the module is started.
-	resource.RegisterComponent(generic.Subtype, myModel, resource.Registration[resource.Resource, any]{
+	resource.RegisterComponent(generic.Subtype, myModel, resource.Registration[resource.Resource, resource.NoNativeConfig]{
 		Constructor: newCounter,
 	})
 	myMod.AddModelFromRegistry(ctx, generic.Subtype, myModel)

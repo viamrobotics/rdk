@@ -82,8 +82,7 @@ func (conf *Config) validateValues() error {
 
 func init() {
 	resource.RegisterComponent(input.Subtype, modelName, resource.Registration[input.Controller, *Config]{
-		Constructor:           NewGPIOController,
-		AttributeMapConverter: resource.TransformAttributeMap[*Config],
+		Constructor: NewGPIOController,
 	})
 }
 

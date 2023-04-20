@@ -59,8 +59,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 
 func init() {
 	resource.RegisterComponent(movementsensor.Subtype, model, resource.Registration[movementsensor.MovementSensor, *Config]{
-		Constructor:           NewVectorNav,
-		AttributeMapConverter: resource.TransformAttributeMap[*Config],
+		Constructor: NewVectorNav,
 	})
 }
 

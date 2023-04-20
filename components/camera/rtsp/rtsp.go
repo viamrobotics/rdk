@@ -37,7 +37,6 @@ func init() {
 			}
 			return NewRTSPCamera(ctx, conf.ResourceName(), newConf, logger)
 		},
-		AttributeMapConverter: resource.TransformAttributeMap[*Config],
 	})
 }
 
@@ -49,18 +48,18 @@ type Config struct {
 }
 
 // Validate checks to see if the attributes of the model are valid.
-func (conf *Config) Validate() error {
+func (conf *Config) Validate(path string) ([]string, error) {
 	_, err := url.Parse(conf.Address)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if err := conf.IntrinsicParams.CheckValid(); err != nil {
-		return err
+		return nil, err
 	}
 	if err := conf.DistortionParams.CheckValid(); err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return nil, nil
 }
 
 // rtspCamera contains the rtsp client, and the reader function that fulfills the camera interface.

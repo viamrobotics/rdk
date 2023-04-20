@@ -127,8 +127,7 @@ func init() {
 		movementsensor.Subtype,
 		roverModel,
 		resource.Registration[movementsensor.MovementSensor, *Config]{
-			Constructor:           newRTKMovementSensor,
-			AttributeMapConverter: resource.TransformAttributeMap[*Config],
+			Constructor: newRTKMovementSensor,
 		})
 }
 

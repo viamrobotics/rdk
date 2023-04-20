@@ -20,7 +20,7 @@ func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping, useP
 	resource.RegisterComponent(
 		board.Subtype,
 		resource.NewDefaultModel(resource.ModelName(modelName)),
-		resource.Registration[board.Board, any]{
+		resource.Registration[board.Board, resource.NoNativeConfig]{
 			Constructor: func(
 				ctx context.Context,
 				_ resource.Dependencies,

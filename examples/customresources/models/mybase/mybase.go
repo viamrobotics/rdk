@@ -23,8 +23,7 @@ var (
 
 func init() {
 	resource.RegisterComponent(base.Subtype, Model, resource.Registration[base.Base, *MyBaseConfig]{
-		Constructor:           newBase,
-		AttributeMapConverter: resource.TransformAttributeMap[*MyBaseConfig],
+		Constructor: newBase,
 	})
 }
 

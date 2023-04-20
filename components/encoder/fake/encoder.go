@@ -26,7 +26,6 @@ func init() {
 		) (encoder.Encoder, error) {
 			return NewEncoder(ctx, conf)
 		},
-		AttributeMapConverter: resource.TransformAttributeMap[*Config],
 	})
 }
 
@@ -72,8 +71,8 @@ type Config struct {
 }
 
 // Validate ensures all parts of a config is valid.
-func (cfg *Config) Validate(path string) error {
-	return nil
+func (cfg *Config) Validate(path string) ([]string, error) {
+	return nil, nil
 }
 
 // fakeEncoder keeps track of a fake motor position.

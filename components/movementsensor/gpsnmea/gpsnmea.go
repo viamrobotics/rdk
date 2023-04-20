@@ -104,8 +104,7 @@ func init() {
 		movementsensor.Subtype,
 		modelname,
 		resource.Registration[movementsensor.MovementSensor, *Config]{
-			Constructor:           newNMEAGPS,
-			AttributeMapConverter: resource.TransformAttributeMap[*Config],
+			Constructor: newNMEAGPS,
 		})
 }
 

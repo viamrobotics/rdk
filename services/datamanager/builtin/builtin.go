@@ -26,40 +26,24 @@ import (
 )
 
 func init() {
-	resource.RegisterService(datamanager.Subtype, resource.DefaultServiceModel, resource.Registration[datamanager.Service, *Config]{
-		Constructor: func(
-			ctx context.Context,
-			deps resource.Dependencies,
-			conf resource.Config,
-			logger golog.Logger,
-		) (datamanager.Service, error) {
-			return NewBuiltIn(ctx, deps, conf, logger)
-		},
-		AttributeMapConverter: resource.TransformAttributeMap[*Config],
-	})
-	// TODO(erd): how do
-	resource.RegisterAssocationConfigLinker(
+	resource.RegisterDefaultService(
 		datamanager.Subtype,
 		resource.DefaultServiceModel,
-		func(conf *resource.Config, resAssociation interface{}) error {
-			resConfig, err := resource.NativeConfig[*Config](*conf)
-			if err != nil {
-				return err
-			}
+		resource.Registration[datamanager.Service, *Config]{
+			Constructor: NewBuiltIn,
+			AssociatedConfigLinker: func(conf *Config, resAssociation interface{}) error {
+				capConf, err := utils.AssertType[*datamanager.DataCaptureConfigs](resAssociation)
+				if err != nil {
+					return err
+				}
+				for _, method := range capConf.CaptureMethods {
+					methodCopy := method
+					conf.ResourceConfigs = append(conf.ResourceConfigs, &methodCopy)
+				}
 
-			capConf, err := utils.AssertType[*datamanager.DataCaptureConfigs](resAssociation)
-			if err != nil {
-				return err
-			}
-			for _, method := range capConf.CaptureMethods {
-				methodCopy := method
-				resConfig.ResourceConfigs = append(resConfig.ResourceConfigs, &methodCopy)
-			}
-
-			return nil
-		},
-	)
-	resource.AddDefaultService(datamanager.Named(resource.DefaultServiceName))
+				return nil
+			},
+		})
 }
 
 // TODO: re-determine if queue size is optimal given we now support 10khz+ capture rates

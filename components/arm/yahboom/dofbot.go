@@ -75,15 +75,15 @@ type Config struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (conf *Config) Validate(path string) error {
+func (conf *Config) Validate(path string) ([]string, error) {
 	if conf.Board == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "board")
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
 	}
 
 	if conf.I2C == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "i2c")
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "i2c")
 	}
-	return nil
+	return nil, nil
 }
 
 func init() {

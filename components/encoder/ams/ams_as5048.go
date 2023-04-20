@@ -37,8 +37,7 @@ func init() {
 		encoder.Subtype,
 		modelName,
 		resource.Registration[encoder.Encoder, *Config]{
-			Constructor:           newAS5048Encoder,
-			AttributeMapConverter: resource.TransformAttributeMap[*Config],
+			Constructor: newAS5048Encoder,
 		},
 	)
 }

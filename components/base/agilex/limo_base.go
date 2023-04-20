@@ -61,7 +61,6 @@ func init() {
 		) (base.Base, error) {
 			return CreateLimoBase(ctx, conf, logger)
 		},
-		AttributeMapConverter: resource.TransformAttributeMap[*Config],
 	})
 }
 
@@ -103,6 +102,7 @@ type limoBase struct {
 
 // Config is how you configure a limo base.
 type Config struct {
+	resource.TriviallyValidateConfig
 	DriveMode    string `json:"drive_mode"`
 	SerialDevice string `json:"serial_path"` // path to /dev/ttyXXXX file
 

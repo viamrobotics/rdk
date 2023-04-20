@@ -658,8 +658,8 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 
 	updateResourceWeakDependents := func(conf resource.Config) {
 		resName := conf.ResourceName()
-		deps := resource.LookupWeakDependency(resName.Subtype, conf.Model)
-		if len(deps) == 0 {
+		reg, ok := resource.LookupRegistration(resName.Subtype, conf.Model)
+		if !ok || len(reg.WeakDependencies) == 0 {
 			return
 		}
 		res, err := r.ResourceByName(resName)
@@ -669,8 +669,8 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 			}
 			return
 		}
-		dependencies := make(resource.Dependencies, len(deps))
-		for _, dep := range deps {
+		dependencies := make(resource.Dependencies, len(reg.WeakDependencies))
+		for _, dep := range reg.WeakDependencies {
 			switch dep {
 			case internal.ComponentDependencyWildcardMatcher:
 				for k, v := range components {
@@ -763,14 +763,14 @@ func (r *localRobot) DiscoverComponents(ctx context.Context, qs []resource.Disco
 
 	discoveries := make([]resource.Discovery, 0, len(deduped))
 	for q := range deduped {
-		discoveryFunction, ok := resource.LookupDiscoveryFunction(q)
-		if !ok {
+		reg, ok := resource.LookupRegistration(q.API, q.Model)
+		if !ok || reg.Discover == nil {
 			r.logger.Warnw("no discovery function registered", "subtype", q.API, "model", q.Model)
 			continue
 		}
 
-		if discoveryFunction != nil {
-			discovered, err := discoveryFunction(ctx, r.logger.Named("discovery"))
+		if reg.Discover != nil {
+			discovered, err := reg.Discover(ctx, r.logger.Named("discovery"))
 			if err != nil {
 				return nil, &resource.DiscoverError{Query: q}
 			}
@@ -820,7 +820,7 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	for idx, val := range newConfig.Services {
 		seen[val.API] = idx
 	}
-	for _, name := range resource.DefaultServices {
+	for _, name := range resource.DefaultServices() {
 		existingConfIdx, hasExistingConf := seen[name.Subtype]
 		var svcCfg resource.Config
 		if hasExistingConf {
@@ -843,21 +843,19 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 		}
 
 		// we find dependencies through configs, so we must try to validate even a default config
-		if conv := resource.FindMapConverter(svcCfg.API, svcCfg.Model); conv != nil {
-			converted, err := conv(utils.AttributeMap{})
+		if reg, ok := resource.LookupRegistration(svcCfg.API, svcCfg.Model); ok && reg.AttributeMapConverter != nil {
+			converted, err := reg.AttributeMapConverter(utils.AttributeMap{})
 			if err != nil {
 				allErrs = multierr.Combine(allErrs, errors.Wrapf(err, "error converting attributes for %s", svcCfg.API))
 				continue
 			}
 			svcCfg.ConvertedAttributes = converted
-			if v, ok := converted.(resource.DependencyValidator); ok {
-				deps, err := v.Validate("")
-				if err != nil {
-					allErrs = multierr.Combine(allErrs, errors.Wrapf(err, "error getting default service dependencies for %s", svcCfg.API))
-					continue
-				}
-				svcCfg.ImplicitDependsOn = deps
+			deps, err := converted.Validate("")
+			if err != nil {
+				allErrs = multierr.Combine(allErrs, errors.Wrapf(err, "error getting default service dependencies for %s", svcCfg.API))
+				continue
 			}
+			svcCfg.ImplicitDependsOn = deps
 		}
 		if hasExistingConf {
 			newConfig.Services[existingConfIdx] = svcCfg
@@ -984,29 +982,35 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	}
 }
 
-func (r *localRobot) replacePackageReferencesWithPaths(cfg *config.Config) error {
-	walkConvertedAttributes := func(convertedAttributes interface{}, allErrs error) (interface{}, error) {
-		// Replace all package references with the actual path containing the package
-		// on the robot.
-		if walker, ok := convertedAttributes.(utils.Walker); ok {
-			newAttrs, err := walker.Walk(packages.NewPackagePathVisitor(r.packageManager))
-			if err != nil {
-				allErrs = multierr.Combine(allErrs, err)
-				return convertedAttributes, allErrs
-			}
-			convertedAttributes = newAttrs
+func walkConvertedAttributes[T any](pacMan packages.ManagerSyncer, convertedAttributes T, allErrs error) (T, error) {
+	// Replace all package references with the actual path containing the package
+	// on the robot.
+	var asIfc interface{} = convertedAttributes
+	if walker, ok := asIfc.(utils.Walker); ok {
+		newAttrs, err := walker.Walk(packages.NewPackagePathVisitor(pacMan))
+		if err != nil {
+			allErrs = multierr.Combine(allErrs, err)
+			return convertedAttributes, allErrs
 		}
-		return convertedAttributes, allErrs
+		newAttrsTyped, err := utils.AssertType[T](newAttrs)
+		if err != nil {
+			var zero T
+			return zero, err
+		}
+		convertedAttributes = newAttrsTyped
 	}
+	return convertedAttributes, allErrs
+}
 
+func (r *localRobot) replacePackageReferencesWithPaths(cfg *config.Config) error {
 	var allErrs error
 	for i, s := range cfg.Services {
-		s.ConvertedAttributes, allErrs = walkConvertedAttributes(s.ConvertedAttributes, allErrs)
+		s.ConvertedAttributes, allErrs = walkConvertedAttributes(r.packageManager, s.ConvertedAttributes, allErrs)
 		cfg.Services[i] = s
 	}
 
 	for i, c := range cfg.Components {
-		c.ConvertedAttributes, allErrs = walkConvertedAttributes(c.ConvertedAttributes, allErrs)
+		c.ConvertedAttributes, allErrs = walkConvertedAttributes(r.packageManager, c.ConvertedAttributes, allErrs)
 		cfg.Components[i] = c
 	}
 

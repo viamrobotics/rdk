@@ -14,11 +14,8 @@ import (
 var modelname = resource.NewDefaultModel("fake")
 
 // Config is the config for a trossen gripper.
-type Config struct{}
-
-// Validate ensures all parts of the config are valid.
-func (conf *Config) Validate(path string) error {
-	return nil
+type Config struct {
+	resource.TriviallyValidateConfig
 }
 
 func init() {
@@ -28,7 +25,6 @@ func init() {
 				Named: conf.ResourceName().AsNamed(),
 			}, nil
 		},
-		AttributeMapConverter: resource.TransformAttributeMap[*Config],
 	})
 }
 

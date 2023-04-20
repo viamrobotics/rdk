@@ -93,7 +93,7 @@ func TestSessions(t *testing.T) {
 			resource.RegisterComponent(
 				motor.Subtype,
 				modelName,
-				resource.Registration[motor.Motor, any]{Constructor: func(
+				resource.Registration[motor.Motor, resource.NoNativeConfig]{Constructor: func(
 					ctx context.Context,
 					deps resource.Dependencies,
 					conf resource.Config,
@@ -107,7 +107,7 @@ func TestSessions(t *testing.T) {
 			resource.RegisterComponent(
 				echoSubType,
 				streamModelName,
-				resource.Registration[resource.Resource, any]{
+				resource.Registration[resource.Resource, resource.NoNativeConfig]{
 					Constructor: func(
 						ctx context.Context,
 						_ resource.Dependencies,
@@ -121,7 +121,7 @@ func TestSessions(t *testing.T) {
 			resource.RegisterComponent(
 				base.Subtype,
 				modelName,
-				resource.Registration[base.Base, any]{
+				resource.Registration[base.Base, resource.NoNativeConfig]{
 					Constructor: func(
 						ctx context.Context,
 						_ resource.Dependencies,
@@ -291,7 +291,7 @@ func TestSessionsWithRemote(t *testing.T) {
 	resource.RegisterComponent(
 		motor.Subtype,
 		modelName,
-		resource.Registration[motor.Motor, any]{
+		resource.Registration[motor.Motor, resource.NoNativeConfig]{
 			Constructor: func(
 				ctx context.Context,
 				deps resource.Dependencies,
@@ -310,7 +310,7 @@ func TestSessionsWithRemote(t *testing.T) {
 	resource.RegisterComponent(
 		echoSubType,
 		streamModelName,
-		resource.Registration[resource.Resource, any]{
+		resource.Registration[resource.Resource, resource.NoNativeConfig]{
 			Constructor: func(
 				ctx context.Context,
 				_ resource.Dependencies,
@@ -324,7 +324,7 @@ func TestSessionsWithRemote(t *testing.T) {
 	resource.RegisterComponent(
 		base.Subtype,
 		modelName,
-		resource.Registration[base.Base, any]{
+		resource.Registration[base.Base, resource.NoNativeConfig]{
 			Constructor: func(
 				ctx context.Context,
 				_ resource.Dependencies,
@@ -550,7 +550,7 @@ func TestSessionsMixedClients(t *testing.T) {
 	resource.RegisterComponent(
 		motor.Subtype,
 		modelName,
-		resource.Registration[motor.Motor, any]{
+		resource.Registration[motor.Motor, resource.NoNativeConfig]{
 			Constructor: func(
 				ctx context.Context,
 				deps resource.Dependencies,
@@ -639,7 +639,7 @@ func TestSessionsMixedOwnersNoAuth(t *testing.T) {
 	resource.RegisterComponent(
 		motor.Subtype,
 		modelName,
-		resource.Registration[motor.Motor, any]{
+		resource.Registration[motor.Motor, resource.NoNativeConfig]{
 			Constructor: func(
 				ctx context.Context,
 				deps resource.Dependencies,
@@ -740,7 +740,7 @@ func TestSessionsMixedOwnersImplicitAuth(t *testing.T) {
 	resource.RegisterComponent(
 		motor.Subtype,
 		modelName,
-		resource.Registration[motor.Motor, any]{
+		resource.Registration[motor.Motor, resource.NoNativeConfig]{
 			Constructor: func(
 				ctx context.Context,
 				deps resource.Dependencies,

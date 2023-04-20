@@ -33,16 +33,11 @@ func init() {
 		camera.Subtype,
 		model,
 		resource.Registration[camera.Camera, *WebcamConfig]{
-			Constructor:           NewWebcam,
-			AttributeMapConverter: resource.TransformAttributeMap[*WebcamConfig],
+			Constructor: NewWebcam,
+			Discover: func(ctx context.Context, logger golog.Logger) (interface{}, error) {
+				return Discover(ctx, getVideoDrivers, logger)
+			},
 		})
-
-	resource.RegisterDiscoveryFunction(
-		resource.NewDiscoveryQuery(camera.Subtype, model),
-		func(ctx context.Context, logger golog.Logger) (interface{}, error) {
-			return Discover(ctx, getVideoDrivers, logger)
-		},
-	)
 }
 
 func getVideoDrivers() []driver.Driver {
@@ -128,6 +123,7 @@ func getProperties(d driver.Driver) (_ []prop.Media, err error) {
 
 // WebcamConfig is the attribute struct for webcams.
 type WebcamConfig struct {
+	resource.TriviallyValidateConfig
 	CameraParameters     *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters,omitempty"`
 	DistortionParameters *transform.BrownConrady            `json:"distortion_parameters,omitempty"`
 	Debug                bool                               `json:"debug,omitempty"`

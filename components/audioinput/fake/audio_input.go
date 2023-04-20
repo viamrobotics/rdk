@@ -23,7 +23,7 @@ func init() {
 	resource.RegisterComponent(
 		audioinput.Subtype,
 		resource.NewDefaultModel("fake"),
-		resource.Registration[audioinput.AudioInput, any]{Constructor: func(
+		resource.Registration[audioinput.AudioInput, resource.NoNativeConfig]{Constructor: func(
 			_ context.Context,
 			_ resource.Dependencies,
 			conf resource.Config,

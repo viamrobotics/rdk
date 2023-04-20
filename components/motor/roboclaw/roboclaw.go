@@ -29,19 +29,19 @@ type Config struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (conf *Config) Validate(path string) error {
+func (conf *Config) Validate(path string) ([]string, error) {
 	if conf.Number < 1 || conf.Number > 2 {
-		return conf.wrongNumberError()
+		return nil, conf.wrongNumberError()
 	}
 	if conf.SerialPath == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "serial_path")
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "serial_path")
 	}
 
 	if conf.SerialBaud <= 0 {
-		return utils.NewConfigValidationFieldRequiredError(path, "serial_baud_rate")
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "serial_baud_rate")
 	}
 
-	return nil
+	return nil, nil
 }
 
 func (conf *Config) wrongNumberError() error {
@@ -61,7 +61,6 @@ func init() {
 			) (motor.Motor, error) {
 				return newRoboClaw(deps, conf, logger)
 			},
-			AttributeMapConverter: resource.TransformAttributeMap[*Config],
 		},
 	)
 }

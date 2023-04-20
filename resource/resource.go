@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"regexp"
 	"strings"
 
@@ -411,6 +412,22 @@ type TriviallyCloseable struct{}
 // Close always returns no error.
 func (t TriviallyCloseable) Close(ctx context.Context) error {
 	return nil
+}
+
+// TriviallyValidateConfig is to be embedded by any resource config that does not care about
+// its validation or implicit dependencies; use this carefully.
+type TriviallyValidateConfig struct{}
+
+// Validate always succeeds and produces no dependencies.
+func (t TriviallyValidateConfig) Validate(path string) ([]string, error) {
+	return nil, nil
+}
+
+var noNativeConfigType = reflect.TypeOf(NoNativeConfig{})
+
+// NoNativeConfig is used by types that have no significant native config.
+type NoNativeConfig struct {
+	TriviallyValidateConfig
 }
 
 // AlwaysRebuild is to be embedded by any resource that must always rebuild

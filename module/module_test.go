@@ -418,7 +418,6 @@ func TestAttributeConversion(t *testing.T) {
 				createDeps1 = deps
 				return &inject.ShellService{}, nil
 			},
-			AttributeMapConverter: resource.TransformAttributeMap[*MockConfig],
 		})
 		test.That(t, m.AddModelFromRegistry(ctx, shell.Subtype, model), test.ShouldBeNil)
 
@@ -435,7 +434,6 @@ func TestAttributeConversion(t *testing.T) {
 				reconfigDeps1 = deps
 				return injectable, nil
 			},
-			AttributeMapConverter: resource.TransformAttributeMap[*MockConfig],
 		})
 		test.That(t, m.AddModelFromRegistry(ctx, shell.Subtype, modelWithReconfigure), test.ShouldBeNil)
 

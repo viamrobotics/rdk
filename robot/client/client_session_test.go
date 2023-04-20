@@ -63,7 +63,7 @@ func init() {
 	resource.RegisterComponent(
 		echoSubType,
 		resource.NewDefaultModel("fake"),
-		resource.Registration[resource.Resource, any]{
+		resource.Registration[resource.Resource, resource.NoNativeConfig]{
 			Constructor: func(
 				ctx context.Context,
 				_ resource.Dependencies,

@@ -19,7 +19,7 @@ func init() {
 	resource.RegisterComponent(
 		board.Subtype,
 		picommon.ModelName,
-		resource.Registration[board.Board, any]{Constructor: func(
+		resource.Registration[board.Board, resource.NoNativeConfig]{Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
@@ -30,7 +30,7 @@ func init() {
 	resource.RegisterComponent(
 		servo.Subtype,
 		picommon.ModelName,
-		resource.Registration[servo.Servo, any]{
+		resource.Registration[servo.Servo, resource.NoNativeConfig]{
 			Constructor: func(
 				ctx context.Context,
 				deps resource.Dependencies,

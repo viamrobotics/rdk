@@ -14,36 +14,35 @@ import (
 )
 
 func init() {
-	resource.RegisterSubtype(Subtype, resource.SubtypeRegistration[Service]{
-		RPCServiceServerConstructor: NewRPCServiceServer,
-		RPCServiceHandler:           servicepb.RegisterDataManagerServiceHandlerFromEndpoint,
-		RPCServiceDesc:              &servicepb.DataManagerService_ServiceDesc,
-		RPCClient:                   NewClientFromConn,
-		MaxInstance:                 resource.DefaultMaxInstance,
-	})
-	resource.RegisterAssociationConfigConverter(
+	resource.RegisterSubtypeWithAssociation(
 		Subtype,
-		func(attributes utils.AttributeMap) (interface{}, error) {
-			md, err := json.Marshal(attributes)
-			if err != nil {
-				return nil, err
-			}
-			var conf DataCaptureConfigs
-			if err := json.Unmarshal(md, &conf); err != nil {
-				return nil, err
-			}
-			return &conf, nil
+		resource.SubtypeRegistration[Service]{
+			RPCServiceServerConstructor: NewRPCServiceServer,
+			RPCServiceHandler:           servicepb.RegisterDataManagerServiceHandlerFromEndpoint,
+			RPCServiceDesc:              &servicepb.DataManagerService_ServiceDesc,
+			RPCClient:                   NewClientFromConn,
+			MaxInstance:                 resource.DefaultMaxInstance,
 		},
-		func(resName resource.Name, resAssociation interface{}) error {
-			capConf, err := utils.AssertType[*DataCaptureConfigs](resAssociation)
-			if err != nil {
-				return err
-			}
-			for idx := range capConf.CaptureMethods {
-				capConf.CaptureMethods[idx].Name = resName
-			}
-			return nil
-		})
+		resource.AssociatedConfigRegistration[*DataCaptureConfigs]{
+			AttributeMapConverter: func(attributes utils.AttributeMap) (*DataCaptureConfigs, error) {
+				md, err := json.Marshal(attributes)
+				if err != nil {
+					return nil, err
+				}
+				var conf DataCaptureConfigs
+				if err := json.Unmarshal(md, &conf); err != nil {
+					return nil, err
+				}
+				return &conf, nil
+			},
+			WithName: func(resName resource.Name, resAssociation *DataCaptureConfigs) error {
+				for idx := range resAssociation.CaptureMethods {
+					resAssociation.CaptureMethods[idx].Name = resName
+				}
+				return nil
+			},
+		},
+	)
 }
 
 // Service defines what a Data Manager Service should expose to the users.

@@ -30,7 +30,10 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 	if err != nil {
 		return err
 	}
-	resource.RegisterComponent(generic.Subtype, myModel, resource.Registration[resource.Resource, any]{Constructor: newHelper})
+	resource.RegisterComponent(
+		generic.Subtype,
+		myModel,
+		resource.Registration[resource.Resource, resource.NoNativeConfig]{Constructor: newHelper})
 	err = myMod.AddModelFromRegistry(ctx, generic.Subtype, myModel)
 	if err != nil {
 		return err

@@ -67,7 +67,6 @@ func init() {
 			}
 			return NewMotor(ctx, deps, newConf, conf.ResourceName(), logger)
 		},
-		AttributeMapConverter: resource.TransformAttributeMap[*Config],
 	})
 }
 

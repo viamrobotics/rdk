@@ -25,7 +25,7 @@ import (
 )
 
 func init() {
-	resource.RegisterService(vision.Subtype, resource.DefaultServiceModel, resource.Registration[vision.Service, *vision.Config]{
+	resource.RegisterDefaultService(vision.Subtype, resource.DefaultServiceModel, resource.Registration[vision.Service, *vision.Config]{
 		DeprecatedRobotConstructor: func(
 			ctx context.Context,
 			r any,
@@ -38,9 +38,7 @@ func init() {
 			}
 			return NewBuiltIn(ctx, actualR, c, logger)
 		},
-		AttributeMapConverter: resource.TransformAttributeMap[*vision.Config],
 	})
-	resource.AddDefaultService(vision.Named(resource.DefaultServiceName))
 }
 
 // RadiusClusteringSegmenter is  the name of a segmenter that finds well separated objects on a flat plane.

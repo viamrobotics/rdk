@@ -129,8 +129,7 @@ func init() {
 		movementsensor.Subtype,
 		modelName,
 		resource.Registration[movementsensor.MovementSensor, *Config]{
-			Constructor:           NewAdxl345,
-			AttributeMapConverter: resource.TransformAttributeMap[*Config],
+			Constructor: NewAdxl345,
 		})
 }
 
