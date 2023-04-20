@@ -18,7 +18,7 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-var model = resource.NewDefaultModel("ml_model")
+var model = resource.NewDefaultModel("mlmodel")
 
 func init() {
 	registry.RegisterService(vision.Subtype, model, registry.Service{

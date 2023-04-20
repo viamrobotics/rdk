@@ -40,7 +40,7 @@ func buildRobotWithClassifier(logger golog.Logger) (robot.Robot, error) {
 	visionSrv1 := config.Service{
 		Name:  "vision_classifier",
 		Type:  vision.SubtypeName,
-		Model: resource.NewDefaultModel("ml_model"),
+		Model: resource.NewDefaultModel("mlmodel"),
 		Attributes: config.AttributeMap{
 			"ml_model_name": "object_classifier",
 		},

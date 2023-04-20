@@ -76,7 +76,7 @@ func buildRobotWithFakeCamera(logger golog.Logger) (robot.Robot, error) {
 	visionSrv1 := config.Service{
 		Name:  "vision_classifier",
 		Type:  vision.SubtypeName,
-		Model: resource.NewDefaultModel("ml_model"),
+		Model: resource.NewDefaultModel("mlmodel"),
 		Attributes: config.AttributeMap{
 			"ml_model_name": "object_classifier",
 		},
@@ -97,7 +97,7 @@ func buildRobotWithFakeCamera(logger golog.Logger) (robot.Robot, error) {
 	visionSrv2 := config.Service{
 		Name:  "vision_detector",
 		Type:  vision.SubtypeName,
-		Model: resource.NewDefaultModel("ml_model"),
+		Model: resource.NewDefaultModel("mlmodel"),
 		Attributes: config.AttributeMap{
 			"ml_model_name": "detector_tflite",
 		},
