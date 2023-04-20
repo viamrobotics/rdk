@@ -206,6 +206,8 @@ const refresh2d = async (name: string) => {
 const handleRefresh2dResponse = (response: MapAndPose): void => {
   pointcloud = response.map;
   pose = response.pose;
+
+  // we round to the tenths per figma design
   basePose.setX(Number(pose!.getX()!.toFixed(1)!))
   basePose.setY(Number(pose!.getY()!.toFixed(1)!))
   basePose.setZ(Number(pose!.getZ()!.toFixed(1)!))
