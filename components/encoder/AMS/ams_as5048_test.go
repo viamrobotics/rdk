@@ -96,7 +96,7 @@ func TestAMSEncoder(t *testing.T) {
 	t.Run("test automatically set to type ticks", func(t *testing.T) {
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			pos, _, _ := enc.GetPosition(ctx, encoder.PositionTypeUNSPECIFIED.Enum(), nil)
-			test.That(t, pos, test.ShouldNotEqual, 0.0)
+			test.That(tb, pos, test.ShouldNotEqual, 0.0)
 		})
 		pos, posType, _ := enc.GetPosition(ctx, encoder.PositionTypeUNSPECIFIED.Enum(), nil)
 		test.That(t, pos, test.ShouldAlmostEqual, 0.4, 0.1)
@@ -105,7 +105,7 @@ func TestAMSEncoder(t *testing.T) {
 	t.Run("test ticks type from input", func(t *testing.T) {
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			pos, _, _ := enc.GetPosition(ctx, encoder.PositionTypeTICKS.Enum(), nil)
-			test.That(t, pos, test.ShouldNotEqual, 0.0)
+			test.That(tb, pos, test.ShouldNotEqual, 0.0)
 		})
 		pos, posType, _ := enc.GetPosition(ctx, encoder.PositionTypeUNSPECIFIED.Enum(), nil)
 		test.That(t, pos, test.ShouldAlmostEqual, 0.4, 0.1)
@@ -114,7 +114,7 @@ func TestAMSEncoder(t *testing.T) {
 	t.Run("test degrees type from input", func(t *testing.T) {
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			pos, _, _ := enc.GetPosition(ctx, encoder.PositionTypeTICKS.Enum(), nil)
-			test.That(t, pos, test.ShouldNotEqual, 0.0)
+			test.That(tb, pos, test.ShouldNotEqual, 0.0)
 		})
 		pos, posType, _ := enc.GetPosition(ctx, encoder.PositionTypeDEGREES.Enum(), nil)
 		test.That(t, pos, test.ShouldAlmostEqual, 142, 0.1)
@@ -186,8 +186,8 @@ func TestAMSEncoderReset(t *testing.T) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			pos, posType, _ := enc.GetPosition(ctx, encoder.PositionTypeUNSPECIFIED.Enum(), nil)
-			test.That(t, pos, test.ShouldAlmostEqual, 0, 0.1)
-			test.That(t, posType, test.ShouldEqual, 1)
+			test.That(tb, pos, test.ShouldAlmostEqual, 0, 0.1)
+			test.That(tb, posType, test.ShouldEqual, 1)
 		})
 
 		test.That(t, writeData[0x16], test.ShouldEqual, byte(100))
