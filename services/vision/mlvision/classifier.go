@@ -6,6 +6,7 @@ import (
 	"math"
 	"strconv"
 
+	"github.com/montanaflynn/stats"
 	"github.com/nfnt/resize"
 	"github.com/pkg/errors"
 
@@ -47,7 +48,8 @@ func attemptToBuildClassifier(mlm mlmodel.Service) (classification.Classifier, e
 		}
 
 		probs := unpack(outMap, "probability", md)
-		confs := softmax(probs)
+
+		confs := checkClassificationScores(probs)
 		classifications := make(classification.Classifications, 0, len(confs))
 		for i := 0; i < len(confs); i++ {
 			if labels != nil {
@@ -60,7 +62,7 @@ func attemptToBuildClassifier(mlm mlmodel.Service) (classification.Classifier, e
 	}, nil
 }
 
-// softmax takes the input slice and applies the softmax function
+// softmax takes the input slice and applies the softmax function.
 func softmax(in []float64) []float64 {
 	out := make([]float64, 0, len(in))
 	bigSum := 0.0
@@ -71,4 +73,27 @@ func softmax(in []float64) []float64 {
 		out = append(out, math.Exp(x)/bigSum)
 	}
 	return out
+}
+
+// checkClassification scores ensures that the input scores (output of classifier)
+// will represent confidence values (from 0-1).
+func checkClassificationScores(in []float64) []float64 {
+	if len(in) > 1 {
+		for _, p := range in {
+			if p < 0 || p > 1 { // is logit, needs softmax
+				confs := softmax(in)
+				return confs
+			}
+		}
+		return in // no need to softmax
+	}
+	// otherwise, this is a binary classifier
+	if in[0] < -1 || in[0] > 1 { // needs sigmoid
+		out, err := stats.Sigmoid(in)
+		if err != nil {
+			return in
+		}
+		return out
+	}
+	return in // no need to sigmoid
 }

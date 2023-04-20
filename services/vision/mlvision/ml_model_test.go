@@ -2,17 +2,68 @@ package mlvision
 
 import (
 	"context"
-	"fmt"
-	"github.com/edaniels/golog"
-	"go.viam.com/rdk/testutils/inject"
 	"testing"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/services/mlmodel/tflitecpu"
+	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/vision/classification"
 )
+
+func BenchmarkAddMLVisionModel(b *testing.B) {
+	modelLoc := artifact.MustPath("vision/tflite/effdet0.tflite")
+
+	name := "myMLModel"
+	cfg := tflitecpu.TFLiteConfig{
+		ModelPath:  modelLoc,
+		NumThreads: 2,
+	}
+	ctx := context.Background()
+	out, err := tflitecpu.NewTFLiteCPUModel(ctx, &cfg, name)
+	test.That(b, err, test.ShouldBeNil)
+	test.That(b, out, test.ShouldNotBeNil)
+	modelCfg := MLModelConfig{ModelName: name}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		service, err := registerMLModelVisionService(ctx, name, &modelCfg, &inject.Robot{}, golog.NewLogger("benchmark"))
+		test.That(b, err, test.ShouldBeNil)
+		test.That(b, service, test.ShouldNotBeNil)
+	}
+}
+
+func BenchmarkUseMLVisionModel(b *testing.B) {
+	modelLoc := artifact.MustPath("vision/tflite/effdet0.tflite")
+	pic, err := rimage.NewImageFromFile(artifact.MustPath("vision/tflite/dogscute.jpeg"))
+	test.That(b, err, test.ShouldBeNil)
+	test.That(b, pic, test.ShouldNotBeNil)
+	name := "myMLModel"
+	cfg := tflitecpu.TFLiteConfig{
+		ModelPath:  modelLoc,
+		NumThreads: 2,
+	}
+	ctx := context.Background()
+	out, err := tflitecpu.NewTFLiteCPUModel(ctx, &cfg, name)
+	test.That(b, err, test.ShouldBeNil)
+	test.That(b, out, test.ShouldNotBeNil)
+	modelCfg := MLModelConfig{ModelName: name}
+
+	service, err := registerMLModelVisionService(ctx, name, &modelCfg, &inject.Robot{}, golog.NewLogger("benchmark"))
+	test.That(b, err, test.ShouldBeNil)
+	test.That(b, service, test.ShouldNotBeNil)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		// Detections should be worst case (more to unpack)
+		detections, err := service.Detections(ctx, pic, nil)
+		test.That(b, err, test.ShouldBeNil)
+		test.That(b, detections, test.ShouldNotBeNil)
+	}
+}
 
 func TestNewMLDetector(t *testing.T) {
 	// Test that a detector would give an expected output on the dog image
@@ -146,7 +197,8 @@ func TestNewMLClassifier(t *testing.T) {
 	test.That(t, topNL[1].Score(), test.ShouldBeLessThan, 0.01)
 }
 
-//func TestMoreMLDetectors(t *testing.T) {
+// func TestMoreMLClassifiers(t *testing.T) {
+// func TestMoreMLDetectors(t *testing.T) {
 //	// Test that a detector would give an expected output on the dog image
 //	pic, err := rimage.NewImageFromFile(artifact.MustPath("vision/tflite/dogscute.jpeg"))
 //	test.That(t, err, test.ShouldBeNil)
@@ -177,7 +229,6 @@ func TestNewMLClassifier(t *testing.T) {
 //	// TODO: Khari, add the other model and make them work without metadata!?
 //}
 
-// TODO: Khari, also copy all the other tests
 func TestLabelReader(t *testing.T) {
 	ctx := context.Background()
 	modelLoc := artifact.MustPath("vision/tflite/effdet0.tflite")
@@ -195,62 +246,77 @@ func TestLabelReader(t *testing.T) {
 	test.That(t, outMD, test.ShouldNotBeNil)
 	outLabels := getLabelsFromMetadata(outMD)
 	test.That(t, err, test.ShouldBeNil)
-	fmt.Println(outLabels)
 	test.That(t, outLabels[0], test.ShouldResemble, "this")
 	test.That(t, outLabels[1], test.ShouldResemble, "could")
 	test.That(t, outLabels[2], test.ShouldResemble, "be")
 	test.That(t, len(outLabels), test.ShouldEqual, 12)
 }
 
-func BenchmarkAddMLVisionModel(b *testing.B) {
+func TestSpaceDelineatedLabels(t *testing.T) {
+	ctx := context.Background()
 	modelLoc := artifact.MustPath("vision/tflite/effdet0.tflite")
-
-	name := "myMLModel"
-	cfg := tflitecpu.TFLiteConfig{
+	labelLoc := artifact.MustPath("vision/classification/lorem.txt")
+	cfg := tflitecpu.TFLiteConfig{ // detector config
 		ModelPath:  modelLoc,
 		NumThreads: 2,
+		LabelPath:  &labelLoc,
 	}
-	ctx := context.Background()
-	out, err := tflitecpu.NewTFLiteCPUModel(ctx, &cfg, name)
-	test.That(b, err, test.ShouldBeNil)
-	test.That(b, out, test.ShouldNotBeNil)
-	modelCfg := MLModelConfig{ModelName: name}
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		service, err := registerMLModelVisionService(ctx, name, &modelCfg, &inject.Robot{}, golog.NewLogger("benchmark"))
-		test.That(b, err, test.ShouldBeNil)
-		test.That(b, service, test.ShouldNotBeNil)
-	}
-
-	// modelCfg := MLModelConfig{ModelName: "myMLDet"}
+	out, err := tflitecpu.NewTFLiteCPUModel(ctx, &cfg, "spacedLabels")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, out, test.ShouldNotBeNil)
+	outMD, err := out.Metadata(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, outMD, test.ShouldNotBeNil)
+	outLabels := getLabelsFromMetadata(outMD)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(outLabels), test.ShouldEqual, 10)
 }
 
-func BenchmarkUseMLVisionModel(b *testing.B) {
-	modelLoc := artifact.MustPath("vision/tflite/effdet0.tflite")
-	pic, err := rimage.NewImageFromFile(artifact.MustPath("vision/tflite/dogscute.jpeg"))
-	test.That(b, err, test.ShouldBeNil)
-	test.That(b, pic, test.ShouldNotBeNil)
-	name := "myMLModel"
+func TestOneClassifierOnManyCameras(t *testing.T) {
+	ctx := context.Background()
+
+	// Test that one classifier can be used in two goroutines
+	picPanda, err := rimage.NewImageFromFile(artifact.MustPath("vision/tflite/redpanda.jpeg"))
+	test.That(t, err, test.ShouldBeNil)
+	picLion, err := rimage.NewImageFromFile(artifact.MustPath("vision/tflite/lion.jpeg"))
+	test.That(t, err, test.ShouldBeNil)
+
+	modelLoc := artifact.MustPath("vision/tflite/mobilenetv2_class.tflite")
 	cfg := tflitecpu.TFLiteConfig{
 		ModelPath:  modelLoc,
 		NumThreads: 2,
 	}
-	ctx := context.Background()
-	out, err := tflitecpu.NewTFLiteCPUModel(ctx, &cfg, name)
-	test.That(b, err, test.ShouldBeNil)
-	test.That(b, out, test.ShouldNotBeNil)
-	modelCfg := MLModelConfig{ModelName: name}
 
-	service, err := registerMLModelVisionService(ctx, name, &modelCfg, &inject.Robot{}, golog.NewLogger("benchmark"))
-	test.That(b, err, test.ShouldBeNil)
-	test.That(b, service, test.ShouldNotBeNil)
+	out, err := tflitecpu.NewTFLiteCPUModel(ctx, &cfg, "testClassifier")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, out, test.ShouldNotBeNil)
+	outClassifier, err := attemptToBuildClassifier(out)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, outClassifier, test.ShouldNotBeNil)
+	valuePanda, valueLion := classifyTwoImages(picPanda, picLion, outClassifier)
+	test.That(t, valuePanda, test.ShouldNotBeNil)
+	test.That(t, valueLion, test.ShouldNotBeNil)
+}
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		// Detections should be worst case (more to unpack)
-		detections, err := service.Detections(ctx, pic, nil)
-		test.That(b, err, test.ShouldBeNil)
-		test.That(b, detections, test.ShouldNotBeNil)
-	}
+func classifyTwoImages(picPanda, picLion *rimage.Image,
+	got classification.Classifier,
+) (classification.Classifications, classification.Classifications) {
+	resultPanda := make(chan classification.Classifications)
+	resultLion := make(chan classification.Classifications)
+
+	go gotWithCallback(picPanda, resultPanda, got)
+	go gotWithCallback(picLion, resultLion, got)
+
+	valuePanda := <-resultPanda
+	valueLion := <-resultLion
+
+	close(resultPanda)
+	close(resultLion)
+
+	return valuePanda, valueLion
+}
+
+func gotWithCallback(img *rimage.Image, result chan classification.Classifications, got classification.Classifier) {
+	classifications, _ := got(context.Background(), img)
+	result <- classifications
 }

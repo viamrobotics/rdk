@@ -2,10 +2,11 @@ package mlvision
 
 import (
 	"context"
-	"github.com/nfnt/resize"
-	"github.com/pkg/errors"
 	"image"
 	"strconv"
+
+	"github.com/nfnt/resize"
+	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/services/mlmodel"

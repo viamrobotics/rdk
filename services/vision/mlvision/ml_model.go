@@ -124,7 +124,7 @@ func getTensorTypeFromName(name string, md mlmodel.MLMetadata) string {
 	return ""
 }
 
-// getLabelsFromMetadata returns a slice of strings--the intended labels
+// getLabelsFromMetadata returns a slice of strings--the intended labels.
 func getLabelsFromMetadata(md mlmodel.MLMetadata) []string {
 	for _, o := range md.Outputs {
 		if strings.Contains(o.Name, "category") || strings.Contains(o.Name, "probability") {
@@ -143,6 +143,14 @@ func getLabelsFromMetadata(md mlmodel.MLMetadata) []string {
 				for scanner.Scan() {
 					labels = append(labels, scanner.Text())
 				}
+				// if the labels come out as one line, try splitting that line by spaces or commas to extract labels
+				if len(labels) == 1 {
+					labels = strings.Split(labels[0], ",")
+				}
+				if len(labels) == 1 {
+					labels = strings.Split(labels[0], " ")
+				}
+
 				return labels
 			}
 		}
@@ -151,7 +159,7 @@ func getLabelsFromMetadata(md mlmodel.MLMetadata) []string {
 }
 
 // getBoxOrderFromMetadata returns a slice of ints--the bounding box
-// display order, where 0=xmin, 1=ymin, 2=xmax, 3=ymax
+// display order, where 0=xmin, 1=ymin, 2=xmax, 3=ymax.
 func getBoxOrderFromMetadata(md mlmodel.MLMetadata) ([]int, error) {
 	for _, o := range md.Outputs {
 		if strings.Contains(o.Name, "location") {
