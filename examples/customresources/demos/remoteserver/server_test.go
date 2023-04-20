@@ -11,6 +11,7 @@ import (
 	"go.viam.com/test"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/pexec"
+	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/examples/customresources/apis/gizmoapi"
@@ -67,7 +68,6 @@ func TestGizmo(t *testing.T) {
 		test.That(t, pmgr.Stop(), test.ShouldBeNil)
 	}()
 	test.That(t, err, test.ShouldBeNil)
-	goutils.SelectContextOrWait(context.Background(), 30*time.Second)
 
 	logger = golog.NewDebugLogger("gizmo.client")
 	remoteConfig := &config.Config{
@@ -83,8 +83,14 @@ func TestGizmo(t *testing.T) {
 		test.That(t, r2.Close(context.Background()), test.ShouldBeNil)
 	}()
 	test.That(t, err, test.ShouldBeNil)
-	res, err := r2.ResourceByName(gizmoapi.Named("gizmo1"))
-	test.That(t, err, test.ShouldBeNil)
+
+	// remotes can take a few seconds to show up, so we wait for the resource
+	var res interface{}
+	testutils.WaitForAssertionWithSleep(t, time.Second, 120, func(tb testing.TB){
+		res, err = r2.ResourceByName(gizmoapi.Named("gizmo1"))
+		test.That(tb, err, test.ShouldBeNil)
+	})
+
 	gizmo1, ok := res.(gizmoapi.Gizmo)
 	test.That(t, ok, test.ShouldBeTrue)
 	_, err = gizmo1.DoOne(context.Background(), "hello")
