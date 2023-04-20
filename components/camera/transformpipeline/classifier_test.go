@@ -42,7 +42,7 @@ func buildRobotWithClassifier(logger golog.Logger) (robot.Robot, error) {
 		Type:  vision.SubtypeName,
 		Model: resource.NewDefaultModel("mlmodel"),
 		Attributes: config.AttributeMap{
-			"ml_model_name": "object_classifier",
+			"mlmodel_name": "object_classifier",
 		},
 		DependsOn: []string{"object_classifier"},
 	}

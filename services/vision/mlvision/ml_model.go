@@ -5,10 +5,11 @@ package mlvision
 import (
 	"bufio"
 	"context"
-	"github.com/montanaflynn/stats"
 	"math"
 	"os"
 	"strings"
+
+	"github.com/montanaflynn/stats"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
@@ -63,7 +64,7 @@ func init() {
 
 // MLModelConfig specifies the parameters needed to turn an ML model into a vision Model.
 type MLModelConfig struct {
-	ModelName string `json:"ml_model_name"`
+	ModelName string `json:"mlmodel_name"`
 }
 
 func registerMLModelVisionService(

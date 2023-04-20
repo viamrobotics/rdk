@@ -78,7 +78,7 @@ func buildRobotWithFakeCamera(logger golog.Logger) (robot.Robot, error) {
 		Type:  vision.SubtypeName,
 		Model: resource.NewDefaultModel("mlmodel"),
 		Attributes: config.AttributeMap{
-			"ml_model_name": "object_classifier",
+			"mlmodel_name": "object_classifier",
 		},
 		DependsOn: []string{"object_classifier"},
 	}
@@ -99,7 +99,7 @@ func buildRobotWithFakeCamera(logger golog.Logger) (robot.Robot, error) {
 		Type:  vision.SubtypeName,
 		Model: resource.NewDefaultModel("mlmodel"),
 		Attributes: config.AttributeMap{
-			"ml_model_name": "detector_tflite",
+			"mlmodel_name": "detector_tflite",
 		},
 		DependsOn: []string{"detector_tflite"},
 	}
