@@ -104,7 +104,6 @@ func newEncodedMotor(
 	}
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	em := &EncodedMotor{
-		cfg:                 motorConfig,
 		real:                localReal,
 		cancelCtx:           cancelCtx,
 		cancel:              cancel,
@@ -170,10 +169,8 @@ func newEncodedMotor(
 // EncodedMotor is a motor that utilizes an encoder to track its position.
 type EncodedMotor struct {
 	activeBackgroundWorkers sync.WaitGroup
-	cfg                     Config
 	real                    motor.LocalMotor
 	encoder                 encoder.Encoder
-	motorName               string
 
 	stateMu sync.RWMutex
 	state   EncodedMotorState
@@ -654,7 +651,7 @@ func (m *EncodedMotor) GoTo(ctx context.Context, rpm, targetPosition float64, ex
 	// if you call GoFor with 0 revolutions, the motor will spin forever. If we are at the target,
 	// we must avoid this by not calling GoFor.
 	if rdkutils.Float64AlmostEqual(moveDistance, 0, 0.1) {
-		m.logger.Debugf("GoTo distance nearly zero for motor (%s), not moving", m.motorName)
+		m.logger.Debugf("GoTo distance nearly zero for motor (%s), not moving")
 		return nil
 	}
 
