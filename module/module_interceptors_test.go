@@ -81,7 +81,7 @@ func TestOpID(t *testing.T) {
 			}()
 
 			// directly get the operations list from the parent server, naively waiting for it to be non-zero
-			var parentOpList []string
+			var parentOpList, modOpList []string
 			testutils.WaitForAssertion(t, func(tb testing.TB) {
 				tb.Helper()
 				resp, err := rc.GetOperations(ctx, &robotpb.GetOperationsRequest{})
@@ -93,22 +93,25 @@ func TestOpID(t *testing.T) {
 				}
 			})
 
-			// as soon as we see the op in the parent, check the operations in the module
-			cmd, err := structpb.NewStruct(map[string]interface{}{"command": "get_ops"})
-			test.That(t, err, test.ShouldBeNil)
-			resp, err := gc.DoCommand(ctx, &commonpb.DoCommandRequest{Name: "helper1", Command: cmd})
-			test.That(t, err, test.ShouldBeNil)
-			ret, ok := resp.GetResult().AsMap()["ops"]
-			test.That(t, ok, test.ShouldBeTrue)
-			retList, ok := ret.([]interface{})
-			test.That(t, ok, test.ShouldBeTrue)
-			var modOpList []string
-			for _, v := range retList {
-				val, ok := v.(string)
-				test.That(t, ok, test.ShouldBeTrue)
-				modOpList = append(modOpList, val)
-			}
-			test.That(t, len(modOpList), test.ShouldBeGreaterThan, 0)
+			testutils.WaitForAssertion(t, func(tb testing.TB) {
+				tb.Helper()
+				// as soon as we see the op in the parent, check the operations in the module
+				cmd, err := structpb.NewStruct(map[string]interface{}{"command": "get_ops"})
+				test.That(tb, err, test.ShouldBeNil)
+				resp, err := gc.DoCommand(ctx, &commonpb.DoCommandRequest{Name: "helper1", Command: cmd})
+				test.That(tb, err, test.ShouldBeNil)
+				ret, ok := resp.GetResult().AsMap()["ops"]
+				test.That(tb, ok, test.ShouldBeTrue)
+				retList, ok := ret.([]interface{})
+				test.That(tb, ok, test.ShouldBeTrue)
+				test.That(tb, len(retList), test.ShouldBeGreaterThan, 1)
+				for _, v := range retList {
+					val, ok := v.(string)
+					test.That(tb, ok, test.ShouldBeTrue)
+					modOpList = append(modOpList, val)
+				}
+				test.That(tb, len(modOpList), test.ShouldBeGreaterThan, 1)
+			})
 
 			// wait for the original call to sleep and parse its header for the opID
 			commandOpID := <-syncChan

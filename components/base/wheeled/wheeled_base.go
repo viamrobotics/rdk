@@ -244,12 +244,13 @@ func (wb *wheeledBase) SetPower(ctx context.Context, linear, angular r3.Vector, 
 
 // returns rpm, revolutions for a spin motion.
 func (wb *wheeledBase) spinMath(angleDeg, degsPerSec float64) (float64, float64) {
-	wheelTravel := wb.spinSlipFactor * float64(wb.widthMm) * math.Pi * angleDeg / 360.0
+	wheelTravel := wb.spinSlipFactor * float64(wb.widthMm) * math.Pi * (angleDeg / 360.0)
 	revolutions := wheelTravel / float64(wb.wheelCircumferenceMm)
+	revolutions = math.Abs(revolutions)
 
 	// RPM = revolutions (unit) * deg/sec * (1 rot / 2pi deg) * (60 sec / 1 min) = rot/min
-	rpm := revolutions * degsPerSec * 30 / math.Pi
-	revolutions = math.Abs(revolutions)
+	// RPM = (revolutions (unit) / angleDeg) * degPerSec * 60
+	rpm := (revolutions / angleDeg) * degsPerSec * 60
 
 	return rpm, revolutions
 }

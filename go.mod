@@ -62,7 +62,7 @@ require (
 	github.com/muesli/clusters v0.0.0-20200529215643-2700303c1762
 	github.com/muesli/kmeans v0.3.1
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
-	github.com/pion/mediadevices v0.4.1-0.20230412180714-14bfaa5dbdd3
+	github.com/pion/mediadevices v0.4.1-0.20230418101253-f0f6be735011
 	github.com/pion/rtp v1.7.13
 	github.com/pion/webrtc/v3 v3.1.59
 	github.com/pseudomuto/protoc-gen-doc v1.5.1
