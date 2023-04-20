@@ -236,7 +236,7 @@ func (s *servoGPIO) findPWMResolution(ctx context.Context) error {
 	currPct := s.currPct
 	realPct, err := s.pin.PWM(ctx, nil)
 	if err != nil {
-		return errors.Wrap(err, "couldn't find PWM resolution")
+		return errors.Wrap(err, "cannot find PWM resolution")
 	}
 
 	// The direction will be towards whichever extreme duration (minUs or maxUs) is farther away.
