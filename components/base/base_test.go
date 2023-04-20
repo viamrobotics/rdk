@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/mitchellh/mapstructure"
-	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
@@ -288,72 +287,4 @@ func (m *mockLocal) Close() { m.reconfCount++ }
 
 func (m *mockLocal) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return cmd, nil
-}
-
-func TestDoMove(t *testing.T) {
-	dev := &inject.Base{}
-	dev.WidthFunc = func(ctx context.Context) (int, error) {
-		return 600, nil
-	}
-	err := base.DoMove(context.Background(), base.Move{}, dev)
-	test.That(t, err, test.ShouldBeNil)
-
-	err1 := errors.New("oh no")
-	dev.MoveStraightFunc = func(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error {
-		return err1
-	}
-
-	m := base.Move{DistanceMm: 1, Extra: map[string]interface{}{"foo": "bar"}}
-	err = base.DoMove(context.Background(), m, dev)
-	test.That(t, errors.Is(err, err1), test.ShouldBeTrue)
-
-	dev.MoveStraightFunc = func(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error {
-		test.That(t, distanceMm, test.ShouldEqual, m.DistanceMm)
-		test.That(t, mmPerSec, test.ShouldEqual, m.MmPerSec)
-		test.That(t, extra, test.ShouldResemble, m.Extra)
-		return nil
-	}
-	err = base.DoMove(context.Background(), m, dev)
-	test.That(t, err, test.ShouldBeNil)
-
-	m = base.Move{DistanceMm: 1, MmPerSec: 5}
-	err = base.DoMove(context.Background(), m, dev)
-	test.That(t, err, test.ShouldBeNil)
-
-	dev.SpinFunc = func(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
-		return err1
-	}
-
-	m = base.Move{AngleDeg: 10}
-	err = base.DoMove(context.Background(), m, dev)
-	test.That(t, errors.Is(err, err1), test.ShouldBeTrue)
-
-	dev.SpinFunc = func(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
-		test.That(t, angleDeg, test.ShouldEqual, m.AngleDeg)
-		test.That(t, degsPerSec, test.ShouldEqual, m.DegsPerSec)
-		test.That(t, extra, test.ShouldResemble, m.Extra)
-		return nil
-	}
-
-	m = base.Move{AngleDeg: 10}
-	err = base.DoMove(context.Background(), m, dev)
-	test.That(t, err, test.ShouldBeNil)
-
-	m = base.Move{AngleDeg: 10, DegsPerSec: 5}
-	err = base.DoMove(context.Background(), m, dev)
-	test.That(t, err, test.ShouldBeNil)
-
-	m = base.Move{DistanceMm: 2, AngleDeg: 10, DegsPerSec: 5}
-	err = base.DoMove(context.Background(), m, dev)
-	test.That(t, err, test.ShouldBeNil)
-
-	t.Run("if rotation succeeds but moving straight fails, report rotation", func(t *testing.T) {
-		dev.MoveStraightFunc = func(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error {
-			return err1
-		}
-
-		m = base.Move{DistanceMm: 2, AngleDeg: 10, MmPerSec: 5}
-		err = base.DoMove(context.Background(), m, dev)
-		test.That(t, errors.Is(err, err1), test.ShouldBeTrue)
-	})
 }

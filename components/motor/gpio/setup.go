@@ -5,7 +5,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-	vutils "go.viam.com/utils"
+	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/encoder"
@@ -50,54 +50,28 @@ func (config *Config) Validate(path string) ([]string, error) {
 	var deps []string
 
 	if config.BoardName == "" {
-		return nil, vutils.NewConfigValidationFieldRequiredError(path, "board")
+		return nil, goutils.NewConfigValidationFieldRequiredError(path, "board")
 	}
 	deps = append(deps, config.BoardName)
 
 	// If an encoder is present the max_rpm field is optional, in the absence of an encoder the field is required
 	if config.Encoder != "" {
+		if config.TicksPerRotation <= 0 {
+			return nil, goutils.NewConfigValidationError(path, errors.New("ticks_per_rotation should be positive or zero"))
+		}
 		deps = append(deps, config.Encoder)
 	} else if config.MaxRPM <= 0 {
-		return nil, vutils.NewConfigValidationFieldRequiredError(path, "max_rpm")
+		return nil, goutils.NewConfigValidationFieldRequiredError(path, "max_rpm")
 	}
 	return deps, nil
 }
 
 // init registers a pi motor based on pigpio.
 func init() {
-	comp := registry.Component{
-		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-			actualBoard, motorConfig, err := getBoardFromRobotConfig(deps, config)
-			if err != nil {
-				return nil, err
-			}
+	registry.RegisterComponent(motor.Subtype, model, registry.Component{
+		Constructor: createNewMotor,
+	})
 
-			m, err := NewMotor(actualBoard, *motorConfig, config.Name, logger)
-			if err != nil {
-				return nil, err
-			}
-			if motorConfig.Encoder != "" {
-				e, err := encoder.FromDependencies(deps, motorConfig.Encoder)
-				if err != nil {
-					return nil, err
-				}
-
-				m, err = WrapMotorWithEncoder(ctx, e, config, *motorConfig, m, logger)
-				if err != nil {
-					return nil, err
-				}
-			}
-
-			err = m.Stop(ctx, nil)
-			if err != nil {
-				return nil, err
-			}
-
-			return m, nil
-		},
-	}
-
-	registry.RegisterComponent(motor.Subtype, model, comp)
 	config.RegisterComponentAttributeMapConverter(
 		motor.Subtype,
 		model,
@@ -122,4 +96,34 @@ func getBoardFromRobotConfig(deps registry.Dependencies, config config.Component
 		return nil, nil, err
 	}
 	return b, motorConfig, nil
+}
+
+func createNewMotor(ctx context.Context, deps registry.Dependencies, cfg config.Component, logger golog.Logger) (interface{}, error) {
+	actualBoard, motorConfig, err := getBoardFromRobotConfig(deps, cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	m, err := NewMotor(actualBoard, *motorConfig, cfg.Name, logger)
+	if err != nil {
+		return nil, err
+	}
+	if motorConfig.Encoder != "" {
+		e, err := encoder.FromDependencies(deps, motorConfig.Encoder)
+		if err != nil {
+			return nil, err
+		}
+
+		m, err = WrapMotorWithEncoder(ctx, e, cfg, *motorConfig, m, logger)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	err = m.Stop(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return m, nil
 }
