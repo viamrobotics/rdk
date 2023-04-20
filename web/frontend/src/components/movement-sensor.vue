@@ -32,7 +32,7 @@ const refresh = async () => {
     props.client.movementSensorService.getProperties(
       req,
       new grpc.Metadata(),
-      (err: ServiceError, resp: movementsensorApi.GetPropertiesResponse) => {
+      (err: ServiceError | null, resp: movementsensorApi.GetPropertiesResponse | null) => {
         if (err) {
           if (err.message === 'Response closed without headers') {
             refreshId = window.setTimeout(refresh, 500);
@@ -54,7 +54,7 @@ const refresh = async () => {
     props.client.movementSensorService.getOrientation(
       req,
       new grpc.Metadata(),
-      (err: ServiceError, resp: movementsensorApi.GetOrientationResponse) => {
+      (err: ServiceError | null, resp: movementsensorApi.GetOrientationResponse | null) => {
         if (err) {
           return displayError(err);
         }
@@ -72,7 +72,7 @@ const refresh = async () => {
     props.client.movementSensorService.getAngularVelocity(
       req,
       new grpc.Metadata(),
-      (err: ServiceError, resp: movementsensorApi.GetAngularVelocityResponse) => {
+      (err: ServiceError | null, resp: movementsensorApi.GetAngularVelocityResponse | null) => {
         if (err) {
           return displayError(err);
         }
@@ -90,7 +90,7 @@ const refresh = async () => {
     props.client.movementSensorService.getLinearAcceleration(
       req,
       new grpc.Metadata(),
-      (err: ServiceError, resp: movementsensorApi.GetLinearAccelerationResponse) => {
+      (err: ServiceError | null, resp: movementsensorApi.GetLinearAccelerationResponse | null) => {
         if (err) {
           return displayError(err);
         }
@@ -108,7 +108,7 @@ const refresh = async () => {
     props.client.movementSensorService.getLinearVelocity(
       req,
       new grpc.Metadata(),
-      (err: ServiceError, resp: movementsensorApi.GetLinearVelocityResponse) => {
+      (err: ServiceError | null, resp: movementsensorApi.GetLinearVelocityResponse | null) => {
         if (err) {
           return displayError(err);
         }
@@ -126,7 +126,7 @@ const refresh = async () => {
     props.client.movementSensorService.getCompassHeading(
       req,
       new grpc.Metadata(),
-      (err: ServiceError, resp: movementsensorApi.GetCompassHeadingResponse) => {
+      (err: ServiceError | null, resp: movementsensorApi.GetCompassHeadingResponse | null) => {
         if (err) {
           return displayError(err);
         }
@@ -144,7 +144,7 @@ const refresh = async () => {
     props.client.movementSensorService.getPosition(
       req,
       new grpc.Metadata(),
-      (err: ServiceError, resp: movementsensorApi.GetPositionResponse) => {
+      (err: ServiceError | null, resp: movementsensorApi.GetPositionResponse | null) => {
         if (err) {
           return displayError(err);
         }
@@ -178,7 +178,7 @@ onUnmounted(() => {
       slot="title"
       crumbs="movement_sensor"
     />
-    <div class="flex flex-wrap gap-4 border border-t-0 border-black p-4">
+    <div class="border-border-1 flex flex-wrap gap-4 border border-t-0 p-4">
       <template v-if="properties">
         <div
           v-if="properties.positionSupported"
@@ -187,28 +187,28 @@ onUnmounted(() => {
           <h3 class="mb-1">
             Position
           </h3>
-          <table class="w-full border border-t-0 border-black p-4">
+          <table class="border-border-1 w-full border border-t-0 p-4">
             <tr>
-              <th class="border border-black p-2">
+              <th class="border-border-1 border p-2">
                 Latitude
               </th>
-              <td class="border border-black p-2">
+              <td class="border-border-1 border p-2">
                 {{ coordinate?.latitude.toFixed(6) }}
               </td>
             </tr>
             <tr>
-              <th class="border border-black p-2">
+              <th class="border-border-1 border p-2">
                 Longitude
               </th>
-              <td class="border border-black p-2">
+              <td class="border-border-1 border p-2">
                 {{ coordinate?.longitude.toFixed(6) }}
               </td>
             </tr>
             <tr>
-              <th class="border border-black p-2">
+              <th class="border-border-1 border p-2">
                 Altitide
               </th>
-              <td class="border border-black p-2">
+              <td class="border-border-1 border p-2">
                 {{ altitudeMm?.toFixed(2) }}
               </td>
             </tr>
@@ -228,36 +228,36 @@ onUnmounted(() => {
           <h3 class="mb-1">
             Orientation (degrees)
           </h3>
-          <table class="w-full border border-t-0 border-black p-4">
+          <table class="border-border-1 w-full border border-t-0 p-4">
             <tr>
-              <th class="border border-black p-2">
+              <th class="border-border-1 border p-2">
                 OX
               </th>
-              <td class="border border-black p-2">
+              <td class="border-border-1 border p-2">
                 {{ orientation?.oX.toFixed(2) }}
               </td>
             </tr>
             <tr>
-              <th class="border border-black p-2">
+              <th class="border-border-1 border p-2">
                 OY
               </th>
-              <td class="border border-black p-2">
+              <td class="border-border-1 border p-2">
                 {{ orientation?.oY.toFixed(2) }}
               </td>
             </tr>
             <tr>
-              <th class="border border-black p-2">
+              <th class="border-border-1 border p-2">
                 OZ
               </th>
-              <td class="border border-black p-2">
+              <td class="border-border-1 border p-2">
                 {{ orientation?.oZ.toFixed(2) }}
               </td>
             </tr>
             <tr>
-              <th class="border border-black p-2">
+              <th class="border-border-1 border p-2">
                 Theta
               </th>
-              <td class="border border-black p-2">
+              <td class="border-border-1 border p-2">
                 {{ orientation?.theta.toFixed(2) }}
               </td>
             </tr>
@@ -271,28 +271,28 @@ onUnmounted(() => {
           <h3 class="mb-1">
             Angular Velocity (degrees/second)
           </h3>
-          <table class="w-full border border-t-0 border-black p-4">
+          <table class="border-border-1 w-full border border-t-0 p-4">
             <tr>
-              <th class="border border-black p-2">
+              <th class="border-border-1 border p-2">
                 X
               </th>
-              <td class="border border-black p-2">
+              <td class="border-border-1 border p-2">
                 {{ angularVelocity?.x.toFixed(2) }}
               </td>
             </tr>
             <tr>
-              <th class="border border-black p-2">
+              <th class="border-border-1 border p-2">
                 Y
               </th>
-              <td class="border border-black p-2">
+              <td class="border-border-1 border p-2">
                 {{ angularVelocity?.y.toFixed(2) }}
               </td>
             </tr>
             <tr>
-              <th class="border border-black p-2">
+              <th class="border-border-1 border p-2">
                 Z
               </th>
-              <td class="border border-black p-2">
+              <td class="border-border-1 border p-2">
                 {{ angularVelocity?.z.toFixed(2) }}
               </td>
             </tr>
@@ -306,28 +306,28 @@ onUnmounted(() => {
           <h3 class="mb-1">
             Linear Velocity
           </h3>
-          <table class="w-full border border-t-0 border-black p-4">
+          <table class="border-border-1 w-full border border-t-0 p-4">
             <tr>
-              <th class="border border-black p-2">
+              <th class="border-border-1 border p-2">
                 X
               </th>
-              <td class="border border-black p-2">
+              <td class="border-border-1 border p-2">
                 {{ linearVelocity?.x.toFixed(2) }}
               </td>
             </tr>
             <tr>
-              <th class="border border-black p-2">
+              <th class="border-border-1 border p-2">
                 Y
               </th>
-              <td class="border border-black p-2">
+              <td class="border-border-1 border p-2">
                 {{ linearVelocity?.y.toFixed(2) }}
               </td>
             </tr>
             <tr>
-              <th class="border border-black p-2">
+              <th class="border-border-1 border p-2">
                 Z
               </th>
-              <td class="border border-black p-2">
+              <td class="border-border-1 border p-2">
                 {{ linearVelocity?.z.toFixed(2) }}
               </td>
             </tr>
@@ -341,28 +341,28 @@ onUnmounted(() => {
           <h3 class="mb-1">
             Linear Acceleration (mm/second^2)
           </h3>
-          <table class="w-full border border-t-0 border-black p-4">
+          <table class="border-border-1 w-full border border-t-0 p-4">
             <tr>
-              <th class="border border-black p-2">
+              <th class="border-border-1 border p-2">
                 X
               </th>
-              <td class="border border-black p-2">
+              <td class="border-border-1 border p-2">
                 {{ linearAcceleration?.x.toFixed(2) }}
               </td>
             </tr>
             <tr>
-              <th class="border border-black p-2">
+              <th class="border-border-1 border p-2">
                 Y
               </th>
-              <td class="border border-black p-2">
+              <td class="border-border-1 border p-2">
                 {{ linearAcceleration?.y.toFixed(2) }}
               </td>
             </tr>
             <tr>
-              <th class="border border-black p-2">
+              <th class="border-border-1 border p-2">
                 Z
               </th>
-              <td class="border border-black p-2">
+              <td class="border-border-1 border p-2">
                 {{ linearAcceleration?.z.toFixed(2) }}
               </td>
             </tr>
@@ -376,12 +376,12 @@ onUnmounted(() => {
           <h3 class="mb-1">
             Compass Heading
           </h3>
-          <table class="w-full border border-t-0 border-black p-4">
+          <table class="border-border-1 w-full border border-t-0 p-4">
             <tr>
-              <th class="border border-black p-2">
+              <th class="border-border-1 border p-2">
                 Compass
               </th>
-              <td class="border border-black p-2">
+              <td class="border-border-1 border p-2">
                 {{ compassHeading?.toFixed(2) }}
               </td>
             </tr>

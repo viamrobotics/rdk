@@ -14,29 +14,30 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/utils"
 
-	"go.viam.com/rdk/components/generic"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/shell"
 )
 
 func init() {
-	registry.RegisterService(shell.Subtype, resource.DefaultServiceModel, registry.Service{
-		Constructor: func(ctx context.Context, dep registry.Dependencies, c config.Service, logger golog.Logger) (interface{}, error) {
-			return NewBuiltIn(logger)
+	resource.RegisterService(shell.Subtype, resource.DefaultServiceModel, resource.Registration[shell.Service, resource.NoNativeConfig]{
+		Constructor: func(ctx context.Context, dep resource.Dependencies, c resource.Config, logger golog.Logger) (shell.Service, error) {
+			return NewBuiltIn(c.ResourceName(), logger)
 		},
 	},
 	)
 }
 
 // NewBuiltIn returns a new shell service for the given robot.
-func NewBuiltIn(logger golog.Logger) (shell.Service, error) {
-	return &builtIn{logger: logger}, nil
+func NewBuiltIn(name resource.Name, logger golog.Logger) (shell.Service, error) {
+	return &builtIn{
+		Named:  name.AsNamed(),
+		logger: logger,
+	}, nil
 }
 
 type builtIn struct {
-	generic.Unimplemented
+	resource.Named
+	resource.TriviallyReconfigurable
 	logger                  golog.Logger
 	activeBackgroundWorkers sync.WaitGroup
 }
@@ -138,6 +139,7 @@ func (svc *builtIn) Shell(ctx context.Context, extra map[string]interface{}) (ch
 	return input, output, nil
 }
 
-func (svc *builtIn) Close() {
+func (svc *builtIn) Close(ctx context.Context) error {
 	svc.activeBackgroundWorkers.Wait()
+	return nil
 }

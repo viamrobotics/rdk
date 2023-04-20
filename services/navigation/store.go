@@ -26,6 +26,7 @@ type NavStore interface {
 	RemoveWaypoint(ctx context.Context, id primitive.ObjectID) error
 	NextWaypoint(ctx context.Context) (Waypoint, error)
 	WaypointVisited(ctx context.Context, id primitive.ObjectID) error
+	Close(ctx context.Context) error
 }
 
 type storeType string
@@ -143,6 +144,11 @@ func (store *MemoryNavigationStore) WaypointVisited(ctx context.Context, id prim
 		}
 		wp.Visited = true
 	}
+	return nil
+}
+
+// Close does nothing.
+func (store *MemoryNavigationStore) Close(ctx context.Context) error {
 	return nil
 }
 

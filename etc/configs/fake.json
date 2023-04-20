@@ -49,7 +49,10 @@
         {
             "name": "encoder1",
             "type": "encoder",
-            "model": "fake"
+            "model": "fake",
+            "attributes": {
+                "update_rate_msec": 200
+            }
         },
         {
             "name": "gantry1",
@@ -94,6 +97,7 @@
             "type": "movement_sensor",
             "model": "fake"
         },
+        
         {
             "name": "sensor1",
             "type": "sensor",
@@ -141,6 +145,11 @@
             "name": "slam1",
             "type": "slam",
             "model": "fake"
+        },
+        {
+            "name": "dm",
+            "type": "data_manager",
+            "model": "builtin"
         }       
     ]
 }

@@ -13,6 +13,7 @@ import (
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/gripper"
+	"go.viam.com/rdk/resource"
 
 	// register.
 	commonpb "go.viam.com/api/common/v1"
@@ -28,7 +29,7 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-func setupMotionServiceFromConfig(t *testing.T, configFilename string) motion.Service {
+func setupMotionServiceFromConfig(t *testing.T, configFilename string) (motion.Service, func()) {
 	t.Helper()
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
@@ -36,15 +37,17 @@ func setupMotionServiceFromConfig(t *testing.T, configFilename string) motion.Se
 	test.That(t, err, test.ShouldBeNil)
 	myRobot, err := robotimpl.New(ctx, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
-	defer myRobot.Close(context.Background())
-	svc, err := builtin.NewBuiltIn(ctx, myRobot, config.Service{}, logger)
+	svc, err := builtin.NewBuiltIn(ctx, myRobot, resource.Config{}, logger)
 	test.That(t, err, test.ShouldBeNil)
-	return svc
+	return svc, func() {
+		myRobot.Close(context.Background())
+	}
 }
 
 func TestMoveFailures(t *testing.T) {
 	var err error
-	ms := setupMotionServiceFromConfig(t, "../data/arm_gantry.json")
+	ms, teardown := setupMotionServiceFromConfig(t, "../data/arm_gantry.json")
+	defer teardown()
 	ctx := context.Background()
 	t.Run("fail on not finding gripper", func(t *testing.T) {
 		grabPose := referenceframe.NewPoseInFrame("fakeCamera", spatialmath.NewPoseFromPoint(r3.Vector{10.0, 10.0, 10.0}))
@@ -72,28 +75,32 @@ func TestMove1(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("succeeds when all frame info in config", func(t *testing.T) {
-		ms := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
+		ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
+		defer teardown()
 		grabPose := referenceframe.NewPoseInFrame("c", spatialmath.NewPoseFromPoint(r3.Vector{0, -30, -50}))
 		_, err = ms.Move(ctx, gripper.Named("pieceGripper"), grabPose, &referenceframe.WorldState{}, nil, nil)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
 	t.Run("succeeds when mobile component can be solved for destinations in own frame", func(t *testing.T) {
-		ms := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
+		ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
+		defer teardown()
 		grabPose := referenceframe.NewPoseInFrame("pieceArm", spatialmath.NewPoseFromPoint(r3.Vector{0, -30, -50}))
 		_, err = ms.Move(ctx, gripper.Named("pieceArm"), grabPose, &referenceframe.WorldState{}, nil, map[string]interface{}{})
 		test.That(t, err, test.ShouldBeNil)
 	})
 
 	t.Run("succeeds when immobile component can be solved for destinations in own frame", func(t *testing.T) {
-		ms := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
+		ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
+		defer teardown()
 		grabPose := referenceframe.NewPoseInFrame("pieceGripper", spatialmath.NewPoseFromPoint(r3.Vector{0, -30, -50}))
 		_, err = ms.Move(ctx, gripper.Named("pieceGripper"), grabPose, &referenceframe.WorldState{}, nil, map[string]interface{}{})
 		test.That(t, err, test.ShouldBeNil)
 	})
 
 	t.Run("succeeds with supplemental info in world state", func(t *testing.T) {
-		ms := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
+		ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
+		defer teardown()
 		testPose := spatialmath.NewPose(
 			r3.Vector{X: 1., Y: 2., Z: 3.},
 			&spatialmath.R4AA{Theta: math.Pi / 2, RX: 0., RY: 1., RZ: 0.},
@@ -112,7 +119,8 @@ func TestMove1(t *testing.T) {
 }
 
 func TestMoveWithObstacles(t *testing.T) {
-	ms := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
+	ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
+	defer teardown()
 
 	t.Run("check a movement that should not succeed due to obstacles", func(t *testing.T) {
 		testPose1 := spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 370})
@@ -173,12 +181,11 @@ func TestMoveOnMap(t *testing.T) {
 }
 
 func TestMoveSingleComponent(t *testing.T) {
-	var err error
-
 	t.Run("succeeds when all frame info in config", func(t *testing.T) {
-		ms := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
+		ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
+		defer teardown()
 		grabPose := referenceframe.NewPoseInFrame("c", spatialmath.NewPoseFromPoint(r3.Vector{-25, 30, 0}))
-		_, err = ms.MoveSingleComponent(
+		_, err := ms.MoveSingleComponent(
 			context.Background(),
 			arm.Named("pieceArm"),
 			grabPose,
@@ -189,9 +196,10 @@ func TestMoveSingleComponent(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 	})
 	t.Run("fails due to gripper not being an arm", func(t *testing.T) {
-		ms := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
+		ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
+		defer teardown()
 		grabPose := referenceframe.NewPoseInFrame("c", spatialmath.NewPoseFromPoint(r3.Vector{-20, -30, -40}))
-		_, err = ms.MoveSingleComponent(
+		_, err := ms.MoveSingleComponent(
 			context.Background(),
 			gripper.Named("pieceGripper"),
 			grabPose,
@@ -203,7 +211,8 @@ func TestMoveSingleComponent(t *testing.T) {
 	})
 
 	t.Run("succeeds with supplemental info in world state", func(t *testing.T) {
-		ms := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
+		ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
+		defer teardown()
 		homePose, err := ms.GetPose(context.Background(), arm.Named("pieceArm"), "", nil, nil)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -229,7 +238,8 @@ func TestMoveSingleComponent(t *testing.T) {
 
 func TestMultiplePieces(t *testing.T) {
 	var err error
-	ms := setupMotionServiceFromConfig(t, "../data/fake_tomato.json")
+	ms, teardown := setupMotionServiceFromConfig(t, "../data/fake_tomato.json")
+	defer teardown()
 	grabPose := referenceframe.NewPoseInFrame("c", spatialmath.NewPoseFromPoint(r3.Vector{-0, -30, -50}))
 	_, err = ms.Move(context.Background(), gripper.Named("gr"), grabPose, &referenceframe.WorldState{}, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
@@ -237,7 +247,8 @@ func TestMultiplePieces(t *testing.T) {
 
 func TestGetPose(t *testing.T) {
 	var err error
-	ms := setupMotionServiceFromConfig(t, "../data/arm_gantry.json")
+	ms, teardown := setupMotionServiceFromConfig(t, "../data/arm_gantry.json")
+	defer teardown()
 
 	pose, err := ms.GetPose(context.Background(), arm.Named("gantry1"), "", nil, map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)

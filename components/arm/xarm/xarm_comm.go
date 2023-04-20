@@ -168,6 +168,9 @@ func (x *xArm) send(ctx context.Context, c cmd, checkError bool) (cmd, error) {
 
 func (x *xArm) response(ctx context.Context) (cmd, error) {
 	// Read response header
+	if x.conn == nil {
+		return cmd{}, errors.New("closed")
+	}
 	buf, err := utils.ReadBytes(ctx, x.conn, 7)
 	if err != nil {
 		return cmd{}, err
@@ -336,7 +339,15 @@ func (x *xArm) Close(ctx context.Context) error {
 	if err := x.setMotionState(ctx, 4); err != nil {
 		return err
 	}
-	return x.conn.Close()
+	x.mu.Lock()
+	defer x.mu.Unlock()
+
+	if x.conn == nil {
+		return nil
+	}
+	err := x.conn.Close()
+	x.conn = nil
+	return err
 }
 
 // MoveToJointPositions moves the arm to the requested joint positions.
@@ -356,7 +367,9 @@ func (x *xArm) MoveToJointPositions(ctx context.Context, newPositions *pb.JointP
 	from := x.model.InputFromProtobuf(curPos)
 
 	diff := getMaxDiff(from, to)
+	x.mu.RLock()
 	nSteps := int((diff / float64(x.speed)) * x.moveHZ)
+	x.mu.Unlock()
 
 	// convenience for structuring and sending individual joint steps
 	sendMoveJointsCmd := func(ctx context.Context, step []float64) error {

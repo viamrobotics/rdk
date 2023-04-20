@@ -5,7 +5,6 @@ package builtin
 import (
 	"bufio"
 	"context"
-	"go.viam.com/rdk/rimage"
 	"image"
 	"os"
 	fp "path/filepath"
@@ -13,12 +12,14 @@ import (
 	"strconv"
 	"strings"
 
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/rimage"
+
 	"github.com/edaniels/golog"
 	"github.com/nfnt/resize"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 
-	"go.viam.com/rdk/config"
 	inf "go.viam.com/rdk/ml/inference"
 	"go.viam.com/rdk/ml/inference/tflite_metadata"
 	"go.viam.com/rdk/services/vision"
@@ -47,23 +48,17 @@ func NewTFLiteDetector(
 	defer span.End()
 
 	// Read those parameters into a TFLiteDetectorConfig
-	var t TFLiteDetectorConfig
-	tfParams, err := config.TransformAttributeMapToStruct(&t, cfg.Parameters)
+	tfParams, err := resource.TransformAttributeMap[*TFLiteDetectorConfig](cfg.Parameters)
 	if err != nil {
 		return nil, nil, errors.New("error getting parameters from config")
 	}
-	params, ok := tfParams.(*TFLiteDetectorConfig)
-	if !ok {
-		err := utils.NewUnexpectedTypeError(params, tfParams)
-		return nil, nil, errors.Wrapf(err, "register tflite detector %s", cfg.Name)
-	}
 	// Secret but hard limit on num_threads
-	if params.NumThreads > runtime.NumCPU()/4 {
-		params.NumThreads = runtime.NumCPU() / 4
+	if tfParams.NumThreads > runtime.NumCPU()/4 {
+		tfParams.NumThreads = runtime.NumCPU() / 4
 	}
 
 	// Add the model
-	model, err := addTFLiteModel(ctx, params.ModelPath, &params.NumThreads)
+	model, err := addTFLiteModel(ctx, tfParams.ModelPath, &tfParams.NumThreads)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "something wrong with adding the model")
 	}
@@ -76,12 +71,12 @@ func NewTFLiteDetector(
 		inHeight, inWidth = uint(shape[1]), uint(shape[2])
 	}
 
-	if params.LabelPath == nil {
+	if tfParams.LabelPath == nil {
 		blank := ""
-		params.LabelPath = &blank
+		tfParams.LabelPath = &blank
 	}
 
-	labelMap, err := loadLabels(*params.LabelPath)
+	labelMap, err := loadLabels(*tfParams.LabelPath)
 	if err != nil {
 		logger.Warn("did not retrieve class labels")
 	}

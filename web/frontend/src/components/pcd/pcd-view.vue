@@ -6,15 +6,13 @@
  * This is causing memory leaks.
  */
 
-import { grpc } from '@improbable-eng/grpc-web';
 import { onMounted, onUnmounted, watch } from 'vue';
 import * as THREE from 'three';
 import { PCDLoader } from 'three/examples/jsm/loaders/PCDLoader';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls';
-import { filterResources } from '../../lib/resource';
 import { toast } from '../../lib/toast';
-import { Client, commonApi, motionApi, ServiceError } from '@viamrobotics/sdk';
+import { Client, commonApi } from '@viamrobotics/sdk';
 import InfoButton from '../info-button.vue';
 
 const props = defineProps<{
@@ -412,56 +410,6 @@ const handleCanvasMouseUp = (event: MouseEvent) => {
   setPoint(vec3);
 };
 
-const handleMove = () => {
-  const [gripper] = filterResources(props.resources, 'rdk', 'component', 'gripper');
-
-  if (gripper === undefined) {
-    toast.error('No gripper component detected.');
-    return;
-  }
-
-  /*
-   * We are deliberately just getting the first motion service to ensure this will not break.
-   * May want to allow for more services in the future
-   */
-  const [motion] = filterResources(props.resources, 'rdk', 'service', 'motion');
-
-  if (motion === undefined) {
-    toast.error('No motion service detected.');
-    return;
-  }
-
-  const req = new motionApi.MoveRequest();
-  const cameraPoint = new commonApi.Pose();
-
-  cameraPoint.setX(click.x);
-  cameraPoint.setY(click.y);
-  cameraPoint.setZ(click.z);
-
-  const pose = new commonApi.PoseInFrame();
-  pose.setReferenceFrame(props.cameraName!);
-  pose.setPose(cameraPoint);
-  req.setDestination(pose);
-  req.setName(motion.name);
-  const componentName = new commonApi.ResourceName();
-  componentName.setNamespace(gripper.namespace);
-  componentName.setType(gripper.type);
-  componentName.setSubtype(gripper.subtype);
-  componentName.setName(gripper.name);
-  req.setComponentName(componentName);
-
-  props.client.motionService.move(
-    req, new grpc.Metadata(), (error: ServiceError, response: motionApi.MoveResponse) => {
-      if (error) {
-        toast.error(`Error moving: ${error}`);
-        return;
-      }
-
-      toast.success(`Move success: ${response!.getSuccess()}`);
-    }
-  );
-};
-
 const handleCenter = () => {
   setPoint(new THREE.Vector3());
 };
@@ -582,7 +530,7 @@ watch(() => props.pointcloud, (updated?: Uint8Array) => {
 
     <div
       ref="container"
-      class="pcd-container relative w-full border border-black"
+      class="pcd-container border-border-1 relative w-full border"
       @mousedown="handleCanvasMouseDown"
       @mouseup="handleCanvasMouseUp"
     />
@@ -647,7 +595,7 @@ watch(() => props.pointcloud, (updated?: Uint8Array) => {
           v-model="selectedSegmenter"
           placeholder="Choose"
           class="
-            m-0 w-full appearance-none border border-solid border-black bg-white
+            border-border-1 m-0 w-full appearance-none border border-solid bg-white
             bg-clip-padding px-3 py-1.5 text-xs font-normal text-gray-700 focus:outline-none
           "
           aria-label="Select segmenter"
@@ -720,10 +668,6 @@ watch(() => props.pointcloud, (updated?: Uint8Array) => {
           label="Z"
           :value="click.z"
         />
-        <v-button
-          label="Move"
-          @click="handleMove"
-        />
       </div>
 
       <div class="pt-4 text-xs">
@@ -747,7 +691,7 @@ watch(() => props.pointcloud, (updated?: Uint8Array) => {
           <select
             v-model="selectedObject"
             class="
-              m-0 w-full appearance-none border border-solid border-black bg-white
+              border-border-1 m-0 w-full appearance-none border border-solid bg-white
               bg-clip-padding px-3 py-1.5 text-xs font-normal text-gray-700 focus:outline-none
             "
             :class="['py-2 pl-2']"

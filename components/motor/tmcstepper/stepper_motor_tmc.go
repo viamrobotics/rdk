@@ -7,16 +7,13 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/motor"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 )
 
@@ -68,31 +65,27 @@ func (config *TMC5072Config) Validate(path string) ([]string, error) {
 }
 
 func init() {
-	_motor := registry.Component{
-		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-			return NewMotor(ctx, deps, *config.ConvertedAttributes.(*TMC5072Config), config.Name, logger)
-		},
-	}
-	registry.RegisterComponent(motor.Subtype, modelname, _motor)
-
-	config.RegisterComponentAttributeMapConverter(
-		motor.Subtype,
-		modelname,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf TMC5072Config
-			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Squash: true, Result: &conf})
+	resource.RegisterComponent(motor.Subtype, modelname, resource.Registration[motor.Motor, *TMC5072Config]{
+		Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger golog.Logger,
+		) (motor.Motor, error) {
+			newConf, err := resource.NativeConfig[*TMC5072Config](conf)
 			if err != nil {
 				return nil, err
 			}
-			if err := decoder.Decode(attributes); err != nil {
-				return nil, err
-			}
-			return &conf, nil
-		}, &TMC5072Config{})
+			return NewMotor(ctx, deps, *newConf, conf.ResourceName(), logger)
+		},
+	})
 }
 
 // A Motor represents a brushless motor connected via a TMC controller chip (ex: TMC5072).
 type Motor struct {
+	resource.Named
+	resource.AlwaysRebuild
+	resource.TriviallyCloseable
 	board       board.Board
 	bus         board.SPI
 	csPin       string
@@ -151,7 +144,7 @@ const (
 )
 
 // NewMotor returns a TMC5072 driven motor.
-func NewMotor(ctx context.Context, deps registry.Dependencies, c TMC5072Config, name string,
+func NewMotor(ctx context.Context, deps resource.Dependencies, c TMC5072Config, name resource.Name,
 	logger golog.Logger,
 ) (motor.LocalMotor, error) {
 	b, err := board.FromDependencies(deps, c.BoardName)
@@ -182,6 +175,7 @@ func NewMotor(ctx context.Context, deps registry.Dependencies, c TMC5072Config, 
 	c.HomeRPM *= -1
 
 	m := &Motor{
+		Named:       name.AsNamed(),
 		board:       b,
 		bus:         bus,
 		csPin:       c.ChipSelect,
@@ -192,7 +186,7 @@ func NewMotor(ctx context.Context, deps registry.Dependencies, c TMC5072Config, 
 		maxAcc:      c.MaxAcceleration,
 		fClk:        baseClk / c.CalFactor,
 		logger:      logger,
-		motorName:   name,
+		motorName:   name.ShortName(),
 	}
 
 	rawMaxAcc := m.rpmsToA(m.maxAcc)

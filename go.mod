@@ -22,7 +22,7 @@ require (
 	github.com/edaniels/gobag v1.0.7-0.20220607183102-4242cd9e2848
 	github.com/edaniels/golinters v0.0.5-0.20220906153528-641155550742
 	github.com/edaniels/golog v0.0.0-20230215213219-28954395e8d0
-	github.com/edaniels/gostream v0.0.0-20230321201259-9c06d1aeaae5
+	github.com/edaniels/gostream v0.0.0-20230420210327-747ae2af921e
 	github.com/edaniels/lidario v0.0.0-20220607182921-5879aa7b96dd
 	github.com/erh/scheme v0.0.0-20210304170849-99d295c6ce9a
 	github.com/fogleman/gg v1.3.0
@@ -62,7 +62,7 @@ require (
 	github.com/muesli/clusters v0.0.0-20200529215643-2700303c1762
 	github.com/muesli/kmeans v0.3.1
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
-	github.com/pion/mediadevices v0.4.1-0.20230412180714-14bfaa5dbdd3
+	github.com/pion/mediadevices v0.4.1-0.20230418101253-f0f6be735011
 	github.com/pion/rtp v1.7.13
 	github.com/pion/webrtc/v3 v3.1.59
 	github.com/pseudomuto/protoc-gen-doc v1.5.1
@@ -84,7 +84,7 @@ require (
 	go.uber.org/zap v1.24.0
 	go.viam.com/api v0.1.111
 	go.viam.com/test v1.1.1-0.20220913152726-5da9916c08a2
-	go.viam.com/utils v0.1.18-0.20230327140716-bfeb34d89117
+	go.viam.com/utils v0.1.20-0.20230420205943-ea8c41feeaa0
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.7.0
 	golang.org/x/tools v0.7.0

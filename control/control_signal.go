@@ -8,18 +8,17 @@ type Signal struct {
 	time      []int
 	dimension int
 	name      string
-	mu        *sync.Mutex
+	mu        sync.Mutex
 }
 
-func makeSignal(name string) Signal {
+func makeSignal(name string) *Signal {
 	var s Signal
 	dimension := 1
 	s.dimension = dimension
 	s.signal = make([]float64, dimension)
 	s.time = make([]int, dimension)
 	s.name = name
-	s.mu = &sync.Mutex{}
-	return s
+	return &s
 }
 
 // GetSignalValueAt returns the value of the signal at an index, threadsafe.

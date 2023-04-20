@@ -8,7 +8,7 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/utils"
 )
 
 func TestConstantConfig(t *testing.T) {
@@ -21,7 +21,7 @@ func TestConstantConfig(t *testing.T) {
 			BlockConfig{
 				Name: "constant1",
 				Type: "constant",
-				Attribute: config.AttributeMap{
+				Attribute: utils.AttributeMap{
 					"constant_val": 1.89345,
 				},
 				DependsOn: []string{},
@@ -32,7 +32,7 @@ func TestConstantConfig(t *testing.T) {
 			BlockConfig{
 				Name: "constant1",
 				Type: "constant",
-				Attribute: config.AttributeMap{
+				Attribute: utils.AttributeMap{
 					"constant_S": 1.89345,
 				},
 				DependsOn: []string{},
@@ -43,7 +43,7 @@ func TestConstantConfig(t *testing.T) {
 			BlockConfig{
 				Name: "constant1",
 				Type: "constant",
-				Attribute: config.AttributeMap{
+				Attribute: utils.AttributeMap{
 					"constant_val": 1.89345,
 				},
 				DependsOn: []string{"A", "B"},
@@ -69,14 +69,14 @@ func TestConstantNext(t *testing.T) {
 	c := BlockConfig{
 		Name: "constant1",
 		Type: "constant",
-		Attribute: config.AttributeMap{
+		Attribute: utils.AttributeMap{
 			"constant_val": 1.89345,
 		},
 		DependsOn: []string{},
 	}
 	s, err := newConstant(c, logger)
 	test.That(t, err, test.ShouldBeNil)
-	out, ok := s.Next(ctx, []Signal{}, (time.Millisecond * 1))
+	out, ok := s.Next(ctx, []*Signal{}, (time.Millisecond * 1))
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, out[0].GetSignalValueAt(0), test.ShouldEqual, 1.89345)
 }

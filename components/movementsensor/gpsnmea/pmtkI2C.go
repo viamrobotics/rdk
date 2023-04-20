@@ -12,15 +12,15 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/movementsensor"
-	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 )
 
 // PmtkI2CNMEAMovementSensor allows the use of any MovementSensor chip that communicates over I2C using the PMTK protocol.
 type PmtkI2CNMEAMovementSensor struct {
-	generic.Unimplemented
+	resource.Named
+	resource.AlwaysRebuild
 	mu                      sync.RWMutex
 	cancelCtx               context.Context
 	cancelFunc              func()
@@ -39,32 +39,33 @@ type PmtkI2CNMEAMovementSensor struct {
 // NewPmtkI2CGPSNMEA implements a gps that communicates over i2c.
 func NewPmtkI2CGPSNMEA(
 	ctx context.Context,
-	deps registry.Dependencies,
-	attr *AttrConfig,
+	deps resource.Dependencies,
+	name resource.Name,
+	conf *Config,
 	logger golog.Logger,
 ) (NmeaMovementSensor, error) {
-	b, err := board.FromDependencies(deps, attr.Board)
+	b, err := board.FromDependencies(deps, conf.Board)
 	if err != nil {
 		return nil, fmt.Errorf("gps init: failed to find board: %w", err)
 	}
 	localB, ok := b.(board.LocalBoard)
 	if !ok {
-		return nil, fmt.Errorf("board %s is not local", attr.Board)
+		return nil, fmt.Errorf("board %s is not local", conf.Board)
 	}
-	i2cbus, ok := localB.I2CByName(attr.I2CAttrConfig.I2CBus)
+	i2cbus, ok := localB.I2CByName(conf.I2CConfig.I2CBus)
 	if !ok {
-		return nil, fmt.Errorf("gps init: failed to find i2c bus %s", attr.I2CAttrConfig.I2CBus)
+		return nil, fmt.Errorf("gps init: failed to find i2c bus %s", conf.I2CConfig.I2CBus)
 	}
-	addr := attr.I2CAttrConfig.I2cAddr
+	addr := conf.I2CConfig.I2cAddr
 	if addr == -1 {
 		return nil, errors.New("must specify gps i2c address")
 	}
-	if attr.I2CAttrConfig.I2CBaudRate == 0 {
-		attr.I2CAttrConfig.I2CBaudRate = 38400
+	if conf.I2CConfig.I2CBaudRate == 0 {
+		conf.I2CConfig.I2CBaudRate = 38400
 		logger.Warn("using default baudrate : 38400")
 	}
 
-	disableNmea := attr.DisableNMEA
+	disableNmea := conf.DisableNMEA
 	if disableNmea {
 		logger.Info("SerialNMEAMovementSensor: NMEA reading disabled")
 	}
@@ -72,9 +73,10 @@ func NewPmtkI2CGPSNMEA(
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 
 	g := &PmtkI2CNMEAMovementSensor{
+		Named:       name.AsNamed(),
 		bus:         i2cbus,
 		addr:        byte(addr),
-		wbaud:       attr.I2CAttrConfig.I2CBaudRate,
+		wbaud:       conf.I2CConfig.I2CBaudRate,
 		cancelCtx:   cancelCtx,
 		cancelFunc:  cancelFunc,
 		logger:      logger,
@@ -274,7 +276,7 @@ func (g *PmtkI2CNMEAMovementSensor) Readings(ctx context.Context, extra map[stri
 }
 
 // Close shuts down the SerialNMEAMOVEMENTSENSOR.
-func (g *PmtkI2CNMEAMovementSensor) Close() error {
+func (g *PmtkI2CNMEAMovementSensor) Close(ctx context.Context) error {
 	g.cancelFunc()
 	g.activeBackgroundWorkers.Wait()
 

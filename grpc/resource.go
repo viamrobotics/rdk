@@ -1,6 +1,9 @@
 package grpc
 
 import (
+	"context"
+	"errors"
+
 	"github.com/jhump/protoreflect/dynamic/grpcdynamic"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc/codes"
@@ -15,19 +18,20 @@ var UnimplementedError = status.Error(codes.Unimplemented, codes.Unimplemented.S
 // An ForeignResource is used to dynamically invoke RPC calls to resources that have their
 // RPC information dervied on demand.
 type ForeignResource struct {
-	name resource.Name
+	resource.Named
+	resource.TriviallyCloseable
 	conn rpc.ClientConn
 }
 
 // NewForeignResource returns an ForeignResource for the given resource name and
 // connection serving it.
 func NewForeignResource(name resource.Name, conn rpc.ClientConn) *ForeignResource {
-	return &ForeignResource{name, conn}
+	return &ForeignResource{Named: name.AsNamed(), conn: conn}
 }
 
-// Name returns the name of the resource.
-func (res *ForeignResource) Name() resource.Name {
-	return res.name
+// Reconfigure always fails.
+func (res *ForeignResource) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+	return errors.New("this resource cannot be reconfigured")
 }
 
 // NewStub returns a new gRPC client stub used to communicate with the resource.

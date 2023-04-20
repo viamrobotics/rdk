@@ -5,9 +5,13 @@ import (
 	"path"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/resource"
 )
 
-type noopManager struct{}
+type noopManager struct {
+	resource.Named
+	resource.TriviallyReconfigurable
+}
 
 var (
 	_ Manager       = (*noopManager)(nil)
@@ -16,7 +20,9 @@ var (
 
 // NewNoopManager returns a noop package manager that does nothing. On path requests it returns the name of the package.
 func NewNoopManager() ManagerSyncer {
-	return &noopManager{}
+	return &noopManager{
+		Named: InternalServiceName.AsNamed(),
+	}
 }
 
 // PackagePath returns the package if it exists and already download. If it does not exist it returns a ErrPackageMissing error.
@@ -41,7 +47,7 @@ func (m *noopManager) RefPath(refPath string) (string, error) {
 }
 
 // Close manager.
-func (m *noopManager) Close() error {
+func (m *noopManager) Close(ctx context.Context) error {
 	return nil
 }
 

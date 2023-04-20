@@ -7,9 +7,6 @@ PATH_WITH_TOOLS="`pwd`/$(TOOL_BIN):`pwd`/node_modules/.bin:${PATH}"
 GIT_REVISION = $(shell git rev-parse HEAD | tr -d '\n')
 TAG_VERSION?=$(shell etc/tag_version.sh)
 LDFLAGS = -ldflags "$(shell etc/set_plt.sh) -X 'go.viam.com/rdk/config.Version=${TAG_VERSION}' -X 'go.viam.com/rdk/config.GitRevision=${GIT_REVISION}'"
-BUILD_TAGS=dynamic
-GO_BUILD_TAGS = -tags $(BUILD_TAGS)
-LINT_BUILD_TAGS = --build-tags $(BUILD_TAGS)
 
 default: build lint server
 
@@ -19,7 +16,7 @@ setup:
 build: build-web build-go
 
 build-go:
-	go build $(GO_BUILD_TAGS) ./...
+	go build ./...
 
 build-web: web/runtime-shared/static/control.js
 
@@ -50,8 +47,8 @@ lint: lint-go lint-web
 
 lint-go: tool-install
 	go mod tidy
-	export pkgs="`go list $(GO_BUILD_TAGS) -f '{{.Dir}}' ./... | grep -v /proto/`" && echo "$$pkgs" | xargs go vet $(GO_BUILD_TAGS) -vettool=$(TOOL_BIN)/combined
-	GOGC=50 $(TOOL_BIN)/golangci-lint run $(LINT_BUILD_TAGS) -v --fix --config=./etc/.golangci.yaml
+	export pkgs="`go list -f '{{.Dir}}' ./... | grep -v /proto/`" && echo "$$pkgs" | xargs go vet -vettool=$(TOOL_BIN)/combined
+	GOGC=50 $(TOOL_BIN)/golangci-lint run -v --fix --config=./etc/.golangci.yaml
 
 lint-web: typecheck-web
 	npm run lint --prefix web/frontend
@@ -88,7 +85,7 @@ test-integration:
 	cd services/slam/builtin && sudo --preserve-env=APPIMAGE_EXTRACT_AND_RUN go test -v -run TestCartographerIntegration
 
 server: build-web
-	go build $(GO_BUILD_TAGS) $(LDFLAGS) -o $(BIN_OUTPUT_PATH)/server web/cmd/server/main.go
+	go build $(LDFLAGS) -o $(BIN_OUTPUT_PATH)/server web/cmd/server/main.go
 
 clean-all:
 	git clean -fxd

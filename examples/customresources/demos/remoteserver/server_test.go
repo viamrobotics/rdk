@@ -11,6 +11,7 @@ import (
 	"go.viam.com/test"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/pexec"
+	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/examples/customresources/apis/gizmoapi"
@@ -30,11 +31,11 @@ func TestGizmo(t *testing.T) {
 	addr2 := fmt.Sprintf("localhost:%d", port2)
 
 	ctx := context.Background()
-	logger := golog.NewDebugLogger("gizmo.server")
+	logger := golog.NewTestLogger(t)
 
 	cfgServer, err := config.Read(ctx, utils.ResolveFile("./examples/customresources/demos/remoteserver/remote.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
-	r0, err := robotimpl.New(ctx, cfgServer, logger)
+	r0, err := robotimpl.New(ctx, cfgServer, logger.Named("gizmo.server"))
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, r0.Close(context.Background()), test.ShouldBeNil)
@@ -50,8 +51,7 @@ func TestGizmo(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	err = tmpConf.Sync()
 	test.That(t, err, test.ShouldBeNil)
-	logger = golog.NewDebugLogger("process.inter")
-	pmgr := pexec.NewProcessManager(logger)
+	pmgr := pexec.NewProcessManager(logger.Named("process.inter"))
 	pCfg := pexec.ProcessConfig{
 		ID:      "Intermediate",
 		Name:    "go",
@@ -67,9 +67,7 @@ func TestGizmo(t *testing.T) {
 		test.That(t, pmgr.Stop(), test.ShouldBeNil)
 	}()
 	test.That(t, err, test.ShouldBeNil)
-	goutils.SelectContextOrWait(context.Background(), 30*time.Second)
 
-	logger = golog.NewDebugLogger("gizmo.client")
 	remoteConfig := &config.Config{
 		Remotes: []config.Remote{
 			{
@@ -78,13 +76,19 @@ func TestGizmo(t *testing.T) {
 			},
 		},
 	}
-	r2, err := robotimpl.New(ctx, remoteConfig, logger)
+	r2, err := robotimpl.New(ctx, remoteConfig, logger.Named("gizmo.client"))
 	defer func() {
 		test.That(t, r2.Close(context.Background()), test.ShouldBeNil)
 	}()
 	test.That(t, err, test.ShouldBeNil)
-	res, err := r2.ResourceByName(gizmoapi.Named("gizmo1"))
-	test.That(t, err, test.ShouldBeNil)
+
+	// remotes can take a few seconds to show up, so we wait for the resource
+	var res interface{}
+	testutils.WaitForAssertionWithSleep(t, time.Second, 120, func(tb testing.TB){
+		res, err = r2.ResourceByName(gizmoapi.Named("gizmo1"))
+		test.That(tb, err, test.ShouldBeNil)
+	})
+
 	gizmo1, ok := res.(gizmoapi.Gizmo)
 	test.That(t, ok, test.ShouldBeTrue)
 	_, err = gizmo1.DoOne(context.Background(), "hello")

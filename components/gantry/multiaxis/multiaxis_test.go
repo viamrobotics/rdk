@@ -10,50 +10,57 @@ import (
 	"go.viam.com/rdk/components/gantry"
 	"go.viam.com/rdk/components/motor"
 	fm "go.viam.com/rdk/components/motor/fake"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
+	rutils "go.viam.com/rdk/utils"
 )
 
 func createFakeOneaAxis(length float64, positions []float64) *inject.Gantry {
-	fakeoneaxis := &inject.Gantry{
-		LocalGantry: nil,
-		PositionFunc: func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
-			return positions, nil
-		},
-		MoveToPositionFunc: func(ctx context.Context, pos []float64, extra map[string]interface{}) error {
-			return nil
-		},
-		LengthsFunc: func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
-			return []float64{length}, nil
-		},
-		StopFunc: func(ctx context.Context, extra map[string]interface{}) error {
-			return nil
-		},
-		CloseFunc: func(ctx context.Context) error {
-			return nil
-		},
-		ModelFrameFunc: func() referenceframe.Model {
-			return nil
-		},
+	fakeoneaxis := inject.NewGantry("fake")
+	fakeoneaxis.PositionFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+		return positions, nil
+	}
+	fakeoneaxis.MoveToPositionFunc = func(ctx context.Context, pos []float64, extra map[string]interface{}) error {
+		return nil
+	}
+	fakeoneaxis.LengthsFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+		return []float64{length}, nil
+	}
+	fakeoneaxis.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
+		return nil
+	}
+	fakeoneaxis.CloseFunc = func(ctx context.Context) error {
+		return nil
+	}
+	fakeoneaxis.ModelFrameFunc = func() referenceframe.Model {
+		return nil
 	}
 	return fakeoneaxis
 }
 
-func createFakeDeps() registry.Dependencies {
-	fakeGantry := &inject.Gantry{
-		LengthsFunc: func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
-			return []float64{1}, nil
-		},
+func createFakeDeps() resource.Dependencies {
+	fakeGantry1 := inject.NewGantry("1")
+	fakeGantry1.LengthsFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+		return []float64{1}, nil
 	}
-	fakeMotor := &fm.Motor{}
+	fakeGantry2 := inject.NewGantry("2")
+	fakeGantry2.LengthsFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+		return []float64{1}, nil
+	}
+	fakeGantry3 := inject.NewGantry("3")
+	fakeGantry3.LengthsFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+		return []float64{1}, nil
+	}
+	fakeMotor := &fm.Motor{
+		Named: motor.Named("fm1").AsNamed(),
+	}
 
-	deps := make(registry.Dependencies)
-	deps[gantry.Named("1")] = fakeGantry
-	deps[gantry.Named("2")] = fakeGantry
-	deps[gantry.Named("3")] = fakeGantry
-	deps[motor.Named(fakeMotor.Name)] = fakeMotor
+	deps := make(resource.Dependencies)
+	deps[fakeGantry1.Name()] = fakeGantry1
+	deps[fakeGantry2.Name()] = fakeGantry2
+	deps[fakeGantry3.Name()] = fakeGantry3
+	deps[fakeMotor.Name()] = fakeMotor
 	return deps
 }
 
@@ -69,11 +76,11 @@ var twoAxes = []gantry.Gantry{
 }
 
 func TestValidate(t *testing.T) {
-	fakecfg := &AttrConfig{SubAxes: []string{}}
+	fakecfg := &Config{SubAxes: []string{}}
 	_, err := fakecfg.Validate("path")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "need at least one axis")
 
-	fakecfg = &AttrConfig{SubAxes: []string{"singleaxis"}}
+	fakecfg = &Config{SubAxes: []string{"singleaxis"}}
 	_, err = fakecfg.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
 }
@@ -84,9 +91,9 @@ func TestNewMultiAxis(t *testing.T) {
 
 	deps := createFakeDeps()
 
-	fakeMultAxcfg := config.Component{
+	fakeMultAxcfg := resource.Config{
 		Name: "gantry",
-		ConvertedAttributes: &AttrConfig{
+		ConvertedAttributes: &Config{
 			SubAxes: []string{"1", "2", "3"},
 		},
 	}
@@ -98,9 +105,9 @@ func TestNewMultiAxis(t *testing.T) {
 	lenfloat := []float64{1, 1, 1}
 	test.That(t, fakemulax.lengthsMm, test.ShouldResemble, lenfloat)
 
-	fakeMultAxcfg = config.Component{
+	fakeMultAxcfg = resource.Config{
 		Name: "gantry",
-		Attributes: config.AttributeMap{
+		Attributes: rutils.AttributeMap{
 			"subaxes_list": []string{},
 		},
 	}
@@ -210,73 +217,81 @@ func TestCurrentInputs(t *testing.T) {
 }
 
 func TestModelFrame(t *testing.T) {
-	fakemultiaxis := &multiAxis{subAxes: twoAxes, lengthsMm: []float64{1, 1}, name: "test2Axgood"}
+	fakemultiaxis := &multiAxis{
+		Named:     gantry.Named("foo").AsNamed(),
+		subAxes:   twoAxes,
+		lengthsMm: []float64{1, 1},
+	}
 	model := fakemultiaxis.ModelFrame()
 	test.That(t, model, test.ShouldNotBeNil)
 
-	fakemultiaxis = &multiAxis{subAxes: threeAxes, lengthsMm: []float64{1, 1, 1}, name: "test3Axgood"}
+	fakemultiaxis = &multiAxis{
+		Named:     gantry.Named("foo").AsNamed(),
+		subAxes:   threeAxes,
+		lengthsMm: []float64{1, 1, 1},
+	}
 	model = fakemultiaxis.ModelFrame()
 	test.That(t, model, test.ShouldNotBeNil)
 }
 
-func createComplexDeps() registry.Dependencies {
+func createComplexDeps() resource.Dependencies {
 	position1 := []float64{6, 5}
-	mAx1 := &inject.Gantry{
-		PositionFunc: func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
-			return position1, nil
-		},
-		MoveToPositionFunc: func(ctx context.Context, pos []float64, extra map[string]interface{}) error {
-			if move, _ := extra["move"].(bool); move {
-				position1[0] += pos[0]
-				position1[1] += pos[1]
-			}
+	mAx1 := inject.NewGantry("1")
+	mAx1.PositionFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+		return position1, nil
+	}
+	mAx1.MoveToPositionFunc = func(ctx context.Context, pos []float64, extra map[string]interface{}) error {
+		if move, _ := extra["move"].(bool); move {
+			position1[0] += pos[0]
+			position1[1] += pos[1]
+		}
 
-			return nil
-		},
-		LengthsFunc: func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
-			return []float64{100, 101}, nil
-		},
-		StopFunc: func(ctx context.Context, extra map[string]interface{}) error {
-			return nil
-		},
+		return nil
+	}
+	mAx1.LengthsFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+		return []float64{100, 101}, nil
+	}
+	mAx1.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
+		return nil
 	}
 
 	position2 := []float64{9, 8, 7}
-	mAx2 := &inject.Gantry{
-		PositionFunc: func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
-			return position2, nil
-		},
-		MoveToPositionFunc: func(ctx context.Context, pos []float64, extra map[string]interface{}) error {
-			if move, _ := extra["move"].(bool); move {
-				position2[0] += pos[0]
-				position2[1] += pos[1]
-				position2[2] += pos[2]
-			}
-			return nil
-		},
-		LengthsFunc: func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
-			return []float64{102, 103, 104}, nil
-		},
-		StopFunc: func(ctx context.Context, extra map[string]interface{}) error {
-			return nil
-		},
+	mAx2 := inject.NewGantry("2")
+	mAx2.PositionFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+		return position2, nil
+	}
+	mAx2.MoveToPositionFunc = func(ctx context.Context, pos []float64, extra map[string]interface{}) error {
+		if move, _ := extra["move"].(bool); move {
+			position2[0] += pos[0]
+			position2[1] += pos[1]
+			position2[2] += pos[2]
+		}
+		return nil
+	}
+	mAx2.LengthsFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+		return []float64{102, 103, 104}, nil
+	}
+	mAx2.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
+		return nil
 	}
 
-	fakeMotor := &fm.Motor{}
+	fakeMotor := &fm.Motor{
+		Named: motor.Named("foo").AsNamed(),
+	}
 
-	deps := make(registry.Dependencies)
-	deps[gantry.Named("1")] = mAx1
-	deps[gantry.Named("2")] = mAx2
-	deps[motor.Named(fakeMotor.Name)] = fakeMotor
+	deps := make(resource.Dependencies)
+	deps[mAx1.Name()] = mAx1
+	deps[mAx2.Name()] = mAx2
+	deps[fakeMotor.Name()] = fakeMotor
 	return deps
 }
 
 func TestComplexMultiAxis(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
-	cfg := config.Component{
+	cfg := resource.Config{
 		Name: "complexGantry",
-		ConvertedAttributes: &AttrConfig{
+		ConvertedAttributes: &Config{
 			SubAxes: []string{"1", "2"},
 		},
 	}

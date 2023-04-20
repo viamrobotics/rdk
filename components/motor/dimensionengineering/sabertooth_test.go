@@ -7,12 +7,9 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/components/motor/dimensionengineering"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 )
 
@@ -33,7 +30,7 @@ func TestSabertoothMotor(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	c := make(chan []byte, 1024)
 	resChan := make(chan string, 1024)
-	deps := make(registry.Dependencies)
+	deps := make(resource.Dependencies)
 
 	mc1 := dimensionengineering.Config{
 		SerialPath:    "testchan",
@@ -43,13 +40,14 @@ func TestSabertoothMotor(t *testing.T) {
 		DirectionFlip: false,
 	}
 
-	motorReg := registry.ComponentLookup(motor.Subtype, sabertoothModel)
+	motorReg, ok := resource.LookupRegistration(motor.Subtype, sabertoothModel)
+	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, motorReg, test.ShouldNotBeNil)
 
 	// These are the setup register writes
-	m1, err := motorReg.Constructor(context.Background(), deps, config.Component{Name: "motor1", ConvertedAttributes: &mc1}, logger)
+	m1, err := motorReg.Constructor(context.Background(), deps, resource.Config{Name: "motor1", ConvertedAttributes: &mc1}, logger)
 	test.That(t, err, test.ShouldBeNil)
-	defer utils.TryClose(ctx, m1)
+	defer m1.Close(ctx)
 
 	// This should be the stop command
 	checkTx(t, resChan, c, []byte{0x80, 0x00, 0x00, 0x00})
@@ -91,9 +89,9 @@ func TestSabertoothMotor(t *testing.T) {
 		DirectionFlip: false,
 	}
 
-	m2, err := motorReg.Constructor(context.Background(), deps, config.Component{Name: "motor2", ConvertedAttributes: &mc2}, logger)
+	m2, err := motorReg.Constructor(context.Background(), deps, resource.Config{Name: "motor2", ConvertedAttributes: &mc2}, logger)
 	test.That(t, err, test.ShouldBeNil)
-	defer utils.TryClose(ctx, m2)
+	defer m2.Close(ctx)
 
 	checkTx(t, resChan, c, []byte{0x80, 0x04, 0x00, 0x04})
 
@@ -132,7 +130,7 @@ func TestSabertoothMotorDirectionFlip(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	c := make(chan []byte, 1024)
 	resChan := make(chan string, 1024)
-	deps := make(registry.Dependencies)
+	deps := make(resource.Dependencies)
 
 	mc1 := dimensionengineering.Config{
 		SerialPath:    "testchan",
@@ -142,13 +140,14 @@ func TestSabertoothMotorDirectionFlip(t *testing.T) {
 		DirectionFlip: true,
 	}
 
-	motorReg := registry.ComponentLookup(motor.Subtype, sabertoothModel)
+	motorReg, ok := resource.LookupRegistration(motor.Subtype, sabertoothModel)
+	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, motorReg, test.ShouldNotBeNil)
 
 	// These are the setup register writes
-	m1, err := motorReg.Constructor(context.Background(), deps, config.Component{Name: "motor1", ConvertedAttributes: &mc1}, logger)
+	m1, err := motorReg.Constructor(context.Background(), deps, resource.Config{Name: "motor1", ConvertedAttributes: &mc1}, logger)
 	test.That(t, err, test.ShouldBeNil)
-	defer utils.TryClose(ctx, m1)
+	defer m1.Close(ctx)
 
 	checkTx(t, resChan, c, []byte{0x80, 0x00, 0x00, 0x00})
 
@@ -183,9 +182,9 @@ func TestSabertoothMotorDirectionFlip(t *testing.T) {
 		DirectionFlip: true,
 	}
 
-	m2, err := motorReg.Constructor(context.Background(), deps, config.Component{Name: "motor2", ConvertedAttributes: &mc2}, logger)
+	m2, err := motorReg.Constructor(context.Background(), deps, resource.Config{Name: "motor2", ConvertedAttributes: &mc2}, logger)
 	test.That(t, err, test.ShouldBeNil)
-	defer utils.TryClose(ctx, m2)
+	defer m2.Close(ctx)
 
 	checkTx(t, resChan, c, []byte{0x80, 0x04, 0x00, 0x04})
 
@@ -224,7 +223,7 @@ func TestSabertoothRampConfig(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	c := make(chan []byte, 1024)
 	resChan := make(chan string, 1024)
-	deps := make(registry.Dependencies)
+	deps := make(resource.Dependencies)
 
 	mc1 := dimensionengineering.Config{
 		SerialPath:    "testchan",
@@ -234,13 +233,14 @@ func TestSabertoothRampConfig(t *testing.T) {
 		RampValue:     100,
 	}
 
-	motorReg := registry.ComponentLookup(motor.Subtype, sabertoothModel)
+	motorReg, ok := resource.LookupRegistration(motor.Subtype, sabertoothModel)
+	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, motorReg, test.ShouldNotBeNil)
 
 	// These are the setup register writes
-	m1, err := motorReg.Constructor(context.Background(), deps, config.Component{Name: "motor1", ConvertedAttributes: &mc1}, logger)
+	m1, err := motorReg.Constructor(context.Background(), deps, resource.Config{Name: "motor1", ConvertedAttributes: &mc1}, logger)
 	test.That(t, err, test.ShouldBeNil)
-	defer utils.TryClose(ctx, m1)
+	defer m1.Close(ctx)
 
 	checkTx(t, resChan, c, []byte{0x80, 0x00, 0x00, 0x00})
 	checkTx(t, resChan, c, []byte{0x80, 0x10, 0x64, 0x74})
@@ -256,7 +256,7 @@ func TestSabertoothAddressMapping(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	c := make(chan []byte, 1024)
 	resChan := make(chan string, 1024)
-	deps := make(registry.Dependencies)
+	deps := make(resource.Dependencies)
 
 	mc1 := dimensionengineering.Config{
 		SerialPath:    "testchan",
@@ -265,22 +265,22 @@ func TestSabertoothAddressMapping(t *testing.T) {
 		SerialAddress: 129,
 	}
 
-	motorReg := registry.ComponentLookup(motor.Subtype, sabertoothModel)
+	motorReg, ok := resource.LookupRegistration(motor.Subtype, sabertoothModel)
+	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, motorReg, test.ShouldNotBeNil)
 
 	// These are the setup register writes
-	m1, err := motorReg.Constructor(context.Background(), deps, config.Component{Name: "motor1", ConvertedAttributes: &mc1}, logger)
+	m1, err := motorReg.Constructor(context.Background(), deps, resource.Config{Name: "motor1", ConvertedAttributes: &mc1}, logger)
 	test.That(t, err, test.ShouldBeNil)
-	defer utils.TryClose(ctx, m1)
+	defer m1.Close(ctx)
 
 	checkTx(t, resChan, c, []byte{0x81, 0x00, 0x00, 0x01})
 }
 
 func TestInvalidMotorChannel(t *testing.T) {
-	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 	c := make(chan []byte, 1024)
-	deps := make(registry.Dependencies)
+	deps := make(resource.Dependencies)
 
 	mc1 := dimensionengineering.Config{
 		SerialPath:    "testchan",
@@ -289,20 +289,19 @@ func TestInvalidMotorChannel(t *testing.T) {
 		SerialAddress: 129,
 	}
 
-	motorReg := registry.ComponentLookup(motor.Subtype, sabertoothModel)
+	motorReg, ok := resource.LookupRegistration(motor.Subtype, sabertoothModel)
+	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, motorReg, test.ShouldNotBeNil)
 
 	// These are the setup register writes
-	m1, err := motorReg.Constructor(context.Background(), deps, config.Component{Name: "motor1", ConvertedAttributes: &mc1}, logger)
+	_, err := motorReg.Constructor(context.Background(), deps, resource.Config{Name: "motor1", ConvertedAttributes: &mc1}, logger)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid channel")
-	defer utils.TryClose(ctx, m1)
 }
 
 func TestInvalidBaudRate(t *testing.T) {
-	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 	c := make(chan []byte, 1024)
-	deps := make(registry.Dependencies)
+	deps := make(resource.Dependencies)
 
 	mc1 := dimensionengineering.Config{
 		SerialPath:    "testchan",
@@ -312,20 +311,19 @@ func TestInvalidBaudRate(t *testing.T) {
 		BaudRate:      1,
 	}
 
-	motorReg := registry.ComponentLookup(motor.Subtype, sabertoothModel)
+	motorReg, ok := resource.LookupRegistration(motor.Subtype, sabertoothModel)
+	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, motorReg, test.ShouldNotBeNil)
 
 	// These are the setup register writes
-	m1, err := motorReg.Constructor(context.Background(), deps, config.Component{Name: "motor1", ConvertedAttributes: &mc1}, logger)
+	_, err := motorReg.Constructor(context.Background(), deps, resource.Config{Name: "motor1", ConvertedAttributes: &mc1}, logger)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid baud_rate")
-	defer utils.TryClose(ctx, m1)
 }
 
 func TestInvalidSerialAddress(t *testing.T) {
-	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 	c := make(chan []byte, 1024)
-	deps := make(registry.Dependencies)
+	deps := make(resource.Dependencies)
 
 	mc1 := dimensionengineering.Config{
 		SerialPath:    "testchan",
@@ -334,20 +332,19 @@ func TestInvalidSerialAddress(t *testing.T) {
 		SerialAddress: 140,
 	}
 
-	motorReg := registry.ComponentLookup(motor.Subtype, sabertoothModel)
+	motorReg, ok := resource.LookupRegistration(motor.Subtype, sabertoothModel)
+	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, motorReg, test.ShouldNotBeNil)
 
 	// These are the setup register writes
-	m1, err := motorReg.Constructor(context.Background(), deps, config.Component{Name: "motor1", ConvertedAttributes: &mc1}, logger)
+	_, err := motorReg.Constructor(context.Background(), deps, resource.Config{Name: "motor1", ConvertedAttributes: &mc1}, logger)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid address")
-	defer utils.TryClose(ctx, m1)
 }
 
 func TestInvalidMinPowerPct(t *testing.T) {
-	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 	c := make(chan []byte, 1024)
-	deps := make(registry.Dependencies)
+	deps := make(resource.Dependencies)
 
 	mc1 := dimensionengineering.Config{
 		SerialPath:    "testchan",
@@ -358,20 +355,19 @@ func TestInvalidMinPowerPct(t *testing.T) {
 		MaxPowerPct:   0.5,
 	}
 
-	motorReg := registry.ComponentLookup(motor.Subtype, sabertoothModel)
+	motorReg, ok := resource.LookupRegistration(motor.Subtype, sabertoothModel)
+	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, motorReg, test.ShouldNotBeNil)
 
 	// These are the setup register writes
-	m1, err := motorReg.Constructor(context.Background(), deps, config.Component{Name: "motor1", ConvertedAttributes: &mc1}, logger)
+	_, err := motorReg.Constructor(context.Background(), deps, resource.Config{Name: "motor1", ConvertedAttributes: &mc1}, logger)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid min_power_pct")
-	defer utils.TryClose(ctx, m1)
 }
 
 func TestInvalidMaxPowerPct(t *testing.T) {
-	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 	c := make(chan []byte, 1024)
-	deps := make(registry.Dependencies)
+	deps := make(resource.Dependencies)
 
 	mc1 := dimensionengineering.Config{
 		SerialPath:    "testchan",
@@ -382,20 +378,19 @@ func TestInvalidMaxPowerPct(t *testing.T) {
 		MaxPowerPct:   1.5,
 	}
 
-	motorReg := registry.ComponentLookup(motor.Subtype, sabertoothModel)
+	motorReg, ok := resource.LookupRegistration(motor.Subtype, sabertoothModel)
+	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, motorReg, test.ShouldNotBeNil)
 
 	// These are the setup register writes
-	m1, err := motorReg.Constructor(context.Background(), deps, config.Component{Name: "motor1", ConvertedAttributes: &mc1}, logger)
+	_, err := motorReg.Constructor(context.Background(), deps, resource.Config{Name: "motor1", ConvertedAttributes: &mc1}, logger)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid max_power_pct")
-	defer utils.TryClose(ctx, m1)
 }
 
 func TestMultipleInvalidParameters(t *testing.T) {
-	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 	c := make(chan []byte, 1024)
-	deps := make(registry.Dependencies)
+	deps := make(resource.Dependencies)
 
 	mc1 := dimensionengineering.Config{
 		SerialPath:    "testchan",
@@ -407,15 +402,15 @@ func TestMultipleInvalidParameters(t *testing.T) {
 		MaxPowerPct:   1.5,
 	}
 
-	motorReg := registry.ComponentLookup(motor.Subtype, sabertoothModel)
+	motorReg, ok := resource.LookupRegistration(motor.Subtype, sabertoothModel)
+	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, motorReg, test.ShouldNotBeNil)
 
 	// These are the setup register writes
-	m1, err := motorReg.Constructor(context.Background(), deps, config.Component{Name: "motor1", ConvertedAttributes: &mc1}, logger)
+	_, err := motorReg.Constructor(context.Background(), deps, resource.Config{Name: "motor1", ConvertedAttributes: &mc1}, logger)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid channel")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid address")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid baud_rate")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid min_power_pct")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid max_power_pct")
-	defer utils.TryClose(ctx, m1)
 }

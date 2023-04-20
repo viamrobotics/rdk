@@ -9,13 +9,13 @@ import (
 	"go.opencensus.io/trace"
 
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
-	rdkutils "go.viam.com/rdk/utils"
+	"go.viam.com/rdk/utils"
 )
 
-type undistortAttrs struct {
+type undistortConfig struct {
 	CameraParams     *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters"`
 	DistortionParams *transform.BrownConrady            `json:"distortion_parameters"`
 }
@@ -29,27 +29,26 @@ type undistortSource struct {
 }
 
 func newUndistortTransform(
-	ctx context.Context, source gostream.VideoSource, stream camera.ImageType, am config.AttributeMap,
+	ctx context.Context, source gostream.VideoSource, stream camera.ImageType, am utils.AttributeMap,
 ) (gostream.VideoSource, camera.ImageType, error) {
-	conf, err := config.TransformAttributeMapToStruct(&(undistortAttrs{}), am)
+	conf, err := resource.TransformAttributeMap[*undistortConfig](am)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
 	}
-	attrs, ok := conf.(*undistortAttrs)
-	if !ok {
-		return nil, camera.UnspecifiedStream, rdkutils.NewUnexpectedTypeError(attrs, conf)
-	}
-	if attrs.CameraParams == nil {
+	if conf.CameraParams == nil {
 		return nil, camera.UnspecifiedStream, errors.Wrapf(transform.ErrNoIntrinsics, "cannot create undistort transform")
 	}
-	cameraModel := camera.NewPinholeModelWithBrownConradyDistortion(attrs.CameraParams, attrs.DistortionParams)
+	cameraModel := camera.NewPinholeModelWithBrownConradyDistortion(conf.CameraParams, conf.DistortionParams)
 	reader := &undistortSource{
 		gostream.NewEmbeddedVideoStream(source),
 		stream,
 		&cameraModel,
 	}
-	cam, err := camera.NewFromReader(ctx, reader, &cameraModel, stream)
-	return cam, stream, err
+	src, err := camera.NewVideoSourceFromReader(ctx, reader, &cameraModel, stream)
+	if err != nil {
+		return nil, camera.UnspecifiedStream, err
+	}
+	return src, stream, err
 }
 
 // Read undistorts the original image according to the camera parameters.

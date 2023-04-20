@@ -59,7 +59,7 @@ func (m *SessionManager) All() []*session.Session {
 }
 
 func (m *SessionManager) expireLoop(ctx context.Context) {
-	ticker := time.NewTicker(time.Millisecond)
+	ticker := time.NewTicker(10 * time.Millisecond)
 	defer ticker.Stop()
 
 	for {
@@ -109,8 +109,10 @@ func (m *SessionManager) expireLoop(ctx context.Context) {
 						return
 					}
 
-					if err := resource.StopResource(ctx, res, nil); err != nil {
-						resourceErrs = append(resourceErrs, err)
+					if actuator, ok := res.(resource.Actuator); ok {
+						if err := actuator.Stop(ctx, nil); err != nil {
+							resourceErrs = append(resourceErrs, err)
+						}
 					}
 				}()
 			}

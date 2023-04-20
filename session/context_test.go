@@ -1,4 +1,4 @@
-package session
+package session_test
 
 import (
 	"context"
@@ -13,55 +13,53 @@ import (
 	"google.golang.org/grpc/metadata"
 
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/session"
 )
 
 func TestToFromContext(t *testing.T) {
-	_, ok := FromContext(context.Background())
+	_, ok := session.FromContext(context.Background())
 	test.That(t, ok, test.ShouldBeFalse)
 
-	sess1 := New("ownerID", nil, time.Minute, func(id uuid.UUID, resourceName resource.Name) {
+	sess1 := session.New("ownerID", nil, time.Minute, func(id uuid.UUID, resourceName resource.Name) {
 	})
-	nextCtx := ToContext(context.Background(), sess1)
-	sess2, ok := FromContext(nextCtx)
+	nextCtx := session.ToContext(context.Background(), sess1)
+	sess2, ok := session.FromContext(nextCtx)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, sess2, test.ShouldEqual, sess1)
 }
 
 func TestSafetyMonitor(t *testing.T) {
-	SafetyMonitor(context.Background(), nil)
-	SafetyMonitor(context.Background(), 1)
-	SafetyMonitor(context.Background(), myThing{})
-
+	session.SafetyMonitor(context.Background(), nil)
 	name := resource.NewName("foo", "bar", "baz", "barf")
-	SafetyMonitor(context.Background(), myThing{name: name})
+	session.SafetyMonitor(context.Background(), myThing{Named: name.AsNamed()})
 
 	var stored sync.Once
 	var storedCount int32
 	var storedID uuid.UUID
 	var storedResourceName resource.Name
-	sess1 := New("ownerID", nil, time.Minute, func(id uuid.UUID, resourceName resource.Name) {
+	sess1 := session.New("ownerID", nil, time.Minute, func(id uuid.UUID, resourceName resource.Name) {
 		atomic.AddInt32(&storedCount, 1)
 		stored.Do(func() {
 			storedID = id
 			storedResourceName = resourceName
 		})
 	})
-	nextCtx := ToContext(context.Background(), sess1)
+	nextCtx := session.ToContext(context.Background(), sess1)
 
-	SafetyMonitor(nextCtx, myThing{name: name})
+	session.SafetyMonitor(nextCtx, myThing{Named: name.AsNamed()})
 	test.That(t, storedID, test.ShouldEqual, sess1.ID())
 	test.That(t, storedResourceName, test.ShouldResemble, name)
 	test.That(t, atomic.LoadInt32(&storedCount), test.ShouldEqual, 1)
 
-	sess1 = New("ownerID", nil, 0, func(id uuid.UUID, resourceName resource.Name) {
+	sess1 = session.New("ownerID", nil, 0, func(id uuid.UUID, resourceName resource.Name) {
 		atomic.AddInt32(&storedCount, 1)
 		stored.Do(func() {
 			storedID = id
 			storedResourceName = resourceName
 		})
 	})
-	nextCtx = ToContext(context.Background(), sess1)
-	SafetyMonitor(nextCtx, myThing{name: name})
+	nextCtx = session.ToContext(context.Background(), sess1)
+	session.SafetyMonitor(nextCtx, myThing{Named: name.AsNamed()})
 	test.That(t, atomic.LoadInt32(&storedCount), test.ShouldEqual, 1)
 }
 
@@ -69,24 +67,21 @@ func TestSafetyMonitorForMetadata(t *testing.T) {
 	stream1 := &myStream{}
 	streamCtx := grpc.NewContextWithServerTransportStream(context.Background(), stream1)
 
-	sess1 := New("ownerID", nil, time.Minute, nil)
-	nextCtx := ToContext(streamCtx, sess1)
+	sess1 := session.New("ownerID", nil, time.Minute, nil)
+	nextCtx := session.ToContext(streamCtx, sess1)
 
 	name1 := resource.NewName("foo", "bar", "baz", "barf")
 	name2 := resource.NewName("woo", "war", "waz", "warf")
-	SafetyMonitor(nextCtx, myThing{name: name1})
-	test.That(t, stream1.md[SafetyMonitoredResourceMetadataKey], test.ShouldResemble, []string{name1.String()})
-	SafetyMonitor(nextCtx, myThing{name: name2})
-	test.That(t, stream1.md[SafetyMonitoredResourceMetadataKey], test.ShouldResemble, []string{name2.String()})
+	session.SafetyMonitor(nextCtx, myThing{Named: name1.AsNamed()})
+	test.That(t, stream1.md[session.SafetyMonitoredResourceMetadataKey], test.ShouldResemble, []string{name1.String()})
+	session.SafetyMonitor(nextCtx, myThing{Named: name2.AsNamed()})
+	test.That(t, stream1.md[session.SafetyMonitoredResourceMetadataKey], test.ShouldResemble, []string{name2.String()})
 }
 
 type myThing struct {
-	resource.Reconfigurable
-	name resource.Name
-}
-
-func (m myThing) Name() resource.Name {
-	return m.name
+	resource.Named
+	resource.AlwaysRebuild
+	resource.TriviallyCloseable
 }
 
 type myStream struct {

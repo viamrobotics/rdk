@@ -8,18 +8,12 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-	pb "go.viam.com/api/component/inputcontroller/v1"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
-	"google.golang.org/grpc"
 
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/input"
 	viamgrpc "go.viam.com/rdk/grpc"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -74,17 +68,18 @@ func TestClient(t *testing.T) {
 		return nil, errors.New("can't get last events")
 	}
 
-	resources := map[resource.Name]interface{}{
+	resources := map[resource.Name]input.Controller{
 		input.Named(testInputControllerName): injectInputController,
 		input.Named(failInputControllerName): injectInputController2,
 	}
-	inputControllerSvc, err := subtype.New(resources)
+	inputControllerSvc, err := resource.NewSubtypeCollection(input.Subtype, resources)
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype := registry.ResourceSubtypeLookup(input.Subtype)
-	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, inputControllerSvc)
+	resourceSubtype, ok, err := resource.LookupSubtypeRegistration[input.Controller](input.Subtype)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, inputControllerSvc), test.ShouldBeNil)
 
-	injectInputController.DoFunc = generic.EchoFunc
-	generic.RegisterService(rpcServer, inputControllerSvc)
+	injectInputController.DoFunc = testutils.EchoFunc
 
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()
@@ -100,13 +95,14 @@ func TestClient(t *testing.T) {
 	t.Run("input controller client 1", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		inputController1Client := input.NewClientFromConn(context.Background(), conn, testInputControllerName, logger)
+		inputController1Client, err := input.NewClientFromConn(context.Background(), conn, input.Named(testInputControllerName), logger)
+		test.That(t, err, test.ShouldBeNil)
 
 		// DoCommand
-		resp, err := inputController1Client.DoCommand(context.Background(), generic.TestCommand)
+		resp, err := inputController1Client.DoCommand(context.Background(), testutils.TestCommand)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp["command"], test.ShouldEqual, generic.TestCommand["command"])
-		test.That(t, resp["data"], test.ShouldEqual, generic.TestCommand["data"])
+		test.That(t, resp["command"], test.ShouldEqual, testutils.TestCommand["command"])
+		test.That(t, resp["data"], test.ShouldEqual, testutils.TestCommand["data"])
 
 		extra := map[string]interface{}{"foo": "Controls"}
 		controlList, err := inputController1Client.Controls(context.Background(), extra)
@@ -238,22 +234,21 @@ func TestClient(t *testing.T) {
 		test.That(t, extraOptions, test.ShouldResemble, extra)
 		injectInputController.TriggerEventFunc = nil
 
-		test.That(t, utils.TryClose(context.Background(), inputController1Client), test.ShouldBeNil)
+		test.That(t, inputController1Client.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 
 	t.Run("input controller client 2", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		client := resourceSubtype.RPCClient(context.Background(), conn, failInputControllerName, logger)
-		inputController2Client, ok := client.(input.Controller)
-		test.That(t, ok, test.ShouldBeTrue)
+		client2, err := resourceSubtype.RPCClient(context.Background(), conn, input.Named(failInputControllerName), logger)
+		test.That(t, err, test.ShouldBeNil)
 
-		_, err = inputController2Client.Controls(context.Background(), map[string]interface{}{})
+		_, err = client2.Controls(context.Background(), map[string]interface{}{})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get controls")
 
-		_, err = inputController2Client.Events(context.Background(), map[string]interface{}{})
+		_, err = client2.Events(context.Background(), map[string]interface{}{})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get last events")
 
@@ -263,45 +258,13 @@ func TestClient(t *testing.T) {
 			Control: input.AbsoluteX,
 			Value:   0.7,
 		}
-		injectable, ok := inputController2Client.(input.Triggerable)
+		injectable, ok := client2.(input.Triggerable)
 		test.That(t, ok, test.ShouldBeTrue)
 		err = injectable.TriggerEvent(context.Background(), event1, map[string]interface{}{})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not of type Triggerable")
 
-		test.That(t, utils.TryClose(context.Background(), inputController2Client), test.ShouldBeNil)
+		test.That(t, client2.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
-}
-
-func TestClientDialerOption(t *testing.T) {
-	logger := golog.NewTestLogger(t)
-	listener, err := net.Listen("tcp", "localhost:0")
-	test.That(t, err, test.ShouldBeNil)
-	gServer := grpc.NewServer()
-	injectInputController := &inject.InputController{}
-
-	inputControllerSvc, err := subtype.New(map[resource.Name]interface{}{input.Named(testInputControllerName): injectInputController})
-	test.That(t, err, test.ShouldBeNil)
-	pb.RegisterInputControllerServiceServer(gServer, input.NewServer(inputControllerSvc))
-
-	go gServer.Serve(listener)
-	defer gServer.Stop()
-
-	td := &testutils.TrackingDialer{Dialer: rpc.NewCachedDialer()}
-	ctx := rpc.ContextWithDialer(context.Background(), td)
-	conn1, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
-	test.That(t, err, test.ShouldBeNil)
-	client1 := input.NewClientFromConn(ctx, conn1, testInputControllerName, logger)
-	test.That(t, td.NewConnections, test.ShouldEqual, 3)
-	conn2, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
-	test.That(t, err, test.ShouldBeNil)
-	client2 := input.NewClientFromConn(ctx, conn2, testInputControllerName, logger)
-	test.That(t, td.NewConnections, test.ShouldEqual, 3)
-	err = utils.TryClose(context.Background(), client1)
-	test.That(t, err, test.ShouldBeNil)
-	err = utils.TryClose(context.Background(), client2)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, conn1.Close(), test.ShouldBeNil)
-	test.That(t, conn2.Close(), test.ShouldBeNil)
 }

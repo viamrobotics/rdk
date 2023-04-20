@@ -24,10 +24,7 @@ import (
 	"go.viam.com/utils/serial"
 
 	"go.viam.com/rdk/components/board"
-	"go.viam.com/rdk/components/generic"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -38,46 +35,40 @@ var errNoBoard = errors.New("no numato boards found")
 
 // A Config describes the configuration of a board and all of its connected parts.
 type Config struct {
-	Analogs    []board.AnalogConfig `json:"analogs,omitempty"`
-	Attributes config.AttributeMap  `json:"attributes,omitempty"`
-	Pins       int                  `json:"pins"`
+	Analogs    []board.AnalogConfig  `json:"analogs,omitempty"`
+	Attributes rdkutils.AttributeMap `json:"attributes,omitempty"`
+	Pins       int                   `json:"pins"`
 }
 
 func init() {
-	registry.RegisterComponent(
+	resource.RegisterComponent(
 		board.Subtype,
 		modelName,
-		registry.Component{Constructor: func(
-			ctx context.Context,
-			deps registry.Dependencies,
-			config config.Component,
-			logger golog.Logger,
-		) (interface{}, error) {
-			conf, ok := config.ConvertedAttributes.(*Config)
-			if !ok {
-				return nil, rdkutils.NewUnexpectedTypeError(conf, config.ConvertedAttributes)
-			}
+		resource.Registration[board.Board, *Config]{
+			Constructor: func(
+				ctx context.Context,
+				deps resource.Dependencies,
+				conf resource.Config,
+				logger golog.Logger,
+			) (board.Board, error) {
+				newConf, err := resource.NativeConfig[*Config](conf)
+				if err != nil {
+					return nil, err
+				}
 
-			return connect(ctx, conf, logger)
-		}})
-	config.RegisterComponentAttributeMapConverter(
-		board.Subtype,
-		modelName,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf Config
-			return config.TransformAttributeMapToStruct(&conf, attributes)
-		},
-		&Config{})
+				return connect(ctx, conf.ResourceName(), newConf, logger)
+			},
+		})
 }
 
 // Validate ensures all parts of the config are valid.
-func (config *Config) Validate(path string) error {
-	for idx, conf := range config.Analogs {
+func (conf *Config) Validate(path string) ([]string, error) {
+	for idx, conf := range conf.Analogs {
 		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "analogs", idx)); err != nil {
-			return err
+			return nil, err
 		}
 	}
-	return nil
+	return nil, nil
 }
 
 type mask []byte
@@ -107,7 +98,8 @@ func (m *mask) set(bit int) {
 }
 
 type numatoBoard struct {
-	generic.Unimplemented
+	resource.Named
+	resource.AlwaysRebuild
 	pins    int
 	analogs map[string]board.AnalogReader
 
@@ -250,17 +242,17 @@ func (b *numatoBoard) DigitalInterruptByName(name string) (board.DigitalInterrup
 	return nil, false
 }
 
-// SPINames returns the name of all known SPI busses.
+// SPINames returns the names of all known SPI busses.
 func (b *numatoBoard) SPINames() []string {
 	return nil
 }
 
-// I2CNames returns the name of all known I2C busses.
+// I2CNames returns the names of all known I2C busses.
 func (b *numatoBoard) I2CNames() []string {
 	return nil
 }
 
-// AnalogReaderNames returns the name of all known analog readers.
+// AnalogReaderNames returns the names of all known analog readers.
 func (b *numatoBoard) AnalogReaderNames() []string {
 	names := []string{}
 	for n := range b.analogs {
@@ -269,12 +261,12 @@ func (b *numatoBoard) AnalogReaderNames() []string {
 	return names
 }
 
-// DigitalInterruptNames returns the name of all known digital interrupts.
+// DigitalInterruptNames returns the names of all known digital interrupts.
 func (b *numatoBoard) DigitalInterruptNames() []string {
 	return nil
 }
 
-// GPIOPinNames returns the name of all known GPIO pins.
+// GPIOPinNames returns the names of all known GPIO pins.
 func (b *numatoBoard) GPIOPinNames() []string {
 	return nil
 }
@@ -347,7 +339,7 @@ func (b *numatoBoard) SetPowerMode(ctx context.Context, mode pb.PowerMode, durat
 	return grpc.UnimplementedError
 }
 
-func (b *numatoBoard) Close() error {
+func (b *numatoBoard) Close(ctx context.Context) error {
 	atomic.AddInt32(&b.closed, 1)
 	if err := b.port.Close(); err != nil {
 		return err
@@ -368,7 +360,11 @@ func (ar *analogReader) Read(ctx context.Context, extra map[string]interface{}) 
 	return strconv.Atoi(res)
 }
 
-func connect(ctx context.Context, conf *Config, logger golog.Logger) (board.LocalBoard, error) {
+func (ar *analogReader) Close(ctx context.Context) error {
+	return nil
+}
+
+func connect(ctx context.Context, name resource.Name, conf *Config, logger golog.Logger) (board.LocalBoard, error) {
 	pins := conf.Pins
 	if pins <= 0 {
 		return nil, errors.New("numato board needs pins set in attributes")
@@ -396,7 +392,12 @@ func connect(ctx context.Context, conf *Config, logger golog.Logger) (board.Loca
 		return nil, err
 	}
 
-	b := &numatoBoard{pins: pins, port: device, logger: logger}
+	b := &numatoBoard{
+		Named:  name.AsNamed(),
+		pins:   pins,
+		port:   device,
+		logger: logger,
+	}
 
 	b.analogs = map[string]board.AnalogReader{}
 	for _, c := range conf.Analogs {
@@ -409,7 +410,7 @@ func connect(ctx context.Context, conf *Config, logger golog.Logger) (board.Loca
 
 	ver, err := b.doSendReceive(ctx, "ver")
 	if err != nil {
-		return nil, multierr.Combine(b.Close(), err)
+		return nil, multierr.Combine(b.Close(ctx), err)
 	}
 	b.logger.Debugw("numato startup", "version", ver)
 

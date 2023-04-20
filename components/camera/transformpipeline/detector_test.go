@@ -8,7 +8,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/components/camera"
@@ -19,6 +18,7 @@ import (
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/vision"
 	_ "go.viam.com/rdk/services/vision/builtin"
+	rutils "go.viam.com/rdk/utils"
 )
 
 func writeTempConfig(cfg *config.Config) (string, error) {
@@ -49,27 +49,27 @@ func buildRobotWithFakeCamera(logger golog.Logger) (robot.Robot, error) {
 		return nil, err
 	}
 	// create fake source camera
-	cameraComp := config.Component{
+	cameraComp := resource.Config{
 		Name:  "fake_cam",
-		Type:  camera.SubtypeName,
+		API:   camera.Subtype,
 		Model: resource.NewDefaultModel("image_file"),
-		Attributes: config.AttributeMap{
+		Attributes: rutils.AttributeMap{
 			"color_image_file_path": artifact.MustPath("vision/objectdetection/detection_test.jpg"),
 			"depth_image_file_path": "",
 		},
 	}
 	cfg.Components = append(cfg.Components, cameraComp)
 	// create fake detector camera
-	detectorComp := config.Component{
+	detectorComp := resource.Config{
 		Name:  "color_detect",
-		Type:  camera.SubtypeName,
+		API:   camera.Subtype,
 		Model: resource.NewDefaultModel("transform"),
-		Attributes: config.AttributeMap{
+		Attributes: rutils.AttributeMap{
 			"source": "fake_cam",
-			"pipeline": []config.AttributeMap{
+			"pipeline": []rutils.AttributeMap{
 				{
 					"type": "detections",
-					"attributes": config.AttributeMap{
+					"attributes": rutils.AttributeMap{
 						"detector_name":        "detector_color",
 						"confidence_threshold": 0.35,
 					},
@@ -80,16 +80,16 @@ func buildRobotWithFakeCamera(logger golog.Logger) (robot.Robot, error) {
 	}
 	cfg.Components = append(cfg.Components, detectorComp)
 	// create 2nd fake detector camera
-	tfliteComp := config.Component{
+	tfliteComp := resource.Config{
 		Name:  "tflite_detect",
-		Type:  camera.SubtypeName,
+		API:   camera.Subtype,
 		Model: resource.NewDefaultModel("transform"),
-		Attributes: config.AttributeMap{
+		Attributes: rutils.AttributeMap{
 			"source": "fake_cam",
-			"pipeline": []config.AttributeMap{
+			"pipeline": []rutils.AttributeMap{
 				{
 					"type": "detections",
-					"attributes": config.AttributeMap{
+					"attributes": rutils.AttributeMap{
 						"detector_name":        "detector_tflite",
 						"confidence_threshold": 0.35,
 					},
@@ -99,6 +99,10 @@ func buildRobotWithFakeCamera(logger golog.Logger) (robot.Robot, error) {
 		DependsOn: []string{"fake_cam"},
 	}
 	cfg.Components = append(cfg.Components, tfliteComp)
+	if err := cfg.Ensure(false, logger); err != nil {
+		return nil, err
+	}
+
 	newConfFile, err := writeTempConfig(cfg)
 	if err != nil {
 		return nil, err
@@ -127,7 +131,7 @@ func TestColorDetectionSource(t *testing.T) {
 	detConf := vision.VisModelConfig{
 		Name: "detector_color",
 		Type: "color_detector",
-		Parameters: config.AttributeMap{
+		Parameters: rutils.AttributeMap{
 			"detect_color":      "#4F3815",
 			"hue_tolerance_pct": 0.013,
 			"segment_size_px":   15000,
@@ -138,7 +142,7 @@ func TestColorDetectionSource(t *testing.T) {
 
 	detector, err := camera.FromRobot(r, "color_detect")
 	test.That(t, err, test.ShouldBeNil)
-	defer utils.TryClose(ctx, detector)
+	defer detector.Close(ctx)
 
 	resImg, _, err := camera.ReadImage(ctx, detector)
 	test.That(t, err, test.ShouldBeNil)
@@ -165,7 +169,7 @@ func TestTFLiteDetectionSource(t *testing.T) {
 	detConf := vision.VisModelConfig{
 		Name: "detector_tflite",
 		Type: "tflite_detector",
-		Parameters: config.AttributeMap{
+		Parameters: rutils.AttributeMap{
 			"model_path":  artifact.MustPath("vision/tflite/effdet0.tflite"),
 			"num_threads": 1,
 		},
@@ -175,7 +179,7 @@ func TestTFLiteDetectionSource(t *testing.T) {
 
 	detector, err := camera.FromRobot(r, "tflite_detect")
 	test.That(t, err, test.ShouldBeNil)
-	defer utils.TryClose(ctx, detector)
+	defer detector.Close(ctx)
 
 	resImg, _, err := camera.ReadImage(ctx, detector)
 	test.That(t, err, test.ShouldBeNil)
@@ -186,7 +190,7 @@ func TestTFLiteDetectionSource(t *testing.T) {
 }
 
 func BenchmarkColorDetectionSource(b *testing.B) {
-	logger := golog.NewDebugLogger("benchmark-color")
+	logger := golog.NewTestLogger(b)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -201,7 +205,7 @@ func BenchmarkColorDetectionSource(b *testing.B) {
 	detConf := vision.VisModelConfig{
 		Name: "detector_color",
 		Type: "color_detector",
-		Parameters: config.AttributeMap{
+		Parameters: rutils.AttributeMap{
 			"detect_color":      "#4F3815",
 			"hue_tolerance_pct": 0.055556,
 			"segment_size_px":   15000,
@@ -211,7 +215,7 @@ func BenchmarkColorDetectionSource(b *testing.B) {
 	test.That(b, err, test.ShouldBeNil)
 	detector, err := camera.FromRobot(r, "color_detect")
 	test.That(b, err, test.ShouldBeNil)
-	defer utils.TryClose(ctx, detector)
+	defer detector.Close(ctx)
 
 	b.ResetTimer()
 	// begin benchmarking
@@ -222,7 +226,7 @@ func BenchmarkColorDetectionSource(b *testing.B) {
 }
 
 func BenchmarkTFLiteDetectionSource(b *testing.B) {
-	logger := golog.NewDebugLogger("benchmark-tflite")
+	logger := golog.NewTestLogger(b)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -237,7 +241,7 @@ func BenchmarkTFLiteDetectionSource(b *testing.B) {
 	detConf := vision.VisModelConfig{
 		Name: "detector_tflite",
 		Type: "tflite_detector",
-		Parameters: config.AttributeMap{
+		Parameters: rutils.AttributeMap{
 			"model_path":  artifact.MustPath("vision/tflite/effdet0.tflite"),
 			"num_threads": 1,
 		},
@@ -246,7 +250,7 @@ func BenchmarkTFLiteDetectionSource(b *testing.B) {
 	test.That(b, err, test.ShouldBeNil)
 	detector, err := camera.FromRobot(r, "tflite_detect")
 	test.That(b, err, test.ShouldBeNil)
-	defer utils.TryClose(ctx, detector)
+	defer detector.Close(ctx)
 
 	b.ResetTimer()
 	// begin benchmarking

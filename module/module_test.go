@@ -9,11 +9,9 @@ import (
 
 	"github.com/edaniels/golog"
 	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
-	"go.uber.org/zap"
 	v1 "go.viam.com/api/app/v1"
 	pb "go.viam.com/api/module/v1"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 	"go.viam.com/utils/protoutils"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -21,7 +19,7 @@ import (
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/motor"
-	_ "go.viam.com/rdk/components/motor/fake"
+	"go.viam.com/rdk/components/motor/fake"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/examples/customresources/apis/gizmoapi"
 	"go.viam.com/rdk/examples/customresources/apis/summationapi"
@@ -29,11 +27,11 @@ import (
 	"go.viam.com/rdk/examples/customresources/models/mygizmo"
 	"go.viam.com/rdk/examples/customresources/models/mysum"
 	"go.viam.com/rdk/module"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/shell"
 	"go.viam.com/rdk/testutils/inject"
+	rutils "go.viam.com/rdk/utils"
 )
 
 func TestAddModelFromRegistry(t *testing.T) {
@@ -60,8 +58,7 @@ func TestAddModelFromRegistry(t *testing.T) {
 	validServiceModel := mysum.Model
 	validComponentModel := mygizmo.Model
 
-	componentError := "component with API %s and model %s not yet registered"
-	serviceError := "service with API %s and model %s not yet registered"
+	resourceError := "resource with API %s and model %s not yet registered"
 	testCases := []struct {
 		subtype resource.Subtype
 		model   resource.Model
@@ -71,34 +68,34 @@ func TestAddModelFromRegistry(t *testing.T) {
 		{
 			invalidServiceSubtype,
 			invalidModel,
-			fmt.Errorf(serviceError, invalidServiceSubtype, invalidModel),
+			fmt.Errorf(resourceError, invalidServiceSubtype, invalidModel),
 		},
 		{
 			invalidComponentSubtype,
 			invalidModel,
-			fmt.Errorf(componentError, invalidComponentSubtype, invalidModel),
+			fmt.Errorf(resourceError, invalidComponentSubtype, invalidModel),
 		},
 		// Valid resource subtypes and invalid models
 		{
 			validServiceSubtype,
 			invalidModel,
-			fmt.Errorf(serviceError, validServiceSubtype, invalidModel),
+			fmt.Errorf(resourceError, validServiceSubtype, invalidModel),
 		},
 		{
 			validComponentSubtype,
 			invalidModel,
-			fmt.Errorf(componentError, validComponentSubtype, invalidModel),
+			fmt.Errorf(resourceError, validComponentSubtype, invalidModel),
 		},
 		// Mixed validity resource subtypes and models
 		{
 			validServiceSubtype,
 			validComponentModel,
-			fmt.Errorf(serviceError, validServiceSubtype, validComponentModel),
+			fmt.Errorf(resourceError, validServiceSubtype, validComponentModel),
 		},
 		{
 			validComponentSubtype,
 			validServiceModel,
-			fmt.Errorf(componentError, validComponentSubtype, validServiceModel),
+			fmt.Errorf(resourceError, validComponentSubtype, validServiceModel),
 		},
 		// Valid resource subtypes and models.
 		{
@@ -153,16 +150,18 @@ func TestModuleFunctions(t *testing.T) {
 		Model: "acme:demo:mybase",
 	}
 
-	cfg := &config.Config{Components: []config.Component{
+	cfg := &config.Config{Components: []resource.Config{
 		{
-			Name:  "motor1",
-			API:   resource.NewSubtype("rdk", "component", "motor"),
-			Model: resource.NewDefaultModel("fake"),
+			Name:                "motor1",
+			API:                 resource.NewSubtype("rdk", "component", "motor"),
+			Model:               resource.NewDefaultModel("fake"),
+			ConvertedAttributes: &fake.Config{},
 		},
 		{
-			Name:  "motor2",
-			API:   resource.NewSubtype("rdk", "component", "motor"),
-			Model: resource.NewDefaultModel("fake"),
+			Name:                "motor2",
+			API:                 resource.NewSubtype("rdk", "component", "motor"),
+			Model:               resource.NewDefaultModel("fake"),
+			ConvertedAttributes: &fake.Config{},
 		},
 	}}
 
@@ -249,14 +248,15 @@ func TestModuleFunctions(t *testing.T) {
 		err = rMotor.Stop(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = utils.TryClose(ctx, rMotor)
+		err = rMotor.Close(ctx)
 		test.That(t, err, test.ShouldBeNil)
 
 		// Test that GetParentResource will refresh resources on the parent
-		cfg.Components = append(cfg.Components, config.Component{
-			Name:  "motor2",
-			API:   resource.NewSubtype("rdk", "component", "motor"),
-			Model: resource.NewDefaultModel("fake"),
+		cfg.Components = append(cfg.Components, resource.Config{
+			Name:                "motor2",
+			API:                 resource.NewSubtype("rdk", "component", "motor"),
+			Model:               resource.NewDefaultModel("fake"),
+			ConvertedAttributes: &fake.Config{},
 		})
 		myRobot.Reconfigure(ctx, cfg)
 		_, err = m.GetParentResource(ctx, motor.Named("motor2"))
@@ -268,7 +268,7 @@ func TestModuleFunctions(t *testing.T) {
 		_, err = m.AddResource(ctx, &pb.AddResourceRequest{Config: gizmoConf})
 		test.That(t, err, test.ShouldBeNil)
 
-		gClient = gizmoapi.NewClientFromConn(conn, "gizmo1", logger)
+		gClient = gizmoapi.NewClientFromConn(conn, gizmoapi.Named("gizmo1"), logger)
 
 		ret, err := gClient.DoOne(ctx, "test")
 		test.That(t, err, test.ShouldBeNil)
@@ -286,7 +286,7 @@ func TestModuleFunctions(t *testing.T) {
 	})
 
 	t.Run("ReconfigureResource", func(t *testing.T) {
-		attrs, err := structpb.NewStruct(config.AttributeMap{"arg1": "test"})
+		attrs, err := structpb.NewStruct(rutils.AttributeMap{"arg1": "test"})
 		test.That(t, err, test.ShouldBeNil)
 		gizmoConf.Attributes = attrs
 
@@ -314,12 +314,12 @@ func TestModuleFunctions(t *testing.T) {
 
 		_, err := gClient.DoOne(ctx, "test")
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no Gizmo with name (gizmo1)")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
 		// Test generic echo
 		testCmd := map[string]interface{}{"foo": "bar"}
 		retCmd, err := gClient.DoCommand(context.Background(), testCmd)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no Gizmo with name (gizmo1)")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 		test.That(t, retCmd, test.ShouldBeNil)
 	})
 
@@ -336,7 +336,7 @@ func TestModuleFunctions(t *testing.T) {
 			`error validating resource: expected "motorL" attribute for mybase "mybase2"`)
 	})
 
-	err = utils.TryClose(ctx, gClient)
+	err = gClient.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)
 
 	err = conn.Close()
@@ -362,255 +362,313 @@ func (c *MockConfig) Validate(path string) ([]string, error) {
 // TestAttributeConversion tests that modular resource configs have attributes converted with a registred converter,
 // and that validation then works on those converted attributes.
 func TestAttributeConversion(t *testing.T) {
-	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	type testHarness struct {
+		m                    *module.Module
+		mockConf             *v1.ComponentConfig
+		mockReconfigConf     *v1.ComponentConfig
+		createConf1          *resource.Config
+		reconfigConf1        *resource.Config
+		reconfigConf2        *resource.Config
+		createDeps1          *resource.Dependencies
+		reconfigDeps1        *resource.Dependencies
+		reconfigDeps2        *resource.Dependencies
+		modelWithReconfigure resource.Model
+	}
 
-	cfg := &config.Config{Components: []config.Component{
-		{
-			Name:  "motor1",
-			API:   resource.NewSubtype("rdk", "component", "motor"),
-			Model: resource.NewDefaultModel("fake"),
-		},
-		{
-			Name:  "motor2",
-			API:   resource.NewSubtype("rdk", "component", "motor"),
-			Model: resource.NewDefaultModel("fake"),
-		},
-	}}
+	setupTest := func(t *testing.T) (*testHarness, func()) {
+		ctx := context.Background()
+		logger := golog.NewTestLogger(t)
 
-	myRobot, err := robotimpl.RobotFromConfig(ctx, cfg, logger)
-	test.That(t, err, test.ShouldBeNil)
+		cfg := &config.Config{Components: []resource.Config{
+			{
+				Name:                "motor1",
+				API:                 resource.NewSubtype("rdk", "component", "motor"),
+				Model:               resource.NewDefaultModel("fake"),
+				ConvertedAttributes: &fake.Config{},
+			},
+			{
+				Name:                "motor2",
+				API:                 resource.NewSubtype("rdk", "component", "motor"),
+				Model:               resource.NewDefaultModel("fake"),
+				ConvertedAttributes: &fake.Config{},
+			},
+		}}
 
-	parentAddr, err := myRobot.ModuleAddress()
-	test.That(t, err, test.ShouldBeNil)
+		myRobot, err := robotimpl.RobotFromConfig(ctx, cfg, logger)
+		test.That(t, err, test.ShouldBeNil)
 
-	addr := filepath.ToSlash(filepath.Join(filepath.Dir(parentAddr), "mod.sock"))
-	m, err := module.NewModule(ctx, addr, logger)
-	test.That(t, err, test.ShouldBeNil)
-	model := resource.NewModel("inject", "demo", "shell")
-	modelWithReconfigure := resource.NewModel("inject", "demo", "shellWithReconfigure")
+		parentAddr, err := myRobot.ModuleAddress()
+		test.That(t, err, test.ShouldBeNil)
 
-	var (
-		createConf1, reconfigConf1, reconfigConf2 config.Service
-		createDeps1, reconfigDeps1, reconfigDeps2 registry.Dependencies
-	)
+		addr := filepath.ToSlash(filepath.Join(filepath.Dir(parentAddr), "mod.sock"))
+		m, err := module.NewModule(ctx, addr, logger)
+		test.That(t, err, test.ShouldBeNil)
+		model := resource.NewModel("inject", "demo", "shell")
+		modelWithReconfigure := resource.NewModel("inject", "demo", "shellWithReconfigure")
 
-	// register the non-reconfigurable one
-	registry.RegisterService(shell.Subtype, model, registry.Service{
-		Constructor: func(ctx context.Context, deps registry.Dependencies, cfg config.Service, logger *zap.SugaredLogger) (interface{}, error) {
-			createConf1 = cfg
-			createDeps1 = deps
-			return &inject.ShellService{}, nil
-		},
-	})
-	defer func() {
-		registry.DeregisterService(shell.Subtype, model)
-	}()
+		var (
+			createConf1, reconfigConf1, reconfigConf2 resource.Config
+			createDeps1, reconfigDeps1, reconfigDeps2 resource.Dependencies
+		)
 
-	config.RegisterServiceAttributeMapConverter(
-		shell.Subtype,
-		model,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf MockConfig
-			return config.TransformAttributeMapToStruct(&conf, attributes)
-		},
-		&MockConfig{},
-	)
-	test.That(t, m.AddModelFromRegistry(ctx, shell.Subtype, model), test.ShouldBeNil)
+		// register the non-reconfigurable one
+		resource.RegisterService(shell.Subtype, model, resource.Registration[shell.Service, *MockConfig]{
+			Constructor: func(ctx context.Context, deps resource.Dependencies, cfg resource.Config, logger golog.Logger) (shell.Service, error) {
+				createConf1 = cfg
+				createDeps1 = deps
+				return &inject.ShellService{}, nil
+			},
+		})
+		test.That(t, m.AddModelFromRegistry(ctx, shell.Subtype, model), test.ShouldBeNil)
 
-	// register the reconfigurable version
-	registry.RegisterService(shell.Subtype, modelWithReconfigure, registry.Service{
-		Constructor: func(ctx context.Context, deps registry.Dependencies, cfg config.Service, logger *zap.SugaredLogger) (interface{}, error) {
-			injectable := &inject.ShellServiceWithReconfigure{}
-			injectable.ReconfigureFunc = func(ctx context.Context, cfg config.Service, deps registry.Dependencies) error {
-				reconfigConf2 = cfg
-				reconfigDeps2 = deps
-				return nil
+		// register the reconfigurable version
+		resource.RegisterService(shell.Subtype, modelWithReconfigure, resource.Registration[shell.Service, *MockConfig]{
+			Constructor: func(ctx context.Context, deps resource.Dependencies, cfg resource.Config, logger golog.Logger) (shell.Service, error) {
+				injectable := &inject.ShellService{}
+				injectable.ReconfigureFunc = func(ctx context.Context, deps resource.Dependencies, cfg resource.Config) error {
+					reconfigConf2 = cfg
+					reconfigDeps2 = deps
+					return nil
+				}
+				reconfigConf1 = cfg
+				reconfigDeps1 = deps
+				return injectable, nil
+			},
+		})
+		test.That(t, m.AddModelFromRegistry(ctx, shell.Subtype, modelWithReconfigure), test.ShouldBeNil)
+
+		test.That(t, m.Start(ctx), test.ShouldBeNil)
+		conn, err := grpc.Dial(
+			"unix://"+addr,
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+			grpc.WithStreamInterceptor(grpc_retry.StreamClientInterceptor()),
+			grpc.WithUnaryInterceptor(grpc_retry.UnaryClientInterceptor()),
+		)
+		test.That(t, err, test.ShouldBeNil)
+
+		client := pb.NewModuleServiceClient(conn)
+		m.SetReady(true)
+		readyResp, err := client.Ready(ctx, &pb.ReadyRequest{ParentAddress: parentAddr})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, readyResp.Ready, test.ShouldBeTrue)
+
+		mockConf := &v1.ComponentConfig{
+			Name:  "mymock1",
+			Api:   shell.Subtype.String(),
+			Model: model.String(),
+		}
+		mockReconfigConf := &v1.ComponentConfig{
+			Name:  "mymock2",
+			Api:   shell.Subtype.String(),
+			Model: modelWithReconfigure.String(),
+		}
+
+		return &testHarness{
+				m:                    m,
+				mockConf:             mockConf,
+				mockReconfigConf:     mockReconfigConf,
+				createConf1:          &createConf1,
+				reconfigConf1:        &reconfigConf1,
+				reconfigConf2:        &reconfigConf2,
+				createDeps1:          &createDeps1,
+				reconfigDeps1:        &reconfigDeps1,
+				reconfigDeps2:        &reconfigDeps2,
+				modelWithReconfigure: modelWithReconfigure,
+			}, func() {
+				resource.Deregister(shell.Subtype, model)
+				resource.Deregister(shell.Subtype, modelWithReconfigure)
+				test.That(t, conn.Close(), test.ShouldBeNil)
+				m.Close(ctx)
+				test.That(t, myRobot.Close(ctx), test.ShouldBeNil)
 			}
-			reconfigConf1 = cfg
-			reconfigDeps1 = deps
-			return injectable, nil
-		},
-	})
-	defer func() {
-		// Deregister the mock summation service
-		registry.DeregisterService(shell.Subtype, modelWithReconfigure)
-	}()
-
-	config.RegisterServiceAttributeMapConverter(
-		shell.Subtype,
-		modelWithReconfigure,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf MockConfig
-			return config.TransformAttributeMapToStruct(&conf, attributes)
-		},
-		&MockConfig{},
-	)
-	test.That(t, m.AddModelFromRegistry(ctx, shell.Subtype, modelWithReconfigure), test.ShouldBeNil)
-
-	test.That(t, m.Start(ctx), test.ShouldBeNil)
-	conn, err := grpc.Dial(
-		"unix://"+addr,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithStreamInterceptor(grpc_retry.StreamClientInterceptor()),
-		grpc.WithUnaryInterceptor(grpc_retry.UnaryClientInterceptor()),
-	)
-	test.That(t, err, test.ShouldBeNil)
-
-	client := pb.NewModuleServiceClient(conn)
-	m.SetReady(true)
-	readyResp, err := client.Ready(ctx, &pb.ReadyRequest{ParentAddress: parentAddr})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, readyResp.Ready, test.ShouldBeTrue)
-
-	mockConf := &v1.ComponentConfig{
-		Name:  "mymock1",
-		Api:   shell.Subtype.String(),
-		Model: model.String(),
-	}
-	mockReconfigConf := &v1.ComponentConfig{
-		Name:  "mymock2",
-		Api:   shell.Subtype.String(),
-		Model: modelWithReconfigure.String(),
 	}
 
-	//nolint:dupl
 	t.Run("non-reconfigurable creation", func(t *testing.T) {
+		th, teardown := setupTest(t)
+		defer teardown()
+
 		mockAttrs, err := protoutils.StructToStructPb(MockConfig{
 			Motors: []string{motor.Named("motor1").String()},
 		})
 		test.That(t, err, test.ShouldBeNil)
 
-		mockConf.Attributes = mockAttrs
+		th.mockConf.Attributes = mockAttrs
 
-		validateResp, err := m.ValidateConfig(ctx, &pb.ValidateConfigRequest{
-			Config: mockConf,
+		validateResp, err := th.m.ValidateConfig(ctx, &pb.ValidateConfigRequest{
+			Config: th.mockConf,
 		})
 		test.That(t, err, test.ShouldBeNil)
 
 		deps := validateResp.Dependencies
 		test.That(t, deps, test.ShouldResemble, []string{"rdk:component:motor/motor1"})
 
-		_, err = m.AddResource(ctx, &pb.AddResourceRequest{
-			Config: mockConf, Dependencies: deps,
+		_, err = th.m.AddResource(ctx, &pb.AddResourceRequest{
+			Config:       th.mockConf,
+			Dependencies: deps,
 		})
 		test.That(t, err, test.ShouldBeNil)
 
-		_, ok := createDeps1[motor.Named("motor1")]
+		_, ok := (*th.createDeps1)[motor.Named("motor1")]
 		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, createConf1.Attributes.StringSlice("motors"), test.ShouldResemble, []string{motor.Named("motor1").String()})
+		test.That(t, th.createConf1.Attributes.StringSlice("motors"), test.ShouldResemble, []string{motor.Named("motor1").String()})
 
-		mc, ok := createConf1.ConvertedAttributes.(*MockConfig)
+		mc, ok := th.createConf1.ConvertedAttributes.(*MockConfig)
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, mc.Motors, test.ShouldResemble, []string{motor.Named("motor1").String()})
 	})
 
-	//nolint:dupl
 	t.Run("non-reconfigurable recreation", func(t *testing.T) {
+		th, teardown := setupTest(t)
+		defer teardown()
+
 		mockAttrs, err := protoutils.StructToStructPb(MockConfig{
-			Motors: []string{motor.Named("motor2").String()},
+			Motors: []string{motor.Named("motor1").String()},
 		})
 		test.That(t, err, test.ShouldBeNil)
 
-		mockConf.Attributes = mockAttrs
+		th.mockConf.Attributes = mockAttrs
 
-		validateResp, err := m.ValidateConfig(ctx, &pb.ValidateConfigRequest{
-			Config: mockConf,
+		validateResp, err := th.m.ValidateConfig(ctx, &pb.ValidateConfigRequest{
+			Config: th.mockConf,
 		})
 		test.That(t, err, test.ShouldBeNil)
 
 		deps := validateResp.Dependencies
-		test.That(t, deps, test.ShouldResemble, []string{"rdk:component:motor/motor2"})
+		test.That(t, deps, test.ShouldResemble, []string{"rdk:component:motor/motor1"})
 
-		_, err = m.ReconfigureResource(ctx, &pb.ReconfigureResourceRequest{
-			Config: mockConf, Dependencies: deps,
+		_, err = th.m.AddResource(ctx, &pb.AddResourceRequest{
+			Config:       th.mockConf,
+			Dependencies: deps,
 		})
 		test.That(t, err, test.ShouldBeNil)
 
-		_, ok := createDeps1[motor.Named("motor2")]
-		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, createConf1.Attributes.StringSlice("motors"), test.ShouldResemble, []string{motor.Named("motor2").String()})
+		mockAttrs, err = protoutils.StructToStructPb(MockConfig{
+			Motors: []string{motor.Named("motor2").String()},
+		})
+		test.That(t, err, test.ShouldBeNil)
 
-		mc, ok := createConf1.ConvertedAttributes.(*MockConfig)
+		th.mockConf.Attributes = mockAttrs
+
+		validateResp, err = th.m.ValidateConfig(ctx, &pb.ValidateConfigRequest{
+			Config: th.mockConf,
+		})
+		test.That(t, err, test.ShouldBeNil)
+
+		deps = validateResp.Dependencies
+		test.That(t, deps, test.ShouldResemble, []string{"rdk:component:motor/motor2"})
+
+		_, err = th.m.ReconfigureResource(ctx, &pb.ReconfigureResourceRequest{
+			Config:       th.mockConf,
+			Dependencies: deps,
+		})
+		test.That(t, err, test.ShouldBeNil)
+
+		_, ok := (*th.createDeps1)[motor.Named("motor2")]
+		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, th.createConf1.Attributes.StringSlice("motors"), test.ShouldResemble, []string{motor.Named("motor2").String()})
+
+		mc, ok := th.createConf1.ConvertedAttributes.(*MockConfig)
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, mc.Motors, test.ShouldResemble, []string{motor.Named("motor2").String()})
 	})
 
 	t.Run("reconfigurable creation", func(t *testing.T) {
+		th, teardown := setupTest(t)
+		defer teardown()
+
 		mockAttrs, err := protoutils.StructToStructPb(MockConfig{
 			Motors: []string{motor.Named("motor1").String()},
 		})
 		test.That(t, err, test.ShouldBeNil)
 
-		mockReconfigConf.Attributes = mockAttrs
-		mockReconfigConf.Model = modelWithReconfigure.String()
+		th.mockReconfigConf.Attributes = mockAttrs
+		th.mockReconfigConf.Model = th.modelWithReconfigure.String()
 
-		validateResp, err := m.ValidateConfig(ctx, &pb.ValidateConfigRequest{
-			Config: mockReconfigConf,
+		validateResp, err := th.m.ValidateConfig(ctx, &pb.ValidateConfigRequest{
+			Config: th.mockReconfigConf,
 		})
 		test.That(t, err, test.ShouldBeNil)
 
 		deps := validateResp.Dependencies
 		test.That(t, deps, test.ShouldResemble, []string{"rdk:component:motor/motor1"})
 
-		_, err = m.AddResource(ctx, &pb.AddResourceRequest{
-			Config: mockReconfigConf, Dependencies: deps,
+		_, err = th.m.AddResource(ctx, &pb.AddResourceRequest{
+			Config:       th.mockReconfigConf,
+			Dependencies: deps,
 		})
 		test.That(t, err, test.ShouldBeNil)
 
-		_, ok := reconfigDeps1[motor.Named("motor1")]
+		_, ok := (*th.reconfigDeps1)[motor.Named("motor1")]
 		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, reconfigConf1.Attributes.StringSlice("motors"), test.ShouldResemble, []string{motor.Named("motor1").String()})
+		test.That(t, th.reconfigConf1.Attributes.StringSlice("motors"), test.ShouldResemble, []string{motor.Named("motor1").String()})
 
-		mc, ok := reconfigConf1.ConvertedAttributes.(*MockConfig)
+		mc, ok := th.reconfigConf1.ConvertedAttributes.(*MockConfig)
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, mc.Motors, test.ShouldResemble, []string{motor.Named("motor1").String()})
 	})
 
 	t.Run("reconfigurable reconfiguration", func(t *testing.T) {
+		th, teardown := setupTest(t)
+		defer teardown()
+
 		mockAttrs, err := protoutils.StructToStructPb(MockConfig{
-			Motors: []string{motor.Named("motor2").String()},
+			Motors: []string{motor.Named("motor1").String()},
 		})
 		test.That(t, err, test.ShouldBeNil)
 
-		mockReconfigConf.Attributes = mockAttrs
+		th.mockReconfigConf.Attributes = mockAttrs
+		th.mockReconfigConf.Model = th.modelWithReconfigure.String()
 
-		validateResp, err := m.ValidateConfig(ctx, &pb.ValidateConfigRequest{
-			Config: mockReconfigConf,
+		validateResp, err := th.m.ValidateConfig(ctx, &pb.ValidateConfigRequest{
+			Config: th.mockReconfigConf,
 		})
 		test.That(t, err, test.ShouldBeNil)
 
 		deps := validateResp.Dependencies
-		test.That(t, deps, test.ShouldResemble, []string{"rdk:component:motor/motor2"})
+		test.That(t, deps, test.ShouldResemble, []string{"rdk:component:motor/motor1"})
 
-		_, err = m.ReconfigureResource(ctx, &pb.ReconfigureResourceRequest{
-			Config: mockReconfigConf, Dependencies: deps,
+		_, err = th.m.AddResource(ctx, &pb.AddResourceRequest{
+			Config:       th.mockReconfigConf,
+			Dependencies: deps,
 		})
 		test.That(t, err, test.ShouldBeNil)
 
-		_, ok := reconfigDeps2[motor.Named("motor2")]
-		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, reconfigConf2.Attributes.StringSlice("motors"), test.ShouldResemble, []string{motor.Named("motor2").String()})
+		mockAttrs, err = protoutils.StructToStructPb(MockConfig{
+			Motors: []string{motor.Named("motor2").String()},
+		})
+		test.That(t, err, test.ShouldBeNil)
 
-		mc, ok := reconfigConf2.ConvertedAttributes.(*MockConfig)
+		th.mockReconfigConf.Attributes = mockAttrs
+
+		validateResp, err = th.m.ValidateConfig(ctx, &pb.ValidateConfigRequest{
+			Config: th.mockReconfigConf,
+		})
+		test.That(t, err, test.ShouldBeNil)
+
+		deps = validateResp.Dependencies
+		test.That(t, deps, test.ShouldResemble, []string{"rdk:component:motor/motor2"})
+
+		_, err = th.m.ReconfigureResource(ctx, &pb.ReconfigureResourceRequest{
+			Config:       th.mockReconfigConf,
+			Dependencies: deps,
+		})
+		test.That(t, err, test.ShouldBeNil)
+
+		_, ok := (*th.reconfigDeps2)[motor.Named("motor2")]
+		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, th.reconfigConf2.Attributes.StringSlice("motors"), test.ShouldResemble, []string{motor.Named("motor2").String()})
+
+		mc, ok := th.reconfigConf2.ConvertedAttributes.(*MockConfig)
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, mc.Motors, test.ShouldResemble, []string{motor.Named("motor2").String()})
 
 		// and as a final confirmation, check that original values weren't modified
-		_, ok = reconfigDeps1[motor.Named("motor1")]
+		_, ok = (*th.reconfigDeps1)[motor.Named("motor1")]
 		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, reconfigConf1.Attributes.StringSlice("motors"), test.ShouldResemble, []string{motor.Named("motor1").String()})
+		test.That(t, th.reconfigConf1.Attributes.StringSlice("motors"), test.ShouldResemble, []string{motor.Named("motor1").String()})
 
-		mc, ok = reconfigConf1.ConvertedAttributes.(*MockConfig)
+		mc, ok = th.reconfigConf1.ConvertedAttributes.(*MockConfig)
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, mc.Motors, test.ShouldResemble, []string{motor.Named("motor1").String()})
 	})
-
-	err = conn.Close()
-	test.That(t, err, test.ShouldBeNil)
-
-	m.Close(ctx)
-
-	err = myRobot.Close(ctx)
-	test.That(t, err, test.ShouldBeNil)
 }

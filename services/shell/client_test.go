@@ -7,18 +7,16 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/components/generic"
 	viamgrpc "go.viam.com/rdk/grpc"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/services/sensors"
 	"go.viam.com/rdk/services/shell"
-	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
+
+var testSvcName1 = shell.Named("shell1")
 
 func TestClient(t *testing.T) {
 	logger := golog.NewTestLogger(t)
@@ -28,13 +26,15 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	injectShell := &inject.ShellService{}
-	ssMap := map[resource.Name]interface{}{
-		sensors.Named(testSvcName1): injectShell,
+	ssMap := map[resource.Name]shell.Service{
+		testSvcName1: injectShell,
 	}
-	svc, err := subtype.New(ssMap)
+	svc, err := resource.NewSubtypeCollection(shell.Subtype, ssMap)
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype := registry.ResourceSubtypeLookup(shell.Subtype)
-	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, svc)
+	resourceSubtype, ok, err := resource.LookupSubtypeRegistration[shell.Service](shell.Subtype)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, svc), test.ShouldBeNil)
 
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()
@@ -44,16 +44,17 @@ func TestClient(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		client := shell.NewClientFromConn(context.Background(), conn, testSvcName1, logger)
+		client, err := shell.NewClientFromConn(context.Background(), conn, testSvcName1, logger)
+		test.That(t, err, test.ShouldBeNil)
 
 		// DoCommand
-		injectShell.DoCommandFunc = generic.EchoFunc
-		resp, err := client.DoCommand(context.Background(), generic.TestCommand)
+		injectShell.DoCommandFunc = testutils.EchoFunc
+		resp, err := client.DoCommand(context.Background(), testutils.TestCommand)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp["command"], test.ShouldEqual, generic.TestCommand["command"])
-		test.That(t, resp["data"], test.ShouldEqual, generic.TestCommand["data"])
+		test.That(t, resp["command"], test.ShouldEqual, testutils.TestCommand["command"])
+		test.That(t, resp["data"], test.ShouldEqual, testutils.TestCommand["data"])
 
-		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
+		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 }

@@ -3,42 +3,22 @@ package input
 
 import (
 	"context"
-	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
-	"github.com/pkg/errors"
 	pb "go.viam.com/api/component/inputcontroller/v1"
-	viamutils "go.viam.com/utils"
-	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"go.viam.com/rdk/components/generic"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/subtype"
-	"go.viam.com/rdk/utils"
 )
 
 func init() {
-	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
-		Reconfigurable: WrapWithReconfigurable,
-		Status: func(ctx context.Context, resource interface{}) (interface{}, error) {
-			return CreateStatus(ctx, resource)
-		},
-		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
-			return rpcServer.RegisterServiceServer(
-				ctx,
-				&pb.InputControllerService_ServiceDesc,
-				NewServer(subtypeSvc),
-				pb.RegisterInputControllerServiceHandlerFromEndpoint,
-			)
-		},
-		RPCServiceDesc: &pb.InputControllerService_ServiceDesc,
-		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
-			return NewClientFromConn(ctx, conn, name, logger)
-		},
+	resource.RegisterSubtype(Subtype, resource.SubtypeRegistration[Controller]{
+		Status:                      resource.StatusFunc(CreateStatus),
+		RPCServiceServerConstructor: NewRPCServiceServer,
+		RPCServiceHandler:           pb.RegisterInputControllerServiceHandlerFromEndpoint,
+		RPCServiceDesc:              &pb.InputControllerService_ServiceDesc,
+		RPCClient:                   NewClientFromConn,
 	})
 }
 
@@ -60,6 +40,8 @@ func Named(name string) resource.Name {
 // Controller is a logical "container" more than an actual device
 // Could be a single gamepad, or a collection of digitalInterrupts and analogReaders, a keyboard, etc.
 type Controller interface {
+	resource.Resource
+
 	// Controls returns a list of Controls provided by the Controller
 	Controls(ctx context.Context, extra map[string]interface{}) ([]Control, error)
 
@@ -76,8 +58,6 @@ type Controller interface {
 		ctrlFunc ControlFunction,
 		extra map[string]interface{},
 	) error
-
-	generic.Generic
 }
 
 // ControlFunction is a callback passed to RegisterControlCallback.
@@ -160,33 +140,10 @@ type Triggerable interface {
 	TriggerEvent(ctx context.Context, event Event, extra map[string]interface{}) error
 }
 
-// NewUnimplementedInterfaceError is used when there is a failed interface check.
-func NewUnimplementedInterfaceError(actual interface{}) error {
-	return utils.NewUnimplementedInterfaceError((*Controller)(nil), actual)
-}
-
-// WrapWithReconfigurable wraps a Controller with a reconfigurable and locking interface.
-func WrapWithReconfigurable(r interface{}, name resource.Name) (resource.Reconfigurable, error) {
-	c, ok := r.(Controller)
-	if !ok {
-		return nil, NewUnimplementedInterfaceError(r)
-	}
-	if reconfigurable, ok := c.(*reconfigurableInputController); ok {
-		return reconfigurable, nil
-	}
-	return &reconfigurableInputController{name: name, actual: c}, nil
-}
-
-var (
-	_ = Controller(&reconfigurableInputController{})
-	_ = resource.Reconfigurable(&reconfigurableInputController{})
-	_ = viamutils.ContextCloser(&reconfigurableInputController{})
-)
-
 // FromDependencies is a helper for getting the named input controller from a collection of
 // dependencies.
-func FromDependencies(deps registry.Dependencies, name string) (Controller, error) {
-	return registry.ResourceFromDependencies[Controller](deps, Named(name))
+func FromDependencies(deps resource.Dependencies, name string) (Controller, error) {
+	return resource.FromDependencies[Controller](deps, Named(name))
 }
 
 // FromRobot is a helper for getting the named input controller from the given Robot.
@@ -200,12 +157,8 @@ func NamesFromRobot(r robot.Robot) []string {
 }
 
 // CreateStatus creates a status from the input controller.
-func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error) {
-	controller, ok := resource.(Controller)
-	if !ok {
-		return nil, NewUnimplementedInterfaceError(resource)
-	}
-	eventsIn, err := controller.Events(ctx, map[string]interface{}{})
+func CreateStatus(ctx context.Context, c Controller) (*pb.Status, error) {
+	eventsIn, err := c.Events(ctx, map[string]interface{}{})
 	if err != nil {
 		return nil, err
 	}
@@ -220,82 +173,4 @@ func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error)
 	}
 
 	return &pb.Status{Events: events}, nil
-}
-
-type reconfigurableInputController struct {
-	mu     sync.RWMutex
-	name   resource.Name
-	actual Controller
-}
-
-func (c *reconfigurableInputController) Name() resource.Name {
-	return c.name
-}
-
-func (c *reconfigurableInputController) ProxyFor() interface{} {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.actual
-}
-
-func (c *reconfigurableInputController) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.actual.DoCommand(ctx, cmd)
-}
-
-func (c *reconfigurableInputController) Controls(ctx context.Context, extra map[string]interface{}) ([]Control, error) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.actual.Controls(ctx, extra)
-}
-
-func (c *reconfigurableInputController) Events(ctx context.Context, extra map[string]interface{}) (map[Control]Event, error) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.actual.Events(ctx, extra)
-}
-
-// TriggerEvent allows directly sending an Event (such as a button press) from external code.
-func (c *reconfigurableInputController) TriggerEvent(ctx context.Context, event Event, extra map[string]interface{}) error {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	iActual, ok := c.actual.(Triggerable)
-	if !ok {
-		return errors.New("controller is not Triggerable")
-	}
-	return iActual.TriggerEvent(ctx, event, extra)
-}
-
-func (c *reconfigurableInputController) RegisterControlCallback(
-	ctx context.Context,
-	control Control,
-	triggers []EventType,
-	ctrlFunc ControlFunction,
-	extra map[string]interface{},
-) error {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.actual.RegisterControlCallback(ctx, control, triggers, ctrlFunc, extra)
-}
-
-func (c *reconfigurableInputController) Close(ctx context.Context) error {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return viamutils.TryClose(ctx, c.actual)
-}
-
-// Reconfigure reconfigures the resource.
-func (c *reconfigurableInputController) Reconfigure(ctx context.Context, newController resource.Reconfigurable) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	actual, ok := newController.(*reconfigurableInputController)
-	if !ok {
-		return utils.NewUnexpectedTypeError(c, newController)
-	}
-	if err := viamutils.TryClose(ctx, c.actual); err != nil {
-		golog.Global().Errorw("error closing old", "error", err)
-	}
-	c.actual = actual.actual
-	return nil
 }

@@ -13,7 +13,6 @@ import (
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 	echopb "go.viam.com/utils/proto/rpc/examples/echoresource/v1"
 	"go.viam.com/utils/rpc"
 	"go.viam.com/utils/testutils"
@@ -22,14 +21,11 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/robot/web"
 	"go.viam.com/rdk/session"
-	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/testutils/robottestutils"
 )
@@ -54,31 +50,26 @@ var echoSubType = resource.NewSubtype(
 )
 
 func init() {
-	registry.RegisterResourceSubtype(echoSubType, registry.ResourceSubtype{
-		Reconfigurable: wrapWithReconfigurable,
-		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
-			return rpcServer.RegisterServiceServer(
-				ctx,
-				&echopb.EchoResourceService_ServiceDesc,
-				&echoServer{s: subtypeSvc},
-				echopb.RegisterEchoResourceServiceHandlerFromEndpoint,
-			)
+	resource.RegisterSubtype(echoSubType, resource.SubtypeRegistration[resource.Resource]{
+		RPCServiceServerConstructor: func(subtypeColl resource.SubtypeCollection[resource.Resource]) interface{} {
+			return &echoServer{coll: subtypeColl}
 		},
-		RPCServiceDesc: &echopb.EchoResourceService_ServiceDesc,
-		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
-			return NewClientFromConn(ctx, conn, name, logger)
+		RPCServiceHandler: echopb.RegisterEchoResourceServiceHandlerFromEndpoint,
+		RPCServiceDesc:    &echopb.EchoResourceService_ServiceDesc,
+		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (resource.Resource, error) {
+			return NewClientFromConn(ctx, conn, name, logger), nil
 		},
 	})
-	registry.RegisterComponent(
+	resource.RegisterComponent(
 		echoSubType,
 		resource.NewDefaultModel("fake"),
-		registry.Component{
+		resource.Registration[resource.Resource, resource.NoNativeConfig]{
 			Constructor: func(
 				ctx context.Context,
-				_ registry.Dependencies,
-				config config.Component,
+				_ resource.Dependencies,
+				conf resource.Config,
 				logger golog.Logger,
-			) (interface{}, error) {
+			) (resource.Resource, error) {
 				panic("never construct")
 			},
 		},
@@ -111,8 +102,8 @@ func TestClientSessionOptions(t *testing.T) {
 						arbName := resource.NameFromSubtype(echoSubType, "woo")
 						injectRobot := &inject.Robot{
 							ResourceNamesFunc: func() []resource.Name { return []resource.Name{arbName} },
-							ResourceByNameFunc: func(name resource.Name) (interface{}, error) {
-								return &dummyEcho{}, nil
+							ResourceByNameFunc: func(name resource.Name) (resource.Resource, error) {
+								return &dummyEcho{Named: arbName.AsNamed()}, nil
 							},
 							ResourceRPCSubtypesFunc: func() []resource.RPCSubtype { return nil },
 							LoggerFunc:              func() golog.Logger { return logger },
@@ -245,7 +236,7 @@ func TestClientSessionOptions(t *testing.T) {
 
 						echoRes, err := roboClient.ResourceByName(arbName)
 						test.That(t, err, test.ShouldBeNil)
-						echoClient := echoRes.(*reconfigurableClient).actual
+						echoClient := echoRes.(*dummyClient).client
 
 						echoMultiClient, err := echoClient.EchoResourceMultiple(nextCtx, &echopb.EchoResourceMultipleRequest{
 							Name:    arbName.Name,
@@ -268,7 +259,7 @@ func TestClientSessionOptions(t *testing.T) {
 						}
 						capMu.Unlock()
 
-						test.That(t, utils.TryClose(ctx, svc), test.ShouldBeNil)
+						test.That(t, svc.Close(ctx), test.ShouldBeNil)
 					})
 			}
 		}
@@ -297,7 +288,7 @@ func TestClientSessionExpiration(t *testing.T) {
 				var dummyEcho1 dummyEcho
 				injectRobot := &inject.Robot{
 					ResourceNamesFunc: func() []resource.Name { return []resource.Name{arbName} },
-					ResourceByNameFunc: func(name resource.Name) (interface{}, error) {
+					ResourceByNameFunc: func(name resource.Name) (resource.Resource, error) {
 						return &dummyEcho1, nil
 					},
 					ResourceRPCSubtypesFunc: func() []resource.RPCSubtype { return nil },
@@ -441,7 +432,7 @@ func TestClientSessionExpiration(t *testing.T) {
 
 				echoRes, err := roboClient.ResourceByName(arbName)
 				test.That(t, err, test.ShouldBeNil)
-				echoClient := echoRes.(*reconfigurableClient).actual
+				echoClient := echoRes.(*dummyClient).client
 
 				capMu.Lock()
 				test.That(t, startCalled, test.ShouldEqual, 2)
@@ -466,7 +457,7 @@ func TestClientSessionExpiration(t *testing.T) {
 				err = roboClient.Close(context.Background())
 				test.That(t, err, test.ShouldBeNil)
 
-				test.That(t, utils.TryClose(ctx, svc), test.ShouldBeNil)
+				test.That(t, svc.Close(ctx), test.ShouldBeNil)
 			})
 	}
 }
@@ -604,7 +595,7 @@ func TestClientSessionResume(t *testing.T) {
 				err = roboClient.Close(context.Background())
 				test.That(t, err, test.ShouldBeNil)
 
-				test.That(t, utils.TryClose(ctx, svc), test.ShouldBeNil)
+				test.That(t, svc.Close(ctx), test.ShouldBeNil)
 			})
 	}
 }
@@ -714,42 +705,34 @@ func (w ssStreamContextWrapper) Context() context.Context {
 }
 
 // NewClientFromConn constructs a new client from connection passed in.
-func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) echopb.EchoResourceServiceClient {
-	return echopb.NewEchoResourceServiceClient(conn)
+func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) resource.Resource {
+	c := echopb.NewEchoResourceServiceClient(conn)
+	return &dummyClient{
+		Named:  name.AsNamed(),
+		name:   name.ShortNameForClient(),
+		client: c,
+	}
 }
 
-func wrapWithReconfigurable(r interface{}, name resource.Name) (resource.Reconfigurable, error) {
-	return &reconfigurableClient{name: name, actual: r.(echopb.EchoResourceServiceClient)}, nil
-}
-
-type reconfigurableClient struct {
-	mu     sync.RWMutex
-	name   resource.Name
-	actual echopb.EchoResourceServiceClient
-}
-
-func (r *reconfigurableClient) Name() resource.Name {
-	return r.name
-}
-
-func (r *reconfigurableClient) ProxyFor() interface{} {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual
-}
-
-func (r *reconfigurableClient) Reconfigure(ctx context.Context, newBase resource.Reconfigurable) error {
-	panic("unexpected")
+type dummyClient struct {
+	resource.Named
+	resource.AlwaysRebuild
+	resource.TriviallyCloseable
+	name   string
+	client echopb.EchoResourceServiceClient
 }
 
 type dummyEcho struct {
+	resource.Named
+	resource.AlwaysRebuild
+	resource.TriviallyCloseable
 	mu        sync.Mutex
 	capSessID uuid.UUID
 }
 
 type echoServer struct {
 	echopb.UnimplementedEchoResourceServiceServer
-	s subtype.Service
+	coll resource.SubtypeCollection[resource.Resource]
 }
 
 func (srv *echoServer) EchoResourceMultiple(
@@ -758,10 +741,17 @@ func (srv *echoServer) EchoResourceMultiple(
 ) error {
 	sess, ok := session.FromContext(server.Context())
 	if ok {
-		resource := srv.s.Resource(req.Name).(*dummyEcho)
-		resource.mu.Lock()
-		resource.capSessID = sess.ID()
-		resource.mu.Unlock()
+		res, err := srv.coll.Resource(req.Name)
+		if err != nil {
+			return err
+		}
+		typed, err := resource.AsType[*dummyEcho](res)
+		if err != nil {
+			return err
+		}
+		typed.mu.Lock()
+		typed.capSessID = sess.ID()
+		typed.mu.Unlock()
 	}
 
 	session.SafetyMonitorResourceName(server.Context(), someTargetName2)
