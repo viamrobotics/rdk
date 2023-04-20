@@ -5,6 +5,8 @@ package mlvision
 import (
 	"bufio"
 	"context"
+	"github.com/montanaflynn/stats"
+	"math"
 	"os"
 	"strings"
 
@@ -115,6 +117,7 @@ func unpack(inMap map[string]interface{}, name string, md mlmodel.MLMetadata) []
 	return out
 }
 
+// getTensorTypeFromName uses the metadata to find the expected type of the tensor
 func getTensorTypeFromName(name string, md mlmodel.MLMetadata) string {
 	for _, o := range md.Outputs {
 		if strings.Contains(strings.ToLower(o.Name), strings.ToLower(name)) {
@@ -184,4 +187,40 @@ func getIndex(s []int, num int) int {
 		}
 	}
 	return -1
+}
+
+// softmax takes the input slice and applies the softmax function.
+func softmax(in []float64) []float64 {
+	out := make([]float64, 0, len(in))
+	bigSum := 0.0
+	for _, x := range in {
+		bigSum += math.Exp(x)
+	}
+	for _, x := range in {
+		out = append(out, math.Exp(x)/bigSum)
+	}
+	return out
+}
+
+// checkClassification scores ensures that the input scores (output of classifier)
+// will represent confidence values (from 0-1).
+func checkClassificationScores(in []float64) []float64 {
+	if len(in) > 1 {
+		for _, p := range in {
+			if p < 0 || p > 1 { // is logit, needs softmax
+				confs := softmax(in)
+				return confs
+			}
+		}
+		return in // no need to softmax
+	}
+	// otherwise, this is a binary classifier
+	if in[0] < -1 || in[0] > 1 { // needs sigmoid
+		out, err := stats.Sigmoid(in)
+		if err != nil {
+			return in
+		}
+		return out
+	}
+	return in // no need to sigmoid
 }
