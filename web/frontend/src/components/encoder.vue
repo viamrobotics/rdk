@@ -10,9 +10,12 @@ const props = defineProps<{
   client: Client
 }>();
 
-let properties = $ref<encoderApi.GetPropertiesResponse.AsObject | undefined>();
-let positionTicks = $ref<encoderApi.GetPositionResponse.AsObject | undefined>();
-let positionDegrees = $ref<encoderApi.GetPositionResponse.AsObject | undefined>();
+let properties = $ref<encoderApi.GetPropertiesResponse.AsObject | undefined>({
+  ticksCountSupported: false,
+  angleDegreesSupported: false,
+});
+let positionTicks = $ref<encoderApi.GetPositionResponse.AsObject | undefined>({ value: 0 });
+let positionDegrees = $ref<encoderApi.GetPositionResponse.AsObject | undefined>({ value: 0 });
 
 let refreshId = -1;
 
