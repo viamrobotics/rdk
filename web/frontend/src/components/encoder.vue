@@ -10,12 +10,12 @@ const props = defineProps<{
   client: Client
 }>();
 
-let properties = $ref<encoderApi.GetPropertiesResponse.AsObject | undefined>({
+let properties = $ref<encoderApi.GetPropertiesResponse.AsObject>({
   ticksCountSupported: false,
   angleDegreesSupported: false,
 });
-let positionTicks = $ref<encoderApi.GetPositionResponse.AsObject | undefined>({ value: 0 });
-let positionDegrees = $ref<encoderApi.GetPositionResponse.AsObject | undefined>({ value: 0 });
+let positionTicks = $ref<encoderApi.GetPositionResponse.AsObject>({ value: 0 });
+let positionDegrees = $ref<encoderApi.GetPositionResponse.AsObject>({ value: 0 });
 
 let refreshId = -1;
 
@@ -80,7 +80,7 @@ onMounted(async () => {
     await props.client.encoderService.getProperties(
       req,
       new grpc.Metadata(),
-      (error: ServiceError, resp: encoderApi.GetPropertiesResponse | null) => {
+      (error: ServiceError | null, resp: encoderApi.GetPropertiesResponse | null) => {
         if (error) {
           if (error.message === 'Response closed without headers') {
             refreshId = window.setTimeout(refresh, 500);
