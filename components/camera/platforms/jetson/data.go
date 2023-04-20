@@ -1,7 +1,7 @@
 package jetsoncamera
 
 const (
-	// Jetson Devices
+	// Jetson Devices.
 	OrinAGX = "Jetson AGX Orin"
 	Unknown = "unknown"
 	// Daughterboards
@@ -22,7 +22,7 @@ type OSInformation struct {
 }
 
 // CameraInformation contains information about the
-// daughterboards and camera modules that are supported
+// daughterboards and camera modules that are supported.
 type CameraInformation struct {
 	// map of daughterboard name to I2C bus names
 	Daughterboards map[string][]string // e.g. "i2c-30", "i2c-31"
@@ -33,7 +33,7 @@ type CameraInformation struct {
 var cameraInfoMappings = map[string]CameraInformation{
 	OrinAGX: {
 		Daughterboards: map[string][]string{
-			ECAM: []string{"i2c-30", "i2c-31", "i2c-32", "i2c-33", "i2c-34", "i2c-35", "i2c-36", "i2c-37"},
+			ECAM: {"i2c-30", "i2c-31", "i2c-32", "i2c-33", "i2c-34", "i2c-35", "i2c-36", "i2c-37"},
 		},
 		Modules: map[string]string{
 			AR0234: "ar0234.ko",
