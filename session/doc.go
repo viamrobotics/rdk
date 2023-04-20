@@ -33,7 +33,7 @@ will attempt to establish a new session immediately prior to the next operation 
   - Sessions are bound to metadata, not any kind of TCP connection, in order to support many ways to maintain
     a session.
 
-  - The heartbeat window has a sensible default of 2s but is user configurable between 100ms and 1min.
+  - The heartbeat window has a sensible default of 2s but is user configurable between 30ms and 1min.
 
   - Authenticated users can only use the sessions they create and no others.
 
