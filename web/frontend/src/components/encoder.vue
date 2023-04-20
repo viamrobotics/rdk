@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, toRaw } from 'vue';
 import { grpc } from '@improbable-eng/grpc-web';
-import { Client, type encoderApi, type ServiceError } from '@viamrobotics/sdk';
+import { Client, encoderApi, type ServiceError } from '@viamrobotics/sdk';
 import { displayError } from '../lib/error';
 import { rcLogConditionally } from '../lib/log';
 
@@ -10,12 +10,9 @@ const props = defineProps<{
   client: Client
 }>();
 
-let properties = $ref<encoderApi.GetPropertiesResponse.AsObject>({
-  ticksCountSupported: false,
-  angleDegreesSupported: false,
-});
-let positionTicks = $ref<encoderApi.GetPositionResponse.AsObject>({ value: 0 });
-let positionDegrees = $ref<encoderApi.GetPositionResponse.AsObject>({ value: 0 });
+let properties = $ref<encoderApi.GetPropertiesResponse.AsObject | undefined>();
+let positionTicks = $ref<encoderApi.GetPositionResponse.AsObject | undefined>();
+let positionDegrees = $ref<encoderApi.GetPositionResponse.AsObject | undefined>();
 
 let refreshId = -1;
 
@@ -115,8 +112,8 @@ onUnmounted(() => {
     <div class="border-border-1 overflow-auto border border-t-0 p-4 text-left">
       <table class="bborder-border-1 table-auto border">
         <tr
-          v-if="properties.ticksCountSupported ||
-            (!properties.ticksCountSupported && !properties.angleDegreesSupported)"
+          v-if="properties && (properties.ticksCountSupported ||
+            (!properties.ticksCountSupported && !properties.angleDegreesSupported))"
         >
           <th class="border-border-1 border p-2">
             Count
@@ -126,8 +123,8 @@ onUnmounted(() => {
           </td>
         </tr>
         <tr
-          v-if="properties.angleDegreesSupported ||
-            (!properties.ticksCountSupported && !properties.angleDegreesSupported)"
+          v-if="properties && (properties.angleDegreesSupported ||
+            (!properties.ticksCountSupported && !properties.angleDegreesSupported))"
         >
           <th class="border-border-1 border p-2">
             Angle (degrees)
