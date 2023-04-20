@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, toRaw } from 'vue';
+import { onMounted, onUnmounted } from 'vue';
 import { grpc } from '@improbable-eng/grpc-web';
 import { Client, encoderApi, type ServiceError } from '@viamrobotics/sdk';
 import { displayError } from '../lib/error';
