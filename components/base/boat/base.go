@@ -19,32 +19,23 @@ import (
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/components/movementsensor"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 var modelname = resource.NewDefaultModel("boat")
 
 func init() {
-	boatComp := registry.Resource[base.Base]{
+	boatComp := resource.Registration[base.Base, *boatConfig]{
 		Constructor: func(
 			ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger,
 		) (base.Base, error) {
 			return createBoat(deps, conf, logger)
 		},
+		AttributeMapConverter: resource.TransformAttributeMap[*boatConfig],
 	}
-	registry.RegisterComponent(base.Subtype, modelname, boatComp)
-
-	config.RegisterComponentAttributeMapConverter(
-		base.Subtype,
-		modelname,
-		func(attributes rdkutils.AttributeMap) (interface{}, error) {
-			return config.TransformAttributeMapToStruct(&boatConfig{}, attributes)
-		})
+	resource.RegisterComponent(base.Subtype, modelname, boatComp)
 }
 
 func createBoat(deps resource.Dependencies, conf resource.Config, logger golog.Logger) (base.LocalBase, error) {

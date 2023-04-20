@@ -48,7 +48,6 @@ import (
 	"go.viam.com/rdk/examples/customresources/apis/summationapi"
 	rgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/client"
@@ -774,10 +773,10 @@ func TestStopAll(t *testing.T) {
 	modelName := resource.NewDefaultModel(resource.ModelName(utils.RandomAlphaString(8)))
 	dummyArm1 := dummyArm{channel: channel}
 	dummyArm2 := dummyArm{channel: channel}
-	registry.RegisterComponent(
+	resource.RegisterComponent(
 		arm.Subtype,
 		modelName,
-		registry.Resource[arm.Arm]{Constructor: func(
+		resource.Registration[arm.Arm, any]{Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
@@ -899,10 +898,10 @@ func TestNewTeardown(t *testing.T) {
 
 	modelName := resource.NewDefaultModel(resource.ModelName(utils.RandomAlphaString(8)))
 	var dummyBoard1 dummyBoard
-	registry.RegisterComponent(
+	resource.RegisterComponent(
 		board.Subtype,
 		modelName,
-		registry.Resource[board.Board]{Constructor: func(
+		resource.Registration[board.Board, any]{Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
@@ -910,10 +909,10 @@ func TestNewTeardown(t *testing.T) {
 		) (board.Board, error) {
 			return &dummyBoard1, nil
 		}})
-	registry.RegisterComponent(
+	resource.RegisterComponent(
 		gripper.Subtype,
 		modelName,
-		registry.Resource[gripper.Gripper]{Constructor: func(
+		resource.Registration[gripper.Gripper, any]{Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
@@ -1067,16 +1066,16 @@ func TestStatus(t *testing.T) {
 	workingStatus := map[string]interface{}{"position": "up"}
 	errFailed := errors.New("can't get status")
 
-	registry.RegisterResourceSubtype(
+	resource.RegisterSubtype(
 		workingSubtype,
-		registry.ResourceSubtype[resource.Resource]{
+		resource.SubtypeRegistration[resource.Resource]{
 			Status: func(ctx context.Context, res resource.Resource) (interface{}, error) { return workingStatus, nil },
 		},
 	)
 
-	registry.RegisterResourceSubtype(
+	resource.RegisterSubtype(
 		failSubtype,
-		registry.ResourceSubtype[resource.Resource]{
+		resource.SubtypeRegistration[resource.Resource]{
 			Status: func(ctx context.Context, res resource.Resource) (interface{}, error) { return nil, errFailed },
 		},
 	)
@@ -2595,7 +2594,7 @@ func TestMixedOrphanedResources(t *testing.T) {
 		resource.ModelName("mygizmo"))
 
 	// Register a doodad constructor and defer its deregistration.
-	registry.RegisterComponent(doodadSubtype, doodadModel, registry.Resource[resource.Resource]{
+	resource.RegisterComponent(doodadSubtype, doodadModel, resource.Registration[resource.Resource, any]{
 		Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
@@ -2621,7 +2620,7 @@ func TestMixedOrphanedResources(t *testing.T) {
 		},
 	})
 	defer func() {
-		registry.DeregisterResource(doodadSubtype, doodadModel)
+		resource.Deregister(doodadSubtype, doodadModel)
 	}()
 
 	cfg := &config.Config{

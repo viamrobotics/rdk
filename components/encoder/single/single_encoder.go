@@ -33,25 +33,18 @@ import (
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/encoder"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	rutils "go.viam.com/rdk/utils"
 )
 
 var singlemodelname = resource.NewDefaultModel("single")
 
 func init() {
-	registry.RegisterComponent(
+	resource.RegisterComponent(
 		encoder.Subtype,
 		singlemodelname,
-		registry.Resource[encoder.Encoder]{Constructor: NewSingleEncoder})
-
-	config.RegisterComponentAttributeMapConverter(
-		encoder.Subtype,
-		singlemodelname,
-		func(attributes rutils.AttributeMap) (interface{}, error) {
-			return config.TransformAttributeMapToStruct(&Config{}, attributes)
+		resource.Registration[encoder.Encoder, *Config]{
+			Constructor:           NewSingleEncoder,
+			AttributeMapConverter: resource.TransformAttributeMap[*Config],
 		})
 }
 

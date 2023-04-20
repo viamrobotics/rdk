@@ -15,11 +15,8 @@ import (
 	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/components/encoder/fake"
 	"go.viam.com/rdk/components/motor"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	rutils "go.viam.com/rdk/utils"
 )
 
 var model = resource.NewDefaultModel("fake")
@@ -61,7 +58,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 }
 
 func init() {
-	registry.RegisterComponent(motor.Subtype, model, registry.Resource[motor.Motor]{
+	resource.RegisterComponent(motor.Subtype, model, resource.Registration[motor.Motor, *Config]{
 		Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
@@ -77,14 +74,8 @@ func init() {
 			}
 			return m, nil
 		},
+		AttributeMapConverter: resource.TransformAttributeMap[*Config],
 	})
-	config.RegisterComponentAttributeMapConverter(
-		motor.Subtype,
-		model,
-		func(attributes rutils.AttributeMap) (interface{}, error) {
-			return config.TransformAttributeMapToStruct(&Config{}, attributes)
-		},
-	)
 }
 
 var _ motor.LocalMotor = &Motor{}

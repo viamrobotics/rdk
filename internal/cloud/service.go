@@ -13,7 +13,6 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/internal"
 	"go.viam.com/rdk/resource"
 )
 
@@ -22,7 +21,7 @@ const SubtypeName = resource.SubtypeName("cloud_connection")
 
 // Subtype is the fully qualified subtype for the internal cloud connection service.
 var Subtype = resource.NewSubtype(
-	internal.ResourceNamespaceRDKInternal,
+	resource.NamespaceRDKInternal,
 	resource.ResourceTypeService,
 	SubtypeName,
 )

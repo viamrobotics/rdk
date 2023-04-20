@@ -11,17 +11,13 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/motor"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	rutils "go.viam.com/rdk/utils"
 )
 
 // Config is user config inputs for ezopmp.
@@ -58,7 +54,7 @@ func (conf *Config) Validate(path string) ([]string, error) {
 var modelName = resource.NewDefaultModel("ezopmp")
 
 func init() {
-	registry.RegisterComponent(motor.Subtype, modelName, registry.Resource[motor.Motor]{
+	resource.RegisterComponent(motor.Subtype, modelName, resource.Registration[motor.Motor, *Config]{
 		Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
@@ -71,21 +67,8 @@ func init() {
 			}
 			return NewMotor(ctx, deps, newConf, conf.ResourceName(), logger)
 		},
+		AttributeMapConverter: resource.TransformAttributeMap[*Config],
 	})
-	config.RegisterComponentAttributeMapConverter(
-		motor.Subtype,
-		modelName,
-		func(attributes rutils.AttributeMap) (interface{}, error) {
-			var conf Config
-			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Squash: true, Result: &conf})
-			if err != nil {
-				return nil, err
-			}
-			if err := decoder.Decode(attributes); err != nil {
-				return nil, err
-			}
-			return &conf, nil
-		})
 }
 
 // Ezopmp represents a motor connected via the I2C protocol.

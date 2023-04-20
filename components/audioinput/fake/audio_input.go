@@ -16,15 +16,14 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/audioinput"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 )
 
 func init() {
-	registry.RegisterComponent(
+	resource.RegisterComponent(
 		audioinput.Subtype,
 		resource.NewDefaultModel("fake"),
-		registry.Resource[audioinput.AudioInput]{Constructor: func(
+		resource.Registration[audioinput.AudioInput, any]{Constructor: func(
 			_ context.Context,
 			_ resource.Dependencies,
 			conf resource.Config,

@@ -17,7 +17,6 @@ import (
 	"go.viam.com/rdk/components/gripper"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/spatialmath"
@@ -43,7 +42,7 @@ func TestClient(t *testing.T) {
 	}
 	svc, err := resource.NewSubtypeCollection(motion.Subtype, resources)
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype, ok, err := registry.ResourceSubtypeLookup[motion.Service](motion.Subtype)
+	resourceSubtype, ok, err := resource.LookupSubtypeRegistration[motion.Service](motion.Subtype)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, svc), test.ShouldBeNil)

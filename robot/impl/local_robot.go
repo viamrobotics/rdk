@@ -19,7 +19,6 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/internal"
 	"go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/module/modmanager"
@@ -28,7 +27,6 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/client"
@@ -324,7 +322,7 @@ func (r *localRobot) Status(ctx context.Context, resourceNames []resource.Name) 
 			// otherwise return an empty status
 			var status interface{} = map[string]interface{}{}
 			var err error
-			if subtype, ok := registry.GenericResourceSubtypeLookup(name.Subtype); ok && subtype.Status != nil {
+			if subtype, ok := resource.LookupGenericSubtypeRegistration(name.Subtype); ok && subtype.Status != nil {
 				status, err = subtype.Status(ctx, res)
 				if err != nil {
 					return nil, errors.Wrapf(err, "failed to get status from %q", name)
@@ -553,7 +551,7 @@ func (r *localRobot) getDependencies(
 		// and no last error).
 		r, err := r.ResourceByName(dep)
 		if err != nil {
-			return nil, &registry.DependencyNotReadyError{Name: dep.Name, Reason: err}
+			return nil, &resource.DependencyNotReadyError{Name: dep.Name, Reason: err}
 		}
 		deps[dep] = r
 	}
@@ -576,7 +574,7 @@ func (r *localRobot) newResource(
 		}
 	}()
 	resName := conf.ResourceName()
-	resInfo, ok := registry.ResourceLookup(resName.Subtype, conf.Model)
+	resInfo, ok := resource.LookupRegistration(resName.Subtype, conf.Model)
 	if !ok {
 		return nil, errors.Errorf("unknown resource type: %s and/or model: %s", resName.Subtype, conf.Model)
 	}
@@ -586,7 +584,7 @@ func (r *localRobot) newResource(
 		return nil, err
 	}
 
-	c, ok := registry.GenericResourceSubtypeLookup(resName.Subtype)
+	c, ok := resource.LookupGenericSubtypeRegistration(resName.Subtype)
 	if ok {
 		// If MaxInstance equals zero then there is not a limit on the number of resources
 		if c.MaxInstance != 0 {
@@ -623,7 +621,7 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 		}
 		res, err := r.ResourceByName(n)
 		if err != nil {
-			if !registry.IsDependencyNotReadyError(err) && !resource.IsNotAvailableError(err) {
+			if !resource.IsDependencyNotReadyError(err) && !resource.IsNotAvailableError(err) {
 				r.Logger().Debugw("error finding resource during weak dependent update", "resource", n, "error", err)
 			}
 			continue
@@ -634,7 +632,7 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 			components[n] = res
 		case resource.ResourceTypeService:
 			allResources[n] = res
-			if n.Namespace == internal.ResourceNamespaceRDKInternal {
+			if n.Namespace == resource.NamespaceRDKInternal {
 				internalResources[n] = res
 			}
 		}
@@ -660,7 +658,7 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 
 	updateResourceWeakDependents := func(conf resource.Config) {
 		resName := conf.ResourceName()
-		deps := registry.WeakDependencyLookup(resName.Subtype, conf.Model)
+		deps := resource.LookupWeakDependency(resName.Subtype, conf.Model)
 		if len(deps) == 0 {
 			return
 		}
@@ -756,16 +754,16 @@ func RobotFromResources(
 
 // DiscoverComponents takes a list of discovery queries and returns corresponding
 // component configurations.
-func (r *localRobot) DiscoverComponents(ctx context.Context, qs []discovery.Query) ([]discovery.Discovery, error) {
+func (r *localRobot) DiscoverComponents(ctx context.Context, qs []resource.DiscoveryQuery) ([]resource.Discovery, error) {
 	// dedupe queries
-	deduped := make(map[discovery.Query]struct{}, len(qs))
+	deduped := make(map[resource.DiscoveryQuery]struct{}, len(qs))
 	for _, q := range qs {
 		deduped[q] = struct{}{}
 	}
 
-	discoveries := make([]discovery.Discovery, 0, len(deduped))
+	discoveries := make([]resource.Discovery, 0, len(deduped))
 	for q := range deduped {
-		discoveryFunction, ok := registry.DiscoveryFunctionLookup(q)
+		discoveryFunction, ok := resource.LookupDiscoveryFunction(q)
 		if !ok {
 			r.logger.Warnw("no discovery function registered", "subtype", q.API, "model", q.Model)
 			continue
@@ -774,9 +772,9 @@ func (r *localRobot) DiscoverComponents(ctx context.Context, qs []discovery.Quer
 		if discoveryFunction != nil {
 			discovered, err := discoveryFunction(ctx, r.logger.Named("discovery"))
 			if err != nil {
-				return nil, &discovery.DiscoverError{Query: q}
+				return nil, &resource.DiscoverError{Query: q}
 			}
-			discoveries = append(discoveries, discovery.Discovery{Query: q, Results: discovered})
+			discoveries = append(discoveries, resource.Discovery{Query: q, Results: discovered})
 		}
 	}
 	return discoveries, nil
@@ -845,7 +843,7 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 		}
 
 		// we find dependencies through configs, so we must try to validate even a default config
-		if conv := config.FindMapConverter(svcCfg.API, svcCfg.Model); conv != nil {
+		if conv := resource.FindMapConverter(svcCfg.API, svcCfg.Model); conv != nil {
 			converted, err := conv(utils.AttributeMap{})
 			if err != nil {
 				allErrs = multierr.Combine(allErrs, errors.Wrapf(err, "error converting attributes for %s", svcCfg.API))

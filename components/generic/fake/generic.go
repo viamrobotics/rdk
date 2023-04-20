@@ -7,15 +7,14 @@ import (
 	"github.com/edaniels/golog"
 
 	"go.viam.com/rdk/components/generic"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 )
 
 func init() {
-	registry.RegisterComponent(
+	resource.RegisterComponent(
 		generic.Subtype,
 		resource.NewDefaultModel("fake"),
-		registry.Resource[resource.Resource]{Constructor: func(
+		resource.Registration[resource.Resource, any]{Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,

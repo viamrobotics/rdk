@@ -13,40 +13,35 @@ import (
 	"github.com/pion/mediadevices"
 
 	"go.viam.com/rdk/components/audioinput"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/utils"
 )
 
 var model = resource.NewDefaultModel("microphone")
 
 func init() {
-	registry.RegisterComponent(
+	resource.RegisterComponent(
 		audioinput.Subtype,
 		model,
-		registry.Resource[audioinput.AudioInput]{Constructor: func(
-			_ context.Context,
-			_ resource.Dependencies,
-			conf resource.Config,
-			logger golog.Logger,
-		) (audioinput.AudioInput, error) {
-			newConf, err := resource.NativeConfig[*Config](conf)
-			if err != nil {
-				return nil, err
-			}
-			src, err := newMicrophoneSource(newConf, logger)
-			if err != nil {
-				return nil, err
-			}
-			// This always rebuilds on reconfiguration right now. A better system
-			// would be to reuse the monitored webcam code.
-			return audioinput.FromAudioSource(conf.ResourceName(), src)
-		}})
-
-	config.RegisterComponentAttributeMapConverter(audioinput.Subtype, model,
-		func(attributes utils.AttributeMap) (interface{}, error) {
-			return config.TransformAttributeMapToStruct(&Config{}, attributes)
+		resource.Registration[audioinput.AudioInput, *Config]{
+			Constructor: func(
+				_ context.Context,
+				_ resource.Dependencies,
+				conf resource.Config,
+				logger golog.Logger,
+			) (audioinput.AudioInput, error) {
+				newConf, err := resource.NativeConfig[*Config](conf)
+				if err != nil {
+					return nil, err
+				}
+				src, err := newMicrophoneSource(newConf, logger)
+				if err != nil {
+					return nil, err
+				}
+				// This always rebuilds on reconfiguration right now. A better system
+				// would be to reuse the monitored webcam code.
+				return audioinput.FromAudioSource(conf.ResourceName(), src)
+			},
+			AttributeMapConverter: resource.TransformAttributeMap[*Config],
 		})
 }
 

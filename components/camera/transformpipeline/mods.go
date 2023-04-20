@@ -12,7 +12,7 @@ import (
 	"golang.org/x/image/draw"
 
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
@@ -89,22 +89,18 @@ type resizeSource struct {
 func newResizeTransform(
 	ctx context.Context, source gostream.VideoSource, stream camera.ImageType, am utils.AttributeMap,
 ) (gostream.VideoSource, camera.ImageType, error) {
-	conf, err := config.TransformAttributeMapToStruct(&(resizeConfig{}), am)
+	conf, err := resource.TransformAttributeMap[*resizeConfig](am)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
 	}
-	resConf, err := utils.AssertType[*resizeConfig](conf)
-	if err != nil {
-		return nil, camera.UnspecifiedStream, err
-	}
-	if resConf.Width == 0 {
+	if conf.Width == 0 {
 		return nil, camera.UnspecifiedStream, errors.New("new width for resize transform cannot be 0")
 	}
-	if resConf.Height == 0 {
+	if conf.Height == 0 {
 		return nil, camera.UnspecifiedStream, errors.New("new height for resize transform cannot be 0")
 	}
 
-	reader := &resizeSource{gostream.NewEmbeddedVideoStream(source), stream, resConf.Height, resConf.Width}
+	reader := &resizeSource{gostream.NewEmbeddedVideoStream(source), stream, conf.Height, conf.Width}
 	src, err := camera.NewVideoSourceFromReader(ctx, reader, nil, stream)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err

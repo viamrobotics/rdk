@@ -9,7 +9,6 @@ import (
 	"go.viam.com/rdk/robot"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 )
 
@@ -30,7 +29,7 @@ func FromRobot(r robot.Robot, name string) (Summation, error) {
 }
 
 func init() {
-	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype[Summation]{
+	resource.RegisterSubtype(Subtype, resource.SubtypeRegistration[Summation]{
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           pb.RegisterSummationServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &pb.SummationService_ServiceDesc,

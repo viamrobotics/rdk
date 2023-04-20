@@ -39,28 +39,30 @@ import (
 	"go.viam.com/rdk/components/board/genericlinux"
 	picommon "go.viam.com/rdk/components/board/pi/common"
 	"go.viam.com/rdk/grpc"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
 // init registers a pi board based on pigpio.
 func init() {
-	registry.RegisterComponent(
+	resource.RegisterComponent(
 		board.Subtype,
 		picommon.ModelName,
-		registry.Resource[board.Board]{Constructor: func(
-			ctx context.Context,
-			_ resource.Dependencies,
-			conf resource.Config,
-			logger golog.Logger,
-		) (board.Board, error) {
-			boardConfig, err := resource.NativeConfig[*genericlinux.Config](conf)
-			if err != nil {
-				return nil, err
-			}
-			return NewPigpio(ctx, conf.ResourceName(), boardConfig, logger)
-		}})
+		resource.Registration[board.Board, *genericlinux.Config]{
+			Constructor: func(
+				ctx context.Context,
+				_ resource.Dependencies,
+				conf resource.Config,
+				logger golog.Logger,
+			) (board.Board, error) {
+				boardConfig, err := resource.NativeConfig[*genericlinux.Config](conf)
+				if err != nil {
+					return nil, err
+				}
+				return NewPigpio(ctx, conf.ResourceName(), boardConfig, logger)
+			},
+			AttributeMapConverter: resource.TransformAttributeMap[*genericlinux.Config],
+		})
 }
 
 // piPigpio is an implementation of a board.Board of a Raspberry Pi

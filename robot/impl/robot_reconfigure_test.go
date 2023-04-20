@@ -32,7 +32,6 @@ import (
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/components/servo"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/datamanager"
 	_ "go.viam.com/rdk/services/datamanager/builtin"
@@ -44,7 +43,6 @@ import (
 	_ "go.viam.com/rdk/services/vision/builtin"
 	rdktestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/robottestutils"
-	rutils "go.viam.com/rdk/utils"
 )
 
 var (
@@ -76,51 +74,47 @@ func TestRobotReconfigure(t *testing.T) {
 	test.That(t, os.Setenv("TEST_MODEL_NAME_1", modelName1), test.ShouldBeNil)
 	test.That(t, os.Setenv("TEST_MODEL_NAME_2", modelName2), test.ShouldBeNil)
 
-	registry.RegisterComponent(mockSubtype, resource.NewDefaultModel(resource.ModelName(modelName1)), registry.Resource[resource.Resource]{
-		Constructor: func(
-			ctx context.Context,
-			deps resource.Dependencies,
-			conf resource.Config,
-			logger golog.Logger,
-		) (resource.Resource, error) {
-			// test if implicit depencies are properly propagated
-			for _, dep := range conf.ConvertedAttributes.(*mockFakeConfig).InferredDep {
-				if _, ok := deps[mockNamed(dep)]; !ok {
-					return nil, errors.Errorf("inferred dependency %q cannot be found", mockNamed(dep))
+	resource.RegisterComponent(mockSubtype, resource.NewDefaultModel(resource.ModelName(modelName1)),
+		resource.Registration[resource.Resource, *mockFakeConfig]{
+			Constructor: func(
+				ctx context.Context,
+				deps resource.Dependencies,
+				conf resource.Config,
+				logger golog.Logger,
+			) (resource.Resource, error) {
+				// test if implicit depencies are properly propagated
+				for _, dep := range conf.ConvertedAttributes.(*mockFakeConfig).InferredDep {
+					if _, ok := deps[mockNamed(dep)]; !ok {
+						return nil, errors.Errorf("inferred dependency %q cannot be found", mockNamed(dep))
+					}
 				}
-			}
-			if conf.ConvertedAttributes.(*mockFakeConfig).ShouldFail {
-				return nil, errors.Errorf("cannot build %q for some obscure reason", conf.Name)
-			}
-			return &mockFake{Named: conf.ResourceName().AsNamed()}, nil
-		},
-	})
-
-	config.RegisterComponentAttributeMapConverter(
-		mockSubtype,
-		resource.NewDefaultModel(resource.ModelName(modelName1)),
-		func(attributes rutils.AttributeMap) (interface{}, error) {
-			return config.TransformAttributeMapToStruct(&mockFakeConfig{}, attributes)
+				if conf.ConvertedAttributes.(*mockFakeConfig).ShouldFail {
+					return nil, errors.Errorf("cannot build %q for some obscure reason", conf.Name)
+				}
+				return &mockFake{Named: conf.ResourceName().AsNamed()}, nil
+			},
+			AttributeMapConverter: resource.TransformAttributeMap[*mockFakeConfig],
 		})
 
 	resetComponentFailureState := func() {
 		reconfigurableTrue = true
 		testReconfiguringMismatch = false
 	}
-	registry.RegisterComponent(mockSubtype, resource.NewDefaultModel(resource.ModelName(modelName2)), registry.Resource[resource.Resource]{
-		Constructor: func(
-			ctx context.Context,
-			deps resource.Dependencies,
-			conf resource.Config,
-			logger golog.Logger,
-		) (resource.Resource, error) {
-			if reconfigurableTrue && testReconfiguringMismatch {
-				reconfigurableTrue = false
-				return &mockFake{Named: conf.ResourceName().AsNamed()}, nil
-			}
-			return &mockFake2{Named: conf.ResourceName().AsNamed()}, nil
-		},
-	})
+	resource.RegisterComponent(mockSubtype, resource.NewDefaultModel(resource.ModelName(modelName2)),
+		resource.Registration[resource.Resource, any]{
+			Constructor: func(
+				ctx context.Context,
+				deps resource.Dependencies,
+				conf resource.Config,
+				logger golog.Logger,
+			) (resource.Resource, error) {
+				if reconfigurableTrue && testReconfiguringMismatch {
+					reconfigurableTrue = false
+					return &mockFake{Named: conf.ResourceName().AsNamed()}, nil
+				}
+				return &mockFake2{Named: conf.ResourceName().AsNamed()}, nil
+			},
+		})
 
 	t.Run("no diff", func(t *testing.T) {
 		resetComponentFailureState()
@@ -3026,7 +3020,7 @@ func TestReconfigureModelRebuild(t *testing.T) {
 	modelName1 := utils.RandomAlphaString(5)
 	model1 := resource.NewDefaultModel(resource.ModelName(modelName1))
 
-	registry.RegisterComponent(mockSubtype, model1, registry.Resource[resource.Resource]{
+	resource.RegisterComponent(mockSubtype, model1, resource.Registration[resource.Resource, any]{
 		Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
@@ -3101,7 +3095,7 @@ func TestReconfigureModelSwitch(t *testing.T) {
 	model1 := resource.NewDefaultModel(resource.ModelName(modelName1))
 	model2 := resource.NewDefaultModel(resource.ModelName(modelName2))
 
-	registry.RegisterComponent(mockSubtype, model1, registry.Resource[resource.Resource]{
+	resource.RegisterComponent(mockSubtype, model1, resource.Registration[resource.Resource, any]{
 		Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
@@ -3111,7 +3105,7 @@ func TestReconfigureModelSwitch(t *testing.T) {
 			return &mockFake{Named: conf.ResourceName().AsNamed()}, nil
 		},
 	})
-	registry.RegisterComponent(mockSubtype, model2, registry.Resource[resource.Resource]{
+	resource.RegisterComponent(mockSubtype, model2, resource.Registration[resource.Resource, any]{
 		Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
@@ -3186,7 +3180,7 @@ func TestReconfigureRename(t *testing.T) {
 
 	var logicalClock atomic.Int64
 
-	registry.RegisterComponent(mockSubtype, model1, registry.Resource[resource.Resource]{
+	resource.RegisterComponent(mockSubtype, model1, resource.Registration[resource.Resource, any]{
 		Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,

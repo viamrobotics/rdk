@@ -9,13 +9,12 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/data"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 )
 
 func init() {
-	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype[Encoder]{
+	resource.RegisterSubtype(Subtype, resource.SubtypeRegistration[Encoder]{
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           pb.RegisterEncoderServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &pb.EncoderService_ServiceDesc,

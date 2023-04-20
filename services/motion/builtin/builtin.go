@@ -14,23 +14,27 @@ import (
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
 )
 
 func init() {
-	registry.RegisterService(motion.Subtype, resource.DefaultServiceModel, registry.Resource[motion.Service]{
+	resource.RegisterService(motion.Subtype, resource.DefaultServiceModel, resource.Registration[motion.Service, any]{
 		DeprecatedRobotConstructor: func(
 			ctx context.Context,
-			r robot.Robot,
+			r any,
 			conf resource.Config,
 			logger golog.Logger,
 		) (motion.Service, error) {
-			return NewBuiltIn(ctx, r, conf, logger)
+			actualR, err := utils.AssertType[robot.Robot](r)
+			if err != nil {
+				return nil, err
+			}
+			return NewBuiltIn(ctx, actualR, conf, logger)
 		},
 	})
 	resource.AddDefaultService(motion.Named(resource.DefaultServiceName))

@@ -10,7 +10,6 @@ import (
 	"go.viam.com/utils/rpc"
 
 	pb "go.viam.com/rdk/examples/customresources/apis/proto/api/component/gizmo/v1"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/utils/protoutils"
@@ -33,7 +32,7 @@ func FromRobot(r robot.Robot, name string) (Gizmo, error) {
 }
 
 func init() {
-	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype[Gizmo]{
+	resource.RegisterSubtype(Subtype, resource.SubtypeRegistration[Gizmo]{
 		// Reconfigurable, and contents of reconfwrapper.go are only needed for standalone (non-module) uses.
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           pb.RegisterGizmoServiceHandlerFromEndpoint,

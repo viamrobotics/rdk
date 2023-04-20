@@ -14,7 +14,6 @@ import (
 	"go.viam.com/utils/rpc"
 
 	viamgrpc "go.viam.com/rdk/grpc"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/services/mlmodel"
@@ -187,7 +186,7 @@ func TestTFLiteCPUClient(t *testing.T) {
 	}
 	svc, err := resource.NewSubtypeCollection(mlmodel.Subtype, resources)
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype, ok, err := registry.ResourceSubtypeLookup[mlmodel.Service](mlmodel.Subtype)
+	resourceSubtype, ok, err := resource.LookupSubtypeRegistration[mlmodel.Service](mlmodel.Subtype)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, svc), test.ShouldBeNil)

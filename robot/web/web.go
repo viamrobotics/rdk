@@ -42,9 +42,7 @@ import (
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
-	"go.viam.com/rdk/internal"
 	"go.viam.com/rdk/module"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	grpcserver "go.viam.com/rdk/robot/server"
@@ -59,7 +57,7 @@ const SubtypeName = resource.SubtypeName("web")
 
 // Subtype is the fully qualified subtype for the internal web service.
 var Subtype = resource.NewSubtype(
-	internal.ResourceNamespaceRDKInternal,
+	resource.NamespaceRDKInternal,
 	resource.ResourceTypeService,
 	SubtypeName,
 )
@@ -296,7 +294,7 @@ type webService struct {
 }
 
 var internalWebServiceName = resource.NewName(
-	internal.ResourceNamespaceRDKInternal,
+	resource.NamespaceRDKInternal,
 	resource.ResourceTypeService,
 	"web",
 	"builtin",
@@ -481,7 +479,7 @@ func (svc *webService) updateResources(resources map[resource.Name]resource.Reso
 		groupedResources[n.Subtype] = r
 	}
 
-	subtypeConstructors := registry.RegisteredResourceSubtypes()
+	subtypeConstructors := resource.RegisteredSubtypes()
 	for s, v := range groupedResources {
 		subtypeColl, ok := svc.services[s]
 		// TODO(RSDK-144): register new service if it doesn't currently exist
@@ -1058,7 +1056,7 @@ func (svc *webService) initAuthHandlers(listenerTCPAddr *net.TCPAddr, options we
 // Register every subtype resource grpc service here.
 func (svc *webService) initSubtypeServices(ctx context.Context, mod bool) error {
 	// TODO: only register necessary services (#272)
-	subtypeConstructors := registry.RegisteredResourceSubtypes()
+	subtypeConstructors := resource.RegisteredSubtypes()
 	for s, rs := range subtypeConstructors {
 		subtypeColl, ok := svc.services[s]
 		if !ok {

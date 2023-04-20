@@ -28,7 +28,6 @@ import (
 	modmanageroptions "go.viam.com/rdk/module/modmanager/options"
 	"go.viam.com/rdk/module/modmaninterface"
 	"go.viam.com/rdk/operation"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 )
@@ -239,7 +238,7 @@ func (mgr *Manager) AddResource(ctx context.Context, conf resource.Config, deps 
 	mgr.rMap[conf.ResourceName()] = module
 	module.resources[conf.ResourceName()] = &addedResource{conf, deps}
 
-	subtypeInfo, ok := registry.GenericResourceSubtypeLookup(conf.API)
+	subtypeInfo, ok := resource.LookupGenericSubtypeRegistration(conf.API)
 	if !ok || subtypeInfo.RPCClient == nil {
 		mgr.logger.Warnf("no built-in grpc client for modular resource %s", conf.ResourceName())
 		return rdkgrpc.NewForeignResource(conf.ResourceName(), module.conn), nil
@@ -464,17 +463,17 @@ func (m *module) stopProcess() error {
 
 func (m *module) registerResources(mgr modmaninterface.ModuleManager, logger golog.Logger) {
 	for api, models := range m.handles {
-		if _, ok := registry.GenericResourceSubtypeLookup(api.Subtype); !ok {
-			registry.RegisterResourceSubtype(
+		if _, ok := resource.LookupGenericSubtypeRegistration(api.Subtype); !ok {
+			resource.RegisterSubtype(
 				api.Subtype,
-				registry.ResourceSubtype[resource.Resource]{ReflectRPCServiceDesc: api.Desc},
+				resource.SubtypeRegistration[resource.Resource]{ReflectRPCServiceDesc: api.Desc},
 			)
 		}
 
 		switch api.Subtype.ResourceType {
 		case resource.ResourceTypeComponent:
 			for _, model := range models {
-				registry.RegisterComponent(api.Subtype, model, registry.Resource[resource.Resource]{
+				resource.RegisterComponent(api.Subtype, model, resource.Registration[resource.Resource, any]{
 					Constructor: func(
 						ctx context.Context,
 						deps resource.Dependencies,
@@ -487,7 +486,7 @@ func (m *module) registerResources(mgr modmaninterface.ModuleManager, logger gol
 			}
 		case resource.ResourceTypeService:
 			for _, model := range models {
-				registry.RegisterService(api.Subtype, model, registry.Resource[resource.Resource]{
+				resource.RegisterService(api.Subtype, model, resource.Registration[resource.Resource, any]{
 					Constructor: func(
 						ctx context.Context,
 						deps resource.Dependencies,
@@ -507,7 +506,7 @@ func (m *module) registerResources(mgr modmaninterface.ModuleManager, logger gol
 func (m *module) deregisterResources() {
 	for api, models := range m.handles {
 		for _, model := range models {
-			registry.DeregisterResource(api.Subtype, model)
+			resource.Deregister(api.Subtype, model)
 		}
 	}
 }

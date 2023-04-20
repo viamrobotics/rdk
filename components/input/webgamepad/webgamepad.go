@@ -8,7 +8,6 @@ import (
 	"github.com/edaniels/golog"
 
 	"go.viam.com/rdk/components/input"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 )
 
@@ -17,7 +16,9 @@ import (
 var modelname = resource.NewDefaultModel("webgamepad")
 
 func init() {
-	registry.RegisterComponent(input.Subtype, modelname, registry.Resource[input.Controller]{Constructor: NewController})
+	resource.RegisterComponent(input.Subtype, modelname, resource.Registration[input.Controller, any]{
+		Constructor: NewController,
+	})
 }
 
 // NewController creates a new gamepad.

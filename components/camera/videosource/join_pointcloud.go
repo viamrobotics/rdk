@@ -14,10 +14,8 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/robot"
@@ -31,31 +29,31 @@ const numThreadsVideoSource = 8 // This should be a param
 var modelJoinPC = resource.NewDefaultModel("join_pointclouds")
 
 func init() {
-	registry.RegisterComponent(
+	resource.RegisterComponent(
 		camera.Subtype,
 		modelJoinPC,
-		registry.Resource[camera.Camera]{
+		resource.Registration[camera.Camera, *JoinConfig]{
 			DeprecatedRobotConstructor: func(
 				ctx context.Context,
-				r robot.Robot,
+				r any,
 				conf resource.Config,
 				logger golog.Logger,
 			) (camera.Camera, error) {
+				actualR, err := rdkutils.AssertType[robot.Robot](r)
+				if err != nil {
+					return nil, err
+				}
 				newConf, err := resource.NativeConfig[*JoinConfig](conf)
 				if err != nil {
 					return nil, err
 				}
-				src, err := newJoinPointCloudSource(ctx, r, logger, conf.ResourceName(), newConf)
+				src, err := newJoinPointCloudSource(ctx, actualR, logger, conf.ResourceName(), newConf)
 				if err != nil {
 					return nil, err
 				}
 				return camera.FromVideoSource(conf.ResourceName(), src), nil
 			},
-		})
-
-	config.RegisterComponentAttributeMapConverter(camera.Subtype, modelJoinPC,
-		func(attributes rdkutils.AttributeMap) (interface{}, error) {
-			return config.TransformAttributeMapToStruct(&JoinConfig{}, attributes)
+			AttributeMapConverter: resource.TransformAttributeMap[*JoinConfig],
 		})
 }
 

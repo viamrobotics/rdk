@@ -37,7 +37,6 @@ import (
 	gizmopb "go.viam.com/rdk/examples/customresources/apis/proto/api/component/gizmo/v1"
 	rgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
@@ -922,7 +921,7 @@ func TestRawClientOperation(t *testing.T) {
 		resource.ResourceTypeComponent,
 		resource.SubtypeName("echo"),
 	)
-	registry.RegisterResourceSubtype(echoSubType, registry.ResourceSubtype[resource.Resource]{
+	resource.RegisterSubtype(echoSubType, resource.SubtypeRegistration[resource.Resource]{
 		RPCServiceServerConstructor: func(subtypeColl resource.SubtypeCollection[resource.Resource]) interface{} { return &echoServer{} },
 		RPCServiceHandler:           echopb.RegisterTestEchoServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &echopb.TestEchoService_ServiceDesc,

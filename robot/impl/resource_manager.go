@@ -17,9 +17,7 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/internal"
 	"go.viam.com/rdk/module/modmanager"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/client"
@@ -271,7 +269,7 @@ func (manager *resourceManager) anyResourcesNotConfigured() bool {
 func (manager *resourceManager) internalResourceNames() []resource.Name {
 	names := []resource.Name{}
 	for _, k := range manager.resources.Names() {
-		if k.Namespace != internal.ResourceNamespaceRDKInternal {
+		if k.Namespace != resource.NamespaceRDKInternal {
 			continue
 		}
 		names = append(names, k)
@@ -284,7 +282,7 @@ func (manager *resourceManager) ResourceNames() []resource.Name {
 	names := []resource.Name{}
 	for _, k := range manager.resources.Names() {
 		if k.ResourceType == client.RemoteTypeName ||
-			k.Namespace == internal.ResourceNamespaceRDKInternal {
+			k.Namespace == resource.NamespaceRDKInternal {
 			continue
 		}
 		gNode, ok := manager.resources.Node(k)
@@ -298,11 +296,11 @@ func (manager *resourceManager) ResourceNames() []resource.Name {
 
 // ResourceRPCSubtypes returns the types of all resource RPC subtypes in use by the manager.
 func (manager *resourceManager) ResourceRPCSubtypes() []resource.RPCSubtype {
-	resourceSubtypes := registry.RegisteredResourceSubtypes()
+	resourceSubtypes := resource.RegisteredSubtypes()
 
 	types := map[resource.Subtype]*desc.ServiceDescriptor{}
 	for _, k := range manager.resources.Names() {
-		if k.Namespace == internal.ResourceNamespaceRDKInternal {
+		if k.Namespace == resource.NamespaceRDKInternal {
 			continue
 		}
 		if k.ResourceType == client.RemoteTypeName {

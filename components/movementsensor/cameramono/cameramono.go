@@ -17,12 +17,9 @@ import (
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/movementsensor"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/spatialmath"
-	rdkutils "go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision/odometry"
 )
 
@@ -85,10 +82,10 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 }
 
 func init() {
-	registry.RegisterComponent(
+	resource.RegisterComponent(
 		movementsensor.Subtype,
 		model,
-		registry.Resource[movementsensor.MovementSensor]{
+		resource.Registration[movementsensor.MovementSensor, *Config]{
 			Constructor: func(
 				ctx context.Context,
 				deps resource.Dependencies,
@@ -97,12 +94,7 @@ func init() {
 			) (movementsensor.MovementSensor, error) {
 				return newCameraMono(deps, conf, logger)
 			},
-		})
-	config.RegisterComponentAttributeMapConverter(
-		movementsensor.Subtype,
-		model,
-		func(attributes rdkutils.AttributeMap) (interface{}, error) {
-			return config.TransformAttributeMapToStruct(&Config{}, attributes)
+			AttributeMapConverter: resource.TransformAttributeMap[*Config],
 		})
 }
 

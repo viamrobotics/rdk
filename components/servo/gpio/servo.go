@@ -12,11 +12,8 @@ import (
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/servo"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/utils"
 )
 
 const (
@@ -85,13 +82,10 @@ func (config *servoConfig) Validate(path string) ([]string, error) {
 var model = resource.NewDefaultModel("gpio")
 
 func init() {
-	registry.RegisterComponent(servo.Subtype, model,
-		registry.Resource[servo.Servo]{
-			Constructor: newGPIOServo,
-		})
-	config.RegisterComponentAttributeMapConverter(servo.Subtype, model,
-		func(attributes utils.AttributeMap) (interface{}, error) {
-			return config.TransformAttributeMapToStruct(&servoConfig{}, attributes)
+	resource.RegisterComponent(servo.Subtype, model,
+		resource.Registration[servo.Servo, *servoConfig]{
+			Constructor:           newGPIOServo,
+			AttributeMapConverter: resource.TransformAttributeMap[*servoConfig],
 		})
 }
 

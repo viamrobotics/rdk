@@ -44,13 +44,11 @@ import (
 	"go.viam.com/rdk/components/servo"
 	fakeservo "go.viam.com/rdk/components/servo/fake"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/module/modmaninterface"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/client"
@@ -1564,9 +1562,9 @@ func TestManagerEmptyResourceDesc(t *testing.T) {
 		return logger
 	}
 	subtype := resource.NewSubtype(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, "mockDesc")
-	registry.RegisterResourceSubtype(
+	resource.RegisterSubtype(
 		subtype,
-		registry.ResourceSubtype[resource.Resource]{},
+		resource.SubtypeRegistration[resource.Resource]{},
 	)
 
 	injectRobot.ResourceNamesFunc = func() []resource.Name {
@@ -1604,9 +1602,9 @@ func TestReconfigure(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, r, test.ShouldNotBeNil)
 
-	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype[resource.Resource]{})
+	resource.RegisterSubtype(Subtype, resource.SubtypeRegistration[resource.Resource]{})
 
-	registry.RegisterResource(Subtype, resource.DefaultServiceModel, registry.Resource[resource.Resource]{
+	resource.Register(Subtype, resource.DefaultServiceModel, resource.Registration[resource.Resource, any]{
 		Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
@@ -1674,7 +1672,7 @@ func TestResourceCreationPanic(t *testing.T) {
 		)
 		model := resource.NewDefaultModel("test")
 
-		registry.RegisterComponent(subtype, model, registry.Resource[resource.Resource]{
+		resource.RegisterComponent(subtype, model, resource.Registration[resource.Resource, any]{
 			Constructor: func(ctx context.Context, deps resource.Dependencies, c resource.Config, logger golog.Logger) (resource.Resource, error) {
 				panic("hello")
 			},
@@ -1701,7 +1699,7 @@ func TestResourceCreationPanic(t *testing.T) {
 			subtypeName,
 		)
 
-		registry.RegisterResource(subtype, resource.DefaultServiceModel, registry.Resource[resource.Resource]{
+		resource.Register(subtype, resource.DefaultServiceModel, resource.Registration[resource.Resource, any]{
 			Constructor: func(
 				ctx context.Context,
 				deps resource.Dependencies,
@@ -1712,7 +1710,7 @@ func TestResourceCreationPanic(t *testing.T) {
 			},
 		})
 
-		registry.RegisterResourceSubtype(subtype, registry.ResourceSubtype[resource.Resource]{})
+		resource.RegisterSubtype(subtype, resource.SubtypeRegistration[resource.Resource]{})
 
 		svc1 := resource.Config{
 			Name:  "",
@@ -1765,7 +1763,7 @@ func (rr *dummyRobot) Reconfigure(ctx context.Context, deps resource.Dependencie
 
 // DiscoverComponents takes a list of discovery queries and returns corresponding
 // component configurations.
-func (rr *dummyRobot) DiscoverComponents(ctx context.Context, qs []discovery.Query) ([]discovery.Discovery, error) {
+func (rr *dummyRobot) DiscoverComponents(ctx context.Context, qs []resource.DiscoveryQuery) ([]resource.Discovery, error) {
 	return rr.robot.DiscoverComponents(ctx, qs)
 }
 

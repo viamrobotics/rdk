@@ -9,9 +9,8 @@ import (
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 
-	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/vision"
-	"go.viam.com/rdk/utils"
 	objdet "go.viam.com/rdk/vision/objectdetection"
 	"go.viam.com/rdk/vision/segmentation"
 )
@@ -24,16 +23,11 @@ func registerColorDetector(ctx context.Context, mm modelMap, conf *vision.VisMod
 	if conf == nil {
 		return errors.New("object detection config for color detector cannot be nil")
 	}
-	var p objdet.ColorDetectorConfig
-	colorConf, err := config.TransformAttributeMapToStruct(&p, conf.Parameters)
+	colorConf, err := resource.TransformAttributeMap[*objdet.ColorDetectorConfig](conf.Parameters)
 	if err != nil {
 		return errors.Wrapf(err, "register color detector %s", conf.Name)
 	}
-	params, err := utils.AssertType[*objdet.ColorDetectorConfig](colorConf)
-	if err != nil {
-		return errors.Wrapf(err, "register color detector %s", conf.Name)
-	}
-	detector, err := objdet.NewColorDetector(params)
+	detector, err := objdet.NewColorDetector(colorConf)
 	if err != nil {
 		return errors.Wrapf(err, "register color detector %s", conf.Name)
 	}

@@ -117,7 +117,11 @@ func (Transformation) JSONSchema() *jsonschema.Schema {
 
 // buildTransform uses the Transformation config to build the desired transform ImageSource.
 func buildTransform(
-	ctx context.Context, r robot.Robot, source gostream.VideoSource, stream camera.ImageType, tr Transformation,
+	ctx context.Context,
+	r robot.Robot,
+	source gostream.VideoSource,
+	stream camera.ImageType,
+	tr Transformation,
 ) (gostream.VideoSource, camera.ImageType, error) {
 	switch transformType(tr.Type) {
 	case transformTypeUnspecified, transformTypeIdentity:

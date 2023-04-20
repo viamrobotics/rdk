@@ -15,8 +15,6 @@ import (
 	"go.opencensus.io/trace"
 
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/vision"
@@ -27,20 +25,21 @@ import (
 )
 
 func init() {
-	registry.RegisterService(vision.Subtype, resource.DefaultServiceModel, registry.Resource[vision.Service]{
+	resource.RegisterService(vision.Subtype, resource.DefaultServiceModel, resource.Registration[vision.Service, *vision.Config]{
 		DeprecatedRobotConstructor: func(
 			ctx context.Context,
-			r robot.Robot,
+			r any,
 			c resource.Config,
 			logger golog.Logger,
 		) (vision.Service, error) {
-			return NewBuiltIn(ctx, r, c, logger)
+			actualR, err := utils.AssertType[robot.Robot](r)
+			if err != nil {
+				return nil, err
+			}
+			return NewBuiltIn(ctx, actualR, c, logger)
 		},
+		AttributeMapConverter: resource.TransformAttributeMap[*vision.Config],
 	})
-	config.RegisterServiceAttributeMapConverter(vision.Subtype, resource.DefaultServiceModel,
-		func(attributeMap utils.AttributeMap) (interface{}, error) {
-			return config.TransformAttributeMapToStruct(&vision.Config{}, attributeMap)
-		})
 	resource.AddDefaultService(vision.Named(resource.DefaultServiceName))
 }
 

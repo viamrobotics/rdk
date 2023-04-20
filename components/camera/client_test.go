@@ -18,7 +18,6 @@ import (
 	"go.viam.com/rdk/components/camera"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/pointcloud"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
@@ -130,7 +129,7 @@ func TestClient(t *testing.T) {
 	}
 	cameraSvc, err := resource.NewSubtypeCollection(camera.Subtype, resources)
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype, ok, err := registry.ResourceSubtypeLookup[camera.Camera](camera.Subtype)
+	resourceSubtype, ok, err := resource.LookupSubtypeRegistration[camera.Camera](camera.Subtype)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, cameraSvc), test.ShouldBeNil)
@@ -246,7 +245,7 @@ func TestClientProperties(t *testing.T) {
 	svc, err := resource.NewSubtypeCollection(camera.Subtype, resources)
 	test.That(t, err, test.ShouldBeNil)
 
-	rSubType, ok, err := registry.ResourceSubtypeLookup[camera.Camera](camera.Subtype)
+	rSubType, ok, err := resource.LookupSubtypeRegistration[camera.Camera](camera.Subtype)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, rSubType.RegisterRPCService(context.Background(), server, svc), test.ShouldBeNil)
@@ -356,7 +355,7 @@ func TestClientLazyImage(t *testing.T) {
 	}
 	cameraSvc, err := resource.NewSubtypeCollection(camera.Subtype, resources)
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype, ok, err := registry.ResourceSubtypeLookup[camera.Camera](camera.Subtype)
+	resourceSubtype, ok, err := resource.LookupSubtypeRegistration[camera.Camera](camera.Subtype)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, cameraSvc), test.ShouldBeNil)

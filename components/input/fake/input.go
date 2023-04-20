@@ -8,44 +8,26 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/input"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	rutils "go.viam.com/rdk/utils"
 )
 
 var modelName = resource.NewDefaultModel("fake")
 
 func init() {
-	registry.RegisterComponent(
+	resource.RegisterComponent(
 		input.Subtype,
 		modelName,
-		registry.Resource[input.Controller]{
+		resource.Registration[input.Controller, *Config]{
 			Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, _ golog.Logger) (input.Controller, error) {
 				return NewInputController(ctx, conf)
 			},
+			AttributeMapConverter: resource.TransformAttributeMap[*Config],
 		},
 	)
-
-	config.RegisterComponentAttributeMapConverter(
-		input.Subtype,
-		modelName,
-		func(attributes rutils.AttributeMap) (interface{}, error) {
-			var conf Config
-			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Squash: true, Result: &conf})
-			if err != nil {
-				return nil, err
-			}
-			if err := decoder.Decode(attributes); err != nil {
-				return nil, err
-			}
-			return &conf, nil
-		})
 }
 
 // Config can list input structs (with their states), define event values and callback delays.

@@ -10,13 +10,12 @@ import (
 
 	"go.viam.com/rdk/components/gantry"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils"
 )
 
 func init() {
-	registry.RegisterComponent(gantry.Subtype, resource.NewDefaultModel("fake"), registry.Resource[gantry.Gantry]{
+	resource.RegisterComponent(gantry.Subtype, resource.NewDefaultModel("fake"), resource.Registration[gantry.Gantry, any]{
 		Constructor: func(
 			ctx context.Context,
 			_ resource.Dependencies,

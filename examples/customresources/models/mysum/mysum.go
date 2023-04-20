@@ -9,7 +9,6 @@ import (
 	"go.uber.org/zap"
 
 	"go.viam.com/rdk/examples/customresources/apis/summationapi"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 )
 
@@ -20,7 +19,7 @@ var Model = resource.NewModel(
 )
 
 func init() {
-	registry.RegisterService(summationapi.Subtype, Model, registry.Resource[summationapi.Summation]{
+	resource.RegisterService(summationapi.Subtype, Model, resource.Registration[summationapi.Summation, any]{
 		Constructor: newMySum,
 	})
 }

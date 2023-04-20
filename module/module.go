@@ -25,7 +25,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/protoutils"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/client"
 )
@@ -284,7 +283,7 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 		return nil, errors.Wrapf(err, "unable to convert attributes when adding resource")
 	}
 
-	resInfo, ok := registry.ResourceLookup(conf.API, conf.Model)
+	resInfo, ok := resource.LookupRegistration(conf.API, conf.Model)
 	if !ok {
 		return nil, errors.Errorf("do not know how to construct %q", conf.API)
 	}
@@ -358,7 +357,7 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 		m.logger.Error(err)
 	}
 
-	resInfo, ok := registry.ResourceLookup(conf.API, conf.Model)
+	resInfo, ok := resource.LookupRegistration(conf.API, conf.Model)
 	if !ok {
 		return nil, errors.Errorf("do not know how to construct %q", conf.API)
 	}
@@ -447,7 +446,7 @@ func (m *Module) addAPIFromRegistry(ctx context.Context, api resource.Subtype) e
 		return nil
 	}
 
-	subtypeInfo, ok := registry.GenericResourceSubtypeLookup(api)
+	subtypeInfo, ok := resource.LookupGenericSubtypeRegistration(api)
 	if !ok {
 		return errors.Errorf("invariant: resource subtype does not exist for %q", api)
 	}
@@ -477,7 +476,7 @@ func (m *Module) AddModelFromRegistry(ctx context.Context, api resource.Subtype,
 		}
 	}
 
-	subtypeInfo, ok := registry.GenericResourceSubtypeLookup(api)
+	subtypeInfo, ok := resource.LookupGenericSubtypeRegistration(api)
 	if !ok {
 		return errors.Errorf("invariant: resource subtype does not exist for %q", api)
 	}
@@ -505,7 +504,7 @@ func (m *Module) OperationManager() *operation.Manager {
 // ConvertedAttributes field from the Attributes.
 func addConvertedAttributes(cfg *resource.Config) error {
 	// Try to find map converter for a resource.
-	conv := config.FindMapConverter(cfg.API, cfg.Model)
+	conv := resource.FindMapConverter(cfg.API, cfg.Model)
 	if conv != nil {
 		converted, err := conv(cfg.Attributes)
 		if err != nil {
@@ -520,7 +519,7 @@ func addConvertedAttributes(cfg *resource.Config) error {
 // validateRegistered returns an error if the passed-in api and model have not
 // yet been registered.
 func validateRegistered(api resource.Subtype, model resource.Model) error {
-	resInfo, ok := registry.ResourceLookup(api, model)
+	resInfo, ok := resource.LookupRegistration(api, model)
 	if ok && resInfo.Constructor != nil {
 		return nil
 	}

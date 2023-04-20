@@ -24,9 +24,7 @@ import (
 	"go.viam.com/utils/serial"
 
 	"go.viam.com/rdk/components/board"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -43,27 +41,24 @@ type Config struct {
 }
 
 func init() {
-	registry.RegisterComponent(
+	resource.RegisterComponent(
 		board.Subtype,
 		modelName,
-		registry.Resource[board.Board]{Constructor: func(
-			ctx context.Context,
-			deps resource.Dependencies,
-			conf resource.Config,
-			logger golog.Logger,
-		) (board.Board, error) {
-			newConf, err := resource.NativeConfig[*Config](conf)
-			if err != nil {
-				return nil, err
-			}
+		resource.Registration[board.Board, *Config]{
+			Constructor: func(
+				ctx context.Context,
+				deps resource.Dependencies,
+				conf resource.Config,
+				logger golog.Logger,
+			) (board.Board, error) {
+				newConf, err := resource.NativeConfig[*Config](conf)
+				if err != nil {
+					return nil, err
+				}
 
-			return connect(ctx, conf.ResourceName(), newConf, logger)
-		}})
-	config.RegisterComponentAttributeMapConverter(
-		board.Subtype,
-		modelName,
-		func(attributes rdkutils.AttributeMap) (interface{}, error) {
-			return config.TransformAttributeMapToStruct(&Config{}, attributes)
+				return connect(ctx, conf.ResourceName(), newConf, logger)
+			},
+			AttributeMapConverter: resource.TransformAttributeMap[*Config],
 		})
 }
 

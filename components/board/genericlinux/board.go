@@ -26,9 +26,7 @@ import (
 	"periph.io/x/conn/v3/spi/spireg"
 
 	"go.viam.com/rdk/components/board"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
 )
@@ -69,22 +67,19 @@ func (conf *Config) Validate(path string) error {
 
 // RegisterBoard registers a sysfs based board of the given model.
 func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping, usePeriphGpio bool) {
-	registry.RegisterComponent(
+	resource.RegisterComponent(
 		board.Subtype,
 		resource.NewDefaultModel(resource.ModelName(modelName)),
-		registry.Resource[board.Board]{Constructor: func(
-			ctx context.Context,
-			_ resource.Dependencies,
-			conf resource.Config,
-			logger golog.Logger,
-		) (board.Board, error) {
-			return newBoard(ctx, conf, gpioMappings, usePeriphGpio, logger)
-		}})
-	config.RegisterComponentAttributeMapConverter(
-		board.Subtype,
-		resource.NewDefaultModel(resource.ModelName(modelName)),
-		func(attributes utils.AttributeMap) (interface{}, error) {
-			return config.TransformAttributeMapToStruct(&Config{}, attributes)
+		resource.Registration[board.Board, *Config]{
+			Constructor: func(
+				ctx context.Context,
+				_ resource.Dependencies,
+				conf resource.Config,
+				logger golog.Logger,
+			) (board.Board, error) {
+				return newBoard(ctx, conf, gpioMappings, usePeriphGpio, logger)
+			},
+			AttributeMapConverter: resource.TransformAttributeMap[*Config],
 		})
 }
 

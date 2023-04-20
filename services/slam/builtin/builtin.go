@@ -16,7 +16,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
-	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	goutils "go.viam.com/utils"
@@ -24,8 +23,6 @@ import (
 
 	pb "go.viam.com/api/service/slam/v1"
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
@@ -68,7 +65,7 @@ func SetDialMaxTimeoutSecForTesting(val int) {
 func init() {
 	for _, slamLibrary := range slam.SLAMLibraries {
 		sModel := resource.NewDefaultModel(resource.ModelName(slamLibrary.AlgoName))
-		registry.RegisterService(slam.Subtype, sModel, registry.Resource[slam.Service]{
+		resource.RegisterService(slam.Subtype, sModel, resource.Registration[slam.Service, *slamConfig.Config]{
 			Constructor: func(
 				ctx context.Context,
 				deps resource.Dependencies,
@@ -77,18 +74,7 @@ func init() {
 			) (slam.Service, error) {
 				return NewBuiltIn(ctx, deps, c, logger, false)
 			},
-		})
-		cType := slam.Subtype
-		config.RegisterServiceAttributeMapConverter(cType, sModel, func(attributes rdkutils.AttributeMap) (interface{}, error) {
-			var conf slamConfig.Config
-			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
-			if err != nil {
-				return nil, err
-			}
-			if err := decoder.Decode(attributes); err != nil {
-				return nil, err
-			}
-			return &conf, nil
+			AttributeMapConverter: resource.TransformAttributeMap[*slamConfig.Config],
 		})
 	}
 }

@@ -10,7 +10,6 @@ import (
 
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/components/motor/dimensionengineering"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 )
 
@@ -41,7 +40,7 @@ func TestSabertoothMotor(t *testing.T) {
 		DirectionFlip: false,
 	}
 
-	motorReg, ok := registry.ResourceLookup(motor.Subtype, sabertoothModel)
+	motorReg, ok := resource.LookupRegistration(motor.Subtype, sabertoothModel)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, motorReg, test.ShouldNotBeNil)
 
@@ -141,7 +140,7 @@ func TestSabertoothMotorDirectionFlip(t *testing.T) {
 		DirectionFlip: true,
 	}
 
-	motorReg, ok := registry.ResourceLookup(motor.Subtype, sabertoothModel)
+	motorReg, ok := resource.LookupRegistration(motor.Subtype, sabertoothModel)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, motorReg, test.ShouldNotBeNil)
 
@@ -234,7 +233,7 @@ func TestSabertoothRampConfig(t *testing.T) {
 		RampValue:     100,
 	}
 
-	motorReg, ok := registry.ResourceLookup(motor.Subtype, sabertoothModel)
+	motorReg, ok := resource.LookupRegistration(motor.Subtype, sabertoothModel)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, motorReg, test.ShouldNotBeNil)
 
@@ -266,7 +265,7 @@ func TestSabertoothAddressMapping(t *testing.T) {
 		SerialAddress: 129,
 	}
 
-	motorReg, ok := registry.ResourceLookup(motor.Subtype, sabertoothModel)
+	motorReg, ok := resource.LookupRegistration(motor.Subtype, sabertoothModel)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, motorReg, test.ShouldNotBeNil)
 
@@ -291,7 +290,7 @@ func TestInvalidMotorChannel(t *testing.T) {
 		SerialAddress: 129,
 	}
 
-	motorReg, ok := registry.ResourceLookup(motor.Subtype, sabertoothModel)
+	motorReg, ok := resource.LookupRegistration(motor.Subtype, sabertoothModel)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, motorReg, test.ShouldNotBeNil)
 
@@ -315,7 +314,7 @@ func TestInvalidBaudRate(t *testing.T) {
 		BaudRate:      1,
 	}
 
-	motorReg, ok := registry.ResourceLookup(motor.Subtype, sabertoothModel)
+	motorReg, ok := resource.LookupRegistration(motor.Subtype, sabertoothModel)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, motorReg, test.ShouldNotBeNil)
 
@@ -338,7 +337,7 @@ func TestInvalidSerialAddress(t *testing.T) {
 		SerialAddress: 140,
 	}
 
-	motorReg, ok := registry.ResourceLookup(motor.Subtype, sabertoothModel)
+	motorReg, ok := resource.LookupRegistration(motor.Subtype, sabertoothModel)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, motorReg, test.ShouldNotBeNil)
 
@@ -363,7 +362,7 @@ func TestInvalidMinPowerPct(t *testing.T) {
 		MaxPowerPct:   0.5,
 	}
 
-	motorReg, ok := registry.ResourceLookup(motor.Subtype, sabertoothModel)
+	motorReg, ok := resource.LookupRegistration(motor.Subtype, sabertoothModel)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, motorReg, test.ShouldNotBeNil)
 
@@ -388,7 +387,7 @@ func TestInvalidMaxPowerPct(t *testing.T) {
 		MaxPowerPct:   1.5,
 	}
 
-	motorReg, ok := registry.ResourceLookup(motor.Subtype, sabertoothModel)
+	motorReg, ok := resource.LookupRegistration(motor.Subtype, sabertoothModel)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, motorReg, test.ShouldNotBeNil)
 
@@ -414,7 +413,7 @@ func TestMultipleInvalidParameters(t *testing.T) {
 		MaxPowerPct:   1.5,
 	}
 
-	motorReg, ok := registry.ResourceLookup(motor.Subtype, sabertoothModel)
+	motorReg, ok := resource.LookupRegistration(motor.Subtype, sabertoothModel)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, motorReg, test.ShouldNotBeNil)
 

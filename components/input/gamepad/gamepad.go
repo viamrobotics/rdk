@@ -11,14 +11,13 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/components/input"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 )
 
 var modelname = resource.NewDefaultModel("gamepad")
 
 func init() {
-	registry.RegisterComponent(input.Subtype, modelname, registry.Resource[input.Controller]{
+	resource.RegisterComponent(input.Subtype, modelname, resource.Registration[input.Controller, any]{
 		Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (input.Controller, error) {
 			return nil, errors.New("gamepad input currently only supported on linux")
 		},

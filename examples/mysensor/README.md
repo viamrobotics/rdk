@@ -24,10 +24,10 @@ Init functions are run on import, so we have to make sure we are importing it so
 ```
     // registering the component model on init is how we make sure the new model is picked up and usable.
     func init() {
-        registry.RegisterComponent(
+        resource.RegisterComponent(
             sensor.Subtype,
             "mySensor",
-            registry.Resource[sensor.Sensor]{Constructor: func(
+            resource.Registration[sensor.Sensor]{Constructor: func(
                 ctx context.Context,
                 deps resource.Dependencies,
                 conf resource.Config,

@@ -13,10 +13,7 @@ import (
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/sensor"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/utils"
 )
 
 var modelname = resource.NewDefaultModel("ultrasonic")
@@ -46,10 +43,10 @@ func (conf *Config) Validate(path string) ([]string, error) {
 }
 
 func init() {
-	registry.RegisterComponent(
+	resource.RegisterComponent(
 		sensor.Subtype,
 		modelname,
-		registry.Resource[sensor.Sensor]{
+		resource.Registration[sensor.Sensor, *Config]{
 			Constructor: func(
 				ctx context.Context,
 				deps resource.Dependencies,
@@ -62,11 +59,7 @@ func init() {
 				}
 				return newSensor(ctx, deps, conf.ResourceName(), newConf)
 			},
-		})
-
-	config.RegisterComponentAttributeMapConverter(sensor.Subtype, modelname,
-		func(attributes utils.AttributeMap) (interface{}, error) {
-			return config.TransformAttributeMapToStruct(&Config{}, attributes)
+			AttributeMapConverter: resource.TransformAttributeMap[*Config],
 		})
 }
 

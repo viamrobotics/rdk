@@ -14,13 +14,12 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/data"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 )
 
 func init() {
-	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype[Board]{
+	resource.RegisterSubtype(Subtype, resource.SubtypeRegistration[Board]{
 		Status: func(ctx context.Context, b Board) (interface{}, error) {
 			return b.Status(ctx, nil)
 		},

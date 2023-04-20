@@ -14,13 +14,12 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/utils"
 
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/shell"
 )
 
 func init() {
-	registry.RegisterService(shell.Subtype, resource.DefaultServiceModel, registry.Resource[shell.Service]{
+	resource.RegisterService(shell.Subtype, resource.DefaultServiceModel, resource.Registration[shell.Service, any]{
 		Constructor: func(ctx context.Context, dep resource.Dependencies, c resource.Config, logger golog.Logger) (shell.Service, error) {
 			return NewBuiltIn(c.ResourceName(), logger)
 		},

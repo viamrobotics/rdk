@@ -9,7 +9,7 @@ import (
 	"go.opencensus.io/trace"
 
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/vision"
@@ -33,13 +33,11 @@ type detectorSource struct {
 
 func newDetectionsTransform(
 	ctx context.Context,
-	source gostream.VideoSource, r robot.Robot, am utils.AttributeMap,
+	source gostream.VideoSource,
+	r robot.Robot,
+	am utils.AttributeMap,
 ) (gostream.VideoSource, camera.ImageType, error) {
-	conf, err := config.TransformAttributeMapToStruct(&(detectorConfig{}), am)
-	if err != nil {
-		return nil, camera.UnspecifiedStream, err
-	}
-	detConf, err := utils.AssertType[*detectorConfig](conf)
+	conf, err := resource.TransformAttributeMap[*detectorConfig](am)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
 	}
@@ -54,10 +52,10 @@ func newDetectionsTransform(
 	if props.DistortionParams != nil {
 		cameraModel.Distortion = props.DistortionParams
 	}
-	confFilter := objectdetection.NewScoreFilter(detConf.ConfidenceThreshold)
+	confFilter := objectdetection.NewScoreFilter(conf.ConfidenceThreshold)
 	detector := &detectorSource{
 		gostream.NewEmbeddedVideoStream(source),
-		detConf.DetectorName,
+		conf.DetectorName,
 		confFilter,
 		r,
 	}

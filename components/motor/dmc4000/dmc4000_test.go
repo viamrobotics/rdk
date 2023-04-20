@@ -10,7 +10,6 @@ import (
 
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/components/motor/dmc4000"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 )
 
@@ -79,7 +78,7 @@ func TestDMC4000Motor(t *testing.T) {
 		TicksPerRotation: 200,
 	}
 
-	motorReg, ok := registry.ResourceLookup(motor.Subtype, resource.NewDefaultModel("DMC4000"))
+	motorReg, ok := resource.LookupRegistration(motor.Subtype, resource.NewDefaultModel("DMC4000"))
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, motorReg, test.ShouldNotBeNil)
 

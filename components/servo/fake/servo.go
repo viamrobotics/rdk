@@ -7,12 +7,11 @@ import (
 	"github.com/edaniels/golog"
 
 	"go.viam.com/rdk/components/servo"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 )
 
 func init() {
-	registry.RegisterComponent(servo.Subtype, resource.NewDefaultModel("fake"), registry.Resource[servo.Servo]{
+	resource.RegisterComponent(servo.Subtype, resource.NewDefaultModel("fake"), resource.Registration[servo.Servo, any]{
 		Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (servo.Servo, error) {
 			return &Servo{
 				Named: conf.ResourceName().AsNamed(),

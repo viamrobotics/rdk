@@ -47,6 +47,9 @@ const (
 	ResourceTypeService   = TypeName("service")
 	DefaultServiceName    = "builtin"
 	DefaultMaxInstance    = 1
+
+	// NamespaceRDKInternal is the namespace to use for internal services.
+	NamespaceRDKInternal = Namespace("rdk-internal")
 )
 
 var (

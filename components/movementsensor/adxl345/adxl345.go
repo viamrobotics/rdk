@@ -29,8 +29,6 @@ import (
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/movementsensor"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	rutils "go.viam.com/rdk/utils"
@@ -127,14 +125,12 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 }
 
 func init() {
-	registry.RegisterComponent(
+	resource.RegisterComponent(
 		movementsensor.Subtype,
 		modelName,
-		registry.Resource[movementsensor.MovementSensor]{Constructor: NewAdxl345})
-
-	config.RegisterComponentAttributeMapConverter(movementsensor.Subtype, modelName,
-		func(attributes rutils.AttributeMap) (interface{}, error) {
-			return config.TransformAttributeMapToStruct(&Config{}, attributes)
+		resource.Registration[movementsensor.MovementSensor, *Config]{
+			Constructor:           NewAdxl345,
+			AttributeMapConverter: resource.TransformAttributeMap[*Config],
 		})
 }
 

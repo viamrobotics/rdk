@@ -9,7 +9,7 @@ import (
 	"go.opencensus.io/trace"
 
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/vision"
@@ -37,11 +37,7 @@ func newClassificationsTransform(
 	ctx context.Context,
 	source gostream.VideoSource, r robot.Robot, am utils.AttributeMap,
 ) (gostream.VideoSource, camera.ImageType, error) {
-	conf, err := config.TransformAttributeMapToStruct(&(classifierConfig{}), am)
-	if err != nil {
-		return nil, camera.UnspecifiedStream, err
-	}
-	classConf, err := utils.AssertType[*classifierConfig](conf)
+	conf, err := resource.TransformAttributeMap[*classifierConfig](am)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
 	}
@@ -56,14 +52,14 @@ func newClassificationsTransform(
 	if props.DistortionParams != nil {
 		cameraModel.Distortion = props.DistortionParams
 	}
-	confFilter := classification.NewScoreFilter(classConf.ConfidenceThreshold)
+	confFilter := classification.NewScoreFilter(conf.ConfidenceThreshold)
 	var maxClassifications uint32 = 1
-	if classConf.MaxClassifications != 0 {
-		maxClassifications = classConf.MaxClassifications
+	if conf.MaxClassifications != 0 {
+		maxClassifications = conf.MaxClassifications
 	}
 	classifier := &classifierSource{
 		gostream.NewEmbeddedVideoStream(source),
-		classConf.ClassifierName,
+		conf.ClassifierName,
 		maxClassifications,
 		confFilter,
 		r,

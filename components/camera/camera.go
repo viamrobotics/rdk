@@ -16,7 +16,6 @@ import (
 
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/pointcloud"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/depthadapter"
@@ -25,7 +24,7 @@ import (
 )
 
 func init() {
-	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype[Camera]{
+	resource.RegisterSubtype(Subtype, resource.SubtypeRegistration[Camera]{
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           pb.RegisterCameraServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &pb.CameraService_ServiceDesc,

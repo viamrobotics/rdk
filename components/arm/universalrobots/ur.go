@@ -24,14 +24,11 @@ import (
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/arm"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/utils"
 )
 
 // ModelName is the name of the UR5e model of an arm component.
@@ -59,16 +56,12 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 var ur5modeljson []byte
 
 func init() {
-	registry.RegisterComponent(arm.Subtype, ModelName, registry.Resource[arm.Arm]{
+	resource.RegisterComponent(arm.Subtype, ModelName, resource.Registration[arm.Arm, *Config]{
 		Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (arm.Arm, error) {
 			return URArmConnect(ctx, conf, logger)
 		},
+		AttributeMapConverter: resource.TransformAttributeMap[*Config],
 	})
-
-	config.RegisterComponentAttributeMapConverter(arm.Subtype, ModelName,
-		func(attributes utils.AttributeMap) (interface{}, error) {
-			return config.TransformAttributeMapToStruct(&Config{}, attributes)
-		})
 }
 
 // Model returns the kinematics model of the ur arm, also has all Frame information.

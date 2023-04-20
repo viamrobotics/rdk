@@ -7,7 +7,6 @@ import (
 	"github.com/edaniels/golog"
 	"go.opencensus.io/trace"
 
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/spatialmath"
@@ -18,10 +17,10 @@ var model = resource.NewDefaultModel("fake")
 const datasetDirectory = "slam/example_cartographer_outputs/viam-office-02-22-1"
 
 func init() {
-	registry.RegisterService(
+	resource.RegisterService(
 		slam.Subtype,
 		model,
-		registry.Resource[slam.Service]{
+		resource.Registration[slam.Service, any]{
 			Constructor: func(
 				ctx context.Context,
 				_ resource.Dependencies,

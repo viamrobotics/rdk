@@ -4,13 +4,12 @@ package generic
 import (
 	pb "go.viam.com/api/component/generic/v1"
 
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 )
 
 func init() {
-	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype[resource.Resource]{
+	resource.RegisterSubtype(Subtype, resource.SubtypeRegistration[resource.Resource]{
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           pb.RegisterGenericServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &pb.GenericService_ServiceDesc,

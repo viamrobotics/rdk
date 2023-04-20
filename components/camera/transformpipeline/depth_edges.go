@@ -9,7 +9,7 @@ import (
 	"go.opencensus.io/trace"
 
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
@@ -30,11 +30,7 @@ type depthEdgesSource struct {
 
 func newDepthEdgesTransform(ctx context.Context, source gostream.VideoSource, am utils.AttributeMap,
 ) (gostream.VideoSource, camera.ImageType, error) {
-	conf, err := config.TransformAttributeMapToStruct(&(depthEdgesConfig{}), am)
-	if err != nil {
-		return nil, camera.UnspecifiedStream, err
-	}
-	depthConf, err := utils.AssertType[*depthEdgesConfig](conf)
+	conf, err := resource.TransformAttributeMap[*depthEdgesConfig](am)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
 	}
@@ -48,7 +44,7 @@ func newDepthEdgesTransform(ctx context.Context, source gostream.VideoSource, am
 	if props.DistortionParams != nil {
 		cameraModel.Distortion = props.DistortionParams
 	}
-	canny := rimage.NewCannyDericheEdgeDetectorWithParameters(depthConf.HiThresh, depthConf.LoThresh, true)
+	canny := rimage.NewCannyDericheEdgeDetectorWithParameters(conf.HiThresh, conf.LoThresh, true)
 	videoSrc := &depthEdgesSource{gostream.NewEmbeddedVideoStream(source), canny, 3.0}
 	src, err := camera.NewVideoSourceFromReader(ctx, videoSrc, &cameraModel, camera.DepthStream)
 	if err != nil {

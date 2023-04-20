@@ -11,7 +11,6 @@ import (
 	fakeboard "go.viam.com/rdk/components/board/fake"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/components/motor/tmcstepper"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 )
 
@@ -69,7 +68,7 @@ func TestTMCStepperMotor(t *testing.T) {
 		TicksPerRotation: 200,
 	}
 
-	motorReg, ok := registry.ResourceLookup(motor.Subtype, resource.NewDefaultModel("TMC5072"))
+	motorReg, ok := resource.LookupRegistration(motor.Subtype, resource.NewDefaultModel("TMC5072"))
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, motorReg, test.ShouldNotBeNil)
 

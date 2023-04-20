@@ -13,7 +13,6 @@ import (
 	"go.viam.com/utils/pexec"
 
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/grpc"
 	modif "go.viam.com/rdk/module/modmaninterface"
 	"go.viam.com/rdk/operation"
@@ -30,7 +29,7 @@ import (
 // of parts, local and remote.
 type Robot interface {
 	// DiscoverComponents returns discovered component configurations.
-	DiscoverComponents(ctx context.Context, qs []discovery.Query) ([]discovery.Discovery, error)
+	DiscoverComponents(ctx context.Context, qs []resource.DiscoveryQuery) ([]resource.Discovery, error)
 
 	// RemoteByName returns a remote robot by name.
 	RemoteByName(name string) (Robot, bool)

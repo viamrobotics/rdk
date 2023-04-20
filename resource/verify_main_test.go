@@ -1,4 +1,4 @@
-package registry
+package resource
 
 import (
 	"testing"

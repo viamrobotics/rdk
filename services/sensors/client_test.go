@@ -12,7 +12,6 @@ import (
 
 	"go.viam.com/rdk/components/movementsensor"
 	viamgrpc "go.viam.com/rdk/grpc"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/sensors"
 	"go.viam.com/rdk/testutils"
@@ -36,7 +35,7 @@ func TestClient(t *testing.T) {
 	}
 	svc, err := resource.NewSubtypeCollection(sensors.Subtype, ssMap)
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype, ok, err := registry.ResourceSubtypeLookup[sensors.Service](sensors.Subtype)
+	resourceSubtype, ok, err := resource.LookupSubtypeRegistration[sensors.Service](sensors.Subtype)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, svc), test.ShouldBeNil)

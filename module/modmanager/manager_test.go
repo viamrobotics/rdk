@@ -15,7 +15,6 @@ import (
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/config"
 	modmanageroptions "go.viam.com/rdk/module/modmanager/options"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
@@ -80,13 +79,13 @@ func TestModManagerFunctions(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	mod.registerResources(mgr, logger)
-	reg, ok := registry.ResourceLookup(generic.Subtype, myCounterModel)
+	reg, ok := resource.LookupRegistration(generic.Subtype, myCounterModel)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, reg, test.ShouldNotBeNil)
 	test.That(t, reg.Constructor, test.ShouldNotBeNil)
 
 	mod.deregisterResources()
-	_, ok = registry.ResourceLookup(generic.Subtype, myCounterModel)
+	_, ok = resource.LookupRegistration(generic.Subtype, myCounterModel)
 	test.That(t, ok, test.ShouldBeFalse)
 
 	test.That(t, mgr.Close(ctx), test.ShouldBeNil)
@@ -103,7 +102,7 @@ func TestModManagerFunctions(t *testing.T) {
 	err = mgr.Add(ctx, modCfg)
 	test.That(t, err, test.ShouldBeNil)
 
-	reg, ok = registry.ResourceLookup(generic.Subtype, myCounterModel)
+	reg, ok = resource.LookupRegistration(generic.Subtype, myCounterModel)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, reg.Constructor, test.ShouldNotBeNil)
 
@@ -282,7 +281,7 @@ func TestModManagerValidation(t *testing.T) {
 	err = mgr.Add(ctx, modCfg)
 	test.That(t, err, test.ShouldBeNil)
 
-	reg, ok := registry.ResourceLookup(base.Subtype, myBaseModel)
+	reg, ok := resource.LookupRegistration(base.Subtype, myBaseModel)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, reg.Constructor, test.ShouldNotBeNil)
 

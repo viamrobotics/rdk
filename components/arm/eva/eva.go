@@ -23,14 +23,11 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/arm"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
-	rutils "go.viam.com/rdk/utils"
 )
 
 // ModelName is the name of the eva model of an arm component.
@@ -46,16 +43,11 @@ type Config struct {
 var evamodeljson []byte
 
 func init() {
-	registry.RegisterComponent(arm.Subtype, ModelName, registry.Resource[arm.Arm]{
+	resource.RegisterComponent(arm.Subtype, ModelName, resource.Registration[arm.Arm, *Config]{
 		Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (arm.Arm, error) {
 			return NewEva(ctx, conf, logger)
 		},
 	})
-
-	config.RegisterComponentAttributeMapConverter(arm.Subtype, ModelName,
-		func(attributes rutils.AttributeMap) (interface{}, error) {
-			return config.TransformAttributeMapToStruct(&Config{}, attributes)
-		})
 }
 
 type evaData struct {

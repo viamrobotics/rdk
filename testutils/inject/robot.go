@@ -13,7 +13,6 @@ import (
 	"go.viam.com/utils/pexec"
 
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/module/modmaninterface"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/pointcloud"
@@ -29,7 +28,7 @@ import (
 type Robot struct {
 	robot.LocalRobot
 	Mu                      sync.RWMutex // Ugly, has to be manually locked if a test means to swap funcs on an in-use robot.
-	DiscoverComponentsFunc  func(ctx context.Context, keys []discovery.Query) ([]discovery.Discovery, error)
+	DiscoverComponentsFunc  func(ctx context.Context, keys []resource.DiscoveryQuery) ([]resource.Discovery, error)
 	RemoteByNameFunc        func(name string) (robot.Robot, bool)
 	ResourceByNameFunc      func(name resource.Name) (resource.Resource, error)
 	RemoteNamesFunc         func() []string
@@ -212,7 +211,7 @@ func (r *Robot) StopAll(ctx context.Context, extra map[resource.Name]map[string]
 }
 
 // DiscoverComponents calls the injected DiscoverComponents or the real one.
-func (r *Robot) DiscoverComponents(ctx context.Context, keys []discovery.Query) ([]discovery.Discovery, error) {
+func (r *Robot) DiscoverComponents(ctx context.Context, keys []resource.DiscoveryQuery) ([]resource.Discovery, error) {
 	r.Mu.RLock()
 	defer r.Mu.RUnlock()
 	if r.DiscoverComponentsFunc == nil {

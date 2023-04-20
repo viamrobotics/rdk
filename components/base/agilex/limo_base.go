@@ -17,11 +17,8 @@ import (
 	utils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/base"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	rutils "go.viam.com/rdk/utils"
 )
 
 var (
@@ -58,21 +55,14 @@ var modelName = resource.NewDefaultModel("agilex-limo")
 func init() {
 	controllers = make(map[string]*controller)
 
-	limoBaseComp := registry.Resource[base.Base]{
+	resource.RegisterComponent(base.Subtype, modelName, resource.Registration[base.Base, *Config]{
 		Constructor: func(
 			ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger,
 		) (base.Base, error) {
 			return CreateLimoBase(ctx, conf, logger)
 		},
-	}
-
-	registry.RegisterComponent(base.Subtype, modelName, limoBaseComp)
-	config.RegisterComponentAttributeMapConverter(
-		base.Subtype,
-		modelName,
-		func(attributes rutils.AttributeMap) (interface{}, error) {
-			return config.TransformAttributeMapToStruct(&Config{}, attributes)
-		})
+		AttributeMapConverter: resource.TransformAttributeMap[*Config],
+	})
 }
 
 // controller is common across all limo instances sharing a controller.

@@ -9,7 +9,7 @@ import (
 	"go.opencensus.io/trace"
 
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
@@ -31,18 +31,14 @@ type undistortSource struct {
 func newUndistortTransform(
 	ctx context.Context, source gostream.VideoSource, stream camera.ImageType, am utils.AttributeMap,
 ) (gostream.VideoSource, camera.ImageType, error) {
-	conf, err := config.TransformAttributeMapToStruct(&(undistortConfig{}), am)
+	conf, err := resource.TransformAttributeMap[*undistortConfig](am)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
 	}
-	unConf, err := utils.AssertType[*undistortConfig](conf)
-	if err != nil {
-		return nil, camera.UnspecifiedStream, err
-	}
-	if unConf.CameraParams == nil {
+	if conf.CameraParams == nil {
 		return nil, camera.UnspecifiedStream, errors.Wrapf(transform.ErrNoIntrinsics, "cannot create undistort transform")
 	}
-	cameraModel := camera.NewPinholeModelWithBrownConradyDistortion(unConf.CameraParams, unConf.DistortionParams)
+	cameraModel := camera.NewPinholeModelWithBrownConradyDistortion(conf.CameraParams, conf.DistortionParams)
 	reader := &undistortSource{
 		gostream.NewEmbeddedVideoStream(source),
 		stream,

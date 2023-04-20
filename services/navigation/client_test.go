@@ -16,7 +16,6 @@ import (
 	"google.golang.org/grpc"
 
 	viamgrpc "go.viam.com/rdk/grpc"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/navigation"
 	"go.viam.com/rdk/testutils"
@@ -121,7 +120,7 @@ func TestClient(t *testing.T) {
 	})
 	test.That(t, err, test.ShouldBeNil)
 
-	resourceSubtype, ok, err := registry.ResourceSubtypeLookup[navigation.Service](navigation.Subtype)
+	resourceSubtype, ok, err := resource.LookupSubtypeRegistration[navigation.Service](navigation.Subtype)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
 	resourceSubtype.RegisterRPCService(context.Background(), workingServer, workingSvc)

@@ -25,7 +25,6 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/internal"
 	"go.viam.com/rdk/resource"
 )
 
@@ -63,7 +62,7 @@ const SubtypeName = resource.SubtypeName("packagemanager")
 
 // Subtype is the fully qualified subtype for the internal package manager service.
 var Subtype = resource.NewSubtype(
-	internal.ResourceNamespaceRDKInternal,
+	resource.NamespaceRDKInternal,
 	resource.ResourceTypeService,
 	SubtypeName,
 )

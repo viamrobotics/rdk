@@ -19,11 +19,8 @@ import (
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/components/movementsensor/gpsnmea"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 // StationConfig is used for converting RTK MovementSensor config attributes.
@@ -90,14 +87,12 @@ func (cfg *StationConfig) Validate(path string) ([]string, error) {
 var stationModel = resource.NewDefaultModel("rtk-station")
 
 func init() {
-	registry.RegisterComponent(
+	resource.RegisterComponent(
 		movementsensor.Subtype,
 		stationModel,
-		registry.Resource[movementsensor.MovementSensor]{Constructor: newRTKStation})
-
-	config.RegisterComponentAttributeMapConverter(movementsensor.Subtype, stationModel,
-		func(attributes rdkutils.AttributeMap) (interface{}, error) {
-			return config.TransformAttributeMapToStruct(&StationConfig{}, attributes)
+		resource.Registration[movementsensor.MovementSensor, *StationConfig]{
+			Constructor:           newRTKStation,
+			AttributeMapConverter: resource.TransformAttributeMap[*StationConfig],
 		})
 }
 

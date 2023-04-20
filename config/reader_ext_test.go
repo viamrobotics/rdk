@@ -77,14 +77,13 @@ func TestFromReaderValidate(t *testing.T) {
 	test.That(t, conf, test.ShouldResemble, expected)
 }
 
-func TestTransformAttributeMapToStruct(t *testing.T) {
+func TestTransformAttributeMap(t *testing.T) {
 	type myType struct {
 		A          string            `json:"a"`
 		B          string            `json:"b"`
 		Attributes map[string]string `json:"attributes"`
 	}
 
-	var mt myType
 	attrs := utils.AttributeMap{
 		"a": "1",
 		"b": "2",
@@ -92,7 +91,7 @@ func TestTransformAttributeMapToStruct(t *testing.T) {
 		"d": "4",
 		"e": 5,
 	}
-	transformed, err := config.TransformAttributeMapToStruct(&mt, attrs)
+	transformed, err := resource.TransformAttributeMap[*myType](attrs)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, transformed, test.ShouldResemble, &myType{
 		A: "1",
@@ -103,8 +102,7 @@ func TestTransformAttributeMapToStruct(t *testing.T) {
 		},
 	})
 
-	mt = myType{Attributes: map[string]string{}}
-	transformed, err = config.TransformAttributeMapToStruct(&mt, attrs)
+	transformed, err = resource.TransformAttributeMap[*myType](attrs)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, transformed, test.ShouldResemble, &myType{
 		A: "1",
@@ -121,10 +119,9 @@ func TestTransformAttributeMapToStruct(t *testing.T) {
 		Attributes utils.AttributeMap `json:"attributes"`
 	}
 
-	var met myExtendedType
-	transformed, err = config.TransformAttributeMapToStruct(&met, attrs)
+	transformedExt, err := resource.TransformAttributeMap[*myExtendedType](attrs)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, transformed, test.ShouldResemble, &myExtendedType{
+	test.That(t, transformedExt, test.ShouldResemble, &myExtendedType{
 		A: "1",
 		B: "2",
 		Attributes: utils.AttributeMap{
@@ -134,10 +131,9 @@ func TestTransformAttributeMapToStruct(t *testing.T) {
 		},
 	})
 
-	met = myExtendedType{Attributes: utils.AttributeMap{}}
-	transformed, err = config.TransformAttributeMapToStruct(&met, attrs)
+	transformedExt, err = resource.TransformAttributeMap[*myExtendedType](attrs)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, transformed, test.ShouldResemble, &myExtendedType{
+	test.That(t, transformedExt, test.ShouldResemble, &myExtendedType{
 		A: "1",
 		B: "2",
 		Attributes: utils.AttributeMap{

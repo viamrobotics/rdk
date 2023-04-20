@@ -14,13 +14,10 @@ import (
 	ur "go.viam.com/rdk/components/arm/universalrobots"
 	"go.viam.com/rdk/components/arm/xarm"
 	"go.viam.com/rdk/components/arm/yahboom"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/utils"
 )
 
 // errAttrCfgPopulation is the returned error if the Config's fields are fully populated.
@@ -65,17 +62,10 @@ func (conf *Config) Validate(path string) error {
 }
 
 func init() {
-	registry.RegisterComponent(arm.Subtype, ModelName, registry.Resource[arm.Arm]{
-		Constructor: NewArm,
+	resource.RegisterComponent(arm.Subtype, ModelName, resource.Registration[arm.Arm, *Config]{
+		Constructor:           NewArm,
+		AttributeMapConverter: resource.TransformAttributeMap[*Config],
 	})
-
-	config.RegisterComponentAttributeMapConverter(
-		arm.Subtype,
-		ModelName,
-		func(attributes utils.AttributeMap) (interface{}, error) {
-			return config.TransformAttributeMapToStruct(&Config{}, attributes)
-		},
-	)
 }
 
 // NewArm returns a new fake arm.

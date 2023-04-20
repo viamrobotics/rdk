@@ -9,8 +9,8 @@ import (
 	"go.opencensus.io/trace"
 
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
@@ -121,11 +121,7 @@ func newOverlayTransform(
 	stream camera.ImageType,
 	am utils.AttributeMap,
 ) (gostream.VideoSource, camera.ImageType, error) {
-	conf, err := config.TransformAttributeMapToStruct(&(overlayConfig{}), am)
-	if err != nil {
-		return nil, camera.UnspecifiedStream, err
-	}
-	ovelayConf, err := utils.AssertType[*overlayConfig](conf)
+	conf, err := resource.TransformAttributeMap[*overlayConfig](am)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
 	}
@@ -140,9 +136,9 @@ func newOverlayTransform(
 	if props.DistortionParams != nil {
 		cameraModel.Distortion = props.DistortionParams
 	}
-	if ovelayConf.IntrinsicParams != nil && ovelayConf.IntrinsicParams.Height > 0. &&
-		ovelayConf.IntrinsicParams.Width > 0. && ovelayConf.IntrinsicParams.Fx > 0. && ovelayConf.IntrinsicParams.Fy > 0. {
-		cameraModel.PinholeCameraIntrinsics = ovelayConf.IntrinsicParams
+	if conf.IntrinsicParams != nil && conf.IntrinsicParams.Height > 0. &&
+		conf.IntrinsicParams.Width > 0. && conf.IntrinsicParams.Fx > 0. && conf.IntrinsicParams.Fy > 0. {
+		cameraModel.PinholeCameraIntrinsics = conf.IntrinsicParams
 	}
 	if cameraModel.PinholeCameraIntrinsics == nil {
 		return nil, camera.UnspecifiedStream, transform.ErrNoIntrinsics

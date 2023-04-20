@@ -12,16 +12,12 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/jacobsa/go-serial/serial"
-	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	utils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/motor"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 // https://www.dimensionengineering.com/datasheets/Sabertooth2x60.pdf
@@ -123,7 +119,7 @@ func (cfg *Config) Validate(path string) error {
 func init() {
 	controllers = make(map[string]*controller)
 
-	registry.RegisterComponent(motor.Subtype, modelName, registry.Resource[motor.Motor]{
+	resource.RegisterComponent(motor.Subtype, modelName, resource.Registration[motor.Motor, *Config]{
 		Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (motor.Motor, error) {
 			newConf, err := resource.NativeConfig[*Config](conf)
 			if err != nil {
@@ -131,22 +127,8 @@ func init() {
 			}
 			return NewMotor(ctx, newConf, conf.ResourceName(), logger)
 		},
+		AttributeMapConverter: resource.TransformAttributeMap[*Config],
 	})
-
-	config.RegisterComponentAttributeMapConverter(
-		motor.Subtype,
-		modelName,
-		func(attributes rdkutils.AttributeMap) (interface{}, error) {
-			var conf Config
-			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Squash: true, Result: &conf})
-			if err != nil {
-				return nil, err
-			}
-			if err := decoder.Decode(attributes); err != nil {
-				return nil, err
-			}
-			return &conf, nil
-		})
 }
 
 func newController(c *Config, logger golog.Logger) (*controller, error) {

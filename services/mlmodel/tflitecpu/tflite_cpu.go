@@ -11,20 +11,17 @@ import (
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 
-	"go.viam.com/rdk/config"
 	inf "go.viam.com/rdk/ml/inference"
 	"go.viam.com/rdk/ml/inference/tflite_metadata"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/mlmodel"
 	"go.viam.com/rdk/services/vision"
-	"go.viam.com/rdk/utils"
 )
 
 var sModel = resource.NewDefaultModel("tflite_cpu")
 
 func init() {
-	registry.RegisterService(vision.Subtype, sModel, registry.Resource[mlmodel.Service]{
+	resource.RegisterService(vision.Subtype, sModel, resource.Registration[mlmodel.Service, *TFLiteConfig]{
 		Constructor: func(
 			ctx context.Context,
 			_ resource.Dependencies,
@@ -37,9 +34,7 @@ func init() {
 			}
 			return NewTFLiteCPUModel(ctx, svcConf, conf.ResourceName())
 		},
-	})
-	config.RegisterServiceAttributeMapConverter(mlmodel.Subtype, sModel, func(attributes utils.AttributeMap) (interface{}, error) {
-		return config.TransformAttributeMapToStruct(&TFLiteConfig{}, attributes)
+		AttributeMapConverter: resource.TransformAttributeMap[*TFLiteConfig],
 	})
 }
 

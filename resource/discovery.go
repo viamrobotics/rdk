@@ -1,24 +1,21 @@
-// Package discovery implements types to support robot component discovery.
-package discovery
+package resource
 
 import (
 	"context"
 	"fmt"
 
 	"github.com/edaniels/golog"
-
-	"go.viam.com/rdk/resource"
 )
 
 type (
-	// Query is a tuple of subtype (api) and model used to lookup discovery functions.
-	Query struct {
-		API   resource.Subtype
-		Model resource.Model
+	// DiscoveryQuery is a tuple of subtype (api) and model used to lookup discovery functions.
+	DiscoveryQuery struct {
+		API   Subtype
+		Model Model
 	}
 
-	// Discover is a function that discovers component configurations.
-	Discover func(ctx context.Context, logger golog.Logger) (interface{}, error)
+	// DiscoveryFunc is a function that discovers component configurations.
+	DiscoveryFunc func(ctx context.Context, logger golog.Logger) (interface{}, error)
 
 	// Discovery holds a Query and a corresponding discovered component configuration. A
 	// discovered component configuration can be comprised of primitives, a list of
@@ -26,13 +23,13 @@ type (
 	// lists of the forementioned type of maps. Results with other types of data are not
 	// guaranteed.
 	Discovery struct {
-		Query   Query
+		Query   DiscoveryQuery
 		Results interface{}
 	}
 
 	// DiscoverError indicates that a Discover function has returned an error.
 	DiscoverError struct {
-		Query Query
+		Query DiscoveryQuery
 	}
 )
 
@@ -40,7 +37,7 @@ func (e *DiscoverError) Error() string {
 	return fmt.Sprintf("failed to get discovery for subtype %q and model %q", e.Query.API, e.Query.Model)
 }
 
-// NewQuery returns a discovery query for a given subtype and model.
-func NewQuery(subtype resource.Subtype, model resource.Model) Query {
-	return Query{subtype, model}
+// NewDiscoveryQuery returns a discovery query for a given subtype and model.
+func NewDiscoveryQuery(subtype Subtype, model Model) DiscoveryQuery {
+	return DiscoveryQuery{subtype, model}
 }

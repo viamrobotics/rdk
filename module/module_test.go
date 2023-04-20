@@ -27,7 +27,6 @@ import (
 	"go.viam.com/rdk/examples/customresources/models/mygizmo"
 	"go.viam.com/rdk/examples/customresources/models/mysum"
 	"go.viam.com/rdk/module"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/shell"
@@ -413,26 +412,18 @@ func TestAttributeConversion(t *testing.T) {
 		)
 
 		// register the non-reconfigurable one
-		registry.RegisterService(shell.Subtype, model, registry.Resource[shell.Service]{
+		resource.RegisterService(shell.Subtype, model, resource.Registration[shell.Service, *MockConfig]{
 			Constructor: func(ctx context.Context, deps resource.Dependencies, cfg resource.Config, logger golog.Logger) (shell.Service, error) {
 				createConf1 = cfg
 				createDeps1 = deps
 				return &inject.ShellService{}, nil
 			},
+			AttributeMapConverter: resource.TransformAttributeMap[*MockConfig],
 		})
-
-		config.RegisterServiceAttributeMapConverter(
-			shell.Subtype,
-			model,
-			func(attributes rutils.AttributeMap) (interface{}, error) {
-				var conf MockConfig
-				return config.TransformAttributeMapToStruct(&conf, attributes)
-			},
-		)
 		test.That(t, m.AddModelFromRegistry(ctx, shell.Subtype, model), test.ShouldBeNil)
 
 		// register the reconfigurable version
-		registry.RegisterService(shell.Subtype, modelWithReconfigure, registry.Resource[shell.Service]{
+		resource.RegisterService(shell.Subtype, modelWithReconfigure, resource.Registration[shell.Service, *MockConfig]{
 			Constructor: func(ctx context.Context, deps resource.Dependencies, cfg resource.Config, logger golog.Logger) (shell.Service, error) {
 				injectable := &inject.ShellService{}
 				injectable.ReconfigureFunc = func(ctx context.Context, deps resource.Dependencies, cfg resource.Config) error {
@@ -444,16 +435,8 @@ func TestAttributeConversion(t *testing.T) {
 				reconfigDeps1 = deps
 				return injectable, nil
 			},
+			AttributeMapConverter: resource.TransformAttributeMap[*MockConfig],
 		})
-
-		config.RegisterServiceAttributeMapConverter(
-			shell.Subtype,
-			modelWithReconfigure,
-			func(attributes rutils.AttributeMap) (interface{}, error) {
-				var conf MockConfig
-				return config.TransformAttributeMapToStruct(&conf, attributes)
-			},
-		)
 		test.That(t, m.AddModelFromRegistry(ctx, shell.Subtype, modelWithReconfigure), test.ShouldBeNil)
 
 		test.That(t, m.Start(ctx), test.ShouldBeNil)
@@ -494,8 +477,8 @@ func TestAttributeConversion(t *testing.T) {
 				reconfigDeps2:        &reconfigDeps2,
 				modelWithReconfigure: modelWithReconfigure,
 			}, func() {
-				registry.DeregisterResource(shell.Subtype, model)
-				registry.DeregisterResource(shell.Subtype, modelWithReconfigure)
+				resource.Deregister(shell.Subtype, model)
+				resource.Deregister(shell.Subtype, modelWithReconfigure)
 				test.That(t, conn.Close(), test.ShouldBeNil)
 				m.Close(ctx)
 				test.That(t, myRobot.Close(ctx), test.ShouldBeNil)

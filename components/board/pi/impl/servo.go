@@ -20,7 +20,6 @@ import (
 	picommon "go.viam.com/rdk/components/board/pi/common"
 	"go.viam.com/rdk/components/servo"
 	"go.viam.com/rdk/operation"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 )
 
@@ -31,10 +30,10 @@ var (
 
 // init registers a pi servo based on pigpio.
 func init() {
-	registry.RegisterComponent(
+	resource.RegisterComponent(
 		servo.Subtype,
 		picommon.ModelName,
-		registry.Resource[servo.Servo]{
+		resource.Registration[servo.Servo, *picommon.ServoConfig]{
 			Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (servo.Servo, error) {
 				newConf, err := resource.NativeConfig[*picommon.ServoConfig](conf)
 				if err != nil {
@@ -96,6 +95,7 @@ func init() {
 
 				return theServo, nil
 			},
+			AttributeMapConverter: resource.TransformAttributeMap[*picommon.ServoConfig],
 		},
 	)
 }

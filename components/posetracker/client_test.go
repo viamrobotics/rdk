@@ -15,7 +15,6 @@ import (
 	"go.viam.com/rdk/components/posetracker"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils"
@@ -80,7 +79,7 @@ func TestClient(t *testing.T) {
 	}
 	ptSvc, err := resource.NewSubtypeCollection(posetracker.Subtype, resourceMap)
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype, ok, err := registry.ResourceSubtypeLookup[posetracker.PoseTracker](posetracker.Subtype)
+	resourceSubtype, ok, err := resource.LookupSubtypeRegistration[posetracker.PoseTracker](posetracker.Subtype)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, ptSvc), test.ShouldBeNil)

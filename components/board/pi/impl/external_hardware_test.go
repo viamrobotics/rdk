@@ -19,7 +19,6 @@ import (
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/components/motor/gpio"
 	"go.viam.com/rdk/components/servo"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 )
 
@@ -109,7 +108,7 @@ func TestPiHardware(t *testing.T) {
 	})
 
 	t.Run("servo in/out", func(t *testing.T) {
-		servoReg, ok := registry.ResourceLookup(servo.Subtype, picommon.ModelName)
+		servoReg, ok := resource.LookupRegistration(servo.Subtype, picommon.ModelName)
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, servoReg, test.ShouldNotBeNil)
 		servoInt, err := servoReg.Constructor(
@@ -140,11 +139,11 @@ func TestPiHardware(t *testing.T) {
 		test.That(t, val, test.ShouldAlmostEqual, int64(1500), 500) // this is a tad noisy
 	})
 
-	motorReg, ok := registry.ResourceLookup(motor.Subtype, picommon.ModelName)
+	motorReg, ok := resource.LookupRegistration(motor.Subtype, picommon.ModelName)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, motorReg, test.ShouldNotBeNil)
 
-	encoderReg, ok := registry.ResourceLookup(encoder.Subtype, resource.NewDefaultModel("encoder"))
+	encoderReg, ok := resource.LookupRegistration(encoder.Subtype, resource.NewDefaultModel("encoder"))
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, encoderReg, test.ShouldNotBeNil)
 

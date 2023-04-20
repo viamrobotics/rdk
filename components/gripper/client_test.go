@@ -12,7 +12,6 @@ import (
 
 	"go.viam.com/rdk/components/gripper"
 	viamgrpc "go.viam.com/rdk/grpc"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
@@ -60,7 +59,7 @@ func TestClient(t *testing.T) {
 		gripper.Subtype,
 		map[resource.Name]gripper.Gripper{gripper.Named(testGripperName): injectGripper, gripper.Named(failGripperName): injectGripper2})
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype, ok, err := registry.ResourceSubtypeLookup[gripper.Gripper](gripper.Subtype)
+	resourceSubtype, ok, err := resource.LookupSubtypeRegistration[gripper.Gripper](gripper.Subtype)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, gripperSvc), test.ShouldBeNil)

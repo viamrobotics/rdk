@@ -8,7 +8,6 @@ import (
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/sensor"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 
 	robotimpl "go.viam.com/rdk/robot/impl"
@@ -20,10 +19,10 @@ var logger = golog.NewDebugLogger("mysensor")
 
 // registering the component model on init is how we make sure the new model is picked up and usable.
 func init() {
-	registry.RegisterComponent(
+	resource.RegisterComponent(
 		sensor.Subtype,
 		resource.NewDefaultModel("mySensor"),
-		registry.Resource[sensor.Sensor]{Constructor: func(
+		resource.Registration[sensor.Sensor, any]{Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,

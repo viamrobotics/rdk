@@ -15,8 +15,6 @@ import (
 	"go.uber.org/multierr"
 
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
@@ -27,36 +25,36 @@ import (
 var model = resource.NewDefaultModel("transform")
 
 func init() {
-	registry.RegisterComponent(
+	resource.RegisterComponent(
 		camera.Subtype,
 		model,
-		registry.Resource[camera.Camera]{
+		resource.Registration[camera.Camera, *transformConfig]{
 			DeprecatedRobotConstructor: func(
 				ctx context.Context,
-				r robot.Robot,
+				r any,
 				conf resource.Config,
 				logger golog.Logger,
 			) (camera.Camera, error) {
+				actualR, err := utils.AssertType[robot.Robot](r)
+				if err != nil {
+					return nil, err
+				}
 				newConf, err := resource.NativeConfig[*transformConfig](conf)
 				if err != nil {
 					return nil, err
 				}
 				sourceName := newConf.Source
-				source, err := camera.FromRobot(r, sourceName)
+				source, err := camera.FromRobot(actualR, sourceName)
 				if err != nil {
 					return nil, fmt.Errorf("no source camera for transform pipeline (%s): %w", sourceName, err)
 				}
-				src, err := newTransformPipeline(ctx, source, newConf, r)
+				src, err := newTransformPipeline(ctx, source, newConf, actualR)
 				if err != nil {
 					return nil, err
 				}
 				return camera.FromVideoSource(conf.ResourceName(), src), nil
 			},
-		})
-
-	config.RegisterComponentAttributeMapConverter(camera.Subtype, model,
-		func(attributes utils.AttributeMap) (interface{}, error) {
-			return config.TransformAttributeMapToStruct(&transformConfig{}, attributes)
+			AttributeMapConverter: resource.TransformAttributeMap[*transformConfig],
 		})
 }
 
@@ -70,7 +68,10 @@ type transformConfig struct {
 }
 
 func newTransformPipeline(
-	ctx context.Context, source gostream.VideoSource, cfg *transformConfig, r robot.Robot,
+	ctx context.Context,
+	source gostream.VideoSource,
+	cfg *transformConfig,
+	r robot.Robot,
 ) (camera.VideoSource, error) {
 	if source == nil {
 		return nil, errors.New("no source camera for transform pipeline")

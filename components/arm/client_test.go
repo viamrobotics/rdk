@@ -15,7 +15,6 @@ import (
 	"go.viam.com/rdk/components/arm"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 	"go.viam.com/rdk/robot/server"
@@ -92,7 +91,7 @@ func TestClient(t *testing.T) {
 			arm.Named(testArmName2): injectArm2,
 		})
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype, ok, err := registry.ResourceSubtypeLookup[arm.Arm](arm.Subtype)
+	resourceSubtype, ok, err := resource.LookupSubtypeRegistration[arm.Arm](arm.Subtype)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
 

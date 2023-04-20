@@ -15,7 +15,6 @@ import (
 	"go.viam.com/rdk/components/board/genericlinux"
 	picommon "go.viam.com/rdk/components/board/pi/common"
 	"go.viam.com/rdk/components/servo"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 )
 
@@ -142,7 +141,7 @@ func TestPiPigpio(t *testing.T) {
 	})
 
 	t.Run("servo in/out", func(t *testing.T) {
-		servoReg, ok := registry.ResourceLookup(servo.Subtype, picommon.ModelName)
+		servoReg, ok := resource.LookupRegistration(servo.Subtype, picommon.ModelName)
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, servoReg, test.ShouldNotBeNil)
 		servoInt, err := servoReg.Constructor(
@@ -177,7 +176,7 @@ func TestPiPigpio(t *testing.T) {
 	})
 
 	t.Run("servo initialize with pin error", func(t *testing.T) {
-		servoReg, ok := registry.ResourceLookup(servo.Subtype, picommon.ModelName)
+		servoReg, ok := resource.LookupRegistration(servo.Subtype, picommon.ModelName)
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, servoReg, test.ShouldNotBeNil)
 		_, err := servoReg.Constructor(
@@ -194,7 +193,7 @@ func TestPiPigpio(t *testing.T) {
 
 	t.Run("check new servo defaults", func(t *testing.T) {
 		ctx := context.Background()
-		servoReg, ok := registry.ResourceLookup(servo.Subtype, picommon.ModelName)
+		servoReg, ok := resource.LookupRegistration(servo.Subtype, picommon.ModelName)
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, servoReg, test.ShouldNotBeNil)
 		servoInt, err := servoReg.Constructor(
@@ -216,7 +215,7 @@ func TestPiPigpio(t *testing.T) {
 
 	t.Run("check set default position", func(t *testing.T) {
 		ctx := context.Background()
-		servoReg, ok := registry.ResourceLookup(servo.Subtype, picommon.ModelName)
+		servoReg, ok := resource.LookupRegistration(servo.Subtype, picommon.ModelName)
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, servoReg, test.ShouldNotBeNil)
 

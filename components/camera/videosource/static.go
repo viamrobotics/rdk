@@ -8,48 +8,43 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/depthadapter"
 	"go.viam.com/rdk/rimage/transform"
-	"go.viam.com/rdk/utils"
 )
 
 var fileModel = resource.NewDefaultModel("image_file")
 
 func init() {
-	registry.RegisterComponent(camera.Subtype, fileModel,
-		registry.Resource[camera.Camera]{Constructor: func(ctx context.Context, _ resource.Dependencies,
-			conf resource.Config, logger golog.Logger,
-		) (camera.Camera, error) {
-			newConf, err := resource.NativeConfig[*fileSourceConfig](conf)
-			if err != nil {
-				return nil, err
-			}
-			videoSrc := &fileSource{newConf.Color, newConf.Depth, newConf.CameraParameters}
-			imgType := camera.ColorStream
-			if newConf.Color == "" {
-				imgType = camera.DepthStream
-			}
-			cameraModel := camera.NewPinholeModelWithBrownConradyDistortion(newConf.CameraParameters, newConf.DistortionParameters)
-			src, err := camera.NewVideoSourceFromReader(
-				ctx,
-				videoSrc,
-				&cameraModel,
-				imgType,
-			)
-			if err != nil {
-				return nil, err
-			}
-			return camera.FromVideoSource(conf.ResourceName(), src), nil
-		}})
-
-	config.RegisterComponentAttributeMapConverter(camera.Subtype, fileModel,
-		func(attributes utils.AttributeMap) (interface{}, error) {
-			return config.TransformAttributeMapToStruct(&fileSourceConfig{}, attributes)
+	resource.RegisterComponent(camera.Subtype, fileModel,
+		resource.Registration[camera.Camera, *fileSourceConfig]{
+			Constructor: func(ctx context.Context, _ resource.Dependencies,
+				conf resource.Config, logger golog.Logger,
+			) (camera.Camera, error) {
+				newConf, err := resource.NativeConfig[*fileSourceConfig](conf)
+				if err != nil {
+					return nil, err
+				}
+				videoSrc := &fileSource{newConf.Color, newConf.Depth, newConf.CameraParameters}
+				imgType := camera.ColorStream
+				if newConf.Color == "" {
+					imgType = camera.DepthStream
+				}
+				cameraModel := camera.NewPinholeModelWithBrownConradyDistortion(newConf.CameraParameters, newConf.DistortionParameters)
+				src, err := camera.NewVideoSourceFromReader(
+					ctx,
+					videoSrc,
+					&cameraModel,
+					imgType,
+				)
+				if err != nil {
+					return nil, err
+				}
+				return camera.FromVideoSource(conf.ResourceName(), src), nil
+			},
+			AttributeMapConverter: resource.TransformAttributeMap[*fileSourceConfig],
 		})
 }
 

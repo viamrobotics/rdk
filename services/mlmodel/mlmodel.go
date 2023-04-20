@@ -10,13 +10,12 @@ import (
 	vprotoutils "go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 )
 
 func init() {
-	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype[Service]{
+	resource.RegisterSubtype(Subtype, resource.SubtypeRegistration[Service]{
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           servicepb.RegisterMLModelServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &servicepb.MLModelService_ServiceDesc,

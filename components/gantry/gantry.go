@@ -7,14 +7,13 @@ import (
 
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 )
 
 func init() {
-	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype[Gantry]{
-		Status:                      registry.StatusFunc(CreateStatus),
+	resource.RegisterSubtype(Subtype, resource.SubtypeRegistration[Gantry]{
+		Status:                      resource.StatusFunc(CreateStatus),
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           pb.RegisterGantryServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &pb.GantryService_ServiceDesc,

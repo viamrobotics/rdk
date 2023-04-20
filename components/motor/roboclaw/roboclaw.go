@@ -13,11 +13,8 @@ import (
 	utils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/motor"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 var modelname = resource.NewDefaultModel("roboclaw")
@@ -52,10 +49,10 @@ func (conf *Config) wrongNumberError() error {
 }
 
 func init() {
-	registry.RegisterComponent(
+	resource.RegisterComponent(
 		motor.Subtype,
 		modelname,
-		registry.Resource[motor.Motor]{
+		resource.Registration[motor.Motor, *Config]{
 			Constructor: func(
 				ctx context.Context,
 				deps resource.Dependencies,
@@ -64,14 +61,7 @@ func init() {
 			) (motor.Motor, error) {
 				return newRoboClaw(deps, conf, logger)
 			},
-		},
-	)
-
-	config.RegisterComponentAttributeMapConverter(
-		motor.Subtype,
-		modelname,
-		func(attributes rdkutils.AttributeMap) (interface{}, error) {
-			return config.TransformAttributeMapToStruct(&Config{}, attributes)
+			AttributeMapConverter: resource.TransformAttributeMap[*Config],
 		},
 	)
 }

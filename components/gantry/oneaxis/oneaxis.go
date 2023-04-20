@@ -15,13 +15,10 @@ import (
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/gantry"
 	"go.viam.com/rdk/components/motor"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	spatial "go.viam.com/rdk/spatialmath"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 var modelname = resource.NewDefaultModel("oneaxis")
@@ -90,14 +87,10 @@ func (cfg *Config) validate() ([]string, error) {
 }
 
 func init() {
-	registry.RegisterComponent(gantry.Subtype, modelname, registry.Resource[gantry.Gantry]{
-		Constructor: newOneAxis,
+	resource.RegisterComponent(gantry.Subtype, modelname, resource.Registration[gantry.Gantry, *Config]{
+		Constructor:           newOneAxis,
+		AttributeMapConverter: resource.TransformAttributeMap[*Config],
 	})
-
-	config.RegisterComponentAttributeMapConverter(gantry.Subtype, modelname,
-		func(attributes rdkutils.AttributeMap) (interface{}, error) {
-			return config.TransformAttributeMapToStruct(&Config{}, attributes)
-		})
 }
 
 type oneAxis struct {

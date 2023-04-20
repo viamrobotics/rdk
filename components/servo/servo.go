@@ -6,14 +6,13 @@ import (
 	pb "go.viam.com/api/component/servo/v1"
 
 	"go.viam.com/rdk/data"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 )
 
 func init() {
-	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype[Servo]{
-		Status:                      registry.StatusFunc(CreateStatus),
+	resource.RegisterSubtype(Subtype, resource.SubtypeRegistration[Servo]{
+		Status:                      resource.StatusFunc(CreateStatus),
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           pb.RegisterServoServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &pb.ServoService_ServiceDesc,

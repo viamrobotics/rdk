@@ -13,7 +13,6 @@ import (
 	"go.viam.com/rdk/components/camera"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/pointcloud"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/services/vision"
@@ -241,7 +240,7 @@ func TestFullClientServerLoop(t *testing.T) {
 	svc, err := resource.NewSubtypeCollection(vision.Subtype, osMap)
 	test.That(t, err, test.ShouldBeNil)
 	// test the server/client
-	resourceSubtype, ok, err := registry.ResourceSubtypeLookup[vision.Service](vision.Subtype)
+	resourceSubtype, ok, err := resource.LookupSubtypeRegistration[vision.Service](vision.Subtype)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, svc), test.ShouldBeNil)

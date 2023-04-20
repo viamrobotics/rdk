@@ -9,12 +9,10 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"reflect"
 	"runtime"
 
 	"github.com/a8m/envsubst"
 	"github.com/edaniels/golog"
-	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	apppb "go.viam.com/api/app/v1"
 	"go.viam.com/utils"
@@ -30,220 +28,6 @@ var (
 	Version     = ""
 	GitRevision = ""
 )
-
-// An AttributeConverter converts a single attribute into a possibly
-// different representation.
-type AttributeConverter func(val interface{}) (interface{}, error)
-
-// An AttributeMapConverter converts an attribute map into a possibly
-// different representation.
-type AttributeMapConverter func(attributes rutils.AttributeMap) (interface{}, error)
-
-// A ResourceAttributeConverterRegistration describes how to convert a specific attribute
-// for a model of a type of resource.
-type ResourceAttributeConverterRegistration struct {
-	Subtype resource.Subtype
-	Model   resource.Model
-	Attr    string
-	Conv    AttributeConverter
-}
-
-// A ResourceAttributeMapConverterRegistration describes how to convert all attributes
-// for a model of a type of resource.
-type ResourceAttributeMapConverterRegistration struct {
-	Subtype resource.Subtype
-	Model   resource.Model
-	Conv    AttributeMapConverter
-}
-
-// A ResourceAssociationConfigConverter describes how to convert all attributes
-// for a type of resource associated with another resource (e.g. data capture on a resource).
-type ResourceAssociationConfigConverter struct {
-	Subtype  resource.Subtype
-	Conv     AttributeMapConverter
-	WithName ResourceToResourceAssociationWithName
-}
-
-// A ResourceAssocationConfigAssociator describes how to associate a
-// resource association config to a specific resource model (e.g. builtin data capture).
-type ResourceAssocationConfigAssociator struct {
-	Subtype   resource.Subtype
-	Model     resource.Model
-	Associate ResourceToResourceAssociator
-}
-
-type (
-	// ResourceToResourceAssociationWithName allows a resource to attach a name to a  subtype specific
-	// association config. This is generally done by the subtype registration.
-	ResourceToResourceAssociationWithName func(resName resource.Name, resAssociation interface{}) error
-
-	// ResourceToResourceAssociator allows one resource to associate a specific association config
-	// to its own config. This is generally done by a specific resource (e.g. data capture of many components).
-	ResourceToResourceAssociator func(conf *resource.Config, resAssociation interface{}) error
-)
-
-var (
-	resourceAttributeConverters        = []ResourceAttributeConverterRegistration{}
-	resourceAttributeMapConverters     = []ResourceAttributeMapConverterRegistration{}
-	resourceAssociationConfigConverter = []ResourceAssociationConfigConverter{}
-	resourceAssocationConfigAssociator = []ResourceAssocationConfigAssociator{}
-)
-
-// RegisterComponentAttributeConverter associates a component type and model with a way to convert a
-// particular attribute name.
-func RegisterComponentAttributeConverter(subtype resource.Subtype, model resource.Model, attr string, conv AttributeConverter) {
-	RegisterResourceAttributeConverter(subtype, model, attr, conv)
-}
-
-// RegisterComponentAttributeMapConverter associates a component type and model with a way to convert all attributes.
-func RegisterComponentAttributeMapConverter(
-	subtype resource.Subtype,
-	model resource.Model,
-	conv AttributeMapConverter,
-) {
-	RegisterResourceAttributeMapConverter(subtype, model, conv)
-}
-
-// RegisterServiceAttributeConverter associates a service type and model with a way to convert a
-// particular attribute name. It is a helper for RegisterResourceAttributeConverter.
-func RegisterServiceAttributeConverter(subtype resource.Subtype, model resource.Model, attr string, conv AttributeConverter) {
-	RegisterResourceAttributeConverter(subtype, model, attr, conv)
-}
-
-// RegisterServiceAttributeMapConverter associates a service type and model with a way to convert all attributes.
-// It is a helper for RegisterResourceAttributeMapConverter.
-func RegisterServiceAttributeMapConverter(
-	subtype resource.Subtype,
-	model resource.Model,
-	conv AttributeMapConverter,
-) {
-	RegisterResourceAttributeMapConverter(subtype, model, conv)
-}
-
-// RegisterResourceAttributeConverter associates a resource (component/service) type and model with a way to
-// convert a particular attribute name.
-func RegisterResourceAttributeConverter(subtype resource.Subtype, model resource.Model, attr string, conv AttributeConverter) {
-	resourceAttributeConverters = append(resourceAttributeConverters, ResourceAttributeConverterRegistration{subtype, model, attr, conv})
-}
-
-// RegisterResourceAttributeMapConverter associates a resource (component/service) type and model with a way to
-// convert all attributes.
-func RegisterResourceAttributeMapConverter(
-	subtype resource.Subtype,
-	model resource.Model,
-	conv AttributeMapConverter,
-) {
-	resourceAttributeMapConverters = append(
-		resourceAttributeMapConverters,
-		ResourceAttributeMapConverterRegistration{subtype, model, conv},
-	)
-}
-
-// TransformAttributeMapToStruct uses an attribute map to transform attributes to the prescribed format.
-func TransformAttributeMapToStruct(to interface{}, attributes rutils.AttributeMap) (interface{}, error) {
-	var md mapstructure.Metadata
-	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
-		TagName:  "json",
-		Result:   to,
-		Metadata: &md,
-	})
-	if err != nil {
-		return nil, err
-	}
-	if err := decoder.Decode(attributes); err != nil {
-		return nil, err
-	}
-	if attributes.Has("attributes") || len(md.Unused) == 0 {
-		return to, nil
-	}
-	// set as many unused attributes as possible
-	toV := reflect.ValueOf(to)
-	if toV.Kind() == reflect.Ptr {
-		toV = toV.Elem()
-	}
-	if attrsV := toV.FieldByName("Attributes"); attrsV.IsValid() &&
-		attrsV.Kind() == reflect.Map &&
-		attrsV.Type().Key().Kind() == reflect.String {
-		if attrsV.IsNil() {
-			attrsV.Set(reflect.MakeMap(attrsV.Type()))
-		}
-		mapValueType := attrsV.Type().Elem()
-		for _, key := range md.Unused {
-			val := attributes[key]
-			valV := reflect.ValueOf(val)
-			if valV.Type().AssignableTo(mapValueType) {
-				attrsV.SetMapIndex(reflect.ValueOf(key), valV)
-			}
-		}
-	}
-	return to, nil
-}
-
-// RegisterResourceAssociationConfigConverter registers a converter for a resource's resource association config
-// to the given resource subtype that will consume it (e.g. data capture on a component). Additionally, a way
-// to attach a resource name to the converted config must be supplied.
-func RegisterResourceAssociationConfigConverter(
-	subtype resource.Subtype,
-	conv AttributeMapConverter,
-	withResourceName ResourceToResourceAssociationWithName,
-) {
-	resourceAssociationConfigConverter = append(
-		resourceAssociationConfigConverter,
-		ResourceAssociationConfigConverter{subtype, conv, withResourceName},
-	)
-}
-
-// RegisterResourceAssocationConfigAssociator registers a resource's association config type to a specific
-// subtype model that will consume it (e.g. builtin data capture on a component).
-func RegisterResourceAssocationConfigAssociator(
-	subtype resource.Subtype,
-	model resource.Model,
-	associate ResourceToResourceAssociator,
-) {
-	resourceAssocationConfigAssociator = append(
-		resourceAssocationConfigAssociator,
-		ResourceAssocationConfigAssociator{subtype, model, associate},
-	)
-}
-
-func findConverter(subtype resource.Subtype, model resource.Model, attr string) AttributeConverter {
-	for _, r := range resourceAttributeConverters {
-		if r.Subtype == subtype && r.Model == model && r.Attr == attr {
-			return r.Conv
-		}
-	}
-	return nil
-}
-
-// FindResourceAssociationConfigConverter finds the resource association config AttributeMapConverter for the given subtype.
-func FindResourceAssociationConfigConverter(subtype resource.Subtype) (AttributeMapConverter, ResourceToResourceAssociationWithName, bool) {
-	for _, r := range resourceAssociationConfigConverter {
-		if r.Subtype == subtype {
-			return r.Conv, r.WithName, true
-		}
-	}
-	return nil, nil, false
-}
-
-// FindResourceAssocationConfigAssociator finds the resource association to model associator for the given subtype and model.
-func FindResourceAssocationConfigAssociator(subtype resource.Subtype, model resource.Model) (ResourceToResourceAssociator, bool) {
-	for _, r := range resourceAssocationConfigAssociator {
-		if r.Subtype == subtype && r.Model == model {
-			return r.Associate, true
-		}
-	}
-	return nil, false
-}
-
-// FindMapConverter finds the resource AttributeMapConverter for the given subtype and model.
-func FindMapConverter(subtype resource.Subtype, model resource.Model) AttributeMapConverter {
-	for _, r := range resourceAttributeMapConverters {
-		if r.Subtype == subtype && r.Model == model {
-			return r.Conv
-		}
-	}
-	return nil
-}
 
 func getAgentInfo() (*apppb.AgentInfo, error) {
 	hostname, err := os.Hostname()
@@ -630,20 +414,8 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger golog.Logge
 			resCfgsPerSubtype[copied.API] = append(resCfgsPerSubtype[copied.API], &confs[idx])
 			resName := copied.ResourceName()
 
-			conv := FindMapConverter(resName.Subtype, conf.Model)
+			conv := resource.FindMapConverter(resName.Subtype, conf.Model)
 			// inner attributes may have their own converters
-			for k, v := range conf.Attributes {
-				attrConv := findConverter(resName.Subtype, conf.Model, k)
-				if attrConv == nil {
-					continue
-				}
-
-				n, err := attrConv(v)
-				if err != nil {
-					return errors.Wrapf(err, "error converting attribute for (%s, %s, %s)", resName.Subtype, conf.Model, k)
-				}
-				confs[idx].Attributes[k] = n
-			}
 			if conv == nil {
 				continue
 			}
@@ -668,7 +440,7 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger golog.Logge
 	convertAndAssociateResourceConfigs := func(resName *resource.Name, associatedCfgs []resource.AssociatedResourceConfig) error {
 		for subIdx, associatedConf := range associatedCfgs {
 			assocSubtype := associatedConf.AssociatedSubtype()
-			conv, attachName, ok := FindResourceAssociationConfigConverter(assocSubtype)
+			conv, attachName, ok := resource.FindAssociationConfigConverter(assocSubtype)
 			if !ok {
 				continue
 			}
@@ -692,7 +464,7 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger golog.Logge
 
 			// always associate
 			for _, assocConf := range resCfgsPerSubtype[assocSubtype] {
-				associate, ok := FindResourceAssocationConfigAssociator(assocSubtype, assocConf.Model)
+				associate, ok := resource.FindAssocationConfigLinker(assocSubtype, assocConf.Model)
 				if !ok {
 					continue
 				}

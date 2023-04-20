@@ -11,14 +11,11 @@ import (
 
 	clk "github.com/benbjohnson/clock"
 	"github.com/edaniels/golog"
-	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/protoutils"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/datamanager/datacapture"
@@ -29,7 +26,7 @@ import (
 )
 
 func init() {
-	registry.RegisterService(datamanager.Subtype, resource.DefaultServiceModel, registry.Resource[datamanager.Service]{
+	resource.RegisterService(datamanager.Subtype, resource.DefaultServiceModel, resource.Registration[datamanager.Service, *Config]{
 		Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
@@ -38,8 +35,10 @@ func init() {
 		) (datamanager.Service, error) {
 			return NewBuiltIn(ctx, deps, conf, logger)
 		},
+		AttributeMapConverter: resource.TransformAttributeMap[*Config],
 	})
-	config.RegisterResourceAssocationConfigAssociator(
+	// TODO(erd): how do
+	resource.RegisterAssocationConfigLinker(
 		datamanager.Subtype,
 		resource.DefaultServiceModel,
 		func(conf *resource.Config, resAssociation interface{}) error {
@@ -60,18 +59,6 @@ func init() {
 			return nil
 		},
 	)
-	config.RegisterServiceAttributeMapConverter(datamanager.Subtype, resource.DefaultServiceModel,
-		func(attributes utils.AttributeMap) (interface{}, error) {
-			var conf Config
-			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
-			if err != nil {
-				return nil, err
-			}
-			if err := decoder.Decode(attributes); err != nil {
-				return nil, err
-			}
-			return &conf, nil
-		})
 	resource.AddDefaultService(datamanager.Named(resource.DefaultServiceName))
 }
 

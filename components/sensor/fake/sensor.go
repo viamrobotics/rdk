@@ -8,15 +8,14 @@ import (
 	"github.com/edaniels/golog"
 
 	"go.viam.com/rdk/components/sensor"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 )
 
 func init() {
-	registry.RegisterComponent(
+	resource.RegisterComponent(
 		sensor.Subtype,
 		resource.NewDefaultModel("fake"),
-		registry.Resource[sensor.Sensor]{Constructor: func(
+		resource.Registration[sensor.Sensor, any]{Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,

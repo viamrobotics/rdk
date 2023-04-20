@@ -13,7 +13,6 @@ import (
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/module"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 
 	"go.viam.com/utils"
@@ -34,7 +33,9 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 
 	// We first put our component's constructor in the registry, then tell the module to load it
 	// Note that all resources must be added before the module is started.
-	registry.RegisterComponent(generic.Subtype, myModel, registry.Resource[resource.Resource]{Constructor: newCounter})
+	resource.RegisterComponent(generic.Subtype, myModel, resource.Registration[resource.Resource, any]{
+		Constructor: newCounter,
+	})
 	myMod.AddModelFromRegistry(ctx, generic.Subtype, myModel)
 
 	// The module is started.

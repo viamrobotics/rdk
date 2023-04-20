@@ -22,17 +22,14 @@ import (
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage/transform"
-	"go.viam.com/rdk/utils"
 )
 
 var model = resource.NewDefaultModel("rtsp")
 
 func init() {
-	registry.RegisterComponent(camera.Subtype, model, registry.Resource[camera.Camera]{
+	resource.RegisterComponent(camera.Subtype, model, resource.Registration[camera.Camera, *Config]{
 		Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (camera.Camera, error) {
 			newConf, err := resource.NativeConfig[*Config](conf)
 			if err != nil {
@@ -40,15 +37,8 @@ func init() {
 			}
 			return NewRTSPCamera(ctx, conf.ResourceName(), newConf, logger)
 		},
+		AttributeMapConverter: resource.TransformAttributeMap[*Config],
 	})
-
-	config.RegisterComponentAttributeMapConverter(
-		camera.Subtype,
-		model,
-		func(attributes utils.AttributeMap) (interface{}, error) {
-			return config.TransformAttributeMapToStruct(&Config{}, attributes)
-		},
-	)
 }
 
 // Config are the config attributes for an RTSP camera model.

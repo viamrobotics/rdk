@@ -8,14 +8,13 @@ import (
 	pb "go.viam.com/api/component/inputcontroller/v1"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 )
 
 func init() {
-	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype[Controller]{
-		Status:                      registry.StatusFunc(CreateStatus),
+	resource.RegisterSubtype(Subtype, resource.SubtypeRegistration[Controller]{
+		Status:                      resource.StatusFunc(CreateStatus),
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           pb.RegisterInputControllerServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &pb.InputControllerService_ServiceDesc,

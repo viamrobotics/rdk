@@ -6,12 +6,11 @@ import (
 
 	servicepb "go.viam.com/api/service/shell/v1"
 
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 )
 
 func init() {
-	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype[Service]{
+	resource.RegisterSubtype(Subtype, resource.SubtypeRegistration[Service]{
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           servicepb.RegisterShellServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &servicepb.ShellService_ServiceDesc,

@@ -12,7 +12,6 @@ import (
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/module"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 )
 
@@ -31,7 +30,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 	if err != nil {
 		return err
 	}
-	registry.RegisterComponent(generic.Subtype, myModel, registry.Resource[resource.Resource]{Constructor: newHelper})
+	resource.RegisterComponent(generic.Subtype, myModel, resource.Registration[resource.Resource, any]{Constructor: newHelper})
 	err = myMod.AddModelFromRegistry(ctx, generic.Subtype, myModel)
 	if err != nil {
 		return err

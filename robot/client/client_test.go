@@ -55,11 +55,9 @@ import (
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/components/servo"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/discovery"
 	rgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/robot"
@@ -882,9 +880,9 @@ func TestClientReconnect(t *testing.T) {
 		resource.SubtypeName(uuid.New().String()),
 	)
 	var called int64
-	registry.RegisterResourceSubtype(
+	resource.RegisterSubtype(
 		someSubtype,
-		registry.ResourceSubtype[resource.Resource]{
+		resource.SubtypeRegistration[resource.Resource]{
 			RPCClient: func(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (resource.Resource, error) {
 				atomic.AddInt64(&called, 1)
 				return &mockType{Named: name.AsNamed()}, nil
@@ -982,9 +980,9 @@ func TestClientRefreshNoReconfigure(t *testing.T) {
 		resource.SubtypeName(uuid.New().String()),
 	)
 	var called int64
-	registry.RegisterResourceSubtype(
+	resource.RegisterSubtype(
 		someSubtype,
-		registry.ResourceSubtype[resource.Resource]{
+		resource.SubtypeRegistration[resource.Resource]{
 			RPCClient: func(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (resource.Resource, error) {
 				atomic.AddInt64(&called, 1)
 				return &mockType{Named: name.AsNamed()}, nil
@@ -1146,9 +1144,9 @@ func TestClientDiscovery(t *testing.T) {
 	injectRobot.ResourceNamesFunc = func() []resource.Name {
 		return finalResources
 	}
-	q := discovery.Query{movementsensor.Named("foo").Subtype, resource.NewDefaultModel("something")}
-	injectRobot.DiscoverComponentsFunc = func(ctx context.Context, keys []discovery.Query) ([]discovery.Discovery, error) {
-		return []discovery.Discovery{{
+	q := resource.DiscoveryQuery{movementsensor.Named("foo").Subtype, resource.NewDefaultModel("something")}
+	injectRobot.DiscoverComponentsFunc = func(ctx context.Context, keys []resource.DiscoveryQuery) ([]resource.Discovery, error) {
+		return []resource.Discovery{{
 			Query:   q,
 			Results: map[string]interface{}{"abc": []float64{1.2, 2.3, 3.4}},
 		}}, nil
@@ -1166,7 +1164,7 @@ func TestClientDiscovery(t *testing.T) {
 	client, err := New(context.Background(), listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	resp, err := client.DiscoverComponents(context.Background(), []discovery.Query{q})
+	resp, err := client.DiscoverComponents(context.Background(), []resource.DiscoveryQuery{q})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(resp), test.ShouldEqual, 1)
 	test.That(t, resp[0].Query, test.ShouldResemble, q)

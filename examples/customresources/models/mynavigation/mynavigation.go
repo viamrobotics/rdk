@@ -9,7 +9,6 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/navigation"
 )
@@ -21,7 +20,9 @@ var Model = resource.NewModel(
 )
 
 func init() {
-	registry.RegisterService(navigation.Subtype, Model, registry.Resource[navigation.Service]{Constructor: newNav})
+	resource.RegisterService(navigation.Subtype, Model, resource.Registration[navigation.Service, any]{
+		Constructor: newNav,
+	})
 }
 
 func newNav(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (navigation.Service, error) {

@@ -14,10 +14,7 @@ import (
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/encoder"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	rutils "go.viam.com/rdk/utils"
 )
 
 const (
@@ -36,18 +33,12 @@ var (
 var waitTimeNano = (1.0 / 50.0) * 1000000000.0
 
 func init() {
-	registry.RegisterComponent(
+	resource.RegisterComponent(
 		encoder.Subtype,
 		modelName,
-		registry.Resource[encoder.Encoder]{
-			Constructor: newAS5048Encoder,
-		},
-	)
-	config.RegisterComponentAttributeMapConverter(
-		encoder.Subtype,
-		modelName,
-		func(attributes rutils.AttributeMap) (interface{}, error) {
-			return config.TransformAttributeMapToStruct(&Config{}, attributes)
+		resource.Registration[encoder.Encoder, *Config]{
+			Constructor:           newAS5048Encoder,
+			AttributeMapConverter: resource.TransformAttributeMap[*Config],
 		},
 	)
 }

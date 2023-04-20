@@ -18,7 +18,6 @@ import (
 	ur "go.viam.com/rdk/components/arm/universalrobots"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
@@ -96,7 +95,7 @@ func TestCreateStatus(t *testing.T) {
 		pose2 := spatialmath.NewPoseFromProtobuf(status.EndPosition)
 		test.That(t, spatialmath.PoseAlmostEqualEps(pose1, pose2, 0.01), test.ShouldBeTrue)
 
-		resourceSubtype, ok, err := registry.ResourceSubtypeLookup[arm.Arm](arm.Subtype)
+		resourceSubtype, ok, err := resource.LookupSubtypeRegistration[arm.Arm](arm.Subtype)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ok, test.ShouldBeTrue)
 		status2, err := resourceSubtype.Status(context.Background(), injectArm)

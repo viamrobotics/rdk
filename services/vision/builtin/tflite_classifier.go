@@ -13,10 +13,9 @@ import (
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 
-	"go.viam.com/rdk/config"
 	inf "go.viam.com/rdk/ml/inference"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/vision"
-	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision/classification"
 )
 
@@ -40,30 +39,25 @@ func NewTFLiteClassifier(ctx context.Context, conf *vision.VisModelConfig,
 	defer span.End()
 
 	// Read those parameters into a TFLiteClassifierConfig
-	var t TFLiteClassifierConfig
-	tfParams, err := config.TransformAttributeMapToStruct(&t, conf.Parameters)
+	tfParams, err := resource.TransformAttributeMap[*TFLiteClassifierConfig](conf.Parameters)
 	if err != nil {
 		return nil, nil, errors.New("error getting parameters from config")
 	}
-	params, err := utils.AssertType[*TFLiteClassifierConfig](tfParams)
-	if err != nil {
-		return nil, nil, errors.Wrapf(err, "register tflite detector %s", conf.Name)
-	}
 	// Secret but hard limit on num_threads
-	if params.NumThreads > runtime.NumCPU()/4 {
-		params.NumThreads = runtime.NumCPU() / 4
+	if tfParams.NumThreads > runtime.NumCPU()/4 {
+		tfParams.NumThreads = runtime.NumCPU() / 4
 	}
 
-	model, err := addTFLiteModel(ctx, params.ModelPath, &params.NumThreads)
+	model, err := addTFLiteModel(ctx, tfParams.ModelPath, &tfParams.NumThreads)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "something wrong with adding the model")
 	}
 
-	if params.LabelPath == nil {
+	if tfParams.LabelPath == nil {
 		blank := ""
-		params.LabelPath = &blank
+		tfParams.LabelPath = &blank
 	}
-	labels, err := loadLabels(*params.LabelPath)
+	labels, err := loadLabels(*tfParams.LabelPath)
 	if err != nil {
 		logger.Warn("did not retrieve class labels")
 	}

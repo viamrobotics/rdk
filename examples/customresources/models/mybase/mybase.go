@@ -13,10 +13,7 @@ import (
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/motor"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/utils"
 )
 
 var (
@@ -25,19 +22,10 @@ var (
 )
 
 func init() {
-	registry.RegisterComponent(base.Subtype, Model, registry.Resource[base.Base]{Constructor: newBase})
-
-	// Use RegisterComponentAttributeMapConverter to register a custom configuration
-	// struct that has a Validate(string) ([]string, error) method.
-	//
-	// The Validate method will automatically be called in RDK's module manager to
-	// Validate the MyBase's configuration and register implicit dependencies.
-	config.RegisterComponentAttributeMapConverter(
-		base.Subtype,
-		Model,
-		func(attributes utils.AttributeMap) (interface{}, error) {
-			return config.TransformAttributeMapToStruct(&MyBaseConfig{}, attributes)
-		})
+	resource.RegisterComponent(base.Subtype, Model, resource.Registration[base.Base, *MyBaseConfig]{
+		Constructor:           newBase,
+		AttributeMapConverter: resource.TransformAttributeMap[*MyBaseConfig],
+	})
 }
 
 func newBase(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (base.Base, error) {

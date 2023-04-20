@@ -12,7 +12,6 @@ import (
 	pb "go.viam.com/api/service/slam/v1"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/spatialmath"
@@ -20,7 +19,7 @@ import (
 
 // TBD 05/04/2022: Needs more work once GRPC is included (future PR).
 func init() {
-	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype[Service]{
+	resource.RegisterSubtype(Subtype, resource.SubtypeRegistration[Service]{
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           pb.RegisterSLAMServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &pb.SLAMService_ServiceDesc,

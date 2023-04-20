@@ -9,13 +9,12 @@ import (
 	"github.com/pion/mediadevices/pkg/prop"
 	pb "go.viam.com/api/component/audioinput/v1"
 
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 )
 
 func init() {
-	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype[AudioInput]{
+	resource.RegisterSubtype(Subtype, resource.SubtypeRegistration[AudioInput]{
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           pb.RegisterAudioInputServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &pb.AudioInputService_ServiceDesc,

@@ -28,13 +28,11 @@ import (
 	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
 	"google.golang.org/grpc/status"
 
-	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/pointcloud"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
@@ -588,7 +586,7 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (resource.Resource, er
 }
 
 func (rc *RobotClient) createClient(name resource.Name) (resource.Resource, error) {
-	subtypeInfo, ok := registry.GenericResourceSubtypeLookup(name.Subtype)
+	subtypeInfo, ok := resource.LookupGenericSubtypeRegistration(name.Subtype)
 	if !ok || subtypeInfo.RPCClient == nil {
 		if name.Namespace != resource.ResourceNamespaceRDK {
 			return grpc.NewForeignResource(name, &rc.conn), nil
@@ -775,7 +773,7 @@ func (rc *RobotClient) Logger() golog.Logger {
 
 // DiscoverComponents takes a list of discovery queries and returns corresponding
 // component configurations.
-func (rc *RobotClient) DiscoverComponents(ctx context.Context, qs []discovery.Query) ([]discovery.Discovery, error) {
+func (rc *RobotClient) DiscoverComponents(ctx context.Context, qs []resource.DiscoveryQuery) ([]resource.Discovery, error) {
 	pbQueries := make([]*pb.DiscoveryQuery, 0, len(qs))
 	for _, q := range qs {
 		pbQueries = append(
@@ -789,7 +787,7 @@ func (rc *RobotClient) DiscoverComponents(ctx context.Context, qs []discovery.Qu
 		return nil, err
 	}
 
-	discoveries := make([]discovery.Discovery, 0, len(resp.Discovery))
+	discoveries := make([]resource.Discovery, 0, len(resp.Discovery))
 	for _, disc := range resp.Discovery {
 		m, err := resource.NewModelFromString(disc.Query.Model)
 		if err != nil {
@@ -799,12 +797,12 @@ func (rc *RobotClient) DiscoverComponents(ctx context.Context, qs []discovery.Qu
 		if err != nil {
 			return nil, err
 		}
-		q := discovery.Query{
+		q := resource.DiscoveryQuery{
 			API:   s,
 			Model: m,
 		}
 		discoveries = append(
-			discoveries, discovery.Discovery{
+			discoveries, resource.Discovery{
 				Query:   q,
 				Results: disc.Results.AsMap(),
 			})

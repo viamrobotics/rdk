@@ -13,25 +13,18 @@ import (
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/encoder"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	rutils "go.viam.com/rdk/utils"
 )
 
 var incrModel = resource.NewDefaultModel("incremental")
 
 func init() {
-	registry.RegisterComponent(
+	resource.RegisterComponent(
 		encoder.Subtype,
 		incrModel,
-		registry.Resource[encoder.Encoder]{Constructor: NewIncrementalEncoder})
-
-	config.RegisterComponentAttributeMapConverter(
-		encoder.Subtype,
-		incrModel,
-		func(attributes rutils.AttributeMap) (interface{}, error) {
-			return config.TransformAttributeMapToStruct(&Config{}, attributes)
+		resource.Registration[encoder.Encoder, *Config]{
+			Constructor:           NewIncrementalEncoder,
+			AttributeMapConverter: resource.TransformAttributeMap[*Config],
 		})
 }
 

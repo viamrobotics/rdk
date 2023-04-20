@@ -10,7 +10,6 @@ import (
 	"github.com/pkg/errors"
 	servicepb "go.viam.com/api/service/vision/v1"
 
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/utils"
@@ -20,7 +19,7 @@ import (
 )
 
 func init() {
-	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype[Service]{
+	resource.RegisterSubtype(Subtype, resource.SubtypeRegistration[Service]{
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           servicepb.RegisterVisionServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &servicepb.VisionService_ServiceDesc,

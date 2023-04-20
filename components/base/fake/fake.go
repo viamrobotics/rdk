@@ -13,16 +13,15 @@ import (
 	"go.viam.com/rdk/components/base/wheeled"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/slam"
 )
 
 func init() {
-	registry.RegisterComponent(
+	resource.RegisterComponent(
 		base.Subtype,
 		resource.NewDefaultModel("fake"),
-		registry.Resource[base.Base]{
+		resource.Registration[base.Base, any]{
 			Constructor: func(
 				ctx context.Context,
 				deps resource.Dependencies,

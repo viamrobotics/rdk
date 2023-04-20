@@ -14,7 +14,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/module/modmanager"
 	"go.viam.com/rdk/module/modmaninterface"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/utils"
@@ -56,9 +55,9 @@ func TestModularResources(t *testing.T) {
 		actualR := r.(*localRobot)
 		actualR.modules = mod
 
-		registry.RegisterResourceSubtype(compSubtype,
-			registry.ResourceSubtype[resource.Resource]{ReflectRPCServiceDesc: &desc.ServiceDescriptor{}})
-		registry.RegisterComponent(compSubtype, compModel, registry.Resource[resource.Resource]{
+		resource.RegisterSubtype(compSubtype,
+			resource.SubtypeRegistration[resource.Resource]{ReflectRPCServiceDesc: &desc.ServiceDescriptor{}})
+		resource.RegisterComponent(compSubtype, compModel, resource.Registration[resource.Resource, any]{
 			Constructor: func(
 				ctx context.Context,
 				deps resource.Dependencies,
@@ -68,7 +67,7 @@ func TestModularResources(t *testing.T) {
 				return mod.AddResource(ctx, conf, modmanager.DepsToNames(deps))
 			},
 		})
-		registry.RegisterComponent(compSubtype, compModel2, registry.Resource[resource.Resource]{
+		resource.RegisterComponent(compSubtype, compModel2, resource.Registration[resource.Resource, any]{
 			Constructor: func(
 				ctx context.Context,
 				deps resource.Dependencies,
@@ -79,9 +78,9 @@ func TestModularResources(t *testing.T) {
 			},
 		})
 
-		registry.RegisterResourceSubtype(svcSubtype,
-			registry.ResourceSubtype[resource.Resource]{ReflectRPCServiceDesc: &desc.ServiceDescriptor{}})
-		registry.RegisterResource(svcSubtype, svcModel, registry.Resource[resource.Resource]{
+		resource.RegisterSubtype(svcSubtype,
+			resource.SubtypeRegistration[resource.Resource]{ReflectRPCServiceDesc: &desc.ServiceDescriptor{}})
+		resource.Register(svcSubtype, svcModel, resource.Registration[resource.Resource, any]{
 			Constructor: func(
 				ctx context.Context,
 				deps resource.Dependencies,
@@ -94,11 +93,11 @@ func TestModularResources(t *testing.T) {
 
 		return actualR, mod, func() {
 			// deregister to not interfere with other tests or when test.count > 1
-			registry.DeregisterResource(compSubtype, compModel)
-			registry.DeregisterResource(compSubtype, compModel2)
-			registry.DeregisterResource(svcSubtype, svcModel)
-			registry.DeregisterResourceSubtype(compSubtype)
-			registry.DeregisterResourceSubtype(svcSubtype)
+			resource.Deregister(compSubtype, compModel)
+			resource.Deregister(compSubtype, compModel2)
+			resource.Deregister(svcSubtype, svcModel)
+			resource.DeregisterSubtype(compSubtype)
+			resource.DeregisterSubtype(svcSubtype)
 			test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 		}
 	}

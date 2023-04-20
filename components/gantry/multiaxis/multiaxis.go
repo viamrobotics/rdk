@@ -10,12 +10,9 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/gantry"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 var modelname = resource.NewDefaultModel("multiaxis")
@@ -49,14 +46,10 @@ func (conf *Config) Validate(path string) ([]string, error) {
 }
 
 func init() {
-	registry.RegisterComponent(gantry.Subtype, modelname, registry.Resource[gantry.Gantry]{
-		Constructor: newMultiAxis,
+	resource.RegisterComponent(gantry.Subtype, modelname, resource.Registration[gantry.Gantry, *Config]{
+		Constructor:           newMultiAxis,
+		AttributeMapConverter: resource.TransformAttributeMap[*Config],
 	})
-
-	config.RegisterComponentAttributeMapConverter(gantry.Subtype, modelname,
-		func(attributes rdkutils.AttributeMap) (interface{}, error) {
-			return config.TransformAttributeMapToStruct(&Config{}, attributes)
-		})
 }
 
 // NewMultiAxis creates a new-multi axis gantry.

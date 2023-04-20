@@ -15,8 +15,6 @@ import (
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/movementsensor"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -60,13 +58,10 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 }
 
 func init() {
-	registry.RegisterComponent(movementsensor.Subtype, model, registry.Resource[movementsensor.MovementSensor]{
-		Constructor: NewVectorNav,
+	resource.RegisterComponent(movementsensor.Subtype, model, resource.Registration[movementsensor.MovementSensor, *Config]{
+		Constructor:           NewVectorNav,
+		AttributeMapConverter: resource.TransformAttributeMap[*Config],
 	})
-	config.RegisterComponentAttributeMapConverter(movementsensor.Subtype, model,
-		func(attributes utils.AttributeMap) (interface{}, error) {
-			return config.TransformAttributeMapToStruct(&Config{}, attributes)
-		})
 }
 
 type vectornav struct {

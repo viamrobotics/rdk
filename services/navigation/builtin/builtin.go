@@ -10,18 +10,14 @@ import (
 
 	"github.com/edaniels/golog"
 	geo "github.com/kellydunn/golang-geo"
-	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/movementsensor"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/navigation"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 const (
@@ -30,7 +26,7 @@ const (
 )
 
 func init() {
-	registry.RegisterService(navigation.Subtype, resource.DefaultServiceModel, registry.Resource[navigation.Service]{
+	resource.RegisterService(navigation.Subtype, resource.DefaultServiceModel, resource.Registration[navigation.Service, *Config]{
 		Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
@@ -39,20 +35,8 @@ func init() {
 		) (navigation.Service, error) {
 			return NewBuiltIn(ctx, deps, conf, logger)
 		},
-	},
-	)
-	config.RegisterServiceAttributeMapConverter(navigation.Subtype, resource.DefaultServiceModel,
-		func(attributes rdkutils.AttributeMap) (interface{}, error) {
-			var conf Config
-			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
-			if err != nil {
-				return nil, err
-			}
-			if err := decoder.Decode(attributes); err != nil {
-				return nil, err
-			}
-			return &conf, nil
-		})
+		AttributeMapConverter: resource.TransformAttributeMap[*Config],
+	})
 }
 
 // Config describes how to configure the service.

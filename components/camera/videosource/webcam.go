@@ -21,30 +21,24 @@ import (
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/pointcloud"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage/transform"
-	"go.viam.com/rdk/utils"
 )
 
 var model = resource.NewDefaultModel("webcam")
 
 func init() {
-	registry.RegisterComponent(
+	resource.RegisterComponent(
 		camera.Subtype,
 		model,
-		registry.Resource[camera.Camera]{Constructor: NewWebcam})
-
-	config.RegisterComponentAttributeMapConverter(camera.Subtype, model,
-		func(attributes utils.AttributeMap) (interface{}, error) {
-			return config.TransformAttributeMapToStruct(&WebcamConfig{}, attributes)
+		resource.Registration[camera.Camera, *WebcamConfig]{
+			Constructor:           NewWebcam,
+			AttributeMapConverter: resource.TransformAttributeMap[*WebcamConfig],
 		})
 
-	registry.RegisterDiscoveryFunction(
-		discovery.NewQuery(camera.Subtype, model),
+	resource.RegisterDiscoveryFunction(
+		resource.NewDiscoveryQuery(camera.Subtype, model),
 		func(ctx context.Context, logger golog.Logger) (interface{}, error) {
 			return Discover(ctx, getVideoDrivers, logger)
 		},

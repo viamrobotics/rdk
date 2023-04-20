@@ -15,10 +15,8 @@ import (
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/motor"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -67,21 +65,16 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 }
 
 func init() {
-	wheeledBaseComp := registry.Resource[base.Base]{
+	wheeledBaseComp := resource.Registration[base.Base, *Config]{
 		Constructor: func(
 			ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger,
 		) (base.Base, error) {
 			return CreateWheeledBase(ctx, deps, conf, logger)
 		},
+		AttributeMapConverter: resource.TransformAttributeMap[*Config],
 	}
 
-	registry.RegisterComponent(base.Subtype, ModelName, wheeledBaseComp)
-	config.RegisterComponentAttributeMapConverter(
-		base.Subtype,
-		ModelName,
-		func(attributes rdkutils.AttributeMap) (interface{}, error) {
-			return config.TransformAttributeMapToStruct(&Config{}, attributes)
-		})
+	resource.RegisterComponent(base.Subtype, ModelName, wheeledBaseComp)
 }
 
 type wheeledBase struct {

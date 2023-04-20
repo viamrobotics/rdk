@@ -15,12 +15,9 @@ import (
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/arm/yahboom"
 	"go.viam.com/rdk/components/gripper"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/utils"
 )
 
 var modelname = resource.NewDefaultModel("yahboom-dofbot")
@@ -41,7 +38,7 @@ func (conf *Config) Validate(path string) ([]string, error) {
 }
 
 func init() {
-	registry.RegisterComponent(gripper.Subtype, modelname, registry.Resource[gripper.Gripper]{
+	resource.RegisterComponent(gripper.Subtype, modelname, resource.Registration[gripper.Gripper, *Config]{
 		Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
@@ -50,12 +47,8 @@ func init() {
 		) (gripper.Gripper, error) {
 			return newGripper(deps, conf)
 		},
+		AttributeMapConverter: resource.TransformAttributeMap[*Config],
 	})
-
-	config.RegisterComponentAttributeMapConverter(gripper.Subtype, modelname,
-		func(attributes utils.AttributeMap) (interface{}, error) {
-			return config.TransformAttributeMapToStruct(&Config{}, attributes)
-		})
 }
 
 func newGripper(deps resource.Dependencies, conf resource.Config) (gripper.Gripper, error) {

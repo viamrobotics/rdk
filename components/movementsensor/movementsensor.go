@@ -10,7 +10,6 @@ import (
 	pb "go.viam.com/api/component/movementsensor/v1"
 
 	"go.viam.com/rdk/components/sensor"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/spatialmath"
@@ -20,7 +19,7 @@ import (
 type Properties pb.GetPropertiesResponse
 
 func init() {
-	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype[MovementSensor]{
+	resource.RegisterSubtype(Subtype, resource.SubtypeRegistration[MovementSensor]{
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           pb.RegisterMovementSensorServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &pb.MovementSensorService_ServiceDesc,

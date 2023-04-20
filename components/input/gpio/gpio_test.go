@@ -15,7 +15,6 @@ import (
 	"go.viam.com/rdk/components/board"
 	fakeboard "go.viam.com/rdk/components/board/fake"
 	"go.viam.com/rdk/components/input"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 )
 
@@ -103,7 +102,7 @@ func setup(t *testing.T) *setupResult {
 		},
 	}
 
-	inputReg, ok := registry.ResourceLookup(input.Subtype, resource.NewDefaultModel("gpio"))
+	inputReg, ok := resource.LookupRegistration(input.Subtype, resource.NewDefaultModel("gpio"))
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, inputReg, test.ShouldNotBeNil)
 

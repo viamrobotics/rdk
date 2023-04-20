@@ -11,16 +11,13 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/encoder"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	rutils "go.viam.com/rdk/utils"
 )
 
 var fakeModel = resource.NewDefaultModel("fake")
 
 func init() {
-	registry.RegisterComponent(encoder.Subtype, fakeModel, registry.Resource[encoder.Encoder]{
+	resource.RegisterComponent(encoder.Subtype, fakeModel, resource.Registration[encoder.Encoder, *Config]{
 		Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
@@ -29,14 +26,8 @@ func init() {
 		) (encoder.Encoder, error) {
 			return NewEncoder(ctx, conf)
 		},
+		AttributeMapConverter: resource.TransformAttributeMap[*Config],
 	})
-
-	config.RegisterComponentAttributeMapConverter(
-		encoder.Subtype,
-		fakeModel,
-		func(attributes rutils.AttributeMap) (interface{}, error) {
-			return config.TransformAttributeMapToStruct(&Config{}, attributes)
-		})
 }
 
 // NewEncoder creates a new Encoder.

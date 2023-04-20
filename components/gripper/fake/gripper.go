@@ -7,11 +7,8 @@ import (
 	"github.com/edaniels/golog"
 
 	"go.viam.com/rdk/components/gripper"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/utils"
 )
 
 var modelname = resource.NewDefaultModel("fake")
@@ -25,18 +22,14 @@ func (conf *Config) Validate(path string) error {
 }
 
 func init() {
-	registry.RegisterComponent(gripper.Subtype, modelname, registry.Resource[gripper.Gripper]{
+	resource.RegisterComponent(gripper.Subtype, modelname, resource.Registration[gripper.Gripper, *Config]{
 		Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (gripper.Gripper, error) {
 			return &Gripper{
 				Named: conf.ResourceName().AsNamed(),
 			}, nil
 		},
+		AttributeMapConverter: resource.TransformAttributeMap[*Config],
 	})
-
-	config.RegisterComponentAttributeMapConverter(gripper.Subtype, modelname,
-		func(attributes utils.AttributeMap) (interface{}, error) {
-			return config.TransformAttributeMapToStruct(&Config{}, attributes)
-		})
 }
 
 // Gripper is a fake gripper that can simply read and set properties.

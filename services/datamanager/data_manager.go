@@ -9,21 +9,19 @@ import (
 	servicepb "go.viam.com/api/service/datamanager/v1"
 	"golang.org/x/exp/slices"
 
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
 )
 
 func init() {
-	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype[Service]{
+	resource.RegisterSubtype(Subtype, resource.SubtypeRegistration[Service]{
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           servicepb.RegisterDataManagerServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &servicepb.DataManagerService_ServiceDesc,
 		RPCClient:                   NewClientFromConn,
 		MaxInstance:                 resource.DefaultMaxInstance,
 	})
-	config.RegisterResourceAssociationConfigConverter(
+	resource.RegisterAssociationConfigConverter(
 		Subtype,
 		func(attributes utils.AttributeMap) (interface{}, error) {
 			md, err := json.Marshal(attributes)

@@ -21,7 +21,6 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/client"
@@ -51,7 +50,7 @@ var echoSubType = resource.NewSubtype(
 )
 
 func init() {
-	registry.RegisterResourceSubtype(echoSubType, registry.ResourceSubtype[resource.Resource]{
+	resource.RegisterSubtype(echoSubType, resource.SubtypeRegistration[resource.Resource]{
 		RPCServiceServerConstructor: func(subtypeColl resource.SubtypeCollection[resource.Resource]) interface{} {
 			return &echoServer{coll: subtypeColl}
 		},
@@ -61,10 +60,10 @@ func init() {
 			return NewClientFromConn(ctx, conn, name, logger), nil
 		},
 	})
-	registry.RegisterComponent(
+	resource.RegisterComponent(
 		echoSubType,
 		resource.NewDefaultModel("fake"),
-		registry.Resource[resource.Resource]{
+		resource.Registration[resource.Resource, any]{
 			Constructor: func(
 				ctx context.Context,
 				_ resource.Dependencies,

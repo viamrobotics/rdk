@@ -16,11 +16,8 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 var modelName = resource.NewDefaultModel("pca9685")
@@ -58,23 +55,19 @@ func (conf *Config) Validate(path string) ([]string, error) {
 }
 
 func init() {
-	registry.RegisterComponent(
+	resource.RegisterComponent(
 		board.Subtype,
 		modelName,
-		registry.Resource[board.Board]{Constructor: func(
-			ctx context.Context,
-			deps resource.Dependencies,
-			conf resource.Config,
-			logger golog.Logger,
-		) (board.Board, error) {
-			return New(ctx, deps, conf)
-		}})
-
-	config.RegisterComponentAttributeMapConverter(
-		board.Subtype,
-		modelName,
-		func(attributes rdkutils.AttributeMap) (interface{}, error) {
-			return config.TransformAttributeMapToStruct(&Config{}, attributes)
+		resource.Registration[board.Board, *Config]{
+			Constructor: func(
+				ctx context.Context,
+				deps resource.Dependencies,
+				conf resource.Config,
+				logger golog.Logger,
+			) (board.Board, error) {
+				return New(ctx, deps, conf)
+			},
+			AttributeMapConverter: resource.TransformAttributeMap[*Config],
 		})
 }
 

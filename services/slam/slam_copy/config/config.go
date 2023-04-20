@@ -6,7 +6,6 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/resource"
 )
 
@@ -58,9 +57,8 @@ type Config struct {
 
 // NewConfig creates a SLAM config from a service config.
 func NewConfig(conf resource.Config) (*Config, error) {
-	slamConf := &Config{}
-
-	if _, err := config.TransformAttributeMapToStruct(slamConf, conf.Attributes); err != nil {
+	slamConf, err := resource.TransformAttributeMap[*Config](conf.Attributes)
+	if err != nil {
 		return &Config{}, newError(err.Error())
 	}
 

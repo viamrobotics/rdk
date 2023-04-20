@@ -9,7 +9,6 @@ import (
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 
-	"go.viam.com/rdk/internal"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -27,7 +26,7 @@ const SubtypeName = resource.SubtypeName("frame_system")
 
 // Subtype is the fully qualified subtype for the internal frame system service.
 var Subtype = resource.NewSubtype(
-	internal.ResourceNamespaceRDKInternal,
+	resource.NamespaceRDKInternal,
 	resource.ResourceTypeService,
 	SubtypeName,
 )
@@ -97,7 +96,7 @@ func New(ctx context.Context, r robot.Robot, logger golog.Logger) Service {
 }
 
 var internalFrameSystemServiceName = resource.NewName(
-	internal.ResourceNamespaceRDKInternal,
+	resource.NamespaceRDKInternal,
 	resource.ResourceTypeService,
 	"framesystem",
 	"builtin",

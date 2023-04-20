@@ -10,13 +10,12 @@ import (
 
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/internal"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/sensors"
 )
 
 func init() {
-	registry.RegisterService(sensors.Subtype, resource.DefaultServiceModel, registry.Resource[sensors.Service]{
+	resource.RegisterService(sensors.Subtype, resource.DefaultServiceModel, resource.Registration[sensors.Service, any]{
 		Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,

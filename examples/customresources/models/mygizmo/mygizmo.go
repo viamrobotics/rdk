@@ -9,7 +9,6 @@ import (
 	"github.com/edaniels/golog"
 
 	"go.viam.com/rdk/examples/customresources/apis/gizmoapi"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 )
 
@@ -20,7 +19,7 @@ var Model = resource.NewModel(
 )
 
 func init() {
-	registry.RegisterComponent(gizmoapi.Subtype, Model, registry.Resource[gizmoapi.Gizmo]{
+	resource.RegisterComponent(gizmoapi.Subtype, Model, resource.Registration[gizmoapi.Gizmo, any]{
 		Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,

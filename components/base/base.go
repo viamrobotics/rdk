@@ -10,15 +10,14 @@ import (
 	pb "go.viam.com/api/component/base/v1"
 
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/spatialmath"
 )
 
 func init() {
-	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype[Base]{
-		Status:                      registry.StatusFunc(CreateStatus),
+	resource.RegisterSubtype(Subtype, resource.SubtypeRegistration[Base]{
+		Status:                      resource.StatusFunc(CreateStatus),
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           pb.RegisterBaseServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &pb.BaseService_ServiceDesc,

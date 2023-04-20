@@ -9,11 +9,8 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 
 	"go.viam.com/rdk/components/movementsensor"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/utils"
 )
 
 var modelname = resource.NewDefaultModel("fake")
@@ -24,23 +21,21 @@ type Config struct {
 }
 
 func init() {
-	registry.RegisterComponent(
+	resource.RegisterComponent(
 		movementsensor.Subtype,
 		modelname,
-		registry.Resource[movementsensor.MovementSensor]{Constructor: func(
-			ctx context.Context,
-			deps resource.Dependencies,
-			conf resource.Config,
-			logger golog.Logger,
-		) (movementsensor.MovementSensor, error) {
-			return movementsensor.MovementSensor(&MovementSensor{
-				Named: conf.ResourceName().AsNamed(),
-			}), nil
-		}})
-
-	config.RegisterComponentAttributeMapConverter(movementsensor.Subtype, modelname,
-		func(attributes utils.AttributeMap) (interface{}, error) {
-			return config.TransformAttributeMapToStruct(&Config{}, attributes)
+		resource.Registration[movementsensor.MovementSensor, *Config]{
+			Constructor: func(
+				ctx context.Context,
+				deps resource.Dependencies,
+				conf resource.Config,
+				logger golog.Logger,
+			) (movementsensor.MovementSensor, error) {
+				return movementsensor.MovementSensor(&MovementSensor{
+					Named: conf.ResourceName().AsNamed(),
+				}), nil
+			},
+			AttributeMapConverter: resource.TransformAttributeMap[*Config],
 		})
 }
 

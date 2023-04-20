@@ -15,7 +15,6 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/lestrrat-go/jwx/jwk"
-	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils/jwks"
@@ -55,18 +54,6 @@ func TestConfigRobot(t *testing.T) {
 
 func TestConfig3(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	type temp struct {
-		X int
-		Y string
-	}
-
-	subtype := resource.NewSubtype(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, "foo")
-	config.RegisterComponentAttributeConverter(subtype, resource.NewDefaultModel("eliot"), "bar", func(sub interface{}) (interface{}, error) {
-		t := &temp{}
-		err := mapstructure.Decode(sub, t)
-		return t, err
-	},
-	)
 
 	test.That(t, os.Setenv("TEST_THING_FOO", "5"), test.ShouldBeNil)
 	cfg, err := config.Read(context.Background(), "data/config3.json", logger)
@@ -82,12 +69,6 @@ func TestConfig3(t *testing.T) {
 	test.That(t, cfg.Components[0].Attributes.String("xxxx"), test.ShouldEqual, "")
 	test.That(t, cfg.Components[0].Attributes.Has("foo"), test.ShouldEqual, true)
 	test.That(t, cfg.Components[0].Attributes.Has("xxxx"), test.ShouldEqual, false)
-
-	bb := cfg.Components[0].Attributes["bar"]
-	b := bb.(*temp)
-	test.That(t, b.X, test.ShouldEqual, 6)
-	test.That(t, b.Y, test.ShouldEqual, "eliot")
-
 	test.That(t, cfg.Components[0].Attributes.Float64("bar5", 1.1), test.ShouldEqual, 5.17)
 	test.That(t, cfg.Components[0].Attributes.Float64("bar5-no", 1.1), test.ShouldEqual, 1.1)
 

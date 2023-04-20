@@ -10,18 +10,14 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
-	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	vutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/input"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/baseremotecontrol"
 	"go.viam.com/rdk/session"
-	"go.viam.com/rdk/utils"
 )
 
 // Constants for the system including the max speed and angle (TBD: allow to be set as config vars)
@@ -39,7 +35,7 @@ const (
 var Subtype = baseremotecontrol.Subtype
 
 func init() {
-	registry.RegisterService(baseremotecontrol.Subtype, resource.DefaultServiceModel, registry.Resource[baseremotecontrol.Service]{
+	resource.RegisterService(baseremotecontrol.Subtype, resource.DefaultServiceModel, resource.Registration[baseremotecontrol.Service, *Config]{
 		Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
@@ -48,19 +44,8 @@ func init() {
 		) (baseremotecontrol.Service, error) {
 			return NewBuiltIn(ctx, deps, conf, logger)
 		},
+		AttributeMapConverter: resource.TransformAttributeMap[*Config],
 	})
-	config.RegisterServiceAttributeMapConverter(Subtype, resource.DefaultServiceModel,
-		func(attributes utils.AttributeMap) (interface{}, error) {
-			var conf Config
-			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
-			if err != nil {
-				return nil, err
-			}
-			if err := decoder.Decode(attributes); err != nil {
-				return nil, err
-			}
-			return &conf, nil
-		})
 }
 
 // ControlMode is the control type for the remote control.

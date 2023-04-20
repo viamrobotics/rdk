@@ -12,7 +12,6 @@ import (
 
 	"go.viam.com/rdk/components/gantry"
 	viamgrpc "go.viam.com/rdk/grpc"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
@@ -76,7 +75,7 @@ func TestClient(t *testing.T) {
 		(map[resource.Name]gantry.Gantry{gantry.Named(testGantryName): injectGantry, gantry.Named(testGantryName2): injectGantry2}),
 	)
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype, ok, err := registry.ResourceSubtypeLookup[gantry.Gantry](gantry.Subtype)
+	resourceSubtype, ok, err := resource.LookupSubtypeRegistration[gantry.Gantry](gantry.Subtype)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, gantrySvc), test.ShouldBeNil)

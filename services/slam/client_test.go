@@ -18,7 +18,6 @@ import (
 
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/pointcloud"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/slam/internal/testhelper"
@@ -89,7 +88,7 @@ func TestClientWorkingService(t *testing.T) {
 	workingSvc, err := resource.NewSubtypeCollection(slam.Subtype, map[resource.Name]slam.Service{slam.Named(nameSucc): workingSLAMService})
 	test.That(t, err, test.ShouldBeNil)
 
-	resourceSubtype, ok, err := registry.ResourceSubtypeLookup[slam.Service](slam.Subtype)
+	resourceSubtype, ok, err := resource.LookupSubtypeRegistration[slam.Service](slam.Subtype)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
 	resourceSubtype.RegisterRPCService(context.Background(), workingServer, workingSvc)
@@ -225,7 +224,7 @@ func TestFailingClient(t *testing.T) {
 	failingSvc, err := resource.NewSubtypeCollection(slam.Subtype, map[resource.Name]slam.Service{slam.Named(nameFail): failingSLAMService})
 	test.That(t, err, test.ShouldBeNil)
 
-	resourceSubtype, ok, err := registry.ResourceSubtypeLookup[slam.Service](slam.Subtype)
+	resourceSubtype, ok, err := resource.LookupSubtypeRegistration[slam.Service](slam.Subtype)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
 	resourceSubtype.RegisterRPCService(context.Background(), failingServer, failingSvc)

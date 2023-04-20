@@ -8,7 +8,7 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/gripper"
-	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 )
 
@@ -34,7 +34,7 @@ func TestCreateStatus(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, status1, test.ShouldResemble, status)
 
-		resourceSubtype, ok, err := registry.ResourceSubtypeLookup[gripper.Gripper](gripper.Subtype)
+		resourceSubtype, ok, err := resource.LookupSubtypeRegistration[gripper.Gripper](gripper.Subtype)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ok, test.ShouldBeTrue)
 		status2, err := resourceSubtype.Status(context.Background(), injectGripper)

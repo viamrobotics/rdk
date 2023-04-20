@@ -17,14 +17,11 @@ import (
 	viamutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/depthadapter"
 	"go.viam.com/rdk/rimage/transform"
-	"go.viam.com/rdk/utils"
 )
 
 var (
@@ -33,44 +30,39 @@ var (
 )
 
 func init() {
-	registry.RegisterComponent(camera.Subtype, modelSingle,
-		registry.Resource[camera.Camera]{Constructor: func(ctx context.Context, _ resource.Dependencies,
-			conf resource.Config, logger golog.Logger,
-		) (camera.Camera, error) {
-			newConf, err := resource.NativeConfig[*ServerConfig](conf)
-			if err != nil {
-				return nil, err
-			}
-			src, err := NewServerSource(ctx, newConf, logger)
-			if err != nil {
-				return nil, err
-			}
-			return camera.FromVideoSource(conf.ResourceName(), src), nil
-		}})
-
-	config.RegisterComponentAttributeMapConverter(camera.Subtype, modelSingle,
-		func(attributes utils.AttributeMap) (interface{}, error) {
-			return config.TransformAttributeMapToStruct(&ServerConfig{}, attributes)
+	resource.RegisterComponent(camera.Subtype, modelSingle,
+		resource.Registration[camera.Camera, *ServerConfig]{
+			Constructor: func(ctx context.Context, _ resource.Dependencies,
+				conf resource.Config, logger golog.Logger,
+			) (camera.Camera, error) {
+				newConf, err := resource.NativeConfig[*ServerConfig](conf)
+				if err != nil {
+					return nil, err
+				}
+				src, err := NewServerSource(ctx, newConf, logger)
+				if err != nil {
+					return nil, err
+				}
+				return camera.FromVideoSource(conf.ResourceName(), src), nil
+			},
+			AttributeMapConverter: resource.TransformAttributeMap[*ServerConfig],
 		})
-
-	registry.RegisterComponent(camera.Subtype, modelDual,
-		registry.Resource[camera.Camera]{Constructor: func(ctx context.Context, _ resource.Dependencies,
-			conf resource.Config, logger golog.Logger,
-		) (camera.Camera, error) {
-			newConf, err := resource.NativeConfig[*dualServerConfig](conf)
-			if err != nil {
-				return nil, err
-			}
-			src, err := newDualServerSource(ctx, newConf, logger)
-			if err != nil {
-				return nil, err
-			}
-			return camera.FromVideoSource(conf.ResourceName(), src), nil
-		}})
-
-	config.RegisterComponentAttributeMapConverter(camera.Subtype, modelDual,
-		func(attributes utils.AttributeMap) (interface{}, error) {
-			return config.TransformAttributeMapToStruct(&dualServerConfig{}, attributes)
+	resource.RegisterComponent(camera.Subtype, modelDual,
+		resource.Registration[camera.Camera, *dualServerConfig]{
+			Constructor: func(ctx context.Context, _ resource.Dependencies,
+				conf resource.Config, logger golog.Logger,
+			) (camera.Camera, error) {
+				newConf, err := resource.NativeConfig[*dualServerConfig](conf)
+				if err != nil {
+					return nil, err
+				}
+				src, err := newDualServerSource(ctx, newConf, logger)
+				if err != nil {
+					return nil, err
+				}
+				return camera.FromVideoSource(conf.ResourceName(), src), nil
+			},
+			AttributeMapConverter: resource.TransformAttributeMap[*dualServerConfig],
 		})
 }
 

@@ -19,10 +19,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/input"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	rutils "go.viam.com/rdk/utils"
 )
 
 const defaultMapping = "Microsoft X-Box 360 pad"
@@ -36,14 +33,10 @@ type Config struct {
 }
 
 func init() {
-	registry.RegisterComponent(input.Subtype, modelname, registry.Resource[input.Controller]{Constructor: NewController})
-
-	config.RegisterComponentAttributeMapConverter(
-		input.Subtype,
-		modelname,
-		func(attributes rutils.AttributeMap) (interface{}, error) {
-			return config.TransformAttributeMapToStruct(&Config{}, attributes)
-		})
+	resource.RegisterComponent(input.Subtype, modelname, resource.Registration[input.Controller, *Config]{
+		Constructor:           NewController,
+		AttributeMapConverter: resource.TransformAttributeMap[*Config],
+	})
 }
 
 func createController(ctx context.Context, name resource.Name, logger golog.Logger, devFile string, reconnect bool) input.Controller {

@@ -5,12 +5,6 @@ package picommon
 import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
-
-	"go.viam.com/rdk/components/board"
-	"go.viam.com/rdk/components/board/genericlinux"
-	"go.viam.com/rdk/components/servo"
-	"go.viam.com/rdk/config"
-	rutils "go.viam.com/rdk/utils"
 )
 
 // ServoConfig is the config for a pi servo.
@@ -37,20 +31,4 @@ func (config *ServoConfig) Validate(path string) ([]string, error) {
 	}
 	deps = append(deps, config.BoardName)
 	return deps, nil
-}
-
-func init() {
-	config.RegisterComponentAttributeMapConverter(
-		board.Subtype,
-		ModelName,
-		func(attributes rutils.AttributeMap) (interface{}, error) {
-			return config.TransformAttributeMapToStruct(&genericlinux.Config{}, attributes)
-		})
-
-	config.RegisterComponentAttributeMapConverter(
-		servo.Subtype,
-		ModelName,
-		func(attributes rutils.AttributeMap) (interface{}, error) {
-			return config.TransformAttributeMapToStruct(&ServoConfig{}, attributes)
-		})
 }

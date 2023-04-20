@@ -5,7 +5,6 @@ import (
 	"context"
 
 	"go.viam.com/rdk/components/input"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 )
 
@@ -25,7 +24,7 @@ func Named(name string) resource.Name {
 }
 
 func init() {
-	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype[Service]{})
+	resource.RegisterSubtype(Subtype, resource.SubtypeRegistration[Service]{})
 }
 
 // A Service is the basis for the base remote control.

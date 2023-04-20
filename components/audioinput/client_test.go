@@ -15,7 +15,6 @@ import (
 
 	"go.viam.com/rdk/components/audioinput"
 	viamgrpc "go.viam.com/rdk/grpc"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
@@ -70,7 +69,7 @@ func TestClient(t *testing.T) {
 	}
 	audioInputSvc, err := resource.NewSubtypeCollection(audioinput.Subtype, resources)
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype, ok, err := registry.ResourceSubtypeLookup[audioinput.AudioInput](audioinput.Subtype)
+	resourceSubtype, ok, err := resource.LookupSubtypeRegistration[audioinput.AudioInput](audioinput.Subtype)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, audioInputSvc), test.ShouldBeNil)

@@ -37,8 +37,6 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/movementsensor"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	rutils "go.viam.com/rdk/utils"
@@ -76,14 +74,10 @@ func (cfg *Config) Validate(path string) error {
 }
 
 func init() {
-	registry.RegisterComponent(movementsensor.Subtype, model, registry.Resource[movementsensor.MovementSensor]{
-		Constructor: NewWit,
+	resource.RegisterComponent(movementsensor.Subtype, model, resource.Registration[movementsensor.MovementSensor, *Config]{
+		Constructor:           NewWit,
+		AttributeMapConverter: resource.TransformAttributeMap[*Config],
 	})
-
-	config.RegisterComponentAttributeMapConverter(movementsensor.Subtype, model,
-		func(attributes rutils.AttributeMap) (interface{}, error) {
-			return config.TransformAttributeMapToStruct(&Config{}, attributes)
-		})
 }
 
 type wit struct {

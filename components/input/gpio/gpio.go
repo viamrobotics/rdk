@@ -14,10 +14,7 @@ import (
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/input"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	rutils "go.viam.com/rdk/utils"
 )
 
 var modelName = resource.NewDefaultModel("gpio")
@@ -84,14 +81,10 @@ func (conf *Config) validateValues() error {
 }
 
 func init() {
-	registry.RegisterComponent(input.Subtype, modelName, registry.Resource[input.Controller]{Constructor: NewGPIOController})
-
-	config.RegisterComponentAttributeMapConverter(
-		input.Subtype,
-		modelName,
-		func(attributes rutils.AttributeMap) (interface{}, error) {
-			return config.TransformAttributeMapToStruct(&Config{}, attributes)
-		})
+	resource.RegisterComponent(input.Subtype, modelName, resource.Registration[input.Controller, *Config]{
+		Constructor:           NewGPIOController,
+		AttributeMapConverter: resource.TransformAttributeMap[*Config],
+	})
 }
 
 // NewGPIOController returns a new input.Controller.

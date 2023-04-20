@@ -41,9 +41,7 @@ import (
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/motor"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -86,7 +84,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 }
 
 func init() {
-	registry.RegisterComponent(motor.Subtype, model, registry.Resource[motor.Motor]{
+	resource.RegisterComponent(motor.Subtype, model, resource.Registration[motor.Motor, *Config]{
 		Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
@@ -100,14 +98,8 @@ func init() {
 
 			return newGPIOStepper(ctx, actualBoard, *motorConfig, conf.ResourceName(), logger)
 		},
+		AttributeMapConverter: resource.TransformAttributeMap[*Config],
 	})
-	config.RegisterComponentAttributeMapConverter(
-		motor.Subtype,
-		model,
-		func(attributes rdkutils.AttributeMap) (interface{}, error) {
-			return config.TransformAttributeMapToStruct(&Config{}, attributes)
-		},
-	)
 }
 
 func getBoardFromRobotConfig(deps resource.Dependencies, conf resource.Config) (board.Board, *Config, error) {

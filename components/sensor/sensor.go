@@ -7,13 +7,12 @@ import (
 	pb "go.viam.com/api/component/sensor/v1"
 
 	"go.viam.com/rdk/data"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 )
 
 func init() {
-	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype[Sensor]{
+	resource.RegisterSubtype(Subtype, resource.SubtypeRegistration[Sensor]{
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           pb.RegisterSensorServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &pb.SensorService_ServiceDesc,

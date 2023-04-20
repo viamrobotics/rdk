@@ -9,13 +9,12 @@ import (
 
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 )
 
 func init() {
-	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype[PoseTracker]{
+	resource.RegisterSubtype(Subtype, resource.SubtypeRegistration[PoseTracker]{
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           pb.RegisterPoseTrackerServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &pb.PoseTrackerService_ServiceDesc,

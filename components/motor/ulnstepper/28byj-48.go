@@ -30,11 +30,8 @@ import (
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/motor"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 var (
@@ -98,14 +95,10 @@ func (conf *Config) Validate(path string) ([]string, error) {
 }
 
 func init() {
-	registry.RegisterComponent(motor.Subtype, model, registry.Resource[motor.Motor]{Constructor: new28byj})
-
-	config.RegisterComponentAttributeMapConverter(
-		motor.Subtype,
-		model,
-		func(attributes rdkutils.AttributeMap) (interface{}, error) {
-			return config.TransformAttributeMapToStruct(&Config{}, attributes)
-		})
+	resource.RegisterComponent(motor.Subtype, model, resource.Registration[motor.Motor, *Config]{
+		Constructor:           new28byj,
+		AttributeMapConverter: resource.TransformAttributeMap[*Config],
+	})
 }
 
 func new28byj(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (motor.Motor, error) {

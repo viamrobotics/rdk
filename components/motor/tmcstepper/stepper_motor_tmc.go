@@ -7,18 +7,14 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/motor"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	rutils "go.viam.com/rdk/utils"
 )
 
 // PinConfig defines the mapping of where motor are wired.
@@ -69,7 +65,7 @@ func (config *TMC5072Config) Validate(path string) ([]string, error) {
 }
 
 func init() {
-	registry.RegisterComponent(motor.Subtype, modelname, registry.Resource[motor.Motor]{
+	resource.RegisterComponent(motor.Subtype, modelname, resource.Registration[motor.Motor, *TMC5072Config]{
 		Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
@@ -82,22 +78,8 @@ func init() {
 			}
 			return NewMotor(ctx, deps, *newConf, conf.ResourceName(), logger)
 		},
+		AttributeMapConverter: resource.TransformAttributeMap[*TMC5072Config],
 	})
-
-	config.RegisterComponentAttributeMapConverter(
-		motor.Subtype,
-		modelname,
-		func(attributes rutils.AttributeMap) (interface{}, error) {
-			var conf TMC5072Config
-			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Squash: true, Result: &conf})
-			if err != nil {
-				return nil, err
-			}
-			if err := decoder.Decode(attributes); err != nil {
-				return nil, err
-			}
-			return &conf, nil
-		})
 }
 
 // A Motor represents a brushless motor connected via a TMC controller chip (ex: TMC5072).

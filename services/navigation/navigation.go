@@ -10,13 +10,12 @@ import (
 	servicepb "go.viam.com/api/service/navigation/v1"
 	"go.viam.com/utils"
 
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 )
 
 func init() {
-	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype[Service]{
+	resource.RegisterSubtype(Subtype, resource.SubtypeRegistration[Service]{
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           servicepb.RegisterNavigationServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &servicepb.NavigationService_ServiceDesc,

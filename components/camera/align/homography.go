@@ -13,48 +13,43 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 var homographyModel = resource.NewDefaultModel("align_color_depth_homography")
 
 //nolint:dupl
 func init() {
-	registry.RegisterComponent(camera.Subtype, homographyModel,
-		registry.Resource[camera.Camera]{Constructor: func(ctx context.Context, deps resource.Dependencies,
-			conf resource.Config, logger golog.Logger,
-		) (camera.Camera, error) {
-			newConf, err := resource.NativeConfig[*homographyConfig](conf)
-			if err != nil {
-				return nil, err
-			}
-			colorName := newConf.Color
-			color, err := camera.FromDependencies(deps, colorName)
-			if err != nil {
-				return nil, fmt.Errorf("no color camera (%s): %w", colorName, err)
-			}
+	resource.RegisterComponent(camera.Subtype, homographyModel,
+		resource.Registration[camera.Camera, *homographyConfig]{
+			Constructor: func(ctx context.Context, deps resource.Dependencies,
+				conf resource.Config, logger golog.Logger,
+			) (camera.Camera, error) {
+				newConf, err := resource.NativeConfig[*homographyConfig](conf)
+				if err != nil {
+					return nil, err
+				}
+				colorName := newConf.Color
+				color, err := camera.FromDependencies(deps, colorName)
+				if err != nil {
+					return nil, fmt.Errorf("no color camera (%s): %w", colorName, err)
+				}
 
-			depthName := newConf.Depth
-			depth, err := camera.FromDependencies(deps, depthName)
-			if err != nil {
-				return nil, fmt.Errorf("no depth camera (%s): %w", depthName, err)
-			}
-			src, err := newColorDepthHomography(ctx, color, depth, newConf, logger)
-			if err != nil {
-				return nil, err
-			}
-			return camera.FromVideoSource(conf.ResourceName(), src), nil
-		}})
-
-	config.RegisterComponentAttributeMapConverter(camera.Subtype, homographyModel,
-		func(attributes rdkutils.AttributeMap) (interface{}, error) {
-			return config.TransformAttributeMapToStruct(&homographyConfig{}, attributes)
+				depthName := newConf.Depth
+				depth, err := camera.FromDependencies(deps, depthName)
+				if err != nil {
+					return nil, fmt.Errorf("no depth camera (%s): %w", depthName, err)
+				}
+				src, err := newColorDepthHomography(ctx, color, depth, newConf, logger)
+				if err != nil {
+					return nil, err
+				}
+				return camera.FromVideoSource(conf.ResourceName(), src), nil
+			},
+			AttributeMapConverter: resource.TransformAttributeMap[*homographyConfig],
 		})
 }
 

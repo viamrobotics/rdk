@@ -15,7 +15,6 @@ import (
 
 	"go.viam.com/rdk/components/board"
 	viamgrpc "go.viam.com/rdk/grpc"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
@@ -36,7 +35,7 @@ func setupService(t *testing.T, injectBoard *inject.Board) (net.Listener, func()
 
 	boardSvc, err := resource.NewSubtypeCollection(board.Subtype, map[resource.Name]board.Board{board.Named(testBoardName): injectBoard})
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype, ok, err := registry.ResourceSubtypeLookup[board.Board](board.Subtype)
+	resourceSubtype, ok, err := resource.LookupSubtypeRegistration[board.Board](board.Subtype)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, boardSvc), test.ShouldBeNil)
@@ -267,7 +266,7 @@ func TestClientWithoutStatus(t *testing.T) {
 
 	boardSvc, err := resource.NewSubtypeCollection(board.Subtype, map[resource.Name]board.Board{board.Named(testBoardName): injectBoard})
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype, ok, err := registry.ResourceSubtypeLookup[board.Board](board.Subtype)
+	resourceSubtype, ok, err := resource.LookupSubtypeRegistration[board.Board](board.Subtype)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, boardSvc), test.ShouldBeNil)

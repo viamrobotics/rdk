@@ -15,12 +15,9 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/gripper"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 var modelname = resource.NewDefaultModel("robotiq")
@@ -39,7 +36,7 @@ func (cfg *Config) Validate(path string) error {
 }
 
 func init() {
-	registry.RegisterComponent(gripper.Subtype, modelname, registry.Resource[gripper.Gripper]{
+	resource.RegisterComponent(gripper.Subtype, modelname, resource.Registration[gripper.Gripper, *Config]{
 		Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (gripper.Gripper, error) {
 			newConf, err := resource.NativeConfig[*Config](conf)
 			if err != nil {
@@ -47,12 +44,8 @@ func init() {
 			}
 			return newGripper(ctx, conf.ResourceName(), newConf.Host, logger)
 		},
+		AttributeMapConverter: resource.TransformAttributeMap[*Config],
 	})
-
-	config.RegisterComponentAttributeMapConverter(gripper.Subtype, modelname,
-		func(attributes rdkutils.AttributeMap) (interface{}, error) {
-			return config.TransformAttributeMapToStruct(&Config{}, attributes)
-		})
 }
 
 // robotiqGripper TODO.

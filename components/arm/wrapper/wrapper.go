@@ -10,14 +10,11 @@ import (
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/arm"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/utils"
 )
 
 // Config is used for converting config attributes.
@@ -42,15 +39,10 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 }
 
 func init() {
-	registry.RegisterComponent(arm.Subtype, model, registry.Resource[arm.Arm]{
-		Constructor: NewWrapperArm,
+	resource.RegisterComponent(arm.Subtype, model, resource.Registration[arm.Arm, *Config]{
+		Constructor:           NewWrapperArm,
+		AttributeMapConverter: resource.TransformAttributeMap[*Config],
 	})
-
-	config.RegisterComponentAttributeMapConverter(arm.Subtype, model,
-		func(attributes utils.AttributeMap) (interface{}, error) {
-			return config.TransformAttributeMapToStruct(&Config{}, attributes)
-		},
-	)
 }
 
 // Arm wraps a partial implementation of another arm.

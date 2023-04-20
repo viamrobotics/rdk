@@ -13,10 +13,8 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/components/arm"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
 )
@@ -97,7 +95,7 @@ func init() {
 	for _, armModelName := range []string{ModelName6DOF, ModelName7DOF, ModelNameLite} {
 		localArmModelName := armModelName
 		armModel := resource.NewDefaultModel(resource.ModelName(armModelName))
-		registry.RegisterComponent(arm.Subtype, armModel, registry.Resource[arm.Arm]{
+		resource.RegisterComponent(arm.Subtype, armModel, resource.Registration[arm.Arm, *Config]{
 			Constructor: func(
 				ctx context.Context,
 				_ resource.Dependencies,
@@ -106,12 +104,8 @@ func init() {
 			) (arm.Arm, error) {
 				return NewxArm(ctx, conf, logger, localArmModelName)
 			},
+			AttributeMapConverter: resource.TransformAttributeMap[*Config],
 		})
-
-		config.RegisterComponentAttributeMapConverter(arm.Subtype, armModel,
-			func(attributes utils.AttributeMap) (interface{}, error) {
-				return config.TransformAttributeMapToStruct(&Config{}, attributes)
-			})
 	}
 }
 

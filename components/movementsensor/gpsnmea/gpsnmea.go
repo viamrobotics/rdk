@@ -9,10 +9,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/movementsensor"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 func connectionTypeError(connType, serialConn, i2cConn string) error {
@@ -103,14 +100,12 @@ type NmeaMovementSensor interface {
 }
 
 func init() {
-	registry.RegisterComponent(
+	resource.RegisterComponent(
 		movementsensor.Subtype,
 		modelname,
-		registry.Resource[movementsensor.MovementSensor]{Constructor: newNMEAGPS})
-
-	config.RegisterComponentAttributeMapConverter(movementsensor.Subtype, modelname,
-		func(attributes rdkutils.AttributeMap) (interface{}, error) {
-			return config.TransformAttributeMapToStruct(&Config{}, attributes)
+		resource.Registration[movementsensor.MovementSensor, *Config]{
+			Constructor:           newNMEAGPS,
+			AttributeMapConverter: resource.TransformAttributeMap[*Config],
 		})
 }
 

@@ -14,9 +14,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
@@ -26,41 +24,61 @@ import (
 var extrinsicsModel = resource.NewDefaultModel("align_color_depth_extrinsics")
 
 func init() {
-	//nolint:dupl
-	registry.RegisterComponent(camera.Subtype, extrinsicsModel,
-		registry.Resource[camera.Camera]{Constructor: func(ctx context.Context, deps resource.Dependencies,
-			conf resource.Config, logger golog.Logger,
-		) (camera.Camera, error) {
-			newConf, err := resource.NativeConfig[*extrinsicsConfig](conf)
-			if err != nil {
-				return nil, err
-			}
-			colorName := newConf.Color
-			color, err := camera.FromDependencies(deps, colorName)
-			if err != nil {
-				return nil, fmt.Errorf("no color camera (%s): %w", colorName, err)
-			}
+	resource.RegisterComponent(camera.Subtype, extrinsicsModel,
+		resource.Registration[camera.Camera, *extrinsicsConfig]{
+			Constructor: func(ctx context.Context, deps resource.Dependencies,
+				conf resource.Config, logger golog.Logger,
+			) (camera.Camera, error) {
+				newConf, err := resource.NativeConfig[*extrinsicsConfig](conf)
+				if err != nil {
+					return nil, err
+				}
+				colorName := newConf.Color
+				color, err := camera.FromDependencies(deps, colorName)
+				if err != nil {
+					return nil, fmt.Errorf("no color camera (%s): %w", colorName, err)
+				}
 
-			depthName := newConf.Depth
-			depth, err := camera.FromDependencies(deps, depthName)
-			if err != nil {
-				return nil, fmt.Errorf("no depth camera (%s): %w", depthName, err)
-			}
-			src, err := newColorDepthExtrinsics(ctx, color, depth, newConf, logger)
-			if err != nil {
-				return nil, err
-			}
-			return camera.FromVideoSource(conf.ResourceName(), src), nil
-		}})
+				depthName := newConf.Depth
+				depth, err := camera.FromDependencies(deps, depthName)
+				if err != nil {
+					return nil, fmt.Errorf("no depth camera (%s): %w", depthName, err)
+				}
+				src, err := newColorDepthExtrinsics(ctx, color, depth, newConf, logger)
+				if err != nil {
+					return nil, err
+				}
+				return camera.FromVideoSource(conf.ResourceName(), src), nil
+			},
+			AttributeMapConverter: func(attributes rdkutils.AttributeMap) (*extrinsicsConfig, error) {
+				if !attributes.Has("camera_system") {
+					return nil, errors.New("missing camera_system")
+				}
 
-	config.RegisterComponentAttributeMapConverter(camera.Subtype, extrinsicsModel,
-		func(attributes rdkutils.AttributeMap) (interface{}, error) {
-			return config.TransformAttributeMapToStruct(&extrinsicsConfig{}, attributes)
+				b, err := json.Marshal(attributes["camera_system"])
+				if err != nil {
+					return nil, err
+				}
+				matrices, err := transform.NewDepthColorIntrinsicsExtrinsicsFromBytes(b)
+				if err != nil {
+					return nil, err
+				}
+				if err := matrices.CheckValid(); err != nil {
+					return nil, err
+				}
+				attributes["camera_system"] = matrices
+
+				return resource.TransformAttributeMap[*extrinsicsConfig](attributes)
+			},
 		})
 
-	config.RegisterComponentAttributeConverter(camera.Subtype, extrinsicsModel, "camera_system",
-		func(val interface{}) (interface{}, error) {
-			b, err := json.Marshal(val)
+	resource.RegisterComponentAttributeMapConverter(camera.Subtype, extrinsicsModel,
+		func(attributes rdkutils.AttributeMap) (interface{}, error) {
+			if !attributes.Has("camera_system") {
+				return nil, errors.New("missing camera_system")
+			}
+
+			b, err := json.Marshal(attributes["camera_system"])
 			if err != nil {
 				return nil, err
 			}
@@ -68,8 +86,12 @@ func init() {
 			if err != nil {
 				return nil, err
 			}
-			err = matrices.CheckValid()
-			return matrices, err
+			if err := matrices.CheckValid(); err != nil {
+				return nil, err
+			}
+			attributes["camera_system"] = matrices
+
+			return resource.TransformAttributeMap[*extrinsicsConfig](attributes)
 		})
 }
 

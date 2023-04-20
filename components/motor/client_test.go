@@ -12,7 +12,6 @@ import (
 
 	"go.viam.com/rdk/components/motor"
 	viamgrpc "go.viam.com/rdk/grpc"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
@@ -98,7 +97,7 @@ func TestClient(t *testing.T) {
 	}
 	motorSvc, err := resource.NewSubtypeCollection(motor.Subtype, resourceMap)
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype, ok, err := registry.ResourceSubtypeLookup[motor.Motor](motor.Subtype)
+	resourceSubtype, ok, err := resource.LookupSubtypeRegistration[motor.Motor](motor.Subtype)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, motorSvc), test.ShouldBeNil)

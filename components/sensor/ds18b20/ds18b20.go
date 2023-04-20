@@ -14,10 +14,7 @@ import (
 	"github.com/edaniels/golog"
 
 	"go.viam.com/rdk/components/sensor"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/utils"
 )
 
 var modelname = resource.NewDefaultModel("ds18b20")
@@ -28,25 +25,23 @@ type Config struct {
 }
 
 func init() {
-	registry.RegisterComponent(
+	resource.RegisterComponent(
 		sensor.Subtype,
 		modelname,
-		registry.Resource[sensor.Sensor]{Constructor: func(
-			ctx context.Context,
-			deps resource.Dependencies,
-			conf resource.Config,
-			logger golog.Logger,
-		) (sensor.Sensor, error) {
-			newConf, err := resource.NativeConfig[*Config](conf)
-			if err != nil {
-				return nil, err
-			}
-			return newSensor(conf.ResourceName(), newConf.UniqueID), nil
-		}})
-
-	config.RegisterComponentAttributeMapConverter(sensor.Subtype, modelname,
-		func(attributes utils.AttributeMap) (interface{}, error) {
-			return config.TransformAttributeMapToStruct(&Config{}, attributes)
+		resource.Registration[sensor.Sensor, *Config]{
+			Constructor: func(
+				ctx context.Context,
+				deps resource.Dependencies,
+				conf resource.Config,
+				logger golog.Logger,
+			) (sensor.Sensor, error) {
+				newConf, err := resource.NativeConfig[*Config](conf)
+				if err != nil {
+					return nil, err
+				}
+				return newSensor(conf.ResourceName(), newConf.UniqueID), nil
+			},
+			AttributeMapConverter: resource.TransformAttributeMap[*Config],
 		})
 }
 

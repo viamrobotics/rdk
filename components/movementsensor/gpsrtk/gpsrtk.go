@@ -23,11 +23,8 @@ import (
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/movementsensor"
 	gpsnmea "go.viam.com/rdk/components/movementsensor/gpsnmea"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 // ErrRoverValidation contains the model substring for the available correction source types.
@@ -126,14 +123,12 @@ func (cfg *NtripConfig) ValidateNtrip(path string) error {
 var roverModel = resource.NewDefaultModel("gps-rtk")
 
 func init() {
-	registry.RegisterComponent(
+	resource.RegisterComponent(
 		movementsensor.Subtype,
 		roverModel,
-		registry.Resource[movementsensor.MovementSensor]{Constructor: newRTKMovementSensor})
-
-	config.RegisterComponentAttributeMapConverter(movementsensor.Subtype, roverModel,
-		func(attributes rdkutils.AttributeMap) (interface{}, error) {
-			return config.TransformAttributeMapToStruct(&Config{}, attributes)
+		resource.Registration[movementsensor.MovementSensor, *Config]{
+			Constructor:           newRTKMovementSensor,
+			AttributeMapConverter: resource.TransformAttributeMap[*Config],
 		})
 }
 

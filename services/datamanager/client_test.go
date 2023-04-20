@@ -11,7 +11,6 @@ import (
 	"go.viam.com/utils/rpc"
 
 	viamgrpc "go.viam.com/rdk/grpc"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/testutils"
@@ -36,7 +35,7 @@ func TestClient(t *testing.T) {
 	}
 	svc, err := resource.NewSubtypeCollection(datamanager.Subtype, resourceMap)
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype, ok, err := registry.ResourceSubtypeLookup[datamanager.Service](datamanager.Subtype)
+	resourceSubtype, ok, err := resource.LookupSubtypeRegistration[datamanager.Service](datamanager.Subtype)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, svc), test.ShouldBeNil)

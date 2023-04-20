@@ -16,9 +16,7 @@ import (
 	gutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -89,36 +87,34 @@ func (conf *Config) Validate(path string) error {
 var modelname = resource.NewDefaultModel("velodyne")
 
 func init() {
-	registry.RegisterComponent(
+	resource.RegisterComponent(
 		camera.Subtype,
 		modelname,
-		registry.Resource[camera.Camera]{Constructor: func(
-			ctx context.Context,
-			_ resource.Dependencies,
-			conf resource.Config,
-			logger golog.Logger,
-		) (camera.Camera, error) {
-			newConf, err := resource.NativeConfig[*Config](conf)
-			if err != nil {
-				return nil, err
-			}
+		resource.Registration[camera.Camera, *Config]{
+			Constructor: func(
+				ctx context.Context,
+				_ resource.Dependencies,
+				conf resource.Config,
+				logger golog.Logger,
+			) (camera.Camera, error) {
+				newConf, err := resource.NativeConfig[*Config](conf)
+				if err != nil {
+					return nil, err
+				}
 
-			port := newConf.Port
-			if port == 0 {
-				port = 2368
-			}
+				port := newConf.Port
+				if port == 0 {
+					port = 2368
+				}
 
-			ttl := newConf.TTLMS
-			if ttl == 0 {
-				return nil, errors.New("need to specify a ttl")
-			}
+				ttl := newConf.TTLMS
+				if ttl == 0 {
+					return nil, errors.New("need to specify a ttl")
+				}
 
-			return New(ctx, conf.ResourceName(), logger, port, ttl)
-		}})
-
-	config.RegisterComponentAttributeMapConverter(camera.Subtype, modelname,
-		func(attributes utils.AttributeMap) (interface{}, error) {
-			return config.TransformAttributeMapToStruct(&Config{}, attributes)
+				return New(ctx, conf.ResourceName(), logger, port, ttl)
+			},
+			AttributeMapConverter: resource.TransformAttributeMap[*Config],
 		})
 }
 

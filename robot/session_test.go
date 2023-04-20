@@ -26,7 +26,6 @@ import (
 	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/client"
 	robotimpl "go.viam.com/rdk/robot/impl"
@@ -44,7 +43,7 @@ var echoSubType = resource.NewSubtype(
 )
 
 func init() {
-	registry.RegisterResourceSubtype(echoSubType, registry.ResourceSubtype[resource.Resource]{
+	resource.RegisterSubtype(echoSubType, resource.SubtypeRegistration[resource.Resource]{
 		RPCServiceServerConstructor: func(subtypeColl resource.SubtypeCollection[resource.Resource]) interface{} {
 			return &echoServer{coll: subtypeColl}
 		},
@@ -91,10 +90,10 @@ func TestSessions(t *testing.T) {
 				stopCh: stopChs["echo1"].Chan,
 			}
 			dummyBase1 := dummyBase{Named: base1Name.AsNamed(), stopCh: stopChs["base1"].Chan}
-			registry.RegisterComponent(
+			resource.RegisterComponent(
 				motor.Subtype,
 				modelName,
-				registry.Resource[motor.Motor]{Constructor: func(
+				resource.Registration[motor.Motor, any]{Constructor: func(
 					ctx context.Context,
 					deps resource.Dependencies,
 					conf resource.Config,
@@ -105,10 +104,10 @@ func TestSessions(t *testing.T) {
 					}
 					return &dummyMotor2, nil
 				}})
-			registry.RegisterComponent(
+			resource.RegisterComponent(
 				echoSubType,
 				streamModelName,
-				registry.Resource[resource.Resource]{
+				resource.Registration[resource.Resource, any]{
 					Constructor: func(
 						ctx context.Context,
 						_ resource.Dependencies,
@@ -119,10 +118,10 @@ func TestSessions(t *testing.T) {
 					},
 				},
 			)
-			registry.RegisterComponent(
+			resource.RegisterComponent(
 				base.Subtype,
 				modelName,
-				registry.Resource[base.Base]{
+				resource.Registration[base.Base, any]{
 					Constructor: func(
 						ctx context.Context,
 						_ resource.Dependencies,
@@ -289,10 +288,10 @@ func TestSessionsWithRemote(t *testing.T) {
 	dummyRemBase1 := dummyBase{Named: base1Name.AsNamed(), stopCh: stopChs["remBase1"].Chan}
 	dummyMotor1 := dummyMotor{Named: motor1Name.AsNamed(), stopCh: stopChs["motor1"].Chan}
 	dummyBase1 := dummyBase{Named: base1Name.AsNamed(), stopCh: stopChs["base1"].Chan}
-	registry.RegisterComponent(
+	resource.RegisterComponent(
 		motor.Subtype,
 		modelName,
-		registry.Resource[motor.Motor]{
+		resource.Registration[motor.Motor, any]{
 			Constructor: func(
 				ctx context.Context,
 				deps resource.Dependencies,
@@ -308,10 +307,10 @@ func TestSessionsWithRemote(t *testing.T) {
 				return &dummyMotor1, nil
 			},
 		})
-	registry.RegisterComponent(
+	resource.RegisterComponent(
 		echoSubType,
 		streamModelName,
-		registry.Resource[resource.Resource]{
+		resource.Registration[resource.Resource, any]{
 			Constructor: func(
 				ctx context.Context,
 				_ resource.Dependencies,
@@ -322,10 +321,10 @@ func TestSessionsWithRemote(t *testing.T) {
 			},
 		},
 	)
-	registry.RegisterComponent(
+	resource.RegisterComponent(
 		base.Subtype,
 		modelName,
-		registry.Resource[base.Base]{
+		resource.Registration[base.Base, any]{
 			Constructor: func(
 				ctx context.Context,
 				_ resource.Dependencies,
@@ -548,10 +547,10 @@ func TestSessionsMixedClients(t *testing.T) {
 	modelName := resource.NewDefaultModel(resource.ModelName(utils.RandomAlphaString(8)))
 	motor1Name := motor.Named("motor1")
 	dummyMotor1 := dummyMotor{Named: motor1Name.AsNamed(), stopCh: stopChMotor1}
-	registry.RegisterComponent(
+	resource.RegisterComponent(
 		motor.Subtype,
 		modelName,
-		registry.Resource[motor.Motor]{
+		resource.Registration[motor.Motor, any]{
 			Constructor: func(
 				ctx context.Context,
 				deps resource.Dependencies,
@@ -637,10 +636,10 @@ func TestSessionsMixedOwnersNoAuth(t *testing.T) {
 	modelName := resource.NewDefaultModel(resource.ModelName(utils.RandomAlphaString(8)))
 	motor1Name := motor.Named("motor1")
 	dummyMotor1 := dummyMotor{Named: motor1Name.AsNamed(), stopCh: stopChMotor1}
-	registry.RegisterComponent(
+	resource.RegisterComponent(
 		motor.Subtype,
 		modelName,
-		registry.Resource[motor.Motor]{
+		resource.Registration[motor.Motor, any]{
 			Constructor: func(
 				ctx context.Context,
 				deps resource.Dependencies,
@@ -738,10 +737,10 @@ func TestSessionsMixedOwnersImplicitAuth(t *testing.T) {
 	modelName := resource.NewDefaultModel(resource.ModelName(utils.RandomAlphaString(8)))
 	motor1Name := motor.Named("motor1")
 	dummyMotor1 := dummyMotor{Named: motor1Name.AsNamed(), stopCh: stopChMotor1}
-	registry.RegisterComponent(
+	resource.RegisterComponent(
 		motor.Subtype,
 		modelName,
-		registry.Resource[motor.Motor]{
+		resource.Registration[motor.Motor, any]{
 			Constructor: func(
 				ctx context.Context,
 				deps resource.Dependencies,
