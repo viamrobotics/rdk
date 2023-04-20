@@ -7,7 +7,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/components/board"
@@ -89,7 +88,7 @@ func TestAMSEncoder(t *testing.T) {
 	cfg, deps := setupDependencies(positionMockData)
 	enc, err := newAS5048Encoder(ctx, deps, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
-	defer utils.TryClose(context.Background(), enc)
+	defer enc.Close(ctx)
 
 	t.Run("test automatically set to type ticks", func(t *testing.T) {
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
@@ -175,7 +174,7 @@ func TestAMSEncoderReset(t *testing.T) {
 	cfg, deps := setupDependenciesWithWrite(positionMockData, writeData)
 	enc, err := newAS5048Encoder(ctx, deps, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
-	defer utils.TryClose(context.Background(), enc)
+	defer enc.Close(ctx)
 
 	t.Run("test reset", func(t *testing.T) {
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
