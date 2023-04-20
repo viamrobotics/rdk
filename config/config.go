@@ -569,9 +569,9 @@ const DefaultSessionHeartbeatWindow = 2 * time.Second
 func (sc *SessionsConfig) Validate(path string) error {
 	if sc.HeartbeatWindow == 0 {
 		sc.HeartbeatWindow = DefaultSessionHeartbeatWindow
-	} else if sc.HeartbeatWindow < 10*time.Millisecond ||
+	} else if sc.HeartbeatWindow < 100*time.Millisecond ||
 		sc.HeartbeatWindow > time.Minute {
-		return utils.NewConfigValidationError(path, errors.New("heartbeat_window must be between [10ms, 1m]"))
+		return utils.NewConfigValidationError(path, errors.New("heartbeat_window must be between [100ms, 1m]"))
 	}
 
 	return nil
