@@ -283,7 +283,7 @@ func TestMotorEncoderIncremental(t *testing.T) {
 	defer undo()
 
 	type testHarness struct {
-		Encoder   incremental.Encoder
+		Encoder   *incremental.Encoder
 		EncoderA  board.DigitalInterrupt
 		EncoderB  board.DigitalInterrupt
 		RealMotor *fakemotor.Motor
@@ -317,7 +317,7 @@ func TestMotorEncoderIncremental(t *testing.T) {
 		})
 
 		return testHarness{
-			*encoder,
+			encoder,
 			encoderA,
 			encoderB,
 			fakeMotor,
