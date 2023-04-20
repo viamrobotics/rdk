@@ -47,6 +47,9 @@ func attemptToBuildClassifier(mlm mlmodel.Service, logger golog.Logger) (classif
 		}
 
 		probs := unpack(outMap, "probability", md)
+		if len(probs) == 0 {
+			probs = unpack(outMap, "output0", md)
+		}
 
 		confs := checkClassificationScores(probs)
 		classifications := make(classification.Classifications, 0, len(confs))

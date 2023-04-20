@@ -58,11 +58,11 @@ func attemptToBuildDetector(mlm mlmodel.Service, logger golog.Logger) (objectdet
 		}
 		categories := unpack(outMap, "category", md)
 		if len(categories) == 0 {
-			locations = unpack(outMap, "output1", md)
+			categories = unpack(outMap, "output1", md)
 		}
 		scores := unpack(outMap, "score", md)
 		if len(scores) == 0 {
-			locations = unpack(outMap, "output2", md)
+			scores = unpack(outMap, "output2", md)
 		}
 
 		// Now reshape outMap into Detections

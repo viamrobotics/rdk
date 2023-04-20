@@ -2,7 +2,6 @@ package mlvision
 
 import (
 	"context"
-	"fmt"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -135,14 +134,11 @@ func TestNewMLDetector(t *testing.T) {
 }
 
 func TestNewMLClassifier(t *testing.T) {
-	// Test that a detector would give an expected output on the dog image
-	// Set it up as a ML Model
-
 	ctx := context.Background()
 	logger := golog.NewLogger("testLogger")
 	modelLoc := artifact.MustPath("vision/tflite/effnet0.tflite")
 	labelLoc := artifact.MustPath("vision/tflite/imagenetlabels.txt")
-	// name := "myMLDet"
+
 	cfg := tflitecpu.TFLiteConfig{ // detector config
 		ModelPath:  modelLoc,
 		NumThreads: 2,
@@ -199,7 +195,6 @@ func TestNewMLClassifier(t *testing.T) {
 	test.That(t, topNL[1].Score(), test.ShouldBeLessThan, 0.01)
 }
 
-// func TestMoreMLClassifiers(t *testing.T) {
 func TestMoreMLDetectors(t *testing.T) {
 	// Test that a detector would give an expected output on the dog image
 	pic, err := rimage.NewImageFromFile(artifact.MustPath("vision/tflite/dogscute.jpeg"))
@@ -209,9 +204,11 @@ func TestMoreMLDetectors(t *testing.T) {
 	name := "ssd"
 	ctx := context.Background()
 	modelLoc := artifact.MustPath("vision/tflite/ssdmobilenet.tflite")
+	labelLoc := artifact.MustPath("vision/tflite/effdetlabels.txt")
 	cfg := tflitecpu.TFLiteConfig{
 		ModelPath:  modelLoc,
 		NumThreads: 2,
+		LabelPath:  &labelLoc,
 	}
 
 	// Test that a detector would give the expected output on the dog image
@@ -231,19 +228,15 @@ func TestMoreMLDetectors(t *testing.T) {
 
 	gotDetections, err := gotDetector(ctx, pic)
 	test.That(t, err, test.ShouldBeNil)
-	fmt.Println(gotDetections)
+	test.That(t, gotDetections[0].Score(), test.ShouldBeGreaterThan, 0.82)
+	test.That(t, gotDetections[1].Score(), test.ShouldBeGreaterThan, 0.8)
+	test.That(t, gotDetections[0].Label(), test.ShouldResemble, "17")
+	test.That(t, gotDetections[1].Label(), test.ShouldResemble, "17")
 
-	//test.That(t, gotDetections[0].Score(), test.ShouldBeGreaterThan, 0.82)
-	//test.That(t, gotDetections[1].Score(), test.ShouldBeGreaterThan, 0.8)
-	//test.That(t, gotDetections[0].Label(), test.ShouldResemble, "Dog")
-	//test.That(t, gotDetections[1].Label(), test.ShouldResemble, "Dog")
+}
 
-	//test.That(t, got[0].Label(), test.ShouldResemble, "17")
-	//test.That(t, got[1].Label(), test.ShouldResemble, "17")
-	//test.That(t, got[0].Score(), test.ShouldBeGreaterThan, 0.82)
-	//test.That(t, got[1].Score(), test.ShouldBeGreaterThan, 0.8)
+func TestMoreMLClassifiers(t *testing.T) {
 
-	// TODO: Khari, add the other model and make them work without metadata!?
 }
 
 func TestLabelReader(t *testing.T) {
