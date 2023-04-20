@@ -119,7 +119,7 @@ onUnmounted(() => {
             Count
           </th>
           <td class="border-border-1 border p-2">
-            {{ (toRaw(positionTicks).value).toFixed(2) || 0 }}
+            {{ positionTicks.toFixed(2) || 0 }}
           </td>
         </tr>
         <tr
@@ -130,7 +130,7 @@ onUnmounted(() => {
             Angle (degrees)
           </th>
           <td class="border-border-1 border p-2">
-            {{ (toRaw(positionDegrees).value).toFixed(2) || 0 }}
+            {{ positionDegrees.toFixed(2) || 0 }}
           </td>
         </tr>
       </table>
