@@ -201,6 +201,14 @@ func (m *gpioStepper) SetPower(ctx context.Context, powerPct float64, extra map[
 		return nil
 	}
 
+	// no max RPM here?
+	// rawSpeed := powerPct * m.maxRPM
+	// if rdkutils.Float64AlmostEqual(rawSpeed, 0, 1) {
+	// 	m.logger.Infof("the received powerPct results in a speed of 0")
+	// } else if rdkutils.Float64AlmostEqual(rawSpeed, m.maxRPM, .1) {
+	// 	m.logger.Infof("the received powerPct results in a speed that is almost the MaxRPM for this motor")
+	// }
+
 	return errors.Errorf("gpioStepper doesn't support raw power mode in motor (%s)", m.motorName)
 }
 

@@ -179,6 +179,13 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string
 	m.Logger.Debugf("Motor SetPower %f", powerPct)
 	m.setPowerPct(powerPct)
 
+	rawSpeed := powerPct * m.MaxRPM
+	if rdkutils.Float64AlmostEqual(rawSpeed, 0, 1) {
+		m.Logger.Infof("the received powerPct results in a speed of 0")
+	} else if rdkutils.Float64AlmostEqual(rawSpeed, m.MaxRPM, .1) {
+		m.Logger.Infof("the received powerPct results in a speed that is almost the MaxRPM for this motor")
+	}
+
 	if m.Encoder != nil {
 		if m.TicksPerRotation <= 0 {
 			return errors.New("need positive nonzero TicksPerRotation")

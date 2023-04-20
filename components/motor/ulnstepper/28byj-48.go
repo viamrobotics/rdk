@@ -265,6 +265,13 @@ func (m *uln28byj) GoFor(ctx context.Context, rpm, revolutions float64, extra ma
 		return m.Stop(ctx, nil)
 	}
 
+	// no max?
+	// if rdkutils.Float64AlmostEqual(rpm, 0, 1) {
+	// 	m.logger.Infof("the received powerPct results in a speed of 0")
+	// } else if rdkutils.Float64AlmostEqual(rpm, m, .1) {
+	// 	m.logger.Infof("the received powerPct results in a speed that is almost the MaxRPM for this motor")
+	// }
+
 	m.lock.Lock()
 	m.targetStepPosition, m.stepperDelay = m.goMath(rpm, revolutions)
 	m.lock.Unlock()

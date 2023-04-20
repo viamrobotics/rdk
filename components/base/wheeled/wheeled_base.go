@@ -142,7 +142,9 @@ func (wb *wheeledBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSe
 
 	// Straight math
 	rpm, rotations := wb.straightDistanceToMotorInputs(distanceMm, mmPerSec)
-
+	// if rpm < 1 {
+	// 	wb.logger.Infof("the received MoveStraight with distanceMM:%d and mmPerSec:%.2f results in a speed of 0")
+	// }
 	return wb.runAll(ctx, rpm, rotations, rpm, rotations)
 }
 
@@ -273,7 +275,7 @@ func (wb *wheeledBase) velocityMath(mmPerSec, degsPerSec float64) (float64, floa
 	return rpmL, rpmR
 }
 
-// calculates the motor revolutions and speeds that correspond to the reuired distance and linear speeds.
+// calculates the motor revolutions and speeds that correspond to the required distance and linear speeds.
 func (wb *wheeledBase) straightDistanceToMotorInputs(distanceMm int, mmPerSec float64) (float64, float64) {
 	// takes in base speed and distance to calculate motor rpm and total rotations
 	rotations := float64(distanceMm) / float64(wb.wheelCircumferenceMm)

@@ -14,6 +14,7 @@ import (
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/operation"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 // NewMotor constructs a new GPIO based motor on the given board using the
@@ -210,6 +211,13 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string
 	// we want to simply rely on the mutex use in Stop
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
+	rawSpeed := powerPct * m.maxRPM
+	if rdkutils.Float64AlmostEqual(rawSpeed, 0, 1) {
+		m.logger.Infof("the received powerPct results in a speed of 0")
+	} else if rdkutils.Float64AlmostEqual(rawSpeed, m.maxRPM, .1) {
+		m.logger.Infof("the received powerPct results in a speed that is almost the MaxRPM for this motor")
+	}
 
 	if m.Direction != nil {
 		x := !math.Signbit(powerPct)

@@ -150,6 +150,13 @@ func (m *roboclawMotor) SetPower(ctx context.Context, powerPct float64, extra ma
 		powerPct = -1
 	}
 
+	// do this with ?
+	// if rdkutils.Float64AlmostEqual(rawSpeed, 0, 1) {
+	// 	m.logger.Infof("the received powerPct results in a speed of 0")
+	// } else if rdkutils.Float64AlmostEqual(rawSpeed, m.maxRPM, .1) {
+	// 	m.logger.Infof("the received powerPct results in a speed that is almost the MaxRPM for this motor")
+	// }
+
 	switch m.conf.Number {
 	case 1:
 		m.powerPct = powerPct

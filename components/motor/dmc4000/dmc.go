@@ -24,6 +24,7 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 // Timeout for Home() and GoTillStop().
@@ -470,6 +471,12 @@ func (m *Motor) Jog(ctx context.Context, rpm float64) error {
 	m.c.mu.Lock()
 	defer m.c.mu.Unlock()
 	m.jogging = true
+
+	if rdkutils.Float64AlmostEqual(rpm, 0, 1) {
+		m.c.logger.Infof("the received powerPct results in a speed of 0")
+	} else if rdkutils.Float64AlmostEqual(rpm, m.MaxRPM, .1) {
+		m.c.logger.Infof("the received powerPct results in a speed that is almost the MaxRPM for this motor")
+	}
 
 	rawSpeed := m.rpmToV(rpm)
 	if math.Signbit(rpm) {

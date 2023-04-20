@@ -260,6 +260,13 @@ func (m *Ezopmp) SetPower(ctx context.Context, powerPct float64, extra map[strin
 	powerPct = math.Max(powerPct, -1*m.maxPowerPct)
 	m.powerPct = powerPct
 
+	// do this with maxPowerPct??
+	// if rdkutils.Float64AlmostEqual(rawSpeed, 0, 1) {
+	// 	m.logger.Infof("the received powerPct results in a speed of 0")
+	// } else if rdkutils.Float64AlmostEqual(rawSpeed, m.maxRPM, .1) {
+	// 	m.logger.Infof("the received powerPct results in a speed that is almost the MaxRPM for this motor")
+	// }
+
 	var command []byte
 	if powerPct == 0 {
 		command = []byte(stop)

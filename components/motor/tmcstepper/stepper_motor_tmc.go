@@ -18,6 +18,7 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 // PinConfig defines the mapping of where motor are wired.
@@ -423,6 +424,13 @@ func (m *Motor) doJog(ctx context.Context, rpm float64) error {
 	if rpm < 0 {
 		mode = modeVelNeg
 	}
+
+	if rdkutils.Float64AlmostEqual(rpm, 0, 1) {
+		m.logger.Infof("the received powerPct results in a speed of 0")
+	} else if rdkutils.Float64AlmostEqual(rpm, m.maxRPM, .1) {
+		m.logger.Infof("the received powerPct results in a speed that is almost the MaxRPM for this motor")
+	}
+
 	speed := m.rpmToV(math.Abs(rpm))
 	return multierr.Combine(
 		m.writeReg(ctx, rampMode, mode),
