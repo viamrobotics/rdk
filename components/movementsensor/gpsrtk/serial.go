@@ -16,14 +16,15 @@ import (
 )
 
 type serialCorrectionSource struct {
-	correctionReader io.ReadCloser // reader for rctm corrections only
-	port             io.ReadCloser // reads all messages from port
-	logger           golog.Logger
+	port   io.ReadCloser // reads all messages from port
+	logger golog.Logger
 
 	cancelCtx               context.Context
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
-	mu                      sync.Mutex
+
+	correctionReaderMu sync.Mutex
+	correctionReader   io.ReadCloser // reader for rctm corrections only
 
 	err movementsensor.LastError
 }
@@ -101,16 +102,18 @@ func (s *serialCorrectionSource) Start(ready chan<- bool) {
 	utils.PanicCapturingGo(func() {
 		defer s.activeBackgroundWorkers.Done()
 
-		s.mu.Lock()
 		if err := s.cancelCtx.Err(); err != nil {
-			s.mu.Unlock()
 			return
 		}
-		s.mu.Unlock()
 
 		var w io.WriteCloser
 		pr, pw := io.Pipe()
+		s.correctionReaderMu.Lock()
+		if err := s.cancelCtx.Err(); err != nil {
+			return
+		}
 		s.correctionReader = pipeReader{pr: pr}
+		s.correctionReaderMu.Unlock()
 		w = pipeWriter{pw: pw}
 		select {
 		case ready <- true:
@@ -169,14 +172,13 @@ func (s *serialCorrectionSource) Reader() (io.ReadCloser, error) {
 
 // Close shuts down the serialCorrectionSource and closes s.port.
 func (s *serialCorrectionSource) Close(ctx context.Context) error {
-	s.mu.Lock()
+	s.correctionReaderMu.Lock()
 	s.cancelFunc()
-	s.mu.Unlock()
-	s.activeBackgroundWorkers.Wait()
 
 	// close port reader
 	if s.port != nil {
 		if err := s.port.Close(); err != nil {
+			s.correctionReaderMu.Unlock()
 			return err
 		}
 		s.port = nil
@@ -185,10 +187,14 @@ func (s *serialCorrectionSource) Close(ctx context.Context) error {
 	// close correction reader
 	if s.correctionReader != nil {
 		if err := s.correctionReader.Close(); err != nil {
+			s.correctionReaderMu.Unlock()
 			return err
 		}
 		s.correctionReader = nil
 	}
+
+	s.correctionReaderMu.Unlock()
+	s.activeBackgroundWorkers.Wait()
 
 	return s.err.Get()
 }

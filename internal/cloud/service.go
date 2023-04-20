@@ -56,16 +56,18 @@ type cloudManagedService struct {
 	resource.Named
 	// we assume the config is immutable for the lifetime of the process
 	resource.TriviallyReconfigurable
-	mu       sync.RWMutex
+
 	managed  bool
 	cloudCfg config.Cloud
-	dialer   rpc.Dialer
 	logger   golog.Logger
+
+	dialerMu sync.RWMutex
+	dialer   rpc.Dialer
 }
 
 func (cm *cloudManagedService) AcquireConnection(ctx context.Context) (string, rpc.ClientConn, error) {
-	cm.mu.RLock()
-	defer cm.mu.RUnlock()
+	cm.dialerMu.RLock()
+	defer cm.dialerMu.RUnlock()
 	if !cm.managed {
 		return "", nil, ErrNotCloudManaged
 	}
@@ -81,8 +83,8 @@ func (cm *cloudManagedService) AcquireConnection(ctx context.Context) (string, r
 }
 
 func (cm *cloudManagedService) Close(ctx context.Context) error {
-	cm.mu.Lock()
-	defer cm.mu.Unlock()
+	cm.dialerMu.Lock()
+	defer cm.dialerMu.Unlock()
 
 	if cm.dialer != nil {
 		utils.UncheckedError(cm.dialer.Close())

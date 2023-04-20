@@ -72,21 +72,22 @@ func Model(name string) (referenceframe.Model, error) {
 type URArm struct {
 	resource.Named
 	io.Closer
+	muMove                  sync.Mutex
+	connControl             net.Conn
+	debug                   bool
+	haveData                bool
+	logger                  golog.Logger
+	cancel                  func()
+	activeBackgroundWorkers sync.WaitGroup
+	model                   referenceframe.Model
+	opMgr                   operation.SingleOperationManager
+
 	mu                       sync.Mutex
-	muMove                   sync.Mutex
-	connControl              net.Conn
-	speed                    float64
 	state                    RobotState
 	runtimeError             error
-	debug                    bool
-	haveData                 bool
-	logger                   golog.Logger
-	cancel                   func()
-	activeBackgroundWorkers  sync.WaitGroup
-	model                    referenceframe.Model
-	opMgr                    operation.SingleOperationManager
-	urHostedKinematics       bool
 	inRemoteMode             bool
+	speed                    float64
+	urHostedKinematics       bool
 	dashboardConnection      net.Conn
 	readRobotStateConnection net.Conn
 	host                     string

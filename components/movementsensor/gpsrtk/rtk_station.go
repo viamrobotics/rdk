@@ -109,7 +109,6 @@ type rtkStation struct {
 	cancelCtx               context.Context
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
-	mu                      sync.Mutex
 
 	err movementsensor.LastError
 }
@@ -232,12 +231,9 @@ func (r *rtkStation) Start(ctx context.Context) {
 	utils.PanicCapturingGo(func() {
 		defer r.activeBackgroundWorkers.Done()
 
-		r.mu.Lock()
 		if err := r.cancelCtx.Err(); err != nil {
-			r.mu.Unlock()
 			return
 		}
-		r.mu.Unlock()
 
 		// read from correction source
 		ready := make(chan bool)
@@ -312,9 +308,7 @@ func (r *rtkStation) Start(ctx context.Context) {
 
 // Close shuts down the rtkStation.
 func (r *rtkStation) Close(ctx context.Context) error {
-	r.mu.Lock()
 	r.cancelFunc()
-	r.mu.Unlock()
 	r.activeBackgroundWorkers.Wait()
 
 	// close correction source

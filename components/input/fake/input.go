@@ -76,12 +76,11 @@ func NewInputController(ctx context.Context, conf resource.Config) (input.Contro
 type InputController struct {
 	resource.Named
 
-	mu sync.Mutex
-
 	closeCtx                context.Context
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
 
+	mu            sync.Mutex
 	controls      []input.Control
 	eventValue    *float64
 	callbackDelay *time.Duration

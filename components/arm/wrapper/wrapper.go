@@ -48,11 +48,12 @@ func init() {
 type Arm struct {
 	resource.Named
 	resource.TriviallyCloseable
+	logger golog.Logger
+	opMgr  operation.SingleOperationManager
+
 	mu     sync.RWMutex
 	model  referenceframe.Model
 	actual arm.Arm
-	logger golog.Logger
-	opMgr  operation.SingleOperationManager
 }
 
 // NewWrapperArm returns a wrapper component for another arm.

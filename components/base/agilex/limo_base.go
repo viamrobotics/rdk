@@ -87,8 +87,6 @@ type limoBase struct {
 	resource.AlwaysRebuild
 	driveMode          string
 	controller         *controller
-	state              limoState
-	stateMutex         sync.Mutex
 	opMgr              operation.SingleOperationManager
 	cancel             context.CancelFunc
 	waitGroup          sync.WaitGroup
@@ -98,6 +96,9 @@ type limoBase struct {
 	rightAngleScale    float64
 	maxLinearVelocity  int
 	maxAngularVelocity int
+
+	stateMutex sync.Mutex
+	state      limoState
 }
 
 // Config is how you configure a limo base.

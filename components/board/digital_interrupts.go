@@ -91,13 +91,13 @@ func CreateDigitalInterrupt(cfg DigitalInterruptConfig) (DigitalInterrupt, error
 // A BasicDigitalInterrupt records how many ticks/interrupts happen and can
 // report when they happen to interested callbacks.
 type BasicDigitalInterrupt struct {
-	cfg   DigitalInterruptConfig
 	count int64
 
 	callbacks []chan Tick
 
-	pp PostProcessor
-	mu sync.RWMutex
+	mu  sync.RWMutex
+	cfg DigitalInterruptConfig
+	pp  PostProcessor
 }
 
 // Config returns the config used to create this interrupt.
@@ -236,11 +236,12 @@ func (i *BasicDigitalInterrupt) Reconfigure(conf DigitalInterruptConfig) error {
 // track the amount of time that has passed between low signals (pulse width). Post processors
 // make meaning of these widths.
 type ServoDigitalInterrupt struct {
-	cfg  DigitalInterruptConfig
 	last uint64
 	ra   *utils.RollingAverage
-	pp   PostProcessor
-	mu   sync.RWMutex
+
+	mu  sync.RWMutex
+	cfg DigitalInterruptConfig
+	pp  PostProcessor
 }
 
 // Config returns the config the interrupt was created with.

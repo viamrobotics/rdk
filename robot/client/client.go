@@ -54,8 +54,8 @@ var (
 )
 
 type reconfigurableClientConn struct {
-	mu   sync.RWMutex
-	conn rpc.ClientConn
+	connMu sync.RWMutex
+	conn   rpc.ClientConn
 }
 
 func (c *reconfigurableClientConn) Invoke(
@@ -64,9 +64,9 @@ func (c *reconfigurableClientConn) Invoke(
 	args, reply interface{},
 	opts ...googlegrpc.CallOption,
 ) error {
-	c.mu.RLock()
+	c.connMu.RLock()
 	conn := c.conn
-	c.mu.RUnlock()
+	c.connMu.RUnlock()
 	if conn == nil {
 		return errors.New("not connected")
 	}
@@ -79,9 +79,9 @@ func (c *reconfigurableClientConn) NewStream(
 	method string,
 	opts ...googlegrpc.CallOption,
 ) (googlegrpc.ClientStream, error) {
-	c.mu.RLock()
+	c.connMu.RLock()
 	conn := c.conn
-	c.mu.RUnlock()
+	c.connMu.RUnlock()
 	if conn == nil {
 		return nil, errors.New("not connected")
 	}
@@ -89,14 +89,14 @@ func (c *reconfigurableClientConn) NewStream(
 }
 
 func (c *reconfigurableClientConn) replaceConn(conn rpc.ClientConn) {
-	c.mu.Lock()
+	c.connMu.Lock()
 	c.conn = conn
-	c.mu.Unlock()
+	c.connMu.Unlock()
 }
 
 func (c *reconfigurableClientConn) Close() error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.connMu.Lock()
+	defer c.connMu.Unlock()
 	if c.conn == nil {
 		return nil
 	}
@@ -109,38 +109,38 @@ func (c *reconfigurableClientConn) Close() error {
 // client conforming to the robot.proto contract.
 type RobotClient struct {
 	resource.Named
-	remoteName      string
-	address         string
-	conn            reconfigurableClientConn
-	client          pb.RobotServiceClient
-	refClient       *grpcreflect.Client
-	dialOptions     []rpc.DialOption
-	resourceClients map[resource.Name]resource.Resource
-	remoteNameMap   map[resource.Name]resource.Name
+	remoteName  string
+	address     string
+	dialOptions []rpc.DialOption
 
 	mu                  sync.RWMutex
 	resourceNames       []resource.Name
 	resourceRPCSubtypes []resource.RPCSubtype
-
-	connected  atomic.Bool
-	changeChan chan bool
+	resourceClients     map[resource.Name]resource.Resource
+	remoteNameMap       map[resource.Name]resource.Name
+	changeChan          chan bool
+	notifyParent        func()
+	conn                reconfigurableClientConn
+	client              pb.RobotServiceClient
+	refClient           *grpcreflect.Client
+	connected           atomic.Bool
 
 	activeBackgroundWorkers sync.WaitGroup
 	backgroundCtx           context.Context
 	backgroundCtxCancel     func()
 	logger                  golog.Logger
 
-	notifyParent func()
-
 	// sessions
-	sessionsDisabled         bool
+	sessionsDisabled bool
+
 	sessionMu                sync.RWMutex
 	sessionsSupported        *bool // when nil, we have not yet checked
 	currentSessionID         string
 	sessionHeartbeatInterval time.Duration
-	heartbeatWorkers         sync.WaitGroup
-	heartbeatCtx             context.Context
-	heartbeatCtxCancel       func()
+
+	heartbeatWorkers   sync.WaitGroup
+	heartbeatCtx       context.Context
+	heartbeatCtxCancel func()
 }
 
 // RemoteTypeName is the type name used for a remote. This is for internal use.

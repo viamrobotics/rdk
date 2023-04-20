@@ -56,9 +56,11 @@ type DirectionAware interface {
 // Encoder keeps track of a motor position using a rotary encoder.s.
 type Encoder struct {
 	resource.Named
+
+	position int64
+
 	mu        sync.Mutex
 	I         board.DigitalInterrupt
-	position  int64
 	m         DirectionAware
 	boardName string
 	diPinName string

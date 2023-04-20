@@ -16,15 +16,16 @@ import (
 )
 
 type ntripCorrectionSource struct {
-	correctionReader io.ReadCloser
-	info             *NtripInfo
-	logger           golog.Logger
-	ntripStatus      bool
+	logger      golog.Logger
+	ntripStatus bool
 
 	cancelCtx               context.Context
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
-	mu                      sync.Mutex
+
+	mu               sync.Mutex
+	correctionReader io.ReadCloser
+	info             *NtripInfo
 
 	err movementsensor.LastError
 }
@@ -120,7 +121,9 @@ func (n *ntripCorrectionSource) Connect() error {
 		return err
 	}
 
+	n.mu.Lock()
 	n.info.Client = c
+	n.mu.Unlock()
 
 	n.logger.Debug("Connected to NTRIP caster")
 
@@ -156,7 +159,9 @@ func (n *ntripCorrectionSource) GetStream() error {
 		return err
 	}
 
+	n.mu.Lock()
 	n.info.Stream = rc
+	n.mu.Unlock()
 
 	n.logger.Debug("Connected to stream")
 
@@ -168,13 +173,9 @@ func (n *ntripCorrectionSource) Start(ready chan<- bool) {
 	n.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer n.activeBackgroundWorkers.Done()
-
-		n.mu.Lock()
 		if err := n.cancelCtx.Err(); err != nil {
-			n.mu.Unlock()
 			return
 		}
-		n.mu.Unlock()
 
 		err := n.Connect()
 		// Record the "error" value no matter what. If it's nil, this will prevent us from reporting
@@ -189,7 +190,13 @@ func (n *ntripCorrectionSource) Start(ready chan<- bool) {
 		}
 
 		var w io.Writer
+		n.mu.Lock()
+		if err := n.cancelCtx.Err(); err != nil {
+			n.mu.Unlock()
+			return
+		}
 		n.correctionReader, w = io.Pipe()
+		n.mu.Unlock()
 		select {
 		case ready <- true:
 		case <-n.cancelCtx.Done():
@@ -246,15 +253,13 @@ func (n *ntripCorrectionSource) Reader() (io.ReadCloser, error) {
 
 // Close shuts down the ntripCorrectionSource and closes all connections to the caster.
 func (n *ntripCorrectionSource) Close(ctx context.Context) error {
-	n.logger.Debug("Closing ntrip client")
 	n.mu.Lock()
 	n.cancelFunc()
-	n.mu.Unlock()
-	n.activeBackgroundWorkers.Wait()
 
 	// close correction reader
 	if n.correctionReader != nil {
 		if err := n.correctionReader.Close(); err != nil {
+			n.mu.Unlock()
 			return err
 		}
 		n.correctionReader = nil
@@ -268,10 +273,14 @@ func (n *ntripCorrectionSource) Close(ctx context.Context) error {
 
 	if n.info.Stream != nil {
 		if err := n.info.Stream.Close(); err != nil {
+			n.mu.Unlock()
 			return err
 		}
 		n.info.Stream = nil
 	}
+
+	n.mu.Unlock()
+	n.activeBackgroundWorkers.Wait()
 
 	return n.err.Get()
 }

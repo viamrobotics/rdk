@@ -105,11 +105,12 @@ func buildModel(cfg resource.Config, newConf *Config) (referenceframe.Model, err
 // Arm is a fake arm that can simply read and set properties.
 type Arm struct {
 	resource.Named
-	mu         sync.RWMutex
-	joints     *pb.JointPositions
 	CloseCount int
 	logger     golog.Logger
-	model      referenceframe.Model
+
+	mu     sync.RWMutex
+	joints *pb.JointPositions
+	model  referenceframe.Model
 }
 
 // Reconfigure atomically reconfigures this arm in place based on the new config.

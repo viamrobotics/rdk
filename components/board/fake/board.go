@@ -196,45 +196,45 @@ func (b *Board) Reconfigure(ctx context.Context, deps resource.Dependencies, con
 
 // A Board provides dummy data from fake parts in order to implement a Board.
 type Board struct {
-	mu sync.Mutex
 	resource.Named
-	SPIs     map[string]*SPI
-	I2Cs     map[string]*I2C
-	Analogs  map[string]*Analog
-	Digitals map[string]*DigitalInterruptWrapper
-	GPIOPins map[string]*GPIOPin
 
+	mu         sync.RWMutex
+	SPIs       map[string]*SPI
+	I2Cs       map[string]*I2C
+	Analogs    map[string]*Analog
+	Digitals   map[string]*DigitalInterruptWrapper
+	GPIOPins   map[string]*GPIOPin
 	CloseCount int
 }
 
 // SPIByName returns the SPI by the given name if it exists.
 func (b *Board) SPIByName(name string) (board.SPI, bool) {
-	b.mu.Lock()
-	defer b.mu.Unlock()
+	b.mu.RLock()
+	defer b.mu.RUnlock()
 	s, ok := b.SPIs[name]
 	return s, ok
 }
 
 // I2CByName returns the i2c by the given name if it exists.
 func (b *Board) I2CByName(name string) (board.I2C, bool) {
-	b.mu.Lock()
-	defer b.mu.Unlock()
+	b.mu.RLock()
+	defer b.mu.RUnlock()
 	s, ok := b.I2Cs[name]
 	return s, ok
 }
 
 // AnalogReaderByName returns the analog reader by the given name if it exists.
 func (b *Board) AnalogReaderByName(name string) (board.AnalogReader, bool) {
-	b.mu.Lock()
-	defer b.mu.Unlock()
+	b.mu.RLock()
+	defer b.mu.RUnlock()
 	a, ok := b.Analogs[name]
 	return a, ok
 }
 
 // DigitalInterruptByName returns the interrupt by the given name if it exists.
 func (b *Board) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool) {
-	b.mu.Lock()
-	defer b.mu.Unlock()
+	b.mu.RLock()
+	defer b.mu.RUnlock()
 	d, ok := b.Digitals[name]
 	return d, ok
 }
@@ -254,8 +254,8 @@ func (b *Board) GPIOPinByName(name string) (board.GPIOPin, error) {
 
 // SPINames returns the names of all known SPIs.
 func (b *Board) SPINames() []string {
-	b.mu.Lock()
-	defer b.mu.Unlock()
+	b.mu.RLock()
+	defer b.mu.RUnlock()
 	names := []string{}
 	for k := range b.SPIs {
 		names = append(names, k)
@@ -265,8 +265,8 @@ func (b *Board) SPINames() []string {
 
 // I2CNames returns the names of all known I2Cs.
 func (b *Board) I2CNames() []string {
-	b.mu.Lock()
-	defer b.mu.Unlock()
+	b.mu.RLock()
+	defer b.mu.RUnlock()
 	names := []string{}
 	for k := range b.I2Cs {
 		names = append(names, k)
@@ -276,8 +276,8 @@ func (b *Board) I2CNames() []string {
 
 // AnalogReaderNames returns the names of all known analog readers.
 func (b *Board) AnalogReaderNames() []string {
-	b.mu.Lock()
-	defer b.mu.Unlock()
+	b.mu.RLock()
+	defer b.mu.RUnlock()
 	names := []string{}
 	for k := range b.Analogs {
 		names = append(names, k)
@@ -287,8 +287,8 @@ func (b *Board) AnalogReaderNames() []string {
 
 // DigitalInterruptNames returns the names of all known digital interrupts.
 func (b *Board) DigitalInterruptNames() []string {
-	b.mu.Lock()
-	defer b.mu.Unlock()
+	b.mu.RLock()
+	defer b.mu.RUnlock()
 	names := []string{}
 	for k := range b.Digitals {
 		names = append(names, k)
@@ -298,8 +298,8 @@ func (b *Board) DigitalInterruptNames() []string {
 
 // GPIOPinNames returns the names of all known GPIO pins.
 func (b *Board) GPIOPinNames() []string {
-	b.mu.Lock()
-	defer b.mu.Unlock()
+	b.mu.RLock()
+	defer b.mu.RUnlock()
 	names := []string{}
 	for k := range b.GPIOPins {
 		names = append(names, k)
@@ -343,8 +343,9 @@ func (b *Board) Close(ctx context.Context) error {
 
 // A SPI allows opening an SPIHandle.
 type SPI struct {
+	FIFO chan []byte
+
 	mu        sync.Mutex
-	FIFO      chan []byte
 	busSelect string
 }
 
@@ -389,9 +390,10 @@ func (h *SPIHandle) Close() error {
 
 // A I2C allows opening an I2CHandle.
 type I2C struct {
-	mu   sync.Mutex
 	fifo chan []byte
-	bus  string
+
+	mu  sync.Mutex
+	bus string
 }
 
 func newI2C(bus string) *I2C {
@@ -535,8 +537,8 @@ func (gp *GPIOPin) SetPWMFreq(ctx context.Context, freqHz uint, extra map[string
 // DigitalInterruptWrapper is a wrapper around a digital interrupt for testing fake boards.
 type DigitalInterruptWrapper struct {
 	mu        sync.Mutex
-	conf      board.DigitalInterruptConfig
 	di        board.DigitalInterrupt
+	conf      board.DigitalInterruptConfig
 	callbacks map[chan board.Tick]struct{}
 	pps       []board.PostProcessor
 }

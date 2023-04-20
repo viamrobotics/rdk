@@ -27,6 +27,7 @@ func init() {
 type mySum struct {
 	resource.Named
 	resource.TriviallyCloseable
+
 	mu       sync.Mutex
 	subtract bool
 }

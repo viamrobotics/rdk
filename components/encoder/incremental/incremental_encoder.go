@@ -31,6 +31,8 @@ func init() {
 type Encoder struct {
 	resource.Named
 
+	positionType encoder.PositionType
+
 	mu   sync.Mutex
 	A, B board.DigitalInterrupt
 	// The position is pRaw with the least significant bit chopped off.
@@ -41,12 +43,10 @@ type Encoder struct {
 	// pState is the previous state: the least significant bit is the value of pin A, and the
 	// second-least-significant bit is pin B. It is used to determine whether to increment or
 	// decrement pRaw.
-	pState int64
-
-	positionType encoder.PositionType
-	boardName    string
-	encAName     string
-	encBName     string
+	pState    int64
+	boardName string
+	encAName  string
+	encBName  string
 
 	logger golog.Logger
 	// TODO(RSDK-2672): This is exposed for tests and should be unexported with

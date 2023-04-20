@@ -16,15 +16,16 @@ import (
 )
 
 type i2cCorrectionSource struct {
-	correctionReader io.ReadCloser // reader for rctm corrections only
-	logger           golog.Logger
-	bus              board.I2C
-	addr             byte
+	logger golog.Logger
+	bus    board.I2C
+	addr   byte
 
 	cancelCtx               context.Context
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
-	mu                      sync.Mutex
+
+	correctionReaderMu sync.Mutex
+	correctionReader   io.ReadCloser // reader for rctm corrections only
 
 	err movementsensor.LastError
 }
@@ -74,16 +75,18 @@ func (s *i2cCorrectionSource) Start(ready chan<- bool) {
 		defer s.activeBackgroundWorkers.Done()
 
 		// currently not checking if rtcm message is valid, need to figure out how to integrate constant I2C byte message with rtcm3 scanner
-
-		s.mu.Lock()
 		if err := s.cancelCtx.Err(); err != nil {
-			s.mu.Unlock()
 			return
 		}
-		s.mu.Unlock()
 
 		var w *io.PipeWriter
+		s.correctionReaderMu.Lock()
+		if err := s.cancelCtx.Err(); err != nil {
+			s.correctionReaderMu.Unlock()
+			return
+		}
 		s.correctionReader, w = io.Pipe()
+		s.correctionReaderMu.Unlock()
 		select {
 		case ready <- true:
 		case <-s.cancelCtx.Done():
@@ -169,18 +172,19 @@ func (s *i2cCorrectionSource) Reader() (io.ReadCloser, error) {
 
 // Close shuts down the i2cCorrectionSource.
 func (s *i2cCorrectionSource) Close(ctx context.Context) error {
-	s.mu.Lock()
+	s.correctionReaderMu.Lock()
 	s.cancelFunc()
 
 	// close correction reader
 	if s.correctionReader != nil {
 		if err := s.correctionReader.Close(); err != nil {
+			s.correctionReaderMu.Unlock()
 			return err
 		}
 		s.correctionReader = nil
 	}
 
-	s.mu.Unlock()
+	s.correctionReaderMu.Unlock()
 	s.activeBackgroundWorkers.Wait()
 
 	if err := s.err.Get(); err != nil && !errors.Is(err, context.Canceled) {

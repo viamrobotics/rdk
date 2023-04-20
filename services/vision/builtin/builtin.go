@@ -59,10 +59,11 @@ func NewBuiltIn(ctx context.Context, r robot.Robot, conf resource.Config, logger
 
 type builtIn struct {
 	resource.Named
-	mu     sync.RWMutex
 	r      robot.Robot
-	modReg modelMap
 	logger golog.Logger
+
+	modRegMu sync.RWMutex
+	modReg   modelMap
 }
 
 func (vs *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
@@ -79,9 +80,9 @@ func (vs *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, 
 	if err := vs.Close(ctx); err != nil {
 		vs.logger.Errorw("error closing", "error", err)
 	}
-	vs.mu.Lock()
+	vs.modRegMu.Lock()
 	vs.modReg = modMap
-	vs.mu.Unlock()
+	vs.modRegMu.Unlock()
 
 	return nil
 }
@@ -106,8 +107,8 @@ func (vs *builtIn) GetModelParameterSchema(
 func (vs *builtIn) DetectorNames(ctx context.Context, extra map[string]interface{}) ([]string, error) {
 	_, span := trace.StartSpan(ctx, "service::vision::DetectorNames")
 	defer span.End()
-	vs.mu.RLock()
-	defer vs.mu.RUnlock()
+	vs.modRegMu.RLock()
+	defer vs.modRegMu.RUnlock()
 	return vs.modReg.DetectorNames(), nil
 }
 
@@ -116,9 +117,9 @@ func (vs *builtIn) AddDetector(ctx context.Context, cfg vision.VisModelConfig, e
 	ctx, span := trace.StartSpan(ctx, "service::vision::AddDetector")
 	defer span.End()
 	conf := &vision.Config{ModelRegistry: []vision.VisModelConfig{cfg}}
-	vs.mu.RLock()
+	vs.modRegMu.RLock()
 	err := registerNewVisModels(ctx, vs.modReg, conf, vs.logger)
-	vs.mu.RUnlock()
+	vs.modRegMu.RUnlock()
 	if err != nil {
 		return err
 	}
@@ -135,9 +136,9 @@ func (vs *builtIn) AddDetector(ctx context.Context, cfg vision.VisModelConfig, e
 func (vs *builtIn) RemoveDetector(ctx context.Context, detectorName string, extra map[string]interface{}) error {
 	_, span := trace.StartSpan(ctx, "service::vision::RemoveDetector")
 	defer span.End()
-	vs.mu.RLock()
+	vs.modRegMu.RLock()
 	err := vs.modReg.removeVisModel(detectorName, vs.logger)
-	vs.mu.RUnlock()
+	vs.modRegMu.RUnlock()
 	if err != nil {
 		return err
 	}
@@ -158,9 +159,9 @@ func (vs *builtIn) DetectionsFromCamera(
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not find camera named %s", cameraName)
 	}
-	vs.mu.RLock()
+	vs.modRegMu.RLock()
 	d, err := vs.modReg.modelLookup(detectorName)
-	vs.mu.RUnlock()
+	vs.modRegMu.RUnlock()
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not find detector named %s", detectorName)
 	}
@@ -183,9 +184,9 @@ func (vs *builtIn) Detections(ctx context.Context, img image.Image, detectorName
 	ctx, span := trace.StartSpan(ctx, "service::vision::Detections")
 	defer span.End()
 
-	vs.mu.RLock()
+	vs.modRegMu.RLock()
 	d, err := vs.modReg.modelLookup(detectorName)
-	vs.mu.RUnlock()
+	vs.modRegMu.RUnlock()
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not find detector named %s", detectorName)
 	}
@@ -201,8 +202,8 @@ func (vs *builtIn) Detections(ctx context.Context, img image.Image, detectorName
 func (vs *builtIn) ClassifierNames(ctx context.Context, extra map[string]interface{}) ([]string, error) {
 	_, span := trace.StartSpan(ctx, "service::vision::ClassifierNames")
 	defer span.End()
-	vs.mu.RLock()
-	defer vs.mu.RUnlock()
+	vs.modRegMu.RLock()
+	defer vs.modRegMu.RUnlock()
 	return vs.modReg.ClassifierNames(), nil
 }
 
@@ -211,8 +212,8 @@ func (vs *builtIn) AddClassifier(ctx context.Context, cfg vision.VisModelConfig,
 	ctx, span := trace.StartSpan(ctx, "service::vision::AddClassifier")
 	defer span.End()
 	conf := &vision.Config{ModelRegistry: []vision.VisModelConfig{cfg}}
-	vs.mu.RLock()
-	defer vs.mu.RUnlock()
+	vs.modRegMu.RLock()
+	defer vs.modRegMu.RUnlock()
 	err := registerNewVisModels(ctx, vs.modReg, conf, vs.logger)
 	if err != nil {
 		return err
@@ -224,8 +225,8 @@ func (vs *builtIn) AddClassifier(ctx context.Context, cfg vision.VisModelConfig,
 func (vs *builtIn) RemoveClassifier(ctx context.Context, classifierName string, extra map[string]interface{}) error {
 	_, span := trace.StartSpan(ctx, "service::vision::RemoveClassifier")
 	defer span.End()
-	vs.mu.RLock()
-	defer vs.mu.RUnlock()
+	vs.modRegMu.RLock()
+	defer vs.modRegMu.RUnlock()
 	err := vs.modReg.removeVisModel(classifierName, vs.logger)
 	if err != nil {
 		return err
@@ -243,9 +244,9 @@ func (vs *builtIn) ClassificationsFromCamera(ctx context.Context, cameraName,
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not find camera named %s", cameraName)
 	}
-	vs.mu.RLock()
+	vs.modRegMu.RLock()
 	c, err := vs.modReg.modelLookup(classifierName)
-	vs.mu.RUnlock()
+	vs.modRegMu.RUnlock()
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not find classifier named %s", classifierName)
 	}
@@ -272,9 +273,9 @@ func (vs *builtIn) Classifications(ctx context.Context, img image.Image,
 	ctx, span := trace.StartSpan(ctx, "service::vision::Classifications")
 	defer span.End()
 
-	vs.mu.RLock()
+	vs.modRegMu.RLock()
 	c, err := vs.modReg.modelLookup(classifierName)
-	vs.mu.RUnlock()
+	vs.modRegMu.RUnlock()
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not find classifier named %s", classifierName)
 	}
@@ -294,8 +295,8 @@ func (vs *builtIn) Classifications(ctx context.Context, img image.Image,
 func (vs *builtIn) SegmenterNames(ctx context.Context, extra map[string]interface{}) ([]string, error) {
 	_, span := trace.StartSpan(ctx, "service::vision::SegmenterNames")
 	defer span.End()
-	vs.mu.RLock()
-	defer vs.mu.RUnlock()
+	vs.modRegMu.RLock()
+	defer vs.modRegMu.RUnlock()
 	return vs.modReg.SegmenterNames(), nil
 }
 
@@ -304,8 +305,8 @@ func (vs *builtIn) AddSegmenter(ctx context.Context, cfg vision.VisModelConfig, 
 	ctx, span := trace.StartSpan(ctx, "service::vision::AddSegmenter")
 	defer span.End()
 	conf := &vision.Config{ModelRegistry: []vision.VisModelConfig{cfg}}
-	vs.mu.RLock()
-	defer vs.mu.RUnlock()
+	vs.modRegMu.RLock()
+	defer vs.modRegMu.RUnlock()
 	return registerNewVisModels(ctx, vs.modReg, conf, vs.logger)
 }
 
@@ -313,8 +314,8 @@ func (vs *builtIn) AddSegmenter(ctx context.Context, cfg vision.VisModelConfig, 
 func (vs *builtIn) RemoveSegmenter(ctx context.Context, segmenterName string, extra map[string]interface{}) error {
 	_, span := trace.StartSpan(ctx, "service::vision::RemoveSegmenter")
 	defer span.End()
-	vs.mu.RLock()
-	defer vs.mu.RUnlock()
+	vs.modRegMu.RLock()
+	defer vs.modRegMu.RUnlock()
 	return vs.modReg.removeVisModel(segmenterName, vs.logger)
 }
 
@@ -330,9 +331,9 @@ func (vs *builtIn) GetObjectPointClouds(
 	if err != nil {
 		return nil, err
 	}
-	vs.mu.RLock()
+	vs.modRegMu.RLock()
 	s, err := vs.modReg.modelLookup(segmenterName)
-	vs.mu.RUnlock()
+	vs.modRegMu.RUnlock()
 	if err != nil {
 		return nil, err
 	}
@@ -345,8 +346,8 @@ func (vs *builtIn) GetObjectPointClouds(
 
 // Close removes all existing detectors from the vision service.
 func (vs *builtIn) Close(ctx context.Context) error {
-	vs.mu.Lock()
-	defer vs.mu.Unlock()
+	vs.modRegMu.Lock()
+	defer vs.modRegMu.Unlock()
 	models := vs.modReg.ModelNames()
 	for _, detectorName := range models {
 		err := vs.modReg.removeVisModel(detectorName, vs.logger)

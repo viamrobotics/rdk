@@ -84,17 +84,19 @@ var _ motor.LocalMotor = &Motor{}
 type Motor struct {
 	resource.Named
 	resource.TriviallyCloseable
+
 	mu                sync.Mutex
 	powerPct          float64
 	Board             string
 	PWM               board.GPIOPin
 	PositionReporting bool
-	Logger            golog.Logger
 	Encoder           fake.Encoder
 	MaxRPM            float64
 	DirFlip           bool
-	opMgr             operation.SingleOperationManager
 	TicksPerRotation  int
+
+	opMgr  operation.SingleOperationManager
+	Logger golog.Logger
 }
 
 // Reconfigure atomically reconfigures this motor in place based on the new config.

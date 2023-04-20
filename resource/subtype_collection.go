@@ -17,10 +17,11 @@ type SubtypeCollection[T Resource] interface {
 }
 
 type subtypeCollection[T Resource] struct {
+	subtype Subtype
+
 	mu         sync.RWMutex
 	resources  map[string]T
 	shortNames map[string]string
-	subtype    Subtype
 }
 
 // NewEmptySubtypeCollection creates a new subtype collection, which holds and replaces resources belonging to that subtype.

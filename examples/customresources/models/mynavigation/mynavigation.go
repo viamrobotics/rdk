@@ -41,10 +41,12 @@ type navSvc struct {
 	resource.Named
 	resource.AlwaysRebuild
 	resource.TriviallyCloseable
-	mu        sync.RWMutex
-	loc       *geo.Point
-	logger    golog.Logger
-	waypoints []navigation.Waypoint
+
+	loc    *geo.Point
+	logger golog.Logger
+
+	waypointsMu sync.RWMutex
+	waypoints   []navigation.Waypoint
 }
 
 func (svc *navSvc) Mode(ctx context.Context, extra map[string]interface{}) (navigation.Mode, error) {
@@ -56,29 +58,29 @@ func (svc *navSvc) SetMode(ctx context.Context, mode navigation.Mode, extra map[
 }
 
 func (svc *navSvc) Location(ctx context.Context, extra map[string]interface{}) (*geo.Point, error) {
-	svc.mu.RLock()
-	svc.mu.RUnlock()
+	svc.waypointsMu.RLock()
+	defer svc.waypointsMu.RUnlock()
 	return svc.loc, nil
 }
 
 func (svc *navSvc) Waypoints(ctx context.Context, extra map[string]interface{}) ([]navigation.Waypoint, error) {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
+	svc.waypointsMu.RLock()
+	defer svc.waypointsMu.RUnlock()
 	wpsCopy := make([]navigation.Waypoint, len(svc.waypoints))
 	copy(wpsCopy, svc.waypoints)
 	return wpsCopy, nil
 }
 
 func (svc *navSvc) AddWaypoint(ctx context.Context, point *geo.Point, extra map[string]interface{}) error {
-	svc.mu.Lock()
-	defer svc.mu.Unlock()
+	svc.waypointsMu.Lock()
+	defer svc.waypointsMu.Unlock()
 	svc.waypoints = append(svc.waypoints, navigation.Waypoint{Lat: point.Lat(), Long: point.Lng()})
 	return nil
 }
 
 func (svc *navSvc) RemoveWaypoint(ctx context.Context, id primitive.ObjectID, extra map[string]interface{}) error {
-	svc.mu.Lock()
-	defer svc.mu.Unlock()
+	svc.waypointsMu.Lock()
+	defer svc.waypointsMu.Unlock()
 	newWps := make([]navigation.Waypoint, 0, len(svc.waypoints)-1)
 	for _, wp := range svc.waypoints {
 		if wp.ID == id {

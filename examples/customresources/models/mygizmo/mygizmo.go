@@ -34,8 +34,9 @@ func init() {
 type myActualGizmo struct {
 	resource.Named
 	resource.TriviallyCloseable
-	mu    sync.Mutex
-	myArg string
+
+	myArgMu sync.Mutex
+	myArg   string
 }
 
 func NewMyGizmo(
@@ -53,21 +54,21 @@ func NewMyGizmo(
 }
 
 func (g *myActualGizmo) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
-	g.mu.Lock()
+	g.myArgMu.Lock()
 	g.myArg = conf.Attributes.String("arg1")
-	g.mu.Unlock()
+	g.myArgMu.Unlock()
 	return nil
 }
 
 func (g *myActualGizmo) DoOne(ctx context.Context, arg1 string) (bool, error) {
-	g.mu.Lock()
-	defer g.mu.Unlock()
+	g.myArgMu.Lock()
+	defer g.myArgMu.Unlock()
 	return arg1 == g.myArg, nil
 }
 
 func (g *myActualGizmo) DoOneClientStream(ctx context.Context, arg1 []string) (bool, error) {
-	g.mu.Lock()
-	defer g.mu.Unlock()
+	g.myArgMu.Lock()
+	defer g.myArgMu.Unlock()
 	if len(arg1) == 0 {
 		return false, nil
 	}
@@ -79,14 +80,14 @@ func (g *myActualGizmo) DoOneClientStream(ctx context.Context, arg1 []string) (b
 }
 
 func (g *myActualGizmo) DoOneServerStream(ctx context.Context, arg1 string) ([]bool, error) {
-	g.mu.Lock()
-	defer g.mu.Unlock()
+	g.myArgMu.Lock()
+	defer g.myArgMu.Unlock()
 	return []bool{arg1 == g.myArg, false, true, false}, nil
 }
 
 func (g *myActualGizmo) DoOneBiDiStream(ctx context.Context, arg1 []string) ([]bool, error) {
-	g.mu.Lock()
-	defer g.mu.Unlock()
+	g.myArgMu.Lock()
+	defer g.myArgMu.Unlock()
 	var rets []bool
 	for _, arg := range arg1 {
 		rets = append(rets, arg == g.myArg)

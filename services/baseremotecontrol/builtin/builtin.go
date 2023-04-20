@@ -80,14 +80,13 @@ type builtIn struct {
 	resource.Named
 
 	mu              sync.RWMutex
-	state           throttleState
 	base            base.Base
 	inputController input.Controller
 	controlMode     controlMode
+	config          *Config
 
-	config *Config
-	logger golog.Logger
-
+	state                   throttleState
+	logger                  golog.Logger
 	cancel                  func()
 	cancelCtx               context.Context
 	activeBackgroundWorkers sync.WaitGroup
@@ -156,8 +155,8 @@ func (svc *builtIn) Reconfigure(
 	svc.inputController = controller
 	svc.controlMode = controlMode1
 	svc.config = svcConfig
-	svc.instance.Add(1)
 	svc.mu.Unlock()
+	svc.instance.Add(1)
 
 	if err := svc.registerCallbacks(ctx, &svc.state); err != nil {
 		return errors.Errorf("error with starting remote control service: %q", err)

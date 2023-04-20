@@ -111,19 +111,20 @@ func (svc *frameSystemService) Name() resource.Name {
 type frameSystemService struct {
 	resource.Named
 	resource.TriviallyCloseable
-	mu          sync.RWMutex
-	r           robot.Robot
+	r      robot.Robot
+	logger golog.Logger
+
+	partsMu     sync.RWMutex
 	localParts  framesystemparts.Parts                     // gotten from the local robot's config.Config
 	offsetParts map[string]*referenceframe.FrameSystemPart // gotten from local robot's config.Remote
-	logger      golog.Logger
 }
 
 // Reconfigure will rebuild the frame system from the newly updated robot.
 // NOTE(RDK-258): If remotes can trigger a local robot to reconfigure, you can cache the remoteParts in svc as well.
 // NOTE(erd): this doesn't utilize the dependencies and instead uses the robot which we would rather avoid.
 func (svc *frameSystemService) Reconfigure(ctx context.Context, _ resource.Dependencies, _ resource.Config) error {
-	svc.mu.Lock()
-	defer svc.mu.Unlock()
+	svc.partsMu.Lock()
+	defer svc.partsMu.Unlock()
 
 	ctx, span := trace.StartSpan(ctx, "services::framesystem::Update")
 	defer span.End()
@@ -157,8 +158,8 @@ func (svc *frameSystemService) Config(
 	ctx context.Context,
 	additionalTransforms []*referenceframe.LinkInFrame,
 ) (framesystemparts.Parts, error) {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
+	svc.partsMu.RLock()
+	defer svc.partsMu.RUnlock()
 
 	ctx, span := trace.StartSpan(ctx, "services::framesystem::Config")
 	defer span.End()
@@ -205,8 +206,8 @@ func (svc *frameSystemService) TransformPose(
 	}
 	input := referenceframe.StartPositions(fs)
 
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
+	svc.partsMu.RLock()
+	defer svc.partsMu.RUnlock()
 
 	// build maps of relevant components and inputs from initial inputs
 	for name, original := range input {

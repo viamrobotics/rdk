@@ -80,12 +80,13 @@ type fakeEncoder struct {
 	resource.Named
 	resource.TriviallyCloseable
 
-	mu                      sync.RWMutex
-	position                int64
 	positionType            encoder.PositionType
-	speed                   float64 // ticks per minute
-	updateRate              int64   // update position in start every updateRate ms
 	activeBackgroundWorkers sync.WaitGroup
+
+	mu         sync.RWMutex
+	position   int64
+	speed      float64 // ticks per minute
+	updateRate int64   // update position in start every updateRate ms
 }
 
 // GetPosition returns the current position in terms of ticks or

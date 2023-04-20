@@ -15,6 +15,8 @@ import (
 // updated or eventually removed. During its life, errors may be set on the
 // node to indicate that the resource is no longer available to external users.
 type GraphNode struct {
+	// all fields are protected by this mutex right now, including
+	// the pointer to the atomic int.
 	mu                        sync.RWMutex
 	updatedAt                 int64
 	clock                     *atomic.Int64

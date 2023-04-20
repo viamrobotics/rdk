@@ -44,9 +44,10 @@ var _ = robot.LocalRobot(&localRobot{})
 // localRobot satisfies robot.LocalRobot and defers most
 // logic to its manager.
 type localRobot struct {
-	mu                         sync.Mutex
-	manager                    *resourceManager
-	config                     *config.Config
+	mu      sync.Mutex
+	manager *resourceManager
+	config  *config.Config
+
 	operations                 *operation.Manager
 	modules                    modif.ModuleManager
 	sessionManager             session.Manager
