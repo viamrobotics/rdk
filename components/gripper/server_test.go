@@ -11,7 +11,6 @@ import (
 
 	"go.viam.com/rdk/components/gripper"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -24,7 +23,7 @@ func newServer() (pb.GripperServiceServer, *inject.Gripper, *inject.Gripper, err
 		gripper.Named(testGripperName2): injectGripper2,
 		gripper.Named(fakeGripperName):  testutils.NewUnimplementedResource(gripper.Named(fakeGripperName)),
 	}
-	gripperSvc, err := subtype.New(gripper.Subtype, grippers)
+	gripperSvc, err := resource.NewSubtypeCollection(gripper.Subtype, grippers)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -68,10 +67,6 @@ func TestServer(t *testing.T) {
 		_, err := gripperServer.Open(context.Background(), &pb.OpenRequest{Name: missingGripperName})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
-
-		_, err = gripperServer.Open(context.Background(), &pb.OpenRequest{Name: fakeGripperName})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "expected")
 
 		extra := map[string]interface{}{"foo": "Open"}
 		ext, err := protoutils.StructToStructPb(extra)

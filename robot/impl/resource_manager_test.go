@@ -1566,7 +1566,7 @@ func TestManagerEmptyResourceDesc(t *testing.T) {
 	subtype := resource.NewSubtype(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, "mockDesc")
 	registry.RegisterResourceSubtype(
 		subtype,
-		registry.ResourceSubtype{},
+		registry.ResourceSubtype[resource.Resource]{},
 	)
 
 	injectRobot.ResourceNamesFunc = func() []resource.Name {
@@ -1604,9 +1604,9 @@ func TestReconfigure(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, r, test.ShouldNotBeNil)
 
-	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{})
+	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype[resource.Resource]{})
 
-	registry.RegisterResource(Subtype, resource.DefaultServiceModel, registry.Resource{
+	registry.RegisterResource(Subtype, resource.DefaultServiceModel, registry.Resource[resource.Resource]{
 		Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
@@ -1674,7 +1674,7 @@ func TestResourceCreationPanic(t *testing.T) {
 		)
 		model := resource.NewDefaultModel("test")
 
-		registry.RegisterComponent(subtype, model, registry.Component{
+		registry.RegisterComponent(subtype, model, registry.Resource[resource.Resource]{
 			Constructor: func(ctx context.Context, deps resource.Dependencies, c resource.Config, logger golog.Logger) (resource.Resource, error) {
 				panic("hello")
 			},
@@ -1701,7 +1701,7 @@ func TestResourceCreationPanic(t *testing.T) {
 			subtypeName,
 		)
 
-		registry.RegisterResource(subtype, resource.DefaultServiceModel, registry.Resource{
+		registry.RegisterResource(subtype, resource.DefaultServiceModel, registry.Resource[resource.Resource]{
 			Constructor: func(
 				ctx context.Context,
 				deps resource.Dependencies,
@@ -1712,7 +1712,7 @@ func TestResourceCreationPanic(t *testing.T) {
 			},
 		})
 
-		registry.RegisterResourceSubtype(subtype, registry.ResourceSubtype{})
+		registry.RegisterResourceSubtype(subtype, registry.ResourceSubtype[resource.Resource]{})
 
 		svc1 := resource.Config{
 			Name:  "",

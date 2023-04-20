@@ -50,12 +50,12 @@ func init() {
 	registry.RegisterComponent(
 		board.Subtype,
 		picommon.ModelName,
-		registry.Component{Constructor: func(
+		registry.Resource[board.Board]{Constructor: func(
 			ctx context.Context,
 			_ resource.Dependencies,
 			conf resource.Config,
 			logger golog.Logger,
-		) (resource.Resource, error) {
+		) (board.Board, error) {
 			boardConfig, err := resource.NativeConfig[*genericlinux.Config](conf)
 			if err != nil {
 				return nil, err

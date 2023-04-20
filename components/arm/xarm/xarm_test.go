@@ -173,7 +173,7 @@ func TestReconfigure(t *testing.T) {
 	xArm.mu.Lock()
 	currentConn := xArm.conn
 	xArm.mu.Unlock()
-	test.That(t, currentConn, test.ShouldEqual, &conn1)
+	test.That(t, currentConn, test.ShouldEqual, conn1)
 	test.That(t, xArm.speed, test.ShouldEqual, prevSpeed)
 
 	// scenario where we do not reconnect
@@ -182,7 +182,7 @@ func TestReconfigure(t *testing.T) {
 	xArm.mu.Lock()
 	currentConn = xArm.conn
 	xArm.mu.Unlock()
-	test.That(t, currentConn, test.ShouldEqual, &conn1)
+	test.That(t, currentConn, test.ShouldEqual, conn1)
 	test.That(t, xArm.speed, test.ShouldEqual, float32(utils.DegToRad(float64(confNotReconnect.Speed))))
 
 	// scenario where we have to reconnect
@@ -193,6 +193,6 @@ func TestReconfigure(t *testing.T) {
 	xArm.mu.Lock()
 	currentConn = xArm.conn
 	xArm.mu.Unlock()
-	test.That(t, currentConn, test.ShouldNotEqual, &conn1)
+	test.That(t, currentConn, test.ShouldNotEqual, conn1)
 	test.That(t, xArm.speed, test.ShouldEqual, float32(utils.DegToRad(float64(confNotReconnect.Speed))))
 }

@@ -19,7 +19,7 @@ import (
 var modelname = resource.NewDefaultModel("mux")
 
 func init() {
-	registry.RegisterComponent(input.Subtype, modelname, registry.Component{Constructor: NewController})
+	registry.RegisterComponent(input.Subtype, modelname, registry.Resource[input.Controller]{Constructor: NewController})
 
 	config.RegisterComponentAttributeMapConverter(
 		input.Subtype,
@@ -40,7 +40,7 @@ func NewController(
 	deps resource.Dependencies,
 	conf resource.Config,
 	logger golog.Logger,
-) (resource.Resource, error) {
+) (input.Controller, error) {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return nil, err

@@ -86,13 +86,13 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 }
 
 func init() {
-	registry.RegisterComponent(motor.Subtype, model, registry.Component{
+	registry.RegisterComponent(motor.Subtype, model, registry.Resource[motor.Motor]{
 		Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
 			logger golog.Logger,
-		) (resource.Resource, error) {
+		) (motor.Motor, error) {
 			actualBoard, motorConfig, err := getBoardFromRobotConfig(deps, conf)
 			if err != nil {
 				return nil, err

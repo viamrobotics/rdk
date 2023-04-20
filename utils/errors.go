@@ -2,6 +2,7 @@ package utils
 
 import (
 	"reflect"
+	"runtime/debug"
 
 	"github.com/pkg/errors"
 )
@@ -13,6 +14,7 @@ func NewRemoteResourceClashError(name string) error {
 
 // NewUnexpectedTypeError is used when there is a type mismatch.
 func NewUnexpectedTypeError[ExpectedT any](actual interface{}) error {
+	debug.PrintStack()
 	return errors.Errorf("expected %s but got %T", TypeStr[ExpectedT](), actual)
 }
 

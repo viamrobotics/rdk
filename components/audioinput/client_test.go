@@ -13,12 +13,10 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
-	audioinput "go.viam.com/rdk/components/audioinput"
-	"go.viam.com/rdk/components/generic"
+	"go.viam.com/rdk/components/audioinput"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -66,18 +64,18 @@ func TestClient(t *testing.T) {
 		return nil, errors.New("can't generate stream")
 	}
 
-	resources := map[resource.Name]resource.Resource{
+	resources := map[resource.Name]audioinput.AudioInput{
 		audioinput.Named(testAudioInputName): injectAudioInput,
 		audioinput.Named(failAudioInputName): injectAudioInput2,
 	}
-	audioInputSvc, err := subtype.New(audioinput.Subtype, resources)
+	audioInputSvc, err := resource.NewSubtypeCollection(audioinput.Subtype, resources)
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype, ok := registry.ResourceSubtypeLookup(audioinput.Subtype)
+	resourceSubtype, ok, err := registry.ResourceSubtypeLookup[audioinput.AudioInput](audioinput.Subtype)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, audioInputSvc)
+	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, audioInputSvc), test.ShouldBeNil)
 
 	injectAudioInput.DoFunc = testutils.EchoFunc
-	generic.RegisterService(rpcServer, audioInputSvc)
 
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()

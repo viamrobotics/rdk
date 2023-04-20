@@ -106,12 +106,12 @@ func init() {
 	registry.RegisterComponent(
 		sensor.Subtype,
 		modelname,
-		registry.Component{Constructor: func(
+		registry.Resource[sensor.Sensor]{Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
 			logger golog.Logger,
-		) (resource.Resource, error) {
+		) (sensor.Sensor, error) {
 			newConf, err := resource.NativeConfig[*Config](conf)
 			if err != nil {
 				return nil, err

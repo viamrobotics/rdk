@@ -58,10 +58,10 @@ var modelName = resource.NewDefaultModel("agilex-limo")
 func init() {
 	controllers = make(map[string]*controller)
 
-	limoBaseComp := registry.Component{
+	limoBaseComp := registry.Resource[base.Base]{
 		Constructor: func(
 			ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger,
-		) (resource.Resource, error) {
+		) (base.Base, error) {
 			return CreateLimoBase(ctx, conf, logger)
 		},
 	}

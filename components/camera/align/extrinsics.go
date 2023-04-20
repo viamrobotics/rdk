@@ -28,9 +28,9 @@ var extrinsicsModel = resource.NewDefaultModel("align_color_depth_extrinsics")
 func init() {
 	//nolint:dupl
 	registry.RegisterComponent(camera.Subtype, extrinsicsModel,
-		registry.Component{Constructor: func(ctx context.Context, deps resource.Dependencies,
+		registry.Resource[camera.Camera]{Constructor: func(ctx context.Context, deps resource.Dependencies,
 			conf resource.Config, logger golog.Logger,
-		) (resource.Resource, error) {
+		) (camera.Camera, error) {
 			newConf, err := resource.NativeConfig[*extrinsicsConfig](conf)
 			if err != nil {
 				return nil, err

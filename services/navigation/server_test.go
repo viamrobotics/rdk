@@ -63,7 +63,7 @@ func TestServer(t *testing.T) {
 		testSvcName1: injectSvc,
 		testSvcName2: injectSvc,
 	}
-	injectSubtypeSvc, err := subtype.New(navigation.Subtype, resourceMap)
+	injectSubtypeSvc, err := resource.NewSubtypeCollection(navigation.Subtype, resourceMap)
 	test.That(t, err, test.ShouldBeNil)
 	navServer := navigation.NewServer(injectSubtypeSvc)
 
@@ -331,7 +331,7 @@ func TestServer(t *testing.T) {
 	resourceMap = map[resource.Name]resource.Resource{
 		testSvcName1: testutils.NewUnimplementedResource(testSvcName1),
 	}
-	injectSubtypeSvc, _ = subtype.New(navigation.Subtype, resourceMap)
+	injectSubtypeSvc, _ = resource.NewSubtypeCollection(navigation.Subtype, resourceMap)
 	navServer = navigation.NewServer(injectSubtypeSvc)
 
 	t.Run("failing on improper service interface", func(t *testing.T) {
@@ -371,7 +371,7 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeError, improperImplErr)
 	})
 
-	injectSubtypeSvc, _ = subtype.New(navigation.Subtype, map[resource.Name]resource.Resource{})
+	injectSubtypeSvc, _ = resource.NewSubtypeCollection(navigation.Subtype, map[resource.Name]resource.Resource{})
 	navServer = navigation.NewServer(injectSubtypeSvc)
 	t.Run("failing on nonexistent server", func(t *testing.T) {
 		req := &pb.GetModeRequest{Name: testSvcName1.ShortName()}
@@ -385,7 +385,7 @@ func TestServer(t *testing.T) {
 			testSvcName1: injectSvc,
 			testSvcName2: injectSvc,
 		}
-		injectSubtypeSvc, err = subtype.New(navigation.Subtype, resourceMap)
+		injectSubtypeSvc, err = resource.NewSubtypeCollection(navigation.Subtype, resourceMap)
 		test.That(t, err, test.ShouldBeNil)
 		navServer = navigation.NewServer(injectSubtypeSvc)
 		injectSvc.ModeFunc = func(ctx context.Context, extra map[string]interface{}) (navigation.Mode, error) {
@@ -408,7 +408,7 @@ func TestServerDoCommand(t *testing.T) {
 			DoCommandFunc: testutils.EchoFunc,
 		},
 	}
-	injectSubtypeSvc, err := subtype.New(navigation.Subtype, resourceMap)
+	injectSubtypeSvc, err := resource.NewSubtypeCollection(navigation.Subtype, resourceMap)
 	test.That(t, err, test.ShouldBeNil)
 	server := navigation.NewServer(injectSubtypeSvc)
 

@@ -42,13 +42,13 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 }
 
 func init() {
-	registry.RegisterComponent(arm.Subtype, model, registry.Component{
+	registry.RegisterComponent(arm.Subtype, model, registry.Resource[arm.Arm]{
 		Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
 			logger golog.Logger,
-		) (resource.Resource, error) {
+		) (arm.Arm, error) {
 			return NewWrapperArm(ctx, deps, conf, logger)
 		},
 	})

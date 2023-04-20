@@ -12,14 +12,12 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/components/sensor"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -100,17 +98,17 @@ func TestClient(t *testing.T) {
 		return 0, errors.New("can't get compass heading")
 	}
 
-	gpsSvc, err := subtype.New(movementsensor.Subtype, map[resource.Name]resource.Resource{
+	gpsSvc, err := resource.NewSubtypeCollection(movementsensor.Subtype, map[resource.Name]movementsensor.MovementSensor{
 		movementsensor.Named(testMovementSensorName): injectMovementSensor,
 		movementsensor.Named(failMovementSensorName): injectMovementSensor2,
 	})
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype, ok := registry.ResourceSubtypeLookup(movementsensor.Subtype)
+	resourceSubtype, ok, err := registry.ResourceSubtypeLookup[movementsensor.MovementSensor](movementsensor.Subtype)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, gpsSvc)
+	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, gpsSvc), test.ShouldBeNil)
 
 	injectMovementSensor.DoFunc = testutils.EchoFunc
-	generic.RegisterService(rpcServer, gpsSvc)
 
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()

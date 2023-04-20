@@ -90,13 +90,13 @@ func (cfg *Config) validate() ([]string, error) {
 }
 
 func init() {
-	registry.RegisterComponent(gantry.Subtype, modelname, registry.Component{
+	registry.RegisterComponent(gantry.Subtype, modelname, registry.Resource[gantry.Gantry]{
 		Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
 			logger golog.Logger,
-		) (resource.Resource, error) {
+		) (gantry.Gantry, error) {
 			return newOneAxis(ctx, deps, conf, logger)
 		},
 	})

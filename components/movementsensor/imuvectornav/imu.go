@@ -60,8 +60,8 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 }
 
 func init() {
-	registry.RegisterComponent(movementsensor.Subtype, model, registry.Component{
-		Constructor: func(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (resource.Resource, error) {
+	registry.RegisterComponent(movementsensor.Subtype, model, registry.Resource[movementsensor.MovementSensor]{
+		Constructor: func(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (movementsensor.MovementSensor, error) {
 			return NewVectorNav(ctx, deps, conf, logger)
 		},
 	})

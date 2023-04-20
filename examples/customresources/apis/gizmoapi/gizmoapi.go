@@ -13,7 +13,6 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/subtype"
 	"go.viam.com/utils/protoutils"
 )
 
@@ -34,18 +33,18 @@ func FromRobot(r robot.Robot, name string) (Gizmo, error) {
 }
 
 func init() {
-	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
+	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype[Gizmo]{
 		// Reconfigurable, and contents of reconfwrapper.go are only needed for standalone (non-module) uses.
-		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
+		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeColl resource.SubtypeCollection[Gizmo]) error {
 			return rpcServer.RegisterServiceServer(
 				ctx,
 				&pb.GizmoService_ServiceDesc,
-				NewServer(subtypeSvc),
+				NewServer(subtypeColl),
 				pb.RegisterGizmoServiceHandlerFromEndpoint,
 			)
 		},
 		RPCServiceDesc: &pb.GizmoService_ServiceDesc,
-		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (resource.Resource, error) {
+		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (Gizmo, error) {
 			return NewClientFromConn(conn, name, logger), nil
 		},
 	})
@@ -65,19 +64,15 @@ type Gizmo interface {
 // subtypeServer implements the Gizmo RPC service from gripper.proto.
 type subtypeServer struct {
 	pb.UnimplementedGizmoServiceServer
-	s subtype.Service
+	coll resource.SubtypeCollection[Gizmo]
 }
 
-func NewServer(s subtype.Service) pb.GizmoServiceServer {
-	return &subtypeServer{s: s}
-}
-
-func (s *subtypeServer) getGizmo(name string) (Gizmo, error) {
-	return subtype.LookupResource[Gizmo](s.s, name)
+func NewServer(coll resource.SubtypeCollection[Gizmo]) pb.GizmoServiceServer {
+	return &subtypeServer{coll: coll}
 }
 
 func (s *subtypeServer) DoOne(ctx context.Context, req *pb.DoOneRequest) (*pb.DoOneResponse, error) {
-	g, err := s.getGizmo(req.Name)
+	g, err := s.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -106,7 +101,7 @@ func (s *subtypeServer) DoOneClientStream(server pb.GizmoService_DoOneClientStre
 			return errors.New("unexpected")
 		}
 	}
-	g, err := s.getGizmo(name)
+	g, err := s.coll.Resource(name)
 	if err != nil {
 		return err
 	}
@@ -118,7 +113,7 @@ func (s *subtypeServer) DoOneClientStream(server pb.GizmoService_DoOneClientStre
 }
 
 func (s *subtypeServer) DoOneServerStream(req *pb.DoOneServerStreamRequest, stream pb.GizmoService_DoOneServerStreamServer) error {
-	g, err := s.getGizmo(req.Name)
+	g, err := s.coll.Resource(req.Name)
 	if err != nil {
 		return err
 	}
@@ -154,7 +149,7 @@ func (s *subtypeServer) DoOneBiDiStream(server pb.GizmoService_DoOneBiDiStreamSe
 			return errors.New("unexpected")
 		}
 	}
-	g, err := s.getGizmo(name)
+	g, err := s.coll.Resource(name)
 	if err != nil {
 		return err
 	}
@@ -171,7 +166,7 @@ func (s *subtypeServer) DoOneBiDiStream(server pb.GizmoService_DoOneBiDiStreamSe
 }
 
 func (s *subtypeServer) DoTwo(ctx context.Context, req *pb.DoTwoRequest) (*pb.DoTwoResponse, error) {
-	g, err := s.getGizmo(req.Name)
+	g, err := s.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -183,7 +178,7 @@ func (s *subtypeServer) DoTwo(ctx context.Context, req *pb.DoTwoRequest) (*pb.Do
 }
 
 func (s *subtypeServer) DoCommand(ctx context.Context, req *pb.DoCommandRequest) (*pb.DoCommandResponse, error) {
-	g, err := s.getGizmo(req.Name)
+	g, err := s.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}

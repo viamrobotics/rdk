@@ -39,8 +39,8 @@ func (cfg *Config) Validate(path string) error {
 }
 
 func init() {
-	registry.RegisterComponent(gripper.Subtype, modelname, registry.Component{
-		Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (resource.Resource, error) {
+	registry.RegisterComponent(gripper.Subtype, modelname, registry.Resource[gripper.Gripper]{
+		Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (gripper.Gripper, error) {
 			newConf, err := resource.NativeConfig[*Config](conf)
 			if err != nil {
 				return nil, err

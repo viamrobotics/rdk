@@ -15,7 +15,6 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/sensors"
-	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -32,14 +31,15 @@ func TestClient(t *testing.T) {
 	var extraOptions map[string]interface{}
 
 	injectSensors := &inject.SensorsService{}
-	ssMap := map[resource.Name]resource.Resource{
+	ssMap := map[resource.Name]sensors.Service{
 		testSvcName1: injectSensors,
 	}
-	svc, err := subtype.New(sensors.Subtype, ssMap)
+	svc, err := resource.NewSubtypeCollection(sensors.Subtype, ssMap)
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype, ok := registry.ResourceSubtypeLookup(sensors.Subtype)
+	resourceSubtype, ok, err := registry.ResourceSubtypeLookup[sensors.Service](sensors.Subtype)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, svc)
+	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, svc), test.ShouldBeNil)
 
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()

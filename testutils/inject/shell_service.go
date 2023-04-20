@@ -5,6 +5,7 @@ import (
 
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/shell"
+	"go.viam.com/utils"
 )
 
 // ShellService represents a fake instance of a shell service.
@@ -14,6 +15,7 @@ type ShellService struct {
 	DoCommandFunc func(ctx context.Context,
 		cmd map[string]interface{}) (map[string]interface{}, error)
 	ReconfigureFunc func(ctx context.Context, deps resource.Dependencies, conf resource.Config) error
+	CloseFunc       func(ctx context.Context) error
 }
 
 // NewShellService returns a new injected shell service.
@@ -45,4 +47,12 @@ func (s *ShellService) Reconfigure(ctx context.Context, deps resource.Dependenci
 		return s.Service.Reconfigure(ctx, deps, conf)
 	}
 	return s.ReconfigureFunc(ctx, deps, conf)
+}
+
+// Close calls the injected Close or the real version.
+func (s *ShellService) Close(ctx context.Context) error {
+	if s.CloseFunc == nil {
+		return utils.TryClose(ctx, s.Service)
+	}
+	return s.CloseFunc(ctx)
 }

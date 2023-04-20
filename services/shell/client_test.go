@@ -13,7 +13,6 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/shell"
-	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -28,14 +27,15 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	injectShell := &inject.ShellService{}
-	ssMap := map[resource.Name]resource.Resource{
+	ssMap := map[resource.Name]shell.Service{
 		testSvcName1: injectShell,
 	}
-	svc, err := subtype.New(shell.Subtype, ssMap)
+	svc, err := resource.NewSubtypeCollection(shell.Subtype, ssMap)
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype, ok := registry.ResourceSubtypeLookup(shell.Subtype)
+	resourceSubtype, ok, err := registry.ResourceSubtypeLookup[shell.Service](shell.Subtype)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, svc)
+	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, svc), test.ShouldBeNil)
 
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()

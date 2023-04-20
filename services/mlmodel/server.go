@@ -5,29 +5,24 @@ import (
 	"encoding/base64"
 
 	pb "go.viam.com/api/service/mlmodel/v1"
+	"go.viam.com/rdk/resource"
 	vprotoutils "go.viam.com/utils/protoutils"
 	"google.golang.org/protobuf/types/known/structpb"
-
-	"go.viam.com/rdk/subtype"
 )
 
 // subtypeServer implements the MLModelService from mlmodel.proto.
 type subtypeServer struct {
 	pb.UnimplementedMLModelServiceServer
-	subtypeSvc subtype.Service
+	coll resource.SubtypeCollection[Service]
 }
 
 // NewServer constructs a ML Model gRPC service server.
-func NewServer(s subtype.Service) pb.MLModelServiceServer {
-	return &subtypeServer{subtypeSvc: s}
-}
-
-func (server *subtypeServer) service(serviceName string) (Service, error) {
-	return subtype.LookupResource[Service](server.subtypeSvc, serviceName)
+func NewServer(coll resource.SubtypeCollection[Service]) pb.MLModelServiceServer {
+	return &subtypeServer{coll: coll}
 }
 
 func (server *subtypeServer) Infer(ctx context.Context, req *pb.InferRequest) (*pb.InferResponse, error) {
-	svc, err := server.service(req.Name)
+	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +65,7 @@ func (server *subtypeServer) Metadata(
 	ctx context.Context,
 	req *pb.MetadataRequest,
 ) (*pb.MetadataResponse, error) {
-	svc, err := server.service(req.Name)
+	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}

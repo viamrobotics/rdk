@@ -25,7 +25,7 @@ var (
 )
 
 func init() {
-	registry.RegisterComponent(base.Subtype, Model, registry.Component{Constructor: newBase})
+	registry.RegisterComponent(base.Subtype, Model, registry.Resource[base.Base]{Constructor: newBase})
 
 	// Use RegisterComponentAttributeMapConverter to register a custom configuration
 	// struct that has a Validate(string) ([]string, error) method.
@@ -40,7 +40,7 @@ func init() {
 		})
 }
 
-func newBase(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (resource.Resource, error) {
+func newBase(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (base.Base, error) {
 	b := &MyBase{
 		Named:  conf.ResourceName().AsNamed(),
 		logger: logger,

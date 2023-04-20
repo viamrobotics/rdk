@@ -70,7 +70,7 @@ func (conf *Config) Validate(path string) ([]string, error) {
 }
 
 func init() {
-	registry.RegisterComponent(movementsensor.Subtype, model, registry.Component{
+	registry.RegisterComponent(movementsensor.Subtype, model, registry.Resource[movementsensor.MovementSensor]{
 		// Note: this looks like it can be simplified to just be `Constructor: NewMpu6050`.
 		// However, if you try that, the compiler says the types are subtly incompatible. Just
 		// leave it like this.
@@ -79,7 +79,7 @@ func init() {
 			deps resource.Dependencies,
 			conf resource.Config,
 			logger golog.Logger,
-		) (resource.Resource, error) {
+		) (movementsensor.MovementSensor, error) {
 			return NewMpu6050(ctx, deps, conf, logger)
 		},
 	})

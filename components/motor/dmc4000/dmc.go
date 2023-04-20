@@ -90,8 +90,8 @@ type Config struct {
 func init() {
 	controllers = make(map[string]*controller)
 
-	registry.RegisterComponent(motor.Subtype, modelName, registry.Component{
-		Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (resource.Resource, error) {
+	registry.RegisterComponent(motor.Subtype, modelName, registry.Resource[motor.Motor]{
+		Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (motor.Motor, error) {
 			newConf, err := resource.NativeConfig[*Config](conf)
 			if err != nil {
 				return nil, err

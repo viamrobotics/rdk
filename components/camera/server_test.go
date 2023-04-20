@@ -18,8 +18,6 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
-	"go.viam.com/rdk/subtype"
-	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
 )
@@ -28,13 +26,12 @@ func newServer() (pb.CameraServiceServer, *inject.Camera, *inject.Camera, *injec
 	injectCamera := &inject.Camera{}
 	injectCameraDepth := &inject.Camera{}
 	injectCamera2 := &inject.Camera{}
-	cameras := map[resource.Name]resource.Resource{
+	cameras := map[resource.Name]camera.Camera{
 		camera.Named(testCameraName):  injectCamera,
 		camera.Named(depthCameraName): injectCameraDepth,
 		camera.Named(failCameraName):  injectCamera2,
-		camera.Named(fakeCameraName):  testutils.NewUnimplementedResource(camera.Named("notCamera")),
 	}
-	cameraSvc, err := subtype.New(camera.Subtype, cameras)
+	cameraSvc, err := resource.NewSubtypeCollection(camera.Subtype, cameras)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
@@ -155,10 +152,6 @@ func TestServer(t *testing.T) {
 		_, err := cameraServer.GetImage(context.Background(), &pb.GetImageRequest{Name: missingCameraName})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
-
-		_, err = cameraServer.GetImage(context.Background(), &pb.GetImageRequest{Name: fakeCameraName})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "expected")
 
 		// color camera
 		// ensure that explicit RawRGBA mimetype request will return RawRGBA mimetype response
@@ -375,10 +368,6 @@ func TestServer(t *testing.T) {
 		_, err := cameraServer.GetProperties(context.Background(), &pb.GetPropertiesRequest{Name: missingCameraName})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
-
-		_, err = cameraServer.GetProperties(context.Background(), &pb.GetPropertiesRequest{Name: fakeCameraName})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "expected")
 
 		resp, err := cameraServer.GetProperties(context.Background(), &pb.GetPropertiesRequest{Name: testCameraName})
 		test.That(t, err, test.ShouldBeNil)

@@ -94,8 +94,6 @@ func NewMotor(b board.Board, mc Config, name resource.Name, logger golog.Logger)
 	return m, nil
 }
 
-var _ = motor.LocalMotor(&Motor{})
-
 // A Motor is a GPIO based Motor that resides on a GPIO Board.
 type Motor struct {
 	resource.Named

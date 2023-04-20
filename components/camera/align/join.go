@@ -29,9 +29,9 @@ var joinModel = resource.NewDefaultModel("join_color_depth")
 //nolint:dupl
 func init() {
 	registry.RegisterComponent(camera.Subtype, joinModel,
-		registry.Component{Constructor: func(ctx context.Context, deps resource.Dependencies,
+		registry.Resource[camera.Camera]{Constructor: func(ctx context.Context, deps resource.Dependencies,
 			conf resource.Config, logger golog.Logger,
-		) (resource.Resource, error) {
+		) (camera.Camera, error) {
 			newConf, err := resource.NativeConfig[*joinConfig](conf)
 			if err != nil {
 				return nil, err

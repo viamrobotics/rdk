@@ -13,7 +13,6 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -36,7 +35,7 @@ func newServer() (pb.PoseTrackerServiceServer, *inject.PoseTracker, *inject.Pose
 		posetracker.Named(notPTName):     testutils.NewUnimplementedResource(posetracker.Named(notPTName)),
 	}
 
-	injectSvc, err := subtype.New(posetracker.Subtype, resourceMap)
+	injectSvc, err := resource.NewSubtypeCollection(posetracker.Subtype, resourceMap)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -71,15 +70,6 @@ func TestGetPoses(t *testing.T) {
 		resp, err := ptServer.GetPoses(context.Background(), &req)
 		test.That(t, err, test.ShouldBeError, poseFailureErr)
 		test.That(t, resp, test.ShouldBeNil)
-	})
-
-	t.Run("get poses fails on improperly implemented pose tracker", func(t *testing.T) {
-		req := pb.GetPosesRequest{
-			Name: notPTName, BodyNames: []string{bodyName},
-		}
-		_, err = ptServer.GetPoses(context.Background(), &req)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "expected")
 	})
 
 	ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "GetPosesRequest"})

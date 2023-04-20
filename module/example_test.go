@@ -38,7 +38,7 @@ func Example() {
 
 	// We first put our component's constructor in the registry, then tell the module to load it
 	// Note that all resources must be added before the module is started.
-	registry.RegisterComponent(generic.Subtype, myModel, registry.Component{Constructor: newCounter})
+	registry.RegisterComponent(generic.Subtype, myModel, registry.Resource[resource.Resource]{Constructor: newCounter})
 	myMod.AddModelFromRegistry(ctx, generic.Subtype, myModel)
 
 	// The module is started.

@@ -29,13 +29,13 @@ import (
 )
 
 func init() {
-	registry.RegisterService(datamanager.Subtype, resource.DefaultServiceModel, registry.Service{
+	registry.RegisterService(datamanager.Subtype, resource.DefaultServiceModel, registry.Resource[datamanager.Service]{
 		Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
 			logger golog.Logger,
-		) (resource.Resource, error) {
+		) (datamanager.Service, error) {
 			return NewBuiltIn(ctx, deps, conf, logger)
 		},
 	})

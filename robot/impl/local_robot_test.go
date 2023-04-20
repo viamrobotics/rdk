@@ -19,6 +19,7 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -777,12 +778,12 @@ func TestStopAll(t *testing.T) {
 	registry.RegisterComponent(
 		arm.Subtype,
 		modelName,
-		registry.Component{Constructor: func(
+		registry.Resource[arm.Arm]{Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
 			logger golog.Logger,
-		) (resource.Resource, error) {
+		) (arm.Arm, error) {
 			if conf.Name == "arm1" {
 				return &dummyArm1, nil
 			}
@@ -902,23 +903,23 @@ func TestNewTeardown(t *testing.T) {
 	registry.RegisterComponent(
 		board.Subtype,
 		modelName,
-		registry.Component{Constructor: func(
+		registry.Resource[board.Board]{Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
 			logger golog.Logger,
-		) (resource.Resource, error) {
+		) (board.Board, error) {
 			return &dummyBoard1, nil
 		}})
 	registry.RegisterComponent(
 		gripper.Subtype,
 		modelName,
-		registry.Component{Constructor: func(
+		registry.Resource[gripper.Gripper]{Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
 			logger golog.Logger,
-		) (resource.Resource, error) {
+		) (gripper.Gripper, error) {
 			return nil, errors.New("whoops")
 		}})
 
@@ -1069,14 +1070,14 @@ func TestStatus(t *testing.T) {
 
 	registry.RegisterResourceSubtype(
 		workingSubtype,
-		registry.ResourceSubtype{
+		registry.ResourceSubtype[resource.Resource]{
 			Status: func(ctx context.Context, res resource.Resource) (interface{}, error) { return workingStatus, nil },
 		},
 	)
 
 	registry.RegisterResourceSubtype(
 		failSubtype,
-		registry.ResourceSubtype{
+		registry.ResourceSubtype[resource.Resource]{
 			Status: func(ctx context.Context, res resource.Resource) (interface{}, error) { return nil, errFailed },
 		},
 	)
@@ -2595,7 +2596,7 @@ func TestMixedOrphanedResources(t *testing.T) {
 		resource.ModelName("mygizmo"))
 
 	// Register a doodad constructor and defer its deregistration.
-	registry.RegisterComponent(doodadSubtype, doodadModel, registry.Component{
+	registry.RegisterComponent(doodadSubtype, doodadModel, registry.Resource[resource.Resource]{
 		Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,

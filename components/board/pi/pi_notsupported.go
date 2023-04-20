@@ -20,24 +20,24 @@ func init() {
 	registry.RegisterComponent(
 		board.Subtype,
 		picommon.ModelName,
-		registry.Component{Constructor: func(
+		registry.Resource[board.Board]{Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
 			logger golog.Logger,
-		) (resource.Resource, error) {
+		) (board.Board, error) {
 			return nil, errors.New("not running on a pi")
 		}})
 	registry.RegisterComponent(
 		servo.Subtype,
 		picommon.ModelName,
-		registry.Component{
+		registry.Resource[servo.Servo]{
 			Constructor: func(
 				ctx context.Context,
 				deps resource.Dependencies,
 				conf resource.Config,
 				logger golog.Logger,
-			) (resource.Resource, error) {
+			) (servo.Servo, error) {
 				return nil, errors.New("not running on a pi")
 			},
 		},

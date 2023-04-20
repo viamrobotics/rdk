@@ -11,16 +11,12 @@ The `resource.Generic` interface allows you to add arbitrary commands with arbit
 
 ```
     type Sensor interface {
+        resource.Resource
         // Readings return data specific to the type of sensor and can be of any type.
         Readings(ctx context.Context) (map[string]interface{}, error)
-        resource.Generic
     }
 ```
 
-To make sure the struct we create implements the interface, we can check it using the go linter inside the go package like this.
-```
-    var _ = sensor.Sensor(&mySensor{})
-```
 
 The model then has to be registered through an init function, which should live in the package implementing the new model.
 Init functions are run on import, so we have to make sure we are importing it somewhere in our code!
@@ -31,12 +27,12 @@ Init functions are run on import, so we have to make sure we are importing it so
         registry.RegisterComponent(
             sensor.Subtype,
             "mySensor",
-            registry.Component{Constructor: func(
+            registry.Resource[sensor.Sensor]{Constructor: func(
                 ctx context.Context,
                 deps resource.Dependencies,
                 conf resource.Config,
                 logger golog.Logger,
-            ) (interface{}, error) {
+            ) (sensor.Sensor, error) {
                 return newSensor(config.Name), nil
             }})
     }

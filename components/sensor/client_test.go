@@ -10,13 +10,11 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/sensor"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/sensors"
-	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -49,17 +47,17 @@ func TestClient(t *testing.T) {
 		return nil, errors.New("can't get readings")
 	}
 
-	sensorSvc, err := subtype.New(
+	sensorSvc, err := resource.NewSubtypeCollection(
 		sensors.Subtype,
-		map[resource.Name]resource.Resource{sensor.Named(testSensorName): injectSensor, sensor.Named(failSensorName): injectSensor2},
+		map[resource.Name]sensor.Sensor{sensor.Named(testSensorName): injectSensor, sensor.Named(failSensorName): injectSensor2},
 	)
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype, ok := registry.ResourceSubtypeLookup(sensor.Subtype)
+	resourceSubtype, ok, err := registry.ResourceSubtypeLookup[sensor.Sensor](sensor.Subtype)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, sensorSvc)
+	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, sensorSvc), test.ShouldBeNil)
 
 	injectSensor.DoFunc = testutils.EchoFunc
-	generic.RegisterService(rpcServer, sensorSvc)
 
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()

@@ -69,13 +69,13 @@ func (config *TMC5072Config) Validate(path string) ([]string, error) {
 }
 
 func init() {
-	registry.RegisterComponent(motor.Subtype, modelname, registry.Component{
+	registry.RegisterComponent(motor.Subtype, modelname, registry.Resource[motor.Motor]{
 		Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
 			logger golog.Logger,
-		) (resource.Resource, error) {
+		) (motor.Motor, error) {
 			newConf, err := resource.NativeConfig[*TMC5072Config](conf)
 			if err != nil {
 				return nil, err

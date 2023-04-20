@@ -12,21 +12,20 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/subtype"
 )
 
 func init() {
-	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
-		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
+	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype[Sensor]{
+		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeColl resource.SubtypeCollection[Sensor]) error {
 			return rpcServer.RegisterServiceServer(
 				ctx,
 				&pb.SensorService_ServiceDesc,
-				NewServer(subtypeSvc),
+				NewServer(subtypeColl),
 				pb.RegisterSensorServiceHandlerFromEndpoint,
 			)
 		},
 		RPCServiceDesc: &pb.SensorService_ServiceDesc,
-		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (resource.Resource, error) {
+		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (Sensor, error) {
 			return NewClientFromConn(ctx, conn, name, logger)
 		},
 	})

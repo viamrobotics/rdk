@@ -11,12 +11,10 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/input"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -71,18 +69,18 @@ func TestClient(t *testing.T) {
 		return nil, errors.New("can't get last events")
 	}
 
-	resources := map[resource.Name]resource.Resource{
+	resources := map[resource.Name]input.Controller{
 		input.Named(testInputControllerName): injectInputController,
 		input.Named(failInputControllerName): injectInputController2,
 	}
-	inputControllerSvc, err := subtype.New(input.Subtype, resources)
+	inputControllerSvc, err := resource.NewSubtypeCollection(input.Subtype, resources)
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype, ok := registry.ResourceSubtypeLookup(input.Subtype)
+	resourceSubtype, ok, err := registry.ResourceSubtypeLookup[input.Controller](input.Subtype)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, inputControllerSvc)
+	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, inputControllerSvc), test.ShouldBeNil)
 
 	injectInputController.DoFunc = testutils.EchoFunc
-	generic.RegisterService(rpcServer, inputControllerSvc)
 
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()

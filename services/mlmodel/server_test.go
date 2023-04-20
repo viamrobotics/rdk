@@ -18,7 +18,7 @@ import (
 )
 
 func newServer(resources map[resource.Name]resource.Resource) (pb.MLModelServiceServer, error) {
-	omSvc, err := subtype.New(mlmodel.Subtype, resources)
+	omSvc, err := resource.NewSubtypeCollection(mlmodel.Subtype, resources)
 	if err != nil {
 		return nil, err
 	}

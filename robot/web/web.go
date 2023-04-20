@@ -50,7 +50,6 @@ import (
 	grpcserver "go.viam.com/rdk/robot/server"
 	weboptions "go.viam.com/rdk/robot/web/options"
 	webstream "go.viam.com/rdk/robot/web/stream"
-	"go.viam.com/rdk/subtype"
 	rutils "go.viam.com/rdk/utils"
 	"go.viam.com/rdk/web"
 )
@@ -266,7 +265,7 @@ func New(r robot.Robot, logger golog.Logger, opts ...Option) Service {
 		logger:       logger,
 		rpcServer:    nil,
 		streamServer: nil,
-		services:     map[resource.Subtype]subtype.Service{},
+		services:     map[resource.Subtype]resource.SubtypeCollection[resource.Resource]{},
 		opts:         wOpts,
 		videoSources: map[string]gostream.HotSwappableVideoSource{},
 		audioSources: map[string]gostream.HotSwappableAudioSource{},
@@ -282,7 +281,7 @@ type webService struct {
 	rpcServer               rpc.Server
 	modServer               rpc.Server
 	streamServer            *StreamServer
-	services                map[resource.Subtype]subtype.Service
+	services                map[resource.Subtype]resource.SubtypeCollection[resource.Resource]
 	opts                    options
 	addr                    string
 	modAddr                 string
@@ -482,17 +481,26 @@ func (svc *webService) updateResources(resources map[resource.Name]resource.Reso
 		groupedResources[n.Subtype] = r
 	}
 
+	subtypeConstructors := registry.RegisteredResourceSubtypes()
 	for s, v := range groupedResources {
-		subtypeSvc, ok := svc.services[s]
+		subtypeColl, ok := svc.services[s]
 		// TODO(RSDK-144): register new service if it doesn't currently exist
 		if !ok {
-			subtypeSvc, err := subtype.New(s, v)
-			if err != nil {
+			reg, ok := subtypeConstructors[s]
+			var subtypeColl resource.SubtypeCollection[resource.Resource]
+			if ok {
+				subtypeColl = reg.MakeEmptyCollection()
+			} else {
+				svc.logger.Debugw("making heterogeneous subtype collection", "subtype", s)
+				subtypeColl = resource.NewEmptySubtypeCollection[resource.Resource](s)
+			}
+
+			if err := subtypeColl.ReplaceAll(v); err != nil {
 				return err
 			}
-			svc.services[s] = subtypeSvc
+			svc.services[s] = subtypeColl
 		} else {
-			if err := subtypeSvc.ReplaceAll(v); err != nil {
+			if err := subtypeColl.ReplaceAll(v); err != nil {
 				return err
 			}
 		}
@@ -1052,14 +1060,10 @@ func (svc *webService) initSubtypeServices(ctx context.Context, mod bool) error 
 	// TODO: only register necessary services (#272)
 	subtypeConstructors := registry.RegisteredResourceSubtypes()
 	for s, rs := range subtypeConstructors {
-		subtypeSvc, ok := svc.services[s]
+		subtypeColl, ok := svc.services[s]
 		if !ok {
-			newSvc, err := subtype.New(s, make(map[resource.Name]resource.Resource))
-			if err != nil {
-				return err
-			}
-			subtypeSvc = newSvc
-			svc.services[s] = newSvc
+			subtypeColl = rs.MakeEmptyCollection()
+			svc.services[s] = subtypeColl
 		}
 
 		if rs.RegisterRPCService != nil {
@@ -1067,7 +1071,7 @@ func (svc *webService) initSubtypeServices(ctx context.Context, mod bool) error 
 			if mod {
 				server = svc.modServer
 			}
-			if err := rs.RegisterRPCService(ctx, server, subtypeSvc); err != nil {
+			if err := rs.RegisterRPCService(ctx, server, subtypeColl); err != nil {
 				return err
 			}
 		}

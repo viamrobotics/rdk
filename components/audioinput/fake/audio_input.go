@@ -20,18 +20,16 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-var _ = audioinput.AudioInput(&audioInput{})
-
 func init() {
 	registry.RegisterComponent(
 		audioinput.Subtype,
 		resource.NewDefaultModel("fake"),
-		registry.Component{Constructor: func(
+		registry.Resource[audioinput.AudioInput]{Constructor: func(
 			_ context.Context,
 			_ resource.Dependencies,
 			conf resource.Config,
 			logger golog.Logger,
-		) (resource.Resource, error) {
+		) (audioinput.AudioInput, error) {
 			cancelCtx, cancelFunc := context.WithCancel(context.Background())
 			var condMu sync.RWMutex
 			cond := sync.NewCond(condMu.RLocker())

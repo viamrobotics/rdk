@@ -11,6 +11,7 @@ import (
 	viz "go.viam.com/rdk/vision"
 	"go.viam.com/rdk/vision/classification"
 	"go.viam.com/rdk/vision/objectdetection"
+	"go.viam.com/utils"
 )
 
 // VisionService represents a fake instance of a vision service.
@@ -46,6 +47,7 @@ type VisionService struct {
 	GetObjectPointCloudsFunc func(ctx context.Context, cameraName, segmenterName string, extra map[string]interface{}) ([]*viz.Object, error)
 	DoCommandFunc            func(ctx context.Context,
 		cmd map[string]interface{}) (map[string]interface{}, error)
+	CloseFunc func(ctx context.Context) error
 }
 
 // NewVisionService returns a new injected vision service.
@@ -200,4 +202,12 @@ func (vs *VisionService) DoCommand(ctx context.Context,
 		return vs.Service.DoCommand(ctx, cmd)
 	}
 	return vs.DoCommandFunc(ctx, cmd)
+}
+
+// Close calls the injected Close or the real version.
+func (vs *VisionService) Close(ctx context.Context) error {
+	if vs.CloseFunc == nil {
+		return utils.TryClose(ctx, vs.Service)
+	}
+	return vs.CloseFunc(ctx)
 }

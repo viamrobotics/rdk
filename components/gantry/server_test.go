@@ -11,7 +11,6 @@ import (
 
 	"go.viam.com/rdk/components/gantry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -24,7 +23,7 @@ func newServer() (pb.GantryServiceServer, *inject.Gantry, *inject.Gantry, error)
 		gantry.Named(failGantryName): injectGantry2,
 		gantry.Named(fakeGantryName): testutils.NewUnimplementedResource(gantry.Named(fakeGantryName)),
 	}
-	gantrySvc, err := subtype.New(gantry.Subtype, gantries)
+	gantrySvc, err := resource.NewSubtypeCollection(gantry.Subtype, gantries)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -77,10 +76,6 @@ func TestServer(t *testing.T) {
 		_, err := gantryServer.GetPosition(context.Background(), &pb.GetPositionRequest{Name: missingGantryName})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
-
-		_, err = gantryServer.GetPosition(context.Background(), &pb.GetPositionRequest{Name: fakeGantryName})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "expected")
 
 		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "123", "bar": 234})
 		test.That(t, err, test.ShouldBeNil)

@@ -21,12 +21,14 @@ func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping, useP
 	registry.RegisterComponent(
 		board.Subtype,
 		resource.NewDefaultModel(resource.ModelName(modelName)),
-		registry.Component{Constructor: func(
-			ctx context.Context,
-			_ resource.Dependencies,
-			conf resource.Config,
-			logger golog.Logger,
-		) (resource.Resource, error) {
-			return nil, errors.New("linux boards are not supported on non-linux OSes")
-		}})
+		registry.Resource[board.Board]{
+			Constructor: func(
+				ctx context.Context,
+				_ resource.Dependencies,
+				conf resource.Config,
+				logger golog.Logger,
+			) (board.Board, error) {
+				return nil, errors.New("linux boards are not supported on non-linux OSes")
+			},
+		})
 }

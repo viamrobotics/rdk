@@ -30,13 +30,13 @@ func init() {
 	registry.RegisterComponent(
 		camera.Subtype,
 		model,
-		registry.Component{
+		registry.Resource[camera.Camera]{
 			DeprecatedRobotConstructor: func(
 				ctx context.Context,
 				r robot.Robot,
 				conf resource.Config,
 				logger golog.Logger,
-			) (resource.Resource, error) {
+			) (camera.Camera, error) {
 				newConf, err := resource.NativeConfig[*transformConfig](conf)
 				if err != nil {
 					return nil, err

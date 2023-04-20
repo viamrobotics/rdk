@@ -12,7 +12,6 @@ import (
 
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -25,7 +24,7 @@ func newServer() (pb.SensorServiceServer, *inject.Sensor, *inject.Sensor, error)
 		sensor.Named(failSensorName): injectSensor2,
 		sensor.Named(fakeSensorName): testutils.NewUnimplementedResource(sensor.Named(fakeSensorName)),
 	}
-	sensorSvc, err := subtype.New(sensor.Subtype, sensors)
+	sensorSvc, err := resource.NewSubtypeCollection(sensor.Subtype, sensors)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -66,10 +65,6 @@ func TestServer(t *testing.T) {
 		_, err = sensorServer.GetReadings(context.Background(), &pb.GetReadingsRequest{Name: failSensorName})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get readings")
-
-		_, err = sensorServer.GetReadings(context.Background(), &pb.GetReadingsRequest{Name: fakeSensorName})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "expected")
 
 		_, err = sensorServer.GetReadings(context.Background(), &pb.GetReadingsRequest{Name: missingSensorName})
 		test.That(t, err, test.ShouldNotBeNil)

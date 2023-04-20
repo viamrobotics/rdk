@@ -17,7 +17,6 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
-	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 )
 
@@ -43,9 +42,9 @@ func TestModularResources(t *testing.T) {
 
 	setupTest := func(t *testing.T) (*localRobot, *dummyModMan, func()) {
 		logger := golog.NewTestLogger(t)
-		compSubtypeSvc, err := subtype.New(compSubtype, nil)
+		compSubtypeSvc, err := resource.NewSubtypeCollection[resource.Resource](compSubtype, nil)
 		test.That(t, err, test.ShouldBeNil)
-		svcSubtypeSvc, err := subtype.New(svcSubtype, nil)
+		svcSubtypeSvc, err := resource.NewSubtypeCollection[resource.Resource](svcSubtype, nil)
 		test.That(t, err, test.ShouldBeNil)
 		mod := &dummyModMan{
 			compSubtypeSvc: compSubtypeSvc,
@@ -57,8 +56,8 @@ func TestModularResources(t *testing.T) {
 		actualR := r.(*localRobot)
 		actualR.modules = mod
 
-		registry.RegisterResourceSubtype(compSubtype, registry.ResourceSubtype{ReflectRPCServiceDesc: &desc.ServiceDescriptor{}})
-		registry.RegisterComponent(compSubtype, compModel, registry.Component{
+		registry.RegisterResourceSubtype(compSubtype, registry.ResourceSubtype[resource.Resource]{ReflectRPCServiceDesc: &desc.ServiceDescriptor{}})
+		registry.RegisterComponent(compSubtype, compModel, registry.Resource[resource.Resource]{
 			Constructor: func(
 				ctx context.Context,
 				deps resource.Dependencies,
@@ -68,7 +67,7 @@ func TestModularResources(t *testing.T) {
 				return mod.AddResource(ctx, conf, modmanager.DepsToNames(deps))
 			},
 		})
-		registry.RegisterComponent(compSubtype, compModel2, registry.Component{
+		registry.RegisterComponent(compSubtype, compModel2, registry.Resource[resource.Resource]{
 			Constructor: func(
 				ctx context.Context,
 				deps resource.Dependencies,
@@ -79,8 +78,8 @@ func TestModularResources(t *testing.T) {
 			},
 		})
 
-		registry.RegisterResourceSubtype(svcSubtype, registry.ResourceSubtype{ReflectRPCServiceDesc: &desc.ServiceDescriptor{}})
-		registry.RegisterResource(svcSubtype, svcModel, registry.Resource{
+		registry.RegisterResourceSubtype(svcSubtype, registry.ResourceSubtype[resource.Resource]{ReflectRPCServiceDesc: &desc.ServiceDescriptor{}})
+		registry.RegisterResource(svcSubtype, svcModel, registry.Resource[resource.Resource]{
 			Constructor: func(
 				ctx context.Context,
 				deps resource.Dependencies,
@@ -382,8 +381,8 @@ type dummyModMan struct {
 	add            []resource.Config
 	reconf         []resource.Config
 	remove         []resource.Name
-	compSubtypeSvc subtype.Service
-	svcSubtypeSvc  subtype.Service
+	compSubtypeSvc resource.SubtypeCollection[resource.Resource]
+	svcSubtypeSvc  resource.SubtypeCollection[resource.Resource]
 }
 
 func (m *dummyModMan) AddResource(ctx context.Context, conf resource.Config, deps []string) (resource.Resource, error) {

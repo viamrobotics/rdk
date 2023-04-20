@@ -113,11 +113,11 @@ func TestClient(t *testing.T) {
 		return errors.New("failure to remove waypoint")
 	}
 
-	workingSvc, err := subtype.New(navigation.Subtype, map[resource.Name]resource.Resource{
+	workingSvc, err := resource.NewSubtypeCollection(navigation.Subtype, map[resource.Name]resource.Resource{
 		testSvcName1: workingNavigationService,
 	})
 	test.That(t, err, test.ShouldBeNil)
-	failingSvc, err := subtype.New(navigation.Subtype, map[resource.Name]resource.Resource{
+	failingSvc, err := resource.NewSubtypeCollection(navigation.Subtype, map[resource.Name]resource.Resource{
 		testSvcName1: failingNavigationService,
 	})
 	test.That(t, err, test.ShouldBeNil)

@@ -39,13 +39,13 @@ const (
 var Subtype = baseremotecontrol.Subtype
 
 func init() {
-	registry.RegisterService(baseremotecontrol.Subtype, resource.DefaultServiceModel, registry.Service{
+	registry.RegisterService(baseremotecontrol.Subtype, resource.DefaultServiceModel, registry.Resource[baseremotecontrol.Service]{
 		Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
 			logger golog.Logger,
-		) (resource.Resource, error) {
+		) (baseremotecontrol.Service, error) {
 			return NewBuiltIn(ctx, deps, conf, logger)
 		},
 	})

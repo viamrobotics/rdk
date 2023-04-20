@@ -8,29 +8,24 @@ import (
 
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/resource"
 )
 
 type subtypeServer struct {
 	pb.UnimplementedPoseTrackerServiceServer
-	service subtype.Service
+	coll resource.SubtypeCollection[PoseTracker]
 }
 
 // NewServer constructs a pose tracker gRPC service server.
-func NewServer(service subtype.Service) pb.PoseTrackerServiceServer {
-	return &subtypeServer{service: service}
-}
-
-// getPoseTracker returns the specified pose tracker (or nil).
-func (server *subtypeServer) getPoseTracker(name string) (PoseTracker, error) {
-	return subtype.LookupResource[PoseTracker](server.service, name)
+func NewServer(coll resource.SubtypeCollection[PoseTracker]) pb.PoseTrackerServiceServer {
+	return &subtypeServer{coll: coll}
 }
 
 func (server *subtypeServer) GetPoses(
 	ctx context.Context,
 	req *pb.GetPosesRequest,
 ) (*pb.GetPosesResponse, error) {
-	poseTracker, err := server.getPoseTracker(req.GetName())
+	poseTracker, err := server.coll.Resource(req.GetName())
 	if err != nil {
 		return nil, err
 	}
@@ -52,7 +47,7 @@ func (server *subtypeServer) GetPoses(
 func (server *subtypeServer) DoCommand(ctx context.Context,
 	req *commonpb.DoCommandRequest,
 ) (*commonpb.DoCommandResponse, error) {
-	poseTracker, err := server.getPoseTracker(req.GetName())
+	poseTracker, err := server.coll.Resource(req.GetName())
 	if err != nil {
 		return nil, err
 	}

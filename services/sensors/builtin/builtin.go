@@ -16,13 +16,13 @@ import (
 )
 
 func init() {
-	registry.RegisterService(sensors.Subtype, resource.DefaultServiceModel, registry.Service{
+	registry.RegisterService(sensors.Subtype, resource.DefaultServiceModel, registry.Resource[sensors.Service]{
 		Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
 			logger golog.Logger,
-		) (resource.Resource, error) {
+		) (sensors.Service, error) {
 			return NewBuiltIn(ctx, deps, conf, logger)
 		},
 		// NOTE(erd): this ideally would be a matcher on all resources that

@@ -22,7 +22,7 @@ import (
 )
 
 func newServer(resources map[resource.Name]resource.Resource) (pb.MotionServiceServer, error) {
-	omSvc, err := subtype.New(motion.Subtype, resources)
+	omSvc, err := resource.NewSubtypeCollection(motion.Subtype, resources)
 	if err != nil {
 		return nil, err
 	}

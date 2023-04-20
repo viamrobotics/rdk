@@ -18,7 +18,6 @@ import (
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/services/vision/builtin"
-	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
@@ -236,15 +235,16 @@ func TestFullClientServerLoop(t *testing.T) {
 	}
 	oss, err := builtin.NewBuiltIn(context.Background(), r, cfgService, logger)
 	test.That(t, err, test.ShouldBeNil)
-	osMap := map[resource.Name]resource.Resource{
+	osMap := map[resource.Name]vision.Service{
 		vision.Named(testVisionServiceName): oss,
 	}
-	svc, err := subtype.New(vision.Subtype, osMap)
+	svc, err := resource.NewSubtypeCollection(vision.Subtype, osMap)
 	test.That(t, err, test.ShouldBeNil)
 	// test the server/client
-	resourceSubtype, ok := registry.ResourceSubtypeLookup(vision.Subtype)
+	resourceSubtype, ok, err := registry.ResourceSubtypeLookup[vision.Service](vision.Subtype)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, svc)
+	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, svc), test.ShouldBeNil)
 
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()

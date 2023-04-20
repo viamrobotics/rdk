@@ -23,13 +23,13 @@ import (
 )
 
 func init() {
-	registry.RegisterService(motion.Subtype, resource.DefaultServiceModel, registry.Service{
+	registry.RegisterService(motion.Subtype, resource.DefaultServiceModel, registry.Resource[motion.Service]{
 		DeprecatedRobotConstructor: func(
 			ctx context.Context,
 			r robot.Robot,
 			conf resource.Config,
 			logger golog.Logger,
-		) (resource.Resource, error) {
+		) (motion.Service, error) {
 			return NewBuiltIn(ctx, r, conf, logger)
 		},
 	})

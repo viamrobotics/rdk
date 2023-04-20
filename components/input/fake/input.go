@@ -25,8 +25,8 @@ func init() {
 	registry.RegisterComponent(
 		input.Subtype,
 		modelName,
-		registry.Component{
-			Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, _ golog.Logger) (resource.Resource, error) {
+		registry.Resource[input.Controller]{
+			Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, _ golog.Logger) (input.Controller, error) {
 				return NewInputController(ctx, conf)
 			},
 		},
@@ -59,8 +59,6 @@ type Config struct {
 	// 0 is not valid and will be overwritten by a random delay.
 	CallbackDelaySec float64 `json:"callback_delay_sec"`
 }
-
-var _ = input.Controller(&InputController{})
 
 type callback struct {
 	control  input.Control

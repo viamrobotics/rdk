@@ -11,29 +11,25 @@ import (
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/protoutils"
-	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/resource"
 )
 
 // subtypeServer implements the contract from shell.proto.
 type subtypeServer struct {
 	pb.UnimplementedShellServiceServer
-	subtypeSvc subtype.Service
+	coll resource.SubtypeCollection[Service]
 }
 
 // NewServer constructs a framesystem gRPC service server.
-func NewServer(s subtype.Service) pb.ShellServiceServer {
-	return &subtypeServer{subtypeSvc: s}
-}
-
-func (server *subtypeServer) service(serviceName string) (Service, error) {
-	return subtype.LookupResource[Service](server.subtypeSvc, serviceName)
+func NewServer(coll resource.SubtypeCollection[Service]) pb.ShellServiceServer {
+	return &subtypeServer{coll: coll}
 }
 
 func (server *subtypeServer) Shell(srv pb.ShellService_ShellServer) (retErr error) {
 	firstMsg := true
 	req, err := srv.Recv()
 	errTemp := err
-	svc, err := server.service(req.Name)
+	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return err
 	}
@@ -109,7 +105,7 @@ func (server *subtypeServer) Shell(srv pb.ShellService_ShellServer) (retErr erro
 func (server *subtypeServer) DoCommand(ctx context.Context,
 	req *commonpb.DoCommandRequest,
 ) (*commonpb.DoCommandResponse, error) {
-	svc, err := server.service(req.Name)
+	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}

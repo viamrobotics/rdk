@@ -12,24 +12,23 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/subtype"
 )
 
 func init() {
-	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
-		Status: func(ctx context.Context, res resource.Resource) (interface{}, error) {
+	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype[Gantry]{
+		Status: func(ctx context.Context, res Gantry) (interface{}, error) {
 			return CreateStatus(ctx, res)
 		},
-		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
+		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeColl resource.SubtypeCollection[Gantry]) error {
 			return rpcServer.RegisterServiceServer(
 				ctx,
 				&pb.GantryService_ServiceDesc,
-				NewServer(subtypeSvc),
+				NewServer(subtypeColl),
 				pb.RegisterGantryServiceHandlerFromEndpoint,
 			)
 		},
 		RPCServiceDesc: &pb.GantryService_ServiceDesc,
-		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (resource.Resource, error) {
+		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (Gantry, error) {
 			return NewClientFromConn(ctx, conn, name, logger)
 		},
 	})

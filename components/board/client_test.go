@@ -15,11 +15,9 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/board"
-	"go.viam.com/rdk/components/generic"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -38,13 +36,12 @@ func setupService(t *testing.T, injectBoard *inject.Board) (net.Listener, func()
 	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
-	boardSvc, err := subtype.New(board.Subtype, map[resource.Name]resource.Resource{board.Named(testBoardName): injectBoard})
+	boardSvc, err := resource.NewSubtypeCollection(board.Subtype, map[resource.Name]board.Board{board.Named(testBoardName): injectBoard})
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype, ok := registry.ResourceSubtypeLookup(board.Subtype)
+	resourceSubtype, ok, err := registry.ResourceSubtypeLookup[board.Board](board.Subtype)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, boardSvc)
-
-	generic.RegisterService(rpcServer, boardSvc)
+	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, boardSvc), test.ShouldBeNil)
 
 	go rpcServer.Serve(listener)
 	return listener, func() { rpcServer.Stop() }
@@ -270,11 +267,12 @@ func TestClientWithoutStatus(t *testing.T) {
 	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
-	boardSvc, err := subtype.New(board.Subtype, map[resource.Name]resource.Resource{board.Named(testBoardName): injectBoard})
+	boardSvc, err := resource.NewSubtypeCollection(board.Subtype, map[resource.Name]board.Board{board.Named(testBoardName): injectBoard})
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype, ok := registry.ResourceSubtypeLookup(board.Subtype)
+	resourceSubtype, ok, err := registry.ResourceSubtypeLookup[board.Board](board.Subtype)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, boardSvc)
+	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, boardSvc), test.ShouldBeNil)
 
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()

@@ -10,14 +10,10 @@ import (
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/structpb"
 
-	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 )
-
-// check client fulfills sensor.Sensor interface.
-var _ = sensor.Sensor(&client{})
 
 // client implements MovementSensorServiceClient.
 type client struct {

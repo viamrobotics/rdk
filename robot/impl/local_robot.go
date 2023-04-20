@@ -324,7 +324,7 @@ func (r *localRobot) Status(ctx context.Context, resourceNames []resource.Name) 
 			// otherwise return an empty status
 			var status interface{} = map[string]interface{}{}
 			var err error
-			if subtype, ok := registry.ResourceSubtypeLookup(name.Subtype); ok && subtype.Status != nil {
+			if subtype, ok := registry.GenericResourceSubtypeLookup(name.Subtype); ok && subtype.Status != nil {
 				status, err = subtype.Status(ctx, res)
 				if err != nil {
 					return nil, errors.Wrapf(err, "failed to get status from %q", name)
@@ -586,7 +586,7 @@ func (r *localRobot) newResource(
 		return nil, err
 	}
 
-	c, ok := registry.ResourceSubtypeLookup(resName.Subtype)
+	c, ok := registry.GenericResourceSubtypeLookup(resName.Subtype)
 	if ok {
 		// If MaxInstance equals zero then there is not a limit on the number of resources
 		if c.MaxInstance != 0 {

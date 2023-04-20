@@ -8,28 +8,24 @@ import (
 	pb "go.viam.com/api/component/movementsensor/v1"
 
 	"go.viam.com/rdk/protoutils"
-	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/resource"
 )
 
 type subtypeServer struct {
 	pb.UnimplementedMovementSensorServiceServer
-	s subtype.Service
+	coll resource.SubtypeCollection[MovementSensor]
 }
 
 // NewServer constructs an MovementSensor gRPC service subtypeServer.
-func NewServer(s subtype.Service) pb.MovementSensorServiceServer {
-	return &subtypeServer{s: s}
-}
-
-func (s *subtypeServer) getMovementSensor(name string) (MovementSensor, error) {
-	return subtype.LookupResource[MovementSensor](s.s, name)
+func NewServer(coll resource.SubtypeCollection[MovementSensor]) pb.MovementSensorServiceServer {
+	return &subtypeServer{coll: coll}
 }
 
 func (s *subtypeServer) GetPosition(
 	ctx context.Context,
 	req *pb.GetPositionRequest,
 ) (*pb.GetPositionResponse, error) {
-	msDevice, err := s.getMovementSensor(req.Name)
+	msDevice, err := s.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -47,7 +43,7 @@ func (s *subtypeServer) GetLinearVelocity(
 	ctx context.Context,
 	req *pb.GetLinearVelocityRequest,
 ) (*pb.GetLinearVelocityResponse, error) {
-	msDevice, err := s.getMovementSensor(req.Name)
+	msDevice, err := s.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +60,7 @@ func (s *subtypeServer) GetAngularVelocity(
 	ctx context.Context,
 	req *pb.GetAngularVelocityRequest,
 ) (*pb.GetAngularVelocityResponse, error) {
-	msDevice, err := s.getMovementSensor(req.Name)
+	msDevice, err := s.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +77,7 @@ func (s *subtypeServer) GetCompassHeading(
 	ctx context.Context,
 	req *pb.GetCompassHeadingRequest,
 ) (*pb.GetCompassHeadingResponse, error) {
-	msDevice, err := s.getMovementSensor(req.Name)
+	msDevice, err := s.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -98,7 +94,7 @@ func (s *subtypeServer) GetOrientation(
 	ctx context.Context,
 	req *pb.GetOrientationRequest,
 ) (*pb.GetOrientationResponse, error) {
-	msDevice, err := s.getMovementSensor(req.Name)
+	msDevice, err := s.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -115,7 +111,7 @@ func (s *subtypeServer) GetProperties(
 	ctx context.Context,
 	req *pb.GetPropertiesRequest,
 ) (*pb.GetPropertiesResponse, error) {
-	msDevice, err := s.getMovementSensor(req.Name)
+	msDevice, err := s.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +123,7 @@ func (s *subtypeServer) GetAccuracy(
 	ctx context.Context,
 	req *pb.GetAccuracyRequest,
 ) (*pb.GetAccuracyResponse, error) {
-	msDevice, err := s.getMovementSensor(req.Name)
+	msDevice, err := s.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -139,7 +135,7 @@ func (s *subtypeServer) GetLinearAcceleration(
 	ctx context.Context,
 	req *pb.GetLinearAccelerationRequest,
 ) (*pb.GetLinearAccelerationResponse, error) {
-	msDevice, err := s.getMovementSensor(req.Name)
+	msDevice, err := s.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -156,7 +152,7 @@ func (s *subtypeServer) GetLinearAcceleration(
 func (s *subtypeServer) DoCommand(ctx context.Context,
 	req *commonpb.DoCommandRequest,
 ) (*commonpb.DoCommandResponse, error) {
-	msDevice, err := s.getMovementSensor(req.GetName())
+	msDevice, err := s.coll.Resource(req.GetName())
 	if err != nil {
 		return nil, err
 	}

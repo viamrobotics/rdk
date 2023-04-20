@@ -4,6 +4,7 @@ import (
 	"context"
 
 	servicepb "go.viam.com/api/service/motion/v1"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -48,6 +49,7 @@ type MotionService struct {
 	) (*referenceframe.PoseInFrame, error)
 	DoCommandFunc func(ctx context.Context,
 		cmd map[string]interface{}) (map[string]interface{}, error)
+	CloseFunc func(ctx context.Context) error
 }
 
 // NewMotionService returns a new injected motion service.
@@ -125,4 +127,12 @@ func (mgs *MotionService) DoCommand(ctx context.Context,
 		return mgs.Service.DoCommand(ctx, cmd)
 	}
 	return mgs.DoCommandFunc(ctx, cmd)
+}
+
+// Close calls the injected Close or the real version.
+func (mgs *MotionService) Close(ctx context.Context) error {
+	if mgs.CloseFunc == nil {
+		return utils.TryClose(ctx, mgs.Service)
+	}
+	return mgs.CloseFunc(ctx)
 }

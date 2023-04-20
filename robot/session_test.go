@@ -32,7 +32,6 @@ import (
 	robotimpl "go.viam.com/rdk/robot/impl"
 	_ "go.viam.com/rdk/services/register"
 	"go.viam.com/rdk/session"
-	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/robottestutils"
 )
 
@@ -46,11 +45,11 @@ var echoSubType = resource.NewSubtype(
 
 func init() {
 	registry.RegisterResourceSubtype(echoSubType, registry.ResourceSubtype{
-		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
+		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeColl resource.SubtypeCollection[resource.Resource]) error {
 			return rpcServer.RegisterServiceServer(
 				ctx,
 				&echopb.TestEchoService_ServiceDesc,
-				&echoServer{s: subtypeSvc},
+				&echoServer{s: subtypeColl},
 				echopb.RegisterTestEchoServiceHandlerFromEndpoint,
 			)
 		},
@@ -99,7 +98,7 @@ func TestSessions(t *testing.T) {
 			registry.RegisterComponent(
 				motor.Subtype,
 				modelName,
-				registry.Component{Constructor: func(
+				registry.Resource{Constructor: func(
 					ctx context.Context,
 					deps resource.Dependencies,
 					conf resource.Config,
@@ -113,7 +112,7 @@ func TestSessions(t *testing.T) {
 			registry.RegisterComponent(
 				echoSubType,
 				streamModelName,
-				registry.Component{
+				registry.Resource{
 					Constructor: func(
 						ctx context.Context,
 						_ resource.Dependencies,
@@ -127,7 +126,7 @@ func TestSessions(t *testing.T) {
 			registry.RegisterComponent(
 				base.Subtype,
 				modelName,
-				registry.Component{
+				registry.Resource{
 					Constructor: func(
 						ctx context.Context,
 						_ resource.Dependencies,
@@ -297,7 +296,7 @@ func TestSessionsWithRemote(t *testing.T) {
 	registry.RegisterComponent(
 		motor.Subtype,
 		modelName,
-		registry.Component{Constructor: func(
+		registry.Resource{Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
@@ -314,7 +313,7 @@ func TestSessionsWithRemote(t *testing.T) {
 	registry.RegisterComponent(
 		echoSubType,
 		streamModelName,
-		registry.Component{
+		registry.Resource{
 			Constructor: func(
 				ctx context.Context,
 				_ resource.Dependencies,
@@ -328,7 +327,7 @@ func TestSessionsWithRemote(t *testing.T) {
 	registry.RegisterComponent(
 		base.Subtype,
 		modelName,
-		registry.Component{
+		registry.Resource{
 			Constructor: func(
 				ctx context.Context,
 				_ resource.Dependencies,
@@ -554,7 +553,7 @@ func TestSessionsMixedClients(t *testing.T) {
 	registry.RegisterComponent(
 		motor.Subtype,
 		modelName,
-		registry.Component{Constructor: func(
+		registry.Resource{Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
@@ -641,7 +640,7 @@ func TestSessionsMixedOwnersNoAuth(t *testing.T) {
 	registry.RegisterComponent(
 		motor.Subtype,
 		modelName,
-		registry.Component{Constructor: func(
+		registry.Resource{Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
@@ -740,7 +739,7 @@ func TestSessionsMixedOwnersImplicitAuth(t *testing.T) {
 	registry.RegisterComponent(
 		motor.Subtype,
 		modelName,
-		registry.Component{Constructor: func(
+		registry.Resource{Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
@@ -831,8 +830,6 @@ func TestSessionsMixedOwnersImplicitAuth(t *testing.T) {
 	test.That(t, roboClientConn2.Close(), test.ShouldBeNil)
 	test.That(t, r.Close(ctx), test.ShouldBeNil)
 }
-
-var _ = motor.Motor(&dummyMotor{})
 
 type dummyMotor struct {
 	resource.Named
@@ -971,7 +968,7 @@ func (e *dummyEcho) IsMoving(context.Context) (bool, error) {
 
 type echoServer struct {
 	echopb.UnimplementedTestEchoServiceServer
-	s subtype.Service
+	coll resource.SubtypeCollection
 }
 
 func (srv *echoServer) EchoMultiple(

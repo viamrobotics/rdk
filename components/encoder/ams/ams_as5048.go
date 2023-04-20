@@ -39,13 +39,13 @@ func init() {
 	registry.RegisterComponent(
 		encoder.Subtype,
 		modelName,
-		registry.Component{
+		registry.Resource[encoder.Encoder]{
 			Constructor: func(
 				ctx context.Context,
 				deps resource.Dependencies,
 				conf resource.Config,
 				logger golog.Logger,
-			) (resource.Resource, error) {
+			) (encoder.Encoder, error) {
 				return newAS5048Encoder(ctx, deps, conf, logger)
 			},
 		},

@@ -102,7 +102,8 @@ func TestCreateStatus(t *testing.T) {
 		pose2 := spatialmath.NewPoseFromProtobuf(status.EndPosition)
 		test.That(t, spatialmath.PoseAlmostEqualEps(pose1, pose2, 0.01), test.ShouldBeTrue)
 
-		resourceSubtype, ok := registry.ResourceSubtypeLookup(arm.Subtype)
+		resourceSubtype, ok, err := registry.ResourceSubtypeLookup[arm.Arm](arm.Subtype)
+		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ok, test.ShouldBeTrue)
 		status2, err := resourceSubtype.Status(context.Background(), injectArm)
 		test.That(t, err, test.ShouldBeNil)

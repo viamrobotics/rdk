@@ -10,12 +10,10 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/servo"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -61,18 +59,18 @@ func TestClient(t *testing.T) {
 		return errors.New("no stop")
 	}
 
-	resourceMap := map[resource.Name]resource.Resource{
+	resourceMap := map[resource.Name]servo.Servo{
 		servo.Named(testServoName): workingServo,
 		servo.Named(failServoName): failingServo,
 	}
-	servoSvc, err := subtype.New(servo.Subtype, resourceMap)
+	servoSvc, err := resource.NewSubtypeCollection(servo.Subtype, resourceMap)
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype, ok := registry.ResourceSubtypeLookup(servo.Subtype)
+	resourceSubtype, ok, err := registry.ResourceSubtypeLookup[servo.Servo](servo.Subtype)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, servoSvc)
+	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, servoSvc), test.ShouldBeNil)
 
 	workingServo.DoFunc = testutils.EchoFunc
-	generic.RegisterService(rpcServer, servoSvc)
 
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()

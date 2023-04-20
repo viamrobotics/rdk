@@ -84,7 +84,7 @@ func (conf *Config) validateValues() error {
 }
 
 func init() {
-	registry.RegisterComponent(input.Subtype, modelName, registry.Component{Constructor: NewGPIOController})
+	registry.RegisterComponent(input.Subtype, modelName, registry.Resource[input.Controller]{Constructor: NewGPIOController})
 
 	config.RegisterComponentAttributeMapConverter(
 		input.Subtype,
@@ -100,7 +100,7 @@ func NewGPIOController(
 	deps resource.Dependencies,
 	conf resource.Config,
 	logger golog.Logger,
-) (resource.Resource, error) {
+) (input.Controller, error) {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return nil, err
@@ -142,8 +142,6 @@ func NewGPIOController(
 
 	return &c, nil
 }
-
-var _ = input.Controller(&Controller{})
 
 // A Controller creates an input.Controller from DigitalInterrupts and AnalogReaders.
 type Controller struct {

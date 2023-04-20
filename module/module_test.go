@@ -414,8 +414,8 @@ func TestAttributeConversion(t *testing.T) {
 		)
 
 		// register the non-reconfigurable one
-		registry.RegisterService(shell.Subtype, model, registry.Service{
-			Constructor: func(ctx context.Context, deps resource.Dependencies, cfg resource.Config, logger golog.Logger) (resource.Resource, error) {
+		registry.RegisterService(shell.Subtype, model, registry.Resource[shell.Service]{
+			Constructor: func(ctx context.Context, deps resource.Dependencies, cfg resource.Config, logger golog.Logger) (shell.Service, error) {
 				createConf1 = cfg
 				createDeps1 = deps
 				return &inject.ShellService{}, nil
@@ -433,8 +433,8 @@ func TestAttributeConversion(t *testing.T) {
 		test.That(t, m.AddModelFromRegistry(ctx, shell.Subtype, model), test.ShouldBeNil)
 
 		// register the reconfigurable version
-		registry.RegisterService(shell.Subtype, modelWithReconfigure, registry.Service{
-			Constructor: func(ctx context.Context, deps resource.Dependencies, cfg resource.Config, logger golog.Logger) (resource.Resource, error) {
+		registry.RegisterService(shell.Subtype, modelWithReconfigure, registry.Resource[shell.Service]{
+			Constructor: func(ctx context.Context, deps resource.Dependencies, cfg resource.Config, logger golog.Logger) (shell.Service, error) {
 				injectable := &inject.ShellService{}
 				injectable.ReconfigureFunc = func(ctx context.Context, deps resource.Dependencies, cfg resource.Config) error {
 					reconfigConf2 = cfg

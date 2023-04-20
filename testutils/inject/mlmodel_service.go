@@ -5,6 +5,7 @@ import (
 
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/mlmodel"
+	"go.viam.com/utils"
 )
 
 // MLModelService represents a fake instance of an MLModel service.
@@ -13,6 +14,7 @@ type MLModelService struct {
 	name         resource.Name
 	InferFunc    func(ctx context.Context, input map[string]interface{}) (map[string]interface{}, error)
 	MetadataFunc func(ctx context.Context) (mlmodel.MLMetadata, error)
+	CloseFunc    func(ctx context.Context) error
 }
 
 // NewMLModelService returns a new injected mlmodel service.
@@ -39,4 +41,12 @@ func (s *MLModelService) Metadata(ctx context.Context) (mlmodel.MLMetadata, erro
 		return s.Service.Metadata(ctx)
 	}
 	return s.MetadataFunc(ctx)
+}
+
+// Close calls the injected Close or the real version.
+func (s *MLModelService) Close(ctx context.Context) error {
+	if s.CloseFunc == nil {
+		return utils.TryClose(ctx, s.Service)
+	}
+	return s.CloseFunc(ctx)
 }

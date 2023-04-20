@@ -7,6 +7,7 @@ import (
 
 	"github.com/invopop/jsonschema"
 	"github.com/pkg/errors"
+
 	// register cameras for testing.
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/vision/v1"
@@ -21,7 +22,6 @@ import (
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/services/vision/builtin"
 	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
@@ -30,7 +30,7 @@ import (
 )
 
 func newServer(m map[resource.Name]resource.Resource) (pb.VisionServiceServer, error) {
-	svc, err := subtype.New(vision.Subtype, m)
+	svc, err := resource.NewSubtypeCollection(vision.Subtype, m)
 	if err != nil {
 		return nil, err
 	}

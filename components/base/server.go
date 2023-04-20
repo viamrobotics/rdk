@@ -9,23 +9,18 @@ import (
 
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/protoutils"
-	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/resource"
 )
 
 // subtypeServer implements the BaseService from base.proto.
 type subtypeServer struct {
 	pb.UnimplementedBaseServiceServer
-	s subtype.Service
+	coll resource.SubtypeCollection[Base]
 }
 
 // NewServer constructs a base gRPC service server.
-func NewServer(s subtype.Service) pb.BaseServiceServer {
-	return &subtypeServer{s: s}
-}
-
-// getBase returns the base specified or nil.
-func (s *subtypeServer) getBase(name string) (Base, error) {
-	return subtype.LookupResource[Base](s.s, name)
+func NewServer(coll resource.SubtypeCollection[Base]) pb.BaseServiceServer {
+	return &subtypeServer{coll: coll}
 }
 
 // MoveStraight moves a robot's base in a straight line by a given distance, expressed in millimeters
@@ -35,7 +30,7 @@ func (s *subtypeServer) MoveStraight(
 	req *pb.MoveStraightRequest,
 ) (*pb.MoveStraightResponse, error) {
 	operation.CancelOtherWithLabel(ctx, req.GetName())
-	base, err := s.getBase(req.GetName())
+	base, err := s.coll.Resource(req.GetName())
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +49,7 @@ func (s *subtypeServer) Spin(
 	req *pb.SpinRequest,
 ) (*pb.SpinResponse, error) {
 	operation.CancelOtherWithLabel(ctx, req.GetName())
-	base, err := s.getBase(req.GetName())
+	base, err := s.coll.Resource(req.GetName())
 	if err != nil {
 		return nil, err
 	}
@@ -71,7 +66,7 @@ func (s *subtypeServer) SetPower(
 	req *pb.SetPowerRequest,
 ) (*pb.SetPowerResponse, error) {
 	operation.CancelOtherWithLabel(ctx, req.GetName())
-	base, err := s.getBase(req.GetName())
+	base, err := s.coll.Resource(req.GetName())
 	if err != nil {
 		return nil, err
 	}
@@ -93,7 +88,7 @@ func (s *subtypeServer) SetVelocity(
 	req *pb.SetVelocityRequest,
 ) (*pb.SetVelocityResponse, error) {
 	operation.CancelOtherWithLabel(ctx, req.GetName())
-	base, err := s.getBase(req.GetName())
+	base, err := s.coll.Resource(req.GetName())
 	if err != nil {
 		return nil, err
 	}
@@ -116,7 +111,7 @@ func (s *subtypeServer) Stop(
 	req *pb.StopRequest,
 ) (*pb.StopResponse, error) {
 	operation.CancelOtherWithLabel(ctx, req.GetName())
-	base, err := s.getBase(req.GetName())
+	base, err := s.coll.Resource(req.GetName())
 	if err != nil {
 		return nil, err
 	}
@@ -128,7 +123,7 @@ func (s *subtypeServer) Stop(
 
 // IsMoving queries of a component is in motion.
 func (s *subtypeServer) IsMoving(ctx context.Context, req *pb.IsMovingRequest) (*pb.IsMovingResponse, error) {
-	base, err := s.getBase(req.GetName())
+	base, err := s.coll.Resource(req.GetName())
 	if err != nil {
 		return nil, err
 	}
@@ -143,7 +138,7 @@ func (s *subtypeServer) IsMoving(ctx context.Context, req *pb.IsMovingRequest) (
 func (s *subtypeServer) DoCommand(ctx context.Context,
 	req *commonpb.DoCommandRequest,
 ) (*commonpb.DoCommandResponse, error) {
-	base, err := s.getBase(req.GetName())
+	base, err := s.coll.Resource(req.GetName())
 	if err != nil {
 		return nil, err
 	}

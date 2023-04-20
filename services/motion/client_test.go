@@ -21,7 +21,6 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -39,14 +38,15 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	injectMS := &inject.MotionService{}
-	resources := map[resource.Name]resource.Resource{
+	resources := map[resource.Name]motion.Service{
 		testMotionServiceName: injectMS,
 	}
-	svc, err := subtype.New(motion.Subtype, resources)
+	svc, err := resource.NewSubtypeCollection(motion.Subtype, resources)
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype, ok := registry.ResourceSubtypeLookup(motion.Subtype)
+	resourceSubtype, ok, err := registry.ResourceSubtypeLookup[motion.Service](motion.Subtype)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, svc)
+	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, svc), test.ShouldBeNil)
 	grabPose := referenceframe.NewPoseInFrame("", spatialmath.NewZeroPose())
 	resourceName := gripper.Named("fake")
 	test.That(t, err, test.ShouldBeNil)

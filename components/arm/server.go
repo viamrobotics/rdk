@@ -9,24 +9,19 @@ import (
 
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/subtype"
 )
 
 // subtypeServer implements the ArmService from arm.proto.
 type subtypeServer struct {
 	pb.UnimplementedArmServiceServer
-	s subtype.Service
+	coll resource.SubtypeCollection[Arm]
 }
 
 // NewServer constructs an arm gRPC service server.
-func NewServer(s subtype.Service) pb.ArmServiceServer {
-	return &subtypeServer{s: s}
-}
-
-// getArm returns the arm specified, nil if not.
-func (s *subtypeServer) getArm(name string) (Arm, error) {
-	return subtype.LookupResource[Arm](s.s, name)
+func NewServer(coll resource.SubtypeCollection[Arm]) pb.ArmServiceServer {
+	return &subtypeServer{coll: coll}
 }
 
 // GetEndPosition returns the position of the arm specified.
@@ -34,7 +29,7 @@ func (s *subtypeServer) GetEndPosition(
 	ctx context.Context,
 	req *pb.GetEndPositionRequest,
 ) (*pb.GetEndPositionResponse, error) {
-	arm, err := s.getArm(req.Name)
+	arm, err := s.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -50,7 +45,7 @@ func (s *subtypeServer) GetJointPositions(
 	ctx context.Context,
 	req *pb.GetJointPositionsRequest,
 ) (*pb.GetJointPositionsResponse, error) {
-	arm, err := s.getArm(req.Name)
+	arm, err := s.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +60,7 @@ func (s *subtypeServer) GetJointPositions(
 // MoveToPosition returns the position of the arm specified.
 func (s *subtypeServer) MoveToPosition(ctx context.Context, req *pb.MoveToPositionRequest) (*pb.MoveToPositionResponse, error) {
 	operation.CancelOtherWithLabel(ctx, req.Name)
-	arm, err := s.getArm(req.Name)
+	arm, err := s.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +77,7 @@ func (s *subtypeServer) MoveToJointPositions(
 	req *pb.MoveToJointPositionsRequest,
 ) (*pb.MoveToJointPositionsResponse, error) {
 	operation.CancelOtherWithLabel(ctx, req.Name)
-	arm, err := s.getArm(req.Name)
+	arm, err := s.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +87,7 @@ func (s *subtypeServer) MoveToJointPositions(
 // Stop stops the arm specified.
 func (s *subtypeServer) Stop(ctx context.Context, req *pb.StopRequest) (*pb.StopResponse, error) {
 	operation.CancelOtherWithLabel(ctx, req.Name)
-	arm, err := s.getArm(req.Name)
+	arm, err := s.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +96,7 @@ func (s *subtypeServer) Stop(ctx context.Context, req *pb.StopRequest) (*pb.Stop
 
 // IsMoving queries of a component is in motion.
 func (s *subtypeServer) IsMoving(ctx context.Context, req *pb.IsMovingRequest) (*pb.IsMovingResponse, error) {
-	arm, err := s.getArm(req.GetName())
+	arm, err := s.coll.Resource(req.GetName())
 	if err != nil {
 		return nil, err
 	}
@@ -116,7 +111,7 @@ func (s *subtypeServer) IsMoving(ctx context.Context, req *pb.IsMovingRequest) (
 func (s *subtypeServer) DoCommand(ctx context.Context,
 	req *commonpb.DoCommandRequest,
 ) (*commonpb.DoCommandResponse, error) {
-	arm, err := s.getArm(req.GetName())
+	arm, err := s.coll.Resource(req.GetName())
 	if err != nil {
 		return nil, err
 	}

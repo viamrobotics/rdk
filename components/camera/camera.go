@@ -24,21 +24,20 @@ import (
 	"go.viam.com/rdk/rimage/depthadapter"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/subtype"
 )
 
 func init() {
-	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
-		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
+	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype[Camera]{
+		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeColl resource.SubtypeCollection[Camera]) error {
 			return rpcServer.RegisterServiceServer(
 				ctx,
 				&pb.CameraService_ServiceDesc,
-				NewServer(subtypeSvc),
+				NewServer(subtypeColl),
 				pb.RegisterCameraServiceHandlerFromEndpoint,
 			)
 		},
 		RPCServiceDesc: &pb.CameraService_ServiceDesc,
-		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (resource.Resource, error) {
+		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (Camera, error) {
 			return NewClientFromConn(ctx, conn, name, logger)
 		},
 	})

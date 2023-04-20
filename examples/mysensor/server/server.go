@@ -23,12 +23,12 @@ func init() {
 	registry.RegisterComponent(
 		sensor.Subtype,
 		resource.NewDefaultModel("mySensor"),
-		registry.Component{Constructor: func(
+		registry.Resource[sensor.Sensor]{Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
 			logger golog.Logger,
-		) (resource.Resource, error) {
+		) (sensor.Sensor, error) {
 			return newSensor(conf.ResourceName()), nil
 		}})
 }
@@ -38,9 +38,6 @@ func newSensor(name resource.Name) sensor.Sensor {
 		Named: name.AsNamed(),
 	}
 }
-
-// this checks that the mySensor struct implements the sensor.Sensor interface.
-var _ = sensor.Sensor(&mySensor{})
 
 // mySensor is a sensor device that always returns "hello world".
 type mySensor struct {

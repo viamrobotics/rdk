@@ -14,20 +14,17 @@ import (
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/subtype"
-	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
 
 func newServer() (pb.ArmServiceServer, *inject.Arm, *inject.Arm, error) {
 	injectArm := &inject.Arm{}
 	injectArm2 := &inject.Arm{}
-	arms := map[resource.Name]resource.Resource{
+	arms := map[resource.Name]arm.Arm{
 		arm.Named(testArmName): injectArm,
 		arm.Named(failArmName): injectArm2,
-		arm.Named(fakeArmName): testutils.NewUnimplementedResource(arm.Named(fakeArmName)),
 	}
-	armSvc, err := subtype.New(arm.Subtype, arms)
+	armSvc, err := resource.NewSubtypeCollection(arm.Subtype, arms)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -95,10 +92,6 @@ func TestServer(t *testing.T) {
 		_, err := armServer.GetEndPosition(context.Background(), &pb.GetEndPositionRequest{Name: missingArmName})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
-
-		_, err = armServer.GetEndPosition(context.Background(), &pb.GetEndPositionRequest{Name: fakeArmName})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "expected")
 
 		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "EndPosition"})
 		test.That(t, err, test.ShouldBeNil)

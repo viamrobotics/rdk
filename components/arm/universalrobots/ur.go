@@ -4,6 +4,7 @@ package universalrobots
 import (
 	"bufio"
 	"context"
+
 	// for embedding model file.
 	_ "embed"
 	"encoding/binary"
@@ -59,8 +60,8 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 var ur5modeljson []byte
 
 func init() {
-	registry.RegisterComponent(arm.Subtype, ModelName, registry.Component{
-		Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (resource.Resource, error) {
+	registry.RegisterComponent(arm.Subtype, ModelName, registry.Resource[arm.Arm]{
+		Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (arm.Arm, error) {
 			return URArmConnect(ctx, conf, logger)
 		},
 	})

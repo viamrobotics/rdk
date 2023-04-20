@@ -24,13 +24,13 @@ import (
 var sModel = resource.NewDefaultModel("tflite_cpu")
 
 func init() {
-	registry.RegisterService(vision.Subtype, sModel, registry.Service{
+	registry.RegisterService(vision.Subtype, sModel, registry.Resource[mlmodel.Service]{
 		Constructor: func(
 			ctx context.Context,
 			_ resource.Dependencies,
 			conf resource.Config,
 			logger golog.Logger,
-		) (resource.Resource, error) {
+		) (mlmodel.Service, error) {
 			svcConf, err := resource.NativeConfig[*TFLiteConfig](conf)
 			if err != nil {
 				return nil, err

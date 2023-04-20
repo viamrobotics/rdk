@@ -45,12 +45,12 @@ func init() {
 	registry.RegisterComponent(
 		encoder.Subtype,
 		singlemodelname,
-		registry.Component{Constructor: func(
+		registry.Resource[encoder.Encoder]{Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
 			logger golog.Logger,
-		) (resource.Resource, error) {
+		) (encoder.Encoder, error) {
 			return NewSingleEncoder(ctx, deps, conf, logger)
 		}})
 

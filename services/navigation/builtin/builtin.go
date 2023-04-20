@@ -30,13 +30,13 @@ const (
 )
 
 func init() {
-	registry.RegisterService(navigation.Subtype, resource.DefaultServiceModel, registry.Service{
+	registry.RegisterService(navigation.Subtype, resource.DefaultServiceModel, registry.Resource[navigation.Service]{
 		Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
 			logger golog.Logger,
-		) (resource.Resource, error) {
+		) (navigation.Service, error) {
 			return NewBuiltIn(ctx, deps, conf, logger)
 		},
 	},

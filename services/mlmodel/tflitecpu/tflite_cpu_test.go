@@ -18,7 +18,6 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/services/mlmodel"
-	"go.viam.com/rdk/subtype"
 )
 
 func TestEmptyTFLiteConfig(t *testing.T) {
@@ -183,14 +182,15 @@ func TestTFLiteCPUClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, myModel, test.ShouldNotBeNil)
 
-	resources := map[resource.Name]resource.Resource{
+	resources := map[resource.Name]mlmodel.Service{
 		mlmodel.Named("testName"): myModel,
 	}
-	svc, err := subtype.New(mlmodel.Subtype, resources)
+	svc, err := resource.NewSubtypeCollection(mlmodel.Subtype, resources)
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype, ok := registry.ResourceSubtypeLookup(mlmodel.Subtype)
+	resourceSubtype, ok, err := registry.ResourceSubtypeLookup[mlmodel.Service](mlmodel.Subtype)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, svc)
+	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, svc), test.ShouldBeNil)
 
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()

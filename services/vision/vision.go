@@ -15,7 +15,6 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 	viz "go.viam.com/rdk/vision"
 	"go.viam.com/rdk/vision/classification"
@@ -23,17 +22,17 @@ import (
 )
 
 func init() {
-	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
-		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
+	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype[Service]{
+		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeColl resource.SubtypeCollection[Service]) error {
 			return rpcServer.RegisterServiceServer(
 				ctx,
 				&servicepb.VisionService_ServiceDesc,
-				NewServer(subtypeSvc),
+				NewServer(subtypeColl),
 				servicepb.RegisterVisionServiceHandlerFromEndpoint,
 			)
 		},
 		RPCServiceDesc: &servicepb.VisionService_ServiceDesc,
-		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (resource.Resource, error) {
+		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (Service, error) {
 			return NewClientFromConn(ctx, conn, name, logger)
 		},
 		MaxInstance: resource.DefaultMaxInstance,

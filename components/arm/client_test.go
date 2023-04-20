@@ -13,7 +13,6 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/arm"
-	"go.viam.com/rdk/components/generic"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
@@ -21,7 +20,6 @@ import (
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 	"go.viam.com/rdk/robot/server"
 	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -88,12 +86,17 @@ func TestClient(t *testing.T) {
 		return nil
 	}
 
-	armSvc, err := subtype.New(
-		arm.Subtype, map[resource.Name]resource.Resource{arm.Named(testArmName): injectArm, arm.Named(testArmName2): injectArm2})
+	armSvc, err := resource.NewSubtypeCollection(
+		arm.Subtype, map[resource.Name]arm.Arm{
+			arm.Named(testArmName):  injectArm,
+			arm.Named(testArmName2): injectArm2,
+		})
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype, ok := registry.ResourceSubtypeLookup(arm.Subtype)
+	resourceSubtype, ok, err := registry.ResourceSubtypeLookup[arm.Arm](arm.Subtype)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, armSvc)
+
+	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, armSvc), test.ShouldBeNil)
 
 	injectRobot := &inject.Robot{}
 	injectRobot.FrameSystemConfigFunc = func(
@@ -108,7 +111,6 @@ func TestClient(t *testing.T) {
 		server.New(injectRobot),
 	), test.ShouldBeNil)
 
-	generic.RegisterService(rpcServer, armSvc)
 	injectArm.DoFunc = testutils.EchoFunc
 
 	go rpcServer.Serve(listener1)

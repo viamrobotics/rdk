@@ -12,14 +12,12 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/posetracker"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -76,18 +74,18 @@ func TestClient(t *testing.T) {
 		return nil, errors.New("failure to get poses")
 	}
 
-	resourceMap := map[resource.Name]resource.Resource{
+	resourceMap := map[resource.Name]posetracker.PoseTracker{
 		posetracker.Named(workingPTName): workingPT,
 		posetracker.Named(failingPTName): failingPT,
 	}
-	ptSvc, err := subtype.New(posetracker.Subtype, resourceMap)
+	ptSvc, err := resource.NewSubtypeCollection(posetracker.Subtype, resourceMap)
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype, ok := registry.ResourceSubtypeLookup(posetracker.Subtype)
+	resourceSubtype, ok, err := registry.ResourceSubtypeLookup[posetracker.PoseTracker](posetracker.Subtype)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, ptSvc)
+	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, ptSvc), test.ShouldBeNil)
 
 	workingPT.DoFunc = testutils.EchoFunc
-	generic.RegisterService(rpcServer, ptSvc)
 
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()

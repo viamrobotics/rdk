@@ -12,8 +12,6 @@ import (
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/subtype"
-	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
 
@@ -21,11 +19,10 @@ var errFoo = errors.New("whoops")
 
 func newServer() (pb.BoardServiceServer, *inject.Board, error) {
 	injectBoard := &inject.Board{}
-	boards := map[resource.Name]resource.Resource{
+	boards := map[resource.Name]board.Board{
 		board.Named(testBoardName): injectBoard,
-		board.Named(fakeBoardName): testutils.NewUnimplementedResource(board.Named(fakeBoardName)),
 	}
-	boardSvc, err := subtype.New(board.Subtype, boards)
+	boardSvc, err := resource.NewSubtypeCollection(board.Subtype, boards)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -65,14 +62,6 @@ func TestServerStatus(t *testing.T) {
 			expCapArgs:   []interface{}(nil),
 			expResp:      nil,
 			expRespErr:   "not found",
-		},
-		{
-			injectResult: status,
-			injectErr:    nil,
-			req:          &request{Name: fakeBoardName},
-			expCapArgs:   []interface{}(nil),
-			expResp:      nil,
-			expRespErr:   "expected",
 		},
 		{
 			injectResult: status,
@@ -137,12 +126,6 @@ func TestServerSetGPIO(t *testing.T) {
 			req:        &request{Name: missingBoardName},
 			expCapArgs: []interface{}(nil),
 			expRespErr: "not found",
-		},
-		{
-			injectErr:  nil,
-			req:        &request{Name: fakeBoardName},
-			expCapArgs: []interface{}(nil),
-			expRespErr: "expected",
 		},
 		{
 			injectErr:  errFoo,
@@ -212,14 +195,6 @@ func TestServerGetGPIO(t *testing.T) {
 			expCapArgs:   []interface{}(nil),
 			expResp:      nil,
 			expRespErr:   "not found",
-		},
-		{
-			injectResult: false,
-			injectErr:    nil,
-			req:          &request{Name: fakeBoardName},
-			expCapArgs:   []interface{}(nil),
-			expResp:      nil,
-			expRespErr:   "expected",
 		},
 		{
 			injectResult: false,
@@ -298,14 +273,6 @@ func TestServerPWM(t *testing.T) {
 		},
 		{
 			injectResult: 0,
-			injectErr:    nil,
-			req:          &request{Name: fakeBoardName},
-			expCapArgs:   []interface{}(nil),
-			expResp:      nil,
-			expRespErr:   "expected",
-		},
-		{
-			injectResult: 0,
 			injectErr:    errFoo,
 			req:          &request{Name: testBoardName, Pin: "one"},
 			expCapArgs:   []interface{}{ctx},
@@ -371,12 +338,6 @@ func TestServerSetPWM(t *testing.T) {
 			req:        &request{Name: missingBoardName},
 			expCapArgs: []interface{}(nil),
 			expRespErr: "not found",
-		},
-		{
-			injectErr:  nil,
-			req:        &request{Name: fakeBoardName},
-			expCapArgs: []interface{}(nil),
-			expRespErr: "expected",
 		},
 		{
 			injectErr:  errFoo,
@@ -450,14 +411,6 @@ func TestServerPWMFrequency(t *testing.T) {
 		},
 		{
 			injectResult: 0,
-			injectErr:    nil,
-			req:          &request{Name: fakeBoardName},
-			expCapArgs:   []interface{}(nil),
-			expResp:      nil,
-			expRespErr:   "expected",
-		},
-		{
-			injectResult: 0,
 			injectErr:    errFoo,
 			req:          &request{Name: testBoardName, Pin: "one"},
 			expCapArgs:   []interface{}{ctx},
@@ -523,12 +476,6 @@ func TestServerSetPWMFrequency(t *testing.T) {
 			req:        &request{Name: missingBoardName},
 			expCapArgs: []interface{}(nil),
 			expRespErr: "not found",
-		},
-		{
-			injectErr:  nil,
-			req:        &request{Name: fakeBoardName},
-			expCapArgs: []interface{}(nil),
-			expRespErr: "expected",
 		},
 		{
 			injectErr:  errFoo,
@@ -605,17 +552,6 @@ func TestServerReadAnalogReader(t *testing.T) {
 			expCapArgs:             []interface{}(nil),
 			expResp:                nil,
 			expRespErr:             "not found",
-		},
-		{
-			injectAnalogReader:     nil,
-			injectAnalogReaderOk:   false,
-			injectResult:           0,
-			injectErr:              nil,
-			req:                    &request{BoardName: fakeBoardName},
-			expCapAnalogReaderArgs: []interface{}(nil),
-			expCapArgs:             []interface{}(nil),
-			expResp:                nil,
-			expRespErr:             "expected",
 		},
 		{
 			injectAnalogReader:     nil,
@@ -715,17 +651,6 @@ func TestServerGetDigitalInterruptValue(t *testing.T) {
 			expCapArgs:                 []interface{}(nil),
 			expResp:                    nil,
 			expRespErr:                 "not found",
-		},
-		{
-			injectDigitalInterrupt:     nil,
-			injectDigitalInterruptOk:   false,
-			injectResult:               0,
-			injectErr:                  nil,
-			req:                        &request{BoardName: fakeBoardName},
-			expCapDigitalInterruptArgs: []interface{}(nil),
-			expCapArgs:                 []interface{}(nil),
-			expResp:                    nil,
-			expRespErr:                 "expected",
 		},
 		{
 			injectDigitalInterrupt:     nil,

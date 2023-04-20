@@ -9,29 +9,24 @@ import (
 
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/subtype"
 )
 
 // subtypeServer implements the SensorsService from sensors.proto.
 type subtypeServer struct {
 	pb.UnimplementedSensorsServiceServer
-	subtypeSvc subtype.Service
+	coll resource.SubtypeCollection[Service]
 }
 
 // NewServer constructs a sensors gRPC service server.
-func NewServer(s subtype.Service) pb.SensorsServiceServer {
-	return &subtypeServer{subtypeSvc: s}
-}
-
-func (server *subtypeServer) service(serviceName string) (Service, error) {
-	return subtype.LookupResource[Service](server.subtypeSvc, serviceName)
+func NewServer(coll resource.SubtypeCollection[Service]) pb.SensorsServiceServer {
+	return &subtypeServer{coll: coll}
 }
 
 func (server *subtypeServer) GetSensors(
 	ctx context.Context,
 	req *pb.GetSensorsRequest,
 ) (*pb.GetSensorsResponse, error) {
-	svc, err := server.service(req.Name)
+	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -51,7 +46,7 @@ func (server *subtypeServer) GetReadings(
 	ctx context.Context,
 	req *pb.GetReadingsRequest,
 ) (*pb.GetReadingsResponse, error) {
-	svc, err := server.service(req.Name)
+	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +80,7 @@ func (server *subtypeServer) GetReadings(
 func (server *subtypeServer) DoCommand(ctx context.Context,
 	req *commonpb.DoCommandRequest,
 ) (*commonpb.DoCommandResponse, error) {
-	svc, err := server.service(req.Name)
+	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}

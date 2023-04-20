@@ -17,11 +17,11 @@ import (
 var modelname = resource.NewDefaultModel("webgamepad")
 
 func init() {
-	registry.RegisterComponent(input.Subtype, modelname, registry.Component{Constructor: NewController})
+	registry.RegisterComponent(input.Subtype, modelname, registry.Resource[input.Controller]{Constructor: NewController})
 }
 
 // NewController creates a new gamepad.
-func NewController(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (resource.Resource, error) {
+func NewController(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (input.Controller, error) {
 	return &webGamepad{
 		Named:      conf.ResourceName().AsNamed(),
 		callbacks:  map[input.Control]map[input.EventType]input.ControlFunction{},
@@ -35,8 +35,6 @@ func NewController(ctx context.Context, _ resource.Dependencies, conf resource.C
 		},
 	}, nil
 }
-
-var _ = input.Controller(&webGamepad{})
 
 // webGamepad is an input.Controller.
 type webGamepad struct {

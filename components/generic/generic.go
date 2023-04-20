@@ -4,23 +4,21 @@ package generic
 import (
 	"context"
 
-	"github.com/pkg/errors"
 	pb "go.viam.com/api/component/generic/v1"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/subtype"
 )
 
 func init() {
-	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
-		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
+	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype[resource.Resource]{
+		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeColl resource.SubtypeCollection[resource.Resource]) error {
 			return rpcServer.RegisterServiceServer(
 				ctx,
 				&pb.GenericService_ServiceDesc,
-				NewServer(subtypeSvc),
+				NewServer(subtypeColl),
 				pb.RegisterGenericServiceHandlerFromEndpoint,
 			)
 		},
@@ -52,13 +50,4 @@ func FromRobot(r robot.Robot, name string) (resource.Resource, error) {
 // NamesFromRobot is a helper for getting all generic names from the given Robot.
 func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesBySubtype(r, Subtype)
-}
-
-// RegisterService is a helper for testing in other components.
-func RegisterService(server rpc.Server, service subtype.Service) error {
-	resourceSubtype, ok := registry.ResourceSubtypeLookup(Subtype)
-	if !ok {
-		return errors.Errorf("no subtype registration for %q", Subtype)
-	}
-	return resourceSubtype.RegisterRPCService(context.Background(), server, service)
 }

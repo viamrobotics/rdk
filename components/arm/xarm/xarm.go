@@ -97,13 +97,13 @@ func init() {
 	for _, armModelName := range []string{ModelName6DOF, ModelName7DOF, ModelNameLite} {
 		localArmModelName := armModelName
 		armModel := resource.NewDefaultModel(resource.ModelName(armModelName))
-		registry.RegisterComponent(arm.Subtype, armModel, registry.Component{
+		registry.RegisterComponent(arm.Subtype, armModel, registry.Resource[arm.Arm]{
 			Constructor: func(
 				ctx context.Context,
 				_ resource.Dependencies,
 				conf resource.Config,
 				logger golog.Logger,
-			) (resource.Resource, error) {
+			) (arm.Arm, error) {
 				return NewxArm(ctx, conf, logger, localArmModelName)
 			},
 		})

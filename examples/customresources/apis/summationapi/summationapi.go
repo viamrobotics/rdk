@@ -11,7 +11,6 @@ import (
 
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/subtype"
 )
 
 var Subtype = resource.NewSubtype(
@@ -31,17 +30,17 @@ func FromRobot(r robot.Robot, name string) (Summation, error) {
 }
 
 func init() {
-	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
-		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
+	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype[Summation]{
+		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeColl resource.SubtypeCollection[Summation]) error {
 			return rpcServer.RegisterServiceServer(
 				ctx,
 				&pb.SummationService_ServiceDesc,
-				NewServer(subtypeSvc),
+				NewServer(subtypeColl),
 				pb.RegisterSummationServiceHandlerFromEndpoint,
 			)
 		},
 		RPCServiceDesc: &pb.SummationService_ServiceDesc,
-		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (resource.Resource, error) {
+		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (Summation, error) {
 			return newClientFromConn(conn, name, logger), nil
 		},
 	})
@@ -57,19 +56,15 @@ type Summation interface {
 // subtypeServer implements the Summation RPC service from summation.proto.
 type subtypeServer struct {
 	pb.UnimplementedSummationServiceServer
-	s subtype.Service
+	coll resource.SubtypeCollection[Summation]
 }
 
-func NewServer(s subtype.Service) pb.SummationServiceServer {
-	return &subtypeServer{s: s}
-}
-
-func (s *subtypeServer) getMyService(name string) (Summation, error) {
-	return subtype.LookupResource[Summation](s.s, name)
+func NewServer(coll resource.SubtypeCollection[Summation]) pb.SummationServiceServer {
+	return &subtypeServer{coll: coll}
 }
 
 func (s *subtypeServer) Sum(ctx context.Context, req *pb.SumRequest) (*pb.SumResponse, error) {
-	g, err := s.getMyService(req.Name)
+	g, err := s.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}

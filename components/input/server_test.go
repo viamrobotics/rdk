@@ -14,7 +14,6 @@ import (
 
 	"go.viam.com/rdk/components/input"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -49,7 +48,7 @@ func newServer() (pb.InputControllerServiceServer, *inject.TriggerableInputContr
 		input.Named(failInputControllerName): injectInputController2,
 		input.Named(fakeInputControllerName): testutils.NewUnimplementedResource(input.Named(fakeInputControllerName)),
 	}
-	inputControllerSvc, err := subtype.New(input.Subtype, inputControllers)
+	inputControllerSvc, err := resource.NewSubtypeCollection(input.Subtype, inputControllers)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -108,13 +107,6 @@ func TestServer(t *testing.T) {
 		)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
-
-		_, err = inputControllerServer.GetControls(
-			context.Background(),
-			&pb.GetControlsRequest{Controller: fakeInputControllerName},
-		)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "expected")
 
 		extra := map[string]interface{}{"foo": "Controls"}
 		ext, err := protoutils.StructToStructPb(extra)

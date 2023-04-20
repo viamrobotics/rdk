@@ -9,28 +9,23 @@ import (
 
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/protoutils"
-	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/resource"
 )
 
 // subtypeServer implements the GripperService from gripper.proto.
 type subtypeServer struct {
 	pb.UnimplementedGripperServiceServer
-	s subtype.Service
+	coll resource.SubtypeCollection[Gripper]
 }
 
 // NewServer constructs an gripper gRPC service server.
-func NewServer(s subtype.Service) pb.GripperServiceServer {
-	return &subtypeServer{s: s}
-}
-
-// getGripper returns the gripper specified, nil if not.
-func (s *subtypeServer) getGripper(name string) (Gripper, error) {
-	return subtype.LookupResource[Gripper](s.s, name)
+func NewServer(coll resource.SubtypeCollection[Gripper]) pb.GripperServiceServer {
+	return &subtypeServer{coll: coll}
 }
 
 // Open opens a gripper of the underlying robot.
 func (s *subtypeServer) Open(ctx context.Context, req *pb.OpenRequest) (*pb.OpenResponse, error) {
-	gripper, err := s.getGripper(req.Name)
+	gripper, err := s.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -39,7 +34,7 @@ func (s *subtypeServer) Open(ctx context.Context, req *pb.OpenRequest) (*pb.Open
 
 // Grab requests a gripper of the underlying robot to grab.
 func (s *subtypeServer) Grab(ctx context.Context, req *pb.GrabRequest) (*pb.GrabResponse, error) {
-	gripper, err := s.getGripper(req.Name)
+	gripper, err := s.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -53,7 +48,7 @@ func (s *subtypeServer) Grab(ctx context.Context, req *pb.GrabRequest) (*pb.Grab
 // Stop stops the gripper specified.
 func (s *subtypeServer) Stop(ctx context.Context, req *pb.StopRequest) (*pb.StopResponse, error) {
 	operation.CancelOtherWithLabel(ctx, req.Name)
-	gripper, err := s.getGripper(req.Name)
+	gripper, err := s.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -62,7 +57,7 @@ func (s *subtypeServer) Stop(ctx context.Context, req *pb.StopRequest) (*pb.Stop
 
 // IsMoving queries of a component is in motion.
 func (s *subtypeServer) IsMoving(ctx context.Context, req *pb.IsMovingRequest) (*pb.IsMovingResponse, error) {
-	gripper, err := s.getGripper(req.GetName())
+	gripper, err := s.coll.Resource(req.GetName())
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +72,7 @@ func (s *subtypeServer) IsMoving(ctx context.Context, req *pb.IsMovingRequest) (
 func (s *subtypeServer) DoCommand(ctx context.Context,
 	req *commonpb.DoCommandRequest,
 ) (*commonpb.DoCommandResponse, error) {
-	gripper, err := s.getGripper(req.GetName())
+	gripper, err := s.coll.Resource(req.GetName())
 	if err != nil {
 		return nil, err
 	}

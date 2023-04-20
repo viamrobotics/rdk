@@ -68,13 +68,13 @@ func SetDialMaxTimeoutSecForTesting(val int) {
 func init() {
 	for _, slamLibrary := range slam.SLAMLibraries {
 		sModel := resource.NewDefaultModel(resource.ModelName(slamLibrary.AlgoName))
-		registry.RegisterService(slam.Subtype, sModel, registry.Service{
+		registry.RegisterService(slam.Subtype, sModel, registry.Resource[slam.Service]{
 			Constructor: func(
 				ctx context.Context,
 				deps resource.Dependencies,
 				c resource.Config,
 				logger golog.Logger,
-			) (resource.Resource, error) {
+			) (slam.Service, error) {
 				return NewBuiltIn(ctx, deps, c, logger, false)
 			},
 		})

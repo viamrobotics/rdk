@@ -58,13 +58,13 @@ func (conf *Config) Validate(path string) ([]string, error) {
 var modelName = resource.NewDefaultModel("ezopmp")
 
 func init() {
-	registry.RegisterComponent(motor.Subtype, modelName, registry.Component{
+	registry.RegisterComponent(motor.Subtype, modelName, registry.Resource[motor.Motor]{
 		Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
 			logger golog.Logger,
-		) (resource.Resource, error) {
+		) (motor.Motor, error) {
 			newConf, err := resource.NativeConfig[*Config](conf)
 			if err != nil {
 				return nil, err

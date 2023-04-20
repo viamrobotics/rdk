@@ -25,7 +25,7 @@ func Named(name string) resource.Name {
 }
 
 func init() {
-	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{})
+	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype[Service]{})
 }
 
 // A Service is the basis for the base remote control.

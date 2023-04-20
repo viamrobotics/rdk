@@ -22,13 +22,13 @@ func init() {
 	registry.RegisterComponent(
 		base.Subtype,
 		resource.NewDefaultModel("fake"),
-		registry.Component{
+		registry.Resource[base.Base]{
 			Constructor: func(
 				ctx context.Context,
 				deps resource.Dependencies,
 				conf resource.Config,
 				logger golog.Logger,
-			) (resource.Resource, error) {
+			) (base.Base, error) {
 				return &Base{Named: conf.ResourceName().AsNamed()}, nil
 			},
 		},
@@ -36,8 +36,6 @@ func init() {
 }
 
 const defaultWidth = 600
-
-var _ = base.LocalBase(&Base{})
 
 // Base is a fake base that returns what it was provided in each method.
 type Base struct {

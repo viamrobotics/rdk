@@ -21,20 +21,18 @@ func init() {
 	registry.RegisterService(
 		slam.Subtype,
 		model,
-		registry.Service{
+		registry.Resource[slam.Service]{
 			Constructor: func(
 				ctx context.Context,
 				_ resource.Dependencies,
 				conf resource.Config,
 				logger golog.Logger,
-			) (resource.Resource, error) {
+			) (slam.Service, error) {
 				return NewSLAM(conf.ResourceName(), logger), nil
 			},
 		},
 	)
 }
-
-var _ = slam.Service(&SLAM{})
 
 // SLAM is a fake slam that returns generic data.
 type SLAM struct {

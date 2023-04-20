@@ -31,7 +31,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 	if err != nil {
 		return err
 	}
-	registry.RegisterComponent(generic.Subtype, myModel, registry.Component{Constructor: newHelper})
+	registry.RegisterComponent(generic.Subtype, myModel, registry.Resource[resource.Resource]{Constructor: newHelper})
 	err = myMod.AddModelFromRegistry(ctx, generic.Subtype, myModel)
 	if err != nil {
 		return err

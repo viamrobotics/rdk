@@ -22,9 +22,9 @@ var fileModel = resource.NewDefaultModel("image_file")
 
 func init() {
 	registry.RegisterComponent(camera.Subtype, fileModel,
-		registry.Component{Constructor: func(ctx context.Context, _ resource.Dependencies,
+		registry.Resource[camera.Camera]{Constructor: func(ctx context.Context, _ resource.Dependencies,
 			conf resource.Config, logger golog.Logger,
-		) (resource.Resource, error) {
+		) (camera.Camera, error) {
 			newConf, err := resource.NativeConfig[*fileSourceConfig](conf)
 			if err != nil {
 				return nil, err

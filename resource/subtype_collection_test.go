@@ -1,4 +1,4 @@
-package subtype_test
+package resource_test
 
 import (
 	"testing"
@@ -7,7 +7,6 @@ import (
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 )
 
@@ -17,7 +16,7 @@ func TestSubtypeService(t *testing.T) {
 	resources := map[resource.Name]resource.Resource{
 		res1.Name(): res1,
 	}
-	svc, err := subtype.New(generic.Subtype, resources)
+	svc, err := resource.NewSubtypeCollection(generic.Subtype, resources)
 	test.That(t, err, test.ShouldBeNil)
 	res, err := svc.Resource(res1.Name().ShortName())
 	test.That(t, err, test.ShouldBeNil)
@@ -90,7 +89,7 @@ func TestSubtypeRemoteNames(t *testing.T) {
 		generic.Named(name9):  res9,
 		generic.Named(name10): res10,
 	}
-	svc, err := subtype.New(generic.Subtype, resources)
+	svc, err := resource.NewSubtypeCollection(generic.Subtype, resources)
 	test.That(t, err, test.ShouldBeNil)
 	res, err := svc.Resource(name0)
 	test.That(t, err, test.ShouldBeNil)
@@ -182,7 +181,7 @@ func TestSubtypeAddRemoveReplaceOne(t *testing.T) {
 	key4 := resource.NewName(ns, ct, st, name4)
 	key4d := resource.NewName(ns, ct, st, name4d)
 
-	svc, err := subtype.New(generic.Subtype, map[resource.Name]resource.Resource{
+	svc, err := resource.NewSubtypeCollection(generic.Subtype, map[resource.Name]resource.Resource{
 		key1: testutils.NewUnimplementedResource(generic.Named(str1)),
 		key4: testutils.NewUnimplementedResource(generic.Named(str4)),
 	})

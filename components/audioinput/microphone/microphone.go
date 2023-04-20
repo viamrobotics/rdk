@@ -25,12 +25,12 @@ func init() {
 	registry.RegisterComponent(
 		audioinput.Subtype,
 		model,
-		registry.Component{Constructor: func(
+		registry.Resource[audioinput.AudioInput]{Constructor: func(
 			_ context.Context,
 			_ resource.Dependencies,
 			conf resource.Config,
 			logger golog.Logger,
-		) (resource.Resource, error) {
+		) (audioinput.AudioInput, error) {
 			newConf, err := resource.NativeConfig[*Config](conf)
 			if err != nil {
 				return nil, err

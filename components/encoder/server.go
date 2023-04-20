@@ -8,22 +8,17 @@ import (
 	pb "go.viam.com/api/component/encoder/v1"
 
 	"go.viam.com/rdk/protoutils"
-	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/resource"
 )
 
 type subtypeServer struct {
 	pb.UnimplementedEncoderServiceServer
-	s subtype.Service
+	coll resource.SubtypeCollection[Encoder]
 }
 
 // NewServer constructs an Encoder gRPC service subtypeServer.
-func NewServer(s subtype.Service) pb.EncoderServiceServer {
-	return &subtypeServer{s: s}
-}
-
-// getEncoder returns the specified encoder or nil.
-func (s *subtypeServer) getEncoder(name string) (Encoder, error) {
-	return subtype.LookupResource[Encoder](s.s, name)
+func NewServer(coll resource.SubtypeCollection[Encoder]) pb.EncoderServiceServer {
+	return &subtypeServer{coll: coll}
 }
 
 // GetPosition returns the current position in terms of ticks or
@@ -32,7 +27,7 @@ func (s *subtypeServer) GetPosition(
 	ctx context.Context,
 	req *pb.GetPositionRequest,
 ) (*pb.GetPositionResponse, error) {
-	enc, err := s.getEncoder(req.Name)
+	enc, err := s.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -53,7 +48,7 @@ func (s *subtypeServer) ResetPosition(
 	req *pb.ResetPositionRequest,
 ) (*pb.ResetPositionResponse, error) {
 	encName := req.GetName()
-	enc, err := s.getEncoder(encName)
+	enc, err := s.coll.Resource(encName)
 	if err != nil {
 		return nil, errors.Errorf("no encoder (%s) found", encName)
 	}
@@ -67,7 +62,7 @@ func (s *subtypeServer) GetProperties(
 	req *pb.GetPropertiesRequest,
 ) (*pb.GetPropertiesResponse, error) {
 	encoderName := req.GetName()
-	enc, err := s.getEncoder(encoderName)
+	enc, err := s.coll.Resource(encoderName)
 	if err != nil {
 		return nil, errors.Errorf("no encoder (%s) found", encoderName)
 	}
@@ -82,7 +77,7 @@ func (s *subtypeServer) GetProperties(
 func (s *subtypeServer) DoCommand(ctx context.Context,
 	req *commonpb.DoCommandRequest,
 ) (*commonpb.DoCommandResponse, error) {
-	enc, err := s.getEncoder(req.GetName())
+	enc, err := s.coll.Resource(req.GetName())
 	if err != nil {
 		return nil, err
 	}

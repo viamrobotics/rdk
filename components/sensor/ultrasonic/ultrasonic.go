@@ -49,18 +49,19 @@ func init() {
 	registry.RegisterComponent(
 		sensor.Subtype,
 		modelname,
-		registry.Component{Constructor: func(
-			ctx context.Context,
-			deps resource.Dependencies,
-			conf resource.Config,
-			logger golog.Logger,
-		) (resource.Resource, error) {
-			newConf, err := resource.NativeConfig[*Config](conf)
-			if err != nil {
-				return nil, err
-			}
-			return newSensor(ctx, deps, conf.ResourceName(), newConf)
-		}})
+		registry.Resource[sensor.Sensor]{
+			Constructor: func(
+				ctx context.Context,
+				deps resource.Dependencies,
+				conf resource.Config,
+				logger golog.Logger,
+			) (sensor.Sensor, error) {
+				newConf, err := resource.NativeConfig[*Config](conf)
+				if err != nil {
+					return nil, err
+				}
+				return newSensor(ctx, deps, conf.ResourceName(), newConf)
+			}})
 
 	config.RegisterComponentAttributeMapConverter(sensor.Subtype, modelname,
 		func(attributes utils.AttributeMap) (interface{}, error) {

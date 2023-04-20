@@ -30,10 +30,10 @@ import (
 var modelname = resource.NewDefaultModel("boat")
 
 func init() {
-	boatComp := registry.Component{
+	boatComp := registry.Resource[base.Base]{
 		Constructor: func(
 			ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger,
-		) (resource.Resource, error) {
+		) (base.Base, error) {
 			return createBoat(deps, conf, logger)
 		},
 	}

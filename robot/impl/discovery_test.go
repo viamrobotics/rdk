@@ -51,7 +51,7 @@ func init() {
 	// Subtype with a working discovery function for a subtype model
 	registry.RegisterResourceSubtype(
 		workingSubtype,
-		registry.ResourceSubtype{},
+		registry.ResourceSubtype[resource.Resource]{},
 	)
 
 	registry.RegisterDiscoveryFunction(
@@ -62,13 +62,13 @@ func init() {
 	// Subtype without discovery function
 	registry.RegisterResourceSubtype(
 		noDiscoverSubtype,
-		registry.ResourceSubtype{},
+		registry.ResourceSubtype[resource.Resource]{},
 	)
 
 	// Subtype with a failing discovery function for a subtype model
 	registry.RegisterResourceSubtype(
 		failSubtype,
-		registry.ResourceSubtype{},
+		registry.ResourceSubtype[resource.Resource]{},
 	)
 
 	registry.RegisterDiscoveryFunction(

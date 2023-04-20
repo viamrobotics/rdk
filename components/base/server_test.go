@@ -10,20 +10,17 @@ import (
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/subtype"
-	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
 
 func newServer() (pb.BaseServiceServer, *inject.Base, *inject.Base, error) {
 	workingBase := &inject.Base{}
 	brokenBase := &inject.Base{}
-	bases := map[resource.Name]resource.Resource{
+	bases := map[resource.Name]base.Base{
 		base.Named(testBaseName): workingBase,
 		base.Named(failBaseName): brokenBase,
-		base.Named(fakeBaseName): testutils.NewUnimplementedResource(base.Named(fakeBaseName)),
 	}
-	baseSvc, err := subtype.New(base.Subtype, bases)
+	baseSvc, err := resource.NewSubtypeCollection(base.Subtype, bases)
 	if err != nil {
 		return nil, nil, nil, err
 	}

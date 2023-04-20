@@ -11,7 +11,6 @@ import (
 
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -26,7 +25,7 @@ func newServer() (pb.MotorServiceServer, *inject.Motor, *inject.Motor, error) {
 		motor.Named(fakeMotorName): testutils.NewUnimplementedResource(motor.Named(fakeMotorName)),
 	}
 
-	injectSvc, err := subtype.New(motor.Subtype, resourceMap)
+	injectSvc, err := resource.NewSubtypeCollection(motor.Subtype, resourceMap)
 	if err != nil {
 		return nil, nil, nil, err
 	}

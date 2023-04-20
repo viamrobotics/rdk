@@ -6,6 +6,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/utils"
 )
 
 // SLAMService represents a fake instance of a slam service.
@@ -16,6 +17,7 @@ type SLAMService struct {
 	GetPointCloudMapFunc func(ctx context.Context) (func() ([]byte, error), error)
 	GetInternalStateFunc func(ctx context.Context) (func() ([]byte, error), error)
 	DoCommandFunc        func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+	CloseFunc            func(ctx context.Context) error
 }
 
 // NewSLAMService returns a new injected SLAM service.
@@ -60,4 +62,12 @@ func (slamSvc *SLAMService) DoCommand(ctx context.Context,
 		return slamSvc.Service.DoCommand(ctx, cmd)
 	}
 	return slamSvc.DoCommandFunc(ctx, cmd)
+}
+
+// Close calls the injected Close or the real version.
+func (slamSvc *SLAMService) Close(ctx context.Context) error {
+	if slamSvc.CloseFunc == nil {
+		return utils.TryClose(ctx, slamSvc.Service)
+	}
+	return slamSvc.CloseFunc(ctx)
 }

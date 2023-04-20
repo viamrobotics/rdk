@@ -16,14 +16,12 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/components/generic"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
-	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
@@ -125,19 +123,19 @@ func TestClient(t *testing.T) {
 		return nil, errors.New("can't generate stream")
 	}
 
-	resources := map[resource.Name]resource.Resource{
+	resources := map[resource.Name]camera.Camera{
 		camera.Named(testCameraName):  injectCamera,
 		camera.Named(failCameraName):  injectCamera2,
 		camera.Named(depthCameraName): injectCameraDepth,
 	}
-	cameraSvc, err := subtype.New(camera.Subtype, resources)
+	cameraSvc, err := resource.NewSubtypeCollection(camera.Subtype, resources)
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype, ok := registry.ResourceSubtypeLookup(camera.Subtype)
+	resourceSubtype, ok, err := registry.ResourceSubtypeLookup[camera.Camera](camera.Subtype)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, cameraSvc)
+	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, cameraSvc), test.ShouldBeNil)
 
 	injectCamera.DoFunc = testutils.EchoFunc
-	generic.RegisterService(rpcServer, cameraSvc)
 
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()
@@ -248,14 +246,14 @@ func TestClientProperties(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	injectCamera := &inject.Camera{}
-	resources := map[resource.Name]resource.Resource{camera.Named(testCameraName): injectCamera}
-	svc, err := subtype.New(camera.Subtype, resources)
+	resources := map[resource.Name]camera.Camera{camera.Named(testCameraName): injectCamera}
+	svc, err := resource.NewSubtypeCollection(camera.Subtype, resources)
 	test.That(t, err, test.ShouldBeNil)
 
-	rSubType, ok := registry.ResourceSubtypeLookup(camera.Subtype)
+	rSubType, ok, err := registry.ResourceSubtypeLookup[camera.Camera](camera.Subtype)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, rSubType.RegisterRPCService(context.Background(), server, svc), test.ShouldBeNil)
-	test.That(t, generic.RegisterService(server, svc), test.ShouldBeNil)
 
 	go test.That(t, server.Serve(listener), test.ShouldBeNil)
 	defer func() { test.That(t, server.Stop(), test.ShouldBeNil) }()
@@ -357,16 +355,15 @@ func TestClientLazyImage(t *testing.T) {
 		})), nil
 	}
 
-	resources := map[resource.Name]resource.Resource{
+	resources := map[resource.Name]camera.Camera{
 		camera.Named(testCameraName): injectCamera,
 	}
-	cameraSvc, err := subtype.New(camera.Subtype, resources)
+	cameraSvc, err := resource.NewSubtypeCollection(camera.Subtype, resources)
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype, ok := registry.ResourceSubtypeLookup(camera.Subtype)
+	resourceSubtype, ok, err := registry.ResourceSubtypeLookup[camera.Camera](camera.Subtype)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, cameraSvc)
-
-	generic.RegisterService(rpcServer, cameraSvc)
+	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, cameraSvc), test.ShouldBeNil)
 
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()

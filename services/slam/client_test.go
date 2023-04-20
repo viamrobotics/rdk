@@ -23,7 +23,6 @@ import (
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/slam/internal/testhelper"
 	spatial "go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/vision"
@@ -87,7 +86,7 @@ func TestClientWorkingService(t *testing.T) {
 		return f, nil
 	}
 
-	workingSvc, err := subtype.New(slam.Subtype, map[resource.Name]resource.Resource{slam.Named(nameSucc): workingSLAMService})
+	workingSvc, err := resource.NewSubtypeCollection(slam.Subtype, map[resource.Name]resource.Resource{slam.Named(nameSucc): workingSLAMService})
 	test.That(t, err, test.ShouldBeNil)
 
 	resourceSubtype, ok := registry.ResourceSubtypeLookup(slam.Subtype)
@@ -224,7 +223,7 @@ func TestFailingClient(t *testing.T) {
 		return nil, errors.New("failure during get internal state")
 	}
 
-	failingSvc, err := subtype.New(slam.Subtype, map[resource.Name]resource.Resource{slam.Named(nameFail): failingSLAMService})
+	failingSvc, err := resource.NewSubtypeCollection(slam.Subtype, map[resource.Name]resource.Resource{slam.Named(nameFail): failingSLAMService})
 	test.That(t, err, test.ShouldBeNil)
 
 	resourceSubtype, ok := registry.ResourceSubtypeLookup(slam.Subtype)

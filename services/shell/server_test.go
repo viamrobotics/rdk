@@ -17,7 +17,7 @@ import (
 )
 
 func newServer(sMap map[resource.Name]resource.Resource) (pb.ShellServiceServer, error) {
-	sSvc, err := subtype.New(shell.Subtype, sMap)
+	sSvc, err := resource.NewSubtypeCollection(shell.Subtype, sMap)
 	if err != nil {
 		return nil, err
 	}

@@ -239,7 +239,7 @@ func (mgr *Manager) AddResource(ctx context.Context, conf resource.Config, deps 
 	mgr.rMap[conf.ResourceName()] = module
 	module.resources[conf.ResourceName()] = &addedResource{conf, deps}
 
-	subtypeInfo, ok := registry.ResourceSubtypeLookup(conf.API)
+	subtypeInfo, ok := registry.GenericResourceSubtypeLookup(conf.API)
 	if !ok || subtypeInfo.RPCClient == nil {
 		mgr.logger.Warnf("no built-in grpc client for modular resource %s", conf.ResourceName())
 		return rdkgrpc.NewForeignResource(conf.ResourceName(), module.conn), nil
@@ -464,14 +464,17 @@ func (m *module) stopProcess() error {
 
 func (m *module) registerResources(mgr modmaninterface.ModuleManager, logger golog.Logger) {
 	for api, models := range m.handles {
-		if _, ok := registry.ResourceSubtypeLookup(api.Subtype); !ok {
-			registry.RegisterResourceSubtype(api.Subtype, registry.ResourceSubtype{ReflectRPCServiceDesc: api.Desc})
+		if _, ok := registry.GenericResourceSubtypeLookup(api.Subtype); !ok {
+			registry.RegisterResourceSubtype(
+				api.Subtype,
+				registry.ResourceSubtype[resource.Resource]{ReflectRPCServiceDesc: api.Desc},
+			)
 		}
 
 		switch api.Subtype.ResourceType {
 		case resource.ResourceTypeComponent:
 			for _, model := range models {
-				registry.RegisterComponent(api.Subtype, model, registry.Component{
+				registry.RegisterComponent(api.Subtype, model, registry.Resource[resource.Resource]{
 					Constructor: func(
 						ctx context.Context,
 						deps resource.Dependencies,
@@ -484,7 +487,7 @@ func (m *module) registerResources(mgr modmaninterface.ModuleManager, logger gol
 			}
 		case resource.ResourceTypeService:
 			for _, model := range models {
-				registry.RegisterService(api.Subtype, model, registry.Resource{
+				registry.RegisterService(api.Subtype, model, registry.Resource[resource.Resource]{
 					Constructor: func(
 						ctx context.Context,
 						deps resource.Dependencies,

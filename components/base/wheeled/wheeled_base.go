@@ -67,10 +67,10 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 }
 
 func init() {
-	wheeledBaseComp := registry.Component{
+	wheeledBaseComp := registry.Resource[base.Base]{
 		Constructor: func(
 			ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger,
-		) (resource.Resource, error) {
+		) (base.Base, error) {
 			return CreateWheeledBase(ctx, deps, conf, logger)
 		},
 	}

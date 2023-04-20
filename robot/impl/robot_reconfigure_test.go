@@ -76,7 +76,7 @@ func TestRobotReconfigure(t *testing.T) {
 	test.That(t, os.Setenv("TEST_MODEL_NAME_1", modelName1), test.ShouldBeNil)
 	test.That(t, os.Setenv("TEST_MODEL_NAME_2", modelName2), test.ShouldBeNil)
 
-	registry.RegisterComponent(mockSubtype, resource.NewDefaultModel(resource.ModelName(modelName1)), registry.Component{
+	registry.RegisterComponent(mockSubtype, resource.NewDefaultModel(resource.ModelName(modelName1)), registry.Resource[resource.Resource]{
 		Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
@@ -107,7 +107,7 @@ func TestRobotReconfigure(t *testing.T) {
 		reconfigurableTrue = true
 		testReconfiguringMismatch = false
 	}
-	registry.RegisterComponent(mockSubtype, resource.NewDefaultModel(resource.ModelName(modelName2)), registry.Component{
+	registry.RegisterComponent(mockSubtype, resource.NewDefaultModel(resource.ModelName(modelName2)), registry.Resource[resource.Resource]{
 		Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
@@ -3026,7 +3026,7 @@ func TestReconfigureModelRebuild(t *testing.T) {
 	modelName1 := utils.RandomAlphaString(5)
 	model1 := resource.NewDefaultModel(resource.ModelName(modelName1))
 
-	registry.RegisterComponent(mockSubtype, model1, registry.Component{
+	registry.RegisterComponent(mockSubtype, model1, registry.Resource[resource.Resource]{
 		Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
@@ -3101,7 +3101,7 @@ func TestReconfigureModelSwitch(t *testing.T) {
 	model1 := resource.NewDefaultModel(resource.ModelName(modelName1))
 	model2 := resource.NewDefaultModel(resource.ModelName(modelName2))
 
-	registry.RegisterComponent(mockSubtype, model1, registry.Component{
+	registry.RegisterComponent(mockSubtype, model1, registry.Resource[resource.Resource]{
 		Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
@@ -3111,7 +3111,7 @@ func TestReconfigureModelSwitch(t *testing.T) {
 			return &mockFake{Named: conf.ResourceName().AsNamed()}, nil
 		},
 	})
-	registry.RegisterComponent(mockSubtype, model2, registry.Component{
+	registry.RegisterComponent(mockSubtype, model2, registry.Resource[resource.Resource]{
 		Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
@@ -3186,7 +3186,7 @@ func TestReconfigureRename(t *testing.T) {
 
 	var logicalClock atomic.Int64
 
-	registry.RegisterComponent(mockSubtype, model1, registry.Component{
+	registry.RegisterComponent(mockSubtype, model1, registry.Resource[resource.Resource]{
 		Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,

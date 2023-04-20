@@ -1,34 +1,40 @@
-// Package subtype contains a Service type that can be used to hold all resources of a certain subtype.
-package subtype
+package resource
 
 import (
 	"strings"
 	"sync"
 
 	"github.com/pkg/errors"
-
-	"go.viam.com/rdk/resource"
 )
 
-// Service defines an service that holds and replaces resources.
-type Service interface {
-	Resource(name string) (resource.Resource, error)
-	ReplaceAll(resources map[resource.Name]resource.Resource) error
-	Add(resName resource.Name, res resource.Resource) error
-	Remove(name resource.Name) error
-	ReplaceOne(resName resource.Name, res resource.Resource) error
+// SubtypeCollection defines a collection of typed resources.
+type SubtypeCollection[T Resource] interface {
+	Resource(name string) (T, error)
+	ReplaceAll(resources map[Name]T) error
+	Add(resName Name, res T) error
+	Remove(name Name) error
+	ReplaceOne(resName Name, res T) error
 }
 
-type subtypeSvc struct {
+type subtypeCollection[T Resource] struct {
 	mu         sync.RWMutex
-	resources  map[string]resource.Resource
+	resources  map[string]T
 	shortNames map[string]string
-	subtype    resource.Subtype
+	subtype    Subtype
 }
 
-// New creates a new subtype service, which holds and replaces resources belonging to that subtype.
-func New(subtype resource.Subtype, r map[resource.Name]resource.Resource) (Service, error) {
-	s := &subtypeSvc{subtype: subtype}
+// NewEmptySubtypeCollection creates a new subtype collection, which holds and replaces resources belonging to that subtype.
+func NewEmptySubtypeCollection[T Resource](subtype Subtype) SubtypeCollection[T] {
+	return &subtypeCollection[T]{
+		subtype:    subtype,
+		resources:  map[string]T{},
+		shortNames: map[string]string{},
+	}
+}
+
+// NewSubtypeCollection creates a new subtype collection, which holds and replaces resources belonging to that subtype.
+func NewSubtypeCollection[T Resource](subtype Subtype, r map[Name]T) (SubtypeCollection[T], error) {
+	s := &subtypeCollection[T]{subtype: subtype}
 	if err := s.ReplaceAll(r); err != nil {
 		return nil, err
 	}
@@ -36,7 +42,7 @@ func New(subtype resource.Subtype, r map[resource.Name]resource.Resource) (Servi
 }
 
 // Resource returns resource by name, if it exists.
-func (s *subtypeSvc) Resource(name string) (resource.Resource, error) {
+func (s *subtypeCollection[T]) Resource(name string) (T, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	if resource, ok := s.resources[name]; ok {
@@ -46,14 +52,15 @@ func (s *subtypeSvc) Resource(name string) (resource.Resource, error) {
 	if resource, ok := s.resources[s.shortNames[name]]; ok {
 		return resource, nil
 	}
-	return nil, resource.NewNotFoundError(resource.NameFromSubtype(s.subtype, name))
+	var zero T
+	return zero, NewNotFoundError(NameFromSubtype(s.subtype, name))
 }
 
 // ReplaceAll replaces all resources with r.
-func (s *subtypeSvc) ReplaceAll(r map[resource.Name]resource.Resource) error {
+func (s *subtypeCollection[T]) ReplaceAll(r map[Name]T) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	resources := make(map[string]resource.Resource, len(r))
+	resources := make(map[string]T, len(r))
 	shortNames := make(map[string]string, len(r))
 	s.resources = resources
 	s.shortNames = shortNames
@@ -65,19 +72,19 @@ func (s *subtypeSvc) ReplaceAll(r map[resource.Name]resource.Resource) error {
 	return nil
 }
 
-func (s *subtypeSvc) Add(resName resource.Name, res resource.Resource) error {
+func (s *subtypeCollection[T]) Add(resName Name, res T) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.doAdd(resName, res)
 }
 
-func (s *subtypeSvc) Remove(n resource.Name) error {
+func (s *subtypeCollection[T]) Remove(n Name) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.doRemove(n)
 }
 
-func (s *subtypeSvc) ReplaceOne(resName resource.Name, res resource.Resource) error {
+func (s *subtypeCollection[T]) ReplaceOne(resName Name, res T) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	err := s.doRemove(resName)
@@ -87,7 +94,7 @@ func (s *subtypeSvc) ReplaceOne(resName resource.Name, res resource.Resource) er
 	return s.doAdd(resName, res)
 }
 
-func (s *subtypeSvc) doAdd(resName resource.Name, res resource.Resource) error {
+func (s *subtypeCollection[T]) doAdd(resName Name, res T) error {
 	if resName.Name == "" {
 		return errors.Errorf("empty name used for resource: %s", resName)
 	}
@@ -110,7 +117,7 @@ func (s *subtypeSvc) doAdd(resName resource.Name, res resource.Resource) error {
 	return nil
 }
 
-func (s *subtypeSvc) doRemove(n resource.Name) error {
+func (s *subtypeCollection[T]) doRemove(n Name) error {
 	name := n.ShortName()
 	_, ok := s.resources[name]
 	if !ok {
@@ -139,14 +146,4 @@ func (s *subtypeSvc) doRemove(n resource.Name) error {
 
 func getShortcutName(name string) string {
 	return name[strings.LastIndexAny(name, ":")+1:]
-}
-
-// LookupResource attempts to get specifically typed resource from the service.
-func LookupResource[T resource.Resource](svc Service, name string) (T, error) {
-	res, err := svc.Resource(name)
-	if err != nil {
-		var zero T
-		return zero, err
-	}
-	return resource.AsType[T](res)
 }

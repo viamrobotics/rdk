@@ -20,13 +20,13 @@ import (
 var fakeModel = resource.NewDefaultModel("fake")
 
 func init() {
-	registry.RegisterComponent(encoder.Subtype, fakeModel, registry.Component{
+	registry.RegisterComponent(encoder.Subtype, fakeModel, registry.Resource[encoder.Encoder]{
 		Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
 			logger golog.Logger,
-		) (resource.Resource, error) {
+		) (encoder.Encoder, error) {
 			return NewEncoder(ctx, conf)
 		},
 	})

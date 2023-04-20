@@ -20,7 +20,7 @@ var Model = resource.NewModel(
 )
 
 func init() {
-	registry.RegisterService(summationapi.Subtype, Model, registry.Service{
+	registry.RegisterService(summationapi.Subtype, Model, registry.Resource[summationapi.Summation]{
 		Constructor: newMySum,
 	})
 }
@@ -32,7 +32,7 @@ type mySum struct {
 	subtract bool
 }
 
-func newMySum(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger *zap.SugaredLogger) (resource.Resource, error) {
+func newMySum(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger *zap.SugaredLogger) (summationapi.Summation, error) {
 	summer := &mySum{
 		Named: conf.ResourceName().AsNamed(),
 	}

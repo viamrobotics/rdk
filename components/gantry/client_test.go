@@ -11,11 +11,9 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/gantry"
-	"go.viam.com/rdk/components/generic"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -73,17 +71,17 @@ func TestClient(t *testing.T) {
 		return nil
 	}
 
-	gantrySvc, err := subtype.New(
+	gantrySvc, err := resource.NewSubtypeCollection(
 		gantry.Subtype,
-		(map[resource.Name]resource.Resource{gantry.Named(testGantryName): injectGantry, gantry.Named(testGantryName2): injectGantry2}),
+		(map[resource.Name]gantry.Gantry{gantry.Named(testGantryName): injectGantry, gantry.Named(testGantryName2): injectGantry2}),
 	)
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype, ok := registry.ResourceSubtypeLookup(gantry.Subtype)
+	resourceSubtype, ok, err := registry.ResourceSubtypeLookup[gantry.Gantry](gantry.Subtype)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, gantrySvc)
+	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, gantrySvc), test.ShouldBeNil)
 
 	injectGantry.DoFunc = testutils.EchoFunc
-	generic.RegisterService(rpcServer, gantrySvc)
 
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()

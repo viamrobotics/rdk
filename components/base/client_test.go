@@ -11,11 +11,9 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/base"
-	"go.viam.com/rdk/components/generic"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -92,18 +90,18 @@ func TestClient(t *testing.T) {
 	brokenBase := &inject.Base{}
 	brokenBaseErrMsg := setupBrokenBase(brokenBase)
 
-	resMap := map[resource.Name]resource.Resource{
+	resMap := map[resource.Name]base.Base{
 		base.Named(testBaseName): workingBase,
 		base.Named(failBaseName): brokenBase,
 	}
 
-	baseSvc, err := subtype.New(base.Subtype, resMap)
+	baseSvc, err := resource.NewSubtypeCollection(base.Subtype, resMap)
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype, ok := registry.ResourceSubtypeLookup(base.Subtype)
+	resourceSubtype, ok, err := registry.ResourceSubtypeLookup[base.Base](base.Subtype)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, baseSvc)
+	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, baseSvc), test.ShouldBeNil)
 
-	generic.RegisterService(rpcServer, baseSvc)
 	workingBase.DoFunc = testutils.EchoFunc
 
 	go rpcServer.Serve(listener1)

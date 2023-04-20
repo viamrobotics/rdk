@@ -21,7 +21,6 @@ import (
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/slam/internal/testhelper"
 	spatial "go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -67,7 +66,7 @@ func TestWorkingServer(t *testing.T) {
 	resourceMap := map[resource.Name]resource.Resource{
 		slam.Named(testSlamServiceName): injectSvc,
 	}
-	injectSubtypeSvc, err := subtype.New(slam.Subtype, resourceMap)
+	injectSubtypeSvc, err := resource.NewSubtypeCollection(slam.Subtype, resourceMap)
 	test.That(t, err, test.ShouldBeNil)
 	slamServer := slam.NewServer(injectSubtypeSvc)
 	cloudPath := artifact.MustPath("slam/mock_lidar/0.pcd")
@@ -149,7 +148,7 @@ func TestWorkingServer(t *testing.T) {
 			slam.Named(testSlamServiceName):  injectSvc,
 			slam.Named(testSlamServiceName2): injectSvc,
 		}
-		injectSubtypeSvc, err := subtype.New(slam.Subtype, resourceMap)
+		injectSubtypeSvc, err := resource.NewSubtypeCollection(slam.Subtype, resourceMap)
 		test.That(t, err, test.ShouldBeNil)
 		slamServer = slam.NewServer(injectSubtypeSvc)
 		poseSucc := spatial.NewPose(r3.Vector{X: 1, Y: 2, Z: 3}, &spatial.OrientationVector{Theta: math.Pi / 2, OX: 0, OY: 0, OZ: -1})
@@ -211,7 +210,7 @@ func TestFailingServer(t *testing.T) {
 	resourceMap := map[resource.Name]resource.Resource{
 		slam.Named(testSlamServiceName): injectSvc,
 	}
-	injectSubtypeSvc, err := subtype.New(slam.Subtype, resourceMap)
+	injectSubtypeSvc, err := resource.NewSubtypeCollection(slam.Subtype, resourceMap)
 	test.That(t, err, test.ShouldBeNil)
 	slamServer := slam.NewServer(injectSubtypeSvc)
 
@@ -279,7 +278,7 @@ func TestFailingServer(t *testing.T) {
 	resourceMap = map[resource.Name]resource.Resource{
 		slam.Named(testSlamServiceName): testutils.NewUnimplementedResource(slam.Named(testSlamServiceName)),
 	}
-	injectSubtypeSvc, _ = subtype.New(slam.Subtype, resourceMap)
+	injectSubtypeSvc, _ = resource.NewSubtypeCollection(slam.Subtype, resourceMap)
 	slamServer = slam.NewServer(injectSubtypeSvc)
 
 	t.Run("failing on improper service interface", func(t *testing.T) {
@@ -304,7 +303,7 @@ func TestFailingServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeError, improperImplErr)
 	})
 
-	injectSubtypeSvc, _ = subtype.New(slam.Subtype, map[resource.Name]resource.Resource{})
+	injectSubtypeSvc, _ = resource.NewSubtypeCollection(slam.Subtype, map[resource.Name]resource.Resource{})
 	slamServer = slam.NewServer(injectSubtypeSvc)
 	t.Run("failing on nonexistent server", func(t *testing.T) {
 		// test unary endpoint using GetPosition
@@ -328,7 +327,7 @@ func TestServerDoCommand(t *testing.T) {
 			DoCommandFunc: testutils.EchoFunc,
 		},
 	}
-	injectSubtypeSvc, err := subtype.New(slam.Subtype, resourceMap)
+	injectSubtypeSvc, err := resource.NewSubtypeCollection(slam.Subtype, resourceMap)
 	test.That(t, err, test.ShouldBeNil)
 	server := slam.NewServer(injectSubtypeSvc)
 

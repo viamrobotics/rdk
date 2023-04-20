@@ -10,23 +10,19 @@ import (
 	pb "go.viam.com/api/service/slam/v1"
 
 	"go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/subtype"
 )
 
 // subtypeServer implements the SLAMService from the slam proto.
 type subtypeServer struct {
 	pb.UnimplementedSLAMServiceServer
-	subtypeSvc subtype.Service
+	coll resource.SubtypeCollection[Service]
 }
 
 // NewServer constructs a the slam gRPC service server.
-func NewServer(s subtype.Service) pb.SLAMServiceServer {
-	return &subtypeServer{subtypeSvc: s}
-}
-
-func (server *subtypeServer) service(serviceName string) (Service, error) {
-	return subtype.LookupResource[Service](server.subtypeSvc, serviceName)
+func NewServer(coll resource.SubtypeCollection[Service]) pb.SLAMServiceServer {
+	return &subtypeServer{coll: coll}
 }
 
 // GetPosition returns a Pose and a component reference string of the robot's current location according to SLAM.
@@ -36,7 +32,7 @@ func (server *subtypeServer) GetPosition(ctx context.Context, req *pb.GetPositio
 	ctx, span := trace.StartSpan(ctx, "slam::server::GetPosition")
 	defer span.End()
 
-	svc, err := server.service(req.Name)
+	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -62,7 +58,7 @@ func (server *subtypeServer) GetPointCloudMap(req *pb.GetPointCloudMapRequest,
 	ctx, span := trace.StartSpan(ctx, "slam::server::GetPointCloudMap")
 	defer span.End()
 
-	svc, err := server.service(req.Name)
+	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return err
 	}
@@ -100,7 +96,7 @@ func (server *subtypeServer) GetInternalState(req *pb.GetInternalStateRequest,
 	ctx, span := trace.StartSpan(ctx, "slam::server::GetInternalState")
 	defer span.End()
 
-	svc, err := server.service(req.Name)
+	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return err
 	}
@@ -136,7 +132,7 @@ func (server *subtypeServer) DoCommand(ctx context.Context,
 	ctx, span := trace.StartSpan(ctx, "slam::server::DoCommand")
 	defer span.End()
 
-	svc, err := server.service(req.Name)
+	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}

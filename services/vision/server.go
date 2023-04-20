@@ -12,8 +12,8 @@ import (
 
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
-	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
 )
@@ -21,16 +21,12 @@ import (
 // subtypeServer implements the Vision Service.
 type subtypeServer struct {
 	pb.UnimplementedVisionServiceServer
-	subtypeSvc subtype.Service
+	coll resource.SubtypeCollection[Service]
 }
 
 // NewServer constructs a vision gRPC service server.
-func NewServer(s subtype.Service) pb.VisionServiceServer {
-	return &subtypeServer{subtypeSvc: s}
-}
-
-func (server *subtypeServer) service(serviceName string) (Service, error) {
-	return subtype.LookupResource[Service](server.subtypeSvc, serviceName)
+func NewServer(coll resource.SubtypeCollection[Service]) pb.VisionServiceServer {
+	return &subtypeServer{coll: coll}
 }
 
 func (server *subtypeServer) GetModelParameterSchema(
@@ -39,7 +35,7 @@ func (server *subtypeServer) GetModelParameterSchema(
 ) (*pb.GetModelParameterSchemaResponse, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::server::GetModelParameterSchema")
 	defer span.End()
-	svc, err := server.service(req.Name)
+	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -62,7 +58,7 @@ func (server *subtypeServer) GetDetectorNames(
 ) (*pb.GetDetectorNamesResponse, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::server::GetDetectorNames")
 	defer span.End()
-	svc, err := server.service(req.Name)
+	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +77,7 @@ func (server *subtypeServer) AddDetector(
 ) (*pb.AddDetectorResponse, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::server::AddDetector")
 	defer span.End()
-	svc, err := server.service(req.Name)
+	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +100,7 @@ func (server *subtypeServer) RemoveDetector(
 ) (*pb.RemoveDetectorResponse, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::server::RemoveDetector")
 	defer span.End()
-	svc, err := server.service(req.Name)
+	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -121,7 +117,7 @@ func (server *subtypeServer) GetDetections(
 ) (*pb.GetDetectionsResponse, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::server::GetDetections")
 	defer span.End()
-	svc, err := server.service(req.Name)
+	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -164,7 +160,7 @@ func (server *subtypeServer) GetDetectionsFromCamera(
 ) (*pb.GetDetectionsFromCameraResponse, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::server::GetDetectionsFromCamera")
 	defer span.End()
-	svc, err := server.service(req.Name)
+	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -203,7 +199,7 @@ func (server *subtypeServer) GetClassifierNames(
 ) (*pb.GetClassifierNamesResponse, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::server::GetClassifierNames")
 	defer span.End()
-	svc, err := server.service(req.Name)
+	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -222,7 +218,7 @@ func (server *subtypeServer) AddClassifier(
 ) (*pb.AddClassifierResponse, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::server::AddClassifier")
 	defer span.End()
-	svc, err := server.service(req.Name)
+	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -245,7 +241,7 @@ func (server *subtypeServer) RemoveClassifier(
 ) (*pb.RemoveClassifierResponse, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::server::RemoveClassifier")
 	defer span.End()
-	svc, err := server.service(req.Name)
+	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -262,7 +258,7 @@ func (server *subtypeServer) GetClassifications(
 ) (*pb.GetClassificationsResponse, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::server::GetClassifications")
 	defer span.End()
-	svc, err := server.service(req.Name)
+	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -293,7 +289,7 @@ func (server *subtypeServer) GetClassificationsFromCamera(
 ) (*pb.GetClassificationsFromCameraResponse, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::server::GetClassificationsFromCamera")
 	defer span.End()
-	svc, err := server.service(req.Name)
+	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -318,7 +314,7 @@ func (server *subtypeServer) GetSegmenterNames(
 	ctx context.Context,
 	req *pb.GetSegmenterNamesRequest,
 ) (*pb.GetSegmenterNamesResponse, error) {
-	svc, err := server.service(req.Name)
+	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -337,7 +333,7 @@ func (server *subtypeServer) AddSegmenter(
 ) (*pb.AddSegmenterResponse, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::server::AddSegmenter")
 	defer span.End()
-	svc, err := server.service(req.Name)
+	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -360,7 +356,7 @@ func (server *subtypeServer) RemoveSegmenter(
 ) (*pb.RemoveSegmenterResponse, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::server::RemoveSegmenter")
 	defer span.End()
-	svc, err := server.service(req.Name)
+	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -377,7 +373,7 @@ func (server *subtypeServer) GetObjectPointClouds(
 	ctx context.Context,
 	req *pb.GetObjectPointCloudsRequest,
 ) (*pb.GetObjectPointCloudsResponse, error) {
-	svc, err := server.service(req.Name)
+	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -423,7 +419,7 @@ func (server *subtypeServer) DoCommand(ctx context.Context,
 	ctx, span := trace.StartSpan(ctx, "service::vision::server::DoCommand")
 	defer span.End()
 
-	svc, err := server.service(req.Name)
+	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}

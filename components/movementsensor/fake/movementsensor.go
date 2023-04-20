@@ -27,12 +27,12 @@ func init() {
 	registry.RegisterComponent(
 		movementsensor.Subtype,
 		modelname,
-		registry.Component{Constructor: func(
+		registry.Resource[movementsensor.MovementSensor]{Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
 			logger golog.Logger,
-		) (resource.Resource, error) {
+		) (movementsensor.MovementSensor, error) {
 			return movementsensor.MovementSensor(&MovementSensor{
 				Named: conf.ResourceName().AsNamed(),
 			}), nil

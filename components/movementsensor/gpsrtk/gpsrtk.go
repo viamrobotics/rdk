@@ -129,12 +129,12 @@ func init() {
 	registry.RegisterComponent(
 		movementsensor.Subtype,
 		roverModel,
-		registry.Component{Constructor: func(
+		registry.Resource[movementsensor.MovementSensor]{Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
 			logger golog.Logger,
-		) (resource.Resource, error) {
+		) (movementsensor.MovementSensor, error) {
 			return newRTKMovementSensor(ctx, deps, conf, logger)
 		}})
 

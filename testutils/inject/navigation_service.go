@@ -8,6 +8,7 @@ import (
 
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/navigation"
+	"go.viam.com/utils"
 )
 
 // NavigationService represents a fake instance of a navigation service.
@@ -24,6 +25,7 @@ type NavigationService struct {
 	RemoveWaypointFunc func(ctx context.Context, id primitive.ObjectID, extra map[string]interface{}) error
 	DoCommandFunc      func(ctx context.Context,
 		cmd map[string]interface{}) (map[string]interface{}, error)
+	CloseFunc func(ctx context.Context) error
 }
 
 // NewNavigationService returns a new injected navigation service.
@@ -92,4 +94,12 @@ func (ns *NavigationService) DoCommand(ctx context.Context,
 		return ns.Service.DoCommand(ctx, cmd)
 	}
 	return ns.DoCommandFunc(ctx, cmd)
+}
+
+// Close calls the injected Close or the real version.
+func (ns *NavigationService) Close(ctx context.Context) error {
+	if ns.CloseFunc == nil {
+		return utils.TryClose(ctx, ns.Service)
+	}
+	return ns.CloseFunc(ctx)
 }

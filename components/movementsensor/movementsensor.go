@@ -16,24 +16,23 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/subtype"
 )
 
 // Properties tells you what a MovementSensor supports.
 type Properties pb.GetPropertiesResponse
 
 func init() {
-	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
-		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
+	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype[MovementSensor]{
+		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeColl resource.SubtypeCollection[MovementSensor]) error {
 			return rpcServer.RegisterServiceServer(
 				ctx,
 				&pb.MovementSensorService_ServiceDesc,
-				NewServer(subtypeSvc),
+				NewServer(subtypeColl),
 				pb.RegisterMovementSensorServiceHandlerFromEndpoint,
 			)
 		},
 		RPCServiceDesc: &pb.MovementSensorService_ServiceDesc,
-		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (resource.Resource, error) {
+		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (MovementSensor, error) {
 			return NewClientFromConn(ctx, conn, name, logger)
 		},
 	})

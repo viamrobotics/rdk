@@ -12,7 +12,6 @@ import (
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -24,7 +23,7 @@ func newServer() (genericpb.GenericServiceServer, *inject.Generic, *inject.Gener
 		generic.Named(testGenericName): injectGeneric,
 		generic.Named(failGenericName): injectGeneric2,
 	}
-	injectSvc, err := subtype.New(generic.Subtype, resourceMap)
+	injectSvc, err := resource.NewSubtypeCollection(generic.Subtype, resourceMap)
 	if err != nil {
 		return nil, nil, nil, err
 	}

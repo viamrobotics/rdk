@@ -86,7 +86,7 @@ var model = resource.NewDefaultModel("gpio")
 
 func init() {
 	registry.RegisterComponent(servo.Subtype, model,
-		registry.Component{
+		registry.Resource[servo.Servo]{
 			Constructor: newGPIOServo,
 		})
 	config.RegisterComponentAttributeMapConverter(servo.Subtype, model,
@@ -111,7 +111,7 @@ type servoGPIO struct {
 	currPct   float64
 }
 
-func newGPIOServo(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (resource.Resource, error) {
+func newGPIOServo(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (servo.Servo, error) {
 	newConf, err := resource.NativeConfig[*servoConfig](conf)
 	if err != nil {
 		return nil, err
@@ -190,8 +190,6 @@ func newGPIOServo(ctx context.Context, deps resource.Dependencies, conf resource
 	}
 	return servo, nil
 }
-
-var _ = servo.Servo(&servoGPIO{})
 
 // Given minUs, maxUs, deg and frequency attempt to calculate the corresponding duty cycle pct.
 func mapDegToDutyCylePct(minUs, maxUs uint, minDeg, maxDeg, deg float64, frequency uint) float64 {

@@ -28,7 +28,6 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/client"
-	"go.viam.com/rdk/subtype"
 )
 
 // CheckSocketAddressLength returns an error if the socket path is too long for the OS.
@@ -119,7 +118,7 @@ type Module struct {
 	parentAddr              string
 	activeBackgroundWorkers sync.WaitGroup
 	handlers                HandlerMap
-	services                map[resource.Subtype]subtype.Service
+	collections             map[resource.Subtype]resource.SubtypeCollection[resource.Resource]
 	closeOnce               sync.Once
 	pb.UnimplementedModuleServiceServer
 }
@@ -135,13 +134,13 @@ func NewModule(ctx context.Context, address string, logger *zap.SugaredLogger) (
 		opMgr.StreamServerInterceptor,
 	}
 	m := &Module{
-		logger:     logger,
-		addr:       address,
-		operations: opMgr,
-		server:     NewServer(unaries, streams),
-		ready:      true,
-		handlers:   HandlerMap{},
-		services:   map[resource.Subtype]subtype.Service{},
+		logger:      logger,
+		addr:        address,
+		operations:  opMgr,
+		server:      NewServer(unaries, streams),
+		ready:       true,
+		handlers:    HandlerMap{},
+		collections: map[resource.Subtype]resource.SubtypeCollection[resource.Resource]{},
 	}
 	if err := m.server.RegisterServiceServer(ctx, &pb.ModuleService_ServiceDesc, m); err != nil {
 		return nil, err
@@ -299,7 +298,7 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	subSvc, ok := m.services[conf.API]
+	subSvc, ok := m.collections[conf.API]
 	if !ok {
 		return nil, errors.Errorf("module cannot service api: %s", conf.API)
 	}
@@ -336,7 +335,7 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	svc, ok := m.services[conf.API]
+	svc, ok := m.collections[conf.API]
 	if !ok {
 		return nil, errors.Errorf("no rpc service for %+v", conf)
 	}
@@ -424,7 +423,7 @@ func (m *Module) RemoveResource(ctx context.Context, req *pb.RemoveResourceReque
 		return nil, err
 	}
 
-	svc, ok := m.services[name.Subtype]
+	svc, ok := m.collections[name.Subtype]
 	if !ok {
 		return nil, errors.Errorf("no grpc service for %+v", name)
 	}
@@ -443,19 +442,21 @@ func (m *Module) RemoveResource(ctx context.Context, req *pb.RemoveResourceReque
 func (m *Module) addAPIFromRegistry(ctx context.Context, api resource.Subtype) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	_, ok := m.services[api]
+	_, ok := m.collections[api]
 	if ok {
 		return nil
 	}
-	newSvc, err := subtype.New(api, make(map[resource.Name]resource.Resource))
-	if err != nil {
-		return err
-	}
-	m.services[api] = newSvc
 
-	subtypeInfo, ok := registry.ResourceSubtypeLookup(api)
+	subtypeInfo, ok := registry.GenericResourceSubtypeLookup(api)
+	if !ok {
+		return errors.Errorf("invariant: resource subtype does not exist for %q", api)
+	}
+
+	newColl := subtypeInfo.MakeEmptyCollection()
+	m.collections[api] = newColl
+
 	if ok && subtypeInfo.RegisterRPCService != nil {
-		if err := subtypeInfo.RegisterRPCService(ctx, m.server, newSvc); err != nil {
+		if err := subtypeInfo.RegisterRPCService(ctx, m.server, newColl); err != nil {
 			return err
 		}
 	}
@@ -470,7 +471,7 @@ func (m *Module) AddModelFromRegistry(ctx context.Context, api resource.Subtype,
 	}
 
 	m.mu.Lock()
-	_, ok := m.services[api]
+	_, ok := m.collections[api]
 	m.mu.Unlock()
 	if !ok {
 		if err := m.addAPIFromRegistry(ctx, api); err != nil {
@@ -478,7 +479,7 @@ func (m *Module) AddModelFromRegistry(ctx context.Context, api resource.Subtype,
 		}
 	}
 
-	subtypeInfo, ok := registry.ResourceSubtypeLookup(api)
+	subtypeInfo, ok := registry.GenericResourceSubtypeLookup(api)
 	if !ok {
 		return errors.Errorf("invariant: resource subtype does not exist for %q", api)
 	}

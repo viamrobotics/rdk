@@ -588,7 +588,7 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (resource.Resource, er
 }
 
 func (rc *RobotClient) createClient(name resource.Name) (resource.Resource, error) {
-	subtypeInfo, ok := registry.ResourceSubtypeLookup(name.Subtype)
+	subtypeInfo, ok := registry.GenericResourceSubtypeLookup(name.Subtype)
 	if !ok || subtypeInfo.RPCClient == nil {
 		if name.Namespace != resource.ResourceNamespaceRDK {
 			return grpc.NewForeignResource(name, &rc.conn), nil

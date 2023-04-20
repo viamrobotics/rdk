@@ -75,6 +75,7 @@ type Resource interface {
 	DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 
 	// Close must safely shut down the resource and prevent further use.
+	// Close must be idempotent.
 	// Later reconfiguration may allow a resource to be "open" again.
 	Close(ctx context.Context) error
 }

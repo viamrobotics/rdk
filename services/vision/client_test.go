@@ -20,7 +20,6 @@ import (
 	_ "go.viam.com/rdk/services/register"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/services/vision/builtin"
-	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
@@ -45,14 +44,15 @@ func TestClient(t *testing.T) {
 	visName := vision.FindFirstName(r)
 	srv, err := vision.FromRobot(r, visName)
 	test.That(t, err, test.ShouldBeNil)
-	m := map[resource.Name]resource.Resource{
+	m := map[resource.Name]vision.Service{
 		vision.Named(visName): srv,
 	}
-	svc, err := subtype.New(vision.Subtype, m)
+	svc, err := resource.NewSubtypeCollection(vision.Subtype, m)
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype, ok := registry.ResourceSubtypeLookup(vision.Subtype)
+	resourceSubtype, ok,err := registry.ResourceSubtypeLookup[vision.Service](vision.Subtype)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, svc)
+	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, svc), test.ShouldBeNil)
 
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()
@@ -328,11 +328,11 @@ func TestInjectedServiceClient(t *testing.T) {
 	osMap := map[resource.Name]resource.Resource{
 		visName1: injectVision,
 	}
-	svc, err := subtype.New(vision.Subtype, osMap)
+	svc, err := resource.NewSubtypeCollection(vision.Subtype, osMap)
 	test.That(t, err, test.ShouldBeNil)
 	resourceSubtype, ok := registry.ResourceSubtypeLookup(vision.Subtype)
 	test.That(t, ok, test.ShouldBeTrue)
-	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, svc)
+	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, svc)
 
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()

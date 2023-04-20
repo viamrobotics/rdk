@@ -92,12 +92,12 @@ func init() {
 	registry.RegisterComponent(
 		camera.Subtype,
 		modelname,
-		registry.Component{Constructor: func(
+		registry.Resource[camera.Camera]{Constructor: func(
 			ctx context.Context,
 			_ resource.Dependencies,
 			conf resource.Config,
 			logger golog.Logger,
-		) (resource.Resource, error) {
+		) (camera.Camera, error) {
 			newConf, err := resource.NativeConfig[*Config](conf)
 			if err != nil {
 				return nil, err

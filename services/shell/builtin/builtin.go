@@ -20,8 +20,8 @@ import (
 )
 
 func init() {
-	registry.RegisterService(shell.Subtype, resource.DefaultServiceModel, registry.Service{
-		Constructor: func(ctx context.Context, dep resource.Dependencies, c resource.Config, logger golog.Logger) (resource.Resource, error) {
+	registry.RegisterService(shell.Subtype, resource.DefaultServiceModel, registry.Resource[shell.Service]{
+		Constructor: func(ctx context.Context, dep resource.Dependencies, c resource.Config, logger golog.Logger) (shell.Service, error) {
 			return NewBuiltIn(c.ResourceName(), logger)
 		},
 	},

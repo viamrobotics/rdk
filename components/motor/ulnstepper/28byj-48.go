@@ -98,7 +98,7 @@ func (conf *Config) Validate(path string) ([]string, error) {
 }
 
 func init() {
-	registry.RegisterComponent(motor.Subtype, model, registry.Component{Constructor: new28byj})
+	registry.RegisterComponent(motor.Subtype, model, registry.Resource[motor.Motor]{Constructor: new28byj})
 
 	config.RegisterComponentAttributeMapConverter(
 		motor.Subtype,
@@ -108,7 +108,7 @@ func init() {
 		})
 }
 
-func new28byj(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (resource.Resource, error) {
+func new28byj(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (motor.Motor, error) {
 	mc, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return nil, err

@@ -16,12 +16,12 @@ func init() {
 	registry.RegisterComponent(
 		sensor.Subtype,
 		resource.NewDefaultModel("fake"),
-		registry.Component{Constructor: func(
+		registry.Resource[sensor.Sensor]{Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
 			logger golog.Logger,
-		) (resource.Resource, error) {
+		) (sensor.Sensor, error) {
 			return newSensor(conf.ResourceName()), nil
 		}})
 }

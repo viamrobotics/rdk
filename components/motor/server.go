@@ -9,22 +9,17 @@ import (
 
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/protoutils"
-	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/resource"
 )
 
 type subtypeServer struct {
 	pb.UnimplementedMotorServiceServer
-	service subtype.Service
+	coll resource.SubtypeCollection[Motor]
 }
 
 // NewServer constructs a motor gRPC service server.
-func NewServer(service subtype.Service) pb.MotorServiceServer {
-	return &subtypeServer{service: service}
-}
-
-// getMotor returns the specified motor or nil.
-func (server *subtypeServer) getMotor(name string) (Motor, error) {
-	return subtype.LookupResource[Motor](server.service, name)
+func NewServer(coll resource.SubtypeCollection[Motor]) pb.MotorServiceServer {
+	return &subtypeServer{coll: coll}
 }
 
 // SetPower sets the percentage of power the motor of the underlying robot should employ between 0-1.
@@ -33,7 +28,7 @@ func (server *subtypeServer) SetPower(
 	req *pb.SetPowerRequest,
 ) (*pb.SetPowerResponse, error) {
 	motorName := req.GetName()
-	motor, err := server.getMotor(motorName)
+	motor, err := server.coll.Resource(motorName)
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +43,7 @@ func (server *subtypeServer) GoFor(
 ) (*pb.GoForResponse, error) {
 	operation.CancelOtherWithLabel(ctx, req.GetName())
 	motorName := req.GetName()
-	motor, err := server.getMotor(motorName)
+	motor, err := server.coll.Resource(motorName)
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +60,7 @@ func (server *subtypeServer) GetPosition(
 	req *pb.GetPositionRequest,
 ) (*pb.GetPositionResponse, error) {
 	motorName := req.GetName()
-	motor, err := server.getMotor(motorName)
+	motor, err := server.coll.Resource(motorName)
 	if err != nil {
 		return nil, err
 	}
@@ -83,7 +78,7 @@ func (server *subtypeServer) GetProperties(
 	req *pb.GetPropertiesRequest,
 ) (*pb.GetPropertiesResponse, error) {
 	motorName := req.GetName()
-	motor, err := server.getMotor(motorName)
+	motor, err := server.coll.Resource(motorName)
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +95,7 @@ func (server *subtypeServer) Stop(
 	req *pb.StopRequest,
 ) (*pb.StopResponse, error) {
 	motorName := req.GetName()
-	motor, err := server.getMotor(motorName)
+	motor, err := server.coll.Resource(motorName)
 	if err != nil {
 		return nil, err
 	}
@@ -114,7 +109,7 @@ func (server *subtypeServer) IsPowered(
 	req *pb.IsPoweredRequest,
 ) (*pb.IsPoweredResponse, error) {
 	motorName := req.GetName()
-	motor, err := server.getMotor(motorName)
+	motor, err := server.coll.Resource(motorName)
 	if err != nil {
 		return nil, err
 	}
@@ -133,7 +128,7 @@ func (server *subtypeServer) GoTo(
 ) (*pb.GoToResponse, error) {
 	operation.CancelOtherWithLabel(ctx, req.GetName())
 	motorName := req.GetName()
-	motor, err := server.getMotor(motorName)
+	motor, err := server.coll.Resource(motorName)
 	if err != nil {
 		return nil, err
 	}
@@ -148,7 +143,7 @@ func (server *subtypeServer) ResetZeroPosition(
 	req *pb.ResetZeroPositionRequest,
 ) (*pb.ResetZeroPositionResponse, error) {
 	motorName := req.GetName()
-	motor, err := server.getMotor(motorName)
+	motor, err := server.coll.Resource(motorName)
 	if err != nil {
 		return nil, err
 	}
@@ -158,7 +153,7 @@ func (server *subtypeServer) ResetZeroPosition(
 
 // IsMoving queries of a component is in motion.
 func (server *subtypeServer) IsMoving(ctx context.Context, req *pb.IsMovingRequest) (*pb.IsMovingResponse, error) {
-	motor, err := server.getMotor(req.GetName())
+	motor, err := server.coll.Resource(req.GetName())
 	if err != nil {
 		return nil, err
 	}
@@ -173,7 +168,7 @@ func (server *subtypeServer) IsMoving(ctx context.Context, req *pb.IsMovingReque
 func (server *subtypeServer) DoCommand(ctx context.Context,
 	req *commonpb.DoCommandRequest,
 ) (*commonpb.DoCommandResponse, error) {
-	motor, err := server.getMotor(req.GetName())
+	motor, err := server.coll.Resource(req.GetName())
 	if err != nil {
 		return nil, err
 	}

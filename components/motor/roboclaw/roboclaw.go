@@ -55,13 +55,13 @@ func init() {
 	registry.RegisterComponent(
 		motor.Subtype,
 		modelname,
-		registry.Component{
+		registry.Resource[motor.Motor]{
 			Constructor: func(
 				ctx context.Context,
 				deps resource.Dependencies,
 				conf resource.Config,
 				logger golog.Logger,
-			) (resource.Resource, error) {
+			) (motor.Motor, error) {
 				return newRoboClaw(deps, conf, logger)
 			},
 		},
@@ -131,8 +131,6 @@ func newRoboClaw(deps resource.Dependencies, conf resource.Config, logger golog.
 		logger: logger,
 	}, nil
 }
-
-var _ = motor.LocalMotor(&roboclawMotor{})
 
 type roboclawMotor struct {
 	resource.Named

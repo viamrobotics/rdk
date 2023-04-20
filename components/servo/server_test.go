@@ -11,7 +11,6 @@ import (
 
 	"go.viam.com/rdk/components/servo"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -24,7 +23,7 @@ func newServer() (pb.ServoServiceServer, *inject.Servo, *inject.Servo, error) {
 		servo.Named(failServoName):   injectServo2,
 		servo.Named((fakeServoName)): testutils.NewUnimplementedResource(servo.Named(fakeServoName)),
 	}
-	injectSvc, err := subtype.New(servo.Subtype, resourceMap)
+	injectSvc, err := resource.NewSubtypeCollection(servo.Subtype, resourceMap)
 	if err != nil {
 		return nil, nil, nil, err
 	}

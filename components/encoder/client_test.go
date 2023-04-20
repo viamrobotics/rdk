@@ -12,11 +12,9 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/encoder"
-	"go.viam.com/rdk/components/generic"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -75,18 +73,18 @@ func TestClient(t *testing.T) {
 		return nil, errors.New("get properties failed")
 	}
 
-	resourceMap := map[resource.Name]resource.Resource{
+	resourceMap := map[resource.Name]encoder.Encoder{
 		encoder.Named(testEncoderName): workingEncoder,
 		encoder.Named(failEncoderName): failingEncoder,
 	}
-	encoderSvc, err := subtype.New(encoder.Subtype, resourceMap)
+	encoderSvc, err := resource.NewSubtypeCollection(encoder.Subtype, resourceMap)
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype, ok := registry.ResourceSubtypeLookup(encoder.Subtype)
+	resourceSubtype, ok, err := registry.ResourceSubtypeLookup[encoder.Encoder](encoder.Subtype)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, encoderSvc)
+	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, encoderSvc), test.ShouldBeNil)
 
 	workingEncoder.DoFunc = testutils.EchoFunc
-	generic.RegisterService(rpcServer, encoderSvc)
 
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()

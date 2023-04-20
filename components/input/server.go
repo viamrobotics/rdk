@@ -10,23 +10,18 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/protoutils"
-	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/resource"
 )
 
 // subtypeServer implements the InputControllerService from proto.
 type subtypeServer struct {
 	pb.UnimplementedInputControllerServiceServer
-	s subtype.Service
+	coll resource.SubtypeCollection[Controller]
 }
 
 // NewServer constructs an input controller gRPC service server.
-func NewServer(s subtype.Service) pb.InputControllerServiceServer {
-	return &subtypeServer{s: s}
-}
-
-// getInputController returns the input controller specified, nil if not.
-func (s *subtypeServer) getInputController(name string) (Controller, error) {
-	return subtype.LookupResource[Controller](s.s, name)
+func NewServer(coll resource.SubtypeCollection[Controller]) pb.InputControllerServiceServer {
+	return &subtypeServer{coll: coll}
 }
 
 // GetControls lists the inputs of an Controller.
@@ -34,7 +29,7 @@ func (s *subtypeServer) GetControls(
 	ctx context.Context,
 	req *pb.GetControlsRequest,
 ) (*pb.GetControlsResponse, error) {
-	controller, err := s.getInputController(req.Controller)
+	controller, err := s.coll.Resource(req.Controller)
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +52,7 @@ func (s *subtypeServer) GetEvents(
 	ctx context.Context,
 	req *pb.GetEventsRequest,
 ) (*pb.GetEventsResponse, error) {
-	controller, err := s.getInputController(req.Controller)
+	controller, err := s.coll.Resource(req.Controller)
 	if err != nil {
 		return nil, err
 	}
@@ -86,7 +81,7 @@ func (s *subtypeServer) TriggerEvent(
 	ctx context.Context,
 	req *pb.TriggerEventRequest,
 ) (*pb.TriggerEventResponse, error) {
-	controller, err := s.getInputController(req.Controller)
+	controller, err := s.coll.Resource(req.Controller)
 	if err != nil {
 		return nil, err
 	}
@@ -117,7 +112,7 @@ func (s *subtypeServer) StreamEvents(
 	req *pb.StreamEventsRequest,
 	server pb.InputControllerService_StreamEventsServer,
 ) error {
-	controller, err := s.getInputController(req.Controller)
+	controller, err := s.coll.Resource(req.Controller)
 	if err != nil {
 		return err
 	}
@@ -176,7 +171,7 @@ func (s *subtypeServer) StreamEvents(
 func (s *subtypeServer) DoCommand(ctx context.Context,
 	req *commonpb.DoCommandRequest,
 ) (*commonpb.DoCommandResponse, error) {
-	controller, err := s.getInputController(req.GetName())
+	controller, err := s.coll.Resource(req.GetName())
 	if err != nil {
 		return nil, err
 	}

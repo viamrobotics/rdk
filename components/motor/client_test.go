@@ -10,12 +10,10 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -94,18 +92,18 @@ func TestClient(t *testing.T) {
 		return false, 0.0, errors.New("is on unavailable")
 	}
 
-	resourceMap := map[resource.Name]resource.Resource{
+	resourceMap := map[resource.Name]motor.Motor{
 		motor.Named(testMotorName): workingMotor,
 		motor.Named(failMotorName): failingMotor,
 	}
-	motorSvc, err := subtype.New(motor.Subtype, resourceMap)
+	motorSvc, err := resource.NewSubtypeCollection(motor.Subtype, resourceMap)
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype, ok := registry.ResourceSubtypeLookup(motor.Subtype)
+	resourceSubtype, ok, err := registry.ResourceSubtypeLookup[motor.Motor](motor.Subtype)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, motorSvc)
+	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, motorSvc), test.ShouldBeNil)
 
 	workingMotor.DoFunc = testutils.EchoFunc
-	generic.RegisterService(rpcServer, motorSvc)
 
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()

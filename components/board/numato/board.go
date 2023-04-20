@@ -46,12 +46,12 @@ func init() {
 	registry.RegisterComponent(
 		board.Subtype,
 		modelName,
-		registry.Component{Constructor: func(
+		registry.Resource[board.Board]{Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
 			logger golog.Logger,
-		) (resource.Resource, error) {
+		) (board.Board, error) {
 			newConf, err := resource.NativeConfig[*Config](conf)
 			if err != nil {
 				return nil, err

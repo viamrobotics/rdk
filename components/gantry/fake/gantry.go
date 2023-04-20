@@ -16,13 +16,13 @@ import (
 )
 
 func init() {
-	registry.RegisterComponent(gantry.Subtype, resource.NewDefaultModel("fake"), registry.Component{
+	registry.RegisterComponent(gantry.Subtype, resource.NewDefaultModel("fake"), registry.Resource[gantry.Gantry]{
 		Constructor: func(
 			ctx context.Context,
 			_ resource.Dependencies,
 			conf resource.Config,
 			logger golog.Logger,
-		) (resource.Resource, error) {
+		) (gantry.Gantry, error) {
 			return NewGantry(conf.ResourceName()), nil
 		},
 	})

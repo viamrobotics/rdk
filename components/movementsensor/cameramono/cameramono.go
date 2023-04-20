@@ -88,13 +88,13 @@ func init() {
 	registry.RegisterComponent(
 		movementsensor.Subtype,
 		model,
-		registry.Component{
+		registry.Resource[movementsensor.MovementSensor]{
 			Constructor: func(
 				ctx context.Context,
 				deps resource.Dependencies,
 				conf resource.Config,
 				logger golog.Logger,
-			) (resource.Resource, error) {
+			) (movementsensor.MovementSensor, error) {
 				return newCameraMono(deps, conf, logger)
 			},
 		})

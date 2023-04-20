@@ -9,27 +9,22 @@ import (
 
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/protoutils"
-	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/resource"
 )
 
 type subtypeServer struct {
 	pb.UnimplementedServoServiceServer
-	service subtype.Service
+	coll resource.SubtypeCollection[Servo]
 }
 
 // NewServer constructs a servo gRPC service server.
-func NewServer(service subtype.Service) pb.ServoServiceServer {
-	return &subtypeServer{service: service}
-}
-
-// getServo returns the specified servo or nil.
-func (server *subtypeServer) getServo(name string) (Servo, error) {
-	return subtype.LookupResource[Servo](server.service, name)
+func NewServer(coll resource.SubtypeCollection[Servo]) pb.ServoServiceServer {
+	return &subtypeServer{coll: coll}
 }
 
 func (server *subtypeServer) Move(ctx context.Context, req *pb.MoveRequest) (*pb.MoveResponse, error) {
 	operation.CancelOtherWithLabel(ctx, req.GetName())
-	servo, err := server.getServo(req.GetName())
+	servo, err := server.coll.Resource(req.GetName())
 	if err != nil {
 		return nil, err
 	}
@@ -40,7 +35,7 @@ func (server *subtypeServer) GetPosition(
 	ctx context.Context,
 	req *pb.GetPositionRequest,
 ) (*pb.GetPositionResponse, error) {
-	servo, err := server.getServo(req.GetName())
+	servo, err := server.coll.Resource(req.GetName())
 	if err != nil {
 		return nil, err
 	}
@@ -53,7 +48,7 @@ func (server *subtypeServer) GetPosition(
 
 func (server *subtypeServer) Stop(ctx context.Context, req *pb.StopRequest) (*pb.StopResponse, error) {
 	operation.CancelOtherWithLabel(ctx, req.Name)
-	servo, err := server.getServo(req.Name)
+	servo, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -62,7 +57,7 @@ func (server *subtypeServer) Stop(ctx context.Context, req *pb.StopRequest) (*pb
 
 // IsMoving queries of a component is in motion.
 func (server *subtypeServer) IsMoving(ctx context.Context, req *pb.IsMovingRequest) (*pb.IsMovingResponse, error) {
-	servo, err := server.getServo(req.GetName())
+	servo, err := server.coll.Resource(req.GetName())
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +72,7 @@ func (server *subtypeServer) IsMoving(ctx context.Context, req *pb.IsMovingReque
 func (server *subtypeServer) DoCommand(ctx context.Context,
 	req *commonpb.DoCommandRequest,
 ) (*commonpb.DoCommandResponse, error) {
-	servo, err := server.getServo(req.GetName())
+	servo, err := server.coll.Resource(req.GetName())
 	if err != nil {
 		return nil, err
 	}

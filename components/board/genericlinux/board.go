@@ -33,8 +33,6 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-var _ = board.LocalBoard(&sysfsBoard{})
-
 // A Config describes the configuration of a board and all of its connected parts.
 type Config struct {
 	I2Cs              []board.I2CConfig              `json:"i2cs,omitempty"`
@@ -74,7 +72,7 @@ func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping, useP
 	registry.RegisterComponent(
 		board.Subtype,
 		resource.NewDefaultModel(resource.ModelName(modelName)),
-		registry.Component{Constructor: func(
+		registry.Resource{Constructor: func(
 			ctx context.Context,
 			_ resource.Dependencies,
 			conf resource.Config,

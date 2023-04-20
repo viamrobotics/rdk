@@ -14,7 +14,6 @@ import (
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -49,11 +48,12 @@ func TestClient(t *testing.T) {
 		generic.Named(testGenericName): workingGeneric,
 		generic.Named(failGenericName): failingGeneric,
 	}
-	genericSvc, err := subtype.New(generic.Subtype, resourceMap)
+	genericSvc, err := resource.NewSubtypeCollection(generic.Subtype, resourceMap)
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype, ok := registry.ResourceSubtypeLookup(generic.Subtype)
+	resourceSubtype, ok, err := registry.ResourceSubtypeLookup[resource.Resource](generic.Subtype)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, genericSvc)
+	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, genericSvc), test.ShouldBeNil)
 
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()

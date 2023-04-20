@@ -14,22 +14,21 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 )
 
 func init() {
-	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
-		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
+	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype[Service]{
+		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeColl resource.SubtypeCollection[Service]) error {
 			return rpcServer.RegisterServiceServer(
 				ctx,
 				&servicepb.DataManagerService_ServiceDesc,
-				NewServer(subtypeSvc),
+				NewServer(subtypeColl),
 				servicepb.RegisterDataManagerServiceHandlerFromEndpoint,
 			)
 		},
 		RPCServiceDesc: &servicepb.DataManagerService_ServiceDesc,
-		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (resource.Resource, error) {
+		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (Service, error) {
 			return NewClientFromConn(ctx, conn, name, logger)
 		},
 		MaxInstance: resource.DefaultMaxInstance,

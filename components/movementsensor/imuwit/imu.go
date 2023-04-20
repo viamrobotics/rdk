@@ -76,13 +76,13 @@ func (cfg *Config) Validate(path string) error {
 }
 
 func init() {
-	registry.RegisterComponent(movementsensor.Subtype, model, registry.Component{
+	registry.RegisterComponent(movementsensor.Subtype, model, registry.Resource[movementsensor.MovementSensor]{
 		Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
 			logger golog.Logger,
-		) (resource.Resource, error) {
+		) (movementsensor.MovementSensor, error) {
 			return NewWit(ctx, deps, conf, logger)
 		},
 	})

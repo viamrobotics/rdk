@@ -27,13 +27,13 @@ import (
 )
 
 func init() {
-	registry.RegisterService(vision.Subtype, resource.DefaultServiceModel, registry.Service{
+	registry.RegisterService(vision.Subtype, resource.DefaultServiceModel, registry.Resource[vision.Service]{
 		DeprecatedRobotConstructor: func(
 			ctx context.Context,
 			r robot.Robot,
 			c resource.Config,
 			logger golog.Logger,
-		) (resource.Resource, error) {
+		) (vision.Service, error) {
 			return NewBuiltIn(ctx, r, c, logger)
 		},
 	})

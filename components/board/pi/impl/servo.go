@@ -34,7 +34,7 @@ func init() {
 	registry.RegisterComponent(
 		servo.Subtype,
 		picommon.ModelName,
-		registry.Component{
+		registry.Resource{
 			Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (resource.Resource, error) {
 				newConf, err := resource.NativeConfig[*picommon.ServoConfig](conf)
 				if err != nil {
@@ -99,8 +99,6 @@ func init() {
 		},
 	)
 }
-
-var _ = servo.Servo(&piPigpioServo{})
 
 // piPigpioServo implements a servo.Servo using pigpio.
 type piPigpioServo struct {

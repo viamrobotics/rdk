@@ -96,7 +96,7 @@ func getBoardFromRobotConfig(deps resource.Dependencies, conf resource.Config) (
 	return b, motorConfig, nil
 }
 
-func createNewMotor(ctx context.Context, deps registry.Dependencies, cfg config.Component, logger golog.Logger) (interface{}, error) {
+func createNewMotor(ctx context.Context, deps resource.Dependencies, cfg resource.Config, logger golog.Logger) (interface{}, error) {
 	actualBoard, motorConfig, err := getBoardFromRobotConfig(deps, cfg)
 	if err != nil {
 		return nil, err

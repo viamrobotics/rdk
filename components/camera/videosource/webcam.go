@@ -36,12 +36,12 @@ func init() {
 	registry.RegisterComponent(
 		camera.Subtype,
 		model,
-		registry.Component{Constructor: func(
+		registry.Resource[camera.Camera]{Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
 			logger golog.Logger,
-		) (resource.Resource, error) {
+		) (camera.Camera, error) {
 			return NewWebcam(ctx, deps, conf, logger)
 		}})
 

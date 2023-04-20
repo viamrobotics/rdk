@@ -28,7 +28,6 @@ import (
 	"go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/robot/web"
 	"go.viam.com/rdk/session"
-	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/testutils/robottestutils"
 )
@@ -54,11 +53,11 @@ var echoSubType = resource.NewSubtype(
 
 func init() {
 	registry.RegisterResourceSubtype(echoSubType, registry.ResourceSubtype{
-		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
+		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeColl resource.SubtypeCollection[resource.Resource]) error {
 			return rpcServer.RegisterServiceServer(
 				ctx,
 				&echopb.EchoResourceService_ServiceDesc,
-				&echoServer{s: subtypeSvc},
+				&echoServer{s: subtypeColl},
 				echopb.RegisterEchoResourceServiceHandlerFromEndpoint,
 			)
 		},
@@ -70,7 +69,7 @@ func init() {
 	registry.RegisterComponent(
 		echoSubType,
 		resource.NewDefaultModel("fake"),
-		registry.Component{
+		registry.Resource{
 			Constructor: func(
 				ctx context.Context,
 				_ resource.Dependencies,
@@ -739,7 +738,7 @@ type dummyEcho struct {
 
 type echoServer struct {
 	echopb.UnimplementedEchoResourceServiceServer
-	s subtype.Service
+	coll resource.SubtypeCollection
 }
 
 func (srv *echoServer) EchoResourceMultiple(
@@ -748,7 +747,7 @@ func (srv *echoServer) EchoResourceMultiple(
 ) error {
 	sess, ok := session.FromContext(server.Context())
 	if ok {
-		res, err := subtype.LookupResource[*dummyEcho](srv.s, req.Name)
+		res, err := resource.LookupInCollection[*dummyEcho](srv.s, req.Name)
 		if err != nil {
 			return err
 		}

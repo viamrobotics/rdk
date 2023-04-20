@@ -20,14 +20,11 @@ var Model = resource.NewModel(
 	resource.ModelName("mynavigation"),
 )
 
-// This tests that the mynav service fulfills the navigation.Service interface requirements.
-var _ = navigation.Service(&navSvc{})
-
 func init() {
-	registry.RegisterService(navigation.Subtype, Model, registry.Service{Constructor: newNav})
+	registry.RegisterService(navigation.Subtype, Model, registry.Resource[navigation.Service]{Constructor: newNav})
 }
 
-func newNav(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (resource.Resource, error) {
+func newNav(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (navigation.Service, error) {
 	navSvc := &navSvc{
 		Named:  conf.ResourceName().AsNamed(),
 		logger: logger,
