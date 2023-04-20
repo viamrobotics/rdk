@@ -12,8 +12,6 @@ import (
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/encoder"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -39,23 +37,23 @@ func TestConvertBytesToAngle(t *testing.T) {
 	test.That(t, deg, test.ShouldAlmostEqual, 219.990234, 1e-6)
 }
 
-func setupDependencies(mockData []byte) (config.Component, registry.Dependencies) {
+func setupDependencies(mockData []byte) (resource.Config, resource.Dependencies) {
 	testBoardName := "board"
 	i2cName := "i2c"
 
-	i2cConf := &I2CAttrConfig{
+	i2cConf := &I2CConfig{
 		I2CBus:  i2cName,
 		I2CAddr: 64,
 	}
 
-	cfg := config.Component{
+	cfg := resource.Config{
 		Name:  "encoder",
 		Model: modelName,
-		Type:  encoder.SubtypeName,
-		ConvertedAttributes: &AttrConfig{
+		API:   encoder.Subtype,
+		ConvertedAttributes: &Config{
 			BoardName:      testBoardName,
 			ConnectionType: "i2c",
-			I2CAttrConfig:  i2cConf,
+			I2CConfig:      i2cConf,
 		},
 	}
 
@@ -75,7 +73,7 @@ func setupDependencies(mockData []byte) (config.Component, registry.Dependencies
 		}
 		return i2c, true
 	}
-	return cfg, registry.Dependencies{
+	return cfg, resource.Dependencies{
 		resource.NameFromSubtype(board.Subtype, testBoardName): mockBoard,
 	}
 }
@@ -95,50 +93,50 @@ func TestAMSEncoder(t *testing.T) {
 
 	t.Run("test automatically set to type ticks", func(t *testing.T) {
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			pos, _, _ := enc.GetPosition(ctx, encoder.PositionTypeUNSPECIFIED.Enum(), nil)
+			pos, _, _ := enc.GetPosition(ctx, encoder.PositionTypeUnspecified, nil)
 			test.That(tb, pos, test.ShouldNotEqual, 0.0)
 		})
-		pos, posType, _ := enc.GetPosition(ctx, encoder.PositionTypeUNSPECIFIED.Enum(), nil)
+		pos, posType, _ := enc.GetPosition(ctx, encoder.PositionTypeUnspecified, nil)
 		test.That(t, pos, test.ShouldAlmostEqual, 0.4, 0.1)
 		test.That(t, posType, test.ShouldEqual, 1)
 	})
 	t.Run("test ticks type from input", func(t *testing.T) {
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			pos, _, _ := enc.GetPosition(ctx, encoder.PositionTypeTICKS.Enum(), nil)
+			pos, _, _ := enc.GetPosition(ctx, encoder.PositionTypeTicks, nil)
 			test.That(tb, pos, test.ShouldNotEqual, 0.0)
 		})
-		pos, posType, _ := enc.GetPosition(ctx, encoder.PositionTypeUNSPECIFIED.Enum(), nil)
+		pos, posType, _ := enc.GetPosition(ctx, encoder.PositionTypeUnspecified, nil)
 		test.That(t, pos, test.ShouldAlmostEqual, 0.4, 0.1)
 		test.That(t, posType, test.ShouldEqual, 1)
 	})
 	t.Run("test degrees type from input", func(t *testing.T) {
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			pos, _, _ := enc.GetPosition(ctx, encoder.PositionTypeTICKS.Enum(), nil)
+			pos, _, _ := enc.GetPosition(ctx, encoder.PositionTypeTicks, nil)
 			test.That(tb, pos, test.ShouldNotEqual, 0.0)
 		})
-		pos, posType, _ := enc.GetPosition(ctx, encoder.PositionTypeDEGREES.Enum(), nil)
+		pos, posType, _ := enc.GetPosition(ctx, encoder.PositionTypeDegrees, nil)
 		test.That(t, pos, test.ShouldAlmostEqual, 142, 0.1)
 		test.That(t, posType, test.ShouldEqual, 2)
 	})
 }
 
-func setupDependenciesWithWrite(mockData []byte, writeData map[byte]byte) (config.Component, registry.Dependencies) {
+func setupDependenciesWithWrite(mockData []byte, writeData map[byte]byte) (resource.Config, resource.Dependencies) {
 	testBoardName := "board"
 	i2cName := "i2c"
 
-	i2cConf := &I2CAttrConfig{
+	i2cConf := &I2CConfig{
 		I2CBus:  i2cName,
 		I2CAddr: 64,
 	}
 
-	cfg := config.Component{
+	cfg := resource.Config{
 		Name:  "encoder",
 		Model: modelName,
-		Type:  encoder.SubtypeName,
-		ConvertedAttributes: &AttrConfig{
+		API:   encoder.Subtype,
+		ConvertedAttributes: &Config{
 			BoardName:      testBoardName,
 			ConnectionType: "i2c",
-			I2CAttrConfig:  i2cConf,
+			I2CConfig:      i2cConf,
 		},
 	}
 
@@ -159,7 +157,7 @@ func setupDependenciesWithWrite(mockData []byte, writeData map[byte]byte) (confi
 		}
 		return i2c, true
 	}
-	return cfg, registry.Dependencies{
+	return cfg, resource.Dependencies{
 		resource.NameFromSubtype(board.Subtype, testBoardName): mockBoard,
 	}
 }
@@ -185,7 +183,7 @@ func TestAMSEncoderReset(t *testing.T) {
 		})
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			pos, posType, _ := enc.GetPosition(ctx, encoder.PositionTypeUNSPECIFIED.Enum(), nil)
+			pos, posType, _ := enc.GetPosition(ctx, encoder.PositionTypeUnspecified, nil)
 			test.That(tb, pos, test.ShouldAlmostEqual, 0, 0.1)
 			test.That(tb, posType, test.ShouldEqual, 1)
 		})

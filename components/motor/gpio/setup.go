@@ -11,9 +11,7 @@ import (
 	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/control"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/utils"
 )
 
 var model = resource.NewDefaultModel("gpio")
@@ -48,18 +46,18 @@ type Config struct {
 func (conf *Config) Validate(path string) ([]string, error) {
 	var deps []string
 
-	if config.BoardName == "" {
+	if conf.BoardName == "" {
 		return nil, goutils.NewConfigValidationFieldRequiredError(path, "board")
 	}
 	deps = append(deps, conf.BoardName)
 
 	// If an encoder is present the max_rpm field is optional, in the absence of an encoder the field is required
-	if config.Encoder != "" {
-		if config.TicksPerRotation <= 0 {
+	if conf.Encoder != "" {
+		if conf.TicksPerRotation <= 0 {
 			return nil, goutils.NewConfigValidationError(path, errors.New("ticks_per_rotation should be positive or zero"))
 		}
-		deps = append(deps, config.Encoder)
-	} else if config.MaxRPM <= 0 {
+		deps = append(deps, conf.Encoder)
+	} else if conf.MaxRPM <= 0 {
 		return nil, goutils.NewConfigValidationFieldRequiredError(path, "max_rpm")
 	}
 	return deps, nil
@@ -67,17 +65,9 @@ func (conf *Config) Validate(path string) ([]string, error) {
 
 // init registers a pi motor based on pigpio.
 func init() {
-	registry.RegisterComponent(motor.Subtype, model, registry.Component{
+	resource.RegisterComponent(motor.Subtype, model, resource.Registration[motor.Motor, *Config]{
 		Constructor: createNewMotor,
 	})
-
-	config.RegisterComponentAttributeMapConverter(
-		motor.Subtype,
-		model,
-		func(attributes utils.AttributeMap) (interface{}, error) {
-			return config.TransformAttributeMapToStruct(&Config{}, attributes)
-		},
-	)
 }
 
 func getBoardFromRobotConfig(deps resource.Dependencies, conf resource.Config) (board.Board, *Config, error) {
@@ -95,13 +85,13 @@ func getBoardFromRobotConfig(deps resource.Dependencies, conf resource.Config) (
 	return b, motorConfig, nil
 }
 
-func createNewMotor(ctx context.Context, deps resource.Dependencies, cfg resource.Config, logger golog.Logger) (interface{}, error) {
+func createNewMotor(ctx context.Context, deps resource.Dependencies, cfg resource.Config, logger golog.Logger) (motor.Motor, error) {
 	actualBoard, motorConfig, err := getBoardFromRobotConfig(deps, cfg)
 	if err != nil {
 		return nil, err
 	}
 
-	m, err := NewMotor(actualBoard, *motorConfig, cfg.Name, logger)
+	m, err := NewMotor(actualBoard, *motorConfig, cfg.ResourceName(), logger)
 	if err != nil {
 		return nil, err
 	}

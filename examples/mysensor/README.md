@@ -27,7 +27,7 @@ Init functions are run on import, so we have to make sure we are importing it so
         resource.RegisterComponent(
             sensor.Subtype,
             "mySensor",
-            resource.Registration[sensor.Sensor]{Constructor: func(
+            resource.Registration[sensor.Sensor, *Config]{Constructor: func(
                 ctx context.Context,
                 deps resource.Dependencies,
                 conf resource.Config,

@@ -112,17 +112,15 @@ func newEncodedMotor(
 
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	em := &EncodedMotor{
-		Named:               name.AsNamed(),
-		cfg:                 motorConfig,
-		ticksPerRotation:    int64(motorConfig.TicksPerRotation),
-		real:                localReal,
-		cancelCtx:           cancelCtx,
-		cancel:              cancel,
-		startedRPMMonitorMu: &sync.Mutex{},
-		rampRate:            motorConfig.RampRate,
-		maxPowerPct:         motorConfig.MaxPowerPct,
-		logger:              logger,
-		loop:                nil,
+		Named:            name.AsNamed(),
+		cfg:              motorConfig,
+		ticksPerRotation: int64(motorConfig.TicksPerRotation),
+		real:             localReal,
+		cancelCtx:        cancelCtx,
+		cancel:           cancel,
+		rampRate:         motorConfig.RampRate,
+		maxPowerPct:      motorConfig.MaxPowerPct,
+		logger:           logger,
 	}
 
 	props, err := realEncoder.GetProperties(context.Background(), nil)

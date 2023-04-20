@@ -64,6 +64,14 @@ func (handle *I2CHandle) WriteBlockData(ctx context.Context, register byte, data
 	return handle.WriteBlockDataFunc(ctx, register, data)
 }
 
+// Write calls the injected WriteFunc or the real version.
+func (handle *I2CHandle) Write(ctx context.Context, tx []byte) error {
+	if handle.WriteFunc == nil {
+		return handle.I2CHandle.Write(ctx, tx)
+	}
+	return handle.WriteFunc(ctx, tx)
+}
+
 // Close calls the injected CloseFunc or the real version.
 func (handle *I2CHandle) Close() error {
 	if handle.CloseFunc == nil {
