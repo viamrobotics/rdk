@@ -264,7 +264,7 @@ func TestConfigEnsure(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, `heartbeat_window`)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `between`)
 
-	invalidNetwork.Network.Sessions.HeartbeatWindow = 10 * time.Millisecond
+	invalidNetwork.Network.Sessions.HeartbeatWindow = 30 * time.Millisecond
 	test.That(t, invalidNetwork.Ensure(false, logger), test.ShouldBeNil)
 
 	invalidNetwork.Network.BindAddress = "woop"
