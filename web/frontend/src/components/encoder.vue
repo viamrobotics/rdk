@@ -24,9 +24,9 @@ const refresh = () => {
   props.client.encoderService.getPosition(
     req,
     new grpc.Metadata(),
-    (err: ServiceError, resp: encoderApi.GetPositionResponse) => {
-      if (err) {
-        return displayError(err);
+    (error: ServiceError, resp: encoderApi.GetPositionResponse) => {
+      if (error) {
+        return displayError(error);
       }
 
       positionTicks = resp!.toObject();
@@ -39,9 +39,9 @@ const refresh = () => {
     props.client.encoderService.getPosition(
       req,
       new grpc.Metadata(),
-      (err: ServiceError, resp: encoderApi.GetPositionResponse) => {
-        if (err) {
-          return displayError(err);
+      (error: ServiceError, resp: encoderApi.GetPositionResponse) => {
+        if (error) {
+          return displayError(error);
         }
 
         positionDegrees = resp!.toObject();
@@ -60,9 +60,9 @@ const reset = async () => {
   await props.client.encoderService.resetPosition(
     req,
     new grpc.Metadata(),
-    (err: ServiceError, resp: encoderApi.ResetPositionResponse) => {
-      if (err) {
-        return displayError(err);
+    (error: ServiceError) => {
+      if (error) {
+        return displayError(error);
       }
     }
   );
@@ -77,13 +77,13 @@ onMounted(async () => {
     await props.client.encoderService.getProperties(
       req,
       new grpc.Metadata(),
-      (err: ServiceError, resp: encoderApi.GetPropertiesResponse) => {
-        if (err) {
-          if (err.message === 'Response closed without headers') {
+      (error: ServiceError, resp: encoderApi.GetPropertiesResponse) => {
+        if (error) {
+          if (error.message === 'Response closed without headers') {
             refreshId = window.setTimeout(refresh, 500);
             return;
           }
-          return displayError(err);
+          return displayError(error);
         }
         properties = resp!.toObject();
       }
