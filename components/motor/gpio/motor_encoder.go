@@ -60,6 +60,9 @@ func WrapMotorWithEncoder(
 	if e == nil {
 		return m, nil
 	}
+	if mc.TicksPerRotation < 0 {
+		return nil, utils.NewConfigValidationError("", errors.New("ticks_per_rotation should be positive or zero"))
+	}
 
 	if mc.TicksPerRotation == 0 {
 		mc.TicksPerRotation = 1
@@ -70,7 +73,7 @@ func WrapMotorWithEncoder(
 		return nil, err
 	}
 
-	single, isSingle := e.(*single.Encoder)
+	single, isSingle := rdkutils.UnwrapProxy(e).(*single.Encoder)
 	if isSingle {
 		single.AttachDirectionalAwareness(mm)
 		logger.Info("direction attached to single encoder from encoded motor")
@@ -104,22 +107,22 @@ func newEncodedMotor(
 	}
 
 	if motorConfig.TicksPerRotation == 0 {
-		logger.Debug("setting encoded motor's ticks per rotation to 1")
 		motorConfig.TicksPerRotation = 1
 	}
 
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	em := &EncodedMotor{
-		real:                localReal,
-		cancelCtx:           cancelCtx,
-		cancel:              cancel,
-		stateMu:             sync.RWMutex{},
-		startedRPMMonitorMu: sync.Mutex{},
-		rampRate:            motorConfig.RampRate,
-		maxPowerPct:         motorConfig.MaxPowerPct,
-		logger:              logger,
-		loop:                nil,
-		ticksPerRotation:    float64(motorConfig.TicksPerRotation),
+		activeBackgroundWorkers: &sync.WaitGroup{},
+		ticksPerRotation:        int64(motorConfig.TicksPerRotation),
+		real:                    localReal,
+		cancelCtx:               cancelCtx,
+		cancel:                  cancel,
+		stateMu:                 &sync.RWMutex{},
+		startedRPMMonitorMu:     &sync.Mutex{},
+		rampRate:                motorConfig.RampRate,
+		maxPowerPct:             motorConfig.MaxPowerPct,
+		logger:                  logger,
+		loop:                    nil,
 	}
 
 	props, err := realEncoder.GetProperties(context.Background(), nil)
@@ -170,23 +173,23 @@ func newEncodedMotor(
 
 // EncodedMotor is a motor that utilizes an encoder to track its position.
 type EncodedMotor struct {
-	activeBackgroundWorkers sync.WaitGroup
+	activeBackgroundWorkers *sync.WaitGroup
 	real                    motor.LocalMotor
 	encoder                 encoder.Encoder
 
-	stateMu sync.RWMutex
+	stateMu *sync.RWMutex
 	state   EncodedMotorState
 
 	startedRPMMonitor   bool
-	startedRPMMonitorMu sync.Mutex
+	startedRPMMonitorMu *sync.Mutex
 
 	// how fast as we increase power do we do so
 	// valid numbers are (0, 1]
 	// .01 would ramp very slowly, 1 would ramp instantaneously
 	rampRate         float64
 	maxPowerPct      float64
-	flip             float64 // defaults to 1, becomes -1 if the motor config has a true DirectionFLip bool
-	ticksPerRotation float64 // defaults to 1
+	flip             int64 // defaults to 1, becomes -1 if the motor config has a true DirectionFLip bool
+	ticksPerRotation int64
 
 	rpmMonitorCalls int64
 	logger          golog.Logger
@@ -205,7 +208,7 @@ type EncodedMotorState struct {
 	desiredRPM   float64 // <= 0 means worker should do nothing
 	currentRPM   float64
 	lastPowerPct float64
-	setPoint     float64
+	setPoint     int64
 }
 
 // Position returns the position of the motor.
@@ -215,7 +218,7 @@ func (m *EncodedMotor) Position(ctx context.Context, extra map[string]interface{
 		return 0, err
 	}
 
-	return ticks / m.ticksPerRotation, nil
+	return ticks / float64(m.ticksPerRotation), nil
 }
 
 // DirectionMoving returns the direction we are currently mpving in, with 1 representing
@@ -223,17 +226,17 @@ func (m *EncodedMotor) Position(ctx context.Context, extra map[string]interface{
 func (m *EncodedMotor) DirectionMoving() int64 {
 	m.stateMu.RLock()
 	defer m.stateMu.RUnlock()
-	return int64(m.directionMovingInLock())
+	return m.directionMovingInLock()
 }
 
-func sign(x float64) float64 { // A quick helper function
+func sign(x float64) int64 { // A quick helper function
 	if math.Signbit(x) {
 		return -1
 	}
 	return 1
 }
 
-func (m *EncodedMotor) directionMovingInLock() float64 {
+func (m *EncodedMotor) directionMovingInLock() int64 {
 	return sign(m.state.lastPowerPct)
 }
 
@@ -296,7 +299,6 @@ func (m *EncodedMotor) RPMMonitorStart() {
 	if startedRPMMonitor {
 		return
 	}
-
 	m.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
 		m.rpmMonitor()
@@ -316,10 +318,11 @@ func (m *EncodedMotor) rpmMonitor() {
 	m.startedRPMMonitor = true
 	m.startedRPMMonitorMu.Unlock()
 
-	lastPos, _, err := m.encoder.GetPosition(m.cancelCtx, nil, nil)
+	lastPosFl, _, err := m.encoder.GetPosition(m.cancelCtx, nil, nil)
 	if err != nil {
 		panic(err)
 	}
+	lastPos := int64(lastPosFl)
 	lastTime := time.Now().UnixNano()
 
 	rpmSleep, rpmDebug := getRPMSleepDebug()
@@ -356,40 +359,36 @@ func (m *EncodedMotor) rpmMonitor() {
 		atomic.AddInt64(&m.rpmMonitorCalls, 1)
 		// TODO: we round down here for absolute encoders, but absolute encoders
 		// should have their own logic separate from incremental
-		inRamp = m.rpmMonitorPass(pos, lastPos, now, lastTime, rpmDebug)
+		roundedPos := int64(math.Floor(pos))
+		inRamp = m.rpmMonitorPass(roundedPos, lastPos, now, lastTime, rpmDebug)
 
-		lastPos = pos
+		lastPos = int64(pos)
 		lastTime = now
 	}
 }
 
 // return is if we are in a ramp phase.
-func (m *EncodedMotor) rpmMonitorPass(pos, lastPos float64, now, lastTime int64, rpmDebug bool) bool {
-	currentRPM := m.computeRPM(pos, lastPos, now, lastTime)
-
-	m.stateMu.Lock()
-	m.state.currentRPM = currentRPM
-	desiredRPM := m.state.desiredRPM
-	regulated := m.state.regulated
-	lastPowerPct := m.state.lastPowerPct
-	setPoint := m.state.setPoint
-	m.stateMu.Unlock()
-
+func (m *EncodedMotor) rpmMonitorPass(pos, lastPos, now, lastTime int64, rpmDebug bool) bool {
 	m.stateMu.Lock()
 	defer m.stateMu.Unlock()
 
-	if !regulated && math.Abs(desiredRPM) > 0.001 {
-		m.setMotorPowerInLock(currentRPM, desiredRPM, -1, rpmDebug)
+	var ticksLeft int64
+
+	currentRPM := m.computeRPM(pos, lastPos, now, lastTime)
+	m.state.currentRPM = currentRPM
+
+	if !m.state.regulated && math.Abs(m.state.desiredRPM) > 0.001 {
+		m.rpmMonitorPassSetRpmInLock(currentRPM, m.state.desiredRPM, -1, rpmDebug)
 		return false
 	}
 
-	if !regulated {
+	if !m.state.regulated {
 		return false
 	}
 
 	// correctly set the ticksLeft accounting for power supplied to the motor and the expected direction of the motor
-	ticksLeft := (setPoint - pos) * sign(lastPowerPct) * m.flip
-	rotationsLeft := ticksLeft / m.ticksPerRotation
+	ticksLeft = (m.state.setPoint - pos) * sign(m.state.lastPowerPct) * m.flip
+	rotationsLeft := float64(ticksLeft) / float64(m.ticksPerRotation)
 
 	if rotationsLeft <= 0 { // if we have reached goal or overshot, turn off
 		if rpmDebug {
@@ -404,17 +403,18 @@ func (m *EncodedMotor) rpmMonitorPass(pos, lastPos float64, now, lastTime int64,
 
 	// slow down so we don't overshoot
 	// halve and quarter rpm values based on seconds remaining in move
+
+	desiredRPM := m.state.desiredRPM
 	timeLeftSeconds := 60.0 * rotationsLeft / desiredRPM
 
-	newDesiredRPM := slowDownMath(timeLeftSeconds, desiredRPM, m.rampRate)
+	desiredRPM = slowDownMath(timeLeftSeconds, desiredRPM, m.rampRate)
 
 	if rpmDebug {
 		m.logger.Debugf(" - rotationsLeft %.2f timeLeftSeconds %.2f rpm(%v -> %v)",
-			rotationsLeft, timeLeftSeconds, desiredRPM, newDesiredRPM)
+			rotationsLeft, timeLeftSeconds, m.state.desiredRPM, desiredRPM)
 	}
-	desiredRPM = newDesiredRPM
 
-	m.setMotorPowerInLock(currentRPM, desiredRPM, rotationsLeft, rpmDebug)
+	m.rpmMonitorPassSetRpmInLock(currentRPM, desiredRPM, rotationsLeft, rpmDebug)
 
 	return true
 }
@@ -440,12 +440,12 @@ func slowDownMath(timeLeftSeconds, desiredRPM, rampRate float64) float64 {
 	return desiredRPM
 }
 
-func (m *EncodedMotor) computeRPM(pos, lastPos float64, now, lastTime int64) float64 {
+func (m *EncodedMotor) computeRPM(pos, lastPos, now, lastTime int64) float64 {
 	minutes := float64(now-lastTime) / (1e9 * 60)
 	if minutes == 0 {
 		return 0.0
 	}
-	rotations := (pos - lastPos) / (m.ticksPerRotation)
+	rotations := float64(pos-lastPos) / float64(m.ticksPerRotation)
 	return rotations / minutes
 }
 
@@ -462,13 +462,13 @@ func (m *EncodedMotor) computeNewPowerPct(currentRPM, desiredRPM float64) float6
 	if math.Abs(currentRPM) <= 0.001 { // not moving at all
 		if math.Abs(lastPowerPct) < 0.01 {
 			// We began stopped. Set the power to a low setting so we can get started.
-			return .01 * sign(desiredRPM)
+			return .01 * float64(sign(desiredRPM))
 		}
 		// We've been putting power to the motor, but it's not moving yet. Try increasing the power
 		// to it, and we'll start moving soon.
 		return m.computeRamp(lastPowerPct, lastPowerPct*2)
 	}
-	dOverC := desiredRPM / currentRPM * m.flip
+	dOverC := desiredRPM / currentRPM * float64(m.flip)
 	dOverC = math.Min(dOverC, 2)
 	dOverC = math.Max(dOverC, -2)
 
@@ -488,7 +488,7 @@ func (m *EncodedMotor) computeNewPowerPct(currentRPM, desiredRPM float64) float6
 	return m.computeRamp(lastPowerPct, neededPowerPct)
 }
 
-func (m *EncodedMotor) setMotorPowerInLock(currentRPM, desiredRPM, rotationsLeft float64, rpmDebug bool) {
+func (m *EncodedMotor) rpmMonitorPassSetRpmInLock(currentRPM, desiredRPM, rotationsLeft float64, rpmDebug bool) {
 	lastPowerPct := m.state.lastPowerPct
 
 	newPowerPct := m.computeNewPowerPct(currentRPM, desiredRPM)
@@ -531,7 +531,7 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 		return motor.NewZeroRPMError()
 	}
 
-	rpm *= m.flip
+	rpm *= float64(m.flip)
 
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
@@ -550,7 +550,7 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions float64) error {
 	m.RPMMonitorStart()
 
-	var d float64 = 1
+	var d int64 = 1
 
 	// Backwards
 	if math.Signbit(revolutions) != math.Signbit(rpm) {
@@ -558,7 +558,7 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions float
 	}
 
 	revolutions = math.Abs(revolutions)
-	rpm = math.Abs(rpm) * d
+	rpm = math.Abs(rpm) * float64(d)
 
 	m.stateMu.Lock()
 	defer m.stateMu.Unlock()
@@ -572,17 +572,17 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions float
 		if math.Abs(oldRpm) > 0.001 && d == m.directionMovingInLock() {
 			return nil
 		}
-		err := m.setPower(ctx, d*.06, true) // power of 6% is random
+		err := m.setPower(ctx, float64(d)*.06, true) // power of 6% is random
 		return err
 	}
 
-	numTicks := (revolutions * m.ticksPerRotation)
+	numTicks := int64(revolutions * float64(m.ticksPerRotation))
 
 	pos, _, err := m.encoder.GetPosition(ctx, nil, nil)
 	if err != nil {
 		return err
 	}
-	m.state.setPoint = pos + d*numTicks*m.flip
+	m.state.setPoint = int64(pos) + d*numTicks*m.flip
 
 	_, rpmDebug := getRPMSleepDebug()
 	if rpmDebug {
@@ -598,7 +598,7 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions float
 	}
 	if !isOn {
 		// if we're off we start slow, otherwise we just set the desired rpm
-		err := m.setPower(ctx, d*0.03, true)
+		err := m.setPower(ctx, float64(d)*0.03, true)
 		if err != nil {
 			return err
 		}
@@ -648,14 +648,12 @@ func (m *EncodedMotor) GoTo(ctx context.Context, rpm, targetPosition float64, ex
 		return err
 	}
 	moveDistance := targetPosition - curPos
-
 	// if you call GoFor with 0 revolutions, the motor will spin forever. If we are at the target,
 	// we must avoid this by not calling GoFor.
 	if rdkutils.Float64AlmostEqual(moveDistance, 0, 0.1) {
-		m.logger.Debugf("GoTo distance nearly zero, not moving")
+		m.logger.Debug("GoTo distance nearly zero, not moving")
 		return nil
 	}
-
 	return m.GoFor(ctx, math.Abs(rpm), moveDistance, extra)
 }
 
