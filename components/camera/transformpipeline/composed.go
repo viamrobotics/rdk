@@ -171,3 +171,7 @@ func (os *overlaySource) Read(ctx context.Context) (image.Image, func(), error) 
 	}
 	return rimage.Overlay(col, dm), func() {}, nil
 }
+
+func (os *overlaySource) Close(ctx context.Context) error {
+	return nil
+}

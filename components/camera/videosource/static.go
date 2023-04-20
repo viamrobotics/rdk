@@ -97,6 +97,10 @@ func (fs *fileSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud
 	return fs.Intrinsics.RGBDToPointCloud(img, dm)
 }
 
+func (fs *fileSource) Close(ctx context.Context) error {
+	return nil
+}
+
 // StaticSource is a fixed, stored image. Used primarily for testing.
 type StaticSource struct {
 	ColorImg image.Image

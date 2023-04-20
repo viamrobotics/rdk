@@ -148,6 +148,10 @@ func (s *simpleSource) DoCommand(ctx context.Context, cmd map[string]interface{}
 	return cmd, nil
 }
 
+func (s *simpleSource) Close(ctx context.Context) error {
+	return nil
+}
+
 type cloudSource struct{}
 
 func (c *cloudSource) Read(ctx context.Context) (image.Image, func(), error) {

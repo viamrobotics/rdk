@@ -363,6 +363,10 @@ func (jpcs *joinPointCloudSource) Read(ctx context.Context) (image.Image, func()
 	return img, func() {}, err // return color image
 }
 
+func (jpcs *joinPointCloudSource) Close(ctx context.Context) error {
+	return nil
+}
+
 func contains(s []string, str string) (int, bool) {
 	for i, v := range s {
 		if v == str {

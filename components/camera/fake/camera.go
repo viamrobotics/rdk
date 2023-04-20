@@ -219,3 +219,8 @@ func (c *Camera) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 	c.cachePointCloud = dm
 	return dm, nil
 }
+
+// Close does nothing.
+func (c *Camera) Close(ctx context.Context) error {
+	return nil
+}
