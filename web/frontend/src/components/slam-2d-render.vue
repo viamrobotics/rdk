@@ -13,24 +13,38 @@ import { destMarkerUrl } from '../lib/destination-marker-url'
 
 type SvgOffset = {
   x: number,
+  y: number,
   z: number
 }
 
-// Note: updating the scale of the destination or base marker requires an offset update
+
 
 const baseMarkerOffset: SvgOffset = {
   x: 0.22,
+  y: 0,
   z: -0.26
 }
 
 const destinationMarkerOffset: SvgOffset = {
   x: 1.2,
+  y: 0,
   z: -2.52
 }
 
 const backgroundGridColor = 0xCA_CA_CA
 
 const gridSubparts = ['AxesPos', 'AxesNeg', 'Grid']
+
+const gridHelperRenderOrder = 997;
+const axesHelperRenderOrder = 998;
+const svgMarkerRenderOrder = 999;
+
+const gridHelperScalar = 4
+const axesHelperSize = 8;
+
+// Note: updating the scale of the destination or base marker requires an offset update
+const baseMarkerScalar = 0.02;
+const destinationMarkerScalar = 0.1
 
 /*
  * this color map is greyscale. The color map is being used map probability values of a PCD
@@ -63,9 +77,9 @@ const props = defineProps<{
   resources: commonApi.ResourceName.AsObject[]
   pointcloud?: Uint8Array
   pose?: commonApi.Pose
-  destExists?: boolean
-  destVector?: THREE.Vector3
-  axesVisible?: boolean
+  destExists: boolean
+  destVector: THREE.Vector3
+  axesVisible: boolean
 }
 >();
 
@@ -166,7 +180,7 @@ const makeMarker = async (url : string, name: string, scalar: number) => {
 
   group.name = name;
   scene.add(group);
-  group.renderOrder = 999;
+  group.renderOrder = svgMarkerRenderOrder;
   return group;
 };
 
@@ -191,8 +205,8 @@ const disposeScene = () => {
 const updatePose = async (newPose: commonApi.Pose) => {
   const x = newPose.getX();
   const z = newPose.getZ();
-  const baseMarker = scene.getObjectByName('BaseMarker') ?? await makeMarker(baseMarkerUrl, 'BaseMarker', 0.02);
-  baseMarker.position.set(x + baseMarkerOffset.x, 0, z + baseMarkerOffset.z); 
+  const baseMarker = scene.getObjectByName('BaseMarker') ?? await makeMarker(baseMarkerUrl, 'BaseMarker', baseMarkerScalar);
+  baseMarker.position.set(x + baseMarkerOffset.x, baseMarkerOffset.y, z + baseMarkerOffset.z); 
 };
 
 /*
@@ -213,30 +227,32 @@ const colorBuckets = (probability: number): THREE.Vector3 => {
   return colorMapGrey[probToColorMapBucket(probability, colorMapGrey.length)]!;
 };
 
+// create the x and z axes
 const createAxisHelper = (name: string, rotation: number): THREE.AxesHelper => {
-  const axesHelper = new THREE.AxesHelper(5);
+  const axesHelper = new THREE.AxesHelper(axesHelperSize);
   axesHelper.rotateY(rotation);
   axesHelper.scale.set(1e5, 1, 1e5)
-  axesHelper.renderOrder = 998;
+  axesHelper.renderOrder = axesHelperRenderOrder;
   axesHelper.name = name;
   axesHelper.visible = props.axesVisible;
   return axesHelper
 }
 
+// create the background gray grid
 const createGridHelper = (points: THREE.Points<THREE.BufferGeometry, THREE.Material | THREE.Material[]>): THREE.GridHelper => {
   points.geometry.computeBoundingBox();
 
   const boundingBox = points.geometry.boundingBox!
   const deltaX = Math.abs(boundingBox.max.x - boundingBox.min.x)
   const deltaZ = Math.abs(boundingBox.max.z - boundingBox.min.z)
-  let maxDelta = Math.round(Math.max(deltaX, deltaZ) * 3)
+  let maxDelta = Math.round(Math.max(deltaX, deltaZ) * gridHelperScalar)
   // ensure maxDelta is even so grids are layered below x z axes
   if (maxDelta%2 !== 0) {
     maxDelta = maxDelta - 1
   }
 
   const gridHelper = new THREE.GridHelper(maxDelta, maxDelta, backgroundGridColor, backgroundGridColor);
-  gridHelper.renderOrder = 996;
+  gridHelper.renderOrder = gridHelperRenderOrder;
   gridHelper.name = 'Grid';
   gridHelper.visible = props.axesVisible;
   return gridHelper
@@ -288,15 +304,11 @@ const updatePointCloud = (pointcloud: Uint8Array) => {
     }
   }
 
-  // construct grids
-  const axesHelper1 = createAxisHelper('AxesPos', Math.PI / 2)
-  const axesHelper2 = createAxisHelper('AxesNeg', -Math.PI / 2)
+  // construct grid spaced at 1 meter
   const gridHelper = createGridHelper(points);
 
   // add objects to scene
   scene.add(
-    axesHelper1,
-    axesHelper2,
     gridHelper,
     points,
     intersectionPlane
@@ -319,6 +331,12 @@ onMounted(() => {
   if (props.pose !== undefined) {
     updatePose(props.pose);
   }
+  
+  // construct axes
+  const axesPos = createAxisHelper('AxesPos', Math.PI / 2)
+  const axesNeg = createAxisHelper('AxesNeg', -Math.PI / 2)
+  scene.add(axesPos, axesNeg)
+
 });
 
 onUnmounted(() => {
@@ -328,8 +346,8 @@ onUnmounted(() => {
 
 watch(() => [props.destVector!.z, props.destVector!.x, props.destExists], async () => {
   if (props.destVector && props.destExists) {
-    const marker = scene.getObjectByName('DestinationMarker') ?? await makeMarker(destMarkerUrl, 'DestinationMarker', 0.1);
-    marker.position.set(props.destVector.x + destinationMarkerOffset.x, 0, props.destVector.z + destinationMarkerOffset.z);
+    const marker = scene.getObjectByName('DestinationMarker') ?? await makeMarker(destMarkerUrl, 'DestinationMarker', destinationMarkerScalar);
+    marker.position.set(props.destVector.x + destinationMarkerOffset.x, destinationMarkerOffset.y, props.destVector.z + destinationMarkerOffset.z);
   }
   if (!props.destExists) {
     const marker = scene.getObjectByName('DestinationMarker');

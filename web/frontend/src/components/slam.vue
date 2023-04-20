@@ -22,6 +22,7 @@ const props = defineProps<{
   client: Client
 }>();
 
+const operationID = 'OP-ID'
 const selected2dValue = $ref('manual');
 const selected3dValue = $ref('manual');
 let pointCloudUpdateCount = $ref(0);
@@ -38,6 +39,7 @@ let moveClick = $ref(true);
 let basePose = new commonApi.Pose()
 const motionServiceReq = new motionApi.MoveOnMapRequest();
 
+const allowMove = $computed(() => window.localStorage.getItem(operationID) === null)
 const loaded2d = $computed(() => (pointcloud !== undefined && pose !== undefined));
 
 let slam2dTimeoutId = -1;
@@ -106,17 +108,18 @@ const fetchSLAMPose = (name: string): Promise<commonApi.Pose> => {
 };
 
 const executeMoveOnMap = async () => {
-  moveClick = false;
+  window.localStorage.setItem(operationID, operationID)
+  moveClick = !moveClick;
 
   /*
-   * set request name
-   * here we set the name of the motion service the user is using
-   */
+    * set request name
+    * here we set the name of the motion service the user is using
+  */
   motionServiceReq.setName('builtin');
 
-  const value = await fetchSLAMPose(props.name);
   // set pose in frame
   const destination = new commonApi.Pose();
+  const value = await fetchSLAMPose(props.name);
   destination.setX(Math.abs(destinationMarker.x - value.getX()));
   destination.setY(Math.abs(destinationMarker.z - value.getY()));
   destination.setZ(value.getZ());
@@ -153,15 +156,19 @@ const executeMoveOnMap = async () => {
       motion_profile: "position_only"
     })
   )
-  
+
   props.client.motionService.moveOnMap(
     motionServiceReq,
     new grpc.Metadata(),
     (error: ServiceError | null, response: motionApi.MoveOnMapResponse | null) => {
       if (error) {
+        window.localStorage.removeItem(operationID)
+        moveClick = !moveClick;
         toast.error(`Error moving: ${error}`);
         return;
       }
+      window.localStorage.removeItem(operationID)
+      moveClick = !moveClick;
       toast.success(`MoveOnMap success: ${response!.getSuccess()}`);
     }
   );
@@ -169,7 +176,7 @@ const executeMoveOnMap = async () => {
 };
 
 const executeStopMoveOnMap = () => {
-  moveClick = true;
+  moveClick = !moveClick;
   props.client.motionService.moveOnMap(
     motionServiceReq,
     new grpc.Metadata(),
@@ -297,6 +304,7 @@ const toggle3dExpand = () => {
 }
 
 const toggle2dExpand = () => {
+  moveClick = allowMove.valueOf()
   show2d = !show2d;
   updateSLAM2dRefreshFrequency(props.name, show2d ? selected2dValue : 'off');
 };
