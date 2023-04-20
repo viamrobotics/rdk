@@ -81,21 +81,21 @@ func TestDataCaptureEnabled(t *testing.T) {
 		emptyTabular                  bool
 	}{
 		{
-			name:                          "Config with data capture service disabled should capture nothing",
+			name:                          "config with data capture service disabled should capture nothing",
 			initialServiceDisableStatus:   true,
 			newServiceDisableStatus:       true,
 			initialCollectorDisableStatus: true,
 			newCollectorDisableStatus:     true,
 		},
 		{
-			name:                          "Config with data capture service enabled and a configured collector should capture data",
+			name:                          "config with data capture service enabled and a configured collector should capture data",
 			initialServiceDisableStatus:   false,
 			newServiceDisableStatus:       false,
 			initialCollectorDisableStatus: false,
 			newCollectorDisableStatus:     false,
 		},
 		{
-			name:                          "Config with data capture service implicitly enabled and a configured collector should capture data",
+			name:                          "config with data capture service implicitly enabled and a configured collector should capture data",
 			initialServiceDisableStatus:   false,
 			newServiceDisableStatus:       false,
 			initialCollectorDisableStatus: false,
@@ -103,42 +103,42 @@ func TestDataCaptureEnabled(t *testing.T) {
 			emptyTabular:                  true,
 		},
 		{
-			name:                          "Disabling data capture service should cause all data capture to stop",
+			name:                          "disabling data capture service should cause all data capture to stop",
 			initialServiceDisableStatus:   false,
 			newServiceDisableStatus:       true,
 			initialCollectorDisableStatus: false,
 			newCollectorDisableStatus:     false,
 		},
 		{
-			name:                          "Enabling data capture should cause all enabled collectors to start capturing data",
+			name:                          "enabling data capture should cause all enabled collectors to start capturing data",
 			initialServiceDisableStatus:   true,
 			newServiceDisableStatus:       false,
 			initialCollectorDisableStatus: false,
 			newCollectorDisableStatus:     false,
 		},
 		{
-			name:                          "Enabling a collector should not trigger data capture if the service is disabled",
+			name:                          "enabling a collector should not trigger data capture if the service is disabled",
 			initialServiceDisableStatus:   true,
 			newServiceDisableStatus:       true,
 			initialCollectorDisableStatus: true,
 			newCollectorDisableStatus:     false,
 		},
 		{
-			name:                          "Disabling an individual collector should stop it",
+			name:                          "disabling an individual collector should stop it",
 			initialServiceDisableStatus:   false,
 			newServiceDisableStatus:       false,
 			initialCollectorDisableStatus: false,
 			newCollectorDisableStatus:     true,
 		},
 		{
-			name:                          "Enabling an individual collector should start it",
+			name:                          "enabling an individual collector should start it",
 			initialServiceDisableStatus:   false,
 			newServiceDisableStatus:       false,
 			initialCollectorDisableStatus: true,
 			newCollectorDisableStatus:     false,
 		},
 		{
-			name:            "Capture should work for remotes too",
+			name:            "capture should work for remotes too",
 			remoteCollector: true,
 		},
 	}

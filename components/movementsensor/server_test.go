@@ -15,17 +15,15 @@ import (
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
 
 func newServer() (pb.MovementSensorServiceServer, *inject.MovementSensor, *inject.MovementSensor, error) {
 	injectMovementSensor := &inject.MovementSensor{}
 	injectMovementSensor2 := &inject.MovementSensor{}
-	gpss := map[resource.Name]resource.Resource{
+	gpss := map[resource.Name]movementsensor.MovementSensor{
 		movementsensor.Named(testMovementSensorName): injectMovementSensor,
 		movementsensor.Named(failMovementSensorName): injectMovementSensor2,
-		movementsensor.Named(fakeMovementSensorName): testutils.NewUnimplementedResource(movementsensor.Named(fakeMovementSensorName)),
 	}
 	gpsSvc, err := resource.NewSubtypeCollection(movementsensor.Subtype, gpss)
 	if err != nil {

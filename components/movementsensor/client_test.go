@@ -25,7 +25,6 @@ import (
 var (
 	testMovementSensorName    = "ms1"
 	failMovementSensorName    = "ms2"
-	fakeMovementSensorName    = "ms3"
 	missingMovementSensorName = "ms4"
 )
 
@@ -194,32 +193,30 @@ func TestClient(t *testing.T) {
 	t.Run("MovementSensor client 2", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		client, err := resourceSubtype.RPCClient(context.Background(), conn, movementsensor.Named(failMovementSensorName), logger)
+		client2, err := resourceSubtype.RPCClient(context.Background(), conn, movementsensor.Named(failMovementSensorName), logger)
 		test.That(t, err, test.ShouldBeNil)
-		gps2Client, ok := client.(movementsensor.MovementSensor)
-		test.That(t, ok, test.ShouldBeTrue)
 
-		_, _, err = gps2Client.Position(context.Background(), make(map[string]interface{}))
+		_, _, err = client2.Position(context.Background(), make(map[string]interface{}))
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get location")
 
-		_, err = gps2Client.LinearVelocity(context.Background(), make(map[string]interface{}))
+		_, err = client2.LinearVelocity(context.Background(), make(map[string]interface{}))
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get linear velocity")
 
-		_, err = gps2Client.LinearAcceleration(context.Background(), make(map[string]interface{}))
+		_, err = client2.LinearAcceleration(context.Background(), make(map[string]interface{}))
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get linear acceleration")
 
-		_, err = gps2Client.AngularVelocity(context.Background(), make(map[string]interface{}))
+		_, err = client2.AngularVelocity(context.Background(), make(map[string]interface{}))
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get angular velocity")
 
-		_, err = gps2Client.(sensor.Sensor).Readings(context.Background(), make(map[string]interface{}))
+		_, err = client2.(sensor.Sensor).Readings(context.Background(), make(map[string]interface{}))
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get location")
 
-		test.That(t, gps2Client.Close(context.Background()), test.ShouldBeNil)
+		test.That(t, client2.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 }

@@ -106,14 +106,7 @@ func init() {
 	registry.RegisterComponent(
 		movementsensor.Subtype,
 		modelname,
-		registry.Resource[movementsensor.MovementSensor]{Constructor: func(
-			ctx context.Context,
-			deps resource.Dependencies,
-			conf resource.Config,
-			logger golog.Logger,
-		) (movementsensor.MovementSensor, error) {
-			return newNMEAGPS(ctx, deps, conf, logger)
-		}})
+		registry.Resource[movementsensor.MovementSensor]{Constructor: newNMEAGPS})
 
 	config.RegisterComponentAttributeMapConverter(movementsensor.Subtype, modelname,
 		func(attributes rdkutils.AttributeMap) (interface{}, error) {

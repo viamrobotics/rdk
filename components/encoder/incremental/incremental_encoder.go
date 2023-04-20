@@ -25,14 +25,7 @@ func init() {
 	registry.RegisterComponent(
 		encoder.Subtype,
 		incrModel,
-		registry.Resource[encoder.Encoder]{Constructor: func(
-			ctx context.Context,
-			deps resource.Dependencies,
-			conf resource.Config,
-			logger golog.Logger,
-		) (encoder.Encoder, error) {
-			return NewIncrementalEncoder(ctx, deps, conf, logger)
-		}})
+		registry.Resource[encoder.Encoder]{Constructor: NewIncrementalEncoder})
 
 	config.RegisterComponentAttributeMapConverter(
 		encoder.Subtype,

@@ -11,17 +11,15 @@ import (
 
 	"go.viam.com/rdk/components/gripper"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
 
 func newServer() (pb.GripperServiceServer, *inject.Gripper, *inject.Gripper, error) {
 	injectGripper := &inject.Gripper{}
 	injectGripper2 := &inject.Gripper{}
-	grippers := map[resource.Name]resource.Resource{
+	grippers := map[resource.Name]gripper.Gripper{
 		gripper.Named(testGripperName):  injectGripper,
 		gripper.Named(testGripperName2): injectGripper2,
-		gripper.Named(fakeGripperName):  testutils.NewUnimplementedResource(gripper.Named(fakeGripperName)),
 	}
 	gripperSvc, err := resource.NewSubtypeCollection(gripper.Subtype, grippers)
 	if err != nil {

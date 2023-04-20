@@ -3,9 +3,10 @@ package inject
 import (
 	"context"
 
+	"go.viam.com/utils"
+
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/datamanager"
-	"go.viam.com/utils"
 )
 
 // DataManagerService represents a fake instance of an data manager

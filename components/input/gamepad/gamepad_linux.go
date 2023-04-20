@@ -84,7 +84,7 @@ func createController(ctx context.Context, name resource.Name, logger golog.Logg
 }
 
 // NewController creates a new gamepad.
-func NewController(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (resource.Resource, error) {
+func NewController(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (input.Controller, error) {
 	return createController(
 		ctx,
 		conf.ResourceName(),

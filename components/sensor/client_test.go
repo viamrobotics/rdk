@@ -22,7 +22,6 @@ import (
 var (
 	testSensorName    = "sensor1"
 	failSensorName    = "sensor2"
-	fakeSensorName    = "sensor3"
 	missingSensorName = "sensor4"
 )
 
@@ -102,16 +101,14 @@ func TestClient(t *testing.T) {
 	t.Run("Sensor client 2", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		client, err := resourceSubtype.RPCClient(context.Background(), conn, sensor.Named(failSensorName), logger)
+		client2, err := resourceSubtype.RPCClient(context.Background(), conn, sensor.Named(failSensorName), logger)
 		test.That(t, err, test.ShouldBeNil)
-		sensor2Client, ok := client.(sensor.Sensor)
-		test.That(t, ok, test.ShouldBeTrue)
 
-		_, err = sensor2Client.Readings(context.Background(), make(map[string]interface{}))
+		_, err = client2.Readings(context.Background(), make(map[string]interface{}))
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get readings")
 
-		test.That(t, sensor2Client.Close(context.Background()), test.ShouldBeNil)
+		test.That(t, client2.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 }

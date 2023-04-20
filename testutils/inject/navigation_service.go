@@ -5,10 +5,10 @@ import (
 
 	geo "github.com/kellydunn/golang-geo"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/navigation"
-	"go.viam.com/utils"
 )
 
 // NavigationService represents a fake instance of a navigation service.

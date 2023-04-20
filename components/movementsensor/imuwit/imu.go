@@ -77,14 +77,7 @@ func (cfg *Config) Validate(path string) error {
 
 func init() {
 	registry.RegisterComponent(movementsensor.Subtype, model, registry.Resource[movementsensor.MovementSensor]{
-		Constructor: func(
-			ctx context.Context,
-			deps resource.Dependencies,
-			conf resource.Config,
-			logger golog.Logger,
-		) (movementsensor.MovementSensor, error) {
-			return NewWit(ctx, deps, conf, logger)
-		},
+		Constructor: NewWit,
 	})
 
 	config.RegisterComponentAttributeMapConverter(movementsensor.Subtype, model,

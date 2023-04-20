@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/edaniels/golog"
 	geo "github.com/kellydunn/golang-geo"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	servicepb "go.viam.com/api/service/navigation/v1"
@@ -28,9 +27,7 @@ func init() {
 			)
 		},
 		RPCServiceDesc: &servicepb.NavigationService_ServiceDesc,
-		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (Service, error) {
-			return NewClientFromConn(ctx, conn, name, logger)
-		},
+		RPCClient:      NewClientFromConn,
 	})
 }
 

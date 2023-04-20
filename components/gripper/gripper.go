@@ -4,7 +4,6 @@ package gripper
 import (
 	"context"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/gripper/v1"
@@ -30,9 +29,7 @@ func init() {
 			)
 		},
 		RPCServiceDesc: &pb.GripperService_ServiceDesc,
-		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (Gripper, error) {
-			return NewClientFromConn(ctx, conn, name, logger)
-		},
+		RPCClient:      NewClientFromConn,
 	})
 }
 

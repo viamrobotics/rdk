@@ -4,7 +4,6 @@ package sensors
 import (
 	"context"
 
-	"github.com/edaniels/golog"
 	pb "go.viam.com/api/service/sensors/v1"
 	"go.viam.com/utils/rpc"
 
@@ -24,10 +23,8 @@ func init() {
 			)
 		},
 		RPCServiceDesc: &pb.SensorsService_ServiceDesc,
-		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (Service, error) {
-			return NewClientFromConn(ctx, conn, name, logger)
-		},
-		MaxInstance: resource.DefaultMaxInstance,
+		RPCClient:      NewClientFromConn,
+		MaxInstance:    resource.DefaultMaxInstance,
 	})
 }
 

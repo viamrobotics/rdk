@@ -36,14 +36,7 @@ func init() {
 	registry.RegisterComponent(
 		camera.Subtype,
 		model,
-		registry.Resource[camera.Camera]{Constructor: func(
-			ctx context.Context,
-			deps resource.Dependencies,
-			conf resource.Config,
-			logger golog.Logger,
-		) (camera.Camera, error) {
-			return NewWebcam(ctx, deps, conf, logger)
-		}})
+		registry.Resource[camera.Camera]{Constructor: NewWebcam})
 
 	config.RegisterComponentAttributeMapConverter(camera.Subtype, model,
 		func(attributes utils.AttributeMap) (interface{}, error) {

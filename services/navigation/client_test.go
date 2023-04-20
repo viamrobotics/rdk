@@ -208,12 +208,10 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		dialedClient, err := resourceSubtype.RPCClient(context.Background(), conn, testSvcName1, logger)
 		test.That(t, err, test.ShouldBeNil)
-		workingDialedClient, ok := dialedClient.(navigation.Service)
-		test.That(t, ok, test.ShouldBeTrue)
 
 		// test waypoints
 		extra := map[string]interface{}{"foo": "Waypoints"}
-		receivedWpts, err := workingDialedClient.Waypoints(context.Background(), extra)
+		receivedWpts, err := dialedClient.Waypoints(context.Background(), extra)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, receivedWpts, test.ShouldResemble, waypoints)
 		test.That(t, extraOptions, test.ShouldResemble, extra)
@@ -253,21 +251,19 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		dialedClient, err := resourceSubtype.RPCClient(context.Background(), conn, testSvcName1, logger)
 		test.That(t, err, test.ShouldBeNil)
-		failingDialedClient, ok := dialedClient.(navigation.Service)
-		test.That(t, ok, test.ShouldBeTrue)
 
 		// test waypoints
-		_, err = failingDialedClient.Waypoints(context.Background(), map[string]interface{}{})
+		_, err = dialedClient.Waypoints(context.Background(), map[string]interface{}{})
 		test.That(t, err, test.ShouldNotBeNil)
 
 		// test location
-		loc, err := failingDialedClient.Location(context.Background(), map[string]interface{}{})
+		loc, err := dialedClient.Location(context.Background(), map[string]interface{}{})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, loc, test.ShouldBeNil)
 
 		// test remove waypoint
 		wptID := primitive.NewObjectID()
-		err = failingDialedClient.RemoveWaypoint(context.Background(), wptID, map[string]interface{}{})
+		err = dialedClient.RemoveWaypoint(context.Background(), wptID, map[string]interface{}{})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, wptID, test.ShouldEqual, receivedFailingID)
 		test.That(t, conn.Close(), test.ShouldBeNil)

@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 
-	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"github.com/pion/mediadevices/pkg/prop"
 	pb "go.viam.com/api/component/audioinput/v1"
@@ -28,9 +27,7 @@ func init() {
 			)
 		},
 		RPCServiceDesc: &pb.AudioInputService_ServiceDesc,
-		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (AudioInput, error) {
-			return NewClientFromConn(ctx, conn, name, logger)
-		},
+		RPCClient:      NewClientFromConn,
 	})
 
 	// TODO(RSDK-562): Add RegisterCollector

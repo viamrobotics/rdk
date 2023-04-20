@@ -191,12 +191,10 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		client, err := resourceSubtype.RPCClient(context.Background(), conn, camera.Named(depthCameraName), logger)
 		test.That(t, err, test.ShouldBeNil)
-		cameraDepthClient, ok := client.(camera.Camera)
-		test.That(t, ok, test.ShouldBeTrue)
 
 		ctx := gostream.WithMIMETypeHint(
 			context.Background(), rutils.WithLazyMIMEType(rutils.MimeTypePNG))
-		frame, _, err := camera.ReadImage(ctx, cameraDepthClient)
+		frame, _, err := camera.ReadImage(ctx, client)
 		test.That(t, err, test.ShouldBeNil)
 		dm, err := rimage.ConvertImageToDepthMap(context.Background(), frame)
 		test.That(t, err, test.ShouldBeNil)
@@ -205,31 +203,29 @@ func TestClient(t *testing.T) {
 		test.That(t, imageReleased, test.ShouldBeTrue)
 		imageReleasedMu.Unlock()
 
-		test.That(t, cameraDepthClient.Close(context.Background()), test.ShouldBeNil)
+		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 
 	t.Run("camera client 2", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		client, err := resourceSubtype.RPCClient(context.Background(), conn, camera.Named(failCameraName), logger)
+		client2, err := resourceSubtype.RPCClient(context.Background(), conn, camera.Named(failCameraName), logger)
 		test.That(t, err, test.ShouldBeNil)
-		camera2Client, ok := client.(camera.Camera)
-		test.That(t, ok, test.ShouldBeTrue)
 
-		_, _, err = camera.ReadImage(context.Background(), camera2Client)
+		_, _, err = camera.ReadImage(context.Background(), client2)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't generate stream")
 
-		_, err = camera2Client.NextPointCloud(context.Background())
+		_, err = client2.NextPointCloud(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't generate next point cloud")
 
-		_, err = camera2Client.Projector(context.Background())
+		_, err = client2.Projector(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get camera properties")
 
-		_, err = camera2Client.Properties(context.Background())
+		_, err = client2.Properties(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get camera properties")
 

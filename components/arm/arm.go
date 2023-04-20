@@ -35,9 +35,7 @@ func init() {
 			)
 		},
 		RPCServiceDesc: &pb.ArmService_ServiceDesc,
-		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (Arm, error) {
-			return NewClientFromConn(ctx, conn, name, logger)
-		},
+		RPCClient:      NewClientFromConn,
 	})
 
 	data.RegisterCollector(data.MethodMetadata{

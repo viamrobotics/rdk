@@ -7,7 +7,6 @@ import (
 
 	"github.com/invopop/jsonschema"
 	"github.com/pkg/errors"
-
 	// register cameras for testing.
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/vision/v1"

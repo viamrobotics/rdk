@@ -14,7 +14,6 @@ import (
 
 	"go.viam.com/rdk/components/input"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
 
@@ -43,10 +42,9 @@ func (x *streamServer) Send(m *pb.StreamEventsResponse) error {
 func newServer() (pb.InputControllerServiceServer, *inject.TriggerableInputController, *inject.InputController, error) {
 	injectInputController := &inject.TriggerableInputController{}
 	injectInputController2 := &inject.InputController{}
-	inputControllers := map[resource.Name]resource.Resource{
+	inputControllers := map[resource.Name]input.Controller{
 		input.Named(testInputControllerName): injectInputController,
 		input.Named(failInputControllerName): injectInputController2,
-		input.Named(fakeInputControllerName): testutils.NewUnimplementedResource(input.Named(fakeInputControllerName)),
 	}
 	inputControllerSvc, err := resource.NewSubtypeCollection(input.Subtype, inputControllers)
 	if err != nil {

@@ -201,7 +201,7 @@ type remoteData struct {
 	Insecure                  bool                                `json:"insecure"`
 	ConnectionCheckInterval   string                              `json:"connection_check_interval,omitempty"`
 	ReconnectInterval         string                              `json:"reconnect_interval,omitempty"`
-	AssociatedResourceConfigs []resource.AssociatedResourceConfig `json:"service_config"`
+	AssociatedResourceConfigs []resource.AssociatedResourceConfig `json:"service_configs"`
 
 	// Secret is a helper for a robot location secret.
 	Secret string `json:"secret"`

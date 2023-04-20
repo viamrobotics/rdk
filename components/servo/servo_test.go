@@ -35,7 +35,8 @@ func TestCreateStatus(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, status1, test.ShouldResemble, status)
 
-		resourceSubtype, ok := registry.ResourceSubtypeLookup(servo.Subtype)
+		resourceSubtype, ok, err := registry.ResourceSubtypeLookup[servo.Servo](servo.Subtype)
+		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ok, test.ShouldBeTrue)
 		status2, err := resourceSubtype.Status(context.Background(), injectServo)
 		test.That(t, err, test.ShouldBeNil)

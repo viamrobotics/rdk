@@ -56,7 +56,8 @@ func TestModularResources(t *testing.T) {
 		actualR := r.(*localRobot)
 		actualR.modules = mod
 
-		registry.RegisterResourceSubtype(compSubtype, registry.ResourceSubtype[resource.Resource]{ReflectRPCServiceDesc: &desc.ServiceDescriptor{}})
+		registry.RegisterResourceSubtype(compSubtype,
+			registry.ResourceSubtype[resource.Resource]{ReflectRPCServiceDesc: &desc.ServiceDescriptor{}})
 		registry.RegisterComponent(compSubtype, compModel, registry.Resource[resource.Resource]{
 			Constructor: func(
 				ctx context.Context,
@@ -78,7 +79,8 @@ func TestModularResources(t *testing.T) {
 			},
 		})
 
-		registry.RegisterResourceSubtype(svcSubtype, registry.ResourceSubtype[resource.Resource]{ReflectRPCServiceDesc: &desc.ServiceDescriptor{}})
+		registry.RegisterResourceSubtype(svcSubtype,
+			registry.ResourceSubtype[resource.Resource]{ReflectRPCServiceDesc: &desc.ServiceDescriptor{}})
 		registry.RegisterResource(svcSubtype, svcModel, registry.Resource[resource.Resource]{
 			Constructor: func(
 				ctx context.Context,

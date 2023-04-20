@@ -4,7 +4,6 @@ package shell
 import (
 	"context"
 
-	"github.com/edaniels/golog"
 	servicepb "go.viam.com/api/service/shell/v1"
 	"go.viam.com/utils/rpc"
 
@@ -23,9 +22,7 @@ func init() {
 			)
 		},
 		RPCServiceDesc: &servicepb.ShellService_ServiceDesc,
-		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (Service, error) {
-			return NewClientFromConn(ctx, conn, name, logger)
-		},
+		RPCClient:      NewClientFromConn,
 	})
 }
 

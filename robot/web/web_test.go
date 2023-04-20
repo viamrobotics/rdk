@@ -925,7 +925,7 @@ func TestRawClientOperation(t *testing.T) {
 		resource.ResourceTypeComponent,
 		resource.SubtypeName("echo"),
 	)
-	registry.RegisterResourceSubtype(echoSubType, registry.ResourceSubtype{
+	registry.RegisterResourceSubtype(echoSubType, registry.ResourceSubtype[resource.Resource]{
 		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeColl resource.SubtypeCollection[resource.Resource]) error {
 			return rpcServer.RegisterServiceServer(
 				ctx,

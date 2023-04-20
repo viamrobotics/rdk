@@ -123,12 +123,10 @@ func TestClient(t *testing.T) {
 	t.Run("audio input client 2", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		client, err := resourceSubtype.RPCClient(context.Background(), conn, audioinput.Named(failAudioInputName), logger)
+		client2, err := resourceSubtype.RPCClient(context.Background(), conn, audioinput.Named(failAudioInputName), logger)
 		test.That(t, err, test.ShouldBeNil)
-		audioInput2Client, ok := client.(audioinput.AudioInput)
-		test.That(t, ok, test.ShouldBeTrue)
 
-		_, _, err = gostream.ReadAudio(context.Background(), audioInput2Client)
+		_, _, err = gostream.ReadAudio(context.Background(), client2)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't generate stream")
 

@@ -4,7 +4,6 @@ package sensor
 import (
 	"context"
 
-	"github.com/edaniels/golog"
 	pb "go.viam.com/api/component/sensor/v1"
 	"go.viam.com/utils/rpc"
 
@@ -25,9 +24,7 @@ func init() {
 			)
 		},
 		RPCServiceDesc: &pb.SensorService_ServiceDesc,
-		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (Sensor, error) {
-			return NewClientFromConn(ctx, conn, name, logger)
-		},
+		RPCClient:      NewClientFromConn,
 	})
 	data.RegisterCollector(data.MethodMetadata{
 		Subtype:    Subtype,

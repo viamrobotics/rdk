@@ -13,7 +13,6 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
 
@@ -29,10 +28,9 @@ func newServer() (pb.PoseTrackerServiceServer, *inject.PoseTracker, *inject.Pose
 	injectPT1 := &inject.PoseTracker{}
 	injectPT2 := &inject.PoseTracker{}
 
-	resourceMap := map[resource.Name]resource.Resource{
+	resourceMap := map[resource.Name]posetracker.PoseTracker{
 		posetracker.Named(workingPTName): injectPT1,
 		posetracker.Named(failingPTName): injectPT2,
-		posetracker.Named(notPTName):     testutils.NewUnimplementedResource(posetracker.Named(notPTName)),
 	}
 
 	injectSvc, err := resource.NewSubtypeCollection(posetracker.Subtype, resourceMap)

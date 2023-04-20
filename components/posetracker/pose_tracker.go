@@ -5,7 +5,6 @@ package posetracker
 import (
 	"context"
 
-	"github.com/edaniels/golog"
 	pb "go.viam.com/api/component/posetracker/v1"
 	"go.viam.com/utils/rpc"
 
@@ -27,9 +26,7 @@ func init() {
 			)
 		},
 		RPCServiceDesc: &pb.PoseTrackerService_ServiceDesc,
-		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (PoseTracker, error) {
-			return NewClientFromConn(ctx, conn, name, logger)
-		},
+		RPCClient:      NewClientFromConn,
 	})
 }
 

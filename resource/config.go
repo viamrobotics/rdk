@@ -236,6 +236,7 @@ func (conf *Config) validate(path string, defaultType TypeName) ([]string, error
 
 // A DependencyValidator validates a configuration and also
 // returns dependencies that were implicitly discovered.
+// TODO(erd): move somewhere?
 type DependencyValidator interface {
 	Validate(path string) ([]string, error)
 }

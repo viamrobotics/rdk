@@ -93,14 +93,7 @@ func init() {
 	registry.RegisterComponent(
 		movementsensor.Subtype,
 		stationModel,
-		registry.Resource[movementsensor.MovementSensor]{Constructor: func(
-			ctx context.Context,
-			deps resource.Dependencies,
-			conf resource.Config,
-			logger golog.Logger,
-		) (movementsensor.MovementSensor, error) {
-			return newRTKStation(ctx, deps, conf, logger)
-		}})
+		registry.Resource[movementsensor.MovementSensor]{Constructor: newRTKStation})
 
 	config.RegisterComponentAttributeMapConverter(movementsensor.Subtype, stationModel,
 		func(attributes rdkutils.AttributeMap) (interface{}, error) {

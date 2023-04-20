@@ -8,7 +8,7 @@
             "name": "arm1",
             "type": "arm",
             "model": "fake",
-            "service_config": [
+            "service_configs": [
                 {
                     "type": "data_manager",
                     "attributes": {

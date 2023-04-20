@@ -116,27 +116,25 @@ func TestClient(t *testing.T) {
 	t.Run("gripper client 2", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		client, err := resourceSubtype.RPCClient(context.Background(), conn, gripper.Named(failGripperName), logger)
+		client2, err := resourceSubtype.RPCClient(context.Background(), conn, gripper.Named(failGripperName), logger)
 		test.That(t, err, test.ShouldBeNil)
-		gripper2Client, ok := client.(gripper.Gripper)
-		test.That(t, ok, test.ShouldBeTrue)
 
 		extra := map[string]interface{}{}
-		err = gripper2Client.Open(context.Background(), extra)
+		err = client2.Open(context.Background(), extra)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't open")
 		test.That(t, gripperOpen, test.ShouldEqual, failGripperName)
 
-		grabbed, err := gripper2Client.Grab(context.Background(), extra)
+		grabbed, err := client2.Grab(context.Background(), extra)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't grab")
 		test.That(t, grabbed, test.ShouldEqual, false)
 
-		err = gripper2Client.Stop(context.Background(), extra)
+		err = client2.Stop(context.Background(), extra)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, gripper.ErrStopUnimplemented.Error())
 
-		test.That(t, gripper2Client.Close(context.Background()), test.ShouldBeNil)
+		test.That(t, client2.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 }

@@ -3,9 +3,10 @@ package inject
 import (
 	"context"
 
+	"go.viam.com/utils"
+
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/mlmodel"
-	"go.viam.com/utils"
 )
 
 // MLModelService represents a fake instance of an MLModel service.

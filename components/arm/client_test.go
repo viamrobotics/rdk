@@ -171,16 +171,14 @@ func TestClient(t *testing.T) {
 	t.Run("arm client 2", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		client, err := resourceSubtype.RPCClient(context.Background(), conn, arm.Named(testArmName2), logger)
+		client2, err := resourceSubtype.RPCClient(context.Background(), conn, arm.Named(testArmName2), logger)
 		test.That(t, err, test.ShouldBeNil)
-		arm2Client, ok := client.(arm.Arm)
-		test.That(t, ok, test.ShouldBeTrue)
 
-		pos, err := arm2Client.EndPosition(context.Background(), nil)
+		pos, err := client2.EndPosition(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, spatialmath.PoseAlmostEqual(pos, pos2), test.ShouldBeTrue)
 
-		err = arm2Client.Stop(context.Background(), nil)
+		err = client2.Stop(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 
 		test.That(t, conn.Close(), test.ShouldBeNil)

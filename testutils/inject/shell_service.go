@@ -3,9 +3,10 @@ package inject
 import (
 	"context"
 
+	"go.viam.com/utils"
+
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/shell"
-	"go.viam.com/utils"
 )
 
 // ShellService represents a fake instance of a shell service.

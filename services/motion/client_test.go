@@ -146,10 +146,8 @@ func TestClient(t *testing.T) {
 	t.Run("motion client 2", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		client, err := resourceSubtype.RPCClient(context.Background(), conn, testMotionServiceName, logger)
+		client2, err := resourceSubtype.RPCClient(context.Background(), conn, testMotionServiceName, logger)
 		test.That(t, err, test.ShouldBeNil)
-		client2, ok := client.(motion.Service)
-		test.That(t, ok, test.ShouldBeTrue)
 
 		passedErr := errors.New("fake move error")
 		injectMS.MoveFunc = func(

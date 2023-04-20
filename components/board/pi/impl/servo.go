@@ -34,8 +34,8 @@ func init() {
 	registry.RegisterComponent(
 		servo.Subtype,
 		picommon.ModelName,
-		registry.Resource{
-			Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (resource.Resource, error) {
+		registry.Resource[servo.Servo]{
+			Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (servo.Servo, error) {
 				newConf, err := resource.NativeConfig[*picommon.ServoConfig](conf)
 				if err != nil {
 					return nil, err

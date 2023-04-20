@@ -52,12 +52,12 @@ var echoSubType = resource.NewSubtype(
 )
 
 func init() {
-	registry.RegisterResourceSubtype(echoSubType, registry.ResourceSubtype{
+	registry.RegisterResourceSubtype(echoSubType, registry.ResourceSubtype[resource.Resource]{
 		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeColl resource.SubtypeCollection[resource.Resource]) error {
 			return rpcServer.RegisterServiceServer(
 				ctx,
 				&echopb.EchoResourceService_ServiceDesc,
-				&echoServer{s: subtypeColl},
+				&echoServer{coll: subtypeColl},
 				echopb.RegisterEchoResourceServiceHandlerFromEndpoint,
 			)
 		},
@@ -69,7 +69,7 @@ func init() {
 	registry.RegisterComponent(
 		echoSubType,
 		resource.NewDefaultModel("fake"),
-		registry.Resource{
+		registry.Resource[resource.Resource]{
 			Constructor: func(
 				ctx context.Context,
 				_ resource.Dependencies,
@@ -738,7 +738,7 @@ type dummyEcho struct {
 
 type echoServer struct {
 	echopb.UnimplementedEchoResourceServiceServer
-	coll resource.SubtypeCollection
+	coll resource.SubtypeCollection[resource.Resource]
 }
 
 func (srv *echoServer) EchoResourceMultiple(
@@ -747,13 +747,17 @@ func (srv *echoServer) EchoResourceMultiple(
 ) error {
 	sess, ok := session.FromContext(server.Context())
 	if ok {
-		res, err := resource.LookupInCollection[*dummyEcho](srv.s, req.Name)
+		res, err := srv.coll.Resource(req.Name)
 		if err != nil {
 			return err
 		}
-		res.mu.Lock()
-		res.capSessID = sess.ID()
-		res.mu.Unlock()
+		typed, err := resource.AsType[*dummyEcho](res)
+		if err != nil {
+			return err
+		}
+		typed.mu.Lock()
+		typed.capSessID = sess.ID()
+		typed.mu.Unlock()
 	}
 
 	session.SafetyMonitorResourceName(server.Context(), someTargetName2)

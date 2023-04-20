@@ -171,17 +171,15 @@ func TestClientWorkingService(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		dialedClient, err := resourceSubtype.RPCClient(context.Background(), conn, slam.Named(nameSucc), logger)
 		test.That(t, err, test.ShouldBeNil)
-		workingDialedClient, ok := dialedClient.(slam.Service)
-		test.That(t, ok, test.ShouldBeTrue)
 
 		// test get position
-		pose, componentRef, err := workingDialedClient.GetPosition(context.Background())
+		pose, componentRef, err := dialedClient.GetPosition(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, spatial.PoseAlmostEqual(poseSucc, pose), test.ShouldBeTrue)
 		test.That(t, componentRef, test.ShouldEqual, componentRefSucc)
 
 		// test get point cloud map
-		fullBytesPCD, err := slam.GetPointCloudMapFull(context.Background(), workingDialedClient)
+		fullBytesPCD, err := slam.GetPointCloudMapFull(context.Background(), dialedClient)
 		test.That(t, err, test.ShouldBeNil)
 		// comparing raw bytes to ensure order is correct
 		test.That(t, fullBytesPCD, test.ShouldResemble, pcd)
@@ -189,7 +187,7 @@ func TestClientWorkingService(t *testing.T) {
 		testhelper.TestComparePointCloudsFromPCDs(t, fullBytesPCD, pcd)
 
 		// test get internal state
-		fullBytesInternalState, err := slam.GetInternalStateFull(context.Background(), workingDialedClient)
+		fullBytesInternalState, err := slam.GetInternalStateFull(context.Background(), dialedClient)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, fullBytesInternalState, test.ShouldResemble, internalStateSucc)
 

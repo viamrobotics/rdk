@@ -11,7 +11,6 @@ import (
 
 	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
 
@@ -19,10 +18,9 @@ func newServer() (pb.EncoderServiceServer, *inject.Encoder, *inject.Encoder, err
 	injectEncoder1 := &inject.Encoder{}
 	injectEncoder2 := &inject.Encoder{}
 
-	resourceMap := map[resource.Name]resource.Resource{
+	resourceMap := map[resource.Name]encoder.Encoder{
 		encoder.Named(testEncoderName): injectEncoder1,
 		encoder.Named(failEncoderName): injectEncoder2,
-		encoder.Named(fakeEncoderName): testutils.NewUnimplementedResource(encoder.Named(fakeEncoderName)),
 	}
 
 	injectSvc, err := resource.NewSubtypeCollection(encoder.Subtype, resourceMap)

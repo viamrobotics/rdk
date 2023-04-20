@@ -5,9 +5,10 @@ import (
 	"encoding/base64"
 
 	pb "go.viam.com/api/service/mlmodel/v1"
-	"go.viam.com/rdk/resource"
 	vprotoutils "go.viam.com/utils/protoutils"
 	"google.golang.org/protobuf/types/known/structpb"
+
+	"go.viam.com/rdk/resource"
 )
 
 // subtypeServer implements the MLModelService from mlmodel.proto.

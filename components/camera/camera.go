@@ -6,7 +6,6 @@ import (
 	"image"
 	"sync"
 
-	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pkg/errors"
@@ -37,9 +36,7 @@ func init() {
 			)
 		},
 		RPCServiceDesc: &pb.CameraService_ServiceDesc,
-		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (Camera, error) {
-			return NewClientFromConn(ctx, conn, name, logger)
-		},
+		RPCClient:      NewClientFromConn,
 	})
 
 	data.RegisterCollector(data.MethodMetadata{

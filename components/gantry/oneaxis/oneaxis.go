@@ -91,14 +91,7 @@ func (cfg *Config) validate() ([]string, error) {
 
 func init() {
 	registry.RegisterComponent(gantry.Subtype, modelname, registry.Resource[gantry.Gantry]{
-		Constructor: func(
-			ctx context.Context,
-			deps resource.Dependencies,
-			conf resource.Config,
-			logger golog.Logger,
-		) (gantry.Gantry, error) {
-			return newOneAxis(ctx, deps, conf, logger)
-		},
+		Constructor: newOneAxis,
 	})
 
 	config.RegisterComponentAttributeMapConverter(gantry.Subtype, modelname,

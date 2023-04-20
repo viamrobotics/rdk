@@ -68,7 +68,8 @@ func init() {
 					return nil, err
 				}
 				return newSensor(ctx, deps, conf.ResourceName(), newConf, logger)
-			}})
+			},
+		})
 
 	config.RegisterComponentAttributeMapConverter(sensor.Subtype, modelname,
 		func(attributes rdkutils.AttributeMap) (interface{}, error) {

@@ -45,14 +45,7 @@ func init() {
 	registry.RegisterComponent(
 		encoder.Subtype,
 		singlemodelname,
-		registry.Resource[encoder.Encoder]{Constructor: func(
-			ctx context.Context,
-			deps resource.Dependencies,
-			conf resource.Config,
-			logger golog.Logger,
-		) (encoder.Encoder, error) {
-			return NewSingleEncoder(ctx, deps, conf, logger)
-		}})
+		registry.Resource[encoder.Encoder]{Constructor: NewSingleEncoder})
 
 	config.RegisterComponentAttributeMapConverter(
 		encoder.Subtype,

@@ -5,13 +5,13 @@ import (
 	"image"
 
 	"github.com/invopop/jsonschema"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/vision"
 	viz "go.viam.com/rdk/vision"
 	"go.viam.com/rdk/vision/classification"
 	"go.viam.com/rdk/vision/objectdetection"
-	"go.viam.com/utils"
 )
 
 // VisionService represents a fake instance of a vision service.

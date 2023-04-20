@@ -127,16 +127,10 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 }
 
 func init() {
-	registry.RegisterComponent(movementsensor.Subtype, modelName, registry.Resource[movementsensor.MovementSensor]{
-		Constructor: func(
-			ctx context.Context,
-			deps resource.Dependencies,
-			conf resource.Config,
-			logger golog.Logger,
-		) (movementsensor.MovementSensor, error) {
-			return NewAdxl345(ctx, deps, conf, logger)
-		},
-	})
+	registry.RegisterComponent(
+		movementsensor.Subtype,
+		modelName,
+		registry.Resource[movementsensor.MovementSensor]{Constructor: NewAdxl345})
 
 	config.RegisterComponentAttributeMapConverter(movementsensor.Subtype, modelName,
 		func(attributes rutils.AttributeMap) (interface{}, error) {

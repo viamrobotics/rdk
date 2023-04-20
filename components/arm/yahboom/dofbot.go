@@ -91,14 +91,7 @@ func (conf *Config) Validate(path string) error {
 
 func init() {
 	registry.RegisterComponent(arm.Subtype, ModelName, registry.Resource[arm.Arm]{
-		Constructor: func(
-			ctx context.Context,
-			deps resource.Dependencies,
-			conf resource.Config,
-			logger golog.Logger,
-		) (arm.Arm, error) {
-			return NewDofBot(ctx, deps, conf, logger)
-		},
+		Constructor: NewDofBot,
 	})
 
 	config.RegisterComponentAttributeMapConverter(arm.Subtype, ModelName,

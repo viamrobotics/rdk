@@ -152,13 +152,11 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		client, err := resourceSubtype.RPCClient(context.Background(), conn, base.Named(testBaseName), logger)
 		test.That(t, err, test.ShouldBeNil)
-		workingBaseClient2, ok := client.(base.Base)
-		test.That(t, ok, test.ShouldBeTrue)
 
 		degsPerSec := 42.0
 		angleDeg := 30.0
 
-		err = workingBaseClient2.Spin(context.Background(), angleDeg, degsPerSec, nil)
+		err = client.Spin(context.Background(), angleDeg, degsPerSec, nil)
 		test.That(t, err, test.ShouldBeNil)
 		expectedArgs := []interface{}{angleDeg, degsPerSec, map[string]interface{}{}}
 		test.That(t, argsReceived["Spin"], test.ShouldResemble, expectedArgs)

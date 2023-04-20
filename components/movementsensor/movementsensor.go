@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	pb "go.viam.com/api/component/movementsensor/v1"
@@ -32,9 +31,7 @@ func init() {
 			)
 		},
 		RPCServiceDesc: &pb.MovementSensorService_ServiceDesc,
-		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (MovementSensor, error) {
-			return NewClientFromConn(ctx, conn, name, logger)
-		},
+		RPCClient:      NewClientFromConn,
 	})
 
 	registerCollector("Position", func(ctx context.Context, ms MovementSensor) (interface{}, error) {

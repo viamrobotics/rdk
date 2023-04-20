@@ -5,7 +5,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/edaniels/golog"
 	pb "go.viam.com/api/component/inputcontroller/v1"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -29,9 +28,7 @@ func init() {
 			)
 		},
 		RPCServiceDesc: &pb.InputControllerService_ServiceDesc,
-		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (Controller, error) {
-			return NewClientFromConn(ctx, conn, name, logger)
-		},
+		RPCClient:      NewClientFromConn,
 	})
 }
 

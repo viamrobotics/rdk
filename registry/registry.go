@@ -45,7 +45,11 @@ type (
 	CreateStatus[T resource.Resource] func(ctx context.Context, res T) (interface{}, error)
 
 	// A RegisterSubtypeRPCService will register the subtype service to the grpc server.
-	RegisterSubtypeRPCService[T resource.Resource] func(ctx context.Context, rpcServer rpc.Server, subtypeColl resource.SubtypeCollection[T]) error
+	RegisterSubtypeRPCService[T resource.Resource] func(
+		ctx context.Context,
+		rpcServer rpc.Server,
+		subtypeColl resource.SubtypeCollection[T],
+	) error
 
 	// A CreateRPCClient will create the client for the resource.
 	CreateRPCClient[T resource.Resource] func(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (T, error)
@@ -100,13 +104,9 @@ type SubtypeGrpc struct{}
 // all registries.
 var (
 	registryMu       sync.RWMutex
-	resourceRegistry = map[string]GenericResource{}
-	subtypeRegistry  = map[resource.Subtype]GenericResourceSubtype{}
+	resourceRegistry = map[string]Resource[resource.Resource]{}
+	subtypeRegistry  = map[resource.Subtype]ResourceSubtype[resource.Resource]{}
 )
-
-// TODO(erd): unexport?
-type GenericResource Resource[resource.Resource]
-type GenericResourceSubtype ResourceSubtype[resource.Resource]
 
 // RegisterService registers a model for a service and its construction info. It's a helper for
 // RegisterResource.
@@ -147,8 +147,8 @@ func RegisterResource[T resource.Resource](subtype resource.Subtype, model resou
 
 // makeGenericResource allows a registration to be generic and ensures all input/output types
 // are actually T's.
-func makeGenericResource[T resource.Resource](typed Resource[T]) GenericResource {
-	reg := GenericResource{
+func makeGenericResource[T resource.Resource](typed Resource[T]) Resource[resource.Resource] {
+	reg := Resource[resource.Resource]{
 		WeakDependencies: typed.WeakDependencies,
 	}
 	if typed.Constructor != nil {
@@ -185,13 +185,13 @@ func DeregisterResource(subtype resource.Subtype, model resource.Model) {
 
 // ResourceLookup looks up a creator by the given subtype and model. nil is returned if
 // there is no creator registered.
-func ResourceLookup(subtype resource.Subtype, model resource.Model) (GenericResource, bool) {
+func ResourceLookup(subtype resource.Subtype, model resource.Model) (Resource[resource.Resource], bool) {
 	qName := fmt.Sprintf("%s/%s", subtype, model)
 
 	if registration, ok := RegisteredResources()[qName]; ok {
 		return registration, true
 	}
-	return GenericResource{}, false
+	return Resource[resource.Resource]{}, false
 }
 
 // RegisterResourceSubtype register a ResourceSubtype to its corresponding resource subtype.
@@ -263,8 +263,11 @@ func (g genericSubypeCollection[T]) ReplaceOne(resName resource.Name, res resour
 
 // makeGenericResourceSubtype allows a registration to be generic and ensures all input/output types
 // are actually T's.
-func makeGenericResourceSubtype[T resource.Resource](subtype resource.Subtype, typed ResourceSubtype[T]) GenericResourceSubtype {
-	reg := GenericResourceSubtype{
+func makeGenericResourceSubtype[T resource.Resource](
+	subtype resource.Subtype,
+	typed ResourceSubtype[T],
+) ResourceSubtype[resource.Resource] {
+	reg := ResourceSubtype[resource.Resource]{
 		RPCServiceDesc:        typed.RPCServiceDesc,
 		ReflectRPCServiceDesc: typed.ReflectRPCServiceDesc,
 		MaxInstance:           typed.MaxInstance,
@@ -311,10 +314,6 @@ func makeGenericResourceSubtype[T resource.Resource](subtype resource.Subtype, t
 	return reg
 }
 
-func makeTypedResourceSubtype[T resource.Resource](untyped GenericResourceSubtype) (ResourceSubtype[T], error) {
-	return utils.AssertType[ResourceSubtype[T]](untyped.typedVersion)
-}
-
 // DeregisterResourceSubtype removes a previously registered subtype.
 func DeregisterResourceSubtype(subtype resource.Subtype) {
 	registryMu.Lock()
@@ -324,12 +323,11 @@ func DeregisterResourceSubtype(subtype resource.Subtype) {
 
 // GenericResourceSubtypeLookup looks up a ResourceSubtype by the given subtype. false is returned if
 // there is none.
-// TODO(erd): can remove or no?
-func GenericResourceSubtypeLookup(subtype resource.Subtype) (GenericResourceSubtype, bool) {
+func GenericResourceSubtypeLookup(subtype resource.Subtype) (ResourceSubtype[resource.Resource], bool) {
 	if registration, ok := RegisteredResourceSubtypes()[subtype]; ok {
 		return registration, true
 	}
-	return GenericResourceSubtype{}, false
+	return ResourceSubtype[resource.Resource]{}, false
 }
 
 // ResourceSubtypeLookup looks up a ResourceSubtype by the given subtype. false is returned if
@@ -337,32 +335,31 @@ func GenericResourceSubtypeLookup(subtype resource.Subtype) (GenericResourceSubt
 func ResourceSubtypeLookup[T resource.Resource](subtype resource.Subtype) (ResourceSubtype[T], bool, error) {
 	var zero ResourceSubtype[T]
 	if registration, ok := RegisteredResourceSubtypes()[subtype]; ok {
-		typed, err := makeTypedResourceSubtype[T](registration)
+		typed, err := utils.AssertType[ResourceSubtype[T]](registration.typedVersion)
 		if err != nil {
 			return zero, false, err
 		}
 		return typed, true, nil
-
 	}
 	return zero, false, nil
 }
 
 // RegisteredResources returns a copy of the registered resources.
-func RegisteredResources() map[string]GenericResource {
+func RegisteredResources() map[string]Resource[resource.Resource] {
 	registryMu.RLock()
 	defer registryMu.RUnlock()
 	copied, err := copystructure.Copy(resourceRegistry)
 	if err != nil {
 		panic(err)
 	}
-	return copied.(map[string]GenericResource)
+	return copied.(map[string]Resource[resource.Resource])
 }
 
 // RegisteredResourceSubtypes returns a copy of the registered resource subtypes.
-func RegisteredResourceSubtypes() map[resource.Subtype]GenericResourceSubtype {
+func RegisteredResourceSubtypes() map[resource.Subtype]ResourceSubtype[resource.Resource] {
 	registryMu.RLock()
 	defer registryMu.RUnlock()
-	toCopy := make(map[resource.Subtype]GenericResourceSubtype, len(subtypeRegistry))
+	toCopy := make(map[resource.Subtype]ResourceSubtype[resource.Resource], len(subtypeRegistry))
 	for k, v := range subtypeRegistry {
 		toCopy[k] = v
 	}

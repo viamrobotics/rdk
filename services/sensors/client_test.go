@@ -110,15 +110,13 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		client2, err := resourceSubtype.RPCClient(context.Background(), conn, testSvcName1, logger)
 		test.That(t, err, test.ShouldBeNil)
-		client, ok := client2.(sensors.Service)
-		test.That(t, ok, test.ShouldBeTrue)
 
 		passedErr := errors.New("can't get sensors")
 		injectSensors.SensorsFunc = func(ctx context.Context, extra map[string]interface{}) ([]resource.Name, error) {
 			return nil, passedErr
 		}
 
-		_, err = client.Sensors(context.Background(), map[string]interface{}{})
+		_, err = client2.Sensors(context.Background(), map[string]interface{}{})
 		test.That(t, err.Error(), test.ShouldContainSubstring, passedErr.Error())
 
 		passedErr = errors.New("can't get readings")
@@ -127,7 +125,7 @@ func TestClient(t *testing.T) {
 		) ([]sensors.Readings, error) {
 			return nil, passedErr
 		}
-		_, err = client.Readings(context.Background(), []resource.Name{}, map[string]interface{}{})
+		_, err = client2.Readings(context.Background(), []resource.Name{}, map[string]interface{}{})
 		test.That(t, err.Error(), test.ShouldContainSubstring, passedErr.Error())
 
 		test.That(t, client2.Close(context.Background()), test.ShouldBeNil)

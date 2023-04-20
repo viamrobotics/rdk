@@ -125,9 +125,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		client, err := resourceSubtype.RPCClient(context.Background(), conn, posetracker.Named(workingPTName), logger)
 		test.That(t, err, test.ShouldBeNil)
-		workingPTDialedClient, ok := client.(posetracker.PoseTracker)
-		test.That(t, ok, test.ShouldBeTrue)
-		bodyToPoseInFrame, err := workingPTDialedClient.Poses(context.Background(), []string{}, map[string]interface{}{"foo": "PosesDialed"})
+		bodyToPoseInFrame, err := client.Poses(context.Background(), []string{}, map[string]interface{}{"foo": "PosesDialed"})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{"foo": "PosesDialed"})
 

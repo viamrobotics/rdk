@@ -135,17 +135,15 @@ func TestClient(t *testing.T) {
 	t.Run("gantry client 2", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		client, err := resourceSubtype.RPCClient(context.Background(), conn, gantry.Named(testGantryName2), logger)
+		client2, err := resourceSubtype.RPCClient(context.Background(), conn, gantry.Named(testGantryName2), logger)
 		test.That(t, err, test.ShouldBeNil)
-		gantry2Client, ok := client.(gantry.Gantry)
-		test.That(t, ok, test.ShouldBeTrue)
 
-		pos, err := gantry2Client.Position(context.Background(), map[string]interface{}{"foo": "123", "bar": 234})
+		pos, err := client2.Position(context.Background(), map[string]interface{}{"foo": "123", "bar": 234})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldResemble, pos2)
 		test.That(t, extra2, test.ShouldResemble, map[string]interface{}{"foo": "123", "bar": 234.})
 
-		err = gantry2Client.Stop(context.Background(), map[string]interface{}{"foo": "234", "bar": 345})
+		err = client2.Stop(context.Background(), map[string]interface{}{"foo": "234", "bar": 345})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, extra2, test.ShouldResemble, map[string]interface{}{"foo": "234", "bar": 345.})
 

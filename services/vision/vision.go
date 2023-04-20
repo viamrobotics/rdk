@@ -6,7 +6,6 @@ import (
 	"context"
 	"image"
 
-	"github.com/edaniels/golog"
 	"github.com/invopop/jsonschema"
 	"github.com/pkg/errors"
 	servicepb "go.viam.com/api/service/vision/v1"
@@ -32,10 +31,8 @@ func init() {
 			)
 		},
 		RPCServiceDesc: &servicepb.VisionService_ServiceDesc,
-		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (Service, error) {
-			return NewClientFromConn(ctx, conn, name, logger)
-		},
-		MaxInstance: resource.DefaultMaxInstance,
+		RPCClient:      NewClientFromConn,
+		MaxInstance:    resource.DefaultMaxInstance,
 	})
 }
 

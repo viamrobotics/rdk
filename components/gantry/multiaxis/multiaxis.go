@@ -50,13 +50,7 @@ func (conf *Config) Validate(path string) ([]string, error) {
 
 func init() {
 	registry.RegisterComponent(gantry.Subtype, modelname, registry.Resource[gantry.Gantry]{
-		Constructor: func(ctx context.Context,
-			deps resource.Dependencies,
-			conf resource.Config,
-			logger golog.Logger,
-		) (gantry.Gantry, error) {
-			return newMultiAxis(ctx, deps, conf, logger)
-		},
+		Constructor: newMultiAxis,
 	})
 
 	config.RegisterComponentAttributeMapConverter(gantry.Subtype, modelname,

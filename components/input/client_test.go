@@ -242,16 +242,14 @@ func TestClient(t *testing.T) {
 	t.Run("input controller client 2", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		client, err := resourceSubtype.RPCClient(context.Background(), conn, input.Named(failInputControllerName), logger)
+		client2, err := resourceSubtype.RPCClient(context.Background(), conn, input.Named(failInputControllerName), logger)
 		test.That(t, err, test.ShouldBeNil)
-		inputController2Client, ok := client.(input.Controller)
-		test.That(t, ok, test.ShouldBeTrue)
 
-		_, err = inputController2Client.Controls(context.Background(), map[string]interface{}{})
+		_, err = client2.Controls(context.Background(), map[string]interface{}{})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get controls")
 
-		_, err = inputController2Client.Events(context.Background(), map[string]interface{}{})
+		_, err = client2.Events(context.Background(), map[string]interface{}{})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get last events")
 
@@ -261,13 +259,13 @@ func TestClient(t *testing.T) {
 			Control: input.AbsoluteX,
 			Value:   0.7,
 		}
-		injectable, ok := inputController2Client.(input.Triggerable)
+		injectable, ok := client2.(input.Triggerable)
 		test.That(t, ok, test.ShouldBeTrue)
 		err = injectable.TriggerEvent(context.Background(), event1, map[string]interface{}{})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not of type Triggerable")
 
-		test.That(t, inputController2Client.Close(context.Background()), test.ShouldBeNil)
+		test.That(t, client2.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 }

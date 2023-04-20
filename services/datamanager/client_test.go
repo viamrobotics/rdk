@@ -85,10 +85,8 @@ func TestClient(t *testing.T) {
 	t.Run("datamanager client 2", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		client, err := resourceSubtype.RPCClient(context.Background(), conn, svcName, logger)
+		client2, err := resourceSubtype.RPCClient(context.Background(), conn, svcName, logger)
 		test.That(t, err, test.ShouldBeNil)
-		client2, ok := client.(datamanager.Service)
-		test.That(t, ok, test.ShouldBeTrue)
 
 		passedErr := errors.New("fake sync error")
 		injectDS.SyncFunc = func(ctx context.Context, extra map[string]interface{}) error {
@@ -97,7 +95,7 @@ func TestClient(t *testing.T) {
 
 		err = client2.Sync(context.Background(), map[string]interface{}{})
 		test.That(t, err.Error(), test.ShouldContainSubstring, passedErr.Error())
-		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
+		test.That(t, client2.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 }

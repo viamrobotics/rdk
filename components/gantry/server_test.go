@@ -11,17 +11,15 @@ import (
 
 	"go.viam.com/rdk/components/gantry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
 
 func newServer() (pb.GantryServiceServer, *inject.Gantry, *inject.Gantry, error) {
 	injectGantry := &inject.Gantry{}
 	injectGantry2 := &inject.Gantry{}
-	gantries := map[resource.Name]resource.Resource{
+	gantries := map[resource.Name]gantry.Gantry{
 		gantry.Named(testGantryName): injectGantry,
 		gantry.Named(failGantryName): injectGantry2,
-		gantry.Named(fakeGantryName): testutils.NewUnimplementedResource(gantry.Named(fakeGantryName)),
 	}
 	gantrySvc, err := resource.NewSubtypeCollection(gantry.Subtype, gantries)
 	if err != nil {
@@ -72,6 +70,7 @@ func TestServer(t *testing.T) {
 		return errors.New("no stop")
 	}
 
+	//nolint:dupl
 	t.Run("gantry position", func(t *testing.T) {
 		_, err := gantryServer.GetPosition(context.Background(), &pb.GetPositionRequest{Name: missingGantryName})
 		test.That(t, err, test.ShouldNotBeNil)
@@ -116,6 +115,7 @@ func TestServer(t *testing.T) {
 		test.That(t, gantryPos, test.ShouldResemble, pos1)
 	})
 
+	//nolint:dupl
 	t.Run("lengths", func(t *testing.T) {
 		_, err := gantryServer.GetLengths(context.Background(), &pb.GetLengthsRequest{Name: missingGantryName})
 		test.That(t, err, test.ShouldNotBeNil)

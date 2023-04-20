@@ -40,14 +40,7 @@ func init() {
 		encoder.Subtype,
 		modelName,
 		registry.Resource[encoder.Encoder]{
-			Constructor: func(
-				ctx context.Context,
-				deps resource.Dependencies,
-				conf resource.Config,
-				logger golog.Logger,
-			) (encoder.Encoder, error) {
-				return newAS5048Encoder(ctx, deps, conf, logger)
-			},
+			Constructor: newAS5048Encoder,
 		},
 	)
 	config.RegisterComponentAttributeMapConverter(

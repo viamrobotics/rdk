@@ -44,12 +44,12 @@ var echoSubType = resource.NewSubtype(
 )
 
 func init() {
-	registry.RegisterResourceSubtype(echoSubType, registry.ResourceSubtype{
+	registry.RegisterResourceSubtype(echoSubType, registry.ResourceSubtype[resource.Resource]{
 		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeColl resource.SubtypeCollection[resource.Resource]) error {
 			return rpcServer.RegisterServiceServer(
 				ctx,
 				&echopb.TestEchoService_ServiceDesc,
-				&echoServer{s: subtypeColl},
+				&echoServer{coll: subtypeColl},
 				echopb.RegisterTestEchoServiceHandlerFromEndpoint,
 			)
 		},
@@ -98,12 +98,12 @@ func TestSessions(t *testing.T) {
 			registry.RegisterComponent(
 				motor.Subtype,
 				modelName,
-				registry.Resource{Constructor: func(
+				registry.Resource[motor.Motor]{Constructor: func(
 					ctx context.Context,
 					deps resource.Dependencies,
 					conf resource.Config,
 					logger golog.Logger,
-				) (resource.Resource, error) {
+				) (motor.Motor, error) {
 					if conf.Name == "motor1" {
 						return &dummyMotor1, nil
 					}
@@ -112,7 +112,7 @@ func TestSessions(t *testing.T) {
 			registry.RegisterComponent(
 				echoSubType,
 				streamModelName,
-				registry.Resource{
+				registry.Resource[resource.Resource]{
 					Constructor: func(
 						ctx context.Context,
 						_ resource.Dependencies,
@@ -126,13 +126,13 @@ func TestSessions(t *testing.T) {
 			registry.RegisterComponent(
 				base.Subtype,
 				modelName,
-				registry.Resource{
+				registry.Resource[base.Base]{
 					Constructor: func(
 						ctx context.Context,
 						_ resource.Dependencies,
 						conf resource.Config,
 						logger golog.Logger,
-					) (resource.Resource, error) {
+					) (base.Base, error) {
 						return &dummyBase1, nil
 					},
 				},
@@ -296,24 +296,26 @@ func TestSessionsWithRemote(t *testing.T) {
 	registry.RegisterComponent(
 		motor.Subtype,
 		modelName,
-		registry.Resource{Constructor: func(
-			ctx context.Context,
-			deps resource.Dependencies,
-			conf resource.Config,
-			logger golog.Logger,
-		) (resource.Resource, error) {
-			if conf.Attributes.Bool("rem", false) {
-				if conf.Name == "motor1" {
-					return &dummyRemMotor1, nil
+		registry.Resource[motor.Motor]{
+			Constructor: func(
+				ctx context.Context,
+				deps resource.Dependencies,
+				conf resource.Config,
+				logger golog.Logger,
+			) (motor.Motor, error) {
+				if conf.Attributes.Bool("rem", false) {
+					if conf.Name == "motor1" {
+						return &dummyRemMotor1, nil
+					}
+					return &dummyRemMotor2, nil
 				}
-				return &dummyRemMotor2, nil
-			}
-			return &dummyMotor1, nil
-		}})
+				return &dummyMotor1, nil
+			},
+		})
 	registry.RegisterComponent(
 		echoSubType,
 		streamModelName,
-		registry.Resource{
+		registry.Resource[resource.Resource]{
 			Constructor: func(
 				ctx context.Context,
 				_ resource.Dependencies,
@@ -327,13 +329,13 @@ func TestSessionsWithRemote(t *testing.T) {
 	registry.RegisterComponent(
 		base.Subtype,
 		modelName,
-		registry.Resource{
+		registry.Resource[base.Base]{
 			Constructor: func(
 				ctx context.Context,
 				_ resource.Dependencies,
 				conf resource.Config,
 				logger golog.Logger,
-			) (resource.Resource, error) {
+			) (base.Base, error) {
 				if conf.Attributes.Bool("rem", false) {
 					return &dummyRemBase1, nil
 				}
@@ -553,14 +555,16 @@ func TestSessionsMixedClients(t *testing.T) {
 	registry.RegisterComponent(
 		motor.Subtype,
 		modelName,
-		registry.Resource{Constructor: func(
-			ctx context.Context,
-			deps resource.Dependencies,
-			conf resource.Config,
-			logger golog.Logger,
-		) (resource.Resource, error) {
-			return &dummyMotor1, nil
-		}})
+		registry.Resource[motor.Motor]{
+			Constructor: func(
+				ctx context.Context,
+				deps resource.Dependencies,
+				conf resource.Config,
+				logger golog.Logger,
+			) (motor.Motor, error) {
+				return &dummyMotor1, nil
+			},
+		})
 
 	roboConfig := fmt.Sprintf(`{
 		"components": [
@@ -640,14 +644,16 @@ func TestSessionsMixedOwnersNoAuth(t *testing.T) {
 	registry.RegisterComponent(
 		motor.Subtype,
 		modelName,
-		registry.Resource{Constructor: func(
-			ctx context.Context,
-			deps resource.Dependencies,
-			conf resource.Config,
-			logger golog.Logger,
-		) (resource.Resource, error) {
-			return &dummyMotor1, nil
-		}})
+		registry.Resource[motor.Motor]{
+			Constructor: func(
+				ctx context.Context,
+				deps resource.Dependencies,
+				conf resource.Config,
+				logger golog.Logger,
+			) (motor.Motor, error) {
+				return &dummyMotor1, nil
+			},
+		})
 
 	roboConfig := fmt.Sprintf(`{
 		"components": [
@@ -739,14 +745,16 @@ func TestSessionsMixedOwnersImplicitAuth(t *testing.T) {
 	registry.RegisterComponent(
 		motor.Subtype,
 		modelName,
-		registry.Resource{Constructor: func(
-			ctx context.Context,
-			deps resource.Dependencies,
-			conf resource.Config,
-			logger golog.Logger,
-		) (resource.Resource, error) {
-			return &dummyMotor1, nil
-		}})
+		registry.Resource[motor.Motor]{
+			Constructor: func(
+				ctx context.Context,
+				deps resource.Dependencies,
+				conf resource.Config,
+				logger golog.Logger,
+			) (motor.Motor, error) {
+				return &dummyMotor1, nil
+			},
+		})
 
 	roboConfig := fmt.Sprintf(`{
 		"components": [
@@ -878,8 +886,6 @@ func (dm *dummyMotor) IsMoving(context.Context) (bool, error) {
 	return false, nil
 }
 
-var _ = base.Base(&dummyBase{})
-
 type dummyBase struct {
 	resource.Named
 	resource.AlwaysRebuild
@@ -968,14 +974,14 @@ func (e *dummyEcho) IsMoving(context.Context) (bool, error) {
 
 type echoServer struct {
 	echopb.UnimplementedTestEchoServiceServer
-	coll resource.SubtypeCollection
+	coll resource.SubtypeCollection[resource.Resource]
 }
 
 func (srv *echoServer) EchoMultiple(
 	req *echopb.EchoMultipleRequest,
 	server echopb.TestEchoService_EchoMultipleServer,
 ) error {
-	res, err := srv.s.Resource(req.Name)
+	res, err := srv.coll.Resource(req.Name)
 	if err != nil {
 		return err
 	}
@@ -1002,7 +1008,7 @@ func (srv *echoServer) EchoMultiple(
 }
 
 func (srv *echoServer) Stop(ctx context.Context, req *echopb.StopRequest) (*echopb.StopResponse, error) {
-	res, err := srv.s.Resource(req.Name)
+	res, err := srv.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}

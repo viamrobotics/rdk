@@ -25,7 +25,6 @@ import (
 var (
 	testBoardName    = "board1"
 	missingBoardName = "board2"
-	fakeBoardName    = "board3"
 )
 
 func setupService(t *testing.T, injectBoard *inject.Board) (net.Listener, func()) {
@@ -281,17 +280,15 @@ func TestClientWithoutStatus(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	rClient, err := resourceSubtype.RPCClient(context.Background(), conn, board.Named(testBoardName), logger)
 	test.That(t, err, test.ShouldBeNil)
-	client, ok := rClient.(board.Board)
-	test.That(t, ok, test.ShouldBeTrue)
 
 	test.That(t, injectBoard.StatusCap()[1:], test.ShouldResemble, []interface{}{})
 
-	test.That(t, client.AnalogReaderNames(), test.ShouldResemble, []string{})
-	test.That(t, client.DigitalInterruptNames(), test.ShouldResemble, []string{})
-	test.That(t, client.SPINames(), test.ShouldResemble, []string{})
-	test.That(t, client.I2CNames(), test.ShouldResemble, []string{})
+	test.That(t, rClient.AnalogReaderNames(), test.ShouldResemble, []string{})
+	test.That(t, rClient.DigitalInterruptNames(), test.ShouldResemble, []string{})
+	test.That(t, rClient.SPINames(), test.ShouldResemble, []string{})
+	test.That(t, rClient.I2CNames(), test.ShouldResemble, []string{})
 
-	err = utils.TryClose(context.Background(), client)
+	err = utils.TryClose(context.Background(), rClient)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, conn.Close(), test.ShouldBeNil)
 }

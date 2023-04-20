@@ -137,13 +137,11 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		client, err := resourceSubtype.RPCClient(context.Background(), conn, servo.Named(testServoName), logger)
 		test.That(t, err, test.ShouldBeNil)
-		workingServoDialedClient, ok := client.(servo.Servo)
-		test.That(t, ok, test.ShouldBeTrue)
 
-		err = workingServoDialedClient.Move(context.Background(), 20, nil)
+		err = client.Move(context.Background(), 20, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		currentDeg, err := workingServoDialedClient.Position(context.Background(), nil)
+		currentDeg, err := client.Position(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, currentDeg, test.ShouldEqual, 20)
 

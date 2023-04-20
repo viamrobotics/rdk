@@ -4,7 +4,6 @@ package base
 import (
 	"context"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
@@ -32,9 +31,7 @@ func init() {
 			)
 		},
 		RPCServiceDesc: &pb.BaseService_ServiceDesc,
-		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (Base, error) {
-			return NewClientFromConn(ctx, conn, name, logger)
-		},
+		RPCClient:      NewClientFromConn,
 	})
 }
 
