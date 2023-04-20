@@ -24,7 +24,7 @@ func newServer() (pb.BaseServiceServer, *inject.Base, *inject.Base, error) {
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	return base.NewServer(baseSvc), workingBase, brokenBase, nil
+	return base.NewRPCServiceServer(baseSvc).(pb.BaseServiceServer), workingBase, brokenBase, nil
 }
 
 func TestServer(t *testing.T) {

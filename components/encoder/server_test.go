@@ -27,7 +27,7 @@ func newServer() (pb.EncoderServiceServer, *inject.Encoder, *inject.Encoder, err
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	return encoder.NewServer(injectSvc), injectEncoder1, injectEncoder2, nil
+	return encoder.NewRPCServiceServer(injectSvc).(pb.EncoderServiceServer), injectEncoder1, injectEncoder2, nil
 }
 
 func TestServerGetPosition(t *testing.T) {

@@ -25,7 +25,7 @@ func newServer() (pb.GripperServiceServer, *inject.Gripper, *inject.Gripper, err
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	return gripper.NewServer(gripperSvc), injectGripper, injectGripper2, nil
+	return gripper.NewRPCServiceServer(gripperSvc).(pb.GripperServiceServer), injectGripper, injectGripper2, nil
 }
 
 func TestServer(t *testing.T) {

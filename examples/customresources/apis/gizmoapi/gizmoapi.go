@@ -35,15 +35,9 @@ func FromRobot(r robot.Robot, name string) (Gizmo, error) {
 func init() {
 	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype[Gizmo]{
 		// Reconfigurable, and contents of reconfwrapper.go are only needed for standalone (non-module) uses.
-		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeColl resource.SubtypeCollection[Gizmo]) error {
-			return rpcServer.RegisterServiceServer(
-				ctx,
-				&pb.GizmoService_ServiceDesc,
-				NewServer(subtypeColl),
-				pb.RegisterGizmoServiceHandlerFromEndpoint,
-			)
-		},
-		RPCServiceDesc: &pb.GizmoService_ServiceDesc,
+		RPCServiceServerConstructor: NewRPCServiceServer,
+		RPCServiceHandler:           pb.RegisterGizmoServiceHandlerFromEndpoint,
+		RPCServiceDesc:              &pb.GizmoService_ServiceDesc,
 		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (Gizmo, error) {
 			return NewClientFromConn(conn, name, logger), nil
 		},
@@ -67,7 +61,7 @@ type subtypeServer struct {
 	coll resource.SubtypeCollection[Gizmo]
 }
 
-func NewServer(coll resource.SubtypeCollection[Gizmo]) pb.GizmoServiceServer {
+func NewRPCServiceServer(coll resource.SubtypeCollection[Gizmo]) interface{} {
 	return &subtypeServer{coll: coll}
 }
 

@@ -2,10 +2,7 @@
 package generic
 
 import (
-	"context"
-
 	pb "go.viam.com/api/component/generic/v1"
-	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -14,16 +11,10 @@ import (
 
 func init() {
 	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype[resource.Resource]{
-		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeColl resource.SubtypeCollection[resource.Resource]) error {
-			return rpcServer.RegisterServiceServer(
-				ctx,
-				&pb.GenericService_ServiceDesc,
-				NewServer(subtypeColl),
-				pb.RegisterGenericServiceHandlerFromEndpoint,
-			)
-		},
-		RPCServiceDesc: &pb.GenericService_ServiceDesc,
-		RPCClient:      NewClientFromConn,
+		RPCServiceServerConstructor: NewRPCServiceServer,
+		RPCServiceHandler:           pb.RegisterGenericServiceHandlerFromEndpoint,
+		RPCServiceDesc:              &pb.GenericService_ServiceDesc,
+		RPCClient:                   NewClientFromConn,
 	})
 }
 

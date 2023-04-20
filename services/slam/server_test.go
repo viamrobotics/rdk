@@ -68,7 +68,7 @@ func TestWorkingServer(t *testing.T) {
 	}
 	injectSubtypeSvc, err := resource.NewSubtypeCollection(slam.Subtype, resourceMap)
 	test.That(t, err, test.ShouldBeNil)
-	slamServer := slam.NewServer(injectSubtypeSvc)
+	slamServer := slam.NewRPCServiceServer(injectSubtypeSvc).(pb.SLAMServiceServer)
 	cloudPath := artifact.MustPath("slam/mock_lidar/0.pcd")
 	pcd, err := os.ReadFile(cloudPath)
 	test.That(t, err, test.ShouldBeNil)
@@ -150,7 +150,7 @@ func TestWorkingServer(t *testing.T) {
 		}
 		injectSubtypeSvc, err := resource.NewSubtypeCollection(slam.Subtype, resourceMap)
 		test.That(t, err, test.ShouldBeNil)
-		slamServer = slam.NewServer(injectSubtypeSvc)
+		slamServer = slam.NewRPCServiceServer(injectSubtypeSvc).(pb.SLAMServiceServer)
 		poseSucc := spatial.NewPose(r3.Vector{X: 1, Y: 2, Z: 3}, &spatial.OrientationVector{Theta: math.Pi / 2, OX: 0, OY: 0, OZ: -1})
 		componentRefSucc := "cam"
 
@@ -212,7 +212,7 @@ func TestFailingServer(t *testing.T) {
 	}
 	injectSubtypeSvc, err := resource.NewSubtypeCollection(slam.Subtype, resourceMap)
 	test.That(t, err, test.ShouldBeNil)
-	slamServer := slam.NewServer(injectSubtypeSvc)
+	slamServer := slam.NewRPCServiceServer(injectSubtypeSvc).(pb.SLAMServiceServer)
 
 	t.Run("failing GetPosition", func(t *testing.T) {
 		injectSvc.GetPositionFunc = func(ctx context.Context) (spatial.Pose, string, error) {
@@ -276,7 +276,7 @@ func TestFailingServer(t *testing.T) {
 	})
 
 	injectSubtypeSvc, _ = resource.NewSubtypeCollection(slam.Subtype, map[resource.Name]slam.Service{})
-	slamServer = slam.NewServer(injectSubtypeSvc)
+	slamServer = slam.NewRPCServiceServer(injectSubtypeSvc).(pb.SLAMServiceServer)
 	t.Run("failing on nonexistent server", func(t *testing.T) {
 		// test unary endpoint using GetPosition
 		reqGetPositionRequest := &pb.GetPositionRequest{Name: testSlamServiceName}
@@ -301,7 +301,7 @@ func TestServerDoCommand(t *testing.T) {
 	}
 	injectSubtypeSvc, err := resource.NewSubtypeCollection(slam.Subtype, resourceMap)
 	test.That(t, err, test.ShouldBeNil)
-	server := slam.NewServer(injectSubtypeSvc)
+	server := slam.NewRPCServiceServer(injectSubtypeSvc).(pb.SLAMServiceServer)
 
 	cmd, err := protoutils.StructToStructPb(testutils.TestCommand)
 	test.That(t, err, test.ShouldBeNil)

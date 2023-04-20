@@ -5,7 +5,6 @@ import (
 	"context"
 
 	servicepb "go.viam.com/api/service/shell/v1"
-	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -13,16 +12,10 @@ import (
 
 func init() {
 	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype[Service]{
-		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeColl resource.SubtypeCollection[Service]) error {
-			return rpcServer.RegisterServiceServer(
-				ctx,
-				&servicepb.ShellService_ServiceDesc,
-				NewServer(subtypeColl),
-				servicepb.RegisterShellServiceHandlerFromEndpoint,
-			)
-		},
-		RPCServiceDesc: &servicepb.ShellService_ServiceDesc,
-		RPCClient:      NewClientFromConn,
+		RPCServiceServerConstructor: NewRPCServiceServer,
+		RPCServiceHandler:           servicepb.RegisterShellServiceHandlerFromEndpoint,
+		RPCServiceDesc:              &servicepb.ShellService_ServiceDesc,
+		RPCClient:                   NewClientFromConn,
 	})
 }
 

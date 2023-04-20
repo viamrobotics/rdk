@@ -455,12 +455,10 @@ func (m *Module) addAPIFromRegistry(ctx context.Context, api resource.Subtype) e
 	newColl := subtypeInfo.MakeEmptyCollection()
 	m.collections[api] = newColl
 
-	if ok && subtypeInfo.RegisterRPCService != nil {
-		if err := subtypeInfo.RegisterRPCService(ctx, m.server, newColl); err != nil {
-			return err
-		}
+	if !ok {
+		return nil
 	}
-	return nil
+	return subtypeInfo.RegisterRPCService(ctx, m.server, newColl)
 }
 
 // AddModelFromRegistry adds a preregistered component or service model to the module's services.

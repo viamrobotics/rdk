@@ -26,7 +26,7 @@ func newServer() (pb.BoardServiceServer, *inject.Board, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	return board.NewServer(boardSvc), injectBoard, nil
+	return board.NewRPCServiceServer(boardSvc).(pb.BoardServiceServer), injectBoard, nil
 }
 
 func TestServerStatus(t *testing.T) {

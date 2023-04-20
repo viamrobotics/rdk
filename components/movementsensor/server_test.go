@@ -29,7 +29,7 @@ func newServer() (pb.MovementSensorServiceServer, *inject.MovementSensor, *injec
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	return movementsensor.NewServer(gpsSvc), injectMovementSensor, injectMovementSensor2, nil
+	return movementsensor.NewRPCServiceServer(gpsSvc).(pb.MovementSensorServiceServer), injectMovementSensor, injectMovementSensor2, nil
 }
 
 func TestServer(t *testing.T) {

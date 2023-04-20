@@ -48,8 +48,9 @@ type subtypeServer struct {
 	coll resource.SubtypeCollection[AudioInput]
 }
 
-// NewServer constructs an audio input gRPC service server.
-func NewServer(coll resource.SubtypeCollection[AudioInput]) pb.AudioInputServiceServer {
+// NewRPCServiceServer constructs an audio input gRPC service server.
+// It is intentionally untyped to prevent use outside of tests.
+func NewRPCServiceServer(coll resource.SubtypeCollection[AudioInput]) interface{} {
 	return &subtypeServer{coll: coll}
 }
 

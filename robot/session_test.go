@@ -45,15 +45,11 @@ var echoSubType = resource.NewSubtype(
 
 func init() {
 	registry.RegisterResourceSubtype(echoSubType, registry.ResourceSubtype[resource.Resource]{
-		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeColl resource.SubtypeCollection[resource.Resource]) error {
-			return rpcServer.RegisterServiceServer(
-				ctx,
-				&echopb.TestEchoService_ServiceDesc,
-				&echoServer{coll: subtypeColl},
-				echopb.RegisterTestEchoServiceHandlerFromEndpoint,
-			)
+		RPCServiceServerConstructor: func(subtypeColl resource.SubtypeCollection[resource.Resource]) interface{} {
+			return &echoServer{coll: subtypeColl}
 		},
-		RPCServiceDesc: &echopb.TestEchoService_ServiceDesc,
+		RPCServiceHandler: echopb.RegisterTestEchoServiceHandlerFromEndpoint,
+		RPCServiceDesc:    &echopb.TestEchoService_ServiceDesc,
 		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (resource.Resource, error) {
 			return NewClientFromConn(ctx, conn, name, logger), nil
 		},

@@ -198,74 +198,74 @@ func TestStatusClient(t *testing.T) {
 
 	armSvc1, err := resource.NewSubtypeCollection(arm.Subtype, map[resource.Name]arm.Arm{})
 	test.That(t, err, test.ShouldBeNil)
-	armpb.RegisterArmServiceServer(gServer1, arm.NewServer(armSvc1))
+	gServer1.RegisterService(&armpb.ArmService_ServiceDesc, arm.NewRPCServiceServer(armSvc1))
 
 	armSvc2, err := resource.NewSubtypeCollection(arm.Subtype, map[resource.Name]arm.Arm{arm.Named("arm1"): injectArm})
 	test.That(t, err, test.ShouldBeNil)
-	armpb.RegisterArmServiceServer(gServer2, arm.NewServer(armSvc2))
+	gServer2.RegisterService(&armpb.ArmService_ServiceDesc, arm.NewRPCServiceServer(armSvc2))
 
 	baseSvc, err := resource.NewSubtypeCollection(base.Subtype, map[resource.Name]base.Base{})
 	test.That(t, err, test.ShouldBeNil)
-	basepb.RegisterBaseServiceServer(gServer1, base.NewServer(baseSvc))
+	gServer1.RegisterService(&basepb.BaseService_ServiceDesc, base.NewRPCServiceServer(baseSvc))
 
 	baseSvc2, err := resource.NewSubtypeCollection(base.Subtype, map[resource.Name]base.Base{base.Named("base1"): &inject.Base{}})
 	test.That(t, err, test.ShouldBeNil)
-	basepb.RegisterBaseServiceServer(gServer2, base.NewServer(baseSvc2))
+	gServer2.RegisterService(&basepb.BaseService_ServiceDesc, base.NewRPCServiceServer(baseSvc2))
 
 	boardSvc1, err := resource.NewSubtypeCollection(board.Subtype, map[resource.Name]board.Board{})
 	test.That(t, err, test.ShouldBeNil)
-	boardpb.RegisterBoardServiceServer(gServer1, board.NewServer(boardSvc1))
+	gServer1.RegisterService(&boardpb.BoardService_ServiceDesc, board.NewRPCServiceServer(boardSvc1))
 
 	boardSvc2, err := resource.NewSubtypeCollection(board.Subtype, map[resource.Name]board.Board{board.Named("board1"): injectBoard})
 	test.That(t, err, test.ShouldBeNil)
-	boardpb.RegisterBoardServiceServer(gServer2, board.NewServer(boardSvc2))
+	gServer2.RegisterService(&boardpb.BoardService_ServiceDesc, board.NewRPCServiceServer(boardSvc2))
 
 	cameraSvc1, err := resource.NewSubtypeCollection(camera.Subtype, map[resource.Name]camera.Camera{})
 	test.That(t, err, test.ShouldBeNil)
-	camerapb.RegisterCameraServiceServer(gServer1, camera.NewServer(cameraSvc1))
+	gServer1.RegisterService(&camerapb.CameraService_ServiceDesc, camera.NewRPCServiceServer(cameraSvc1))
 
 	cameraSvc2, err := resource.NewSubtypeCollection(camera.Subtype, map[resource.Name]camera.Camera{camera.Named("camera1"): injectCamera})
 	test.That(t, err, test.ShouldBeNil)
-	camerapb.RegisterCameraServiceServer(gServer2, camera.NewServer(cameraSvc2))
+	gServer2.RegisterService(&camerapb.CameraService_ServiceDesc, camera.NewRPCServiceServer(cameraSvc2))
 
 	gripperSvc1, err := resource.NewSubtypeCollection(gripper.Subtype, map[resource.Name]gripper.Gripper{})
 	test.That(t, err, test.ShouldBeNil)
-	gripperpb.RegisterGripperServiceServer(gServer1, gripper.NewServer(gripperSvc1))
+	gServer1.RegisterService(&gripperpb.GripperService_ServiceDesc, gripper.NewRPCServiceServer(gripperSvc1))
 
 	gripperSvc2, err := resource.NewSubtypeCollection(gripper.Subtype,
 		map[resource.Name]gripper.Gripper{gripper.Named("gripper1"): injectGripper})
 	test.That(t, err, test.ShouldBeNil)
-	gripperpb.RegisterGripperServiceServer(gServer2, gripper.NewServer(gripperSvc2))
+	gServer2.RegisterService(&gripperpb.GripperService_ServiceDesc, gripper.NewRPCServiceServer(gripperSvc2))
 
 	inputControllerSvc1, err := resource.NewSubtypeCollection(input.Subtype, map[resource.Name]input.Controller{})
 	test.That(t, err, test.ShouldBeNil)
-	inputcontrollerpb.RegisterInputControllerServiceServer(gServer1, input.NewServer(inputControllerSvc1))
+	gServer1.RegisterService(&inputcontrollerpb.InputControllerService_ServiceDesc, input.NewRPCServiceServer(inputControllerSvc1))
 
 	inputControllerSvc2, err := resource.NewSubtypeCollection(
 		input.Subtype, map[resource.Name]input.Controller{input.Named("inputController1"): injectInputDev})
 	test.That(t, err, test.ShouldBeNil)
-	inputcontrollerpb.RegisterInputControllerServiceServer(gServer2, input.NewServer(inputControllerSvc2))
+	gServer2.RegisterService(&inputcontrollerpb.InputControllerService_ServiceDesc, input.NewRPCServiceServer(inputControllerSvc2))
 
 	motorSvc, err := resource.NewSubtypeCollection(motor.Subtype, map[resource.Name]motor.Motor{})
 	test.That(t, err, test.ShouldBeNil)
-	motorpb.RegisterMotorServiceServer(gServer1, motor.NewServer(motorSvc))
+	gServer1.RegisterService(&motorpb.MotorService_ServiceDesc, motor.NewRPCServiceServer(motorSvc))
 
 	motorSvc2, err := resource.NewSubtypeCollection(motor.Subtype,
 		map[resource.Name]motor.Motor{motor.Named("motor1"): &inject.Motor{}, motor.Named("motor2"): &inject.Motor{}})
 	test.That(t, err, test.ShouldBeNil)
-	motorpb.RegisterMotorServiceServer(gServer2, motor.NewServer(motorSvc2))
+	gServer2.RegisterService(&motorpb.MotorService_ServiceDesc, motor.NewRPCServiceServer(motorSvc2))
 
 	servoSvc, err := resource.NewSubtypeCollection(servo.Subtype, map[resource.Name]servo.Servo{})
 	test.That(t, err, test.ShouldBeNil)
-	servopb.RegisterServoServiceServer(gServer1, servo.NewServer(servoSvc))
+	gServer1.RegisterService(&servopb.ServoService_ServiceDesc, servo.NewRPCServiceServer(servoSvc))
 
 	servoSvc2, err := resource.NewSubtypeCollection(servo.Subtype, map[resource.Name]servo.Servo{servo.Named("servo1"): injectServo})
 	test.That(t, err, test.ShouldBeNil)
-	servopb.RegisterServoServiceServer(gServer2, servo.NewServer(servoSvc2))
+	gServer2.RegisterService(&servopb.ServoService_ServiceDesc, servo.NewRPCServiceServer(servoSvc2))
 
 	sensorSvc, err := resource.NewSubtypeCollection(sensor.Subtype, map[resource.Name]sensor.Sensor{})
 	test.That(t, err, test.ShouldBeNil)
-	sensorpb.RegisterSensorServiceServer(gServer1, sensor.NewServer(sensorSvc))
+	gServer1.RegisterService(&sensorpb.SensorService_ServiceDesc, sensor.NewRPCServiceServer(sensorSvc))
 
 	go gServer1.Serve(listener1)
 	defer gServer1.Stop()
@@ -919,7 +919,7 @@ func TestClientReconnect(t *testing.T) {
 
 	armSvc2, err := resource.NewSubtypeCollection(arm.Subtype, map[resource.Name]arm.Arm{arm.Named("arm1"): injectArm})
 	test.That(t, err, test.ShouldBeNil)
-	armpb.RegisterArmServiceServer(gServer, arm.NewServer(armSvc2))
+	gServer.RegisterService(&armpb.ArmService_ServiceDesc, arm.NewRPCServiceServer(armSvc2))
 
 	go gServer.Serve(listener)
 
@@ -955,7 +955,7 @@ func TestClientReconnect(t *testing.T) {
 
 	gServer2 := grpc.NewServer()
 	pb.RegisterRobotServiceServer(gServer2, server.New(injectRobot))
-	armpb.RegisterArmServiceServer(gServer2, arm.NewServer(armSvc2))
+	gServer2.RegisterService(&armpb.ArmService_ServiceDesc, arm.NewRPCServiceServer(armSvc2))
 
 	// Note: There's a slight chance this test can fail if someone else
 	// claims the port we just released by closing the server.
@@ -1620,7 +1620,7 @@ func TestRemoteClientMatch(t *testing.T) {
 
 	armSvc1, err := resource.NewSubtypeCollection(arm.Subtype, map[resource.Name]arm.Arm{arm.Named("remote:arm1"): injectArm})
 	test.That(t, err, test.ShouldBeNil)
-	armpb.RegisterArmServiceServer(gServer1, arm.NewServer(armSvc1))
+	gServer1.RegisterService(&armpb.ArmService_ServiceDesc, arm.NewRPCServiceServer(armSvc1))
 
 	go gServer1.Serve(listener1)
 	defer gServer1.Stop()
@@ -1668,7 +1668,7 @@ func TestRemoteClientDuplicate(t *testing.T) {
 		arm.Named("remote2:arm1"): injectArm,
 	})
 	test.That(t, err, test.ShouldBeNil)
-	armpb.RegisterArmServiceServer(gServer1, arm.NewServer(armSvc1))
+	gServer1.RegisterService(&armpb.ArmService_ServiceDesc, arm.NewRPCServiceServer(armSvc1))
 
 	go gServer1.Serve(listener1)
 	defer gServer1.Stop()

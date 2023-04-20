@@ -17,8 +17,8 @@ type subtypeServer struct {
 	coll resource.SubtypeCollection[resource.Resource]
 }
 
-// NewServer constructs an generic gRPC service subtypeServer.
-func NewServer(coll resource.SubtypeCollection[resource.Resource]) genericpb.GenericServiceServer {
+// NewRPCServiceServer constructs an generic gRPC service subtypeServer.
+func NewRPCServiceServer(coll resource.SubtypeCollection[resource.Resource]) interface{} {
 	return &subtypeServer{coll: coll}
 }
 

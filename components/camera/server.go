@@ -26,8 +26,9 @@ type subtypeServer struct {
 	logger   golog.Logger
 }
 
-// NewServer constructs an camera gRPC service server.
-func NewServer(coll resource.SubtypeCollection[Camera]) pb.CameraServiceServer {
+// NewRPCServiceServer constructs an camera gRPC service server.
+// It is intentionally untyped to prevent use outside of tests.
+func NewRPCServiceServer(coll resource.SubtypeCollection[Camera]) interface{} {
 	logger := golog.NewLogger("camserver")
 	imgTypes := make(map[string]ImageType)
 	return &subtypeServer{coll: coll, logger: logger, imgTypes: imgTypes}

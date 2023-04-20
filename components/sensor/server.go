@@ -17,8 +17,8 @@ type subtypeServer struct {
 	coll resource.SubtypeCollection[Sensor]
 }
 
-// NewServer constructs an sensor gRPC service subtypeServer.
-func NewServer(coll resource.SubtypeCollection[Sensor]) pb.SensorServiceServer {
+// NewRPCServiceServer constructs an sensor gRPC service subtypeServer.
+func NewRPCServiceServer(coll resource.SubtypeCollection[Sensor]) interface{} {
 	return &subtypeServer{coll: coll}
 }
 

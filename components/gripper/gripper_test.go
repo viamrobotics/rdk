@@ -7,10 +7,8 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/gripper"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
 
@@ -23,10 +21,6 @@ const (
 )
 
 func TestCreateStatus(t *testing.T) {
-	_, err := gripper.CreateStatus(context.Background(), testutils.NewUnimplementedResource(generic.Named("foo")))
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation")
-
 	t.Run("is moving", func(t *testing.T) {
 		status := &commonpb.ActuatorStatus{
 			IsMoving: true,

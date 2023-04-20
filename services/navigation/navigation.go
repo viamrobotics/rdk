@@ -9,7 +9,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	servicepb "go.viam.com/api/service/navigation/v1"
 	"go.viam.com/utils"
-	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -18,16 +17,10 @@ import (
 
 func init() {
 	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype[Service]{
-		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeColl resource.SubtypeCollection[Service]) error {
-			return rpcServer.RegisterServiceServer(
-				ctx,
-				&servicepb.NavigationService_ServiceDesc,
-				NewServer(subtypeColl),
-				servicepb.RegisterNavigationServiceHandlerFromEndpoint,
-			)
-		},
-		RPCServiceDesc: &servicepb.NavigationService_ServiceDesc,
-		RPCClient:      NewClientFromConn,
+		RPCServiceServerConstructor: NewRPCServiceServer,
+		RPCServiceHandler:           servicepb.RegisterNavigationServiceHandlerFromEndpoint,
+		RPCServiceDesc:              &servicepb.NavigationService_ServiceDesc,
+		RPCClient:                   NewClientFromConn,
 	})
 }
 

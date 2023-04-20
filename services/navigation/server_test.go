@@ -64,7 +64,7 @@ func TestServer(t *testing.T) {
 	}
 	injectSubtypeSvc, err := resource.NewSubtypeCollection(navigation.Subtype, resourceMap)
 	test.That(t, err, test.ShouldBeNil)
-	navServer := navigation.NewServer(injectSubtypeSvc)
+	navServer := navigation.NewRPCServiceServer(injectSubtypeSvc).(pb.NavigationServiceServer)
 
 	var extraOptions map[string]interface{}
 	t.Run("working mode function", func(t *testing.T) {
@@ -328,7 +328,7 @@ func TestServer(t *testing.T) {
 	})
 
 	injectSubtypeSvc, _ = resource.NewSubtypeCollection(navigation.Subtype, map[resource.Name]navigation.Service{})
-	navServer = navigation.NewServer(injectSubtypeSvc)
+	navServer = navigation.NewRPCServiceServer(injectSubtypeSvc).(pb.NavigationServiceServer)
 	t.Run("failing on nonexistent server", func(t *testing.T) {
 		req := &pb.GetModeRequest{Name: testSvcName1.ShortName()}
 		resp, err := navServer.GetMode(context.Background(), req)
@@ -343,7 +343,7 @@ func TestServer(t *testing.T) {
 		}
 		injectSubtypeSvc, err = resource.NewSubtypeCollection(navigation.Subtype, resourceMap)
 		test.That(t, err, test.ShouldBeNil)
-		navServer = navigation.NewServer(injectSubtypeSvc)
+		navServer = navigation.NewRPCServiceServer(injectSubtypeSvc).(pb.NavigationServiceServer)
 		injectSvc.ModeFunc = func(ctx context.Context, extra map[string]interface{}) (navigation.Mode, error) {
 			return navigation.ModeManual, nil
 		}
@@ -366,7 +366,7 @@ func TestServerDoCommand(t *testing.T) {
 	}
 	injectSubtypeSvc, err := resource.NewSubtypeCollection(navigation.Subtype, resourceMap)
 	test.That(t, err, test.ShouldBeNil)
-	server := navigation.NewServer(injectSubtypeSvc)
+	server := navigation.NewRPCServiceServer(injectSubtypeSvc).(pb.NavigationServiceServer)
 
 	cmd, err := protoutils.StructToStructPb(testutils.TestCommand)
 	test.That(t, err, test.ShouldBeNil)

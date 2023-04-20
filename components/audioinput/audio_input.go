@@ -9,7 +9,6 @@ import (
 	"github.com/pion/mediadevices/pkg/prop"
 	pb "go.viam.com/api/component/audioinput/v1"
 	viamutils "go.viam.com/utils"
-	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -18,16 +17,10 @@ import (
 
 func init() {
 	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype[AudioInput]{
-		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeColl resource.SubtypeCollection[AudioInput]) error {
-			return rpcServer.RegisterServiceServer(
-				ctx,
-				&pb.AudioInputService_ServiceDesc,
-				NewServer(subtypeColl),
-				pb.RegisterAudioInputServiceHandlerFromEndpoint,
-			)
-		},
-		RPCServiceDesc: &pb.AudioInputService_ServiceDesc,
-		RPCClient:      NewClientFromConn,
+		RPCServiceServerConstructor: NewRPCServiceServer,
+		RPCServiceHandler:           pb.RegisterAudioInputServiceHandlerFromEndpoint,
+		RPCServiceDesc:              &pb.AudioInputService_ServiceDesc,
+		RPCClient:                   NewClientFromConn,
 	})
 
 	// TODO(RSDK-562): Add RegisterCollector

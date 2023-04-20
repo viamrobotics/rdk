@@ -6,7 +6,6 @@ import (
 	"time"
 
 	pb "go.viam.com/api/component/inputcontroller/v1"
-	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/registry"
@@ -16,19 +15,11 @@ import (
 
 func init() {
 	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype[Controller]{
-		Status: func(ctx context.Context, res Controller) (interface{}, error) {
-			return CreateStatus(ctx, res)
-		},
-		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeColl resource.SubtypeCollection[Controller]) error {
-			return rpcServer.RegisterServiceServer(
-				ctx,
-				&pb.InputControllerService_ServiceDesc,
-				NewServer(subtypeColl),
-				pb.RegisterInputControllerServiceHandlerFromEndpoint,
-			)
-		},
-		RPCServiceDesc: &pb.InputControllerService_ServiceDesc,
-		RPCClient:      NewClientFromConn,
+		Status:                      registry.StatusFunc(CreateStatus),
+		RPCServiceServerConstructor: NewRPCServiceServer,
+		RPCServiceHandler:           pb.RegisterInputControllerServiceHandlerFromEndpoint,
+		RPCServiceDesc:              &pb.InputControllerService_ServiceDesc,
+		RPCClient:                   NewClientFromConn,
 	})
 }
 
@@ -167,11 +158,7 @@ func NamesFromRobot(r robot.Robot) []string {
 }
 
 // CreateStatus creates a status from the input controller.
-func CreateStatus(ctx context.Context, res resource.Resource) (*pb.Status, error) {
-	c, err := resource.AsType[Controller](res)
-	if err != nil {
-		return nil, err
-	}
+func CreateStatus(ctx context.Context, c Controller) (*pb.Status, error) {
 	eventsIn, err := c.Events(ctx, map[string]interface{}{})
 	if err != nil {
 		return nil, err

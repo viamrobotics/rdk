@@ -76,17 +76,27 @@ func TestResourceSubtypeRegistry(t *testing.T) {
 		return nil, errors.New("one")
 	}
 	var capColl resource.SubtypeCollection[arm.Arm]
-	//nolint:unparam
-	sf := func(_ context.Context, _ rpc.Server, subtypeColl resource.SubtypeCollection[arm.Arm]) error {
+
+	sf := func(subtypeColl resource.SubtypeCollection[arm.Arm]) interface{} {
 		capColl = subtypeColl
-		return nil
+		return 5
 	}
 	rcf := func(_ context.Context, _ rpc.ClientConn, name resource.Name, _ golog.Logger) (arm.Arm, error) {
 		return capColl.Resource(name.ShortName())
 	}
 
+	test.That(t, func() {
+		registry.RegisterResourceSubtype(acme.Subtype, registry.ResourceSubtype[arm.Arm]{
+			Status:                      statf,
+			RPCServiceServerConstructor: sf,
+			RPCServiceDesc:              &pb.RobotService_ServiceDesc,
+		})
+	}, test.ShouldPanic)
 	registry.RegisterResourceSubtype(acme.Subtype, registry.ResourceSubtype[arm.Arm]{
-		Status: statf, RegisterRPCService: sf, RPCServiceDesc: &pb.RobotService_ServiceDesc,
+		Status:                      statf,
+		RPCServiceServerConstructor: sf,
+		RPCServiceHandler:           pb.RegisterRobotServiceHandlerFromEndpoint,
+		RPCServiceDesc:              &pb.RobotService_ServiceDesc,
 	})
 	subtypeInfo, ok, err := registry.ResourceSubtypeLookup[arm.Arm](acme.Subtype)
 	test.That(t, err, test.ShouldBeNil)
@@ -98,8 +108,8 @@ func TestResourceSubtypeRegistry(t *testing.T) {
 		arm.Named("foo"): &fake.Arm{Named: arm.Named("foo").AsNamed()},
 	})
 	test.That(t, err, test.ShouldBeNil)
-	err = subtypeInfo.RegisterRPCService(nil, nil, coll)
-	test.That(t, err, test.ShouldBeNil)
+	svcServer := subtypeInfo.RPCServiceServerConstructor(coll)
+	test.That(t, svcServer, test.ShouldNotBeNil)
 	test.That(t, subtypeInfo.RPCClient, test.ShouldBeNil)
 
 	subtype2 := resource.NewSubtype(resource.Namespace("acme2"), resource.ResourceTypeComponent, button)
@@ -108,14 +118,17 @@ func TestResourceSubtypeRegistry(t *testing.T) {
 	test.That(t, ok, test.ShouldBeFalse)
 
 	registry.RegisterResourceSubtype(subtype2, registry.ResourceSubtype[arm.Arm]{
-		RegisterRPCService: sf, RPCClient: rcf, RPCServiceDesc: &pb.RobotService_ServiceDesc,
+		RPCServiceServerConstructor: sf,
+		RPCClient:                   rcf,
+		RPCServiceDesc:              &pb.RobotService_ServiceDesc,
+		RPCServiceHandler:           pb.RegisterRobotServiceHandlerFromEndpoint,
 	})
 	subtypeInfo, ok, err = registry.ResourceSubtypeLookup[arm.Arm](subtype2)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, subtypeInfo.Status, test.ShouldBeNil)
-	err = subtypeInfo.RegisterRPCService(nil, nil, coll)
-	test.That(t, err, test.ShouldBeNil)
+	svcServer = subtypeInfo.RPCServiceServerConstructor(coll)
+	test.That(t, svcServer, test.ShouldNotBeNil)
 	res, err := subtypeInfo.RPCClient(nil, nil, arm.Named("foo"), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res.Name().Name, test.ShouldEqual, "foo")
@@ -145,7 +158,9 @@ func TestResourceSubtypeRegistry(t *testing.T) {
 	test.That(t, ok, test.ShouldBeFalse)
 	test.That(t, func() {
 		registry.RegisterResourceSubtype(subtype4, registry.ResourceSubtype[arm.Arm]{
-			RegisterRPCService: sf, RPCClient: rcf,
+			RPCServiceServerConstructor: sf,
+			RPCClient:                   rcf,
+			RPCServiceHandler:           pb.RegisterRobotServiceHandlerFromEndpoint,
 		})
 	}, test.ShouldPanic)
 

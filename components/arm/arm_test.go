@@ -16,13 +16,11 @@ import (
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/arm/fake"
 	ur "go.viam.com/rdk/components/arm/universalrobots"
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
 
@@ -64,10 +62,6 @@ func TestStatusValid(t *testing.T) {
 }
 
 func TestCreateStatus(t *testing.T) {
-	_, err := arm.CreateStatus(context.Background(), testutils.NewUnimplementedResource(generic.Named("foo")))
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation")
-
 	testPose := spatialmath.NewPose(
 		r3.Vector{-802.801508917897990613710135, -248.284077946287368376943050, 9.115758604150467903082244},
 		&spatialmath.R4AA{1.5810814917942602, 0.992515011486776, -0.0953988491934626, 0.07624310818669232},
@@ -157,7 +151,7 @@ func TestCreateStatus(t *testing.T) {
 		injectArm.JointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
 			return nil, errFail
 		}
-		_, err = arm.CreateStatus(context.Background(), injectArm)
+		_, err := arm.CreateStatus(context.Background(), injectArm)
 		test.That(t, err, test.ShouldBeError, errFail)
 	})
 }

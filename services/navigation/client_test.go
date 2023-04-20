@@ -125,7 +125,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
 	resourceSubtype.RegisterRPCService(context.Background(), workingServer, workingSvc)
-	servicepb.RegisterNavigationServiceServer(failingServer, navigation.NewServer(failingSvc))
+	failingServer.RegisterService(&servicepb.NavigationService_ServiceDesc, navigation.NewRPCServiceServer(failingSvc))
 
 	go workingServer.Serve(listener1)
 	defer workingServer.Stop()

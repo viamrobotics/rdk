@@ -7,7 +7,6 @@ import (
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/gripper/v1"
-	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
@@ -17,19 +16,11 @@ import (
 
 func init() {
 	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype[Gripper]{
-		Status: func(ctx context.Context, res Gripper) (interface{}, error) {
-			return CreateStatus(ctx, res)
-		},
-		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeColl resource.SubtypeCollection[Gripper]) error {
-			return rpcServer.RegisterServiceServer(
-				ctx,
-				&pb.GripperService_ServiceDesc,
-				NewServer(subtypeColl),
-				pb.RegisterGripperServiceHandlerFromEndpoint,
-			)
-		},
-		RPCServiceDesc: &pb.GripperService_ServiceDesc,
-		RPCClient:      NewClientFromConn,
+		Status:                      registry.StatusFunc(CreateStatus),
+		RPCServiceServerConstructor: NewRPCServiceServer,
+		RPCServiceHandler:           pb.RegisterGripperServiceHandlerFromEndpoint,
+		RPCServiceDesc:              &pb.GripperService_ServiceDesc,
+		RPCClient:                   NewClientFromConn,
 	})
 }
 
@@ -78,11 +69,7 @@ func NamesFromRobot(r robot.Robot) []string {
 }
 
 // CreateStatus creates a status from the gripper.
-func CreateStatus(ctx context.Context, res resource.Resource) (*commonpb.ActuatorStatus, error) {
-	g, err := resource.AsType[Gripper](res)
-	if err != nil {
-		return nil, err
-	}
+func CreateStatus(ctx context.Context, g Gripper) (*commonpb.ActuatorStatus, error) {
 	isMoving, err := g.IsMoving(ctx)
 	if err != nil {
 		return nil, err

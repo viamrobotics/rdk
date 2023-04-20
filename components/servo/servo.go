@@ -4,7 +4,6 @@ import (
 	"context"
 
 	pb "go.viam.com/api/component/servo/v1"
-	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/registry"
@@ -14,19 +13,11 @@ import (
 
 func init() {
 	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype[Servo]{
-		Status: func(ctx context.Context, res Servo) (interface{}, error) {
-			return CreateStatus(ctx, res)
-		},
-		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeColl resource.SubtypeCollection[Servo]) error {
-			return rpcServer.RegisterServiceServer(
-				ctx,
-				&pb.ServoService_ServiceDesc,
-				NewServer(subtypeColl),
-				pb.RegisterServoServiceHandlerFromEndpoint,
-			)
-		},
-		RPCServiceDesc: &pb.ServoService_ServiceDesc,
-		RPCClient:      NewClientFromConn,
+		Status:                      registry.StatusFunc(CreateStatus),
+		RPCServiceServerConstructor: NewRPCServiceServer,
+		RPCServiceHandler:           pb.RegisterServoServiceHandlerFromEndpoint,
+		RPCServiceDesc:              &pb.ServoService_ServiceDesc,
+		RPCClient:                   NewClientFromConn,
 	})
 	data.RegisterCollector(data.MethodMetadata{
 		Subtype:    Subtype,
@@ -73,11 +64,7 @@ func NamesFromRobot(r robot.Robot) []string {
 }
 
 // CreateStatus creates a status from the servo.
-func CreateStatus(ctx context.Context, res resource.Resource) (*pb.Status, error) {
-	s, err := resource.AsType[Servo](res)
-	if err != nil {
-		return nil, err
-	}
+func CreateStatus(ctx context.Context, s Servo) (*pb.Status, error) {
 	position, err := s.Position(ctx, nil)
 	if err != nil {
 		return nil, err

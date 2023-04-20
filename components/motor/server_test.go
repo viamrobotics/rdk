@@ -27,7 +27,7 @@ func newServer() (pb.MotorServiceServer, *inject.Motor, *inject.Motor, error) {
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	return motor.NewServer(injectSvc), injectMotor1, injectMotor2, nil
+	return motor.NewRPCServiceServer(injectSvc).(pb.MotorServiceServer), injectMotor1, injectMotor2, nil
 }
 
 //nolint:dupl

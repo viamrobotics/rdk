@@ -10,9 +10,7 @@ import (
 	"go.viam.com/test"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/input"
-	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
 
@@ -25,10 +23,6 @@ const (
 )
 
 func TestCreateStatus(t *testing.T) {
-	_, err := input.CreateStatus(context.Background(), testutils.NewUnimplementedResource(generic.Named("foo")))
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation")
-
 	timestamp := time.Now()
 	event := input.Event{Time: timestamp, Event: input.PositionChangeAbs, Control: input.AbsoluteX, Value: 0.7}
 	status := &pb.Status{
@@ -54,7 +48,7 @@ func TestCreateStatus(t *testing.T) {
 		injectInputController.EventsFunc = func(ctx context.Context, extra map[string]interface{}) (map[input.Control]input.Event, error) {
 			return nil, errFail
 		}
-		_, err = input.CreateStatus(context.Background(), injectInputController)
+		_, err := input.CreateStatus(context.Background(), injectInputController)
 		test.That(t, err, test.ShouldBeError, errFail)
 	})
 }

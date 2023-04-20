@@ -20,7 +20,7 @@ func newServer(resources map[resource.Name]mlmodel.Service) (pb.MLModelServiceSe
 	if err != nil {
 		return nil, err
 	}
-	return mlmodel.NewServer(coll), nil
+	return mlmodel.NewRPCServiceServer(coll).(pb.MLModelServiceServer), nil
 }
 
 func TestServerNotFound(t *testing.T) {

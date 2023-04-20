@@ -50,7 +50,7 @@ func newServer() (pb.InputControllerServiceServer, *inject.TriggerableInputContr
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	return input.NewServer(inputControllerSvc), injectInputController, injectInputController2, nil
+	return input.NewRPCServiceServer(inputControllerSvc).(pb.InputControllerServiceServer), injectInputController, injectInputController2, nil
 }
 
 func TestServer(t *testing.T) {

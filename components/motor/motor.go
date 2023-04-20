@@ -4,7 +4,6 @@ import (
 	"context"
 
 	pb "go.viam.com/api/component/motor/v1"
-	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/registry"
@@ -14,19 +13,11 @@ import (
 
 func init() {
 	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype[Motor]{
-		Status: func(ctx context.Context, res Motor) (interface{}, error) {
-			return CreateStatus(ctx, res)
-		},
-		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeColl resource.SubtypeCollection[Motor]) error {
-			return rpcServer.RegisterServiceServer(
-				ctx,
-				&pb.MotorService_ServiceDesc,
-				NewServer(subtypeColl),
-				pb.RegisterMotorServiceHandlerFromEndpoint,
-			)
-		},
-		RPCServiceDesc: &pb.MotorService_ServiceDesc,
-		RPCClient:      NewClientFromConn,
+		Status:                      registry.StatusFunc(CreateStatus),
+		RPCServiceServerConstructor: NewRPCServiceServer,
+		RPCServiceHandler:           pb.RegisterMotorServiceHandlerFromEndpoint,
+		RPCServiceDesc:              &pb.MotorService_ServiceDesc,
+		RPCClient:                   NewClientFromConn,
 	})
 	data.RegisterCollector(data.MethodMetadata{
 		Subtype:    Subtype,
@@ -120,11 +111,7 @@ func NamesFromRobot(r robot.Robot) []string {
 }
 
 // CreateStatus creates a status from the motor.
-func CreateStatus(ctx context.Context, res resource.Resource) (*pb.Status, error) {
-	m, err := resource.AsType[Motor](res)
-	if err != nil {
-		return nil, err
-	}
+func CreateStatus(ctx context.Context, m Motor) (*pb.Status, error) {
 	isPowered, _, err := m.IsPowered(ctx, nil)
 	if err != nil {
 		return nil, err

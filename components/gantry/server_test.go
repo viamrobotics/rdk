@@ -25,7 +25,7 @@ func newServer() (pb.GantryServiceServer, *inject.Gantry, *inject.Gantry, error)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	return gantry.NewServer(gantrySvc), injectGantry, injectGantry2, nil
+	return gantry.NewRPCServiceServer(gantrySvc).(pb.GantryServiceServer), injectGantry, injectGantry2, nil
 }
 
 func TestServer(t *testing.T) {

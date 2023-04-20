@@ -25,7 +25,7 @@ func newServer() (pb.ServoServiceServer, *inject.Servo, *inject.Servo, error) {
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	return servo.NewServer(injectSvc), injectServo, injectServo2, nil
+	return servo.NewRPCServiceServer(injectSvc).(pb.ServoServiceServer), injectServo, injectServo2, nil
 }
 
 func TestServoMove(t *testing.T) {

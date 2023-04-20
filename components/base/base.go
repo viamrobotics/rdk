@@ -8,7 +8,6 @@ import (
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/base/v1"
-	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
@@ -19,19 +18,11 @@ import (
 
 func init() {
 	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype[Base]{
-		Status: func(ctx context.Context, res Base) (interface{}, error) {
-			return CreateStatus(ctx, res)
-		},
-		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeColl resource.SubtypeCollection[Base]) error {
-			return rpcServer.RegisterServiceServer(
-				ctx,
-				&pb.BaseService_ServiceDesc,
-				NewServer(subtypeColl),
-				pb.RegisterBaseServiceHandlerFromEndpoint,
-			)
-		},
-		RPCServiceDesc: &pb.BaseService_ServiceDesc,
-		RPCClient:      NewClientFromConn,
+		Status:                      registry.StatusFunc(CreateStatus),
+		RPCServiceServerConstructor: NewRPCServiceServer,
+		RPCServiceHandler:           pb.RegisterBaseServiceHandlerFromEndpoint,
+		RPCServiceDesc:              &pb.BaseService_ServiceDesc,
+		RPCClient:                   NewClientFromConn,
 	})
 }
 
@@ -103,11 +94,7 @@ func NamesFromRobot(r robot.Robot) []string {
 }
 
 // CreateStatus creates a status from the base.
-func CreateStatus(ctx context.Context, res resource.Resource) (*commonpb.ActuatorStatus, error) {
-	b, err := resource.AsType[Base](res)
-	if err != nil {
-		return nil, err
-	}
+func CreateStatus(ctx context.Context, b Base) (*commonpb.ActuatorStatus, error) {
 	isMoving, err := b.IsMoving(ctx)
 	if err != nil {
 		return nil, err

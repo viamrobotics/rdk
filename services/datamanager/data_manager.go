@@ -7,7 +7,6 @@ import (
 	"reflect"
 
 	servicepb "go.viam.com/api/service/datamanager/v1"
-	"go.viam.com/utils/rpc"
 	"golang.org/x/exp/slices"
 
 	"go.viam.com/rdk/config"
@@ -18,17 +17,11 @@ import (
 
 func init() {
 	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype[Service]{
-		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeColl resource.SubtypeCollection[Service]) error {
-			return rpcServer.RegisterServiceServer(
-				ctx,
-				&servicepb.DataManagerService_ServiceDesc,
-				NewServer(subtypeColl),
-				servicepb.RegisterDataManagerServiceHandlerFromEndpoint,
-			)
-		},
-		RPCServiceDesc: &servicepb.DataManagerService_ServiceDesc,
-		RPCClient:      NewClientFromConn,
-		MaxInstance:    resource.DefaultMaxInstance,
+		RPCServiceServerConstructor: NewRPCServiceServer,
+		RPCServiceHandler:           servicepb.RegisterDataManagerServiceHandlerFromEndpoint,
+		RPCServiceDesc:              &servicepb.DataManagerService_ServiceDesc,
+		RPCClient:                   NewClientFromConn,
+		MaxInstance:                 resource.DefaultMaxInstance,
 	})
 	config.RegisterResourceAssociationConfigConverter(
 		Subtype,

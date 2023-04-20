@@ -21,22 +21,12 @@ import (
 
 func init() {
 	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype[Board]{
-		Status: func(ctx context.Context, res Board) (interface{}, error) {
-			b, err := resource.AsType[Board](res)
-			if err != nil {
-				return nil, err
-			}
+		Status: func(ctx context.Context, b Board) (interface{}, error) {
 			return b.Status(ctx, nil)
 		},
-		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeColl resource.SubtypeCollection[Board]) error {
-			return rpcServer.RegisterServiceServer(
-				ctx,
-				&pb.BoardService_ServiceDesc,
-				NewServer(subtypeColl),
-				pb.RegisterBoardServiceHandlerFromEndpoint,
-			)
-		},
-		RPCServiceDesc: &pb.BoardService_ServiceDesc,
+		RPCServiceServerConstructor: NewRPCServiceServer,
+		RPCServiceHandler:           pb.RegisterBoardServiceHandlerFromEndpoint,
+		RPCServiceDesc:              &pb.BoardService_ServiceDesc,
 		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (Board, error) {
 			return NewClientFromConn(ctx, conn, name, logger), nil
 		},

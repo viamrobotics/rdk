@@ -10,10 +10,8 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
 
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
 
@@ -57,10 +55,6 @@ func TestStatusValid(t *testing.T) {
 }
 
 func TestCreateStatus(t *testing.T) {
-	_, err := motor.CreateStatus(context.Background(), testutils.NewUnimplementedResource(generic.Named("foo")))
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation")
-
 	status := &pb.Status{IsPowered: true, Position: 7.7, IsMoving: true}
 
 	injectMotor := &inject.LocalMotor{}
@@ -106,7 +100,7 @@ func TestCreateStatus(t *testing.T) {
 		injectMotor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
 			return 0, errFail
 		}
-		_, err = motor.CreateStatus(context.Background(), injectMotor)
+		_, err := motor.CreateStatus(context.Background(), injectMotor)
 		test.That(t, err, test.ShouldBeError, errFail)
 	})
 
@@ -125,7 +119,7 @@ func TestCreateStatus(t *testing.T) {
 		injectMotor.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
 			return nil, errFail
 		}
-		_, err = motor.CreateStatus(context.Background(), injectMotor)
+		_, err := motor.CreateStatus(context.Background(), injectMotor)
 		test.That(t, err, test.ShouldBeError, errFail)
 	})
 
@@ -134,7 +128,7 @@ func TestCreateStatus(t *testing.T) {
 		injectMotor.IsPoweredFunc = func(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
 			return false, 0.0, errFail
 		}
-		_, err = motor.CreateStatus(context.Background(), injectMotor)
+		_, err := motor.CreateStatus(context.Background(), injectMotor)
 		test.That(t, err, test.ShouldBeError, errFail)
 	})
 }

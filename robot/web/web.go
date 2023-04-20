@@ -1066,14 +1066,12 @@ func (svc *webService) initSubtypeServices(ctx context.Context, mod bool) error 
 			svc.services[s] = subtypeColl
 		}
 
-		if rs.RegisterRPCService != nil {
-			server := svc.rpcServer
-			if mod {
-				server = svc.modServer
-			}
-			if err := rs.RegisterRPCService(ctx, server, subtypeColl); err != nil {
-				return err
-			}
+		server := svc.rpcServer
+		if mod {
+			server = svc.modServer
+		}
+		if err := rs.RegisterRPCService(ctx, server, subtypeColl); err != nil {
+			return err
 		}
 	}
 	return nil

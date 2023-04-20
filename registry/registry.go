@@ -13,6 +13,7 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/proto"
 
 	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/internal"
@@ -43,13 +44,6 @@ type (
 	// maps with string keys (or at least can be decomposed into one), or lists of the aforementioned type of maps.
 	// Results with other types of data are not guaranteed.
 	CreateStatus[T resource.Resource] func(ctx context.Context, res T) (interface{}, error)
-
-	// A RegisterSubtypeRPCService will register the subtype service to the grpc server.
-	RegisterSubtypeRPCService[T resource.Resource] func(
-		ctx context.Context,
-		rpcServer rpc.Server,
-		subtypeColl resource.SubtypeCollection[T],
-	) error
 
 	// A CreateRPCClient will create the client for the resource.
 	CreateRPCClient[T resource.Resource] func(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (T, error)
@@ -83,11 +77,12 @@ type Resource[T resource.Resource] struct {
 
 // ResourceSubtype stores subtype-specific functions and clients.
 type ResourceSubtype[T resource.Resource] struct {
-	Status                CreateStatus[T]
-	RegisterRPCService    RegisterSubtypeRPCService[T]
-	RPCServiceDesc        *grpc.ServiceDesc
-	ReflectRPCServiceDesc *desc.ServiceDescriptor `copy:"shallow"`
-	RPCClient             CreateRPCClient[T]
+	Status                      CreateStatus[T]
+	RPCServiceServerConstructor func(subtypeColl resource.SubtypeCollection[T]) interface{}
+	RPCServiceHandler           rpc.RegisterServiceHandlerFromEndpointFunc
+	RPCServiceDesc              *grpc.ServiceDesc
+	ReflectRPCServiceDesc       *desc.ServiceDescriptor `copy:"shallow"`
+	RPCClient                   CreateRPCClient[T]
 
 	// MaxInstance sets a limit on the number of this subtype allowed on a robot.
 	// If MaxInstance is not set then it will default to 0 and there will be no limit.
@@ -96,6 +91,23 @@ type ResourceSubtype[T resource.Resource] struct {
 	MakeEmptyCollection func() resource.SubtypeCollection[resource.Resource]
 
 	typedVersion interface{} // the registry guarantees the type safety here
+}
+
+// RegisterRPCService registers this subtype into the given RPC server.
+func (rs ResourceSubtype[T]) RegisterRPCService(
+	ctx context.Context,
+	rpcServer rpc.Server,
+	subtypeColl resource.SubtypeCollection[T],
+) error {
+	if rs.RPCServiceServerConstructor == nil {
+		return nil
+	}
+	return rpcServer.RegisterServiceServer(
+		ctx,
+		rs.RPCServiceDesc,
+		rs.RPCServiceServerConstructor(subtypeColl),
+		rs.RPCServiceHandler,
+	)
 }
 
 // SubtypeGrpc stores functions necessary for a resource subtype to be accessible through grpc.
@@ -142,7 +154,7 @@ func RegisterResource[T resource.Resource](subtype resource.Subtype, model resou
 	if res.Constructor != nil && res.DeprecatedRobotConstructor != nil {
 		panic(errors.Errorf("can only register one kind of constructor for subtype: %q, model: %q", subtype, model))
 	}
-	resourceRegistry[qName] = makeGenericResource[T](res)
+	resourceRegistry[qName] = makeGenericResource(res)
 }
 
 // makeGenericResource allows a registration to be generic and ensures all input/output types
@@ -202,8 +214,9 @@ func RegisterResourceSubtype[T resource.Resource](subtype resource.Subtype, crea
 	if old {
 		panic(errors.Errorf("trying to register two of the same resource subtype: %s", subtype))
 	}
-	if creator.RegisterRPCService != nil && creator.RPCServiceDesc == nil {
-		panic(errors.Errorf("cannot register a RPC enabled subtype with no RPC service description: %s", subtype))
+	if creator.RPCServiceServerConstructor != nil &&
+		(creator.RPCServiceDesc == nil || creator.RPCServiceHandler == nil) {
+		panic(errors.Errorf("cannot register a RPC enabled subtype with no RPC service description or handler: %s", subtype))
 	}
 
 	if creator.RPCServiceDesc != nil && creator.ReflectRPCServiceDesc == nil {
@@ -269,6 +282,7 @@ func makeGenericResourceSubtype[T resource.Resource](
 ) ResourceSubtype[resource.Resource] {
 	reg := ResourceSubtype[resource.Resource]{
 		RPCServiceDesc:        typed.RPCServiceDesc,
+		RPCServiceHandler:     typed.RPCServiceHandler,
 		ReflectRPCServiceDesc: typed.ReflectRPCServiceDesc,
 		MaxInstance:           typed.MaxInstance,
 		typedVersion:          typed,
@@ -285,19 +299,17 @@ func makeGenericResourceSubtype[T resource.Resource](
 			return typed.Status(ctx, typedRes)
 		}
 	}
-	if typed.RegisterRPCService != nil {
-		reg.RegisterRPCService = func(
-			ctx context.Context,
-			rpcServer rpc.Server,
+	if typed.RPCServiceServerConstructor != nil {
+		reg.RPCServiceServerConstructor = func(
 			coll resource.SubtypeCollection[resource.Resource],
-		) error {
+		) interface{} {
 			// it will always be this type since we are the only ones who can make
 			// a generic resource subtype registration.
 			genericColl, err := utils.AssertType[genericSubypeCollection[T]](coll)
 			if err != nil {
 				return err
 			}
-			return typed.RegisterRPCService(ctx, rpcServer, genericColl.typed)
+			return typed.RPCServiceServerConstructor(genericColl.typed)
 		}
 	}
 	if typed.RPCClient != nil {
@@ -398,4 +410,13 @@ func WeakDependencyLookup(subtype resource.Subtype, model resource.Model) []inte
 		return registration.WeakDependencies
 	}
 	return nil
+}
+
+// StatusFunc adapts the given typed status function to an untyped value.
+func StatusFunc[T resource.Resource, U proto.Message](
+	f func(ctx context.Context, res T) (U, error),
+) func(ctx context.Context, res T) (any, error) {
+	return func(ctx context.Context, res T) (any, error) {
+		return f(ctx, res)
+	}
 }

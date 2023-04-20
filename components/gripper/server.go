@@ -18,8 +18,9 @@ type subtypeServer struct {
 	coll resource.SubtypeCollection[Gripper]
 }
 
-// NewServer constructs an gripper gRPC service server.
-func NewServer(coll resource.SubtypeCollection[Gripper]) pb.GripperServiceServer {
+// NewRPCServiceServer constructs an gripper gRPC service server.
+// It is intentionally untyped to prevent use outside of tests.
+func NewRPCServiceServer(coll resource.SubtypeCollection[Gripper]) interface{} {
 	return &subtypeServer{coll: coll}
 }
 

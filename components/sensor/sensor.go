@@ -5,7 +5,6 @@ import (
 	"context"
 
 	pb "go.viam.com/api/component/sensor/v1"
-	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/registry"
@@ -15,16 +14,10 @@ import (
 
 func init() {
 	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype[Sensor]{
-		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeColl resource.SubtypeCollection[Sensor]) error {
-			return rpcServer.RegisterServiceServer(
-				ctx,
-				&pb.SensorService_ServiceDesc,
-				NewServer(subtypeColl),
-				pb.RegisterSensorServiceHandlerFromEndpoint,
-			)
-		},
-		RPCServiceDesc: &pb.SensorService_ServiceDesc,
-		RPCClient:      NewClientFromConn,
+		RPCServiceServerConstructor: NewRPCServiceServer,
+		RPCServiceHandler:           pb.RegisterSensorServiceHandlerFromEndpoint,
+		RPCServiceDesc:              &pb.SensorService_ServiceDesc,
+		RPCClient:                   NewClientFromConn,
 	})
 	data.RegisterCollector(data.MethodMetadata{
 		Subtype:    Subtype,

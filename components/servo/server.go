@@ -17,8 +17,9 @@ type subtypeServer struct {
 	coll resource.SubtypeCollection[Servo]
 }
 
-// NewServer constructs a servo gRPC service server.
-func NewServer(coll resource.SubtypeCollection[Servo]) pb.ServoServiceServer {
+// NewRPCServiceServer constructs a servo gRPC service server.
+// It is intentionally untyped to prevent use outside of tests.
+func NewRPCServiceServer(coll resource.SubtypeCollection[Servo]) interface{} {
 	return &subtypeServer{coll: coll}
 }
 

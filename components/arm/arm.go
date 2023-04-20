@@ -10,7 +10,6 @@ import (
 	"github.com/edaniels/golog"
 	pb "go.viam.com/api/component/arm/v1"
 	motionpb "go.viam.com/api/service/motion/v1"
-	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/motionplan"
@@ -23,19 +22,11 @@ import (
 
 func init() {
 	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype[Arm]{
-		Status: func(ctx context.Context, res Arm) (interface{}, error) {
-			return CreateStatus(ctx, res)
-		},
-		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeColl resource.SubtypeCollection[Arm]) error {
-			return rpcServer.RegisterServiceServer(
-				ctx,
-				&pb.ArmService_ServiceDesc,
-				NewServer(subtypeColl),
-				pb.RegisterArmServiceHandlerFromEndpoint,
-			)
-		},
-		RPCServiceDesc: &pb.ArmService_ServiceDesc,
-		RPCClient:      NewClientFromConn,
+		Status:                      registry.StatusFunc(CreateStatus),
+		RPCServiceServerConstructor: NewRPCServiceServer,
+		RPCServiceHandler:           pb.RegisterArmServiceHandlerFromEndpoint,
+		RPCServiceDesc:              &pb.ArmService_ServiceDesc,
+		RPCClient:                   NewClientFromConn,
 	})
 
 	data.RegisterCollector(data.MethodMetadata{
@@ -118,11 +109,7 @@ func NamesFromRobot(r robot.Robot) []string {
 }
 
 // CreateStatus creates a status from the arm.
-func CreateStatus(ctx context.Context, res resource.Resource) (*pb.Status, error) {
-	a, err := resource.AsType[Arm](res)
-	if err != nil {
-		return nil, err
-	}
+func CreateStatus(ctx context.Context, a Arm) (*pb.Status, error) {
 	jointPositions, err := a.JointPositions(ctx, nil)
 	if err != nil {
 		return nil, err

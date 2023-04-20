@@ -37,7 +37,7 @@ func newServer() (pb.PoseTrackerServiceServer, *inject.PoseTracker, *inject.Pose
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	return posetracker.NewServer(injectSvc), injectPT1, injectPT2, nil
+	return posetracker.NewRPCServiceServer(injectSvc).(pb.PoseTrackerServiceServer), injectPT1, injectPT2, nil
 }
 
 func TestGetPoses(t *testing.T) {

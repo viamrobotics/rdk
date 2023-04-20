@@ -18,8 +18,9 @@ type subtypeServer struct {
 	coll resource.SubtypeCollection[Gantry]
 }
 
-// NewServer constructs an gantry gRPC service server.
-func NewServer(coll resource.SubtypeCollection[Gantry]) pb.GantryServiceServer {
+// NewRPCServiceServer constructs an gantry gRPC service server.
+// It is intentionally untyped to prevent use outside of tests.
+func NewRPCServiceServer(coll resource.SubtypeCollection[Gantry]) interface{} {
 	return &subtypeServer{coll: coll}
 }
 

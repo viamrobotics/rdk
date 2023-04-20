@@ -31,15 +31,9 @@ func FromRobot(r robot.Robot, name string) (Summation, error) {
 
 func init() {
 	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype[Summation]{
-		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeColl resource.SubtypeCollection[Summation]) error {
-			return rpcServer.RegisterServiceServer(
-				ctx,
-				&pb.SummationService_ServiceDesc,
-				NewServer(subtypeColl),
-				pb.RegisterSummationServiceHandlerFromEndpoint,
-			)
-		},
-		RPCServiceDesc: &pb.SummationService_ServiceDesc,
+		RPCServiceServerConstructor: NewRPCServiceServer,
+		RPCServiceHandler:           pb.RegisterSummationServiceHandlerFromEndpoint,
+		RPCServiceDesc:              &pb.SummationService_ServiceDesc,
 		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (Summation, error) {
 			return newClientFromConn(conn, name, logger), nil
 		},
@@ -59,7 +53,7 @@ type subtypeServer struct {
 	coll resource.SubtypeCollection[Summation]
 }
 
-func NewServer(coll resource.SubtypeCollection[Summation]) pb.SummationServiceServer {
+func NewRPCServiceServer(coll resource.SubtypeCollection[Summation]) interface{} {
 	return &subtypeServer{coll: coll}
 }
 

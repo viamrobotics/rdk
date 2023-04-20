@@ -33,7 +33,7 @@ func newServer(m map[resource.Name]vision.Service) (pb.VisionServiceServer, erro
 	if err != nil {
 		return nil, err
 	}
-	return vision.NewServer(coll), nil
+	return vision.NewRPCServiceServer(coll).(pb.VisionServiceServer), nil
 }
 
 func TestVisionServerFailures(t *testing.T) {

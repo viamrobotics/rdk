@@ -28,7 +28,7 @@ func newServer() (pb.ArmServiceServer, *inject.Arm, *inject.Arm, error) {
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	return arm.NewServer(armSvc), injectArm, injectArm2, nil
+	return arm.NewRPCServiceServer(armSvc).(pb.ArmServiceServer), injectArm, injectArm2, nil
 }
 
 func TestServer(t *testing.T) {

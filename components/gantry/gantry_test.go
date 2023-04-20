@@ -11,9 +11,7 @@ import (
 	"go.viam.com/utils/protoutils"
 
 	"go.viam.com/rdk/components/gantry"
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
 
@@ -53,10 +51,6 @@ func TestStatusValid(t *testing.T) {
 }
 
 func TestCreateStatus(t *testing.T) {
-	_, err := gantry.CreateStatus(context.Background(), testutils.NewUnimplementedResource(generic.Named("foo")))
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation")
-
 	status := &pb.Status{
 		PositionsMm: []float64{1.1, 2.2, 3.3},
 		LengthsMm:   []float64{4.4, 5.5, 6.6},
@@ -107,7 +101,7 @@ func TestCreateStatus(t *testing.T) {
 		injectGantry.LengthsFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 			return nil, errFail
 		}
-		_, err = gantry.CreateStatus(context.Background(), injectGantry)
+		_, err := gantry.CreateStatus(context.Background(), injectGantry)
 		test.That(t, err, test.ShouldBeError, errFail)
 	})
 
@@ -116,7 +110,7 @@ func TestCreateStatus(t *testing.T) {
 		injectGantry.PositionFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 			return nil, errFail
 		}
-		_, err = gantry.CreateStatus(context.Background(), injectGantry)
+		_, err := gantry.CreateStatus(context.Background(), injectGantry)
 		test.That(t, err, test.ShouldBeError, errFail)
 	})
 }

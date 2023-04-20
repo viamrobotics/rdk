@@ -26,7 +26,7 @@ func newServer() (pb.SensorServiceServer, *inject.Sensor, *inject.Sensor, error)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	return sensor.NewServer(sensorSvc), injectSensor, injectSensor2, nil
+	return sensor.NewRPCServiceServer(sensorSvc).(pb.SensorServiceServer), injectSensor, injectSensor2, nil
 }
 
 func TestServer(t *testing.T) {

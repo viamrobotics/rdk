@@ -20,8 +20,9 @@ type subtypeServer struct {
 	coll resource.SubtypeCollection[Service]
 }
 
-// NewServer constructs a motion gRPC service server.
-func NewServer(coll resource.SubtypeCollection[Service]) pb.MotionServiceServer {
+// NewRPCServiceServer constructs a motion gRPC service server.
+// It is intentionally untyped to prevent use outside of tests.
+func NewRPCServiceServer(coll resource.SubtypeCollection[Service]) interface{} {
 	return &subtypeServer{coll: coll}
 }
 

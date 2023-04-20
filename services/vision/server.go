@@ -24,8 +24,9 @@ type subtypeServer struct {
 	coll resource.SubtypeCollection[Service]
 }
 
-// NewServer constructs a vision gRPC service server.
-func NewServer(coll resource.SubtypeCollection[Service]) pb.VisionServiceServer {
+// NewRPCServiceServer constructs a vision gRPC service server.
+// It is intentionally untyped to prevent use outside of tests.
+func NewRPCServiceServer(coll resource.SubtypeCollection[Service]) interface{} {
 	return &subtypeServer{coll: coll}
 }
 

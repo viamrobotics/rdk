@@ -13,7 +13,6 @@ import (
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/camera/v1"
 	viamutils "go.viam.com/utils"
-	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/pointcloud"
@@ -27,16 +26,10 @@ import (
 
 func init() {
 	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype[Camera]{
-		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeColl resource.SubtypeCollection[Camera]) error {
-			return rpcServer.RegisterServiceServer(
-				ctx,
-				&pb.CameraService_ServiceDesc,
-				NewServer(subtypeColl),
-				pb.RegisterCameraServiceHandlerFromEndpoint,
-			)
-		},
-		RPCServiceDesc: &pb.CameraService_ServiceDesc,
-		RPCClient:      NewClientFromConn,
+		RPCServiceServerConstructor: NewRPCServiceServer,
+		RPCServiceHandler:           pb.RegisterCameraServiceHandlerFromEndpoint,
+		RPCServiceDesc:              &pb.CameraService_ServiceDesc,
+		RPCClient:                   NewClientFromConn,
 	})
 
 	data.RegisterCollector(data.MethodMetadata{

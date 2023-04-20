@@ -8,18 +8,12 @@ import (
 	pb "go.viam.com/api/component/servo/v1"
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/servo"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
 
 func TestCreateStatus(t *testing.T) {
-	_, err := servo.CreateStatus(context.Background(), testutils.NewUnimplementedResource(generic.Named("foo")))
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation")
-
 	status := &pb.Status{PositionDeg: uint32(8), IsMoving: true}
 
 	injectServo := &inject.Servo{}
@@ -59,7 +53,7 @@ func TestCreateStatus(t *testing.T) {
 		injectServo.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (uint32, error) {
 			return 0, errFail
 		}
-		_, err = servo.CreateStatus(context.Background(), injectServo)
+		_, err := servo.CreateStatus(context.Background(), injectServo)
 		test.That(t, err, test.ShouldBeError, errFail)
 	})
 }

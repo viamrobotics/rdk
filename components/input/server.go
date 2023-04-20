@@ -19,8 +19,9 @@ type subtypeServer struct {
 	coll resource.SubtypeCollection[Controller]
 }
 
-// NewServer constructs an input controller gRPC service server.
-func NewServer(coll resource.SubtypeCollection[Controller]) pb.InputControllerServiceServer {
+// NewRPCServiceServer constructs an input controller gRPC service server.
+// It is intentionally untyped to prevent use outside of tests.
+func NewRPCServiceServer(coll resource.SubtypeCollection[Controller]) interface{} {
 	return &subtypeServer{coll: coll}
 }
 

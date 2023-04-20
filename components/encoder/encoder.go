@@ -16,15 +16,9 @@ import (
 
 func init() {
 	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype[Encoder]{
-		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeColl resource.SubtypeCollection[Encoder]) error {
-			return rpcServer.RegisterServiceServer(
-				ctx,
-				&pb.EncoderService_ServiceDesc,
-				NewServer(subtypeColl),
-				pb.RegisterEncoderServiceHandlerFromEndpoint,
-			)
-		},
-		RPCServiceDesc: &pb.EncoderService_ServiceDesc,
+		RPCServiceServerConstructor: NewRPCServiceServer,
+		RPCServiceHandler:           pb.RegisterEncoderServiceHandlerFromEndpoint,
+		RPCServiceDesc:              &pb.EncoderService_ServiceDesc,
 		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (Encoder, error) {
 			return NewClientFromConn(ctx, conn, name, logger), nil
 		},

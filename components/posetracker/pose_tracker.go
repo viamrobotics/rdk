@@ -6,7 +6,6 @@ import (
 	"context"
 
 	pb "go.viam.com/api/component/posetracker/v1"
-	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/referenceframe"
@@ -17,16 +16,10 @@ import (
 
 func init() {
 	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype[PoseTracker]{
-		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeColl resource.SubtypeCollection[PoseTracker]) error {
-			return rpcServer.RegisterServiceServer(
-				ctx,
-				&pb.PoseTrackerService_ServiceDesc,
-				NewServer(subtypeColl),
-				pb.RegisterPoseTrackerServiceHandlerFromEndpoint,
-			)
-		},
-		RPCServiceDesc: &pb.PoseTrackerService_ServiceDesc,
-		RPCClient:      NewClientFromConn,
+		RPCServiceServerConstructor: NewRPCServiceServer,
+		RPCServiceHandler:           pb.RegisterPoseTrackerServiceHandlerFromEndpoint,
+		RPCServiceDesc:              &pb.PoseTrackerService_ServiceDesc,
+		RPCClient:                   NewClientFromConn,
 	})
 }
 

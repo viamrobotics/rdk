@@ -5,7 +5,6 @@ import (
 	"context"
 
 	servicepb "go.viam.com/api/service/motion/v1"
-	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
@@ -16,16 +15,10 @@ import (
 
 func init() {
 	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype[Service]{
-		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeColl resource.SubtypeCollection[Service]) error {
-			return rpcServer.RegisterServiceServer(
-				ctx,
-				&servicepb.MotionService_ServiceDesc,
-				NewServer(subtypeColl),
-				servicepb.RegisterMotionServiceHandlerFromEndpoint,
-			)
-		},
-		RPCServiceDesc: &servicepb.MotionService_ServiceDesc,
-		RPCClient:      NewClientFromConn,
+		RPCServiceServerConstructor: NewRPCServiceServer,
+		RPCServiceHandler:           servicepb.RegisterMotionServiceHandlerFromEndpoint,
+		RPCServiceDesc:              &servicepb.MotionService_ServiceDesc,
+		RPCClient:                   NewClientFromConn,
 	})
 }
 

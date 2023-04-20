@@ -21,7 +21,7 @@ func newServer(resourceMap map[resource.Name]datamanager.Service) (pb.DataManage
 	if err != nil {
 		return nil, err
 	}
-	return datamanager.NewServer(coll), nil
+	return datamanager.NewRPCServiceServer(coll).(pb.DataManagerServiceServer), nil
 }
 
 func TestServerSync(t *testing.T) {

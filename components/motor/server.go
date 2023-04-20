@@ -17,8 +17,9 @@ type subtypeServer struct {
 	coll resource.SubtypeCollection[Motor]
 }
 
-// NewServer constructs a motor gRPC service server.
-func NewServer(coll resource.SubtypeCollection[Motor]) pb.MotorServiceServer {
+// NewRPCServiceServer constructs a motor gRPC service server.
+// It is intentionally untyped to prevent use outside of tests.
+func NewRPCServiceServer(coll resource.SubtypeCollection[Motor]) interface{} {
 	return &subtypeServer{coll: coll}
 }
 

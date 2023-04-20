@@ -4,7 +4,6 @@ import (
 	"context"
 
 	pb "go.viam.com/api/component/gantry/v1"
-	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/referenceframe"
@@ -15,19 +14,11 @@ import (
 
 func init() {
 	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype[Gantry]{
-		Status: func(ctx context.Context, res Gantry) (interface{}, error) {
-			return CreateStatus(ctx, res)
-		},
-		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeColl resource.SubtypeCollection[Gantry]) error {
-			return rpcServer.RegisterServiceServer(
-				ctx,
-				&pb.GantryService_ServiceDesc,
-				NewServer(subtypeColl),
-				pb.RegisterGantryServiceHandlerFromEndpoint,
-			)
-		},
-		RPCServiceDesc: &pb.GantryService_ServiceDesc,
-		RPCClient:      NewClientFromConn,
+		Status:                      registry.StatusFunc(CreateStatus),
+		RPCServiceServerConstructor: NewRPCServiceServer,
+		RPCServiceHandler:           pb.RegisterGantryServiceHandlerFromEndpoint,
+		RPCServiceDesc:              &pb.GantryService_ServiceDesc,
+		RPCClient:                   NewClientFromConn,
 	})
 	data.RegisterCollector(data.MethodMetadata{
 		Subtype:    Subtype,
@@ -89,11 +80,7 @@ func NamesFromRobot(r robot.Robot) []string {
 }
 
 // CreateStatus creates a status from the gantry.
-func CreateStatus(ctx context.Context, res resource.Resource) (*pb.Status, error) {
-	g, err := resource.AsType[Gantry](res)
-	if err != nil {
-		return nil, err
-	}
+func CreateStatus(ctx context.Context, g Gantry) (*pb.Status, error) {
 	positions, err := g.Position(ctx, nil)
 	if err != nil {
 		return nil, err

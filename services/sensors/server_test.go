@@ -24,7 +24,7 @@ func newServer(sMap map[resource.Name]sensors.Service) (pb.SensorsServiceServer,
 	if err != nil {
 		return nil, err
 	}
-	return sensors.NewServer(coll), nil
+	return sensors.NewRPCServiceServer(coll).(pb.SensorsServiceServer), nil
 }
 
 func TestServerGetSensors(t *testing.T) {

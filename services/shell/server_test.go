@@ -20,7 +20,7 @@ func newServer(sMap map[resource.Name]shell.Service) (pb.ShellServiceServer, err
 	if err != nil {
 		return nil, err
 	}
-	return shell.NewServer(coll), nil
+	return shell.NewRPCServiceServer(coll).(pb.ShellServiceServer), nil
 }
 
 func TestServerDoCommand(t *testing.T) {

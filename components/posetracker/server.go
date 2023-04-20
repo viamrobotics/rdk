@@ -16,8 +16,9 @@ type subtypeServer struct {
 	coll resource.SubtypeCollection[PoseTracker]
 }
 
-// NewServer constructs a pose tracker gRPC service server.
-func NewServer(coll resource.SubtypeCollection[PoseTracker]) pb.PoseTrackerServiceServer {
+// NewRPCServiceServer constructs a pose tracker gRPC service server.
+// It is intentionally untyped to prevent use outside of tests.
+func NewRPCServiceServer(coll resource.SubtypeCollection[PoseTracker]) interface{} {
 	return &subtypeServer{coll: coll}
 }
 

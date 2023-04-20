@@ -27,7 +27,7 @@ func newServer() (genericpb.GenericServiceServer, *inject.Generic, *inject.Gener
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	return generic.NewServer(injectSvc), injectGeneric, injectGeneric2, nil
+	return generic.NewRPCServiceServer(injectSvc).(genericpb.GenericServiceServer), injectGeneric, injectGeneric2, nil
 }
 
 func TestGenericDo(t *testing.T) {

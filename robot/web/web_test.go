@@ -926,15 +926,9 @@ func TestRawClientOperation(t *testing.T) {
 		resource.SubtypeName("echo"),
 	)
 	registry.RegisterResourceSubtype(echoSubType, registry.ResourceSubtype[resource.Resource]{
-		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeColl resource.SubtypeCollection[resource.Resource]) error {
-			return rpcServer.RegisterServiceServer(
-				ctx,
-				&echopb.TestEchoService_ServiceDesc,
-				&echoServer{},
-				echopb.RegisterTestEchoServiceHandlerFromEndpoint,
-			)
-		},
-		RPCServiceDesc: &echopb.TestEchoService_ServiceDesc,
+		RPCServiceServerConstructor: func(subtypeColl resource.SubtypeCollection[resource.Resource]) interface{} { return &echoServer{} },
+		RPCServiceHandler:           echopb.RegisterTestEchoServiceHandlerFromEndpoint,
+		RPCServiceDesc:              &echopb.TestEchoService_ServiceDesc,
 	})
 
 	logger := golog.NewTestLogger(t)

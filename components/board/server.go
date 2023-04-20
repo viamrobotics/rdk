@@ -18,8 +18,9 @@ type subtypeServer struct {
 	coll resource.SubtypeCollection[Board]
 }
 
-// NewServer constructs an board gRPC service server.
-func NewServer(coll resource.SubtypeCollection[Board]) pb.BoardServiceServer {
+// NewRPCServiceServer constructs an board gRPC service server.
+// It is intentionally untyped to prevent use outside of tests.
+func NewRPCServiceServer(coll resource.SubtypeCollection[Board]) interface{} {
 	return &subtypeServer{coll: coll}
 }
 

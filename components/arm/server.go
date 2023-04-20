@@ -19,8 +19,9 @@ type subtypeServer struct {
 	coll resource.SubtypeCollection[Arm]
 }
 
-// NewServer constructs an arm gRPC service server.
-func NewServer(coll resource.SubtypeCollection[Arm]) pb.ArmServiceServer {
+// NewRPCServiceServer constructs an arm gRPC service server.
+// It is intentionally untyped to prevent use outside of tests.
+func NewRPCServiceServer(coll resource.SubtypeCollection[Arm]) interface{} {
 	return &subtypeServer{coll: coll}
 }
 

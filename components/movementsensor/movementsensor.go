@@ -8,7 +8,6 @@ import (
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	pb "go.viam.com/api/component/movementsensor/v1"
-	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/registry"
@@ -22,16 +21,10 @@ type Properties pb.GetPropertiesResponse
 
 func init() {
 	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype[MovementSensor]{
-		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeColl resource.SubtypeCollection[MovementSensor]) error {
-			return rpcServer.RegisterServiceServer(
-				ctx,
-				&pb.MovementSensorService_ServiceDesc,
-				NewServer(subtypeColl),
-				pb.RegisterMovementSensorServiceHandlerFromEndpoint,
-			)
-		},
-		RPCServiceDesc: &pb.MovementSensorService_ServiceDesc,
-		RPCClient:      NewClientFromConn,
+		RPCServiceServerConstructor: NewRPCServiceServer,
+		RPCServiceHandler:           pb.RegisterMovementSensorServiceHandlerFromEndpoint,
+		RPCServiceDesc:              &pb.MovementSensorService_ServiceDesc,
+		RPCClient:                   NewClientFromConn,
 	})
 
 	registerCollector("Position", func(ctx context.Context, ms MovementSensor) (interface{}, error) {

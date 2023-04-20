@@ -35,7 +35,7 @@ func newServer() (pb.CameraServiceServer, *inject.Camera, *inject.Camera, *injec
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
-	return camera.NewServer(cameraSvc), injectCamera, injectCameraDepth, injectCamera2, nil
+	return camera.NewRPCServiceServer(cameraSvc).(pb.CameraServiceServer), injectCamera, injectCameraDepth, injectCamera2, nil
 }
 
 func TestServer(t *testing.T) {

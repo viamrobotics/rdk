@@ -16,8 +16,8 @@ type subtypeServer struct {
 	coll resource.SubtypeCollection[Encoder]
 }
 
-// NewServer constructs an Encoder gRPC service subtypeServer.
-func NewServer(coll resource.SubtypeCollection[Encoder]) pb.EncoderServiceServer {
+// NewRPCServiceServer constructs an Encoder gRPC service subtypeServer.
+func NewRPCServiceServer(coll resource.SubtypeCollection[Encoder]) interface{} {
 	return &subtypeServer{coll: coll}
 }
 
