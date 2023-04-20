@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/resource"
 )
 
 type (
@@ -30,6 +31,8 @@ var ErrInvalidPackageRef = errors.New("invalid package reference")
 // Manager provides a managed interface for looking up package paths. This is separated from ManagerSyncer to avoid passing
 // the full sync interface to all components.
 type Manager interface {
+	resource.Resource
+
 	// PackagePath returns the package if it exists and is already downloaded. If it does not exist it returns a ErrPackageMissing error.
 	PackagePath(name PackageName) (string, error)
 
@@ -43,9 +46,6 @@ type Manager interface {
 // ManagerSyncer provides a managed interface for both reading package paths and syncing packages from the RDK config.
 type ManagerSyncer interface {
 	Manager
-
-	// Close the manager
-	Close() error
 
 	// Sync will download and create the symbolic logic links to all the given PackageConfig. Sync will not remove any unused
 	// data packages. You must call Cleanup() to remove leftovers. Sync will block until all packages are loaded to the file system.

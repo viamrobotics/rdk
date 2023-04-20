@@ -18,7 +18,6 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
-	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
 )
@@ -27,17 +26,16 @@ func newServer() (pb.CameraServiceServer, *inject.Camera, *inject.Camera, *injec
 	injectCamera := &inject.Camera{}
 	injectCameraDepth := &inject.Camera{}
 	injectCamera2 := &inject.Camera{}
-	cameras := map[resource.Name]interface{}{
+	cameras := map[resource.Name]camera.Camera{
 		camera.Named(testCameraName):  injectCamera,
 		camera.Named(depthCameraName): injectCameraDepth,
 		camera.Named(failCameraName):  injectCamera2,
-		camera.Named(fakeCameraName):  "notCamera",
 	}
-	cameraSvc, err := subtype.New(cameras)
+	cameraSvc, err := resource.NewSubtypeCollection(camera.Subtype, cameras)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
-	return camera.NewServer(cameraSvc), injectCamera, injectCameraDepth, injectCamera2, nil
+	return camera.NewRPCServiceServer(cameraSvc).(pb.CameraServiceServer), injectCamera, injectCameraDepth, injectCamera2, nil
 }
 
 func TestServer(t *testing.T) {
@@ -153,11 +151,7 @@ func TestServer(t *testing.T) {
 	t.Run("GetImage", func(t *testing.T) {
 		_, err := cameraServer.GetImage(context.Background(), &pb.GetImageRequest{Name: missingCameraName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no camera")
-
-		_, err = cameraServer.GetImage(context.Background(), &pb.GetImageRequest{Name: fakeCameraName})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "not a camera")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
 		// color camera
 		// ensure that explicit RawRGBA mimetype request will return RawRGBA mimetype response
@@ -301,7 +295,7 @@ func TestServer(t *testing.T) {
 	t.Run("RenderFrame", func(t *testing.T) {
 		_, err := cameraServer.RenderFrame(context.Background(), &pb.RenderFrameRequest{Name: missingCameraName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no camera")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
 		resp, err := cameraServer.RenderFrame(context.Background(), &pb.RenderFrameRequest{
 			Name: testCameraName,
@@ -349,7 +343,7 @@ func TestServer(t *testing.T) {
 	t.Run("GetPointCloud", func(t *testing.T) {
 		_, err := cameraServer.GetPointCloud(context.Background(), &pb.GetPointCloudRequest{Name: missingCameraName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no camera")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
 		pcA := pointcloud.New()
 		err = pcA.Set(pointcloud.NewVector(5, 5, 5), nil)
@@ -373,11 +367,7 @@ func TestServer(t *testing.T) {
 	t.Run("GetProperties", func(t *testing.T) {
 		_, err := cameraServer.GetProperties(context.Background(), &pb.GetPropertiesRequest{Name: missingCameraName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no camera")
-
-		_, err = cameraServer.GetProperties(context.Background(), &pb.GetPropertiesRequest{Name: fakeCameraName})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "not a camera")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
 		resp, err := cameraServer.GetProperties(context.Background(), &pb.GetPropertiesRequest{Name: testCameraName})
 		test.That(t, err, test.ShouldBeNil)

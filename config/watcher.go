@@ -17,12 +17,13 @@ import (
 // to some destination.
 type Watcher interface {
 	Config() <-chan *Config
+	Close() error
 }
 
 // NewWatcher returns an optimally selected Watcher based on the
 // given config.
 func NewWatcher(ctx context.Context, config *Config, logger golog.Logger) (Watcher, error) {
-	if err := config.Ensure(false); err != nil {
+	if err := config.Ensure(false, logger); err != nil {
 		return nil, err
 	}
 	if config.Cloud != nil {
@@ -96,9 +97,10 @@ func (w *cloudWatcher) Config() <-chan *Config {
 	return w.configCh
 }
 
-func (w *cloudWatcher) Close() {
+func (w *cloudWatcher) Close() error {
 	w.cancel()
 	<-w.watcherDoneCh
+	return nil
 }
 
 // A fsConfigWatcher fetches new configs from an underlying file when written to.
@@ -184,5 +186,9 @@ func (w *fsConfigWatcher) Close() error {
 type noopWatcher struct{}
 
 func (w noopWatcher) Config() <-chan *Config {
+	return nil
+}
+
+func (w noopWatcher) Close() error {
 	return nil
 }

@@ -13,58 +13,47 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 var homographyModel = resource.NewDefaultModel("align_color_depth_homography")
 
 //nolint:dupl
 func init() {
-	registry.RegisterComponent(camera.Subtype, homographyModel,
-		registry.Component{Constructor: func(ctx context.Context, deps registry.Dependencies,
-			config config.Component, logger golog.Logger,
-		) (interface{}, error) {
-			attrs, ok := config.ConvertedAttributes.(*homographyAttrs)
-			if !ok {
-				return nil, rdkutils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
-			}
-			colorName := attrs.Color
-			color, err := camera.FromDependencies(deps, colorName)
-			if err != nil {
-				return nil, fmt.Errorf("no color camera (%s): %w", colorName, err)
-			}
+	resource.RegisterComponent(camera.Subtype, homographyModel,
+		resource.Registration[camera.Camera, *homographyConfig]{
+			Constructor: func(ctx context.Context, deps resource.Dependencies,
+				conf resource.Config, logger golog.Logger,
+			) (camera.Camera, error) {
+				newConf, err := resource.NativeConfig[*homographyConfig](conf)
+				if err != nil {
+					return nil, err
+				}
+				colorName := newConf.Color
+				color, err := camera.FromDependencies(deps, colorName)
+				if err != nil {
+					return nil, fmt.Errorf("no color camera (%s): %w", colorName, err)
+				}
 
-			depthName := attrs.Depth
-			depth, err := camera.FromDependencies(deps, depthName)
-			if err != nil {
-				return nil, fmt.Errorf("no depth camera (%s): %w", depthName, err)
-			}
-			return newColorDepthHomography(ctx, color, depth, attrs, logger)
-		}})
-
-	config.RegisterComponentAttributeMapConverter(camera.Subtype, homographyModel,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf homographyAttrs
-			attrs, err := config.TransformAttributeMapToStruct(&conf, attributes)
-			if err != nil {
-				return nil, err
-			}
-			result, ok := attrs.(*homographyAttrs)
-			if !ok {
-				return nil, rdkutils.NewUnexpectedTypeError(result, attrs)
-			}
-			return result, nil
-		}, &homographyAttrs{})
+				depthName := newConf.Depth
+				depth, err := camera.FromDependencies(deps, depthName)
+				if err != nil {
+					return nil, fmt.Errorf("no depth camera (%s): %w", depthName, err)
+				}
+				src, err := newColorDepthHomography(ctx, color, depth, newConf, logger)
+				if err != nil {
+					return nil, err
+				}
+				return camera.FromVideoSource(conf.ResourceName(), src), nil
+			},
+		})
 }
 
-// homographyAttrs is the attribute struct for aligning.
-type homographyAttrs struct {
+// homographyConfig is the attribute struct for aligning.
+type homographyConfig struct {
 	CameraParameters     *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters"`
 	Homography           *transform.RawDepthColorHomography `json:"homography"`
 	Color                string                             `json:"color_camera_name"`
@@ -74,7 +63,7 @@ type homographyAttrs struct {
 	Debug                bool                               `json:"debug,omitempty"`
 }
 
-func (cfg *homographyAttrs) Validate(path string) ([]string, error) {
+func (cfg *homographyConfig) Validate(path string) ([]string, error) {
 	var deps []string
 	if cfg.Color == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "color_camera_name")
@@ -101,42 +90,42 @@ type colorDepthHomography struct {
 }
 
 // newColorDepthHomography creates a gostream.VideoSource that aligned color and depth channels.
-func newColorDepthHomography(ctx context.Context, color, depth camera.Camera, attrs *homographyAttrs, logger golog.Logger,
-) (camera.Camera, error) {
-	if attrs.Homography == nil {
+func newColorDepthHomography(ctx context.Context, color, depth camera.VideoSource, conf *homographyConfig, logger golog.Logger,
+) (camera.VideoSource, error) {
+	if conf.Homography == nil {
 		return nil, errors.New("homography field in attributes cannot be empty")
 	}
-	if attrs.CameraParameters == nil {
+	if conf.CameraParameters == nil {
 		return nil, errors.Wrap(transform.ErrNoIntrinsics, "intrinsic_parameters field in attributes cannot be empty")
 	}
-	if attrs.CameraParameters.Height <= 0 || attrs.CameraParameters.Width <= 0 {
+	if conf.CameraParameters.Height <= 0 || conf.CameraParameters.Width <= 0 {
 		return nil, errors.Errorf(
 			"colorDepthHomography needs Width and Height fields set in intrinsic_parameters. Got illegal dimensions (%d, %d)",
-			attrs.CameraParameters.Width,
-			attrs.CameraParameters.Height,
+			conf.CameraParameters.Width,
+			conf.CameraParameters.Height,
 		)
 	}
-	homography, err := transform.NewDepthColorHomography(attrs.Homography)
+	homography, err := transform.NewDepthColorHomography(conf.Homography)
 	if err != nil {
 		return nil, err
 	}
-	imgType := camera.ImageType(attrs.ImageType)
+	imgType := camera.ImageType(conf.ImageType)
 
 	videoSrc := &colorDepthHomography{
 		color:     gostream.NewEmbeddedVideoStream(color),
-		colorName: attrs.Color,
+		colorName: conf.Color,
 		depth:     gostream.NewEmbeddedVideoStream(depth),
-		depthName: attrs.Depth,
+		depthName: conf.Depth,
 		aligner:   homography,
-		projector: attrs.CameraParameters,
+		projector: conf.CameraParameters,
 		imageType: imgType,
-		height:    attrs.CameraParameters.Height,
-		width:     attrs.CameraParameters.Width,
-		debug:     attrs.Debug,
+		height:    conf.CameraParameters.Height,
+		width:     conf.CameraParameters.Width,
+		debug:     conf.Debug,
 		logger:    logger,
 	}
-	cameraModel := camera.NewPinholeModelWithBrownConradyDistortion(attrs.CameraParameters, attrs.DistortionParameters)
-	return camera.NewFromReader(
+	cameraModel := camera.NewPinholeModelWithBrownConradyDistortion(conf.CameraParameters, conf.DistortionParameters)
+	return camera.NewVideoSourceFromReader(
 		ctx,
 		videoSrc,
 		&cameraModel,

@@ -109,8 +109,10 @@ func (m *SessionManager) expireLoop(ctx context.Context) {
 						return
 					}
 
-					if err := resource.StopResource(ctx, res, nil); err != nil {
-						resourceErrs = append(resourceErrs, err)
+					if actuator, ok := res.(resource.Actuator); ok {
+						if err := actuator.Stop(ctx, nil); err != nil {
+							resourceErrs = append(resourceErrs, err)
+						}
 					}
 				}()
 			}

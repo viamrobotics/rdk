@@ -14,53 +14,48 @@ import (
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/arm/yahboom"
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/gripper"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/utils"
 )
 
 var modelname = resource.NewDefaultModel("yahboom-dofbot")
 
-// AttrConfig is the config for a dofbot gripper.
-type AttrConfig struct {
+// Config is the config for a dofbot gripper.
+type Config struct {
 	Arm string `json:"arm"`
 }
 
 // Validate ensures all parts of the config are valid.
-func (config *AttrConfig) Validate(path string) ([]string, error) {
+func (conf *Config) Validate(path string) ([]string, error) {
 	var deps []string
-	if config.Arm == "" {
+	if conf.Arm == "" {
 		return nil, gutils.NewConfigValidationFieldRequiredError(path, "arm")
 	}
-	deps = append(deps, config.Arm)
+	deps = append(deps, conf.Arm)
 	return deps, nil
 }
 
 func init() {
-	registry.RegisterComponent(gripper.Subtype, modelname, registry.Component{
-		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-			return newGripper(deps, config)
+	resource.RegisterComponent(gripper.Subtype, modelname, resource.Registration[gripper.Gripper, *Config]{
+		Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger golog.Logger,
+		) (gripper.Gripper, error) {
+			return newGripper(deps, conf)
 		},
 	})
-
-	config.RegisterComponentAttributeMapConverter(gripper.Subtype, modelname,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf AttrConfig
-			return config.TransformAttributeMapToStruct(&conf, attributes)
-		}, &AttrConfig{})
 }
 
-func newGripper(deps registry.Dependencies, config config.Component) (gripper.LocalGripper, error) {
-	attr, ok := config.ConvertedAttributes.(*AttrConfig)
-	if !ok {
-		return nil, utils.NewUnexpectedTypeError(attr, config.ConvertedAttributes)
+func newGripper(deps resource.Dependencies, conf resource.Config) (gripper.Gripper, error) {
+	newConf, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return nil, err
 	}
-	armName := attr.Arm
+	armName := newConf.Arm
 	if armName == "" {
 		return nil, errors.New("yahboom-dofbot gripper needs an arm")
 	}
@@ -69,17 +64,22 @@ func newGripper(deps registry.Dependencies, config config.Component) (gripper.Lo
 		return nil, err
 	}
 
-	dofArm, ok := utils.UnwrapProxy(myArm).(*yahboom.Dofbot)
+	dofArm, ok := myArm.(*yahboom.Dofbot)
 	if !ok {
 		return nil, fmt.Errorf("yahboom-dofbot gripper got not a dofbot arm, got %T", myArm)
 	}
-	g := &dofGripper{dofArm: dofArm}
+	g := &dofGripper{
+		Named:  conf.ResourceName().AsNamed(),
+		dofArm: dofArm,
+	}
 
 	return g, nil
 }
 
 type dofGripper struct {
-	generic.Unimplemented
+	resource.Named
+	resource.AlwaysRebuild
+	resource.TriviallyCloseable
 	dofArm *yahboom.Dofbot
 	opMgr  operation.SingleOperationManager
 }

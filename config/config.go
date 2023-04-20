@@ -2,11 +2,11 @@
 package config
 
 import (
-	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"net"
+	"reflect"
 	"regexp"
 	"sync"
 	"time"
@@ -19,6 +19,7 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/resource"
 	rutils "go.viam.com/rdk/utils"
 )
 
@@ -27,9 +28,9 @@ type Config struct {
 	Cloud      *Cloud                `json:"cloud,omitempty"`
 	Modules    []Module              `json:"modules,omitempty"`
 	Remotes    []Remote              `json:"remotes,omitempty"`
-	Components []Component           `json:"components,omitempty"`
+	Components []resource.Config     `json:"components,omitempty"`
 	Processes  []pexec.ProcessConfig `json:"processes,omitempty"`
-	Services   []Service             `json:"services,omitempty"`
+	Services   []resource.Config     `json:"services,omitempty"`
 	Packages   []PackageConfig       `json:"packages,omitempty"`
 	Network    NetworkConfig         `json:"network"`
 	Auth       AuthConfig            `json:"auth"`
@@ -47,10 +48,6 @@ type Config struct {
 	// command line arguments.
 	UntrustedEnv bool `json:"-"`
 
-	// LimitConfigurableDirectories is used to limit which directories users can configure for
-	// storing data on-robot. This is set via command line arguments.
-	LimitConfigurableDirectories bool `json:"-"`
-
 	// FromCommand indicates if this config was parsed via the web server command.
 	// If false, it's for creating a robot via the RDK library. This is helpful for
 	// error messages that can indicate flags/config fields to use.
@@ -64,73 +61,11 @@ type Config struct {
 	PackagePath string `json:"-"`
 }
 
-// ValidNameRegex is the pattern that matches to a valid name.
-// The name must begin with a letter i.e. [a-zA-Z],
-// and the body can only contain 0 or more numbers, letters, dashes and underscores i.e. [-\w]*.
-var ValidNameRegex = regexp.MustCompile(`^[a-zA-Z][-\w]*$`)
-
-// ErrInvalidName returns a human-readable error for when ValidNameRegex doesn't match.
-func ErrInvalidName(name string) error {
-	return errors.Errorf("name %q must start with a letter and must only contain letters, numbers, dashes, and underscores", name)
-}
-
 // Ensure ensures all parts of the config are valid.
-func (c *Config) Ensure(fromCloud bool) error {
+func (c *Config) Ensure(fromCloud bool, logger golog.Logger) error {
 	if c.Cloud != nil {
 		if err := c.Cloud.Validate("cloud", fromCloud); err != nil {
 			return err
-		}
-	}
-
-	for idx := 0; idx < len(c.Modules); idx++ {
-		if err := c.Modules[idx].Validate(fmt.Sprintf("%s.%d", "modules", idx)); err != nil {
-			if c.DisablePartialStart {
-				return err
-			}
-			golog.Global().Error(errors.Wrap(err, "Module config error, starting robot without module: "+c.Modules[idx].Name))
-		}
-	}
-
-	for idx := 0; idx < len(c.Remotes); idx++ {
-		if err := c.Remotes[idx].Validate(fmt.Sprintf("%s.%d", "remotes", idx)); err != nil {
-			if c.DisablePartialStart {
-				return err
-			}
-			golog.Global().Error(errors.Wrap(err, "Remote config error, starting robot without remote: "+c.Remotes[idx].Name))
-		}
-	}
-
-	for idx := 0; idx < len(c.Components); idx++ {
-		dependsOn, err := c.Components[idx].Validate(fmt.Sprintf("%s.%d", "components", idx))
-		if err != nil {
-			fullErr := errors.Errorf("error validating component %s: %s", c.Components[idx].Name, err)
-			if c.DisablePartialStart {
-				return fullErr
-			}
-			golog.Global().Error(errors.Wrap(err, "Component config error, starting robot without component: "+c.Components[idx].Name))
-		} else {
-			c.Components[idx].ImplicitDependsOn = dependsOn
-		}
-	}
-
-	for idx := 0; idx < len(c.Processes); idx++ {
-		if err := c.Processes[idx].Validate(fmt.Sprintf("%s.%d", "processes", idx)); err != nil {
-			if c.DisablePartialStart {
-				return err
-			}
-			golog.Global().Error(errors.Wrap(err, "Process config error, starting robot without process: "+c.Processes[idx].Name))
-		}
-	}
-
-	for idx := 0; idx < len(c.Services); idx++ {
-		dependsOn, err := c.Services[idx].Validate(fmt.Sprintf("%s.%d", "services", idx))
-		if err != nil {
-			if c.DisablePartialStart {
-				return err
-			}
-			golog.Global().Error(errors.Wrap(err, "Service config error, starting robot without service: "+c.Services[idx].Name))
-		} else {
-			c.Services[idx].ImplicitDependsOn = dependsOn
 		}
 	}
 
@@ -142,13 +77,65 @@ func (c *Config) Ensure(fromCloud bool) error {
 		return err
 	}
 
+	for idx := 0; idx < len(c.Modules); idx++ {
+		if err := c.Modules[idx].Validate(fmt.Sprintf("%s.%d", "modules", idx)); err != nil {
+			if c.DisablePartialStart {
+				return err
+			}
+			logger.Errorw("module config error; starting robot without module", "name", c.Modules[idx].Name, "error", err)
+		}
+	}
+
+	for idx := 0; idx < len(c.Remotes); idx++ {
+		if _, err := c.Remotes[idx].Validate(fmt.Sprintf("%s.%d", "remotes", idx)); err != nil {
+			if c.DisablePartialStart {
+				return err
+			}
+			logger.Errorw("remote config error; starting robot without remote", "name", c.Remotes[idx].Name, "error", err)
+		}
+	}
+
+	for idx := 0; idx < len(c.Components); idx++ {
+		dependsOn, err := c.Components[idx].Validate(fmt.Sprintf("%s.%d", "components", idx), resource.ResourceTypeComponent)
+		if err != nil {
+			fullErr := errors.Errorf("error validating component %s: %s", c.Components[idx].Name, err)
+			if c.DisablePartialStart {
+				return fullErr
+			}
+			logger.Errorw("component config error; starting robot without component", "name", c.Components[idx].Name, "error", err)
+		} else {
+			c.Components[idx].ImplicitDependsOn = dependsOn
+		}
+	}
+
+	for idx := 0; idx < len(c.Processes); idx++ {
+		if err := c.Processes[idx].Validate(fmt.Sprintf("%s.%d", "processes", idx)); err != nil {
+			if c.DisablePartialStart {
+				return err
+			}
+			logger.Errorw("process config error; starting robot without process", "name", c.Processes[idx].Name, "error", err)
+		}
+	}
+
+	for idx := 0; idx < len(c.Services); idx++ {
+		dependsOn, err := c.Services[idx].Validate(fmt.Sprintf("%s.%d", "services", idx), resource.ResourceTypeService)
+		if err != nil {
+			if c.DisablePartialStart {
+				return err
+			}
+			logger.Errorw("service config error; starting robot without service", "name", c.Services[idx].Name, "error", err)
+		} else {
+			c.Services[idx].ImplicitDependsOn = dependsOn
+		}
+	}
+
 	for idx := 0; idx < len(c.Packages); idx++ {
 		if err := c.Packages[idx].Validate(fmt.Sprintf("%s.%d", "packages", idx)); err != nil {
 			fullErr := errors.Errorf("error validating package config %s", err)
 			if c.DisablePartialStart {
 				return fullErr
 			}
-			golog.Global().Error(errors.Wrap(err, "Package config error, starting robot without package: "+c.Packages[idx].Name))
+			logger.Errorw("package config error; starting robot without package", "name", c.Packages[idx].Name, "error", err)
 		}
 	}
 
@@ -156,7 +143,7 @@ func (c *Config) Ensure(fromCloud bool) error {
 }
 
 // FindComponent finds a particular component by name.
-func (c Config) FindComponent(name string) *Component {
+func (c Config) FindComponent(name string) *resource.Config {
 	for _, cmp := range c.Components {
 		if cmp.Name == name {
 			return &cmp
@@ -187,34 +174,47 @@ func (c *Config) CopyOnlyPublicFields() (*Config, error) {
 // the current robot. All components of the remote robot who have Parent as "world" will be attached to the parent defined
 // in Frame, and with the given offset as well.
 type Remote struct {
-	Name                    string
-	Address                 string
-	Frame                   *referenceframe.LinkConfig
-	Auth                    RemoteAuth
-	ManagedBy               string
-	Insecure                bool
-	ConnectionCheckInterval time.Duration
-	ReconnectInterval       time.Duration
-	ServiceConfig           []ResourceLevelServiceConfig
+	Name                      string
+	Address                   string
+	Frame                     *referenceframe.LinkConfig
+	Auth                      RemoteAuth
+	ManagedBy                 string
+	Insecure                  bool
+	ConnectionCheckInterval   time.Duration
+	ReconnectInterval         time.Duration
+	AssociatedResourceConfigs []resource.AssociatedResourceConfig
 
 	// Secret is a helper for a robot location secret.
 	Secret string
+
+	alreadyValidated bool
+	cachedErr        error
 }
 
 // Note: keep this in sync with Remote.
 type remoteData struct {
-	Name                    string                       `json:"name"`
-	Address                 string                       `json:"address"`
-	Frame                   *referenceframe.LinkConfig   `json:"frame,omitempty"`
-	Auth                    RemoteAuth                   `json:"auth"`
-	ManagedBy               string                       `json:"managed_by"`
-	Insecure                bool                         `json:"insecure"`
-	ConnectionCheckInterval string                       `json:"connection_check_interval,omitempty"`
-	ReconnectInterval       string                       `json:"reconnect_interval,omitempty"`
-	ServiceConfig           []ResourceLevelServiceConfig `json:"service_config"`
+	Name                      string                              `json:"name"`
+	Address                   string                              `json:"address"`
+	Frame                     *referenceframe.LinkConfig          `json:"frame,omitempty"`
+	Auth                      RemoteAuth                          `json:"auth"`
+	ManagedBy                 string                              `json:"managed_by"`
+	Insecure                  bool                                `json:"insecure"`
+	ConnectionCheckInterval   string                              `json:"connection_check_interval,omitempty"`
+	ReconnectInterval         string                              `json:"reconnect_interval,omitempty"`
+	AssociatedResourceConfigs []resource.AssociatedResourceConfig `json:"service_configs"`
 
 	// Secret is a helper for a robot location secret.
 	Secret string `json:"secret"`
+}
+
+// Equals checks if the two configs are deeply equal to each other.
+func (config Remote) Equals(other Remote) bool {
+	config.alreadyValidated = false
+	config.cachedErr = nil
+	other.alreadyValidated = false
+	other.cachedErr = nil
+	//nolint:govet
+	return reflect.DeepEqual(config, other)
 }
 
 // UnmarshalJSON unmarshals JSON data into this config.
@@ -224,14 +224,14 @@ func (config *Remote) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	*config = Remote{
-		Name:          temp.Name,
-		Address:       temp.Address,
-		Frame:         temp.Frame,
-		Auth:          temp.Auth,
-		ManagedBy:     temp.ManagedBy,
-		Insecure:      temp.Insecure,
-		ServiceConfig: temp.ServiceConfig,
-		Secret:        temp.Secret,
+		Name:                      temp.Name,
+		Address:                   temp.Address,
+		Frame:                     temp.Frame,
+		Auth:                      temp.Auth,
+		ManagedBy:                 temp.ManagedBy,
+		Insecure:                  temp.Insecure,
+		AssociatedResourceConfigs: temp.AssociatedResourceConfigs,
+		Secret:                    temp.Secret,
 	}
 	if temp.ConnectionCheckInterval != "" {
 		dur, err := time.ParseDuration(temp.ConnectionCheckInterval)
@@ -253,14 +253,14 @@ func (config *Remote) UnmarshalJSON(data []byte) error {
 // MarshalJSON marshals out this config.
 func (config Remote) MarshalJSON() ([]byte, error) {
 	temp := remoteData{
-		Name:          config.Name,
-		Address:       config.Address,
-		Frame:         config.Frame,
-		Auth:          config.Auth,
-		ManagedBy:     config.ManagedBy,
-		Insecure:      config.Insecure,
-		ServiceConfig: config.ServiceConfig,
-		Secret:        config.Secret,
+		Name:                      config.Name,
+		Address:                   config.Address,
+		Frame:                     config.Frame,
+		Auth:                      config.Auth,
+		ManagedBy:                 config.ManagedBy,
+		Insecure:                  config.Insecure,
+		AssociatedResourceConfigs: config.AssociatedResourceConfigs,
+		Secret:                    config.Secret,
 	}
 	if config.ConnectionCheckInterval != 0 {
 		temp.ConnectionCheckInterval = config.ConnectionCheckInterval.String()
@@ -289,12 +289,21 @@ type RemoteAuth struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (config *Remote) Validate(path string) error {
+func (config *Remote) Validate(path string) ([]string, error) {
+	if config.alreadyValidated {
+		return nil, config.cachedErr
+	}
+	config.cachedErr = config.validate(path)
+	config.alreadyValidated = true
+	return nil, config.cachedErr
+}
+
+func (config *Remote) validate(path string) error {
 	if config.Name == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "name")
 	}
-	if !ValidNameRegex.MatchString(config.Name) {
-		return utils.NewConfigValidationError(path, ErrInvalidName(config.Name))
+	if !rutils.ValidNameRegex.MatchString(config.Name) {
+		return utils.NewConfigValidationError(path, rutils.ErrInvalidName(config.Name))
 	}
 	if config.Address == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "address")
@@ -570,16 +579,15 @@ func (sc *SessionsConfig) Validate(path string) error {
 
 // AuthConfig describes authentication and authorization settings for the web server.
 type AuthConfig struct {
-	Handlers        []AuthHandlerConfig `json:"handlers"`
-	TLSAuthEntities []string            `json:"tls_auth_entities"`
-	// TODO(erd): test
+	Handlers           []AuthHandlerConfig `json:"handlers"`
+	TLSAuthEntities    []string            `json:"tls_auth_entities"`
 	ExternalAuthConfig *ExternalAuthConfig `json:"external_auth_config,omitempty"`
 }
 
 // ExternalAuthConfig contains information needed to verify externally authenticated tokens.
 type ExternalAuthConfig struct {
 	// contains the raw jwks json.
-	JSONKeySet AttributeMap `json:"jwks"`
+	JSONKeySet rutils.AttributeMap `json:"jwks"`
 
 	// on validation the JSONKeySet is validated and parsed into this field and can be used.
 	ValidatedKeySet jwks.KeySet `json:"-"`
@@ -640,7 +648,7 @@ func (c *ExternalAuthConfig) Validate(path string) error {
 // AuthHandlerConfig describes the configuration for a particular auth handler.
 type AuthHandlerConfig struct {
 	Type   rpc.CredentialsType `json:"type"`
-	Config AttributeMap        `json:"config"`
+	Config rutils.AttributeMap `json:"config"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -761,12 +769,6 @@ func ProcessConfig(in *Config, tlsCfg *TLSConfig) (*Config, error) {
 	return &out, nil
 }
 
-// Updateable is implemented when component/service of a robot should be updated with the config.
-type Updateable interface {
-	// Update updates the resource
-	Update(context.Context, *Config) error
-}
-
 // Regex to match if a config is referencing a Package. Group is the package name.
 var packageReferenceRegex = regexp.MustCompile(`^\$\{packages\.([A-Za-z0-9_\/-]+)}(.*)`)
 
@@ -793,8 +795,8 @@ func (p *PackageConfig) Validate(path string) error {
 		return utils.NewConfigValidationError(path, errors.New("empty package id"))
 	}
 
-	if !ValidNameRegex.MatchString(p.Name) {
-		return ErrInvalidName(p.Name)
+	if !rutils.ValidNameRegex.MatchString(p.Name) {
+		return rutils.ErrInvalidName(p.Name)
 	}
 
 	return nil

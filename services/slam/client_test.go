@@ -16,15 +16,13 @@ import (
 	"go.viam.com/utils/artifact"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/components/generic"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/pointcloud"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/slam/internal/testhelper"
 	spatial "go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/vision"
 )
@@ -87,10 +85,12 @@ func TestClientWorkingService(t *testing.T) {
 		return f, nil
 	}
 
-	workingSvc, err := subtype.New(map[resource.Name]interface{}{slam.Named(nameSucc): workingSLAMService})
+	workingSvc, err := resource.NewSubtypeCollection(slam.Subtype, map[resource.Name]slam.Service{slam.Named(nameSucc): workingSLAMService})
 	test.That(t, err, test.ShouldBeNil)
 
-	resourceSubtype := registry.ResourceSubtypeLookup(slam.Subtype)
+	resourceSubtype, ok, err := resource.LookupSubtypeRegistration[slam.Service](slam.Subtype)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, ok, test.ShouldBeTrue)
 	resourceSubtype.RegisterRPCService(context.Background(), workingServer, workingSvc)
 
 	go workingServer.Serve(listener)
@@ -108,7 +108,7 @@ func TestClientWorkingService(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		workingSLAMClient := slam.NewClientFromConn(context.Background(), conn, nameSucc, logger)
+		workingSLAMClient := slam.NewClientFromConn(context.Background(), conn, slam.Named(nameSucc), logger)
 		// test get position
 		pose, componentRef, err := workingSLAMClient.GetPosition(context.Background())
 		test.That(t, err, test.ShouldBeNil)
@@ -134,7 +134,7 @@ func TestClientWorkingService(t *testing.T) {
 	t.Run("client tests using working GRPC dial connection", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		workingDialedClient := slam.NewClientFromConn(context.Background(), conn, nameSucc, logger)
+		workingDialedClient := slam.NewClientFromConn(context.Background(), conn, slam.Named(nameSucc), logger)
 
 		// test get position
 		pose, componentRef, err := workingDialedClient.GetPosition(context.Background())
@@ -156,11 +156,11 @@ func TestClientWorkingService(t *testing.T) {
 		test.That(t, fullBytesInternalState, test.ShouldResemble, internalStateSucc)
 
 		// test do command
-		workingSLAMService.DoCommandFunc = generic.EchoFunc
-		resp, err := workingDialedClient.DoCommand(context.Background(), generic.TestCommand)
+		workingSLAMService.DoCommandFunc = testutils.EchoFunc
+		resp, err := workingDialedClient.DoCommand(context.Background(), testutils.TestCommand)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp["command"], test.ShouldEqual, generic.TestCommand["command"])
-		test.That(t, resp["data"], test.ShouldEqual, generic.TestCommand["data"])
+		test.That(t, resp["command"], test.ShouldEqual, testutils.TestCommand["command"])
+		test.That(t, resp["data"], test.ShouldEqual, testutils.TestCommand["data"])
 
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
@@ -168,18 +168,17 @@ func TestClientWorkingService(t *testing.T) {
 	t.Run("client tests using working GRPC dial connection converted to SLAM client", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		dialedClient := resourceSubtype.RPCClient(context.Background(), conn, nameSucc, logger)
-		workingDialedClient, ok := dialedClient.(slam.Service)
-		test.That(t, ok, test.ShouldBeTrue)
+		dialedClient, err := resourceSubtype.RPCClient(context.Background(), conn, slam.Named(nameSucc), logger)
+		test.That(t, err, test.ShouldBeNil)
 
 		// test get position
-		pose, componentRef, err := workingDialedClient.GetPosition(context.Background())
+		pose, componentRef, err := dialedClient.GetPosition(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, spatial.PoseAlmostEqual(poseSucc, pose), test.ShouldBeTrue)
 		test.That(t, componentRef, test.ShouldEqual, componentRefSucc)
 
 		// test get point cloud map
-		fullBytesPCD, err := slam.GetPointCloudMapFull(context.Background(), workingDialedClient)
+		fullBytesPCD, err := slam.GetPointCloudMapFull(context.Background(), dialedClient)
 		test.That(t, err, test.ShouldBeNil)
 		// comparing raw bytes to ensure order is correct
 		test.That(t, fullBytesPCD, test.ShouldResemble, pcd)
@@ -187,7 +186,7 @@ func TestClientWorkingService(t *testing.T) {
 		testhelper.TestComparePointCloudsFromPCDs(t, fullBytesPCD, pcd)
 
 		// test get internal state
-		fullBytesInternalState, err := slam.GetInternalStateFull(context.Background(), workingDialedClient)
+		fullBytesInternalState, err := slam.GetInternalStateFull(context.Background(), dialedClient)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, fullBytesInternalState, test.ShouldResemble, internalStateSucc)
 
@@ -222,10 +221,12 @@ func TestFailingClient(t *testing.T) {
 		return nil, errors.New("failure during get internal state")
 	}
 
-	failingSvc, err := subtype.New(map[resource.Name]interface{}{slam.Named(nameFail): failingSLAMService})
+	failingSvc, err := resource.NewSubtypeCollection(slam.Subtype, map[resource.Name]slam.Service{slam.Named(nameFail): failingSLAMService})
 	test.That(t, err, test.ShouldBeNil)
 
-	resourceSubtype := registry.ResourceSubtypeLookup(slam.Subtype)
+	resourceSubtype, ok, err := resource.LookupSubtypeRegistration[slam.Service](slam.Subtype)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, ok, test.ShouldBeTrue)
 	resourceSubtype.RegisterRPCService(context.Background(), failingServer, failingSvc)
 
 	go failingServer.Serve(listener)
@@ -235,7 +236,7 @@ func TestFailingClient(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		failingSLAMClient := slam.NewClientFromConn(context.Background(), conn, nameFail, logger)
+		failingSLAMClient := slam.NewClientFromConn(context.Background(), conn, slam.Named(nameFail), logger)
 
 		// testing context cancel for streaming apis
 		ctx := context.Background()
@@ -283,7 +284,7 @@ func TestFailingClient(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		failingSLAMClient := slam.NewClientFromConn(context.Background(), conn, nameFail, logger)
+		failingSLAMClient := slam.NewClientFromConn(context.Background(), conn, slam.Named(nameFail), logger)
 
 		// test get pointcloud map
 		fullBytesPCD, err := slam.GetPointCloudMapFull(context.Background(), failingSLAMClient)

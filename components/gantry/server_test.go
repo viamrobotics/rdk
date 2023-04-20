@@ -11,23 +11,21 @@ import (
 
 	"go.viam.com/rdk/components/gantry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
 )
 
 func newServer() (pb.GantryServiceServer, *inject.Gantry, *inject.Gantry, error) {
 	injectGantry := &inject.Gantry{}
 	injectGantry2 := &inject.Gantry{}
-	gantries := map[resource.Name]interface{}{
+	gantries := map[resource.Name]gantry.Gantry{
 		gantry.Named(testGantryName): injectGantry,
 		gantry.Named(failGantryName): injectGantry2,
-		gantry.Named(fakeGantryName): "notGantry",
 	}
-	gantrySvc, err := subtype.New(gantries)
+	gantrySvc, err := resource.NewSubtypeCollection(gantry.Subtype, gantries)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	return gantry.NewServer(gantrySvc), injectGantry, injectGantry2, nil
+	return gantry.NewRPCServiceServer(gantrySvc).(pb.GantryServiceServer), injectGantry, injectGantry2, nil
 }
 
 func TestServer(t *testing.T) {
@@ -72,14 +70,11 @@ func TestServer(t *testing.T) {
 		return errors.New("no stop")
 	}
 
+	//nolint:dupl
 	t.Run("gantry position", func(t *testing.T) {
 		_, err := gantryServer.GetPosition(context.Background(), &pb.GetPositionRequest{Name: missingGantryName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no gantry")
-
-		_, err = gantryServer.GetPosition(context.Background(), &pb.GetPositionRequest{Name: fakeGantryName})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "not a gantry")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
 		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "123", "bar": 234})
 		test.That(t, err, test.ShouldBeNil)
@@ -99,7 +94,7 @@ func TestServer(t *testing.T) {
 			&pb.MoveToPositionRequest{Name: missingGantryName, PositionsMm: pos2},
 		)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no gantry")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
 		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "234", "bar": 345})
 		test.That(t, err, test.ShouldBeNil)
@@ -120,10 +115,11 @@ func TestServer(t *testing.T) {
 		test.That(t, gantryPos, test.ShouldResemble, pos1)
 	})
 
+	//nolint:dupl
 	t.Run("lengths", func(t *testing.T) {
 		_, err := gantryServer.GetLengths(context.Background(), &pb.GetLengthsRequest{Name: missingGantryName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no gantry")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
 		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": 123, "bar": "234"})
 		test.That(t, err, test.ShouldBeNil)
@@ -140,7 +136,7 @@ func TestServer(t *testing.T) {
 	t.Run("stop", func(t *testing.T) {
 		_, err = gantryServer.Stop(context.Background(), &pb.StopRequest{Name: missingGantryName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no gantry")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
 		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": 234, "bar": "123"})
 		test.That(t, err, test.ShouldBeNil)

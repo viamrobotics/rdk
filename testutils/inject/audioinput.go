@@ -6,14 +6,15 @@ import (
 	"github.com/edaniels/gostream"
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pkg/errors"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/audioinput"
+	"go.viam.com/rdk/resource"
 )
 
 // AudioInput is an injected audio input.
 type AudioInput struct {
 	audioinput.AudioInput
+	name       resource.Name
 	DoFunc     func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	StreamFunc func(
 		ctx context.Context,
@@ -21,6 +22,16 @@ type AudioInput struct {
 	) (gostream.AudioStream, error)
 	MediaPropertiesFunc func(ctx context.Context) (prop.Audio, error)
 	CloseFunc           func(ctx context.Context) error
+}
+
+// NewAudioInput returns a new injected audio input.
+func NewAudioInput(name string) *AudioInput {
+	return &AudioInput{name: audioinput.Named(name)}
+}
+
+// Name returns the name of the resource.
+func (ai *AudioInput) Name() resource.Name {
+	return ai.name
 }
 
 // Stream calls the injected Stream or the real version.
@@ -48,7 +59,10 @@ func (ai *AudioInput) MediaProperties(ctx context.Context) (prop.Audio, error) {
 // Close calls the injected Close or the real version.
 func (ai *AudioInput) Close(ctx context.Context) error {
 	if ai.CloseFunc == nil {
-		return utils.TryClose(ctx, ai.AudioInput)
+		if ai.AudioInput == nil {
+			return nil
+		}
+		return ai.AudioInput.Close(ctx)
 	}
 	return ai.CloseFunc(ctx)
 }

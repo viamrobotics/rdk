@@ -9,13 +9,13 @@ import (
 	"go.opencensus.io/trace"
 
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
-	rdkutils "go.viam.com/rdk/utils"
+	"go.viam.com/rdk/utils"
 )
 
-type depthEdgesAttrs struct {
+type depthEdgesConfig struct {
 	HiThresh   float64 `json:"high_threshold_pct"`
 	LoThresh   float64 `json:"low_threshold_pct"`
 	BlurRadius float64 `json:"blur_radius_px"`
@@ -28,15 +28,11 @@ type depthEdgesSource struct {
 	blurRadius float64
 }
 
-func newDepthEdgesTransform(ctx context.Context, source gostream.VideoSource, am config.AttributeMap,
+func newDepthEdgesTransform(ctx context.Context, source gostream.VideoSource, am utils.AttributeMap,
 ) (gostream.VideoSource, camera.ImageType, error) {
-	conf, err := config.TransformAttributeMapToStruct(&(depthEdgesAttrs{}), am)
+	conf, err := resource.TransformAttributeMap[*depthEdgesConfig](am)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
-	}
-	attrs, ok := conf.(*depthEdgesAttrs)
-	if !ok {
-		return nil, camera.UnspecifiedStream, rdkutils.NewUnexpectedTypeError(attrs, conf)
 	}
 	props, err := propsFromVideoSource(ctx, source)
 	if err != nil {
@@ -48,10 +44,13 @@ func newDepthEdgesTransform(ctx context.Context, source gostream.VideoSource, am
 	if props.DistortionParams != nil {
 		cameraModel.Distortion = props.DistortionParams
 	}
-	canny := rimage.NewCannyDericheEdgeDetectorWithParameters(attrs.HiThresh, attrs.LoThresh, true)
+	canny := rimage.NewCannyDericheEdgeDetectorWithParameters(conf.HiThresh, conf.LoThresh, true)
 	videoSrc := &depthEdgesSource{gostream.NewEmbeddedVideoStream(source), canny, 3.0}
-	cam, err := camera.NewFromReader(ctx, videoSrc, &cameraModel, camera.DepthStream)
-	return cam, camera.DepthStream, err
+	src, err := camera.NewVideoSourceFromReader(ctx, videoSrc, &cameraModel, camera.DepthStream)
+	if err != nil {
+		return nil, camera.UnspecifiedStream, err
+	}
+	return src, camera.DepthStream, err
 }
 
 // Next applies a canny edge detector on the depth map of the next image.

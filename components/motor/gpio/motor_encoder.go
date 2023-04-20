@@ -15,11 +15,10 @@ import (
 
 	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/components/encoder/single"
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/control"
 	"go.viam.com/rdk/operation"
+	"go.viam.com/rdk/resource"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
@@ -52,7 +51,7 @@ func SetRPMSleepDebug(dur time.Duration, debug bool) func() {
 func WrapMotorWithEncoder(
 	ctx context.Context,
 	e encoder.Encoder,
-	c config.Component,
+	c resource.Config,
 	mc Config,
 	m motor.Motor,
 	logger golog.Logger,
@@ -68,7 +67,7 @@ func WrapMotorWithEncoder(
 		mc.TicksPerRotation = 1
 	}
 
-	mm, err := newEncodedMotor(mc, m, e, logger)
+	mm, err := newEncodedMotor(c.ResourceName(), mc, m, e, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -86,24 +85,25 @@ func WrapMotorWithEncoder(
 
 // NewEncodedMotor creates a new motor that supports an arbitrary source of encoder information.
 func NewEncodedMotor(
-	config config.Component,
+	conf resource.Config,
 	motorConfig Config,
 	realMotor motor.Motor,
 	encoder encoder.Encoder,
 	logger golog.Logger,
 ) (motor.LocalMotor, error) {
-	return newEncodedMotor(motorConfig, realMotor, encoder, logger)
+	return newEncodedMotor(conf.ResourceName(), motorConfig, realMotor, encoder, logger)
 }
 
 func newEncodedMotor(
+	name resource.Name,
 	motorConfig Config,
 	realMotor motor.Motor,
 	realEncoder encoder.Encoder,
 	logger golog.Logger,
 ) (*EncodedMotor, error) {
-	localReal, ok := realMotor.(motor.LocalMotor)
-	if !ok {
-		return nil, motor.NewUnimplementedLocalInterfaceError(realMotor)
+	localReal, err := resource.AsType[motor.LocalMotor](realMotor)
+	if err != nil {
+		return nil, err
 	}
 
 	if motorConfig.TicksPerRotation == 0 {
@@ -112,17 +112,15 @@ func newEncodedMotor(
 
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	em := &EncodedMotor{
-		activeBackgroundWorkers: &sync.WaitGroup{},
-		ticksPerRotation:        int64(motorConfig.TicksPerRotation),
-		real:                    localReal,
-		cancelCtx:               cancelCtx,
-		cancel:                  cancel,
-		stateMu:                 &sync.RWMutex{},
-		startedRPMMonitorMu:     &sync.Mutex{},
-		rampRate:                motorConfig.RampRate,
-		maxPowerPct:             motorConfig.MaxPowerPct,
-		logger:                  logger,
-		loop:                    nil,
+		Named:            name.AsNamed(),
+		cfg:              motorConfig,
+		ticksPerRotation: int64(motorConfig.TicksPerRotation),
+		real:             localReal,
+		cancelCtx:        cancelCtx,
+		cancel:           cancel,
+		rampRate:         motorConfig.RampRate,
+		maxPowerPct:      motorConfig.MaxPowerPct,
+		logger:           logger,
 	}
 
 	props, err := realEncoder.GetProperties(context.Background(), nil)
@@ -131,7 +129,7 @@ func newEncodedMotor(
 	}
 	if !props[encoder.TicksCountSupported] {
 		return nil,
-			encoder.NewEncodedMotorTypeUnsupportedError(props)
+			encoder.NewEncodedMotorPositionTypeUnsupportedError(props)
 	}
 	em.encoder = realEncoder
 
@@ -173,15 +171,19 @@ func newEncodedMotor(
 
 // EncodedMotor is a motor that utilizes an encoder to track its position.
 type EncodedMotor struct {
-	activeBackgroundWorkers *sync.WaitGroup
+	resource.Named
+	resource.AlwaysRebuild
+
+	activeBackgroundWorkers sync.WaitGroup
+	cfg                     Config
 	real                    motor.LocalMotor
 	encoder                 encoder.Encoder
 
-	stateMu *sync.RWMutex
+	stateMu sync.RWMutex
 	state   EncodedMotorState
 
 	startedRPMMonitor   bool
-	startedRPMMonitorMu *sync.Mutex
+	startedRPMMonitorMu sync.Mutex
 
 	// how fast as we increase power do we do so
 	// valid numbers are (0, 1]
@@ -197,8 +199,6 @@ type EncodedMotor struct {
 	cancel          func()
 	loop            *control.Loop
 	opMgr           operation.SingleOperationManager
-
-	generic.Unimplemented
 }
 
 // EncodedMotorState is the core, non-statistical state for the motor.
@@ -213,7 +213,7 @@ type EncodedMotorState struct {
 
 // Position returns the position of the motor.
 func (m *EncodedMotor) Position(ctx context.Context, extra map[string]interface{}) (float64, error) {
-	ticks, _, err := m.encoder.GetPosition(ctx, nil, extra)
+	ticks, _, err := m.encoder.GetPosition(ctx, encoder.PositionTypeUnspecified, extra)
 	if err != nil {
 		return 0, err
 	}
@@ -318,7 +318,7 @@ func (m *EncodedMotor) rpmMonitor() {
 	m.startedRPMMonitor = true
 	m.startedRPMMonitorMu.Unlock()
 
-	lastPosFl, _, err := m.encoder.GetPosition(m.cancelCtx, nil, nil)
+	lastPosFl, _, err := m.encoder.GetPosition(m.cancelCtx, encoder.PositionTypeUnspecified, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -342,7 +342,7 @@ func (m *EncodedMotor) rpmMonitor() {
 		case <-timer.C:
 		}
 
-		pos, _, err := m.encoder.GetPosition(m.cancelCtx, nil, nil)
+		pos, _, err := m.encoder.GetPosition(m.cancelCtx, encoder.PositionTypeUnspecified, nil)
 		if err != nil {
 			m.logger.Info("error getting encoder position, sleeping then continuing: %w", err)
 			if !utils.SelectContextOrWait(m.cancelCtx, 100*time.Millisecond) {
@@ -578,7 +578,7 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions float
 
 	numTicks := int64(revolutions * float64(m.ticksPerRotation))
 
-	pos, _, err := m.encoder.GetPosition(ctx, nil, nil)
+	pos, _, err := m.encoder.GetPosition(ctx, encoder.PositionTypeUnspecified, nil)
 	if err != nil {
 		return err
 	}
@@ -631,12 +631,13 @@ func (m *EncodedMotor) IsPowered(ctx context.Context, extra map[string]interface
 }
 
 // Close cleanly shuts down the motor.
-func (m *EncodedMotor) Close() {
+func (m *EncodedMotor) Close(ctx context.Context) error {
 	if m.loop != nil {
 		m.loop.Stop()
 	}
 	m.cancel()
 	m.activeBackgroundWorkers.Wait()
+	return nil
 }
 
 // GoTo instructs the motor to go to a specific position (provided in revolutions from home/zero),

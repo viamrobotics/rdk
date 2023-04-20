@@ -14,15 +14,12 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/jacobsa/go-serial/serial"
-	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 	"go.viam.com/utils/usb"
 
 	"go.viam.com/rdk/components/motor"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 )
 
@@ -52,6 +49,8 @@ type controller struct {
 
 // Motor is a single axis/motor/component instance.
 type Motor struct {
+	resource.Named
+	resource.AlwaysRebuild
 	c                *controller
 	Axis             string
 	TicksPerRotation int
@@ -61,11 +60,11 @@ type Motor struct {
 	jogging          bool
 	opMgr            operation.SingleOperationManager
 	powerPct         float64
-	motorName        string
 }
 
 // Config adds DMC-specific config options.
 type Config struct {
+	resource.TriviallyValidateConfig
 	DirectionFlip    bool    `json:"dir_flip,omitempty"` // Flip the direction of the signal sent if there is a Dir pin
 	MaxRPM           float64 `json:"max_rpm,omitempty"`
 	MaxAcceleration  float64 `json:"max_acceleration_rpm_per_sec,omitempty"`
@@ -88,33 +87,19 @@ type Config struct {
 func init() {
 	controllers = make(map[string]*controller)
 
-	_motor := registry.Component{
-		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-			return NewMotor(ctx, config.ConvertedAttributes.(*Config), config.Name, logger)
-		},
-	}
-	registry.RegisterComponent(motor.Subtype, modelName, _motor)
-
-	config.RegisterComponentAttributeMapConverter(
-		motor.Subtype,
-		modelName,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf Config
-			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Squash: true, Result: &conf})
+	resource.RegisterComponent(motor.Subtype, modelName, resource.Registration[motor.Motor, *Config]{
+		Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (motor.Motor, error) {
+			newConf, err := resource.NativeConfig[*Config](conf)
 			if err != nil {
 				return nil, err
 			}
-			if err := decoder.Decode(attributes); err != nil {
-				return nil, err
-			}
-			return &conf, nil
+			return NewMotor(ctx, newConf, conf.ResourceName(), logger)
 		},
-		&Config{},
-	)
+	})
 }
 
 // NewMotor returns a DMC4000 driven motor.
-func NewMotor(ctx context.Context, c *Config, name string, logger golog.Logger) (motor.LocalMotor, error) {
+func NewMotor(ctx context.Context, c *Config, name resource.Name, logger golog.Logger) (motor.LocalMotor, error) {
 	if c.SerialDevice == "" {
 		devs := usb.Search(usbFilter, func(vendorID, productID int) bool {
 			if vendorID == 0x403 && productID == 0x6001 {
@@ -160,6 +145,7 @@ func NewMotor(ctx context.Context, c *Config, name string, logger golog.Logger) 
 	}
 
 	m := &Motor{
+		Named:            name.AsNamed(),
 		c:                ctrl,
 		Axis:             c.Axis,
 		TicksPerRotation: c.TicksPerRotation,
@@ -167,7 +153,6 @@ func NewMotor(ctx context.Context, c *Config, name string, logger golog.Logger) 
 		MaxAcceleration:  c.MaxAcceleration,
 		HomeRPM:          c.HomeRPM,
 		powerPct:         0.0,
-		motorName:        name,
 	}
 
 	if m.MaxRPM <= 0 {
@@ -190,12 +175,12 @@ func NewMotor(ctx context.Context, c *Config, name string, logger golog.Logger) 
 }
 
 // Close stops the motor and marks the axis inactive.
-func (m *Motor) Close() {
+func (m *Motor) Close(ctx context.Context) error {
 	m.c.mu.Lock()
 	active := m.c.activeAxes[m.Axis]
 	m.c.mu.Unlock()
 	if !active {
-		return
+		return nil
 	}
 	err := m.Stop(context.Background(), nil)
 	if err != nil {
@@ -207,7 +192,7 @@ func (m *Motor) Close() {
 	m.c.activeAxes[m.Axis] = false
 	for _, active = range m.c.activeAxes {
 		if active {
-			return
+			return nil
 		}
 	}
 	if m.c.port != nil {
@@ -219,6 +204,7 @@ func (m *Motor) Close() {
 	globalMu.Lock()
 	defer globalMu.Unlock()
 	delete(controllers, m.c.serialDevice)
+	return nil
 }
 
 func newController(c *Config, logger golog.Logger) (*controller, error) {
@@ -543,7 +529,7 @@ func (m *Motor) GoTo(ctx context.Context, rpm, position float64, extra map[strin
 	defer m.c.mu.Unlock()
 
 	if err := m.doGoTo(rpm, position); err != nil {
-		return motor.NewGoToUnsupportedError(m.motorName)
+		return motor.NewGoToUnsupportedError(m.Name().ShortName())
 	}
 
 	return m.opMgr.WaitForSuccess(
@@ -603,7 +589,7 @@ func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64, extra map
 	defer m.c.mu.Unlock()
 	_, err := m.c.sendCmd(fmt.Sprintf("DP%s=%d", m.Axis, int(offset*float64(m.TicksPerRotation))))
 	if err != nil {
-		return errors.Wrapf(err, "error in ResetZeroPosition from motor (%s)", m.motorName)
+		return errors.Wrap(err, "error in ResetZeroPosition")
 	}
 	return err
 }
@@ -626,7 +612,7 @@ func (m *Motor) Stop(ctx context.Context, extra map[string]interface{}) error {
 	m.jogging = false
 	_, err := m.c.sendCmd(fmt.Sprintf("ST%s", m.Axis))
 	if err != nil {
-		return errors.Wrapf(err, "error in Stop function from motor (%s)", m.motorName)
+		return errors.Wrap(err, "error in Stop function")
 	}
 
 	return m.opMgr.WaitForSuccess(
@@ -651,7 +637,7 @@ func (m *Motor) IsMoving(ctx context.Context) (bool, error) {
 func (m *Motor) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
 	on, err := m.IsMoving(ctx)
 	if err != nil {
-		return on, m.powerPct, errors.Wrapf(err, "error in IsPowered from motor (%s)", m.motorName)
+		return on, m.powerPct, errors.Wrap(err, "error in IsPowered")
 	}
 	return on, m.powerPct, err
 }

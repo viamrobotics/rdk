@@ -13,15 +13,15 @@ import (
 	"go.viam.com/rdk/components/base"
 	fakebase "go.viam.com/rdk/components/base/fake"
 	"go.viam.com/rdk/components/input"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/services/baseremotecontrol"
 	"go.viam.com/rdk/testutils/inject"
 )
 
 func TestBaseRemoteControl(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
-	deps := make(registry.Dependencies)
+	deps := make(resource.Dependencies)
 	cfg := &Config{
 		BaseName:            "baseTest",
 		InputControllerName: "inputTest",
@@ -51,9 +51,9 @@ func TestBaseRemoteControl(t *testing.T) {
 	// New base_remote_control check
 	cfg.ControlModeName = "joystickControl"
 	tmpSvc, err := NewBuiltIn(ctx, deps,
-		config.Service{
+		resource.Config{
 			Name:                "base_remote_control",
-			Type:                "base_remote_control",
+			API:                 baseremotecontrol.Subtype,
 			ConvertedAttributes: cfg,
 		},
 		logger)
@@ -63,9 +63,9 @@ func TestBaseRemoteControl(t *testing.T) {
 
 	cfg.ControlModeName = "triggerSpeedControl"
 	tmpSvc1, err := NewBuiltIn(ctx, deps,
-		config.Service{
+		resource.Config{
 			Name:                "base_remote_control",
-			Type:                "base_remote_control",
+			API:                 baseremotecontrol.Subtype,
 			ConvertedAttributes: cfg,
 		},
 		logger)
@@ -75,9 +75,9 @@ func TestBaseRemoteControl(t *testing.T) {
 
 	cfg.ControlModeName = "arrowControl"
 	tmpSvc2, err := NewBuiltIn(ctx, deps,
-		config.Service{
+		resource.Config{
 			Name:                "base_remote_control",
-			Type:                "base_remote_control",
+			API:                 baseremotecontrol.Subtype,
 			ConvertedAttributes: cfg,
 		},
 		logger)
@@ -87,9 +87,9 @@ func TestBaseRemoteControl(t *testing.T) {
 
 	cfg.ControlModeName = "buttonControl"
 	tmpSvc3, err := NewBuiltIn(ctx, deps,
-		config.Service{
+		resource.Config{
 			Name:                "base_remote_control",
-			Type:                "base_remote_control",
+			API:                 baseremotecontrol.Subtype,
 			ConvertedAttributes: cfg,
 		},
 		logger)
@@ -99,9 +99,9 @@ func TestBaseRemoteControl(t *testing.T) {
 
 	cfg.ControlModeName = "fail"
 	tmpSvc4, err := NewBuiltIn(ctx, deps,
-		config.Service{
+		resource.Config{
 			Name:                "base_remote_control",
-			Type:                "base_remote_control",
+			API:                 baseremotecontrol.Subtype,
 			ConvertedAttributes: cfg,
 		},
 		logger)
@@ -114,43 +114,39 @@ func TestBaseRemoteControl(t *testing.T) {
 	deps[base.Named(cfg.BaseName)] = fakeBase
 
 	_, err = NewBuiltIn(ctx, deps,
-		config.Service{
+		resource.Config{
 			Name:                "base_remote_control",
-			Type:                "base_remote_control",
+			API:                 baseremotecontrol.Subtype,
 			ConvertedAttributes: cfg,
 		},
 		logger)
-	test.That(t, err, test.ShouldBeError, errors.New("\"inputTest\" missing from dependencies"))
+	test.That(t, err, test.ShouldBeError, errors.New("\"rdk:component:input_controller/inputTest\" missing from dependencies"))
 
 	// Base import failure
 	deps[input.Named(cfg.InputControllerName)] = fakeController
 	delete(deps, base.Named(cfg.BaseName))
 
 	_, err = NewBuiltIn(ctx, deps,
-		config.Service{
+		resource.Config{
 			Name:                "base_remote_control",
-			Type:                "base_remote_control",
+			API:                 baseremotecontrol.Subtype,
 			ConvertedAttributes: cfg,
 		},
 		logger)
-	test.That(t, err, test.ShouldBeError, errors.New("\"baseTest\" missing from dependencies"))
+	test.That(t, err, test.ShouldBeError, errors.New("\"rdk:component:base/baseTest\" missing from dependencies"))
 
 	//  Deps exist but are incorrect component
 	deps[input.Named(cfg.InputControllerName)] = fakeController
 	deps[base.Named(cfg.BaseName)] = fakeController
 	_, err = NewBuiltIn(ctx, deps,
-		config.Service{
+		resource.Config{
 			Name:                "base_remote_control",
-			Type:                "base_remote_control",
+			API:                 baseremotecontrol.Subtype,
 			ConvertedAttributes: cfg,
 		},
 		logger)
 	test.That(t, err, test.ShouldBeError,
-		errors.New("dependency \"baseTest\" should be an implementation of base.Base but it was a *inject.InputController"))
-
-	// Start checks
-	err = svc.start(ctx)
-	test.That(t, err, test.ShouldBeNil)
+		errors.New("dependency \"rdk:component:base/baseTest\" should be an implementation of base.Base but it was a *inject.InputController"))
 
 	// Controller event by mode
 	t.Run("controller events joystick control mode", func(t *testing.T) {
@@ -181,7 +177,9 @@ func TestBaseRemoteControl(t *testing.T) {
 	})
 
 	t.Run("controller events button no mode", func(t *testing.T) {
+		svc4.mu.Lock()
 		svc4.controlMode = 8
+		svc4.mu.Unlock()
 		i := svc4.ControllerInputs()
 		test.That(t, len(i), test.ShouldEqual, 0)
 	})
@@ -354,7 +352,7 @@ func TestBaseRemoteControl(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Close out check
-	err = utils.TryClose(context.Background(), svc)
+	err = svc.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)
 }
 

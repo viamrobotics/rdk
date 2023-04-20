@@ -46,7 +46,7 @@ func TestPlaneSegmentImageAndDepthMap(t *testing.T) {
 }
 
 type segmentTestHelper struct {
-	attrs        config.AttributeMap
+	attrs        utils.AttributeMap
 	cameraParams *transform.DepthColorIntrinsicsExtrinsics
 }
 

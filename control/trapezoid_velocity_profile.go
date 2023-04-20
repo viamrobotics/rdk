@@ -26,7 +26,7 @@ type trapezoidVelocityGenerator struct {
 	kPP0         float64 //nolint: revive
 	vDec         float64
 	targetPos    float64
-	y            []Signal
+	y            []*Signal
 	currentPhase int
 	lastsetPoint float64
 	dir          int
@@ -43,7 +43,7 @@ func newTrapezoidVelocityProfile(config BlockConfig, logger golog.Logger) (Block
 	return t, nil
 }
 
-func (s *trapezoidVelocityGenerator) Next(ctx context.Context, x []Signal, dt time.Duration) ([]Signal, bool) {
+func (s *trapezoidVelocityGenerator) Next(ctx context.Context, x []*Signal, dt time.Duration) ([]*Signal, bool) {
 	var pos float64
 	var setPoint float64
 	if len(x) == 2 {
@@ -110,7 +110,7 @@ func (s *trapezoidVelocityGenerator) reset() error {
 	s.posWindow = s.cfg.Attribute.Float64("pos_window", 10.0)
 	s.kppGain = s.cfg.Attribute.Float64("kpp_gain", 0.45)
 	s.currentPhase = rest
-	s.y = make([]Signal, 1)
+	s.y = make([]*Signal, 1)
 	s.y[0] = makeSignal(s.cfg.Name)
 	return nil
 }
@@ -128,7 +128,7 @@ func (s *trapezoidVelocityGenerator) UpdateConfig(ctx context.Context, config Bl
 	return s.reset()
 }
 
-func (s *trapezoidVelocityGenerator) Output(ctx context.Context) []Signal {
+func (s *trapezoidVelocityGenerator) Output(ctx context.Context) []*Signal {
 	return s.y
 }
 

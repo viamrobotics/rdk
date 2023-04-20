@@ -55,18 +55,15 @@ import (
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/components/servo"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/discovery"
 	rgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/robot"
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 	"go.viam.com/rdk/robot/server"
 	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
@@ -123,7 +120,7 @@ func TestStatusClient(t *testing.T) {
 		}
 	}
 
-	// TODO: RSDK-882 will update this so that this is not necessary
+	// TODO(RSDK-882): will update this so that this is not necessary
 	frameSystemConfigFunc := func(
 		ctx context.Context,
 		additionalTransforms []*referenceframe.LinkInFrame,
@@ -197,75 +194,76 @@ func TestStatusClient(t *testing.T) {
 		return 5, nil
 	}
 
-	armSvc1, err := subtype.New(map[resource.Name]interface{}{})
+	armSvc1, err := resource.NewSubtypeCollection(arm.Subtype, map[resource.Name]arm.Arm{})
 	test.That(t, err, test.ShouldBeNil)
-	armpb.RegisterArmServiceServer(gServer1, arm.NewServer(armSvc1))
+	gServer1.RegisterService(&armpb.ArmService_ServiceDesc, arm.NewRPCServiceServer(armSvc1))
 
-	armSvc2, err := subtype.New(map[resource.Name]interface{}{arm.Named("arm1"): injectArm})
+	armSvc2, err := resource.NewSubtypeCollection(arm.Subtype, map[resource.Name]arm.Arm{arm.Named("arm1"): injectArm})
 	test.That(t, err, test.ShouldBeNil)
-	armpb.RegisterArmServiceServer(gServer2, arm.NewServer(armSvc2))
+	gServer2.RegisterService(&armpb.ArmService_ServiceDesc, arm.NewRPCServiceServer(armSvc2))
 
-	baseSvc, err := subtype.New(map[resource.Name]interface{}{})
+	baseSvc, err := resource.NewSubtypeCollection(base.Subtype, map[resource.Name]base.Base{})
 	test.That(t, err, test.ShouldBeNil)
-	basepb.RegisterBaseServiceServer(gServer1, base.NewServer(baseSvc))
+	gServer1.RegisterService(&basepb.BaseService_ServiceDesc, base.NewRPCServiceServer(baseSvc))
 
-	baseSvc2, err := subtype.New(map[resource.Name]interface{}{base.Named("base1"): &inject.Base{}})
+	baseSvc2, err := resource.NewSubtypeCollection(base.Subtype, map[resource.Name]base.Base{base.Named("base1"): &inject.Base{}})
 	test.That(t, err, test.ShouldBeNil)
-	basepb.RegisterBaseServiceServer(gServer2, base.NewServer(baseSvc2))
+	gServer2.RegisterService(&basepb.BaseService_ServiceDesc, base.NewRPCServiceServer(baseSvc2))
 
-	boardSvc1, err := subtype.New(map[resource.Name]interface{}{})
+	boardSvc1, err := resource.NewSubtypeCollection(board.Subtype, map[resource.Name]board.Board{})
 	test.That(t, err, test.ShouldBeNil)
-	boardpb.RegisterBoardServiceServer(gServer1, board.NewServer(boardSvc1))
+	gServer1.RegisterService(&boardpb.BoardService_ServiceDesc, board.NewRPCServiceServer(boardSvc1))
 
-	boardSvc2, err := subtype.New(map[resource.Name]interface{}{board.Named("board1"): injectBoard})
+	boardSvc2, err := resource.NewSubtypeCollection(board.Subtype, map[resource.Name]board.Board{board.Named("board1"): injectBoard})
 	test.That(t, err, test.ShouldBeNil)
-	boardpb.RegisterBoardServiceServer(gServer2, board.NewServer(boardSvc2))
+	gServer2.RegisterService(&boardpb.BoardService_ServiceDesc, board.NewRPCServiceServer(boardSvc2))
 
-	cameraSvc1, err := subtype.New(map[resource.Name]interface{}{})
+	cameraSvc1, err := resource.NewSubtypeCollection(camera.Subtype, map[resource.Name]camera.Camera{})
 	test.That(t, err, test.ShouldBeNil)
-	camerapb.RegisterCameraServiceServer(gServer1, camera.NewServer(cameraSvc1))
+	gServer1.RegisterService(&camerapb.CameraService_ServiceDesc, camera.NewRPCServiceServer(cameraSvc1))
 
-	cameraSvc2, err := subtype.New(map[resource.Name]interface{}{camera.Named("camera1"): injectCamera})
+	cameraSvc2, err := resource.NewSubtypeCollection(camera.Subtype, map[resource.Name]camera.Camera{camera.Named("camera1"): injectCamera})
 	test.That(t, err, test.ShouldBeNil)
-	camerapb.RegisterCameraServiceServer(gServer2, camera.NewServer(cameraSvc2))
+	gServer2.RegisterService(&camerapb.CameraService_ServiceDesc, camera.NewRPCServiceServer(cameraSvc2))
 
-	gripperSvc1, err := subtype.New(map[resource.Name]interface{}{})
+	gripperSvc1, err := resource.NewSubtypeCollection(gripper.Subtype, map[resource.Name]gripper.Gripper{})
 	test.That(t, err, test.ShouldBeNil)
-	gripperpb.RegisterGripperServiceServer(gServer1, gripper.NewServer(gripperSvc1))
+	gServer1.RegisterService(&gripperpb.GripperService_ServiceDesc, gripper.NewRPCServiceServer(gripperSvc1))
 
-	gripperSvc2, err := subtype.New(map[resource.Name]interface{}{gripper.Named("gripper1"): injectGripper})
+	gripperSvc2, err := resource.NewSubtypeCollection(gripper.Subtype,
+		map[resource.Name]gripper.Gripper{gripper.Named("gripper1"): injectGripper})
 	test.That(t, err, test.ShouldBeNil)
-	gripperpb.RegisterGripperServiceServer(gServer2, gripper.NewServer(gripperSvc2))
+	gServer2.RegisterService(&gripperpb.GripperService_ServiceDesc, gripper.NewRPCServiceServer(gripperSvc2))
 
-	inputControllerSvc1, err := subtype.New(map[resource.Name]interface{}{})
+	inputControllerSvc1, err := resource.NewSubtypeCollection(input.Subtype, map[resource.Name]input.Controller{})
 	test.That(t, err, test.ShouldBeNil)
-	inputcontrollerpb.RegisterInputControllerServiceServer(gServer1, input.NewServer(inputControllerSvc1))
+	gServer1.RegisterService(&inputcontrollerpb.InputControllerService_ServiceDesc, input.NewRPCServiceServer(inputControllerSvc1))
 
-	inputControllerSvc2, err := subtype.New(map[resource.Name]interface{}{input.Named("inputController1"): injectInputDev})
+	inputControllerSvc2, err := resource.NewSubtypeCollection(
+		input.Subtype, map[resource.Name]input.Controller{input.Named("inputController1"): injectInputDev})
 	test.That(t, err, test.ShouldBeNil)
-	inputcontrollerpb.RegisterInputControllerServiceServer(gServer2, input.NewServer(inputControllerSvc2))
+	gServer2.RegisterService(&inputcontrollerpb.InputControllerService_ServiceDesc, input.NewRPCServiceServer(inputControllerSvc2))
 
-	motorSvc, err := subtype.New(map[resource.Name]interface{}{})
+	motorSvc, err := resource.NewSubtypeCollection(motor.Subtype, map[resource.Name]motor.Motor{})
 	test.That(t, err, test.ShouldBeNil)
-	motorpb.RegisterMotorServiceServer(gServer1, motor.NewServer(motorSvc))
+	gServer1.RegisterService(&motorpb.MotorService_ServiceDesc, motor.NewRPCServiceServer(motorSvc))
 
-	motorSvc2, err := subtype.New(
-		map[resource.Name]interface{}{motor.Named("motor1"): &inject.Motor{}, motor.Named("motor2"): &inject.Motor{}},
-	)
+	motorSvc2, err := resource.NewSubtypeCollection(motor.Subtype,
+		map[resource.Name]motor.Motor{motor.Named("motor1"): &inject.Motor{}, motor.Named("motor2"): &inject.Motor{}})
 	test.That(t, err, test.ShouldBeNil)
-	motorpb.RegisterMotorServiceServer(gServer2, motor.NewServer(motorSvc2))
+	gServer2.RegisterService(&motorpb.MotorService_ServiceDesc, motor.NewRPCServiceServer(motorSvc2))
 
-	servoSvc, err := subtype.New(map[resource.Name]interface{}{})
+	servoSvc, err := resource.NewSubtypeCollection(servo.Subtype, map[resource.Name]servo.Servo{})
 	test.That(t, err, test.ShouldBeNil)
-	servopb.RegisterServoServiceServer(gServer1, servo.NewServer(servoSvc))
+	gServer1.RegisterService(&servopb.ServoService_ServiceDesc, servo.NewRPCServiceServer(servoSvc))
 
-	servoSvc2, err := subtype.New(map[resource.Name]interface{}{servo.Named("servo1"): injectServo})
+	servoSvc2, err := resource.NewSubtypeCollection(servo.Subtype, map[resource.Name]servo.Servo{servo.Named("servo1"): injectServo})
 	test.That(t, err, test.ShouldBeNil)
-	servopb.RegisterServoServiceServer(gServer2, servo.NewServer(servoSvc2))
+	gServer2.RegisterService(&servopb.ServoService_ServiceDesc, servo.NewRPCServiceServer(servoSvc2))
 
-	sensorSvc, err := subtype.New(map[resource.Name]interface{}{})
+	sensorSvc, err := resource.NewSubtypeCollection(sensor.Subtype, map[resource.Name]sensor.Sensor{})
 	test.That(t, err, test.ShouldBeNil)
-	sensorpb.RegisterSensorServiceServer(gServer1, sensor.NewServer(sensorSvc))
+	gServer1.RegisterService(&sensorpb.SensorService_ServiceDesc, sensor.NewRPCServiceServer(sensorSvc))
 
 	go gServer1.Serve(listener1)
 	defer gServer1.Stop()
@@ -284,10 +282,10 @@ func TestStatusClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	cfg := config.Config{
-		Components: []config.Component{
+		Components: []resource.Config{
 			{
 				Name: "a",
-				Type: arm.SubtypeName,
+				API:  arm.Subtype,
 				Frame: &referenceframe.LinkConfig{
 					Parent:      "b",
 					Translation: r3.Vector{X: 1, Y: 2, Z: 3},
@@ -296,7 +294,7 @@ func TestStatusClient(t *testing.T) {
 			},
 			{
 				Name: "b",
-				Type: base.SubtypeName,
+				API:  base.Subtype,
 			},
 		},
 	}
@@ -311,19 +309,19 @@ func TestStatusClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	_, err = arm1.EndPosition(context.Background(), nil)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
 	_, err = arm1.JointPositions(context.Background(), nil)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
 	err = arm1.MoveToPosition(context.Background(), spatialmath.NewPoseFromPoint(r3.Vector{X: 1}), nil)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
 	err = arm1.MoveToJointPositions(context.Background(), &armpb.JointPositions{Values: []float64{1}}, nil)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
 	_, err = base.FromRobot(client, "base1")
 	test.That(t, err, test.ShouldBeNil)
@@ -335,64 +333,64 @@ func TestStatusClient(t *testing.T) {
 
 	_, err = board1.Status(context.Background(), nil)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no board")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
 	camera1, err := camera.FromRobot(client, "camera1")
 	test.That(t, err, test.ShouldBeNil)
 	_, _, err = camera.ReadImage(context.Background(), camera1)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no camera")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
 	gripper1, err := gripper.FromRobot(client, "gripper1")
 	test.That(t, err, test.ShouldBeNil)
 	err = gripper1.Open(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no gripper")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 	_, err = gripper1.Grab(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no gripper")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
 	motor1, err := motor.FromRobot(client, "motor1")
 	test.That(t, err, test.ShouldBeNil)
 	err = motor1.SetPower(context.Background(), 0, nil)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no motor")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 	err = motor1.GoFor(context.Background(), 0, 0, nil)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no motor")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
 	sensorDevice, err := sensor.FromRobot(client, "sensor1")
 	test.That(t, err, test.ShouldBeNil)
 	_, err = sensorDevice.Readings(context.Background(), make(map[string]interface{}))
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no generic sensor")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
 	servo1, err := servo.FromRobot(client, "servo1")
 	test.That(t, err, test.ShouldBeNil)
 	err = servo1.Move(context.Background(), 5, nil)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no servo")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
 	_, err = servo1.Position(context.Background(), nil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no servo")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
 	resource1, err := client.ResourceByName(arm.Named("arm1"))
 	test.That(t, err, test.ShouldBeNil)
 	_, err = resource1.(arm.Arm).EndPosition(context.Background(), nil)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
 	_, err = resource1.(arm.Arm).JointPositions(context.Background(), nil)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
 	err = resource1.(arm.Arm).MoveToPosition(context.Background(), spatialmath.NewPoseFromPoint(r3.Vector{X: 1}), nil)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
 	err = resource1.(arm.Arm).MoveToJointPositions(context.Background(), &armpb.JointPositions{Values: []float64{1}}, nil)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
 	err = client.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -671,7 +669,7 @@ func TestClientDisconnect(t *testing.T) {
 		return []resource.Name{arm.Named("arm1")}
 	}
 
-	// TODO: RSDK-882 will update this so that this is not necessary
+	// TODO(RSDK-882): will update this so that this is not necessary
 	injectRobot.FrameSystemConfigFunc = func(
 		ctx context.Context,
 		additionalTransforms []*referenceframe.LinkInFrame,
@@ -695,7 +693,7 @@ func TestClientDisconnect(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
-		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
+		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
 	}()
 
 	test.That(t, client.Connected(), test.ShouldBeTrue)
@@ -759,12 +757,12 @@ func TestClientUnaryDisconnectHandler(t *testing.T) {
 	t.Run("unary call to connected remote", func(t *testing.T) {
 		t.Helper()
 
-		client.connected = false
+		client.connected.Store(false)
 		_, err = client.Status(context.Background(), []resource.Name{})
 		test.That(t, status.Code(err), test.ShouldEqual, codes.Unavailable)
 		test.That(t, err.Error(), test.ShouldContainSubstring, fmt.Sprintf("not connected to remote robot at %s", listener.Addr().String()))
 		test.That(t, unaryStatusCallReceived, test.ShouldBeFalse)
-		client.connected = true
+		client.connected.Store(true)
 	})
 
 	t.Run("unary call to disconnected remote", func(t *testing.T) {
@@ -783,7 +781,7 @@ func TestClientUnaryDisconnectHandler(t *testing.T) {
 	})
 
 	defer func() {
-		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
+		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
 	}()
 	gServer.Stop()
 }
@@ -833,12 +831,12 @@ func TestClientStreamDisconnectHandler(t *testing.T) {
 	t.Run("stream call to disconnected remote", func(t *testing.T) {
 		t.Helper()
 
-		client.connected = false
+		client.connected.Store(false)
 		_, err = client.client.StreamStatus(context.Background(), &pb.StreamStatusRequest{})
 		test.That(t, status.Code(err), test.ShouldEqual, codes.Unavailable)
 		test.That(t, err.Error(), test.ShouldContainSubstring, fmt.Sprintf("not connected to remote robot at %s", listener.Addr().String()))
 		test.That(t, streamStatusCallReceived, test.ShouldBeFalse)
-		client.connected = true
+		client.connected.Store(true)
 	})
 
 	t.Run("stream call to connected remote", func(t *testing.T) {
@@ -856,30 +854,23 @@ func TestClientStreamDisconnectHandler(t *testing.T) {
 		ssc, err := client.client.StreamStatus(context.Background(), &pb.StreamStatusRequest{})
 		test.That(t, err, test.ShouldBeNil)
 
-		client.connected = false
+		client.connected.Store(false)
 		_, err = ssc.Recv()
 		test.That(t, status.Code(err), test.ShouldEqual, codes.Unavailable)
 		test.That(t, err.Error(), test.ShouldContainSubstring, fmt.Sprintf("not connected to remote robot at %s", listener.Addr().String()))
-		client.connected = true
+		client.connected.Store(true)
 	})
 
 	defer func() {
-		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
+		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
 	}()
 	gServer.Stop()
 }
 
 type mockType struct {
-	reconfCount int64
-}
-
-func (mt *mockType) Name() resource.Name {
-	return resource.Name{}
-}
-
-func (mt *mockType) Reconfigure(ctx context.Context, newRes resource.Reconfigurable) error {
-	atomic.AddInt64(&mt.reconfCount, 1)
-	return nil
+	resource.Named
+	resource.AlwaysRebuild
+	resource.TriviallyCloseable
 }
 
 func TestClientReconnect(t *testing.T) {
@@ -889,12 +880,12 @@ func TestClientReconnect(t *testing.T) {
 		resource.SubtypeName(uuid.New().String()),
 	)
 	var called int64
-	registry.RegisterResourceSubtype(
+	resource.RegisterSubtype(
 		someSubtype,
-		registry.ResourceSubtype{
-			RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
+		resource.SubtypeRegistration[resource.Resource]{
+			RPCClient: func(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (resource.Resource, error) {
 				atomic.AddInt64(&called, 1)
-				return &mockType{}
+				return &mockType{Named: name.AsNamed()}, nil
 			},
 		},
 	)
@@ -911,7 +902,7 @@ func TestClientReconnect(t *testing.T) {
 		return []resource.Name{arm.Named("arm1"), thing1Name}
 	}
 
-	// TODO: RSDK-882 will update this so that this is not necessary
+	// TODO(RSDK-882): will update this so that this is not necessary
 	injectRobot.FrameSystemConfigFunc = func(
 		ctx context.Context,
 		additionalTransforms []*referenceframe.LinkInFrame,
@@ -924,9 +915,9 @@ func TestClientReconnect(t *testing.T) {
 		return pose1, nil
 	}
 
-	armSvc2, err := subtype.New(map[resource.Name]interface{}{arm.Named("arm1"): injectArm})
+	armSvc2, err := resource.NewSubtypeCollection(arm.Subtype, map[resource.Name]arm.Arm{arm.Named("arm1"): injectArm})
 	test.That(t, err, test.ShouldBeNil)
-	armpb.RegisterArmServiceServer(gServer, arm.NewServer(armSvc2))
+	gServer.RegisterService(&armpb.ArmService_ServiceDesc, arm.NewRPCServiceServer(armSvc2))
 
 	go gServer.Serve(listener)
 
@@ -940,11 +931,11 @@ func TestClientReconnect(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
-		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
+		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
 	}()
 
 	test.That(t, len(client.ResourceNames()), test.ShouldEqual, 2)
-	thing1Client, err := client.ResourceByName(thing1Name)
+	_, err = client.ResourceByName(thing1Name)
 	test.That(t, err, test.ShouldBeNil)
 	a, err := client.ResourceByName(arm.Named("arm1"))
 	test.That(t, err, test.ShouldBeNil)
@@ -952,7 +943,6 @@ func TestClientReconnect(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, atomic.LoadInt64(&called), test.ShouldEqual, 1)
-	test.That(t, atomic.LoadInt64(&thing1Client.(*mockType).reconfCount), test.ShouldEqual, 0)
 
 	gServer.Stop()
 
@@ -963,7 +953,7 @@ func TestClientReconnect(t *testing.T) {
 
 	gServer2 := grpc.NewServer()
 	pb.RegisterRobotServiceServer(gServer2, server.New(injectRobot))
-	armpb.RegisterArmServiceServer(gServer2, arm.NewServer(armSvc2))
+	gServer2.RegisterService(&armpb.ArmService_ServiceDesc, arm.NewRPCServiceServer(armSvc2))
 
 	// Note: There's a slight chance this test can fail if someone else
 	// claims the port we just released by closing the server.
@@ -980,8 +970,7 @@ func TestClientReconnect(t *testing.T) {
 	_, err = a.(arm.Arm).EndPosition(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, atomic.LoadInt64(&called), test.ShouldEqual, 2)
-	test.That(t, atomic.LoadInt64(&thing1Client.(*mockType).reconfCount), test.ShouldEqual, 1)
+	test.That(t, atomic.LoadInt64(&called), test.ShouldEqual, 1)
 }
 
 func TestClientRefreshNoReconfigure(t *testing.T) {
@@ -991,12 +980,12 @@ func TestClientRefreshNoReconfigure(t *testing.T) {
 		resource.SubtypeName(uuid.New().String()),
 	)
 	var called int64
-	registry.RegisterResourceSubtype(
+	resource.RegisterSubtype(
 		someSubtype,
-		registry.ResourceSubtype{
-			RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
+		resource.SubtypeRegistration[resource.Resource]{
+			RPCClient: func(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (resource.Resource, error) {
 				atomic.AddInt64(&called, 1)
-				return &mockType{}
+				return &mockType{Named: name.AsNamed()}, nil
 			},
 		},
 	)
@@ -1038,19 +1027,18 @@ func TestClientRefreshNoReconfigure(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
-		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
+		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
 	}()
-
-	thing1Client, err := client.ResourceByName(thing1Name)
-	test.That(t, err, test.ShouldBeNil)
 
 	close(allow)
 	<-calledEnough
 
 	test.That(t, len(client.ResourceNames()), test.ShouldEqual, 2)
 
+	_, err = client.ResourceByName(thing1Name)
+	test.That(t, err, test.ShouldBeNil)
+
 	test.That(t, atomic.LoadInt64(&called), test.ShouldEqual, 1)
-	test.That(t, atomic.LoadInt64(&thing1Client.(*mockType).reconfCount), test.ShouldEqual, 0)
 }
 
 func TestClientDialerOption(t *testing.T) {
@@ -1156,9 +1144,9 @@ func TestClientDiscovery(t *testing.T) {
 	injectRobot.ResourceNamesFunc = func() []resource.Name {
 		return finalResources
 	}
-	q := discovery.Query{movementsensor.Named("foo").Subtype, resource.NewDefaultModel("something")}
-	injectRobot.DiscoverComponentsFunc = func(ctx context.Context, keys []discovery.Query) ([]discovery.Discovery, error) {
-		return []discovery.Discovery{{
+	q := resource.DiscoveryQuery{movementsensor.Named("foo").Subtype, resource.NewDefaultModel("something")}
+	injectRobot.DiscoverComponentsFunc = func(ctx context.Context, keys []resource.DiscoveryQuery) ([]resource.Discovery, error) {
+		return []resource.Discovery{{
 			Query:   q,
 			Results: map[string]interface{}{"abc": []float64{1.2, 2.3, 3.4}},
 		}}, nil
@@ -1176,7 +1164,7 @@ func TestClientDiscovery(t *testing.T) {
 	client, err := New(context.Background(), listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	resp, err := client.DiscoverComponents(context.Background(), []discovery.Query{q})
+	resp, err := client.DiscoverComponents(context.Background(), []resource.DiscoveryQuery{q})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(resp), test.ShouldEqual, 1)
 	test.That(t, resp[0].Query, test.ShouldResemble, q)
@@ -1442,7 +1430,7 @@ func TestClientStatus(t *testing.T) {
 		_, err = client2.Status(context.Background(), []resource.Name{})
 		test.That(t, err.Error(), test.ShouldContainSubstring, passedErr.Error())
 
-		test.That(t, utils.TryClose(context.Background(), client2), test.ShouldBeNil)
+		test.That(t, client2.Close(context.Background()), test.ShouldBeNil)
 	})
 }
 
@@ -1476,7 +1464,7 @@ func TestForeignResource(t *testing.T) {
 
 	injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return respWith }
 	injectRobot.ResourceNamesFunc = func() []resource.Name { return respWithResources }
-	// TODO: RSDK-882 will update this so that this is not necessary
+	// TODO(RSDK-882): will update this so that this is not necessary
 	injectRobot.FrameSystemConfigFunc = func(
 		ctx context.Context,
 		additionalTransforms []*referenceframe.LinkInFrame,
@@ -1613,7 +1601,7 @@ func TestRemoteClientMatch(t *testing.T) {
 		ResourceRPCSubtypesFunc: func() []resource.RPCSubtype { return nil },
 	}
 
-	// TODO: RSDK-882 will update this so that this is not necessary
+	// TODO(RSDK-882): will update this so that this is not necessary
 	injectRobot1.FrameSystemConfigFunc = func(
 		ctx context.Context,
 		additionalTransforms []*referenceframe.LinkInFrame,
@@ -1628,9 +1616,9 @@ func TestRemoteClientMatch(t *testing.T) {
 		return pose1, nil
 	}
 
-	armSvc1, err := subtype.New(map[resource.Name]interface{}{arm.Named("remote:arm1"): injectArm})
+	armSvc1, err := resource.NewSubtypeCollection(arm.Subtype, map[resource.Name]arm.Arm{arm.Named("remote:arm1"): injectArm})
 	test.That(t, err, test.ShouldBeNil)
-	armpb.RegisterArmServiceServer(gServer1, arm.NewServer(armSvc1))
+	gServer1.RegisterService(&armpb.ArmService_ServiceDesc, arm.NewRPCServiceServer(armSvc1))
 
 	go gServer1.Serve(listener1)
 	defer gServer1.Stop()
@@ -1673,9 +1661,12 @@ func TestRemoteClientDuplicate(t *testing.T) {
 		return pose1, nil
 	}
 
-	armSvc1, err := subtype.New(map[resource.Name]interface{}{arm.Named("remote1:arm1"): injectArm, arm.Named("remote2:arm1"): injectArm})
+	armSvc1, err := resource.NewSubtypeCollection(arm.Subtype, map[resource.Name]arm.Arm{
+		arm.Named("remote1:arm1"): injectArm,
+		arm.Named("remote2:arm1"): injectArm,
+	})
 	test.That(t, err, test.ShouldBeNil)
-	armpb.RegisterArmServiceServer(gServer1, arm.NewServer(armSvc1))
+	gServer1.RegisterService(&armpb.ArmService_ServiceDesc, arm.NewRPCServiceServer(armSvc1))
 
 	go gServer1.Serve(listener1)
 	defer gServer1.Stop()
@@ -1691,7 +1682,7 @@ func TestRemoteClientDuplicate(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = client.ResourceByName(arm.Named("arm1"))
-	test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(arm.Named("arm1")))
+	test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(arm.Named("arm1")))
 
 	err = client.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -1751,7 +1742,7 @@ func TestGetUnknownResource(t *testing.T) {
 		ResourceRPCSubtypesFunc: func() []resource.RPCSubtype { return nil },
 	}
 
-	// TODO: RSDK-882 will update this so that this is not necessary
+	// TODO(RSDK-882): will update this so that this is not necessary
 	injectRobot.FrameSystemConfigFunc = func(
 		ctx context.Context,
 		additionalTransforms []*referenceframe.LinkInFrame,
@@ -1775,7 +1766,7 @@ func TestGetUnknownResource(t *testing.T) {
 
 	// grabbing unknown resource returns error
 	_, err = client.ResourceByName(base.Named("notABase"))
-	test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(base.Named("notABase")))
+	test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(base.Named("notABase")))
 
 	err = client.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)

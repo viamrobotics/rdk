@@ -6,14 +6,15 @@ import (
 
 	commonpb "go.viam.com/api/common/v1"
 	boardpb "go.viam.com/api/component/board/v1"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/resource"
 )
 
 // Board is an injected board.
 type Board struct {
 	board.LocalBoard
+	name                       resource.Name
 	DoFunc                     func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	SPIByNameFunc              func(name string) (board.SPI, bool)
 	spiByNameCap               []interface{}
@@ -34,6 +35,16 @@ type Board struct {
 	StatusFunc                 func(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error)
 	statusCap                  []interface{}
 	SetPowerModeFunc           func(ctx context.Context, mode boardpb.PowerMode, duration *time.Duration) error
+}
+
+// NewBoard returns a new injected board.
+func NewBoard(name string) *Board {
+	return &Board{name: board.Named(name)}
+}
+
+// Name returns the name of the resource.
+func (b *Board) Name() resource.Name {
+	return b.name
 }
 
 // SPIByName calls the injected SPIByName or the real version.
@@ -151,7 +162,10 @@ func (b *Board) GPIOPinNames() []string {
 // Close calls the injected Close or the real version.
 func (b *Board) Close(ctx context.Context) error {
 	if b.CloseFunc == nil {
-		return utils.TryClose(ctx, b.LocalBoard)
+		if b.LocalBoard == nil {
+			return nil
+		}
+		return b.LocalBoard.Close(ctx)
 	}
 	return b.CloseFunc(ctx)
 }

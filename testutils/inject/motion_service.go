@@ -15,6 +15,7 @@ import (
 // service.
 type MotionService struct {
 	motion.Service
+	name     resource.Name
 	MoveFunc func(
 		ctx context.Context,
 		componentName resource.Name,
@@ -47,6 +48,17 @@ type MotionService struct {
 	) (*referenceframe.PoseInFrame, error)
 	DoCommandFunc func(ctx context.Context,
 		cmd map[string]interface{}) (map[string]interface{}, error)
+	CloseFunc func(ctx context.Context) error
+}
+
+// NewMotionService returns a new injected motion service.
+func NewMotionService(name string) *MotionService {
+	return &MotionService{name: motion.Named(name)}
+}
+
+// Name returns the name of the resource.
+func (mgs *MotionService) Name() resource.Name {
+	return mgs.name
 }
 
 // Move calls the injected Move or the real variant.
@@ -114,4 +126,15 @@ func (mgs *MotionService) DoCommand(ctx context.Context,
 		return mgs.Service.DoCommand(ctx, cmd)
 	}
 	return mgs.DoCommandFunc(ctx, cmd)
+}
+
+// Close calls the injected Close or the real version.
+func (mgs *MotionService) Close(ctx context.Context) error {
+	if mgs.CloseFunc == nil {
+		if mgs.Service == nil {
+			return nil
+		}
+		return mgs.Service.Close(ctx)
+	}
+	return mgs.CloseFunc(ctx)
 }

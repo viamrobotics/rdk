@@ -3,14 +3,13 @@ package control
 import (
 	"context"
 	"math"
-	"sync"
 	"testing"
 	"time"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/utils"
 )
 
 func TestTrapezoidVelocityProfileConfig(t *testing.T) {
@@ -25,7 +24,7 @@ func TestTrapezoidVelocityProfileConfig(t *testing.T) {
 				Name:      "Trap1",
 				Type:      "trapezoidalVelocityProfile",
 				DependsOn: []string{},
-				Attribute: config.AttributeMap{
+				Attribute: utils.AttributeMap{
 					"max_acc": 1000.0,
 					"max_vel": 100.0,
 				},
@@ -37,7 +36,7 @@ func TestTrapezoidVelocityProfileConfig(t *testing.T) {
 				Name:      "Trap1",
 				Type:      "trapezoidalVelocityProfile",
 				DependsOn: []string{},
-				Attribute: config.AttributeMap{
+				Attribute: utils.AttributeMap{
 					"max_acc": 1000.0,
 				},
 			},
@@ -48,7 +47,7 @@ func TestTrapezoidVelocityProfileConfig(t *testing.T) {
 				Name:      "Trap1",
 				Type:      "trapezoidalVelocityProfile",
 				DependsOn: []string{},
-				Attribute: config.AttributeMap{
+				Attribute: utils.AttributeMap{
 					"max_vel": 1000.0,
 				},
 			},
@@ -74,7 +73,7 @@ func TestTrapezoidVelocityProfileGenerator(t *testing.T) {
 		Name:      "Trap1",
 		Type:      "trapezoidalVelocityProfile",
 		DependsOn: []string{},
-		Attribute: config.AttributeMap{
+		Attribute: utils.AttributeMap{
 			"max_acc":    1000.0,
 			"max_vel":    100.0,
 			"pos_window": posWindow,
@@ -84,18 +83,16 @@ func TestTrapezoidVelocityProfileGenerator(t *testing.T) {
 	s := b.(*trapezoidVelocityGenerator)
 	test.That(t, err, test.ShouldBeNil)
 
-	ins := []Signal{
+	ins := []*Signal{
 		{
 			name:   "set_point",
 			time:   []int{},
 			signal: []float64{targetPos},
-			mu:     &sync.Mutex{},
 		},
 		{
 			name:   "endpoint",
 			time:   []int{},
 			signal: []float64{0.0},
-			mu:     &sync.Mutex{},
 		},
 	}
 

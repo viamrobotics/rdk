@@ -8,9 +8,8 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/movementsensor"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/sensors/builtin"
 	"go.viam.com/rdk/testutils"
@@ -20,8 +19,8 @@ import (
 func TestNew(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	t.Run("no error", func(t *testing.T) {
-		deps := make(registry.Dependencies)
-		svc, err := builtin.NewBuiltIn(context.Background(), deps, config.Service{}, logger)
+		deps := make(resource.Dependencies)
+		svc, err := builtin.NewBuiltIn(context.Background(), deps, resource.Config{}, logger)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, svc, test.ShouldNotBeNil)
 	})
@@ -30,13 +29,16 @@ func TestNew(t *testing.T) {
 func TestGetSensors(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	sensorNames := []resource.Name{movementsensor.Named("imu"), movementsensor.Named("gps")}
-	deps := make(registry.Dependencies)
+	deps := make(resource.Dependencies)
 
 	t.Run("no sensors", func(t *testing.T) {
-		resourceMap := map[resource.Name]interface{}{movementsensor.Named("imu"): "resource", movementsensor.Named("gps"): "resource"}
-		svc, err := builtin.NewBuiltIn(context.Background(), deps, config.Service{}, logger)
+		resourceMap := map[resource.Name]resource.Resource{
+			movementsensor.Named("imu"): testutils.NewUnimplementedResource(movementsensor.Named("resource")),
+			movementsensor.Named("gps"): testutils.NewUnimplementedResource(movementsensor.Named("resource")),
+		}
+		svc, err := builtin.NewBuiltIn(context.Background(), deps, resource.Config{}, logger)
 		test.That(t, err, test.ShouldBeNil)
-		err = svc.(resource.Updateable).Update(context.Background(), resourceMap)
+		err = svc.Reconfigure(context.Background(), resourceMap, resource.Config{})
 		test.That(t, err, test.ShouldBeNil)
 
 		names, err := svc.Sensors(context.Background(), map[string]interface{}{})
@@ -45,10 +47,13 @@ func TestGetSensors(t *testing.T) {
 	})
 
 	t.Run("one sensor", func(t *testing.T) {
-		resourceMap := map[resource.Name]interface{}{movementsensor.Named("imu"): &inject.Sensor{}, movementsensor.Named("gps"): "resource"}
-		svc, err := builtin.NewBuiltIn(context.Background(), deps, config.Service{}, logger)
+		resourceMap := map[resource.Name]resource.Resource{
+			movementsensor.Named("imu"): &inject.Sensor{},
+			movementsensor.Named("gps"): testutils.NewUnimplementedResource(movementsensor.Named("resource")),
+		}
+		svc, err := builtin.NewBuiltIn(context.Background(), deps, resource.Config{}, logger)
 		test.That(t, err, test.ShouldBeNil)
-		err = svc.(resource.Updateable).Update(context.Background(), resourceMap)
+		err = svc.Reconfigure(context.Background(), resourceMap, resource.Config{})
 		test.That(t, err, test.ShouldBeNil)
 
 		sNames1, err := svc.Sensors(context.Background(), map[string]interface{}{})
@@ -62,13 +67,13 @@ func TestGetSensors(t *testing.T) {
 	})
 
 	t.Run("many sensors", func(t *testing.T) {
-		resourceMap := map[resource.Name]interface{}{
+		resourceMap := map[resource.Name]resource.Resource{
 			movementsensor.Named("imu"): &inject.Sensor{},
 			movementsensor.Named("gps"): &inject.Sensor{},
 		}
-		svc, err := builtin.NewBuiltIn(context.Background(), deps, config.Service{}, logger)
+		svc, err := builtin.NewBuiltIn(context.Background(), deps, resource.Config{}, logger)
 		test.That(t, err, test.ShouldBeNil)
-		err = svc.(resource.Updateable).Update(context.Background(), resourceMap)
+		err = svc.Reconfigure(context.Background(), resourceMap, resource.Config{})
 		test.That(t, err, test.ShouldBeNil)
 
 		sNames1, err := svc.Sensors(context.Background(), map[string]interface{}{})
@@ -80,15 +85,17 @@ func TestGetSensors(t *testing.T) {
 func TestReadings(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	sensorNames := []resource.Name{movementsensor.Named("imu"), movementsensor.Named("gps"), movementsensor.Named("gps2")}
-	deps := make(registry.Dependencies)
+	deps := make(resource.Dependencies)
 
 	t.Run("no sensors", func(t *testing.T) {
-		resourceMap := map[resource.Name]interface{}{
-			movementsensor.Named("imu"): "resource", movementsensor.Named("gps"): "resource", movementsensor.Named("gps2"): "resource",
+		resourceMap := map[resource.Name]resource.Resource{
+			movementsensor.Named("imu"):  testutils.NewUnimplementedResource(movementsensor.Named("resource")),
+			movementsensor.Named("gps"):  testutils.NewUnimplementedResource(movementsensor.Named("resource")),
+			movementsensor.Named("gps2"): testutils.NewUnimplementedResource(movementsensor.Named("resource")),
 		}
-		svc, err := builtin.NewBuiltIn(context.Background(), deps, config.Service{}, logger)
+		svc, err := builtin.NewBuiltIn(context.Background(), deps, resource.Config{}, logger)
 		test.That(t, err, test.ShouldBeNil)
-		err = svc.(resource.Updateable).Update(context.Background(), resourceMap)
+		err = svc.Reconfigure(context.Background(), resourceMap, resource.Config{})
 		test.That(t, err, test.ShouldBeNil)
 
 		_, err = svc.Readings(context.Background(), []resource.Name{movementsensor.Named("imu")}, map[string]interface{}{})
@@ -101,12 +108,14 @@ func TestReadings(t *testing.T) {
 		injectSensor.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 			return nil, passedErr
 		}
-		failMap := map[resource.Name]interface{}{
-			movementsensor.Named("imu"): injectSensor, movementsensor.Named("gps"): injectSensor, movementsensor.Named("gps2"): injectSensor,
+		failMap := map[resource.Name]resource.Resource{
+			movementsensor.Named("imu"):  injectSensor,
+			movementsensor.Named("gps"):  injectSensor,
+			movementsensor.Named("gps2"): injectSensor,
 		}
-		svc, err := builtin.NewBuiltIn(context.Background(), deps, config.Service{}, logger)
+		svc, err := builtin.NewBuiltIn(context.Background(), deps, resource.Config{}, logger)
 		test.That(t, err, test.ShouldBeNil)
-		err = svc.(resource.Updateable).Update(context.Background(), failMap)
+		err = svc.Reconfigure(context.Background(), failMap, resource.Config{})
 		test.That(t, err, test.ShouldBeNil)
 
 		_, err = svc.Readings(context.Background(), []resource.Name{movementsensor.Named("imu")}, map[string]interface{}{})
@@ -133,12 +142,13 @@ func TestReadings(t *testing.T) {
 			movementsensor.Named("imu"): readings1,
 			movementsensor.Named("gps"): readings2,
 		}
-		resourceMap := map[resource.Name]interface{}{
-			movementsensor.Named("imu"): injectSensor, movementsensor.Named("gps"): injectSensor2, movementsensor.Named("gps2"): injectSensor3,
+		resourceMap := map[resource.Name]resource.Resource{
+			movementsensor.Named("imu"): injectSensor,
+			movementsensor.Named("gps"): injectSensor2, movementsensor.Named("gps2"): injectSensor3,
 		}
-		svc, err := builtin.NewBuiltIn(context.Background(), deps, config.Service{}, logger)
+		svc, err := builtin.NewBuiltIn(context.Background(), deps, resource.Config{}, logger)
 		test.That(t, err, test.ShouldBeNil)
-		err = svc.(resource.Updateable).Update(context.Background(), resourceMap)
+		err = svc.Reconfigure(context.Background(), resourceMap, resource.Config{})
 		test.That(t, err, test.ShouldBeNil)
 
 		_, err = svc.Readings(context.Background(), []resource.Name{movementsensor.Named("imu2")}, map[string]interface{}{})
@@ -177,28 +187,31 @@ func TestReadings(t *testing.T) {
 	})
 }
 
-func TestUpdate(t *testing.T) {
+func TestReconfigure(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	sensorNames := []resource.Name{movementsensor.Named("imu"), movementsensor.Named("gps")}
-	resourceMap := map[resource.Name]interface{}{
+	resourceMap := map[resource.Name]resource.Resource{
 		movementsensor.Named("imu"): &inject.Sensor{},
 		movementsensor.Named("gps"): &inject.Sensor{},
 	}
-	deps := make(registry.Dependencies)
+	deps := make(resource.Dependencies)
 
 	t.Run("update with no sensors", func(t *testing.T) {
-		svc, err := builtin.NewBuiltIn(context.Background(), deps, config.Service{}, logger)
+		svc, err := builtin.NewBuiltIn(context.Background(), deps, resource.Config{}, logger)
 		test.That(t, err, test.ShouldBeNil)
-		err = svc.(resource.Updateable).Update(context.Background(), resourceMap)
+		err = svc.Reconfigure(context.Background(), resourceMap, resource.Config{})
 		test.That(t, err, test.ShouldBeNil)
 
 		sNames1, err := svc.Sensors(context.Background(), map[string]interface{}{})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, testutils.NewResourceNameSet(sNames1...), test.ShouldResemble, testutils.NewResourceNameSet(sensorNames...))
 
-		err = svc.(resource.Updateable).Update(
+		err = svc.Reconfigure(
 			context.Background(),
-			map[resource.Name]interface{}{movementsensor.Named("imu"): "not sensor"},
+			map[resource.Name]resource.Resource{
+				movementsensor.Named("imu"): testutils.NewUnimplementedResource(generic.Named("not sensor")),
+			},
+			resource.Config{},
 		)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -208,18 +221,19 @@ func TestUpdate(t *testing.T) {
 	})
 
 	t.Run("update with one sensor", func(t *testing.T) {
-		svc, err := builtin.NewBuiltIn(context.Background(), deps, config.Service{}, logger)
+		svc, err := builtin.NewBuiltIn(context.Background(), deps, resource.Config{}, logger)
 		test.That(t, err, test.ShouldBeNil)
-		err = svc.(resource.Updateable).Update(context.Background(), resourceMap)
+		err = svc.Reconfigure(context.Background(), resourceMap, resource.Config{})
 		test.That(t, err, test.ShouldBeNil)
 
 		sNames1, err := svc.Sensors(context.Background(), map[string]interface{}{})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, testutils.NewResourceNameSet(sNames1...), test.ShouldResemble, testutils.NewResourceNameSet(sensorNames...))
 
-		err = svc.(resource.Updateable).Update(
+		err = svc.Reconfigure(
 			context.Background(),
-			map[resource.Name]interface{}{movementsensor.Named("imu"): &inject.Sensor{}},
+			map[resource.Name]resource.Resource{movementsensor.Named("imu"): &inject.Sensor{}},
+			resource.Config{},
 		)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -234,18 +248,19 @@ func TestUpdate(t *testing.T) {
 	})
 
 	t.Run("update with same sensors", func(t *testing.T) {
-		svc, err := builtin.NewBuiltIn(context.Background(), deps, config.Service{}, logger)
+		svc, err := builtin.NewBuiltIn(context.Background(), deps, resource.Config{}, logger)
 		test.That(t, err, test.ShouldBeNil)
-		err = svc.(resource.Updateable).Update(context.Background(), resourceMap)
+		err = svc.Reconfigure(context.Background(), resourceMap, resource.Config{})
 		test.That(t, err, test.ShouldBeNil)
 
 		sNames1, err := svc.Sensors(context.Background(), map[string]interface{}{})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, testutils.NewResourceNameSet(sNames1...), test.ShouldResemble, testutils.NewResourceNameSet(sensorNames...))
 
-		err = svc.(resource.Updateable).Update(
+		err = svc.Reconfigure(
 			context.Background(),
-			map[resource.Name]interface{}{movementsensor.Named("imu"): &inject.Sensor{}, movementsensor.Named("gps"): &inject.Sensor{}},
+			map[resource.Name]resource.Resource{movementsensor.Named("imu"): &inject.Sensor{}, movementsensor.Named("gps"): &inject.Sensor{}},
+			resource.Config{},
 		)
 		test.That(t, err, test.ShouldBeNil)
 

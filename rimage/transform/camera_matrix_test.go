@@ -6,7 +6,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 	"go.viam.com/utils/testutils"
@@ -23,7 +22,6 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-	golog.Global().Debugf("out dir: %q", outDir)
 }
 
 func TestPC1(t *testing.T) {

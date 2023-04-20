@@ -12,12 +12,8 @@ import (
 	"go.uber.org/multierr"
 
 	"go.viam.com/rdk/components/base"
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/utils"
 )
 
 var (
@@ -26,37 +22,29 @@ var (
 )
 
 func init() {
-	registry.RegisterComponent(base.Subtype, Model, registry.Component{Constructor: newBase})
-
-	// Use RegisterComponentAttributeMapConverter to register a custom configuration
-	// struct that has a Validate(string) ([]string, error) method.
-	//
-	// The Validate method will automatically be called in RDK's module manager to
-	// Validate the MyBase's configuration and register implicit dependencies.
-	config.RegisterComponentAttributeMapConverter(
-		base.Subtype,
-		Model,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf MyBaseConfig
-			return config.TransformAttributeMapToStruct(&conf, attributes)
-		},
-		&MyBaseConfig{})
+	resource.RegisterComponent(base.Subtype, Model, resource.Registration[base.Base, *MyBaseConfig]{
+		Constructor: newBase,
+	})
 }
 
-func newBase(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-	b := &MyBase{logger: logger}
-	err := b.Reconfigure(config, deps)
-	return b, err
+func newBase(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (base.Base, error) {
+	b := &MyBase{
+		Named:  conf.ResourceName().AsNamed(),
+		logger: logger,
+	}
+	if err := b.Reconfigure(ctx, deps, conf); err != nil {
+		return nil, err
+	}
+	return b, nil
 }
 
-func (base *MyBase) Reconfigure(cfg config.Component, deps registry.Dependencies) error {
+func (base *MyBase) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	base.left = nil
 	base.right = nil
-	baseConfig, ok := cfg.ConvertedAttributes.(*MyBaseConfig)
-	if !ok {
-		return utils.NewUnexpectedTypeError(baseConfig, cfg.ConvertedAttributes)
+	baseConfig, err := resource.NativeConfig[*MyBaseConfig](conf)
+	if err != nil {
+		return err
 	}
-	var err error
 
 	base.left, err = motor.FromDependencies(deps, baseConfig.LeftMotor)
 	if err != nil {
@@ -70,6 +58,10 @@ func (base *MyBase) Reconfigure(cfg config.Component, deps registry.Dependencies
 
 	// Good practice to stop motors, but also this effectively tests https://viam.atlassian.net/browse/RSDK-2496
 	return multierr.Combine(base.left.Stop(context.Background(), nil), base.right.Stop(context.Background(), nil))
+}
+
+func (base *MyBase) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return cmd, nil
 }
 
 type MyBaseConfig struct {
@@ -89,7 +81,7 @@ func (cfg *MyBaseConfig) Validate(path string) ([]string, error) {
 }
 
 type MyBase struct {
-	generic.Echo
+	resource.Named
 	left   motor.Motor
 	right  motor.Motor
 	logger golog.Logger

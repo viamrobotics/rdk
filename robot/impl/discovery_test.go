@@ -9,8 +9,6 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/discovery"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
@@ -31,54 +29,35 @@ func setupNewLocalRobot(t *testing.T) robot.LocalRobot {
 var (
 	workingSubtype = resource.NewSubtype(resource.Namespace("acme"), resource.ResourceTypeComponent, resource.SubtypeName("working-discovery"))
 	workingModel   = resource.NewDefaultModel("workingModel")
-	workingQ       = discovery.NewQuery(workingSubtype, workingModel)
+	workingQ       = resource.NewDiscoveryQuery(workingSubtype, workingModel)
 
 	failSubtype = resource.NewSubtype(resource.Namespace("acme"), resource.ResourceTypeComponent, resource.SubtypeName("failing-discovery"))
 	failModel   = resource.NewDefaultModel("failModel")
-	failQ       = discovery.NewQuery(failSubtype, failModel)
+	failQ       = resource.NewDiscoveryQuery(failSubtype, failModel)
 
-	noDiscoverSubtype = resource.NewSubtype(resource.Namespace("acme"), resource.ResourceTypeComponent, resource.SubtypeName("no-discovery"))
-	noDiscoverModel   = resource.NewDefaultModel("nodiscoverModel")
-	noDiscoverQ       = discovery.Query{failSubtype, noDiscoverModel}
+	noDiscoverModel = resource.NewDefaultModel("nodiscoverModel")
+	noDiscoverQ     = resource.DiscoveryQuery{failSubtype, noDiscoverModel}
 
-	missingQ = discovery.NewQuery(failSubtype, resource.NewDefaultModel("missing"))
+	missingQ = resource.NewDiscoveryQuery(failSubtype, resource.NewDefaultModel("missing"))
 
 	workingDiscovery = map[string]interface{}{"position": "up"}
 	errFailed        = errors.New("can't get discovery")
-
-	mockReconfigurable = func(resource interface{}, name resource.Name) (resource.Reconfigurable, error) {
-		return nil, nil
-	}
 )
 
 func init() {
-	// Subtype with a working discovery function for a subtype model
-	registry.RegisterResourceSubtype(
-		workingSubtype,
-		registry.ResourceSubtype{Reconfigurable: mockReconfigurable},
-	)
+	resource.Register(workingQ.API, workingQ.Model, resource.Registration[resource.Resource, resource.NoNativeConfig]{
+		Constructor: func(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (resource.Resource, error) {
+			return nil, errors.New("no")
+		},
+		Discover: func(ctx context.Context, logger golog.Logger) (interface{}, error) { return workingDiscovery, nil },
+	})
 
-	registry.RegisterDiscoveryFunction(
-		workingQ,
-		func(ctx context.Context) (interface{}, error) { return workingDiscovery, nil },
-	)
-
-	// Subtype without discovery function
-	registry.RegisterResourceSubtype(
-		noDiscoverSubtype,
-		registry.ResourceSubtype{Reconfigurable: mockReconfigurable},
-	)
-
-	// Subtype with a failing discovery function for a subtype model
-	registry.RegisterResourceSubtype(
-		failSubtype,
-		registry.ResourceSubtype{Reconfigurable: mockReconfigurable},
-	)
-
-	registry.RegisterDiscoveryFunction(
-		failQ,
-		func(ctx context.Context) (interface{}, error) { return nil, errFailed },
-	)
+	resource.Register(failQ.API, failQ.Model, resource.Registration[resource.Resource, resource.NoNativeConfig]{
+		Constructor: func(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (resource.Resource, error) {
+			return nil, errors.New("no")
+		},
+		Discover: func(ctx context.Context, logger golog.Logger) (interface{}, error) { return nil, errFailed },
+	})
 }
 
 func TestDiscovery(t *testing.T) {
@@ -87,7 +66,7 @@ func TestDiscovery(t *testing.T) {
 		defer func() {
 			test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 		}()
-		discoveries, err := r.DiscoverComponents(context.Background(), []discovery.Query{missingQ})
+		discoveries, err := r.DiscoverComponents(context.Background(), []resource.DiscoveryQuery{missingQ})
 		test.That(t, discoveries, test.ShouldBeEmpty)
 		test.That(t, err, test.ShouldBeNil)
 	})
@@ -98,7 +77,7 @@ func TestDiscovery(t *testing.T) {
 			test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 		}()
 
-		discoveries, err := r.DiscoverComponents(context.Background(), []discovery.Query{noDiscoverQ})
+		discoveries, err := r.DiscoverComponents(context.Background(), []resource.DiscoveryQuery{noDiscoverQ})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, discoveries, test.ShouldBeEmpty)
 		test.That(t, err, test.ShouldBeNil)
@@ -110,8 +89,8 @@ func TestDiscovery(t *testing.T) {
 			test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 		}()
 
-		_, err := r.DiscoverComponents(context.Background(), []discovery.Query{failQ})
-		test.That(t, err, test.ShouldBeError, &discovery.DiscoverError{failQ})
+		_, err := r.DiscoverComponents(context.Background(), []resource.DiscoveryQuery{failQ})
+		test.That(t, err, test.ShouldBeError, &resource.DiscoverError{failQ})
 	})
 
 	t.Run("working Discover", func(t *testing.T) {
@@ -120,9 +99,9 @@ func TestDiscovery(t *testing.T) {
 			test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 		}()
 
-		discoveries, err := r.DiscoverComponents(context.Background(), []discovery.Query{workingQ})
+		discoveries, err := r.DiscoverComponents(context.Background(), []resource.DiscoveryQuery{workingQ})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, discoveries, test.ShouldResemble, []discovery.Discovery{{Query: workingQ, Results: workingDiscovery}})
+		test.That(t, discoveries, test.ShouldResemble, []resource.Discovery{{Query: workingQ, Results: workingDiscovery}})
 	})
 
 	t.Run("duplicated working Discover", func(t *testing.T) {
@@ -131,9 +110,9 @@ func TestDiscovery(t *testing.T) {
 			test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 		}()
 
-		discoveries, err := r.DiscoverComponents(context.Background(), []discovery.Query{workingQ, workingQ, workingQ})
+		discoveries, err := r.DiscoverComponents(context.Background(), []resource.DiscoveryQuery{workingQ, workingQ, workingQ})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, discoveries, test.ShouldResemble, []discovery.Discovery{{Query: workingQ, Results: workingDiscovery}})
+		test.That(t, discoveries, test.ShouldResemble, []resource.Discovery{{Query: workingQ, Results: workingDiscovery}})
 	})
 
 	t.Run("working and missing Discover", func(t *testing.T) {
@@ -142,8 +121,8 @@ func TestDiscovery(t *testing.T) {
 			test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 		}()
 
-		discoveries, err := r.DiscoverComponents(context.Background(), []discovery.Query{workingQ, missingQ})
+		discoveries, err := r.DiscoverComponents(context.Background(), []resource.DiscoveryQuery{workingQ, missingQ})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, discoveries, test.ShouldResemble, []discovery.Discovery{{Query: workingQ, Results: workingDiscovery}})
+		test.That(t, discoveries, test.ShouldResemble, []resource.Discovery{{Query: workingQ, Results: workingDiscovery}})
 	})
 }

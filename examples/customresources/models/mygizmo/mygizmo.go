@@ -8,10 +8,7 @@ import (
 
 	"github.com/edaniels/golog"
 
-	"go.viam.com/rdk/components/generic"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/examples/customresources/apis/gizmoapi"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 )
 
@@ -22,37 +19,56 @@ var Model = resource.NewModel(
 )
 
 func init() {
-	registry.RegisterComponent(gizmoapi.Subtype, Model, registry.Component{
+	resource.RegisterComponent(gizmoapi.Subtype, Model, resource.Registration[gizmoapi.Gizmo, resource.NoNativeConfig]{
 		Constructor: func(
 			ctx context.Context,
-			deps registry.Dependencies,
-			config config.Component,
+			deps resource.Dependencies,
+			conf resource.Config,
 			logger golog.Logger,
-		) (interface{}, error) {
-			return NewMyGizmo(deps, config, logger), nil
+		) (gizmoapi.Gizmo, error) {
+			return NewMyGizmo(deps, conf, logger)
 		},
 	})
 }
 
 type myActualGizmo struct {
-	mu    sync.Mutex
-	myArg string
-	generic.Echo
+	resource.Named
+	resource.TriviallyCloseable
+
+	myArgMu sync.Mutex
+	myArg   string
 }
 
 func NewMyGizmo(
-	deps registry.Dependencies,
-	config config.Component,
+	deps resource.Dependencies,
+	conf resource.Config,
 	logger golog.Logger,
-) gizmoapi.Gizmo {
-	return &myActualGizmo{myArg: config.Attributes.String("arg1")}
+) (gizmoapi.Gizmo, error) {
+	g := &myActualGizmo{
+		Named: conf.ResourceName().AsNamed(),
+	}
+	if err := g.Reconfigure(context.Background(), deps, conf); err != nil {
+		return nil, err
+	}
+	return g, nil
+}
+
+func (g *myActualGizmo) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+	g.myArgMu.Lock()
+	g.myArg = conf.Attributes.String("arg1")
+	g.myArgMu.Unlock()
+	return nil
 }
 
 func (g *myActualGizmo) DoOne(ctx context.Context, arg1 string) (bool, error) {
+	g.myArgMu.Lock()
+	defer g.myArgMu.Unlock()
 	return arg1 == g.myArg, nil
 }
 
 func (g *myActualGizmo) DoOneClientStream(ctx context.Context, arg1 []string) (bool, error) {
+	g.myArgMu.Lock()
+	defer g.myArgMu.Unlock()
 	if len(arg1) == 0 {
 		return false, nil
 	}
@@ -64,10 +80,14 @@ func (g *myActualGizmo) DoOneClientStream(ctx context.Context, arg1 []string) (b
 }
 
 func (g *myActualGizmo) DoOneServerStream(ctx context.Context, arg1 string) ([]bool, error) {
+	g.myArgMu.Lock()
+	defer g.myArgMu.Unlock()
 	return []bool{arg1 == g.myArg, false, true, false}, nil
 }
 
 func (g *myActualGizmo) DoOneBiDiStream(ctx context.Context, arg1 []string) ([]bool, error) {
+	g.myArgMu.Lock()
+	defer g.myArgMu.Unlock()
 	var rets []bool
 	for _, arg := range arg1 {
 		rets = append(rets, arg == g.myArg)
@@ -81,11 +101,4 @@ func (g *myActualGizmo) DoTwo(ctx context.Context, arg1 bool) (string, error) {
 
 func (g *myActualGizmo) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return cmd, nil
-}
-
-func (g *myActualGizmo) Reconfigure(ctx context.Context, cfg config.Component, deps registry.Dependencies) error {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-	g.myArg = cfg.Attributes.String("arg1")
-	return nil
 }
