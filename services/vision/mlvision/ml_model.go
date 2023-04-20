@@ -7,6 +7,7 @@ import (
 	"context"
 	"math"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/montanaflynn/stats"
@@ -81,15 +82,15 @@ func registerMLModelVisionService(
 	if err != nil {
 		return nil, err
 	}
-	classifierFunc, err := attemptToBuildClassifier(mlm)
+	classifierFunc, err := attemptToBuildClassifier(mlm, logger)
 	if err != nil {
 		logger.Infof("%v", errors.Wrapf(err, "was not able to turn ml model %q into a classifier", params.ModelName))
 	}
-	detectorFunc, err := attemptToBuildDetector(mlm)
+	detectorFunc, err := attemptToBuildDetector(mlm, logger)
 	if err != nil {
 		logger.Infof("%v", errors.Wrapf(err, "was not able to turn ml model %q into a detector", params.ModelName))
 	}
-	segmenter3DFunc, err := attemptToBuild3DSegmenter(mlm)
+	segmenter3DFunc, err := attemptToBuild3DSegmenter(mlm, logger)
 	if err != nil {
 		logger.Infof("%v", errors.Wrapf(err, "was not able to turn ml model %q into a 3D segmenter", params.ModelName))
 	}
@@ -123,6 +124,11 @@ func getTensorTypeFromName(name string, md mlmodel.MLMetadata) string {
 	for _, o := range md.Outputs {
 		if strings.Contains(strings.ToLower(o.Name), strings.ToLower(name)) {
 			return o.DataType
+		}
+		if strings.Contains(name, "output") {
+			_, after, _ := strings.Cut(name, "output")
+			saveI, _ := strconv.Atoi(after)
+			return md.Outputs[saveI].DataType
 		}
 	}
 	return ""

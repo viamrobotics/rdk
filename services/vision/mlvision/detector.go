@@ -2,6 +2,7 @@ package mlvision
 
 import (
 	"context"
+	"github.com/edaniels/golog"
 	"image"
 	"strconv"
 
@@ -14,10 +15,10 @@ import (
 	"go.viam.com/rdk/vision/objectdetection"
 )
 
-func attemptToBuildDetector(mlm mlmodel.Service) (objectdetection.Detector, error) {
+func attemptToBuildDetector(mlm mlmodel.Service, logger golog.Logger) (objectdetection.Detector, error) {
 	md, err := mlm.Metadata(context.Background())
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not find metadata")
+		return nil, errors.New("could not get any metadata")
 	}
 
 	// Set up input type, height, width, and labels
@@ -52,8 +53,17 @@ func attemptToBuildDetector(mlm mlmodel.Service) (objectdetection.Detector, erro
 		}
 
 		locations := unpack(outMap, "location", md)
+		if len(locations) == 0 {
+			locations = unpack(outMap, "output0", md)
+		}
 		categories := unpack(outMap, "category", md)
+		if len(categories) == 0 {
+			locations = unpack(outMap, "output1", md)
+		}
 		scores := unpack(outMap, "score", md)
+		if len(scores) == 0 {
+			locations = unpack(outMap, "output2", md)
+		}
 
 		// Now reshape outMap into Detections
 		detections := make([]objectdetection.Detection, 0, len(categories))

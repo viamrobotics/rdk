@@ -63,6 +63,7 @@ type Model struct {
 	attrs    TFLiteConfig
 	model    *inf.TFLiteStruct
 	metadata *mlmodel.MLMetadata
+	logger   golog.Logger
 }
 
 // NewTFLiteCPUModel is a constructor that builds a tflite cpu implementation of the MLMS.
@@ -72,6 +73,7 @@ func NewTFLiteCPUModel(ctx context.Context, params *TFLiteConfig, name string) (
 	var model *inf.TFLiteStruct
 	var loader *inf.TFLiteModelLoader
 	var err error
+	logger := golog.NewLogger("tflite_cpu")
 
 	addModel := func() (*inf.TFLiteStruct, error) {
 		if params == nil {
@@ -109,7 +111,7 @@ func NewTFLiteCPUModel(ctx context.Context, params *TFLiteConfig, name string) (
 		return nil, errors.Wrapf(err, "could not add model from location %s", params.ModelPath)
 	}
 
-	return &Model{attrs: *params, model: model, name: name}, nil
+	return &Model{attrs: *params, model: model, name: name, logger: logger}, nil
 }
 
 // Infer takes the input map and uses the inference package to
@@ -127,7 +129,7 @@ func (m *Model) Infer(ctx context.Context, input map[string]interface{}) (map[st
 		// Fill in the output map with the names from metadata if u have them
 		// Otherwise, do output1, output2, etc.
 		for i := 0; i < len(m.model.Info.OutputTensorTypes); i++ {
-			if m.metadata != nil {
+			if m.metadata.Outputs[i].Name != "" {
 				outMap[m.metadata.Outputs[i].Name] = outTensors[i]
 			} else {
 				outMap["output"+strconv.Itoa(i)] = outTensors[i]
@@ -168,7 +170,10 @@ func (m *Model) Metadata(ctx context.Context) (mlmodel.MLMetadata, error) {
 	// model.Metadata() and funnel it into this struct
 	md, err := m.model.Metadata()
 	if err != nil {
-		return mlmodel.MLMetadata{}, err
+		blindMD := m.blindFillMetadata()
+		m.metadata = &blindMD
+		m.logger.Warn("could not find metadata in tflite file")
+		return blindMD, nil
 	}
 	out := mlmodel.MLMetadata{}
 	out.ModelName = md.Name
@@ -259,4 +264,35 @@ func getTensorInfo(inputT *tflite_metadata.TensorMetadataT) mlmodel.TensorInfo {
 	}
 	td.AssociatedFiles = fileList
 	return td
+}
+
+func (m *Model) blindFillMetadata() mlmodel.MLMetadata {
+	out := mlmodel.MLMetadata{}
+	numIn := m.model.Info.InputTensorCount
+	numOut := m.model.Info.OutputTensorCount
+	inputList := make([]mlmodel.TensorInfo, 0, numIn)
+	outputList := make([]mlmodel.TensorInfo, 0, numOut)
+
+	// Fill in input info to the best of our abilities (normally just 1 tensor)
+	for i := 0; i < numIn; i++ { // for each input Tensor
+		td := mlmodel.TensorInfo{}
+		switch m.model.Info.InputTensorType { // grab from model info, not metadata
+		case inf.UInt8:
+			td.DataType = "uint8"
+		case inf.Float32:
+			td.DataType = "float32"
+		default:
+			td.DataType = ""
+		}
+		td.Shape = m.model.Info.InputShape
+		inputList = append(inputList, td)
+	}
+	for i := 0; i < numOut; i++ { // for each output Tensor
+		td := mlmodel.TensorInfo{}
+		td.DataType = strings.ToLower(m.model.Info.OutputTensorTypes[i]) // grab from model info, not metadata
+		outputList = append(outputList, td)
+	}
+	out.Inputs = inputList
+	out.Outputs = outputList
+	return out
 }

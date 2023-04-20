@@ -2,6 +2,7 @@ package mlvision
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -70,6 +71,7 @@ func TestNewMLDetector(t *testing.T) {
 	// Set it up as a ML Model
 
 	ctx := context.Background()
+	logger := golog.NewLogger("testLogger")
 	modelLoc := artifact.MustPath("vision/tflite/effdet0.tflite")
 	labelLoc := artifact.MustPath("vision/tflite/effdetlabels.txt")
 	cfg := tflitecpu.TFLiteConfig{ // detector config
@@ -98,7 +100,7 @@ func TestNewMLDetector(t *testing.T) {
 	test.That(t, check.Outputs[1].Name, test.ShouldResemble, "category")
 	test.That(t, check.Outputs[1].Extra["labels"], test.ShouldNotBeNil)
 
-	gotDetector, err := attemptToBuildDetector(out)
+	gotDetector, err := attemptToBuildDetector(out, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, gotDetector, test.ShouldNotBeNil)
 
@@ -117,7 +119,7 @@ func TestNewMLDetector(t *testing.T) {
 	outNL, err := tflitecpu.NewTFLiteCPUModel(ctx, &noLabelCfg, "myOtherMLDet")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, outNL, test.ShouldNotBeNil)
-	gotDetectorNL, err := attemptToBuildDetector(outNL)
+	gotDetectorNL, err := attemptToBuildDetector(outNL, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, gotDetectorNL, test.ShouldNotBeNil)
 	gotDetectionsNL, err := gotDetectorNL(ctx, pic)
@@ -137,7 +139,7 @@ func TestNewMLClassifier(t *testing.T) {
 	// Set it up as a ML Model
 
 	ctx := context.Background()
-	// r := &inject.Robot{}
+	logger := golog.NewLogger("testLogger")
 	modelLoc := artifact.MustPath("vision/tflite/effnet0.tflite")
 	labelLoc := artifact.MustPath("vision/tflite/imagenetlabels.txt")
 	// name := "myMLDet"
@@ -165,7 +167,7 @@ func TestNewMLClassifier(t *testing.T) {
 	test.That(t, check.Outputs[0].Name, test.ShouldResemble, "probability")
 	test.That(t, check.Outputs[0].Extra["labels"], test.ShouldNotBeNil)
 
-	gotClassifier, err := attemptToBuildClassifier(out)
+	gotClassifier, err := attemptToBuildClassifier(out, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, gotClassifier, test.ShouldNotBeNil)
 
@@ -183,7 +185,7 @@ func TestNewMLClassifier(t *testing.T) {
 	outNL, err := tflitecpu.NewTFLiteCPUModel(ctx, &noLabelCfg, "myOtherMLClassif")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, outNL, test.ShouldNotBeNil)
-	gotClassifierNL, err := attemptToBuildClassifier(outNL)
+	gotClassifierNL, err := attemptToBuildClassifier(outNL, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, gotClassifierNL, test.ShouldNotBeNil)
 	gotClassificationsNL, err := gotClassifierNL(ctx, pic)
@@ -198,36 +200,51 @@ func TestNewMLClassifier(t *testing.T) {
 }
 
 // func TestMoreMLClassifiers(t *testing.T) {
-// func TestMoreMLDetectors(t *testing.T) {
-//	// Test that a detector would give an expected output on the dog image
-//	pic, err := rimage.NewImageFromFile(artifact.MustPath("vision/tflite/dogscute.jpeg"))
-//	test.That(t, err, test.ShouldBeNil)
-//	test.That(t, pic, test.ShouldNotBeNil)
-//
-//	name := "ssd"
-//	ctx := context.Background()
-//	modelLoc := artifact.MustPath("vision/tflite/ssdmobilenet.tflite")
-//	cfg := tflitecpu.TFLiteConfig{
-//		ModelPath:  modelLoc,
-//		NumThreads: 2,
-//	}
-//	ssd, err := tflitecpu.NewTFLiteCPUModel(ctx, &cfg, name)
-//	test.That(t, err, test.ShouldBeNil)
-//	test.That(t, ssd, test.ShouldNotBeNil)
-//	outDet, err := attemptToBuildDetector(ssd)
-//	test.That(t, err, test.ShouldBeNil)
-//	test.That(t, outDet, test.ShouldNotBeNil)
-//
-//	// Test that SSD detector output is as expected on image
-//	got, err := outDet(ctx, pic)
-//	test.That(t, err, test.ShouldBeNil)
-//	test.That(t, got[0].Label(), test.ShouldResemble, "17")
-//	test.That(t, got[1].Label(), test.ShouldResemble, "17")
-//	test.That(t, got[0].Score(), test.ShouldBeGreaterThan, 0.82)
-//	test.That(t, got[1].Score(), test.ShouldBeGreaterThan, 0.8)
-//
-//	// TODO: Khari, add the other model and make them work without metadata!?
-//}
+func TestMoreMLDetectors(t *testing.T) {
+	// Test that a detector would give an expected output on the dog image
+	pic, err := rimage.NewImageFromFile(artifact.MustPath("vision/tflite/dogscute.jpeg"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pic, test.ShouldNotBeNil)
+
+	name := "ssd"
+	ctx := context.Background()
+	modelLoc := artifact.MustPath("vision/tflite/ssdmobilenet.tflite")
+	cfg := tflitecpu.TFLiteConfig{
+		ModelPath:  modelLoc,
+		NumThreads: 2,
+	}
+
+	// Test that a detector would give the expected output on the dog image
+	outModel, err := tflitecpu.NewTFLiteCPUModel(ctx, &cfg, name)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, outModel, test.ShouldNotBeNil)
+	check, err := outModel.Metadata(ctx)
+	test.That(t, check, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeNil)
+	// Even without metadata we should find
+	test.That(t, check.Inputs[0].Shape, test.ShouldResemble, []int{1, 320, 320, 3})
+	test.That(t, check.Inputs[0].DataType, test.ShouldResemble, "float32")
+
+	gotDetector, err := attemptToBuildDetector(outModel, golog.NewLogger("testLogger"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, gotDetector, test.ShouldNotBeNil)
+
+	gotDetections, err := gotDetector(ctx, pic)
+	test.That(t, err, test.ShouldBeNil)
+	fmt.Println(gotDetections)
+
+	//test.That(t, gotDetections[0].Score(), test.ShouldBeGreaterThan, 0.82)
+	//test.That(t, gotDetections[1].Score(), test.ShouldBeGreaterThan, 0.8)
+	//test.That(t, gotDetections[0].Label(), test.ShouldResemble, "Dog")
+	//test.That(t, gotDetections[1].Label(), test.ShouldResemble, "Dog")
+
+	//test.That(t, got[0].Label(), test.ShouldResemble, "17")
+	//test.That(t, got[1].Label(), test.ShouldResemble, "17")
+	//test.That(t, got[0].Score(), test.ShouldBeGreaterThan, 0.82)
+	//test.That(t, got[1].Score(), test.ShouldBeGreaterThan, 0.8)
+
+	// TODO: Khari, add the other model and make them work without metadata!?
+}
 
 func TestLabelReader(t *testing.T) {
 	ctx := context.Background()
@@ -290,7 +307,7 @@ func TestOneClassifierOnManyCameras(t *testing.T) {
 	out, err := tflitecpu.NewTFLiteCPUModel(ctx, &cfg, "testClassifier")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, out, test.ShouldNotBeNil)
-	outClassifier, err := attemptToBuildClassifier(out)
+	outClassifier, err := attemptToBuildClassifier(out, golog.NewLogger("testLogger"))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, outClassifier, test.ShouldNotBeNil)
 	valuePanda, valueLion := classifyTwoImages(picPanda, picLion, outClassifier)

@@ -2,6 +2,7 @@ package mlvision
 
 import (
 	"context"
+	"github.com/edaniels/golog"
 	"image"
 	"strconv"
 
@@ -13,10 +14,10 @@ import (
 	"go.viam.com/rdk/vision/classification"
 )
 
-func attemptToBuildClassifier(mlm mlmodel.Service) (classification.Classifier, error) {
+func attemptToBuildClassifier(mlm mlmodel.Service, logger golog.Logger) (classification.Classifier, error) {
 	md, err := mlm.Metadata(context.Background())
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not find metadata")
+		return nil, errors.New("could not get any metadata")
 	}
 
 	// Set up input type, height, width, and labels
