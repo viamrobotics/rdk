@@ -5,7 +5,6 @@ import (
 	"image"
 
 	"github.com/invopop/jsonschema"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/vision"
@@ -207,7 +206,10 @@ func (vs *VisionService) DoCommand(ctx context.Context,
 // Close calls the injected Close or the real version.
 func (vs *VisionService) Close(ctx context.Context) error {
 	if vs.CloseFunc == nil {
-		return utils.TryClose(ctx, vs.Service)
+		if vs.Service == nil {
+			return nil
+		}
+		return vs.Service.Close(ctx)
 	}
 	return vs.CloseFunc(ctx)
 }

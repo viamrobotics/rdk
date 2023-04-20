@@ -5,7 +5,6 @@ import (
 
 	"github.com/edaniels/gostream"
 	"github.com/pkg/errors"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/pointcloud"
@@ -79,7 +78,10 @@ func (c *Camera) Properties(ctx context.Context) (camera.Properties, error) {
 // Close calls the injected Close or the real version.
 func (c *Camera) Close(ctx context.Context) error {
 	if c.CloseFunc == nil {
-		return utils.TryClose(ctx, c.Camera)
+		if c.Camera == nil {
+			return nil
+		}
+		return c.Camera.Close(ctx)
 	}
 	return c.CloseFunc(ctx)
 }

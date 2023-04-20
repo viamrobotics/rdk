@@ -6,7 +6,6 @@ import (
 
 	commonpb "go.viam.com/api/common/v1"
 	boardpb "go.viam.com/api/component/board/v1"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/resource"
@@ -163,7 +162,10 @@ func (b *Board) GPIOPinNames() []string {
 // Close calls the injected Close or the real version.
 func (b *Board) Close(ctx context.Context) error {
 	if b.CloseFunc == nil {
-		return utils.TryClose(ctx, b.LocalBoard)
+		if b.LocalBoard == nil {
+			return nil
+		}
+		return b.LocalBoard.Close(ctx)
 	}
 	return b.CloseFunc(ctx)
 }

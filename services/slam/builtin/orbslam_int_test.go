@@ -22,7 +22,6 @@ import (
 	slamTesthelper "go.viam.com/rdk/services/slam/slam_copy/testhelper"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
 )
 
@@ -226,7 +225,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 	testOrbslamMap(t, svc)
 
 	// Close out slam service
-	err = utils.TryClose(context.Background(), svc)
+	err = svc.Close(context.Background())
 	if !orbslam_hangs {
 		test.That(t, err, test.ShouldBeNil)
 	} else if err != nil {
@@ -338,7 +337,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 	testOrbslamInternalState(t, svc, name)
 
 	// Close out slam service
-	err = utils.TryClose(context.Background(), svc)
+	err = svc.Close(context.Background())
 	if !orbslam_hangs {
 		test.That(t, err, test.ShouldBeNil)
 	} else if err != nil {
@@ -433,7 +432,7 @@ func integrationTestHelperOrbslam(t *testing.T, mode slam.Mode) {
 	testOrbslamMap(t, svc)
 
 	// Close out slam service
-	err = utils.TryClose(context.Background(), svc)
+	err = svc.Close(context.Background())
 	if !orbslam_hangs {
 		test.That(t, err, test.ShouldBeNil)
 	} else if err != nil {

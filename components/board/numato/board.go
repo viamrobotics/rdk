@@ -366,6 +366,10 @@ func (ar *analogReader) Read(ctx context.Context, extra map[string]interface{}) 
 	return strconv.Atoi(res)
 }
 
+func (ar *analogReader) Close(ctx context.Context) error {
+	return nil
+}
+
 func connect(ctx context.Context, name resource.Name, conf *Config, logger golog.Logger) (board.LocalBoard, error) {
 	pins := conf.Pins
 	if pins <= 0 {

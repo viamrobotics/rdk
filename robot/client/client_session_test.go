@@ -13,7 +13,6 @@ import (
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 	echopb "go.viam.com/utils/proto/rpc/examples/echoresource/v1"
 	"go.viam.com/utils/rpc"
 	"go.viam.com/utils/testutils"
@@ -261,7 +260,7 @@ func TestClientSessionOptions(t *testing.T) {
 						}
 						capMu.Unlock()
 
-						test.That(t, utils.TryClose(ctx, svc), test.ShouldBeNil)
+						test.That(t, svc.Close(ctx), test.ShouldBeNil)
 					})
 			}
 		}
@@ -459,7 +458,7 @@ func TestClientSessionExpiration(t *testing.T) {
 				err = roboClient.Close(context.Background())
 				test.That(t, err, test.ShouldBeNil)
 
-				test.That(t, utils.TryClose(ctx, svc), test.ShouldBeNil)
+				test.That(t, svc.Close(ctx), test.ShouldBeNil)
 			})
 	}
 }
@@ -597,7 +596,7 @@ func TestClientSessionResume(t *testing.T) {
 				err = roboClient.Close(context.Background())
 				test.That(t, err, test.ShouldBeNil)
 
-				test.That(t, utils.TryClose(ctx, svc), test.ShouldBeNil)
+				test.That(t, svc.Close(ctx), test.ShouldBeNil)
 			})
 	}
 }

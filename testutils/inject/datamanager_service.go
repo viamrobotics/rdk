@@ -3,8 +3,6 @@ package inject
 import (
 	"context"
 
-	"go.viam.com/utils"
-
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/datamanager"
 )
@@ -51,7 +49,10 @@ func (svc *DataManagerService) DoCommand(ctx context.Context,
 // Close calls the injected Close or the real version.
 func (svc *DataManagerService) Close(ctx context.Context) error {
 	if svc.CloseFunc == nil {
-		return utils.TryClose(ctx, svc.Service)
+		if svc.Service == nil {
+			return nil
+		}
+		return svc.Service.Close(ctx)
 	}
 	return svc.CloseFunc(ctx)
 }

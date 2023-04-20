@@ -340,11 +340,10 @@ func (b *Board) Close(ctx context.Context) error {
 	var err error
 
 	for _, analog := range b.Analogs {
-		err = multierr.Combine(err, utils.TryClose(ctx, analog))
+		err = multierr.Combine(err, analog.Close(ctx))
 	}
-
 	for _, digital := range b.Digitals {
-		err = multierr.Combine(err, utils.TryClose(ctx, digital))
+		err = multierr.Combine(err, digital.Close(ctx))
 	}
 	return err
 }
@@ -370,6 +369,11 @@ func (s *SPI) reset(busSelect string) {
 func (s *SPI) OpenHandle() (board.SPIHandle, error) {
 	s.mu.Lock()
 	return &SPIHandle{s}, nil
+}
+
+// Close does nothing.
+func (s *SPI) Close(ctx context.Context) error {
+	return nil
 }
 
 // A SPIHandle allows Xfer and Close.
@@ -488,8 +492,9 @@ func (a *Analog) Set(value int) {
 }
 
 // Close does nothing.
-func (a *Analog) Close() {
+func (a *Analog) Close(ctx context.Context) error {
 	a.CloseCount++
+	return nil
 }
 
 // A GPIOPin reads back the same set values.
@@ -626,4 +631,9 @@ func (s *DigitalInterruptWrapper) RemoveCallback(c chan board.Tick) {
 	defer s.mu.Unlock()
 	delete(s.callbacks, c)
 	s.di.RemoveCallback(c)
+}
+
+// Close does nothing.
+func (s *DigitalInterruptWrapper) Close(ctx context.Context) error {
+	return nil
 }

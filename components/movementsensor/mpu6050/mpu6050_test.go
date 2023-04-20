@@ -173,7 +173,7 @@ func TestSuccessfulInitializationAndClose(t *testing.T) {
 	}
 	sensor, err := NewMpu6050(context.Background(), deps, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
-	err = utils.TryClose(context.Background(), sensor)
+	err = sensor.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, closeWasCalled, test.ShouldBeTrue)
 }
@@ -240,7 +240,7 @@ func TestLinearAcceleration(t *testing.T) {
 	cfg, deps := setupDependencies(linearAccelMockData)
 	sensor, err := NewMpu6050(context.Background(), deps, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
-	defer utils.TryClose(context.Background(), sensor)
+	defer sensor.Close(context.Background())
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		linAcc, err := sensor.LinearAcceleration(context.Background(), nil)
 		test.That(tb, err, test.ShouldBeNil)
@@ -276,7 +276,7 @@ func TestAngularVelocity(t *testing.T) {
 	cfg, deps := setupDependencies(angVelMockData)
 	sensor, err := NewMpu6050(context.Background(), deps, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
-	defer utils.TryClose(context.Background(), sensor)
+	defer sensor.Close(context.Background())
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		angVel, err := sensor.AngularVelocity(context.Background(), nil)
 		test.That(tb, err, test.ShouldBeNil)
@@ -302,7 +302,7 @@ func TestTemperature(t *testing.T) {
 	cfg, deps := setupDependencies(temperatureMockData)
 	sensor, err := NewMpu6050(context.Background(), deps, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
-	defer utils.TryClose(context.Background(), sensor)
+	defer sensor.Close(context.Background())
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		readings, err := sensor.Readings(context.Background(), nil)
 		test.That(tb, err, test.ShouldBeNil)

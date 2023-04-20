@@ -121,6 +121,7 @@ type ModelAttributes struct {
 type SPI interface {
 	// OpenHandle locks the shared bus and returns a handle interface that MUST be closed when done.
 	OpenHandle() (SPIHandle, error)
+	Close(ctx context.Context) error
 }
 
 // SPIHandle is similar to an io handle. It MUST be closed to release the bus.
@@ -147,6 +148,7 @@ type SPIHandle interface {
 type AnalogReader interface {
 	// Read reads off the current value.
 	Read(ctx context.Context, extra map[string]interface{}) (int, error)
+	Close(ctx context.Context) error
 }
 
 // A PostProcessor takes a raw input and transforms it into a new value.

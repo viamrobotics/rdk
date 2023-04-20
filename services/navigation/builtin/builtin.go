@@ -339,7 +339,7 @@ func (svc *builtIn) waypointReached(ctx context.Context) error {
 func (svc *builtIn) Close(ctx context.Context) error {
 	svc.cancelFunc()
 	svc.activeBackgroundWorkers.Wait()
-	return utils.TryClose(ctx, svc.store)
+	return svc.store.Close(ctx)
 }
 
 func fixAngle(a float64) float64 {

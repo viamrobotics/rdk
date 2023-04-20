@@ -9,7 +9,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
-	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/generic"
@@ -205,7 +204,7 @@ func TestModManagerFunctions(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "the client connection is closing")
 
-	err = goutils.TryClose(ctx, counter)
+	err = counter.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)
 
 	err = mgr.Close(ctx)

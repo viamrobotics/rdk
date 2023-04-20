@@ -6,7 +6,6 @@ import (
 	"github.com/edaniels/gostream"
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pkg/errors"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/audioinput"
 	"go.viam.com/rdk/resource"
@@ -60,7 +59,10 @@ func (ai *AudioInput) MediaProperties(ctx context.Context) (prop.Audio, error) {
 // Close calls the injected Close or the real version.
 func (ai *AudioInput) Close(ctx context.Context) error {
 	if ai.CloseFunc == nil {
-		return utils.TryClose(ctx, ai.AudioInput)
+		if ai.AudioInput == nil {
+			return nil
+		}
+		return ai.AudioInput.Close(ctx)
 	}
 	return ai.CloseFunc(ctx)
 }

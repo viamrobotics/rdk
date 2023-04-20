@@ -4,7 +4,6 @@ import (
 	"context"
 
 	servicepb "go.viam.com/api/service/motion/v1"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -132,7 +131,10 @@ func (mgs *MotionService) DoCommand(ctx context.Context,
 // Close calls the injected Close or the real version.
 func (mgs *MotionService) Close(ctx context.Context) error {
 	if mgs.CloseFunc == nil {
-		return utils.TryClose(ctx, mgs.Service)
+		if mgs.Service == nil {
+			return nil
+		}
+		return mgs.Service.Close(ctx)
 	}
 	return mgs.CloseFunc(ctx)
 }

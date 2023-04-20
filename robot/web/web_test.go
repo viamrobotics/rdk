@@ -23,7 +23,6 @@ import (
 	echopb "go.viam.com/api/component/testecho/v1"
 	robotpb "go.viam.com/api/robot/v1"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	"go.viam.com/utils/testutils"
 	"google.golang.org/grpc"
@@ -80,7 +79,7 @@ func TestWebStart(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "already started")
 
-	err = utils.TryClose(context.Background(), svc)
+	err = svc.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, conn.Close(), test.ShouldBeNil)
 }
@@ -130,7 +129,7 @@ func TestModule(t *testing.T) {
 	_, err = arm1.EndPosition(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 
-	err = utils.TryClose(context.Background(), svc)
+	err = svc.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = arm1.EndPosition(ctx, nil)
@@ -167,7 +166,7 @@ func TestWebStartOptions(t *testing.T) {
 	test.That(t, arm1Position, test.ShouldResemble, pos)
 
 	test.That(t, conn.Close(), test.ShouldBeNil)
-	err = utils.TryClose(context.Background(), svc)
+	err = svc.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 }
 
@@ -368,7 +367,7 @@ func TestWebWithAuth(t *testing.T) {
 				test.That(t, conn.Close(), test.ShouldBeNil)
 			}
 
-			err = utils.TryClose(context.Background(), svc)
+			err = svc.Close(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 		})
 	}
@@ -529,7 +528,7 @@ func TestWebWithTLSAuth(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, arm1Position, test.ShouldResemble, pos)
 
-	err = utils.TryClose(context.Background(), svc)
+	err = svc.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, conn.Close(), test.ShouldBeNil)
 }
@@ -731,8 +730,7 @@ func TestWebWithStreams(t *testing.T) {
 
 	// We need to cancel otherwise we are stuck waiting for WebRTC to start streaming.
 	cancel()
-	test.That(t, utils.TryClose(ctx, streamClient), test.ShouldBeNil)
-	test.That(t, utils.TryClose(ctx, svc), test.ShouldBeNil)
+	test.That(t, svc.Close(ctx), test.ShouldBeNil)
 	test.That(t, conn.Close(), test.ShouldBeNil)
 }
 
@@ -781,8 +779,7 @@ func TestWebAddFirstStream(t *testing.T) {
 
 	// We need to cancel otherwise we are stuck waiting for WebRTC to start streaming.
 	cancel()
-	test.That(t, utils.TryClose(ctx, streamClient), test.ShouldBeNil)
-	test.That(t, utils.TryClose(ctx, svc), test.ShouldBeNil)
+	test.That(t, svc.Close(ctx), test.ShouldBeNil)
 	test.That(t, conn.Close(), test.ShouldBeNil)
 }
 
@@ -828,7 +825,7 @@ func TestForeignResource(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, errStatus.Code(), test.ShouldEqual, codes.Unimplemented)
 
-	test.That(t, utils.TryClose(ctx, svc), test.ShouldBeNil)
+	test.That(t, svc.Close(ctx), test.ShouldBeNil)
 	test.That(t, conn.Close(), test.ShouldBeNil)
 
 	remoteServer := grpc.NewServer()
@@ -905,7 +902,7 @@ func TestForeignResource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp.Ret1, test.ShouldBeTrue)
 
-	test.That(t, utils.TryClose(ctx, svc), test.ShouldBeNil)
+	test.That(t, svc.Close(ctx), test.ShouldBeNil)
 	test.That(t, conn.Close(), test.ShouldBeNil)
 	test.That(t, remoteConn.Close(), test.ShouldBeNil)
 }
@@ -990,7 +987,7 @@ func TestRawClientOperation(t *testing.T) {
 	checkOpID(md, true) // EchoMultiple is NOT filtered, so should have an opID
 	test.That(t, conn.Close(), test.ShouldBeNil)
 
-	test.That(t, utils.TryClose(ctx, svc), test.ShouldBeNil)
+	test.That(t, svc.Close(ctx), test.ShouldBeNil)
 }
 
 func TestInboundMethodTimeout(t *testing.T) {
@@ -1030,7 +1027,7 @@ func TestInboundMethodTimeout(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 
 			test.That(t, conn.Close(), test.ShouldBeNil)
-			test.That(t, utils.TryClose(ctx, svc), test.ShouldBeNil)
+			test.That(t, svc.Close(ctx), test.ShouldBeNil)
 		})
 		t.Run("overridden timeout", func(t *testing.T) {
 			svc := web.New(iRobot, logger)
@@ -1065,7 +1062,7 @@ func TestInboundMethodTimeout(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 
 			test.That(t, conn.Close(), test.ShouldBeNil)
-			test.That(t, utils.TryClose(ctx, svc), test.ShouldBeNil)
+			test.That(t, svc.Close(ctx), test.ShouldBeNil)
 		})
 	})
 	t.Run("module start", func(t *testing.T) {
@@ -1100,7 +1097,7 @@ func TestInboundMethodTimeout(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 
 			test.That(t, conn.Close(), test.ShouldBeNil)
-			test.That(t, utils.TryClose(ctx, svc), test.ShouldBeNil)
+			test.That(t, svc.Close(ctx), test.ShouldBeNil)
 		})
 		t.Run("overridden timeout", func(t *testing.T) {
 			svc := web.New(iRobot, logger)
@@ -1134,7 +1131,7 @@ func TestInboundMethodTimeout(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 
 			test.That(t, conn.Close(), test.ShouldBeNil)
-			test.That(t, utils.TryClose(ctx, svc), test.ShouldBeNil)
+			test.That(t, svc.Close(ctx), test.ShouldBeNil)
 		})
 	})
 }

@@ -8,7 +8,6 @@ import (
 	"github.com/edaniels/gostream"
 	"github.com/pion/mediadevices/pkg/prop"
 	pb "go.viam.com/api/component/audioinput/v1"
-	viamutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -148,5 +147,5 @@ func (as *audioSource) MediaProperties(ctx context.Context) (prop.Audio, error) 
 
 // Close closes the underlying AudioSource.
 func (as *audioSource) Close(ctx context.Context) error {
-	return viamutils.TryClose(ctx, as.as)
+	return as.as.Close(ctx)
 }

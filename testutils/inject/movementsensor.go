@@ -5,7 +5,6 @@ import (
 
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/resource"
@@ -50,7 +49,10 @@ func (i *MovementSensor) Name() resource.Name {
 // Close calls the injected Close or the real version.
 func (i *MovementSensor) Close(ctx context.Context) error {
 	if i.CloseFunc == nil {
-		return utils.TryClose(ctx, i.MovementSensor)
+		if i.MovementSensor == nil {
+			return nil
+		}
+		return i.MovementSensor.Close(ctx)
 	}
 	return i.CloseFunc()
 }

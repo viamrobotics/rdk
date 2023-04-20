@@ -294,7 +294,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 		return err
 	}
 	defer func() {
-		err = multierr.Combine(err, utils.TryClose(ctx, watcher))
+		err = multierr.Combine(err, watcher.Close())
 	}()
 	onWatchDone := make(chan struct{})
 	oldCfg := processedConfig

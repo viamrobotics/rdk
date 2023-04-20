@@ -34,7 +34,6 @@ import (
 	"go.uber.org/multierr"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/board/v1"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/board/genericlinux"
@@ -456,6 +455,10 @@ func (s *piPigpioSPI) OpenHandle() (board.SPIHandle, error) {
 	return s.openHandle, nil
 }
 
+func (s *piPigpioSPI) Close(ctx context.Context) error {
+	return nil
+}
+
 func (s *piPigpioSPIHandle) Close() error {
 	s.isClosed = true
 	s.bus.mu.Unlock()
@@ -592,19 +595,19 @@ func (pi *piPigpio) Close(ctx context.Context) error {
 
 	var err error
 	for _, spi := range pi.spis {
-		err = multierr.Combine(err, utils.TryClose(ctx, spi))
+		err = multierr.Combine(err, spi.Close(ctx))
 	}
 
 	for _, analog := range pi.analogs {
-		err = multierr.Combine(err, utils.TryClose(ctx, analog))
+		err = multierr.Combine(err, analog.Close(ctx))
 	}
 
 	for _, interrupt := range pi.interrupts {
-		err = multierr.Combine(err, utils.TryClose(ctx, interrupt))
+		err = multierr.Combine(err, interrupt.Close(ctx))
 	}
 
 	for _, interruptHW := range pi.interruptsHW {
-		err = multierr.Combine(err, utils.TryClose(ctx, interruptHW))
+		err = multierr.Combine(err, interruptHW.Close(ctx))
 	}
 	pi.mu.Lock()
 	pi.isClosed = true

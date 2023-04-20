@@ -7,7 +7,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
-	viamutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/vision"
@@ -57,7 +56,7 @@ func TestCloseService(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	err = vService.modReg.RegisterVisModel("fake", &registeredFn, logger)
 	test.That(t, err, test.ShouldBeNil)
-	err = viamutils.TryClose(ctx, srv)
+	err = srv.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fakeStruct.val, test.ShouldEqual, 1)
 

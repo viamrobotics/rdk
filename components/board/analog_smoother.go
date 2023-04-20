@@ -48,9 +48,10 @@ type errValue struct {
 }
 
 // Close stops the smoothing routine.
-func (as *AnalogSmoother) Close() {
+func (as *AnalogSmoother) Close(ctx context.Context) error {
 	as.cancel()
 	as.activeBackgroundWorkers.Wait()
+	return nil
 }
 
 // Read returns the smoothed out reading.

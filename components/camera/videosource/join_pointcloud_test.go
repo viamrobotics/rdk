@@ -123,7 +123,7 @@ func TestJoinPointCloudNaive(t *testing.T) {
 	// TODO(RSDK-1200): remove skip when complete
 	t.Skip("remove skip once RSDK-1200 improvement is complete")
 	r := makeFakeRobot(t)
-	defer utils.TryClose(context.Background(), r)
+	defer r.Close(context.Background())
 	// PoV from base1
 	conf := &JoinConfig{
 		Debug:         true,
@@ -401,7 +401,7 @@ func TestFixedPointCloudICP(t *testing.T) {
 	}
 	joinedCam, err := newJoinPointCloudSource(ctx, r, utils.Logger, camera.Named("foo"), conf)
 	test.That(t, err, test.ShouldBeNil)
-	defer utils.TryClose(context.Background(), joinedCam)
+	defer joinedCam.Close(context.Background())
 	pc, err := joinedCam.NextPointCloud(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pc.Size(), test.ShouldEqual, 100)
@@ -421,7 +421,7 @@ func TestTwinPointCloudICP(t *testing.T) {
 	}
 	joinedCam, err := newJoinPointCloudSource(context.Background(), r, utils.Logger, camera.Named("foo"), conf)
 	test.That(t, err, test.ShouldBeNil)
-	defer utils.TryClose(context.Background(), joinedCam)
+	defer joinedCam.Close(context.Background())
 	pc, err := joinedCam.NextPointCloud(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	filename := "test_twin_" + time.Now().Format(time.RFC3339) + "*.pcd"
@@ -446,7 +446,7 @@ func TestMultiPointCloudICP(t *testing.T) {
 	}
 	joinedCam, err := newJoinPointCloudSource(context.Background(), r, utils.Logger, camera.Named("foo"), conf)
 	test.That(t, err, test.ShouldBeNil)
-	defer utils.TryClose(context.Background(), joinedCam)
+	defer joinedCam.Close(context.Background())
 	pc, err := joinedCam.NextPointCloud(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 

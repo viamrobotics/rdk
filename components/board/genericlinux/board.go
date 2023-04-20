@@ -204,18 +204,18 @@ func (b *sysfsBoard) Reconfigure(
 		if curr, ok := b.analogs[c.Name]; ok {
 			if curr.chipSelect != c.ChipSelect {
 				ar := &board.MCP3008AnalogReader{channel, bus, c.ChipSelect}
-				curr.reset(curr.chipSelect, board.SmoothAnalogReader(ar, c, b.logger))
+				curr.reset(ctx, curr.chipSelect, board.SmoothAnalogReader(ar, c, b.logger))
 			}
 			continue
 		}
 		ar := &board.MCP3008AnalogReader{channel, bus, c.ChipSelect}
-		b.analogs[c.Name] = newWrappedAnalog(c.ChipSelect, board.SmoothAnalogReader(ar, c, b.logger))
+		b.analogs[c.Name] = newWrappedAnalog(ctx, c.ChipSelect, board.SmoothAnalogReader(ar, c, b.logger))
 	}
 	for name := range b.analogs {
 		if _, ok := stillExists[name]; ok {
 			continue
 		}
-		b.analogs[name].reset("", nil)
+		b.analogs[name].reset(ctx, "", nil)
 		delete(b.analogs, name)
 	}
 
@@ -244,9 +244,9 @@ type wrappedAnalog struct {
 	reader     *board.AnalogSmoother
 }
 
-func newWrappedAnalog(chipSelect string, reader *board.AnalogSmoother) *wrappedAnalog {
+func newWrappedAnalog(ctx context.Context, chipSelect string, reader *board.AnalogSmoother) *wrappedAnalog {
 	var wrapped wrappedAnalog
-	wrapped.reset(chipSelect, reader)
+	wrapped.reset(ctx, chipSelect, reader)
 	return &wrapped
 }
 
@@ -259,11 +259,15 @@ func (a *wrappedAnalog) Read(ctx context.Context, extra map[string]interface{}) 
 	return a.reader.Read(ctx, extra)
 }
 
-func (a *wrappedAnalog) reset(chipSelect string, reader *board.AnalogSmoother) {
+func (a *wrappedAnalog) Close(ctx context.Context) error {
+	return nil
+}
+
+func (a *wrappedAnalog) reset(ctx context.Context, chipSelect string, reader *board.AnalogSmoother) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	if a.reader != nil {
-		a.reader.Close()
+		goutils.UncheckedError(a.reader.Close(ctx))
 	}
 	a.reader = reader
 	a.chipSelect = chipSelect
@@ -314,6 +318,10 @@ func (sb *spiBus) OpenHandle() (board.SPIHandle, error) {
 	sb.mu.Lock()
 	sb.openHandle = &spiHandle{bus: sb, isClosed: false}
 	return sb.openHandle, nil
+}
+
+func (sb *spiBus) Close(ctx context.Context) error {
+	return nil
 }
 
 func (sb *spiBus) reset(bus string) {

@@ -11,7 +11,6 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	boardpb "go.viam.com/api/component/board/v1"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/board"
@@ -248,7 +247,7 @@ func TestClientWithStatus(t *testing.T) {
 	respI2Cs := client.I2CNames()
 	test.That(t, respI2Cs, test.ShouldResemble, []string{})
 
-	err = utils.TryClose(context.Background(), client)
+	err = client.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, conn.Close(), test.ShouldBeNil)
 }
@@ -288,7 +287,7 @@ func TestClientWithoutStatus(t *testing.T) {
 	test.That(t, rClient.SPINames(), test.ShouldResemble, []string{})
 	test.That(t, rClient.I2CNames(), test.ShouldResemble, []string{})
 
-	err = utils.TryClose(context.Background(), rClient)
+	err = rClient.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, conn.Close(), test.ShouldBeNil)
 }

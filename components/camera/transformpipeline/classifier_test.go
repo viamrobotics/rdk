@@ -7,7 +7,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/components/camera"
@@ -108,7 +107,7 @@ func TestClassifierSource(t *testing.T) {
 
 	classifier, err := camera.FromRobot(r, "classification_transform_camera")
 	test.That(t, err, test.ShouldBeNil)
-	defer utils.TryClose(ctx, classifier)
+	defer classifier.Close(ctx)
 
 	resImg, _, err := camera.ReadImage(ctx, classifier)
 	test.That(t, err, test.ShouldBeNil)

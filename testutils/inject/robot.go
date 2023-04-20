@@ -10,7 +10,6 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/google/uuid"
 	pb "go.viam.com/api/robot/v1"
-	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 
 	"go.viam.com/rdk/config"
@@ -194,7 +193,10 @@ func (r *Robot) Close(ctx context.Context) error {
 	r.Mu.RLock()
 	defer r.Mu.RUnlock()
 	if r.CloseFunc == nil {
-		return utils.TryClose(ctx, r.LocalRobot)
+		if r.LocalRobot == nil {
+			return nil
+		}
+		return r.LocalRobot.Close(ctx)
 	}
 	return r.CloseFunc(ctx)
 }

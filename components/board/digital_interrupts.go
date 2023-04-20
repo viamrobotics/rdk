@@ -52,6 +52,8 @@ type DigitalInterrupt interface {
 
 	// RemoveCallback removes a listener for interrupts
 	RemoveCallback(c chan Tick)
+
+	Close(ctx context.Context) error
 }
 
 // A ReconfigurableDigitalInterrupt is a simple reconfigurable digital interrupt that expects
@@ -173,6 +175,11 @@ func (i *BasicDigitalInterrupt) AddPostProcessor(pp PostProcessor) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 	i.pp = pp
+}
+
+// Close does nothing.
+func (i *BasicDigitalInterrupt) Close(ctx context.Context) error {
+	return nil
 }
 
 func processFormula(oldFormula, newFormula, name string) (func(raw int64) int64, bool, error) {
@@ -313,5 +320,10 @@ func (i *ServoDigitalInterrupt) Reconfigure(conf DigitalInterruptConfig) error {
 	}
 	i.pp = newFormula
 	i.cfg = conf
+	return nil
+}
+
+// Close does nothing.
+func (i *ServoDigitalInterrupt) Close(ctx context.Context) error {
 	return nil
 }

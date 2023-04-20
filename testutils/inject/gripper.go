@@ -3,8 +3,6 @@ package inject
 import (
 	"context"
 
-	"go.viam.com/utils"
-
 	"go.viam.com/rdk/components/gripper"
 	"go.viam.com/rdk/resource"
 )
@@ -66,7 +64,10 @@ func (g *Gripper) IsMoving(ctx context.Context) (bool, error) {
 // Close calls the injected Close or the real version.
 func (g *Gripper) Close(ctx context.Context) error {
 	if g.CloseFunc == nil {
-		return utils.TryClose(ctx, g.Gripper)
+		if g.Gripper == nil {
+			return nil
+		}
+		return g.Gripper.Close(ctx)
 	}
 	return g.CloseFunc(ctx)
 }

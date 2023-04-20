@@ -4,7 +4,6 @@ import (
 	"context"
 
 	pb "go.viam.com/api/component/arm/v1"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/referenceframe"
@@ -88,7 +87,10 @@ func (a *Arm) IsMoving(ctx context.Context) (bool, error) {
 // Close calls the injected Close or the real version.
 func (a *Arm) Close(ctx context.Context) error {
 	if a.CloseFunc == nil {
-		return utils.TryClose(ctx, a.Arm)
+		if a.Arm == nil {
+			return nil
+		}
+		return a.Arm.Close(ctx)
 	}
 	return a.CloseFunc(ctx)
 }

@@ -5,7 +5,6 @@ import (
 
 	geo "github.com/kellydunn/golang-geo"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/navigation"
@@ -99,7 +98,10 @@ func (ns *NavigationService) DoCommand(ctx context.Context,
 // Close calls the injected Close or the real version.
 func (ns *NavigationService) Close(ctx context.Context) error {
 	if ns.CloseFunc == nil {
-		return utils.TryClose(ctx, ns.Service)
+		if ns.Service == nil {
+			return nil
+		}
+		return ns.Service.Close(ctx)
 	}
 	return ns.CloseFunc(ctx)
 }

@@ -8,7 +8,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/components/camera"
@@ -143,7 +142,7 @@ func TestColorDetectionSource(t *testing.T) {
 
 	detector, err := camera.FromRobot(r, "color_detect")
 	test.That(t, err, test.ShouldBeNil)
-	defer utils.TryClose(ctx, detector)
+	defer detector.Close(ctx)
 
 	resImg, _, err := camera.ReadImage(ctx, detector)
 	test.That(t, err, test.ShouldBeNil)
@@ -180,7 +179,7 @@ func TestTFLiteDetectionSource(t *testing.T) {
 
 	detector, err := camera.FromRobot(r, "tflite_detect")
 	test.That(t, err, test.ShouldBeNil)
-	defer utils.TryClose(ctx, detector)
+	defer detector.Close(ctx)
 
 	resImg, _, err := camera.ReadImage(ctx, detector)
 	test.That(t, err, test.ShouldBeNil)
@@ -216,7 +215,7 @@ func BenchmarkColorDetectionSource(b *testing.B) {
 	test.That(b, err, test.ShouldBeNil)
 	detector, err := camera.FromRobot(r, "color_detect")
 	test.That(b, err, test.ShouldBeNil)
-	defer utils.TryClose(ctx, detector)
+	defer detector.Close(ctx)
 
 	b.ResetTimer()
 	// begin benchmarking
@@ -251,7 +250,7 @@ func BenchmarkTFLiteDetectionSource(b *testing.B) {
 	test.That(b, err, test.ShouldBeNil)
 	detector, err := camera.FromRobot(r, "tflite_detect")
 	test.That(b, err, test.ShouldBeNil)
-	defer utils.TryClose(ctx, detector)
+	defer detector.Close(ctx)
 
 	b.ResetTimer()
 	// begin benchmarking

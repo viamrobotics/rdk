@@ -1621,7 +1621,7 @@ func TestReconfigure(t *testing.T) {
 
 	manager := managerForDummyRobot(r)
 	defer func() {
-		test.That(t, utils.TryClose(ctx, manager), test.ShouldBeNil)
+		test.That(t, manager.Close(ctx, r), test.ShouldBeNil)
 	}()
 
 	svc1 := resource.Config{
@@ -1647,7 +1647,7 @@ func TestReconfigure(t *testing.T) {
 	test.That(t, mockRe.reconfigCount, test.ShouldEqual, 1)
 
 	defer func() {
-		test.That(t, utils.TryClose(ctx, local), test.ShouldBeNil)
+		test.That(t, local.Close(ctx), test.ShouldBeNil)
 	}()
 }
 
@@ -1660,8 +1660,8 @@ func TestResourceCreationPanic(t *testing.T) {
 
 	manager := managerForDummyRobot(r)
 	defer func() {
-		test.That(t, utils.TryClose(ctx, manager), test.ShouldBeNil)
-		test.That(t, utils.TryClose(ctx, r), test.ShouldBeNil)
+		test.That(t, manager.Close(ctx, r), test.ShouldBeNil)
+		test.That(t, r.Close(ctx), test.ShouldBeNil)
 	}()
 
 	t.Run("component", func(t *testing.T) {
@@ -1847,7 +1847,7 @@ func (rr *dummyRobot) Logger() golog.Logger {
 }
 
 func (rr *dummyRobot) Close(ctx context.Context) error {
-	return utils.TryClose(ctx, rr.robot)
+	return rr.robot.Close(ctx)
 }
 
 func (rr *dummyRobot) StopAll(ctx context.Context, extra map[resource.Name]map[string]interface{}) error {

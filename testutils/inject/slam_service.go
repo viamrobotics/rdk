@@ -3,8 +3,6 @@ package inject
 import (
 	"context"
 
-	"go.viam.com/utils"
-
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/spatialmath"
@@ -68,7 +66,10 @@ func (slamSvc *SLAMService) DoCommand(ctx context.Context,
 // Close calls the injected Close or the real version.
 func (slamSvc *SLAMService) Close(ctx context.Context) error {
 	if slamSvc.CloseFunc == nil {
-		return utils.TryClose(ctx, slamSvc.Service)
+		if slamSvc.Service == nil {
+			return nil
+		}
+		return slamSvc.Service.Close(ctx)
 	}
 	return slamSvc.CloseFunc(ctx)
 }

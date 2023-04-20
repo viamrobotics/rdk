@@ -3,8 +3,6 @@ package inject
 import (
 	"context"
 
-	"go.viam.com/utils"
-
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/shell"
 )
@@ -53,7 +51,10 @@ func (s *ShellService) Reconfigure(ctx context.Context, deps resource.Dependenci
 // Close calls the injected Close or the real version.
 func (s *ShellService) Close(ctx context.Context) error {
 	if s.CloseFunc == nil {
-		return utils.TryClose(ctx, s.Service)
+		if s.Service == nil {
+			return nil
+		}
+		return s.Service.Close(ctx)
 	}
 	return s.CloseFunc(ctx)
 }

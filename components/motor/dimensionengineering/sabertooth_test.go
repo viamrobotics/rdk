@@ -7,7 +7,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/components/motor/dimensionengineering"
@@ -49,7 +48,7 @@ func TestSabertoothMotor(t *testing.T) {
 	// These are the setup register writes
 	m1, err := motorReg.Constructor(context.Background(), deps, resource.Config{Name: "motor1", ConvertedAttributes: &mc1}, logger)
 	test.That(t, err, test.ShouldBeNil)
-	defer utils.TryClose(ctx, m1)
+	defer m1.Close(ctx)
 
 	// This should be the stop command
 	checkTx(t, resChan, c, []byte{0x80, 0x00, 0x00, 0x00})
@@ -93,7 +92,7 @@ func TestSabertoothMotor(t *testing.T) {
 
 	m2, err := motorReg.Constructor(context.Background(), deps, resource.Config{Name: "motor2", ConvertedAttributes: &mc2}, logger)
 	test.That(t, err, test.ShouldBeNil)
-	defer utils.TryClose(ctx, m2)
+	defer m2.Close(ctx)
 
 	checkTx(t, resChan, c, []byte{0x80, 0x04, 0x00, 0x04})
 
@@ -149,7 +148,7 @@ func TestSabertoothMotorDirectionFlip(t *testing.T) {
 	// These are the setup register writes
 	m1, err := motorReg.Constructor(context.Background(), deps, resource.Config{Name: "motor1", ConvertedAttributes: &mc1}, logger)
 	test.That(t, err, test.ShouldBeNil)
-	defer utils.TryClose(ctx, m1)
+	defer m1.Close(ctx)
 
 	checkTx(t, resChan, c, []byte{0x80, 0x00, 0x00, 0x00})
 
@@ -186,7 +185,7 @@ func TestSabertoothMotorDirectionFlip(t *testing.T) {
 
 	m2, err := motorReg.Constructor(context.Background(), deps, resource.Config{Name: "motor2", ConvertedAttributes: &mc2}, logger)
 	test.That(t, err, test.ShouldBeNil)
-	defer utils.TryClose(ctx, m2)
+	defer m2.Close(ctx)
 
 	checkTx(t, resChan, c, []byte{0x80, 0x04, 0x00, 0x04})
 
@@ -242,7 +241,7 @@ func TestSabertoothRampConfig(t *testing.T) {
 	// These are the setup register writes
 	m1, err := motorReg.Constructor(context.Background(), deps, resource.Config{Name: "motor1", ConvertedAttributes: &mc1}, logger)
 	test.That(t, err, test.ShouldBeNil)
-	defer utils.TryClose(ctx, m1)
+	defer m1.Close(ctx)
 
 	checkTx(t, resChan, c, []byte{0x80, 0x00, 0x00, 0x00})
 	checkTx(t, resChan, c, []byte{0x80, 0x10, 0x64, 0x74})
@@ -274,7 +273,7 @@ func TestSabertoothAddressMapping(t *testing.T) {
 	// These are the setup register writes
 	m1, err := motorReg.Constructor(context.Background(), deps, resource.Config{Name: "motor1", ConvertedAttributes: &mc1}, logger)
 	test.That(t, err, test.ShouldBeNil)
-	defer utils.TryClose(ctx, m1)
+	defer m1.Close(ctx)
 
 	checkTx(t, resChan, c, []byte{0x81, 0x00, 0x00, 0x01})
 }
@@ -299,7 +298,7 @@ func TestInvalidMotorChannel(t *testing.T) {
 	// These are the setup register writes
 	m1, err := motorReg.Constructor(context.Background(), deps, resource.Config{Name: "motor1", ConvertedAttributes: &mc1}, logger)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid channel")
-	defer utils.TryClose(ctx, m1)
+	defer m1.Close(ctx)
 }
 
 func TestInvalidBaudRate(t *testing.T) {
@@ -323,7 +322,7 @@ func TestInvalidBaudRate(t *testing.T) {
 	// These are the setup register writes
 	m1, err := motorReg.Constructor(context.Background(), deps, resource.Config{Name: "motor1", ConvertedAttributes: &mc1}, logger)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid baud_rate")
-	defer utils.TryClose(ctx, m1)
+	defer m1.Close(ctx)
 }
 
 func TestInvalidSerialAddress(t *testing.T) {
@@ -346,7 +345,7 @@ func TestInvalidSerialAddress(t *testing.T) {
 	// These are the setup register writes
 	m1, err := motorReg.Constructor(context.Background(), deps, resource.Config{Name: "motor1", ConvertedAttributes: &mc1}, logger)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid address")
-	defer utils.TryClose(ctx, m1)
+	defer m1.Close(ctx)
 }
 
 func TestInvalidMinPowerPct(t *testing.T) {
@@ -371,7 +370,7 @@ func TestInvalidMinPowerPct(t *testing.T) {
 	// These are the setup register writes
 	m1, err := motorReg.Constructor(context.Background(), deps, resource.Config{Name: "motor1", ConvertedAttributes: &mc1}, logger)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid min_power_pct")
-	defer utils.TryClose(ctx, m1)
+	defer m1.Close(ctx)
 }
 
 func TestInvalidMaxPowerPct(t *testing.T) {
@@ -396,7 +395,7 @@ func TestInvalidMaxPowerPct(t *testing.T) {
 	// These are the setup register writes
 	m1, err := motorReg.Constructor(context.Background(), deps, resource.Config{Name: "motor1", ConvertedAttributes: &mc1}, logger)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid max_power_pct")
-	defer utils.TryClose(ctx, m1)
+	defer m1.Close(ctx)
 }
 
 func TestMultipleInvalidParameters(t *testing.T) {
@@ -426,5 +425,5 @@ func TestMultipleInvalidParameters(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid baud_rate")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid min_power_pct")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid max_power_pct")
-	defer utils.TryClose(ctx, m1)
+	defer m1.Close(ctx)
 }

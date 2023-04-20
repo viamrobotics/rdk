@@ -3,8 +3,6 @@ package inject
 import (
 	"context"
 
-	"go.viam.com/utils"
-
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/mlmodel"
 )
@@ -47,7 +45,10 @@ func (s *MLModelService) Metadata(ctx context.Context) (mlmodel.MLMetadata, erro
 // Close calls the injected Close or the real version.
 func (s *MLModelService) Close(ctx context.Context) error {
 	if s.CloseFunc == nil {
-		return utils.TryClose(ctx, s.Service)
+		if s.Service == nil {
+			return nil
+		}
+		return s.Service.Close(ctx)
 	}
 	return s.CloseFunc(ctx)
 }

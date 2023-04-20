@@ -352,7 +352,7 @@ func TestBaseRemoteControl(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Close out check
-	err = utils.TryClose(context.Background(), svc)
+	err = svc.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)
 }
 

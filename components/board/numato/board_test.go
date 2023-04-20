@@ -7,7 +7,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	rutils "go.viam.com/rdk/utils"
@@ -56,7 +55,7 @@ func TestNumato1(t *testing.T) {
 		t.Skip("no numato board connected")
 	}
 	test.That(t, err, test.ShouldBeNil)
-	defer utils.TryClose(ctx, b)
+	defer b.Close(ctx)
 
 	// For this to work 0 has be plugged into 1
 

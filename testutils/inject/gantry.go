@@ -3,8 +3,6 @@ package inject
 import (
 	"context"
 
-	"go.viam.com/utils"
-
 	"go.viam.com/rdk/components/gantry"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -85,7 +83,10 @@ func (g *Gantry) ModelFrame() referenceframe.Model {
 // Close calls the injected Close or the real version.
 func (g *Gantry) Close(ctx context.Context) error {
 	if g.CloseFunc == nil {
-		return utils.TryClose(ctx, g.Gantry)
+		if g.Gantry == nil {
+			return nil
+		}
+		return g.Gantry.Close(ctx)
 	}
 	return g.CloseFunc(ctx)
 }

@@ -9,7 +9,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 	"go.viam.com/utils/testutils"
 )
 
@@ -29,6 +28,10 @@ func (t *testReader) Read(ctx context.Context, extra map[string]interface{}) (in
 	}
 	t.n++
 	return t.r.Intn(100), nil
+}
+
+func (t *testReader) Close(ctx context.Context) error {
+	return nil
 }
 
 func TestAnalogSmoother1(t *testing.T) {
@@ -60,6 +63,5 @@ func TestAnalogSmoother1(t *testing.T) {
 		test.That(tb, testReader.n, test.ShouldEqual, testReader.lim)
 	})
 
-	err := utils.TryClose(context.Background(), as)
-	test.That(t, err, test.ShouldBeNil)
+	test.That(t, as.Close(context.Background()), test.ShouldBeNil)
 }

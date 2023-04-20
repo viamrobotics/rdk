@@ -298,12 +298,12 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	subSvc, ok := m.collections[conf.API]
+	coll, ok := m.collections[conf.API]
 	if !ok {
 		return nil, errors.Errorf("module cannot service api: %s", conf.API)
 	}
 
-	return &pb.AddResourceResponse{}, subSvc.Add(conf.ResourceName(), res)
+	return &pb.AddResourceResponse{}, coll.Add(conf.ResourceName(), res)
 }
 
 // ReconfigureResource receives the component/service configuration from the parent.
@@ -335,11 +335,11 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	svc, ok := m.collections[conf.API]
+	coll, ok := m.collections[conf.API]
 	if !ok {
 		return nil, errors.Errorf("no rpc service for %+v", conf)
 	}
-	res, err = svc.Resource(conf.ResourceName().Name)
+	res, err = coll.Resource(conf.ResourceName().Name)
 	if err != nil {
 		return nil, err
 	}
@@ -369,7 +369,7 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 	if err != nil {
 		return nil, err
 	}
-	return &pb.ReconfigureResourceResponse{}, svc.ReplaceOne(conf.ResourceName(), newRes)
+	return &pb.ReconfigureResourceResponse{}, coll.ReplaceOne(conf.ResourceName(), newRes)
 }
 
 // Validator is a resource configuration object that implements Validate.
@@ -423,19 +423,19 @@ func (m *Module) RemoveResource(ctx context.Context, req *pb.RemoveResourceReque
 		return nil, err
 	}
 
-	svc, ok := m.collections[name.Subtype]
+	coll, ok := m.collections[name.Subtype]
 	if !ok {
 		return nil, errors.Errorf("no grpc service for %+v", name)
 	}
-	comp, err := svc.Resource(name.Name)
+	res, err := coll.Resource(name.Name)
 	if err != nil {
 		return nil, err
 	}
-	if err := utils.TryClose(ctx, comp); err != nil {
+	if err := res.Close(ctx); err != nil {
 		m.logger.Error(err)
 	}
 
-	return &pb.RemoveResourceResponse{}, svc.Remove(name)
+	return &pb.RemoveResourceResponse{}, coll.Remove(name)
 }
 
 // addAPIFromRegistry adds a preregistered API (rpc Subtype) to the module's services.

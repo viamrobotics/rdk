@@ -12,7 +12,6 @@ import (
 	v1 "go.viam.com/api/app/v1"
 	pb "go.viam.com/api/module/v1"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 	"go.viam.com/utils/protoutils"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -250,7 +249,7 @@ func TestModuleFunctions(t *testing.T) {
 		err = rMotor.Stop(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = utils.TryClose(ctx, rMotor)
+		err = rMotor.Close(ctx)
 		test.That(t, err, test.ShouldBeNil)
 
 		// Test that GetParentResource will refresh resources on the parent
@@ -338,7 +337,7 @@ func TestModuleFunctions(t *testing.T) {
 			`error validating resource: expected "motorL" attribute for mybase "mybase2"`)
 	})
 
-	err = utils.TryClose(ctx, gClient)
+	err = gClient.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)
 
 	err = conn.Close()

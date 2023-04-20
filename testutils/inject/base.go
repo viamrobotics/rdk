@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/golang/geo/r3"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/resource"
@@ -77,7 +76,10 @@ func (b *Base) IsMoving(ctx context.Context) (bool, error) {
 // Close calls the injected Close or the real version.
 func (b *Base) Close(ctx context.Context) error {
 	if b.CloseFunc == nil {
-		return utils.TryClose(ctx, b.LocalBase)
+		if b.LocalBase == nil {
+			return nil
+		}
+		return b.LocalBase.Close(ctx)
 	}
 	return b.CloseFunc(ctx)
 }

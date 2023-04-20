@@ -123,6 +123,6 @@ func TestRTSPCamera(t *testing.T) {
 	rtspCam, err := NewRTSPCamera(timeoutCtx, camera.Named("cam1"), rtspConf, logger)
 	test.That(t, err, test.ShouldBeNil)
 	// close everything
-	err = viamutils.TryClose(context.Background(), rtspCam)
+	err = rtspCam.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 }
