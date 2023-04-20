@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, toRaw } from 'vue';
 import { grpc } from '@improbable-eng/grpc-web';
-import { Client, encoderApi, type ServiceError } from '@viamrobotics/sdk';
+import { Client, type encoderApi, type ServiceError } from '@viamrobotics/sdk';
 import { displayError } from '../lib/error';
 import { rcLogConditionally } from '../lib/log';
 
@@ -27,7 +27,7 @@ const refresh = () => {
   props.client.encoderService.getPosition(
     req,
     new grpc.Metadata(),
-    (error: ServiceError | null, resp: encoderApi.GetPositionResponse) => {
+    (error: ServiceError | null, resp: encoderApi.GetPositionResponse | null) => {
       if (error) {
         return displayError(error as ServiceError);
       }
@@ -42,7 +42,7 @@ const refresh = () => {
     props.client.encoderService.getPosition(
       req,
       new grpc.Metadata(),
-      (error: ServiceError | null, resp: encoderApi.GetPositionResponse) => {
+      (error: ServiceError | null, resp: encoderApi.GetPositionResponse | null) => {
         if (error) {
           return displayError(error as ServiceError);
         }
@@ -80,7 +80,7 @@ onMounted(async () => {
     await props.client.encoderService.getProperties(
       req,
       new grpc.Metadata(),
-      (error: ServiceError, resp: encoderApi.GetPropertiesResponse) => {
+      (error: ServiceError, resp: encoderApi.GetPropertiesResponse | null) => {
         if (error) {
           if (error.message === 'Response closed without headers') {
             refreshId = window.setTimeout(refresh, 500);
