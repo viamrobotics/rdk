@@ -29,7 +29,7 @@ const refresh = () => {
     new grpc.Metadata(),
     (error: ServiceError, resp: encoderApi.GetPositionResponse) => {
       if (error) {
-        return displayError(error);
+        return displayError(error as ServiceError);
       }
 
       positionTicks = resp!.toObject();
@@ -42,9 +42,9 @@ const refresh = () => {
     props.client.encoderService.getPosition(
       req,
       new grpc.Metadata(),
-      (error: ServiceError, resp: encoderApi.GetPositionResponse) => {
+      (error: ServiceError | null, resp: encoderApi.GetPositionResponse) => {
         if (error) {
-          return displayError(error);
+          return displayError(error as ServiceError);
         }
 
         positionDegrees = resp!.toObject();
@@ -65,7 +65,7 @@ const reset = async () => {
     new grpc.Metadata(),
     (error: ServiceError) => {
       if (error) {
-        return displayError(error);
+        return displayError(error as ServiceError);
       }
     }
   );
@@ -86,7 +86,7 @@ onMounted(async () => {
             refreshId = window.setTimeout(refresh, 500);
             return;
           }
-          return displayError(error);
+          return displayError(error as ServiceError);
         }
         properties = resp!.toObject();
       }
