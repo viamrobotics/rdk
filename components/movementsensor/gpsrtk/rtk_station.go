@@ -17,14 +17,10 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/components/movementsensor/gpsnmea"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 // StationConfig is used for converting RTK MovementSensor config attributes.
@@ -38,9 +34,9 @@ type StationConfig struct {
 	RequiredAccuracy float64 `json:"required_accuracy,omitempty"` // fixed number 1-5, 5 being the highest accuracy
 	RequiredTime     int     `json:"required_time_sec,omitempty"`
 
-	*SerialAttrConfig `json:"serial_attributes,omitempty"`
-	*I2CAttrConfig    `json:"i2c_attributes,omitempty"`
-	*NtripAttrConfig  `json:"ntrip_attributes,omitempty"`
+	*SerialConfig `json:"serial_attributes,omitempty"`
+	*I2CConfig    `json:"i2c_attributes,omitempty"`
+	*NtripConfig  `json:"ntrip_attributes,omitempty"`
 }
 
 const (
@@ -69,15 +65,15 @@ func (cfg *StationConfig) Validate(path string) ([]string, error) {
 
 	switch cfg.CorrectionSource {
 	case ntripStr:
-		return nil, cfg.NtripAttrConfig.ValidateNtrip(path)
+		return nil, cfg.NtripConfig.ValidateNtrip(path)
 	case i2cStr:
 		if cfg.Board == "" {
 			return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
 		}
 		deps = append(deps, cfg.Board)
-		return deps, cfg.I2CAttrConfig.ValidateI2C(path)
+		return deps, cfg.I2CConfig.ValidateI2C(path)
 	case serialStr:
-		if cfg.SerialAttrConfig.SerialCorrectionPath == "" {
+		if cfg.SerialConfig.SerialCorrectionPath == "" {
 			return nil, utils.NewConfigValidationFieldRequiredError(path, "serial_correction_path")
 		}
 	case "":
@@ -91,28 +87,17 @@ func (cfg *StationConfig) Validate(path string) ([]string, error) {
 var stationModel = resource.NewDefaultModel("rtk-station")
 
 func init() {
-	registry.RegisterComponent(
+	resource.RegisterComponent(
 		movementsensor.Subtype,
 		stationModel,
-		registry.Component{Constructor: func(
-			ctx context.Context,
-			deps registry.Dependencies,
-			cfg config.Component,
-			logger golog.Logger,
-		) (interface{}, error) {
-			return newRTKStation(ctx, deps, cfg, logger)
-		}})
-
-	config.RegisterComponentAttributeMapConverter(movementsensor.Subtype, stationModel,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var attr StationConfig
-			return config.TransformAttributeMapToStruct(&attr, attributes)
-		},
-		&StationConfig{})
+		resource.Registration[movementsensor.MovementSensor, *StationConfig]{
+			Constructor: newRTKStation,
+		})
 }
 
 type rtkStation struct {
-	generic.Unimplemented
+	resource.Named
+	resource.AlwaysRebuild
 	logger              golog.Logger
 	correction          correctionSource
 	correctionType      string
@@ -131,7 +116,7 @@ type rtkStation struct {
 type correctionSource interface {
 	Reader() (io.ReadCloser, error)
 	Start(ready chan<- bool)
-	Close() error
+	Close(ctx context.Context) error
 }
 
 type i2cBusAddr struct {
@@ -141,41 +126,41 @@ type i2cBusAddr struct {
 
 func newRTKStation(
 	ctx context.Context,
-	deps registry.Dependencies,
-	cfg config.Component,
+	deps resource.Dependencies,
+	conf resource.Config,
 	logger golog.Logger,
 ) (movementsensor.MovementSensor, error) {
-	attr, ok := cfg.ConvertedAttributes.(*StationConfig)
-	if !ok {
-		return nil, rdkutils.NewUnexpectedTypeError(attr, cfg.ConvertedAttributes)
+	newConf, err := resource.NativeConfig[*StationConfig](conf)
+	if err != nil {
+		return nil, err
 	}
 
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 
 	r := &rtkStation{
+		Named:      conf.ResourceName().AsNamed(),
 		cancelCtx:  cancelCtx,
 		cancelFunc: cancelFunc,
 		logger:     logger,
 		err:        movementsensor.NewLastError(1, 1),
 	}
 
-	r.correctionType = attr.CorrectionSource
+	r.correctionType = newConf.CorrectionSource
 
 	// Init correction source
-	var err error
 	switch r.correctionType {
 	case ntripStr:
-		r.correction, err = newNtripCorrectionSource(ctx, cfg, logger)
+		r.correction, err = newNtripCorrectionSource(newConf, logger)
 		if err != nil {
 			return nil, err
 		}
 	case serialStr:
-		r.correction, err = newSerialCorrectionSource(ctx, cfg, logger)
+		r.correction, err = newSerialCorrectionSource(newConf, logger)
 		if err != nil {
 			return nil, err
 		}
 	case i2cStr:
-		r.correction, err = newI2CCorrectionSource(ctx, deps, cfg, logger)
+		r.correction, err = newI2CCorrectionSource(deps, newConf, logger)
 		if err != nil {
 			return nil, err
 		}
@@ -184,9 +169,9 @@ func newRTKStation(
 		return nil, fmt.Errorf("%s is not a valid correction source", r.correctionType)
 	}
 
-	r.movementsensorNames = attr.Children
+	r.movementsensorNames = newConf.Children
 
-	err = ConfigureBaseRTKStation(cfg)
+	err = ConfigureBaseRTKStation(conf)
 	if err != nil {
 		r.logger.Info("rtk base station could not be configured")
 		return r, err
@@ -198,7 +183,7 @@ func newRTKStation(
 
 	for _, movementsensorName := range r.movementsensorNames {
 		movementsensor, err := movementsensor.FromDependencies(deps, movementsensorName)
-		localmovementsensor := rdkutils.UnwrapProxy(movementsensor)
+		localmovementsensor := movementsensor
 		if err != nil {
 			return nil, err
 		}
@@ -246,11 +231,19 @@ func (r *rtkStation) Start(ctx context.Context) {
 	utils.PanicCapturingGo(func() {
 		defer r.activeBackgroundWorkers.Done()
 
+		if err := r.cancelCtx.Err(); err != nil {
+			return
+		}
+
 		// read from correction source
 		ready := make(chan bool)
-		go r.correction.Start(ready)
+		r.correction.Start(ready)
 
-		<-ready
+		select {
+		case <-ready:
+		case <-r.cancelCtx.Done():
+			return
+		}
 		stream, err := r.correction.Reader()
 		if err != nil {
 			r.logger.Errorf("Unable to get reader: %s", err)
@@ -314,16 +307,15 @@ func (r *rtkStation) Start(ctx context.Context) {
 }
 
 // Close shuts down the rtkStation.
-func (r *rtkStation) Close() error {
-	r.logger.Debug("Closing RTK Station")
+func (r *rtkStation) Close(ctx context.Context) error {
+	r.cancelFunc()
+	r.activeBackgroundWorkers.Wait()
+
 	// close correction source
-	err := r.correction.Close()
+	err := r.correction.Close(ctx)
 	if err != nil {
 		return err
 	}
-
-	r.cancelFunc()
-	r.activeBackgroundWorkers.Wait()
 
 	// close all ports in slice
 	for _, port := range r.serialPorts {
@@ -333,8 +325,10 @@ func (r *rtkStation) Close() error {
 		}
 	}
 
-	r.logger.Debug("RTK Station Closed")
-	return r.err.Get()
+	if err := r.err.Get(); err != nil && !errors.Is(err, context.Canceled) {
+		return err
+	}
+	return nil
 }
 
 func (r *rtkStation) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {

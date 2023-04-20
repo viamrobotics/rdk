@@ -9,10 +9,14 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/resource"
 )
 
 // client implements EncoderServiceClient.
 type client struct {
+	resource.Named
+	resource.TriviallyReconfigurable
+	resource.TriviallyCloseable
 	name   string
 	conn   rpc.ClientConn
 	client pb.EncoderServiceClient
@@ -20,10 +24,11 @@ type client struct {
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
-func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Encoder {
+func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) Encoder {
 	c := pb.NewEncoderServiceClient(conn)
 	return &client{
-		name:   name,
+		Named:  name.AsNamed(),
+		name:   name.ShortNameForClient(),
 		conn:   conn,
 		client: c,
 		logger: logger,
@@ -34,18 +39,18 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 // degrees, and whether it is a relative or absolute position.
 func (c *client) GetPosition(
 	ctx context.Context,
-	positionType *PositionType,
+	positionType PositionType,
 	extra map[string]interface{},
 ) (float64, PositionType, error) {
 	ext, err := structpb.NewStruct(extra)
 	if err != nil {
-		return 0, PositionTypeUNSPECIFIED, err
+		return 0, PositionTypeUnspecified, err
 	}
 	posType := ToProtoPositionType(positionType)
 	req := &pb.GetPositionRequest{Name: c.name, PositionType: &posType, Extra: ext}
 	resp, err := c.client.GetPosition(ctx, req)
 	if err != nil {
-		return 0, PositionTypeUNSPECIFIED, err
+		return 0, PositionTypeUnspecified, err
 	}
 	posType1 := ToEncoderPositionType(&resp.PositionType)
 	return float64(resp.Value), posType1, nil

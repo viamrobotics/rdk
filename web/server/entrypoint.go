@@ -22,24 +22,24 @@ import (
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/robot/web"
 	weboptions "go.viam.com/rdk/robot/web/options"
+	rutils "go.viam.com/rdk/utils"
 )
 
 var viamDotDir = filepath.Join(os.Getenv("HOME"), ".viam")
 
 // Arguments for the command.
 type Arguments struct {
-	AllowInsecureCreds           bool   `flag:"allow-insecure-creds,usage=allow connections to send credentials over plaintext"`
-	ConfigFile                   string `flag:"config,usage=robot config file"`
-	CPUProfile                   string `flag:"cpuprofile,usage=write cpu profile to file"`
-	Debug                        bool   `flag:"debug"`
-	LimitConfigurableDirectories bool   `flag:"limit-configurable-directories,usage=limit which directories users can configure for storing data on-robot"` //nolint:lll
-	SharedDir                    string `flag:"shareddir,usage=web resource directory"`
-	Version                      bool   `flag:"version,usage=print version"`
-	WebProfile                   bool   `flag:"webprofile,usage=include profiler in http server"`
-	WebRTC                       bool   `flag:"webrtc,default=true,usage=force webrtc connections instead of direct"`
-	RevealSensitiveConfigDiffs   bool   `flag:"reveal-sensitive-config-diffs,usage=show config diffs"`
-	UntrustedEnv                 bool   `flag:"untrusted-env,usage=disable processes and shell from running in a untrusted environment"`
-	OutputTelemetry              bool   `flag:"output-telemetry,usage=print out telemetry data (metrics and spans)"`
+	AllowInsecureCreds         bool   `flag:"allow-insecure-creds,usage=allow connections to send credentials over plaintext"`
+	ConfigFile                 string `flag:"config,usage=robot config file"`
+	CPUProfile                 string `flag:"cpuprofile,usage=write cpu profile to file"`
+	Debug                      bool   `flag:"debug"`
+	SharedDir                  string `flag:"shareddir,usage=web resource directory"`
+	Version                    bool   `flag:"version,usage=print version"`
+	WebProfile                 bool   `flag:"webprofile,usage=include profiler in http server"`
+	WebRTC                     bool   `flag:"webrtc,default=true,usage=force webrtc connections instead of direct"`
+	RevealSensitiveConfigDiffs bool   `flag:"reveal-sensitive-config-diffs,usage=show config diffs"`
+	UntrustedEnv               bool   `flag:"untrusted-env,usage=disable processes and shell from running in a untrusted environment"`
+	OutputTelemetry            bool   `flag:"output-telemetry,usage=print out telemetry data (metrics and spans)"`
 }
 
 type robotServer struct {
@@ -53,6 +53,11 @@ type robotServer struct {
 func RunServer(ctx context.Context, args []string, _ golog.Logger) (err error) {
 	var argsParsed Arguments
 	if err := utils.ParseFlags(args, &argsParsed); err != nil {
+		return err
+	}
+
+	ctx, err = rutils.WithTrustedEnvironment(ctx, !argsParsed.UntrustedEnv)
+	if err != nil {
 		return err
 	}
 
@@ -219,7 +224,6 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 		out.Debug = s.args.Debug || cfg.Debug
 		out.FromCommand = true
 		out.AllowInsecureCreds = s.args.AllowInsecureCreds
-		out.LimitConfigurableDirectories = s.args.LimitConfigurableDirectories
 		out.UntrustedEnv = s.args.UntrustedEnv
 		out.PackagePath = path.Join(viamDotDir, "packages")
 		return out, nil
@@ -290,7 +294,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 		return err
 	}
 	defer func() {
-		err = multierr.Combine(err, utils.TryClose(ctx, watcher))
+		err = multierr.Combine(err, watcher.Close())
 	}()
 	onWatchDone := make(chan struct{})
 	oldCfg := processedConfig
@@ -320,7 +324,8 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 				var options weboptions.Options
 
 				if !diff.NetworkEqual {
-					if err := myRobot.StopWeb(); err != nil {
+					// TODO(RSDK-2694): use internal web service reconfiguration instead
+					if err := myRobot.StopWeb(ctx); err != nil {
 						s.logger.Errorw("reconfiguration failed: error stopping web service while reconfiguring", "error", err)
 						continue
 					}

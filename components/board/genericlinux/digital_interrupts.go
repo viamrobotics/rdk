@@ -7,7 +7,6 @@ package genericlinux
 import (
 	"context"
 	"strconv"
-	"sync"
 
 	"github.com/mkch/gpio"
 	"github.com/pkg/errors"
@@ -18,14 +17,17 @@ import (
 )
 
 type digitalInterrupt struct {
-	interrupt  board.DigitalInterrupt
-	line       *gpio.LineWithEvent
-	cancelCtx  context.Context
-	cancelFunc func()
+	parentBoard *sysfsBoard
+	interrupt   board.DigitalInterrupt
+	line        *gpio.LineWithEvent
+	cancelCtx   context.Context
+	cancelFunc  func()
 }
 
-func createDigitalInterrupt(ctx context.Context, config board.DigitalInterruptConfig,
-	gpioMappings map[int]GPIOBoardMapping, activeBackgroundWorkers *sync.WaitGroup,
+func (b *sysfsBoard) createDigitalInterrupt(
+	ctx context.Context,
+	config board.DigitalInterruptConfig,
+	gpioMappings map[int]GPIOBoardMapping,
 ) (*digitalInterrupt, error) {
 	pinInt, err := strconv.Atoi(config.Pin)
 	if err != nil {
@@ -55,17 +57,18 @@ func createDigitalInterrupt(ctx context.Context, config board.DigitalInterruptCo
 
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	result := digitalInterrupt{
-		interrupt:  interrupt,
-		line:       line,
-		cancelCtx:  cancelCtx,
-		cancelFunc: cancelFunc,
+		parentBoard: b,
+		interrupt:   interrupt,
+		line:        line,
+		cancelCtx:   cancelCtx,
+		cancelFunc:  cancelFunc,
 	}
-	result.startMonitor(activeBackgroundWorkers)
+	result.startMonitor()
 	return &result, nil
 }
 
-func (di *digitalInterrupt) startMonitor(activeBackgroundWorkers *sync.WaitGroup) {
-	activeBackgroundWorkers.Add(1)
+func (di *digitalInterrupt) startMonitor() {
+	di.parentBoard.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
 		for {
 			select {
@@ -76,7 +79,7 @@ func (di *digitalInterrupt) startMonitor(activeBackgroundWorkers *sync.WaitGroup
 					di.cancelCtx, event.RisingEdge, uint64(event.Time.UnixNano())))
 			}
 		}
-	}, activeBackgroundWorkers.Done)
+	}, di.parentBoard.activeBackgroundWorkers.Done)
 }
 
 func (di *digitalInterrupt) Close() error {

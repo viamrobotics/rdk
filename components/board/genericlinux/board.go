@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/edaniels/golog"
@@ -25,15 +26,10 @@ import (
 	"periph.io/x/conn/v3/spi/spireg"
 
 	"go.viam.com/rdk/components/board"
-	"go.viam.com/rdk/components/generic"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
 )
-
-var _ = board.LocalBoard(&sysfsBoard{})
 
 // A Config describes the configuration of a board and all of its connected parts.
 type Config struct {
@@ -41,143 +37,244 @@ type Config struct {
 	SPIs              []board.SPIConfig              `json:"spis,omitempty"`
 	Analogs           []board.AnalogConfig           `json:"analogs,omitempty"`
 	DigitalInterrupts []board.DigitalInterruptConfig `json:"digital_interrupts,omitempty"`
-	Attributes        config.AttributeMap            `json:"attributes,omitempty"`
+	Attributes        utils.AttributeMap             `json:"attributes,omitempty"`
+}
+
+// Validate ensures all parts of the config are valid.
+func (conf *Config) Validate(path string) ([]string, error) {
+	for idx, c := range conf.SPIs {
+		if err := c.Validate(fmt.Sprintf("%s.%s.%d", path, "spis", idx)); err != nil {
+			return nil, err
+		}
+	}
+	for idx, c := range conf.I2Cs {
+		if err := c.Validate(fmt.Sprintf("%s.%s.%d", path, "i2cs", idx)); err != nil {
+			return nil, err
+		}
+	}
+	for idx, c := range conf.Analogs {
+		if err := c.Validate(fmt.Sprintf("%s.%s.%d", path, "analogs", idx)); err != nil {
+			return nil, err
+		}
+	}
+	for idx, c := range conf.DigitalInterrupts {
+		if err := c.Validate(fmt.Sprintf("%s.%s.%d", path, "digital_interrupts", idx)); err != nil {
+			return nil, err
+		}
+	}
+	return nil, nil
 }
 
 // RegisterBoard registers a sysfs based board of the given model.
 func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping, usePeriphGpio bool) {
-	registry.RegisterComponent(
+	resource.RegisterComponent(
 		board.Subtype,
 		resource.NewDefaultModel(resource.ModelName(modelName)),
-		registry.Component{Constructor: func(
-			ctx context.Context,
-			_ registry.Dependencies,
-			config config.Component,
-			logger golog.Logger,
-		) (interface{}, error) {
-			conf, ok := config.ConvertedAttributes.(*Config)
-			if !ok {
-				return nil, utils.NewUnexpectedTypeError(conf, config.ConvertedAttributes)
-			}
-
-			var spis map[string]*spiBus
-			if len(conf.SPIs) != 0 {
-				spis = make(map[string]*spiBus, len(conf.SPIs))
-				for _, spiConf := range conf.SPIs {
-					spis[spiConf.Name] = &spiBus{bus: spiConf.BusSelect}
-				}
-			}
-
-			var i2cs map[string]board.I2C
-			if len(conf.I2Cs) != 0 {
-				i2cs = make(map[string]board.I2C, len(conf.I2Cs))
-				for _, i2cConf := range conf.I2Cs {
-					bus, err := newI2cBus(i2cConf.Bus)
-					if err != nil {
-						return nil, errors.Errorf("Malformed I2C bus number: %s", i2cConf.Bus)
-					}
-					i2cs[i2cConf.Name] = bus
-				}
-			}
-
-			var analogs map[string]board.AnalogReader
-			if len(conf.Analogs) != 0 {
-				analogs = make(map[string]board.AnalogReader, len(conf.Analogs))
-				for _, analogConf := range conf.Analogs {
-					channel, err := strconv.Atoi(analogConf.Pin)
-					if err != nil {
-						return nil, errors.Errorf("bad analog pin (%s)", analogConf.Pin)
-					}
-
-					bus, ok := spis[analogConf.SPIBus]
-					if !ok {
-						return nil, errors.Errorf("can't find SPI bus (%s) requested by AnalogReader", analogConf.SPIBus)
-					}
-
-					ar := &board.MCP3008AnalogReader{channel, bus, analogConf.ChipSelect}
-					analogs[analogConf.Name] = board.SmoothAnalogReader(ar, analogConf, logger)
-				}
-			}
-
-			cancelCtx, cancelFunc := context.WithCancel(context.Background())
-			b := sysfsBoard{
-				gpioMappings:  gpioMappings,
-				spis:          spis,
-				analogs:       analogs,
-				pwms:          map[string]pwmSetting{},
-				i2cs:          i2cs,
-				usePeriphGpio: usePeriphGpio,
-				logger:        logger,
-				cancelCtx:     cancelCtx,
-				cancelFunc:    cancelFunc,
-			}
-
-			if usePeriphGpio {
-				if len(conf.DigitalInterrupts) != 0 {
-					return nil, errors.New(
-						"Digital interrupts on Periph GPIO pins are not yet supported")
-				}
-			} else {
-				// We currently have two implementations of GPIO pins on these boards: one using
-				// libraries from periph.io and one using an ioctl approach. If we're using the
-				// latter, we need to initialize it here.
-				gpios, interrupts, err := gpioInitialize( // Defined in gpio.go
-					b.cancelCtx, gpioMappings, conf.DigitalInterrupts, &b.activeBackgroundWorkers,
-					b.logger)
-				if err != nil {
-					return nil, err
-				}
-				b.gpios = gpios
-				b.interrupts = interrupts
-			}
-			return &b, nil
-		}})
-	config.RegisterComponentAttributeMapConverter(
-		board.Subtype,
-		resource.NewDefaultModel(resource.ModelName(modelName)),
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf Config
-			return config.TransformAttributeMapToStruct(&conf, attributes)
-		},
-		&Config{})
+		resource.Registration[board.Board, *Config]{
+			Constructor: func(
+				ctx context.Context,
+				_ resource.Dependencies,
+				conf resource.Config,
+				logger golog.Logger,
+			) (board.Board, error) {
+				return newBoard(ctx, conf, gpioMappings, usePeriphGpio, logger)
+			},
+		})
 }
 
-// Validate ensures all parts of the config are valid.
-func (config *Config) Validate(path string) error {
-	for idx, conf := range config.SPIs {
-		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "spis", idx)); err != nil {
-			return err
+func newBoard(
+	ctx context.Context,
+	conf resource.Config,
+	gpioMappings map[int]GPIOBoardMapping,
+	usePeriphGpio bool,
+	logger golog.Logger,
+) (board.Board, error) {
+	cancelCtx, cancelFunc := context.WithCancel(context.Background())
+	b := sysfsBoard{
+		Named:         conf.ResourceName().AsNamed(),
+		usePeriphGpio: usePeriphGpio,
+		gpioMappings:  gpioMappings,
+		logger:        logger,
+		cancelCtx:     cancelCtx,
+		cancelFunc:    cancelFunc,
+
+		spis:    map[string]*spiBus{},
+		analogs: map[string]*wrappedAnalog{},
+		// this is not yet modified during reconfiguration but maybe should be
+		pwms:       map[string]pwmSetting{},
+		i2cs:       map[string]*i2cBus{},
+		gpios:      map[string]*gpioPin{},
+		interrupts: map[string]*digitalInterrupt{},
+	}
+
+	if err := b.Reconfigure(ctx, nil, conf); err != nil {
+		return nil, err
+	}
+	return &b, nil
+}
+
+func (b *sysfsBoard) Reconfigure(
+	ctx context.Context,
+	_ resource.Dependencies,
+	conf resource.Config,
+) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	newConf, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return err
+	}
+
+	if b.usePeriphGpio {
+		if len(newConf.DigitalInterrupts) != 0 {
+			return errors.New("digital interrupts on Periph GPIO pins are not yet supported")
 		}
 	}
-	for idx, conf := range config.I2Cs {
-		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "i2cs", idx)); err != nil {
-			return err
+
+	stillExists := map[string]struct{}{}
+	for _, c := range newConf.SPIs {
+		stillExists[c.Name] = struct{}{}
+		if curr, ok := b.spis[c.Name]; ok {
+			if busPtr := curr.bus.Load(); busPtr != nil && *busPtr != c.BusSelect {
+				curr.reset(c.BusSelect)
+			}
+			continue
 		}
+		b.spis[c.Name] = &spiBus{}
+		b.spis[c.Name].reset(c.BusSelect)
 	}
-	for idx, conf := range config.Analogs {
-		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "analogs", idx)); err != nil {
-			return err
+	for name := range b.spis {
+		if _, ok := stillExists[name]; ok {
+			continue
 		}
+		delete(b.spis, name)
 	}
-	for idx, conf := range config.DigitalInterrupts {
-		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "digital_interrupts", idx)); err != nil {
+	stillExists = map[string]struct{}{}
+
+	for _, c := range newConf.I2Cs {
+		stillExists[c.Name] = struct{}{}
+		if curr, ok := b.i2cs[c.Name]; ok {
+			if curr.deviceName == c.Bus {
+				continue
+			}
+			if err := curr.closeableBus.Close(); err != nil {
+				b.logger.Errorw("error closing I2C bus while reconfiguring", "error", err)
+			}
+			if err := curr.reset(curr.deviceName); err != nil {
+				b.logger.Errorw("error resetting I2C bus while reconfiguring", "error", err)
+			}
+			continue
+		}
+		bus, err := newI2cBus(c.Bus)
+		if err != nil {
 			return err
 		}
+		b.i2cs[c.Name] = bus
+	}
+	for name := range b.i2cs {
+		if _, ok := stillExists[name]; ok {
+			continue
+		}
+		if err := b.i2cs[name].closeableBus.Close(); err != nil {
+			b.logger.Errorw("error closing I2C bus while reconfiguring", "error", err)
+		}
+		delete(b.i2cs, name)
+	}
+	stillExists = map[string]struct{}{}
+
+	for _, c := range newConf.Analogs {
+		channel, err := strconv.Atoi(c.Pin)
+		if err != nil {
+			return errors.Errorf("bad analog pin (%s)", c.Pin)
+		}
+
+		bus, ok := b.spis[c.SPIBus]
+		if !ok {
+			return errors.Errorf("can't find SPI bus (%s) requested by AnalogReader", c.SPIBus)
+		}
+
+		stillExists[c.Name] = struct{}{}
+		if curr, ok := b.analogs[c.Name]; ok {
+			if curr.chipSelect != c.ChipSelect {
+				ar := &board.MCP3008AnalogReader{channel, bus, c.ChipSelect}
+				curr.reset(ctx, curr.chipSelect, board.SmoothAnalogReader(ar, c, b.logger))
+			}
+			continue
+		}
+		ar := &board.MCP3008AnalogReader{channel, bus, c.ChipSelect}
+		b.analogs[c.Name] = newWrappedAnalog(ctx, c.ChipSelect, board.SmoothAnalogReader(ar, c, b.logger))
+	}
+	for name := range b.analogs {
+		if _, ok := stillExists[name]; ok {
+			continue
+		}
+		b.analogs[name].reset(ctx, "", nil)
+		delete(b.analogs, name)
+	}
+
+	if !b.usePeriphGpio {
+		// TODO(RSDK-2684): we dont configure pins so we just unset them here. not really great behavior.
+		// We currently have two implementations of GPIO pins on these boards: one using
+		// libraries from periph.io and one using an ioctl approach. If we're using the
+		// latter, we need to initialize it here.
+		gpios, interrupts, err := b.gpioInitialize( // Defined in gpio.go
+			b.cancelCtx,
+			b.gpioMappings,
+			newConf.DigitalInterrupts,
+			b.logger)
+		if err != nil {
+			return err
+		}
+		b.gpios = gpios
+		b.interrupts = interrupts
 	}
 	return nil
 }
 
-func init() {
+type wrappedAnalog struct {
+	mu         sync.RWMutex
+	chipSelect string
+	reader     *board.AnalogSmoother
+}
+
+func newWrappedAnalog(ctx context.Context, chipSelect string, reader *board.AnalogSmoother) *wrappedAnalog {
+	var wrapped wrappedAnalog
+	wrapped.reset(ctx, chipSelect, reader)
+	return &wrapped
+}
+
+func (a *wrappedAnalog) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	if a.reader == nil {
+		return 0, errors.New("closed")
+	}
+	return a.reader.Read(ctx, extra)
+}
+
+func (a *wrappedAnalog) Close(ctx context.Context) error {
+	return nil
+}
+
+func (a *wrappedAnalog) reset(ctx context.Context, chipSelect string, reader *board.AnalogSmoother) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.reader != nil {
+		goutils.UncheckedError(a.reader.Close(ctx))
+	}
+	a.reader = reader
+	a.chipSelect = chipSelect
 }
 
 type sysfsBoard struct {
-	generic.Unimplemented
+	resource.Named
 	mu           sync.RWMutex
 	gpioMappings map[int]GPIOBoardMapping
 	spis         map[string]*spiBus
-	analogs      map[string]board.AnalogReader
+	analogs      map[string]*wrappedAnalog
 	pwms         map[string]pwmSetting
-	i2cs         map[string]board.I2C
+	i2cs         map[string]*i2cBus
 	logger       golog.Logger
 
 	usePeriphGpio bool
@@ -203,7 +300,7 @@ func (b *sysfsBoard) SPIByName(name string) (board.SPI, bool) {
 type spiBus struct {
 	mu         sync.Mutex
 	openHandle *spiHandle
-	bus        string
+	bus        atomic.Pointer[string]
 }
 
 type spiHandle struct {
@@ -217,12 +314,25 @@ func (sb *spiBus) OpenHandle() (board.SPIHandle, error) {
 	return sb.openHandle, nil
 }
 
+func (sb *spiBus) Close(ctx context.Context) error {
+	return nil
+}
+
+func (sb *spiBus) reset(bus string) {
+	sb.bus.Store(&bus)
+}
+
 func (sh *spiHandle) Xfer(ctx context.Context, baud uint, chipSelect string, mode uint, tx []byte) (rx []byte, err error) {
 	if sh.isClosed {
 		return nil, errors.New("can't use Xfer() on an already closed SPIHandle")
 	}
 
-	port, err := spireg.Open(fmt.Sprintf("SPI%s.%s", sh.bus.bus, chipSelect))
+	busPtr := sh.bus.bus.Load()
+	if busPtr == nil {
+		return nil, errors.New("no bus selected")
+	}
+
+	port, err := spireg.Open(fmt.Sprintf("SPI%s.%s", *busPtr, chipSelect))
 	if err != nil {
 		return nil, err
 	}
@@ -273,7 +383,7 @@ func (b *sysfsBoard) DigitalInterruptByName(name string) (board.DigitalInterrupt
 		return nil, false
 	}
 	if err := gpio.Close(); err != nil {
-		b.logger.Errorf("Unable to close GPIO pin to use as interrupt: %s", err)
+		b.logger.Errorw("failed to close GPIO pin to use as interrupt", "error", err)
 		return nil, false
 	}
 
@@ -283,10 +393,9 @@ func (b *sysfsBoard) DigitalInterruptByName(name string) (board.DigitalInterrupt
 		Pin:  name,
 		Type: defaultInterruptType,
 	}
-	interrupt, err := createDigitalInterrupt(b.cancelCtx, defaultInterruptConfig, b.gpioMappings,
-		&b.activeBackgroundWorkers)
+	interrupt, err := b.createDigitalInterrupt(b.cancelCtx, defaultInterruptConfig, b.gpioMappings)
 	if err != nil {
-		b.logger.Errorf("Unable to create digital interrupt pin on the fly: %s", err)
+		b.logger.Errorw("failed to create digital interrupt pin on the fly", "error", err)
 		return nil, false
 	}
 
@@ -386,7 +495,7 @@ func (b *sysfsBoard) GPIOPinByName(pinName string) (board.GPIOPin, error) {
 	// Otherwise, the pins are stored in b.gpios.
 	pin, ok := b.gpios[pinName]
 	if !ok {
-		return nil, errors.Errorf("Cannot find GPIO for unknown pin: %s", pinName)
+		return nil, errors.Errorf("cannot find GPIO for unknown pin: %s", pinName)
 	}
 	return pin, nil
 }
@@ -550,7 +659,7 @@ func (b *sysfsBoard) SetPowerMode(ctx context.Context, mode pb.PowerMode, durati
 	return grpc.UnimplementedError
 }
 
-func (b *sysfsBoard) Close() error {
+func (b *sysfsBoard) Close(ctx context.Context) error {
 	b.mu.Lock()
 	b.cancelFunc()
 	b.mu.Unlock()

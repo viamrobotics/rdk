@@ -11,23 +11,21 @@ import (
 
 	"go.viam.com/rdk/components/servo"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
 )
 
 func newServer() (pb.ServoServiceServer, *inject.Servo, *inject.Servo, error) {
 	injectServo := &inject.Servo{}
 	injectServo2 := &inject.Servo{}
-	resourceMap := map[resource.Name]interface{}{
-		servo.Named(testServoName):   injectServo,
-		servo.Named(failServoName):   injectServo2,
-		servo.Named((fakeServoName)): "not a servo",
+	resourceMap := map[resource.Name]servo.Servo{
+		servo.Named(testServoName): injectServo,
+		servo.Named(failServoName): injectServo2,
 	}
-	injectSvc, err := subtype.New(resourceMap)
+	injectSvc, err := resource.NewSubtypeCollection(servo.Subtype, resourceMap)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	return servo.NewServer(injectSvc), injectServo, injectServo2, nil
+	return servo.NewRPCServiceServer(injectSvc).(pb.ServoServiceServer), injectServo, injectServo2, nil
 }
 
 func TestServoMove(t *testing.T) {

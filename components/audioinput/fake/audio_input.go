@@ -16,28 +16,24 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/audioinput"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 )
 
-var _ = audioinput.AudioInput(&audioInput{})
-
 func init() {
-	registry.RegisterComponent(
+	resource.RegisterComponent(
 		audioinput.Subtype,
 		resource.NewDefaultModel("fake"),
-		registry.Component{Constructor: func(
+		resource.Registration[audioinput.AudioInput, resource.NoNativeConfig]{Constructor: func(
 			_ context.Context,
-			_ registry.Dependencies,
-			config config.Component,
+			_ resource.Dependencies,
+			conf resource.Config,
 			logger golog.Logger,
-		) (interface{}, error) {
+		) (audioinput.AudioInput, error) {
 			cancelCtx, cancelFunc := context.WithCancel(context.Background())
-			condMu := &sync.RWMutex{}
+			var condMu sync.RWMutex
 			cond := sync.NewCond(condMu.RLocker())
 			input := &audioInput{
-				Name:      config.Name,
+				Named:     conf.ResourceName().AsNamed(),
 				toneHz:    440,
 				cancel:    cancelFunc,
 				cancelCtx: cancelCtx,
@@ -62,15 +58,16 @@ func init() {
 				Latency:       time.Millisecond * latencyMillis,
 			})
 			input.AudioSource = as
-			return audioinput.NewFromSource(input)
+			return audioinput.FromAudioSource(conf.ResourceName(), input)
 		}})
 }
 
 // audioInput is a fake audioinput that always returns the same chunk.
 type audioInput struct {
+	resource.Named
+	resource.TriviallyReconfigurable
 	gostream.AudioSource
 	mu                      sync.RWMutex
-	Name                    string
 	step                    int64
 	toneHz                  float64
 	cancel                  func()

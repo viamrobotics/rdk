@@ -12,16 +12,12 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/jacobsa/go-serial/serial"
-	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	utils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/motor"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 // https://www.dimensionengineering.com/datasheets/Sabertooth2x60.pdf
@@ -46,6 +42,9 @@ type controller struct {
 
 // Motor is a single axis/motor/component instance.
 type Motor struct {
+	resource.Named
+	resource.AlwaysRebuild
+
 	// A reference to the actual controller that needs to be commanded for the motor to run
 	c *controller
 	// which channel the motor is connected to on the controller
@@ -66,9 +65,6 @@ type Motor struct {
 
 	// A manager to ensure only a single operation is happening at any given time since commands could overlap on the serial port
 	opMgr operation.SingleOperationManager
-
-	// Name of the motor
-	motorName string
 }
 
 // Config adds DimensionEngineering-specific config options.
@@ -112,44 +108,26 @@ type Config struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (cfg *Config) Validate(path string) error {
+func (cfg *Config) Validate(path string) ([]string, error) {
 	if cfg.SerialPath == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "serial_path")
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "serial_path")
 	}
 
-	return nil
+	return nil, nil
 }
 
 func init() {
 	controllers = make(map[string]*controller)
 
-	_motor := registry.Component{
-		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-			conf, ok := config.ConvertedAttributes.(*Config)
-			if !ok {
-				return nil, rdkutils.NewUnexpectedTypeError(conf, config.ConvertedAttributes)
-			}
-			return NewMotor(ctx, conf, config.Name, logger)
-		},
-	}
-	registry.RegisterComponent(motor.Subtype, modelName, _motor)
-
-	config.RegisterComponentAttributeMapConverter(
-		motor.Subtype,
-		modelName,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf Config
-			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Squash: true, Result: &conf})
+	resource.RegisterComponent(motor.Subtype, modelName, resource.Registration[motor.Motor, *Config]{
+		Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (motor.Motor, error) {
+			newConf, err := resource.NativeConfig[*Config](conf)
 			if err != nil {
 				return nil, err
 			}
-			if err := decoder.Decode(attributes); err != nil {
-				return nil, err
-			}
-			return &conf, nil
+			return NewMotor(ctx, newConf, conf.ResourceName(), logger)
 		},
-		&Config{},
-	)
+	})
 }
 
 func newController(c *Config, logger golog.Logger) (*controller, error) {
@@ -218,7 +196,7 @@ func (cfg *Config) validateValues() error {
 }
 
 // NewMotor returns a Sabertooth driven motor.
-func NewMotor(ctx context.Context, c *Config, name string, logger golog.Logger) (motor.LocalMotor, error) {
+func NewMotor(ctx context.Context, c *Config, name resource.Name, logger golog.Logger) (motor.LocalMotor, error) {
 	globalMu.Lock()
 	defer globalMu.Unlock()
 
@@ -254,12 +232,12 @@ func NewMotor(ctx context.Context, c *Config, name string, logger golog.Logger) 
 	ctrl.activeAxes[c.MotorChannel] = true
 
 	m := &Motor{
+		Named:       name.AsNamed(),
 		c:           ctrl,
 		Channel:     c.MotorChannel,
 		dirFlip:     c.DirectionFlip,
 		minPowerPct: c.MinPowerPct,
 		maxPowerPct: c.MaxPowerPct,
-		motorName:   name,
 	}
 
 	if err := m.configure(c); err != nil {
@@ -287,10 +265,10 @@ func (m *Motor) IsPowered(ctx context.Context, extra map[string]interface{}) (bo
 }
 
 // Close stops the motor and marks the axis inactive.
-func (m *Motor) Close() {
+func (m *Motor) Close(ctx context.Context) error {
 	active := m.isAxisActive()
 	if !active {
-		return
+		return nil
 	}
 
 	err := m.Stop(context.Background(), nil)
@@ -303,7 +281,7 @@ func (m *Motor) Close() {
 	m.c.activeAxes[m.Channel] = false
 	for _, active = range m.c.activeAxes {
 		if active {
-			return
+			return nil
 		}
 	}
 	if m.c.port != nil {
@@ -315,6 +293,7 @@ func (m *Motor) Close() {
 	globalMu.Lock()
 	defer globalMu.Unlock()
 	delete(controllers, m.c.serialDevice)
+	return nil
 }
 
 func (m *Motor) isAxisActive() bool {
@@ -387,7 +366,7 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string
 	}
 	c, err := newCommand(m.c.address, cmd, m.Channel, byte(int(rawSpeed)))
 	if err != nil {
-		return errors.Wrapf(err, "error in SetPower from motor (%s)", m.motorName)
+		return errors.Wrap(err, "error in SetPower")
 	}
 	err = m.c.sendCmd(c)
 	return err
@@ -404,7 +383,7 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 	powerPct, waitDur := goForMath(m.maxRPM, rpm, revolutions)
 	err := m.SetPower(ctx, powerPct, extra)
 	if err != nil {
-		return errors.Wrapf(err, "error in GoFor from motor (%s)", m.motorName)
+		return errors.Wrap(err, "error in GoFor")
 	}
 
 	if revolutions == 0 {

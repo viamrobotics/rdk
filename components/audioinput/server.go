@@ -23,7 +23,7 @@ import (
 	"gopkg.in/src-d/go-billy.v4/memfs"
 
 	"go.viam.com/rdk/protoutils"
-	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/resource"
 )
 
 // HostEndian indicates the byte ordering this host natively uses.
@@ -45,31 +45,19 @@ func init() {
 // subtypeServer implements the AudioInputService from audioinput.proto.
 type subtypeServer struct {
 	pb.UnimplementedAudioInputServiceServer
-	s subtype.Service
+	coll resource.SubtypeCollection[AudioInput]
 }
 
-// NewServer constructs an audio input gRPC service server.
-func NewServer(s subtype.Service) pb.AudioInputServiceServer {
-	return &subtypeServer{s: s}
-}
-
-// getAudioInput returns the audio input specified, nil if not.
-func (s *subtypeServer) getAudioInput(name string) (AudioInput, error) {
-	resource := s.s.Resource(name)
-	if resource == nil {
-		return nil, errors.Errorf("no audio input with name (%s)", name)
-	}
-	audioInput, ok := resource.(AudioInput)
-	if !ok {
-		return nil, errors.Errorf("resource with name (%s) is not an audio input", name)
-	}
-	return audioInput, nil
+// NewRPCServiceServer constructs an audio input gRPC service server.
+// It is intentionally untyped to prevent use outside of tests.
+func NewRPCServiceServer(coll resource.SubtypeCollection[AudioInput]) interface{} {
+	return &subtypeServer{coll: coll}
 }
 
 // Chunks returns audio chunks (samples) forever from an audio input of the underlying robot. A specific sampling
 // format can be requested but may not necessarily be the same one returned.
 func (s *subtypeServer) Chunks(req *pb.ChunksRequest, server pb.AudioInputService_ChunksServer) error {
-	audioInput, err := s.getAudioInput(req.Name)
+	audioInput, err := s.coll.Resource(req.Name)
 	if err != nil {
 		return err
 	}
@@ -182,7 +170,7 @@ func (s *subtypeServer) Properties(
 	ctx context.Context,
 	req *pb.PropertiesRequest,
 ) (*pb.PropertiesResponse, error) {
-	audioInput, err := s.getAudioInput(req.Name)
+	audioInput, err := s.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -212,7 +200,7 @@ func (s *subtypeServer) Record(
 ) (*httpbody.HttpBody, error) {
 	ctx, span := trace.StartSpan(ctx, "audioinput::server::Record")
 	defer span.End()
-	audioInput, err := s.getAudioInput(req.Name)
+	audioInput, err := s.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -324,7 +312,7 @@ func (s *subtypeServer) Record(
 func (s *subtypeServer) DoCommand(ctx context.Context,
 	req *commonpb.DoCommandRequest,
 ) (*commonpb.DoCommandResponse, error) {
-	audioInput, err := s.getAudioInput(req.GetName())
+	audioInput, err := s.coll.Resource(req.GetName())
 	if err != nil {
 		return nil, err
 	}

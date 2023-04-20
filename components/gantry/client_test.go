@@ -7,18 +7,12 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-	componentpb "go.viam.com/api/component/gantry/v1"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
-	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/components/gantry"
-	"go.viam.com/rdk/components/generic"
 	viamgrpc "go.viam.com/rdk/grpc"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -76,15 +70,17 @@ func TestClient(t *testing.T) {
 		return nil
 	}
 
-	gantrySvc, err := subtype.New(
-		(map[resource.Name]interface{}{gantry.Named(testGantryName): injectGantry, gantry.Named(testGantryName2): injectGantry2}),
+	gantrySvc, err := resource.NewSubtypeCollection(
+		gantry.Subtype,
+		(map[resource.Name]gantry.Gantry{gantry.Named(testGantryName): injectGantry, gantry.Named(testGantryName2): injectGantry2}),
 	)
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype := registry.ResourceSubtypeLookup(gantry.Subtype)
-	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, gantrySvc)
+	resourceSubtype, ok, err := resource.LookupSubtypeRegistration[gantry.Gantry](gantry.Subtype)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, gantrySvc), test.ShouldBeNil)
 
-	injectGantry.DoFunc = generic.EchoFunc
-	generic.RegisterService(rpcServer, gantrySvc)
+	injectGantry.DoFunc = testutils.EchoFunc
 
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()
@@ -102,13 +98,14 @@ func TestClient(t *testing.T) {
 	t.Run("gantry client 1", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		gantry1Client := gantry.NewClientFromConn(context.Background(), conn, testGantryName, logger)
+		gantry1Client, err := gantry.NewClientFromConn(context.Background(), conn, gantry.Named(testGantryName), logger)
+		test.That(t, err, test.ShouldBeNil)
 
 		// DoCommand
-		resp, err := gantry1Client.DoCommand(context.Background(), generic.TestCommand)
+		resp, err := gantry1Client.DoCommand(context.Background(), testutils.TestCommand)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp["command"], test.ShouldEqual, generic.TestCommand["command"])
-		test.That(t, resp["data"], test.ShouldEqual, generic.TestCommand["data"])
+		test.That(t, resp["command"], test.ShouldEqual, testutils.TestCommand["command"])
+		test.That(t, resp["data"], test.ShouldEqual, testutils.TestCommand["data"])
 
 		pos, err := gantry1Client.Position(context.Background(), map[string]interface{}{"foo": 123, "bar": "234"})
 		test.That(t, err, test.ShouldBeNil)
@@ -130,60 +127,25 @@ func TestClient(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no stop")
 		test.That(t, extra1, test.ShouldResemble, map[string]interface{}{"foo": 456., "bar": "567"})
 
-		test.That(t, utils.TryClose(context.Background(), gantry1Client), test.ShouldBeNil)
+		test.That(t, gantry1Client.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 
 	t.Run("gantry client 2", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		client := resourceSubtype.RPCClient(context.Background(), conn, testGantryName2, logger)
-		gantry2Client, ok := client.(gantry.Gantry)
-		test.That(t, ok, test.ShouldBeTrue)
+		client2, err := resourceSubtype.RPCClient(context.Background(), conn, gantry.Named(testGantryName2), logger)
+		test.That(t, err, test.ShouldBeNil)
 
-		pos, err := gantry2Client.Position(context.Background(), map[string]interface{}{"foo": "123", "bar": 234})
+		pos, err := client2.Position(context.Background(), map[string]interface{}{"foo": "123", "bar": 234})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldResemble, pos2)
 		test.That(t, extra2, test.ShouldResemble, map[string]interface{}{"foo": "123", "bar": 234.})
 
-		err = gantry2Client.Stop(context.Background(), map[string]interface{}{"foo": "234", "bar": 345})
+		err = client2.Stop(context.Background(), map[string]interface{}{"foo": "234", "bar": 345})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, extra2, test.ShouldResemble, map[string]interface{}{"foo": "234", "bar": 345.})
 
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
-}
-
-func TestClientDialerOption(t *testing.T) {
-	logger := golog.NewTestLogger(t)
-	listener, err := net.Listen("tcp", "localhost:0")
-	test.That(t, err, test.ShouldBeNil)
-	gServer := grpc.NewServer()
-	injectGantry := &inject.Gantry{}
-
-	gantrySvc, err := subtype.New(map[resource.Name]interface{}{gantry.Named(testGantryName): injectGantry})
-	test.That(t, err, test.ShouldBeNil)
-	componentpb.RegisterGantryServiceServer(gServer, gantry.NewServer(gantrySvc))
-
-	go gServer.Serve(listener)
-	defer gServer.Stop()
-
-	td := &testutils.TrackingDialer{Dialer: rpc.NewCachedDialer()}
-	ctx := rpc.ContextWithDialer(context.Background(), td)
-	conn1, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
-	test.That(t, err, test.ShouldBeNil)
-	client1 := gantry.NewClientFromConn(ctx, conn1, testGantryName, logger)
-	test.That(t, td.NewConnections, test.ShouldEqual, 3)
-	conn2, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
-	test.That(t, err, test.ShouldBeNil)
-	client2 := gantry.NewClientFromConn(ctx, conn2, testGantryName, logger)
-	test.That(t, td.NewConnections, test.ShouldEqual, 3)
-
-	err = utils.TryClose(context.Background(), client1)
-	test.That(t, err, test.ShouldBeNil)
-	err = utils.TryClose(context.Background(), client2)
-	test.That(t, err, test.ShouldBeNil)
-
-	test.That(t, conn1.Close(), test.ShouldBeNil)
-	test.That(t, conn2.Close(), test.ShouldBeNil)
 }

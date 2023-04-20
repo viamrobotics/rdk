@@ -14,11 +14,9 @@ import (
 	"go.viam.com/utils/rpc"
 
 	viamgrpc "go.viam.com/rdk/grpc"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/services/mlmodel"
-	"go.viam.com/rdk/subtype"
 )
 
 func TestEmptyTFLiteConfig(t *testing.T) {
@@ -26,7 +24,7 @@ func TestEmptyTFLiteConfig(t *testing.T) {
 	emptyCfg := TFLiteConfig{} // empty config
 
 	// Test that empty config gives error about loading model
-	emptyGot, err := NewTFLiteCPUModel(ctx, &emptyCfg, "fakeModel")
+	emptyGot, err := NewTFLiteCPUModel(ctx, &emptyCfg, mlmodel.Named("fakeModel"))
 	test.That(t, emptyGot, test.ShouldBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "could not add model")
 }
@@ -40,7 +38,7 @@ func TestTFLiteCPUDetector(t *testing.T) {
 	}
 	// Test that a detector would give the expected output on the dog image
 	// Creating the model should populate model and attrs, but not metadata
-	out, err := NewTFLiteCPUModel(ctx, &cfg, "myDet")
+	out, err := NewTFLiteCPUModel(ctx, &cfg, mlmodel.Named("myDet"))
 	got := out.(*Model)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, got.model, test.ShouldNotBeNil)
@@ -90,7 +88,7 @@ func TestTFLiteCPUClassifier(t *testing.T) {
 	}
 
 	// Test that the tflite classifier gives the expected output on the lion image
-	out, err := NewTFLiteCPUModel(ctx, &cfg, "myClass")
+	out, err := NewTFLiteCPUModel(ctx, &cfg, mlmodel.Named("myClass"))
 	got := out.(*Model)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, got.model, test.ShouldNotBeNil)
@@ -139,7 +137,7 @@ func TestTFLiteCPUTextModel(t *testing.T) {
 	}
 
 	// Test that even a text classifier gives an output with good input
-	out, err := NewTFLiteCPUModel(ctx, &cfg, "myTextModel")
+	out, err := NewTFLiteCPUModel(ctx, &cfg, mlmodel.Named("myTextModel"))
 	got := out.(*Model)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, got.model, test.ShouldNotBeNil)
@@ -179,17 +177,19 @@ func TestTFLiteCPUClient(t *testing.T) {
 		ModelPath:  artifact.MustPath("vision/tflite/effdet0.tflite"),
 		NumThreads: 2,
 	}
-	myModel, err := NewTFLiteCPUModel(context.Background(), &modelParams, "myModel")
+	myModel, err := NewTFLiteCPUModel(context.Background(), &modelParams, mlmodel.Named("myModel"))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, myModel, test.ShouldNotBeNil)
 
-	omMap := map[resource.Name]interface{}{
+	resources := map[resource.Name]mlmodel.Service{
 		mlmodel.Named("testName"): myModel,
 	}
-	svc, err := subtype.New(omMap)
+	svc, err := resource.NewSubtypeCollection(mlmodel.Subtype, resources)
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype := registry.ResourceSubtypeLookup(mlmodel.Subtype)
-	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, svc)
+	resourceSubtype, ok, err := resource.LookupSubtypeRegistration[mlmodel.Service](mlmodel.Subtype)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, svc), test.ShouldBeNil)
 
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()
@@ -205,7 +205,7 @@ func TestTFLiteCPUClient(t *testing.T) {
 
 	conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
-	client := mlmodel.NewClientFromConn(context.Background(), conn, "testName", logger)
+	client := mlmodel.NewClientFromConn(context.Background(), conn, mlmodel.Named("testName"), logger)
 	// Test call to Metadata
 	gotMD, err := client.Metadata(context.Background())
 	test.That(t, err, test.ShouldBeNil)

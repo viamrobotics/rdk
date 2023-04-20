@@ -8,12 +8,12 @@ import (
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/gantry"
+	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
-	rutils "go.viam.com/rdk/utils"
 )
 
 var (
@@ -24,18 +24,20 @@ var (
 	sensorNames = []resource.Name{sensor.Named("sensor1")}
 )
 
+var hereRes = testutils.NewUnimplementedResource(generic.Named("here"))
+
 func setupInjectRobot() *inject.Robot {
-	arm3 := &mock{Name: "arm3"}
+	arm3 := inject.NewArm("arm3")
 	r := &inject.Robot{}
-	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+	r.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
 		if name.Name == "arm2" {
-			return nil, rutils.NewResourceNotFoundError(name)
+			return nil, resource.NewNotFoundError(name)
 		}
 		if name.Name == "arm3" {
 			return arm3, nil
 		}
 
-		return "here", nil
+		return hereRes, nil
 	}
 	r.ResourceNamesFunc = func() []resource.Name {
 		return testutils.ConcatResourceNames(
@@ -52,15 +54,15 @@ func TestAllResourcesByName(t *testing.T) {
 	r := setupInjectRobot()
 
 	resources := robot.AllResourcesByName(r, "arm1")
-	test.That(t, resources, test.ShouldResemble, []interface{}{"here", "here"})
+	test.That(t, resources, test.ShouldResemble, []resource.Resource{hereRes, hereRes})
 
 	resources = robot.AllResourcesByName(r, "remote:arm1")
-	test.That(t, resources, test.ShouldResemble, []interface{}{"here"})
+	test.That(t, resources, test.ShouldResemble, []resource.Resource{hereRes})
 
 	test.That(t, func() { robot.AllResourcesByName(r, "arm2") }, test.ShouldPanic)
 
 	resources = robot.AllResourcesByName(r, "sensor1")
-	test.That(t, resources, test.ShouldResemble, []interface{}{"here"})
+	test.That(t, resources, test.ShouldResemble, []resource.Resource{hereRes})
 
 	resources = robot.AllResourcesByName(r, "blah")
 	test.That(t, resources, test.ShouldBeEmpty)
@@ -87,15 +89,11 @@ func TestResourceFromRobot(t *testing.T) {
 	test.That(t, res, test.ShouldNotBeNil)
 
 	res, err = robot.ResourceFromRobot[arm.Arm](r, arm.Named("arm5"))
-	test.That(t, err, test.ShouldBeError, robot.NewUnimplementedInterfaceError[arm.Arm]("string"))
+	test.That(t, err, test.ShouldBeError,
+		resource.TypeError[arm.Arm](testutils.NewUnimplementedResource(generic.Named("foo"))))
 	test.That(t, res, test.ShouldBeNil)
 
 	res, err = robot.ResourceFromRobot[arm.Arm](r, arm.Named("arm2"))
-	test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(arm.Named("arm2")))
+	test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(arm.Named("arm2")))
 	test.That(t, res, test.ShouldBeNil)
-}
-
-type mock struct {
-	arm.Arm
-	Name string
 }

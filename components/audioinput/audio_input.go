@@ -4,40 +4,21 @@ package audioinput
 import (
 	"context"
 	"errors"
-	"sync"
 
-	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"github.com/pion/mediadevices/pkg/prop"
-	"github.com/pion/mediadevices/pkg/wave"
 	pb "go.viam.com/api/component/audioinput/v1"
-	viamutils "go.viam.com/utils"
-	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/components/generic"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/subtype"
-	"go.viam.com/rdk/utils"
 )
 
 func init() {
-	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
-		Reconfigurable: WrapWithReconfigurable,
-		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
-			return rpcServer.RegisterServiceServer(
-				ctx,
-				&pb.AudioInputService_ServiceDesc,
-				NewServer(subtypeSvc),
-				pb.RegisterAudioInputServiceHandlerFromEndpoint,
-			)
-		},
-		RPCServiceDesc: &pb.AudioInputService_ServiceDesc,
-		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
-			return NewClientFromConn(ctx, conn, name, logger)
-		},
+	resource.RegisterSubtype(Subtype, resource.SubtypeRegistration[AudioInput]{
+		RPCServiceServerConstructor: NewRPCServiceServer,
+		RPCServiceHandler:           pb.RegisterAudioInputServiceHandlerFromEndpoint,
+		RPCServiceDesc:              &pb.AudioInputService_ServiceDesc,
+		RPCClient:                   NewClientFromConn,
 	})
 
 	// TODO(RSDK-562): Add RegisterCollector
@@ -58,48 +39,16 @@ func Named(name string) resource.Name {
 	return resource.NameFromSubtype(Subtype, name)
 }
 
-// An AudioInput represents anything that can capture audio.
+// An AudioInput is a resource that can capture audio.
 type AudioInput interface {
+	resource.Resource
+	AudioSource
+}
+
+// An AudioSource represents anything that can capture audio.
+type AudioSource interface {
 	gostream.AudioSource
 	gostream.AudioPropertyProvider
-	generic.Generic
-}
-
-// NewUnimplementedInterfaceError is used when there is a failed interface check.
-func NewUnimplementedInterfaceError(actual interface{}) error {
-	return utils.NewUnimplementedInterfaceError((*AudioInput)(nil), actual)
-}
-
-// WrapWithReconfigurable wraps an audio input with a reconfigurable and locking interface.
-func WrapWithReconfigurable(r interface{}, name resource.Name) (resource.Reconfigurable, error) {
-	i, ok := r.(AudioInput)
-	if !ok {
-		return nil, NewUnimplementedInterfaceError(r)
-	}
-	if reconfigurable, ok := i.(*reconfigurableAudioInput); ok {
-		return reconfigurable, nil
-	}
-	reconfigurable := newReconfigurable(i, name)
-
-	if mon, ok := i.(LivenessMonitor); ok {
-		mon.Monitor(func() {
-			reconfigurable.mu.Lock()
-			defer reconfigurable.mu.Unlock()
-			reconfigurable.reconfigureKnownAudioInput(newReconfigurable(i, name))
-		})
-	}
-
-	return reconfigurable, nil
-}
-
-func newReconfigurable(i AudioInput, name resource.Name) *reconfigurableAudioInput {
-	cancelCtx, cancel := context.WithCancel(context.Background())
-	return &reconfigurableAudioInput{
-		name:      name,
-		actual:    i,
-		cancelCtx: cancelCtx,
-		cancel:    cancel,
-	}
 }
 
 // A LivenessMonitor is responsible for monitoring the liveness of an audio input. An example
@@ -113,16 +62,10 @@ type LivenessMonitor interface {
 	Monitor(notifyReset func())
 }
 
-var (
-	_ = AudioInput(&reconfigurableAudioInput{})
-	_ = resource.Reconfigurable(&reconfigurableAudioInput{})
-	_ = viamutils.ContextCloser(&reconfigurableAudioInput{})
-)
-
 // FromDependencies is a helper for getting the named audio input from a collection of
 // dependencies.
-func FromDependencies(deps registry.Dependencies, name string) (AudioInput, error) {
-	return registry.ResourceFromDependencies[AudioInput](deps, Named(name))
+func FromDependencies(deps resource.Dependencies, name string) (AudioInput, error) {
+	return resource.FromDependencies[AudioInput](deps, Named(name))
 }
 
 // FromRobot is a helper for getting the named audio input from the given Robot.
@@ -141,8 +84,8 @@ func (apf audioPropertiesFunc) MediaProperties(ctx context.Context) (prop.Audio,
 	return apf(ctx)
 }
 
-// NewFromReader creates an AudioInput from a reader.
-func NewFromReader(reader gostream.AudioReader, props prop.Audio) (AudioInput, error) {
+// NewAudioSourceFromReader creates an AudioSource from a reader.
+func NewAudioSourceFromReader(reader gostream.AudioReader, props prop.Audio) (AudioSource, error) {
 	if reader == nil {
 		return nil, errors.New("cannot have a nil reader")
 	}
@@ -155,8 +98,22 @@ func NewFromReader(reader gostream.AudioReader, props prop.Audio) (AudioInput, e
 	}, nil
 }
 
-// NewFromSource creates an AudioInput from an AudioSource.
-func NewFromSource(audSrc gostream.AudioSource) (AudioInput, error) {
+// FromAudioSource creates an AudioInput resource either from a AudioSource.
+func FromAudioSource(name resource.Name, src AudioSource) (AudioInput, error) {
+	return &sourceBasedInput{
+		Named:       name.AsNamed(),
+		AudioSource: src,
+	}, nil
+}
+
+type sourceBasedInput struct {
+	resource.Named
+	resource.AlwaysRebuild
+	AudioSource
+}
+
+// NewAudioSourceFromGostreamSource creates an AudioSource from a gostream.AudioSource.
+func NewAudioSourceFromGostreamSource(audSrc gostream.AudioSource) (AudioSource, error) {
 	if audSrc == nil {
 		return nil, errors.New("cannot have a nil audio source")
 	}
@@ -164,14 +121,16 @@ func NewFromSource(audSrc gostream.AudioSource) (AudioInput, error) {
 	if !ok {
 		return nil, errors.New("source must have property provider")
 	}
-	return &audioSource{as: audSrc, prov: provider}, nil
+	return &audioSource{
+		as:   audSrc,
+		prov: provider,
+	}, nil
 }
 
 // AudioSource implements an AudioInput with a gostream.AudioSource.
 type audioSource struct {
 	as   gostream.AudioSource
 	prov gostream.AudioPropertyProvider
-	generic.Unimplemented
 }
 
 func (as *audioSource) Stream(
@@ -185,145 +144,7 @@ func (as *audioSource) MediaProperties(ctx context.Context) (prop.Audio, error) 
 	return as.prov.MediaProperties(ctx)
 }
 
-func (as *audioSource) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	if doer, ok := as.as.(generic.Generic); ok {
-		return doer.DoCommand(ctx, cmd)
-	}
-	return nil, generic.ErrUnimplemented
-}
-
 // Close closes the underlying AudioSource.
 func (as *audioSource) Close(ctx context.Context) error {
-	return viamutils.TryClose(ctx, as.as)
-}
-
-type reconfigurableAudioInput struct {
-	mu        sync.RWMutex
-	name      resource.Name
-	actual    AudioInput
-	cancelCtx context.Context
-	cancel    func()
-}
-
-func (i *reconfigurableAudioInput) Name() resource.Name {
-	return i.name
-}
-
-func (i *reconfigurableAudioInput) ProxyFor() interface{} {
-	i.mu.RLock()
-	defer i.mu.RUnlock()
-	return i.actual
-}
-
-func (i *reconfigurableAudioInput) Stream(
-	ctx context.Context,
-	errHandlers ...gostream.ErrorHandler,
-) (gostream.AudioStream, error) {
-	i.mu.RLock()
-	defer i.mu.RUnlock()
-
-	stream := &reconfigurableAudioStream{
-		i:           i,
-		errHandlers: errHandlers,
-		cancelCtx:   i.cancelCtx,
-	}
-	stream.mu.Lock()
-	defer stream.mu.Unlock()
-	if err := stream.init(ctx); err != nil {
-		return nil, err
-	}
-
-	return stream, nil
-}
-
-type reconfigurableAudioStream struct {
-	mu          sync.Mutex
-	i           *reconfigurableAudioInput
-	errHandlers []gostream.ErrorHandler
-	stream      gostream.AudioStream
-	cancelCtx   context.Context
-}
-
-func (as *reconfigurableAudioStream) init(ctx context.Context) error {
-	var err error
-	as.stream, err = as.i.actual.Stream(ctx, as.errHandlers...)
-	return err
-}
-
-func (as *reconfigurableAudioStream) Next(ctx context.Context) (wave.Audio, func(), error) {
-	as.mu.Lock()
-	defer as.mu.Unlock()
-
-	if as.stream == nil || as.cancelCtx.Err() != nil {
-		if err := func() error {
-			as.i.mu.Lock()
-			defer as.i.mu.Unlock()
-			return as.init(ctx)
-		}(); err != nil {
-			return nil, nil, err
-		}
-	}
-	return as.stream.Next(ctx)
-}
-
-func (as *reconfigurableAudioStream) Close(ctx context.Context) error {
-	as.mu.Lock()
-	defer as.mu.Unlock()
-
-	if as.stream == nil {
-		return nil
-	}
-	return as.stream.Close(ctx)
-}
-
-func (i *reconfigurableAudioInput) MediaProperties(ctx context.Context) (prop.Audio, error) {
-	i.mu.RLock()
-	defer i.mu.RUnlock()
-	return i.actual.MediaProperties(ctx)
-}
-
-func (i *reconfigurableAudioInput) Close(ctx context.Context) error {
-	i.mu.RLock()
-	defer i.mu.RUnlock()
-	return i.actual.Close(ctx)
-}
-
-func (i *reconfigurableAudioInput) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	i.mu.RLock()
-	defer i.mu.RUnlock()
-	return i.actual.DoCommand(ctx, cmd)
-}
-
-// Reconfigure reconfigures the resource.
-func (i *reconfigurableAudioInput) Reconfigure(ctx context.Context, newAudioInput resource.Reconfigurable) error {
-	i.mu.Lock()
-	defer i.mu.Unlock()
-	actual, ok := newAudioInput.(*reconfigurableAudioInput)
-	if !ok {
-		return utils.NewUnexpectedTypeError(i, newAudioInput)
-	}
-	if err := viamutils.TryClose(ctx, i.actual); err != nil {
-		golog.Global().Errorw("error closing old", "error", err)
-	}
-	i.reconfigureKnownAudioInput(actual)
-	return nil
-}
-
-// assumes lock is held.
-func (i *reconfigurableAudioInput) reconfigureKnownAudioInput(newAudioInput *reconfigurableAudioInput) {
-	i.cancel()
-	// reset
-	i.actual = newAudioInput.actual
-	i.cancelCtx = newAudioInput.cancelCtx
-	i.cancel = newAudioInput.cancel
-}
-
-// UpdateAction helps hint the reconfiguration process on what strategy to use given a modified config.
-// See config.ShouldUpdateAction for more information.
-func (i *reconfigurableAudioInput) UpdateAction(conf *config.Component) config.UpdateActionType {
-	obj, canUpdate := i.actual.(config.ComponentUpdate)
-	if canUpdate {
-		return obj.UpdateAction(conf)
-	}
-	return config.Reconfigure
+	return as.as.Close(ctx)
 }

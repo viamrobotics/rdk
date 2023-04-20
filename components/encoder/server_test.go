@@ -11,7 +11,6 @@ import (
 
 	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
 )
 
@@ -19,17 +18,16 @@ func newServer() (pb.EncoderServiceServer, *inject.Encoder, *inject.Encoder, err
 	injectEncoder1 := &inject.Encoder{}
 	injectEncoder2 := &inject.Encoder{}
 
-	resourceMap := map[resource.Name]interface{}{
+	resourceMap := map[resource.Name]encoder.Encoder{
 		encoder.Named(testEncoderName): injectEncoder1,
 		encoder.Named(failEncoderName): injectEncoder2,
-		encoder.Named(fakeEncoderName): "not a encoder",
 	}
 
-	injectSvc, err := subtype.New(resourceMap)
+	injectSvc, err := resource.NewSubtypeCollection(encoder.Subtype, resourceMap)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	return encoder.NewServer(injectSvc), injectEncoder1, injectEncoder2, nil
+	return encoder.NewRPCServiceServer(injectSvc).(pb.EncoderServiceServer), injectEncoder1, injectEncoder2, nil
 }
 
 func TestServerGetPosition(t *testing.T) {
@@ -43,10 +41,10 @@ func TestServerGetPosition(t *testing.T) {
 
 	failingEncoder.GetPositionFunc = func(
 		ctx context.Context,
-		positionType *encoder.PositionType,
+		positionType encoder.PositionType,
 		extra map[string]interface{},
 	) (float64, encoder.PositionType, error) {
-		return 0, encoder.PositionTypeUNSPECIFIED, errors.New("position unavailable")
+		return 0, encoder.PositionTypeUnspecified, errors.New("position unavailable")
 	}
 	req = pb.GetPositionRequest{Name: failEncoderName}
 	resp, err = encoderServer.GetPosition(context.Background(), &req)
@@ -55,10 +53,10 @@ func TestServerGetPosition(t *testing.T) {
 
 	workingEncoder.GetPositionFunc = func(
 		ctx context.Context,
-		positionType *encoder.PositionType,
+		positionType encoder.PositionType,
 		extra map[string]interface{},
 	) (float64, encoder.PositionType, error) {
-		return 42.0, encoder.PositionTypeUNSPECIFIED, nil
+		return 42.0, encoder.PositionTypeUnspecified, nil
 	}
 	req = pb.GetPositionRequest{Name: testEncoderName}
 	resp, err = encoderServer.GetPosition(context.Background(), &req)

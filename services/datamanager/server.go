@@ -8,35 +8,23 @@ import (
 	pb "go.viam.com/api/service/datamanager/v1"
 
 	"go.viam.com/rdk/protoutils"
-	"go.viam.com/rdk/subtype"
-	"go.viam.com/rdk/utils"
+	"go.viam.com/rdk/resource"
 )
 
 // subtypeServer implements the DataManagerService from datamanager.proto.
 type subtypeServer struct {
 	pb.UnimplementedDataManagerServiceServer
-	subtypeSvc subtype.Service
+	coll resource.SubtypeCollection[Service]
 }
 
-// NewServer constructs a datamanager gRPC service server.
-func NewServer(s subtype.Service) pb.DataManagerServiceServer {
-	return &subtypeServer{subtypeSvc: s}
-}
-
-func (server *subtypeServer) service(serviceName string) (Service, error) {
-	resource := server.subtypeSvc.Resource(serviceName)
-	if resource == nil {
-		return nil, utils.NewResourceNotFoundError(Named(serviceName))
-	}
-	svc, ok := resource.(Service)
-	if !ok {
-		return nil, NewUnimplementedInterfaceError(resource)
-	}
-	return svc, nil
+// NewRPCServiceServer constructs a datamanager gRPC service server.
+// It is intentionally untyped to prevent use outside of tests.
+func NewRPCServiceServer(coll resource.SubtypeCollection[Service]) interface{} {
+	return &subtypeServer{coll: coll}
 }
 
 func (server *subtypeServer) Sync(ctx context.Context, req *pb.SyncRequest) (*pb.SyncResponse, error) {
-	svc, err := server.service(req.Name)
+	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -50,7 +38,7 @@ func (server *subtypeServer) Sync(ctx context.Context, req *pb.SyncRequest) (*pb
 func (server *subtypeServer) DoCommand(ctx context.Context,
 	req *commonpb.DoCommandRequest,
 ) (*commonpb.DoCommandResponse, error) {
-	svc, err := server.service(req.Name)
+	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}

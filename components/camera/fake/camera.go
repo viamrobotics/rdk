@@ -12,14 +12,10 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/components/generic"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
-	"go.viam.com/rdk/utils"
 )
 
 var model = resource.NewDefaultModel("fake")
@@ -30,66 +26,63 @@ const (
 )
 
 func init() {
-	registry.RegisterComponent(
+	resource.RegisterComponent(
 		camera.Subtype,
 		model,
-		registry.Component{Constructor: func(
-			ctx context.Context,
-			_ registry.Dependencies,
-			cfg config.Component,
-			logger golog.Logger,
-		) (interface{}, error) {
-			attrs, ok := cfg.ConvertedAttributes.(*Attrs)
-			if !ok {
-				return nil, utils.NewUnexpectedTypeError(attrs, cfg.ConvertedAttributes)
-			}
-			paramErr := attrs.Validate()
-			if paramErr != nil {
-				return nil, paramErr
-			}
-			resModel, width, height := fakeModel(attrs.Width, attrs.Height)
-			cam := &Camera{
-				Name:   cfg.Name,
-				Model:  resModel,
-				Width:  width,
-				Height: height,
-			}
-			return camera.NewFromReader(ctx, cam, resModel, camera.ColorStream)
-		}})
-	config.RegisterComponentAttributeMapConverter(
-		camera.Subtype,
-		model,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf Attrs
-			attrs, err := config.TransformAttributeMapToStruct(&conf, attributes)
-			if err != nil {
-				return nil, err
-			}
-			result, ok := attrs.(*Attrs)
-			if !ok {
-				return nil, utils.NewUnexpectedTypeError(result, attrs)
-			}
-			return result, nil
-		},
-		&Attrs{},
-	)
+		resource.Registration[camera.Camera, *Config]{
+			Constructor: func(
+				ctx context.Context,
+				_ resource.Dependencies,
+				cfg resource.Config,
+				logger golog.Logger,
+			) (camera.Camera, error) {
+				return NewCamera(ctx, cfg)
+			},
+		})
 }
 
-// Attrs are the attributes of the fake camera config.
-type Attrs struct {
+// NewCamera returns a new fake camera.
+func NewCamera(
+	ctx context.Context,
+	conf resource.Config,
+) (camera.Camera, error) {
+	newConf, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return nil, err
+	}
+	_, paramErr := newConf.Validate("")
+	if paramErr != nil {
+		return nil, paramErr
+	}
+	resModel, width, height := fakeModel(newConf.Width, newConf.Height)
+	cam := &Camera{
+		Named:  conf.ResourceName().AsNamed(),
+		Model:  resModel,
+		Width:  width,
+		Height: height,
+	}
+	src, err := camera.NewVideoSourceFromReader(ctx, cam, resModel, camera.ColorStream)
+	if err != nil {
+		return nil, err
+	}
+	return camera.FromVideoSource(conf.ResourceName(), src), nil
+}
+
+// Config are the attributes of the fake camera config.
+type Config struct {
 	Width  int `json:"width,omitempty"`
 	Height int `json:"height,omitempty"`
 }
 
 // Validate checks that the config attributes are valid for a fake camera.
-func (at *Attrs) Validate() error {
-	if at.Height%2 != 0 {
-		return errors.Errorf("odd-number resolutions cannot be rendered, cannot use a height of %d", at.Height)
+func (conf *Config) Validate(path string) ([]string, error) {
+	if conf.Height%2 != 0 {
+		return nil, errors.Errorf("odd-number resolutions cannot be rendered, cannot use a height of %d", conf.Height)
 	}
-	if at.Width%2 != 0 {
-		return errors.Errorf("odd-number resolutions cannot be rendered, cannot use a width of %d", at.Width)
+	if conf.Width%2 != 0 {
+		return nil, errors.Errorf("odd-number resolutions cannot be rendered, cannot use a width of %d", conf.Width)
 	}
-	return nil
+	return nil, nil
 }
 
 var fakeIntrinsics = &transform.PinholeCameraIntrinsics{
@@ -167,8 +160,8 @@ func fakeModel(width, height int) (*transform.PinholeCameraModel, int, int) {
 
 // Camera is a fake camera that always returns the same image.
 type Camera struct {
-	generic.Echo
-	Name            string
+	resource.Named
+	resource.AlwaysRebuild
 	Model           *transform.PinholeCameraModel
 	Width           int
 	Height          int

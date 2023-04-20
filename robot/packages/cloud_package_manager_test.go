@@ -46,7 +46,7 @@ func TestCloud(t *testing.T) {
 
 	t.Run("missing package on server", func(t *testing.T) {
 		packageDir, pm := newPackageManager(t, client, fakeServer, logger)
-		defer utils.UncheckedErrorFunc(pm.Close)
+		defer utils.UncheckedErrorFunc(func() error { return pm.Close(context.Background()) })
 
 		input := []config.PackageConfig{{Name: "some-name", Package: "org1/test-model", Version: "v1"}}
 		err = pm.Sync(ctx, input)
@@ -59,7 +59,7 @@ func TestCloud(t *testing.T) {
 
 	t.Run("valid packages on server", func(t *testing.T) {
 		packageDir, pm := newPackageManager(t, client, fakeServer, logger)
-		defer utils.UncheckedErrorFunc(pm.Close)
+		defer utils.UncheckedErrorFunc(func() error { return pm.Close(context.Background()) })
 
 		input := []config.PackageConfig{
 			{Name: "some-name", Package: "org1/test-model", Version: "v1"},
@@ -76,7 +76,7 @@ func TestCloud(t *testing.T) {
 
 	t.Run("sync continues on error", func(t *testing.T) {
 		packageDir, pm := newPackageManager(t, client, fakeServer, logger)
-		defer utils.UncheckedErrorFunc(pm.Close)
+		defer utils.UncheckedErrorFunc(func() error { return pm.Close(context.Background()) })
 
 		input := []config.PackageConfig{
 			{Name: "some-name", Package: "org1/test-model", Version: "v1"},
@@ -94,7 +94,7 @@ func TestCloud(t *testing.T) {
 
 	t.Run("sync and clean should remove file", func(t *testing.T) {
 		packageDir, pm := newPackageManager(t, client, fakeServer, logger)
-		defer utils.UncheckedErrorFunc(pm.Close)
+		defer utils.UncheckedErrorFunc(func() error { return pm.Close(context.Background()) })
 
 		input := []config.PackageConfig{
 			{Name: "some-name-1", Package: "org1/test-model", Version: "v1"},
@@ -125,7 +125,7 @@ func TestCloud(t *testing.T) {
 
 	t.Run("second sync should not call http server", func(t *testing.T) {
 		packageDir, pm := newPackageManager(t, client, fakeServer, logger)
-		defer utils.UncheckedErrorFunc(pm.Close)
+		defer utils.UncheckedErrorFunc(func() error { return pm.Close(context.Background()) })
 
 		input := []config.PackageConfig{
 			{Name: "some-name", Package: "org1/test-model", Version: "v1"},
@@ -156,7 +156,7 @@ func TestCloud(t *testing.T) {
 
 	t.Run("upgrade version", func(t *testing.T) {
 		packageDir, pm := newPackageManager(t, client, fakeServer, logger)
-		defer utils.UncheckedErrorFunc(pm.Close)
+		defer utils.UncheckedErrorFunc(func() error { return pm.Close(context.Background()) })
 
 		input := []config.PackageConfig{
 			{Name: "some-name-1", Package: "org1/test-model", Version: "v1"},
@@ -182,7 +182,7 @@ func TestCloud(t *testing.T) {
 
 	t.Run("invalid checksum", func(t *testing.T) {
 		packageDir, pm := newPackageManager(t, client, fakeServer, logger)
-		defer utils.UncheckedErrorFunc(pm.Close)
+		defer utils.UncheckedErrorFunc(func() error { return pm.Close(context.Background()) })
 
 		fakeServer.SetInvalidChecksum(true)
 
@@ -200,7 +200,7 @@ func TestCloud(t *testing.T) {
 
 	t.Run("invalid gcs download", func(t *testing.T) {
 		packageDir, pm := newPackageManager(t, client, fakeServer, logger)
-		defer utils.UncheckedErrorFunc(pm.Close)
+		defer utils.UncheckedErrorFunc(func() error { return pm.Close(context.Background()) })
 
 		fakeServer.SetInvalidHTTPRes(true)
 
@@ -218,7 +218,7 @@ func TestCloud(t *testing.T) {
 
 	t.Run("invalid tar", func(t *testing.T) {
 		packageDir, pm := newPackageManager(t, client, fakeServer, logger)
-		defer utils.UncheckedErrorFunc(pm.Close)
+		defer utils.UncheckedErrorFunc(func() error { return pm.Close(context.Background()) })
 
 		fakeServer.SetInvalidTar(true)
 
@@ -314,7 +314,7 @@ func TestPackageRefs(t *testing.T) {
 	defer utils.UncheckedErrorFunc(conn.Close)
 
 	packageDir, pm := newPackageManager(t, client, fakeServer, logger)
-	defer utils.UncheckedErrorFunc(pm.Close)
+	defer utils.UncheckedErrorFunc(func() error { return pm.Close(context.Background()) })
 
 	input := []config.PackageConfig{{Name: "some-name", Package: "org1/test-model", Version: "v1"}}
 	fakeServer.StorePackage(input...)

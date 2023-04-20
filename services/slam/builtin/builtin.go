@@ -16,7 +16,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
-	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	goutils "go.viam.com/utils"
@@ -24,9 +23,6 @@ import (
 
 	pb "go.viam.com/api/service/slam/v1"
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/components/generic"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
@@ -68,25 +64,17 @@ func SetDialMaxTimeoutSecForTesting(val int) {
 // TBD 05/04/2022: Needs more work once GRPC is included (future PR).
 func init() {
 	for _, slamLibrary := range slam.SLAMLibraries {
-		// TODO(PRODUCT-266): use triplet model names more properly here
 		sModel := resource.NewDefaultModel(resource.ModelName(slamLibrary.AlgoName))
-		registry.RegisterService(slam.Subtype, sModel, registry.Service{
-			Constructor: func(ctx context.Context, deps registry.Dependencies, c config.Service, logger golog.Logger) (interface{}, error) {
+		resource.RegisterService(slam.Subtype, sModel, resource.Registration[slam.Service, *slamConfig.Config]{
+			Constructor: func(
+				ctx context.Context,
+				deps resource.Dependencies,
+				c resource.Config,
+				logger golog.Logger,
+			) (slam.Service, error) {
 				return NewBuiltIn(ctx, deps, c, logger, false)
 			},
 		})
-		cType := slam.Subtype
-		config.RegisterServiceAttributeMapConverter(cType, sModel, func(attributes config.AttributeMap) (interface{}, error) {
-			var conf slamConfig.AttrConfig
-			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
-			if err != nil {
-				return nil, err
-			}
-			if err := decoder.Decode(attributes); err != nil {
-				return nil, err
-			}
-			return &conf, nil
-		}, &slamConfig.AttrConfig{})
 	}
 }
 
@@ -154,8 +142,8 @@ func runtimeServiceValidation(
 
 // builtIn is the structure of the slam service.
 type builtIn struct {
-	generic.Unimplemented
-	name              string
+	resource.Named
+	resource.AlwaysRebuild
 	primarySensorName string
 	slamLib           slam.LibraryMetadata
 	slamMode          slam.Mode
@@ -185,7 +173,7 @@ type builtIn struct {
 // configureCameras will check the config to see if any cameras are desired and if so, grab the cameras from
 // the robot. We assume there are at most two cameras and that we only require intrinsics from the first one.
 // Returns the name of the first camera.
-func configureCameras(ctx context.Context, svcConfig *slamConfig.AttrConfig, deps registry.Dependencies, logger golog.Logger) (string, []camera.Camera, error) {
+func configureCameras(ctx context.Context, svcConfig *slamConfig.Config, deps resource.Dependencies, logger golog.Logger) (string, []camera.Camera, error) {
 	if len(svcConfig.Sensors) > 0 {
 		logger.Debug("Running in live mode")
 		cams := make([]camera.Camera, 0, len(svcConfig.Sensors))
@@ -256,7 +244,7 @@ func (slamSvc *builtIn) GetPosition(ctx context.Context) (spatialmath.Pose, stri
 	ctx, span := trace.StartSpan(ctx, "slam::builtIn::GetPosition")
 	defer span.End()
 
-	req := &pb.GetPositionRequest{Name: slamSvc.name}
+	req := &pb.GetPositionRequest{Name: slamSvc.Name().ShortName()}
 
 	resp, err := slamSvc.clientAlgo.GetPosition(ctx, req)
 	if err != nil {
@@ -275,7 +263,7 @@ func (slamSvc *builtIn) GetPointCloudMap(ctx context.Context) (func() ([]byte, e
 	ctx, span := trace.StartSpan(ctx, "slam::builtIn::GetPointCloudMap")
 	defer span.End()
 
-	return grpchelper.GetPointCloudMapCallback(ctx, slamSvc.name, slamSvc.clientAlgo)
+	return grpchelper.GetPointCloudMapCallback(ctx, slamSvc.Name().ShortName(), slamSvc.clientAlgo)
 }
 
 // GetInternalState creates a request, calls the slam algorithms GetInternalState endpoint and returns a callback
@@ -284,17 +272,17 @@ func (slamSvc *builtIn) GetInternalState(ctx context.Context) (func() ([]byte, e
 	ctx, span := trace.StartSpan(ctx, "slam::builtIn::GetInternalState")
 	defer span.End()
 
-	return grpchelper.GetInternalStateCallback(ctx, slamSvc.name, slamSvc.clientAlgo)
+	return grpchelper.GetInternalStateCallback(ctx, slamSvc.Name().ShortName(), slamSvc.clientAlgo)
 }
 
 // NewBuiltIn returns a new slam service for the given robot.
-func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.Service, logger golog.Logger, bufferSLAMProcessLogs bool) (slam.Service, error) {
+func NewBuiltIn(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger, bufferSLAMProcessLogs bool) (slam.Service, error) {
 	ctx, span := trace.StartSpan(ctx, "slam::slamService::New")
 	defer span.End()
 
-	svcConfig, ok := config.ConvertedAttributes.(*slamConfig.AttrConfig)
-	if !ok {
-		return nil, rdkutils.NewUnexpectedTypeError(svcConfig, config.ConvertedAttributes)
+	svcConfig, err := resource.NativeConfig[*slamConfig.Config](conf)
+	if err != nil {
+		return nil, err
 	}
 
 	primarySensorName, cams, err := configureCameras(ctx, svcConfig, deps, logger)
@@ -302,7 +290,7 @@ func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.S
 		return nil, errors.Wrap(err, "configuring camera error")
 	}
 
-	modelName := string(config.Model.Name)
+	modelName := string(conf.Model.Name)
 	slamLib, ok := slam.SLAMLibraries[modelName]
 	if !ok {
 		return nil, errors.Errorf("%v algorithm specified not in implemented list", modelName)
@@ -343,9 +331,9 @@ func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.S
 
 	// SLAM Service Object
 	slamSvc := &builtIn{
-		name:                  config.Name,
+		Named:                 conf.ResourceName().AsNamed(),
 		primarySensorName:     primarySensorName,
-		slamLib:               slam.SLAMLibraries[string(config.Model.Name)],
+		slamLib:               slam.SLAMLibraries[string(conf.Model.Name)],
 		slamMode:              slamMode,
 		slamProcess:           pexec.NewProcessManager(logger),
 		configParams:          svcConfig.ConfigParams,
@@ -363,7 +351,7 @@ func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.S
 	var success bool
 	defer func() {
 		if !success {
-			if err := slamSvc.Close(); err != nil {
+			if err := slamSvc.Close(ctx); err != nil {
 				logger.Errorw("error closing out after error", "error", err)
 			}
 		}
@@ -391,7 +379,7 @@ func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.S
 }
 
 // Close out of all slam related processes.
-func (slamSvc *builtIn) Close() error {
+func (slamSvc *builtIn) Close(ctx context.Context) error {
 	defer func() {
 		if slamSvc.clientAlgoClose != nil {
 			goutils.UncheckedErrorFunc(slamSvc.clientAlgoClose)

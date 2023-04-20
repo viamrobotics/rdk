@@ -10,9 +10,9 @@ import (
 	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/config"
 	inf "go.viam.com/rdk/ml/inference"
 	"go.viam.com/rdk/services/vision"
+	"go.viam.com/rdk/utils"
 	vis "go.viam.com/rdk/vision"
 	"go.viam.com/rdk/vision/classification"
 	objdet "go.viam.com/rdk/vision/objectdetection"
@@ -26,7 +26,7 @@ func TestDetectorMap(t *testing.T) {
 	emptyFn := registeredModel{Model: nil, Closer: nil}
 	fnName := "x"
 	reg := make(modelMap)
-	testlog := golog.NewLogger("testlog")
+	testlog := golog.NewTestLogger(t)
 	// no detector
 	err := reg.RegisterVisModel(fnName, &emptyFn, testlog)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot register a nil model")
@@ -103,12 +103,12 @@ func TestDetectorRemoval(t *testing.T) {
 
 func TestRegisterTFLiteDetector(t *testing.T) {
 	modelLoc := artifact.MustPath("vision/tflite/effdet0.tflite")
-	conf := &vision.Attributes{
+	conf := &vision.Config{
 		ModelRegistry: []vision.VisModelConfig{
 			{
 				Name: "my_tflite_det",
 				Type: "tflite_detector",
-				Parameters: config.AttributeMap{
+				Parameters: utils.AttributeMap{
 					"model_path":  modelLoc,
 					"label_path":  "",
 					"num_threads": 1,
@@ -122,12 +122,12 @@ func TestRegisterTFLiteDetector(t *testing.T) {
 }
 
 func TestRegisterTensorFlowDetector(t *testing.T) {
-	conf := &vision.Attributes{
+	conf := &vision.Config{
 		ModelRegistry: []vision.VisModelConfig{
 			{
 				Name:       "my_tensorflow_det",
 				Type:       "tf_detector",
-				Parameters: config.AttributeMap{},
+				Parameters: utils.AttributeMap{},
 			},
 		},
 	}
@@ -137,15 +137,15 @@ func TestRegisterTensorFlowDetector(t *testing.T) {
 }
 
 func TestRegisterColorDetector(t *testing.T) {
-	conf := &vision.Attributes{
+	conf := &vision.Config{
 		ModelRegistry: []vision.VisModelConfig{
 			{
 				Name: "my_color_det",
 				Type: "color_detector",
-				Parameters: config.AttributeMap{
-					"segment_size_px": 150000,
-					"hue_tolerance_pct":   0.44,
-					"detect_color":    "#4F3815",
+				Parameters: utils.AttributeMap{
+					"segment_size_px":   150000,
+					"hue_tolerance_pct": 0.44,
+					"detect_color":      "#4F3815",
 				},
 			},
 		},
@@ -163,12 +163,12 @@ func TestRegisterColorDetector(t *testing.T) {
 }
 
 func TestRegisterUnknown(t *testing.T) {
-	conf := &vision.Attributes{
+	conf := &vision.Config{
 		ModelRegistry: []vision.VisModelConfig{
 			{
 				Name:       "my_random_det",
 				Type:       "not_real",
-				Parameters: config.AttributeMap{},
+				Parameters: utils.AttributeMap{},
 			},
 		},
 	}
@@ -185,7 +185,7 @@ func TestClassifierMap(t *testing.T) {
 	emptyFn := registeredModel{Model: nil, Closer: nil}
 	fnName := "x"
 	reg := make(modelMap)
-	testlog := golog.NewLogger("testlog")
+	testlog := golog.NewTestLogger(t)
 	// no classifier (empty model)
 	err := reg.RegisterVisModel(fnName, &emptyFn, testlog)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot register a nil model")
@@ -239,12 +239,12 @@ func TestClassifierRemoval(t *testing.T) {
 
 func TestRegisterTFLiteClassifier(t *testing.T) {
 	modelLoc := artifact.MustPath("vision/tflite/effnet0.tflite")
-	conf := &vision.Attributes{
+	conf := &vision.Config{
 		ModelRegistry: []vision.VisModelConfig{
 			{
 				Name: "my_tflite_classif",
 				Type: "tflite_classifier",
-				Parameters: config.AttributeMap{
+				Parameters: utils.AttributeMap{
 					"model_path":  modelLoc,
 					"label_path":  "",
 					"num_threads": 1,
@@ -258,12 +258,12 @@ func TestRegisterTFLiteClassifier(t *testing.T) {
 }
 
 func TestRegisterTensorFlowClassifier(t *testing.T) {
-	conf := &vision.Attributes{
+	conf := &vision.Config{
 		ModelRegistry: []vision.VisModelConfig{
 			{
 				Name:       "tensorflow_classif",
 				Type:       "tf_classifier",
-				Parameters: config.AttributeMap{},
+				Parameters: utils.AttributeMap{},
 			},
 		},
 	}
@@ -273,12 +273,12 @@ func TestRegisterTensorFlowClassifier(t *testing.T) {
 }
 
 func TestSegmenterMap(t *testing.T) {
-	fn := func(ctx context.Context, c camera.Camera) ([]*vis.Object, error) {
+	fn := func(ctx context.Context, src camera.VideoSource) ([]*vis.Object, error) {
 		return []*vis.Object{vis.NewEmptyObject()}, nil
 	}
 	fnName := "x"
 	segMap := make(modelMap)
-	testlog := golog.NewLogger("testlog")
+	testlog := golog.NewTestLogger(t)
 	// no segmenter
 	noSeg := registeredModel{Model: nil, ModelType: RCSegmenter}
 	err := segMap.RegisterVisModel(fnName, &noSeg, testlog)

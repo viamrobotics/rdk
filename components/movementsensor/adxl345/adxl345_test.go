@@ -2,7 +2,6 @@ package adxl345
 
 import (
 	"context"
-	"sync"
 	"testing"
 	"time"
 
@@ -12,8 +11,6 @@ import (
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/movementsensor"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -58,25 +55,25 @@ func TestInterrupts(t *testing.T) {
 
 	logger := golog.NewTestLogger(t)
 
-	deps := registry.Dependencies{
+	deps := resource.Dependencies{
 		resource.NameFromSubtype(board.Subtype, "board"): mockBoard,
 	}
 
-	tap := &TapAttrConfig{
+	tap := &TapConfig{
 		AccelerometerPin: 1,
 		InterruptPin:     "int1",
 	}
 
-	ff := &FreeFallAttrConfig{
+	ff := &FreeFallConfig{
 		AccelerometerPin: 1,
 		InterruptPin:     "int1",
 	}
 
-	cfg := config.Component{
+	cfg := resource.Config{
 		Name:  "movementsensor",
 		Model: modelName,
-		Type:  movementsensor.SubtypeName,
-		ConvertedAttributes: &AttrConfig{
+		API:   movementsensor.Subtype,
+		ConvertedAttributes: &Config{
 			BoardName: "board",
 			I2cBus:    "bus",
 			SingleTap: tap,
@@ -107,11 +104,11 @@ func TestInterrupts(t *testing.T) {
 	})
 
 	t.Run("interrupts have been found correctly only tap has been configured", func(t *testing.T) {
-		cfg := config.Component{
+		cfg := resource.Config{
 			Name:  "movementsensor",
 			Model: modelName,
-			Type:  movementsensor.SubtypeName,
-			ConvertedAttributes: &AttrConfig{
+			API:   movementsensor.Subtype,
+			ConvertedAttributes: &Config{
 				BoardName: "board",
 				I2cBus:    "bus",
 				SingleTap: tap,
@@ -130,11 +127,11 @@ func TestInterrupts(t *testing.T) {
 	})
 
 	t.Run("interrupts have been found correctly only freefall has been configured", func(t *testing.T) {
-		cfg = config.Component{
+		cfg = resource.Config{
 			Name:  "movementsensor",
 			Model: modelName,
-			Type:  movementsensor.SubtypeName,
-			ConvertedAttributes: &AttrConfig{
+			API:   movementsensor.Subtype,
+			ConvertedAttributes: &Config{
 				BoardName: "board",
 				I2cBus:    "bus",
 				FreeFall:  ff,
@@ -174,7 +171,6 @@ func TestReadInterrupts(t *testing.T) {
 			interruptsFound:   map[InterruptID]int{},
 			cancelContext:     cancelContext,
 			cancelFunc:        cancelFunc,
-			mu:                sync.Mutex{},
 			interruptsEnabled: byte(1<<6 + 1<<2),
 		}
 		sensor.readInterrupts(sensor.cancelContext)
@@ -193,7 +189,6 @@ func TestReadInterrupts(t *testing.T) {
 			interruptsFound:   map[InterruptID]int{},
 			cancelContext:     cancelContext,
 			cancelFunc:        cancelFunc,
-			mu:                sync.Mutex{},
 			interruptsEnabled: byte(1<<6 + 1<<2),
 		}
 		sensor.readInterrupts(sensor.cancelContext)
@@ -212,7 +207,6 @@ func TestReadInterrupts(t *testing.T) {
 			interruptsFound:   map[InterruptID]int{},
 			cancelContext:     cancelContext,
 			cancelFunc:        cancelFunc,
-			mu:                sync.Mutex{},
 			interruptsEnabled: byte(1<<6 + 1<<2),
 		}
 		sensor.readInterrupts(sensor.cancelContext)
@@ -231,7 +225,6 @@ func TestReadInterrupts(t *testing.T) {
 			interruptsFound:   map[InterruptID]int{},
 			cancelContext:     cancelContext,
 			cancelFunc:        cancelFunc,
-			mu:                sync.Mutex{},
 			interruptsEnabled: byte(1<<6 + 1<<2),
 		}
 		sensor.readInterrupts(sensor.cancelContext)
