@@ -102,6 +102,12 @@ func newEncodedMotor(
 	if !ok {
 		return nil, motor.NewUnimplementedLocalInterfaceError(realMotor)
 	}
+
+	if motorConfig.TicksPerRotation == 0 {
+		logger.Debug("setting encoded motor's ticks per rotation to 1")
+		motorConfig.TicksPerRotation = 1
+	}
+
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	em := &EncodedMotor{
 		real:                localReal,
@@ -155,10 +161,6 @@ func newEncodedMotor(
 	em.flip = 1
 	if motorConfig.DirectionFlip {
 		em.flip = -1
-	}
-
-	if rdkutils.Float64AlmostEqual(em.ticksPerRotation, 0, 0.01) {
-		em.ticksPerRotation = 1
 	}
 
 	_rpmDebug = motorConfig.Debug
@@ -363,10 +365,8 @@ func (m *EncodedMotor) rpmMonitor() {
 
 // return is if we are in a ramp phase.
 func (m *EncodedMotor) rpmMonitorPass(pos, lastPos float64, now, lastTime int64, rpmDebug bool) bool {
-	m.stateMu.Lock()
-	defer m.stateMu.Unlock()
-
 	currentRPM := m.computeRPM(pos, lastPos, now, lastTime)
+
 	m.stateMu.Lock()
 	m.state.currentRPM = currentRPM
 	desiredRPM := m.state.desiredRPM
@@ -374,6 +374,9 @@ func (m *EncodedMotor) rpmMonitorPass(pos, lastPos float64, now, lastTime int64,
 	lastPowerPct := m.state.lastPowerPct
 	setPoint := m.state.setPoint
 	m.stateMu.Unlock()
+
+	m.stateMu.Lock()
+	defer m.stateMu.Unlock()
 
 	if !regulated && math.Abs(desiredRPM) > 0.001 {
 		m.setMotorPowerInLock(currentRPM, desiredRPM, -1, rpmDebug)
@@ -401,8 +404,6 @@ func (m *EncodedMotor) rpmMonitorPass(pos, lastPos float64, now, lastTime int64,
 
 	// slow down so we don't overshoot
 	// halve and quarter rpm values based on seconds remaining in move
-
-	// desiredRPM := m.state.desiredRPM
 	timeLeftSeconds := 60.0 * rotationsLeft / desiredRPM
 
 	newDesiredRPM := slowDownMath(timeLeftSeconds, desiredRPM, m.rampRate)
@@ -651,7 +652,7 @@ func (m *EncodedMotor) GoTo(ctx context.Context, rpm, targetPosition float64, ex
 	// if you call GoFor with 0 revolutions, the motor will spin forever. If we are at the target,
 	// we must avoid this by not calling GoFor.
 	if rdkutils.Float64AlmostEqual(moveDistance, 0, 0.1) {
-		m.logger.Debugf("GoTo distance nearly zero for motor (%s), not moving")
+		m.logger.Debugf("GoTo distance nearly zero, not moving")
 		return nil
 	}
 
