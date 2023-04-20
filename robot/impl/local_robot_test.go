@@ -1894,7 +1894,7 @@ func TestConfigPackageReferenceReplacement(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer utils.UncheckedErrorFunc(fakePackageServer.Shutdown)
 
-	labelPath := "go.viam.com/rdk/"
+	packageDir := t.TempDir()
 
 	robotConfig := &config.Config{
 		Packages: []config.PackageConfig{
@@ -1909,11 +1909,19 @@ func TestConfigPackageReferenceReplacement(t *testing.T) {
 				Version: "latest",
 			},
 		},
+<<<<<<< HEAD
 		Services: []resource.Config{
 			{
 				Name:  "my_ml_model_service",
 				Type:  mlmodel.Subtype,
 				Model: resource.NewDefaultModel("tflite_cpu"),
+=======
+		PackagePath: packageDir,
+		Services: []config.Service{
+			{
+				Name: "my_ml_model_service",
+				Type: mlmodel.SubtypeName,
+>>>>>>> 609448489 (update attributes)
 				Attributes: config.AttributeMap{
 					"model_path":  "${packages.package-1}/model.tflite",
 					"label_path":  "${packages.package-1}/labels.txt",
