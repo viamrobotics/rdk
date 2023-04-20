@@ -110,6 +110,14 @@ const fetchSLAMPose = (name: string): Promise<commonApi.Pose> => {
 const executeMoveOnMap = async () => {
   window.localStorage.setItem(operationID, operationID)
   moveClick = !moveClick;
+  
+  // get base resources
+  const baseResources = filterResources(props.resources, 'rdk', 'component', 'base');
+  if (baseResources === undefined) {
+    moveClick = !moveClick;
+    toast.error('No base component detected.');
+    return;
+  }
 
   /*
     * set request name
@@ -138,11 +146,6 @@ const executeMoveOnMap = async () => {
   motionServiceReq.setSlamServiceName(slamResourceName);
 
   // set component name
-  const baseResources = filterResources(props.resources, 'rdk', 'component', 'base');
-  if (baseResources === undefined) {
-    toast.error('No base component detected.');
-    return;
-  }
   const baseResourceName = new commonApi.ResourceName();
   baseResourceName.setNamespace('rdk');
   baseResourceName.setType('component');
@@ -176,7 +179,6 @@ const executeMoveOnMap = async () => {
 };
 
 const executeStopMoveOnMap = () => {
-  moveClick = !moveClick;
   props.client.motionService.moveOnMap(
     motionServiceReq,
     new grpc.Metadata(),
@@ -185,9 +187,10 @@ const executeStopMoveOnMap = () => {
         toast.error(`Error moving: ${error}`);
         return;
       }
+      moveClick = !moveClick;
       toast.success(`Stopped MoveOnMap: ${response!.getSuccess()}`);
     }
-  ).cancel
+  ).cancel()
 };
 
 const refresh2d = async (name: string) => {
@@ -330,12 +333,12 @@ const handle2dRenderClick = (event: THREE.Vector3) => {
   destinationMarker = event;
 };
 
-const handleUpdateX = (event: CustomEvent<{ value: string }>) => {
+const handleUpdateDestX = (event: CustomEvent<{ value: string }>) => {
   destinationMarker.x = Number.parseFloat(event.detail.value);
   updatedDest = true;
 };
 
-const handleUpdateZ = (event: CustomEvent<{ value: string }>) => {
+const handleUpdateDestZ = (event: CustomEvent<{ value: string }>) => {
   destinationMarker.z = Number.parseFloat(event.detail.value);
   updatedDest = true;
 };
@@ -454,7 +457,7 @@ const toggleAxes = () => {
               incrementor="slider"
               :value="destinationMarker.x"
               step="0.1"
-              @input="handleUpdateX($event)"
+              @input="handleUpdateDestX($event)"
             />
             <v-input
               class="pl-2"
@@ -463,7 +466,7 @@ const toggleAxes = () => {
               incrementor="slider"
               :value="destinationMarker.z"
               step="0.1"
-              @input="handleUpdateZ($event)"
+              @input="handleUpdateDestZ($event)"
             />
           </div>
           <v-button

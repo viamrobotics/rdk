@@ -344,7 +344,7 @@ onUnmounted(() => {
   disposeScene();
 });
 
-watch(() => [props.destVector!.z, props.destVector!.x, props.destExists], async () => {
+const updateOrRemoveDestinationMarker = async () => {
   if (props.destVector && props.destExists) {
     const marker = scene.getObjectByName('DestinationMarker') ?? await makeMarker(destMarkerUrl, 'DestinationMarker', destinationMarkerScalar);
     marker.position.set(props.destVector.x + destinationMarkerOffset.x, destinationMarkerOffset.y, props.destVector.z + destinationMarkerOffset.z);
@@ -355,7 +355,9 @@ watch(() => [props.destVector!.z, props.destVector!.x, props.destExists], async 
       scene.remove(marker);
     }
   }
-});
+}
+
+watch(() => [props.destVector!.z, props.destVector!.x, props.destExists], updateOrRemoveDestinationMarker);
 
 watch(() => props.axesVisible, () => {
   for (const gridPart of gridSubparts) {
