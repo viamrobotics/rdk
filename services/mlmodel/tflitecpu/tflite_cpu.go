@@ -47,6 +47,7 @@ type TFLiteConfig struct {
 	LabelPath  *string `json:"label_path"`
 }
 
+// Walk implements the Walker interface and correctly replaces model and label paths.
 func (cfg *TFLiteConfig) Walk(visitor config.Visitor) (interface{}, error) {
 	modelPath, err := visitor.Visit(cfg.ModelPath)
 	if err != nil {

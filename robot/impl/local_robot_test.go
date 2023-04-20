@@ -19,6 +19,7 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -59,6 +60,7 @@ import (
 	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/datamanager/builtin"
+	"go.viam.com/rdk/services/mlmodel"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/navigation"
 	_ "go.viam.com/rdk/services/register"
@@ -1892,7 +1894,7 @@ func TestConfigPackageReferenceReplacement(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer utils.UncheckedErrorFunc(fakePackageServer.Shutdown)
 
-	packageDir := t.TempDir()
+	labelPath := "go.viam.com/rdk/"
 
 	robotConfig := &config.Config{
 		Packages: []config.PackageConfig{
@@ -1909,24 +1911,16 @@ func TestConfigPackageReferenceReplacement(t *testing.T) {
 		},
 		Services: []resource.Config{
 			{
-				Name: "Vision-Service",
-				API:  vision.Subtype,
-				ConvertedAttributes: &vision.Config{
-					ModelRegistry: []vision.VisModelConfig{
-						{
-							Type: "tflite_classifier",
-							Name: "my_classifier",
-							Parameters: rutils.AttributeMap{
-								"model_path":  "${packages.package-1}/model.tflite",
-								"label_path":  "${packages.package-2}/labels.txt",
-								"num_threads": 1,
-							},
-						},
-					},
+				Name:  "my_ml_model_service",
+				Type:  mlmodel.Subtype,
+				Model: resource.NewDefaultModel("tflite_cpu"),
+				Attributes: config.AttributeMap{
+					"model_path":  "${packages.package-1}/model.tflite",
+					"label_path":  "${packages.package-1}/labels.txt",
+					"num_threads": 1,
 				},
 			},
 		},
-		PackagePath: packageDir,
 	}
 
 	fakePackageServer.StorePackage(robotConfig.Packages...)
