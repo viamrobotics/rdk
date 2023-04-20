@@ -12,6 +12,8 @@ const (
 	AR0234 = "AR0234CS"
 )
 
+// OSInformation contains information about the OS
+// that the camera is running on.
 type OSInformation struct {
 	Name   string // e.g. "linux"
 	Arch   string // e.g. "arm64"
@@ -19,6 +21,8 @@ type OSInformation struct {
 	Device string // e.g. "NVIDIA Jetson AGX Xavier"
 }
 
+// CameraInformation contains information about the
+// daughterboards and camera modules that are supported
 type CameraInformation struct {
 	// map of daughterboard name to I2C bus names
 	Daughterboards map[string][]string // e.g. "i2c-30", "i2c-31"
