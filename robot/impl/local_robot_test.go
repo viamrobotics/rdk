@@ -1909,19 +1909,12 @@ func TestConfigPackageReferenceReplacement(t *testing.T) {
 				Version: "latest",
 			},
 		},
-<<<<<<< HEAD
-		Services: []resource.Config{
-			{
-				Name:  "my_ml_model_service",
-				Type:  mlmodel.Subtype,
-				Model: resource.NewDefaultModel("tflite_cpu"),
-=======
 		PackagePath: packageDir,
 		Services: []config.Service{
 			{
-				Name: "my_ml_model_service",
-				Type: mlmodel.SubtypeName,
->>>>>>> 609448489 (update attributes)
+				Name:  "my_ml_model_service",
+				Type:  mlmodel.SubtypeName,
+				Model: resource.NewDefaultModel("tflite_cpu"),
 				Attributes: config.AttributeMap{
 					"model_path":  "${packages.package-1}/model.tflite",
 					"label_path":  "${packages.package-1}/labels.txt",
