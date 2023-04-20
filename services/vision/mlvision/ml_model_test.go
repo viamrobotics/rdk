@@ -2,6 +2,9 @@ package mlvision
 
 import (
 	"context"
+	"fmt"
+	"github.com/edaniels/golog"
+	"go.viam.com/rdk/testutils/inject"
 	"testing"
 
 	"go.viam.com/test"
@@ -141,4 +144,113 @@ func TestNewMLClassifier(t *testing.T) {
 	test.That(t, topNL[0].Label(), test.ShouldContainSubstring, "291")
 	test.That(t, topNL[0].Score(), test.ShouldBeGreaterThan, 0.99)
 	test.That(t, topNL[1].Score(), test.ShouldBeLessThan, 0.01)
+}
+
+//func TestMoreMLDetectors(t *testing.T) {
+//	// Test that a detector would give an expected output on the dog image
+//	pic, err := rimage.NewImageFromFile(artifact.MustPath("vision/tflite/dogscute.jpeg"))
+//	test.That(t, err, test.ShouldBeNil)
+//	test.That(t, pic, test.ShouldNotBeNil)
+//
+//	name := "ssd"
+//	ctx := context.Background()
+//	modelLoc := artifact.MustPath("vision/tflite/ssdmobilenet.tflite")
+//	cfg := tflitecpu.TFLiteConfig{
+//		ModelPath:  modelLoc,
+//		NumThreads: 2,
+//	}
+//	ssd, err := tflitecpu.NewTFLiteCPUModel(ctx, &cfg, name)
+//	test.That(t, err, test.ShouldBeNil)
+//	test.That(t, ssd, test.ShouldNotBeNil)
+//	outDet, err := attemptToBuildDetector(ssd)
+//	test.That(t, err, test.ShouldBeNil)
+//	test.That(t, outDet, test.ShouldNotBeNil)
+//
+//	// Test that SSD detector output is as expected on image
+//	got, err := outDet(ctx, pic)
+//	test.That(t, err, test.ShouldBeNil)
+//	test.That(t, got[0].Label(), test.ShouldResemble, "17")
+//	test.That(t, got[1].Label(), test.ShouldResemble, "17")
+//	test.That(t, got[0].Score(), test.ShouldBeGreaterThan, 0.82)
+//	test.That(t, got[1].Score(), test.ShouldBeGreaterThan, 0.8)
+//
+//	// TODO: Khari, add the other model and make them work without metadata!?
+//}
+
+// TODO: Khari, also copy all the other tests
+func TestLabelReader(t *testing.T) {
+	ctx := context.Background()
+	modelLoc := artifact.MustPath("vision/tflite/effdet0.tflite")
+	labelLoc := artifact.MustPath("vision/tflite/fakelabels.txt")
+	cfg := tflitecpu.TFLiteConfig{ // detector config
+		ModelPath:  modelLoc,
+		NumThreads: 2,
+		LabelPath:  &labelLoc,
+	}
+	out, err := tflitecpu.NewTFLiteCPUModel(ctx, &cfg, "fakeLabels")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, out, test.ShouldNotBeNil)
+	outMD, err := out.Metadata(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, outMD, test.ShouldNotBeNil)
+	outLabels := getLabelsFromMetadata(outMD)
+	test.That(t, err, test.ShouldBeNil)
+	fmt.Println(outLabels)
+	test.That(t, outLabels[0], test.ShouldResemble, "this")
+	test.That(t, outLabels[1], test.ShouldResemble, "could")
+	test.That(t, outLabels[2], test.ShouldResemble, "be")
+	test.That(t, len(outLabels), test.ShouldEqual, 12)
+}
+
+func BenchmarkAddMLVisionModel(b *testing.B) {
+	modelLoc := artifact.MustPath("vision/tflite/effdet0.tflite")
+
+	name := "myMLModel"
+	cfg := tflitecpu.TFLiteConfig{
+		ModelPath:  modelLoc,
+		NumThreads: 2,
+	}
+	ctx := context.Background()
+	out, err := tflitecpu.NewTFLiteCPUModel(ctx, &cfg, name)
+	test.That(b, err, test.ShouldBeNil)
+	test.That(b, out, test.ShouldNotBeNil)
+	modelCfg := MLModelConfig{ModelName: name}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		service, err := registerMLModelVisionService(ctx, name, &modelCfg, &inject.Robot{}, golog.NewLogger("benchmark"))
+		test.That(b, err, test.ShouldBeNil)
+		test.That(b, service, test.ShouldNotBeNil)
+	}
+
+	// modelCfg := MLModelConfig{ModelName: "myMLDet"}
+}
+
+func BenchmarkUseMLVisionModel(b *testing.B) {
+	modelLoc := artifact.MustPath("vision/tflite/effdet0.tflite")
+	pic, err := rimage.NewImageFromFile(artifact.MustPath("vision/tflite/dogscute.jpeg"))
+	test.That(b, err, test.ShouldBeNil)
+	test.That(b, pic, test.ShouldNotBeNil)
+	name := "myMLModel"
+	cfg := tflitecpu.TFLiteConfig{
+		ModelPath:  modelLoc,
+		NumThreads: 2,
+	}
+	ctx := context.Background()
+	out, err := tflitecpu.NewTFLiteCPUModel(ctx, &cfg, name)
+	test.That(b, err, test.ShouldBeNil)
+	test.That(b, out, test.ShouldNotBeNil)
+	modelCfg := MLModelConfig{ModelName: name}
+
+	service, err := registerMLModelVisionService(ctx, name, &modelCfg, &inject.Robot{}, golog.NewLogger("benchmark"))
+	test.That(b, err, test.ShouldBeNil)
+	test.That(b, service, test.ShouldNotBeNil)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		// Detections should be worst case (more to unpack)
+		detections, err := service.Detections(ctx, pic, nil)
+		test.That(b, err, test.ShouldBeNil)
+		test.That(b, detections, test.ShouldNotBeNil)
+	}
 }
