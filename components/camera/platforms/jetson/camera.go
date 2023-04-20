@@ -57,7 +57,7 @@ func getDeviceName() (string, error) {
 	return string(bytes.TrimRight(device, "\x00")), nil
 }
 
-// Validate checks if the daughterboard and driver are supported and installed on the device
+// DetectError checks if the daughterboard and driver are supported and installed on the device
 func DetectError(osInfo OSInformation, daughterboardName, driverName string) error {
 	board, ok := cameraInfoMappings[osInfo.Device]
 	if !ok {
@@ -73,7 +73,7 @@ func DetectError(osInfo OSInformation, daughterboardName, driverName string) err
 	}
 	if err := checkDaughterBoardConnected(daughterboard); err != nil {
 		return fmt.Errorf("the %s daughterboard is not connected or not powerd on."+
-			"Please check daughter-board conenction to the %s",
+			"Please check daughter-board connection to the %s",
 			daughterboardName, osInfo.Device)
 	}
 	if err := checkDriverInstalled(osInfo.Kernel, driver); err != nil {

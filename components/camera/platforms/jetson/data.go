@@ -1,14 +1,15 @@
+// Package jetsoncamera contains information about the
+// daughterboards and camera modules that are supported on jetson platforms.
 package jetsoncamera
 
 const (
-	// Jetson Devices.
+	// OrinAGX is the name of the Jetson Orin AGX development kit.
 	OrinAGX = "Jetson AGX Orin"
+	// Unknown is the default value for unknown OS attributes.
 	Unknown = "unknown"
-	// Daughterboards
-	// https://www.e-consystems.com/nvidia-cameras/jetson-agx-orin-cameras/full-hd-ar0234-color-global-shutter-camera.asp
+	// ECAM https://www.e-consystems.com/nvidia-cameras/jetson-agx-orin-cameras/full-hd-ar0234-color-global-shutter-camera.asp
 	ECAM = "e-CAM20_CUOAGX"
-	// Cameras
-	// https://www.e-consystems.com/camera-modules/ar0234-global-shutter-camera-module.asp
+	// AR0234 https://www.e-consystems.com/camera-modules/ar0234-global-shutter-camera-module.asp
 	AR0234 = "AR0234CS"
 )
 
