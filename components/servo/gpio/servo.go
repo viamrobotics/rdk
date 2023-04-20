@@ -276,7 +276,7 @@ func (s *servoGPIO) findPWMResolution(ctx context.Context) error {
 		realPct, err := s.pin.PWM(ctx, nil)
 		s.logger.Debugf("starting step %d currPct %.7f target Pct %.14f realPct %.14f", val, currPct, pct, realPct)
 		if err != nil {
-			return errors.Wrap(err, "couldn't find PWM find servo PWM resolution")
+			return errors.Wrap(err, "couldn't find servo PWM resolution")
 		}
 		if realPct != currPct {
 			if realPct == pct {
