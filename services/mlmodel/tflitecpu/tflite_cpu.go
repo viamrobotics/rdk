@@ -16,6 +16,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/mlmodel"
 	"go.viam.com/rdk/services/vision"
+	"go.viam.com/rdk/utils"
 )
 
 var sModel = resource.NewDefaultModel("tflite_cpu")
@@ -48,7 +49,7 @@ type TFLiteConfig struct {
 }
 
 // Walk implements the Walker interface and correctly replaces model and label paths.
-func (cfg *TFLiteConfig) Walk(visitor config.Visitor) (interface{}, error) {
+func (cfg *TFLiteConfig) Walk(visitor utils.Visitor) (interface{}, error) {
 	modelPath, err := visitor.Visit(cfg.ModelPath)
 	if err != nil {
 		return nil, err

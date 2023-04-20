@@ -19,6 +19,7 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -1909,12 +1910,12 @@ func TestConfigPackageReferenceReplacement(t *testing.T) {
 			},
 		},
 		PackagePath: packageDir,
-		Services: []config.Service{
+		Services: []resource.Config{
 			{
 				Name:  "my_ml_model_service",
-				Type:  mlmodel.SubtypeName,
+				API:   mlmodel.Subtype,
 				Model: resource.NewDefaultModel("tflite_cpu"),
-				Attributes: config.AttributeMap{
+				Attributes: rutils.AttributeMap{
 					"model_path":  "${packages.package-1}/model.tflite",
 					"label_path":  "${packages.package-1}/labels.txt",
 					"num_threads": 1,
