@@ -15,8 +15,8 @@ import (
 	"unsafe"
 )
 
-// GetOSInformation pulls relevant OS attributes as an OSInformation struct
-// Kernel and Device will be "unkown" if unable to retrieve info from the filesystem
+// DetectOSInformation pulls relevant OS attributes as an OSInformation struct
+// Kernel and Device will be "unknown" if unable to retrieve info from the filesystem
 // returns an error if kernel version or device name is unavailable
 func DetectOSInformation() (OSInformation, error) {
 	kernelVersion, err := getKernelVersion()
@@ -58,7 +58,7 @@ func getDeviceName() (string, error) {
 }
 
 // Validate checks if the daughterboard and driver are supported and installed on the device
-func DetectError(osInfo OSInformation, daughterboardName string, driverName string) error {
+func DetectError(osInfo OSInformation, daughterboardName, driverName string) error {
 	board, ok := cameraInfoMappings[osInfo.Device]
 	if !ok {
 		return fmt.Errorf("the %s device is not supported on this platform", osInfo.Device)
@@ -72,13 +72,18 @@ func DetectError(osInfo OSInformation, daughterboardName string, driverName stri
 		return fmt.Errorf("the %s driver is not supported on this platform", driverName)
 	}
 	if err := checkDaughterBoardConnected(daughterboard); err != nil {
-		return fmt.Errorf("the %s daughterboard is not connected or not powerd on. Please check daughter-board conenction to the %s", daughterboardName, osInfo.Device)
+		return fmt.Errorf("the %s daughterboard is not connected or not powerd on."+
+			"Please check daughter-board conenction to the %s",
+			daughterboardName, osInfo.Device)
 	}
 	if err := checkDriverInstalled(osInfo.Kernel, driver); err != nil {
 		return fmt.Errorf("the %s driver not installed. Please follow instructions for driver installation", driverName)
 	}
 
-	return fmt.Errorf("the %s daughterboard is connected and %s camera driver is installed on the %s. please check that the video path is correct and driver is working", daughterboardName, driverName, osInfo.Device)
+	return fmt.Errorf("the %s daughterboard is connected and "+
+		"%s camera driver is installed on the %s."+
+		"please check that the video path is correct and driver is working",
+		daughterboardName, driverName, osInfo.Device)
 }
 
 // checkDaughterBoardConnected checks if the daughterboard is connected
@@ -104,7 +109,7 @@ func checkI2CInterface(bus string) error {
 
 // checkDriverInstalled checks if the driver is installed for the
 // given kernel version and object file target
-func checkDriverInstalled(kernel string, driver string) error {
+func checkDriverInstalled(kernel, driver string) error {
 	driverPath := filepath.Join("/lib/modules", kernel, "extra", driver)
 	if err := checkFileExists(driverPath); err != nil {
 		return fmt.Errorf("unable to verify that camera driver is installed: %w", err)
