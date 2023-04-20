@@ -11,8 +11,8 @@ const props = defineProps<{
 }>();
 
 let properties = $ref<encoderApi.GetPropertiesResponse.AsObject | undefined>();
-let positionTicks = $ref<encoderApi.GetPositionResponse.AsObject | undefined>();
-let positionDegrees = $ref<encoderApi.GetPositionResponse.AsObject | undefined>();
+let positionTicks = 0;
+let positionDegrees = 0;
 
 let refreshId = -1;
 
@@ -29,7 +29,7 @@ const refresh = () => {
         return displayError(error as ServiceError);
       }
 
-      positionTicks = resp!.toObject();
+      positionTicks = resp!.toObject().value;
     }
   );
 
@@ -44,7 +44,7 @@ const refresh = () => {
           return displayError(error as ServiceError);
         }
 
-        positionDegrees = resp!.toObject();
+        positionDegrees = resp!.toObject().value;
       }
     );
   }
