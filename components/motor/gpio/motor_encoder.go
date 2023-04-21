@@ -282,13 +282,6 @@ func (m *EncodedMotor) setPower(ctx context.Context, powerPct float64, internal 
 		m.state.desiredRPM = 0    // if we're setting power externally, don't control RPM
 		m.state.regulated = false // user wants direct control, so we stop trying to control the world
 	}
-	rawSpeed := powerPct * m.cfg.MaxRPM
-	if rutils.Float64AlmostEqual(rawSpeed, 0, 1) {
-		m.logger.Infof("the received powerPct results in a speed of 0")
-	} else if rutils.Float64AlmostEqual(rawSpeed, m.maxPowerPct, .1) {
-		m.logger.Infof("the received powerPct results in a speed that is almost the MaxRPM for this motor")
-	}
-
 	m.state.lastPowerPct = m.fixPowerPct(powerPct)
 	return m.real.SetPower(ctx, m.state.lastPowerPct, nil)
 }

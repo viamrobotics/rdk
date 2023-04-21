@@ -22,6 +22,7 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 var (
@@ -386,6 +387,19 @@ func (base *limoBase) SetVelocity(ctx context.Context, linear, angular r3.Vector
 
 	_, done := base.opMgr.New(ctx)
 	defer done()
+
+	if rdkutils.Float64AlmostEqual(linear.Y, 0.0, 1) && rdkutils.Float64AlmostEqual(angular.Z, 0.0, 1) {
+		base.controller.logger.Infof("the received linear velocity %f and angular velocity %f results in a speed of 0",
+			linear, angular)
+	}
+	if rdkutils.Float64AlmostEqual(linear.Y, float64(base.maxLinearVelocity), 1) {
+		base.controller.logger.Infof("the received linear velocity results in a speed near the maxLinearVelocity %f for this base",
+			base.maxLinearVelocity)
+	}
+	if rdkutils.Float64AlmostEqual(angular.Z, float64(base.maxAngularVelocity), 1) {
+		base.controller.logger.Infof("the received angular velocity results in a speed near the maxAngularVelocity %f for this base",
+			base.maxAngularVelocity)
+	}
 
 	// this base expects angular velocity to be expressed in .001 radians/sec, convert
 	angular.Z = (angular.Z / 57.2958) * 1000
