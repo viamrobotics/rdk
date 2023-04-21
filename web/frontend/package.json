@@ -56,6 +56,7 @@
     "copy-prime-assets": "node ./scripts/copy-prime-assets.js",
     "start": "node ./node_modules/vite/bin/vite.js --host",
     "build": "node ./node_modules/vite/bin/vite.js build && npm run copy-prime-assets",
+    "build-prod": "node ./node_modules/vite/bin/vite.js build --no-sourcemap && npm run copy-prime-assets",
     "build-npm": "node ./node_modules/vite/bin/vite.js build --config vite.lib.config.ts && vue-tsc --emitDeclarationOnly",
     "typecheck": "vue-tsc --noEmit",
     "preview": "vite preview",
