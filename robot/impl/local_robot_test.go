@@ -59,6 +59,7 @@ import (
 	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/datamanager/builtin"
+	"go.viam.com/rdk/services/mlmodel"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/navigation"
 	_ "go.viam.com/rdk/services/register"
@@ -1907,26 +1908,19 @@ func TestConfigPackageReferenceReplacement(t *testing.T) {
 				Version: "latest",
 			},
 		},
+		PackagePath: packageDir,
 		Services: []resource.Config{
 			{
-				Name: "Vision-Service",
-				API:  vision.Subtype,
-				ConvertedAttributes: &vision.Config{
-					ModelRegistry: []vision.VisModelConfig{
-						{
-							Type: "tflite_classifier",
-							Name: "my_classifier",
-							Parameters: rutils.AttributeMap{
-								"model_path":  "${packages.package-1}/model.tflite",
-								"label_path":  "${packages.package-2}/labels.txt",
-								"num_threads": 1,
-							},
-						},
-					},
+				Name:  "my_ml_model_service",
+				API:   mlmodel.Subtype,
+				Model: resource.NewDefaultModel("tflite_cpu"),
+				Attributes: rutils.AttributeMap{
+					"model_path":  "${packages.package-1}/model.tflite",
+					"label_path":  "${packages.package-1}/labels.txt",
+					"num_threads": 1,
 				},
 			},
 		},
-		PackagePath: packageDir,
 	}
 
 	fakePackageServer.StorePackage(robotConfig.Packages...)
