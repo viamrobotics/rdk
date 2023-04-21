@@ -6,7 +6,7 @@ concurrency:
 
 on:
   pull_request_target:
-    branches: [ main ]
+    branches: [ static-build ]
     types: [ labeled ]
     paths:
       - 'motionplan/**'
