@@ -3,6 +3,7 @@ package gpio
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"time"
 
@@ -296,6 +297,7 @@ func (s *servoGPIO) findPWMResolution(ctx context.Context) error {
 // Move moves the servo to the given angle (0-180 degrees)
 // This will block until done or a new operation cancels this one.
 func (s *servoGPIO) Move(ctx context.Context, ang uint32, extra map[string]interface{}) error {
+	fmt.Printf("starting a move to position %d!\n", ang)
 	ctx, done := s.opMgr.New(ctx)
 	defer done()
 	angle := float64(ang)
@@ -310,6 +312,7 @@ func (s *servoGPIO) Move(ctx context.Context, ang uint32, extra map[string]inter
 		realTick := math.Round(pct * float64(s.pwmRes))
 		pct = realTick / float64(s.pwmRes)
 	}
+	fmt.Printf("setting PWM duty cycle to %f (frequency is %d)\n", pct, s.frequency)
 	if err := s.pin.SetPWM(ctx, pct, nil); err != nil {
 		return errors.Wrap(err, "couldn't move the servo")
 	}
