@@ -1,5 +1,6 @@
 BUILD_CHANNEL?=local
 
+appimage: NO_UPX=1
 appimage: server-static
 	cd etc/packaging/appimages && BUILD_CHANNEL=${BUILD_CHANNEL} appimage-builder --recipe viam-server-`uname -m`.yml
 	cd etc/packaging/appimages && ./package_release.sh
