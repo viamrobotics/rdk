@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"math"
+	"time"
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/pointcloud"
@@ -11,6 +12,11 @@ import (
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
+)
+
+const (
+	positionThresholdMM     = 100
+	headingThresholdDegrees = 15
 )
 
 type kinematicWheeledBase struct {
@@ -70,48 +76,63 @@ func (kwb *kinematicWheeledBase) CurrentInputs(ctx context.Context) ([]reference
 }
 
 func (kwb *kinematicWheeledBase) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	// TODO: may want to save the startPose separately
-	// TODO: code janitor
-	currentPose, err := kwb.currentPose(ctx)
+	errorState := func() (float64, float64, error) {
+		currentPose, err := kwb.currentPose(ctx)
+		if err != nil {
+			return 0, 0, err
+		}
+		position := currentPose.Point().Mul(1000)
+		orientation := currentPose.Orientation().OrientationVectorRadians()
+		heading := utils.RadToDeg(math.Atan2(orientation.OX, orientation.OZ)) + 180
+		desiredHeading := utils.RadToDeg(math.Atan2(position.Z-goal[1].Value, position.X-goal[0].Value))
+		headingErr := math.Min(360-math.Abs(desiredHeading-heading), math.Abs(desiredHeading-heading))
+		positionErr := math.Hypot(position.Z-goal[1].Value, position.X-goal[0].Value)
+		kwb.logger.Warnf("CURRENT PT: %v", position)
+		kwb.logger.Warnf("GOAL: %v", goal)
+		kwb.logger.Warnf("POSITION ERROR: %f MM", positionErr)
+		kwb.logger.Warnf("HEADING: %v", heading)
+		kwb.logger.Warnf("DESIRED HEADING: %v", desiredHeading)
+		kwb.logger.Warnf("HEADING ERROR: %f DEGREES", headingErr)
+		kwb.logger.Warn("\n")
+		if desiredHeading-heading < 0 {
+			headingErr *= -1
+		}
+		return positionErr, headingErr, nil
+	}
+
+	// TODO: we do want the pitch here but this is domain limited to -90 to 90, need math to fix this
+	// heading := utils.RadToDeg(currentPose.Orientation().EulerAngles().Pitch)
+	// While base is not at the goal
+	// TO DO figure out sane threshold.
+	positionErr, headingErr, err := errorState()
 	if err != nil {
 		return err
 	}
-	currentPt := currentPose.Point()
-	desiredHeading := math.Atan2(currentPt.Z-goal[1].Value, currentPt.X-goal[0].Value)
-	distance := math.Hypot(currentPt.Z-goal[1].Value, currentPt.X-goal[0].Value)
 
-	// TODO: we do want the pitch here but this is domain limited to -90 to 90, need math to fix this
-	heading := utils.RadToDeg(currentPose.Orientation().EulerAngles().Pitch)
-	// While base is not at the goal
-	// TO DO figure out sane threshold.
-	for distance > 5 {
+	for positionErr > positionThresholdMM {
 		// If heading is ok, go forward
 		// Otherwise spin until base is heading correct way
 		// TODO make a threshold
-		if math.Abs(heading-desiredHeading) > 0 {
+		if math.Abs(headingErr) > headingThresholdDegrees {
 			// TODO (rh) create context with cancel
 			// TODO use a speed that is not garbage
-			if err := kwb.Spin(ctx, heading-desiredHeading, 10, nil); err != nil {
+			if err := kwb.Spin(ctx, headingErr, 5, nil); err != nil {
 				return err
 			}
 		} else {
 			// TODO check if we are in mm in SLAM and multiply by 1000 if so
-			distance := math.Hypot(currentPt.Z-goal[1].Value, currentPt.X-goal[0].Value)
-			if err := kwb.MoveStraight(ctx, int(distance), 10, nil); err != nil {
+			if err := kwb.MoveStraight(ctx, int(positionErr), 300, nil); err != nil {
 				return err
 			}
 
 		}
 
-		// Calculate current state
-		currentPose, err = kwb.currentPose(ctx)
+		positionErr, headingErr, err = errorState()
 		if err != nil {
 			return err
 		}
-		currentPt = currentPose.Point()
-		heading = utils.RadToDeg(currentPose.Orientation().EulerAngles().Pitch)
-		distance = math.Hypot(currentPt.Z-goal[1].Value, currentPt.X-goal[0].Value)
 
+		time.Sleep(time.Second)
 	}
 	return nil
 }

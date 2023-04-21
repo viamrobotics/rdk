@@ -10,6 +10,7 @@ import (
 
 	servicepb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
@@ -148,8 +149,7 @@ func (ms *builtIn) MoveOnMap(
 			componentName.ShortName(),
 		)
 	}
-	c := utils.UnwrapProxy(b)
-	kw, ok := c.(base.KinematicWrappable)
+	kw, ok := b.(base.KinematicWrappable)
 	if !ok {
 		return false, fmt.Errorf("cannot move base of type %T because it is not KinematicWrappable", b)
 	}

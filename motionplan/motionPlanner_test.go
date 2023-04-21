@@ -15,10 +15,8 @@ import (
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/base/wheeled"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/referenceframe"
 	frame "go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/slam/fake"
 	"go.viam.com/rdk/spatialmath"
@@ -525,19 +523,19 @@ func TestPlanMapMotion(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
 	// build kinematic base
-	testCfg := config.Component{
-		Name:  "test",
-		Type:  base.Subtype.ResourceSubtype,
-		Model: resource.Model{Name: "wheeled_base"},
+	testCfg := resource.Config{
+		Name:              "test",
+		DeprecatedSubtype: base.Subtype.ResourceSubtype,
+		Model:             resource.Model{Name: "wheeled_base"},
 		Frame: &referenceframe.LinkConfig{
 			Parent:   referenceframe.World,
 			Geometry: &spatialmath.GeometryConfig{R: 20},
 		},
-		ConvertedAttributes: &wheeled.AttrConfig{},
+		ConvertedAttributes: &wheeled.Config{},
 	}
-	testBase, err := wheeled.CreateWheeledBase(ctx, registry.Dependencies{}, testCfg, logger)
+	testBase, err := wheeled.CreateWheeledBase(ctx, resource.Dependencies{}, testCfg, logger)
 	test.That(t, err, test.ShouldBeNil)
-	kb, err := testBase.(base.KinematicWrappable).WrapWithKinematics(ctx, fake.NewSLAM("", logger))
+	kb, err := testBase.(base.KinematicWrappable).WrapWithKinematics(ctx, fake.NewSLAM(resource.NewName("im", "a", "fake", "slam"), logger))
 	test.That(t, err, test.ShouldBeNil)
 
 	// test ability to plan

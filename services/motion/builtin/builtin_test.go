@@ -168,7 +168,8 @@ func TestMoveWithObstacles(t *testing.T) {
 }
 
 func TestMoveOnMap(t *testing.T) {
-	ms := setupMotionServiceFromConfig(t, "../data/wheeled_base.json")
+	ms, closeFn := setupMotionServiceFromConfig(t, "../data/wheeled_base.json")
+	defer closeFn()
 	success, err := ms.MoveOnMap(
 		context.Background(),
 		base.Named("test_base"),
