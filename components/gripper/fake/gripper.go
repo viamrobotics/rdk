@@ -22,7 +22,8 @@ func init() {
 	resource.RegisterComponent(gripper.Subtype, modelname, resource.Registration[gripper.Gripper, *Config]{
 		Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (gripper.Gripper, error) {
 			return &Gripper{
-				Named: conf.ResourceName().AsNamed(),
+				Named:  conf.ResourceName().AsNamed(),
+				logger: logger,
 			}, nil
 		},
 	})
@@ -33,6 +34,7 @@ type Gripper struct {
 	resource.Named
 	resource.TriviallyReconfigurable
 	resource.TriviallyCloseable
+	logger golog.Logger
 }
 
 // ModelFrame returns the dynamic frame of the model.
@@ -42,16 +44,19 @@ func (g *Gripper) ModelFrame() referenceframe.Model {
 
 // Open does nothing.
 func (g *Gripper) Open(ctx context.Context, extra map[string]interface{}) error {
+	g.logger.Info("the fake gripper opened")
 	return nil
 }
 
 // Grab does nothing.
 func (g *Gripper) Grab(ctx context.Context, extra map[string]interface{}) (bool, error) {
+	g.logger.Info("the fake gripper grabbed")
 	return false, nil
 }
 
 // Stop doesn't do anything for a fake gripper.
 func (g *Gripper) Stop(ctx context.Context, extra map[string]interface{}) error {
+	g.logger.Info("the fake gripper stopped")
 	return nil
 }
 
