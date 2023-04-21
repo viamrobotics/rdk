@@ -6,12 +6,10 @@ import "C"
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
-	"syscall"
 	"unsafe"
 )
 
@@ -120,22 +118,10 @@ func checkDriverInstalled(kernel, driver string) error {
 }
 
 // checkFileExists is a helper function that wraps os.Stat
-// errors are parsed to return a more specific error message
 func checkFileExists(path string) error {
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return fmt.Errorf("%s does not exist", path)
-	} else if err != nil {
-		switch {
-		case os.IsPermission(err):
-			return fmt.Errorf("permission denied when trying to access %s", path)
-		case errors.Is(err, syscall.ENOSPC):
-			return fmt.Errorf("device is out of space. unable to check %s", path)
-		case errors.Is(err, syscall.ENOMEM):
-			return fmt.Errorf("device is out of memory. unable to check %s", path)
-		default:
-			return fmt.Errorf("unable to access %s", path)
-		}
-	} else {
-		return nil
+	_, err := os.Stat(path)
+	if err != nil {
+		return fmt.Errorf("unable to access %s: %w", path, err)
 	}
+	return nil
 }
