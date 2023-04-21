@@ -23,7 +23,7 @@ type Service interface {
 	StartDataProcess(cancelCtx context.Context, cam []camera.Camera, c chan int)
 	StartSLAMProcess(ctx context.Context) error
 	StopSLAMProcess() error
-	Close() error
+	Close(ctx context.Context) error
 	GetSLAMProcessConfig() pexec.ProcessConfig
 	GetSLAMProcessBufferedLogReader() bufio.Reader
 }

@@ -14,7 +14,6 @@ import (
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/camera/videosource"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/depthadapter"
 	"go.viam.com/rdk/rimage/transform"
@@ -36,7 +35,7 @@ func TestDepthSource(t *testing.T) {
 		context.Background(), artifact.MustPath("rimage/board1_gray_small.png"))
 	test.That(t, err, test.ShouldBeNil)
 	source := &videosource.StaticSource{DepthImg: img}
-	am := config.AttributeMap{
+	am := utils.AttributeMap{
 		"high_threshold": 0.85,
 		"low_threshold":  0.40,
 		"blur_radius":    3.0,
@@ -68,7 +67,7 @@ func (h *depthSourceTestHelper) Process(
 
 	// create edge map
 	source := &videosource.StaticSource{DepthImg: dm}
-	am := config.AttributeMap{
+	am := utils.AttributeMap{
 		"high_threshold": 0.85,
 		"low_threshold":  0.40,
 		"blur_radius":    3.0,

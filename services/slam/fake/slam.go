@@ -7,9 +7,6 @@ import (
 	"github.com/edaniels/golog"
 	"go.opencensus.io/trace"
 
-	"go.viam.com/rdk/components/generic"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/spatialmath"
@@ -20,35 +17,38 @@ var model = resource.NewDefaultModel("fake")
 const datasetDirectory = "slam/example_cartographer_outputs/viam-office-02-22-1"
 
 func init() {
-	registry.RegisterService(
+	resource.RegisterService(
 		slam.Subtype,
 		model,
-		registry.Service{
+		resource.Registration[slam.Service, resource.NoNativeConfig]{
 			Constructor: func(
 				ctx context.Context,
-				_ registry.Dependencies,
-				config config.Service,
+				_ resource.Dependencies,
+				conf resource.Config,
 				logger golog.Logger,
-			) (interface{}, error) {
-				return NewSLAM(config.Name, logger), nil
+			) (slam.Service, error) {
+				return NewSLAM(conf.ResourceName(), logger), nil
 			},
 		},
 	)
 }
 
-var _ = slam.Service(&SLAM{})
-
 // SLAM is a fake slam that returns generic data.
 type SLAM struct {
-	generic.Echo
-	Name      string
+	resource.Named
+	resource.TriviallyReconfigurable
+	resource.TriviallyCloseable
 	dataCount int
 	logger    golog.Logger
 }
 
 // NewSLAM is a constructor for a fake slam service.
-func NewSLAM(name string, logger golog.Logger) *SLAM {
-	return &SLAM{Name: name, logger: logger, dataCount: -1}
+func NewSLAM(name resource.Name, logger golog.Logger) *SLAM {
+	return &SLAM{
+		Named:     name.AsNamed(),
+		logger:    logger,
+		dataCount: -1,
+	}
 }
 
 func (slamSvc *SLAM) getCount() int {

@@ -21,26 +21,21 @@ type AnalogSmoother struct {
 	AverageOverMillis       int
 	SamplesPerSecond        int
 	data                    *utils.RollingAverage
-	lastError               atomic.Value // errValue
+	lastError               atomic.Pointer[errValue]
 	logger                  golog.Logger
 	cancel                  func()
-	activeBackgroundWorkers *sync.WaitGroup
+	activeBackgroundWorkers sync.WaitGroup
 }
 
 // SmoothAnalogReader wraps the given reader in a smoother.
-func SmoothAnalogReader(r AnalogReader, c AnalogConfig, logger golog.Logger) AnalogReader {
-	if c.AverageOverMillis <= 0 {
-		return r
-	}
-
+func SmoothAnalogReader(r AnalogReader, c AnalogConfig, logger golog.Logger) *AnalogSmoother {
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	smoother := &AnalogSmoother{
-		Raw:                     r,
-		AverageOverMillis:       c.AverageOverMillis,
-		SamplesPerSecond:        c.SamplesPerSecond,
-		logger:                  logger,
-		cancel:                  cancel,
-		activeBackgroundWorkers: &sync.WaitGroup{},
+		Raw:               r,
+		AverageOverMillis: c.AverageOverMillis,
+		SamplesPerSecond:  c.SamplesPerSecond,
+		logger:            logger,
+		cancel:            cancel,
 	}
 	smoother.Start(cancelCtx)
 	return smoother
@@ -53,9 +48,10 @@ type errValue struct {
 }
 
 // Close stops the smoothing routine.
-func (as *AnalogSmoother) Close() {
+func (as *AnalogSmoother) Close(ctx context.Context) error {
 	as.cancel()
 	as.activeBackgroundWorkers.Wait()
+	return nil
 }
 
 // Read returns the smoothed out reading.
@@ -66,9 +62,8 @@ func (as *AnalogSmoother) Read(ctx context.Context, extra map[string]interface{}
 		return avg, nil
 	}
 	//nolint:forcetypeassert
-	lastErrVal := lastErr.(errValue)
-	if lastErrVal.present {
-		return avg, lastErrVal.err
+	if lastErr.present {
+		return avg, lastErr.err
 	}
 	return avg, nil
 }
@@ -100,7 +95,7 @@ func (as *AnalogSmoother) Start(ctx context.Context) {
 		for {
 			start := time.Now()
 			reading, err := as.Raw.Read(ctx, nil)
-			as.lastError.Store(errValue{err != nil, err})
+			as.lastError.Store(&errValue{err != nil, err})
 			if err != nil {
 				if errors.Is(err, errStopReading) {
 					break

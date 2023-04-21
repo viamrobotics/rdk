@@ -104,7 +104,7 @@
                 "mock3"
             ],
             "attributes": {
-                "should_fail": true
+                "should_fail_reconfigure": 1
             }
         },
         {
@@ -121,10 +121,11 @@
         {
             "name": "mock6",
             "type": "mock",
-            "model": "${TEST_MODEL_NAME_2-fake2}",
+            "model": "${TEST_MODEL_NAME_1-fake2}",
             "depends_on": [],
             "attributes": {
-                "one": 6
+                "one": 6,
+                "should_fail_reconfigure": 2
             }
         }
     ],

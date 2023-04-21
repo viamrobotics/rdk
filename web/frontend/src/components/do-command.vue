@@ -31,7 +31,7 @@ const doCommand = (name: string, command: string) => {
   rcLogConditionally(request);
   props.client.genericService.doCommand(
     request,
-    (error: ServiceError, response: commonApi.DoCommandResponse) => {
+    (error: ServiceError | null, response: commonApi.DoCommandResponse | null) => {
       if (error) {
         toast.error(`Error executing command on ${name}: ${error}`);
         executing.value = false;

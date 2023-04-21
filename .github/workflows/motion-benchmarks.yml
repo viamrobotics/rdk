@@ -35,6 +35,9 @@ jobs:
         repository: viamrobotics/motion-testing
         path: motion-testing
 
+    - name: Change ownership to testbot
+      run: chown -R testbot:testbot .
+
     - name: Run motion quality tests on main branch
       shell: bash
       env: 
@@ -43,8 +46,7 @@ jobs:
       run: |
         cd motion-testing
         go mod edit -replace go.viam.com/rdk=${URL#"https://"}@$SHA
-        go mod tidy
-        sudo -u testbot bash -lc "sudo go test ./... -v -run TestDefault --name=$BASELINE"
+        sudo -Hu testbot bash -lc "go mod tidy && go test ./... -v -run TestDefault --name=$BASELINE"
         
     - name: Run motion quality tests on PR branch
       shell: bash
@@ -54,13 +56,12 @@ jobs:
       run: |
         cd motion-testing
         go mod edit -replace go.viam.com/rdk=${URL#"https://"}@$SHA
-        go mod tidy
-        sudo -u testbot bash -lc "sudo go test ./... -v -run TestDefault --name=$MODIFIED"
+        sudo -Hu testbot bash -lc "go mod tidy && go test ./... -v -run TestDefault --name=$MODIFIED"
         
     - name: Print results
       run: |
         cd motion-testing
-        sudo -u testbot bash -lc "sudo go test ./... -v -run TestScores --baselineDir=$BASELINE --modifiedDir=$MODIFIED"
+        sudo -Hu testbot bash -lc "go test ./... -v -run TestScores --baselineDir=$BASELINE --modifiedDir=$MODIFIED"
         cat results/motion-benchmarks.md
  
     # Now that RDK is public, can't directly comment without token having full read/write access

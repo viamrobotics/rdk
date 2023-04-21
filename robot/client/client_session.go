@@ -213,14 +213,16 @@ func isStatusNoSessionError(err error) bool {
 }
 
 type firstMessageClientStreamWrapper struct {
-	mu sync.RWMutex
 	grpc.ClientStream
-	sendMsgs                 []interface{}
-	closeSend                bool
+
 	rc                       *RobotClient
-	firstRecv                bool
 	invoke                   func() (grpc.ClientStream, error)
 	safetyMonitorFromHeaders func(hdr metadata.MD)
+
+	mu        sync.RWMutex
+	sendMsgs  []interface{}
+	closeSend bool
+	firstRecv bool
 }
 
 func (w *firstMessageClientStreamWrapper) SendMsg(m interface{}) error {

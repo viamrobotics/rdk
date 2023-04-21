@@ -1,13 +1,14 @@
 package gpsrtk
 
 import (
+	"context"
 	"fmt"
 	"io"
 
 	"github.com/jacobsa/go-serial/serial"
 	"github.com/pkg/errors"
 
-	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/resource"
 )
 
 const (
@@ -75,11 +76,15 @@ type configCommand struct {
 }
 
 // ConfigureBaseRTKStation configures an RTK chip to act as a base station and send correction data.
-func ConfigureBaseRTKStation(cfg config.Component) error {
-	correctionType := cfg.ConvertedAttributes.(*StationConfig).CorrectionSource
-	surveyIn := cfg.ConvertedAttributes.(*StationConfig).SurveyIn
-	requiredAcc := cfg.ConvertedAttributes.(*StationConfig).RequiredAccuracy
-	observationTime := cfg.ConvertedAttributes.(*StationConfig).RequiredTime
+func ConfigureBaseRTKStation(conf resource.Config) error {
+	newConf, err := resource.NativeConfig[*StationConfig](conf)
+	if err != nil {
+		return err
+	}
+	correctionType := newConf.CorrectionSource
+	surveyIn := newConf.SurveyIn
+	requiredAcc := newConf.RequiredAccuracy
+	observationTime := newConf.RequiredTime
 
 	c := &configCommand{
 		correctionType:  correctionType,
@@ -97,7 +102,7 @@ func ConfigureBaseRTKStation(cfg config.Component) error {
 
 	switch c.correctionType {
 	case serialStr:
-		err := c.serialConfigure(cfg)
+		err := c.serialConfigure(conf)
 		if err != nil {
 			return err
 		}
@@ -105,8 +110,7 @@ func ConfigureBaseRTKStation(cfg config.Component) error {
 		return errors.Errorf("configuration not supported for %s", correctionType)
 	}
 
-	err := c.enableAll(ubxRtcmMsb)
-	if err != nil {
+	if err := c.enableAll(ubxRtcmMsb); err != nil {
 		return err
 	}
 
@@ -124,8 +128,12 @@ func ConfigureBaseRTKStation(cfg config.Component) error {
 }
 
 // ConfigureRoverDefault sets up an RTK chip to act as a rover and receive correction data.
-func ConfigureRoverDefault(cfg config.Component) error {
-	correctionType := cfg.ConvertedAttributes.(*AttrConfig).CorrectionSource
+func ConfigureRoverDefault(conf resource.Config) error {
+	newConf, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return err
+	}
+	correctionType := newConf.CorrectionSource
 
 	c := &configCommand{
 		correctionType: correctionType,
@@ -135,7 +143,7 @@ func ConfigureRoverDefault(cfg config.Component) error {
 
 	switch correctionType {
 	case serialStr:
-		err := c.serialConfigure(cfg)
+		err := c.serialConfigure(conf)
 		if err != nil {
 			return err
 		}
@@ -143,8 +151,7 @@ func ConfigureRoverDefault(cfg config.Component) error {
 		return errors.Errorf("configuration not supported for %s", correctionType)
 	}
 
-	err := c.enableAll(ubxNmeaMsb)
-	if err != nil {
+	if err := c.enableAll(ubxNmeaMsb); err != nil {
 		return err
 	}
 
@@ -161,14 +168,18 @@ func ConfigureRoverDefault(cfg config.Component) error {
 	return nil
 }
 
-func (c *configCommand) serialConfigure(cfg config.Component) error {
-	portName := cfg.ConvertedAttributes.(*AttrConfig).SerialAttrConfig.SerialCorrectionPath
+func (c *configCommand) serialConfigure(conf resource.Config) error {
+	newConf, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return err
+	}
+	portName := newConf.SerialConfig.SerialCorrectionPath
 	if portName == "" {
 		return fmt.Errorf("serialCorrectionSource expected non-empty string for %q", correctionPathName)
 	}
 	c.portName = portName
 
-	baudRate := cfg.ConvertedAttributes.(*AttrConfig).SerialAttrConfig.SerialCorrectionBaudRate
+	baudRate := newConf.SerialConfig.SerialCorrectionBaudRate
 	if baudRate == 0 {
 		baudRate = 9600
 	}
@@ -409,7 +420,7 @@ func (c *configCommand) saveAllConfigs() error {
 }
 
 // Close closes all open ports used in configuration.
-func (c *configCommand) Close() error {
+func (c *configCommand) Close(ctx context.Context) error {
 	// close port reader if serial
 	if c.writePort != nil {
 		if err := c.writePort.Close(); err != nil {

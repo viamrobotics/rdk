@@ -208,29 +208,29 @@ func (mm modelMap) RegisterVisModel(name string, m *registeredModel, logger golo
 
 // registerNewVisModels take an attributes struct and parses each element by type to create an RDK Detector
 // and register it to the detector map.
-func registerNewVisModels(ctx context.Context, mm modelMap, attrs *vision.Attributes, logger golog.Logger) error {
+func registerNewVisModels(ctx context.Context, mm modelMap, conf *vision.Config, logger golog.Logger) error {
 	_, span := trace.StartSpan(ctx, "service::vision::registerNewVisModels")
 	defer span.End()
 	var err error
-	for _, attr := range attrs.ModelRegistry {
-		logger.Debugf("adding vision model %q of type %q", attr.Name, attr.Type)
-		switch vision.VisModelType(attr.Type) {
+	for _, modelConf := range conf.ModelRegistry {
+		logger.Debugf("adding vision model %q of type %q", modelConf.Name, modelConf.Type)
+		switch vision.VisModelType(modelConf.Type) {
 		case TFLiteDetector:
-			multierr.AppendInto(&err, registerTfliteDetector(ctx, mm, &attr, logger))
+			multierr.AppendInto(&err, registerTfliteDetector(ctx, mm, &modelConf, logger))
 		case TFLiteClassifier:
-			multierr.AppendInto(&err, registerTfliteClassifier(ctx, mm, &attr, logger))
+			multierr.AppendInto(&err, registerTfliteClassifier(ctx, mm, &modelConf, logger))
 		case TFDetector:
-			multierr.AppendInto(&err, newVisModelTypeNotImplemented(attr.Type))
+			multierr.AppendInto(&err, newVisModelTypeNotImplemented(modelConf.Type))
 		case TFClassifier:
-			multierr.AppendInto(&err, newVisModelTypeNotImplemented(attr.Type))
+			multierr.AppendInto(&err, newVisModelTypeNotImplemented(modelConf.Type))
 		case ColorDetector:
-			multierr.AppendInto(&err, registerColorDetector(ctx, mm, &attr, logger))
+			multierr.AppendInto(&err, registerColorDetector(ctx, mm, &modelConf, logger))
 		case RCSegmenter:
-			multierr.AppendInto(&err, registerRCSegmenter(ctx, mm, &attr, logger))
+			multierr.AppendInto(&err, registerRCSegmenter(ctx, mm, &modelConf, logger))
 		case DetectorSegmenter:
-			multierr.AppendInto(&err, registerSegmenterFromDetector(ctx, mm, &attr, logger))
+			multierr.AppendInto(&err, registerSegmenterFromDetector(ctx, mm, &modelConf, logger))
 		default:
-			multierr.AppendInto(&err, newVisModelTypeNotImplemented(attr.Type))
+			multierr.AppendInto(&err, newVisModelTypeNotImplemented(modelConf.Type))
 		}
 	}
 	return err

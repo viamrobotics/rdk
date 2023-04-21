@@ -14,23 +14,21 @@ import (
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
 )
 
 func newServer() (pb.ArmServiceServer, *inject.Arm, *inject.Arm, error) {
 	injectArm := &inject.Arm{}
 	injectArm2 := &inject.Arm{}
-	arms := map[resource.Name]interface{}{
+	arms := map[resource.Name]arm.Arm{
 		arm.Named(testArmName): injectArm,
 		arm.Named(failArmName): injectArm2,
-		arm.Named(fakeArmName): "notArm",
 	}
-	armSvc, err := subtype.New(arms)
+	armSvc, err := resource.NewSubtypeCollection(arm.Subtype, arms)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	return arm.NewServer(armSvc), injectArm, injectArm2, nil
+	return arm.NewRPCServiceServer(armSvc).(pb.ArmServiceServer), injectArm, injectArm2, nil
 }
 
 func TestServer(t *testing.T) {
@@ -93,11 +91,7 @@ func TestServer(t *testing.T) {
 	t.Run("arm position", func(t *testing.T) {
 		_, err := armServer.GetEndPosition(context.Background(), &pb.GetEndPositionRequest{Name: missingArmName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
-
-		_, err = armServer.GetEndPosition(context.Background(), &pb.GetEndPositionRequest{Name: fakeArmName})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "not an arm")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
 		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "EndPosition"})
 		test.That(t, err, test.ShouldBeNil)
@@ -115,7 +109,7 @@ func TestServer(t *testing.T) {
 	t.Run("move to position", func(t *testing.T) {
 		_, err = armServer.MoveToPosition(context.Background(), &pb.MoveToPositionRequest{Name: missingArmName, To: pose2})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
 		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "MoveToPosition"})
 		test.That(t, err, test.ShouldBeNil)
@@ -136,7 +130,7 @@ func TestServer(t *testing.T) {
 	t.Run("arm joint position", func(t *testing.T) {
 		_, err := armServer.GetJointPositions(context.Background(), &pb.GetJointPositionsRequest{Name: missingArmName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
 		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "JointPositions"})
 		test.That(t, err, test.ShouldBeNil)
@@ -156,7 +150,7 @@ func TestServer(t *testing.T) {
 			&pb.MoveToJointPositionsRequest{Name: missingArmName, Positions: positionDegs2},
 		)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
 		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "MoveToJointPositions"})
 		test.That(t, err, test.ShouldBeNil)
@@ -180,7 +174,7 @@ func TestServer(t *testing.T) {
 	t.Run("stop", func(t *testing.T) {
 		_, err = armServer.Stop(context.Background(), &pb.StopRequest{Name: missingArmName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
 		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "Stop"})
 		test.That(t, err, test.ShouldBeNil)

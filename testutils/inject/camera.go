@@ -5,16 +5,17 @@ import (
 
 	"github.com/edaniels/gostream"
 	"github.com/pkg/errors"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage/transform"
 )
 
 // Camera is an injected camera.
 type Camera struct {
 	camera.Camera
+	name       resource.Name
 	DoFunc     func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	StreamFunc func(
 		ctx context.Context,
@@ -24,6 +25,16 @@ type Camera struct {
 	ProjectorFunc      func(ctx context.Context) (transform.Projector, error)
 	PropertiesFunc     func(ctx context.Context) (camera.Properties, error)
 	CloseFunc          func(ctx context.Context) error
+}
+
+// NewCamera returns a new injected camera.
+func NewCamera(name string) *Camera {
+	return &Camera{name: camera.Named(name)}
+}
+
+// Name returns the name of the resource.
+func (c *Camera) Name() resource.Name {
+	return c.name
 }
 
 // NextPointCloud calls the injected NextPointCloud or the real version.
@@ -67,7 +78,10 @@ func (c *Camera) Properties(ctx context.Context) (camera.Properties, error) {
 // Close calls the injected Close or the real version.
 func (c *Camera) Close(ctx context.Context) error {
 	if c.CloseFunc == nil {
-		return utils.TryClose(ctx, c.Camera)
+		if c.Camera == nil {
+			return nil
+		}
+		return c.Camera.Close(ctx)
 	}
 	return c.CloseFunc(ctx)
 }

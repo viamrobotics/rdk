@@ -21,14 +21,13 @@ type Buffer struct {
 	Directory string
 	MetaData  *v1.DataCaptureMetadata
 	nextFile  *File
-	lock      *sync.Mutex
+	lock      sync.Mutex
 }
 
 // NewBuffer returns a new Buffer.
 func NewBuffer(dir string, md *v1.DataCaptureMetadata) *Buffer {
 	return &Buffer{
 		Directory: dir,
-		lock:      &sync.Mutex{},
 		MetaData:  md,
 	}
 }

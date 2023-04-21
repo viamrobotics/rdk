@@ -17,14 +17,11 @@ import (
 	viamutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/depthadapter"
 	"go.viam.com/rdk/rimage/transform"
-	"go.viam.com/rdk/utils"
 )
 
 var (
@@ -33,57 +30,38 @@ var (
 )
 
 func init() {
-	registry.RegisterComponent(camera.Subtype, modelSingle,
-		registry.Component{Constructor: func(ctx context.Context, _ registry.Dependencies,
-			config config.Component, logger golog.Logger,
-		) (interface{}, error) {
-			attrs, ok := config.ConvertedAttributes.(*ServerAttrs)
-			if !ok {
-				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
-			}
-			return NewServerSource(ctx, attrs, logger)
-		}})
-
-	config.RegisterComponentAttributeMapConverter(camera.Subtype, modelSingle,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf ServerAttrs
-			attrs, err := config.TransformAttributeMapToStruct(&conf, attributes)
-			if err != nil {
-				return nil, err
-			}
-			result, ok := attrs.(*ServerAttrs)
-			if !ok {
-				return nil, utils.NewUnexpectedTypeError(result, attrs)
-			}
-			return result, nil
-		},
-		&ServerAttrs{})
-
-	registry.RegisterComponent(camera.Subtype, modelDual,
-		registry.Component{Constructor: func(ctx context.Context, _ registry.Dependencies,
-			config config.Component, logger golog.Logger,
-		) (interface{}, error) {
-			attrs, ok := config.ConvertedAttributes.(*dualServerAttrs)
-			if !ok {
-				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
-			}
-			return newDualServerSource(ctx, attrs)
-		}})
-
-	config.RegisterComponentAttributeMapConverter(camera.Subtype, modelDual,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf dualServerAttrs
-			attrs, err := config.TransformAttributeMapToStruct(&conf, attributes)
-			if err != nil {
-				return nil, err
-			}
-			result, ok := attrs.(*dualServerAttrs)
-			if !ok {
-				return nil, utils.NewUnexpectedTypeError(result, attrs)
-			}
-			return result, nil
-		},
-		&dualServerAttrs{})
+	resource.RegisterComponent(camera.Subtype, modelSingle,
+		resource.Registration[camera.Camera, *ServerConfig]{
+			Constructor: func(ctx context.Context, _ resource.Dependencies,
+				conf resource.Config, logger golog.Logger,
+			) (camera.Camera, error) {
+				newConf, err := resource.NativeConfig[*ServerConfig](conf)
+				if err != nil {
+					return nil, err
+				}
+				src, err := NewServerSource(ctx, newConf, logger)
+				if err != nil {
+					return nil, err
+				}
+				return camera.FromVideoSource(conf.ResourceName(), src), nil
+			},
+		})
+	resource.RegisterComponent(camera.Subtype, modelDual,
+		resource.Registration[camera.Camera, *dualServerConfig]{
+			Constructor: func(ctx context.Context, _ resource.Dependencies,
+				conf resource.Config, logger golog.Logger,
+			) (camera.Camera, error) {
+				newConf, err := resource.NativeConfig[*dualServerConfig](conf)
+				if err != nil {
+					return nil, err
+				}
+				src, err := newDualServerSource(ctx, newConf, logger)
+				if err != nil {
+					return nil, err
+				}
+				return camera.FromVideoSource(conf.ResourceName(), src), nil
+			},
+		})
 }
 
 // dualServerSource stores two URLs, one which points the color source and the other to the
@@ -95,10 +73,12 @@ type dualServerSource struct {
 	Intrinsics              *transform.PinholeCameraIntrinsics
 	Stream                  camera.ImageType // returns color or depth frame with calls of Next
 	activeBackgroundWorkers sync.WaitGroup
+	logger                  golog.Logger
 }
 
-// dualServerAttrs is the attribute struct for dualServerSource.
-type dualServerAttrs struct {
+// dualServerConfig is the attribute struct for dualServerSource.
+type dualServerConfig struct {
+	resource.TriviallyValidateConfig
 	CameraParameters     *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters,omitempty"`
 	DistortionParameters *transform.BrownConrady            `json:"distortion_parameters,omitempty"`
 	Stream               string                             `json:"stream"`
@@ -108,7 +88,11 @@ type dualServerAttrs struct {
 }
 
 // newDualServerSource creates the VideoSource that streams color/depth data from two external servers, one for each channel.
-func newDualServerSource(ctx context.Context, cfg *dualServerAttrs) (camera.Camera, error) {
+func newDualServerSource(
+	ctx context.Context,
+	cfg *dualServerConfig,
+	logger golog.Logger,
+) (camera.VideoSource, error) {
 	if (cfg.Color == "") || (cfg.Depth == "") {
 		return nil, errors.New("camera 'dual_stream' needs color and depth attributes")
 	}
@@ -117,9 +101,10 @@ func newDualServerSource(ctx context.Context, cfg *dualServerAttrs) (camera.Came
 		DepthURL:   cfg.Depth,
 		Intrinsics: cfg.CameraParameters,
 		Stream:     camera.ImageType(cfg.Stream),
+		logger:     logger,
 	}
 	cameraModel := camera.NewPinholeModelWithBrownConradyDistortion(cfg.CameraParameters, cfg.DistortionParameters)
-	return camera.NewFromReader(
+	return camera.NewVideoSourceFromReader(
 		ctx,
 		videoSrc,
 		&cameraModel,
@@ -133,10 +118,10 @@ func (ds *dualServerSource) Read(ctx context.Context) (image.Image, func(), erro
 	defer span.End()
 	switch ds.Stream {
 	case camera.ColorStream, camera.UnspecifiedStream:
-		img, err := readColorURL(ctx, ds.client, ds.ColorURL)
+		img, err := readColorURL(ctx, ds.client, ds.ColorURL, ds.logger)
 		return img, func() {}, err
 	case camera.DepthStream:
-		depth, err := readDepthURL(ctx, ds.client, ds.DepthURL, false)
+		depth, err := readDepthURL(ctx, ds.client, ds.DepthURL, false, ds.logger)
 		return depth, func() {}, err
 	default:
 		return nil, nil, camera.NewUnsupportedImageTypeError(ds.Stream)
@@ -157,7 +142,7 @@ func (ds *dualServerSource) NextPointCloud(ctx context.Context) (pointcloud.Poin
 	viamutils.PanicCapturingGo(func() {
 		defer ds.activeBackgroundWorkers.Done()
 		var err error
-		colorImg, err := readColorURL(ctx, ds.client, ds.ColorURL)
+		colorImg, err := readColorURL(ctx, ds.client, ds.ColorURL, ds.logger)
 		if err != nil {
 			panic(err)
 		}
@@ -169,7 +154,7 @@ func (ds *dualServerSource) NextPointCloud(ctx context.Context) (pointcloud.Poin
 		defer ds.activeBackgroundWorkers.Done()
 		var err error
 		var depthImg image.Image
-		depthImg, err = readDepthURL(ctx, ds.client, ds.DepthURL, true)
+		depthImg, err = readDepthURL(ctx, ds.client, ds.DepthURL, true, ds.logger)
 		depth = depthImg.(*rimage.DepthMap)
 		if err != nil {
 			panic(err)
@@ -191,10 +176,12 @@ type serverSource struct {
 	URL        string
 	stream     camera.ImageType // specifies color, depth
 	Intrinsics *transform.PinholeCameraIntrinsics
+	logger     golog.Logger
 }
 
-// ServerAttrs is the attribute struct for serverSource.
-type ServerAttrs struct {
+// ServerConfig is the attribute struct for serverSource.
+type ServerConfig struct {
+	resource.TriviallyValidateConfig
 	CameraParameters     *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters,omitempty"`
 	DistortionParameters *transform.BrownConrady            `json:"distortion_parameters,omitempty"`
 	Stream               string                             `json:"stream"`
@@ -214,10 +201,10 @@ func (s *serverSource) Read(ctx context.Context) (image.Image, func(), error) {
 	defer span.End()
 	switch s.stream {
 	case camera.ColorStream, camera.UnspecifiedStream:
-		img, err := readColorURL(ctx, s.client, s.URL)
+		img, err := readColorURL(ctx, s.client, s.URL, s.logger)
 		return img, func() {}, err
 	case camera.DepthStream:
-		depth, err := readDepthURL(ctx, s.client, s.URL, false)
+		depth, err := readDepthURL(ctx, s.client, s.URL, false, s.logger)
 		return depth, func() {}, err
 	default:
 		return nil, nil, camera.NewUnsupportedImageTypeError(s.stream)
@@ -232,7 +219,7 @@ func (s *serverSource) NextPointCloud(ctx context.Context) (pointcloud.PointClou
 		return nil, transform.NewNoIntrinsicsError("single serverSource has nil intrinsic_parameters")
 	}
 	if s.stream == camera.DepthStream {
-		depth, err := readDepthURL(ctx, s.client, s.URL, true)
+		depth, err := readDepthURL(ctx, s.client, s.URL, true, s.logger)
 		if err != nil {
 			return nil, err
 		}
@@ -243,7 +230,7 @@ func (s *serverSource) NextPointCloud(ctx context.Context) (pointcloud.PointClou
 }
 
 // NewServerSource creates the VideoSource that streams color/depth data from an external server at a given URL.
-func NewServerSource(ctx context.Context, cfg *ServerAttrs, logger golog.Logger) (camera.Camera, error) {
+func NewServerSource(ctx context.Context, cfg *ServerConfig, logger golog.Logger) (camera.VideoSource, error) {
 	if cfg.Stream == "" {
 		return nil, errors.New("camera 'single_stream' needs attribute 'stream' (color, depth)")
 	}
@@ -254,9 +241,10 @@ func NewServerSource(ctx context.Context, cfg *ServerAttrs, logger golog.Logger)
 		URL:        cfg.URL,
 		stream:     camera.ImageType(cfg.Stream),
 		Intrinsics: cfg.CameraParameters,
+		logger:     logger,
 	}
 	cameraModel := camera.NewPinholeModelWithBrownConradyDistortion(cfg.CameraParameters, cfg.DistortionParameters)
-	return camera.NewFromReader(
+	return camera.NewVideoSourceFromReader(
 		ctx,
 		videoSrc,
 		&cameraModel,

@@ -40,6 +40,7 @@ import (
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/gripper"
 	"go.viam.com/rdk/components/motor"
+	fakemotor "go.viam.com/rdk/components/motor/fake"
 	"go.viam.com/rdk/components/movementsensor"
 	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/config"
@@ -47,7 +48,6 @@ import (
 	"go.viam.com/rdk/examples/customresources/apis/summationapi"
 	rgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/client"
@@ -59,6 +59,7 @@ import (
 	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/datamanager/builtin"
+	"go.viam.com/rdk/services/mlmodel"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/navigation"
 	_ "go.viam.com/rdk/services/register"
@@ -87,7 +88,7 @@ func TestConfig1(t *testing.T) {
 
 	c1, err := camera.FromRobot(r, "c1")
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, c1.(resource.Reconfigurable).Name(), test.ShouldResemble, camera.Named("c1"))
+	test.That(t, c1.Name(), test.ShouldResemble, camera.Named("c1"))
 	pic, _, err := camera.ReadImage(context.Background(), c1)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -106,6 +107,8 @@ func TestConfigFake(t *testing.T) {
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 }
 
+// this serves as a test for updateWeakDependents as the web service defines a weak
+// dependency on all resources.
 func TestConfigRemote(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	cfg, err := config.Read(context.Background(), "data/fake.json", logger)
@@ -128,27 +131,25 @@ func TestConfigRemote(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	remoteConfig := &config.Config{
-		Components: []config.Component{
+		Components: []resource.Config{
 			{
-				Namespace: resource.ResourceNamespaceRDK,
-				Name:      "foo",
-				Type:      base.SubtypeName,
-				Model:     fakeModel,
+				Name:  "foo",
+				API:   base.Subtype,
+				Model: fakeModel,
 				Frame: &referenceframe.LinkConfig{
 					Parent: referenceframe.World,
 				},
 			},
 			{
-				Namespace: resource.ResourceNamespaceRDK,
-				Name:      "myParentIsRemote",
-				Type:      base.SubtypeName,
-				Model:     fakeModel,
+				Name:  "myParentIsRemote",
+				API:   base.Subtype,
+				Model: fakeModel,
 				Frame: &referenceframe.LinkConfig{
 					Parent: "foo:cameraOver",
 				},
 			},
 		},
-		Services: []config.Service{},
+		Services: []resource.Config{},
 		Remotes: []config.Remote{
 			{
 				Name:    "foo",
@@ -239,7 +240,7 @@ func TestConfigRemote(t *testing.T) {
 	arm1Name := arm.Named("bar:pieceArm")
 	arm1, err := r2.ResourceByName(arm1Name)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, arm1.(resource.Reconfigurable).Name(), test.ShouldResemble, arm1Name)
+	test.That(t, arm1.Name(), test.ShouldResemble, arm1Name)
 	pos1, err := arm1.(arm.Arm).EndPosition(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	arm2, err := r2.ResourceByName(arm.Named("foo:pieceArm"))
@@ -341,13 +342,13 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 			options.Auth.Handlers = []config.AuthHandlerConfig{
 				{
 					Type: rpc.CredentialsTypeAPIKey,
-					Config: config.AttributeMap{
+					Config: rutils.AttributeMap{
 						"key": apiKey,
 					},
 				},
 				{
 					Type: rutils.CredentialsTypeRobotLocationSecret,
-					Config: config.AttributeMap{
+					Config: rutils.AttributeMap{
 						"secret": locationSecret,
 					},
 				},
@@ -385,9 +386,9 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				},
 			}
 
-			_r, err := robotimpl.New(context.Background(), remoteConfig, logger)
+			remoteRobot, err := robotimpl.New(context.Background(), remoteConfig, logger)
 			defer func() {
-				test.That(t, _r.Close(context.Background()), test.ShouldBeNil)
+				test.That(t, remoteRobot.Close(context.Background()), test.ShouldBeNil)
 			}()
 			test.That(t, err, test.ShouldBeNil)
 
@@ -403,9 +404,9 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 			var r2 robot.LocalRobot
 			if tc.Managed {
 				remoteConfig.Remotes[0].Auth.Entity = "wrong"
-				_r, err := robotimpl.New(context.Background(), remoteConfig, logger)
+				managedRemote, err := robotimpl.New(context.Background(), remoteConfig, logger)
 				defer func() {
-					test.That(t, _r.Close(context.Background()), test.ShouldBeNil)
+					test.That(t, managedRemote.Close(context.Background()), test.ShouldBeNil)
 				}()
 				test.That(t, err, test.ShouldBeNil)
 
@@ -436,10 +437,10 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				r2, err = robotimpl.New(ctx2, remoteConfig, logger)
 				test.That(t, err, test.ShouldBeNil)
 			} else {
-				_r, err := robotimpl.New(context.Background(), remoteConfig, logger)
+				unmanagedRobot, err := robotimpl.New(context.Background(), remoteConfig, logger)
 				test.That(t, err, test.ShouldBeNil)
 				defer func() {
-					test.That(t, _r.Close(context.Background()), test.ShouldBeNil)
+					test.That(t, unmanagedRobot.Close(context.Background()), test.ShouldBeNil)
 				}()
 
 				remoteConfig.AllowInsecureCreds = true
@@ -452,6 +453,9 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				ctx2 := context.Background()
 				remoteConfig.Remotes[0].Address = options.LocalFQDN
 				r2, err = robotimpl.New(ctx2, remoteConfig, logger)
+				test.That(t, err, test.ShouldBeNil)
+
+				_, err = r2.ResourceByName(motion.Named(resource.DefaultServiceName))
 				test.That(t, err, test.ShouldBeNil)
 			}
 
@@ -576,7 +580,7 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 	options.Auth.Handlers = []config.AuthHandlerConfig{
 		{
 			Type: rutils.CredentialsTypeRobotLocationSecret,
-			Config: config.AttributeMap{
+			Config: rutils.AttributeMap{
 				"secret": locationSecret,
 			},
 		},
@@ -721,14 +725,14 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 }
 
 type dummyArm struct {
-	arm.LocalArm
+	arm.Arm
 	stopCount int
 	extra     map[string]interface{}
 	channel   chan struct{}
 }
 
-func (da *dummyArm) EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
-	return nil, errors.New("fake error")
+func (da *dummyArm) Name() resource.Name {
+	return arm.Named("bad")
 }
 
 func (da *dummyArm) MoveToPosition(
@@ -759,6 +763,10 @@ func (da *dummyArm) DoCommand(ctx context.Context, cmd map[string]interface{}) (
 	return nil, ctx.Err()
 }
 
+func (da *dummyArm) Close(ctx context.Context) error {
+	return nil
+}
+
 func TestStopAll(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	channel := make(chan struct{})
@@ -766,16 +774,16 @@ func TestStopAll(t *testing.T) {
 	modelName := resource.NewDefaultModel(resource.ModelName(utils.RandomAlphaString(8)))
 	dummyArm1 := dummyArm{channel: channel}
 	dummyArm2 := dummyArm{channel: channel}
-	registry.RegisterComponent(
+	resource.RegisterComponent(
 		arm.Subtype,
 		modelName,
-		registry.Component{Constructor: func(
+		resource.Registration[arm.Arm, resource.NoNativeConfig]{Constructor: func(
 			ctx context.Context,
-			deps registry.Dependencies,
-			config config.Component,
+			deps resource.Dependencies,
+			conf resource.Config,
 			logger golog.Logger,
-		) (interface{}, error) {
-			if config.Name == "arm1" {
+		) (arm.Arm, error) {
+			if conf.Name == "arm1" {
 				return &dummyArm1, nil
 			}
 			return &dummyArm2, nil
@@ -828,7 +836,8 @@ func TestStopAll(t *testing.T) {
 
 	conn, err := rgrpc.Dial(ctx, addr, logger)
 	test.That(t, err, test.ShouldBeNil)
-	arm1 := arm.NewClientFromConn(ctx, conn, "arm1", logger)
+	arm1, err := arm.NewClientFromConn(ctx, conn, arm.Named("somerem:arm1"), logger)
+	test.That(t, err, test.ShouldBeNil)
 
 	foundOPID := false
 	stopAllErrCh := make(chan error, 1)
@@ -856,6 +865,10 @@ type dummyBoard struct {
 	closeCount int
 }
 
+func (db *dummyBoard) Name() resource.Name {
+	return board.Named("bad")
+}
+
 func (db *dummyBoard) SPINames() []string {
 	return nil
 }
@@ -876,8 +889,9 @@ func (db *dummyBoard) ModelAttributes() board.ModelAttributes {
 	return board.ModelAttributes{}
 }
 
-func (db *dummyBoard) Close() {
+func (db *dummyBoard) Close(ctx context.Context) error {
 	db.closeCount++
+	return nil
 }
 
 func TestNewTeardown(t *testing.T) {
@@ -885,26 +899,26 @@ func TestNewTeardown(t *testing.T) {
 
 	modelName := resource.NewDefaultModel(resource.ModelName(utils.RandomAlphaString(8)))
 	var dummyBoard1 dummyBoard
-	registry.RegisterComponent(
+	resource.RegisterComponent(
 		board.Subtype,
 		modelName,
-		registry.Component{Constructor: func(
+		resource.Registration[board.Board, resource.NoNativeConfig]{Constructor: func(
 			ctx context.Context,
-			deps registry.Dependencies,
-			config config.Component,
+			deps resource.Dependencies,
+			conf resource.Config,
 			logger golog.Logger,
-		) (interface{}, error) {
+		) (board.Board, error) {
 			return &dummyBoard1, nil
 		}})
-	registry.RegisterComponent(
+	resource.RegisterComponent(
 		gripper.Subtype,
 		modelName,
-		registry.Component{Constructor: func(
+		resource.Registration[gripper.Gripper, resource.NoNativeConfig]{Constructor: func(
 			ctx context.Context,
-			deps registry.Dependencies,
-			config config.Component,
+			deps resource.Dependencies,
+			conf resource.Config,
 			logger golog.Logger,
-		) (interface{}, error) {
+		) (gripper.Gripper, error) {
 			return nil, errors.New("whoops")
 		}})
 
@@ -950,7 +964,6 @@ func TestMetadataUpdate(t *testing.T) {
 
 	test.That(t, len(resources), test.ShouldEqual, 10)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 
 	// 5 declared resources + default sensors
 	resourceNames := []resource.Name{
@@ -968,8 +981,11 @@ func TestMetadataUpdate(t *testing.T) {
 
 	resources = r.ResourceNames()
 	test.That(t, len(resources), test.ShouldEqual, len(resourceNames))
-
 	test.That(t, rtestutils.NewResourceNameSet(resources...), test.ShouldResemble, rtestutils.NewResourceNameSet(resourceNames...))
+
+	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+	resources = r.ResourceNames()
+	test.That(t, resources, test.ShouldBeEmpty)
 }
 
 func TestSensorsService(t *testing.T) {
@@ -1051,24 +1067,28 @@ func TestStatus(t *testing.T) {
 	workingStatus := map[string]interface{}{"position": "up"}
 	errFailed := errors.New("can't get status")
 
-	registry.RegisterResourceSubtype(
+	resource.RegisterSubtype(
 		workingSubtype,
-		registry.ResourceSubtype{
-			Status: func(ctx context.Context, resource interface{}) (interface{}, error) { return workingStatus, nil },
+		resource.SubtypeRegistration[resource.Resource]{
+			Status: func(ctx context.Context, res resource.Resource) (interface{}, error) { return workingStatus, nil },
 		},
 	)
 
-	registry.RegisterResourceSubtype(
+	resource.RegisterSubtype(
 		failSubtype,
-		registry.ResourceSubtype{
-			Status: func(ctx context.Context, resource interface{}) (interface{}, error) { return nil, errFailed },
+		resource.SubtypeRegistration[resource.Resource]{
+			Status: func(ctx context.Context, res resource.Resource) (interface{}, error) { return nil, errFailed },
 		},
 	)
 
 	statuses := []robot.Status{{Name: button1, Status: map[string]interface{}{}}}
 	logger := golog.NewTestLogger(t)
 	resourceNames := []resource.Name{working1, button1, fail1}
-	resourceMap := map[resource.Name]interface{}{working1: "resource", button1: "resource", fail1: "resource"}
+	resourceMap := map[resource.Name]resource.Resource{
+		working1: rtestutils.NewUnimplementedResource(working1),
+		button1:  rtestutils.NewUnimplementedResource(button1),
+		fail1:    rtestutils.NewUnimplementedResource(fail1),
+	}
 
 	t.Run("not found", func(t *testing.T) {
 		r, err := robotimpl.RobotFromResources(context.Background(), resourceMap, logger)
@@ -1079,7 +1099,7 @@ func TestStatus(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		_, err = r.Status(context.Background(), []resource.Name{button2})
-		test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(button2))
+		test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(button2))
 	})
 
 	t.Run("no CreateStatus", func(t *testing.T) {
@@ -1117,7 +1137,7 @@ func TestStatus(t *testing.T) {
 			test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 		}()
 		_, err = r.Status(context.Background(), []resource.Name{button2})
-		test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(button2))
+		test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(button2))
 
 		resp, err := r.Status(context.Background(), []resource.Name{working1})
 		test.That(t, err, test.ShouldBeNil)
@@ -1144,7 +1164,10 @@ func TestStatus(t *testing.T) {
 	})
 
 	t.Run("get all status", func(t *testing.T) {
-		workingResourceMap := map[resource.Name]interface{}{working1: "resource", button1: "resource"}
+		workingResourceMap := map[resource.Name]resource.Resource{
+			working1: rtestutils.NewUnimplementedResource(working1),
+			button1:  rtestutils.NewUnimplementedResource(button1),
+		}
 		expected := map[resource.Name]interface{}{
 			working1: workingStatus,
 			button1:  map[string]interface{}{},
@@ -1177,6 +1200,7 @@ func TestStatus(t *testing.T) {
 }
 
 func TestStatusRemote(t *testing.T) {
+	logger := golog.NewTestLogger(t)
 	// set up remotes
 	listener1 := testutils.ReserveRandomListener(t)
 	addr1 := listener1.Addr().String()
@@ -1194,7 +1218,16 @@ func TestStatusRemote(t *testing.T) {
 		ctx context.Context,
 		additionalTransforms []*referenceframe.LinkInFrame,
 	) (framesystemparts.Parts, error) {
-		return framesystemparts.Parts{}, nil
+		return framesystemparts.Parts{
+			&referenceframe.FrameSystemPart{
+				FrameConfig: referenceframe.NewLinkInFrame(referenceframe.World, nil, "arm1", nil),
+				ModelFrame:  referenceframe.NewSimpleModel("arm1"),
+			},
+			&referenceframe.FrameSystemPart{
+				FrameConfig: referenceframe.NewLinkInFrame(referenceframe.World, nil, "arm2", nil),
+				ModelFrame:  referenceframe.NewSimpleModel("arm2"),
+			},
+		}, nil
 	}
 
 	injectRobot1 := &inject.Robot{
@@ -1247,13 +1280,14 @@ func TestStatusRemote(t *testing.T) {
 			},
 		},
 	}
+	test.That(t, remoteConfig.Ensure(false, logger), test.ShouldBeNil)
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
 	r, err := robotimpl.New(ctx, remoteConfig, logger)
 	defer func() {
-		test.That(t, utils.TryClose(context.Background(), r), test.ShouldBeNil)
+		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	}()
 	test.That(t, err, test.ShouldBeNil)
+
 	test.That(
 		t,
 		rtestutils.NewResourceNameSet(r.ResourceNames()...),
@@ -1294,36 +1328,33 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
 	remoteRemoteConfig := &config.Config{
-		Components: []config.Component{
+		Components: []resource.Config{
 			{
-				Namespace: resource.ResourceNamespaceRDK,
-				Name:      "arm1",
-				Type:      arm.SubtypeName,
-				Model:     fakeModel,
-				ConvertedAttributes: &fake.AttrConfig{
+				Name:  "arm1",
+				API:   arm.Subtype,
+				Model: fakeModel,
+				ConvertedAttributes: &fake.Config{
 					ModelFilePath: "../../components/arm/fake/fake_model.json",
 				},
 			},
 			{
-				Namespace: resource.ResourceNamespaceRDK,
-				Name:      "arm2",
-				Type:      arm.SubtypeName,
-				Model:     fakeModel,
-				ConvertedAttributes: &fake.AttrConfig{
+				Name:  "arm2",
+				API:   arm.Subtype,
+				Model: fakeModel,
+				ConvertedAttributes: &fake.Config{
 					ModelFilePath: "../../components/arm/fake/fake_model.json",
 				},
 			},
 			{
-				Namespace: resource.ResourceNamespaceRDK,
-				Name:      "pieceArm",
-				Type:      arm.SubtypeName,
-				Model:     fakeModel,
-				ConvertedAttributes: &fake.AttrConfig{
+				Name:  "pieceArm",
+				API:   arm.Subtype,
+				Model: fakeModel,
+				ConvertedAttributes: &fake.Config{
 					ModelFilePath: "../../components/arm/fake/fake_model.json",
 				},
 			},
 		},
-		Services: []config.Service{},
+		Services: []resource.Config{},
 		Remotes:  []config.Remote{},
 	}
 
@@ -1372,7 +1403,7 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 
 	r, err := robotimpl.New(ctx, remoteConfig, logger)
 	defer func() {
-		test.That(t, utils.TryClose(context.Background(), r), test.ShouldBeNil)
+		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	}()
 	test.That(t, err, test.ShouldBeNil)
 
@@ -1424,15 +1455,15 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 	_, err = r.ResourceByName(arm.Named("remote:pieceArm"))
 	test.That(t, err, test.ShouldBeNil)
 	_, err = r.ResourceByName(arm.Named("pieceArm"))
-	test.That(t, err, test.ShouldBeError, "more that one remote resources with name \"pieceArm\" exists")
+	test.That(t, err, test.ShouldBeError, "more than one remote resources with name \"pieceArm\" exists")
 }
 
-type attrs struct {
+type someConfig struct {
 	Thing string
 }
 
-func (attrs) Validate(path string) error {
-	return errors.New("fail")
+func (someConfig) Validate(path string) ([]string, error) {
+	return nil, errors.New("fail")
 }
 
 func TestValidationErrorOnReconfigure(t *testing.T) {
@@ -1440,21 +1471,19 @@ func TestValidationErrorOnReconfigure(t *testing.T) {
 	ctx := context.Background()
 
 	badConfig := &config.Config{
-		Components: []config.Component{
+		Components: []resource.Config{
 			{
-				Namespace:           resource.ResourceNamespaceRDK,
 				Name:                "test",
-				Type:                base.SubtypeName,
+				API:                 base.Subtype,
 				Model:               resource.NewDefaultModel("random"),
-				ConvertedAttributes: attrs{},
+				ConvertedAttributes: someConfig{},
 			},
 		},
-		Services: []config.Service{
+		Services: []resource.Config{
 			{
-				Namespace:           resource.ResourceNamespaceRDK,
 				Name:                "fake1",
-				Type:                "navigation",
-				ConvertedAttributes: attrs{},
+				API:                 navigation.Subtype,
+				ConvertedAttributes: someConfig{},
 			},
 		},
 		Remotes: []config.Remote{{
@@ -1477,14 +1506,14 @@ func TestValidationErrorOnReconfigure(t *testing.T) {
 		t,
 		err,
 		test.ShouldBeError,
-		rutils.NewResourceNotAvailableError(name, errors.New("config validation error found in component: test: fail")),
+		resource.NewNotAvailableError(name, errors.New("config validation error found in resource: rdk:component:base/test: fail")),
 	)
 	test.That(t, noBase, test.ShouldBeNil)
 	// Test Service Error
 	s, err := r.ResourceByName(navigation.Named("fake1"))
 	test.That(t, s, test.ShouldBeNil)
-	errTmp := errors.New("resource \"rdk:service:navigation/fake1\" not available: config validation error found in service: fake1: fail")
-	test.That(t, err, test.ShouldBeError, errTmp)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "resource \"rdk:service:navigation/fake1\" not available")
 	// Test Remote Error
 	rem, ok := r.RemoteByName("remote")
 	test.That(t, rem, test.ShouldBeNil)
@@ -1496,21 +1525,19 @@ func TestConfigStartsInvalidReconfiguresValid(t *testing.T) {
 	ctx := context.Background()
 
 	badConfig := &config.Config{
-		Components: []config.Component{
+		Components: []resource.Config{
 			{
-				Namespace:           resource.ResourceNamespaceRDK,
 				Name:                "test",
-				Type:                base.SubtypeName,
+				API:                 base.Subtype,
 				Model:               fakeModel,
-				ConvertedAttributes: attrs{},
+				ConvertedAttributes: someConfig{},
 			},
 		},
-		Services: []config.Service{
+		Services: []resource.Config{
 			{
-				Namespace:           resource.ResourceNamespaceRDK,
 				Name:                "fake1",
-				Type:                datamanager.SubtypeName,
-				ConvertedAttributes: attrs{},
+				API:                 datamanager.Subtype,
+				ConvertedAttributes: someConfig{},
 			},
 		},
 		Remotes: []config.Remote{{
@@ -1518,8 +1545,8 @@ func TestConfigStartsInvalidReconfiguresValid(t *testing.T) {
 			Insecure: true,
 			Address:  "",
 		}},
-		Cloud: &config.Cloud{},
 	}
+	test.That(t, badConfig.Ensure(false, logger), test.ShouldBeNil)
 	r, err := robotimpl.New(ctx, badConfig, logger)
 	defer func() {
 		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
@@ -1531,19 +1558,17 @@ func TestConfigStartsInvalidReconfiguresValid(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	goodConfig := &config.Config{
-		Components: []config.Component{
+		Components: []resource.Config{
 			{
-				Namespace: resource.ResourceNamespaceRDK,
-				Name:      "test",
-				Type:      base.SubtypeName,
-				Model:     fakeModel,
+				Name:  "test",
+				API:   base.Subtype,
+				Model: fakeModel,
 			},
 		},
-		Services: []config.Service{
+		Services: []resource.Config{
 			{
-				Namespace:           resource.ResourceNamespaceRDK,
 				Name:                "fake1",
-				Type:                datamanager.SubtypeName,
+				API:                 datamanager.Subtype,
 				Model:               resource.DefaultServiceModel,
 				ConvertedAttributes: &builtin.Config{},
 			},
@@ -1553,8 +1578,8 @@ func TestConfigStartsInvalidReconfiguresValid(t *testing.T) {
 			Insecure: true,
 			Address:  addr1,
 		}},
-		Cloud: &config.Cloud{},
 	}
+	test.That(t, goodConfig.Ensure(false, logger), test.ShouldBeNil)
 
 	// Test Component Error
 	name := base.Named("test")
@@ -1563,14 +1588,14 @@ func TestConfigStartsInvalidReconfiguresValid(t *testing.T) {
 		t,
 		err,
 		test.ShouldBeError,
-		rutils.NewResourceNotAvailableError(name, errors.New("config validation error found in component: test: fail")),
+		resource.NewNotAvailableError(name, errors.New("config validation error found in resource: rdk:component:base/test: fail")),
 	)
 	test.That(t, noBase, test.ShouldBeNil)
 	// Test Service Error
 	s, err := r.ResourceByName(datamanager.Named("fake1"))
 	test.That(t, s, test.ShouldBeNil)
-	errTmp := errors.New("resource \"rdk:service:data_manager/fake1\" not available: config validation error found in service: fake1: fail")
-	test.That(t, err, test.ShouldBeError, errTmp)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "resource \"rdk:service:data_manager/fake1\" not available")
 	// Test Remote Error
 	rem, ok := r.RemoteByName("remote")
 	test.That(t, rem, test.ShouldBeNil)
@@ -1594,43 +1619,40 @@ func TestConfigStartsInvalidReconfiguresValid(t *testing.T) {
 func TestConfigStartsValidReconfiguresInvalid(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
-	armConfig := config.Component{
-		Namespace: resource.ResourceNamespaceRDK,
-		Name:      "arm1",
-		Type:      arm.SubtypeName,
-		Model:     fakeModel,
-		ConvertedAttributes: &fake.AttrConfig{
+	armConfig := resource.Config{
+		Name:  "arm1",
+		API:   arm.Subtype,
+		Model: fakeModel,
+		ConvertedAttributes: &fake.Config{
 			ModelFilePath: "../../components/arm/fake/fake_model.json",
 		},
 	}
 	cfg := config.Config{
-		Components: []config.Component{armConfig},
+		Components: []resource.Config{armConfig},
 	}
 
 	robotRemote, err := robotimpl.New(ctx, &cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, robotRemote, test.ShouldNotBeNil)
 	defer func() {
-		test.That(t, utils.TryClose(context.Background(), robotRemote), test.ShouldBeNil)
+		test.That(t, robotRemote.Close(context.Background()), test.ShouldBeNil)
 	}()
 	options1, _, addr1 := robottestutils.CreateBaseOptionsAndListener(t)
 	err = robotRemote.StartWeb(context.Background(), options1)
 	test.That(t, err, test.ShouldBeNil)
 
 	goodConfig := &config.Config{
-		Components: []config.Component{
+		Components: []resource.Config{
 			{
-				Namespace: resource.ResourceNamespaceRDK,
-				Name:      "test",
-				Type:      base.SubtypeName,
-				Model:     fakeModel,
+				Name:  "test",
+				API:   base.Subtype,
+				Model: fakeModel,
 			},
 		},
-		Services: []config.Service{
+		Services: []resource.Config{
 			{
-				Namespace:           resource.ResourceNamespaceRDK,
 				Name:                "fake1",
-				Type:                datamanager.SubtypeName,
+				API:                 datamanager.Subtype,
 				Model:               resource.DefaultServiceModel,
 				ConvertedAttributes: &builtin.Config{},
 			},
@@ -1640,8 +1662,8 @@ func TestConfigStartsValidReconfiguresInvalid(t *testing.T) {
 			Insecure: true,
 			Address:  addr1,
 		}},
-		Cloud: &config.Cloud{},
 	}
+	test.That(t, goodConfig.Ensure(false, logger), test.ShouldBeNil)
 	r, err := robotimpl.New(ctx, goodConfig, logger)
 	defer func() {
 		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
@@ -1650,21 +1672,19 @@ func TestConfigStartsValidReconfiguresInvalid(t *testing.T) {
 	test.That(t, r, test.ShouldNotBeNil)
 
 	badConfig := &config.Config{
-		Components: []config.Component{
+		Components: []resource.Config{
 			{
-				Namespace:           resource.ResourceNamespaceRDK,
 				Name:                "test",
-				Type:                base.SubtypeName,
+				API:                 base.Subtype,
 				Model:               fakeModel,
-				ConvertedAttributes: attrs{},
+				ConvertedAttributes: someConfig{},
 			},
 		},
-		Services: []config.Service{
+		Services: []resource.Config{
 			{
-				Namespace:           resource.ResourceNamespaceRDK,
 				Name:                "fake1",
-				Type:                datamanager.SubtypeName,
-				ConvertedAttributes: attrs{},
+				API:                 datamanager.Subtype,
+				ConvertedAttributes: someConfig{},
 			},
 		},
 		Remotes: []config.Remote{{
@@ -1672,8 +1692,8 @@ func TestConfigStartsValidReconfiguresInvalid(t *testing.T) {
 			Insecure: true,
 			Address:  "",
 		}},
-		Cloud: &config.Cloud{},
 	}
+	test.That(t, badConfig.Ensure(false, logger), test.ShouldBeNil)
 	// Test Component Valid
 	noBase, err := base.FromRobot(r, "test")
 	test.That(t, err, test.ShouldBeNil)
@@ -1695,14 +1715,14 @@ func TestConfigStartsValidReconfiguresInvalid(t *testing.T) {
 		t,
 		err,
 		test.ShouldBeError,
-		rutils.NewResourceNotAvailableError(name, errors.New("config validation error found in component: test: fail")),
+		resource.NewNotAvailableError(name, errors.New("config validation error found in resource: rdk:component:base/test: fail")),
 	)
 	test.That(t, noBase, test.ShouldBeNil)
 	// Test Service Error
 	s, err = r.ResourceByName(datamanager.Named("fake1"))
 	test.That(t, s, test.ShouldBeNil)
-	errTmp := errors.New("resource \"rdk:service:data_manager/fake1\" not available: config validation error found in service: fake1: fail")
-	test.That(t, err, test.ShouldBeError, errTmp)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "resource \"rdk:service:data_manager/fake1\" not available")
 	// Test Remote Error
 	rem, ok = r.RemoteByName("remote")
 	test.That(t, rem, test.ShouldBeNil)
@@ -1714,43 +1734,40 @@ func TestResourceStartsOnReconfigure(t *testing.T) {
 	ctx := context.Background()
 
 	badConfig := &config.Config{
-		Components: []config.Component{
+		Components: []resource.Config{
 			{
-				Namespace: resource.ResourceNamespaceRDK,
-				Name:      "fake0",
-				Type:      base.SubtypeName,
-				Model:     resource.NewDefaultModel("random"),
+				Name:  "fake0",
+				API:   base.Subtype,
+				Model: resource.NewDefaultModel("random"),
 			},
 		},
-		Services: []config.Service{
+		Services: []resource.Config{
 			{
-				Name: "fake1",
-				Type: "no",
+				Name:              "fake1",
+				DeprecatedSubtype: "no",
 			},
 		},
-		Cloud: &config.Cloud{},
 	}
+	test.That(t, badConfig.Ensure(false, logger), test.ShouldBeNil)
 
 	goodConfig := &config.Config{
-		Components: []config.Component{
+		Components: []resource.Config{
 			{
-				Namespace: resource.ResourceNamespaceRDK,
-				Name:      "fake0",
-				Type:      base.SubtypeName,
-				Model:     fakeModel,
+				Name:  "fake0",
+				API:   base.Subtype,
+				Model: fakeModel,
 			},
 		},
-		Services: []config.Service{
+		Services: []resource.Config{
 			{
-				Namespace:           resource.ResourceNamespaceRDK,
 				Name:                "fake1",
-				Type:                datamanager.SubtypeName,
+				API:                 datamanager.Subtype,
 				Model:               resource.DefaultServiceModel,
 				ConvertedAttributes: &builtin.Config{},
 			},
 		},
-		Cloud: &config.Cloud{},
 	}
+	test.That(t, goodConfig.Ensure(false, logger), test.ShouldBeNil)
 	r, err := robotimpl.New(ctx, badConfig, logger)
 	defer func() {
 		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
@@ -1763,15 +1780,15 @@ func TestResourceStartsOnReconfigure(t *testing.T) {
 		t,
 		err,
 		test.ShouldBeError,
-		rutils.NewResourceNotAvailableError(
+		resource.NewNotAvailableError(
 			base.Named("fake0"),
-			errors.New("component build error: unknown component type: rdk:component:base and/or model: rdk:builtin:random"),
+			errors.New("resource build error: unknown resource type: rdk:component:base and/or model: rdk:builtin:random"),
 		),
 	)
 	test.That(t, noBase, test.ShouldBeNil)
 
 	noSvc, err := r.ResourceByName(datamanager.Named("fake1"))
-	test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(datamanager.Named("fake1")))
+	test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(datamanager.Named("fake1")))
 	test.That(t, noSvc, test.ShouldBeNil)
 
 	r.Reconfigure(ctx, goodConfig)
@@ -1891,26 +1908,19 @@ func TestConfigPackageReferenceReplacement(t *testing.T) {
 				Version: "latest",
 			},
 		},
-		Services: []config.Service{
+		PackagePath: packageDir,
+		Services: []resource.Config{
 			{
-				Name: "Vision-Service",
-				Type: vision.SubtypeName,
-				ConvertedAttributes: &vision.Attributes{
-					ModelRegistry: []vision.VisModelConfig{
-						{
-							Type: "tflite_classifier",
-							Name: "my_classifier",
-							Parameters: config.AttributeMap{
-								"model_path":  "${packages.package-1}/model.tflite",
-								"label_path":  "${packages.package-2}/labels.txt",
-								"num_threads": 1,
-							},
-						},
-					},
+				Name:  "my_ml_model_service",
+				API:   mlmodel.Subtype,
+				Model: resource.NewDefaultModel("tflite_cpu"),
+				Attributes: rutils.AttributeMap{
+					"model_path":  "${packages.package-1}/model.tflite",
+					"label_path":  "${packages.package-1}/labels.txt",
+					"num_threads": 1,
 				},
 			},
 		},
-		PackagePath: packageDir,
 	}
 
 	fakePackageServer.StorePackage(robotConfig.Packages...)
@@ -1925,24 +1935,23 @@ func TestReconnectRemote(t *testing.T) {
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 	// start the first robot
 	ctx := context.Background()
-	armConfig := config.Component{
-		Namespace: resource.ResourceNamespaceRDK,
-		Name:      "arm1",
-		Type:      arm.SubtypeName,
-		Model:     fakeModel,
-		ConvertedAttributes: &fake.AttrConfig{
+	armConfig := resource.Config{
+		Name:  "arm1",
+		API:   arm.Subtype,
+		Model: fakeModel,
+		ConvertedAttributes: &fake.Config{
 			ModelFilePath: "../../components/arm/fake/fake_model.json",
 		},
 	}
 	cfg := config.Config{
-		Components: []config.Component{armConfig},
+		Components: []resource.Config{armConfig},
 	}
 
 	robot, err := robotimpl.New(ctx, &cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, robot, test.ShouldNotBeNil)
 	defer func() {
-		test.That(t, utils.TryClose(context.Background(), robot), test.ShouldBeNil)
+		test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
 	}()
 	err = robot.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
@@ -1965,7 +1974,7 @@ func TestReconnectRemote(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, robot, test.ShouldNotBeNil)
 	defer func() {
-		test.That(t, utils.TryClose(context.Background(), robot1), test.ShouldBeNil)
+		test.That(t, robot1.Close(context.Background()), test.ShouldBeNil)
 	}()
 
 	err = robot1.StartWeb(ctx1, options1)
@@ -1973,7 +1982,7 @@ func TestReconnectRemote(t *testing.T) {
 
 	robotClient := robottestutils.NewRobotClient(t, logger, addr1, time.Second)
 	defer func() {
-		test.That(t, utils.TryClose(context.Background(), robotClient), test.ShouldBeNil)
+		test.That(t, robotClient.Close(context.Background()), test.ShouldBeNil)
 	}()
 
 	a1, err := arm.FromRobot(robot1, "arm1")
@@ -1996,7 +2005,7 @@ func TestReconnectRemote(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// close/disconnect the robot
-	test.That(t, robot.StopWeb(), test.ShouldBeNil)
+	test.That(t, robot.StopWeb(context.Background()), test.ShouldBeNil)
 	test.That(t, <-remoteRobotClient.Changed(), test.ShouldBeTrue)
 	test.That(t, len(remoteRobotClient.ResourceNames()), test.ShouldEqual, 0)
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
@@ -2040,24 +2049,23 @@ func TestReconnectRemoteChangeConfig(t *testing.T) {
 	// start the first robot
 	ctx := context.Background()
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
-	armConfig := config.Component{
-		Namespace: resource.ResourceNamespaceRDK,
-		Name:      "arm1",
-		Type:      arm.SubtypeName,
-		Model:     fakeModel,
-		ConvertedAttributes: &fake.AttrConfig{
+	armConfig := resource.Config{
+		Name:  "arm1",
+		API:   arm.Subtype,
+		Model: fakeModel,
+		ConvertedAttributes: &fake.Config{
 			ModelFilePath: "../../components/arm/fake/fake_model.json",
 		},
 	}
 	cfg := config.Config{
-		Components: []config.Component{armConfig},
+		Components: []resource.Config{armConfig},
 	}
 
 	robot, err := robotimpl.New(ctx, &cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, robot, test.ShouldNotBeNil)
 	defer func() {
-		test.That(t, utils.TryClose(context.Background(), robot), test.ShouldBeNil)
+		test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
 	}()
 	err = robot.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
@@ -2079,7 +2087,7 @@ func TestReconnectRemoteChangeConfig(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, robot, test.ShouldNotBeNil)
 	defer func() {
-		test.That(t, utils.TryClose(context.Background(), robot1), test.ShouldBeNil)
+		test.That(t, robot1.Close(context.Background()), test.ShouldBeNil)
 	}()
 
 	err = robot1.StartWeb(ctx1, options1)
@@ -2087,7 +2095,7 @@ func TestReconnectRemoteChangeConfig(t *testing.T) {
 
 	robotClient := robottestutils.NewRobotClient(t, logger, addr1, time.Second)
 	defer func() {
-		test.That(t, utils.TryClose(context.Background(), robotClient), test.ShouldBeNil)
+		test.That(t, robotClient.Close(context.Background()), test.ShouldBeNil)
 	}()
 
 	a1, err := arm.FromRobot(robot1, "arm1")
@@ -2110,7 +2118,7 @@ func TestReconnectRemoteChangeConfig(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// close/disconnect the robot
-	test.That(t, utils.TryClose(context.Background(), robot), test.ShouldBeNil)
+	test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
 	test.That(t, <-remoteRobotClient.Changed(), test.ShouldBeTrue)
 	test.That(t, len(remoteRobotClient.ResourceNames()), test.ShouldEqual, 0)
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
@@ -2125,14 +2133,13 @@ func TestReconnectRemoteChangeConfig(t *testing.T) {
 	ctx2 := context.Background()
 	listener, err := net.Listen("tcp", addr)
 	test.That(t, err, test.ShouldBeNil)
-	baseConfig := config.Component{
-		Namespace: resource.ResourceNamespaceRDK,
-		Name:      "base1",
-		Type:      base.SubtypeName,
-		Model:     fakeModel,
+	baseConfig := resource.Config{
+		Name:  "base1",
+		API:   base.Subtype,
+		Model: fakeModel,
 	}
 	cfg = config.Config{
-		Components: []config.Component{baseConfig},
+		Components: []resource.Config{baseConfig},
 	}
 
 	options = weboptions.New()
@@ -2173,30 +2180,41 @@ func TestReconnectRemoteChangeConfig(t *testing.T) {
 
 func TestCheckMaxInstanceValid(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	cfg := &config.Config{Services: []config.Service{
-		{
-			Namespace: resource.ResourceNamespaceRDK,
-			Name:      "fake1",
-			Model:     resource.DefaultServiceModel,
-			Type:      motion.SubtypeName,
+	cfg := &config.Config{
+		Services: []resource.Config{
+			{
+				Name:  "fake1",
+				Model: resource.DefaultServiceModel,
+				API:   motion.Subtype,
+			},
+			{
+				Name:  "fake2",
+				Model: resource.DefaultServiceModel,
+				API:   motion.Subtype,
+			},
 		},
-		{
-			Namespace: resource.ResourceNamespaceRDK,
-			Name:      "fake2",
-			Model:     resource.DefaultServiceModel,
-			Type:      motion.SubtypeName,
+		Components: []resource.Config{
+			{
+				Name:                "fake2",
+				Model:               fake.ModelName,
+				API:                 arm.Subtype,
+				ConvertedAttributes: &fake.Config{},
+			},
 		},
-	}}
+	}
 	r, err := robotimpl.New(context.Background(), cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	}()
-	resourceName, err := r.ResourceByName(motion.Named("fake1"))
-	test.That(t, resourceName, test.ShouldNotBeNil)
+	res, err := r.ResourceByName(motion.Named("fake1"))
+	test.That(t, res, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldBeNil)
-	resourceName, err = r.ResourceByName(motion.Named("fake2"))
-	test.That(t, resourceName, test.ShouldNotBeNil)
+	res, err = r.ResourceByName(motion.Named("fake2"))
+	test.That(t, res, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeNil)
+	res, err = r.ResourceByName(arm.Named("fake2"))
+	test.That(t, res, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldBeNil)
 }
 
@@ -2204,26 +2222,39 @@ func TestCheckMaxInstanceValid(t *testing.T) {
 // from this config should build.
 func TestCheckMaxInstanceInvalid(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	cfg := &config.Config{Services: []config.Service{
-		{
-			Namespace: resource.ResourceNamespaceRDK,
-			Name:      "fake1",
-			Model:     resource.DefaultServiceModel,
-			Type:      datamanager.SubtypeName,
+	cfg := &config.Config{
+		Services: []resource.Config{
+			{
+				Name:  "fake1",
+				Model: resource.DefaultServiceModel,
+				API:   datamanager.Subtype,
+			},
+			{
+				Name:  "fake2",
+				Model: resource.DefaultServiceModel,
+				API:   datamanager.Subtype,
+			},
+			{
+				Name:  "fake3",
+				Model: resource.DefaultServiceModel,
+				API:   datamanager.Subtype,
+			},
 		},
-		{
-			Namespace: resource.ResourceNamespaceRDK,
-			Name:      "fake2",
-			Model:     resource.DefaultServiceModel,
-			Type:      datamanager.SubtypeName,
+		Components: []resource.Config{
+			{
+				Name:                "fake2",
+				Model:               fake.ModelName,
+				API:                 arm.Subtype,
+				ConvertedAttributes: &fake.Config{},
+			},
+			{
+				Name:                "fake3",
+				Model:               fake.ModelName,
+				API:                 arm.Subtype,
+				ConvertedAttributes: &fake.Config{},
+			},
 		},
-		{
-			Namespace: resource.ResourceNamespaceRDK,
-			Name:      "fake3",
-			Model:     resource.DefaultServiceModel,
-			Type:      datamanager.SubtypeName,
-		},
-	}}
+	}
 	r, err := robotimpl.New(context.Background(), cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
@@ -2236,6 +2267,13 @@ func TestCheckMaxInstanceInvalid(t *testing.T) {
 		}
 	}
 	test.That(t, maxInstance, test.ShouldEqual, 1)
+	numInstances := 0
+	for _, name := range r.ResourceNames() {
+		if name.Subtype == arm.Subtype {
+			numInstances++
+		}
+	}
+	test.That(t, numInstances, test.ShouldEqual, 2)
 }
 
 func TestCheckMaxInstanceSkipRemote(t *testing.T) {
@@ -2254,18 +2292,16 @@ func TestCheckMaxInstanceSkipRemote(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	remoteConfig := &config.Config{
-		Services: []config.Service{
+		Services: []resource.Config{
 			{
-				Namespace: resource.ResourceNamespaceRDK,
-				Name:      "fake1",
-				Model:     resource.DefaultServiceModel,
-				Type:      datamanager.SubtypeName,
+				Name:  "fake1",
+				Model: resource.DefaultServiceModel,
+				API:   datamanager.Subtype,
 			},
 			{
-				Namespace: resource.ResourceNamespaceRDK,
-				Name:      "fake2",
-				Model:     resource.DefaultServiceModel,
-				Type:      datamanager.SubtypeName,
+				Name:  "fake2",
+				Model: resource.DefaultServiceModel,
+				API:   datamanager.Subtype,
 			},
 		},
 		Remotes: []config.Remote{
@@ -2299,31 +2335,32 @@ func TestOrphanedResources(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
 	cfg := &config.Config{
-		Components: []config.Component{
+		Components: []resource.Config{
 			{
 				Name:  "b",
 				Model: fakeModel,
-				Type:  base.SubtypeName,
+				API:   base.Subtype,
 			},
 			{
-				Name:      "m",
-				Model:     fakeModel,
-				Type:      motor.SubtypeName,
-				DependsOn: []string{"b"},
+				Name:                "m",
+				Model:               fakeModel,
+				API:                 motor.Subtype,
+				DependsOn:           []string{"b"},
+				ConvertedAttributes: &fakemotor.Config{},
 			},
 			{
-				Name:      "m1",
-				Model:     fakeModel,
-				Type:      motor.SubtypeName,
-				DependsOn: []string{"m"},
+				Name:                "m1",
+				Model:               fakeModel,
+				API:                 motor.Subtype,
+				DependsOn:           []string{"m"},
+				ConvertedAttributes: &fakemotor.Config{},
 			},
 		},
-		Services: []config.Service{
+		Services: []resource.Config{
 			{
-				Namespace: resource.ResourceNamespaceRDK,
 				Name:      "s",
 				Model:     fakeModel,
-				Type:      slam.SubtypeName,
+				API:       slam.Subtype,
 				DependsOn: []string{"b"},
 			},
 		},
@@ -2336,26 +2373,27 @@ func TestOrphanedResources(t *testing.T) {
 
 	// Assert that removing base 'b' removes motors 'm' and 'm1' and slam service 's'.
 	cfg2 := &config.Config{
-		Components: []config.Component{
+		Components: []resource.Config{
 			{
-				Name:      "m",
-				Model:     fakeModel,
-				Type:      motor.SubtypeName,
-				DependsOn: []string{"b"},
+				Name:                "m",
+				Model:               fakeModel,
+				API:                 motor.Subtype,
+				DependsOn:           []string{"b"},
+				ConvertedAttributes: &fakemotor.Config{},
 			},
 			{
-				Name:      "m1",
-				Model:     fakeModel,
-				Type:      motor.SubtypeName,
-				DependsOn: []string{"m"},
+				Name:                "m1",
+				Model:               fakeModel,
+				API:                 motor.Subtype,
+				DependsOn:           []string{"m"},
+				ConvertedAttributes: &fakemotor.Config{},
 			},
 		},
-		Services: []config.Service{
+		Services: []resource.Config{
 			{
-				Namespace: resource.ResourceNamespaceRDK,
 				Name:      "s",
 				Model:     fakeModel,
-				Type:      slam.SubtypeName,
+				API:       slam.Subtype,
 				DependsOn: []string{"b"},
 			},
 		},
@@ -2364,19 +2402,19 @@ func TestOrphanedResources(t *testing.T) {
 
 	res, err := r.ResourceByName(base.Named("b"))
 	test.That(t, err, test.ShouldBeError,
-		rutils.NewResourceNotFoundError(base.Named("b")))
+		resource.NewNotFoundError(base.Named("b")))
 	test.That(t, res, test.ShouldBeNil)
 	res, err = r.ResourceByName(motor.Named("m"))
 	test.That(t, err, test.ShouldBeError,
-		rutils.NewResourceNotFoundError(motor.Named("m")))
+		resource.NewNotFoundError(motor.Named("m")))
 	test.That(t, res, test.ShouldBeNil)
 	res, err = r.ResourceByName(motor.Named("m1"))
 	test.That(t, err, test.ShouldBeError,
-		rutils.NewResourceNotFoundError(motor.Named("m1")))
+		resource.NewNotFoundError(motor.Named("m1")))
 	test.That(t, res, test.ShouldBeNil)
 	res, err = r.ResourceByName(slam.Named("s"))
 	test.That(t, err, test.ShouldBeError,
-		rutils.NewResourceNotFoundError(slam.Named("s")))
+		resource.NewNotFoundError(slam.Named("s")))
 	test.That(t, res, test.ShouldBeNil)
 
 	// Assert that adding base 'b' back re-adds 'm' and 'm1' and slam service 's'.
@@ -2413,6 +2451,8 @@ func TestModularOrphanedResources(t *testing.T) {
 		resource.ModelName("mygizmo"))
 	summationModel := resource.NewModel(resource.Namespace("acme"), resource.ModelFamilyName("demo"),
 		resource.ModelName("mysum"))
+	gizmoSubtype := resource.NewSubtype("acme", resource.ResourceTypeComponent, "gizmo")
+	summationSubtype := resource.NewSubtype("acme", resource.ResourceTypeService, "summation")
 
 	cfg := &config.Config{
 		Modules: []config.Module{
@@ -2421,20 +2461,18 @@ func TestModularOrphanedResources(t *testing.T) {
 				ExePath: rutils.ResolveFile("examples/customresources/demos/complexmodule/run.sh"),
 			},
 		},
-		Components: []config.Component{
+		Components: []resource.Config{
 			{
-				Name:      "g",
-				Namespace: "acme",
-				Model:     gizmoModel,
-				Type:      resource.SubtypeName("gizmo"),
+				Name:  "g",
+				Model: gizmoModel,
+				API:   gizmoSubtype,
 			},
 		},
-		Services: []config.Service{
+		Services: []resource.Config{
 			{
-				Name:      "s",
-				Namespace: "acme",
-				Model:     summationModel,
-				Type:      resource.SubtypeName("summation"),
+				Name:  "s",
+				Model: summationModel,
+				API:   summationSubtype,
 			},
 		},
 	}
@@ -2453,20 +2491,18 @@ func TestModularOrphanedResources(t *testing.T) {
 				ExePath: rutils.ResolveFile("examples/customresources/demos/simplemodule/run.sh"),
 			},
 		},
-		Components: []config.Component{
+		Components: []resource.Config{
 			{
-				Name:      "g",
-				Namespace: "acme",
-				Model:     gizmoModel,
-				Type:      resource.SubtypeName("gizmo"),
+				Name:  "g",
+				Model: gizmoModel,
+				API:   gizmoSubtype,
 			},
 		},
-		Services: []config.Service{
+		Services: []resource.Config{
 			{
-				Name:      "s",
-				Namespace: "acme",
-				Model:     summationModel,
-				Type:      resource.SubtypeName("summation"),
+				Name:  "s",
+				Model: summationModel,
+				API:   summationSubtype,
 			},
 		},
 	}
@@ -2474,29 +2510,27 @@ func TestModularOrphanedResources(t *testing.T) {
 
 	res, err := r.ResourceByName(gizmoapi.Named("g"))
 	test.That(t, err, test.ShouldBeError,
-		rutils.NewResourceNotFoundError(gizmoapi.Named("g")))
+		resource.NewNotFoundError(gizmoapi.Named("g")))
 	test.That(t, res, test.ShouldBeNil)
 	res, err = r.ResourceByName(summationapi.Named("s"))
 	test.That(t, err, test.ShouldBeError,
-		rutils.NewResourceNotFoundError(summationapi.Named("s")))
+		resource.NewNotFoundError(summationapi.Named("s")))
 	test.That(t, res, test.ShouldBeNil)
 
 	// Remove module entirely.
 	cfg3 := &config.Config{
-		Components: []config.Component{
+		Components: []resource.Config{
 			{
-				Name:      "g",
-				Namespace: "acme",
-				Model:     gizmoModel,
-				Type:      resource.SubtypeName("gizmo"),
+				Name:  "g",
+				Model: gizmoModel,
+				API:   gizmoSubtype,
 			},
 		},
-		Services: []config.Service{
+		Services: []resource.Config{
 			{
-				Name:      "s",
-				Namespace: "acme",
-				Model:     summationModel,
-				Type:      resource.SubtypeName("summation"),
+				Name:  "s",
+				Model: summationModel,
+				API:   summationSubtype,
 			},
 		},
 	}
@@ -2519,6 +2553,9 @@ var (
 
 // doodad is an RDK-built component that depends on a modular gizmo.
 type doodad struct {
+	resource.Named
+	resource.AlwaysRebuild
+	resource.TriviallyCloseable
 	gizmo gizmoapi.Gizmo
 }
 
@@ -2551,14 +2588,16 @@ func TestMixedOrphanedResources(t *testing.T) {
 		resource.ModelName("mygizmo"))
 
 	// Register a doodad constructor and defer its deregistration.
-	registry.RegisterComponent(doodadSubtype, doodadModel, registry.Component{
+	resource.RegisterComponent(doodadSubtype, doodadModel, resource.Registration[resource.Resource, resource.NoNativeConfig]{
 		Constructor: func(
 			ctx context.Context,
-			deps registry.Dependencies,
-			cfg config.Component,
+			deps resource.Dependencies,
+			conf resource.Config,
 			logger golog.Logger,
-		) (interface{}, error) {
-			newDoodad := &doodad{}
+		) (resource.Resource, error) {
+			newDoodad := &doodad{
+				Named: conf.ResourceName().AsNamed(),
+			}
 			for rName, res := range deps {
 				if rName.Subtype == gizmoapi.Subtype {
 					gizmo, ok := res.(gizmoapi.Gizmo)
@@ -2569,13 +2608,13 @@ func TestMixedOrphanedResources(t *testing.T) {
 				}
 			}
 			if newDoodad.gizmo == nil {
-				return nil, errors.Errorf("doodad %s must depend on a gizmo", cfg.Name)
+				return nil, errors.Errorf("doodad %s must depend on a gizmo", conf.Name)
 			}
 			return newDoodad, nil
 		},
 	})
 	defer func() {
-		registry.DeregisterComponent(doodadSubtype, doodadModel)
+		resource.Deregister(doodadSubtype, doodadModel)
 	}()
 
 	cfg := &config.Config{
@@ -2585,27 +2624,29 @@ func TestMixedOrphanedResources(t *testing.T) {
 				ExePath: rutils.ResolveFile("examples/customresources/demos/complexmodule/run.sh"),
 			},
 		},
-		Components: []config.Component{
+		Components: []resource.Config{
 			{
-				Name:      "g",
-				Namespace: "acme",
-				Model:     gizmoModel,
-				Type:      resource.SubtypeName("gizmo"),
-				DependsOn: []string{"m"},
+				Name:                "g",
+				DeprecatedNamespace: "acme",
+				Model:               gizmoModel,
+				DeprecatedSubtype:   resource.SubtypeName("gizmo"),
+				DependsOn:           []string{"m"},
 			},
 			{
-				Name:  "m",
-				Model: fakeModel,
-				Type:  motor.SubtypeName,
+				Name:                "m",
+				Model:               fakeModel,
+				API:                 motor.Subtype,
+				ConvertedAttributes: &fakemotor.Config{},
 			},
 			{
-				Name:      "d",
-				Model:     doodadModel,
-				Type:      resource.SubtypeName("doodad"),
-				DependsOn: []string{"g"},
+				Name:              "d",
+				Model:             doodadModel,
+				DeprecatedSubtype: resource.SubtypeName("doodad"),
+				DependsOn:         []string{"g"},
 			},
 		},
 	}
+	test.That(t, cfg.Ensure(false, logger), test.ShouldBeNil)
 	r, err := robotimpl.New(ctx, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
@@ -2621,24 +2662,25 @@ func TestMixedOrphanedResources(t *testing.T) {
 				ExePath: rutils.ResolveFile("examples/customresources/demos/simplemodule/run.sh"),
 			},
 		},
-		Components: []config.Component{
+		Components: []resource.Config{
 			{
-				Name:      "g",
-				Namespace: "acme",
-				Model:     gizmoModel,
-				Type:      resource.SubtypeName("gizmo"),
-				DependsOn: []string{"m"},
+				Name:                "g",
+				DeprecatedNamespace: "acme",
+				Model:               gizmoModel,
+				DeprecatedSubtype:   resource.SubtypeName("gizmo"),
+				DependsOn:           []string{"m"},
 			},
 			{
-				Name:  "m",
-				Model: fakeModel,
-				Type:  motor.SubtypeName,
+				Name:                "m",
+				Model:               fakeModel,
+				API:                 motor.Subtype,
+				ConvertedAttributes: &fakemotor.Config{},
 			},
 			{
-				Name:      "d",
-				Model:     doodadModel,
-				Type:      resource.SubtypeName("doodad"),
-				DependsOn: []string{"g"},
+				Name:              "d",
+				Model:             doodadModel,
+				DeprecatedSubtype: resource.SubtypeName("doodad"),
+				DependsOn:         []string{"g"},
 			},
 		},
 	}
@@ -2646,35 +2688,36 @@ func TestMixedOrphanedResources(t *testing.T) {
 
 	res, err := r.ResourceByName(gizmoapi.Named("g"))
 	test.That(t, err, test.ShouldBeError,
-		rutils.NewResourceNotFoundError(gizmoapi.Named("g")))
+		resource.NewNotFoundError(gizmoapi.Named("g")))
 	test.That(t, res, test.ShouldBeNil)
 	res, err = r.ResourceByName(resource.NameFromSubtype(doodadSubtype, "d"))
 	test.That(t, err, test.ShouldBeError,
-		rutils.NewResourceNotFoundError(resource.NameFromSubtype(doodadSubtype, "d")))
+		resource.NewNotFoundError(resource.NameFromSubtype(doodadSubtype, "d")))
 	test.That(t, res, test.ShouldBeNil)
 	_, err = r.ResourceByName(motor.Named("m"))
 	test.That(t, err, test.ShouldBeNil)
 
 	// Remove module entirely.
 	cfg3 := &config.Config{
-		Components: []config.Component{
+		Components: []resource.Config{
 			{
-				Name:      "g",
-				Namespace: "acme",
-				Model:     gizmoModel,
-				Type:      resource.SubtypeName("gizmo"),
-				DependsOn: []string{"m"},
+				Name:                "g",
+				DeprecatedNamespace: "acme",
+				Model:               gizmoModel,
+				DeprecatedSubtype:   resource.SubtypeName("gizmo"),
+				DependsOn:           []string{"m"},
 			},
 			{
-				Name:  "m",
-				Model: fakeModel,
-				Type:  motor.SubtypeName,
+				Name:                "m",
+				Model:               fakeModel,
+				API:                 motor.Subtype,
+				ConvertedAttributes: &fakemotor.Config{},
 			},
 			{
-				Name:      "d",
-				Model:     doodadModel,
-				Type:      resource.SubtypeName("doodad"),
-				DependsOn: []string{"g"},
+				Name:              "d",
+				Model:             doodadModel,
+				DeprecatedSubtype: resource.SubtypeName("doodad"),
+				DependsOn:         []string{"g"},
 			},
 		},
 	}

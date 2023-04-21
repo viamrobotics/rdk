@@ -21,7 +21,7 @@ import (
 // process and attempts to detect the MIME type of the data from its header.
 // If no MIME type has been requested or there is a mismatch, it returns the one
 // detected by http.DetectContentType.
-func getMIMETypeFromData(ctx context.Context, data []byte) (string, error) {
+func getMIMETypeFromData(ctx context.Context, data []byte, logger golog.Logger) (string, error) {
 	detectedMimeType := http.DetectContentType(data)
 	if !strings.Contains(detectedMimeType, "image") {
 		return "", errors.Errorf("cannot decode image from MIME type '%s'", detectedMimeType)
@@ -43,7 +43,7 @@ func getMIMETypeFromData(ctx context.Context, data []byte) (string, error) {
 				"attempted to decode raw rgba data, but data was not encoded with the expected header format")
 		}
 	} else if (actualMime != "") && (actualMime != detectedMimeType) {
-		golog.Global().Debugf(
+		logger.Debugf(
 			"mime type requested %s for decode was not detected format %s,"+
 				" using detected format", actualMime, detectedMimeType,
 		)
@@ -52,7 +52,7 @@ func getMIMETypeFromData(ctx context.Context, data []byte) (string, error) {
 	// which the data was originally encoded, or failing that, provide the same
 	// default ("application/octet-stream") as other standard libraries.
 	if requestedMime == "" {
-		golog.Global().Debugf(
+		logger.Debugf(
 			"no MIME type specified, defaulting to detected type %s", detectedMimeType)
 	}
 	if isLazy {
@@ -85,12 +85,12 @@ func readyBytesFromURL(ctx context.Context, client http.Client, url string) ([]b
 	return io.ReadAll(body)
 }
 
-func readColorURL(ctx context.Context, client http.Client, url string) (image.Image, error) {
+func readColorURL(ctx context.Context, client http.Client, url string, logger golog.Logger) (image.Image, error) {
 	colorData, err := readyBytesFromURL(ctx, client, url)
 	if err != nil {
 		return nil, errors.Wrap(err, "couldn't ready color url")
 	}
-	mimeType, err := getMIMETypeFromData(ctx, colorData)
+	mimeType, err := getMIMETypeFromData(ctx, colorData, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -104,12 +104,12 @@ func readColorURL(ctx context.Context, client http.Client, url string) (image.Im
 	return rimage.ConvertImage(img), nil
 }
 
-func readDepthURL(ctx context.Context, client http.Client, url string, immediate bool) (image.Image, error) {
+func readDepthURL(ctx context.Context, client http.Client, url string, immediate bool, logger golog.Logger) (image.Image, error) {
 	depthData, err := readyBytesFromURL(ctx, client, url)
 	if err != nil {
 		return nil, errors.Wrap(err, "couldn't ready depth url")
 	}
-	mimeType, err := getMIMETypeFromData(ctx, depthData)
+	mimeType, err := getMIMETypeFromData(ctx, depthData, logger)
 	if err != nil {
 		return nil, err
 	}

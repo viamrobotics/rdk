@@ -16,6 +16,8 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 	viamutils "go.viam.com/utils"
+
+	"go.viam.com/rdk/components/camera"
 )
 
 func TestRTSPCamera(t *testing.T) {
@@ -115,12 +117,12 @@ func TestRTSPCamera(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 	})
 
-	rtspConf := &Attrs{Address: outputURL}
+	rtspConf := &Config{Address: outputURL}
 	timeoutCtx, timeoutCancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer timeoutCancel()
-	rtspCam, err := NewRTSPCamera(timeoutCtx, rtspConf, logger)
+	rtspCam, err := NewRTSPCamera(timeoutCtx, camera.Named("cam1"), rtspConf, logger)
 	test.That(t, err, test.ShouldBeNil)
 	// close everything
-	err = viamutils.TryClose(context.Background(), rtspCam)
+	err = rtspCam.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 }
