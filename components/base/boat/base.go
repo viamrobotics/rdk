@@ -17,51 +17,47 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/base"
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/components/movementsensor"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 var modelname = resource.NewDefaultModel("boat")
 
 func init() {
-	boatComp := registry.Component{
+	boatComp := resource.Registration[base.Base, *boatConfig]{
 		Constructor: func(
-			ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger,
-		) (interface{}, error) {
-			return createBoat(deps, config.ConvertedAttributes.(*boatConfig), logger)
+			ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger,
+		) (base.Base, error) {
+			return createBoat(deps, conf, logger)
 		},
 	}
-	registry.RegisterComponent(base.Subtype, modelname, boatComp)
-
-	config.RegisterComponentAttributeMapConverter(
-		base.Subtype,
-		modelname,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf boatConfig
-			return config.TransformAttributeMapToStruct(&conf, attributes)
-		},
-		&boatConfig{})
+	resource.RegisterComponent(base.Subtype, modelname, boatComp)
 }
 
-func createBoat(deps registry.Dependencies, config *boatConfig, logger golog.Logger) (base.LocalBase, error) {
-	if config.WidthMM <= 0 {
+func createBoat(deps resource.Dependencies, conf resource.Config, logger golog.Logger) (base.LocalBase, error) {
+	newConf, err := resource.NativeConfig[*boatConfig](conf)
+	if err != nil {
+		return nil, err
+	}
+
+	if newConf.WidthMM <= 0 {
 		return nil, errors.New("width has to be > 0")
 	}
 
-	if config.LengthMM <= 0 {
+	if newConf.LengthMM <= 0 {
 		return nil, errors.New("length has to be > 0")
 	}
 
-	theBoat := &boat{cfg: config, logger: logger}
+	theBoat := &boat{
+		Named:  conf.ResourceName().AsNamed(),
+		cfg:    newConf,
+		logger: logger,
+	}
 
-	for _, mc := range config.Motors {
+	for _, mc := range newConf.Motors {
 		m, err := motor.FromDependencies(deps, mc.Name)
 		if err != nil {
 			return nil, err
@@ -69,9 +65,9 @@ func createBoat(deps registry.Dependencies, config *boatConfig, logger golog.Log
 		theBoat.motors = append(theBoat.motors, m)
 	}
 
-	if config.IMU != "" {
+	if newConf.IMU != "" {
 		var err error
-		theBoat.imu, err = movementsensor.FromDependencies(deps, config.IMU)
+		theBoat.imu, err = movementsensor.FromDependencies(deps, newConf.IMU)
 		if err != nil {
 			return nil, err
 		}
@@ -89,7 +85,8 @@ type boatState struct {
 }
 
 type boat struct {
-	generic.Unimplemented
+	resource.Named
+	resource.AlwaysRebuild
 
 	cfg    *boatConfig
 	motors []motor.Motor
@@ -229,20 +226,6 @@ func (b *boat) SetVelocity(ctx context.Context, linear, angular r3.Vector, extra
 		b.state.threadStarted = true
 	}
 
-	if rdkutils.Float64AlmostEqual(linear.Y, 0.0, 1) && rdkutils.Float64AlmostEqual(angular.Z, 0.0, 1) {
-		b.logger.Infof("the received linear velocity %f and angular velocity %f results in a speed of 0",
-			linear, angular)
-	}
-	// can't access maxrpms
-	// if rdkutils.Float64AlmostEqual(linear.Y, float64(base.maxLinearVelocity), 1) {
-	// 	b.logger.Infof("the received linear velocity results in a speed near the maxLinearVelocity %f for this base",
-	// 		b)
-	// }
-	// if rdkutils.Float64AlmostEqual(angular.Z, float64(base.maxAngularVelocity), 1) {
-	// 	b.logger.Infof("the received angular velocity results in a speed near the maxAngularVelocity %f for this base",
-	// 		base.maxAngularVelocity)
-	// }
-
 	b.state.velocityControlled = true
 	b.state.velocityLinearGoal = linear
 	b.state.velocityAngularGoal = angular
@@ -259,20 +242,6 @@ func (b *boat) SetPower(ctx context.Context, linear, angular r3.Vector, extra ma
 	b.stateMutex.Lock()
 	b.state.velocityControlled = false
 	b.stateMutex.Unlock()
-
-	if rdkutils.Float64AlmostEqual(linear.Y, 0.0, 1) && rdkutils.Float64AlmostEqual(angular.Z, 0.0, 1) {
-		b.logger.Infof("the received linear velocity %f and angular velocity %f results in a speed of 0",
-			linear, angular)
-	}
-	// can't access maxrpms
-	// if rdkutils.Float64AlmostEqual(linear.Y, float64(base.maxLinearVelocity), 1) {
-	// 	b.logger.Infof("the received linear velocity results in a speed near the maxLinearVelocity %f for this base",
-	// 		base.maxLinearVelocity)
-	// }
-	// if rdkutils.Float64AlmostEqual(angular.Z, float64(base.maxAngularVelocity), 1) {
-	// 	b.logger.Infof("the received angular velocity results in a speed near the maxAngularVelocity %f for this base",
-	// 		base.maxAngularVelocity)
-	// }
 
 	return b.setPowerInternal(ctx, linear, angular)
 }
