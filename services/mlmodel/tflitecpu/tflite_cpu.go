@@ -16,6 +16,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/mlmodel"
 	"go.viam.com/rdk/services/vision"
+	"go.viam.com/rdk/utils"
 )
 
 var sModel = resource.NewDefaultModel("tflite_cpu")
@@ -45,6 +46,23 @@ type TFLiteConfig struct {
 	ModelPath  string  `json:"model_path"`
 	NumThreads int     `json:"num_threads"`
 	LabelPath  *string `json:"label_path"`
+}
+
+// Walk implements the Walker interface and correctly replaces model and label paths.
+func (cfg *TFLiteConfig) Walk(visitor utils.Visitor) (interface{}, error) {
+	modelPath, err := visitor.Visit(cfg.ModelPath)
+	if err != nil {
+		return nil, err
+	}
+	cfg.ModelPath = modelPath.(string)
+
+	labelPath, err := visitor.Visit(cfg.LabelPath)
+	if err != nil {
+		return nil, err
+	}
+	cfg.LabelPath = labelPath.(*string)
+
+	return cfg, nil
 }
 
 // Model is a struct that implements the TensorflowLite CPU implementation of the MLMS.
