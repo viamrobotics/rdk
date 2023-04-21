@@ -9,18 +9,21 @@ import (
 	"github.com/edaniels/golog"
 	pb "go.viam.com/api/component/encoder/v1"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
-	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/components/encoder"
-	"go.viam.com/rdk/components/generic"
 	viamgrpc "go.viam.com/rdk/grpc"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
+)
+
+const (
+	testEncoderName    = "encoder1"
+	testEncoderName2   = "encoder2"
+	failEncoderName    = "encoder3"
+	fakeEncoderName    = "encoder4"
+	missingEncoderName = "encoder5"
 )
 
 func TestClient(t *testing.T) {
@@ -41,11 +44,11 @@ func TestClient(t *testing.T) {
 	}
 	workingEncoder.GetPositionFunc = func(
 		ctx context.Context,
-		positionType *encoder.PositionType,
+		positionType encoder.PositionType,
 		extra map[string]interface{},
 	) (float64, encoder.PositionType, error) {
 		actualExtra = extra
-		return 42.0, encoder.PositionTypeUNSPECIFIED, nil
+		return 42.0, encoder.PositionTypeUnspecified, nil
 	}
 	workingEncoder.GetPropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (map[encoder.Feature]bool, error) {
 		actualExtra = extra
@@ -60,26 +63,27 @@ func TestClient(t *testing.T) {
 	}
 	failingEncoder.GetPositionFunc = func(
 		ctx context.Context,
-		positionType *encoder.PositionType,
+		positionType encoder.PositionType,
 		extra map[string]interface{},
 	) (float64, encoder.PositionType, error) {
-		return 0, encoder.PositionTypeUNSPECIFIED, errors.New("position unavailable")
+		return 0, encoder.PositionTypeUnspecified, errors.New("position unavailable")
 	}
 	failingEncoder.GetPropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (map[encoder.Feature]bool, error) {
 		return nil, errors.New("get properties failed")
 	}
 
-	resourceMap := map[resource.Name]interface{}{
+	resourceMap := map[resource.Name]encoder.Encoder{
 		encoder.Named(testEncoderName): workingEncoder,
 		encoder.Named(failEncoderName): failingEncoder,
 	}
-	encoderSvc, err := subtype.New(resourceMap)
+	encoderSvc, err := resource.NewSubtypeCollection(encoder.Subtype, resourceMap)
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype := registry.ResourceSubtypeLookup(encoder.Subtype)
-	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, encoderSvc)
+	resourceSubtype, ok, err := resource.LookupSubtypeRegistration[encoder.Encoder](encoder.Subtype)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, encoderSvc), test.ShouldBeNil)
 
-	workingEncoder.DoFunc = generic.EchoFunc
-	generic.RegisterService(rpcServer, encoderSvc)
+	workingEncoder.DoFunc = testutils.EchoFunc
 
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()
@@ -94,21 +98,21 @@ func TestClient(t *testing.T) {
 
 	conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
-	workingEncoderClient := encoder.NewClientFromConn(context.Background(), conn, testEncoderName, logger)
+	workingEncoderClient := encoder.NewClientFromConn(context.Background(), conn, encoder.Named(testEncoderName), logger)
 
 	t.Run("client tests for working encoder", func(t *testing.T) {
 		// DoCommand
-		resp, err := workingEncoderClient.DoCommand(context.Background(), generic.TestCommand)
+		resp, err := workingEncoderClient.DoCommand(context.Background(), testutils.TestCommand)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp["command"], test.ShouldEqual, generic.TestCommand["command"])
-		test.That(t, resp["data"], test.ShouldEqual, generic.TestCommand["data"])
+		test.That(t, resp["command"], test.ShouldEqual, testutils.TestCommand["command"])
+		test.That(t, resp["data"], test.ShouldEqual, testutils.TestCommand["data"])
 
 		err = workingEncoderClient.ResetPosition(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 
 		pos, positionType, err := workingEncoderClient.GetPosition(
 			context.Background(),
-			nil,
+			encoder.PositionTypeUnspecified,
 			map[string]interface{}{"foo": "bar", "baz": []interface{}{1., 2., 3.}})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, 42.0)
@@ -116,82 +120,49 @@ func TestClient(t *testing.T) {
 
 		test.That(t, actualExtra, test.ShouldResemble, map[string]interface{}{"foo": "bar", "baz": []interface{}{1., 2., 3.}})
 
-		test.That(t, utils.TryClose(context.Background(), workingEncoderClient), test.ShouldBeNil)
+		test.That(t, workingEncoderClient.Close(context.Background()), test.ShouldBeNil)
 
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 
 	conn, err = viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
-	failingEncoderClient := encoder.NewClientFromConn(context.Background(), conn, failEncoderName, logger)
+	failingEncoderClient := encoder.NewClientFromConn(context.Background(), conn, encoder.Named(failEncoderName), logger)
 
 	t.Run("client tests for failing encoder", func(t *testing.T) {
 		err = failingEncoderClient.ResetPosition(context.Background(), nil)
 		test.That(t, err, test.ShouldNotBeNil)
 
-		pos, _, err := failingEncoderClient.GetPosition(context.Background(), encoder.PositionTypeUNSPECIFIED.Enum(), nil)
+		pos, _, err := failingEncoderClient.GetPosition(context.Background(), encoder.PositionTypeUnspecified, nil)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, pos, test.ShouldEqual, 0.0)
 
-		test.That(t, utils.TryClose(context.Background(), failingEncoderClient), test.ShouldBeNil)
+		test.That(t, failingEncoderClient.Close(context.Background()), test.ShouldBeNil)
 	})
 
 	t.Run("dialed client tests for working encoder", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		workingEncoderDialedClient := encoder.NewClientFromConn(context.Background(), conn, testEncoderName, logger)
+		workingEncoderDialedClient := encoder.NewClientFromConn(context.Background(), conn, encoder.Named(testEncoderName), logger)
 
-		pos, _, err := workingEncoderDialedClient.GetPosition(context.Background(), encoder.PositionTypeUNSPECIFIED.Enum(), nil)
+		pos, _, err := workingEncoderDialedClient.GetPosition(context.Background(), encoder.PositionTypeUnspecified, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, 42.0)
 
 		err = workingEncoderDialedClient.ResetPosition(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		test.That(t, utils.TryClose(context.Background(), workingEncoderDialedClient), test.ShouldBeNil)
+		test.That(t, workingEncoderDialedClient.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 
 	t.Run("dialed client tests for failing encoder", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		failingEncoderDialedClient := encoder.NewClientFromConn(context.Background(), conn, failEncoderName, logger)
+		failingEncoderDialedClient := encoder.NewClientFromConn(context.Background(), conn, encoder.Named(failEncoderName), logger)
 
-		test.That(t, utils.TryClose(context.Background(), failingEncoderDialedClient), test.ShouldBeNil)
+		test.That(t, failingEncoderDialedClient.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 	test.That(t, conn.Close(), test.ShouldBeNil)
-}
-
-func TestClientDialerOption(t *testing.T) {
-	logger := golog.NewTestLogger(t)
-	listener, err := net.Listen("tcp", "localhost:0")
-	test.That(t, err, test.ShouldBeNil)
-	gServer := grpc.NewServer()
-	injectEncoder := &inject.Encoder{}
-
-	encoderSvc, err := subtype.New(map[resource.Name]interface{}{encoder.Named(testEncoderName): injectEncoder})
-	test.That(t, err, test.ShouldBeNil)
-	pb.RegisterEncoderServiceServer(gServer, encoder.NewServer(encoderSvc))
-
-	go gServer.Serve(listener)
-	defer gServer.Stop()
-
-	td := &testutils.TrackingDialer{Dialer: rpc.NewCachedDialer()}
-	ctx := rpc.ContextWithDialer(context.Background(), td)
-	conn1, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
-	test.That(t, err, test.ShouldBeNil)
-	client1 := encoder.NewClientFromConn(ctx, conn1, testEncoderName, logger)
-	test.That(t, td.NewConnections, test.ShouldEqual, 3)
-	conn2, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
-	test.That(t, err, test.ShouldBeNil)
-	client2 := encoder.NewClientFromConn(ctx, conn2, testEncoderName, logger)
-	test.That(t, td.NewConnections, test.ShouldEqual, 3)
-
-	err = utils.TryClose(context.Background(), client1)
-	test.That(t, err, test.ShouldBeNil)
-	err = utils.TryClose(context.Background(), client2)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, conn1.Close(), test.ShouldBeNil)
-	test.That(t, conn2.Close(), test.ShouldBeNil)
 }

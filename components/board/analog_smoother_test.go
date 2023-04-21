@@ -9,7 +9,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 	"go.viam.com/utils/testutils"
 )
 
@@ -31,6 +30,10 @@ func (t *testReader) Read(ctx context.Context, extra map[string]interface{}) (in
 	return t.r.Intn(100), nil
 }
 
+func (t *testReader) Close(ctx context.Context) error {
+	return nil
+}
+
 func TestAnalogSmoother1(t *testing.T) {
 	testReader := testReader{
 		r:   rand.New(rand.NewSource(11)),
@@ -43,16 +46,10 @@ func TestAnalogSmoother1(t *testing.T) {
 	}()
 
 	logger := golog.NewTestLogger(t)
-	tmp := SmoothAnalogReader(&testReader, AnalogConfig{}, logger)
-	_, ok := tmp.(*AnalogSmoother)
-	test.That(t, ok, test.ShouldBeFalse)
-
 	as := SmoothAnalogReader(&testReader, AnalogConfig{
 		AverageOverMillis: 10,
 		SamplesPerSecond:  10000,
 	}, logger)
-	_, ok = as.(*AnalogSmoother)
-	test.That(t, ok, test.ShouldBeTrue)
 
 	testutils.WaitForAssertionWithSleep(t, 10*time.Millisecond, 200, func(tb testing.TB) {
 		tb.Helper()
@@ -66,6 +63,5 @@ func TestAnalogSmoother1(t *testing.T) {
 		test.That(tb, testReader.n, test.ShouldEqual, testReader.lim)
 	})
 
-	err := utils.TryClose(context.Background(), as)
-	test.That(t, err, test.ShouldBeNil)
+	test.That(t, as.Close(context.Background()), test.ShouldBeNil)
 }

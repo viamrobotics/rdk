@@ -17,22 +17,24 @@ import (
 
 // client implements MotionServiceClient.
 type client struct {
+	resource.Named
+	resource.TriviallyReconfigurable
+	resource.TriviallyCloseable
 	name   string
-	conn   rpc.ClientConn
 	client pb.MotionServiceClient
 	logger golog.Logger
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
-func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Service {
+func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (Service, error) {
 	grpcClient := pb.NewMotionServiceClient(conn)
 	c := &client{
-		name:   name,
-		conn:   conn,
+		Named:  name.AsNamed(),
+		name:   name.ShortNameForClient(),
 		client: grpcClient,
 		logger: logger,
 	}
-	return c
+	return c, nil
 }
 
 func (c *client) Move(

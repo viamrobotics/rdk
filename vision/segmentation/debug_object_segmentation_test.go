@@ -9,7 +9,6 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/config"
 	pc "go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
@@ -57,7 +56,7 @@ func (h *segmentObjectTestHelper) Process(
 		return cloud, nil
 	}
 
-	objConfig := config.AttributeMap{
+	objConfig := utils.AttributeMap{
 		"min_points_in_plane":   50000,
 		"min_points_in_segment": 500,
 		"clustering_radius_mm":  10.0,
@@ -134,7 +133,7 @@ func (h *gripperSegmentTestHelper) Process(
 	}
 
 	// Do object segmentation with point clouds
-	objConfig := config.AttributeMap{
+	objConfig := utils.AttributeMap{
 		"min_points_in_plane":   15000,
 		"min_points_in_segment": 100,
 		"clustering_radius_mm":  10.0,

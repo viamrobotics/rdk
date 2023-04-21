@@ -4,11 +4,13 @@ import (
 	"context"
 
 	"go.viam.com/rdk/components/input"
+	"go.viam.com/rdk/resource"
 )
 
 // InputController is an injected InputController.
 type InputController struct {
 	input.Controller
+	name                        resource.Name
 	DoFunc                      func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	ControlsFunc                func(ctx context.Context, extra map[string]interface{}) ([]input.Control, error)
 	EventsFunc                  func(ctx context.Context, extra map[string]interface{}) (map[input.Control]input.Event, error)
@@ -19,6 +21,16 @@ type InputController struct {
 		ctrlFunc input.ControlFunction,
 		extra map[string]interface{},
 	) error
+}
+
+// NewInputController returns a new injected input controller.
+func NewInputController(name string) *InputController {
+	return &InputController{name: input.Named(name)}
+}
+
+// Name returns the name of the resource.
+func (s *InputController) Name() resource.Name {
+	return s.name
 }
 
 // Controls calls the injected function or the real version.

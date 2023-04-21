@@ -26,13 +26,11 @@ import (
 	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/client"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	_ "go.viam.com/rdk/services/register"
 	"go.viam.com/rdk/session"
-	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/robottestutils"
 )
 
@@ -45,19 +43,14 @@ var echoSubType = resource.NewSubtype(
 )
 
 func init() {
-	registry.RegisterResourceSubtype(echoSubType, registry.ResourceSubtype{
-		Reconfigurable: wrapWithReconfigurable,
-		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
-			return rpcServer.RegisterServiceServer(
-				ctx,
-				&echopb.TestEchoService_ServiceDesc,
-				&echoServer{s: subtypeSvc},
-				echopb.RegisterTestEchoServiceHandlerFromEndpoint,
-			)
+	resource.RegisterSubtype(echoSubType, resource.SubtypeRegistration[resource.Resource]{
+		RPCServiceServerConstructor: func(subtypeColl resource.SubtypeCollection[resource.Resource]) interface{} {
+			return &echoServer{coll: subtypeColl}
 		},
-		RPCServiceDesc: &echopb.TestEchoService_ServiceDesc,
-		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
-			return NewClientFromConn(ctx, conn, name, logger)
+		RPCServiceHandler: echopb.RegisterTestEchoServiceHandlerFromEndpoint,
+		RPCServiceDesc:    &echopb.TestEchoService_ServiceDesc,
+		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (resource.Resource, error) {
+			return NewClientFromConn(ctx, conn, name, logger), nil
 		},
 	})
 }
@@ -83,50 +76,58 @@ func TestSessions(t *testing.T) {
 
 			ensureStop := makeEnsureStop(stopChs)
 
+			motor1Name := motor.Named("motor1")
+			motor2Name := motor.Named("motor2")
+			base1Name := base.Named("base1")
+			echo1Name := resource.NameFromSubtype(echoSubType, "echo1")
+
 			modelName := resource.NewDefaultModel(resource.ModelName(utils.RandomAlphaString(8)))
 			streamModelName := resource.NewDefaultModel(resource.ModelName(utils.RandomAlphaString(8)))
-			dummyMotor1 := dummyMotor{stopCh: stopChs["motor1"].Chan}
-			dummyMotor2 := dummyMotor{stopCh: stopChs["motor2"].Chan}
-			dummyEcho1 := dummyEcho{stopCh: stopChs["echo1"].Chan}
-			dummyBase1 := dummyBase{stopCh: stopChs["base1"].Chan}
-			registry.RegisterComponent(
+			dummyMotor1 := dummyMotor{Named: motor1Name.AsNamed(), stopCh: stopChs["motor1"].Chan}
+			dummyMotor2 := dummyMotor{Named: motor2Name.AsNamed(), stopCh: stopChs["motor2"].Chan}
+			dummyEcho1 := dummyEcho{
+				Named:  echo1Name.AsNamed(),
+				stopCh: stopChs["echo1"].Chan,
+			}
+			dummyBase1 := dummyBase{Named: base1Name.AsNamed(), stopCh: stopChs["base1"].Chan}
+			resource.RegisterComponent(
 				motor.Subtype,
 				modelName,
-				registry.Component{Constructor: func(
+				resource.Registration[motor.Motor, resource.NoNativeConfig]{Constructor: func(
 					ctx context.Context,
-					deps registry.Dependencies,
-					config config.Component,
+					deps resource.Dependencies,
+					conf resource.Config,
 					logger golog.Logger,
-				) (interface{}, error) {
-					if config.Name == "motor1" {
+				) (motor.Motor, error) {
+					if conf.Name == "motor1" {
 						return &dummyMotor1, nil
 					}
 					return &dummyMotor2, nil
 				}})
-			registry.RegisterComponent(
+			resource.RegisterComponent(
 				echoSubType,
 				streamModelName,
-				registry.Component{
+				resource.Registration[resource.Resource, resource.NoNativeConfig]{
 					Constructor: func(
 						ctx context.Context,
-						_ registry.Dependencies,
-						config config.Component,
+						_ resource.Dependencies,
+						conf resource.Config,
 						logger golog.Logger,
-					) (interface{}, error) {
+					) (resource.Resource, error) {
 						return &dummyEcho1, nil
 					},
 				},
 			)
-			registry.RegisterComponent(
+			resource.RegisterComponent(
 				base.Subtype,
 				modelName,
-				registry.Component{
+				resource.Registration[base.Base, resource.NoNativeConfig]{
 					Constructor: func(
 						ctx context.Context,
-						_ registry.Dependencies,
-						config config.Component,
+						_ resource.Dependencies,
+						conf resource.Config,
 						logger golog.Logger,
-					) (interface{}, error) {
+					) (base.Base, error) {
 						return &dummyBase1, nil
 					},
 				},
@@ -225,13 +226,12 @@ func TestSessions(t *testing.T) {
 			t.Log("set power of motor2 which will be safety monitored")
 			test.That(t, motor2.SetPower(ctx, 50, nil), test.ShouldBeNil)
 
-			dummyName := resource.NameFromSubtype(echoSubType, "echo1")
-			echo1Client, err := roboClient.ResourceByName(dummyName)
+			echo1Client, err := roboClient.ResourceByName(echo1Name)
 			test.That(t, err, test.ShouldBeNil)
-			echo1Conn := echo1Client.(*reconfigurableClient).ProxyFor().(echopb.TestEchoServiceClient)
+			echo1Conn := echo1Client.(*dummyClient)
 
 			t.Log("echo multiple of echo1 which will be safety monitored")
-			echoMultiClient, err := echo1Conn.EchoMultiple(ctx, &echopb.EchoMultipleRequest{Name: "echo1"})
+			echoMultiClient, err := echo1Conn.client.EchoMultiple(ctx, &echopb.EchoMultipleRequest{Name: "echo1"})
 			test.That(t, err, test.ShouldBeNil)
 			_, err = echoMultiClient.Recv() // EOF; okay
 			test.That(t, err, test.ShouldBeError, io.EOF)
@@ -278,54 +278,60 @@ func TestSessionsWithRemote(t *testing.T) {
 
 	modelName := resource.NewDefaultModel(resource.ModelName(utils.RandomAlphaString(8)))
 	streamModelName := resource.NewDefaultModel(resource.ModelName(utils.RandomAlphaString(8)))
-	dummyRemMotor1 := dummyMotor{stopCh: stopChs["remMotor1"].Chan}
-	dummyRemMotor2 := dummyMotor{stopCh: stopChs["remMotor2"].Chan}
-	dummyRemEcho1 := dummyEcho{stopCh: stopChs["remEcho1"].Chan}
-	dummyRemBase1 := dummyBase{stopCh: stopChs["remBase1"].Chan}
-	dummyMotor1 := dummyMotor{stopCh: stopChs["motor1"].Chan}
-	dummyBase1 := dummyBase{stopCh: stopChs["base1"].Chan}
-	registry.RegisterComponent(
+	motor1Name := motor.Named("motor1")
+	motor2Name := motor.Named("motor2")
+	base1Name := base.Named("base1")
+	echo1Name := resource.NameFromSubtype(echoSubType, "echo1")
+	dummyRemMotor1 := dummyMotor{Named: motor1Name.AsNamed(), stopCh: stopChs["remMotor1"].Chan}
+	dummyRemMotor2 := dummyMotor{Named: motor2Name.AsNamed(), stopCh: stopChs["remMotor2"].Chan}
+	dummyRemEcho1 := dummyEcho{Named: echo1Name.AsNamed(), stopCh: stopChs["remEcho1"].Chan}
+	dummyRemBase1 := dummyBase{Named: base1Name.AsNamed(), stopCh: stopChs["remBase1"].Chan}
+	dummyMotor1 := dummyMotor{Named: motor1Name.AsNamed(), stopCh: stopChs["motor1"].Chan}
+	dummyBase1 := dummyBase{Named: base1Name.AsNamed(), stopCh: stopChs["base1"].Chan}
+	resource.RegisterComponent(
 		motor.Subtype,
 		modelName,
-		registry.Component{Constructor: func(
-			ctx context.Context,
-			deps registry.Dependencies,
-			config config.Component,
-			logger golog.Logger,
-		) (interface{}, error) {
-			if config.Attributes.Bool("rem", false) {
-				if config.Name == "motor1" {
-					return &dummyRemMotor1, nil
-				}
-				return &dummyRemMotor2, nil
-			}
-			return &dummyMotor1, nil
-		}})
-	registry.RegisterComponent(
-		echoSubType,
-		streamModelName,
-		registry.Component{
+		resource.Registration[motor.Motor, resource.NoNativeConfig]{
 			Constructor: func(
 				ctx context.Context,
-				_ registry.Dependencies,
-				config config.Component,
+				deps resource.Dependencies,
+				conf resource.Config,
 				logger golog.Logger,
-			) (interface{}, error) {
+			) (motor.Motor, error) {
+				if conf.Attributes.Bool("rem", false) {
+					if conf.Name == "motor1" {
+						return &dummyRemMotor1, nil
+					}
+					return &dummyRemMotor2, nil
+				}
+				return &dummyMotor1, nil
+			},
+		})
+	resource.RegisterComponent(
+		echoSubType,
+		streamModelName,
+		resource.Registration[resource.Resource, resource.NoNativeConfig]{
+			Constructor: func(
+				ctx context.Context,
+				_ resource.Dependencies,
+				conf resource.Config,
+				logger golog.Logger,
+			) (resource.Resource, error) {
 				return &dummyRemEcho1, nil
 			},
 		},
 	)
-	registry.RegisterComponent(
+	resource.RegisterComponent(
 		base.Subtype,
 		modelName,
-		registry.Component{
+		resource.Registration[base.Base, resource.NoNativeConfig]{
 			Constructor: func(
 				ctx context.Context,
-				_ registry.Dependencies,
-				config config.Component,
+				_ resource.Dependencies,
+				conf resource.Config,
 				logger golog.Logger,
-			) (interface{}, error) {
-				if config.Attributes.Bool("rem", false) {
+			) (base.Base, error) {
+				if conf.Attributes.Bool("rem", false) {
 					return &dummyRemBase1, nil
 				}
 				return &dummyBase1, nil
@@ -505,10 +511,10 @@ func TestSessionsWithRemote(t *testing.T) {
 	dummyName := resource.NameFromSubtype(echoSubType, "echo1")
 	echo1Client, err := roboClient.ResourceByName(dummyName)
 	test.That(t, err, test.ShouldBeNil)
-	echo1Conn := echo1Client.(*reconfigurableClient).ProxyFor().(echopb.TestEchoServiceClient)
+	echo1Conn := echo1Client.(*dummyClient)
 
 	t.Log("echo multiple of remEcho1 which will be safety monitored")
-	echoMultiClient, err := echo1Conn.EchoMultiple(ctx, &echopb.EchoMultipleRequest{Name: "echo1"})
+	echoMultiClient, err := echo1Conn.client.EchoMultiple(ctx, &echopb.EchoMultipleRequest{Name: "echo1"})
 	test.That(t, err, test.ShouldBeNil)
 	_, err = echoMultiClient.Recv() // EOF; okay
 	test.That(t, err, test.ShouldBeError, io.EOF)
@@ -539,18 +545,21 @@ func TestSessionsMixedClients(t *testing.T) {
 	stopChMotor1 := make(chan struct{})
 
 	modelName := resource.NewDefaultModel(resource.ModelName(utils.RandomAlphaString(8)))
-	dummyMotor1 := dummyMotor{stopCh: stopChMotor1}
-	registry.RegisterComponent(
+	motor1Name := motor.Named("motor1")
+	dummyMotor1 := dummyMotor{Named: motor1Name.AsNamed(), stopCh: stopChMotor1}
+	resource.RegisterComponent(
 		motor.Subtype,
 		modelName,
-		registry.Component{Constructor: func(
-			ctx context.Context,
-			deps registry.Dependencies,
-			config config.Component,
-			logger golog.Logger,
-		) (interface{}, error) {
-			return &dummyMotor1, nil
-		}})
+		resource.Registration[motor.Motor, resource.NoNativeConfig]{
+			Constructor: func(
+				ctx context.Context,
+				deps resource.Dependencies,
+				conf resource.Config,
+				logger golog.Logger,
+			) (motor.Motor, error) {
+				return &dummyMotor1, nil
+			},
+		})
 
 	roboConfig := fmt.Sprintf(`{
 		"components": [
@@ -625,18 +634,21 @@ func TestSessionsMixedOwnersNoAuth(t *testing.T) {
 	stopChMotor1 := make(chan struct{})
 
 	modelName := resource.NewDefaultModel(resource.ModelName(utils.RandomAlphaString(8)))
-	dummyMotor1 := dummyMotor{stopCh: stopChMotor1}
-	registry.RegisterComponent(
+	motor1Name := motor.Named("motor1")
+	dummyMotor1 := dummyMotor{Named: motor1Name.AsNamed(), stopCh: stopChMotor1}
+	resource.RegisterComponent(
 		motor.Subtype,
 		modelName,
-		registry.Component{Constructor: func(
-			ctx context.Context,
-			deps registry.Dependencies,
-			config config.Component,
-			logger golog.Logger,
-		) (interface{}, error) {
-			return &dummyMotor1, nil
-		}})
+		resource.Registration[motor.Motor, resource.NoNativeConfig]{
+			Constructor: func(
+				ctx context.Context,
+				deps resource.Dependencies,
+				conf resource.Config,
+				logger golog.Logger,
+			) (motor.Motor, error) {
+				return &dummyMotor1, nil
+			},
+		})
 
 	roboConfig := fmt.Sprintf(`{
 		"components": [
@@ -673,7 +685,8 @@ func TestSessionsMixedOwnersNoAuth(t *testing.T) {
 
 	motor1Client1, err := motor.FromRobot(roboClient1, "motor1")
 	test.That(t, err, test.ShouldBeNil)
-	motor1Client2 := motor.NewClientFromConn(ctx, roboClientConn2, "motor1", logger)
+	motor1Client2, err := motor.NewClientFromConn(ctx, roboClientConn2, motor.Named("motor1"), logger)
+	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, motor1Client1.SetPower(ctx, 50, nil), test.ShouldBeNil)
 	time.Sleep(time.Second)
@@ -722,18 +735,21 @@ func TestSessionsMixedOwnersImplicitAuth(t *testing.T) {
 	stopChMotor1 := make(chan struct{})
 
 	modelName := resource.NewDefaultModel(resource.ModelName(utils.RandomAlphaString(8)))
-	dummyMotor1 := dummyMotor{stopCh: stopChMotor1}
-	registry.RegisterComponent(
+	motor1Name := motor.Named("motor1")
+	dummyMotor1 := dummyMotor{Named: motor1Name.AsNamed(), stopCh: stopChMotor1}
+	resource.RegisterComponent(
 		motor.Subtype,
 		modelName,
-		registry.Component{Constructor: func(
-			ctx context.Context,
-			deps registry.Dependencies,
-			config config.Component,
-			logger golog.Logger,
-		) (interface{}, error) {
-			return &dummyMotor1, nil
-		}})
+		resource.Registration[motor.Motor, resource.NoNativeConfig]{
+			Constructor: func(
+				ctx context.Context,
+				deps resource.Dependencies,
+				conf resource.Config,
+				logger golog.Logger,
+			) (motor.Motor, error) {
+				return &dummyMotor1, nil
+			},
+		})
 
 	roboConfig := fmt.Sprintf(`{
 		"components": [
@@ -768,7 +784,8 @@ func TestSessionsMixedOwnersImplicitAuth(t *testing.T) {
 
 	motor1Client1, err := motor.FromRobot(roboClient1, "motor1")
 	test.That(t, err, test.ShouldBeNil)
-	motor1Client2 := motor.NewClientFromConn(ctx, roboClientConn2, "motor1", logger)
+	motor1Client2, err := motor.NewClientFromConn(ctx, roboClientConn2, motor.Named("motor1"), logger)
+	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, motor1Client1.SetPower(ctx, 50, nil), test.ShouldBeNil)
 	time.Sleep(time.Second)
@@ -818,8 +835,10 @@ func TestSessionsMixedOwnersImplicitAuth(t *testing.T) {
 }
 
 type dummyMotor struct {
-	mu sync.Mutex
-	motor.LocalMotor
+	resource.Named
+	resource.AlwaysRebuild
+	resource.TriviallyCloseable
+	mu     sync.Mutex
 	stopCh chan struct{}
 }
 
@@ -828,6 +847,10 @@ func (dm *dummyMotor) SetPower(ctx context.Context, powerPct float64, extra map[
 }
 
 func (dm *dummyMotor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
+	return nil
+}
+
+func (dm *dummyMotor) GoTo(ctx context.Context, rpm, positionRevolutions float64, extra map[string]interface{}) error {
 	return nil
 }
 
@@ -842,9 +865,27 @@ func (dm *dummyMotor) Stop(ctx context.Context, extra map[string]interface{}) er
 	return nil
 }
 
+func (dm *dummyMotor) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
+	return nil
+}
+
+func (dm *dummyMotor) Properties(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
+	return map[motor.Feature]bool{}, nil
+}
+
+func (dm *dummyMotor) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
+	return false, 0, nil
+}
+
+func (dm *dummyMotor) IsMoving(context.Context) (bool, error) {
+	return false, nil
+}
+
 type dummyBase struct {
-	mu sync.Mutex
-	base.LocalBase
+	resource.Named
+	resource.AlwaysRebuild
+	resource.TriviallyCloseable
+	mu     sync.Mutex
 	stopCh chan struct{}
 }
 
@@ -859,80 +900,53 @@ func (db *dummyBase) Stop(ctx context.Context, extra map[string]interface{}) err
 	return nil
 }
 
+func (db *dummyBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error {
+	return nil
+}
+
+func (db *dummyBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
+	return nil
+}
+
+func (db *dummyBase) SetVelocity(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
+	return nil
+}
+
+func (db *dummyBase) IsMoving(context.Context) (bool, error) {
+	return false, nil
+}
+
 // NewClientFromConn constructs a new client from connection passed in.
-func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) echopb.TestEchoServiceClient {
-	return echopb.NewTestEchoServiceClient(conn)
-}
-
-func wrapWithReconfigurable(r interface{}, name resource.Name) (resource.Reconfigurable, error) {
-	switch v := r.(type) {
-	case echopb.TestEchoServiceClient:
-		return &reconfigurableClient{name: name, actual: v}, nil
-	case *dummyEcho:
-		return &reconfigurableClient{name: name, actual: v}, nil
-	default:
-		panic(errors.Errorf("bad type %T", r))
+func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) resource.Resource {
+	c := echopb.NewTestEchoServiceClient(conn)
+	return &dummyClient{
+		Named:  name.AsNamed(),
+		name:   name.ShortNameForClient(),
+		client: c,
 	}
 }
 
-type reconfigurableClient struct {
-	mu     sync.RWMutex
-	name   resource.Name
-	actual interface{}
+type dummyClient struct {
+	resource.Named
+	resource.AlwaysRebuild
+	resource.TriviallyCloseable
+	name   string
+	client echopb.TestEchoServiceClient
 }
 
-func (r *reconfigurableClient) Name() resource.Name {
-	return r.name
+func (c *dummyClient) Stop(ctx context.Context, extra map[string]interface{}) error {
+	_, err := c.client.Stop(ctx, &echopb.StopRequest{Name: c.name})
+	return err
 }
 
-func (r *reconfigurableClient) ProxyFor() interface{} {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual
-}
-
-func (r *reconfigurableClient) Reconfigure(ctx context.Context, newBase resource.Reconfigurable) error {
-	panic("unexpected")
-}
-
-func (r *reconfigurableClient) Stop(ctx context.Context, extra map[string]interface{}) error {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	switch v := r.actual.(type) {
-	case echopb.TestEchoServiceClient:
-		_, err := v.Stop(ctx, &echopb.StopRequest{Name: r.name.Name})
-		return err
-	case *dummyEcho:
-		return v.Stop(ctx, nil)
-	default:
-		panic(errors.Errorf("bad type %T", r))
-	}
-}
-
-func (r *reconfigurableClient) EchoMultiple(ctx context.Context) error {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	switch v := r.actual.(type) {
-	case echopb.TestEchoServiceClient:
-		echoClient, err := v.EchoMultiple(ctx, &echopb.EchoMultipleRequest{Name: r.name.Name})
-		if err != nil {
-			return err
-		}
-		if _, err := echoClient.Recv(); err != nil {
-			if errors.Is(err, io.EOF) {
-				return nil
-			}
-			return err
-		}
-		return nil
-	case *dummyEcho:
-		return v.EchoMultiple(ctx)
-	default:
-		panic(errors.Errorf("bad type %T", r))
-	}
+func (c *dummyClient) IsMoving(context.Context) (bool, error) {
+	return false, nil
 }
 
 type dummyEcho struct {
+	resource.Named
+	resource.AlwaysRebuild
+	resource.TriviallyCloseable
 	mu     sync.Mutex
 	stopCh chan struct{}
 }
@@ -949,24 +963,54 @@ func (e *dummyEcho) Stop(ctx context.Context, extra map[string]interface{}) erro
 	return nil
 }
 
+func (e *dummyEcho) IsMoving(context.Context) (bool, error) {
+	return false, nil
+}
+
 type echoServer struct {
 	echopb.UnimplementedTestEchoServiceServer
-	s subtype.Service
+	coll resource.SubtypeCollection[resource.Resource]
 }
 
 func (srv *echoServer) EchoMultiple(
 	req *echopb.EchoMultipleRequest,
 	server echopb.TestEchoService_EchoMultipleServer,
 ) error {
-	if err := srv.s.Resource(req.Name).(*reconfigurableClient).EchoMultiple(server.Context()); err != nil {
+	res, err := srv.coll.Resource(req.Name)
+	if err != nil {
 		return err
 	}
-	return nil
+
+	switch actual := res.(type) {
+	case *dummyEcho:
+		return actual.EchoMultiple(server.Context())
+	case *dummyClient:
+		echoClient, err := actual.client.EchoMultiple(server.Context(), &echopb.EchoMultipleRequest{Name: actual.name})
+		if err != nil {
+			return err
+		}
+		if _, err := echoClient.Recv(); err != nil {
+			if errors.Is(err, io.EOF) {
+				return nil
+			}
+			return err
+		}
+		return nil
+	default:
+		// force an error
+		return actual.(*dummyEcho).EchoMultiple(server.Context())
+	}
 }
 
 func (srv *echoServer) Stop(ctx context.Context, req *echopb.StopRequest) (*echopb.StopResponse, error) {
-	if err := resource.StopResource(ctx, srv.s.Resource(req.Name), nil); err != nil {
+	res, err := srv.coll.Resource(req.Name)
+	if err != nil {
 		return nil, err
+	}
+	if actuator, ok := res.(resource.Actuator); ok {
+		if err := actuator.Stop(ctx, nil); err != nil {
+			return nil, err
+		}
 	}
 	return &echopb.StopResponse{}, nil
 }

@@ -7,10 +7,10 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
-	viamutils "go.viam.com/utils"
 
-	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/vision"
+	"go.viam.com/rdk/utils"
 	objdet "go.viam.com/rdk/vision/objectdetection"
 )
 
@@ -38,7 +38,7 @@ func TestCloseService(t *testing.T) {
 	cfg := vision.VisModelConfig{
 		Name: "test",
 		Type: "color_detector",
-		Parameters: config.AttributeMap{
+		Parameters: utils.AttributeMap{
 			"detect_color":      "#112233",
 			"hue_tolerance_pct": 0.4,
 			"value_cutoff_pct":  0.2,
@@ -56,7 +56,7 @@ func TestCloseService(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	err = vService.modReg.RegisterVisModel("fake", &registeredFn, logger)
 	test.That(t, err, test.ShouldBeNil)
-	err = viamutils.TryClose(ctx, srv)
+	err = srv.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fakeStruct.val, test.ShouldEqual, 1)
 
@@ -81,7 +81,9 @@ func (s *fakeClosingStruct) Close() error {
 func makeService(ctx context.Context, t *testing.T) vision.Service {
 	t.Helper()
 	logger := golog.NewTestLogger(t)
-	srv, err := NewBuiltIn(ctx, nil, config.Service{}, logger)
+	srv, err := NewBuiltIn(ctx, nil, resource.Config{
+		ConvertedAttributes: &vision.Config{},
+	}, logger)
 	test.That(t, err, test.ShouldBeNil)
 	return srv
 }

@@ -10,11 +10,11 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/utils"
 )
 
 type streamTest struct{}
@@ -40,7 +40,7 @@ func TestComposed(t *testing.T) {
 		return camera.Properties{}, nil
 	}
 	// get intrinsic parameters, and make config
-	am := config.AttributeMap{
+	am := utils.AttributeMap{
 		"intrinsic_parameters": &transform.PinholeCameraIntrinsics{
 			Width:  1280,
 			Height: 720,
@@ -76,11 +76,11 @@ func TestComposed(t *testing.T) {
 	test.That(t, pic.Bounds(), test.ShouldResemble, image.Rect(0, 0, 1280, 720))
 
 	// wrong result with bad config
-	_, _, err = newOverlayTransform(context.Background(), cloudSource, camera.ColorStream, config.AttributeMap{})
+	_, _, err = newOverlayTransform(context.Background(), cloudSource, camera.ColorStream, utils.AttributeMap{})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldWrap, transform.ErrNoIntrinsics)
 	// wrong config, still no intrinsics
-	am = config.AttributeMap{
+	am = utils.AttributeMap{
 		"intrinsic_parameters": &transform.PinholeCameraIntrinsics{
 			Width:  1280,
 			Height: 720,

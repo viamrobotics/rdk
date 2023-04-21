@@ -11,9 +11,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/generic"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/module"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 )
 
@@ -32,7 +30,10 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 	if err != nil {
 		return err
 	}
-	registry.RegisterComponent(generic.Subtype, myModel, registry.Component{Constructor: newHelper})
+	resource.RegisterComponent(
+		generic.Subtype,
+		myModel,
+		resource.Registration[resource.Resource, resource.NoNativeConfig]{Constructor: newHelper})
 	err = myMod.AddModelFromRegistry(ctx, generic.Subtype, myModel)
 	if err != nil {
 		return err
@@ -46,20 +47,23 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 	return nil
 }
 
-func newHelper(ctx context.Context, deps registry.Dependencies, cfg config.Component, logger golog.Logger) (interface{}, error) {
+func newHelper(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (resource.Resource, error) {
 	return &helper{
+		Named:  conf.ResourceName().AsNamed(),
 		logger: logger,
 	}, nil
 }
 
 type helper struct {
-	generic.Generic
+	resource.Named
+	resource.TriviallyReconfigurable
+	resource.TriviallyCloseable
 	logger golog.Logger
 }
 
 // DoCommand is the only method of this component. It looks up the "real" command from the map it's passed.
 //
-//nolint:unparam
+
 func (h *helper) DoCommand(ctx context.Context, req map[string]interface{}) (map[string]interface{}, error) {
 	cmd, ok := req["command"]
 	if !ok {

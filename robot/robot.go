@@ -13,7 +13,6 @@ import (
 	"go.viam.com/utils/pexec"
 
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/grpc"
 	modif "go.viam.com/rdk/module/modmaninterface"
 	"go.viam.com/rdk/operation"
@@ -24,32 +23,21 @@ import (
 	"go.viam.com/rdk/robot/packages"
 	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/session"
-	"go.viam.com/rdk/utils"
 )
-
-// NewUnimplementedLocalInterfaceError is used when there is a failed interface check.
-func NewUnimplementedLocalInterfaceError(actual interface{}) error {
-	return utils.NewUnimplementedInterfaceError((*LocalRobot)(nil), actual)
-}
-
-// NewUnimplementedInterfaceError generic is used when there is a failed interface check.
-func NewUnimplementedInterfaceError[T any](actual interface{}) error {
-	return utils.NewUnimplementedInterfaceError((*T)(nil), actual)
-}
 
 // A Robot encompasses all functionality of some robot comprised
 // of parts, local and remote.
 type Robot interface {
 	// DiscoverComponents returns discovered component configurations.
-	DiscoverComponents(ctx context.Context, qs []discovery.Query) ([]discovery.Discovery, error)
+	DiscoverComponents(ctx context.Context, qs []resource.DiscoveryQuery) ([]resource.Discovery, error)
 
 	// RemoteByName returns a remote robot by name.
 	RemoteByName(name string) (Robot, bool)
 
 	// ResourceByName returns a resource by name
-	ResourceByName(name resource.Name) (interface{}, error)
+	ResourceByName(name resource.Name) (resource.Resource, error)
 
-	// RemoteNames returns the name of all known remote robots.
+	// RemoteNames returns the names of all known remote robots.
 	RemoteNames() []string
 
 	// ResourceNames returns a list of all known resource names.
@@ -99,12 +87,6 @@ type Robot interface {
 	StopAll(ctx context.Context, extra map[resource.Name]map[string]interface{}) error
 }
 
-// A Refresher can refresh the contents of a robot.
-type Refresher interface {
-	// Refresh instructs the Robot to manually refresh the contents of itself.
-	Refresh(ctx context.Context) error
-}
-
 // A LocalRobot is a Robot that can have its parts modified.
 type LocalRobot interface {
 	Robot
@@ -121,7 +103,7 @@ type LocalRobot interface {
 	StartWeb(ctx context.Context, o weboptions.Options) error
 
 	// StopWeb stops the web server, will be a noop if server is not up.
-	StopWeb() error
+	StopWeb(ctx context.Context) error
 
 	// WebAddress returns the address of the web service.
 	WebAddress() (string, error)
@@ -150,8 +132,8 @@ type Status struct {
 }
 
 // AllResourcesByName returns an array of all resources that have this simple name.
-func AllResourcesByName(r Robot, name string) []interface{} {
-	all := []interface{}{}
+func AllResourcesByName(r Robot, name string) []resource.Resource {
+	all := []resource.Resource{}
 
 	for _, n := range r.ResourceNames() {
 		if n.ShortName() == name {
@@ -232,7 +214,7 @@ func ResourceFromProtoMessage(
 }
 
 // ResourceFromRobot returns a resource from a robot.
-func ResourceFromRobot[T any](robot Robot, name resource.Name) (T, error) {
+func ResourceFromRobot[T resource.Resource](robot Robot, name resource.Name) (T, error) {
 	var zero T
 	res, err := robot.ResourceByName(name)
 	if err != nil {
@@ -242,7 +224,7 @@ func ResourceFromRobot[T any](robot Robot, name resource.Name) (T, error) {
 	part, ok := res.(T)
 
 	if !ok {
-		return zero, NewUnimplementedInterfaceError[T](res)
+		return zero, resource.TypeError[T](res)
 	}
 	return part, nil
 }

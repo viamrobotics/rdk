@@ -9,50 +9,52 @@ import (
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/input"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 )
 
 var modelname = resource.NewDefaultModel("mux")
 
 func init() {
-	registry.RegisterComponent(input.Subtype, modelname, registry.Component{Constructor: NewController})
-
-	config.RegisterComponentAttributeMapConverter(
-		input.Subtype,
-		modelname,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf Config
-			return config.TransformAttributeMapToStruct(&conf, attributes)
-		},
-		&Config{})
+	resource.RegisterComponent(input.Subtype, modelname, resource.Registration[input.Controller, *Config]{
+		Constructor: NewController,
+	})
 }
 
 // Config is used for converting config attributes.
 type Config struct {
+	resource.TriviallyValidateConfig
 	Sources []string `json:"sources"`
 }
 
 // NewController returns a new multiplexed input.Controller.
-func NewController(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-	var m mux
-	m.callbacks = make(map[input.Control]map[input.EventType]input.ControlFunction)
-	ctxWithCancel, cancel := context.WithCancel(ctx)
-	m.cancelFunc = cancel
-	m.ctxWithCancel = ctxWithCancel
+func NewController(
+	ctx context.Context,
+	deps resource.Dependencies,
+	conf resource.Config,
+	logger golog.Logger,
+) (input.Controller, error) {
+	newConf, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return nil, err
+	}
 
-	for _, s := range config.ConvertedAttributes.(*Config).Sources {
+	ctxWithCancel, cancel := context.WithCancel(ctx)
+	m := mux{
+		Named:         conf.ResourceName().AsNamed(),
+		callbacks:     map[input.Control]map[input.EventType]input.ControlFunction{},
+		cancelFunc:    cancel,
+		ctxWithCancel: ctxWithCancel,
+		eventsChan:    make(chan input.Event, 1024),
+	}
+
+	for _, s := range newConf.Sources {
 		c, err := input.FromDependencies(deps, s)
 		if err != nil {
 			return nil, err
 		}
 		m.sources = append(m.sources, c)
 	}
-
-	m.eventsChan = make(chan input.Event, 1024)
 
 	m.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
@@ -72,6 +74,9 @@ func NewController(ctx context.Context, deps registry.Dependencies, config confi
 
 // mux is an input.Controller.
 type mux struct {
+	resource.Named
+	resource.AlwaysRebuild
+
 	sources                 []input.Controller
 	mu                      sync.RWMutex
 	activeBackgroundWorkers sync.WaitGroup
@@ -79,7 +84,6 @@ type mux struct {
 	cancelFunc              func()
 	callbacks               map[input.Control]map[input.EventType]input.ControlFunction
 	eventsChan              chan input.Event
-	generic.Unimplemented
 }
 
 func (m *mux) makeCallbacks(eventOut input.Event) {
@@ -114,9 +118,10 @@ func (m *mux) makeCallbacks(eventOut input.Event) {
 }
 
 // Close terminates background worker threads.
-func (m *mux) Close() {
+func (m *mux) Close(ctx context.Context) error {
 	m.cancelFunc()
 	m.activeBackgroundWorkers.Wait()
+	return nil
 }
 
 // Controls lists the unique input.Controls for the combined sources.

@@ -34,6 +34,7 @@ import Board from './board.vue';
 import CamerasList from './camera/cameras-list.vue';
 import OperationsSessions from './operations-sessions.vue';
 import DoCommand from './do-command.vue';
+import Encoder from './encoder.vue';
 import Gantry from './gantry.vue';
 import Gripper from './gripper.vue';
 import Gamepad from './gamepad.vue';
@@ -182,7 +183,7 @@ const querySensors = () => {
   props.client.sensorsService.getSensors(
     req,
     new grpc.Metadata(),
-    (err: ServiceError, resp: sensorsApi.GetSensorsResponse) => {
+    (err: ServiceError | null, resp: sensorsApi.GetSensorsResponse | null) => {
       if (err) {
         return displayError(err);
       }
@@ -269,8 +270,8 @@ const restartStatusStream = () => {
       updateStatus((response).getStatusList());
       lastStatusTS = Date.now();
     });
-    statusStream.on('status', (newStatus: { details: unknown }) => {
-      if (!ConnectionClosedError.isError(newStatus.details)) {
+    statusStream.on('status', (newStatus?: { details: unknown }) => {
+      if (!ConnectionClosedError.isError(newStatus!.details)) {
         console.error('error streaming robot status', newStatus);
       }
       statusStream = null;
@@ -291,7 +292,7 @@ const queryMetadata = () => {
     props.client.robotService.resourceNames(
       new robotApi.ResourceNamesRequest(),
       new grpc.Metadata(),
-      (err: ServiceError, resp: robotApi.ResourceNamesResponse) => {
+      (err: ServiceError | null, resp: robotApi.ResourceNamesResponse | null) => {
         if (err) {
           reject(err);
           return;
@@ -309,7 +310,7 @@ const queryMetadata = () => {
             resourceNameToString(name))
         );
         const resourceSet: Set<string> = new Set(
-          resourcesList.map((name: string) => resourceNameToString(name))
+          resourcesList.map((name: commonApi.ResourceName.AsObject) => resourceNameToString(name))
         );
 
         for (const elem of resourceSet) {
@@ -359,7 +360,7 @@ const fetchCurrentOps = () => {
     props.client.robotService.getOperations(
       req,
       new grpc.Metadata(),
-      (err: ServiceError, resp: robotApi.GetOperationsResponse) => {
+      (err: ServiceError | null, resp: robotApi.GetOperationsResponse | null) => {
         if (err) {
           reject(err);
           return;
@@ -412,7 +413,7 @@ const fetchCurrentSessions = () => {
     props.client.robotService.getSessions(
       req,
       new grpc.Metadata(),
-      (err: ServiceError, resp: robotApi.GetSessionsResponse) => {
+      (err: ServiceError | null, resp: robotApi.GetSessionsResponse | null) => {
         if (err) {
           if (err.code === grpc.Code.Unimplemented) {
             sessionsSupported = false;
@@ -734,6 +735,14 @@ onUnmounted(() => {
       :client="client"
       :resources="resources"
       :stream-manager="streamManager"
+    />
+
+    <!-- ******* ENCODER *******  -->
+    <Encoder
+      v-for="encoder in filterResources(resources, 'rdk', 'component', 'encoder')"
+      :key="encoder.name"
+      :name="encoder.name"
+      :client="client"
     />
 
     <!-- ******* GANTRY *******  -->

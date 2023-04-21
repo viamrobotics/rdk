@@ -6,7 +6,6 @@ import (
 	"image"
 	"sync"
 
-	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pkg/errors"
@@ -14,37 +13,22 @@ import (
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/camera/v1"
 	viamutils "go.viam.com/utils"
-	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/components/generic"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/pointcloud"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/depthadapter"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/subtype"
-	"go.viam.com/rdk/utils"
 )
 
 func init() {
-	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
-		Reconfigurable: WrapWithReconfigurable,
-		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
-			return rpcServer.RegisterServiceServer(
-				ctx,
-				&pb.CameraService_ServiceDesc,
-				NewServer(subtypeSvc),
-				pb.RegisterCameraServiceHandlerFromEndpoint,
-			)
-		},
-		RPCServiceDesc: &pb.CameraService_ServiceDesc,
-		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
-			return NewClientFromConn(ctx, conn, name, logger)
-		},
+	resource.RegisterSubtype(Subtype, resource.SubtypeRegistration[Camera]{
+		RPCServiceServerConstructor: NewRPCServiceServer,
+		RPCServiceHandler:           pb.RegisterCameraServiceHandlerFromEndpoint,
+		RPCServiceDesc:              &pb.CameraService_ServiceDesc,
+		RPCClient:                   NewClientFromConn,
 	})
 
 	data.RegisterCollector(data.MethodMetadata{
@@ -82,9 +66,14 @@ type Properties struct {
 	DistortionParams transform.Distorter
 }
 
-// A Camera represents anything that can capture frames.
+// A Camera is a resource that can capture frames.
 type Camera interface {
-	generic.Generic
+	resource.Resource
+	VideoSource
+}
+
+// A VideoSource represents anything that can capture frames.
+type VideoSource interface {
 	projectorProvider
 
 	// Stream returns a stream that makes a best effort to return consecutive images
@@ -114,22 +103,39 @@ type PointCloudSource interface {
 	NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error)
 }
 
-// NewFromReader creates a Camera either with or without a projector. The stream type
+// FromVideoSource creates a Camera resource from a VideoSource.
+// Note: this strips away Reconfiguration and DoCommand abilities.
+// If needed, implement the Camera another way. For example, a webcam
+// implements a Camera manually so that it can atomically reconfigure itself.
+func FromVideoSource(name resource.Name, src VideoSource) Camera {
+	return &sourceBasedCamera{
+		Named:       name.AsNamed(),
+		VideoSource: src,
+	}
+}
+
+type sourceBasedCamera struct {
+	resource.Named
+	resource.AlwaysRebuild
+	VideoSource
+}
+
+// NewVideoSourceFromReader creates a VideoSource either with or without a projector. The stream type
 // argument is for detecting whether or not the resulting camera supports return
 // of pointcloud data in the absence of an implemented NextPointCloud function.
 // If this is unknown or not applicable, a value of camera.Unspecified stream can be supplied.
-func NewFromReader(
+func NewVideoSourceFromReader(
 	ctx context.Context,
 	reader gostream.VideoReader,
 	syst *transform.PinholeCameraModel, imageType ImageType,
-) (Camera, error) {
+) (VideoSource, error) {
 	if reader == nil {
 		return nil, errors.New("cannot have a nil reader")
 	}
 	vs := gostream.NewVideoSource(reader, prop.Video{})
 	actualSystem := syst
 	if actualSystem == nil {
-		srcCam, ok := reader.(Camera)
+		srcCam, ok := reader.(VideoSource)
 		if ok {
 			props, err := srcCam.Properties(ctx)
 			if err != nil {
@@ -175,15 +181,15 @@ func NewPropertiesError(cameraIdentifier string) error {
 	return errors.Errorf("failed to get properties from %s", cameraIdentifier)
 }
 
-// NewFromSource creates a Camera either with or without a projector. The stream type
+// WrapVideoSourceWithProjector creates a Camera either with or without a projector. The stream type
 // argument is for detecting whether or not the resulting camera supports return
 // of pointcloud data in the absence of an implemented NextPointCloud function.
 // If this is unknown or not applicable, a value of camera.Unspecified stream can be supplied.
-func NewFromSource(
+func WrapVideoSourceWithProjector(
 	ctx context.Context,
 	source gostream.VideoSource,
 	syst *transform.PinholeCameraModel, imageType ImageType,
-) (Camera, error) {
+) (VideoSource, error) {
 	if source == nil {
 		return nil, errors.New("cannot have a nil source")
 	}
@@ -224,14 +230,6 @@ type videoSource struct {
 	imageType    ImageType
 }
 
-// SourceFromCamera returns a gostream.VideoSource from a camera.Camera if possible, else nil.
-func SourceFromCamera(cam Camera) (gostream.VideoSource, error) {
-	if asSrc, ok := cam.(*videoSource); ok {
-		return asSrc.videoSource, nil
-	}
-	return nil, errors.Errorf("invalid conversion from %T to %v", cam, "*camera.videoSource")
-}
-
 func (vs *videoSource) Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
 	return vs.videoSource.Stream(ctx, errHandlers...)
 }
@@ -266,10 +264,10 @@ func (vs *videoSource) Projector(ctx context.Context) (transform.Projector, erro
 }
 
 func (vs *videoSource) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	if doer, ok := vs.videoSource.(generic.Generic); ok {
-		return doer.DoCommand(ctx, cmd)
+	if res, ok := vs.videoSource.(resource.Resource); ok {
+		return res.DoCommand(ctx, cmd)
 	}
-	return nil, generic.ErrUnimplemented
+	return nil, resource.ErrDoUnimplemented
 }
 
 func (vs *videoSource) Properties(ctx context.Context) (Properties, error) {
@@ -297,64 +295,10 @@ func (vs *videoSource) Close(ctx context.Context) error {
 	return multierr.Combine(vs.videoStream.Close(ctx), vs.videoSource.Close(ctx))
 }
 
-// NewUnimplementedInterfaceError is used when there is a failed interface check.
-func NewUnimplementedInterfaceError(actual interface{}) error {
-	return utils.NewUnimplementedInterfaceError((*Camera)(nil), actual)
-}
-
-// WrapWithReconfigurable wraps a camera with a reconfigurable and locking interface.
-func WrapWithReconfigurable(r interface{}, name resource.Name) (resource.Reconfigurable, error) {
-	c, ok := r.(Camera)
-	if !ok {
-		return nil, NewUnimplementedInterfaceError(r)
-	}
-	if reconfigurable, ok := c.(*reconfigurableCamera); ok {
-		return reconfigurable, nil
-	}
-	reconfigurable := newReconfigurable(c, name)
-
-	if mon, ok := c.(LivenessMonitor); ok {
-		mon.Monitor(func() {
-			reconfigurable.mu.Lock()
-			defer reconfigurable.mu.Unlock()
-			reconfigurable.reconfigureKnownCamera(newReconfigurable(c, name))
-		})
-	}
-
-	return reconfigurable, nil
-}
-
-func newReconfigurable(c Camera, name resource.Name) *reconfigurableCamera {
-	cancelCtx, cancel := context.WithCancel(context.Background())
-	return &reconfigurableCamera{
-		name:      name,
-		actual:    c,
-		cancelCtx: cancelCtx,
-		cancel:    cancel,
-	}
-}
-
-// A LivenessMonitor is responsible for monitoring the liveness of a camera. An example
-// is connectivity. Since the model itself knows best about how to maintain this state,
-// the reconfigurable offers a safe way to notify if a state needs to be reset due
-// to some exceptional event (like a reconnect).
-// It is expected that the monitoring code is tied to the lifetime of the resource
-// and once the resource is closed, so should the monitor. That is, it should
-// no longer send any resets once a Close on its associated resource has returned.
-type LivenessMonitor interface {
-	Monitor(notifyReset func())
-}
-
-var (
-	_ = Camera(&reconfigurableCamera{})
-	_ = resource.Reconfigurable(&reconfigurableCamera{})
-	_ = viamutils.ContextCloser(&reconfigurableCamera{})
-)
-
 // FromDependencies is a helper for getting the named camera from a collection of
 // dependencies.
-func FromDependencies(deps registry.Dependencies, name string) (Camera, error) {
-	return registry.ResourceFromDependencies[Camera](deps, Named(name))
+func FromDependencies(deps resource.Dependencies, name string) (Camera, error) {
+	return resource.FromDependencies[Camera](deps, Named(name))
 }
 
 // FromRobot is a helper for getting the named Camera from the given Robot.
@@ -367,152 +311,9 @@ func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesBySubtype(r, Subtype)
 }
 
-type reconfigurableCamera struct {
-	mu        sync.RWMutex
-	name      resource.Name
-	actual    Camera
-	cancelCtx context.Context
-	cancel    func()
-}
-
-func (c *reconfigurableCamera) Name() resource.Name {
-	return c.name
-}
-
-func (c *reconfigurableCamera) ProxyFor() interface{} {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.actual
-}
-
-func (c *reconfigurableCamera) Stream(
-	ctx context.Context,
-	errHandlers ...gostream.ErrorHandler,
-) (gostream.VideoStream, error) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
-	stream := &reconfigurableCameraStream{
-		c:           c,
-		errHandlers: errHandlers,
-		cancelCtx:   c.cancelCtx,
-	}
-	stream.mu.Lock()
-	defer stream.mu.Unlock()
-	if err := stream.init(ctx); err != nil {
-		return nil, err
-	}
-
-	return stream, nil
-}
-
-type reconfigurableCameraStream struct {
-	mu          sync.Mutex
-	c           *reconfigurableCamera
-	errHandlers []gostream.ErrorHandler
-	stream      gostream.VideoStream
-	cancelCtx   context.Context
-}
-
-func (cs *reconfigurableCameraStream) init(ctx context.Context) error {
-	var err error
-	cs.stream, err = cs.c.actual.Stream(ctx, cs.errHandlers...)
-	return err
-}
-
-func (cs *reconfigurableCameraStream) Next(ctx context.Context) (image.Image, func(), error) {
-	cs.mu.Lock()
-	defer cs.mu.Unlock()
-
-	if cs.stream == nil || cs.cancelCtx.Err() != nil {
-		if err := func() error {
-			cs.c.mu.Lock()
-			defer cs.c.mu.Unlock()
-			return cs.init(ctx)
-		}(); err != nil {
-			return nil, nil, err
-		}
-	}
-	return cs.stream.Next(ctx)
-}
-
-func (cs *reconfigurableCameraStream) Close(ctx context.Context) error {
-	cs.mu.Lock()
-	defer cs.mu.Unlock()
-
-	if cs.stream == nil {
-		return nil
-	}
-	return cs.stream.Close(ctx)
-}
-
-func (c *reconfigurableCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.actual.NextPointCloud(ctx)
-}
-
-func (c *reconfigurableCamera) Projector(ctx context.Context) (transform.Projector, error) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.actual.Projector(ctx)
-}
-
-func (c *reconfigurableCamera) Properties(ctx context.Context) (Properties, error) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.actual.Properties(ctx)
-}
-
-func (c *reconfigurableCamera) Close(ctx context.Context) error {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.actual.Close(ctx)
-}
-
-func (c *reconfigurableCamera) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.actual.DoCommand(ctx, cmd)
-}
-
-// Reconfigure reconfigures the resource.
-func (c *reconfigurableCamera) Reconfigure(ctx context.Context, newCamera resource.Reconfigurable) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	actual, ok := newCamera.(*reconfigurableCamera)
-	if !ok {
-		return utils.NewUnexpectedTypeError(c, newCamera)
-	}
-	if err := viamutils.TryClose(ctx, c.actual); err != nil {
-		golog.Global().Errorw("error closing old", "error", err)
-	}
-	c.reconfigureKnownCamera(actual)
-	return nil
-}
-
-// assumes lock is held.
-func (c *reconfigurableCamera) reconfigureKnownCamera(newCamera *reconfigurableCamera) {
-	c.cancel()
-	// reset
-	c.actual = newCamera.actual
-	c.cancelCtx = newCamera.cancelCtx
-	c.cancel = newCamera.cancel
-}
-
-// UpdateAction helps hint the reconfiguration process on what strategy to use given a modified config.
-// See config.ShouldUpdateAction for more information.
-func (c *reconfigurableCamera) UpdateAction(conf *config.Component) config.UpdateActionType {
-	obj, canUpdate := c.actual.(config.ComponentUpdate)
-	if canUpdate {
-		return obj.UpdateAction(conf)
-	}
-	return config.Reconfigure
-}
-
 // SimultaneousColorDepthNext will call Next on both the color and depth camera as simultaneously as possible.
 func SimultaneousColorDepthNext(ctx context.Context, color, depth gostream.VideoStream) (image.Image, *rimage.DepthMap) {
-	wg := sync.WaitGroup{}
+	var wg sync.WaitGroup
 	var col image.Image
 	var dm *rimage.DepthMap
 	// do a parallel request for the color and depth image

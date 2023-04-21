@@ -23,7 +23,6 @@ import (
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/movementsensor"
-	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
@@ -82,10 +81,10 @@ func TestServer(t *testing.T) {
 		injectRobot.ResourceNamesFunc = func() []resource.Name { return []resource.Name{} }
 		server := server.New(injectRobot)
 
-		q := discovery.Query{arm.Named("arm").Subtype, resource.NewDefaultModel("some-arm")}
-		disc := discovery.Discovery{Query: q, Results: struct{}{}}
-		discoveries := []discovery.Discovery{disc}
-		injectRobot.DiscoverComponentsFunc = func(ctx context.Context, keys []discovery.Query) ([]discovery.Discovery, error) {
+		q := resource.DiscoveryQuery{arm.Named("arm").Subtype, resource.NewDefaultModel("some-arm")}
+		disc := resource.Discovery{Query: q, Results: struct{}{}}
+		discoveries := []resource.Discovery{disc}
+		injectRobot.DiscoverComponentsFunc = func(ctx context.Context, keys []resource.DiscoveryQuery) ([]resource.Discovery, error) {
 			return discoveries, nil
 		}
 

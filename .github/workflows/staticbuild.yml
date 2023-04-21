@@ -1,0 +1,143 @@
+name: Build Semi-Static Binary
+
+on:
+  workflow_dispatch:
+  workflow_call:
+    secrets:
+      GCP_CREDENTIALS:
+        required: true
+
+jobs:
+  static:
+    name: Antique Build
+    strategy:
+      matrix:
+        include:
+          - arch: [x64, qemu-host]
+            image: ghcr.io/viamrobotics/antique:amd64-cache
+            platform: linux/amd64
+          - arch: [arm64, qemu-host]
+            image: ghcr.io/viamrobotics/antique:arm64-cache
+            platform: linux/arm64
+    runs-on: ${{ matrix.arch }}
+    container:
+      image: ${{ matrix.image }}
+      options: --platform ${{ matrix.platform }}
+    timeout-minutes: 15
+    outputs:
+      date: ${{ steps.build_test_binary.outputs.date }}
+
+    steps:
+    - name: Check out main branch code
+      if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 2
+
+    - name: Check out PR branch code
+      if: github.event_name == 'pull_request_target'
+      uses: actions/checkout@v3
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
+        fetch-depth: 2
+
+    - name: Clean and Fix Permissions
+      run: |
+        chown -R testbot:testbot .
+        sudo -Hu testbot bash -lc 'make clean-all'
+
+    - name: Authorize GCP Upload
+      uses: google-github-actions/auth@v1
+      with:
+        credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
+
+    - name: Build (PR)
+      if: contains(github.event.pull_request.labels.*.name, 'static-build') || contains(github.event.pull_request.labels.*.name, 'static-ignore-tests')
+      run: |
+        sudo -Hu testbot bash -lc 'make BUILD_CHANNEL="pr-${{ github.event.pull_request.number }}" static-release'
+
+    - name: Upload Files (PR)
+      if: contains(github.event.pull_request.labels.*.name, 'static-build') || contains(github.event.pull_request.labels.*.name, 'static-ignore-tests')
+      uses: google-github-actions/upload-cloud-storage@v0.10.4
+      with:
+        headers: "cache-control: no-cache"
+        path: 'etc/packaging/static/deploy/'
+        destination: 'packages.viam.com/apps/viam-server/'
+        glob: 'viam-server-*'
+        parent: false
+        gzip: false
+
+    - name: Build (Latest)
+      id: build_test_binary
+      if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+      run: |
+        echo "date=`date +%F`" >> $GITHUB_OUTPUT
+        sudo -Hu testbot bash -lc 'make BUILD_CHANNEL="latest" static-release'
+
+    - name: Upload Files (Testing)
+      if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+      uses: google-github-actions/upload-cloud-storage@v0.10.4
+      with:
+        headers: "cache-control: no-cache"
+        path: 'etc/packaging/static/deploy/'
+        destination: 'packages.viam.com/apps/viam-server/testing/static/${{ steps.build_test_binary.outputs.date }}/${{ github.sha }}/'
+        glob: 'viam-server-*'
+        parent: false
+        gzip: false
+
+  static_test:
+    name: Static Test
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+    strategy:
+      matrix:
+        arch: [[x64, qemu-host], [arm64, qemu-host]]
+    needs: static
+    runs-on: ${{ matrix.arch }}
+    timeout-minutes: 15
+    outputs:
+      date: ${{ needs.static.outputs.date }}
+
+    steps:
+    - name: Clean Workspace
+      run: |
+        shopt -s dotglob
+        sudo chown -R `whoami` ./
+        rm -rf ./*
+
+    - name: Test Static Binary
+      run: |
+        export TEST_DIR=`mktemp -d -t test-viam-server-XXXXXX`
+        cd $TEST_DIR
+
+        curl -o viam-server http://packages.viam.com/apps/viam-server/testing/static/${{ needs.static.outputs.date }}/${{ github.sha }}/viam-server-latest-`uname -m`
+        chmod 755 viam-server
+
+        export RAND_PORT=$((30000 + $RANDOM))
+        echo "{\"network\": {\"bind_address\":\"localhost:${RAND_PORT}\"}}" > test.json
+
+        ./viam-server -config test.json &
+        curl --retry 5 --retry-delay 5 --retry-connrefused localhost:$RAND_PORT
+        export RET1=$?
+        kill %%
+        wait $!
+        export RET2=$?
+        cd - && rm -rf $TEST_DIR
+        [ $RET1 == 0 ] && [ $RET1 == 0 ]
+
+  static_deploy:
+    name: Static Deploy
+    needs: static_test
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Authorize GCP
+      uses: google-github-actions/auth@v1
+      with:
+        credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
+
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v1
+
+    - name: Publish Static Binary
+      run: |
+        gsutil mv "gs://packages.viam.com/apps/viam-server/testing/static/${{ needs.static_test.outputs.date }}/${{ github.sha }}/*" "gs://packages.viam.com/apps/viam-server/"

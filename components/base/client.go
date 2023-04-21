@@ -12,25 +12,28 @@ import (
 	"go.viam.com/utils/rpc"
 
 	rprotoutils "go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/resource"
 )
 
 // client implements BaseServiceClient.
 type client struct {
+	resource.Named
+	resource.TriviallyReconfigurable
+	resource.TriviallyCloseable
 	name   string
-	conn   rpc.ClientConn
 	client pb.BaseServiceClient
 	logger golog.Logger
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
-func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Base {
+func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (Base, error) {
 	c := pb.NewBaseServiceClient(conn)
 	return &client{
-		name:   name,
-		conn:   conn,
+		Named:  name.AsNamed(),
+		name:   name.ShortNameForClient(),
 		client: c,
 		logger: logger,
-	}
+	}, nil
 }
 
 func (c *client) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error {

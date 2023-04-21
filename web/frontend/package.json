@@ -1,6 +1,6 @@
 {
   "name": "@viamrobotics/remote-control",
-  "version": "0.2.16",
+  "version": "0.2.17",
   "license": "Apache-2.0",
   "type": "module",
   "files": [
@@ -18,7 +18,7 @@
     "@improbable-eng/grpc-web": "^0.13.0",
     "@viamrobotics/prime": "^0.1.10",
     "@viamrobotics/rpc": "^0.1.34",
-    "@viamrobotics/sdk": "^0.0.41",
+    "@viamrobotics/sdk": "^0.0.44",
     "@vueuse/core": "^9.13.0",
     "google-protobuf": "^3.21.2",
     "three": "^0.150.1",
@@ -56,6 +56,7 @@
     "copy-prime-assets": "node ./scripts/copy-prime-assets.js",
     "start": "node ./node_modules/vite/bin/vite.js --host",
     "build": "node ./node_modules/vite/bin/vite.js build && npm run copy-prime-assets",
+    "build-prod": "node ./node_modules/vite/bin/vite.js build --no-sourcemap && npm run copy-prime-assets",
     "build-npm": "node ./node_modules/vite/bin/vite.js build --config vite.lib.config.ts && vue-tsc --emitDeclarationOnly",
     "typecheck": "vue-tsc --noEmit",
     "preview": "vite preview",

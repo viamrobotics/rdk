@@ -12,7 +12,6 @@ import (
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
 )
 
@@ -20,15 +19,14 @@ var errFoo = errors.New("whoops")
 
 func newServer() (pb.BoardServiceServer, *inject.Board, error) {
 	injectBoard := &inject.Board{}
-	boards := map[resource.Name]interface{}{
+	boards := map[resource.Name]board.Board{
 		board.Named(testBoardName): injectBoard,
-		board.Named(fakeBoardName): "notBoard",
 	}
-	boardSvc, err := subtype.New(boards)
+	boardSvc, err := resource.NewSubtypeCollection(board.Subtype, boards)
 	if err != nil {
 		return nil, nil, err
 	}
-	return board.NewServer(boardSvc), injectBoard, nil
+	return board.NewRPCServiceServer(boardSvc).(pb.BoardServiceServer), injectBoard, nil
 }
 
 func TestServerStatus(t *testing.T) {
@@ -55,7 +53,7 @@ func TestServerStatus(t *testing.T) {
 		req          *request
 		expCapArgs   []interface{}
 		expResp      *response
-		expRespErr   error
+		expRespErr   string
 	}{
 		{
 			injectResult: status,
@@ -63,15 +61,7 @@ func TestServerStatus(t *testing.T) {
 			req:          &request{Name: missingBoardName},
 			expCapArgs:   []interface{}(nil),
 			expResp:      nil,
-			expRespErr:   errors.Errorf("no board with name (%s)", missingBoardName),
-		},
-		{
-			injectResult: status,
-			injectErr:    nil,
-			req:          &request{Name: fakeBoardName},
-			expCapArgs:   []interface{}(nil),
-			expResp:      nil,
-			expRespErr:   errors.Errorf("resource with name (%s) is not a board", fakeBoardName),
+			expRespErr:   "not found",
 		},
 		{
 			injectResult: status,
@@ -79,7 +69,7 @@ func TestServerStatus(t *testing.T) {
 			req:          &request{Name: testBoardName},
 			expCapArgs:   []interface{}{ctx},
 			expResp:      nil,
-			expRespErr:   errFoo,
+			expRespErr:   errFoo.Error(),
 		},
 		{
 			injectResult: status,
@@ -87,7 +77,7 @@ func TestServerStatus(t *testing.T) {
 			req:          &request{Name: testBoardName, Extra: pbExpectedExtra},
 			expCapArgs:   []interface{}{ctx},
 			expResp:      &response{Status: status},
-			expRespErr:   nil,
+			expRespErr:   "",
 		},
 	}
 
@@ -104,12 +94,13 @@ func TestServerStatus(t *testing.T) {
 			}
 
 			resp, err := server.Status(ctx, tc.req)
-			if tc.expRespErr == nil {
+			if tc.expRespErr == "" {
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, resp, test.ShouldResemble, tc.expResp)
 				test.That(t, actualExtra, test.ShouldResemble, expectedExtra)
 			} else {
-				test.That(t, err.Error(), test.ShouldEqual, tc.expRespErr.Error())
+				test.That(t, err, test.ShouldNotBeNil)
+				test.That(t, err.Error(), test.ShouldContainSubstring, tc.expRespErr)
 			}
 			test.That(t, injectBoard.StatusCap(), test.ShouldResemble, tc.expCapArgs)
 		})
@@ -128,31 +119,25 @@ func TestServerSetGPIO(t *testing.T) {
 		injectErr  error
 		req        *request
 		expCapArgs []interface{}
-		expRespErr error
+		expRespErr string
 	}{
 		{
 			injectErr:  nil,
 			req:        &request{Name: missingBoardName},
 			expCapArgs: []interface{}(nil),
-			expRespErr: errors.Errorf("no board with name (%s)", missingBoardName),
-		},
-		{
-			injectErr:  nil,
-			req:        &request{Name: fakeBoardName},
-			expCapArgs: []interface{}(nil),
-			expRespErr: errors.Errorf("resource with name (%s) is not a board", fakeBoardName),
+			expRespErr: "not found",
 		},
 		{
 			injectErr:  errFoo,
 			req:        &request{Name: testBoardName, Pin: "one", High: true},
 			expCapArgs: []interface{}{ctx, true},
-			expRespErr: errFoo,
+			expRespErr: errFoo.Error(),
 		},
 		{
 			injectErr:  nil,
 			req:        &request{Name: testBoardName, Pin: "one", High: true, Extra: pbExpectedExtra},
 			expCapArgs: []interface{}{ctx, true},
-			expRespErr: nil,
+			expRespErr: "",
 		},
 	}
 
@@ -174,11 +159,12 @@ func TestServerSetGPIO(t *testing.T) {
 			}
 
 			_, err = server.SetGPIO(ctx, tc.req)
-			if tc.expRespErr == nil {
+			if tc.expRespErr == "" {
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, actualExtra, test.ShouldResemble, expectedExtra)
 			} else {
-				test.That(t, err.Error(), test.ShouldEqual, tc.expRespErr.Error())
+				test.That(t, err, test.ShouldNotBeNil)
+				test.That(t, err.Error(), test.ShouldContainSubstring, tc.expRespErr)
 			}
 			test.That(t, injectGPIOPin.SetCap(), test.ShouldResemble, tc.expCapArgs)
 		})
@@ -200,7 +186,7 @@ func TestServerGetGPIO(t *testing.T) {
 		req          *request
 		expCapArgs   []interface{}
 		expResp      *response
-		expRespErr   error
+		expRespErr   string
 	}{
 		{
 			injectResult: false,
@@ -208,15 +194,7 @@ func TestServerGetGPIO(t *testing.T) {
 			req:          &request{Name: missingBoardName},
 			expCapArgs:   []interface{}(nil),
 			expResp:      nil,
-			expRespErr:   errors.Errorf("no board with name (%s)", missingBoardName),
-		},
-		{
-			injectResult: false,
-			injectErr:    nil,
-			req:          &request{Name: fakeBoardName},
-			expCapArgs:   []interface{}(nil),
-			expResp:      nil,
-			expRespErr:   errors.Errorf("resource with name (%s) is not a board", fakeBoardName),
+			expRespErr:   "not found",
 		},
 		{
 			injectResult: false,
@@ -224,7 +202,7 @@ func TestServerGetGPIO(t *testing.T) {
 			req:          &request{Name: testBoardName, Pin: "one"},
 			expCapArgs:   []interface{}{ctx},
 			expResp:      nil,
-			expRespErr:   errFoo,
+			expRespErr:   errFoo.Error(),
 		},
 		{
 			injectResult: true,
@@ -232,7 +210,7 @@ func TestServerGetGPIO(t *testing.T) {
 			req:          &request{Name: testBoardName, Pin: "one", Extra: pbExpectedExtra},
 			expCapArgs:   []interface{}{ctx},
 			expResp:      &response{High: true},
-			expRespErr:   nil,
+			expRespErr:   "",
 		},
 	}
 
@@ -254,12 +232,13 @@ func TestServerGetGPIO(t *testing.T) {
 			}
 
 			resp, err := server.GetGPIO(ctx, tc.req)
-			if tc.expRespErr == nil {
+			if tc.expRespErr == "" {
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, resp, test.ShouldResemble, tc.expResp)
 				test.That(t, actualExtra, test.ShouldResemble, expectedExtra)
 			} else {
-				test.That(t, err.Error(), test.ShouldEqual, tc.expRespErr.Error())
+				test.That(t, err, test.ShouldNotBeNil)
+				test.That(t, err.Error(), test.ShouldContainSubstring, tc.expRespErr)
 			}
 			test.That(t, injectGPIOPin.GetCap(), test.ShouldResemble, tc.expCapArgs)
 		})
@@ -282,7 +261,7 @@ func TestServerPWM(t *testing.T) {
 		req          *request
 		expCapArgs   []interface{}
 		expResp      *response
-		expRespErr   error
+		expRespErr   string
 	}{
 		{
 			injectResult: 0,
@@ -290,15 +269,7 @@ func TestServerPWM(t *testing.T) {
 			req:          &request{Name: missingBoardName},
 			expCapArgs:   []interface{}(nil),
 			expResp:      nil,
-			expRespErr:   errors.Errorf("no board with name (%s)", missingBoardName),
-		},
-		{
-			injectResult: 0,
-			injectErr:    nil,
-			req:          &request{Name: fakeBoardName},
-			expCapArgs:   []interface{}(nil),
-			expResp:      nil,
-			expRespErr:   errors.Errorf("resource with name (%s) is not a board", fakeBoardName),
+			expRespErr:   "not found",
 		},
 		{
 			injectResult: 0,
@@ -306,7 +277,7 @@ func TestServerPWM(t *testing.T) {
 			req:          &request{Name: testBoardName, Pin: "one"},
 			expCapArgs:   []interface{}{ctx},
 			expResp:      nil,
-			expRespErr:   errFoo,
+			expRespErr:   errFoo.Error(),
 		},
 		{
 			injectResult: 0.1,
@@ -314,7 +285,7 @@ func TestServerPWM(t *testing.T) {
 			req:          &request{Name: testBoardName, Pin: "one", Extra: pbExpectedExtra},
 			expCapArgs:   []interface{}{ctx},
 			expResp:      &response{DutyCyclePct: 0.1},
-			expRespErr:   nil,
+			expRespErr:   "",
 		},
 	}
 
@@ -335,12 +306,13 @@ func TestServerPWM(t *testing.T) {
 			}
 
 			resp, err := server.PWM(ctx, tc.req)
-			if tc.expRespErr == nil {
+			if tc.expRespErr == "" {
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, resp, test.ShouldResemble, tc.expResp)
 				test.That(t, actualExtra, test.ShouldResemble, expectedExtra)
 			} else {
-				test.That(t, err.Error(), test.ShouldEqual, tc.expRespErr.Error())
+				test.That(t, err, test.ShouldNotBeNil)
+				test.That(t, err.Error(), test.ShouldContainSubstring, tc.expRespErr)
 			}
 			test.That(t, injectGPIOPin.PWMCap(), test.ShouldResemble, tc.expCapArgs)
 		})
@@ -359,31 +331,25 @@ func TestServerSetPWM(t *testing.T) {
 		injectErr  error
 		req        *request
 		expCapArgs []interface{}
-		expRespErr error
+		expRespErr string
 	}{
 		{
 			injectErr:  nil,
 			req:        &request{Name: missingBoardName},
 			expCapArgs: []interface{}(nil),
-			expRespErr: errors.Errorf("no board with name (%s)", missingBoardName),
-		},
-		{
-			injectErr:  nil,
-			req:        &request{Name: fakeBoardName},
-			expCapArgs: []interface{}(nil),
-			expRespErr: errors.Errorf("resource with name (%s) is not a board", fakeBoardName),
+			expRespErr: "not found",
 		},
 		{
 			injectErr:  errFoo,
 			req:        &request{Name: testBoardName, Pin: "one", DutyCyclePct: 0.03},
 			expCapArgs: []interface{}{ctx, 0.03},
-			expRespErr: errFoo,
+			expRespErr: errFoo.Error(),
 		},
 		{
 			injectErr:  nil,
 			req:        &request{Name: testBoardName, Pin: "one", DutyCyclePct: 0.03, Extra: pbExpectedExtra},
 			expCapArgs: []interface{}{ctx, 0.03},
-			expRespErr: nil,
+			expRespErr: "",
 		},
 	}
 
@@ -405,11 +371,12 @@ func TestServerSetPWM(t *testing.T) {
 			}
 
 			_, err = server.SetPWM(ctx, tc.req)
-			if tc.expRespErr == nil {
+			if tc.expRespErr == "" {
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, actualExtra, test.ShouldResemble, expectedExtra)
 			} else {
-				test.That(t, err.Error(), test.ShouldEqual, tc.expRespErr.Error())
+				test.That(t, err, test.ShouldNotBeNil)
+				test.That(t, err.Error(), test.ShouldContainSubstring, tc.expRespErr)
 			}
 			test.That(t, injectGPIOPin.SetPWMCap(), test.ShouldResemble, tc.expCapArgs)
 		})
@@ -432,7 +399,7 @@ func TestServerPWMFrequency(t *testing.T) {
 		req          *request
 		expCapArgs   []interface{}
 		expResp      *response
-		expRespErr   error
+		expRespErr   string
 	}{
 		{
 			injectResult: 0,
@@ -440,15 +407,7 @@ func TestServerPWMFrequency(t *testing.T) {
 			req:          &request{Name: missingBoardName},
 			expCapArgs:   []interface{}(nil),
 			expResp:      nil,
-			expRespErr:   errors.Errorf("no board with name (%s)", missingBoardName),
-		},
-		{
-			injectResult: 0,
-			injectErr:    nil,
-			req:          &request{Name: fakeBoardName},
-			expCapArgs:   []interface{}(nil),
-			expResp:      nil,
-			expRespErr:   errors.Errorf("resource with name (%s) is not a board", fakeBoardName),
+			expRespErr:   "not found",
 		},
 		{
 			injectResult: 0,
@@ -456,7 +415,7 @@ func TestServerPWMFrequency(t *testing.T) {
 			req:          &request{Name: testBoardName, Pin: "one"},
 			expCapArgs:   []interface{}{ctx},
 			expResp:      nil,
-			expRespErr:   errFoo,
+			expRespErr:   errFoo.Error(),
 		},
 		{
 			injectResult: 1,
@@ -464,7 +423,7 @@ func TestServerPWMFrequency(t *testing.T) {
 			req:          &request{Name: testBoardName, Pin: "one", Extra: pbExpectedExtra},
 			expCapArgs:   []interface{}{ctx},
 			expResp:      &response{FrequencyHz: 1},
-			expRespErr:   nil,
+			expRespErr:   "",
 		},
 	}
 
@@ -485,12 +444,13 @@ func TestServerPWMFrequency(t *testing.T) {
 			}
 
 			resp, err := server.PWMFrequency(ctx, tc.req)
-			if tc.expRespErr == nil {
+			if tc.expRespErr == "" {
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, resp, test.ShouldResemble, tc.expResp)
 				test.That(t, actualExtra, test.ShouldResemble, expectedExtra)
 			} else {
-				test.That(t, err.Error(), test.ShouldEqual, tc.expRespErr.Error())
+				test.That(t, err, test.ShouldNotBeNil)
+				test.That(t, err.Error(), test.ShouldContainSubstring, tc.expRespErr)
 			}
 			test.That(t, injectGPIOPin.PWMFreqCap(), test.ShouldResemble, tc.expCapArgs)
 		})
@@ -509,31 +469,25 @@ func TestServerSetPWMFrequency(t *testing.T) {
 		injectErr  error
 		req        *request
 		expCapArgs []interface{}
-		expRespErr error
+		expRespErr string
 	}{
 		{
 			injectErr:  nil,
 			req:        &request{Name: missingBoardName},
 			expCapArgs: []interface{}(nil),
-			expRespErr: errors.Errorf("no board with name (%s)", missingBoardName),
-		},
-		{
-			injectErr:  nil,
-			req:        &request{Name: fakeBoardName},
-			expCapArgs: []interface{}(nil),
-			expRespErr: errors.Errorf("resource with name (%s) is not a board", fakeBoardName),
+			expRespErr: "not found",
 		},
 		{
 			injectErr:  errFoo,
 			req:        &request{Name: testBoardName, Pin: "one", FrequencyHz: 123123},
 			expCapArgs: []interface{}{ctx, uint(123123)},
-			expRespErr: errFoo,
+			expRespErr: errFoo.Error(),
 		},
 		{
 			injectErr:  nil,
 			req:        &request{Name: testBoardName, Pin: "one", FrequencyHz: 123123, Extra: pbExpectedExtra},
 			expCapArgs: []interface{}{ctx, uint(123123)},
-			expRespErr: nil,
+			expRespErr: "",
 		},
 	}
 
@@ -555,11 +509,12 @@ func TestServerSetPWMFrequency(t *testing.T) {
 			}
 
 			_, err = server.SetPWMFrequency(ctx, tc.req)
-			if tc.expRespErr == nil {
+			if tc.expRespErr == "" {
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, actualExtra, test.ShouldResemble, expectedExtra)
 			} else {
-				test.That(t, err.Error(), test.ShouldEqual, tc.expRespErr.Error())
+				test.That(t, err, test.ShouldNotBeNil)
+				test.That(t, err.Error(), test.ShouldContainSubstring, tc.expRespErr)
 			}
 			test.That(t, injectGPIOPin.SetPWMFreqCap(), test.ShouldResemble, tc.expCapArgs)
 		})
@@ -585,7 +540,7 @@ func TestServerReadAnalogReader(t *testing.T) {
 		expCapAnalogReaderArgs []interface{}
 		expCapArgs             []interface{}
 		expResp                *response
-		expRespErr             error
+		expRespErr             string
 	}{
 		{
 			injectAnalogReader:     nil,
@@ -596,18 +551,7 @@ func TestServerReadAnalogReader(t *testing.T) {
 			expCapAnalogReaderArgs: []interface{}(nil),
 			expCapArgs:             []interface{}(nil),
 			expResp:                nil,
-			expRespErr:             errors.Errorf("no board with name (%s)", missingBoardName),
-		},
-		{
-			injectAnalogReader:     nil,
-			injectAnalogReaderOk:   false,
-			injectResult:           0,
-			injectErr:              nil,
-			req:                    &request{BoardName: fakeBoardName},
-			expCapAnalogReaderArgs: []interface{}(nil),
-			expCapArgs:             []interface{}(nil),
-			expResp:                nil,
-			expRespErr:             errors.Errorf("resource with name (%s) is not a board", fakeBoardName),
+			expRespErr:             "not found",
 		},
 		{
 			injectAnalogReader:     nil,
@@ -618,7 +562,7 @@ func TestServerReadAnalogReader(t *testing.T) {
 			expCapAnalogReaderArgs: []interface{}{"analog1"},
 			expCapArgs:             []interface{}(nil),
 			expResp:                nil,
-			expRespErr:             errors.New("unknown analog reader: analog1"),
+			expRespErr:             "unknown analog reader: analog1",
 		},
 		{
 			injectAnalogReader:     &inject.AnalogReader{},
@@ -629,7 +573,7 @@ func TestServerReadAnalogReader(t *testing.T) {
 			expCapAnalogReaderArgs: []interface{}{"analog1"},
 			expCapArgs:             []interface{}{ctx},
 			expResp:                nil,
-			expRespErr:             errFoo,
+			expRespErr:             errFoo.Error(),
 		},
 		{
 			injectAnalogReader:     &inject.AnalogReader{},
@@ -640,7 +584,7 @@ func TestServerReadAnalogReader(t *testing.T) {
 			expCapAnalogReaderArgs: []interface{}{"analog1"},
 			expCapArgs:             []interface{}{ctx},
 			expResp:                &response{Value: 8},
-			expRespErr:             nil,
+			expRespErr:             "",
 		},
 	}
 
@@ -662,12 +606,13 @@ func TestServerReadAnalogReader(t *testing.T) {
 			}
 
 			resp, err := server.ReadAnalogReader(ctx, tc.req)
-			if tc.expRespErr == nil {
+			if tc.expRespErr == "" {
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, resp, test.ShouldResemble, tc.expResp)
 				test.That(t, actualExtra, test.ShouldResemble, expectedExtra)
 			} else {
-				test.That(t, err.Error(), test.ShouldEqual, tc.expRespErr.Error())
+				test.That(t, err, test.ShouldNotBeNil)
+				test.That(t, err.Error(), test.ShouldContainSubstring, tc.expRespErr)
 			}
 			test.That(t, injectBoard.AnalogReaderByNameCap(), test.ShouldResemble, tc.expCapAnalogReaderArgs)
 			test.That(t, tc.injectAnalogReader.ReadCap(), test.ShouldResemble, tc.expCapArgs)
@@ -694,7 +639,7 @@ func TestServerGetDigitalInterruptValue(t *testing.T) {
 		expCapDigitalInterruptArgs []interface{}
 		expCapArgs                 []interface{}
 		expResp                    *response
-		expRespErr                 error
+		expRespErr                 string
 	}{
 		{
 			injectDigitalInterrupt:     nil,
@@ -705,18 +650,7 @@ func TestServerGetDigitalInterruptValue(t *testing.T) {
 			expCapDigitalInterruptArgs: []interface{}(nil),
 			expCapArgs:                 []interface{}(nil),
 			expResp:                    nil,
-			expRespErr:                 errors.Errorf("no board with name (%s)", missingBoardName),
-		},
-		{
-			injectDigitalInterrupt:     nil,
-			injectDigitalInterruptOk:   false,
-			injectResult:               0,
-			injectErr:                  nil,
-			req:                        &request{BoardName: fakeBoardName},
-			expCapDigitalInterruptArgs: []interface{}(nil),
-			expCapArgs:                 []interface{}(nil),
-			expResp:                    nil,
-			expRespErr:                 errors.Errorf("resource with name (%s) is not a board", fakeBoardName),
+			expRespErr:                 "not found",
 		},
 		{
 			injectDigitalInterrupt:     nil,
@@ -727,7 +661,7 @@ func TestServerGetDigitalInterruptValue(t *testing.T) {
 			expCapDigitalInterruptArgs: []interface{}{"digital1"},
 			expCapArgs:                 []interface{}(nil),
 			expResp:                    nil,
-			expRespErr:                 errors.New("unknown digital interrupt: digital1"),
+			expRespErr:                 "unknown digital interrupt: digital1",
 		},
 		{
 			injectDigitalInterrupt:     &inject.DigitalInterrupt{},
@@ -738,7 +672,7 @@ func TestServerGetDigitalInterruptValue(t *testing.T) {
 			expCapDigitalInterruptArgs: []interface{}{"digital1"},
 			expCapArgs:                 []interface{}{ctx},
 			expResp:                    nil,
-			expRespErr:                 errFoo,
+			expRespErr:                 errFoo.Error(),
 		},
 		{
 			injectDigitalInterrupt:     &inject.DigitalInterrupt{},
@@ -749,7 +683,7 @@ func TestServerGetDigitalInterruptValue(t *testing.T) {
 			expCapDigitalInterruptArgs: []interface{}{"digital1"},
 			expCapArgs:                 []interface{}{ctx},
 			expResp:                    &response{Value: 42},
-			expRespErr:                 nil,
+			expRespErr:                 "",
 		},
 	}
 
@@ -771,12 +705,13 @@ func TestServerGetDigitalInterruptValue(t *testing.T) {
 			}
 
 			resp, err := server.GetDigitalInterruptValue(ctx, tc.req)
-			if tc.expRespErr == nil {
+			if tc.expRespErr == "" {
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, resp, test.ShouldResemble, tc.expResp)
 				test.That(t, actualExtra, test.ShouldResemble, expectedExtra)
 			} else {
-				test.That(t, err.Error(), test.ShouldEqual, tc.expRespErr.Error())
+				test.That(t, err, test.ShouldNotBeNil)
+				test.That(t, err.Error(), test.ShouldContainSubstring, tc.expRespErr)
 			}
 
 			test.That(t, injectBoard.DigitalInterruptByNameCap(), test.ShouldResemble, tc.expCapDigitalInterruptArgs)

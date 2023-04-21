@@ -28,7 +28,7 @@ type basicPID struct {
 	kP       float64
 	int      float64
 	sat      int
-	y        []Signal
+	y        []*Signal
 	satLimUp float64
 	limUp    float64
 	satLimLo float64
@@ -41,7 +41,7 @@ type basicPID struct {
 // Output returns the discrete step of the PID controller, dt is the delta time between two subsequent call,
 // setPoint is the desired value, measured is the measured value.
 // Returns false when the output is invalid (the integral is saturating) in this case continue to use the last valid value.
-func (p *basicPID) Next(ctx context.Context, x []Signal, dt time.Duration) ([]Signal, bool) {
+func (p *basicPID) Next(ctx context.Context, x []*Signal, dt time.Duration) ([]*Signal, bool) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if p.tuning {
@@ -122,7 +122,7 @@ func (p *basicPID) reset() error {
 		}
 		p.tuning = true
 	}
-	p.y = make([]Signal, 1)
+	p.y = make([]*Signal, 1)
 	p.y[0] = makeSignal(p.cfg.Name)
 	return nil
 }
@@ -140,7 +140,7 @@ func (p *basicPID) UpdateConfig(ctx context.Context, config BlockConfig) error {
 	return p.reset()
 }
 
-func (p *basicPID) Output(ctx context.Context) []Signal {
+func (p *basicPID) Output(ctx context.Context) []*Signal {
 	return p.y
 }
 

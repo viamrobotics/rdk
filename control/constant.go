@@ -12,7 +12,7 @@ import (
 type constant struct {
 	mu       sync.Mutex
 	cfg      BlockConfig
-	y        []Signal
+	y        []*Signal
 	constant float64
 	logger   golog.Logger
 }
@@ -25,7 +25,7 @@ func newConstant(config BlockConfig, logger golog.Logger) (Block, error) {
 	return c, nil
 }
 
-func (b *constant) Next(ctx context.Context, x []Signal, dt time.Duration) ([]Signal, bool) {
+func (b *constant) Next(ctx context.Context, x []*Signal, dt time.Duration) ([]*Signal, bool) {
 	return b.y, true
 }
 
@@ -37,7 +37,7 @@ func (b *constant) reset() error {
 		return errors.Errorf("invalid number of inputs for constant block %s expected 0 got %d", b.cfg.Name, len(b.cfg.DependsOn))
 	}
 	b.constant = b.cfg.Attribute.Float64("constant_val", 0.0)
-	b.y = make([]Signal, 1)
+	b.y = make([]*Signal, 1)
 	b.y[0] = makeSignal(b.cfg.Name)
 	b.y[0].SetSignalValueAt(0, b.constant)
 	return nil
@@ -56,7 +56,7 @@ func (b *constant) UpdateConfig(ctx context.Context, config BlockConfig) error {
 	return b.reset()
 }
 
-func (b *constant) Output(ctx context.Context) []Signal {
+func (b *constant) Output(ctx context.Context) []*Signal {
 	return b.y
 }
 

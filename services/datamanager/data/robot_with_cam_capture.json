@@ -4,7 +4,7 @@
       "name": "c1",
       "type": "camera",
       "model": "fake",
-      "service_config": [
+      "service_configs": [
         {
           "type": "data_manager",
           "attributes": {

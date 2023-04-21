@@ -12,9 +12,9 @@ import (
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/camera/videosource"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
+	"go.viam.com/rdk/utils"
 )
 
 // not the real intrinsic parameters of the image, only for testing purposes.
@@ -41,7 +41,7 @@ func TestUndistortSetup(t *testing.T) {
 	source := gostream.NewVideoSource(&videosource.StaticSource{ColorImg: img}, prop.Video{})
 
 	// no camera parameters
-	am := config.AttributeMap{}
+	am := utils.AttributeMap{}
 	_, _, err = newUndistortTransform(context.Background(), source, camera.ColorStream, am)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, errors.Is(err, transform.ErrNoIntrinsics), test.ShouldBeTrue)
@@ -49,7 +49,7 @@ func TestUndistortSetup(t *testing.T) {
 
 	// bad stream type
 	source = gostream.NewVideoSource(&videosource.StaticSource{ColorImg: img}, prop.Video{})
-	am = config.AttributeMap{"intrinsic_parameters": undistortTestParams, "distortion_parameters": undistortTestBC}
+	am = utils.AttributeMap{"intrinsic_parameters": undistortTestParams, "distortion_parameters": undistortTestBC}
 	us, _, err := newUndistortTransform(context.Background(), source, camera.ImageType("fake"), am)
 	test.That(t, err, test.ShouldBeNil)
 	_, _, err = camera.ReadImage(context.Background(), us)
@@ -57,7 +57,7 @@ func TestUndistortSetup(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "do not know how to decode stream")
 	test.That(t, us.Close(context.Background()), test.ShouldBeNil)
 
-	// success - attrs has camera parameters
+	// success - conf has camera parameters
 	us, stream, err := newUndistortTransform(context.Background(), source, camera.ColorStream, am)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, stream, test.ShouldEqual, camera.ColorStream)
@@ -74,7 +74,7 @@ func TestUndistortImage(t *testing.T) {
 	source := gostream.NewVideoSource(&videosource.StaticSource{ColorImg: img}, prop.Video{})
 
 	// success
-	am := config.AttributeMap{"intrinsic_parameters": undistortTestParams, "distortion_parameters": undistortTestBC}
+	am := utils.AttributeMap{"intrinsic_parameters": undistortTestParams, "distortion_parameters": undistortTestBC}
 	us, stream, err := newUndistortTransform(context.Background(), source, camera.ColorStream, am)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, stream, test.ShouldEqual, camera.ColorStream)
@@ -108,7 +108,7 @@ func TestUndistortDepthMap(t *testing.T) {
 	source := gostream.NewVideoSource(&videosource.StaticSource{DepthImg: img}, prop.Video{})
 
 	// success
-	am := config.AttributeMap{"intrinsic_parameters": undistortTestParams, "distortion_parameters": undistortTestBC}
+	am := utils.AttributeMap{"intrinsic_parameters": undistortTestParams, "distortion_parameters": undistortTestBC}
 	us, stream, err := newUndistortTransform(context.Background(), source, camera.DepthStream, am)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, stream, test.ShouldEqual, camera.DepthStream)

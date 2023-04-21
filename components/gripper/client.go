@@ -11,25 +11,28 @@ import (
 
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/resource"
 )
 
 // client implements GripperServiceClient.
 type client struct {
+	resource.Named
+	resource.TriviallyReconfigurable
+	resource.TriviallyCloseable
 	name   string
-	conn   rpc.ClientConn
 	client pb.GripperServiceClient
 	logger golog.Logger
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
-func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Gripper {
+func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (Gripper, error) {
 	c := pb.NewGripperServiceClient(conn)
 	return &client{
-		name:   name,
-		conn:   conn,
+		Named:  name.AsNamed(),
+		name:   name.ShortNameForClient(),
 		client: c,
 		logger: logger,
-	}
+	}, nil
 }
 
 func (c *client) Open(ctx context.Context, extra map[string]interface{}) error {

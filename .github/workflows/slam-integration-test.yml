@@ -9,7 +9,7 @@ jobs:
       name:  Test ORB_SLAM3 Integration
       runs-on: [x64, qemu-host]
       container:
-        image: ghcr.io/viamrobotics/canon:amd64-cache
+        image: ghcr.io/viamrobotics/canon:amd64
         options: --platform linux/amd64
       timeout-minutes: 30
       steps:
@@ -28,18 +28,18 @@ jobs:
 
       - name: Get orbslam binary for integration tests
         run: |
-          sudo curl -o /usr/local/bin/orb_grpc_server http://packages.viam.com/apps/slam-servers/orb_grpc_server-latest-x86_64.AppImage
-          sudo chmod a+rx /usr/local/bin/orb_grpc_server
+          curl -o /usr/local/bin/orb_grpc_server http://packages.viam.com/apps/slam-servers/orb_grpc_server-latest-x86_64.AppImage
+          chmod a+rx /usr/local/bin/orb_grpc_server
 
       - name: Run integration tests
         run: |
-          sudo -u testbot bash -lc 'export APPIMAGE_EXTRACT_AND_RUN=1 && make test-integration'
+          sudo -Hu testbot bash -lc 'export APPIMAGE_EXTRACT_AND_RUN=1 && make test-integration'
 
   test_cartographer_integration:
       name:  Test Cartographer Integration
       runs-on: [x64, qemu-host]
       container:
-        image: ghcr.io/viamrobotics/canon:amd64-cache
+        image: ghcr.io/viamrobotics/canon:amd64
         options: --platform linux/amd64
       timeout-minutes: 30
       steps:
@@ -58,10 +58,10 @@ jobs:
 
       - name: Get cartographer binary for integration tests
         run: |
-          sudo curl -o /usr/local/bin/carto_grpc_server http://packages.viam.com/apps/slam-servers/carto_grpc_server-latest-x86_64.AppImage
-          sudo chmod a+rx /usr/local/bin/carto_grpc_server
+          curl -o /usr/local/bin/carto_grpc_server http://packages.viam.com/apps/slam-servers/carto_grpc_server-latest-x86_64.AppImage
+          chmod a+rx /usr/local/bin/carto_grpc_server
 
       - name: Run integration tests
         run: |
-          sudo -u testbot bash -lc 'export APPIMAGE_EXTRACT_AND_RUN=1 && make test-integration'
+          sudo -Hu testbot bash -lc 'export APPIMAGE_EXTRACT_AND_RUN=1 && make test-integration'
 

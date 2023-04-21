@@ -3,14 +3,14 @@ version: 1
 script:
  - rm -rf $TARGET_APPDIR | true
  - mkdir -p "$TARGET_APPDIR/usr/bin"
- - cp ../../../bin/Linux-x86_64/server "$TARGET_APPDIR/usr/bin/viam-server"
+ - cp ../../../bin/Linux-x86_64/viam-server "$TARGET_APPDIR/usr/bin/"
  - mkdir -p "$TARGET_APPDIR/usr/share/icons/viam/256x256/apps/"
  - wget https://storage.googleapis.com/appimage-assets/viam-server.png -O "$TARGET_APPDIR/usr/share/icons/viam/256x256/apps/viam-server.png"
  - mkdir -p "$TARGET_APPDIR/aix.d/"
  - cp ./install ./postupdate "$TARGET_APPDIR/aix.d/"
  - chmod 755 "$TARGET_APPDIR/aix.d/install" "$TARGET_APPDIR/aix.d/postupdate"
  - cp ./viam-server.service "$TARGET_APPDIR/"
- - go install github.com/Otterverse/aix@latest
+ - go install -ldflags "-s -w" -tags osusergo,netgo github.com/Otterverse/aix@latest
  - cp `go env GOPATH`/bin/aix "$TARGET_APPDIR/usr/bin/"
  - cp `which env` "$TARGET_APPDIR/usr/bin/"
  - chmod 755 "$TARGET_APPDIR/usr/bin/"*
@@ -32,14 +32,8 @@ AppDir:
     - sourceline: deb [trusted=yes] http://deb.debian.org/debian bullseye main
     - sourceline: deb [trusted=yes] http://deb.debian.org/debian-security bullseye-security main
     - sourceline: deb [trusted=yes] http://deb.debian.org/debian bullseye-updates main
-    - sourceline: deb [trusted=yes] https://us-apt.pkg.dev/projects/static-file-server-310021 bullseye main
     include:
     - bash
-    - libnlopt0
-    - libx264-160
-    - libtensorflowlite2
-    - libopus0
-    - libjpeg62-turbo
   files:
     include: []
     exclude:

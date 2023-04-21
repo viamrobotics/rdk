@@ -23,7 +23,6 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/protoutils"
@@ -172,7 +171,7 @@ func (s *Server) DiscoverComponents(ctx context.Context, req *pb.DiscoverCompone
 	// nonTriplet indicates older syntax for type and model E.g. "camera" instead of "rdk:component:camera"
 	// TODO(PRODUCT-344): remove triplet checking here after complete
 	var nonTriplet bool
-	queries := make([]discovery.Query, 0, len(req.Queries))
+	queries := make([]resource.DiscoveryQuery, 0, len(req.Queries))
 	for _, q := range req.Queries {
 		m, err := resource.NewModelFromString(q.Model)
 		if err != nil {
@@ -186,7 +185,7 @@ func (s *Server) DiscoverComponents(ctx context.Context, req *pb.DiscoverCompone
 		if err != nil {
 			return nil, err
 		}
-		queries = append(queries, discovery.Query{API: s, Model: m})
+		queries = append(queries, resource.DiscoveryQuery{API: s, Model: m})
 	}
 
 	discoveries, err := s.r.DiscoverComponents(ctx, queries)
