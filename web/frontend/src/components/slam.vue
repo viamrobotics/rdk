@@ -120,9 +120,9 @@ const executeMoveOnMap = async () => {
   }
 
   /*
-    * set request name
-    * here we set the name of the motion service the user is using
-  */
+   * set request name
+   * here we set the name of the motion service the user is using
+   */
   motionServiceReq.setName('builtin');
 
   // set pose in frame
@@ -184,6 +184,7 @@ const executeStopMoveOnMap = () => {
     new grpc.Metadata(),
     (error: ServiceError | null, response: motionApi.MoveOnMapResponse | null) => {
       if (error) {
+        moveClick = !moveClick;
         toast.error(`Error moving: ${error}`);
         return;
       }
