@@ -448,7 +448,8 @@ func (m *cloudManager) unpackFile(ctx context.Context, fromFile, toDir string) e
 			if err := os.Mkdir(path, info.Mode()); err != nil {
 				return errors.Wrapf(err, "failed to create directory %s", path)
 			}
-		case tar.TypeReg, tar.TypeRegA:
+
+		case tar.TypeReg:
 			//nolint:gosec // path sanitized with safeJoin
 			outFile, err := os.Create(path)
 			if err != nil {
