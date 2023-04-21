@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-# test comment
+// test comment
 
 var (
 	errIKSolve = errors.New("zero IK solutions produced, goal positions appears to be physically unreachable")
