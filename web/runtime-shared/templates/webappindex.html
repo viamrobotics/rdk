@@ -15,8 +15,8 @@
     </script>
 
     {{ if .External }}
-    <link rel="preload" href="/static/rdk/prime.css?v={{ .Version }}" as="style">
-    <link rel="stylesheet" href="/static/rdk/main.css?v={{ .Version }}" />
+    <link rel="preload" href="/static/rdk/prime.css" as="style">
+    <link rel="stylesheet" href="/static/rdk/main.css" />
     <script type="module">window.PRIME_CONFIG = { base: '/static/rdk' }</script>
     {{ else if eq .Env "production" }}
     <link rel="preload" href="/static/prime.css" as="style">
@@ -31,7 +31,7 @@
     <div id="app"></div>
 
     {{ if .External }}
-    <script type="module" src="/static/rdk/control.js?v={{ .Version }}"></script>
+    <script type="module" src="/static/rdk/control.js"></script>
     {{ else }}
 
     {{ if eq .Env "development" }}
