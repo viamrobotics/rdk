@@ -330,6 +330,8 @@ func (s *servoGPIO) Position(ctx context.Context, extra map[string]interface{}) 
 func (s *servoGPIO) Stop(ctx context.Context, extra map[string]interface{}) error {
 	ctx, done := s.opMgr.New(ctx)
 	defer done()
+	// Turning the pin all the way off (i.e., setting the duty cycle to 0%) will cut power to the
+	// motor. If you wanted to send it to position 0, you should set it to `minUs` instead.
 	if err := s.pin.SetPWM(ctx, 0.0, nil); err != nil {
 		return errors.Wrap(err, "couldn't stop servo")
 	}
