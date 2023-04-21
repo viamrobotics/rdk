@@ -49,6 +49,14 @@ func init() {
 		h, err := ms.CompassHeading(ctx, make(map[string]interface{}))
 		return Heading{Heading: h}, err
 	})
+	registerCollector("LinearAcceleration", func(ctx context.Context, ms MovementSensor) (interface{}, error) {
+		v, err := ms.LinearAcceleration(ctx, make(map[string]interface{}))
+		return v, err
+	})
+	registerCollector("Orientation", func(ctx context.Context, ms MovementSensor) (interface{}, error) {
+		v, err := ms.Orientation(ctx, make(map[string]interface{}))
+		return v, err
+	})
 }
 
 // SubtypeName is a constant that identifies the component resource subtype string "movement_sensor".
