@@ -36,7 +36,8 @@ func DetectOSInformation() (OSInformation, error) {
 	return osInfo, nil
 }
 
-// getKernelVersion returns the Linux kernel version ($ uname -r)
+// getKernelVersion returns the Linux kernel version
+// $ uname -r
 func getKernelVersion() (string, error) {
 	var utsName C.struct_utsname
 	if C.uname(&utsName) == -1 {
@@ -47,7 +48,7 @@ func getKernelVersion() (string, error) {
 }
 
 // getDeviceName returns the model name of the device
-// ($ cat /sys/firmware/devicetree/base/model)
+// $ cat /sys/firmware/devicetree/base/model
 func getDeviceName() (string, error) {
 	devicePath := "/sys/firmware/devicetree/base/model"
 	device, err := os.ReadFile(devicePath)
@@ -57,7 +58,8 @@ func getDeviceName() (string, error) {
 	return string(bytes.TrimRight(device, "\x00")), nil
 }
 
-// DetectError checks if the daughterboard and driver are supported and installed on the device
+// DetectError checks daughterboard and camera setup to determine
+// our best guess of what is wrong with an unsuccessful camera open
 func DetectError(osInfo OSInformation, daughterboardName, driverName string) error {
 	board, ok := cameraInfoMappings[osInfo.Device]
 	if !ok {
@@ -87,7 +89,7 @@ func DetectError(osInfo OSInformation, daughterboardName, driverName string) err
 }
 
 // checkDaughterBoardConnected checks if the daughterboard is connected
-// by looking for the I2C bus interfaces associated with the daughterboard
+// by looking for the I2C bus interfaces associated with the board
 func checkDaughterBoardConnected(daughterboard []string) error {
 	for _, i2c := range daughterboard {
 		err := checkI2CInterface(i2c)
