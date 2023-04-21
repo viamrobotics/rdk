@@ -20,6 +20,7 @@ import (
 
 var sModel = resource.DefaultModelFamily.WithModel("tflite_cpu")
 
+// asdff
 func init() {
 	resource.RegisterService(mlmodel.API, sModel, resource.Registration[mlmodel.Service, *TFLiteConfig]{
 		Constructor: func(
