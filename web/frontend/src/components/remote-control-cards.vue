@@ -2,6 +2,7 @@
 <script setup lang="ts">
 
 import { onMounted, onUnmounted } from 'vue';
+import { $ref, $computed } from 'vue/macros';
 import { grpc } from '@improbable-eng/grpc-web';
 import { Duration } from 'google-protobuf/google/protobuf/duration_pb';
 import { type Credentials, ConnectionClosedError } from '@viamrobotics/rpc';
@@ -464,7 +465,7 @@ const createAppConnectionManager = () => {
 
   const manageLoop = async () => {
     try {
-      const newErrors = [];
+      const newErrors: unknown[] = [];
 
       try {
         await queryMetadata();
@@ -663,6 +664,11 @@ const initConnect = () => {
   }
 };
 
+const handleUnload = () => {
+  console.debug('disconnecting');
+  appConnectionManager.stop();
+};
+
 onMounted(async () => {
   initConnect();
   await connectedFirstTime;
@@ -670,10 +676,12 @@ onMounted(async () => {
   appConnectionManager.start();
 
   addResizeListeners();
+  window.addEventListener('beforeunload', handleUnload);
 });
 
 onUnmounted(() => {
-  appConnectionManager.stop();
+  handleUnload();
+  window.removeEventListener('beforeunload', handleUnload);
 });
 
 </script>
@@ -869,9 +877,9 @@ onUnmounted(() => {
 
     <!-- ******* DO ******* -->
     <DoCommand
-      v-if="nonEmpty(filterResources(resources, 'rdk', 'component', 'generic'))"
+      v-if="resources.length > 0"
       :client="client"
-      :resources="filterResources(resources, 'rdk', 'component', 'generic')"
+      :resources="resources"
     />
 
     <!-- ******* OPERATIONS AND SESSIONS ******* -->
