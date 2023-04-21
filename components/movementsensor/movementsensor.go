@@ -19,7 +19,7 @@ import (
 type Properties pb.GetPropertiesResponse
 
 func init() {
-	resource.RegisterSubtype(Subtype, resource.SubtypeRegistration[MovementSensor]{
+	resource.RegisterAPI(API, resource.APIRegistration[MovementSensor]{
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           pb.RegisterMovementSensorServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &pb.MovementSensorService_ServiceDesc,
@@ -51,19 +51,15 @@ func init() {
 	})
 }
 
-// SubtypeName is a constant that identifies the component resource subtype string "movement_sensor".
-const SubtypeName = resource.SubtypeName("movement_sensor")
+// SubtypeName is a constant that identifies the component resource API string "movement_sensor".
+const SubtypeName = "movement_sensor"
 
-// Subtype is a constant that identifies the component resource subtype.
-var Subtype = resource.NewSubtype(
-	resource.ResourceNamespaceRDK,
-	resource.ResourceTypeComponent,
-	SubtypeName,
-)
+// API is a variable that identifies the component resource API.
+var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 
 // Named is a helper for getting the named MovementSensor's typed resource name.
 func Named(name string) resource.Name {
-	return resource.NameFromSubtype(Subtype, name)
+	return resource.NewName(API, name)
 }
 
 // A MovementSensor reports information about the robot's direction, position and speed.
@@ -92,7 +88,7 @@ func FromRobot(r robot.Robot, name string) (MovementSensor, error) {
 
 // NamesFromRobot is a helper for getting all MovementSensor names from the given Robot.
 func NamesFromRobot(r robot.Robot) []string {
-	return robot.NamesBySubtype(r, Subtype)
+	return robot.NamesByAPI(r, API)
 }
 
 // Readings is a helper for getting all readings from a MovementSensor.

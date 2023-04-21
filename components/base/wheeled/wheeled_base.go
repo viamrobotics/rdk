@@ -22,7 +22,7 @@ import (
 )
 
 // ModelName is the name of the wheeled model of a base component.
-var ModelName = resource.NewDefaultModel("wheeled")
+var ModelName = resource.DefaultModelFamily.WithModel("wheeled")
 
 // Config is how you configure a wheeled base.
 type Config struct {
@@ -73,7 +73,7 @@ func init() {
 		},
 	}
 
-	resource.RegisterComponent(base.Subtype, ModelName, wheeledBaseComp)
+	resource.RegisterComponent(base.API, ModelName, wheeledBaseComp)
 }
 
 type wheeledBase struct {

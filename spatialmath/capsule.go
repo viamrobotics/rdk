@@ -69,8 +69,8 @@ func newCapsuleWithSegPoints(offset Pose, radius, length float64, label string) 
 	}
 }
 
-func (c *capsule) MarshalJSON() ([]byte, error) {
-	config, err := NewGeometryConfig(c)
+func (c capsule) MarshalJSON() ([]byte, error) {
+	config, err := NewGeometryConfig(&c)
 	if err != nil {
 		return nil, err
 	}

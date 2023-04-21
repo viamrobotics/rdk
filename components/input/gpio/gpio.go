@@ -17,7 +17,7 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-var modelName = resource.NewDefaultModel("gpio")
+var modelName = resource.DefaultModelFamily.WithModel("gpio")
 
 // Config is the overall config.
 type Config struct {
@@ -81,7 +81,7 @@ func (conf *Config) validateValues() error {
 }
 
 func init() {
-	resource.RegisterComponent(input.Subtype, modelName, resource.Registration[input.Controller, *Config]{
+	resource.RegisterComponent(input.API, modelName, resource.Registration[input.Controller, *Config]{
 		Constructor: NewGPIOController,
 	})
 }

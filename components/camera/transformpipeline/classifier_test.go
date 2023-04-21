@@ -25,8 +25,8 @@ func buildRobotWithClassifier(logger golog.Logger) (robot.Robot, error) {
 	// create fake source camera
 	cameraComp := resource.Config{
 		Name:  "fake_cam",
-		API:   camera.Subtype,
-		Model: resource.NewDefaultModel("image_file"),
+		API:   camera.API,
+		Model: resource.DefaultModelFamily.WithModel("image_file"),
 		Attributes: rutils.AttributeMap{
 			"color_image_file_path": artifact.MustPath("vision/classification/keyboard.jpg"),
 			"depth_image_file_path": "",
@@ -37,8 +37,8 @@ func buildRobotWithClassifier(logger golog.Logger) (robot.Robot, error) {
 	// create classification transform camera
 	classifierComp := resource.Config{
 		Name:  "classification_transform_camera",
-		API:   camera.Subtype,
-		Model: resource.NewDefaultModel("transform"),
+		API:   camera.API,
+		Model: resource.DefaultModelFamily.WithModel("transform"),
 		Attributes: rutils.AttributeMap{
 			"source": "fake_cam",
 			"pipeline": []rutils.AttributeMap{

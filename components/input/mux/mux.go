@@ -13,10 +13,10 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-var modelname = resource.NewDefaultModel("mux")
+var modelname = resource.DefaultModelFamily.WithModel("mux")
 
 func init() {
-	resource.RegisterComponent(input.Subtype, modelname, resource.Registration[input.Controller, *Config]{
+	resource.RegisterComponent(input.API, modelname, resource.Registration[input.Controller, *Config]{
 		Constructor: NewController,
 	})
 }

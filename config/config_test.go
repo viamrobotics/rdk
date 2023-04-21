@@ -21,8 +21,11 @@ import (
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/board"
 	fakeboard "go.viam.com/rdk/components/board/fake"
+	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/encoder/incremental"
 	fakemotor "go.viam.com/rdk/components/motor/fake"
 	"go.viam.com/rdk/config"
@@ -43,6 +46,18 @@ func TestConfigRobot(t *testing.T) {
 	test.That(t, cfg.Remotes[0].Address, test.ShouldEqual, "foo")
 	test.That(t, cfg.Remotes[1].Name, test.ShouldEqual, "two")
 	test.That(t, cfg.Remotes[1].Address, test.ShouldEqual, "bar")
+
+	var foundArm, foundCam bool
+	for _, comp := range cfg.Components {
+		if comp.API == arm.API && comp.Model == resource.DefaultModelFamily.WithModel("ur") {
+			foundArm = true
+		}
+		if comp.API == camera.API && comp.Model == resource.DefaultModelFamily.WithModel("url") {
+			foundCam = true
+		}
+	}
+	test.That(t, foundArm, test.ShouldBeTrue)
+	test.That(t, foundCam, test.ShouldBeTrue)
 
 	// test that gripper geometry is being added correctly
 	component := cfg.FindComponent("pieceGripper")
@@ -162,45 +177,52 @@ func TestConfigEnsure(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, `components.0`)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
 	invalidComponents.Components[0] = resource.Config{
-		Name:                "foo",
-		DeprecatedNamespace: "rdk",
-		DeprecatedSubtype:   "base",
-		Model:               fakeModel,
+		Name:  "foo",
+		API:   base.API,
+		Model: fakeModel,
 	}
 
 	test.That(t, invalidComponents.Ensure(false, logger), test.ShouldBeNil)
 
 	c1 := resource.Config{
-		DeprecatedNamespace: resource.ResourceNamespaceRDK,
-		Name:                "c1",
-		DeprecatedSubtype:   "base",
-		Model:               resource.NewDefaultModel("c1"),
+		Name:  "c1",
+		API:   base.API,
+		Model: resource.DefaultModelFamily.WithModel("c1"),
 	}
 	c2 := resource.Config{
-		DeprecatedNamespace: resource.ResourceNamespaceRDK, Name: "c2", DeprecatedSubtype: "base", Model: resource.NewDefaultModel("c2"),
+		Name:      "c2",
+		API:       base.API,
 		DependsOn: []string{"c1"},
+		Model:     resource.DefaultModelFamily.WithModel("c2"),
 	}
 	c3 := resource.Config{
-		DeprecatedNamespace: resource.ResourceNamespaceRDK, Name: "c3", DeprecatedSubtype: "base", Model: resource.NewDefaultModel("c3"),
+		Name:      "c3",
+		API:       base.API,
 		DependsOn: []string{"c1", "c2"},
+		Model:     resource.DefaultModelFamily.WithModel("c3"),
 	}
 	c4 := resource.Config{
-		DeprecatedNamespace: resource.ResourceNamespaceRDK, Name: "c4", DeprecatedSubtype: "base", Model: resource.NewDefaultModel("c4"),
+		Name:      "c4",
+		API:       base.API,
 		DependsOn: []string{"c1", "c3"},
+		Model:     resource.DefaultModelFamily.WithModel("c4"),
 	}
 	c5 := resource.Config{
-		DeprecatedNamespace: resource.ResourceNamespaceRDK, Name: "c5", DeprecatedSubtype: "base", Model: resource.NewDefaultModel("c5"),
+		Name:      "c5",
+		API:       base.API,
 		DependsOn: []string{"c2", "c4"},
+		Model:     resource.DefaultModelFamily.WithModel("c5"),
 	}
 	c6 := resource.Config{
-		DeprecatedNamespace: resource.ResourceNamespaceRDK,
-		DeprecatedSubtype:   "base",
-		Name:                "c6",
-		Model:               resource.NewDefaultModel("c6"),
+		Name:  "c6",
+		API:   base.API,
+		Model: resource.DefaultModelFamily.WithModel("c6"),
 	}
 	c7 := resource.Config{
-		DeprecatedNamespace: resource.ResourceNamespaceRDK, Name: "c7", DeprecatedSubtype: "base", Model: resource.NewDefaultModel("c7"),
+		Name:      "c7",
+		API:       base.API,
 		DependsOn: []string{"c6", "c4"},
+		Model:     resource.DefaultModelFamily.WithModel("c7"),
 	}
 	components := config.Config{
 		DisablePartialStart: true,
@@ -395,13 +417,13 @@ func TestConfigEnsurePartialStart(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	invalidComponents.Components[0].Name = "foo"
 
-	c1 := resource.Config{DeprecatedNamespace: resource.ResourceNamespaceRDK, Name: "c1"}
-	c2 := resource.Config{DeprecatedNamespace: resource.ResourceNamespaceRDK, Name: "c2", DependsOn: []string{"c1"}}
-	c3 := resource.Config{DeprecatedNamespace: resource.ResourceNamespaceRDK, Name: "c3", DependsOn: []string{"c1", "c2"}}
-	c4 := resource.Config{DeprecatedNamespace: resource.ResourceNamespaceRDK, Name: "c4", DependsOn: []string{"c1", "c3"}}
-	c5 := resource.Config{DeprecatedNamespace: resource.ResourceNamespaceRDK, Name: "c5", DependsOn: []string{"c2", "c4"}}
-	c6 := resource.Config{DeprecatedNamespace: resource.ResourceNamespaceRDK, Name: "c6"}
-	c7 := resource.Config{DeprecatedNamespace: resource.ResourceNamespaceRDK, Name: "c7", DependsOn: []string{"c6", "c4"}}
+	c1 := resource.Config{Name: "c1"}
+	c2 := resource.Config{Name: "c2", DependsOn: []string{"c1"}}
+	c3 := resource.Config{Name: "c3", DependsOn: []string{"c1", "c2"}}
+	c4 := resource.Config{Name: "c4", DependsOn: []string{"c1", "c3"}}
+	c5 := resource.Config{Name: "c5", DependsOn: []string{"c2", "c4"}}
+	c6 := resource.Config{Name: "c6"}
+	c7 := resource.Config{Name: "c7", DependsOn: []string{"c6", "c4"}}
 	components := config.Config{
 		Components: []resource.Config{c7, c6, c5, c3, c4, c1, c2},
 	}

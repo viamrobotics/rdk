@@ -694,7 +694,7 @@ func (c *AppClient) StartRobotPartShell(
 	// Returns the first shell service found in the robot resources
 	var found *resource.Name
 	for _, name := range robotClient.ResourceNames() {
-		if name.Subtype == shell.Subtype {
+		if name.API == shell.API {
 			nameCopy := name
 			found = &nameCopy
 			break

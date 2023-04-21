@@ -31,7 +31,7 @@ import (
 )
 
 // ModelName is the name of the eva model of an arm component.
-var ModelName = resource.NewDefaultModel("eva")
+var ModelName = resource.DefaultModelFamily.WithModel("eva")
 
 // Config is used for converting config attributes.
 type Config struct {
@@ -44,7 +44,7 @@ type Config struct {
 var evamodeljson []byte
 
 func init() {
-	resource.RegisterComponent(arm.Subtype, ModelName, resource.Registration[arm.Arm, *Config]{
+	resource.RegisterComponent(arm.API, ModelName, resource.Registration[arm.Arm, *Config]{
 		Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (arm.Arm, error) {
 			return NewEva(ctx, conf, logger)
 		},

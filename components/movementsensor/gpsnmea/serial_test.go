@@ -44,8 +44,8 @@ func TestNewSerialMovementSensor(t *testing.T) {
 
 	cfig := resource.Config{
 		Name:  "movementsensor1",
-		Model: resource.NewDefaultModel("gps-nmea"),
-		API:   movementsensor.Subtype,
+		Model: resource.DefaultModelFamily.WithModel("gps-nmea"),
+		API:   movementsensor.API,
 		Attributes: rutils.AttributeMap{
 			"path":            "",
 			"correction_path": "",
@@ -61,8 +61,8 @@ func TestNewSerialMovementSensor(t *testing.T) {
 
 	cfig = resource.Config{
 		Name:  "movementsensor1",
-		Model: resource.NewDefaultModel("gps-nmea"),
-		API:   movementsensor.Subtype,
+		Model: resource.DefaultModelFamily.WithModel("gps-nmea"),
+		API:   movementsensor.API,
 		ConvertedAttributes: &Config{
 			ConnectionType: "serial",
 			Board:          "local",

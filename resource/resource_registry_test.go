@@ -19,10 +19,10 @@ import (
 )
 
 var (
-	button      = resource.SubtypeName("button")
-	acme        = resource.NewName(resource.Namespace("acme"), resource.ResourceTypeComponent, button, "button1")
-	nav         = resource.SubtypeName("navigation")
-	testService = resource.NewName(resource.Namespace("rdk"), resource.ResourceTypeComponent, nav, "nav1")
+	button      = "button"
+	acme        = resource.NewName(resource.APINamespace("acme").WithComponentType(button), "button1")
+	nav         = "navigation"
+	testService = resource.NewName(resource.APINamespaceRDK.WithComponentType(nav), "nav1")
 )
 
 func TestComponentRegistry(t *testing.T) {
@@ -32,14 +32,14 @@ func TestComponentRegistry(t *testing.T) {
 	}
 	modelName := resource.Model{Name: "x"}
 	test.That(t, func() {
-		resource.Register(acme.Subtype, modelName, resource.Registration[arm.Arm, resource.NoNativeConfig]{})
+		resource.Register(acme.API, modelName, resource.Registration[arm.Arm, resource.NoNativeConfig]{})
 	}, test.ShouldPanic)
-	resource.Register(acme.Subtype, modelName, resource.Registration[arm.Arm, resource.NoNativeConfig]{Constructor: rf})
+	resource.Register(acme.API, modelName, resource.Registration[arm.Arm, resource.NoNativeConfig]{Constructor: rf})
 
-	resInfo, ok := resource.LookupRegistration(acme.Subtype, modelName)
+	resInfo, ok := resource.LookupRegistration(acme.API, modelName)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, resInfo, test.ShouldNotBeNil)
-	_, ok = resource.LookupRegistration(acme.Subtype, resource.Model{Name: "z"})
+	_, ok = resource.LookupRegistration(acme.API, resource.Model{Name: "z"})
 	test.That(t, ok, test.ShouldBeFalse)
 	res, err := resInfo.Constructor(context.Background(), nil, resource.Config{Name: "foo"}, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -47,20 +47,20 @@ func TestComponentRegistry(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resArm.Name().Name, test.ShouldEqual, "foo")
 
-	resource.Deregister(acme.Subtype, modelName)
-	_, ok = resource.LookupRegistration(acme.Subtype, modelName)
+	resource.Deregister(acme.API, modelName)
+	_, ok = resource.LookupRegistration(acme.API, modelName)
 	test.That(t, ok, test.ShouldBeFalse)
 
 	modelName2 := resource.DefaultServiceModel
 	test.That(t, func() {
-		resource.Register(testService.Subtype, modelName2, resource.Registration[arm.Arm, resource.NoNativeConfig]{})
+		resource.Register(testService.API, modelName2, resource.Registration[arm.Arm, resource.NoNativeConfig]{})
 	}, test.ShouldPanic)
-	resource.Register(testService.Subtype, modelName2, resource.Registration[arm.Arm, resource.NoNativeConfig]{Constructor: rf})
+	resource.Register(testService.API, modelName2, resource.Registration[arm.Arm, resource.NoNativeConfig]{Constructor: rf})
 
-	resInfo, ok = resource.LookupRegistration(testService.Subtype, modelName2)
+	resInfo, ok = resource.LookupRegistration(testService.API, modelName2)
 	test.That(t, resInfo, test.ShouldNotBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = resource.LookupRegistration(testService.Subtype, resource.NewDefaultModel("z"))
+	_, ok = resource.LookupRegistration(testService.API, resource.DefaultModelFamily.WithModel("z"))
 	test.That(t, ok, test.ShouldBeFalse)
 	res, err = resInfo.Constructor(context.Background(), nil, resource.Config{Name: "bar"}, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -68,112 +68,112 @@ func TestComponentRegistry(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resArm.Name().Name, test.ShouldEqual, "bar")
 
-	resource.Deregister(testService.Subtype, modelName2)
-	_, ok = resource.LookupRegistration(testService.Subtype, modelName2)
+	resource.Deregister(testService.API, modelName2)
+	_, ok = resource.LookupRegistration(testService.API, modelName2)
 	test.That(t, ok, test.ShouldBeFalse)
 }
 
-func TestResourceSubtypeRegistry(t *testing.T) {
+func TestResourceAPIRegistry(t *testing.T) {
 	statf := func(context.Context, arm.Arm) (interface{}, error) {
 		return nil, errors.New("one")
 	}
-	var capColl resource.SubtypeCollection[arm.Arm]
+	var capColl resource.APIResourceCollection[arm.Arm]
 
-	sf := func(subtypeColl resource.SubtypeCollection[arm.Arm]) interface{} {
-		capColl = subtypeColl
+	sf := func(apiResColl resource.APIResourceCollection[arm.Arm]) interface{} {
+		capColl = apiResColl
 		return 5
 	}
-	rcf := func(_ context.Context, _ rpc.ClientConn, name resource.Name, _ golog.Logger) (arm.Arm, error) {
+	rcf := func(_ context.Context, _ rpc.ClientConn, _ string, name resource.Name, _ golog.Logger) (arm.Arm, error) {
 		return capColl.Resource(name.ShortName())
 	}
 
 	test.That(t, func() {
-		resource.RegisterSubtype(acme.Subtype, resource.SubtypeRegistration[arm.Arm]{
+		resource.RegisterAPI(acme.API, resource.APIRegistration[arm.Arm]{
 			Status:                      statf,
 			RPCServiceServerConstructor: sf,
 			RPCServiceDesc:              &pb.RobotService_ServiceDesc,
 		})
 	}, test.ShouldPanic)
 	test.That(t, func() {
-		resource.RegisterSubtypeWithAssociation(acme.Subtype, resource.SubtypeRegistration[arm.Arm]{
+		resource.RegisterAPIWithAssociation(acme.API, resource.APIRegistration[arm.Arm]{
 			Status:                      statf,
 			RPCServiceServerConstructor: sf,
 			RPCServiceDesc:              &pb.RobotService_ServiceDesc,
 		}, resource.AssociatedConfigRegistration[any]{})
 	}, test.ShouldPanic)
-	resource.RegisterSubtype(acme.Subtype, resource.SubtypeRegistration[arm.Arm]{
+	resource.RegisterAPI(acme.API, resource.APIRegistration[arm.Arm]{
 		Status:                      statf,
 		RPCServiceServerConstructor: sf,
 		RPCServiceHandler:           pb.RegisterRobotServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &pb.RobotService_ServiceDesc,
 	})
-	subtypeInfo, ok, err := resource.LookupSubtypeRegistration[arm.Arm](acme.Subtype)
+	apiInfo, ok, err := resource.LookupAPIRegistration[arm.Arm](acme.API)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, subtypeInfo, test.ShouldNotBeNil)
-	_, err = subtypeInfo.Status(nil, &fake.Arm{Named: arm.Named("foo").AsNamed()})
+	test.That(t, apiInfo, test.ShouldNotBeNil)
+	_, err = apiInfo.Status(nil, &fake.Arm{Named: arm.Named("foo").AsNamed()})
 	test.That(t, err, test.ShouldBeError, errors.New("one"))
-	coll, err := resource.NewSubtypeCollection(arm.Subtype, map[resource.Name]arm.Arm{
+	coll, err := resource.NewAPIResourceCollection(arm.API, map[resource.Name]arm.Arm{
 		arm.Named("foo"): &fake.Arm{Named: arm.Named("foo").AsNamed()},
 	})
 	test.That(t, err, test.ShouldBeNil)
-	svcServer := subtypeInfo.RPCServiceServerConstructor(coll)
+	svcServer := apiInfo.RPCServiceServerConstructor(coll)
 	test.That(t, svcServer, test.ShouldNotBeNil)
-	test.That(t, subtypeInfo.RPCClient, test.ShouldBeNil)
+	test.That(t, apiInfo.RPCClient, test.ShouldBeNil)
 
-	subtype2 := resource.NewSubtype(resource.Namespace("acme2"), resource.ResourceTypeComponent, button)
-	_, ok, err = resource.LookupSubtypeRegistration[arm.Arm](subtype2)
+	api2 := resource.APINamespace("acme2").WithComponentType(button)
+	_, ok, err = resource.LookupAPIRegistration[arm.Arm](api2)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeFalse)
 
-	resource.RegisterSubtype(subtype2, resource.SubtypeRegistration[arm.Arm]{
+	resource.RegisterAPI(api2, resource.APIRegistration[arm.Arm]{
 		RPCServiceServerConstructor: sf,
 		RPCClient:                   rcf,
 		RPCServiceDesc:              &pb.RobotService_ServiceDesc,
 		RPCServiceHandler:           pb.RegisterRobotServiceHandlerFromEndpoint,
 	})
-	subtypeInfo, ok, err = resource.LookupSubtypeRegistration[arm.Arm](subtype2)
+	apiInfo, ok, err = resource.LookupAPIRegistration[arm.Arm](api2)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, subtypeInfo.Status, test.ShouldBeNil)
-	svcServer = subtypeInfo.RPCServiceServerConstructor(coll)
+	test.That(t, apiInfo.Status, test.ShouldBeNil)
+	svcServer = apiInfo.RPCServiceServerConstructor(coll)
 	test.That(t, svcServer, test.ShouldNotBeNil)
-	res, err := subtypeInfo.RPCClient(nil, nil, arm.Named("foo"), nil)
+	res, err := apiInfo.RPCClient(nil, nil, "", arm.Named("foo"), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res.Name().Name, test.ShouldEqual, "foo")
-	test.That(t, subtypeInfo.RPCServiceDesc, test.ShouldEqual, &pb.RobotService_ServiceDesc)
+	test.That(t, apiInfo.RPCServiceDesc, test.ShouldEqual, &pb.RobotService_ServiceDesc)
 
-	reflectSvcDesc, err := grpcreflect.LoadServiceDescriptor(subtypeInfo.RPCServiceDesc)
+	reflectSvcDesc, err := grpcreflect.LoadServiceDescriptor(apiInfo.RPCServiceDesc)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, subtypeInfo.ReflectRPCServiceDesc, test.ShouldResemble, reflectSvcDesc)
+	test.That(t, apiInfo.ReflectRPCServiceDesc, test.ShouldResemble, reflectSvcDesc)
 
-	subtype3 := resource.NewSubtype(resource.Namespace("acme3"), resource.ResourceTypeComponent, button)
-	_, ok, err = resource.LookupSubtypeRegistration[arm.Arm](subtype3)
+	api3 := resource.APINamespace("acme3").WithComponentType(button)
+	_, ok, err = resource.LookupAPIRegistration[arm.Arm](api3)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeFalse)
 
-	resource.RegisterSubtype(subtype3, resource.SubtypeRegistration[arm.Arm]{RPCClient: rcf})
-	subtypeInfo, ok, err = resource.LookupSubtypeRegistration[arm.Arm](subtype3)
+	resource.RegisterAPI(api3, resource.APIRegistration[arm.Arm]{RPCClient: rcf})
+	apiInfo, ok, err = resource.LookupAPIRegistration[arm.Arm](api3)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, subtypeInfo, test.ShouldNotBeNil)
-	res, err = subtypeInfo.RPCClient(nil, nil, arm.Named("foo"), nil)
+	test.That(t, apiInfo, test.ShouldNotBeNil)
+	res, err = apiInfo.RPCClient(nil, nil, "", arm.Named("foo"), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res.Name().Name, test.ShouldEqual, "foo")
 
-	subtype4 := resource.NewSubtype(resource.Namespace("acme4"), resource.ResourceTypeComponent, button)
-	_, ok, err = resource.LookupSubtypeRegistration[arm.Arm](subtype4)
+	api4 := resource.APINamespace("acme4").WithComponentType(button)
+	_, ok, err = resource.LookupAPIRegistration[arm.Arm](api4)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeFalse)
 	test.That(t, func() {
-		resource.RegisterSubtype(subtype4, resource.SubtypeRegistration[arm.Arm]{
+		resource.RegisterAPI(api4, resource.APIRegistration[arm.Arm]{
 			RPCServiceServerConstructor: sf,
 			RPCClient:                   rcf,
 			RPCServiceHandler:           pb.RegisterRobotServiceHandlerFromEndpoint,
 		})
 	}, test.ShouldPanic)
 	test.That(t, func() {
-		resource.RegisterSubtypeWithAssociation(subtype4, resource.SubtypeRegistration[arm.Arm]{
+		resource.RegisterAPIWithAssociation(api4, resource.APIRegistration[arm.Arm]{
 			RPCServiceServerConstructor: sf,
 			RPCClient:                   rcf,
 			RPCServiceHandler:           pb.RegisterRobotServiceHandlerFromEndpoint,
@@ -184,17 +184,17 @@ func TestResourceSubtypeRegistry(t *testing.T) {
 		})
 	}, test.ShouldPanic)
 
-	resource.DeregisterSubtype(subtype3)
-	_, ok, err = resource.LookupSubtypeRegistration[arm.Arm](subtype3)
+	resource.DeregisterAPI(api3)
+	_, ok, err = resource.LookupAPIRegistration[arm.Arm](api3)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeFalse)
 }
 
-func TestResourceSubtypeRegistryWithAssociation(t *testing.T) {
+func TestResourceAPIRegistryWithAssociation(t *testing.T) {
 	statf := func(context.Context, arm.Arm) (interface{}, error) {
 		return nil, errors.New("one")
 	}
-	sf := func(subtypeColl resource.SubtypeCollection[arm.Arm]) interface{} {
+	sf := func(apiResColl resource.APIResourceCollection[arm.Arm]) interface{} {
 		return nil
 	}
 
@@ -203,8 +203,8 @@ func TestResourceSubtypeRegistryWithAssociation(t *testing.T) {
 		capName resource.Name
 	}
 
-	someName := resource.NewName(resource.Namespace(uuid.NewString()), resource.ResourceTypeComponent, button, "button1")
-	resource.RegisterSubtypeWithAssociation(someName.Subtype, resource.SubtypeRegistration[arm.Arm]{
+	someName := resource.NewName(resource.APINamespace(uuid.NewString()).WithComponentType(button), "button1")
+	resource.RegisterAPIWithAssociation(someName.API, resource.APIRegistration[arm.Arm]{
 		Status:                      statf,
 		RPCServiceServerConstructor: sf,
 		RPCServiceHandler:           pb.RegisterRobotServiceHandlerFromEndpoint,
@@ -215,7 +215,7 @@ func TestResourceSubtypeRegistryWithAssociation(t *testing.T) {
 			return nil
 		},
 	})
-	reg, ok := resource.LookupAssociatedConfigRegistration(someName.Subtype)
+	reg, ok := resource.LookupAssociatedConfigRegistration(someName.API)
 	test.That(t, ok, test.ShouldBeTrue)
 	assoc, err := reg.AttributeMapConverter(utils.AttributeMap{"field1": "hey"})
 	test.That(t, err, test.ShouldBeNil)
@@ -229,20 +229,20 @@ func TestDiscoveryFunctions(t *testing.T) {
 	df := func(ctx context.Context, logger golog.Logger) (interface{}, error) {
 		return []resource.Discovery{}, nil
 	}
-	validSubtypeQuery := resource.NewDiscoveryQuery(acme.Subtype, resource.Model{Name: "some model"})
-	_, ok := resource.LookupRegistration(validSubtypeQuery.API, validSubtypeQuery.Model)
+	validAPIQuery := resource.NewDiscoveryQuery(acme.API, resource.Model{Name: "some model"})
+	_, ok := resource.LookupRegistration(validAPIQuery.API, validAPIQuery.Model)
 	test.That(t, ok, test.ShouldBeFalse)
 
 	rf := func(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (arm.Arm, error) {
 		return &fake.Arm{Named: conf.ResourceName().AsNamed()}, nil
 	}
 
-	resource.Register(validSubtypeQuery.API, validSubtypeQuery.Model, resource.Registration[arm.Arm, resource.NoNativeConfig]{
+	resource.Register(validAPIQuery.API, validAPIQuery.Model, resource.Registration[arm.Arm, resource.NoNativeConfig]{
 		Constructor: rf,
 		Discover:    df,
 	})
 
-	reg, ok := resource.LookupRegistration(validSubtypeQuery.API, validSubtypeQuery.Model)
+	reg, ok := resource.LookupRegistration(validAPIQuery.API, validAPIQuery.Model)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, reg.Discover, test.ShouldEqual, df)
 }

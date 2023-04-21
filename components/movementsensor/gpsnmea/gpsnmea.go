@@ -89,7 +89,7 @@ func (cfg *SerialConfig) ValidateSerial(path string) error {
 	return nil
 }
 
-var modelname = resource.NewDefaultModel("gps-nmea")
+var modelname = resource.DefaultModelFamily.WithModel("gps-nmea")
 
 // NmeaMovementSensor implements a gps that sends nmea messages for movement data.
 type NmeaMovementSensor interface {
@@ -101,7 +101,7 @@ type NmeaMovementSensor interface {
 
 func init() {
 	resource.RegisterComponent(
-		movementsensor.Subtype,
+		movementsensor.API,
 		modelname,
 		resource.Registration[movementsensor.MovementSensor, *Config]{
 			Constructor: newNMEAGPS,

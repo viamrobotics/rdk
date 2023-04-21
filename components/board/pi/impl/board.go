@@ -46,7 +46,7 @@ import (
 // init registers a pi board based on pigpio.
 func init() {
 	resource.RegisterComponent(
-		board.Subtype,
+		board.API,
 		picommon.ModelName,
 		resource.Registration[board.Board, *genericlinux.Config]{
 			Constructor: func(

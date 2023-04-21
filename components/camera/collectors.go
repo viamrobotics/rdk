@@ -108,7 +108,7 @@ func newReadImageCollector(resource interface{}, params data.CollectorParams) (d
 func assertCamera(resource interface{}) (Camera, error) {
 	cam, ok := resource.(Camera)
 	if !ok {
-		return nil, data.InvalidInterfaceErr(SubtypeName)
+		return nil, data.InvalidInterfaceErr(API)
 	}
 	return cam, nil
 }

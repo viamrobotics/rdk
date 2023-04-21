@@ -6,4 +6,4 @@ import (
 )
 
 // ModelName is the name used refer to any implementation of a pi based component.
-var ModelName = resource.NewDefaultModel("pi")
+var ModelName = resource.DefaultModelFamily.WithModel("pi")

@@ -33,13 +33,13 @@ func TestModManagerFunctions(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	myCounterModel := resource.NewModel("acme", "demo", "mycounter")
-	rNameCounter1 := resource.NameFromSubtype(generic.Subtype, "counter1")
+	rNameCounter1 := resource.NewName(generic.API, "counter1")
 	cfgCounter1 := resource.Config{
 		Name:  "counter1",
-		API:   generic.Subtype,
+		API:   generic.API,
 		Model: myCounterModel,
 	}
-	_, err = cfgCounter1.Validate("test", resource.ResourceTypeComponent)
+	_, err = cfgCounter1.Validate("test", resource.APITypeComponentName)
 	test.That(t, err, test.ShouldBeNil)
 
 	myRobot := &inject.Robot{}
@@ -79,13 +79,13 @@ func TestModManagerFunctions(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	mod.registerResources(mgr, logger)
-	reg, ok := resource.LookupRegistration(generic.Subtype, myCounterModel)
+	reg, ok := resource.LookupRegistration(generic.API, myCounterModel)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, reg, test.ShouldNotBeNil)
 	test.That(t, reg.Constructor, test.ShouldNotBeNil)
 
 	mod.deregisterResources()
-	_, ok = resource.LookupRegistration(generic.Subtype, myCounterModel)
+	_, ok = resource.LookupRegistration(generic.API, myCounterModel)
 	test.That(t, ok, test.ShouldBeFalse)
 
 	test.That(t, mgr.Close(ctx), test.ShouldBeNil)
@@ -102,7 +102,7 @@ func TestModManagerFunctions(t *testing.T) {
 	err = mgr.Add(ctx, modCfg)
 	test.That(t, err, test.ShouldBeNil)
 
-	reg, ok = resource.LookupRegistration(generic.Subtype, myCounterModel)
+	reg, ok = resource.LookupRegistration(generic.API, myCounterModel)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, reg.Constructor, test.ShouldNotBeNil)
 
@@ -111,8 +111,8 @@ func TestModManagerFunctions(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 
 	cfg2 := resource.Config{
-		API:   motor.Subtype,
-		Model: resource.NewDefaultModel("fake"),
+		API:   motor.API,
+		Model: resource.DefaultModelFamily.WithModel("fake"),
 	}
 	ok = mgr.Provides(cfg2)
 	test.That(t, ok, test.ShouldBeFalse)
@@ -129,7 +129,7 @@ func TestModManagerFunctions(t *testing.T) {
 	ok = mgr.IsModularResource(rNameCounter1)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	ok = mgr.IsModularResource(resource.NameFromSubtype(generic.Subtype, "missing"))
+	ok = mgr.IsModularResource(resource.NewName(generic.API, "missing"))
 	test.That(t, ok, test.ShouldBeFalse)
 
 	t.Log("test ValidateConfig")
@@ -236,23 +236,23 @@ func TestModManagerValidation(t *testing.T) {
 	myBaseModel := resource.NewModel("acme", "demo", "mybase")
 	cfgMyBase1 := resource.Config{
 		Name:  "mybase1",
-		API:   base.Subtype,
+		API:   base.API,
 		Model: myBaseModel,
 		Attributes: map[string]interface{}{
 			"motorL": "motor1",
 			"motorR": "motor2",
 		},
 	}
-	_, err = cfgMyBase1.Validate("test", resource.ResourceTypeComponent)
+	_, err = cfgMyBase1.Validate("test", resource.APITypeComponentName)
 	test.That(t, err, test.ShouldBeNil)
 	// cfgMyBase2 is missing required attributes "motorL" and "motorR" and should
 	// cause module Validation error.
 	cfgMyBase2 := resource.Config{
 		Name:  "mybase2",
-		API:   base.Subtype,
+		API:   base.API,
 		Model: myBaseModel,
 	}
-	_, err = cfgMyBase2.Validate("test", resource.ResourceTypeComponent)
+	_, err = cfgMyBase2.Validate("test", resource.APITypeComponentName)
 	test.That(t, err, test.ShouldBeNil)
 
 	myRobot := &inject.Robot{}
@@ -281,7 +281,7 @@ func TestModManagerValidation(t *testing.T) {
 	err = mgr.Add(ctx, modCfg)
 	test.That(t, err, test.ShouldBeNil)
 
-	reg, ok := resource.LookupRegistration(base.Subtype, myBaseModel)
+	reg, ok := resource.LookupRegistration(base.API, myBaseModel)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, reg.Constructor, test.ShouldNotBeNil)
 

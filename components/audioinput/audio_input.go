@@ -14,7 +14,7 @@ import (
 )
 
 func init() {
-	resource.RegisterSubtype(Subtype, resource.SubtypeRegistration[AudioInput]{
+	resource.RegisterAPI(API, resource.APIRegistration[AudioInput]{
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           pb.RegisterAudioInputServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &pb.AudioInputService_ServiceDesc,
@@ -25,18 +25,14 @@ func init() {
 }
 
 // SubtypeName is a constant that identifies the audio input resource subtype string.
-const SubtypeName = resource.SubtypeName("audio_input")
+const SubtypeName = "audio_input"
 
-// Subtype is a constant that identifies the audio input resource subtype.
-var Subtype = resource.NewSubtype(
-	resource.ResourceNamespaceRDK,
-	resource.ResourceTypeComponent,
-	SubtypeName,
-)
+// API is a variable that identifies the audio input resource API.
+var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 
 // Named is a helper for getting the named audio inputs's typed resource name.
 func Named(name string) resource.Name {
-	return resource.NameFromSubtype(Subtype, name)
+	return resource.NewName(API, name)
 }
 
 // An AudioInput is a resource that can capture audio.
@@ -75,7 +71,7 @@ func FromRobot(r robot.Robot, name string) (AudioInput, error) {
 
 // NamesFromRobot is a helper for getting all audio input names from the given Robot.
 func NamesFromRobot(r robot.Robot) []string {
-	return robot.NamesBySubtype(r, Subtype)
+	return robot.NamesByAPI(r, API)
 }
 
 type audioPropertiesFunc func(ctx context.Context) (prop.Audio, error)

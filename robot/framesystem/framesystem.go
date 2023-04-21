@@ -22,17 +22,13 @@ import (
 const LocalFrameSystemName = "robot"
 
 // SubtypeName is a constant that identifies the internal frame system resource subtype string.
-const SubtypeName = resource.SubtypeName("frame_system")
+const SubtypeName = "frame_system"
 
-// Subtype is the fully qualified subtype for the internal frame system service.
-var Subtype = resource.NewSubtype(
-	resource.NamespaceRDKInternal,
-	resource.ResourceTypeService,
-	SubtypeName,
-)
+// API is the fully qualified API for the internal frame system service.
+var API = resource.APINamespaceRDKInternal.WithServiceType(SubtypeName)
 
 // InternalServiceName is used to refer to/depend on this service internally.
-var InternalServiceName = resource.NameFromSubtype(Subtype, "builtin")
+var InternalServiceName = resource.NewName(API, "builtin")
 
 // A Service that returns the frame system for a robot.
 type Service interface {
@@ -96,9 +92,7 @@ func New(ctx context.Context, r robot.Robot, logger golog.Logger) Service {
 }
 
 var internalFrameSystemServiceName = resource.NewName(
-	resource.NamespaceRDKInternal,
-	resource.ResourceTypeService,
-	"framesystem",
+	resource.APINamespaceRDKInternal.WithServiceType("framesystem"),
 	"builtin",
 )
 

@@ -70,15 +70,15 @@ func TestClient(t *testing.T) {
 		return nil
 	}
 
-	gantrySvc, err := resource.NewSubtypeCollection(
-		gantry.Subtype,
+	gantrySvc, err := resource.NewAPIResourceCollection(
+		gantry.API,
 		(map[resource.Name]gantry.Gantry{gantry.Named(testGantryName): injectGantry, gantry.Named(testGantryName2): injectGantry2}),
 	)
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype, ok, err := resource.LookupSubtypeRegistration[gantry.Gantry](gantry.Subtype)
+	resourceAPI, ok, err := resource.LookupAPIRegistration[gantry.Gantry](gantry.API)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, gantrySvc), test.ShouldBeNil)
+	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, gantrySvc), test.ShouldBeNil)
 
 	injectGantry.DoFunc = testutils.EchoFunc
 
@@ -98,7 +98,7 @@ func TestClient(t *testing.T) {
 	t.Run("gantry client 1", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		gantry1Client, err := gantry.NewClientFromConn(context.Background(), conn, gantry.Named(testGantryName), logger)
+		gantry1Client, err := gantry.NewClientFromConn(context.Background(), conn, "", gantry.Named(testGantryName), logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		// DoCommand
@@ -134,7 +134,7 @@ func TestClient(t *testing.T) {
 	t.Run("gantry client 2", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		client2, err := resourceSubtype.RPCClient(context.Background(), conn, gantry.Named(testGantryName2), logger)
+		client2, err := resourceAPI.RPCClient(context.Background(), conn, "", gantry.Named(testGantryName2), logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		pos, err := client2.Position(context.Background(), map[string]interface{}{"foo": "123", "bar": 234})

@@ -18,7 +18,7 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-var modelname = resource.NewDefaultModel("sensirion-sht3xd")
+var modelname = resource.DefaultModelFamily.WithModel("sensirion-sht3xd")
 
 const (
 	defaultI2Caddr = 0x44
@@ -51,7 +51,7 @@ func (conf *Config) Validate(path string) ([]string, error) {
 
 func init() {
 	resource.RegisterComponent(
-		sensor.Subtype,
+		sensor.API,
 		modelname,
 		resource.Registration[sensor.Sensor, *Config]{
 			Constructor: func(

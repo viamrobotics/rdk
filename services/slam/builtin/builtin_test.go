@@ -480,7 +480,7 @@ func createSLAMService(
 	t.Helper()
 
 	ctx := context.Background()
-	cfgService := resource.Config{Name: "test", API: slam.Subtype, Model: resource.NewDefaultModel(resource.ModelName(model))}
+	cfgService := resource.Config{Name: "test", API: slam.API, Model: resource.DefaultModelFamily.WithModel(model)}
 	cfgService.ConvertedAttributes = conf
 
 	deps := setupDeps(conf)

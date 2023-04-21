@@ -25,24 +25,25 @@ import (
 )
 
 var testComponent = resource.Config{
-	Name:                "some-name",
-	DeprecatedSubtype:   "some-type",
-	DeprecatedNamespace: "some-namespace",
-	Model:               resource.NewDefaultModel("some-model"),
-	DependsOn:           []string{"dep1", "dep2"},
+	Name:      "some-name",
+	API:       resource.NewAPI("some-namespace", "component", "some-type"),
+	Model:     resource.DefaultModelFamily.WithModel("some-model"),
+	DependsOn: []string{"dep1", "dep2"},
 	Attributes: utils.AttributeMap{
 		"attr1": 1,
 		"attr2": "attr-string",
 	},
 	AssociatedResourceConfigs: []resource.AssociatedResourceConfig{
 		{
-			Type: "some-type-1",
+			DeprecatedType: "some-type-1",
+			API:            resource.APINamespaceRDK.WithServiceType("some-type-1"),
 			Attributes: utils.AttributeMap{
 				"attr1": 1,
 			},
 		},
 		{
-			Type: "some-type-2",
+			DeprecatedType: "some-type-2",
+			API:            resource.APINamespaceRDK.WithServiceType("some-type-2"),
 			Attributes: utils.AttributeMap{
 				"attr1": 1,
 			},
@@ -84,13 +85,15 @@ var testRemote = Remote{
 	ReconnectInterval:       2000000000,
 	AssociatedResourceConfigs: []resource.AssociatedResourceConfig{
 		{
-			Type: "some-type-1",
+			DeprecatedType: "some-type-1",
+			API:            resource.APINamespaceRDK.WithServiceType("some-type-1"),
 			Attributes: utils.AttributeMap{
 				"attr1": 1,
 			},
 		},
 		{
-			Type: "some-type-2",
+			DeprecatedType: "some-type-2",
+			API:            resource.APINamespaceRDK.WithServiceType("some-type-2"),
 			Attributes: utils.AttributeMap{
 				"attr1": 1,
 			},
@@ -99,10 +102,9 @@ var testRemote = Remote{
 }
 
 var testService = resource.Config{
-	Name:                "some-name",
-	DeprecatedNamespace: "some-namespace",
-	DeprecatedSubtype:   "some-type",
-	Model:               resource.NewDefaultModel("some-model"),
+	Name:  "some-name",
+	API:   resource.NewAPI("some-namespace", "service", "some-type"),
+	Model: resource.DefaultModelFamily.WithModel("some-model"),
 	Attributes: utils.AttributeMap{
 		"attr1": 1,
 	},
@@ -176,21 +178,21 @@ var testPackageConfig = PackageConfig{
 var (
 	testInvalidModule    = Module{}
 	testInvalidComponent = resource.Config{
-		DeprecatedResourceType: resource.ResourceTypeComponent,
+		API: resource.NewAPI("", "component", ""),
 	}
 	testInvalidRemote        = Remote{}
 	testInvalidProcessConfig = pexec.ProcessConfig{}
 	testInvalidService       = resource.Config{
-		DeprecatedResourceType: resource.ResourceTypeService,
+		API: resource.NewAPI("", "service", ""),
 	}
 	testInvalidPackage = PackageConfig{}
 )
 
 func init() {
-	if _, err := testComponent.Validate("", resource.ResourceTypeComponent); err != nil {
+	if _, err := testComponent.Validate("", resource.APITypeComponentName); err != nil {
 		panic(err)
 	}
-	if _, err := testService.Validate("", resource.ResourceTypeService); err != nil {
+	if _, err := testService.Validate("", resource.APITypeServiceName); err != nil {
 		panic(err)
 	}
 }
@@ -215,32 +217,26 @@ func TestModuleConfigToProto(t *testing.T) {
 //nolint:thelper
 func validateComponent(t *testing.T, actual, expected resource.Config) {
 	test.That(t, actual.Name, test.ShouldEqual, expected.Name)
-	test.That(t, actual.DeprecatedSubtype, test.ShouldEqual, expected.DeprecatedSubtype)
-	test.That(t, actual.DeprecatedNamespace, test.ShouldEqual, expected.DeprecatedNamespace)
+	test.That(t, actual.API, test.ShouldResemble, expected.API)
 	test.That(t, actual.Model, test.ShouldResemble, expected.Model)
 	test.That(t, actual.DependsOn, test.ShouldResemble, expected.DependsOn)
 	test.That(t, actual.Attributes.Int("attr1", 0), test.ShouldEqual, expected.Attributes.Int("attr1", -1))
 	test.That(t, actual.Attributes.String("attr2"), test.ShouldEqual, expected.Attributes.String("attr2"))
 
 	test.That(t, actual.AssociatedResourceConfigs, test.ShouldHaveLength, 2)
-	test.That(t, actual.AssociatedResourceConfigs[0].Type, test.ShouldResemble, expected.AssociatedResourceConfigs[0].Type)
+	test.That(t, actual.AssociatedResourceConfigs[0].DeprecatedType, test.ShouldResemble, expected.AssociatedResourceConfigs[0].DeprecatedType)
 	test.That(t,
 		actual.AssociatedResourceConfigs[0].Attributes.Int("attr1", 0),
 		test.ShouldEqual,
 		expected.AssociatedResourceConfigs[0].Attributes.Int("attr1", -1))
 	test.That(t,
-		actual.AssociatedResourceConfigs[1].Type,
+		actual.AssociatedResourceConfigs[1].DeprecatedType,
 		test.ShouldResemble,
-		expected.AssociatedResourceConfigs[1].Type)
+		expected.AssociatedResourceConfigs[1].DeprecatedType)
 	test.That(t,
 		actual.AssociatedResourceConfigs[1].Attributes.Int("attr1", 0),
 		test.ShouldEqual,
 		expected.AssociatedResourceConfigs[1].Attributes.Int("attr1", -1))
-
-	// triplet checking
-	test.That(t, actual.API.Namespace, test.ShouldEqual, actual.DeprecatedNamespace)
-	test.That(t, actual.API.ResourceSubtype, test.ShouldEqual, actual.DeprecatedSubtype)
-	test.That(t, actual.API.ResourceType, test.ShouldEqual, resource.ResourceTypeComponent)
 
 	f1, err := actual.Frame.ParseConfig()
 	test.That(t, err, test.ShouldBeNil)
@@ -266,152 +262,45 @@ func TestComponentConfigToProto(t *testing.T) {
 		{
 			Name: "basic component with internal API",
 			Conf: resource.Config{
-				Name:                "foo",
-				DeprecatedNamespace: "rdk",
-				DeprecatedSubtype:   "base",
-				Model:               resource.NewDefaultModel("fake"),
+				Name:  "foo",
+				API:   resource.APINamespaceRDK.WithComponentType("base"),
+				Model: resource.DefaultModelFamily.WithModel("fake"),
 			},
 		},
 		{
 			Name: "basic component with external API",
 			Conf: resource.Config{
-				Name:                "foo",
-				DeprecatedNamespace: "acme",
-				DeprecatedSubtype:   "gizmo",
-				Model:               resource.NewDefaultModel("fake"),
+				Name:  "foo",
+				API:   resource.NewAPI("acme", "component", "gizmo"),
+				Model: resource.DefaultModelFamily.WithModel("fake"),
 			},
 		},
 		{
 			Name: "basic component with external model",
 			Conf: resource.Config{
-				Name:                "foo",
-				DeprecatedNamespace: "acme",
-				DeprecatedSubtype:   "gizmo",
-				Model:               resource.NewModel("acme", "test", "model"),
+				Name:  "foo",
+				API:   resource.NewAPI("acme", "component", "gizmo"),
+				Model: resource.NewModel("acme", "test", "model"),
 			},
 		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
-			_, err := tc.Conf.Validate("", resource.ResourceTypeComponent)
+			_, err := tc.Conf.Validate("", resource.APITypeComponentName)
 			test.That(t, err, test.ShouldBeNil)
 			proto, err := ComponentConfigToProto(&tc.Conf)
 			test.That(t, err, test.ShouldBeNil)
+			test.That(t, proto.Api, test.ShouldEqual, tc.Conf.API.String())
+			test.That(t, proto.Model, test.ShouldEqual, tc.Conf.Model.String())
+			test.That(t, proto.Namespace, test.ShouldEqual, tc.Conf.API.Type.Namespace)
+			test.That(t, proto.Type, test.ShouldEqual, tc.Conf.API.SubtypeName)
 			out, err := ComponentConfigFromProto(proto)
 			test.That(t, err, test.ShouldBeNil)
-			_, err = out.Validate("test", resource.ResourceTypeComponent)
+			_, err = out.Validate("test", resource.APITypeComponentName)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, out, test.ShouldNotBeNil)
 			test.That(t, out, test.ShouldResemble, &tc.Conf)
-			test.That(t, out.API.Namespace, test.ShouldEqual, out.DeprecatedNamespace)
-			test.That(t, out.API.ResourceSubtype, test.ShouldEqual, out.DeprecatedSubtype)
-		})
-	}
-}
-
-func TestComponentTripletsFallback(t *testing.T) {
-	for _, tc := range []struct {
-		Name            string
-		Proto           pb.ComponentConfig
-		Conf            resource.Config
-		ValidationError string
-	}{
-		{
-			Name: "basic component with internal API",
-			Proto: pb.ComponentConfig{
-				Name:      "foo",
-				Namespace: "rdk",
-				Type:      "base",
-				Model:     "fake",
-			},
-			Conf: resource.Config{
-				Name:                "foo",
-				DeprecatedNamespace: "rdk",
-				DeprecatedSubtype:   "base",
-				Model:               resource.NewDefaultModel("fake"),
-			},
-		},
-		{
-			Name: "basic component with external API",
-			Proto: pb.ComponentConfig{
-				Name:      "foo",
-				Namespace: "acme",
-				Type:      "gizmo",
-				Model:     "fake",
-			},
-			Conf: resource.Config{
-				Name:                "foo",
-				DeprecatedNamespace: "acme",
-				DeprecatedSubtype:   "gizmo",
-				Model:               resource.NewDefaultModel("fake"),
-			},
-		},
-		{
-			Name: "basic component with external model",
-			Proto: pb.ComponentConfig{
-				Name:      "foo",
-				Namespace: "acme",
-				Type:      "gizmo",
-				Model:     "acme:test:model",
-			},
-			Conf: resource.Config{
-				Name:                "foo",
-				DeprecatedNamespace: "acme",
-				DeprecatedSubtype:   "gizmo",
-				Model:               resource.NewModel("acme", "test", "model"),
-			},
-		},
-		{
-			Name: "basic component with api only",
-			Proto: pb.ComponentConfig{
-				Name:  "foo",
-				Api:   "acme:component:gizmo",
-				Model: "acme:test:model",
-			},
-			Conf: resource.Config{
-				Name:                "foo",
-				DeprecatedNamespace: "acme",
-				DeprecatedSubtype:   "gizmo",
-				Model:               resource.NewModel("acme", "test", "model"),
-			},
-		},
-		{
-			Name: "empty model",
-			Proto: pb.ComponentConfig{
-				Name: "foo",
-				Api:  "acme:component:gizmo",
-			},
-			Conf: resource.Config{
-				Name:                "foo",
-				DeprecatedNamespace: "acme",
-				DeprecatedSubtype:   "gizmo",
-				Model:               resource.NewDefaultModel(""),
-			},
-			ValidationError: "name field for model missing",
-		},
-	} {
-		t.Run(tc.Name, func(t *testing.T) {
-			out, err := ComponentConfigFromProto(&tc.Proto)
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, out, test.ShouldNotBeNil)
-			_, err = tc.Conf.Validate("test", resource.ResourceTypeComponent)
-
-			if tc.ValidationError != "" {
-				test.That(t, err, test.ShouldNotBeNil)
-				test.That(t, err.Error(), test.ShouldContainSubstring, tc.ValidationError)
-			} else {
-				test.That(t, err, test.ShouldBeNil)
-			}
-
-			_, err = out.Validate("test", resource.ResourceTypeComponent)
-			if tc.ValidationError != "" {
-				test.That(t, err, test.ShouldNotBeNil)
-				test.That(t, err.Error(), test.ShouldContainSubstring, tc.ValidationError)
-			} else {
-				test.That(t, err, test.ShouldBeNil)
-				test.That(t, out, test.ShouldResemble, &tc.Conf)
-				test.That(t, out.API.Namespace, test.ShouldEqual, out.DeprecatedNamespace)
-				test.That(t, out.API.ResourceSubtype, test.ShouldEqual, out.DeprecatedSubtype)
-			}
+			test.That(t, out.API, test.ShouldResemble, out.API)
+			test.That(t, out.Model, test.ShouldResemble, out.Model)
 		})
 	}
 }
@@ -538,17 +427,17 @@ func validateRemote(t *testing.T, actual, expected Remote) {
 
 	test.That(t, actual.AssociatedResourceConfigs, test.ShouldHaveLength, 2)
 	test.That(t,
-		actual.AssociatedResourceConfigs[0].Type,
+		actual.AssociatedResourceConfigs[0].DeprecatedType,
 		test.ShouldResemble,
-		expected.AssociatedResourceConfigs[0].Type)
+		expected.AssociatedResourceConfigs[0].DeprecatedType)
 	test.That(t,
 		actual.AssociatedResourceConfigs[0].Attributes.Int("attr1", 0),
 		test.ShouldEqual,
 		expected.AssociatedResourceConfigs[0].Attributes.Int("attr1", -1))
 	test.That(t,
-		actual.AssociatedResourceConfigs[1].Type,
+		actual.AssociatedResourceConfigs[1].DeprecatedType,
 		test.ShouldResemble,
-		expected.AssociatedResourceConfigs[1].Type)
+		expected.AssociatedResourceConfigs[1].DeprecatedType)
 	test.That(t,
 		actual.AssociatedResourceConfigs[1].Attributes.Int("attr1", 0),
 		test.ShouldEqual,
@@ -584,8 +473,7 @@ func TestRemoteConfigToProto(t *testing.T) {
 //nolint:thelper
 func validateService(t *testing.T, actual, expected resource.Config) {
 	test.That(t, actual.Name, test.ShouldEqual, expected.Name)
-	test.That(t, actual.DeprecatedSubtype, test.ShouldEqual, expected.DeprecatedSubtype)
-	test.That(t, actual.DeprecatedNamespace, test.ShouldEqual, expected.DeprecatedNamespace)
+	test.That(t, actual.API, test.ShouldResemble, expected.API)
 	test.That(t, actual.Model, test.ShouldResemble, expected.Model)
 	test.That(t, actual.DependsOn, test.ShouldResemble, expected.DependsOn)
 	test.That(t, actual.Attributes.Int("attr1", 0), test.ShouldEqual, expected.Attributes.Int("attr1", -1))
@@ -608,41 +496,33 @@ func TestServiceConfigToProto(t *testing.T) {
 		{
 			Name: "basic component with internal API",
 			Conf: resource.Config{
-				Name:                   "foo",
-				DeprecatedNamespace:    "rdk",
-				DeprecatedSubtype:      "base",
-				DeprecatedResourceType: resource.ResourceTypeService,
-				Model:                  resource.NewDefaultModel("fake"),
+				Name:  "foo",
+				API:   resource.APINamespaceRDK.WithServiceType("base"),
+				Model: resource.DefaultModelFamily.WithModel("fake"),
 			},
 		},
 		{
 			Name: "basic component with external API",
 			Conf: resource.Config{
-				Name:                   "foo",
-				DeprecatedNamespace:    "acme",
-				DeprecatedSubtype:      "gizmo",
-				DeprecatedResourceType: resource.ResourceTypeService,
-				Model:                  resource.NewDefaultModel("fake"),
+				Name:  "foo",
+				API:   resource.NewAPI("acme", "service", "gizmo"),
+				Model: resource.DefaultModelFamily.WithModel("fake"),
 			},
 		},
 		{
 			Name: "basic component with external model",
 			Conf: resource.Config{
-				Name:                   "foo",
-				DeprecatedNamespace:    "acme",
-				DeprecatedSubtype:      "gizmo",
-				DeprecatedResourceType: resource.ResourceTypeService,
-				Model:                  resource.NewModel("acme", "test", "model"),
+				Name:  "foo",
+				API:   resource.NewAPI("acme", "service", "gizmo"),
+				Model: resource.NewModel("acme", "test", "model"),
 			},
 		},
 		{
 			Name: "empty model name",
 			Conf: resource.Config{
-				Name:                   "foo",
-				DeprecatedNamespace:    "acme",
-				DeprecatedSubtype:      "gizmo",
-				DeprecatedResourceType: resource.ResourceTypeService,
-				Model:                  resource.Model{},
+				Name:  "foo",
+				API:   resource.NewAPI("acme", "service", "gizmo"),
+				Model: resource.Model{},
 			},
 		},
 	} {
@@ -655,7 +535,7 @@ func TestServiceConfigToProto(t *testing.T) {
 			test.That(t, out, test.ShouldNotBeNil)
 
 			test.That(t, out, test.ShouldResemble, &tc.Conf)
-			_, err = out.Validate("test", resource.ResourceTypeService)
+			_, err = out.Validate("test", resource.APITypeServiceName)
 			test.That(t, err, test.ShouldBeNil)
 		})
 	}
@@ -685,76 +565,10 @@ func TestServiceConfigWithEmptyModelName(t *testing.T) {
 	test.That(t, out, test.ShouldNotBeNil)
 
 	test.That(t, out.Model, test.ShouldResemble, fromJSON.Model)
-	test.That(t, out.Model.Validate().Error(), test.ShouldContainSubstring, "namespace field for model missing")
-
-	// will override the model family/namespace with the builtins.
-	_, err = out.Validate("...", resource.ResourceTypeService)
+	test.That(t, out.Model.Validate(), test.ShouldBeNil)
+	test.That(t, out.Model, test.ShouldResemble, resource.DefaultServiceModel)
+	_, err = out.Validate("...", resource.APITypeServiceName)
 	test.That(t, err, test.ShouldBeNil)
-}
-
-func TestServiceTripletsFallback(t *testing.T) {
-	for _, tc := range []struct {
-		Name  string
-		Proto pb.ServiceConfig
-		Conf  resource.Config
-	}{
-		{
-			Name: "basic service with internal API",
-			Proto: pb.ServiceConfig{
-				Name:      "foo",
-				Namespace: "rdk",
-				Type:      "base",
-				Model:     "fake",
-			},
-			Conf: resource.Config{
-				Name:                "foo",
-				DeprecatedNamespace: "rdk",
-				DeprecatedSubtype:   "base",
-				Model:               resource.NewDefaultModel("fake"),
-			},
-		},
-		{
-			Name: "basic service with external API",
-			Proto: pb.ServiceConfig{
-				Name:      "foo",
-				Namespace: "acme",
-				Type:      "gizmo",
-				Model:     "fake",
-			},
-			Conf: resource.Config{
-				Name:                "foo",
-				DeprecatedNamespace: "acme",
-				DeprecatedSubtype:   "gizmo",
-				Model:               resource.NewDefaultModel("fake"),
-			},
-		},
-		{
-			Name: "basic service with external model",
-			Proto: pb.ServiceConfig{
-				Name:      "foo",
-				Namespace: "acme",
-				Type:      "gizmo",
-				Model:     "acme:test:model",
-			},
-			Conf: resource.Config{
-				Name:                "foo",
-				DeprecatedNamespace: "acme",
-				DeprecatedSubtype:   "gizmo",
-				Model:               resource.NewModel("acme", "test", "model"),
-			},
-		},
-	} {
-		t.Run(tc.Name, func(t *testing.T) {
-			out, err := ServiceConfigFromProto(&tc.Proto)
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, out, test.ShouldNotBeNil)
-			_, err = out.Validate("test", resource.ResourceTypeService)
-			test.That(t, err, test.ShouldBeNil)
-			_, err = tc.Conf.Validate("test", resource.ResourceTypeService)
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, out, test.ShouldResemble, &tc.Conf)
-		})
-	}
 }
 
 func TestProcessConfigToProto(t *testing.T) {
@@ -984,13 +798,13 @@ func TestPartialStart(t *testing.T) {
 	test.That(t, out.Remotes[1].Name, test.ShouldEqual, "")
 	validateModule(t, out.Modules[0], testModule)
 	test.That(t, out.Modules[1], test.ShouldResemble, testInvalidModule)
-	validateComponent(t, out.Components[0], testComponent)
-	// there should only be one valid component in our list
 	test.That(t, len(out.Components), test.ShouldEqual, 1)
+	validateComponent(t, out.Components[0], testComponent)
+	// there should only be one valid component and service in our list
 	test.That(t, out.Processes[0], test.ShouldResemble, testProcessConfig)
 	test.That(t, out.Processes[1], test.ShouldResemble, testInvalidProcessConfig)
+	test.That(t, len(out.Services), test.ShouldEqual, 1)
 	validateService(t, out.Services[0], testService)
-	test.That(t, out.Services[1], test.ShouldResemble, testInvalidService)
 	test.That(t, out.Network, test.ShouldResemble, testNetworkConfig)
 	validateAuthConfig(t, out.Auth, testAuthConfig)
 	test.That(t, out.Debug, test.ShouldEqual, debug)

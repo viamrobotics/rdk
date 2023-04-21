@@ -29,7 +29,7 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-var modelName = resource.NewDefaultModel("numato")
+var modelName = resource.DefaultModelFamily.WithModel("numato")
 
 var errNoBoard = errors.New("no numato boards found")
 
@@ -42,7 +42,7 @@ type Config struct {
 
 func init() {
 	resource.RegisterComponent(
-		board.Subtype,
+		board.API,
 		modelName,
 		resource.Registration[board.Board, *Config]{
 			Constructor: func(

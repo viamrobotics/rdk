@@ -67,12 +67,12 @@ func TestClient(t *testing.T) {
 		audioinput.Named(testAudioInputName): injectAudioInput,
 		audioinput.Named(failAudioInputName): injectAudioInput2,
 	}
-	audioInputSvc, err := resource.NewSubtypeCollection(audioinput.Subtype, resources)
+	audioInputSvc, err := resource.NewAPIResourceCollection(audioinput.API, resources)
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype, ok, err := resource.LookupSubtypeRegistration[audioinput.AudioInput](audioinput.Subtype)
+	resourceAPI, ok, err := resource.LookupAPIRegistration[audioinput.AudioInput](audioinput.API)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, audioInputSvc), test.ShouldBeNil)
+	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, audioInputSvc), test.ShouldBeNil)
 
 	injectAudioInput.DoFunc = testutils.EchoFunc
 
@@ -90,7 +90,7 @@ func TestClient(t *testing.T) {
 	t.Run("audio input client 1", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		audioInput1Client, err := audioinput.NewClientFromConn(context.Background(), conn, audioinput.Named(testAudioInputName), logger)
+		audioInput1Client, err := audioinput.NewClientFromConn(context.Background(), conn, "", audioinput.Named(testAudioInputName), logger)
 		test.That(t, err, test.ShouldBeNil)
 		chunk, _, err := gostream.ReadAudio(context.Background(), audioInput1Client)
 		test.That(t, err, test.ShouldBeNil)
@@ -122,7 +122,7 @@ func TestClient(t *testing.T) {
 	t.Run("audio input client 2", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		client2, err := resourceSubtype.RPCClient(context.Background(), conn, audioinput.Named(failAudioInputName), logger)
+		client2, err := resourceAPI.RPCClient(context.Background(), conn, "", audioinput.Named(failAudioInputName), logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		_, _, err = gostream.ReadAudio(context.Background(), client2)

@@ -24,7 +24,7 @@ import (
 var errAttrCfgPopulation = errors.New("can only populate either ArmModel or ModelPath - not both")
 
 // ModelName is the string used to refer to the fake arm model.
-var ModelName = resource.NewDefaultModel("fake")
+var ModelName = resource.DefaultModelFamily.WithModel("fake")
 
 // Config is used for converting config attributes.
 type Config struct {
@@ -33,7 +33,7 @@ type Config struct {
 }
 
 func modelFromName(model, name string) (referenceframe.Model, error) {
-	switch resource.ModelName(model) {
+	switch model {
 	case xarm.ModelName6DOF, xarm.ModelName7DOF, xarm.ModelNameLite:
 		return xarm.Model(name, model)
 	case ur.ModelName.Name:
@@ -62,7 +62,7 @@ func (conf *Config) Validate(path string) ([]string, error) {
 }
 
 func init() {
-	resource.RegisterComponent(arm.Subtype, ModelName, resource.Registration[arm.Arm, *Config]{
+	resource.RegisterComponent(arm.API, ModelName, resource.Registration[arm.Arm, *Config]{
 		Constructor: NewArm,
 	})
 }

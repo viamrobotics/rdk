@@ -71,7 +71,7 @@ func newTestDataManager(t *testing.T) (internal.DMService, robot.Robot) {
 	t.Helper()
 	dmCfg := &Config{}
 	cfgService := resource.Config{
-		API:                 datamanager.Subtype,
+		API:                 datamanager.API,
 		ConvertedAttributes: dmCfg,
 	}
 	logger := golog.NewTestLogger(t)
@@ -104,7 +104,7 @@ func getServiceConfig(t *testing.T, cfg *config.Config) (*Config, []string) {
 	t.Helper()
 	for _, c := range cfg.Services {
 		// Compare service type and name.
-		if c.API == datamanager.Subtype && c.ConvertedAttributes != nil {
+		if c.API == datamanager.API && c.ConvertedAttributes != nil {
 			svcConfig, ok := c.ConvertedAttributes.(*Config)
 			test.That(t, ok, test.ShouldBeTrue)
 			return svcConfig, c.ImplicitDependsOn

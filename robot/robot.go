@@ -43,8 +43,8 @@ type Robot interface {
 	// ResourceNames returns a list of all known resource names.
 	ResourceNames() []resource.Name
 
-	// ResourceRPCSubtypes returns a list of all known resource RPC subtypes.
-	ResourceRPCSubtypes() []resource.RPCSubtype
+	// ResourceRPCAPIs returns a list of all known resource RPC APIs.
+	ResourceRPCAPIs() []resource.RPCAPI
 
 	// ProcessManager returns the process manager for the robot.
 	ProcessManager() pexec.ProcessManager
@@ -148,20 +148,20 @@ func AllResourcesByName(r Robot, name string) []resource.Resource {
 	return all
 }
 
-// NamesBySubtype is a helper for getting all names from the given Robot given the subtype.
-func NamesBySubtype(r Robot, subtype resource.Subtype) []string {
+// NamesByAPI is a helper for getting all names from the given Robot given the API.
+func NamesByAPI(r Robot, api resource.API) []string {
 	names := []string{}
 	for _, n := range r.ResourceNames() {
-		if n.Subtype == subtype {
+		if n.API == api {
 			names = append(names, n.ShortName())
 		}
 	}
 	return names
 }
 
-// TypeAndMethodDescFromMethod attempts to determine the resource subtype and its respective gRPC method information
+// TypeAndMethodDescFromMethod attempts to determine the resource API and its respective gRPC method information
 // from the given robot and method path. If nothing can be found, grpc.UnimplementedError is returned.
-func TypeAndMethodDescFromMethod(r Robot, method string) (*resource.RPCSubtype, *desc.MethodDescriptor, error) {
+func TypeAndMethodDescFromMethod(r Robot, method string) (*resource.RPCAPI, *desc.MethodDescriptor, error) {
 	methodParts := strings.Split(method, "/")
 	if len(methodParts) != 3 {
 		return nil, nil, grpc.UnimplementedError
@@ -169,11 +169,11 @@ func TypeAndMethodDescFromMethod(r Robot, method string) (*resource.RPCSubtype, 
 	protoSvc := methodParts[1]
 	protoMethod := methodParts[2]
 
-	var foundType *resource.RPCSubtype
-	for _, resSubtype := range r.ResourceRPCSubtypes() {
-		if resSubtype.Desc.GetFullyQualifiedName() == protoSvc {
-			subtypeCopy := resSubtype
-			foundType = &subtypeCopy
+	var foundType *resource.RPCAPI
+	for _, resAPI := range r.ResourceRPCAPIs() {
+		if resAPI.Desc.GetFullyQualifiedName() == protoSvc {
+			apiCopy := resAPI
+			foundType = &apiCopy
 			break
 		}
 	}
@@ -192,7 +192,7 @@ func TypeAndMethodDescFromMethod(r Robot, method string) (*resource.RPCSubtype, 
 func ResourceFromProtoMessage(
 	robot Robot,
 	msg *dynamic.Message,
-	subtype resource.Subtype,
+	api resource.API,
 ) (interface{}, resource.Name, error) {
 	// we assume a convention that there will be a field called name that will be the resource
 	// name and a string.
@@ -204,7 +204,7 @@ func ResourceFromProtoMessage(
 		return nil, resource.Name{}, fmt.Errorf("unable to determine resource name due to invalid name field %v", name)
 	}
 
-	fqName := resource.NameFromSubtype(subtype, name)
+	fqName := resource.NewName(api, name)
 
 	res, err := robot.ResourceByName(fqName)
 	if err != nil {

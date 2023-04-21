@@ -27,18 +27,18 @@ func setupNewLocalRobot(t *testing.T) robot.LocalRobot {
 }
 
 var (
-	workingSubtype = resource.NewSubtype(resource.Namespace("acme"), resource.ResourceTypeComponent, resource.SubtypeName("working-discovery"))
-	workingModel   = resource.NewDefaultModel("workingModel")
-	workingQ       = resource.NewDiscoveryQuery(workingSubtype, workingModel)
+	workingAPI   = resource.APINamespace("acme").WithComponentType("working-discovery")
+	workingModel = resource.DefaultModelFamily.WithModel("workingModel")
+	workingQ     = resource.NewDiscoveryQuery(workingAPI, workingModel)
 
-	failSubtype = resource.NewSubtype(resource.Namespace("acme"), resource.ResourceTypeComponent, resource.SubtypeName("failing-discovery"))
-	failModel   = resource.NewDefaultModel("failModel")
-	failQ       = resource.NewDiscoveryQuery(failSubtype, failModel)
+	failAPI   = resource.APINamespace("acme").WithComponentType("failing-discovery")
+	failModel = resource.DefaultModelFamily.WithModel("failModel")
+	failQ     = resource.NewDiscoveryQuery(failAPI, failModel)
 
-	noDiscoverModel = resource.NewDefaultModel("nodiscoverModel")
-	noDiscoverQ     = resource.DiscoveryQuery{failSubtype, noDiscoverModel}
+	noDiscoverModel = resource.DefaultModelFamily.WithModel("nodiscoverModel")
+	noDiscoverQ     = resource.DiscoveryQuery{failAPI, noDiscoverModel}
 
-	missingQ = resource.NewDiscoveryQuery(failSubtype, resource.NewDefaultModel("missing"))
+	missingQ = resource.NewDiscoveryQuery(failAPI, resource.DefaultModelFamily.WithModel("missing"))
 
 	workingDiscovery = map[string]interface{}{"position": "up"}
 	errFailed        = errors.New("can't get discovery")

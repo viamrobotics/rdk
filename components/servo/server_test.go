@@ -21,7 +21,7 @@ func newServer() (pb.ServoServiceServer, *inject.Servo, *inject.Servo, error) {
 		servo.Named(testServoName): injectServo,
 		servo.Named(failServoName): injectServo2,
 	}
-	injectSvc, err := resource.NewSubtypeCollection(servo.Subtype, resourceMap)
+	injectSvc, err := resource.NewAPIResourceCollection(servo.API, resourceMap)
 	if err != nil {
 		return nil, nil, nil, err
 	}

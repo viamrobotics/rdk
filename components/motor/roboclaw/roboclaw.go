@@ -17,7 +17,7 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-var modelname = resource.NewDefaultModel("roboclaw")
+var modelname = resource.DefaultModelFamily.WithModel("roboclaw")
 
 // Config is used for converting motor config attributes.
 type Config struct {
@@ -50,7 +50,7 @@ func (conf *Config) wrongNumberError() error {
 
 func init() {
 	resource.RegisterComponent(
-		motor.Subtype,
+		motor.API,
 		modelname,
 		resource.Registration[motor.Motor, *Config]{
 			Constructor: func(

@@ -32,7 +32,7 @@ import (
 )
 
 // ModelName is the name of the UR5e model of an arm component.
-var ModelName = resource.NewDefaultModel("ur5e")
+var ModelName = resource.DefaultModelFamily.WithModel("ur5e")
 
 // Config is used for converting config attributes.
 type Config struct {
@@ -56,7 +56,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 var ur5modeljson []byte
 
 func init() {
-	resource.RegisterComponent(arm.Subtype, ModelName, resource.Registration[arm.Arm, *Config]{
+	resource.RegisterComponent(arm.API, ModelName, resource.Registration[arm.Arm, *Config]{
 		Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (arm.Arm, error) {
 			return URArmConnect(ctx, conf, logger)
 		},

@@ -94,8 +94,8 @@ func Model(name, modelName string) (referenceframe.Model, error) {
 func init() {
 	for _, armModelName := range []string{ModelName6DOF, ModelName7DOF, ModelNameLite} {
 		localArmModelName := armModelName
-		armModel := resource.NewDefaultModel(resource.ModelName(armModelName))
-		resource.RegisterComponent(arm.Subtype, armModel, resource.Registration[arm.Arm, *Config]{
+		armModel := resource.DefaultModelFamily.WithModel(armModelName)
+		resource.RegisterComponent(arm.API, armModel, resource.Registration[arm.Arm, *Config]{
 			Constructor: func(
 				ctx context.Context,
 				_ resource.Dependencies,

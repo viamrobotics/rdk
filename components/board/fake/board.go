@@ -61,11 +61,11 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	return nil, nil
 }
 
-var modelName = resource.NewDefaultModel("fake")
+var modelName = resource.DefaultModelFamily.WithModel("fake")
 
 func init() {
 	resource.RegisterComponent(
-		board.Subtype,
+		board.API,
 		modelName,
 		resource.Registration[board.Board, *Config]{
 			Constructor: func(

@@ -31,7 +31,7 @@ var (
 // init registers a pi servo based on pigpio.
 func init() {
 	resource.RegisterComponent(
-		servo.Subtype,
+		servo.API,
 		picommon.ModelName,
 		resource.Registration[servo.Servo, *picommon.ServoConfig]{
 			Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (servo.Servo, error) {

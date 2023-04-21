@@ -48,7 +48,7 @@ func setupDependencies(mockData []byte) (resource.Config, resource.Dependencies)
 	cfg := resource.Config{
 		Name:  "encoder",
 		Model: modelName,
-		API:   encoder.Subtype,
+		API:   encoder.API,
 		ConvertedAttributes: &Config{
 			BoardName:      testBoardName,
 			ConnectionType: "i2c",
@@ -73,7 +73,7 @@ func setupDependencies(mockData []byte) (resource.Config, resource.Dependencies)
 		return i2c, true
 	}
 	return cfg, resource.Dependencies{
-		resource.NameFromSubtype(board.Subtype, testBoardName): mockBoard,
+		resource.NewName(board.API, testBoardName): mockBoard,
 	}
 }
 
@@ -131,7 +131,7 @@ func setupDependenciesWithWrite(mockData []byte, writeData map[byte]byte) (resou
 	cfg := resource.Config{
 		Name:  "encoder",
 		Model: modelName,
-		API:   encoder.Subtype,
+		API:   encoder.API,
 		ConvertedAttributes: &Config{
 			BoardName:      testBoardName,
 			ConnectionType: "i2c",
@@ -157,7 +157,7 @@ func setupDependenciesWithWrite(mockData []byte, writeData map[byte]byte) (resou
 		return i2c, true
 	}
 	return cfg, resource.Dependencies{
-		resource.NameFromSubtype(board.Subtype, testBoardName): mockBoard,
+		resource.NewName(board.API, testBoardName): mockBoard,
 	}
 }
 

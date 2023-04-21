@@ -36,11 +36,11 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-var singlemodelname = resource.NewDefaultModel("single")
+var singlemodelname = resource.DefaultModelFamily.WithModel("single")
 
 func init() {
 	resource.RegisterComponent(
-		encoder.Subtype,
+		encoder.API,
 		singlemodelname,
 		resource.Registration[encoder.Encoder, *Config]{
 			Constructor: NewSingleEncoder,

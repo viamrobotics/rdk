@@ -10,13 +10,13 @@ import (
 	"go.viam.com/rdk/testutils"
 )
 
-func TestSubtypeService(t *testing.T) {
+func TestAPIResourceCollection(t *testing.T) {
 	res1 := testutils.NewUnimplementedResource(generic.Named("name1"))
 	res2 := testutils.NewUnimplementedResource(generic.Named("name2"))
 	resources := map[resource.Name]resource.Resource{
 		res1.Name(): res1,
 	}
-	svc, err := resource.NewSubtypeCollection(generic.Subtype, resources)
+	svc, err := resource.NewAPIResourceCollection(generic.API, resources)
 	test.That(t, err, test.ShouldBeNil)
 	res, err := svc.Resource(res1.Name().ShortName())
 	test.That(t, err, test.ShouldBeNil)
@@ -43,9 +43,7 @@ func TestSubtypeService(t *testing.T) {
 	// Test should error if resource name is empty
 	resources = map[resource.Name]resource.Resource{
 		resource.NewName(
-			resource.ResourceNamespaceRDK,
-			resource.ResourceTypeComponent,
-			"foo",
+			resource.APINamespaceRDK.WithComponentType("foo"),
 			"",
 		): testutils.NewUnimplementedResource(generic.Named("")),
 	}
@@ -54,7 +52,7 @@ func TestSubtypeService(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "empty name used for resource:")
 }
 
-func TestSubtypeRemoteNames(t *testing.T) {
+func TestAPIRemoteNames(t *testing.T) {
 	name0 := "name0"
 	name1 := "remote1:name1"
 	name2 := "remote2:name2"
@@ -89,7 +87,7 @@ func TestSubtypeRemoteNames(t *testing.T) {
 		generic.Named(name9):  res9,
 		generic.Named(name10): res10,
 	}
-	svc, err := resource.NewSubtypeCollection(generic.Subtype, resources)
+	svc, err := resource.NewAPIResourceCollection(generic.API, resources)
 	test.That(t, err, test.ShouldBeNil)
 	res, err := svc.Resource(name0)
 	test.That(t, err, test.ShouldBeNil)
@@ -157,10 +155,11 @@ func TestSubtypeRemoteNames(t *testing.T) {
 	test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(generic.Named("nameX")))
 }
 
-func TestSubtypeAddRemoveReplaceOne(t *testing.T) {
-	ns := resource.Namespace("acme")
-	ct := resource.TypeName("test")
-	st := resource.SubtypeName("string")
+func TestAPIAddRemoveReplaceOne(t *testing.T) {
+	ns := resource.APINamespace("acme")
+	ct := "test"
+	st := "string"
+	api := ns.WithType(ct).WithSubtype(st)
 
 	name1 := "name1"
 	name2 := "name2"
@@ -175,13 +174,13 @@ func TestSubtypeAddRemoveReplaceOne(t *testing.T) {
 	str4 := "string4"
 	strR := "stringReplaced"
 
-	key1 := resource.NewName(ns, ct, st, name1)
-	key2 := resource.NewName(ns, ct, st, name2)
-	key3 := resource.NewName(ns, ct, st, name3)
-	key4 := resource.NewName(ns, ct, st, name4)
-	key4d := resource.NewName(ns, ct, st, name4d)
+	key1 := resource.NewName(api, name1)
+	key2 := resource.NewName(api, name2)
+	key3 := resource.NewName(api, name3)
+	key4 := resource.NewName(api, name4)
+	key4d := resource.NewName(api, name4d)
 
-	svc, err := resource.NewSubtypeCollection(generic.Subtype, map[resource.Name]resource.Resource{
+	svc, err := resource.NewAPIResourceCollection(generic.API, map[resource.Name]resource.Resource{
 		key1: testutils.NewUnimplementedResource(generic.Named(str1)),
 		key4: testutils.NewUnimplementedResource(generic.Named(str4)),
 	})

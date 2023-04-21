@@ -27,7 +27,7 @@ import (
 )
 
 // ModelName is the model used to refer to the yahboom model.
-var ModelName = resource.NewDefaultModel("yahboom-dofbot")
+var ModelName = resource.DefaultModelFamily.WithModel("yahboom-dofbot")
 
 //go:embed dofbot.json
 var modeljson []byte
@@ -87,7 +87,7 @@ func (conf *Config) Validate(path string) ([]string, error) {
 }
 
 func init() {
-	resource.RegisterComponent(arm.Subtype, ModelName, resource.Registration[arm.Arm, *Config]{
+	resource.RegisterComponent(arm.API, ModelName, resource.Registration[arm.Arm, *Config]{
 		Constructor: NewDofBot,
 	})
 }

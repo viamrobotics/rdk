@@ -17,7 +17,7 @@ import (
 // init registers a failing pi board since this can only be compiled on non-pi systems.
 func init() {
 	resource.RegisterComponent(
-		board.Subtype,
+		board.API,
 		picommon.ModelName,
 		resource.Registration[board.Board, resource.NoNativeConfig]{Constructor: func(
 			ctx context.Context,
@@ -28,7 +28,7 @@ func init() {
 			return nil, errors.New("not running on a pi")
 		}})
 	resource.RegisterComponent(
-		servo.Subtype,
+		servo.API,
 		picommon.ModelName,
 		resource.Registration[servo.Servo, resource.NoNativeConfig]{
 			Constructor: func(

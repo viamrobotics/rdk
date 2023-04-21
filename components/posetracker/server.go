@@ -11,18 +11,18 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-type subtypeServer struct {
+type serviceServer struct {
 	pb.UnimplementedPoseTrackerServiceServer
-	coll resource.SubtypeCollection[PoseTracker]
+	coll resource.APIResourceCollection[PoseTracker]
 }
 
 // NewRPCServiceServer constructs a pose tracker gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
-func NewRPCServiceServer(coll resource.SubtypeCollection[PoseTracker]) interface{} {
-	return &subtypeServer{coll: coll}
+func NewRPCServiceServer(coll resource.APIResourceCollection[PoseTracker]) interface{} {
+	return &serviceServer{coll: coll}
 }
 
-func (server *subtypeServer) GetPoses(
+func (server *serviceServer) GetPoses(
 	ctx context.Context,
 	req *pb.GetPosesRequest,
 ) (*pb.GetPosesResponse, error) {
@@ -45,7 +45,7 @@ func (server *subtypeServer) GetPoses(
 }
 
 // DoCommand receives arbitrary commands.
-func (server *subtypeServer) DoCommand(ctx context.Context,
+func (server *serviceServer) DoCommand(ctx context.Context,
 	req *commonpb.DoCommandRequest,
 ) (*commonpb.DoCommandResponse, error) {
 	poseTracker, err := server.coll.Resource(req.GetName())

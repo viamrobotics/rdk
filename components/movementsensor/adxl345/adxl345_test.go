@@ -56,7 +56,7 @@ func TestInterrupts(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
 	deps := resource.Dependencies{
-		resource.NameFromSubtype(board.Subtype, "board"): mockBoard,
+		resource.NewName(board.API, "board"): mockBoard,
 	}
 
 	tap := &TapConfig{
@@ -72,7 +72,7 @@ func TestInterrupts(t *testing.T) {
 	cfg := resource.Config{
 		Name:  "movementsensor",
 		Model: modelName,
-		API:   movementsensor.Subtype,
+		API:   movementsensor.API,
 		ConvertedAttributes: &Config{
 			BoardName: "board",
 			I2cBus:    "bus",
@@ -107,7 +107,7 @@ func TestInterrupts(t *testing.T) {
 		cfg := resource.Config{
 			Name:  "movementsensor",
 			Model: modelName,
-			API:   movementsensor.Subtype,
+			API:   movementsensor.API,
 			ConvertedAttributes: &Config{
 				BoardName: "board",
 				I2cBus:    "bus",
@@ -130,7 +130,7 @@ func TestInterrupts(t *testing.T) {
 		cfg = resource.Config{
 			Name:  "movementsensor",
 			Model: modelName,
-			API:   movementsensor.Subtype,
+			API:   movementsensor.API,
 			ConvertedAttributes: &Config{
 				BoardName: "board",
 				I2cBus:    "bus",

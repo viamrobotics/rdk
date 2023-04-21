@@ -63,16 +63,16 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		return conf
 	}
-	mockSubtype := resource.NewSubtype(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.SubtypeName("mock"))
+	mockAPI := resource.APINamespaceRDK.WithComponentType("mock")
 	mockNamed := func(name string) resource.Name {
-		return resource.NameFromSubtype(mockSubtype, name)
+		return resource.NewName(mockAPI, name)
 	}
 	modelName1 := utils.RandomAlphaString(5)
 	modelName2 := utils.RandomAlphaString(5)
 	test.That(t, os.Setenv("TEST_MODEL_NAME_1", modelName1), test.ShouldBeNil)
 	test.That(t, os.Setenv("TEST_MODEL_NAME_2", modelName2), test.ShouldBeNil)
 
-	resource.RegisterComponent(mockSubtype, resource.NewDefaultModel(resource.ModelName(modelName1)),
+	resource.RegisterComponent(mockAPI, resource.DefaultModelFamily.WithModel(modelName1),
 		resource.Registration[resource.Resource, *mockFakeConfig]{
 			Constructor: func(
 				ctx context.Context,
@@ -97,7 +97,7 @@ func TestRobotReconfigure(t *testing.T) {
 		reconfigurableTrue = true
 		testReconfiguringMismatch = false
 	}
-	resource.RegisterComponent(mockSubtype, resource.NewDefaultModel(resource.ModelName(modelName2)),
+	resource.RegisterComponent(mockAPI, resource.DefaultModelFamily.WithModel(modelName2),
 		resource.Registration[resource.Resource, resource.NoNativeConfig]{
 			Constructor: func(
 				ctx context.Context,
@@ -2314,12 +2314,12 @@ func TestDefaultServiceReconfigure(t *testing.T) {
 		Services: []resource.Config{
 			{
 				Name:  visName,
-				API:   vision.Subtype,
+				API:   vision.API,
 				Model: resource.DefaultServiceModel,
 			},
 			{
 				Name:  dmName,
-				API:   datamanager.Subtype,
+				API:   datamanager.API,
 				Model: resource.DefaultServiceModel,
 			},
 		},
@@ -2347,12 +2347,12 @@ func TestDefaultServiceReconfigure(t *testing.T) {
 		Services: []resource.Config{
 			{
 				Name:  visName,
-				API:   vision.Subtype,
+				API:   vision.API,
 				Model: resource.DefaultServiceModel,
 			},
 			{
 				Name:  sName,
-				API:   sensors.Subtype,
+				API:   sensors.API,
 				Model: resource.DefaultServiceModel,
 			},
 		},
@@ -2475,20 +2475,20 @@ func TestRemoteRobotsGold(t *testing.T) {
 		Components: []resource.Config{
 			{
 				Name:  "arm1",
-				Model: resource.NewDefaultModel("fake"),
+				Model: resource.DefaultModelFamily.WithModel("fake"),
 				ConvertedAttributes: &fake.Config{
 					ModelFilePath: "../../components/arm/fake/fake_model.json",
 				},
-				API:       arm.Subtype,
+				API:       arm.API,
 				DependsOn: []string{"foo:pieceGripper"},
 			},
 			{
 				Name:  "arm2",
-				Model: resource.NewDefaultModel("fake"),
+				Model: resource.DefaultModelFamily.WithModel("fake"),
 				ConvertedAttributes: &fake.Config{
 					ModelFilePath: "../../components/arm/fake/fake_model.json",
 				},
-				API:       arm.Subtype,
+				API:       arm.API,
 				DependsOn: []string{"bar:pieceArm"},
 			},
 		},
@@ -2634,11 +2634,11 @@ func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 		Components: []resource.Config{
 			{
 				Name:  "pieceArm",
-				Model: resource.NewDefaultModel("fake"),
+				Model: resource.DefaultModelFamily.WithModel("fake"),
 				ConvertedAttributes: &fake.Config{
 					ModelFilePath: "../../components/arm/fake/fake_model.json",
 				},
-				API: arm.Subtype,
+				API: arm.API,
 			},
 		},
 	}
@@ -2656,11 +2656,11 @@ func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 		Components: []resource.Config{
 			{
 				Name:  "arm1",
-				Model: resource.NewDefaultModel("fake"),
+				Model: resource.DefaultModelFamily.WithModel("fake"),
 				ConvertedAttributes: &fake.Config{
 					ModelFilePath: "../../components/arm/fake/fake_model.json",
 				},
-				API:       arm.Subtype,
+				API:       arm.API,
 				DependsOn: []string{"pieceArm"},
 			},
 		},
@@ -2767,11 +2767,11 @@ func TestInferRemoteRobotDependencyConnectAfterStartup(t *testing.T) {
 		Components: []resource.Config{
 			{
 				Name:  "pieceArm",
-				Model: resource.NewDefaultModel("fake"),
+				Model: resource.DefaultModelFamily.WithModel("fake"),
 				ConvertedAttributes: &fake.Config{
 					ModelFilePath: "../../components/arm/fake/fake_model.json",
 				},
-				API: arm.Subtype,
+				API: arm.API,
 			},
 		},
 	}
@@ -2787,11 +2787,11 @@ func TestInferRemoteRobotDependencyConnectAfterStartup(t *testing.T) {
 		Components: []resource.Config{
 			{
 				Name:  "arm1",
-				Model: resource.NewDefaultModel("fake"),
+				Model: resource.DefaultModelFamily.WithModel("fake"),
 				ConvertedAttributes: &fake.Config{
 					ModelFilePath: "../../components/arm/fake/fake_model.json",
 				},
-				API:       arm.Subtype,
+				API:       arm.API,
 				DependsOn: []string{"pieceArm"},
 			},
 		},
@@ -2869,11 +2869,11 @@ func TestInferRemoteRobotDependencyAmbiguous(t *testing.T) {
 		Components: []resource.Config{
 			{
 				Name:  "pieceArm",
-				Model: resource.NewDefaultModel("fake"),
+				Model: resource.DefaultModelFamily.WithModel("fake"),
 				ConvertedAttributes: &fake.Config{
 					ModelFilePath: "../../components/arm/fake/fake_model.json",
 				},
-				API: arm.Subtype,
+				API: arm.API,
 			},
 		},
 	}
@@ -2904,11 +2904,11 @@ func TestInferRemoteRobotDependencyAmbiguous(t *testing.T) {
 		Components: []resource.Config{
 			{
 				Name:  "arm1",
-				Model: resource.NewDefaultModel("fake"),
+				Model: resource.DefaultModelFamily.WithModel("fake"),
 				ConvertedAttributes: &fake.Config{
 					ModelFilePath: "../../components/arm/fake/fake_model.json",
 				},
-				API:       arm.Subtype,
+				API:       arm.API,
 				DependsOn: []string{"pieceArm"},
 			},
 		},
@@ -2962,11 +2962,11 @@ func TestInferRemoteRobotDependencyAmbiguous(t *testing.T) {
 		Components: []resource.Config{
 			{
 				Name:  "arm1",
-				Model: resource.NewDefaultModel("fake"),
+				Model: resource.DefaultModelFamily.WithModel("fake"),
 				ConvertedAttributes: &fake.Config{
 					ModelFilePath: "../../components/arm/fake/fake_model.json",
 				},
-				API:       arm.Subtype,
+				API:       arm.API,
 				DependsOn: []string{"foo:pieceArm"},
 			},
 		},
@@ -3010,14 +3010,14 @@ func TestInferRemoteRobotDependencyAmbiguous(t *testing.T) {
 func TestReconfigureModelRebuild(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
-	mockSubtype := resource.NewSubtype(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.SubtypeName("mock"))
+	mockAPI := resource.APINamespaceRDK.WithComponentType("mock")
 	mockNamed := func(name string) resource.Name {
-		return resource.NameFromSubtype(mockSubtype, name)
+		return resource.NewName(mockAPI, name)
 	}
 	modelName1 := utils.RandomAlphaString(5)
-	model1 := resource.NewDefaultModel(resource.ModelName(modelName1))
+	model1 := resource.DefaultModelFamily.WithModel(modelName1)
 
-	resource.RegisterComponent(mockSubtype, model1, resource.Registration[resource.Resource, resource.NoNativeConfig]{
+	resource.RegisterComponent(mockAPI, model1, resource.Registration[resource.Resource, resource.NoNativeConfig]{
 		Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
@@ -3033,7 +3033,7 @@ func TestReconfigureModelRebuild(t *testing.T) {
 			{
 				Name:  "one",
 				Model: model1,
-				API:   mockSubtype,
+				API:   mockAPI,
 			},
 		},
 	}
@@ -3064,7 +3064,7 @@ func TestReconfigureModelRebuild(t *testing.T) {
 			{
 				Name:                "one",
 				Model:               model1,
-				API:                 mockSubtype,
+				API:                 mockAPI,
 				ConvertedAttributes: resource.NoNativeConfig{},
 			},
 		},
@@ -3083,16 +3083,16 @@ func TestReconfigureModelRebuild(t *testing.T) {
 func TestReconfigureModelSwitch(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
-	mockSubtype := resource.NewSubtype(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.SubtypeName("mock"))
+	mockAPI := resource.APINamespaceRDK.WithComponentType("mock")
 	mockNamed := func(name string) resource.Name {
-		return resource.NameFromSubtype(mockSubtype, name)
+		return resource.NewName(mockAPI, name)
 	}
 	modelName1 := utils.RandomAlphaString(5)
 	modelName2 := utils.RandomAlphaString(5)
-	model1 := resource.NewDefaultModel(resource.ModelName(modelName1))
-	model2 := resource.NewDefaultModel(resource.ModelName(modelName2))
+	model1 := resource.DefaultModelFamily.WithModel(modelName1)
+	model2 := resource.DefaultModelFamily.WithModel(modelName2)
 
-	resource.RegisterComponent(mockSubtype, model1, resource.Registration[resource.Resource, resource.NoNativeConfig]{
+	resource.RegisterComponent(mockAPI, model1, resource.Registration[resource.Resource, resource.NoNativeConfig]{
 		Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
@@ -3102,7 +3102,7 @@ func TestReconfigureModelSwitch(t *testing.T) {
 			return &mockFake{Named: conf.ResourceName().AsNamed()}, nil
 		},
 	})
-	resource.RegisterComponent(mockSubtype, model2, resource.Registration[resource.Resource, resource.NoNativeConfig]{
+	resource.RegisterComponent(mockAPI, model2, resource.Registration[resource.Resource, resource.NoNativeConfig]{
 		Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
@@ -3118,7 +3118,7 @@ func TestReconfigureModelSwitch(t *testing.T) {
 			{
 				Name:  "one",
 				Model: model1,
-				API:   mockSubtype,
+				API:   mockAPI,
 			},
 		},
 	}
@@ -3149,7 +3149,7 @@ func TestReconfigureModelSwitch(t *testing.T) {
 			{
 				Name:                "one",
 				Model:               model2,
-				API:                 mockSubtype,
+				API:                 mockAPI,
 				ConvertedAttributes: resource.NoNativeConfig{},
 			},
 		},
@@ -3168,16 +3168,16 @@ func TestReconfigureModelSwitch(t *testing.T) {
 func TestReconfigureRename(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
-	mockSubtype := resource.NewSubtype(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.SubtypeName("mock"))
+	mockAPI := resource.APINamespaceRDK.WithComponentType("mock")
 	mockNamed := func(name string) resource.Name {
-		return resource.NameFromSubtype(mockSubtype, name)
+		return resource.NewName(mockAPI, name)
 	}
 	modelName1 := utils.RandomAlphaString(5)
-	model1 := resource.NewDefaultModel(resource.ModelName(modelName1))
+	model1 := resource.DefaultModelFamily.WithModel(modelName1)
 
 	var logicalClock atomic.Int64
 
-	resource.RegisterComponent(mockSubtype, model1, resource.Registration[resource.Resource, resource.NoNativeConfig]{
+	resource.RegisterComponent(mockAPI, model1, resource.Registration[resource.Resource, resource.NoNativeConfig]{
 		Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
@@ -3197,7 +3197,7 @@ func TestReconfigureRename(t *testing.T) {
 			{
 				Name:  "one",
 				Model: model1,
-				API:   mockSubtype,
+				API:   mockAPI,
 			},
 		},
 	}
@@ -3223,7 +3223,7 @@ func TestReconfigureRename(t *testing.T) {
 			{
 				Name:                "two",
 				Model:               model1,
-				API:                 mockSubtype,
+				API:                 mockAPI,
 				ConvertedAttributes: resource.NoNativeConfig{},
 			},
 		},

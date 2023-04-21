@@ -15,7 +15,7 @@ import (
 func TestBuildCaptureMetadata(t *testing.T) {
 	tests := []struct {
 		name             string
-		componentType    resource.SubtypeName
+		componentType    string
 		componentName    string
 		method           string
 		additionalParams map[string]string
@@ -68,7 +68,7 @@ func TestBuildCaptureMetadata(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			actualMetadata, err := BuildCaptureMetadata(
-				resource.NewDefaultSubtype(tc.componentType, resource.ResourceTypeComponent),
+				resource.APINamespaceRDK.WithComponentType(tc.componentType),
 				tc.componentName, tc.method, tc.additionalParams, tc.tags)
 			test.That(t, err, test.ShouldEqual, nil)
 
@@ -76,7 +76,7 @@ func TestBuildCaptureMetadata(t *testing.T) {
 			test.That(t, err, test.ShouldEqual, nil)
 
 			expectedMetadata := v1.DataCaptureMetadata{
-				ComponentType:    resource.NewDefaultSubtype(tc.componentType, resource.ResourceTypeComponent).String(),
+				ComponentType:    resource.APINamespaceRDK.WithComponentType(tc.componentType).String(),
 				ComponentName:    tc.componentName,
 				MethodName:       tc.method,
 				Type:             tc.dataType,

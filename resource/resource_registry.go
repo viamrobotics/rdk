@@ -19,6 +19,12 @@ import (
 )
 
 type (
+	// An APIModel is the tuple that identifies a model implementing an API.
+	APIModel struct {
+		API   API
+		Model Model
+	}
+
 	// A Create creates a resource (component/service) from a collection of dependencies and a given config.
 	Create[ResourceT Resource] func(
 		ctx context.Context,
@@ -44,7 +50,13 @@ type (
 	CreateStatus[ResourceT Resource] func(ctx context.Context, res ResourceT) (interface{}, error)
 
 	// A CreateRPCClient will create the client for the resource.
-	CreateRPCClient[ResourceT Resource] func(ctx context.Context, conn rpc.ClientConn, name Name, logger golog.Logger) (ResourceT, error)
+	CreateRPCClient[ResourceT Resource] func(
+		ctx context.Context,
+		conn rpc.ClientConn,
+		remoteName string,
+		name Name,
+		logger golog.Logger,
+	) (ResourceT, error)
 
 	// An AttributeMapConverter converts an attribute map into a native config type for a resource.
 	AttributeMapConverter[ConfigT any] func(attributes utils.AttributeMap) (ConfigT, error)
@@ -53,8 +65,8 @@ type (
 	// to its own config. This is generally done by a specific resource (e.g. data capture of many components).
 	LinkAssocationConfig[ConfigT any] func(conf ConfigT, resAssociation interface{}) error
 
-	// AssociationConfigWithName allows a resource to attach a name to a subtype specific
-	// association config. This is generally done by the subtype registration.
+	// AssociationConfigWithName allows a resource to attach a name to a api specific
+	// association config. This is generally done by the api registration.
 	AssociationConfigWithName[AssocT any] func(resName Name, resAssociation AssocT) error
 )
 
@@ -94,33 +106,41 @@ type Registration[ResourceT Resource, ConfigT any] struct {
 	// Discover looks around for information about this specific model.
 	Discover DiscoveryFunc
 
-	subtype   Subtype
+	// configType can be used to dynamically inspect the resource config type.
+	configType reflect.Type
+
+	api       API
 	isDefault bool
 }
 
-// SubtypeRegistration stores subtype-specific functions and clients.
-type SubtypeRegistration[ResourceT Resource] struct {
+// ConfigReflectType returns the reflective resource config type.
+func (r Registration[ResourceT, ConfigT]) ConfigReflectType() reflect.Type {
+	return r.configType
+}
+
+// APIRegistration stores api-specific functions and clients.
+type APIRegistration[ResourceT Resource] struct {
 	Status                      CreateStatus[ResourceT]
-	RPCServiceServerConstructor func(subtypeColl SubtypeCollection[ResourceT]) interface{}
+	RPCServiceServerConstructor func(apiColl APIResourceCollection[ResourceT]) interface{}
 	RPCServiceHandler           rpc.RegisterServiceHandlerFromEndpointFunc
 	RPCServiceDesc              *grpc.ServiceDesc
 	ReflectRPCServiceDesc       *desc.ServiceDescriptor
 	RPCClient                   CreateRPCClient[ResourceT]
 
-	// MaxInstance sets a limit on the number of this subtype allowed on a robot.
+	// MaxInstance sets a limit on the number of this api allowed on a robot.
 	// If MaxInstance is not set then it will default to 0 and there will be no limit.
 	MaxInstance int
 
-	MakeEmptyCollection func() SubtypeCollection[Resource]
+	MakeEmptyCollection func() APIResourceCollection[Resource]
 
 	typedVersion interface{} // the registry guarantees the type safety here
 }
 
-// RegisterRPCService registers this subtype into the given RPC server.
-func (rs SubtypeRegistration[ResourceT]) RegisterRPCService(
+// RegisterRPCService registers this api into the given RPC server.
+func (rs APIRegistration[ResourceT]) RegisterRPCService(
 	ctx context.Context,
 	rpcServer rpc.Server,
-	subtypeColl SubtypeCollection[ResourceT],
+	apiColl APIResourceCollection[ResourceT],
 ) error {
 	if rs.RPCServiceServerConstructor == nil {
 		return nil
@@ -128,7 +148,7 @@ func (rs SubtypeRegistration[ResourceT]) RegisterRPCService(
 	return rpcServer.RegisterServiceServer(
 		ctx,
 		rs.RPCServiceDesc,
-		rs.RPCServiceServerConstructor(subtypeColl),
+		rs.RPCServiceServerConstructor(apiColl),
 		rs.RPCServiceHandler,
 	)
 }
@@ -142,14 +162,14 @@ type AssociatedConfigRegistration[AssocT any] struct {
 	// WithName is used to attach a resource name to the native association config.
 	WithName AssociationConfigWithName[AssocT]
 
-	subtype Subtype
+	api API
 }
 
 // all registries.
 var (
 	registryMu                    sync.RWMutex
-	registry                      = map[string]Registration[Resource, ConfigValidator]{}
-	subtypeRegistry               = map[Subtype]SubtypeRegistration[Resource]{}
+	registry                      = map[APIModel]Registration[Resource, ConfigValidator]{}
+	apiRegistry                   = map[API]APIRegistration[Resource]{}
 	associatedConfigRegistrations = []AssociatedConfigRegistration[any]{}
 )
 
@@ -164,81 +184,78 @@ func DefaultServices() []Name {
 		if !reg.isDefault {
 			continue
 		}
-		defaults = append(defaults, NameFromSubtype(reg.subtype, DefaultServiceName))
+		defaults = append(defaults, NewName(reg.api, DefaultServiceName))
 	}
 	return defaults
 }
 
 // RegisterService registers a model for a service and its construction info. It's a helper for
 // Register.
-func RegisterService[ResourceT Resource, ConfigT ConfigValidator](subtype Subtype, model Model, reg Registration[ResourceT, ConfigT]) {
-	if subtype.ResourceType != ResourceTypeService {
-		panic(errors.Errorf("trying to register a non-service subtype: %q, model: %q", subtype, model))
+func RegisterService[ResourceT Resource, ConfigT ConfigValidator](api API, model Model, reg Registration[ResourceT, ConfigT]) {
+	if !api.IsService() {
+		panic(errors.Errorf("trying to register a non-service api: %q, model: %q", api, model))
 	}
-	Register(subtype, model, reg)
+	Register(api, model, reg)
 }
 
 // RegisterDefaultService registers a default model for a service and its construction info. It's a helper for
 // RegisterService.
 func RegisterDefaultService[ResourceT Resource, ConfigT ConfigValidator](
-	subtype Subtype,
+	api API,
 	model Model,
 	reg Registration[ResourceT, ConfigT],
 ) {
-	if subtype.ResourceType != ResourceTypeService {
-		panic(errors.Errorf("trying to register a non-service subtype: %q, model: %q", subtype, model))
+	if !api.IsService() {
+		panic(errors.Errorf("trying to register a non-service api: %q, model: %q", api, model))
 	}
 	reg.isDefault = true
-	Register(subtype, model, reg)
+	Register(api, model, reg)
 }
 
 // RegisterComponent registers a model for a component and its construction info. It's a helper for
 // Register.
 func RegisterComponent[ResourceT Resource, ConfigT ConfigValidator](
-	subtype Subtype,
+	api API,
 	model Model,
 	reg Registration[ResourceT, ConfigT],
 ) {
-	if subtype.ResourceType != ResourceTypeComponent {
-		panic(errors.Errorf("trying to register a non-component subtype: %q, model: %q", subtype, model))
+	if !api.IsComponent() {
+		panic(errors.Errorf("trying to register a non-component api: %q, model: %q", api, model))
 	}
-	Register(subtype, model, reg)
-}
-
-func makeSubtypeModelString(subtype Subtype, model Model) string {
-	return fmt.Sprintf("%s/%s", subtype.String(), model.String())
+	Register(api, model, reg)
 }
 
 // Register registers a model for a resource (component/service) with and its construction info.
 func Register[ResourceT Resource, ConfigT ConfigValidator](
-	subtype Subtype,
+	api API,
 	model Model,
 	reg Registration[ResourceT, ConfigT],
 ) {
 	registryMu.Lock()
 	defer registryMu.Unlock()
-	qName := makeSubtypeModelString(subtype, model)
 
-	_, old := registry[qName]
+	apiModel := APIModel{api, model}
+	_, old := registry[apiModel]
 	if old {
-		panic(errors.Errorf("trying to register two resources with same subtype: %q, model: %q", subtype, model))
+		panic(errors.Errorf("trying to register two resources with same api: %q, model: %q", api, model))
 	}
 	if reg.Constructor == nil && reg.DeprecatedRobotConstructor == nil {
-		panic(errors.Errorf("cannot register a nil constructor for subtype: %q, model: %q", subtype, model))
+		panic(errors.Errorf("cannot register a nil constructor for api: %q, model: %q", api, model))
 	}
 	if reg.Constructor != nil && reg.DeprecatedRobotConstructor != nil {
-		panic(errors.Errorf("can only register one kind of constructor for subtype: %q, model: %q", subtype, model))
+		panic(errors.Errorf("can only register one kind of constructor for api: %q, model: %q", api, model))
 	}
+	var zero ConfigT
+	zeroT := reflect.TypeOf(zero)
 	if reg.AttributeMapConverter == nil {
-		var zero ConfigT
-		zeroT := reflect.TypeOf(zero)
 		if zeroT != nil && zeroT != noNativeConfigType {
 			// provide one for free
 			reg.AttributeMapConverter = TransformAttributeMap[ConfigT]
 		}
 	}
-	reg.subtype = subtype
-	registry[qName] = makeGenericResourceRegistration(reg)
+	reg.api = api
+	reg.configType = zeroT
+	registry[apiModel] = makeGenericResourceRegistration(reg)
 }
 
 // makeGenericResourceRegistration allows a registration to be generic and ensures all input/output types
@@ -251,7 +268,7 @@ func makeGenericResourceRegistration[ResourceT Resource, ConfigT ConfigValidator
 		WeakDependencies: typed.WeakDependencies,
 		Discover:         typed.Discover,
 		isDefault:        typed.isDefault,
-		subtype:          typed.subtype,
+		api:              typed.api,
 	}
 	if typed.Constructor != nil {
 		reg.Constructor = func(
@@ -292,36 +309,36 @@ func makeGenericResourceRegistration[ResourceT Resource, ConfigT ConfigValidator
 }
 
 // Deregister removes a previously registered resource.
-func Deregister(subtype Subtype, model Model) {
+func Deregister(api API, model Model) {
 	registryMu.Lock()
 	defer registryMu.Unlock()
-	qName := makeSubtypeModelString(subtype, model)
-	delete(registry, qName)
+	apiModel := APIModel{api, model}
+	delete(registry, apiModel)
 }
 
-// LookupRegistration looks up a creator by the given subtype and model. nil is returned if
+// LookupRegistration looks up a creator by the given api and model. nil is returned if
 // there is no creator registered.
-func LookupRegistration(subtype Subtype, model Model) (Registration[Resource, ConfigValidator], bool) {
+func LookupRegistration(api API, model Model) (Registration[Resource, ConfigValidator], bool) {
 	registryMu.RLock()
 	defer registryMu.RUnlock()
-	qName := makeSubtypeModelString(subtype, model)
-	if registration, ok := registry[qName]; ok {
+	apiModel := APIModel{api, model}
+	if registration, ok := registry[apiModel]; ok {
 		return registration, true
 	}
 	return Registration[Resource, ConfigValidator]{}, false
 }
 
-// RegisterSubtype register a ResourceSubtype to its corresponding resource subtype.
-func RegisterSubtype[ResourceT Resource](subtype Subtype, creator SubtypeRegistration[ResourceT]) {
+// RegisterAPI register a ResourceAPI to its corresponding resource api.
+func RegisterAPI[ResourceT Resource](api API, creator APIRegistration[ResourceT]) {
 	registryMu.Lock()
 	defer registryMu.Unlock()
-	_, old := subtypeRegistry[subtype]
+	_, old := apiRegistry[api]
 	if old {
-		panic(errors.Errorf("trying to register two of the same resource subtype: %s", subtype))
+		panic(errors.Errorf("trying to register two of the same resource api: %s", api))
 	}
 	if creator.RPCServiceServerConstructor != nil &&
 		(creator.RPCServiceDesc == nil || creator.RPCServiceHandler == nil) {
-		panic(errors.Errorf("cannot register a RPC enabled subtype with no RPC service description or handler: %s", subtype))
+		panic(errors.Errorf("cannot register a RPC enabled api with no RPC service description or handler: %s", api))
 	}
 
 	if creator.RPCServiceDesc != nil && creator.ReflectRPCServiceDesc == nil {
@@ -331,21 +348,21 @@ func RegisterSubtype[ResourceT Resource](subtype Subtype, creator SubtypeRegistr
 		}
 		creator.ReflectRPCServiceDesc = reflectSvcDesc
 	}
-	subtypeRegistry[subtype] = makeGenericSubtypeRegistration(subtype, creator)
+	apiRegistry[api] = makeGenericAPIRegistration(api, creator)
 }
 
-// RegisterSubtypeWithAssociation register a ResourceSubtype to its corresponding resource subtype
+// RegisterAPIWithAssociation register a ResourceAPI to its corresponding resource api
 // along with a way to allow other resources to associate into its config.
-func RegisterSubtypeWithAssociation[ResourceT Resource, AssocT any](
-	subtype Subtype,
-	creator SubtypeRegistration[ResourceT],
+func RegisterAPIWithAssociation[ResourceT Resource, AssocT any](
+	api API,
+	creator APIRegistration[ResourceT],
 	association AssociatedConfigRegistration[AssocT],
 ) {
 	if association.WithName == nil {
 		panic("must provide a WithName to a AssociatedConfigRegistration")
 	}
-	RegisterSubtype(subtype, creator)
-	association.subtype = subtype
+	RegisterAPI(api, creator)
+	association.api = api
 	if association.AttributeMapConverter == nil {
 		var zero AssocT
 		if reflect.TypeOf(zero) != nil {
@@ -359,10 +376,10 @@ func RegisterSubtypeWithAssociation[ResourceT Resource, AssocT any](
 	)
 }
 
-// LookupAssociatedConfigRegistration finds the resource association config registration for the given subtype.
-func LookupAssociatedConfigRegistration(subtype Subtype) (AssociatedConfigRegistration[any], bool) {
+// LookupAssociatedConfigRegistration finds the resource association config registration for the given api.
+func LookupAssociatedConfigRegistration(api API) (AssociatedConfigRegistration[any], bool) {
 	for _, conv := range associatedConfigRegistrations {
-		if conv.subtype == subtype {
+		if conv.api == api {
 			return conv, true
 		}
 	}
@@ -374,7 +391,7 @@ func LookupAssociatedConfigRegistration(subtype Subtype) (AssociatedConfigRegist
 func makeGenericAssociatedConfigRegistration[AssocT any](typed AssociatedConfigRegistration[AssocT]) AssociatedConfigRegistration[any] {
 	reg := AssociatedConfigRegistration[any]{
 		// NOTE: any fields added to AssociatedConfigRegistration must be copied/adapted here.
-		subtype: typed.subtype,
+		api: typed.api,
 	}
 	if typed.AttributeMapConverter != nil {
 		reg.AttributeMapConverter = func(attributes utils.AttributeMap) (any, error) {
@@ -397,7 +414,7 @@ func makeGenericAssociatedConfigRegistration[AssocT any](typed AssociatedConfigR
 // genericSubypeCollection wraps a typed collection so that it can be used generically. It ensures
 // types going in are typed to T.
 type genericSubypeCollection[ResourceT Resource] struct {
-	typed SubtypeCollection[ResourceT]
+	typed APIResourceCollection[ResourceT]
 }
 
 func (g genericSubypeCollection[ResourceT]) Resource(name string) (Resource, error) {
@@ -439,21 +456,21 @@ func (g genericSubypeCollection[ResourceT]) ReplaceOne(resName Name, res Resourc
 	return g.typed.ReplaceOne(resName, typed)
 }
 
-// makeGenericResourceRegistrationSubtype allows a registration to be generic and ensures all input/output types
+// makeGenericResourceRegistrationAPI allows a registration to be generic and ensures all input/output types
 // are actually T's.
-func makeGenericSubtypeRegistration[ResourceT Resource](
-	subtype Subtype,
-	typed SubtypeRegistration[ResourceT],
-) SubtypeRegistration[Resource] {
-	reg := SubtypeRegistration[Resource]{
-		// NOTE: any fields added to SubtypeRegistration must be copied/adapted here.
+func makeGenericAPIRegistration[ResourceT Resource](
+	api API,
+	typed APIRegistration[ResourceT],
+) APIRegistration[Resource] {
+	reg := APIRegistration[Resource]{
+		// NOTE: any fields added to APIRegistration must be copied/adapted here.
 		RPCServiceDesc:        typed.RPCServiceDesc,
 		RPCServiceHandler:     typed.RPCServiceHandler,
 		ReflectRPCServiceDesc: typed.ReflectRPCServiceDesc,
 		MaxInstance:           typed.MaxInstance,
 		typedVersion:          typed,
-		MakeEmptyCollection: func() SubtypeCollection[Resource] {
-			return genericSubypeCollection[ResourceT]{NewEmptySubtypeCollection[ResourceT](subtype)}
+		MakeEmptyCollection: func() APIResourceCollection[Resource] {
+			return genericSubypeCollection[ResourceT]{NewEmptyAPIResourceCollection[ResourceT](api)}
 		},
 	}
 	if typed.Status != nil {
@@ -467,10 +484,10 @@ func makeGenericSubtypeRegistration[ResourceT Resource](
 	}
 	if typed.RPCServiceServerConstructor != nil {
 		reg.RPCServiceServerConstructor = func(
-			coll SubtypeCollection[Resource],
+			coll APIResourceCollection[Resource],
 		) interface{} {
 			// it will always be this type since we are the only ones who can make
-			// a generic resource subtype registration.
+			// a generic resource api registration.
 			genericColl, err := utils.AssertType[genericSubypeCollection[ResourceT]](coll)
 			if err != nil {
 				return err
@@ -482,38 +499,39 @@ func makeGenericSubtypeRegistration[ResourceT Resource](
 		reg.RPCClient = func(
 			ctx context.Context,
 			conn rpc.ClientConn,
+			remoteName string,
 			name Name,
 			logger golog.Logger,
 		) (Resource, error) {
-			return typed.RPCClient(ctx, conn, name, logger)
+			return typed.RPCClient(ctx, conn, remoteName, name, logger)
 		}
 	}
 
 	return reg
 }
 
-// DeregisterSubtype removes a previously registered subtype.
-func DeregisterSubtype(subtype Subtype) {
+// DeregisterAPI removes a previously registered api.
+func DeregisterAPI(api API) {
 	registryMu.Lock()
 	defer registryMu.Unlock()
-	delete(subtypeRegistry, subtype)
+	delete(apiRegistry, api)
 }
 
-// LookupGenericSubtypeRegistration looks up a ResourceSubtype by the given subtype. false is returned if
+// LookupGenericAPIRegistration looks up a ResourceAPI by the given api. false is returned if
 // there is none.
-func LookupGenericSubtypeRegistration(subtype Subtype) (SubtypeRegistration[Resource], bool) {
-	if registration, ok := RegisteredSubtypes()[subtype]; ok {
+func LookupGenericAPIRegistration(api API) (APIRegistration[Resource], bool) {
+	if registration, ok := RegisteredAPIs()[api]; ok {
 		return registration, true
 	}
-	return SubtypeRegistration[Resource]{}, false
+	return APIRegistration[Resource]{}, false
 }
 
-// LookupSubtypeRegistration looks up a ResourceSubtype by the given subtype. false is returned if
+// LookupAPIRegistration looks up a ResourceAPI by the given api. false is returned if
 // there is none or error if an error occurs.
-func LookupSubtypeRegistration[ResourceT Resource](subtype Subtype) (SubtypeRegistration[ResourceT], bool, error) {
-	var zero SubtypeRegistration[ResourceT]
-	if registration, ok := RegisteredSubtypes()[subtype]; ok {
-		typed, err := utils.AssertType[SubtypeRegistration[ResourceT]](registration.typedVersion)
+func LookupAPIRegistration[ResourceT Resource](api API) (APIRegistration[ResourceT], bool, error) {
+	var zero APIRegistration[ResourceT]
+	if registration, ok := RegisteredAPIs()[api]; ok {
+		typed, err := utils.AssertType[APIRegistration[ResourceT]](registration.typedVersion)
 		if err != nil {
 			return zero, false, err
 		}
@@ -522,12 +540,23 @@ func LookupSubtypeRegistration[ResourceT Resource](subtype Subtype) (SubtypeRegi
 	return zero, false, nil
 }
 
-// RegisteredSubtypes returns a copy of the registered resource subtypes.
-func RegisteredSubtypes() map[Subtype]SubtypeRegistration[Resource] {
+// RegisteredAPIs returns a copy of the registered resource apis.
+func RegisteredAPIs() map[API]APIRegistration[Resource] {
 	registryMu.RLock()
 	defer registryMu.RUnlock()
-	toCopy := make(map[Subtype]SubtypeRegistration[Resource], len(subtypeRegistry))
-	for k, v := range subtypeRegistry {
+	toCopy := make(map[API]APIRegistration[Resource], len(apiRegistry))
+	for k, v := range apiRegistry {
+		toCopy[k] = v
+	}
+	return toCopy
+}
+
+// RegisteredResources returns a copy of the registered resources.
+func RegisteredResources() map[APIModel]Registration[Resource, ConfigValidator] {
+	registryMu.RLock()
+	defer registryMu.RUnlock()
+	toCopy := make(map[APIModel]Registration[Resource, ConfigValidator], len(registry))
+	for k, v := range registry {
 		toCopy[k] = v
 	}
 	return toCopy

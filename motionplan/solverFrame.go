@@ -279,7 +279,7 @@ func (sf *solverFrame) sliceToMap(inputSlice []frame.Input) map[string][]frame.I
 	return inputs
 }
 
-func (sf *solverFrame) MarshalJSON() ([]byte, error) {
+func (sf solverFrame) MarshalJSON() ([]byte, error) {
 	return nil, errors.New("cannot serialize solverFrame")
 }
 

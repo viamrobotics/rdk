@@ -14,19 +14,19 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-// subtypeServer implements the contract from shell.proto.
-type subtypeServer struct {
+// serviceServer implements the contract from shell.proto.
+type serviceServer struct {
 	pb.UnimplementedShellServiceServer
-	coll resource.SubtypeCollection[Service]
+	coll resource.APIResourceCollection[Service]
 }
 
 // NewRPCServiceServer constructs a framesystem gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
-func NewRPCServiceServer(coll resource.SubtypeCollection[Service]) interface{} {
-	return &subtypeServer{coll: coll}
+func NewRPCServiceServer(coll resource.APIResourceCollection[Service]) interface{} {
+	return &serviceServer{coll: coll}
 }
 
-func (server *subtypeServer) Shell(srv pb.ShellService_ShellServer) (retErr error) {
+func (server *serviceServer) Shell(srv pb.ShellService_ShellServer) (retErr error) {
 	firstMsg := true
 	req, err := srv.Recv()
 	errTemp := err
@@ -103,7 +103,7 @@ func (server *subtypeServer) Shell(srv pb.ShellService_ShellServer) (retErr erro
 }
 
 // DoCommand receives arbitrary commands.
-func (server *subtypeServer) DoCommand(ctx context.Context,
+func (server *serviceServer) DoCommand(ctx context.Context,
 	req *commonpb.DoCommandRequest,
 ) (*commonpb.DoCommandResponse, error) {
 	svc, err := server.coll.Resource(req.Name)

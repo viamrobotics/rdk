@@ -27,7 +27,7 @@ import (
 
 func init() {
 	resource.RegisterDefaultService(
-		datamanager.Subtype,
+		datamanager.API,
 		resource.DefaultServiceModel,
 		resource.Registration[datamanager.Service, *Config]{
 			Constructor: NewBuiltIn,
@@ -198,7 +198,7 @@ func (svc *builtIn) initializeOrUpdateCollector(
 ) {
 	// Build metadata.
 	captureMetadata, err := datacapture.BuildCaptureMetadata(
-		config.Name.Subtype,
+		config.Name.API,
 		config.Name.ShortName(),
 		config.Method,
 		config.AdditionalParams,
@@ -220,7 +220,7 @@ func (svc *builtIn) initializeOrUpdateCollector(
 		}
 	}
 
-	// Get collector constructor for the component subtype and method.
+	// Get collector constructor for the component API and method.
 	collectorConstructor := data.CollectorLookup(md.MethodMetadata)
 	if collectorConstructor == nil {
 		return nil, errors.Errorf("failed to find collector constructor for %s", md.MethodMetadata)
@@ -311,7 +311,7 @@ func (svc *builtIn) initSyncer(ctx context.Context) error {
 func (svc *builtIn) getCollectorFromConfig(attributes datamanager.DataCaptureConfig) (data.Collector, *componentMethodMetadata) {
 	// Create component/method metadata to check if the collector exists.
 	metadata := data.MethodMetadata{
-		Subtype:    attributes.Resource.Name().Subtype,
+		API:        attributes.Resource.Name().API,
 		MethodName: attributes.Method,
 	}
 
@@ -396,7 +396,7 @@ func (svc *builtIn) Reconfigure(
 			if !resConf.Disabled && resConf.CaptureFrequencyHz > 0 {
 				// Create component/method metadata to check if the collector exists.
 				methodMetadata := data.MethodMetadata{
-					Subtype:    resConf.Name.Subtype,
+					API:        resConf.Name.API,
 					MethodName: resConf.Method,
 				}
 
