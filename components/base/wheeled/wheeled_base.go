@@ -150,6 +150,19 @@ func (wb *wheeledBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSe
 func (wb *wheeledBase) runAll(ctx context.Context, leftRPM, leftRotations, rightRPM, rightRotations float64) error {
 	fs := []rdkutils.SimpleFunc{}
 
+	if rdkutils.Float64AlmostEqual(leftRPM, 0.0, 1) && rdkutils.Float64AlmostEqual(rightRPM, 0.0, 1) {
+		wb.logger.Infof("the received inputs resulted in a speed of 0")
+	}
+
+	// if rdkutils.Float64AlmostEqual(linear.Y, float64(wb.left[0].MaxRPM), 1) {
+	// 	wb.logger.Infof("the received linear velocity results in a speed near the maxLinearVelocity %f for this base",
+	// 		base.maxLinearVelocity)
+	// }
+	// if rdkutils.Float64AlmostEqual(angular.Z, float64(base.maxAngularVelocity), 1) {
+	// 	base.controller.logger.Infof("the received angular velocity results in a speed near the maxAngularVelocity %f for this base",
+	// 		base.maxAngularVelocity)
+	// }
+
 	for _, m := range wb.left {
 		fs = append(fs, func(ctx context.Context) error { return m.GoFor(ctx, leftRPM, leftRotations, nil) })
 	}
@@ -212,20 +225,6 @@ func (wb *wheeledBase) SetVelocity(ctx context.Context, linear, angular r3.Vecto
 		linear.X, linear.Y, linear.Z, angular.X, angular.Y, angular.Z)
 
 	l, r := wb.velocityMath(linear.Y, angular.Z)
-
-	if rdkutils.Float64AlmostEqual(l, 0.0, 1) && rdkutils.Float64AlmostEqual(r, 0.0, 1) {
-		wb.logger.Infof("the received linear velocity %f and angular velocity %f results in a speed of 0",
-			linear, angular)
-	}
-
-	// if rdkutils.Float64AlmostEqual(linear.Y, float64(wb.left[0].MaxRPM), 1) {
-	// 	wb.logger.Infof("the received linear velocity results in a speed near the maxLinearVelocity %f for this base",
-	// 		base.maxLinearVelocity)
-	// }
-	// if rdkutils.Float64AlmostEqual(angular.Z, float64(base.maxAngularVelocity), 1) {
-	// 	base.controller.logger.Infof("the received angular velocity results in a speed near the maxAngularVelocity %f for this base",
-	// 		base.maxAngularVelocity)
-	// }
 
 	return wb.runAll(ctx, l, 0, r, 0)
 }
