@@ -128,6 +128,7 @@ type AssociatedResourceConfig struct {
 	Attributes          utils.AttributeMap `json:"attributes"`
 	ConvertedAttributes interface{}        `json:"-"`
 	API                 API                `json:"-"`
+	RemoteName          string             `json:"-"`
 }
 
 // AdjustPartialNames assumes this config comes from a place where the

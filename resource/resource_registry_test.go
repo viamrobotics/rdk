@@ -99,7 +99,7 @@ func TestResourceAPIRegistry(t *testing.T) {
 			Status:                      statf,
 			RPCServiceServerConstructor: sf,
 			RPCServiceDesc:              &pb.RobotService_ServiceDesc,
-		}, resource.AssociatedConfigRegistration[any]{})
+		}, resource.AssociatedConfigRegistration[resource.AssociatedNameUpdater]{})
 	}, test.ShouldPanic)
 	resource.RegisterAPI(acme.API, resource.APIRegistration[arm.Arm]{
 		Status:                      statf,
@@ -177,17 +177,22 @@ func TestResourceAPIRegistry(t *testing.T) {
 			RPCServiceServerConstructor: sf,
 			RPCClient:                   rcf,
 			RPCServiceHandler:           pb.RegisterRobotServiceHandlerFromEndpoint,
-		}, resource.AssociatedConfigRegistration[any]{
-			WithName: func(resName resource.Name, resAssociation any) error {
-				return nil
-			},
-		})
+		}, resource.AssociatedConfigRegistration[resource.AssociatedNameUpdater]{})
 	}, test.ShouldPanic)
 
 	resource.DeregisterAPI(api3)
 	_, ok, err = resource.LookupAPIRegistration[arm.Arm](api3)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeFalse)
+}
+
+type someType struct {
+	Field1  string `json:"field1"`
+	capName resource.Name
+}
+
+func (st *someType) UpdateResourceNames(updater func(old resource.Name) resource.Name) {
+	st.capName = updater(arm.Named("foo"))
 }
 
 func TestResourceAPIRegistryWithAssociation(t *testing.T) {
@@ -198,31 +203,23 @@ func TestResourceAPIRegistryWithAssociation(t *testing.T) {
 		return nil
 	}
 
-	type someType struct {
-		Field1  string `json:"field1"`
-		capName resource.Name
-	}
-
 	someName := resource.NewName(resource.APINamespace(uuid.NewString()).WithComponentType(button), "button1")
 	resource.RegisterAPIWithAssociation(someName.API, resource.APIRegistration[arm.Arm]{
 		Status:                      statf,
 		RPCServiceServerConstructor: sf,
 		RPCServiceHandler:           pb.RegisterRobotServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &pb.RobotService_ServiceDesc,
-	}, resource.AssociatedConfigRegistration[*someType]{
-		WithName: func(resName resource.Name, resAssociation *someType) error {
-			resAssociation.capName = resName
-			return nil
-		},
-	})
+	}, resource.AssociatedConfigRegistration[*someType]{})
 	reg, ok := resource.LookupAssociatedConfigRegistration(someName.API)
 	test.That(t, ok, test.ShouldBeTrue)
 	assoc, err := reg.AttributeMapConverter(utils.AttributeMap{"field1": "hey"})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, assoc.(*someType).Field1, test.ShouldEqual, "hey")
 	test.That(t, assoc.(*someType).capName, test.ShouldResemble, resource.Name{})
-	test.That(t, reg.WithName(arm.Named("foo"), assoc), test.ShouldBeNil)
-	test.That(t, assoc.(*someType).capName, test.ShouldResemble, arm.Named("foo"))
+	assoc.UpdateResourceNames(func(n resource.Name) resource.Name {
+		return arm.Named(n.String()) // odd but whatever
+	})
+	test.That(t, assoc.(*someType).capName, test.ShouldResemble, arm.Named(arm.Named("foo").String()))
 }
 
 func TestDiscoveryFunctions(t *testing.T) {

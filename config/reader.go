@@ -425,29 +425,39 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger golog.Logge
 		return nil, err
 	}
 
-	convertAndAssociateResourceConfigs := func(resName *resource.Name, associatedCfgs []resource.AssociatedResourceConfig) error {
+	convertAndAssociateResourceConfigs := func(
+		resName *resource.Name,
+		remoteName *string,
+		associatedCfgs []resource.AssociatedResourceConfig,
+	) error {
 		for subIdx, associatedConf := range associatedCfgs {
 			conv, ok := resource.LookupAssociatedConfigRegistration(associatedConf.API)
 			if !ok {
 				continue
 			}
 
-			var converted interface{} = associatedConf.Attributes
+			var convertedAttrs interface{} = associatedConf.Attributes
 			if conv.AttributeMapConverter != nil {
-				var err error
-				converted, err = conv.AttributeMapConverter(associatedConf.Attributes)
+				converted, err := conv.AttributeMapConverter(associatedConf.Attributes)
 				if err != nil {
 					return errors.Wrap(err, "error converting associated resource config attributes")
 				}
+				if resName != nil || remoteName != nil {
+					converted.UpdateResourceNames(func(oldName resource.Name) resource.Name {
+						newName := oldName
+						if resName != nil {
+							newName = *resName
+						}
+						if remoteName != nil {
+							newName = newName.PrependRemote(*remoteName)
+						}
+						return newName
+					})
+				}
 				associatedCfgs[subIdx].Attributes = nil
 				associatedCfgs[subIdx].ConvertedAttributes = converted
+				convertedAttrs = converted
 			}
-
-			if resName != nil {
-				if err := conv.WithName(*resName, converted); err != nil {
-					return errors.Wrap(err, "error attaching resource name to associated resource config")
-				}
-			} // otherwise we assume the resource name is already in the associated config
 
 			// always associate
 			for _, assocConf := range resCfgsPerAPI[associatedConf.API] {
@@ -455,7 +465,7 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger golog.Logge
 				if !ok || reg.AssociatedConfigLinker == nil {
 					continue
 				}
-				if err := reg.AssociatedConfigLinker(assocConf.ConvertedAttributes, converted); err != nil {
+				if err := reg.AssociatedConfigLinker(assocConf.ConvertedAttributes, convertedAttrs); err != nil {
 					return errors.Wrapf(err, "error associating resource association config to resource %q", assocConf.Model)
 				}
 			}
@@ -468,7 +478,7 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger golog.Logge
 			copied := conf
 			resName := copied.ResourceName()
 
-			if err := convertAndAssociateResourceConfigs(&resName, conf.AssociatedResourceConfigs); err != nil {
+			if err := convertAndAssociateResourceConfigs(&resName, nil, conf.AssociatedResourceConfigs); err != nil {
 				return errors.Wrapf(err, "error processing associated service configs for %q", resName)
 			}
 		}
@@ -483,7 +493,7 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger golog.Logge
 	}
 
 	for _, c := range cfg.Remotes {
-		if err := convertAndAssociateResourceConfigs(nil, c.AssociatedResourceConfigs); err != nil {
+		if err := convertAndAssociateResourceConfigs(nil, &c.Name, c.AssociatedResourceConfigs); err != nil {
 			return nil, errors.Wrapf(err, "error processing associated service configs for remote %q", c.Name)
 		}
 	}

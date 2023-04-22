@@ -64,10 +64,6 @@ type (
 	// LinkAssocationConfig allows one resource to associate a specific association config
 	// to its own config. This is generally done by a specific resource (e.g. data capture of many components).
 	LinkAssocationConfig[ConfigT any] func(conf ConfigT, resAssociation interface{}) error
-
-	// AssociationConfigWithName allows a resource to attach a name to a api specific
-	// association config. This is generally done by the api registration.
-	AssociationConfigWithName[AssocT any] func(resName Name, resAssociation AssocT) error
 )
 
 // A DependencyNotReadyError is used whenever we reference a dependency that has not been
@@ -153,14 +149,16 @@ func (rs APIRegistration[ResourceT]) RegisterRPCService(
 	)
 }
 
+// AssociatedNameUpdater allows an associated config to have its names updated externally.
+type AssociatedNameUpdater interface {
+	UpdateResourceNames(func(n Name) Name)
+}
+
 // An AssociatedConfigRegistration describes how to convert all attributes
 // for a type of resource associated with another resource (e.g. data capture on a resource).
-type AssociatedConfigRegistration[AssocT any] struct {
+type AssociatedConfigRegistration[AssocT AssociatedNameUpdater] struct {
 	// AttributeMapConverter is used to convert raw attributes to the resource's native associated config.
 	AttributeMapConverter AttributeMapConverter[AssocT]
-
-	// WithName is used to attach a resource name to the native association config.
-	WithName AssociationConfigWithName[AssocT]
 
 	api API
 }
@@ -170,7 +168,7 @@ var (
 	registryMu                    sync.RWMutex
 	registry                      = map[APIModel]Registration[Resource, ConfigValidator]{}
 	apiRegistry                   = map[API]APIRegistration[Resource]{}
-	associatedConfigRegistrations = []AssociatedConfigRegistration[any]{}
+	associatedConfigRegistrations = []AssociatedConfigRegistration[AssociatedNameUpdater]{}
 )
 
 // DefaultServices returns all servies that will be constructed by default if not
@@ -353,14 +351,11 @@ func RegisterAPI[ResourceT Resource](api API, creator APIRegistration[ResourceT]
 
 // RegisterAPIWithAssociation register a ResourceAPI to its corresponding resource api
 // along with a way to allow other resources to associate into its config.
-func RegisterAPIWithAssociation[ResourceT Resource, AssocT any](
+func RegisterAPIWithAssociation[ResourceT Resource, AssocT AssociatedNameUpdater](
 	api API,
 	creator APIRegistration[ResourceT],
 	association AssociatedConfigRegistration[AssocT],
 ) {
-	if association.WithName == nil {
-		panic("must provide a WithName to a AssociatedConfigRegistration")
-	}
 	RegisterAPI(api, creator)
 	association.api = api
 	if association.AttributeMapConverter == nil {
@@ -377,34 +372,27 @@ func RegisterAPIWithAssociation[ResourceT Resource, AssocT any](
 }
 
 // LookupAssociatedConfigRegistration finds the resource association config registration for the given api.
-func LookupAssociatedConfigRegistration(api API) (AssociatedConfigRegistration[any], bool) {
+func LookupAssociatedConfigRegistration(api API) (AssociatedConfigRegistration[AssociatedNameUpdater], bool) {
 	for _, conv := range associatedConfigRegistrations {
 		if conv.api == api {
 			return conv, true
 		}
 	}
-	return AssociatedConfigRegistration[any]{}, false
+	return AssociatedConfigRegistration[AssociatedNameUpdater]{}, false
 }
 
 // makeGenericAssociatedConfigRegistration allows an association to be generic and ensures all input/output types
 // are actually T's.
-func makeGenericAssociatedConfigRegistration[AssocT any](typed AssociatedConfigRegistration[AssocT]) AssociatedConfigRegistration[any] {
-	reg := AssociatedConfigRegistration[any]{
+func makeGenericAssociatedConfigRegistration[AssocT AssociatedNameUpdater](
+	typed AssociatedConfigRegistration[AssocT],
+) AssociatedConfigRegistration[AssociatedNameUpdater] {
+	reg := AssociatedConfigRegistration[AssociatedNameUpdater]{
 		// NOTE: any fields added to AssociatedConfigRegistration must be copied/adapted here.
 		api: typed.api,
 	}
 	if typed.AttributeMapConverter != nil {
-		reg.AttributeMapConverter = func(attributes utils.AttributeMap) (any, error) {
+		reg.AttributeMapConverter = func(attributes utils.AttributeMap) (AssociatedNameUpdater, error) {
 			return typed.AttributeMapConverter(attributes)
-		}
-	}
-	if typed.WithName != nil {
-		reg.WithName = func(resName Name, resAssociation any) error {
-			typedAssoc, err := utils.AssertType[AssocT](resAssociation)
-			if err != nil {
-				return err
-			}
-			return typed.WithName(resName, typedAssoc)
 		}
 	}
 

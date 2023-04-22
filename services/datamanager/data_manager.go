@@ -35,12 +35,6 @@ func init() {
 				}
 				return &conf, nil
 			},
-			WithName: func(resName resource.Name, resAssociation *DataCaptureConfigs) error {
-				for idx := range resAssociation.CaptureMethods {
-					resAssociation.CaptureMethods[idx].Name = resName
-				}
-				return nil
-			},
 		},
 	)
 }
@@ -65,6 +59,13 @@ func Named(name string) resource.Name {
 // DataCaptureConfigs specify a list of methods to capture on resources.
 type DataCaptureConfigs struct {
 	CaptureMethods []DataCaptureConfig `json:"capture_methods"`
+}
+
+// UpdateResourceNames allows the caller to modify the resource names of data capture in place.
+func (dcs *DataCaptureConfigs) UpdateResourceNames(updater func(old resource.Name) resource.Name) {
+	for idx := range dcs.CaptureMethods {
+		dcs.CaptureMethods[idx].Name = updater(dcs.CaptureMethods[idx].Name)
+	}
 }
 
 // DataCaptureConfig is used to initialize a collector for a component or remote.

@@ -47,7 +47,7 @@ func getInjectedRobot() *inject.Robot {
 	injectedRemoteArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
 		return spatialmath.NewZeroPose(), nil
 	}
-	rs[arm.Named("remoteArm")] = injectedRemoteArm
+	rs[arm.Named("remote1:remoteArm")] = injectedRemoteArm
 
 	injectedCam := &inject.Camera{}
 	img := image.NewNRGBA(image.Rect(0, 0, 4, 4))
