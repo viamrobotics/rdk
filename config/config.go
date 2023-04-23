@@ -377,8 +377,6 @@ func (conf *Remote) Validate(path string) ([]string, error) {
 // fix them up to the builtin values they are intended for.
 func (conf *Remote) adjustPartialNames() {
 	for idx := range conf.AssociatedResourceConfigs {
-		conf.AssociatedResourceConfigs[idx].AdjustPartialNames()
-		conf.AssociatedResourceConfigs[idx].RemoteName = conf.Name
 		conf.AssociatedResourceConfigs[idx].RemoteName = conf.Name
 	}
 }

@@ -32,10 +32,12 @@ type Config struct {
 	cachedErr          error
 }
 
-// this can be removed in the future after a few releases.
-type legacyConfigData struct {
+// NOTE: This data must be maintained with what is in Config.
+type typeSpecificConfigData struct {
+	// this can be removed in the future after a few releases.
+	Namespace string `json:"namespace"`
+
 	Name                      string                     `json:"name"`
-	Namespace                 string                     `json:"namespace"`
 	Subtype                   string                     `json:"type"`
 	Model                     Model                      `json:"model"`
 	Frame                     *referenceframe.LinkConfig `json:"frame,omitempty"`
@@ -76,18 +78,18 @@ func (conf *Config) UnmarshalJSON(data []byte) error {
 		return nil
 	}
 
-	var legacyConf legacyConfigData
-	if err := json.Unmarshal(data, &legacyConf); err != nil {
+	var typeSpecificConf typeSpecificConfigData
+	if err := json.Unmarshal(data, &typeSpecificConf); err != nil {
 		return err
 	}
-	conf.Name = legacyConf.Name
+	conf.Name = typeSpecificConf.Name
 	// this will get adjusted later
-	conf.API = APINamespace(legacyConf.Namespace).WithType("").WithSubtype(legacyConf.Subtype)
-	conf.Model = legacyConf.Model
-	conf.Frame = legacyConf.Frame
-	conf.DependsOn = legacyConf.DependsOn
-	conf.AssociatedResourceConfigs = legacyConf.AssociatedResourceConfigs
-	conf.Attributes = legacyConf.Attributes
+	conf.API = APINamespace(typeSpecificConf.Namespace).WithType("").WithSubtype(typeSpecificConf.Subtype)
+	conf.Model = typeSpecificConf.Model
+	conf.Frame = typeSpecificConf.Frame
+	conf.DependsOn = typeSpecificConf.DependsOn
+	conf.AssociatedResourceConfigs = typeSpecificConf.AssociatedResourceConfigs
+	conf.Attributes = typeSpecificConf.Attributes
 	return nil
 }
 
@@ -124,22 +126,41 @@ func NewEmptyConfig(name Name, model Model) Config {
 
 // An AssociatedResourceConfig describes configuration of a resource for an associated resource.
 type AssociatedResourceConfig struct {
-	DeprecatedType      string             `json:"type"`
-	Attributes          utils.AttributeMap `json:"attributes"`
-	ConvertedAttributes interface{}        `json:"-"`
-	API                 API                `json:"-"`
-	RemoteName          string             `json:"-"`
+	API                 API
+	Attributes          utils.AttributeMap
+	ConvertedAttributes interface{}
+	RemoteName          string
 }
 
-// AdjustPartialNames assumes this config comes from a place where the
-// associated config type names are partially stored (JSON/Proto/Database)
-// and will fix them up to the builtin values they are intended for.
-func (assoc *AssociatedResourceConfig) AdjustPartialNames() {
-	if assoc.API.SubtypeName == "" {
-		// this is this way until the proto changes; for now we are
-		// stuck referring to builtin RDK service types.
-		assoc.API = APINamespaceRDK.WithServiceType(assoc.DeprecatedType)
+// NOTE: This data must be maintained with what is in AssociatedResourceConfig.
+type associatedResourceConfigData struct {
+	API        string             `json:"type"`
+	Attributes utils.AttributeMap `json:"attributes"`
+}
+
+// UnmarshalJSON unmarshals JSON into the config.
+func (assoc *AssociatedResourceConfig) UnmarshalJSON(data []byte) error {
+	var confData associatedResourceConfigData
+	if err := json.Unmarshal(data, &confData); err != nil {
+		return err
 	}
+
+	assoc.Attributes = confData.Attributes
+
+	api, err := NewPossibleRDKServiceAPIFromString(confData.API)
+	if err != nil {
+		return err
+	}
+	assoc.API = api
+	return nil
+}
+
+// MarshalJSON marshals JSON from the config.
+func (assoc AssociatedResourceConfig) MarshalJSON() ([]byte, error) {
+	return json.Marshal(associatedResourceConfigData{
+		API:        assoc.API.String(),
+		Attributes: assoc.Attributes,
+	})
 }
 
 // Equals checks if the two configs are deeply equal to each other.
@@ -225,10 +246,6 @@ func (conf *Config) AdjustPartialNames(defaultAPIType string) {
 		if conf.Model.Name == "" {
 			conf.Model = DefaultServiceModel
 		}
-	}
-
-	for idx := range conf.AssociatedResourceConfigs {
-		conf.AssociatedResourceConfigs[idx].AdjustPartialNames()
 	}
 }
 

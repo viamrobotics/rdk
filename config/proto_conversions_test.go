@@ -34,18 +34,26 @@ var testComponent = resource.Config{
 		"attr2": "attr-string",
 	},
 	AssociatedResourceConfigs: []resource.AssociatedResourceConfig{
+		// these will get rewritten in tests to simulate API data
 		{
-			DeprecatedType: "some-type-1",
-			API:            resource.APINamespaceRDK.WithServiceType("some-type-1"),
+			// will resemble the same but become "foo:bar:baz"
+			API: resource.NewAPI("foo", "bar", "baz"),
 			Attributes: utils.AttributeMap{
 				"attr1": 1,
 			},
 		},
 		{
-			DeprecatedType: "some-type-2",
-			API:            resource.APINamespaceRDK.WithServiceType("some-type-2"),
+			// will stay the same
+			API: resource.APINamespaceRDK.WithServiceType("some-type-2"),
 			Attributes: utils.AttributeMap{
-				"attr1": 1,
+				"attr1": 2,
+			},
+		},
+		{
+			// will resemble the same but be just "some-type-3"
+			API: resource.APINamespaceRDK.WithServiceType("some-type-3"),
+			Attributes: utils.AttributeMap{
+				"attr1": 3,
 			},
 		},
 	},
@@ -85,15 +93,13 @@ var testRemote = Remote{
 	ReconnectInterval:       2000000000,
 	AssociatedResourceConfigs: []resource.AssociatedResourceConfig{
 		{
-			DeprecatedType: "some-type-1",
-			API:            resource.APINamespaceRDK.WithServiceType("some-type-1"),
+			API: resource.APINamespaceRDK.WithServiceType("some-type-1"),
 			Attributes: utils.AttributeMap{
 				"attr1": 1,
 			},
 		},
 		{
-			DeprecatedType: "some-type-2",
-			API:            resource.APINamespaceRDK.WithServiceType("some-type-2"),
+			API: resource.APINamespaceRDK.WithServiceType("some-type-2"),
 			Attributes: utils.AttributeMap{
 				"attr1": 1,
 			},
@@ -223,20 +229,28 @@ func validateComponent(t *testing.T, actual, expected resource.Config) {
 	test.That(t, actual.Attributes.Int("attr1", 0), test.ShouldEqual, expected.Attributes.Int("attr1", -1))
 	test.That(t, actual.Attributes.String("attr2"), test.ShouldEqual, expected.Attributes.String("attr2"))
 
-	test.That(t, actual.AssociatedResourceConfigs, test.ShouldHaveLength, 2)
-	test.That(t, actual.AssociatedResourceConfigs[0].DeprecatedType, test.ShouldResemble, expected.AssociatedResourceConfigs[0].DeprecatedType)
+	test.That(t, actual.AssociatedResourceConfigs, test.ShouldHaveLength, 3)
+	test.That(t, actual.AssociatedResourceConfigs[0].API, test.ShouldResemble, expected.AssociatedResourceConfigs[0].API)
 	test.That(t,
 		actual.AssociatedResourceConfigs[0].Attributes.Int("attr1", 0),
 		test.ShouldEqual,
 		expected.AssociatedResourceConfigs[0].Attributes.Int("attr1", -1))
 	test.That(t,
-		actual.AssociatedResourceConfigs[1].DeprecatedType,
+		actual.AssociatedResourceConfigs[1].API,
 		test.ShouldResemble,
-		expected.AssociatedResourceConfigs[1].DeprecatedType)
+		expected.AssociatedResourceConfigs[1].API)
 	test.That(t,
 		actual.AssociatedResourceConfigs[1].Attributes.Int("attr1", 0),
 		test.ShouldEqual,
 		expected.AssociatedResourceConfigs[1].Attributes.Int("attr1", -1))
+	test.That(t,
+		actual.AssociatedResourceConfigs[2].API,
+		test.ShouldResemble,
+		expected.AssociatedResourceConfigs[2].API)
+	test.That(t,
+		actual.AssociatedResourceConfigs[2].Attributes.Int("attr1", 0),
+		test.ShouldEqual,
+		expected.AssociatedResourceConfigs[2].Attributes.Int("attr1", -1))
 
 	f1, err := actual.Frame.ParseConfig()
 	test.That(t, err, test.ShouldBeNil)
@@ -245,9 +259,15 @@ func validateComponent(t *testing.T, actual, expected resource.Config) {
 	test.That(t, f1, test.ShouldResemble, f2)
 }
 
+func rewriteTestComponentProto(conf *pb.ComponentConfig) {
+	conf.ServiceConfigs[0].Type = "foo:bar:baz"
+	conf.ServiceConfigs[2].Type = "some-type-3"
+}
+
 func TestComponentConfigToProto(t *testing.T) {
 	proto, err := ComponentConfigToProto(&testComponent)
 	test.That(t, err, test.ShouldBeNil)
+	rewriteTestComponentProto(proto)
 
 	out, err := ComponentConfigFromProto(proto)
 	test.That(t, err, test.ShouldBeNil)
@@ -427,17 +447,17 @@ func validateRemote(t *testing.T, actual, expected Remote) {
 
 	test.That(t, actual.AssociatedResourceConfigs, test.ShouldHaveLength, 2)
 	test.That(t,
-		actual.AssociatedResourceConfigs[0].DeprecatedType,
+		actual.AssociatedResourceConfigs[0].API,
 		test.ShouldResemble,
-		expected.AssociatedResourceConfigs[0].DeprecatedType)
+		expected.AssociatedResourceConfigs[0].API)
 	test.That(t,
 		actual.AssociatedResourceConfigs[0].Attributes.Int("attr1", 0),
 		test.ShouldEqual,
 		expected.AssociatedResourceConfigs[0].Attributes.Int("attr1", -1))
 	test.That(t,
-		actual.AssociatedResourceConfigs[1].DeprecatedType,
+		actual.AssociatedResourceConfigs[1].API,
 		test.ShouldResemble,
-		expected.AssociatedResourceConfigs[1].DeprecatedType)
+		expected.AssociatedResourceConfigs[1].API)
 	test.That(t,
 		actual.AssociatedResourceConfigs[1].Attributes.Int("attr1", 0),
 		test.ShouldEqual,
@@ -674,6 +694,7 @@ func TestFromProto(t *testing.T) {
 
 	componentConfig, err := ComponentConfigToProto(&testComponent)
 	test.That(t, err, test.ShouldBeNil)
+	rewriteTestComponentProto(componentConfig)
 
 	processConfig, err := ProcessConfigToProto(&testProcessConfig)
 	test.That(t, err, test.ShouldBeNil)
@@ -739,6 +760,7 @@ func TestPartialStart(t *testing.T) {
 
 	componentConfig, err := ComponentConfigToProto(&testComponent)
 	test.That(t, err, test.ShouldBeNil)
+	rewriteTestComponentProto(componentConfig)
 
 	processConfig, err := ProcessConfigToProto(&testProcessConfig)
 	test.That(t, err, test.ShouldBeNil)

@@ -664,3 +664,134 @@ func TestAPIFromString(t *testing.T) {
 		})
 	}
 }
+
+func TestNewPossibleRDKServiceAPIFromString(t *testing.T) {
+	for _, tc := range []struct {
+		TestName string
+		StrAPI   string
+		Expected resource.API
+		Err      string
+	}{
+		{
+			"valid",
+			"rdk:component:arm",
+			arm.API,
+			"",
+		},
+		{
+			"valid with special characters and numbers",
+			"acme_corp1:test-collection99:api_a2",
+			resource.API{
+				Type:        resource.APIType{Namespace: "acme_corp1", Name: "test-collection99"},
+				SubtypeName: "api_a2",
+			},
+			"",
+		},
+		{
+			"invalid with slash",
+			"acme/corp:test:subtypeA",
+			resource.API{},
+			"not a valid api name",
+		},
+		{
+			"invalid with caret",
+			"acme:test:subtype^A",
+			resource.API{},
+			"not a valid api name",
+		},
+		{
+			"missing field",
+			"acme:test",
+			resource.API{},
+			"not a valid api name",
+		},
+		{
+			"empty namespace",
+			":test:subtypeA",
+			resource.API{},
+			"not a valid api name",
+		},
+		{
+			"empty family",
+			"acme::subtypeA",
+			resource.API{},
+			"not a valid api name",
+		},
+		{
+			"empty name",
+			"acme:test::",
+			resource.API{},
+			"not a valid api name",
+		},
+		{
+			"extra field",
+			"acme:test:subtypeA:fail",
+			resource.API{},
+			"not a valid api name",
+		},
+		{
+			"mistaken resource name",
+			"acme:test:subtypeA/fail",
+			resource.API{},
+			"not a valid api name",
+		},
+		{
+			"valid nested json",
+			`{"namespace": "acme", "type": "test", "subtype": "subtypeB"}`,
+			resource.API{
+				Type:        resource.APIType{Namespace: "acme", Name: "test"},
+				SubtypeName: "subtypeB",
+			},
+			"not a valid api name",
+		},
+		{
+			"invalid nested json type",
+			`{"namespace": "acme", "type": "te^st", "subtype": "subtypeB"}`,
+			resource.API{},
+			"not a valid api name",
+		},
+		{
+			"invalid nested json namespace",
+			`{"namespace": "$acme", "type": "test", "subtype": "subtypeB"}`,
+			resource.API{},
+			"not a valid api name",
+		},
+		{
+			"invalid nested json subtype",
+			`{"namespace": "acme", "type": "test", "subtype": "subtype#B"}`,
+			resource.API{},
+			"not a valid api name",
+		},
+		{
+			"missing nested json field",
+			`{"namespace": "acme", "name": "subtype#B"}`,
+			resource.API{},
+			"not a valid api name",
+		},
+		{
+			"single name",
+			`hello`,
+			resource.APINamespaceRDK.WithServiceType("hello"),
+			"",
+		},
+		{
+			"double name",
+			`uh:hello`,
+			resource.API{},
+			"not a valid api name",
+		},
+	} {
+		t.Run(tc.TestName, func(t *testing.T) {
+			observed, err := resource.NewPossibleRDKServiceAPIFromString(tc.StrAPI)
+			if tc.Err == "" {
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, observed.Validate(), test.ShouldBeNil)
+				test.That(t, observed, test.ShouldResemble, tc.Expected)
+				test.That(t, observed.String(), test.ShouldResemble, tc.Expected.String())
+			} else {
+				test.That(t, err, test.ShouldNotBeNil)
+				test.That(t, err.Error(), test.ShouldContainSubstring, tc.Err)
+			}
+		})
+	}
+}

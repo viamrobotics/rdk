@@ -276,7 +276,7 @@ func AssociatedResourceConfigToProto(conf resource.AssociatedResourceConfig) (*p
 	}
 
 	proto := pb.ResourceLevelServiceConfig{
-		Type:       conf.API.SubtypeName,
+		Type:       conf.API.String(),
 		Attributes: attributes,
 	}
 
@@ -285,10 +285,14 @@ func AssociatedResourceConfigToProto(conf resource.AssociatedResourceConfig) (*p
 
 // AssociatedResourceConfigFromProto creates AssociatedResourceConfig from the proto equivalent.
 func AssociatedResourceConfigFromProto(proto *pb.ResourceLevelServiceConfig) (resource.AssociatedResourceConfig, error) {
+	api, err := resource.NewPossibleRDKServiceAPIFromString(proto.GetType())
+	if err != nil {
+		return resource.AssociatedResourceConfig{}, err
+	}
+
 	service := resource.AssociatedResourceConfig{
-		DeprecatedType: proto.GetType(),
-		API:            resource.APINamespaceRDK.WithServiceType(proto.GetType()),
-		Attributes:     proto.GetAttributes().AsMap(),
+		API:        api,
+		Attributes: proto.GetAttributes().AsMap(),
 	}
 
 	return service, nil

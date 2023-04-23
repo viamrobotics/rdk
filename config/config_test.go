@@ -95,6 +95,7 @@ func TestConfig3(t *testing.T) {
 			{Name: "encoder", Pin: "14"},
 		},
 	})
+
 	test.That(t, cfg.Components[2].ConvertedAttributes, test.ShouldResemble, &fakemotor.Config{
 		Pins: fakemotor.PinConfig{
 			Direction: "io17",
@@ -104,6 +105,15 @@ func TestConfig3(t *testing.T) {
 		MaxPowerPct:      0.5,
 		TicksPerRotation: 10000,
 	})
+	test.That(t, cfg.Components[2].AssociatedResourceConfigs, test.ShouldHaveLength, 1)
+	test.That(t, cfg.Components[2].AssociatedResourceConfigs[0], test.ShouldResemble, resource.AssociatedResourceConfig{
+		API: resource.APINamespaceRDK.WithServiceType("data_manager"),
+		Attributes: rutils.AttributeMap{
+			"hi":     1.1,
+			"friend": 2.2,
+		},
+	})
+
 	test.That(t, cfg.Components[3].ConvertedAttributes, test.ShouldResemble, &incremental.Config{
 		Pins: incremental.Pins{
 			A: "encoder-steering-b",
@@ -116,6 +126,23 @@ func TestConfig3(t *testing.T) {
 	test.That(t, cfg.Remotes, test.ShouldHaveLength, 1)
 	test.That(t, cfg.Remotes[0].ConnectionCheckInterval, test.ShouldEqual, 12*time.Second)
 	test.That(t, cfg.Remotes[0].ReconnectInterval, test.ShouldEqual, 3*time.Second)
+	test.That(t, cfg.Remotes[0].AssociatedResourceConfigs, test.ShouldHaveLength, 2)
+	test.That(t, cfg.Remotes[0].AssociatedResourceConfigs[0], test.ShouldResemble, resource.AssociatedResourceConfig{
+		API: resource.APINamespaceRDK.WithServiceType("data_manager"),
+		Attributes: rutils.AttributeMap{
+			"hi":     3.3,
+			"friend": 4.4,
+		},
+		RemoteName: "rem1",
+	})
+	test.That(t, cfg.Remotes[0].AssociatedResourceConfigs[1], test.ShouldResemble, resource.AssociatedResourceConfig{
+		API: resource.APINamespaceRDK.WithServiceType("some_type"),
+		Attributes: rutils.AttributeMap{
+			"hi":     5.5,
+			"friend": 6.6,
+		},
+		RemoteName: "rem1",
+	})
 }
 
 func TestConfigEnsure(t *testing.T) {

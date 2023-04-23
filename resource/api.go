@@ -157,3 +157,18 @@ func NewAPIFromString(apiStr string) (API, error) {
 	matches := apiRegexValidator.FindStringSubmatch(apiStr)
 	return APINamespace(matches[1]).WithType(matches[2]).WithSubtype(matches[3]), nil
 }
+
+// NewPossibleRDKServiceAPIFromString returns an API from a string that if is a singular name,
+// will be interpreted as an RDK service.
+func NewPossibleRDKServiceAPIFromString(apiStr string) (API, error) {
+	api, apiErr := NewAPIFromString(apiStr)
+	if apiErr == nil {
+		return api, nil
+	}
+	if !singleFieldRegexValidator.MatchString(apiStr) {
+		return API{}, apiErr
+	}
+
+	// assume it is a builtin service
+	return APINamespaceRDK.WithServiceType(apiStr), nil
+}
