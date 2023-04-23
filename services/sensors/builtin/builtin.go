@@ -15,7 +15,7 @@ import (
 )
 
 func init() {
-	resource.RegisterDefaultService(sensors.Subtype, resource.DefaultServiceModel, resource.Registration[sensors.Service, resource.NoNativeConfig]{
+	resource.RegisterDefaultService(sensors.API, resource.DefaultServiceModel, resource.Registration[sensors.Service, resource.NoNativeConfig]{
 		Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,

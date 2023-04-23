@@ -1,4 +1,4 @@
-// Package register registers all relevant audio inputs and also subtype specific functions
+// Package register registers all relevant audio inputs and also API specific functions
 package register
 
 import (

@@ -280,10 +280,10 @@ func (c *collector) logCaptureErrs() {
 	}
 }
 
-// InvalidInterfaceErr is the error describing when an interface not conforming to the expected resource.Subtype was
+// InvalidInterfaceErr is the error describing when an interface not conforming to the expected resource.API was
 // passed into a CollectorConstructor.
-func InvalidInterfaceErr(typeName resource.SubtypeName) error {
-	return errors.Errorf("passed interface does not conform to expected resource type %s", typeName)
+func InvalidInterfaceErr(api resource.API) error {
+	return errors.Errorf("passed interface does not conform to expected resource type %s", api)
 }
 
 // FailedToReadErr is the error describing when a Capturer was unable to get the reading of a method.

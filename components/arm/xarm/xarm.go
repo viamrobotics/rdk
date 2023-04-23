@@ -77,8 +77,8 @@ const (
 	ModelNameLite = "xArmLite" // ModelNameLite is the name of an xArmLite
 )
 
-// Model returns the kinematics model of the xarm arm, which has all Frame information.
-func Model(name, modelName string) (referenceframe.Model, error) {
+// MakeModelFrame returns the kinematics model of the xarm arm, which has all Frame information.
+func MakeModelFrame(name, modelName string) (referenceframe.Model, error) {
 	switch modelName {
 	case ModelName6DOF:
 		return referenceframe.UnmarshalModelJSON(xArm6modeljson, name)
@@ -94,8 +94,8 @@ func Model(name, modelName string) (referenceframe.Model, error) {
 func init() {
 	for _, armModelName := range []string{ModelName6DOF, ModelName7DOF, ModelNameLite} {
 		localArmModelName := armModelName
-		armModel := resource.NewDefaultModel(resource.ModelName(armModelName))
-		resource.RegisterComponent(arm.Subtype, armModel, resource.Registration[arm.Arm, *Config]{
+		armModel := resource.DefaultModelFamily.WithModel(armModelName)
+		resource.RegisterComponent(arm.API, armModel, resource.Registration[arm.Arm, *Config]{
 			Constructor: func(
 				ctx context.Context,
 				_ resource.Dependencies,
@@ -110,7 +110,7 @@ func init() {
 
 // NewxArm returns a new xArm of the specified modelName.
 func NewxArm(ctx context.Context, conf resource.Config, logger golog.Logger, modelName string) (arm.Arm, error) {
-	model, err := Model(conf.Name, modelName)
+	model, err := MakeModelFrame(conf.Name, modelName)
 	if err != nil {
 		return nil, err
 	}

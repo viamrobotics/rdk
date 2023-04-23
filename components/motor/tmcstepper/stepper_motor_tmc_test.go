@@ -68,7 +68,7 @@ func TestTMCStepperMotor(t *testing.T) {
 		TicksPerRotation: 200,
 	}
 
-	motorReg, ok := resource.LookupRegistration(motor.Subtype, resource.NewDefaultModel("TMC5072"))
+	motorReg, ok := resource.LookupRegistration(motor.API, resource.DefaultModelFamily.WithModel("TMC5072"))
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, motorReg, test.ShouldNotBeNil)
 

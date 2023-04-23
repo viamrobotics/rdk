@@ -26,7 +26,7 @@ import (
 // Timeout for Home() and GoTillStop().
 const homeTimeout = time.Minute
 
-var modelName = resource.NewDefaultModel("DMC4000")
+var model = resource.DefaultModelFamily.WithModel("DMC4000")
 
 // controllers is global to all instances, mapped by serial device.
 var (
@@ -87,7 +87,7 @@ type Config struct {
 func init() {
 	controllers = make(map[string]*controller)
 
-	resource.RegisterComponent(motor.Subtype, modelName, resource.Registration[motor.Motor, *Config]{
+	resource.RegisterComponent(motor.API, model, resource.Registration[motor.Motor, *Config]{
 		Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (motor.Motor, error) {
 			newConf, err := resource.NativeConfig[*Config](conf)
 			if err != nil {

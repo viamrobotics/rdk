@@ -24,7 +24,7 @@ import (
 
 const defaultMapping = "Microsoft X-Box 360 pad"
 
-var modelname = resource.NewDefaultModel("gamepad")
+var model = resource.DefaultModelFamily.WithModel("gamepad")
 
 // Config is used for converting config attributes.
 type Config struct {
@@ -34,7 +34,7 @@ type Config struct {
 }
 
 func init() {
-	resource.RegisterComponent(input.Subtype, modelname, resource.Registration[input.Controller, *Config]{
+	resource.RegisterComponent(input.API, model, resource.Registration[input.Controller, *Config]{
 		Constructor: NewController,
 	})
 }

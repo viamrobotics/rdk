@@ -38,10 +38,10 @@ func Example() {
 	// We first put our component's constructor in the registry, then tell the module to load it
 	// Note that all resources must be added before the module is started.
 	resource.RegisterComponent(
-		generic.Subtype,
+		generic.API,
 		myModel,
 		resource.Registration[resource.Resource, resource.NoNativeConfig]{Constructor: newCounter})
-	myMod.AddModelFromRegistry(ctx, generic.Subtype, myModel)
+	myMod.AddModelFromRegistry(ctx, generic.API, myModel)
 
 	// The module is started.
 	err = myMod.Start(ctx)
@@ -79,10 +79,10 @@ func checkReady() {
 		logger.Error(err)
 	}
 
-	subtype := resp.Handlermap.GetHandlers()[0].Subtype.Subtype
+	api := resp.Handlermap.GetHandlers()[0].Subtype.Subtype
 
 	fmt.Printf("Ready: %t, ", resp.Ready)
-	fmt.Printf("API: %s:%s:%s, ", subtype.Namespace, subtype.Type, subtype.Subtype)
+	fmt.Printf("API: %s:%s:%s, ", api.Namespace, api.Type, api.Subtype)
 	fmt.Printf("Model: %s\n", resp.Handlermap.GetHandlers()[0].GetModels()[0])
 }
 

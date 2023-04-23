@@ -7,8 +7,8 @@ import (
 	"github.com/pkg/errors"
 )
 
-// SubtypeCollection defines a collection of typed resources.
-type SubtypeCollection[T Resource] interface {
+// APIResourceCollection defines a collection of typed resources.
+type APIResourceCollection[T Resource] interface {
 	Resource(name string) (T, error)
 	ReplaceAll(resources map[Name]T) error
 	Add(resName Name, res T) error
@@ -16,26 +16,26 @@ type SubtypeCollection[T Resource] interface {
 	ReplaceOne(resName Name, res T) error
 }
 
-type subtypeCollection[T Resource] struct {
-	subtype Subtype
+type apiResourceCollection[T Resource] struct {
+	api API
 
 	mu         sync.RWMutex
 	resources  map[string]T
 	shortNames map[string]string
 }
 
-// NewEmptySubtypeCollection creates a new subtype collection, which holds and replaces resources belonging to that subtype.
-func NewEmptySubtypeCollection[T Resource](subtype Subtype) SubtypeCollection[T] {
-	return &subtypeCollection[T]{
-		subtype:    subtype,
+// NewEmptyAPIResourceCollection creates a new API resource collection, which holds and replaces resources belonging to that api.
+func NewEmptyAPIResourceCollection[T Resource](api API) APIResourceCollection[T] {
+	return &apiResourceCollection[T]{
+		api:        api,
 		resources:  map[string]T{},
 		shortNames: map[string]string{},
 	}
 }
 
-// NewSubtypeCollection creates a new subtype collection, which holds and replaces resources belonging to that subtype.
-func NewSubtypeCollection[T Resource](subtype Subtype, r map[Name]T) (SubtypeCollection[T], error) {
-	s := &subtypeCollection[T]{subtype: subtype}
+// NewAPIResourceCollection creates a new API resource collection, which holds and replaces resources belonging to that api.
+func NewAPIResourceCollection[T Resource](api API, r map[Name]T) (APIResourceCollection[T], error) {
+	s := &apiResourceCollection[T]{api: api}
 	if err := s.ReplaceAll(r); err != nil {
 		return nil, err
 	}
@@ -43,7 +43,7 @@ func NewSubtypeCollection[T Resource](subtype Subtype, r map[Name]T) (SubtypeCol
 }
 
 // Resource returns resource by name, if it exists.
-func (s *subtypeCollection[T]) Resource(name string) (T, error) {
+func (s *apiResourceCollection[T]) Resource(name string) (T, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	if resource, ok := s.resources[name]; ok {
@@ -54,11 +54,11 @@ func (s *subtypeCollection[T]) Resource(name string) (T, error) {
 		return resource, nil
 	}
 	var zero T
-	return zero, NewNotFoundError(NameFromSubtype(s.subtype, name))
+	return zero, NewNotFoundError(NewName(s.api, name))
 }
 
 // ReplaceAll replaces all resources with r.
-func (s *subtypeCollection[T]) ReplaceAll(r map[Name]T) error {
+func (s *apiResourceCollection[T]) ReplaceAll(r map[Name]T) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	resources := make(map[string]T, len(r))
@@ -73,19 +73,19 @@ func (s *subtypeCollection[T]) ReplaceAll(r map[Name]T) error {
 	return nil
 }
 
-func (s *subtypeCollection[T]) Add(resName Name, res T) error {
+func (s *apiResourceCollection[T]) Add(resName Name, res T) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.doAdd(resName, res)
 }
 
-func (s *subtypeCollection[T]) Remove(n Name) error {
+func (s *apiResourceCollection[T]) Remove(n Name) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.doRemove(n)
 }
 
-func (s *subtypeCollection[T]) ReplaceOne(resName Name, res T) error {
+func (s *apiResourceCollection[T]) ReplaceOne(resName Name, res T) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	err := s.doRemove(resName)
@@ -95,7 +95,7 @@ func (s *subtypeCollection[T]) ReplaceOne(resName Name, res T) error {
 	return s.doAdd(resName, res)
 }
 
-func (s *subtypeCollection[T]) doAdd(resName Name, res T) error {
+func (s *apiResourceCollection[T]) doAdd(resName Name, res T) error {
 	if resName.Name == "" {
 		return errors.Errorf("empty name used for resource: %s", resName)
 	}
@@ -118,7 +118,7 @@ func (s *subtypeCollection[T]) doAdd(resName Name, res T) error {
 	return nil
 }
 
-func (s *subtypeCollection[T]) doRemove(n Name) error {
+func (s *apiResourceCollection[T]) doRemove(n Name) error {
 	name := n.ShortName()
 	_, ok := s.resources[name]
 	if !ok {

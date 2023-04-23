@@ -34,12 +34,12 @@ func TestClient(t *testing.T) {
 	resources := map[resource.Name]mlmodel.Service{
 		mlmodel.Named(testMLModelServiceName): fakeModel,
 	}
-	svc, err := resource.NewSubtypeCollection(mlmodel.Subtype, resources)
+	svc, err := resource.NewAPIResourceCollection(mlmodel.API, resources)
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype, ok, err := resource.LookupSubtypeRegistration[mlmodel.Service](mlmodel.Subtype)
+	resourceAPI, ok, err := resource.LookupAPIRegistration[mlmodel.Service](mlmodel.API)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, svc), test.ShouldBeNil)
+	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, svc), test.ShouldBeNil)
 	inputData := map[string]interface{}{
 		"image": []uint8{10, 10, 255, 0, 0, 255, 255, 0, 100},
 	}
@@ -59,7 +59,8 @@ func TestClient(t *testing.T) {
 	t.Run("ml model client", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		client := mlmodel.NewClientFromConn(context.Background(), conn, mlmodel.Named(testMLModelServiceName), logger)
+		client, err := mlmodel.NewClientFromConn(context.Background(), conn, "", mlmodel.Named(testMLModelServiceName), logger)
+		test.That(t, err, test.ShouldBeNil)
 		// Infer Command
 		result, err := client.Infer(context.Background(), inputData)
 		test.That(t, err, test.ShouldBeNil)

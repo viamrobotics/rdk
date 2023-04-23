@@ -68,8 +68,8 @@ func (conf *Config) Validate(path string) ([]string, error) {
 // RegisterBoard registers a sysfs based board of the given model.
 func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping, usePeriphGpio bool) {
 	resource.RegisterComponent(
-		board.Subtype,
-		resource.NewDefaultModel(resource.ModelName(modelName)),
+		board.API,
+		resource.DefaultModelFamily.WithModel(modelName),
 		resource.Registration[board.Board, *Config]{
 			Constructor: func(
 				ctx context.Context,

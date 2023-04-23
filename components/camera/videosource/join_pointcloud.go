@@ -26,11 +26,11 @@ import (
 
 const numThreadsVideoSource = 8 // This should be a param
 
-var modelJoinPC = resource.NewDefaultModel("join_pointclouds")
+var modelJoinPC = resource.DefaultModelFamily.WithModel("join_pointclouds")
 
 func init() {
 	resource.RegisterComponent(
-		camera.Subtype,
+		camera.API,
 		modelJoinPC,
 		resource.Registration[camera.Camera, *JoinConfig]{
 			DeprecatedRobotConstructor: func(

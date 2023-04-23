@@ -238,12 +238,12 @@ func (mgr *Manager) AddResource(ctx context.Context, conf resource.Config, deps 
 	mgr.rMap[conf.ResourceName()] = module
 	module.resources[conf.ResourceName()] = &addedResource{conf, deps}
 
-	subtypeInfo, ok := resource.LookupGenericSubtypeRegistration(conf.API)
-	if !ok || subtypeInfo.RPCClient == nil {
+	apiInfo, ok := resource.LookupGenericAPIRegistration(conf.API)
+	if !ok || apiInfo.RPCClient == nil {
 		mgr.logger.Warnf("no built-in grpc client for modular resource %s", conf.ResourceName())
 		return rdkgrpc.NewForeignResource(conf.ResourceName(), module.conn), nil
 	}
-	return subtypeInfo.RPCClient(ctx, module.conn, conf.ResourceName(), mgr.logger)
+	return apiInfo.RPCClient(ctx, module.conn, "", conf.ResourceName(), mgr.logger)
 }
 
 // ReconfigureResource updates/reconfigures a modular component with a new configuration.
@@ -334,10 +334,10 @@ func (mgr *Manager) ValidateConfig(ctx context.Context, conf resource.Config) ([
 
 func (mgr *Manager) getModule(conf resource.Config) (*module, bool) {
 	for _, module := range mgr.modules {
-		var api resource.RPCSubtype
+		var api resource.RPCAPI
 		var ok bool
 		for a := range module.handles {
-			if a.Subtype == conf.API {
+			if a.API == conf.API {
 				api = a
 				ok = true
 				break
@@ -463,17 +463,17 @@ func (m *module) stopProcess() error {
 
 func (m *module) registerResources(mgr modmaninterface.ModuleManager, logger golog.Logger) {
 	for api, models := range m.handles {
-		if _, ok := resource.LookupGenericSubtypeRegistration(api.Subtype); !ok {
-			resource.RegisterSubtype(
-				api.Subtype,
-				resource.SubtypeRegistration[resource.Resource]{ReflectRPCServiceDesc: api.Desc},
+		if _, ok := resource.LookupGenericAPIRegistration(api.API); !ok {
+			resource.RegisterAPI(
+				api.API,
+				resource.APIRegistration[resource.Resource]{ReflectRPCServiceDesc: api.Desc},
 			)
 		}
 
-		switch api.Subtype.ResourceType {
-		case resource.ResourceTypeComponent:
+		switch {
+		case api.API.IsComponent():
 			for _, model := range models {
-				resource.RegisterComponent(api.Subtype, model, resource.Registration[resource.Resource, resource.NoNativeConfig]{
+				resource.RegisterComponent(api.API, model, resource.Registration[resource.Resource, resource.NoNativeConfig]{
 					Constructor: func(
 						ctx context.Context,
 						deps resource.Dependencies,
@@ -484,9 +484,9 @@ func (m *module) registerResources(mgr modmaninterface.ModuleManager, logger gol
 					},
 				})
 			}
-		case resource.ResourceTypeService:
+		case api.API.IsService():
 			for _, model := range models {
-				resource.RegisterService(api.Subtype, model, resource.Registration[resource.Resource, resource.NoNativeConfig]{
+				resource.RegisterService(api.API, model, resource.Registration[resource.Resource, resource.NoNativeConfig]{
 					Constructor: func(
 						ctx context.Context,
 						deps resource.Dependencies,
@@ -498,7 +498,7 @@ func (m *module) registerResources(mgr modmaninterface.ModuleManager, logger gol
 				})
 			}
 		default:
-			logger.Errorf("invalid module type: %s", api.Subtype.Type)
+			logger.Errorf("invalid module type: %s", api.API.Type)
 		}
 	}
 }
@@ -506,7 +506,7 @@ func (m *module) registerResources(mgr modmaninterface.ModuleManager, logger gol
 func (m *module) deregisterResources() {
 	for api, models := range m.handles {
 		for _, model := range models {
-			resource.Deregister(api.Subtype, model)
+			resource.Deregister(api.API, model)
 		}
 	}
 }

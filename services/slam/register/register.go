@@ -1,4 +1,4 @@
-// Package register registers all relevant slam models and also subtype specific functions
+// Package register registers all relevant slam models and also API specific functions
 package register
 
 import (

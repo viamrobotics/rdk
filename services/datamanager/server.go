@@ -11,19 +11,19 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-// subtypeServer implements the DataManagerService from datamanager.proto.
-type subtypeServer struct {
+// serviceServer implements the DataManagerService from datamanager.proto.
+type serviceServer struct {
 	pb.UnimplementedDataManagerServiceServer
-	coll resource.SubtypeCollection[Service]
+	coll resource.APIResourceCollection[Service]
 }
 
 // NewRPCServiceServer constructs a datamanager gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
-func NewRPCServiceServer(coll resource.SubtypeCollection[Service]) interface{} {
-	return &subtypeServer{coll: coll}
+func NewRPCServiceServer(coll resource.APIResourceCollection[Service]) interface{} {
+	return &serviceServer{coll: coll}
 }
 
-func (server *subtypeServer) Sync(ctx context.Context, req *pb.SyncRequest) (*pb.SyncResponse, error) {
+func (server *serviceServer) Sync(ctx context.Context, req *pb.SyncRequest) (*pb.SyncResponse, error) {
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
@@ -35,7 +35,7 @@ func (server *subtypeServer) Sync(ctx context.Context, req *pb.SyncRequest) (*pb
 }
 
 // DoCommand receives arbitrary commands.
-func (server *subtypeServer) DoCommand(ctx context.Context,
+func (server *serviceServer) DoCommand(ctx context.Context,
 	req *commonpb.DoCommandRequest,
 ) (*commonpb.DoCommandResponse, error) {
 	svc, err := server.coll.Resource(req.Name)

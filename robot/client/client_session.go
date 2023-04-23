@@ -158,7 +158,10 @@ func (rc *RobotClient) safetyMonitorFromHeaders(ctx context.Context, hdr metadat
 			rc.logger.Errorw("bad resource name from metadata", "error", err)
 			continue
 		}
-		session.SafetyMonitorResourceName(ctx, resName.PrependRemote(resource.RemoteName(rc.remoteName)))
+		if rc.remoteName != "" {
+			resName = resName.PrependRemote(rc.remoteName)
+		}
+		session.SafetyMonitorResourceName(ctx, resName)
 	}
 }
 

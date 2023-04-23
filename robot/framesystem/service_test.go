@@ -256,16 +256,16 @@ func TestServiceWithRemote(t *testing.T) {
 		Components: []resource.Config{
 			{
 				Name:  "foo",
-				API:   base.Subtype,
-				Model: resource.NewDefaultModel("fake"),
+				API:   base.API,
+				Model: resource.DefaultModelFamily.WithModel("fake"),
 				Frame: &referenceframe.LinkConfig{
 					Parent: referenceframe.World,
 				},
 			},
 			{
 				Name:  "myParentIsRemote",
-				API:   gripper.Subtype,
-				Model: resource.NewDefaultModel("fake"),
+				API:   gripper.API,
+				Model: resource.DefaultModelFamily.WithModel("fake"),
 				Frame: &referenceframe.LinkConfig{
 					Parent: "bar:pieceArm",
 				},

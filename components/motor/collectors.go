@@ -71,7 +71,7 @@ func newIsPoweredCollector(resource interface{}, params data.CollectorParams) (d
 func assertMotor(resource interface{}) (Motor, error) {
 	motor, ok := resource.(Motor)
 	if !ok {
-		return nil, data.InvalidInterfaceErr(SubtypeName)
+		return nil, data.InvalidInterfaceErr(API)
 	}
 	return motor, nil
 }

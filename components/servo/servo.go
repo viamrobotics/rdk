@@ -11,7 +11,7 @@ import (
 )
 
 func init() {
-	resource.RegisterSubtype(Subtype, resource.SubtypeRegistration[Servo]{
+	resource.RegisterAPI(API, resource.APIRegistration[Servo]{
 		Status:                      resource.StatusFunc(CreateStatus),
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           pb.RegisterServoServiceHandlerFromEndpoint,
@@ -19,20 +19,16 @@ func init() {
 		RPCClient:                   NewClientFromConn,
 	})
 	data.RegisterCollector(data.MethodMetadata{
-		Subtype:    Subtype,
+		API:        API,
 		MethodName: position.String(),
 	}, newPositionCollector)
 }
 
-// SubtypeName is a constant that identifies the component resource subtype string "servo".
-const SubtypeName = resource.SubtypeName("servo")
+// SubtypeName is a constant that identifies the component resource API string "servo".
+const SubtypeName = "servo"
 
-// Subtype is a constant that identifies the component resource subtype.
-var Subtype = resource.NewSubtype(
-	resource.ResourceNamespaceRDK,
-	resource.ResourceTypeComponent,
-	SubtypeName,
-)
+// API is a variable that identifies the component resource API.
+var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 
 // A Servo represents a physical servo connected to a board.
 type Servo interface {
@@ -49,7 +45,7 @@ type Servo interface {
 
 // Named is a helper for getting the named Servo's typed resource name.
 func Named(name string) resource.Name {
-	return resource.NameFromSubtype(Subtype, name)
+	return resource.NewName(API, name)
 }
 
 // FromRobot is a helper for getting the named servo from the given Robot.
@@ -59,7 +55,7 @@ func FromRobot(r robot.Robot, name string) (Servo, error) {
 
 // NamesFromRobot is a helper for getting all servo names from the given Robot.
 func NamesFromRobot(r robot.Robot) []string {
-	return robot.NamesBySubtype(r, Subtype)
+	return robot.NamesByAPI(r, API)
 }
 
 // CreateStatus creates a status from the servo.

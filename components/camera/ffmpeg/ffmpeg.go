@@ -42,10 +42,10 @@ type FilterConfig struct {
 	KWArgs map[string]interface{} `json:"kw_args"`
 }
 
-var model = resource.NewDefaultModel("ffmpeg")
+var model = resource.DefaultModelFamily.WithModel("ffmpeg")
 
 func init() {
-	resource.RegisterComponent(camera.Subtype, model, resource.Registration[camera.Camera, *Config]{
+	resource.RegisterComponent(camera.API, model, resource.Registration[camera.Camera, *Config]{
 		Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (camera.Camera, error) {
 			newConf, err := resource.NativeConfig[*Config](conf)
 			if err != nil {

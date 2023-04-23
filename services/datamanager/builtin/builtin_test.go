@@ -47,7 +47,7 @@ func getInjectedRobot() *inject.Robot {
 	injectedRemoteArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
 		return spatialmath.NewZeroPose(), nil
 	}
-	rs[arm.Named("remoteArm")] = injectedRemoteArm
+	rs[arm.Named("remote1:remoteArm")] = injectedRemoteArm
 
 	injectedCam := &inject.Camera{}
 	img := image.NewNRGBA(image.Rect(0, 0, 4, 4))
@@ -71,7 +71,7 @@ func newTestDataManager(t *testing.T) (internal.DMService, robot.Robot) {
 	t.Helper()
 	dmCfg := &Config{}
 	cfgService := resource.Config{
-		API:                 datamanager.Subtype,
+		API:                 datamanager.API,
 		ConvertedAttributes: dmCfg,
 	}
 	logger := golog.NewTestLogger(t)
@@ -104,10 +104,16 @@ func getServiceConfig(t *testing.T, cfg *config.Config) (*Config, []string) {
 	t.Helper()
 	for _, c := range cfg.Services {
 		// Compare service type and name.
-		if c.API == datamanager.Subtype && c.ConvertedAttributes != nil {
+		if c.API == datamanager.API && c.ConvertedAttributes != nil {
 			svcConfig, ok := c.ConvertedAttributes.(*Config)
 			test.That(t, ok, test.ShouldBeTrue)
-			return svcConfig, c.ImplicitDependsOn
+
+			var deps []string
+			for _, resConf := range svcConfig.ResourceConfigs {
+				deps = append(deps, resConf.Name.String())
+			}
+			deps = append(deps, c.ImplicitDependsOn...)
+			return svcConfig, deps
 		}
 	}
 

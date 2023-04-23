@@ -12,8 +12,8 @@ import (
 
 func init() {
 	resource.RegisterComponent(
-		generic.Subtype,
-		resource.NewDefaultModel("fake"),
+		generic.API,
+		resource.DefaultModelFamily.WithModel("fake"),
 		resource.Registration[resource.Resource, resource.NoNativeConfig]{Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,

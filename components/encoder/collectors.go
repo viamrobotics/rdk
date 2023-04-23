@@ -45,7 +45,7 @@ func newTicksCountCollector(resource interface{}, params data.CollectorParams) (
 func assertEncoder(resource interface{}) (Encoder, error) {
 	encoder, ok := resource.(Encoder)
 	if !ok {
-		return nil, data.InvalidInterfaceErr(SubtypeName)
+		return nil, data.InvalidInterfaceErr(API)
 	}
 	return encoder, nil
 }

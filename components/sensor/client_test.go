@@ -45,15 +45,15 @@ func TestClient(t *testing.T) {
 		return nil, errors.New("can't get readings")
 	}
 
-	sensorSvc, err := resource.NewSubtypeCollection(
-		sensors.Subtype,
+	sensorSvc, err := resource.NewAPIResourceCollection(
+		sensors.API,
 		map[resource.Name]sensor.Sensor{sensor.Named(testSensorName): injectSensor, sensor.Named(failSensorName): injectSensor2},
 	)
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype, ok, err := resource.LookupSubtypeRegistration[sensor.Sensor](sensor.Subtype)
+	resourceAPI, ok, err := resource.LookupAPIRegistration[sensor.Sensor](sensor.API)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, sensorSvc), test.ShouldBeNil)
+	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, sensorSvc), test.ShouldBeNil)
 
 	injectSensor.DoFunc = testutils.EchoFunc
 
@@ -73,7 +73,7 @@ func TestClient(t *testing.T) {
 		// working
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		sensor1Client, err := sensor.NewClientFromConn(context.Background(), conn, sensor.Named(testSensorName), logger)
+		sensor1Client, err := sensor.NewClientFromConn(context.Background(), conn, "", sensor.Named(testSensorName), logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		// DoCommand
@@ -100,7 +100,7 @@ func TestClient(t *testing.T) {
 	t.Run("Sensor client 2", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		client2, err := resourceSubtype.RPCClient(context.Background(), conn, sensor.Named(failSensorName), logger)
+		client2, err := resourceAPI.RPCClient(context.Background(), conn, "", sensor.Named(failSensorName), logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		_, err = client2.Readings(context.Background(), make(map[string]interface{}))

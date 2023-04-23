@@ -22,7 +22,7 @@ func newServer() (pb.BoardServiceServer, *inject.Board, error) {
 	boards := map[resource.Name]board.Board{
 		board.Named(testBoardName): injectBoard,
 	}
-	boardSvc, err := resource.NewSubtypeCollection(board.Subtype, boards)
+	boardSvc, err := resource.NewAPIResourceCollection(board.API, boards)
 	if err != nil {
 		return nil, nil, err
 	}

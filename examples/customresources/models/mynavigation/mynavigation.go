@@ -13,14 +13,10 @@ import (
 	"go.viam.com/rdk/services/navigation"
 )
 
-var Model = resource.NewModel(
-	resource.Namespace("acme"),
-	resource.ModelFamilyName("demo"),
-	resource.ModelName("mynavigation"),
-)
+var Model = resource.NewModel("acme", "demo", "mynavigation")
 
 func init() {
-	resource.RegisterService(navigation.Subtype, Model, resource.Registration[navigation.Service, resource.NoNativeConfig]{
+	resource.RegisterService(navigation.API, Model, resource.Registration[navigation.Service, resource.NoNativeConfig]{
 		Constructor: newNav,
 	})
 }

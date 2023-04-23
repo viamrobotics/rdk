@@ -18,25 +18,25 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// subtypeServer implements the CameraService from camera.proto.
-type subtypeServer struct {
+// serviceServer implements the CameraService from camera.proto.
+type serviceServer struct {
 	pb.UnimplementedCameraServiceServer
-	coll     resource.SubtypeCollection[Camera]
+	coll     resource.APIResourceCollection[Camera]
 	imgTypes map[string]ImageType
 	logger   golog.Logger
 }
 
 // NewRPCServiceServer constructs an camera gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
-func NewRPCServiceServer(coll resource.SubtypeCollection[Camera]) interface{} {
+func NewRPCServiceServer(coll resource.APIResourceCollection[Camera]) interface{} {
 	logger := golog.NewLogger("camserver")
 	imgTypes := make(map[string]ImageType)
-	return &subtypeServer{coll: coll, logger: logger, imgTypes: imgTypes}
+	return &serviceServer{coll: coll, logger: logger, imgTypes: imgTypes}
 }
 
 // GetImage returns an image from a camera of the underlying robot. If a specific MIME type
 // is requested and is not available, an error is returned.
-func (s *subtypeServer) GetImage(
+func (s *serviceServer) GetImage(
 	ctx context.Context,
 	req *pb.GetImageRequest,
 ) (*pb.GetImageResponse, error) {
@@ -92,7 +92,7 @@ func (s *subtypeServer) GetImage(
 
 // RenderFrame renders a frame from a camera of the underlying robot to an HTTP response. A specific MIME type
 // can be requested but may not necessarily be the same one returned.
-func (s *subtypeServer) RenderFrame(
+func (s *serviceServer) RenderFrame(
 	ctx context.Context,
 	req *pb.RenderFrameRequest,
 ) (*httpbody.HttpBody, error) {
@@ -114,7 +114,7 @@ func (s *subtypeServer) RenderFrame(
 
 // GetPointCloud returns a frame from a camera of the underlying robot. A specific MIME type
 // can be requested but may not necessarily be the same one returned.
-func (s *subtypeServer) GetPointCloud(
+func (s *serviceServer) GetPointCloud(
 	ctx context.Context,
 	req *pb.GetPointCloudRequest,
 ) (*pb.GetPointCloudResponse, error) {
@@ -145,7 +145,7 @@ func (s *subtypeServer) GetPointCloud(
 	}, nil
 }
 
-func (s *subtypeServer) GetProperties(
+func (s *serviceServer) GetProperties(
 	ctx context.Context,
 	req *pb.GetPropertiesRequest,
 ) (*pb.GetPropertiesResponse, error) {
@@ -180,7 +180,7 @@ func (s *subtypeServer) GetProperties(
 }
 
 // DoCommand receives arbitrary commands.
-func (s *subtypeServer) DoCommand(ctx context.Context,
+func (s *serviceServer) DoCommand(ctx context.Context,
 	req *commonpb.DoCommandRequest,
 ) (*commonpb.DoCommandResponse, error) {
 	camera, err := s.coll.Resource(req.GetName())

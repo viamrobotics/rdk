@@ -37,7 +37,7 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
-var model = resource.NewDefaultModel("gyro-mpu6050")
+var model = resource.DefaultModelFamily.WithModel("gyro-mpu6050")
 
 const (
 	defaultAddressRegister = 117
@@ -68,7 +68,7 @@ func (conf *Config) Validate(path string) ([]string, error) {
 }
 
 func init() {
-	resource.RegisterComponent(movementsensor.Subtype, model, resource.Registration[movementsensor.MovementSensor, *Config]{
+	resource.RegisterComponent(movementsensor.API, model, resource.Registration[movementsensor.MovementSensor, *Config]{
 		Constructor: NewMpu6050,
 	})
 }
