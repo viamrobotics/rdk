@@ -9,7 +9,7 @@ import (
 )
 
 func init() {
-	resource.RegisterSubtype(Subtype, resource.SubtypeRegistration[resource.Resource]{
+	resource.RegisterAPI(API, resource.APIRegistration[resource.Resource]{
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           pb.RegisterGenericServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &pb.GenericService_ServiceDesc,
@@ -17,19 +17,15 @@ func init() {
 	})
 }
 
-// SubtypeName is a constant that identifies the component resource subtype string "Generic".
-const SubtypeName = resource.SubtypeName("generic")
+// SubtypeName is a constant that identifies the component resource API string "Generic".
+const SubtypeName = "generic"
 
-// Subtype is a constant that identifies the component resource subtype.
-var Subtype = resource.NewSubtype(
-	resource.ResourceNamespaceRDK,
-	resource.ResourceTypeComponent,
-	SubtypeName,
-)
+// API is a variable that identifies the component resource API.
+var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 
 // Named is a helper for getting the named Generic's typed resource name.
 func Named(name string) resource.Name {
-	return resource.NameFromSubtype(Subtype, name)
+	return resource.NewName(API, name)
 }
 
 // FromRobot is a helper for getting the named Generic from the given Robot.
@@ -39,5 +35,5 @@ func FromRobot(r robot.Robot, name string) (resource.Resource, error) {
 
 // NamesFromRobot is a helper for getting all generic names from the given Robot.
 func NamesFromRobot(r robot.Robot) []string {
-	return robot.NamesBySubtype(r, Subtype)
+	return robot.NamesByAPI(r, API)
 }

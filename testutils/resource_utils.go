@@ -113,7 +113,7 @@ func AddSuffixes(values []resource.Name, suffixes ...string) []resource.Name {
 
 	for _, s := range suffixes {
 		for _, v := range values {
-			newName := resource.NameFromSubtype(v.Subtype, v.Name+s)
+			newName := resource.NewName(v.API, v.Name+s)
 			rNames = append(rNames, newName)
 		}
 	}
@@ -127,7 +127,7 @@ func AddRemotes(values []resource.Name, remotes ...string) []resource.Name {
 
 	for _, s := range remotes {
 		for _, v := range values {
-			v = v.PrependRemote(resource.RemoteName(s))
+			v = v.PrependRemote(s)
 			rNames = append(rNames, v)
 		}
 	}

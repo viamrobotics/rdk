@@ -203,7 +203,7 @@ func (f *File) Delete() error {
 // BuildCaptureMetadata builds a DataCaptureMetadata object and returns error if
 // additionalParams fails to convert to anypb map.
 func BuildCaptureMetadata(
-	compType resource.Subtype,
+	compAPI resource.API,
 	compName string,
 	method string,
 	additionalParams map[string]string,
@@ -216,7 +216,7 @@ func BuildCaptureMetadata(
 
 	dataType := getDataType(method)
 	return &v1.DataCaptureMetadata{
-		ComponentType:    compType.String(),
+		ComponentType:    compAPI.String(),
 		ComponentName:    compName,
 		MethodName:       method,
 		Type:             dataType,

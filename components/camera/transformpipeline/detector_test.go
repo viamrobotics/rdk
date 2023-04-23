@@ -51,8 +51,8 @@ func buildRobotWithFakeCamera(logger golog.Logger) (robot.Robot, error) {
 	// create fake source camera
 	cameraComp := resource.Config{
 		Name:  "fake_cam",
-		API:   camera.Subtype,
-		Model: resource.NewDefaultModel("image_file"),
+		API:   camera.API,
+		Model: resource.DefaultModelFamily.WithModel("image_file"),
 		Attributes: rutils.AttributeMap{
 			"color_image_file_path": artifact.MustPath("vision/objectdetection/detection_test.jpg"),
 			"depth_image_file_path": "",
@@ -62,8 +62,8 @@ func buildRobotWithFakeCamera(logger golog.Logger) (robot.Robot, error) {
 	// create fake detector camera
 	detectorComp := resource.Config{
 		Name:  "color_detect",
-		API:   camera.Subtype,
-		Model: resource.NewDefaultModel("transform"),
+		API:   camera.API,
+		Model: resource.DefaultModelFamily.WithModel("transform"),
 		Attributes: rutils.AttributeMap{
 			"source": "fake_cam",
 			"pipeline": []rutils.AttributeMap{
@@ -82,8 +82,8 @@ func buildRobotWithFakeCamera(logger golog.Logger) (robot.Robot, error) {
 	// create 2nd fake detector camera
 	tfliteComp := resource.Config{
 		Name:  "tflite_detect",
-		API:   camera.Subtype,
-		Model: resource.NewDefaultModel("transform"),
+		API:   camera.API,
+		Model: resource.DefaultModelFamily.WithModel("transform"),
 		Attributes: rutils.AttributeMap{
 			"source": "fake_cam",
 			"pipeline": []rutils.AttributeMap{

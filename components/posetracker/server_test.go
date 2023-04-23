@@ -33,7 +33,7 @@ func newServer() (pb.PoseTrackerServiceServer, *inject.PoseTracker, *inject.Pose
 		posetracker.Named(failingPTName): injectPT2,
 	}
 
-	injectSvc, err := resource.NewSubtypeCollection(posetracker.Subtype, resourceMap)
+	injectSvc, err := resource.NewAPIResourceCollection(posetracker.API, resourceMap)
 	if err != nil {
 		return nil, nil, nil, err
 	}

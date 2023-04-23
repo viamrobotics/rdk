@@ -13,8 +13,8 @@ import (
 
 func init() {
 	resource.RegisterComponent(
-		sensor.Subtype,
-		resource.NewDefaultModel("fake"),
+		sensor.API,
+		resource.DefaultModelFamily.WithModel("fake"),
 		resource.Registration[sensor.Sensor, resource.NoNativeConfig]{Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,

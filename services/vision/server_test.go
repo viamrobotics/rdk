@@ -29,7 +29,7 @@ import (
 )
 
 func newServer(m map[resource.Name]vision.Service) (pb.VisionServiceServer, error) {
-	coll, err := resource.NewSubtypeCollection(vision.Subtype, m)
+	coll, err := resource.NewAPIResourceCollection(vision.API, m)
 	if err != nil {
 		return nil, err
 	}

@@ -11,9 +11,9 @@ import (
 func TestModel(t *testing.T) {
 	for _, tc := range []struct {
 		TestName  string
-		Namespace resource.Namespace
-		Family    resource.ModelFamilyName
-		Model     resource.ModelName
+		Namespace resource.ModelNamespace
+		Family    string
+		Model     string
 		Expected  resource.Model
 		Err       string
 	}{
@@ -23,8 +23,8 @@ func TestModel(t *testing.T) {
 			"test",
 			"modelA",
 			resource.Model{
-				ModelFamily: resource.ModelFamily{Namespace: "", Family: "test"},
-				Name:        "modelA",
+				Family: resource.ModelFamily{Namespace: "", Name: "test"},
+				Name:   "modelA",
 			},
 			"namespace field for model missing",
 		},
@@ -34,8 +34,8 @@ func TestModel(t *testing.T) {
 			"",
 			"modelA",
 			resource.Model{
-				ModelFamily: resource.ModelFamily{Namespace: "acme", Family: ""},
-				Name:        "modelA",
+				Family: resource.ModelFamily{Namespace: "acme", Name: ""},
+				Name:   "modelA",
 			},
 			"model_family field for model missing",
 		},
@@ -45,8 +45,8 @@ func TestModel(t *testing.T) {
 			"test",
 			"",
 			resource.Model{
-				ModelFamily: resource.ModelFamily{Namespace: "acme", Family: "test"},
-				Name:        "",
+				Family: resource.ModelFamily{Namespace: "acme", Name: "test"},
+				Name:   "",
 			},
 			"name field for model missing",
 		},
@@ -56,8 +56,8 @@ func TestModel(t *testing.T) {
 			"test",
 			"modelA",
 			resource.Model{
-				ModelFamily: resource.ModelFamily{Namespace: "ac:me", Family: "test"},
-				Name:        "modelA",
+				Family: resource.ModelFamily{Namespace: "ac:me", Name: "test"},
+				Name:   "modelA",
 			},
 			"reserved character : used",
 		},
@@ -67,8 +67,8 @@ func TestModel(t *testing.T) {
 			"te:st",
 			"modelA",
 			resource.Model{
-				ModelFamily: resource.ModelFamily{Namespace: "acme", Family: "te:st"},
-				Name:        "modelA",
+				Family: resource.ModelFamily{Namespace: "acme", Name: "te:st"},
+				Name:   "modelA",
 			},
 			"reserved character : used",
 		},
@@ -78,8 +78,8 @@ func TestModel(t *testing.T) {
 			"test",
 			"model:A",
 			resource.Model{
-				ModelFamily: resource.ModelFamily{Namespace: "acme", Family: "test"},
-				Name:        "model:A",
+				Family: resource.ModelFamily{Namespace: "acme", Name: "test"},
+				Name:   "model:A",
 			},
 			"reserved character : used",
 		},
@@ -89,14 +89,14 @@ func TestModel(t *testing.T) {
 			"test",
 			"modelA",
 			resource.Model{
-				ModelFamily: resource.ModelFamily{Namespace: "acme", Family: "test"},
-				Name:        "modelA",
+				Family: resource.ModelFamily{Namespace: "acme", Name: "test"},
+				Name:   "modelA",
 			},
 			"",
 		},
 	} {
 		t.Run(tc.TestName, func(t *testing.T) {
-			observed := resource.NewModel(tc.Namespace, tc.Family, tc.Model)
+			observed := tc.Namespace.WithFamily(tc.Family).WithModel(tc.Model)
 			test.That(t, observed, test.ShouldResemble, tc.Expected)
 			err := observed.Validate()
 			if tc.Err == "" {
@@ -122,8 +122,8 @@ func TestModelFromString(t *testing.T) {
 			"valid",
 			"acme:test:modelA",
 			resource.Model{
-				ModelFamily: resource.ModelFamily{Namespace: "acme", Family: "test"},
-				Name:        "modelA",
+				Family: resource.ModelFamily{Namespace: "acme", Name: "test"},
+				Name:   "modelA",
 			},
 			"",
 			"",
@@ -132,8 +132,8 @@ func TestModelFromString(t *testing.T) {
 			"valid with special characters and numbers",
 			"acme_corp1:test-collection99:model_a2",
 			resource.Model{
-				ModelFamily: resource.ModelFamily{Namespace: "acme_corp1", Family: "test-collection99"},
-				Name:        "model_a2",
+				Family: resource.ModelFamily{Namespace: "acme_corp1", Name: "test-collection99"},
+				Name:   "model_a2",
 			},
 			"",
 			"",
@@ -198,8 +198,8 @@ func TestModelFromString(t *testing.T) {
 			"short form",
 			"modelB",
 			resource.Model{
-				ModelFamily: resource.DefaultModelFamily,
-				Name:        "modelB",
+				Family: resource.DefaultModelFamily,
+				Name:   "modelB",
 			},
 			"",
 			"",
@@ -215,8 +215,8 @@ func TestModelFromString(t *testing.T) {
 			"valid nested json",
 			`{"namespace": "acme", "model_family": "test", "name": "modelB"}`,
 			resource.Model{
-				ModelFamily: resource.ModelFamily{Namespace: "acme", Family: "test"},
-				Name:        "modelB",
+				Family: resource.ModelFamily{Namespace: "acme", Name: "test"},
+				Name:   "modelB",
 			},
 			"not a valid model name",
 			"",

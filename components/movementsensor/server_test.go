@@ -25,7 +25,7 @@ func newServer() (pb.MovementSensorServiceServer, *inject.MovementSensor, *injec
 		movementsensor.Named(testMovementSensorName): injectMovementSensor,
 		movementsensor.Named(failMovementSensorName): injectMovementSensor2,
 	}
-	gpsSvc, err := resource.NewSubtypeCollection(movementsensor.Subtype, gpss)
+	gpsSvc, err := resource.NewAPIResourceCollection(movementsensor.API, gpss)
 	if err != nil {
 		return nil, nil, nil, err
 	}

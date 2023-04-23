@@ -116,7 +116,7 @@ func setupInjectRobot(logger golog.Logger) *inject.Robot {
 			servoNames,
 		)
 	}
-	injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return nil }
+	injectRobot.ResourceRPCAPIsFunc = func() []resource.RPCAPI { return nil }
 	injectRobot.LoggerFunc = func() golog.Logger {
 		return logger
 	}
@@ -131,12 +131,12 @@ func setupInjectRobot(logger golog.Logger) *inject.Robot {
 	injectRobot.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
 		for _, rName := range injectRobot.ResourceNames() {
 			if rName == name {
-				switch name.Subtype {
-				case arm.Subtype:
+				switch name.API {
+				case arm.API:
 					return &fakearm.Arm{Named: name.AsNamed()}, nil
-				case base.Subtype:
+				case base.API:
 					return &fakebase.Base{Named: name.AsNamed()}, nil
-				case board.Subtype:
+				case board.API:
 					fakeBoard, err := fakeboard.NewBoard(context.Background(), resource.Config{
 						Name: name.String(),
 						ConvertedAttributes: &fakeboard.Config{
@@ -154,20 +154,20 @@ func setupInjectRobot(logger golog.Logger) *inject.Robot {
 						panic(err)
 					}
 					return fakeBoard, nil
-				case camera.Subtype:
-					conf := resource.NewEmptyConfig(name, resource.NewDefaultModel("fake"))
+				case camera.API:
+					conf := resource.NewEmptyConfig(name, resource.DefaultModelFamily.WithModel("fake"))
 					conf.ConvertedAttributes = &fakecamera.Config{}
 					return fakecamera.NewCamera(context.Background(), conf)
-				case gripper.Subtype:
+				case gripper.API:
 					return &fakegripper.Gripper{Named: name.AsNamed()}, nil
-				case input.Subtype:
+				case input.API:
 					return &fakeinput.InputController{Named: name.AsNamed()}, nil
-				case motor.Subtype:
+				case motor.API:
 					return &fakemotor.Motor{Named: name.AsNamed()}, nil
-				case servo.Subtype:
+				case servo.API:
 					return &fakeservo.Servo{Named: name.AsNamed()}, nil
 				}
-				if rName.ResourceType == resource.ResourceTypeService {
+				if rName.API.IsService() {
 					return rdktestutils.NewUnimplementedResource(name), nil
 				}
 			}
@@ -371,7 +371,7 @@ func TestManagerResourceRemoteName(t *testing.T) {
 	injectRobot := &inject.Robot{}
 	armNames := []resource.Name{arm.Named("arm1"), arm.Named("arm2")}
 	injectRobot.ResourceNamesFunc = func() []resource.Name { return armNames }
-	injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return nil }
+	injectRobot.ResourceRPCAPIsFunc = func() []resource.RPCAPI { return nil }
 	injectRobot.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
 		return rdktestutils.NewUnimplementedResource(name), nil
 	}
@@ -384,7 +384,7 @@ func TestManagerResourceRemoteName(t *testing.T) {
 
 	injectRemote := &inject.Robot{}
 	injectRemote.ResourceNamesFunc = func() []resource.Name { return rdktestutils.AddSuffixes(armNames, "") }
-	injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return nil }
+	injectRobot.ResourceRPCAPIsFunc = func() []resource.RPCAPI { return nil }
 	injectRemote.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
 		return rdktestutils.NewUnimplementedResource(name), nil
 	}
@@ -461,7 +461,7 @@ func TestManagerAdd(t *testing.T) {
 	manager := newResourceManager(resourceManagerOptions{}, logger)
 
 	injectArm := &inject.Arm{}
-	cfg := &resource.Config{DeprecatedSubtype: arm.SubtypeName, Name: "arm1"}
+	cfg := &resource.Config{API: arm.API, Name: "arm1"}
 	rName := cfg.ResourceName()
 	manager.resources.AddNode(rName, resource.NewConfiguredGraphNode(*cfg, injectArm, cfg.Model))
 	arm1, err := manager.ResourceByName(rName)
@@ -495,7 +495,7 @@ func TestManagerAdd(t *testing.T) {
 	}
 
 	cfg = &resource.Config{
-		API:  board.Subtype,
+		API:  board.API,
 		Name: "board1",
 	}
 	rName = cfg.ResourceName()
@@ -540,178 +540,178 @@ func TestManagerAdd(t *testing.T) {
 }
 
 func TestManagerNewComponent(t *testing.T) {
-	fakeModel := resource.NewDefaultModel("fake")
+	fakeModel := resource.DefaultModelFamily.WithModel("fake")
 	cfg := &config.Config{
 		Components: []resource.Config{
 			{
 				Name:      "arm1",
 				Model:     fakeModel,
-				API:       arm.Subtype,
+				API:       arm.API,
 				DependsOn: []string{"board1"},
 			},
 			{
 				Name:      "arm2",
 				Model:     fakeModel,
-				API:       arm.Subtype,
+				API:       arm.API,
 				DependsOn: []string{"board2"},
 			},
 			{
 				Name:      "arm3",
 				Model:     fakeModel,
-				API:       arm.Subtype,
+				API:       arm.API,
 				DependsOn: []string{"board3"},
 			},
 			{
 				Name:      "base1",
 				Model:     fakeModel,
-				API:       base.Subtype,
+				API:       base.API,
 				DependsOn: []string{"board1"},
 			},
 			{
 				Name:      "base2",
 				Model:     fakeModel,
-				API:       base.Subtype,
+				API:       base.API,
 				DependsOn: []string{"board2"},
 			},
 			{
 				Name:      "base3",
 				Model:     fakeModel,
-				API:       base.Subtype,
+				API:       base.API,
 				DependsOn: []string{"board3"},
 			},
 			{
 				Name:                "board1",
 				Model:               fakeModel,
-				API:                 board.Subtype,
+				API:                 board.API,
 				ConvertedAttributes: &fakeboard.Config{},
 				DependsOn:           []string{},
 			},
 			{
 				Name:                "board2",
 				Model:               fakeModel,
-				API:                 board.Subtype,
+				API:                 board.API,
 				ConvertedAttributes: &fakeboard.Config{},
 				DependsOn:           []string{},
 			},
 			{
 				Name:                "board3",
 				Model:               fakeModel,
-				API:                 board.Subtype,
+				API:                 board.API,
 				ConvertedAttributes: &fakeboard.Config{},
 				DependsOn:           []string{},
 			},
 			{
 				Name:      "camera1",
 				Model:     fakeModel,
-				API:       camera.Subtype,
+				API:       camera.API,
 				DependsOn: []string{"board1"},
 			},
 			{
 				Name:      "camera2",
 				Model:     fakeModel,
-				API:       camera.Subtype,
+				API:       camera.API,
 				DependsOn: []string{"board2"},
 			},
 			{
 				Name:      "camera3",
 				Model:     fakeModel,
-				API:       camera.Subtype,
+				API:       camera.API,
 				DependsOn: []string{"board3"},
 			},
 			{
 				Name:      "gripper1",
 				Model:     fakeModel,
-				API:       gripper.Subtype,
+				API:       gripper.API,
 				DependsOn: []string{"arm1", "camera1"},
 			},
 			{
 				Name:      "gripper2",
 				Model:     fakeModel,
-				API:       gripper.Subtype,
+				API:       gripper.API,
 				DependsOn: []string{"arm2", "camera2"},
 			},
 			{
 				Name:      "gripper3",
 				Model:     fakeModel,
-				API:       gripper.Subtype,
+				API:       gripper.API,
 				DependsOn: []string{"arm3", "camera3"},
 			},
 			{
 				Name:                "inputController1",
 				Model:               fakeModel,
-				API:                 input.Subtype,
+				API:                 input.API,
 				ConvertedAttributes: &fakeinput.Config{},
 				DependsOn:           []string{"board1"},
 			},
 			{
 				Name:                "inputController2",
 				Model:               fakeModel,
-				API:                 input.Subtype,
+				API:                 input.API,
 				ConvertedAttributes: &fakeinput.Config{},
 				DependsOn:           []string{"board2"},
 			},
 			{
 				Name:                "inputController3",
 				Model:               fakeModel,
-				API:                 input.Subtype,
+				API:                 input.API,
 				ConvertedAttributes: &fakeinput.Config{},
 				DependsOn:           []string{"board3"},
 			},
 			{
 				Name:                "motor1",
 				Model:               fakeModel,
-				API:                 motor.Subtype,
+				API:                 motor.API,
 				ConvertedAttributes: &fakemotor.Config{},
 				DependsOn:           []string{"board1"},
 			},
 			{
 				Name:                "motor2",
 				Model:               fakeModel,
-				API:                 motor.Subtype,
+				API:                 motor.API,
 				ConvertedAttributes: &fakemotor.Config{},
 				DependsOn:           []string{"board2"},
 			},
 			{
 				Name:                "motor3",
 				Model:               fakeModel,
-				API:                 motor.Subtype,
+				API:                 motor.API,
 				ConvertedAttributes: &fakemotor.Config{},
 				DependsOn:           []string{"board3"},
 			},
 			{
 				Name:      "sensor1",
 				Model:     fakeModel,
-				API:       sensor.Subtype,
+				API:       sensor.API,
 				DependsOn: []string{"board1"},
 			},
 			{
 				Name:      "sensor2",
 				Model:     fakeModel,
-				API:       sensor.Subtype,
+				API:       sensor.API,
 				DependsOn: []string{"board2"},
 			},
 			{
 				Name:      "sensor3",
 				Model:     fakeModel,
-				API:       sensor.Subtype,
+				API:       sensor.API,
 				DependsOn: []string{"board3"},
 			},
 			{
 				Name:      "servo1",
 				Model:     fakeModel,
-				API:       servo.Subtype,
+				API:       servo.API,
 				DependsOn: []string{"board1"},
 			},
 			{
 				Name:      "servo2",
 				Model:     fakeModel,
-				API:       servo.Subtype,
+				API:       servo.API,
 				DependsOn: []string{"board2"},
 			},
 			{
 				Name:      "servo3",
 				Model:     fakeModel,
-				API:       servo.Subtype,
+				API:       servo.API,
 				DependsOn: []string{"board3"},
 			},
 		},
@@ -738,7 +738,7 @@ func TestManagerNewComponent(t *testing.T) {
 	diff.Modified.Components = append(diff.Modified.Components, resource.Config{
 		Name:                "board3",
 		Model:               fakeModel,
-		API:                 board.Subtype,
+		API:                 board.API,
 		ConvertedAttributes: &fakeboard.Config{},
 		DependsOn:           []string{"arm3"},
 	})
@@ -804,35 +804,35 @@ func TestManagerMarkRemoved(t *testing.T) {
 		Components: []resource.Config{
 			{
 				Name: "what1",
-				API:  arm.Subtype,
+				API:  arm.API,
 			},
 			{
 				Name: "what5",
-				API:  base.Subtype,
+				API:  base.API,
 			},
 			{
 				Name: "what3",
-				API:  board.Subtype,
+				API:  board.API,
 			},
 			{
 				Name: "what4",
-				API:  camera.Subtype,
+				API:  camera.API,
 			},
 			{
 				Name: "what5",
-				API:  gripper.Subtype,
+				API:  gripper.API,
 			},
 			{
 				Name: "what6",
-				API:  motor.Subtype,
+				API:  motor.API,
 			},
 			{
 				Name: "what7",
-				API:  sensor.Subtype,
+				API:  sensor.API,
 			},
 			{
 				Name: "what8",
-				API:  servo.Subtype,
+				API:  servo.API,
 			},
 		},
 		Processes: []pexec.ProcessConfig{
@@ -847,8 +847,7 @@ func TestManagerMarkRemoved(t *testing.T) {
 	processesToRemove, resourcesToCloseBeforeComplete, markedResourceNames = manager.markRemoved(ctx, &config.Config{
 		Components: []resource.Config{
 			{
-				Name:              "what1",
-				DeprecatedSubtype: "something",
+				Name: "what1",
 			},
 		},
 	}, logger)
@@ -865,40 +864,40 @@ func TestManagerMarkRemoved(t *testing.T) {
 		Components: []resource.Config{
 			{
 				Name: "arm2",
-				API:  arm.Subtype,
+				API:  arm.API,
 			},
 			{
 				Name: "base2",
-				API:  base.Subtype,
+				API:  base.API,
 			},
 			{
 				Name: "board2",
-				API:  board.Subtype,
+				API:  board.API,
 			},
 			{
 				Name: "camera2",
-				API:  camera.Subtype,
+				API:  camera.API,
 			},
 			{
 				Name: "gripper2",
-				API:  gripper.Subtype,
+				API:  gripper.API,
 			},
 			{
 				Name: "inputController2",
-				API:  input.Subtype,
+				API:  input.API,
 			},
 			{
 				Name: "motor2",
-				API:  motor.Subtype,
+				API:  motor.API,
 			},
 			{
 				Name: "sensor2",
-				API:  sensor.Subtype,
+				API:  sensor.API,
 			},
 
 			{
 				Name: "servo2",
-				API:  servo.Subtype,
+				API:  servo.API,
 			},
 		},
 		Processes: []pexec.ProcessConfig{
@@ -956,39 +955,39 @@ func TestManagerMarkRemoved(t *testing.T) {
 		Components: []resource.Config{
 			{
 				Name: "arm2",
-				API:  arm.Subtype,
+				API:  arm.API,
 			},
 			{
 				Name: "base2",
-				API:  base.Subtype,
+				API:  base.API,
 			},
 			{
 				Name: "board2",
-				API:  board.Subtype,
+				API:  board.API,
 			},
 			{
 				Name: "camera2",
-				API:  camera.Subtype,
+				API:  camera.API,
 			},
 			{
 				Name: "gripper2",
-				API:  gripper.Subtype,
+				API:  gripper.API,
 			},
 			{
 				Name: "inputController2",
-				API:  input.Subtype,
+				API:  input.API,
 			},
 			{
 				Name: "motor2",
-				API:  motor.Subtype,
+				API:  motor.API,
 			},
 			{
 				Name: "sensor2",
-				API:  sensor.Subtype,
+				API:  sensor.API,
 			},
 			{
 				Name: "servo2",
-				API:  servo.Subtype,
+				API:  servo.API,
 			},
 		},
 		Processes: []pexec.ProcessConfig{
@@ -1081,111 +1080,111 @@ func TestManagerMarkRemoved(t *testing.T) {
 		Components: []resource.Config{
 			{
 				Name: "arm1",
-				API:  arm.Subtype,
+				API:  arm.API,
 			},
 			{
 				Name: "arm2",
-				API:  arm.Subtype,
+				API:  arm.API,
 			},
 			{
 				Name: "arm3",
-				API:  arm.Subtype,
+				API:  arm.API,
 			},
 			{
 				Name: "base1",
-				API:  base.Subtype,
+				API:  base.API,
 			},
 			{
 				Name: "base2",
-				API:  base.Subtype,
+				API:  base.API,
 			},
 			{
 				Name: "base3",
-				API:  base.Subtype,
+				API:  base.API,
 			},
 			{
 				Name: "board1",
-				API:  board.Subtype,
+				API:  board.API,
 			},
 			{
 				Name: "board2",
-				API:  board.Subtype,
+				API:  board.API,
 			},
 			{
 				Name: "board3",
-				API:  board.Subtype,
+				API:  board.API,
 			},
 			{
 				Name: "camera1",
-				API:  camera.Subtype,
+				API:  camera.API,
 			},
 			{
 				Name: "camera2",
-				API:  camera.Subtype,
+				API:  camera.API,
 			},
 			{
 				Name: "camera3",
-				API:  camera.Subtype,
+				API:  camera.API,
 			},
 			{
 				Name: "gripper1",
-				API:  gripper.Subtype,
+				API:  gripper.API,
 			},
 			{
 				Name: "gripper2",
-				API:  gripper.Subtype,
+				API:  gripper.API,
 			},
 			{
 				Name: "gripper3",
-				API:  gripper.Subtype,
+				API:  gripper.API,
 			},
 			{
 				Name: "inputController1",
-				API:  input.Subtype,
+				API:  input.API,
 			},
 			{
 				Name: "inputController2",
-				API:  input.Subtype,
+				API:  input.API,
 			},
 			{
 				Name: "inputController3",
-				API:  input.Subtype,
+				API:  input.API,
 			},
 			{
 				Name: "motor1",
-				API:  motor.Subtype,
+				API:  motor.API,
 			},
 			{
 				Name: "motor2",
-				API:  motor.Subtype,
+				API:  motor.API,
 			},
 			{
 				Name: "motor3",
-				API:  motor.Subtype,
+				API:  motor.API,
 			},
 			{
 				Name: "sensor1",
-				API:  sensor.Subtype,
+				API:  sensor.API,
 			},
 			{
 				Name: "sensor2",
-				API:  sensor.Subtype,
+				API:  sensor.API,
 			},
 			{
 				Name: "sensor3",
-				API:  sensor.Subtype,
+				API:  sensor.API,
 			},
 			{
 				Name: "servo1",
-				API:  servo.Subtype,
+				API:  servo.API,
 			},
 			{
 				Name: "servo2",
-				API:  servo.Subtype,
+				API:  servo.API,
 			},
 			{
 				Name: "servo3",
-				API:  servo.Subtype,
+				API:  servo.API,
 			},
 		},
 		Processes: []pexec.ProcessConfig{
@@ -1358,13 +1357,13 @@ func TestConfigUntrustedEnv(t *testing.T) {
 			Added: &config.Config{
 				Services: []resource.Config{{
 					Name: "shell-service",
-					API:  shell.Subtype,
+					API:  shell.API,
 				}},
 			},
 			Modified: &config.ModifiedConfigDiff{
 				Services: []resource.Config{{
 					Name: "shell-service",
-					API:  shell.Subtype,
+					API:  shell.API,
 				}},
 			},
 		})
@@ -1373,7 +1372,7 @@ func TestConfigUntrustedEnv(t *testing.T) {
 		_, resourcesToCloseBeforeComplete, markedResourceNames := manager.markRemoved(ctx, &config.Config{
 			Services: []resource.Config{{
 				Name: "shell-service",
-				API:  shell.Subtype,
+				API:  shell.API,
 			}},
 		}, logger)
 		test.That(t, resourcesToCloseBeforeComplete, test.ShouldBeEmpty)
@@ -1397,7 +1396,7 @@ func (fp *fakeProcess) Stop() error {
 	return nil
 }
 
-func TestManagerResourceRPCSubtypes(t *testing.T) {
+func TestManagerResourceRPCAPIs(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	injectRobot := &inject.Robot{}
 	injectRobot.LoggerFunc = func() golog.Logger {
@@ -1414,10 +1413,10 @@ func TestManagerResourceRPCSubtypes(t *testing.T) {
 	injectRobot.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
 		for _, rName := range injectRobot.ResourceNames() {
 			if rName == name {
-				switch name.Subtype {
-				case arm.Subtype:
+				switch name.API {
+				case arm.API:
 					return &fakearm.Arm{Named: name.AsNamed()}, nil
-				case base.Subtype:
+				case base.API:
 					return &fakebase.Base{Named: name.AsNamed()}, nil
 				}
 			}
@@ -1430,11 +1429,11 @@ func TestManagerResourceRPCSubtypes(t *testing.T) {
 		test.That(t, manager.Close(context.Background(), injectRobot), test.ShouldBeNil)
 	}()
 
-	subtype1 := resource.NewSubtype("acme", resource.ResourceTypeComponent, "huwat")
-	subtype2 := resource.NewSubtype("acme", resource.ResourceTypeComponent, "wat")
+	api1 := resource.APINamespace("acme").WithComponentType("huwat")
+	api2 := resource.APINamespace("acme").WithComponentType("wat")
 
-	resName1 := resource.NameFromSubtype(subtype1, "thing1")
-	resName2 := resource.NameFromSubtype(subtype2, "thing2")
+	resName1 := resource.NewName(api1, "thing1")
+	resName2 := resource.NewName(api2, "thing2")
 
 	injectRobotRemote1 := &inject.Robot{}
 	injectRobotRemote1.LoggerFunc = func() golog.Logger {
@@ -1467,15 +1466,15 @@ func TestManagerResourceRPCSubtypes(t *testing.T) {
 	cameraDesc, err := grpcreflect.LoadServiceDescriptor(&camerapb.CameraService_ServiceDesc)
 	test.That(t, err, test.ShouldBeNil)
 
-	injectRobotRemote1.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype {
-		return []resource.RPCSubtype{
+	injectRobotRemote1.ResourceRPCAPIsFunc = func() []resource.RPCAPI {
+		return []resource.RPCAPI{
 			{
-				Subtype: subtype1,
-				Desc:    boardDesc,
+				API:  api1,
+				Desc: boardDesc,
 			},
 			{
-				Subtype: subtype2,
-				Desc:    cameraDesc,
+				API:  api2,
+				Desc: cameraDesc,
 			},
 		}
 	}
@@ -1509,15 +1508,15 @@ func TestManagerResourceRPCSubtypes(t *testing.T) {
 	gripperDesc, err := grpcreflect.LoadServiceDescriptor(&gripperpb.GripperService_ServiceDesc)
 	test.That(t, err, test.ShouldBeNil)
 
-	injectRobotRemote2.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype {
-		return []resource.RPCSubtype{
+	injectRobotRemote2.ResourceRPCAPIsFunc = func() []resource.RPCAPI {
+		return []resource.RPCAPI{
 			{
-				Subtype: subtype1,
-				Desc:    boardDesc,
+				API:  api1,
+				Desc: boardDesc,
 			},
 			{
-				Subtype: subtype2,
-				Desc:    gripperDesc,
+				API:  api2,
+				Desc: gripperDesc,
 			},
 		}
 	}
@@ -1529,29 +1528,29 @@ func TestManagerResourceRPCSubtypes(t *testing.T) {
 		config.Remote{Name: "remote2"},
 	)
 
-	subtypes := manager.ResourceRPCSubtypes()
-	test.That(t, subtypes, test.ShouldHaveLength, 4)
+	apis := manager.ResourceRPCAPIs()
+	test.That(t, apis, test.ShouldHaveLength, 4)
 
-	subtypesM := make(map[resource.Subtype]*desc.ServiceDescriptor, len(subtypes))
-	for _, subtype := range subtypes {
-		subtypesM[subtype.Subtype] = subtype.Desc
+	apisM := make(map[resource.API]*desc.ServiceDescriptor, len(apis))
+	for _, api := range apis {
+		apisM[api.API] = api.Desc
 	}
 
-	test.That(t, subtypesM, test.ShouldContainKey, arm.Subtype)
-	test.That(t, cmp.Equal(subtypesM[arm.Subtype].AsProto(), armDesc.AsProto(), protocmp.Transform()), test.ShouldBeTrue)
+	test.That(t, apisM, test.ShouldContainKey, arm.API)
+	test.That(t, cmp.Equal(apisM[arm.API].AsProto(), armDesc.AsProto(), protocmp.Transform()), test.ShouldBeTrue)
 
-	test.That(t, subtypesM, test.ShouldContainKey, base.Subtype)
-	test.That(t, cmp.Equal(subtypesM[base.Subtype].AsProto(), baseDesc.AsProto(), protocmp.Transform()), test.ShouldBeTrue)
+	test.That(t, apisM, test.ShouldContainKey, base.API)
+	test.That(t, cmp.Equal(apisM[base.API].AsProto(), baseDesc.AsProto(), protocmp.Transform()), test.ShouldBeTrue)
 
-	test.That(t, subtypesM, test.ShouldContainKey, subtype1)
-	test.That(t, cmp.Equal(subtypesM[subtype1].AsProto(), boardDesc.AsProto(), protocmp.Transform()), test.ShouldBeTrue)
+	test.That(t, apisM, test.ShouldContainKey, api1)
+	test.That(t, cmp.Equal(apisM[api1].AsProto(), boardDesc.AsProto(), protocmp.Transform()), test.ShouldBeTrue)
 
-	test.That(t, subtypesM, test.ShouldContainKey, subtype2)
+	test.That(t, apisM, test.ShouldContainKey, api2)
 	// one of these will be true due to a clash
 	test.That(t,
 		cmp.Equal(
-			subtypesM[subtype2].AsProto(), cameraDesc.AsProto(), protocmp.Transform()) ||
-			cmp.Equal(subtypesM[subtype2].AsProto(), gripperDesc.AsProto(), protocmp.Transform()),
+			apisM[api2].AsProto(), cameraDesc.AsProto(), protocmp.Transform()) ||
+			cmp.Equal(apisM[api2].AsProto(), gripperDesc.AsProto(), protocmp.Transform()),
 		test.ShouldBeTrue)
 }
 
@@ -1561,14 +1560,14 @@ func TestManagerEmptyResourceDesc(t *testing.T) {
 	injectRobot.LoggerFunc = func() golog.Logger {
 		return logger
 	}
-	subtype := resource.NewSubtype(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, "mockDesc")
-	resource.RegisterSubtype(
-		subtype,
-		resource.SubtypeRegistration[resource.Resource]{},
+	api := resource.APINamespaceRDK.WithComponentType("mockDesc")
+	resource.RegisterAPI(
+		api,
+		resource.APIRegistration[resource.Resource]{},
 	)
 
 	injectRobot.ResourceNamesFunc = func() []resource.Name {
-		return []resource.Name{resource.NameFromSubtype(subtype, "mock1")}
+		return []resource.Name{resource.NewName(api, "mock1")}
 	}
 	injectRobot.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
 		return rdktestutils.NewUnimplementedResource(name), nil
@@ -1579,18 +1578,14 @@ func TestManagerEmptyResourceDesc(t *testing.T) {
 		test.That(t, manager.Close(context.Background(), injectRobot), test.ShouldBeNil)
 	}()
 
-	subtypes := manager.ResourceRPCSubtypes()
-	test.That(t, subtypes, test.ShouldHaveLength, 0)
+	apis := manager.ResourceRPCAPIs()
+	test.That(t, apis, test.ShouldHaveLength, 0)
 }
 
 func TestReconfigure(t *testing.T) {
-	const SubtypeName = resource.SubtypeName("testSubType")
+	const subtypeName = "testSubType"
 
-	Subtype := resource.NewSubtype(
-		resource.ResourceNamespaceRDK,
-		resource.ResourceTypeService,
-		SubtypeName,
-	)
+	api := resource.APINamespaceRDK.WithServiceType(subtypeName)
 
 	logger := golog.NewTestLogger(t)
 	cfg, err := config.Read(context.Background(), "data/fake.json", logger)
@@ -1602,9 +1597,9 @@ func TestReconfigure(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, r, test.ShouldNotBeNil)
 
-	resource.RegisterSubtype(Subtype, resource.SubtypeRegistration[resource.Resource]{})
+	resource.RegisterAPI(api, resource.APIRegistration[resource.Resource]{})
 
-	resource.Register(Subtype, resource.DefaultServiceModel, resource.Registration[resource.Resource, resource.NoNativeConfig]{
+	resource.Register(api, resource.DefaultServiceModel, resource.Registration[resource.Resource, resource.NoNativeConfig]{
 		Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
@@ -1625,7 +1620,7 @@ func TestReconfigure(t *testing.T) {
 	svc1 := resource.Config{
 		Name:  "somesvc",
 		Model: resource.DefaultServiceModel,
-		API:   Subtype,
+		API:   api,
 	}
 
 	local, ok := r.(*localRobot)
@@ -1663,16 +1658,11 @@ func TestResourceCreationPanic(t *testing.T) {
 	}()
 
 	t.Run("component", func(t *testing.T) {
-		subtypeName := resource.SubtypeName("testComponentSubtype")
+		subtypeName := "testComponentAPI"
+		api := resource.APINamespaceRDK.WithComponentType(subtypeName)
+		model := resource.DefaultModelFamily.WithModel("test")
 
-		subtype := resource.NewSubtype(
-			resource.ResourceNamespaceRDK,
-			resource.ResourceTypeComponent,
-			subtypeName,
-		)
-		model := resource.NewDefaultModel("test")
-
-		resource.RegisterComponent(subtype, model, resource.Registration[resource.Resource, resource.NoNativeConfig]{
+		resource.RegisterComponent(api, model, resource.Registration[resource.Resource, resource.NoNativeConfig]{
 			Constructor: func(ctx context.Context, deps resource.Dependencies, c resource.Config, logger golog.Logger) (resource.Resource, error) {
 				panic("hello")
 			},
@@ -1681,7 +1671,7 @@ func TestResourceCreationPanic(t *testing.T) {
 		svc1 := resource.Config{
 			Name:  "test",
 			Model: model,
-			API:   subtype,
+			API:   api,
 		}
 
 		local, ok := r.(*localRobot)
@@ -1691,15 +1681,10 @@ func TestResourceCreationPanic(t *testing.T) {
 	})
 
 	t.Run("service", func(t *testing.T) {
-		subtypeName := resource.SubtypeName("testServiceSubtype")
+		subtypeName := "testServiceAPI"
+		api := resource.APINamespaceRDK.WithServiceType(subtypeName)
 
-		subtype := resource.NewSubtype(
-			resource.ResourceNamespaceRDK,
-			resource.ResourceTypeService,
-			subtypeName,
-		)
-
-		resource.Register(subtype, resource.DefaultServiceModel, resource.Registration[resource.Resource, resource.NoNativeConfig]{
+		resource.Register(api, resource.DefaultServiceModel, resource.Registration[resource.Resource, resource.NoNativeConfig]{
 			Constructor: func(
 				ctx context.Context,
 				deps resource.Dependencies,
@@ -1710,12 +1695,12 @@ func TestResourceCreationPanic(t *testing.T) {
 			},
 		})
 
-		resource.RegisterSubtype(subtype, resource.SubtypeRegistration[resource.Resource]{})
+		resource.RegisterAPI(api, resource.APIRegistration[resource.Resource]{})
 
 		svc1 := resource.Config{
 			Name:  "",
 			Model: resource.DefaultServiceModel,
-			API:   subtype,
+			API:   api,
 		}
 
 		local, ok := r.(*localRobot)
@@ -1750,7 +1735,7 @@ type dummyRobot struct {
 func newDummyRobot(robot robot.Robot) *dummyRobot {
 	remoteManager := managerForDummyRobot(robot)
 	remote := &dummyRobot{
-		Named:   resource.NameFromSubtype(client.RemoteSubtype, "something").AsNamed(),
+		Named:   resource.NewName(client.RemoteAPI, "something").AsNamed(),
 		robot:   robot,
 		manager: remoteManager,
 	}
@@ -1780,8 +1765,8 @@ func (rr *dummyRobot) ResourceNames() []resource.Name {
 	return newNames
 }
 
-func (rr *dummyRobot) ResourceRPCSubtypes() []resource.RPCSubtype {
-	return rr.robot.ResourceRPCSubtypes()
+func (rr *dummyRobot) ResourceRPCAPIs() []resource.RPCAPI {
+	return rr.robot.ResourceRPCAPIs()
 }
 
 func (rr *dummyRobot) RemoteByName(name string) (robot.Robot, bool) {

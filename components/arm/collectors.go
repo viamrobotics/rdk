@@ -60,7 +60,7 @@ func newJointPositionsCollector(resource interface{}, params data.CollectorParam
 func assertArm(resource interface{}) (Arm, error) {
 	arm, ok := resource.(Arm)
 	if !ok {
-		return nil, data.InvalidInterfaceErr(SubtypeName)
+		return nil, data.InvalidInterfaceErr(API)
 	}
 	return arm, nil
 }

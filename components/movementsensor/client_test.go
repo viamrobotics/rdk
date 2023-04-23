@@ -96,15 +96,15 @@ func TestClient(t *testing.T) {
 		return 0, errors.New("can't get compass heading")
 	}
 
-	gpsSvc, err := resource.NewSubtypeCollection(movementsensor.Subtype, map[resource.Name]movementsensor.MovementSensor{
+	gpsSvc, err := resource.NewAPIResourceCollection(movementsensor.API, map[resource.Name]movementsensor.MovementSensor{
 		movementsensor.Named(testMovementSensorName): injectMovementSensor,
 		movementsensor.Named(failMovementSensorName): injectMovementSensor2,
 	})
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype, ok, err := resource.LookupSubtypeRegistration[movementsensor.MovementSensor](movementsensor.Subtype)
+	resourceAPI, ok, err := resource.LookupAPIRegistration[movementsensor.MovementSensor](movementsensor.API)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, gpsSvc), test.ShouldBeNil)
+	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, gpsSvc), test.ShouldBeNil)
 
 	injectMovementSensor.DoFunc = testutils.EchoFunc
 
@@ -124,7 +124,7 @@ func TestClient(t *testing.T) {
 		// working
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		gps1Client, err := movementsensor.NewClientFromConn(context.Background(), conn, movementsensor.Named(testMovementSensorName), logger)
+		gps1Client, err := movementsensor.NewClientFromConn(context.Background(), conn, "", movementsensor.Named(testMovementSensorName), logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		// DoCommand
@@ -192,7 +192,7 @@ func TestClient(t *testing.T) {
 	t.Run("MovementSensor client 2", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		client2, err := resourceSubtype.RPCClient(context.Background(), conn, movementsensor.Named(failMovementSensorName), logger)
+		client2, err := resourceAPI.RPCClient(context.Background(), conn, "", movementsensor.Named(failMovementSensorName), logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		_, _, err = client2.Position(context.Background(), make(map[string]interface{}))

@@ -31,8 +31,8 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-// ModelName is the name of the UR5e model of an arm component.
-var ModelName = resource.NewDefaultModel("ur5e")
+// Model is the name of the UR5e model of an arm component.
+var Model = resource.DefaultModelFamily.WithModel("ur5e")
 
 // Config is used for converting config attributes.
 type Config struct {
@@ -56,15 +56,15 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 var ur5modeljson []byte
 
 func init() {
-	resource.RegisterComponent(arm.Subtype, ModelName, resource.Registration[arm.Arm, *Config]{
+	resource.RegisterComponent(arm.API, Model, resource.Registration[arm.Arm, *Config]{
 		Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (arm.Arm, error) {
 			return URArmConnect(ctx, conf, logger)
 		},
 	})
 }
 
-// Model returns the kinematics model of the ur arm, also has all Frame information.
-func Model(name string) (referenceframe.Model, error) {
+// MakeModelFrame returns the kinematics model of the ur arm, also has all Frame information.
+func MakeModelFrame(name string) (referenceframe.Model, error) {
 	return referenceframe.UnmarshalModelJSON(ur5modeljson, name)
 }
 
@@ -168,7 +168,7 @@ func URArmConnect(ctx context.Context, conf resource.Config, logger golog.Logger
 		return nil, errors.New("speed for universalrobots has to be between .1 and 1")
 	}
 
-	model, err := Model(conf.Name)
+	model, err := MakeModelFrame(conf.Name)
 	if err != nil {
 		return nil, err
 	}

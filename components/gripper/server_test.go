@@ -21,7 +21,7 @@ func newServer() (pb.GripperServiceServer, *inject.Gripper, *inject.Gripper, err
 		gripper.Named(testGripperName):  injectGripper,
 		gripper.Named(testGripperName2): injectGripper2,
 	}
-	gripperSvc, err := resource.NewSubtypeCollection(gripper.Subtype, grippers)
+	gripperSvc, err := resource.NewAPIResourceCollection(gripper.API, grippers)
 	if err != nil {
 		return nil, nil, nil, err
 	}

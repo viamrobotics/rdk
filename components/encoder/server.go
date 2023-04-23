@@ -11,19 +11,19 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-type subtypeServer struct {
+type serviceServer struct {
 	pb.UnimplementedEncoderServiceServer
-	coll resource.SubtypeCollection[Encoder]
+	coll resource.APIResourceCollection[Encoder]
 }
 
-// NewRPCServiceServer constructs an Encoder gRPC service subtypeServer.
-func NewRPCServiceServer(coll resource.SubtypeCollection[Encoder]) interface{} {
-	return &subtypeServer{coll: coll}
+// NewRPCServiceServer constructs an Encoder gRPC service serviceServer.
+func NewRPCServiceServer(coll resource.APIResourceCollection[Encoder]) interface{} {
+	return &serviceServer{coll: coll}
 }
 
 // GetPosition returns the current position in terms of ticks or
 // degrees, and whether it is a relative or absolute position.
-func (s *subtypeServer) GetPosition(
+func (s *serviceServer) GetPosition(
 	ctx context.Context,
 	req *pb.GetPositionRequest,
 ) (*pb.GetPositionResponse, error) {
@@ -43,7 +43,7 @@ func (s *subtypeServer) GetPosition(
 
 // ResetPosition sets the current position of the encoder
 // specified by the request to be its new zero position.
-func (s *subtypeServer) ResetPosition(
+func (s *serviceServer) ResetPosition(
 	ctx context.Context,
 	req *pb.ResetPositionRequest,
 ) (*pb.ResetPositionResponse, error) {
@@ -57,7 +57,7 @@ func (s *subtypeServer) ResetPosition(
 }
 
 // GetProperties returns a message of booleans indicating which optional features the robot's encoder supports.
-func (s *subtypeServer) GetProperties(
+func (s *serviceServer) GetProperties(
 	ctx context.Context,
 	req *pb.GetPropertiesRequest,
 ) (*pb.GetPropertiesResponse, error) {
@@ -74,7 +74,7 @@ func (s *subtypeServer) GetProperties(
 }
 
 // DoCommand receives arbitrary commands.
-func (s *subtypeServer) DoCommand(ctx context.Context,
+func (s *serviceServer) DoCommand(ctx context.Context,
 	req *commonpb.DoCommandRequest,
 ) (*commonpb.DoCommandResponse, error) {
 	enc, err := s.coll.Resource(req.GetName())

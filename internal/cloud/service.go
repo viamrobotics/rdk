@@ -17,17 +17,13 @@ import (
 )
 
 // SubtypeName is a constant that identifies the internal cloud connection resource subtype string.
-const SubtypeName = resource.SubtypeName("cloud_connection")
+const SubtypeName = "cloud_connection"
 
-// Subtype is the fully qualified subtype for the internal cloud connection service.
-var Subtype = resource.NewSubtype(
-	resource.NamespaceRDKInternal,
-	resource.ResourceTypeService,
-	SubtypeName,
-)
+// API is the fully qualified API for the internal cloud connection service.
+var API = resource.APINamespaceRDKInternal.WithServiceType(SubtypeName)
 
 // InternalServiceName is used to refer to/depend on this service internally.
-var InternalServiceName = resource.NameFromSubtype(Subtype, "builtin")
+var InternalServiceName = resource.NewName(API, "builtin")
 
 // A ConnectionService supplies connections to a cloud service managing robots. Each
 // connection should be closed when its not be used anymore.

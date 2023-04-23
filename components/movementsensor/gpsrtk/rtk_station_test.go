@@ -104,8 +104,8 @@ func TestRTK(t *testing.T) {
 	// test NTRIPConnection Source
 	conf := resource.Config{
 		Name:  "rtk1",
-		Model: resource.NewDefaultModel("rtk-station"),
-		API:   movementsensor.Subtype,
+		Model: resource.DefaultModelFamily.WithModel("rtk-station"),
+		API:   movementsensor.API,
 		ConvertedAttributes: &StationConfig{
 			CorrectionSource: "ntrip",
 			Board:            testBoardName,
@@ -130,8 +130,8 @@ func TestRTK(t *testing.T) {
 	path := "/dev/serial/by-id/usb-u-blox_AG_-_www.u-blox.com_u-blox_GNSS_receiver-if00"
 	conf = resource.Config{
 		Name:  "rtk1",
-		Model: resource.NewDefaultModel("rtk-station"),
-		API:   movementsensor.Subtype,
+		Model: resource.DefaultModelFamily.WithModel("rtk-station"),
+		API:   movementsensor.API,
 		ConvertedAttributes: &StationConfig{
 			CorrectionSource: "serial",
 			SerialConfig: &SerialConfig{
@@ -149,8 +149,8 @@ func TestRTK(t *testing.T) {
 	// test I2C correction source
 	conf = resource.Config{
 		Name:       "rtk1",
-		Model:      resource.NewDefaultModel("rtk-station"),
-		API:        movementsensor.Subtype,
+		Model:      resource.DefaultModelFamily.WithModel("rtk-station"),
+		API:        movementsensor.API,
 		Attributes: rutils.AttributeMap{},
 		ConvertedAttributes: &StationConfig{
 			CorrectionSource: "i2c",
@@ -180,8 +180,8 @@ func TestRTK(t *testing.T) {
 	// test invalid source
 	conf = resource.Config{
 		Name:  "rtk1",
-		Model: resource.NewDefaultModel("rtk-station"),
-		API:   movementsensor.Subtype,
+		Model: resource.DefaultModelFamily.WithModel("rtk-station"),
+		API:   movementsensor.API,
 		Attributes: rutils.AttributeMap{
 			"correction_source":      "invalid-protocol",
 			"ntrip_addr":             "some_ntrip_address",

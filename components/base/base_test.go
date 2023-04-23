@@ -59,10 +59,10 @@ func TestCreateStatus(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, status1, test.ShouldResemble, status)
 
-		resourceSubtype, ok, err := resource.LookupSubtypeRegistration[base.Base](base.Subtype)
+		resourceAPI, ok, err := resource.LookupAPIRegistration[base.Base](base.API)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ok, test.ShouldBeTrue)
-		status2, err := resourceSubtype.Status(context.Background(), injectBase)
+		status2, err := resourceAPI.Status(context.Background(), injectBase)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, status2, test.ShouldResemble, status)
 	})

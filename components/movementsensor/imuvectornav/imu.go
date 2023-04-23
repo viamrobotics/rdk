@@ -20,7 +20,7 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-var model = resource.NewDefaultModel("imu-vectornav")
+var model = resource.DefaultModelFamily.WithModel("imu-vectornav")
 
 // Config is used for converting a vectornav IMU MovementSensor config attributes.
 type Config struct {
@@ -58,7 +58,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 }
 
 func init() {
-	resource.RegisterComponent(movementsensor.Subtype, model, resource.Registration[movementsensor.MovementSensor, *Config]{
+	resource.RegisterComponent(movementsensor.API, model, resource.Registration[movementsensor.MovementSensor, *Config]{
 		Constructor: NewVectorNav,
 	})
 }

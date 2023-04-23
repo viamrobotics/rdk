@@ -20,7 +20,7 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-var modelName = resource.NewDefaultModel("pca9685")
+var model = resource.DefaultModelFamily.WithModel("pca9685")
 
 var (
 	_ = board.Board(&PCA9685{})
@@ -56,8 +56,8 @@ func (conf *Config) Validate(path string) ([]string, error) {
 
 func init() {
 	resource.RegisterComponent(
-		board.Subtype,
-		modelName,
+		board.API,
+		model,
 		resource.Registration[board.Board, *Config]{
 			Constructor: func(
 				ctx context.Context,

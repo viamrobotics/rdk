@@ -12,31 +12,27 @@ import (
 )
 
 func init() {
-	resource.RegisterSubtype(Subtype, resource.SubtypeRegistration[Sensor]{
+	resource.RegisterAPI(API, resource.APIRegistration[Sensor]{
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           pb.RegisterSensorServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &pb.SensorService_ServiceDesc,
 		RPCClient:                   NewClientFromConn,
 	})
 	data.RegisterCollector(data.MethodMetadata{
-		Subtype:    Subtype,
+		API:        API,
 		MethodName: readings.String(),
 	}, newSensorCollector)
 }
 
-// SubtypeName is a constant that identifies the component resource subtype string "Sensor".
-const SubtypeName = resource.SubtypeName("sensor")
+// SubtypeName is a constant that identifies the component resource API string "Sensor".
+const SubtypeName = "sensor"
 
-// Subtype is a constant that identifies the component resource subtype.
-var Subtype = resource.NewSubtype(
-	resource.ResourceNamespaceRDK,
-	resource.ResourceTypeComponent,
-	SubtypeName,
-)
+// API is a variable that identifies the component resource API.
+var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 
 // Named is a helper for getting the named Sensor's typed resource name.
 func Named(name string) resource.Name {
-	return resource.NameFromSubtype(Subtype, name)
+	return resource.NewName(API, name)
 }
 
 // A Sensor represents a general purpose sensors that can give arbitrary readings
@@ -54,5 +50,5 @@ func FromRobot(r robot.Robot, name string) (Sensor, error) {
 
 // NamesFromRobot is a helper for getting all sensor names from the given Robot.
 func NamesFromRobot(r robot.Robot) []string {
-	return robot.NamesBySubtype(r, Subtype)
+	return robot.NamesByAPI(r, API)
 }

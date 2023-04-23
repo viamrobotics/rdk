@@ -18,7 +18,7 @@ import (
 	"go.viam.com/rdk/rimage/transform"
 )
 
-var model = resource.NewDefaultModel("fake")
+var model = resource.DefaultModelFamily.WithModel("fake")
 
 const (
 	initialWidth  = 1280
@@ -27,7 +27,7 @@ const (
 
 func init() {
 	resource.RegisterComponent(
-		camera.Subtype,
+		camera.API,
 		model,
 		resource.Registration[camera.Camera, *Config]{
 			Constructor: func(

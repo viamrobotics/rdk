@@ -77,12 +77,12 @@ func TestClient(t *testing.T) {
 		posetracker.Named(workingPTName): workingPT,
 		posetracker.Named(failingPTName): failingPT,
 	}
-	ptSvc, err := resource.NewSubtypeCollection(posetracker.Subtype, resourceMap)
+	ptSvc, err := resource.NewAPIResourceCollection(posetracker.API, resourceMap)
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype, ok, err := resource.LookupSubtypeRegistration[posetracker.PoseTracker](posetracker.Subtype)
+	resourceAPI, ok, err := resource.LookupAPIRegistration[posetracker.PoseTracker](posetracker.API)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, ptSvc), test.ShouldBeNil)
+	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, ptSvc), test.ShouldBeNil)
 
 	workingPT.DoFunc = testutils.EchoFunc
 
@@ -99,7 +99,7 @@ func TestClient(t *testing.T) {
 
 	conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
-	workingPTClient, err := posetracker.NewClientFromConn(context.Background(), conn, posetracker.Named(workingPTName), logger)
+	workingPTClient, err := posetracker.NewClientFromConn(context.Background(), conn, "", posetracker.Named(workingPTName), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("client tests for working pose tracker", func(t *testing.T) {
@@ -122,7 +122,7 @@ func TestClient(t *testing.T) {
 	t.Run("dialed client tests for working pose tracker", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		client, err := resourceSubtype.RPCClient(context.Background(), conn, posetracker.Named(workingPTName), logger)
+		client, err := resourceAPI.RPCClient(context.Background(), conn, "", posetracker.Named(workingPTName), logger)
 		test.That(t, err, test.ShouldBeNil)
 		bodyToPoseInFrame, err := client.Poses(context.Background(), []string{}, map[string]interface{}{"foo": "PosesDialed"})
 		test.That(t, err, test.ShouldBeNil)
@@ -137,7 +137,7 @@ func TestClient(t *testing.T) {
 	t.Run("dialed client tests for failing pose tracker", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		failingPTDialedClient, err := posetracker.NewClientFromConn(context.Background(), conn, posetracker.Named(failingPTName), logger)
+		failingPTDialedClient, err := posetracker.NewClientFromConn(context.Background(), conn, "", posetracker.Named(failingPTName), logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		bodyToPoseInFrame, err := failingPTDialedClient.Poses(context.Background(), []string{}, nil)

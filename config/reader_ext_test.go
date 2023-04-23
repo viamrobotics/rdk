@@ -57,11 +57,9 @@ func TestFromReaderValidate(t *testing.T) {
 		ConfigFilePath: "somepath",
 		Components: []resource.Config{
 			{
-				DeprecatedNamespace: resource.ResourceNamespaceRDK,
-				Name:                "foo",
-				API:                 arm.Subtype,
-				Model:               resource.NewDefaultModel("foo"),
-				DeprecatedSubtype:   arm.SubtypeName,
+				Name:  "foo",
+				API:   arm.API,
+				Model: resource.DefaultModelFamily.WithModel("foo"),
 			},
 		},
 		Network: config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{

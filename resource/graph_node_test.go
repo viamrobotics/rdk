@@ -58,7 +58,7 @@ func TestConfiguredLifecycle(t *testing.T) {
 	someConf := resource.Config{Attributes: utils.AttributeMap{"3": 4}}
 
 	ourRes := &someResource{Resource: testutils.NewUnimplementedResource(generic.Named("some"))}
-	node := resource.NewConfiguredGraphNode(someConf, ourRes, resource.NewDefaultModel("bar"))
+	node := resource.NewConfiguredGraphNode(someConf, ourRes, resource.DefaultModelFamily.WithModel("bar"))
 
 	test.That(t, node.IsUninitialized(), test.ShouldBeFalse)
 	test.That(t, node.UpdatedAt(), test.ShouldEqual, 0)
@@ -68,7 +68,7 @@ func TestConfiguredLifecycle(t *testing.T) {
 	res, err = node.UnsafeResource()
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res, test.ShouldEqual, res)
-	test.That(t, node.ResourceModel(), test.ShouldResemble, resource.NewDefaultModel("bar"))
+	test.That(t, node.ResourceModel(), test.ShouldResemble, resource.DefaultModelFamily.WithModel("bar"))
 	test.That(t, node.HasResource(), test.ShouldBeTrue)
 	test.That(t, node.Config(), test.ShouldResemble, someConf)
 	test.That(t, node.NeedsReconfigure(), test.ShouldBeFalse)
@@ -97,8 +97,8 @@ func lifecycleTest(t *testing.T, node *resource.GraphNode, initialDeps []string)
 
 	// but we end up configuring it
 	ourRes := &someResource{Resource: testutils.NewUnimplementedResource(generic.Named("foo"))}
-	node.SwapResource(ourRes, resource.NewDefaultModel("bar"))
-	test.That(t, node.ResourceModel(), test.ShouldResemble, resource.NewDefaultModel("bar"))
+	node.SwapResource(ourRes, resource.DefaultModelFamily.WithModel("bar"))
+	test.That(t, node.ResourceModel(), test.ShouldResemble, resource.DefaultModelFamily.WithModel("bar"))
 	test.That(t, node.MarkedForRemoval(), test.ShouldBeFalse)
 	test.That(t, node.IsUninitialized(), test.ShouldBeFalse)
 
@@ -125,8 +125,8 @@ func lifecycleTest(t *testing.T, node *resource.GraphNode, initialDeps []string)
 
 	// it finally reconfigured
 	ourRes2 := &someResource{Resource: testutils.NewUnimplementedResource(generic.Named("foo"))}
-	node.SwapResource(ourRes2, resource.NewDefaultModel("baz"))
-	test.That(t, node.ResourceModel(), test.ShouldResemble, resource.NewDefaultModel("baz"))
+	node.SwapResource(ourRes2, resource.DefaultModelFamily.WithModel("baz"))
+	test.That(t, node.ResourceModel(), test.ShouldResemble, resource.DefaultModelFamily.WithModel("baz"))
 	res, err = node.Resource()
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res, test.ShouldNotEqual, ourRes)
@@ -161,8 +161,8 @@ func lifecycleTest(t *testing.T, node *resource.GraphNode, initialDeps []string)
 
 	// it finally reconfigured
 	ourRes3 := &someResource{Resource: testutils.NewUnimplementedResource(generic.Named("fooa"))}
-	node.SwapResource(ourRes3, resource.NewDefaultModel("bazz"))
-	test.That(t, node.ResourceModel(), test.ShouldResemble, resource.NewDefaultModel("bazz"))
+	node.SwapResource(ourRes3, resource.DefaultModelFamily.WithModel("bazz"))
+	test.That(t, node.ResourceModel(), test.ShouldResemble, resource.DefaultModelFamily.WithModel("bazz"))
 	res, err = node.Resource()
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res, test.ShouldNotEqual, ourRes2)
@@ -185,8 +185,8 @@ func lifecycleTest(t *testing.T, node *resource.GraphNode, initialDeps []string)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not initialized")
 
 	ourRes4 := &someResource{Resource: testutils.NewUnimplementedResource(generic.Named("foob")), shoudlErr: true}
-	node.SwapResource(ourRes4, resource.NewDefaultModel("bazzz"))
-	test.That(t, node.ResourceModel(), test.ShouldResemble, resource.NewDefaultModel("bazzz"))
+	node.SwapResource(ourRes4, resource.DefaultModelFamily.WithModel("bazzz"))
+	test.That(t, node.ResourceModel(), test.ShouldResemble, resource.DefaultModelFamily.WithModel("bazzz"))
 	res, err = node.Resource()
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res, test.ShouldNotEqual, ourRes3)

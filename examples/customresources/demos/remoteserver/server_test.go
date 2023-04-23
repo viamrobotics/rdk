@@ -84,7 +84,7 @@ func TestGizmo(t *testing.T) {
 
 	// remotes can take a few seconds to show up, so we wait for the resource
 	var res interface{}
-	testutils.WaitForAssertionWithSleep(t, time.Second, 120, func(tb testing.TB){
+	testutils.WaitForAssertionWithSleep(t, time.Second, 120, func(tb testing.TB) {
 		res, err = r2.ResourceByName(gizmoapi.Named("gizmo1"))
 		test.That(tb, err, test.ShouldBeNil)
 	})

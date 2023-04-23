@@ -36,21 +36,23 @@ import (
 
 var someBaseName1 = base.Named("base1")
 
-var echoSubType = resource.NewSubtype(
-	resource.ResourceNamespaceRDK,
-	resource.ResourceTypeComponent,
-	resource.SubtypeName("echo"),
-)
+var echoAPI = resource.APINamespaceRDK.WithComponentType("echo")
 
 func init() {
-	resource.RegisterSubtype(echoSubType, resource.SubtypeRegistration[resource.Resource]{
-		RPCServiceServerConstructor: func(subtypeColl resource.SubtypeCollection[resource.Resource]) interface{} {
-			return &echoServer{coll: subtypeColl}
+	resource.RegisterAPI(echoAPI, resource.APIRegistration[resource.Resource]{
+		RPCServiceServerConstructor: func(apiResColl resource.APIResourceCollection[resource.Resource]) interface{} {
+			return &echoServer{coll: apiResColl}
 		},
 		RPCServiceHandler: echopb.RegisterTestEchoServiceHandlerFromEndpoint,
 		RPCServiceDesc:    &echopb.TestEchoService_ServiceDesc,
-		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (resource.Resource, error) {
-			return NewClientFromConn(ctx, conn, name, logger), nil
+		RPCClient: func(
+			ctx context.Context,
+			conn rpc.ClientConn,
+			remoteName string,
+			name resource.Name,
+			logger golog.Logger,
+		) (resource.Resource, error) {
+			return NewClientFromConn(ctx, conn, remoteName, name, logger), nil
 		},
 	})
 }
@@ -79,10 +81,10 @@ func TestSessions(t *testing.T) {
 			motor1Name := motor.Named("motor1")
 			motor2Name := motor.Named("motor2")
 			base1Name := base.Named("base1")
-			echo1Name := resource.NameFromSubtype(echoSubType, "echo1")
+			echo1Name := resource.NewName(echoAPI, "echo1")
 
-			modelName := resource.NewDefaultModel(resource.ModelName(utils.RandomAlphaString(8)))
-			streamModelName := resource.NewDefaultModel(resource.ModelName(utils.RandomAlphaString(8)))
+			model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
+			streamModel := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
 			dummyMotor1 := dummyMotor{Named: motor1Name.AsNamed(), stopCh: stopChs["motor1"].Chan}
 			dummyMotor2 := dummyMotor{Named: motor2Name.AsNamed(), stopCh: stopChs["motor2"].Chan}
 			dummyEcho1 := dummyEcho{
@@ -91,8 +93,8 @@ func TestSessions(t *testing.T) {
 			}
 			dummyBase1 := dummyBase{Named: base1Name.AsNamed(), stopCh: stopChs["base1"].Chan}
 			resource.RegisterComponent(
-				motor.Subtype,
-				modelName,
+				motor.API,
+				model,
 				resource.Registration[motor.Motor, resource.NoNativeConfig]{Constructor: func(
 					ctx context.Context,
 					deps resource.Dependencies,
@@ -105,8 +107,8 @@ func TestSessions(t *testing.T) {
 					return &dummyMotor2, nil
 				}})
 			resource.RegisterComponent(
-				echoSubType,
-				streamModelName,
+				echoAPI,
+				streamModel,
 				resource.Registration[resource.Resource, resource.NoNativeConfig]{
 					Constructor: func(
 						ctx context.Context,
@@ -119,8 +121,8 @@ func TestSessions(t *testing.T) {
 				},
 			)
 			resource.RegisterComponent(
-				base.Subtype,
-				modelName,
+				base.API,
+				model,
 				resource.Registration[base.Base, resource.NoNativeConfig]{
 					Constructor: func(
 						ctx context.Context,
@@ -162,7 +164,7 @@ func TestSessions(t *testing.T) {
 					}
 				]
 			}
-			`, windowSize, modelName, streamModelName)
+			`, windowSize, model, streamModel)
 
 			cfg, err := config.FromReader(context.Background(), "", strings.NewReader(roboConfig), logger)
 			test.That(t, err, test.ShouldBeNil)
@@ -276,12 +278,12 @@ func TestSessionsWithRemote(t *testing.T) {
 
 	ensureStop := makeEnsureStop(stopChs)
 
-	modelName := resource.NewDefaultModel(resource.ModelName(utils.RandomAlphaString(8)))
-	streamModelName := resource.NewDefaultModel(resource.ModelName(utils.RandomAlphaString(8)))
+	model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
+	streamModel := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
 	motor1Name := motor.Named("motor1")
 	motor2Name := motor.Named("motor2")
 	base1Name := base.Named("base1")
-	echo1Name := resource.NameFromSubtype(echoSubType, "echo1")
+	echo1Name := resource.NewName(echoAPI, "echo1")
 	dummyRemMotor1 := dummyMotor{Named: motor1Name.AsNamed(), stopCh: stopChs["remMotor1"].Chan}
 	dummyRemMotor2 := dummyMotor{Named: motor2Name.AsNamed(), stopCh: stopChs["remMotor2"].Chan}
 	dummyRemEcho1 := dummyEcho{Named: echo1Name.AsNamed(), stopCh: stopChs["remEcho1"].Chan}
@@ -289,8 +291,8 @@ func TestSessionsWithRemote(t *testing.T) {
 	dummyMotor1 := dummyMotor{Named: motor1Name.AsNamed(), stopCh: stopChs["motor1"].Chan}
 	dummyBase1 := dummyBase{Named: base1Name.AsNamed(), stopCh: stopChs["base1"].Chan}
 	resource.RegisterComponent(
-		motor.Subtype,
-		modelName,
+		motor.API,
+		model,
 		resource.Registration[motor.Motor, resource.NoNativeConfig]{
 			Constructor: func(
 				ctx context.Context,
@@ -308,8 +310,8 @@ func TestSessionsWithRemote(t *testing.T) {
 			},
 		})
 	resource.RegisterComponent(
-		echoSubType,
-		streamModelName,
+		echoAPI,
+		streamModel,
 		resource.Registration[resource.Resource, resource.NoNativeConfig]{
 			Constructor: func(
 				ctx context.Context,
@@ -322,8 +324,8 @@ func TestSessionsWithRemote(t *testing.T) {
 		},
 	)
 	resource.RegisterComponent(
-		base.Subtype,
-		modelName,
+		base.API,
+		model,
 		resource.Registration[base.Base, resource.NoNativeConfig]{
 			Constructor: func(
 				ctx context.Context,
@@ -375,7 +377,7 @@ func TestSessionsWithRemote(t *testing.T) {
 			}
 		]
 	}
-	`, modelName, streamModelName)
+	`, model, streamModel)
 
 	cfg, err := config.FromReader(context.Background(), "", strings.NewReader(remoteConfig), logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -408,7 +410,7 @@ func TestSessionsWithRemote(t *testing.T) {
 			}
 		]
 	}
-	`, remoteAddr, modelName)
+	`, remoteAddr, model)
 
 	cfg, err = config.FromReader(context.Background(), "", strings.NewReader(roboConfig), logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -508,7 +510,7 @@ func TestSessionsWithRemote(t *testing.T) {
 	t.Log("set power of rem1:motor2 which will be safety monitored")
 	test.That(t, motor2.SetPower(ctx, 50, nil), test.ShouldBeNil)
 
-	dummyName := resource.NameFromSubtype(echoSubType, "echo1")
+	dummyName := resource.NewName(echoAPI, "echo1")
 	echo1Client, err := roboClient.ResourceByName(dummyName)
 	test.That(t, err, test.ShouldBeNil)
 	echo1Conn := echo1Client.(*dummyClient)
@@ -544,12 +546,12 @@ func TestSessionsMixedClients(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	stopChMotor1 := make(chan struct{})
 
-	modelName := resource.NewDefaultModel(resource.ModelName(utils.RandomAlphaString(8)))
+	model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
 	motor1Name := motor.Named("motor1")
 	dummyMotor1 := dummyMotor{Named: motor1Name.AsNamed(), stopCh: stopChMotor1}
 	resource.RegisterComponent(
-		motor.Subtype,
-		modelName,
+		motor.API,
+		model,
 		resource.Registration[motor.Motor, resource.NoNativeConfig]{
 			Constructor: func(
 				ctx context.Context,
@@ -570,7 +572,7 @@ func TestSessionsMixedClients(t *testing.T) {
 			}
 		]
 	}
-	`, modelName)
+	`, model)
 
 	cfg, err := config.FromReader(context.Background(), "", strings.NewReader(roboConfig), logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -633,12 +635,12 @@ func TestSessionsMixedOwnersNoAuth(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	stopChMotor1 := make(chan struct{})
 
-	modelName := resource.NewDefaultModel(resource.ModelName(utils.RandomAlphaString(8)))
+	model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
 	motor1Name := motor.Named("motor1")
 	dummyMotor1 := dummyMotor{Named: motor1Name.AsNamed(), stopCh: stopChMotor1}
 	resource.RegisterComponent(
-		motor.Subtype,
-		modelName,
+		motor.API,
+		model,
 		resource.Registration[motor.Motor, resource.NoNativeConfig]{
 			Constructor: func(
 				ctx context.Context,
@@ -659,7 +661,7 @@ func TestSessionsMixedOwnersNoAuth(t *testing.T) {
 			}
 		]
 	}
-	`, modelName)
+	`, model)
 
 	cfg, err := config.FromReader(context.Background(), "", strings.NewReader(roboConfig), logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -685,7 +687,7 @@ func TestSessionsMixedOwnersNoAuth(t *testing.T) {
 
 	motor1Client1, err := motor.FromRobot(roboClient1, "motor1")
 	test.That(t, err, test.ShouldBeNil)
-	motor1Client2, err := motor.NewClientFromConn(ctx, roboClientConn2, motor.Named("motor1"), logger)
+	motor1Client2, err := motor.NewClientFromConn(ctx, roboClientConn2, "", motor.Named("motor1"), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, motor1Client1.SetPower(ctx, 50, nil), test.ShouldBeNil)
@@ -734,12 +736,12 @@ func TestSessionsMixedOwnersImplicitAuth(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	stopChMotor1 := make(chan struct{})
 
-	modelName := resource.NewDefaultModel(resource.ModelName(utils.RandomAlphaString(8)))
+	model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
 	motor1Name := motor.Named("motor1")
 	dummyMotor1 := dummyMotor{Named: motor1Name.AsNamed(), stopCh: stopChMotor1}
 	resource.RegisterComponent(
-		motor.Subtype,
-		modelName,
+		motor.API,
+		model,
 		resource.Registration[motor.Motor, resource.NoNativeConfig]{
 			Constructor: func(
 				ctx context.Context,
@@ -760,7 +762,7 @@ func TestSessionsMixedOwnersImplicitAuth(t *testing.T) {
 			}
 		]
 	}
-	`, modelName)
+	`, model)
 
 	cfg, err := config.FromReader(context.Background(), "", strings.NewReader(roboConfig), logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -784,7 +786,7 @@ func TestSessionsMixedOwnersImplicitAuth(t *testing.T) {
 
 	motor1Client1, err := motor.FromRobot(roboClient1, "motor1")
 	test.That(t, err, test.ShouldBeNil)
-	motor1Client2, err := motor.NewClientFromConn(ctx, roboClientConn2, motor.Named("motor1"), logger)
+	motor1Client2, err := motor.NewClientFromConn(ctx, roboClientConn2, "", motor.Named("motor1"), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, motor1Client1.SetPower(ctx, 50, nil), test.ShouldBeNil)
@@ -917,11 +919,17 @@ func (db *dummyBase) IsMoving(context.Context) (bool, error) {
 }
 
 // NewClientFromConn constructs a new client from connection passed in.
-func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) resource.Resource {
+func NewClientFromConn(
+	ctx context.Context,
+	conn rpc.ClientConn,
+	remoteName string,
+	name resource.Name,
+	logger golog.Logger,
+) resource.Resource {
 	c := echopb.NewTestEchoServiceClient(conn)
 	return &dummyClient{
-		Named:  name.AsNamed(),
-		name:   name.ShortNameForClient(),
+		Named:  name.PrependRemote(remoteName).AsNamed(),
+		name:   name.ShortName(),
 		client: c,
 	}
 }
@@ -969,7 +977,7 @@ func (e *dummyEcho) IsMoving(context.Context) (bool, error) {
 
 type echoServer struct {
 	echopb.UnimplementedTestEchoServiceServer
-	coll resource.SubtypeCollection[resource.Resource]
+	coll resource.APIResourceCollection[resource.Resource]
 }
 
 func (srv *echoServer) EchoMultiple(

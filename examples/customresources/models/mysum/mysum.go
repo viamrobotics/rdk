@@ -12,14 +12,10 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-var Model = resource.NewModel(
-	resource.Namespace("acme"),
-	resource.ModelFamilyName("demo"),
-	resource.ModelName("mysum"),
-)
+var Model = resource.NewModel("acme", "demo", "mysum")
 
 func init() {
-	resource.RegisterService(summationapi.Subtype, Model, resource.Registration[summationapi.Summation, resource.NoNativeConfig]{
+	resource.RegisterService(summationapi.API, Model, resource.Registration[summationapi.Summation, resource.NoNativeConfig]{
 		Constructor: newMySum,
 	})
 }

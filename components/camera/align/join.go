@@ -21,11 +21,11 @@ import (
 	"go.viam.com/rdk/rimage/transform"
 )
 
-var joinModel = resource.NewDefaultModel("join_color_depth")
+var joinModel = resource.DefaultModelFamily.WithModel("join_color_depth")
 
 //nolint:dupl
 func init() {
-	resource.RegisterComponent(camera.Subtype, joinModel,
+	resource.RegisterComponent(camera.API, joinModel,
 		resource.Registration[camera.Camera, *joinConfig]{
 			Constructor: func(ctx context.Context, deps resource.Dependencies,
 				conf resource.Config, logger golog.Logger,

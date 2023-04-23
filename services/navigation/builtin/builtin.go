@@ -26,7 +26,7 @@ const (
 )
 
 func init() {
-	resource.RegisterService(navigation.Subtype, resource.DefaultServiceModel, resource.Registration[navigation.Service, *Config]{
+	resource.RegisterService(navigation.API, resource.DefaultServiceModel, resource.Registration[navigation.Service, *Config]{
 		Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,

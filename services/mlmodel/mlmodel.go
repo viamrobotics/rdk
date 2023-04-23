@@ -5,24 +5,20 @@ package mlmodel
 import (
 	"context"
 
-	"github.com/edaniels/golog"
 	servicepb "go.viam.com/api/service/mlmodel/v1"
 	vprotoutils "go.viam.com/utils/protoutils"
-	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 )
 
 func init() {
-	resource.RegisterSubtype(Subtype, resource.SubtypeRegistration[Service]{
+	resource.RegisterAPI(API, resource.APIRegistration[Service]{
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           servicepb.RegisterMLModelServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &servicepb.MLModelService_ServiceDesc,
-		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (Service, error) {
-			return NewClientFromConn(ctx, conn, name, logger), nil
-		},
-		MaxInstance: resource.DefaultMaxInstance,
+		RPCClient:                   NewClientFromConn,
+		MaxInstance:                 resource.DefaultMaxInstance,
 	})
 }
 
@@ -156,18 +152,14 @@ const (
 )
 
 // SubtypeName is the name of the type of service.
-const SubtypeName = resource.SubtypeName("mlmodel")
+const SubtypeName = "mlmodel"
 
-// Subtype is a constant that identifies the ML model service resource subtype.
-var Subtype = resource.NewSubtype(
-	resource.ResourceNamespaceRDK,
-	resource.ResourceTypeService,
-	SubtypeName,
-)
+// API is a variable that identifies the ML model service resource API.
+var API = resource.APINamespaceRDK.WithServiceType(SubtypeName)
 
 // Named is a helper for getting the named ML model service's typed resource name.
 func Named(name string) resource.Name {
-	return resource.NameFromSubtype(Subtype, name)
+	return resource.NewName(API, name)
 }
 
 // FromRobot is a helper for getting the named ML model service from the given Robot.

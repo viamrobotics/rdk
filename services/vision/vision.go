@@ -19,7 +19,7 @@ import (
 )
 
 func init() {
-	resource.RegisterSubtype(Subtype, resource.SubtypeRegistration[Service]{
+	resource.RegisterAPI(API, resource.APIRegistration[Service]{
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           servicepb.RegisterVisionServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &servicepb.VisionService_ServiceDesc,
@@ -64,19 +64,15 @@ type Service interface {
 }
 
 // SubtypeName is the name of the type of service.
-const SubtypeName = resource.SubtypeName("vision")
+const SubtypeName = "vision"
 
-// Subtype is a constant that identifies the vision service resource subtype.
-var Subtype = resource.NewSubtype(
-	resource.ResourceNamespaceRDK,
-	resource.ResourceTypeService,
-	SubtypeName,
-)
+// API is a variable that identifies the vision service resource API.
+var API = resource.APINamespaceRDK.WithServiceType(SubtypeName)
 
 // Named is a helper for getting the named vision's typed resource name.
 // RSDK-347 Implements vision's Named.
 func Named(name string) resource.Name {
-	return resource.NameFromSubtype(Subtype, name)
+	return resource.NewName(API, name)
 }
 
 // FromRobot is a helper for getting the named vision service from the given Robot.
@@ -86,7 +82,7 @@ func FromRobot(r robot.Robot, name string) (Service, error) {
 
 // FindFirstName returns name of first vision service found.
 func FindFirstName(r robot.Robot) string {
-	for _, val := range robot.NamesBySubtype(r, Subtype) {
+	for _, val := range robot.NamesByAPI(r, API) {
 		return val
 	}
 	return ""
@@ -106,7 +102,7 @@ func FirstFromRobot(r robot.Robot) (Service, error) {
 // This will specifically ignore remote resources.
 func FirstFromLocalRobot(r robot.Robot) (Service, error) {
 	for _, n := range r.ResourceNames() {
-		if n.Subtype == Subtype && !n.ContainsRemoteNames() {
+		if n.API == API && !n.ContainsRemoteNames() {
 			return FromRobot(r, n.ShortName())
 		}
 	}
