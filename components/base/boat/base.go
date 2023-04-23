@@ -24,7 +24,7 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-var modelname = resource.DefaultModelFamily.WithModel("boat")
+var model = resource.DefaultModelFamily.WithModel("boat")
 
 func init() {
 	boatComp := resource.Registration[base.Base, *boatConfig]{
@@ -34,7 +34,7 @@ func init() {
 			return createBoat(deps, conf, logger)
 		},
 	}
-	resource.RegisterComponent(base.API, modelname, boatComp)
+	resource.RegisterComponent(base.API, model, boatComp)
 }
 
 func createBoat(deps resource.Dependencies, conf resource.Config, logger golog.Logger) (base.LocalBase, error) {

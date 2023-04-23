@@ -51,10 +51,10 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	return deps, nil
 }
 
-var modelName = resource.DefaultModelFamily.WithModel("ezopmp")
+var model = resource.DefaultModelFamily.WithModel("ezopmp")
 
 func init() {
-	resource.RegisterComponent(motor.API, modelName, resource.Registration[motor.Motor, *Config]{
+	resource.RegisterComponent(motor.API, model, resource.Registration[motor.Motor, *Config]{
 		Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,

@@ -107,7 +107,13 @@ func getServiceConfig(t *testing.T, cfg *config.Config) (*Config, []string) {
 		if c.API == datamanager.API && c.ConvertedAttributes != nil {
 			svcConfig, ok := c.ConvertedAttributes.(*Config)
 			test.That(t, ok, test.ShouldBeTrue)
-			return svcConfig, c.ImplicitDependsOn
+
+			var deps []string
+			for _, resConf := range svcConfig.ResourceConfigs {
+				deps = append(deps, resConf.Name.String())
+			}
+			deps = append(deps, c.ImplicitDependsOn...)
+			return svcConfig, deps
 		}
 	}
 

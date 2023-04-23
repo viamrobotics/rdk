@@ -30,13 +30,13 @@ func TestComponentRegistry(t *testing.T) {
 	rf := func(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (arm.Arm, error) {
 		return &fake.Arm{Named: conf.ResourceName().AsNamed()}, nil
 	}
-	modelName := resource.Model{Name: "x"}
+	model := resource.Model{Name: "x"}
 	test.That(t, func() {
-		resource.Register(acme.API, modelName, resource.Registration[arm.Arm, resource.NoNativeConfig]{})
+		resource.Register(acme.API, model, resource.Registration[arm.Arm, resource.NoNativeConfig]{})
 	}, test.ShouldPanic)
-	resource.Register(acme.API, modelName, resource.Registration[arm.Arm, resource.NoNativeConfig]{Constructor: rf})
+	resource.Register(acme.API, model, resource.Registration[arm.Arm, resource.NoNativeConfig]{Constructor: rf})
 
-	resInfo, ok := resource.LookupRegistration(acme.API, modelName)
+	resInfo, ok := resource.LookupRegistration(acme.API, model)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, resInfo, test.ShouldNotBeNil)
 	_, ok = resource.LookupRegistration(acme.API, resource.Model{Name: "z"})
@@ -47,8 +47,8 @@ func TestComponentRegistry(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resArm.Name().Name, test.ShouldEqual, "foo")
 
-	resource.Deregister(acme.API, modelName)
-	_, ok = resource.LookupRegistration(acme.API, modelName)
+	resource.Deregister(acme.API, model)
+	_, ok = resource.LookupRegistration(acme.API, model)
 	test.That(t, ok, test.ShouldBeFalse)
 
 	modelName2 := resource.DefaultServiceModel

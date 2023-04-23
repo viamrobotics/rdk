@@ -661,25 +661,40 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 		if !ok || len(reg.WeakDependencies) == 0 {
 			return
 		}
-		res, err := r.ResourceByName(resName)
-		if err != nil {
-			if !resource.IsNotAvailableError(err) {
-				r.Logger().Debugw("error finding resource to update with weak dependencies", "resource", resName, "error", err)
-			}
+		resNode, ok := r.manager.resources.Node(resName)
+		if !ok {
 			return
 		}
-		dependencies := make(resource.Dependencies, len(reg.WeakDependencies))
+		res, err := resNode.Resource()
+		if err != nil {
+			return
+		}
+		allDeps := make(resource.Dependencies, len(reg.WeakDependencies))
 		for _, dep := range reg.WeakDependencies {
 			switch dep {
 			case internal.ComponentDependencyWildcardMatcher:
 				for k, v := range components {
-					dependencies[k] = v
+					if k == resName {
+						continue
+					}
+					allDeps[k] = v
 				}
 			default:
 				// no other matchers supported right now. you could imagine a LiteralMatcher in the future
 			}
 		}
-		if err := res.Reconfigure(ctx, dependencies, conf); err != nil {
+		strongDeps, err := r.getDependencies(ctx, resName, resNode)
+		if err != nil {
+			r.Logger().Errorw("failed to get strong dependencies during weak update; skipping", "resource", resName, "error", err)
+			return
+		}
+		for name, dep := range strongDeps {
+			if _, ok := allDeps[name]; ok {
+				continue
+			}
+			allDeps[name] = dep
+		}
+		if err := res.Reconfigure(ctx, allDeps, conf); err != nil {
 			r.Logger().Errorw("failed to reconfigure resource with weak dependencies", "resource", resName, "error", err)
 		}
 	}

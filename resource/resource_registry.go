@@ -267,6 +267,7 @@ func makeGenericResourceRegistration[ResourceT Resource, ConfigT ConfigValidator
 		Discover:         typed.Discover,
 		isDefault:        typed.isDefault,
 		api:              typed.api,
+		configType:       typed.configType,
 	}
 	if typed.Constructor != nil {
 		reg.Constructor = func(

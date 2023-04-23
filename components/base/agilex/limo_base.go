@@ -50,12 +50,12 @@ func (m steeringMode) String() string {
 	return "Unknown"
 }
 
-var modelName = resource.DefaultModelFamily.WithModel("agilex-limo")
+var model = resource.DefaultModelFamily.WithModel("agilex-limo")
 
 func init() {
 	controllers = make(map[string]*controller)
 
-	resource.RegisterComponent(base.API, modelName, resource.Registration[base.Base, *Config]{
+	resource.RegisterComponent(base.API, model, resource.Registration[base.Base, *Config]{
 		Constructor: func(
 			ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger,
 		) (base.Base, error) {

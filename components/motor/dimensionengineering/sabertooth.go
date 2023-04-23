@@ -21,7 +21,7 @@ import (
 )
 
 // https://www.dimensionengineering.com/datasheets/Sabertooth2x60.pdf
-var modelName = resource.DefaultModelFamily.WithModel("de-sabertooth")
+var model = resource.DefaultModelFamily.WithModel("de-sabertooth")
 
 // controllers is global to all instances, mapped by serial device.
 var (
@@ -119,7 +119,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 func init() {
 	controllers = make(map[string]*controller)
 
-	resource.RegisterComponent(motor.API, modelName, resource.Registration[motor.Motor, *Config]{
+	resource.RegisterComponent(motor.API, model, resource.Registration[motor.Motor, *Config]{
 		Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (motor.Motor, error) {
 			newConf, err := resource.NativeConfig[*Config](conf)
 			if err != nil {

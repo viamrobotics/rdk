@@ -771,12 +771,12 @@ func TestStopAll(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	channel := make(chan struct{})
 
-	modelName := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
+	model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
 	dummyArm1 := dummyArm{channel: channel}
 	dummyArm2 := dummyArm{channel: channel}
 	resource.RegisterComponent(
 		arm.API,
-		modelName,
+		model,
 		resource.Registration[arm.Arm, resource.NoNativeConfig]{Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
@@ -803,7 +803,7 @@ func TestStopAll(t *testing.T) {
 			}
 		]
 	}
-	`, modelName.String())
+	`, model.String())
 	cfg, err := config.FromReader(context.Background(), "", strings.NewReader(armConfig), logger)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -897,11 +897,11 @@ func (db *dummyBoard) Close(ctx context.Context) error {
 func TestNewTeardown(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
-	modelName := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
+	model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
 	var dummyBoard1 dummyBoard
 	resource.RegisterComponent(
 		board.API,
-		modelName,
+		model,
 		resource.Registration[board.Board, resource.NoNativeConfig]{Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
@@ -912,7 +912,7 @@ func TestNewTeardown(t *testing.T) {
 		}})
 	resource.RegisterComponent(
 		gripper.API,
-		modelName,
+		model,
 		resource.Registration[gripper.Gripper, resource.NoNativeConfig]{Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
@@ -937,7 +937,7 @@ func TestNewTeardown(t *testing.T) {
         }
     ]
 }
-`, modelName)
+`, model)
 	cfg, err := config.FromReader(context.Background(), "", strings.NewReader(failingConfig), logger)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -2195,7 +2195,7 @@ func TestCheckMaxInstanceValid(t *testing.T) {
 		Components: []resource.Config{
 			{
 				Name:                "fake2",
-				Model:               fake.ModelName,
+				Model:               fake.Model,
 				API:                 arm.API,
 				ConvertedAttributes: &fake.Config{},
 			},
@@ -2242,13 +2242,13 @@ func TestCheckMaxInstanceInvalid(t *testing.T) {
 		Components: []resource.Config{
 			{
 				Name:                "fake2",
-				Model:               fake.ModelName,
+				Model:               fake.Model,
 				API:                 arm.API,
 				ConvertedAttributes: &fake.Config{},
 			},
 			{
 				Name:                "fake3",
-				Model:               fake.ModelName,
+				Model:               fake.Model,
 				API:                 arm.API,
 				ConvertedAttributes: &fake.Config{},
 			},

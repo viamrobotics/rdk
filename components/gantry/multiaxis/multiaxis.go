@@ -15,7 +15,7 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-var modelname = resource.DefaultModelFamily.WithModel("multiaxis")
+var model = resource.DefaultModelFamily.WithModel("multiaxis")
 
 // Config is used for converting multiAxis config attributes.
 type Config struct {
@@ -46,7 +46,7 @@ func (conf *Config) Validate(path string) ([]string, error) {
 }
 
 func init() {
-	resource.RegisterComponent(gantry.API, modelname, resource.Registration[gantry.Gantry, *Config]{
+	resource.RegisterComponent(gantry.API, model, resource.Registration[gantry.Gantry, *Config]{
 		Constructor: newMultiAxis,
 	})
 }

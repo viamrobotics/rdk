@@ -47,7 +47,7 @@ import (
 func init() {
 	resource.RegisterComponent(
 		board.API,
-		picommon.ModelName,
+		picommon.Model,
 		resource.Registration[board.Board, *genericlinux.Config]{
 			Constructor: func(
 				ctx context.Context,

@@ -23,7 +23,7 @@ const (
 )
 
 var (
-	modelName            = resource.DefaultModelFamily.WithModel("AMS-AS5048")
+	model                = resource.DefaultModelFamily.WithModel("AMS-AS5048")
 	scalingFactor        = 360.0 / math.Pow(2, 14)
 	supportedConnections = utils.NewStringSet(i2cConn)
 )
@@ -35,7 +35,7 @@ var waitTimeNano = (1.0 / 50.0) * 1000000000.0
 func init() {
 	resource.RegisterComponent(
 		encoder.API,
-		modelName,
+		model,
 		resource.Registration[encoder.Encoder, *Config]{
 			Constructor: newAS5048Encoder,
 		},

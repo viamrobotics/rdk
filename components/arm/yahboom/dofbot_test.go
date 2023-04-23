@@ -26,7 +26,7 @@ func TestDofBotIK(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 
-	model, err := Model("test")
+	model, err := MakeModelFrame("test")
 	test.That(t, err, test.ShouldBeNil)
 
 	goal := spatialmath.NewPose(

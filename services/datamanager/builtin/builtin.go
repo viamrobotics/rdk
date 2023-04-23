@@ -14,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/rdk/data"
+	"go.viam.com/rdk/internal"
 	"go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
@@ -43,6 +44,9 @@ func init() {
 
 				return nil
 			},
+			// NOTE(erd): this would be better as a weak dependencies returned through a more
+			// typed validate or different system.
+			WeakDependencies: []internal.ResourceMatcher{internal.ComponentDependencyWildcardMatcher},
 		})
 }
 
@@ -70,13 +74,9 @@ type Config struct {
 	ResourceConfigs       []*datamanager.DataCaptureConfig `json:"resource_configs"`
 }
 
+// components will be depended upon weakly due to the above matcher.
 func (c *Config) Validate(path string) ([]string, error) {
-	dependsOn := make([]string, 0, len(c.ResourceConfigs)+1)
-	dependsOn = append(dependsOn, cloud.InternalServiceName.String())
-	for _, conf := range c.ResourceConfigs {
-		dependsOn = append(dependsOn, conf.Name.String())
-	}
-	return dependsOn, nil
+	return []string{cloud.InternalServiceName.String()}, nil
 }
 
 // builtIn initializes and orchestrates data capture collectors for registered component/methods.
@@ -368,9 +368,7 @@ func (svc *builtIn) Reconfigure(
 	reinitSyncer := cloudConnSvc != svc.cloudConnSvc
 	svc.cloudConnSvc = cloudConnSvc
 
-	if err := updateDataCaptureConfigs(deps, svcConfig.ResourceConfigs, svcConfig.CaptureDir); err != nil {
-		return err
-	}
+	svc.updateDataCaptureConfigs(deps, svcConfig.ResourceConfigs, svcConfig.CaptureDir)
 
 	if !utils.IsTrustedEnvironment(ctx) && svcConfig.CaptureDir != "" && svcConfig.CaptureDir != viamCaptureDotDir {
 		return errCaptureDirectoryConfigurationDisabled
@@ -393,6 +391,10 @@ func (svc *builtIn) Reconfigure(
 	newCollectors := make(map[componentMethodMetadata]*collectorAndConfig)
 	if !svc.captureDisabled {
 		for _, resConf := range svcConfig.ResourceConfigs {
+			if resConf.Resource == nil {
+				// do not have the resource right now
+				continue
+			}
 			if !resConf.Disabled && resConf.CaptureFrequencyHz > 0 {
 				// Create component/method metadata to check if the collector exists.
 				methodMetadata := data.MethodMetadata{
@@ -533,19 +535,19 @@ func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 }
 
 // Build the component configs associated with the data manager service.
-func updateDataCaptureConfigs(
+func (svc *builtIn) updateDataCaptureConfigs(
 	resources resource.Dependencies,
 	resourceConfigs []*datamanager.DataCaptureConfig,
 	captureDir string,
-) error {
+) {
 	for _, resConf := range resourceConfigs {
 		res, err := resources.Lookup(resConf.Name)
 		if err != nil {
-			return err
+			svc.logger.Debugw("failed to lookup resource", "error", err)
+			continue
 		}
 
 		resConf.Resource = res
 		resConf.CaptureDirectory = captureDir
 	}
-	return nil
 }

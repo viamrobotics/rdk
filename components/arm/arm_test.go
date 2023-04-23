@@ -82,7 +82,7 @@ func TestCreateStatus(t *testing.T) {
 		return true, nil
 	}
 	injectArm.ModelFrameFunc = func() referenceframe.Model {
-		model, _ := ur.Model("ur5e")
+		model, _ := ur.MakeModelFrame("ur5e")
 		return model
 	}
 

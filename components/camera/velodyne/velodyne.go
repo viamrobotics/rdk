@@ -84,12 +84,12 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	return nil, nil
 }
 
-var modelname = resource.DefaultModelFamily.WithModel("velodyne")
+var model = resource.DefaultModelFamily.WithModel("velodyne")
 
 func init() {
 	resource.RegisterComponent(
 		camera.API,
-		modelname,
+		model,
 		resource.Registration[camera.Camera, *Config]{
 			Constructor: func(
 				ctx context.Context,

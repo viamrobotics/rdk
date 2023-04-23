@@ -14,10 +14,10 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-var modelname = resource.DefaultModelFamily.WithModel("gamepad")
+var model = resource.DefaultModelFamily.WithModel("gamepad")
 
 func init() {
-	resource.RegisterComponent(input.API, modelname, resource.Registration[input.Controller, resource.NoNativeConfig]{
+	resource.RegisterComponent(input.API, model, resource.Registration[input.Controller, resource.NoNativeConfig]{
 		Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (input.Controller, error) {
 			return nil, errors.New("gamepad input currently only supported on linux")
 		},

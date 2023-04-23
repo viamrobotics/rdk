@@ -11,7 +11,7 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-var modelname = resource.DefaultModelFamily.WithModel("fake")
+var model = resource.DefaultModelFamily.WithModel("fake")
 
 // Config is the config for a trossen gripper.
 type Config struct {
@@ -19,7 +19,7 @@ type Config struct {
 }
 
 func init() {
-	resource.RegisterComponent(gripper.API, modelname, resource.Registration[gripper.Gripper, *Config]{
+	resource.RegisterComponent(gripper.API, model, resource.Registration[gripper.Gripper, *Config]{
 		Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (gripper.Gripper, error) {
 			return &Gripper{
 				Named: conf.ResourceName().AsNamed(),

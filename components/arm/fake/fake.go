@@ -23,8 +23,8 @@ import (
 // errAttrCfgPopulation is the returned error if the Config's fields are fully populated.
 var errAttrCfgPopulation = errors.New("can only populate either ArmModel or ModelPath - not both")
 
-// ModelName is the string used to refer to the fake arm model.
-var ModelName = resource.DefaultModelFamily.WithModel("fake")
+// Model is the name used to refer to the fake arm model.
+var Model = resource.DefaultModelFamily.WithModel("fake")
 
 // Config is used for converting config attributes.
 type Config struct {
@@ -35,13 +35,13 @@ type Config struct {
 func modelFromName(model, name string) (referenceframe.Model, error) {
 	switch model {
 	case xarm.ModelName6DOF, xarm.ModelName7DOF, xarm.ModelNameLite:
-		return xarm.Model(name, model)
-	case ur.ModelName.Name:
-		return ur.Model(name)
-	case yahboom.ModelName.Name:
-		return yahboom.Model(name)
-	case eva.ModelName.Name:
-		return eva.Model(name)
+		return xarm.MakeModelFrame(name, model)
+	case ur.Model.Name:
+		return ur.MakeModelFrame(name)
+	case yahboom.Model.Name:
+		return yahboom.MakeModelFrame(name)
+	case eva.Model.Name:
+		return eva.MakeModelFrame(name)
 	default:
 		return nil, errors.Errorf("fake arm cannot be created, unsupported arm-model: %s", model)
 	}
@@ -62,7 +62,7 @@ func (conf *Config) Validate(path string) ([]string, error) {
 }
 
 func init() {
-	resource.RegisterComponent(arm.API, ModelName, resource.Registration[arm.Arm, *Config]{
+	resource.RegisterComponent(arm.API, Model, resource.Registration[arm.Arm, *Config]{
 		Constructor: NewArm,
 	})
 }

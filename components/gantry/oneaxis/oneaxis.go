@@ -21,7 +21,7 @@ import (
 	spatial "go.viam.com/rdk/spatialmath"
 )
 
-var modelname = resource.DefaultModelFamily.WithModel("oneaxis")
+var model = resource.DefaultModelFamily.WithModel("oneaxis")
 
 // Config is used for converting oneAxis config attributes.
 type Config struct {
@@ -87,7 +87,7 @@ func (cfg *Config) validate() ([]string, error) {
 }
 
 func init() {
-	resource.RegisterComponent(gantry.API, modelname, resource.Registration[gantry.Gantry, *Config]{
+	resource.RegisterComponent(gantry.API, model, resource.Registration[gantry.Gantry, *Config]{
 		Constructor: newOneAxis,
 	})
 }

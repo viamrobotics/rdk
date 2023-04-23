@@ -26,14 +26,14 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-// ModelName is the model used to refer to the yahboom model.
-var ModelName = resource.DefaultModelFamily.WithModel("yahboom-dofbot")
+// Model is the model used to refer to the yahboom model.
+var Model = resource.DefaultModelFamily.WithModel("yahboom-dofbot")
 
 //go:embed dofbot.json
 var modeljson []byte
 
-// Model returns the kinematics model of the yahboom arm, also has all Frame information.
-func Model(name string) (referenceframe.Model, error) {
+// MakeModelFrame returns the kinematics model of the yahboom arm, also has all Frame information.
+func MakeModelFrame(name string) (referenceframe.Model, error) {
 	return referenceframe.UnmarshalModelJSON(modeljson, name)
 }
 
@@ -87,7 +87,7 @@ func (conf *Config) Validate(path string) ([]string, error) {
 }
 
 func init() {
-	resource.RegisterComponent(arm.API, ModelName, resource.Registration[arm.Arm, *Config]{
+	resource.RegisterComponent(arm.API, Model, resource.Registration[arm.Arm, *Config]{
 		Constructor: NewDofBot,
 	})
 }
@@ -138,7 +138,7 @@ func NewDofBot(ctx context.Context, deps resource.Dependencies, conf resource.Co
 		return nil, err
 	}
 
-	a.model, err = Model(conf.Name)
+	a.model, err = MakeModelFrame(conf.Name)
 	if err != nil {
 		return nil, err
 	}

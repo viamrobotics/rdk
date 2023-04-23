@@ -47,7 +47,7 @@ func setupDependencies(mockData []byte) (resource.Config, resource.Dependencies)
 
 	cfg := resource.Config{
 		Name:  "encoder",
-		Model: modelName,
+		Model: model,
 		API:   encoder.API,
 		ConvertedAttributes: &Config{
 			BoardName:      testBoardName,
@@ -130,7 +130,7 @@ func setupDependenciesWithWrite(mockData []byte, writeData map[byte]byte) (resou
 
 	cfg := resource.Config{
 		Name:  "encoder",
-		Model: modelName,
+		Model: model,
 		API:   encoder.API,
 		ConvertedAttributes: &Config{
 			BoardName:      testBoardName,

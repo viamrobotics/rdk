@@ -71,7 +71,7 @@ func TestInterrupts(t *testing.T) {
 
 	cfg := resource.Config{
 		Name:  "movementsensor",
-		Model: modelName,
+		Model: model,
 		API:   movementsensor.API,
 		ConvertedAttributes: &Config{
 			BoardName: "board",
@@ -106,7 +106,7 @@ func TestInterrupts(t *testing.T) {
 	t.Run("interrupts have been found correctly only tap has been configured", func(t *testing.T) {
 		cfg := resource.Config{
 			Name:  "movementsensor",
-			Model: modelName,
+			Model: model,
 			API:   movementsensor.API,
 			ConvertedAttributes: &Config{
 				BoardName: "board",
@@ -129,7 +129,7 @@ func TestInterrupts(t *testing.T) {
 	t.Run("interrupts have been found correctly only freefall has been configured", func(t *testing.T) {
 		cfg = resource.Config{
 			Name:  "movementsensor",
-			Model: modelName,
+			Model: model,
 			API:   movementsensor.API,
 			ConvertedAttributes: &Config{
 				BoardName: "board",

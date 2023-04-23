@@ -5,5 +5,5 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-// ModelName is the name used refer to any implementation of a pi based component.
-var ModelName = resource.DefaultModelFamily.WithModel("pi")
+// Model is the name used refer to any implementation of a pi based component.
+var Model = resource.DefaultModelFamily.WithModel("pi")

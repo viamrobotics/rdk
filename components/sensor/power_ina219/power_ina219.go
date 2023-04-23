@@ -17,7 +17,7 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-var modelname = resource.DefaultModelFamily.WithModel("power_ina219")
+var model = resource.DefaultModelFamily.WithModel("power_ina219")
 
 const (
 	milliAmp                   = 1000 * 1000 // milliAmp = 1000 microAmpere * 1000 nanoAmpere
@@ -57,7 +57,7 @@ func (conf *Config) Validate(path string) ([]string, error) {
 func init() {
 	resource.RegisterComponent(
 		sensor.API,
-		modelname,
+		model,
 		resource.Registration[sensor.Sensor, *Config]{
 			Constructor: func(
 				ctx context.Context,

@@ -32,7 +32,7 @@ var (
 func init() {
 	resource.RegisterComponent(
 		servo.API,
-		picommon.ModelName,
+		picommon.Model,
 		resource.Registration[servo.Servo, *picommon.ServoConfig]{
 			Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (servo.Servo, error) {
 				newConf, err := resource.NativeConfig[*picommon.ServoConfig](conf)

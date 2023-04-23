@@ -13,10 +13,10 @@ import (
 
 // NOTE: Component NAME (in config file) must be set to "WebGamepad" exactly
 // This is because there's no way to get a component's model from a robot.Robot.
-var modelname = resource.DefaultModelFamily.WithModel("webgamepad")
+var model = resource.DefaultModelFamily.WithModel("webgamepad")
 
 func init() {
-	resource.RegisterComponent(input.API, modelname, resource.Registration[input.Controller, resource.NoNativeConfig]{
+	resource.RegisterComponent(input.API, model, resource.Registration[input.Controller, resource.NoNativeConfig]{
 		Constructor: NewController,
 	})
 }

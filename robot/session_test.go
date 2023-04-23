@@ -83,8 +83,8 @@ func TestSessions(t *testing.T) {
 			base1Name := base.Named("base1")
 			echo1Name := resource.NewName(echoAPI, "echo1")
 
-			modelName := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
-			streamModelName := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
+			model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
+			streamModel := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
 			dummyMotor1 := dummyMotor{Named: motor1Name.AsNamed(), stopCh: stopChs["motor1"].Chan}
 			dummyMotor2 := dummyMotor{Named: motor2Name.AsNamed(), stopCh: stopChs["motor2"].Chan}
 			dummyEcho1 := dummyEcho{
@@ -94,7 +94,7 @@ func TestSessions(t *testing.T) {
 			dummyBase1 := dummyBase{Named: base1Name.AsNamed(), stopCh: stopChs["base1"].Chan}
 			resource.RegisterComponent(
 				motor.API,
-				modelName,
+				model,
 				resource.Registration[motor.Motor, resource.NoNativeConfig]{Constructor: func(
 					ctx context.Context,
 					deps resource.Dependencies,
@@ -108,7 +108,7 @@ func TestSessions(t *testing.T) {
 				}})
 			resource.RegisterComponent(
 				echoAPI,
-				streamModelName,
+				streamModel,
 				resource.Registration[resource.Resource, resource.NoNativeConfig]{
 					Constructor: func(
 						ctx context.Context,
@@ -122,7 +122,7 @@ func TestSessions(t *testing.T) {
 			)
 			resource.RegisterComponent(
 				base.API,
-				modelName,
+				model,
 				resource.Registration[base.Base, resource.NoNativeConfig]{
 					Constructor: func(
 						ctx context.Context,
@@ -164,7 +164,7 @@ func TestSessions(t *testing.T) {
 					}
 				]
 			}
-			`, windowSize, modelName, streamModelName)
+			`, windowSize, model, streamModel)
 
 			cfg, err := config.FromReader(context.Background(), "", strings.NewReader(roboConfig), logger)
 			test.That(t, err, test.ShouldBeNil)
@@ -278,8 +278,8 @@ func TestSessionsWithRemote(t *testing.T) {
 
 	ensureStop := makeEnsureStop(stopChs)
 
-	modelName := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
-	streamModelName := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
+	model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
+	streamModel := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
 	motor1Name := motor.Named("motor1")
 	motor2Name := motor.Named("motor2")
 	base1Name := base.Named("base1")
@@ -292,7 +292,7 @@ func TestSessionsWithRemote(t *testing.T) {
 	dummyBase1 := dummyBase{Named: base1Name.AsNamed(), stopCh: stopChs["base1"].Chan}
 	resource.RegisterComponent(
 		motor.API,
-		modelName,
+		model,
 		resource.Registration[motor.Motor, resource.NoNativeConfig]{
 			Constructor: func(
 				ctx context.Context,
@@ -311,7 +311,7 @@ func TestSessionsWithRemote(t *testing.T) {
 		})
 	resource.RegisterComponent(
 		echoAPI,
-		streamModelName,
+		streamModel,
 		resource.Registration[resource.Resource, resource.NoNativeConfig]{
 			Constructor: func(
 				ctx context.Context,
@@ -325,7 +325,7 @@ func TestSessionsWithRemote(t *testing.T) {
 	)
 	resource.RegisterComponent(
 		base.API,
-		modelName,
+		model,
 		resource.Registration[base.Base, resource.NoNativeConfig]{
 			Constructor: func(
 				ctx context.Context,
@@ -377,7 +377,7 @@ func TestSessionsWithRemote(t *testing.T) {
 			}
 		]
 	}
-	`, modelName, streamModelName)
+	`, model, streamModel)
 
 	cfg, err := config.FromReader(context.Background(), "", strings.NewReader(remoteConfig), logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -410,7 +410,7 @@ func TestSessionsWithRemote(t *testing.T) {
 			}
 		]
 	}
-	`, remoteAddr, modelName)
+	`, remoteAddr, model)
 
 	cfg, err = config.FromReader(context.Background(), "", strings.NewReader(roboConfig), logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -546,12 +546,12 @@ func TestSessionsMixedClients(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	stopChMotor1 := make(chan struct{})
 
-	modelName := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
+	model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
 	motor1Name := motor.Named("motor1")
 	dummyMotor1 := dummyMotor{Named: motor1Name.AsNamed(), stopCh: stopChMotor1}
 	resource.RegisterComponent(
 		motor.API,
-		modelName,
+		model,
 		resource.Registration[motor.Motor, resource.NoNativeConfig]{
 			Constructor: func(
 				ctx context.Context,
@@ -572,7 +572,7 @@ func TestSessionsMixedClients(t *testing.T) {
 			}
 		]
 	}
-	`, modelName)
+	`, model)
 
 	cfg, err := config.FromReader(context.Background(), "", strings.NewReader(roboConfig), logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -635,12 +635,12 @@ func TestSessionsMixedOwnersNoAuth(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	stopChMotor1 := make(chan struct{})
 
-	modelName := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
+	model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
 	motor1Name := motor.Named("motor1")
 	dummyMotor1 := dummyMotor{Named: motor1Name.AsNamed(), stopCh: stopChMotor1}
 	resource.RegisterComponent(
 		motor.API,
-		modelName,
+		model,
 		resource.Registration[motor.Motor, resource.NoNativeConfig]{
 			Constructor: func(
 				ctx context.Context,
@@ -661,7 +661,7 @@ func TestSessionsMixedOwnersNoAuth(t *testing.T) {
 			}
 		]
 	}
-	`, modelName)
+	`, model)
 
 	cfg, err := config.FromReader(context.Background(), "", strings.NewReader(roboConfig), logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -736,12 +736,12 @@ func TestSessionsMixedOwnersImplicitAuth(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	stopChMotor1 := make(chan struct{})
 
-	modelName := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
+	model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
 	motor1Name := motor.Named("motor1")
 	dummyMotor1 := dummyMotor{Named: motor1Name.AsNamed(), stopCh: stopChMotor1}
 	resource.RegisterComponent(
 		motor.API,
-		modelName,
+		model,
 		resource.Registration[motor.Motor, resource.NoNativeConfig]{
 			Constructor: func(
 				ctx context.Context,
@@ -762,7 +762,7 @@ func TestSessionsMixedOwnersImplicitAuth(t *testing.T) {
 			}
 		]
 	}
-	`, modelName)
+	`, model)
 
 	cfg, err := config.FromReader(context.Background(), "", strings.NewReader(roboConfig), logger)
 	test.That(t, err, test.ShouldBeNil)

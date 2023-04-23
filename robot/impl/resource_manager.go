@@ -827,7 +827,7 @@ func (manager *resourceManager) updateResources(
 
 		_, err := manager.processManager.AddProcessFromConfig(ctx, p)
 		if err != nil {
-			manager.logger.Errorw("error while adding process, skipping", "process", p.ID, "error", err)
+			manager.logger.Errorw("error while adding process; skipping", "process", p.ID, "error", err)
 			continue
 		}
 	}
@@ -846,7 +846,7 @@ func (manager *resourceManager) updateResources(
 		}
 		_, err := manager.processManager.AddProcessFromConfig(ctx, p)
 		if err != nil {
-			manager.logger.Errorw("error while changing process, skipping", "process", p.ID, "error", err)
+			manager.logger.Errorw("error while changing process; skipping", "process", p.ID, "error", err)
 			continue
 		}
 	}

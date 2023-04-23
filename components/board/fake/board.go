@@ -61,12 +61,12 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	return nil, nil
 }
 
-var modelName = resource.DefaultModelFamily.WithModel("fake")
+var model = resource.DefaultModelFamily.WithModel("fake")
 
 func init() {
 	resource.RegisterComponent(
 		board.API,
-		modelName,
+		model,
 		resource.Registration[board.Board, *Config]{
 			Constructor: func(
 				ctx context.Context,

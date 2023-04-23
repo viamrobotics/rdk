@@ -108,7 +108,7 @@ func TestPiHardware(t *testing.T) {
 	})
 
 	t.Run("servo in/out", func(t *testing.T) {
-		servoReg, ok := resource.LookupRegistration(servo.API, picommon.ModelName)
+		servoReg, ok := resource.LookupRegistration(servo.API, picommon.Model)
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, servoReg, test.ShouldNotBeNil)
 		servoInt, err := servoReg.Constructor(
@@ -139,7 +139,7 @@ func TestPiHardware(t *testing.T) {
 		test.That(t, val, test.ShouldAlmostEqual, int64(1500), 500) // this is a tad noisy
 	})
 
-	motorReg, ok := resource.LookupRegistration(motor.API, picommon.ModelName)
+	motorReg, ok := resource.LookupRegistration(motor.API, picommon.Model)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, motorReg, test.ShouldNotBeNil)
 
