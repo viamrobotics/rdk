@@ -276,7 +276,7 @@ func toLinearAcceleration(data []byte) r3.Vector {
 	y := int(rutils.Int16FromBytesBE(data[2:4]))
 	z := int(rutils.Int16FromBytesBE(data[4:6]))
 
-	// The scale is +/- 2G's, but our units should be mm/sec/sec.
+	// The scale is +/- 2G's, but our units should be m/sec/sec.
 	maxAcceleration := 2.0 * 9.81 /* m/sec/sec */
 	return r3.Vector{
 		X: setScale(x, maxAcceleration),
