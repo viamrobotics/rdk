@@ -124,9 +124,9 @@ const updateCloud = (pointcloud: Uint8Array) => {
   const points = loader.parse(pointcloud.buffer);
   points.geometry.computeBoundingSphere();
 
-  const { radius = 1, center = { x: 0, z: 0 } } = points.geometry.boundingSphere ?? {};
-  camera.position.set(center.x, 100, center.z);// update
-  camera.lookAt(center.x, 0, center.z); // update
+  const { radius = 1, center = { x: 0, y: 0 } } = points.geometry.boundingSphere ?? {}; //update
+  camera.position.set(center.x, center.y, 100);// update
+  camera.lookAt(center.x, center.y, 0); // update
 
   const aspect = canvas.clientHeight / canvas.clientWidth;
   camera.zoom = aspect > 1
@@ -135,7 +135,7 @@ const updateCloud = (pointcloud: Uint8Array) => {
 
   camera.updateProjectionMatrix();
 
-  controls.target.set(center.x, 0, center.z); // update
+  controls.target.set(center.x, center.y, 0); // update
   controls.maxZoom = radius * 2;
 
   const intersectionPlane = new THREE.Mesh(
@@ -143,8 +143,8 @@ const updateCloud = (pointcloud: Uint8Array) => {
     new MeshDiscardMaterial()
   );
   intersectionPlane.name = 'Intersection Plane';
-  intersectionPlane.position.y = -1;  // update
-  intersectionPlane.position.set(center.x, 0, center.z); // update
+  intersectionPlane.position.z = -1;  // update
+  intersectionPlane.position.set(center.x, center.y, 0); // update
   raycaster.objects = [intersectionPlane];
 
   const colors = points.geometry.attributes.color;
@@ -168,9 +168,9 @@ const updateCloud = (pointcloud: Uint8Array) => {
 
 const updatePose = (newPose: commonApi.Pose) => {
   const x = newPose.getX();
-  const z = newPose.getZ(); // update
+  const y = newPose.getY(); // update
   marker.position.setX(x);
-  marker.position.setZ(z); // update
+  marker.position.setY(y); // update
 };
 
 onMounted(() => {
