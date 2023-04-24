@@ -78,12 +78,14 @@ func getTestMlModel(modelLoc string) (mlmodel.Service, error) {
 	}
 	return tflitecpu.NewTFLiteCPUModel(ctx, &cfg, name)
 }
+
 func TestCheckIfClassifierWorks(t *testing.T) {
 	modelLocDetector := artifact.MustPath("vision/tflite/effdet0.tflite")
 	ctx := context.Background()
 
 	// get detector model
 	mlm, err := getTestMlModel(modelLocDetector)
+	test.That(t, err, test.ShouldBeNil)
 
 	classifier, err := attemptToBuildClassifier(mlm)
 	test.That(t, err, test.ShouldBeNil)
@@ -96,6 +98,7 @@ func TestCheckIfClassifierWorks(t *testing.T) {
 	modelLocClassifier := artifact.MustPath("vision/tflite/mobilenetv2_class.tflite")
 
 	mlm, err = getTestMlModel(modelLocClassifier)
+	test.That(t, err, test.ShouldBeNil)
 
 	classifier, err = attemptToBuildClassifier(mlm)
 	test.That(t, err, test.ShouldBeNil)
@@ -111,6 +114,7 @@ func TestCheckIfDetectorWorks(t *testing.T) {
 	ctx := context.Background()
 
 	mlm, err := getTestMlModel(modelLocDetector)
+	test.That(t, err, test.ShouldBeNil)
 
 	detector, err := attemptToBuildDetector(mlm)
 	test.That(t, err, test.ShouldBeNil)
@@ -123,6 +127,7 @@ func TestCheckIfDetectorWorks(t *testing.T) {
 	modelLocClassifier := artifact.MustPath("vision/tflite/mobilenetv2_class.tflite")
 
 	mlm, err = getTestMlModel(modelLocClassifier)
+	test.That(t, err, test.ShouldBeNil)
 
 	detector, err = attemptToBuildDetector(mlm)
 	test.That(t, err, test.ShouldBeNil)
@@ -132,6 +137,7 @@ func TestCheckIfDetectorWorks(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, detector, test.ShouldBeNil)
 }
+
 func TestNewMLDetector(t *testing.T) {
 	// Test that a detector would give an expected output on the dog image
 	// Set it up as a ML Model
