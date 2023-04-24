@@ -103,7 +103,7 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, conn *grpc.Clie
 	mod := &module{name: conf.Name, exe: conf.ExePath, resources: map[resource.Name]*addedResource{}}
 	mgr.modules[conf.Name] = mod
 
-	if err := mod.startProcess(ctx, mgr.parentAddr, mgr.logger); err != nil {
+	if err := mod.startProcess(ctx, mgr.parentAddr, mgr.newOUE(mod), mgr.logger); err != nil {
 		return errors.WithMessage(err, "error while starting module "+mod.name)
 	}
 
@@ -349,6 +349,129 @@ func (mgr *Manager) getModule(conf resource.Config) (*module, bool) {
 	return nil, false
 }
 
+var (
+	// oueTimeout is the length of time for which an OnUnexpectedExit function
+	// can execute blocking calls.
+	oueTimeout = 2 * time.Minute
+	// oueRestartInterval is the interval of time at which an OnUnexpectedExit
+	// function can attempt to restart the module process. Multiple restart
+	// attempts will use basic backoff.
+	oueRestartInterval = 5 * time.Second
+)
+
+// newOUE returns the appropriate OnUnexpectedExit function for the passed-in
+// module to include in the pexec.ProcessConfig.
+func (mgr *Manager) newOUE(mod *module) func(exitCode int) bool {
+	return func(exitCode int) bool {
+		// Log error immediately, as this is unexpected behavior.
+		mgr.logger.Errorf(
+			"module %s has unexpectedly exited with exit code %d, attempting to restart it",
+			mod.name,
+			exitCode,
+		)
+
+		mgr.mu.Lock()
+
+		utils.UncheckedErrorFunc(func() error {
+			// Attempt to remove module's .sock file if module did not remove it
+			// already.
+			if _, err := os.Stat(mod.addr); err == nil {
+				return os.Remove(mod.addr)
+			}
+			return nil
+		})
+
+		var success bool
+		defer func() {
+			if !success {
+				// Release lock (successful unexpected exit handling will release lock
+				// later in this function), deregister module's resources, remove
+				// module, and close connection if restart fails. Process will already
+				// be stopped.
+				mgr.mu.Unlock()
+				mod.deregisterResources()
+				for r, m := range mgr.rMap {
+					if m == mod {
+						delete(mgr.rMap, r)
+					}
+				}
+				delete(mgr.modules, mod.name)
+				if mod.conn != nil {
+					if err := mod.conn.Close(); err != nil {
+						mgr.logger.Error(err,
+							"error while closing connection from crashed module "+mod.name)
+					}
+				}
+			}
+		}()
+
+		// Use oueTimeout for entire attempted module restart.
+		ctx, cancel := context.WithTimeout(context.Background(), oueTimeout)
+		defer cancel()
+
+		// No need to check mgr.untrustedEnv, as we're restarting the same
+		// executable we were given for initial module addition.
+
+		// Attempt to restart module process 3 times.
+		for attempt := 1; attempt < 4; attempt++ {
+			// TODO(benji) should we use newOUE again here? Or no OUE function? What
+			// happens with overlapping crashes of the same module?
+			if err := mod.startProcess(ctx, mgr.parentAddr, mgr.newOUE(mod), mgr.logger); err != nil {
+				mgr.logger.Errorf("attempt %d: error while restarting crashed module %s: %v",
+					attempt, mod.name, err)
+				if attempt == 3 {
+					// return early upon last attempt failure.
+					return false
+				}
+			} else {
+				break
+			}
+
+			// Sleep with a bit of backoff.
+			time.Sleep(time.Duration(attempt) * oueRestartInterval)
+		}
+
+		defer func() {
+			if !success {
+				// Stop restarted module process if there are later failures.
+				if err := mod.stopProcess(); err != nil {
+					mgr.logger.Error(err)
+				}
+			}
+		}()
+
+		// dial will re-use connection; old connection can still be used when module
+		// crashes.
+		if err := mod.dial(mod.conn); err != nil {
+			mgr.logger.Error(err, "error while dialing restarted module "+mod.name)
+			return false
+		}
+
+		if err := mod.checkReady(ctx, mgr.parentAddr); err != nil {
+			mgr.logger.Error(err,
+				"error while waiting for restarted module to be ready "+mod.name)
+			return false
+		}
+
+		// Add old module process' resources to new module; warn if new module
+		// cannot handle old resource and TODO(benji) notify local robot of orphan.
+		mgr.mu.Unlock() // Release lock for AddResource calls.
+		for name, res := range mod.resources {
+			if _, err := mgr.AddResource(ctx, res.conf, res.deps); err != nil {
+				mgr.logger.Warnf("error while re-adding resource %s to module %s: %v",
+					name, mod.name, err)
+				// TODO(benji) notify local robot of orphan.
+			}
+		}
+
+		// Set success to true. Since we handle process restarting ourselves,
+		// return false here so goutils knows not to attempt a process restart.
+		mgr.logger.Infof("module %s successfully restarted", mod.name)
+		success = true
+		return false
+	}
+}
+
 // dial will use the passed-in connection to make a new module service client
 // or Dial m.addr if the passed-in connection is nil.
 func (m *module) dial(conn *grpc.ClientConn) error {
@@ -395,16 +518,19 @@ func (m *module) checkReady(ctx context.Context, parentAddr string) error {
 	}
 }
 
-func (m *module) startProcess(ctx context.Context, parentAddr string, logger golog.Logger) error {
+func (m *module) startProcess(ctx context.Context, parentAddr string,
+	oue func(int) bool, logger golog.Logger,
+) error {
 	m.addr = filepath.ToSlash(filepath.Join(filepath.Dir(parentAddr), m.name+".sock"))
 	if err := modlib.CheckSocketAddressLength(m.addr); err != nil {
 		return err
 	}
 	pconf := pexec.ProcessConfig{
-		ID:   m.name,
-		Name: m.exe,
-		Args: []string{m.addr},
-		Log:  true,
+		ID:               m.name,
+		Name:             m.exe,
+		Args:             []string{m.addr},
+		Log:              true,
+		OnUnexpectedExit: oue,
 	}
 	m.process = pexec.NewManagedProcess(pconf, logger)
 

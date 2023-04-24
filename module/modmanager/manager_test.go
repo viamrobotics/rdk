@@ -52,7 +52,7 @@ func TestModManagerFunctions(t *testing.T) {
 
 	mod := &module{name: "test", exe: modExe}
 
-	err = mod.startProcess(ctx, parentAddr, logger)
+	err = mod.startProcess(ctx, parentAddr, nil, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	err = mod.dial(nil)
@@ -283,6 +283,74 @@ func TestModManagerValidation(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldResemble,
 		"rpc error: code = DeadlineExceeded desc = context deadline exceeded")
 
+	err = mgr.Close(ctx)
+	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestModuleReloading(t *testing.T) {
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+
+	// Precompile module to avoid timeout issues when building takes too long.
+	builder := exec.Command("go", "build", ".")
+	builder.Dir = utils.ResolveFile("module/testmodule")
+	out, err := builder.CombinedOutput()
+	test.That(t, string(out), test.ShouldEqual, "")
+	test.That(t, err, test.ShouldBeNil)
+
+	myHelperModel := resource.NewModel("rdk", "test", "helper")
+	rNameMyHelper := generic.Named("myhelper")
+	cfgMyHelper := resource.Config{
+		Name:  "myhelper",
+		API:   generic.API,
+		Model: myHelperModel,
+	}
+	_, err = cfgMyHelper.Validate("test", resource.APITypeComponentName)
+	test.That(t, err, test.ShouldBeNil)
+
+	// This cannot use t.TempDir() as the path it gives on MacOS exceeds module.MaxSocketAddressLength.
+	parentAddr, err := os.MkdirTemp("", "viam-test-*")
+	test.That(t, err, test.ShouldBeNil)
+	defer os.RemoveAll(parentAddr)
+	parentAddr += "/parent.sock"
+
+	mgr := NewManager(parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
+	modCfg := config.Module{
+		Name:    "test-module",
+		ExePath: utils.ResolveFile("module/testmodule/run.sh"),
+	}
+	err = mgr.Add(ctx, modCfg)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Add helper resource and ensure "echo" works correctly.
+	h, err := mgr.AddResource(ctx, cfgMyHelper, nil)
+	test.That(t, err, test.ShouldBeNil)
+	ok := mgr.IsModularResource(rNameMyHelper)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	resp, err := h.DoCommand(ctx, map[string]interface{}{"command": "echo"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldNotBeNil)
+	test.That(t, resp["command"], test.ShouldEqual, "echo")
+
+	// Run 'kill_module' command through helper resource to cause module to exit
+	// with error. Assert that within five seconds, helper is modularly managed
+	// again and remains functional.
+	_, err = h.DoCommand(ctx, map[string]interface{}{"command": "kill_module"})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring,
+		"error reading from server")
+
+	time.Sleep(5 * time.Second)
+	ok = mgr.IsModularResource(rNameMyHelper)
+	test.That(t, ok, test.ShouldBeTrue)
+	resp, err = h.DoCommand(ctx, map[string]interface{}{"command": "echo"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldNotBeNil)
+	test.That(t, resp["command"], test.ShouldEqual, "echo")
+
+	err = h.Close(ctx)
+	test.That(t, err, test.ShouldBeNil)
 	err = mgr.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)
 }
