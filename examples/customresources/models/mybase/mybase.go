@@ -22,7 +22,7 @@ var (
 )
 
 func init() {
-	resource.RegisterComponent(base.Subtype, Model, resource.Registration[base.Base, *MyBaseConfig]{
+	resource.RegisterComponent(base.API, Model, resource.Registration[base.Base, *MyBaseConfig]{
 		Constructor: newBase,
 	})
 }

@@ -23,16 +23,22 @@ type client struct {
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
-func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) Service {
+func NewClientFromConn(
+	ctx context.Context,
+	conn rpc.ClientConn,
+	remoteName string,
+	name resource.Name,
+	logger golog.Logger,
+) (Service, error) {
 	grpcClient := pb.NewMLModelServiceClient(conn)
 	c := &client{
-		Named:  name.AsNamed(),
-		name:   name.ShortNameForClient(),
+		Named:  name.PrependRemote(remoteName).AsNamed(),
+		name:   name.ShortName(),
 		conn:   conn,
 		client: grpcClient,
 		logger: logger,
 	}
-	return c
+	return c, nil
 }
 
 func (c *client) Infer(ctx context.Context, input map[string]interface{}) (map[string]interface{}, error) {

@@ -29,8 +29,8 @@ func NewSphere(offset Pose, radius float64, label string) (Geometry, error) {
 	return &sphere{offset, radius, label}, nil
 }
 
-func (s *sphere) MarshalJSON() ([]byte, error) {
-	config, err := NewGeometryConfig(s)
+func (s sphere) MarshalJSON() ([]byte, error) {
+	config, err := NewGeometryConfig(&s)
 	if err != nil {
 		return nil, err
 	}

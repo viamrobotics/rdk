@@ -172,7 +172,7 @@ func makeConfig(logger golog.Logger) (string, string, error) {
 		}},
 		Network: config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{BindAddress: "localhost:" + port}},
 		Components: []resource.Config{{
-			API:   generic.Subtype,
+			API:   generic.API,
 			Model: resource.NewModel("rdk", "test", "helper"),
 			Name:  "helper1",
 		}},

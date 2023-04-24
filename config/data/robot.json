@@ -47,8 +47,8 @@
         },
         {
             "name": "wristCam",
-            "type": "camera",
-            "model": "url",
+            "api": "rdk:component:camera",
+            "model": "rdk:builtin:url",
             "attributes": {
                 "color": "http://10.237.115.65:4242/current.jpg"
             }

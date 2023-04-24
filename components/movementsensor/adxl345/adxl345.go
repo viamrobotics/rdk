@@ -34,7 +34,7 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
-var modelName = resource.NewDefaultModel("accel-adxl345")
+var model = resource.DefaultModelFamily.WithModel("accel-adxl345")
 
 // Config is a description of how to find an ADXL345 accelerometer on the robot.
 type Config struct {
@@ -126,8 +126,8 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 
 func init() {
 	resource.RegisterComponent(
-		movementsensor.Subtype,
-		modelName,
+		movementsensor.API,
+		model,
 		resource.Registration[movementsensor.MovementSensor, *Config]{
 			Constructor: NewAdxl345,
 		})

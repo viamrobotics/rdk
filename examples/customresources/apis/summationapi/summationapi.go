@@ -12,15 +12,11 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-var Subtype = resource.NewSubtype(
-	resource.Namespace("acme"),
-	resource.ResourceTypeService,
-	resource.SubtypeName("summation"),
-)
+var API = resource.APINamespace("acme").WithServiceType("summation")
 
 // Named is a helper for getting the named Summation's typed resource name.
 func Named(name string) resource.Name {
-	return resource.NameFromSubtype(Subtype, name)
+	return resource.NewName(API, name)
 }
 
 // FromRobot is a helper for getting the named Summation from the given Robot.
@@ -29,12 +25,18 @@ func FromRobot(r robot.Robot, name string) (Summation, error) {
 }
 
 func init() {
-	resource.RegisterSubtype(Subtype, resource.SubtypeRegistration[Summation]{
+	resource.RegisterAPI(API, resource.APIRegistration[Summation]{
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           pb.RegisterSummationServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &pb.SummationService_ServiceDesc,
-		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (Summation, error) {
-			return newClientFromConn(conn, name, logger), nil
+		RPCClient: func(
+			ctx context.Context,
+			conn rpc.ClientConn,
+			remoteName string,
+			name resource.Name,
+			logger golog.Logger,
+		) (Summation, error) {
+			return newClientFromConn(conn, remoteName, name, logger), nil
 		},
 	})
 
@@ -46,17 +48,17 @@ type Summation interface {
 	Sum(ctx context.Context, nums []float64) (float64, error)
 }
 
-// subtypeServer implements the Summation RPC service from summation.proto.
-type subtypeServer struct {
+// serviceServer implements the Summation RPC service from summation.proto.
+type serviceServer struct {
 	pb.UnimplementedSummationServiceServer
-	coll resource.SubtypeCollection[Summation]
+	coll resource.APIResourceCollection[Summation]
 }
 
-func NewRPCServiceServer(coll resource.SubtypeCollection[Summation]) interface{} {
-	return &subtypeServer{coll: coll}
+func NewRPCServiceServer(coll resource.APIResourceCollection[Summation]) interface{} {
+	return &serviceServer{coll: coll}
 }
 
-func (s *subtypeServer) Sum(ctx context.Context, req *pb.SumRequest) (*pb.SumResponse, error) {
+func (s *serviceServer) Sum(ctx context.Context, req *pb.SumRequest) (*pb.SumResponse, error) {
 	g, err := s.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
@@ -68,15 +70,15 @@ func (s *subtypeServer) Sum(ctx context.Context, req *pb.SumRequest) (*pb.SumRes
 	return &pb.SumResponse{Sum: resp}, nil
 }
 
-func newClientFromConn(conn rpc.ClientConn, name resource.Name, logger golog.Logger) Summation {
-	sc := newSvcClientFromConn(conn, name, logger)
-	return clientFromSvcClient(sc, name.ShortNameForClient())
+func newClientFromConn(conn rpc.ClientConn, remoteName string, name resource.Name, logger golog.Logger) Summation {
+	sc := newSvcClientFromConn(conn, remoteName, name, logger)
+	return clientFromSvcClient(sc, name.ShortName())
 }
 
-func newSvcClientFromConn(conn rpc.ClientConn, name resource.Name, logger golog.Logger) *serviceClient {
+func newSvcClientFromConn(conn rpc.ClientConn, remoteName string, name resource.Name, logger golog.Logger) *serviceClient {
 	client := pb.NewSummationServiceClient(conn)
 	sc := &serviceClient{
-		Named:  name.AsNamed(),
+		Named:  name.PrependRemote(remoteName).AsNamed(),
 		client: client,
 		logger: logger,
 	}

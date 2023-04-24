@@ -46,7 +46,7 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-var model = resource.NewDefaultModel("gpiostepper")
+var model = resource.DefaultModelFamily.WithModel("gpiostepper")
 
 // PinConfig defines the mapping of where motor are wired.
 type PinConfig struct {
@@ -84,7 +84,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 }
 
 func init() {
-	resource.RegisterComponent(motor.Subtype, model, resource.Registration[motor.Motor, *Config]{
+	resource.RegisterComponent(motor.API, model, resource.Registration[motor.Motor, *Config]{
 		Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,

@@ -84,11 +84,11 @@ func (cfg *StationConfig) Validate(path string) ([]string, error) {
 	return deps, nil
 }
 
-var stationModel = resource.NewDefaultModel("rtk-station")
+var stationModel = resource.DefaultModelFamily.WithModel("rtk-station")
 
 func init() {
 	resource.RegisterComponent(
-		movementsensor.Subtype,
+		movementsensor.API,
 		stationModel,
 		resource.Registration[movementsensor.MovementSensor, *StationConfig]{
 			Constructor: newRTKStation,

@@ -20,7 +20,7 @@ func newServer() (pb.BaseServiceServer, *inject.Base, *inject.Base, error) {
 		base.Named(testBaseName): workingBase,
 		base.Named(failBaseName): brokenBase,
 	}
-	baseSvc, err := resource.NewSubtypeCollection(base.Subtype, bases)
+	baseSvc, err := resource.NewAPIResourceCollection(base.API, bases)
 	if err != nil {
 		return nil, nil, nil, err
 	}

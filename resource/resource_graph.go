@@ -187,26 +187,26 @@ func (g *Graph) Names() []Name {
 	return names
 }
 
-// FindNodesByShortNameAndSubtype will look for resources matching both the subtype and the name.
-func (g *Graph) FindNodesByShortNameAndSubtype(name Name) []Name {
+// FindNodesByShortNameAndAPI will look for resources matching both the API and the name.
+func (g *Graph) FindNodesByShortNameAndAPI(name Name) []Name {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	var ret []Name
 	for k, v := range g.nodes {
-		if name.Name == k.Name && name.Subtype == k.Subtype && v != nil {
+		if name.Name == k.Name && name.API == k.API && v != nil {
 			ret = append(ret, k)
 		}
 	}
 	return ret
 }
 
-// FindNodesBySubtype finds nodes with the given subtype.
-func (g *Graph) FindNodesBySubtype(subtype Subtype) []Name {
+// FindNodesByAPI finds nodes with the given API.
+func (g *Graph) FindNodesByAPI(api API) []Name {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	var ret []Name
 	for k := range g.nodes {
-		if k.Subtype == subtype {
+		if k.API == api {
 			ret = append(ret, k)
 		}
 	}
@@ -218,22 +218,21 @@ func (g *Graph) findNodesByShortName(name string) []Name {
 	hasRemote := strings.Contains(name, ":")
 	var matches []Name
 	for nodeName := range g.nodes {
-		switch nodeName.ResourceType {
-		case ResourceTypeComponent, ResourceTypeService:
-			if hasRemote {
-				// check the whole remote. we could technically check
-				// a prefix of the remote but thats excluded for now.
-				if nodeName.ShortName() == name {
-					matches = append(matches, nodeName)
-				}
-				continue
-			}
-
-			// check without the remote name
-			if nodeName.Name == name {
+		if !(nodeName.API.IsComponent() || nodeName.API.IsService()) {
+			continue
+		}
+		if hasRemote {
+			// check the whole remote. we could technically check
+			// a prefix of the remote but thats excluded for now.
+			if nodeName.ShortName() == name {
 				matches = append(matches, nodeName)
 			}
-		default:
+			continue
+		}
+
+		// check without the remote name
+		if nodeName.Name == name {
+			matches = append(matches, nodeName)
 		}
 	}
 	return matches

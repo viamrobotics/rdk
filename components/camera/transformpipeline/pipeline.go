@@ -22,11 +22,11 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-var model = resource.NewDefaultModel("transform")
+var model = resource.DefaultModelFamily.WithModel("transform")
 
 func init() {
 	resource.RegisterComponent(
-		camera.Subtype,
+		camera.API,
 		model,
 		resource.Registration[camera.Camera, *transformConfig]{
 			DeprecatedRobotConstructor: func(

@@ -127,12 +127,12 @@ func TestClient(t *testing.T) {
 		camera.Named(failCameraName):  injectCamera2,
 		camera.Named(depthCameraName): injectCameraDepth,
 	}
-	cameraSvc, err := resource.NewSubtypeCollection(camera.Subtype, resources)
+	cameraSvc, err := resource.NewAPIResourceCollection(camera.API, resources)
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype, ok, err := resource.LookupSubtypeRegistration[camera.Camera](camera.Subtype)
+	resourceAPI, ok, err := resource.LookupAPIRegistration[camera.Camera](camera.API)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, cameraSvc), test.ShouldBeNil)
+	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, cameraSvc), test.ShouldBeNil)
 
 	injectCamera.DoFunc = testutils.EchoFunc
 
@@ -150,7 +150,7 @@ func TestClient(t *testing.T) {
 	t.Run("camera client 1", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		camera1Client, err := camera.NewClientFromConn(context.Background(), conn, camera.Named(testCameraName), logger)
+		camera1Client, err := camera.NewClientFromConn(context.Background(), conn, "", camera.Named(testCameraName), logger)
 		test.That(t, err, test.ShouldBeNil)
 		ctx := gostream.WithMIMETypeHint(context.Background(), rutils.MimeTypeRawRGBA)
 		frame, _, err := camera.ReadImage(ctx, camera1Client)
@@ -188,7 +188,7 @@ func TestClient(t *testing.T) {
 	t.Run("camera client depth", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		client, err := resourceSubtype.RPCClient(context.Background(), conn, camera.Named(depthCameraName), logger)
+		client, err := resourceAPI.RPCClient(context.Background(), conn, "", camera.Named(depthCameraName), logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		ctx := gostream.WithMIMETypeHint(
@@ -209,7 +209,7 @@ func TestClient(t *testing.T) {
 	t.Run("camera client 2", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		client2, err := resourceSubtype.RPCClient(context.Background(), conn, camera.Named(failCameraName), logger)
+		client2, err := resourceAPI.RPCClient(context.Background(), conn, "", camera.Named(failCameraName), logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		_, _, err = camera.ReadImage(context.Background(), client2)
@@ -242,10 +242,10 @@ func TestClientProperties(t *testing.T) {
 
 	injectCamera := &inject.Camera{}
 	resources := map[resource.Name]camera.Camera{camera.Named(testCameraName): injectCamera}
-	svc, err := resource.NewSubtypeCollection(camera.Subtype, resources)
+	svc, err := resource.NewAPIResourceCollection(camera.API, resources)
 	test.That(t, err, test.ShouldBeNil)
 
-	rSubType, ok, err := resource.LookupSubtypeRegistration[camera.Camera](camera.Subtype)
+	rSubType, ok, err := resource.LookupAPIRegistration[camera.Camera](camera.API)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, rSubType.RegisterRPCService(context.Background(), server, svc), test.ShouldBeNil)
@@ -312,7 +312,7 @@ func TestClientProperties(t *testing.T) {
 			conn, err := viamgrpc.Dial(context.Background(), listener.Addr().String(), logger)
 			test.That(t, err, test.ShouldBeNil)
 
-			client, err := camera.NewClientFromConn(context.Background(), conn, camera.Named(testCameraName), logger)
+			client, err := camera.NewClientFromConn(context.Background(), conn, "", camera.Named(testCameraName), logger)
 			test.That(t, err, test.ShouldBeNil)
 			actualProps, err := client.Properties(context.Background())
 			test.That(t, err, test.ShouldBeNil)
@@ -353,19 +353,19 @@ func TestClientLazyImage(t *testing.T) {
 	resources := map[resource.Name]camera.Camera{
 		camera.Named(testCameraName): injectCamera,
 	}
-	cameraSvc, err := resource.NewSubtypeCollection(camera.Subtype, resources)
+	cameraSvc, err := resource.NewAPIResourceCollection(camera.API, resources)
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype, ok, err := resource.LookupSubtypeRegistration[camera.Camera](camera.Subtype)
+	resourceAPI, ok, err := resource.LookupAPIRegistration[camera.Camera](camera.API)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, cameraSvc), test.ShouldBeNil)
+	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, cameraSvc), test.ShouldBeNil)
 
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()
 
 	conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
-	camera1Client, err := camera.NewClientFromConn(context.Background(), conn, camera.Named(testCameraName), logger)
+	camera1Client, err := camera.NewClientFromConn(context.Background(), conn, "", camera.Named(testCameraName), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	ctx := gostream.WithMIMETypeHint(context.Background(), rutils.MimeTypePNG)

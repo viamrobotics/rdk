@@ -22,7 +22,7 @@ require (
 	github.com/edaniels/gobag v1.0.7-0.20220607183102-4242cd9e2848
 	github.com/edaniels/golinters v0.0.5-0.20220906153528-641155550742
 	github.com/edaniels/golog v0.0.0-20230215213219-28954395e8d0
-	github.com/edaniels/gostream v0.0.0-20230420210327-747ae2af921e
+	github.com/edaniels/gostream v0.0.0-20230423182328-e6007f21dfa3
 	github.com/edaniels/lidario v0.0.0-20220607182921-5879aa7b96dd
 	github.com/erh/scheme v0.0.0-20210304170849-99d295c6ce9a
 	github.com/fogleman/gg v1.3.0
@@ -83,7 +83,7 @@ require (
 	go.uber.org/zap v1.24.0
 	go.viam.com/api v0.1.116
 	go.viam.com/test v1.1.1-0.20220913152726-5da9916c08a2
-	go.viam.com/utils v0.1.20-0.20230420205943-ea8c41feeaa0
+	go.viam.com/utils v0.1.20-0.20230424163529-ce35a14fc60f
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.7.0
 	golang.org/x/tools v0.7.0
@@ -94,7 +94,6 @@ require (
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.2.0
 	google.golang.org/protobuf v1.30.0
 	gopkg.in/src-d/go-billy.v4 v4.3.2
-	gopkg.in/yaml.v2 v2.4.0
 	gotest.tools/gotestsum v1.8.2
 	periph.io/x/conn/v3 v3.7.0
 	periph.io/x/host/v3 v3.8.1-0.20230331112814-9f0d9f7d76db
@@ -368,6 +367,7 @@ require (
 	google.golang.org/appengine v1.6.7 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
+	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	honnef.co/go/tools v0.4.2 // indirect
 	howett.net/plist v1.0.0 // indirect

@@ -27,6 +27,11 @@
                 "name": "rdk:component:arm/remoteArm",
                 "method": "EndPosition",
                 "capture_frequency_hz": 100
+              },
+              {
+                "name": "rdk:component:arm/nonotthere",
+                "method": "EndPosition",
+                "capture_frequency_hz": 100
               }
             ]
           }

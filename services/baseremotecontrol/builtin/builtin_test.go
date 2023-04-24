@@ -53,7 +53,7 @@ func TestBaseRemoteControl(t *testing.T) {
 	tmpSvc, err := NewBuiltIn(ctx, deps,
 		resource.Config{
 			Name:                "base_remote_control",
-			API:                 baseremotecontrol.Subtype,
+			API:                 baseremotecontrol.API,
 			ConvertedAttributes: cfg,
 		},
 		logger)
@@ -65,7 +65,7 @@ func TestBaseRemoteControl(t *testing.T) {
 	tmpSvc1, err := NewBuiltIn(ctx, deps,
 		resource.Config{
 			Name:                "base_remote_control",
-			API:                 baseremotecontrol.Subtype,
+			API:                 baseremotecontrol.API,
 			ConvertedAttributes: cfg,
 		},
 		logger)
@@ -77,7 +77,7 @@ func TestBaseRemoteControl(t *testing.T) {
 	tmpSvc2, err := NewBuiltIn(ctx, deps,
 		resource.Config{
 			Name:                "base_remote_control",
-			API:                 baseremotecontrol.Subtype,
+			API:                 baseremotecontrol.API,
 			ConvertedAttributes: cfg,
 		},
 		logger)
@@ -89,7 +89,7 @@ func TestBaseRemoteControl(t *testing.T) {
 	tmpSvc3, err := NewBuiltIn(ctx, deps,
 		resource.Config{
 			Name:                "base_remote_control",
-			API:                 baseremotecontrol.Subtype,
+			API:                 baseremotecontrol.API,
 			ConvertedAttributes: cfg,
 		},
 		logger)
@@ -101,7 +101,7 @@ func TestBaseRemoteControl(t *testing.T) {
 	tmpSvc4, err := NewBuiltIn(ctx, deps,
 		resource.Config{
 			Name:                "base_remote_control",
-			API:                 baseremotecontrol.Subtype,
+			API:                 baseremotecontrol.API,
 			ConvertedAttributes: cfg,
 		},
 		logger)
@@ -116,7 +116,7 @@ func TestBaseRemoteControl(t *testing.T) {
 	_, err = NewBuiltIn(ctx, deps,
 		resource.Config{
 			Name:                "base_remote_control",
-			API:                 baseremotecontrol.Subtype,
+			API:                 baseremotecontrol.API,
 			ConvertedAttributes: cfg,
 		},
 		logger)
@@ -129,7 +129,7 @@ func TestBaseRemoteControl(t *testing.T) {
 	_, err = NewBuiltIn(ctx, deps,
 		resource.Config{
 			Name:                "base_remote_control",
-			API:                 baseremotecontrol.Subtype,
+			API:                 baseremotecontrol.API,
 			ConvertedAttributes: cfg,
 		},
 		logger)
@@ -141,7 +141,7 @@ func TestBaseRemoteControl(t *testing.T) {
 	_, err = NewBuiltIn(ctx, deps,
 		resource.Config{
 			Name:                "base_remote_control",
-			API:                 baseremotecontrol.Subtype,
+			API:                 baseremotecontrol.API,
 			ConvertedAttributes: cfg,
 		},
 		logger)

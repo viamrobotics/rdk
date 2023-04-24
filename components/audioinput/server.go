@@ -42,21 +42,21 @@ func init() {
 	}
 }
 
-// subtypeServer implements the AudioInputService from audioinput.proto.
-type subtypeServer struct {
+// serviceServer implements the AudioInputService from audioinput.proto.
+type serviceServer struct {
 	pb.UnimplementedAudioInputServiceServer
-	coll resource.SubtypeCollection[AudioInput]
+	coll resource.APIResourceCollection[AudioInput]
 }
 
 // NewRPCServiceServer constructs an audio input gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
-func NewRPCServiceServer(coll resource.SubtypeCollection[AudioInput]) interface{} {
-	return &subtypeServer{coll: coll}
+func NewRPCServiceServer(coll resource.APIResourceCollection[AudioInput]) interface{} {
+	return &serviceServer{coll: coll}
 }
 
 // Chunks returns audio chunks (samples) forever from an audio input of the underlying robot. A specific sampling
 // format can be requested but may not necessarily be the same one returned.
-func (s *subtypeServer) Chunks(req *pb.ChunksRequest, server pb.AudioInputService_ChunksServer) error {
+func (s *serviceServer) Chunks(req *pb.ChunksRequest, server pb.AudioInputService_ChunksServer) error {
 	audioInput, err := s.coll.Resource(req.Name)
 	if err != nil {
 		return err
@@ -166,7 +166,7 @@ func (s *subtypeServer) Chunks(req *pb.ChunksRequest, server pb.AudioInputServic
 }
 
 // Properties returns properties of an audio input of the underlying robot.
-func (s *subtypeServer) Properties(
+func (s *serviceServer) Properties(
 	ctx context.Context,
 	req *pb.PropertiesRequest,
 ) (*pb.PropertiesResponse, error) {
@@ -194,7 +194,7 @@ func (s *subtypeServer) Properties(
 // Record renders an audio chunk from an audio input of the underlying robot
 // to an HTTP response. A specific MIME type cannot be requested and may not necessarily
 // be the same one returned each time.
-func (s *subtypeServer) Record(
+func (s *serviceServer) Record(
 	ctx context.Context,
 	req *pb.RecordRequest,
 ) (*httpbody.HttpBody, error) {
@@ -309,7 +309,7 @@ func (s *subtypeServer) Record(
 }
 
 // DoCommand receives arbitrary commands.
-func (s *subtypeServer) DoCommand(ctx context.Context,
+func (s *serviceServer) DoCommand(ctx context.Context,
 	req *commonpb.DoCommandRequest,
 ) (*commonpb.DoCommandResponse, error) {
 	audioInput, err := s.coll.Resource(req.GetName())

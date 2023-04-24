@@ -18,7 +18,7 @@ listening on a unix socket in a temporary directory (ex: /tmp/viam-modules-89389
 These are each passed dedicated socket address of their own in the same directory, and based on the module name.
 (ex: /tmp/viam-modules-893893/acme.sock) The parent then queries this address with Ready() and waits for confirmation. The ready response
 also includes a HandlerMap that defines which protocols and models the module provides support for. The parent then registers these
-subtypes and models, with creator functions that call the manager's AddResource() method. Once all modules are started, normal robot
+APIs and models, with creator functions that call the manager's AddResource() method. Once all modules are started, normal robot
 loading continues.
 
 When resources or components are attempting to load that are not built in, their creator method calls AddResource() and a request is built

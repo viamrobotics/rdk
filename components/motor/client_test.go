@@ -95,12 +95,12 @@ func TestClient(t *testing.T) {
 		motor.Named(testMotorName): workingMotor,
 		motor.Named(failMotorName): failingMotor,
 	}
-	motorSvc, err := resource.NewSubtypeCollection(motor.Subtype, resourceMap)
+	motorSvc, err := resource.NewAPIResourceCollection(motor.API, resourceMap)
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype, ok, err := resource.LookupSubtypeRegistration[motor.Motor](motor.Subtype)
+	resourceAPI, ok, err := resource.LookupAPIRegistration[motor.Motor](motor.API)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, motorSvc), test.ShouldBeNil)
+	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, motorSvc), test.ShouldBeNil)
 
 	workingMotor.DoFunc = testutils.EchoFunc
 
@@ -117,7 +117,7 @@ func TestClient(t *testing.T) {
 
 	conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
-	workingMotorClient, err := motor.NewClientFromConn(context.Background(), conn, motor.Named(testMotorName), logger)
+	workingMotorClient, err := motor.NewClientFromConn(context.Background(), conn, "", motor.Named(testMotorName), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("client tests for working motor", func(t *testing.T) {
@@ -165,7 +165,7 @@ func TestClient(t *testing.T) {
 
 	conn, err = viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
-	failingMotorClient, err := motor.NewClientFromConn(context.Background(), conn, motor.Named(failMotorName), logger)
+	failingMotorClient, err := motor.NewClientFromConn(context.Background(), conn, "", motor.Named(failMotorName), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("client tests for failing motor", func(t *testing.T) {
@@ -203,7 +203,7 @@ func TestClient(t *testing.T) {
 	t.Run("dialed client tests for working motor", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		workingMotorDialedClient, err := motor.NewClientFromConn(context.Background(), conn, motor.Named(testMotorName), logger)
+		workingMotorDialedClient, err := motor.NewClientFromConn(context.Background(), conn, "", motor.Named(testMotorName), logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		pos, err := workingMotorDialedClient.Position(context.Background(), nil)
@@ -235,7 +235,7 @@ func TestClient(t *testing.T) {
 	t.Run("dialed client tests for failing motor", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		failingMotorDialedClient, err := motor.NewClientFromConn(context.Background(), conn, motor.Named(failMotorName), logger)
+		failingMotorDialedClient, err := motor.NewClientFromConn(context.Background(), conn, "", motor.Named(failMotorName), logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		err = failingMotorDialedClient.SetPower(context.Background(), 39.2, nil)

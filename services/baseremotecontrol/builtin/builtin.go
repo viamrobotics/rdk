@@ -32,10 +32,10 @@ const (
 	droneControl
 )
 
-var Subtype = baseremotecontrol.Subtype
+var API = baseremotecontrol.API
 
 func init() {
-	resource.RegisterService(baseremotecontrol.Subtype, resource.DefaultServiceModel, resource.Registration[baseremotecontrol.Service, *Config]{
+	resource.RegisterService(baseremotecontrol.API, resource.DefaultServiceModel, resource.Registration[baseremotecontrol.Service, *Config]{
 		Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,

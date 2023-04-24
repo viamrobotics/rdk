@@ -6,11 +6,9 @@ import (
 	"context"
 	"io"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	pb "go.viam.com/api/service/slam/v1"
-	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -19,29 +17,23 @@ import (
 
 // TBD 05/04/2022: Needs more work once GRPC is included (future PR).
 func init() {
-	resource.RegisterSubtype(Subtype, resource.SubtypeRegistration[Service]{
+	resource.RegisterAPI(API, resource.APIRegistration[Service]{
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           pb.RegisterSLAMServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &pb.SLAMService_ServiceDesc,
-		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (Service, error) {
-			return NewClientFromConn(ctx, conn, name, logger), nil
-		},
+		RPCClient:                   NewClientFromConn,
 	})
 }
 
 // SubtypeName is the name of the type of service.
-const SubtypeName = resource.SubtypeName("slam")
+const SubtypeName = "slam"
 
-// Subtype is a constant that identifies the slam resource subtype.
-var Subtype = resource.NewSubtype(
-	resource.ResourceNamespaceRDK,
-	resource.ResourceTypeService,
-	SubtypeName,
-)
+// API is a variable that identifies the slam resource API.
+var API = resource.APINamespaceRDK.WithServiceType(SubtypeName)
 
 // Named is a helper for getting the named service's typed resource name.
 func Named(name string) resource.Name {
-	return resource.NameFromSubtype(Subtype, name)
+	return resource.NewName(API, name)
 }
 
 // FromRobot is a helper for getting the named SLAM service from the given Robot.

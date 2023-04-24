@@ -17,7 +17,7 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-var modelname = resource.NewDefaultModel("softrobotics")
+var model = resource.DefaultModelFamily.WithModel("softrobotics")
 
 // Config is the config for a trossen gripper.
 type Config struct {
@@ -53,7 +53,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 }
 
 func init() {
-	resource.RegisterComponent(gripper.Subtype, modelname, resource.Registration[gripper.Gripper, *Config]{
+	resource.RegisterComponent(gripper.API, model, resource.Registration[gripper.Gripper, *Config]{
 		Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,

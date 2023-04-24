@@ -8,9 +8,9 @@ import (
 )
 
 type (
-	// DiscoveryQuery is a tuple of subtype (api) and model used to lookup discovery functions.
+	// DiscoveryQuery is a tuple of API and model used to lookup discovery functions.
 	DiscoveryQuery struct {
-		API   Subtype
+		API   API
 		Model Model
 	}
 
@@ -34,10 +34,10 @@ type (
 )
 
 func (e *DiscoverError) Error() string {
-	return fmt.Sprintf("failed to get discovery for subtype %q and model %q", e.Query.API, e.Query.Model)
+	return fmt.Sprintf("failed to get discovery for api %q and model %q", e.Query.API, e.Query.Model)
 }
 
-// NewDiscoveryQuery returns a discovery query for a given subtype and model.
-func NewDiscoveryQuery(subtype Subtype, model Model) DiscoveryQuery {
-	return DiscoveryQuery{subtype, model}
+// NewDiscoveryQuery returns a discovery query for a given API and model.
+func NewDiscoveryQuery(api API, model Model) DiscoveryQuery {
+	return DiscoveryQuery{api, model}
 }

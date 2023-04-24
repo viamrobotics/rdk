@@ -16,11 +16,11 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-var model = resource.NewDefaultModel("microphone")
+var model = resource.DefaultModelFamily.WithModel("microphone")
 
 func init() {
 	resource.RegisterComponent(
-		audioinput.Subtype,
+		audioinput.API,
 		model,
 		resource.Registration[audioinput.AudioInput, *Config]{
 			Constructor: func(

@@ -15,10 +15,10 @@ import (
 	"go.viam.com/rdk/rimage/transform"
 )
 
-var fileModel = resource.NewDefaultModel("image_file")
+var fileModel = resource.DefaultModelFamily.WithModel("image_file")
 
 func init() {
-	resource.RegisterComponent(camera.Subtype, fileModel,
+	resource.RegisterComponent(camera.API, fileModel,
 		resource.Registration[camera.Camera, *fileSourceConfig]{
 			Constructor: func(ctx context.Context, _ resource.Dependencies,
 				conf resource.Config, logger golog.Logger,

@@ -141,7 +141,7 @@ func TestPiPigpio(t *testing.T) {
 	})
 
 	t.Run("servo in/out", func(t *testing.T) {
-		servoReg, ok := resource.LookupRegistration(servo.Subtype, picommon.ModelName)
+		servoReg, ok := resource.LookupRegistration(servo.API, picommon.Model)
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, servoReg, test.ShouldNotBeNil)
 		servoInt, err := servoReg.Constructor(
@@ -176,7 +176,7 @@ func TestPiPigpio(t *testing.T) {
 	})
 
 	t.Run("servo initialize with pin error", func(t *testing.T) {
-		servoReg, ok := resource.LookupRegistration(servo.Subtype, picommon.ModelName)
+		servoReg, ok := resource.LookupRegistration(servo.API, picommon.Model)
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, servoReg, test.ShouldNotBeNil)
 		_, err := servoReg.Constructor(
@@ -193,7 +193,7 @@ func TestPiPigpio(t *testing.T) {
 
 	t.Run("check new servo defaults", func(t *testing.T) {
 		ctx := context.Background()
-		servoReg, ok := resource.LookupRegistration(servo.Subtype, picommon.ModelName)
+		servoReg, ok := resource.LookupRegistration(servo.API, picommon.Model)
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, servoReg, test.ShouldNotBeNil)
 		servoInt, err := servoReg.Constructor(
@@ -215,7 +215,7 @@ func TestPiPigpio(t *testing.T) {
 
 	t.Run("check set default position", func(t *testing.T) {
 		ctx := context.Background()
-		servoReg, ok := resource.LookupRegistration(servo.Subtype, picommon.ModelName)
+		servoReg, ok := resource.LookupRegistration(servo.API, picommon.Model)
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, servoReg, test.ShouldNotBeNil)
 

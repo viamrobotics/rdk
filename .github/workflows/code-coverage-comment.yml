@@ -37,8 +37,8 @@ jobs:
           recreate: true
           message: |
             AppImages ready!
-            <http://packages.viam.com/apps/viam-server/viam-server-pr-${{ env.PR_NUMBER }}-x86_64.AppImage>
-            <http://packages.viam.com/apps/viam-server/viam-server-pr-${{ env.PR_NUMBER }}-aarch64.AppImage>
+            <https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-pr-${{ env.PR_NUMBER }}-x86_64.AppImage>
+            <https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-pr-${{ env.PR_NUMBER }}-aarch64.AppImage>
 
       - name: Add Static Build Links
         if: ${{ env.STATIC }}
@@ -49,5 +49,5 @@ jobs:
           recreate: true
           message: |
             Static binaries ready!
-            <http://packages.viam.com/apps/viam-server/viam-server-pr-${{ env.PR_NUMBER }}-x86_64>
-            <http://packages.viam.com/apps/viam-server/viam-server-pr-${{ env.PR_NUMBER }}-aarch64>
+            <https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-pr-${{ env.PR_NUMBER }}-x86_64>
+            <https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-pr-${{ env.PR_NUMBER }}-aarch64>

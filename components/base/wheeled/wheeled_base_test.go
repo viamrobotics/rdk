@@ -18,7 +18,7 @@ import (
 func newTestCfg() resource.Config {
 	return resource.Config{
 		Name:  "test",
-		API:   base.Subtype,
+		API:   base.API,
 		Model: resource.Model{Name: "wheeled_base"},
 		ConvertedAttributes: &Config{
 			WidthMM:              100,
@@ -48,7 +48,7 @@ func TestWheelBaseMath(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 	testCfg := newTestCfg()
-	deps, err := testCfg.Validate("path", resource.ResourceTypeComponent)
+	deps, err := testCfg.Validate("path", resource.APITypeComponentName)
 	test.That(t, err, test.ShouldBeNil)
 	motorDeps := fakeMotorDependencies(t, deps)
 
@@ -320,7 +320,7 @@ func TestWheeledBaseConstructor(t *testing.T) {
 
 	// valid config
 	testCfg := newTestCfg()
-	deps, err := testCfg.Validate("path", resource.ResourceTypeComponent)
+	deps, err := testCfg.Validate("path", resource.APITypeComponentName)
 	test.That(t, err, test.ShouldBeNil)
 	motorDeps := fakeMotorDependencies(t, deps)
 

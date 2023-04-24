@@ -11,17 +11,17 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-type subtypeServer struct {
+type serviceServer struct {
 	pb.UnimplementedMovementSensorServiceServer
-	coll resource.SubtypeCollection[MovementSensor]
+	coll resource.APIResourceCollection[MovementSensor]
 }
 
-// NewRPCServiceServer constructs an MovementSensor gRPC service subtypeServer.
-func NewRPCServiceServer(coll resource.SubtypeCollection[MovementSensor]) interface{} {
-	return &subtypeServer{coll: coll}
+// NewRPCServiceServer constructs an MovementSensor gRPC service serviceServer.
+func NewRPCServiceServer(coll resource.APIResourceCollection[MovementSensor]) interface{} {
+	return &serviceServer{coll: coll}
 }
 
-func (s *subtypeServer) GetPosition(
+func (s *serviceServer) GetPosition(
 	ctx context.Context,
 	req *pb.GetPositionRequest,
 ) (*pb.GetPositionResponse, error) {
@@ -39,7 +39,7 @@ func (s *subtypeServer) GetPosition(
 	}, nil
 }
 
-func (s *subtypeServer) GetLinearVelocity(
+func (s *serviceServer) GetLinearVelocity(
 	ctx context.Context,
 	req *pb.GetLinearVelocityRequest,
 ) (*pb.GetLinearVelocityResponse, error) {
@@ -56,7 +56,7 @@ func (s *subtypeServer) GetLinearVelocity(
 	}, nil
 }
 
-func (s *subtypeServer) GetAngularVelocity(
+func (s *serviceServer) GetAngularVelocity(
 	ctx context.Context,
 	req *pb.GetAngularVelocityRequest,
 ) (*pb.GetAngularVelocityResponse, error) {
@@ -73,7 +73,7 @@ func (s *subtypeServer) GetAngularVelocity(
 	}, nil
 }
 
-func (s *subtypeServer) GetCompassHeading(
+func (s *serviceServer) GetCompassHeading(
 	ctx context.Context,
 	req *pb.GetCompassHeadingRequest,
 ) (*pb.GetCompassHeadingResponse, error) {
@@ -90,7 +90,7 @@ func (s *subtypeServer) GetCompassHeading(
 	}, nil
 }
 
-func (s *subtypeServer) GetOrientation(
+func (s *serviceServer) GetOrientation(
 	ctx context.Context,
 	req *pb.GetOrientationRequest,
 ) (*pb.GetOrientationResponse, error) {
@@ -107,7 +107,7 @@ func (s *subtypeServer) GetOrientation(
 	}, nil
 }
 
-func (s *subtypeServer) GetProperties(
+func (s *serviceServer) GetProperties(
 	ctx context.Context,
 	req *pb.GetPropertiesRequest,
 ) (*pb.GetPropertiesResponse, error) {
@@ -119,7 +119,7 @@ func (s *subtypeServer) GetProperties(
 	return (*pb.GetPropertiesResponse)(prop), err
 }
 
-func (s *subtypeServer) GetAccuracy(
+func (s *serviceServer) GetAccuracy(
 	ctx context.Context,
 	req *pb.GetAccuracyRequest,
 ) (*pb.GetAccuracyResponse, error) {
@@ -131,7 +131,7 @@ func (s *subtypeServer) GetAccuracy(
 	return &pb.GetAccuracyResponse{Accuracy: acc}, err
 }
 
-func (s *subtypeServer) GetLinearAcceleration(
+func (s *serviceServer) GetLinearAcceleration(
 	ctx context.Context,
 	req *pb.GetLinearAccelerationRequest,
 ) (*pb.GetLinearAccelerationResponse, error) {
@@ -149,7 +149,7 @@ func (s *subtypeServer) GetLinearAcceleration(
 }
 
 // DoCommand receives arbitrary commands.
-func (s *subtypeServer) DoCommand(ctx context.Context,
+func (s *serviceServer) DoCommand(ctx context.Context,
 	req *commonpb.DoCommandRequest,
 ) (*commonpb.DoCommandResponse, error) {
 	msDevice, err := s.coll.Resource(req.GetName())

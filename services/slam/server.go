@@ -14,20 +14,20 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-// subtypeServer implements the SLAMService from the slam proto.
-type subtypeServer struct {
+// serviceServer implements the SLAMService from the slam proto.
+type serviceServer struct {
 	pb.UnimplementedSLAMServiceServer
-	coll resource.SubtypeCollection[Service]
+	coll resource.APIResourceCollection[Service]
 }
 
 // NewRPCServiceServer constructs a the slam gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
-func NewRPCServiceServer(coll resource.SubtypeCollection[Service]) interface{} {
-	return &subtypeServer{coll: coll}
+func NewRPCServiceServer(coll resource.APIResourceCollection[Service]) interface{} {
+	return &serviceServer{coll: coll}
 }
 
 // GetPosition returns a Pose and a component reference string of the robot's current location according to SLAM.
-func (server *subtypeServer) GetPosition(ctx context.Context, req *pb.GetPositionRequest) (
+func (server *serviceServer) GetPosition(ctx context.Context, req *pb.GetPositionRequest) (
 	*pb.GetPositionResponse, error,
 ) {
 	ctx, span := trace.StartSpan(ctx, "slam::server::GetPosition")
@@ -51,7 +51,7 @@ func (server *subtypeServer) GetPosition(ctx context.Context, req *pb.GetPositio
 
 // GetPointCloudMap returns the slam service's slam algo's current map state in PCD format as
 // a stream of byte chunks.
-func (server *subtypeServer) GetPointCloudMap(req *pb.GetPointCloudMapRequest,
+func (server *serviceServer) GetPointCloudMap(req *pb.GetPointCloudMapRequest,
 	stream pb.SLAMService_GetPointCloudMapServer,
 ) error {
 	ctx := context.Background()
@@ -90,7 +90,7 @@ func (server *subtypeServer) GetPointCloudMap(req *pb.GetPointCloudMapRequest,
 
 // GetInternalState returns the internal state of the slam service's slam algo in a stream of
 // byte chunks.
-func (server *subtypeServer) GetInternalState(req *pb.GetInternalStateRequest,
+func (server *serviceServer) GetInternalState(req *pb.GetInternalStateRequest,
 	stream pb.SLAMService_GetInternalStateServer,
 ) error {
 	ctx := context.Background()
@@ -127,7 +127,7 @@ func (server *subtypeServer) GetInternalState(req *pb.GetInternalStateRequest,
 }
 
 // DoCommand receives arbitrary commands.
-func (server *subtypeServer) DoCommand(ctx context.Context,
+func (server *serviceServer) DoCommand(ctx context.Context,
 	req *commonpb.DoCommandRequest,
 ) (*commonpb.DoCommandResponse, error) {
 	ctx, span := trace.StartSpan(ctx, "slam::server::DoCommand")

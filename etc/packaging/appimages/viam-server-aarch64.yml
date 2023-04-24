@@ -12,8 +12,6 @@ script:
  - cp ./viam-server.service "$TARGET_APPDIR/"
  - go install -ldflags "-s -w" -tags osusergo,netgo github.com/Otterverse/aix@latest
  - cp `go env GOPATH`/bin/aix "$TARGET_APPDIR/usr/bin/"
- - upx -l "$TARGET_APPDIR/usr/bin/viam-server" || upx --best --lzma "$TARGET_APPDIR/usr/bin/viam-server"
- - upx --best --lzma "$TARGET_APPDIR/usr/bin/aix"
  - cp `which env` "$TARGET_APPDIR/usr/bin/"
  - chmod 755 "$TARGET_APPDIR/usr/bin/"*
 
@@ -49,4 +47,4 @@ AppDir:
         AIX_TARGET: usr/bin/viam-server
 AppImage:
   arch: aarch64
-  update-information: zsync|http://packages.viam.com/apps/viam-server/viam-server-${BUILD_CHANNEL}-aarch64.AppImage.zsync
+  update-information: zsync|https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-${BUILD_CHANNEL}-aarch64.AppImage.zsync

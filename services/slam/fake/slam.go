@@ -12,13 +12,13 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-var model = resource.NewDefaultModel("fake")
+var model = resource.DefaultModelFamily.WithModel("fake")
 
 const datasetDirectory = "slam/example_cartographer_outputs/viam-office-02-22-1"
 
 func init() {
 	resource.RegisterService(
-		slam.Subtype,
+		slam.API,
 		model,
 		resource.Registration[slam.Service, resource.NoNativeConfig]{
 			Constructor: func(

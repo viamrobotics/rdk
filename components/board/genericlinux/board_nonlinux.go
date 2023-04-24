@@ -18,8 +18,8 @@ import (
 // creates a board, and instead returns errors about making a Linux board on a non-Linux OS.
 func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping, usePeriphGpio bool) {
 	resource.RegisterComponent(
-		board.Subtype,
-		resource.NewDefaultModel(resource.ModelName(modelName)),
+		board.API,
+		resource.DefaultModelFamily.WithModel(modelName),
 		resource.Registration[board.Board, resource.NoNativeConfig]{
 			Constructor: func(
 				ctx context.Context,
