@@ -90,7 +90,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
     strategy:
       matrix:
-        arch: [[x64, qemu-host], [arm64, qemu-host]]
+        arch: [[x64, qemu-host], [arm64, qemu-host], [arm64, pi4]]
     needs: appimage
     runs-on: ${{ matrix.arch }}
     timeout-minutes: 15
