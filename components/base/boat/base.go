@@ -244,6 +244,10 @@ func (b *boat) SetPower(ctx context.Context, linear, angular r3.Vector, extra ma
 	ctx, done := b.opMgr.New(ctx)
 	defer done()
 
+	if rdkutils.Float64AlmostEqual(linear.Y, 0.0, 1) && rdkutils.Float64AlmostEqual(angular.Z, 0.0, 1) {
+		b.logger.Info("the received inputs resulted in a speed of 0")
+	}
+
 	b.stateMutex.Lock()
 	b.state.velocityControlled = false
 	b.stateMutex.Unlock()
