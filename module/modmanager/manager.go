@@ -414,8 +414,6 @@ func (mgr *Manager) newOUE(mod *module) func(exitCode int) bool {
 
 		// Attempt to restart module process 3 times.
 		for attempt := 1; attempt < 4; attempt++ {
-			// TODO(benji) should we use newOUE again here? Or no OUE function? What
-			// happens with overlapping crashes of the same module?
 			if err := mod.startProcess(ctx, mgr.parentAddr, mgr.newOUE(mod), mgr.logger); err != nil {
 				mgr.logger.Errorf("attempt %d: error while restarting crashed module %s: %v",
 					attempt, mod.name, err)
