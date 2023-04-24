@@ -70,7 +70,7 @@ type Model struct {
 	resource.Named
 	resource.AlwaysRebuild
 	resource.TriviallyCloseable
-	attrs    TFLiteConfig
+	conf     TFLiteConfig
 	model    *inf.TFLiteStruct
 	metadata *mlmodel.MLMetadata
 	logger   golog.Logger
@@ -120,7 +120,7 @@ func NewTFLiteCPUModel(ctx context.Context, params *TFLiteConfig, name resource.
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not add model from location %s", params.ModelPath)
 	}
-	return &Model{Named: name.AsNamed(), attrs: *params, model: model, logger: logger}, nil
+	return &Model{Named: name.AsNamed(), conf: *params, model: model, logger: logger}, nil
 }
 
 // Infer takes the input map and uses the inference package to
@@ -135,15 +135,23 @@ func (m *Model) Infer(ctx context.Context, input map[string]interface{}) (map[st
 		if err != nil {
 			return nil, errors.Wrapf(err, "couldn't infer from model %q", m.Name())
 		}
+
 		// Fill in the output map with the names from metadata if u have them
 		// Otherwise, do output1, output2, etc.
-		for i := 0; i < len(m.model.Info.OutputTensorTypes); i++ {
-			if m.metadata.Outputs[i].Name != "" {
-				outMap[m.metadata.Outputs[i].Name] = outTensors[i]
-			} else {
+		if n := len(m.metadata.Outputs); n >= len(m.model.Info.OutputTensorTypes) {
+			for i := 0; i < n; i++ {
+				if m.metadata.Outputs[i].Name != "" {
+					outMap[m.metadata.Outputs[i].Name] = outTensors[i]
+				} else {
+					outMap["output"+strconv.Itoa(i)] = outTensors[i]
+				}
+			}
+		} else {
+			for i := 0; i < n; i++ {
 				outMap["output"+strconv.Itoa(i)] = outTensors[i]
 			}
 		}
+
 		return outMap, nil
 	}
 
@@ -222,9 +230,9 @@ func (m *Model) Metadata(ctx context.Context) (mlmodel.MLMetadata, error) {
 		outputT := md.SubgraphMetadata[0].OutputTensorMetadata[i]
 		td := getTensorInfo(outputT)
 		if (strings.Contains(td.Name, "category") || strings.Contains(td.Name, "probability")) &&
-			m.attrs.LabelPath != nil {
+			m.conf.LabelPath != nil {
 			td.Extra = map[string]interface{}{
-				"labels": *m.attrs.LabelPath,
+				"labels": *m.conf.LabelPath,
 			}
 		}
 		td.DataType = strings.ToLower(m.model.Info.OutputTensorTypes[i]) // grab from model info, not metadata

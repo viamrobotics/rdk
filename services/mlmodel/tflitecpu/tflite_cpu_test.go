@@ -43,7 +43,7 @@ func TestTFLiteCPUDetector(t *testing.T) {
 	got := out.(*Model)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, got.model, test.ShouldNotBeNil)
-	test.That(t, got.attrs, test.ShouldNotBeNil)
+	test.That(t, got.conf, test.ShouldNotBeNil)
 	test.That(t, got.metadata, test.ShouldBeNil)
 
 	// Test that the Metadata() works on detector
@@ -93,7 +93,7 @@ func TestTFLiteCPUClassifier(t *testing.T) {
 	got := out.(*Model)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, got.model, test.ShouldNotBeNil)
-	test.That(t, got.attrs, test.ShouldNotBeNil)
+	test.That(t, got.conf, test.ShouldNotBeNil)
 	test.That(t, got.metadata, test.ShouldBeNil)
 
 	// Test that the Metadata() works on classifier
@@ -142,7 +142,7 @@ func TestTFLiteCPUTextModel(t *testing.T) {
 	got := out.(*Model)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, got.model, test.ShouldNotBeNil)
-	test.That(t, got.attrs, test.ShouldNotBeNil)
+	test.That(t, got.conf, test.ShouldNotBeNil)
 	test.That(t, got.metadata, test.ShouldBeNil)
 
 	// Test that the Metadata() does not error even when there is none
