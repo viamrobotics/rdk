@@ -53,7 +53,7 @@ renderer.setClearColor(color, 1);
 
 canvas.style.cssText = 'width:100%;height:100%;';
 
-const camera = new THREE.OrthographicCamera(-1, 1, 0.5, -0.5, -1, 1000);
+const camera = new THREE.OrthographicCamera(-1, 1, 0.5, -0.5, -1, 1000); // update?
 camera.userData.size = 2;
 setCamera(camera);
 scene.add(camera);
@@ -125,8 +125,8 @@ const updateCloud = (pointcloud: Uint8Array) => {
   points.geometry.computeBoundingSphere();
 
   const { radius = 1, center = { x: 0, z: 0 } } = points.geometry.boundingSphere ?? {};
-  camera.position.set(center.x, 100, center.z);
-  camera.lookAt(center.x, 0, center.z);
+  camera.position.set(center.x, 100, center.z);// update
+  camera.lookAt(center.x, 0, center.z);// update
 
   const aspect = canvas.clientHeight / canvas.clientWidth;
   camera.zoom = aspect > 1
@@ -135,7 +135,7 @@ const updateCloud = (pointcloud: Uint8Array) => {
 
   camera.updateProjectionMatrix();
 
-  controls.target.set(center.x, 0, center.z);
+  controls.target.set(center.x, 0, center.z); // update
   controls.maxZoom = radius * 2;
 
   const intersectionPlane = new THREE.Mesh(
@@ -144,7 +144,7 @@ const updateCloud = (pointcloud: Uint8Array) => {
   );
   intersectionPlane.name = 'Intersection Plane';
   intersectionPlane.position.y = -1;
-  intersectionPlane.position.set(center.x, 0, center.z);
+  intersectionPlane.position.set(center.x, 0, center.z); // update
   raycaster.objects = [intersectionPlane];
 
   const colors = points.geometry.attributes.color;
@@ -168,9 +168,9 @@ const updateCloud = (pointcloud: Uint8Array) => {
 
 const updatePose = (newPose: commonApi.Pose) => {
   const x = newPose.getX();
-  const z = newPose.getZ();
+  const z = newPose.getZ(); // update
   marker.position.setX(x);
-  marker.position.setZ(z);
+  marker.position.setZ(z); // update
 };
 
 onMounted(() => {
