@@ -22,6 +22,7 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 var model = resource.DefaultModelFamily.WithModel("boat")
@@ -217,6 +218,10 @@ func (b *boat) SetVelocity(ctx context.Context, linear, angular r3.Vector, extra
 	defer done()
 
 	b.stateMutex.Lock()
+
+	if rdkutils.Float64AlmostEqual(linear.Y, 0.0, 1) && rdkutils.Float64AlmostEqual(angular.Z, 0.0, 1) {
+		b.logger.Info("the received inputs resulted in a speed of 0")
+	}
 
 	if !b.state.threadStarted {
 		err := b.startVelocityThread()

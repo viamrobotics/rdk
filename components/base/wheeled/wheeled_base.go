@@ -144,15 +144,6 @@ func (wb *wheeledBase) runAll(ctx context.Context, leftRPM, leftRotations, right
 		wb.logger.Info("the received inputs resulted in a speed of 0")
 	}
 
-	// if rdkutils.Float64AlmostEqual(linear.Y, float64(wb.left[0].MaxRPM), 1) {
-	// 	wb.logger.Infof("the received linear velocity results in a speed near the maxLinearVelocity %f for this base",
-	// 		base.maxLinearVelocity)
-	// }
-	// if rdkutils.Float64AlmostEqual(angular.Z, float64(base.maxAngularVelocity), 1) {
-	// 	base.controller.logger.Infof("the received angular velocity results in a speed near the maxAngularVelocity %f for this base",
-	// 		base.maxAngularVelocity)
-	// }
-
 	for _, m := range wb.left {
 		fs = append(fs, func(ctx context.Context) error { return m.GoFor(ctx, leftRPM, leftRotations, nil) })
 	}
