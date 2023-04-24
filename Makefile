@@ -73,10 +73,6 @@ open-cypress-ui:
 	go build $(LDFLAGS) -o bin/test-e2e/server web/cmd/server/main.go
 	./etc/e2e.sh -o 'open'
 
-test-integration:
-	cd services/slam/builtin && sudo --preserve-env=APPIMAGE_EXTRACT_AND_RUN go test -v -run TestOrbslamIntegration
-	cd services/slam/builtin && sudo --preserve-env=APPIMAGE_EXTRACT_AND_RUN go test -v -run TestCartographerIntegration
-
 server: build-web
 	rm -f $(BIN_OUTPUT_PATH)/viam-server
 	go build $(LDFLAGS) -o $(BIN_OUTPUT_PATH)/viam-server web/cmd/server/main.go
