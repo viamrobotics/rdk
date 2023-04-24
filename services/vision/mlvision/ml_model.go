@@ -92,7 +92,7 @@ func registerMLModelVisionService(
 }
 
 // Unpack output based on expected type and force it into a []float64.
-func unpack(inMap map[string]interface{}, name string, md mlmodel.MLMetadata) []float64 {
+func unpack(inMap map[string]interface{}, name string) []float64 {
 	var out []float64
 	me := inMap[name]
 	switch v := me.(type) {
