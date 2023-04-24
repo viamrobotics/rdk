@@ -3,6 +3,7 @@ package tflitecpu
 
 import (
 	"context"
+	"math"
 	fp "path/filepath"
 	"strconv"
 	"strings"
@@ -138,20 +139,14 @@ func (m *Model) Infer(ctx context.Context, input map[string]interface{}) (map[st
 
 		// Fill in the output map with the names from metadata if u have them
 		// Otherwise, do output1, output2, etc.
-		if n := len(m.metadata.Outputs); n >= len(m.model.Info.OutputTensorTypes) {
-			for i := 0; i < n; i++ {
-				if m.metadata.Outputs[i].Name != "" {
-					outMap[m.metadata.Outputs[i].Name] = outTensors[i]
-				} else {
-					outMap["output"+strconv.Itoa(i)] = outTensors[i]
-				}
-			}
-		} else {
-			for i := 0; i < n; i++ {
+		n := int(math.Min(float64(len(m.metadata.Outputs)), float64(len(m.model.Info.OutputTensorTypes))))
+		for i := 0; i < n; i++ {
+			if m.metadata.Outputs[i].Name != "" {
+				outMap[m.metadata.Outputs[i].Name] = outTensors[i]
+			} else {
 				outMap["output"+strconv.Itoa(i)] = outTensors[i]
 			}
 		}
-
 		return outMap, nil
 	}
 
@@ -189,7 +184,7 @@ func (m *Model) Metadata(ctx context.Context) (mlmodel.MLMetadata, error) {
 	if err != nil {
 		blindMD := m.blindFillMetadata()
 		m.metadata = &blindMD
-		m.logger.Infof("%v", errors.Wrapf(err, "could not find metadata in tflite file"))
+		m.logger.Infow(" error finding metadata in tflite file", "error", err)
 		return blindMD, nil
 	}
 	out := mlmodel.MLMetadata{}
@@ -255,10 +250,12 @@ func getTensorInfo(inputT *tflite_metadata.TensorMetadataT) mlmodel.TensorInfo {
 	}
 
 	// Add bounding box info to Extra
-	if strings.Contains(inputT.Name, "location") && (inputT.Content.ContentProperties.Value != nil) {
-		order := inputT.Content.ContentProperties.Value.(*tflite_metadata.BoundingBoxPropertiesT).Index
-		td.Extra = map[string]interface{}{
-			"boxOrder": order,
+	if strings.Contains(inputT.Name, "location") && inputT.Content.ContentProperties.Value != nil {
+		order, ok := inputT.Content.ContentProperties.Value.(*tflite_metadata.BoundingBoxPropertiesT)
+		if ok {
+			td.Extra = map[string]interface{}{
+				"boxOrder": order.Index,
+			}
 		}
 	}
 
@@ -286,27 +283,25 @@ func getTensorInfo(inputT *tflite_metadata.TensorMetadataT) mlmodel.TensorInfo {
 func (m *Model) blindFillMetadata() mlmodel.MLMetadata {
 	out := mlmodel.MLMetadata{}
 	numIn := m.model.Info.InputTensorCount
-	numOut := m.model.Info.OutputTensorCount
+	numOut := int(math.Min(float64(m.model.Info.OutputTensorCount), float64(len(m.model.Info.OutputTensorTypes))))
 	inputList := make([]mlmodel.TensorInfo, 0, numIn)
 	outputList := make([]mlmodel.TensorInfo, 0, numOut)
 
-	// Fill in input info to the best of our abilities (normally just 1 tensor)
-	for i := 0; i < numIn; i++ { // for each input Tensor
-		td := mlmodel.TensorInfo{}
-		switch m.model.Info.InputTensorType { // grab from model info, not metadata
+	// Fill from model info, not metadata
+	for i := 0; i < numIn; i++ {
+		var td mlmodel.TensorInfo
+		switch m.model.Info.InputTensorType {
 		case inf.UInt8:
 			td.DataType = "uint8"
 		case inf.Float32:
 			td.DataType = "float32"
-		default:
-			td.DataType = ""
 		}
 		td.Shape = m.model.Info.InputShape
 		inputList = append(inputList, td)
 	}
-	for i := 0; i < numOut; i++ { // for each output Tensor
-		td := mlmodel.TensorInfo{}
-		td.DataType = strings.ToLower(m.model.Info.OutputTensorTypes[i]) // grab from model info, not metadata
+	for i := 0; i < numOut; i++ {
+		var td mlmodel.TensorInfo
+		td.DataType = strings.ToLower(m.model.Info.OutputTensorTypes[i])
 		outputList = append(outputList, td)
 	}
 	out.Inputs = inputList

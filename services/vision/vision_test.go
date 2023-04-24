@@ -24,11 +24,11 @@ func TestFromRobot(t *testing.T) {
 		det1 := objectdetection.NewDetection(image.Rectangle{}, 0.5, "yes")
 		return []objectdetection.Detection{det1}, nil
 	}
-	r := &inject.Robot{}
+	var r inject.Robot
 	r.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
 		return svc1, nil
 	}
-	svc, err := vision.FromRobot(r, testVisionServiceName)
+	svc, err := vision.FromRobot(&r, testVisionServiceName)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, svc, test.ShouldNotBeNil)
 	result, err := svc.Detections(context.Background(), nil, nil)
@@ -45,9 +45,9 @@ func (s *simpleDetector) Detect(context.Context, image.Image) ([]objectdetection
 }
 
 func TestNewService(t *testing.T) {
-	r := &inject.Robot{}
-	m := &simpleDetector{}
-	svc, err := vision.NewService("testService", r, nil, nil, m.Detect, nil)
+	var r inject.Robot
+	var m simpleDetector
+	svc, err := vision.NewService("testService", &r, nil, nil, m.Detect, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, svc, test.ShouldNotBeNil)
 	result, err := svc.Detections(context.Background(), nil, nil)

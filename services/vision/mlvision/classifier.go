@@ -47,7 +47,7 @@ func attemptToBuildClassifier(mlm mlmodel.Service) (classification.Classifier, e
 
 		probs := unpack(outMap, "probability", md)
 		if len(probs) == 0 {
-			probs = unpack(outMap, "output0", md)
+			probs = unpack(outMap, DefaultOutTensorName+"0", md)
 		}
 
 		confs := checkClassificationScores(probs)

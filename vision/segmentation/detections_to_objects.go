@@ -18,11 +18,11 @@ import (
 
 // DetectionSegmenterConfig are the optional parameters to turn a detector into a segmenter.
 type DetectionSegmenterConfig struct {
+	resource.TriviallyValidateConfig
 	DetectorName     string  `json:"detector_name"`
 	ConfidenceThresh float64 `json:"confidence_threshold_pct"`
 	MeanK            int     `json:"mean_k"`
 	Sigma            float64 `json:"sigma"`
-	resource.TriviallyValidateConfig
 }
 
 // ConvertAttributes changes the AttributeMap input into a DetectionSegmenterConfig.

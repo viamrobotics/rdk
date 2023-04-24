@@ -53,15 +53,15 @@ func attemptToBuildDetector(mlm mlmodel.Service) (objectdetection.Detector, erro
 
 		locations := unpack(outMap, "location", md)
 		if len(locations) == 0 {
-			locations = unpack(outMap, "output0", md)
+			locations = unpack(outMap, DefaultOutTensorName+"0", md)
 		}
 		categories := unpack(outMap, "category", md)
 		if len(categories) == 0 {
-			categories = unpack(outMap, "output1", md)
+			categories = unpack(outMap, DefaultOutTensorName+"1", md)
 		}
 		scores := unpack(outMap, "score", md)
 		if len(scores) == 0 {
-			scores = unpack(outMap, "output2", md)
+			scores = unpack(outMap, DefaultOutTensorName+"2", md)
 		}
 
 		// Now reshape outMap into Detections

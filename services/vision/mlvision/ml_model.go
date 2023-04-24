@@ -29,6 +29,9 @@ const (
 	UInt8 = "uint8"
 	// Float32 is one of the possible input/output types for tensors.
 	Float32 = "float32"
+	// DefaultOutTensorName is the prefix key given to output tensors in the map
+	// if there is no metadata. (output0, output1, etc.)
+	DefaultOutTensorName = "output"
 )
 
 func init() {
@@ -69,19 +72,19 @@ func registerMLModelVisionService(
 	}
 	classifierFunc, err := attemptToBuildClassifier(mlm)
 	if err != nil {
-		logger.Infof("%v", errors.Wrapf(err, "was not able to turn ml model %q into a classifier", params.ModelName))
+		logger.Infow("error turning turn ml model into a classifier:", "model", params.ModelName, "error", err)
 	} else {
 		logger.Infof("model %q fulfills a vision service classifier", params.ModelName)
 	}
 	detectorFunc, err := attemptToBuildDetector(mlm)
 	if err != nil {
-		logger.Infof("%v", errors.Wrapf(err, "was not able to turn ml model %q into a detector", params.ModelName))
+		logger.Infow("error turning turn ml model into a detector:", "model", params.ModelName, "error", err)
 	} else {
 		logger.Infof("model %q fulfills a vision service detector", params.ModelName)
 	}
 	segmenter3DFunc, err := attemptToBuild3DSegmenter(mlm)
 	if err != nil {
-		logger.Infof("%v", errors.Wrapf(err, "was not able to turn ml model %q into a 3D segmenter", params.ModelName))
+		logger.Infow("error turning turn ml model into a 3D segmenter:", "model", params.ModelName, "error", err)
 	} else {
 		logger.Infof("model %q fulfills a vision service 3D segmenter", params.ModelName)
 	}
@@ -116,13 +119,15 @@ func getTensorTypeFromName(name string, md mlmodel.MLMetadata) string {
 		if strings.Contains(strings.ToLower(o.Name), strings.ToLower(name)) {
 			return o.DataType
 		}
-		if strings.Contains(name, "output") {
-			_, after, _ := strings.Cut(name, "output")
+		if strings.Contains(name, DefaultOutTensorName) {
+			_, after, _ := strings.Cut(name, DefaultOutTensorName)
 			saveI, err := strconv.Atoi(after)
 			if err != nil {
 				return ""
 			}
-			return md.Outputs[saveI].DataType
+			if len(md.Outputs) > saveI {
+				return md.Outputs[saveI].DataType
+			}
 		}
 	}
 	return ""
@@ -131,34 +136,37 @@ func getTensorTypeFromName(name string, md mlmodel.MLMetadata) string {
 // getLabelsFromMetadata returns a slice of strings--the intended labels.
 func getLabelsFromMetadata(md mlmodel.MLMetadata) []string {
 	for _, o := range md.Outputs {
-		if strings.Contains(o.Name, "category") || strings.Contains(o.Name, "probability") {
-			if labelPath, ok := o.Extra["labels"]; ok {
-				labels := []string{}
-				f, err := os.Open(labelPath.(string))
-				if err != nil {
-					return nil
-				}
-				defer func() {
-					if err := f.Close(); err != nil {
-						panic(err)
-					}
-				}()
-				scanner := bufio.NewScanner(f)
-				for scanner.Scan() {
-					labels = append(labels, scanner.Text())
-				}
-				// if the labels come out as one line, try splitting that line by spaces or commas to extract labels
-				if len(labels) == 1 {
-					labels = strings.Split(labels[0], ",")
-				}
-				if len(labels) == 1 {
-					labels = strings.Split(labels[0], " ")
-				}
+		if !strings.Contains(o.Name, "category") && !strings.Contains(o.Name, "probability") {
+			continue
+		}
 
-				return labels
+		if labelPath, ok := o.Extra["labels"]; ok {
+			var labels []string
+			f, err := os.Open(labelPath.(string))
+			if err != nil {
+				return nil
 			}
+			defer func() {
+				if err := f.Close(); err != nil {
+					return
+				}
+			}()
+			scanner := bufio.NewScanner(f)
+			for scanner.Scan() {
+				labels = append(labels, scanner.Text())
+			}
+			// if the labels come out as one line, try splitting that line by spaces or commas to extract labels
+			if len(labels) == 1 {
+				labels = strings.Split(labels[0], ",")
+			}
+			if len(labels) == 1 {
+				labels = strings.Split(labels[0], " ")
+			}
+
+			return labels
 		}
 	}
+
 	return nil
 }
 

@@ -48,7 +48,7 @@ func registerColorDetector(
 	}
 	detector, err := objdet.NewColorDetector(conf)
 	if err != nil {
-		return nil, errors.Wrapf(err, "register color detector %s", name)
+		return nil, errors.Wrapf(err, "error registering color detector %q", name)
 	}
 	return vision.NewService(name, r, nil, nil, detector, nil)
 }
