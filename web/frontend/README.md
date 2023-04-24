@@ -31,3 +31,9 @@ Remote Control components are exported to the [@viamrobotics/remote-control](htt
 1. Upon merging, your changes will be published to NPM using the [Github Actions worklow](https://github.com/viamrobotics/rdk/blob/main/.github/workflows/npm-publish.yml).
 
 The file paths listed in the `files` field of `package.json` determines what is published to NPM, and may need to be updated in the future to change what is/isn't published into the repository.
+
+### Using the NPM Package
+
+If you intend to use the Remote Control in you own application, consider whether or not your application will be creating its own connection to the robot using the [Viam TypeScript SDK](https://github.com/viamrobotics/viam-typescript-sdk). If so, be aware the Remote Control has a peer dependency for the SDK at a locked version, and will expect your application to include a dependency to _that version_.
+
+The SDK `Client` you create for your connection should be passed to the `createRcApp` function when creating your Remote Control.
