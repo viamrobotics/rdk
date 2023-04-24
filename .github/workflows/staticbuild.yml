@@ -90,7 +90,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
     strategy:
       matrix:
-        arch: [[x64, qemu-host], [arm64, qemu-host]]
+        arch: [[x64, qemu-host], [arm64, qemu-host], [arm64, pi4]]
     needs: static
     runs-on: ${{ matrix.arch }}
     timeout-minutes: 15
@@ -109,7 +109,7 @@ jobs:
         export TEST_DIR=`mktemp -d -t test-viam-server-XXXXXX`
         cd $TEST_DIR
 
-        curl -o viam-server http://packages.viam.com/apps/viam-server/testing/static/${{ needs.static.outputs.date }}/${{ github.sha }}/viam-server-latest-`uname -m`
+        curl -o viam-server https://storage.googleapis.com/packages.viam.com/apps/viam-server/testing/static/${{ needs.static.outputs.date }}/${{ github.sha }}/viam-server-latest-`uname -m`
         chmod 755 viam-server
 
         export RAND_PORT=$((30000 + $RANDOM))
