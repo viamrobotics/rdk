@@ -159,12 +159,12 @@ func newGPIOServo(ctx context.Context, deps resource.Dependencies, conf resource
 		startPos = *newConf.StartPos
 	}
 	minUs := minWidthUs
-	if newConf.MinWidthUS != nil {
-		minUs = *newConf.MinWidthUS
+	if newConf.MinWidthUs != nil {
+		minUs = *newConf.MinWidthUs
 	}
 	maxUs := maxWidthUs
-	if newConf.MaxWidthUS != nil {
-		maxUs = *newConf.MaxWidthUS
+	if newConf.MaxWidthUs != nil {
+		maxUs = *newConf.MaxWidthUs
 	}
 
 	servo := &servoGPIO{
@@ -193,8 +193,6 @@ func newGPIOServo(ctx context.Context, deps resource.Dependencies, conf resource
 	}
 	return servo, nil
 }
-
-var _ = servo.LocalServo(&servoGPIO{})
 
 // Given minUs, maxUs, deg, and frequency attempt to calculate the corresponding duty cycle pct.
 func mapDegToDutyCylePct(minUs, maxUs uint, minDeg, maxDeg, deg float64, frequency uint) float64 {
