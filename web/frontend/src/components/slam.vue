@@ -35,7 +35,7 @@ let refresh3DCancelled = true;
 let updatedDest = $ref(false);
 let destinationMarker = $ref(new THREE.Vector3());
 let moveClick = $ref(true);
-let basePose = new commonApi.Pose()
+const basePose = new commonApi.Pose();
 const motionServiceReq = new motionApi.MoveOnMapRequest();
 
 const loaded2d = $computed(() => (pointcloud !== undefined && pose !== undefined));
@@ -107,7 +107,7 @@ const fetchSLAMPose = (name: string): Promise<commonApi.Pose> => {
 
 const executeMoveOnMap = async () => {
   moveClick = !moveClick;
-  
+
   // get base resources
   const baseResources = filterResources(props.resources, 'rdk', 'component', 'base');
   if (baseResources === undefined) {
@@ -153,9 +153,9 @@ const executeMoveOnMap = async () => {
   // set extra as position-only constraint
   motionServiceReq.setExtra(
     Struct.fromJavaScript({
-      motion_profile: "position_only"
+      motion_profile: 'position_only',
     })
-  )
+  );
 
   props.client.motionService.moveOnMap(
     motionServiceReq,
@@ -188,13 +188,13 @@ const handleRefresh2dResponse = (response: MapAndPose): void => {
   pose = response.pose;
 
   // we round to the tenths per figma design
-  basePose.setX(Number(pose!.getX()!.toFixed(1)!))
-  basePose.setY(Number(pose!.getY()!.toFixed(1)!))
-  basePose.setZ(Number(pose!.getZ()!.toFixed(1)!))
-  basePose.setOX(Number(pose!.getOX()!.toFixed(1)!))
-  basePose.setOY(Number(pose!.getOY()!.toFixed(1)!))
-  basePose.setOZ(Number(pose!.getOZ()!.toFixed(1)!))
-  basePose.setTheta(Number(pose!.getTheta()!.toFixed(1)!))
+  basePose.setX(Number(pose!.getX()!.toFixed(1)!));
+  basePose.setY(Number(pose!.getY()!.toFixed(1)!));
+  basePose.setZ(Number(pose!.getZ()!.toFixed(1)!));
+  basePose.setOX(Number(pose!.getOX()!.toFixed(1)!));
+  basePose.setOY(Number(pose!.getOY()!.toFixed(1)!));
+  basePose.setOZ(Number(pose!.getOZ()!.toFixed(1)!));
+  basePose.setTheta(Number(pose!.getTheta()!.toFixed(1)!));
   pointCloudUpdateCount += 1;
 };
 
@@ -245,7 +245,6 @@ const scheduleRefresh3d = (name: string, time: string) => {
   slam3dTimeoutId = window.setTimeout(timeoutCallback, Number.parseFloat(time) * 1000);
 };
 
-
 const updateSLAM2dRefreshFrequency = async (name: string, time: 'manual' | 'off' | string) => {
   refresh2DCancelled = true;
   window.clearTimeout(slam2dTimeoutId);
@@ -286,7 +285,7 @@ const updateSLAM3dRefreshFrequency = async (name: string, time: 'manual' | 'off'
 const toggle3dExpand = () => {
   show3d = !show3d;
   updateSLAM3dRefreshFrequency(props.name, show3d ? selected3dValue : 'off');
-}
+};
 
 const toggle2dExpand = () => {
   show2d = !show2d;
@@ -299,11 +298,11 @@ const selectSLAM2dRefreshFrequency = () => {
 
 const selectSLAMPCDRefreshFrequency = () => {
   updateSLAM3dRefreshFrequency(props.name, selected3dValue);
-}
+};
 
 const refresh3dMap = () => {
   updateSLAM3dRefreshFrequency(props.name, selected3dValue);
-}
+};
 
 const refresh2dMap = () => {
   updateSLAM2dRefreshFrequency(props.name, selected2dValue);
@@ -469,7 +468,7 @@ const toggleAxes = () => {
                 <p class="items-end pr-2 text-xs text-gray-500">
                   x
                 </p>
-                <p>{{ basePose.getX()}}</p>
+                <p>{{ basePose.getX() }}</p>
 
                 <p class="pl-9 pr-2 text-xs text-gray-500">
                   y
@@ -524,86 +523,86 @@ const toggleAxes = () => {
             :client="client"
             :dest-exists="updatedDest"
             :dest-vector="destinationMarker"
-            :axesVisible="showAxes"
+            :axes-visible="showAxes"
             @click="handle2dRenderClick($event)"
           />
         </div>
       </div>
     </div>
     <div class="pt-4">
-          <div class="flex items-center gap-2">
-            <v-switch
-              :value="show3d ? 'on' : 'off'"
-              @input="toggle3dExpand()"
-            />
-            <span class="pr-2">View SLAM Map (3D)</span>
-          </div>
-          <div class="float-right pb-4">
-            <div class="flex">
-              <div
-                v-if="show3d"
-                class="w-64"
-              >
-                <p class="font-label mb-1 text-gray-800">
-                  Refresh frequency
-                </p>
-                <div class="relative">
-                  <select
-                    v-model="selected3dValue"
-                    class="
+      <div class="flex items-center gap-2">
+        <v-switch
+          :value="show3d ? 'on' : 'off'"
+          @input="toggle3dExpand()"
+        />
+        <span class="pr-2">View SLAM Map (3D)</span>
+      </div>
+      <div class="float-right pb-4">
+        <div class="flex">
+          <div
+            v-if="show3d"
+            class="w-64"
+          >
+            <p class="font-label mb-1 text-gray-800">
+              Refresh frequency
+            </p>
+            <div class="relative">
+              <select
+                v-model="selected3dValue"
+                class="
                       border-border-1 m-0 w-full appearance-none border border-solid bg-white
                       bg-clip-padding px-3 py-1.5 text-xs font-normal text-gray-700 focus:outline-none"
-                    aria-label="Default select example"
-                    @change="selectSLAMPCDRefreshFrequency()"
-                  >
-                    <option value="manual">
-                      Manual Refresh
-                    </option>
-                    <option value="30">
-                      Every 30 seconds
-                    </option>
-                    <option value="10">
-                      Every 10 seconds
-                    </option>
-                    <option value="5">
-                      Every 5 seconds
-                    </option>
-                    <option value="1">
-                      Every second
-                    </option>
-                  </select>
-                  <div
-                    class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2"
-                  >
-                    <svg
-                      class="h-4 w-4 stroke-2 text-gray-700"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      stroke-linejoin="round"
-                      stroke-linecap="round"
-                      fill="none"
-                    >
-                      <path d="M18 16L12 22L6 16" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-              <div class="px-2 pt-7">
-                <v-button
-                  v-if="show3d"
-                  icon="refresh"
-                  label="Refresh"
-                  @click="refresh3dMap()"
-                />
+                aria-label="Default select example"
+                @change="selectSLAMPCDRefreshFrequency()"
+              >
+                <option value="manual">
+                  Manual Refresh
+                </option>
+                <option value="30">
+                  Every 30 seconds
+                </option>
+                <option value="10">
+                  Every 10 seconds
+                </option>
+                <option value="5">
+                  Every 5 seconds
+                </option>
+                <option value="1">
+                  Every second
+                </option>
+              </select>
+              <div
+                class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2"
+              >
+                <svg
+                  class="h-4 w-4 stroke-2 text-gray-700"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  stroke-linejoin="round"
+                  stroke-linecap="round"
+                  fill="none"
+                >
+                  <path d="M18 16L12 22L6 16" />
+                </svg>
               </div>
             </div>
           </div>
-          <PCD
-            v-if="show3d"
-            :resources="resources"
-            :pointcloud="pointcloud"
-            :client="client"
-          />
+          <div class="px-2 pt-7">
+            <v-button
+              v-if="show3d"
+              icon="refresh"
+              label="Refresh"
+              @click="refresh3dMap()"
+            />
+          </div>
         </div>
+      </div>
+      <PCD
+        v-if="show3d"
+        :resources="resources"
+        :pointcloud="pointcloud"
+        :client="client"
+      />
+    </div>
   </v-collapse>
 </template>

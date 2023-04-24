@@ -8,8 +8,8 @@ import { MapControls } from 'three/examples/jsm/controls/OrbitControls';
 import { PCDLoader } from 'three/examples/jsm/loaders/PCDLoader';
 import type { commonApi } from '@viamrobotics/sdk';
 import { SVGLoader } from 'three/examples/jsm/loaders/SVGLoader';
-import { baseMarkerUrl } from '../lib/base-marker-url'
-import { destMarkerUrl } from '../lib/destination-marker-url'
+import { baseMarkerUrl } from '../lib/base-marker-url';
+import { destMarkerUrl } from '../lib/destination-marker-url';
 
 type SvgOffset = {
   x: number,
@@ -20,29 +20,29 @@ type SvgOffset = {
 const baseMarkerOffset: SvgOffset = {
   x: 0.22,
   y: 0,
-  z: -0.26
-}
+  z: -0.26,
+};
 
 const destinationMarkerOffset: SvgOffset = {
   x: 1.2,
   y: 0,
-  z: -2.52
-}
+  z: -2.52,
+};
 
-const backgroundGridColor = 0xCA_CA_CA
+const backgroundGridColor = 0xCA_CA_CA;
 
-const gridSubparts = ['AxesPos', 'AxesNeg', 'Grid']
+const gridSubparts = ['AxesPos', 'AxesNeg', 'Grid'];
 
 const gridHelperRenderOrder = 997;
 const axesHelperRenderOrder = 998;
 const svgMarkerRenderOrder = 999;
 
-const gridHelperScalar = 4
+const gridHelperScalar = 4;
 const axesHelperSize = 8;
 
 // Note: updating the scale of the destination or base marker requires an offset update
 const baseMarkerScalar = 0.02;
-const destinationMarkerScalar = 0.1
+const destinationMarkerScalar = 0.1;
 
 /*
  * this color map is greyscale. The color map is being used map probability values of a PCD
@@ -116,7 +116,7 @@ raycaster.on('click', (event: THREE.Event) => {
  * https://github.com/mrdoob/three.js/blob/master/examples/webgl_loader_svg.html
  */
 //
-const svgLoader = new SVGLoader(); 
+const svgLoader = new SVGLoader();
 const makeMarker = async (url : string, name: string, scalar: number) => {
   const data = await svgLoader.loadAsync(url);
 
@@ -203,8 +203,9 @@ const disposeScene = () => {
 const updatePose = async (newPose: commonApi.Pose) => {
   const x = newPose.getX();
   const z = newPose.getZ();
-  const baseMarker = scene.getObjectByName('BaseMarker') ?? await makeMarker(baseMarkerUrl, 'BaseMarker', baseMarkerScalar);
-  baseMarker.position.set(x + baseMarkerOffset.x, baseMarkerOffset.y, z + baseMarkerOffset.z); 
+  const baseMarker = scene.getObjectByName('BaseMarker') ??
+    await makeMarker(baseMarkerUrl, 'BaseMarker', baseMarkerScalar);
+  baseMarker.position.set(x + baseMarkerOffset.x, baseMarkerOffset.y, z + baseMarkerOffset.z);
 };
 
 /*
@@ -229,32 +230,34 @@ const colorBuckets = (probability: number): THREE.Vector3 => {
 const createAxisHelper = (name: string, rotation: number): THREE.AxesHelper => {
   const axesHelper = new THREE.AxesHelper(axesHelperSize);
   axesHelper.rotateY(rotation);
-  axesHelper.scale.set(1e5, 1, 1e5)
+  axesHelper.scale.set(1e5, 1, 1e5);
   axesHelper.renderOrder = axesHelperRenderOrder;
   axesHelper.name = name;
   axesHelper.visible = props.axesVisible;
-  return axesHelper
-}
+  return axesHelper;
+};
 
 // create the background gray grid
-const createGridHelper = (points: THREE.Points<THREE.BufferGeometry, THREE.Material | THREE.Material[]>): THREE.GridHelper => {
+const createGridHelper = (
+  points: THREE.Points<THREE.BufferGeometry, THREE.Material | THREE.Material[]>
+): THREE.GridHelper => {
   points.geometry.computeBoundingBox();
 
-  const boundingBox = points.geometry.boundingBox!
-  const deltaX = Math.abs(boundingBox.max.x - boundingBox.min.x)
-  const deltaZ = Math.abs(boundingBox.max.z - boundingBox.min.z)
-  let maxDelta = Math.round(Math.max(deltaX, deltaZ) * gridHelperScalar)
+  const boundingBox = points.geometry.boundingBox!;
+  const deltaX = Math.abs(boundingBox.max.x - boundingBox.min.x);
+  const deltaZ = Math.abs(boundingBox.max.z - boundingBox.min.z);
+  let maxDelta = Math.round(Math.max(deltaX, deltaZ) * gridHelperScalar);
   // ensure maxDelta is even so grids are layered below x z axes
-  if (maxDelta%2 !== 0) {
-    maxDelta = maxDelta - 1
+  if (maxDelta % 2 !== 0) {
+    maxDelta -= 1;
   }
 
   const gridHelper = new THREE.GridHelper(maxDelta, maxDelta, backgroundGridColor, backgroundGridColor);
   gridHelper.renderOrder = gridHelperRenderOrder;
   gridHelper.name = 'Grid';
   gridHelper.visible = props.axesVisible;
-  return gridHelper
-}
+  return gridHelper;
+};
 
 const updatePointCloud = (pointcloud: Uint8Array) => {
   disposeScene();
@@ -329,11 +332,11 @@ onMounted(() => {
   if (props.pose !== undefined) {
     updatePose(props.pose);
   }
-  
+
   // construct axes
-  const axesPos = createAxisHelper('AxesPos', Math.PI / 2)
-  const axesNeg = createAxisHelper('AxesNeg', -Math.PI / 2)
-  scene.add(axesPos, axesNeg)
+  const axesPos = createAxisHelper('AxesPos', Math.PI / 2);
+  const axesNeg = createAxisHelper('AxesNeg', -Math.PI / 2);
+  scene.add(axesPos, axesNeg);
 
 });
 
@@ -344,8 +347,13 @@ onUnmounted(() => {
 
 const updateOrRemoveDestinationMarker = async () => {
   if (props.destVector && props.destExists) {
-    const marker = scene.getObjectByName('DestinationMarker') ?? await makeMarker(destMarkerUrl, 'DestinationMarker', destinationMarkerScalar);
-    marker.position.set(props.destVector.x + destinationMarkerOffset.x, destinationMarkerOffset.y, props.destVector.z + destinationMarkerOffset.z);
+    const marker = scene.getObjectByName('DestinationMarker') ??
+      await makeMarker(destMarkerUrl, 'DestinationMarker', destinationMarkerScalar);
+    marker.position.set(
+      props.destVector.x + destinationMarkerOffset.x,
+      destinationMarkerOffset.y,
+      props.destVector.z + destinationMarkerOffset.z
+    );
   }
   if (!props.destExists) {
     const marker = scene.getObjectByName('DestinationMarker');
@@ -353,7 +361,7 @@ const updateOrRemoveDestinationMarker = async () => {
       scene.remove(marker);
     }
   }
-}
+};
 
 watch(() => [props.destVector!.z, props.destVector!.x, props.destExists], updateOrRemoveDestinationMarker);
 
@@ -361,7 +369,7 @@ watch(() => props.axesVisible, () => {
   for (const gridPart of gridSubparts) {
     const part = scene.getObjectByName(gridPart);
     if (part !== undefined) {
-      part.visible = props.axesVisible
+      part.visible = props.axesVisible;
     }
   }
 });
