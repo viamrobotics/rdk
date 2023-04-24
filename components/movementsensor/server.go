@@ -35,7 +35,7 @@ func (s *subtypeServer) GetPosition(
 	}
 	return &pb.GetPositionResponse{
 		Coordinate: &commonpb.GeoPoint{Latitude: loc.Lat(), Longitude: loc.Lng()},
-		AltitudeMm: float32(altitide),
+		AltitudeM:  float32(altitide),
 	}, nil
 }
 
@@ -128,7 +128,7 @@ func (s *subtypeServer) GetAccuracy(
 		return nil, err
 	}
 	acc, err := msDevice.Accuracy(ctx, req.Extra.AsMap())
-	return &pb.GetAccuracyResponse{AccuracyMm: acc}, err
+	return &pb.GetAccuracyResponse{Accuracy: acc}, err
 }
 
 func (s *subtypeServer) GetLinearAcceleration(
