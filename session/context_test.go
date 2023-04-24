@@ -30,7 +30,7 @@ func TestToFromContext(t *testing.T) {
 
 func TestSafetyMonitor(t *testing.T) {
 	session.SafetyMonitor(context.Background(), nil)
-	name := resource.NewName("foo", "bar", "baz", "barf")
+	name := resource.NewName(resource.APINamespace("foo").WithType("bar").WithSubtype("baz"), "barf")
 	session.SafetyMonitor(context.Background(), myThing{Named: name.AsNamed()})
 
 	var stored sync.Once
@@ -70,8 +70,8 @@ func TestSafetyMonitorForMetadata(t *testing.T) {
 	sess1 := session.New("ownerID", nil, time.Minute, nil)
 	nextCtx := session.ToContext(streamCtx, sess1)
 
-	name1 := resource.NewName("foo", "bar", "baz", "barf")
-	name2 := resource.NewName("woo", "war", "waz", "warf")
+	name1 := resource.NewName(resource.APINamespace("foo").WithType("bar").WithSubtype("baz"), "barf")
+	name2 := resource.NewName(resource.APINamespace("woo").WithType("war").WithSubtype("waz"), "warf")
 	session.SafetyMonitor(nextCtx, myThing{Named: name1.AsNamed()})
 	test.That(t, stream1.md[session.SafetyMonitoredResourceMetadataKey], test.ShouldResemble, []string{name1.String()})
 	session.SafetyMonitor(nextCtx, myThing{Named: name2.AsNamed()})

@@ -13,40 +13,42 @@ type fakeComponent struct {
 	DependsOn []Name
 }
 
+var apiA = APINamespace("namespace").WithType("atype").WithSubtype("aapi")
+
 var commonCfg = []fakeComponent{
 	{
-		Name:      NewName("namespace", "atype", "asubtype", "A"),
+		Name:      NewName(apiA, "A"),
 		DependsOn: []Name{},
 	},
 	{
-		Name:      NewName("namespace", "atype", "asubtype", "B"),
-		DependsOn: []Name{NewName("namespace", "atype", "asubtype", "A")},
+		Name:      NewName(apiA, "B"),
+		DependsOn: []Name{NewName(apiA, "A")},
 	},
 	{
-		Name:      NewName("namespace", "atype", "asubtype", "C"),
-		DependsOn: []Name{NewName("namespace", "atype", "asubtype", "B")},
+		Name:      NewName(apiA, "C"),
+		DependsOn: []Name{NewName(apiA, "B")},
 	},
 	{
-		Name: NewName("namespace", "atype", "asubtype", "D"),
+		Name: NewName(apiA, "D"),
 		DependsOn: []Name{
-			NewName("namespace", "atype", "asubtype", "B"),
-			NewName("namespace", "atype", "asubtype", "E"),
+			NewName(apiA, "B"),
+			NewName(apiA, "E"),
 		},
 	},
 	{
-		Name:      NewName("namespace", "atype", "asubtype", "E"),
-		DependsOn: []Name{NewName("namespace", "atype", "asubtype", "B")},
+		Name:      NewName(apiA, "E"),
+		DependsOn: []Name{NewName(apiA, "B")},
 	},
 	{
-		Name: NewName("namespace", "atype", "asubtype", "F"),
+		Name: NewName(apiA, "F"),
 		DependsOn: []Name{
-			NewName("namespace", "atype", "asubtype", "A"),
-			NewName("namespace", "atype", "asubtype", "C"),
-			NewName("namespace", "atype", "asubtype", "E"),
+			NewName(apiA, "A"),
+			NewName(apiA, "C"),
+			NewName(apiA, "E"),
 		},
 	},
 	{
-		Name:      NewName("namespace", "atype", "asubtype", "G"),
+		Name:      NewName(apiA, "G"),
 		DependsOn: []Name{},
 	},
 }
@@ -59,31 +61,31 @@ func TestResourceGraphConstruct(t *testing.T) {
 		{
 			[]fakeComponent{
 				{
-					Name:      NewName("namespace", "atype", "asubtype", "A"),
+					Name:      NewName(apiA, "A"),
 					DependsOn: []Name{},
 				},
 				{
-					Name:      NewName("namespace", "atype", "asubtype", "B"),
-					DependsOn: []Name{NewName("namespace", "atype", "asubtype", "A")},
+					Name:      NewName(apiA, "B"),
+					DependsOn: []Name{NewName(apiA, "A")},
 				},
 				{
-					Name:      NewName("namespace", "atype", "asubtype", "C"),
-					DependsOn: []Name{NewName("namespace", "atype", "asubtype", "B")},
+					Name:      NewName(apiA, "C"),
+					DependsOn: []Name{NewName(apiA, "B")},
 				},
 				{
-					Name:      NewName("namespace", "atype", "asubtype", "D"),
-					DependsOn: []Name{NewName("namespace", "atype", "asubtype", "C")},
+					Name:      NewName(apiA, "D"),
+					DependsOn: []Name{NewName(apiA, "C")},
 				},
 				{
-					Name:      NewName("namespace", "atype", "asubtype", "E"),
+					Name:      NewName(apiA, "E"),
 					DependsOn: []Name{},
 				},
 				{
-					Name: NewName("namespace", "atype", "asubtype", "F"),
+					Name: NewName(apiA, "F"),
 					DependsOn: []Name{
-						NewName("namespace", "atype", "asubtype", "A"),
-						NewName("namespace", "atype", "asubtype", "E"),
-						NewName("namespace", "atype", "asubtype", "B"),
+						NewName(apiA, "A"),
+						NewName(apiA, "E"),
+						NewName(apiA, "B"),
 					},
 				},
 			},
@@ -92,12 +94,12 @@ func TestResourceGraphConstruct(t *testing.T) {
 		{
 			[]fakeComponent{
 				{
-					Name:      NewName("namespace", "atype", "asubtype", "A"),
-					DependsOn: []Name{NewName("namespace", "atype", "asubtype", "B")},
+					Name:      NewName(apiA, "A"),
+					DependsOn: []Name{NewName(apiA, "B")},
 				},
 				{
-					Name:      NewName("namespace", "atype", "asubtype", "B"),
-					DependsOn: []Name{NewName("namespace", "atype", "asubtype", "A")},
+					Name:      NewName(apiA, "B"),
+					DependsOn: []Name{NewName(apiA, "A")},
 				},
 			},
 			"circular dependency - \"A\" already depends on \"B\"",
@@ -105,12 +107,12 @@ func TestResourceGraphConstruct(t *testing.T) {
 		{
 			[]fakeComponent{
 				{
-					Name:      NewName("namespace", "atype", "asubtype", "A"),
+					Name:      NewName(apiA, "A"),
 					DependsOn: []Name{},
 				},
 				{
-					Name:      NewName("namespace", "atype", "asubtype", "B"),
-					DependsOn: []Name{NewName("namespace", "atype", "asubtype", "B")},
+					Name:      NewName(apiA, "B"),
+					DependsOn: []Name{NewName(apiA, "B")},
 				},
 			},
 			"\"B\" cannot depend on itself",
@@ -143,96 +145,96 @@ func TestResourceGraphGetParentsAndChildren(t *testing.T) {
 			test.That(t, g.AddChild(component.Name, dep), test.ShouldBeNil)
 		}
 	}
-	out := g.GetAllChildrenOf(NewName("namespace", "atype", "asubtype", "A"))
+	out := g.GetAllChildrenOf(NewName(apiA, "A"))
 	test.That(t, len(out), test.ShouldEqual, 2)
 	test.That(t, out, test.ShouldContain,
-		NewName("namespace", "atype", "asubtype", "F"),
+		NewName(apiA, "F"),
 	)
 	test.That(t, out, test.ShouldContain,
-		NewName("namespace", "atype", "asubtype", "B"),
+		NewName(apiA, "B"),
 	)
-	out = g.GetAllParentsOf(NewName("namespace", "atype", "asubtype", "F"))
+	out = g.GetAllParentsOf(NewName(apiA, "F"))
 	test.That(t, len(out), test.ShouldEqual, 3)
 	test.That(t, out, test.ShouldContain,
-		NewName("namespace", "atype", "asubtype", "C"),
+		NewName(apiA, "C"),
 	)
 	test.That(t, out, test.ShouldContain,
-		NewName("namespace", "atype", "asubtype", "A"),
+		NewName(apiA, "A"),
 	)
-	out = g.GetAllChildrenOf(NewName("namespace", "atype", "asubtype", "C"))
+	out = g.GetAllChildrenOf(NewName(apiA, "C"))
 	test.That(t, len(out), test.ShouldEqual, 1)
 	test.That(t, out, test.ShouldContain,
-		NewName("namespace", "atype", "asubtype", "F"),
+		NewName(apiA, "F"),
 	)
-	g.RemoveChild(NewName("namespace", "atype", "asubtype", "F"),
-		NewName("namespace", "atype", "asubtype", "C"))
-	out = g.GetAllChildrenOf(NewName("namespace", "atype", "asubtype", "C"))
+	g.RemoveChild(NewName(apiA, "F"),
+		NewName(apiA, "C"))
+	out = g.GetAllChildrenOf(NewName(apiA, "C"))
 	test.That(t, len(out), test.ShouldEqual, 0)
 
-	test.That(t, g.GetAllParentsOf(NewName("namespace", "atype", "asubtype", "Z")),
+	test.That(t, g.GetAllParentsOf(NewName(apiA, "Z")),
 		test.ShouldBeEmpty)
 
-	test.That(t, g.IsNodeDependingOn(NewName("namespace", "atype", "asubtype", "A"),
-		NewName("namespace", "atype", "asubtype", "F")), test.ShouldBeTrue)
-	test.That(t, g.IsNodeDependingOn(NewName("namespace", "atype", "asubtype", "F"),
-		NewName("namespace", "atype", "asubtype", "A")), test.ShouldBeFalse)
-	test.That(t, g.IsNodeDependingOn(NewName("namespace", "atype", "asubtype", "Z"),
-		NewName("namespace", "atype", "asubtype", "F")), test.ShouldBeFalse)
-	test.That(t, g.IsNodeDependingOn(NewName("namespace", "atype", "asubtype", "A"),
-		NewName("namespace", "atype", "asubtype", "Z")), test.ShouldBeFalse)
+	test.That(t, g.IsNodeDependingOn(NewName(apiA, "A"),
+		NewName(apiA, "F")), test.ShouldBeTrue)
+	test.That(t, g.IsNodeDependingOn(NewName(apiA, "F"),
+		NewName(apiA, "A")), test.ShouldBeFalse)
+	test.That(t, g.IsNodeDependingOn(NewName(apiA, "Z"),
+		NewName(apiA, "F")), test.ShouldBeFalse)
+	test.That(t, g.IsNodeDependingOn(NewName(apiA, "A"),
+		NewName(apiA, "Z")), test.ShouldBeFalse)
 
-	for _, p := range g.GetAllParentsOf(NewName("namespace", "atype", "asubtype", "F")) {
-		g.removeChild(NewName("namespace", "atype", "asubtype", "F"), p)
+	for _, p := range g.GetAllParentsOf(NewName(apiA, "F")) {
+		g.removeChild(NewName(apiA, "F"), p)
 	}
-	g.remove(NewName("namespace", "atype", "asubtype", "F"))
+	g.remove(NewName(apiA, "F"))
 	out = g.TopologicalSort()
 	test.That(t, newResourceNameSet(out[0:3]...), test.ShouldResemble,
 		newResourceNameSet([]Name{
-			NewName("namespace", "atype", "asubtype", "G"),
-			NewName("namespace", "atype", "asubtype", "C"),
-			NewName("namespace", "atype", "asubtype", "D"),
+			NewName(apiA, "G"),
+			NewName(apiA, "C"),
+			NewName(apiA, "D"),
 		}...))
 	test.That(t, newResourceNameSet(out[3]), test.ShouldResemble, newResourceNameSet([]Name{
-		NewName("namespace", "atype", "asubtype", "E"),
+		NewName(apiA, "E"),
 	}...))
 	test.That(t, newResourceNameSet(out[4]), test.ShouldResemble, newResourceNameSet([]Name{
-		NewName("namespace", "atype", "asubtype", "B"),
+		NewName(apiA, "B"),
 	}...))
 	test.That(t, newResourceNameSet(out[5]), test.ShouldResemble, newResourceNameSet([]Name{
-		NewName("namespace", "atype", "asubtype", "A"),
+		NewName(apiA, "A"),
 	}...))
 }
 
 func TestResourceGraphSubGraph(t *testing.T) {
 	cfg := []fakeComponent{
 		{
-			Name:      NewName("namespace", "atype", "asubtype", "A"),
+			Name:      NewName(apiA, "A"),
 			DependsOn: []Name{},
 		},
 		{
-			Name:      NewName("namespace", "atype", "asubtype", "B"),
-			DependsOn: []Name{NewName("namespace", "atype", "asubtype", "A")},
+			Name:      NewName(apiA, "B"),
+			DependsOn: []Name{NewName(apiA, "A")},
 		},
 		{
-			Name:      NewName("namespace", "atype", "asubtype", "C"),
-			DependsOn: []Name{NewName("namespace", "atype", "asubtype", "B")},
+			Name:      NewName(apiA, "C"),
+			DependsOn: []Name{NewName(apiA, "B")},
 		},
 		{
-			Name: NewName("namespace", "atype", "asubtype", "D"),
+			Name: NewName(apiA, "D"),
 			DependsOn: []Name{
-				NewName("namespace", "atype", "asubtype", "B"),
-				NewName("namespace", "atype", "asubtype", "C"),
+				NewName(apiA, "B"),
+				NewName(apiA, "C"),
 			},
 		},
 		{
-			Name:      NewName("namespace", "atype", "asubtype", "E"),
-			DependsOn: []Name{NewName("namespace", "atype", "asubtype", "B")},
+			Name:      NewName(apiA, "E"),
+			DependsOn: []Name{NewName(apiA, "B")},
 		},
 		{
-			Name: NewName("namespace", "atype", "asubtype", "F"),
+			Name: NewName(apiA, "F"),
 			DependsOn: []Name{
-				NewName("namespace", "atype", "asubtype", "A"),
-				NewName("namespace", "atype", "asubtype", "C"),
+				NewName(apiA, "A"),
+				NewName(apiA, "C"),
 			},
 		},
 	}
@@ -244,49 +246,49 @@ func TestResourceGraphSubGraph(t *testing.T) {
 			test.That(t, g.AddChild(component.Name, dep), test.ShouldBeNil)
 		}
 	}
-	sg, err := g.SubGraphFrom(NewName("namespace", "atype", "asubtype", "W"))
+	sg, err := g.SubGraphFrom(NewName(apiA, "W"))
 	test.That(t, sg, test.ShouldBeNil)
 	test.That(t, err.Error(), test.ShouldResemble,
 		"cannot create sub-graph from non existing node \"W\" ")
-	sg, err = g.SubGraphFrom(NewName("namespace", "atype", "asubtype", "C"))
+	sg, err = g.SubGraphFrom(NewName(apiA, "C"))
 	test.That(t, sg, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldBeNil)
 	out := sg.TopologicalSort()
 	test.That(t, newResourceNameSet(out...), test.ShouldResemble, newResourceNameSet([]Name{
-		NewName("namespace", "atype", "asubtype", "D"),
-		NewName("namespace", "atype", "asubtype", "F"),
-		NewName("namespace", "atype", "asubtype", "C"),
+		NewName(apiA, "D"),
+		NewName(apiA, "F"),
+		NewName(apiA, "C"),
 	}...))
 }
 
 func TestResourceGraphDepTree(t *testing.T) {
 	cfg := []fakeComponent{
 		{
-			Name:      NewName("namespace", "atype", "asubtype", "A"),
+			Name:      NewName(apiA, "A"),
 			DependsOn: []Name{},
 		},
 		{
-			Name:      NewName("namespace", "atype", "asubtype", "B"),
-			DependsOn: []Name{NewName("namespace", "atype", "asubtype", "A")},
+			Name:      NewName(apiA, "B"),
+			DependsOn: []Name{NewName(apiA, "A")},
 		},
 		{
-			Name:      NewName("namespace", "atype", "asubtype", "C"),
-			DependsOn: []Name{NewName("namespace", "atype", "asubtype", "B")},
+			Name:      NewName(apiA, "C"),
+			DependsOn: []Name{NewName(apiA, "B")},
 		},
 		{
-			Name: NewName("namespace", "atype", "asubtype", "D"),
+			Name: NewName(apiA, "D"),
 			DependsOn: []Name{
-				NewName("namespace", "atype", "asubtype", "B"),
-				NewName("namespace", "atype", "asubtype", "E"),
+				NewName(apiA, "B"),
+				NewName(apiA, "E"),
 			},
 		},
 		{
-			Name:      NewName("namespace", "atype", "asubtype", "E"),
-			DependsOn: []Name{NewName("namespace", "atype", "asubtype", "B")},
+			Name:      NewName(apiA, "E"),
+			DependsOn: []Name{NewName(apiA, "B")},
 		},
 		{
-			Name:      NewName("namespace", "atype", "asubtype", "F"),
-			DependsOn: []Name{NewName("namespace", "atype", "asubtype", "E")},
+			Name:      NewName(apiA, "F"),
+			DependsOn: []Name{NewName(apiA, "E")},
 		},
 	}
 	g := NewGraph()
@@ -297,41 +299,41 @@ func TestResourceGraphDepTree(t *testing.T) {
 			test.That(t, g.AddChild(component.Name, dep), test.ShouldBeNil)
 		}
 	}
-	err := g.AddChild(NewName("namespace", "atype", "asubtype", "A"),
-		NewName("namespace", "atype", "asubtype", "F"))
+	err := g.AddChild(NewName(apiA, "A"),
+		NewName(apiA, "F"))
 	test.That(t, err.Error(), test.ShouldEqual, "circular dependency - \"F\" already depends on \"A\"")
-	test.That(t, g.AddChild(NewName("namespace", "atype", "asubtype", "D"),
-		NewName("namespace", "atype", "asubtype", "F")), test.ShouldBeNil)
+	test.That(t, g.AddChild(NewName(apiA, "D"),
+		NewName(apiA, "F")), test.ShouldBeNil)
 }
 
 func TestResourceGraphTopologicalSort(t *testing.T) {
 	cfg := []fakeComponent{
 		{
-			Name:      NewName("namespace", "atype", "asubtype", "A"),
+			Name:      NewName(apiA, "A"),
 			DependsOn: []Name{},
 		},
 		{
-			Name:      NewName("namespace", "atype", "asubtype", "B"),
-			DependsOn: []Name{NewName("namespace", "atype", "asubtype", "A")},
+			Name:      NewName(apiA, "B"),
+			DependsOn: []Name{NewName(apiA, "A")},
 		},
 		{
-			Name:      NewName("namespace", "atype", "asubtype", "C"),
-			DependsOn: []Name{NewName("namespace", "atype", "asubtype", "B")},
+			Name:      NewName(apiA, "C"),
+			DependsOn: []Name{NewName(apiA, "B")},
 		},
 		{
-			Name:      NewName("namespace", "atype", "asubtype", "D"),
-			DependsOn: []Name{NewName("namespace", "atype", "asubtype", "C")},
+			Name:      NewName(apiA, "D"),
+			DependsOn: []Name{NewName(apiA, "C")},
 		},
 		{
-			Name:      NewName("namespace", "atype", "asubtype", "E"),
-			DependsOn: []Name{NewName("namespace", "atype", "asubtype", "D")},
+			Name:      NewName(apiA, "E"),
+			DependsOn: []Name{NewName(apiA, "D")},
 		},
 		{
-			Name: NewName("namespace", "atype", "asubtype", "F"),
+			Name: NewName(apiA, "F"),
 			DependsOn: []Name{
-				NewName("namespace", "atype", "asubtype", "A"),
-				NewName("namespace", "atype", "asubtype", "E"),
-				NewName("namespace", "atype", "asubtype", "B"),
+				NewName(apiA, "A"),
+				NewName(apiA, "E"),
+				NewName(apiA, "B"),
 			},
 		},
 	}
@@ -345,78 +347,78 @@ func TestResourceGraphTopologicalSort(t *testing.T) {
 	}
 	out := g.TopologicalSort()
 	test.That(t, out, test.ShouldResemble, []Name{
-		NewName("namespace", "atype", "asubtype", "F"),
-		NewName("namespace", "atype", "asubtype", "E"),
-		NewName("namespace", "atype", "asubtype", "D"),
-		NewName("namespace", "atype", "asubtype", "C"),
-		NewName("namespace", "atype", "asubtype", "B"),
-		NewName("namespace", "atype", "asubtype", "A"),
+		NewName(apiA, "F"),
+		NewName(apiA, "E"),
+		NewName(apiA, "D"),
+		NewName(apiA, "C"),
+		NewName(apiA, "B"),
+		NewName(apiA, "A"),
 	})
 
 	outLevels := g.TopologicalSortInLevels()
 	test.That(t, outLevels, test.ShouldHaveLength, 6)
 	test.That(t, outLevels, test.ShouldResemble, [][]Name{
 		{
-			NewName("namespace", "atype", "asubtype", "F"),
+			NewName(apiA, "F"),
 		},
 		{
-			NewName("namespace", "atype", "asubtype", "E"),
+			NewName(apiA, "E"),
 		},
 		{
-			NewName("namespace", "atype", "asubtype", "D"),
+			NewName(apiA, "D"),
 		},
 		{
-			NewName("namespace", "atype", "asubtype", "C"),
+			NewName(apiA, "C"),
 		},
 		{
-			NewName("namespace", "atype", "asubtype", "B"),
+			NewName(apiA, "B"),
 		},
 		{
-			NewName("namespace", "atype", "asubtype", "A"),
+			NewName(apiA, "A"),
 		},
 	})
 
-	gNode, ok := g.Node(NewName("namespace", "atype", "asubtype", "F"))
+	gNode, ok := g.Node(NewName(apiA, "F"))
 	test.That(t, ok, test.ShouldBeTrue)
 	gNode.MarkForRemoval()
 	test.That(t, g.RemoveMarked(), test.ShouldHaveLength, 1)
 	out = g.TopologicalSort()
 	test.That(t, out, test.ShouldResemble, []Name{
-		NewName("namespace", "atype", "asubtype", "E"),
-		NewName("namespace", "atype", "asubtype", "D"),
-		NewName("namespace", "atype", "asubtype", "C"),
-		NewName("namespace", "atype", "asubtype", "B"),
-		NewName("namespace", "atype", "asubtype", "A"),
+		NewName(apiA, "E"),
+		NewName(apiA, "D"),
+		NewName(apiA, "C"),
+		NewName(apiA, "B"),
+		NewName(apiA, "A"),
 	})
 }
 
 func TestResourceGraphMergeAdd(t *testing.T) {
 	cfgA := []fakeComponent{
 		{
-			Name:      NewName("namespace", "atype", "asubtype", "A"),
+			Name:      NewName(apiA, "A"),
 			DependsOn: []Name{},
 		},
 		{
-			Name:      NewName("namespace", "atype", "asubtype", "B"),
-			DependsOn: []Name{NewName("namespace", "atype", "asubtype", "A")},
+			Name:      NewName(apiA, "B"),
+			DependsOn: []Name{NewName(apiA, "A")},
 		},
 		{
-			Name:      NewName("namespace", "atype", "asubtype", "C"),
-			DependsOn: []Name{NewName("namespace", "atype", "asubtype", "B")},
+			Name:      NewName(apiA, "C"),
+			DependsOn: []Name{NewName(apiA, "B")},
 		},
 	}
 	cfgB := []fakeComponent{
 		{
-			Name:      NewName("namespace", "atype", "asubtype", "D"),
+			Name:      NewName(apiA, "D"),
 			DependsOn: []Name{},
 		},
 		{
-			Name:      NewName("namespace", "atype", "asubtype", "E"),
-			DependsOn: []Name{NewName("namespace", "atype", "asubtype", "D")},
+			Name:      NewName(apiA, "E"),
+			DependsOn: []Name{NewName(apiA, "D")},
 		},
 		{
-			Name:      NewName("namespace", "atype", "asubtype", "F"),
-			DependsOn: []Name{NewName("namespace", "atype", "asubtype", "E")},
+			Name:      NewName(apiA, "F"),
+			DependsOn: []Name{NewName(apiA, "E")},
 		},
 	}
 	gA := NewGraph()
@@ -429,9 +431,9 @@ func TestResourceGraphMergeAdd(t *testing.T) {
 	}
 	out := gA.TopologicalSort()
 	test.That(t, out, test.ShouldResemble, []Name{
-		NewName("namespace", "atype", "asubtype", "C"),
-		NewName("namespace", "atype", "asubtype", "B"),
-		NewName("namespace", "atype", "asubtype", "A"),
+		NewName(apiA, "C"),
+		NewName(apiA, "B"),
+		NewName(apiA, "A"),
 	})
 	gB := NewGraph()
 	test.That(t, gB, test.ShouldNotBeNil)
@@ -443,90 +445,90 @@ func TestResourceGraphMergeAdd(t *testing.T) {
 	}
 	out = gB.TopologicalSort()
 	test.That(t, out, test.ShouldResemble, []Name{
-		NewName("namespace", "atype", "asubtype", "F"),
-		NewName("namespace", "atype", "asubtype", "E"),
-		NewName("namespace", "atype", "asubtype", "D"),
+		NewName(apiA, "F"),
+		NewName(apiA, "E"),
+		NewName(apiA, "D"),
 	})
 	test.That(t, gA.MergeAdd(gB), test.ShouldBeNil)
-	test.That(t, gA.AddChild(NewName("namespace", "atype", "asubtype", "D"),
-		NewName("namespace", "atype", "asubtype", "C")), test.ShouldBeNil)
+	test.That(t, gA.AddChild(NewName(apiA, "D"),
+		NewName(apiA, "C")), test.ShouldBeNil)
 	out = gA.TopologicalSort()
 	test.That(t, out, test.ShouldResemble, []Name{
-		NewName("namespace", "atype", "asubtype", "F"),
-		NewName("namespace", "atype", "asubtype", "E"),
-		NewName("namespace", "atype", "asubtype", "D"),
-		NewName("namespace", "atype", "asubtype", "C"),
-		NewName("namespace", "atype", "asubtype", "B"),
-		NewName("namespace", "atype", "asubtype", "A"),
+		NewName(apiA, "F"),
+		NewName(apiA, "E"),
+		NewName(apiA, "D"),
+		NewName(apiA, "C"),
+		NewName(apiA, "B"),
+		NewName(apiA, "A"),
 	})
 }
 
 func TestResourceGraphMergeRemove(t *testing.T) {
 	cfgA := []fakeComponent{
 		{
-			Name:      NewName("namespace", "atype", "asubtype", "1"),
+			Name:      NewName(apiA, "1"),
 			DependsOn: []Name{},
 		},
 		{
-			Name:      NewName("namespace", "atype", "asubtype", "2"),
-			DependsOn: []Name{NewName("namespace", "atype", "asubtype", "1")},
+			Name:      NewName(apiA, "2"),
+			DependsOn: []Name{NewName(apiA, "1")},
 		},
 		{
-			Name: NewName("namespace", "atype", "asubtype", "3"),
+			Name: NewName(apiA, "3"),
 			DependsOn: []Name{
-				NewName("namespace", "atype", "asubtype", "1"),
-				NewName("namespace", "atype", "asubtype", "11"),
+				NewName(apiA, "1"),
+				NewName(apiA, "11"),
 			},
 		},
 		{
-			Name:      NewName("namespace", "atype", "asubtype", "4"),
-			DependsOn: []Name{NewName("namespace", "atype", "asubtype", "2")},
+			Name:      NewName(apiA, "4"),
+			DependsOn: []Name{NewName(apiA, "2")},
 		},
 		{
-			Name:      NewName("namespace", "atype", "asubtype", "5"),
-			DependsOn: []Name{NewName("namespace", "atype", "asubtype", "4")},
+			Name:      NewName(apiA, "5"),
+			DependsOn: []Name{NewName(apiA, "4")},
 		},
 		{
-			Name:      NewName("namespace", "atype", "asubtype", "6"),
-			DependsOn: []Name{NewName("namespace", "atype", "asubtype", "4")},
+			Name:      NewName(apiA, "6"),
+			DependsOn: []Name{NewName(apiA, "4")},
 		},
 		{
-			Name:      NewName("namespace", "atype", "asubtype", "7"),
-			DependsOn: []Name{NewName("namespace", "atype", "asubtype", "4")},
+			Name:      NewName(apiA, "7"),
+			DependsOn: []Name{NewName(apiA, "4")},
 		},
 		{
-			Name: NewName("namespace", "atype", "asubtype", "8"),
+			Name: NewName(apiA, "8"),
 			DependsOn: []Name{
-				NewName("namespace", "atype", "asubtype", "3"),
-				NewName("namespace", "atype", "asubtype", "2"),
+				NewName(apiA, "3"),
+				NewName(apiA, "2"),
 			},
 		},
 		{
-			Name:      NewName("namespace", "atype", "asubtype", "9"),
-			DependsOn: []Name{NewName("namespace", "atype", "asubtype", "8")},
+			Name:      NewName(apiA, "9"),
+			DependsOn: []Name{NewName(apiA, "8")},
 		},
 		{
-			Name: NewName("namespace", "atype", "asubtype", "10"),
+			Name: NewName(apiA, "10"),
 			DependsOn: []Name{
-				NewName("namespace", "atype", "asubtype", "12"),
-				NewName("namespace", "atype", "asubtype", "8"),
+				NewName(apiA, "12"),
+				NewName(apiA, "8"),
 			},
 		},
 		{
-			Name:      NewName("namespace", "atype", "asubtype", "11"),
+			Name:      NewName(apiA, "11"),
 			DependsOn: []Name{},
 		},
 		{
-			Name:      NewName("namespace", "atype", "asubtype", "12"),
-			DependsOn: []Name{NewName("namespace", "atype", "asubtype", "11")},
+			Name:      NewName(apiA, "12"),
+			DependsOn: []Name{NewName(apiA, "11")},
 		},
 		{
-			Name:      NewName("namespace", "atype", "asubtype", "13"),
-			DependsOn: []Name{NewName("namespace", "atype", "asubtype", "11")},
+			Name:      NewName(apiA, "13"),
+			DependsOn: []Name{NewName(apiA, "11")},
 		},
 		{
-			Name:      NewName("namespace", "atype", "asubtype", "14"),
-			DependsOn: []Name{NewName("namespace", "atype", "asubtype", "11")},
+			Name:      NewName(apiA, "14"),
+			DependsOn: []Name{NewName(apiA, "11")},
 		},
 	}
 	gA := NewGraph()
@@ -540,36 +542,36 @@ func TestResourceGraphMergeRemove(t *testing.T) {
 	out := gA.TopologicalSort()
 	test.That(t, newResourceNameSet(out[0:7]...), test.ShouldResemble,
 		newResourceNameSet([]Name{
-			NewName("namespace", "atype", "asubtype", "5"),
-			NewName("namespace", "atype", "asubtype", "6"),
-			NewName("namespace", "atype", "asubtype", "7"),
-			NewName("namespace", "atype", "asubtype", "9"),
-			NewName("namespace", "atype", "asubtype", "10"),
-			NewName("namespace", "atype", "asubtype", "13"),
-			NewName("namespace", "atype", "asubtype", "14"),
+			NewName(apiA, "5"),
+			NewName(apiA, "6"),
+			NewName(apiA, "7"),
+			NewName(apiA, "9"),
+			NewName(apiA, "10"),
+			NewName(apiA, "13"),
+			NewName(apiA, "14"),
 		}...))
 	test.That(t, newResourceNameSet(out[7:10]...), test.ShouldResemble,
 		newResourceNameSet([]Name{
-			NewName("namespace", "atype", "asubtype", "4"),
-			NewName("namespace", "atype", "asubtype", "8"),
-			NewName("namespace", "atype", "asubtype", "12"),
+			NewName(apiA, "4"),
+			NewName(apiA, "8"),
+			NewName(apiA, "12"),
 		}...))
 	test.That(t, newResourceNameSet(out[10:12]...), test.ShouldResemble,
 		newResourceNameSet([]Name{
-			NewName("namespace", "atype", "asubtype", "2"),
-			NewName("namespace", "atype", "asubtype", "3"),
+			NewName(apiA, "2"),
+			NewName(apiA, "3"),
 		}...))
 	test.That(t, newResourceNameSet(out[12:14]...), test.ShouldResemble,
 		newResourceNameSet([]Name{
-			NewName("namespace", "atype", "asubtype", "1"),
-			NewName("namespace", "atype", "asubtype", "11"),
+			NewName(apiA, "1"),
+			NewName(apiA, "11"),
 		}...))
 	removalList := []Name{
-		NewName("namespace", "atype", "asubtype", "5"),
-		NewName("namespace", "atype", "asubtype", "7"),
-		NewName("namespace", "atype", "asubtype", "12"),
-		NewName("namespace", "atype", "asubtype", "2"),
-		NewName("namespace", "atype", "asubtype", "13"),
+		NewName(apiA, "5"),
+		NewName(apiA, "7"),
+		NewName(apiA, "12"),
+		NewName(apiA, "2"),
+		NewName(apiA, "13"),
 	}
 	gB := NewGraph()
 	for _, comp := range removalList {
@@ -584,12 +586,12 @@ func TestResourceGraphMergeRemove(t *testing.T) {
 	test.That(t, len(out), test.ShouldEqual, 4)
 	test.That(t, newResourceNameSet(out[0:2]...), test.ShouldResemble,
 		newResourceNameSet([]Name{
-			NewName("namespace", "atype", "asubtype", "14"),
-			NewName("namespace", "atype", "asubtype", "3"),
+			NewName(apiA, "14"),
+			NewName(apiA, "3"),
 		}...))
 	test.That(t, newResourceNameSet(out[2:4]...), test.ShouldResemble, newResourceNameSet([]Name{
-		NewName("namespace", "atype", "asubtype", "11"),
-		NewName("namespace", "atype", "asubtype", "1"),
+		NewName(apiA, "11"),
+		NewName(apiA, "1"),
 	}...))
 }
 
@@ -604,16 +606,16 @@ func newResourceNameSet(resourceNames ...Name) map[Name]*GraphNode {
 func TestResourceGraphFindNodeByName(t *testing.T) {
 	cfgA := []fakeComponent{
 		{
-			Name:      NewName("namespace", ResourceTypeComponent, "asubtype", "A"),
+			Name:      NewName(APINamespaceRDK.WithComponentType("aapi"), "A"),
 			DependsOn: []Name{},
 		},
 		{
-			Name:      NewName("namespace", ResourceTypeService, "asubtype", "B"),
-			DependsOn: []Name{NewName("namespace", ResourceTypeComponent, "asubtype", "A")},
+			Name:      NewName(APINamespaceRDK.WithComponentType("aapi"), "B"),
+			DependsOn: []Name{NewName(APINamespaceRDK.WithComponentType("aapi"), "A")},
 		},
 		{
-			Name:      NewName("namespace", ResourceTypeComponent, "asubtype", "C"),
-			DependsOn: []Name{NewName("namespace", ResourceTypeService, "asubtype", "B")},
+			Name:      NewName(APINamespaceRDK.WithComponentType("aapi"), "C"),
+			DependsOn: []Name{NewName(APINamespaceRDK.WithComponentType("aapi"), "B")},
 		},
 	}
 	gA := NewGraph()
@@ -636,39 +638,39 @@ func TestResourceGraphFindNodeByName(t *testing.T) {
 
 var cfgA = []fakeComponent{
 	{
-		Name:      NewName("namespace", "atype", "asubtype", "A"),
+		Name:      NewName(apiA, "A"),
 		DependsOn: []Name{},
 	},
 	{
-		Name:      NewName("namespace", "atype", "asubtype", "B"),
-		DependsOn: []Name{NewName("namespace", "atype", "asubtype", "A")},
+		Name:      NewName(apiA, "B"),
+		DependsOn: []Name{NewName(apiA, "A")},
 	},
 	{
-		Name:      NewName("namespace", "atype", "asubtype", "C"),
-		DependsOn: []Name{NewName("namespace", "atype", "asubtype", "B")},
+		Name:      NewName(apiA, "C"),
+		DependsOn: []Name{NewName(apiA, "B")},
 	},
 	{
-		Name: NewName("namespace", "atype", "asubtype", "D"),
+		Name: NewName(apiA, "D"),
 		DependsOn: []Name{
-			NewName("namespace", "atype", "asubtype", "A"),
-			NewName("namespace", "atype", "asubtype", "B"),
+			NewName(apiA, "A"),
+			NewName(apiA, "B"),
 		},
 	},
 	{
-		Name:      NewName("namespace", "atype", "asubtype", "E"),
-		DependsOn: []Name{NewName("namespace", "atype", "asubtype", "D")},
+		Name:      NewName(apiA, "E"),
+		DependsOn: []Name{NewName(apiA, "D")},
 	},
 	{
-		Name:      NewName("namespace", "atype", "asubtype", "F"),
-		DependsOn: []Name{NewName("namespace", "atype", "asubtype", "A")},
+		Name:      NewName(apiA, "F"),
+		DependsOn: []Name{NewName(apiA, "A")},
 	},
 	{
-		Name:      NewName("namespace", "atype", "asubtype", "G"),
-		DependsOn: []Name{NewName("namespace", "atype", "asubtype", "F")},
+		Name:      NewName(apiA, "G"),
+		DependsOn: []Name{NewName(apiA, "F")},
 	},
 	{
-		Name:      NewName("namespace", "atype", "asubtype", "H"),
-		DependsOn: []Name{NewName("namespace", "atype", "asubtype", "F")},
+		Name:      NewName(apiA, "H"),
+		DependsOn: []Name{NewName(apiA, "F")},
 	},
 }
 
@@ -684,49 +686,49 @@ func TestResourceGraphReplaceNodesParents(t *testing.T) {
 	out := gA.TopologicalSort()
 	test.That(t, newResourceNameSet(out[0:4]...), test.ShouldResemble,
 		newResourceNameSet([]Name{
-			NewName("namespace", "atype", "asubtype", "G"),
-			NewName("namespace", "atype", "asubtype", "H"),
-			NewName("namespace", "atype", "asubtype", "E"),
-			NewName("namespace", "atype", "asubtype", "C"),
+			NewName(apiA, "G"),
+			NewName(apiA, "H"),
+			NewName(apiA, "E"),
+			NewName(apiA, "C"),
 		}...))
 	test.That(t, newResourceNameSet(out[4:6]...), test.ShouldResemble, newResourceNameSet([]Name{
-		NewName("namespace", "atype", "asubtype", "F"),
-		NewName("namespace", "atype", "asubtype", "D"),
+		NewName(apiA, "F"),
+		NewName(apiA, "D"),
 	}...))
 	test.That(t, newResourceNameSet(out[6]), test.ShouldResemble, newResourceNameSet([]Name{
-		NewName("namespace", "atype", "asubtype", "B"),
+		NewName(apiA, "B"),
 	}...))
 	test.That(t, newResourceNameSet(out[7]), test.ShouldResemble, newResourceNameSet([]Name{
-		NewName("namespace", "atype", "asubtype", "A"),
+		NewName(apiA, "A"),
 	}...))
 
 	cfgB := []fakeComponent{
 		{
-			Name:      NewName("namespace", "atype", "asubtype", "F"),
+			Name:      NewName(apiA, "F"),
 			DependsOn: []Name{},
 		},
 		{
-			Name: NewName("namespace", "atype", "asubtype", "B"),
+			Name: NewName(apiA, "B"),
 			DependsOn: []Name{
-				NewName("namespace", "atype", "asubtype", "A"),
-				NewName("namespace", "atype", "asubtype", "F"),
+				NewName(apiA, "A"),
+				NewName(apiA, "F"),
 			},
 		},
 		{
-			Name:      NewName("namespace", "atype", "asubtype", "C"),
-			DependsOn: []Name{NewName("namespace", "atype", "asubtype", "B")},
+			Name:      NewName(apiA, "C"),
+			DependsOn: []Name{NewName(apiA, "B")},
 		},
 		{
-			Name:      NewName("namespace", "atype", "asubtype", "D"),
-			DependsOn: []Name{NewName("namespace", "atype", "asubtype", "A")},
+			Name:      NewName(apiA, "D"),
+			DependsOn: []Name{NewName(apiA, "A")},
 		},
 		{
-			Name:      NewName("namespace", "atype", "asubtype", "G"),
-			DependsOn: []Name{NewName("namespace", "atype", "asubtype", "C")},
+			Name:      NewName(apiA, "G"),
+			DependsOn: []Name{NewName(apiA, "C")},
 		},
 		{
-			Name:      NewName("namespace", "atype", "asubtype", "H"),
-			DependsOn: []Name{NewName("namespace", "atype", "asubtype", "D")},
+			Name:      NewName(apiA, "H"),
+			DependsOn: []Name{NewName(apiA, "D")},
 		},
 	}
 	gB := NewGraph()
@@ -743,25 +745,25 @@ func TestResourceGraphReplaceNodesParents(t *testing.T) {
 	out = gA.TopologicalSort()
 	test.That(t, newResourceNameSet(out[0:3]...), test.ShouldResemble,
 		newResourceNameSet([]Name{
-			NewName("namespace", "atype", "asubtype", "G"),
-			NewName("namespace", "atype", "asubtype", "H"),
-			NewName("namespace", "atype", "asubtype", "E"),
+			NewName(apiA, "G"),
+			NewName(apiA, "H"),
+			NewName(apiA, "E"),
 		}...))
 	test.That(t, newResourceNameSet(out[3:5]...), test.ShouldResemble, newResourceNameSet([]Name{
-		NewName("namespace", "atype", "asubtype", "C"),
-		NewName("namespace", "atype", "asubtype", "D"),
+		NewName(apiA, "C"),
+		NewName(apiA, "D"),
 	}...))
 	test.That(t, newResourceNameSet(out[5]), test.ShouldResemble, newResourceNameSet([]Name{
-		NewName("namespace", "atype", "asubtype", "B"),
+		NewName(apiA, "B"),
 	}...))
 	test.That(t, newResourceNameSet(out[6:8]...), test.ShouldResemble, newResourceNameSet([]Name{
-		NewName("namespace", "atype", "asubtype", "A"),
-		NewName("namespace", "atype", "asubtype", "F"),
+		NewName(apiA, "A"),
+		NewName(apiA, "F"),
 	}...))
 
 	cfgC := []fakeComponent{
 		{
-			Name:      NewName("namespace", "atype", "asubtype", "W"),
+			Name:      NewName(apiA, "W"),
 			DependsOn: []Name{},
 		},
 	}
@@ -773,7 +775,7 @@ func TestResourceGraphReplaceNodesParents(t *testing.T) {
 			test.That(t, gC.AddChild(component.Name, dep), test.ShouldBeNil)
 		}
 	}
-	test.That(t, gA.ReplaceNodesParents(NewName("namespace", "atype", "asubtype", "W"), gC), test.ShouldNotBeNil)
+	test.That(t, gA.ReplaceNodesParents(NewName(apiA, "W"), gC), test.ShouldNotBeNil)
 }
 
 func TestResourceGraphCopyNodeAndChildren(t *testing.T) {
@@ -787,28 +789,28 @@ func TestResourceGraphCopyNodeAndChildren(t *testing.T) {
 	}
 	gB := NewGraph()
 	test.That(t, gB, test.ShouldNotBeNil)
-	test.That(t, gB.CopyNodeAndChildren(NewName("namespace", "atype", "asubtype", "F"), gA), test.ShouldBeNil)
+	test.That(t, gB.CopyNodeAndChildren(NewName(apiA, "F"), gA), test.ShouldBeNil)
 	out := gB.TopologicalSort()
 	test.That(t, newResourceNameSet(out[0:2]...), test.ShouldResemble,
 		newResourceNameSet([]Name{
-			NewName("namespace", "atype", "asubtype", "G"),
-			NewName("namespace", "atype", "asubtype", "H"),
+			NewName(apiA, "G"),
+			NewName(apiA, "H"),
 		}...))
 	test.That(t, newResourceNameSet(out[2]), test.ShouldResemble, newResourceNameSet([]Name{
-		NewName("namespace", "atype", "asubtype", "F"),
+		NewName(apiA, "F"),
 	}...))
 
-	test.That(t, gB.CopyNodeAndChildren(NewName("namespace", "atype", "asubtype", "D"), gA), test.ShouldBeNil)
+	test.That(t, gB.CopyNodeAndChildren(NewName(apiA, "D"), gA), test.ShouldBeNil)
 	out = gB.TopologicalSort()
 	test.That(t, newResourceNameSet(out[0:3]...), test.ShouldResemble,
 		newResourceNameSet([]Name{
-			NewName("namespace", "atype", "asubtype", "G"),
-			NewName("namespace", "atype", "asubtype", "H"),
-			NewName("namespace", "atype", "asubtype", "E"),
+			NewName(apiA, "G"),
+			NewName(apiA, "H"),
+			NewName(apiA, "E"),
 		}...))
 	test.That(t, newResourceNameSet(out[3:5]...), test.ShouldResemble, newResourceNameSet([]Name{
-		NewName("namespace", "atype", "asubtype", "F"),
-		NewName("namespace", "atype", "asubtype", "D"),
+		NewName(apiA, "F"),
+		NewName(apiA, "D"),
 	}...))
 
 	for n := range gA.nodes {
@@ -817,20 +819,20 @@ func TestResourceGraphCopyNodeAndChildren(t *testing.T) {
 	out = gB.TopologicalSort()
 	test.That(t, newResourceNameSet(out[0:4]...), test.ShouldResemble,
 		newResourceNameSet([]Name{
-			NewName("namespace", "atype", "asubtype", "G"),
-			NewName("namespace", "atype", "asubtype", "H"),
-			NewName("namespace", "atype", "asubtype", "E"),
-			NewName("namespace", "atype", "asubtype", "C"),
+			NewName(apiA, "G"),
+			NewName(apiA, "H"),
+			NewName(apiA, "E"),
+			NewName(apiA, "C"),
 		}...))
 	test.That(t, newResourceNameSet(out[4:6]...), test.ShouldResemble, newResourceNameSet([]Name{
-		NewName("namespace", "atype", "asubtype", "F"),
-		NewName("namespace", "atype", "asubtype", "D"),
+		NewName(apiA, "F"),
+		NewName(apiA, "D"),
 	}...))
 	test.That(t, newResourceNameSet(out[6]), test.ShouldResemble, newResourceNameSet([]Name{
-		NewName("namespace", "atype", "asubtype", "B"),
+		NewName(apiA, "B"),
 	}...))
 	test.That(t, newResourceNameSet(out[7]), test.ShouldResemble, newResourceNameSet([]Name{
-		NewName("namespace", "atype", "asubtype", "A"),
+		NewName(apiA, "A"),
 	}...))
 }
 
@@ -845,7 +847,7 @@ func TestResourceGraphRandomRemoval(t *testing.T) {
 		}
 	}
 
-	name := NewName("namespace", "atype", "asubtype", "B")
+	name := NewName(apiA, "B")
 
 	for _, c := range commonCfg {
 		if c.Name == name {
@@ -873,7 +875,7 @@ func TestResourceGraphMarkForRemoval(t *testing.T) {
 		test.That(t, g.AddNode(component.Name, NewConfiguredGraphNode(
 			Config{},
 			res,
-			NewDefaultModel("foo"),
+			DefaultModelFamily.WithModel("foo"),
 		)), test.ShouldBeNil)
 		for _, dep := range component.DependsOn {
 			err := g.AddChild(component.Name, dep)
@@ -881,7 +883,7 @@ func TestResourceGraphMarkForRemoval(t *testing.T) {
 		}
 	}
 
-	name := NewName("namespace", "atype", "asubtype", "B")
+	name := NewName(apiA, "B")
 
 	for _, c := range commonCfg {
 		if c.Name == name {
@@ -906,11 +908,11 @@ func TestResourceGraphMarkForRemoval(t *testing.T) {
 		namesToClose[res.Name()] = struct{}{}
 	}
 	test.That(t, namesToClose, test.ShouldResemble, map[Name]struct{}{
-		NewName("namespace", "atype", "asubtype", "B"): {},
-		NewName("namespace", "atype", "asubtype", "F"): {},
-		NewName("namespace", "atype", "asubtype", "D"): {},
-		NewName("namespace", "atype", "asubtype", "C"): {},
-		NewName("namespace", "atype", "asubtype", "E"): {},
+		NewName(apiA, "B"): {},
+		NewName(apiA, "F"): {},
+		NewName(apiA, "D"): {},
+		NewName(apiA, "C"): {},
+		NewName(apiA, "E"): {},
 	})
 
 	test.That(t, g.GetAllParentsOf(name), test.ShouldBeEmpty)
@@ -922,8 +924,8 @@ func TestResourceGraphClock(t *testing.T) {
 
 	test.That(t, g.LastUpdatedTime(), test.ShouldEqual, 0)
 
-	name1 := NewName("namespace", "atype", "asubtype", "a")
-	name2 := NewName("namespace", "atype", "asubtype", "b")
+	name1 := NewName(apiA, "a")
+	name2 := NewName(apiA, "b")
 	node1 := &GraphNode{}
 	test.That(t, g.AddNode(name1, node1), test.ShouldBeNil)
 	test.That(t, node1.UpdatedAt(), test.ShouldEqual, 0)
@@ -937,17 +939,17 @@ func TestResourceGraphClock(t *testing.T) {
 	test.That(t, n, test.ShouldEqual, node1)    // see docs of AddNode/GraphNode.replace
 
 	res1 := &someResource{Named: name1.AsNamed()}
-	node1.SwapResource(res1, NewDefaultModel("foo"))
+	node1.SwapResource(res1, DefaultModelFamily.WithModel("foo"))
 	test.That(t, g.LastUpdatedTime(), test.ShouldEqual, 1)
 	test.That(t, node1.UpdatedAt(), test.ShouldEqual, 1)
 	test.That(t, node2.UpdatedAt(), test.ShouldEqual, 0)
-	node1.SwapResource(res1, NewDefaultModel("foo"))
+	node1.SwapResource(res1, DefaultModelFamily.WithModel("foo"))
 	test.That(t, g.LastUpdatedTime(), test.ShouldEqual, 2)
 	test.That(t, node1.UpdatedAt(), test.ShouldEqual, 2)
 
 	node2 = &GraphNode{}
 	test.That(t, g.AddNode(name2, node2), test.ShouldBeNil)
-	node2.SwapResource(res1, NewDefaultModel("foo"))
+	node2.SwapResource(res1, DefaultModelFamily.WithModel("foo"))
 	test.That(t, g.LastUpdatedTime(), test.ShouldEqual, 3)
 	test.That(t, node1.UpdatedAt(), test.ShouldEqual, 2)
 	test.That(t, node2.UpdatedAt(), test.ShouldEqual, 3)
@@ -958,7 +960,7 @@ func TestResourceGraphResolveDependencies(t *testing.T) {
 	g := NewGraph()
 	test.That(t, g.ResolveDependencies(logger), test.ShouldBeNil)
 
-	name1 := NewName("namespace", ResourceTypeComponent, "asubtype", "a")
+	name1 := NewName(APINamespaceRDK.WithComponentType("aapi"), "a")
 	node1 := NewUnconfiguredGraphNode(Config{}, []string{"a", "b", "c", "d"})
 	test.That(t, g.AddNode(name1, node1), test.ShouldBeNil)
 	err := g.ResolveDependencies(logger)
@@ -968,7 +970,7 @@ func TestResourceGraphResolveDependencies(t *testing.T) {
 	test.That(t, node1.UnresolvedDependencies(), test.ShouldResemble, []string{"a", "b", "c", "d"})
 	node1.setUnresolvedDependencies("b", "c", "d")
 
-	name2 := NewName("namespace", ResourceTypeService, "asubtype", "b")
+	name2 := NewName(APINamespaceRDK.WithComponentType("aapi"), "b")
 	node2 := NewUnconfiguredGraphNode(Config{}, []string{"z"})
 	test.That(t, g.AddNode(name2, node2), test.ShouldBeNil)
 
@@ -976,9 +978,9 @@ func TestResourceGraphResolveDependencies(t *testing.T) {
 	test.That(t, node1.UnresolvedDependencies(), test.ShouldResemble, []string{"c", "d"})
 	test.That(t, node2.UnresolvedDependencies(), test.ShouldResemble, []string{"z"})
 
-	name3 := NewName("namespace", ResourceTypeComponent, "asubtype", "rem1:c")
+	name3 := NewName(APINamespaceRDK.WithComponentType("aapi"), "rem1:c")
 	node3 := NewUnconfiguredGraphNode(Config{}, []string{"z"})
-	name4 := NewName("namespace", ResourceTypeComponent, "asubtype", "rem2:c")
+	name4 := NewName(APINamespaceRDK.WithComponentType("aapi"), "rem2:c")
 	node4 := NewUnconfiguredGraphNode(Config{}, []string{"z"})
 	test.That(t, g.AddNode(name3, node3), test.ShouldBeNil)
 	test.That(t, g.AddNode(name4, node4), test.ShouldBeNil)
@@ -1010,7 +1012,7 @@ func TestResourceGraphResolveDependencies(t *testing.T) {
 	test.That(t, node2.hasUnresolvedDependencies(), test.ShouldBeTrue)
 	test.That(t, node4.hasUnresolvedDependencies(), test.ShouldBeTrue)
 
-	name5 := NewName("namespace", ResourceTypeComponent, "asubtype", "z")
+	name5 := NewName(APINamespaceRDK.WithComponentType("aapi"), "z")
 	node5 := NewUnconfiguredGraphNode(Config{}, []string{"rdk:component:foo/bar", "d"})
 	test.That(t, g.AddNode(name5, node5), test.ShouldBeNil)
 	test.That(t, g.ResolveDependencies(logger), test.ShouldBeNil)
@@ -1025,7 +1027,7 @@ func TestResourceGraphResolveDependencies(t *testing.T) {
 	test.That(t, node4.hasUnresolvedDependencies(), test.ShouldBeFalse)
 	test.That(t, node5.hasUnresolvedDependencies(), test.ShouldBeTrue)
 
-	name6 := NewName("namespace", ResourceTypeComponent, "asubtype", "d")
+	name6 := NewName(APINamespaceRDK.WithComponentType("aapi"), "d")
 	node6 := NewUnconfiguredGraphNode(Config{}, []string{})
 	test.That(t, g.AddNode(name6, node6), test.ShouldBeNil)
 	test.That(t, g.ResolveDependencies(logger), test.ShouldBeNil)

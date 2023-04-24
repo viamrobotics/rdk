@@ -78,7 +78,7 @@ func newProcessManager(
 }
 
 func fromRemoteNameToRemoteNodeName(name string) resource.Name {
-	return resource.NameFromSubtype(client.RemoteSubtype, name)
+	return resource.NewName(client.RemoteAPI, name)
 }
 
 // addRemote adds a remote to the manager.
@@ -118,8 +118,8 @@ func (manager *resourceManager) remoteResourceNames(remoteName resource.Name) []
 }
 
 var (
-	unknownModel = resource.NewDefaultModel("unknown")
-	builtinModel = resource.NewDefaultModel("builtin")
+	unknownModel = resource.DefaultModelFamily.WithModel("unknown")
+	builtinModel = resource.DefaultModelFamily.WithModel("builtin")
 )
 
 // maybe in the future this can become an actual resource with its own type
@@ -165,7 +165,7 @@ func (manager *resourceManager) updateRemoteResourceNames(
 			continue
 		}
 
-		resName = resName.PrependRemote(resource.RemoteName(remoteName.Name))
+		resName = resName.PrependRemote(remoteName.Name)
 		gNode, ok := manager.resources.Node(resName)
 
 		if _, alreadyCurrent := activeResourceNames[resName]; alreadyCurrent {
@@ -229,7 +229,7 @@ func (manager *resourceManager) updateRemotesResourceNames(ctx context.Context) 
 	anythingChanged := false
 	for _, name := range manager.resources.Names() {
 		gNode, _ := manager.resources.Node(name)
-		if name.ResourceType == client.RemoteTypeName {
+		if name.API == client.RemoteAPI {
 			res, err := gNode.Resource()
 			if err == nil {
 				if rr, ok := res.(internalRemoteRobot); ok {
@@ -246,7 +246,7 @@ func (manager *resourceManager) RemoteNames() []string {
 	names := []string{}
 	for _, k := range manager.resources.Names() {
 		res, _ := manager.resources.Node(k)
-		if k.ResourceType == client.RemoteTypeName && res != nil {
+		if k.API == client.RemoteAPI && res != nil {
 			names = append(names, k.Name)
 		}
 	}
@@ -269,7 +269,7 @@ func (manager *resourceManager) anyResourcesNotConfigured() bool {
 func (manager *resourceManager) internalResourceNames() []resource.Name {
 	names := []resource.Name{}
 	for _, k := range manager.resources.Names() {
-		if k.Namespace != resource.NamespaceRDKInternal {
+		if k.API.Type.Namespace != resource.APINamespaceRDKInternal {
 			continue
 		}
 		names = append(names, k)
@@ -281,8 +281,8 @@ func (manager *resourceManager) internalResourceNames() []resource.Name {
 func (manager *resourceManager) ResourceNames() []resource.Name {
 	names := []resource.Name{}
 	for _, k := range manager.resources.Names() {
-		if k.ResourceType == client.RemoteTypeName ||
-			k.Namespace == resource.NamespaceRDKInternal {
+		if k.API == client.RemoteAPI ||
+			k.API.Type.Namespace == resource.APINamespaceRDKInternal {
 			continue
 		}
 		gNode, ok := manager.resources.Node(k)
@@ -294,16 +294,16 @@ func (manager *resourceManager) ResourceNames() []resource.Name {
 	return names
 }
 
-// ResourceRPCSubtypes returns the types of all resource RPC subtypes in use by the manager.
-func (manager *resourceManager) ResourceRPCSubtypes() []resource.RPCSubtype {
-	resourceSubtypes := resource.RegisteredSubtypes()
+// ResourceRPCAPIs returns the types of all resource RPC APIs in use by the manager.
+func (manager *resourceManager) ResourceRPCAPIs() []resource.RPCAPI {
+	resourceAPIs := resource.RegisteredAPIs()
 
-	types := map[resource.Subtype]*desc.ServiceDescriptor{}
+	types := map[resource.API]*desc.ServiceDescriptor{}
 	for _, k := range manager.resources.Names() {
-		if k.Namespace == resource.NamespaceRDKInternal {
+		if k.API.Type.Namespace == resource.APINamespaceRDKInternal {
 			continue
 		}
-		if k.ResourceType == client.RemoteTypeName {
+		if k.API == client.RemoteAPI {
 			gNode, ok := manager.resources.Node(k)
 			if !ok || !gNode.HasResource() {
 				continue
@@ -330,50 +330,50 @@ func (manager *resourceManager) ResourceRPCSubtypes() []resource.RPCSubtype {
 				)
 				continue
 			}
-			manager.mergeResourceRPCSubtypesWithRemote(rr, types)
+			manager.mergeResourceRPCAPIsWithRemote(rr, types)
 			continue
 		}
 		if k.ContainsRemoteNames() {
 			continue
 		}
-		if types[k.Subtype] != nil {
+		if types[k.API] != nil {
 			continue
 		}
 
-		st, ok := resourceSubtypes[k.Subtype]
+		st, ok := resourceAPIs[k.API]
 		if !ok {
 			continue
 		}
 
 		if st.ReflectRPCServiceDesc != nil {
-			types[k.Subtype] = st.ReflectRPCServiceDesc
+			types[k.API] = st.ReflectRPCServiceDesc
 		}
 	}
-	typesList := make([]resource.RPCSubtype, 0, len(types))
+	typesList := make([]resource.RPCAPI, 0, len(types))
 	for k, v := range types {
-		typesList = append(typesList, resource.RPCSubtype{
-			Subtype: k,
-			Desc:    v,
+		typesList = append(typesList, resource.RPCAPI{
+			API:  k,
+			Desc: v,
 		})
 	}
 	return typesList
 }
 
-// mergeResourceRPCSubtypesWithRemotes merges types from the manager itself as well as its
+// mergeResourceRPCAPIsWithRemotes merges types from the manager itself as well as its
 // remotes.
-func (manager *resourceManager) mergeResourceRPCSubtypesWithRemote(r robot.Robot, types map[resource.Subtype]*desc.ServiceDescriptor) {
-	remoteTypes := r.ResourceRPCSubtypes()
+func (manager *resourceManager) mergeResourceRPCAPIsWithRemote(r robot.Robot, types map[resource.API]*desc.ServiceDescriptor) {
+	remoteTypes := r.ResourceRPCAPIs()
 	for _, remoteType := range remoteTypes {
-		if svcName, ok := types[remoteType.Subtype]; ok {
+		if svcName, ok := types[remoteType.API]; ok {
 			if svcName.GetFullyQualifiedName() != remoteType.Desc.GetFullyQualifiedName() {
 				manager.logger.Errorw(
-					"remote proto service name clashes with another of same subtype",
+					"remote proto service name clashes with another of the same API",
 					"existing", svcName.GetFullyQualifiedName(),
 					"remote", remoteType.Desc.GetFullyQualifiedName())
 			}
 			continue
 		}
-		types[remoteType.Subtype] = remoteType.Desc
+		types[remoteType.API] = remoteType.Desc
 	}
 }
 
@@ -443,7 +443,7 @@ func (manager *resourceManager) completeConfig(
 	defer manager.configLock.Unlock()
 
 	// first handle remotes since they may reveal unresolved dependencies
-	for _, resName := range manager.resources.FindNodesBySubtype(client.RemoteSubtype) {
+	for _, resName := range manager.resources.FindNodesByAPI(client.RemoteAPI) {
 		gNode, ok := manager.resources.Node(resName)
 		if !ok || !gNode.NeedsReconfigure() {
 			continue
@@ -455,8 +455,8 @@ func (manager *resourceManager) completeConfig(
 			verb = "reconfiguring"
 		}
 		manager.logger.Debugw(fmt.Sprintf("now %s a remote", verb), "resource", resName)
-		switch resName.Subtype {
-		case client.RemoteSubtype:
+		switch resName.API {
+		case client.RemoteAPI:
 			remConf, err := resource.NativeConfig[*config.Remote](gNode.Config())
 			if err != nil {
 				manager.logger.Errorw(
@@ -508,8 +508,7 @@ func (manager *resourceManager) completeConfig(
 		if !ok || !gNode.NeedsReconfigure() {
 			continue
 		}
-		if !(resName.ResourceType == resource.ResourceTypeComponent ||
-			resName.ResourceType == resource.ResourceTypeService) {
+		if !(resName.API.IsComponent() || resName.API.IsService()) {
 			continue
 		}
 		var verb string
@@ -522,7 +521,7 @@ func (manager *resourceManager) completeConfig(
 		conf := gNode.Config()
 
 		// this is done in config validation but partial start rules require us to check again
-		if _, err := conf.Validate("", resName.ResourceType); err != nil {
+		if _, err := conf.Validate("", resName.API.Type.Name); err != nil {
 			manager.logger.Errorw("resource config validation error", "resource", conf.ResourceName(), "model", conf.Model, "error", err)
 			gNode.SetLastError(errors.Wrap(err, "config validation error found in resource: "+conf.ResourceName().String()))
 			continue
@@ -535,8 +534,8 @@ func (manager *resourceManager) completeConfig(
 			}
 		}
 
-		switch resName.ResourceType {
-		case resource.ResourceTypeComponent, resource.ResourceTypeService:
+		switch {
+		case resName.API.IsComponent(), resName.API.IsService():
 			newRes, newlyBuilt, err := manager.processResource(ctx, conf, gNode, robot)
 			if newlyBuilt || err != nil {
 				if err := manager.markChildrenForUpdate(resName); err != nil {
@@ -654,7 +653,7 @@ func (manager *resourceManager) processRemote(
 // RemoteByName returns the given remote robot by name, if it exists;
 // returns nil otherwise.
 func (manager *resourceManager) RemoteByName(name string) (internalRemoteRobot, bool) {
-	rName := resource.NameFromSubtype(client.RemoteSubtype, name)
+	rName := resource.NewName(client.RemoteAPI, name)
 	if gNode, ok := manager.resources.Node(rName); ok {
 		remRes, err := gNode.Resource()
 		if err != nil {
@@ -783,7 +782,7 @@ func (manager *resourceManager) updateResources(
 
 	for _, s := range conf.Added.Services {
 		rName := s.ResourceName()
-		if manager.opts.untrustedEnv && rName.Subtype == shell.Subtype {
+		if manager.opts.untrustedEnv && rName.API == shell.API {
 			allErrs = multierr.Combine(allErrs, errShellServiceDisabled)
 			continue
 		}
@@ -806,7 +805,7 @@ func (manager *resourceManager) updateResources(
 		rName := s.ResourceName()
 
 		// Disable shell service when in untrusted env
-		if manager.opts.untrustedEnv && rName.Subtype == shell.Subtype {
+		if manager.opts.untrustedEnv && rName.API == shell.API {
 			allErrs = multierr.Combine(allErrs, errShellServiceDisabled)
 			continue
 		}
@@ -828,7 +827,7 @@ func (manager *resourceManager) updateResources(
 
 		_, err := manager.processManager.AddProcessFromConfig(ctx, p)
 		if err != nil {
-			manager.logger.Errorw("error while adding process, skipping", "process", p.ID, "error", err)
+			manager.logger.Errorw("error while adding process; skipping", "process", p.ID, "error", err)
 			continue
 		}
 	}
@@ -847,7 +846,7 @@ func (manager *resourceManager) updateResources(
 		}
 		_, err := manager.processManager.AddProcessFromConfig(ctx, p)
 		if err != nil {
-			manager.logger.Errorw("error while changing process, skipping", "process", p.ID, "error", err)
+			manager.logger.Errorw("error while changing process; skipping", "process", p.ID, "error", err)
 			continue
 		}
 	}
@@ -868,7 +867,7 @@ func (manager *resourceManager) ResourceByName(name resource.Name) (resource.Res
 	// This is kind of weird and arguably you could have a ResourcesByPartialName that would match against
 	// a string and not a resource name (e.g. expressions).
 	if !name.ContainsRemoteNames() {
-		keys := manager.resources.FindNodesByShortNameAndSubtype(name)
+		keys := manager.resources.FindNodesByShortNameAndAPI(name)
 		if len(keys) > 1 {
 			return nil, rutils.NewRemoteResourceClashError(name.Name)
 		}
@@ -960,7 +959,7 @@ func (manager *resourceManager) markRemoved(
 	for _, conf := range conf.Services {
 		rName := conf.ResourceName()
 		// Disable changes to shell in untrusted
-		if manager.opts.untrustedEnv && rName.Subtype == shell.Subtype {
+		if manager.opts.untrustedEnv && rName.API == shell.API {
 			continue
 		}
 

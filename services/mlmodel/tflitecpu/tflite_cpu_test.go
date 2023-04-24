@@ -185,12 +185,12 @@ func TestTFLiteCPUClient(t *testing.T) {
 	resources := map[resource.Name]mlmodel.Service{
 		mlmodel.Named("testName"): myModel,
 	}
-	svc, err := resource.NewSubtypeCollection(mlmodel.Subtype, resources)
+	svc, err := resource.NewAPIResourceCollection(mlmodel.API, resources)
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype, ok, err := resource.LookupSubtypeRegistration[mlmodel.Service](mlmodel.Subtype)
+	resourceAPI, ok, err := resource.LookupAPIRegistration[mlmodel.Service](mlmodel.API)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, svc), test.ShouldBeNil)
+	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, svc), test.ShouldBeNil)
 
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()
@@ -206,7 +206,8 @@ func TestTFLiteCPUClient(t *testing.T) {
 
 	conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
-	client := mlmodel.NewClientFromConn(context.Background(), conn, mlmodel.Named("testName"), logger)
+	client, err := mlmodel.NewClientFromConn(context.Background(), conn, "", mlmodel.Named("testName"), logger)
+	test.That(t, err, test.ShouldBeNil)
 	// Test call to Metadata
 	gotMD, err := client.Metadata(context.Background())
 	test.That(t, err, test.ShouldBeNil)

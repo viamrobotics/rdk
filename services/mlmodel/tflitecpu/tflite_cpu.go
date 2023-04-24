@@ -19,10 +19,10 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-var sModel = resource.NewDefaultModel("tflite_cpu")
+var sModel = resource.DefaultModelFamily.WithModel("tflite_cpu")
 
 func init() {
-	resource.RegisterService(vision.Subtype, sModel, resource.Registration[mlmodel.Service, *TFLiteConfig]{
+	resource.RegisterService(vision.API, sModel, resource.Registration[mlmodel.Service, *TFLiteConfig]{
 		Constructor: func(
 			ctx context.Context,
 			_ resource.Dependencies,

@@ -111,19 +111,19 @@ func TestClient(t *testing.T) {
 		return errors.New("failure to remove waypoint")
 	}
 
-	workingSvc, err := resource.NewSubtypeCollection(navigation.Subtype, map[resource.Name]navigation.Service{
+	workingSvc, err := resource.NewAPIResourceCollection(navigation.API, map[resource.Name]navigation.Service{
 		testSvcName1: workingNavigationService,
 	})
 	test.That(t, err, test.ShouldBeNil)
-	failingSvc, err := resource.NewSubtypeCollection(navigation.Subtype, map[resource.Name]navigation.Service{
+	failingSvc, err := resource.NewAPIResourceCollection(navigation.API, map[resource.Name]navigation.Service{
 		testSvcName1: failingNavigationService,
 	})
 	test.That(t, err, test.ShouldBeNil)
 
-	resourceSubtype, ok, err := resource.LookupSubtypeRegistration[navigation.Service](navigation.Subtype)
+	resourceAPI, ok, err := resource.LookupAPIRegistration[navigation.Service](navigation.API)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	resourceSubtype.RegisterRPCService(context.Background(), workingServer, workingSvc)
+	resourceAPI.RegisterRPCService(context.Background(), workingServer, workingSvc)
 	failingServer.RegisterService(&servicepb.NavigationService_ServiceDesc, navigation.NewRPCServiceServer(failingSvc))
 
 	go workingServer.Serve(listener1)
@@ -139,7 +139,7 @@ func TestClient(t *testing.T) {
 
 	conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
-	workingNavClient, err := navigation.NewClientFromConn(context.Background(), conn, testSvcName1, logger)
+	workingNavClient, err := navigation.NewClientFromConn(context.Background(), conn, "", testSvcName1, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("client tests for working navigation service", func(t *testing.T) {
@@ -182,7 +182,7 @@ func TestClient(t *testing.T) {
 	t.Run("dialed client tests for working navigation service", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		workingDialedClient, err := navigation.NewClientFromConn(context.Background(), conn, testSvcName1, logger)
+		workingDialedClient, err := navigation.NewClientFromConn(context.Background(), conn, "", testSvcName1, logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		// test location
@@ -205,7 +205,7 @@ func TestClient(t *testing.T) {
 	t.Run("dialed client test 2 for working navigation service", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		dialedClient, err := resourceSubtype.RPCClient(context.Background(), conn, testSvcName1, logger)
+		dialedClient, err := resourceAPI.RPCClient(context.Background(), conn, "", testSvcName1, logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		// test waypoints
@@ -223,7 +223,7 @@ func TestClient(t *testing.T) {
 	t.Run("client tests for failing navigation service", func(t *testing.T) {
 		conn, err = viamgrpc.Dial(context.Background(), listener2.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		failingNavClient, err := navigation.NewClientFromConn(context.Background(), conn, testSvcName1, logger)
+		failingNavClient, err := navigation.NewClientFromConn(context.Background(), conn, "", testSvcName1, logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		// test mode
@@ -248,7 +248,7 @@ func TestClient(t *testing.T) {
 	t.Run("dialed client test for failing navigation service", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener2.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		dialedClient, err := resourceSubtype.RPCClient(context.Background(), conn, testSvcName1, logger)
+		dialedClient, err := resourceAPI.RPCClient(context.Background(), conn, "", testSvcName1, logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		// test waypoints

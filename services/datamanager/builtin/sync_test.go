@@ -37,22 +37,22 @@ func TestSyncEnabled(t *testing.T) {
 		newServiceDisableStatus     bool
 	}{
 		{
-			name:                        "Config with sync disabled should sync nothing",
+			name:                        "config with sync disabled should sync nothing",
 			initialServiceDisableStatus: true,
 			newServiceDisableStatus:     true,
 		},
 		{
-			name:                        "Config with sync enabled should sync",
+			name:                        "config with sync enabled should sync",
 			initialServiceDisableStatus: false,
 			newServiceDisableStatus:     false,
 		},
 		{
-			name:                        "Disabling sync should stop syncing",
+			name:                        "disabling sync should stop syncing",
 			initialServiceDisableStatus: false,
 			newServiceDisableStatus:     true,
 		},
 		{
-			name:                        "Enabling sync should trigger syncing to start",
+			name:                        "enabling sync should trigger syncing to start",
 			initialServiceDisableStatus: true,
 			newServiceDisableStatus:     false,
 		},
@@ -158,42 +158,42 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 		emptyFile             bool
 	}{
 		{
-			name:     "Previously captured tabular data should be synced at start up",
+			name:     "previously captured tabular data should be synced at start up",
 			dataType: v1.DataType_DATA_TYPE_TABULAR_SENSOR,
 		},
 		{
-			name:     "Previously captured binary data should be synced at start up",
+			name:     "previously captured binary data should be synced at start up",
 			dataType: v1.DataType_DATA_TYPE_BINARY_SENSOR,
 		},
 		{
-			name:                  "Manual sync should successfully sync captured tabular data",
+			name:                  "manual sync should successfully sync captured tabular data",
 			dataType:              v1.DataType_DATA_TYPE_TABULAR_SENSOR,
 			manualSync:            true,
 			scheduledSyncDisabled: true,
 		},
 		{
-			name:                  "Manual sync should successfully sync captured binary data",
+			name:                  "manual sync should successfully sync captured binary data",
 			dataType:              v1.DataType_DATA_TYPE_BINARY_SENSOR,
 			manualSync:            true,
 			scheduledSyncDisabled: true,
 		},
 		{
-			name:       "Running manual and scheduled sync concurrently should not cause data races or duplicate uploads",
+			name:       "running manual and scheduled sync concurrently should not cause data races or duplicate uploads",
 			dataType:   v1.DataType_DATA_TYPE_TABULAR_SENSOR,
 			manualSync: true,
 		},
 		{
-			name:            "If tabular uploads fail transiently, they should be retried until they succeed",
+			name:            "if tabular uploads fail transiently, they should be retried until they succeed",
 			dataType:        v1.DataType_DATA_TYPE_TABULAR_SENSOR,
 			failTransiently: true,
 		},
 		{
-			name:            "If binary uploads fail transiently, they should be retried until they succeed",
+			name:            "if binary uploads fail transiently, they should be retried until they succeed",
 			dataType:        v1.DataType_DATA_TYPE_BINARY_SENSOR,
 			failTransiently: true,
 		},
 		{
-			name:      "Files with no sensor data should not be synced",
+			name:      "files with no sensor data should not be synced",
 			emptyFile: true,
 		},
 	}
@@ -356,25 +356,25 @@ func TestArbitraryFileUpload(t *testing.T) {
 		serviceFail          bool
 	}{
 		{
-			name:                 "Scheduled sync of arbitrary files should work",
+			name:                 "scheduled sync of arbitrary files should work",
 			manualSync:           false,
 			scheduleSyncDisabled: false,
 			serviceFail:          false,
 		},
 		{
-			name:                 "Manual sync of arbitrary files should work",
+			name:                 "manual sync of arbitrary files should work",
 			manualSync:           true,
 			scheduleSyncDisabled: true,
 			serviceFail:          false,
 		},
 		{
-			name:                 "Running manual and scheduled sync concurrently should work and not lead to duplicate uploads",
+			name:                 "running manual and scheduled sync concurrently should work and not lead to duplicate uploads",
 			manualSync:           true,
 			scheduleSyncDisabled: false,
 			serviceFail:          false,
 		},
 		{
-			name:                 "If an error response is received from the backend, local files should not be deleted",
+			name:                 "if an error response is received from the backend, local files should not be deleted",
 			manualSync:           false,
 			scheduleSyncDisabled: false,
 			serviceFail:          false,

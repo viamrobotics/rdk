@@ -62,8 +62,8 @@ func buildRobotWithFakeCamera(t *testing.T) (robot.Robot, error) {
 	}
 	cameraComp := resource.Config{
 		Name:  "fake_cam",
-		API:   camera.Subtype,
-		Model: resource.NewDefaultModel("image_file"),
+		API:   camera.API,
+		Model: resource.DefaultModelFamily.WithModel("image_file"),
 		Attributes: utils.AttributeMap{
 			"color_image_file_path": artifact.MustPath("vision/objectdetection/detection_test.jpg"),
 			"depth_image_file_path": "",
@@ -72,8 +72,8 @@ func buildRobotWithFakeCamera(t *testing.T) (robot.Robot, error) {
 	}
 	cameraComp2 := resource.Config{
 		Name:  "fake_cam2",
-		API:   camera.Subtype,
-		Model: resource.NewDefaultModel("image_file"),
+		API:   camera.API,
+		Model: resource.DefaultModelFamily.WithModel("image_file"),
 		Attributes: utils.AttributeMap{
 			"color_image_file_path": artifact.MustPath("vision/tflite/lion.jpeg"),
 			"depth_image_file_path": "",

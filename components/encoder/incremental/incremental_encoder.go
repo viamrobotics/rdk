@@ -16,11 +16,11 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-var incrModel = resource.NewDefaultModel("incremental")
+var incrModel = resource.DefaultModelFamily.WithModel("incremental")
 
 func init() {
 	resource.RegisterComponent(
-		encoder.Subtype,
+		encoder.API,
 		incrModel,
 		resource.Registration[encoder.Encoder, *Config]{
 			Constructor: NewIncrementalEncoder,

@@ -72,12 +72,12 @@ func TestClient(t *testing.T) {
 		input.Named(testInputControllerName): injectInputController,
 		input.Named(failInputControllerName): injectInputController2,
 	}
-	inputControllerSvc, err := resource.NewSubtypeCollection(input.Subtype, resources)
+	inputControllerSvc, err := resource.NewAPIResourceCollection(input.API, resources)
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype, ok, err := resource.LookupSubtypeRegistration[input.Controller](input.Subtype)
+	resourceAPI, ok, err := resource.LookupAPIRegistration[input.Controller](input.API)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, inputControllerSvc), test.ShouldBeNil)
+	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, inputControllerSvc), test.ShouldBeNil)
 
 	injectInputController.DoFunc = testutils.EchoFunc
 
@@ -95,7 +95,7 @@ func TestClient(t *testing.T) {
 	t.Run("input controller client 1", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		inputController1Client, err := input.NewClientFromConn(context.Background(), conn, input.Named(testInputControllerName), logger)
+		inputController1Client, err := input.NewClientFromConn(context.Background(), conn, "", input.Named(testInputControllerName), logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		// DoCommand
@@ -241,7 +241,7 @@ func TestClient(t *testing.T) {
 	t.Run("input controller client 2", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		client2, err := resourceSubtype.RPCClient(context.Background(), conn, input.Named(failInputControllerName), logger)
+		client2, err := resourceAPI.RPCClient(context.Background(), conn, "", input.Named(failInputControllerName), logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		_, err = client2.Controls(context.Background(), map[string]interface{}{})

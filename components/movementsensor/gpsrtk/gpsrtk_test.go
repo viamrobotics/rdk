@@ -120,7 +120,7 @@ func TestNewRTKMovementSensor(t *testing.T) {
 		conf := resource.Config{
 			Name:  "movementsensor1",
 			Model: roverModel,
-			API:   movementsensor.Subtype,
+			API:   movementsensor.API,
 			Attributes: rutils.AttributeMap{
 				"ntrip_send_nmea":           true,
 				"ntrip_connect_attempts":    10,
@@ -160,7 +160,7 @@ func TestNewRTKMovementSensor(t *testing.T) {
 		conf := resource.Config{
 			Name:  "movementsensor1",
 			Model: roverModel,
-			API:   movementsensor.Subtype,
+			API:   movementsensor.API,
 			Attributes: rutils.AttributeMap{
 				"ntrip_addr":                "some_ntrip_address",
 				"i2c_addr":                  "",
@@ -202,8 +202,8 @@ func TestNewRTKMovementSensor(t *testing.T) {
 		// invalid protocol
 		conf := resource.Config{
 			Name:  "movementsensor1",
-			Model: resource.NewDefaultModel("rtk"),
-			API:   movementsensor.Subtype,
+			Model: resource.DefaultModelFamily.WithModel("rtk"),
+			API:   movementsensor.API,
 			Attributes: rutils.AttributeMap{
 				"ntrip_addr":                "some_ntrip_address",
 				"ntrip_username":            "",
@@ -225,8 +225,8 @@ func TestNewRTKMovementSensor(t *testing.T) {
 	t.Run("no ntrip address", func(t *testing.T) {
 		conf := resource.Config{
 			Name:  "movementsensor1",
-			Model: resource.NewDefaultModel("rtk"),
-			API:   movementsensor.Subtype,
+			Model: resource.DefaultModelFamily.WithModel("rtk"),
+			API:   movementsensor.API,
 			Attributes: rutils.AttributeMap{
 				"ntrip_addr":                "some_ntrip_address",
 				"ntrip_username":            "",

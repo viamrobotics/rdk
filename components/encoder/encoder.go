@@ -4,9 +4,7 @@ package encoder
 import (
 	"context"
 
-	"github.com/edaniels/golog"
 	pb "go.viam.com/api/component/encoder/v1"
-	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/resource"
@@ -14,29 +12,23 @@ import (
 )
 
 func init() {
-	resource.RegisterSubtype(Subtype, resource.SubtypeRegistration[Encoder]{
+	resource.RegisterAPI(API, resource.APIRegistration[Encoder]{
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           pb.RegisterEncoderServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &pb.EncoderService_ServiceDesc,
-		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (Encoder, error) {
-			return NewClientFromConn(ctx, conn, name, logger), nil
-		},
+		RPCClient:                   NewClientFromConn,
 	})
 	data.RegisterCollector(data.MethodMetadata{
-		Subtype:    Subtype,
+		API:        API,
 		MethodName: ticksCount.String(),
 	}, newTicksCountCollector)
 }
 
-// SubtypeName is a constant that identifies the component resource subtype string "encoder".
-const SubtypeName = resource.SubtypeName("encoder")
+// SubtypeName is a constant that identifies the component resource API string "encoder".
+const SubtypeName = "encoder"
 
-// Subtype is a constant that identifies the component resource subtype.
-var Subtype = resource.NewSubtype(
-	resource.ResourceNamespaceRDK,
-	resource.ResourceTypeComponent,
-	SubtypeName,
-)
+// API is a variable that identifies the component resource API.
+var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 
 // PositionType is an enum representing the encoder's position.
 type PositionType byte
@@ -81,7 +73,7 @@ type Encoder interface {
 
 // Named is a helper for getting the named Encoder's typed resource name.
 func Named(name string) resource.Name {
-	return resource.NameFromSubtype(Subtype, name)
+	return resource.NewName(API, name)
 }
 
 // FromDependencies is a helper for getting the named encoder from a collection of
@@ -97,7 +89,7 @@ func FromRobot(r robot.Robot, name string) (Encoder, error) {
 
 // NamesFromRobot is a helper for getting all encoder names from the given Robot.
 func NamesFromRobot(r robot.Robot) []string {
-	return robot.NamesBySubtype(r, Subtype)
+	return robot.NamesByAPI(r, API)
 }
 
 // ToEncoderPositionType takes a GetPositionResponse and returns

@@ -73,7 +73,7 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
-var fakeModel = resource.NewDefaultModel("fake")
+var fakeModel = resource.DefaultModelFamily.WithModel("fake")
 
 func TestConfig1(t *testing.T) {
 	logger := golog.NewTestLogger(t)
@@ -134,7 +134,7 @@ func TestConfigRemote(t *testing.T) {
 		Components: []resource.Config{
 			{
 				Name:  "foo",
-				API:   base.Subtype,
+				API:   base.API,
 				Model: fakeModel,
 				Frame: &referenceframe.LinkConfig{
 					Parent: referenceframe.World,
@@ -142,7 +142,7 @@ func TestConfigRemote(t *testing.T) {
 			},
 			{
 				Name:  "myParentIsRemote",
-				API:   base.Subtype,
+				API:   base.API,
 				Model: fakeModel,
 				Frame: &referenceframe.LinkConfig{
 					Parent: "foo:cameraOver",
@@ -771,12 +771,12 @@ func TestStopAll(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	channel := make(chan struct{})
 
-	modelName := resource.NewDefaultModel(resource.ModelName(utils.RandomAlphaString(8)))
+	model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
 	dummyArm1 := dummyArm{channel: channel}
 	dummyArm2 := dummyArm{channel: channel}
 	resource.RegisterComponent(
-		arm.Subtype,
-		modelName,
+		arm.API,
+		model,
 		resource.Registration[arm.Arm, resource.NoNativeConfig]{Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
@@ -803,7 +803,7 @@ func TestStopAll(t *testing.T) {
 			}
 		]
 	}
-	`, modelName.String())
+	`, model.String())
 	cfg, err := config.FromReader(context.Background(), "", strings.NewReader(armConfig), logger)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -836,7 +836,7 @@ func TestStopAll(t *testing.T) {
 
 	conn, err := rgrpc.Dial(ctx, addr, logger)
 	test.That(t, err, test.ShouldBeNil)
-	arm1, err := arm.NewClientFromConn(ctx, conn, arm.Named("somerem:arm1"), logger)
+	arm1, err := arm.NewClientFromConn(ctx, conn, "somerem", arm.Named("arm1"), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	foundOPID := false
@@ -897,11 +897,11 @@ func (db *dummyBoard) Close(ctx context.Context) error {
 func TestNewTeardown(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
-	modelName := resource.NewDefaultModel(resource.ModelName(utils.RandomAlphaString(8)))
+	model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
 	var dummyBoard1 dummyBoard
 	resource.RegisterComponent(
-		board.Subtype,
-		modelName,
+		board.API,
+		model,
 		resource.Registration[board.Board, resource.NoNativeConfig]{Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
@@ -911,8 +911,8 @@ func TestNewTeardown(t *testing.T) {
 			return &dummyBoard1, nil
 		}})
 	resource.RegisterComponent(
-		gripper.Subtype,
-		modelName,
+		gripper.API,
+		model,
 		resource.Registration[gripper.Gripper, resource.NoNativeConfig]{Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
@@ -937,7 +937,7 @@ func TestNewTeardown(t *testing.T) {
         }
     ]
 }
-`, modelName)
+`, model)
 	cfg, err := config.FromReader(context.Background(), "", strings.NewReader(failingConfig), logger)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -1054,29 +1054,29 @@ func TestStatusService(t *testing.T) {
 }
 
 func TestStatus(t *testing.T) {
-	buttonSubtype := resource.NewSubtype(resource.Namespace("acme"), resource.ResourceTypeComponent, resource.SubtypeName("button"))
-	button1 := resource.NameFromSubtype(buttonSubtype, "button1")
-	button2 := resource.NameFromSubtype(buttonSubtype, "button2")
+	buttonAPI := resource.APINamespace("acme").WithComponentType("button")
+	button1 := resource.NewName(buttonAPI, "button1")
+	button2 := resource.NewName(buttonAPI, "button2")
 
-	workingSubtype := resource.NewSubtype(resource.Namespace("acme"), resource.ResourceTypeComponent, resource.SubtypeName("working"))
-	working1 := resource.NameFromSubtype(workingSubtype, "working1")
+	workingAPI := resource.APINamespace("acme").WithComponentType("working")
+	working1 := resource.NewName(workingAPI, "working1")
 
-	failSubtype := resource.NewSubtype(resource.Namespace("acme"), resource.ResourceTypeComponent, resource.SubtypeName("fail"))
-	fail1 := resource.NameFromSubtype(failSubtype, "fail1")
+	failAPI := resource.APINamespace("acme").WithComponentType("fail")
+	fail1 := resource.NewName(failAPI, "fail1")
 
 	workingStatus := map[string]interface{}{"position": "up"}
 	errFailed := errors.New("can't get status")
 
-	resource.RegisterSubtype(
-		workingSubtype,
-		resource.SubtypeRegistration[resource.Resource]{
+	resource.RegisterAPI(
+		workingAPI,
+		resource.APIRegistration[resource.Resource]{
 			Status: func(ctx context.Context, res resource.Resource) (interface{}, error) { return workingStatus, nil },
 		},
 	)
 
-	resource.RegisterSubtype(
-		failSubtype,
-		resource.SubtypeRegistration[resource.Resource]{
+	resource.RegisterAPI(
+		failAPI,
+		resource.APIRegistration[resource.Resource]{
 			Status: func(ctx context.Context, res resource.Resource) (interface{}, error) { return nil, errFailed },
 		},
 	)
@@ -1231,9 +1231,9 @@ func TestStatusRemote(t *testing.T) {
 	}
 
 	injectRobot1 := &inject.Robot{
-		FrameSystemConfigFunc:   frameSystemConfigFunc,
-		ResourceNamesFunc:       resourcesFunc,
-		ResourceRPCSubtypesFunc: func() []resource.RPCSubtype { return nil },
+		FrameSystemConfigFunc: frameSystemConfigFunc,
+		ResourceNamesFunc:     resourcesFunc,
+		ResourceRPCAPIsFunc:   func() []resource.RPCAPI { return nil },
 	}
 	armStatus := &armpb.Status{
 		EndPosition:    &commonpb.Pose{},
@@ -1248,9 +1248,9 @@ func TestStatusRemote(t *testing.T) {
 		return statuses, nil
 	}
 	injectRobot2 := &inject.Robot{
-		FrameSystemConfigFunc:   frameSystemConfigFunc,
-		ResourceNamesFunc:       resourcesFunc,
-		ResourceRPCSubtypesFunc: func() []resource.RPCSubtype { return nil },
+		FrameSystemConfigFunc: frameSystemConfigFunc,
+		ResourceNamesFunc:     resourcesFunc,
+		ResourceRPCAPIsFunc:   func() []resource.RPCAPI { return nil },
 	}
 	injectRobot2.StatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
 		statusCallCount++
@@ -1331,7 +1331,7 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 		Components: []resource.Config{
 			{
 				Name:  "arm1",
-				API:   arm.Subtype,
+				API:   arm.API,
 				Model: fakeModel,
 				ConvertedAttributes: &fake.Config{
 					ModelFilePath: "../../components/arm/fake/fake_model.json",
@@ -1339,7 +1339,7 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 			},
 			{
 				Name:  "arm2",
-				API:   arm.Subtype,
+				API:   arm.API,
 				Model: fakeModel,
 				ConvertedAttributes: &fake.Config{
 					ModelFilePath: "../../components/arm/fake/fake_model.json",
@@ -1347,7 +1347,7 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 			},
 			{
 				Name:  "pieceArm",
-				API:   arm.Subtype,
+				API:   arm.API,
 				Model: fakeModel,
 				ConvertedAttributes: &fake.Config{
 					ModelFilePath: "../../components/arm/fake/fake_model.json",
@@ -1474,15 +1474,15 @@ func TestValidationErrorOnReconfigure(t *testing.T) {
 		Components: []resource.Config{
 			{
 				Name:                "test",
-				API:                 base.Subtype,
-				Model:               resource.NewDefaultModel("random"),
+				API:                 base.API,
+				Model:               resource.DefaultModelFamily.WithModel("random"),
 				ConvertedAttributes: someConfig{},
 			},
 		},
 		Services: []resource.Config{
 			{
 				Name:                "fake1",
-				API:                 navigation.Subtype,
+				API:                 navigation.API,
 				ConvertedAttributes: someConfig{},
 			},
 		},
@@ -1528,7 +1528,7 @@ func TestConfigStartsInvalidReconfiguresValid(t *testing.T) {
 		Components: []resource.Config{
 			{
 				Name:                "test",
-				API:                 base.Subtype,
+				API:                 base.API,
 				Model:               fakeModel,
 				ConvertedAttributes: someConfig{},
 			},
@@ -1536,7 +1536,7 @@ func TestConfigStartsInvalidReconfiguresValid(t *testing.T) {
 		Services: []resource.Config{
 			{
 				Name:                "fake1",
-				API:                 datamanager.Subtype,
+				API:                 datamanager.API,
 				ConvertedAttributes: someConfig{},
 			},
 		},
@@ -1561,14 +1561,14 @@ func TestConfigStartsInvalidReconfiguresValid(t *testing.T) {
 		Components: []resource.Config{
 			{
 				Name:  "test",
-				API:   base.Subtype,
+				API:   base.API,
 				Model: fakeModel,
 			},
 		},
 		Services: []resource.Config{
 			{
 				Name:                "fake1",
-				API:                 datamanager.Subtype,
+				API:                 datamanager.API,
 				Model:               resource.DefaultServiceModel,
 				ConvertedAttributes: &builtin.Config{},
 			},
@@ -1621,7 +1621,7 @@ func TestConfigStartsValidReconfiguresInvalid(t *testing.T) {
 	ctx := context.Background()
 	armConfig := resource.Config{
 		Name:  "arm1",
-		API:   arm.Subtype,
+		API:   arm.API,
 		Model: fakeModel,
 		ConvertedAttributes: &fake.Config{
 			ModelFilePath: "../../components/arm/fake/fake_model.json",
@@ -1645,14 +1645,14 @@ func TestConfigStartsValidReconfiguresInvalid(t *testing.T) {
 		Components: []resource.Config{
 			{
 				Name:  "test",
-				API:   base.Subtype,
+				API:   base.API,
 				Model: fakeModel,
 			},
 		},
 		Services: []resource.Config{
 			{
 				Name:                "fake1",
-				API:                 datamanager.Subtype,
+				API:                 datamanager.API,
 				Model:               resource.DefaultServiceModel,
 				ConvertedAttributes: &builtin.Config{},
 			},
@@ -1675,7 +1675,7 @@ func TestConfigStartsValidReconfiguresInvalid(t *testing.T) {
 		Components: []resource.Config{
 			{
 				Name:                "test",
-				API:                 base.Subtype,
+				API:                 base.API,
 				Model:               fakeModel,
 				ConvertedAttributes: someConfig{},
 			},
@@ -1683,7 +1683,7 @@ func TestConfigStartsValidReconfiguresInvalid(t *testing.T) {
 		Services: []resource.Config{
 			{
 				Name:                "fake1",
-				API:                 datamanager.Subtype,
+				API:                 datamanager.API,
 				ConvertedAttributes: someConfig{},
 			},
 		},
@@ -1737,14 +1737,13 @@ func TestResourceStartsOnReconfigure(t *testing.T) {
 		Components: []resource.Config{
 			{
 				Name:  "fake0",
-				API:   base.Subtype,
-				Model: resource.NewDefaultModel("random"),
+				API:   base.API,
+				Model: resource.DefaultModelFamily.WithModel("random"),
 			},
 		},
 		Services: []resource.Config{
 			{
-				Name:              "fake1",
-				DeprecatedSubtype: "no",
+				Name: "fake1",
 			},
 		},
 	}
@@ -1754,14 +1753,14 @@ func TestResourceStartsOnReconfigure(t *testing.T) {
 		Components: []resource.Config{
 			{
 				Name:  "fake0",
-				API:   base.Subtype,
+				API:   base.API,
 				Model: fakeModel,
 			},
 		},
 		Services: []resource.Config{
 			{
 				Name:                "fake1",
-				API:                 datamanager.Subtype,
+				API:                 datamanager.API,
 				Model:               resource.DefaultServiceModel,
 				ConvertedAttributes: &builtin.Config{},
 			},
@@ -1912,8 +1911,8 @@ func TestConfigPackageReferenceReplacement(t *testing.T) {
 		Services: []resource.Config{
 			{
 				Name:  "my_ml_model_service",
-				API:   mlmodel.Subtype,
-				Model: resource.NewDefaultModel("tflite_cpu"),
+				API:   mlmodel.API,
+				Model: resource.DefaultModelFamily.WithModel("tflite_cpu"),
 				Attributes: rutils.AttributeMap{
 					"model_path":  "${packages.package-1}/model.tflite",
 					"label_path":  "${packages.package-1}/labels.txt",
@@ -1937,7 +1936,7 @@ func TestReconnectRemote(t *testing.T) {
 	ctx := context.Background()
 	armConfig := resource.Config{
 		Name:  "arm1",
-		API:   arm.Subtype,
+		API:   arm.API,
 		Model: fakeModel,
 		ConvertedAttributes: &fake.Config{
 			ModelFilePath: "../../components/arm/fake/fake_model.json",
@@ -2051,7 +2050,7 @@ func TestReconnectRemoteChangeConfig(t *testing.T) {
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 	armConfig := resource.Config{
 		Name:  "arm1",
-		API:   arm.Subtype,
+		API:   arm.API,
 		Model: fakeModel,
 		ConvertedAttributes: &fake.Config{
 			ModelFilePath: "../../components/arm/fake/fake_model.json",
@@ -2135,7 +2134,7 @@ func TestReconnectRemoteChangeConfig(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	baseConfig := resource.Config{
 		Name:  "base1",
-		API:   base.Subtype,
+		API:   base.API,
 		Model: fakeModel,
 	}
 	cfg = config.Config{
@@ -2185,19 +2184,19 @@ func TestCheckMaxInstanceValid(t *testing.T) {
 			{
 				Name:  "fake1",
 				Model: resource.DefaultServiceModel,
-				API:   motion.Subtype,
+				API:   motion.API,
 			},
 			{
 				Name:  "fake2",
 				Model: resource.DefaultServiceModel,
-				API:   motion.Subtype,
+				API:   motion.API,
 			},
 		},
 		Components: []resource.Config{
 			{
 				Name:                "fake2",
-				Model:               fake.ModelName,
-				API:                 arm.Subtype,
+				Model:               fake.Model,
+				API:                 arm.API,
 				ConvertedAttributes: &fake.Config{},
 			},
 		},
@@ -2227,30 +2226,30 @@ func TestCheckMaxInstanceInvalid(t *testing.T) {
 			{
 				Name:  "fake1",
 				Model: resource.DefaultServiceModel,
-				API:   datamanager.Subtype,
+				API:   datamanager.API,
 			},
 			{
 				Name:  "fake2",
 				Model: resource.DefaultServiceModel,
-				API:   datamanager.Subtype,
+				API:   datamanager.API,
 			},
 			{
 				Name:  "fake3",
 				Model: resource.DefaultServiceModel,
-				API:   datamanager.Subtype,
+				API:   datamanager.API,
 			},
 		},
 		Components: []resource.Config{
 			{
 				Name:                "fake2",
-				Model:               fake.ModelName,
-				API:                 arm.Subtype,
+				Model:               fake.Model,
+				API:                 arm.API,
 				ConvertedAttributes: &fake.Config{},
 			},
 			{
 				Name:                "fake3",
-				Model:               fake.ModelName,
-				API:                 arm.Subtype,
+				Model:               fake.Model,
+				API:                 arm.API,
 				ConvertedAttributes: &fake.Config{},
 			},
 		},
@@ -2262,14 +2261,14 @@ func TestCheckMaxInstanceInvalid(t *testing.T) {
 	}()
 	maxInstance := 0
 	for _, name := range r.ResourceNames() {
-		if name.Subtype == datamanager.Subtype {
+		if name.API == datamanager.API {
 			maxInstance++
 		}
 	}
 	test.That(t, maxInstance, test.ShouldEqual, 1)
 	numInstances := 0
 	for _, name := range r.ResourceNames() {
-		if name.Subtype == arm.Subtype {
+		if name.API == arm.API {
 			numInstances++
 		}
 	}
@@ -2296,12 +2295,12 @@ func TestCheckMaxInstanceSkipRemote(t *testing.T) {
 			{
 				Name:  "fake1",
 				Model: resource.DefaultServiceModel,
-				API:   datamanager.Subtype,
+				API:   datamanager.API,
 			},
 			{
 				Name:  "fake2",
 				Model: resource.DefaultServiceModel,
-				API:   datamanager.Subtype,
+				API:   datamanager.API,
 			},
 		},
 		Remotes: []config.Remote{
@@ -2320,7 +2319,7 @@ func TestCheckMaxInstanceSkipRemote(t *testing.T) {
 
 	maxInstance := 0
 	for _, name := range r.ResourceNames() {
-		if name.Subtype == datamanager.Subtype {
+		if name.API == datamanager.API {
 			maxInstance++
 		}
 	}
@@ -2339,19 +2338,19 @@ func TestOrphanedResources(t *testing.T) {
 			{
 				Name:  "b",
 				Model: fakeModel,
-				API:   base.Subtype,
+				API:   base.API,
 			},
 			{
 				Name:                "m",
 				Model:               fakeModel,
-				API:                 motor.Subtype,
+				API:                 motor.API,
 				DependsOn:           []string{"b"},
 				ConvertedAttributes: &fakemotor.Config{},
 			},
 			{
 				Name:                "m1",
 				Model:               fakeModel,
-				API:                 motor.Subtype,
+				API:                 motor.API,
 				DependsOn:           []string{"m"},
 				ConvertedAttributes: &fakemotor.Config{},
 			},
@@ -2360,7 +2359,7 @@ func TestOrphanedResources(t *testing.T) {
 			{
 				Name:      "s",
 				Model:     fakeModel,
-				API:       slam.Subtype,
+				API:       slam.API,
 				DependsOn: []string{"b"},
 			},
 		},
@@ -2377,14 +2376,14 @@ func TestOrphanedResources(t *testing.T) {
 			{
 				Name:                "m",
 				Model:               fakeModel,
-				API:                 motor.Subtype,
+				API:                 motor.API,
 				DependsOn:           []string{"b"},
 				ConvertedAttributes: &fakemotor.Config{},
 			},
 			{
 				Name:                "m1",
 				Model:               fakeModel,
-				API:                 motor.Subtype,
+				API:                 motor.API,
 				DependsOn:           []string{"m"},
 				ConvertedAttributes: &fakemotor.Config{},
 			},
@@ -2393,7 +2392,7 @@ func TestOrphanedResources(t *testing.T) {
 			{
 				Name:      "s",
 				Model:     fakeModel,
-				API:       slam.Subtype,
+				API:       slam.API,
 				DependsOn: []string{"b"},
 			},
 		},
@@ -2447,12 +2446,10 @@ func TestModularOrphanedResources(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Manually define models, as importing them can cause double registration.
-	gizmoModel := resource.NewModel(resource.Namespace("acme"), resource.ModelFamilyName("demo"),
-		resource.ModelName("mygizmo"))
-	summationModel := resource.NewModel(resource.Namespace("acme"), resource.ModelFamilyName("demo"),
-		resource.ModelName("mysum"))
-	gizmoSubtype := resource.NewSubtype("acme", resource.ResourceTypeComponent, "gizmo")
-	summationSubtype := resource.NewSubtype("acme", resource.ResourceTypeService, "summation")
+	gizmoModel := resource.NewModel("acme", "demo", "mygizmo")
+	summationModel := resource.NewModel("acme", "demo", "mysum")
+	gizmoAPI := resource.APINamespace("acme").WithComponentType("gizmo")
+	summationAPI := resource.APINamespace("acme").WithServiceType("summation")
 
 	cfg := &config.Config{
 		Modules: []config.Module{
@@ -2465,14 +2462,14 @@ func TestModularOrphanedResources(t *testing.T) {
 			{
 				Name:  "g",
 				Model: gizmoModel,
-				API:   gizmoSubtype,
+				API:   gizmoAPI,
 			},
 		},
 		Services: []resource.Config{
 			{
 				Name:  "s",
 				Model: summationModel,
-				API:   summationSubtype,
+				API:   summationAPI,
 			},
 		},
 	}
@@ -2495,14 +2492,14 @@ func TestModularOrphanedResources(t *testing.T) {
 			{
 				Name:  "g",
 				Model: gizmoModel,
-				API:   gizmoSubtype,
+				API:   gizmoAPI,
 			},
 		},
 		Services: []resource.Config{
 			{
 				Name:  "s",
 				Model: summationModel,
-				API:   summationSubtype,
+				API:   summationAPI,
 			},
 		},
 	}
@@ -2523,14 +2520,14 @@ func TestModularOrphanedResources(t *testing.T) {
 			{
 				Name:  "g",
 				Model: gizmoModel,
-				API:   gizmoSubtype,
+				API:   gizmoAPI,
 			},
 		},
 		Services: []resource.Config{
 			{
 				Name:  "s",
 				Model: summationModel,
-				API:   summationSubtype,
+				API:   summationAPI,
 			},
 		},
 	}
@@ -2547,8 +2544,8 @@ func TestModularOrphanedResources(t *testing.T) {
 }
 
 var (
-	doodadModel   = resource.NewDefaultModel("mydoodad")
-	doodadSubtype = resource.NewDefaultSubtype("doodad", resource.ResourceTypeComponent)
+	doodadModel = resource.DefaultModelFamily.WithModel("mydoodad")
+	doodadAPI   = resource.APINamespaceRDK.WithComponentType("doodad")
 )
 
 // doodad is an RDK-built component that depends on a modular gizmo.
@@ -2584,11 +2581,10 @@ func TestMixedOrphanedResources(t *testing.T) {
 
 	// Manually define gizmo model, as importing it from mygizmo can cause double
 	// registration.
-	gizmoModel := resource.NewModel(resource.Namespace("acme"), resource.ModelFamilyName("demo"),
-		resource.ModelName("mygizmo"))
+	gizmoModel := resource.NewModel("acme", "demo", "mygizmo")
 
 	// Register a doodad constructor and defer its deregistration.
-	resource.RegisterComponent(doodadSubtype, doodadModel, resource.Registration[resource.Resource, resource.NoNativeConfig]{
+	resource.RegisterComponent(doodadAPI, doodadModel, resource.Registration[resource.Resource, resource.NoNativeConfig]{
 		Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
@@ -2599,7 +2595,7 @@ func TestMixedOrphanedResources(t *testing.T) {
 				Named: conf.ResourceName().AsNamed(),
 			}
 			for rName, res := range deps {
-				if rName.Subtype == gizmoapi.Subtype {
+				if rName.API == gizmoapi.API {
 					gizmo, ok := res.(gizmoapi.Gizmo)
 					if !ok {
 						return nil, errors.Errorf("resource %s is not a gizmo", rName.Name)
@@ -2614,7 +2610,7 @@ func TestMixedOrphanedResources(t *testing.T) {
 		},
 	})
 	defer func() {
-		resource.Deregister(doodadSubtype, doodadModel)
+		resource.Deregister(doodadAPI, doodadModel)
 	}()
 
 	cfg := &config.Config{
@@ -2626,23 +2622,22 @@ func TestMixedOrphanedResources(t *testing.T) {
 		},
 		Components: []resource.Config{
 			{
-				Name:                "g",
-				DeprecatedNamespace: "acme",
-				Model:               gizmoModel,
-				DeprecatedSubtype:   resource.SubtypeName("gizmo"),
-				DependsOn:           []string{"m"},
+				Name:      "g",
+				API:       resource.APINamespace("acme").WithComponentType("gizmo"),
+				Model:     gizmoModel,
+				DependsOn: []string{"m"},
 			},
 			{
 				Name:                "m",
 				Model:               fakeModel,
-				API:                 motor.Subtype,
+				API:                 motor.API,
 				ConvertedAttributes: &fakemotor.Config{},
 			},
 			{
-				Name:              "d",
-				Model:             doodadModel,
-				DeprecatedSubtype: resource.SubtypeName("doodad"),
-				DependsOn:         []string{"g"},
+				Name:      "d",
+				API:       resource.APINamespaceRDK.WithComponentType("doodad"),
+				Model:     doodadModel,
+				DependsOn: []string{"g"},
 			},
 		},
 	}
@@ -2664,23 +2659,22 @@ func TestMixedOrphanedResources(t *testing.T) {
 		},
 		Components: []resource.Config{
 			{
-				Name:                "g",
-				DeprecatedNamespace: "acme",
-				Model:               gizmoModel,
-				DeprecatedSubtype:   resource.SubtypeName("gizmo"),
-				DependsOn:           []string{"m"},
+				Name:      "g",
+				API:       resource.APINamespace("acme").WithComponentType("gizmo"),
+				Model:     gizmoModel,
+				DependsOn: []string{"m"},
 			},
 			{
 				Name:                "m",
 				Model:               fakeModel,
-				API:                 motor.Subtype,
+				API:                 motor.API,
 				ConvertedAttributes: &fakemotor.Config{},
 			},
 			{
-				Name:              "d",
-				Model:             doodadModel,
-				DeprecatedSubtype: resource.SubtypeName("doodad"),
-				DependsOn:         []string{"g"},
+				Name:      "d",
+				API:       resource.APINamespaceRDK.WithComponentType("doodad"),
+				Model:     doodadModel,
+				DependsOn: []string{"g"},
 			},
 		},
 	}
@@ -2690,9 +2684,9 @@ func TestMixedOrphanedResources(t *testing.T) {
 	test.That(t, err, test.ShouldBeError,
 		resource.NewNotFoundError(gizmoapi.Named("g")))
 	test.That(t, res, test.ShouldBeNil)
-	res, err = r.ResourceByName(resource.NameFromSubtype(doodadSubtype, "d"))
+	res, err = r.ResourceByName(resource.NewName(doodadAPI, "d"))
 	test.That(t, err, test.ShouldBeError,
-		resource.NewNotFoundError(resource.NameFromSubtype(doodadSubtype, "d")))
+		resource.NewNotFoundError(resource.NewName(doodadAPI, "d")))
 	test.That(t, res, test.ShouldBeNil)
 	_, err = r.ResourceByName(motor.Named("m"))
 	test.That(t, err, test.ShouldBeNil)
@@ -2701,23 +2695,22 @@ func TestMixedOrphanedResources(t *testing.T) {
 	cfg3 := &config.Config{
 		Components: []resource.Config{
 			{
-				Name:                "g",
-				DeprecatedNamespace: "acme",
-				Model:               gizmoModel,
-				DeprecatedSubtype:   resource.SubtypeName("gizmo"),
-				DependsOn:           []string{"m"},
+				Name:      "g",
+				API:       resource.APINamespace("acme").WithComponentType("gizmo"),
+				Model:     gizmoModel,
+				DependsOn: []string{"m"},
 			},
 			{
 				Name:                "m",
 				Model:               fakeModel,
-				API:                 motor.Subtype,
+				API:                 motor.API,
 				ConvertedAttributes: &fakemotor.Config{},
 			},
 			{
-				Name:              "d",
-				Model:             doodadModel,
-				DeprecatedSubtype: resource.SubtypeName("doodad"),
-				DependsOn:         []string{"g"},
+				Name:      "d",
+				API:       resource.APINamespaceRDK.WithComponentType("doodad"),
+				Model:     doodadModel,
+				DependsOn: []string{"g"},
 			},
 		},
 	}
@@ -2729,7 +2722,7 @@ func TestMixedOrphanedResources(t *testing.T) {
 
 	_, err = r.ResourceByName(gizmoapi.Named("g"))
 	test.That(t, err, test.ShouldBeNil)
-	d, err := r.ResourceByName(resource.NameFromSubtype(doodadSubtype, "d"))
+	d, err := r.ResourceByName(resource.NewName(doodadAPI, "d"))
 	test.That(t, err, test.ShouldBeNil)
 	_, err = r.ResourceByName(motor.Named("m"))
 	test.That(t, err, test.ShouldBeNil)

@@ -66,9 +66,9 @@ func TestWorkingServer(t *testing.T) {
 	resourceMap := map[resource.Name]slam.Service{
 		slam.Named(testSlamServiceName): injectSvc,
 	}
-	injectSubtypeSvc, err := resource.NewSubtypeCollection(slam.Subtype, resourceMap)
+	injectAPISvc, err := resource.NewAPIResourceCollection(slam.API, resourceMap)
 	test.That(t, err, test.ShouldBeNil)
-	slamServer := slam.NewRPCServiceServer(injectSubtypeSvc).(pb.SLAMServiceServer)
+	slamServer := slam.NewRPCServiceServer(injectAPISvc).(pb.SLAMServiceServer)
 	cloudPath := artifact.MustPath("slam/mock_lidar/0.pcd")
 	pcd, err := os.ReadFile(cloudPath)
 	test.That(t, err, test.ShouldBeNil)
@@ -148,9 +148,9 @@ func TestWorkingServer(t *testing.T) {
 			slam.Named(testSlamServiceName):  injectSvc,
 			slam.Named(testSlamServiceName2): injectSvc,
 		}
-		injectSubtypeSvc, err := resource.NewSubtypeCollection(slam.Subtype, resourceMap)
+		injectAPISvc, err := resource.NewAPIResourceCollection(slam.API, resourceMap)
 		test.That(t, err, test.ShouldBeNil)
-		slamServer = slam.NewRPCServiceServer(injectSubtypeSvc).(pb.SLAMServiceServer)
+		slamServer = slam.NewRPCServiceServer(injectAPISvc).(pb.SLAMServiceServer)
 		poseSucc := spatial.NewPose(r3.Vector{X: 1, Y: 2, Z: 3}, &spatial.OrientationVector{Theta: math.Pi / 2, OX: 0, OY: 0, OZ: -1})
 		componentRefSucc := "cam"
 
@@ -210,9 +210,9 @@ func TestFailingServer(t *testing.T) {
 	resourceMap := map[resource.Name]slam.Service{
 		slam.Named(testSlamServiceName): injectSvc,
 	}
-	injectSubtypeSvc, err := resource.NewSubtypeCollection(slam.Subtype, resourceMap)
+	injectAPISvc, err := resource.NewAPIResourceCollection(slam.API, resourceMap)
 	test.That(t, err, test.ShouldBeNil)
-	slamServer := slam.NewRPCServiceServer(injectSubtypeSvc).(pb.SLAMServiceServer)
+	slamServer := slam.NewRPCServiceServer(injectAPISvc).(pb.SLAMServiceServer)
 
 	t.Run("failing GetPosition", func(t *testing.T) {
 		injectSvc.GetPositionFunc = func(ctx context.Context) (spatial.Pose, string, error) {
@@ -275,8 +275,8 @@ func TestFailingServer(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "callback error")
 	})
 
-	injectSubtypeSvc, _ = resource.NewSubtypeCollection(slam.Subtype, map[resource.Name]slam.Service{})
-	slamServer = slam.NewRPCServiceServer(injectSubtypeSvc).(pb.SLAMServiceServer)
+	injectAPISvc, _ = resource.NewAPIResourceCollection(slam.API, map[resource.Name]slam.Service{})
+	slamServer = slam.NewRPCServiceServer(injectAPISvc).(pb.SLAMServiceServer)
 	t.Run("failing on nonexistent server", func(t *testing.T) {
 		// test unary endpoint using GetPosition
 		reqGetPositionRequest := &pb.GetPositionRequest{Name: testSlamServiceName}
@@ -299,9 +299,9 @@ func TestServerDoCommand(t *testing.T) {
 			DoCommandFunc: testutils.EchoFunc,
 		},
 	}
-	injectSubtypeSvc, err := resource.NewSubtypeCollection(slam.Subtype, resourceMap)
+	injectAPISvc, err := resource.NewAPIResourceCollection(slam.API, resourceMap)
 	test.That(t, err, test.ShouldBeNil)
-	server := slam.NewRPCServiceServer(injectSubtypeSvc).(pb.SLAMServiceServer)
+	server := slam.NewRPCServiceServer(injectAPISvc).(pb.SLAMServiceServer)
 
 	cmd, err := protoutils.StructToStructPb(testutils.TestCommand)
 	test.That(t, err, test.ShouldBeNil)

@@ -15,15 +15,11 @@ import (
 	"go.viam.com/utils/protoutils"
 )
 
-var Subtype = resource.NewSubtype(
-	resource.Namespace("acme"),
-	resource.ResourceTypeComponent,
-	resource.SubtypeName("gizmo"),
-)
+var API = resource.APINamespace("acme").WithComponentType("gizmo")
 
 // Named is a helper for getting the named Gizmo's typed resource name.
 func Named(name string) resource.Name {
-	return resource.NameFromSubtype(Subtype, name)
+	return resource.NewName(API, name)
 }
 
 // FromRobot is a helper for getting the named Gizmo from the given Robot.
@@ -32,13 +28,19 @@ func FromRobot(r robot.Robot, name string) (Gizmo, error) {
 }
 
 func init() {
-	resource.RegisterSubtype(Subtype, resource.SubtypeRegistration[Gizmo]{
+	resource.RegisterAPI(API, resource.APIRegistration[Gizmo]{
 		// Reconfigurable, and contents of reconfwrapper.go are only needed for standalone (non-module) uses.
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           pb.RegisterGizmoServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &pb.GizmoService_ServiceDesc,
-		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (Gizmo, error) {
-			return NewClientFromConn(conn, name, logger), nil
+		RPCClient: func(
+			ctx context.Context,
+			conn rpc.ClientConn,
+			remoteName string,
+			name resource.Name,
+			logger golog.Logger,
+		) (Gizmo, error) {
+			return NewClientFromConn(conn, remoteName, name, logger), nil
 		},
 	})
 
@@ -54,17 +56,17 @@ type Gizmo interface {
 	DoTwo(ctx context.Context, arg1 bool) (string, error)
 }
 
-// subtypeServer implements the Gizmo RPC service from gripper.proto.
-type subtypeServer struct {
+// serviceServer implements the Gizmo RPC service from gripper.proto.
+type serviceServer struct {
 	pb.UnimplementedGizmoServiceServer
-	coll resource.SubtypeCollection[Gizmo]
+	coll resource.APIResourceCollection[Gizmo]
 }
 
-func NewRPCServiceServer(coll resource.SubtypeCollection[Gizmo]) interface{} {
-	return &subtypeServer{coll: coll}
+func NewRPCServiceServer(coll resource.APIResourceCollection[Gizmo]) interface{} {
+	return &serviceServer{coll: coll}
 }
 
-func (s *subtypeServer) DoOne(ctx context.Context, req *pb.DoOneRequest) (*pb.DoOneResponse, error) {
+func (s *serviceServer) DoOne(ctx context.Context, req *pb.DoOneRequest) (*pb.DoOneResponse, error) {
 	g, err := s.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
@@ -76,7 +78,7 @@ func (s *subtypeServer) DoOne(ctx context.Context, req *pb.DoOneRequest) (*pb.Do
 	return &pb.DoOneResponse{Ret1: resp}, nil
 }
 
-func (s *subtypeServer) DoOneClientStream(server pb.GizmoService_DoOneClientStreamServer) error {
+func (s *serviceServer) DoOneClientStream(server pb.GizmoService_DoOneClientStreamServer) error {
 	var name string
 	var args []string
 	for {
@@ -105,7 +107,7 @@ func (s *subtypeServer) DoOneClientStream(server pb.GizmoService_DoOneClientStre
 	return server.SendAndClose(&pb.DoOneClientStreamResponse{Ret1: resp})
 }
 
-func (s *subtypeServer) DoOneServerStream(req *pb.DoOneServerStreamRequest, stream pb.GizmoService_DoOneServerStreamServer) error {
+func (s *serviceServer) DoOneServerStream(req *pb.DoOneServerStreamRequest, stream pb.GizmoService_DoOneServerStreamServer) error {
 	g, err := s.coll.Resource(req.Name)
 	if err != nil {
 		return err
@@ -124,7 +126,7 @@ func (s *subtypeServer) DoOneServerStream(req *pb.DoOneServerStreamRequest, stre
 	return nil
 }
 
-func (s *subtypeServer) DoOneBiDiStream(server pb.GizmoService_DoOneBiDiStreamServer) error {
+func (s *serviceServer) DoOneBiDiStream(server pb.GizmoService_DoOneBiDiStreamServer) error {
 	var name string
 	var args []string
 	for {
@@ -158,7 +160,7 @@ func (s *subtypeServer) DoOneBiDiStream(server pb.GizmoService_DoOneBiDiStreamSe
 	return nil
 }
 
-func (s *subtypeServer) DoTwo(ctx context.Context, req *pb.DoTwoRequest) (*pb.DoTwoResponse, error) {
+func (s *serviceServer) DoTwo(ctx context.Context, req *pb.DoTwoRequest) (*pb.DoTwoResponse, error) {
 	g, err := s.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
@@ -170,7 +172,7 @@ func (s *subtypeServer) DoTwo(ctx context.Context, req *pb.DoTwoRequest) (*pb.Do
 	return &pb.DoTwoResponse{Ret1: resp}, nil
 }
 
-func (s *subtypeServer) DoCommand(ctx context.Context, req *pb.DoCommandRequest) (*pb.DoCommandResponse, error) {
+func (s *serviceServer) DoCommand(ctx context.Context, req *pb.DoCommandRequest) (*pb.DoCommandResponse, error) {
 	g, err := s.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
@@ -186,15 +188,15 @@ func (s *subtypeServer) DoCommand(ctx context.Context, req *pb.DoCommandRequest)
 	return &pb.DoCommandResponse{Result: pbResp}, nil
 }
 
-func NewClientFromConn(conn rpc.ClientConn, name resource.Name, logger golog.Logger) Gizmo {
-	sc := newSvcClientFromConn(conn, name, logger)
-	return clientFromSvcClient(sc, name.ShortNameForClient())
+func NewClientFromConn(conn rpc.ClientConn, remoteName string, name resource.Name, logger golog.Logger) Gizmo {
+	sc := newSvcClientFromConn(conn, remoteName, name, logger)
+	return clientFromSvcClient(sc, name.ShortName())
 }
 
-func newSvcClientFromConn(conn rpc.ClientConn, name resource.Name, logger golog.Logger) *serviceClient {
+func newSvcClientFromConn(conn rpc.ClientConn, remoteName string, name resource.Name, logger golog.Logger) *serviceClient {
 	client := pb.NewGizmoServiceClient(conn)
 	sc := &serviceClient{
-		Named:  name.AsNamed(),
+		Named:  name.PrependRemote(remoteName).AsNamed(),
 		client: client,
 		logger: logger,
 	}

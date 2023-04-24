@@ -77,8 +77,8 @@ func TestDetermineUseLiveData(t *testing.T) {
 
 // makeCfgService creates the simplest possible config that can pass validation.
 func makeCfgService() resource.Config {
-	model := resource.NewDefaultModel(resource.ModelName("test"))
-	cfgService := resource.Config{Name: "test", API: slam.Subtype, Model: model}
+	model := resource.DefaultModelFamily.WithModel("test")
+	cfgService := resource.Config{Name: "test", API: slam.API, Model: model}
 	cfgService.Attributes = make(map[string]interface{})
 	cfgService.Attributes["config_params"] = map[string]string{
 		"mode": "test mode",
@@ -93,8 +93,8 @@ func TestNewConf(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
 	t.Run("Empty config", func(t *testing.T) {
-		model := resource.NewDefaultModel(resource.ModelName("test"))
-		cfgService := resource.Config{Name: "test", API: slam.Subtype, Model: model}
+		model := resource.DefaultModelFamily.WithModel("test")
+		cfgService := resource.Config{Name: "test", API: slam.API, Model: model}
 		_, err := NewConfig(cfgService)
 		test.That(t, err, test.ShouldBeError)
 	})

@@ -8,7 +8,23 @@
         {
             "name": "rem1",
             "connection_check_interval": "12s",
-            "reconnect_interval": "3s"
+            "reconnect_interval": "3s",
+            "service_configs": [
+                {
+                    "type": "data_manager",
+                    "attributes": {
+                        "hi": 3.3 ,
+                        "friend": 4.4
+                    }
+                },
+                {
+                    "type": "some_type",
+                    "attributes": {
+                        "hi": 5.5 ,
+                        "friend": 6.6
+                    }
+                }
+            ]
         }  
     ],
     "components": [
@@ -59,7 +75,16 @@
                 "encoder": "encoder1",
                 "max_power_pct": 0.5,
                 "ticks_per_rotation": 10000
-            }
+            },
+            "service_configs": [
+                {
+                    "type": "data_manager",
+                    "attributes": {
+                        "hi": 1.1,
+                        "friend": 2.2
+                    }
+                }
+            ]
         },
         {
             "name": "encoder1",

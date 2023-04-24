@@ -40,7 +40,7 @@ type TMC5072Config struct {
 	HoldDelay        int32     `json:"hold_delay,omitempty"`   // 0=instant powerdown, 1-15=delay * 2^18 clocks, 6 default
 }
 
-var modelname = resource.NewDefaultModel("TMC5072")
+var model = resource.DefaultModelFamily.WithModel("TMC5072")
 
 // Validate ensures all parts of the config are valid.
 func (config *TMC5072Config) Validate(path string) ([]string, error) {
@@ -65,7 +65,7 @@ func (config *TMC5072Config) Validate(path string) ([]string, error) {
 }
 
 func init() {
-	resource.RegisterComponent(motor.Subtype, modelname, resource.Registration[motor.Motor, *TMC5072Config]{
+	resource.RegisterComponent(motor.API, model, resource.Registration[motor.Motor, *TMC5072Config]{
 		Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,

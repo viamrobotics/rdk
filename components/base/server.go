@@ -12,21 +12,21 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-// subtypeServer implements the BaseService from base.proto.
-type subtypeServer struct {
+// serviceServer implements the BaseService from base.proto.
+type serviceServer struct {
 	pb.UnimplementedBaseServiceServer
-	coll resource.SubtypeCollection[Base]
+	coll resource.APIResourceCollection[Base]
 }
 
 // NewRPCServiceServer constructs a base gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
-func NewRPCServiceServer(coll resource.SubtypeCollection[Base]) interface{} {
-	return &subtypeServer{coll: coll}
+func NewRPCServiceServer(coll resource.APIResourceCollection[Base]) interface{} {
+	return &serviceServer{coll: coll}
 }
 
 // MoveStraight moves a robot's base in a straight line by a given distance, expressed in millimeters
 // and a given speed, expressed in millimeters per second.
-func (s *subtypeServer) MoveStraight(
+func (s *serviceServer) MoveStraight(
 	ctx context.Context,
 	req *pb.MoveStraightRequest,
 ) (*pb.MoveStraightResponse, error) {
@@ -45,7 +45,7 @@ func (s *subtypeServer) MoveStraight(
 
 // Spin spins a robot's base by an given angle, expressed in degrees, and a given
 // angular speed, expressed in degrees per second.
-func (s *subtypeServer) Spin(
+func (s *serviceServer) Spin(
 	ctx context.Context,
 	req *pb.SpinRequest,
 ) (*pb.SpinResponse, error) {
@@ -62,7 +62,7 @@ func (s *subtypeServer) Spin(
 	return &pb.SpinResponse{}, nil
 }
 
-func (s *subtypeServer) SetPower(
+func (s *serviceServer) SetPower(
 	ctx context.Context,
 	req *pb.SetPowerRequest,
 ) (*pb.SetPowerResponse, error) {
@@ -84,7 +84,7 @@ func (s *subtypeServer) SetPower(
 	return &pb.SetPowerResponse{}, nil
 }
 
-func (s *subtypeServer) SetVelocity(
+func (s *serviceServer) SetVelocity(
 	ctx context.Context,
 	req *pb.SetVelocityRequest,
 ) (*pb.SetVelocityResponse, error) {
@@ -107,7 +107,7 @@ func (s *subtypeServer) SetVelocity(
 }
 
 // Stop stops a robot's base.
-func (s *subtypeServer) Stop(
+func (s *serviceServer) Stop(
 	ctx context.Context,
 	req *pb.StopRequest,
 ) (*pb.StopResponse, error) {
@@ -123,7 +123,7 @@ func (s *subtypeServer) Stop(
 }
 
 // IsMoving queries of a component is in motion.
-func (s *subtypeServer) IsMoving(ctx context.Context, req *pb.IsMovingRequest) (*pb.IsMovingResponse, error) {
+func (s *serviceServer) IsMoving(ctx context.Context, req *pb.IsMovingRequest) (*pb.IsMovingResponse, error) {
 	base, err := s.coll.Resource(req.GetName())
 	if err != nil {
 		return nil, err
@@ -136,7 +136,7 @@ func (s *subtypeServer) IsMoving(ctx context.Context, req *pb.IsMovingRequest) (
 }
 
 // DoCommand receives arbitrary commands.
-func (s *subtypeServer) DoCommand(ctx context.Context,
+func (s *serviceServer) DoCommand(ctx context.Context,
 	req *commonpb.DoCommandRequest,
 ) (*commonpb.DoCommandResponse, error) {
 	base, err := s.coll.Resource(req.GetName())

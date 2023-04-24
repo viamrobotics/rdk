@@ -79,10 +79,10 @@ func (config *servoConfig) Validate(path string) ([]string, error) {
 	return deps, nil
 }
 
-var model = resource.NewDefaultModel("gpio")
+var model = resource.DefaultModelFamily.WithModel("gpio")
 
 func init() {
-	resource.RegisterComponent(servo.Subtype, model,
+	resource.RegisterComponent(servo.API, model,
 		resource.Registration[servo.Servo, *servoConfig]{
 			Constructor: newGPIOServo,
 		})

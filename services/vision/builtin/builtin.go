@@ -25,7 +25,7 @@ import (
 )
 
 func init() {
-	resource.RegisterDefaultService(vision.Subtype, resource.DefaultServiceModel, resource.Registration[vision.Service, *vision.Config]{
+	resource.RegisterDefaultService(vision.API, resource.DefaultServiceModel, resource.Registration[vision.Service, *vision.Config]{
 		DeprecatedRobotConstructor: func(
 			ctx context.Context,
 			r any,

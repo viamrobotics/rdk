@@ -64,8 +64,8 @@ func SetDialMaxTimeoutSecForTesting(val int) {
 // TBD 05/04/2022: Needs more work once GRPC is included (future PR).
 func init() {
 	for _, slamLibrary := range slam.SLAMLibraries {
-		sModel := resource.NewDefaultModel(resource.ModelName(slamLibrary.AlgoName))
-		resource.RegisterService(slam.Subtype, sModel, resource.Registration[slam.Service, *slamConfig.Config]{
+		sModel := resource.DefaultModelFamily.WithModel(slamLibrary.AlgoName)
+		resource.RegisterService(slam.API, sModel, resource.Registration[slam.Service, *slamConfig.Config]{
 			Constructor: func(
 				ctx context.Context,
 				deps resource.Dependencies,

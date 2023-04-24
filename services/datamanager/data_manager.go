@@ -14,9 +14,9 @@ import (
 )
 
 func init() {
-	resource.RegisterSubtypeWithAssociation(
-		Subtype,
-		resource.SubtypeRegistration[Service]{
+	resource.RegisterAPIWithAssociation(
+		API,
+		resource.APIRegistration[Service]{
 			RPCServiceServerConstructor: NewRPCServiceServer,
 			RPCServiceHandler:           servicepb.RegisterDataManagerServiceHandlerFromEndpoint,
 			RPCServiceDesc:              &servicepb.DataManagerService_ServiceDesc,
@@ -35,12 +35,6 @@ func init() {
 				}
 				return &conf, nil
 			},
-			WithName: func(resName resource.Name, resAssociation *DataCaptureConfigs) error {
-				for idx := range resAssociation.CaptureMethods {
-					resAssociation.CaptureMethods[idx].Name = resName
-				}
-				return nil
-			},
 		},
 	)
 }
@@ -52,23 +46,26 @@ type Service interface {
 }
 
 // SubtypeName is the name of the type of service.
-const SubtypeName = resource.SubtypeName("data_manager")
+const SubtypeName = "data_manager"
 
-// Subtype is a constant that identifies the data manager service resource subtype.
-var Subtype = resource.NewSubtype(
-	resource.ResourceNamespaceRDK,
-	resource.ResourceTypeService,
-	SubtypeName,
-)
+// API is a variable that identifies the data manager service resource API.
+var API = resource.APINamespaceRDK.WithServiceType(SubtypeName)
 
 // Named is a helper for getting the named datamanager's typed resource name.
 func Named(name string) resource.Name {
-	return resource.NameFromSubtype(Subtype, name)
+	return resource.NewName(API, name)
 }
 
 // DataCaptureConfigs specify a list of methods to capture on resources.
 type DataCaptureConfigs struct {
 	CaptureMethods []DataCaptureConfig `json:"capture_methods"`
+}
+
+// UpdateResourceNames allows the caller to modify the resource names of data capture in place.
+func (dcs *DataCaptureConfigs) UpdateResourceNames(updater func(old resource.Name) resource.Name) {
+	for idx := range dcs.CaptureMethods {
+		dcs.CaptureMethods[idx].Name = updater(dcs.CaptureMethods[idx].Name)
+	}
 }
 
 // DataCaptureConfig is used to initialize a collector for a component or remote.
@@ -81,7 +78,7 @@ type DataCaptureConfig struct {
 	CaptureBufferSize  int               `json:"capture_buffer_size"`
 	AdditionalParams   map[string]string `json:"additional_params"`
 	Disabled           bool              `json:"disabled"`
-	Tags               []string          `json:"tags"`
+	Tags               []string          `json:"tags,omitempty"`
 	CaptureDirectory   string            `json:"capture_directory"`
 }
 

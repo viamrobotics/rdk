@@ -75,5 +75,5 @@ module.exports = {
     },
   },
   plugins: [],
-  safelist: ['list-disc'],
+  safelist: ['list-disc', 'h-[400px]'],
 };

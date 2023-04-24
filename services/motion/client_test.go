@@ -40,12 +40,12 @@ func TestClient(t *testing.T) {
 	resources := map[resource.Name]motion.Service{
 		testMotionServiceName: injectMS,
 	}
-	svc, err := resource.NewSubtypeCollection(motion.Subtype, resources)
+	svc, err := resource.NewAPIResourceCollection(motion.API, resources)
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype, ok, err := resource.LookupSubtypeRegistration[motion.Service](motion.Subtype)
+	resourceAPI, ok, err := resource.LookupAPIRegistration[motion.Service](motion.API)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, svc), test.ShouldBeNil)
+	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, svc), test.ShouldBeNil)
 	grabPose := referenceframe.NewPoseInFrame("", spatialmath.NewZeroPose())
 	resourceName := gripper.Named("fake")
 	test.That(t, err, test.ShouldBeNil)
@@ -69,7 +69,7 @@ func TestClient(t *testing.T) {
 
 		test.That(t, err, test.ShouldBeNil)
 
-		client, err := motion.NewClientFromConn(context.Background(), conn, testMotionServiceName, logger)
+		client, err := motion.NewClientFromConn(context.Background(), conn, "", testMotionServiceName, logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		receivedTransforms := make(map[string]*referenceframe.LinkInFrame)
@@ -145,7 +145,7 @@ func TestClient(t *testing.T) {
 	t.Run("motion client 2", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		client2, err := resourceSubtype.RPCClient(context.Background(), conn, testMotionServiceName, logger)
+		client2, err := resourceAPI.RPCClient(context.Background(), conn, "", testMotionServiceName, logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		passedErr := errors.New("fake move error")

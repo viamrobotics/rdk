@@ -21,8 +21,8 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-// ModelName is the name of the wheeled model of a base component.
-var ModelName = resource.NewDefaultModel("wheeled")
+// Model is the name of the wheeled model of a base component.
+var Model = resource.DefaultModelFamily.WithModel("wheeled")
 
 // Config is how you configure a wheeled base.
 type Config struct {
@@ -73,7 +73,7 @@ func init() {
 		},
 	}
 
-	resource.RegisterComponent(base.Subtype, ModelName, wheeledBaseComp)
+	resource.RegisterComponent(base.API, Model, wheeledBaseComp)
 }
 
 type wheeledBase struct {

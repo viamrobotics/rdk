@@ -76,12 +76,12 @@ func TestClient(t *testing.T) {
 		encoder.Named(testEncoderName): workingEncoder,
 		encoder.Named(failEncoderName): failingEncoder,
 	}
-	encoderSvc, err := resource.NewSubtypeCollection(encoder.Subtype, resourceMap)
+	encoderSvc, err := resource.NewAPIResourceCollection(encoder.API, resourceMap)
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype, ok, err := resource.LookupSubtypeRegistration[encoder.Encoder](encoder.Subtype)
+	resourceAPI, ok, err := resource.LookupAPIRegistration[encoder.Encoder](encoder.API)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, encoderSvc), test.ShouldBeNil)
+	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, encoderSvc), test.ShouldBeNil)
 
 	workingEncoder.DoFunc = testutils.EchoFunc
 
@@ -98,7 +98,8 @@ func TestClient(t *testing.T) {
 
 	conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
-	workingEncoderClient := encoder.NewClientFromConn(context.Background(), conn, encoder.Named(testEncoderName), logger)
+	workingEncoderClient, err := encoder.NewClientFromConn(context.Background(), conn, "", encoder.Named(testEncoderName), logger)
+	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("client tests for working encoder", func(t *testing.T) {
 		// DoCommand
@@ -127,7 +128,8 @@ func TestClient(t *testing.T) {
 
 	conn, err = viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
-	failingEncoderClient := encoder.NewClientFromConn(context.Background(), conn, encoder.Named(failEncoderName), logger)
+	failingEncoderClient, err := encoder.NewClientFromConn(context.Background(), conn, "", encoder.Named(failEncoderName), logger)
+	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("client tests for failing encoder", func(t *testing.T) {
 		err = failingEncoderClient.ResetPosition(context.Background(), nil)
@@ -143,7 +145,8 @@ func TestClient(t *testing.T) {
 	t.Run("dialed client tests for working encoder", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		workingEncoderDialedClient := encoder.NewClientFromConn(context.Background(), conn, encoder.Named(testEncoderName), logger)
+		workingEncoderDialedClient, err := encoder.NewClientFromConn(context.Background(), conn, "", encoder.Named(testEncoderName), logger)
+		test.That(t, err, test.ShouldBeNil)
 
 		pos, _, err := workingEncoderDialedClient.GetPosition(context.Background(), encoder.PositionTypeUnspecified, nil)
 		test.That(t, err, test.ShouldBeNil)
@@ -159,7 +162,8 @@ func TestClient(t *testing.T) {
 	t.Run("dialed client tests for failing encoder", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		failingEncoderDialedClient := encoder.NewClientFromConn(context.Background(), conn, encoder.Named(failEncoderName), logger)
+		failingEncoderDialedClient, err := encoder.NewClientFromConn(context.Background(), conn, "", encoder.Named(failEncoderName), logger)
+		test.That(t, err, test.ShouldBeNil)
 
 		test.That(t, failingEncoderDialedClient.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)

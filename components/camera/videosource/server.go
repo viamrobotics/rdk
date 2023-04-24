@@ -25,12 +25,12 @@ import (
 )
 
 var (
-	modelSingle = resource.NewDefaultModel("single_stream")
-	modelDual   = resource.NewDefaultModel("dual_stream")
+	modelSingle = resource.DefaultModelFamily.WithModel("single_stream")
+	modelDual   = resource.DefaultModelFamily.WithModel("dual_stream")
 )
 
 func init() {
-	resource.RegisterComponent(camera.Subtype, modelSingle,
+	resource.RegisterComponent(camera.API, modelSingle,
 		resource.Registration[camera.Camera, *ServerConfig]{
 			Constructor: func(ctx context.Context, _ resource.Dependencies,
 				conf resource.Config, logger golog.Logger,
@@ -46,7 +46,7 @@ func init() {
 				return camera.FromVideoSource(conf.ResourceName(), src), nil
 			},
 		})
-	resource.RegisterComponent(camera.Subtype, modelDual,
+	resource.RegisterComponent(camera.API, modelDual,
 		resource.Registration[camera.Camera, *dualServerConfig]{
 			Constructor: func(ctx context.Context, _ resource.Dependencies,
 				conf resource.Config, logger golog.Logger,

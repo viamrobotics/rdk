@@ -70,7 +70,7 @@ func newLengthsCollector(resource interface{}, params data.CollectorParams) (dat
 func assertGantry(resource interface{}) (Gantry, error) {
 	gantry, ok := resource.(Gantry)
 	if !ok {
-		return nil, data.InvalidInterfaceErr(SubtypeName)
+		return nil, data.InvalidInterfaceErr(API)
 	}
 	return gantry, nil
 }

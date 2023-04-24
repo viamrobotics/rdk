@@ -18,19 +18,19 @@ import (
 	"go.viam.com/rdk/vision"
 )
 
-// subtypeServer implements the Vision Service.
-type subtypeServer struct {
+// serviceServer implements the Vision Service.
+type serviceServer struct {
 	pb.UnimplementedVisionServiceServer
-	coll resource.SubtypeCollection[Service]
+	coll resource.APIResourceCollection[Service]
 }
 
 // NewRPCServiceServer constructs a vision gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
-func NewRPCServiceServer(coll resource.SubtypeCollection[Service]) interface{} {
-	return &subtypeServer{coll: coll}
+func NewRPCServiceServer(coll resource.APIResourceCollection[Service]) interface{} {
+	return &serviceServer{coll: coll}
 }
 
-func (server *subtypeServer) GetModelParameterSchema(
+func (server *serviceServer) GetModelParameterSchema(
 	ctx context.Context,
 	req *pb.GetModelParameterSchemaRequest,
 ) (*pb.GetModelParameterSchemaResponse, error) {
@@ -53,7 +53,7 @@ func (server *subtypeServer) GetModelParameterSchema(
 	}, nil
 }
 
-func (server *subtypeServer) GetDetectorNames(
+func (server *serviceServer) GetDetectorNames(
 	ctx context.Context,
 	req *pb.GetDetectorNamesRequest,
 ) (*pb.GetDetectorNamesResponse, error) {
@@ -72,7 +72,7 @@ func (server *subtypeServer) GetDetectorNames(
 	}, nil
 }
 
-func (server *subtypeServer) AddDetector(
+func (server *serviceServer) AddDetector(
 	ctx context.Context,
 	req *pb.AddDetectorRequest,
 ) (*pb.AddDetectorResponse, error) {
@@ -95,7 +95,7 @@ func (server *subtypeServer) AddDetector(
 	return &pb.AddDetectorResponse{}, nil
 }
 
-func (server *subtypeServer) RemoveDetector(
+func (server *serviceServer) RemoveDetector(
 	ctx context.Context,
 	req *pb.RemoveDetectorRequest,
 ) (*pb.RemoveDetectorResponse, error) {
@@ -112,7 +112,7 @@ func (server *subtypeServer) RemoveDetector(
 	return &pb.RemoveDetectorResponse{}, nil
 }
 
-func (server *subtypeServer) GetDetections(
+func (server *serviceServer) GetDetections(
 	ctx context.Context,
 	req *pb.GetDetectionsRequest,
 ) (*pb.GetDetectionsResponse, error) {
@@ -155,7 +155,7 @@ func (server *subtypeServer) GetDetections(
 	}, nil
 }
 
-func (server *subtypeServer) GetDetectionsFromCamera(
+func (server *serviceServer) GetDetectionsFromCamera(
 	ctx context.Context,
 	req *pb.GetDetectionsFromCameraRequest,
 ) (*pb.GetDetectionsFromCameraResponse, error) {
@@ -194,7 +194,7 @@ func (server *subtypeServer) GetDetectionsFromCamera(
 	}, nil
 }
 
-func (server *subtypeServer) GetClassifierNames(
+func (server *serviceServer) GetClassifierNames(
 	ctx context.Context,
 	req *pb.GetClassifierNamesRequest,
 ) (*pb.GetClassifierNamesResponse, error) {
@@ -213,7 +213,7 @@ func (server *subtypeServer) GetClassifierNames(
 	}, nil
 }
 
-func (server *subtypeServer) AddClassifier(
+func (server *serviceServer) AddClassifier(
 	ctx context.Context,
 	req *pb.AddClassifierRequest,
 ) (*pb.AddClassifierResponse, error) {
@@ -236,7 +236,7 @@ func (server *subtypeServer) AddClassifier(
 	return &pb.AddClassifierResponse{}, nil
 }
 
-func (server *subtypeServer) RemoveClassifier(
+func (server *serviceServer) RemoveClassifier(
 	ctx context.Context,
 	req *pb.RemoveClassifierRequest,
 ) (*pb.RemoveClassifierResponse, error) {
@@ -253,7 +253,7 @@ func (server *subtypeServer) RemoveClassifier(
 	return &pb.RemoveClassifierResponse{}, nil
 }
 
-func (server *subtypeServer) GetClassifications(
+func (server *serviceServer) GetClassifications(
 	ctx context.Context,
 	req *pb.GetClassificationsRequest,
 ) (*pb.GetClassificationsResponse, error) {
@@ -284,7 +284,7 @@ func (server *subtypeServer) GetClassifications(
 	}, nil
 }
 
-func (server *subtypeServer) GetClassificationsFromCamera(
+func (server *serviceServer) GetClassificationsFromCamera(
 	ctx context.Context,
 	req *pb.GetClassificationsFromCameraRequest,
 ) (*pb.GetClassificationsFromCameraResponse, error) {
@@ -311,7 +311,7 @@ func (server *subtypeServer) GetClassificationsFromCamera(
 	}, nil
 }
 
-func (server *subtypeServer) GetSegmenterNames(
+func (server *serviceServer) GetSegmenterNames(
 	ctx context.Context,
 	req *pb.GetSegmenterNamesRequest,
 ) (*pb.GetSegmenterNamesResponse, error) {
@@ -328,7 +328,7 @@ func (server *subtypeServer) GetSegmenterNames(
 	}, nil
 }
 
-func (server *subtypeServer) AddSegmenter(
+func (server *serviceServer) AddSegmenter(
 	ctx context.Context,
 	req *pb.AddSegmenterRequest,
 ) (*pb.AddSegmenterResponse, error) {
@@ -351,7 +351,7 @@ func (server *subtypeServer) AddSegmenter(
 	return &pb.AddSegmenterResponse{}, nil
 }
 
-func (server *subtypeServer) RemoveSegmenter(
+func (server *serviceServer) RemoveSegmenter(
 	ctx context.Context,
 	req *pb.RemoveSegmenterRequest,
 ) (*pb.RemoveSegmenterResponse, error) {
@@ -370,7 +370,7 @@ func (server *subtypeServer) RemoveSegmenter(
 
 // GetObjectPointClouds returns an array of objects from the frame from a camera of the underlying robot. A specific MIME type
 // can be requested but may not necessarily be the same one returned. Also returns a Vector3 array of the center points of each object.
-func (server *subtypeServer) GetObjectPointClouds(
+func (server *serviceServer) GetObjectPointClouds(
 	ctx context.Context,
 	req *pb.GetObjectPointCloudsRequest,
 ) (*pb.GetObjectPointCloudsResponse, error) {
@@ -414,7 +414,7 @@ func segmentsToProto(frame string, segs []*vision.Object) ([]*commonpb.PointClou
 }
 
 // DoCommand receives arbitrary commands.
-func (server *subtypeServer) DoCommand(ctx context.Context,
+func (server *serviceServer) DoCommand(ctx context.Context,
 	req *commonpb.DoCommandRequest,
 ) (*commonpb.DoCommandResponse, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::server::DoCommand")
