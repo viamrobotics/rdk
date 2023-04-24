@@ -141,7 +141,7 @@ func (wb *wheeledBase) runAll(ctx context.Context, leftRPM, leftRotations, right
 	fs := []rdkutils.SimpleFunc{}
 
 	if rdkutils.Float64AlmostEqual(leftRPM, 0.0, 1) && rdkutils.Float64AlmostEqual(rightRPM, 0.0, 1) {
-		wb.logger.Info("the received inputs resulted in a speed of 0")
+		wb.logger.Warn("the received inputs resulted in a speed of 0")
 	}
 
 	for _, m := range wb.left {

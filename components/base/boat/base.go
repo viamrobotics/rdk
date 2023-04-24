@@ -220,7 +220,7 @@ func (b *boat) SetVelocity(ctx context.Context, linear, angular r3.Vector, extra
 	b.stateMutex.Lock()
 
 	if rdkutils.Float64AlmostEqual(linear.Y, 0.0, 1) && rdkutils.Float64AlmostEqual(angular.Z, 0.0, 1) {
-		b.logger.Info("the received inputs resulted in a speed of 0")
+		b.logger.Warn("the received inputs resulted in a speed of 0")
 	}
 
 	if !b.state.threadStarted {
@@ -245,7 +245,7 @@ func (b *boat) SetPower(ctx context.Context, linear, angular r3.Vector, extra ma
 	defer done()
 
 	if rdkutils.Float64AlmostEqual(linear.Y, 0.0, 1) && rdkutils.Float64AlmostEqual(angular.Z, 0.0, 1) {
-		b.logger.Info("the received inputs resulted in a speed of 0")
+		b.logger.Warn("the received inputs resulted in a speed of 0")
 	}
 
 	b.stateMutex.Lock()
