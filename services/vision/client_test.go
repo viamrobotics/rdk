@@ -66,7 +66,7 @@ func TestClient(t *testing.T) {
 	t.Run("get detections from img", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		client, err := vision.NewClientFromConn(context.Background(), conn, vision.Named(testVisionServiceName), logger)
+		client, err := vision.NewClientFromConn(context.Background(), conn, "", vision.Named(testVisionServiceName), logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		dets, err := client.Detections(context.Background(), &image.RGBA{}, nil)
@@ -85,7 +85,7 @@ func TestClient(t *testing.T) {
 	t.Run("get detections from cam", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		client, err := vision.NewClientFromConn(context.Background(), conn, vision.Named(testVisionServiceName), logger)
+		client, err := vision.NewClientFromConn(context.Background(), conn, "", vision.Named(testVisionServiceName), logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		dets, err := client.DetectionsFromCamera(context.Background(), "fake_cam", nil)
@@ -126,7 +126,7 @@ func TestInjectedServiceClient(t *testing.T) {
 	t.Run("Do Command", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		workingDialedClient, err := vision.NewClientFromConn(context.Background(), conn, vision.Named(testVisionServiceName), logger)
+		workingDialedClient, err := vision.NewClientFromConn(context.Background(), conn, "", vision.Named(testVisionServiceName), logger)
 		test.That(t, err, test.ShouldBeNil)
 		injectVision.DoCommandFunc = testutils.EchoFunc
 		resp, err := workingDialedClient.DoCommand(context.Background(), testutils.TestCommand)

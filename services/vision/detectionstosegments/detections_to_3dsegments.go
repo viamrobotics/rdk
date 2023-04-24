@@ -18,10 +18,10 @@ import (
 	"go.viam.com/rdk/vision/segmentation"
 )
 
-var model = resource.NewDefaultModel("detector_3d_segmenter")
+var model = resource.DefaultModelFamily.WithModel("detector_3d_segmenter")
 
 func init() {
-	resource.RegisterService(vision.Subtype, model, resource.Registration[vision.Service, *segmentation.DetectionSegmenterConfig]{
+	resource.RegisterService(vision.API, model, resource.Registration[vision.Service, *segmentation.DetectionSegmenterConfig]{
 		DeprecatedRobotConstructor: func(ctx context.Context, r any, c resource.Config, logger golog.Logger) (vision.Service, error) {
 			attrs, err := resource.NativeConfig[*segmentation.DetectionSegmenterConfig](c)
 			if err != nil {

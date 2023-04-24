@@ -16,10 +16,10 @@ import (
 	"go.viam.com/rdk/vision/segmentation"
 )
 
-var model = resource.NewDefaultModel("radius_clustering_segmenter")
+var model = resource.DefaultModelFamily.WithModel("radius_clustering_segmenter")
 
 func init() {
-	resource.RegisterService(vision.Subtype, model, resource.Registration[vision.Service, *segmentation.RadiusClusteringConfig]{
+	resource.RegisterService(vision.API, model, resource.Registration[vision.Service, *segmentation.RadiusClusteringConfig]{
 		DeprecatedRobotConstructor: func(ctx context.Context, r any, c resource.Config, logger golog.Logger) (vision.Service, error) {
 			attrs, err := resource.NativeConfig[*segmentation.RadiusClusteringConfig](c)
 			if err != nil {

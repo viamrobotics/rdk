@@ -28,8 +28,8 @@ func buildRobotWithClassifier(logger golog.Logger) (robot.Robot, error) {
 	// create fake source camera
 	tfliteSrv1 := resource.Config{
 		Name:  "object_classifier",
-		API:   mlmodel.Subtype,
-		Model: resource.NewDefaultModel("tflite_cpu"),
+		API:   mlmodel.API,
+		Model: resource.DefaultModelFamily.WithModel("tflite_cpu"),
 		Attributes: rutils.AttributeMap{
 			"model_path":  artifact.MustPath("vision/classification/object_classifier.tflite"),
 			"label_path":  artifact.MustPath("vision/classification/object_labels.txt"),
@@ -39,8 +39,8 @@ func buildRobotWithClassifier(logger golog.Logger) (robot.Robot, error) {
 	cfg.Services = append(cfg.Services, tfliteSrv1)
 	visionSrv1 := resource.Config{
 		Name:  "vision_classifier",
-		API:   vision.Subtype,
-		Model: resource.NewDefaultModel("mlmodel"),
+		API:   vision.API,
+		Model: resource.DefaultModelFamily.WithModel("mlmodel"),
 		Attributes: rutils.AttributeMap{
 			"mlmodel_name": "object_classifier",
 		},

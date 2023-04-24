@@ -53,8 +53,8 @@ func buildRobotWithFakeCamera(logger golog.Logger) (robot.Robot, error) {
 	// create fake source camera
 	colorSrv1 := resource.Config{
 		Name:  "detector_color",
-		API:   vision.Subtype,
-		Model: resource.NewDefaultModel("color_detector"),
+		API:   vision.API,
+		Model: resource.DefaultModelFamily.WithModel("color_detector"),
 		Attributes: rutils.AttributeMap{
 			"detect_color":      "#4F3815",
 			"hue_tolerance_pct": 0.013,
@@ -64,8 +64,8 @@ func buildRobotWithFakeCamera(logger golog.Logger) (robot.Robot, error) {
 	cfg.Services = append(cfg.Services, colorSrv1)
 	tfliteSrv2 := resource.Config{
 		Name:  "detector_tflite",
-		API:   mlmodel.Subtype,
-		Model: resource.NewDefaultModel("tflite_cpu"),
+		API:   mlmodel.API,
+		Model: resource.DefaultModelFamily.WithModel("tflite_cpu"),
 		Attributes: rutils.AttributeMap{
 			"model_path":  artifact.MustPath("vision/tflite/effdet0.tflite"),
 			"label_path":  artifact.MustPath("vision/tflite/effdetlabels.txt"),
@@ -75,8 +75,8 @@ func buildRobotWithFakeCamera(logger golog.Logger) (robot.Robot, error) {
 	cfg.Services = append(cfg.Services, tfliteSrv2)
 	visionSrv2 := resource.Config{
 		Name:  "vision_detector",
-		API:   vision.Subtype,
-		Model: resource.NewDefaultModel("mlmodel"),
+		API:   vision.API,
+		Model: resource.DefaultModelFamily.WithModel("mlmodel"),
 		Attributes: rutils.AttributeMap{
 			"mlmodel_name": "detector_tflite",
 		},

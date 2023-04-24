@@ -22,7 +22,7 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-var model = resource.NewDefaultModel("mlmodel")
+var model = resource.DefaultModelFamily.WithModel("mlmodel")
 
 const (
 	// UInt8 is one of the possible input/output types for tensors.
@@ -32,7 +32,7 @@ const (
 )
 
 func init() {
-	resource.RegisterService(vision.Subtype, model, resource.Registration[vision.Service, *MLModelConfig]{
+	resource.RegisterService(vision.API, model, resource.Registration[vision.Service, *MLModelConfig]{
 		DeprecatedRobotConstructor: func(ctx context.Context, r any, c resource.Config, logger golog.Logger) (vision.Service, error) {
 			attrs, err := resource.NativeConfig[*MLModelConfig](c)
 			if err != nil {
