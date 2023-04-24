@@ -37,7 +37,7 @@ const (
 	SphereType      = GeometryType("sphere")
 	CapsuleType     = GeometryType("capsule")
 	PointType       = GeometryType("point")
-	CollisionBuffer = 1e-8 // objects must be separated by this many mm to not be in collision
+	CollisionBuffer = 1 // objects must be separated by this many mm to not be in collision
 
 	// Point density corresponding to how many points per square mm.
 	defaultPointDensity = .5

@@ -4,6 +4,7 @@ package universalrobots
 import (
 	"bufio"
 	"context"
+
 	// for embedding model file.
 	_ "embed"
 	"encoding/binary"
@@ -402,7 +403,7 @@ func (ua *URArm) MoveToJointPositionRadians(ctx context.Context, radians []float
 		return errors.New("need 6 joints")
 	}
 
-	cmd := fmt.Sprintf("movej([%f,%f,%f,%f,%f,%f], a=%1.2f, v=%1.2f, r=0)\r\n",
+	cmd := fmt.Sprintf("movej([%f,%f,%f,%f,%f,%f], a=%1.2f, v=%1.2f, r=0.001)\r\n",
 		radians[0],
 		radians[1],
 		radians[2],
@@ -427,7 +428,11 @@ func (ua *URArm) MoveToJointPositionRadians(ctx context.Context, radians []float
 			return err
 		}
 		for idx, r := range radians {
-			if math.Round(r*100) != math.Round(state.Joints[idx].Qactual*100) {
+			// if math.Round(r*100) != math.Round(state.Joints[idx].Qactual*100) {
+			// 	good = false
+			// }
+			// blend * 1000 = 1
+			if math.Abs(r-state.Joints[idx].Qactual)*100 > 1 {
 				good = false
 			}
 		}
