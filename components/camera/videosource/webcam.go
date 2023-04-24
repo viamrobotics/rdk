@@ -12,6 +12,7 @@ import (
 	"github.com/edaniels/gostream"
 	"github.com/pion/mediadevices"
 	"github.com/pion/mediadevices/pkg/driver"
+	"github.com/pion/mediadevices/pkg/driver/availability"
 	mediadevicescamera "github.com/pion/mediadevices/pkg/driver/camera"
 	"github.com/pion/mediadevices/pkg/frame"
 	"github.com/pion/mediadevices/pkg/prop"
@@ -53,6 +54,7 @@ type CameraConfig struct {
 
 // Discover webcam attributes.
 func Discover(_ context.Context, getDrivers func() []driver.Driver, logger golog.Logger) (*pb.Webcams, error) {
+	mediadevicescamera.Initialize()
 	var webcams []*pb.Webcam
 	drivers := getDrivers()
 	for _, d := range drivers {
@@ -186,6 +188,7 @@ func findAndMakeVideoSource(
 	label string,
 	logger golog.Logger,
 ) (gostream.VideoSource, string, error) {
+	mediadevicescamera.Initialize()
 	debug := conf.Debug
 	constraints := makeConstraints(conf, debug, logger)
 	if label != "" {
@@ -386,13 +389,19 @@ func (c *monitoredWebcam) isCameraConnected() (bool, error) {
 	if c.underlyingSource == nil {
 		return true, errors.New("no configured camera")
 	}
-	props, err := gostream.PropertiesFromMediaSource[image.Image, prop.Video](c.underlyingSource)
+	d, err := gostream.DriverFromMediaSource[image.Image, prop.Video](c.underlyingSource)
 	if err != nil {
-		return true, errors.Wrap(err, "cannot get properties from media source")
+		return true, errors.Wrap(err, "cannot get driver from media source")
 	}
-	// github.com/pion/mediadevices connects to the OS to get the props for a driver. On disconnect props will be empty.
+
 	// TODO(RSDK-1959): this only works for linux
-	return len(props) != 0, nil
+	_, err = driver.IsAvailable(d)
+	switch {
+	case errors.Is(err, availability.ErrNoDevice):
+		return false, nil
+	default:
+		return true, nil
+	}
 }
 
 // reconnectCamera assumes a write lock is held.
