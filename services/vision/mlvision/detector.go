@@ -12,6 +12,7 @@ import (
 	"go.viam.com/rdk/services/mlmodel"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision/objectdetection"
+	"go.viam.com/utils/artifact"
 )
 
 func attemptToBuildDetector(mlm mlmodel.Service) (objectdetection.Detector, error) {
@@ -51,17 +52,35 @@ func attemptToBuildDetector(mlm mlmodel.Service) (objectdetection.Detector, erro
 			return nil, err
 		}
 
-		locations := unpack(outMap, "location")
+		locations, err := unpack(outMap, "location")
+		if err != nil {
+			return nil, err
+		}
 		if len(locations) == 0 {
-			locations = unpack(outMap, DefaultOutTensorName+"0")
+			locations, err = unpack(outMap, DefaultOutTensorName+"0")
+			if err != nil {
+				return nil, err
+			}
 		}
-		categories := unpack(outMap, "category")
+		categories, err := unpack(outMap, "category")
+		if err != nil {
+			return nil, err
+		}
 		if len(categories) == 0 {
-			categories = unpack(outMap, DefaultOutTensorName+"1")
+			categories, err = unpack(outMap, DefaultOutTensorName+"1")
+			if err != nil {
+				return nil, err
+			}
 		}
-		scores := unpack(outMap, "score")
+		scores, err := unpack(outMap, "score")
+		if err != nil {
+			return nil, err
+		}
 		if len(scores) == 0 {
-			scores = unpack(outMap, DefaultOutTensorName+"2")
+			scores, err = unpack(outMap, DefaultOutTensorName+"2")
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		// Now reshape outMap into Detections
@@ -82,4 +101,21 @@ func attemptToBuildDetector(mlm mlmodel.Service) (objectdetection.Detector, erro
 		}
 		return detections, nil
 	}, nil
+}
+
+func checkIfDetectorWorks(ctx context.Context, df objectdetection.Detector) (objectdetection.Detector, error) {
+	if df == nil {
+		return nil, errors.New("Nil detector function")
+	}
+
+	img, err := rimage.NewImageFromFile(artifact.MustPath("vision/tflite/dogscute.jpeg"))
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = df(ctx, img)
+	if err != nil {
+		return nil, errors.New("Cannot use model as a detector")
+	}
+	return df, nil
 }
