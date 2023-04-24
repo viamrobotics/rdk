@@ -289,14 +289,6 @@ func TestModManagerValidation(t *testing.T) {
 
 func TestModuleReloading(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
-
-	// Precompile module to avoid timeout issues when building takes too long.
-	builder := exec.Command("go", "build", ".")
-	builder.Dir = utils.ResolveFile("module/testmodule")
-	out, err := builder.CombinedOutput()
-	test.That(t, string(out), test.ShouldEqual, "")
-	test.That(t, err, test.ShouldBeNil)
 
 	myHelperModel := resource.NewModel("rdk", "test", "helper")
 	rNameMyHelper := generic.Named("myhelper")
@@ -305,7 +297,7 @@ func TestModuleReloading(t *testing.T) {
 		API:   generic.API,
 		Model: myHelperModel,
 	}
-	_, err = cfgMyHelper.Validate("test", resource.APITypeComponentName)
+	_, err := cfgMyHelper.Validate("test", resource.APITypeComponentName)
 	test.That(t, err, test.ShouldBeNil)
 
 	// This cannot use t.TempDir() as the path it gives on MacOS exceeds module.MaxSocketAddressLength.
@@ -314,43 +306,138 @@ func TestModuleReloading(t *testing.T) {
 	defer os.RemoveAll(parentAddr)
 	parentAddr += "/parent.sock"
 
-	mgr := NewManager(parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
+	exePath := utils.ResolveFile("module/testmodule/testmodule")
 	modCfg := config.Module{
 		Name:    "test-module",
-		ExePath: utils.ResolveFile("module/testmodule/run.sh"),
+		ExePath: exePath,
 	}
-	err = mgr.Add(ctx, modCfg)
-	test.That(t, err, test.ShouldBeNil)
 
-	// Add helper resource and ensure "echo" works correctly.
-	h, err := mgr.AddResource(ctx, cfgMyHelper, nil)
-	test.That(t, err, test.ShouldBeNil)
-	ok := mgr.IsModularResource(rNameMyHelper)
-	test.That(t, ok, test.ShouldBeTrue)
+	t.Run("successful restart", func(t *testing.T) {
+		logger, logs := golog.NewObservedTestLogger(t)
 
-	resp, err := h.DoCommand(ctx, map[string]interface{}{"command": "echo"})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resp, test.ShouldNotBeNil)
-	test.That(t, resp["command"], test.ShouldEqual, "echo")
+		// Precompile module to avoid timeout issues when building takes too long.
+		builder := exec.Command("go", "build", ".")
+		builder.Dir = utils.ResolveFile("module/testmodule")
+		out, err := builder.CombinedOutput()
+		test.That(t, string(out), test.ShouldEqual, "")
+		test.That(t, err, test.ShouldBeNil)
 
-	// Run 'kill_module' command through helper resource to cause module to exit
-	// with error. Assert that within five seconds, helper is modularly managed
-	// again and remains functional.
-	_, err = h.DoCommand(ctx, map[string]interface{}{"command": "kill_module"})
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring,
-		"error reading from server")
+		// This cannot use t.TempDir() as the path it gives on MacOS exceeds
+		// module.MaxSocketAddressLength.
+		parentAddr, err := os.MkdirTemp("", "viam-test-*")
+		test.That(t, err, test.ShouldBeNil)
+		defer os.RemoveAll(parentAddr)
+		parentAddr += "/parent.sock"
 
-	time.Sleep(5 * time.Second)
-	ok = mgr.IsModularResource(rNameMyHelper)
-	test.That(t, ok, test.ShouldBeTrue)
-	resp, err = h.DoCommand(ctx, map[string]interface{}{"command": "echo"})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resp, test.ShouldNotBeNil)
-	test.That(t, resp["command"], test.ShouldEqual, "echo")
+		mgr := NewManager(parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
+		err = mgr.Add(ctx, modCfg)
+		test.That(t, err, test.ShouldBeNil)
 
-	err = h.Close(ctx)
-	test.That(t, err, test.ShouldBeNil)
-	err = mgr.Close(ctx)
-	test.That(t, err, test.ShouldBeNil)
+		// Add helper resource and ensure "echo" works correctly.
+		h, err := mgr.AddResource(ctx, cfgMyHelper, nil)
+		test.That(t, err, test.ShouldBeNil)
+		ok := mgr.IsModularResource(rNameMyHelper)
+		test.That(t, ok, test.ShouldBeTrue)
+
+		resp, err := h.DoCommand(ctx, map[string]interface{}{"command": "echo"})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldNotBeNil)
+		test.That(t, resp["command"], test.ShouldEqual, "echo")
+
+		// Run 'kill_module' command through helper resource to cause module to exit
+		// with error. Assert that within five seconds, helper is modularly managed
+		// again and remains functional.
+		_, err = h.DoCommand(ctx, map[string]interface{}{"command": "kill_module"})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring,
+			"error reading from server")
+
+		time.Sleep(5 * time.Second)
+		ok = mgr.IsModularResource(rNameMyHelper)
+		test.That(t, ok, test.ShouldBeTrue)
+		resp, err = h.DoCommand(ctx, map[string]interface{}{"command": "echo"})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldNotBeNil)
+		test.That(t, resp["command"], test.ShouldEqual, "echo")
+
+		err = mgr.Close(ctx)
+		test.That(t, err, test.ShouldBeNil)
+
+		// Test that logs reflect that test-module crashed and was successfully
+		// restarted.
+		test.That(t, logs.FilterMessageSnippet("test-module has unexpectedly exited").Len(),
+			test.ShouldEqual, 1)
+		test.That(t, logs.FilterMessageSnippet("error while restarting crashed module").Len(),
+			test.ShouldEqual, 0)
+		test.That(t, logs.FilterMessageSnippet("test-module successfully restarted").Len(),
+			test.ShouldEqual, 1)
+	})
+	t.Run("unsuccessful restart", func(t *testing.T) {
+		logger, logs := golog.NewObservedTestLogger(t)
+
+		// Precompile module to avoid timeout issues when building takes too long.
+		builder := exec.Command("go", "build", ".")
+		builder.Dir = utils.ResolveFile("module/testmodule")
+		out, err := builder.CombinedOutput()
+		test.That(t, string(out), test.ShouldEqual, "")
+		test.That(t, err, test.ShouldBeNil)
+
+		// This cannot use t.TempDir() as the path it gives on MacOS exceeds
+		// module.MaxSocketAddressLength.
+		parentAddr, err := os.MkdirTemp("", "viam-test-*")
+		test.That(t, err, test.ShouldBeNil)
+		defer os.RemoveAll(parentAddr)
+		parentAddr += "/parent.sock"
+
+		mgr := NewManager(parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
+		err = mgr.Add(ctx, modCfg)
+		test.That(t, err, test.ShouldBeNil)
+
+		// Add helper resource and ensure "echo" works correctly.
+		h, err := mgr.AddResource(ctx, cfgMyHelper, nil)
+		test.That(t, err, test.ShouldBeNil)
+		ok := mgr.IsModularResource(rNameMyHelper)
+		test.That(t, ok, test.ShouldBeTrue)
+
+		resp, err := h.DoCommand(ctx, map[string]interface{}{"command": "echo"})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldNotBeNil)
+		test.That(t, resp["command"], test.ShouldEqual, "echo")
+
+		// Remove testmodule binary, so process cannot be successfully restarted
+		// after crash. Also lower oueRestartInterval so attempted restarts happen
+		// at faster rate.
+		err = os.Remove(exePath)
+		test.That(t, err, test.ShouldBeNil)
+		oueRestartInterval = 10 * time.Millisecond
+
+		// Run 'kill_module' command through helper resource to cause module to exit
+		// with error. Assert that within five seconds, helper is not modularly
+		// managed and commands return error.
+		_, err = h.DoCommand(ctx, map[string]interface{}{"command": "kill_module"})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring,
+			"error reading from server")
+
+		time.Sleep(5 * time.Second)
+
+		ok = mgr.IsModularResource(rNameMyHelper)
+		test.That(t, ok, test.ShouldBeFalse)
+		_, err = h.DoCommand(ctx, map[string]interface{}{"command": "echo"})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring,
+			"connection is closing")
+
+		err = mgr.Close(ctx)
+		test.That(t, err, test.ShouldBeNil)
+
+		// Test that logs reflect that test-module crashed and then errored during
+		// restart three times.
+		test.That(t, logs.FilterMessageSnippet("test-module has unexpectedly exited").Len(),
+			test.ShouldEqual, 1)
+		test.That(t, logs.FilterMessageSnippet("error while restarting crashed module").Len(),
+			test.ShouldEqual, 3)
+		test.That(t, logs.FilterMessageSnippet("test-module successfully restarted").Len(),
+			test.ShouldEqual, 0)
+	})
 }
