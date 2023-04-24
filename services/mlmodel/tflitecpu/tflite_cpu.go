@@ -184,7 +184,7 @@ func (m *Model) Metadata(ctx context.Context) (mlmodel.MLMetadata, error) {
 	if err != nil {
 		blindMD := m.blindFillMetadata()
 		m.metadata = &blindMD
-		m.logger.Infow(" error finding metadata in tflite file", "error", err)
+		m.logger.Infow("error finding metadata in tflite file", "error", err)
 		return blindMD, nil
 	}
 	out := mlmodel.MLMetadata{}
@@ -224,8 +224,7 @@ func (m *Model) Metadata(ctx context.Context) (mlmodel.MLMetadata, error) {
 	for i := 0; i < numOut; i++ { // for each output Tensor
 		outputT := md.SubgraphMetadata[0].OutputTensorMetadata[i]
 		td := getTensorInfo(outputT)
-		if (strings.Contains(td.Name, "category") || strings.Contains(td.Name, "probability")) &&
-			m.conf.LabelPath != nil {
+		if strings.Contains(td.Name, "category") || strings.Contains(td.Name, "probability") && m.conf.LabelPath != nil {
 			td.Extra = map[string]interface{}{
 				"labels": *m.conf.LabelPath,
 			}
@@ -251,8 +250,7 @@ func getTensorInfo(inputT *tflite_metadata.TensorMetadataT) mlmodel.TensorInfo {
 
 	// Add bounding box info to Extra
 	if strings.Contains(inputT.Name, "location") && inputT.Content.ContentProperties.Value != nil {
-		order, ok := inputT.Content.ContentProperties.Value.(*tflite_metadata.BoundingBoxPropertiesT)
-		if ok {
+		if order, ok := inputT.Content.ContentProperties.Value.(*tflite_metadata.BoundingBoxPropertiesT); ok {
 			td.Extra = map[string]interface{}{
 				"boxOrder": order.Index,
 			}

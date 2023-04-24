@@ -28,10 +28,15 @@ func attemptToBuildDetector(mlm mlmodel.Service) (objectdetection.Detector, erro
 	if err != nil || len(boxOrder) < 4 {
 		boxOrder = []int{1, 0, 3, 2}
 	}
-	if shape := md.Inputs[0].Shape; getIndex(shape, 3) == 1 {
-		inHeight, inWidth = uint(shape[2]), uint(shape[3])
+
+	if len(md.Inputs[0].Shape) >= 4 {
+		if shape := md.Inputs[0].Shape; getIndex(shape, 3) == 1 {
+			inHeight, inWidth = uint(shape[2]), uint(shape[3])
+		} else {
+			inHeight, inWidth = uint(shape[1]), uint(shape[2])
+		}
 	} else {
-		inHeight, inWidth = uint(shape[1]), uint(shape[2])
+		return nil, errors.New("could not get input dimensions")
 	}
 
 	return func(ctx context.Context, img image.Image) ([]objectdetection.Detection, error) {
