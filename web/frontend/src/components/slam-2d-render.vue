@@ -53,7 +53,7 @@ renderer.setClearColor(color, 1);
 
 canvas.style.cssText = 'width:100%;height:100%;';
 
-const camera = new THREE.OrthographicCamera(-1, 1, 0.5, -0.5, -1, 1000); // update?
+const camera = new THREE.OrthographicCamera(-1, 1, 0.5, -0.5, -1, 1000);
 camera.userData.size = 2;
 setCamera(camera);
 scene.add(camera);
@@ -124,9 +124,9 @@ const updateCloud = (pointcloud: Uint8Array) => {
   const points = loader.parse(pointcloud.buffer);
   points.geometry.computeBoundingSphere();
 
-  const { radius = 1, center = { x: 0, y: 0 } } = points.geometry.boundingSphere ?? {}; //update
-  camera.position.set(center.x, center.y, 100);// update
-  camera.lookAt(center.x, center.y, 0); // update
+  const { radius = 1, center = { x: 0, y: 0 } } = points.geometry.boundingSphere ?? {}; 
+  camera.position.set(center.x, center.y, 100);
+  camera.lookAt(center.x, center.y, 0);
 
   const aspect = canvas.clientHeight / canvas.clientWidth;
   camera.zoom = aspect > 1
@@ -135,7 +135,7 @@ const updateCloud = (pointcloud: Uint8Array) => {
 
   camera.updateProjectionMatrix();
 
-  controls.target.set(center.x, center.y, 0); // update
+  controls.target.set(center.x, center.y, 0);
   controls.maxZoom = radius * 2;
 
   const intersectionPlane = new THREE.Mesh(
@@ -143,8 +143,8 @@ const updateCloud = (pointcloud: Uint8Array) => {
     new MeshDiscardMaterial()
   );
   intersectionPlane.name = 'Intersection Plane';
-  intersectionPlane.position.z = -1;  // update
-  intersectionPlane.position.set(center.x, center.y, 0); // update
+  intersectionPlane.position.z = -1;
+  intersectionPlane.position.set(center.x, center.y, 0);
   raycaster.objects = [intersectionPlane];
 
   const colors = points.geometry.attributes.color;
@@ -168,9 +168,9 @@ const updateCloud = (pointcloud: Uint8Array) => {
 
 const updatePose = (newPose: commonApi.Pose) => {
   const x = newPose.getX();
-  const y = newPose.getY(); // update
+  const y = newPose.getY(); 
   marker.position.setX(x);
-  marker.position.setY(y); // update
+  marker.position.setY(y); 
 };
 
 onMounted(() => {
