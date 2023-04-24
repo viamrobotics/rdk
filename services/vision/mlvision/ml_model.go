@@ -7,7 +7,6 @@ import (
 	"context"
 	"math"
 	"os"
-	"strconv"
 	"strings"
 
 	"github.com/edaniels/golog"
@@ -96,41 +95,17 @@ func registerMLModelVisionService(
 func unpack(inMap map[string]interface{}, name string, md mlmodel.MLMetadata) []float64 {
 	var out []float64
 	me := inMap[name]
-	switch getTensorTypeFromName(name, md) {
-	case UInt8:
-		temp := me.([]uint8)
-		for _, t := range temp {
+	switch v := me.(type) {
+	case []uint8:
+		for _, t := range v {
 			out = append(out, float64(t))
 		}
-	case Float32:
-		temp := me.([]float32)
-		for _, p := range temp {
-			out = append(out, float64(p))
+	case []float32:
+		for _, t := range v {
+			out = append(out, float64(t))
 		}
-	default:
-		return nil
 	}
 	return out
-}
-
-// getTensorTypeFromName uses the metadata to find the expected type of the tensor.
-func getTensorTypeFromName(name string, md mlmodel.MLMetadata) string {
-	for _, o := range md.Outputs {
-		if strings.Contains(strings.ToLower(o.Name), strings.ToLower(name)) {
-			return o.DataType
-		}
-		if strings.Contains(name, DefaultOutTensorName) {
-			_, after, _ := strings.Cut(name, DefaultOutTensorName)
-			saveI, err := strconv.Atoi(after)
-			if err != nil {
-				return ""
-			}
-			if len(md.Outputs) > saveI {
-				return md.Outputs[saveI].DataType
-			}
-		}
-	}
-	return ""
 }
 
 // getLabelsFromMetadata returns a slice of strings--the intended labels.
