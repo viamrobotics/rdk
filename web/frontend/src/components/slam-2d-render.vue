@@ -126,7 +126,7 @@ const updateCloud = (pointcloud: Uint8Array) => {
 
   const { radius = 1, center = { x: 0, z: 0 } } = points.geometry.boundingSphere ?? {};
   camera.position.set(center.x, 100, center.z);// update
-  camera.lookAt(center.x, 0, center.z);// update
+  camera.lookAt(center.x, 0, center.z); // update
 
   const aspect = canvas.clientHeight / canvas.clientWidth;
   camera.zoom = aspect > 1
@@ -143,7 +143,7 @@ const updateCloud = (pointcloud: Uint8Array) => {
     new MeshDiscardMaterial()
   );
   intersectionPlane.name = 'Intersection Plane';
-  intersectionPlane.position.y = -1;
+  intersectionPlane.position.y = -1;  // update
   intersectionPlane.position.set(center.x, 0, center.z); // update
   raycaster.objects = [intersectionPlane];
 
