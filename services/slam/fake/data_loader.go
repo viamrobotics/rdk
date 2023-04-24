@@ -3,6 +3,7 @@ package fake
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -54,12 +55,19 @@ func fakeGetPointCloudMap(_ context.Context, datasetDir string, slamSvc *SLAM) (
 		return nil, err
 	}
 	chunk := make([]byte, chunkSizeBytes)
+	var chunkCount int
 	f := func() ([]byte, error) {
 		bytesRead, err := file.Read(chunk)
 		if err != nil {
 			defer utils.UncheckedErrorFunc(file.Close)
 			return nil, err
 		}
+		chunkCount++
+    slamSvc.logger.Warnf("slamSvc.getCount() > %d, chunkCount %d", slamSvc.getCount(), chunkCount)
+    if slamSvc.getCount() > 5 && chunkCount >= 3 {
+      return nil, errors.New("ah ah ah")
+
+    }
 		return chunk[:bytesRead], err
 	}
 	return f, nil
