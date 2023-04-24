@@ -67,6 +67,71 @@ func BenchmarkUseMLVisionModel(b *testing.B) {
 	}
 }
 
+func getTestMlModel(modelLoc string) (mlmodel.Service, error) {
+	ctx := context.Background()
+	testMLModelServiceName := "test-model"
+
+	name := mlmodel.Named(testMLModelServiceName)
+	cfg := tflitecpu.TFLiteConfig{
+		ModelPath:  modelLoc,
+		NumThreads: 2,
+	}
+	return tflitecpu.NewTFLiteCPUModel(ctx, &cfg, name)
+}
+func TestCheckIfClassifierWorks(t *testing.T) {
+	modelLocDetector := artifact.MustPath("vision/tflite/effdet0.tflite")
+	ctx := context.Background()
+
+	// get detector model
+	mlm, err := getTestMlModel(modelLocDetector)
+
+	classifier, err := attemptToBuildClassifier(mlm)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, classifier, test.ShouldNotBeNil)
+
+	classifier, err = checkIfClassifierWorks(ctx, classifier)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, classifier, test.ShouldBeNil)
+
+	modelLocClassifier := artifact.MustPath("vision/tflite/mobilenetv2_class.tflite")
+
+	mlm, err = getTestMlModel(modelLocClassifier)
+
+	classifier, err = attemptToBuildClassifier(mlm)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, classifier, test.ShouldNotBeNil)
+
+	classifier, err = checkIfClassifierWorks(ctx, classifier)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, classifier, test.ShouldNotBeNil)
+}
+
+func TestCheckIfDetectorWorks(t *testing.T) {
+	modelLocDetector := artifact.MustPath("vision/tflite/effdet0.tflite")
+	ctx := context.Background()
+
+	mlm, err := getTestMlModel(modelLocDetector)
+
+	detector, err := attemptToBuildDetector(mlm)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, detector, test.ShouldNotBeNil)
+
+	detector, err = checkIfDetectorWorks(ctx, detector)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, detector, test.ShouldNotBeNil)
+
+	modelLocClassifier := artifact.MustPath("vision/tflite/mobilenetv2_class.tflite")
+
+	mlm, err = getTestMlModel(modelLocClassifier)
+
+	detector, err = attemptToBuildDetector(mlm)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, detector, test.ShouldNotBeNil)
+
+	detector, err = checkIfDetectorWorks(ctx, detector)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, detector, test.ShouldBeNil)
+}
 func TestNewMLDetector(t *testing.T) {
 	// Test that a detector would give an expected output on the dog image
 	// Set it up as a ML Model
