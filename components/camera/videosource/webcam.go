@@ -60,14 +60,12 @@ func init() {
 			cameraSource, err := NewWebcamSource(ctx, config.Name, attrs, logger)
 			if err != nil {
 				// If we are on a Jetson Orin AGX, we need to validate driver and daughterboard setup
-				osInfo, osErr := jetsoncamera.DetectOSInformation()
-				if osErr != nil {
-					return cameraSource, err
-				}
-				if osInfo.Device == jetsoncamera.OrinAGX {
-					return cameraSource, errors.Wrap(err, jetsoncamera.DetectError(osInfo, jetsoncamera.ECAM, jetsoncamera.AR0234).Error())
-				}
-				return cameraSource, err
+				return cameraSource, jetsoncamera.ValidateSetup(
+					jetsoncamera.OrinAGX,
+					jetsoncamera.ECAM,
+					jetsoncamera.AR0234,
+					err,
+				)
 			}
 			return cameraSource, nil
 		}})

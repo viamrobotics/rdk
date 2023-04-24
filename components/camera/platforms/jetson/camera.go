@@ -56,6 +56,21 @@ func getDeviceName() (string, error) {
 	return string(bytes.TrimRight(device, "\x00")), nil
 }
 
+// ValidateSetup wraps an error from NewWebcamSource with a more helpful message
+func ValidateSetup(deviceName, daughterboardName, driverName string, err error) error {
+	osInfo, osErr := DetectOSInformation()
+	if osErr != nil {
+		return err
+	}
+	if osInfo.Device != deviceName {
+		return err
+	}
+	return fmt.Errorf(
+		"camera open error: %v, jetson setup: %v",
+		err, DetectError(osInfo, daughterboardName, driverName),
+	)
+}
+
 // DetectError checks daughterboard and camera setup to determine
 // our best guess of what is wrong with an unsuccessful camera open
 func DetectError(osInfo OSInformation, daughterboardName, driverName string) error {
