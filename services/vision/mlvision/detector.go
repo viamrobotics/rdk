@@ -12,7 +12,6 @@ import (
 	"go.viam.com/rdk/services/mlmodel"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision/objectdetection"
-	"go.viam.com/utils/artifact"
 )
 
 func attemptToBuildDetector(mlm mlmodel.Service) (objectdetection.Detector, error) {
@@ -108,12 +107,9 @@ func checkIfDetectorWorks(ctx context.Context, df objectdetection.Detector) (obj
 		return nil, errors.New("Nil detector function")
 	}
 
-	img, err := rimage.NewImageFromFile(artifact.MustPath("vision/tflite/dogscute.jpeg"))
-	if err != nil {
-		return nil, err
-	}
+	img := &image.RGBA{}
 
-	_, err = df(ctx, img)
+	_, err := df(ctx, img)
 	if err != nil {
 		return nil, errors.New("Cannot use model as a detector")
 	}

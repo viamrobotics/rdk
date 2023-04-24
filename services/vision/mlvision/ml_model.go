@@ -72,11 +72,11 @@ func registerMLModelVisionService(
 
 	classifierFunc, err := attemptToBuildClassifier(mlm)
 	if err != nil {
-		logger.Infof("%v", errors.Wrapf(err, "was not able to turn ml model %q into a classifier", params.ModelName))
+		logger.Infow("%v", errors.Wrapf(err, "was not able to turn ml model %q into a classifier", params.ModelName))
 	} else {
 		classifierFunc, err = checkIfClassifierWorks(ctx, classifierFunc)
 		if err != nil {
-			logger.Infof("%v", errors.Wrapf(err, "was not able to turn ml model %q into a classifier", params.ModelName))
+			logger.Infow("%v", errors.Wrapf(err, "was not able to turn ml model %q into a classifier", params.ModelName))
 		} else {
 			logger.Infof("model %q fulfills a vision service ciassifier", params.ModelName)
 		}
@@ -84,11 +84,11 @@ func registerMLModelVisionService(
 
 	detectorFunc, err := attemptToBuildDetector(mlm)
 	if err != nil {
-		logger.Infof("%v", errors.Wrapf(err, "was not able to turn ml model %q into a detector", params.ModelName))
+		logger.Infow("%v", errors.Wrapf(err, "was not able to turn ml model %q into a detector", params.ModelName))
 	} else {
 		detectorFunc, err = checkIfDetectorWorks(ctx, detectorFunc)
 		if err != nil {
-			logger.Infof("%v", errors.Wrapf(err, "was not able to turn ml model %q into a detector", params.ModelName))
+			logger.Infow("%v", errors.Wrapf(err, "was not able to turn ml model %q into a detector", params.ModelName))
 		} else {
 			logger.Infof("model %q fulfills a vision service detector", params.ModelName)
 		}
@@ -109,7 +109,7 @@ func unpack(inMap map[string]interface{}, name string) ([]float64, error) {
 	var out []float64
 	me := inMap[name]
 	if me == nil {
-		return nil, errors.New("Invalid input to unpack")
+		return nil, errors.Errorf("no such tensor named %q to unpack", name)
 	}
 	switch v := me.(type) {
 	case []uint8:
