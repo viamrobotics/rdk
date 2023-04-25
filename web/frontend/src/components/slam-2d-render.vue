@@ -124,7 +124,7 @@ const updateCloud = (pointcloud: Uint8Array) => {
   const points = loader.parse(pointcloud.buffer);
   points.geometry.computeBoundingSphere();
 
-  const { radius = 1, center = { x: 0, y: 0 } } = points.geometry.boundingSphere ?? {}; 
+  const { radius = 1, center = { x: 0, y: 0 } } = points.geometry.boundingSphere ?? {};
   camera.position.set(center.x, center.y, 100);
   camera.lookAt(center.x, center.y, 0);
 
@@ -168,9 +168,9 @@ const updateCloud = (pointcloud: Uint8Array) => {
 
 const updatePose = (newPose: commonApi.Pose) => {
   const x = newPose.getX();
-  const y = newPose.getY(); 
+  const y = newPose.getY();
   marker.position.setX(x);
-  marker.position.setY(y); 
+  marker.position.setY(y);
 };
 
 onMounted(() => {
