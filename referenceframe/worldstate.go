@@ -10,18 +10,19 @@ import (
 
 // WorldState is a struct to store the data representation of the robot's environment.
 type WorldState struct {
-	names        map[string]bool
-	unnamedCount int
-	obstacles    []*GeometriesInFrame
-	Transforms   []*LinkInFrame
+	obstacleNames map[string]bool
+	unnamedCount  int
+	obstacles     []*GeometriesInFrame
+	transforms    []*LinkInFrame
 }
 
 const unnamedWorldStateGeometryPrefix = "unnamedWorldStateGeometry_"
 
 func NewEmptyWorldState() *WorldState {
 	return &WorldState{
-		names:     make(map[string]bool),
-		obstacles: make([]*GeometriesInFrame, 0),
+		obstacleNames: make(map[string]bool),
+		obstacles:     make([]*GeometriesInFrame, 0),
+		transforms:    make([]*LinkInFrame, 0),
 	}
 }
 
@@ -36,7 +37,7 @@ func WorldStateFromProtobuf(proto *commonpb.WorldState) (*WorldState, error) {
 		return nil, err
 	}
 
-	ws := &WorldState{Transforms: transforms}
+	ws := &WorldState{transforms: transforms}
 	for _, protoGeometries := range proto.GetObstacles() {
 		geometries, err := ProtobufToGeometriesInFrame(protoGeometries)
 		if err != nil {
@@ -59,6 +60,18 @@ func (ws *WorldState) AddObstacles(frame string, geometries ...spatialmath.Geome
 	return nil
 }
 
+func (ws *WorldState) ObstacleNames() map[string]bool {
+	return ws.obstacleNames
+}
+
+func (ws *WorldState) AddTransforms(transforms ...*LinkInFrame) {
+	ws.transforms = append(ws.transforms, transforms...)
+}
+
+func (ws *WorldState) Transforms() []*LinkInFrame {
+	return ws.transforms
+}
+
 // WorldStateToProtobuf takes an rdk WorldState and converts it to the protobuf definition of a WorldState.
 func WorldStateToProtobuf(worldState *WorldState) (*commonpb.WorldState, error) {
 	convertGeometriesToProto := func(allGeometries []*GeometriesInFrame) []*commonpb.GeometriesInFrame {
@@ -69,7 +82,7 @@ func WorldStateToProtobuf(worldState *WorldState) (*commonpb.WorldState, error) 
 		return list
 	}
 
-	transforms, err := LinkInFramesToTransformsProtobuf(worldState.Transforms)
+	transforms, err := LinkInFramesToTransformsProtobuf(worldState.transforms)
 	if err != nil {
 		return nil, err
 	}
@@ -108,10 +121,10 @@ func (ws *WorldState) rectifyNames(geometries []spatialmath.Geometry) ([]spatial
 			ws.unnamedCount++
 		}
 
-		if _, present := ws.names[name]; present {
-			return nil, NewWorldStateNameError(name)
+		if _, present := ws.obstacleNames[name]; present {
+			return nil, NewDuplicateGeometryNameError(name)
 		}
-		ws.names[name] = true
+		ws.obstacleNames[name] = true
 		checkedGeometries[i] = geometry
 	}
 	return checkedGeometries, nil

@@ -76,7 +76,7 @@ func (ms *builtIn) Move(
 	goalFrameName := destination.Parent()
 	logger.Debugf("goal given in frame of %q", goalFrameName)
 
-	frameSys, err := framesystem.RobotFrameSystem(ctx, ms.r, worldState.Transforms)
+	frameSys, err := framesystem.RobotFrameSystem(ctx, ms.r, worldState.Transforms())
 	if err != nil {
 		return false, err
 	}
@@ -173,7 +173,7 @@ func (ms *builtIn) MoveSingleComponent(
 	if destination.Parent() != componentName.ShortName() {
 		logger.Debugf("goal given in frame of %q", destination.Parent())
 
-		frameSys, err := framesystem.RobotFrameSystem(ctx, ms.r, worldState.Transforms)
+		frameSys, err := framesystem.RobotFrameSystem(ctx, ms.r, worldState.Transforms())
 		if err != nil {
 			return false, err
 		}

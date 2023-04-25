@@ -59,41 +59,25 @@ func collisionSpecificationsFromProto(
 	worldState *referenceframe.WorldState,
 ) (allowedCollisions []*Collision, err error) {
 	// List of all names which may be specified for collision ignoring.
-	validGeoms := map[string]bool{}
+	// Can seed this map with worldState names which will never have duplicates
+	validGeoms := worldState.ObstacleNames()
 
-	addGeomNames := func(parentName string, geomsInFrame *referenceframe.GeometriesInFrame) error {
+	// Get names of all geometries in frame system
+	for frameName, geomsInFrame := range frameSystemGeometries {
+		if _, ok := validGeoms[frameName]; ok {
+			return nil, referenceframe.NewDuplicateGeometryNameError(frameName)
+		}
 		for _, geom := range geomsInFrame.Geometries() {
 			geomName := geom.Label()
 
 			// Ensure we're not double-adding components which only have one geometry, named identically to the component.
-			// Truly anonymous geometries e.g. passed via worldstate are skipped unless they are labeled
-			if (parentName != "" && geomName == parentName) || geomName == "" {
+			if (frameName != "" && geomName == frameName) || geomName == "" {
 				continue
 			}
 			if _, ok := validGeoms[geomName]; ok {
-				return fmt.Errorf("geometry %s is specified by name more than once", geomName)
+				return nil, referenceframe.NewDuplicateGeometryNameError(geomName)
 			}
 			validGeoms[geomName] = true
-		}
-		return nil
-	}
-
-	// Get names of world state obstacles
-	if worldState != nil {
-		for _, geomsInFrame := range worldState.Obstacles {
-			err := addGeomNames("", geomsInFrame)
-			if err != nil {
-				return nil, err
-			}
-		}
-	}
-
-	// Get names of all geometries in frame system
-	for frameName, geomsInFrame := range frameSystemGeometries {
-		validGeoms[frameName] = true
-		err = addGeomNames(frameName, geomsInFrame)
-		if err != nil {
-			return nil, err
 		}
 	}
 
@@ -308,7 +292,7 @@ func createUniqueCollisionMap(geoms []spatial.Geometry) (map[string]spatial.Geom
 			unnamedCnt++
 		}
 		if _, present := geomMap[label]; present {
-			return nil, fmt.Errorf("cannot detect collisions when there are multiple geometries with the same name: %s", label)
+			return nil, referenceframe.NewDuplicateGeometryNameError(label)
 		}
 		geomMap[label] = geom
 	}

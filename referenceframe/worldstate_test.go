@@ -17,7 +17,7 @@ func TestWorldStateConstruction(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	unnamed, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 10, "")
 	test.That(t, err, test.ShouldBeNil)
-	expectedErr := NewWorldStateNameError(foo.Label()).Error()
+	expectedErr := NewDuplicateGeometryNameError(foo.Label()).Error()
 
 	// test that you can add two geometries of different names
 	err = ws.AddObstacles("", foo, bar)

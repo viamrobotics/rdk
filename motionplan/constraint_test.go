@@ -205,9 +205,8 @@ func TestCollisionConstraints(t *testing.T) {
 	obstacles := []spatial.Geometry{}
 	obstacles = append(obstacles, bc.Transform(spatial.NewZeroPose()))
 	obstacles = append(obstacles, bc.Transform(spatial.NewPoseFromPoint(r3.Vector{-130, 0, 300})))
-	worldState := &frame.WorldState{
-		Obstacles: []*frame.GeometriesInFrame{frame.NewGeometriesInFrame(frame.World, obstacles)},
-	}
+	worldState := frame.NewEmptyWorldState()
+	test.That(t, worldState.AddObstacles(frame.World, obstacles...), test.ShouldBeNil)
 
 	// setup zero position as reference CollisionGraph and use it in handler
 	model, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "")
@@ -243,9 +242,8 @@ func BenchmarkCollisionConstraints(b *testing.B) {
 	obstacles := []spatial.Geometry{}
 	obstacles = append(obstacles, bc.Transform(spatial.NewZeroPose()))
 	obstacles = append(obstacles, bc.Transform(spatial.NewPoseFromPoint(r3.Vector{-130, 0, 300})))
-	worldState := &frame.WorldState{
-		Obstacles: []*frame.GeometriesInFrame{frame.NewGeometriesInFrame(frame.World, obstacles)},
-	}
+	worldState := frame.NewEmptyWorldState()
+	test.That(b, worldState.AddObstacles(frame.World, obstacles...), test.ShouldBeNil)
 
 	// setup zero position as reference CollisionGraph and use it in handler
 	model, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "")

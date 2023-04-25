@@ -60,7 +60,8 @@ func TestMoveFailures(t *testing.T) {
 		transforms := []*referenceframe.LinkInFrame{
 			referenceframe.NewLinkInFrame("noParent", testPose, "frame2", nil),
 		}
-		worldState := &referenceframe.WorldState{Transforms: transforms}
+		worldState := referenceframe.NewEmptyWorldState()
+		worldState.AddTransforms(transforms...)
 		poseInFrame := referenceframe.NewPoseInFrame("frame2", spatialmath.NewZeroPose())
 		_, err = ms.Move(ctx, arm.Named("arm1"), poseInFrame, worldState, nil, nil)
 		test.That(t, err, test.ShouldBeError, framesystemparts.NewMissingParentError("frame2", "noParent"))
@@ -108,7 +109,8 @@ func TestMove1(t *testing.T) {
 			referenceframe.NewLinkInFrame("pieceArm", testPose, "testFrame", nil),
 		}
 
-		worldState := &referenceframe.WorldState{Transforms: transforms}
+		worldState := referenceframe.NewEmptyWorldState()
+		worldState.AddTransforms(transforms...)
 		grabPose := referenceframe.NewPoseInFrame("testFrame2", spatialmath.NewPoseFromPoint(r3.Vector{-20, -130, -40}))
 		_, err = ms.Move(context.Background(), gripper.Named("pieceGripper"), grabPose, worldState, nil, nil)
 		test.That(t, err, test.ShouldBeNil)
@@ -207,8 +209,8 @@ func TestMoveSingleComponent(t *testing.T) {
 		transforms := []*referenceframe.LinkInFrame{
 			referenceframe.NewLinkInFrame(referenceframe.World, testPose, "testFrame2", nil),
 		}
-		worldState := &referenceframe.WorldState{Transforms: transforms}
-
+		worldState := referenceframe.NewEmptyWorldState()
+		worldState.AddTransforms(transforms...)
 		poseToGrab := spatialmath.NewPose(
 			r3.Vector{X: 1., Y: 0., Z: 0.},
 			homePose.Pose().Orientation(),

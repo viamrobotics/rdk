@@ -63,6 +63,7 @@ func TestDubinsRRT(t *testing.T) {
 		"")
 	test.That(t, err, test.ShouldEqual, nil)
 	obstacleGeometries := []spatial.Geometry{box}
-	worldState := &frame.WorldState{Obstacles: []*frame.GeometriesInFrame{frame.NewGeometriesInFrame(frame.World, obstacleGeometries)}}
+	worldState := frame.NewEmptyWorldState()
+	test.That(t, worldState.AddObstacles(frame.World, obstacleGeometries...), test.ShouldBeNil)
 	test.That(t, testDubin(worldState), test.ShouldBeFalse)
 }
