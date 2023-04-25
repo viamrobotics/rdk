@@ -55,7 +55,7 @@ import {
   fixServoStatus,
 } from '../lib/fixers';
 
-const props = defineProps<{
+export interface RemoteControlCardsProps {
   host: string;
   bakedAuth?: {
     authEntity: string;
@@ -63,9 +63,10 @@ const props = defineProps<{
   },
   supportedAuthTypes: string[],
   webrtcEnabled: boolean,
-  client: Client;
-  manageClientConnection: boolean
-}>();
+  signalingAddress: string;
+}
+
+const props = defineProps<RemoteControlCardsProps>();
 
 const relevantSubtypesForStatus = [
   'arm',
@@ -77,11 +78,30 @@ const relevantSubtypesForStatus = [
 ];
 
 const password = $ref<string>('');
+const host = $computed(() => props.host);
 const bakedAuth = $computed(() => props.bakedAuth || {} as { authEntity: string, creds: Credentials });
 const supportedAuthTypes = $computed(() => props.supportedAuthTypes);
+const webrtcEnabled = $computed(() => props.webrtcEnabled);
+const signalingAddress = $computed(() => props.signalingAddress);
 const rawStatus = $ref<Record<string, robotApi.Status>>({});
 const status = $ref<Record<string, robotApi.Status>>({});
 const errors = $ref<Record<string, boolean>>({});
+
+const impliedURL = `${location.protocol}//${location.hostname}${location.port ? `:${location.port}` : ''}`;
+const client = new Client(impliedURL, {
+  enabled: webrtcEnabled,
+  host,
+  signalingAddress,
+  rtcConfig: {
+    iceServers: [
+      {
+        urls: 'stun:global.stun.twilio.com:3478',
+      },
+    ],
+  },
+});
+
+const streamManager = new StreamManager(client);
 
 let showAuth = $ref(true);
 let isConnecting = $ref(false);
@@ -97,7 +117,6 @@ let resourcesOnce = false;
 let errorMessage = $ref('');
 let connectedOnce = $ref(false);
 let connectedFirstTimeResolve: (value: void) => void;
-const streamManager = new StreamManager(props.client);
 
 const connectedFirstTime = new Promise<void>((resolve) => {
   connectedFirstTimeResolve = resolve;
@@ -184,7 +203,7 @@ const querySensors = () => {
   }
   const req = new sensorsApi.GetSensorsRequest();
   req.setName(sensorsName);
-  props.client.sensorsService.getSensors(
+  client.sensorsService.getSensors(
     req,
     new grpc.Metadata(),
     (err: ServiceError | null, resp: sensorsApi.GetSensorsResponse | null) => {
@@ -268,7 +287,7 @@ const restartStatusStream = () => {
   streamReq.setResourceNamesList(names);
   streamReq.setEvery(new Duration().setNanos(500_000_000));
 
-  statusStream = props.client.robotService.streamStatus(streamReq);
+  statusStream = client.robotService.streamStatus(streamReq);
   if (statusStream !== null) {
     statusStream.on('data', (response: { getStatusList(): robotApi.Status[] }) => {
       updateStatus((response).getStatusList());
@@ -293,7 +312,7 @@ const queryMetadata = () => {
     let resourcesChanged = false;
     let shouldRestartStatusStream = !(resourcesOnce && statusStream);
 
-    props.client.robotService.resourceNames(
+    client.robotService.resourceNames(
       new robotApi.ResourceNamesRequest(),
       new grpc.Metadata(),
       (err: ServiceError | null, resp: robotApi.ResourceNamesResponse | null) => {
@@ -361,7 +380,7 @@ const fetchCurrentOps = () => {
     const req = new robotApi.GetOperationsRequest();
 
     const now = Date.now();
-    props.client.robotService.getOperations(
+    client.robotService.getOperations(
       req,
       new grpc.Metadata(),
       (err: ServiceError | null, resp: robotApi.GetOperationsResponse | null) => {
@@ -414,7 +433,7 @@ const fetchCurrentSessions = () => {
   return new Promise<robotApi.Session.AsObject[]>((resolve, reject) => {
     const req = new robotApi.GetSessionsRequest();
 
-    props.client.robotService.getSessions(
+    client.robotService.getSessions(
       req,
       new grpc.Metadata(),
       (err: ServiceError | null, resp: robotApi.GetSessionsResponse | null) => {
@@ -441,10 +460,6 @@ const fetchCurrentSessions = () => {
   });
 };
 
-const isWebRtcEnabled = () => {
-  return props.webrtcEnabled;
-};
-
 const createAppConnectionManager = () => {
   const checkIntervalMillis = 10_000;
   const statuses = {
@@ -462,7 +477,7 @@ const createAppConnectionManager = () => {
       statuses.resources &&
       statuses.ops &&
       // check status on interval if direct grpc
-      (isWebRtcEnabled() || (Date.now() - lastStatusTS! <= checkIntervalMillis))
+      (webrtcEnabled || (Date.now() - lastStatusTS! <= checkIntervalMillis))
     );
   };
 
@@ -538,7 +553,7 @@ const createAppConnectionManager = () => {
       errorMessage = 'Connection lost, attempting to reconnect ...';
 
       try {
-        console.log('reconnecting');
+        console.debug('reconnecting');
 
         // reset status/stream state
         if (statusStream) {
@@ -547,13 +562,11 @@ const createAppConnectionManager = () => {
         }
         resourcesOnce = false;
 
-        if (props.manageClientConnection) {
-          await props.client.connect();
-        }
-
+        await client.connect();
         await fetchCurrentOps();
+
         lastStatusTS = Date.now();
-        console.log('reconnected');
+        console.debug('reconnected');
         streamManager.refreshStreams();
       } catch (error) {
         if (ConnectionClosedError.isError(error)) {
@@ -634,7 +647,13 @@ const doConnect = async (authEntity: string, creds: Credentials, onError?: (reas
   isConnecting = true;
 
   try {
-    await props.client.connect(authEntity, creds);
+    await client.connect(authEntity, creds);
+
+    console.debug('connected');
+    showAuth = false;
+    disableAuthElements = false;
+    connectedOnce = true;
+    connectedFirstTimeResolve();
   } catch (error) {
     console.error('failed to connect:', error);
     if (onError) {
@@ -642,14 +661,7 @@ const doConnect = async (authEntity: string, creds: Credentials, onError?: (reas
     } else {
       toast.error('failed to connect');
     }
-    return;
   }
-
-  console.debug('connected');
-  showAuth = false;
-  disableAuthElements = false;
-  connectedOnce = true;
-  connectedFirstTimeResolve();
 };
 
 const doLogin = (authType: string) => {
@@ -672,13 +684,11 @@ const initConnect = () => {
   }
 };
 
-const handleUnload = async () => {
+const handleUnload = () => {
   console.debug('disconnecting');
   appConnectionManager.stop();
-
-  if (props.manageClientConnection) {
-    await props.client.disconnect();
-  }
+  streamManager?.close();
+  client.disconnect();
 };
 
 onMounted(async () => {
@@ -704,7 +714,7 @@ onUnmounted(() => {
         v-if="isConnecting"
         class="border-greendark hidden border-l-4 bg-gray-100 px-4 py-3"
       >
-        Connecting via <template v-if="isWebRtcEnabled()">
+        Connecting via <template v-if="webrtcEnabled">
           WebRTC
         </template><template v-else>
           gRPC
@@ -755,6 +765,7 @@ onUnmounted(() => {
         :client="client"
         :resources="resources"
         :stream-manager="streamManager"
+        :status-stream="statusStream"
       />
 
       <!-- ******* ENCODER *******  -->
@@ -763,6 +774,7 @@ onUnmounted(() => {
         :key="encoder.name"
         :name="encoder.name"
         :client="client"
+        :status-stream="statusStream"
       />
 
       <!-- ******* GANTRY *******  -->
@@ -780,6 +792,7 @@ onUnmounted(() => {
         :key="sensor.name"
         :name="sensor.name"
         :client="client"
+        :status-stream="statusStream"
       />
 
       <!-- ******* ARM *******  -->
@@ -834,6 +847,7 @@ onUnmounted(() => {
         :key="gamepad.name"
         :name="gamepad.name"
         :client="client"
+        :status-stream="statusStream"
       />
 
       <!-- ******* BOARD *******  -->
@@ -851,6 +865,7 @@ onUnmounted(() => {
         :client="client"
         :stream-manager="streamManager"
         :resources="filterResources(resources, 'rdk', 'component', 'camera')"
+        :status-stream="statusStream"
       />
 
       <!-- ******* NAVIGATION ******* -->
@@ -860,6 +875,7 @@ onUnmounted(() => {
         :resources="resources"
         :name="nav.name"
         :client="client"
+        :status-stream="statusStream"
       />
 
       <!-- ******* SENSORS ******* -->
@@ -885,6 +901,7 @@ onUnmounted(() => {
         :name="slam.name"
         :client="client"
         :resources="resources"
+        :status-stream="statusStream"
       />
 
       <!-- ******* DO ******* -->

@@ -4,7 +4,7 @@ import { ref, onMounted, onUnmounted } from 'vue';
 import { grpc } from '@improbable-eng/grpc-web';
 import { toast } from '../lib/toast';
 import { filterResources } from '../lib/resource';
-import { Client, commonApi, robotApi, navigationApi, type ServiceError } from '@viamrobotics/sdk';
+import { Client, commonApi, robotApi, navigationApi, type ServiceError, ResponseStream } from '@viamrobotics/sdk';
 import { Struct } from 'google-protobuf/google/protobuf/struct_pb';
 import { rcLogConditionally } from '../lib/log';
 
@@ -12,6 +12,7 @@ const props = defineProps<{
   resources: commonApi.ResourceName.AsObject[]
   name:string
   client: Client
+  statusStream: ResponseStream<robotApi.StreamStatusResponse> | null
 }>();
 
 let googleMapsInitResolve: () => void;
@@ -20,7 +21,8 @@ const mapReady = new Promise<void>((resolve) => {
 });
 
 let map: google.maps.Map;
-let updateTimerId: number;
+let updateWaypointsId: number;
+let updateLocationsId: number;
 
 const mapInit = ref(false);
 const googleApiKey = ref('');
@@ -145,7 +147,7 @@ const initNavigation = async () => {
         grpcCallback(err, resp, false);
 
         if (err) {
-          updateTimerId = window.setTimeout(updateWaypoints, 1000);
+          updateWaypointsId = window.setTimeout(updateWaypoints, 1000);
           return;
         }
 
@@ -182,7 +184,7 @@ const initNavigation = async () => {
           knownWaypoints[posStr] = marker;
 
           marker.addListener('click', () => {
-            console.log('clicked on marker', pos);
+            console.debug('clicked on marker', pos);
           });
 
           marker.addListener('dblclick', () => {
@@ -209,7 +211,7 @@ const initNavigation = async () => {
           delete knownWaypoints[key];
         }
 
-        updateTimerId = window.setTimeout(updateWaypoints, 1000);
+        updateWaypointsId = window.setTimeout(updateWaypoints, 1000);
       }
     );
   };
@@ -230,7 +232,7 @@ const initNavigation = async () => {
         grpcCallback(err, resp, false);
 
         if (err) {
-          setTimeout(updateLocation, 1000);
+          updateLocationsId = window.setTimeout(updateLocation, 1000);
           return;
         }
 
@@ -247,10 +249,11 @@ const initNavigation = async () => {
         locationMarker.setPosition(pos);
         locationMarker.setMap(map);
 
-        setTimeout(updateLocation, 1000);
+        updateLocationsId = window.setTimeout(updateLocation, 1000);
       }
     );
   };
+
   updateLocation();
 };
 
@@ -269,7 +272,7 @@ const loadMaps = () => {
 };
 
 window.googleMapsInit = () => {
-  console.log('google maps is ready');
+  console.debug('google maps is ready');
   googleMapsInitResolve();
 };
 
@@ -286,10 +289,16 @@ onMounted(() => {
     googleApiKey.value = apiKey;
     initNavigationView();
   }
+
+  props.statusStream?.on('end', () => {
+    clearTimeout(updateWaypointsId);
+    clearTimeout(updateLocationsId);
+  });
 });
 
 onUnmounted(() => {
-  clearTimeout(updateTimerId);
+  clearTimeout(updateWaypointsId);
+  clearTimeout(updateLocationsId);
 });
 
 </script>
