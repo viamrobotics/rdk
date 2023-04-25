@@ -7,12 +7,12 @@ import (
 
 	"github.com/nfnt/resize"
 	"github.com/pkg/errors"
+	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/services/mlmodel"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision/objectdetection"
-	"go.viam.com/utils/artifact"
 )
 
 func attemptToBuildDetector(mlm mlmodel.Service) (objectdetection.Detector, error) {
