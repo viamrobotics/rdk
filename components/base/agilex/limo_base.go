@@ -388,6 +388,15 @@ func (base *limoBase) SetVelocity(ctx context.Context, linear, angular r3.Vector
 	_, done := base.opMgr.New(ctx)
 	defer done()
 
+	if base.driveMode == OMNI.String() {
+		if rdkutils.Float64AlmostEqual(linear.X, 0.0, 1) &&
+			rdkutils.Float64AlmostEqual(linear.Y, 0.0, 1) &&
+			rdkutils.Float64AlmostEqual(angular.Z, 0.0, 1) {
+			base.controller.logger.Warnf("the received linear velocity %f and angular velocity %f results in a speed of 0",
+				linear, angular)
+		}
+	}
+
 	if rdkutils.Float64AlmostEqual(linear.Y, 0.0, 1) && rdkutils.Float64AlmostEqual(angular.Z, 0.0, 1) {
 		base.controller.logger.Warnf("the received linear velocity %f and angular velocity %f results in a speed of 0",
 			linear, angular)
