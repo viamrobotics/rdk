@@ -51,7 +51,7 @@ func TestServer(t *testing.T) {
 		resp, err := gpsServer.GetPosition(context.Background(), &pb.GetPositionRequest{Name: testMovementSensorName, Extra: ext})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp.Coordinate, test.ShouldResemble, &commonpb.GeoPoint{Latitude: loc.Lat(), Longitude: loc.Lng()})
-		test.That(t, resp.AltitudeMm, test.ShouldEqual, alt)
+		test.That(t, resp.AltitudeM, test.ShouldEqual, alt)
 		test.That(t, injectMovementSensor.PositionFuncExtraCap, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
 
 		_, err = gpsServer.GetPosition(context.Background(), &pb.GetPositionRequest{Name: failMovementSensorName})
@@ -201,7 +201,7 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		resp, err := gpsServer.GetAccuracy(context.Background(), &pb.GetAccuracyRequest{Name: testMovementSensorName, Extra: ext})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp.AccuracyMm, test.ShouldResemble, acc)
+		test.That(t, resp.Accuracy, test.ShouldResemble, acc)
 		test.That(t, injectMovementSensor.AccuracyFuncExtraCap, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
 
 		_, err = gpsServer.GetAccuracy(context.Background(), &pb.GetAccuracyRequest{Name: failMovementSensorName})
