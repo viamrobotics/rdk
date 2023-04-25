@@ -8,6 +8,7 @@ import (
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
@@ -17,6 +18,7 @@ import (
 
 // DetectionSegmenterConfig are the optional parameters to turn a detector into a segmenter.
 type DetectionSegmenterConfig struct {
+	resource.TriviallyValidateConfig
 	DetectorName     string  `json:"detector_name"`
 	ConfidenceThresh float64 `json:"confidence_threshold_pct"`
 	MeanK            int     `json:"mean_k"`

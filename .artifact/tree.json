@@ -51790,6 +51790,10 @@
         "hash": "3a047d6fd440b36cbba72e5532ff3548",
         "size": 4563519
       },
+      "effdetlabels.txt": {
+        "hash": "359468bee2538de4c5950190cc1eb002",
+        "size": 699
+      },
       "effnet0.tflite": {
         "hash": "301b893e4701ec6f490c21a2435befbc",
         "size": 7165437
@@ -51797,6 +51801,10 @@
       "fakelabels.txt": {
         "hash": "9b9d5e11ece4e6fe52246a2851636145",
         "size": 50
+      },
+      "imagenetlabels.txt": {
+        "hash": "93b03dc453206b6ce0cd083f96066544",
+        "size": 23685
       },
       "lion.jpeg": {
         "hash": "7a24ee403e1606a0956d63dc744f24de",

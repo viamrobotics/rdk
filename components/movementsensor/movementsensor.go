@@ -73,14 +73,14 @@ func Named(name string) resource.Name {
 // A MovementSensor reports information about the robot's direction, position and speed.
 type MovementSensor interface {
 	sensor.Sensor
-	Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error)                // (lat, long), altitude (mm)
-	LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error)                    // mm / sec
-	AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) // radians / sec
+	Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error)                // (lat, long), altitude (m)
+	LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error)                    // m / sec
+	AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) // deg / sec
 	LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error)
 	CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) // [0->360)
 	Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error)
 	Properties(ctx context.Context, extra map[string]interface{}) (*Properties, error)
-	Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32, error) // in mm
+	Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32, error)
 }
 
 // FromDependencies is a helper for getting the named movementsensor from a collection of

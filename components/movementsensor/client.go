@@ -55,7 +55,7 @@ func (c *client) Position(ctx context.Context, extra map[string]interface{}) (*g
 		return nil, 0, err
 	}
 	return geo.NewPoint(resp.Coordinate.Latitude, resp.Coordinate.Longitude),
-		float64(resp.AltitudeMm),
+		float64(resp.AltitudeM),
 		nil
 }
 
@@ -151,7 +151,7 @@ func (c *client) Accuracy(ctx context.Context, extra map[string]interface{}) (ma
 	if err != nil {
 		return nil, err
 	}
-	return resp.AccuracyMm, nil
+	return resp.Accuracy, nil
 }
 
 func (c *client) Properties(ctx context.Context, extra map[string]interface{}) (*Properties, error) {
