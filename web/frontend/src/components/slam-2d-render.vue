@@ -18,9 +18,9 @@ type SvgOffset = {
 }
 
 const baseMarkerOffset: SvgOffset = {
-  x: 0.22,
+  x: 0.35,
   y: 0,
-  z: -0.26,
+  z: 0.01,
 };
 
 const destinationMarkerOffset: SvgOffset = {

@@ -126,7 +126,7 @@ const executeMoveOnMap = async () => {
   const destination = new commonApi.Pose();
   const value = await fetchSLAMPose(props.name);
   destination.setX(destinationMarker.x);
-  destination.setY(0);
+  destination.setY(destinationMarker.y);
   destination.setZ(destinationMarker.z);
   destination.setOX(value.getOX());
   destination.setOY(value.getOY());
