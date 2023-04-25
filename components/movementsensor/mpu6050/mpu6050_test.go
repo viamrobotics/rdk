@@ -226,15 +226,15 @@ func TestLinearAcceleration(t *testing.T) {
 	// x-accel
 	linearAccelMockData[0] = 64
 	linearAccelMockData[1] = 0
-	expectedAccelX := 9810.0
+	expectedAccelX := 9.81
 	// y-accel
 	linearAccelMockData[2] = 32
 	linearAccelMockData[3] = 0
-	expectedAccelY := 4905.0
+	expectedAccelY := 4.905
 	// z-accel
 	linearAccelMockData[4] = 16
 	linearAccelMockData[5] = 0
-	expectedAccelZ := 2452.5
+	expectedAccelZ := 2.4525
 
 	logger := golog.NewTestLogger(t)
 	cfg, deps := setupDependencies(linearAccelMockData)

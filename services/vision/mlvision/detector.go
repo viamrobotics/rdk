@@ -22,12 +22,20 @@ func attemptToBuildDetector(mlm mlmodel.Service) (objectdetection.Detector, erro
 
 	// Set up input type, height, width, and labels
 	var inHeight, inWidth uint
+	if len(md.Inputs) < 1 {
+		return nil, errors.New("could not get input information")
+	}
 	inType := md.Inputs[0].DataType
 	labels := getLabelsFromMetadata(md)
 	boxOrder, err := getBoxOrderFromMetadata(md)
 	if err != nil || len(boxOrder) < 4 {
 		boxOrder = []int{1, 0, 3, 2}
 	}
+
+	if len(md.Inputs[0].Shape) < 4 {
+		return nil, errors.New("could not get input dimensions")
+	}
+
 	if shape := md.Inputs[0].Shape; getIndex(shape, 3) == 1 {
 		inHeight, inWidth = uint(shape[2]), uint(shape[3])
 	} else {
@@ -100,18 +108,4 @@ func attemptToBuildDetector(mlm mlmodel.Service) (objectdetection.Detector, erro
 		}
 		return detections, nil
 	}, nil
-}
-
-func checkIfDetectorWorks(ctx context.Context, df objectdetection.Detector) (objectdetection.Detector, error) {
-	if df == nil {
-		return nil, errors.New("Nil detector function")
-	}
-
-	img := &image.RGBA{}
-
-	_, err := df(ctx, img)
-	if err != nil {
-		return nil, errors.New("Cannot use model as a detector")
-	}
-	return df, nil
 }

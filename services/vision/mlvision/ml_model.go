@@ -7,6 +7,7 @@ import (
 	"context"
 	"math"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/edaniels/golog"
@@ -117,6 +118,7 @@ func unpack(inMap map[string]interface{}, name string) ([]float64, error) {
 			out = append(out, float64(t))
 		}
 	case []float32:
+		out = make([]float64, 0, len(v))
 		for _, t := range v {
 			out = append(out, float64(t))
 		}
@@ -131,14 +133,16 @@ func getLabelsFromMetadata(md mlmodel.MLMetadata) []string {
 			continue
 		}
 
-		if labelPath, ok := o.Extra["labels"]; ok {
+		if labelPath, ok := o.Extra["labels"].(string); ok {
 			var labels []string
-			f, err := os.Open(labelPath.(string))
+			f, err := os.Open(filepath.Clean(labelPath))
 			if err != nil {
 				return nil
 			}
 			defer func() {
 				if err := f.Close(); err != nil {
+					logger := golog.NewLogger("labelFile")
+					logger.Warnw("could not get labels from file", "error", err)
 					return
 				}
 			}()
@@ -147,6 +151,7 @@ func getLabelsFromMetadata(md mlmodel.MLMetadata) []string {
 				labels = append(labels, scanner.Text())
 			}
 			// if the labels come out as one line, try splitting that line by spaces or commas to extract labels
+			// Check if the labels should be comma split first and then space split.
 			if len(labels) == 1 {
 				labels = strings.Split(labels[0], ",")
 			}

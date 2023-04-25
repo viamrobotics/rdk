@@ -184,7 +184,7 @@ func (m *Model) Metadata(ctx context.Context) (mlmodel.MLMetadata, error) {
 	if err != nil {
 		blindMD := m.blindFillMetadata()
 		m.metadata = &blindMD
-		m.logger.Infow(" error finding metadata in tflite file", "error", err)
+		m.logger.Infow("error finding metadata in tflite file", "error", err)
 		return blindMD, nil
 	}
 	out := mlmodel.MLMetadata{}
@@ -224,11 +224,16 @@ func (m *Model) Metadata(ctx context.Context) (mlmodel.MLMetadata, error) {
 	for i := 0; i < numOut; i++ { // for each output Tensor
 		outputT := md.SubgraphMetadata[0].OutputTensorMetadata[i]
 		td := getTensorInfo(outputT)
+<<<<<<< HEAD
 		if (strings.Contains(td.Name, "category") || strings.Contains(td.Name, "probability")) &&
 			m.conf.LabelPath != nil {
 			td.Extra = map[string]interface{}{
 				"labels": *m.conf.LabelPath,
 			}
+=======
+		if (strings.Contains(td.Name, "category") || strings.Contains(td.Name, "probability")) && m.conf.LabelPath != nil {
+			td.Extra = map[string]interface{}{"labels": *m.conf.LabelPath}
+>>>>>>> main
 		}
 		td.DataType = strings.ToLower(m.model.Info.OutputTensorTypes[i]) // grab from model info, not metadata
 		outputList = append(outputList, td)
@@ -251,8 +256,12 @@ func getTensorInfo(inputT *tflite_metadata.TensorMetadataT) mlmodel.TensorInfo {
 
 	// Add bounding box info to Extra
 	if strings.Contains(inputT.Name, "location") && inputT.Content.ContentProperties.Value != nil {
+<<<<<<< HEAD
 		order, ok := inputT.Content.ContentProperties.Value.(*tflite_metadata.BoundingBoxPropertiesT)
 		if ok {
+=======
+		if order, ok := inputT.Content.ContentProperties.Value.(*tflite_metadata.BoundingBoxPropertiesT); ok {
+>>>>>>> main
 			td.Extra = map[string]interface{}{
 				"boxOrder": order.Index,
 			}
@@ -281,7 +290,11 @@ func getTensorInfo(inputT *tflite_metadata.TensorMetadataT) mlmodel.TensorInfo {
 }
 
 func (m *Model) blindFillMetadata() mlmodel.MLMetadata {
+<<<<<<< HEAD
 	out := mlmodel.MLMetadata{}
+=======
+	var out mlmodel.MLMetadata
+>>>>>>> main
 	numIn := m.model.Info.InputTensorCount
 	numOut := int(math.Min(float64(m.model.Info.OutputTensorCount), float64(len(m.model.Info.OutputTensorTypes))))
 	inputList := make([]mlmodel.TensorInfo, 0, numIn)

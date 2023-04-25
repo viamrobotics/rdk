@@ -189,11 +189,11 @@ func (vm *vizModel) ClassificationsFromCamera(
 
 // GetObjectPointClouds returns all the found objects in a 3D image if the model implements Segmenter3D.
 func (vm *vizModel) GetObjectPointClouds(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
-	ctx, span := trace.StartSpan(ctx, "service::vision::GetObjectPointClouds::"+vm.name)
-	defer span.End()
 	if vm.segmenter3DFunc == nil {
 		return nil, errors.Errorf("vision model %q does not implement a 3D segmenter", vm.name)
 	}
+	ctx, span := trace.StartSpan(ctx, "service::vision::GetObjectPointClouds::"+vm.name)
+	defer span.End()
 	cam, err := camera.FromRobot(vm.r, cameraName)
 	if err != nil {
 		return nil, err

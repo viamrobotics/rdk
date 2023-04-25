@@ -51,8 +51,5 @@ func registerRCSegmenter(
 		return nil, errors.Wrap(err, "radius clustering segmenter config error")
 	}
 	segmenter := segmentation.Segmenter(conf.RadiusClustering)
-	if segmenter == nil {
-		return nil, errors.Errorf("type %T is not a segmenter", conf.RadiusClustering)
-	}
 	return vision.NewService(name, r, nil, nil, nil, segmenter)
 }

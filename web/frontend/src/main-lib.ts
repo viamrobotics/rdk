@@ -14,7 +14,8 @@ export const createRcApp = (props: {
   webrtcEnabled: boolean,
   client?: Client;
 }) => {
-  if (!props.client) {
+  const manageClientConnection = props.client === undefined;
+  if (manageClientConnection) {
     const rtcConfig = {
       iceServers: [
         {
@@ -40,5 +41,5 @@ export const createRcApp = (props: {
     });
   }
 
-  return createApp(RemoteControlCards, props);
+  return createApp(RemoteControlCards, { ...props, manageClientConnection });
 };

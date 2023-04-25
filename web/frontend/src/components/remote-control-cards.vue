@@ -2,6 +2,7 @@
 <script setup lang="ts">
 
 import { onMounted, onUnmounted } from 'vue';
+import { $ref, $computed } from 'vue/macros';
 import { grpc } from '@improbable-eng/grpc-web';
 import { Duration } from 'google-protobuf/google/protobuf/duration_pb';
 import { type Credentials, ConnectionClosedError } from '@viamrobotics/rpc';
@@ -64,6 +65,7 @@ const props = defineProps<{
   supportedAuthTypes: string[],
   webrtcEnabled: boolean,
   client: Client;
+  manageClientConnection: boolean
 }>();
 
 const relevantSubtypesForStatus = [
@@ -464,7 +466,7 @@ const createAppConnectionManager = () => {
 
   const manageLoop = async () => {
     try {
-      const newErrors = [];
+      const newErrors: unknown[] = [];
 
       try {
         await queryMetadata();
@@ -543,7 +545,10 @@ const createAppConnectionManager = () => {
         }
         resourcesOnce = false;
 
-        await props.client.connect();
+        if (props.manageClientConnection) {
+          await props.client.connect();
+        }
+
         await fetchCurrentOps();
         lastStatusTS = Date.now();
         console.log('reconnected');
@@ -562,6 +567,8 @@ const createAppConnectionManager = () => {
 
   const stop = () => {
     window.clearTimeout(timeout);
+    statusStream?.cancel();
+    statusStream = null;
   };
 
   const start = () => {
@@ -663,6 +670,15 @@ const initConnect = () => {
   }
 };
 
+const handleUnload = async () => {
+  console.debug('disconnecting');
+  appConnectionManager.stop();
+
+  if (props.manageClientConnection) {
+    await props.client.disconnect();
+  }
+};
+
 onMounted(async () => {
   initConnect();
   await connectedFirstTime;
@@ -670,10 +686,12 @@ onMounted(async () => {
   appConnectionManager.start();
 
   addResizeListeners();
+  window.addEventListener('beforeunload', handleUnload);
 });
 
 onUnmounted(() => {
-  appConnectionManager.stop();
+  handleUnload();
+  window.removeEventListener('beforeunload', handleUnload);
 });
 
 </script>
