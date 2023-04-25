@@ -44,7 +44,7 @@ export const filterResources = (
   namespace: string,
   type: string,
   subtype: string
-) => {
+): commonApi.ResourceName.AsObject[] => {
   const results = [];
 
   for (const resource of resources) {
