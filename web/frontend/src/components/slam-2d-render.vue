@@ -72,7 +72,7 @@ raycaster.on('click', (event) => {
 
 const markerSize = 0.5;
 const marker = new THREE.Mesh(
-  new THREE.PlaneGeometry(markerSize, markerSize).rotateX(-Math.PI / 2),
+  new THREE.PlaneGeometry(markerSize, markerSize),
   new THREE.MeshBasicMaterial({ color: 'red' })
 );
 marker.name = 'Marker';
