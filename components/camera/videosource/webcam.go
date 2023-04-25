@@ -396,12 +396,7 @@ func (c *monitoredWebcam) isCameraConnected() (bool, error) {
 
 	// TODO(RSDK-1959): this only works for linux
 	_, err = driver.IsAvailable(d)
-	switch {
-	case errors.Is(err, availability.ErrNoDevice):
-		return false, nil
-	default:
-		return true, nil
-	}
+	return !errors.Is(err, availability.ErrNoDevice), nil
 }
 
 // reconnectCamera assumes a write lock is held.
