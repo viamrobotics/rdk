@@ -427,6 +427,7 @@ func (ua *URArm) MoveToJointPositionRadians(ctx context.Context, radians []float
 			return err
 		}
 		for idx, r := range radians {
+			// we check if we have arrived at the desired joint positions
 			// blend * 1000 = 1
 			if math.Abs(r-state.Joints[idx].Qactual)*100 > 1 {
 				good = false
