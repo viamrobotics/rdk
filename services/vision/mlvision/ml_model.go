@@ -72,21 +72,21 @@ func registerMLModelVisionService(
 	}
 	classifierFunc, err := attemptToBuildClassifier(mlm)
 	if err != nil {
-		logger.Infow("error turning turn ml model into a classifier:", "model", params.ModelName, "error", err)
+		logger.Infow("error turning turn ml model into a classifier", "model", params.ModelName, "error", err)
 	} else {
-		logger.Infof("model %q fulfills a vision service classifier", params.ModelName)
+		logger.Infow("model fulfills a vision service classifier", "model", params.ModelName)
 	}
 	detectorFunc, err := attemptToBuildDetector(mlm)
 	if err != nil {
-		logger.Infow("error turning turn ml model into a detector:", "model", params.ModelName, "error", err)
+		logger.Infow("error turning turn ml model into a detector", "model", params.ModelName, "error", err)
 	} else {
-		logger.Infof("model %q fulfills a vision service detector", params.ModelName)
+		logger.Infow("model fulfills a vision service detector", "model", params.ModelName)
 	}
 	segmenter3DFunc, err := attemptToBuild3DSegmenter(mlm)
 	if err != nil {
-		logger.Infow("error turning turn ml model into a 3D segmenter:", "model", params.ModelName, "error", err)
+		logger.Infow("error turning turn ml model into a 3D segmenter", "model", params.ModelName, "error", err)
 	} else {
-		logger.Infof("model %q fulfills a vision service 3D segmenter", params.ModelName)
+		logger.Infow("model fulfills a vision service 3D segmenter", "model", params.ModelName)
 	}
 	// Don't return a close function, because you don't want to close the underlying ML service
 	return vision.NewService(name, r, nil, classifierFunc, detectorFunc, segmenter3DFunc)
@@ -136,6 +136,7 @@ func getLabelsFromMetadata(md mlmodel.MLMetadata) []string {
 				labels = append(labels, scanner.Text())
 			}
 			// if the labels come out as one line, try splitting that line by spaces or commas to extract labels
+			// Check if the labels should be comma split first and then space split.
 			if len(labels) == 1 {
 				labels = strings.Split(labels[0], ",")
 			}

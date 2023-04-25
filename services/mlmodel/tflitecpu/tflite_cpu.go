@@ -277,7 +277,7 @@ func getTensorInfo(inputT *tflite_metadata.TensorMetadataT) mlmodel.TensorInfo {
 }
 
 func (m *Model) blindFillMetadata() mlmodel.MLMetadata {
-	out := mlmodel.MLMetadata{}
+	var out mlmodel.MLMetadata
 	numIn := m.model.Info.InputTensorCount
 	numOut := int(math.Min(float64(m.model.Info.OutputTensorCount), float64(len(m.model.Info.OutputTensorTypes))))
 	inputList := make([]mlmodel.TensorInfo, 0, numIn)
