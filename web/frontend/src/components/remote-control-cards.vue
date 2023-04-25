@@ -2,6 +2,7 @@
 <script setup lang="ts">
 
 import { onMounted, onUnmounted } from 'vue';
+import { $ref, $computed } from 'vue/macros';
 import { grpc } from '@improbable-eng/grpc-web';
 import { Duration } from 'google-protobuf/google/protobuf/duration_pb';
 import { type Credentials, ConnectionClosedError } from '@viamrobotics/rpc';
@@ -34,6 +35,7 @@ import Board from './board.vue';
 import CamerasList from './camera/cameras-list.vue';
 import OperationsSessions from './operations-sessions.vue';
 import DoCommand from './do-command.vue';
+import Encoder from './encoder.vue';
 import Gantry from './gantry.vue';
 import Gripper from './gripper.vue';
 import Gamepad from './gamepad.vue';
@@ -463,7 +465,7 @@ const createAppConnectionManager = () => {
 
   const manageLoop = async () => {
     try {
-      const newErrors = [];
+      const newErrors: unknown[] = [];
 
       try {
         await queryMetadata();
@@ -662,6 +664,11 @@ const initConnect = () => {
   }
 };
 
+const handleUnload = () => {
+  console.debug('disconnecting');
+  appConnectionManager.stop();
+};
+
 onMounted(async () => {
   initConnect();
   await connectedFirstTime;
@@ -669,10 +676,12 @@ onMounted(async () => {
   appConnectionManager.start();
 
   addResizeListeners();
+  window.addEventListener('beforeunload', handleUnload);
 });
 
 onUnmounted(() => {
-  appConnectionManager.stop();
+  handleUnload();
+  window.removeEventListener('beforeunload', handleUnload);
 });
 
 </script>
@@ -734,6 +743,14 @@ onUnmounted(() => {
       :client="client"
       :resources="resources"
       :stream-manager="streamManager"
+    />
+
+    <!-- ******* ENCODER *******  -->
+    <Encoder
+      v-for="encoder in filterResources(resources, 'rdk', 'component', 'encoder')"
+      :key="encoder.name"
+      :name="encoder.name"
+      :client="client"
     />
 
     <!-- ******* GANTRY *******  -->

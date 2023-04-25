@@ -26,11 +26,11 @@ import (
 
 const numThreadsVideoSource = 8 // This should be a param
 
-var modelJoinPC = resource.NewDefaultModel("join_pointclouds")
+var modelJoinPC = resource.DefaultModelFamily.WithModel("join_pointclouds")
 
 func init() {
 	resource.RegisterComponent(
-		camera.Subtype,
+		camera.API,
 		modelJoinPC,
 		resource.Registration[camera.Camera, *JoinConfig]{
 			DeprecatedRobotConstructor: func(
@@ -361,6 +361,10 @@ func (jpcs *joinPointCloudSource) Read(ctx context.Context) (image.Image, func()
 	}
 	img, _, err := proj.PointCloudToRGBD(pc)
 	return img, func() {}, err // return color image
+}
+
+func (jpcs *joinPointCloudSource) Close(ctx context.Context) error {
+	return nil
 }
 
 func contains(s []string, str string) (int, bool) {

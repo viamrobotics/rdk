@@ -15,16 +15,17 @@ import (
 )
 
 var (
-	fakeModel     = resource.NewDefaultModel("fake")
-	extModel      = resource.NewModel("acme", "test", "model")
-	extAPI        = resource.NewSubtype("acme", "component", "gizmo")
-	extServiceAPI = resource.NewSubtype("acme", "service", "gadget")
+	acmeAPINamespace = resource.APINamespace("acme")
+	fakeModel        = resource.DefaultModelFamily.WithModel("fake")
+	extModel         = resource.ModelNamespace("acme").WithFamily("test").WithModel("model")
+	extAPI           = acmeAPINamespace.WithComponentType("gizmo")
+	extServiceAPI    = acmeAPINamespace.WithServiceType("gadget")
 )
 
 func TestComponentValidate(t *testing.T) {
 	t.Run("config invalid", func(t *testing.T) {
 		var emptyConf resource.Config
-		deps, err := emptyConf.Validate("path", resource.ResourceTypeComponent)
+		deps, err := emptyConf.Validate("path", resource.APITypeComponentName)
 		test.That(t, deps, test.ShouldBeNil)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
@@ -32,12 +33,11 @@ func TestComponentValidate(t *testing.T) {
 
 	t.Run("config invalid name", func(t *testing.T) {
 		validConf := resource.Config{
-			DeprecatedNamespace: resource.ResourceNamespaceRDK,
-			Name:                "foo arm",
-			DeprecatedSubtype:   "arm",
-			Model:               fakeModel,
+			Name: "foo arm",
+
+			Model: fakeModel,
 		}
-		deps, err := validConf.Validate("path", resource.ResourceTypeComponent)
+		deps, err := validConf.Validate("path", resource.APITypeComponentName)
 		test.That(t, deps, test.ShouldBeNil)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(
@@ -47,7 +47,7 @@ func TestComponentValidate(t *testing.T) {
 			"must start with a letter and must only contain letters, numbers, dashes, and underscores",
 		)
 		validConf.Name = "foo.arm"
-		deps, err = validConf.Validate("path", resource.ResourceTypeComponent)
+		deps, err = validConf.Validate("path", resource.APITypeComponentName)
 		test.That(t, deps, test.ShouldBeNil)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(
@@ -57,7 +57,7 @@ func TestComponentValidate(t *testing.T) {
 			"must start with a letter and must only contain letters, numbers, dashes, and underscores",
 		)
 		validConf.Name = "9"
-		deps, err = validConf.Validate("path", resource.ResourceTypeComponent)
+		deps, err = validConf.Validate("path", resource.APITypeComponentName)
 		test.That(t, deps, test.ShouldBeNil)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(
@@ -69,16 +69,15 @@ func TestComponentValidate(t *testing.T) {
 	})
 	t.Run("config valid", func(t *testing.T) {
 		validConf := resource.Config{
-			DeprecatedNamespace: resource.ResourceNamespaceRDK,
-			Name:                "foo",
-			DeprecatedSubtype:   "arm",
-			Model:               fakeModel,
+			Name:  "foo",
+			API:   arm.API,
+			Model: fakeModel,
 		}
-		deps, err := validConf.Validate("path", resource.ResourceTypeComponent)
+		deps, err := validConf.Validate("path", resource.APITypeComponentName)
 		test.That(t, deps, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeNil)
 		validConf.Name = "A"
-		deps, err = validConf.Validate("path", resource.ResourceTypeComponent)
+		deps, err = validConf.Validate("path", resource.APITypeComponentName)
 		test.That(t, deps, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeNil)
 	})
@@ -86,13 +85,12 @@ func TestComponentValidate(t *testing.T) {
 	t.Run("ConvertedAttributes", func(t *testing.T) {
 		t.Run("config invalid", func(t *testing.T) {
 			invalidConf := resource.Config{
-				DeprecatedNamespace: resource.ResourceNamespaceRDK,
 				Name:                "foo",
-				DeprecatedSubtype:   "base",
+				API:                 base.API,
 				Model:               fakeModel,
 				ConvertedAttributes: &testutils.FakeConvertedAttributes{Thing: ""},
 			}
-			deps, err := invalidConf.Validate("path", resource.ResourceTypeComponent)
+			deps, err := invalidConf.Validate("path", resource.APITypeComponentName)
 			test.That(t, deps, test.ShouldBeNil)
 			test.That(t, err, test.ShouldNotBeNil)
 			test.That(t, err.Error(), test.ShouldContainSubstring, `"Thing" is required`)
@@ -100,15 +98,14 @@ func TestComponentValidate(t *testing.T) {
 
 		t.Run("config valid", func(t *testing.T) {
 			invalidConf := resource.Config{
-				DeprecatedNamespace: resource.ResourceNamespaceRDK,
-				Name:                "foo",
-				DeprecatedSubtype:   "base",
-				Model:               fakeModel,
+				Name:  "foo",
+				API:   arm.API,
+				Model: fakeModel,
 				ConvertedAttributes: &testutils.FakeConvertedAttributes{
 					Thing: "i am a thing!",
 				},
 			}
-			deps, err := invalidConf.Validate("path", resource.ResourceTypeComponent)
+			deps, err := invalidConf.Validate("path", resource.APITypeComponentName)
 			test.That(t, deps, test.ShouldBeNil)
 			test.That(t, err, test.ShouldBeNil)
 		})
@@ -116,37 +113,34 @@ func TestComponentValidate(t *testing.T) {
 
 	t.Run("no namespace", func(t *testing.T) {
 		validConf := resource.Config{
-			Name:              "foo",
-			DeprecatedSubtype: "arm",
-			Model:             fakeModel,
+			Name:  "foo",
+			API:   resource.APINamespace("").WithComponentType("foo"),
+			Model: fakeModel,
 		}
-		deps, err := validConf.Validate("path", resource.ResourceTypeComponent)
+		deps, err := validConf.Validate("path", resource.APITypeComponentName)
 		test.That(t, deps, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, validConf.DeprecatedNamespace, test.ShouldEqual, resource.ResourceNamespaceRDK)
+		test.That(t, validConf.API, test.ShouldResemble, resource.APINamespaceRDK.WithComponentType("foo"))
 	})
 
 	t.Run("with namespace", func(t *testing.T) {
 		validConf := resource.Config{
-			DeprecatedNamespace: "acme",
-			Name:                "foo",
-			DeprecatedSubtype:   "arm",
-			Model:               fakeModel,
+			Name:  "foo",
+			API:   resource.APINamespace("acme").WithComponentType("foo"),
+			Model: fakeModel,
 		}
-		deps, err := validConf.Validate("path", resource.ResourceTypeComponent)
+		deps, err := validConf.Validate("path", resource.APITypeComponentName)
 		test.That(t, deps, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, validConf.DeprecatedNamespace, test.ShouldEqual, "acme")
+		test.That(t, validConf.API, test.ShouldResemble, resource.APINamespace("acme").WithComponentType("foo"))
 	})
 
 	t.Run("reserved character in name", func(t *testing.T) {
 		invalidConf := resource.Config{
-			DeprecatedNamespace: "acme",
-			Name:                "fo:o",
-			DeprecatedSubtype:   "arm",
-			Model:               fakeModel,
+			Name:  "fo:o",
+			Model: fakeModel,
 		}
-		_, err := invalidConf.Validate("path", resource.ResourceTypeComponent)
+		_, err := invalidConf.Validate("path", resource.APITypeComponentName)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(
 			t,
@@ -158,100 +152,88 @@ func TestComponentValidate(t *testing.T) {
 
 	t.Run("reserved character in namespace", func(t *testing.T) {
 		invalidConf := resource.Config{
-			DeprecatedNamespace: "ac:me",
-			Name:                "foo",
-			DeprecatedSubtype:   "arm",
-			Model:               fakeModel,
+			Name:  "foo",
+			API:   resource.APINamespace("ac:me").WithComponentType("foo"),
+			Model: fakeModel,
 		}
-		_, err := invalidConf.Validate("path", resource.ResourceTypeComponent)
+		_, err := invalidConf.Validate("path", resource.APITypeComponentName)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "reserved character : used")
 	})
 
-	//nolint:dupl
 	t.Run("model variations", func(t *testing.T) {
 		t.Run("config valid short model", func(t *testing.T) {
 			shortConf := resource.Config{
-				DeprecatedNamespace: resource.ResourceNamespaceRDK,
-				Name:                "foo",
-				DeprecatedSubtype:   "base",
-				Model:               resource.Model{Name: "fake"},
+				Name:  "foo",
+				API:   base.API,
+				Model: resource.Model{Name: "fake"},
 			}
-			deps, err := shortConf.Validate("path", resource.ResourceTypeComponent)
+			deps, err := shortConf.Validate("path", resource.APITypeComponentName)
 			test.That(t, deps, test.ShouldBeNil)
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, shortConf.Model.Namespace, test.ShouldEqual, resource.ResourceNamespaceRDK)
-			test.That(t, shortConf.Model.Family, test.ShouldEqual, resource.DefaultModelFamilyName)
-			test.That(t, shortConf.Model.Name, test.ShouldEqual, resource.ModelName("fake"))
+			test.That(t, shortConf.Model.Family, test.ShouldResemble, resource.DefaultModelFamily)
+			test.That(t, shortConf.Model.Name, test.ShouldEqual, "fake")
 		})
 
 		t.Run("config valid full model", func(t *testing.T) {
 			shortConf := resource.Config{
-				DeprecatedNamespace: resource.ResourceNamespaceRDK,
-				Name:                "foo",
-				DeprecatedSubtype:   "base",
-				Model:               fakeModel,
+				Name:  "foo",
+				API:   base.API,
+				Model: fakeModel,
 			}
-			deps, err := shortConf.Validate("path", resource.ResourceTypeComponent)
+			deps, err := shortConf.Validate("path", resource.APITypeComponentName)
 			test.That(t, deps, test.ShouldBeNil)
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, shortConf.Model.Namespace, test.ShouldEqual, resource.ResourceNamespaceRDK)
-			test.That(t, shortConf.Model.Family, test.ShouldEqual, resource.DefaultModelFamilyName)
-			test.That(t, shortConf.Model.Name, test.ShouldEqual, resource.ModelName("fake"))
+			test.That(t, shortConf.Model.Family, test.ShouldResemble, resource.DefaultModelFamily)
+			test.That(t, shortConf.Model.Name, test.ShouldEqual, "fake")
 		})
 
 		t.Run("config valid external model", func(t *testing.T) {
 			shortConf := resource.Config{
-				DeprecatedNamespace: resource.ResourceNamespaceRDK,
-				Name:                "foo",
-				DeprecatedSubtype:   "base",
-				Model:               extModel,
+				Name:  "foo",
+				API:   base.API,
+				Model: extModel,
 			}
-			deps, err := shortConf.Validate("path", resource.ResourceTypeComponent)
+			deps, err := shortConf.Validate("path", resource.APITypeComponentName)
 			test.That(t, deps, test.ShouldBeNil)
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, shortConf.Model.Namespace, test.ShouldEqual, resource.Namespace("acme"))
-			test.That(t, shortConf.Model.Family, test.ShouldEqual, resource.ModelFamilyName("test"))
-			test.That(t, shortConf.Model.Name, test.ShouldEqual, resource.ModelName("model"))
+			test.That(t, shortConf.Model.Family, test.ShouldResemble, resource.NewModelFamily("acme", "test"))
+			test.That(t, shortConf.Model.Name, test.ShouldEqual, "model")
 		})
 	})
 
 	t.Run("api subtype namespace variations", func(t *testing.T) {
 		t.Run("empty API and builtin type", func(t *testing.T) {
 			shortConf := resource.Config{
-				DeprecatedNamespace: resource.ResourceNamespaceRDK,
-				Name:                "foo",
-				DeprecatedSubtype:   "base",
-				Model:               fakeModel,
+				Name:  "foo",
+				API:   resource.APINamespace("").WithType("").WithSubtype("base"),
+				Model: fakeModel,
 			}
-			deps, err := shortConf.Validate("path", resource.ResourceTypeComponent)
+			deps, err := shortConf.Validate("path", resource.APITypeComponentName)
 			test.That(t, deps, test.ShouldBeNil)
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, shortConf.API, test.ShouldResemble, base.Subtype)
+			test.That(t, shortConf.API, test.ShouldResemble, base.API)
 		})
 
 		t.Run("filled API with builtin type", func(t *testing.T) {
 			shortConf := resource.Config{
-				DeprecatedNamespace: resource.ResourceNamespaceRDK,
-				Name:                "foo",
-				DeprecatedSubtype:   "base",
-				Model:               fakeModel,
-				API:                 base.Subtype,
+				Name:  "foo",
+				Model: fakeModel,
+				API:   base.API,
 			}
-			deps, err := shortConf.Validate("path", resource.ResourceTypeComponent)
+			deps, err := shortConf.Validate("path", resource.APITypeComponentName)
 			test.That(t, deps, test.ShouldBeNil)
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, shortConf.API, test.ShouldResemble, base.Subtype)
+			test.That(t, shortConf.API, test.ShouldResemble, base.API)
 		})
 
 		t.Run("empty API with external type", func(t *testing.T) {
 			shortConf := resource.Config{
-				DeprecatedNamespace: "acme",
-				Name:                "foo",
-				DeprecatedSubtype:   "gizmo",
-				Model:               fakeModel,
+				Name:  "foo",
+				API:   resource.APINamespace("acme").WithType("").WithSubtype("gizmo"),
+				Model: fakeModel,
 			}
-			deps, err := shortConf.Validate("path", resource.ResourceTypeComponent)
+			deps, err := shortConf.Validate("path", resource.APITypeComponentName)
 			test.That(t, deps, test.ShouldBeNil)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, shortConf.API, test.ShouldResemble, extAPI)
@@ -259,13 +241,11 @@ func TestComponentValidate(t *testing.T) {
 
 		t.Run("filled API with external type", func(t *testing.T) {
 			shortConf := resource.Config{
-				DeprecatedNamespace: "acme",
-				Name:                "foo",
-				DeprecatedSubtype:   "gizmo",
-				Model:               fakeModel,
-				API:                 extAPI,
+				Name:  "foo",
+				Model: fakeModel,
+				API:   extAPI,
 			}
-			deps, err := shortConf.Validate("path", resource.ResourceTypeComponent)
+			deps, err := shortConf.Validate("path", resource.APITypeComponentName)
 			test.That(t, deps, test.ShouldBeNil)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, shortConf.API, test.ShouldResemble, extAPI)
@@ -275,38 +255,37 @@ func TestComponentValidate(t *testing.T) {
 
 func TestComponentResourceName(t *testing.T) {
 	for _, tc := range []struct {
-		Name            string
-		Conf            resource.Config
-		ExpectedSubtype resource.Subtype
-		ExpectedName    resource.Name
-		ExpectedError   string
+		Name          string
+		Conf          resource.Config
+		ExpectedAPI   resource.API
+		ExpectedName  resource.Name
+		ExpectedError string
 	}{
 		{
 			"all fields included",
 			resource.Config{
-				DeprecatedNamespace: resource.ResourceNamespaceRDK,
-				DeprecatedSubtype:   "arm",
-				Name:                "foo",
-				Model:               fakeModel,
+				Name:  "foo",
+				API:   arm.API,
+				Model: fakeModel,
 			},
-			arm.Subtype,
+			arm.API,
 			arm.Named("foo"),
 			"",
 		},
 		{
 			"missing subtype",
 			resource.Config{
-				DeprecatedNamespace: resource.ResourceNamespaceRDK,
-				Name:                "foo",
+				API:  resource.APINamespaceRDK.WithType("").WithSubtype(""),
+				Name: "foo",
 			},
-			resource.Subtype{
-				Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
-				ResourceSubtype: resource.SubtypeName(""),
+			resource.API{
+				Type:        resource.APIType{Namespace: resource.APINamespaceRDK, Name: resource.APITypeComponentName},
+				SubtypeName: "",
 			},
 			resource.Name{
-				Subtype: resource.Subtype{
-					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
-					ResourceSubtype: resource.SubtypeName(""),
+				API: resource.API{
+					Type:        resource.APIType{Namespace: resource.APINamespaceRDK, Name: resource.APITypeComponentName},
+					SubtypeName: "",
 				},
 				Name: "foo",
 			},
@@ -315,18 +294,17 @@ func TestComponentResourceName(t *testing.T) {
 		{
 			"sensor with no subtype",
 			resource.Config{
-				DeprecatedNamespace: resource.ResourceNamespaceRDK,
-				DeprecatedSubtype:   "sensor",
-				Name:                "foo",
+				API:  resource.APINamespaceRDK.WithComponentType("sensor"),
+				Name: "foo",
 			},
-			resource.Subtype{
-				Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
-				ResourceSubtype: sensor.SubtypeName,
+			resource.API{
+				Type:        resource.APIType{Namespace: resource.APINamespaceRDK, Name: resource.APITypeComponentName},
+				SubtypeName: sensor.SubtypeName,
 			},
 			resource.Name{
-				Subtype: resource.Subtype{
-					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
-					ResourceSubtype: sensor.SubtypeName,
+				API: resource.API{
+					Type:        resource.APIType{Namespace: resource.APINamespaceRDK, Name: resource.APITypeComponentName},
+					SubtypeName: sensor.SubtypeName,
 				},
 				Name: "foo",
 			},
@@ -335,18 +313,17 @@ func TestComponentResourceName(t *testing.T) {
 		{
 			"sensor with subtype",
 			resource.Config{
-				DeprecatedNamespace: resource.ResourceNamespaceRDK,
-				DeprecatedSubtype:   "movement_sensor",
-				Name:                "foo",
+				API:  resource.APINamespaceRDK.WithComponentType("movement_sensor"),
+				Name: "foo",
 			},
-			resource.Subtype{
-				Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
-				ResourceSubtype: movementsensor.SubtypeName,
+			resource.API{
+				Type:        resource.APIType{Namespace: resource.APINamespaceRDK, Name: resource.APITypeComponentName},
+				SubtypeName: movementsensor.SubtypeName,
 			},
 			resource.Name{
-				Subtype: resource.Subtype{
-					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
-					ResourceSubtype: movementsensor.SubtypeName,
+				API: resource.API{
+					Type:        resource.APIType{Namespace: resource.APINamespaceRDK, Name: resource.APITypeComponentName},
+					SubtypeName: movementsensor.SubtypeName,
 				},
 				Name: "foo",
 			},
@@ -355,18 +332,17 @@ func TestComponentResourceName(t *testing.T) {
 		{
 			"sensor missing name",
 			resource.Config{
-				DeprecatedNamespace: resource.ResourceNamespaceRDK,
-				DeprecatedSubtype:   "movement_sensor",
-				Name:                "",
+				API:  resource.APINamespaceRDK.WithComponentType("sensor"),
+				Name: "",
 			},
-			resource.Subtype{
-				Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
-				ResourceSubtype: movementsensor.SubtypeName,
+			resource.API{
+				Type:        resource.APIType{Namespace: resource.APINamespaceRDK, Name: resource.APITypeComponentName},
+				SubtypeName: movementsensor.SubtypeName,
 			},
 			resource.Name{
-				Subtype: resource.Subtype{
-					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
-					ResourceSubtype: movementsensor.SubtypeName,
+				API: resource.API{
+					Type:        resource.APIType{Namespace: resource.APINamespaceRDK, Name: resource.APITypeComponentName},
+					SubtypeName: movementsensor.SubtypeName,
 				},
 				Name: "",
 			},
@@ -375,22 +351,21 @@ func TestComponentResourceName(t *testing.T) {
 		{
 			"all fields included with external type",
 			resource.Config{
-				DeprecatedNamespace: "acme",
-				DeprecatedSubtype:   "gizmo",
-				Name:                "foo",
-				Model:               extModel,
+				Name:  "foo",
+				API:   extAPI,
+				Model: extModel,
 			},
 			extAPI,
-			resource.NameFromSubtype(extAPI, "foo"),
+			resource.NewName(extAPI, "foo"),
 			"",
 		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
-			_, err := tc.Conf.Validate("", resource.ResourceTypeComponent)
+			_, err := tc.Conf.Validate("", resource.APITypeComponentName)
 			if tc.ExpectedError == "" {
 				test.That(t, err, test.ShouldBeNil)
 				rName := tc.Conf.ResourceName()
-				test.That(t, rName.Subtype, test.ShouldResemble, tc.ExpectedSubtype)
+				test.That(t, rName.API, test.ShouldResemble, tc.ExpectedAPI)
 				test.That(t, rName, test.ShouldResemble, tc.ExpectedName)
 				return
 			}
@@ -403,7 +378,7 @@ func TestComponentResourceName(t *testing.T) {
 func TestServiceValidate(t *testing.T) {
 	t.Run("config invalid", func(t *testing.T) {
 		var emptyConf resource.Config
-		deps, err := emptyConf.Validate("path", resource.ResourceTypeService)
+		deps, err := emptyConf.Validate("path", resource.APITypeServiceName)
 		test.That(t, deps, test.ShouldBeNil)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, `subtype field`)
@@ -411,23 +386,23 @@ func TestServiceValidate(t *testing.T) {
 
 	t.Run("config valid", func(t *testing.T) {
 		validConf := resource.Config{
-			Name:              "frame1",
-			DeprecatedSubtype: "frame_system",
+			Name: "frame1",
+			API:  resource.APINamespaceRDK.WithServiceType("frame_system"),
 		}
-		deps, err := validConf.Validate("path", resource.ResourceTypeService)
+		deps, err := validConf.Validate("path", resource.APITypeServiceName)
 		test.That(t, deps, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeNil)
 		validConf.Name = "A"
-		deps, err = validConf.Validate("path", resource.ResourceTypeService)
+		deps, err = validConf.Validate("path", resource.APITypeServiceName)
 		test.That(t, deps, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeNil)
 	})
 	t.Run("config invalid name", func(t *testing.T) {
 		validConf := resource.Config{
-			Name:              "frame 1",
-			DeprecatedSubtype: "frame_system",
+			Name: "frame 1",
+			API:  resource.APINamespaceRDK.WithServiceType("frame_system"),
 		}
-		deps, err := validConf.Validate("path", resource.ResourceTypeService)
+		deps, err := validConf.Validate("path", resource.APITypeServiceName)
 		test.That(t, deps, test.ShouldBeNil)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(
@@ -460,10 +435,10 @@ func TestServiceValidate(t *testing.T) {
 		t.Run("config invalid", func(t *testing.T) {
 			invalidConf := resource.Config{
 				Name:                "frame1",
-				DeprecatedSubtype:   "frame_system",
+				API:                 resource.APINamespaceRDK.WithServiceType("frame_system"),
 				ConvertedAttributes: &testutils.FakeConvertedAttributes{Thing: ""},
 			}
-			deps, err := invalidConf.Validate("path", resource.ResourceTypeService)
+			deps, err := invalidConf.Validate("path", resource.APITypeServiceName)
 			test.That(t, deps, test.ShouldBeNil)
 			test.That(t, err, test.ShouldNotBeNil)
 			test.That(t, err.Error(), test.ShouldContainSubstring, `"Thing" is required`)
@@ -471,13 +446,13 @@ func TestServiceValidate(t *testing.T) {
 
 		t.Run("config valid", func(t *testing.T) {
 			invalidConf := resource.Config{
-				Name:              "frame1",
-				DeprecatedSubtype: "frame_system",
+				Name: "frame1",
+				API:  resource.APINamespaceRDK.WithServiceType("frame_system"),
 				ConvertedAttributes: &testutils.FakeConvertedAttributes{
 					Thing: "i am a thing!",
 				},
 			}
-			deps, err := invalidConf.Validate("path", resource.ResourceTypeService)
+			deps, err := invalidConf.Validate("path", resource.APITypeServiceName)
 			test.That(t, deps, test.ShouldBeNil)
 			test.That(t, err, test.ShouldBeNil)
 		})
@@ -485,21 +460,20 @@ func TestServiceValidate(t *testing.T) {
 
 	t.Run("no namespace", func(t *testing.T) {
 		validConf := resource.Config{
-			Name:              "foo",
-			DeprecatedSubtype: "thingy",
+			Name: "foo",
+			API:  resource.APINamespace("").WithServiceType("frame_system"),
 		}
-		deps, err := validConf.Validate("path", resource.ResourceTypeService)
+		deps, err := validConf.Validate("path", resource.APITypeServiceName)
 		test.That(t, deps, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, validConf.DeprecatedNamespace, test.ShouldEqual, resource.ResourceNamespaceRDK)
 	})
 
 	t.Run("no name", func(t *testing.T) {
 		testConfig := resource.Config{
-			Name:              "",
-			DeprecatedSubtype: "thingy",
+			Name: "",
+			API:  resource.APINamespace("").WithServiceType("frame_system"),
 		}
-		deps, err := testConfig.Validate("path", resource.ResourceTypeService)
+		deps, err := testConfig.Validate("path", resource.APITypeServiceName)
 		test.That(t, deps, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, testConfig.Name, test.ShouldEqual, resource.DefaultServiceName)
@@ -507,23 +481,20 @@ func TestServiceValidate(t *testing.T) {
 
 	t.Run("with namespace", func(t *testing.T) {
 		validConf := resource.Config{
-			DeprecatedNamespace: "acme",
-			Name:                "foo",
-			DeprecatedSubtype:   "thingy",
+			Name: "foo",
+			API:  acmeAPINamespace.WithServiceType("thingy"),
 		}
-		deps, err := validConf.Validate("path", resource.ResourceTypeService)
+		deps, err := validConf.Validate("path", resource.APITypeServiceName)
 		test.That(t, deps, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, validConf.DeprecatedNamespace, test.ShouldEqual, "acme")
 	})
 
 	t.Run("reserved character in name", func(t *testing.T) {
 		invalidConf := resource.Config{
-			DeprecatedNamespace: "acme",
-			Name:                "fo:o",
-			DeprecatedSubtype:   "thingy",
+			Name: "fo:o",
+			API:  acmeAPINamespace.WithServiceType("thingy"),
 		}
-		_, err := invalidConf.Validate("path", resource.ResourceTypeService)
+		_, err := invalidConf.Validate("path", resource.APITypeServiceName)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(
 			t,
@@ -535,111 +506,99 @@ func TestServiceValidate(t *testing.T) {
 
 	t.Run("reserved character in namespace", func(t *testing.T) {
 		invalidConf := resource.Config{
-			DeprecatedNamespace: "ac:me",
-			Name:                "foo",
-			DeprecatedSubtype:   "thingy",
+			Name: "foo",
+			API:  resource.APINamespace("ac:me").WithServiceType("thingy"),
 		}
-		_, err := invalidConf.Validate("path", resource.ResourceTypeService)
+		_, err := invalidConf.Validate("path", resource.APITypeServiceName)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "reserved character : used")
 	})
 
 	t.Run("default model to default", func(t *testing.T) {
 		validConf := resource.Config{
-			DeprecatedNamespace: "acme",
-			Name:                "foo",
-			DeprecatedSubtype:   "thingy",
+			Name: "foo",
+			API:  acmeAPINamespace.WithServiceType("thingy"),
 		}
-
-		deps, err := validConf.Validate("path", resource.ResourceTypeService)
+		deps, err := validConf.Validate("path", resource.APITypeServiceName)
 		test.That(t, deps, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, validConf.Model.String(), test.ShouldEqual, "rdk:builtin:builtin")
 	})
 
-	//nolint:dupl
 	t.Run("model variations", func(t *testing.T) {
 		t.Run("config valid short model", func(t *testing.T) {
 			shortConf := resource.Config{
-				DeprecatedNamespace: resource.ResourceNamespaceRDK,
-				Name:                "foo",
-				DeprecatedSubtype:   "bar",
-				Model:               resource.Model{Name: "fake"},
+				Name:  "foo",
+				API:   resource.APINamespaceRDK.WithComponentType("bar"),
+				Model: resource.Model{Name: "fake"},
 			}
-			deps, err := shortConf.Validate("path", resource.ResourceTypeService)
+			deps, err := shortConf.Validate("path", resource.APITypeServiceName)
 			test.That(t, deps, test.ShouldBeNil)
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, shortConf.Model.Namespace, test.ShouldEqual, resource.ResourceNamespaceRDK)
-			test.That(t, shortConf.Model.Family, test.ShouldEqual, resource.DefaultModelFamilyName)
-			test.That(t, shortConf.Model.Name, test.ShouldEqual, resource.ModelName("fake"))
+			test.That(t, shortConf.Model.Family, test.ShouldResemble, resource.DefaultModelFamily)
+			test.That(t, shortConf.Model.Name, test.ShouldEqual, "fake")
 		})
 
 		t.Run("config valid full model", func(t *testing.T) {
 			shortConf := resource.Config{
-				DeprecatedNamespace: resource.ResourceNamespaceRDK,
-				Name:                "foo",
-				DeprecatedSubtype:   "bar",
-				Model:               fakeModel,
+				Name:  "foo",
+				API:   resource.APINamespaceRDK.WithComponentType("bar"),
+				Model: fakeModel,
 			}
-			deps, err := shortConf.Validate("path", resource.ResourceTypeService)
+			deps, err := shortConf.Validate("path", resource.APITypeServiceName)
 			test.That(t, deps, test.ShouldBeNil)
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, shortConf.Model.Namespace, test.ShouldEqual, resource.ResourceNamespaceRDK)
-			test.That(t, shortConf.Model.Family, test.ShouldEqual, resource.DefaultModelFamilyName)
-			test.That(t, shortConf.Model.Name, test.ShouldEqual, resource.ModelName("fake"))
+			test.That(t, shortConf.Model.Family, test.ShouldResemble, resource.DefaultModelFamily)
+			test.That(t, shortConf.Model.Name, test.ShouldEqual, "fake")
 		})
 
 		t.Run("config valid external model", func(t *testing.T) {
 			shortConf := resource.Config{
-				DeprecatedNamespace: resource.ResourceNamespaceRDK,
-				Name:                "foo",
-				DeprecatedSubtype:   "bar",
-				Model:               extModel,
+				Name:  "foo",
+				API:   resource.APINamespaceRDK.WithComponentType("bar"),
+				Model: extModel,
 			}
-			deps, err := shortConf.Validate("path", resource.ResourceTypeService)
+			deps, err := shortConf.Validate("path", resource.APITypeServiceName)
 			test.That(t, deps, test.ShouldBeNil)
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, shortConf.Model.Namespace, test.ShouldEqual, resource.Namespace("acme"))
-			test.That(t, shortConf.Model.Family, test.ShouldEqual, resource.ModelFamilyName("test"))
-			test.That(t, shortConf.Model.Name, test.ShouldEqual, resource.ModelName("model"))
+			test.That(t, shortConf.Model.Family, test.ShouldResemble, resource.NewModelFamily("acme", "test"))
+			test.That(t, shortConf.Model.Name, test.ShouldEqual, "model")
 		})
 	})
 }
 
 func TestServiceResourceName(t *testing.T) {
 	for _, tc := range []struct {
-		Name            string
-		Conf            resource.Config
-		ExpectedSubtype resource.Subtype
-		ExpectedName    resource.Name
+		Name         string
+		Conf         resource.Config
+		ExpectedAPI  resource.API
+		ExpectedName resource.Name
 	}{
 		{
 			"all fields included",
 			resource.Config{
-				DeprecatedNamespace: resource.ResourceNamespaceRDK,
-				DeprecatedSubtype:   "motion",
-				Name:                "motion1",
+				Name: "motion1",
+				API:  motion.API,
 			},
-			motion.Subtype,
-			resource.NameFromSubtype(motion.Subtype, "motion1"),
+			motion.API,
+			resource.NewName(motion.API, "motion1"),
 		},
 		{
 			"all fields included with external type",
 			resource.Config{
-				DeprecatedNamespace: "acme",
-				DeprecatedSubtype:   "gadget",
-				Name:                "foo",
-				Model:               extModel,
+				Name:  "foo",
+				API:   extServiceAPI,
+				Model: extModel,
 			},
 			extServiceAPI,
-			resource.NameFromSubtype(extServiceAPI, "foo"),
+			resource.NewName(extServiceAPI, "foo"),
 		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
-			_, err := tc.Conf.Validate("", resource.ResourceTypeService)
+			_, err := tc.Conf.Validate("", resource.APITypeServiceName)
 			test.That(t, err, test.ShouldBeNil)
 			rName := tc.Conf.ResourceName()
-			test.That(t, rName.Subtype, test.ShouldResemble, tc.ExpectedSubtype)
+			test.That(t, rName.API, test.ShouldResemble, tc.ExpectedAPI)
 			test.That(t, rName, test.ShouldResemble, tc.ExpectedName)
 		})
 	}

@@ -78,7 +78,7 @@ func TestDMC4000Motor(t *testing.T) {
 		TicksPerRotation: 200,
 	}
 
-	motorReg, ok := resource.LookupRegistration(motor.Subtype, resource.NewDefaultModel("DMC4000"))
+	motorReg, ok := resource.LookupRegistration(motor.API, resource.DefaultModelFamily.WithModel("DMC4000"))
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, motorReg, test.ShouldNotBeNil)
 

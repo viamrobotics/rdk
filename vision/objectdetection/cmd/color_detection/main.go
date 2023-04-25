@@ -26,6 +26,10 @@ func (s *simpleSource) Read(ctx context.Context) (image.Image, func(), error) {
 	return img, func() {}, err
 }
 
+func (s *simpleSource) Close(ctx context.Context) error {
+	return nil
+}
+
 func main() {
 	imgPtr := flag.String("img", "", "path to image to apply simple detection to")
 	urlPtr := flag.String("url", "", "url to image source to apply simple detection to")

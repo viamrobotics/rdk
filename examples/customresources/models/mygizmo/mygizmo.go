@@ -12,14 +12,10 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-var Model = resource.NewModel(
-	resource.Namespace("acme"),
-	resource.ModelFamilyName("demo"),
-	resource.ModelName("mygizmo"),
-)
+var Model = resource.NewModel("acme", "demo", "mygizmo")
 
 func init() {
-	resource.RegisterComponent(gizmoapi.Subtype, Model, resource.Registration[gizmoapi.Gizmo, resource.NoNativeConfig]{
+	resource.RegisterComponent(gizmoapi.API, Model, resource.Registration[gizmoapi.Gizmo, resource.NoNativeConfig]{
 		Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,

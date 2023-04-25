@@ -19,7 +19,7 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-var modelname = resource.NewDefaultModel("bme280")
+var model = resource.DefaultModelFamily.WithModel("bme280")
 
 const (
 	defaultI2Caddr = 0x77
@@ -101,8 +101,8 @@ func (conf *Config) Validate(path string) ([]string, error) {
 
 func init() {
 	resource.RegisterComponent(
-		sensor.Subtype,
-		modelname,
+		sensor.API,
+		model,
 		resource.Registration[sensor.Sensor, *Config]{
 			Constructor: func(
 				ctx context.Context,

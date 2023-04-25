@@ -85,17 +85,17 @@ func TestClient(t *testing.T) {
 		return nil
 	}
 
-	armSvc, err := resource.NewSubtypeCollection(
-		arm.Subtype, map[resource.Name]arm.Arm{
+	armSvc, err := resource.NewAPIResourceCollection(
+		arm.API, map[resource.Name]arm.Arm{
 			arm.Named(testArmName):  injectArm,
 			arm.Named(testArmName2): injectArm2,
 		})
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype, ok, err := resource.LookupSubtypeRegistration[arm.Arm](arm.Subtype)
+	resourceAPI, ok, err := resource.LookupAPIRegistration[arm.Arm](arm.API)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, armSvc), test.ShouldBeNil)
+	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, armSvc), test.ShouldBeNil)
 
 	injectRobot := &inject.Robot{}
 	injectRobot.FrameSystemConfigFunc = func(
@@ -128,7 +128,7 @@ func TestClient(t *testing.T) {
 	t.Run("arm client 1", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		arm1Client, err := arm.NewClientFromConn(context.Background(), conn, arm.Named(testArmName), logger)
+		arm1Client, err := arm.NewClientFromConn(context.Background(), conn, "", arm.Named(testArmName), logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		// DoCommand
@@ -170,7 +170,7 @@ func TestClient(t *testing.T) {
 	t.Run("arm client 2", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		client2, err := resourceSubtype.RPCClient(context.Background(), conn, arm.Named(testArmName2), logger)
+		client2, err := resourceAPI.RPCClient(context.Background(), conn, "", arm.Named(testArmName2), logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		pos, err := client2.EndPosition(context.Background(), nil)

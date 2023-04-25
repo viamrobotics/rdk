@@ -20,7 +20,7 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-var modelname = resource.NewDefaultModel("yahboom-dofbot")
+var model = resource.DefaultModelFamily.WithModel("yahboom-dofbot")
 
 // Config is the config for a dofbot gripper.
 type Config struct {
@@ -38,7 +38,7 @@ func (conf *Config) Validate(path string) ([]string, error) {
 }
 
 func init() {
-	resource.RegisterComponent(gripper.Subtype, modelname, resource.Registration[gripper.Gripper, *Config]{
+	resource.RegisterComponent(gripper.API, model, resource.Registration[gripper.Gripper, *Config]{
 		Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,

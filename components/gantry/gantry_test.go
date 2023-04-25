@@ -73,10 +73,10 @@ func TestCreateStatus(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, status1, test.ShouldResemble, status)
 
-		resourceSubtype, ok, err := resource.LookupSubtypeRegistration[gantry.Gantry](gantry.Subtype)
+		resourceAPI, ok, err := resource.LookupAPIRegistration[gantry.Gantry](gantry.API)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ok, test.ShouldBeTrue)
-		status2, err := resourceSubtype.Status(context.Background(), injectGantry)
+		status2, err := resourceAPI.Status(context.Background(), injectGantry)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, status2, test.ShouldResemble, status)
 	})

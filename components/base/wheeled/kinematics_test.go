@@ -43,7 +43,7 @@ func TestWrapWithKinematics(t *testing.T) {
 	}
 
 	testCfg := newTestCfg()
-	deps, err := testCfg.Validate("path", resource.ResourceTypeComponent)
+	deps, err := testCfg.Validate("path", resource.APITypeComponentName)
 	test.That(t, err, test.ShouldBeNil)
 	motorDeps := fakeMotorDependencies(t, deps)
 	kinematicCfg := testCfg

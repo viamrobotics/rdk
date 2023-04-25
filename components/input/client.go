@@ -43,13 +43,19 @@ type client struct {
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
-func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (Controller, error) {
+func NewClientFromConn(
+	ctx context.Context,
+	conn rpc.ClientConn,
+	remoteName string,
+	name resource.Name,
+	logger golog.Logger,
+) (Controller, error) {
 	c := pb.NewInputControllerServiceClient(conn)
 	return &client{
-		Named:        name.AsNamed(),
+		Named:        name.PrependRemote(remoteName).AsNamed(),
+		name:         name.ShortName(),
 		client:       c,
 		logger:       logger,
-		name:         name.ShortNameForClient(),
 		closeContext: ctx,
 	}, nil
 }

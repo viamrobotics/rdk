@@ -15,16 +15,19 @@ import (
 )
 
 func init() {
-	resource.RegisterComponent(gantry.Subtype, resource.NewDefaultModel("fake"), resource.Registration[gantry.Gantry, resource.NoNativeConfig]{
-		Constructor: func(
-			ctx context.Context,
-			_ resource.Dependencies,
-			conf resource.Config,
-			logger golog.Logger,
-		) (gantry.Gantry, error) {
-			return NewGantry(conf.ResourceName()), nil
-		},
-	})
+	resource.RegisterComponent(
+		gantry.API,
+		resource.DefaultModelFamily.WithModel("fake"),
+		resource.Registration[gantry.Gantry, resource.NoNativeConfig]{
+			Constructor: func(
+				ctx context.Context,
+				_ resource.Dependencies,
+				conf resource.Config,
+				logger golog.Logger,
+			) (gantry.Gantry, error) {
+				return NewGantry(conf.ResourceName()), nil
+			},
+		})
 }
 
 // NewGantry returns a new fake gantry.

@@ -21,7 +21,7 @@ import (
 )
 
 func newServer(resources map[resource.Name]motion.Service) (pb.MotionServiceServer, error) {
-	coll, err := resource.NewSubtypeCollection(motion.Subtype, resources)
+	coll, err := resource.NewAPIResourceCollection(motion.API, resources)
 	if err != nil {
 		return nil, err
 	}

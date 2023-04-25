@@ -33,12 +33,12 @@ func setupService(t *testing.T, injectBoard *inject.Board) (net.Listener, func()
 	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
-	boardSvc, err := resource.NewSubtypeCollection(board.Subtype, map[resource.Name]board.Board{board.Named(testBoardName): injectBoard})
+	boardSvc, err := resource.NewAPIResourceCollection(board.API, map[resource.Name]board.Board{board.Named(testBoardName): injectBoard})
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype, ok, err := resource.LookupSubtypeRegistration[board.Board](board.Subtype)
+	resourceAPI, ok, err := resource.LookupAPIRegistration[board.Board](board.API)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, boardSvc), test.ShouldBeNil)
+	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, boardSvc), test.ShouldBeNil)
 
 	go rpcServer.Serve(listener)
 	return listener, func() { rpcServer.Stop() }
@@ -200,7 +200,7 @@ func TestWorkingClient(t *testing.T) {
 		ctx := context.Background()
 		conn, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		client := board.NewClientFromConn(ctx, conn, board.Named(testBoardName), logger)
+		client, err := board.NewClientFromConn(ctx, conn, "", board.Named(testBoardName), logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		testWorkingClient(t, client)
@@ -230,7 +230,8 @@ func TestClientWithStatus(t *testing.T) {
 
 	conn, err := viamgrpc.Dial(context.Background(), listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
-	client := board.NewClientFromConn(context.Background(), conn, board.Named(testBoardName), logger)
+	client, err := board.NewClientFromConn(context.Background(), conn, "", board.Named(testBoardName), logger)
+	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, injectBoard.StatusCap()[1:], test.ShouldResemble, []interface{}{})
 
@@ -264,19 +265,19 @@ func TestClientWithoutStatus(t *testing.T) {
 	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
-	boardSvc, err := resource.NewSubtypeCollection(board.Subtype, map[resource.Name]board.Board{board.Named(testBoardName): injectBoard})
+	boardSvc, err := resource.NewAPIResourceCollection(board.API, map[resource.Name]board.Board{board.Named(testBoardName): injectBoard})
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype, ok, err := resource.LookupSubtypeRegistration[board.Board](board.Subtype)
+	resourceAPI, ok, err := resource.LookupAPIRegistration[board.Board](board.API)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, boardSvc), test.ShouldBeNil)
+	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, boardSvc), test.ShouldBeNil)
 
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()
 
 	conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
-	rClient, err := resourceSubtype.RPCClient(context.Background(), conn, board.Named(testBoardName), logger)
+	rClient, err := resourceAPI.RPCClient(context.Background(), conn, "", board.Named(testBoardName), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, injectBoard.StatusCap()[1:], test.ShouldResemble, []interface{}{})

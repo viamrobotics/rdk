@@ -7,9 +7,6 @@ on:
       GCP_CREDENTIALS:
         required: true
 
-env:
-  GOPRIVATE: "github.com/viamrobotics/*,go.viam.com/*"
-
 jobs:
   appimage:
     name: AppImage Build
@@ -44,9 +41,10 @@ jobs:
         ref: ${{ github.event.pull_request.head.sha }}
         fetch-depth: 2
 
-    - name: Clean
+    - name: Clean and Fix Permissions
       run: |
-        make clean-all
+        chown testbot:testbot -R .
+        sudo -Hu testbot bash -lc 'make clean-all'
 
     - name: Authorize GCP Upload
       uses: google-github-actions/auth@v1
@@ -56,7 +54,7 @@ jobs:
     - name: Build and Package (PR)
       if: contains(github.event.pull_request.labels.*.name, 'appimage') || contains(github.event.pull_request.labels.*.name, 'appimage-ignore-tests')
       run: |
-        make BUILD_CHANNEL="pr-${{ github.event.pull_request.number }}" appimage
+        sudo -Hu testbot bash -lc 'make BUILD_CHANNEL="pr-${{ github.event.pull_request.number }}" appimage'
 
     - name: Upload Files (PR)
       if: contains(github.event.pull_request.labels.*.name, 'appimage') || contains(github.event.pull_request.labels.*.name, 'appimage-ignore-tests')
@@ -74,7 +72,7 @@ jobs:
       if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
       run: |
         echo "date=`date +%F`" >> $GITHUB_OUTPUT
-        make BUILD_CHANNEL="latest" appimage
+        sudo -Hu testbot bash -lc 'make BUILD_CHANNEL="latest" appimage'
 
     - name: Upload Files (Testing)
       if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
@@ -82,7 +80,7 @@ jobs:
       with:
         headers: "cache-control: no-cache"
         path: 'etc/packaging/appimages/deploy/'
-        destination: 'packages.viam.com/apps/viam-server/testing/${{ steps.build_test_app.outputs.date }}/${{ github.sha }}/'
+        destination: 'packages.viam.com/apps/viam-server/testing/appimage/${{ steps.build_test_app.outputs.date }}/${{ github.sha }}/'
         glob: '*'
         parent: false
         gzip: false
@@ -92,7 +90,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
     strategy:
       matrix:
-        arch: [[x64, qemu-host], [arm64, qemu-host]]
+        arch: [[x64, qemu-host], [arm64, qemu-host], [arm64, pi4]]
     needs: appimage
     runs-on: ${{ matrix.arch }}
     timeout-minutes: 15
@@ -111,7 +109,7 @@ jobs:
         export TEST_DIR=`mktemp -d -t test-viam-server-XXXXXX`
         cd $TEST_DIR
 
-        curl -o viam-server http://packages.viam.com/apps/viam-server/testing/${{ needs.appimage.outputs.date }}/${{ github.sha }}/viam-server-latest-`uname -m`.AppImage
+        curl -o viam-server https://storage.googleapis.com/packages.viam.com/apps/viam-server/testing/appimage/${{ needs.appimage.outputs.date }}/${{ github.sha }}/viam-server-latest-`uname -m`.AppImage
         chmod 755 viam-server
 
         export RAND_PORT=$((30000 + $RANDOM))
@@ -142,4 +140,4 @@ jobs:
 
     - name: Publish AppImage
       run: |
-        gsutil mv "gs://packages.viam.com/apps/viam-server/testing/${{ needs.appimage_test.outputs.date }}/${{ github.sha }}/*" "gs://packages.viam.com/apps/viam-server/"
+        gsutil mv "gs://packages.viam.com/apps/viam-server/testing/appimage/${{ needs.appimage_test.outputs.date }}/${{ github.sha }}/*" "gs://packages.viam.com/apps/viam-server/"

@@ -12,19 +12,19 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-type subtypeServer struct {
+type serviceServer struct {
 	pb.UnimplementedMotorServiceServer
-	coll resource.SubtypeCollection[Motor]
+	coll resource.APIResourceCollection[Motor]
 }
 
 // NewRPCServiceServer constructs a motor gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
-func NewRPCServiceServer(coll resource.SubtypeCollection[Motor]) interface{} {
-	return &subtypeServer{coll: coll}
+func NewRPCServiceServer(coll resource.APIResourceCollection[Motor]) interface{} {
+	return &serviceServer{coll: coll}
 }
 
 // SetPower sets the percentage of power the motor of the underlying robot should employ between 0-1.
-func (server *subtypeServer) SetPower(
+func (server *serviceServer) SetPower(
 	ctx context.Context,
 	req *pb.SetPowerRequest,
 ) (*pb.SetPowerResponse, error) {
@@ -38,7 +38,7 @@ func (server *subtypeServer) SetPower(
 
 // GoFor requests the motor of the underlying robot to go for a certain amount based off
 // the request.
-func (server *subtypeServer) GoFor(
+func (server *serviceServer) GoFor(
 	ctx context.Context,
 	req *pb.GoForRequest,
 ) (*pb.GoForResponse, error) {
@@ -56,7 +56,7 @@ func (server *subtypeServer) GoFor(
 // based on its encoder. If it's not supported, the returned data is undefined.
 // The unit returned is the number of revolutions which is intended to be fed
 // back into calls of GoFor.
-func (server *subtypeServer) GetPosition(
+func (server *serviceServer) GetPosition(
 	ctx context.Context,
 	req *pb.GetPositionRequest,
 ) (*pb.GetPositionResponse, error) {
@@ -74,7 +74,7 @@ func (server *subtypeServer) GetPosition(
 }
 
 // GetProperties returns a message of booleans indicating which optional features the robot's motor supports.
-func (server *subtypeServer) GetProperties(
+func (server *serviceServer) GetProperties(
 	ctx context.Context,
 	req *pb.GetPropertiesRequest,
 ) (*pb.GetPropertiesResponse, error) {
@@ -91,7 +91,7 @@ func (server *subtypeServer) GetProperties(
 }
 
 // Stop turns the motor of the underlying robot off.
-func (server *subtypeServer) Stop(
+func (server *serviceServer) Stop(
 	ctx context.Context,
 	req *pb.StopRequest,
 ) (*pb.StopResponse, error) {
@@ -105,7 +105,7 @@ func (server *subtypeServer) Stop(
 }
 
 // IsPowered returns whether or not the motor of the underlying robot is currently on.
-func (server *subtypeServer) IsPowered(
+func (server *serviceServer) IsPowered(
 	ctx context.Context,
 	req *pb.IsPoweredRequest,
 ) (*pb.IsPoweredResponse, error) {
@@ -123,7 +123,7 @@ func (server *subtypeServer) IsPowered(
 }
 
 // GoTo requests the motor of the underlying robot to go a specific position.
-func (server *subtypeServer) GoTo(
+func (server *serviceServer) GoTo(
 	ctx context.Context,
 	req *pb.GoToRequest,
 ) (*pb.GoToResponse, error) {
@@ -139,7 +139,7 @@ func (server *subtypeServer) GoTo(
 
 // ResetZeroPosition sets the current position of the motor specified by the request
 // (adjusted by a given offset) to be its new zero position.
-func (server *subtypeServer) ResetZeroPosition(
+func (server *serviceServer) ResetZeroPosition(
 	ctx context.Context,
 	req *pb.ResetZeroPositionRequest,
 ) (*pb.ResetZeroPositionResponse, error) {
@@ -153,7 +153,7 @@ func (server *subtypeServer) ResetZeroPosition(
 }
 
 // IsMoving queries of a component is in motion.
-func (server *subtypeServer) IsMoving(ctx context.Context, req *pb.IsMovingRequest) (*pb.IsMovingResponse, error) {
+func (server *serviceServer) IsMoving(ctx context.Context, req *pb.IsMovingRequest) (*pb.IsMovingResponse, error) {
 	motor, err := server.coll.Resource(req.GetName())
 	if err != nil {
 		return nil, err
@@ -166,7 +166,7 @@ func (server *subtypeServer) IsMoving(ctx context.Context, req *pb.IsMovingReque
 }
 
 // DoCommand receives arbitrary commands.
-func (server *subtypeServer) DoCommand(ctx context.Context,
+func (server *serviceServer) DoCommand(ctx context.Context,
 	req *commonpb.DoCommandRequest,
 ) (*commonpb.DoCommandResponse, error) {
 	motor, err := server.coll.Resource(req.GetName())

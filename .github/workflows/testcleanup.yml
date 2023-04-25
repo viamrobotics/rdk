@@ -1,4 +1,4 @@
-name: AppImage Cleanup
+name: Test Binaries Cleanup
 
 concurrency: 
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -10,8 +10,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  clean_appimages:
-    name: Clean Test AppImages
+  clean_binaries:
+    name: Clean Test AppImages/Binaries
     runs-on: ubuntu-latest
 
     steps:
@@ -23,6 +23,6 @@ jobs:
     - name: Set up Cloud SDK
       uses: google-github-actions/setup-gcloud@v1
 
-    - name: Remove Failed Test AppImages
+    - name: Remove Failed Test AppImages/Binaries
       run: |
         gsutil -m rm -r "gs://packages.viam.com/apps/viam-server/testing/`date +%Y-%m -d 'last month'`*" || true

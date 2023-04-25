@@ -14,7 +14,7 @@ import (
 )
 
 func init() {
-	resource.RegisterSubtype(Subtype, resource.SubtypeRegistration[Gripper]{
+	resource.RegisterAPI(API, resource.APIRegistration[Gripper]{
 		Status:                      resource.StatusFunc(CreateStatus),
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           pb.RegisterGripperServiceHandlerFromEndpoint,
@@ -23,19 +23,15 @@ func init() {
 	})
 }
 
-// SubtypeName is a constant that identifies the component resource subtype string.
-const SubtypeName = resource.SubtypeName("gripper")
+// SubtypeName is a constant that identifies the component resource API string.
+const SubtypeName = "gripper"
 
-// Subtype is a constant that identifies the component resource subtype.
-var Subtype = resource.NewSubtype(
-	resource.ResourceNamespaceRDK,
-	resource.ResourceTypeComponent,
-	SubtypeName,
-)
+// API is a variable that identifies the component resource API.
+var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 
 // Named is a helper for getting the named grippers's typed resource name.
 func Named(name string) resource.Name {
-	return resource.NameFromSubtype(Subtype, name)
+	return resource.NewName(API, name)
 }
 
 // A Gripper represents a physical robotic gripper.
@@ -64,7 +60,7 @@ func FromRobot(r robot.Robot, name string) (Gripper, error) {
 
 // NamesFromRobot is a helper for getting all gripper names from the given Robot.
 func NamesFromRobot(r robot.Robot) []string {
-	return robot.NamesBySubtype(r, Subtype)
+	return robot.NamesByAPI(r, API)
 }
 
 // CreateStatus creates a status from the gripper.

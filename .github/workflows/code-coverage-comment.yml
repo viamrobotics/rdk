@@ -3,8 +3,7 @@ name: 'Comment on PR'
 on:
   workflow_run:
     workflows: ["Pull Request Update"]
-    types:
-      - completed
+    types: [ completed ]
 
 jobs:
   comment:
@@ -38,6 +37,17 @@ jobs:
           recreate: true
           message: |
             AppImages ready!
-            <http://packages.viam.com/apps/viam-server/viam-server-pr-${{ env.PR_NUMBER }}-x86_64.AppImage>
-            <http://packages.viam.com/apps/viam-server/viam-server-pr-${{ env.PR_NUMBER }}-aarch64.AppImage>
+            <https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-pr-${{ env.PR_NUMBER }}-x86_64.AppImage>
+            <https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-pr-${{ env.PR_NUMBER }}-aarch64.AppImage>
 
+      - name: Add Static Build Links
+        if: ${{ env.STATIC }}
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: Static Binaries
+          number: ${{ env.PR_NUMBER }}
+          recreate: true
+          message: |
+            Static binaries ready!
+            <https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-pr-${{ env.PR_NUMBER }}-x86_64>
+            <https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-pr-${{ env.PR_NUMBER }}-aarch64>

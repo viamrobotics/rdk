@@ -1,4 +1,4 @@
-// Package register registers all relevant datamanager models and also subtype specific functions
+// Package register registers all relevant datamanager models and also API specific functions
 package register
 
 import (

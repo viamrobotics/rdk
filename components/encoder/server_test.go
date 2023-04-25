@@ -23,7 +23,7 @@ func newServer() (pb.EncoderServiceServer, *inject.Encoder, *inject.Encoder, err
 		encoder.Named(failEncoderName): injectEncoder2,
 	}
 
-	injectSvc, err := resource.NewSubtypeCollection(encoder.Subtype, resourceMap)
+	injectSvc, err := resource.NewAPIResourceCollection(encoder.API, resourceMap)
 	if err != nil {
 		return nil, nil, nil, err
 	}

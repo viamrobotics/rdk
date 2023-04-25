@@ -26,11 +26,11 @@ import (
 	"go.viam.com/rdk/rimage/transform"
 )
 
-var model = resource.NewDefaultModel("webcam")
+var model = resource.DefaultModelFamily.WithModel("webcam")
 
 func init() {
 	resource.RegisterComponent(
-		camera.Subtype,
+		camera.API,
 		model,
 		resource.Registration[camera.Camera, *WebcamConfig]{
 			Constructor: NewWebcam,

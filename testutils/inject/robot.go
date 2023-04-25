@@ -27,20 +27,20 @@ import (
 // Robot is an injected robot.
 type Robot struct {
 	robot.LocalRobot
-	Mu                      sync.RWMutex // Ugly, has to be manually locked if a test means to swap funcs on an in-use robot.
-	DiscoverComponentsFunc  func(ctx context.Context, keys []resource.DiscoveryQuery) ([]resource.Discovery, error)
-	RemoteByNameFunc        func(name string) (robot.Robot, bool)
-	ResourceByNameFunc      func(name resource.Name) (resource.Resource, error)
-	RemoteNamesFunc         func() []string
-	ResourceNamesFunc       func() []resource.Name
-	ResourceRPCSubtypesFunc func() []resource.RPCSubtype
-	ProcessManagerFunc      func() pexec.ProcessManager
-	ConfigFunc              func(ctx context.Context) (*config.Config, error)
-	LoggerFunc              func() golog.Logger
-	CloseFunc               func(ctx context.Context) error
-	StopAllFunc             func(ctx context.Context, extra map[resource.Name]map[string]interface{}) error
-	FrameSystemConfigFunc   func(ctx context.Context, additionalTransforms []*referenceframe.LinkInFrame) (framesystemparts.Parts, error)
-	TransformPoseFunc       func(
+	Mu                     sync.RWMutex // Ugly, has to be manually locked if a test means to swap funcs on an in-use robot.
+	DiscoverComponentsFunc func(ctx context.Context, keys []resource.DiscoveryQuery) ([]resource.Discovery, error)
+	RemoteByNameFunc       func(name string) (robot.Robot, bool)
+	ResourceByNameFunc     func(name resource.Name) (resource.Resource, error)
+	RemoteNamesFunc        func() []string
+	ResourceNamesFunc      func() []resource.Name
+	ResourceRPCAPIsFunc    func() []resource.RPCAPI
+	ProcessManagerFunc     func() pexec.ProcessManager
+	ConfigFunc             func(ctx context.Context) (*config.Config, error)
+	LoggerFunc             func() golog.Logger
+	CloseFunc              func(ctx context.Context) error
+	StopAllFunc            func(ctx context.Context, extra map[resource.Name]map[string]interface{}) error
+	FrameSystemConfigFunc  func(ctx context.Context, additionalTransforms []*referenceframe.LinkInFrame) (framesystemparts.Parts, error)
+	TransformPoseFunc      func(
 		ctx context.Context,
 		pose *referenceframe.PoseInFrame,
 		dst string,
@@ -114,14 +114,14 @@ func (r *Robot) ResourceNames() []resource.Name {
 	return r.ResourceNamesFunc()
 }
 
-// ResourceRPCSubtypes returns a list of all known resource RPC subtypes.
-func (r *Robot) ResourceRPCSubtypes() []resource.RPCSubtype {
+// ResourceRPCAPIs returns a list of all known resource RPC APIs.
+func (r *Robot) ResourceRPCAPIs() []resource.RPCAPI {
 	r.Mu.RLock()
 	defer r.Mu.RUnlock()
-	if r.ResourceRPCSubtypesFunc == nil {
-		return r.LocalRobot.ResourceRPCSubtypes()
+	if r.ResourceRPCAPIsFunc == nil {
+		return r.LocalRobot.ResourceRPCAPIs()
 	}
-	return r.ResourceRPCSubtypesFunc()
+	return r.ResourceRPCAPIsFunc()
 }
 
 // ProcessManager calls the injected ProcessManager or the real version.

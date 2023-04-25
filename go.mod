@@ -22,7 +22,7 @@ require (
 	github.com/edaniels/gobag v1.0.7-0.20220607183102-4242cd9e2848
 	github.com/edaniels/golinters v0.0.5-0.20220906153528-641155550742
 	github.com/edaniels/golog v0.0.0-20230215213219-28954395e8d0
-	github.com/edaniels/gostream v0.0.0-20230408181022-2ee0d53bf02c
+	github.com/edaniels/gostream v0.0.0-20230423182328-e6007f21dfa3
 	github.com/edaniels/lidario v0.0.0-20220607182921-5879aa7b96dd
 	github.com/erh/scheme v0.0.0-20210304170849-99d295c6ce9a
 	github.com/fogleman/gg v1.3.0
@@ -65,7 +65,6 @@ require (
 	github.com/pion/mediadevices v0.4.1-0.20230418101253-f0f6be735011
 	github.com/pion/rtp v1.7.13
 	github.com/pion/webrtc/v3 v3.1.59
-	github.com/pseudomuto/protoc-gen-doc v1.5.1
 	github.com/rhysd/actionlint v1.6.23
 	github.com/rs/cors v1.8.3
 	github.com/sergi/go-diff v1.3.1
@@ -82,9 +81,9 @@ require (
 	go.uber.org/atomic v1.10.0
 	go.uber.org/multierr v1.10.0
 	go.uber.org/zap v1.24.0
-	go.viam.com/api v0.1.111
+	go.viam.com/api v0.1.115
 	go.viam.com/test v1.1.1-0.20220913152726-5da9916c08a2
-	go.viam.com/utils v0.1.20-0.20230417163141-55db04b36cef
+	go.viam.com/utils v0.1.20-0.20230424163529-ce35a14fc60f
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.7.0
 	golang.org/x/tools v0.7.0
@@ -95,7 +94,6 @@ require (
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.2.0
 	google.golang.org/protobuf v1.30.0
 	gopkg.in/src-d/go-billy.v4 v4.3.2
-	gopkg.in/yaml.v2 v2.4.0
 	gotest.tools/gotestsum v1.8.2
 	periph.io/x/conn/v3 v3.7.0
 	periph.io/x/host/v3 v3.8.1-0.20230331112814-9f0d9f7d76db
@@ -190,7 +188,6 @@ require (
 	github.com/goccy/go-json v0.10.2 // indirect
 	github.com/gofrs/flock v0.8.1 // indirect
 	github.com/gofrs/uuid v4.2.0+incompatible // indirect
-	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/glog v1.0.0 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/snappy v0.0.4 // indirect
@@ -268,7 +265,6 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/moricho/tparallel v0.2.1 // indirect
-	github.com/mwitkow/go-proto-validators v0.2.0 // indirect
 	github.com/nakabonne/nestif v0.3.1 // indirect
 	github.com/nbutton23/zxcvbn-go v0.0.0-20210217022336-fa2cb2858354 // indirect
 	github.com/nishanths/exhaustive v0.9.5 // indirect
@@ -301,7 +297,6 @@ require (
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.37.0 // indirect
 	github.com/prometheus/procfs v0.7.3 // indirect
-	github.com/pseudomuto/protokit v0.2.0 // indirect
 	github.com/quasilyte/go-ruleguard v0.3.19 // indirect
 	github.com/quasilyte/gogrep v0.5.0 // indirect
 	github.com/quasilyte/regex/syntax v0.0.0-20200407221936-30656e2c4a95 // indirect
@@ -372,6 +367,7 @@ require (
 	google.golang.org/appengine v1.6.7 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
+	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	honnef.co/go/tools v0.4.2 // indirect
 	howett.net/plist v1.0.0 // indirect

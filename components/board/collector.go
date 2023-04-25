@@ -94,7 +94,7 @@ func newGPIOCollector(resource interface{}, params data.CollectorParams) (data.C
 func assertBoard(resource interface{}) (Board, error) {
 	board, ok := resource.(Board)
 	if !ok {
-		return nil, data.InvalidInterfaceErr(SubtypeName)
+		return nil, data.InvalidInterfaceErr(API)
 	}
 
 	return board, nil

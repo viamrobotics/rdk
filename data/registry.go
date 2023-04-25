@@ -44,7 +44,7 @@ func (p CollectorParams) Validate() error {
 
 // MethodMetadata contains the metadata identifying a component method that we are going to capture and collect.
 type MethodMetadata struct {
-	Subtype    resource.Subtype
+	API        resource.API
 	MethodName string
 }
 
@@ -55,7 +55,7 @@ func RegisterCollector(method MethodMetadata, c CollectorConstructor) {
 	_, old := collectorRegistry[method]
 	if old {
 		panic(errors.Errorf("trying to register two of the same method on the same component: "+
-			"component %s, method %s", method.Subtype, method.MethodName))
+			"component %s, method %s", method.API, method.MethodName))
 	}
 	collectorRegistry[method] = c
 }

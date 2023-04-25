@@ -47,12 +47,12 @@ func TestClient(t *testing.T) {
 		generic.Named(testGenericName): workingGeneric,
 		generic.Named(failGenericName): failingGeneric,
 	}
-	genericSvc, err := resource.NewSubtypeCollection(generic.Subtype, resourceMap)
+	genericSvc, err := resource.NewAPIResourceCollection(generic.API, resourceMap)
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype, ok, err := resource.LookupSubtypeRegistration[resource.Resource](generic.Subtype)
+	resourceAPI, ok, err := resource.LookupAPIRegistration[resource.Resource](generic.API)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, genericSvc), test.ShouldBeNil)
+	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, genericSvc), test.ShouldBeNil)
 
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()
@@ -68,7 +68,7 @@ func TestClient(t *testing.T) {
 	t.Run("client tests for working generic", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		workingGenericClient, err := generic.NewClientFromConn(context.Background(), conn, generic.Named(testGenericName), logger)
+		workingGenericClient, err := generic.NewClientFromConn(context.Background(), conn, "", generic.Named(testGenericName), logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		resp, err := workingGenericClient.DoCommand(context.Background(), testutils.TestCommand)
@@ -83,7 +83,7 @@ func TestClient(t *testing.T) {
 	t.Run("client tests for failing generic", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		failingGenericClient, err := generic.NewClientFromConn(context.Background(), conn, generic.Named(failGenericName), logger)
+		failingGenericClient, err := generic.NewClientFromConn(context.Background(), conn, "", generic.Named(failGenericName), logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		_, err = failingGenericClient.DoCommand(context.Background(), testutils.TestCommand)
@@ -96,7 +96,7 @@ func TestClient(t *testing.T) {
 	t.Run("dialed client tests for working generic", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		client, err := resourceSubtype.RPCClient(context.Background(), conn, generic.Named(testGenericName), logger)
+		client, err := resourceAPI.RPCClient(context.Background(), conn, "", generic.Named(testGenericName), logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		resp, err := client.DoCommand(context.Background(), testutils.TestCommand)

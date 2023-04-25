@@ -16,6 +16,7 @@ import (
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/robot/packages"
 	"go.viam.com/rdk/services/mlmodel"
 )
 
@@ -184,12 +185,12 @@ func TestTFLiteCPUClient(t *testing.T) {
 	resources := map[resource.Name]mlmodel.Service{
 		mlmodel.Named("testName"): myModel,
 	}
-	svc, err := resource.NewSubtypeCollection(mlmodel.Subtype, resources)
+	svc, err := resource.NewAPIResourceCollection(mlmodel.API, resources)
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype, ok, err := resource.LookupSubtypeRegistration[mlmodel.Service](mlmodel.Subtype)
+	resourceAPI, ok, err := resource.LookupAPIRegistration[mlmodel.Service](mlmodel.API)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, svc), test.ShouldBeNil)
+	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, svc), test.ShouldBeNil)
 
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()
@@ -205,7 +206,8 @@ func TestTFLiteCPUClient(t *testing.T) {
 
 	conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
-	client := mlmodel.NewClientFromConn(context.Background(), conn, mlmodel.Named("testName"), logger)
+	client, err := mlmodel.NewClientFromConn(context.Background(), conn, "", mlmodel.Named("testName"), logger)
+	test.That(t, err, test.ShouldBeNil)
 	// Test call to Metadata
 	gotMD, err := client.Metadata(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -246,4 +248,37 @@ func makeRandomSlice(length int) []int32 {
 		out = append(out, x)
 	}
 	return out
+}
+
+func TestTFLiteConfigWalker(t *testing.T) {
+	makeVisionAttributes := func(modelPath string, labelPath *string) *TFLiteConfig {
+		return &TFLiteConfig{
+			ModelPath:  modelPath,
+			LabelPath:  labelPath,
+			NumThreads: 1,
+		}
+	}
+
+	labelPath := "/other/path/on/robot/textFile.txt"
+	visionAttrs := makeVisionAttributes("/some/path/on/robot/model.tflite", &labelPath)
+
+	labelPathWithRefs := "${packages.test_model}/textFile.txt"
+	visionAttrsWithRefs := makeVisionAttributes("${packages.test_model}/model.tflite", &labelPathWithRefs)
+
+	labelPathOneRef := "${packages.test_model}/textFile.txt"
+	visionAttrsOneRef := makeVisionAttributes("/some/path/on/robot/model.tflite", &labelPathOneRef)
+
+	packageManager := packages.NewNoopManager()
+	testAttributesWalker := func(t *testing.T, attrs *TFLiteConfig, expectedModelPath, expectedLabelPath string) {
+		newAttrs, err := attrs.Walk(packages.NewPackagePathVisitor(packageManager))
+		test.That(t, err, test.ShouldBeNil)
+
+		test.That(t, newAttrs.(*TFLiteConfig).ModelPath, test.ShouldEqual, expectedModelPath)
+		test.That(t, *newAttrs.(*TFLiteConfig).LabelPath, test.ShouldEqual, expectedLabelPath)
+		test.That(t, newAttrs.(*TFLiteConfig).NumThreads, test.ShouldEqual, 1)
+	}
+
+	testAttributesWalker(t, visionAttrs, "/some/path/on/robot/model.tflite", "/other/path/on/robot/textFile.txt")
+	testAttributesWalker(t, visionAttrsWithRefs, "test_model/model.tflite", "test_model/textFile.txt")
+	testAttributesWalker(t, visionAttrsOneRef, "/some/path/on/robot/model.tflite", "test_model/textFile.txt")
 }

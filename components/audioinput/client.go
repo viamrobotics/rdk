@@ -35,12 +35,18 @@ type client struct {
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
-func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (AudioInput, error) {
+func NewClientFromConn(
+	ctx context.Context,
+	conn rpc.ClientConn,
+	remoteName string,
+	name resource.Name,
+	logger golog.Logger,
+) (AudioInput, error) {
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	c := pb.NewAudioInputServiceClient(conn)
 	return &client{
-		Named:     name.AsNamed(),
-		name:      name.ShortNameForClient(),
+		Named:     name.PrependRemote(remoteName).AsNamed(),
+		name:      name.ShortName(),
 		conn:      conn,
 		client:    c,
 		logger:    logger,

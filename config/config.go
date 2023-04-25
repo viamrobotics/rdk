@@ -25,40 +25,55 @@ import (
 
 // A Config describes the configuration of a robot.
 type Config struct {
-	Cloud      *Cloud                `json:"cloud,omitempty"`
-	Modules    []Module              `json:"modules,omitempty"`
-	Remotes    []Remote              `json:"remotes,omitempty"`
-	Components []resource.Config     `json:"components,omitempty"`
-	Processes  []pexec.ProcessConfig `json:"processes,omitempty"`
-	Services   []resource.Config     `json:"services,omitempty"`
-	Packages   []PackageConfig       `json:"packages,omitempty"`
-	Network    NetworkConfig         `json:"network"`
-	Auth       AuthConfig            `json:"auth"`
-	Debug      bool                  `json:"debug,omitempty"`
+	Cloud      *Cloud
+	Modules    []Module
+	Remotes    []Remote
+	Components []resource.Config
+	Processes  []pexec.ProcessConfig
+	Services   []resource.Config
+	Packages   []PackageConfig
+	Network    NetworkConfig
+	Auth       AuthConfig
+	Debug      bool
 
-	ConfigFilePath string `json:"-"`
+	ConfigFilePath string
 
 	// AllowInsecureCreds is used to have all connections allow insecure
 	// downgrades and send credentials over plaintext. This is an option
 	// a user must pass via command line arguments.
-	AllowInsecureCreds bool `json:"-"`
+	AllowInsecureCreds bool
 
 	// UntrustedEnv is used to disable Processes and shell for untrusted environments
 	// where a process cannot be trusted. This is an option a user must pass via
 	// command line arguments.
-	UntrustedEnv bool `json:"-"`
+	UntrustedEnv bool
 
 	// FromCommand indicates if this config was parsed via the web server command.
 	// If false, it's for creating a robot via the RDK library. This is helpful for
 	// error messages that can indicate flags/config fields to use.
-	FromCommand bool `json:"-"`
+	FromCommand bool
 
 	// DisablePartialStart ensures that a robot will only start when all the components,
 	// services, and remotes pass config validation. This value is false by default
-	DisablePartialStart bool `json:"disable_partial_start"`
+	DisablePartialStart bool
 
 	// PackagePath sets the directory used to store packages locally. Defaults to ~/.viam/packages
-	PackagePath string `json:"-"`
+	PackagePath string
+}
+
+// NOTE: This data must be maintained with what is in Config.
+type configData struct {
+	Cloud               *Cloud                `json:"cloud,omitempty"`
+	Modules             []Module              `json:"modules,omitempty"`
+	Remotes             []Remote              `json:"remotes,omitempty"`
+	Components          []resource.Config     `json:"components,omitempty"`
+	Processes           []pexec.ProcessConfig `json:"processes,omitempty"`
+	Services            []resource.Config     `json:"services,omitempty"`
+	Packages            []PackageConfig       `json:"packages,omitempty"`
+	Network             NetworkConfig         `json:"network"`
+	Auth                AuthConfig            `json:"auth"`
+	Debug               bool                  `json:"debug,omitempty"`
+	DisablePartialStart bool                  `json:"disable_partial_start"`
 }
 
 // Ensure ensures all parts of the config are valid.
@@ -96,7 +111,7 @@ func (c *Config) Ensure(fromCloud bool, logger golog.Logger) error {
 	}
 
 	for idx := 0; idx < len(c.Components); idx++ {
-		dependsOn, err := c.Components[idx].Validate(fmt.Sprintf("%s.%d", "components", idx), resource.ResourceTypeComponent)
+		dependsOn, err := c.Components[idx].Validate(fmt.Sprintf("%s.%d", "components", idx), resource.APITypeComponentName)
 		if err != nil {
 			fullErr := errors.Errorf("error validating component %s: %s", c.Components[idx].Name, err)
 			if c.DisablePartialStart {
@@ -118,7 +133,7 @@ func (c *Config) Ensure(fromCloud bool, logger golog.Logger) error {
 	}
 
 	for idx := 0; idx < len(c.Services); idx++ {
-		dependsOn, err := c.Services[idx].Validate(fmt.Sprintf("%s.%d", "services", idx), resource.ResourceTypeService)
+		dependsOn, err := c.Services[idx].Validate(fmt.Sprintf("%s.%d", "services", idx), resource.APITypeServiceName)
 		if err != nil {
 			if c.DisablePartialStart {
 				return err
@@ -150,6 +165,65 @@ func (c Config) FindComponent(name string) *resource.Config {
 		}
 	}
 	return nil
+}
+
+// UnmarshalJSON unmarshals JSON into the config and adjusts some
+// names if they are not fully filled in.
+func (c *Config) UnmarshalJSON(data []byte) error {
+	var conf configData
+	if err := json.Unmarshal(data, &conf); err != nil {
+		return err
+	}
+	for idx := range conf.Components {
+		conf.Components[idx].AdjustPartialNames(resource.APITypeComponentName)
+	}
+	for idx := range conf.Services {
+		conf.Services[idx].AdjustPartialNames(resource.APITypeServiceName)
+	}
+	for idx := range conf.Remotes {
+		conf.Remotes[idx].adjustPartialNames()
+	}
+
+	c.Cloud = conf.Cloud
+	c.Modules = conf.Modules
+	c.Remotes = conf.Remotes
+	c.Components = conf.Components
+	c.Processes = conf.Processes
+	c.Services = conf.Services
+	c.Packages = conf.Packages
+	c.Network = conf.Network
+	c.Auth = conf.Auth
+	c.Debug = conf.Debug
+	c.DisablePartialStart = conf.DisablePartialStart
+
+	return nil
+}
+
+// MarshalJSON marshals JSON from the config.
+func (c Config) MarshalJSON() ([]byte, error) {
+	for idx := range c.Components {
+		c.Components[idx].AdjustPartialNames(resource.APITypeComponentName)
+	}
+	for idx := range c.Services {
+		c.Services[idx].AdjustPartialNames(resource.APITypeServiceName)
+	}
+	for idx := range c.Remotes {
+		c.Remotes[idx].adjustPartialNames()
+	}
+
+	return json.Marshal(configData{
+		Cloud:               c.Cloud,
+		Modules:             c.Modules,
+		Remotes:             c.Remotes,
+		Components:          c.Components,
+		Processes:           c.Processes,
+		Services:            c.Services,
+		Packages:            c.Packages,
+		Network:             c.Network,
+		Auth:                c.Auth,
+		Debug:               c.Debug,
+		DisablePartialStart: c.DisablePartialStart,
+	})
 }
 
 // CopyOnlyPublicFields returns a deep-copy of the current config only preserving JSON exported fields.
@@ -208,22 +282,22 @@ type remoteData struct {
 }
 
 // Equals checks if the two configs are deeply equal to each other.
-func (config Remote) Equals(other Remote) bool {
-	config.alreadyValidated = false
-	config.cachedErr = nil
+func (conf Remote) Equals(other Remote) bool {
+	conf.alreadyValidated = false
+	conf.cachedErr = nil
 	other.alreadyValidated = false
 	other.cachedErr = nil
 	//nolint:govet
-	return reflect.DeepEqual(config, other)
+	return reflect.DeepEqual(conf, other)
 }
 
 // UnmarshalJSON unmarshals JSON data into this config.
-func (config *Remote) UnmarshalJSON(data []byte) error {
+func (conf *Remote) UnmarshalJSON(data []byte) error {
 	var temp remoteData
 	if err := json.Unmarshal(data, &temp); err != nil {
 		return err
 	}
-	*config = Remote{
+	*conf = Remote{
 		Name:                      temp.Name,
 		Address:                   temp.Address,
 		Frame:                     temp.Frame,
@@ -238,35 +312,35 @@ func (config *Remote) UnmarshalJSON(data []byte) error {
 		if err != nil {
 			return err
 		}
-		config.ConnectionCheckInterval = dur
+		conf.ConnectionCheckInterval = dur
 	}
 	if temp.ReconnectInterval != "" {
 		dur, err := time.ParseDuration(temp.ReconnectInterval)
 		if err != nil {
 			return err
 		}
-		config.ReconnectInterval = dur
+		conf.ReconnectInterval = dur
 	}
 	return nil
 }
 
 // MarshalJSON marshals out this config.
-func (config Remote) MarshalJSON() ([]byte, error) {
+func (conf Remote) MarshalJSON() ([]byte, error) {
 	temp := remoteData{
-		Name:                      config.Name,
-		Address:                   config.Address,
-		Frame:                     config.Frame,
-		Auth:                      config.Auth,
-		ManagedBy:                 config.ManagedBy,
-		Insecure:                  config.Insecure,
-		AssociatedResourceConfigs: config.AssociatedResourceConfigs,
-		Secret:                    config.Secret,
+		Name:                      conf.Name,
+		Address:                   conf.Address,
+		Frame:                     conf.Frame,
+		Auth:                      conf.Auth,
+		ManagedBy:                 conf.ManagedBy,
+		Insecure:                  conf.Insecure,
+		AssociatedResourceConfigs: conf.AssociatedResourceConfigs,
+		Secret:                    conf.Secret,
 	}
-	if config.ConnectionCheckInterval != 0 {
-		temp.ConnectionCheckInterval = config.ConnectionCheckInterval.String()
+	if conf.ConnectionCheckInterval != 0 {
+		temp.ConnectionCheckInterval = conf.ConnectionCheckInterval.String()
 	}
-	if config.ReconnectInterval != 0 {
-		temp.ReconnectInterval = config.ReconnectInterval.String()
+	if conf.ReconnectInterval != 0 {
+		temp.ReconnectInterval = conf.ReconnectInterval.String()
 	}
 	return json.Marshal(temp)
 }
@@ -282,43 +356,54 @@ type RemoteAuth struct {
 	ExternalAuthAddress    string           `json:"-"`
 	ExternalAuthInsecure   bool             `json:"-"`
 	ExternalAuthToEntity   string           `json:"-"`
-	Managed                bool             `json:""`
-	SignalingServerAddress string           `json:""`
-	SignalingAuthEntity    string           `json:""`
-	SignalingCreds         *rpc.Credentials `json:""`
+	Managed                bool             `json:"-"`
+	SignalingServerAddress string           `json:"-"`
+	SignalingAuthEntity    string           `json:"-"`
+	SignalingCreds         *rpc.Credentials `json:"-"`
 }
 
 // Validate ensures all parts of the config are valid.
-func (config *Remote) Validate(path string) ([]string, error) {
-	if config.alreadyValidated {
-		return nil, config.cachedErr
+func (conf *Remote) Validate(path string) ([]string, error) {
+	if conf.alreadyValidated {
+		return nil, conf.cachedErr
 	}
-	config.cachedErr = config.validate(path)
-	config.alreadyValidated = true
-	return nil, config.cachedErr
+	conf.cachedErr = conf.validate(path)
+	conf.alreadyValidated = true
+	return nil, conf.cachedErr
 }
 
-func (config *Remote) validate(path string) error {
-	if config.Name == "" {
+// adjustPartialNames assumes this config comes from a place where the associated
+// config type names are partially stored (JSON/Proto/Database) and will
+// fix them up to the builtin values they are intended for.
+func (conf *Remote) adjustPartialNames() {
+	for idx := range conf.AssociatedResourceConfigs {
+		conf.AssociatedResourceConfigs[idx].RemoteName = conf.Name
+	}
+}
+
+func (conf *Remote) validate(path string) error {
+	conf.adjustPartialNames()
+
+	if conf.Name == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "name")
 	}
-	if !rutils.ValidNameRegex.MatchString(config.Name) {
-		return utils.NewConfigValidationError(path, rutils.ErrInvalidName(config.Name))
+	if !rutils.ValidNameRegex.MatchString(conf.Name) {
+		return utils.NewConfigValidationError(path, rutils.ErrInvalidName(conf.Name))
 	}
-	if config.Address == "" {
+	if conf.Address == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "address")
 	}
-	if config.Frame != nil {
-		if config.Frame.Parent == "" {
+	if conf.Frame != nil {
+		if conf.Frame.Parent == "" {
 			return utils.NewConfigValidationFieldRequiredError(path, "frame.parent")
 		}
 	}
 
-	if config.Secret != "" {
-		config.Auth = RemoteAuth{
+	if conf.Secret != "" {
+		conf.Auth = RemoteAuth{
 			Credentials: &rpc.Credentials{
 				Type:    rutils.CredentialsTypeRobotLocationSecret,
-				Payload: config.Secret,
+				Payload: conf.Secret,
 			},
 		}
 	}
@@ -351,8 +436,11 @@ type Cloud struct {
 
 // Note: keep this in sync with Cloud.
 type cloudData struct {
-	ID                string           `json:"id"`
-	Secret            string           `json:"secret"`
+	// these three fields are only set within the config passed to the robot as an argumenet.
+	ID         string `json:"id"`
+	Secret     string `json:"secret,omitempty"`
+	AppAddress string `json:"app_address,omitempty"`
+
 	LocationSecret    string           `json:"location_secret"`
 	LocationSecrets   []LocationSecret `json:"location_secrets"`
 	ManagedBy         string           `json:"managed_by"`
@@ -360,9 +448,8 @@ type cloudData struct {
 	LocalFQDN         string           `json:"local_fqdn"`
 	SignalingAddress  string           `json:"signaling_address"`
 	SignalingInsecure bool             `json:"signaling_insecure,omitempty"`
-	Path              string           `json:"path"`
-	LogPath           string           `json:"log_path"`
-	AppAddress        string           `json:"app_address"`
+	Path              string           `json:"path,omitempty"`
+	LogPath           string           `json:"log_path,omitempty"`
 	RefreshInterval   string           `json:"refresh_interval,omitempty"`
 
 	// cached by us and fetched from a non-config endpoint.
@@ -449,9 +536,9 @@ func (config *Cloud) Validate(path string, fromCloud bool) error {
 
 // LocationSecret describes a location secret that can be used to authenticate to the rdk.
 type LocationSecret struct {
-	ID string
+	ID string `json:"id"`
 	// Payload of the secret
-	Secret string
+	Secret string `json:"secret"`
 }
 
 // NetworkConfig describes networking settings for the web server.
@@ -462,7 +549,7 @@ type NetworkConfig struct {
 // NetworkConfigData is the network config data that gets marshaled/unmarshaled.
 type NetworkConfigData struct {
 	// FQDN is the unique name of this server.
-	FQDN string `json:"fqdn"`
+	FQDN string `json:"fqdn,omitempty"`
 
 	// Listener is the listener that the web server will use. This is mutually
 	// exclusive with BindAddress.
@@ -471,17 +558,17 @@ type NetworkConfigData struct {
 	// BindAddress is the address that the web server will bind to.
 	// The default behavior is to bind to localhost:8080. This is mutually
 	// exclusive with Listener.
-	BindAddress string `json:"bind_address"`
+	BindAddress string `json:"bind_address,omitempty"`
 
 	BindAddressDefaultSet bool `json:"-"`
 
 	// TLSCertFile is used to enable secure communications on the hosted HTTP server.
 	// This is mutually exclusive with TLSCertPEM and TLSKeyPEM.
-	TLSCertFile string `json:"tls_cert_file"`
+	TLSCertFile string `json:"tls_cert_file,omitempty"`
 
 	// TLSKeyFile is used to enable secure communications on the hosted HTTP server.
 	// This is mutually exclusive with TLSCertPEM and TLSKeyPEM.
-	TLSKeyFile string `json:"tls_key_file"`
+	TLSKeyFile string `json:"tls_key_file,omitempty"`
 
 	// TLSConfig is used to enable secure communications on the hosted HTTP server.
 	// This is mutually exclusive with TLSCertFile and TLSKeyFile.
@@ -492,12 +579,11 @@ type NetworkConfigData struct {
 }
 
 // MarshalJSON marshals out this config.
-func (nc *NetworkConfig) MarshalJSON() ([]byte, error) {
-	configCopy := *nc
-	if configCopy.BindAddressDefaultSet {
-		configCopy.BindAddress = ""
+func (nc NetworkConfig) MarshalJSON() ([]byte, error) {
+	if nc.BindAddressDefaultSet {
+		nc.BindAddress = ""
 	}
-	return json.Marshal(configCopy.NetworkConfigData)
+	return json.Marshal(nc.NetworkConfigData)
 }
 
 // DefaultBindAddress is the default address that will be listened on. This default may
@@ -569,9 +655,9 @@ const DefaultSessionHeartbeatWindow = 2 * time.Second
 func (sc *SessionsConfig) Validate(path string) error {
 	if sc.HeartbeatWindow == 0 {
 		sc.HeartbeatWindow = DefaultSessionHeartbeatWindow
-	} else if sc.HeartbeatWindow < 10*time.Millisecond ||
+	} else if sc.HeartbeatWindow < 30*time.Millisecond ||
 		sc.HeartbeatWindow > time.Minute {
-		return utils.NewConfigValidationError(path, errors.New("heartbeat_window must be between [10ms, 1m]"))
+		return utils.NewConfigValidationError(path, errors.New("heartbeat_window must be between [30ms, 1m]"))
 	}
 
 	return nil
@@ -579,8 +665,8 @@ func (sc *SessionsConfig) Validate(path string) error {
 
 // AuthConfig describes authentication and authorization settings for the web server.
 type AuthConfig struct {
-	Handlers           []AuthHandlerConfig `json:"handlers"`
-	TLSAuthEntities    []string            `json:"tls_auth_entities"`
+	Handlers           []AuthHandlerConfig `json:"handlers,omitempty"`
+	TLSAuthEntities    []string            `json:"tls_auth_entities,omitempty"`
 	ExternalAuthConfig *ExternalAuthConfig `json:"external_auth_config,omitempty"`
 }
 

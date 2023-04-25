@@ -15,10 +15,10 @@ import (
 	"go.viam.com/rdk/rimage/transform"
 )
 
-var fileModel = resource.NewDefaultModel("image_file")
+var fileModel = resource.DefaultModelFamily.WithModel("image_file")
 
 func init() {
-	resource.RegisterComponent(camera.Subtype, fileModel,
+	resource.RegisterComponent(camera.API, fileModel,
 		resource.Registration[camera.Camera, *fileSourceConfig]{
 			Constructor: func(ctx context.Context, _ resource.Dependencies,
 				conf resource.Config, logger golog.Logger,
@@ -95,6 +95,10 @@ func (fs *fileSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud
 		return nil, err
 	}
 	return fs.Intrinsics.RGBDToPointCloud(img, dm)
+}
+
+func (fs *fileSource) Close(ctx context.Context) error {
+	return nil
 }
 
 // StaticSource is a fixed, stored image. Used primarily for testing.

@@ -376,53 +376,41 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger golog.Logge
 
 	// See if default service already exists in the config
 	defaultServices := resource.DefaultServices()
-	unconfiguredDefaultServices := make(map[resource.Subtype]resource.Name, len(defaultServices))
+	unconfiguredDefaultServices := make(map[resource.API]resource.Name, len(defaultServices))
 	for _, name := range defaultServices {
-		unconfiguredDefaultServices[name.Subtype] = name
+		unconfiguredDefaultServices[name.API] = name
 	}
 	for _, c := range cfg.Services {
-		copied := c
-		// TODO(PRODUCT-266): Remove when API replaces namespace/subtype; otherwise this fixes it up
-		if _, err := copied.Validate("", resource.ResourceTypeService); err != nil {
-			return nil, errors.Wrapf(err, "error validating service")
-		}
-		delete(unconfiguredDefaultServices, copied.API)
+		delete(unconfiguredDefaultServices, c.API)
 	}
 
 	for _, defaultServiceName := range unconfiguredDefaultServices {
 		cfg.Services = append(cfg.Services, resource.Config{
-			Name:                   defaultServiceName.Name,
-			Model:                  resource.DefaultServiceModel,
-			DeprecatedNamespace:    defaultServiceName.Namespace,
-			DeprecatedSubtype:      defaultServiceName.ResourceSubtype,
-			DeprecatedResourceType: resource.ResourceTypeService,
-			API:                    defaultServiceName.Subtype,
+			Name:  defaultServiceName.Name,
+			Model: resource.DefaultServiceModel,
+			API:   defaultServiceName.API,
 		})
 	}
 
 	// for assocations
-	resCfgsPerSubtype := map[resource.Subtype][]*resource.Config{}
+	resCfgsPerAPI := map[resource.API][]*resource.Config{}
 
-	processResources := func(resType resource.TypeName, confs []resource.Config) error {
+	processResources := func(confs []resource.Config) error {
 		for idx, conf := range confs {
 			copied := conf
 
-			// TODO(PRODUCT-266): Remove when API replaces namespace/subtype; otherwise this fixes it up
-			if _, err := copied.Validate("", resType); err != nil {
-				return errors.Wrapf(err, "error validating resource")
-			}
 			// for resource to resource assocations
-			resCfgsPerSubtype[copied.API] = append(resCfgsPerSubtype[copied.API], &confs[idx])
+			resCfgsPerAPI[copied.API] = append(resCfgsPerAPI[copied.API], &confs[idx])
 			resName := copied.ResourceName()
 
-			reg, ok := resource.LookupRegistration(resName.Subtype, copied.Model)
+			reg, ok := resource.LookupRegistration(resName.API, copied.Model)
 			if !ok || reg.AttributeMapConverter == nil {
 				continue
 			}
 
 			converted, err := reg.AttributeMapConverter(conf.Attributes)
 			if err != nil {
-				return errors.Wrapf(err, "error converting attributes for (%s, %s)", resName.Subtype, copied.Model)
+				return errors.Wrapf(err, "error converting attributes for (%s, %s)", resName.API, copied.Model)
 			}
 			confs[idx].Attributes = nil
 			confs[idx].ConvertedAttributes = converted
@@ -430,45 +418,54 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger golog.Logge
 		return nil
 	}
 
-	if err := processResources(resource.ResourceTypeComponent, cfg.Components); err != nil {
+	if err := processResources(cfg.Components); err != nil {
 		return nil, err
 	}
-	if err := processResources(resource.ResourceTypeService, cfg.Services); err != nil {
+	if err := processResources(cfg.Services); err != nil {
 		return nil, err
 	}
 
-	convertAndAssociateResourceConfigs := func(resName *resource.Name, associatedCfgs []resource.AssociatedResourceConfig) error {
+	convertAndAssociateResourceConfigs := func(
+		resName *resource.Name,
+		remoteName *string,
+		associatedCfgs []resource.AssociatedResourceConfig,
+	) error {
 		for subIdx, associatedConf := range associatedCfgs {
-			assocSubtype := associatedConf.AssociatedSubtype()
-			conv, ok := resource.LookupAssociatedConfigRegistration(assocSubtype)
+			conv, ok := resource.LookupAssociatedConfigRegistration(associatedConf.API)
 			if !ok {
 				continue
 			}
 
-			var converted interface{} = associatedConf.Attributes
+			var convertedAttrs interface{} = associatedConf.Attributes
 			if conv.AttributeMapConverter != nil {
-				var err error
-				converted, err = conv.AttributeMapConverter(associatedConf.Attributes)
+				converted, err := conv.AttributeMapConverter(associatedConf.Attributes)
 				if err != nil {
 					return errors.Wrap(err, "error converting associated resource config attributes")
 				}
+				if resName != nil || remoteName != nil {
+					converted.UpdateResourceNames(func(oldName resource.Name) resource.Name {
+						newName := oldName
+						if resName != nil {
+							newName = *resName
+						}
+						if remoteName != nil {
+							newName = newName.PrependRemote(*remoteName)
+						}
+						return newName
+					})
+				}
 				associatedCfgs[subIdx].Attributes = nil
 				associatedCfgs[subIdx].ConvertedAttributes = converted
+				convertedAttrs = converted
 			}
 
-			if resName != nil {
-				if err := conv.WithName(*resName, converted); err != nil {
-					return errors.Wrap(err, "error attaching resource name to associated resource config")
-				}
-			} // otherwise we assume the resource name is already in the associated config
-
 			// always associate
-			for _, assocConf := range resCfgsPerSubtype[assocSubtype] {
-				reg, ok := resource.LookupRegistration(assocSubtype, assocConf.Model)
+			for _, assocConf := range resCfgsPerAPI[associatedConf.API] {
+				reg, ok := resource.LookupRegistration(associatedConf.API, assocConf.Model)
 				if !ok || reg.AssociatedConfigLinker == nil {
 					continue
 				}
-				if err := reg.AssociatedConfigLinker(assocConf.ConvertedAttributes, converted); err != nil {
+				if err := reg.AssociatedConfigLinker(assocConf.ConvertedAttributes, convertedAttrs); err != nil {
 					return errors.Wrapf(err, "error associating resource association config to resource %q", assocConf.Model)
 				}
 			}
@@ -476,31 +473,27 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger golog.Logge
 		return nil
 	}
 
-	processAssocations := func(resType resource.TypeName, confs []resource.Config) error {
+	processAssocations := func(confs []resource.Config) error {
 		for _, conf := range confs {
 			copied := conf
-			// TODO(PRODUCT-266): Remove when API replaces namespace/subtype; otherwise this fixes it up
-			if _, err := copied.Validate("", resType); err != nil {
-				return errors.Wrapf(err, "error validating resource")
-			}
 			resName := copied.ResourceName()
 
-			if err := convertAndAssociateResourceConfigs(&resName, conf.AssociatedResourceConfigs); err != nil {
+			if err := convertAndAssociateResourceConfigs(&resName, nil, conf.AssociatedResourceConfigs); err != nil {
 				return errors.Wrapf(err, "error processing associated service configs for %q", resName)
 			}
 		}
 		return nil
 	}
 
-	if err := processAssocations(resource.ResourceTypeComponent, cfg.Components); err != nil {
+	if err := processAssocations(cfg.Components); err != nil {
 		return nil, err
 	}
-	if err := processAssocations(resource.ResourceTypeService, cfg.Services); err != nil {
+	if err := processAssocations(cfg.Services); err != nil {
 		return nil, err
 	}
 
 	for _, c := range cfg.Remotes {
-		if err := convertAndAssociateResourceConfigs(nil, c.AssociatedResourceConfigs); err != nil {
+		if err := convertAndAssociateResourceConfigs(nil, &c.Name, c.AssociatedResourceConfigs); err != nil {
 			return nil, errors.Wrapf(err, "error processing associated service configs for remote %q", c.Name)
 		}
 	}

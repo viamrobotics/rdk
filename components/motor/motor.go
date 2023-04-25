@@ -11,7 +11,7 @@ import (
 )
 
 func init() {
-	resource.RegisterSubtype(Subtype, resource.SubtypeRegistration[Motor]{
+	resource.RegisterAPI(API, resource.APIRegistration[Motor]{
 		Status:                      resource.StatusFunc(CreateStatus),
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           pb.RegisterMotorServiceHandlerFromEndpoint,
@@ -19,24 +19,20 @@ func init() {
 		RPCClient:                   NewClientFromConn,
 	})
 	data.RegisterCollector(data.MethodMetadata{
-		Subtype:    Subtype,
+		API:        API,
 		MethodName: position.String(),
 	}, newPositionCollector)
 	data.RegisterCollector(data.MethodMetadata{
-		Subtype:    Subtype,
+		API:        API,
 		MethodName: isPowered.String(),
 	}, newIsPoweredCollector)
 }
 
-// SubtypeName is a constant that identifies the component resource subtype string "motor".
-const SubtypeName = resource.SubtypeName("motor")
+// SubtypeName is a constant that identifies the component resource API string "motor".
+const SubtypeName = "motor"
 
-// Subtype is a constant that identifies the component resource subtype.
-var Subtype = resource.NewSubtype(
-	resource.ResourceNamespaceRDK,
-	resource.ResourceTypeComponent,
-	SubtypeName,
-)
+// API is a variable that identifies the component resource API.
+var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 
 // A Motor represents a physical motor connected to a board.
 type Motor interface {
@@ -90,7 +86,7 @@ type LocalMotor interface {
 
 // Named is a helper for getting the named Motor's typed resource name.
 func Named(name string) resource.Name {
-	return resource.NameFromSubtype(Subtype, name)
+	return resource.NewName(API, name)
 }
 
 // FromDependencies is a helper for getting the named motor from a collection of
@@ -106,7 +102,7 @@ func FromRobot(r robot.Robot, name string) (Motor, error) {
 
 // NamesFromRobot is a helper for getting all motor names from the given Robot.
 func NamesFromRobot(r robot.Robot) []string {
-	return robot.NamesBySubtype(r, Subtype)
+	return robot.NamesByAPI(r, API)
 }
 
 // CreateStatus creates a status from the motor.

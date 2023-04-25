@@ -24,15 +24,21 @@ type client struct {
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
-func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) Encoder {
+func NewClientFromConn(
+	ctx context.Context,
+	conn rpc.ClientConn,
+	remoteName string,
+	name resource.Name,
+	logger golog.Logger,
+) (Encoder, error) {
 	c := pb.NewEncoderServiceClient(conn)
 	return &client{
-		Named:  name.AsNamed(),
-		name:   name.ShortNameForClient(),
+		Named:  name.PrependRemote(remoteName).AsNamed(),
+		name:   name.ShortName(),
 		conn:   conn,
 		client: c,
 		logger: logger,
-	}
+	}, nil
 }
 
 // GetPosition returns the current position in terms of ticks or

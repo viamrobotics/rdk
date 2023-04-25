@@ -62,12 +62,12 @@ func TestClient(t *testing.T) {
 		servo.Named(testServoName): workingServo,
 		servo.Named(failServoName): failingServo,
 	}
-	servoSvc, err := resource.NewSubtypeCollection(servo.Subtype, resourceMap)
+	servoSvc, err := resource.NewAPIResourceCollection(servo.API, resourceMap)
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype, ok, err := resource.LookupSubtypeRegistration[servo.Servo](servo.Subtype)
+	resourceAPI, ok, err := resource.LookupAPIRegistration[servo.Servo](servo.API)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, servoSvc), test.ShouldBeNil)
+	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, servoSvc), test.ShouldBeNil)
 
 	workingServo.DoFunc = testutils.EchoFunc
 
@@ -85,7 +85,7 @@ func TestClient(t *testing.T) {
 	t.Run("client tests for working servo", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		workingServoClient, err := servo.NewClientFromConn(context.Background(), conn, servo.Named(testServoName), logger)
+		workingServoClient, err := servo.NewClientFromConn(context.Background(), conn, "", servo.Named(testServoName), logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		// DoCommand
@@ -114,7 +114,7 @@ func TestClient(t *testing.T) {
 	t.Run("client tests for failing servo", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		failingServoClient, err := servo.NewClientFromConn(context.Background(), conn, servo.Named(failServoName), logger)
+		failingServoClient, err := servo.NewClientFromConn(context.Background(), conn, "", servo.Named(failServoName), logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		err = failingServoClient.Move(context.Background(), 20, nil)
@@ -134,7 +134,7 @@ func TestClient(t *testing.T) {
 	t.Run("dialed client tests for working servo", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		client, err := resourceSubtype.RPCClient(context.Background(), conn, servo.Named(testServoName), logger)
+		client, err := resourceAPI.RPCClient(context.Background(), conn, "", servo.Named(testServoName), logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		err = client.Move(context.Background(), 20, nil)

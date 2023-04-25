@@ -40,7 +40,7 @@ func TestOpID(t *testing.T) {
 	}()
 	server := pexec.NewManagedProcess(pexec.ProcessConfig{
 		Name: "bash",
-		Args: []string{"-c", "make server && exec bin/`uname`-`uname -m`/server -config " + cfgFilename},
+		Args: []string{"-c", "make server && exec bin/`uname`-`uname -m`/viam-server -config " + cfgFilename},
 		CWD:  utils.ResolveFile("./"),
 		Log:  true,
 	}, logger)
@@ -172,7 +172,7 @@ func makeConfig(logger golog.Logger) (string, string, error) {
 		}},
 		Network: config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{BindAddress: "localhost:" + port}},
 		Components: []resource.Config{{
-			API:   generic.Subtype,
+			API:   generic.API,
 			Model: resource.NewModel("rdk", "test", "helper"),
 			Name:  "helper1",
 		}},

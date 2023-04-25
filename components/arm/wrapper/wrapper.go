@@ -23,7 +23,7 @@ type Config struct {
 	ArmName       string `json:"arm-name"`
 }
 
-var model = resource.NewDefaultModel("wrapper_arm")
+var model = resource.DefaultModelFamily.WithModel("wrapper_arm")
 
 // Validate ensures all parts of the config are valid.
 func (cfg *Config) Validate(path string) ([]string, error) {
@@ -39,7 +39,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 }
 
 func init() {
-	resource.RegisterComponent(arm.Subtype, model, resource.Registration[arm.Arm, *Config]{
+	resource.RegisterComponent(arm.API, model, resource.Registration[arm.Arm, *Config]{
 		Constructor: NewWrapperArm,
 	})
 }

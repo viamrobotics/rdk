@@ -237,13 +237,13 @@ func TestFullClientServerLoop(t *testing.T) {
 	osMap := map[resource.Name]vision.Service{
 		vision.Named(testVisionServiceName): oss,
 	}
-	svc, err := resource.NewSubtypeCollection(vision.Subtype, osMap)
+	svc, err := resource.NewAPIResourceCollection(vision.API, osMap)
 	test.That(t, err, test.ShouldBeNil)
 	// test the server/client
-	resourceSubtype, ok, err := resource.LookupSubtypeRegistration[vision.Service](vision.Subtype)
+	resourceAPI, ok, err := resource.LookupAPIRegistration[vision.Service](vision.API)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, svc), test.ShouldBeNil)
+	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, svc), test.ShouldBeNil)
 
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()
@@ -251,7 +251,7 @@ func TestFullClientServerLoop(t *testing.T) {
 	conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	client, err := vision.NewClientFromConn(context.Background(), conn, vision.Named(testVisionServiceName), logger)
+	client, err := vision.NewClientFromConn(context.Background(), conn, "", vision.Named(testVisionServiceName), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, err, test.ShouldBeNil)
