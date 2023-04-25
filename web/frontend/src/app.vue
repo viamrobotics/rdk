@@ -41,6 +41,7 @@ const client = new Client(impliedURL, {
     :supported-auth-types="supportedAuthTypes"
     :webrtc-enabled="webrtcEnabled"
     :client="client"
+    manage-client-connection
   />
 </template>
 

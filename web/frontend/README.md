@@ -36,4 +36,4 @@ The file paths listed in the `files` field of `package.json` determines what is 
 
 If you intend to use the Remote Control in you own application, consider whether or not your application will be creating its own connection to the robot using the [Viam TypeScript SDK](https://github.com/viamrobotics/viam-typescript-sdk). If so, be aware the Remote Control has a peer dependency for the SDK at a locked version, and will expect your application to include a dependency to _that version_.
 
-The SDK `Client` you create for your connection should be passed to the `createRcApp` function when creating your Remote Control.
+The SDK `Client` you create for your connection should be passed to the `createRcApp` function when creating your Remote Control. _The Remote Control will assume you are managing the client connection, and will not attempt to connect or disconnect on its own._
