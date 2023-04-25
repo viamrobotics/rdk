@@ -3,7 +3,6 @@ package gpio
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"time"
 
@@ -22,6 +21,7 @@ const (
 	defaultMaxDeg float64 = 180.0
 	minWidthUs    uint    = 500  // absolute minimum PWM width
 	maxWidthUs    uint    = 2500 // absolute maximum PWM width
+	defaultFreq   uint    = 300
 )
 
 // We want to distinguish values that are 0 because the user set them to 0 from ones that are 0
@@ -129,13 +129,13 @@ func newGPIOServo(ctx context.Context, deps resource.Dependencies, conf resource
 	}
 
 	// If the frequency isn't specified in the config, we'll use whatever it's currently set to
-	// instead. If it's currently set to 0, we'll try using 100 Hz.
+	// instead. If it's currently set to 0, we'll default to using 30 Hz.
 	frequency, err := pin.PWMFreq(ctx, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "couldn't get servo pin pwm frequency")
 	}
 	if frequency == 0 {
-		frequency = 100
+		frequency = defaultFreq
 	}
 	if newConf.Frequency != nil {
 		if *newConf.Frequency > 450 || *newConf.Frequency == 0 {
@@ -298,9 +298,6 @@ func (s *servoGPIO) findPWMResolution(ctx context.Context) error {
 // Move moves the servo to the given angle (0-180 degrees)
 // This will block until done or a new operation cancels this one.
 func (s *servoGPIO) Move(ctx context.Context, ang uint32, extra map[string]interface{}) error {
-	fmt.Printf("starting a move to position %d!\n", ang)
-	fmt.Printf("minUs: %s, maxUs: %s, minDeg: %s, maxDeg: %s, ang: %s, frequency: %s\n",
-	           s.minUs, s.maxUs, s.minDeg, s.maxDeg, ang, s.frequency)
 	ctx, done := s.opMgr.New(ctx)
 	defer done()
 	angle := float64(ang)
@@ -315,7 +312,6 @@ func (s *servoGPIO) Move(ctx context.Context, ang uint32, extra map[string]inter
 		realTick := math.Round(pct * float64(s.pwmRes))
 		pct = realTick / float64(s.pwmRes)
 	}
-	fmt.Printf("setting PWM duty cycle to %f (frequency is %d)\n", pct, s.frequency)
 	if err := s.pin.SetPWM(ctx, pct, nil); err != nil {
 		return errors.Wrap(err, "couldn't move the servo")
 	}
