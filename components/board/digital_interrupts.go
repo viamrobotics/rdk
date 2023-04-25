@@ -42,8 +42,6 @@ type DigitalInterrupt interface {
 
 	// AddCallback adds a callback to be sent a low/high value to when a tick
 	// happens.
-	// Note(erd): not all interrupts can have callbacks so this should probably be a
-	// separate interface.
 	AddCallback(c chan Tick)
 
 	// AddPostProcessor adds a post processor that should be used to modify
