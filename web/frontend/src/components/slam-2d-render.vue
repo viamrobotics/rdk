@@ -247,7 +247,12 @@ const createGridHelper = (
   const deltaX = Math.abs(boundingBox.max.x - boundingBox.min.x);
   const deltaZ = Math.abs(boundingBox.max.z - boundingBox.min.z);
   let maxDelta = Math.round(Math.max(deltaX, deltaZ) * gridHelperScalar);
-  // ensure maxDelta is even so grids are layered below x z axes
+
+  /*
+   * if maxDelta is an odd number the x y axes will not be layered neatly over the grey grid
+   * because we round maxDelta and then potentially decrease the value, the 1 meter grid spacing
+   * is bound to have a margin of error
+   */
   if (maxDelta % 2 !== 0) {
     maxDelta -= 1;
   }
