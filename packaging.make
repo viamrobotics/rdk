@@ -24,4 +24,4 @@ static-release: server-static
 	rm -rf etc/packaging/static/deploy/
 	mkdir -p etc/packaging/static/deploy/
 	cp $(BIN_OUTPUT_PATH)/viam-server etc/packaging/static/deploy/viam-server-${BUILD_CHANNEL}-$(shell uname -m)
-	cd etc/packaging/appimages && ./package_release.sh
+	cd etc/packaging/static && ./package_release.sh
