@@ -60,12 +60,12 @@ import (
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/datamanager/builtin"
 	"go.viam.com/rdk/services/mlmodel"
+	"go.viam.com/rdk/services/mlmodel/tflitecpu"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/navigation"
 	_ "go.viam.com/rdk/services/register"
 	"go.viam.com/rdk/services/sensors"
 	"go.viam.com/rdk/services/slam"
-	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
 	rtestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
@@ -182,7 +182,6 @@ func TestConfigRemote(t *testing.T) {
 
 	expected := []resource.Name{
 		motion.Named(resource.DefaultServiceName),
-		vision.Named(resource.DefaultServiceName),
 		sensors.Named(resource.DefaultServiceName),
 		datamanager.Named(resource.DefaultServiceName),
 		arm.Named("squee:pieceArm"),
@@ -206,15 +205,12 @@ func TestConfigRemote(t *testing.T) {
 		gripper.Named("foo:pieceGripper"),
 		gripper.Named("bar:pieceGripper"),
 		motion.Named("squee:builtin"),
-		vision.Named("squee:builtin"),
 		sensors.Named("squee:builtin"),
 		datamanager.Named("squee:builtin"),
 		motion.Named("foo:builtin"),
-		vision.Named("foo:builtin"),
 		sensors.Named("foo:builtin"),
 		datamanager.Named("foo:builtin"),
 		motion.Named("bar:builtin"),
-		vision.Named("bar:builtin"),
 		sensors.Named("bar:builtin"),
 		datamanager.Named("bar:builtin"),
 	}
@@ -463,7 +459,6 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 
 			expected := []resource.Name{
 				motion.Named(resource.DefaultServiceName),
-				vision.Named(resource.DefaultServiceName),
 				sensors.Named(resource.DefaultServiceName),
 				datamanager.Named(resource.DefaultServiceName),
 				arm.Named("bar:pieceArm"),
@@ -479,11 +474,9 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				gripper.Named("bar:pieceGripper"),
 				gripper.Named("foo:pieceGripper"),
 				motion.Named("foo:builtin"),
-				vision.Named("foo:builtin"),
 				sensors.Named("foo:builtin"),
 				datamanager.Named("foo:builtin"),
 				motion.Named("bar:builtin"),
-				vision.Named("bar:builtin"),
 				sensors.Named("bar:builtin"),
 				datamanager.Named("bar:builtin"),
 			}
@@ -667,7 +660,6 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 
 	expected := []resource.Name{
 		motion.Named(resource.DefaultServiceName),
-		vision.Named(resource.DefaultServiceName),
 		sensors.Named(resource.DefaultServiceName),
 		datamanager.Named(resource.DefaultServiceName),
 		arm.Named("foo:pieceArm"),
@@ -677,7 +669,6 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 		movementsensor.Named("foo:movement_sensor2"),
 		gripper.Named("foo:pieceGripper"),
 		motion.Named("foo:builtin"),
-		vision.Named("foo:builtin"),
 		sensors.Named("foo:builtin"),
 		datamanager.Named("foo:builtin"),
 	}
@@ -962,7 +953,7 @@ func TestMetadataUpdate(t *testing.T) {
 	resources := r.ResourceNames()
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, len(resources), test.ShouldEqual, 10)
+	test.That(t, len(resources), test.ShouldEqual, 9)
 	test.That(t, err, test.ShouldBeNil)
 
 	// 5 declared resources + default sensors
@@ -974,7 +965,6 @@ func TestMetadataUpdate(t *testing.T) {
 		movementsensor.Named("movement_sensor1"),
 		movementsensor.Named("movement_sensor2"),
 		motion.Named(resource.DefaultServiceName),
-		vision.Named(resource.DefaultServiceName),
 		sensors.Named(resource.DefaultServiceName),
 		datamanager.Named(resource.DefaultServiceName),
 	}
@@ -1180,11 +1170,11 @@ func TestStatus(t *testing.T) {
 
 		resp, err := r.Status(context.Background(), []resource.Name{})
 		test.That(t, err, test.ShouldBeNil)
-		// 6 because the 4 default services are always added to a local_robot. We only care
+		// 5 because the 3 default services are always added to a local_robot. We only care
 		// about the first two (working1 and button1) however.
-		test.That(t, len(resp), test.ShouldEqual, 6)
+		test.That(t, len(resp), test.ShouldEqual, 5)
 
-		// although the response is length 6, the only thing we actually care about for testing
+		// although the response is length 5, the only thing we actually care about for testing
 		// is consistency with the expected values in the workingResourceMap. So we eliminate
 		// the values that aren't in the workingResourceMap.
 		actual := []robot.Status{}
@@ -1294,7 +1284,6 @@ func TestStatusRemote(t *testing.T) {
 		test.ShouldResemble,
 		rtestutils.NewResourceNameSet(
 			motion.Named(resource.DefaultServiceName),
-			vision.Named(resource.DefaultServiceName),
 			sensors.Named(resource.DefaultServiceName),
 			datamanager.Named(resource.DefaultServiceName),
 			arm.Named("foo:arm1"),
@@ -1413,7 +1402,6 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 		test.ShouldResemble,
 		rtestutils.NewResourceNameSet(
 			motion.Named(resource.DefaultServiceName),
-			vision.Named(resource.DefaultServiceName),
 			sensors.Named(resource.DefaultServiceName),
 			datamanager.Named(resource.DefaultServiceName),
 			arm.Named("remote:foo:arm1"), arm.Named("remote:foo:arm2"),
@@ -1425,11 +1413,9 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 			movementsensor.Named("remote:movement_sensor2"),
 			gripper.Named("remote:pieceGripper"),
 			motion.Named("remote:builtin"),
-			vision.Named("remote:builtin"),
 			sensors.Named("remote:builtin"),
 			datamanager.Named("remote:builtin"),
 			motion.Named("remote:foo:builtin"),
-			vision.Named("remote:foo:builtin"),
 			sensors.Named("remote:foo:builtin"),
 			datamanager.Named("remote:foo:builtin"),
 		),
@@ -1893,6 +1879,7 @@ func TestConfigPackageReferenceReplacement(t *testing.T) {
 	defer utils.UncheckedErrorFunc(fakePackageServer.Shutdown)
 
 	packageDir := t.TempDir()
+	labelPath := "${packages.package-2}/labels.txt"
 
 	robotConfig := &config.Config{
 		Packages: []config.PackageConfig{
@@ -1910,13 +1897,13 @@ func TestConfigPackageReferenceReplacement(t *testing.T) {
 		PackagePath: packageDir,
 		Services: []resource.Config{
 			{
-				Name:  "my_ml_model_service",
+				Name:  "ml-model-service",
 				API:   mlmodel.API,
 				Model: resource.DefaultModelFamily.WithModel("tflite_cpu"),
-				Attributes: rutils.AttributeMap{
-					"model_path":  "${packages.package-1}/model.tflite",
-					"label_path":  "${packages.package-1}/labels.txt",
-					"num_threads": 1,
+				ConvertedAttributes: &tflitecpu.TFLiteConfig{
+					ModelPath:  "${packages.package-1}/model.tflite",
+					LabelPath:  &labelPath,
+					NumThreads: 1,
 				},
 			},
 		},
@@ -2009,9 +1996,9 @@ func TestReconnectRemote(t *testing.T) {
 	test.That(t, len(remoteRobotClient.ResourceNames()), test.ShouldEqual, 0)
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
-		test.That(tb, len(robotClient.ResourceNames()), test.ShouldEqual, 4)
+		test.That(tb, len(robotClient.ResourceNames()), test.ShouldEqual, 3)
 	})
-	test.That(t, len(robot1.ResourceNames()), test.ShouldEqual, 4)
+	test.That(t, len(robot1.ResourceNames()), test.ShouldEqual, 3)
 	_, err = anArm.EndPosition(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeError)
 
@@ -2027,12 +2014,12 @@ func TestReconnectRemote(t *testing.T) {
 	// check if the original arm can still be called
 	test.That(t, <-remoteRobotClient.Changed(), test.ShouldBeTrue)
 	test.That(t, remoteRobotClient.Connected(), test.ShouldBeTrue)
-	test.That(t, len(remoteRobotClient.ResourceNames()), test.ShouldEqual, 5)
+	test.That(t, len(remoteRobotClient.ResourceNames()), test.ShouldEqual, 4)
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
-		test.That(tb, len(robotClient.ResourceNames()), test.ShouldEqual, 9)
+		test.That(tb, len(robotClient.ResourceNames()), test.ShouldEqual, 7)
 	})
-	test.That(t, len(robot1.ResourceNames()), test.ShouldEqual, 9)
+	test.That(t, len(robot1.ResourceNames()), test.ShouldEqual, 7)
 	_, err = remoteRobotClient.ResourceByName(arm.Named("arm1"))
 	test.That(t, err, test.ShouldBeNil)
 
@@ -2122,9 +2109,9 @@ func TestReconnectRemoteChangeConfig(t *testing.T) {
 	test.That(t, len(remoteRobotClient.ResourceNames()), test.ShouldEqual, 0)
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
-		test.That(tb, len(robotClient.ResourceNames()), test.ShouldEqual, 4)
+		test.That(tb, len(robotClient.ResourceNames()), test.ShouldEqual, 3)
 	})
-	test.That(t, len(robot1.ResourceNames()), test.ShouldEqual, 4)
+	test.That(t, len(robot1.ResourceNames()), test.ShouldEqual, 3)
 	_, err = anArm.EndPosition(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeError)
 
@@ -2153,12 +2140,12 @@ func TestReconnectRemoteChangeConfig(t *testing.T) {
 	// check if the original arm can't be called anymore
 	test.That(t, <-remoteRobotClient.Changed(), test.ShouldBeTrue)
 	test.That(t, remoteRobotClient.Connected(), test.ShouldBeTrue)
-	test.That(t, len(remoteRobotClient.ResourceNames()), test.ShouldEqual, 5)
+	test.That(t, len(remoteRobotClient.ResourceNames()), test.ShouldEqual, 4)
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
-		test.That(tb, len(robotClient.ResourceNames()), test.ShouldEqual, 9)
+		test.That(tb, len(robotClient.ResourceNames()), test.ShouldEqual, 7)
 	})
-	test.That(t, len(robot1.ResourceNames()), test.ShouldEqual, 9)
+	test.That(t, len(robot1.ResourceNames()), test.ShouldEqual, 7)
 	_, err = anArm.EndPosition(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeError)
 
@@ -2174,7 +2161,7 @@ func TestReconnectRemoteChangeConfig(t *testing.T) {
 	err = aBase.Stop(ctx, map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, len(robotClient.ResourceNames()), test.ShouldEqual, 9)
+	test.That(t, len(robotClient.ResourceNames()), test.ShouldEqual, 7)
 }
 
 func TestCheckMaxInstanceValid(t *testing.T) {
