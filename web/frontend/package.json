@@ -14,7 +14,7 @@
     }
   },
   "peerDependencies": {
-    "@viamrobotics/sdk": "0.0.44"
+    "@viamrobotics/sdk": "^0.0.47"
   },
   "dependencies": {
     "@fontsource/space-mono": "^4.5.12",
@@ -33,7 +33,7 @@
     "@types/google.maps": "^3.52.4",
     "@types/three": "^0.150.1",
     "@typescript-eslint/eslint-plugin": "^5.57.1",
-    "@viamrobotics/sdk": "0.0.44",
+    "@viamrobotics/sdk": "^0.0.47",
     "@vitejs/plugin-vue": "^4.1.0",
     "cypress": "^10.10.0",
     "eslint": "^8.37.0",
