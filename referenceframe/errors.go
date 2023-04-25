@@ -41,3 +41,7 @@ func NewIncorrectInputLengthError(actual, expected int) error {
 func NewUnsupportedJointTypeError(jointType string) error {
 	return errors.Errorf("unsupported joint type detected: %q", jointType)
 }
+
+func NewWorldStateNameError(name string) error {
+	return errors.Errorf("cannot specify multiple geometries with the same name: %s", name)
+}

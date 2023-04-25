@@ -1,51 +1,62 @@
 package referenceframe
 
 import (
-	"fmt"
 	"strconv"
 
 	commonpb "go.viam.com/api/common/v1"
 
-	spatial "go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/spatialmath"
 )
 
 // WorldState is a struct to store the data representation of the robot's environment.
 type WorldState struct {
-	Obstacles  []*GeometriesInFrame
-	Transforms []*LinkInFrame
+	names        map[string]bool
+	unnamedCount int
+	obstacles    []*GeometriesInFrame
+	Transforms   []*LinkInFrame
 }
 
 const unnamedWorldStateGeometryPrefix = "unnamedWorldStateGeometry_"
 
+func NewEmptyWorldState() *WorldState {
+	return &WorldState{
+		names:     make(map[string]bool),
+		obstacles: make([]*GeometriesInFrame, 0),
+	}
+}
+
 // WorldStateFromProtobuf takes the protobuf definition of a WorldState and converts it to a rdk defined WorldState.
 func WorldStateFromProtobuf(proto *commonpb.WorldState) (*WorldState, error) {
-	convertProtoGeometries := func(allProtoGeometries []*commonpb.GeometriesInFrame) ([]*GeometriesInFrame, error) {
-		list := make([]*GeometriesInFrame, 0, len(allProtoGeometries))
-		for _, protoGeometries := range allProtoGeometries {
-			geometries, err := ProtobufToGeometriesInFrame(protoGeometries)
-			if err != nil {
-				return nil, err
-			}
-			list = append(list, geometries)
-		}
-		return list, nil
-	}
 	if proto == nil {
-		return &WorldState{}, nil
+		return NewEmptyWorldState(), nil
 	}
-	obstacles, err := convertProtoGeometries(proto.GetObstacles())
-	if err != nil {
-		return nil, err
-	}
+
 	transforms, err := LinkInFramesFromTransformsProtobuf(proto.GetTransforms())
 	if err != nil {
 		return nil, err
 	}
 
-	return &WorldState{
-		Obstacles:  obstacles,
-		Transforms: transforms,
-	}, nil
+	ws := &WorldState{Transforms: transforms}
+	for _, protoGeometries := range proto.GetObstacles() {
+		geometries, err := ProtobufToGeometriesInFrame(protoGeometries)
+		if err != nil {
+			return nil, err
+		}
+		ws.AddObstacles(geometries.frame, geometries.geometries...)
+	}
+
+	return ws, nil
+}
+
+// AddObstacles takes in a list of geometries and a frame corresponding with the reference frame associated with them and adds them
+// as obstacles to the worldState
+func (ws *WorldState) AddObstacles(frame string, geometries ...spatialmath.Geometry) error {
+	geometries, err := ws.rectifyNames(geometries)
+	if err != nil {
+		return err
+	}
+	ws.obstacles = append(ws.obstacles, NewGeometriesInFrame(frame, geometries))
+	return nil
 }
 
 // WorldStateToProtobuf takes an rdk WorldState and converts it to the protobuf definition of a WorldState.
@@ -64,7 +75,7 @@ func WorldStateToProtobuf(worldState *WorldState) (*commonpb.WorldState, error) 
 	}
 
 	return &commonpb.WorldState{
-		Obstacles:  convertGeometriesToProto(worldState.Obstacles),
+		Obstacles:  convertGeometriesToProto(worldState.obstacles),
 		Transforms: transforms,
 	}, nil
 }
@@ -72,37 +83,40 @@ func WorldStateToProtobuf(worldState *WorldState) (*commonpb.WorldState, error) 
 // ObstaclesInWorldFrame takes a frame system and a set of inputs for that frame system and converts all the obstacles
 // in the WorldState such that they are in the frame system's World reference frame.
 func (ws *WorldState) ObstaclesInWorldFrame(fs FrameSystem, inputs map[string][]Input) (*GeometriesInFrame, error) {
-	transformGeometriesToWorldFrame := func(gfs []*GeometriesInFrame) (*GeometriesInFrame, error) {
-		nameCheck := make(map[string]bool)
-		allGeometries := make([]spatial.Geometry, 0, len(gfs))
-
-		unnamedCount := 1
-
-		for _, gf := range gfs {
-			tf, err := fs.Transform(inputs, gf, World)
-			if err != nil {
-				return nil, err
-			}
-			for _, g := range tf.(*GeometriesInFrame).Geometries() {
-				geomName := g.Label()
-				if geomName == "" {
-					geomName = unnamedWorldStateGeometryPrefix + strconv.Itoa(unnamedCount)
-					g.SetLabel(geomName)
-					unnamedCount++
-				}
-
-				if _, present := nameCheck[geomName]; present {
-					return nil, fmt.Errorf("cannot specify multiple geometries with the same name: %s", geomName)
-				}
-				nameCheck[geomName] = true
-				allGeometries = append(allGeometries, g)
-			}
-		}
-		return NewGeometriesInFrame(World, allGeometries), nil
-	}
-
 	if ws == nil {
-		ws = &WorldState{}
+		ws = NewEmptyWorldState()
 	}
-	return transformGeometriesToWorldFrame(ws.Obstacles)
+
+	allGeometries := make([]spatialmath.Geometry, 0, len(ws.obstacles))
+	for _, gf := range ws.obstacles {
+		tf, err := fs.Transform(inputs, gf, World)
+		if err != nil {
+			return nil, err
+		}
+		geometries, err := ws.rectifyNames(tf.(*GeometriesInFrame).Geometries())
+		if err != nil {
+			return nil, err
+		}
+		allGeometries = append(allGeometries, geometries...)
+	}
+	return NewGeometriesInFrame(World, allGeometries), nil
+}
+
+func (ws *WorldState) rectifyNames(geometries []spatialmath.Geometry) ([]spatialmath.Geometry, error) {
+	checkedGeometries := make([]spatialmath.Geometry, len(geometries))
+	for i, geometry := range geometries {
+		name := geometry.Label()
+		if name == "" {
+			name = unnamedWorldStateGeometryPrefix + strconv.Itoa(ws.unnamedCount)
+			geometry.SetLabel(name)
+			ws.unnamedCount++
+		}
+
+		if _, present := ws.names[name]; present {
+			return nil, NewWorldStateNameError(name)
+		}
+		ws.names[name] = true
+		checkedGeometries[i] = geometry
+	}
+	return checkedGeometries, nil
 }
