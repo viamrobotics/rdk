@@ -3,7 +3,6 @@ package modmanager
 import (
 	"context"
 	"os"
-	"os/exec"
 	"testing"
 	"time"
 
@@ -25,10 +24,7 @@ func TestModManagerFunctions(t *testing.T) {
 	modExe := utils.ResolveFile("examples/customresources/demos/simplemodule/run.sh")
 
 	// Precompile module to avoid timeout issues when building takes too long.
-	builder := exec.Command("go", "build", ".")
-	builder.Dir = utils.ResolveFile("examples/customresources/demos/simplemodule")
-	out, err := builder.CombinedOutput()
-	test.That(t, string(out), test.ShouldEqual, "")
+	err := utils.BuildInDir("examples/customresources/demos/simplemodule")
 	test.That(t, err, test.ShouldBeNil)
 
 	myCounterModel := resource.NewModel("acme", "demo", "mycounter")
@@ -215,10 +211,7 @@ func TestModManagerValidation(t *testing.T) {
 	modExe := utils.ResolveFile("examples/customresources/demos/complexmodule/run.sh")
 
 	// Precompile module to avoid timeout issues when building takes too long.
-	builder := exec.Command("go", "build", ".")
-	builder.Dir = utils.ResolveFile("examples/customresources/demos/complexmodule")
-	out, err := builder.CombinedOutput()
-	test.That(t, string(out), test.ShouldEqual, "")
+	err := utils.BuildInDir("examples/customresources/demos/complexmodule")
 	test.That(t, err, test.ShouldBeNil)
 
 	myBaseModel := resource.NewModel("acme", "demo", "mybase")
@@ -316,11 +309,7 @@ func TestModuleReloading(t *testing.T) {
 		logger, logs := golog.NewObservedTestLogger(t)
 
 		// Precompile module to avoid timeout issues when building takes too long.
-		builder := exec.Command("go", "build", ".")
-		builder.Dir = utils.ResolveFile("module/testmodule")
-		out, err := builder.CombinedOutput()
-		test.That(t, string(out), test.ShouldEqual, "")
-		test.That(t, err, test.ShouldBeNil)
+		test.That(t, utils.BuildInDir("module/testmodule"), test.ShouldBeNil)
 
 		// This cannot use t.TempDir() as the path it gives on MacOS exceeds
 		// module.MaxSocketAddressLength.
@@ -376,11 +365,7 @@ func TestModuleReloading(t *testing.T) {
 		logger, logs := golog.NewObservedTestLogger(t)
 
 		// Precompile module to avoid timeout issues when building takes too long.
-		builder := exec.Command("go", "build", ".")
-		builder.Dir = utils.ResolveFile("module/testmodule")
-		out, err := builder.CombinedOutput()
-		test.That(t, string(out), test.ShouldEqual, "")
-		test.That(t, err, test.ShouldBeNil)
+		test.That(t, utils.BuildInDir("module/testmodule"), test.ShouldBeNil)
 
 		// This cannot use t.TempDir() as the path it gives on MacOS exceeds
 		// module.MaxSocketAddressLength.

@@ -8,7 +8,6 @@ import (
 	"math"
 	"net"
 	"os"
-	"os/exec"
 	"path"
 	"strings"
 	"testing"
@@ -39,6 +38,7 @@ import (
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/gripper"
 	"go.viam.com/rdk/components/motor"
 	fakemotor "go.viam.com/rdk/components/motor/fake"
@@ -2426,18 +2426,14 @@ func TestDependentResources(t *testing.T) {
 
 func TestOrphanedResources(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger, logs := golog.NewObservedTestLogger(t)
 
 	// Precompile modules to avoid timeout issues when building takes too long.
-	builder := exec.Command("go", "build", ".")
-	builder.Dir = rutils.ResolveFile("examples/customresources/demos/complexmodule")
-	out, err := builder.CombinedOutput()
-	test.That(t, string(out), test.ShouldEqual, "")
+	err := rutils.BuildInDir("examples/customresources/demos/complexmodule")
 	test.That(t, err, test.ShouldBeNil)
-	builder = exec.Command("go", "build", ".")
-	builder.Dir = rutils.ResolveFile("examples/customresources/demos/simplemodule")
-	out, err = builder.CombinedOutput()
-	test.That(t, string(out), test.ShouldEqual, "")
+	err = rutils.BuildInDir("examples/customresources/demos/simplemodule")
+	test.That(t, err, test.ShouldBeNil)
+	err = rutils.BuildInDir("module/testmodule")
 	test.That(t, err, test.ShouldBeNil)
 
 	// Manually define models, as importing them can cause double registration.
@@ -2445,97 +2441,208 @@ func TestOrphanedResources(t *testing.T) {
 	summationModel := resource.NewModel("acme", "demo", "mysum")
 	gizmoAPI := resource.APINamespace("acme").WithComponentType("gizmo")
 	summationAPI := resource.APINamespace("acme").WithServiceType("summation")
+	helperModel := resource.NewModel("rdk", "test", "helper")
 
-	cfg := &config.Config{
-		Modules: []config.Module{
-			{
-				Name:    "mod",
-				ExePath: rutils.ResolveFile("examples/customresources/demos/complexmodule/run.sh"),
-			},
-		},
-		Components: []resource.Config{
-			{
-				Name:  "g",
-				Model: gizmoModel,
-				API:   gizmoAPI,
-			},
-		},
-		Services: []resource.Config{
-			{
-				Name:  "s",
-				Model: summationModel,
-				API:   summationAPI,
-			},
-		},
-	}
-	r, err := robotimpl.New(ctx, cfg, logger)
+	r, err := robotimpl.New(ctx, &config.Config{}, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	}()
 
-	// Assert that reconfiguring module 'mod' to a new module that does not handle
-	// old resources removes modular component 'g' and modular service 's'.
-	cfg2 := &config.Config{
-		Modules: []config.Module{
-			{
-				Name:    "mod",
-				ExePath: rutils.ResolveFile("examples/customresources/demos/simplemodule/run.sh"),
+	t.Run("manual reconfiguration", func(t *testing.T) {
+		cfg := &config.Config{
+			Modules: []config.Module{
+				{
+					Name:    "mod",
+					ExePath: rutils.ResolveFile("examples/customresources/demos/complexmodule/run.sh"),
+				},
 			},
-		},
-		Components: []resource.Config{
-			{
-				Name:  "g",
-				Model: gizmoModel,
-				API:   gizmoAPI,
+			Components: []resource.Config{
+				{
+					Name:  "g",
+					Model: gizmoModel,
+					API:   gizmoAPI,
+				},
 			},
-		},
-		Services: []resource.Config{
-			{
-				Name:  "s",
-				Model: summationModel,
-				API:   summationAPI,
+			Services: []resource.Config{
+				{
+					Name:  "s",
+					Model: summationModel,
+					API:   summationAPI,
+				},
 			},
-		},
-	}
-	r.Reconfigure(ctx, cfg2)
+		}
+		r.Reconfigure(ctx, cfg)
 
-	res, err := r.ResourceByName(gizmoapi.Named("g"))
-	test.That(t, err, test.ShouldBeError,
-		resource.NewNotFoundError(gizmoapi.Named("g")))
-	test.That(t, res, test.ShouldBeNil)
-	res, err = r.ResourceByName(summationapi.Named("s"))
-	test.That(t, err, test.ShouldBeError,
-		resource.NewNotFoundError(summationapi.Named("s")))
-	test.That(t, res, test.ShouldBeNil)
-
-	// Remove module entirely.
-	cfg3 := &config.Config{
-		Components: []resource.Config{
-			{
-				Name:  "g",
-				Model: gizmoModel,
-				API:   gizmoAPI,
+		// Assert that reconfiguring module 'mod' to a new module that does not
+		// handle old resources removes modular component 'g' and modular service
+		// 's'.
+		cfg2 := &config.Config{
+			Modules: []config.Module{
+				{
+					Name:    "mod",
+					ExePath: rutils.ResolveFile("examples/customresources/demos/simplemodule/run.sh"),
+				},
 			},
-		},
-		Services: []resource.Config{
-			{
-				Name:  "s",
-				Model: summationModel,
-				API:   summationAPI,
+			Components: []resource.Config{
+				{
+					Name:  "g",
+					Model: gizmoModel,
+					API:   gizmoAPI,
+				},
 			},
-		},
-	}
-	r.Reconfigure(ctx, cfg3)
+			Services: []resource.Config{
+				{
+					Name:  "s",
+					Model: summationModel,
+					API:   summationAPI,
+				},
+			},
+		}
+		r.Reconfigure(ctx, cfg2)
 
-	// Assert that adding module 'mod' back with original executable path re-adds
-	// modular component 'g' and modular service 's'.
-	r.Reconfigure(ctx, cfg)
+		res, err := r.ResourceByName(gizmoapi.Named("g"))
+		test.That(t, err, test.ShouldBeError,
+			resource.NewNotFoundError(gizmoapi.Named("g")))
+		test.That(t, res, test.ShouldBeNil)
+		res, err = r.ResourceByName(summationapi.Named("s"))
+		test.That(t, err, test.ShouldBeError,
+			resource.NewNotFoundError(summationapi.Named("s")))
+		test.That(t, res, test.ShouldBeNil)
 
-	_, err = r.ResourceByName(gizmoapi.Named("g"))
-	test.That(t, err, test.ShouldBeNil)
-	_, err = r.ResourceByName(summationapi.Named("s"))
-	test.That(t, err, test.ShouldBeNil)
+		// Remove module entirely.
+		cfg3 := &config.Config{
+			Components: []resource.Config{
+				{
+					Name:  "g",
+					Model: gizmoModel,
+					API:   gizmoAPI,
+				},
+			},
+			Services: []resource.Config{
+				{
+					Name:  "s",
+					Model: summationModel,
+					API:   summationAPI,
+				},
+			},
+		}
+		r.Reconfigure(ctx, cfg3)
+
+		// Assert that adding module 'mod' back with original executable path re-adds
+		// modular component 'g' and modular service 's'.
+		r.Reconfigure(ctx, cfg)
+
+		_, err = r.ResourceByName(gizmoapi.Named("g"))
+		test.That(t, err, test.ShouldBeNil)
+		_, err = r.ResourceByName(summationapi.Named("s"))
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("automatic reconfiguration", func(t *testing.T) {
+		if testing.Short() {
+			t.Skip("skipping long-running test as -test.short flag is set")
+		}
+
+		cfg := &config.Config{
+			Modules: []config.Module{
+				{
+					Name:    "mod",
+					ExePath: rutils.ResolveFile("module/testmodule/testmodule"),
+				},
+			},
+			Components: []resource.Config{
+				{
+					Name:  "h",
+					Model: helperModel,
+					API:   generic.API,
+				},
+			},
+		}
+		r.Reconfigure(ctx, cfg)
+
+		h, err := r.ResourceByName(generic.Named("h"))
+		test.That(t, err, test.ShouldBeNil)
+
+		// Assert that removing testmodule binary and killing testmodule orphans
+		// helper 'h' a couple seconds after third restart attempt.
+		err = os.Remove(rutils.ResolveFile("module/testmodule/testmodule"))
+		test.That(t, err, test.ShouldBeNil)
+		_, err = h.DoCommand(ctx, map[string]interface{}{"command": "kill_module"})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring,
+			"error reading from server")
+
+		// Check for "attempt 3" in logs every 100ms for 20s max.
+		waitForThirdAttempt := func() {
+			timer := time.NewTimer(20 * time.Second)
+			tick := time.NewTicker(100 * time.Millisecond)
+			defer timer.Stop()
+			defer tick.Stop()
+			for range tick.C {
+				select {
+				case <-timer.C:
+					t.Fatal("timed out waiting for 'attempt3' in server logs")
+				default:
+				}
+
+				if logs.FilterMessageSnippet("attempt 3").Len() > 0 {
+					time.Sleep(2 * time.Second)
+					break
+				}
+			}
+		}
+		waitForThirdAttempt()
+
+		_, err = r.ResourceByName(generic.Named("h"))
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldBeError,
+			resource.NewNotFoundError(generic.Named("h")))
+
+		// Assert that recompiling testmodule, removing testmodule from config and
+		// adding it back re-adds 'h'.
+		err = rutils.BuildInDir("module/testmodule")
+		test.That(t, err, test.ShouldBeNil)
+		cfg2 := &config.Config{
+			Components: []resource.Config{
+				{
+					Name:  "h",
+					Model: helperModel,
+					API:   generic.API,
+				},
+			},
+		}
+		r.Reconfigure(ctx, cfg2)
+		r.Reconfigure(ctx, cfg)
+
+		h, err = r.ResourceByName(generic.Named("h"))
+		test.That(t, err, test.ShouldBeNil)
+
+		// Assert that replacing testmodule binary with disguised simplemodule
+		// binary and killing testmodule orphans helper 'h' (not reachable), as
+		// simplemodule binary cannot manage helper 'h'.
+		err = os.Remove(rutils.ResolveFile("module/testmodule/testmodule"))
+		test.That(t, err, test.ShouldBeNil)
+		err = rutils.BuildInDir("examples/customresources/demos/simplemodule")
+		test.That(t, err, test.ShouldBeNil)
+		err = os.Rename(
+			rutils.ResolveFile("examples/customresources/demos/simplemodule/simplemodule"),
+			rutils.ResolveFile("module/testmodule/testmodule"),
+		)
+		test.That(t, err, test.ShouldBeNil)
+		_, err = h.DoCommand(ctx, map[string]interface{}{"command": "kill_module"})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring,
+			"error reading from server")
+
+		// Check for "attempt 3" in logs every 100ms for 20s max.
+		waitForThirdAttempt()
+
+		_, err = r.ResourceByName(generic.Named("h"))
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldBeError,
+			resource.NewNotFoundError(generic.Named("h")))
+	})
 }
 
 var (
@@ -2563,15 +2670,9 @@ func TestDependentAndOrphanedResources(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
 	// Precompile modules to avoid timeout issues when building takes too long.
-	builder := exec.Command("go", "build", ".")
-	builder.Dir = rutils.ResolveFile("examples/customresources/demos/complexmodule")
-	out, err := builder.CombinedOutput()
-	test.That(t, string(out), test.ShouldEqual, "")
+	err := rutils.BuildInDir("examples/customresources/demos/complexmodule")
 	test.That(t, err, test.ShouldBeNil)
-	builder = exec.Command("go", "build", ".")
-	builder.Dir = rutils.ResolveFile("examples/customresources/demos/simplemodule")
-	out, err = builder.CombinedOutput()
-	test.That(t, string(out), test.ShouldEqual, "")
+	err = rutils.BuildInDir("examples/customresources/demos/simplemodule")
 	test.That(t, err, test.ShouldBeNil)
 
 	// Manually define gizmo model, as importing it from mygizmo can cause double
