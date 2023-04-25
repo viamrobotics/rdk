@@ -93,11 +93,7 @@ func (ws *WorldState) ObstaclesInWorldFrame(fs FrameSystem, inputs map[string][]
 		if err != nil {
 			return nil, err
 		}
-		geometries, err := ws.rectifyNames(tf.(*GeometriesInFrame).Geometries())
-		if err != nil {
-			return nil, err
-		}
-		allGeometries = append(allGeometries, geometries...)
+		allGeometries = append(allGeometries, tf.(*GeometriesInFrame).Geometries()...)
 	}
 	return NewGeometriesInFrame(World, allGeometries), nil
 }
