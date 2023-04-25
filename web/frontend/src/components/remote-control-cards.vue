@@ -65,6 +65,7 @@ const props = defineProps<{
   supportedAuthTypes: string[],
   webrtcEnabled: boolean,
   client: Client;
+  manageClientConnection: boolean
 }>();
 
 const relevantSubtypesForStatus = [
@@ -544,7 +545,10 @@ const createAppConnectionManager = () => {
         }
         resourcesOnce = false;
 
-        await props.client.connect();
+        if (props.manageClientConnection) {
+          await props.client.connect();
+        }
+
         await fetchCurrentOps();
         lastStatusTS = Date.now();
         console.log('reconnected');
@@ -563,6 +567,8 @@ const createAppConnectionManager = () => {
 
   const stop = () => {
     window.clearTimeout(timeout);
+    statusStream?.cancel();
+    statusStream = null;
   };
 
   const start = () => {
@@ -664,9 +670,13 @@ const initConnect = () => {
   }
 };
 
-const handleUnload = () => {
+const handleUnload = async () => {
   console.debug('disconnecting');
   appConnectionManager.stop();
+
+  if (props.manageClientConnection) {
+    await props.client.disconnect();
+  }
 };
 
 onMounted(async () => {
