@@ -73,11 +73,11 @@ func registerMLModelVisionService(
 
 	classifierFunc, err := attemptToBuildClassifier(mlm)
 	if err != nil {
-		logger.Infow("was not able to turn ml model into classifier", "ml model", params.ModelName, "error", err)
+		logger.Infow("error turning ml model into a classifier", "model", params.ModelName, "error", err)
 	} else {
 		classifierFunc, err = checkIfClassifierWorks(ctx, classifierFunc)
 		if err != nil {
-			logger.Infow("was not able to turn ml model into classifier", "ml model", params.ModelName, "error", err)
+			logger.Infow("error turning ml model into a classifier", "model", params.ModelName, "error", err)
 		} else {
 			logger.Infof("model %q fulfills a vision service ciassifier", params.ModelName)
 		}
@@ -85,11 +85,11 @@ func registerMLModelVisionService(
 
 	detectorFunc, err := attemptToBuildDetector(mlm)
 	if err != nil {
-		logger.Infow("was not able to turn ml model into detector", "ml model", params.ModelName, "error", err)
+		logger.Infow("error turning ml model into a detector", "model", params.ModelName, "error", err)
 	} else {
 		detectorFunc, err = checkIfDetectorWorks(ctx, detectorFunc)
 		if err != nil {
-			logger.Infow("was not able to turn ml model into detector", "ml model", params.ModelName, "error", err)
+			logger.Infow("error turning ml model into a detector", "model", params.ModelName, "error", err)
 		} else {
 			logger.Infof("model %q fulfills a vision service detector", params.ModelName)
 		}
@@ -97,9 +97,9 @@ func registerMLModelVisionService(
 
 	segmenter3DFunc, err := attemptToBuild3DSegmenter(mlm)
 	if err != nil {
-		logger.Infow("error turning turn ml model into a 3D segmenter:", "model", params.ModelName, "error", err)
+		logger.Infow("error turning turn ml model into a 3D segmenter", "model", params.ModelName, "error", err)
 	} else {
-		logger.Infof("model %q fulfills a vision service 3D segmenter", params.ModelName)
+		logger.Infow("model fulfills a vision service 3D segmenter", "model", params.ModelName)
 	}
 	// Don't return a close function, because you don't want to close the underlying ML service
 	return vision.NewService(name, r, nil, classifierFunc, detectorFunc, segmenter3DFunc)
