@@ -41,8 +41,6 @@ import (
 	_ "go.viam.com/rdk/services/motion/builtin"
 	"go.viam.com/rdk/services/sensors"
 	_ "go.viam.com/rdk/services/sensors/builtin"
-	"go.viam.com/rdk/services/vision"
-	_ "go.viam.com/rdk/services/vision/builtin"
 	rdktestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/robottestutils"
 )
@@ -55,7 +53,7 @@ var (
 )
 
 func TestRobotReconfigure(t *testing.T) {
-	test.That(t, len(resource.DefaultServices()), test.ShouldEqual, 4)
+	test.That(t, len(resource.DefaultServices()), test.ShouldEqual, 3)
 	ConfigFromFile := func(t *testing.T, filePath string) *config.Config {
 		t.Helper()
 		logger := golog.NewTestLogger(t)
@@ -129,7 +127,7 @@ func TestRobotReconfigure(t *testing.T) {
 		}()
 
 		resources := robot.ResourceNames()
-		test.That(t, len(resources), test.ShouldEqual, 9)
+		test.That(t, len(resources), test.ShouldEqual, 8)
 
 		armNames := []resource.Name{arm.Named("arm1")}
 		baseNames := []resource.Name{base.Named("base1")}
@@ -1044,7 +1042,7 @@ func TestRobotReconfigure(t *testing.T) {
 		}()
 
 		resources := robot.ResourceNames()
-		test.That(t, len(resources), test.ShouldEqual, 4)
+		test.That(t, len(resources), test.ShouldEqual, 3)
 		test.That(t, utils.NewStringSet(robot.RemoteNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(arm.NamesFromRobot(robot)...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(base.NamesFromRobot(robot)...), test.ShouldBeEmpty)
@@ -2461,15 +2459,9 @@ func TestUpdateWeakDependents(t *testing.T) {
 func TestDefaultServiceReconfigure(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
-	visName := "vis"
 	dmName := "dm"
 	cfg1 := &config.Config{
 		Services: []resource.Config{
-			{
-				Name:  visName,
-				API:   vision.API,
-				Model: resource.DefaultServiceModel,
-			},
 			{
 				Name:  dmName,
 				API:   datamanager.API,
@@ -2489,20 +2481,13 @@ func TestDefaultServiceReconfigure(t *testing.T) {
 		test.ShouldResemble,
 		rdktestutils.NewResourceNameSet(
 			motion.Named(resource.DefaultServiceName),
-			vision.Named(visName),
 			datamanager.Named(dmName),
 			sensors.Named(resource.DefaultServiceName),
 		),
 	)
-	visName = "vis2"
 	sName := "sensors"
 	cfg2 := &config.Config{
 		Services: []resource.Config{
-			{
-				Name:  visName,
-				API:   vision.API,
-				Model: resource.DefaultServiceModel,
-			},
 			{
 				Name:  sName,
 				API:   sensors.API,
@@ -2517,7 +2502,6 @@ func TestDefaultServiceReconfigure(t *testing.T) {
 		test.ShouldResemble,
 		rdktestutils.NewResourceNameSet(
 			motion.Named(resource.DefaultServiceName),
-			vision.Named(visName),
 			datamanager.Named(resource.DefaultServiceName),
 			sensors.Named(sName),
 		),
@@ -2668,7 +2652,6 @@ func TestRemoteRobotsGold(t *testing.T) {
 		test.ShouldResemble,
 		rdktestutils.NewResourceNameSet(
 			motion.Named(resource.DefaultServiceName),
-			vision.Named(resource.DefaultServiceName),
 			sensors.Named(resource.DefaultServiceName),
 			datamanager.Named(resource.DefaultServiceName),
 			arm.Named("arm1"),
@@ -2679,7 +2662,6 @@ func TestRemoteRobotsGold(t *testing.T) {
 			movementsensor.Named("foo:movement_sensor2"),
 			gripper.Named("foo:pieceGripper"),
 			motion.Named("foo:builtin"),
-			vision.Named("foo:builtin"),
 			sensors.Named("foo:builtin"),
 			datamanager.Named("foo:builtin"),
 		),
@@ -2696,7 +2678,6 @@ func TestRemoteRobotsGold(t *testing.T) {
 
 	expectedSet := rdktestutils.NewResourceNameSet(
 		motion.Named(resource.DefaultServiceName),
-		vision.Named(resource.DefaultServiceName),
 		sensors.Named(resource.DefaultServiceName),
 		datamanager.Named(resource.DefaultServiceName),
 		arm.Named("arm1"),
@@ -2708,7 +2689,6 @@ func TestRemoteRobotsGold(t *testing.T) {
 		movementsensor.Named("foo:movement_sensor2"),
 		gripper.Named("foo:pieceGripper"),
 		motion.Named("foo:builtin"),
-		vision.Named("foo:builtin"),
 		sensors.Named("foo:builtin"),
 		datamanager.Named("foo:builtin"),
 		arm.Named("bar:pieceArm"),
@@ -2718,7 +2698,6 @@ func TestRemoteRobotsGold(t *testing.T) {
 		movementsensor.Named("bar:movement_sensor2"),
 		gripper.Named("bar:pieceGripper"),
 		motion.Named("bar:builtin"),
-		vision.Named("bar:builtin"),
 		sensors.Named("bar:builtin"),
 		datamanager.Named("bar:builtin"),
 	)
@@ -2736,7 +2715,6 @@ func TestRemoteRobotsGold(t *testing.T) {
 		test.ShouldResemble,
 		rdktestutils.NewResourceNameSet(
 			motion.Named(resource.DefaultServiceName),
-			vision.Named(resource.DefaultServiceName),
 			sensors.Named(resource.DefaultServiceName),
 			datamanager.Named(resource.DefaultServiceName),
 			arm.Named("arm1"),
@@ -2747,7 +2725,6 @@ func TestRemoteRobotsGold(t *testing.T) {
 			movementsensor.Named("foo:movement_sensor2"),
 			gripper.Named("foo:pieceGripper"),
 			motion.Named("foo:builtin"),
-			vision.Named("foo:builtin"),
 			sensors.Named("foo:builtin"),
 			datamanager.Named("foo:builtin"),
 		),
@@ -2835,13 +2812,11 @@ func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 		test.ShouldResemble,
 		rdktestutils.NewResourceNameSet(
 			motion.Named(resource.DefaultServiceName),
-			vision.Named(resource.DefaultServiceName),
 			sensors.Named(resource.DefaultServiceName),
 			datamanager.Named(resource.DefaultServiceName),
 			arm.Named("arm1"),
 			arm.Named("foo:pieceArm"),
 			motion.Named("foo:builtin"),
-			vision.Named("foo:builtin"),
 			sensors.Named("foo:builtin"),
 			datamanager.Named("foo:builtin"),
 		),
@@ -2855,13 +2830,11 @@ func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 
 	expectedSet := rdktestutils.NewResourceNameSet(
 		motion.Named(resource.DefaultServiceName),
-		vision.Named(resource.DefaultServiceName),
 		sensors.Named(resource.DefaultServiceName),
 		datamanager.Named(resource.DefaultServiceName),
 		arm.Named("arm1"),
 		arm.Named("foo:pieceArm"),
 		motion.Named("foo:builtin"),
-		vision.Named("foo:builtin"),
 		sensors.Named("foo:builtin"),
 		datamanager.Named("foo:builtin"),
 	)
@@ -2880,7 +2853,6 @@ func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 		test.ShouldResemble,
 		rdktestutils.NewResourceNameSet(
 			motion.Named(resource.DefaultServiceName),
-			vision.Named(resource.DefaultServiceName),
 			sensors.Named(resource.DefaultServiceName),
 			datamanager.Named(resource.DefaultServiceName),
 		),
@@ -2966,7 +2938,6 @@ func TestInferRemoteRobotDependencyConnectAfterStartup(t *testing.T) {
 		test.ShouldResemble,
 		rdktestutils.NewResourceNameSet(
 			motion.Named(resource.DefaultServiceName),
-			vision.Named(resource.DefaultServiceName),
 			sensors.Named(resource.DefaultServiceName),
 			datamanager.Named(resource.DefaultServiceName),
 		),
@@ -2983,13 +2954,11 @@ func TestInferRemoteRobotDependencyConnectAfterStartup(t *testing.T) {
 
 	expectedSet := rdktestutils.NewResourceNameSet(
 		motion.Named(resource.DefaultServiceName),
-		vision.Named(resource.DefaultServiceName),
 		sensors.Named(resource.DefaultServiceName),
 		datamanager.Named(resource.DefaultServiceName),
 		arm.Named("arm1"),
 		arm.Named("foo:pieceArm"),
 		motion.Named("foo:builtin"),
-		vision.Named("foo:builtin"),
 		sensors.Named("foo:builtin"),
 		datamanager.Named("foo:builtin"),
 	)
@@ -3008,7 +2977,6 @@ func TestInferRemoteRobotDependencyConnectAfterStartup(t *testing.T) {
 		test.ShouldResemble,
 		rdktestutils.NewResourceNameSet(
 			motion.Named(resource.DefaultServiceName),
-			vision.Named(resource.DefaultServiceName),
 			sensors.Named(resource.DefaultServiceName),
 			datamanager.Named(resource.DefaultServiceName),
 		),
@@ -3084,17 +3052,14 @@ func TestInferRemoteRobotDependencyAmbiguous(t *testing.T) {
 
 	expectedSet := rdktestutils.NewResourceNameSet(
 		motion.Named(resource.DefaultServiceName),
-		vision.Named(resource.DefaultServiceName),
 		sensors.Named(resource.DefaultServiceName),
 		datamanager.Named(resource.DefaultServiceName),
 		arm.Named("foo:pieceArm"),
 		motion.Named("foo:builtin"),
-		vision.Named("foo:builtin"),
 		sensors.Named("foo:builtin"),
 		datamanager.Named("foo:builtin"),
 		arm.Named("bar:pieceArm"),
 		motion.Named("bar:builtin"),
-		vision.Named("bar:builtin"),
 		sensors.Named("bar:builtin"),
 		datamanager.Named("bar:builtin"),
 	)
@@ -3141,17 +3106,14 @@ func TestInferRemoteRobotDependencyAmbiguous(t *testing.T) {
 
 	finalSet := rdktestutils.NewResourceNameSet(
 		motion.Named(resource.DefaultServiceName),
-		vision.Named(resource.DefaultServiceName),
 		sensors.Named(resource.DefaultServiceName),
 		datamanager.Named(resource.DefaultServiceName),
 		arm.Named("foo:pieceArm"),
 		motion.Named("foo:builtin"),
-		vision.Named("foo:builtin"),
 		sensors.Named("foo:builtin"),
 		datamanager.Named("foo:builtin"),
 		arm.Named("bar:pieceArm"),
 		motion.Named("bar:builtin"),
-		vision.Named("bar:builtin"),
 		sensors.Named("bar:builtin"),
 		datamanager.Named("bar:builtin"),
 		arm.Named("arm1"),

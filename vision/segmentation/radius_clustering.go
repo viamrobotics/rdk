@@ -9,12 +9,14 @@ import (
 
 	"go.viam.com/rdk/components/camera"
 	pc "go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
 )
 
 // RadiusClusteringConfig specifies the necessary parameters for 3D object finding.
 type RadiusClusteringConfig struct {
+	resource.TriviallyValidateConfig
 	MinPtsInPlane      int     `json:"min_points_in_plane"`
 	MinPtsInSegment    int     `json:"min_points_in_segment"`
 	ClusteringRadiusMm float64 `json:"clustering_radius_mm"`

@@ -16,8 +16,10 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
+	"go.viam.com/rdk/services/mlmodel"
+	_ "go.viam.com/rdk/services/mlmodel/register"
 	"go.viam.com/rdk/services/vision"
-	_ "go.viam.com/rdk/services/vision/builtin"
+	_ "go.viam.com/rdk/services/vision/register"
 	rutils "go.viam.com/rdk/utils"
 )
 
@@ -49,6 +51,38 @@ func buildRobotWithFakeCamera(logger golog.Logger) (robot.Robot, error) {
 		return nil, err
 	}
 	// create fake source camera
+	colorSrv1 := resource.Config{
+		Name:  "detector_color",
+		API:   vision.API,
+		Model: resource.DefaultModelFamily.WithModel("color_detector"),
+		Attributes: rutils.AttributeMap{
+			"detect_color":      "#4F3815",
+			"hue_tolerance_pct": 0.013,
+			"segment_size_px":   15000,
+		},
+	}
+	cfg.Services = append(cfg.Services, colorSrv1)
+	tfliteSrv2 := resource.Config{
+		Name:  "detector_tflite",
+		API:   mlmodel.API,
+		Model: resource.DefaultModelFamily.WithModel("tflite_cpu"),
+		Attributes: rutils.AttributeMap{
+			"model_path":  artifact.MustPath("vision/tflite/effdet0.tflite"),
+			"label_path":  artifact.MustPath("vision/tflite/effdetlabels.txt"),
+			"num_threads": 1,
+		},
+	}
+	cfg.Services = append(cfg.Services, tfliteSrv2)
+	visionSrv2 := resource.Config{
+		Name:  "vision_detector",
+		API:   vision.API,
+		Model: resource.DefaultModelFamily.WithModel("mlmodel"),
+		Attributes: rutils.AttributeMap{
+			"mlmodel_name": "detector_tflite",
+		},
+		DependsOn: []string{"detector_tflite"},
+	}
+	cfg.Services = append(cfg.Services, visionSrv2)
 	cameraComp := resource.Config{
 		Name:  "fake_cam",
 		API:   camera.API,
@@ -90,7 +124,7 @@ func buildRobotWithFakeCamera(logger golog.Logger) (robot.Robot, error) {
 				{
 					"type": "detections",
 					"attributes": rutils.AttributeMap{
-						"detector_name":        "detector_tflite",
+						"detector_name":        "vision_detector",
 						"confidence_threshold": 0.35,
 					},
 				},
@@ -112,6 +146,7 @@ func buildRobotWithFakeCamera(logger golog.Logger) (robot.Robot, error) {
 	return robotimpl.RobotFromConfigPath(context.Background(), newConfFile, logger)
 }
 
+//nolint:dupl
 func TestColorDetectionSource(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx, cancel := context.WithCancel(context.Background())
@@ -123,22 +158,6 @@ func TestColorDetectionSource(t *testing.T) {
 	defer func() {
 		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	}()
-
-	// add the detector
-
-	srv, err := vision.FirstFromRobot(r)
-	test.That(t, err, test.ShouldBeNil)
-	detConf := vision.VisModelConfig{
-		Name: "detector_color",
-		Type: "color_detector",
-		Parameters: rutils.AttributeMap{
-			"detect_color":      "#4F3815",
-			"hue_tolerance_pct": 0.013,
-			"segment_size_px":   15000,
-		},
-	}
-	err = srv.AddDetector(context.Background(), detConf, map[string]interface{}{})
-	test.That(t, err, test.ShouldBeNil)
 
 	detector, err := camera.FromRobot(r, "color_detect")
 	test.That(t, err, test.ShouldBeNil)
@@ -163,20 +182,6 @@ func TestTFLiteDetectionSource(t *testing.T) {
 	}()
 	test.That(t, err, test.ShouldBeNil)
 
-	// add the detector
-	srv, err := vision.FirstFromRobot(r)
-	test.That(t, err, test.ShouldBeNil)
-	detConf := vision.VisModelConfig{
-		Name: "detector_tflite",
-		Type: "tflite_detector",
-		Parameters: rutils.AttributeMap{
-			"model_path":  artifact.MustPath("vision/tflite/effdet0.tflite"),
-			"num_threads": 1,
-		},
-	}
-	err = srv.AddDetector(context.Background(), detConf, map[string]interface{}{})
-	test.That(t, err, test.ShouldBeNil)
-
 	detector, err := camera.FromRobot(r, "tflite_detect")
 	test.That(t, err, test.ShouldBeNil)
 	defer detector.Close(ctx)
@@ -199,20 +204,6 @@ func BenchmarkColorDetectionSource(b *testing.B) {
 		test.That(b, r.Close(context.Background()), test.ShouldBeNil)
 	}()
 	test.That(b, err, test.ShouldBeNil)
-	// add the detector
-	srv, err := vision.FirstFromRobot(r)
-	test.That(b, err, test.ShouldBeNil)
-	detConf := vision.VisModelConfig{
-		Name: "detector_color",
-		Type: "color_detector",
-		Parameters: rutils.AttributeMap{
-			"detect_color":      "#4F3815",
-			"hue_tolerance_pct": 0.055556,
-			"segment_size_px":   15000,
-		},
-	}
-	err = srv.AddDetector(context.Background(), detConf, map[string]interface{}{})
-	test.That(b, err, test.ShouldBeNil)
 	detector, err := camera.FromRobot(r, "color_detect")
 	test.That(b, err, test.ShouldBeNil)
 	defer detector.Close(ctx)
@@ -234,19 +225,6 @@ func BenchmarkTFLiteDetectionSource(b *testing.B) {
 	defer func() {
 		test.That(b, r.Close(context.Background()), test.ShouldBeNil)
 	}()
-	test.That(b, err, test.ShouldBeNil)
-	// add the detector
-	srv, err := vision.FirstFromRobot(r)
-	test.That(b, err, test.ShouldBeNil)
-	detConf := vision.VisModelConfig{
-		Name: "detector_tflite",
-		Type: "tflite_detector",
-		Parameters: rutils.AttributeMap{
-			"model_path":  artifact.MustPath("vision/tflite/effdet0.tflite"),
-			"num_threads": 1,
-		},
-	}
-	err = srv.AddDetector(context.Background(), detConf, map[string]interface{}{})
 	test.That(b, err, test.ShouldBeNil)
 	detector, err := camera.FromRobot(r, "tflite_detect")
 	test.That(b, err, test.ShouldBeNil)
