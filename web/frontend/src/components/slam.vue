@@ -106,15 +106,14 @@ const fetchSLAMPose = (name: string): Promise<commonApi.Pose> => {
 };
 
 const executeMoveOnMap = async () => {
-  moveClick = !moveClick;
-
   // get base resources
   const baseResources = filterResources(props.resources, 'rdk', 'component', 'base');
   if (baseResources === undefined) {
-    moveClick = !moveClick;
     toast.error('No base component detected.');
     return;
   }
+
+  moveClick = !moveClick;
 
   /*
    * set request name
