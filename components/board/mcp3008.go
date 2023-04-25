@@ -37,3 +37,8 @@ func (mar *MCP3008AnalogReader) Read(ctx context.Context, extra map[string]inter
 
 	return val, nil
 }
+
+// Close does nothing.
+func (mar *MCP3008AnalogReader) Close(ctx context.Context) error {
+	return nil
+}

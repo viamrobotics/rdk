@@ -10,14 +10,11 @@ import (
 	"github.com/edaniels/golog"
 	"go.uber.org/zap"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/components/board"
 	fakeboard "go.viam.com/rdk/components/board/fake"
 	"go.viam.com/rdk/components/input"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 )
 
@@ -40,7 +37,7 @@ func setup(t *testing.T) *setupResult {
 	s.logger = golog.NewTestLogger(t)
 
 	s.b = &fakeboard.Board{
-		Digitals: map[string]board.DigitalInterrupt{},
+		Digitals: map[string]*fakeboard.DigitalInterruptWrapper{},
 		Analogs:  map[string]*fakeboard.Analog{},
 	}
 
@@ -49,12 +46,12 @@ func setup(t *testing.T) *setupResult {
 	s.b.Analogs["analog3"] = &fakeboard.Analog{}
 
 	var err error
-	s.b.Digitals["interrupt1"], err = board.CreateDigitalInterrupt(board.DigitalInterruptConfig{})
+	s.b.Digitals["interrupt1"], err = fakeboard.NewDigitalInterruptWrapper(board.DigitalInterruptConfig{})
 	test.That(t, err, test.ShouldBeNil)
-	s.b.Digitals["interrupt2"], err = board.CreateDigitalInterrupt(board.DigitalInterruptConfig{})
+	s.b.Digitals["interrupt2"], err = fakeboard.NewDigitalInterruptWrapper(board.DigitalInterruptConfig{})
 	test.That(t, err, test.ShouldBeNil)
 
-	deps := make(registry.Dependencies)
+	deps := make(resource.Dependencies)
 	deps[board.Named("main")] = s.b
 
 	ic := Config{
@@ -105,13 +102,13 @@ func setup(t *testing.T) *setupResult {
 		},
 	}
 
-	inputReg := registry.ComponentLookup(input.Subtype, resource.NewDefaultModel("gpio"))
+	inputReg, ok := resource.LookupRegistration(input.API, resource.DefaultModelFamily.WithModel("gpio"))
+	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, inputReg, test.ShouldNotBeNil)
 
-	res, err := inputReg.Constructor(context.Background(), deps, config.Component{Name: "input1", ConvertedAttributes: &ic}, s.logger)
+	res, err := inputReg.Constructor(context.Background(), deps, resource.Config{Name: "input1", ConvertedAttributes: &ic}, s.logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	var ok bool
 	s.dev, ok = res.(input.Controller)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, s.dev, test.ShouldNotBeNil)
@@ -167,7 +164,7 @@ func setup(t *testing.T) *setupResult {
 
 func teardown(t *testing.T, s *setupResult) {
 	t.Helper()
-	test.That(t, utils.TryClose(context.Background(), s.dev), test.ShouldBeNil)
+	test.That(t, s.dev.Close(context.Background()), test.ShouldBeNil)
 }
 
 func TestGPIOInput(t *testing.T) {

@@ -3,17 +3,16 @@ package inject
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/google/uuid"
 	pb "go.viam.com/api/robot/v1"
-	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/module/modmaninterface"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/pointcloud"
@@ -28,21 +27,20 @@ import (
 // Robot is an injected robot.
 type Robot struct {
 	robot.LocalRobot
-	Mu                      sync.RWMutex // Ugly, has to be manually locked if a test means to swap funcs on an in-use robot.
-	DiscoverComponentsFunc  func(ctx context.Context, keys []discovery.Query) ([]discovery.Discovery, error)
-	RemoteByNameFunc        func(name string) (robot.Robot, bool)
-	ResourceByNameFunc      func(name resource.Name) (interface{}, error)
-	RemoteNamesFunc         func() []string
-	ResourceNamesFunc       func() []resource.Name
-	ResourceRPCSubtypesFunc func() []resource.RPCSubtype
-	ProcessManagerFunc      func() pexec.ProcessManager
-	ConfigFunc              func(ctx context.Context) (*config.Config, error)
-	LoggerFunc              func() golog.Logger
-	CloseFunc               func(ctx context.Context) error
-	StopAllFunc             func(ctx context.Context, extra map[resource.Name]map[string]interface{}) error
-	RefreshFunc             func(ctx context.Context) error
-	FrameSystemConfigFunc   func(ctx context.Context, additionalTransforms []*referenceframe.LinkInFrame) (framesystemparts.Parts, error)
-	TransformPoseFunc       func(
+	Mu                     sync.RWMutex // Ugly, has to be manually locked if a test means to swap funcs on an in-use robot.
+	DiscoverComponentsFunc func(ctx context.Context, keys []resource.DiscoveryQuery) ([]resource.Discovery, error)
+	RemoteByNameFunc       func(name string) (robot.Robot, bool)
+	ResourceByNameFunc     func(name resource.Name) (resource.Resource, error)
+	RemoteNamesFunc        func() []string
+	ResourceNamesFunc      func() []resource.Name
+	ResourceRPCAPIsFunc    func() []resource.RPCAPI
+	ProcessManagerFunc     func() pexec.ProcessManager
+	ConfigFunc             func(ctx context.Context) (*config.Config, error)
+	LoggerFunc             func() golog.Logger
+	CloseFunc              func(ctx context.Context) error
+	StopAllFunc            func(ctx context.Context, extra map[resource.Name]map[string]interface{}) error
+	FrameSystemConfigFunc  func(ctx context.Context, additionalTransforms []*referenceframe.LinkInFrame) (framesystemparts.Parts, error)
+	TransformPoseFunc      func(
 		ctx context.Context,
 		pose *referenceframe.PoseInFrame,
 		dst string,
@@ -59,7 +57,7 @@ type Robot struct {
 }
 
 // MockResourcesFromMap mocks ResourceNames and ResourceByName based on a resource map.
-func (r *Robot) MockResourcesFromMap(rs map[resource.Name]interface{}) {
+func (r *Robot) MockResourcesFromMap(rs map[resource.Name]resource.Resource) {
 	r.ResourceNamesFunc = func() []resource.Name {
 		result := []resource.Name{}
 		for name := range rs {
@@ -67,12 +65,12 @@ func (r *Robot) MockResourcesFromMap(rs map[resource.Name]interface{}) {
 		}
 		return result
 	}
-	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+	r.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
 		result, ok := rs[name]
 		if ok {
 			return result, nil
 		}
-		return r.ResourceByName(name)
+		return nil, errors.New("not found")
 	}
 }
 
@@ -87,7 +85,7 @@ func (r *Robot) RemoteByName(name string) (robot.Robot, bool) {
 }
 
 // ResourceByName calls the injected ResourceByName or the real version.
-func (r *Robot) ResourceByName(name resource.Name) (interface{}, error) {
+func (r *Robot) ResourceByName(name resource.Name) (resource.Resource, error) {
 	r.Mu.RLock()
 	defer r.Mu.RUnlock()
 	if r.ResourceByNameFunc == nil {
@@ -116,14 +114,14 @@ func (r *Robot) ResourceNames() []resource.Name {
 	return r.ResourceNamesFunc()
 }
 
-// ResourceRPCSubtypes returns a list of all known resource RPC subtypes.
-func (r *Robot) ResourceRPCSubtypes() []resource.RPCSubtype {
+// ResourceRPCAPIs returns a list of all known resource RPC APIs.
+func (r *Robot) ResourceRPCAPIs() []resource.RPCAPI {
 	r.Mu.RLock()
 	defer r.Mu.RUnlock()
-	if r.ResourceRPCSubtypesFunc == nil {
-		return r.LocalRobot.ResourceRPCSubtypes()
+	if r.ResourceRPCAPIsFunc == nil {
+		return r.LocalRobot.ResourceRPCAPIs()
 	}
-	return r.ResourceRPCSubtypesFunc()
+	return r.ResourceRPCAPIsFunc()
 }
 
 // ProcessManager calls the injected ProcessManager or the real version.
@@ -194,7 +192,10 @@ func (r *Robot) Close(ctx context.Context) error {
 	r.Mu.RLock()
 	defer r.Mu.RUnlock()
 	if r.CloseFunc == nil {
-		return utils.TryClose(ctx, r.LocalRobot)
+		if r.LocalRobot == nil {
+			return nil
+		}
+		return r.LocalRobot.Close(ctx)
 	}
 	return r.CloseFunc(ctx)
 }
@@ -209,21 +210,8 @@ func (r *Robot) StopAll(ctx context.Context, extra map[resource.Name]map[string]
 	return r.StopAllFunc(ctx, extra)
 }
 
-// Refresh calls the injected Refresh or the real version.
-func (r *Robot) Refresh(ctx context.Context) error {
-	r.Mu.RLock()
-	defer r.Mu.RUnlock()
-	if r.RefreshFunc == nil {
-		if refresher, ok := r.LocalRobot.(robot.Refresher); ok {
-			return refresher.Refresh(ctx)
-		}
-		return nil
-	}
-	return r.RefreshFunc(ctx)
-}
-
 // DiscoverComponents calls the injected DiscoverComponents or the real one.
-func (r *Robot) DiscoverComponents(ctx context.Context, keys []discovery.Query) ([]discovery.Discovery, error) {
+func (r *Robot) DiscoverComponents(ctx context.Context, keys []resource.DiscoveryQuery) ([]resource.Discovery, error) {
 	r.Mu.RLock()
 	defer r.Mu.RUnlock()
 	if r.DiscoverComponentsFunc == nil {
@@ -294,6 +282,9 @@ func (r *Robot) ModuleManager() modmaninterface.ModuleManager {
 	r.Mu.RLock()
 	defer r.Mu.RUnlock()
 	if r.ModuleManagerFunc == nil {
+		if r.LocalRobot == nil {
+			return nil
+		}
 		return r.LocalRobot.ModuleManager()
 	}
 	return r.ModuleManagerFunc()

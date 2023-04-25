@@ -11,10 +11,14 @@ import (
 	"go.viam.com/utils/rpc"
 
 	rprotoutils "go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/resource"
 )
 
 // client implements ShellServiceClient.
 type client struct {
+	resource.Named
+	resource.TriviallyReconfigurable
+	resource.TriviallyCloseable
 	name                    string
 	conn                    rpc.ClientConn
 	client                  pb.ShellServiceClient
@@ -23,15 +27,22 @@ type client struct {
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
-func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Service {
+func NewClientFromConn(
+	ctx context.Context,
+	conn rpc.ClientConn,
+	remoteName string,
+	name resource.Name,
+	logger golog.Logger,
+) (Service, error) {
 	grpcClient := pb.NewShellServiceClient(conn)
 	c := &client{
-		name:   name,
+		Named:  name.PrependRemote(remoteName).AsNamed(),
+		name:   name.ShortName(),
 		conn:   conn,
 		client: grpcClient,
 		logger: logger,
 	}
-	return c
+	return c, nil
 }
 
 func (c *client) Shell(ctx context.Context, extra map[string]interface{}) (chan<- string, <-chan Output, error) {

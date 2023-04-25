@@ -24,7 +24,6 @@ import (
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 func makeFakeRobot(t *testing.T) robot.Robot {
@@ -103,7 +102,7 @@ func makeFakeRobot(t *testing.T) robot.Robot {
 	r.ResourceNamesFunc = func() []resource.Name {
 		return []resource.Name{camera.Named("cam1"), camera.Named("cam2"), camera.Named("cam3"), base.Named("base1")}
 	}
-	r.ResourceByNameFunc = func(n resource.Name) (interface{}, error) {
+	r.ResourceByNameFunc = func(n resource.Name) (resource.Resource, error) {
 		switch n.Name {
 		case "cam1":
 			return cam1, nil
@@ -114,7 +113,7 @@ func makeFakeRobot(t *testing.T) robot.Robot {
 		case "base1":
 			return base1, nil
 		default:
-			return nil, rdkutils.NewResourceNotFoundError(n)
+			return nil, resource.NewNotFoundError(n)
 		}
 	}
 	return r
@@ -124,15 +123,15 @@ func TestJoinPointCloudNaive(t *testing.T) {
 	// TODO(RSDK-1200): remove skip when complete
 	t.Skip("remove skip once RSDK-1200 improvement is complete")
 	r := makeFakeRobot(t)
-	defer utils.TryClose(context.Background(), r)
+	defer r.Close(context.Background())
 	// PoV from base1
-	attrs := &JoinAttrs{
+	conf := &JoinConfig{
 		Debug:         true,
 		SourceCameras: []string{"cam1", "cam2", "cam3"},
 		TargetFrame:   "base1",
 		MergeMethod:   "naive",
 	}
-	joinedCam, err := newJoinPointCloudSource(context.Background(), r, golog.NewTestLogger(t), attrs)
+	joinedCam, err := newJoinPointCloudSource(context.Background(), r, golog.NewTestLogger(t), camera.Named("foo"), conf)
 	test.That(t, err, test.ShouldBeNil)
 	pc, err := joinedCam.NextPointCloud(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -157,13 +156,13 @@ func TestJoinPointCloudNaive(t *testing.T) {
 	test.That(t, joinedCam.Close(context.Background()), test.ShouldBeNil)
 
 	// PoV from cam1
-	attrs2 := &JoinAttrs{
+	conf2 := &JoinConfig{
 		Debug:         true,
 		SourceCameras: []string{"cam1", "cam2", "cam3"},
 		TargetFrame:   "cam1",
 		MergeMethod:   "naive",
 	}
-	joinedCam2, err := newJoinPointCloudSource(context.Background(), r, utils.Logger, attrs2)
+	joinedCam2, err := newJoinPointCloudSource(context.Background(), r, utils.Logger, camera.Named("foo"), conf2)
 	test.That(t, err, test.ShouldBeNil)
 	pc, err = joinedCam2.NextPointCloud(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -366,7 +365,7 @@ func makeFakeRobotICP(t *testing.T) (robot.Robot, error) {
 			camera.Named("cam4"), camera.Named("cam5"), base.Named("base1"),
 		}
 	}
-	r.ResourceByNameFunc = func(n resource.Name) (interface{}, error) {
+	r.ResourceByNameFunc = func(n resource.Name) (resource.Resource, error) {
 		switch n.Name {
 		case "cam1":
 			return cam1, nil
@@ -381,7 +380,7 @@ func makeFakeRobotICP(t *testing.T) (robot.Robot, error) {
 		case "base1":
 			return base1, nil
 		default:
-			return nil, rdkutils.NewResourceNotFoundError(n)
+			return nil, resource.NewNotFoundError(n)
 		}
 	}
 	return r, nil
@@ -393,16 +392,16 @@ func TestFixedPointCloudICP(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	time.Sleep(500 * time.Millisecond)
 	// PoV from base1
-	attrs := &JoinAttrs{
+	conf := &JoinConfig{
 		Debug:         true,
 		SourceCameras: []string{"cam1", "cam2"},
 		TargetFrame:   "base1",
 		MergeMethod:   "icp",
 		Closeness:     0.01,
 	}
-	joinedCam, err := newJoinPointCloudSource(ctx, r, utils.Logger, attrs)
+	joinedCam, err := newJoinPointCloudSource(ctx, r, utils.Logger, camera.Named("foo"), conf)
 	test.That(t, err, test.ShouldBeNil)
-	defer utils.TryClose(context.Background(), joinedCam)
+	defer joinedCam.Close(context.Background())
 	pc, err := joinedCam.NextPointCloud(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pc.Size(), test.ShouldEqual, 100)
@@ -414,15 +413,15 @@ func TestTwinPointCloudICP(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	time.Sleep(500 * time.Millisecond)
 
-	attrs := &JoinAttrs{
+	conf := &JoinConfig{
 		Debug:         true,
 		SourceCameras: []string{"cam3", "cam4"},
 		TargetFrame:   "cam3",
 		MergeMethod:   "icp",
 	}
-	joinedCam, err := newJoinPointCloudSource(context.Background(), r, utils.Logger, attrs)
+	joinedCam, err := newJoinPointCloudSource(context.Background(), r, utils.Logger, camera.Named("foo"), conf)
 	test.That(t, err, test.ShouldBeNil)
-	defer utils.TryClose(context.Background(), joinedCam)
+	defer joinedCam.Close(context.Background())
 	pc, err := joinedCam.NextPointCloud(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	filename := "test_twin_" + time.Now().Format(time.RFC3339) + "*.pcd"
@@ -439,15 +438,15 @@ func TestMultiPointCloudICP(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	time.Sleep(500 * time.Millisecond)
 
-	attrs := &JoinAttrs{
+	conf := &JoinConfig{
 		Debug:         true,
 		SourceCameras: []string{"cam3", "cam4", "cam5"},
 		TargetFrame:   "cam3",
 		MergeMethod:   "icp",
 	}
-	joinedCam, err := newJoinPointCloudSource(context.Background(), r, utils.Logger, attrs)
+	joinedCam, err := newJoinPointCloudSource(context.Background(), r, utils.Logger, camera.Named("foo"), conf)
 	test.That(t, err, test.ShouldBeNil)
-	defer utils.TryClose(context.Background(), joinedCam)
+	defer joinedCam.Close(context.Background())
 	pc, err := joinedCam.NextPointCloud(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 

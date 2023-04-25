@@ -8,62 +8,47 @@ import (
 	pb "go.viam.com/api/component/encoder/v1"
 
 	"go.viam.com/rdk/protoutils"
-	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/resource"
 )
 
-type subtypeServer struct {
+type serviceServer struct {
 	pb.UnimplementedEncoderServiceServer
-	s subtype.Service
+	coll resource.APIResourceCollection[Encoder]
 }
 
-// NewServer constructs an Encoder gRPC service subtypeServer.
-func NewServer(s subtype.Service) pb.EncoderServiceServer {
-	return &subtypeServer{s: s}
-}
-
-// getEncoder returns the specified encoder or nil.
-func (s *subtypeServer) getEncoder(name string) (Encoder, error) {
-	resource := s.s.Resource(name)
-	if resource == nil {
-		return nil, errors.Errorf("no Encoder with name (%s)", name)
-	}
-	enc, ok := resource.(Encoder)
-	if !ok {
-		return nil, errors.Errorf("resource with name (%s) is not an Encoder", name)
-	}
-	return enc, nil
+// NewRPCServiceServer constructs an Encoder gRPC service serviceServer.
+func NewRPCServiceServer(coll resource.APIResourceCollection[Encoder]) interface{} {
+	return &serviceServer{coll: coll}
 }
 
 // GetPosition returns the current position in terms of ticks or
 // degrees, and whether it is a relative or absolute position.
-func (s *subtypeServer) GetPosition(
+func (s *serviceServer) GetPosition(
 	ctx context.Context,
 	req *pb.GetPositionRequest,
 ) (*pb.GetPositionResponse, error) {
-	enc, err := s.getEncoder(req.Name)
+	enc, err := s.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
-	posType := ToEncoderPositionType(req.PositionType)
-	position, positionType, err := enc.GetPosition(ctx, &posType, req.Extra.AsMap())
+	position, positionType, err := enc.GetPosition(ctx, ToEncoderPositionType(req.PositionType), req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
-	posType1 := ToProtoPositionType(&positionType)
 	return &pb.GetPositionResponse{
 		Value:        float32(position),
-		PositionType: posType1,
+		PositionType: ToProtoPositionType(positionType),
 	}, nil
 }
 
 // ResetPosition sets the current position of the encoder
 // specified by the request to be its new zero position.
-func (s *subtypeServer) ResetPosition(
+func (s *serviceServer) ResetPosition(
 	ctx context.Context,
 	req *pb.ResetPositionRequest,
 ) (*pb.ResetPositionResponse, error) {
 	encName := req.GetName()
-	enc, err := s.getEncoder(encName)
+	enc, err := s.coll.Resource(encName)
 	if err != nil {
 		return nil, errors.Errorf("no encoder (%s) found", encName)
 	}
@@ -72,12 +57,12 @@ func (s *subtypeServer) ResetPosition(
 }
 
 // GetProperties returns a message of booleans indicating which optional features the robot's encoder supports.
-func (s *subtypeServer) GetProperties(
+func (s *serviceServer) GetProperties(
 	ctx context.Context,
 	req *pb.GetPropertiesRequest,
 ) (*pb.GetPropertiesResponse, error) {
 	encoderName := req.GetName()
-	enc, err := s.getEncoder(encoderName)
+	enc, err := s.coll.Resource(encoderName)
 	if err != nil {
 		return nil, errors.Errorf("no encoder (%s) found", encoderName)
 	}
@@ -89,10 +74,10 @@ func (s *subtypeServer) GetProperties(
 }
 
 // DoCommand receives arbitrary commands.
-func (s *subtypeServer) DoCommand(ctx context.Context,
+func (s *serviceServer) DoCommand(ctx context.Context,
 	req *commonpb.DoCommandRequest,
 ) (*commonpb.DoCommandResponse, error) {
-	enc, err := s.getEncoder(req.GetName())
+	enc, err := s.coll.Resource(req.GetName())
 	if err != nil {
 		return nil, err
 	}

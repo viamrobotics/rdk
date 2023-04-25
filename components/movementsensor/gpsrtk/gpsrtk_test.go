@@ -9,13 +9,11 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils"
 
-	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/components/movementsensor/fake"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
-	gutils "go.viam.com/rdk/utils"
+	rutils "go.viam.com/rdk/utils"
 )
 
 var (
@@ -32,14 +30,14 @@ const (
 func setupInjectRobotWithGPS() *inject.Robot {
 	r := &inject.Robot{}
 
-	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+	r.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
 		switch name {
 		case movementsensor.Named(testRoverName):
 			return &RTKMovementSensor{}, nil
 		case movementsensor.Named(testStationName):
 			return &rtkStation{}, nil
 		default:
-			return nil, gutils.NewResourceNotFoundError(name)
+			return nil, resource.NewNotFoundError(name)
 		}
 	}
 	r.ResourceNamesFunc = func() []resource.Name {
@@ -60,7 +58,7 @@ func TestModelTypeCreators(t *testing.T) {
 
 func TestValidateRTK(t *testing.T) {
 	path := "path"
-	fakecfg := &AttrConfig{NtripAttrConfig: &NtripAttrConfig{}}
+	fakecfg := &Config{NtripConfig: &NtripConfig{}}
 	_, err := fakecfg.Validate(path)
 	test.That(t, err, test.ShouldBeError,
 		utils.NewConfigValidationFieldRequiredError(path, "correction_source"))
@@ -70,7 +68,7 @@ func TestValidateRTK(t *testing.T) {
 	test.That(t, err, test.ShouldBeError,
 		utils.NewConfigValidationFieldRequiredError(path, "ntrip_addr"))
 
-	fakecfg.NtripAttrConfig.NtripAddr = "http://fakeurl"
+	fakecfg.NtripConfig.NtripAddr = "http://fakeurl"
 	_, err = fakecfg.Validate(path)
 	test.That(
 		t,
@@ -79,7 +77,7 @@ func TestValidateRTK(t *testing.T) {
 		utils.NewConfigValidationFieldRequiredError(path, "ntrip_path"),
 	)
 
-	fakecfg.NtripAttrConfig.NtripPath = "some-ntrip-path"
+	fakecfg.NtripConfig.NtripPath = "some-ntrip-path"
 	_, err = fakecfg.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
 }
@@ -119,26 +117,26 @@ func TestNewRTKMovementSensor(t *testing.T) {
 
 	t.Run("serial protocol", func(t *testing.T) {
 		// serial protocol
-		cfig := config.Component{
+		conf := resource.Config{
 			Name:  "movementsensor1",
 			Model: roverModel,
-			Type:  movementsensor.SubtypeName,
-			Attributes: config.AttributeMap{
+			API:   movementsensor.API,
+			Attributes: rutils.AttributeMap{
 				"ntrip_send_nmea":           true,
 				"ntrip_connect_attempts":    10,
 				"correction_input_protocol": "serial",
 				"path":                      path,
 			},
-			ConvertedAttributes: &AttrConfig{
+			ConvertedAttributes: &Config{
 				CorrectionSource: "serial",
 				Board:            "",
-				SerialAttrConfig: &SerialAttrConfig{
+				SerialConfig: &SerialConfig{
 					SerialPath:               path,
 					SerialBaudRate:           0,
 					SerialCorrectionPath:     path,
 					SerialCorrectionBaudRate: 0,
 				},
-				NtripAttrConfig: &NtripAttrConfig{
+				NtripConfig: &NtripConfig{
 					NtripAddr:            "some_ntrip_address",
 					NtripConnectAttempts: 10,
 					NtripMountpoint:      "",
@@ -151,20 +149,19 @@ func TestNewRTKMovementSensor(t *testing.T) {
 			},
 		}
 
-		g, err := newRTKMovementSensor(ctx, deps, cfig, logger)
-		passErr := "open " + path + ": no such file or directory"
-		if err == nil || err.Error() != passErr {
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, g, test.ShouldNotBeNil)
-		}
+		// TODO(RSDK-2698): this test is not really doing anything since it needs a mocked
+		// serial; it used to just test a random error; it still does.
+		_, err := newRTKMovementSensor(ctx, deps, conf, logger)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no such file")
 	})
 
 	t.Run("I2C protocol", func(t *testing.T) {
-		cfig := config.Component{
+		conf := resource.Config{
 			Name:  "movementsensor1",
 			Model: roverModel,
-			Type:  movementsensor.SubtypeName,
-			Attributes: config.AttributeMap{
+			API:   movementsensor.API,
+			Attributes: rutils.AttributeMap{
 				"ntrip_addr":                "some_ntrip_address",
 				"i2c_addr":                  "",
 				"ntrip_username":            "",
@@ -179,33 +176,35 @@ func TestNewRTKMovementSensor(t *testing.T) {
 				"board":                     testBoardName,
 				"bus":                       testBusName,
 			},
-			ConvertedAttributes: &AttrConfig{
+			ConvertedAttributes: &Config{
 				CorrectionSource: "i2c",
 				Board:            testBoardName,
-				I2CAttrConfig: &I2CAttrConfig{
+				I2CConfig: &I2CConfig{
 					I2CBus:      testBusName,
 					I2cAddr:     0,
 					I2CBaudRate: 115200,
 				},
+				NtripConfig: &NtripConfig{
+					NtripAddr: "http://some_ntrip_address",
+				},
 			},
 		}
 
-		g, err := newRTKMovementSensor(ctx, deps, cfig, logger)
-		passErr := "board " + testBoardName + " is not local"
-
-		if err == nil || err.Error() != passErr {
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, g, test.ShouldNotBeNil)
-		}
+		// TODO(RSDK-2698): this test is not really doing anything since it needs a mocked
+		// I2C; it used to just test a random error; it still does.
+		g, err := newRTKMovementSensor(ctx, deps, conf, logger)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, g.Name(), test.ShouldResemble, conf.ResourceName())
+		test.That(t, g.Close(context.Background()), test.ShouldBeNil)
 	})
 
 	t.Run("invalid protocol", func(t *testing.T) {
 		// invalid protocol
-		cfig := config.Component{
+		conf := resource.Config{
 			Name:  "movementsensor1",
-			Model: resource.NewDefaultModel("rtk"),
-			Type:  movementsensor.SubtypeName,
-			Attributes: config.AttributeMap{
+			Model: resource.DefaultModelFamily.WithModel("rtk"),
+			API:   movementsensor.API,
+			Attributes: rutils.AttributeMap{
 				"ntrip_addr":                "some_ntrip_address",
 				"ntrip_username":            "",
 				"ntrip_password":            "",
@@ -217,18 +216,18 @@ func TestNewRTKMovementSensor(t *testing.T) {
 				"correction_input_protocol": "notserial",
 				"path":                      path,
 			},
-			ConvertedAttributes: &AttrConfig{},
+			ConvertedAttributes: &Config{},
 		}
-		_, err := newRTKMovementSensor(ctx, deps, cfig, logger)
+		_, err := newRTKMovementSensor(ctx, deps, conf, logger)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
 	t.Run("no ntrip address", func(t *testing.T) {
-		cfig := config.Component{
+		conf := resource.Config{
 			Name:  "movementsensor1",
-			Model: resource.NewDefaultModel("rtk"),
-			Type:  movementsensor.SubtypeName,
-			Attributes: config.AttributeMap{
+			Model: resource.DefaultModelFamily.WithModel("rtk"),
+			API:   movementsensor.API,
+			Attributes: rutils.AttributeMap{
 				"ntrip_addr":                "some_ntrip_address",
 				"ntrip_username":            "",
 				"ntrip_password":            "",
@@ -240,10 +239,10 @@ func TestNewRTKMovementSensor(t *testing.T) {
 				"correction_input_protocol": "serial",
 				"path":                      path,
 			},
-			ConvertedAttributes: &AttrConfig{},
+			ConvertedAttributes: &Config{},
 		}
 
-		_, err := newRTKMovementSensor(ctx, deps, cfig, logger)
+		_, err := newRTKMovementSensor(ctx, deps, conf, logger)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 }
@@ -258,10 +257,7 @@ func TestReadingsRTK(t *testing.T) {
 		logger:     logger,
 	}
 
-	g.nmeamovementsensor = &fake.MovementSensor{
-		CancelCtx: cancelCtx,
-		Logger:    logger,
-	}
+	g.nmeamovementsensor = &fake.MovementSensor{}
 
 	status, err := g.NtripStatus()
 	test.That(t, err, test.ShouldBeNil)
@@ -293,7 +289,7 @@ func TestCloseRTK(t *testing.T) {
 	}
 	g.nmeamovementsensor = &fake.MovementSensor{}
 
-	err := g.Close()
+	err := g.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)
 }
 
@@ -302,35 +298,4 @@ func TestCloseRTK(t *testing.T) {
 // mock ntripinfo client.
 func makeMockNtripClient() *NtripInfo {
 	return &NtripInfo{}
-}
-
-type mock struct {
-	board.LocalBoard
-	Name string
-
-	i2cs []string
-	i2c  *mockI2C
-}
-
-func newBoard(name string) *mock {
-	return &mock{
-		Name: name,
-		i2cs: []string{"i2c1"},
-		i2c:  &mockI2C{1},
-	}
-}
-
-// Mock I2C
-
-type mockI2C struct{ handleCount int }
-
-func (m *mock) I2CNames() []string {
-	return m.i2cs
-}
-
-func (m *mock) I2CByName(name string) (*mockI2C, bool) {
-	if len(m.i2cs) == 0 {
-		return nil, false
-	}
-	return m.i2c, true
 }

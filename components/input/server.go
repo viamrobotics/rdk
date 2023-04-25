@@ -10,39 +10,27 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/protoutils"
-	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/resource"
 )
 
-// subtypeServer implements the InputControllerService from proto.
-type subtypeServer struct {
+// serviceServer implements the InputControllerService from proto.
+type serviceServer struct {
 	pb.UnimplementedInputControllerServiceServer
-	s subtype.Service
+	coll resource.APIResourceCollection[Controller]
 }
 
-// NewServer constructs an input controller gRPC service server.
-func NewServer(s subtype.Service) pb.InputControllerServiceServer {
-	return &subtypeServer{s: s}
-}
-
-// getInputController returns the input controller specified, nil if not.
-func (s *subtypeServer) getInputController(name string) (Controller, error) {
-	resource := s.s.Resource(name)
-	if resource == nil {
-		return nil, errors.Errorf("no input controller with name (%s)", name)
-	}
-	input, ok := resource.(Controller)
-	if !ok {
-		return nil, errors.Errorf("resource with name (%s) is not an input controller", name)
-	}
-	return input, nil
+// NewRPCServiceServer constructs an input controller gRPC service server.
+// It is intentionally untyped to prevent use outside of tests.
+func NewRPCServiceServer(coll resource.APIResourceCollection[Controller]) interface{} {
+	return &serviceServer{coll: coll}
 }
 
 // GetControls lists the inputs of an Controller.
-func (s *subtypeServer) GetControls(
+func (s *serviceServer) GetControls(
 	ctx context.Context,
 	req *pb.GetControlsRequest,
 ) (*pb.GetControlsResponse, error) {
-	controller, err := s.getInputController(req.Controller)
+	controller, err := s.coll.Resource(req.Controller)
 	if err != nil {
 		return nil, err
 	}
@@ -61,11 +49,11 @@ func (s *subtypeServer) GetControls(
 }
 
 // GetEvents returns the last Event (current state) of each control.
-func (s *subtypeServer) GetEvents(
+func (s *serviceServer) GetEvents(
 	ctx context.Context,
 	req *pb.GetEventsRequest,
 ) (*pb.GetEventsResponse, error) {
-	controller, err := s.getInputController(req.Controller)
+	controller, err := s.coll.Resource(req.Controller)
 	if err != nil {
 		return nil, err
 	}
@@ -90,11 +78,11 @@ func (s *subtypeServer) GetEvents(
 }
 
 // TriggerEvent allows directly sending an Event (such as a button press) from external code.
-func (s *subtypeServer) TriggerEvent(
+func (s *serviceServer) TriggerEvent(
 	ctx context.Context,
 	req *pb.TriggerEventRequest,
 ) (*pb.TriggerEventResponse, error) {
-	controller, err := s.getInputController(req.Controller)
+	controller, err := s.coll.Resource(req.Controller)
 	if err != nil {
 		return nil, err
 	}
@@ -121,11 +109,11 @@ func (s *subtypeServer) TriggerEvent(
 }
 
 // StreamEvents returns a stream of Event.
-func (s *subtypeServer) StreamEvents(
+func (s *serviceServer) StreamEvents(
 	req *pb.StreamEventsRequest,
 	server pb.InputControllerService_StreamEventsServer,
 ) error {
-	controller, err := s.getInputController(req.Controller)
+	controller, err := s.coll.Resource(req.Controller)
 	if err != nil {
 		return err
 	}
@@ -181,10 +169,10 @@ func (s *subtypeServer) StreamEvents(
 }
 
 // DoCommand receives arbitrary commands.
-func (s *subtypeServer) DoCommand(ctx context.Context,
+func (s *serviceServer) DoCommand(ctx context.Context,
 	req *commonpb.DoCommandRequest,
 ) (*commonpb.DoCommandResponse, error) {
-	controller, err := s.getInputController(req.GetName())
+	controller, err := s.coll.Resource(req.GetName())
 	if err != nil {
 		return nil, err
 	}

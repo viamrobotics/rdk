@@ -11,27 +11,24 @@ import (
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/base/wheeled"
-	"go.viam.com/rdk/components/generic"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/slam"
 )
 
 func init() {
-	registry.RegisterComponent(
-		base.Subtype,
-		resource.NewDefaultModel("fake"),
-		registry.Component{
+	resource.RegisterComponent(
+		base.API,
+		resource.DefaultModelFamily.WithModel("fake"),
+		resource.Registration[base.Base, resource.NoNativeConfig]{
 			Constructor: func(
 				ctx context.Context,
-				_ registry.Dependencies,
-				config config.Component,
+				deps resource.Dependencies,
+				conf resource.Config,
 				logger golog.Logger,
-			) (interface{}, error) {
-				return NewBase(ctx, config, logger)
+			) (base.Base, error) {
+				return &Base{Named: conf.ResourceName().AsNamed()}, nil
 			},
 		},
 	)
@@ -39,23 +36,19 @@ func init() {
 
 const defaultWidth = 600
 
-var _ = base.LocalBase(&Base{})
-
 // Base is a fake base that returns what it was provided in each method.
 type Base struct {
-	generic.Echo
-	Name       string
+	resource.Named
+	resource.TriviallyReconfigurable
 	CloseCount int
-	logger     golog.Logger
 	geometry   *referenceframe.LinkConfig
 }
 
 // NewBase instantiates a new base of the fake model type.
-func NewBase(ctx context.Context, cfg config.Component, logger golog.Logger) (base.LocalBase, error) {
+func NewBase(ctx context.Context, conf resource.Config) (base.LocalBase, error) {
 	return &Base{
-		Name:     cfg.Name,
-		logger:   logger,
-		geometry: cfg.Frame,
+		Named:    conf.ResourceName().AsNamed(),
+		geometry: conf.Frame,
 	}, nil
 }
 
@@ -95,8 +88,9 @@ func (b *Base) IsMoving(ctx context.Context) (bool, error) {
 }
 
 // Close does nothing.
-func (b *Base) Close() {
+func (b *Base) Close(ctx context.Context) error {
 	b.CloseCount++
+	return nil
 }
 
 type kinematicBase struct {
@@ -123,7 +117,7 @@ func (b *Base) WrapWithKinematics(ctx context.Context, slamSvc slam.Service) (ba
 		return nil, err
 	}
 	limits := []referenceframe.Limit{{Min: dims.MinX, Max: dims.MaxX}, {Min: dims.MinZ, Max: dims.MaxZ}}
-	model, err := wheeled.Model(b.Name, geometry, limits)
+	model, err := wheeled.MakeModelFrame(b.Name().ShortName(), geometry, limits)
 	if err != nil {
 		return nil, errors.Wrap(err, "fake base cannot be created")
 	}

@@ -11,38 +11,26 @@ import (
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/protoutils"
-	"go.viam.com/rdk/subtype"
-	"go.viam.com/rdk/utils"
+	"go.viam.com/rdk/resource"
 )
 
-// subtypeServer implements the contract from shell.proto.
-type subtypeServer struct {
+// serviceServer implements the contract from shell.proto.
+type serviceServer struct {
 	pb.UnimplementedShellServiceServer
-	subtypeSvc subtype.Service
+	coll resource.APIResourceCollection[Service]
 }
 
-// NewServer constructs a framesystem gRPC service server.
-func NewServer(s subtype.Service) pb.ShellServiceServer {
-	return &subtypeServer{subtypeSvc: s}
+// NewRPCServiceServer constructs a framesystem gRPC service server.
+// It is intentionally untyped to prevent use outside of tests.
+func NewRPCServiceServer(coll resource.APIResourceCollection[Service]) interface{} {
+	return &serviceServer{coll: coll}
 }
 
-func (server *subtypeServer) service(serviceName string) (Service, error) {
-	resource := server.subtypeSvc.Resource(serviceName)
-	if resource == nil {
-		return nil, utils.NewResourceNotFoundError(Named(serviceName))
-	}
-	svc, ok := resource.(Service)
-	if !ok {
-		return nil, NewUnimplementedInterfaceError(resource)
-	}
-	return svc, nil
-}
-
-func (server *subtypeServer) Shell(srv pb.ShellService_ShellServer) (retErr error) {
+func (server *serviceServer) Shell(srv pb.ShellService_ShellServer) (retErr error) {
 	firstMsg := true
 	req, err := srv.Recv()
 	errTemp := err
-	svc, err := server.service(req.Name)
+	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return err
 	}
@@ -115,10 +103,10 @@ func (server *subtypeServer) Shell(srv pb.ShellService_ShellServer) (retErr erro
 }
 
 // DoCommand receives arbitrary commands.
-func (server *subtypeServer) DoCommand(ctx context.Context,
+func (server *serviceServer) DoCommand(ctx context.Context,
 	req *commonpb.DoCommandRequest,
 ) (*commonpb.DoCommandResponse, error) {
-	svc, err := server.service(req.Name)
+	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}

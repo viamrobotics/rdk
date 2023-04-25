@@ -11,21 +11,17 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 )
 
-// AttrConfig is user config inputs for ezopmp.
-type AttrConfig struct {
+// Config is user config inputs for ezopmp.
+type Config struct {
 	BoardName   string `json:"board"`
 	BusName     string `json:"i2c_bus"`
 	I2CAddress  *byte  `json:"i2c_addr"`
@@ -33,56 +29,52 @@ type AttrConfig struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (config *AttrConfig) Validate(path string) ([]string, error) {
+func (conf *Config) Validate(path string) ([]string, error) {
 	var deps []string
-	if config.BoardName == "" {
+	if conf.BoardName == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
 	}
 
-	if config.BusName == "" {
+	if conf.BusName == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "bus_name")
 	}
 
-	if config.I2CAddress == nil {
+	if conf.I2CAddress == nil {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "i2c_address")
 	}
 
-	if config.MaxReadBits == nil {
+	if conf.MaxReadBits == nil {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "max_read_bits")
 	}
 
-	deps = append(deps, config.BoardName)
+	deps = append(deps, conf.BoardName)
 	return deps, nil
 }
 
-var modelName = resource.NewDefaultModel("ezopmp")
+var model = resource.DefaultModelFamily.WithModel("ezopmp")
 
 func init() {
-	_motor := registry.Component{
-		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-			return NewMotor(ctx, deps, config.ConvertedAttributes.(*AttrConfig), config.Name, logger)
-		},
-	}
-	registry.RegisterComponent(motor.Subtype, modelName, _motor)
-	config.RegisterComponentAttributeMapConverter(
-		motor.Subtype,
-		modelName,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf AttrConfig
-			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Squash: true, Result: &conf})
+	resource.RegisterComponent(motor.API, model, resource.Registration[motor.Motor, *Config]{
+		Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger golog.Logger,
+		) (motor.Motor, error) {
+			newConf, err := resource.NativeConfig[*Config](conf)
 			if err != nil {
 				return nil, err
 			}
-			if err := decoder.Decode(attributes); err != nil {
-				return nil, err
-			}
-			return &conf, nil
-		}, &AttrConfig{})
+			return NewMotor(ctx, deps, newConf, conf.ResourceName(), logger)
+		},
+	})
 }
 
 // Ezopmp represents a motor connected via the I2C protocol.
 type Ezopmp struct {
-	motorName   string
+	resource.Named
+	resource.AlwaysRebuild
+	resource.TriviallyCloseable
 	board       board.Board
 	bus         board.I2C
 	I2CAddress  byte
@@ -92,7 +84,6 @@ type Ezopmp struct {
 	powerPct    float64
 	maxFlowRate float64
 	opMgr       operation.SingleOperationManager
-	generic.Unimplemented
 }
 
 // available commands.
@@ -105,7 +96,7 @@ const (
 )
 
 // NewMotor returns a motor(Ezopmp) with I2C protocol.
-func NewMotor(ctx context.Context, deps registry.Dependencies, c *AttrConfig, name string,
+func NewMotor(ctx context.Context, deps resource.Dependencies, c *Config, name resource.Name,
 	logger golog.Logger,
 ) (motor.LocalMotor, error) {
 	b, err := board.FromDependencies(deps, c.BoardName)
@@ -123,6 +114,7 @@ func NewMotor(ctx context.Context, deps registry.Dependencies, c *AttrConfig, na
 	}
 
 	m := &Ezopmp{
+		Named:       name.AsNamed(),
 		board:       b,
 		bus:         bus,
 		I2CAddress:  *c.I2CAddress,
@@ -130,7 +122,6 @@ func NewMotor(ctx context.Context, deps registry.Dependencies, c *AttrConfig, na
 		logger:      logger,
 		maxPowerPct: 1.0,
 		powerPct:    0.0,
-		motorName:   name,
 	}
 
 	flowRate, err := m.findMaxFlowRate(ctx)
@@ -288,15 +279,15 @@ func (m *Ezopmp) GoFor(ctx context.Context, mLPerMin, mins float64, extra map[st
 
 	switch speed := math.Abs(mLPerMin); {
 	case speed < 0.5:
-		return errors.Errorf("motor (%s) cannot move this slowly", m.motorName)
+		return errors.New("cannot move this slowly")
 	case speed > m.maxFlowRate:
-		return errors.Errorf("max continuous flow rate of motor (%s) is: %f", m.motorName, m.maxFlowRate)
+		return errors.Errorf("max continuous flow rate is: %f", m.maxFlowRate)
 	}
 
 	commandString := "DC," + strconv.FormatFloat(mLPerMin, 'f', -1, 64) + "," + strconv.FormatFloat(mins, 'f', -1, 64)
 	command := []byte(commandString)
 	if err := m.writeRegWithCheck(ctx, command); err != nil {
-		return errors.Wrapf(err, "error in GoFor from motor (%s)", m.motorName)
+		return errors.Wrap(err, "error in GoFor")
 	}
 
 	return m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m, m.Stop)
@@ -307,15 +298,15 @@ func (m *Ezopmp) GoFor(ctx context.Context, mLPerMin, mins float64, extra map[st
 func (m *Ezopmp) GoTo(ctx context.Context, mLPerMin, mins float64, extra map[string]interface{}) error {
 	switch speed := math.Abs(mLPerMin); {
 	case speed < 0.5:
-		return errors.Errorf("motor (%s) cannot move this slowly", m.motorName)
+		return errors.New("cannot move this slowly")
 	case speed > 105:
-		return errors.Errorf("motor (%s) cannot move this fast", m.motorName)
+		return errors.New("cannot move this fast")
 	}
 
 	commandString := "D," + strconv.FormatFloat(mLPerMin, 'f', -1, 64) + "," + strconv.FormatFloat(mins, 'f', -1, 64)
 	command := []byte(commandString)
 	if err := m.writeRegWithCheck(ctx, command); err != nil {
-		return errors.Wrapf(err, "error in GoTo from motor (%s)", m.motorName)
+		return errors.Wrap(err, "error in GoTo")
 	}
 	return m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m, m.Stop)
 }
@@ -331,11 +322,11 @@ func (m *Ezopmp) Position(ctx context.Context, extra map[string]interface{}) (fl
 	command := []byte(totVolDispensed)
 	writeErr := m.writeReg(ctx, command)
 	if writeErr != nil {
-		return 0, errors.Wrapf(writeErr, "error in Position from motor (%s)", m.motorName)
+		return 0, errors.Wrap(writeErr, "error in Position")
 	}
 	val, err := m.readReg(ctx)
 	if err != nil {
-		return 0, errors.Wrapf(err, "error in Position from motor (%s)", m.motorName)
+		return 0, errors.Wrap(err, "error in Position")
 	}
 	splitMsg := strings.Split(string(val), ",")
 	floatVal, err := strconv.ParseFloat(splitMsg[1], 64)
@@ -367,18 +358,18 @@ func (m *Ezopmp) IsPowered(ctx context.Context, extra map[string]interface{}) (b
 	command := []byte(dispenseStatus)
 	writeErr := m.writeReg(ctx, command)
 	if writeErr != nil {
-		return false, 0, errors.Wrapf(writeErr, "error in IsPowered from motor (%s)", m.motorName)
+		return false, 0, errors.Wrap(writeErr, "error in IsPowered")
 	}
 	val, err := m.readReg(ctx)
 	if err != nil {
-		return false, 0, errors.Wrapf(err, "error in IsPowered from motor (%s)", m.motorName)
+		return false, 0, errors.Wrap(err, "error in IsPowered")
 	}
 
 	splitMsg := strings.Split(string(val), ",")
 
 	pumpStatus, err := strconv.ParseFloat(splitMsg[2], 64)
 	if err != nil {
-		return false, 0, errors.Wrapf(err, "error in IsPowered from motor (%s)", m.motorName)
+		return false, 0, errors.Wrap(err, "error in IsPowered")
 	}
 
 	if pumpStatus == 1 || pumpStatus == -1 {
@@ -389,5 +380,5 @@ func (m *Ezopmp) IsPowered(ctx context.Context, extra map[string]interface{}) (b
 
 // GoTillStop is unimplemented.
 func (m *Ezopmp) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
-	return motor.NewGoTillStopUnsupportedError(m.motorName)
+	return motor.NewGoTillStopUnsupportedError(m.Name().ShortName())
 }

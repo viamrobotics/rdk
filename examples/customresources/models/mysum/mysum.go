@@ -8,31 +8,34 @@ import (
 
 	"go.uber.org/zap"
 
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/examples/customresources/apis/summationapi"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 )
 
-var Model = resource.NewModel(
-	resource.Namespace("acme"),
-	resource.ModelFamilyName("demo"),
-	resource.ModelName("mysum"),
-)
+var Model = resource.NewModel("acme", "demo", "mysum")
 
 func init() {
-	registry.RegisterService(summationapi.Subtype, Model, registry.Service{
+	resource.RegisterService(summationapi.API, Model, resource.Registration[summationapi.Summation, resource.NoNativeConfig]{
 		Constructor: newMySum,
 	})
 }
 
 type mySum struct {
-	mu sync.Mutex
+	resource.Named
+	resource.TriviallyCloseable
+
+	mu       sync.Mutex
 	subtract bool
 }
 
-func newMySum(ctx context.Context, deps registry.Dependencies, cfg config.Service, logger *zap.SugaredLogger) (interface{}, error) {
-	return &mySum{subtract: cfg.Attributes.Bool("subtract", false)}, nil
+func newMySum(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger *zap.SugaredLogger) (summationapi.Summation, error) {
+	summer := &mySum{
+		Named: conf.ResourceName().AsNamed(),
+	}
+	if err := summer.Reconfigure(ctx, deps, conf); err != nil {
+		return nil, err
+	}
+	return summer, nil
 }
 
 func (m *mySum) Sum(ctx context.Context, nums []float64) (float64, error) {
@@ -43,16 +46,16 @@ func (m *mySum) Sum(ctx context.Context, nums []float64) (float64, error) {
 	for _, n := range nums {
 		if m.subtract {
 			ret -= n
-		}else{
+		} else {
 			ret += n
 		}
 	}
 	return ret, nil
 }
 
-func (m *mySum)	Reconfigure(ctx context.Context, cfg config.Service) error {
+func (m *mySum) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.subtract = cfg.Attributes.Bool("subtract", false)
+	m.subtract = conf.Attributes.Bool("subtract", false)
 	return nil
 }

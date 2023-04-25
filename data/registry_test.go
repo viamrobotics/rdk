@@ -19,7 +19,7 @@ func TestRegister(t *testing.T) {
 		}
 	}()
 	md := MethodMetadata{
-		Subtype:    resource.NewDefaultSubtype("type", resource.ResourceTypeComponent),
+		API:        resource.APINamespaceRDK.WithComponentType("type"),
 		MethodName: "method",
 	}
 	dummyCollectorConstructor = func(i interface{}, params CollectorParams) (Collector, error) {
@@ -33,11 +33,11 @@ func TestRegister(t *testing.T) {
 
 	// Return nothing if exact match has not been registered.
 	wrongType := MethodMetadata{
-		Subtype:    resource.NewDefaultSubtype("wrongType", resource.ResourceTypeComponent),
+		API:        resource.APINamespaceRDK.WithComponentType("wrongType"),
 		MethodName: "method",
 	}
 	wrongMethod := MethodMetadata{
-		Subtype:    resource.NewDefaultSubtype("type", resource.ResourceTypeComponent),
+		API:        resource.APINamespaceRDK.WithComponentType("type"),
 		MethodName: "WrongMethod",
 	}
 	test.That(t, CollectorLookup(wrongType), test.ShouldBeNil)

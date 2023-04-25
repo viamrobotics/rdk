@@ -8,10 +8,8 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/components/movementsensor/gpsrtk"
 	"go.viam.com/rdk/config"
-	robotimpl "go.viam.com/rdk/robot/impl"
 )
 
 func TestGPSModels(t *testing.T) {
@@ -20,6 +18,7 @@ func TestGPSModels(t *testing.T) {
 
 	t.Run("rover", func(t *testing.T) {
 		cfg1 := `{
+		"disable_partial_start": true,
 		"components": [
 			{
 				"model": "gps-rtk",
@@ -31,21 +30,14 @@ func TestGPSModels(t *testing.T) {
 			}
 					]
 		}`
-		cfg, err := config.FromReader(ctx, "", strings.NewReader(cfg1), logger)
-		test.That(t, err, test.ShouldBeNil)
-
-		r, err := robotimpl.New(ctx, cfg, logger)
-		test.That(t, err, test.ShouldBeNil)
-
-		_, err = movementsensor.FromRobot(r, "rover")
+		_, err := config.FromReader(ctx, "", strings.NewReader(cfg1), logger)
+		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, gpsrtk.ErrRoverValidation.Error())
-
-		err = r.Close(ctx)
-		test.That(t, err, test.ShouldBeNil)
 	})
 
 	t.Run("station", func(t *testing.T) {
 		cfg2 := `{
+			"disable_partial_start": true,
 			"components": [ 
 				{
 				"model": "rtk-station",
@@ -57,16 +49,8 @@ func TestGPSModels(t *testing.T) {
 			}
 		]
 		}`
-		cfg, err := config.FromReader(ctx, "", strings.NewReader(cfg2), logger)
-		test.That(t, err, test.ShouldBeNil)
-
-		r, err := robotimpl.New(ctx, cfg, logger)
-		test.That(t, err, test.ShouldBeNil)
-
-		_, err = movementsensor.FromRobot(r, "station")
+		_, err := config.FromReader(ctx, "", strings.NewReader(cfg2), logger)
+		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, gpsrtk.ErrStationValidation.Error())
-
-		err = r.Close(ctx)
-		test.That(t, err, test.ShouldBeNil)
 	})
 }

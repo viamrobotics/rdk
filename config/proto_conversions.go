@@ -2,7 +2,6 @@ package config
 
 import (
 	"reflect"
-	"strings"
 	"syscall"
 
 	"github.com/edaniels/golog"
@@ -21,7 +20,7 @@ import (
 )
 
 // FromProto converts the RobotConfig to the internal rdk equivalent.
-func FromProto(proto *pb.RobotConfig) (*Config, error) {
+func FromProto(proto *pb.RobotConfig, logger golog.Logger) (*Config, error) {
 	cfg := Config{}
 
 	var err error
@@ -49,32 +48,32 @@ func FromProto(proto *pb.RobotConfig) (*Config, error) {
 	if proto.DisablePartialStart != nil {
 		disablePartialStart = *proto.DisablePartialStart
 	}
-	cfg.Modules, err = toRDKSlice(proto.Modules, ModuleConfigFromProto, disablePartialStart)
+	cfg.Modules, err = toRDKSlice(proto.Modules, ModuleConfigFromProto, disablePartialStart, logger)
 	if err != nil {
 		return nil, errors.Wrap(err, "error converting modules config from proto")
 	}
 
-	cfg.Components, err = toRDKSlice(proto.Components, ComponentConfigFromProto, disablePartialStart)
+	cfg.Components, err = toRDKSlice(proto.Components, ComponentConfigFromProto, disablePartialStart, logger)
 	if err != nil {
 		return nil, errors.Wrap(err, "error converting components config from proto")
 	}
 
-	cfg.Remotes, err = toRDKSlice(proto.Remotes, RemoteConfigFromProto, disablePartialStart)
+	cfg.Remotes, err = toRDKSlice(proto.Remotes, RemoteConfigFromProto, disablePartialStart, logger)
 	if err != nil {
 		return nil, errors.Wrap(err, "error converting remotes config from proto")
 	}
 
-	cfg.Processes, err = toRDKSlice(proto.Processes, ProcessConfigFromProto, disablePartialStart)
+	cfg.Processes, err = toRDKSlice(proto.Processes, ProcessConfigFromProto, disablePartialStart, logger)
 	if err != nil {
 		return nil, errors.Wrap(err, "error converting processes config from proto")
 	}
 
-	cfg.Services, err = toRDKSlice(proto.Services, ServiceConfigFromProto, disablePartialStart)
+	cfg.Services, err = toRDKSlice(proto.Services, ServiceConfigFromProto, disablePartialStart, logger)
 	if err != nil {
 		return nil, errors.Wrap(err, "error converting services config from proto")
 	}
 
-	cfg.Packages, err = toRDKSlice(proto.Packages, PackageConfigFromProto, disablePartialStart)
+	cfg.Packages, err = toRDKSlice(proto.Packages, PackageConfigFromProto, disablePartialStart, logger)
 	if err != nil {
 		return nil, errors.Wrap(err, "error converting packages config from proto")
 	}
@@ -87,52 +86,51 @@ func FromProto(proto *pb.RobotConfig) (*Config, error) {
 }
 
 // ComponentConfigToProto converts Component to the proto equivalent.
-func ComponentConfigToProto(component *Component) (*pb.ComponentConfig, error) {
-	attributes, err := protoutils.StructToStructPb(component.Attributes)
+// Assumes config is valid except for partial names which will be completed.
+func ComponentConfigToProto(conf *resource.Config) (*pb.ComponentConfig, error) {
+	conf.AdjustPartialNames(resource.APITypeComponentName)
+
+	attributes, err := protoutils.StructToStructPb(conf.Attributes)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to convert attributes configs")
 	}
 
-	serviceConfigs, err := mapSliceWithErrors(component.ServiceConfig, ResourceLevelServiceConfigToProto)
+	serviceConfigs, err := mapSliceWithErrors(conf.AssociatedResourceConfigs, AssociatedResourceConfigToProto)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to convert service configs")
 	}
 
-	if err := component.fixAPI(); err != nil {
-		return nil, errors.Wrap(err, "failed to convert namespace/type/api config")
-	}
-
-	proto := pb.ComponentConfig{
-		Name:           component.Name,
-		Namespace:      string(component.Namespace),
-		Type:           string(component.Type),
-		Api:            component.API.String(),
-		Model:          component.Model.String(),
-		DependsOn:      component.DependsOn,
+	protoConf := pb.ComponentConfig{
+		Name:           conf.Name,
+		Namespace:      string(conf.API.Type.Namespace),
+		Type:           conf.API.SubtypeName,
+		Api:            conf.API.String(),
+		Model:          conf.Model.String(),
+		DependsOn:      conf.DependsOn,
 		ServiceConfigs: serviceConfigs,
 		Attributes:     attributes,
 	}
 
-	if component.Frame != nil {
-		frame, err := FrameConfigToProto(*component.Frame)
+	if conf.Frame != nil {
+		frame, err := FrameConfigToProto(*conf.Frame)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to convert frame to proto config")
 		}
-		proto.Frame = frame
+		protoConf.Frame = frame
 	}
 
-	return &proto, nil
+	return &protoConf, nil
 }
 
 // ComponentConfigFromProto creates Component from the proto equivalent.
-func ComponentConfigFromProto(proto *pb.ComponentConfig) (*Component, error) {
-	serviceConfigs, err := mapSliceWithErrors(proto.ServiceConfigs, ResourceLevelServiceConfigFromProto)
+func ComponentConfigFromProto(protoConf *pb.ComponentConfig) (*resource.Config, error) {
+	serviceConfigs, err := mapSliceWithErrors(protoConf.ServiceConfigs, AssociatedResourceConfigFromProto)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to convert service configs")
 	}
 
 	// for consistency, nil out empty maps and configs (otherwise go>proto>go conversion doesn't match)
-	attrs := proto.GetAttributes().AsMap()
+	attrs := protoConf.GetAttributes().AsMap()
 	if len(attrs) == 0 {
 		attrs = nil
 	}
@@ -141,109 +139,86 @@ func ComponentConfigFromProto(proto *pb.ComponentConfig) (*Component, error) {
 		serviceConfigs = nil
 	}
 
-	component := Component{
-		Name:          proto.GetName(),
-		Type:          resource.SubtypeName(proto.GetType()),
-		Namespace:     resource.Namespace(proto.GetNamespace()),
-		Model:         resource.NewModelFromStringIgnoreErrors(proto.GetModel()),
-		Attributes:    attrs,
-		DependsOn:     proto.GetDependsOn(),
-		ServiceConfig: serviceConfigs,
-	}
-
-	if strings.ContainsRune(proto.GetApi(), ':') {
-		component.API, err = resource.NewSubtypeFromString(proto.GetApi())
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if err := component.fixAPI(); err != nil {
+	api, err := resource.NewAPIFromString(protoConf.GetApi())
+	if err != nil {
 		return nil, err
 	}
 
-	if proto.GetFrame() != nil {
-		frame, err := FrameConfigFromProto(proto.GetFrame())
+	model, err := resource.NewModelFromString(protoConf.GetModel())
+	if err != nil {
+		return nil, err
+	}
+
+	componentConf := resource.Config{
+		Name:                      protoConf.GetName(),
+		API:                       api,
+		Model:                     model,
+		Attributes:                attrs,
+		DependsOn:                 protoConf.GetDependsOn(),
+		AssociatedResourceConfigs: serviceConfigs,
+	}
+
+	if protoConf.GetFrame() != nil {
+		frame, err := FrameConfigFromProto(protoConf.GetFrame())
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to convert frame from proto config")
 		}
-		component.Frame = frame
+		componentConf.Frame = frame
 	}
 
-	return &component, nil
+	return &componentConf, nil
 }
 
 // ServiceConfigToProto converts Service to the proto equivalent.
-func ServiceConfigToProto(service *Service) (*pb.ServiceConfig, error) {
-	attributes, err := protoutils.StructToStructPb(service.Attributes)
+// Assumes config is valid except for partial names which will be completed.
+func ServiceConfigToProto(conf *resource.Config) (*pb.ServiceConfig, error) {
+	conf.AdjustPartialNames(resource.APITypeServiceName)
+
+	attributes, err := protoutils.StructToStructPb(conf.Attributes)
 	if err != nil {
 		return nil, err
 	}
 
-	proto := pb.ServiceConfig{
-		Name:       service.Name,
-		Namespace:  string(service.Namespace),
-		Type:       string(service.Type),
-		Model:      service.Model.String(),
+	protoConf := pb.ServiceConfig{
+		Name:       conf.Name,
+		Namespace:  string(conf.API.Type.Namespace),
+		Type:       conf.API.SubtypeName,
+		Api:        conf.API.String(),
+		Model:      conf.Model.String(),
 		Attributes: attributes,
-		DependsOn:  service.DependsOn,
+		DependsOn:  conf.DependsOn,
 	}
 
-	return &proto, nil
-}
-
-// ServiceConfigToSharedProto converts Service to the proto equivalent shared with Components.
-func ServiceConfigToSharedProto(service *Service) (*pb.ComponentConfig, error) {
-	attributes, err := protoutils.StructToStructPb(service.Attributes)
-	if err != nil {
-		return nil, err
-	}
-
-	proto := pb.ComponentConfig{
-		Name:       service.Name,
-		Namespace:  string(service.Namespace),
-		Type:       string(service.Type),
-		Api:        string(service.Namespace) + ":" + string(resource.ResourceTypeService) + ":" + string(service.Type),
-		Model:      service.Model.String(),
-		Attributes: attributes,
-		DependsOn:  service.DependsOn,
-	}
-
-	return &proto, nil
+	return &protoConf, nil
 }
 
 // ServiceConfigFromProto creates Service from the proto equivalent shared with Components.
-func ServiceConfigFromProto(proto *pb.ServiceConfig) (*Service, error) {
+func ServiceConfigFromProto(protoConf *pb.ServiceConfig) (*resource.Config, error) {
 	// for consistency, nil out empty map (otherwise go>proto>go conversion doesn't match)
-	attrs := proto.GetAttributes().AsMap()
+	attrs := protoConf.GetAttributes().AsMap()
 	if len(attrs) == 0 {
 		attrs = nil
 	}
 
-	service := Service{
-		Name:       proto.GetName(),
-		Namespace:  resource.Namespace(proto.GetNamespace()),
-		Type:       resource.SubtypeName(proto.GetType()),
-		Model:      resource.NewModelFromStringIgnoreErrors(proto.GetModel()),
+	api, err := resource.NewAPIFromString(protoConf.GetApi())
+	if err != nil {
+		return nil, err
+	}
+
+	model, err := resource.NewModelFromString(protoConf.GetModel())
+	if err != nil {
+		return nil, err
+	}
+
+	conf := resource.Config{
+		Name:       protoConf.GetName(),
+		API:        api,
+		Model:      model,
 		Attributes: attrs,
-		DependsOn:  proto.GetDependsOn(),
+		DependsOn:  protoConf.GetDependsOn(),
 	}
 
-	return &service, nil
-}
-
-// ServiceConfigFromSharedProto creates a Service from the proto equivalent.
-func ServiceConfigFromSharedProto(proto *pb.ComponentConfig) (*Service, error) {
-	service := Service{
-		Name:       proto.GetName(),
-		Namespace:  resource.Namespace(proto.GetNamespace()),
-		Type:       resource.SubtypeName(proto.GetType()),
-		Model:      resource.NewModelFromStringIgnoreErrors(proto.GetModel()),
-		Attributes: proto.GetAttributes().AsMap(),
-		DependsOn:  proto.GetDependsOn(),
-	}
-
-	return &service, nil
+	return &conf, nil
 }
 
 // ModuleConfigToProto converts Module to the proto equivalent.
@@ -293,25 +268,30 @@ func ProcessConfigFromProto(proto *pb.ProcessConfig) (*pexec.ProcessConfig, erro
 	}, nil
 }
 
-// ResourceLevelServiceConfigToProto converts ResourceLevelServiceConfig to the proto equivalent.
-func ResourceLevelServiceConfigToProto(service ResourceLevelServiceConfig) (*pb.ResourceLevelServiceConfig, error) {
-	attributes, err := protoutils.StructToStructPb(service.Attributes)
+// AssociatedResourceConfigToProto converts AssociatedResourceConfig to the proto equivalent.
+func AssociatedResourceConfigToProto(conf resource.AssociatedResourceConfig) (*pb.ResourceLevelServiceConfig, error) {
+	attributes, err := protoutils.StructToStructPb(conf.Attributes)
 	if err != nil {
 		return nil, err
 	}
 
 	proto := pb.ResourceLevelServiceConfig{
-		Type:       string(service.Type),
+		Type:       conf.API.String(),
 		Attributes: attributes,
 	}
 
 	return &proto, nil
 }
 
-// ResourceLevelServiceConfigFromProto creates ResourceLevelServiceConfig from the proto equivalent.
-func ResourceLevelServiceConfigFromProto(proto *pb.ResourceLevelServiceConfig) (ResourceLevelServiceConfig, error) {
-	service := ResourceLevelServiceConfig{
-		Type:       resource.SubtypeName(proto.GetType()),
+// AssociatedResourceConfigFromProto creates AssociatedResourceConfig from the proto equivalent.
+func AssociatedResourceConfigFromProto(proto *pb.ResourceLevelServiceConfig) (resource.AssociatedResourceConfig, error) {
+	api, err := resource.NewPossibleRDKServiceAPIFromString(proto.GetType())
+	if err != nil {
+		return resource.AssociatedResourceConfig{}, err
+	}
+
+	service := resource.AssociatedResourceConfig{
+		API:        api,
 		Attributes: proto.GetAttributes().AsMap(),
 	}
 
@@ -483,7 +463,9 @@ func FrameConfigFromProto(proto *pb.Frame) (*referenceframe.LinkConfig, error) {
 
 // RemoteConfigToProto converts Remote to the proto equivalent.
 func RemoteConfigToProto(remote *Remote) (*pb.RemoteConfig, error) {
-	serviceConfigs, err := mapSliceWithErrors(remote.ServiceConfig, ResourceLevelServiceConfigToProto)
+	remote.adjustPartialNames()
+
+	serviceConfigs, err := mapSliceWithErrors(remote.AssociatedResourceConfigs, AssociatedResourceConfigToProto)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to convert service configs")
 	}
@@ -518,20 +500,20 @@ func RemoteConfigToProto(remote *Remote) (*pb.RemoteConfig, error) {
 
 // RemoteConfigFromProto creates Remote from the proto equivalent.
 func RemoteConfigFromProto(proto *pb.RemoteConfig) (*Remote, error) {
-	serviceConfigs, err := mapSliceWithErrors(proto.ServiceConfigs, ResourceLevelServiceConfigFromProto)
+	associatedResourceConfigs, err := mapSliceWithErrors(proto.ServiceConfigs, AssociatedResourceConfigFromProto)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to convert service configs")
 	}
 
 	remote := Remote{
-		Name:                    proto.GetName(),
-		Address:                 proto.GetAddress(),
-		ManagedBy:               proto.GetManagedBy(),
-		Insecure:                proto.GetInsecure(),
-		ConnectionCheckInterval: proto.ConnectionCheckInterval.AsDuration(),
-		ReconnectInterval:       proto.ReconnectInterval.AsDuration(),
-		ServiceConfig:           serviceConfigs,
-		Secret:                  proto.GetSecret(),
+		Name:                      proto.GetName(),
+		Address:                   proto.GetAddress(),
+		ManagedBy:                 proto.GetManagedBy(),
+		Insecure:                  proto.GetInsecure(),
+		ConnectionCheckInterval:   proto.ConnectionCheckInterval.AsDuration(),
+		ReconnectInterval:         proto.ReconnectInterval.AsDuration(),
+		AssociatedResourceConfigs: associatedResourceConfigs,
+		Secret:                    proto.GetSecret(),
 	}
 
 	if proto.GetAuth() != nil {
@@ -790,12 +772,17 @@ func mapSliceWithErrors[T, U any](a []T, f func(T) (U, error)) ([]U, error) {
 	return n, nil
 }
 
-func toRDKSlice[PT, RT any](protoList []*PT, toRDK func(*PT) (*RT, error), disablePartialStart bool) ([]RT, error) {
+func toRDKSlice[PT, RT any](
+	protoList []*PT,
+	toRDK func(*PT) (*RT, error),
+	disablePartialStart bool,
+	logger golog.Logger,
+) ([]RT, error) {
 	out := make([]RT, 0, len(protoList))
 	for _, proto := range protoList {
 		rdk, err := toRDK(proto)
 		if err != nil {
-			golog.Global().Debug(errors.Wrap(err, "Error converting from proto to config for type: "+reflect.TypeOf(proto).String()))
+			logger.Debugw("error converting from proto to config", "type", reflect.TypeOf(proto).String(), "error", err)
 			if disablePartialStart {
 				return nil, err
 			}
@@ -804,35 +791,6 @@ func toRDKSlice[PT, RT any](protoList []*PT, toRDK func(*PT) (*RT, error), disab
 		}
 	}
 	return out, nil
-}
-
-// ServiceConfigToShared converts a Service to the common resource config (Component for now.)
-func ServiceConfigToShared(cfg Service) Component {
-	return Component{
-		Name:                cfg.Name,
-		Namespace:           cfg.Namespace,
-		Type:                cfg.Type,
-		API:                 resource.NewSubtype(cfg.Namespace, resource.ResourceTypeService, cfg.Type),
-		Model:               cfg.Model,
-		DependsOn:           cfg.DependsOn,
-		Attributes:          cfg.Attributes,
-		ConvertedAttributes: cfg.ConvertedAttributes,
-		ImplicitDependsOn:   cfg.ImplicitDependsOn,
-	}
-}
-
-// ServiceConfigFromShared converts a common resource config (Component for now) to a Service.
-func ServiceConfigFromShared(cfg Component) Service {
-	return Service{
-		Name:                cfg.Name,
-		Namespace:           cfg.Namespace,
-		Type:                cfg.Type,
-		Model:               cfg.Model,
-		DependsOn:           cfg.DependsOn,
-		Attributes:          cfg.Attributes,
-		ConvertedAttributes: cfg.ConvertedAttributes,
-		ImplicitDependsOn:   cfg.ImplicitDependsOn,
-	}
 }
 
 // PackageConfigToProto converts a rdk package config to the proto version.

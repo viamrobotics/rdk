@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"go.viam.com/test"
-	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
 )
 
@@ -20,7 +19,7 @@ func TestTraining1(t *testing.T) {
 		return
 	}
 	defer func() {
-		test.That(t, utils.TryClose(context.Background(), store), test.ShouldBeNil)
+		test.That(t, store.Close(context.Background()), test.ShouldBeNil)
 	}()
 	err = store.reset(ctx)
 	if err != nil {

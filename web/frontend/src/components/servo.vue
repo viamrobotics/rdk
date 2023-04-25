@@ -22,7 +22,7 @@ const stop = () => {
 
 const move = (amount: number) => {
   const servo = props.rawStatus;
-
+  // @ts-expect-error @TODO Proto is incorrectly typing this. It expects servo.positionDeg
   const oldAngle = servo.position_deg ?? 0;
 
   const angle = oldAngle + amount;
@@ -32,7 +32,7 @@ const move = (amount: number) => {
   req.setAngleDeg(angle);
 
   rcLogConditionally(req);
-  props.client.servoService.move(req, new grpc.Metadata(), (error: ServiceError) => {
+  props.client.servoService.move(req, new grpc.Metadata(), (error: ServiceError | null) => {
     if (error) {
       return displayError(error);
     }
@@ -58,7 +58,7 @@ const move = (amount: number) => {
         variant="danger"
         @click="stop"
       />
-      <div class="border border-t-0 border-black p-4">
+      <div class="border-border-1 border border-t-0 p-4">
         <h3 class="mb-1 text-sm">
           Angle: {{ status.positionDeg }}
         </h3>

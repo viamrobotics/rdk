@@ -3,6 +3,7 @@ package fake
 
 import (
 	"context"
+	"sync"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
@@ -13,96 +14,78 @@ import (
 	ur "go.viam.com/rdk/components/arm/universalrobots"
 	"go.viam.com/rdk/components/arm/xarm"
 	"go.viam.com/rdk/components/arm/yahboom"
-	"go.viam.com/rdk/components/generic"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 )
 
-// errAttrCfgPopulation is the returned error if the AttrConfig's fields are fully populated.
+// errAttrCfgPopulation is the returned error if the Config's fields are fully populated.
 var errAttrCfgPopulation = errors.New("can only populate either ArmModel or ModelPath - not both")
 
-// ModelName is the string used to refer to the fake arm model.
-var ModelName = resource.NewDefaultModel("fake")
+// Model is the name used to refer to the fake arm model.
+var Model = resource.DefaultModelFamily.WithModel("fake")
 
-// AttrConfig is used for converting config attributes.
-type AttrConfig struct {
+// Config is used for converting config attributes.
+type Config struct {
 	ArmModel      string `json:"arm-model,omitempty"`
 	ModelFilePath string `json:"model-path,omitempty"`
 }
 
 func modelFromName(model, name string) (referenceframe.Model, error) {
-	switch resource.ModelName(model) {
+	switch model {
 	case xarm.ModelName6DOF, xarm.ModelName7DOF, xarm.ModelNameLite:
-		return xarm.Model(name, model)
-	case ur.ModelName.Name:
-		return ur.Model(name)
-	case yahboom.ModelName.Name:
-		return yahboom.Model(name)
-	case eva.ModelName.Name:
-		return eva.Model(name)
+		return xarm.MakeModelFrame(name, model)
+	case ur.Model.Name:
+		return ur.MakeModelFrame(name)
+	case yahboom.Model.Name:
+		return yahboom.MakeModelFrame(name)
+	case eva.Model.Name:
+		return eva.MakeModelFrame(name)
 	default:
 		return nil, errors.Errorf("fake arm cannot be created, unsupported arm-model: %s", model)
 	}
 }
 
 // Validate ensures all parts of the config are valid.
-func (config *AttrConfig) Validate(path string) error {
+func (conf *Config) Validate(path string) ([]string, error) {
 	var err error
 	switch {
-	case config.ArmModel != "" && config.ModelFilePath != "":
+	case conf.ArmModel != "" && conf.ModelFilePath != "":
 		err = errAttrCfgPopulation
-	case config.ArmModel != "" && config.ModelFilePath == "":
-		_, err = modelFromName(config.ArmModel, "")
-	case config.ArmModel == "" && config.ModelFilePath != "":
-		_, err = referenceframe.ModelFromPath(config.ModelFilePath, "")
+	case conf.ArmModel != "" && conf.ModelFilePath == "":
+		_, err = modelFromName(conf.ArmModel, "")
+	case conf.ArmModel == "" && conf.ModelFilePath != "":
+		_, err = referenceframe.ModelFromPath(conf.ModelFilePath, "")
 	}
-	return err
+	return nil, err
 }
 
 func init() {
-	registry.RegisterComponent(arm.Subtype, ModelName, registry.Component{
-		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-			return NewArm(config, logger)
-		},
+	resource.RegisterComponent(arm.API, Model, resource.Registration[arm.Arm, *Config]{
+		Constructor: NewArm,
 	})
-
-	config.RegisterComponentAttributeMapConverter(
-		arm.Subtype,
-		ModelName,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf AttrConfig
-			return config.TransformAttributeMapToStruct(&conf, attributes)
-		},
-		&AttrConfig{},
-	)
 }
 
 // NewArm returns a new fake arm.
-func NewArm(cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
-	model, err := buildModel(cfg)
-	if err != nil {
+func NewArm(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (arm.Arm, error) {
+	a := &Arm{
+		Named:  conf.ResourceName().AsNamed(),
+		logger: logger,
+	}
+	if err := a.Reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
-
-	return &Arm{
-		Name:   cfg.Name,
-		joints: &pb.JointPositions{Values: make([]float64, len(model.DoF()))},
-		model:  model,
-		logger: logger,
-	}, nil
+	return a, nil
 }
 
-func buildModel(cfg config.Component) (referenceframe.Model, error) {
+func buildModel(cfg resource.Config, newConf *Config) (referenceframe.Model, error) {
 	var (
 		model referenceframe.Model
 		err   error
 	)
-	armModel := cfg.ConvertedAttributes.(*AttrConfig).ArmModel
-	modelPath := cfg.ConvertedAttributes.(*AttrConfig).ModelFilePath
+	armModel := newConf.ArmModel
+	modelPath := newConf.ModelFilePath
 
 	switch {
 	case armModel != "" && modelPath != "":
@@ -121,36 +104,39 @@ func buildModel(cfg config.Component) (referenceframe.Model, error) {
 
 // Arm is a fake arm that can simply read and set properties.
 type Arm struct {
-	generic.Echo
-	Name       string
-	joints     *pb.JointPositions
+	resource.Named
 	CloseCount int
 	logger     golog.Logger
-	model      referenceframe.Model
+
+	mu     sync.RWMutex
+	joints *pb.JointPositions
+	model  referenceframe.Model
 }
 
-// UpdateAction helps hinting the reconfiguration process on what strategy to use given a modified config.
-// See config.UpdateActionType for more information.
-func (a *Arm) UpdateAction(c *config.Component) config.UpdateActionType {
-	if _, ok := c.ConvertedAttributes.(*AttrConfig); !ok {
-		return config.Rebuild
+// Reconfigure atomically reconfigures this arm in place based on the new config.
+func (a *Arm) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+	newConf, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return err
 	}
 
-	if model, err := buildModel(*c); err != nil {
-		// unlikely to hit debug as we check for errors in Validate()
-		a.logger.Debugw(
-			"cannot build new model - continue using current model",
-			"current model", a.model.Name(), "error", err.Error())
-	} else {
-		a.joints = &pb.JointPositions{Values: make([]float64, len(a.model.DoF()))}
-		a.model = model
+	model, err := buildModel(conf, newConf)
+	if err != nil {
+		return err
 	}
 
-	return config.None
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.joints = &pb.JointPositions{Values: make([]float64, len(model.DoF()))}
+	a.model = model
+
+	return nil
 }
 
 // ModelFrame returns the dynamic frame of the model.
 func (a *Arm) ModelFrame() referenceframe.Model {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
 	return a.model
 }
 
@@ -160,6 +146,8 @@ func (a *Arm) EndPosition(ctx context.Context, extra map[string]interface{}) (sp
 	if err != nil {
 		return nil, err
 	}
+	a.mu.RLock()
+	defer a.mu.RUnlock()
 	return motionplan.ComputeOOBPosition(a.model, joints)
 }
 
@@ -173,6 +161,8 @@ func (a *Arm) MoveToJointPositions(ctx context.Context, joints *pb.JointPosition
 	if err := arm.CheckDesiredJointPositions(ctx, a, joints.Values); err != nil {
 		return err
 	}
+	a.mu.RLock()
+	defer a.mu.RUnlock()
 	inputs := a.model.InputFromProtobuf(joints)
 	pos, err := a.model.Transform(inputs)
 	if err != nil {
@@ -210,7 +200,9 @@ func (a *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error)
 
 // GoToInputs TODO.
 func (a *Arm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
+	a.mu.RLock()
 	positionDegs := a.model.ProtobufFromInput(goal)
+	a.mu.RUnlock()
 	if err := arm.CheckDesiredJointPositions(ctx, a, positionDegs.Values); err != nil {
 		return err
 	}
@@ -218,6 +210,9 @@ func (a *Arm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error
 }
 
 // Close does nothing.
-func (a *Arm) Close() {
+func (a *Arm) Close(ctx context.Context) error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
 	a.CloseCount++
+	return nil
 }

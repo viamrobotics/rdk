@@ -15,8 +15,6 @@ import (
 	"go.uber.org/multierr"
 
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
@@ -24,48 +22,44 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-var model = resource.NewDefaultModel("transform")
+var model = resource.DefaultModelFamily.WithModel("transform")
 
 func init() {
-	registry.RegisterComponent(
-		camera.Subtype,
+	resource.RegisterComponent(
+		camera.API,
 		model,
-		registry.Component{RobotConstructor: func(
-			ctx context.Context,
-			r robot.Robot,
-			config config.Component,
-			logger golog.Logger,
-		) (interface{}, error) {
-			attrs, ok := config.ConvertedAttributes.(*transformConfig)
-			if !ok {
-				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
-			}
-			sourceName := attrs.Source
-			source, err := camera.FromRobot(r, sourceName)
-			if err != nil {
-				return nil, fmt.Errorf("no source camera for transform pipeline (%s): %w", sourceName, err)
-			}
-			return newTransformPipeline(ctx, source, attrs, r)
-		}})
-
-	config.RegisterComponentAttributeMapConverter(camera.Subtype, model,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf transformConfig
-			attrs, err := config.TransformAttributeMapToStruct(&conf, attributes)
-			if err != nil {
-				return nil, err
-			}
-			result, ok := attrs.(*transformConfig)
-			if !ok {
-				return nil, utils.NewUnexpectedTypeError(result, attrs)
-			}
-			return result, nil
-		},
-		&transformConfig{})
+		resource.Registration[camera.Camera, *transformConfig]{
+			DeprecatedRobotConstructor: func(
+				ctx context.Context,
+				r any,
+				conf resource.Config,
+				logger golog.Logger,
+			) (camera.Camera, error) {
+				actualR, err := utils.AssertType[robot.Robot](r)
+				if err != nil {
+					return nil, err
+				}
+				newConf, err := resource.NativeConfig[*transformConfig](conf)
+				if err != nil {
+					return nil, err
+				}
+				sourceName := newConf.Source
+				source, err := camera.FromRobot(actualR, sourceName)
+				if err != nil {
+					return nil, fmt.Errorf("no source camera for transform pipeline (%s): %w", sourceName, err)
+				}
+				src, err := newTransformPipeline(ctx, source, newConf, actualR)
+				if err != nil {
+					return nil, err
+				}
+				return camera.FromVideoSource(conf.ResourceName(), src), nil
+			},
+		})
 }
 
 // transformConfig specifies a stream and list of transforms to apply on images/pointclouds coming from a source camera.
 type transformConfig struct {
+	resource.TriviallyValidateConfig
 	CameraParameters     *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters,omitempty"`
 	DistortionParameters *transform.BrownConrady            `json:"distortion_parameters,omitempty"`
 	Debug                bool                               `json:"debug,omitempty"`
@@ -74,8 +68,11 @@ type transformConfig struct {
 }
 
 func newTransformPipeline(
-	ctx context.Context, source gostream.VideoSource, cfg *transformConfig, r robot.Robot,
-) (camera.Camera, error) {
+	ctx context.Context,
+	source gostream.VideoSource,
+	cfg *transformConfig,
+	r robot.Robot,
+) (camera.VideoSource, error) {
 	if source == nil {
 		return nil, errors.New("no source camera for transform pipeline")
 	}
@@ -110,7 +107,7 @@ func newTransformPipeline(
 	}
 	lastSourceStream := gostream.NewEmbeddedVideoStream(lastSource)
 	cameraModel := camera.NewPinholeModelWithBrownConradyDistortion(cfg.CameraParameters, cfg.DistortionParameters)
-	return camera.NewFromReader(
+	return camera.NewVideoSourceFromReader(
 		ctx,
 		transformPipeline{pipeline, lastSourceStream, cfg.CameraParameters},
 		&cameraModel,

@@ -7,10 +7,9 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
-	"go.viam.com/rdk/config"
+	rutils "go.viam.com/rdk/utils"
 )
 
 func TestMask(t *testing.T) {
@@ -44,8 +43,9 @@ func TestNumato1(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	b, err := connect(
 		ctx,
+		board.Named("foo"),
 		&Config{
-			Attributes: config.AttributeMap{"pins": 128},
+			Attributes: rutils.AttributeMap{"pins": 128},
 			Analogs:    []board.AnalogConfig{{Name: "foo", Pin: "01"}},
 			Pins:       2,
 		},
@@ -55,7 +55,7 @@ func TestNumato1(t *testing.T) {
 		t.Skip("no numato board connected")
 	}
 	test.That(t, err, test.ShouldBeNil)
-	defer utils.TryClose(ctx, b)
+	defer b.Close(ctx)
 
 	// For this to work 0 has be plugged into 1
 
@@ -115,11 +115,12 @@ func TestConfigValidate(t *testing.T) {
 	validConfig := Config{}
 
 	validConfig.Analogs = []board.AnalogConfig{{}}
-	err := validConfig.Validate("path")
+	_, err := validConfig.Validate("path")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `path.analogs.0`)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
 
 	validConfig.Analogs = []board.AnalogConfig{{Name: "bar"}}
-	test.That(t, validConfig.Validate("path"), test.ShouldBeNil)
+	_, err = validConfig.Validate("path")
+	test.That(t, err, test.ShouldBeNil)
 }

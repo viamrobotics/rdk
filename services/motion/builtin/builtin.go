@@ -11,38 +11,51 @@ import (
 
 	servicepb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/rdk/components/arm"
-	"go.viam.com/rdk/components/generic"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
 )
 
 func init() {
-	registry.RegisterService(motion.Subtype, resource.DefaultServiceModel, registry.Service{
-		RobotConstructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
-			return NewBuiltIn(ctx, r, c, logger)
-		},
-	})
-	resource.AddDefaultService(motion.Named(resource.DefaultServiceName))
+	resource.RegisterDefaultService(
+		motion.API,
+		resource.DefaultServiceModel,
+		resource.Registration[motion.Service, resource.NoNativeConfig]{
+			DeprecatedRobotConstructor: func(
+				ctx context.Context,
+				r any,
+				conf resource.Config,
+				logger golog.Logger,
+			) (motion.Service, error) {
+				actualR, err := utils.AssertType[robot.Robot](r)
+				if err != nil {
+					return nil, err
+				}
+				return NewBuiltIn(ctx, actualR, conf, logger)
+			},
+		})
 }
 
 // NewBuiltIn returns a new move and grab service for the given robot.
-func NewBuiltIn(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (motion.Service, error) {
+func NewBuiltIn(ctx context.Context, r robot.Robot, conf resource.Config, logger golog.Logger) (motion.Service, error) {
 	return &builtIn{
+		Named:  conf.ResourceName().AsNamed(),
 		r:      r,
 		logger: logger,
 	}, nil
 }
 
 type builtIn struct {
-	generic.Unimplemented
+	resource.Named
+	// TODO(RSDK-2693): This should support reconfiguration and not use the robot constructor
+	resource.TriviallyReconfigurable
+	resource.TriviallyCloseable
 	r      robot.Robot
 	logger golog.Logger
 }

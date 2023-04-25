@@ -14,10 +14,12 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
-	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/internal/cloud"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/datamanager/datacapture"
 	"go.viam.com/rdk/services/datamanager/datasync"
 	"go.viam.com/test"
+	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
 )
 
@@ -35,22 +37,22 @@ func TestSyncEnabled(t *testing.T) {
 		newServiceDisableStatus     bool
 	}{
 		{
-			name:                        "Config with sync disabled should sync nothing.",
+			name:                        "config with sync disabled should sync nothing",
 			initialServiceDisableStatus: true,
 			newServiceDisableStatus:     true,
 		},
 		{
-			name:                        "Config with sync enabled should sync.",
+			name:                        "config with sync enabled should sync",
 			initialServiceDisableStatus: false,
 			newServiceDisableStatus:     false,
 		},
 		{
-			name:                        "Disabling sync should stop syncing.",
+			name:                        "disabling sync should stop syncing",
 			initialServiceDisableStatus: false,
 			newServiceDisableStatus:     true,
 		},
 		{
-			name:                        "Enabling sync should trigger syncing to start.",
+			name:                        "enabling sync should trigger syncing to start",
 			initialServiceDisableStatus: true,
 			newServiceDisableStatus:     false,
 		},
@@ -65,7 +67,7 @@ func TestSyncEnabled(t *testing.T) {
 			tmpDir := t.TempDir()
 
 			// Set up data manager.
-			dmsvc := newTestDataManager(t)
+			dmsvc, r := newTestDataManager(t)
 			defer dmsvc.Close(context.Background())
 			var mockClient = mockDataSyncServiceClient{
 				succesfulDCRequests: make(chan *v1.DataCaptureUploadRequest, 100),
@@ -73,18 +75,18 @@ func TestSyncEnabled(t *testing.T) {
 				fail:                &atomic.Bool{},
 			}
 			dmsvc.SetSyncerConstructor(getTestSyncerConstructorMock(mockClient))
-			cfg := setupConfig(t, enabledBinaryCollectorConfigPath)
+			cfg, deps := setupConfig(t, enabledBinaryCollectorConfigPath)
 
 			// Set up service config.
-			originalSvcConfig, ok1, err := getServiceConfig(cfg)
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, ok1, test.ShouldBeTrue)
-			originalSvcConfig.CaptureDisabled = false
-			originalSvcConfig.ScheduledSyncDisabled = tc.initialServiceDisableStatus
-			originalSvcConfig.CaptureDir = tmpDir
-			originalSvcConfig.SyncIntervalMins = syncIntervalMins
+			cfg.CaptureDisabled = false
+			cfg.ScheduledSyncDisabled = tc.initialServiceDisableStatus
+			cfg.CaptureDir = tmpDir
+			cfg.SyncIntervalMins = syncIntervalMins
 
-			err = dmsvc.Update(context.Background(), cfg)
+			resources := resourcesFromDeps(t, r, deps)
+			err := dmsvc.Reconfigure(context.Background(), resources, resource.Config{
+				ConvertedAttributes: cfg,
+			})
 			test.That(t, err, test.ShouldBeNil)
 			mockClock.Add(captureInterval)
 			waitForCaptureFiles(tmpDir)
@@ -104,15 +106,15 @@ func TestSyncEnabled(t *testing.T) {
 			}
 
 			// Set up service config.
-			updatedSvcConfig, ok2, err := getServiceConfig(cfg)
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, ok2, test.ShouldBeTrue)
-			updatedSvcConfig.CaptureDisabled = false
-			updatedSvcConfig.ScheduledSyncDisabled = tc.newServiceDisableStatus
-			updatedSvcConfig.CaptureDir = tmpDir
-			updatedSvcConfig.SyncIntervalMins = syncIntervalMins
+			cfg.CaptureDisabled = false
+			cfg.ScheduledSyncDisabled = tc.newServiceDisableStatus
+			cfg.CaptureDir = tmpDir
+			cfg.SyncIntervalMins = syncIntervalMins
 
-			err = dmsvc.Update(context.Background(), cfg)
+			resources = resourcesFromDeps(t, r, deps)
+			err = dmsvc.Reconfigure(context.Background(), resources, resource.Config{
+				ConvertedAttributes: cfg,
+			})
 			test.That(t, err, test.ShouldBeNil)
 
 			// Drain any requests that were already sent before Update returned.
@@ -156,42 +158,42 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 		emptyFile             bool
 	}{
 		{
-			name:     "Previously captured tabular data should be synced at start up.",
+			name:     "previously captured tabular data should be synced at start up",
 			dataType: v1.DataType_DATA_TYPE_TABULAR_SENSOR,
 		},
 		{
-			name:     "Previously captured binary data should be synced at start up.",
+			name:     "previously captured binary data should be synced at start up",
 			dataType: v1.DataType_DATA_TYPE_BINARY_SENSOR,
 		},
 		{
-			name:                  "Manual sync should successfully sync captured tabular data.",
+			name:                  "manual sync should successfully sync captured tabular data",
 			dataType:              v1.DataType_DATA_TYPE_TABULAR_SENSOR,
 			manualSync:            true,
 			scheduledSyncDisabled: true,
 		},
 		{
-			name:                  "Manual sync should successfully sync captured binary data.",
+			name:                  "manual sync should successfully sync captured binary data",
 			dataType:              v1.DataType_DATA_TYPE_BINARY_SENSOR,
 			manualSync:            true,
 			scheduledSyncDisabled: true,
 		},
 		{
-			name:       "Running manual and scheduled sync concurrently should not cause data races or duplicate uploads.",
+			name:       "running manual and scheduled sync concurrently should not cause data races or duplicate uploads",
 			dataType:   v1.DataType_DATA_TYPE_TABULAR_SENSOR,
 			manualSync: true,
 		},
 		{
-			name:            "If tabular uploads fail transiently, they should be retried until they succeed.",
+			name:            "if tabular uploads fail transiently, they should be retried until they succeed",
 			dataType:        v1.DataType_DATA_TYPE_TABULAR_SENSOR,
 			failTransiently: true,
 		},
 		{
-			name:            "If binary uploads fail transiently, they should be retried until they succeed.",
+			name:            "if binary uploads fail transiently, they should be retried until they succeed",
 			dataType:        v1.DataType_DATA_TYPE_BINARY_SENSOR,
 			failTransiently: true,
 		},
 		{
-			name:      "Files with no sensor data should not be synced.",
+			name:      "files with no sensor data should not be synced",
 			emptyFile: true,
 		},
 	}
@@ -204,30 +206,31 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 			tmpDir := t.TempDir()
 
 			// Set up data manager.
-			dmsvc := newTestDataManager(t)
+			dmsvc, r := newTestDataManager(t)
 			defer dmsvc.Close(context.Background())
-			var cfg *config.Config
+			var cfg *Config
+			var deps []string
 			captureInterval := time.Millisecond * 10
 			if tc.emptyFile {
-				cfg = setupConfig(t, infrequentCaptureTabularCollectorConfigPath)
+				cfg, deps = setupConfig(t, infrequentCaptureTabularCollectorConfigPath)
 			} else {
 				if tc.dataType == v1.DataType_DATA_TYPE_TABULAR_SENSOR {
-					cfg = setupConfig(t, enabledTabularCollectorConfigPath)
+					cfg, deps = setupConfig(t, enabledTabularCollectorConfigPath)
 				} else {
-					cfg = setupConfig(t, enabledBinaryCollectorConfigPath)
+					cfg, deps = setupConfig(t, enabledBinaryCollectorConfigPath)
 				}
 			}
 
 			// Set up service config with only capture enabled.
-			svcConfig, ok1, err := getServiceConfig(cfg)
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, ok1, test.ShouldBeTrue)
-			svcConfig.CaptureDisabled = false
-			svcConfig.ScheduledSyncDisabled = true
-			svcConfig.SyncIntervalMins = syncIntervalMins
-			svcConfig.CaptureDir = tmpDir
+			cfg.CaptureDisabled = false
+			cfg.ScheduledSyncDisabled = true
+			cfg.SyncIntervalMins = syncIntervalMins
+			cfg.CaptureDir = tmpDir
 
-			err = dmsvc.Update(context.Background(), cfg)
+			resources := resourcesFromDeps(t, r, deps)
+			err := dmsvc.Reconfigure(context.Background(), resources, resource.Config{
+				ConvertedAttributes: cfg,
+			})
 			test.That(t, err, test.ShouldBeNil)
 
 			// Let it capture a bit, then close.
@@ -247,7 +250,7 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 			}
 
 			// Turn dmsvc back on with capture disabled.
-			newDMSvc := newTestDataManager(t)
+			newDMSvc, r := newTestDataManager(t)
 			defer newDMSvc.Close(context.Background())
 			var mockClient = mockDataSyncServiceClient{
 				succesfulDCRequests: make(chan *v1.DataCaptureUploadRequest, 100),
@@ -255,10 +258,13 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 				fail:                &atomic.Bool{},
 			}
 			newDMSvc.SetSyncerConstructor(getTestSyncerConstructorMock(mockClient))
-			svcConfig.CaptureDisabled = true
-			svcConfig.ScheduledSyncDisabled = tc.scheduledSyncDisabled
-			svcConfig.SyncIntervalMins = syncIntervalMins
-			err = newDMSvc.Update(context.Background(), cfg)
+			cfg.CaptureDisabled = true
+			cfg.ScheduledSyncDisabled = tc.scheduledSyncDisabled
+			cfg.SyncIntervalMins = syncIntervalMins
+			resources = resourcesFromDeps(t, r, deps)
+			err = newDMSvc.Reconfigure(context.Background(), resources, resource.Config{
+				ConvertedAttributes: cfg,
+			})
 			test.That(t, err, test.ShouldBeNil)
 
 			if tc.failTransiently {
@@ -350,25 +356,25 @@ func TestArbitraryFileUpload(t *testing.T) {
 		serviceFail          bool
 	}{
 		{
-			name:                 "Scheduled sync of arbitrary files should work.",
+			name:                 "scheduled sync of arbitrary files should work",
 			manualSync:           false,
 			scheduleSyncDisabled: false,
 			serviceFail:          false,
 		},
 		{
-			name:                 "Manual sync of arbitrary files should work.",
+			name:                 "manual sync of arbitrary files should work",
 			manualSync:           true,
 			scheduleSyncDisabled: true,
 			serviceFail:          false,
 		},
 		{
-			name:                 "Running manual and scheduled sync concurrently should work and not lead to duplicate uploads.",
+			name:                 "running manual and scheduled sync concurrently should work and not lead to duplicate uploads",
 			manualSync:           true,
 			scheduleSyncDisabled: false,
 			serviceFail:          false,
 		},
 		{
-			name:                 "If an error response is received from the backend, local files should not be deleted.",
+			name:                 "if an error response is received from the backend, local files should not be deleted",
 			manualSync:           false,
 			scheduleSyncDisabled: false,
 			serviceFail:          false,
@@ -382,24 +388,24 @@ func TestArbitraryFileUpload(t *testing.T) {
 			captureDir := t.TempDir()
 
 			// Set up data manager.
-			dmsvc := newTestDataManager(t)
+			dmsvc, r := newTestDataManager(t)
 			defer dmsvc.Close(context.Background())
 			dmsvc.SetSyncerConstructor(getTestSyncerConstructorMock(mockDataSyncServiceClient{}))
-			cfg := setupConfig(t, enabledTabularCollectorConfigPath)
+			cfg, deps := setupConfig(t, enabledTabularCollectorConfigPath)
 
 			// Set up service config.
-			svcConfig, ok, err := getServiceConfig(cfg)
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, ok, test.ShouldBeTrue)
-			svcConfig.CaptureDisabled = true
-			svcConfig.ScheduledSyncDisabled = tc.scheduleSyncDisabled
-			svcConfig.SyncIntervalMins = syncIntervalMins
-			svcConfig.AdditionalSyncPaths = []string{additionalPathsDir}
-			svcConfig.CaptureDir = captureDir
+			cfg.CaptureDisabled = true
+			cfg.ScheduledSyncDisabled = tc.scheduleSyncDisabled
+			cfg.SyncIntervalMins = syncIntervalMins
+			cfg.AdditionalSyncPaths = []string{additionalPathsDir}
+			cfg.CaptureDir = captureDir
 
 			// Start dmsvc.
 			dmsvc.SetWaitAfterLastModifiedMillis(10)
-			err = dmsvc.Update(context.Background(), cfg)
+			resources := resourcesFromDeps(t, r, deps)
+			err := dmsvc.Reconfigure(context.Background(), resources, resource.Config{
+				ConvertedAttributes: cfg,
+			})
 			test.That(t, err, test.ShouldBeNil)
 
 			// Write some files to the path.
@@ -579,7 +585,22 @@ func (c mockDataSyncServiceClient) FileUpload(ctx context.Context, opts ...grpc.
 }
 
 func getTestSyncerConstructorMock(client mockDataSyncServiceClient) datasync.ManagerConstructor {
-	return func(logger golog.Logger, cfg *config.Config) (datasync.Manager, error) {
-		return datasync.NewManager(logger, cfg.Cloud.ID, client, nil)
+	return func(identity string, _ v1.DataSyncServiceClient, logger golog.Logger) (datasync.Manager, error) {
+		return datasync.NewManager(identity, client, logger)
 	}
+}
+
+var _ = cloud.ConnectionService(&noopCloudConnectionService{})
+
+type noopCloudConnectionService struct {
+	resource.Named
+	resource.AlwaysRebuild
+}
+
+func (noop *noopCloudConnectionService) AcquireConnection(ctx context.Context) (string, rpc.ClientConn, error) {
+	return "hello", nil, nil
+}
+
+func (noop *noopCloudConnectionService) Close(ctx context.Context) error {
+	return nil
 }

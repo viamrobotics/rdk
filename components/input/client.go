@@ -15,11 +15,14 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	rprotoutils "go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/resource"
 )
 
 // client implements InputControllerServiceClient.
 type client struct {
-	conn   rpc.ClientConn
+	resource.Named
+	resource.TriviallyReconfigurable
+	resource.TriviallyCloseable
 	client pb.InputControllerServiceClient
 	logger golog.Logger
 
@@ -40,15 +43,21 @@ type client struct {
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
-func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Controller {
+func NewClientFromConn(
+	ctx context.Context,
+	conn rpc.ClientConn,
+	remoteName string,
+	name resource.Name,
+	logger golog.Logger,
+) (Controller, error) {
 	c := pb.NewInputControllerServiceClient(conn)
 	return &client{
-		conn:         conn,
+		Named:        name.PrependRemote(remoteName).AsNamed(),
+		name:         name.ShortName(),
 		client:       c,
 		logger:       logger,
-		name:         name,
 		closeContext: ctx,
-	}
+	}, nil
 }
 
 func (c *client) Controls(ctx context.Context, extra map[string]interface{}) ([]Control, error) {
@@ -349,7 +358,7 @@ func (c *client) execCallback(ctx context.Context, event Event) {
 }
 
 // Close cleanly closes the underlying connections.
-func (c *client) Close() error {
+func (c *client) Close(ctx context.Context) error {
 	if c.cancelBackgroundWorkers != nil {
 		c.cancelBackgroundWorkers()
 		c.cancelBackgroundWorkers = nil

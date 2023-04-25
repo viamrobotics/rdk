@@ -11,7 +11,6 @@ import (
 
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
 )
 
@@ -19,17 +18,16 @@ func newServer() (pb.MotorServiceServer, *inject.Motor, *inject.Motor, error) {
 	injectMotor1 := &inject.Motor{}
 	injectMotor2 := &inject.Motor{}
 
-	resourceMap := map[resource.Name]interface{}{
+	resourceMap := map[resource.Name]motor.Motor{
 		motor.Named(testMotorName): injectMotor1,
 		motor.Named(failMotorName): injectMotor2,
-		motor.Named(fakeMotorName): "not a motor",
 	}
 
-	injectSvc, err := subtype.New(resourceMap)
+	injectSvc, err := resource.NewAPIResourceCollection(motor.API, resourceMap)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	return motor.NewServer(injectSvc), injectMotor1, injectMotor2, nil
+	return motor.NewRPCServiceServer(injectSvc).(pb.MotorServiceServer), injectMotor1, injectMotor2, nil
 }
 
 //nolint:dupl

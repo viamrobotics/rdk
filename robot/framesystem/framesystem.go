@@ -15,16 +15,24 @@ import (
 	"go.viam.com/rdk/robot"
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
 )
-
-// SubtypeName is the name of the type of service.
-const SubtypeName = resource.SubtypeName("frame_system")
 
 // LocalFrameSystemName is the default name of the frame system created by the service.
 const LocalFrameSystemName = "robot"
 
+// SubtypeName is a constant that identifies the internal frame system resource subtype string.
+const SubtypeName = "frame_system"
+
+// API is the fully qualified API for the internal frame system service.
+var API = resource.APINamespaceRDKInternal.WithServiceType(SubtypeName)
+
+// InternalServiceName is used to refer to/depend on this service internally.
+var InternalServiceName = resource.NewName(API, "builtin")
+
 // A Service that returns the frame system for a robot.
 type Service interface {
+	resource.Resource
 	Config(ctx context.Context, additionalTransforms []*referenceframe.LinkInFrame) (framesystemparts.Parts, error)
 	TransformPose(
 		ctx context.Context, pose *referenceframe.PoseInFrame, dst string,
@@ -77,24 +85,41 @@ func RobotFsCurrentInputs(
 // New returns a new frame system service for the given robot.
 func New(ctx context.Context, r robot.Robot, logger golog.Logger) Service {
 	return &frameSystemService{
+		Named:  InternalServiceName.AsNamed(),
 		r:      r,
 		logger: logger,
 	}
 }
 
+var internalFrameSystemServiceName = resource.NewName(
+	resource.APINamespaceRDKInternal.WithServiceType("framesystem"),
+	"builtin",
+)
+
+func (svc *frameSystemService) Name() resource.Name {
+	return internalFrameSystemServiceName
+}
+
 // the frame system service collects all the relevant parts that make up the frame system from the robot
 // configs, and the remote robot configs.
 type frameSystemService struct {
-	mu          sync.RWMutex
-	r           robot.Robot
+	resource.Named
+	resource.TriviallyCloseable
+	r      robot.Robot
+	logger golog.Logger
+
+	partsMu     sync.RWMutex
 	localParts  framesystemparts.Parts                     // gotten from the local robot's config.Config
 	offsetParts map[string]*referenceframe.FrameSystemPart // gotten from local robot's config.Remote
-	logger      golog.Logger
 }
 
-// Update will rebuild the frame system from the newly updated robot.
+// Reconfigure will rebuild the frame system from the newly updated robot.
 // NOTE(RDK-258): If remotes can trigger a local robot to reconfigure, you can cache the remoteParts in svc as well.
-func (svc *frameSystemService) Update(ctx context.Context, resources map[resource.Name]interface{}) error {
+// NOTE(erd): this doesn't utilize the dependencies and instead uses the robot which we would rather avoid.
+func (svc *frameSystemService) Reconfigure(ctx context.Context, _ resource.Dependencies, _ resource.Config) error {
+	svc.partsMu.Lock()
+	defer svc.partsMu.Unlock()
+
 	ctx, span := trace.StartSpan(ctx, "services::framesystem::Update")
 	defer span.End()
 	err := svc.updateLocalParts(ctx)
@@ -127,8 +152,12 @@ func (svc *frameSystemService) Config(
 	ctx context.Context,
 	additionalTransforms []*referenceframe.LinkInFrame,
 ) (framesystemparts.Parts, error) {
+	svc.partsMu.RLock()
+	defer svc.partsMu.RUnlock()
+
 	ctx, span := trace.StartSpan(ctx, "services::framesystem::Config")
 	defer span.End()
+
 	// update parts from remotes
 	remoteParts, err := svc.updateRemoteParts(ctx)
 	if err != nil {
@@ -159,8 +188,6 @@ func (svc *frameSystemService) TransformPose(
 ) (*referenceframe.PoseInFrame, error) {
 	ctx, span := trace.StartSpan(ctx, "services::framesystem::TransformPose")
 	defer span.End()
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
 
 	// get the frame system and initial inputs
 	allParts, err := svc.Config(ctx, additionalTransforms)
@@ -172,6 +199,9 @@ func (svc *frameSystemService) TransformPose(
 		return nil, err
 	}
 	input := referenceframe.StartPositions(fs)
+
+	svc.partsMu.RLock()
+	defer svc.partsMu.RUnlock()
 
 	// build maps of relevant components and inputs from initial inputs
 	for name, original := range input {
@@ -235,9 +265,9 @@ func (svc *frameSystemService) updateLocalParts(ctx context.Context) error {
 	defer span.End()
 	parts := make(map[string]*referenceframe.FrameSystemPart)
 	seen := make(map[string]bool)
-	local, ok := svc.r.(robot.LocalRobot)
-	if !ok {
-		return robot.NewUnimplementedLocalInterfaceError(svc.r)
+	local, err := utils.AssertType[robot.LocalRobot](svc.r)
+	if err != nil {
+		return err
 	}
 	cfg, err := local.Config(ctx) // Eventually there will be another function that gathers the frame system config
 	if err != nil {
@@ -282,9 +312,9 @@ func (svc *frameSystemService) updateLocalParts(ctx context.Context) error {
 func (svc *frameSystemService) updateOffsetParts(ctx context.Context) error {
 	ctx, span := trace.StartSpan(ctx, "services::framesystem::updateOffsetParts")
 	defer span.End()
-	local, ok := svc.r.(robot.LocalRobot)
-	if !ok {
-		return robot.NewUnimplementedLocalInterfaceError(svc.r)
+	local, err := utils.AssertType[robot.LocalRobot](svc.r)
+	if err != nil {
+		return err
 	}
 	conf, err := local.Config(ctx)
 	if err != nil {

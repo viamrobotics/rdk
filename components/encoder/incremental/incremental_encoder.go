@@ -3,6 +3,7 @@ package incremental
 
 import (
 	"context"
+	"math"
 	"sync"
 	"sync/atomic"
 
@@ -12,51 +13,47 @@ import (
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/encoder"
-	"go.viam.com/rdk/components/generic"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 )
 
-var incrModel = resource.NewDefaultModel("incremental")
+var incrModel = resource.DefaultModelFamily.WithModel("incremental")
 
 func init() {
-	registry.RegisterComponent(
-		encoder.Subtype,
+	resource.RegisterComponent(
+		encoder.API,
 		incrModel,
-		registry.Component{Constructor: func(
-			ctx context.Context,
-			deps registry.Dependencies,
-			config config.Component,
-			logger golog.Logger,
-		) (interface{}, error) {
-			return NewIncrementalEncoder(ctx, deps, config, logger)
-		}})
-
-	config.RegisterComponentAttributeMapConverter(
-		encoder.Subtype,
-		incrModel,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf AttrConfig
-			return config.TransformAttributeMapToStruct(&conf, attributes)
-		},
-		&AttrConfig{})
+		resource.Registration[encoder.Encoder, *Config]{
+			Constructor: NewIncrementalEncoder,
+		})
 }
 
 // Encoder keeps track of a motor position using a rotary incremental encoder.
 type Encoder struct {
-	A, B     board.DigitalInterrupt
-	position int64
-	pRaw     int64
-	pState   int64
+	resource.Named
 
-	positionType            encoder.PositionType
-	logger                  golog.Logger
+	positionType encoder.PositionType
+
+	mu   sync.Mutex
+	A, B board.DigitalInterrupt
+	// The position is pRaw with the least significant bit chopped off.
+	position int64
+	// pRaw is the number of half-ticks we've gone through: it increments or decrements whenever
+	// either pin on the encoder changes.
+	pRaw int64
+	// pState is the previous state: the least significant bit is the value of pin A, and the
+	// second-least-significant bit is pin B. It is used to determine whether to increment or
+	// decrement pRaw.
+	pState    int64
+	boardName string
+	encAName  string
+	encBName  string
+
+	logger golog.Logger
+	// TODO(RSDK-2672): This is exposed for tests and should be unexported with
+	// the constructor being used instead.
 	CancelCtx               context.Context
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
-
-	generic.Unimplemented
 }
 
 // Pins describes the configuration of Pins for a quadrature encoder.
@@ -65,27 +62,27 @@ type Pins struct {
 	B string `json:"b"`
 }
 
-// AttrConfig describes the configuration of a quadrature encoder.
-type AttrConfig struct {
+// Config describes the configuration of a quadrature encoder.
+type Config struct {
 	Pins      Pins   `json:"pins"`
 	BoardName string `json:"board"`
 }
 
 // Validate ensures all parts of the config are valid.
-func (config *AttrConfig) Validate(path string) ([]string, error) {
+func (conf *Config) Validate(path string) ([]string, error) {
 	var deps []string
 
-	if config.Pins.A == "" {
+	if conf.Pins.A == "" {
 		return nil, errors.New("expected nonempty string for a")
 	}
-	if config.Pins.B == "" {
+	if conf.Pins.B == "" {
 		return nil, errors.New("expected nonempty string for b")
 	}
 
-	if len(config.BoardName) == 0 {
+	if len(conf.BoardName) == 0 {
 		return nil, errors.New("expected nonempty board")
 	}
-	deps = append(deps, config.BoardName)
+	deps = append(deps, conf.BoardName)
 
 	return deps, nil
 }
@@ -93,41 +90,88 @@ func (config *AttrConfig) Validate(path string) ([]string, error) {
 // NewIncrementalEncoder creates a new Encoder.
 func NewIncrementalEncoder(
 	ctx context.Context,
-	deps registry.Dependencies,
-	cfg config.Component,
+	deps resource.Dependencies,
+	conf resource.Config,
 	logger golog.Logger,
 ) (encoder.Encoder, error) {
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	e := &Encoder{
+		Named:        conf.ResourceName().AsNamed(),
 		logger:       logger,
 		CancelCtx:    cancelCtx,
 		cancelFunc:   cancelFunc,
 		position:     0,
-		positionType: encoder.PositionTypeTICKS,
+		positionType: encoder.PositionTypeTicks,
 		pRaw:         0,
 		pState:       0,
 	}
-	if cfg, ok := cfg.ConvertedAttributes.(*AttrConfig); ok {
-		board, err := board.FromDependencies(deps, cfg.BoardName)
-		if err != nil {
-			return nil, err
-		}
 
-		e.A, ok = board.DigitalInterruptByName(cfg.Pins.A)
-		if !ok {
-			return nil, errors.Errorf("cannot find pin (%s) for incremental Encoder", cfg.Pins.A)
-		}
-		e.B, ok = board.DigitalInterruptByName(cfg.Pins.B)
-		if !ok {
-			return nil, errors.Errorf("cannot find pin (%s) for incremental Encoder", cfg.Pins.B)
-		}
+	if err := e.Reconfigure(ctx, deps, conf); err != nil {
+		return nil, err
+	}
+	return e, nil
+}
 
-		e.Start(ctx)
-
-		return e, nil
+// Reconfigure atomically reconfigures this encoder in place based on the new config.
+func (e *Encoder) Reconfigure(
+	ctx context.Context,
+	deps resource.Dependencies,
+	conf resource.Config,
+) error {
+	newConf, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return err
 	}
 
-	return nil, errors.New("encoder config for incremental Encoder is not valid")
+	e.mu.Lock()
+	existingBoardName := e.boardName
+	existingEncAName := e.encAName
+	existingEncBName := e.encBName
+	e.mu.Unlock()
+
+	needRestart := existingBoardName != newConf.BoardName ||
+		existingEncAName != newConf.Pins.A ||
+		existingEncBName != newConf.Pins.B
+
+	board, err := board.FromDependencies(deps, newConf.BoardName)
+	if err != nil {
+		return err
+	}
+
+	encA, ok := board.DigitalInterruptByName(newConf.Pins.A)
+	if !ok {
+		err := errors.Errorf("cannot find pin (%s) for incremental Encoder", newConf.Pins.A)
+		return err
+	}
+	encB, ok := board.DigitalInterruptByName(newConf.Pins.B)
+	if !ok {
+		err := errors.Errorf("cannot find pin (%s) for incremental Encoder", newConf.Pins.B)
+		return err
+	}
+
+	if !needRestart {
+		return nil
+	}
+	utils.UncheckedError(e.Close(ctx))
+	cancelCtx, cancelFunc := context.WithCancel(ctx)
+	e.CancelCtx = cancelCtx
+	e.cancelFunc = cancelFunc
+
+	e.mu.Lock()
+	e.A = encA
+	e.B = encB
+	e.boardName = newConf.BoardName
+	e.encAName = newConf.Pins.A
+	e.encBName = newConf.Pins.B
+	// state is not really valid anymore
+	atomic.StoreInt64(&e.position, 0)
+	atomic.StoreInt64(&e.pRaw, 0)
+	atomic.StoreInt64(&e.pState, 0)
+	e.mu.Unlock()
+
+	e.Start(ctx)
+
+	return nil
 }
 
 // Start starts the Encoder background thread.
@@ -189,6 +233,11 @@ func (e *Encoder) Start(ctx context.Context) {
 		defer e.A.RemoveCallback(chanA)
 		defer e.B.RemoveCallback(chanB)
 		for {
+			// This looks redundant with the other select statement below, but it's not: if we're
+			// supposed to return, we need to do that even if chanA and chanB are full of data, and
+			// the other select statement will pick random cases in that situation. This select
+			// statement guarantees that we'll return if we're supposed to, regardless of whether
+			// there's data in the other channels.
 			select {
 			case <-e.CancelCtx.Done():
 				return
@@ -223,9 +272,7 @@ func (e *Encoder) Start(ctx context.Context) {
 			case 0b1000:
 				fallthrough
 			case 0b1110:
-				e.dec()
-				atomic.StoreInt64(&e.position, atomic.LoadInt64(&e.pRaw)>>1)
-				e.pState = nState
+				atomic.AddInt64(&e.pRaw, -1)
 			case 0b0010:
 				fallthrough
 			case 0b0100:
@@ -233,10 +280,10 @@ func (e *Encoder) Start(ctx context.Context) {
 			case 0b1011:
 				fallthrough
 			case 0b1101:
-				e.inc()
-				atomic.StoreInt64(&e.position, atomic.LoadInt64(&e.pRaw)>>1)
-				e.pState = nState
+				atomic.AddInt64(&e.pRaw, 1)
 			}
+			atomic.StoreInt64(&e.position, atomic.LoadInt64(&e.pRaw)>>1)
+			e.pState = nState
 		}
 	}, e.activeBackgroundWorkers.Done)
 }
@@ -245,23 +292,21 @@ func (e *Encoder) Start(ctx context.Context) {
 // degrees, and whether it is a relative or absolute position.
 func (e *Encoder) GetPosition(
 	ctx context.Context,
-	positionType *encoder.PositionType,
+	positionType encoder.PositionType,
 	extra map[string]interface{},
 ) (float64, encoder.PositionType, error) {
-	if positionType != nil && *positionType == encoder.PositionTypeDEGREES {
-		err := encoder.NewEncoderTypeUnsupportedError(*positionType)
-		return 0, *positionType, err
+	if positionType == encoder.PositionTypeDegrees {
+		return math.NaN(), encoder.PositionTypeUnspecified, encoder.NewPositionTypeUnsupportedError(positionType)
 	}
 	res := atomic.LoadInt64(&e.position)
 	return float64(res), e.positionType, nil
 }
 
 // ResetPosition sets the current position of the motor (adjusted by a given offset)
-// to be its new zero position..
+// to be its new zero position.
 func (e *Encoder) ResetPosition(ctx context.Context, extra map[string]interface{}) error {
-	offsetInt := int64(0)
-	atomic.StoreInt64(&e.position, offsetInt)
-	atomic.StoreInt64(&e.pRaw, (offsetInt<<1)|atomic.LoadInt64(&e.pRaw)&0x1)
+	atomic.StoreInt64(&e.position, 0)
+	atomic.StoreInt64(&e.pRaw, atomic.LoadInt64(&e.pRaw)&0x1)
 	return nil
 }
 
@@ -278,17 +323,8 @@ func (e *Encoder) RawPosition() int64 {
 	return atomic.LoadInt64(&e.pRaw)
 }
 
-func (e *Encoder) inc() {
-	atomic.AddInt64(&e.pRaw, 1)
-}
-
-func (e *Encoder) dec() {
-	atomic.AddInt64(&e.pRaw, -1)
-}
-
 // Close shuts down the Encoder.
-func (e *Encoder) Close() error {
-	e.logger.Debug("Closing incremental Encoder")
+func (e *Encoder) Close(ctx context.Context) error {
 	e.cancelFunc()
 	e.activeBackgroundWorkers.Wait()
 	return nil

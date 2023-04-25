@@ -40,16 +40,13 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-var model = resource.NewDefaultModel("gpiostepper")
+var model = resource.DefaultModelFamily.WithModel("gpiostepper")
 
 // PinConfig defines the mapping of where motor are wired.
 type PinConfig struct {
@@ -59,8 +56,8 @@ type PinConfig struct {
 	EnablePinLow  string `json:"en_low,omitempty"`
 }
 
-// AttrConfig describes the configuration of a motor.
-type AttrConfig struct {
+// Config describes the configuration of a motor.
+type Config struct {
 	Pins             PinConfig `json:"pins"`
 	BoardName        string    `json:"board"`
 	StepperDelay     int       `json:"stepper_delay_usec,omitempty"` // When using stepper motors, the time to remain high
@@ -68,7 +65,7 @@ type AttrConfig struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (cfg *AttrConfig) Validate(path string) ([]string, error) {
+func (cfg *Config) Validate(path string) ([]string, error) {
 	var deps []string
 	if cfg.BoardName == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
@@ -87,32 +84,27 @@ func (cfg *AttrConfig) Validate(path string) ([]string, error) {
 }
 
 func init() {
-	_motor := registry.Component{
-		Constructor: func(ctx context.Context, deps registry.Dependencies, cfg config.Component, logger golog.Logger) (interface{}, error) {
-			actualBoard, motorConfig, err := getBoardFromRobotConfig(deps, cfg)
+	resource.RegisterComponent(motor.API, model, resource.Registration[motor.Motor, *Config]{
+		Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger golog.Logger,
+		) (motor.Motor, error) {
+			actualBoard, motorConfig, err := getBoardFromRobotConfig(deps, conf)
 			if err != nil {
 				return nil, err
 			}
 
-			return newGPIOStepper(ctx, actualBoard, *motorConfig, cfg.Name, logger)
+			return newGPIOStepper(ctx, actualBoard, *motorConfig, conf.ResourceName(), logger)
 		},
-	}
-	registry.RegisterComponent(motor.Subtype, model, _motor)
-	config.RegisterComponentAttributeMapConverter(
-		motor.Subtype,
-		model,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf AttrConfig
-			return config.TransformAttributeMapToStruct(&conf, attributes)
-		},
-		&AttrConfig{},
-	)
+	})
 }
 
-func getBoardFromRobotConfig(deps registry.Dependencies, cfg config.Component) (board.Board, *AttrConfig, error) {
-	motorConfig, ok := cfg.ConvertedAttributes.(*AttrConfig)
-	if !ok {
-		return nil, nil, rdkutils.NewUnexpectedTypeError(motorConfig, cfg.ConvertedAttributes)
+func getBoardFromRobotConfig(deps resource.Dependencies, conf resource.Config) (board.Board, *Config, error) {
+	motorConfig, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return nil, nil, err
 	}
 	if motorConfig.BoardName == "" {
 		return nil, nil, errors.New("expected board name in config for motor")
@@ -124,7 +116,11 @@ func getBoardFromRobotConfig(deps registry.Dependencies, cfg config.Component) (
 	return b, motorConfig, nil
 }
 
-func newGPIOStepper(ctx context.Context, b board.Board, mc AttrConfig, name string,
+func newGPIOStepper(
+	ctx context.Context,
+	b board.Board,
+	mc Config,
+	name resource.Name,
 	logger golog.Logger,
 ) (motor.Motor, error) {
 	if mc.TicksPerRotation == 0 {
@@ -132,10 +128,10 @@ func newGPIOStepper(ctx context.Context, b board.Board, mc AttrConfig, name stri
 	}
 
 	m := &gpioStepper{
+		Named:            name.AsNamed(),
 		theBoard:         b,
 		stepsPerRotation: mc.TicksPerRotation,
 		logger:           logger,
-		motorName:        name,
 	}
 
 	var err error
@@ -174,6 +170,10 @@ func newGPIOStepper(ctx context.Context, b board.Board, mc AttrConfig, name stri
 }
 
 type gpioStepper struct {
+	resource.Named
+	resource.AlwaysRebuild
+	resource.TriviallyCloseable
+
 	// config
 	theBoard                    board.Board
 	stepsPerRotation            int
@@ -191,7 +191,6 @@ type gpioStepper struct {
 	stepPosition       int64
 	threadStarted      bool
 	targetStepPosition int64
-	generic.Unimplemented
 }
 
 // SetPower sets the percentage of power the motor should employ between 0-1.
@@ -352,8 +351,8 @@ func (m *gpioStepper) GoTo(ctx context.Context, rpm, positionRevolutions float64
 	}
 	moveDistance := positionRevolutions - curPos
 
-	// don't want to move if we're already at target, and want to skip GoFor's 0 rpm
-	// move forever condition
+	// if you call GoFor with 0 revolutions, the motor will spin forever. If we are at the target,
+	// we must avoid this by not calling GoFor.
 	if rdkutils.Float64AlmostEqual(moveDistance, 0, 0.1) {
 		m.logger.Debugf("GoTo distance nearly zero for motor (%s), not moving", m.motorName)
 		return nil

@@ -17,7 +17,7 @@
     {
       "name": "remote1",
       "address": "localhost:8081",
-      "service_config": [
+      "service_configs": [
         {
           "name": "data_manager2",
           "type": "data_manager",
@@ -25,6 +25,11 @@
             "capture_methods": [
               {
                 "name": "rdk:component:arm/remoteArm",
+                "method": "EndPosition",
+                "capture_frequency_hz": 100
+              },
+              {
+                "name": "rdk:component:arm/nonotthere",
                 "method": "EndPosition",
                 "capture_frequency_hz": 100
               }

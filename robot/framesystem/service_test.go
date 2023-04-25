@@ -21,6 +21,7 @@ import (
 	robotimpl "go.viam.com/rdk/robot/impl"
 	_ "go.viam.com/rdk/services/register"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/testutils/robottestutils"
 	rdkutils "go.viam.com/rdk/utils"
@@ -159,20 +160,18 @@ func TestWrongFrameSystems(t *testing.T) {
 		return cfg, nil
 	}
 
-	injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
-		return struct{}{}, nil
+	injectRobot.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
+		return testutils.NewUnimplementedResource(name), nil
 	}
 
 	injectRobot.RemoteNamesFunc = func() []string {
 		return []string{}
 	}
 
-	var resources map[resource.Name]interface{}
+	var resources map[resource.Name]resource.Resource
 	ctx := context.Background()
 	service := framesystem.New(ctx, injectRobot, logger)
-	serviceUpdateable, ok := service.(resource.Updateable)
-	test.That(t, ok, test.ShouldBeTrue)
-	err = serviceUpdateable.Update(ctx, resources)
+	err = service.Reconfigure(ctx, resources, resource.Config{})
 	test.That(t, err, test.ShouldBeError, framesystemparts.NewMissingParentError("pieceArm", "base"))
 	cfg, err = config.Read(
 		context.Background(),
@@ -184,7 +183,7 @@ func TestWrongFrameSystems(t *testing.T) {
 	injectRobot.ConfigFunc = func(ctx context.Context) (*config.Config, error) {
 		return cfg, nil
 	}
-	err = serviceUpdateable.Update(ctx, resources)
+	err = service.Reconfigure(ctx, resources, resource.Config{})
 	test.That(t, err, test.ShouldBeError, errors.Errorf("cannot give frame system part the name %s", referenceframe.World))
 
 	cfg, err = config.Read(
@@ -197,7 +196,7 @@ func TestWrongFrameSystems(t *testing.T) {
 	injectRobot.ConfigFunc = func(ctx context.Context) (*config.Config, error) {
 		return cfg, nil
 	}
-	err = serviceUpdateable.Update(ctx, resources)
+	err = service.Reconfigure(ctx, resources, resource.Config{})
 	test.That(t, err, test.ShouldBeError, errors.New("parent field in frame config for part \"cameraOver\" is empty"))
 
 	testPose := spatialmath.NewPose(
@@ -254,21 +253,19 @@ func TestServiceWithRemote(t *testing.T) {
 
 	// make the local robot
 	localConfig := &config.Config{
-		Components: []config.Component{
+		Components: []resource.Config{
 			{
-				Namespace: resource.ResourceNamespaceRDK,
-				Name:      "foo",
-				Type:      base.SubtypeName,
-				Model:     resource.NewDefaultModel("fake"),
+				Name:  "foo",
+				API:   base.API,
+				Model: resource.DefaultModelFamily.WithModel("fake"),
 				Frame: &referenceframe.LinkConfig{
 					Parent: referenceframe.World,
 				},
 			},
 			{
-				Namespace: resource.ResourceNamespaceRDK,
-				Name:      "myParentIsRemote",
-				Type:      gripper.SubtypeName,
-				Model:     resource.NewDefaultModel("fake"),
+				Name:  "myParentIsRemote",
+				API:   gripper.API,
+				Model: resource.DefaultModelFamily.WithModel("fake"),
 				Frame: &referenceframe.LinkConfig{
 					Parent: "bar:pieceArm",
 				},

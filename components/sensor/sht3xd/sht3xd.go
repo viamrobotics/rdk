@@ -14,15 +14,11 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/sensor"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
-var modelname = resource.NewDefaultModel("sensirion-sht3xd")
+var model = resource.DefaultModelFamily.WithModel("sensirion-sht3xd")
 
 const (
 	defaultI2Caddr = 0x44
@@ -33,77 +29,73 @@ const (
 	sht3xdCOMMANDPOLLINGH2  = 0x00
 )
 
-// AttrConfig is used for converting config attributes.
-type AttrConfig struct {
+// Config is used for converting config attributes.
+type Config struct {
 	Board   string `json:"board"`
 	I2CBus  string `json:"i2c_bus"`
 	I2cAddr int    `json:"i2c_addr,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
-func (config *AttrConfig) Validate(path string) ([]string, error) {
+func (conf *Config) Validate(path string) ([]string, error) {
 	var deps []string
-	if len(config.Board) == 0 {
+	if len(conf.Board) == 0 {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
 	}
-	deps = append(deps, config.Board)
-	if len(config.I2CBus) == 0 {
+	deps = append(deps, conf.Board)
+	if len(conf.I2CBus) == 0 {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "i2c_bus")
 	}
 	return deps, nil
 }
 
 func init() {
-	registry.RegisterComponent(
-		sensor.Subtype,
-		modelname,
-		registry.Component{Constructor: func(
-			ctx context.Context,
-			deps registry.Dependencies,
-			config config.Component,
-			logger golog.Logger,
-		) (interface{}, error) {
-			attr, ok := config.ConvertedAttributes.(*AttrConfig)
-			if !ok {
-				return nil, rdkutils.NewUnexpectedTypeError(AttrConfig{}, config.ConvertedAttributes)
-			}
-			return newSensor(ctx, deps, config.Name, attr, logger)
-		}})
-
-	config.RegisterComponentAttributeMapConverter(sensor.Subtype, modelname,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf AttrConfig
-			return config.TransformAttributeMapToStruct(&conf, attributes)
-		}, &AttrConfig{})
+	resource.RegisterComponent(
+		sensor.API,
+		model,
+		resource.Registration[sensor.Sensor, *Config]{
+			Constructor: func(
+				ctx context.Context,
+				deps resource.Dependencies,
+				conf resource.Config,
+				logger golog.Logger,
+			) (sensor.Sensor, error) {
+				newConf, err := resource.NativeConfig[*Config](conf)
+				if err != nil {
+					return nil, err
+				}
+				return newSensor(ctx, deps, conf.ResourceName(), newConf, logger)
+			},
+		})
 }
 
 func newSensor(
 	ctx context.Context,
-	deps registry.Dependencies,
-	name string,
-	attr *AttrConfig,
+	deps resource.Dependencies,
+	name resource.Name,
+	conf *Config,
 	logger golog.Logger,
 ) (sensor.Sensor, error) {
-	b, err := board.FromDependencies(deps, attr.Board)
+	b, err := board.FromDependencies(deps, conf.Board)
 	if err != nil {
 		return nil, fmt.Errorf("sht3xd init: failed to find board: %w", err)
 	}
 	localB, ok := b.(board.LocalBoard)
 	if !ok {
-		return nil, fmt.Errorf("board %s is not local", attr.Board)
+		return nil, fmt.Errorf("board %s is not local", conf.Board)
 	}
-	i2cbus, ok := localB.I2CByName(attr.I2CBus)
+	i2cbus, ok := localB.I2CByName(conf.I2CBus)
 	if !ok {
-		return nil, fmt.Errorf("sht3xd init: failed to find i2c bus %s", attr.I2CBus)
+		return nil, fmt.Errorf("sht3xd init: failed to find i2c bus %s", conf.I2CBus)
 	}
-	addr := attr.I2cAddr
+	addr := conf.I2cAddr
 	if addr == 0 {
 		addr = defaultI2Caddr
 		logger.Warn("using i2c address : 0x44")
 	}
 
 	s := &sht3xd{
-		name:   name,
+		Named:  name.AsNamed(),
 		logger: logger,
 		bus:    i2cbus,
 		addr:   byte(addr),
@@ -119,12 +111,13 @@ func newSensor(
 
 // sht3xd is a i2c sensor device that reports temperature and humidity.
 type sht3xd struct {
-	generic.Unimplemented
+	resource.Named
+	resource.AlwaysRebuild
+	resource.TriviallyCloseable
 	logger golog.Logger
 
 	bus  board.I2C
 	addr byte
-	name string
 }
 
 // Readings returns a list containing two items (current temperature and humidity).
@@ -168,7 +161,7 @@ func (s *sht3xd) Readings(ctx context.Context, extra map[string]interface{}) (ma
 	humid := 100.0 * float64(humidRaw) / 65535.0
 	return map[string]interface{}{
 		"temperature_celsius":   temp,
-		"relative_humidity_pct": humid, // TODO: RSDK-1903
+		"relative_humidity_pct": humid, // TODO(RSDK-1903)
 	}, nil
 }
 

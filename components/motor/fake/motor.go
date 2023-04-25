@@ -13,17 +13,13 @@ import (
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/encoder"
-	fakeencoder "go.viam.com/rdk/components/encoder/fake"
-	"go.viam.com/rdk/components/generic"
+	"go.viam.com/rdk/components/encoder/fake"
 	"go.viam.com/rdk/components/motor"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
-var model = resource.NewDefaultModel("fake")
+var model = resource.DefaultModelFamily.WithModel("fake")
 
 const defaultMaxRpm = 100
 
@@ -62,64 +58,23 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 }
 
 func init() {
-	_motor := registry.Component{
-		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-			m := &Motor{Name: config.Name, Logger: logger}
-			if mcfg, ok := config.ConvertedAttributes.(*Config); ok {
-				if mcfg.BoardName != "" {
-					m.Board = mcfg.BoardName
-					b, err := board.FromDependencies(deps, m.Board)
-					if err != nil {
-						return nil, err
-					}
-					if mcfg.Pins.PWM != "" {
-						m.PWM, err = b.GPIOPinByName(mcfg.Pins.PWM)
-						if err != nil {
-							return nil, err
-						}
-						if err = m.PWM.SetPWMFreq(ctx, mcfg.PWMFreq, nil); err != nil {
-							return nil, err
-						}
-					}
-				}
-				m.MaxRPM = mcfg.MaxRPM
-
-				if m.MaxRPM == 0 {
-					logger.Infof("Max RPM not provided to a fake motor, defaulting to %v", defaultMaxRpm)
-					m.MaxRPM = defaultMaxRpm
-				}
-
-				if mcfg.Encoder != "" {
-					m.TicksPerRotation = mcfg.TicksPerRotation
-
-					e, err := encoder.FromDependencies(deps, mcfg.Encoder)
-					if err != nil {
-						return nil, err
-					}
-					realEncoder := rdkutils.UnwrapProxy(e)
-					m.Encoder = realEncoder.(*fakeencoder.Encoder)
-					m.PositionReporting = true
-				} else {
-					m.PositionReporting = false
-				}
-				m.DirFlip = false
-				if mcfg.DirectionFlip {
-					m.DirFlip = true
-				}
+	resource.RegisterComponent(motor.API, model, resource.Registration[motor.Motor, *Config]{
+		Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger golog.Logger,
+		) (motor.Motor, error) {
+			m := &Motor{
+				Named:  conf.ResourceName().AsNamed(),
+				Logger: logger,
+			}
+			if err := m.Reconfigure(ctx, deps, conf); err != nil {
+				return nil, err
 			}
 			return m, nil
 		},
-	}
-	registry.RegisterComponent(motor.Subtype, model, _motor)
-	config.RegisterComponentAttributeMapConverter(
-		motor.Subtype,
-		model,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf Config
-			return config.TransformAttributeMapToStruct(&conf, attributes)
-		},
-		&Config{},
-	)
+	})
 }
 
 var _ motor.LocalMotor = &Motor{}
@@ -127,19 +82,75 @@ var _ motor.LocalMotor = &Motor{}
 // A Motor allows setting and reading a set power percentage and
 // direction.
 type Motor struct {
-	Name              string
+	resource.Named
+	resource.TriviallyCloseable
+
 	mu                sync.Mutex
 	powerPct          float64
 	Board             string
 	PWM               board.GPIOPin
 	PositionReporting bool
-	Logger            golog.Logger
-	Encoder           *fakeencoder.Encoder
+	Encoder           fake.Encoder
 	MaxRPM            float64
 	DirFlip           bool
-	opMgr             operation.SingleOperationManager
 	TicksPerRotation  int
-	generic.Echo
+
+	opMgr  operation.SingleOperationManager
+	Logger golog.Logger
+}
+
+// Reconfigure atomically reconfigures this motor in place based on the new config.
+func (m *Motor) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	newConf, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return err
+	}
+	if newConf.BoardName != "" {
+		m.Board = newConf.BoardName
+		b, err := board.FromDependencies(deps, m.Board)
+		if err != nil {
+			return err
+		}
+		if newConf.Pins.PWM != "" {
+			m.PWM, err = b.GPIOPinByName(newConf.Pins.PWM)
+			if err != nil {
+				return err
+			}
+			if err = m.PWM.SetPWMFreq(ctx, newConf.PWMFreq, nil); err != nil {
+				return err
+			}
+		}
+	}
+	m.MaxRPM = newConf.MaxRPM
+
+	if m.MaxRPM == 0 {
+		m.Logger.Infof("Max RPM not provided to a fake motor, defaulting to %v", defaultMaxRpm)
+		m.MaxRPM = defaultMaxRpm
+	}
+
+	if newConf.Encoder != "" {
+		m.TicksPerRotation = newConf.TicksPerRotation
+
+		e, err := encoder.FromDependencies(deps, newConf.Encoder)
+		if err != nil {
+			return err
+		}
+		fakeEncoder, ok := e.(fake.Encoder)
+		if !ok {
+			return resource.TypeError[fake.Encoder](e)
+		}
+		m.Encoder = fakeEncoder
+		m.PositionReporting = true
+	} else {
+		m.PositionReporting = false
+	}
+	m.DirFlip = false
+	if newConf.DirectionFlip {
+		m.DirFlip = true
+	}
+	return nil
 }
 
 // Position returns motor position in rotations.
@@ -151,7 +162,7 @@ func (m *Motor) Position(ctx context.Context, extra map[string]interface{}) (flo
 		return 0, errors.New("encoder is not defined")
 	}
 
-	ticks, _, err := m.Encoder.GetPosition(ctx, nil, extra)
+	ticks, _, err := m.Encoder.GetPosition(ctx, encoder.PositionTypeUnspecified, extra)
 	if err != nil {
 		return 0, err
 	}
@@ -325,7 +336,7 @@ func (m *Motor) GoTo(ctx context.Context, rpm, pos float64, extra map[string]int
 
 // GoTillStop always returns an error.
 func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
-	return motor.NewGoTillStopUnsupportedError(m.Name)
+	return motor.NewGoTillStopUnsupportedError(m.Name().ShortName())
 }
 
 // ResetZeroPosition resets the zero position.
@@ -340,7 +351,7 @@ func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64, extra map
 
 	err := m.Encoder.ResetPosition(ctx, extra)
 	if err != nil {
-		return errors.Wrapf(err, "error in ResetZeroPosition from motor (%s)", m.Name)
+		return errors.Wrapf(err, "error in ResetZeroPosition from motor (%s)", m.Name())
 	}
 
 	return nil
@@ -356,7 +367,7 @@ func (m *Motor) Stop(ctx context.Context, extra map[string]interface{}) error {
 	if m.Encoder != nil {
 		err := m.Encoder.SetSpeed(ctx, 0.0)
 		if err != nil {
-			return errors.Wrapf(err, "error in Stop from motor (%s)", m.Name)
+			return errors.Wrapf(err, "error in Stop from motor (%s)", m.Name())
 		}
 	}
 	return nil

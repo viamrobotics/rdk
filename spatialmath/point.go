@@ -26,8 +26,8 @@ func (pt *point) String() string {
 	return fmt.Sprintf("Type: Point, Location X:%.0f, Y:%.0f, Z:%.0f", p.X, p.Y, p.Z)
 }
 
-func (pt *point) MarshalJSON() ([]byte, error) {
-	config, err := NewGeometryConfig(pt)
+func (pt point) MarshalJSON() ([]byte, error) {
+	config, err := NewGeometryConfig(&pt)
 	if err != nil {
 		return nil, err
 	}

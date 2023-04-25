@@ -270,8 +270,8 @@ func oppositeHemisphere(q1, q2 quat.Number) bool {
 }
 
 // MarshalJSON marshals to W, X, Y, Z json.
-func (q *Quaternion) MarshalJSON() ([]byte, error) {
-	return json.Marshal(quaternionJSONFromQuaternion(q))
+func (q Quaternion) MarshalJSON() ([]byte, error) {
+	return json.Marshal(quaternionJSONFromQuaternion(&q))
 }
 
 type quaternionJSON struct {

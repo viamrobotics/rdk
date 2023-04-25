@@ -141,7 +141,7 @@ const initNavigation = async () => {
     props.client.navigationService.getWaypoints(
       req,
       new grpc.Metadata(),
-      (err: ServiceError, resp: navigationApi.GetWaypointsResponse) => {
+      (err: ServiceError | null, resp: navigationApi.GetWaypointsResponse | null) => {
         grpcCallback(err, resp, false);
 
         if (err) {
@@ -226,7 +226,7 @@ const initNavigation = async () => {
     props.client.navigationService.getLocation(
       req,
       new grpc.Metadata(),
-      (err: ServiceError, resp: navigationApi.GetLocationResponse) => {
+      (err: ServiceError | null, resp: navigationApi.GetLocationResponse | null) => {
         grpcCallback(err, resp, false);
 
         if (err) {
@@ -303,7 +303,7 @@ onUnmounted(() => {
       slot="title"
       crumbs="navigation"
     />
-    <div class="flex flex-col gap-2 border border-t-0 border-black p-4">
+    <div class="border-border-1 flex flex-col gap-2 border border-t-0 p-4">
       <div class="flex h-full w-full flex-row items-end gap-2">
         <v-input
           label="Google Maps API Key"

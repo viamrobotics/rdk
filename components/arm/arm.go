@@ -6,61 +6,40 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"sync"
 
 	"github.com/edaniels/golog"
 	pb "go.viam.com/api/component/arm/v1"
 	motionpb "go.viam.com/api/service/motion/v1"
-	viamutils "go.viam.com/utils"
-	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/components/generic"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/subtype"
-	"go.viam.com/rdk/utils"
 )
 
 func init() {
-	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
-		Reconfigurable: WrapWithReconfigurable,
-		Status: func(ctx context.Context, resource interface{}) (interface{}, error) {
-			return CreateStatus(ctx, resource)
-		},
-		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
-			return rpcServer.RegisterServiceServer(
-				ctx,
-				&pb.ArmService_ServiceDesc,
-				NewServer(subtypeSvc),
-				pb.RegisterArmServiceHandlerFromEndpoint,
-			)
-		},
-		RPCServiceDesc: &pb.ArmService_ServiceDesc,
-		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
-			return NewClientFromConn(ctx, conn, name, logger)
-		},
+	resource.RegisterAPI(API, resource.APIRegistration[Arm]{
+		Status:                      resource.StatusFunc(CreateStatus),
+		RPCServiceServerConstructor: NewRPCServiceServer,
+		RPCServiceHandler:           pb.RegisterArmServiceHandlerFromEndpoint,
+		RPCServiceDesc:              &pb.ArmService_ServiceDesc,
+		RPCClient:                   NewClientFromConn,
 	})
 
 	data.RegisterCollector(data.MethodMetadata{
-		Subtype:    Subtype,
+		API:        API,
 		MethodName: endPosition.String(),
 	}, newEndPositionCollector)
 	data.RegisterCollector(data.MethodMetadata{
-		Subtype:    Subtype,
+		API:        API,
 		MethodName: jointPositions.String(),
 	}, newJointPositionsCollector)
 }
 
-// SubtypeName is a constant that identifies the component resource subtype string "arm".
-const (
-	SubtypeName = resource.SubtypeName("arm")
-)
+// SubtypeName is a constant that identifies the component resource API string "arm".
+const SubtypeName = "arm"
 
 // MTPoob is a string that all MoveToPosition errors should contain if the method is called
 // and there are joints which are out of bounds.
@@ -73,20 +52,21 @@ var (
 	}
 )
 
-// Subtype is a constant that identifies the component resource subtype.
-var Subtype = resource.NewSubtype(
-	resource.ResourceNamespaceRDK,
-	resource.ResourceTypeComponent,
-	SubtypeName,
-)
+// API is a variable that identifies the component resource API.
+var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 
 // Named is a helper for getting the named Arm's typed resource name.
 func Named(name string) resource.Name {
-	return resource.NameFromSubtype(Subtype, name)
+	return resource.NewName(API, name)
 }
 
 // An Arm represents a physical robotic arm that exists in three-dimensional space.
 type Arm interface {
+	resource.Resource
+	resource.Actuator
+	referenceframe.ModelFramer
+	referenceframe.InputEnabled
+
 	// EndPosition returns the current position of the arm.
 	EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error)
 
@@ -100,46 +80,15 @@ type Arm interface {
 
 	// JointPositions returns the current joint positions of the arm.
 	JointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error)
-
-	// Stop stops the arm. It is assumed the arm stops immediately.
-	Stop(ctx context.Context, extra map[string]interface{}) error
-
-	generic.Generic
-	referenceframe.ModelFramer
-	referenceframe.InputEnabled
-	resource.MovingCheckable
 }
 
-// A LocalArm represents an Arm that can report whether it is moving or not.
-type LocalArm interface {
-	Arm
-}
-
-var (
-	_ = Arm(&reconfigurableArm{})
-	_ = LocalArm(&reconfigurableLocalArm{})
-	_ = resource.Reconfigurable(&reconfigurableArm{})
-	_ = resource.Reconfigurable(&reconfigurableLocalArm{})
-	_ = viamutils.ContextCloser(&reconfigurableLocalArm{})
-
-	// ErrStopUnimplemented is used for when Stop() is unimplemented.
-	ErrStopUnimplemented = errors.New("Stop() unimplemented")
-)
-
-// NewUnimplementedInterfaceError is used when there is a failed interface check.
-func NewUnimplementedInterfaceError(actual interface{}) error {
-	return utils.NewUnimplementedInterfaceError((*Arm)(nil), actual)
-}
-
-// NewUnimplementedLocalInterfaceError is used when there is a failed interface check.
-func NewUnimplementedLocalInterfaceError(actual interface{}) error {
-	return utils.NewUnimplementedInterfaceError((*LocalArm)(nil), actual)
-}
+// ErrStopUnimplemented is used for when Stop is unimplemented.
+var ErrStopUnimplemented = errors.New("Stop unimplemented")
 
 // FromDependencies is a helper for getting the named arm from a collection of
 // dependencies.
-func FromDependencies(deps registry.Dependencies, name string) (Arm, error) {
-	return registry.ResourceFromDependencies[Arm](deps, Named(name))
+func FromDependencies(deps resource.Dependencies, name string) (Arm, error) {
+	return resource.FromDependencies[Arm](deps, Named(name))
 }
 
 // FromRobot is a helper for getting the named Arm from the given Robot.
@@ -149,195 +98,25 @@ func FromRobot(r robot.Robot, name string) (Arm, error) {
 
 // NamesFromRobot is a helper for getting all arm names from the given Robot.
 func NamesFromRobot(r robot.Robot) []string {
-	return robot.NamesBySubtype(r, Subtype)
+	return robot.NamesByAPI(r, API)
 }
 
 // CreateStatus creates a status from the arm.
-func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error) {
-	arm, ok := resource.(Arm)
-	if !ok {
-		return nil, NewUnimplementedLocalInterfaceError(resource)
-	}
-	jointPositions, err := arm.JointPositions(ctx, nil)
+func CreateStatus(ctx context.Context, a Arm) (*pb.Status, error) {
+	jointPositions, err := a.JointPositions(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
-	model := arm.ModelFrame()
+	model := a.ModelFrame()
 	endPosition, err := motionplan.ComputePosition(model, jointPositions)
 	if err != nil {
 		return nil, err
 	}
-	isMoving, err := arm.IsMoving(ctx)
+	isMoving, err := a.IsMoving(ctx)
 	if err != nil {
 		return nil, err
 	}
 	return &pb.Status{EndPosition: spatialmath.PoseToProtobuf(endPosition), JointPositions: jointPositions, IsMoving: isMoving}, nil
-}
-
-type reconfigurableArm struct {
-	mu     sync.RWMutex
-	name   resource.Name
-	actual Arm
-}
-
-func (r *reconfigurableArm) Name() resource.Name {
-	return r.name
-}
-
-func (r *reconfigurableArm) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.DoCommand(ctx, cmd)
-}
-
-func (r *reconfigurableArm) ProxyFor() interface{} {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual
-}
-
-func (r *reconfigurableArm) EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.EndPosition(ctx, extra)
-}
-
-func (r *reconfigurableArm) MoveToPosition(
-	ctx context.Context,
-	pose spatialmath.Pose,
-	extra map[string]interface{},
-) error {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.MoveToPosition(ctx, pose, extra)
-}
-
-func (r *reconfigurableArm) MoveToJointPositions(ctx context.Context, positionDegs *pb.JointPositions, extra map[string]interface{}) error {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.MoveToJointPositions(ctx, positionDegs, extra)
-}
-
-func (r *reconfigurableArm) JointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.JointPositions(ctx, extra)
-}
-
-func (r *reconfigurableArm) Stop(ctx context.Context, extra map[string]interface{}) error {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.Stop(ctx, extra)
-}
-
-func (r *reconfigurableArm) ModelFrame() referenceframe.Model {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.ModelFrame()
-}
-
-func (r *reconfigurableArm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.CurrentInputs(ctx)
-}
-
-func (r *reconfigurableArm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.GoToInputs(ctx, goal)
-}
-
-func (r *reconfigurableArm) Close(ctx context.Context) error {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return viamutils.TryClose(ctx, r.actual)
-}
-
-func (r *reconfigurableArm) IsMoving(ctx context.Context) (bool, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.IsMoving(ctx)
-}
-
-func (r *reconfigurableArm) Reconfigure(ctx context.Context, newArm resource.Reconfigurable) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	return r.reconfigure(ctx, newArm)
-}
-
-func (r *reconfigurableArm) reconfigure(ctx context.Context, newArm resource.Reconfigurable) error {
-	arm, ok := newArm.(*reconfigurableArm)
-	if !ok {
-		return utils.NewUnexpectedTypeError(r, newArm)
-	}
-	if err := viamutils.TryClose(ctx, r.actual); err != nil {
-		golog.Global().Errorw("error closing old", "error", err)
-	}
-	r.actual = arm.actual
-	return nil
-}
-
-// UpdateAction helps hint the reconfiguration process on what strategy to use given a modified config.
-// See config.ShouldUpdateAction for more information.
-func (r *reconfigurableArm) UpdateAction(c *config.Component) config.UpdateActionType {
-	obj, canUpdate := r.actual.(config.ComponentUpdate)
-	if canUpdate {
-		return obj.UpdateAction(c)
-	}
-	return config.Reconfigure
-}
-
-type reconfigurableLocalArm struct {
-	*reconfigurableArm
-	actual LocalArm
-}
-
-func (r *reconfigurableLocalArm) IsMoving(ctx context.Context) (bool, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.IsMoving(ctx)
-}
-
-func (r *reconfigurableLocalArm) Reconfigure(ctx context.Context, newArm resource.Reconfigurable) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	arm, ok := newArm.(*reconfigurableLocalArm)
-	if !ok {
-		return utils.NewUnexpectedTypeError(r, newArm)
-	}
-	if err := viamutils.TryClose(ctx, r.actual); err != nil {
-		golog.Global().Errorw("error closing old", "error", err)
-	}
-
-	r.actual = arm.actual
-	return r.reconfigurableArm.reconfigure(ctx, arm.reconfigurableArm)
-}
-
-// WrapWithReconfigurable converts a regular Arm implementation to a reconfigurableArm
-// and a localArm into a reconfigurableLocalArm
-// If arm is already a Reconfigurable, then nothing is done.
-func WrapWithReconfigurable(r interface{}, name resource.Name) (resource.Reconfigurable, error) {
-	arm, ok := r.(Arm)
-	if !ok {
-		return nil, NewUnimplementedInterfaceError(r)
-	}
-
-	if reconfigurable, ok := arm.(*reconfigurableArm); ok {
-		return reconfigurable, nil
-	}
-
-	rArm := &reconfigurableArm{name: name, actual: arm}
-	localArm, ok := r.(LocalArm)
-	if !ok {
-		// is an arm but is not a local arm
-		return rArm, nil
-	}
-
-	if reconfigurableLocal, ok := localArm.(*reconfigurableLocalArm); ok {
-		return reconfigurableLocal, nil
-	}
-	return &reconfigurableLocalArm{actual: localArm, reconfigurableArm: rArm}, nil
 }
 
 // Move is a helper function to abstract away movement for general arms.

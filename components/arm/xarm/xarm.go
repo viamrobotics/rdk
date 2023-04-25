@@ -5,50 +5,61 @@ import (
 	"context"
 	// for embedding model file.
 	_ "embed"
-	"errors"
 	"fmt"
-	"math"
 	"net"
 	"sync"
 
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/components/arm"
-	"go.viam.com/rdk/components/generic"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
 )
 
-// AttrConfig is used for converting config attributes.
-type AttrConfig struct {
+// Config is used for converting config attributes.
+type Config struct {
 	Host         string  `json:"host"`
+	Port         int     `json:"port"`
 	Speed        float32 `json:"speed_degs_per_sec"`
 	Acceleration float32 `json:"acceleration_degs_per_sec_per_sec"`
+
+	parsedPort string
+}
+
+// Validate validates the config.
+func (cfg *Config) Validate(path string) ([]string, error) {
+	var deps []string
+	if cfg.Port == 0 {
+		cfg.parsedPort = defaultPort
+	} else {
+		cfg.parsedPort = fmt.Sprintf("%d", cfg.Port)
+	}
+	return deps, nil
 }
 
 const (
 	defaultSpeed        = 20
 	defaultAcceleration = 50
-	defaultPort         = ":502"
+	defaultPort         = "502"
 )
 
 type xArm struct {
-	generic.Unimplemented
+	resource.Named
 	dof      int
 	tid      uint16
-	conn     net.Conn
-	speed    float32 // speed=max joint radians per second
-	accel    float32 // acceleration=rad/s^2
 	moveHZ   float64 // Number of joint positions to send per second
 	moveLock sync.Mutex
 	model    referenceframe.Model
 	started  bool
 	opMgr    operation.SingleOperationManager
 	logger   golog.Logger
+
+	mu    sync.RWMutex
+	conn  net.Conn
+	speed float32 // speed=max joint radians per second
 }
 
 //go:embed xarm6_kinematics.json
@@ -66,8 +77,8 @@ const (
 	ModelNameLite = "xArmLite" // ModelNameLite is the name of an xArmLite
 )
 
-// Model returns the kinematics model of the xarm arm, which has all Frame information.
-func Model(name, modelName string) (referenceframe.Model, error) {
+// MakeModelFrame returns the kinematics model of the xarm arm, which has all Frame information.
+func MakeModelFrame(name, modelName string) (referenceframe.Model, error) {
 	switch modelName {
 	case ModelName6DOF:
 		return referenceframe.UnmarshalModelJSON(xArm6modeljson, name)
@@ -83,92 +94,84 @@ func Model(name, modelName string) (referenceframe.Model, error) {
 func init() {
 	for _, armModelName := range []string{ModelName6DOF, ModelName7DOF, ModelNameLite} {
 		localArmModelName := armModelName
-		armModel := resource.NewDefaultModel(resource.ModelName(armModelName))
-		registry.RegisterComponent(arm.Subtype, armModel, registry.Component{
-			Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-				return NewxArm(ctx, config, logger, localArmModelName)
+		armModel := resource.DefaultModelFamily.WithModel(armModelName)
+		resource.RegisterComponent(arm.API, armModel, resource.Registration[arm.Arm, *Config]{
+			Constructor: func(
+				ctx context.Context,
+				_ resource.Dependencies,
+				conf resource.Config,
+				logger golog.Logger,
+			) (arm.Arm, error) {
+				return NewxArm(ctx, conf, logger, localArmModelName)
 			},
 		})
-
-		config.RegisterComponentAttributeMapConverter(arm.Subtype, armModel,
-			func(attributes config.AttributeMap) (interface{}, error) {
-				var conf AttrConfig
-				return config.TransformAttributeMapToStruct(&conf, attributes)
-			},
-			&AttrConfig{},
-		)
 	}
 }
 
 // NewxArm returns a new xArm of the specified modelName.
-func NewxArm(ctx context.Context, cfg config.Component, logger golog.Logger, modelName string) (arm.LocalArm, error) {
-	armCfg := cfg.ConvertedAttributes.(*AttrConfig)
-
-	if armCfg.Host == "" {
-		return nil, errors.New("xArm host not set")
-	}
-
-	speed := armCfg.Speed
-	if speed == 0 {
-		speed = defaultSpeed
-	}
-
-	acceleration := armCfg.Acceleration
-	if acceleration == 0 {
-		acceleration = defaultAcceleration
-	}
-
-	conn, err := net.Dial("tcp", armCfg.Host+defaultPort)
-	if err != nil {
-		return nil, err
-	}
-
-	model, err := Model(cfg.Name, modelName)
+func NewxArm(ctx context.Context, conf resource.Config, logger golog.Logger, modelName string) (arm.Arm, error) {
+	model, err := MakeModelFrame(conf.Name, modelName)
 	if err != nil {
 		return nil, err
 	}
 
 	xA := xArm{
+		Named:   conf.ResourceName().AsNamed(),
 		dof:     len(model.DoF()),
 		tid:     0,
-		conn:    conn,
-		speed:   speed * math.Pi / 180,
-		accel:   acceleration * math.Pi / 180,
 		moveHZ:  100.,
 		model:   model,
 		started: false,
 		logger:  logger,
 	}
 
-	err = xA.start(ctx)
-	if err != nil {
+	if err := xA.Reconfigure(ctx, nil, conf); err != nil {
 		return nil, err
 	}
 
 	return &xA, nil
 }
 
-// UpdateAction helps hinting the reconfiguration process on what strategy to use given a modified config.
-// See config.UpdateActionType for more information.
-func (x *xArm) UpdateAction(c *config.Component) config.UpdateActionType {
-	remoteAddr := x.conn.RemoteAddr().String()
-
-	// here we remove the port from the remote address
-	// we do so because the remote address' port is not the same as defaultPort
-	currentHost := string([]rune(remoteAddr)[:len(remoteAddr)-len(defaultPort)])
-	if newCfg, ok := c.ConvertedAttributes.(*AttrConfig); ok {
-		if currentHost != newCfg.Host {
-			return config.Reconfigure
-		}
-		if newCfg.Speed > 0 {
-			x.speed = float32(utils.DegToRad(float64(newCfg.Speed)))
-		}
-		if newCfg.Acceleration > 0 {
-			x.accel = float32(utils.DegToRad(float64(newCfg.Acceleration)))
-		}
-		return config.None
+// Reconfigure atomically reconfigures this arm in place based on the new config.
+func (x *xArm) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+	newConf, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return err
 	}
-	return config.Reconfigure
+
+	if newConf.Host == "" {
+		return errors.New("xArm host not set")
+	}
+
+	speed := newConf.Speed
+	if speed == 0 {
+		speed = defaultSpeed
+	}
+
+	x.mu.Lock()
+	defer x.mu.Unlock()
+
+	newAddr := net.JoinHostPort(newConf.Host, newConf.parsedPort)
+	if x.conn == nil || x.conn.RemoteAddr().String() != newAddr {
+		var d net.Dialer
+		newConn, err := d.DialContext(ctx, "tcp", newAddr)
+		if err != nil {
+			return err
+		}
+		if err := x.conn.Close(); err != nil {
+			x.logger.Warnw("error closing old connection but will continue with reconfiguration", "error", err)
+		}
+		x.conn = newConn
+
+		if err := x.start(ctx); err != nil {
+			return errors.Wrap(err, "failed to start on reconfigure")
+		}
+	}
+
+	if newConf.Speed > 0 {
+		x.speed = float32(utils.DegToRad(float64(speed)))
+	}
+	return nil
 }
 
 func (x *xArm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {

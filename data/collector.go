@@ -12,7 +12,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
-	"go.viam.com/api/app/datasync/v1"
+	v1 "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/protoutils"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -41,7 +41,7 @@ type collector struct {
 	captureErrors  chan error
 	interval       time.Duration
 	params         map[string]*anypb.Any
-	lock           *sync.Mutex
+	lock           sync.Mutex
 	logger         golog.Logger
 	captureWorkers sync.WaitGroup
 	logRoutine     sync.WaitGroup
@@ -123,7 +123,7 @@ func (c *collector) capture(started chan struct{}) {
 func (c *collector) sleepBasedCapture(started chan struct{}) {
 	next := c.clock.Now().Add(c.interval)
 	until := c.clock.Until(next)
-	captureWorkers := sync.WaitGroup{}
+	var captureWorkers sync.WaitGroup
 
 	close(started)
 	for {
@@ -155,7 +155,7 @@ func (c *collector) sleepBasedCapture(started chan struct{}) {
 func (c *collector) tickerBasedCapture(started chan struct{}) {
 	ticker := c.clock.Ticker(c.interval)
 	defer ticker.Stop()
-	captureWorkers := sync.WaitGroup{}
+	var captureWorkers sync.WaitGroup
 
 	close(started)
 	for {
@@ -248,10 +248,7 @@ func NewCollector(captureFunc CaptureFunc, params CollectorParams) (Collector, e
 		captureErrors:  make(chan error, params.QueueSize),
 		interval:       params.Interval,
 		params:         params.MethodParams,
-		lock:           &sync.Mutex{},
 		logger:         params.Logger,
-		captureWorkers: sync.WaitGroup{},
-		logRoutine:     sync.WaitGroup{},
 		cancelCtx:      cancelCtx,
 		cancel:         cancelFunc,
 		captureFunc:    captureFunc,
@@ -283,10 +280,10 @@ func (c *collector) logCaptureErrs() {
 	}
 }
 
-// InvalidInterfaceErr is the error describing when an interface not conforming to the expected resource.Subtype was
+// InvalidInterfaceErr is the error describing when an interface not conforming to the expected resource.API was
 // passed into a CollectorConstructor.
-func InvalidInterfaceErr(typeName resource.SubtypeName) error {
-	return errors.Errorf("passed interface does not conform to expected resource type %s", typeName)
+func InvalidInterfaceErr(api resource.API) error {
+	return errors.Errorf("passed interface does not conform to expected resource type %s", api)
 }
 
 // FailedToReadErr is the error describing when a Capturer was unable to get the reading of a method.

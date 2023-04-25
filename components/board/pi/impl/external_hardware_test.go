@@ -19,8 +19,6 @@ import (
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/components/motor/gpio"
 	"go.viam.com/rdk/components/servo"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 )
 
@@ -41,7 +39,7 @@ func TestPiHardware(t *testing.T) {
 		},
 	}
 
-	pp, err := NewPigpio(ctx, &cfg, logger)
+	pp, err := NewPigpio(ctx, board.Named("foo"), &cfg, logger)
 	if errors.Is(err, errors.New("not running on a pi")) {
 		t.Skip("not running on a pi")
 		return
@@ -110,12 +108,13 @@ func TestPiHardware(t *testing.T) {
 	})
 
 	t.Run("servo in/out", func(t *testing.T) {
-		servoReg := registry.ComponentLookup(servo.Subtype, picommon.ModelName)
+		servoReg, ok := resource.LookupRegistration(servo.API, picommon.Model)
+		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, servoReg, test.ShouldNotBeNil)
 		servoInt, err := servoReg.Constructor(
 			ctx,
 			nil,
-			config.Component{
+			resource.Config{
 				Name:                "servo",
 				ConvertedAttributes: &picommon.ServoConfig{Pin: "18"},
 			},
@@ -140,15 +139,17 @@ func TestPiHardware(t *testing.T) {
 		test.That(t, val, test.ShouldAlmostEqual, int64(1500), 500) // this is a tad noisy
 	})
 
-	motorReg := registry.ComponentLookup(motor.Subtype, picommon.ModelName)
+	motorReg, ok := resource.LookupRegistration(motor.API, picommon.Model)
+	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, motorReg, test.ShouldNotBeNil)
 
-	encoderReg := registry.ComponentLookup(encoder.Subtype, resource.NewDefaultModel("encoder"))
+	encoderReg, ok := resource.LookupRegistration(encoder.API, resource.DefaultModelFamily.WithModel("encoder"))
+	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, encoderReg, test.ShouldNotBeNil)
 
-	deps := make(registry.Dependencies)
-	_, err = encoderReg.Constructor(ctx, deps, config.Component{
-		Name: "encoder1", ConvertedAttributes: &incremental.AttrConfig{
+	deps := make(resource.Dependencies)
+	_, err = encoderReg.Constructor(ctx, deps, resource.Config{
+		Name: "encoder1", ConvertedAttributes: &incremental.Config{
 			Pins: incremental.Pins{
 				A: "a",
 				B: "b",
@@ -161,7 +162,7 @@ func TestPiHardware(t *testing.T) {
 	motorDeps := make([]string, 0)
 	motorDeps = append(motorDeps, "encoder1")
 
-	motorInt, err := motorReg.Constructor(ctx, deps, config.Component{
+	motorInt, err := motorReg.Constructor(ctx, deps, resource.Config{
 		Name: "motor1", ConvertedAttributes: &gpio.Config{
 			Pins: gpio.PinConfig{
 				A:   "13", // bcom 27

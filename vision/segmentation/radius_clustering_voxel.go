@@ -9,8 +9,8 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/config"
 	pc "go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
 )
 
@@ -36,7 +36,13 @@ func (rcc *RadiusClusteringVoxelConfig) CheckValid() error {
 	if rcc.Lambda <= 0 {
 		return errors.Errorf("lambda must be greater than 0, got %v", rcc.Lambda)
 	}
-	radiusClustering := RadiusClusteringConfig{rcc.MinPtsInPlane, rcc.MinPtsInSegment, rcc.ClusteringRadiusMm, 50.0, rcc.Label}
+	radiusClustering := RadiusClusteringConfig{
+		MinPtsInPlane:      rcc.MinPtsInPlane,
+		MinPtsInSegment:    rcc.MinPtsInSegment,
+		ClusteringRadiusMm: rcc.ClusteringRadiusMm,
+		MeanKFiltering:     50.0,
+		Label:              rcc.Label,
+	}
 	err := radiusClustering.CheckValid()
 	if err != nil {
 		return err
@@ -50,7 +56,7 @@ func (rcc *RadiusClusteringVoxelConfig) CheckValid() error {
 }
 
 // ConvertAttributes changes the AttributeMap input into a RadiusClusteringVoxelConfig.
-func (rcc *RadiusClusteringVoxelConfig) ConvertAttributes(am config.AttributeMap) error {
+func (rcc *RadiusClusteringVoxelConfig) ConvertAttributes(am utils.AttributeMap) error {
 	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: rcc})
 	if err != nil {
 		return err
@@ -63,7 +69,7 @@ func (rcc *RadiusClusteringVoxelConfig) ConvertAttributes(am config.AttributeMap
 }
 
 // NewRadiusClusteringFromVoxels removes the planes (if any) and returns a segmentation of the objects in a point cloud.
-func NewRadiusClusteringFromVoxels(params config.AttributeMap) (Segmenter, error) {
+func NewRadiusClusteringFromVoxels(params utils.AttributeMap) (Segmenter, error) {
 	// convert attributes to appropriate struct
 	if params == nil {
 		return nil, errors.New("config for radius clustering segmentation cannot be nil")
@@ -77,10 +83,10 @@ func NewRadiusClusteringFromVoxels(params config.AttributeMap) (Segmenter, error
 }
 
 // RadiusClusteringVoxels turns the cloud into a voxel grid and then does radius clustering  to segment it.
-func (rcc *RadiusClusteringVoxelConfig) RadiusClusteringVoxels(ctx context.Context, c camera.Camera) ([]*vision.Object, error) {
+func (rcc *RadiusClusteringVoxelConfig) RadiusClusteringVoxels(ctx context.Context, src camera.VideoSource) ([]*vision.Object, error) {
 	// get next point cloud and convert it to a  VoxelGrid
 	// NOTE(bh): Maybe one day cameras will return voxel grids directly.
-	cloud, err := c.NextPointCloud(ctx)
+	cloud, err := src.NextPointCloud(ctx)
 	if err != nil {
 		return nil, err
 	}

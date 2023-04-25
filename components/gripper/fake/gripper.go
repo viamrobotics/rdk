@@ -6,44 +6,33 @@ import (
 
 	"github.com/edaniels/golog"
 
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/gripper"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 )
 
-var modelname = resource.NewDefaultModel("fake")
+var model = resource.DefaultModelFamily.WithModel("fake")
 
-// AttrConfig is the config for a trossen gripper.
-type AttrConfig struct{}
-
-// Validate ensures all parts of the config are valid.
-func (config *AttrConfig) Validate(path string) error {
-	return nil
+// Config is the config for a trossen gripper.
+type Config struct {
+	resource.TriviallyValidateConfig
 }
 
 func init() {
-	registry.RegisterComponent(gripper.Subtype, modelname, registry.Component{
-		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-			var g gripper.LocalGripper = &Gripper{Name: config.Name}
-
-			return g, nil
+	resource.RegisterComponent(gripper.API, model, resource.Registration[gripper.Gripper, *Config]{
+		Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (gripper.Gripper, error) {
+			return &Gripper{
+				Named: conf.ResourceName().AsNamed(),
+			}, nil
 		},
 	})
-
-	config.RegisterComponentAttributeMapConverter(gripper.Subtype, modelname,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf AttrConfig
-			return config.TransformAttributeMapToStruct(&conf, attributes)
-		}, &AttrConfig{})
 }
 
 // Gripper is a fake gripper that can simply read and set properties.
 type Gripper struct {
-	generic.Echo
-	Name string
+	resource.Named
+	resource.TriviallyReconfigurable
+	resource.TriviallyCloseable
 }
 
 // ModelFrame returns the dynamic frame of the model.

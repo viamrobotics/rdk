@@ -56,7 +56,7 @@ const fetchSLAMMap = (name: string): Promise<Uint8Array> => {
       const chunk = res.getPointCloudPcdChunk_asU8();
       chunks.push(chunk);
     });
-    getPointCloudMap.on('status', (status: { code: number, details: string, metadata: string }) => {
+    getPointCloudMap.on('status', (status: { code: number, details: string, metadata: grpc.Metadata }) => {
       if (status.code !== 0) {
         const error = {
           message: status.details,
@@ -66,7 +66,7 @@ const fetchSLAMMap = (name: string): Promise<Uint8Array> => {
         reject(error);
       }
     });
-    getPointCloudMap.on('end', (end: { code: number }) => {
+    getPointCloudMap.on('end', (end?: { code: number }) => {
       if (end === undefined || end.code !== 0) {
         // the error will be logged in the 'status' callback
         return;
@@ -84,7 +84,7 @@ const fetchSLAMPose = (name: string): Promise<commonApi.Pose> => {
     props.client.slamService.getPosition(
       req,
       new grpc.Metadata(),
-      (error: ServiceError, res: slamApi.GetPositionResponse): void => {
+      (error: ServiceError | null, res: slamApi.GetPositionResponse | null): void => {
         if (error) {
           reject(error);
           return;
@@ -233,7 +233,7 @@ const refresh3dMap = () => {
       slot="title"
       crumbs="slam"
     />
-    <div class="h-auto border-x border-b border-black p-2">
+    <div class="border-border-1 h-auto border-x border-b p-2">
       <div class="container mx-auto">
         <div class="pt-4">
           <div class="flex items-center gap-2">
@@ -257,9 +257,8 @@ const refresh3dMap = () => {
                   <select
                     v-model="selected2dValue"
                     class="
-                      m-0 w-full appearance-none border border-solid border-black bg-white bg-clip-padding px-3 py-1.5
-                      text-xs font-normal text-gray-700 focus:outline-none
-                    "
+                      border-border-1 m-0 w-full appearance-none border border-solid bg-white
+                      bg-clip-padding px-3 py-1.5 text-xs font-normal text-gray-700 focus:outline-none"
                     aria-label="Default select example"
                     @change="selectSLAM2dRefreshFrequency()"
                   >
@@ -336,9 +335,8 @@ const refresh3dMap = () => {
                   <select
                     v-model="selected3dValue"
                     class="
-                      m-0 w-full appearance-none border border-solid border-black bg-white bg-clip-padding px-3 py-1.5
-                      text-xs font-normal text-gray-700 focus:outline-none
-                    "
+                      border-border-1 m-0 w-full appearance-none border border-solid bg-white
+                      bg-clip-padding px-3 py-1.5 text-xs font-normal text-gray-700 focus:outline-none"
                     aria-label="Default select example"
                     @change="selectSLAMPCDRefreshFrequency()"
                   >

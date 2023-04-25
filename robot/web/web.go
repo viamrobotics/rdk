@@ -43,16 +43,23 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/module"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	grpcserver "go.viam.com/rdk/robot/server"
 	weboptions "go.viam.com/rdk/robot/web/options"
 	webstream "go.viam.com/rdk/robot/web/stream"
-	"go.viam.com/rdk/subtype"
 	rutils "go.viam.com/rdk/utils"
 	"go.viam.com/rdk/web"
 )
+
+// SubtypeName is a constant that identifies the internal web resource subtype string.
+const SubtypeName = "web"
+
+// API is the fully qualified API for the internal web service.
+var API = resource.APINamespaceRDKInternal.WithServiceType(SubtypeName)
+
+// InternalServiceName is used to refer to/depend on this service internally.
+var InternalServiceName = resource.NewName(API, "builtin")
 
 // defaultMethodTimeout is the default context timeout for all inbound gRPC
 // methods used when no deadline is set on the context.
@@ -178,40 +185,44 @@ func validSDPTrackName(name string) string {
 	return strings.ReplaceAll(name, ":", "+")
 }
 
-// allVideoSourcesToDisplay returns every possible video source that could be viewed from
-// the robot.
-func allVideoSourcesToDisplay(theRobot robot.Robot) map[string]gostream.VideoSource {
-	sources := make(map[string]gostream.VideoSource)
-
-	for _, name := range camera.NamesFromRobot(theRobot) {
-		cam, err := camera.FromRobot(theRobot, name)
+// refreshVideoSources checks and initializes every possible video source that could be viewed from the robot.
+func (svc *webService) refreshVideoSources() {
+	for _, name := range camera.NamesFromRobot(svc.r) {
+		cam, err := camera.FromRobot(svc.r, name)
 		if err != nil {
 			continue
 		}
-		sources[validSDPTrackName(name)] = cam
+		existing, ok := svc.videoSources[validSDPTrackName(name)]
+		if ok {
+			existing.Swap(cam)
+			continue
+		}
+		newSwapper := gostream.NewHotSwappableVideoSource(cam)
+		svc.videoSources[validSDPTrackName(name)] = newSwapper
 	}
-
-	return sources
 }
 
-// allAudioSourcesToDisplay returns every possible audio source that could be listened to from
-// the robot.
-func allAudioSourcesToDisplay(theRobot robot.Robot) map[string]gostream.AudioSource {
-	sources := make(map[string]gostream.AudioSource)
-
-	for _, name := range audioinput.NamesFromRobot(theRobot) {
-		input, err := audioinput.FromRobot(theRobot, name)
+// refreshAudioSources checks and initializes every possible audio source that could be viewed from the robot.
+func (svc *webService) refreshAudioSources() {
+	for _, name := range audioinput.NamesFromRobot(svc.r) {
+		input, err := audioinput.FromRobot(svc.r, name)
 		if err != nil {
 			continue
 		}
-		sources[validSDPTrackName(name)] = input
+		existing, ok := svc.audioSources[validSDPTrackName(name)]
+		if ok {
+			existing.Swap(input)
+			continue
+		}
+		newSwapper := gostream.NewHotSwappableAudioSource(input)
+		svc.audioSources[validSDPTrackName(name)] = newSwapper
 	}
-
-	return sources
 }
 
 // A Service controls the web server for a robot.
 type Service interface {
+	resource.Resource
+
 	// Start starts the web server
 	Start(context.Context, weboptions.Options) error
 
@@ -221,17 +232,11 @@ type Service interface {
 	// StartModule starts the module server socket.
 	StartModule(context.Context) error
 
-	// RefreshResources reloads the grpc-service subtypes with current robot Resources
-	RefreshResources() error
-
 	// Returns the address and port the web service listens on.
 	Address() string
 
 	// Returns the unix socket path the module server listens on.
 	ModuleAddress() string
-
-	// Close closes the web server
-	Close() error
 }
 
 // StreamServer manages streams and displays.
@@ -249,23 +254,28 @@ func New(r robot.Robot, logger golog.Logger, opts ...Option) Service {
 		opt.apply(&wOpts)
 	}
 	webSvc := &webService{
+		Named:        InternalServiceName.AsNamed(),
 		r:            r,
 		logger:       logger,
 		rpcServer:    nil,
 		streamServer: nil,
-		services:     make(map[resource.Subtype]subtype.Service),
+		services:     map[resource.API]resource.APIResourceCollection[resource.Resource]{},
 		opts:         wOpts,
+		videoSources: map[string]gostream.HotSwappableVideoSource{},
+		audioSources: map[string]gostream.HotSwappableAudioSource{},
 	}
 	return webSvc
 }
 
 type webService struct {
+	resource.Named
+
 	mu                      sync.Mutex
 	r                       robot.Robot
 	rpcServer               rpc.Server
 	modServer               rpc.Server
 	streamServer            *StreamServer
-	services                map[resource.Subtype]subtype.Service
+	services                map[resource.API]resource.APIResourceCollection[resource.Resource]
 	opts                    options
 	addr                    string
 	modAddr                 string
@@ -274,6 +284,18 @@ type webService struct {
 	cancelFuncs             []func()
 	isRunning               bool
 	activeBackgroundWorkers sync.WaitGroup
+
+	videoSources map[string]gostream.HotSwappableVideoSource
+	audioSources map[string]gostream.HotSwappableAudioSource
+}
+
+var internalWebServiceName = resource.NewName(
+	resource.APINamespaceRDKInternal.WithServiceType("web"),
+	"builtin",
+)
+
+func (svc *webService) Name() resource.Name {
+	return internalWebServiceName
 }
 
 // Start starts the web server, will return an error if server is already up.
@@ -398,10 +420,10 @@ func (svc *webService) StartModule(ctx context.Context) error {
 	if err := svc.modServer.RegisterServiceServer(ctx, &pb.RobotService_ServiceDesc, grpcserver.New(svc.r)); err != nil {
 		return err
 	}
-	if err := svc.RefreshResources(); err != nil {
+	if err := svc.refreshResources(); err != nil {
 		return err
 	}
-	if err := svc.initSubtypeServices(ctx, true); err != nil {
+	if err := svc.initAPIResourceCollections(ctx, true); err != nil {
 		return err
 	}
 
@@ -417,40 +439,60 @@ func (svc *webService) StartModule(ctx context.Context) error {
 	return nil
 }
 
-// Update updates the web service when the robot has changed. Not Reconfigure because
-// this should happen at a different point in the lifecycle.
-func (svc *webService) Update(ctx context.Context, resources map[resource.Name]interface{}) error {
+func (svc *webService) refreshResources() error {
+	resources := make(map[resource.Name]resource.Resource)
+	for _, name := range svc.r.ResourceNames() {
+		resource, err := svc.r.ResourceByName(name)
+		if err != nil {
+			continue
+		}
+		resources[name] = resource
+	}
+	return svc.updateResources(resources)
+}
+
+// Update updates the web service when the robot has changed.
+func (svc *webService) Reconfigure(ctx context.Context, deps resource.Dependencies, _ resource.Config) error {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
-	if err := svc.updateResources(resources); err != nil {
+	if err := svc.updateResources(deps); err != nil {
 		return err
 	}
 	return svc.addNewStreams(ctx)
 }
 
-func (svc *webService) updateResources(resources map[resource.Name]interface{}) error {
-	// so group resources by subtype
-	groupedResources := make(map[resource.Subtype]map[resource.Name]interface{})
+func (svc *webService) updateResources(resources map[resource.Name]resource.Resource) error {
+	// so group resources by API
+	groupedResources := make(map[resource.API]map[resource.Name]resource.Resource)
 	for n, v := range resources {
-		r, ok := groupedResources[n.Subtype]
+		r, ok := groupedResources[n.API]
 		if !ok {
-			r = make(map[resource.Name]interface{})
+			r = make(map[resource.Name]resource.Resource)
 		}
 		r[n] = v
-		groupedResources[n.Subtype] = r
+		groupedResources[n.API] = r
 	}
 
-	for s, v := range groupedResources {
-		subtypeSvc, ok := svc.services[s]
+	apiRegs := resource.RegisteredAPIs()
+	for a, v := range groupedResources {
+		apiResColl, ok := svc.services[a]
 		// TODO(RSDK-144): register new service if it doesn't currently exist
 		if !ok {
-			subtypeSvc, err := subtype.New(v)
-			if err != nil {
+			reg, ok := apiRegs[a]
+			var apiResColl resource.APIResourceCollection[resource.Resource]
+			if ok {
+				apiResColl = reg.MakeEmptyCollection()
+			} else {
+				svc.logger.Debugw("making heterogeneous API resource collection", "api", a)
+				apiResColl = resource.NewEmptyAPIResourceCollection[resource.Resource](a)
+			}
+
+			if err := apiResColl.ReplaceAll(v); err != nil {
 				return err
 			}
-			svc.services[s] = subtypeSvc
+			svc.services[a] = apiResColl
 		} else {
-			if err := subtypeSvc.ReplaceAll(v); err != nil {
+			if err := apiResColl.ReplaceAll(v); err != nil {
 				return err
 			}
 		}
@@ -471,7 +513,7 @@ func (svc *webService) Stop() {
 }
 
 // Close closes a webService via calls to its Cancel func.
-func (svc *webService) Close() error {
+func (svc *webService) Close(ctx context.Context) error {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
 	var err error
@@ -495,10 +537,10 @@ func (svc *webService) addNewStreams(ctx context.Context) error {
 	if !svc.streamInitialized() {
 		return nil
 	}
-	videoSources := allVideoSourcesToDisplay(svc.r)
-	audioSources := allAudioSourcesToDisplay(svc.r)
+	svc.refreshVideoSources()
+	svc.refreshAudioSources()
 	if svc.opts.streamConfig == nil {
-		if len(videoSources) != 0 || len(audioSources) != 0 {
+		if len(svc.videoSources) != 0 || len(svc.audioSources) != 0 {
 			svc.logger.Debug("not starting streams due to no stream config being set")
 		}
 		return nil
@@ -524,7 +566,7 @@ func (svc *webService) addNewStreams(ctx context.Context) error {
 		return stream, false, nil
 	}
 
-	for name, source := range videoSources {
+	for name, source := range svc.videoSources {
 		stream, alreadyRegistered, err := newStream(name)
 		if err != nil {
 			return err
@@ -532,10 +574,10 @@ func (svc *webService) addNewStreams(ctx context.Context) error {
 			continue
 		}
 
-		svc.startImageStream(ctx, source, stream)
+		svc.startVideoStream(ctx, source, stream)
 	}
 
-	for name, source := range audioSources {
+	for name, source := range svc.audioSources {
 		stream, alreadyRegistered, err := newStream(name)
 		if err != nil {
 			return err
@@ -550,13 +592,13 @@ func (svc *webService) addNewStreams(ctx context.Context) error {
 }
 
 func (svc *webService) makeStreamServer(ctx context.Context) (*StreamServer, error) {
-	videoSources := allVideoSourcesToDisplay(svc.r)
-	audioSources := allAudioSourcesToDisplay(svc.r)
+	svc.refreshVideoSources()
+	svc.refreshAudioSources()
 	var streams []gostream.Stream
 	var streamTypes []bool
 
-	if svc.opts.streamConfig == nil || (len(videoSources) == 0 && len(audioSources) == 0) {
-		if len(videoSources) != 0 || len(audioSources) != 0 {
+	if svc.opts.streamConfig == nil || (len(svc.videoSources) == 0 && len(svc.audioSources) == 0) {
+		if len(svc.videoSources) != 0 || len(svc.audioSources) != 0 {
 			svc.logger.Debug("not starting streams due to no stream config being set")
 		}
 		noopServer, err := gostream.NewStreamServer(streams...)
@@ -583,7 +625,7 @@ func (svc *webService) makeStreamServer(ctx context.Context) (*StreamServer, err
 		}
 		return append(streams, stream), nil
 	}
-	for name := range videoSources {
+	for name := range svc.videoSources {
 		var err error
 		streams, err = addStream(streams, name, true)
 		if err != nil {
@@ -591,7 +633,7 @@ func (svc *webService) makeStreamServer(ctx context.Context) (*StreamServer, err
 		}
 		streamTypes = append(streamTypes, true)
 	}
-	for name := range audioSources {
+	for name := range svc.audioSources {
 		var err error
 		streams, err = addStream(streams, name, false)
 		if err != nil {
@@ -607,9 +649,9 @@ func (svc *webService) makeStreamServer(ctx context.Context) (*StreamServer, err
 
 	for idx, stream := range streams {
 		if streamTypes[idx] {
-			svc.startImageStream(ctx, videoSources[stream.Name()], stream)
+			svc.startVideoStream(ctx, svc.videoSources[stream.Name()], stream)
 		} else {
-			svc.startAudioStream(ctx, audioSources[stream.Name()], stream)
+			svc.startAudioStream(ctx, svc.audioSources[stream.Name()], stream)
 		}
 	}
 
@@ -636,12 +678,12 @@ func (svc *webService) startStream(streamFunc func(opts *webstream.BackoffTuning
 	<-waitCh
 }
 
-func (svc *webService) startImageStream(ctx context.Context, source gostream.VideoSource, stream gostream.Stream) {
+func (svc *webService) startVideoStream(ctx context.Context, source gostream.VideoSource, stream gostream.Stream) {
 	ctxWithJPEGHint := gostream.WithMIMETypeHint(ctx, rutils.WithLazyMIMEType(rutils.MimeTypeJPEG))
 	svc.startStream(func(opts *webstream.BackoffTuningOptions) error {
 		cancelCtx, cancelFunc := utils.MergeContext(svc.cancelCtx, ctxWithJPEGHint)
 		svc.addCancelFunc(cancelFunc)
-		return webstream.StreamVideoSource(cancelCtx, source, stream, opts)
+		return webstream.StreamVideoSource(cancelCtx, source, stream, opts, svc.logger)
 	})
 }
 
@@ -649,7 +691,7 @@ func (svc *webService) startAudioStream(ctx context.Context, source gostream.Aud
 	svc.startStream(func(opts *webstream.BackoffTuningOptions) error {
 		cancelCtx, cancelFunc := utils.MergeContext(svc.cancelCtx, ctx)
 		svc.addCancelFunc(cancelFunc)
-		return webstream.StreamAudioSource(cancelCtx, source, stream, opts)
+		return webstream.StreamAudioSource(cancelCtx, source, stream, opts, svc.logger)
 	})
 }
 
@@ -739,11 +781,10 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 		return err
 	}
 
-	if err := svc.RefreshResources(); err != nil {
+	if err := svc.refreshResources(); err != nil {
 		return err
 	}
-
-	if err := svc.initSubtypeServices(ctx, false); err != nil {
+	if err := svc.initAPIResourceCollections(ctx, false); err != nil {
 		return err
 	}
 
@@ -1006,42 +1047,23 @@ func (svc *webService) initAuthHandlers(listenerTCPAddr *net.TCPAddr, options we
 	return rpcOpts, nil
 }
 
-// Populate subtype services with robot resources.
-func (svc *webService) RefreshResources() error {
-	resources := make(map[resource.Name]interface{})
-	for _, name := range svc.r.ResourceNames() {
-		resource, err := svc.r.ResourceByName(name)
-		if err != nil {
-			continue
-		}
-		resources[name] = resource
-	}
-	return svc.updateResources(resources)
-}
-
-// Register every subtype resource grpc service here.
-func (svc *webService) initSubtypeServices(ctx context.Context, mod bool) error {
+// Register every API resource grpc service here.
+func (svc *webService) initAPIResourceCollections(ctx context.Context, mod bool) error {
 	// TODO: only register necessary services (#272)
-	subtypeConstructors := registry.RegisteredResourceSubtypes()
-	for s, rs := range subtypeConstructors {
-		subtypeSvc, ok := svc.services[s]
+	apiRegs := resource.RegisteredAPIs()
+	for s, rs := range apiRegs {
+		apiResColl, ok := svc.services[s]
 		if !ok {
-			newSvc, err := subtype.New(make(map[resource.Name]interface{}))
-			if err != nil {
-				return err
-			}
-			subtypeSvc = newSvc
-			svc.services[s] = newSvc
+			apiResColl = rs.MakeEmptyCollection()
+			svc.services[s] = apiResColl
 		}
 
-		if rs.RegisterRPCService != nil {
-			server := svc.rpcServer
-			if mod {
-				server = svc.modServer
-			}
-			if err := rs.RegisterRPCService(ctx, server, subtypeSvc); err != nil {
-				return err
-			}
+		server := svc.rpcServer
+		if mod {
+			server = svc.modServer
+		}
+		if err := rs.RegisterRPCService(ctx, server, apiResColl); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -1125,7 +1147,7 @@ func (svc *webService) foreignServiceHandler(srv interface{}, stream googlegrpc.
 		return err
 	}
 
-	resource, fqName, err := robot.ResourceFromProtoMessage(svc.r, firstMsg, subType.Subtype)
+	resource, fqName, err := robot.ResourceFromProtoMessage(svc.r, firstMsg, subType.API)
 	if err != nil {
 		svc.logger.Errorw("unable to route foreign message", "error", err)
 		return err
@@ -1156,7 +1178,7 @@ func (svc *webService) foreignServiceHandler(srv interface{}, stream googlegrpc.
 		}
 
 		var wg sync.WaitGroup
-		var sendErr atomic.Value
+		var sendErr atomic.Pointer[error]
 
 		defer wg.Wait()
 
@@ -1183,7 +1205,7 @@ func (svc *webService) foreignServiceHandler(srv interface{}, stream googlegrpc.
 			}
 
 			if err != nil {
-				sendErr.Store(err)
+				sendErr.Store(&err)
 			}
 		})
 
@@ -1203,8 +1225,8 @@ func (svc *webService) foreignServiceHandler(srv interface{}, stream googlegrpc.
 		}
 
 		wg.Wait()
-		if err, ok := sendErr.Load().(error); ok && !errors.Is(err, io.EOF) {
-			return err
+		if err := sendErr.Load(); err != nil && !errors.Is(*err, io.EOF) {
+			return *err
 		}
 
 		return nil

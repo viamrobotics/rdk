@@ -10,9 +10,12 @@ import (
 	"github.com/golang/geo/r3"
 	"go.uber.org/multierr"
 	"gonum.org/v1/gonum/mat"
+
+	"go.viam.com/rdk/resource"
 )
 
 type boatConfig struct {
+	resource.TriviallyValidateConfig
 	Motors   []motorConfig
 	LengthMM float64 `json:"length_mm"`
 	WidthMM  float64 `json:"width_mm"`

@@ -9,16 +9,16 @@ import (
 	"go.opencensus.io/trace"
 
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/vision"
-	rdkutils "go.viam.com/rdk/utils"
+	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision/objectdetection"
 )
 
-// detectorAttrs is the attribute struct for detectors (their name as found in the vision service).
-type detectorAttrs struct {
+// detectorConfig is the attribute struct for detectors (their name as found in the vision service).
+type detectorConfig struct {
 	DetectorName        string  `json:"detector_name"`
 	ConfidenceThreshold float64 `json:"confidence_threshold"`
 }
@@ -33,15 +33,13 @@ type detectorSource struct {
 
 func newDetectionsTransform(
 	ctx context.Context,
-	source gostream.VideoSource, r robot.Robot, am config.AttributeMap,
+	source gostream.VideoSource,
+	r robot.Robot,
+	am utils.AttributeMap,
 ) (gostream.VideoSource, camera.ImageType, error) {
-	conf, err := config.TransformAttributeMapToStruct(&(detectorAttrs{}), am)
+	conf, err := resource.TransformAttributeMap[*detectorConfig](am)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
-	}
-	attrs, ok := conf.(*detectorAttrs)
-	if !ok {
-		return nil, camera.UnspecifiedStream, rdkutils.NewUnexpectedTypeError(attrs, conf)
 	}
 
 	props, err := propsFromVideoSource(ctx, source)
@@ -54,15 +52,18 @@ func newDetectionsTransform(
 	if props.DistortionParams != nil {
 		cameraModel.Distortion = props.DistortionParams
 	}
-	confFilter := objectdetection.NewScoreFilter(attrs.ConfidenceThreshold)
+	confFilter := objectdetection.NewScoreFilter(conf.ConfidenceThreshold)
 	detector := &detectorSource{
 		gostream.NewEmbeddedVideoStream(source),
-		attrs.DetectorName,
+		conf.DetectorName,
 		confFilter,
 		r,
 	}
-	cam, err := camera.NewFromReader(ctx, detector, &cameraModel, camera.ColorStream)
-	return cam, camera.ColorStream, err
+	src, err := camera.NewVideoSourceFromReader(ctx, detector, &cameraModel, camera.ColorStream)
+	if err != nil {
+		return nil, camera.UnspecifiedStream, err
+	}
+	return src, camera.ColorStream, err
 }
 
 // Read returns the image overlaid with the detection bounding boxes.
@@ -70,7 +71,7 @@ func (ds *detectorSource) Read(ctx context.Context) (image.Image, func(), error)
 	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::detector::Read")
 	defer span.End()
 	// get the bounding boxes from the service
-	srv, err := vision.FirstFromRobot(ds.r)
+	srv, err := vision.FromRobot(ds.r, ds.detectorName)
 	if err != nil {
 		return nil, nil, fmt.Errorf("source_detector cant find vision service: %w", err)
 	}
@@ -79,7 +80,7 @@ func (ds *detectorSource) Read(ctx context.Context) (image.Image, func(), error)
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not get next source image: %w", err)
 	}
-	dets, err := srv.Detections(ctx, img, ds.detectorName, map[string]interface{}{})
+	dets, err := srv.Detections(ctx, img, map[string]interface{}{})
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not get detections: %w", err)
 	}

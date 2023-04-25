@@ -14,68 +14,67 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/gripper"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
-var modelname = resource.NewDefaultModel("robotiq")
+var model = resource.DefaultModelFamily.WithModel("robotiq")
 
-// AttrConfig is used for converting config attributes.
-type AttrConfig struct {
+// Config is used for converting config attributes.
+type Config struct {
 	Host string `json:"host"`
 }
 
 // Validate ensures all parts of the config are valid.
-func (cfg *AttrConfig) Validate(path string) error {
+func (cfg *Config) Validate(path string) ([]string, error) {
 	if cfg.Host == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "host")
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "host")
 	}
-	return nil
+	return nil, nil
 }
 
 func init() {
-	registry.RegisterComponent(gripper.Subtype, modelname, registry.Component{
-		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-			attr, ok := config.ConvertedAttributes.(*AttrConfig)
-			if !ok {
-				return nil, rdkutils.NewUnexpectedTypeError(attr, config.ConvertedAttributes)
+	resource.RegisterComponent(gripper.API, model, resource.Registration[gripper.Gripper, *Config]{
+		Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (gripper.Gripper, error) {
+			newConf, err := resource.NativeConfig[*Config](conf)
+			if err != nil {
+				return nil, err
 			}
-			return newGripper(ctx, attr.Host, logger)
+			return newGripper(ctx, conf.ResourceName(), newConf.Host, logger)
 		},
 	})
-
-	config.RegisterComponentAttributeMapConverter(gripper.Subtype, modelname,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf AttrConfig
-			return config.TransformAttributeMapToStruct(&conf, attributes)
-		}, &AttrConfig{})
 }
 
 // robotiqGripper TODO.
 type robotiqGripper struct {
+	resource.Named
+	resource.AlwaysRebuild
+
 	conn net.Conn
 
 	openLimit  string
 	closeLimit string
 	logger     golog.Logger
 	opMgr      operation.SingleOperationManager
-
-	generic.Unimplemented
 }
 
 // newGripper TODO.
-func newGripper(ctx context.Context, host string, logger golog.Logger) (gripper.LocalGripper, error) {
+func newGripper(ctx context.Context, name resource.Name, host string, logger golog.Logger) (gripper.Gripper, error) {
 	conn, err := net.Dial("tcp", host+":63352")
 	if err != nil {
 		return nil, err
 	}
-	g := &robotiqGripper{conn, "0", "255", logger, operation.SingleOperationManager{}, generic.Unimplemented{}}
+	g := &robotiqGripper{
+		name.AsNamed(),
+		resource.AlwaysRebuild{},
+		conn,
+		"0",
+		"255",
+		logger,
+		operation.SingleOperationManager{},
+	}
 
 	init := [][]string{
 		{"ACT", "1"},   // robot activate

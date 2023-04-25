@@ -35,10 +35,9 @@ func (vg *VoxelGrid) labelComponentBFS(vox *Voxel, label int, wTh, thetaTh, phiT
 	visited[vox.Key] = true
 	for queue.Len() > 0 {
 		e := queue.Front() // First element
-		// interface to VoxelCoords type
-		coords, ok := e.Value.(VoxelCoords)
-		if !ok {
-			panic(utils.NewUnexpectedTypeError(coords, e.Value))
+		coords, err := utils.AssertType[VoxelCoords](e.Value)
+		if err != nil {
+			panic(err)
 		}
 		// Set label of Voxel
 		vg.Voxels[coords].SetLabel(label)

@@ -11,8 +11,8 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/movementsensor"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/resource"
+	rutils "go.viam.com/rdk/utils"
 )
 
 var (
@@ -28,7 +28,7 @@ var (
 )
 
 func TestValidateSerial(t *testing.T) {
-	fakecfg := &SerialAttrConfig{}
+	fakecfg := &SerialConfig{}
 	path := "path"
 	err := fakecfg.ValidateSerial(path)
 	test.That(t, err, test.ShouldBeError, utils.NewConfigValidationFieldRequiredError(path, "serial_path"))
@@ -42,11 +42,11 @@ func TestNewSerialMovementSensor(t *testing.T) {
 	deps := setupDependencies(t)
 	path := "somepath"
 
-	cfig := config.Component{
+	cfig := resource.Config{
 		Name:  "movementsensor1",
-		Model: resource.NewDefaultModel("gps-nmea"),
-		Type:  movementsensor.SubtypeName,
-		Attributes: config.AttributeMap{
+		Model: resource.DefaultModelFamily.WithModel("gps-nmea"),
+		API:   movementsensor.API,
+		Attributes: rutils.AttributeMap{
 			"path":            "",
 			"correction_path": "",
 		},
@@ -59,21 +59,21 @@ func TestNewSerialMovementSensor(t *testing.T) {
 	test.That(t, g, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	cfig = config.Component{
+	cfig = resource.Config{
 		Name:  "movementsensor1",
-		Model: resource.NewDefaultModel("gps-nmea"),
-		Type:  movementsensor.SubtypeName,
-		ConvertedAttributes: &AttrConfig{
+		Model: resource.DefaultModelFamily.WithModel("gps-nmea"),
+		API:   movementsensor.API,
+		ConvertedAttributes: &Config{
 			ConnectionType: "serial",
 			Board:          "local",
 			DisableNMEA:    false,
-			SerialAttrConfig: &SerialAttrConfig{
+			SerialConfig: &SerialConfig{
 				SerialPath:               path,
 				SerialBaudRate:           0,
 				SerialCorrectionPath:     path,
 				SerialCorrectionBaudRate: 0,
 			},
-			I2CAttrConfig: &I2CAttrConfig{},
+			I2CConfig: &I2CConfig{},
 		},
 	}
 	g, err = newNMEAGPS(ctx, deps, cfig, logger)
@@ -137,7 +137,7 @@ func TestCloseSerial(t *testing.T) {
 		logger:     logger,
 	}
 
-	err := g.Close()
+	err := g.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)
 }
 

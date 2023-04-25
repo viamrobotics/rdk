@@ -3,17 +3,12 @@ name: 'Motion Benchmark Comment on PR'
 on:
   workflow_run:
     workflows: ["Motion Pull Request Update"]
-    types:
-      - completed
+    types: [ completed ]
 
 jobs:
   motion_comment:
     name: 'Post Comment on PR'
-    runs-on: [x64, qemu-host]
-    container:
-      image: ghcr.io/viamrobotics/canon:amd64-cache
-      options: --platform linux/amd64
-    timeout-minutes: 5
+    runs-on: ubuntu-latest
     if: ${{ github.event.workflow_run.event == 'pull_request_target' && github.event.workflow_run.conclusion == 'success' }}
     steps:
       - name: Download Motion Benchmarks

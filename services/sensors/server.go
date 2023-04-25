@@ -9,38 +9,25 @@ import (
 
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/subtype"
-	"go.viam.com/rdk/utils"
 )
 
-// subtypeServer implements the SensorsService from sensors.proto.
-type subtypeServer struct {
+// serviceServer implements the SensorsService from sensors.proto.
+type serviceServer struct {
 	pb.UnimplementedSensorsServiceServer
-	subtypeSvc subtype.Service
+	coll resource.APIResourceCollection[Service]
 }
 
-// NewServer constructs a sensors gRPC service server.
-func NewServer(s subtype.Service) pb.SensorsServiceServer {
-	return &subtypeServer{subtypeSvc: s}
+// NewRPCServiceServer constructs a sensors gRPC service server.
+// It is intentionally untyped to prevent use outside of tests.
+func NewRPCServiceServer(coll resource.APIResourceCollection[Service]) interface{} {
+	return &serviceServer{coll: coll}
 }
 
-func (server *subtypeServer) service(serviceName string) (Service, error) {
-	resource := server.subtypeSvc.Resource(serviceName)
-	if resource == nil {
-		return nil, utils.NewResourceNotFoundError(Named(serviceName))
-	}
-	svc, ok := resource.(Service)
-	if !ok {
-		return nil, NewUnimplementedInterfaceError(resource)
-	}
-	return svc, nil
-}
-
-func (server *subtypeServer) GetSensors(
+func (server *serviceServer) GetSensors(
 	ctx context.Context,
 	req *pb.GetSensorsRequest,
 ) (*pb.GetSensorsResponse, error) {
-	svc, err := server.service(req.Name)
+	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -56,11 +43,11 @@ func (server *subtypeServer) GetSensors(
 	return &pb.GetSensorsResponse{SensorNames: sensorNames}, nil
 }
 
-func (server *subtypeServer) GetReadings(
+func (server *serviceServer) GetReadings(
 	ctx context.Context,
 	req *pb.GetReadingsRequest,
 ) (*pb.GetReadingsResponse, error) {
-	svc, err := server.service(req.Name)
+	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -91,10 +78,10 @@ func (server *subtypeServer) GetReadings(
 }
 
 // DoCommand receives arbitrary commands.
-func (server *subtypeServer) DoCommand(ctx context.Context,
+func (server *serviceServer) DoCommand(ctx context.Context,
 	req *commonpb.DoCommandRequest,
 ) (*commonpb.DoCommandResponse, error) {
-	svc, err := server.service(req.Name)
+	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}

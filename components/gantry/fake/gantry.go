@@ -9,34 +9,49 @@ import (
 	"github.com/golang/geo/r3"
 
 	"go.viam.com/rdk/components/gantry"
-	"go.viam.com/rdk/components/generic"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/testutils"
 )
 
 func init() {
-	registry.RegisterComponent(gantry.Subtype, resource.NewDefaultModel("fake"), registry.Component{
-		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-			return NewGantry(config.Name), nil
-		},
-	})
+	resource.RegisterComponent(
+		gantry.API,
+		resource.DefaultModelFamily.WithModel("fake"),
+		resource.Registration[gantry.Gantry, resource.NoNativeConfig]{
+			Constructor: func(
+				ctx context.Context,
+				_ resource.Dependencies,
+				conf resource.Config,
+				logger golog.Logger,
+			) (gantry.Gantry, error) {
+				return NewGantry(conf.ResourceName()), nil
+			},
+		})
 }
 
 // NewGantry returns a new fake gantry.
-func NewGantry(name string) gantry.LocalGantry {
-	return &Gantry{name, []float64{1.2}, []float64{5}, r3.Vector{1, 0, 0}, 2, generic.Echo{}}
+func NewGantry(name resource.Name) gantry.Gantry {
+	return &Gantry{
+		testutils.NewUnimplementedResource(name),
+		resource.TriviallyReconfigurable{},
+		resource.TriviallyCloseable{},
+		[]float64{1.2},
+		[]float64{5},
+		r3.Vector{1, 0, 0},
+		2,
+	}
 }
 
 // Gantry is a fake gantry that can simply read and set properties.
 type Gantry struct {
-	name         string
+	resource.Named
+	resource.TriviallyReconfigurable
+	resource.TriviallyCloseable
 	positionsMm  []float64
 	lengths      []float64
 	axis         r3.Vector
 	lengthMeters float64
-	generic.Echo
 }
 
 // Position returns the position in meters.
@@ -68,7 +83,7 @@ func (g *Gantry) IsMoving(ctx context.Context) (bool, error) {
 // ModelFrame returns a Gantry frame.
 func (g *Gantry) ModelFrame() referenceframe.Model {
 	m := referenceframe.NewSimpleModel("")
-	f, err := referenceframe.NewTranslationalFrame(g.name, g.axis, referenceframe.Limit{0, g.lengthMeters})
+	f, err := referenceframe.NewTranslationalFrame(g.Name().ShortName(), g.axis, referenceframe.Limit{0, g.lengthMeters})
 	if err != nil {
 		panic(fmt.Errorf("error creating frame: %w", err))
 	}

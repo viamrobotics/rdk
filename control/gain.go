@@ -12,7 +12,7 @@ import (
 type gain struct {
 	mu     sync.Mutex
 	cfg    BlockConfig
-	y      []Signal
+	y      []*Signal
 	gain   float64
 	logger golog.Logger
 }
@@ -25,7 +25,7 @@ func newGain(config BlockConfig, logger golog.Logger) (Block, error) {
 	return g, nil
 }
 
-func (b *gain) Next(ctx context.Context, x []Signal, dt time.Duration) ([]Signal, bool) {
+func (b *gain) Next(ctx context.Context, x []*Signal, dt time.Duration) ([]*Signal, bool) {
 	if len(x) != 1 {
 		return b.y, false
 	}
@@ -45,7 +45,7 @@ func (b *gain) reset() error {
 		return errors.Errorf("invalid number of inputs for gain block %s expected 1 got %d", b.cfg.Name, len(b.cfg.DependsOn))
 	}
 	b.gain = b.cfg.Attribute.Float64("gain", 1.0)
-	b.y = make([]Signal, 1)
+	b.y = make([]*Signal, 1)
 	b.y[0] = makeSignal(b.cfg.Name)
 	return nil
 }
@@ -63,7 +63,7 @@ func (b *gain) UpdateConfig(ctx context.Context, config BlockConfig) error {
 	return b.reset()
 }
 
-func (b *gain) Output(ctx context.Context) []Signal {
+func (b *gain) Output(ctx context.Context) []*Signal {
 	return b.y
 }
 
