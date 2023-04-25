@@ -114,6 +114,7 @@ func unpack(inMap map[string]interface{}, name string) ([]float64, error) {
 	}
 	switch v := me.(type) {
 	case []uint8:
+		out = make([]float64, 0, len(v))
 		for _, t := range v {
 			out = append(out, float64(t))
 		}
