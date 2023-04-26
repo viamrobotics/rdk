@@ -109,6 +109,10 @@ type LocalRobot interface {
 
 	// ModuleAddress returns the address (path) of the unix socket modules use to contact the parent.
 	ModuleAddress() (string, error)
+
+	// RemoveOrphanedResources removes the passed in resources from the resource
+	// tree.
+	RemoveOrphanedResources(ctx context.Context, orphanedResourceNames []resource.Name)
 }
 
 // A RemoteRobot is a Robot that was created through a connection.

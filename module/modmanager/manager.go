@@ -372,6 +372,10 @@ func (mgr *Manager) newOUE(mod *module) func(exitCode int) bool {
 
 		mgr.mu.Lock()
 
+		// Use oueTimeout for entire attempted module restart.
+		ctx, cancel := context.WithTimeout(context.Background(), oueTimeout)
+		defer cancel()
+
 		utils.UncheckedErrorFunc(func() error {
 			// Attempt to remove module's .sock file if module did not remove it
 			// already.
@@ -402,12 +406,15 @@ func (mgr *Manager) newOUE(mod *module) func(exitCode int) bool {
 							"error while closing connection from crashed module "+mod.name)
 					}
 				}
+				// Finally, assume all of module's handled resources are orphaned and
+				// remove them.
+				var orphanedResourceNames []resource.Name
+				for name := range mod.resources {
+					orphanedResourceNames = append(orphanedResourceNames, name)
+				}
+				mgr.r.RemoveOrphanedResources(ctx, orphanedResourceNames)
 			}
 		}()
-
-		// Use oueTimeout for entire attempted module restart.
-		ctx, cancel := context.WithTimeout(context.Background(), oueTimeout)
-		defer cancel()
 
 		// No need to check mgr.untrustedEnv, as we're restarting the same
 		// executable we were given for initial module addition.
@@ -452,15 +459,17 @@ func (mgr *Manager) newOUE(mod *module) func(exitCode int) bool {
 		}
 
 		// Add old module process' resources to new module; warn if new module
-		// cannot handle old resource and TODO(benji) notify local robot of orphan.
+		// cannot handle old resource and remove now orphaned resource.
 		mgr.mu.Unlock() // Release lock for AddResource calls.
+		var orphanedResourceNames []resource.Name
 		for name, res := range mod.resources {
 			if _, err := mgr.AddResource(ctx, res.conf, res.deps); err != nil {
 				mgr.logger.Warnf("error while re-adding resource %s to module %s: %v",
 					name, mod.name, err)
-				// TODO(benji) notify local robot of orphan.
+				orphanedResourceNames = append(orphanedResourceNames, name)
 			}
 		}
+		mgr.r.RemoveOrphanedResources(ctx, orphanedResourceNames)
 
 		// Set success to true. Since we handle process restarting ourselves,
 		// return false here so goutils knows not to attempt a process restart.
