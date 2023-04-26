@@ -107,12 +107,9 @@ func checkIfDetectorWorks(ctx context.Context, df objectdetection.Detector) (obj
 		return nil, errors.New("Nil detector function")
 	}
 
-	img, err := rimage.NewImageFromFile(artifact.MustPath("vision/tflite/dogscute.jpeg"))
-	if err != nil {
-		return nil, err
-	}
+	img := &image.RGBA{}
 
-	_, err = df(ctx, img)
+	_, err := df(ctx, img)
 	if err != nil {
 		return nil, errors.New("Cannot use model as a detector")
 	}
