@@ -7,7 +7,6 @@ import (
 
 	"github.com/nfnt/resize"
 	"github.com/pkg/errors"
-	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/services/mlmodel"
