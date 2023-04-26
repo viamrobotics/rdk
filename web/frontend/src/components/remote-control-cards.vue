@@ -8,7 +8,6 @@ import { Duration } from 'google-protobuf/google/protobuf/duration_pb';
 import { type Credentials, ConnectionClosedError } from '@viamrobotics/rpc';
 import { toast } from '../lib/toast';
 import { displayError } from '../lib/error';
-import { addResizeListeners } from '../lib/resize';
 import { StreamManager } from './camera/stream-manager';
 import {
   Client,
@@ -83,6 +82,9 @@ const supportedAuthTypes = $computed(() => props.supportedAuthTypes);
 const rawStatus = $ref<Record<string, robotApi.Status>>({});
 const status = $ref<Record<string, robotApi.Status>>({});
 const errors = $ref<Record<string, boolean>>({});
+
+let showAuth = $ref(true);
+let isConnecting = $ref(false);
 
 let statusStream: ResponseStream<robotApi.StreamStatusResponse> | null = null;
 let lastStatusTS: number | null = null;
@@ -629,7 +631,7 @@ const nonEmpty = (object: object) => {
 
 const doConnect = async (authEntity: string, creds: Credentials, onError?: (reason?: unknown) => void) => {
   console.debug('connecting');
-  document.querySelector('#connecting')!.classList.remove('hidden');
+  isConnecting = true;
 
   try {
     await props.client.connect(authEntity, creds);
@@ -644,7 +646,7 @@ const doConnect = async (authEntity: string, creds: Credentials, onError?: (reas
   }
 
   console.debug('connected');
-  document.querySelector('#pre-app')!.classList.add('hidden');
+  showAuth = false;
   disableAuthElements = false;
   connectedOnce = true;
   connectedFirstTimeResolve();
@@ -654,7 +656,7 @@ const doLogin = (authType: string) => {
   disableAuthElements = true;
   const creds = { type: authType, payload: password };
   doConnect(props.host, creds, (error) => {
-    document.querySelector('#connecting')!.classList.add('hidden');
+    isConnecting = false;
     disableAuthElements = false;
     console.error(error);
     toast.error(`failed to connect: ${error}`);
@@ -685,7 +687,6 @@ onMounted(async () => {
 
   appConnectionManager.start();
 
-  addResizeListeners();
   window.addEventListener('beforeunload', handleUnload);
 });
 
@@ -697,210 +698,212 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div id="pre-app">
-    <div
-      id="connecting"
-      class="border-greendark hidden border-l-4 bg-gray-100 px-4 py-3"
-    >
-      Connecting via <template v-if="isWebRtcEnabled()">
-        WebRTC
-      </template><template v-else>
-        gRPC
-      </template>...
-    </div>
-
-    <template
-      v-for="authType in supportedAuthTypes"
-      :key="authType"
-    >
-      <div class="px-4 py-3">
-        <span>{{ authType }}: </span>
-        <div class="w-96">
-          <input
-            v-model="password"
-            :disabled="disableAuthElements"
-            class="
-                mb-2 block w-full appearance-none border p-2 text-gray-700
-                transition-colors duration-150 ease-in-out placeholder:text-gray-400 focus:outline-none
-              "
-            type="password"
-            autocomplete="off"
-            @keyup.enter="doLogin(authType)"
-          >
-          <v-button
-            :disabled="disableAuthElements"
-            label="Login"
-            @click="disableAuthElements ? undefined : doLogin(authType)"
-          />
-        </div>
+  <div>
+    <div v-if="showAuth">
+      <div
+        v-if="isConnecting"
+        class="border-greendark hidden border-l-4 bg-gray-100 px-4 py-3"
+      >
+        Connecting via <template v-if="isWebRtcEnabled()">
+          WebRTC
+        </template><template v-else>
+          gRPC
+        </template>...
       </div>
-    </template>
-  </div>
 
-  <div class="flex flex-col gap-4 p-3">
-    <div
-      v-if="errorMessage"
-      class="border-l-4 border-red-500 bg-gray-100 px-4 py-3"
-    >
-      {{ errorMessage }}
+      <template
+        v-for="authType in supportedAuthTypes"
+        :key="authType"
+      >
+        <div class="px-4 py-3">
+          <span>{{ authType }}: </span>
+          <div class="w-96">
+            <input
+              v-model="password"
+              :disabled="disableAuthElements"
+              class="
+                  mb-2 block w-full appearance-none border p-2 text-gray-700
+                  transition-colors duration-150 ease-in-out placeholder:text-gray-400 focus:outline-none
+                "
+              type="password"
+              autocomplete="off"
+              @keyup.enter="doLogin(authType)"
+            >
+            <v-button
+              :disabled="disableAuthElements"
+              label="Login"
+              @click="disableAuthElements ? undefined : doLogin(authType)"
+            />
+          </div>
+        </div>
+      </template>
     </div>
 
-    <!-- ******* BASE *******  -->
-    <Base
-      v-for="base in filterResources(resources, 'rdk', 'component', 'base')"
-      :key="base.name"
-      :name="base.name"
-      :client="client"
-      :resources="resources"
-      :stream-manager="streamManager"
-    />
+    <div class="flex flex-col gap-4 p-3">
+      <div
+        v-if="errorMessage"
+        class="border-l-4 border-red-500 bg-gray-100 px-4 py-3"
+      >
+        {{ errorMessage }}
+      </div>
 
-    <!-- ******* ENCODER *******  -->
-    <Encoder
-      v-for="encoder in filterResources(resources, 'rdk', 'component', 'encoder')"
-      :key="encoder.name"
-      :name="encoder.name"
-      :client="client"
-    />
+      <!-- ******* BASE *******  -->
+      <Base
+        v-for="base in filterResources(resources, 'rdk', 'component', 'base')"
+        :key="base.name"
+        :name="base.name"
+        :client="client"
+        :resources="resources"
+        :stream-manager="streamManager"
+      />
 
-    <!-- ******* GANTRY *******  -->
-    <Gantry
-      v-for="gantry in filterRdkComponentsWithStatus(resources, status, 'gantry')"
-      :key="gantry.name"
-      :name="gantry.name"
-      :client="client"
-      :status="(resourceStatusByName(gantry) as unknown as ReturnType<typeof fixGantryStatus>)"
-    />
+      <!-- ******* ENCODER *******  -->
+      <Encoder
+        v-for="encoder in filterResources(resources, 'rdk', 'component', 'encoder')"
+        :key="encoder.name"
+        :name="encoder.name"
+        :client="client"
+      />
 
-    <!-- ******* MovementSensor *******  -->
-    <MovementSensor
-      v-for="sensor in filterResources(resources, 'rdk', 'component', 'movement_sensor')"
-      :key="sensor.name"
-      :name="sensor.name"
-      :client="client"
-    />
+      <!-- ******* GANTRY *******  -->
+      <Gantry
+        v-for="gantry in filterRdkComponentsWithStatus(resources, status, 'gantry')"
+        :key="gantry.name"
+        :name="gantry.name"
+        :client="client"
+        :status="(resourceStatusByName(gantry) as unknown as ReturnType<typeof fixGantryStatus>)"
+      />
 
-    <!-- ******* ARM *******  -->
-    <Arm
-      v-for="arm in filterResources(resources, 'rdk', 'component', 'arm')"
-      :key="arm.name"
-      :name="arm.name"
-      :client="client"
-      :status="(resourceStatusByName(arm) as any)"
-      :raw-status="(rawResourceStatusByName(arm) as any)"
-    />
+      <!-- ******* MovementSensor *******  -->
+      <MovementSensor
+        v-for="sensor in filterResources(resources, 'rdk', 'component', 'movement_sensor')"
+        :key="sensor.name"
+        :name="sensor.name"
+        :client="client"
+      />
 
-    <!-- ******* GRIPPER *******  -->
-    <Gripper
-      v-for="gripper in filterResources(resources, 'rdk', 'component', 'gripper')"
-      :key="gripper.name"
-      :name="gripper.name"
-      :client="client"
-    />
+      <!-- ******* ARM *******  -->
+      <Arm
+        v-for="arm in filterResources(resources, 'rdk', 'component', 'arm')"
+        :key="arm.name"
+        :name="arm.name"
+        :client="client"
+        :status="(resourceStatusByName(arm) as any)"
+        :raw-status="(rawResourceStatusByName(arm) as any)"
+      />
 
-    <!-- ******* SERVO *******  -->
-    <ServoComponent
-      v-for="servo in filterRdkComponentsWithStatus(resources, status, 'servo')"
-      :key="servo.name"
-      :name="servo.name"
-      :client="client"
-      :status="(resourceStatusByName(servo) as any)"
-      :raw-status="(rawResourceStatusByName(servo) as any)"
-    />
+      <!-- ******* GRIPPER *******  -->
+      <Gripper
+        v-for="gripper in filterResources(resources, 'rdk', 'component', 'gripper')"
+        :key="gripper.name"
+        :name="gripper.name"
+        :client="client"
+      />
 
-    <!-- ******* MOTOR *******  -->
-    <Motor
-      v-for="motor in filterRdkComponentsWithStatus(resources, status, 'motor')"
-      :key="motor.name"
-      :name="motor.name"
-      :client="client"
-      :status="(resourceStatusByName(motor) as any)"
-    />
+      <!-- ******* SERVO *******  -->
+      <ServoComponent
+        v-for="servo in filterRdkComponentsWithStatus(resources, status, 'servo')"
+        :key="servo.name"
+        :name="servo.name"
+        :client="client"
+        :status="(resourceStatusByName(servo) as any)"
+        :raw-status="(rawResourceStatusByName(servo) as any)"
+      />
 
-    <!-- ******* INPUT VIEW *******  -->
-    <InputController
-      v-for="controller in filteredInputControllerList()"
-      :key="controller.name"
-      :name="controller.name"
-      :status="(resourceStatusByName(controller) as any)"
-      class="input"
-    />
+      <!-- ******* MOTOR *******  -->
+      <Motor
+        v-for="motor in filterRdkComponentsWithStatus(resources, status, 'motor')"
+        :key="motor.name"
+        :name="motor.name"
+        :client="client"
+        :status="(resourceStatusByName(motor) as any)"
+      />
 
-    <!-- ******* WEB CONTROLS *******  -->
-    <Gamepad
-      v-for="gamepad in filteredWebGamepads()"
-      :key="gamepad.name"
-      :name="gamepad.name"
-      :client="client"
-    />
+      <!-- ******* INPUT VIEW *******  -->
+      <InputController
+        v-for="controller in filteredInputControllerList()"
+        :key="controller.name"
+        :name="controller.name"
+        :status="(resourceStatusByName(controller) as any)"
+        class="input"
+      />
 
-    <!-- ******* BOARD *******  -->
-    <Board
-      v-for="board in filterRdkComponentsWithStatus(resources, status, 'board')"
-      :key="board.name"
-      :name="board.name"
-      :client="client"
-      :status="(resourceStatusByName(board) as any)"
-    />
+      <!-- ******* WEB CONTROLS *******  -->
+      <Gamepad
+        v-for="gamepad in filteredWebGamepads()"
+        :key="gamepad.name"
+        :name="gamepad.name"
+        :client="client"
+      />
 
-    <!-- ******* CAMERAS *******  -->
-    <CamerasList
-      parent-name="app"
-      :client="client"
-      :stream-manager="streamManager"
-      :resources="filterResources(resources, 'rdk', 'component', 'camera')"
-    />
+      <!-- ******* BOARD *******  -->
+      <Board
+        v-for="board in filterRdkComponentsWithStatus(resources, status, 'board')"
+        :key="board.name"
+        :name="board.name"
+        :client="client"
+        :status="(resourceStatusByName(board) as any)"
+      />
 
-    <!-- ******* NAVIGATION ******* -->
-    <Navigation
-      v-for="nav in filterResources(resources, 'rdk', 'service', 'navigation')"
-      :key="nav.name"
-      :resources="resources"
-      :name="nav.name"
-      :client="client"
-    />
+      <!-- ******* CAMERAS *******  -->
+      <CamerasList
+        parent-name="app"
+        :client="client"
+        :stream-manager="streamManager"
+        :resources="filterResources(resources, 'rdk', 'component', 'camera')"
+      />
 
-    <!-- ******* SENSORS ******* -->
-    <Sensors
-      v-if="nonEmpty(sensorNames)"
-      :name="filterNonRemoteResources(resources, 'rdk', 'service', 'sensors')[0]!.name"
-      :client="client"
-      :sensor-names="sensorNames"
-    />
+      <!-- ******* NAVIGATION ******* -->
+      <Navigation
+        v-for="nav in filterResources(resources, 'rdk', 'service', 'navigation')"
+        :key="nav.name"
+        :resources="resources"
+        :name="nav.name"
+        :client="client"
+      />
 
-    <!-- ******* AUDIO INPUTS *******  -->
-    <AudioInput
-      v-for="audioInput in filterResources(resources, 'rdk', 'component', 'audio_input')"
-      :key="audioInput.name"
-      :name="audioInput.name"
-      :client="client"
-    />
+      <!-- ******* SENSORS ******* -->
+      <Sensors
+        v-if="nonEmpty(sensorNames)"
+        :name="filterNonRemoteResources(resources, 'rdk', 'service', 'sensors')[0]!.name"
+        :client="client"
+        :sensor-names="sensorNames"
+      />
 
-    <!-- ******* SLAM *******  -->
-    <Slam
-      v-for="slam in filterResources(resources, 'rdk', 'service', 'slam')"
-      :key="slam.name"
-      :name="slam.name"
-      :client="client"
-      :resources="resources"
-    />
+      <!-- ******* AUDIO INPUTS *******  -->
+      <AudioInput
+        v-for="audioInput in filterResources(resources, 'rdk', 'component', 'audio_input')"
+        :key="audioInput.name"
+        :name="audioInput.name"
+        :client="client"
+      />
 
-    <!-- ******* DO ******* -->
-    <DoCommand
-      v-if="nonEmpty(filterResources(resources, 'rdk', 'component', 'generic'))"
-      :client="client"
-      :resources="filterResources(resources, 'rdk', 'component', 'generic')"
-    />
+      <!-- ******* SLAM *******  -->
+      <Slam
+        v-for="slam in filterResources(resources, 'rdk', 'service', 'slam')"
+        :key="slam.name"
+        :name="slam.name"
+        :client="client"
+        :resources="resources"
+      />
 
-    <!-- ******* OPERATIONS AND SESSIONS ******* -->
-    <OperationsSessions
-      v-if="connectedOnce"
-      :client="client"
-      :operations="currentOps"
-      :sessions="currentSessions"
-      :sessions-supported="sessionsSupported"
-      :connection-manager="appConnectionManager"
-    />
+      <!-- ******* DO ******* -->
+      <DoCommand
+        v-if="nonEmpty(filterResources(resources, 'rdk', 'component', 'generic'))"
+        :client="client"
+        :resources="filterResources(resources, 'rdk', 'component', 'generic')"
+      />
+
+      <!-- ******* OPERATIONS AND SESSIONS ******* -->
+      <OperationsSessions
+        v-if="connectedOnce"
+        :client="client"
+        :operations="currentOps"
+        :sessions="currentSessions"
+        :sessions-supported="sessionsSupported"
+        :connection-manager="appConnectionManager"
+      />
+    </div>
   </div>
 </template>
 
