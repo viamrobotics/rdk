@@ -59,7 +59,8 @@ func init() {
 			}
 			cameraSource, err := NewWebcamSource(ctx, config.Name, attrs, logger)
 			if err != nil {
-				// If we are on a Jetson Orin AGX, we need to validate driver and daughterboard setup
+				// If we are on a Jetson Orin AGX, we need to validate driver and daughterboard setup.
+				// If not, we just return the original error from NewWebcamSource.
 				return cameraSource, jetsoncamera.ValidateSetup(
 					jetsoncamera.OrinAGX,
 					jetsoncamera.ECAM,
