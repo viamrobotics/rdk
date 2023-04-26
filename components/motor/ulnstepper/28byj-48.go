@@ -245,19 +245,16 @@ func (m *uln28byj) setPins(ctx context.Context, pins [4]bool) error {
 // can be assigned negative values to move in a backwards direction. Note: if both are negative
 // the motor will spin in the forward direction.
 func (m *uln28byj) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
-	if rpm == 0 {
-		return motor.NewZeroRPMError()
-	}
-
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
 
 	switch speed := math.Abs(rpm); {
 	case speed < 0.1:
 		m.logger.Warnf("motor (%s) speed is nearly 0 rev_per_min", m.Name())
-		return m.Stop(ctx, nil)
-	case speed > 146:
-		m.logger.Warnf("motor (%s) speed exceeds the max rev_per_min (%f)", m.Name(), 146)
+		m.Stop(ctx, nil)
+		return motor.NewZeroRPMError()
+	case speed > 146-0.1:
+		m.logger.Warnf("motor (%s) speed is nearly the max rev_per_min (%f)", m.Name(), 146)
 		return m.Stop(ctx, nil)
 	}
 

@@ -422,7 +422,7 @@ func (m *Motor) doJog(ctx context.Context, rpm float64) error {
 	case speed0 < 0.1:
 		m.logger.Warnf("motor (%s) speed is nearly 0 rev_per_min", m.Name())
 	case speed0 > m.maxRPM:
-		m.logger.Warnf("motor (%s) speed exceeds the max rev_per_min (%f)", m.Name(), m.maxRPM)
+		m.logger.Warnf("motor (%s) speed is nearly the max rev_per_min (%f)", m.Name(), m.maxRPM)
 	}
 
 	speed := m.rpmToV(math.Abs(rpm))
@@ -436,7 +436,8 @@ func (m *Motor) doJog(ctx context.Context, rpm float64) error {
 // Both the RPM and the revolutions can be assigned negative values to move in a backwards direction.
 // Note: if both are negative the motor will spin in the forward direction.
 func (m *Motor) GoFor(ctx context.Context, rpm, rotations float64, extra map[string]interface{}) error {
-	if rpm == 0 {
+	if math.Abs(rpm) < 0.1 {
+		m.logger.Warnf("motor (%s) speed is nearly 0 rev_per_min", m.Name())
 		return motor.NewZeroRPMError()
 	}
 
@@ -488,8 +489,8 @@ func (m *Motor) GoTo(ctx context.Context, rpm, positionRevolutions float64, extr
 	switch speed := math.Abs(rpm); {
 	case speed < 0.1:
 		m.logger.Warnf("motor (%s) speed is nearly 0 rev_per_min", m.Name())
-	case speed > m.maxRPM:
-		m.logger.Warnf("motor (%s) speed exceeds the max rev_per_min (%f)", m.Name(), m.maxRPM)
+	case speed > m.maxRPM-0.1:
+		m.logger.Warnf("motor (%s) speed is nearly the max rev_per_min (%f)", m.Name(), m.maxRPM)
 	}
 
 	err := multierr.Combine(

@@ -285,10 +285,6 @@ func (m *gpioStepper) doStep(ctx context.Context, forward bool) error {
 // can be assigned negative values to move in a backwards direction. Note: if both are negative
 // the motor will spin in the forward direction.
 func (m *gpioStepper) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
-	if rpm == 0 {
-		return motor.NewZeroRPMError()
-	}
-
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
 
@@ -313,7 +309,8 @@ func (m *gpioStepper) goForInternal(ctx context.Context, rpm, revolutions float6
 	speed := math.Abs(rpm)
 	if speed < 0.1 {
 		m.logger.Warnf("motor (%s) speed is nearly 0 rev_per_min", m.Name())
-		return m.Stop(ctx, nil)
+		m.Stop(ctx, nil)
+		return motor.NewZeroRPMError()
 	}
 
 	var d int64 = 1

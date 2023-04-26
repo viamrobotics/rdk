@@ -271,18 +271,16 @@ func (m *Ezopmp) SetPower(ctx context.Context, powerPct float64, extra map[strin
 // GoFor sets a constant flow rate
 // mLPerMin = rpm, mins = revolutions.
 func (m *Ezopmp) GoFor(ctx context.Context, mLPerMin, mins float64, extra map[string]interface{}) error {
-	if mLPerMin == 0 {
-		return motor.NewZeroRPMError() // Not strictly RPMs, but same idea
-	}
-	ctx, done := m.opMgr.New(ctx)
-	defer done()
-
 	switch speed := math.Abs(mLPerMin); {
 	case speed < 0.1:
 		m.logger.Warnf("motor (%s) speed is nearly 0 rev_per_min", m.Name())
-	case speed > m.maxFlowRate:
-		m.logger.Warnf("motor (%s) speed exceeds the max rev_per_min (%f)", m.Name(), m.maxFlowRate)
+		return motor.NewZeroRPMError()
+	case speed > m.maxFlowRate-0.1:
+		m.logger.Warnf("motor (%s) speed is nearly the max rev_per_min (%f)", m.Name(), m.maxFlowRate)
 	}
+
+	ctx, done := m.opMgr.New(ctx)
+	defer done()
 
 	commandString := "DC," + strconv.FormatFloat(mLPerMin, 'f', -1, 64) + "," + strconv.FormatFloat(mins, 'f', -1, 64)
 	command := []byte(commandString)
