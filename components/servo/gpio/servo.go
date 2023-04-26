@@ -167,10 +167,10 @@ func newGPIOServo(ctx context.Context, deps resource.Dependencies, conf resource
 		frequency = *newConf.Frequency
 	}
 
-	// We need the pin to be high for up to maxUs microseconds, plus some amount of time low again
-	// before going high afterwards. Let's stay low for at least minUs microseconds, and make sure
-	// the frequency is slow enough that we can do this.
-	if maxFrequency := 1e6 / (minUs + maxUs); frequency > maxFrequency {
+	// We need the pin to be high for up to maxUs microseconds, plus the motor's deadband width
+	// time spent low before going high again. The deadband width is usually at least 1
+	// microsecond, but rarely over 5. Call it 10 microseconds just to be safe.
+	if maxFrequency := 1e6 / (maxUs + 10); frequency > maxFrequency {
 		logger.Warnf("servo frequency (%f.1) is above maximum (%f.1), setting to max instead",
 		             frequency, maxFrequency)
 		frequency = maxFrequency
