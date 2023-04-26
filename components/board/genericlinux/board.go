@@ -242,22 +242,23 @@ func (b *sysfsBoard) reconfigureGpios(newConf *Config) error {
 		if len(newConf.DigitalInterrupts) != 0 {
 			return errors.New("digital interrupts on Periph GPIO pins are not yet supported")
 		}
-	} else {
-		// TODO(RSDK-2684): we dont configure pins so we just unset them here. not really great behavior.
-		// We currently have two implementations of GPIO pins on these boards: one using
-		// libraries from periph.io and one using an ioctl approach. If we're using the
-		// latter, we need to initialize it here.
-		gpios, interrupts, err := b.gpioInitialize( // Defined in gpio.go
-			b.cancelCtx,
-			b.gpioMappings,
-			newConf.DigitalInterrupts,
-			b.logger)
-		if err != nil {
-			return err
-		}
-		b.gpios = gpios
-		b.interrupts = interrupts
+		return nil // No digital interrupts to reconfigure.
 	}
+
+	// TODO(RSDK-2684): we dont configure pins so we just unset them here. not really great behavior.
+	// We currently have two implementations of GPIO pins on these boards: one using
+	// libraries from periph.io and one using an ioctl approach. If we're using the
+	// latter, we need to initialize it here.
+	gpios, interrupts, err := b.gpioInitialize( // Defined in gpio.go
+		b.cancelCtx,
+		b.gpioMappings,
+		newConf.DigitalInterrupts,
+		b.logger)
+	if err != nil {
+		return err
+	}
+	b.gpios = gpios
+	b.interrupts = interrupts
 	return nil
 }
 
