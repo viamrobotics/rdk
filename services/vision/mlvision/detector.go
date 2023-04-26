@@ -61,30 +61,21 @@ func attemptToBuildDetector(mlm mlmodel.Service) (objectdetection.Detector, erro
 		}
 
 		locations, err := unpack(outMap, "location")
-		if err != nil {
-			return nil, err
-		}
-		if len(locations) == 0 {
+		if err != nil || len(locations) == 0 {
 			locations, err = unpack(outMap, DefaultOutTensorName+"0")
 			if err != nil {
 				return nil, err
 			}
 		}
 		categories, err := unpack(outMap, "category")
-		if err != nil {
-			return nil, err
-		}
-		if len(categories) == 0 {
+		if err != nil || len(categories) == 0 {
 			categories, err = unpack(outMap, DefaultOutTensorName+"1")
 			if err != nil {
 				return nil, err
 			}
 		}
 		scores, err := unpack(outMap, "score")
-		if err != nil {
-			return nil, err
-		}
-		if len(scores) == 0 {
+		if err != nil || len(scores) == 0 {
 			scores, err = unpack(outMap, DefaultOutTensorName+"2")
 			if err != nil {
 				return nil, err
