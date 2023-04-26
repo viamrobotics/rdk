@@ -140,36 +140,8 @@ func (b *sysfsBoard) Reconfigure(
 		return err
 	}
 
-	stillExists := map[string]struct{}{}
-
-	for _, c := range newConf.Analogs {
-		channel, err := strconv.Atoi(c.Pin)
-		if err != nil {
-			return errors.Errorf("bad analog pin (%s)", c.Pin)
-		}
-
-		bus, ok := b.spis[c.SPIBus]
-		if !ok {
-			return errors.Errorf("can't find SPI bus (%s) requested by AnalogReader", c.SPIBus)
-		}
-
-		stillExists[c.Name] = struct{}{}
-		if curr, ok := b.analogs[c.Name]; ok {
-			if curr.chipSelect != c.ChipSelect {
-				ar := &board.MCP3008AnalogReader{channel, bus, c.ChipSelect}
-				curr.reset(ctx, curr.chipSelect, board.SmoothAnalogReader(ar, c, b.logger))
-			}
-			continue
-		}
-		ar := &board.MCP3008AnalogReader{channel, bus, c.ChipSelect}
-		b.analogs[c.Name] = newWrappedAnalog(ctx, c.ChipSelect, board.SmoothAnalogReader(ar, c, b.logger))
-	}
-	for name := range b.analogs {
-		if _, ok := stillExists[name]; ok {
-			continue
-		}
-		b.analogs[name].reset(ctx, "", nil)
-		delete(b.analogs, name)
+	if err := b.reconfigureAnalogs(ctx, newConf); err != nil {
+		return err
 	}
 
 	if !b.usePeriphGpio {
@@ -245,6 +217,40 @@ func (b *sysfsBoard) reconfigureI2cs(newConf *Config) error {
 			b.logger.Errorw("error closing I2C bus while reconfiguring", "error", err)
 		}
 		delete(b.i2cs, name)
+	}
+	return nil
+}
+
+func (b *sysfsBoard) reconfigureAnalogs(ctx context.Context, newConf *Config) error {
+	stillExists := map[string]struct{}{}
+	for _, c := range newConf.Analogs {
+		channel, err := strconv.Atoi(c.Pin)
+		if err != nil {
+			return errors.Errorf("bad analog pin (%s)", c.Pin)
+		}
+
+		bus, ok := b.spis[c.SPIBus]
+		if !ok {
+			return errors.Errorf("can't find SPI bus (%s) requested by AnalogReader", c.SPIBus)
+		}
+
+		stillExists[c.Name] = struct{}{}
+		if curr, ok := b.analogs[c.Name]; ok {
+			if curr.chipSelect != c.ChipSelect {
+				ar := &board.MCP3008AnalogReader{channel, bus, c.ChipSelect}
+				curr.reset(ctx, curr.chipSelect, board.SmoothAnalogReader(ar, c, b.logger))
+			}
+			continue
+		}
+		ar := &board.MCP3008AnalogReader{channel, bus, c.ChipSelect}
+		b.analogs[c.Name] = newWrappedAnalog(ctx, c.ChipSelect, board.SmoothAnalogReader(ar, c, b.logger))
+	}
+	for name := range b.analogs {
+		if _, ok := stillExists[name]; ok {
+			continue
+		}
+		b.analogs[name].reset(ctx, "", nil)
+		delete(b.analogs, name)
 	}
 	return nil
 }
