@@ -72,7 +72,13 @@ func PlanRobotMotion(ctx context.Context,
 	constraintSpec *pb.Constraints,
 	planningOpts map[string]interface{},
 ) ([]map[string][]frame.Input, error) {
-	seedMap, _, err := framesystem.RobotFsCurrentInputs(ctx, r, fs)
+	// Get the framesystem service if it exists
+	fsSvc, err := framesystem.FromRobot(r)
+	if err != nil {
+		return nil, err
+	}
+
+	seedMap, _, err := fsSvc.AllCurrentInputs(ctx)
 	if err != nil {
 		return nil, err
 	}

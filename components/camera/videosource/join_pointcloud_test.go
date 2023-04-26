@@ -21,6 +21,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/robot/framesystem"
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
@@ -316,6 +317,9 @@ func makeFakeRobotICP(t *testing.T) (robot.Robot, error) {
 	base1 := &inject.Base{}
 
 	r := &inject.Robot{}
+
+	fsSvc := framesystem.New(context.Background(), r, logger)
+
 	o1 := &spatialmath.EulerAngles{Roll: 0, Pitch: 0.6, Yaw: 0}
 	o2 := &spatialmath.EulerAngles{Roll: 0, Pitch: 0.6, Yaw: -0.3}
 
@@ -379,6 +383,8 @@ func makeFakeRobotICP(t *testing.T) (robot.Robot, error) {
 			return cam5, nil
 		case "base1":
 			return base1, nil
+		case framesystem.InternalServiceName.Name:
+			return fsSvc, nil
 		default:
 			return nil, resource.NewNotFoundError(n)
 		}
