@@ -968,9 +968,9 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 		allErrs = multierr.Combine(allErrs, removedErr)
 	}
 	for _, removedName := range removedNames {
-		// Remove dependents of removed resources from newConfig; leaving these
+		// Remove dependents of removed resources from r.config; leaving these
 		// resources in the stored config means they cannot be correctly re-added
-		// when their dependenent reappears.
+		// when their dependency reappears.
 		//
 		// TODO(RSDK-2876): remove this code when we start referring to a config
 		// generated from resource graph instead of r.config.
