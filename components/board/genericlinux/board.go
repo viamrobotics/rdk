@@ -142,8 +142,7 @@ func (b *sysfsBoard) Reconfigure(
 		if len(newConf.DigitalInterrupts) != 0 {
 			return errors.New("digital interrupts on Periph GPIO pins are not yet supported")
 		}
-	}
-	if !b.usePeriphGpio {
+	} else {
 		// TODO(RSDK-2684): we dont configure pins so we just unset them here. not really great behavior.
 		// We currently have two implementations of GPIO pins on these boards: one using
 		// libraries from periph.io and one using an ioctl approach. If we're using the
