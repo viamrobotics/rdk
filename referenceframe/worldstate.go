@@ -18,6 +18,7 @@ type WorldState struct {
 
 const unnamedWorldStateGeometryPrefix = "unnamedWorldStateGeometry_"
 
+// NewEmptyWorldState is a constructor for an empty WorldState struct.
 func NewEmptyWorldState() *WorldState {
 	return &WorldState{
 		obstacleNames: make(map[string]bool),
@@ -43,14 +44,16 @@ func WorldStateFromProtobuf(proto *commonpb.WorldState) (*WorldState, error) {
 		if err != nil {
 			return nil, err
 		}
-		ws.AddObstacles(geometries.frame, geometries.geometries...)
+		if err = ws.AddObstacles(geometries.frame, geometries.geometries...); err != nil {
+			return nil, err
+		}
 	}
 
 	return ws, nil
 }
 
 // AddObstacles takes in a list of geometries and a frame corresponding with the reference frame associated with them and adds them
-// as obstacles to the worldState
+// as obstacles to the worldState.
 func (ws *WorldState) AddObstacles(frame string, geometries ...spatialmath.Geometry) error {
 	geometries, err := ws.rectifyNames(geometries)
 	if err != nil {
@@ -60,14 +63,17 @@ func (ws *WorldState) AddObstacles(frame string, geometries ...spatialmath.Geome
 	return nil
 }
 
+// ObstacleNames returns the set of geometry names that have been registered in the WorldState, represented as a map.
 func (ws *WorldState) ObstacleNames() map[string]bool {
 	return ws.obstacleNames
 }
 
+// AddTransforms adds the given transforms to the WorldState.
 func (ws *WorldState) AddTransforms(transforms ...*LinkInFrame) {
 	ws.transforms = append(ws.transforms, transforms...)
 }
 
+// Transforms returns the transforms that have been added to the WorldState.
 func (ws *WorldState) Transforms() []*LinkInFrame {
 	return ws.transforms
 }

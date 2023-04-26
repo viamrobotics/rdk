@@ -3,8 +3,9 @@ package referenceframe
 import (
 	"testing"
 
-	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/test"
+
+	"go.viam.com/rdk/spatialmath"
 )
 
 func TestWorldStateConstruction(t *testing.T) {
@@ -37,5 +38,4 @@ func TestWorldStateConstruction(t *testing.T) {
 }
 
 func TestWorldStateProtoConversions(t *testing.T) {
-
 }
