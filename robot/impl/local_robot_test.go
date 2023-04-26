@@ -2316,7 +2316,7 @@ func TestCheckMaxInstanceSkipRemote(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
-func TestOrphanedResources(t *testing.T) {
+func TestDependentResources(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 
@@ -2416,7 +2416,7 @@ func TestOrphanedResources(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
-func TestModularOrphanedResources(t *testing.T) {
+func TestOrphanedResources(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 
@@ -2550,7 +2550,7 @@ func (d *doodad) doThroughGizmo(ctx context.Context,
 	return d.gizmo.DoCommand(ctx, cmd)
 }
 
-func TestMixedOrphanedResources(t *testing.T) {
+func TestDependentAndOrphanedResources(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 

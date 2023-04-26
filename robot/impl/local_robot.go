@@ -924,14 +924,14 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 		r.logger.Debugf("(re)configuring with %+v", diff)
 	}
 
-	modularOrphanedResourceNames, err := r.reconfigureModules(ctx, diff)
+	orphanedResourceNames, err := r.reconfigureModules(ctx, diff)
 	if err != nil {
 		r.logger.Error(err)
 	}
 
 	// Before filtering config, manually add modular orphaned resources (resources
 	// handled by removed modules) to diff.Removed.
-	for _, name := range modularOrphanedResourceNames {
+	for _, name := range orphanedResourceNames {
 		for _, c := range newConfig.Components {
 			if c.ResourceName() == name {
 				diff.Removed.Components = append(diff.Removed.Components, c)
@@ -968,7 +968,12 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 		allErrs = multierr.Combine(allErrs, removedErr)
 	}
 	for _, removedName := range removedNames {
-		// Remove orphaned resources (dependents of removed resources) from newConfig.
+		// Remove dependents of removed resources from newConfig; leaving these
+		// resources in the stored config means they cannot be correctly re-added
+		// when their dependenent reappears.
+		//
+		// TODO(RSDK-2876): remove this code when we start referring to a config
+		// generated from resource graph instead of r.config.
 		for i, c := range r.config.Components {
 			if c.ResourceName() == removedName {
 				r.config.Components[i] = r.config.Components[len(r.config.Components)-1]
