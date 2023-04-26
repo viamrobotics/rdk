@@ -1,7 +1,7 @@
 <!-- eslint-disable require-atomic-updates -->
 <script setup lang="ts">
 
-import { onUnmounted, onMounted } from 'vue';
+import { onMounted, onUnmounted } from 'vue';
 import { $ref, $computed } from 'vue/macros';
 import { grpc } from '@improbable-eng/grpc-web';
 import { Duration } from 'google-protobuf/google/protobuf/duration_pb';
