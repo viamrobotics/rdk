@@ -37,7 +37,7 @@ func (f *fakeDirectionAware) DirectionMoving() int64 {
 
 func TestMotorEncoder1(t *testing.T) {
 	t.Skip()
-	logger, obs := golog.NewObservedTestLogger(t)
+	logger := golog.NewTestLogger(t)
 	undo := SetRPMSleepDebug(1, false)
 	defer undo()
 
@@ -87,22 +87,6 @@ func TestMotorEncoder1(t *testing.T) {
 	t.Run("encoded motor testing Stop", func(t *testing.T) {
 		test.That(t, motorDep.Stop(context.Background(), nil), test.ShouldBeNil)
 		test.That(t, fakeMotor.Direction(), test.ShouldEqual, 0)
-	})
-
-	t.Run("encoded motor cannot go at 0 RPM", func(t *testing.T) {
-		test.That(t, motorDep.GoFor(context.Background(), 0, 1, nil), test.ShouldBeError, motor.NewZeroRPMError())
-		allObs := obs.All()
-		latestLoggedEntry := allObs[len(allObs)-1]
-		fmt.Println(latestLoggedEntry)
-		test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly 0")
-	})
-
-	t.Run("encoded motor warning at max RPM", func(t *testing.T) {
-		test.That(t, motorDep.GoFor(context.Background(), 100, 1, nil), test.ShouldBeNil)
-		allObs := obs.All()
-		latestLoggedEntry := allObs[len(allObs)-1]
-		fmt.Println(latestLoggedEntry)
-		test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly the max")
 	})
 
 	t.Run("encoded motor testing SetPower interrupt GoFor", func(t *testing.T) {

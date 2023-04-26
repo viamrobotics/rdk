@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
-	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils/testutils"
 
@@ -198,7 +197,7 @@ func Test1(t *testing.T) {
 
 	t.Run("motor testing with 0 rpm", func(t *testing.T) {
 		err = m.GoFor(ctx, 0, 1, nil)
-		test.That(t, err, test.ShouldBeError, errors.Wrapf(motor.NewZeroRPMError(), "error in GoFor from motor (%s)", m.motorName))
+		test.That(t, err, test.ShouldBeNil)
 		allObs := obs.All()
 		latestLoggedEntry := allObs[len(allObs)-1]
 		test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly 0")

@@ -244,6 +244,7 @@ func TestFunctions(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 
 		err = m.GoFor(ctx, 146, 1, nil)
+		test.That(t, err, test.ShouldBeNil)
 		allObs = obs.All()
 		latestLoggedEntry = allObs[len(allObs)-1]
 		test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly the max")
