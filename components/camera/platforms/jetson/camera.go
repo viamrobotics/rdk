@@ -66,7 +66,7 @@ func ValidateSetup(deviceName, daughterboardName, driverName string, err error) 
 		return err
 	}
 	return fmt.Errorf(
-		"camera open error: %v, jetson setup: %v",
+		"camera open error: %w, jetson setup: %w",
 		err, DetectError(osInfo, daughterboardName, driverName),
 	)
 }
