@@ -278,10 +278,10 @@ func (m *Ezopmp) GoFor(ctx context.Context, mLPerMin, mins float64, extra map[st
 	defer done()
 
 	switch speed := math.Abs(mLPerMin); {
-	case speed < 0.5:
-		return errors.New("cannot move this slowly")
+	case speed < 0.1:
+		m.logger.Warnf("motor (%s) speed is nearly 0 rev_per_min", m.Name())
 	case speed > m.maxFlowRate:
-		return errors.Errorf("max continuous flow rate is: %f", m.maxFlowRate)
+		m.logger.Warnf("motor (%s) speed exceeds the max rev_per_min (%d)", m.Name(), m.maxFlowRate)
 	}
 
 	commandString := "DC," + strconv.FormatFloat(mLPerMin, 'f', -1, 64) + "," + strconv.FormatFloat(mins, 'f', -1, 64)

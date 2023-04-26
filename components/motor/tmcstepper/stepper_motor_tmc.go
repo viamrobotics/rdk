@@ -417,6 +417,14 @@ func (m *Motor) doJog(ctx context.Context, rpm float64) error {
 	if rpm < 0 {
 		mode = modeVelNeg
 	}
+
+	switch speed0 := math.Abs(rpm); {
+	case speed0 < 0.1:
+		m.logger.Warnf("motor (%s) speed is nearly 0 rev_per_min", m.Name())
+	case speed0 > m.maxRPM:
+		m.logger.Warnf("motor (%s) speed exceeds the max rev_per_min (%d)", m.Name(), m.maxRPM)
+	}
+
 	speed := m.rpmToV(math.Abs(rpm))
 	return multierr.Combine(
 		m.writeReg(ctx, rampMode, mode),
@@ -476,6 +484,14 @@ func (m *Motor) GoTo(ctx context.Context, rpm, positionRevolutions float64, extr
 	defer done()
 
 	positionRevolutions *= float64(m.stepsPerRev)
+
+	switch speed := math.Abs(rpm); {
+	case speed < 0.1:
+		m.logger.Warnf("motor (%s) speed is nearly 0 rev_per_min", m.Name())
+	case speed > m.maxRPM:
+		m.logger.Warnf("motor (%s) speed exceeds the max rev_per_min (%d)", m.Name(), m.maxRPM)
+	}
+
 	err := multierr.Combine(
 		m.writeReg(ctx, rampMode, modePosition),
 		m.writeReg(ctx, vMax, m.rpmToV(math.Abs(rpm))),

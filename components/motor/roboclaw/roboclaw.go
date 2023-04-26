@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/CPRT/roboclaw"
@@ -164,6 +165,11 @@ func (m *roboclawMotor) GoFor(ctx context.Context, rpm, revolutions float64, ext
 
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
+
+	speed := math.Abs(rpm)
+	if speed < 0.1 {
+		m.logger.Warnf("motor (%s) speed is nearly 0 rev_per_min", m.Name())
+	}
 
 	ticks := uint32(revolutions * float64(m.conf.TicksPerRotation))
 	ticksPerSecond := int32((rpm * float64(m.conf.TicksPerRotation)) / 60)

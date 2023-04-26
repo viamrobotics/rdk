@@ -252,9 +252,11 @@ func (m *uln28byj) GoFor(ctx context.Context, rpm, revolutions float64, extra ma
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
 
-	if math.Abs(rpm) < 0.1 {
-		m.logger.Info("RPM is less than 0.1 threshold, stopping motor ")
-		return m.Stop(ctx, nil)
+	switch speed := math.Abs(rpm); {
+	case speed < 0.1:
+		m.logger.Warnf("motor (%s) speed is nearly 0 rev_per_min", m.Name())
+	case speed > 146:
+		m.logger.Warnf("motor (%s) speed exceeds the max rev_per_min (%d)", m.Name(), 146)
 	}
 
 	m.lock.Lock()

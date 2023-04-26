@@ -140,10 +140,6 @@ func (wb *wheeledBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSe
 func (wb *wheeledBase) runAll(ctx context.Context, leftRPM, leftRotations, rightRPM, rightRotations float64) error {
 	fs := []rdkutils.SimpleFunc{}
 
-	if rdkutils.Float64AlmostEqual(leftRPM, 0.0, 1) && rdkutils.Float64AlmostEqual(rightRPM, 0.0, 1) {
-		wb.logger.Warn("the received inputs resulted in a speed of 0")
-	}
-
 	for _, m := range wb.left {
 		fs = append(fs, func(ctx context.Context) error { return m.GoFor(ctx, leftRPM, leftRotations, nil) })
 	}
@@ -210,7 +206,7 @@ func (wb *wheeledBase) SetVelocity(ctx context.Context, linear, angular r3.Vecto
 	return wb.runAll(ctx, l, 0, r, 0)
 }
 
-// SetPower commands the base motors to run at powers correspoinding to input linear and angular powers.
+// SetPower commands the base motors to run at powers corresponding to input linear and angular powers.
 func (wb *wheeledBase) SetPower(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
 	wb.opMgr.CancelRunning(ctx)
 

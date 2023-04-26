@@ -262,6 +262,13 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 		return motor.NewZeroRPMError()
 	}
 
+	switch speed := math.Abs(rpm); {
+	case speed < 0.1:
+		m.Logger.Warnf("motor (%s) speed is nearly 0 rev_per_min", m.Name())
+	case speed > m.MaxRPM:
+		m.Logger.Warnf("motor (%s) speed exceeds the max rev_per_min (%d)", m.Name(), m.MaxRPM)
+	}
+
 	powerPct, waitDur, dir := goForMath(m.MaxRPM, rpm, revolutions)
 
 	var finalPos float64
@@ -299,6 +306,13 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 func (m *Motor) GoTo(ctx context.Context, rpm, pos float64, extra map[string]interface{}) error {
 	if m.Encoder == nil {
 		return errors.New("encoder is not defined")
+	}
+
+	switch speed := math.Abs(rpm); {
+	case speed < 0.1:
+		m.Logger.Warnf("motor (%s) speed is nearly 0 rev_per_min", m.Name())
+	case speed > m.MaxRPM:
+		m.Logger.Warnf("motor (%s) speed exceeds the max rev_per_min (%d)", m.Name(), m.MaxRPM)
 	}
 
 	curPos, err := m.Position(ctx, nil)
