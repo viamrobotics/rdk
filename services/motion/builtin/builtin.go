@@ -26,7 +26,6 @@ func init() {
 	resource.RegisterDefaultService(
 		motion.API,
 		resource.DefaultServiceModel,
-		//~ resource.Registration[motion.Service, resource.NoNativeConfig]{
 		resource.Registration[motion.Service, *Config]{
 			Constructor: func(
 				ctx context.Context,
@@ -36,7 +35,6 @@ func init() {
 			) (motion.Service, error) {
 				return NewBuiltIn(ctx, deps, conf, logger)
 			},
-			//~ WeakDependencies: []internal.ResourceMatcher{internal.ComponentDependencyWildcardMatcher},
 		})
 }
 
@@ -78,14 +76,6 @@ func (ms *builtIn) Reconfigure(
 		return err
 	}
 	ms.fsService = fsService
-	//~ singleComponentMoves := map[resource.Name]arm.Arm{}
-	//~ for n, r := range deps {
-		//~ fmt.Println("n, r", n, r)
-		//~ if thisArm, ok := r.(arm.Arm); ok {
-			//~ singleComponentMoves[n] = thisArm
-		//~ }
-	//~ }
-	//~ ms.singleComponentMoves = singleComponentMoves
 	return nil
 
 	return nil
