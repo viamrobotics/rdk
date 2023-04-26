@@ -122,6 +122,10 @@ func setupDependencies(t *testing.T) resource.Dependencies {
 		innerTick1 = utils.ScaleByPct(scale1, dutyCyclePct)
 		return nil
 	}
+	pin0.SetPWMFreqFunc = func(ctx context.Context, freqHz uint, extra map[string]interface{}) error {
+		return nil
+	}
+
 	pin1 := &inject.GPIOPin{}
 	pin1.PWMFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
 		pct := float64(innerTick2) / float64(scale2)
@@ -134,6 +138,10 @@ func setupDependencies(t *testing.T) resource.Dependencies {
 		innerTick2 = utils.ScaleByPct(scale2, dutyCyclePct)
 		return nil
 	}
+	pin1.SetPWMFreqFunc = func(ctx context.Context, freqHz uint, extra map[string]interface{}) error {
+		return nil
+	}
+
 	board1.GPIOPinByNameFunc = func(name string) (board.GPIOPin, error) {
 		switch name {
 		case "0":
