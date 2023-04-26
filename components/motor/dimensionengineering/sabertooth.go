@@ -347,7 +347,7 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string
 	case speed < 0.1:
 		m.c.logger.Warnf("motor (%s) speed is nearly 0 rev_per_min", m.Name())
 	case speed > m.maxRPM:
-		m.c.logger.Warnf("motor (%s) speed exceeds the max rev_per_min (%d)", m.Name(), m.maxRPM)
+		m.c.logger.Warnf("motor (%s) speed exceeds the max rev_per_min (%f)", m.Name(), m.maxRPM)
 	}
 	if math.Signbit(rawSpeed) {
 		rawSpeed *= -1

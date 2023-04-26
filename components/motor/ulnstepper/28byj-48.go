@@ -257,7 +257,7 @@ func (m *uln28byj) GoFor(ctx context.Context, rpm, revolutions float64, extra ma
 		m.logger.Warnf("motor (%s) speed is nearly 0 rev_per_min", m.Name())
 		return m.Stop(ctx, nil)
 	case speed > 146:
-		m.logger.Warnf("motor (%s) speed exceeds the max rev_per_min (%d)", m.Name(), 146)
+		m.logger.Warnf("motor (%s) speed exceeds the max rev_per_min (%f)", m.Name(), 146)
 		return m.Stop(ctx, nil)
 	}
 

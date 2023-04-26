@@ -462,7 +462,7 @@ func (m *Motor) Jog(ctx context.Context, rpm float64) error {
 	case speed < 0.1:
 		m.c.logger.Warnf("motor (%s) speed is nearly 0 rev_per_min", m.Name())
 	case speed > m.MaxRPM:
-		m.c.logger.Warnf("motor (%s) speed exceeds the max rev_per_min (%d)", m.Name(), m.MaxRPM)
+		m.c.logger.Warnf("motor (%s) speed exceeds the max rev_per_min (%f)", m.Name(), m.MaxRPM)
 	}
 	if math.Signbit(rpm) {
 		rawSpeed *= -1
@@ -785,7 +785,7 @@ func (m *Motor) doGoTo(rpm, position float64) error {
 	case speed < 0.1:
 		m.c.logger.Warnf("motor (%s) speed is nearly 0 rev_per_min", m.Name())
 	case speed > m.MaxRPM:
-		m.c.logger.Warnf("motor (%s) speed exceeds the max rev_per_min (%d)", m.Name(), m.MaxRPM)
+		m.c.logger.Warnf("motor (%s) speed exceeds the max rev_per_min (%f)", m.Name(), m.MaxRPM)
 	}
 
 	// Speed
