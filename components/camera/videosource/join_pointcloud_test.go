@@ -425,7 +425,7 @@ func TestTwinPointCloudICP(t *testing.T) {
 	pc, err := joinedCam.NextPointCloud(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	filename := "test_twin_" + time.Now().Format(time.RFC3339) + "*.pcd"
-	file, err := os.CreateTemp("/tmp", filename)
+	file, err := os.CreateTemp(t.TempDir(), filename)
 	pointcloud.ToPCD(pc, file, pointcloud.PCDBinary)
 
 	test.That(t, err, test.ShouldBeNil)
@@ -451,7 +451,7 @@ func TestMultiPointCloudICP(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	filename := "test_multi_" + time.Now().Format(time.RFC3339) + "*.pcd"
-	file, err := os.CreateTemp("/tmp", filename)
+	file, err := os.CreateTemp(t.TempDir(), filename)
 	pointcloud.ToPCD(pc, file, pointcloud.PCDBinary)
 
 	test.That(t, err, test.ShouldBeNil)

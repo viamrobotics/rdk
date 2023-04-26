@@ -8,6 +8,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"net"
+	"os"
 	"testing"
 	"time"
 
@@ -379,8 +380,12 @@ func TestWebWithTLSAuth(t *testing.T) {
 	svc := web.New(injectRobot, logger)
 
 	altName := primitive.NewObjectID().Hex()
-	cert, _, _, certPool, err := testutils.GenerateSelfSignedCertificate("somename", altName)
+	cert, certFile, keyFile, certPool, err := testutils.GenerateSelfSignedCertificate("somename", altName)
 	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		os.Remove(certFile)
+		os.Remove(keyFile)
+	}()
 
 	leaf, err := x509.ParseCertificate(cert.Certificate[0])
 	test.That(t, err, test.ShouldBeNil)

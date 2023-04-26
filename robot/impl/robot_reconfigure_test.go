@@ -2060,7 +2060,7 @@ func TestRobotReconfigure(t *testing.T) {
 	t.Run("test processes", func(t *testing.T) {
 		resetComponentFailureState()
 		logger := golog.NewTestLogger(t)
-		tempDir := testutils.TempDirT(t, ".", "")
+		tempDir := t.TempDir()
 		robot, err := New(context.Background(), &config.Config{}, logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer func() {

@@ -70,7 +70,7 @@ func TestWarp2(t *testing.T) {
 
 	out := WarpImage(img, m, image.Point{size, size})
 
-	err = WriteImageToFile(outDir+"/canny1-warped.png", out)
+	err = WriteImageToFile(t.TempDir()+"/canny1-warped.png", out)
 	test.That(t, err, test.ShouldBeNil)
 }
 
@@ -144,6 +144,6 @@ func TestWarpSmall1(t *testing.T) {
 		ArrayToPoints([]image.Point{{0, 0}, {outputSize.X - 1, outputSize.Y - 1}}),
 	), outputSize)
 
-	err = WriteImageToFile(outDir+"/warpsmall1.png", x)
+	err = WriteImageToFile(t.TempDir()+"/warpsmall1.png", x)
 	test.That(t, err, test.ShouldBeNil)
 }

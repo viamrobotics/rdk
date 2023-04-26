@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"net"
+	"os"
 	"os/exec"
 	"path"
 	"strings"
@@ -19,6 +20,7 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -551,8 +553,12 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 	}()
 
 	altName := primitive.NewObjectID().Hex()
-	cert, _, _, certPool, err := testutils.GenerateSelfSignedCertificate("somename", altName)
+	cert, certFile, keyFile, certPool, err := testutils.GenerateSelfSignedCertificate("somename", altName)
 	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		os.Remove(certFile)
+		os.Remove(keyFile)
+	}()
 
 	leaf, err := x509.ParseCertificate(cert.Certificate[0])
 	test.That(t, err, test.ShouldBeNil)
