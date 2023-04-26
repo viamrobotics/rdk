@@ -31,8 +31,6 @@ func TestFakeSLAMGetPosition(t *testing.T) {
 	// spatialmath.PoseAlmostEqual is used here as tiny differences were observed
 	// in floating point values between M1 mac & arm64 linux which
 	// were causing tests to pass on M1 mac but fail on ci.
-	fmt.Println(p.Point())
-	fmt.Println(p.Orientation().Quaternion())
 	expectedPose := spatialmath.NewPose(
 		r3.Vector{X: -0.003863251944222634813586, Y: 0.011557528483632291405048, Z: 0.000000000000000000},
 		&spatialmath.Quaternion{Real: 0.9999993072280227, Imag: 0, Jmag: 0, Kmag: -0.001177091107300157})
