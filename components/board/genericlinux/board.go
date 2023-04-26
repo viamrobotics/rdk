@@ -136,37 +136,11 @@ func (b *sysfsBoard) Reconfigure(
 		return err
 	}
 
+	if err := b.reconfigureI2cs(newConf); err != nil {
+		return err
+	}
+
 	stillExists := map[string]struct{}{}
-	for _, c := range newConf.I2Cs {
-		stillExists[c.Name] = struct{}{}
-		if curr, ok := b.i2cs[c.Name]; ok {
-			if curr.deviceName == c.Bus {
-				continue
-			}
-			if err := curr.closeableBus.Close(); err != nil {
-				b.logger.Errorw("error closing I2C bus while reconfiguring", "error", err)
-			}
-			if err := curr.reset(curr.deviceName); err != nil {
-				b.logger.Errorw("error resetting I2C bus while reconfiguring", "error", err)
-			}
-			continue
-		}
-		bus, err := newI2cBus(c.Bus)
-		if err != nil {
-			return err
-		}
-		b.i2cs[c.Name] = bus
-	}
-	for name := range b.i2cs {
-		if _, ok := stillExists[name]; ok {
-			continue
-		}
-		if err := b.i2cs[name].closeableBus.Close(); err != nil {
-			b.logger.Errorw("error closing I2C bus while reconfiguring", "error", err)
-		}
-		delete(b.i2cs, name)
-	}
-	stillExists = map[string]struct{}{}
 
 	for _, c := range newConf.Analogs {
 		channel, err := strconv.Atoi(c.Pin)
@@ -237,6 +211,40 @@ func (b *sysfsBoard) reconfigureSpis(newConf *Config) error {
 			continue
 		}
 		delete(b.spis, name)
+	}
+	return nil
+}
+
+func (b *sysfsBoard) reconfigureI2cs(newConf *Config) error {
+	stillExists := map[string]struct{}{}
+	for _, c := range newConf.I2Cs {
+		stillExists[c.Name] = struct{}{}
+		if curr, ok := b.i2cs[c.Name]; ok {
+			if curr.deviceName == c.Bus {
+				continue
+			}
+			if err := curr.closeableBus.Close(); err != nil {
+				b.logger.Errorw("error closing I2C bus while reconfiguring", "error", err)
+			}
+			if err := curr.reset(curr.deviceName); err != nil {
+				b.logger.Errorw("error resetting I2C bus while reconfiguring", "error", err)
+			}
+			continue
+		}
+		bus, err := newI2cBus(c.Bus)
+		if err != nil {
+			return err
+		}
+		b.i2cs[c.Name] = bus
+	}
+	for name := range b.i2cs {
+		if _, ok := stillExists[name]; ok {
+			continue
+		}
+		if err := b.i2cs[name].closeableBus.Close(); err != nil {
+			b.logger.Errorw("error closing I2C bus while reconfiguring", "error", err)
+		}
+		delete(b.i2cs, name)
 	}
 	return nil
 }
