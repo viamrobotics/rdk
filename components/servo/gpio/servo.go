@@ -150,7 +150,7 @@ func newGPIOServo(ctx context.Context, deps resource.Dependencies, conf resource
 	}
 
 	// If the frequency isn't specified in the config, we'll use whatever it's currently set to
-	// instead. If it's currently set to 0, we'll default to using 30 Hz.
+	// instead. If it's currently set to 0, we'll default to using 300 Hz.
 	frequency, err := pin.PWMFreq(ctx, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "couldn't get servo pin pwm frequency")
@@ -159,8 +159,9 @@ func newGPIOServo(ctx context.Context, deps resource.Dependencies, conf resource
 		frequency = defaultFreq
 	}
 	if newConf.Frequency != nil {
-		if *newConf.Frequency > 450 || *newConf.Frequency == 0 {
-			return nil, errors.Errorf("PWM frequencies should not be above 450Hz or 0, have %d", newConf.Frequency)
+		if *newConf.Frequency > 450 || *newConf.Frequency < 50 {
+			return nil, errors.Errorf(
+				"PWM frequencies should not be above 450Hz or below 50, have %d", newConf.Frequency)
 		}
 
 		frequency = *newConf.Frequency
