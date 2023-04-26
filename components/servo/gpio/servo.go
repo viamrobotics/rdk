@@ -172,7 +172,7 @@ func newGPIOServo(ctx context.Context, deps resource.Dependencies, conf resource
 	// microsecond, but rarely over 5. Call it 10 microseconds just to be safe.
 	if maxFrequency := 1e6 / (maxUs + 10); frequency > maxFrequency {
 		logger.Warnf("servo frequency (%f.1) is above maximum (%f.1), setting to max instead",
-		             frequency, maxFrequency)
+			frequency, maxFrequency)
 		frequency = maxFrequency
 	}
 
