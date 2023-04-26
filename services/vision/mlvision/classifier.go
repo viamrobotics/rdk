@@ -71,7 +71,8 @@ func checkIfClassifierWorks(ctx context.Context, cf classification.Classifier) (
 		return nil, errors.New("Nil classifier function")
 	}
 
-	img := &image.RGBA{}
+	// test image to check if the classifier function works
+	img := image.NewGray(image.Rectangle{Min: image.Point{0, 0}, Max: image.Point{5, 5}})
 
 	_, err := cf(ctx, img)
 	if err != nil {
