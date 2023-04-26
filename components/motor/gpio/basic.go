@@ -273,6 +273,13 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 		return motor.NewZeroRPMError()
 	}
 
+	switch speed := math.Abs(rpm); {
+	case speed < 0.1:
+		m.logger.Warnf("motor (%s) speed is nearly 0 rev_per_min", m.Name())
+	case speed > m.maxRPM:
+		m.logger.Warnf("motor (%s) speed exceeds the max rev_per_min (%d)", m.Name(), m.maxRPM)
+	}
+
 	powerPct, waitDur := goForMath(m.maxRPM, rpm, revolutions)
 	err := m.SetPower(ctx, powerPct, extra)
 	if err != nil {
