@@ -160,6 +160,7 @@ func (b *sysfsBoard) reconfigureSpis(newConf *Config) error {
 		b.spis[c.Name] = &spiBus{}
 		b.spis[c.Name].reset(c.BusSelect)
 	}
+
 	for name := range b.spis {
 		if _, ok := stillExists[name]; ok {
 			continue
@@ -191,6 +192,7 @@ func (b *sysfsBoard) reconfigureI2cs(newConf *Config) error {
 		}
 		b.i2cs[c.Name] = bus
 	}
+
 	for name := range b.i2cs {
 		if _, ok := stillExists[name]; ok {
 			continue
@@ -227,6 +229,7 @@ func (b *sysfsBoard) reconfigureAnalogs(ctx context.Context, newConf *Config) er
 		ar := &board.MCP3008AnalogReader{channel, bus, c.ChipSelect}
 		b.analogs[c.Name] = newWrappedAnalog(ctx, c.ChipSelect, board.SmoothAnalogReader(ar, c, b.logger))
 	}
+
 	for name := range b.analogs {
 		if _, ok := stillExists[name]; ok {
 			continue
