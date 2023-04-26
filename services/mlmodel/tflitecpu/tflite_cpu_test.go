@@ -249,6 +249,14 @@ func makeRandomSlice(length int) []int32 {
 	return out
 }
 
+func makeExampleSlice(length int) []int32 {
+	out := make([]int32, 0, length-1)
+	for i := 0; i < length-1; i++ {
+		out = append(out, int32(i))
+	}
+	return out
+}
+
 func TestTFLiteConfigWalker(t *testing.T) {
 	makeVisionAttributes := func(modelPath string, labelPath *string) *TFLiteConfig {
 		return &TFLiteConfig{
