@@ -3,6 +3,7 @@ package dimensionengineering_test
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -27,7 +28,7 @@ func checkTx(t *testing.T, resChan chan string, c chan []byte, expects []byte) {
 
 func TestSabertoothMotor(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger, obs := golog.NewObservedTestLogger(t)
 	c := make(chan []byte, 1024)
 	resChan := make(chan string, 1024)
 	deps := make(resource.Dependencies)
@@ -67,6 +68,9 @@ func TestSabertoothMotor(t *testing.T) {
 		// Test 0 (aka "stop")
 		test.That(t, motor1.SetPower(ctx, 0, nil), test.ShouldBeNil)
 		checkTx(t, resChan, c, []byte{0x80, 0x00, 0x00, 0x00})
+		allObs := obs.All()
+		latestLoggedEntry := allObs[len(allObs)-1]
+		test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly 0")
 
 		// Test 0.5 of max power
 		test.That(t, motor1.SetPower(ctx, 0.5, nil), test.ShouldBeNil)
@@ -76,9 +80,19 @@ func TestSabertoothMotor(t *testing.T) {
 		test.That(t, motor1.SetPower(ctx, -0.5, nil), test.ShouldBeNil)
 		checkTx(t, resChan, c, []byte{0x80, 0x01, 0x3f, 0x40})
 
+		// Test max power
+		test.That(t, motor1.SetPower(ctx, 1, nil), test.ShouldBeNil)
+		checkTx(t, resChan, c, []byte{0x80, 0x00, 0x7f, 0x7f})
+		allObs = obs.All()
+		latestLoggedEntry = allObs[len(allObs)-1]
+		test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly the max")
+
 		// Test 0 (aka "stop")
 		test.That(t, motor1.SetPower(ctx, 0, nil), test.ShouldBeNil)
 		checkTx(t, resChan, c, []byte{0x80, 0x00, 0x00, 0x00})
+		allObs = obs.All()
+		latestLoggedEntry = allObs[len(allObs)-1]
+		test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly 0")
 	})
 
 	mc2 := dimensionengineering.Config{
@@ -110,6 +124,9 @@ func TestSabertoothMotor(t *testing.T) {
 		// Test 0 (aka "stop")
 		test.That(t, motor2.SetPower(ctx, 0, nil), test.ShouldBeNil)
 		checkTx(t, resChan, c, []byte{0x80, 0x04, 0x00, 0x04})
+		allObs := obs.All()
+		latestLoggedEntry := allObs[len(allObs)-1]
+		test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly 0")
 
 		// Test 0.5 of max power
 		test.That(t, motor2.SetPower(ctx, 0.5, nil), test.ShouldBeNil)
@@ -119,15 +136,25 @@ func TestSabertoothMotor(t *testing.T) {
 		test.That(t, motor2.SetPower(ctx, -0.5, nil), test.ShouldBeNil)
 		checkTx(t, resChan, c, []byte{0x80, 0x05, 0x3f, 0x44})
 
+		// Test max power
+		test.That(t, motor1.SetPower(ctx, 1, nil), test.ShouldBeNil)
+		checkTx(t, resChan, c, []byte{0x80, 0x00, 0x7f, 0x7f})
+		allObs = obs.All()
+		latestLoggedEntry = allObs[len(allObs)-1]
+		test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly the max")
+
 		// Test 0 (aka "stop")
 		test.That(t, motor2.SetPower(ctx, 0, nil), test.ShouldBeNil)
 		checkTx(t, resChan, c, []byte{0x80, 0x04, 0x00, 0x04})
+		allObs = obs.All()
+		latestLoggedEntry = allObs[len(allObs)-1]
+		test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly 0")
 	})
 }
 
 func TestSabertoothMotorDirectionFlip(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger, obs := golog.NewObservedTestLogger(t)
 	c := make(chan []byte, 1024)
 	resChan := make(chan string, 1024)
 	deps := make(resource.Dependencies)
@@ -160,6 +187,9 @@ func TestSabertoothMotorDirectionFlip(t *testing.T) {
 		// Test 0 (aka "stop")
 		test.That(t, motor1.SetPower(ctx, 0, nil), test.ShouldBeNil)
 		checkTx(t, resChan, c, []byte{0x80, 0x01, 0x00, 0x01})
+		allObs := obs.All()
+		latestLoggedEntry := allObs[len(allObs)-1]
+		test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly 0")
 
 		// Test 0.5 of max power
 		test.That(t, motor1.SetPower(ctx, 0.5, nil), test.ShouldBeNil)
@@ -169,9 +199,19 @@ func TestSabertoothMotorDirectionFlip(t *testing.T) {
 		test.That(t, motor1.SetPower(ctx, -0.5, nil), test.ShouldBeNil)
 		checkTx(t, resChan, c, []byte{0x80, 0x00, 0x3f, 0x3f})
 
+		// Test max power
+		test.That(t, motor1.SetPower(ctx, 1, nil), test.ShouldBeNil)
+		checkTx(t, resChan, c, []byte{0x80, 0x01, 0x7f, 0x00})
+		allObs = obs.All()
+		latestLoggedEntry = allObs[len(allObs)-1]
+		test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly the max")
+
 		// Test 0 (aka "stop")
 		test.That(t, motor1.SetPower(ctx, 0, nil), test.ShouldBeNil)
 		checkTx(t, resChan, c, []byte{0x80, 0x01, 0x00, 0x01})
+		allObs = obs.All()
+		latestLoggedEntry = allObs[len(allObs)-1]
+		test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly 0")
 	})
 
 	mc2 := dimensionengineering.Config{
@@ -203,6 +243,9 @@ func TestSabertoothMotorDirectionFlip(t *testing.T) {
 		// Test 0 (aka "stop")
 		test.That(t, motor2.SetPower(ctx, 0, nil), test.ShouldBeNil)
 		checkTx(t, resChan, c, []byte{0x80, 0x05, 0x00, 0x05})
+		allObs := obs.All()
+		latestLoggedEntry := allObs[len(allObs)-1]
+		test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly 0")
 
 		// Test 0.5 of max power
 		test.That(t, motor2.SetPower(ctx, 0.5, nil), test.ShouldBeNil)
@@ -212,9 +255,19 @@ func TestSabertoothMotorDirectionFlip(t *testing.T) {
 		test.That(t, motor2.SetPower(ctx, -0.5, nil), test.ShouldBeNil)
 		checkTx(t, resChan, c, []byte{0x80, 0x04, 0x3f, 0x43})
 
+		// Test max power
+		test.That(t, motor1.SetPower(ctx, 1, nil), test.ShouldBeNil)
+		checkTx(t, resChan, c, []byte{0x80, 0x01, 0x7f, 0x00})
+		allObs = obs.All()
+		latestLoggedEntry = allObs[len(allObs)-1]
+		test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly the max")
+
 		// Test 0 (aka "stop")
 		test.That(t, motor2.SetPower(ctx, 0, nil), test.ShouldBeNil)
 		checkTx(t, resChan, c, []byte{0x80, 0x05, 0x00, 0x05})
+		allObs = obs.All()
+		latestLoggedEntry = allObs[len(allObs)-1]
+		test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly 0")
 	})
 }
 

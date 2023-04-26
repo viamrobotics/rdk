@@ -2,6 +2,7 @@ package gpio
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -36,7 +37,7 @@ func (f *fakeDirectionAware) DirectionMoving() int64 {
 
 func TestMotorEncoder1(t *testing.T) {
 	t.Skip()
-	logger := golog.NewTestLogger(t)
+	logger, obs := golog.NewObservedTestLogger(t)
 	undo := SetRPMSleepDebug(1, false)
 	defer undo()
 
@@ -90,6 +91,18 @@ func TestMotorEncoder1(t *testing.T) {
 
 	t.Run("encoded motor cannot go at 0 RPM", func(t *testing.T) {
 		test.That(t, motorDep.GoFor(context.Background(), 0, 1, nil), test.ShouldBeError, motor.NewZeroRPMError())
+		allObs := obs.All()
+		latestLoggedEntry := allObs[len(allObs)-1]
+		fmt.Println(latestLoggedEntry)
+		test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly 0")
+	})
+
+	t.Run("encoded motor warning at max RPM", func(t *testing.T) {
+		test.That(t, motorDep.GoFor(context.Background(), 100, 1, nil), test.ShouldBeNil)
+		allObs := obs.All()
+		latestLoggedEntry := allObs[len(allObs)-1]
+		fmt.Println(latestLoggedEntry)
+		test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly the max")
 	})
 
 	t.Run("encoded motor testing SetPower interrupt GoFor", func(t *testing.T) {
@@ -278,7 +291,7 @@ func TestMotorEncoder1(t *testing.T) {
 
 func TestMotorEncoderIncremental(t *testing.T) {
 	// t.Skip()
-	logger := golog.NewTestLogger(t)
+	logger, obs := golog.NewObservedTestLogger(t)
 	undo := SetRPMSleepDebug(1, false)
 	defer undo()
 
@@ -560,6 +573,18 @@ func TestMotorEncoderIncremental(t *testing.T) {
 		err = motor.goForInternal(context.Background(), -100, 1)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, realMotor.Direction(), test.ShouldEqual, -1)
+
+		test.That(t, motor.goForInternal(context.Background(), 0, 1), test.ShouldNotBeNil)
+		allObs := obs.All()
+		latestLoggedEntry := allObs[len(allObs)-3]
+		fmt.Println(latestLoggedEntry)
+		test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly 0")
+
+		test.That(t, motor.goForInternal(context.Background(), 100, 1), test.ShouldBeNil)
+		allObs = obs.All()
+		latestLoggedEntry = allObs[len(allObs)-3]
+		fmt.Println(latestLoggedEntry)
+		test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly the max")
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()

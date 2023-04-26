@@ -2,6 +2,7 @@ package fake
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -39,7 +40,7 @@ func TestMotorInit(t *testing.T) {
 }
 
 func TestGoFor(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger, obs := golog.NewObservedTestLogger(t)
 	ctx := context.Background()
 
 	enc, err := fake.NewEncoder(context.Background(), resource.Config{
@@ -55,9 +56,16 @@ func TestGoFor(t *testing.T) {
 	}
 
 	err = m.GoFor(ctx, 0, 1, nil)
+	allObs := obs.All()
+	latestLoggedEntry := allObs[len(allObs)-1]
+	test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly 0")
 	test.That(t, err, test.ShouldBeError, motor.NewZeroRPMError())
+
 	err = m.GoFor(ctx, 60, 1, nil)
 	test.That(t, err, test.ShouldBeNil)
+	allObs = obs.All()
+	latestLoggedEntry = allObs[1]
+	test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly the max")
 
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
@@ -68,7 +76,7 @@ func TestGoFor(t *testing.T) {
 }
 
 func TestGoTo(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger, obs := golog.NewObservedTestLogger(t)
 	ctx := context.Background()
 
 	enc, err := fake.NewEncoder(context.Background(), resource.Config{
@@ -85,6 +93,15 @@ func TestGoTo(t *testing.T) {
 
 	err = m.GoTo(ctx, 60, 1, nil)
 	test.That(t, err, test.ShouldBeNil)
+	allObs := obs.All()
+	latestLoggedEntry := allObs[0]
+	test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly the max")
+
+	err = m.GoTo(ctx, 0, 1, nil)
+	test.That(t, err, test.ShouldBeNil)
+	allObs = obs.All()
+	latestLoggedEntry = allObs[3]
+	test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly 0")
 
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
