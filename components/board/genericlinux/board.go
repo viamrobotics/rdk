@@ -132,26 +132,9 @@ func (b *sysfsBoard) Reconfigure(
 		}
 	}
 
-	stillExists := map[string]struct{}{}
-	for _, c := range newConf.SPIs {
-		stillExists[c.Name] = struct{}{}
-		if curr, ok := b.spis[c.Name]; ok {
-			if busPtr := curr.bus.Load(); busPtr != nil && *busPtr != c.BusSelect {
-				curr.reset(c.BusSelect)
-			}
-			continue
-		}
-		b.spis[c.Name] = &spiBus{}
-		b.spis[c.Name].reset(c.BusSelect)
-	}
-	for name := range b.spis {
-		if _, ok := stillExists[name]; ok {
-			continue
-		}
-		delete(b.spis, name)
-	}
-	stillExists = map[string]struct{}{}
+	b.reconfigureSpis(newConf)
 
+	stillExists := map[string]struct{}{}
 	for _, c := range newConf.I2Cs {
 		stillExists[c.Name] = struct{}{}
 		if curr, ok := b.i2cs[c.Name]; ok {
@@ -230,6 +213,27 @@ func (b *sysfsBoard) Reconfigure(
 		b.interrupts = interrupts
 	}
 	return nil
+}
+
+func (b *sysfsBoard) reconfigureSpis(newConf *Config) {
+	stillExists := map[string]struct{}{}
+	for _, c := range newConf.SPIs {
+		stillExists[c.Name] = struct{}{}
+		if curr, ok := b.spis[c.Name]; ok {
+			if busPtr := curr.bus.Load(); busPtr != nil && *busPtr != c.BusSelect {
+				curr.reset(c.BusSelect)
+			}
+			continue
+		}
+		b.spis[c.Name] = &spiBus{}
+		b.spis[c.Name].reset(c.BusSelect)
+	}
+	for name := range b.spis {
+		if _, ok := stillExists[name]; ok {
+			continue
+		}
+		delete(b.spis, name)
+	}
 }
 
 type wrappedAnalog struct {
