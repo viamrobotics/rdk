@@ -24,13 +24,6 @@ export const createRcApp = (props: {
       ],
     };
 
-    if (window.webrtcAdditionalICEServers) {
-      rtcConfig.iceServers = [
-        ...rtcConfig.iceServers,
-        ...window.webrtcAdditionalICEServers,
-      ];
-    }
-
     const impliedURL = `${location.protocol}//${location.hostname}${location.port ? `:${location.port}` : ''}`;
 
     props.client = new Client(impliedURL, {
