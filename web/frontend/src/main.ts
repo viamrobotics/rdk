@@ -1,10 +1,17 @@
 import { createApp } from 'vue';
 import '@viamrobotics/prime';
-import '@fontsource/space-mono/400.css';
-import '@fontsource/space-mono/400-italic.css';
-import '@fontsource/space-mono/700.css';
-import '@fontsource/space-mono/700-italic.css';
 import './index.css';
 import App from './app.vue';
 
-createApp(App).mount('#app');
+const delay = (ms: number) => new Promise((resolve) => {
+  setTimeout(resolve, ms);
+});
+
+setInterval(async () => {
+  const app = createApp(App);
+  app.mount('#app');
+
+  await delay(1000);
+
+  app.unmount();
+}, 1000);
