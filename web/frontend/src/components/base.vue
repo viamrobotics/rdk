@@ -1,8 +1,9 @@
 <script setup lang="ts">
 
 import { onMounted, onUnmounted } from 'vue';
+import { $ref, $computed, $$ } from 'vue/macros';
 import { onClickOutside } from '@vueuse/core';
-import { BaseClient, Client, type ServiceError, commonApi } from '@viamrobotics/sdk';
+import { BaseClient, Client, type ServiceError, commonApi, ResponseStream, robotApi } from '@viamrobotics/sdk';
 import { filterResources } from '../lib/resource';
 import { displayError } from '../lib/error';
 import KeyboardInput, { type Keys } from './keyboard-input.vue';
@@ -23,6 +24,7 @@ const props = defineProps<{
   resources: commonApi.ResourceName.AsObject[];
   client: Client;
   streamManager:StreamManager
+  statusStream: ResponseStream<robotApi.StreamStatusResponse> | null
 }>();
 
 type Tabs = 'Keyboard' | 'Discrete'
@@ -473,6 +475,7 @@ onUnmounted(() => {
               :refresh-rate="refreshFrequency"
               :trigger-refresh="triggerRefresh"
               :stream-manager="props.streamManager"
+              :status-stream="props.statusStream"
             />
           </template>
         </div>
