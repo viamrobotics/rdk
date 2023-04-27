@@ -41,6 +41,3 @@ func TestWorldStateConstruction(t *testing.T) {
 	_, err = NewWorldState([]*GeometriesInFrame{NewGeometriesInFrame("", []spatialmath.Geometry{noname, unnamed})}, nil)
 	test.That(t, err, test.ShouldBeNil)
 }
-
-func TestWorldStateProtoConversions(t *testing.T) {
-}
