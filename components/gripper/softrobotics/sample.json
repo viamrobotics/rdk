@@ -7,7 +7,9 @@
             "attributes": {
                 "open": "40",
                 "close": "38",
-                "power": "36"
+                "power": "36",
+                "board": "local",
+                "analog_reader": "psi"
             }
         },
         {
