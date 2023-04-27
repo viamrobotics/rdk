@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted } from 'vue';
+import { $ref } from 'vue/macros';
 import { grpc } from '@improbable-eng/grpc-web';
-import { Client, encoderApi, type ServiceError } from '@viamrobotics/sdk';
+import { Client, encoderApi, ResponseStream, robotApi, type ServiceError } from '@viamrobotics/sdk';
 import { displayError } from '../lib/error';
 import { rcLogConditionally } from '../lib/log';
 
 const props = defineProps<{
   name: string
   client: Client
+  statusStream: ResponseStream<robotApi.StreamStatusResponse> | null
 }>();
 
 let properties = $ref<encoderApi.GetPropertiesResponse.AsObject | undefined>();
@@ -52,12 +54,12 @@ const refresh = () => {
   refreshId = window.setTimeout(refresh, 500);
 };
 
-const reset = async () => {
+const reset = () => {
   const req = new encoderApi.ResetPositionRequest();
   req.setName(props.name);
 
   rcLogConditionally(req);
-  await props.client.encoderService.resetPosition(
+  props.client.encoderService.resetPosition(
     req,
     new grpc.Metadata(),
     (error: ServiceError | null) => {
@@ -68,13 +70,13 @@ const reset = async () => {
   );
 };
 
-onMounted(async () => {
+onMounted(() => {
   try {
     const req = new encoderApi.GetPropertiesRequest();
     req.setName(props.name);
 
     rcLogConditionally(req);
-    await props.client.encoderService.getProperties(
+    props.client.encoderService.getProperties(
       req,
       new grpc.Metadata(),
       (error: ServiceError | null, resp: encoderApi.GetPropertiesResponse | null) => {
@@ -83,6 +85,7 @@ onMounted(async () => {
             refreshId = window.setTimeout(refresh, 500);
             return;
           }
+
           return displayError(error as ServiceError);
         }
         properties = resp!.toObject();
@@ -92,6 +95,8 @@ onMounted(async () => {
   } catch (error) {
     displayError(error as ServiceError);
   }
+
+  props.statusStream?.on('end', () => clearTimeout(refreshId));
 });
 
 onUnmounted(() => {

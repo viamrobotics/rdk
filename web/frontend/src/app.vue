@@ -1,6 +1,5 @@
 <!-- eslint-disable require-atomic-updates -->
 <script setup lang="ts">
-import { Client } from '@viamrobotics/sdk';
 import RemoteControlCards from './components/remote-control-cards.vue';
 
 const {
@@ -11,22 +10,6 @@ const {
   webrtcSignalingAddress,
 } = window;
 
-const rtcConfig = {
-  iceServers: [
-    {
-      urls: 'stun:global.stun.twilio.com:3478',
-    },
-  ],
-};
-
-const impliedURL = `${location.protocol}//${location.hostname}${location.port ? `:${location.port}` : ''}`;
-const client = new Client(impliedURL, {
-  enabled: webrtcEnabled,
-  host,
-  signalingAddress: webrtcSignalingAddress,
-  rtcConfig,
-});
-
 </script>
 
 <template>
@@ -35,8 +18,7 @@ const client = new Client(impliedURL, {
     :baked-auth="bakedAuth"
     :supported-auth-types="supportedAuthTypes"
     :webrtc-enabled="webrtcEnabled"
-    :client="client"
-    manage-client-connection
+    :signaling-address="webrtcSignalingAddress"
   />
 </template>
 
