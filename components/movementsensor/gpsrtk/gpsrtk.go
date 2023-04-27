@@ -120,11 +120,11 @@ func (cfg *NtripConfig) ValidateNtrip(path string) error {
 	return nil
 }
 
-var roverModel = resource.NewDefaultModel("gps-rtk")
+var roverModel = resource.DefaultModelFamily.WithModel("gps-rtk")
 
 func init() {
 	resource.RegisterComponent(
-		movementsensor.Subtype,
+		movementsensor.API,
 		roverModel,
 		resource.Registration[movementsensor.MovementSensor, *Config]{
 			Constructor: newRTKMovementSensor,

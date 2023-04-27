@@ -21,7 +21,7 @@ import (
 )
 
 var (
-	fakeModel = resource.NewDefaultModel("fake")
+	fakeModel = resource.DefaultModelFamily.WithModel("fake")
 	extModel  = resource.NewModel("acme", "test", "model")
 )
 
@@ -45,31 +45,28 @@ func TestDiffConfigs(t *testing.T) {
 		},
 		Components: []resource.Config{
 			{
-				DeprecatedNamespace: resource.ResourceNamespaceRDK,
-				Name:                "arm1",
-				DeprecatedSubtype:   arm.SubtypeName,
-				API:                 arm.Subtype,
-				Model:               fakeModel,
+				Name: "arm1",
+
+				API:   arm.API,
+				Model: fakeModel,
 				Attributes: utils.AttributeMap{
 					"one": float64(1),
 				},
 			},
 			{
-				DeprecatedNamespace: resource.ResourceNamespaceRDK,
-				Name:                "base1",
-				DeprecatedSubtype:   base.SubtypeName,
-				API:                 base.Subtype,
-				Model:               fakeModel,
+				Name: "base1",
+
+				API:   base.API,
+				Model: fakeModel,
 				Attributes: utils.AttributeMap{
 					"two": float64(2),
 				},
 			},
 			{
-				DeprecatedNamespace: resource.ResourceNamespaceRDK,
-				Name:                "board1",
-				Model:               fakeModel,
-				DeprecatedSubtype:   board.SubtypeName,
-				API:                 board.Subtype,
+				Name:  "board1",
+				Model: fakeModel,
+
+				API: board.API,
 				ConvertedAttributes: &fakeboard.Config{
 					Analogs: []board.AnalogConfig{
 						{
@@ -120,31 +117,28 @@ func TestDiffConfigs(t *testing.T) {
 		},
 		Components: []resource.Config{
 			{
-				DeprecatedNamespace: resource.ResourceNamespaceRDK,
-				Name:                "arm1",
-				DeprecatedSubtype:   arm.SubtypeName,
-				API:                 arm.Subtype,
-				Model:               fakeModel,
+				Name: "arm1",
+
+				API:   arm.API,
+				Model: fakeModel,
 				Attributes: utils.AttributeMap{
 					"two": float64(2),
 				},
 			},
 			{
-				DeprecatedNamespace: resource.ResourceNamespaceRDK,
-				Name:                "base1",
-				DeprecatedSubtype:   base.SubtypeName,
-				API:                 base.Subtype,
-				Model:               extModel,
+				Name: "base1",
+
+				API:   base.API,
+				Model: extModel,
 				Attributes: utils.AttributeMap{
 					"three": float64(3),
 				},
 			},
 			{
-				DeprecatedNamespace: resource.ResourceNamespaceRDK,
-				Name:                "board1",
-				Model:               fakeModel,
-				DeprecatedSubtype:   board.SubtypeName,
-				API:                 board.Subtype,
+				Name:  "board1",
+				Model: fakeModel,
+
+				API: board.API,
 				ConvertedAttributes: &fakeboard.Config{
 					Analogs: []board.AnalogConfig{
 						{
@@ -250,18 +244,16 @@ func TestDiffConfigs(t *testing.T) {
 				Added: &config.Config{
 					Components: []resource.Config{
 						{
-							DeprecatedNamespace: resource.ResourceNamespaceRDK,
-							Name:                "base2",
-							DeprecatedSubtype:   base.SubtypeName,
-							API:                 base.Subtype,
-							Model:               fakeModel,
+							Name: "base2",
+
+							API:   base.API,
+							Model: fakeModel,
 						},
 						{
-							DeprecatedNamespace: resource.ResourceNamespaceRDK,
-							Name:                "board2",
-							DeprecatedSubtype:   board.SubtypeName,
-							API:                 board.Subtype,
-							Model:               fakeModel,
+							Name: "board2",
+
+							API:   board.API,
+							Model: fakeModel,
 							ConvertedAttributes: &fakeboard.Config{
 								DigitalInterrupts: []board.DigitalInterruptConfig{{Name: "encoder2", Pin: "16"}},
 							},
@@ -289,21 +281,19 @@ func TestDiffConfigs(t *testing.T) {
 					},
 					Components: []resource.Config{
 						{
-							DeprecatedNamespace: resource.ResourceNamespaceRDK,
-							Name:                "arm1",
-							DeprecatedSubtype:   arm.SubtypeName,
-							API:                 arm.Subtype,
-							Model:               extModel,
+							Name: "arm1",
+
+							API:   arm.API,
+							Model: extModel,
 							Attributes: utils.AttributeMap{
 								"two": float64(2),
 							},
 						},
 						{
-							DeprecatedNamespace: resource.ResourceNamespaceRDK,
-							Name:                "board1",
-							DeprecatedSubtype:   board.SubtypeName,
-							API:                 board.Subtype,
-							Model:               fakeModel,
+							Name: "board1",
+
+							API:   board.API,
+							Model: fakeModel,
 							ConvertedAttributes: &fakeboard.Config{
 								Analogs: []board.AnalogConfig{{Name: "analog1", Pin: "1"}},
 							},
@@ -327,11 +317,10 @@ func TestDiffConfigs(t *testing.T) {
 					},
 					Components: []resource.Config{
 						{
-							DeprecatedNamespace: resource.ResourceNamespaceRDK,
-							Name:                "base1",
-							DeprecatedSubtype:   base.SubtypeName,
-							API:                 base.Subtype,
-							Model:               fakeModel,
+							Name: "base1",
+
+							API:   base.API,
+							Model: fakeModel,
 							Attributes: utils.AttributeMap{
 								"two": float64(2),
 							},
@@ -645,7 +634,7 @@ func modifiedConfigDiffValidate(c *config.ModifiedConfigDiff) error {
 	}
 
 	for idx := 0; idx < len(c.Components); idx++ {
-		dependsOn, err := c.Components[idx].Validate(fmt.Sprintf("%s.%d", "components", idx), resource.ResourceTypeComponent)
+		dependsOn, err := c.Components[idx].Validate(fmt.Sprintf("%s.%d", "components", idx), resource.APITypeComponentName)
 		if err != nil {
 			return err
 		}
@@ -659,7 +648,7 @@ func modifiedConfigDiffValidate(c *config.ModifiedConfigDiff) error {
 	}
 
 	for idx := 0; idx < len(c.Services); idx++ {
-		dependsOn, err := c.Services[idx].Validate(fmt.Sprintf("%s.%d", "services", idx), resource.ResourceTypeService)
+		dependsOn, err := c.Services[idx].Validate(fmt.Sprintf("%s.%d", "services", idx), resource.APITypeServiceName)
 		if err != nil {
 			return err
 		}

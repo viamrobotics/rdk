@@ -24,7 +24,7 @@ import (
 
 func init() {
 	resource.RegisterDefaultService(
-		motion.Subtype,
+		motion.API,
 		resource.DefaultServiceModel,
 		resource.Registration[motion.Service, resource.NoNativeConfig]{
 			DeprecatedRobotConstructor: func(

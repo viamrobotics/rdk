@@ -102,7 +102,7 @@ func setup(t *testing.T) *setupResult {
 		},
 	}
 
-	inputReg, ok := resource.LookupRegistration(input.Subtype, resource.NewDefaultModel("gpio"))
+	inputReg, ok := resource.LookupRegistration(input.API, resource.DefaultModelFamily.WithModel("gpio"))
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, inputReg, test.ShouldNotBeNil)
 

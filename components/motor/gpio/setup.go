@@ -14,7 +14,7 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-var model = resource.NewDefaultModel("gpio")
+var model = resource.DefaultModelFamily.WithModel("gpio")
 
 // PinConfig defines the mapping of where motor are wired.
 type PinConfig struct {
@@ -65,7 +65,7 @@ func (conf *Config) Validate(path string) ([]string, error) {
 
 // init registers a pi motor based on pigpio.
 func init() {
-	resource.RegisterComponent(motor.Subtype, model, resource.Registration[motor.Motor, *Config]{
+	resource.RegisterComponent(motor.API, model, resource.Registration[motor.Motor, *Config]{
 		Constructor: createNewMotor,
 	})
 }

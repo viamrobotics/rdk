@@ -14,7 +14,7 @@ import (
 )
 
 func init() {
-	resource.RegisterSubtype(Subtype, resource.SubtypeRegistration[PoseTracker]{
+	resource.RegisterAPI(API, resource.APIRegistration[PoseTracker]{
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           pb.RegisterPoseTrackerServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &pb.PoseTrackerService_ServiceDesc,
@@ -22,19 +22,15 @@ func init() {
 	})
 }
 
-// SubtypeName is a constant that identifies the component resource subtype string "posetracker".
-const SubtypeName = resource.SubtypeName("pose_tracker")
+// SubtypeName is a constant that identifies the component resource API string "posetracker".
+const SubtypeName = "pose_tracker"
 
-// Subtype is a constant that identifies the component resource subtype.
-var Subtype = resource.NewSubtype(
-	resource.ResourceNamespaceRDK,
-	resource.ResourceTypeComponent,
-	SubtypeName,
-)
+// API is a variable that identifies the component resource API.
+var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 
 // Named is a helper for getting the named PoseTracker's typed resource name.
 func Named(name string) resource.Name {
-	return resource.NameFromSubtype(Subtype, name)
+	return resource.NewName(API, name)
 }
 
 // BodyToPoseInFrame represents a map of body names to PoseInFrames.

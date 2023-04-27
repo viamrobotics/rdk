@@ -42,7 +42,7 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
-var model = resource.NewDefaultModel("imu-wit")
+var model = resource.DefaultModelFamily.WithModel("imu-wit")
 
 var baudRateList = [...]uint{115200, 9600, 0}
 
@@ -74,7 +74,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 }
 
 func init() {
-	resource.RegisterComponent(movementsensor.Subtype, model, resource.Registration[movementsensor.MovementSensor, *Config]{
+	resource.RegisterComponent(movementsensor.API, model, resource.Registration[movementsensor.MovementSensor, *Config]{
 		Constructor: NewWit,
 	})
 }

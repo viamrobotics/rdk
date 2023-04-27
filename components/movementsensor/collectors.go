@@ -13,7 +13,7 @@ import (
 func assertMovementSensor(resource interface{}) (MovementSensor, error) {
 	ms, ok := resource.(MovementSensor)
 	if !ok {
-		return nil, data.InvalidInterfaceErr(SubtypeName)
+		return nil, data.InvalidInterfaceErr(API)
 	}
 	return ms, nil
 }
@@ -22,7 +22,7 @@ type lowLevelCollector func(ctx context.Context, ms MovementSensor) (interface{}
 
 func registerCollector(name string, f lowLevelCollector) {
 	data.RegisterCollector(data.MethodMetadata{
-		Subtype:    Subtype,
+		API:        API,
 		MethodName: name,
 	}, func(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 		ms, err := assertMovementSensor(resource)

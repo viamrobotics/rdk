@@ -37,7 +37,7 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
-var model = resource.NewDefaultModel("gyro-mpu6050")
+var model = resource.DefaultModelFamily.WithModel("gyro-mpu6050")
 
 const (
 	defaultAddressRegister = 117
@@ -68,7 +68,7 @@ func (conf *Config) Validate(path string) ([]string, error) {
 }
 
 func init() {
-	resource.RegisterComponent(movementsensor.Subtype, model, resource.Registration[movementsensor.MovementSensor, *Config]{
+	resource.RegisterComponent(movementsensor.API, model, resource.Registration[movementsensor.MovementSensor, *Config]{
 		Constructor: NewMpu6050,
 	})
 }
@@ -276,8 +276,8 @@ func toLinearAcceleration(data []byte) r3.Vector {
 	y := int(rutils.Int16FromBytesBE(data[2:4]))
 	z := int(rutils.Int16FromBytesBE(data[4:6]))
 
-	// The scale is +/- 2G's, but our units should be mm/sec/sec.
-	maxAcceleration := 2.0 * 9.81 /* m/sec/sec */ * 1000.0 /* mm/m */
+	// The scale is +/- 2G's, but our units should be m/sec/sec.
+	maxAcceleration := 2.0 * 9.81 /* m/sec/sec */
 	return r3.Vector{
 		X: setScale(x, maxAcceleration),
 		Y: setScale(y, maxAcceleration),

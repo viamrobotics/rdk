@@ -140,7 +140,7 @@ const setPWMFrequency = async () => {
                 @click="getGPIO"
               />
               <v-button
-                label="Get PWM"
+                label="Get PWM Duty Cycle"
                 @click="getPWM"
               />
               <v-button
@@ -179,13 +179,13 @@ const setPWMFrequency = async () => {
               />
               <v-input
                 v-model="pwm"
-                label="PWM"
+                label="PWM Duty Cycle"
                 type="number"
                 class="mr-2"
               />
               <v-button
                 class="mr-2"
-                label="Set PWM"
+                label="Set PWM Duty Cycle"
                 @click="setPWM"
               />
               <v-input

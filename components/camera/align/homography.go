@@ -19,11 +19,11 @@ import (
 	"go.viam.com/rdk/rimage/transform"
 )
 
-var homographyModel = resource.NewDefaultModel("align_color_depth_homography")
+var homographyModel = resource.DefaultModelFamily.WithModel("align_color_depth_homography")
 
 //nolint:dupl
 func init() {
-	resource.RegisterComponent(camera.Subtype, homographyModel,
+	resource.RegisterComponent(camera.API, homographyModel,
 		resource.Registration[camera.Camera, *homographyConfig]{
 			Constructor: func(ctx context.Context, deps resource.Dependencies,
 				conf resource.Config, logger golog.Logger,

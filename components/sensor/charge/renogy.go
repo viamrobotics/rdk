@@ -25,7 +25,7 @@ const (
 	modbusIDDefault = 1
 )
 
-var modelname = resource.NewDefaultModel("renogy")
+var model = resource.DefaultModelFamily.WithModel("renogy")
 
 // Config is used for converting config attributes.
 type Config struct {
@@ -63,8 +63,8 @@ type Charge struct {
 
 func init() {
 	resource.RegisterComponent(
-		sensor.Subtype,
-		modelname,
+		sensor.API,
+		model,
 		resource.Registration[sensor.Sensor, *Config]{
 			Constructor: func(
 				ctx context.Context,

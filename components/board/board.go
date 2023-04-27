@@ -8,10 +8,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/edaniels/golog"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/board/v1"
-	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/resource"
@@ -19,40 +17,34 @@ import (
 )
 
 func init() {
-	resource.RegisterSubtype(Subtype, resource.SubtypeRegistration[Board]{
+	resource.RegisterAPI(API, resource.APIRegistration[Board]{
 		Status: func(ctx context.Context, b Board) (interface{}, error) {
 			return b.Status(ctx, nil)
 		},
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           pb.RegisterBoardServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &pb.BoardService_ServiceDesc,
-		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (Board, error) {
-			return NewClientFromConn(ctx, conn, name, logger), nil
-		},
+		RPCClient:                   NewClientFromConn,
 	})
 	data.RegisterCollector(data.MethodMetadata{
-		Subtype:    Subtype,
+		API:        API,
 		MethodName: analogs.String(),
 	}, newAnalogCollector)
 	data.RegisterCollector(data.MethodMetadata{
-		Subtype:    Subtype,
+		API:        API,
 		MethodName: gpios.String(),
 	}, newGPIOCollector)
 }
 
-// SubtypeName is a constant that identifies the component resource subtype string "board".
-const SubtypeName = resource.SubtypeName("board")
+// SubtypeName is a constant that identifies the component resource API string "board".
+const SubtypeName = "board"
 
-// Subtype is a constant that identifies the component resource subtype.
-var Subtype = resource.NewSubtype(
-	resource.ResourceNamespaceRDK,
-	resource.ResourceTypeComponent,
-	SubtypeName,
-)
+// API is a variable that identifies the component resource API.
+var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 
 // Named is a helper for getting the named board's typed resource name.
 func Named(name string) resource.Name {
-	return resource.NameFromSubtype(Subtype, name)
+	return resource.NewName(API, name)
 }
 
 // A Board represents a physical general purpose board that contains various
@@ -168,5 +160,5 @@ func FromRobot(r robot.Robot, name string) (Board, error) {
 
 // NamesFromRobot is a helper for getting all board names from the given Robot.
 func NamesFromRobot(r robot.Robot) []string {
-	return robot.NamesBySubtype(r, Subtype)
+	return robot.NamesByAPI(r, API)
 }

@@ -60,7 +60,7 @@ func TestInitializationFailureOnChipCommunication(t *testing.T) {
 		cfg := resource.Config{
 			Name:  "movementsensor",
 			Model: model,
-			API:   movementsensor.Subtype,
+			API:   movementsensor.API,
 			ConvertedAttributes: &Config{
 				BoardName: testBoardName,
 				I2cBus:    i2cName,
@@ -84,7 +84,7 @@ func TestInitializationFailureOnChipCommunication(t *testing.T) {
 			return i2c, true
 		}
 		deps := resource.Dependencies{
-			resource.NameFromSubtype(board.Subtype, testBoardName): mockBoard,
+			resource.NewName(board.API, testBoardName): mockBoard,
 		}
 		sensor, err := NewMpu6050(context.Background(), deps, cfg, logger)
 		test.That(t, err, test.ShouldNotBeNil)
@@ -96,7 +96,7 @@ func TestInitializationFailureOnChipCommunication(t *testing.T) {
 		cfg := resource.Config{
 			Name:  "movementsensor",
 			Model: model,
-			API:   movementsensor.Subtype,
+			API:   movementsensor.API,
 			ConvertedAttributes: &Config{
 				BoardName:              testBoardName,
 				I2cBus:                 i2cName,
@@ -120,7 +120,7 @@ func TestInitializationFailureOnChipCommunication(t *testing.T) {
 			return i2c, true
 		}
 		deps := resource.Dependencies{
-			resource.NameFromSubtype(board.Subtype, testBoardName): mockBoard,
+			resource.NewName(board.API, testBoardName): mockBoard,
 		}
 		sensor, err := NewMpu6050(context.Background(), deps, cfg, logger)
 		test.That(t, err, test.ShouldNotBeNil)
@@ -137,7 +137,7 @@ func TestSuccessfulInitializationAndClose(t *testing.T) {
 	cfg := resource.Config{
 		Name:  "movementsensor",
 		Model: model,
-		API:   movementsensor.Subtype,
+		API:   movementsensor.API,
 		ConvertedAttributes: &Config{
 			BoardName:              testBoardName,
 			I2cBus:                 i2cName,
@@ -169,7 +169,7 @@ func TestSuccessfulInitializationAndClose(t *testing.T) {
 		return i2c, true
 	}
 	deps := resource.Dependencies{
-		resource.NameFromSubtype(board.Subtype, testBoardName): mockBoard,
+		resource.NewName(board.API, testBoardName): mockBoard,
 	}
 	sensor, err := NewMpu6050(context.Background(), deps, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -185,7 +185,7 @@ func setupDependencies(mockData []byte) (resource.Config, resource.Dependencies)
 	cfg := resource.Config{
 		Name:  "movementsensor",
 		Model: model,
-		API:   movementsensor.Subtype,
+		API:   movementsensor.API,
 		ConvertedAttributes: &Config{
 			BoardName:              testBoardName,
 			I2cBus:                 i2cName,
@@ -213,7 +213,7 @@ func setupDependencies(mockData []byte) (resource.Config, resource.Dependencies)
 		return i2c, true
 	}
 	return cfg, resource.Dependencies{
-		resource.NameFromSubtype(board.Subtype, testBoardName): mockBoard,
+		resource.NewName(board.API, testBoardName): mockBoard,
 	}
 }
 
@@ -226,15 +226,15 @@ func TestLinearAcceleration(t *testing.T) {
 	// x-accel
 	linearAccelMockData[0] = 64
 	linearAccelMockData[1] = 0
-	expectedAccelX := 9810.0
+	expectedAccelX := 9.81
 	// y-accel
 	linearAccelMockData[2] = 32
 	linearAccelMockData[3] = 0
-	expectedAccelY := 4905.0
+	expectedAccelY := 4.905
 	// z-accel
 	linearAccelMockData[4] = 16
 	linearAccelMockData[5] = 0
-	expectedAccelZ := 2452.5
+	expectedAccelZ := 2.4525
 
 	logger := golog.NewTestLogger(t)
 	cfg, deps := setupDependencies(linearAccelMockData)

@@ -7,7 +7,7 @@ import (
 )
 
 func TestDependencyTypeError(t *testing.T) {
-	name := NewName("foo", "bar", "baz", "bark")
+	name := NewName(APINamespace("foo").WithType("bar").WithSubtype("baz"), "bark")
 	test.That(t,
 		DependencyTypeError[someRes1](name, someRes2{}).Error(),
 		test.ShouldContainSubstring,

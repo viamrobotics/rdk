@@ -19,8 +19,8 @@ import (
 
 func init() {
 	resource.RegisterComponent(
-		base.Subtype,
-		resource.NewDefaultModel("fake"),
+		base.API,
+		resource.DefaultModelFamily.WithModel("fake"),
 		resource.Registration[base.Base, resource.NoNativeConfig]{
 			Constructor: func(
 				ctx context.Context,
@@ -116,8 +116,8 @@ func (b *Base) WrapWithKinematics(ctx context.Context, slamSvc slam.Service) (ba
 	if err != nil {
 		return nil, err
 	}
-	limits := []referenceframe.Limit{{Min: dims.MinX, Max: dims.MaxX}, {Min: dims.MinZ, Max: dims.MaxZ}}
-	model, err := wheeled.Model(b.Name().ShortName(), geometry, limits)
+	limits := []referenceframe.Limit{{Min: dims.MinX, Max: dims.MaxX}, {Min: dims.MinY, Max: dims.MaxY}}
+	model, err := wheeled.MakeModelFrame(b.Name().ShortName(), geometry, limits)
 	if err != nil {
 		return nil, errors.Wrap(err, "fake base cannot be created")
 	}

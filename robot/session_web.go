@@ -19,7 +19,7 @@ import (
 	"go.viam.com/rdk/session"
 )
 
-func (m *SessionManager) safetyMonitoredTypeAndMethod(method string) (*resource.RPCSubtype, *desc.MethodDescriptor, bool) {
+func (m *SessionManager) safetyMonitoredTypeAndMethod(method string) (*resource.RPCAPI, *desc.MethodDescriptor, bool) {
 	subType, methodDesc, err := TypeAndMethodDescFromMethod(m.robot, method)
 	if err != nil {
 		return nil, nil, false
@@ -52,7 +52,7 @@ func (m *SessionManager) safetyMonitoredResourceFromUnary(req interface{}, metho
 		return resource.Name{}
 	}
 
-	_, resName, err := ResourceFromProtoMessage(m.robot, msg, subType.Subtype)
+	_, resName, err := ResourceFromProtoMessage(m.robot, msg, subType.API)
 	if err != nil {
 		m.logger.Errorw("unable to find resource", "error", err)
 		return resource.Name{}
@@ -101,7 +101,7 @@ func (m *SessionManager) safetyMonitoredResourceFromStream(
 
 	newStream := &firstMessageServerStreamWrapper{ServerStream: stream, firstMsg: firstMsg}
 
-	_, resName, err := ResourceFromProtoMessage(m.robot, firstMsg, subType.Subtype)
+	_, resName, err := ResourceFromProtoMessage(m.robot, firstMsg, subType.API)
 	if err != nil {
 		m.logger.Errorw("unable to find resource", "error", err)
 		return resource.Name{}, newStream, nil

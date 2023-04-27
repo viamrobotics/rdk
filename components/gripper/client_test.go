@@ -55,14 +55,14 @@ func TestClient(t *testing.T) {
 		return gripper.ErrStopUnimplemented
 	}
 
-	gripperSvc, err := resource.NewSubtypeCollection(
-		gripper.Subtype,
+	gripperSvc, err := resource.NewAPIResourceCollection(
+		gripper.API,
 		map[resource.Name]gripper.Gripper{gripper.Named(testGripperName): injectGripper, gripper.Named(failGripperName): injectGripper2})
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype, ok, err := resource.LookupSubtypeRegistration[gripper.Gripper](gripper.Subtype)
+	resourceAPI, ok, err := resource.LookupAPIRegistration[gripper.Gripper](gripper.API)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, gripperSvc), test.ShouldBeNil)
+	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, gripperSvc), test.ShouldBeNil)
 
 	injectGripper.DoFunc = testutils.EchoFunc
 
@@ -82,7 +82,7 @@ func TestClient(t *testing.T) {
 	t.Run("gripper client 1", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		gripper1Client, err := gripper.NewClientFromConn(context.Background(), conn, gripper.Named(testGripperName), logger)
+		gripper1Client, err := gripper.NewClientFromConn(context.Background(), conn, "", gripper.Named(testGripperName), logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		// DoCommand
@@ -115,7 +115,7 @@ func TestClient(t *testing.T) {
 	t.Run("gripper client 2", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		client2, err := resourceSubtype.RPCClient(context.Background(), conn, gripper.Named(failGripperName), logger)
+		client2, err := resourceAPI.RPCClient(context.Background(), conn, "", gripper.Named(failGripperName), logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		extra := map[string]interface{}{}

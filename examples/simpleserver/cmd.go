@@ -25,7 +25,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 	arm1Name := arm.Named("arm1")
 	cfg := resource.Config{
 		Name:  arm1Name.Name,
-		Model: resource.NewDefaultModel("ur5e"),
+		Model: resource.DefaultModelFamily.WithModel("ur5e"),
 		ConvertedAttributes: &fake.Config{
 			ArmModel: "ur5e",
 		},

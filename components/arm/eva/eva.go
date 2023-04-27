@@ -30,8 +30,8 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-// ModelName is the name of the eva model of an arm component.
-var ModelName = resource.NewDefaultModel("eva")
+// Model is the name of the eva model of an arm component.
+var Model = resource.DefaultModelFamily.WithModel("eva")
 
 // Config is used for converting config attributes.
 type Config struct {
@@ -44,7 +44,7 @@ type Config struct {
 var evamodeljson []byte
 
 func init() {
-	resource.RegisterComponent(arm.Subtype, ModelName, resource.Registration[arm.Arm, *Config]{
+	resource.RegisterComponent(arm.API, Model, resource.Registration[arm.Arm, *Config]{
 		Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (arm.Arm, error) {
 			return NewEva(ctx, conf, logger)
 		},
@@ -96,7 +96,7 @@ type eva struct {
 
 // NewEva TODO.
 func NewEva(ctx context.Context, conf resource.Config, logger golog.Logger) (arm.Arm, error) {
-	model, err := Model(conf.Name)
+	model, err := MakeModelFrame(conf.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -398,7 +398,7 @@ func (e *eva) Close(ctx context.Context) error {
 	return e.stop(ctx)
 }
 
-// Model returns the kinematics model of the eva arm, also has all Frame information.
-func Model(name string) (referenceframe.Model, error) {
+// MakeModelFrame returns the kinematics model of the eva arm, also has all Frame information.
+func MakeModelFrame(name string) (referenceframe.Model, error) {
 	return referenceframe.UnmarshalModelJSON(evamodeljson, name)
 }

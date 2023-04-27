@@ -21,10 +21,10 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-var extrinsicsModel = resource.NewDefaultModel("align_color_depth_extrinsics")
+var extrinsicsModel = resource.DefaultModelFamily.WithModel("align_color_depth_extrinsics")
 
 func init() {
-	resource.RegisterComponent(camera.Subtype, extrinsicsModel,
+	resource.RegisterComponent(camera.API, extrinsicsModel,
 		resource.Registration[camera.Camera, *extrinsicsConfig]{
 			Constructor: func(ctx context.Context, deps resource.Dependencies,
 				conf resource.Config, logger golog.Logger,

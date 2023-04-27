@@ -34,10 +34,10 @@ func TestCreateStatus(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, status1, test.ShouldResemble, status)
 
-		resourceSubtype, ok, err := resource.LookupSubtypeRegistration[gripper.Gripper](gripper.Subtype)
+		resourceAPI, ok, err := resource.LookupAPIRegistration[gripper.Gripper](gripper.API)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ok, test.ShouldBeTrue)
-		status2, err := resourceSubtype.Status(context.Background(), injectGripper)
+		status2, err := resourceAPI.Status(context.Background(), injectGripper)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, status2, test.ShouldResemble, status)
 	})
