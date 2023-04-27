@@ -11,8 +11,8 @@ const props = defineProps<{
 }>();
 
 let properties = $ref<encoderApi.GetPropertiesResponse.AsObject | undefined>();
-let positionTicks = 0;
-let positionDegrees = 0;
+let positionTicks = $ref(0);
+let positionDegrees = $ref(0);
 
 let refreshId = -1;
 
