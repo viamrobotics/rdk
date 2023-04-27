@@ -132,7 +132,9 @@ func (b *sysfsBoard) Reconfigure(
 		}
 	}
 
-	b.reconfigureSpis(newConf)
+	if err := b.reconfigureSpis(newConf); err != nil {
+		return err
+	}
 
 	stillExists := map[string]struct{}{}
 	for _, c := range newConf.I2Cs {
@@ -215,7 +217,9 @@ func (b *sysfsBoard) Reconfigure(
 	return nil
 }
 
-func (b *sysfsBoard) reconfigureSpis(newConf *Config) {
+// This never returns errors, but we give it the same function signature as the other
+// reconfiguration helpers for consistency.
+func (b *sysfsBoard) reconfigureSpis(newConf *Config) error {
 	stillExists := map[string]struct{}{}
 	for _, c := range newConf.SPIs {
 		stillExists[c.Name] = struct{}{}
@@ -234,6 +238,7 @@ func (b *sysfsBoard) reconfigureSpis(newConf *Config) {
 		}
 		delete(b.spis, name)
 	}
+	return nil
 }
 
 type wrappedAnalog struct {
