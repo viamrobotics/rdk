@@ -70,18 +70,33 @@ func registerMLModelVisionService(
 	if err != nil {
 		return nil, err
 	}
+
 	classifierFunc, err := attemptToBuildClassifier(mlm)
 	if err != nil {
-		logger.Infow("error turning turn ml model into a classifier", "model", params.ModelName, "error", err)
+		logger.Infow("error turning ml model into a classifier", "model", params.ModelName, "error", err)
 	} else {
-		logger.Infow("model fulfills a vision service classifier", "model", params.ModelName)
+		err := checkIfClassifierWorks(ctx, classifierFunc)
+		if err != nil {
+			classifierFunc = nil
+			logger.Infow("error turning ml model into a classifier", "model", params.ModelName, "error", err)
+		} else {
+			logger.Infow("model fulfills a vision service classifier", "model", params.ModelName)
+		}
 	}
+
 	detectorFunc, err := attemptToBuildDetector(mlm)
 	if err != nil {
-		logger.Infow("error turning turn ml model into a detector", "model", params.ModelName, "error", err)
+		logger.Infow("error turning ml model into a detector", "model", params.ModelName, "error", err)
 	} else {
-		logger.Infow("model fulfills a vision service detector", "model", params.ModelName)
+		err = checkIfDetectorWorks(ctx, detectorFunc)
+		if err != nil {
+			detectorFunc = nil
+			logger.Infow("error turning ml model into a detector", "model", params.ModelName, "error", err)
+		} else {
+			logger.Infow("model fulfills a vision service detector", "model", params.ModelName)
+		}
 	}
+
 	segmenter3DFunc, err := attemptToBuild3DSegmenter(mlm)
 	if err != nil {
 		logger.Infow("error turning turn ml model into a 3D segmenter", "model", params.ModelName, "error", err)
@@ -93,9 +108,12 @@ func registerMLModelVisionService(
 }
 
 // Unpack output based on expected type and force it into a []float64.
-func unpack(inMap map[string]interface{}, name string) []float64 {
+func unpack(inMap map[string]interface{}, name string) ([]float64, error) {
 	var out []float64
 	me := inMap[name]
+	if me == nil {
+		return nil, errors.Errorf("no such tensor named %q to unpack", name)
+	}
 	switch v := me.(type) {
 	case []uint8:
 		out = make([]float64, 0, len(v))
@@ -108,7 +126,7 @@ func unpack(inMap map[string]interface{}, name string) []float64 {
 			out = append(out, float64(t))
 		}
 	}
-	return out
+	return out, nil
 }
 
 // getLabelsFromMetadata returns a slice of strings--the intended labels.
