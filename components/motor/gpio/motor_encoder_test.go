@@ -2,7 +2,6 @@ package gpio
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -87,6 +86,10 @@ func TestMotorEncoder1(t *testing.T) {
 	t.Run("encoded motor testing Stop", func(t *testing.T) {
 		test.That(t, motorDep.Stop(context.Background(), nil), test.ShouldBeNil)
 		test.That(t, fakeMotor.Direction(), test.ShouldEqual, 0)
+	})
+
+	t.Run("encoded motor cannot go at 0 RPM", func(t *testing.T) {
+		test.That(t, motorDep.GoFor(context.Background(), 0, 1, nil), test.ShouldBeError, motor.NewZeroRPMError())
 	})
 
 	t.Run("encoded motor testing SetPower interrupt GoFor", func(t *testing.T) {
@@ -575,61 +578,6 @@ func TestMotorEncoderIncremental(t *testing.T) {
 			test.That(tb, realMotor.Direction(), test.ShouldNotEqual, -1)
 		})
 	})
-}
-
-func TestGoForLimts(t *testing.T) {
-	logger, obs := golog.NewObservedTestLogger(t)
-	undo := SetRPMSleepDebug(1, false)
-	defer undo()
-
-	type testHarness struct {
-		Motor    *EncodedMotor
-		Teardown func()
-	}
-	setup := func(t *testing.T) testHarness {
-		t.Helper()
-		cfg := Config{TicksPerRotation: 100, MaxRPM: 100}
-		fakeMotor := &fakemotor.Motor{
-			MaxRPM:           100,
-			Logger:           logger,
-			TicksPerRotation: 100,
-		}
-		encA := &board.BasicDigitalInterrupt{}
-		encB := &board.BasicDigitalInterrupt{}
-		enc := &incremental.Encoder{A: encA, B: encB, CancelCtx: context.Background()}
-		enc.Start(context.Background())
-
-		motorIfc, err := NewEncodedMotor(resource.Config{}, cfg, fakeMotor, enc, logger)
-		test.That(t, err, test.ShouldBeNil)
-
-		motor, ok := motorIfc.(*EncodedMotor)
-		test.That(t, ok, test.ShouldBeTrue)
-
-		motor.RPMMonitorStart()
-		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			tb.Helper()
-			pos := enc.RawPosition()
-			test.That(tb, pos, test.ShouldEqual, 0.0)
-		})
-
-		return testHarness{
-			motor,
-			func() { test.That(t, motor.Close(context.Background()), test.ShouldBeNil) },
-		}
-	}
-
-	th := setup(t)
-	motor := th.Motor
-
-	test.That(t, motor.goForInternal(context.Background(), 0, 1), test.ShouldNotBeNil)
-	allObs := obs.All()
-	latestLoggedEntry := allObs[0]
-	test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly 0")
-
-	test.That(t, motor.goForInternal(context.Background(), 100, 1), test.ShouldBeNil)
-	allObs = obs.All()
-	latestLoggedEntry = allObs[1]
-	test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly the max")
 }
 
 func TestWrapMotorWithEncoder(t *testing.T) {
