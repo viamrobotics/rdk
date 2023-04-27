@@ -311,37 +311,6 @@ func TestTMCStepperMotor(t *testing.T) {
 			},
 		)
 		test.That(t, motorDep.GoFor(ctx, 50.0, 6.6, nil), test.ShouldBeNil)
-
-		// test.That(t, motorDep.GoFor(ctx, 0.05, 6.6, nil), test.ShouldNotBeNil)
-		// allObs := obs.All()
-		// latestLoggedEntry := allObs[len(allObs)-1]
-		// test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly 0")
-
-		// // test max rpm
-		// go checkRx(t, c,
-		// 	[][]byte{
-		// 		{33, 0, 0, 0, 0},
-		// 		{33, 0, 0, 0, 0},
-		// 		{160, 0, 0, 0, 0},
-		// 		{167, 0, 1, 167, 170},
-		// 		{173, 0, 6, 24, 0},
-		// 		{53, 0, 0, 0, 0},
-		// 		{53, 0, 0, 0, 0},
-		// 	},
-		// 	[][]byte{
-		// 		{0, 0, 0, 0, 0},
-		// 		{0, 0, 0, 240, 0},
-		// 		{0, 0, 0, 0, 0},
-		// 		{0, 0, 0, 0, 0},
-		// 		{0, 0, 0, 0, 0},
-		// 		{0, 0, 0, 4, 0},
-		// 		{0, 0, 0, 4, 0},
-		// 	},
-		// )
-		// test.That(t, motorDep.GoFor(ctx, 500, 6.6, nil), test.ShouldBeNil)
-		// allObs = obs.All()
-		// latestLoggedEntry = allObs[len(allObs)-1]
-		// test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly the max")
 	})
 
 	t.Run("motor GoFor with negative rpm and positive revolutions", func(t *testing.T) {
