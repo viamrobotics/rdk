@@ -9,39 +9,24 @@
       window.webrtcEnabled = {{ .WebRTCEnabled }}
       window.host = {{ .Host }}
       window.webrtcSignalingAddress = {{ .WebRTCSignalingAddress }}
-      window.webrtcAdditionalICEServers = {{ .WebRTCAdditionalICEServers }}
       window.bakedAuth = {{ .BakedAuth }} || {};
       window.supportedAuthTypes = {{ .SupportedAuthTypes }} || [];
     </script>
 
-    {{ if .External }}
-    <link rel="preload" href="/static/rdk/prime.css" as="style">
-    <link rel="stylesheet" href="/static/rdk/main.css" />
-    <script type="module">window.PRIME_CONFIG = { base: '/static/rdk' }</script>
-    {{ else if eq .Env "production" }}
+    {{ if eq .Env "production" }}
     <link rel="preload" href="/static/prime.css" as="style">
     <link rel="stylesheet" href="/static/main.css" />
-    <script type="module">window.PRIME_CONFIG = { base: '/static' }</script>
-    {{ else if eq .Env "development" }}
-    <script type="module">window.PRIME_CONFIG = { base: '/static' }</script>
     {{ end }}
+    <script type="module">window.PRIME_CONFIG = { base: '/static' }</script>
   </head>
 
   <body>
     <div id="app"></div>
 
-    {{ if .External }}
-    <script type="module" src="/static/rdk/control.js"></script>
-    {{ else }}
-
     {{ if eq .Env "development" }}
     <script type="module" src="http://localhost:5174/src/main.ts"></script>
-    {{ end }}
-
-    {{ if eq .Env "production" }}
+    {{ else }}
     <script type="module" src="/static/control.js"></script>
-    {{ end }}
-
     {{ end }}
   </body>
 </html>

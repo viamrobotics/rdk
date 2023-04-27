@@ -72,7 +72,7 @@ raycaster.on('click', (event) => {
 
 const markerSize = 0.5;
 const marker = new THREE.Mesh(
-  new THREE.PlaneGeometry(markerSize, markerSize).rotateX(-Math.PI / 2),
+  new THREE.PlaneGeometry(markerSize, markerSize),
   new THREE.MeshBasicMaterial({ color: 'red' })
 );
 marker.name = 'Marker';
@@ -124,9 +124,9 @@ const updateCloud = (pointcloud: Uint8Array) => {
   const points = loader.parse(pointcloud.buffer);
   points.geometry.computeBoundingSphere();
 
-  const { radius = 1, center = { x: 0, z: 0 } } = points.geometry.boundingSphere ?? {};
-  camera.position.set(center.x, 100, center.z);
-  camera.lookAt(center.x, 0, center.z);
+  const { radius = 1, center = { x: 0, y: 0 } } = points.geometry.boundingSphere ?? {};
+  camera.position.set(center.x, center.y, 100);
+  camera.lookAt(center.x, center.y, 0);
 
   const aspect = canvas.clientHeight / canvas.clientWidth;
   camera.zoom = aspect > 1
@@ -135,7 +135,7 @@ const updateCloud = (pointcloud: Uint8Array) => {
 
   camera.updateProjectionMatrix();
 
-  controls.target.set(center.x, 0, center.z);
+  controls.target.set(center.x, center.y, 0);
   controls.maxZoom = radius * 2;
 
   const intersectionPlane = new THREE.Mesh(
@@ -143,8 +143,8 @@ const updateCloud = (pointcloud: Uint8Array) => {
     new MeshDiscardMaterial()
   );
   intersectionPlane.name = 'Intersection Plane';
-  intersectionPlane.position.y = -1;
-  intersectionPlane.position.set(center.x, 0, center.z);
+  intersectionPlane.position.z = -1;
+  intersectionPlane.position.set(center.x, center.y, 0);
   raycaster.objects = [intersectionPlane];
 
   const colors = points.geometry.attributes.color;
@@ -168,9 +168,9 @@ const updateCloud = (pointcloud: Uint8Array) => {
 
 const updatePose = (newPose: commonApi.Pose) => {
   const x = newPose.getX();
-  const z = newPose.getZ();
+  const y = newPose.getY();
   marker.position.setX(x);
-  marker.position.setZ(z);
+  marker.position.setY(y);
 };
 
 onMounted(() => {

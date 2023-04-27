@@ -32,8 +32,8 @@ func TestFakeSLAMGetPosition(t *testing.T) {
 	// in floating point values between M1 mac & arm64 linux which
 	// were causing tests to pass on M1 mac but fail on ci.
 	expectedPose := spatialmath.NewPose(
-		r3.Vector{X: -0.005666600181385561, Y: -6.933830159344678e-10, Z: -0.013030459250151614},
-		&spatialmath.Quaternion{Real: 0.9999999087728241, Imag: 0, Jmag: 0.0005374749356603168, Kmag: 0})
+		r3.Vector{X: -0.003863251944222634813586, Y: 0.011557528483632291405048, Z: 0.000000000000000000},
+		&spatialmath.Quaternion{Real: 0.9999993072280227, Imag: 0, Jmag: 0, Kmag: -0.001177091107300157})
 	test.That(t, spatialmath.PoseAlmostEqual(p, expectedPose), test.ShouldBeTrue)
 
 	p2, componentReference, err := slamSvc.GetPosition(context.Background())

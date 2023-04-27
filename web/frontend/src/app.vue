@@ -7,7 +7,6 @@ const {
   host,
   bakedAuth,
   supportedAuthTypes,
-  webrtcAdditionalICEServers,
   webrtcEnabled,
   webrtcSignalingAddress,
 } = window;
@@ -19,10 +18,6 @@ const rtcConfig = {
     },
   ],
 };
-
-if (webrtcAdditionalICEServers) {
-  rtcConfig.iceServers = [...rtcConfig.iceServers, ...webrtcAdditionalICEServers];
-}
 
 const impliedURL = `${location.protocol}//${location.hostname}${location.port ? `:${location.port}` : ''}`;
 const client = new Client(impliedURL, {
