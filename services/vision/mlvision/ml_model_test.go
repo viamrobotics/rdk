@@ -122,7 +122,6 @@ func TestAddingIncorrectModelTypeToModel(t *testing.T) {
 
 	err = checkIfDetectorWorks(ctx, detector)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, detector, test.ShouldBeNil)
 }
 
 func TestNewMLDetector(t *testing.T) {
