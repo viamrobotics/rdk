@@ -105,7 +105,7 @@ func attemptToBuildDetector(mlm mlmodel.Service) (objectdetection.Detector, erro
 }
 
 // In the case that the model provided is not a detector, attemptToBuildDetector will return a
-// a detectpr function that function fails because the expected keys are not in the outputTensor.
+// detector function that function fails because the expected keys are not in the outputTensor.
 // use checkIfDetectorWorks to get sample output tensors on gray image so we know if the functions
 // returned from attemptToBuildDetector will fail ahead of time.
 func checkIfDetectorWorks(ctx context.Context, df objectdetection.Detector) error {
