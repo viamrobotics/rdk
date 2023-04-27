@@ -56,10 +56,9 @@ type localRobot struct {
 	logger                     golog.Logger
 	activeBackgroundWorkers    sync.WaitGroup
 	cancelBackgroundWorkers    func()
-	remotesChanged             chan string
 	closeContext               context.Context
-	triggerConfig              chan bool
-	configTimer                *time.Ticker
+	triggerConfig              chan struct{}
+	configTicker               *time.Ticker
 	revealSensitiveConfigDiffs bool
 
 	lastWeakDependentsRound int64
@@ -134,11 +133,10 @@ func (r *localRobot) Close(ctx context.Context) error {
 		r.webSvc.Stop()
 	}
 	if r.cancelBackgroundWorkers != nil {
-		close(r.remotesChanged)
 		r.cancelBackgroundWorkers()
 		r.cancelBackgroundWorkers = nil
-		if r.configTimer != nil {
-			r.configTimer.Stop()
+		if r.configTicker != nil {
+			r.configTicker.Stop()
 		}
 		close(r.triggerConfig)
 	}
@@ -362,11 +360,10 @@ func newWithResources(
 		),
 		operations:                 operation.NewManager(logger),
 		logger:                     logger,
-		remotesChanged:             make(chan string),
 		closeContext:               closeCtx,
 		cancelBackgroundWorkers:    cancel,
-		triggerConfig:              make(chan bool),
-		configTimer:                nil,
+		triggerConfig:              make(chan struct{}),
+		configTicker:               nil,
 		revealSensitiveConfigDiffs: rOpts.revealSensitiveConfigDiffs,
 		cloudConnSvc:               cloud.NewCloudConnectionService(cfg.Cloud, logger),
 	}
@@ -453,41 +450,18 @@ func newWithResources(
 	}
 
 	r.activeBackgroundWorkers.Add(1)
-	// this goroutine listen for changes in connection status of a remote
+	r.configTicker = time.NewTicker(5 * time.Second)
+	// This goroutine tries to complete the config and update weak dependencies
+	// if any resources are not configured. It executes every 5 seconds or when
+	// manually triggered. Manual triggers are sent when changes in remotes are
+	// detected and in testing.
 	goutils.ManagedGo(func() {
 		for {
-			if closeCtx.Err() != nil {
-				return
-			}
 			select {
 			case <-closeCtx.Done():
 				return
-			case n, ok := <-r.remotesChanged:
-				if !ok {
-					return
-				}
-				if rr, ok := r.manager.RemoteByName(n); ok {
-					rn := fromRemoteNameToRemoteNodeName(n)
-					r.manager.updateRemoteResourceNames(closeCtx, rn, rr)
-					r.updateWeakDependents(ctx)
-				}
-			}
-		}
-	}, r.activeBackgroundWorkers.Done)
-
-	r.activeBackgroundWorkers.Add(1)
-	r.configTimer = time.NewTicker(25 * time.Second)
-	// this goroutine tries to complete the config if any resources are still unconfigured, it execute on a timer or via a channel
-	goutils.ManagedGo(func() {
-		for {
-			if closeCtx.Err() != nil {
-				return
-			}
-			select {
-			case <-closeCtx.Done():
-				return
+			case <-r.configTicker.C:
 			case <-r.triggerConfig:
-			case <-r.configTimer.C:
 			}
 			anyChanges := r.manager.updateRemotesResourceNames(closeCtx)
 			if r.manager.anyResourcesNotConfigured() {
