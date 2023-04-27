@@ -39,57 +39,12 @@ func init() {
 	resource.RegisterComponent(
 		camera.API,
 		model,
-<<<<<<< HEAD
 		resource.Registration[camera.Camera, *WebcamConfig]{
 			Constructor: NewWebcam,
 			Discover: func(ctx context.Context, logger golog.Logger) (interface{}, error) {
 				return Discover(ctx, getVideoDrivers, logger)
 			},
 		})
-=======
-		registry.Component{Constructor: func(
-			ctx context.Context,
-			_ registry.Dependencies,
-			config config.Component,
-			logger golog.Logger,
-		) (interface{}, error) {
-			attrs, ok := config.ConvertedAttributes.(*WebcamAttrs)
-			if !ok {
-				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
-			}
-			cameraSource, err := NewWebcamSource(ctx, config.Name, attrs, logger)
-			if err != nil {
-				// If we are on a Jetson Orin AGX, we need to validate driver and daughterboard setup.
-				// If not, we just return the original error from NewWebcamSource.
-				return cameraSource, jetsoncamera.ValidateSetup(
-					jetsoncamera.OrinAGX,
-					jetsoncamera.ECAM,
-					jetsoncamera.AR0234,
-					err,
-				)
-			}
-			return cameraSource, nil
-		}})
-
-	config.RegisterComponentAttributeMapConverter(camera.Subtype, model,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf WebcamAttrs
-			attrs, err := config.TransformAttributeMapToStruct(&conf, attributes)
-			if err != nil {
-				return nil, err
-			}
-			result, ok := attrs.(*WebcamAttrs)
-			if !ok {
-				return nil, utils.NewUnexpectedTypeError(result, attrs)
-			}
-			return result, nil
-		}, &WebcamAttrs{})
-
-	registry.RegisterDiscoveryFunction(
-		discovery.NewQuery(camera.Subtype, model),
-		func(ctx context.Context) (interface{}, error) { return Discover(ctx, getVideoDrivers) },
-	)
->>>>>>> ee4451a7b (Add error check for DetectOSInformation)
 }
 
 func getVideoDrivers() []driver.Driver {
