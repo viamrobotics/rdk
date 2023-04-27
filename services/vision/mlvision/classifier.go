@@ -7,6 +7,7 @@ import (
 
 	"github.com/nfnt/resize"
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/services/mlmodel"
@@ -45,9 +46,14 @@ func attemptToBuildClassifier(mlm mlmodel.Service) (classification.Classifier, e
 			return nil, err
 		}
 
-		probs := unpack(outMap, "probability")
-		if len(probs) == 0 {
-			probs = unpack(outMap, DefaultOutTensorName+"0")
+		var err2 error
+
+		probs, err := unpack(outMap, "probability")
+		if err != nil || len(probs) == 0 {
+			probs, err2 = unpack(outMap, DefaultOutTensorName+"0")
+			if err2 != nil {
+				return nil, multierr.Combine(err, err2)
+			}
 		}
 
 		confs := checkClassificationScores(probs)
@@ -61,4 +67,23 @@ func attemptToBuildClassifier(mlm mlmodel.Service) (classification.Classifier, e
 		}
 		return classifications, nil
 	}, nil
+}
+
+// In the case that the model provided is not a classifier, attemptToBuildClassifier will return a
+// classifier function that function fails because the expected keys are not in the outputTensor.
+// use checkIfClassifierWorks to get sample output tensors on gray image so we know if the functions
+// returned from attemptToBuildClassifier will fail ahead of time.
+func checkIfClassifierWorks(ctx context.Context, cf classification.Classifier) error {
+	if cf == nil {
+		return errors.New("nil classifier function")
+	}
+
+	// test image to check if the classifier function works
+	img := image.NewGray(image.Rectangle{Min: image.Point{0, 0}, Max: image.Point{5, 5}})
+
+	_, err := cf(ctx, img)
+	if err != nil {
+		return errors.New("Cannot use model as a classifier")
+	}
+	return nil
 }
