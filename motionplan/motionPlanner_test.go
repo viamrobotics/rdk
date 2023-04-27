@@ -193,8 +193,11 @@ func simple2DMap() (*planConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	worldState := frame.NewEmptyWorldState()
-	if err = worldState.AddObstacles(frame.World, box); err != nil {
+	worldState, err := frame.NewWorldState(
+		[]*frame.GeometriesInFrame{frame.NewGeometriesInFrame(frame.World, []spatialmath.Geometry{box})},
+		nil,
+	)
+	if err != nil {
 		return nil, err
 	}
 
@@ -391,9 +394,11 @@ func TestArmObstacleSolve(t *testing.T) {
 	// Set an obstacle such that it is impossible to reach the goal without colliding with it
 	obstacle, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{X: 257, Y: 210, Z: -300}), r3.Vector{10, 10, 100}, "")
 	test.That(t, err, test.ShouldBeNil)
-	geometries := []spatialmath.Geometry{obstacle}
-	worldState := frame.NewEmptyWorldState()
-	test.That(t, worldState.AddObstacles(frame.World, geometries...), test.ShouldBeNil)
+	worldState, err := frame.NewWorldState(
+		[]*frame.GeometriesInFrame{frame.NewGeometriesInFrame(frame.World, []spatialmath.Geometry{obstacle})},
+		nil,
+	)
+	test.That(t, err, test.ShouldBeNil)
 
 	// Set a goal unreachable by the UR
 	goal1 := spatialmath.NewPose(r3.Vector{X: 257, Y: 210, Z: -300}, &spatialmath.OrientationVectorDegrees{OZ: -1})
@@ -553,7 +558,7 @@ func TestArmConstraintSpecificationSolve(t *testing.T) {
 	fs := makeTestFS(t)
 	fs.RemoveFrame(fs.Frame("UR5e"))
 	positions := frame.StartPositions(fs)
-	worldState := &frame.WorldState{}
+	worldState := frame.NewEmptyWorldState()
 	constraints := &motionpb.Constraints{}
 
 	checkReachable := func(worldState *frame.WorldState, constraints *motionpb.Constraints) error {
@@ -579,7 +584,11 @@ func TestArmConstraintSpecificationSolve(t *testing.T) {
 	// Add an obstacle
 	box, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{350, 0, 0}), r3.Vector{0, 8000, 8000}, "theWall")
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, worldState.AddObstacles("gantryY", box), test.ShouldBeNil)
+	worldState, err = frame.NewWorldState(
+		[]*frame.GeometriesInFrame{frame.NewGeometriesInFrame("gantryY", []spatialmath.Geometry{box})},
+		nil,
+	)
+	test.That(t, err, test.ShouldBeNil)
 
 	// No longer reachable with The Wall in the way
 	err = checkReachable(worldState, constraints)
@@ -638,9 +647,11 @@ func TestMovementWithGripper(t *testing.T) {
 	// plan around the obstacle with the gripper
 	obstacle, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{300, 0, -400}), r3.Vector{50, 500, 500}, "")
 	test.That(t, err, test.ShouldBeNil)
-	geometries := []spatialmath.Geometry{obstacle}
-	worldState := frame.NewEmptyWorldState()
-	worldState.AddObstacles(frame.World, geometries...)
+	worldState, err := frame.NewWorldState(
+		[]*frame.GeometriesInFrame{frame.NewGeometriesInFrame(frame.World, []spatialmath.Geometry{obstacle})},
+		nil,
+	)
+	test.That(t, err, test.ShouldBeNil)
 	sfPlanner, err = newPlanManager(sf, fs, logger.Sugar(), 1)
 	test.That(t, err, test.ShouldBeNil)
 	solution, err = sfPlanner.PlanSingleWaypoint(context.Background(), zeroPosition, goal, worldState, nil, nil)

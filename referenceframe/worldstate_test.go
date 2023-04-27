@@ -9,7 +9,6 @@ import (
 )
 
 func TestWorldStateConstruction(t *testing.T) {
-	ws := NewEmptyWorldState()
 	foo, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 10, "foo")
 	test.That(t, err, test.ShouldBeNil)
 	bar, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 10, "bar")
@@ -21,19 +20,25 @@ func TestWorldStateConstruction(t *testing.T) {
 	expectedErr := NewDuplicateGeometryNameError(foo.Label()).Error()
 
 	// test that you can add two geometries of different names
-	err = ws.AddObstacles("", foo, bar)
+	_, err = NewWorldState([]*GeometriesInFrame{NewGeometriesInFrame("", []spatialmath.Geometry{foo, bar})}, nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	// test that you can't add two "foos" to the same frame
-	err = ws.AddObstacles("", foo, foo)
+	_, err = NewWorldState([]*GeometriesInFrame{NewGeometriesInFrame("", []spatialmath.Geometry{foo, foo})}, nil)
 	test.That(t, err.Error(), test.ShouldResemble, expectedErr)
 
 	// test that you can't add two "foos" to different frames
-	err = ws.AddObstacles("", foo)
+	_, err = NewWorldState(
+		[]*GeometriesInFrame{
+			NewGeometriesInFrame("", []spatialmath.Geometry{foo, bar}),
+			NewGeometriesInFrame("", []spatialmath.Geometry{foo}),
+		},
+		nil,
+	)
 	test.That(t, err.Error(), test.ShouldResemble, expectedErr)
 
 	// test that you can add multiple geometries with no name
-	err = ws.AddObstacles("", noname, unnamed)
+	_, err = NewWorldState([]*GeometriesInFrame{NewGeometriesInFrame("", []spatialmath.Geometry{noname, unnamed})}, nil)
 	test.That(t, err, test.ShouldBeNil)
 }
 

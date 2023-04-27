@@ -67,6 +67,7 @@ func collisionSpecificationsFromProto(
 		if _, ok := validGeoms[frameName]; ok {
 			return nil, referenceframe.NewDuplicateGeometryNameError(frameName)
 		}
+		validGeoms[frameName] = true
 		for _, geom := range geomsInFrame.Geometries() {
 			geomName := geom.Label()
 

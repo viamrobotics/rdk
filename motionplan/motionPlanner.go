@@ -9,7 +9,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/utils"
 
@@ -159,12 +158,10 @@ func motionPlanInternal(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
-	wsPb := &commonpb.WorldState{}
-	if worldState != nil {
-		wsPb, err = frame.WorldStateToProtobuf(worldState)
-		if err != nil {
-			return nil, err
-		}
+
+	wsPb, err := frame.WorldStateToProtobuf(worldState)
+	if err != nil {
+		return nil, err
 	}
 
 	logger.Infof(

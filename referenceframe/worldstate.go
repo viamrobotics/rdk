@@ -18,7 +18,6 @@ type WorldState struct {
 
 const unnamedWorldStateGeometryPrefix = "unnamedWorldStateGeometry_"
 
-// NewEmptyWorldState is a constructor for an empty WorldState struct.
 func NewEmptyWorldState() *WorldState {
 	return &WorldState{
 		obstacleNames: make(map[string]bool),
@@ -27,59 +26,48 @@ func NewEmptyWorldState() *WorldState {
 	}
 }
 
+// NewWorldState is a constructor for a WorldState struct.
+func NewWorldState(obstacles []*GeometriesInFrame, transforms []*LinkInFrame) (*WorldState, error) {
+	ws := &WorldState{
+		obstacleNames: make(map[string]bool),
+		obstacles:     make([]*GeometriesInFrame, 0),
+		transforms:    transforms,
+	}
+	for _, gf := range obstacles {
+		geometries, err := ws.rectifyNames(gf.geometries)
+		if err != nil {
+			return nil, err
+		}
+		ws.obstacles = append(ws.obstacles, NewGeometriesInFrame(gf.frame, geometries))
+	}
+	return ws, nil
+}
+
 // WorldStateFromProtobuf takes the protobuf definition of a WorldState and converts it to a rdk defined WorldState.
 func WorldStateFromProtobuf(proto *commonpb.WorldState) (*WorldState, error) {
-	if proto == nil {
-		return NewEmptyWorldState(), nil
-	}
-
 	transforms, err := LinkInFramesFromTransformsProtobuf(proto.GetTransforms())
 	if err != nil {
 		return nil, err
 	}
 
-	ws := &WorldState{transforms: transforms}
+	allGeometries := make([]*GeometriesInFrame, 0)
 	for _, protoGeometries := range proto.GetObstacles() {
 		geometries, err := ProtobufToGeometriesInFrame(protoGeometries)
 		if err != nil {
 			return nil, err
 		}
-		if err = ws.AddObstacles(geometries.frame, geometries.geometries...); err != nil {
-			return nil, err
-		}
+		allGeometries = append(allGeometries, geometries)
 	}
 
-	return ws, nil
+	return NewWorldState(allGeometries, transforms)
 }
 
-// AddObstacles takes in a list of geometries and a frame corresponding with the reference frame associated with them and adds them
-// as obstacles to the worldState.
-func (ws *WorldState) AddObstacles(frame string, geometries ...spatialmath.Geometry) error {
-	geometries, err := ws.rectifyNames(geometries)
-	if err != nil {
-		return err
+// ToProtobuf takes an rdk WorldState and converts it to the protobuf definition of a WorldState.
+func (ws *WorldState) ToProtobuf() (*commonpb.WorldState, error) {
+	if ws == nil {
+		ws = NewEmptyWorldState()
 	}
-	ws.obstacles = append(ws.obstacles, NewGeometriesInFrame(frame, geometries))
-	return nil
-}
 
-// ObstacleNames returns the set of geometry names that have been registered in the WorldState, represented as a map.
-func (ws *WorldState) ObstacleNames() map[string]bool {
-	return ws.obstacleNames
-}
-
-// AddTransforms adds the given transforms to the WorldState.
-func (ws *WorldState) AddTransforms(transforms ...*LinkInFrame) {
-	ws.transforms = append(ws.transforms, transforms...)
-}
-
-// Transforms returns the transforms that have been added to the WorldState.
-func (ws *WorldState) Transforms() []*LinkInFrame {
-	return ws.transforms
-}
-
-// WorldStateToProtobuf takes an rdk WorldState and converts it to the protobuf definition of a WorldState.
-func WorldStateToProtobuf(worldState *WorldState) (*commonpb.WorldState, error) {
 	convertGeometriesToProto := func(allGeometries []*GeometriesInFrame) []*commonpb.GeometriesInFrame {
 		list := make([]*commonpb.GeometriesInFrame, 0, len(allGeometries))
 		for _, geometries := range allGeometries {
@@ -88,22 +76,43 @@ func WorldStateToProtobuf(worldState *WorldState) (*commonpb.WorldState, error) 
 		return list
 	}
 
-	transforms, err := LinkInFramesToTransformsProtobuf(worldState.transforms)
+	transforms, err := LinkInFramesToTransformsProtobuf(ws.transforms)
 	if err != nil {
 		return nil, err
 	}
 
 	return &commonpb.WorldState{
-		Obstacles:  convertGeometriesToProto(worldState.obstacles),
+		Obstacles:  convertGeometriesToProto(ws.obstacles),
 		Transforms: transforms,
 	}, nil
+}
+
+// ObstacleNames returns the set of geometry names that have been registered in the WorldState, represented as a map.
+func (ws *WorldState) ObstacleNames() map[string]bool {
+	if ws == nil {
+		return map[string]bool{}
+	}
+
+	copy := map[string]bool{}
+	for key, value := range ws.obstacleNames {
+		copy[key] = value
+	}
+	return copy
+}
+
+// Transforms returns the transforms that have been added to the WorldState.
+func (ws *WorldState) Transforms() []*LinkInFrame {
+	if ws == nil {
+		return []*LinkInFrame{}
+	}
+	return ws.transforms
 }
 
 // ObstaclesInWorldFrame takes a frame system and a set of inputs for that frame system and converts all the obstacles
 // in the WorldState such that they are in the frame system's World reference frame.
 func (ws *WorldState) ObstaclesInWorldFrame(fs FrameSystem, inputs map[string][]Input) (*GeometriesInFrame, error) {
 	if ws == nil {
-		ws = NewEmptyWorldState()
+		return NewGeometriesInFrame(World, []spatialmath.Geometry{}), nil
 	}
 
 	allGeometries := make([]spatialmath.Geometry, 0, len(ws.obstacles))
