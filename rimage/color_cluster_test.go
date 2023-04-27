@@ -16,7 +16,7 @@ func doTest(t *testing.T, fn string, numClusters int) {
 	test.That(t, err, test.ShouldBeNil)
 
 	res := ClusterImage(clusters, img)
-	err = WriteImageToFile(outDir+"/"+fn, res)
+	err = WriteImageToFile(t.TempDir()+"/"+fn, res)
 	test.That(t, err, test.ShouldBeNil)
 }
 
