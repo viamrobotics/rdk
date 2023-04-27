@@ -444,7 +444,7 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string
 	powerPct = math.Max(powerPct, -1.0)
 
 	switch pow := math.Abs(powerPct); {
-	case pow < 0.001:
+	case pow < 0.1:
 		m.c.logger.Warnf("motor (%s) speed is nearly 0 rev_per_min", m.Name())
 		return m.Stop(ctx, extra)
 	case pow*m.MaxRPM > m.MaxRPM-0.1:
@@ -495,9 +495,12 @@ func (m *Motor) stopJog() error {
 // can be assigned negative values to move in a backwards direction. Note: if both are
 // negative the motor will spin in the forward direction.
 func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
-	if math.Abs(rpm) < 0.1 {
+	switch speed := math.Abs(rpm); {
+	case speed < 0.1:
 		m.c.logger.Warnf("motor (%s) speed is nearly 0 rev_per_min", m.Name())
 		return motor.NewZeroRPMError()
+	case speed > m.MaxRPM-0.1:
+		m.c.logger.Warnf("motor (%s) speed is nearly the max rev_per_min (%f)", m.Name(), m.MaxRPM)
 	}
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
