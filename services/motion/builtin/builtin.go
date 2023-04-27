@@ -69,7 +69,6 @@ func (ms *builtIn) Reconfigure(
 	ms.lock.Lock()
 	defer ms.lock.Unlock()
 
-
 	fsService, err := resource.FromDependencies[framesystem.Service](deps, framesystem.InternalServiceName)
 	if err != nil {
 		return err

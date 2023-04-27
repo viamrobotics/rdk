@@ -214,7 +214,6 @@ func (svc *frameSystemService) AllCurrentInputs(
 	input := referenceframe.StartPositions(fs)
 
 	// build maps of relevant components and inputs from initial inputs
-	allOriginals := map[string][]referenceframe.Input{}
 	resources := map[string]referenceframe.InputEnabled{}
 	for name, original := range input {
 		// skip frames with no input
@@ -223,7 +222,6 @@ func (svc *frameSystemService) AllCurrentInputs(
 		}
 
 		// add component to map
-		allOriginals[name] = original
 		components := robot.AllResourcesByName(svc.r, name)
 		if len(components) != 1 {
 			return nil, nil, fmt.Errorf("got %d resources instead of 1 for (%s)", len(components), name)
