@@ -41,7 +41,7 @@ func init() {
 type Config struct {
 }
 
-// components will be depended upon weakly due to the above matcher.
+// Validate here adds a dependency on the internal framesystem service
 func (c *Config) Validate(path string) ([]string, error) {
 	return []string{framesystem.InternalServiceName.String()}, nil
 }
@@ -60,7 +60,7 @@ func NewBuiltIn(ctx context.Context, deps resource.Dependencies, conf resource.C
 }
 
 
-// Reconfigure updates the data manager service when the config has changed.
+// Reconfigure updates the motion service when the config has changed.
 func (ms *builtIn) Reconfigure(
 	ctx context.Context,
 	deps resource.Dependencies,
@@ -74,8 +74,6 @@ func (ms *builtIn) Reconfigure(
 		return err
 	}
 	ms.fsService = fsService
-	return nil
-
 	return nil
 }
 
@@ -185,10 +183,12 @@ func (ms *builtIn) MoveSingleComponent(
 ) (bool, error) {
 	operation.CancelOtherWithLabel(ctx, "motion-service")
 
-	_, allResources, err := ms.fsService.AllCurrentInputs(ctx)
+	// Get the arm and all initial inputs
+	fsInputs, allResources, err := ms.fsService.AllCurrentInputs(ctx)
 	if err != nil {
 		return false, err
 	}
+	ms.logger.Debugf("frame system inputs: %v", fsInputs)
 	
 	singleComponentMoves := map[string]arm.Arm{}
 	for n, r := range allResources {
@@ -214,12 +214,6 @@ func (ms *builtIn) MoveSingleComponent(
 		if err != nil {
 			return false, err
 		}
-		// get the initial inputs
-		fsInputs, _, err := ms.fsService.AllCurrentInputs(ctx)
-		if err != nil {
-			return false, err
-		}
-		ms.logger.Debugf("frame system inputs: %v", fsInputs)
 
 		// re-evaluate goalPose to be in the frame we're going to move in
 		tf, err := frameSys.Transform(fsInputs, destination, componentName.ShortName()+"_origin")

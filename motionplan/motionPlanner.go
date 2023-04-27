@@ -67,13 +67,17 @@ func PlanRobotMotion(ctx context.Context,
 	dst *frame.PoseInFrame,
 	f frame.Frame,
 	r robot.Robot,
-	fs frame.FrameSystem,
 	worldState *frame.WorldState,
 	constraintSpec *pb.Constraints,
 	planningOpts map[string]interface{},
 ) ([]map[string][]frame.Input, error) {
 	// Get the framesystem service if it exists
 	fsSvc, err := framesystem.FromRobot(r)
+	if err != nil {
+		return nil, err
+	}
+
+	fs, err := fsSvc.FrameSystem(ctx, worldState.Transforms)
 	if err != nil {
 		return nil, err
 	}

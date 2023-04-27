@@ -179,7 +179,7 @@ func (svc *frameSystemService) TransformPose(
 		// add component to map
 		components := robot.AllResourcesByName(svc.r, name)
 		if len(components) != 1 {
-			return nil, fmt.Errorf("got %d resources instead of 1 for (%s)", len(components), name)
+			return nil, wrongNumberOfResourcesError(len(components), name)
 		}
 		component, ok := components[0].(referenceframe.InputEnabled)
 		if !ok {
@@ -224,7 +224,7 @@ func (svc *frameSystemService) AllCurrentInputs(
 		// add component to map
 		components := robot.AllResourcesByName(svc.r, name)
 		if len(components) != 1 {
-			return nil, nil, fmt.Errorf("got %d resources instead of 1 for (%s)", len(components), name)
+			return nil, nil, wrongNumberOfResourcesError(len(components), name)
 		}
 		component, ok := components[0].(referenceframe.InputEnabled)
 		if !ok {
@@ -322,7 +322,10 @@ func (svc *frameSystemService) updateLocalParts(ctx context.Context) error {
 		seen[c.Name] = true
 		model, err := extractModelFrameJSON(svc.r, c.ResourceName())
 		if err != nil && !errors.Is(err, referenceframe.ErrNoModelInformation) {
-			return err
+			// When we have non-nil erros here, it is because the resource is not yet available.
+			// In this case, we will exclude it from the FS.
+			// When it becomes available, it will be included.
+			continue
 		}
 		lif, err := cfgCopy.ParseConfig()
 		if err != nil {
