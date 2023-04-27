@@ -8,21 +8,10 @@ import (
 
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
-	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
 )
-
-var outDir string
-
-func init() {
-	var err error
-	outDir, err = testutils.TempDir("", "rimage_calib")
-	if err != nil {
-		panic(err)
-	}
-}
 
 func TestPC1(t *testing.T) {
 	img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board2.png"))
@@ -45,7 +34,7 @@ func TestPC1(t *testing.T) {
 	pc, err := cameraMatrices.RGBDToPointCloud(img, dm)
 	test.That(t, err, test.ShouldBeNil)
 
-	file, err := os.OpenFile(outDir+"/x.pcd", os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0o755)
+	file, err := os.OpenFile(t.TempDir()+"/x.pcd", os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0o755)
 	test.That(t, err, test.ShouldBeNil)
 	defer file.Close()
 

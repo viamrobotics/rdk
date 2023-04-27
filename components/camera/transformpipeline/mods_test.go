@@ -5,29 +5,16 @@ import (
 	"image"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"github.com/pion/mediadevices/pkg/prop"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
-	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/camera/videosource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/utils"
 )
-
-var outDir string
-
-func init() {
-	var err error
-	outDir, err = testutils.TempDir("", "camera_transformpipeline")
-	if err != nil {
-		panic(err)
-	}
-	golog.Global().Debugf("out dir: %q", outDir)
-}
 
 func TestResizeColor(t *testing.T) {
 	img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board1_small.png"))
@@ -93,7 +80,7 @@ func TestRotateColorSource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
 
-	err = rimage.WriteImageToFile(outDir+"/test_rotate_color_source.png", rawImage)
+	err = rimage.WriteImageToFile(t.TempDir()+"/test_rotate_color_source.png", rawImage)
 	test.That(t, err, test.ShouldBeNil)
 
 	img2 := rimage.ConvertImage(rawImage)
@@ -127,7 +114,7 @@ func TestRotateDepthSource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
 
-	err = rimage.WriteImageToFile(outDir+"/test_rotate_depth_source.png", rawImage)
+	err = rimage.WriteImageToFile(t.TempDir()+"/test_rotate_depth_source.png", rawImage)
 	test.That(t, err, test.ShouldBeNil)
 
 	dm, err := rimage.ConvertImageToDepthMap(context.Background(), rawImage)
