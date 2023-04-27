@@ -36,6 +36,7 @@ const (
 	dataFlagEnd               = "end"
 	dataFlagParallelDownloads = "parallel"
 	dataFlagTags              = "tags"
+	dataFlagBboxLabels        = "bbox_labels"
 
 	dataTypeBinary  = "binary"
 	dataTypeTabular = "tabular"
@@ -325,6 +326,12 @@ func main() {
 								Required: false,
 								Usage: "tags filter. " +
 									"accepts tagged for all tagged data, untagged for all untagged data, or a list of tags for all data matching any of the tags",
+							},
+							&cli.StringSliceFlag{
+								Name:     dataFlagBboxLabels,
+								Required: false,
+								Usage: "bbox labels filter. " +
+									"accepts string labels corresponding to bounding boxes within images",
 							},
 						},
 						Action: DataCommand,
@@ -923,7 +930,9 @@ func createDataFilter(c *cli.Context) (*datapb.Filter, error) {
 			}
 		}
 	}
-
+	if len(c.StringSlice(dataFlagBboxLabels)) != 0 {
+		filter.BboxLabels = c.StringSlice(dataFlagBboxLabels)
+	}
 	var start *timestamppb.Timestamp
 	var end *timestamppb.Timestamp
 	timeLayout := time.RFC3339
