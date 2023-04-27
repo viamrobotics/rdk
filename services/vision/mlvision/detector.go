@@ -7,6 +7,7 @@ import (
 
 	"github.com/nfnt/resize"
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/services/mlmodel"
@@ -59,25 +60,27 @@ func attemptToBuildDetector(mlm mlmodel.Service) (objectdetection.Detector, erro
 			return nil, err
 		}
 
+		var err2 error
+
 		locations, err := unpack(outMap, "location")
 		if err != nil || len(locations) == 0 {
-			locations, err = unpack(outMap, DefaultOutTensorName+"0")
+			locations, err2 = unpack(outMap, DefaultOutTensorName+"0")
 			if err != nil {
-				return nil, err
+				return nil, multierr.Combine(err, err2)
 			}
 		}
 		categories, err := unpack(outMap, "category")
 		if err != nil || len(categories) == 0 {
-			categories, err = unpack(outMap, DefaultOutTensorName+"1")
+			categories, err2 = unpack(outMap, DefaultOutTensorName+"1")
 			if err != nil {
-				return nil, err
+				return nil, multierr.Combine(err, err2)
 			}
 		}
 		scores, err := unpack(outMap, "score")
 		if err != nil || len(scores) == 0 {
-			scores, err = unpack(outMap, DefaultOutTensorName+"2")
+			scores, err2 = unpack(outMap, DefaultOutTensorName+"2")
 			if err != nil {
-				return nil, err
+				return nil, multierr.Combine(err, err2)
 			}
 		}
 
@@ -101,9 +104,9 @@ func attemptToBuildDetector(mlm mlmodel.Service) (objectdetection.Detector, erro
 	}, nil
 }
 
-func checkIfDetectorWorks(ctx context.Context, df objectdetection.Detector) (objectdetection.Detector, error) {
+func checkIfDetectorWorks(ctx context.Context, df objectdetection.Detector) error {
 	if df == nil {
-		return nil, errors.New("Nil detector function")
+		return errors.New("nil detector function")
 	}
 
 	// test image to check if the detector function works
@@ -111,7 +114,7 @@ func checkIfDetectorWorks(ctx context.Context, df objectdetection.Detector) (obj
 
 	_, err := df(ctx, img)
 	if err != nil {
-		return nil, errors.New("Cannot use model as a detector")
+		return errors.New("Cannot use model as a detector")
 	}
-	return df, nil
+	return nil
 }

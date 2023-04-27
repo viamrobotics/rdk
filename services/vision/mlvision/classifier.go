@@ -7,6 +7,7 @@ import (
 
 	"github.com/nfnt/resize"
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/services/mlmodel"
@@ -45,11 +46,13 @@ func attemptToBuildClassifier(mlm mlmodel.Service) (classification.Classifier, e
 			return nil, err
 		}
 
+		var err2 error
+
 		probs, err := unpack(outMap, "probability")
 		if err != nil || len(probs) == 0 {
-			probs, err = unpack(outMap, DefaultOutTensorName+"0")
+			probs, err2 = unpack(outMap, DefaultOutTensorName+"0")
 			if err != nil {
-				return nil, err
+				return nil, multierr.Combine(err, err2)
 			}
 		}
 
@@ -66,9 +69,9 @@ func attemptToBuildClassifier(mlm mlmodel.Service) (classification.Classifier, e
 	}, nil
 }
 
-func checkIfClassifierWorks(ctx context.Context, cf classification.Classifier) (classification.Classifier, error) {
+func checkIfClassifierWorks(ctx context.Context, cf classification.Classifier) error {
 	if cf == nil {
-		return nil, errors.New("Nil classifier function")
+		return errors.New("nil classifier function")
 	}
 
 	// test image to check if the classifier function works
@@ -76,7 +79,7 @@ func checkIfClassifierWorks(ctx context.Context, cf classification.Classifier) (
 
 	_, err := cf(ctx, img)
 	if err != nil {
-		return nil, errors.New("Cannot use model as a classifier")
+		return errors.New("Cannot use model as a classifier")
 	}
-	return cf, nil
+	return nil
 }

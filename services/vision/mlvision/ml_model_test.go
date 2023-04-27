@@ -91,17 +91,15 @@ func TestAddingIncorrectModelTypeToModel(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, classifier, test.ShouldNotBeNil)
 
-	classifier, err = checkIfClassifierWorks(ctx, classifier)
+	err = checkIfClassifierWorks(ctx, classifier)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, classifier, test.ShouldBeNil)
 
 	detector, err := attemptToBuildDetector(mlm)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, detector, test.ShouldNotBeNil)
 
-	detector, err = checkIfDetectorWorks(ctx, detector)
+	err = checkIfDetectorWorks(ctx, detector)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, detector, test.ShouldNotBeNil)
 
 	modelLocClassifier := artifact.MustPath("vision/tflite/mobilenetv2_class.tflite")
 
@@ -112,9 +110,8 @@ func TestAddingIncorrectModelTypeToModel(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, classifier, test.ShouldNotBeNil)
 
-	classifier, err = checkIfClassifierWorks(ctx, classifier)
+	err = checkIfClassifierWorks(ctx, classifier)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, classifier, test.ShouldNotBeNil)
 
 	mlm, err = getTestMlModel(modelLocClassifier)
 	test.That(t, err, test.ShouldBeNil)
@@ -123,7 +120,7 @@ func TestAddingIncorrectModelTypeToModel(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, detector, test.ShouldNotBeNil)
 
-	detector, err = checkIfDetectorWorks(ctx, detector)
+	err = checkIfDetectorWorks(ctx, detector)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, detector, test.ShouldBeNil)
 }

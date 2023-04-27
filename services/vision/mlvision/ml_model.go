@@ -75,11 +75,12 @@ func registerMLModelVisionService(
 	if err != nil {
 		logger.Infow("error turning ml model into a classifier", "model", params.ModelName, "error", err)
 	} else {
-		classifierFunc, err = checkIfClassifierWorks(ctx, classifierFunc)
+		err := checkIfClassifierWorks(ctx, classifierFunc)
 		if err != nil {
+			classifierFunc = nil
 			logger.Infow("error turning ml model into a classifier", "model", params.ModelName, "error", err)
 		} else {
-			logger.Infof("model %q fulfills a vision service ciassifier", params.ModelName)
+			logger.Infow("model fulfills a vision service classifier", "model", params.ModelName)
 		}
 	}
 
@@ -87,11 +88,12 @@ func registerMLModelVisionService(
 	if err != nil {
 		logger.Infow("error turning ml model into a detector", "model", params.ModelName, "error", err)
 	} else {
-		detectorFunc, err = checkIfDetectorWorks(ctx, detectorFunc)
+		err = checkIfDetectorWorks(ctx, detectorFunc)
 		if err != nil {
+			detectorFunc = nil
 			logger.Infow("error turning ml model into a detector", "model", params.ModelName, "error", err)
 		} else {
-			logger.Infof("model %q fulfills a vision service detector", params.ModelName)
+			logger.Infow("model fulfills a vision service detector", "model", params.ModelName)
 		}
 	}
 
