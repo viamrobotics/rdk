@@ -12,7 +12,6 @@ import (
 	"github.com/lucasb-eyer/go-colorful"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
-	"go.viam.com/utils/testutils"
 )
 
 func _checkAllDifferent(t *testing.T, colors []Color) {
@@ -531,7 +530,7 @@ func TestColorSegment1(t *testing.T) {
 		}
 	}
 
-	outDir := testutils.TempDirT(t, "", "rimage")
+	outDir := t.TempDir()
 	golog.NewTestLogger(t).Debugf("out dir: %q", outDir)
 	err = diffs.WriteTo(outDir + "/foo.html")
 	test.That(t, err, test.ShouldBeNil)

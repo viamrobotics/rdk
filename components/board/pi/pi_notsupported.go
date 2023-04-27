@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/board/genericlinux"
 	picommon "go.viam.com/rdk/components/board/pi/common"
 	"go.viam.com/rdk/components/servo"
 	"go.viam.com/rdk/resource"
@@ -19,7 +20,7 @@ func init() {
 	resource.RegisterComponent(
 		board.API,
 		picommon.Model,
-		resource.Registration[board.Board, resource.NoNativeConfig]{Constructor: func(
+		resource.Registration[board.Board, *genericlinux.Config]{Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
@@ -30,7 +31,7 @@ func init() {
 	resource.RegisterComponent(
 		servo.API,
 		picommon.Model,
-		resource.Registration[servo.Servo, resource.NoNativeConfig]{
+		resource.Registration[servo.Servo, *picommon.ServoConfig]{
 			Constructor: func(
 				ctx context.Context,
 				deps resource.Dependencies,

@@ -3,11 +3,12 @@
 
 import { $ref, $computed } from 'vue/macros';
 import { grpc } from '@improbable-eng/grpc-web';
-import { Client, commonApi, ResponseStream, ServiceError, slamApi } from '@viamrobotics/sdk';
+import { Client, commonApi, ResponseStream, robotApi, ServiceError, slamApi } from '@viamrobotics/sdk';
 import { displayError, isServiceError } from '../lib/error';
 import { rcLogConditionally } from '../lib/log';
 import PCD from './pcd/pcd-view.vue';
 import Slam2dRender from './slam-2d-render.vue';
+import { onMounted, onUnmounted } from 'vue';
 
 type MapAndPose = { map: Uint8Array, pose: commonApi.Pose}
 
@@ -15,6 +16,7 @@ const props = defineProps<{
   name: string
   resources: commonApi.ResourceName.AsObject[]
   client: Client
+  statusStream: ResponseStream<robotApi.StreamStatusResponse> | null
 }>();
 
 const selected2dValue = $ref('manual');
@@ -222,6 +224,18 @@ const refresh3dMap = () => {
   updateSLAM3dRefreshFrequency(props.name, selected3dValue);
 };
 
+onMounted(() => {
+  props.statusStream?.on('end', () => {
+    window.clearTimeout(slam2dTimeoutId);
+    window.clearTimeout(slam3dTimeoutId);
+  });
+});
+
+onUnmounted(() => {
+  window.clearTimeout(slam2dTimeoutId);
+  window.clearTimeout(slam3dTimeoutId);
+});
+
 </script>
 
 <template>
@@ -320,7 +334,7 @@ const refresh3dMap = () => {
               :value="show3d ? 'on' : 'off'"
               @input="toggle3dExpand()"
             />
-            <span class="pr-2">View SLAM Map (3D))</span>
+            <span class="pr-2">View SLAM Map (3D)</span>
           </div>
           <div class="float-right pb-4">
             <div class="flex">

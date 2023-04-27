@@ -3,13 +3,15 @@
 import { onMounted, onUnmounted } from 'vue';
 import { grpc } from '@improbable-eng/grpc-web';
 import { Client, movementSensorApi as movementsensorApi, ServiceError } from '@viamrobotics/sdk';
-import type{ commonApi } from '@viamrobotics/sdk';
+import type{ ResponseStream, commonApi, robotApi } from '@viamrobotics/sdk';
 import { displayError } from '../lib/error';
 import { rcLogConditionally } from '../lib/log';
+import { $ref } from 'vue/macros';
 
 const props = defineProps<{
   name: string
   client: Client
+  statusStream: ResponseStream<robotApi.StreamStatusResponse> | null
 }>();
 
 let orientation = $ref<commonApi.Orientation.AsObject | undefined>();
@@ -151,12 +153,15 @@ const refresh = async () => {
 
         const temp = resp!.toObject();
         coordinate = temp.coordinate;
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore `altitudeM` is correct from teh protos
         altitudeM = temp.altitudeM;
       }
     );
   }
 
   refreshId = window.setTimeout(refresh, 500);
+  props.statusStream?.on('end', () => clearTimeout(refreshId));
 };
 
 onMounted(() => {

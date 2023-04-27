@@ -8,7 +8,6 @@ import (
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
-	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
@@ -130,9 +129,8 @@ func TestUndistortImage(t *testing.T) {
 	_, err = pinhole800.UndistortImage(img1280)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "img dimension and intrinsics don't match")
 
+	outDir := t.TempDir()
 	// correct undistortion
-	outDir, err = testutils.TempDir("", "transform")
-	test.That(t, err, test.ShouldBeNil)
 	// 800x600
 	img800, err := rimage.NewImageFromFile(artifact.MustPath("transform/undistort/distorted_800x600.jpg"))
 	test.That(t, err, test.ShouldBeNil)
@@ -179,8 +177,6 @@ func TestUndistortDepthMap(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "img dimension and intrinsics don't match")
 
 	// correct undistortion
-	outDir, err = testutils.TempDir("", "transform")
-	test.That(t, err, test.ShouldBeNil)
 	img, err := rimage.NewDepthMapFromFile(
 		context.Background(), artifact.MustPath("rimage/board2_gray.png"))
 	test.That(t, err, test.ShouldBeNil)

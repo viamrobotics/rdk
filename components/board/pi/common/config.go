@@ -1,5 +1,3 @@
-//go:build linux && (arm64 || arm)
-
 package picommon
 
 import (
