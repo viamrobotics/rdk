@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"sync"
 
 	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
@@ -35,6 +36,7 @@ type capsule struct {
 	capVec r3.Vector // Vector pointing from `center` towards `segB`, cached to prevent recalculation
 
 	rotMatrix *RotationMatrix
+	once      sync.Once
 }
 
 // NewCapsule instantiates a new capsule Geometry.
@@ -69,8 +71,8 @@ func newCapsuleWithSegPoints(offset Pose, radius, length float64, label string) 
 	}
 }
 
-func (c capsule) MarshalJSON() ([]byte, error) {
-	config, err := NewGeometryConfig(&c)
+func (c *capsule) MarshalJSON() ([]byte, error) {
+	config, err := NewGeometryConfig(c)
 	if err != nil {
 		return nil, err
 	}
@@ -224,9 +226,7 @@ func (c *capsule) ToPoints(resolution float64) []r3.Vector {
 
 // rotationMatrix returns the cached matrix if it exists, and generates it if not.
 func (c *capsule) rotationMatrix() *RotationMatrix {
-	if c.rotMatrix == nil {
-		c.rotMatrix = c.pose.Orientation().RotationMatrix()
-	}
+	c.once.Do(func() { c.rotMatrix = c.pose.Orientation().RotationMatrix() })
 
 	return c.rotMatrix
 }
