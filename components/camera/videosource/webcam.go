@@ -22,12 +22,6 @@ import (
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
-<<<<<<< HEAD
-=======
-	jetsoncamera "go.viam.com/rdk/components/camera/platforms/jetson"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/discovery"
->>>>>>> ee4451a7b (Add error check for DetectOSInformation)
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage/transform"
