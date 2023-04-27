@@ -340,10 +340,12 @@ onUnmounted(() => {
           />
         </div>
 
+        <!-- hard setting height here since this is ignoring the tailwind class -->
         <div
           id="map"
           ref="container"
           class="mb-2 h-[400px] w-full"
+          style="height: 400px;"
         />
 
         <v-input
