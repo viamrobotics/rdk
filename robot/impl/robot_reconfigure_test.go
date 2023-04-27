@@ -317,7 +317,7 @@ func TestRobotReconfigure(t *testing.T) {
 		rr, ok := robot.(*localRobot)
 		test.That(t, ok, test.ShouldBeTrue)
 
-		rr.triggerConfig <- true
+		rr.triggerConfig <- struct{}{}
 
 		utils.SelectContextOrWait(context.Background(), 200*time.Millisecond)
 
@@ -1978,7 +1978,7 @@ func TestRobotReconfigure(t *testing.T) {
 		rr, ok := robot.(*localRobot)
 		test.That(t, ok, test.ShouldBeTrue)
 
-		rr.triggerConfig <- true
+		rr.triggerConfig <- struct{}{}
 
 		utils.SelectContextOrWait(context.Background(), 200*time.Millisecond)
 		mock6, err = robot.ResourceByName(mockNamed("mock6"))
@@ -2672,7 +2672,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 	rr, ok := r.(*localRobot)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	rr.triggerConfig <- true
+	rr.triggerConfig <- struct{}{}
 
 	utils.SelectContextOrWait(ctx, 2*time.Second)
 
@@ -2750,7 +2750,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 	rr, ok = r.(*localRobot)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	rr.triggerConfig <- true
+	rr.triggerConfig <- struct{}{}
 
 	utils.SelectContextOrWait(ctx, 2*time.Second)
 
@@ -2825,7 +2825,7 @@ func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 	rr, ok := r.(*localRobot)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	rr.triggerConfig <- true
+	rr.triggerConfig <- struct{}{}
 	utils.SelectContextOrWait(ctx, 2*time.Second)
 
 	expectedSet := rdktestutils.NewResourceNameSet(
@@ -2844,7 +2844,7 @@ func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 	test.That(t, foo.Close(context.Background()), test.ShouldBeNil)
 	// wait for local_robot to detect that the remote is now offline
 	utils.SelectContextOrWait(ctx, 15*time.Second)
-	rr.triggerConfig <- true
+	rr.triggerConfig <- struct{}{}
 	utils.SelectContextOrWait(ctx, 2*time.Second)
 
 	test.That(
@@ -2878,7 +2878,7 @@ func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 	rr, ok = r.(*localRobot)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	rr.triggerConfig <- true
+	rr.triggerConfig <- struct{}{}
 
 	utils.SelectContextOrWait(ctx, 2*time.Second)
 
@@ -2949,7 +2949,7 @@ func TestInferRemoteRobotDependencyConnectAfterStartup(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 
 	utils.SelectContextOrWait(ctx, 15*time.Second)
-	rr.triggerConfig <- true
+	rr.triggerConfig <- struct{}{}
 	utils.SelectContextOrWait(ctx, 2*time.Second)
 
 	expectedSet := rdktestutils.NewResourceNameSet(
@@ -2968,7 +2968,7 @@ func TestInferRemoteRobotDependencyConnectAfterStartup(t *testing.T) {
 	test.That(t, foo.Close(context.Background()), test.ShouldBeNil)
 	// wait for local_robot to detect that the remote is now offline
 	utils.SelectContextOrWait(ctx, 15*time.Second)
-	rr.triggerConfig <- true
+	rr.triggerConfig <- struct{}{}
 	utils.SelectContextOrWait(ctx, 2*time.Second)
 
 	test.That(
@@ -3069,7 +3069,7 @@ func TestInferRemoteRobotDependencyAmbiguous(t *testing.T) {
 	rr, ok := r.(*localRobot)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	rr.triggerConfig <- true
+	rr.triggerConfig <- struct{}{}
 	utils.SelectContextOrWait(ctx, 2*time.Second)
 
 	// we expect the robot to correctly detect the ambiguous dependency and not build the resource
@@ -3101,7 +3101,7 @@ func TestInferRemoteRobotDependencyAmbiguous(t *testing.T) {
 	}
 	r.Reconfigure(ctx, reConfig)
 	utils.SelectContextOrWait(ctx, 15*time.Second)
-	rr.triggerConfig <- true
+	rr.triggerConfig <- struct{}{}
 	utils.SelectContextOrWait(ctx, 2*time.Second)
 
 	finalSet := rdktestutils.NewResourceNameSet(
