@@ -159,7 +159,7 @@ func motionPlanInternal(ctx context.Context,
 		return nil, err
 	}
 
-	wsPb, err := frame.WorldStateToProtobuf(worldState)
+	wsPb, err := worldState.ToProtobuf()
 	if err != nil {
 		return nil, err
 	}

@@ -8,6 +8,8 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
+const unnamedWorldStateGeometryPrefix = "unnamedWorldStateGeometry_"
+
 // WorldState is a struct to store the data representation of the robot's environment.
 type WorldState struct {
 	obstacleNames map[string]bool
@@ -16,8 +18,7 @@ type WorldState struct {
 	transforms    []*LinkInFrame
 }
 
-const unnamedWorldStateGeometryPrefix = "unnamedWorldStateGeometry_"
-
+// NewEmptyWorldState is a constructor for a WorldState object that has no obstacles or transforms.
 func NewEmptyWorldState() *WorldState {
 	return &WorldState{
 		obstacleNames: make(map[string]bool),
@@ -26,7 +27,7 @@ func NewEmptyWorldState() *WorldState {
 	}
 }
 
-// NewWorldState is a constructor for a WorldState struct.
+// NewWorldState is a constructor for a WorldState object.
 func NewWorldState(obstacles []*GeometriesInFrame, transforms []*LinkInFrame) (*WorldState, error) {
 	ws := &WorldState{
 		obstacleNames: make(map[string]bool),
@@ -65,7 +66,7 @@ func WorldStateFromProtobuf(proto *commonpb.WorldState) (*WorldState, error) {
 // ToProtobuf takes an rdk WorldState and converts it to the protobuf definition of a WorldState.
 func (ws *WorldState) ToProtobuf() (*commonpb.WorldState, error) {
 	if ws == nil {
-		ws = NewEmptyWorldState()
+		return &commonpb.WorldState{}, nil
 	}
 
 	convertGeometriesToProto := func(allGeometries []*GeometriesInFrame) []*commonpb.GeometriesInFrame {
@@ -93,11 +94,11 @@ func (ws *WorldState) ObstacleNames() map[string]bool {
 		return map[string]bool{}
 	}
 
-	copy := map[string]bool{}
+	copiedMap := make(map[string]bool)
 	for key, value := range ws.obstacleNames {
-		copy[key] = value
+		copiedMap[key] = value
 	}
-	return copy
+	return copiedMap
 }
 
 // Transforms returns the transforms that have been added to the WorldState.
