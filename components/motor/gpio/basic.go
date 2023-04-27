@@ -269,8 +269,13 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 	if m.maxRPM == 0 {
 		return errors.New("not supported, define max_rpm attribute != 0")
 	}
-	if rpm == 0 {
+
+	switch speed := math.Abs(rpm); {
+	case speed < 0.1:
+		m.logger.Warnf("motor (%s) speed is nearly 0 rev_per_min", m.Name())
 		return motor.NewZeroRPMError()
+	case speed > m.maxRPM-0.1:
+		m.logger.Warnf("motor (%s) speed is nearly the max rev_per_min (%f)", m.Name(), m.maxRPM)
 	}
 
 	powerPct, waitDur := goForMath(m.maxRPM, rpm, revolutions)

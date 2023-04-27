@@ -527,10 +527,6 @@ func (m *EncodedMotor) computeRamp(oldPower, newPower float64) float64 {
 // Both the RPM and the revolutions can be assigned negative values to move in a backwards direction.
 // Note: if both are negative the motor will spin in the forward direction.
 func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
-	if rpm == 0 {
-		return motor.NewZeroRPMError()
-	}
-
 	rpm *= float64(m.flip)
 
 	ctx, done := m.opMgr.New(ctx)
@@ -559,6 +555,14 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions float
 
 	revolutions = math.Abs(revolutions)
 	rpm = math.Abs(rpm) * float64(d)
+
+	switch speed := math.Abs(rpm); {
+	case speed < 0.1:
+		m.logger.Warnf("motor (%s) speed is nearly 0 rev_per_min", m.Name())
+		return motor.NewZeroRPMError()
+	case speed > m.cfg.MaxRPM-0.1:
+		m.logger.Warnf("motor (%s) speed is nearly the max rev_per_min (%f)", m.Name(), m.cfg.MaxRPM)
+	}
 
 	m.stateMu.Lock()
 	defer m.stateMu.Unlock()

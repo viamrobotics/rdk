@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/CPRT/roboclaw"
@@ -158,7 +159,9 @@ func (m *roboclawMotor) SetPower(ctx context.Context, powerPct float64, extra ma
 }
 
 func (m *roboclawMotor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
-	if rpm == 0 {
+	speed := math.Abs(rpm)
+	if speed < 0.1 {
+		m.logger.Warnf("motor (%s) speed is nearly 0 rev_per_min", m.Name())
 		return motor.NewZeroRPMError()
 	}
 
