@@ -148,6 +148,9 @@ func (x *xArm) Reconfigure(ctx context.Context, deps resource.Dependencies, conf
 	if speed == 0 {
 		speed = defaultSpeed
 	}
+	if speed < 0 {
+		return fmt.Errorf("given speed %f cannot be negative", speed)
+	}
 
 	x.mu.Lock()
 	defer x.mu.Unlock()
