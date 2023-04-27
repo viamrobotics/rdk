@@ -2,6 +2,7 @@ package gpiostepper
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"testing"
 
@@ -16,7 +17,7 @@ import (
 
 func Test1(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
-	logger := golog.NewTestLogger(t)
+	logger, obs := golog.NewObservedTestLogger(t)
 
 	b := &fakeboard.Board{GPIOPins: make(map[string]*fakeboard.GPIOPin)}
 
@@ -196,7 +197,10 @@ func Test1(t *testing.T) {
 
 	t.Run("motor testing with 0 rpm", func(t *testing.T) {
 		err = m.GoFor(ctx, 0, 1, nil)
-		test.That(t, err, test.ShouldBeError, motor.NewZeroRPMError())
+		test.That(t, err, test.ShouldBeNil)
+		allObs := obs.All()
+		latestLoggedEntry := allObs[len(allObs)-1]
+		test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly 0")
 	})
 
 	cancel()

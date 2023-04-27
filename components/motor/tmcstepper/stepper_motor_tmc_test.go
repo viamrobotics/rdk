@@ -2,6 +2,7 @@ package tmcstepper_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -42,6 +43,97 @@ func checkRx(t *testing.T, c chan []byte, expects, sends [][]byte) {
 }
 
 const maxRpm = 500
+
+func TestRPMBounds(t *testing.T) {
+	ctx := context.Background()
+	logger, obs := golog.NewObservedTestLogger(t)
+	c := make(chan []byte)
+	b := &fakeboard.Board{
+		Named: board.Named("foo").AsNamed(),
+	}
+	b.GPIOPins = map[string]*fakeboard.GPIOPin{}
+	b.SPIs = map[string]*fakeboard.SPI{}
+	b.SPIs["main"] = &fakeboard.SPI{FIFO: c}
+
+	deps := resource.Dependencies(map[resource.Name]resource.Resource{b.Name(): b})
+
+	mc := tmcstepper.TMC5072Config{
+		BoardName:        b.Name().ShortName(),
+		SPIBus:           "main",
+		ChipSelect:       "40",
+		Index:            0,
+		SGThresh:         0,
+		CalFactor:        1.0,
+		MaxAcceleration:  500,
+		MaxRPM:           maxRpm,
+		TicksPerRotation: 200,
+	}
+
+	motorReg, ok := resource.LookupRegistration(motor.API, resource.DefaultModelFamily.WithModel("TMC5072"))
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, motorReg, test.ShouldNotBeNil)
+
+	// These are the setup register writes
+	go checkTx(t, c, [][]byte{
+		{236, 0, 1, 0, 195},
+		{176, 0, 6, 15, 8},
+		{237, 0, 0, 0, 0},
+		{164, 0, 0, 21, 8},
+		{166, 0, 0, 21, 8},
+		{170, 0, 0, 21, 8},
+		{168, 0, 0, 21, 8},
+		{163, 0, 0, 0, 1},
+		{171, 0, 0, 0, 10},
+		{165, 0, 2, 17, 149},
+		{177, 0, 0, 105, 234},
+		{167, 0, 0, 0, 0},
+		{160, 0, 0, 0, 1},
+		{161, 0, 0, 0, 0},
+	})
+
+	m, err := motorReg.Constructor(context.Background(), deps, resource.Config{
+		Name:                "motor1",
+		ConvertedAttributes: &mc,
+	}, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, m.Close(context.Background()), test.ShouldBeNil)
+	}()
+	motorDep, ok := m.(motor.Motor)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	test.That(t, motorDep.GoFor(ctx, 0.05, 6.6, nil), test.ShouldNotBeNil)
+	allObs := obs.All()
+	latestLoggedEntry := allObs[len(allObs)-1]
+	test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly 0")
+
+	// Check with position at 0.0 revolutions
+	go checkRx(t, c,
+		[][]byte{
+			{33, 0, 0, 0, 0},
+			{33, 0, 0, 0, 0},
+			{160, 0, 0, 0, 0},
+			{167, 0, 8, 70, 85},
+			{173, 0, 5, 40, 0},
+			{53, 0, 0, 0, 0},
+			{53, 0, 0, 0, 0},
+		},
+		[][]byte{
+			{0, 0, 0, 0, 0},
+			{0, 0, 0, 0, 0},
+			{0, 0, 0, 0, 0},
+			{0, 0, 0, 0, 0},
+			{0, 0, 0, 0, 0},
+			{0, 0, 0, 4, 0},
+			{0, 0, 0, 4, 0},
+		},
+	)
+	test.That(t, motorDep.GoFor(ctx, 500, 6.6, nil), test.ShouldBeNil)
+	allObs = obs.All()
+	latestLoggedEntry = allObs[len(allObs)-1]
+	test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly the max")
+}
 
 func TestTMCStepperMotor(t *testing.T) {
 	ctx := context.Background()
