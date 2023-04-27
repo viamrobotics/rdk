@@ -28,7 +28,6 @@ import (
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/utils"
 )
 
 // RegisterBoard registers a sysfs based board of the given model.
