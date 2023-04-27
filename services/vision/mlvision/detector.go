@@ -65,21 +65,21 @@ func attemptToBuildDetector(mlm mlmodel.Service) (objectdetection.Detector, erro
 		locations, err := unpack(outMap, "location")
 		if err != nil || len(locations) == 0 {
 			locations, err2 = unpack(outMap, DefaultOutTensorName+"0")
-			if err != nil {
+			if err2 != nil {
 				return nil, multierr.Combine(err, err2)
 			}
 		}
 		categories, err := unpack(outMap, "category")
 		if err != nil || len(categories) == 0 {
 			categories, err2 = unpack(outMap, DefaultOutTensorName+"1")
-			if err != nil {
+			if err2 != nil {
 				return nil, multierr.Combine(err, err2)
 			}
 		}
 		scores, err := unpack(outMap, "score")
 		if err != nil || len(scores) == 0 {
 			scores, err2 = unpack(outMap, DefaultOutTensorName+"2")
-			if err != nil {
+			if err2 != nil {
 				return nil, multierr.Combine(err, err2)
 			}
 		}
