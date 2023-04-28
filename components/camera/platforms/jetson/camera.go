@@ -11,6 +11,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"unsafe"
+
+	"go.uber.org/multierr"
 )
 
 // DetectOSInformation pulls relevant OS attributes as an OSInformation struct
@@ -65,10 +67,11 @@ func ValidateSetup(deviceName, daughterboardName, driverName string, err error) 
 	if osInfo.Device != deviceName {
 		return err
 	}
-	return fmt.Errorf(
-		"camera open error: %w, jetson setup: %v",
-		err, DetectError(osInfo, daughterboardName, driverName),
-	)
+	detectErr := DetectError(osInfo, daughterboardName, driverName)
+	if detectErr != nil {
+		return multierr.Append(err, detectErr)
+	}
+	return err
 }
 
 // DetectError checks daughterboard and camera setup to determine
