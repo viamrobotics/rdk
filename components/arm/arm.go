@@ -101,7 +101,7 @@ func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesByAPI(r, API)
 }
 
-// CreateStatus creates a status from the arm. This will report calculated end effector positions even if the underlying
+// CreateStatus creates a status from the arm. This will report calculated end effector positions even if the given
 // arm is perceived to be out of bounds.
 func CreateStatus(ctx context.Context, a Arm) (*pb.Status, error) {
 	jointPositions, err := a.JointPositions(ctx, nil)
