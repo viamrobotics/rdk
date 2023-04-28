@@ -13,7 +13,6 @@ const unnamedWorldStateGeometryPrefix = "unnamedWorldStateGeometry_"
 // WorldState is a struct to store the data representation of the robot's environment.
 type WorldState struct {
 	obstacleNames map[string]bool
-	unnamedCount  int
 	obstacles     []*GeometriesInFrame
 	transforms    []*LinkInFrame
 }
@@ -34,6 +33,7 @@ func NewWorldState(obstacles []*GeometriesInFrame, transforms []*LinkInFrame) (*
 		obstacles:     make([]*GeometriesInFrame, 0),
 		transforms:    transforms,
 	}
+	unnamedCount := 0
 	for _, gf := range obstacles {
 		geometries := gf.Geometries()
 		checkedGeometries := make([]spatialmath.Geometry, 0, len(geometries))
@@ -42,9 +42,9 @@ func NewWorldState(obstacles []*GeometriesInFrame, transforms []*LinkInFrame) (*
 		for _, geometry := range geometries {
 			name := geometry.Label()
 			if name == "" {
-				name = unnamedWorldStateGeometryPrefix + strconv.Itoa(ws.unnamedCount)
+				name = unnamedWorldStateGeometryPrefix + strconv.Itoa(unnamedCount)
 				geometry.SetLabel(name)
-				ws.unnamedCount++
+				unnamedCount++
 			}
 
 			if _, present := ws.obstacleNames[name]; present {
