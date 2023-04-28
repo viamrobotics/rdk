@@ -55,7 +55,7 @@ func (c *client) Move(
 	if err != nil {
 		return false, err
 	}
-	worldStateMsg, err := referenceframe.WorldStateToProtobuf(worldState)
+	worldStateMsg, err := worldState.ToProtobuf()
 	if err != nil {
 		return false, err
 	}
@@ -108,7 +108,7 @@ func (c *client) MoveSingleComponent(
 	if err != nil {
 		return false, err
 	}
-	worldStateMsg, err := referenceframe.WorldStateToProtobuf(worldState)
+	worldStateMsg, err := worldState.ToProtobuf()
 	if err != nil {
 		return false, err
 	}

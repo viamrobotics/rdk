@@ -59,7 +59,6 @@ func NewBuiltIn(ctx context.Context, deps resource.Dependencies, conf resource.C
 	return ms, nil
 }
 
-
 // Reconfigure updates the motion service when the config has changed.
 func (ms *builtIn) Reconfigure(
 	ctx context.Context,
@@ -81,8 +80,8 @@ type builtIn struct {
 	resource.Named
 	resource.TriviallyCloseable
 	fsService framesystem.Service
-	logger golog.Logger
-	lock sync.Mutex
+	logger    golog.Logger
+	lock      sync.Mutex
 }
 
 // Move takes a goal location and will plan and execute a movement to move a component specified by its name to that destination.
@@ -101,7 +100,7 @@ func (ms *builtIn) Move(
 	goalFrameName := destination.Parent()
 	logger.Debugf("goal given in frame of %q", goalFrameName)
 
-	frameSys, err := ms.fsService.FrameSystem(ctx, worldState.Transforms)
+	frameSys, err := ms.fsService.FrameSystem(ctx, worldState.Transforms())
 	if err != nil {
 		return false, err
 	}
@@ -207,7 +206,7 @@ func (ms *builtIn) MoveSingleComponent(
 	if destination.Parent() != componentName.ShortName() {
 		ms.logger.Debugf("goal given in frame of %q", destination.Parent())
 
-		frameSys, err := ms.fsService.FrameSystem(ctx, worldState.Transforms)
+		frameSys, err := ms.fsService.FrameSystem(ctx, worldState.Transforms())
 		if err != nil {
 			return false, err
 		}
