@@ -148,7 +148,9 @@ const scheduleRefresh2d = (name: string, time: string) => {
     } catch (error) {
       handleError('refresh2d', error);
       selected2dValue = 'manual';
-      refreshErrorMessage2d = `${refreshErrorMessage} ${error.message}`;
+      refreshErrorMessage2d = error !== null && typeof error === 'object' && 'message' in error
+        ? `${refreshErrorMessage} ${error.message}`
+        : `${refreshErrorMessage} ${error}`;
       return;
     }
     if (refresh2DCancelled) {
@@ -167,7 +169,9 @@ const scheduleRefresh3d = (name: string, time: string) => {
     } catch (error) {
       handleError('fetchSLAMMap', error);
       selected3dValue = 'manual';
-      refreshErrorMessage3d = `${refreshErrorMessage} ${error.message}`;
+      refreshErrorMessage3d = error !== null && typeof error === 'object' && 'message' in error
+        ? `${refreshErrorMessage} ${error.message}`
+        : `${refreshErrorMessage} ${error}`;
       return;
     }
     if (refresh3DCancelled) {
@@ -191,7 +195,9 @@ const updateSLAM2dRefreshFrequency = async (name: string, time: 'manual' | strin
     } catch (error) {
       handleError('refresh2d', error);
       selected2dValue = 'manual';
-      refreshErrorMessage2d = `${refreshErrorMessage} ${error.message}`;
+      refreshErrorMessage2d = error !== null && typeof error === 'object' && 'message' in error
+        ? `${refreshErrorMessage} ${error.message}`
+        : `${refreshErrorMessage} ${error}`;
     }
   } else {
     refresh2DCancelled = false;
@@ -212,7 +218,9 @@ const updateSLAM3dRefreshFrequency = async (name: string, time: 'manual' | strin
     } catch (error) {
       handleError('fetchSLAMMap', error);
       selected3dValue = 'manual';
-      refreshErrorMessage3d = `${refreshErrorMessage} ${error.message}`;
+      refreshErrorMessage3d = error !== null && typeof error === 'object' && 'message' in error
+        ? `${refreshErrorMessage} ${error.message}`
+        : `${refreshErrorMessage} ${error}`;
     }
   } else {
     refresh3DCancelled = false;
@@ -266,7 +274,6 @@ onUnmounted(() => {
   window.clearTimeout(slam3dTimeoutId);
 });
 
-
 </script>
 
 <template>
@@ -280,7 +287,7 @@ onUnmounted(() => {
     />
     <div class="border-border-1 h-auto border-x border-b p-2">
       <div class="container mx-auto">
-        <div class="flex-col pt-4"> <!--here is the end of the thing-->
+        <div class="flex-col pt-4">
           <div class="flex items-center gap-2">
             <v-switch
               id="showImage"
