@@ -41,9 +41,10 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 }
 
 const (
-	defaultSpeed        = 20
-	defaultAcceleration = 50
+	defaultSpeed        = 20. // degrees per second
+	defaultAcceleration = 50. // degrees per second per second.
 	defaultPort         = "502"
+	defaultMoveHz       = 100. // Don't change this
 )
 
 type xArm struct {
@@ -119,7 +120,7 @@ func NewxArm(ctx context.Context, conf resource.Config, logger golog.Logger, mod
 		Named:   conf.ResourceName().AsNamed(),
 		dof:     len(model.DoF()),
 		tid:     0,
-		moveHZ:  100.,
+		moveHZ:  defaultMoveHz,
 		model:   model,
 		started: false,
 		logger:  logger,
@@ -147,19 +148,25 @@ func (x *xArm) Reconfigure(ctx context.Context, deps resource.Dependencies, conf
 	if speed == 0 {
 		speed = defaultSpeed
 	}
+	if speed < 0 {
+		return fmt.Errorf("given speed %f cannot be negative", speed)
+	}
 
 	x.mu.Lock()
 	defer x.mu.Unlock()
 
 	newAddr := net.JoinHostPort(newConf.Host, newConf.parsedPort)
 	if x.conn == nil || x.conn.RemoteAddr().String() != newAddr {
+		// Need a new or replacement connection
 		var d net.Dialer
 		newConn, err := d.DialContext(ctx, "tcp", newAddr)
 		if err != nil {
 			return err
 		}
-		if err := x.conn.Close(); err != nil {
-			x.logger.Warnw("error closing old connection but will continue with reconfiguration", "error", err)
+		if x.conn != nil {
+			if err := x.conn.Close(); err != nil {
+				x.logger.Warnw("error closing old connection but will continue with reconfiguration", "error", err)
+			}
 		}
 		x.conn = newConn
 
@@ -168,9 +175,7 @@ func (x *xArm) Reconfigure(ctx context.Context, deps resource.Dependencies, conf
 		}
 	}
 
-	if newConf.Speed > 0 {
-		x.speed = float32(utils.DegToRad(float64(speed)))
-	}
+	x.speed = float32(utils.DegToRad(float64(speed)))
 	return nil
 }
 

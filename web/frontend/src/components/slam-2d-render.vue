@@ -66,7 +66,7 @@ const raycaster = new MouseRaycaster({ camera, renderer, recursive: false });
 raycaster.on('click', (event) => {
   const [intersection] = event.intersections as THREE.Intersection[];
   if (intersection && intersection.point) {
-    console.log(intersection.point);
+    console.debug(intersection.point);
   }
 });
 

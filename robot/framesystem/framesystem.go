@@ -39,47 +39,8 @@ type Service interface {
 		additionalTransforms []*referenceframe.LinkInFrame,
 	) (*referenceframe.PoseInFrame, error)
 	TransformPointCloud(ctx context.Context, srcpc pointcloud.PointCloud, srcName, dstName string) (pointcloud.PointCloud, error)
-}
-
-// RobotFsCurrentInputs will get present inputs for a framesystem from a robot and return a map of those inputs, as well as a map of the
-// InputEnabled resources that those inputs came from.
-func RobotFsCurrentInputs(
-	ctx context.Context,
-	r robot.Robot,
-	fs referenceframe.FrameSystem,
-) (map[string][]referenceframe.Input, map[string]referenceframe.InputEnabled, error) {
-	input := referenceframe.StartPositions(fs)
-
-	// build maps of relevant components and inputs from initial inputs
-	allOriginals := map[string][]referenceframe.Input{}
-	resources := map[string]referenceframe.InputEnabled{}
-	for name, original := range input {
-		// skip frames with no input
-		if len(original) == 0 {
-			continue
-		}
-
-		// add component to map
-		allOriginals[name] = original
-		components := robot.AllResourcesByName(r, name)
-		if len(components) != 1 {
-			return nil, nil, fmt.Errorf("got %d resources instead of 1 for (%s)", len(components), name)
-		}
-		component, ok := components[0].(referenceframe.InputEnabled)
-		if !ok {
-			return nil, nil, fmt.Errorf("%v(%T) is not InputEnabled", name, components[0])
-		}
-		resources[name] = component
-
-		// add input to map
-		pos, err := component.CurrentInputs(ctx)
-		if err != nil {
-			return nil, nil, err
-		}
-		input[name] = pos
-	}
-
-	return input, resources, nil
+	AllCurrentInputs(ctx context.Context) (map[string][]referenceframe.Input, map[string]referenceframe.InputEnabled, error)
+	FrameSystem(ctx context.Context, additionalTransforms []*referenceframe.LinkInFrame) (referenceframe.FrameSystem, error)
 }
 
 // New returns a new frame system service for the given robot.
@@ -89,6 +50,11 @@ func New(ctx context.Context, r robot.Robot, logger golog.Logger) Service {
 		r:      r,
 		logger: logger,
 	}
+}
+
+// FromRobot is a helper for getting the framesystem service from the given Robot.
+func FromRobot(r robot.Robot) (Service, error) {
+	return robot.ResourceFromRobot[Service](r, InternalServiceName)
 }
 
 var internalFrameSystemServiceName = resource.NewName(
@@ -213,7 +179,7 @@ func (svc *frameSystemService) TransformPose(
 		// add component to map
 		components := robot.AllResourcesByName(svc.r, name)
 		if len(components) != 1 {
-			return nil, fmt.Errorf("got %d resources instead of 1 for (%s)", len(components), name)
+			return nil, wrongNumberOfResourcesError(len(components), name)
 		}
 		component, ok := components[0].(referenceframe.InputEnabled)
 		if !ok {
@@ -234,6 +200,66 @@ func (svc *frameSystemService) TransformPose(
 	}
 	pose, _ = tf.(*referenceframe.PoseInFrame)
 	return pose, nil
+}
+
+// AllCurrentInputs will get present inputs for a framesystem from a robot and return a map of those inputs, as well as a map of the
+// InputEnabled resources that those inputs came from.
+func (svc *frameSystemService) AllCurrentInputs(
+	ctx context.Context,
+) (map[string][]referenceframe.Input, map[string]referenceframe.InputEnabled, error) {
+	fs, err := svc.FrameSystem(ctx, []*referenceframe.LinkInFrame{})
+	if err != nil {
+		return nil, nil, err
+	}
+	input := referenceframe.StartPositions(fs)
+
+	// build maps of relevant components and inputs from initial inputs
+	resources := map[string]referenceframe.InputEnabled{}
+	for name, original := range input {
+		// skip frames with no input
+		if len(original) == 0 {
+			continue
+		}
+
+		// add component to map
+		components := robot.AllResourcesByName(svc.r, name)
+		if len(components) != 1 {
+			return nil, nil, wrongNumberOfResourcesError(len(components), name)
+		}
+		component, ok := components[0].(referenceframe.InputEnabled)
+		if !ok {
+			return nil, nil, fmt.Errorf("%v(%T) is not InputEnabled", name, components[0])
+		}
+		resources[name] = component
+
+		// add input to map
+		pos, err := component.CurrentInputs(ctx)
+		if err != nil {
+			return nil, nil, err
+		}
+		input[name] = pos
+	}
+
+	return input, resources, nil
+}
+
+// FrameSystem returns the frame system of the robot.
+func (svc *frameSystemService) FrameSystem(
+	ctx context.Context,
+	additionalTransforms []*referenceframe.LinkInFrame,
+) (referenceframe.FrameSystem, error) {
+	ctx, span := trace.StartSpan(ctx, "services::framesystem::FrameSystem")
+	defer span.End()
+	// create the frame system
+	allParts, err := svc.r.FrameSystemConfig(ctx, additionalTransforms)
+	if err != nil {
+		return nil, err
+	}
+	fs, err := NewFrameSystemFromParts(LocalFrameSystemName, "", allParts, svc.r.Logger())
+	if err != nil {
+		return nil, err
+	}
+	return fs, nil
 }
 
 // TransformPointCloud applies the same pose offset to each point in a single pointcloud and returns the transformed point cloud.
@@ -296,7 +322,10 @@ func (svc *frameSystemService) updateLocalParts(ctx context.Context) error {
 		seen[c.Name] = true
 		model, err := extractModelFrameJSON(svc.r, c.ResourceName())
 		if err != nil && !errors.Is(err, referenceframe.ErrNoModelInformation) {
-			return err
+			// When we have non-nil erros here, it is because the resource is not yet available.
+			// In this case, we will exclude it from the FS.
+			// When it becomes available, it will be included.
+			continue
 		}
 		lif, err := cfgCopy.ParseConfig()
 		if err != nil {

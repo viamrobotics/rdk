@@ -67,6 +67,63 @@ func BenchmarkUseMLVisionModel(b *testing.B) {
 	}
 }
 
+func getTestMlModel(modelLoc string) (mlmodel.Service, error) {
+	ctx := context.Background()
+	testMLModelServiceName := "test-model"
+
+	name := mlmodel.Named(testMLModelServiceName)
+	cfg := tflitecpu.TFLiteConfig{
+		ModelPath:  modelLoc,
+		NumThreads: 2,
+	}
+	return tflitecpu.NewTFLiteCPUModel(ctx, &cfg, name)
+}
+
+func TestAddingIncorrectModelTypeToModel(t *testing.T) {
+	modelLocDetector := artifact.MustPath("vision/tflite/effdet0.tflite")
+	ctx := context.Background()
+
+	// get detector model
+	mlm, err := getTestMlModel(modelLocDetector)
+	test.That(t, err, test.ShouldBeNil)
+
+	classifier, err := attemptToBuildClassifier(mlm)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, classifier, test.ShouldNotBeNil)
+
+	err = checkIfClassifierWorks(ctx, classifier)
+	test.That(t, err, test.ShouldNotBeNil)
+
+	detector, err := attemptToBuildDetector(mlm)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, detector, test.ShouldNotBeNil)
+
+	err = checkIfDetectorWorks(ctx, detector)
+	test.That(t, err, test.ShouldBeNil)
+
+	modelLocClassifier := artifact.MustPath("vision/tflite/mobilenetv2_class.tflite")
+
+	mlm, err = getTestMlModel(modelLocClassifier)
+	test.That(t, err, test.ShouldBeNil)
+
+	classifier, err = attemptToBuildClassifier(mlm)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, classifier, test.ShouldNotBeNil)
+
+	err = checkIfClassifierWorks(ctx, classifier)
+	test.That(t, err, test.ShouldBeNil)
+
+	mlm, err = getTestMlModel(modelLocClassifier)
+	test.That(t, err, test.ShouldBeNil)
+
+	detector, err = attemptToBuildDetector(mlm)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, detector, test.ShouldNotBeNil)
+
+	err = checkIfDetectorWorks(ctx, detector)
+	test.That(t, err, test.ShouldNotBeNil)
+}
+
 func TestNewMLDetector(t *testing.T) {
 	// Test that a detector would give an expected output on the dog image
 	// Set it up as a ML Model

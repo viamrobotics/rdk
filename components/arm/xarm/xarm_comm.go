@@ -369,7 +369,7 @@ func (x *xArm) MoveToJointPositions(ctx context.Context, newPositions *pb.JointP
 	diff := getMaxDiff(from, to)
 	x.mu.RLock()
 	nSteps := int((diff / float64(x.speed)) * x.moveHZ)
-	x.mu.Unlock()
+	x.mu.RUnlock()
 
 	// convenience for structuring and sending individual joint steps
 	sendMoveJointsCmd := func(ctx context.Context, step []float64) error {
