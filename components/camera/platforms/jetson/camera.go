@@ -48,7 +48,7 @@ func getKernelVersion() (string, error) {
 // getDeviceName returns the model name of the device
 // $ cat /sys/firmware/devicetree/base/model
 func getDeviceName() (string, error) {
-	devicePath := "/sys/firmware/devicetree/base/model"
+	const devicePath = "/sys/firmware/devicetree/base/model"
 	device, err := os.ReadFile(devicePath)
 	if err != nil {
 		return Unknown, err
