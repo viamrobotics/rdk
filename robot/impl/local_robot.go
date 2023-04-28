@@ -255,7 +255,6 @@ func (r *localRobot) RemoveOrphanedResources(ctx context.Context,
 			}
 		}
 	}
-	r.manager.completeConfig(ctx, r)
 }
 
 // remoteNameByResource returns the remote the resource is pulled from, if found.

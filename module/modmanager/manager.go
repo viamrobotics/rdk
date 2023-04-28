@@ -356,7 +356,7 @@ var (
 	// oueRestartInterval is the interval of time at which an OnUnexpectedExit
 	// function can attempt to restart the module process. Multiple restart
 	// attempts will use basic backoff.
-	oueRestartInterval = 5 * time.Second
+	oueRestartInterval = 10 * time.Millisecond
 )
 
 // newOUE returns the appropriate OnUnexpectedExit function for the passed-in
