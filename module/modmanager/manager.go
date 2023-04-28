@@ -380,6 +380,7 @@ func (mgr *Manager) newOUE(mod *module) func(exitCode int) bool {
 			return false
 		}
 		mod.inRecovery.Store(true)
+		defer mod.inRecovery.Store(false)
 
 		// Log error immediately, as this is unexpected behavior.
 		mgr.logger.Errorf(

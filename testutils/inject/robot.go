@@ -44,9 +44,10 @@ type Robot struct {
 		dst string,
 		additionalTransforms []*referenceframe.LinkInFrame,
 	) (*referenceframe.PoseInFrame, error)
-	TransformPointCloudFunc func(ctx context.Context, srcpc pointcloud.PointCloud, srcName, dstName string) (pointcloud.PointCloud, error)
-	StatusFunc              func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error)
-	ModuleAddressFunc       func() (string, error)
+	TransformPointCloudFunc     func(ctx context.Context, srcpc pointcloud.PointCloud, srcName, dstName string) (pointcloud.PointCloud, error)
+	StatusFunc                  func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error)
+	ModuleAddressFunc           func() (string, error)
+	RemoveOrphanedResourcesFunc func(ctx context.Context, orphanedResourceNames []resource.Name)
 
 	ops        *operation.Manager
 	SessMgr    session.Manager
@@ -272,6 +273,20 @@ func (r *Robot) ModuleAddress() (string, error) {
 		return r.LocalRobot.ModuleAddress()
 	}
 	return r.ModuleAddressFunc()
+}
+
+// RemoveOrphanedResources calls the injected RemoveOrphanedResources or the real one.
+func (r *Robot) RemoveOrphanedResources(ctx context.Context, orphanedResourceNames []resource.Name) {
+	r.Mu.RLock()
+	defer r.Mu.RUnlock()
+	if r.RemoveOrphanedResourcesFunc == nil {
+		if r.LocalRobot == nil {
+			return
+		}
+		r.LocalRobot.RemoveOrphanedResources(ctx, orphanedResourceNames)
+		return
+	}
+	r.RemoveOrphanedResourcesFunc(ctx, orphanedResourceNames)
 }
 
 type noopSessionManager struct{}
