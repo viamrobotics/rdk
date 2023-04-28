@@ -266,7 +266,8 @@ const loadMaps = () => {
   const key = googleApiKey.value;
   const script = document.createElement('script');
   script.id = 'google-maps';
-  script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&callback=googleMapsInit&libraries=&v=weekly&map_ids=google-maps-1`;
+  script.src = `https://maps.googleapis.com/maps/api/js?key=${key}` + 
+    `&callback=googleMapsInit&libraries=&v=weekly&map_ids=google-maps-1`;
   script.async = true;
   document.head.append(script);
 };
