@@ -407,11 +407,10 @@ func (mgr *Manager) newOUE(mod *module) func(exitCode int) bool {
 		var success bool
 		defer func() {
 			if !success {
-				// Release mgr lock (successful unexpected exit handling will release
-				// lock later in this function), deregister module's resources, remove
-				// module, and close connection if restart fails. Process will already
-				// be stopped.
-				mgr.mu.Unlock()
+				// Deregister module's resources, remove module, close connection and
+				// release mgr lock (successful unexpected exit handling will release
+				// lock later in this function) if restart fails. Process will
+				// already be stopped.
 				mod.deregisterResources()
 				for r, m := range mgr.rMap {
 					if m == mod {
@@ -425,6 +424,7 @@ func (mgr *Manager) newOUE(mod *module) func(exitCode int) bool {
 							"error while closing connection from crashed module "+mod.name)
 					}
 				}
+				mgr.mu.Unlock()
 
 				// Finally, assume all of module's handled resources are orphaned and
 				// remove them.
