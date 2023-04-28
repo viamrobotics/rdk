@@ -224,10 +224,10 @@ func (m *Model) Metadata(ctx context.Context) (mlmodel.MLMetadata, error) {
 	for i := 0; i < numOut; i++ { // for each output Tensor
 		outputT := md.SubgraphMetadata[0].OutputTensorMetadata[i]
 		td := getTensorInfo(outputT)
-		if (strings.Contains(td.Name, "category") || strings.Contains(td.Name, "probability")) && m.conf.LabelPath != nil {
+		td.DataType = strings.ToLower(m.model.Info.OutputTensorTypes[i]) // grab from model info, not metadata
+		if i == 0 && m.conf.LabelPath != nil {
 			td.Extra = map[string]interface{}{"labels": *m.conf.LabelPath}
 		}
-		td.DataType = strings.ToLower(m.model.Info.OutputTensorTypes[i]) // grab from model info, not metadata
 		outputList = append(outputList, td)
 	}
 
@@ -298,6 +298,9 @@ func (m *Model) blindFillMetadata() mlmodel.MLMetadata {
 	for i := 0; i < numOut; i++ {
 		var td mlmodel.TensorInfo
 		td.DataType = strings.ToLower(m.model.Info.OutputTensorTypes[i])
+		if i == 0 && m.conf.LabelPath != nil {
+			td.Extra = map[string]interface{}{"labels": *m.conf.LabelPath}
+		}
 		outputList = append(outputList, td)
 	}
 	out.Inputs = inputList
