@@ -93,7 +93,7 @@ func attemptToBuildDetector(mlm mlmodel.Service) (objectdetection.Detector, erro
 				utils.Clamp(locations[4*i+getIndex(boxOrder, 2)], 0, 1)*float64(origW),
 				utils.Clamp(locations[4*i+getIndex(boxOrder, 3)], 0, 1)*float64(origH)
 			rect := image.Rect(int(xmin), int(ymin), int(xmax), int(ymax))
-			labelNum := int(utils.Clamp(categories[i], 0, math.Inf(1)))
+			labelNum := int(utils.Clamp(categories[i], 0, math.MaxInt))
 			if labels != nil {
 				detections = append(detections, objectdetection.NewDetection(rect, scores[i], labels[labelNum]))
 			} else {
