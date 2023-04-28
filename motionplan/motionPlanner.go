@@ -76,7 +76,7 @@ func PlanRobotMotion(ctx context.Context,
 		return nil, err
 	}
 
-	fs, err := fsSvc.FrameSystem(ctx, worldState.Transforms)
+	fs, err := fsSvc.FrameSystem(ctx, worldState.Transforms())
 	if err != nil {
 		return nil, err
 	}

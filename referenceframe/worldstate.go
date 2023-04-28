@@ -35,11 +35,25 @@ func NewWorldState(obstacles []*GeometriesInFrame, transforms []*LinkInFrame) (*
 		transforms:    transforms,
 	}
 	for _, gf := range obstacles {
-		geometries, err := ws.rectifyNames(gf.geometries)
-		if err != nil {
-			return nil, err
+		geometries := gf.Geometries()
+		checkedGeometries := make([]spatialmath.Geometry, 0, len(geometries))
+
+		// iterate over geometries and make sure that each one that is added to the WorldState has a unique name
+		for _, geometry := range geometries {
+			name := geometry.Label()
+			if name == "" {
+				name = unnamedWorldStateGeometryPrefix + strconv.Itoa(ws.unnamedCount)
+				geometry.SetLabel(name)
+				ws.unnamedCount++
+			}
+
+			if _, present := ws.obstacleNames[name]; present {
+				return nil, NewDuplicateGeometryNameError(name)
+			}
+			ws.obstacleNames[name] = true
+			checkedGeometries = append(checkedGeometries, geometry)
 		}
-		ws.obstacles = append(ws.obstacles, NewGeometriesInFrame(gf.frame, geometries))
+		ws.obstacles = append(ws.obstacles, NewGeometriesInFrame(gf.frame, checkedGeometries))
 	}
 	return ws, nil
 }
@@ -125,23 +139,4 @@ func (ws *WorldState) ObstaclesInWorldFrame(fs FrameSystem, inputs map[string][]
 		allGeometries = append(allGeometries, tf.(*GeometriesInFrame).Geometries()...)
 	}
 	return NewGeometriesInFrame(World, allGeometries), nil
-}
-
-func (ws *WorldState) rectifyNames(geometries []spatialmath.Geometry) ([]spatialmath.Geometry, error) {
-	checkedGeometries := make([]spatialmath.Geometry, len(geometries))
-	for i, geometry := range geometries {
-		name := geometry.Label()
-		if name == "" {
-			name = unnamedWorldStateGeometryPrefix + strconv.Itoa(ws.unnamedCount)
-			geometry.SetLabel(name)
-			ws.unnamedCount++
-		}
-
-		if _, present := ws.obstacleNames[name]; present {
-			return nil, NewDuplicateGeometryNameError(name)
-		}
-		ws.obstacleNames[name] = true
-		checkedGeometries[i] = geometry
-	}
-	return checkedGeometries, nil
 }
