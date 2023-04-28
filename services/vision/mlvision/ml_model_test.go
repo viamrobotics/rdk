@@ -155,7 +155,7 @@ func TestNewMLDetector(t *testing.T) {
 	test.That(t, check.Inputs[0].Name, test.ShouldResemble, "image")
 	test.That(t, check.Outputs[0].Name, test.ShouldResemble, "location")
 	test.That(t, check.Outputs[1].Name, test.ShouldResemble, "category")
-	test.That(t, check.Outputs[1].Extra["labels"], test.ShouldNotBeNil)
+	test.That(t, check.Outputs[0].Extra["labels"], test.ShouldNotBeNil)
 
 	gotDetector, err := attemptToBuildDetector(out)
 	test.That(t, err, test.ShouldBeNil)
@@ -297,8 +297,8 @@ func TestMoreMLDetectors(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, gotDetections[0].Score(), test.ShouldBeGreaterThan, 0.82)
 	test.That(t, gotDetections[1].Score(), test.ShouldBeGreaterThan, 0.8)
-	test.That(t, gotDetections[0].Label(), test.ShouldResemble, "17")
-	test.That(t, gotDetections[1].Label(), test.ShouldResemble, "17")
+	test.That(t, gotDetections[0].Label(), test.ShouldResemble, "Dog")
+	test.That(t, gotDetections[1].Label(), test.ShouldResemble, "Dog")
 }
 
 func TestMoreMLClassifiers(t *testing.T) {
