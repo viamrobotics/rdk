@@ -27,6 +27,7 @@ import (
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/encoder"
+	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/gripper"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/components/movementsensor"
@@ -2317,7 +2318,34 @@ func (s *someTypeWithWeakAndStrongDeps) Reconfigure(
 	conf resource.Config,
 ) error {
 	s.resources = deps
+	ourConf, err := resource.NativeConfig[*someTypeWithWeakAndStrongDepsConfig](conf)
+	if err != nil {
+		return err
+	}
+	for _, dep := range ourConf.deps {
+		if _, err := deps.Lookup(dep); err != nil {
+			return err
+		}
+	}
+	for _, dep := range ourConf.weakDeps {
+		if _, err := deps.Lookup(dep); err != nil {
+			return err
+		}
+	}
 	return nil
+}
+
+type someTypeWithWeakAndStrongDepsConfig struct {
+	deps     []resource.Name
+	weakDeps []resource.Name
+}
+
+func (s *someTypeWithWeakAndStrongDepsConfig) Validate(_ string) ([]string, error) {
+	depNames := make([]string, 0, len(s.deps))
+	for _, dep := range s.deps {
+		depNames = append(depNames, dep.String())
+	}
+	return depNames, nil
 }
 
 func TestUpdateWeakDependents(t *testing.T) {
@@ -2340,7 +2368,7 @@ func TestUpdateWeakDependents(t *testing.T) {
 	resource.Register(
 		weakAPI,
 		weakModel,
-		resource.Registration[*someTypeWithWeakAndStrongDeps, resource.NoNativeConfig]{
+		resource.Registration[*someTypeWithWeakAndStrongDeps, *someTypeWithWeakAndStrongDepsConfig]{
 			Constructor: func(
 				ctx context.Context,
 				deps resource.Dependencies,
@@ -2375,10 +2403,9 @@ func TestUpdateWeakDependents(t *testing.T) {
 	weakCfg2 := config.Config{
 		Components: []resource.Config{
 			{
-				Name:      weak1Name.Name,
-				API:       weakAPI,
-				Model:     weakModel,
-				DependsOn: []string{base1Name.Name},
+				Name:  weak1Name.Name,
+				API:   weakAPI,
+				Model: weakModel,
 			},
 			{
 				Name:  base1Name.Name,
@@ -2401,10 +2428,9 @@ func TestUpdateWeakDependents(t *testing.T) {
 	weakCfg3 := config.Config{
 		Components: []resource.Config{
 			{
-				Name:      weak1Name.Name,
-				API:       weakAPI,
-				Model:     weakModel,
-				DependsOn: []string{base1Name.Name},
+				Name:  weak1Name.Name,
+				API:   weakAPI,
+				Model: weakModel,
 			},
 			{
 				Name:  base1Name.Name,
@@ -2433,10 +2459,9 @@ func TestUpdateWeakDependents(t *testing.T) {
 	weakCfg4 := config.Config{
 		Components: []resource.Config{
 			{
-				Name:      weak1Name.Name,
-				API:       weakAPI,
-				Model:     weakModel,
-				DependsOn: []string{base1Name.Name},
+				Name:  weak1Name.Name,
+				API:   weakAPI,
+				Model: weakModel,
 			},
 			{
 				Name:  base1Name.Name,
@@ -2454,6 +2479,102 @@ func TestUpdateWeakDependents(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, weak1.resources, test.ShouldHaveLength, 1)
 	test.That(t, weak1.resources, test.ShouldContainKey, base1Name)
+
+	base2Name := base.Named("base2")
+	weakCfg5 := config.Config{
+		Components: []resource.Config{
+			{
+				Name:  weak1Name.Name,
+				API:   weakAPI,
+				Model: weakModel,
+				ConvertedAttributes: &someTypeWithWeakAndStrongDepsConfig{
+					deps: []resource.Name{generic.Named("foo")},
+				},
+			},
+			{
+				Name:  base1Name.Name,
+				API:   base.API,
+				Model: fake.Model,
+			},
+			{
+				Name:  base2Name.Name,
+				API:   base.API,
+				Model: fake.Model,
+			},
+		},
+	}
+	test.That(t, weakCfg5.Ensure(false, logger), test.ShouldBeNil)
+	robot.Reconfigure(context.Background(), &weakCfg5)
+
+	_, err = robot.ResourceByName(weak1Name)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not initialized")
+
+	weakCfg6 := config.Config{
+		Components: []resource.Config{
+			{
+				Name:  weak1Name.Name,
+				API:   weakAPI,
+				Model: weakModel,
+				ConvertedAttributes: &someTypeWithWeakAndStrongDepsConfig{
+					weakDeps: []resource.Name{base1Name},
+				},
+			},
+			{
+				Name:  base1Name.Name,
+				API:   base.API,
+				Model: fake.Model,
+			},
+			{
+				Name:  base2Name.Name,
+				API:   base.API,
+				Model: fake.Model,
+			},
+		},
+	}
+	test.That(t, weakCfg6.Ensure(false, logger), test.ShouldBeNil)
+	robot.Reconfigure(context.Background(), &weakCfg6)
+	res, err = robot.ResourceByName(weak1Name)
+	test.That(t, err, test.ShouldBeNil)
+	weak1, err = resource.AsType[*someTypeWithWeakAndStrongDeps](res)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, weak1.resources, test.ShouldHaveLength, 2)
+	test.That(t, weak1.resources, test.ShouldContainKey, base1Name)
+	test.That(t, weak1.resources, test.ShouldContainKey, base2Name)
+
+	weakCfg7 := config.Config{
+		Components: []resource.Config{
+			{
+				Name:  weak1Name.Name,
+				API:   weakAPI,
+				Model: weakModel,
+				ConvertedAttributes: &someTypeWithWeakAndStrongDepsConfig{
+					deps:     []resource.Name{base2Name},
+					weakDeps: []resource.Name{base1Name},
+				},
+			},
+			{
+				Name:  base1Name.Name,
+				API:   base.API,
+				Model: fake.Model,
+			},
+			{
+				Name:  base2Name.Name,
+				API:   base.API,
+				Model: fake.Model,
+			},
+		},
+	}
+	test.That(t, weakCfg7.Ensure(false, logger), test.ShouldBeNil)
+	robot.Reconfigure(context.Background(), &weakCfg7)
+
+	res, err = robot.ResourceByName(weak1Name)
+	test.That(t, err, test.ShouldBeNil)
+	weak1, err = resource.AsType[*someTypeWithWeakAndStrongDeps](res)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, weak1.resources, test.ShouldHaveLength, 2)
+	test.That(t, weak1.resources, test.ShouldContainKey, base1Name)
+	test.That(t, weak1.resources, test.ShouldContainKey, base2Name)
 }
 
 func TestDefaultServiceReconfigure(t *testing.T) {
