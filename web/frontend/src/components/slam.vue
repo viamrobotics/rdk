@@ -56,16 +56,12 @@ const fetchSLAMMap = (name: string): Promise<Uint8Array> => {
 
     const getPointCloudMap: ResponseStream<slamApi.GetPointCloudMapResponse> =
       props.client.slamService.getPointCloudMap(req);
-    let dataCounter = 0;
     getPointCloudMap.on('data', (res: { getPointCloudPcdChunk_asU8(): Uint8Array }) => {
-      dataCounter += 1;
-      console.log('received data', dataCounter);
       const chunk = res.getPointCloudPcdChunk_asU8();
       chunks.push(chunk);
     });
     getPointCloudMap.on('status', (status: { code: number, details: string, metadata: grpc.Metadata }) => {
       if (status.code !== 0) {
-        console.warn('status called with status', status);
         const error = {
           message: status.details,
           code: status.code,
@@ -79,7 +75,6 @@ const fetchSLAMMap = (name: string): Promise<Uint8Array> => {
         const error = { message: 'Stream ended without status code' };
         reject(error);
       } else if (end.code !== 0) {
-        console.warn('called with end', end);
         const error = {
           message: end.details,
           code: end.code,
