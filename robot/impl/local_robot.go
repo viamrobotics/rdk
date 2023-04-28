@@ -513,7 +513,7 @@ func (r *localRobot) getDependencies(
 	if deps := gNode.UnresolvedDependencies(); len(deps) != 0 {
 		return nil, errors.Errorf("resource has unresolved dependencies: %v", deps)
 	}
-	deps := make(resource.Dependencies)
+	allDeps := make(resource.Dependencies)
 	var needUpdate bool
 	for _, dep := range r.manager.resources.GetAllParentsOf(rName) {
 		if node, ok := r.manager.resources.Node(dep); ok {
@@ -528,14 +528,75 @@ func (r *localRobot) getDependencies(
 		if err != nil {
 			return nil, &resource.DependencyNotReadyError{Name: dep.Name, Reason: err}
 		}
-		deps[dep] = r
+		allDeps[dep] = r
+	}
+	nodeConf := gNode.Config()
+	for weakDepName, weakDepRes := range r.getWeakDependencies(rName, nodeConf.API, nodeConf.Model) {
+		if _, ok := allDeps[weakDepName]; ok {
+			continue
+		}
+		allDeps[weakDepName] = weakDepRes
 	}
 
 	if needUpdate {
 		r.updateWeakDependents(ctx)
 	}
 
-	return deps, nil
+	return allDeps, nil
+}
+
+func (r *localRobot) getWeakDependencyNames(api resource.API, model resource.Model) []internal.ResourceMatcher {
+	reg, ok := resource.LookupRegistration(api, model)
+	if !ok {
+		return nil
+	}
+	return reg.WeakDependencies
+}
+
+func (r *localRobot) getWeakDependencies(resName resource.Name, api resource.API, model resource.Model) resource.Dependencies {
+	weakDepNames := r.getWeakDependencyNames(api, model)
+
+	allResources := map[resource.Name]resource.Resource{}
+	internalResources := map[resource.Name]resource.Resource{}
+	components := map[resource.Name]resource.Resource{}
+	for _, n := range r.manager.resources.Names() {
+		if !(n.API.IsComponent() || n.API.IsService()) {
+			continue
+		}
+		res, err := r.ResourceByName(n)
+		if err != nil {
+			if !resource.IsDependencyNotReadyError(err) && !resource.IsNotAvailableError(err) {
+				r.Logger().Debugw("error finding resource while getting weak dependencies", "resource", n, "error", err)
+			}
+			continue
+		}
+		switch {
+		case n.API.IsComponent():
+			allResources[n] = res
+			components[n] = res
+		default:
+			allResources[n] = res
+			if n.API.Type.Namespace == resource.APINamespaceRDKInternal {
+				internalResources[n] = res
+			}
+		}
+	}
+
+	deps := make(resource.Dependencies, len(weakDepNames))
+	for _, dep := range weakDepNames {
+		switch dep {
+		case internal.ComponentDependencyWildcardMatcher:
+			for k, v := range components {
+				if k == resName {
+					continue
+				}
+				deps[k] = v
+			}
+		default:
+			// no other matchers supported right now. you could imagine a LiteralMatcher in the future
+		}
+	}
+	return deps
 }
 
 func (r *localRobot) newResource(
@@ -631,10 +692,6 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 
 	updateResourceWeakDependents := func(conf resource.Config) {
 		resName := conf.ResourceName()
-		reg, ok := resource.LookupRegistration(resName.API, conf.Model)
-		if !ok || len(reg.WeakDependencies) == 0 {
-			return
-		}
 		resNode, ok := r.manager.resources.Node(resName)
 		if !ok {
 			return
@@ -643,32 +700,15 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 		if err != nil {
 			return
 		}
-		allDeps := make(resource.Dependencies, len(reg.WeakDependencies))
-		for _, dep := range reg.WeakDependencies {
-			switch dep {
-			case internal.ComponentDependencyWildcardMatcher:
-				for k, v := range components {
-					if k == resName {
-						continue
-					}
-					allDeps[k] = v
-				}
-			default:
-				// no other matchers supported right now. you could imagine a LiteralMatcher in the future
-			}
-		}
-		strongDeps, err := r.getDependencies(ctx, resName, resNode)
-		if err != nil {
-			r.Logger().Errorw("failed to get strong dependencies during weak update; skipping", "resource", resName, "error", err)
+		if len(r.getWeakDependencyNames(conf.API, conf.Model)) == 0 {
 			return
 		}
-		for name, dep := range strongDeps {
-			if _, ok := allDeps[name]; ok {
-				continue
-			}
-			allDeps[name] = dep
+		deps, err := r.getDependencies(ctx, resName, resNode)
+		if err != nil {
+			r.Logger().Errorw("failed to get dependencies during weak update; skipping", "resource", resName, "error", err)
+			return
 		}
-		if err := res.Reconfigure(ctx, allDeps, conf); err != nil {
+		if err := res.Reconfigure(ctx, deps, conf); err != nil {
 			r.Logger().Errorw("failed to reconfigure resource with weak dependencies", "resource", resName, "error", err)
 		}
 	}
