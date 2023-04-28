@@ -98,7 +98,7 @@ func TestClient(t *testing.T) {
 				destinationFrame+componentName.Name, spatialmath.NewPoseFromPoint(r3.Vector{1, 2, 3})), nil
 		}
 
-		result, err := client.Move(ctx, resourceName, grabPose, &referenceframe.WorldState{}, nil, nil)
+		result, err := client.Move(ctx, resourceName, grabPose, nil, nil, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, result, test.ShouldEqual, success)
 
@@ -170,7 +170,7 @@ func TestClient(t *testing.T) {
 			return nil, passedErr
 		}
 
-		resp, err := client2.Move(ctx, resourceName, grabPose, &referenceframe.WorldState{}, nil, nil)
+		resp, err := client2.Move(ctx, resourceName, grabPose, nil, nil, nil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, passedErr.Error())
 		test.That(t, resp, test.ShouldEqual, false)
 		_, err = client2.GetPose(context.Background(), arm.Named("arm1"), "foo", nil, map[string]interface{}{})

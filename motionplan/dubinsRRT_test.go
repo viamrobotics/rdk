@@ -54,7 +54,7 @@ func TestDubinsRRT(t *testing.T) {
 	}
 
 	// case with no obstacles
-	test.That(t, testDubin(&frame.WorldState{}), test.ShouldBeTrue)
+	test.That(t, testDubin(nil), test.ShouldBeTrue)
 
 	// case with obstacles
 	box, err := spatial.NewBox(spatial.NewPoseFromPoint(
@@ -63,6 +63,7 @@ func TestDubinsRRT(t *testing.T) {
 		"")
 	test.That(t, err, test.ShouldEqual, nil)
 	obstacleGeometries := []spatial.Geometry{box}
-	worldState := &frame.WorldState{Obstacles: []*frame.GeometriesInFrame{frame.NewGeometriesInFrame(frame.World, obstacleGeometries)}}
+	worldState, err := frame.NewWorldState([]*frame.GeometriesInFrame{frame.NewGeometriesInFrame(frame.World, obstacleGeometries)}, nil)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, testDubin(worldState), test.ShouldBeFalse)
 }
