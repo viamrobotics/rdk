@@ -3,7 +3,6 @@ package fake
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -48,6 +47,10 @@ const (
 )
 
 func fakeGetPointCloudMap(_ context.Context, datasetDir string, slamSvc *SLAM) (func() ([]byte, error), error) {
+	c := slamSvc.getCount()
+	if c == 17 {
+		return nil, fmt.Errorf("simulated bad fakeGetPointCloudMap response %d", c)
+	}
 	path := filepath.Clean(artifact.MustPath(fmt.Sprintf(pcdTemplate, datasetDir, slamSvc.getCount())))
 	slamSvc.logger.Debug("Reading " + path)
 	file, err := os.Open(path)
@@ -63,11 +66,10 @@ func fakeGetPointCloudMap(_ context.Context, datasetDir string, slamSvc *SLAM) (
 			return nil, err
 		}
 		chunkCount++
-    slamSvc.logger.Warnf("slamSvc.getCount() > %d, chunkCount %d", slamSvc.getCount(), chunkCount)
-    if slamSvc.getCount() > 5 && chunkCount >= 3 {
-      return nil, errors.New("ah ah ah")
-
-    }
+		slamSvc.logger.Warnf("slamSvc.getCount() > %d, chunkCount %d", slamSvc.getCount(), chunkCount)
+		if c%3 == 0 && chunkCount >= 2 {
+			return nil, fmt.Errorf("simulated bad PCD chunk %d", c)
+		}
 		return chunk[:bytesRead], err
 	}
 	return f, nil
@@ -95,6 +97,10 @@ func fakeGetInternalState(_ context.Context, datasetDir string, slamSvc *SLAM) (
 func fakeGetPosition(_ context.Context, datasetDir string, slamSvc *SLAM) (spatialmath.Pose, string, error) {
 	path := filepath.Clean(artifact.MustPath(fmt.Sprintf(positionTemplate, datasetDir, slamSvc.getCount())))
 	slamSvc.logger.Debug("Reading " + path)
+	c := slamSvc.getCount()
+	if c%2 == 0 {
+		return nil, "", fmt.Errorf("simulated bad position %d", c)
+	}
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, "", err

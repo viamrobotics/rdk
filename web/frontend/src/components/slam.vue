@@ -1,7 +1,6 @@
 
 <script setup lang="ts">
 
-import { onMounted, onUnmounted } from 'vue';
 import { $ref, $computed } from 'vue/macros';
 import { grpc } from '@improbable-eng/grpc-web';
 import { Client, commonApi, ResponseStream, robotApi, ServiceError, slamApi } from '@viamrobotics/sdk';
