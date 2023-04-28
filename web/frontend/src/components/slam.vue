@@ -18,7 +18,7 @@ const props = defineProps<{
   client: Client
   statusStream: ResponseStream<robotApi.StreamStatusResponse> | null
 }>();
-const refreshErrorMessage = 'Map stale... error refreshing map:';
+const refreshErrorMessage = 'Error refreshing map. The map shown may be stale.';
 let refreshErrorMessage2d = $ref<string | null>();
 let refreshErrorMessage3d = $ref<string | null>();
 let selected2dValue = $ref('manual');
