@@ -52,6 +52,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/client"
+	"go.viam.com/rdk/robot/framesystem"
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/robot/packages"
@@ -2174,14 +2175,16 @@ func TestCheckMaxInstanceValid(t *testing.T) {
 	cfg := &config.Config{
 		Services: []resource.Config{
 			{
-				Name:  "fake1",
-				Model: resource.DefaultServiceModel,
-				API:   motion.API,
+				Name:      "fake1",
+				Model:     resource.DefaultServiceModel,
+				API:       motion.API,
+				DependsOn: []string{framesystem.InternalServiceName.String()},
 			},
 			{
-				Name:  "fake2",
-				Model: resource.DefaultServiceModel,
-				API:   motion.API,
+				Name:      "fake2",
+				Model:     resource.DefaultServiceModel,
+				API:       motion.API,
+				DependsOn: []string{framesystem.InternalServiceName.String()},
 			},
 		},
 		Components: []resource.Config{

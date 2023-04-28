@@ -12,7 +12,6 @@ import (
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/gripper"
-	"go.viam.com/rdk/resource"
 
 	// register.
 	commonpb "go.viam.com/api/common/v1"
@@ -22,7 +21,6 @@ import (
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/motion"
-	"go.viam.com/rdk/services/motion/builtin"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -34,7 +32,7 @@ func setupMotionServiceFromConfig(t *testing.T, configFilename string) (motion.S
 	test.That(t, err, test.ShouldBeNil)
 	myRobot, err := robotimpl.New(ctx, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
-	svc, err := builtin.NewBuiltIn(ctx, myRobot, resource.Config{}, logger)
+	svc, err := motion.FromRobot(myRobot, "builtin")
 	test.That(t, err, test.ShouldBeNil)
 	return svc, func() {
 		myRobot.Close(context.Background())
