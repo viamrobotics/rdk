@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/edaniels/golog"
@@ -57,6 +58,16 @@ type module struct {
 	client    pb.ModuleServiceClient
 	addr      string
 	resources map[resource.Name]*addedResource
+
+	// inRecovery stores whether or not an OnUnexpectedExit function is trying
+	// to recover a crash of this module; inRecoveryLock guards the execution of
+	// an OnUnexpectedExit function for this module.
+	//
+	// NOTE(benjirewis): Using just an atomic boolean is not sufficient, as OUE
+	// functions for the same module cannot overlap and should not continue after
+	// another OUE has finished.
+	inRecovery     atomic.Bool
+	inRecoveryLock sync.Mutex
 }
 
 type addedResource struct {
@@ -356,13 +367,20 @@ var (
 	// oueRestartInterval is the interval of time at which an OnUnexpectedExit
 	// function can attempt to restart the module process. Multiple restart
 	// attempts will use basic backoff.
-	oueRestartInterval = 10 * time.Millisecond
+	oueRestartInterval = 5 * time.Second
 )
 
 // newOUE returns the appropriate OnUnexpectedExit function for the passed-in
 // module to include in the pexec.ProcessConfig.
 func (mgr *Manager) newOUE(mod *module) func(exitCode int) bool {
 	return func(exitCode int) bool {
+		mod.inRecoveryLock.Lock()
+		defer mod.inRecoveryLock.Unlock()
+		if mod.inRecovery.Load() {
+			return false
+		}
+		mod.inRecovery.Store(true)
+
 		// Log error immediately, as this is unexpected behavior.
 		mgr.logger.Errorf(
 			"module %s has unexpectedly exited with exit code %d, attempting to restart it",
@@ -388,8 +406,8 @@ func (mgr *Manager) newOUE(mod *module) func(exitCode int) bool {
 		var success bool
 		defer func() {
 			if !success {
-				// Release lock (successful unexpected exit handling will release lock
-				// later in this function), deregister module's resources, remove
+				// Release mgr lock (successful unexpected exit handling will release
+				// lock later in this function), deregister module's resources, remove
 				// module, and close connection if restart fails. Process will already
 				// be stopped.
 				mgr.mu.Unlock()
@@ -406,6 +424,7 @@ func (mgr *Manager) newOUE(mod *module) func(exitCode int) bool {
 							"error while closing connection from crashed module "+mod.name)
 					}
 				}
+
 				// Finally, assume all of module's handled resources are orphaned and
 				// remove them.
 				var orphanedResourceNames []resource.Name
@@ -460,7 +479,7 @@ func (mgr *Manager) newOUE(mod *module) func(exitCode int) bool {
 
 		// Add old module process' resources to new module; warn if new module
 		// cannot handle old resource and remove now orphaned resource.
-		mgr.mu.Unlock() // Release lock for AddResource calls.
+		mgr.mu.Unlock() // Release mgr lock for AddResource calls.
 		var orphanedResourceNames []resource.Name
 		for name, res := range mod.resources {
 			if _, err := mgr.AddResource(ctx, res.conf, res.deps); err != nil {

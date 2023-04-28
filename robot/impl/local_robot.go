@@ -217,7 +217,7 @@ func (r *localRobot) ModuleAddress() (string, error) {
 // RemoveOrphanedResources is called by the module manager when a module has
 // changed (either due to crash or successful restart) and some or all of the
 // resources it handled have been orphaned. It will remove the orphaned
-// resources from the resource tree.
+// resources from the resource tree and Close them.
 func (r *localRobot) RemoveOrphanedResources(ctx context.Context,
 	orphanedResourceNames []resource.Name,
 ) {
@@ -230,9 +230,15 @@ func (r *localRobot) RemoveOrphanedResources(ctx context.Context,
 		}
 		r.manager.resources.MarkForRemoval(subG)
 	}
+
+	r.manager.completeConfig(ctx, r)
+	r.updateWeakDependents(ctx)
+
+	// removeMarkedAndClose should Close all marked resources.
 	removedNames, removedErr := r.manager.removeMarkedAndClose(ctx, nil)
 	if removedErr != nil {
-		r.manager.logger.Errorw("error while remove and closing nodes", "error", removedErr)
+		r.manager.logger.Errorw("error while removing and closing nodes", "error",
+			removedErr)
 		return
 	}
 	for _, removedName := range removedNames {
