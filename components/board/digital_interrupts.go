@@ -71,11 +71,9 @@ func CreateDigitalInterrupt(cfg DigitalInterruptConfig) (DigitalInterrupt, error
 	var i ReconfigurableDigitalInterrupt
 	switch cfg.Type {
 	case "basic":
-		iActual := &BasicDigitalInterrupt{}
-		i = iActual
+		i = &BasicDigitalInterrupt{}
 	case "servo":
-		iActual := &ServoDigitalInterrupt{ra: utils.NewRollingAverage(ServoRollingAverageWindow)}
-		i = iActual
+		i = &ServoDigitalInterrupt{ra: utils.NewRollingAverage(ServoRollingAverageWindow)}
 	default:
 		panic(errors.Errorf("unknown interrupt type (%s)", cfg.Type))
 	}
