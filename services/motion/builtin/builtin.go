@@ -189,18 +189,15 @@ func (ms *builtIn) MoveSingleComponent(
 		return false, err
 	}
 	ms.logger.Debugf("frame system inputs: %v", fsInputs)
-	
-	singleComponentMoves := map[string]arm.Arm{}
-	for n, r := range allResources {
-		if thisArm, ok := r.(arm.Arm); ok {
-			singleComponentMoves[n] = thisArm
-		}
-	}
 
-	movableArm, ok := singleComponentMoves[componentName.ShortName()]
+	armResource, ok := allResources[componentName.ShortName()]
+	if !ok {
+		return false, fmt.Errorf("could not find a resource named %v", componentName.ShortName())
+	}
+	movableArm, ok := armResource.(arm.Arm)
 	if !ok {
 		return false, fmt.Errorf(
-			"could not find an arm named %v. MoveSingleComponent only supports moving arms for now",
+			"could not cast resource named %v to an arm. MoveSingleComponent only supports moving arms for now",
 			componentName.ShortName(),
 		)
 	}
