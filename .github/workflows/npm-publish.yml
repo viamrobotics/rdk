@@ -26,7 +26,7 @@ jobs:
           npm run build-npm --prefix ./web/frontend
 
       - name: Publish
-        uses: JS-DevTools/npm-publish@v1
+        uses: JS-DevTools/npm-publish@v2
         with:
           token: ${{ secrets.NPM_TOKEN }}
           package: ./web/frontend/package.json
