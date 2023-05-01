@@ -35,6 +35,7 @@ import (
 	"go.viam.com/rdk/robot/packages"
 	"go.viam.com/rdk/robot/web"
 	weboptions "go.viam.com/rdk/robot/web/options"
+	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/session"
 	"go.viam.com/rdk/utils"
 )
@@ -545,7 +546,7 @@ func (r *localRobot) getDependencies(
 	return allDeps, nil
 }
 
-func (r *localRobot) getWeakDependencyNames(api resource.API, model resource.Model) []internal.ResourceMatcher {
+func (r *localRobot) getWeakDependencyMatchers(api resource.API, model resource.Model) []internal.ResourceMatcher {
 	reg, ok := resource.LookupRegistration(api, model)
 	if !ok {
 		return nil
@@ -554,11 +555,12 @@ func (r *localRobot) getWeakDependencyNames(api resource.API, model resource.Mod
 }
 
 func (r *localRobot) getWeakDependencies(resName resource.Name, api resource.API, model resource.Model) resource.Dependencies {
-	weakDepNames := r.getWeakDependencyNames(api, model)
+	weakDepMatchers := r.getWeakDependencyMatchers(api, model)
 
 	allResources := map[resource.Name]resource.Resource{}
 	internalResources := map[resource.Name]resource.Resource{}
 	components := map[resource.Name]resource.Resource{}
+	slamServices := map[resource.Name]resource.Resource{}
 	for _, n := range r.manager.resources.Names() {
 		if !(n.API.IsComponent() || n.API.IsService()) {
 			continue
@@ -570,28 +572,32 @@ func (r *localRobot) getWeakDependencies(resName resource.Name, api resource.API
 			}
 			continue
 		}
+		allResources[n] = res
 		switch {
 		case n.API.IsComponent():
-			allResources[n] = res
 			components[n] = res
-		default:
-			allResources[n] = res
-			if n.API.Type.Namespace == resource.APINamespaceRDKInternal {
-				internalResources[n] = res
-			}
+		case n.API.SubtypeName == slam.SubtypeName:
+			slamServices[n] = res
+		case n.API.Type.Namespace == resource.APINamespaceRDKInternal:
+			internalResources[n] = res
 		}
 	}
 
-	deps := make(resource.Dependencies, len(weakDepNames))
-	for _, dep := range weakDepNames {
-		switch dep {
-		case internal.ComponentDependencyWildcardMatcher:
+	deps := make(resource.Dependencies, len(weakDepMatchers))
+	for _, matcher := range weakDepMatchers {
+		match := func(resouces map[resource.Name]resource.Resource) {
 			for k, v := range components {
 				if k == resName {
 					continue
 				}
 				deps[k] = v
 			}
+		}
+		switch matcher {
+		case internal.ComponentDependencyWildcardMatcher:
+			match(components)
+		case internal.SLAMDependencyWildcardMatcher:
+			match(slamServices)
 		default:
 			// no other matchers supported right now. you could imagine a LiteralMatcher in the future
 		}
@@ -660,15 +666,12 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 			}
 			continue
 		}
+		allResources[n] = res
 		switch {
 		case n.API.IsComponent():
-			allResources[n] = res
 			components[n] = res
-		default:
-			allResources[n] = res
-			if n.API.Type.Namespace == resource.APINamespaceRDKInternal {
-				internalResources[n] = res
-			}
+		case n.API.Type.Namespace == resource.APINamespaceRDKInternal:
+			internalResources[n] = res
 		}
 	}
 
@@ -700,7 +703,7 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 		if err != nil {
 			return
 		}
-		if len(r.getWeakDependencyNames(conf.API, conf.Model)) == 0 {
+		if len(r.getWeakDependencyMatchers(conf.API, conf.Model)) == 0 {
 			return
 		}
 		deps, err := r.getDependencies(ctx, resName, resNode)
