@@ -216,8 +216,8 @@ func (b *sysfsBoard) reconfigureGpios(newConf *Config) error {
 	// If we get here, we need to reconfigure b.gpios and b.interrupts. Any pin that already exists
 	// in the right configuration should just be copied over; closing and re-opening it risks
 	// losing its state.
-
-	// Start with the interrupt pins.
+	newInterrupts := make(map[string]*digitalInterrupt, len(newConf.DigitalInterrupts))
+	newGpios := make(map[string]*gpioPin)
 
 	// Here's a helper function, which finds the new config for a pre-existing digital interrupt.
 	findNewDigIntConfig := func(interrupt *digitalInterrupt) *board.DigitalInterruptConfig {
@@ -239,26 +239,40 @@ func (b *sysfsBoard) reconfigureGpios(newConf *Config) error {
 		return nil
 	}
 
-	newInterrupts := make(map[string]*digitalInterrupt, len(newConf.DigitalInterrupts))
+	// Reuse any old interrupts that should stick around.
 	for _, oldInterrupt := range b.interrupts {
-		if newConfig := findNewDigIntConfig(oldInterrupt); newConfig != nil {
+		if newConfig := findNewDigIntConfig(oldInterrupt); newConfig == nil {
+			// The old interrupt shouldn't exist any more.
+			oldInterrupt.Close()
+		} else {
 			newInterrupts[newConfig.Name] = oldInterrupt
 			if err := oldInterrupt.interrupt.Reconfigure(*newConfig); err != nil {
 				return err
 			}
 		}
 	}
+	b.interrupts = newInterrupts
+
+	// Reuse any old GPIO pins that should stick around, too.
+	for pin, oldGpio := range b.gpios {
+		// TODO
+	}
+
+	// Add any new interrupts that should be freshly made.
+	// TODO
+
+	// Finally, add any new GPIO pins.
+	// TODO
 
 	/*
 	for each old interrupt:
 	    if it's either numerically named or in the new config, copy it over to the new map and reconfigure
 		else close it
-	for each new interrupt:
-	    if it doesn't exist yet, close the old GPIO pin and then create it
 	for each old GPIO pin:
 	    if it's in the new config and it's not an interrupt, copy it over
 		else close it
-	delete the old GPIO map
+	for each new interrupt:
+	    if it doesn't exist yet, close the old GPIO pin and then create it
 	for each GPIO pin in the config:
 	    if it's an interrupt, skip it
 		create it
