@@ -103,7 +103,7 @@ func (b *sysfsBoard) Reconfigure(
 		return err
 	}
 
-	if err := b.reconfigureGpios(newConf); err != nil {
+	if err := b.reconfigureInterrupts(newConf); err != nil {
 		return err
 	}
 
@@ -205,7 +205,7 @@ func (b *sysfsBoard) reconfigureAnalogs(ctx context.Context, newConf *Config) er
 	return nil
 }
 
-func (b *sysfsBoard) reconfigureGpios(newConf *Config) error {
+func (b *sysfsBoard) reconfigureInterrupts(newConf *Config) error {
 	if b.usePeriphGpio {
 		if len(newConf.DigitalInterrupts) != 0 {
 			return errors.New("digital interrupts on Periph GPIO pins are not yet supported")
@@ -255,7 +255,7 @@ func (b *sysfsBoard) reconfigureGpios(newConf *Config) error {
 
 	// Reuse any old GPIO pins that should stick around, too.
 	for pin, oldGpio := range b.gpios {
-		// TODO
+		if newConfig, ok := newConf.
 	}
 
 	// Add any new interrupts that should be freshly made.
