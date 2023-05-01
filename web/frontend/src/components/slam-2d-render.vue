@@ -14,15 +14,15 @@ import type { commonApi } from '@viamrobotics/sdk';
  * generated with: https://grayscale.design/app
  */
 const colorMapGrey = [
-  [247, 247, 247],
-  [239, 239, 239],
-  [223, 223, 223],
-  [202, 202, 202],
-  [168, 168, 168],
-  [135, 135, 135],
-  [109, 109, 109],
-  [95, 95, 95],
-  [74, 74, 74],
+  [220, 220, 220],
+  [210, 210, 210],
+  [200, 200, 200],
+  [190, 190, 190],
+  [170, 170, 170],
+  [150, 150, 150],
+  [40, 40, 40],
+  [20, 20, 20],
+  [10, 10, 10],
   [0, 0, 0],
 ].map(([red, green, blue]) =>
   new THREE.Vector3(red, green, blue).multiplyScalar(1 / 255));
