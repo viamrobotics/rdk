@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"reflect"
 	"sync"
 	"time"
 
@@ -428,15 +427,14 @@ func (svc *builtIn) Reconfigure(
 	}
 	svc.collectors = newCollectors
 
-	if svc.syncDisabled == svcConfig.ScheduledSyncDisabled &&
-		svc.syncIntervalMins == svcConfig.SyncIntervalMins &&
-		reflect.DeepEqual(svc.additionalSyncPaths, svcConfig.AdditionalSyncPaths) {
+	svc.additionalSyncPaths = svcConfig.AdditionalSyncPaths
+
+	if svc.syncDisabled == svcConfig.ScheduledSyncDisabled && svc.syncIntervalMins == svcConfig.SyncIntervalMins {
 		return nil
 	}
 
 	svc.syncDisabled = svcConfig.ScheduledSyncDisabled
 	svc.syncIntervalMins = svcConfig.SyncIntervalMins
-	svc.additionalSyncPaths = svcConfig.AdditionalSyncPaths
 
 	svc.cancelSyncScheduler()
 	if !svc.syncDisabled && svc.syncIntervalMins != 0.0 {

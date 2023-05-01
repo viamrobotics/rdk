@@ -5,7 +5,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"reflect"
 	"sort"
 	"sync/atomic"
 	"testing"
@@ -457,51 +456,40 @@ func TestArbitraryFileUpload(t *testing.T) {
 }
 
 func TestSyncConfigUpdateBehavior(t *testing.T) {
-	emptyAdditionalPaths := []string{}
 	newSyncIntervalMins := 0.009
 	tests := []struct {
 		name                 string
 		initSyncDisabled     bool
 		initSyncIntervalMins float64
-		initAdditionalPaths  []string
 		newSyncDisabled      bool
 		newSyncIntervalMins  float64
-		newAdditionalPaths   []string
 	}{
 		{
 			name:                 "all sync config stays the same, syncer should not cancel, ticker stays the same",
 			initSyncDisabled:     false,
 			initSyncIntervalMins: syncIntervalMins,
-			initAdditionalPaths:  emptyAdditionalPaths,
 			newSyncDisabled:      false,
 			newSyncIntervalMins:  syncIntervalMins,
-			newAdditionalPaths:   emptyAdditionalPaths,
 		},
 		{
 			name:                 "sync config changes, new ticker should be created for sync",
 			initSyncDisabled:     false,
 			initSyncIntervalMins: syncIntervalMins,
-			initAdditionalPaths:  emptyAdditionalPaths,
 			newSyncDisabled:      false,
 			newSyncIntervalMins:  newSyncIntervalMins,
-			newAdditionalPaths:   emptyAdditionalPaths,
 		},
 		{
 			name:                 "additional paths changes, new ticker should be created for sync",
 			initSyncDisabled:     false,
 			initSyncIntervalMins: syncIntervalMins,
-			initAdditionalPaths:  emptyAdditionalPaths,
 			newSyncDisabled:      false,
 			newSyncIntervalMins:  syncIntervalMins,
-			newAdditionalPaths:   []string{"newpath"},
 		}, {
 			name:                 "sync gets disabled, syncer should be nil",
 			initSyncDisabled:     false,
 			initSyncIntervalMins: syncIntervalMins,
-			initAdditionalPaths:  emptyAdditionalPaths,
 			newSyncDisabled:      true,
 			newSyncIntervalMins:  syncIntervalMins,
-			newAdditionalPaths:   emptyAdditionalPaths,
 		},
 	}
 
@@ -529,7 +517,6 @@ func TestSyncConfigUpdateBehavior(t *testing.T) {
 			cfg.ScheduledSyncDisabled = tc.initSyncDisabled
 			cfg.CaptureDir = tmpDir
 			cfg.SyncIntervalMins = tc.initSyncIntervalMins
-			cfg.AdditionalSyncPaths = tc.initAdditionalPaths
 
 			resources := resourcesFromDeps(t, r, deps)
 			err := dmsvc.Reconfigure(context.Background(), resources, resource.Config{
@@ -543,7 +530,6 @@ func TestSyncConfigUpdateBehavior(t *testing.T) {
 			// Reconfigure the dmsvc with new sync configs
 			cfg.ScheduledSyncDisabled = tc.newSyncDisabled
 			cfg.SyncIntervalMins = tc.newSyncIntervalMins
-			cfg.AdditionalSyncPaths = tc.newAdditionalPaths
 
 			err = dmsvc.Reconfigure(context.Background(), resources, resource.Config{
 				ConvertedAttributes: cfg,
@@ -559,8 +545,7 @@ func TestSyncConfigUpdateBehavior(t *testing.T) {
 			}
 
 			if tc.initSyncDisabled != tc.newSyncDisabled ||
-				tc.initSyncIntervalMins != tc.newSyncIntervalMins ||
-				!reflect.DeepEqual(tc.initAdditionalPaths, tc.newAdditionalPaths) {
+				tc.initSyncIntervalMins != tc.newSyncIntervalMins {
 				test.That(t, initTicker, test.ShouldNotEqual, newTicker)
 			}
 		})
