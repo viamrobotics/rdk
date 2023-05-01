@@ -22,6 +22,7 @@ type digitalInterrupt struct {
 	line        *gpio.LineWithEvent
 	cancelCtx   context.Context
 	cancelFunc  func()
+	config      *board.DigitalInterruptConfig
 }
 
 func (b *sysfsBoard) createDigitalInterrupt(
@@ -62,6 +63,7 @@ func (b *sysfsBoard) createDigitalInterrupt(
 		line:        line,
 		cancelCtx:   cancelCtx,
 		cancelFunc:  cancelFunc,
+		config:      &config,
 	}
 	result.startMonitor()
 	return &result, nil
