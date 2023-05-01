@@ -202,10 +202,11 @@ const disposeScene = () => {
 
 const updatePose = async (newPose: commonApi.Pose) => {
   const x = newPose.getX();
+  const y = newPose.getY();
   const z = newPose.getZ();
   const baseMarker = scene.getObjectByName('BaseMarker') ??
     await makeMarker(baseMarkerUrl, 'BaseMarker', baseMarkerScalar);
-  baseMarker.position.set(x + baseMarkerOffset.x, baseMarkerOffset.y, z + baseMarkerOffset.z);
+  baseMarker.position.set(x + baseMarkerOffset.x, y + baseMarkerOffset.y, z + baseMarkerOffset.z);
 };
 
 /*
@@ -269,10 +270,12 @@ const updateOrRemoveDestinationMarker = async () => {
   if (props.destVector && props.destExists) {
     const marker = scene.getObjectByName('DestinationMarker') ??
       await makeMarker(destMarkerUrl, 'DestinationMarker', destinationMarkerScalar);
+    console.log('props.destVector:', props.destVector);
     marker.position.set(
       props.destVector.x + destinationMarkerOffset.x,
       props.destVector.y + destinationMarkerOffset.y,
-      props.destVector.z + destinationMarkerOffset.z
+      // props.destVector.z + destinationMarkerOffset.z
+      0
     );
   }
   if (!props.destExists) {
