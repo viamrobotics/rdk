@@ -98,7 +98,7 @@ type builtIn struct {
 	syncerConstructor   datasync.ManagerConstructor
 	cloudConnSvc        cloud.ConnectionService
 	cloudConn           rpc.ClientConn
-	ticker              *clk.Ticker
+	syncTicker          *clk.Ticker
 }
 
 var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), ".viam", "capture")
@@ -450,9 +450,9 @@ func (svc *builtIn) Reconfigure(
 		}
 		svc.startSyncScheduler(svc.syncIntervalMins)
 	} else {
-		if svc.ticker != nil {
-			svc.ticker.Stop()
-			svc.ticker = nil
+		if svc.syncTicker != nil {
+			svc.syncTicker.Stop()
+			svc.syncTicker = nil
 		}
 		svc.closeSyncer()
 	}
@@ -482,11 +482,11 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 	intervalMillis := 60000.0 * intervalMins
 	// The ticker must be created before uploadData returns to prevent race conditions between clock.Ticker and
 	// clock.Add in sync_test.go.
-	svc.ticker = clock.Ticker(time.Millisecond * time.Duration(intervalMillis))
+	svc.syncTicker = clock.Ticker(time.Millisecond * time.Duration(intervalMillis))
 	svc.backgroundWorkers.Add(1)
 	goutils.PanicCapturingGo(func() {
 		defer svc.backgroundWorkers.Done()
-		defer svc.ticker.Stop()
+		defer svc.syncTicker.Stop()
 
 		for {
 			if err := cancelCtx.Err(); err != nil {
@@ -499,7 +499,7 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 			select {
 			case <-cancelCtx.Done():
 				return
-			case <-svc.ticker.C:
+			case <-svc.syncTicker.C:
 				svc.lock.Lock()
 				if svc.syncer != nil {
 					svc.sync()

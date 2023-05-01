@@ -519,7 +519,7 @@ func TestSyncConfigUpdateBehavior(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 
 			builtInSvc := dmsvc.(*builtIn)
-			initTicker := builtInSvc.ticker
+			initTicker := builtInSvc.syncTicker
 
 			// Reconfigure the dmsvc with new sync configs
 			cfg.ScheduledSyncDisabled = tc.newSyncDisabled
@@ -531,7 +531,7 @@ func TestSyncConfigUpdateBehavior(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 
 			newBuildInSvc := dmsvc.(*builtIn)
-			newTicker := newBuildInSvc.ticker
+			newTicker := newBuildInSvc.syncTicker
 			newSyncer := newBuildInSvc.syncer
 
 			if tc.newSyncDisabled {
