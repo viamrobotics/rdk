@@ -145,7 +145,6 @@ const makeMarker = async (url : string, name: string, scalar: number) => {
       for (const shape of shapes) {
 
         const geometry = new THREE.ShapeGeometry(shape);
-        // const mesh = new THREE.Mesh(geometry.rotateZ(-Math.PI / 2), material);
         const mesh = new THREE.Mesh(geometry.rotateZ(-Math.PI), material);
         group.add(mesh);
 
@@ -266,6 +265,24 @@ const createGridHelper = (
   return gridHelper;
 };
 
+const updateOrRemoveDestinationMarker = async () => {
+  if (props.destVector && props.destExists) {
+    const marker = scene.getObjectByName('DestinationMarker') ??
+      await makeMarker(destMarkerUrl, 'DestinationMarker', destinationMarkerScalar);
+    marker.position.set(
+      props.destVector.x + destinationMarkerOffset.x,
+      props.destVector.y + destinationMarkerOffset.y,
+      props.destVector.z + destinationMarkerOffset.z
+    );
+  }
+  if (!props.destExists) {
+    const marker = scene.getObjectByName('DestinationMarker');
+    if (marker !== undefined) {
+      scene.remove(marker);
+    }
+  }
+};
+
 const updatePointCloud = (pointcloud: Uint8Array) => {
   disposeScene();
 
@@ -315,16 +332,24 @@ const updatePointCloud = (pointcloud: Uint8Array) => {
   // construct grid spaced at 1 meter
   const gridHelper = createGridHelper(points);
 
+  // construct axes
+  const axesPos = createAxisHelper('AxesPos', Math.PI / 2);
+  const axesNeg = createAxisHelper('AxesNeg', -Math.PI / 2);
+  axesNeg.rotateZ(Math.PI);
+
   // add objects to scene
   scene.add(
     gridHelper,
     points,
-    intersectionPlane
+    intersectionPlane,
+    axesPos,
+    axesNeg
   );
 
   if (props.pose !== undefined) {
     updatePose(props.pose!);
   }
+  updateOrRemoveDestinationMarker();
 };
 
 onMounted(() => {
@@ -340,36 +365,12 @@ onMounted(() => {
     updatePose(props.pose);
   }
 
-  // construct axes
-  const axesPos = createAxisHelper('AxesPos', Math.PI / 2);
-  const axesNeg = createAxisHelper('AxesNeg', -Math.PI / 2);
-  axesNeg.rotateZ(Math.PI);
-  scene.add(axesPos, axesNeg);
-
 });
 
 onUnmounted(() => {
   pause();
   disposeScene();
 });
-
-const updateOrRemoveDestinationMarker = async () => {
-  if (props.destVector && props.destExists) {
-    const marker = scene.getObjectByName('DestinationMarker') ??
-      await makeMarker(destMarkerUrl, 'DestinationMarker', destinationMarkerScalar);
-    marker.position.set(
-      props.destVector.x + destinationMarkerOffset.x,
-      props.destVector.y + destinationMarkerOffset.y,
-      props.destVector.z + destinationMarkerOffset.z
-    );
-  }
-  if (!props.destExists) {
-    const marker = scene.getObjectByName('DestinationMarker');
-    if (marker !== undefined) {
-      scene.remove(marker);
-    }
-  }
-};
 
 watch(() => [props.destVector!.y, props.destVector!.x, props.destExists], updateOrRemoveDestinationMarker);
 
