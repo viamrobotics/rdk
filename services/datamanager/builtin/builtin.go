@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sync"
 	"time"
 
@@ -98,6 +99,7 @@ type builtIn struct {
 	syncerConstructor   datasync.ManagerConstructor
 	cloudConnSvc        cloud.ConnectionService
 	cloudConn           rpc.ClientConn
+	ticker              *clk.Ticker
 }
 
 var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), ".viam", "capture")
@@ -426,12 +428,16 @@ func (svc *builtIn) Reconfigure(
 	}
 	svc.collectors = newCollectors
 
+	if svc.syncDisabled == svcConfig.ScheduledSyncDisabled &&
+		svc.syncIntervalMins == svcConfig.SyncIntervalMins &&
+		reflect.DeepEqual(svc.additionalSyncPaths, svcConfig.AdditionalSyncPaths) {
+		return nil
+	}
+
 	svc.syncDisabled = svcConfig.ScheduledSyncDisabled
 	svc.syncIntervalMins = svcConfig.SyncIntervalMins
 	svc.additionalSyncPaths = svcConfig.AdditionalSyncPaths
 
-	// TODO DATA-861: this means that the ticker is reset everytime we call Update with sync enabled, regardless of
-	//      whether or not the interval has changed. We should not do that.
 	svc.cancelSyncScheduler()
 	if !svc.syncDisabled && svc.syncIntervalMins != 0.0 {
 		if svc.syncer == nil {
@@ -447,6 +453,10 @@ func (svc *builtIn) Reconfigure(
 		svc.startSyncScheduler(svc.syncIntervalMins)
 	} else {
 		svc.closeSyncer()
+		if svc.ticker != nil {
+			svc.ticker.Stop()
+			svc.ticker = nil
+		}
 	}
 
 	return nil
@@ -474,11 +484,11 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 	intervalMillis := 60000.0 * intervalMins
 	// The ticker must be created before uploadData returns to prevent race conditions between clock.Ticker and
 	// clock.Add in sync_test.go.
-	ticker := clock.Ticker(time.Millisecond * time.Duration(intervalMillis))
+	svc.ticker = clock.Ticker(time.Millisecond * time.Duration(intervalMillis))
 	svc.backgroundWorkers.Add(1)
 	goutils.PanicCapturingGo(func() {
 		defer svc.backgroundWorkers.Done()
-		defer ticker.Stop()
+		defer svc.ticker.Stop()
 
 		for {
 			if err := cancelCtx.Err(); err != nil {
@@ -491,7 +501,7 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 			select {
 			case <-cancelCtx.Done():
 				return
-			case <-ticker.C:
+			case <-svc.ticker.C:
 				svc.lock.Lock()
 				if svc.syncer != nil {
 					svc.sync()

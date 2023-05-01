@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"sync/atomic"
 	"testing"
@@ -453,6 +454,118 @@ func TestArbitraryFileUpload(t *testing.T) {
 			test.That(t, dmsvc.Close(context.Background()), test.ShouldBeNil)
 		})
 	}
+}
+
+func TestSyncConfigUpdateBehavior(t *testing.T) {
+	emptyAdditionalPaths := []string{}
+	newSyncIntervalMins := 0.009
+	tests := []struct {
+		name                 string
+		initSyncDisabled     bool
+		initSyncIntervalMins float64
+		initAdditionalPaths  []string
+		newSyncDisabled      bool
+		newSyncIntervalMins  float64
+		newAdditionalPaths   []string
+	}{
+		{
+			name:                 "all sync config stays the same, syncer should not cancel, ticker stays the same",
+			initSyncDisabled:     false,
+			initSyncIntervalMins: syncIntervalMins,
+			initAdditionalPaths:  emptyAdditionalPaths,
+			newSyncDisabled:      false,
+			newSyncIntervalMins:  syncIntervalMins,
+			newAdditionalPaths:   emptyAdditionalPaths,
+		},
+		{
+			name:                 "sync config changes, new ticker should be created for sync",
+			initSyncDisabled:     false,
+			initSyncIntervalMins: syncIntervalMins,
+			initAdditionalPaths:  emptyAdditionalPaths,
+			newSyncDisabled:      false,
+			newSyncIntervalMins:  newSyncIntervalMins,
+			newAdditionalPaths:   emptyAdditionalPaths,
+		},
+		{
+			name:                 "additional paths changes, new ticker should be created for sync",
+			initSyncDisabled:     false,
+			initSyncIntervalMins: syncIntervalMins,
+			initAdditionalPaths:  emptyAdditionalPaths,
+			newSyncDisabled:      false,
+			newSyncIntervalMins:  syncIntervalMins,
+			newAdditionalPaths:   []string{"newpath"},
+		}, {
+			name:                 "sync gets disabled, syncer should be nil",
+			initSyncDisabled:     false,
+			initSyncIntervalMins: syncIntervalMins,
+			initAdditionalPaths:  emptyAdditionalPaths,
+			newSyncDisabled:      true,
+			newSyncIntervalMins:  syncIntervalMins,
+			newAdditionalPaths:   emptyAdditionalPaths,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// Set up server.
+			mockClock := clk.NewMock()
+			// Make mockClock the package level clock used by the dmsvc so that we can simulate time's passage
+			clock = mockClock
+			tmpDir := t.TempDir()
+
+			// Set up data manager.
+			dmsvc, r := newTestDataManager(t)
+			defer dmsvc.Close(context.Background())
+			var mockClient = mockDataSyncServiceClient{
+				succesfulDCRequests: make(chan *v1.DataCaptureUploadRequest, 100),
+				failedDCRequests:    make(chan *v1.DataCaptureUploadRequest, 100),
+				fail:                &atomic.Bool{},
+			}
+			dmsvc.SetSyncerConstructor(getTestSyncerConstructorMock(mockClient))
+			cfg, deps := setupConfig(t, enabledBinaryCollectorConfigPath)
+
+			// Set up service config.
+			cfg.CaptureDisabled = false
+			cfg.ScheduledSyncDisabled = tc.initSyncDisabled
+			cfg.CaptureDir = tmpDir
+			cfg.SyncIntervalMins = tc.initSyncIntervalMins
+			cfg.AdditionalSyncPaths = tc.initAdditionalPaths
+
+			resources := resourcesFromDeps(t, r, deps)
+			err := dmsvc.Reconfigure(context.Background(), resources, resource.Config{
+				ConvertedAttributes: cfg,
+			})
+			test.That(t, err, test.ShouldBeNil)
+
+			builtInSvc := dmsvc.(*builtIn)
+			initTicker := builtInSvc.ticker
+
+			// Reconfigure the dmsvc with new sync configs
+			cfg.ScheduledSyncDisabled = tc.newSyncDisabled
+			cfg.SyncIntervalMins = tc.newSyncIntervalMins
+			cfg.AdditionalSyncPaths = tc.newAdditionalPaths
+
+			err = dmsvc.Reconfigure(context.Background(), resources, resource.Config{
+				ConvertedAttributes: cfg,
+			})
+			test.That(t, err, test.ShouldBeNil)
+
+			newBuildInSvc := dmsvc.(*builtIn)
+			newTicker := newBuildInSvc.ticker
+			newSyncer := newBuildInSvc.syncer
+
+			if tc.newSyncDisabled {
+				test.That(t, newSyncer, test.ShouldBeNil)
+			}
+
+			if tc.initSyncDisabled != tc.newSyncDisabled ||
+				tc.initSyncIntervalMins != tc.newSyncIntervalMins ||
+				!reflect.DeepEqual(tc.initAdditionalPaths, tc.newAdditionalPaths) {
+				test.That(t, initTicker, test.ShouldNotEqual, newTicker)
+			}
+		})
+	}
+
 }
 
 func getAllFilePaths(dir string) []string {
