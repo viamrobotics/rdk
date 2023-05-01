@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 
 	"github.com/pkg/errors"
+	rdkutils "go.viam.com/rdk/utils"
 	"go.viam.com/utils"
 )
 
@@ -100,7 +100,7 @@ func GetGPIOBoardMappings(modelName string, boardInfoMappings map[string]BoardIn
 func getCompatiblePinDefs(modelName string, boardInfoMappings map[string]BoardInformation) ([]PinDefinition, error) {
 	var path string
 
-	arch := runtime.GOARCH
+	arch := rdkutils.GetArchitectureInfo()
 
 	if arch == "amd64" {
 		path = "/sys/devices/virtual/dmi/id/board_name"

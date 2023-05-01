@@ -4,12 +4,12 @@ import (
 	"runtime"
 )
 
-func getArchitectureInfo() string {
+func GetArchitectureInfo() string {
 	var arch string = runtime.GOARCH
 	return arch
 }
 
-func getOSInfo() string {
+func GetOSInfo() string {
 	var os string = runtime.GOOS
 	return os
 }
