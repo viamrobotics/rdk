@@ -99,6 +99,7 @@ func GetGPIOBoardMappings(modelName string, boardInfoMappings map[string]BoardIn
 // that appears compatible with the machine we're running on.
 func getCompatiblePinDefs(modelName string, boardInfoMappings map[string]BoardInformation) ([]PinDefinition, error) {
 	var path string
+	var compatibles utils.StringSet
 
 	arch := rdkutils.GetArchitectureInfo()
 
@@ -108,9 +109,18 @@ func getCompatiblePinDefs(modelName string, boardInfoMappings map[string]BoardIn
 		path = "/proc/device-tree/compatible"
 	}
 
-	compatibles, err := newStringSetFromFile(modelName, path)
+	compatiblesRd, err := os.ReadFile(path)
 	if err != nil {
-		return nil, errors.Errorf("error while reading board information %v", err)
+		if os.IsNotExist(err) {
+			return nil, noBoardError(modelName)
+		}
+		return nil, err
+	}
+
+	if arch == "amd64" {
+		compatibles = stringSetFromFileAMD64(compatiblesRd)
+	} else {
+		compatibles = stringSetFromFileARM64(compatiblesRd)
 	}
 
 	var pinDefs []PinDefinition
@@ -129,22 +139,18 @@ func getCompatiblePinDefs(modelName string, boardInfoMappings map[string]BoardIn
 	return pinDefs, nil
 }
 
-// A helper function to process contents of a given file path.
-func newStringSetFromFile(modelName, path string) (utils.StringSet, error) {
-	//nolint:gosec
-	content, err := os.ReadFile(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, noBoardError(modelName)
-		}
-		return nil, err
-	}
+func stringSetFromFileARM64(content []byte) utils.StringSet {
 
+	return utils.NewStringSet(strings.Split(string(content), "\x00")...)
+}
+
+func stringSetFromFileAMD64(content []byte) utils.StringSet {
+	//nolint:gosec
 	// Remove whitespace and null characters from the content
 	content = bytes.TrimSpace(content)
 	content = bytes.ReplaceAll(content, []byte{0x00}, []byte{})
 
-	return utils.NewStringSet(string(content)), nil
+	return utils.NewStringSet(string(content))
 }
 
 // A helper function: we read the contents of filePath and return its integer value.
@@ -229,6 +235,7 @@ func getGpioChipDefs(pinDefs []PinDefinition) (map[string]gpioChipData, error) {
 			break
 		}
 	}
+
 	return gpioChipsInfo, nil
 }
 
@@ -257,7 +264,6 @@ func getPwmChipDefs(pinDefs []PinDefinition) (map[string]pwmChipData, error) {
 			// Jetson Orin AGX       BeagleBone AI64                     Intel UP 4000
 			"/sys/devices/platform", "/sys/devices/platform/bus@100000", "/sys/devices/pci0000:00",
 		}
-
 		for _, baseDir := range directoriesToSearch {
 			// For exactly one baseDir, there should be a directory at <baseDir>/<chipName>/pwm/,
 			// which contains a single sub-directory whose name is mirrored in /sys/class/pwm.
