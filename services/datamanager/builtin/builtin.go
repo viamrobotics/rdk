@@ -426,35 +426,32 @@ func (svc *builtIn) Reconfigure(
 		}
 	}
 	svc.collectors = newCollectors
-
 	svc.additionalSyncPaths = svcConfig.AdditionalSyncPaths
 
-	if svc.syncDisabled == svcConfig.ScheduledSyncDisabled && svc.syncIntervalMins == svcConfig.SyncIntervalMins {
-		return nil
-	}
+	if svc.syncDisabled != svcConfig.ScheduledSyncDisabled || svc.syncIntervalMins != svcConfig.SyncIntervalMins {
+		svc.syncDisabled = svcConfig.ScheduledSyncDisabled
+		svc.syncIntervalMins = svcConfig.SyncIntervalMins
 
-	svc.syncDisabled = svcConfig.ScheduledSyncDisabled
-	svc.syncIntervalMins = svcConfig.SyncIntervalMins
-
-	svc.cancelSyncScheduler()
-	if !svc.syncDisabled && svc.syncIntervalMins != 0.0 {
-		if svc.syncer == nil {
-			if err := svc.initSyncer(ctx); err != nil {
-				return err
+		svc.cancelSyncScheduler()
+		if !svc.syncDisabled && svc.syncIntervalMins != 0.0 {
+			if svc.syncer == nil {
+				if err := svc.initSyncer(ctx); err != nil {
+					return err
+				}
+			} else if reinitSyncer {
+				svc.closeSyncer()
+				if err := svc.initSyncer(ctx); err != nil {
+					return err
+				}
 			}
-		} else if reinitSyncer {
+			svc.startSyncScheduler(svc.syncIntervalMins)
+		} else {
+			if svc.syncTicker != nil {
+				svc.syncTicker.Stop()
+				svc.syncTicker = nil
+			}
 			svc.closeSyncer()
-			if err := svc.initSyncer(ctx); err != nil {
-				return err
-			}
 		}
-		svc.startSyncScheduler(svc.syncIntervalMins)
-	} else {
-		if svc.syncTicker != nil {
-			svc.syncTicker.Stop()
-			svc.syncTicker = nil
-		}
-		svc.closeSyncer()
 	}
 
 	return nil
