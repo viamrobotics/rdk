@@ -38,7 +38,7 @@ let refresh2DCancelled = true;
 let refresh3DCancelled = true;
 let updatedDest = $ref(false);
 let destinationMarker = $ref(new THREE.Vector3());
-let moveClick = $ref(true);
+let moveClick = $computed(() => (filterResources(props.resources, 'rdk', 'component', 'base') !== undefined));
 const basePose = new commonApi.Pose();
 const motionServiceReq = new motionApi.MoveOnMapRequest();
 
