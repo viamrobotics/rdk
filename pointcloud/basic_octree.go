@@ -149,7 +149,7 @@ func (octree *BasicOctree) CollidesWithGeometry(geom spatialmath.Geometry, thres
 		}
 
 		// Check whether our geom collides with the area represented by the octree. If false, we can skip
-		collide, err := geom.CollidesWith(ocbox)
+		collide, err := geom.CollidesWith(ocbox, spatialmath.CollisionBuffer)
 		if err != nil {
 			return false, err
 		}
@@ -174,7 +174,7 @@ func (octree *BasicOctree) CollidesWithGeometry(geom spatialmath.Geometry, thres
 			return false, err
 		}
 
-		ptCollide, err := geom.CollidesWith(ptGeom)
+		ptCollide, err := geom.CollidesWith(ptGeom, spatialmath.CollisionBuffer)
 		if err != nil {
 			return false, err
 		}

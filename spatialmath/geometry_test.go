@@ -102,12 +102,12 @@ func testGeometryCollision(t *testing.T, cases []geometryComparisonTestCase) {
 				if c.expected <= CollisionBuffer {
 					fn = test.ShouldBeTrue
 				}
-				collides, err := c.geometries[i].CollidesWith(c.geometries[(i+1)%2])
+				collides, err := c.geometries[i].CollidesWith(c.geometries[(i+1)%2], CollisionBuffer)
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, collides, fn)
 			})
 			t.Run(fmt.Sprintf("%s %T %T distance", c.testname, c.geometries[i], c.geometries[(i+1)%2]), func(t *testing.T) {
-				distance, err := c.geometries[i].DistanceFrom(c.geometries[(i+1)%2])
+				distance, err := c.geometries[i].DistanceFrom(c.geometries[(i+1)%2], CollisionBuffer)
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, distance, test.ShouldAlmostEqual, c.expected, 1e-3)
 			})

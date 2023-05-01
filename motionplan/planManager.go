@@ -424,6 +424,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 		worldState,
 		seedMap,
 		constraints.GetCollisionSpecification(),
+		planningOpts,
 	)
 	if err != nil {
 		return nil, err

@@ -8,6 +8,7 @@ import (
 	"go.viam.com/test"
 
 	frame "go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/spatialmath"
 	spatial "go.viam.com/rdk/spatialmath"
 )
 
@@ -38,7 +39,9 @@ func TestDubinsRRT(t *testing.T) {
 		opt := newBasicPlannerOptions()
 		sf, err := newSolverFrame(fs, model.Name(), frame.World, frame.StartPositions(fs))
 		test.That(t, err, test.ShouldBeNil)
-		collisionConstraints, err := createAllCollisionConstraints(sf, fs, worldState, frame.StartPositions(fs), nil)
+		extras := make(map[string]interface{}, 1)
+		extras["isLinearUR"] = spatialmath.CollisionBuffer
+		collisionConstraints, err := createAllCollisionConstraints(sf, fs, worldState, frame.StartPositions(fs), nil, extras)
 		test.That(t, err, test.ShouldBeNil)
 		for name, constraint := range collisionConstraints {
 			opt.AddStateConstraint(name, constraint)

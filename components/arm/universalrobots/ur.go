@@ -4,6 +4,7 @@ package universalrobots
 import (
 	"bufio"
 	"context"
+
 	// for embedding model file.
 	_ "embed"
 	"encoding/binary"
@@ -356,7 +357,30 @@ func (ua *URArm) MoveToPosition(ctx context.Context, pos spatialmath.Pose, extra
 	if usingHostedKinematics {
 		return ua.moveWithURHostedKinematics(ctx, pos)
 	}
-	return arm.Move(ctx, ua.logger, ua, pos)
+
+	jp, err := ua.JointPositions(ctx, nil)
+	if err != nil {
+		return err
+	}
+	armFrame := ua.model
+
+	// check that joint positions are not out of bounds
+	_, err = motionplan.ComputePosition(armFrame, jp)
+	if err != nil && strings.Contains(err.Error(), referenceframe.OOBErrString) {
+		return errors.New(arm.MTPoob + ": " + err.Error())
+	} else if err != nil {
+		return err
+	}
+
+	extras := make(map[string]interface{}, 1)
+	extras["isLinearUR"] = spatialmath.CollisionBuffer + 5
+
+	solution, err := motionplan.PlanFrameMotion(ctx, ua.logger, pos, armFrame, armFrame.InputFromProtobuf(jp), arm.DefaultArmPlannerOptions, extras)
+	if err != nil {
+		return err
+	}
+
+	return arm.GoToWaypoints(ctx, ua, solution)
 }
 
 // MoveToJointPositions TODO.

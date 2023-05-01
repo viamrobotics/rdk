@@ -240,7 +240,12 @@ func createAllCollisionConstraints(
 	worldState *referenceframe.WorldState,
 	inputs map[string][]referenceframe.Input,
 	pbConstraint []*pb.CollisionSpecification,
+	extras map[string]interface{},
 ) (map[string]StateConstraint, error) {
+	buffer, ok := extras["path_step_size"].(float64)
+	if !ok {
+		buffer = spatial.CollisionBuffer
+	}
 	// extract inputs corresponding to the frame
 	frameInputs, err := frame.mapToSlice(inputs)
 	if err != nil {
@@ -285,19 +290,20 @@ func createAllCollisionConstraints(
 		obstacles.Geometries(),
 		allowedCollisions,
 		false,
+		buffer,
 	)
 	if err != nil {
 		return nil, err
 	}
 
 	// create constraint to keep moving geometries from hitting other geometries on robot that are not moving
-	robotConstraint, err := newCollisionConstraint(movingGeometries.Geometries(), staticGeometries, allowedCollisions, false)
+	robotConstraint, err := newCollisionConstraint(movingGeometries.Geometries(), staticGeometries, allowedCollisions, false, buffer)
 	if err != nil {
 		return nil, err
 	}
 
 	// create constraint to keep moving geometries from hitting themselves
-	selfCollisionConstraint, err := newCollisionConstraint(movingGeometries.Geometries(), nil, allowedCollisions, false)
+	selfCollisionConstraint, err := newCollisionConstraint(movingGeometries.Geometries(), nil, allowedCollisions, false, buffer)
 	if err != nil {
 		return nil, err
 	}
@@ -316,9 +322,10 @@ func newCollisionConstraint(
 	moving, static []spatial.Geometry,
 	collisionSpecifications []*Collision,
 	reportDistances bool,
+	collisionBuffer float64,
 ) (StateConstraint, error) {
 	// create the reference collisionGraph
-	zeroCG, err := newCollisionGraph(moving, static, nil, true)
+	zeroCG, err := newCollisionGraph(moving, static, nil, true, collisionBuffer)
 	if err != nil {
 		return nil, err
 	}
@@ -333,12 +340,12 @@ func newCollisionConstraint(
 			return false
 		}
 
-		cg, err := newCollisionGraph(internal.Geometries(), static, zeroCG, reportDistances)
+		cg, err := newCollisionGraph(internal.Geometries(), static, zeroCG, reportDistances, collisionBuffer)
 		if err != nil {
 			return false
 		}
 
-		return len(cg.collisions()) == 0
+		return len(cg.collisions(collisionBuffer)) == 0
 	}
 	return constraint, nil
 }

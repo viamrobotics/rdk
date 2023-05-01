@@ -142,7 +142,7 @@ func (b *box) ToProtobuf() *commonpb.Geometry {
 }
 
 // CollidesWith checks if the given box collides with the given geometry and returns true if it does.
-func (b *box) CollidesWith(g Geometry) (bool, error) {
+func (b *box) CollidesWith(g Geometry, buffer float64) (bool, error) {
 	if other, ok := g.(*box); ok {
 		return boxVsBoxCollision(b, other), nil
 	}
@@ -158,7 +158,7 @@ func (b *box) CollidesWith(g Geometry) (bool, error) {
 	return true, newCollisionTypeUnsupportedError(b, g)
 }
 
-func (b *box) DistanceFrom(g Geometry) (float64, error) {
+func (b *box) DistanceFrom(g Geometry, buffer float64) (float64, error) {
 	if other, ok := g.(*box); ok {
 		return boxVsBoxDistance(b, other), nil
 	}

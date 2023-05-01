@@ -143,11 +143,11 @@ func (c *capsule) ToProtobuf() *commonpb.Geometry {
 }
 
 // CollidesWith checks if the given capsule collides with the given geometry and returns true if it does.
-func (c *capsule) CollidesWith(g Geometry) (bool, error) {
+func (c *capsule) CollidesWith(g Geometry, buffer float64) (bool, error) {
 	if other, ok := g.(*box); ok {
 		return capsuleVsBoxCollision(c, other), nil
 	}
-	dist, err := c.DistanceFrom(g)
+	dist, err := c.DistanceFrom(g, buffer)
 	if err != nil {
 		return true, err
 	}
@@ -155,7 +155,7 @@ func (c *capsule) CollidesWith(g Geometry) (bool, error) {
 }
 
 // CollidesWith checks if the given capsule collides with the given geometry and returns true if it does.
-func (c *capsule) DistanceFrom(g Geometry) (float64, error) {
+func (c *capsule) DistanceFrom(g Geometry, buffer float64) (float64, error) {
 	if other, ok := g.(*box); ok {
 		return capsuleVsBoxDistance(c, other), nil
 	}

@@ -77,7 +77,7 @@ func (pt *point) ToProtobuf() *commonpb.Geometry {
 }
 
 // CollidesWith checks if the given point collides with the given geometry and returns true if it does.
-func (pt *point) CollidesWith(g Geometry) (bool, error) {
+func (pt *point) CollidesWith(g Geometry, buffer float64) (bool, error) {
 	if other, ok := g.(*box); ok {
 		return pointVsBoxCollision(pt.position, other), nil
 	}
@@ -94,7 +94,7 @@ func (pt *point) CollidesWith(g Geometry) (bool, error) {
 }
 
 // CollidesWith checks if the given point collides with the given geometry and returns true if it does.
-func (pt *point) DistanceFrom(g Geometry) (float64, error) {
+func (pt *point) DistanceFrom(g Geometry, buffer float64) (float64, error) {
 	if other, ok := g.(*box); ok {
 		return pointVsBoxDistance(pt.position, other), nil
 	}
@@ -112,7 +112,7 @@ func (pt *point) DistanceFrom(g Geometry) (float64, error) {
 
 // EncompassedBy returns a bool describing if the given point is completely encompassed by the given geometry.
 func (pt *point) EncompassedBy(g Geometry) (bool, error) {
-	return pt.CollidesWith(g)
+	return pt.CollidesWith(g, CollisionBuffer)
 }
 
 // pointVsBoxCollision takes a box and a point as arguments and returns a bool describing if they are in collision. \
