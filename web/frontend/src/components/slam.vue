@@ -391,7 +391,7 @@ onUnmounted(() => {
       slot="title"
       crumbs="slam"
     />
-    <div class="flex flex-wrap gap-4 border border-t-0 border-border-1 sm:flex-nowrap">
+    <div class="border-border-1 flex flex-wrap gap-4 border border-t-0 sm:flex-nowrap">
       <div class="flex min-w-fit flex-col gap-4 p-4">
         <div class="float-left pb-4">
           <div class="flex">
@@ -500,7 +500,7 @@ onUnmounted(() => {
           />
         </div>
       </div>
-      <div class="justify-start gap-4x border-border-1 sm:border-l">
+      <div class="gap-4x border-border-1 justify-start sm:border-l">
         <div
           v-if="refreshErrorMessage2d && show2d"
           class="border-l-4 border-red-500 bg-gray-100 px-4 py-3"
