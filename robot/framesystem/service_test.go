@@ -17,7 +17,6 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/framesystem"
-	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	_ "go.viam.com/rdk/services/register"
 	"go.viam.com/rdk/spatialmath"
@@ -174,7 +173,7 @@ func TestWrongFrameSystems(t *testing.T) {
 	ctx := context.Background()
 	service := framesystem.New(ctx, injectRobot, logger)
 	err = service.Reconfigure(ctx, resources, resource.Config{})
-	test.That(t, err, test.ShouldBeError, framesystemparts.NewMissingParentError("pieceArm", "base"))
+	test.That(t, err, test.ShouldBeError, NewMissingParentError("pieceArm", "base"))
 	cfg, err = config.Read(
 		context.Background(),
 		rdkutils.ResolveFile("robot/impl/data/fake_wrongconfig3.json"),
@@ -221,7 +220,7 @@ func TestWrongFrameSystems(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	fs, err := svc.FrameSystem(context.Background(), transforms)
 
-	test.That(t, err, test.ShouldBeError, framesystemparts.NewMissingParentError("frame2", "noParent"))
+	test.That(t, err, test.ShouldBeError, NewMissingParentError("frame2", "noParent"))
 	test.That(t, fs, test.ShouldBeNil)
 
 	transforms = []*referenceframe.LinkInFrame{

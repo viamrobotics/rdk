@@ -22,7 +22,6 @@ import (
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/framesystem"
-	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -72,7 +71,7 @@ func makeFakeRobot(t *testing.T) robot.Robot {
 	base1 := &inject.Base{}
 
 	r := &inject.Robot{}
-	fsParts := framesystemparts.Parts{
+	fsParts := framesystem.Parts{
 		{
 			FrameConfig: referenceframe.NewLinkInFrame(referenceframe.World, spatialmath.NewZeroPose(), "base1", nil),
 		},
@@ -93,7 +92,7 @@ func makeFakeRobot(t *testing.T) robot.Robot {
 	r.FrameSystemConfigFunc = func(
 		ctx context.Context,
 		additionalTransforms []*referenceframe.LinkInFrame,
-	) (framesystemparts.Parts, error) {
+	) (framesystem.Parts, error) {
 		return fsParts, nil
 	}
 
@@ -323,7 +322,7 @@ func makeFakeRobotICP(t *testing.T) (robot.Robot, error) {
 	o1 := &spatialmath.EulerAngles{Roll: 0, Pitch: 0.6, Yaw: 0}
 	o2 := &spatialmath.EulerAngles{Roll: 0, Pitch: 0.6, Yaw: -0.3}
 
-	fsParts := framesystemparts.Parts{
+	fsParts := framesystem.Parts{
 		{
 			FrameConfig: referenceframe.NewLinkInFrame(referenceframe.World, spatialmath.NewZeroPose(), "base1", nil),
 		},
@@ -356,7 +355,7 @@ func makeFakeRobotICP(t *testing.T) (robot.Robot, error) {
 	r.FrameSystemConfigFunc = func(
 		ctx context.Context,
 		additionalTransforms []*referenceframe.LinkInFrame,
-	) (framesystemparts.Parts, error) {
+	) (framesystem.Parts, error) {
 		return fsParts, nil
 	}
 

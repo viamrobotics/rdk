@@ -2,26 +2,17 @@
 package framesystem
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-	"go.opencensus.io/trace"
 
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/robot"
-	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 )
 
 // NewFrameSystemFromParts assembles a frame system from a collection of parts,
 // usually acquired by calling Config on a frame system service.
-func NewFrameSystemFromParts(
-	name, prefix string, parts framesystemparts.Parts,
-	logger golog.Logger,
-) (referenceframe.FrameSystem, error) {
+func NewFrameSystemFromParts(name, prefix string, parts Parts, logger golog.Logger) (referenceframe.FrameSystem, error) {
 	// ensure that at least one frame connects to world if the frame system is not empty
 	if len(parts) != 0 {
 		hasWorld := false
@@ -36,15 +27,15 @@ func NewFrameSystemFromParts(
 		}
 	}
 	// Topologically sort parts
-	sortedParts, err := framesystemparts.TopologicallySort(parts)
+	sortedParts, err := TopologicallySort(parts)
 	if err != nil {
 		return nil, err
 	}
 	if len(sortedParts) != len(parts) {
 		return nil, errors.Errorf(
 			"frame system has disconnected frames. connected frames: %v, all frames: %v",
-			framesystemparts.Names(sortedParts),
-			framesystemparts.Names(parts),
+			Names(sortedParts),
+			Names(parts),
 		)
 	}
 	fs := referenceframe.NewEmptySimpleFrameSystem(name)
@@ -74,56 +65,6 @@ func NewFrameSystemFromParts(
 	}
 	logger.Debugf("frames in robot frame system are: %v", frameNamesWithDof(fs))
 	return fs, nil
-}
-
-// combineParts combines the local, remote, and offset parts into one slice.
-// Renaming of the remote parts does not happen in this function.
-func combineParts(
-	localParts framesystemparts.Parts,
-	offsetParts map[string]*referenceframe.FrameSystemPart,
-	remoteParts map[string]framesystemparts.Parts,
-) framesystemparts.Parts {
-	allParts := framesystemparts.Parts{}
-	allParts = append(allParts, localParts...)
-	allParts = append(allParts, framesystemparts.PartMapToPartSlice(offsetParts)...)
-	for _, part := range remoteParts {
-		allParts = append(allParts, part...)
-	}
-	return allParts
-}
-
-// robotFrameSystemConfig returns the frame system parts of the robot through the frame system service.
-func robotFrameSystemConfig(ctx context.Context, r robot.Robot) (framesystemparts.Parts, error) {
-	ctx, span := trace.StartSpan(ctx, "services::framesystem::RobotFrameSystemConfig")
-	defer span.End()
-	parts, err := r.FrameSystemConfig(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-	return parts, nil
-}
-
-// extractModelFrameJSON finds the robot part with a given name, checks to see if it implements ModelFrame, and returns the
-// JSON []byte if it does, or nil if it doesn't.
-func extractModelFrameJSON(r robot.Robot, name resource.Name) (referenceframe.Model, error) {
-	part, err := r.ResourceByName(name)
-	if err != nil {
-		return nil, errors.Wrapf(err, "no resource found with name %q when extracting model frame json", name)
-	}
-	if framer, ok := part.(referenceframe.ModelFramer); ok {
-		return framer.ModelFrame(), nil
-	}
-	return nil, referenceframe.ErrNoModelInformation
-}
-
-// getRemoteRobotConfig gets the parameters for the Remote.
-func getRemoteRobotConfig(remoteName string, conf *config.Config) (*config.Remote, error) {
-	for _, rConf := range conf.Remotes {
-		if rConf.Name == remoteName {
-			return &rConf, nil
-		}
-	}
-	return nil, fmt.Errorf("cannot find Remote config with name %q", remoteName)
 }
 
 func frameNamesWithDof(sys referenceframe.FrameSystem) []string {

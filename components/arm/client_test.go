@@ -16,7 +16,7 @@ import (
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
-	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
+	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/robot/server"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils"
@@ -101,8 +101,8 @@ func TestClient(t *testing.T) {
 	injectRobot.FrameSystemConfigFunc = func(
 		ctx context.Context,
 		additionalTransforms []*referenceframe.LinkInFrame,
-	) (framesystemparts.Parts, error) {
-		return framesystemparts.Parts{}, nil
+	) (framesystem.Parts, error) {
+		return framesystem.Parts{}, nil
 	}
 	test.That(t, rpcServer.RegisterServiceServer(
 		context.Background(),

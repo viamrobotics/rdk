@@ -1,5 +1,4 @@
-// Package framesystemparts provides functionality around a list of framesystem parts
-package framesystemparts
+package framesystem
 
 import (
 	"fmt"
@@ -12,15 +11,26 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// Parts is a slice of *config.FrameSystemPart.
 type Parts []*referenceframe.FrameSystemPart
 
+// Config is a slice of *config.FrameSystemPart.
+type Config struct {
+	Parts
+}
+
+func (cfg Config) Validate(path string) ([]string, error) {
+	// TODO(rb): not sure how I should be validating this.
+	// Dependencies that are returned are strong dependencies and therefore not something we should do here?
+	// Can I make this TriviallyValidated?
+	return nil, nil
+}
+
 // String prints out a table of each frame in the system, with columns of name, parent, translation and orientation.
-func (fsp Parts) String() string {
+func (cfg Config) String() string {
 	t := table.NewWriter()
 	t.AppendHeader(table.Row{"#", "Name", "Parent", "Translation", "Orientation", "Geometry"})
 	t.AppendRow([]interface{}{"0", referenceframe.World, "", "", "", ""})
-	for i, part := range fsp {
+	for i, part := range cfg.Parts {
 		pose := part.FrameConfig.Pose()
 		tra := pose.Point()
 		ori := pose.Orientation().EulerAngles()
@@ -45,8 +55,22 @@ func (fsp Parts) String() string {
 	return t.Render()
 }
 
+// Prefixs applies prefixes to frame information if necessary.
+func PrefixRemoteParts(parts Parts, remoteName string, remoteParent string) {
+	for _, part := range parts {
+		if part.FrameConfig.Parent() == referenceframe.World { // rename World of remote parts
+			part.FrameConfig.SetParent(remoteParent)
+		}
+		// rename each non-world part with prefix
+		part.FrameConfig.SetName(remoteName + ":" + part.FrameConfig.Name())
+		if part.FrameConfig.Parent() != remoteParent {
+			part.FrameConfig.SetParent(remoteName + ":" + part.FrameConfig.Parent())
+		}
+	}
+}
+
 // NewMissingParentError returns an error for when a part has named a parent
-// whose part is missing from the collection of FrameSystemParts that are undergoing
+// whose part is missing from the collection of Parts that are undergoing
 // topological sorting.
 func NewMissingParentError(partName, parentName string) error {
 	return fmt.Errorf("part with name %s references non-existent parent %s", partName, parentName)
@@ -98,34 +122,6 @@ func TopologicallySort(parts Parts) (Parts, error) {
 		}
 	}
 	return topoSortedParts, nil
-}
-
-// RenameRemoteParts applies prefixes to frame information if necessary.
-func RenameRemoteParts(
-	remoteParts Parts,
-	remoteName string,
-	connectionName string,
-) Parts {
-	for _, p := range remoteParts {
-		if p.FrameConfig.Parent() == referenceframe.World { // rename World of remote parts
-			p.FrameConfig.SetParent(connectionName)
-		}
-		// rename each non-world part with prefix
-		p.FrameConfig.SetName(remoteName + ":" + p.FrameConfig.Name())
-		if p.FrameConfig.Parent() != connectionName {
-			p.FrameConfig.SetParent(remoteName + ":" + p.FrameConfig.Parent())
-		}
-	}
-	return remoteParts
-}
-
-// PartMapToPartSlice returns a Parts constructed of the FrameSystemParts values of a string map.
-func PartMapToPartSlice(partsMap map[string]*referenceframe.FrameSystemPart) Parts {
-	parts := make([]*referenceframe.FrameSystemPart, 0, len(partsMap))
-	for _, part := range partsMap {
-		parts = append(parts, part)
-	}
-	return Parts(parts)
 }
 
 // Names returns the names of input parts.

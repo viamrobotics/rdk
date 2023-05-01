@@ -28,7 +28,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
+	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/robot/server"
 	"go.viam.com/rdk/session"
 	"go.viam.com/rdk/spatialmath"
@@ -324,8 +324,8 @@ func TestServerFrameSystemConfig(t *testing.T) {
 
 		injectRobot.FrameSystemConfigFunc = func(
 			ctx context.Context, additionalTransforms []*referenceframe.LinkInFrame,
-		) (framesystemparts.Parts, error) {
-			return framesystemparts.Parts(fsConfigs), nil
+		) (framesystem.Parts, error) {
+			return framesystem.Parts(fsConfigs), nil
 		}
 		server := server.New(injectRobot)
 		req := &pb.FrameSystemConfigRequest{}
@@ -381,7 +381,7 @@ func TestServerFrameSystemConfig(t *testing.T) {
 		expectedErr := errors.New("failed to retrieve config")
 		injectRobot.FrameSystemConfigFunc = func(
 			ctx context.Context, additionalTransforms []*referenceframe.LinkInFrame,
-		) (framesystemparts.Parts, error) {
+		) (framesystem.Parts, error) {
 			return nil, expectedErr
 		}
 		req := &pb.FrameSystemConfigRequest{}

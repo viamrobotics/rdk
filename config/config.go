@@ -158,10 +158,20 @@ func (c *Config) Ensure(fromCloud bool, logger golog.Logger) error {
 }
 
 // FindComponent finds a particular component by name.
-func (c Config) FindComponent(name string) *resource.Config {
+func (c *Config) FindComponent(name string) *resource.Config {
 	for _, cmp := range c.Components {
 		if cmp.Name == name {
 			return &cmp
+		}
+	}
+	return nil
+}
+
+// TODO(rb): Not sure if this will be useful or not
+func (c *Config) FindRemote(name string) *Remote {
+	for _, remote := range c.Remotes {
+		if remote.Name == name {
+			return &remote
 		}
 	}
 	return nil

@@ -40,7 +40,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
+	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/robot/web"
 	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/spatialmath"
@@ -802,7 +802,7 @@ func setupRobotCtx(t *testing.T) (context.Context, robot.Robot) {
 		return injectArm, nil
 	}
 	injectRobot.LoggerFunc = func() golog.Logger { return golog.NewTestLogger(t) }
-	injectRobot.FrameSystemConfigFunc = func(ctx context.Context, at []*referenceframe.LinkInFrame) (framesystemparts.Parts, error) {
+	injectRobot.FrameSystemConfigFunc = func(ctx context.Context, at []*referenceframe.LinkInFrame) (framesystem.Parts, error) {
 		return nil, nil
 	}
 

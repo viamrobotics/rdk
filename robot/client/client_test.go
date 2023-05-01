@@ -61,7 +61,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/robot"
-	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
+	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/robot/server"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils"
@@ -124,8 +124,8 @@ func TestStatusClient(t *testing.T) {
 	frameSystemConfigFunc := func(
 		ctx context.Context,
 		additionalTransforms []*referenceframe.LinkInFrame,
-	) (framesystemparts.Parts, error) {
-		return framesystemparts.Parts{}, nil
+	) (framesystem.Parts, error) {
+		return framesystem.Parts{}, nil
 	}
 
 	injectRobot1 := &inject.Robot{
@@ -673,8 +673,8 @@ func TestClientDisconnect(t *testing.T) {
 	injectRobot.FrameSystemConfigFunc = func(
 		ctx context.Context,
 		additionalTransforms []*referenceframe.LinkInFrame,
-	) (framesystemparts.Parts, error) {
-		return framesystemparts.Parts{}, nil
+	) (framesystem.Parts, error) {
+		return framesystem.Parts{}, nil
 	}
 
 	go gServer.Serve(listener)
@@ -908,8 +908,8 @@ func TestClientReconnect(t *testing.T) {
 	injectRobot.FrameSystemConfigFunc = func(
 		ctx context.Context,
 		additionalTransforms []*referenceframe.LinkInFrame,
-	) (framesystemparts.Parts, error) {
-		return framesystemparts.Parts{}, nil
+	) (framesystem.Parts, error) {
+		return framesystem.Parts{}, nil
 	}
 
 	injectArm := &inject.Arm{}
@@ -1260,14 +1260,14 @@ func TestClientConfig(t *testing.T) {
 	workingRobot.FrameSystemConfigFunc = func(
 		ctx context.Context,
 		additionalTransforms []*referenceframe.LinkInFrame,
-	) (framesystemparts.Parts, error) {
-		return framesystemparts.Parts(fsConfigs), nil
+	) (framesystem.Parts, error) {
+		return framesystem.Parts(fsConfigs), nil
 	}
 	configErr := errors.New("failed to retrieve config")
 	failingRobot.FrameSystemConfigFunc = func(
 		ctx context.Context,
 		additionalTransforms []*referenceframe.LinkInFrame,
-	) (framesystemparts.Parts, error) {
+	) (framesystem.Parts, error) {
 		return nil, configErr
 	}
 
@@ -1472,8 +1472,8 @@ func TestForeignResource(t *testing.T) {
 	injectRobot.FrameSystemConfigFunc = func(
 		ctx context.Context,
 		additionalTransforms []*referenceframe.LinkInFrame,
-	) (framesystemparts.Parts, error) {
-		return framesystemparts.Parts{}, nil
+	) (framesystem.Parts, error) {
+		return framesystem.Parts{}, nil
 	}
 
 	gServer := grpc.NewServer()
@@ -1609,8 +1609,8 @@ func TestRemoteClientMatch(t *testing.T) {
 	injectRobot1.FrameSystemConfigFunc = func(
 		ctx context.Context,
 		additionalTransforms []*referenceframe.LinkInFrame,
-	) (framesystemparts.Parts, error) {
-		return framesystemparts.Parts{}, nil
+	) (framesystem.Parts, error) {
+		return framesystem.Parts{}, nil
 	}
 
 	pb.RegisterRobotServiceServer(gServer1, server.New(injectRobot1))
@@ -1750,8 +1750,8 @@ func TestGetUnknownResource(t *testing.T) {
 	injectRobot.FrameSystemConfigFunc = func(
 		ctx context.Context,
 		additionalTransforms []*referenceframe.LinkInFrame,
-	) (framesystemparts.Parts, error) {
-		return framesystemparts.Parts{}, nil
+	) (framesystem.Parts, error) {
+		return framesystem.Parts{}, nil
 	}
 
 	gServer := grpc.NewServer()

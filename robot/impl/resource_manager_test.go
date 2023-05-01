@@ -53,7 +53,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/client"
-	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
+	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/robot/packages"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/shell"
@@ -1788,7 +1788,7 @@ func (rr *dummyRobot) ResourceByName(name resource.Name) (resource.Resource, err
 func (rr *dummyRobot) FrameSystemConfig(
 	ctx context.Context,
 	additionalTransforms []*referenceframe.LinkInFrame,
-) (framesystemparts.Parts, error) {
+) (framesystem.Parts, error) {
 	panic("change to return nil")
 }
 

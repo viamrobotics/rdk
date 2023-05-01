@@ -147,6 +147,9 @@ func (manager *resourceManager) updateRemoteResourceNames(
 		activeResourceNames[res] = false
 	}
 
+	// TODO(RB): this makes calls to the remote and will need to be updated with the current frame system config
+	// for the remote
+
 	anythingChanged := false
 
 	for _, resName := range newResources {

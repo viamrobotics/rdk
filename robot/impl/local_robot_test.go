@@ -20,6 +20,7 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -53,7 +54,6 @@ import (
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/robot/framesystem"
-	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/robot/packages"
 	putils "go.viam.com/rdk/robot/packages/testutils"
@@ -1213,8 +1213,8 @@ func TestStatusRemote(t *testing.T) {
 	frameSystemConfigFunc := func(
 		ctx context.Context,
 		additionalTransforms []*referenceframe.LinkInFrame,
-	) (framesystemparts.Parts, error) {
-		return framesystemparts.Parts{
+	) (framesystem.Parts, error) {
+		return framesystem.Parts{
 			&referenceframe.FrameSystemPart{
 				FrameConfig: referenceframe.NewLinkInFrame(referenceframe.World, nil, "arm1", nil),
 				ModelFrame:  referenceframe.NewSimpleModel("arm1"),

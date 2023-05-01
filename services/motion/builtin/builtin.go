@@ -107,7 +107,7 @@ func (ms *builtIn) Move(
 	}
 
 	// build maps of relevant components and inputs from initial inputs
-	fsInputs, resources, err := ms.fsService.AllCurrentInputs(ctx)
+	fsInputs, resources, err := ms.fsService.CurrentInputs(ctx)
 	if err != nil {
 		return false, err
 	}
@@ -184,7 +184,7 @@ func (ms *builtIn) MoveSingleComponent(
 	operation.CancelOtherWithLabel(ctx, "motion-service")
 
 	// Get the arm and all initial inputs
-	fsInputs, allResources, err := ms.fsService.AllCurrentInputs(ctx)
+	fsInputs, allResources, err := ms.fsService.CurrentInputs(ctx)
 	if err != nil {
 		return false, err
 	}

@@ -34,7 +34,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
+	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/robot/packages"
 	"go.viam.com/rdk/session"
 	"go.viam.com/rdk/spatialmath"
@@ -798,7 +798,7 @@ func (rc *RobotClient) DiscoverComponents(ctx context.Context, qs []resource.Dis
 func (rc *RobotClient) FrameSystemConfig(
 	ctx context.Context,
 	additionalTransforms []*referenceframe.LinkInFrame,
-) (framesystemparts.Parts, error) {
+) (framesystem.Parts, error) {
 	transforms, err := referenceframe.LinkInFramesToTransformsProtobuf(additionalTransforms)
 	if err != nil {
 		return nil, err
@@ -808,7 +808,7 @@ func (rc *RobotClient) FrameSystemConfig(
 		return nil, err
 	}
 	cfgs := resp.GetFrameSystemConfigs()
-	result := make([]*referenceframe.FrameSystemPart, 0, len(cfgs))
+	result := make(framesystem.Parts, 0, len(cfgs))
 	for _, cfg := range cfgs {
 		part, err := referenceframe.ProtobufToFrameSystemPart(cfg)
 		if err != nil {
@@ -816,7 +816,7 @@ func (rc *RobotClient) FrameSystemConfig(
 		}
 		result = append(result, part)
 	}
-	return framesystemparts.Parts(result), nil
+	return framesystem.Parts(result), nil
 }
 
 // TransformPose will transform the pose of the requested poseInFrame to the desired frame in the robot's frame system.

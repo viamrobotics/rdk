@@ -19,7 +19,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
+	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/robot/packages"
 	"go.viam.com/rdk/session"
 )
@@ -39,7 +39,7 @@ type Robot struct {
 	LoggerFunc             func() golog.Logger
 	CloseFunc              func(ctx context.Context) error
 	StopAllFunc            func(ctx context.Context, extra map[resource.Name]map[string]interface{}) error
-	FrameSystemConfigFunc  func(ctx context.Context, additionalTransforms []*referenceframe.LinkInFrame) (framesystemparts.Parts, error)
+	FrameSystemConfigFunc  func(ctx context.Context) (*framesystem.Config, error)
 	TransformPoseFunc      func(
 		ctx context.Context,
 		pose *referenceframe.PoseInFrame,
@@ -221,14 +221,14 @@ func (r *Robot) DiscoverComponents(ctx context.Context, keys []resource.Discover
 }
 
 // FrameSystemConfig calls the injected FrameSystemConfig or the real version.
-func (r *Robot) FrameSystemConfig(ctx context.Context, additionalTransforms []*referenceframe.LinkInFrame) (framesystemparts.Parts, error) {
+func (r *Robot) FrameSystemConfig(ctx context.Context) (*framesystem.Config, error) {
 	r.Mu.RLock()
 	defer r.Mu.RUnlock()
 	if r.FrameSystemConfigFunc == nil {
-		return r.LocalRobot.FrameSystemConfig(ctx, additionalTransforms)
+		return r.LocalRobot.FrameSystemConfig(ctx)
 	}
 
-	return r.FrameSystemConfigFunc(ctx, additionalTransforms)
+	return r.FrameSystemConfigFunc(ctx)
 }
 
 // TransformPose calls the injected TransformPose or the real version.

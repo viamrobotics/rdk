@@ -31,7 +31,6 @@ import (
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/robot/framesystem"
-	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 	"go.viam.com/rdk/robot/packages"
 	"go.viam.com/rdk/robot/web"
 	weboptions "go.viam.com/rdk/robot/web/options"
@@ -44,7 +43,9 @@ var _ = robot.LocalRobot(&localRobot{})
 // localRobot satisfies robot.LocalRobot and defers most
 // logic to its manager.
 type localRobot struct {
-	mu      sync.Mutex
+	mu sync.Mutex
+	// TODO(rb): is another mutex necessary?
+	fsMu    sync.RWMutex
 	manager *resourceManager
 	config  *config.Config
 
@@ -342,6 +343,7 @@ func newWithResources(
 	opts ...Option,
 ) (robot.LocalRobot, error) {
 	var rOpts options
+	var err error
 	for _, opt := range opts {
 		opt.apply(&rOpts)
 	}
@@ -411,7 +413,10 @@ func newWithResources(
 	// we assume these never appear in our configs and as such will not be removed from the
 	// resource graph
 	r.webSvc = web.New(r, logger, rOpts.webOptions...)
-	r.frameSvc = framesystem.New(ctx, r, logger)
+	r.frameSvc, err = framesystem.New(ctx, resource.Dependencies{}, logger)
+	if err != nil {
+		return nil, err
+	}
 	if err := r.manager.resources.AddNode(
 		web.InternalServiceName,
 		resource.NewConfiguredGraphNode(resource.Config{}, r.webSvc, builtinModel)); err != nil {
@@ -619,8 +624,17 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 	// For now, we pass all resources and empty configs.
 	for resName, res := range internalResources {
 		switch resName {
-		case web.InternalServiceName, framesystem.InternalServiceName:
+		case web.InternalServiceName:
 			if err := res.Reconfigure(ctx, allResources, resource.Config{}); err != nil {
+				r.Logger().Errorw("failed to reconfigure internal service", "service", resName, "error", err)
+			}
+		case framesystem.InternalServiceName:
+			fsCfg, err := r.FrameSystemConfig(ctx)
+			if err != nil {
+				// TODO(rb) make this into its own function
+				r.Logger().Errorw("failed to reconfigure internal service", "service", resName, "error", err)
+			}
+			if err := res.Reconfigure(ctx, components, resource.Config{ConvertedAttributes: fsCfg}); err != nil {
 				r.Logger().Errorw("failed to reconfigure internal service", "service", resName, "error", err)
 			}
 		case packages.InternalServiceName, cloud.InternalServiceName:
@@ -680,12 +694,127 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 	}
 }
 
-// FrameSystemConfig returns the info of each individual part that makes up a robot's frame system.
-func (r *localRobot) FrameSystemConfig(
-	ctx context.Context,
-	additionalTransforms []*referenceframe.LinkInFrame,
-) (framesystemparts.Parts, error) {
-	return r.frameSvc.Config(ctx, additionalTransforms)
+// Config returns the info of each individual part that makes up the frame system
+// The output of this function is to be sent over GRPC to the client, so the client
+// can build its frame system. requests the remote components from the remote's frame system service.
+// NOTE(RDK-258): If remotes can trigger a local robot to reconfigure, you don't need to update remotes in every call.
+func (r *localRobot) FrameSystemConfig(ctx context.Context) (*framesystem.Config, error) {
+	r.fsMu.RLock()
+	defer r.fsMu.RUnlock()
+
+	localParts, err := r.getLocalParts(ctx)
+	if err != nil {
+		return nil, err
+	}
+	remoteParts, err := r.getRemoteParts(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &framesystem.Config{append(localParts, remoteParts...)}, nil
+}
+
+// getLocalParts collects and returns the physical parts of the robot that may have frame info,
+// excluding remote robots and services, etc from the robot's config.Config.
+func (r *localRobot) getLocalParts(ctx context.Context) (framesystem.Parts, error) {
+	// TODO(rb): is there still a point to calling this function over just accessing the config directly?
+	cfg, err := r.Config(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	parts := make(framesystem.Parts, 0)
+	for _, component := range cfg.Components {
+		if component.Frame == nil { // no Frame means dont include in frame system.
+			continue
+		}
+
+		// TODO(rb) all this should probably move into the referenceframe package, could be constructor for Part
+		if component.Name == referenceframe.World {
+			return nil, errors.Errorf("cannot give frame system part the name %s", referenceframe.World)
+		}
+		if component.Frame.Parent == "" {
+			return nil, errors.Errorf("parent field in frame config for part %q is empty", component.Name)
+		}
+		cfgCopy := &referenceframe.LinkConfig{
+			ID:          component.Frame.ID,
+			Translation: component.Frame.Translation,
+			Orientation: component.Frame.Orientation,
+			Geometry:    component.Frame.Geometry,
+			Parent:      component.Frame.Parent,
+		}
+		if cfgCopy.ID == "" {
+			cfgCopy.ID = component.Name
+		}
+		model, err := r.extractModelFrameJSON(component.ResourceName())
+		if err != nil && !errors.Is(err, referenceframe.ErrNoModelInformation) {
+			// When we have non-nil errors here, it is because the resource is not yet available.
+			// In this case, we will exclude it from the FS.
+			// When it becomes available, it will be included.
+			continue
+		}
+		lif, err := cfgCopy.ParseConfig()
+		if err != nil {
+			return nil, err
+		}
+
+		parts = append(parts, &referenceframe.FrameSystemPart{FrameConfig: lif, ModelFrame: model})
+	}
+	return parts, nil
+}
+
+func (r *localRobot) getRemoteParts(ctx context.Context) (framesystem.Parts, error) {
+	// TODO(rb): is there still a point to calling this function over just accessing the config directly?
+	cfg, err := r.Config(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	remoteParts := make(framesystem.Parts, 0)
+	for _, remoteCfg := range cfg.Remotes {
+		// TODO(rb): this function is starting to look awfully similar to getLocalParts, figure out if you can merge at some point
+		if remoteCfg.Frame == nil { // skip over remote if it has no frame info
+			r.logger.Debugf("remote %s has no frame config info, skipping", remoteCfg.Name)
+			continue
+		}
+
+		// build the frame system part that connects remote world to base world
+		// TODO(rb): looks like this should be safe to do without a deep copy but the version in getLocalParts deep copies anyway.
+		// Is this safe?
+		lif, err := remoteCfg.Frame.ParseConfig()
+		if err != nil {
+			return nil, err
+		}
+		parentName := remoteCfg.Name + "_" + referenceframe.World
+		lif.SetName(parentName)
+		remoteParts = append(remoteParts, &referenceframe.FrameSystemPart{FrameConfig: lif})
+
+		remote, ok := r.RemoteByName(remoteCfg.Name)
+		if !ok {
+			return nil, errors.Errorf("cannot find remote robot %s", remoteCfg.Name)
+		}
+		remoteFsCfg, err := remote.FrameSystemConfig(ctx)
+		if err != nil {
+			return nil, errors.Wrapf(err, "remote %s", remote)
+		}
+		// TODO: it jumps out to me as wrong that we are mutating the remote subparts but this is how it has been done
+		framesystem.PrefixRemoteParts(remoteFsCfg.Parts, remoteCfg.Name, parentName)
+		remoteParts = append(remoteParts, remoteFsCfg.Parts...)
+	}
+	return remoteParts, nil
+}
+
+// extractModelFrameJSON finds the robot part with a given name, checks to see if it implements ModelFrame, and returns the
+// JSON []byte if it does, or nil if it doesn't.
+func (r *localRobot) extractModelFrameJSON(name resource.Name) (referenceframe.Model, error) {
+	part, err := r.ResourceByName(name)
+	if err != nil {
+		return nil, err
+	}
+	if framer, ok := part.(referenceframe.ModelFramer); ok {
+		return framer.ModelFrame(), nil
+	}
+	return nil, referenceframe.ErrNoModelInformation
 }
 
 // TransformPose will transform the pose of the requested poseInFrame to the desired frame in the robot's frame system.
