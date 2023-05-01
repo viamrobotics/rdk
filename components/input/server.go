@@ -13,20 +13,20 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-// subtypeServer implements the InputControllerService from proto.
-type subtypeServer struct {
+// serviceServer implements the InputControllerService from proto.
+type serviceServer struct {
 	pb.UnimplementedInputControllerServiceServer
-	coll resource.SubtypeCollection[Controller]
+	coll resource.APIResourceCollection[Controller]
 }
 
 // NewRPCServiceServer constructs an input controller gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
-func NewRPCServiceServer(coll resource.SubtypeCollection[Controller]) interface{} {
-	return &subtypeServer{coll: coll}
+func NewRPCServiceServer(coll resource.APIResourceCollection[Controller]) interface{} {
+	return &serviceServer{coll: coll}
 }
 
 // GetControls lists the inputs of an Controller.
-func (s *subtypeServer) GetControls(
+func (s *serviceServer) GetControls(
 	ctx context.Context,
 	req *pb.GetControlsRequest,
 ) (*pb.GetControlsResponse, error) {
@@ -49,7 +49,7 @@ func (s *subtypeServer) GetControls(
 }
 
 // GetEvents returns the last Event (current state) of each control.
-func (s *subtypeServer) GetEvents(
+func (s *serviceServer) GetEvents(
 	ctx context.Context,
 	req *pb.GetEventsRequest,
 ) (*pb.GetEventsResponse, error) {
@@ -78,7 +78,7 @@ func (s *subtypeServer) GetEvents(
 }
 
 // TriggerEvent allows directly sending an Event (such as a button press) from external code.
-func (s *subtypeServer) TriggerEvent(
+func (s *serviceServer) TriggerEvent(
 	ctx context.Context,
 	req *pb.TriggerEventRequest,
 ) (*pb.TriggerEventResponse, error) {
@@ -109,7 +109,7 @@ func (s *subtypeServer) TriggerEvent(
 }
 
 // StreamEvents returns a stream of Event.
-func (s *subtypeServer) StreamEvents(
+func (s *serviceServer) StreamEvents(
 	req *pb.StreamEventsRequest,
 	server pb.InputControllerService_StreamEventsServer,
 ) error {
@@ -169,7 +169,7 @@ func (s *subtypeServer) StreamEvents(
 }
 
 // DoCommand receives arbitrary commands.
-func (s *subtypeServer) DoCommand(ctx context.Context,
+func (s *serviceServer) DoCommand(ctx context.Context,
 	req *commonpb.DoCommandRequest,
 ) (*commonpb.DoCommandResponse, error) {
 	controller, err := s.coll.Resource(req.GetName())

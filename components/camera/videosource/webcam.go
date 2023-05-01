@@ -12,6 +12,7 @@ import (
 	"github.com/edaniels/gostream"
 	"github.com/pion/mediadevices"
 	"github.com/pion/mediadevices/pkg/driver"
+	"github.com/pion/mediadevices/pkg/driver/availability"
 	mediadevicescamera "github.com/pion/mediadevices/pkg/driver/camera"
 	"github.com/pion/mediadevices/pkg/frame"
 	"github.com/pion/mediadevices/pkg/prop"
@@ -21,16 +22,17 @@ import (
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
+	jetsoncamera "go.viam.com/rdk/components/camera/platforms/jetson"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage/transform"
 )
 
-var model = resource.NewDefaultModel("webcam")
+var model = resource.DefaultModelFamily.WithModel("webcam")
 
 func init() {
 	resource.RegisterComponent(
-		camera.Subtype,
+		camera.API,
 		model,
 		resource.Registration[camera.Camera, *WebcamConfig]{
 			Constructor: NewWebcam,
@@ -53,6 +55,7 @@ type CameraConfig struct {
 
 // Discover webcam attributes.
 func Discover(_ context.Context, getDrivers func() []driver.Driver, logger golog.Logger) (*pb.Webcams, error) {
+	mediadevicescamera.Initialize()
 	var webcams []*pb.Webcam
 	drivers := getDrivers()
 	for _, d := range drivers {
@@ -186,6 +189,7 @@ func findAndMakeVideoSource(
 	label string,
 	logger golog.Logger,
 ) (gostream.VideoSource, string, error) {
+	mediadevicescamera.Initialize()
 	debug := conf.Debug
 	constraints := makeConstraints(conf, debug, logger)
 	if label != "" {
@@ -386,13 +390,14 @@ func (c *monitoredWebcam) isCameraConnected() (bool, error) {
 	if c.underlyingSource == nil {
 		return true, errors.New("no configured camera")
 	}
-	props, err := gostream.PropertiesFromMediaSource[image.Image, prop.Video](c.underlyingSource)
+	d, err := gostream.DriverFromMediaSource[image.Image, prop.Video](c.underlyingSource)
 	if err != nil {
-		return true, errors.Wrap(err, "cannot get properties from media source")
+		return true, errors.Wrap(err, "cannot get driver from media source")
 	}
-	// github.com/pion/mediadevices connects to the OS to get the props for a driver. On disconnect props will be empty.
+
 	// TODO(RSDK-1959): this only works for linux
-	return len(props) != 0, nil
+	_, err = driver.IsAvailable(d)
+	return !errors.Is(err, availability.ErrNoDevice), nil
 }
 
 // reconnectCamera assumes a write lock is held.
@@ -407,6 +412,14 @@ func (c *monitoredWebcam) reconnectCamera(conf *WebcamConfig) error {
 
 	newSrc, foundLabel, err := findAndMakeVideoSource(c.cancelCtx, conf, c.targetPath, c.logger)
 	if err != nil {
+		// If we are on a Jetson Orin AGX, we need to validate hardware/software setup.
+		// If not, simply pass through the error.
+		err = jetsoncamera.ValidateSetup(
+			jetsoncamera.OrinAGX,
+			jetsoncamera.ECAM,
+			jetsoncamera.AR0234,
+			err,
+		)
 		return errors.Wrap(err, "failed to find camera")
 	}
 

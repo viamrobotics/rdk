@@ -5,11 +5,13 @@ import (
 
 	"github.com/pkg/errors"
 
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 )
 
 // ColorDetectorConfig specifies the fields necessary for creating a color detector.
 type ColorDetectorConfig struct {
+	resource.TriviallyValidateConfig
 	SegmentSize       int     `json:"segment_size_px"`
 	HueTolerance      float64 `json:"hue_tolerance_pct"`
 	SaturationCutoff  float64 `json:"saturation_cutoff_pct,omitempty"`

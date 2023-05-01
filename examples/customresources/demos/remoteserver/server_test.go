@@ -45,7 +45,7 @@ func TestGizmo(t *testing.T) {
 	err = r0.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
-	tmpConf, err := os.CreateTemp("", "*.json")
+	tmpConf, err := os.CreateTemp(t.TempDir(), "*.json")
 	test.That(t, err, test.ShouldBeNil)
 	_, err = tmpConf.Write([]byte(fmt.Sprintf(`{"network":{"bind_address":"%s"},"remotes":[{"address":"%s","name":"robot1"}]}`, addr2, addr1)))
 	test.That(t, err, test.ShouldBeNil)
@@ -84,7 +84,7 @@ func TestGizmo(t *testing.T) {
 
 	// remotes can take a few seconds to show up, so we wait for the resource
 	var res interface{}
-	testutils.WaitForAssertionWithSleep(t, time.Second, 120, func(tb testing.TB){
+	testutils.WaitForAssertionWithSleep(t, time.Second, 120, func(tb testing.TB) {
 		res, err = r2.ResourceByName(gizmoapi.Named("gizmo1"))
 		test.That(tb, err, test.ShouldBeNil)
 	})

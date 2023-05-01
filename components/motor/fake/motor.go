@@ -19,7 +19,7 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-var model = resource.NewDefaultModel("fake")
+var model = resource.DefaultModelFamily.WithModel("fake")
 
 const defaultMaxRpm = 100
 
@@ -58,7 +58,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 }
 
 func init() {
-	resource.RegisterComponent(motor.Subtype, model, resource.Registration[motor.Motor, *Config]{
+	resource.RegisterComponent(motor.API, model, resource.Registration[motor.Motor, *Config]{
 		Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
@@ -258,8 +258,12 @@ func goForMath(maxRPM, rpm, revolutions float64) (float64, time.Duration, float6
 // GoFor sets the given direction and an arbitrary power percentage.
 // If rpm is 0, the motor should immediately move to the final position.
 func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
-	if rpm == 0 {
+	switch speed := math.Abs(rpm); {
+	case speed < 0.1:
+		m.Logger.Warn("motor speed is nearly 0 rev_per_min")
 		return motor.NewZeroRPMError()
+	case speed > m.MaxRPM-0.1:
+		m.Logger.Warnf("motor speed is nearly the max rev_per_min (%f)", m.MaxRPM)
 	}
 
 	powerPct, waitDur, dir := goForMath(m.MaxRPM, rpm, revolutions)
@@ -299,6 +303,13 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 func (m *Motor) GoTo(ctx context.Context, rpm, pos float64, extra map[string]interface{}) error {
 	if m.Encoder == nil {
 		return errors.New("encoder is not defined")
+	}
+
+	switch speed := math.Abs(rpm); {
+	case speed < 0.1:
+		m.Logger.Warn("motor speed is nearly 0 rev_per_min")
+	case speed > m.MaxRPM-0.1:
+		m.Logger.Warnf("motor speed is nearly the max rev_per_min (%f)", m.MaxRPM)
 	}
 
 	curPos, err := m.Position(ctx, nil)

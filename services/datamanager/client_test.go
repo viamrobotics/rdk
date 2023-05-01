@@ -33,12 +33,12 @@ func TestClient(t *testing.T) {
 	resourceMap := map[resource.Name]datamanager.Service{
 		svcName: injectDS,
 	}
-	svc, err := resource.NewSubtypeCollection(datamanager.Subtype, resourceMap)
+	svc, err := resource.NewAPIResourceCollection(datamanager.API, resourceMap)
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype, ok, err := resource.LookupSubtypeRegistration[datamanager.Service](datamanager.Subtype)
+	resourceAPI, ok, err := resource.LookupAPIRegistration[datamanager.Service](datamanager.API)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, svc), test.ShouldBeNil)
+	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, svc), test.ShouldBeNil)
 	test.That(t, err, test.ShouldBeNil)
 
 	go rpcServer.Serve(listener1)
@@ -57,7 +57,7 @@ func TestClient(t *testing.T) {
 	t.Run("datamanager client 1", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		client, err := datamanager.NewClientFromConn(context.Background(), conn, svcName, logger)
+		client, err := datamanager.NewClientFromConn(context.Background(), conn, "", svcName, logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		injectDS.SyncFunc = func(ctx context.Context, extra map[string]interface{}) error {
@@ -84,7 +84,7 @@ func TestClient(t *testing.T) {
 	t.Run("datamanager client 2", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		client2, err := resourceSubtype.RPCClient(context.Background(), conn, svcName, logger)
+		client2, err := resourceAPI.RPCClient(context.Background(), conn, "", svcName, logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		passedErr := errors.New("fake sync error")

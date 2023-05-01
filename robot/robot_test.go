@@ -17,7 +17,7 @@ import (
 )
 
 var (
-	button1 = resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.SubtypeName("button"), "arm1")
+	button1 = resource.NewName(resource.APINamespaceRDK.WithComponentType("button"), "arm1")
 
 	armNames    = []resource.Name{arm.Named("arm1"), arm.Named("arm2"), arm.Named("remote:arm1")}
 	buttonNames = []resource.Name{button1}
@@ -71,13 +71,13 @@ func TestAllResourcesByName(t *testing.T) {
 func TestNamesFromRobot(t *testing.T) {
 	r := setupInjectRobot()
 
-	names := robot.NamesBySubtype(r, gantry.Subtype)
+	names := robot.NamesByAPI(r, gantry.API)
 	test.That(t, names, test.ShouldBeEmpty)
 
-	names = robot.NamesBySubtype(r, sensor.Subtype)
+	names = robot.NamesByAPI(r, sensor.API)
 	test.That(t, utils.NewStringSet(names...), test.ShouldResemble, utils.NewStringSet(testutils.ExtractNames(sensorNames...)...))
 
-	names = robot.NamesBySubtype(r, arm.Subtype)
+	names = robot.NamesByAPI(r, arm.API)
 	test.That(t, utils.NewStringSet(names...), test.ShouldResemble, utils.NewStringSet(testutils.ExtractNames(armNames...)...))
 }
 

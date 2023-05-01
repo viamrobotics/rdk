@@ -2,6 +2,7 @@ package dmc4000_test
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"testing"
 
@@ -61,7 +62,7 @@ func checkRx(resChan, c chan string, expects, sends []string) {
 
 func TestDMC4000Motor(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger, obs := golog.NewObservedTestLogger(t)
 	c := make(chan string)
 	resChan := make(chan string, 1024)
 	deps := make(resource.Dependencies)
@@ -78,7 +79,7 @@ func TestDMC4000Motor(t *testing.T) {
 		TicksPerRotation: 200,
 	}
 
-	motorReg, ok := resource.LookupRegistration(motor.Subtype, resource.NewDefaultModel("DMC4000"))
+	motorReg, ok := resource.LookupRegistration(motor.API, resource.DefaultModelFamily.WithModel("DMC4000"))
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, motorReg, test.ShouldNotBeNil)
 
@@ -141,6 +142,17 @@ func TestDMC4000Motor(t *testing.T) {
 		)
 		test.That(t, motorDep.SetPower(ctx, 0, nil), test.ShouldBeNil)
 
+		// Test almost 0
+		txMu.Lock()
+		go checkRx(resChan, c,
+			[]string{"STA", "SCA", "TEA"},
+			[]string{" :", "4\r\n:", "0\r\n:"},
+		)
+		test.That(t, motorDep.SetPower(ctx, 0.05, nil), test.ShouldBeNil)
+		allObs := obs.All()
+		latestLoggedEntry := allObs[len(allObs)-1]
+		test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly 0")
+
 		// Test 0.5 of max power
 		txMu.Lock()
 		go checkTx(resChan, c, []string{
@@ -157,6 +169,17 @@ func TestDMC4000Motor(t *testing.T) {
 		})
 		test.That(t, motorDep.SetPower(ctx, -0.5, nil), test.ShouldBeNil)
 		waitTx(t, resChan)
+
+		// Test max power
+		txMu.Lock()
+		go checkTx(resChan, c, []string{
+			"JGA=64000",
+			"BGA",
+		})
+		test.That(t, motorDep.SetPower(ctx, 1, nil), test.ShouldBeNil)
+		allObs = obs.All()
+		latestLoggedEntry = allObs[len(allObs)-1]
+		test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly the max")
 	})
 
 	t.Run("motor Stop testing", func(t *testing.T) {
@@ -462,7 +485,25 @@ func TestDMC4000Motor(t *testing.T) {
 		test.That(t, motorDep.GoFor(ctx, 0, 1, nil), test.ShouldBeError, motor.NewZeroRPMError())
 	})
 
+	t.Run("motor GoFor with almost 0 RPM", func(t *testing.T) {
+		test.That(t, motorDep.GoFor(ctx, 0.05, 1, nil), test.ShouldBeError, motor.NewZeroRPMError())
+		allObs := obs.All()
+		latestLoggedEntry := allObs[len(allObs)-1]
+		test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly 0")
+	})
+
 	t.Run("motor GoFor after jogging", func(t *testing.T) {
+		// Test max power
+		txMu.Lock()
+		go checkTx(resChan, c, []string{
+			"JGA=64000",
+			"BGA",
+		})
+		test.That(t, motorDep.SetPower(ctx, 1, nil), test.ShouldBeNil)
+		allObs := obs.All()
+		latestLoggedEntry := allObs[len(allObs)-1]
+		test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly the max")
+
 		// Test 0.5 of max power
 		txMu.Lock()
 		go checkTx(resChan, c, []string{

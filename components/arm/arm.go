@@ -20,7 +20,7 @@ import (
 )
 
 func init() {
-	resource.RegisterSubtype(Subtype, resource.SubtypeRegistration[Arm]{
+	resource.RegisterAPI(API, resource.APIRegistration[Arm]{
 		Status:                      resource.StatusFunc(CreateStatus),
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           pb.RegisterArmServiceHandlerFromEndpoint,
@@ -29,19 +29,17 @@ func init() {
 	})
 
 	data.RegisterCollector(data.MethodMetadata{
-		Subtype:    Subtype,
+		API:        API,
 		MethodName: endPosition.String(),
 	}, newEndPositionCollector)
 	data.RegisterCollector(data.MethodMetadata{
-		Subtype:    Subtype,
+		API:        API,
 		MethodName: jointPositions.String(),
 	}, newJointPositionsCollector)
 }
 
-// SubtypeName is a constant that identifies the component resource subtype string "arm".
-const (
-	SubtypeName = resource.SubtypeName("arm")
-)
+// SubtypeName is a constant that identifies the component resource API string "arm".
+const SubtypeName = "arm"
 
 // MTPoob is a string that all MoveToPosition errors should contain if the method is called
 // and there are joints which are out of bounds.
@@ -54,16 +52,12 @@ var (
 	}
 )
 
-// Subtype is a constant that identifies the component resource subtype.
-var Subtype = resource.NewSubtype(
-	resource.ResourceNamespaceRDK,
-	resource.ResourceTypeComponent,
-	SubtypeName,
-)
+// API is a variable that identifies the component resource API.
+var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 
 // Named is a helper for getting the named Arm's typed resource name.
 func Named(name string) resource.Name {
-	return resource.NameFromSubtype(Subtype, name)
+	return resource.NewName(API, name)
 }
 
 // An Arm represents a physical robotic arm that exists in three-dimensional space.
@@ -104,17 +98,18 @@ func FromRobot(r robot.Robot, name string) (Arm, error) {
 
 // NamesFromRobot is a helper for getting all arm names from the given Robot.
 func NamesFromRobot(r robot.Robot) []string {
-	return robot.NamesBySubtype(r, Subtype)
+	return robot.NamesByAPI(r, API)
 }
 
-// CreateStatus creates a status from the arm.
+// CreateStatus creates a status from the arm. This will report calculated end effector positions even if the given
+// arm is perceived to be out of bounds.
 func CreateStatus(ctx context.Context, a Arm) (*pb.Status, error) {
 	jointPositions, err := a.JointPositions(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 	model := a.ModelFrame()
-	endPosition, err := motionplan.ComputePosition(model, jointPositions)
+	endPosition, err := motionplan.ComputeOOBPosition(model, jointPositions)
 	if err != nil {
 		return nil, err
 	}

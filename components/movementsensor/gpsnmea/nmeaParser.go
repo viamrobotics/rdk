@@ -11,14 +11,14 @@ import (
 )
 
 const (
-	knotsToMmPerSec = 514.44
-	kphToMmPerSec   = 277.78
+	knotsToMPerSec = 0.51444
+	kphToMPerSec   = 0.27778
 )
 
 type gpsData struct {
 	location   *geo.Point
 	alt        float64
-	speed      float64 // ground speed in mm per sec
+	speed      float64 // ground speed in m per sec
 	vDOP       float64 // vertical accuracy
 	hDOP       float64 // horizontal accuracy
 	satsInView int     // quantity satellites in view
@@ -60,7 +60,7 @@ func (g *gpsData) parseAndUpdate(line string) error {
 			errs = multierr.Combine(errs, errInvalidFix(rmc.Type, rmc.Validity, "A"))
 		}
 		if g.valid {
-			g.speed = rmc.Speed * knotsToMmPerSec
+			g.speed = rmc.Speed * knotsToMPerSec
 			g.location = geo.NewPoint(rmc.Latitude, rmc.Longitude)
 		}
 	} else if gsa, ok := s.(nmea.GSA); ok {
@@ -105,7 +105,7 @@ func (g *gpsData) parseAndUpdate(line string) error {
 		g.location = now
 	} else if vtg, ok := s.(nmea.VTG); ok {
 		// VTG provides ground speed
-		g.speed = vtg.GroundSpeedKPH * kphToMmPerSec
+		g.speed = vtg.GroundSpeedKPH * kphToMPerSec
 	} else if gns, ok := s.(nmea.GNS); ok {
 		// GNS Provides approximately the same information as GGA
 		for _, mode := range gns.Mode {

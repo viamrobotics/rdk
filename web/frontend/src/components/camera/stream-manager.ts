@@ -33,4 +33,14 @@ export class StreamManager {
       }
     }
   }
+
+  close () {
+    for (const camera of this.cameraManagers.values()) {
+      // Close all open streams
+      if (camera.streamCount > 0) {
+        camera.close();
+      }
+    }
+
+  }
 }

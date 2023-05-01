@@ -53,17 +53,13 @@ import (
 )
 
 // SubtypeName is a constant that identifies the internal web resource subtype string.
-const SubtypeName = resource.SubtypeName("web")
+const SubtypeName = "web"
 
-// Subtype is the fully qualified subtype for the internal web service.
-var Subtype = resource.NewSubtype(
-	resource.NamespaceRDKInternal,
-	resource.ResourceTypeService,
-	SubtypeName,
-)
+// API is the fully qualified API for the internal web service.
+var API = resource.APINamespaceRDKInternal.WithServiceType(SubtypeName)
 
 // InternalServiceName is used to refer to/depend on this service internally.
-var InternalServiceName = resource.NameFromSubtype(Subtype, "builtin")
+var InternalServiceName = resource.NewName(API, "builtin")
 
 // defaultMethodTimeout is the default context timeout for all inbound gRPC
 // methods used when no deadline is set on the context.
@@ -108,15 +104,13 @@ func (app *robotWebApp) Init() error {
 
 // AppTemplateData is used to render the remote control page.
 type AppTemplateData struct {
-	External                   bool                     `json:"external"`
-	WebRTCEnabled              bool                     `json:"webrtc_enabled"`
-	WebRTCSignalingAddress     string                   `json:"webrtc_signaling_address"`
-	WebRTCAdditionalICEServers []map[string]interface{} `json:"webrtc_additional_ice_servers"`
-	Env                        string                   `json:"env"`
-	Host                       string                   `json:"host"`
-	SupportedAuthTypes         []string                 `json:"supported_auth_types"`
-	AuthEntity                 string                   `json:"auth_entity"`
-	BakedAuth                  map[string]interface{}   `json:"baked_auth"`
+	WebRTCEnabled          bool                   `json:"webrtc_enabled"`
+	WebRTCSignalingAddress string                 `json:"webrtc_signaling_address"`
+	Env                    string                 `json:"env"`
+	Host                   string                 `json:"host"`
+	SupportedAuthTypes     []string               `json:"supported_auth_types"`
+	AuthEntity             string                 `json:"auth_entity"`
+	BakedAuth              map[string]interface{} `json:"baked_auth"`
 }
 
 // ServeHTTP serves the UI.
@@ -263,7 +257,7 @@ func New(r robot.Robot, logger golog.Logger, opts ...Option) Service {
 		logger:       logger,
 		rpcServer:    nil,
 		streamServer: nil,
-		services:     map[resource.Subtype]resource.SubtypeCollection[resource.Resource]{},
+		services:     map[resource.API]resource.APIResourceCollection[resource.Resource]{},
 		opts:         wOpts,
 		videoSources: map[string]gostream.HotSwappableVideoSource{},
 		audioSources: map[string]gostream.HotSwappableAudioSource{},
@@ -279,7 +273,7 @@ type webService struct {
 	rpcServer               rpc.Server
 	modServer               rpc.Server
 	streamServer            *StreamServer
-	services                map[resource.Subtype]resource.SubtypeCollection[resource.Resource]
+	services                map[resource.API]resource.APIResourceCollection[resource.Resource]
 	opts                    options
 	addr                    string
 	modAddr                 string
@@ -294,9 +288,7 @@ type webService struct {
 }
 
 var internalWebServiceName = resource.NewName(
-	resource.NamespaceRDKInternal,
-	resource.ResourceTypeService,
-	"web",
+	resource.APINamespaceRDKInternal.WithServiceType("web"),
 	"builtin",
 )
 
@@ -429,7 +421,7 @@ func (svc *webService) StartModule(ctx context.Context) error {
 	if err := svc.refreshResources(); err != nil {
 		return err
 	}
-	if err := svc.initSubtypeServices(ctx, true); err != nil {
+	if err := svc.initAPIResourceCollections(ctx, true); err != nil {
 		return err
 	}
 
@@ -468,37 +460,37 @@ func (svc *webService) Reconfigure(ctx context.Context, deps resource.Dependenci
 }
 
 func (svc *webService) updateResources(resources map[resource.Name]resource.Resource) error {
-	// so group resources by subtype
-	groupedResources := make(map[resource.Subtype]map[resource.Name]resource.Resource)
+	// so group resources by API
+	groupedResources := make(map[resource.API]map[resource.Name]resource.Resource)
 	for n, v := range resources {
-		r, ok := groupedResources[n.Subtype]
+		r, ok := groupedResources[n.API]
 		if !ok {
 			r = make(map[resource.Name]resource.Resource)
 		}
 		r[n] = v
-		groupedResources[n.Subtype] = r
+		groupedResources[n.API] = r
 	}
 
-	subtypeConstructors := resource.RegisteredSubtypes()
-	for s, v := range groupedResources {
-		subtypeColl, ok := svc.services[s]
+	apiRegs := resource.RegisteredAPIs()
+	for a, v := range groupedResources {
+		apiResColl, ok := svc.services[a]
 		// TODO(RSDK-144): register new service if it doesn't currently exist
 		if !ok {
-			reg, ok := subtypeConstructors[s]
-			var subtypeColl resource.SubtypeCollection[resource.Resource]
+			reg, ok := apiRegs[a]
+			var apiResColl resource.APIResourceCollection[resource.Resource]
 			if ok {
-				subtypeColl = reg.MakeEmptyCollection()
+				apiResColl = reg.MakeEmptyCollection()
 			} else {
-				svc.logger.Debugw("making heterogeneous subtype collection", "subtype", s)
-				subtypeColl = resource.NewEmptySubtypeCollection[resource.Resource](s)
+				svc.logger.Debugw("making heterogeneous API resource collection", "api", a)
+				apiResColl = resource.NewEmptyAPIResourceCollection[resource.Resource](a)
 			}
 
-			if err := subtypeColl.ReplaceAll(v); err != nil {
+			if err := apiResColl.ReplaceAll(v); err != nil {
 				return err
 			}
-			svc.services[s] = subtypeColl
+			svc.services[a] = apiResColl
 		} else {
-			if err := subtypeColl.ReplaceAll(v); err != nil {
+			if err := apiResColl.ReplaceAll(v); err != nil {
 				return err
 			}
 		}
@@ -790,7 +782,7 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 	if err := svc.refreshResources(); err != nil {
 		return err
 	}
-	if err := svc.initSubtypeServices(ctx, false); err != nil {
+	if err := svc.initAPIResourceCollections(ctx, false); err != nil {
 		return err
 	}
 
@@ -1053,22 +1045,22 @@ func (svc *webService) initAuthHandlers(listenerTCPAddr *net.TCPAddr, options we
 	return rpcOpts, nil
 }
 
-// Register every subtype resource grpc service here.
-func (svc *webService) initSubtypeServices(ctx context.Context, mod bool) error {
+// Register every API resource grpc service here.
+func (svc *webService) initAPIResourceCollections(ctx context.Context, mod bool) error {
 	// TODO: only register necessary services (#272)
-	subtypeConstructors := resource.RegisteredSubtypes()
-	for s, rs := range subtypeConstructors {
-		subtypeColl, ok := svc.services[s]
+	apiRegs := resource.RegisteredAPIs()
+	for s, rs := range apiRegs {
+		apiResColl, ok := svc.services[s]
 		if !ok {
-			subtypeColl = rs.MakeEmptyCollection()
-			svc.services[s] = subtypeColl
+			apiResColl = rs.MakeEmptyCollection()
+			svc.services[s] = apiResColl
 		}
 
 		server := svc.rpcServer
 		if mod {
 			server = svc.modServer
 		}
-		if err := rs.RegisterRPCService(ctx, server, subtypeColl); err != nil {
+		if err := rs.RegisterRPCService(ctx, server, apiResColl); err != nil {
 			return err
 		}
 	}
@@ -1153,7 +1145,7 @@ func (svc *webService) foreignServiceHandler(srv interface{}, stream googlegrpc.
 		return err
 	}
 
-	resource, fqName, err := robot.ResourceFromProtoMessage(svc.r, firstMsg, subType.Subtype)
+	resource, fqName, err := robot.ResourceFromProtoMessage(svc.r, firstMsg, subType.API)
 	if err != nil {
 		svc.logger.Errorw("unable to route foreign message", "error", err)
 		return err

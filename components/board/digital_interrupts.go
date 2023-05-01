@@ -42,8 +42,6 @@ type DigitalInterrupt interface {
 
 	// AddCallback adds a callback to be sent a low/high value to when a tick
 	// happens.
-	// Note(erd): not all interrupts can have callbacks so this should probably be a
-	// separate interface.
 	AddCallback(c chan Tick)
 
 	// AddPostProcessor adds a post processor that should be used to modify
@@ -73,11 +71,9 @@ func CreateDigitalInterrupt(cfg DigitalInterruptConfig) (DigitalInterrupt, error
 	var i ReconfigurableDigitalInterrupt
 	switch cfg.Type {
 	case "basic":
-		iActual := &BasicDigitalInterrupt{}
-		i = iActual
+		i = &BasicDigitalInterrupt{}
 	case "servo":
-		iActual := &ServoDigitalInterrupt{ra: utils.NewRollingAverage(ServoRollingAverageWindow)}
-		i = iActual
+		i = &ServoDigitalInterrupt{ra: utils.NewRollingAverage(ServoRollingAverageWindow)}
 	default:
 		panic(errors.Errorf("unknown interrupt type (%s)", cfg.Type))
 	}

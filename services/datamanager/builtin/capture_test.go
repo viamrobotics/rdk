@@ -256,8 +256,10 @@ func resourcesFromDeps(t *testing.T, r robot.Robot, deps []string) resource.Depe
 		resName, err := resource.NewFromString(dep)
 		test.That(t, err, test.ShouldBeNil)
 		res, err := r.ResourceByName(resName)
-		test.That(t, err, test.ShouldBeNil)
-		resources[resName] = res
+		if err == nil {
+			// some resources are weakly linked
+			resources[resName] = res
+		}
 	}
 	return resources
 }

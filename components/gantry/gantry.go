@@ -12,7 +12,7 @@ import (
 )
 
 func init() {
-	resource.RegisterSubtype(Subtype, resource.SubtypeRegistration[Gantry]{
+	resource.RegisterAPI(API, resource.APIRegistration[Gantry]{
 		Status:                      resource.StatusFunc(CreateStatus),
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           pb.RegisterGantryServiceHandlerFromEndpoint,
@@ -20,28 +20,24 @@ func init() {
 		RPCClient:                   NewClientFromConn,
 	})
 	data.RegisterCollector(data.MethodMetadata{
-		Subtype:    Subtype,
+		API:        API,
 		MethodName: position.String(),
 	}, newPositionCollector)
 	data.RegisterCollector(data.MethodMetadata{
-		Subtype:    Subtype,
+		API:        API,
 		MethodName: lengths.String(),
 	}, newLengthsCollector)
 }
 
-// SubtypeName is a constant that identifies the component resource subtype string "gantry".
-const SubtypeName = resource.SubtypeName("gantry")
+// SubtypeName is a constant that identifies the component resource API string "gantry".
+const SubtypeName = "gantry"
 
-// Subtype is a constant that identifies the component resource subtype.
-var Subtype = resource.NewSubtype(
-	resource.ResourceNamespaceRDK,
-	resource.ResourceTypeComponent,
-	SubtypeName,
-)
+// API is a variable that identifies the component resource API.
+var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 
 // Named is a helper for getting the named Gantry's typed resource name.
 func Named(name string) resource.Name {
-	return resource.NameFromSubtype(Subtype, name)
+	return resource.NewName(API, name)
 }
 
 // Gantry is used for controlling gantries of N axis.
@@ -75,7 +71,7 @@ func FromRobot(r robot.Robot, name string) (Gantry, error) {
 
 // NamesFromRobot is a helper for getting all gantry names from the given Robot.
 func NamesFromRobot(r robot.Robot) []string {
-	return robot.NamesBySubtype(r, Subtype)
+	return robot.NamesByAPI(r, API)
 }
 
 // CreateStatus creates a status from the gantry.

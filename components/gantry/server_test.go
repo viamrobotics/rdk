@@ -21,7 +21,7 @@ func newServer() (pb.GantryServiceServer, *inject.Gantry, *inject.Gantry, error)
 		gantry.Named(testGantryName): injectGantry,
 		gantry.Named(failGantryName): injectGantry2,
 	}
-	gantrySvc, err := resource.NewSubtypeCollection(gantry.Subtype, gantries)
+	gantrySvc, err := resource.NewAPIResourceCollection(gantry.API, gantries)
 	if err != nil {
 		return nil, nil, nil, err
 	}

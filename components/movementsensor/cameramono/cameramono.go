@@ -23,7 +23,7 @@ import (
 	"go.viam.com/rdk/vision/odometry"
 )
 
-var model = resource.NewDefaultModel("camera_mono")
+var model = resource.DefaultModelFamily.WithModel("camera_mono")
 
 // Config is used for converting config attributes of a cameramono movement sensor.
 type Config struct {
@@ -83,7 +83,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 
 func init() {
 	resource.RegisterComponent(
-		movementsensor.Subtype,
+		movementsensor.API,
 		model,
 		resource.Registration[movementsensor.MovementSensor, *Config]{
 			Constructor: func(

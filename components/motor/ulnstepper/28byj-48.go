@@ -35,7 +35,7 @@ import (
 )
 
 var (
-	model                = resource.NewDefaultModel("28byj48")
+	model                = resource.DefaultModelFamily.WithModel("28byj48")
 	minDelayBetweenTicks = 100 * time.Microsecond // minimum sleep time between each ticks
 )
 
@@ -95,7 +95,7 @@ func (conf *Config) Validate(path string) ([]string, error) {
 }
 
 func init() {
-	resource.RegisterComponent(motor.Subtype, model, resource.Registration[motor.Motor, *Config]{
+	resource.RegisterComponent(motor.API, model, resource.Registration[motor.Motor, *Config]{
 		Constructor: new28byj,
 	})
 }
@@ -245,15 +245,15 @@ func (m *uln28byj) setPins(ctx context.Context, pins [4]bool) error {
 // can be assigned negative values to move in a backwards direction. Note: if both are negative
 // the motor will spin in the forward direction.
 func (m *uln28byj) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
-	if rpm == 0 {
-		return motor.NewZeroRPMError()
-	}
-
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
 
-	if math.Abs(rpm) < 0.1 {
-		m.logger.Info("RPM is less than 0.1 threshold, stopping motor ")
+	switch speed := math.Abs(rpm); {
+	case speed < 0.1:
+		m.logger.Warnf("motor (%s) speed is nearly 0 rev_per_min", m.Name())
+		return motor.NewZeroRPMError()
+	case speed > 146-0.1:
+		m.logger.Warnf("motor (%s) speed is nearly the max rev_per_min (%f)", m.Name(), 146)
 		return m.Stop(ctx, nil)
 	}
 

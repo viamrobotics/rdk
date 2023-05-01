@@ -82,7 +82,7 @@ func TestCreateStatus(t *testing.T) {
 		return true, nil
 	}
 	injectArm.ModelFrameFunc = func() referenceframe.Model {
-		model, _ := ur.Model("ur5e")
+		model, _ := ur.MakeModelFrame("ur5e")
 		return model
 	}
 
@@ -95,10 +95,10 @@ func TestCreateStatus(t *testing.T) {
 		pose2 := spatialmath.NewPoseFromProtobuf(status.EndPosition)
 		test.That(t, spatialmath.PoseAlmostEqualEps(pose1, pose2, 0.01), test.ShouldBeTrue)
 
-		resourceSubtype, ok, err := resource.LookupSubtypeRegistration[arm.Arm](arm.Subtype)
+		resourceAPI, ok, err := resource.LookupAPIRegistration[arm.Arm](arm.API)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ok, test.ShouldBeTrue)
-		status2, err := resourceSubtype.Status(context.Background(), injectArm)
+		status2, err := resourceAPI.Status(context.Background(), injectArm)
 		test.That(t, err, test.ShouldBeNil)
 
 		statusMap, err := protoutils.InterfaceToMap(status2)
@@ -158,8 +158,8 @@ func TestCreateStatus(t *testing.T) {
 func TestOOBArm(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	cfg := resource.Config{
-		Name:  arm.Subtype.String(),
-		Model: resource.NewDefaultModel("ur5e"),
+		Name:  arm.API.String(),
+		Model: resource.DefaultModelFamily.WithModel("ur5e"),
 		ConvertedAttributes: &fake.Config{
 			ArmModel: "ur5e",
 		},
@@ -181,13 +181,6 @@ func TestOOBArm(t *testing.T) {
 	positions, err := injectedArm.JointPositions(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, positions, test.ShouldResemble, &jPositions)
-
-	t.Run("CreateStatus errors when OOB", func(t *testing.T) {
-		status, err := arm.CreateStatus(context.Background(), injectedArm)
-		test.That(t, status, test.ShouldBeNil)
-		stringCheck := "joint 0 input out of bounds, input 12.56637 needs to be within range [6.28319 -6.28319]"
-		test.That(t, err.Error(), test.ShouldEqual, stringCheck)
-	})
 
 	t.Run("EndPosition works when OOB", func(t *testing.T) {
 		jPositions := pb.JointPositions{Values: []float64{0, 0, 0, 0, 0, 720}}
@@ -258,8 +251,8 @@ func TestXArm6Locations(t *testing.T) {
 	// check the exact values/locations of arm geometries at a couple different poses
 	logger := golog.NewTestLogger(t)
 	cfg := resource.Config{
-		Name:  arm.Subtype.String(),
-		Model: resource.NewDefaultModel("fake"),
+		Name:  arm.API.String(),
+		Model: resource.DefaultModelFamily.WithModel("fake"),
 		ConvertedAttributes: &fake.Config{
 			ArmModel: "xArm6",
 		},
@@ -381,8 +374,8 @@ func TestUR5ELocations(t *testing.T) {
 	// check the exact values/locations of arm geometries at a couple different poses
 	logger := golog.NewTestLogger(t)
 	cfg := resource.Config{
-		Name:  arm.Subtype.String(),
-		Model: resource.NewDefaultModel("fake"),
+		Name:  arm.API.String(),
+		Model: resource.DefaultModelFamily.WithModel("fake"),
 		ConvertedAttributes: &fake.Config{
 			ArmModel: "ur5e",
 		},

@@ -33,12 +33,12 @@ func TestClient(t *testing.T) {
 	ssMap := map[resource.Name]sensors.Service{
 		testSvcName1: injectSensors,
 	}
-	svc, err := resource.NewSubtypeCollection(sensors.Subtype, ssMap)
+	svc, err := resource.NewAPIResourceCollection(sensors.API, ssMap)
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype, ok, err := resource.LookupSubtypeRegistration[sensors.Service](sensors.Subtype)
+	resourceAPI, ok, err := resource.LookupAPIRegistration[sensors.Service](sensors.API)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, svc), test.ShouldBeNil)
+	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, svc), test.ShouldBeNil)
 
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()
@@ -56,7 +56,7 @@ func TestClient(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		client, err := sensors.NewClientFromConn(context.Background(), conn, testSvcName1, logger)
+		client, err := sensors.NewClientFromConn(context.Background(), conn, "", testSvcName1, logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		names := []resource.Name{movementsensor.Named("gps"), movementsensor.Named("imu")}
@@ -107,7 +107,7 @@ func TestClient(t *testing.T) {
 	t.Run("sensors client 2", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		client2, err := resourceSubtype.RPCClient(context.Background(), conn, testSvcName1, logger)
+		client2, err := resourceAPI.RPCClient(context.Background(), conn, "", testSvcName1, logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		passedErr := errors.New("can't get sensors")

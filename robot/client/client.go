@@ -3,7 +3,6 @@ package client
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"strings"
 	"sync"
@@ -42,7 +41,7 @@ import (
 )
 
 var (
-	// ErrMissingClientRegistration is used when there is no resource client registered for the subtype.
+	// ErrMissingClientRegistration is used when there is no resource client registered for the API.
 	ErrMissingClientRegistration = errors.New("resource client registration doesn't exist")
 
 	// errUnimplemented is used for any unimplemented methods that should
@@ -113,17 +112,17 @@ type RobotClient struct {
 	address     string
 	dialOptions []rpc.DialOption
 
-	mu                  sync.RWMutex
-	resourceNames       []resource.Name
-	resourceRPCSubtypes []resource.RPCSubtype
-	resourceClients     map[resource.Name]resource.Resource
-	remoteNameMap       map[resource.Name]resource.Name
-	changeChan          chan bool
-	notifyParent        func()
-	conn                reconfigurableClientConn
-	client              pb.RobotServiceClient
-	refClient           *grpcreflect.Client
-	connected           atomic.Bool
+	mu              sync.RWMutex
+	resourceNames   []resource.Name
+	resourceRPCAPIs []resource.RPCAPI
+	resourceClients map[resource.Name]resource.Resource
+	remoteNameMap   map[resource.Name]resource.Name
+	changeChan      chan bool
+	notifyParent    func()
+	conn            reconfigurableClientConn
+	client          pb.RobotServiceClient
+	refClient       *grpcreflect.Client
+	connected       atomic.Bool
 
 	activeBackgroundWorkers sync.WaitGroup
 	backgroundCtx           context.Context
@@ -144,12 +143,10 @@ type RobotClient struct {
 }
 
 // RemoteTypeName is the type name used for a remote. This is for internal use.
-const RemoteTypeName = resource.TypeName("remote")
+const RemoteTypeName = string("remote")
 
-// RemoteSubtype is the fully qualified subtype for a remote. This is for internal use.
-var RemoteSubtype = resource.NewSubtype(resource.ResourceNamespaceRDK,
-	RemoteTypeName,
-	resource.SubtypeName(""))
+// RemoteAPI is the fully qualified API for a remote. This is for internal use.
+var RemoteAPI = resource.APINamespaceRDK.WithType(RemoteTypeName).WithSubtype("")
 
 // Reconfigure always returns an unsupported error.
 func (rc *RobotClient) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
@@ -263,7 +260,7 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 	heartbeatCtx, heartbeatCtxCancel := context.WithCancel(context.Background())
 
 	rc := &RobotClient{
-		Named:               resource.NameFromSubtype(RemoteSubtype, rOpts.remoteName).AsNamed(),
+		Named:               resource.NewName(RemoteAPI, rOpts.remoteName).AsNamed(),
 		remoteName:          rOpts.remoteName,
 		address:             address,
 		backgroundCtx:       backgroundCtx,
@@ -586,24 +583,17 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (resource.Resource, er
 }
 
 func (rc *RobotClient) createClient(name resource.Name) (resource.Resource, error) {
-	subtypeInfo, ok := resource.LookupGenericSubtypeRegistration(name.Subtype)
-	if !ok || subtypeInfo.RPCClient == nil {
-		if name.Namespace != resource.ResourceNamespaceRDK {
+	apiInfo, ok := resource.LookupGenericAPIRegistration(name.API)
+	if !ok || apiInfo.RPCClient == nil {
+		if name.API.Type.Namespace != resource.APINamespaceRDK {
 			return grpc.NewForeignResource(name, &rc.conn), nil
 		}
-		// At this point we checked that the 'name' is in the rc.resourceNames list
-		// and it is in the RDK namespace, so it's likely we provide a package for
-		// interacting with it.
-		rc.logger.Errorw("the client registration for resource doesn't exist, you may need to import relevant client package",
-			"resource", name,
-			"import_guess", fmt.Sprintf("go.viam.com/rdk/%s/%s/register", name.ResourceType, name.ResourceSubtype))
 		return nil, ErrMissingClientRegistration
 	}
-	fullName := name.PrependRemote(resource.RemoteName(rc.remoteName))
-	return subtypeInfo.RPCClient(rc.backgroundCtx, &rc.conn, fullName, rc.Logger())
+	return apiInfo.RPCClient(rc.backgroundCtx, &rc.conn, rc.remoteName, name, rc.Logger())
 }
 
-func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resource.RPCSubtype, error) {
+func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resource.RPCAPI, error) {
 	ctx, cancel := context.WithTimeout(ctx, resourcesTimeout)
 	defer cancel()
 	resp, err := rc.client.ResourceNames(ctx, &pb.ResourceNamesRequest{})
@@ -611,30 +601,30 @@ func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resour
 		return nil, nil, err
 	}
 
-	var resTypes []resource.RPCSubtype
+	var resTypes []resource.RPCAPI
 	typesResp, err := rc.client.ResourceRPCSubtypes(ctx, &pb.ResourceRPCSubtypesRequest{})
 	if err == nil {
 		reflSource := grpcurl.DescriptorSourceFromServer(ctx, rc.refClient)
 
-		resTypes = make([]resource.RPCSubtype, 0, len(typesResp.ResourceRpcSubtypes))
-		for _, resSubtype := range typesResp.ResourceRpcSubtypes {
-			symDesc, err := reflSource.FindSymbol(resSubtype.ProtoService)
+		resTypes = make([]resource.RPCAPI, 0, len(typesResp.ResourceRpcSubtypes))
+		for _, resAPI := range typesResp.ResourceRpcSubtypes {
+			symDesc, err := reflSource.FindSymbol(resAPI.ProtoService)
 			if err != nil {
 				// Note: This happens right now if a client is talking to a main server
 				// that has a remote or similarly if a server is talking to a remote that
 				// has a remote. This can be solved by either integrating reflection into
 				// robot.proto or by overriding the gRPC reflection service to return
 				// reflection results from its remotes.
-				rc.Logger().Debugw("failed to find symbol for resource subtype", "subtype", resSubtype, "error", err)
+				rc.Logger().Debugw("failed to find symbol for resource API", "api", resAPI, "error", err)
 				continue
 			}
 			svcDesc, ok := symDesc.(*desc.ServiceDescriptor)
 			if !ok {
 				return nil, nil, errors.Errorf("expected descriptor to be service descriptor but got %T", symDesc)
 			}
-			resTypes = append(resTypes, resource.RPCSubtype{
-				Subtype: rprotoutils.ResourceNameFromProto(resSubtype.Subtype).Subtype,
-				Desc:    svcDesc,
+			resTypes = append(resTypes, resource.RPCAPI{
+				API:  rprotoutils.ResourceNameFromProto(resAPI.Subtype).API,
+				Desc: svcDesc,
 			})
 		}
 	} else {
@@ -663,7 +653,7 @@ func (rc *RobotClient) Refresh(ctx context.Context) (err error) {
 
 func (rc *RobotClient) updateResources(ctx context.Context) error {
 	// call metadata service.
-	names, rpcSubtypes, err := rc.resources(ctx)
+	names, rpcAPIs, err := rc.resources(ctx)
 	// only return if it is not unimplemented - means a bigger error came up
 	if err != nil && status.Code(err) != codes.Unimplemented {
 		return err
@@ -671,7 +661,7 @@ func (rc *RobotClient) updateResources(ctx context.Context) error {
 	if err == nil {
 		rc.resourceNames = make([]resource.Name, 0, len(names))
 		rc.resourceNames = append(rc.resourceNames, names...)
-		rc.resourceRPCSubtypes = rpcSubtypes
+		rc.resourceRPCAPIs = rpcAPIs
 	}
 
 	rc.updateRemoteNameMap()
@@ -737,33 +727,27 @@ func (rc *RobotClient) ResourceNames() []resource.Name {
 	rc.mu.RLock()
 	defer rc.mu.RUnlock()
 	names := make([]resource.Name, 0, len(rc.resourceNames))
-	for _, v := range rc.resourceNames {
-		rName := resource.NewName(v.Namespace, v.ResourceType, v.ResourceSubtype, v.Name)
-		names = append(
-			names,
-			rName.PrependRemote(v.Remote),
-		)
-	}
+	names = append(names, rc.resourceNames...)
 	return names
 }
 
-// ResourceRPCSubtypes returns a list of all known resource subtypes.
-func (rc *RobotClient) ResourceRPCSubtypes() []resource.RPCSubtype {
+// ResourceRPCAPIs returns a list of all known resource APIs.
+func (rc *RobotClient) ResourceRPCAPIs() []resource.RPCAPI {
 	if err := rc.checkConnected(); err != nil {
 		rc.Logger().Errorw("failed to get remote resource types", "error", err)
 		return nil
 	}
 	rc.mu.RLock()
 	defer rc.mu.RUnlock()
-	subtypes := make([]resource.RPCSubtype, 0, len(rc.resourceRPCSubtypes))
-	for _, v := range rc.resourceRPCSubtypes {
+	apis := make([]resource.RPCAPI, 0, len(rc.resourceRPCAPIs))
+	for _, v := range rc.resourceRPCAPIs {
 		vCopy := v
-		subtypes = append(
-			subtypes,
+		apis = append(
+			apis,
 			vCopy,
 		)
 	}
-	return subtypes
+	return apis
 }
 
 // Logger returns the logger being used for this robot.
@@ -793,7 +777,7 @@ func (rc *RobotClient) DiscoverComponents(ctx context.Context, qs []resource.Dis
 		if err != nil {
 			return nil, err
 		}
-		s, err := resource.NewSubtypeFromString(disc.Query.Subtype)
+		s, err := resource.NewAPIFromString(disc.Query.Subtype)
 		if err != nil {
 			return nil, err
 		}

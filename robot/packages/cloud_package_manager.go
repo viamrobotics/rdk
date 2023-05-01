@@ -58,17 +58,13 @@ type cloudManager struct {
 }
 
 // SubtypeName is a constant that identifies the internal package manager resource subtype string.
-const SubtypeName = resource.SubtypeName("packagemanager")
+const SubtypeName = "packagemanager"
 
-// Subtype is the fully qualified subtype for the internal package manager service.
-var Subtype = resource.NewSubtype(
-	resource.NamespaceRDKInternal,
-	resource.ResourceTypeService,
-	SubtypeName,
-)
+// API is the fully qualified API for the internal package manager service.
+var API = resource.APINamespaceRDKInternal.WithServiceType(SubtypeName)
 
 // InternalServiceName is used to refer to/depend on this service internally.
-var InternalServiceName = resource.NameFromSubtype(Subtype, "builtin")
+var InternalServiceName = resource.NewName(API, "builtin")
 
 // NewCloudManager creates a new manager with the given package service client and directory to sync to.
 func NewCloudManager(client pb.PackageServiceClient, packagesDir string, logger golog.Logger) (ManagerSyncer, error) {

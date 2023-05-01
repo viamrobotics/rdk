@@ -1,6 +1,7 @@
 package resource
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
@@ -15,27 +16,94 @@ import (
 
 // A Config describes the configuration of a resource.
 type Config struct {
-	Name string `json:"name"`
+	Name                      string
+	API                       API
+	Model                     Model
+	Frame                     *referenceframe.LinkConfig
+	DependsOn                 []string
+	AssociatedResourceConfigs []AssociatedResourceConfig
+	Attributes                utils.AttributeMap
 
-	// TODO(PRODUCT-266): API replaces Type and Namespace when Service/Component merge, so json needs to be enabled.
-	DeprecatedNamespace    Namespace   `json:"namespace"`
-	DeprecatedSubtype      SubtypeName `json:"type"`
-	DeprecatedResourceType TypeName    `json:"-"`
-	API                    Subtype     `json:"-"`
-
-	Model     Model                      `json:"model"`
-	Frame     *referenceframe.LinkConfig `json:"frame,omitempty"`
-	DependsOn []string                   `json:"depends_on"`
-	// could be components in the future but right now its services.
-	AssociatedResourceConfigs []AssociatedResourceConfig `json:"service_configs"`
-
-	Attributes          utils.AttributeMap `json:"attributes"`
-	ConvertedAttributes ConfigValidator    `json:"-"`
-	ImplicitDependsOn   []string           `json:"-"`
+	ConvertedAttributes ConfigValidator
+	ImplicitDependsOn   []string
 
 	alreadyValidated   bool
 	cachedImplicitDeps []string
 	cachedErr          error
+}
+
+// NOTE: This data must be maintained with what is in Config.
+type typeSpecificConfigData struct {
+	// this can be removed in the future after a few releases.
+	Namespace string `json:"namespace"`
+
+	Name                      string                     `json:"name"`
+	Subtype                   string                     `json:"type"`
+	Model                     Model                      `json:"model"`
+	Frame                     *referenceframe.LinkConfig `json:"frame,omitempty"`
+	DependsOn                 []string                   `json:"depends_on,omitempty"`
+	AssociatedResourceConfigs []AssociatedResourceConfig `json:"service_configs,omitempty"`
+	Attributes                utils.AttributeMap         `json:"attributes,omitempty"`
+}
+
+// NOTE: This data must be maintained with what is in Config.
+type configData struct {
+	Name                      string                     `json:"name"`
+	API                       API                        `json:"api"`
+	Model                     Model                      `json:"model"`
+	Frame                     *referenceframe.LinkConfig `json:"frame,omitempty"`
+	DependsOn                 []string                   `json:"depends_on,omitempty"`
+	AssociatedResourceConfigs []AssociatedResourceConfig `json:"service_configs,omitempty"`
+	Attributes                utils.AttributeMap         `json:"attributes,omitempty"`
+}
+
+// UnmarshalJSON unmarshals JSON into the config.
+func (conf *Config) UnmarshalJSON(data []byte) error {
+	var m map[string]interface{}
+	if err := json.Unmarshal(data, &m); err != nil {
+		return err
+	}
+	if _, ok := m["api"]; ok {
+		var confData configData
+		if err := json.Unmarshal(data, &confData); err != nil {
+			return err
+		}
+		conf.Name = confData.Name
+		conf.API = confData.API
+		conf.Model = confData.Model
+		conf.Frame = confData.Frame
+		conf.DependsOn = confData.DependsOn
+		conf.AssociatedResourceConfigs = confData.AssociatedResourceConfigs
+		conf.Attributes = confData.Attributes
+		return nil
+	}
+
+	var typeSpecificConf typeSpecificConfigData
+	if err := json.Unmarshal(data, &typeSpecificConf); err != nil {
+		return err
+	}
+	conf.Name = typeSpecificConf.Name
+	// this will get adjusted later
+	conf.API = APINamespace(typeSpecificConf.Namespace).WithType("").WithSubtype(typeSpecificConf.Subtype)
+	conf.Model = typeSpecificConf.Model
+	conf.Frame = typeSpecificConf.Frame
+	conf.DependsOn = typeSpecificConf.DependsOn
+	conf.AssociatedResourceConfigs = typeSpecificConf.AssociatedResourceConfigs
+	conf.Attributes = typeSpecificConf.Attributes
+	return nil
+}
+
+// MarshalJSON marshals JSON from the config.
+func (conf Config) MarshalJSON() ([]byte, error) {
+	return json.Marshal(configData{
+		Name:                      conf.Name,
+		API:                       conf.API,
+		Model:                     conf.Model,
+		Frame:                     conf.Frame,
+		DependsOn:                 conf.DependsOn,
+		AssociatedResourceConfigs: conf.AssociatedResourceConfigs,
+		Attributes:                conf.Attributes,
+	})
 }
 
 // NativeConfig returns the native config from the given config via its
@@ -50,30 +118,49 @@ func NativeConfig[T any](conf Config) (T, error) {
 // NewEmptyConfig returns a new, empty config for the given name and model.
 func NewEmptyConfig(name Name, model Model) Config {
 	return Config{
-		Name:                   name.Name,
-		DeprecatedNamespace:    name.Namespace,
-		DeprecatedSubtype:      name.ResourceSubtype,
-		DeprecatedResourceType: name.ResourceType,
-		API:                    name.Subtype,
-		Model:                  model,
+		Name:  name.Name,
+		API:   name.API,
+		Model: model,
 	}
 }
 
 // An AssociatedResourceConfig describes configuration of a resource for an associated resource.
 type AssociatedResourceConfig struct {
-	Type                SubtypeName        `json:"type"`
-	Attributes          utils.AttributeMap `json:"attributes"`
-	ConvertedAttributes interface{}        `json:"-"`
+	API                 API
+	Attributes          utils.AttributeMap
+	ConvertedAttributes interface{}
+	RemoteName          string
 }
 
-// AssociatedSubtype returns the subtype that this config is associated with.
-func (conf *AssociatedResourceConfig) AssociatedSubtype() Subtype {
-	cType := string(conf.Type)
-	return NewSubtype(
-		ResourceNamespaceRDK,
-		ResourceTypeService,
-		SubtypeName(cType),
-	)
+// NOTE: This data must be maintained with what is in AssociatedResourceConfig.
+type associatedResourceConfigData struct {
+	API        string             `json:"type"`
+	Attributes utils.AttributeMap `json:"attributes"`
+}
+
+// UnmarshalJSON unmarshals JSON into the config.
+func (assoc *AssociatedResourceConfig) UnmarshalJSON(data []byte) error {
+	var confData associatedResourceConfigData
+	if err := json.Unmarshal(data, &confData); err != nil {
+		return err
+	}
+
+	assoc.Attributes = confData.Attributes
+
+	api, err := NewPossibleRDKServiceAPIFromString(confData.API)
+	if err != nil {
+		return err
+	}
+	assoc.API = api
+	return nil
+}
+
+// MarshalJSON marshals JSON from the config.
+func (assoc AssociatedResourceConfig) MarshalJSON() ([]byte, error) {
+	return json.Marshal(associatedResourceConfigData{
+		API:        assoc.API.String(),
+		Attributes: assoc.Attributes,
+	})
 }
 
 // Equals checks if the two configs are deeply equal to each other.
@@ -116,66 +203,42 @@ func (conf *Config) String() string {
 func (conf *Config) ResourceName() Name {
 	remotes := strings.Split(conf.Name, ":")
 	if len(remotes) > 1 {
-		rName := NameFromSubtype(conf.API, remotes[len(remotes)-1])
-		return rName.PrependRemote(RemoteName(strings.Join(remotes[:len(remotes)-1], ":")))
+		rName := NewName(conf.API, remotes[len(remotes)-1])
+		return rName.PrependRemote(strings.Join(remotes[:len(remotes)-1], ":"))
 	}
-	return NameFromSubtype(conf.API, conf.Name)
+	return NewName(conf.API, conf.Name)
 }
 
 // Validate ensures all parts of the config are valid and returns dependencies.
-func (conf *Config) Validate(path string, defaultType TypeName) ([]string, error) {
+func (conf *Config) Validate(path, defaultAPIType string) ([]string, error) {
 	if conf.alreadyValidated {
 		return conf.cachedImplicitDeps, conf.cachedErr
 	}
-	conf.cachedImplicitDeps, conf.cachedErr = conf.validate(path, defaultType)
+	conf.cachedImplicitDeps, conf.cachedErr = conf.validate(path, defaultAPIType)
 	conf.alreadyValidated = true
 	return conf.cachedImplicitDeps, conf.cachedErr
 }
 
-func (conf *Config) validate(path string, defaultType TypeName) ([]string, error) {
-	var deps []string
-
-	//nolint:gocritic
-	if conf.API.Namespace == "" && conf.DeprecatedNamespace == "" {
-		conf.DeprecatedNamespace = ResourceNamespaceRDK
-		conf.API.Namespace = conf.DeprecatedNamespace
-	} else if conf.API.Namespace == "" {
-		conf.API.Namespace = conf.DeprecatedNamespace
-	} else {
-		conf.DeprecatedNamespace = conf.API.Namespace
+// AdjustPartialNames assumes this config comes from a place where the resource
+// name, API names, Model names, and associated config type names are partially
+// stored (JSON/Proto/Database) and will fix them up to the builtin values they
+// are intended for.
+func (conf *Config) AdjustPartialNames(defaultAPIType string) {
+	if conf.API.Type.Namespace == "" {
+		conf.API.Type.Namespace = APINamespaceRDK
+	}
+	if conf.API.Type.Name == "" {
+		conf.API.Type.Name = defaultAPIType
 	}
 
-	if conf.API.ResourceType == "" {
-		conf.API.ResourceType = defaultType
+	if conf.Model.Family.Namespace == "" {
+		conf.Model.Family.Namespace = DefaultModelFamily.Namespace
+	}
+	if conf.Model.Family.Name == "" {
+		conf.Model.Family.Name = DefaultModelFamily.Name
 	}
 
-	if conf.API.ResourceSubtype == "" {
-		conf.API.ResourceSubtype = conf.DeprecatedSubtype
-	} else if conf.DeprecatedSubtype == "" {
-		conf.DeprecatedSubtype = conf.API.ResourceSubtype
-	}
-
-	if conf.API.Namespace != conf.DeprecatedNamespace ||
-		conf.API.ResourceType != conf.DeprecatedResourceType ||
-		conf.API.ResourceSubtype != conf.DeprecatedSubtype {
-		// ignore already set namespace and type
-		conf.DeprecatedNamespace = conf.API.Namespace
-		conf.DeprecatedResourceType = conf.API.ResourceType
-		conf.DeprecatedSubtype = conf.API.ResourceSubtype
-	}
-
-	if conf.DeprecatedNamespace == "" {
-		// NOTE: This should never be removed in order to ensure RDK is the
-		// default namespace.
-		conf.DeprecatedNamespace = ResourceNamespaceRDK
-	}
-
-	if conf.Model.Namespace == "" {
-		conf.Model.Namespace = ResourceNamespaceRDK
-		conf.Model.ModelFamily = DefaultModelFamily
-	}
-
-	if defaultType == ResourceTypeService {
+	if conf.API.IsService() {
 		// If services do not have names use the name builtin
 		if conf.Name == "" {
 			conf.Name = DefaultServiceName
@@ -184,6 +247,12 @@ func (conf *Config) validate(path string, defaultType TypeName) ([]string, error
 			conf.Model = DefaultServiceModel
 		}
 	}
+}
+
+func (conf *Config) validate(path, defaultAPIType string) ([]string, error) {
+	var deps []string
+
+	conf.AdjustPartialNames(defaultAPIType)
 
 	if conf.Name == "" {
 		return nil, goutils.NewConfigValidationFieldRequiredError(path, "name")

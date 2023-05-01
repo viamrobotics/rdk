@@ -14,10 +14,10 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-var fakeModel = resource.NewDefaultModel("fake")
+var fakeModel = resource.DefaultModelFamily.WithModel("fake")
 
 func init() {
-	resource.RegisterComponent(encoder.Subtype, fakeModel, resource.Registration[encoder.Encoder, *Config]{
+	resource.RegisterComponent(encoder.API, fakeModel, resource.Registration[encoder.Encoder, *Config]{
 		Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,

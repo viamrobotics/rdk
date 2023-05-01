@@ -41,7 +41,7 @@ func TestNewWatcherNoop(t *testing.T) {
 func TestNewWatcherFile(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
-	temp, err := os.CreateTemp("", "*.json")
+	temp, err := os.CreateTemp(t.TempDir(), "*.json")
 	test.That(t, err, test.ShouldBeNil)
 	defer os.Remove(temp.Name())
 
@@ -66,11 +66,9 @@ func TestNewWatcherFile(t *testing.T) {
 		ConfigFilePath: temp.Name(),
 		Components: []resource.Config{
 			{
-				DeprecatedNamespace: resource.ResourceNamespaceRDK,
-				DeprecatedSubtype:   arm.Subtype.ResourceSubtype,
-				API:                 arm.Subtype,
-				Name:                "hello",
-				Model:               resource.NewDefaultModel("hello"),
+				API:   arm.API,
+				Name:  "hello",
+				Model: resource.DefaultModelFamily.WithModel("hello"),
 				Attributes: rutils.AttributeMap{
 					"world": 1.0,
 				},
@@ -99,11 +97,9 @@ func TestNewWatcherFile(t *testing.T) {
 		ConfigFilePath: temp.Name(),
 		Components: []resource.Config{
 			{
-				DeprecatedNamespace: resource.ResourceNamespaceRDK,
-				DeprecatedSubtype:   arm.Subtype.ResourceSubtype,
-				API:                 arm.Subtype,
-				Name:                "world",
-				Model:               resource.NewDefaultModel("world"),
+				API:   arm.API,
+				Name:  "world",
+				Model: resource.DefaultModelFamily.WithModel("world"),
 				Attributes: rutils.AttributeMap{
 					"hello": 1.0,
 				},
@@ -151,11 +147,9 @@ func TestNewWatcherFile(t *testing.T) {
 		ConfigFilePath: temp.Name(),
 		Components: []resource.Config{
 			{
-				DeprecatedNamespace: resource.ResourceNamespaceRDK,
-				DeprecatedSubtype:   arm.Subtype.ResourceSubtype,
-				API:                 arm.Subtype,
-				Name:                "woo",
-				Model:               resource.NewDefaultModel("woo"),
+				API:   arm.API,
+				Name:  "woo",
+				Model: resource.DefaultModelFamily.WithModel("woo"),
 				Attributes: rutils.AttributeMap{
 					"wah": 1.0,
 				},
@@ -243,11 +237,9 @@ func TestNewWatcherCloud(t *testing.T) {
 		Cloud: newCloudConf(),
 		Components: []resource.Config{
 			{
-				DeprecatedNamespace: resource.ResourceNamespaceRDK,
-				DeprecatedSubtype:   arm.Subtype.ResourceSubtype,
-				API:                 arm.Subtype,
-				Name:                "hello",
-				Model:               resource.NewDefaultModel("hello"),
+				API:   arm.API,
+				Name:  "hello",
+				Model: resource.DefaultModelFamily.WithModel("hello"),
 				Attributes: rutils.AttributeMap{
 					"world": 1.0,
 				},
@@ -284,11 +276,9 @@ func TestNewWatcherCloud(t *testing.T) {
 		Cloud: newCloudConf(),
 		Components: []resource.Config{
 			{
-				DeprecatedNamespace: resource.ResourceNamespaceRDK,
-				DeprecatedSubtype:   arm.Subtype.ResourceSubtype,
-				API:                 arm.Subtype,
-				Name:                "world",
-				Model:               resource.NewDefaultModel("world"),
+				API:   arm.API,
+				Name:  "world",
+				Model: resource.DefaultModelFamily.WithModel("world"),
 				Attributes: rutils.AttributeMap{
 					"hello": 1.0,
 				},
@@ -338,11 +328,9 @@ func TestNewWatcherCloud(t *testing.T) {
 		Cloud: newCloudConf(),
 		Components: []resource.Config{
 			{
-				DeprecatedNamespace: resource.ResourceNamespaceRDK,
-				DeprecatedSubtype:   arm.Subtype.ResourceSubtype,
-				API:                 arm.Subtype,
-				Name:                "woo",
-				Model:               resource.NewDefaultModel("woo"),
+				API:   arm.API,
+				Name:  "woo",
+				Model: resource.DefaultModelFamily.WithModel("woo"),
 				Attributes: rutils.AttributeMap{
 					"wah": 1.0,
 				},

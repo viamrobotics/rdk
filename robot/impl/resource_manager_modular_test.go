@@ -15,6 +15,7 @@ import (
 	"go.viam.com/rdk/module/modmanager"
 	"go.viam.com/rdk/module/modmaninterface"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/utils"
 )
@@ -23,31 +24,23 @@ func TestModularResources(t *testing.T) {
 	ctx := context.Background()
 
 	var (
-		compSubtype = resource.NewSubtype(
-			resource.Namespace("acme"),
-			resource.ResourceTypeComponent,
-			resource.SubtypeName("anvil"),
-		)
-		compModel  = resource.NewModel("acme", "anvil", "2000")
-		compModel2 = resource.NewModel("acme", "anvil", "3000")
+		compAPI    = resource.APINamespace("acme").WithComponentType("anvil")
+		compModel  = resource.ModelNamespace("acme").WithFamily("anvil").WithModel("2000")
+		compModel2 = resource.ModelNamespace("acme").WithFamily("anvil").WithModel("3000")
 
-		svcSubtype = resource.NewSubtype(
-			resource.Namespace("acme"),
-			resource.ResourceTypeService,
-			resource.SubtypeName("sign"),
-		)
-		svcModel = resource.NewModel("acme", "signage", "handheld")
+		svcAPI   = resource.APINamespace("acme").WithServiceType("sign")
+		svcModel = resource.ModelNamespace("acme").WithFamily("signage").WithModel("handheld")
 	)
 
 	setupTest := func(t *testing.T) (*localRobot, *dummyModMan, func()) {
 		logger := golog.NewTestLogger(t)
-		compSubtypeSvc, err := resource.NewSubtypeCollection[resource.Resource](compSubtype, nil)
+		compAPISvc, err := resource.NewAPIResourceCollection[resource.Resource](compAPI, nil)
 		test.That(t, err, test.ShouldBeNil)
-		svcSubtypeSvc, err := resource.NewSubtypeCollection[resource.Resource](svcSubtype, nil)
+		svcAPISvc, err := resource.NewAPIResourceCollection[resource.Resource](svcAPI, nil)
 		test.That(t, err, test.ShouldBeNil)
 		mod := &dummyModMan{
-			compSubtypeSvc: compSubtypeSvc,
-			svcSubtypeSvc:  svcSubtypeSvc,
+			compAPISvc: compAPISvc,
+			svcAPISvc:  svcAPISvc,
 		}
 
 		r, err := New(context.Background(), &config.Config{}, logger)
@@ -55,9 +48,9 @@ func TestModularResources(t *testing.T) {
 		actualR := r.(*localRobot)
 		actualR.modules = mod
 
-		resource.RegisterSubtype(compSubtype,
-			resource.SubtypeRegistration[resource.Resource]{ReflectRPCServiceDesc: &desc.ServiceDescriptor{}})
-		resource.RegisterComponent(compSubtype, compModel, resource.Registration[resource.Resource, resource.NoNativeConfig]{
+		resource.RegisterAPI(compAPI,
+			resource.APIRegistration[resource.Resource]{ReflectRPCServiceDesc: &desc.ServiceDescriptor{}})
+		resource.RegisterComponent(compAPI, compModel, resource.Registration[resource.Resource, resource.NoNativeConfig]{
 			Constructor: func(
 				ctx context.Context,
 				deps resource.Dependencies,
@@ -67,7 +60,7 @@ func TestModularResources(t *testing.T) {
 				return mod.AddResource(ctx, conf, modmanager.DepsToNames(deps))
 			},
 		})
-		resource.RegisterComponent(compSubtype, compModel2, resource.Registration[resource.Resource, resource.NoNativeConfig]{
+		resource.RegisterComponent(compAPI, compModel2, resource.Registration[resource.Resource, resource.NoNativeConfig]{
 			Constructor: func(
 				ctx context.Context,
 				deps resource.Dependencies,
@@ -78,9 +71,9 @@ func TestModularResources(t *testing.T) {
 			},
 		})
 
-		resource.RegisterSubtype(svcSubtype,
-			resource.SubtypeRegistration[resource.Resource]{ReflectRPCServiceDesc: &desc.ServiceDescriptor{}})
-		resource.Register(svcSubtype, svcModel, resource.Registration[resource.Resource, resource.NoNativeConfig]{
+		resource.RegisterAPI(svcAPI,
+			resource.APIRegistration[resource.Resource]{ReflectRPCServiceDesc: &desc.ServiceDescriptor{}})
+		resource.Register(svcAPI, svcModel, resource.Registration[resource.Resource, resource.NoNativeConfig]{
 			Constructor: func(
 				ctx context.Context,
 				deps resource.Dependencies,
@@ -93,11 +86,11 @@ func TestModularResources(t *testing.T) {
 
 		return actualR, mod, func() {
 			// deregister to not interfere with other tests or when test.count > 1
-			resource.Deregister(compSubtype, compModel)
-			resource.Deregister(compSubtype, compModel2)
-			resource.Deregister(svcSubtype, svcModel)
-			resource.DeregisterSubtype(compSubtype)
-			resource.DeregisterSubtype(svcSubtype)
+			resource.Deregister(compAPI, compModel)
+			resource.Deregister(compAPI, compModel2)
+			resource.Deregister(svcAPI, svcModel)
+			resource.DeregisterAPI(compAPI)
+			resource.DeregisterAPI(svcAPI)
 			test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 		}
 	}
@@ -107,28 +100,28 @@ func TestModularResources(t *testing.T) {
 		defer teardown()
 
 		// modular
-		cfg := resource.Config{Name: "oneton", API: compSubtype, Model: compModel, Attributes: utils.AttributeMap{"arg1": "one"}}
-		_, err := cfg.Validate("test", resource.ResourceTypeComponent)
+		cfg := resource.Config{Name: "oneton", API: compAPI, Model: compModel, Attributes: utils.AttributeMap{"arg1": "one"}}
+		_, err := cfg.Validate("test", resource.APITypeComponentName)
 		test.That(t, err, test.ShouldBeNil)
 
 		// changed attribute
-		cfg2 := resource.Config{Name: "oneton", API: compSubtype, Model: compModel, Attributes: utils.AttributeMap{"arg1": "two"}}
-		_, err = cfg2.Validate("test", resource.ResourceTypeComponent)
+		cfg2 := resource.Config{Name: "oneton", API: compAPI, Model: compModel, Attributes: utils.AttributeMap{"arg1": "two"}}
+		_, err = cfg2.Validate("test", resource.APITypeComponentName)
 		test.That(t, err, test.ShouldBeNil)
 
 		// non-modular
 		cfg3 := resource.Config{
 			Name:                "builtin",
-			API:                 motor.Subtype,
-			Model:               resource.NewDefaultModel("fake"),
+			API:                 motor.API,
+			Model:               resource.DefaultModelFamily.WithModel("fake"),
 			ConvertedAttributes: &fake.Config{},
 		}
-		_, err = cfg3.Validate("test", resource.ResourceTypeComponent)
+		_, err = cfg3.Validate("test", resource.APITypeComponentName)
 		test.That(t, err, test.ShouldBeNil)
 
 		// changed name
-		cfg4 := resource.Config{Name: "oneton2", API: compSubtype, Model: compModel, Attributes: utils.AttributeMap{"arg1": "two"}}
-		_, err = cfg4.Validate("test", resource.ResourceTypeComponent)
+		cfg4 := resource.Config{Name: "oneton2", API: compAPI, Model: compModel, Attributes: utils.AttributeMap{"arg1": "two"}}
+		_, err = cfg4.Validate("test", resource.APITypeComponentName)
 		test.That(t, err, test.ShouldBeNil)
 
 		// Add a modular component
@@ -183,31 +176,32 @@ func TestModularResources(t *testing.T) {
 		// modular
 		cfg := resource.Config{
 			Name:       "adder",
-			API:        svcSubtype,
+			API:        svcAPI,
 			Model:      svcModel,
 			Attributes: utils.AttributeMap{"arg1": "one"},
 		}
-		_, err := cfg.Validate("test", resource.ResourceTypeService)
+		_, err := cfg.Validate("test", resource.APITypeServiceName)
 		test.That(t, err, test.ShouldBeNil)
 
 		// changed attribute
 		cfg2 := resource.Config{
 			Name:       "adder",
-			API:        svcSubtype,
+			API:        svcAPI,
 			Model:      svcModel,
 			Attributes: utils.AttributeMap{"arg1": "two"},
 		}
-		_, err = cfg2.Validate("test", resource.ResourceTypeService)
+		_, err = cfg2.Validate("test", resource.APITypeServiceName)
 		test.That(t, err, test.ShouldBeNil)
 
 		// non-modular
 		cfg3 := resource.Config{
 			Name:                "builtin",
-			API:                 motion.Subtype,
+			API:                 motion.API,
 			Model:               resource.DefaultServiceModel,
 			ConvertedAttributes: &fake.Config{},
+			DependsOn:           []string{framesystem.InternalServiceName.String()},
 		}
-		_, err = cfg3.Validate("test", resource.ResourceTypeService)
+		_, err = cfg3.Validate("test", resource.APITypeServiceName)
 		test.That(t, err, test.ShouldBeNil)
 
 		test.That(t, err, test.ShouldBeNil)
@@ -247,17 +241,17 @@ func TestModularResources(t *testing.T) {
 		r, mod, teardown := setupTest(t)
 		defer teardown()
 
-		compCfg := resource.Config{Name: "oneton", API: compSubtype, Model: compModel, Attributes: utils.AttributeMap{"arg1": "one"}}
-		_, err := compCfg.Validate("test", resource.ResourceTypeComponent)
+		compCfg := resource.Config{Name: "oneton", API: compAPI, Model: compModel, Attributes: utils.AttributeMap{"arg1": "one"}}
+		_, err := compCfg.Validate("test", resource.APITypeComponentName)
 		test.That(t, err, test.ShouldBeNil)
 
 		svcCfg := resource.Config{
 			Name:       "adder",
-			API:        svcSubtype,
+			API:        svcAPI,
 			Model:      svcModel,
 			Attributes: utils.AttributeMap{"arg1": "one"},
 		}
-		_, err = svcCfg.Validate("test", resource.ResourceTypeComponent)
+		_, err = svcCfg.Validate("test", resource.APITypeComponentName)
 		test.That(t, err, test.ShouldBeNil)
 
 		r.Reconfigure(context.Background(), &config.Config{
@@ -291,24 +285,24 @@ func TestModularResources(t *testing.T) {
 		defer teardown()
 
 		// modular we do not want
-		cfg := resource.Config{Name: "oneton2", API: compSubtype, Model: compModel, Attributes: utils.AttributeMap{"arg1": "one"}}
-		_, err := cfg.Validate("test", resource.ResourceTypeComponent)
+		cfg := resource.Config{Name: "oneton2", API: compAPI, Model: compModel, Attributes: utils.AttributeMap{"arg1": "one"}}
+		_, err := cfg.Validate("test", resource.APITypeComponentName)
 		test.That(t, err, test.ShouldBeNil)
 
 		// non-modular
 		cfg2 := resource.Config{
 			Name:                "builtin",
-			API:                 motor.Subtype,
-			Model:               resource.NewDefaultModel("fake"),
+			API:                 motor.API,
+			Model:               resource.DefaultModelFamily.WithModel("fake"),
 			ConvertedAttributes: &fake.Config{},
 			ImplicitDependsOn:   []string{"oneton"},
 		}
-		_, err = cfg2.Validate("test", resource.ResourceTypeComponent)
+		_, err = cfg2.Validate("test", resource.APITypeComponentName)
 		test.That(t, err, test.ShouldBeNil)
 
 		// modular we want
-		cfg3 := resource.Config{Name: "oneton", API: compSubtype, Model: compModel, Attributes: utils.AttributeMap{"arg1": "one"}}
-		_, err = cfg3.Validate("test", resource.ResourceTypeComponent)
+		cfg3 := resource.Config{Name: "oneton", API: compAPI, Model: compModel, Attributes: utils.AttributeMap{"arg1": "one"}}
+		_, err = cfg3.Validate("test", resource.APITypeComponentName)
 		test.That(t, err, test.ShouldBeNil)
 
 		// what we want is originally available
@@ -347,8 +341,8 @@ func TestModularResources(t *testing.T) {
 		r, _, teardown := setupTest(t)
 		defer teardown()
 
-		cfg := resource.Config{Name: "oneton", API: compSubtype, Model: compModel, Attributes: utils.AttributeMap{"arg1": "one"}}
-		_, err := cfg.Validate("test", resource.ResourceTypeComponent)
+		cfg := resource.Config{Name: "oneton", API: compAPI, Model: compModel, Attributes: utils.AttributeMap{"arg1": "one"}}
+		_, err := cfg.Validate("test", resource.APITypeComponentName)
 		test.That(t, err, test.ShouldBeNil)
 
 		r.Reconfigure(context.Background(), &config.Config{
@@ -357,8 +351,8 @@ func TestModularResources(t *testing.T) {
 		res1, err := r.ResourceByName(cfg.ResourceName())
 		test.That(t, err, test.ShouldBeNil)
 
-		cfg2 := resource.Config{Name: "oneton", API: compSubtype, Model: compModel2, Attributes: utils.AttributeMap{"arg1": "one"}}
-		_, err = cfg2.Validate("test", resource.ResourceTypeComponent)
+		cfg2 := resource.Config{Name: "oneton", API: compAPI, Model: compModel2, Attributes: utils.AttributeMap{"arg1": "one"}}
+		_, err = cfg2.Validate("test", resource.APITypeComponentName)
 		test.That(t, err, test.ShouldBeNil)
 
 		r.Reconfigure(context.Background(), &config.Config{
@@ -378,12 +372,12 @@ type dummyRes struct {
 
 type dummyModMan struct {
 	modmaninterface.ModuleManager
-	mu             sync.Mutex
-	add            []resource.Config
-	reconf         []resource.Config
-	remove         []resource.Name
-	compSubtypeSvc resource.SubtypeCollection[resource.Resource]
-	svcSubtypeSvc  resource.SubtypeCollection[resource.Resource]
+	mu         sync.Mutex
+	add        []resource.Config
+	reconf     []resource.Config
+	remove     []resource.Name
+	compAPISvc resource.APIResourceCollection[resource.Resource]
+	svcAPISvc  resource.APIResourceCollection[resource.Resource]
 }
 
 func (m *dummyModMan) AddResource(ctx context.Context, conf resource.Config, deps []string) (resource.Resource, error) {
@@ -393,12 +387,12 @@ func (m *dummyModMan) AddResource(ctx context.Context, conf resource.Config, dep
 	res := &dummyRes{
 		Named: conf.ResourceName().AsNamed(),
 	}
-	if conf.API.ResourceType == resource.ResourceTypeComponent {
-		if err := m.compSubtypeSvc.Add(conf.ResourceName(), res); err != nil {
+	if conf.API.IsComponent() {
+		if err := m.compAPISvc.Add(conf.ResourceName(), res); err != nil {
 			return nil, err
 		}
 	} else {
-		if err := m.svcSubtypeSvc.Add(conf.ResourceName(), res); err != nil {
+		if err := m.svcAPISvc.Add(conf.ResourceName(), res); err != nil {
 			return nil, err
 		}
 	}
@@ -416,12 +410,12 @@ func (m *dummyModMan) RemoveResource(ctx context.Context, name resource.Name) er
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.remove = append(m.remove, name)
-	if name.ResourceType == resource.ResourceTypeComponent {
-		if err := m.compSubtypeSvc.Remove(name); err != nil {
+	if name.API.IsComponent() {
+		if err := m.compAPISvc.Remove(name); err != nil {
 			return err
 		}
 	} else {
-		if err := m.svcSubtypeSvc.Remove(name); err != nil {
+		if err := m.svcAPISvc.Remove(name); err != nil {
 			return err
 		}
 	}

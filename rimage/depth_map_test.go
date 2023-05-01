@@ -14,7 +14,6 @@ import (
 
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
-	"go.viam.com/utils/testutils"
 )
 
 func TestRawDepthMap(t *testing.T) {
@@ -37,7 +36,7 @@ func TestRawDepthMap(t *testing.T) {
 	origHeight = m.GetDepth(300, 300)
 	test.That(t, origHeight, test.ShouldEqual, 749)
 
-	fn := outDir + "/board2-rt.dat.gz"
+	fn := t.TempDir() + "/board2-rt.dat.gz"
 
 	err = WriteRawDepthMapToFile(m, fn)
 	test.That(t, err, test.ShouldBeNil)
@@ -72,7 +71,7 @@ func TestDepthMap(t *testing.T) {
 	origHeight = m.GetDepth(300, 300)
 	test.That(t, origHeight, test.ShouldEqual, 749)
 
-	fn := outDir + "/board2-rt.png"
+	fn := t.TempDir() + "/board2-rt.png"
 
 	err = WriteImageToFile(fn, m)
 	test.That(t, err, test.ShouldBeNil)
@@ -155,7 +154,7 @@ func TestToGray16Picture(t *testing.T) {
 	test.That(t, gimg.Bounds().Max.X, test.ShouldEqual, iwd.Depth.Width())
 	test.That(t, gimg.Bounds().Max.Y, test.ShouldEqual, iwd.Depth.Height())
 
-	file, err := os.Create(outDir + "/board2_gray.png")
+	file, err := os.Create(t.TempDir() + "/board2_gray.png")
 	test.That(t, err, test.ShouldBeNil)
 	defer file.Close()
 	png.Encode(file, gimg)
@@ -384,7 +383,7 @@ func TestDepthMapEncoding(t *testing.T) {
 	test.That(t, testPt2, test.ShouldEqual, 60)
 
 	// Save DepthMap BYTES to a file
-	outDir := testutils.TempDirT(t, "", "rimage")
+	outDir := t.TempDir()
 	saveTo := outDir + "/grayboard_bytes.vnd.viam.dep"
 	err = WriteRawDepthMapToFile(m, saveTo)
 	test.That(t, err, test.ShouldBeNil)

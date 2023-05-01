@@ -46,7 +46,7 @@ func newServer() (pb.InputControllerServiceServer, *inject.TriggerableInputContr
 		input.Named(testInputControllerName): injectInputController,
 		input.Named(failInputControllerName): injectInputController2,
 	}
-	inputControllerSvc, err := resource.NewSubtypeCollection(input.Subtype, inputControllers)
+	inputControllerSvc, err := resource.NewAPIResourceCollection(input.API, inputControllers)
 	if err != nil {
 		return nil, nil, nil, err
 	}

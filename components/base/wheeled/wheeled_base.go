@@ -21,8 +21,8 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-// ModelName is the name of the wheeled model of a base component.
-var ModelName = resource.NewDefaultModel("wheeled")
+// Model is the name of the wheeled model of a base component.
+var Model = resource.DefaultModelFamily.WithModel("wheeled")
 
 // Config is how you configure a wheeled base.
 type Config struct {
@@ -73,7 +73,7 @@ func init() {
 		},
 	}
 
-	resource.RegisterComponent(base.Subtype, ModelName, wheeledBaseComp)
+	resource.RegisterComponent(base.API, Model, wheeledBaseComp)
 }
 
 type wheeledBase struct {
@@ -202,10 +202,11 @@ func (wb *wheeledBase) SetVelocity(ctx context.Context, linear, angular r3.Vecto
 		linear.X, linear.Y, linear.Z, angular.X, angular.Y, angular.Z)
 
 	l, r := wb.velocityMath(linear.Y, angular.Z)
+
 	return wb.runAll(ctx, l, 0, r, 0)
 }
 
-// SetPower commands the base motors to run at powers correspoinding to input linear and angular powers.
+// SetPower commands the base motors to run at powers corresponding to input linear and angular powers.
 func (wb *wheeledBase) SetPower(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
 	wb.opMgr.CancelRunning(ctx)
 
@@ -263,7 +264,7 @@ func (wb *wheeledBase) velocityMath(mmPerSec, degsPerSec float64) (float64, floa
 	return rpmL, rpmR
 }
 
-// calculates the motor revolutions and speeds that correspond to the reuired distance and linear speeds.
+// calculates the motor revolutions and speeds that correspond to the required distance and linear speeds.
 func (wb *wheeledBase) straightDistanceToMotorInputs(distanceMm int, mmPerSec float64) (float64, float64) {
 	// takes in base speed and distance to calculate motor rpm and total rotations
 	rotations := float64(distanceMm) / float64(wb.wheelCircumferenceMm)

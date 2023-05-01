@@ -45,7 +45,7 @@ func newPositionCollector(resource interface{}, params data.CollectorParams) (da
 func assertServo(resource interface{}) (Servo, error) {
 	servo, ok := resource.(Servo)
 	if !ok {
-		return nil, data.InvalidInterfaceErr(SubtypeName)
+		return nil, data.InvalidInterfaceErr(API)
 	}
 	return servo, nil
 }

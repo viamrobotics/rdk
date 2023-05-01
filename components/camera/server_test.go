@@ -31,7 +31,7 @@ func newServer() (pb.CameraServiceServer, *inject.Camera, *inject.Camera, *injec
 		camera.Named(depthCameraName): injectCameraDepth,
 		camera.Named(failCameraName):  injectCamera2,
 	}
-	cameraSvc, err := resource.NewSubtypeCollection(camera.Subtype, cameras)
+	cameraSvc, err := resource.NewAPIResourceCollection(camera.API, cameras)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
