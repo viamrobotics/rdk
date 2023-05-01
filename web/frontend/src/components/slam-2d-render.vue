@@ -274,8 +274,7 @@ const updateOrRemoveDestinationMarker = async () => {
     marker.position.set(
       props.destVector.x + destinationMarkerOffset.x,
       props.destVector.y + destinationMarkerOffset.y,
-      // props.destVector.z + destinationMarkerOffset.z
-      0
+      props.destVector.z + destinationMarkerOffset.z
     );
   }
   if (!props.destExists) {
