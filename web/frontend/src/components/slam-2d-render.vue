@@ -20,13 +20,13 @@ type SvgOffset = {
 const baseMarkerOffset: SvgOffset = {
   x: 0.35,
   y: 0,
-  z: 0.01,
+  z: 0,
 };
 
 const destinationMarkerOffset: SvgOffset = {
   x: 1.2,
-  y: 0,
-  z: -2.52,
+  y: 2.5,
+  z: 0,
 };
 
 const backgroundGridColor = 0xCA_CA_CA;
@@ -145,7 +145,8 @@ const makeMarker = async (url : string, name: string, scalar: number) => {
       for (const shape of shapes) {
 
         const geometry = new THREE.ShapeGeometry(shape);
-        const mesh = new THREE.Mesh(geometry.rotateX(-Math.PI / 2).rotateY(Math.PI), material);
+        // const mesh = new THREE.Mesh(geometry.rotateZ(-Math.PI / 2), material);
+        const mesh = new THREE.Mesh(geometry.rotateZ(-Math.PI), material);
         group.add(mesh);
 
       }
@@ -169,7 +170,7 @@ const makeMarker = async (url : string, name: string, scalar: number) => {
       for (const subPath of path!.subPaths) {
         const geometry = SVGLoader.pointsToStroke(subPath.getPoints(), path!.userData!.style);
         if (geometry) {
-          const mesh = new THREE.Mesh(geometry.rotateX(-Math.PI / 2).rotateY(Math.PI), material);
+          const mesh = new THREE.Mesh(geometry.rotateZ(-Math.PI), material);
           group.add(mesh);
         }
       }
@@ -229,7 +230,7 @@ const colorBuckets = (probability: number): THREE.Vector3 => {
 // create the x and z axes
 const createAxisHelper = (name: string, rotation: number): THREE.AxesHelper => {
   const axesHelper = new THREE.AxesHelper(axesHelperSize);
-  axesHelper.rotateY(rotation);
+  axesHelper.rotateX(rotation);
   axesHelper.scale.set(1e5, 1, 1e5);
   axesHelper.renderOrder = axesHelperRenderOrder;
   axesHelper.name = name;
@@ -261,6 +262,7 @@ const createGridHelper = (
   gridHelper.renderOrder = gridHelperRenderOrder;
   gridHelper.name = 'Grid';
   gridHelper.visible = props.axesVisible;
+  gridHelper.rotateX(Math.PI / 2);
   return gridHelper;
 };
 
@@ -288,7 +290,7 @@ const updatePointCloud = (pointcloud: Uint8Array) => {
   controls.maxZoom = radius * 2;
 
   const intersectionPlane = new THREE.Mesh(
-    new THREE.PlaneGeometry(radius * 2, radius * 2, 1, 1).rotateX(-Math.PI / 2),
+    new THREE.PlaneGeometry(radius * 2, radius * 2, 1, 1),
     new MeshDiscardMaterial()
   );
   intersectionPlane.name = 'Intersection Plane';
@@ -341,6 +343,7 @@ onMounted(() => {
   // construct axes
   const axesPos = createAxisHelper('AxesPos', Math.PI / 2);
   const axesNeg = createAxisHelper('AxesNeg', -Math.PI / 2);
+  axesNeg.rotateZ(Math.PI);
   scene.add(axesPos, axesNeg);
 
 });
@@ -356,7 +359,7 @@ const updateOrRemoveDestinationMarker = async () => {
       await makeMarker(destMarkerUrl, 'DestinationMarker', destinationMarkerScalar);
     marker.position.set(
       props.destVector.x + destinationMarkerOffset.x,
-      destinationMarkerOffset.y,
+      props.destVector.y + destinationMarkerOffset.y,
       props.destVector.z + destinationMarkerOffset.z
     );
   }
@@ -368,7 +371,7 @@ const updateOrRemoveDestinationMarker = async () => {
   }
 };
 
-watch(() => [props.destVector!.z, props.destVector!.x, props.destExists], updateOrRemoveDestinationMarker);
+watch(() => [props.destVector!.y, props.destVector!.x, props.destExists], updateOrRemoveDestinationMarker);
 
 watch(() => props.axesVisible, () => {
   for (const gridPart of gridSubparts) {

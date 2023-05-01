@@ -349,8 +349,8 @@ const handleUpdateDestX = (event: CustomEvent<{ value: string }>) => {
   updatedDest = true;
 };
 
-const handleUpdateDestZ = (event: CustomEvent<{ value: string }>) => {
-  destinationMarker.z = Number.parseFloat(event.detail.value);
+const handleUpdateDestY = (event: CustomEvent<{ value: string }>) => {
+  destinationMarker.y = Number.parseFloat(event.detail.value);
   updatedDest = true;
 };
 
@@ -477,11 +477,11 @@ onUnmounted(() => {
             <v-input
               class="pl-2"
               type="number"
-              label="z"
+              label="y"
               incrementor="slider"
               :value="destinationMarker.z"
               step="0.1"
-              @input="handleUpdateDestZ($event)"
+              @input="handleUpdateDestY($event)"
             />
           </div>
           <v-button
