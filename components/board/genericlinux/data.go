@@ -139,11 +139,15 @@ func getCompatiblePinDefs(modelName string, boardInfoMappings map[string]BoardIn
 	return pinDefs, nil
 }
 
+// A helper function for ARM64/aarch64 architecture to process contents of a given content of
+// a file from os.ReadFile
 func stringSetFromFileARM64(content []byte) utils.StringSet {
 
 	return utils.NewStringSet(strings.Split(string(content), "\x00")...)
 }
 
+// A helper function for AMD64/x86_64 architecture to process contents of a given content of
+// a file from os.ReadFile
 func stringSetFromFileAMD64(content []byte) utils.StringSet {
 	//nolint:gosec
 	// Remove whitespace and null characters from the content
