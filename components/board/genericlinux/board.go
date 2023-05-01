@@ -213,6 +213,57 @@ func (b *sysfsBoard) reconfigureGpios(newConf *Config) error {
 		return nil // No digital interrupts to reconfigure.
 	}
 
+	// If we get here, we need to reconfigure b.gpios and b.interrupts. Any pin that already exists
+	// in the right configuration should just be copied over; closing and re-opening it risks
+	// losing its state.
+
+	// Start with the interrupt pins.
+
+	// Here's a helper function, which finds the new config for a pre-existing digital interrupt.
+	findNewDigIntConfig := func(interrupt *digitalInterrupt) *board.DigitalInterruptConfig {
+		for _, newConfig := range newConf.DigitalInterrupts {
+			if newConfig.Pin == interrupt.config.Pin {
+				return &newConfig
+			}
+		}
+		if interrupt.config.Name == interrupt.config.Pin {
+			// This interrupt is named identically to its pin. It was probably created on the fly
+			// by some other component (an encoder?). Keep it initialized as-is, even though it's
+			// not explicitly mentioned in the config, because it's probably still in-use.
+			b.logger.Debugf(
+				"Keeping digital interrupt on pin %s even though it's not explicitly mentioned " +
+				"in the new board config",
+				interrupt.config.Pin)
+			return interrupt.config
+		}
+		return nil
+	}
+
+	newInterrupts := make(map[string]*digitalInterrupt, len(newConf.DigitalInterrupts))
+	for _, oldInterrupt := range b.interrupts {
+		if newConfig := findNewDigIntConfig(oldInterrupt); newConfig != nil {
+			newInterrupts[newConfig.Name] = oldInterrupt
+			if err := oldInterrupt.interrupt.Reconfigure(*newConfig); err != nil {
+				return err
+			}
+		}
+	}
+
+	/*
+	for each old interrupt:
+	    if it's either numerically named or in the new config, copy it over to the new map and reconfigure
+		else close it
+	for each new interrupt:
+	    if it doesn't exist yet, close the old GPIO pin and then create it
+	for each old GPIO pin:
+	    if it's in the new config and it's not an interrupt, copy it over
+		else close it
+	delete the old GPIO map
+	for each GPIO pin in the config:
+	    if it's an interrupt, skip it
+		create it
+	*/
+
 	// TODO(RSDK-2684): we dont configure pins so we just unset them here. not really great behavior.
 	// We currently have two implementations of GPIO pins on these boards: one using
 	// libraries from periph.io and one using an ioctl approach. If we're using the
