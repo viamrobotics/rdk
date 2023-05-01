@@ -92,7 +92,7 @@ const (
 	prescaleReg = 0xFE
 )
 
-var defaultAddr = 0x60
+var defaultAddr = 0x40
 
 // New returns a new PCA9685 residing on the given bus and address.
 func New(ctx context.Context, deps resource.Dependencies, conf resource.Config) (*PCA9685, error) {
