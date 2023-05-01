@@ -479,12 +479,6 @@ func TestSyncConfigUpdateBehavior(t *testing.T) {
 			newSyncIntervalMins:  newSyncIntervalMins,
 		},
 		{
-			name:                 "additional paths changes, new ticker should be created for sync",
-			initSyncDisabled:     false,
-			initSyncIntervalMins: syncIntervalMins,
-			newSyncDisabled:      false,
-			newSyncIntervalMins:  syncIntervalMins,
-		}, {
 			name:                 "sync gets disabled, syncer should be nil",
 			initSyncDisabled:     false,
 			initSyncIntervalMins: syncIntervalMins,

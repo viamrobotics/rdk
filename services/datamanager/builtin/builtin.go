@@ -450,11 +450,11 @@ func (svc *builtIn) Reconfigure(
 		}
 		svc.startSyncScheduler(svc.syncIntervalMins)
 	} else {
-		svc.closeSyncer()
 		if svc.ticker != nil {
 			svc.ticker.Stop()
 			svc.ticker = nil
 		}
+		svc.closeSyncer()
 	}
 
 	return nil
