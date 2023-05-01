@@ -18,7 +18,7 @@ import (
 
 type digitalInterrupt struct {
 	parentBoard *sysfsBoard
-	interrupt   board.DigitalInterrupt
+	interrupt   board.ReconfigurableDigitalInterrupt
 	line        *gpio.LineWithEvent
 	cancelCtx   context.Context
 	cancelFunc  func()
