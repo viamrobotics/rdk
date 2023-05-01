@@ -334,8 +334,10 @@ const updatePointCloud = (pointcloud: Uint8Array) => {
 
   // construct axes
   const axesPos = createAxisHelper('AxesPos', Math.PI / 2);
+  axesPos.rotateY(Math.PI / 2);
   const axesNeg = createAxisHelper('AxesNeg', -Math.PI / 2);
-  axesNeg.rotateZ(Math.PI);
+  axesNeg.rotateY(Math.PI / 2);
+  axesNeg.rotateX(Math.PI);
 
   // add objects to scene
   scene.add(
