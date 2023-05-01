@@ -182,13 +182,6 @@ func TestOOBArm(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, positions, test.ShouldResemble, &jPositions)
 
-	t.Run("CreateStatus errors when OOB", func(t *testing.T) {
-		status, err := arm.CreateStatus(context.Background(), injectedArm)
-		test.That(t, status, test.ShouldBeNil)
-		stringCheck := "joint 0 input out of bounds, input 12.56637 needs to be within range [6.28319 -6.28319]"
-		test.That(t, err.Error(), test.ShouldEqual, stringCheck)
-	})
-
 	t.Run("EndPosition works when OOB", func(t *testing.T) {
 		jPositions := pb.JointPositions{Values: []float64{0, 0, 0, 0, 0, 720}}
 		pose, err := motionplan.ComputeOOBPosition(injectedArm.ModelFrame(), &jPositions)

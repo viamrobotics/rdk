@@ -5,11 +5,14 @@ import {
   CameraClient,
   Client,
   commonApi,
+  ResponseStream,
+  robotApi,
   ServiceError,
 } from '@viamrobotics/sdk';
 import { selectedMap } from '../../lib/camera-state';
 import type { CameraManager } from './camera-manager';
 import type { StreamManager } from './stream-manager';
+import { $ref, $computed } from 'vue/macros';
 
 const props = defineProps< {
   cameraName: string;
@@ -20,6 +23,7 @@ const props = defineProps< {
   refreshRate: string | undefined;
   triggerRefresh: boolean;
   streamManager:StreamManager;
+  statusStream: ResponseStream<robotApi.StreamStatusResponse> | null
 }>();
 
 const imgEl = $ref<HTMLImageElement>();
@@ -74,6 +78,7 @@ onMounted(() => {
     cameraManager.addStream();
   }
   updateCameraRefreshRate();
+  props.statusStream?.on('end', () => clearFrameInterval());
 });
 
 onUnmounted(() => {

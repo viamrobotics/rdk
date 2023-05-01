@@ -41,3 +41,9 @@ func NewIncorrectInputLengthError(actual, expected int) error {
 func NewUnsupportedJointTypeError(jointType string) error {
 	return errors.Errorf("unsupported joint type detected: %q", jointType)
 }
+
+// NewDuplicateGeometryNameError returns an error indicating that multiple geometry names have attempted
+// to be registered where this is not allowed.
+func NewDuplicateGeometryNameError(name string) error {
+	return errors.Errorf("cannot specify multiple geometries with the same name: %s", name)
+}

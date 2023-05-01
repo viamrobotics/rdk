@@ -11,14 +11,13 @@ import (
 	"github.com/golang/geo/r2"
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
-	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
 )
 
 func TestMainCalibrate(t *testing.T) {
-	outDir := testutils.TempDirT(t, "", "transform_cmd_extrinsic_calibration")
+	outDir := t.TempDir()
 	logger := golog.NewTestLogger(t)
 
 	// get a file with known extrinsic parameters

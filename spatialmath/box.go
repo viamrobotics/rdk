@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"sync"
 
 	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
@@ -57,6 +58,7 @@ type box struct {
 	label           string
 	mesh            *mesh
 	rotMatrix       *RotationMatrix
+	once            sync.Once
 }
 
 // NewBox instantiates a new box Geometry.
@@ -79,8 +81,8 @@ func (b *box) String() string {
 	return fmt.Sprintf("Type: Box, Dims: X:%.0f, Y:%.0f, Z:%.0f", 2*b.halfSize[0], 2*b.halfSize[1], 2*b.halfSize[2])
 }
 
-func (b box) MarshalJSON() ([]byte, error) {
-	config, err := NewGeometryConfig(&b)
+func (b *box) MarshalJSON() ([]byte, error) {
+	config, err := NewGeometryConfig(b)
 	if err != nil {
 		return nil, err
 	}
@@ -254,9 +256,7 @@ func (b *box) toMesh() *mesh {
 
 // rotationMatrix returns the cached matrix if it exists, and generates it if not.
 func (b *box) rotationMatrix() *RotationMatrix {
-	if b.rotMatrix == nil {
-		b.rotMatrix = b.pose.Orientation().RotationMatrix()
-	}
+	b.once.Do(func() { b.rotMatrix = b.pose.Orientation().RotationMatrix() })
 
 	return b.rotMatrix
 }

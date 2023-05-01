@@ -3,10 +3,12 @@ package mlvision
 import (
 	"context"
 	"image"
+	"math"
 	"strconv"
 
 	"github.com/nfnt/resize"
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/services/mlmodel"
@@ -59,17 +61,28 @@ func attemptToBuildDetector(mlm mlmodel.Service) (objectdetection.Detector, erro
 			return nil, err
 		}
 
-		locations := unpack(outMap, "location")
-		if len(locations) == 0 {
-			locations = unpack(outMap, DefaultOutTensorName+"0")
+		var err2 error
+
+		locations, err := unpack(outMap, "location")
+		if err != nil || len(locations) == 0 {
+			locations, err2 = unpack(outMap, DefaultOutTensorName+"0")
+			if err2 != nil {
+				return nil, multierr.Combine(err, err2)
+			}
 		}
-		categories := unpack(outMap, "category")
-		if len(categories) == 0 {
-			categories = unpack(outMap, DefaultOutTensorName+"1")
+		categories, err := unpack(outMap, "category")
+		if err != nil || len(categories) == 0 {
+			categories, err2 = unpack(outMap, DefaultOutTensorName+"1")
+			if err2 != nil {
+				return nil, multierr.Combine(err, err2)
+			}
 		}
-		scores := unpack(outMap, "score")
-		if len(scores) == 0 {
-			scores = unpack(outMap, DefaultOutTensorName+"2")
+		scores, err := unpack(outMap, "score")
+		if err != nil || len(scores) == 0 {
+			scores, err2 = unpack(outMap, DefaultOutTensorName+"2")
+			if err2 != nil {
+				return nil, multierr.Combine(err, err2)
+			}
 		}
 
 		// Now reshape outMap into Detections
@@ -80,8 +93,7 @@ func attemptToBuildDetector(mlm mlmodel.Service) (objectdetection.Detector, erro
 				utils.Clamp(locations[4*i+getIndex(boxOrder, 2)], 0, 1)*float64(origW),
 				utils.Clamp(locations[4*i+getIndex(boxOrder, 3)], 0, 1)*float64(origH)
 			rect := image.Rect(int(xmin), int(ymin), int(xmax), int(ymax))
-			labelNum := int(categories[i])
-
+			labelNum := int(utils.Clamp(categories[i], 0, math.MaxInt))
 			if labels != nil {
 				detections = append(detections, objectdetection.NewDetection(rect, scores[i], labels[labelNum]))
 			} else {
@@ -90,4 +102,23 @@ func attemptToBuildDetector(mlm mlmodel.Service) (objectdetection.Detector, erro
 		}
 		return detections, nil
 	}, nil
+}
+
+// In the case that the model provided is not a detector, attemptToBuildDetector will return a
+// detector function that function fails because the expected keys are not in the outputTensor.
+// use checkIfDetectorWorks to get sample output tensors on gray image so we know if the functions
+// returned from attemptToBuildDetector will fail ahead of time.
+func checkIfDetectorWorks(ctx context.Context, df objectdetection.Detector) error {
+	if df == nil {
+		return errors.New("nil detector function")
+	}
+
+	// test image to check if the detector function works
+	img := image.NewGray(image.Rectangle{Min: image.Point{0, 0}, Max: image.Point{5, 5}})
+
+	_, err := df(ctx, img)
+	if err != nil {
+		return errors.New("Cannot use model as a detector")
+	}
+	return nil
 }

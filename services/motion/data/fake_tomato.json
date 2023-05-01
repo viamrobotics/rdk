@@ -1,10 +1,4 @@
 {
-    "services": [
-        {
-            "name": "motion1",
-            "type": "motion"
-        }
-    ],
     "components": [
         {
             "name": "c",

@@ -27,6 +27,7 @@ import (
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/encoder"
+	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/gripper"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/components/movementsensor"
@@ -317,7 +318,7 @@ func TestRobotReconfigure(t *testing.T) {
 		rr, ok := robot.(*localRobot)
 		test.That(t, ok, test.ShouldBeTrue)
 
-		rr.triggerConfig <- true
+		rr.triggerConfig <- struct{}{}
 
 		utils.SelectContextOrWait(context.Background(), 200*time.Millisecond)
 
@@ -1978,7 +1979,7 @@ func TestRobotReconfigure(t *testing.T) {
 		rr, ok := robot.(*localRobot)
 		test.That(t, ok, test.ShouldBeTrue)
 
-		rr.triggerConfig <- true
+		rr.triggerConfig <- struct{}{}
 
 		utils.SelectContextOrWait(context.Background(), 200*time.Millisecond)
 		mock6, err = robot.ResourceByName(mockNamed("mock6"))
@@ -2060,7 +2061,7 @@ func TestRobotReconfigure(t *testing.T) {
 	t.Run("test processes", func(t *testing.T) {
 		resetComponentFailureState()
 		logger := golog.NewTestLogger(t)
-		tempDir := testutils.TempDirT(t, ".", "")
+		tempDir := t.TempDir()
 		robot, err := New(context.Background(), &config.Config{}, logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer func() {
@@ -2317,7 +2318,34 @@ func (s *someTypeWithWeakAndStrongDeps) Reconfigure(
 	conf resource.Config,
 ) error {
 	s.resources = deps
+	ourConf, err := resource.NativeConfig[*someTypeWithWeakAndStrongDepsConfig](conf)
+	if err != nil {
+		return err
+	}
+	for _, dep := range ourConf.deps {
+		if _, err := deps.Lookup(dep); err != nil {
+			return err
+		}
+	}
+	for _, dep := range ourConf.weakDeps {
+		if _, err := deps.Lookup(dep); err != nil {
+			return err
+		}
+	}
 	return nil
+}
+
+type someTypeWithWeakAndStrongDepsConfig struct {
+	deps     []resource.Name
+	weakDeps []resource.Name
+}
+
+func (s *someTypeWithWeakAndStrongDepsConfig) Validate(_ string) ([]string, error) {
+	depNames := make([]string, 0, len(s.deps))
+	for _, dep := range s.deps {
+		depNames = append(depNames, dep.String())
+	}
+	return depNames, nil
 }
 
 func TestUpdateWeakDependents(t *testing.T) {
@@ -2340,7 +2368,7 @@ func TestUpdateWeakDependents(t *testing.T) {
 	resource.Register(
 		weakAPI,
 		weakModel,
-		resource.Registration[*someTypeWithWeakAndStrongDeps, resource.NoNativeConfig]{
+		resource.Registration[*someTypeWithWeakAndStrongDeps, *someTypeWithWeakAndStrongDepsConfig]{
 			Constructor: func(
 				ctx context.Context,
 				deps resource.Dependencies,
@@ -2375,10 +2403,9 @@ func TestUpdateWeakDependents(t *testing.T) {
 	weakCfg2 := config.Config{
 		Components: []resource.Config{
 			{
-				Name:      weak1Name.Name,
-				API:       weakAPI,
-				Model:     weakModel,
-				DependsOn: []string{base1Name.Name},
+				Name:  weak1Name.Name,
+				API:   weakAPI,
+				Model: weakModel,
 			},
 			{
 				Name:  base1Name.Name,
@@ -2401,10 +2428,9 @@ func TestUpdateWeakDependents(t *testing.T) {
 	weakCfg3 := config.Config{
 		Components: []resource.Config{
 			{
-				Name:      weak1Name.Name,
-				API:       weakAPI,
-				Model:     weakModel,
-				DependsOn: []string{base1Name.Name},
+				Name:  weak1Name.Name,
+				API:   weakAPI,
+				Model: weakModel,
 			},
 			{
 				Name:  base1Name.Name,
@@ -2433,10 +2459,9 @@ func TestUpdateWeakDependents(t *testing.T) {
 	weakCfg4 := config.Config{
 		Components: []resource.Config{
 			{
-				Name:      weak1Name.Name,
-				API:       weakAPI,
-				Model:     weakModel,
-				DependsOn: []string{base1Name.Name},
+				Name:  weak1Name.Name,
+				API:   weakAPI,
+				Model: weakModel,
 			},
 			{
 				Name:  base1Name.Name,
@@ -2454,6 +2479,102 @@ func TestUpdateWeakDependents(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, weak1.resources, test.ShouldHaveLength, 1)
 	test.That(t, weak1.resources, test.ShouldContainKey, base1Name)
+
+	base2Name := base.Named("base2")
+	weakCfg5 := config.Config{
+		Components: []resource.Config{
+			{
+				Name:  weak1Name.Name,
+				API:   weakAPI,
+				Model: weakModel,
+				ConvertedAttributes: &someTypeWithWeakAndStrongDepsConfig{
+					deps: []resource.Name{generic.Named("foo")},
+				},
+			},
+			{
+				Name:  base1Name.Name,
+				API:   base.API,
+				Model: fake.Model,
+			},
+			{
+				Name:  base2Name.Name,
+				API:   base.API,
+				Model: fake.Model,
+			},
+		},
+	}
+	test.That(t, weakCfg5.Ensure(false, logger), test.ShouldBeNil)
+	robot.Reconfigure(context.Background(), &weakCfg5)
+
+	_, err = robot.ResourceByName(weak1Name)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not initialized")
+
+	weakCfg6 := config.Config{
+		Components: []resource.Config{
+			{
+				Name:  weak1Name.Name,
+				API:   weakAPI,
+				Model: weakModel,
+				ConvertedAttributes: &someTypeWithWeakAndStrongDepsConfig{
+					weakDeps: []resource.Name{base1Name},
+				},
+			},
+			{
+				Name:  base1Name.Name,
+				API:   base.API,
+				Model: fake.Model,
+			},
+			{
+				Name:  base2Name.Name,
+				API:   base.API,
+				Model: fake.Model,
+			},
+		},
+	}
+	test.That(t, weakCfg6.Ensure(false, logger), test.ShouldBeNil)
+	robot.Reconfigure(context.Background(), &weakCfg6)
+	res, err = robot.ResourceByName(weak1Name)
+	test.That(t, err, test.ShouldBeNil)
+	weak1, err = resource.AsType[*someTypeWithWeakAndStrongDeps](res)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, weak1.resources, test.ShouldHaveLength, 2)
+	test.That(t, weak1.resources, test.ShouldContainKey, base1Name)
+	test.That(t, weak1.resources, test.ShouldContainKey, base2Name)
+
+	weakCfg7 := config.Config{
+		Components: []resource.Config{
+			{
+				Name:  weak1Name.Name,
+				API:   weakAPI,
+				Model: weakModel,
+				ConvertedAttributes: &someTypeWithWeakAndStrongDepsConfig{
+					deps:     []resource.Name{base2Name},
+					weakDeps: []resource.Name{base1Name},
+				},
+			},
+			{
+				Name:  base1Name.Name,
+				API:   base.API,
+				Model: fake.Model,
+			},
+			{
+				Name:  base2Name.Name,
+				API:   base.API,
+				Model: fake.Model,
+			},
+		},
+	}
+	test.That(t, weakCfg7.Ensure(false, logger), test.ShouldBeNil)
+	robot.Reconfigure(context.Background(), &weakCfg7)
+
+	res, err = robot.ResourceByName(weak1Name)
+	test.That(t, err, test.ShouldBeNil)
+	weak1, err = resource.AsType[*someTypeWithWeakAndStrongDeps](res)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, weak1.resources, test.ShouldHaveLength, 2)
+	test.That(t, weak1.resources, test.ShouldContainKey, base1Name)
+	test.That(t, weak1.resources, test.ShouldContainKey, base2Name)
 }
 
 func TestDefaultServiceReconfigure(t *testing.T) {
@@ -2672,7 +2793,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 	rr, ok := r.(*localRobot)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	rr.triggerConfig <- true
+	rr.triggerConfig <- struct{}{}
 
 	utils.SelectContextOrWait(ctx, 2*time.Second)
 
@@ -2745,12 +2866,12 @@ func TestRemoteRobotsGold(t *testing.T) {
 	err = remote3.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
-	utils.SelectContextOrWait(ctx, 26*time.Second)
+	utils.SelectContextOrWait(ctx, 5*time.Second)
 
 	rr, ok = r.(*localRobot)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	rr.triggerConfig <- true
+	rr.triggerConfig <- struct{}{}
 
 	utils.SelectContextOrWait(ctx, 2*time.Second)
 
@@ -2825,7 +2946,7 @@ func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 	rr, ok := r.(*localRobot)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	rr.triggerConfig <- true
+	rr.triggerConfig <- struct{}{}
 	utils.SelectContextOrWait(ctx, 2*time.Second)
 
 	expectedSet := rdktestutils.NewResourceNameSet(
@@ -2844,7 +2965,7 @@ func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 	test.That(t, foo.Close(context.Background()), test.ShouldBeNil)
 	// wait for local_robot to detect that the remote is now offline
 	utils.SelectContextOrWait(ctx, 15*time.Second)
-	rr.triggerConfig <- true
+	rr.triggerConfig <- struct{}{}
 	utils.SelectContextOrWait(ctx, 2*time.Second)
 
 	test.That(
@@ -2873,12 +2994,12 @@ func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 	err = foo2.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
-	utils.SelectContextOrWait(ctx, 26*time.Second)
+	utils.SelectContextOrWait(ctx, 5*time.Second)
 
 	rr, ok = r.(*localRobot)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	rr.triggerConfig <- true
+	rr.triggerConfig <- struct{}{}
 
 	utils.SelectContextOrWait(ctx, 2*time.Second)
 
@@ -2948,8 +3069,8 @@ func TestInferRemoteRobotDependencyConnectAfterStartup(t *testing.T) {
 	rr, ok := r.(*localRobot)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	utils.SelectContextOrWait(ctx, 15*time.Second)
-	rr.triggerConfig <- true
+	utils.SelectContextOrWait(ctx, 5*time.Second)
+	rr.triggerConfig <- struct{}{}
 	utils.SelectContextOrWait(ctx, 2*time.Second)
 
 	expectedSet := rdktestutils.NewResourceNameSet(
@@ -2967,8 +3088,8 @@ func TestInferRemoteRobotDependencyConnectAfterStartup(t *testing.T) {
 
 	test.That(t, foo.Close(context.Background()), test.ShouldBeNil)
 	// wait for local_robot to detect that the remote is now offline
-	utils.SelectContextOrWait(ctx, 15*time.Second)
-	rr.triggerConfig <- true
+	utils.SelectContextOrWait(ctx, 5*time.Second)
+	rr.triggerConfig <- struct{}{}
 	utils.SelectContextOrWait(ctx, 2*time.Second)
 
 	test.That(
@@ -3069,7 +3190,7 @@ func TestInferRemoteRobotDependencyAmbiguous(t *testing.T) {
 	rr, ok := r.(*localRobot)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	rr.triggerConfig <- true
+	rr.triggerConfig <- struct{}{}
 	utils.SelectContextOrWait(ctx, 2*time.Second)
 
 	// we expect the robot to correctly detect the ambiguous dependency and not build the resource
@@ -3100,8 +3221,8 @@ func TestInferRemoteRobotDependencyAmbiguous(t *testing.T) {
 		},
 	}
 	r.Reconfigure(ctx, reConfig)
-	utils.SelectContextOrWait(ctx, 15*time.Second)
-	rr.triggerConfig <- true
+	utils.SelectContextOrWait(ctx, 5*time.Second)
+	rr.triggerConfig <- struct{}{}
 	utils.SelectContextOrWait(ctx, 2*time.Second)
 
 	finalSet := rdktestutils.NewResourceNameSet(

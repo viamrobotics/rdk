@@ -26,8 +26,8 @@ func TestValidate(t *testing.T) {
 		MinDeg:     ptr(1.5),
 		MaxDeg:     ptr(90.0),
 		StartPos:   ptr(3.5),
-		MinWidthUS: ptr(uint(501)),
-		MaxWidthUS: ptr(uint(2499)),
+		MinWidthUs: ptr(uint(501)),
+		MaxWidthUs: ptr(uint(2499)),
 	}
 
 	deps, err := cfg.Validate("test")
@@ -43,31 +43,31 @@ func TestValidate(t *testing.T) {
 
 	cfg.MaxDeg = ptr(90.0)
 
-	cfg.MinWidthUS = ptr(uint(450))
+	cfg.MinWidthUs = ptr(uint(450))
 	_, err = cfg.Validate("test")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "error validating \"test\": min_width_us cannot be lower than 500")
-	cfg.MinWidthUS = ptr(uint(501))
+	cfg.MinWidthUs = ptr(uint(501))
 
-	cfg.MaxWidthUS = ptr(uint(2520))
+	cfg.MaxWidthUs = ptr(uint(2520))
 	_, err = cfg.Validate("test")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "error validating \"test\": max_width_us cannot be higher than 2500")
-	cfg.MaxWidthUS = ptr(uint(2499))
+	cfg.MaxWidthUs = ptr(uint(2499))
 
 	cfg.StartPos = ptr(91.0)
 	_, err = cfg.Validate("test")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(),
 		test.ShouldContainSubstring,
-		"error validating \"test\": starting_position_degs should be between 1.5 and 90.0")
+		"error validating \"test\": starting_position_deg should be between minimum (1.5) and maximum (90.0) positions")
 
 	cfg.StartPos = ptr(1.0)
 	_, err = cfg.Validate("test")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(),
 		test.ShouldContainSubstring,
-		"error validating \"test\": starting_position_degs should be between 1.5 and 90.0")
+		"error validating \"test\": starting_position_deg should be between minimum (1.5) and maximum (90.0) positions")
 
 	cfg.StartPos = ptr(199.0)
 	cfg.MaxDeg = nil
@@ -76,7 +76,7 @@ func TestValidate(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(),
 		test.ShouldContainSubstring,
-		"error validating \"test\": starting_position_degs should be between 0.0 and 180.0")
+		"error validating \"test\": starting_position_deg should be between minimum (0.0) and maximum (180.0) positions")
 
 	cfg.StartPos = ptr(0.0)
 	_, err = cfg.Validate("test")
@@ -122,6 +122,10 @@ func setupDependencies(t *testing.T) resource.Dependencies {
 		innerTick1 = utils.ScaleByPct(scale1, dutyCyclePct)
 		return nil
 	}
+	pin0.SetPWMFreqFunc = func(ctx context.Context, freqHz uint, extra map[string]interface{}) error {
+		return nil
+	}
+
 	pin1 := &inject.GPIOPin{}
 	pin1.PWMFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
 		pct := float64(innerTick2) / float64(scale2)
@@ -134,6 +138,10 @@ func setupDependencies(t *testing.T) resource.Dependencies {
 		innerTick2 = utils.ScaleByPct(scale2, dutyCyclePct)
 		return nil
 	}
+	pin1.SetPWMFreqFunc = func(ctx context.Context, freqHz uint, extra map[string]interface{}) error {
+		return nil
+	}
+
 	board1.GPIOPinByNameFunc = func(name string) (board.GPIOPin, error) {
 		switch name {
 		case "0":
