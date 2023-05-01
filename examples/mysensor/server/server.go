@@ -20,8 +20,8 @@ var logger = golog.NewDebugLogger("mysensor")
 // registering the component model on init is how we make sure the new model is picked up and usable.
 func init() {
 	resource.RegisterComponent(
-		sensor.Subtype,
-		resource.NewDefaultModel("mySensor"),
+		sensor.API,
+		resource.DefaultModelFamily.WithModel("mySensor"),
 		resource.Registration[sensor.Sensor, resource.NoNativeConfig]{Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,

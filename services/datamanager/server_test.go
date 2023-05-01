@@ -17,7 +17,7 @@ import (
 )
 
 func newServer(resourceMap map[resource.Name]datamanager.Service) (pb.DataManagerServiceServer, error) {
-	coll, err := resource.NewSubtypeCollection(datamanager.Subtype, resourceMap)
+	coll, err := resource.NewAPIResourceCollection(datamanager.API, resourceMap)
 	if err != nil {
 		return nil, err
 	}

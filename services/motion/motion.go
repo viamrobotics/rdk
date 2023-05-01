@@ -13,7 +13,7 @@ import (
 )
 
 func init() {
-	resource.RegisterSubtype(Subtype, resource.SubtypeRegistration[Service]{
+	resource.RegisterAPI(API, resource.APIRegistration[Service]{
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           servicepb.RegisterMotionServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &servicepb.MotionService_ServiceDesc,
@@ -56,18 +56,14 @@ type Service interface {
 }
 
 // SubtypeName is the name of the type of service.
-const SubtypeName = resource.SubtypeName("motion")
+const SubtypeName = "motion"
 
-// Subtype is a constant that identifies the motion service resource subtype.
-var Subtype = resource.NewSubtype(
-	resource.ResourceNamespaceRDK,
-	resource.ResourceTypeService,
-	SubtypeName,
-)
+// API is a variable that identifies the motion service resource API.
+var API = resource.APINamespaceRDK.WithServiceType(SubtypeName)
 
 // Named is a helper for getting the named motion service's typed resource name.
 func Named(name string) resource.Name {
-	return resource.NameFromSubtype(Subtype, name)
+	return resource.NewName(API, name)
 }
 
 // FromRobot is a helper for getting the named motion service from the given Robot.

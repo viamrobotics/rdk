@@ -1,4 +1,4 @@
-// Package sensor contains a gRPC based Sensor service subtypeServer.
+// Package sensor contains a gRPC based Sensor service serviceServer.
 package sensor
 
 import (
@@ -11,19 +11,19 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-// subtypeServer implements the SensorService from sensor.proto.
-type subtypeServer struct {
+// serviceServer implements the SensorService from sensor.proto.
+type serviceServer struct {
 	pb.UnimplementedSensorServiceServer
-	coll resource.SubtypeCollection[Sensor]
+	coll resource.APIResourceCollection[Sensor]
 }
 
-// NewRPCServiceServer constructs an sensor gRPC service subtypeServer.
-func NewRPCServiceServer(coll resource.SubtypeCollection[Sensor]) interface{} {
-	return &subtypeServer{coll: coll}
+// NewRPCServiceServer constructs an sensor gRPC service serviceServer.
+func NewRPCServiceServer(coll resource.APIResourceCollection[Sensor]) interface{} {
+	return &serviceServer{coll: coll}
 }
 
 // GetReadings returns the most recent readings from the given Sensor.
-func (s *subtypeServer) GetReadings(
+func (s *serviceServer) GetReadings(
 	ctx context.Context,
 	req *pb.GetReadingsRequest,
 ) (*pb.GetReadingsResponse, error) {
@@ -43,7 +43,7 @@ func (s *subtypeServer) GetReadings(
 }
 
 // DoCommand receives arbitrary commands.
-func (s *subtypeServer) DoCommand(ctx context.Context,
+func (s *serviceServer) DoCommand(ctx context.Context,
 	req *commonpb.DoCommandRequest,
 ) (*commonpb.DoCommandResponse, error) {
 	sensorDevice, err := s.coll.Resource(req.Name)

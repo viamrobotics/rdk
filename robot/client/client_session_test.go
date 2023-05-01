@@ -39,30 +39,32 @@ client behavior.
 */
 
 var (
-	someTargetName1 = resource.NewName("rdk", "bar", "baz", "barf")
-	someTargetName2 = resource.NewName("rdk", "bar", "baz", "barfy")
+	someTargetName1 = resource.NewName(resource.APINamespace("rdk").WithType("bar").WithSubtype("baz"), "barf")
+	someTargetName2 = resource.NewName(resource.APINamespace("rdk").WithType("bar").WithSubtype("baz"), "barfy")
 )
 
-var echoSubType = resource.NewSubtype(
-	resource.ResourceNamespaceRDK,
-	resource.ResourceTypeComponent,
-	resource.SubtypeName("echo"),
-)
+var echoAPI = resource.APINamespaceRDK.WithComponentType("echo")
 
 func init() {
-	resource.RegisterSubtype(echoSubType, resource.SubtypeRegistration[resource.Resource]{
-		RPCServiceServerConstructor: func(subtypeColl resource.SubtypeCollection[resource.Resource]) interface{} {
-			return &echoServer{coll: subtypeColl}
+	resource.RegisterAPI(echoAPI, resource.APIRegistration[resource.Resource]{
+		RPCServiceServerConstructor: func(apiResColl resource.APIResourceCollection[resource.Resource]) interface{} {
+			return &echoServer{coll: apiResColl}
 		},
 		RPCServiceHandler: echopb.RegisterEchoResourceServiceHandlerFromEndpoint,
 		RPCServiceDesc:    &echopb.EchoResourceService_ServiceDesc,
-		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (resource.Resource, error) {
-			return NewClientFromConn(ctx, conn, name, logger), nil
+		RPCClient: func(
+			ctx context.Context,
+			conn rpc.ClientConn,
+			remoteName string,
+			name resource.Name,
+			logger golog.Logger,
+		) (resource.Resource, error) {
+			return NewClientFromConn(ctx, conn, remoteName, name, logger), nil
 		},
 	})
 	resource.RegisterComponent(
-		echoSubType,
-		resource.NewDefaultModel("fake"),
+		echoAPI,
+		resource.DefaultModelFamily.WithModel("fake"),
 		resource.Registration[resource.Resource, resource.NoNativeConfig]{
 			Constructor: func(
 				ctx context.Context,
@@ -99,15 +101,15 @@ func TestClientSessionOptions(t *testing.T) {
 						logger := golog.NewTestLogger(t)
 
 						sessMgr := &sessionManager{}
-						arbName := resource.NameFromSubtype(echoSubType, "woo")
+						arbName := resource.NewName(echoAPI, "woo")
 						injectRobot := &inject.Robot{
 							ResourceNamesFunc: func() []resource.Name { return []resource.Name{arbName} },
 							ResourceByNameFunc: func(name resource.Name) (resource.Resource, error) {
 								return &dummyEcho{Named: arbName.AsNamed()}, nil
 							},
-							ResourceRPCSubtypesFunc: func() []resource.RPCSubtype { return nil },
-							LoggerFunc:              func() golog.Logger { return logger },
-							SessMgr:                 sessMgr,
+							ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
+							LoggerFunc:          func() golog.Logger { return logger },
+							SessMgr:             sessMgr,
 						}
 
 						svc := web.New(injectRobot, logger)
@@ -283,7 +285,7 @@ func TestClientSessionExpiration(t *testing.T) {
 				logger := golog.NewTestLogger(t)
 
 				sessMgr := &sessionManager{}
-				arbName := resource.NameFromSubtype(echoSubType, "woo")
+				arbName := resource.NewName(echoAPI, "woo")
 
 				var dummyEcho1 dummyEcho
 				injectRobot := &inject.Robot{
@@ -291,9 +293,9 @@ func TestClientSessionExpiration(t *testing.T) {
 					ResourceByNameFunc: func(name resource.Name) (resource.Resource, error) {
 						return &dummyEcho1, nil
 					},
-					ResourceRPCSubtypesFunc: func() []resource.RPCSubtype { return nil },
-					LoggerFunc:              func() golog.Logger { return logger },
-					SessMgr:                 sessMgr,
+					ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
+					LoggerFunc:          func() golog.Logger { return logger },
+					SessMgr:             sessMgr,
 				}
 
 				svc := web.New(injectRobot, logger)
@@ -480,10 +482,10 @@ func TestClientSessionResume(t *testing.T) {
 
 				sessMgr := &sessionManager{}
 				injectRobot := &inject.Robot{
-					ResourceNamesFunc:       func() []resource.Name { return []resource.Name{} },
-					ResourceRPCSubtypesFunc: func() []resource.RPCSubtype { return nil },
-					LoggerFunc:              func() golog.Logger { return logger },
-					SessMgr:                 sessMgr,
+					ResourceNamesFunc:   func() []resource.Name { return []resource.Name{} },
+					ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
+					LoggerFunc:          func() golog.Logger { return logger },
+					SessMgr:             sessMgr,
 				}
 
 				svc := web.New(injectRobot, logger)
@@ -705,11 +707,17 @@ func (w ssStreamContextWrapper) Context() context.Context {
 }
 
 // NewClientFromConn constructs a new client from connection passed in.
-func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) resource.Resource {
+func NewClientFromConn(
+	ctx context.Context,
+	conn rpc.ClientConn,
+	remoteName string,
+	name resource.Name,
+	logger golog.Logger,
+) resource.Resource {
 	c := echopb.NewEchoResourceServiceClient(conn)
 	return &dummyClient{
-		Named:  name.AsNamed(),
-		name:   name.ShortNameForClient(),
+		Named:  name.PrependRemote(remoteName).AsNamed(),
+		name:   name.ShortName(),
 		client: c,
 	}
 }
@@ -732,7 +740,7 @@ type dummyEcho struct {
 
 type echoServer struct {
 	echopb.UnimplementedEchoResourceServiceServer
-	coll resource.SubtypeCollection[resource.Resource]
+	coll resource.APIResourceCollection[resource.Resource]
 }
 
 func (srv *echoServer) EchoResourceMultiple(

@@ -44,7 +44,7 @@ func CheckSocketAddressLength(addr string) error {
 
 // HandlerMap is the format for api->model pairs that the module will service.
 // Ex: mymap["rdk:component:motor"] = ["acme:marine:thruster", "acme:marine:outboard"].
-type HandlerMap map[resource.RPCSubtype][]resource.Model
+type HandlerMap map[resource.RPCAPI][]resource.Model
 
 // ToProto converts the HandlerMap to a protobuf representation.
 func (h HandlerMap) ToProto() *pb.HandlerMap {
@@ -52,8 +52,8 @@ func (h HandlerMap) ToProto() *pb.HandlerMap {
 	for s, models := range h {
 		subtype := &robotpb.ResourceRPCSubtype{
 			Subtype: protoutils.ResourceNameToProto(resource.Name{
-				Subtype: s.Subtype,
-				Name:    "",
+				API:  s.API,
+				Name: "",
 			}),
 			ProtoService: s.ProtoSvcName,
 		}
@@ -76,7 +76,7 @@ func NewHandlerMapFromProto(ctx context.Context, pMap *pb.HandlerMap, conn *grpc
 
 	var errs error
 	for _, h := range pMap.GetHandlers() {
-		api := protoutils.ResourceNameFromProto(h.Subtype.Subtype).Subtype
+		api := protoutils.ResourceNameFromProto(h.Subtype.Subtype).API
 
 		symDesc, err := reflSource.FindSymbol(h.Subtype.ProtoService)
 		if err != nil {
@@ -90,16 +90,16 @@ func NewHandlerMapFromProto(ctx context.Context, pMap *pb.HandlerMap, conn *grpc
 		if !ok {
 			return nil, errors.Errorf("expected descriptor to be service descriptor but got %T", symDesc)
 		}
-		subtype := &resource.RPCSubtype{
-			Subtype: api,
-			Desc:    svcDesc,
+		rpcAPI := &resource.RPCAPI{
+			API:  api,
+			Desc: svcDesc,
 		}
 		for _, m := range h.Models {
 			model, err := resource.NewModelFromString(m)
 			if err != nil {
 				return nil, err
 			}
-			hMap[*subtype] = append(hMap[*subtype], model)
+			hMap[*rpcAPI] = append(hMap[*rpcAPI], model)
 		}
 	}
 	return hMap, errs
@@ -117,7 +117,7 @@ type Module struct {
 	parentAddr              string
 	activeBackgroundWorkers sync.WaitGroup
 	handlers                HandlerMap
-	collections             map[resource.Subtype]resource.SubtypeCollection[resource.Resource]
+	collections             map[resource.API]resource.APIResourceCollection[resource.Resource]
 	closeOnce               sync.Once
 	pb.UnimplementedModuleServiceServer
 }
@@ -139,7 +139,7 @@ func NewModule(ctx context.Context, address string, logger *zap.SugaredLogger) (
 		server:      NewServer(unaries, streams),
 		ready:       true,
 		handlers:    HandlerMap{},
-		collections: map[resource.Subtype]resource.SubtypeCollection[resource.Resource]{},
+		collections: map[resource.API]resource.APIResourceCollection[resource.Resource]{},
 	}
 	if err := m.server.RegisterServiceServer(ctx, &pb.ModuleService_ServiceDesc, m); err != nil {
 		return nil, err
@@ -149,7 +149,7 @@ func NewModule(ctx context.Context, address string, logger *zap.SugaredLogger) (
 
 // NewModuleFromArgs directly parses the command line argument to get its address.
 func NewModuleFromArgs(ctx context.Context, logger *zap.SugaredLogger) (*Module, error) {
-	if len(os.Args) != 2 {
+	if len(os.Args) < 2 {
 		return nil, errors.New("need socket path as command line argument")
 	}
 	return NewModule(ctx, os.Args[1], logger)
@@ -413,7 +413,7 @@ func (m *Module) RemoveResource(ctx context.Context, req *pb.RemoveResourceReque
 		return nil, err
 	}
 
-	coll, ok := m.collections[name.Subtype]
+	coll, ok := m.collections[name.API]
 	if !ok {
 		return nil, errors.Errorf("no grpc service for %+v", name)
 	}
@@ -428,8 +428,8 @@ func (m *Module) RemoveResource(ctx context.Context, req *pb.RemoveResourceReque
 	return &pb.RemoveResourceResponse{}, coll.Remove(name)
 }
 
-// addAPIFromRegistry adds a preregistered API (rpc Subtype) to the module's services.
-func (m *Module) addAPIFromRegistry(ctx context.Context, api resource.Subtype) error {
+// addAPIFromRegistry adds a preregistered API (rpc API) to the module's services.
+func (m *Module) addAPIFromRegistry(ctx context.Context, api resource.API) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	_, ok := m.collections[api]
@@ -437,22 +437,22 @@ func (m *Module) addAPIFromRegistry(ctx context.Context, api resource.Subtype) e
 		return nil
 	}
 
-	subtypeInfo, ok := resource.LookupGenericSubtypeRegistration(api)
+	apiInfo, ok := resource.LookupGenericAPIRegistration(api)
 	if !ok {
 		return errors.Errorf("invariant: resource subtype does not exist for %q", api)
 	}
 
-	newColl := subtypeInfo.MakeEmptyCollection()
+	newColl := apiInfo.MakeEmptyCollection()
 	m.collections[api] = newColl
 
 	if !ok {
 		return nil
 	}
-	return subtypeInfo.RegisterRPCService(ctx, m.server, newColl)
+	return apiInfo.RegisterRPCService(ctx, m.server, newColl)
 }
 
 // AddModelFromRegistry adds a preregistered component or service model to the module's services.
-func (m *Module) AddModelFromRegistry(ctx context.Context, api resource.Subtype, model resource.Model) error {
+func (m *Module) AddModelFromRegistry(ctx context.Context, api resource.API, model resource.Model) error {
 	err := validateRegistered(api, model)
 	if err != nil {
 		return err
@@ -467,22 +467,22 @@ func (m *Module) AddModelFromRegistry(ctx context.Context, api resource.Subtype,
 		}
 	}
 
-	subtypeInfo, ok := resource.LookupGenericSubtypeRegistration(api)
+	apiInfo, ok := resource.LookupGenericAPIRegistration(api)
 	if !ok {
 		return errors.Errorf("invariant: resource subtype does not exist for %q", api)
 	}
-	if subtypeInfo.ReflectRPCServiceDesc == nil {
+	if apiInfo.ReflectRPCServiceDesc == nil {
 		m.logger.Errorf("rpc subtype %s doesn't contain a valid ReflectRPCServiceDesc", api)
 	}
-	rpcSubtype := resource.RPCSubtype{
-		Subtype:      api,
-		ProtoSvcName: subtypeInfo.RPCServiceDesc.ServiceName,
-		Desc:         subtypeInfo.ReflectRPCServiceDesc,
+	rpcAPI := resource.RPCAPI{
+		API:          api,
+		ProtoSvcName: apiInfo.RPCServiceDesc.ServiceName,
+		Desc:         apiInfo.ReflectRPCServiceDesc,
 	}
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.handlers[rpcSubtype] = append(m.handlers[rpcSubtype], model)
+	m.handlers[rpcAPI] = append(m.handlers[rpcAPI], model)
 	return nil
 }
 
@@ -509,7 +509,7 @@ func addConvertedAttributes(cfg *resource.Config) error {
 
 // validateRegistered returns an error if the passed-in api and model have not
 // yet been registered.
-func validateRegistered(api resource.Subtype, model resource.Model) error {
+func validateRegistered(api resource.API, model resource.Model) error {
 	resInfo, ok := resource.LookupRegistration(api, model)
 	if ok && resInfo.Constructor != nil {
 		return nil

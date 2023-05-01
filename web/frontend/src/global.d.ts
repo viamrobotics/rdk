@@ -14,7 +14,6 @@ declare global {
     };
     rcDebug: boolean;
     supportedAuthTypes: string[];
-    webrtcAdditionalICEServers: { urls: string; }[];
     webrtcEnabled: boolean;
     webrtcSignalingAddress: string;
   }

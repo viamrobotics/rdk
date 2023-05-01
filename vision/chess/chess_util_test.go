@@ -6,20 +6,9 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
-	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/rimage"
 )
-
-var outDir string
-
-func init() {
-	var err error
-	outDir, err = testutils.TempDir("", "vision_chess")
-	if err != nil {
-		panic(err)
-	}
-}
 
 func TestGetMinChessCorner(t *testing.T) {
 	x := getMinChessCorner("a8")
@@ -40,6 +29,7 @@ func _testBoardHeight(t *testing.T, game *Game, board *Board, square string, min
 
 func TestWarpColorAndDepthToChess1(t *testing.T) {
 	logger := golog.NewTestLogger(t)
+	outDir := t.TempDir()
 
 	chessPath := artifact.MustPath("vision/chess")
 	theBoard, err := FindAndWarpBoardFromFilesRoot(chessPath+"/board1", true, logger)
@@ -61,6 +51,7 @@ func TestWarpColorAndDepthToChess1(t *testing.T) {
 
 func TestWarpColorAndDepthToChess2(t *testing.T) {
 	logger := golog.NewTestLogger(t)
+	outDir := t.TempDir()
 
 	chessPath := artifact.MustPath("vision/chess")
 	theBoard, err := FindAndWarpBoardFromFilesRoot(chessPath+"/board2", true, logger)
@@ -91,6 +82,7 @@ func TestWarpColorAndDepthToChess2(t *testing.T) {
 
 func TestWarpColorAndDepthToChess3(t *testing.T) {
 	logger := golog.NewTestLogger(t)
+	outDir := t.TempDir()
 
 	chessPath := artifact.MustPath("samples/chess/init")
 	theBoard, err := FindAndWarpBoardFromFilesRoot(chessPath+"/board-1605543520", true, logger)
@@ -127,7 +119,7 @@ func TestArmBlock1(t *testing.T) {
 	test.That(t, board.IsBoardBlocked(), test.ShouldBeTrue)
 
 	annotated := board.Annotate()
-	rimage.WriteImageToFile(outDir+"/armblock1_annotated.png", annotated)
+	rimage.WriteImageToFile(t.TempDir()+"/armblock1_annotated.png", annotated)
 }
 
 func TestWarpColorAndDepthToChess4(t *testing.T) {
@@ -137,7 +129,7 @@ func TestWarpColorAndDepthToChess4(t *testing.T) {
 	theBoard, err := FindAndWarpBoardFromFilesRoot(chessPath+"/board-1610063549", true, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	rimage.WriteImageToFile(outDir+"/board-20210107-a.png", theBoard.Annotate())
+	rimage.WriteImageToFile(t.TempDir()+"/board-20210107-a.png", theBoard.Annotate())
 
 	e := theBoard.SquareCenterEdges("a1")
 	test.That(t, e, test.ShouldBeGreaterThanOrEqualTo, EdgeThreshold)
@@ -156,7 +148,7 @@ func TestWarpColorAndDepthToChess5(t *testing.T) {
 	theBoard, err := FindAndWarpBoardFromFilesRoot(chessPath+"/board5", true, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	err = theBoard.WriteDebugImages(outDir + "/board5")
+	err = theBoard.WriteDebugImages(t.TempDir() + "/board5")
 	test.That(t, err, test.ShouldBeNil)
 	/* TODO(erh): make this work
 	test.That(t, board.IsBoardBlocked(), test.ShouldBeFalse)

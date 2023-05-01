@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"image"
 	"math"
-	"strings"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
@@ -26,11 +25,11 @@ import (
 
 const numThreadsVideoSource = 8 // This should be a param
 
-var modelJoinPC = resource.NewDefaultModel("join_pointclouds")
+var modelJoinPC = resource.DefaultModelFamily.WithModel("join_pointclouds")
 
 func init() {
 	resource.RegisterComponent(
-		camera.Subtype,
+		camera.API,
 		modelJoinPC,
 		resource.Registration[camera.Camera, *JoinConfig]{
 			DeprecatedRobotConstructor: func(
@@ -107,7 +106,7 @@ type joinPointCloudSource struct {
 	sourceCameras []camera.Camera
 	sourceNames   []string
 	targetName    string
-	robot         robot.Robot
+	fsService     framesystem.Service
 	mergeMethod   MergeMethodType
 	logger        golog.Logger
 	debug         bool
@@ -139,7 +138,11 @@ func newJoinPointCloudSource(
 	}
 	// frame to merge to
 	joinSource.targetName = conf.TargetFrame
-	joinSource.robot = r
+	fsService, err := framesystem.FromRobot(r)
+	if err != nil {
+		return nil, err
+	}
+	joinSource.fsService = fsService
 	joinSource.closeness = conf.Closeness
 
 	joinSource.logger = l
@@ -185,12 +188,12 @@ func (jpcs *joinPointCloudSource) NextPointCloudNaive(ctx context.Context) (poin
 	ctx, span := trace.StartSpan(ctx, "joinPointCloudSource::NextPointCloudNaive")
 	defer span.End()
 
-	fs, err := framesystem.RobotFrameSystem(ctx, jpcs.robot, nil)
+	fs, err := jpcs.fsService.FrameSystem(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	inputs, err := jpcs.initializeInputs(ctx, fs)
+	inputs, _, err := jpcs.fsService.AllCurrentInputs(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -229,12 +232,12 @@ func (jpcs *joinPointCloudSource) NextPointCloudICP(ctx context.Context) (pointc
 	ctx, span := trace.StartSpan(ctx, "joinPointCloudSource::NextPointCloudICP")
 	defer span.End()
 
-	fs, err := framesystem.RobotFrameSystem(ctx, jpcs.robot, nil)
+	fs, err := jpcs.fsService.FrameSystem(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	inputs, err := jpcs.initializeInputs(ctx, fs)
+	inputs, _, err := jpcs.fsService.AllCurrentInputs(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -302,40 +305,6 @@ func (jpcs *joinPointCloudSource) NextPointCloudICP(ctx context.Context) (pointc
 	}
 
 	return finalPointCloud, nil
-}
-
-// initalizeInputs gets all the input positions for the robot components in order to calculate the frame system offsets.
-func (jpcs *joinPointCloudSource) initializeInputs(
-	ctx context.Context,
-	fs referenceframe.FrameSystem,
-) (map[string][]referenceframe.Input, error) {
-	inputs := referenceframe.StartPositions(fs)
-
-	for k, original := range inputs {
-		if strings.HasSuffix(k, "_origin") {
-			continue
-		}
-		if len(original) == 0 {
-			continue
-		}
-
-		all := robot.AllResourcesByName(jpcs.robot, k)
-		if len(all) != 1 {
-			return nil, fmt.Errorf("got %d resources instead of 1 for (%s)", len(all), k)
-		}
-
-		ii, ok := all[0].(referenceframe.InputEnabled)
-		if !ok {
-			return nil, fmt.Errorf("%v(%T) is not InputEnabled", k, all[0])
-		}
-
-		pos, err := ii.CurrentInputs(ctx)
-		if err != nil {
-			return nil, err
-		}
-		inputs[k] = pos
-	}
-	return inputs, nil
 }
 
 // Read gets the merged point cloud from all sources, and then uses a projection to turn it into a 2D image.

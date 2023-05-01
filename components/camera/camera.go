@@ -24,7 +24,7 @@ import (
 )
 
 func init() {
-	resource.RegisterSubtype(Subtype, resource.SubtypeRegistration[Camera]{
+	resource.RegisterAPI(API, resource.APIRegistration[Camera]{
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           pb.RegisterCameraServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &pb.CameraService_ServiceDesc,
@@ -32,28 +32,24 @@ func init() {
 	})
 
 	data.RegisterCollector(data.MethodMetadata{
-		Subtype:    Subtype,
+		API:        API,
 		MethodName: nextPointCloud.String(),
 	}, newNextPointCloudCollector)
 	data.RegisterCollector(data.MethodMetadata{
-		Subtype:    Subtype,
+		API:        API,
 		MethodName: readImage.String(),
 	}, newReadImageCollector)
 }
 
 // SubtypeName is a constant that identifies the camera resource subtype string.
-const SubtypeName = resource.SubtypeName("camera")
+const SubtypeName = "camera"
 
-// Subtype is a constant that identifies the camera resource subtype.
-var Subtype = resource.NewSubtype(
-	resource.ResourceNamespaceRDK,
-	resource.ResourceTypeComponent,
-	SubtypeName,
-)
+// API is a variable that identifies the camera resource API.
+var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 
 // Named is a helper for getting the named camera's typed resource name.
 func Named(name string) resource.Name {
-	return resource.NameFromSubtype(Subtype, name)
+	return resource.NewName(API, name)
 }
 
 // Properties is a lookup for a camera's features and settings.
@@ -308,7 +304,7 @@ func FromRobot(r robot.Robot, name string) (Camera, error) {
 
 // NamesFromRobot is a helper for getting all camera names from the given Robot.
 func NamesFromRobot(r robot.Robot) []string {
-	return robot.NamesBySubtype(r, Subtype)
+	return robot.NamesByAPI(r, API)
 }
 
 // SimultaneousColorDepthNext will call Next on both the color and depth camera as simultaneously as possible.

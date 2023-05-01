@@ -20,7 +20,7 @@ import (
 )
 
 func newServer(sMap map[resource.Name]sensors.Service) (pb.SensorsServiceServer, error) {
-	coll, err := resource.NewSubtypeCollection(sensors.Subtype, sMap)
+	coll, err := resource.NewAPIResourceCollection(sensors.API, sMap)
 	if err != nil {
 		return nil, err
 	}

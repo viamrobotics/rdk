@@ -245,7 +245,7 @@ func (sf *staticFrame) Geometries(input []Input) (*GeometriesInFrame, error) {
 	return NewGeometriesInFrame(sf.name, []spatial.Geometry{newGeom}), nil
 }
 
-func (sf *staticFrame) MarshalJSON() ([]byte, error) {
+func (sf staticFrame) MarshalJSON() ([]byte, error) {
 	temp := LinkConfig{
 		ID:          sf.name,
 		Translation: sf.transform.Point(),
@@ -336,7 +336,7 @@ func (pf *translationalFrame) Geometries(input []Input) (*GeometriesInFrame, err
 	return NewGeometriesInFrame(pf.name, []spatial.Geometry{pf.geometry.Transform(pose)}), err
 }
 
-func (pf *translationalFrame) MarshalJSON() ([]byte, error) {
+func (pf translationalFrame) MarshalJSON() ([]byte, error) {
 	if len(pf.limits) > 1 {
 		return nil, ErrMarshalingHighDOFFrame
 	}
@@ -419,7 +419,7 @@ func (rf *rotationalFrame) Name() string {
 	return rf.name
 }
 
-func (rf *rotationalFrame) MarshalJSON() ([]byte, error) {
+func (rf rotationalFrame) MarshalJSON() ([]byte, error) {
 	if len(rf.limits) > 1 {
 		return nil, ErrMarshalingHighDOFFrame
 	}
@@ -490,7 +490,7 @@ func (mf *mobile2DFrame) Geometries(input []Input) (*GeometriesInFrame, error) {
 	return NewGeometriesInFrame(mf.name, []spatial.Geometry{mf.geometry.Transform(pose)}), err
 }
 
-func (mf *mobile2DFrame) MarshalJSON() ([]byte, error) {
+func (mf mobile2DFrame) MarshalJSON() ([]byte, error) {
 	return nil, fmt.Errorf("MarshalJSON not implemented for type %T", mf)
 }
 

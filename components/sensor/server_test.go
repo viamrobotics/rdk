@@ -22,7 +22,7 @@ func newServer() (pb.SensorServiceServer, *inject.Sensor, *inject.Sensor, error)
 		sensor.Named(testSensorName): injectSensor,
 		sensor.Named(failSensorName): injectSensor2,
 	}
-	sensorSvc, err := resource.NewSubtypeCollection(sensor.Subtype, sensors)
+	sensorSvc, err := resource.NewAPIResourceCollection(sensor.API, sensors)
 	if err != nil {
 		return nil, nil, nil, err
 	}

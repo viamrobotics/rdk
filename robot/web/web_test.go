@@ -8,6 +8,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"net"
+	"os"
 	"testing"
 	"time"
 
@@ -67,7 +68,7 @@ func TestWebStart(t *testing.T) {
 
 	conn, err := rgrpc.Dial(context.Background(), addr, logger)
 	test.That(t, err, test.ShouldBeNil)
-	arm1, err := arm.NewClientFromConn(context.Background(), conn, arm.Named(arm1String), logger)
+	arm1, err := arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	arm1Position, err := arm1.EndPosition(ctx, nil)
@@ -95,7 +96,7 @@ func TestModule(t *testing.T) {
 	conn1, err := rgrpc.Dial(context.Background(), "unix://"+svc.ModuleAddress(), logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	arm1, err := arm.NewClientFromConn(context.Background(), conn1, arm.Named(arm1String), logger)
+	arm1, err := arm.NewClientFromConn(context.Background(), conn1, "", arm.Named(arm1String), logger)
 	test.That(t, err, test.ShouldBeNil)
 	arm1Position, err := arm1.EndPosition(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
@@ -112,7 +113,7 @@ func TestModule(t *testing.T) {
 
 	conn2, err := rgrpc.Dial(context.Background(), svc.Address(), logger)
 	test.That(t, err, test.ShouldBeNil)
-	arm2, err := arm.NewClientFromConn(context.Background(), conn2, arm.Named(arm1String), logger)
+	arm2, err := arm.NewClientFromConn(context.Background(), conn2, "", arm.Named(arm1String), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	arm2Position, err := arm2.EndPosition(ctx, nil)
@@ -157,7 +158,7 @@ func TestWebStartOptions(t *testing.T) {
 
 	conn, err := rgrpc.Dial(context.Background(), addr, logger)
 	test.That(t, err, test.ShouldBeNil)
-	arm1, err := arm.NewClientFromConn(context.Background(), conn, arm.Named(arm1String), logger)
+	arm1, err := arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	arm1Position, err := arm1.EndPosition(ctx, nil)
@@ -262,7 +263,7 @@ func TestWebWithAuth(t *testing.T) {
 					}),
 				)
 				test.That(t, err, test.ShouldBeNil)
-				arm1, err := arm.NewClientFromConn(context.Background(), conn, arm.Named(arm1String), logger)
+				arm1, err := arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
 				test.That(t, err, test.ShouldBeNil)
 
 				arm1Position, err := arm1.EndPosition(ctx, nil)
@@ -280,7 +281,7 @@ func TestWebWithAuth(t *testing.T) {
 					}),
 				)
 				test.That(t, err, test.ShouldBeNil)
-				arm1, err = arm.NewClientFromConn(context.Background(), conn, arm.Named(arm1String), logger)
+				arm1, err = arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
 				test.That(t, err, test.ShouldBeNil)
 
 				arm1Position, err = arm1.EndPosition(ctx, nil)
@@ -298,7 +299,7 @@ func TestWebWithAuth(t *testing.T) {
 					}),
 				)
 				test.That(t, err, test.ShouldBeNil)
-				arm1, err = arm.NewClientFromConn(context.Background(), conn, arm.Named(arm1String), logger)
+				arm1, err = arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
 				test.That(t, err, test.ShouldBeNil)
 
 				arm1Position, err = arm1.EndPosition(ctx, nil)
@@ -336,7 +337,7 @@ func TestWebWithAuth(t *testing.T) {
 				)
 				test.That(t, err, test.ShouldBeNil)
 
-				arm1, err := arm.NewClientFromConn(context.Background(), conn, arm.Named(arm1String), logger)
+				arm1, err := arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
 				test.That(t, err, test.ShouldBeNil)
 
 				arm1Position, err := arm1.EndPosition(ctx, nil)
@@ -355,7 +356,7 @@ func TestWebWithAuth(t *testing.T) {
 				)
 				test.That(t, err, test.ShouldBeNil)
 
-				arm1, err = arm.NewClientFromConn(context.Background(), conn, arm.Named(arm1String), logger)
+				arm1, err = arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
 				test.That(t, err, test.ShouldBeNil)
 
 				arm1Position, err = arm1.EndPosition(ctx, nil)
@@ -379,8 +380,12 @@ func TestWebWithTLSAuth(t *testing.T) {
 	svc := web.New(injectRobot, logger)
 
 	altName := primitive.NewObjectID().Hex()
-	cert, _, _, certPool, err := testutils.GenerateSelfSignedCertificate("somename", altName)
+	cert, certFile, keyFile, certPool, err := testutils.GenerateSelfSignedCertificate("somename", altName)
 	test.That(t, err, test.ShouldBeNil)
+	t.Cleanup(func() {
+		os.Remove(certFile)
+		os.Remove(keyFile)
+	})
 
 	leaf, err := x509.ParseCertificate(cert.Certificate[0])
 	test.That(t, err, test.ShouldBeNil)
@@ -442,7 +447,7 @@ func TestWebWithTLSAuth(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	arm1, err := arm.NewClientFromConn(context.Background(), conn, arm.Named(arm1String), logger)
+	arm1, err := arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	arm1Position, err := arm1.EndPosition(ctx, nil)
@@ -457,7 +462,7 @@ func TestWebWithTLSAuth(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	arm1, err = arm.NewClientFromConn(context.Background(), conn, arm.Named(arm1String), logger)
+	arm1, err = arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	arm1Position, err = arm1.EndPosition(ctx, nil)
@@ -472,7 +477,7 @@ func TestWebWithTLSAuth(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	arm1, err = arm.NewClientFromConn(context.Background(), conn, arm.Named(arm1String), logger)
+	arm1, err = arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	arm1Position, err = arm1.EndPosition(ctx, nil)
@@ -495,7 +500,7 @@ func TestWebWithTLSAuth(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	arm1, err = arm.NewClientFromConn(context.Background(), conn, arm.Named(arm1String), logger)
+	arm1, err = arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
 	test.That(t, err, test.ShouldBeNil)
 	arm1Position, err = arm1.EndPosition(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
@@ -520,7 +525,7 @@ func TestWebWithTLSAuth(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	arm1, err = arm.NewClientFromConn(context.Background(), conn, arm.Named(arm1String), logger)
+	arm1, err = arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	arm1Position, err = arm1.EndPosition(ctx, nil)
@@ -580,7 +585,7 @@ func TestWebReconfigure(t *testing.T) {
 	conn, err := rgrpc.Dial(context.Background(), addr, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	arm1, err := arm.NewClientFromConn(context.Background(), conn, arm.Named(arm1String), logger)
+	arm1, err := arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	arm1Position, err := arm1.EndPosition(ctx, nil)
@@ -600,7 +605,7 @@ func TestWebReconfigure(t *testing.T) {
 
 	conn, err = rgrpc.Dial(context.Background(), addr, logger)
 	test.That(t, err, test.ShouldBeNil)
-	aClient, err := arm.NewClientFromConn(context.Background(), conn, arm.Named(arm1String), logger)
+	aClient, err := arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
 	test.That(t, err, test.ShouldBeNil)
 	position, err := aClient.EndPosition(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
@@ -629,7 +634,7 @@ func TestWebReconfigure(t *testing.T) {
 	conn, err = rgrpc.Dial(context.Background(), addr, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	arm1, err = arm.NewClientFromConn(context.Background(), conn, arm.Named(arm1String), logger)
+	arm1, err = arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	arm1Position, err = arm1.EndPosition(ctx, nil)
@@ -638,7 +643,7 @@ func TestWebReconfigure(t *testing.T) {
 
 	conn, err = rgrpc.Dial(context.Background(), addr, logger)
 	test.That(t, err, test.ShouldBeNil)
-	aClient2, err := arm.NewClientFromConn(context.Background(), conn, arm.Named(arm1String), logger)
+	aClient2, err := arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, err, test.ShouldBeNil)
 	position, err = aClient2.EndPosition(context.Background(), nil)
@@ -660,7 +665,7 @@ func TestWebReconfigure(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, position, test.ShouldResemble, newPos)
 
-	aClient3, err := arm.NewClientFromConn(context.Background(), conn, arm.Named(arm2), logger)
+	aClient3, err := arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm2), logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, err, test.ShouldBeNil)
 	position, err = aClient3.EndPosition(context.Background(), nil)
@@ -792,7 +797,7 @@ func setupRobotCtx(t *testing.T) (context.Context, robot.Robot) {
 	injectRobot := &inject.Robot{}
 	injectRobot.ConfigFunc = func(ctx context.Context) (*config.Config, error) { return &config.Config{}, nil }
 	injectRobot.ResourceNamesFunc = func() []resource.Name { return resources }
-	injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return nil }
+	injectRobot.ResourceRPCAPIsFunc = func() []resource.RPCAPI { return nil }
 	injectRobot.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
 		return injectArm, nil
 	}
@@ -838,12 +843,12 @@ func TestForeignResource(t *testing.T) {
 	remoteConn, err := rgrpc.Dial(context.Background(), listenerR.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	resourceSubtype := resource.NewSubtype(
+	resourceAPI := resource.NewAPI(
 		"acme",
-		resource.ResourceTypeComponent,
-		resource.SubtypeName("mycomponent"),
+		"component",
+		"mycomponent",
 	)
-	resName := resource.NameFromSubtype(resourceSubtype, "thing1")
+	resName := resource.NewName(resourceAPI, "thing1")
 
 	foreignRes := rgrpc.NewForeignResource(resName, remoteConn)
 
@@ -855,7 +860,7 @@ func TestForeignResource(t *testing.T) {
 	injectRobot.ConfigFunc = func(ctx context.Context) (*config.Config, error) { return &config.Config{}, nil }
 	injectRobot.ResourceNamesFunc = func() []resource.Name {
 		return []resource.Name{
-			resource.NameFromSubtype(resourceSubtype, "thing1"),
+			resource.NewName(resourceAPI, "thing1"),
 		}
 	}
 	injectRobot.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
@@ -875,7 +880,7 @@ func TestForeignResource(t *testing.T) {
 	myCompClient = gizmopb.NewGizmoServiceClient(conn)
 
 	injectRobot.Mu.Lock()
-	injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype {
+	injectRobot.ResourceRPCAPIsFunc = func() []resource.RPCAPI {
 		return nil
 	}
 	injectRobot.Mu.Unlock()
@@ -887,11 +892,11 @@ func TestForeignResource(t *testing.T) {
 	test.That(t, errStatus.Code(), test.ShouldEqual, codes.Unimplemented)
 
 	injectRobot.Mu.Lock()
-	injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype {
-		return []resource.RPCSubtype{
+	injectRobot.ResourceRPCAPIsFunc = func() []resource.RPCAPI {
+		return []resource.RPCAPI{
 			{
-				Subtype: resourceSubtype,
-				Desc:    svcDesc,
+				API:  resourceAPI,
+				Desc: svcDesc,
 			},
 		}
 	}
@@ -916,13 +921,9 @@ func (s *myCompServer) DoOne(ctx context.Context, req *gizmopb.DoOneRequest) (*g
 
 func TestRawClientOperation(t *testing.T) {
 	// Need an unfiltered streaming call to test interceptors
-	echoSubType := resource.NewSubtype(
-		resource.ResourceNamespaceRDK,
-		resource.ResourceTypeComponent,
-		resource.SubtypeName("echo"),
-	)
-	resource.RegisterSubtype(echoSubType, resource.SubtypeRegistration[resource.Resource]{
-		RPCServiceServerConstructor: func(subtypeColl resource.SubtypeCollection[resource.Resource]) interface{} { return &echoServer{} },
+	echoAPI := resource.NewAPI("rdk", "component", "echo")
+	resource.RegisterAPI(echoAPI, resource.APIRegistration[resource.Resource]{
+		RPCServiceServerConstructor: func(apiResColl resource.APIResourceCollection[resource.Resource]) interface{} { return &echoServer{} },
 		RPCServiceHandler:           echopb.RegisterTestEchoServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &echopb.TestEchoService_ServiceDesc,
 	})

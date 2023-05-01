@@ -94,12 +94,12 @@ func TestClient(t *testing.T) {
 		base.Named(failBaseName): brokenBase,
 	}
 
-	baseSvc, err := resource.NewSubtypeCollection(base.Subtype, resMap)
+	baseSvc, err := resource.NewAPIResourceCollection(base.API, resMap)
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype, ok, err := resource.LookupSubtypeRegistration[base.Base](base.Subtype)
+	resourceAPI, ok, err := resource.LookupAPIRegistration[base.Base](base.API)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, resourceSubtype.RegisterRPCService(context.Background(), rpcServer, baseSvc), test.ShouldBeNil)
+	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, baseSvc), test.ShouldBeNil)
 
 	workingBase.DoFunc = testutils.EchoFunc
 
@@ -116,7 +116,7 @@ func TestClient(t *testing.T) {
 	})
 	conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
-	workingBaseClient, err := base.NewClientFromConn(context.Background(), conn, base.Named(testBaseName), logger)
+	workingBaseClient, err := base.NewClientFromConn(context.Background(), conn, "", base.Named(testBaseName), logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, workingBaseClient.Close(context.Background()), test.ShouldBeNil)
@@ -149,7 +149,7 @@ func TestClient(t *testing.T) {
 	t.Run("working base client by dialing", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		client, err := resourceSubtype.RPCClient(context.Background(), conn, base.Named(testBaseName), logger)
+		client, err := resourceAPI.RPCClient(context.Background(), conn, "", base.Named(testBaseName), logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		degsPerSec := 42.0
@@ -166,7 +166,7 @@ func TestClient(t *testing.T) {
 	t.Run("failing base client", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		failingBaseClient, err := base.NewClientFromConn(context.Background(), conn, base.Named(failBaseName), logger)
+		failingBaseClient, err := base.NewClientFromConn(context.Background(), conn, "", base.Named(failBaseName), logger)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeNil)
 

@@ -23,7 +23,7 @@ func newServer() (pb.MotorServiceServer, *inject.Motor, *inject.Motor, error) {
 		motor.Named(failMotorName): injectMotor2,
 	}
 
-	injectSvc, err := resource.NewSubtypeCollection(motor.Subtype, resourceMap)
+	injectSvc, err := resource.NewAPIResourceCollection(motor.API, resourceMap)
 	if err != nil {
 		return nil, nil, nil, err
 	}

@@ -13,50 +13,50 @@ import (
 func TestResourceType(t *testing.T) {
 	for _, tc := range []struct {
 		TestName  string
-		Namespace resource.Namespace
-		Type      resource.TypeName
-		Expected  resource.Type
+		Namespace resource.APINamespace
+		Type      string
+		Expected  resource.APIType
 		Err       string
 	}{
 		{
 			"missing namespace",
 			"",
-			resource.ResourceTypeComponent,
-			resource.Type{ResourceType: resource.ResourceTypeComponent},
+			resource.APITypeComponentName,
+			resource.APIType{Name: resource.APITypeComponentName},
 			"namespace field for resource missing or invalid",
 		},
 		{
 			"missing type",
-			resource.ResourceNamespaceRDK,
+			resource.APINamespaceRDK,
 			"",
-			resource.Type{Namespace: resource.ResourceNamespaceRDK},
+			resource.APIType{Namespace: resource.APINamespaceRDK},
 			"type field for resource missing or invalid",
 		},
 
 		{
 			"reserved character in resource type",
 			"rd:k",
-			resource.ResourceTypeComponent,
-			resource.Type{Namespace: "rd:k", ResourceType: resource.ResourceTypeComponent},
+			resource.APITypeComponentName,
+			resource.APIType{Namespace: "rd:k", Name: resource.APITypeComponentName},
 			"reserved character : used",
 		},
 		{
 			"reserved charater in namespace",
-			resource.ResourceNamespaceRDK,
+			resource.APINamespaceRDK,
 			"compon:ent",
-			resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: "compon:ent"},
+			resource.APIType{Namespace: resource.APINamespaceRDK, Name: "compon:ent"},
 			"reserved character : used",
 		},
 		{
 			"all fields included",
-			resource.ResourceNamespaceRDK,
-			resource.ResourceTypeComponent,
-			resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
+			resource.APINamespaceRDK,
+			resource.APITypeComponentName,
+			resource.APIType{Namespace: resource.APINamespaceRDK, Name: resource.APITypeComponentName},
 			"",
 		},
 	} {
 		t.Run(tc.TestName, func(t *testing.T) {
-			observed := resource.NewType(tc.Namespace, tc.Type)
+			observed := tc.Namespace.WithType(tc.Type)
 			test.That(t, observed, test.ShouldResemble, tc.Expected)
 			err := observed.Validate()
 			if tc.Err == "" {
@@ -69,85 +69,85 @@ func TestResourceType(t *testing.T) {
 	}
 }
 
-func TestResourceSubtype(t *testing.T) {
+func TestResourceAPI(t *testing.T) {
 	for _, tc := range []struct {
-		TestName  string
-		Namespace resource.Namespace
-		Type      resource.TypeName
-		Subtype   resource.SubtypeName
-		Expected  resource.Subtype
-		Err       string
+		TestName    string
+		Namespace   resource.APINamespace
+		Type        string
+		SubtypeName string
+		Expected    resource.API
+		Err         string
 	}{
 		{
 			"missing namespace",
 			"",
-			resource.ResourceTypeComponent,
+			resource.APITypeComponentName,
 			arm.SubtypeName,
-			resource.Subtype{
-				Type: resource.Type{
-					ResourceType: resource.ResourceTypeComponent,
+			resource.API{
+				Type: resource.APIType{
+					Name: resource.APITypeComponentName,
 				},
-				ResourceSubtype: arm.SubtypeName,
+				SubtypeName: arm.SubtypeName,
 			},
 			"namespace field for resource missing or invalid",
 		},
 		{
 			"missing type",
-			resource.ResourceNamespaceRDK,
+			resource.APINamespaceRDK,
 			"",
 			arm.SubtypeName,
-			resource.Subtype{
-				Type: resource.Type{
-					Namespace: resource.ResourceNamespaceRDK,
+			resource.API{
+				Type: resource.APIType{
+					Namespace: resource.APINamespaceRDK,
 				},
-				ResourceSubtype: arm.SubtypeName,
+				SubtypeName: arm.SubtypeName,
 			},
 			"type field for resource missing or invalid",
 		},
 		{
 			"missing subtype",
-			resource.ResourceNamespaceRDK,
-			resource.ResourceTypeComponent,
+			resource.APINamespaceRDK,
+			resource.APITypeComponentName,
 			"",
-			resource.Subtype{
-				Type: resource.Type{
-					Namespace:    resource.ResourceNamespaceRDK,
-					ResourceType: resource.ResourceTypeComponent,
+			resource.API{
+				Type: resource.APIType{
+					Namespace: resource.APINamespaceRDK,
+					Name:      resource.APITypeComponentName,
 				},
 			},
 			"subtype field for resource missing or invalid",
 		},
 		{
 			"reserved character in subtype name",
-			resource.ResourceNamespaceRDK,
-			resource.ResourceTypeComponent,
+			resource.APINamespaceRDK,
+			resource.APITypeComponentName,
 			"sub:type",
-			resource.Subtype{
-				Type: resource.Type{
-					Namespace:    resource.ResourceNamespaceRDK,
-					ResourceType: resource.ResourceTypeComponent,
+			resource.API{
+				Type: resource.APIType{
+					Namespace: resource.APINamespaceRDK,
+					Name:      resource.APITypeComponentName,
 				},
-				ResourceSubtype: "sub:type",
+				SubtypeName: "sub:type",
 			},
 			"reserved character : used",
 		},
 		{
 			"all fields included",
-			resource.ResourceNamespaceRDK,
-			resource.ResourceTypeComponent,
+			resource.APINamespaceRDK,
+			resource.APITypeComponentName,
 			arm.SubtypeName,
-			resource.Subtype{
-				Type: resource.Type{
-					Namespace:    resource.ResourceNamespaceRDK,
-					ResourceType: resource.ResourceTypeComponent,
+			resource.API{
+				Type: resource.APIType{
+					Namespace: resource.APINamespaceRDK,
+					Name:      resource.APITypeComponentName,
 				},
-				ResourceSubtype: arm.SubtypeName,
+				SubtypeName: arm.SubtypeName,
 			},
 			"",
 		},
 	} {
 		t.Run(tc.TestName, func(t *testing.T) {
-			observed := resource.NewSubtype(tc.Namespace, tc.Type, tc.Subtype)
+			observed := tc.Namespace.WithType(tc.Type).WithSubtype(tc.SubtypeName)
 			test.That(t, observed, test.ShouldResemble, tc.Expected)
 			err := observed.Validate()
 			if tc.Err == "" {
@@ -162,44 +162,44 @@ func TestResourceSubtype(t *testing.T) {
 
 func TestResourceNameNew(t *testing.T) {
 	for _, tc := range []struct {
-		TestName  string
-		Namespace resource.Namespace
-		Type      resource.TypeName
-		Subtype   resource.SubtypeName
-		Name      string
-		Expected  resource.Name
+		TestName    string
+		Namespace   resource.APINamespace
+		Type        string
+		SubtypeName string
+		Name        string
+		Expected    resource.Name
 	}{
 		{
 			"missing name",
-			resource.ResourceNamespaceRDK,
-			resource.ResourceTypeComponent,
+			resource.APINamespaceRDK,
+			resource.APITypeComponentName,
 			arm.SubtypeName,
 			"",
 			resource.Name{
-				Subtype: resource.Subtype{
-					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
-					ResourceSubtype: arm.SubtypeName,
+				API: resource.API{
+					Type:        resource.APIType{Namespace: resource.APINamespaceRDK, Name: resource.APITypeComponentName},
+					SubtypeName: arm.SubtypeName,
 				},
 				Name: "",
 			},
 		},
 		{
 			"all fields included",
-			resource.ResourceNamespaceRDK,
-			resource.ResourceTypeComponent,
+			resource.APINamespaceRDK,
+			resource.APITypeComponentName,
 			arm.SubtypeName,
 			"arm1",
 			resource.Name{
-				Subtype: resource.Subtype{
-					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
-					ResourceSubtype: arm.SubtypeName,
+				API: resource.API{
+					Type:        resource.APIType{Namespace: resource.APINamespaceRDK, Name: resource.APITypeComponentName},
+					SubtypeName: arm.SubtypeName,
 				},
 				Name: "arm1",
 			},
 		},
 	} {
 		t.Run(tc.TestName, func(t *testing.T) {
-			observed := resource.NewName(tc.Namespace, tc.Type, tc.Subtype, tc.Name)
+			observed := resource.NewName(tc.Namespace.WithType(tc.Type).WithSubtype(tc.SubtypeName), tc.Name)
 			test.That(t, observed, test.ShouldResemble, tc.Expected)
 		})
 	}
@@ -234,12 +234,12 @@ func TestResourceNameNewFromString(t *testing.T) {
 			"missing name",
 			"rdk:component:arm/",
 			resource.Name{
-				Subtype: resource.Subtype{
-					Type: resource.Type{
-						Namespace:    resource.ResourceNamespaceRDK,
-						ResourceType: resource.ResourceTypeComponent,
+				API: resource.API{
+					Type: resource.APIType{
+						Namespace: resource.APINamespaceRDK,
+						Name:      resource.APITypeComponentName,
 					},
-					ResourceSubtype: arm.SubtypeName,
+					SubtypeName: arm.SubtypeName,
 				},
 				Name: "",
 			},
@@ -249,12 +249,12 @@ func TestResourceNameNewFromString(t *testing.T) {
 			"all fields included",
 			arm.Named("arm1").String(),
 			resource.Name{
-				Subtype: resource.Subtype{
-					Type: resource.Type{
-						Namespace:    resource.ResourceNamespaceRDK,
-						ResourceType: resource.ResourceTypeComponent,
+				API: resource.API{
+					Type: resource.APIType{
+						Namespace: resource.APINamespaceRDK,
+						Name:      resource.APITypeComponentName,
 					},
-					ResourceSubtype: arm.SubtypeName,
+					SubtypeName: arm.SubtypeName,
 				},
 				Name: "arm1",
 			},
@@ -264,12 +264,12 @@ func TestResourceNameNewFromString(t *testing.T) {
 			"all fields included 2",
 			"rdk:component:movement_sensor/movementsensor1",
 			resource.Name{
-				Subtype: resource.Subtype{
-					Type: resource.Type{
-						Namespace:    resource.ResourceNamespaceRDK,
-						ResourceType: resource.ResourceTypeComponent,
+				API: resource.API{
+					Type: resource.APIType{
+						Namespace: resource.APINamespaceRDK,
+						Name:      resource.APITypeComponentName,
 					},
-					ResourceSubtype: movementsensor.SubtypeName,
+					SubtypeName: movementsensor.SubtypeName,
 				},
 				Name: "movementsensor1",
 			},
@@ -280,12 +280,12 @@ func TestResourceNameNewFromString(t *testing.T) {
 			"rdk:component:movement_sensor/remote1:movementsensor1",
 			resource.Name{
 				Remote: "remote1",
-				Subtype: resource.Subtype{
-					Type: resource.Type{
-						Namespace:    resource.ResourceNamespaceRDK,
-						ResourceType: resource.ResourceTypeComponent,
+				API: resource.API{
+					Type: resource.APIType{
+						Namespace: resource.APINamespaceRDK,
+						Name:      resource.APITypeComponentName,
 					},
-					ResourceSubtype: movementsensor.SubtypeName,
+					SubtypeName: movementsensor.SubtypeName,
 				},
 				Name: "movementsensor1",
 			},
@@ -296,12 +296,12 @@ func TestResourceNameNewFromString(t *testing.T) {
 			"rdk:component:movement_sensor/remote1:remote2:movementsensor1",
 			resource.Name{
 				Remote: "remote1:remote2",
-				Subtype: resource.Subtype{
-					Type: resource.Type{
-						Namespace:    resource.ResourceNamespaceRDK,
-						ResourceType: resource.ResourceTypeComponent,
+				API: resource.API{
+					Type: resource.APIType{
+						Namespace: resource.APINamespaceRDK,
+						Name:      resource.APITypeComponentName,
 					},
-					ResourceSubtype: movementsensor.SubtypeName,
+					SubtypeName: movementsensor.SubtypeName,
 				},
 				Name: "movementsensor1",
 			},
@@ -331,12 +331,12 @@ func TestResourceNameStrings(t *testing.T) {
 		{
 			"all fields included",
 			resource.Name{
-				Subtype: resource.Subtype{
-					Type: resource.Type{
-						Namespace:    resource.ResourceNamespaceRDK,
-						ResourceType: resource.ResourceTypeComponent,
+				API: resource.API{
+					Type: resource.APIType{
+						Namespace: resource.APINamespaceRDK,
+						Name:      resource.APITypeComponentName,
 					},
-					ResourceSubtype: arm.SubtypeName,
+					SubtypeName: arm.SubtypeName,
 				},
 				Name: "arm1",
 			},
@@ -345,10 +345,10 @@ func TestResourceNameStrings(t *testing.T) {
 		{
 			"missing subtype",
 			resource.Name{
-				Subtype: resource.Subtype{
-					Type: resource.Type{
-						Namespace:    resource.ResourceNamespaceRDK,
-						ResourceType: resource.ResourceTypeComponent,
+				API: resource.API{
+					Type: resource.APIType{
+						Namespace: resource.APINamespaceRDK,
+						Name:      resource.APITypeComponentName,
 					},
 				},
 				Name: "arm1",
@@ -358,12 +358,12 @@ func TestResourceNameStrings(t *testing.T) {
 		{
 			"missing name",
 			resource.Name{
-				Subtype: resource.Subtype{
-					Type: resource.Type{
-						Namespace:    resource.ResourceNamespaceRDK,
-						ResourceType: resource.ResourceTypeComponent,
+				API: resource.API{
+					Type: resource.APIType{
+						Namespace: resource.APINamespaceRDK,
+						Name:      resource.APITypeComponentName,
 					},
-					ResourceSubtype: arm.SubtypeName,
+					SubtypeName: arm.SubtypeName,
 				},
 			},
 			"rdk:component:arm/",
@@ -384,11 +384,11 @@ func TestResourceNameValidate(t *testing.T) {
 		{
 			"missing namespace",
 			resource.Name{
-				Subtype: resource.Subtype{
-					Type: resource.Type{
-						ResourceType: resource.ResourceTypeComponent,
+				API: resource.API{
+					Type: resource.APIType{
+						Name: resource.APITypeComponentName,
 					},
-					ResourceSubtype: arm.SubtypeName,
+					SubtypeName: arm.SubtypeName,
 				},
 				Name: "arm1",
 			},
@@ -397,11 +397,11 @@ func TestResourceNameValidate(t *testing.T) {
 		{
 			"missing type",
 			resource.Name{
-				Subtype: resource.Subtype{
-					Type: resource.Type{
-						Namespace: resource.ResourceNamespaceRDK,
+				API: resource.API{
+					Type: resource.APIType{
+						Namespace: resource.APINamespaceRDK,
 					},
-					ResourceSubtype: arm.SubtypeName,
+					SubtypeName: arm.SubtypeName,
 				},
 				Name: "arm1",
 			},
@@ -410,10 +410,10 @@ func TestResourceNameValidate(t *testing.T) {
 		{
 			"missing subtype",
 			resource.Name{
-				Subtype: resource.Subtype{
-					Type: resource.Type{
-						Namespace:    resource.ResourceNamespaceRDK,
-						ResourceType: resource.ResourceTypeComponent,
+				API: resource.API{
+					Type: resource.APIType{
+						Namespace: resource.APINamespaceRDK,
+						Name:      resource.APITypeComponentName,
 					},
 				},
 				Name: "arm1",
@@ -423,12 +423,12 @@ func TestResourceNameValidate(t *testing.T) {
 		{
 			"missing name",
 			resource.Name{
-				Subtype: resource.Subtype{
-					Type: resource.Type{
-						Namespace:    resource.ResourceNamespaceRDK,
-						ResourceType: resource.ResourceTypeComponent,
+				API: resource.API{
+					Type: resource.APIType{
+						Namespace: resource.APINamespaceRDK,
+						Name:      resource.APITypeComponentName,
 					},
-					ResourceSubtype: arm.SubtypeName,
+					SubtypeName: arm.SubtypeName,
 				},
 			},
 			"name field for resource is empty",
@@ -436,12 +436,12 @@ func TestResourceNameValidate(t *testing.T) {
 		{
 			"all fields included",
 			resource.Name{
-				Subtype: resource.Subtype{
-					Type: resource.Type{
-						Namespace:    resource.ResourceNamespaceRDK,
-						ResourceType: resource.ResourceTypeComponent,
+				API: resource.API{
+					Type: resource.APIType{
+						Namespace: resource.APINamespaceRDK,
+						Name:      resource.APITypeComponentName,
 					},
-					ResourceSubtype: arm.SubtypeName,
+					SubtypeName: arm.SubtypeName,
 				},
 				Name: "arm1",
 			},
@@ -464,12 +464,12 @@ func TestRemoteResource(t *testing.T) {
 	n, err := resource.NewFromString("rdk:component:movement_sensor/movementsensor1")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, n, test.ShouldResemble, resource.Name{
-		Subtype: resource.Subtype{
-			Type: resource.Type{
-				Namespace:    resource.ResourceNamespaceRDK,
-				ResourceType: resource.ResourceTypeComponent,
+		API: resource.API{
+			Type: resource.APIType{
+				Namespace: resource.APINamespaceRDK,
+				Name:      resource.APITypeComponentName,
 			},
-			ResourceSubtype: movementsensor.SubtypeName,
+			SubtypeName: movementsensor.SubtypeName,
 		},
 		Name: "movementsensor1",
 	})
@@ -479,7 +479,7 @@ func TestRemoteResource(t *testing.T) {
 	n1 := n.PrependRemote("remote1")
 
 	test.That(t, n1.ContainsRemoteNames(), test.ShouldBeTrue)
-	test.That(t, n1.Remote, test.ShouldResemble, resource.RemoteName("remote1"))
+	test.That(t, n1.Remote, test.ShouldResemble, "remote1")
 	test.That(t, n1.String(), test.ShouldResemble, "rdk:component:movement_sensor/remote1:movementsensor1")
 
 	test.That(t, n1, test.ShouldNotResemble, n)
@@ -487,62 +487,58 @@ func TestRemoteResource(t *testing.T) {
 	n2 := n1.PrependRemote("remote2")
 
 	test.That(t, n2.ContainsRemoteNames(), test.ShouldBeTrue)
-	test.That(t, n2.Remote, test.ShouldResemble, resource.RemoteName("remote2:remote1"))
+	test.That(t, n2.Remote, test.ShouldResemble, "remote2:remote1")
 	test.That(t, n2.String(), test.ShouldResemble, "rdk:component:movement_sensor/remote2:remote1:movementsensor1")
 
 	n3 := n2.PopRemote()
 	test.That(t, n3.ContainsRemoteNames(), test.ShouldBeTrue)
-	test.That(t, n3.Remote, test.ShouldResemble, resource.RemoteName("remote1"))
+	test.That(t, n3.Remote, test.ShouldResemble, "remote1")
 	test.That(t, n3, test.ShouldResemble, n1)
 	test.That(t, n3.String(), test.ShouldResemble, "rdk:component:movement_sensor/remote1:movementsensor1")
 
 	n4 := n3.PopRemote()
 	test.That(t, n4.ContainsRemoteNames(), test.ShouldBeFalse)
-	test.That(t, n4.Remote, test.ShouldResemble, resource.RemoteName(""))
+	test.That(t, n4.Remote, test.ShouldResemble, "")
 	test.That(t, n4, test.ShouldResemble, n)
 	test.That(t, n4.String(), test.ShouldResemble, "rdk:component:movement_sensor/movementsensor1")
 
-	resourceSubtype := resource.NewSubtype(
-		"test",
-		resource.ResourceTypeComponent,
-		resource.SubtypeName("mycomponent"),
-	)
-	n5 := resource.NameFromSubtype(resourceSubtype, "test")
+	resourceAPI := resource.APINamespace("test").WithComponentType("mycomponent")
+	n5 := resource.NewName(resourceAPI, "test")
 	test.That(t, n5.String(), test.ShouldResemble, "test:component:mycomponent/test")
-	n5 = resource.NameFromSubtype(resourceSubtype, "")
+	n5 = resource.NewName(resourceAPI, "")
 	test.That(t, n5.String(), test.ShouldResemble, "test:component:mycomponent/")
-	n5 = resource.NameFromSubtype(resourceSubtype, "remote1:test")
+	n5 = resource.NewName(resourceAPI, "remote1:test")
 	test.That(t, n5.String(), test.ShouldResemble, "test:component:mycomponent/remote1:test")
-	n5 = resource.NameFromSubtype(resourceSubtype, "remote2:remote1:test")
+	n5 = resource.NewName(resourceAPI, "remote2:remote1:test")
 	test.That(t, n5.String(), test.ShouldResemble, "test:component:mycomponent/remote2:remote1:test")
-	n5 = resource.NameFromSubtype(resourceSubtype, "remote1:")
+	n5 = resource.NewName(resourceAPI, "remote1:")
 	test.That(t, n5.String(), test.ShouldResemble, "test:component:mycomponent/remote1:")
-	n5 = resource.NameFromSubtype(resourceSubtype, "remote2:remote1:")
+	n5 = resource.NewName(resourceAPI, "remote2:remote1:")
 	test.That(t, n5.String(), test.ShouldResemble, "test:component:mycomponent/remote2:remote1:")
 }
 
-func TestSubtypeFromString(t *testing.T) {
+func TestAPIFromString(t *testing.T) {
 	//nolint:dupl
 	for _, tc := range []struct {
-		TestName   string
-		StrSubtype string
-		Expected   resource.Subtype
-		Err        string
-		ErrJSON    string
+		TestName string
+		StrAPI   string
+		Expected resource.API
+		Err      string
+		ErrJSON  string
 	}{
 		{
 			"valid",
 			"rdk:component:arm",
-			arm.Subtype,
+			arm.API,
 			"",
 			"",
 		},
 		{
 			"valid with special characters and numbers",
 			"acme_corp1:test-collection99:api_a2",
-			resource.Subtype{
-				Type:            resource.Type{Namespace: "acme_corp1", ResourceType: "test-collection99"},
-				ResourceSubtype: "api_a2",
+			resource.API{
+				Type:        resource.APIType{Namespace: "acme_corp1", Name: "test-collection99"},
+				SubtypeName: "api_a2",
 			},
 			"",
 			"",
@@ -550,100 +546,100 @@ func TestSubtypeFromString(t *testing.T) {
 		{
 			"invalid with slash",
 			"acme/corp:test:subtypeA",
-			resource.Subtype{},
-			"not a valid subtype name",
+			resource.API{},
+			"not a valid api name",
 			"invalid character",
 		},
 		{
 			"invalid with caret",
 			"acme:test:subtype^A",
-			resource.Subtype{},
-			"not a valid subtype name",
+			resource.API{},
+			"not a valid api name",
 			"invalid character",
 		},
 		{
 			"missing field",
 			"acme:test",
-			resource.Subtype{},
-			"not a valid subtype name",
+			resource.API{},
+			"not a valid api name",
 			"invalid character",
 		},
 		{
 			"empty namespace",
 			":test:subtypeA",
-			resource.Subtype{},
-			"not a valid subtype name",
+			resource.API{},
+			"not a valid api name",
 			"invalid character",
 		},
 		{
 			"empty family",
 			"acme::subtypeA",
-			resource.Subtype{},
-			"not a valid subtype name",
+			resource.API{},
+			"not a valid api name",
 			"invalid character",
 		},
 		{
 			"empty name",
 			"acme:test::",
-			resource.Subtype{},
-			"not a valid subtype name",
+			resource.API{},
+			"not a valid api name",
 			"invalid character",
 		},
 		{
 			"extra field",
 			"acme:test:subtypeA:fail",
-			resource.Subtype{},
-			"not a valid subtype name",
+			resource.API{},
+			"not a valid api name",
 			"invalid character",
 		},
 		{
 			"mistaken resource name",
 			"acme:test:subtypeA/fail",
-			resource.Subtype{},
-			"not a valid subtype name",
+			resource.API{},
+			"not a valid api name",
 			"invalid character",
 		},
 		{
 			"valid nested json",
 			`{"namespace": "acme", "type": "test", "subtype": "subtypeB"}`,
-			resource.Subtype{
-				Type:            resource.Type{Namespace: "acme", ResourceType: "test"},
-				ResourceSubtype: "subtypeB",
+			resource.API{
+				Type:        resource.APIType{Namespace: "acme", Name: "test"},
+				SubtypeName: "subtypeB",
 			},
-			"not a valid subtype name",
+			"not a valid api name",
 			"",
 		},
 		{
 			"invalid nested json type",
 			`{"namespace": "acme", "type": "te^st", "subtype": "subtypeB"}`,
-			resource.Subtype{},
-			"not a valid subtype name",
+			resource.API{},
+			"not a valid api name",
 			"not a valid type name",
 		},
 		{
 			"invalid nested json namespace",
 			`{"namespace": "$acme", "type": "test", "subtype": "subtypeB"}`,
-			resource.Subtype{},
-			"not a valid subtype name",
+			resource.API{},
+			"not a valid api name",
 			"not a valid type namespace",
 		},
 		{
 			"invalid nested json subtype",
 			`{"namespace": "acme", "type": "test", "subtype": "subtype#B"}`,
-			resource.Subtype{},
-			"not a valid subtype name",
+			resource.API{},
+			"not a valid api name",
 			"not a valid subtype name",
 		},
 		{
 			"missing nested json field",
 			`{"namespace": "acme", "name": "subtype#B"}`,
-			resource.Subtype{},
-			"not a valid subtype name",
+			resource.API{},
+			"not a valid api name",
 			"field for resource missing",
 		},
 	} {
 		t.Run(tc.TestName, func(t *testing.T) {
-			observed, err := resource.NewSubtypeFromString(tc.StrSubtype)
+			observed, err := resource.NewAPIFromString(tc.StrAPI)
 			if tc.Err == "" {
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, observed.Validate(), test.ShouldBeNil)
@@ -654,8 +650,8 @@ func TestSubtypeFromString(t *testing.T) {
 				test.That(t, err.Error(), test.ShouldContainSubstring, tc.Err)
 			}
 
-			fromJSON := &resource.Subtype{}
-			errJSON := fromJSON.UnmarshalJSON([]byte(tc.StrSubtype))
+			fromJSON := &resource.API{}
+			errJSON := fromJSON.UnmarshalJSON([]byte(tc.StrAPI))
 			if tc.ErrJSON == "" {
 				test.That(t, errJSON, test.ShouldBeNil)
 				test.That(t, fromJSON.Validate(), test.ShouldBeNil)
@@ -664,6 +660,137 @@ func TestSubtypeFromString(t *testing.T) {
 			} else {
 				test.That(t, errJSON, test.ShouldNotBeNil)
 				test.That(t, errJSON.Error(), test.ShouldContainSubstring, tc.ErrJSON)
+			}
+		})
+	}
+}
+
+func TestNewPossibleRDKServiceAPIFromString(t *testing.T) {
+	for _, tc := range []struct {
+		TestName string
+		StrAPI   string
+		Expected resource.API
+		Err      string
+	}{
+		{
+			"valid",
+			"rdk:component:arm",
+			arm.API,
+			"",
+		},
+		{
+			"valid with special characters and numbers",
+			"acme_corp1:test-collection99:api_a2",
+			resource.API{
+				Type:        resource.APIType{Namespace: "acme_corp1", Name: "test-collection99"},
+				SubtypeName: "api_a2",
+			},
+			"",
+		},
+		{
+			"invalid with slash",
+			"acme/corp:test:subtypeA",
+			resource.API{},
+			"not a valid api name",
+		},
+		{
+			"invalid with caret",
+			"acme:test:subtype^A",
+			resource.API{},
+			"not a valid api name",
+		},
+		{
+			"missing field",
+			"acme:test",
+			resource.API{},
+			"not a valid api name",
+		},
+		{
+			"empty namespace",
+			":test:subtypeA",
+			resource.API{},
+			"not a valid api name",
+		},
+		{
+			"empty family",
+			"acme::subtypeA",
+			resource.API{},
+			"not a valid api name",
+		},
+		{
+			"empty name",
+			"acme:test::",
+			resource.API{},
+			"not a valid api name",
+		},
+		{
+			"extra field",
+			"acme:test:subtypeA:fail",
+			resource.API{},
+			"not a valid api name",
+		},
+		{
+			"mistaken resource name",
+			"acme:test:subtypeA/fail",
+			resource.API{},
+			"not a valid api name",
+		},
+		{
+			"valid nested json",
+			`{"namespace": "acme", "type": "test", "subtype": "subtypeB"}`,
+			resource.API{
+				Type:        resource.APIType{Namespace: "acme", Name: "test"},
+				SubtypeName: "subtypeB",
+			},
+			"not a valid api name",
+		},
+		{
+			"invalid nested json type",
+			`{"namespace": "acme", "type": "te^st", "subtype": "subtypeB"}`,
+			resource.API{},
+			"not a valid api name",
+		},
+		{
+			"invalid nested json namespace",
+			`{"namespace": "$acme", "type": "test", "subtype": "subtypeB"}`,
+			resource.API{},
+			"not a valid api name",
+		},
+		{
+			"invalid nested json subtype",
+			`{"namespace": "acme", "type": "test", "subtype": "subtype#B"}`,
+			resource.API{},
+			"not a valid api name",
+		},
+		{
+			"missing nested json field",
+			`{"namespace": "acme", "name": "subtype#B"}`,
+			resource.API{},
+			"not a valid api name",
+		},
+		{
+			"single name",
+			`hello`,
+			resource.APINamespaceRDK.WithServiceType("hello"),
+			"",
+		},
+		{
+			"double name",
+			`uh:hello`,
+			resource.API{},
+			"not a valid api name",
+		},
+	} {
+		t.Run(tc.TestName, func(t *testing.T) {
+			observed, err := resource.NewPossibleRDKServiceAPIFromString(tc.StrAPI)
+			if tc.Err == "" {
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, observed.Validate(), test.ShouldBeNil)
+				test.That(t, observed, test.ShouldResemble, tc.Expected)
+				test.That(t, observed.String(), test.ShouldResemble, tc.Expected.String())
+			} else {
+				test.That(t, err, test.ShouldNotBeNil)
+				test.That(t, err.Error(), test.ShouldContainSubstring, tc.Err)
 			}
 		})
 	}

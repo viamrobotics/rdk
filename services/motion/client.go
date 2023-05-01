@@ -26,11 +26,17 @@ type client struct {
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
-func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name resource.Name, logger golog.Logger) (Service, error) {
+func NewClientFromConn(
+	ctx context.Context,
+	conn rpc.ClientConn,
+	remoteName string,
+	name resource.Name,
+	logger golog.Logger,
+) (Service, error) {
 	grpcClient := pb.NewMotionServiceClient(conn)
 	c := &client{
-		Named:  name.AsNamed(),
-		name:   name.ShortNameForClient(),
+		Named:  name.PrependRemote(remoteName).AsNamed(),
+		name:   name.ShortName(),
 		client: grpcClient,
 		logger: logger,
 	}
@@ -49,7 +55,7 @@ func (c *client) Move(
 	if err != nil {
 		return false, err
 	}
-	worldStateMsg, err := referenceframe.WorldStateToProtobuf(worldState)
+	worldStateMsg, err := worldState.ToProtobuf()
 	if err != nil {
 		return false, err
 	}
@@ -102,7 +108,7 @@ func (c *client) MoveSingleComponent(
 	if err != nil {
 		return false, err
 	}
-	worldStateMsg, err := referenceframe.WorldStateToProtobuf(worldState)
+	worldStateMsg, err := worldState.ToProtobuf()
 	if err != nil {
 		return false, err
 	}

@@ -16,26 +16,6 @@ import (
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 )
 
-// RobotFrameSystem returns the frame system of the robot.
-func RobotFrameSystem(
-	ctx context.Context,
-	r robot.Robot,
-	additionalTransforms []*referenceframe.LinkInFrame,
-) (referenceframe.FrameSystem, error) {
-	ctx, span := trace.StartSpan(ctx, "services::framesystem::RobotFrameSystem")
-	defer span.End()
-	// create the frame system
-	allParts, err := r.FrameSystemConfig(ctx, additionalTransforms)
-	if err != nil {
-		return nil, err
-	}
-	fs, err := NewFrameSystemFromParts(LocalFrameSystemName, "", allParts, r.Logger())
-	if err != nil {
-		return nil, err
-	}
-	return fs, nil
-}
-
 // NewFrameSystemFromParts assembles a frame system from a collection of parts,
 // usually acquired by calling Config on a frame system service.
 func NewFrameSystemFromParts(

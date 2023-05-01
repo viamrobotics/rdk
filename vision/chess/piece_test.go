@@ -17,6 +17,7 @@ func _testPieceStatusHelper(t *testing.T, game *Game, board *Board, square, corr
 
 func TestPiece1(t *testing.T) {
 	logger := golog.NewTestLogger(t)
+	outDir := t.TempDir()
 	theBoard, err := FindAndWarpBoardFromFiles(
 		artifact.MustPath("vision/chess/board2.png"), artifact.MustPath("vision/chess/board2.dat.gz"), true, logger)
 	test.That(t, err, test.ShouldBeNil)

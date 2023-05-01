@@ -13,7 +13,6 @@ import (
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/gripper"
-	"go.viam.com/rdk/resource"
 
 	// register.
 	commonpb "go.viam.com/api/common/v1"
@@ -23,7 +22,6 @@ import (
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/motion"
-	"go.viam.com/rdk/services/motion/builtin"
 	"go.viam.com/rdk/services/slam"
 	_ "go.viam.com/rdk/services/slam/fake"
 	"go.viam.com/rdk/spatialmath"
@@ -37,7 +35,7 @@ func setupMotionServiceFromConfig(t *testing.T, configFilename string) (motion.S
 	test.That(t, err, test.ShouldBeNil)
 	myRobot, err := robotimpl.New(ctx, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
-	svc, err := builtin.NewBuiltIn(ctx, myRobot, resource.Config{}, logger)
+	svc, err := motion.FromRobot(myRobot, "builtin")
 	test.That(t, err, test.ShouldBeNil)
 	return svc, func() {
 		myRobot.Close(context.Background())
@@ -51,7 +49,7 @@ func TestMoveFailures(t *testing.T) {
 	ctx := context.Background()
 	t.Run("fail on not finding gripper", func(t *testing.T) {
 		grabPose := referenceframe.NewPoseInFrame("fakeCamera", spatialmath.NewPoseFromPoint(r3.Vector{10.0, 10.0, 10.0}))
-		_, err = ms.Move(ctx, camera.Named("fake"), grabPose, &referenceframe.WorldState{}, nil, nil)
+		_, err = ms.Move(ctx, camera.Named("fake"), grabPose, nil, nil, nil)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
@@ -63,14 +61,15 @@ func TestMoveFailures(t *testing.T) {
 		transforms := []*referenceframe.LinkInFrame{
 			referenceframe.NewLinkInFrame("noParent", testPose, "frame2", nil),
 		}
-		worldState := &referenceframe.WorldState{Transforms: transforms}
+		worldState, err := referenceframe.NewWorldState(nil, transforms)
+		test.That(t, err, test.ShouldBeNil)
 		poseInFrame := referenceframe.NewPoseInFrame("frame2", spatialmath.NewZeroPose())
 		_, err = ms.Move(ctx, arm.Named("arm1"), poseInFrame, worldState, nil, nil)
 		test.That(t, err, test.ShouldBeError, framesystemparts.NewMissingParentError("frame2", "noParent"))
 	})
 }
 
-func TestMove1(t *testing.T) {
+func TestMove(t *testing.T) {
 	var err error
 	ctx := context.Background()
 
@@ -78,7 +77,7 @@ func TestMove1(t *testing.T) {
 		ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
 		defer teardown()
 		grabPose := referenceframe.NewPoseInFrame("c", spatialmath.NewPoseFromPoint(r3.Vector{0, -30, -50}))
-		_, err = ms.Move(ctx, gripper.Named("pieceGripper"), grabPose, &referenceframe.WorldState{}, nil, nil)
+		_, err = ms.Move(ctx, gripper.Named("pieceGripper"), grabPose, nil, nil, nil)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -86,7 +85,7 @@ func TestMove1(t *testing.T) {
 		ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
 		defer teardown()
 		grabPose := referenceframe.NewPoseInFrame("pieceArm", spatialmath.NewPoseFromPoint(r3.Vector{0, -30, -50}))
-		_, err = ms.Move(ctx, gripper.Named("pieceArm"), grabPose, &referenceframe.WorldState{}, nil, map[string]interface{}{})
+		_, err = ms.Move(ctx, gripper.Named("pieceArm"), grabPose, nil, nil, map[string]interface{}{})
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -94,7 +93,7 @@ func TestMove1(t *testing.T) {
 		ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
 		defer teardown()
 		grabPose := referenceframe.NewPoseInFrame("pieceGripper", spatialmath.NewPoseFromPoint(r3.Vector{0, -30, -50}))
-		_, err = ms.Move(ctx, gripper.Named("pieceGripper"), grabPose, &referenceframe.WorldState{}, nil, map[string]interface{}{})
+		_, err = ms.Move(ctx, gripper.Named("pieceGripper"), grabPose, nil, nil, map[string]interface{}{})
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -111,7 +110,8 @@ func TestMove1(t *testing.T) {
 			referenceframe.NewLinkInFrame("pieceArm", testPose, "testFrame", nil),
 		}
 
-		worldState := &referenceframe.WorldState{Transforms: transforms}
+		worldState, err := referenceframe.NewWorldState(nil, transforms)
+		test.That(t, err, test.ShouldBeNil)
 		grabPose := referenceframe.NewPoseInFrame("testFrame2", spatialmath.NewPoseFromPoint(r3.Vector{-20, -130, -40}))
 		_, err = ms.Move(context.Background(), gripper.Named("pieceGripper"), grabPose, worldState, nil, nil)
 		test.That(t, err, test.ShouldBeNil)
@@ -190,7 +190,7 @@ func TestMoveSingleComponent(t *testing.T) {
 			context.Background(),
 			arm.Named("pieceArm"),
 			grabPose,
-			&referenceframe.WorldState{},
+			nil,
 			map[string]interface{}{},
 		)
 		// Gripper is not an arm and cannot move
@@ -204,7 +204,7 @@ func TestMoveSingleComponent(t *testing.T) {
 			context.Background(),
 			gripper.Named("pieceGripper"),
 			grabPose,
-			&referenceframe.WorldState{},
+			nil,
 			map[string]interface{}{},
 		)
 		// Gripper is not an arm and cannot move
@@ -224,8 +224,8 @@ func TestMoveSingleComponent(t *testing.T) {
 		transforms := []*referenceframe.LinkInFrame{
 			referenceframe.NewLinkInFrame(referenceframe.World, testPose, "testFrame2", nil),
 		}
-		worldState := &referenceframe.WorldState{Transforms: transforms}
-
+		worldState, err := referenceframe.NewWorldState(nil, transforms)
+		test.That(t, err, test.ShouldBeNil)
 		poseToGrab := spatialmath.NewPose(
 			r3.Vector{X: 1., Y: 0., Z: 0.},
 			homePose.Pose().Orientation(),
@@ -242,7 +242,7 @@ func TestMultiplePieces(t *testing.T) {
 	ms, teardown := setupMotionServiceFromConfig(t, "../data/fake_tomato.json")
 	defer teardown()
 	grabPose := referenceframe.NewPoseInFrame("c", spatialmath.NewPoseFromPoint(r3.Vector{-0, -30, -50}))
-	_, err = ms.Move(context.Background(), gripper.Named("gr"), grabPose, &referenceframe.WorldState{}, nil, nil)
+	_, err = ms.Move(context.Background(), gripper.Named("gr"), grabPose, nil, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 }
 

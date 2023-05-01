@@ -18,6 +18,7 @@ func TestGPSModels(t *testing.T) {
 
 	t.Run("rover", func(t *testing.T) {
 		cfg1 := `{
+		"disable_partial_start": true,
 		"components": [
 			{
 				"model": "gps-rtk",
@@ -36,6 +37,7 @@ func TestGPSModels(t *testing.T) {
 
 	t.Run("station", func(t *testing.T) {
 		cfg2 := `{
+			"disable_partial_start": true,
 			"components": [ 
 				{
 				"model": "rtk-station",

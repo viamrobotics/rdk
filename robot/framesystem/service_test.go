@@ -40,6 +40,8 @@ func TestFrameSystemFromConfig(t *testing.T) {
 	r, err := robotimpl.New(context.Background(), cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer r.Close(context.Background())
+	svc, err := framesystem.FromRobot(r)
+	test.That(t, err, test.ShouldBeNil)
 
 	// use fake registrations to have a FrameSystem return
 	testPose := spatialmath.NewPose(
@@ -55,7 +57,7 @@ func TestFrameSystemFromConfig(t *testing.T) {
 		referenceframe.NewLinkInFrame(referenceframe.World, testPose, "frame3", nil),
 	}
 
-	fs, err := framesystem.RobotFrameSystem(context.Background(), r, transforms)
+	fs, err := svc.FrameSystem(context.Background(), transforms)
 	test.That(t, err, test.ShouldBeNil)
 	// 4 frames defined + 5 from transforms, 18 frames when including the offset,
 	test.That(t, len(fs.FrameNames()), test.ShouldEqual, 18)
@@ -215,14 +217,19 @@ func TestWrongFrameSystems(t *testing.T) {
 		referenceframe.NewLinkInFrame("pieceArm", testPose, "frame1", nil),
 		referenceframe.NewLinkInFrame("noParent", testPose, "frame2", nil),
 	}
-	fs, err := framesystem.RobotFrameSystem(context.Background(), r, transforms)
+	svc, err := framesystem.FromRobot(r)
+	test.That(t, err, test.ShouldBeNil)
+	fs, err := svc.FrameSystem(context.Background(), transforms)
+
 	test.That(t, err, test.ShouldBeError, framesystemparts.NewMissingParentError("frame2", "noParent"))
 	test.That(t, fs, test.ShouldBeNil)
 
 	transforms = []*referenceframe.LinkInFrame{
 		referenceframe.NewLinkInFrame("pieceArm", testPose, "", nil),
 	}
-	fs, err = framesystem.RobotFrameSystem(context.Background(), r, transforms)
+	svc, err = framesystem.FromRobot(r)
+	test.That(t, err, test.ShouldBeNil)
+	fs, err = svc.FrameSystem(context.Background(), transforms)
 	test.That(t, err, test.ShouldBeError, referenceframe.ErrEmptyStringFrameName)
 	test.That(t, fs, test.ShouldBeNil)
 }
@@ -256,16 +263,16 @@ func TestServiceWithRemote(t *testing.T) {
 		Components: []resource.Config{
 			{
 				Name:  "foo",
-				API:   base.Subtype,
-				Model: resource.NewDefaultModel("fake"),
+				API:   base.API,
+				Model: resource.DefaultModelFamily.WithModel("fake"),
 				Frame: &referenceframe.LinkConfig{
 					Parent: referenceframe.World,
 				},
 			},
 			{
 				Name:  "myParentIsRemote",
-				API:   gripper.Subtype,
-				Model: resource.NewDefaultModel("fake"),
+				API:   gripper.API,
+				Model: resource.DefaultModelFamily.WithModel("fake"),
 				Frame: &referenceframe.LinkConfig{
 					Parent: "bar:pieceArm",
 				},
@@ -313,7 +320,10 @@ func TestServiceWithRemote(t *testing.T) {
 
 	r2, err := robotimpl.New(context.Background(), localConfig, logger)
 	test.That(t, err, test.ShouldBeNil)
-	fs, err := framesystem.RobotFrameSystem(context.Background(), r2, transforms)
+	svc, err := framesystem.FromRobot(r2)
+	test.That(t, err, test.ShouldBeNil)
+	fs, err := svc.FrameSystem(context.Background(), transforms)
+
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fs.FrameNames(), test.ShouldHaveLength, 34)
 	// run the frame system service

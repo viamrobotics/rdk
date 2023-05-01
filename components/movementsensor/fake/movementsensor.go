@@ -13,7 +13,7 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-var modelname = resource.NewDefaultModel("fake")
+var model = resource.DefaultModelFamily.WithModel("fake")
 
 // Config is used for converting fake movementsensor attributes.
 type Config struct {
@@ -23,8 +23,8 @@ type Config struct {
 
 func init() {
 	resource.RegisterComponent(
-		movementsensor.Subtype,
-		modelname,
+		movementsensor.API,
+		model,
 		resource.Registration[movementsensor.MovementSensor, *Config]{
 			Constructor: func(
 				ctx context.Context,

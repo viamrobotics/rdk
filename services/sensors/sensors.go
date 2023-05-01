@@ -11,7 +11,7 @@ import (
 )
 
 func init() {
-	resource.RegisterSubtype(Subtype, resource.SubtypeRegistration[Service]{
+	resource.RegisterAPI(API, resource.APIRegistration[Service]{
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           pb.RegisterSensorsServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &pb.SensorsService_ServiceDesc,
@@ -34,19 +34,15 @@ type Service interface {
 }
 
 // SubtypeName is the name of the type of service.
-const SubtypeName = resource.SubtypeName("sensors")
+const SubtypeName = "sensors"
 
-// Subtype is a constant that identifies the sensor service resource subtype.
-var Subtype = resource.NewSubtype(
-	resource.ResourceNamespaceRDK,
-	resource.ResourceTypeService,
-	SubtypeName,
-)
+// API is a variable that identifies the sensor service resource API.
+var API = resource.APINamespaceRDK.WithServiceType(SubtypeName)
 
 // Named is a helper for getting the named sensor's typed resource name.
 // RSDK-347 Implements senors's Named.
 func Named(name string) resource.Name {
-	return resource.NameFromSubtype(Subtype, name)
+	return resource.NewName(API, name)
 }
 
 // FromRobot is a helper for getting the named sensor service from the given Robot.
@@ -56,7 +52,7 @@ func FromRobot(r robot.Robot, name string) (Service, error) {
 
 // FindFirstName returns name of first sensors service found.
 func FindFirstName(r robot.Robot) string {
-	for _, val := range robot.NamesBySubtype(r, Subtype) {
+	for _, val := range robot.NamesByAPI(r, API) {
 		return val
 	}
 	return ""

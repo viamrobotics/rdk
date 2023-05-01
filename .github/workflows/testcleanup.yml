@@ -1,0 +1,28 @@
+name: Test Binaries Cleanup
+
+concurrency: 
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  schedule:
+    - cron: '0 7 15 * *' # once a month (15th) at 7AM UTC (2AM/EST, 3AM/EDT)
+  workflow_dispatch:
+
+jobs:
+  clean_binaries:
+    name: Clean Test AppImages/Binaries
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Authorize GCP
+      uses: google-github-actions/auth@v1
+      with:
+        credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
+
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v1
+
+    - name: Remove Failed Test AppImages/Binaries
+      run: |
+        gsutil -m rm -r "gs://packages.viam.com/apps/viam-server/testing/`date +%Y-%m -d 'last month'`*" || true

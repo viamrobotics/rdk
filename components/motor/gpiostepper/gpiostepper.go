@@ -46,7 +46,7 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-var model = resource.NewDefaultModel("gpiostepper")
+var model = resource.DefaultModelFamily.WithModel("gpiostepper")
 
 // PinConfig defines the mapping of where motor are wired.
 type PinConfig struct {
@@ -84,7 +84,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 }
 
 func init() {
-	resource.RegisterComponent(motor.Subtype, model, resource.Registration[motor.Motor, *Config]{
+	resource.RegisterComponent(motor.API, model, resource.Registration[motor.Motor, *Config]{
 		Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
@@ -285,10 +285,6 @@ func (m *gpioStepper) doStep(ctx context.Context, forward bool) error {
 // can be assigned negative values to move in a backwards direction. Note: if both are negative
 // the motor will spin in the forward direction.
 func (m *gpioStepper) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
-	if rpm == 0 {
-		return motor.NewZeroRPMError()
-	}
-
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
 
@@ -310,8 +306,9 @@ func (m *gpioStepper) goForInternal(ctx context.Context, rpm, revolutions float6
 		revolutions = 1000000
 	}
 
-	if math.Abs(rpm) < 0.1 {
-		m.logger.Debug("motor (%s) speed less than .1 rev_per_min, stopping", m.motorName)
+	speed := math.Abs(rpm)
+	if speed < 0.1 {
+		m.logger.Warnf("motor (%s) speed is nearly 0 rev_per_min", m.Name())
 		return m.Stop(ctx, nil)
 	}
 

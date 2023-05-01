@@ -24,7 +24,7 @@ func newServer() (pb.ArmServiceServer, *inject.Arm, *inject.Arm, error) {
 		arm.Named(testArmName): injectArm,
 		arm.Named(failArmName): injectArm2,
 	}
-	armSvc, err := resource.NewSubtypeCollection(arm.Subtype, arms)
+	armSvc, err := resource.NewAPIResourceCollection(arm.API, arms)
 	if err != nil {
 		return nil, nil, nil, err
 	}

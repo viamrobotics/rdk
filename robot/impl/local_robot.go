@@ -56,10 +56,9 @@ type localRobot struct {
 	logger                     golog.Logger
 	activeBackgroundWorkers    sync.WaitGroup
 	cancelBackgroundWorkers    func()
-	remotesChanged             chan string
 	closeContext               context.Context
-	triggerConfig              chan bool
-	configTimer                *time.Ticker
+	triggerConfig              chan struct{}
+	configTicker               *time.Ticker
 	revealSensitiveConfigDiffs bool
 
 	lastWeakDependentsRound int64
@@ -91,9 +90,9 @@ func (r *localRobot) ResourceNames() []resource.Name {
 	return r.manager.ResourceNames()
 }
 
-// ResourceRPCSubtypes returns all known resource RPC subtypes in use.
-func (r *localRobot) ResourceRPCSubtypes() []resource.RPCSubtype {
-	return r.manager.ResourceRPCSubtypes()
+// ResourceRPCAPIs returns all known resource RPC APIs in use.
+func (r *localRobot) ResourceRPCAPIs() []resource.RPCAPI {
+	return r.manager.ResourceRPCAPIs()
 }
 
 // ProcessManager returns the process manager for the robot.
@@ -134,11 +133,10 @@ func (r *localRobot) Close(ctx context.Context) error {
 		r.webSvc.Stop()
 	}
 	if r.cancelBackgroundWorkers != nil {
-		close(r.remotesChanged)
 		r.cancelBackgroundWorkers()
 		r.cancelBackgroundWorkers = nil
-		if r.configTimer != nil {
-			r.configTimer.Stop()
+		if r.configTicker != nil {
+			r.configTicker.Stop()
 		}
 		close(r.triggerConfig)
 	}
@@ -233,7 +231,7 @@ func remoteNameByResource(resourceName resource.Name) (string, bool) {
 	if !resourceName.ContainsRemoteNames() {
 		return "", false
 	}
-	remote := strings.Split(string(resourceName.Remote), ":")
+	remote := strings.Split(resourceName.Remote, ":")
 	return remote[0], true
 }
 
@@ -319,12 +317,12 @@ func (r *localRobot) Status(ctx context.Context, resourceNames []resource.Name) 
 			if !ok {
 				return nil, resource.NewNotFoundError(name)
 			}
-			// if resource subtype has an associated CreateStatus method, use that
+			// if resource API has an associated CreateStatus method, use that
 			// otherwise return an empty status
 			var status interface{} = map[string]interface{}{}
 			var err error
-			if subtype, ok := resource.LookupGenericSubtypeRegistration(name.Subtype); ok && subtype.Status != nil {
-				status, err = subtype.Status(ctx, res)
+			if apiReg, ok := resource.LookupGenericAPIRegistration(name.API); ok && apiReg.Status != nil {
+				status, err = apiReg.Status(ctx, res)
 				if err != nil {
 					return nil, errors.Wrapf(err, "failed to get status from %q", name)
 				}
@@ -362,11 +360,10 @@ func newWithResources(
 		),
 		operations:                 operation.NewManager(logger),
 		logger:                     logger,
-		remotesChanged:             make(chan string),
 		closeContext:               closeCtx,
 		cancelBackgroundWorkers:    cancel,
-		triggerConfig:              make(chan bool),
-		configTimer:                nil,
+		triggerConfig:              make(chan struct{}),
+		configTicker:               nil,
 		revealSensitiveConfigDiffs: rOpts.revealSensitiveConfigDiffs,
 		cloudConnSvc:               cloud.NewCloudConnectionService(cfg.Cloud, logger),
 	}
@@ -453,41 +450,18 @@ func newWithResources(
 	}
 
 	r.activeBackgroundWorkers.Add(1)
-	// this goroutine listen for changes in connection status of a remote
+	r.configTicker = time.NewTicker(5 * time.Second)
+	// This goroutine tries to complete the config and update weak dependencies
+	// if any resources are not configured. It executes every 5 seconds or when
+	// manually triggered. Manual triggers are sent when changes in remotes are
+	// detected and in testing.
 	goutils.ManagedGo(func() {
 		for {
-			if closeCtx.Err() != nil {
-				return
-			}
 			select {
 			case <-closeCtx.Done():
 				return
-			case n, ok := <-r.remotesChanged:
-				if !ok {
-					return
-				}
-				if rr, ok := r.manager.RemoteByName(n); ok {
-					rn := fromRemoteNameToRemoteNodeName(n)
-					r.manager.updateRemoteResourceNames(closeCtx, rn, rr)
-					r.updateWeakDependents(ctx)
-				}
-			}
-		}
-	}, r.activeBackgroundWorkers.Done)
-
-	r.activeBackgroundWorkers.Add(1)
-	r.configTimer = time.NewTicker(25 * time.Second)
-	// this goroutine tries to complete the config if any resources are still unconfigured, it execute on a timer or via a channel
-	goutils.ManagedGo(func() {
-		for {
-			if closeCtx.Err() != nil {
-				return
-			}
-			select {
-			case <-closeCtx.Done():
-				return
+			case <-r.configTicker.C:
 			case <-r.triggerConfig:
-			case <-r.configTimer.C:
 			}
 			anyChanges := r.manager.updateRemotesResourceNames(closeCtx)
 			if r.manager.anyResourcesNotConfigured() {
@@ -539,7 +513,7 @@ func (r *localRobot) getDependencies(
 	if deps := gNode.UnresolvedDependencies(); len(deps) != 0 {
 		return nil, errors.Errorf("resource has unresolved dependencies: %v", deps)
 	}
-	deps := make(resource.Dependencies)
+	allDeps := make(resource.Dependencies)
 	var needUpdate bool
 	for _, dep := range r.manager.resources.GetAllParentsOf(rName) {
 		if node, ok := r.manager.resources.Node(dep); ok {
@@ -554,14 +528,75 @@ func (r *localRobot) getDependencies(
 		if err != nil {
 			return nil, &resource.DependencyNotReadyError{Name: dep.Name, Reason: err}
 		}
-		deps[dep] = r
+		allDeps[dep] = r
+	}
+	nodeConf := gNode.Config()
+	for weakDepName, weakDepRes := range r.getWeakDependencies(rName, nodeConf.API, nodeConf.Model) {
+		if _, ok := allDeps[weakDepName]; ok {
+			continue
+		}
+		allDeps[weakDepName] = weakDepRes
 	}
 
 	if needUpdate {
 		r.updateWeakDependents(ctx)
 	}
 
-	return deps, nil
+	return allDeps, nil
+}
+
+func (r *localRobot) getWeakDependencyNames(api resource.API, model resource.Model) []internal.ResourceMatcher {
+	reg, ok := resource.LookupRegistration(api, model)
+	if !ok {
+		return nil
+	}
+	return reg.WeakDependencies
+}
+
+func (r *localRobot) getWeakDependencies(resName resource.Name, api resource.API, model resource.Model) resource.Dependencies {
+	weakDepNames := r.getWeakDependencyNames(api, model)
+
+	allResources := map[resource.Name]resource.Resource{}
+	internalResources := map[resource.Name]resource.Resource{}
+	components := map[resource.Name]resource.Resource{}
+	for _, n := range r.manager.resources.Names() {
+		if !(n.API.IsComponent() || n.API.IsService()) {
+			continue
+		}
+		res, err := r.ResourceByName(n)
+		if err != nil {
+			if !resource.IsDependencyNotReadyError(err) && !resource.IsNotAvailableError(err) {
+				r.Logger().Debugw("error finding resource while getting weak dependencies", "resource", n, "error", err)
+			}
+			continue
+		}
+		switch {
+		case n.API.IsComponent():
+			allResources[n] = res
+			components[n] = res
+		default:
+			allResources[n] = res
+			if n.API.Type.Namespace == resource.APINamespaceRDKInternal {
+				internalResources[n] = res
+			}
+		}
+	}
+
+	deps := make(resource.Dependencies, len(weakDepNames))
+	for _, dep := range weakDepNames {
+		switch dep {
+		case internal.ComponentDependencyWildcardMatcher:
+			for k, v := range components {
+				if k == resName {
+					continue
+				}
+				deps[k] = v
+			}
+		default:
+			// no other matchers supported right now. you could imagine a LiteralMatcher in the future
+		}
+	}
+	return deps
 }
 
 func (r *localRobot) newResource(
@@ -575,9 +610,9 @@ func (r *localRobot) newResource(
 		}
 	}()
 	resName := conf.ResourceName()
-	resInfo, ok := resource.LookupRegistration(resName.Subtype, conf.Model)
+	resInfo, ok := resource.LookupRegistration(resName.API, conf.Model)
 	if !ok {
-		return nil, errors.Errorf("unknown resource type: %s and/or model: %s", resName.Subtype, conf.Model)
+		return nil, errors.Errorf("unknown resource type: %s and/or model: %s", resName.API, conf.Model)
 	}
 
 	deps, err := r.getDependencies(ctx, resName, gNode)
@@ -585,11 +620,11 @@ func (r *localRobot) newResource(
 		return nil, err
 	}
 
-	c, ok := resource.LookupGenericSubtypeRegistration(resName.Subtype)
+	c, ok := resource.LookupGenericAPIRegistration(resName.API)
 	if ok {
 		// If MaxInstance equals zero then there is not a limit on the number of resources
 		if c.MaxInstance != 0 {
-			if err := r.checkMaxInstance(resName.Subtype, c.MaxInstance); err != nil {
+			if err := r.checkMaxInstance(resName.API, c.MaxInstance); err != nil {
 				return nil, err
 			}
 		}
@@ -602,7 +637,7 @@ func (r *localRobot) newResource(
 	if resInfo.DeprecatedRobotConstructor == nil {
 		return nil, errors.Errorf("invariant: no constructor for %q", conf.API)
 	}
-	r.logger.Warnw("using deprecated robot constructor", "subtype", resName.Subtype, "model", conf.Model)
+	r.logger.Warnw("using deprecated robot constructor", "api", resName.API, "model", conf.Model)
 	return resInfo.DeprecatedRobotConstructor(ctx, r, conf, resLogger)
 }
 
@@ -615,9 +650,7 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 	internalResources := map[resource.Name]resource.Resource{}
 	components := map[resource.Name]resource.Resource{}
 	for _, n := range r.manager.resources.Names() {
-		switch n.ResourceType {
-		case resource.ResourceTypeComponent, resource.ResourceTypeService:
-		default:
+		if !(n.API.IsComponent() || n.API.IsService()) {
 			continue
 		}
 		res, err := r.ResourceByName(n)
@@ -627,13 +660,13 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 			}
 			continue
 		}
-		switch n.ResourceType {
-		case resource.ResourceTypeComponent:
+		switch {
+		case n.API.IsComponent():
 			allResources[n] = res
 			components[n] = res
-		case resource.ResourceTypeService:
+		default:
 			allResources[n] = res
-			if n.Namespace == resource.NamespaceRDKInternal {
+			if n.API.Type.Namespace == resource.APINamespaceRDKInternal {
 				internalResources[n] = res
 			}
 		}
@@ -659,29 +692,23 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 
 	updateResourceWeakDependents := func(conf resource.Config) {
 		resName := conf.ResourceName()
-		reg, ok := resource.LookupRegistration(resName.Subtype, conf.Model)
-		if !ok || len(reg.WeakDependencies) == 0 {
+		resNode, ok := r.manager.resources.Node(resName)
+		if !ok {
 			return
 		}
-		res, err := r.ResourceByName(resName)
+		res, err := resNode.Resource()
 		if err != nil {
-			if !resource.IsNotAvailableError(err) {
-				r.Logger().Debugw("error finding resource to update with weak dependencies", "resource", resName, "error", err)
-			}
 			return
 		}
-		dependencies := make(resource.Dependencies, len(reg.WeakDependencies))
-		for _, dep := range reg.WeakDependencies {
-			switch dep {
-			case internal.ComponentDependencyWildcardMatcher:
-				for k, v := range components {
-					dependencies[k] = v
-				}
-			default:
-				// no other matchers supported right now. you could imagine a LiteralMatcher in the future
-			}
+		if len(r.getWeakDependencyNames(conf.API, conf.Model)) == 0 {
+			return
 		}
-		if err := res.Reconfigure(ctx, dependencies, conf); err != nil {
+		deps, err := r.getDependencies(ctx, resName, resNode)
+		if err != nil {
+			r.Logger().Errorw("failed to get dependencies during weak update; skipping", "resource", resName, "error", err)
+			return
+		}
+		if err := res.Reconfigure(ctx, deps, conf); err != nil {
 			r.Logger().Errorw("failed to reconfigure resource with weak dependencies", "resource", resName, "error", err)
 		}
 	}
@@ -766,7 +793,7 @@ func (r *localRobot) DiscoverComponents(ctx context.Context, qs []resource.Disco
 	for q := range deduped {
 		reg, ok := resource.LookupRegistration(q.API, q.Model)
 		if !ok || reg.Discover == nil {
-			r.logger.Warnw("no discovery function registered", "subtype", q.API, "model", q.Model)
+			r.logger.Warnw("no discovery function registered", "api", q.API, "model", q.Model)
 			continue
 		}
 
@@ -817,24 +844,20 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 
 	// Add default services and process their dependencies. Dependencies may
 	// already come from config validation so we check that here.
-	seen := make(map[resource.Subtype]int)
+	seen := make(map[resource.API]int)
 	for idx, val := range newConfig.Services {
 		seen[val.API] = idx
 	}
 	for _, name := range resource.DefaultServices() {
-		existingConfIdx, hasExistingConf := seen[name.Subtype]
+		existingConfIdx, hasExistingConf := seen[name.API]
 		var svcCfg resource.Config
 		if hasExistingConf {
 			svcCfg = newConfig.Services[existingConfIdx]
 		} else {
 			svcCfg = resource.Config{
-				Name:                   name.Name,
-				Model:                  resource.DefaultServiceModel,
-				DeprecatedNamespace:    name.Namespace,
-				DeprecatedSubtype:      name.ResourceSubtype,
-				DeprecatedResourceType: resource.ResourceTypeService,
-				API: resource.NewSubtype(
-					name.Namespace, resource.ResourceTypeService, name.ResourceSubtype),
+				Name:  name.Name,
+				Model: resource.DefaultServiceModel,
+				API:   name.API,
 			}
 		}
 
@@ -915,14 +938,14 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 		r.logger.Debugf("(re)configuring with %+v", diff)
 	}
 
-	modularOrphanedResourceNames, err := r.reconfigureModules(ctx, diff)
+	orphanedResourceNames, err := r.reconfigureModules(ctx, diff)
 	if err != nil {
 		r.logger.Error(err)
 	}
 
 	// Before filtering config, manually add modular orphaned resources (resources
 	// handled by removed modules) to diff.Removed.
-	for _, name := range modularOrphanedResourceNames {
+	for _, name := range orphanedResourceNames {
 		for _, c := range newConfig.Components {
 			if c.ResourceName() == name {
 				diff.Removed.Components = append(diff.Removed.Components, c)
@@ -959,7 +982,12 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 		allErrs = multierr.Combine(allErrs, removedErr)
 	}
 	for _, removedName := range removedNames {
-		// Remove orphaned resources (dependents of removed resources) from newConfig.
+		// Remove dependents of removed resources from r.config; leaving these
+		// resources in the stored config means they cannot be correctly re-added
+		// when their dependency reappears.
+		//
+		// TODO(RSDK-2876): remove this code when we start referring to a config
+		// generated from resource graph instead of r.config.
 		for i, c := range r.config.Components {
 			if c.ResourceName() == removedName {
 				r.config.Components[i] = r.config.Components[len(r.config.Components)-1]
@@ -1019,13 +1047,13 @@ func (r *localRobot) replacePackageReferencesWithPaths(cfg *config.Config) error
 }
 
 // checkMaxInstance checks to see if the local robot has reached the maximum number of a specific resource type that are local.
-func (r *localRobot) checkMaxInstance(subtype resource.Subtype, max int) error {
+func (r *localRobot) checkMaxInstance(api resource.API, max int) error {
 	maxInstance := 0
 	for _, n := range r.ResourceNames() {
-		if n.Subtype == subtype && !n.ContainsRemoteNames() {
+		if n.API == api && !n.ContainsRemoteNames() {
 			maxInstance++
 			if maxInstance == max {
-				return errors.Errorf("max instance number reached for resource type: %s", subtype)
+				return errors.Errorf("max instance number reached for resource type: %s", api)
 			}
 		}
 	}

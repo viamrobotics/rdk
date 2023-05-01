@@ -33,14 +33,14 @@ import (
 
 func TestOpID(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	cfgFilename, port, err := makeConfig(logger)
+	cfgFilename, port, err := makeConfig(t, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, os.Remove(cfgFilename), test.ShouldBeNil)
 	}()
 	server := pexec.NewManagedProcess(pexec.ProcessConfig{
 		Name: "bash",
-		Args: []string{"-c", "make server && exec bin/`uname`-`uname -m`/server -config " + cfgFilename},
+		Args: []string{"-c", "make server && exec bin/`uname`-`uname -m`/viam-server -config " + cfgFilename},
 		CWD:  utils.ResolveFile("./"),
 		Log:  true,
 	}, logger)
@@ -150,7 +150,7 @@ func connect(port string) (robotpb.RobotServiceClient, genericpb.GenericServiceC
 	return rc, gc, conn, nil
 }
 
-func makeConfig(logger golog.Logger) (string, string, error) {
+func makeConfig(t *testing.T, logger golog.Logger) (string, string, error) {
 	// Precompile module to avoid timeout issues when building takes too long.
 	builder := exec.Command("go", "build", ".")
 	builder.Dir = utils.ResolveFile("module/testmodule")
@@ -172,7 +172,7 @@ func makeConfig(logger golog.Logger) (string, string, error) {
 		}},
 		Network: config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{BindAddress: "localhost:" + port}},
 		Components: []resource.Config{{
-			API:   generic.Subtype,
+			API:   generic.API,
 			Model: resource.NewModel("rdk", "test", "helper"),
 			Name:  "helper1",
 		}},
@@ -185,7 +185,7 @@ func makeConfig(logger golog.Logger) (string, string, error) {
 	if err != nil {
 		return "", "", err
 	}
-	file, err := os.CreateTemp("", "viam-test-config-*")
+	file, err := os.CreateTemp(t.TempDir(), "viam-test-config-*")
 	if err != nil {
 		return "", "", err
 	}

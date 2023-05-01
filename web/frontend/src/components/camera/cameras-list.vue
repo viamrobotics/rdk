@@ -2,18 +2,22 @@
 import type {
   commonApi,
   Client,
+  ResponseStream,
+  robotApi,
 } from '@viamrobotics/sdk';
 
 import Camera from './camera.vue';
 import PCD from '../pcd/pcd.vue';
 import { selectedMap } from '../../lib/camera-state';
 import type { StreamManager } from './stream-manager';
+import { $ref } from 'vue/macros';
 
 const props = defineProps<{
   resources: commonApi.ResourceName.AsObject[],
   streamManager: StreamManager,
   client: Client,
   parentName: string
+  statusStream: ResponseStream<robotApi.StreamStatusResponse> | null
 }>();
 
 const openCameras = $ref<Record<string, boolean | undefined>>({});
@@ -83,6 +87,7 @@ const setupCamera = (cameraName: string) => {
         :refresh-rate="refreshFrequency[camera.name]"
         :trigger-refresh="triggerRefresh"
         :stream-manager="props.streamManager"
+        :status-stream="props.statusStream"
       />
 
       <PCD

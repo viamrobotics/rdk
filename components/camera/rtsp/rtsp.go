@@ -26,10 +26,10 @@ import (
 	"go.viam.com/rdk/rimage/transform"
 )
 
-var model = resource.NewDefaultModel("rtsp")
+var model = resource.DefaultModelFamily.WithModel("rtsp")
 
 func init() {
-	resource.RegisterComponent(camera.Subtype, model, resource.Registration[camera.Camera, *Config]{
+	resource.RegisterComponent(camera.API, model, resource.Registration[camera.Camera, *Config]{
 		Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (camera.Camera, error) {
 			newConf, err := resource.NativeConfig[*Config](conf)
 			if err != nil {

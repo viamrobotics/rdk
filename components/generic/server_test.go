@@ -23,7 +23,7 @@ func newServer() (genericpb.GenericServiceServer, *inject.Generic, *inject.Gener
 		generic.Named(testGenericName): injectGeneric,
 		generic.Named(failGenericName): injectGeneric2,
 	}
-	injectSvc, err := resource.NewSubtypeCollection(generic.Subtype, resourceMap)
+	injectSvc, err := resource.NewAPIResourceCollection(generic.API, resourceMap)
 	if err != nil {
 		return nil, nil, nil, err
 	}

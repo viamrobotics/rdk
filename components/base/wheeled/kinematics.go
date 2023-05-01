@@ -41,7 +41,7 @@ func (wb *wheeledBase) WrapWithKinematics(ctx context.Context, slamSvc slam.Serv
 	if err != nil {
 		return nil, err
 	}
-	model, err := Model(wb.name, geometry, []referenceframe.Limit{{Min: dims.MinX, Max: dims.MaxX}, {Min: dims.MinZ, Max: dims.MaxZ}})
+	model, err := MakeModelFrame(wb.name, geometry, []referenceframe.Limit{{Min: dims.MinX, Max: dims.MaxX}, {Min: dims.MinY, Max: dims.MaxY}})
 	if err != nil {
 		return nil, err
 	}
@@ -137,10 +137,10 @@ func (kwb *kinematicWheeledBase) GoToInputs(ctx context.Context, goal []referenc
 	return nil
 }
 
-// Model builds the kinematic model associated with the kinematicWheeledBase
+// MakeModelFrame builds the kinematic model associated with the kinematicWheeledBase
 // Note that this model is not intended to be registered in the frame system.
-func Model(name string, collisionGeometry spatialmath.Geometry, limits []referenceframe.Limit) (referenceframe.Model, error) {
-	// build the model - SLAM convention is that the XZ plane is the ground plane
+func MakeModelFrame(name string, collisionGeometry spatialmath.Geometry, limits []referenceframe.Limit) (referenceframe.Model, error) {
+	// build the model - SLAM convention is that the XY plane is the ground plane
 	frame2D, err := referenceframe.NewMobile2DFrame(collisionGeometry.Label(), limits, collisionGeometry)
 	if err != nil {
 		return nil, err

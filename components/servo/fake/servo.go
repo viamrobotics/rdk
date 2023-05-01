@@ -11,13 +11,16 @@ import (
 )
 
 func init() {
-	resource.RegisterComponent(servo.Subtype, resource.NewDefaultModel("fake"), resource.Registration[servo.Servo, resource.NoNativeConfig]{
-		Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (servo.Servo, error) {
-			return &Servo{
-				Named: conf.ResourceName().AsNamed(),
-			}, nil
-		},
-	})
+	resource.RegisterComponent(
+		servo.API,
+		resource.DefaultModelFamily.WithModel("fake"),
+		resource.Registration[servo.Servo, resource.NoNativeConfig]{
+			Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (servo.Servo, error) {
+				return &Servo{
+					Named: conf.ResourceName().AsNamed(),
+				}, nil
+			},
+		})
 }
 
 // A Servo allows setting and reading a single angle.

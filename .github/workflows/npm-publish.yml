@@ -12,7 +12,7 @@ jobs:
     if: github.repository_owner == 'viamrobotics'
     runs-on: [self-hosted, x64]
     container:
-      image: ghcr.io/viamrobotics/canon:amd64
+      image: ghcr.io/viamrobotics/canon:amd64-cache
 
     steps:
       - name: Checkout
@@ -26,7 +26,7 @@ jobs:
           npm run build-npm --prefix ./web/frontend
 
       - name: Publish
-        uses: JS-DevTools/npm-publish@v1
+        uses: JS-DevTools/npm-publish@v2
         with:
           token: ${{ secrets.NPM_TOKEN }}
           package: ./web/frontend/package.json

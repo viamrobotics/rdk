@@ -11,19 +11,19 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-// subtypeServer implements the SensorsService from sensors.proto.
-type subtypeServer struct {
+// serviceServer implements the SensorsService from sensors.proto.
+type serviceServer struct {
 	pb.UnimplementedSensorsServiceServer
-	coll resource.SubtypeCollection[Service]
+	coll resource.APIResourceCollection[Service]
 }
 
 // NewRPCServiceServer constructs a sensors gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
-func NewRPCServiceServer(coll resource.SubtypeCollection[Service]) interface{} {
-	return &subtypeServer{coll: coll}
+func NewRPCServiceServer(coll resource.APIResourceCollection[Service]) interface{} {
+	return &serviceServer{coll: coll}
 }
 
-func (server *subtypeServer) GetSensors(
+func (server *serviceServer) GetSensors(
 	ctx context.Context,
 	req *pb.GetSensorsRequest,
 ) (*pb.GetSensorsResponse, error) {
@@ -43,7 +43,7 @@ func (server *subtypeServer) GetSensors(
 	return &pb.GetSensorsResponse{SensorNames: sensorNames}, nil
 }
 
-func (server *subtypeServer) GetReadings(
+func (server *serviceServer) GetReadings(
 	ctx context.Context,
 	req *pb.GetReadingsRequest,
 ) (*pb.GetReadingsResponse, error) {
@@ -78,7 +78,7 @@ func (server *subtypeServer) GetReadings(
 }
 
 // DoCommand receives arbitrary commands.
-func (server *subtypeServer) DoCommand(ctx context.Context,
+func (server *serviceServer) DoCommand(ctx context.Context,
 	req *commonpb.DoCommandRequest,
 ) (*commonpb.DoCommandResponse, error) {
 	svc, err := server.coll.Resource(req.Name)

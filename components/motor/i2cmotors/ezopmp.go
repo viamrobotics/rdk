@@ -51,10 +51,10 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	return deps, nil
 }
 
-var modelName = resource.NewDefaultModel("ezopmp")
+var model = resource.DefaultModelFamily.WithModel("ezopmp")
 
 func init() {
-	resource.RegisterComponent(motor.Subtype, modelName, resource.Registration[motor.Motor, *Config]{
+	resource.RegisterComponent(motor.API, model, resource.Registration[motor.Motor, *Config]{
 		Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
@@ -271,18 +271,16 @@ func (m *Ezopmp) SetPower(ctx context.Context, powerPct float64, extra map[strin
 // GoFor sets a constant flow rate
 // mLPerMin = rpm, mins = revolutions.
 func (m *Ezopmp) GoFor(ctx context.Context, mLPerMin, mins float64, extra map[string]interface{}) error {
-	if mLPerMin == 0 {
-		return motor.NewZeroRPMError() // Not strictly RPMs, but same idea
+	switch speed := math.Abs(mLPerMin); {
+	case speed < 0.1:
+		m.logger.Warnf("motor (%s) speed is nearly 0 rev_per_min", m.Name())
+		return motor.NewZeroRPMError()
+	case speed > m.maxFlowRate-0.1:
+		m.logger.Warnf("motor (%s) speed is nearly the max rev_per_min (%f)", m.Name(), m.maxFlowRate)
 	}
+
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
-
-	switch speed := math.Abs(mLPerMin); {
-	case speed < 0.5:
-		return errors.New("cannot move this slowly")
-	case speed > m.maxFlowRate:
-		return errors.Errorf("max continuous flow rate is: %f", m.maxFlowRate)
-	}
 
 	commandString := "DC," + strconv.FormatFloat(mLPerMin, 'f', -1, 64) + "," + strconv.FormatFloat(mins, 'f', -1, 64)
 	command := []byte(commandString)

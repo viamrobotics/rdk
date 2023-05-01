@@ -3,13 +3,15 @@
 import { onMounted, onUnmounted } from 'vue';
 import { grpc } from '@improbable-eng/grpc-web';
 import { Client, movementSensorApi as movementsensorApi, ServiceError } from '@viamrobotics/sdk';
-import type{ commonApi } from '@viamrobotics/sdk';
+import type{ ResponseStream, commonApi, robotApi } from '@viamrobotics/sdk';
 import { displayError } from '../lib/error';
 import { rcLogConditionally } from '../lib/log';
+import { $ref } from 'vue/macros';
 
 const props = defineProps<{
   name: string
   client: Client
+  statusStream: ResponseStream<robotApi.StreamStatusResponse> | null
 }>();
 
 let orientation = $ref<commonApi.Orientation.AsObject | undefined>();
@@ -18,7 +20,7 @@ let linearVelocity = $ref<commonApi.Vector3.AsObject | undefined>();
 let linearAcceleration = $ref<commonApi.Vector3.AsObject | undefined>();
 let compassHeading = $ref<number | undefined>();
 let coordinate = $ref<commonApi.GeoPoint.AsObject | undefined>();
-let altitudeMm = $ref<number | undefined>();
+let altitudeM = $ref<number | undefined>();
 let properties = $ref<movementsensorApi.GetPropertiesResponse.AsObject | undefined>();
 
 let refreshId = -1;
@@ -151,12 +153,15 @@ const refresh = async () => {
 
         const temp = resp!.toObject();
         coordinate = temp.coordinate;
-        altitudeMm = temp.altitudeMm;
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore `altitudeM` is correct from teh protos
+        altitudeM = temp.altitudeM;
       }
     );
   }
 
   refreshId = window.setTimeout(refresh, 500);
+  props.statusStream?.on('end', () => clearTimeout(refreshId));
 };
 
 onMounted(() => {
@@ -206,10 +211,10 @@ onUnmounted(() => {
             </tr>
             <tr>
               <th class="border-border-1 border p-2">
-                Altitide
+                Altitide (m)
               </th>
               <td class="border-border-1 border p-2">
-                {{ altitudeMm?.toFixed(2) }}
+                {{ altitudeM?.toFixed(2) }}
               </td>
             </tr>
           </table>
@@ -304,7 +309,7 @@ onUnmounted(() => {
           class="overflow-auto"
         >
           <h3 class="mb-1">
-            Linear Velocity
+            Linear Velocity (m/s)
           </h3>
           <table class="border-border-1 w-full border border-t-0 p-4">
             <tr>
@@ -339,7 +344,7 @@ onUnmounted(() => {
           class="overflow-auto"
         >
           <h3 class="mb-1">
-            Linear Acceleration (mm/second^2)
+            Linear Acceleration (m/second^2)
           </h3>
           <table class="border-border-1 w-full border border-t-0 p-4">
             <tr>

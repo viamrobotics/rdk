@@ -9,22 +9,18 @@ import (
 )
 
 // SubtypeName is the name of the type of service.
-const SubtypeName = resource.SubtypeName("base_remote_control")
+const SubtypeName = "base_remote_control"
 
-// Subtype is a constant that identifies the remote control resource subtype.
-var Subtype = resource.NewSubtype(
-	resource.ResourceNamespaceRDK,
-	resource.ResourceTypeService,
-	SubtypeName,
-)
+// API is a variable that identifies the remote control resource API.
+var API = resource.APINamespaceRDK.WithServiceType(SubtypeName)
 
 // Named is a helper for getting the named base remote control service's typed resource name.
 func Named(name string) resource.Name {
-	return resource.NameFromSubtype(Subtype, name)
+	return resource.NewName(API, name)
 }
 
 func init() {
-	resource.RegisterSubtype(Subtype, resource.SubtypeRegistration[Service]{})
+	resource.RegisterAPI(API, resource.APIRegistration[Service]{})
 }
 
 // A Service is the basis for the base remote control.

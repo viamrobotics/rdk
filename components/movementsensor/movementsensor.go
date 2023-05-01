@@ -19,7 +19,7 @@ import (
 type Properties pb.GetPropertiesResponse
 
 func init() {
-	resource.RegisterSubtype(Subtype, resource.SubtypeRegistration[MovementSensor]{
+	resource.RegisterAPI(API, resource.APIRegistration[MovementSensor]{
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           pb.RegisterMovementSensorServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &pb.MovementSensorService_ServiceDesc,
@@ -49,34 +49,38 @@ func init() {
 		h, err := ms.CompassHeading(ctx, make(map[string]interface{}))
 		return Heading{Heading: h}, err
 	})
+	registerCollector("LinearAcceleration", func(ctx context.Context, ms MovementSensor) (interface{}, error) {
+		v, err := ms.LinearAcceleration(ctx, make(map[string]interface{}))
+		return v, err
+	})
+	registerCollector("Orientation", func(ctx context.Context, ms MovementSensor) (interface{}, error) {
+		v, err := ms.Orientation(ctx, make(map[string]interface{}))
+		return v, err
+	})
 }
 
-// SubtypeName is a constant that identifies the component resource subtype string "movement_sensor".
-const SubtypeName = resource.SubtypeName("movement_sensor")
+// SubtypeName is a constant that identifies the component resource API string "movement_sensor".
+const SubtypeName = "movement_sensor"
 
-// Subtype is a constant that identifies the component resource subtype.
-var Subtype = resource.NewSubtype(
-	resource.ResourceNamespaceRDK,
-	resource.ResourceTypeComponent,
-	SubtypeName,
-)
+// API is a variable that identifies the component resource API.
+var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 
 // Named is a helper for getting the named MovementSensor's typed resource name.
 func Named(name string) resource.Name {
-	return resource.NameFromSubtype(Subtype, name)
+	return resource.NewName(API, name)
 }
 
 // A MovementSensor reports information about the robot's direction, position and speed.
 type MovementSensor interface {
 	sensor.Sensor
-	Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error)                // (lat, long), altitude (mm)
-	LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error)                    // mm / sec
-	AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) // radians / sec
+	Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error)                // (lat, long), altitude (m)
+	LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error)                    // m / sec
+	AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) // deg / sec
 	LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error)
 	CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) // [0->360)
 	Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error)
 	Properties(ctx context.Context, extra map[string]interface{}) (*Properties, error)
-	Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32, error) // in mm
+	Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32, error)
 }
 
 // FromDependencies is a helper for getting the named movementsensor from a collection of
@@ -92,7 +96,7 @@ func FromRobot(r robot.Robot, name string) (MovementSensor, error) {
 
 // NamesFromRobot is a helper for getting all MovementSensor names from the given Robot.
 func NamesFromRobot(r robot.Robot) []string {
-	return robot.NamesBySubtype(r, Subtype)
+	return robot.NamesByAPI(r, API)
 }
 
 // Readings is a helper for getting all readings from a MovementSensor.

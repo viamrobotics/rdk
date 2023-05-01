@@ -43,68 +43,62 @@ func TestAddModelFromRegistry(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	invalidModel := resource.NewModel("non", "existent", "model")
-	invalidServiceSubtype := resource.NewSubtype(
-		resource.Namespace("fake"),
-		resource.ResourceTypeService,
-		resource.SubtypeName("nonexistentservice"))
-	invalidComponentSubtype := resource.NewSubtype(
-		resource.Namespace("fake"),
-		resource.ResourceTypeComponent,
-		resource.SubtypeName("nonexistentcomponent"))
+	invalidServiceAPI := resource.APINamespace("fake").WithServiceType("nonexistentservice")
+	invalidComponentAPI := resource.APINamespace("fake").WithComponentType("nonexistentcomponent")
 
-	validServiceSubtype := summationapi.Subtype
-	validComponentSubtype := gizmoapi.Subtype
+	validServiceAPI := summationapi.API
+	validComponentAPI := gizmoapi.API
 
 	validServiceModel := mysum.Model
 	validComponentModel := mygizmo.Model
 
 	resourceError := "resource with API %s and model %s not yet registered"
 	testCases := []struct {
-		subtype resource.Subtype
-		model   resource.Model
-		err     error
+		api   resource.API
+		model resource.Model
+		err   error
 	}{
-		// Invalid resource subtypes and models
+		// Invalid resource APIs and models
 		{
-			invalidServiceSubtype,
+			invalidServiceAPI,
 			invalidModel,
-			fmt.Errorf(resourceError, invalidServiceSubtype, invalidModel),
+			fmt.Errorf(resourceError, invalidServiceAPI, invalidModel),
 		},
 		{
-			invalidComponentSubtype,
+			invalidComponentAPI,
 			invalidModel,
-			fmt.Errorf(resourceError, invalidComponentSubtype, invalidModel),
+			fmt.Errorf(resourceError, invalidComponentAPI, invalidModel),
 		},
-		// Valid resource subtypes and invalid models
+		// Valid resource APIs and invalid models
 		{
-			validServiceSubtype,
+			validServiceAPI,
 			invalidModel,
-			fmt.Errorf(resourceError, validServiceSubtype, invalidModel),
+			fmt.Errorf(resourceError, validServiceAPI, invalidModel),
 		},
 		{
-			validComponentSubtype,
+			validComponentAPI,
 			invalidModel,
-			fmt.Errorf(resourceError, validComponentSubtype, invalidModel),
+			fmt.Errorf(resourceError, validComponentAPI, invalidModel),
 		},
-		// Mixed validity resource subtypes and models
+		// Mixed validity resource APIs and models
 		{
-			validServiceSubtype,
+			validServiceAPI,
 			validComponentModel,
-			fmt.Errorf(resourceError, validServiceSubtype, validComponentModel),
+			fmt.Errorf(resourceError, validServiceAPI, validComponentModel),
 		},
 		{
-			validComponentSubtype,
+			validComponentAPI,
 			validServiceModel,
-			fmt.Errorf(resourceError, validComponentSubtype, validServiceModel),
+			fmt.Errorf(resourceError, validComponentAPI, validServiceModel),
 		},
-		// Valid resource subtypes and models.
+		// Valid resource APIs and models.
 		{
-			validServiceSubtype,
+			validServiceAPI,
 			validServiceModel,
 			nil,
 		},
 		{
-			validComponentSubtype,
+			validComponentAPI,
 			validComponentModel,
 			nil,
 		},
@@ -112,9 +106,9 @@ func TestAddModelFromRegistry(t *testing.T) {
 
 	for _, tc := range testCases {
 		tc := tc
-		tName := fmt.Sprintf("subtype: %s, model: %s", tc.subtype, tc.model)
+		tName := fmt.Sprintf("api: %s, model: %s", tc.api, tc.model)
 		t.Run(tName, func(t *testing.T) {
-			err := m.AddModelFromRegistry(ctx, tc.subtype, tc.model)
+			err := m.AddModelFromRegistry(ctx, tc.api, tc.model)
 			if tc.err != nil {
 				test.That(t, err, test.ShouldBeError, tc.err)
 			} else {
@@ -153,14 +147,14 @@ func TestModuleFunctions(t *testing.T) {
 	cfg := &config.Config{Components: []resource.Config{
 		{
 			Name:                "motor1",
-			API:                 resource.NewSubtype("rdk", "component", "motor"),
-			Model:               resource.NewDefaultModel("fake"),
+			API:                 resource.NewAPI("rdk", "component", "motor"),
+			Model:               resource.DefaultModelFamily.WithModel("fake"),
 			ConvertedAttributes: &fake.Config{},
 		},
 		{
 			Name:                "motor2",
-			API:                 resource.NewSubtype("rdk", "component", "motor"),
-			Model:               resource.NewDefaultModel("fake"),
+			API:                 resource.NewAPI("rdk", "component", "motor"),
+			Model:               resource.DefaultModelFamily.WithModel("fake"),
 			ConvertedAttributes: &fake.Config{},
 		},
 	}}
@@ -175,8 +169,8 @@ func TestModuleFunctions(t *testing.T) {
 	m, err := module.NewModule(ctx, addr, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, m.AddModelFromRegistry(ctx, gizmoapi.Subtype, mygizmo.Model), test.ShouldBeNil)
-	test.That(t, m.AddModelFromRegistry(ctx, base.Subtype, mybase.Model), test.ShouldBeNil)
+	test.That(t, m.AddModelFromRegistry(ctx, gizmoapi.API, mygizmo.Model), test.ShouldBeNil)
+	test.That(t, m.AddModelFromRegistry(ctx, base.API, mybase.Model), test.ShouldBeNil)
 
 	test.That(t, m.Start(ctx), test.ShouldBeNil)
 
@@ -219,8 +213,8 @@ func TestModuleFunctions(t *testing.T) {
 		test.That(t, len(hmap), test.ShouldEqual, 2)
 
 		for k, v := range hmap {
-			test.That(t, k.Subtype, test.ShouldBeIn, gizmoapi.Subtype, base.Subtype)
-			if k.Subtype == gizmoapi.Subtype {
+			test.That(t, k.API, test.ShouldBeIn, gizmoapi.API, base.API)
+			if k.API == gizmoapi.API {
 				test.That(t, mygizmo.Model, test.ShouldResemble, v[0])
 			} else {
 				test.That(t, mybase.Model, test.ShouldResemble, v[0])
@@ -254,8 +248,8 @@ func TestModuleFunctions(t *testing.T) {
 		// Test that GetParentResource will refresh resources on the parent
 		cfg.Components = append(cfg.Components, resource.Config{
 			Name:                "motor2",
-			API:                 resource.NewSubtype("rdk", "component", "motor"),
-			Model:               resource.NewDefaultModel("fake"),
+			API:                 resource.NewAPI("rdk", "component", "motor"),
+			Model:               resource.DefaultModelFamily.WithModel("fake"),
 			ConvertedAttributes: &fake.Config{},
 		})
 		myRobot.Reconfigure(ctx, cfg)
@@ -268,7 +262,7 @@ func TestModuleFunctions(t *testing.T) {
 		_, err = m.AddResource(ctx, &pb.AddResourceRequest{Config: gizmoConf})
 		test.That(t, err, test.ShouldBeNil)
 
-		gClient = gizmoapi.NewClientFromConn(conn, gizmoapi.Named("gizmo1"), logger)
+		gClient = gizmoapi.NewClientFromConn(conn, "", gizmoapi.Named("gizmo1"), logger)
 
 		ret, err := gClient.DoOne(ctx, "test")
 		test.That(t, err, test.ShouldBeNil)
@@ -382,14 +376,14 @@ func TestAttributeConversion(t *testing.T) {
 		cfg := &config.Config{Components: []resource.Config{
 			{
 				Name:                "motor1",
-				API:                 resource.NewSubtype("rdk", "component", "motor"),
-				Model:               resource.NewDefaultModel("fake"),
+				API:                 resource.NewAPI("rdk", "component", "motor"),
+				Model:               resource.DefaultModelFamily.WithModel("fake"),
 				ConvertedAttributes: &fake.Config{},
 			},
 			{
 				Name:                "motor2",
-				API:                 resource.NewSubtype("rdk", "component", "motor"),
-				Model:               resource.NewDefaultModel("fake"),
+				API:                 resource.NewAPI("rdk", "component", "motor"),
+				Model:               resource.DefaultModelFamily.WithModel("fake"),
 				ConvertedAttributes: &fake.Config{},
 			},
 		}}
@@ -412,17 +406,17 @@ func TestAttributeConversion(t *testing.T) {
 		)
 
 		// register the non-reconfigurable one
-		resource.RegisterService(shell.Subtype, model, resource.Registration[shell.Service, *MockConfig]{
+		resource.RegisterService(shell.API, model, resource.Registration[shell.Service, *MockConfig]{
 			Constructor: func(ctx context.Context, deps resource.Dependencies, cfg resource.Config, logger golog.Logger) (shell.Service, error) {
 				createConf1 = cfg
 				createDeps1 = deps
 				return &inject.ShellService{}, nil
 			},
 		})
-		test.That(t, m.AddModelFromRegistry(ctx, shell.Subtype, model), test.ShouldBeNil)
+		test.That(t, m.AddModelFromRegistry(ctx, shell.API, model), test.ShouldBeNil)
 
 		// register the reconfigurable version
-		resource.RegisterService(shell.Subtype, modelWithReconfigure, resource.Registration[shell.Service, *MockConfig]{
+		resource.RegisterService(shell.API, modelWithReconfigure, resource.Registration[shell.Service, *MockConfig]{
 			Constructor: func(ctx context.Context, deps resource.Dependencies, cfg resource.Config, logger golog.Logger) (shell.Service, error) {
 				injectable := &inject.ShellService{}
 				injectable.ReconfigureFunc = func(ctx context.Context, deps resource.Dependencies, cfg resource.Config) error {
@@ -435,7 +429,7 @@ func TestAttributeConversion(t *testing.T) {
 				return injectable, nil
 			},
 		})
-		test.That(t, m.AddModelFromRegistry(ctx, shell.Subtype, modelWithReconfigure), test.ShouldBeNil)
+		test.That(t, m.AddModelFromRegistry(ctx, shell.API, modelWithReconfigure), test.ShouldBeNil)
 
 		test.That(t, m.Start(ctx), test.ShouldBeNil)
 		conn, err := grpc.Dial(
@@ -454,12 +448,12 @@ func TestAttributeConversion(t *testing.T) {
 
 		mockConf := &v1.ComponentConfig{
 			Name:  "mymock1",
-			Api:   shell.Subtype.String(),
+			Api:   shell.API.String(),
 			Model: model.String(),
 		}
 		mockReconfigConf := &v1.ComponentConfig{
 			Name:  "mymock2",
-			Api:   shell.Subtype.String(),
+			Api:   shell.API.String(),
 			Model: modelWithReconfigure.String(),
 		}
 
@@ -475,8 +469,8 @@ func TestAttributeConversion(t *testing.T) {
 				reconfigDeps2:        &reconfigDeps2,
 				modelWithReconfigure: modelWithReconfigure,
 			}, func() {
-				resource.Deregister(shell.Subtype, model)
-				resource.Deregister(shell.Subtype, modelWithReconfigure)
+				resource.Deregister(shell.API, model)
+				resource.Deregister(shell.API, modelWithReconfigure)
 				test.That(t, conn.Close(), test.ShouldBeNil)
 				m.Close(ctx)
 				test.That(t, myRobot.Close(ctx), test.ShouldBeNil)

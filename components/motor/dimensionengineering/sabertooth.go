@@ -21,7 +21,7 @@ import (
 )
 
 // https://www.dimensionengineering.com/datasheets/Sabertooth2x60.pdf
-var modelName = resource.NewDefaultModel("de-sabertooth")
+var model = resource.DefaultModelFamily.WithModel("de-sabertooth")
 
 // controllers is global to all instances, mapped by serial device.
 var (
@@ -119,7 +119,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 func init() {
 	controllers = make(map[string]*controller)
 
-	resource.RegisterComponent(motor.Subtype, modelName, resource.Registration[motor.Motor, *Config]{
+	resource.RegisterComponent(motor.API, model, resource.Registration[motor.Motor, *Config]{
 		Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (motor.Motor, error) {
 			newConf, err := resource.NativeConfig[*Config](conf)
 			if err != nil {
@@ -343,6 +343,12 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string
 	m.currentPowerPct = powerPct
 
 	rawSpeed := powerPct * maxSpeed
+	switch speed := math.Abs(rawSpeed); {
+	case speed < 0.1:
+		m.c.logger.Warnf("motor (%s) speed is nearly 0 rev_per_min", m.Name())
+	case speed > m.maxRPM-0.1:
+		m.c.logger.Warnf("motor (%s) speed is nearly the max rev_per_min (%f)", m.Name(), m.maxRPM)
+	}
 	if math.Signbit(rawSpeed) {
 		rawSpeed *= -1
 	}

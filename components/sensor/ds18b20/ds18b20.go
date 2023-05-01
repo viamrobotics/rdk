@@ -17,7 +17,7 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-var modelname = resource.NewDefaultModel("ds18b20")
+var model = resource.DefaultModelFamily.WithModel("ds18b20")
 
 // Config is used for converting config attributes.
 type Config struct {
@@ -27,8 +27,8 @@ type Config struct {
 
 func init() {
 	resource.RegisterComponent(
-		sensor.Subtype,
-		modelname,
+		sensor.API,
+		model,
 		resource.Registration[sensor.Sensor, *Config]{
 			Constructor: func(
 				ctx context.Context,

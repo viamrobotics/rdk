@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/board/genericlinux"
 	picommon "go.viam.com/rdk/components/board/pi/common"
 	"go.viam.com/rdk/components/servo"
 	"go.viam.com/rdk/resource"
@@ -17,9 +18,9 @@ import (
 // init registers a failing pi board since this can only be compiled on non-pi systems.
 func init() {
 	resource.RegisterComponent(
-		board.Subtype,
-		picommon.ModelName,
-		resource.Registration[board.Board, resource.NoNativeConfig]{Constructor: func(
+		board.API,
+		picommon.Model,
+		resource.Registration[board.Board, *genericlinux.Config]{Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
@@ -28,9 +29,9 @@ func init() {
 			return nil, errors.New("not running on a pi")
 		}})
 	resource.RegisterComponent(
-		servo.Subtype,
-		picommon.ModelName,
-		resource.Registration[servo.Servo, resource.NoNativeConfig]{
+		servo.API,
+		picommon.Model,
+		resource.Registration[servo.Servo, *picommon.ServoConfig]{
 			Constructor: func(
 				ctx context.Context,
 				deps resource.Dependencies,

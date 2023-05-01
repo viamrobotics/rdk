@@ -13,6 +13,7 @@ import (
 
 	"github.com/a8m/envsubst"
 	"github.com/edaniels/golog"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils"
@@ -26,12 +27,14 @@ import (
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/encoder"
+	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/gripper"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/components/servo"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/internal"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/datamanager"
 	_ "go.viam.com/rdk/services/datamanager/builtin"
@@ -39,8 +42,6 @@ import (
 	_ "go.viam.com/rdk/services/motion/builtin"
 	"go.viam.com/rdk/services/sensors"
 	_ "go.viam.com/rdk/services/sensors/builtin"
-	"go.viam.com/rdk/services/vision"
-	_ "go.viam.com/rdk/services/vision/builtin"
 	rdktestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/robottestutils"
 )
@@ -53,7 +54,7 @@ var (
 )
 
 func TestRobotReconfigure(t *testing.T) {
-	test.That(t, len(resource.DefaultServices()), test.ShouldEqual, 4)
+	test.That(t, len(resource.DefaultServices()), test.ShouldEqual, 3)
 	ConfigFromFile := func(t *testing.T, filePath string) *config.Config {
 		t.Helper()
 		logger := golog.NewTestLogger(t)
@@ -63,16 +64,16 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		return conf
 	}
-	mockSubtype := resource.NewSubtype(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.SubtypeName("mock"))
+	mockAPI := resource.APINamespaceRDK.WithComponentType("mock")
 	mockNamed := func(name string) resource.Name {
-		return resource.NameFromSubtype(mockSubtype, name)
+		return resource.NewName(mockAPI, name)
 	}
 	modelName1 := utils.RandomAlphaString(5)
 	modelName2 := utils.RandomAlphaString(5)
 	test.That(t, os.Setenv("TEST_MODEL_NAME_1", modelName1), test.ShouldBeNil)
 	test.That(t, os.Setenv("TEST_MODEL_NAME_2", modelName2), test.ShouldBeNil)
 
-	resource.RegisterComponent(mockSubtype, resource.NewDefaultModel(resource.ModelName(modelName1)),
+	resource.RegisterComponent(mockAPI, resource.DefaultModelFamily.WithModel(modelName1),
 		resource.Registration[resource.Resource, *mockFakeConfig]{
 			Constructor: func(
 				ctx context.Context,
@@ -97,7 +98,7 @@ func TestRobotReconfigure(t *testing.T) {
 		reconfigurableTrue = true
 		testReconfiguringMismatch = false
 	}
-	resource.RegisterComponent(mockSubtype, resource.NewDefaultModel(resource.ModelName(modelName2)),
+	resource.RegisterComponent(mockAPI, resource.DefaultModelFamily.WithModel(modelName2),
 		resource.Registration[resource.Resource, resource.NoNativeConfig]{
 			Constructor: func(
 				ctx context.Context,
@@ -127,7 +128,7 @@ func TestRobotReconfigure(t *testing.T) {
 		}()
 
 		resources := robot.ResourceNames()
-		test.That(t, len(resources), test.ShouldEqual, 9)
+		test.That(t, len(resources), test.ShouldEqual, 8)
 
 		armNames := []resource.Name{arm.Named("arm1")}
 		baseNames := []resource.Name{base.Named("base1")}
@@ -317,7 +318,7 @@ func TestRobotReconfigure(t *testing.T) {
 		rr, ok := robot.(*localRobot)
 		test.That(t, ok, test.ShouldBeTrue)
 
-		rr.triggerConfig <- true
+		rr.triggerConfig <- struct{}{}
 
 		utils.SelectContextOrWait(context.Background(), 200*time.Millisecond)
 
@@ -1042,7 +1043,7 @@ func TestRobotReconfigure(t *testing.T) {
 		}()
 
 		resources := robot.ResourceNames()
-		test.That(t, len(resources), test.ShouldEqual, 4)
+		test.That(t, len(resources), test.ShouldEqual, 3)
 		test.That(t, utils.NewStringSet(robot.RemoteNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(arm.NamesFromRobot(robot)...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(base.NamesFromRobot(robot)...), test.ShouldBeEmpty)
@@ -1978,7 +1979,7 @@ func TestRobotReconfigure(t *testing.T) {
 		rr, ok := robot.(*localRobot)
 		test.That(t, ok, test.ShouldBeTrue)
 
-		rr.triggerConfig <- true
+		rr.triggerConfig <- struct{}{}
 
 		utils.SelectContextOrWait(context.Background(), 200*time.Millisecond)
 		mock6, err = robot.ResourceByName(mockNamed("mock6"))
@@ -2060,7 +2061,7 @@ func TestRobotReconfigure(t *testing.T) {
 	t.Run("test processes", func(t *testing.T) {
 		resetComponentFailureState()
 		logger := golog.NewTestLogger(t)
-		tempDir := testutils.TempDirT(t, ".", "")
+		tempDir := t.TempDir()
 		robot, err := New(context.Background(), &config.Config{}, logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer func() {
@@ -2231,7 +2232,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 // this serves as a test for updateWeakDependents as the sensors service defines a weak
 // dependency.
-func TestSensorsServiceUpdate(t *testing.T) {
+func TestSensorsServiceReconfigure(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
 	emptyCfg, err := config.Read(context.Background(), "data/diff_config_empty.json", logger)
@@ -2305,21 +2306,286 @@ func TestSensorsServiceUpdate(t *testing.T) {
 	})
 }
 
+type someTypeWithWeakAndStrongDeps struct {
+	resource.Named
+	resource.TriviallyCloseable
+	resources resource.Dependencies
+}
+
+func (s *someTypeWithWeakAndStrongDeps) Reconfigure(
+	ctx context.Context,
+	deps resource.Dependencies,
+	conf resource.Config,
+) error {
+	s.resources = deps
+	ourConf, err := resource.NativeConfig[*someTypeWithWeakAndStrongDepsConfig](conf)
+	if err != nil {
+		return err
+	}
+	for _, dep := range ourConf.deps {
+		if _, err := deps.Lookup(dep); err != nil {
+			return err
+		}
+	}
+	for _, dep := range ourConf.weakDeps {
+		if _, err := deps.Lookup(dep); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+type someTypeWithWeakAndStrongDepsConfig struct {
+	deps     []resource.Name
+	weakDeps []resource.Name
+}
+
+func (s *someTypeWithWeakAndStrongDepsConfig) Validate(_ string) ([]string, error) {
+	depNames := make([]string, 0, len(s.deps))
+	for _, dep := range s.deps {
+		depNames = append(depNames, dep.String())
+	}
+	return depNames, nil
+}
+
+func TestUpdateWeakDependents(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+
+	var emptyCfg config.Config
+	test.That(t, emptyCfg.Ensure(false, logger), test.ShouldBeNil)
+
+	robot, err := New(context.Background(), &emptyCfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
+	}()
+
+	weakAPI := resource.NewAPI(uuid.NewString(), "component", "weaktype")
+	weakModel := resource.NewModel(uuid.NewString(), "soweak", "weak1000")
+	weak1Name := resource.NewName(weakAPI, "weak1")
+	base1Name := base.Named("base1")
+
+	resource.Register(
+		weakAPI,
+		weakModel,
+		resource.Registration[*someTypeWithWeakAndStrongDeps, *someTypeWithWeakAndStrongDepsConfig]{
+			Constructor: func(
+				ctx context.Context,
+				deps resource.Dependencies,
+				conf resource.Config,
+				logger golog.Logger,
+			) (*someTypeWithWeakAndStrongDeps, error) {
+				return &someTypeWithWeakAndStrongDeps{
+					Named:     conf.ResourceName().AsNamed(),
+					resources: deps,
+				}, nil
+			},
+			WeakDependencies: []internal.ResourceMatcher{internal.ComponentDependencyWildcardMatcher},
+		})
+
+	weakCfg1 := config.Config{
+		Components: []resource.Config{
+			{
+				Name:      weak1Name.Name,
+				API:       weakAPI,
+				Model:     weakModel,
+				DependsOn: []string{base1Name.Name},
+			},
+		},
+	}
+	test.That(t, weakCfg1.Ensure(false, logger), test.ShouldBeNil)
+	robot.Reconfigure(context.Background(), &weakCfg1)
+
+	_, err = robot.ResourceByName(weak1Name)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "unresolved dependencies")
+
+	weakCfg2 := config.Config{
+		Components: []resource.Config{
+			{
+				Name:  weak1Name.Name,
+				API:   weakAPI,
+				Model: weakModel,
+			},
+			{
+				Name:  base1Name.Name,
+				API:   base.API,
+				Model: fake.Model,
+			},
+		},
+	}
+	test.That(t, weakCfg2.Ensure(false, logger), test.ShouldBeNil)
+	robot.Reconfigure(context.Background(), &weakCfg2)
+
+	res, err := robot.ResourceByName(weak1Name)
+	test.That(t, err, test.ShouldBeNil)
+	weak1, err := resource.AsType[*someTypeWithWeakAndStrongDeps](res)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, weak1.resources, test.ShouldHaveLength, 1)
+	test.That(t, weak1.resources, test.ShouldContainKey, base1Name)
+
+	arm1Name := arm.Named("arm1")
+	weakCfg3 := config.Config{
+		Components: []resource.Config{
+			{
+				Name:  weak1Name.Name,
+				API:   weakAPI,
+				Model: weakModel,
+			},
+			{
+				Name:  base1Name.Name,
+				API:   base.API,
+				Model: fake.Model,
+			},
+			{
+				Name:                arm1Name.Name,
+				API:                 arm.API,
+				Model:               fake.Model,
+				ConvertedAttributes: &fake.Config{},
+			},
+		},
+	}
+	test.That(t, weakCfg3.Ensure(false, logger), test.ShouldBeNil)
+	robot.Reconfigure(context.Background(), &weakCfg3)
+
+	res, err = robot.ResourceByName(weak1Name)
+	test.That(t, err, test.ShouldBeNil)
+	weak1, err = resource.AsType[*someTypeWithWeakAndStrongDeps](res)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, weak1.resources, test.ShouldHaveLength, 2)
+	test.That(t, weak1.resources, test.ShouldContainKey, base1Name)
+	test.That(t, weak1.resources, test.ShouldContainKey, arm1Name)
+
+	weakCfg4 := config.Config{
+		Components: []resource.Config{
+			{
+				Name:  weak1Name.Name,
+				API:   weakAPI,
+				Model: weakModel,
+			},
+			{
+				Name:  base1Name.Name,
+				API:   base.API,
+				Model: fake.Model,
+			},
+		},
+	}
+	test.That(t, weakCfg4.Ensure(false, logger), test.ShouldBeNil)
+	robot.Reconfigure(context.Background(), &weakCfg4)
+
+	res, err = robot.ResourceByName(weak1Name)
+	test.That(t, err, test.ShouldBeNil)
+	weak1, err = resource.AsType[*someTypeWithWeakAndStrongDeps](res)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, weak1.resources, test.ShouldHaveLength, 1)
+	test.That(t, weak1.resources, test.ShouldContainKey, base1Name)
+
+	base2Name := base.Named("base2")
+	weakCfg5 := config.Config{
+		Components: []resource.Config{
+			{
+				Name:  weak1Name.Name,
+				API:   weakAPI,
+				Model: weakModel,
+				ConvertedAttributes: &someTypeWithWeakAndStrongDepsConfig{
+					deps: []resource.Name{generic.Named("foo")},
+				},
+			},
+			{
+				Name:  base1Name.Name,
+				API:   base.API,
+				Model: fake.Model,
+			},
+			{
+				Name:  base2Name.Name,
+				API:   base.API,
+				Model: fake.Model,
+			},
+		},
+	}
+	test.That(t, weakCfg5.Ensure(false, logger), test.ShouldBeNil)
+	robot.Reconfigure(context.Background(), &weakCfg5)
+
+	_, err = robot.ResourceByName(weak1Name)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not initialized")
+
+	weakCfg6 := config.Config{
+		Components: []resource.Config{
+			{
+				Name:  weak1Name.Name,
+				API:   weakAPI,
+				Model: weakModel,
+				ConvertedAttributes: &someTypeWithWeakAndStrongDepsConfig{
+					weakDeps: []resource.Name{base1Name},
+				},
+			},
+			{
+				Name:  base1Name.Name,
+				API:   base.API,
+				Model: fake.Model,
+			},
+			{
+				Name:  base2Name.Name,
+				API:   base.API,
+				Model: fake.Model,
+			},
+		},
+	}
+	test.That(t, weakCfg6.Ensure(false, logger), test.ShouldBeNil)
+	robot.Reconfigure(context.Background(), &weakCfg6)
+	res, err = robot.ResourceByName(weak1Name)
+	test.That(t, err, test.ShouldBeNil)
+	weak1, err = resource.AsType[*someTypeWithWeakAndStrongDeps](res)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, weak1.resources, test.ShouldHaveLength, 2)
+	test.That(t, weak1.resources, test.ShouldContainKey, base1Name)
+	test.That(t, weak1.resources, test.ShouldContainKey, base2Name)
+
+	weakCfg7 := config.Config{
+		Components: []resource.Config{
+			{
+				Name:  weak1Name.Name,
+				API:   weakAPI,
+				Model: weakModel,
+				ConvertedAttributes: &someTypeWithWeakAndStrongDepsConfig{
+					deps:     []resource.Name{base2Name},
+					weakDeps: []resource.Name{base1Name},
+				},
+			},
+			{
+				Name:  base1Name.Name,
+				API:   base.API,
+				Model: fake.Model,
+			},
+			{
+				Name:  base2Name.Name,
+				API:   base.API,
+				Model: fake.Model,
+			},
+		},
+	}
+	test.That(t, weakCfg7.Ensure(false, logger), test.ShouldBeNil)
+	robot.Reconfigure(context.Background(), &weakCfg7)
+
+	res, err = robot.ResourceByName(weak1Name)
+	test.That(t, err, test.ShouldBeNil)
+	weak1, err = resource.AsType[*someTypeWithWeakAndStrongDeps](res)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, weak1.resources, test.ShouldHaveLength, 2)
+	test.That(t, weak1.resources, test.ShouldContainKey, base1Name)
+	test.That(t, weak1.resources, test.ShouldContainKey, base2Name)
+}
+
 func TestDefaultServiceReconfigure(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
-	visName := "vis"
 	dmName := "dm"
 	cfg1 := &config.Config{
 		Services: []resource.Config{
 			{
-				Name:  visName,
-				API:   vision.Subtype,
-				Model: resource.DefaultServiceModel,
-			},
-			{
 				Name:  dmName,
-				API:   datamanager.Subtype,
+				API:   datamanager.API,
 				Model: resource.DefaultServiceModel,
 			},
 		},
@@ -2336,23 +2602,16 @@ func TestDefaultServiceReconfigure(t *testing.T) {
 		test.ShouldResemble,
 		rdktestutils.NewResourceNameSet(
 			motion.Named(resource.DefaultServiceName),
-			vision.Named(visName),
 			datamanager.Named(dmName),
 			sensors.Named(resource.DefaultServiceName),
 		),
 	)
-	visName = "vis2"
 	sName := "sensors"
 	cfg2 := &config.Config{
 		Services: []resource.Config{
 			{
-				Name:  visName,
-				API:   vision.Subtype,
-				Model: resource.DefaultServiceModel,
-			},
-			{
 				Name:  sName,
-				API:   sensors.Subtype,
+				API:   sensors.API,
 				Model: resource.DefaultServiceModel,
 			},
 		},
@@ -2364,7 +2623,6 @@ func TestDefaultServiceReconfigure(t *testing.T) {
 		test.ShouldResemble,
 		rdktestutils.NewResourceNameSet(
 			motion.Named(resource.DefaultServiceName),
-			vision.Named(visName),
 			datamanager.Named(resource.DefaultServiceName),
 			sensors.Named(sName),
 		),
@@ -2475,20 +2733,20 @@ func TestRemoteRobotsGold(t *testing.T) {
 		Components: []resource.Config{
 			{
 				Name:  "arm1",
-				Model: resource.NewDefaultModel("fake"),
+				Model: resource.DefaultModelFamily.WithModel("fake"),
 				ConvertedAttributes: &fake.Config{
 					ModelFilePath: "../../components/arm/fake/fake_model.json",
 				},
-				API:       arm.Subtype,
+				API:       arm.API,
 				DependsOn: []string{"foo:pieceGripper"},
 			},
 			{
 				Name:  "arm2",
-				Model: resource.NewDefaultModel("fake"),
+				Model: resource.DefaultModelFamily.WithModel("fake"),
 				ConvertedAttributes: &fake.Config{
 					ModelFilePath: "../../components/arm/fake/fake_model.json",
 				},
-				API:       arm.Subtype,
+				API:       arm.API,
 				DependsOn: []string{"bar:pieceArm"},
 			},
 		},
@@ -2515,7 +2773,6 @@ func TestRemoteRobotsGold(t *testing.T) {
 		test.ShouldResemble,
 		rdktestutils.NewResourceNameSet(
 			motion.Named(resource.DefaultServiceName),
-			vision.Named(resource.DefaultServiceName),
 			sensors.Named(resource.DefaultServiceName),
 			datamanager.Named(resource.DefaultServiceName),
 			arm.Named("arm1"),
@@ -2526,7 +2783,6 @@ func TestRemoteRobotsGold(t *testing.T) {
 			movementsensor.Named("foo:movement_sensor2"),
 			gripper.Named("foo:pieceGripper"),
 			motion.Named("foo:builtin"),
-			vision.Named("foo:builtin"),
 			sensors.Named("foo:builtin"),
 			datamanager.Named("foo:builtin"),
 		),
@@ -2537,13 +2793,12 @@ func TestRemoteRobotsGold(t *testing.T) {
 	rr, ok := r.(*localRobot)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	rr.triggerConfig <- true
+	rr.triggerConfig <- struct{}{}
 
 	utils.SelectContextOrWait(ctx, 2*time.Second)
 
 	expectedSet := rdktestutils.NewResourceNameSet(
 		motion.Named(resource.DefaultServiceName),
-		vision.Named(resource.DefaultServiceName),
 		sensors.Named(resource.DefaultServiceName),
 		datamanager.Named(resource.DefaultServiceName),
 		arm.Named("arm1"),
@@ -2555,7 +2810,6 @@ func TestRemoteRobotsGold(t *testing.T) {
 		movementsensor.Named("foo:movement_sensor2"),
 		gripper.Named("foo:pieceGripper"),
 		motion.Named("foo:builtin"),
-		vision.Named("foo:builtin"),
 		sensors.Named("foo:builtin"),
 		datamanager.Named("foo:builtin"),
 		arm.Named("bar:pieceArm"),
@@ -2565,7 +2819,6 @@ func TestRemoteRobotsGold(t *testing.T) {
 		movementsensor.Named("bar:movement_sensor2"),
 		gripper.Named("bar:pieceGripper"),
 		motion.Named("bar:builtin"),
-		vision.Named("bar:builtin"),
 		sensors.Named("bar:builtin"),
 		datamanager.Named("bar:builtin"),
 	)
@@ -2583,7 +2836,6 @@ func TestRemoteRobotsGold(t *testing.T) {
 		test.ShouldResemble,
 		rdktestutils.NewResourceNameSet(
 			motion.Named(resource.DefaultServiceName),
-			vision.Named(resource.DefaultServiceName),
 			sensors.Named(resource.DefaultServiceName),
 			datamanager.Named(resource.DefaultServiceName),
 			arm.Named("arm1"),
@@ -2594,7 +2846,6 @@ func TestRemoteRobotsGold(t *testing.T) {
 			movementsensor.Named("foo:movement_sensor2"),
 			gripper.Named("foo:pieceGripper"),
 			motion.Named("foo:builtin"),
-			vision.Named("foo:builtin"),
 			sensors.Named("foo:builtin"),
 			datamanager.Named("foo:builtin"),
 		),
@@ -2615,12 +2866,12 @@ func TestRemoteRobotsGold(t *testing.T) {
 	err = remote3.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
-	utils.SelectContextOrWait(ctx, 26*time.Second)
+	utils.SelectContextOrWait(ctx, 5*time.Second)
 
 	rr, ok = r.(*localRobot)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	rr.triggerConfig <- true
+	rr.triggerConfig <- struct{}{}
 
 	utils.SelectContextOrWait(ctx, 2*time.Second)
 
@@ -2634,11 +2885,11 @@ func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 		Components: []resource.Config{
 			{
 				Name:  "pieceArm",
-				Model: resource.NewDefaultModel("fake"),
+				Model: resource.DefaultModelFamily.WithModel("fake"),
 				ConvertedAttributes: &fake.Config{
 					ModelFilePath: "../../components/arm/fake/fake_model.json",
 				},
-				API: arm.Subtype,
+				API: arm.API,
 			},
 		},
 	}
@@ -2656,11 +2907,11 @@ func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 		Components: []resource.Config{
 			{
 				Name:  "arm1",
-				Model: resource.NewDefaultModel("fake"),
+				Model: resource.DefaultModelFamily.WithModel("fake"),
 				ConvertedAttributes: &fake.Config{
 					ModelFilePath: "../../components/arm/fake/fake_model.json",
 				},
-				API:       arm.Subtype,
+				API:       arm.API,
 				DependsOn: []string{"pieceArm"},
 			},
 		},
@@ -2682,13 +2933,11 @@ func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 		test.ShouldResemble,
 		rdktestutils.NewResourceNameSet(
 			motion.Named(resource.DefaultServiceName),
-			vision.Named(resource.DefaultServiceName),
 			sensors.Named(resource.DefaultServiceName),
 			datamanager.Named(resource.DefaultServiceName),
 			arm.Named("arm1"),
 			arm.Named("foo:pieceArm"),
 			motion.Named("foo:builtin"),
-			vision.Named("foo:builtin"),
 			sensors.Named("foo:builtin"),
 			datamanager.Named("foo:builtin"),
 		),
@@ -2697,18 +2946,16 @@ func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 	rr, ok := r.(*localRobot)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	rr.triggerConfig <- true
+	rr.triggerConfig <- struct{}{}
 	utils.SelectContextOrWait(ctx, 2*time.Second)
 
 	expectedSet := rdktestutils.NewResourceNameSet(
 		motion.Named(resource.DefaultServiceName),
-		vision.Named(resource.DefaultServiceName),
 		sensors.Named(resource.DefaultServiceName),
 		datamanager.Named(resource.DefaultServiceName),
 		arm.Named("arm1"),
 		arm.Named("foo:pieceArm"),
 		motion.Named("foo:builtin"),
-		vision.Named("foo:builtin"),
 		sensors.Named("foo:builtin"),
 		datamanager.Named("foo:builtin"),
 	)
@@ -2718,7 +2965,7 @@ func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 	test.That(t, foo.Close(context.Background()), test.ShouldBeNil)
 	// wait for local_robot to detect that the remote is now offline
 	utils.SelectContextOrWait(ctx, 15*time.Second)
-	rr.triggerConfig <- true
+	rr.triggerConfig <- struct{}{}
 	utils.SelectContextOrWait(ctx, 2*time.Second)
 
 	test.That(
@@ -2727,7 +2974,6 @@ func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 		test.ShouldResemble,
 		rdktestutils.NewResourceNameSet(
 			motion.Named(resource.DefaultServiceName),
-			vision.Named(resource.DefaultServiceName),
 			sensors.Named(resource.DefaultServiceName),
 			datamanager.Named(resource.DefaultServiceName),
 		),
@@ -2748,12 +2994,12 @@ func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 	err = foo2.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
-	utils.SelectContextOrWait(ctx, 26*time.Second)
+	utils.SelectContextOrWait(ctx, 5*time.Second)
 
 	rr, ok = r.(*localRobot)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	rr.triggerConfig <- true
+	rr.triggerConfig <- struct{}{}
 
 	utils.SelectContextOrWait(ctx, 2*time.Second)
 
@@ -2767,11 +3013,11 @@ func TestInferRemoteRobotDependencyConnectAfterStartup(t *testing.T) {
 		Components: []resource.Config{
 			{
 				Name:  "pieceArm",
-				Model: resource.NewDefaultModel("fake"),
+				Model: resource.DefaultModelFamily.WithModel("fake"),
 				ConvertedAttributes: &fake.Config{
 					ModelFilePath: "../../components/arm/fake/fake_model.json",
 				},
-				API: arm.Subtype,
+				API: arm.API,
 			},
 		},
 	}
@@ -2787,11 +3033,11 @@ func TestInferRemoteRobotDependencyConnectAfterStartup(t *testing.T) {
 		Components: []resource.Config{
 			{
 				Name:  "arm1",
-				Model: resource.NewDefaultModel("fake"),
+				Model: resource.DefaultModelFamily.WithModel("fake"),
 				ConvertedAttributes: &fake.Config{
 					ModelFilePath: "../../components/arm/fake/fake_model.json",
 				},
-				API:       arm.Subtype,
+				API:       arm.API,
 				DependsOn: []string{"pieceArm"},
 			},
 		},
@@ -2813,7 +3059,6 @@ func TestInferRemoteRobotDependencyConnectAfterStartup(t *testing.T) {
 		test.ShouldResemble,
 		rdktestutils.NewResourceNameSet(
 			motion.Named(resource.DefaultServiceName),
-			vision.Named(resource.DefaultServiceName),
 			sensors.Named(resource.DefaultServiceName),
 			datamanager.Named(resource.DefaultServiceName),
 		),
@@ -2824,19 +3069,17 @@ func TestInferRemoteRobotDependencyConnectAfterStartup(t *testing.T) {
 	rr, ok := r.(*localRobot)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	utils.SelectContextOrWait(ctx, 15*time.Second)
-	rr.triggerConfig <- true
+	utils.SelectContextOrWait(ctx, 5*time.Second)
+	rr.triggerConfig <- struct{}{}
 	utils.SelectContextOrWait(ctx, 2*time.Second)
 
 	expectedSet := rdktestutils.NewResourceNameSet(
 		motion.Named(resource.DefaultServiceName),
-		vision.Named(resource.DefaultServiceName),
 		sensors.Named(resource.DefaultServiceName),
 		datamanager.Named(resource.DefaultServiceName),
 		arm.Named("arm1"),
 		arm.Named("foo:pieceArm"),
 		motion.Named("foo:builtin"),
-		vision.Named("foo:builtin"),
 		sensors.Named("foo:builtin"),
 		datamanager.Named("foo:builtin"),
 	)
@@ -2845,8 +3088,8 @@ func TestInferRemoteRobotDependencyConnectAfterStartup(t *testing.T) {
 
 	test.That(t, foo.Close(context.Background()), test.ShouldBeNil)
 	// wait for local_robot to detect that the remote is now offline
-	utils.SelectContextOrWait(ctx, 15*time.Second)
-	rr.triggerConfig <- true
+	utils.SelectContextOrWait(ctx, 5*time.Second)
+	rr.triggerConfig <- struct{}{}
 	utils.SelectContextOrWait(ctx, 2*time.Second)
 
 	test.That(
@@ -2855,7 +3098,6 @@ func TestInferRemoteRobotDependencyConnectAfterStartup(t *testing.T) {
 		test.ShouldResemble,
 		rdktestutils.NewResourceNameSet(
 			motion.Named(resource.DefaultServiceName),
-			vision.Named(resource.DefaultServiceName),
 			sensors.Named(resource.DefaultServiceName),
 			datamanager.Named(resource.DefaultServiceName),
 		),
@@ -2869,11 +3111,11 @@ func TestInferRemoteRobotDependencyAmbiguous(t *testing.T) {
 		Components: []resource.Config{
 			{
 				Name:  "pieceArm",
-				Model: resource.NewDefaultModel("fake"),
+				Model: resource.DefaultModelFamily.WithModel("fake"),
 				ConvertedAttributes: &fake.Config{
 					ModelFilePath: "../../components/arm/fake/fake_model.json",
 				},
-				API: arm.Subtype,
+				API: arm.API,
 			},
 		},
 	}
@@ -2904,11 +3146,11 @@ func TestInferRemoteRobotDependencyAmbiguous(t *testing.T) {
 		Components: []resource.Config{
 			{
 				Name:  "arm1",
-				Model: resource.NewDefaultModel("fake"),
+				Model: resource.DefaultModelFamily.WithModel("fake"),
 				ConvertedAttributes: &fake.Config{
 					ModelFilePath: "../../components/arm/fake/fake_model.json",
 				},
-				API:       arm.Subtype,
+				API:       arm.API,
 				DependsOn: []string{"pieceArm"},
 			},
 		},
@@ -2931,17 +3173,14 @@ func TestInferRemoteRobotDependencyAmbiguous(t *testing.T) {
 
 	expectedSet := rdktestutils.NewResourceNameSet(
 		motion.Named(resource.DefaultServiceName),
-		vision.Named(resource.DefaultServiceName),
 		sensors.Named(resource.DefaultServiceName),
 		datamanager.Named(resource.DefaultServiceName),
 		arm.Named("foo:pieceArm"),
 		motion.Named("foo:builtin"),
-		vision.Named("foo:builtin"),
 		sensors.Named("foo:builtin"),
 		datamanager.Named("foo:builtin"),
 		arm.Named("bar:pieceArm"),
 		motion.Named("bar:builtin"),
-		vision.Named("bar:builtin"),
 		sensors.Named("bar:builtin"),
 		datamanager.Named("bar:builtin"),
 	)
@@ -2951,7 +3190,7 @@ func TestInferRemoteRobotDependencyAmbiguous(t *testing.T) {
 	rr, ok := r.(*localRobot)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	rr.triggerConfig <- true
+	rr.triggerConfig <- struct{}{}
 	utils.SelectContextOrWait(ctx, 2*time.Second)
 
 	// we expect the robot to correctly detect the ambiguous dependency and not build the resource
@@ -2962,11 +3201,11 @@ func TestInferRemoteRobotDependencyAmbiguous(t *testing.T) {
 		Components: []resource.Config{
 			{
 				Name:  "arm1",
-				Model: resource.NewDefaultModel("fake"),
+				Model: resource.DefaultModelFamily.WithModel("fake"),
 				ConvertedAttributes: &fake.Config{
 					ModelFilePath: "../../components/arm/fake/fake_model.json",
 				},
-				API:       arm.Subtype,
+				API:       arm.API,
 				DependsOn: []string{"foo:pieceArm"},
 			},
 		},
@@ -2982,23 +3221,20 @@ func TestInferRemoteRobotDependencyAmbiguous(t *testing.T) {
 		},
 	}
 	r.Reconfigure(ctx, reConfig)
-	utils.SelectContextOrWait(ctx, 15*time.Second)
-	rr.triggerConfig <- true
+	utils.SelectContextOrWait(ctx, 5*time.Second)
+	rr.triggerConfig <- struct{}{}
 	utils.SelectContextOrWait(ctx, 2*time.Second)
 
 	finalSet := rdktestutils.NewResourceNameSet(
 		motion.Named(resource.DefaultServiceName),
-		vision.Named(resource.DefaultServiceName),
 		sensors.Named(resource.DefaultServiceName),
 		datamanager.Named(resource.DefaultServiceName),
 		arm.Named("foo:pieceArm"),
 		motion.Named("foo:builtin"),
-		vision.Named("foo:builtin"),
 		sensors.Named("foo:builtin"),
 		datamanager.Named("foo:builtin"),
 		arm.Named("bar:pieceArm"),
 		motion.Named("bar:builtin"),
-		vision.Named("bar:builtin"),
 		sensors.Named("bar:builtin"),
 		datamanager.Named("bar:builtin"),
 		arm.Named("arm1"),
@@ -3010,14 +3246,14 @@ func TestInferRemoteRobotDependencyAmbiguous(t *testing.T) {
 func TestReconfigureModelRebuild(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
-	mockSubtype := resource.NewSubtype(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.SubtypeName("mock"))
+	mockAPI := resource.APINamespaceRDK.WithComponentType("mock")
 	mockNamed := func(name string) resource.Name {
-		return resource.NameFromSubtype(mockSubtype, name)
+		return resource.NewName(mockAPI, name)
 	}
 	modelName1 := utils.RandomAlphaString(5)
-	model1 := resource.NewDefaultModel(resource.ModelName(modelName1))
+	model1 := resource.DefaultModelFamily.WithModel(modelName1)
 
-	resource.RegisterComponent(mockSubtype, model1, resource.Registration[resource.Resource, resource.NoNativeConfig]{
+	resource.RegisterComponent(mockAPI, model1, resource.Registration[resource.Resource, resource.NoNativeConfig]{
 		Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
@@ -3033,7 +3269,7 @@ func TestReconfigureModelRebuild(t *testing.T) {
 			{
 				Name:  "one",
 				Model: model1,
-				API:   mockSubtype,
+				API:   mockAPI,
 			},
 		},
 	}
@@ -3064,7 +3300,7 @@ func TestReconfigureModelRebuild(t *testing.T) {
 			{
 				Name:                "one",
 				Model:               model1,
-				API:                 mockSubtype,
+				API:                 mockAPI,
 				ConvertedAttributes: resource.NoNativeConfig{},
 			},
 		},
@@ -3083,16 +3319,16 @@ func TestReconfigureModelRebuild(t *testing.T) {
 func TestReconfigureModelSwitch(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
-	mockSubtype := resource.NewSubtype(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.SubtypeName("mock"))
+	mockAPI := resource.APINamespaceRDK.WithComponentType("mock")
 	mockNamed := func(name string) resource.Name {
-		return resource.NameFromSubtype(mockSubtype, name)
+		return resource.NewName(mockAPI, name)
 	}
 	modelName1 := utils.RandomAlphaString(5)
 	modelName2 := utils.RandomAlphaString(5)
-	model1 := resource.NewDefaultModel(resource.ModelName(modelName1))
-	model2 := resource.NewDefaultModel(resource.ModelName(modelName2))
+	model1 := resource.DefaultModelFamily.WithModel(modelName1)
+	model2 := resource.DefaultModelFamily.WithModel(modelName2)
 
-	resource.RegisterComponent(mockSubtype, model1, resource.Registration[resource.Resource, resource.NoNativeConfig]{
+	resource.RegisterComponent(mockAPI, model1, resource.Registration[resource.Resource, resource.NoNativeConfig]{
 		Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
@@ -3102,7 +3338,7 @@ func TestReconfigureModelSwitch(t *testing.T) {
 			return &mockFake{Named: conf.ResourceName().AsNamed()}, nil
 		},
 	})
-	resource.RegisterComponent(mockSubtype, model2, resource.Registration[resource.Resource, resource.NoNativeConfig]{
+	resource.RegisterComponent(mockAPI, model2, resource.Registration[resource.Resource, resource.NoNativeConfig]{
 		Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
@@ -3118,7 +3354,7 @@ func TestReconfigureModelSwitch(t *testing.T) {
 			{
 				Name:  "one",
 				Model: model1,
-				API:   mockSubtype,
+				API:   mockAPI,
 			},
 		},
 	}
@@ -3149,7 +3385,7 @@ func TestReconfigureModelSwitch(t *testing.T) {
 			{
 				Name:                "one",
 				Model:               model2,
-				API:                 mockSubtype,
+				API:                 mockAPI,
 				ConvertedAttributes: resource.NoNativeConfig{},
 			},
 		},
@@ -3168,16 +3404,16 @@ func TestReconfigureModelSwitch(t *testing.T) {
 func TestReconfigureRename(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
-	mockSubtype := resource.NewSubtype(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.SubtypeName("mock"))
+	mockAPI := resource.APINamespaceRDK.WithComponentType("mock")
 	mockNamed := func(name string) resource.Name {
-		return resource.NameFromSubtype(mockSubtype, name)
+		return resource.NewName(mockAPI, name)
 	}
 	modelName1 := utils.RandomAlphaString(5)
-	model1 := resource.NewDefaultModel(resource.ModelName(modelName1))
+	model1 := resource.DefaultModelFamily.WithModel(modelName1)
 
 	var logicalClock atomic.Int64
 
-	resource.RegisterComponent(mockSubtype, model1, resource.Registration[resource.Resource, resource.NoNativeConfig]{
+	resource.RegisterComponent(mockAPI, model1, resource.Registration[resource.Resource, resource.NoNativeConfig]{
 		Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
@@ -3197,7 +3433,7 @@ func TestReconfigureRename(t *testing.T) {
 			{
 				Name:  "one",
 				Model: model1,
-				API:   mockSubtype,
+				API:   mockAPI,
 			},
 		},
 	}
@@ -3223,7 +3459,7 @@ func TestReconfigureRename(t *testing.T) {
 			{
 				Name:                "two",
 				Model:               model1,
-				API:                 mockSubtype,
+				API:                 mockAPI,
 				ConvertedAttributes: resource.NoNativeConfig{},
 			},
 		},

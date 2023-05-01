@@ -67,8 +67,8 @@ func TestNewI2CMovementSensor(t *testing.T) {
 
 	conf := resource.Config{
 		Name:  "movementsensor1",
-		Model: resource.NewDefaultModel("gps-nmea"),
-		API:   movementsensor.Subtype,
+		Model: resource.DefaultModelFamily.WithModel("gps-nmea"),
+		API:   movementsensor.API,
 	}
 
 	logger := golog.NewTestLogger(t)
@@ -81,8 +81,8 @@ func TestNewI2CMovementSensor(t *testing.T) {
 
 	conf = resource.Config{
 		Name:  "movementsensor2",
-		Model: resource.NewDefaultModel("gps-nmea"),
-		API:   movementsensor.Subtype,
+		Model: resource.DefaultModelFamily.WithModel("gps-nmea"),
+		API:   movementsensor.API,
 		ConvertedAttributes: &Config{
 			ConnectionType: "I2C",
 			Board:          testBoardName,
