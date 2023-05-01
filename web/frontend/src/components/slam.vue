@@ -324,7 +324,11 @@ const toggle3dExpand = () => {
 
 const toggle2dExpand = () => {
   show2d = !show2d;
-  updateSLAM2dRefreshFrequency(props.name, show2d ? selected2dValue : 'off');
+  if (!show2d) {
+    selected2dValue = 'manual';
+    return;
+  }
+  updateSLAM2dRefreshFrequency(props.name, selected2dValue);
 };
 
 const selectSLAM2dRefreshFrequency = () => {
