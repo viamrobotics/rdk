@@ -483,7 +483,7 @@ onUnmounted(() => {
               type="number"
               label="y"
               incrementor="slider"
-              :value="destinationMarker.z"
+              :value="destinationMarker.y"
               step="0.1"
               @input="handleUpdateDestY($event)"
             />
