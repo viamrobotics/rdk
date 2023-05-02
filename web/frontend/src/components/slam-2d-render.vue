@@ -14,8 +14,8 @@ import type { commonApi } from '@viamrobotics/sdk';
  * generated with: https://grayscale.design/app
  */
 const colorMapGrey = [
+  [240, 240, 240],
   [220, 220, 220],
-  [210, 210, 210],
   [200, 200, 200],
   [190, 190, 190],
   [170, 170, 170],
