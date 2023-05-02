@@ -891,26 +891,6 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 		}
 	}
 
-	validateModularResources := func(confs []resource.Config) {
-		for i, c := range confs {
-			if r.modules.Provides(c) {
-				implicitDeps, err := r.modules.ValidateConfig(ctx, c)
-				if err != nil {
-					r.logger.Errorw("modular config validation error found in component: "+c.Name, "error", err)
-					continue
-				}
-
-				// Modify component to add its implicit dependencies.
-				confs[i].ImplicitDependsOn = implicitDeps
-			}
-		}
-	}
-
-	// Before reconfiguring, go through resources in newConfig, call Validate on all
-	// modularized resources, and store those resources' implicit dependencies.
-	validateModularResources(newConfig.Components)
-	validateModularResources(newConfig.Services)
-
 	// Sync Packages before reconfiguring rest of robot and resolving references to any packages
 	// in the config.
 	// TODO(RSDK-1849): Make this non-blocking so other resources that do not require packages can run before package sync finishes.
@@ -936,6 +916,26 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	if diff.ResourcesEqual {
 		return
 	}
+
+	validateModularResources := func(confs []resource.Config) {
+		for i, c := range confs {
+			if r.modules.Provides(c) {
+				implicitDeps, err := r.modules.ValidateConfig(ctx, c)
+				if err != nil {
+					r.logger.Errorw("modular config validation error found in component: "+c.Name, "error", err)
+					continue
+				}
+
+				// Modify component to add its implicit dependencies.
+				confs[i].ImplicitDependsOn = implicitDeps
+			}
+		}
+	}
+
+	// Before reconfiguring, go through resources in newConfig, call Validate on all
+	// modularized resources, and store those resources' implicit dependencies.
+	validateModularResources(newConfig.Components)
+	validateModularResources(newConfig.Services)
 
 	if r.revealSensitiveConfigDiffs {
 		r.logger.Debugf("(re)configuring with %+v", diff)
