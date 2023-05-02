@@ -311,17 +311,21 @@ func (b *sysfsBoard) gpioInitialize(cancelCtx context.Context, gpioMappings map[
 				pinNumber)
 			continue
 		}
-		pin := &gpioPin{
-			parentBoard: b,
-			devicePath:  mapping.GPIOChipDev,
-			offset:      uint32(mapping.GPIO),
-			cancelCtx:   cancelCtx,
-			logger:      logger,
-		}
-		if mapping.HWPWMSupported {
-			pin.hwPwm = newPwmDevice(mapping.PWMSysFsDir, mapping.PWMID, logger)
-		}
-		pins[fmt.Sprintf("%d", pinNumber)] = pin
+		pins[fmt.Sprintf("%d", pinNumber)] = b.createGpioPin(mapping)
 	}
 	return pins, interrupts, nil
+}
+
+func (b *sysfsBoard) createGpioPin(mapping GPIOBoardMapping) *gpioPin {
+	pin := gpioPin{
+		parentBoard: b,
+		devicePath:  mapping.GPIOChipDev,
+		offset:      uint32(mapping.GPIO),
+		cancelCtx:   b.cancelCtx,
+		logger:      b.logger,
+	}
+	if mapping.HWPWMSupported {
+		pin.hwPwm = newPwmDevice(mapping.PWMSysFsDir, mapping.PWMID, b.logger)
+	}
+	return &pin
 }
