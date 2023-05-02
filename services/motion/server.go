@@ -4,6 +4,7 @@ package motion
 import (
 	"context"
 
+	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/motion/v1"
@@ -59,6 +60,34 @@ func (server *serviceServer) MoveOnMap(ctx context.Context, req *pb.MoveOnMapReq
 		req.Extra.AsMap(),
 	)
 	return &pb.MoveOnMapResponse{Success: success}, err
+}
+
+func (server *serviceServer) MoveOnGlobe(ctx context.Context, req *pb.MoveOnGlobeRequest) (*pb.MoveOnGlobeResponse, error) {
+	svc, err := server.coll.Resource(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	obstaclesProto := req.GetObstacles()
+	obstacles := make([]*referenceframe.GeoObstacle, 0, len(obstaclesProto))
+	for _, eachProtoObst := range obstaclesProto {
+		convObst, err := referenceframe.GeoObstacleFromProtobuf(eachProtoObst)
+		if err != nil {
+			return nil, err
+		}
+		obstacles = append(obstacles, convObst)
+	}
+	success, err := svc.MoveOnGlobe(
+		ctx,
+		protoutils.ResourceNameFromProto(req.GetComponentName()),
+		geo.NewPoint(req.GetDestination().GetLatitude(), req.GetDestination().GetLongitude()),
+		req.GetHeading(),
+		protoutils.ResourceNameFromProto(req.GetMovementSensorName()),
+		obstacles,
+		req.GetLinearMetersPerSec(),
+		req.GetAngularDegPerSec(),
+		req.Extra.AsMap(),
+	)
+	return &pb.MoveOnGlobeResponse{Success: success}, err
 }
 
 func (server *serviceServer) MoveSingleComponent(

@@ -5,6 +5,8 @@ import (
 	"context"
 
 	"github.com/edaniels/golog"
+	geo "github.com/kellydunn/golang-geo"
+	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/motion/v1"
 	vprotoutils "go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
@@ -90,6 +92,46 @@ func (c *client) MoveOnMap(
 		Destination:     spatialmath.PoseToProtobuf(destination),
 		SlamServiceName: protoutils.ResourceNameToProto(slamName),
 		Extra:           ext,
+	})
+	if err != nil {
+		return false, err
+	}
+	return resp.Success, nil
+}
+
+func (c *client) MoveOnGlobe(
+	ctx context.Context,
+	componentName resource.Name,
+	destination *geo.Point,
+	heading float64,
+	movementSensorName resource.Name,
+	obstacles []*referenceframe.GeoObstacle,
+	linearVelocity float32,
+	angularVelocity float32,
+	extra map[string]interface{},
+) (bool, error) {
+	ext, err := vprotoutils.StructToStructPb(extra)
+	if err != nil {
+		return false, err
+	}
+	obstaclesProto := make([]*commonpb.GeoObstacle, 0, len(obstacles))
+	for _, eachObst := range obstacles {
+		convObst, err := referenceframe.GeoObstacleToProtobuf(eachObst)
+		if err != nil {
+			return false, err
+		}
+		obstaclesProto = append(obstaclesProto, convObst)
+	}
+	resp, err := c.client.MoveOnGlobe(ctx, &pb.MoveOnGlobeRequest{
+		Name:               c.name,
+		ComponentName:      protoutils.ResourceNameToProto(componentName),
+		Destination:        &commonpb.GeoPoint{Latitude: destination.Lat(), Longitude: destination.Lng()},
+		Heading:            heading,
+		MovementSensorName: protoutils.ResourceNameToProto(movementSensorName),
+		Obstacles:          obstaclesProto,
+		LinearMetersPerSec: linearVelocity,
+		AngularDegPerSec:   angularVelocity,
+		Extra:              ext,
 	})
 	if err != nil {
 		return false, err

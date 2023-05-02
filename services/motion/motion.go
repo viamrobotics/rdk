@@ -4,6 +4,7 @@ package motion
 import (
 	"context"
 
+	geo "github.com/kellydunn/golang-geo"
 	servicepb "go.viam.com/api/service/motion/v1"
 
 	"go.viam.com/rdk/referenceframe"
@@ -37,6 +38,17 @@ type Service interface {
 		componentName resource.Name,
 		destination spatialmath.Pose,
 		slamName resource.Name,
+		extra map[string]interface{},
+	) (bool, error)
+	MoveOnGlobe(
+		ctx context.Context,
+		componentName resource.Name,
+		destination *geo.Point,
+		heading float64,
+		movementSensorName resource.Name,
+		obstacles []*referenceframe.GeoObstacle,
+		linearVelocity float32,
+		angularVelocity float32,
 		extra map[string]interface{},
 	) (bool, error)
 	MoveSingleComponent(
