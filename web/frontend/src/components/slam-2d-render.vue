@@ -17,18 +17,6 @@ type SvgOffset = {
   z: number
 }
 
-const baseMarkerOffset: SvgOffset = {
-  x: 0.35,
-  y: 0,
-  z: 0,
-};
-
-const destinationMarkerOffset: SvgOffset = {
-  x: 1.2,
-  y: 2.5,
-  z: 0,
-};
-
 const backgroundGridColor = 0xCA_CA_CA;
 
 const gridSubparts = ['AxesPos', 'AxesNeg', 'Grid'];
@@ -43,6 +31,18 @@ const axesHelperSize = 8;
 // Note: updating the scale of the destination or base marker requires an offset update
 const baseMarkerScalar = 0.02;
 const destinationMarkerScalar = 0.1;
+
+const baseMarkerOffset: SvgOffset = {
+  x: 0.35,
+  y: 0,
+  z: 0,
+};
+
+const destinationMarkerOffset: SvgOffset = {
+  x: 1.2,
+  y: 2.5,
+  z: 0,
+};
 
 /*
  * this color map is greyscale. The color map is being used map probability values of a PCD
@@ -377,7 +377,7 @@ onUnmounted(() => {
   disposeScene();
 });
 
-watch(() => [props.destVector!.y, props.destVector!.x, props.destExists], updateOrRemoveDestinationMarker);
+watch(() => [props.destVector!.x, props.destVector!.y, props.destExists], updateOrRemoveDestinationMarker);
 
 watch(() => props.axesVisible, () => {
   for (const gridPart of gridSubparts) {
