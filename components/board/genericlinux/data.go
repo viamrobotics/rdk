@@ -9,8 +9,9 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
-	rdkutils "go.viam.com/rdk/utils"
 	"go.viam.com/utils"
+
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 // adapted from https://github.com/NVIDIA/jetson-gpio (MIT License)
@@ -109,6 +110,7 @@ func getCompatiblePinDefs(modelName string, boardInfoMappings map[string]BoardIn
 		path = "/proc/device-tree/compatible"
 	}
 
+	//nolint:gosec
 	compatiblesRd, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -139,17 +141,15 @@ func getCompatiblePinDefs(modelName string, boardInfoMappings map[string]BoardIn
 	return pinDefs, nil
 }
 
-// A helper function for ARM64/aarch64 architecture to process contents of a 
-// given content of a file from os.ReadFile
+// A helper function for ARM64/aarch64 architecture to process contents of a
+// given content of a file from os.ReadFile.
 func stringSetFromFileARM64(content []byte) utils.StringSet {
-
 	return utils.NewStringSet(strings.Split(string(content), "\x00")...)
 }
 
-// A helper function for AMD64/x86_64 architecture to process contents of a 
-// given content of a file from os.ReadFile
+// A helper function for AMD64/x86_64 architecture to process contents of a
+// given content of a file from os.ReadFile.
 func stringSetFromFileAMD64(content []byte) utils.StringSet {
-	//nolint:gosec
 	// Remove whitespace and null characters from the content
 	content = bytes.TrimSpace(content)
 	content = bytes.ReplaceAll(content, []byte{0x00}, []byte{})
