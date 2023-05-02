@@ -6,12 +6,15 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/pkg/errors"
+
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 
 	servicepb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/base"
+	"go.viam.com/rdk/internal"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
@@ -34,6 +37,10 @@ func init() {
 				logger golog.Logger,
 			) (motion.Service, error) {
 				return NewBuiltIn(ctx, deps, conf, logger)
+			},
+			WeakDependencies: []internal.ResourceMatcher{
+				internal.SLAMDependencyWildcardMatcher,
+				internal.ComponentDependencyWildcardMatcher, // once ResourceMatchers are more built out this should only match bases
 			},
 		})
 }
@@ -65,24 +72,34 @@ func (ms *builtIn) Reconfigure(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
-) error {
+) (err error) {
 	ms.lock.Lock()
 	defer ms.lock.Unlock()
 
-	fsService, err := resource.FromDependencies[framesystem.Service](deps, framesystem.InternalServiceName)
-	if err != nil {
-		return err
+	slamServices := make(map[resource.Name]slam.Service)
+	components := make(map[resource.Name]resource.Resource)
+	for name, dep := range deps {
+		switch dep := dep.(type) {
+		case framesystem.Service:
+			ms.fsService = dep
+		case slam.Service:
+			slamServices[name] = dep
+		default:
+			components[name] = dep
+		}
 	}
-	ms.fsService = fsService
+	ms.slamServices = slamServices
 	return nil
 }
 
 type builtIn struct {
 	resource.Named
 	resource.TriviallyCloseable
-	fsService framesystem.Service
-	logger    golog.Logger
-	lock      sync.Mutex
+	fsService    framesystem.Service
+	slamServices map[resource.Name]slam.Service
+	components   map[resource.Name]resource.Resource
+	logger       golog.Logger
+	lock         sync.Mutex
 }
 
 // Move takes a goal location and will plan and execute a movement to move a component specified by its name to that destination.
@@ -95,7 +112,6 @@ func (ms *builtIn) Move(
 	extra map[string]interface{},
 ) (bool, error) {
 	operation.CancelOtherWithLabel(ctx, "motion-service")
-	logger := ms.logger
 
 	// get goal frame
 	goalFrameName := destination.Parent()
@@ -161,14 +177,14 @@ func (ms *builtIn) MoveOnMap(
 	operation.CancelOtherWithLabel(ctx, "motion-service")
 
 	// get the SLAM Service from the slamName
-	slam, err := slam.FromRobot(ms.r, slamName.ShortName())
-	if err != nil {
-		return false, fmt.Errorf("SLAM service named %s not found", slamName)
+	slamService, ok := ms.slamServices[slamName]
+	if !ok {
+		return false, errors.Wrap(resource.NewNotFoundError(slamName), "motion service missing weak dependency")
 	}
 
 	// create a KinematicBase from the componentName
-	b, err := base.FromRobot(ms.r, componentName.ShortName())
-	if err != nil {
+	b, ok := ms.components[componentName]
+	if !ok {
 		return false, fmt.Errorf(
 			"only Base components are supported for MoveOnMap: could not find an Base named %v",
 			componentName.ShortName(),
@@ -178,7 +194,7 @@ func (ms *builtIn) MoveOnMap(
 	if !ok {
 		return false, fmt.Errorf("cannot move base of type %T because it is not KinematicWrappable", b)
 	}
-	kb, err := kw.WrapWithKinematics(ctx, slam)
+	kb, err := kw.WrapWithKinematics(ctx, slamService)
 	if err != nil {
 		return false, err
 	}
