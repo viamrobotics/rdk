@@ -3,7 +3,6 @@ package rimage
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"image"
 	"image/color"
 	"sync"
@@ -14,11 +13,12 @@ type LazyEncodedImage struct {
 	imgBytes []byte
 	mimeType string
 
-	decodeOnce   sync.Once
-	decodeErr    interface{}
-	decodedImage image.Image
-	bounds       *image.Rectangle
-	colorModel   color.Model
+	decodeOnce       sync.Once
+	decodeConfigOnce sync.Once
+	decodeErr        interface{}
+	decodedImage     image.Image
+	bounds           *image.Rectangle
+	colorModel       color.Model
 }
 
 // NewLazyEncodedImage returns a new image that will only get decoded once actual data is needed
@@ -51,6 +51,26 @@ func (lei *LazyEncodedImage) decode() {
 	}
 }
 
+func (lei *LazyEncodedImage) decodeConfig() {
+	lei.decodeConfigOnce.Do(func() {
+		defer func() {
+			if err := recover(); err != nil {
+				lei.decodeErr = err
+			}
+		}()
+		reader := bytes.NewReader(lei.imgBytes)
+		header, _, err := image.DecodeConfig(reader)
+		lei.decodeErr = err
+		if err == nil {
+			lei.bounds = &image.Rectangle{image.Point{0, 0}, image.Point{header.Width, header.Height}}
+			lei.colorModel = header.ColorModel
+		}
+	})
+	if lei.decodeErr != nil {
+		panic(lei.decodeErr)
+	}
+}
+
 // MIMEType returns the encoded Image's MIME type.
 func (lei *LazyEncodedImage) MIMEType() string {
 	return lei.mimeType
@@ -64,28 +84,14 @@ func (lei *LazyEncodedImage) RawData() []byte {
 
 // ColorModel returns the Image's color model.
 func (lei *LazyEncodedImage) ColorModel() color.Model {
-	if lei.colorModel == nil {
-		reader := bytes.NewReader(lei.imgBytes)
-		header, _, err := image.DecodeConfig(reader)
-		if err != nil {
-			panic(fmt.Sprintf("error extracting colorModel from lazyEncodedImage: %v", err))
-		}
-		lei.colorModel = header.ColorModel
-	}
+	lei.decodeConfig()
 	return lei.colorModel
 }
 
 // Bounds returns the domain for which At can return non-zero color.
 // The bounds do not necessarily contain the point (0, 0).
 func (lei *LazyEncodedImage) Bounds() image.Rectangle {
-	if lei.bounds == nil {
-		reader := bytes.NewReader(lei.imgBytes)
-		header, _, err := image.DecodeConfig(reader)
-		if err != nil {
-			panic(fmt.Sprintf("error extracting bounds from lazyEncodedImage: %v", err))
-		}
-		lei.bounds = &image.Rectangle{image.Point{0, 0}, image.Point{header.Width, header.Height}}
-	}
+	lei.decodeConfig()
 	return *lei.bounds
 }
 

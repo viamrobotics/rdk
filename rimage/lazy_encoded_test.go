@@ -35,6 +35,8 @@ func TestLazyEncodedImage(t *testing.T) {
 
 	test.That(t, imgLazy.(*LazyEncodedImage).MIMEType(), test.ShouldEqual, utils.MimeTypePNG)
 	test.That(t, func() { imgLazy.Bounds() }, test.ShouldPanic)
+	test.That(t, func() { imgLazy.ColorModel() }, test.ShouldPanicWith, image.ErrFormat)
+	test.That(t, func() { NewColorFromColor(imgLazy.At(0, 0)) }, test.ShouldPanicWith, image.ErrFormat)
 	test.That(t, func() { NewColorFromColor(imgLazy.At(4, 4)) }, test.ShouldPanicWith, image.ErrFormat)
 
 	imgLazy = NewLazyEncodedImage([]byte{1, 2, 3}, "weeeee")
