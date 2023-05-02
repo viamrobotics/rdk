@@ -218,7 +218,7 @@ func (b *sysfsBoard) reconfigureInterrupts(newConf *Config) error {
 	// state.
 	newInterrupts := make(map[string]*digitalInterrupt, len(newConf.DigitalInterrupts))
 
-	// Here's a helper function, which finds the new config for a pre-existing digital interrupt.
+	// This helper function finds the new config (if any) for a pre-existing digital interrupt.
 	findNewDigIntConfig := func(interrupt *digitalInterrupt) *board.DigitalInterruptConfig {
 		for _, newConfig := range newConf.DigitalInterrupts {
 			if newConfig.Pin == interrupt.config.Pin {
@@ -253,13 +253,14 @@ func (b *sysfsBoard) reconfigureInterrupts(newConf *Config) error {
 				                oldInterrupt.config.Pin)
 			}
 		} else {
-			// TODO: reconfigure the interrupt
 			newInterrupts[newConfig.Name] = oldInterrupt
 			if err := oldInterrupt.interrupt.Reconfigure(*newConfig); err != nil {
 				return err
 			}
 		}
 	}
+
+	// Remove any old interrupts that should *not* stick around.
 	b.interrupts = newInterrupts
 
 	// Add any new interrupts that should be freshly made.
@@ -277,34 +278,6 @@ func (b *sysfsBoard) reconfigureInterrupts(newConf *Config) error {
 		}
 	}
 
-	/*
-	for each old interrupt:
-	    if it's either numerically named or in the new config, copy it over to the new map and reconfigure
-		else close it
-	for each old GPIO pin:
-	    if it's in the new config and it's not an interrupt, copy it over
-		else close it
-	for each new interrupt:
-	    if it doesn't exist yet, close the old GPIO pin and then create it
-	for each GPIO pin in the config:
-	    if it's an interrupt, skip it
-		create it
-	*/
-
-	// TODO(RSDK-2684): we dont configure pins so we just unset them here. not really great behavior.
-	// We currently have two implementations of GPIO pins on these boards: one using
-	// libraries from periph.io and one using an ioctl approach. If we're using the
-	// latter, we need to initialize it here.
-	gpios, interrupts, err := b.gpioInitialize( // Defined in gpio.go
-		b.cancelCtx,
-		b.gpioMappings,
-		newConf.DigitalInterrupts,
-		b.logger)
-	if err != nil {
-		return err
-	}
-	b.gpios = gpios
-	b.interrupts = interrupts
 	return nil
 }
 
