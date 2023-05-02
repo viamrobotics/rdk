@@ -18,6 +18,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	frame "go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/slam/fake"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -527,9 +528,9 @@ func TestPlanMapMotion(t *testing.T) {
 
 	// build kinematic base
 	testCfg := resource.Config{
-		Name:              "test",
-		DeprecatedSubtype: base.Subtype.ResourceSubtype,
-		Model:             resource.Model{Name: "wheeled_base"},
+		Name:  "test",
+		API:   slam.API,
+		Model: resource.Model{Name: "wheeled_base"},
 		Frame: &referenceframe.LinkConfig{
 			Parent:   referenceframe.World,
 			Geometry: &spatialmath.GeometryConfig{R: 20},
@@ -538,7 +539,7 @@ func TestPlanMapMotion(t *testing.T) {
 	}
 	testBase, err := wheeled.CreateWheeledBase(ctx, resource.Dependencies{}, testCfg, logger)
 	test.That(t, err, test.ShouldBeNil)
-	kb, err := testBase.(base.KinematicWrappable).WrapWithKinematics(ctx, fake.NewSLAM(resource.NewName("im", "a", "fake", "slam"), logger))
+	kb, err := testBase.(base.KinematicWrappable).WrapWithKinematics(ctx, fake.NewSLAM(resource.NewName(slam.API, "test_slam"), logger))
 	test.That(t, err, test.ShouldBeNil)
 
 	// test ability to plan
@@ -547,9 +548,10 @@ func TestPlanMapMotion(t *testing.T) {
 	dst := spatialmath.NewPoseFromPoint(r3.Vector{0, 100, 0})
 	box, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{0, 50, 0}), r3.Vector{25, 25, 25}, "impediment")
 	test.That(t, err, test.ShouldBeNil)
-	worldState := &referenceframe.WorldState{Obstacles: []*referenceframe.GeometriesInFrame{
-		referenceframe.NewGeometriesInFrame(referenceframe.World, []spatialmath.Geometry{box}),
-	}}
+	worldState, err := referenceframe.NewWorldState(
+		[]*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(referenceframe.World, []spatialmath.Geometry{box})},
+		nil,
+	)
 	plan, err := PlanMapMotion(ctx, logger, dst, kb.ModelFrame(), inputs, worldState, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(plan), test.ShouldBeGreaterThan, 2)

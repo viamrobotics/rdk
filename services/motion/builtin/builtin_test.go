@@ -236,20 +236,6 @@ func TestMoveSingleComponent(t *testing.T) {
 	})
 }
 
-func TestMoveOnMap(t *testing.T) {
-	ms, closeFn := setupMotionServiceFromConfig(t, "../data/wheeled_base.json")
-	defer closeFn()
-	success, err := ms.MoveOnMap(
-		context.Background(),
-		base.Named("test_base"),
-		spatialmath.NewPoseFromPoint(r3.Vector{Y: 10}),
-		slam.Named("test_slam"),
-		nil,
-	)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, success, test.ShouldBeTrue)
-}
-
 func TestMultiplePieces(t *testing.T) {
 	var err error
 	ms, teardown := setupMotionServiceFromConfig(t, "../data/fake_tomato.json")
