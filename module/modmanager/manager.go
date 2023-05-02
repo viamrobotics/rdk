@@ -4,7 +4,6 @@ package modmanager
 import (
 	"context"
 	"io/fs"
-	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -16,7 +15,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/module/v1"
-	"go.viam.com/utils"
+	"go.viam.com/rdk/utils"
 	"go.viam.com/utils/pexec"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -395,14 +394,9 @@ func (mgr *Manager) newOUE(mod *module) func(exitCode int) bool {
 		ctx, cancel := context.WithTimeout(context.Background(), oueTimeout)
 		defer cancel()
 
-		utils.UncheckedErrorFunc(func() error {
-			// Attempt to remove module's .sock file if module did not remove it
-			// already.
-			if _, err := os.Stat(mod.addr); err == nil {
-				return os.Remove(mod.addr)
-			}
-			return nil
-		})
+		// Attempt to remove module's .sock file if module did not remove it
+		// already.
+		utils.RemoveFileNoError(mod.addr)
 
 		var success bool
 		defer func() {
@@ -590,14 +584,9 @@ func (m *module) stopProcess() error {
 	if m.process == nil {
 		return nil
 	}
-	defer utils.UncheckedErrorFunc(func() error {
-		// Attempt to remove module's .sock file if module did not remove it
-		// already.
-		if _, err := os.Stat(m.addr); err == nil {
-			return os.Remove(m.addr)
-		}
-		return nil
-	})
+	// Attempt to remove module's .sock file if module did not remove it
+	// already.
+	defer utils.RemoveFileNoError(m.addr)
 
 	// TODO(RSDK-2551): stop ignoring exit status 143 once Python modules handle
 	// SIGTERM correctly.

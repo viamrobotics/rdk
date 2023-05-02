@@ -2,6 +2,8 @@ package utils
 
 import (
 	"fmt"
+	"go.viam.com/utils"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
@@ -36,4 +38,16 @@ func BuildInDir(dir string) error {
 		return fmt.Errorf(`unexpected output from "go build .": %v`, out)
 	}
 	return nil
+}
+
+// RemoveFileNoError will remove the file at the given path if it exists. Any
+// errors will be suppressed.
+func RemoveFileNoError(path string) {
+	utils.UncheckedErrorFunc(func() error {
+		if _, err := os.Stat(path); err == nil {
+			return os.Remove(path)
+		}
+		return nil
+	})
+
 }

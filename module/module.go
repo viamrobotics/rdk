@@ -17,6 +17,7 @@ import (
 	"go.uber.org/zap"
 	pb "go.viam.com/api/module/v1"
 	robotpb "go.viam.com/api/robot/v1"
+	rutils "go.viam.com/rdk/utils"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
@@ -175,13 +176,8 @@ func (m *Module) Start(ctx context.Context) error {
 	m.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer m.activeBackgroundWorkers.Done()
-		defer utils.UncheckedErrorFunc(func() error {
-			// Attempt to remove module's .sock file.
-			if _, err := os.Stat(m.addr); err == nil {
-				return os.Remove(m.addr)
-			}
-			return nil
-		})
+		// Attempt to remove module's .sock file.
+		defer rutils.RemoveFileNoError(m.addr)
 		m.logger.Infof("server listening at %v", lis.Addr())
 		if err := m.server.Serve(lis); err != nil {
 			m.logger.Errorf("failed to serve: %v", err)
