@@ -27,8 +27,7 @@ func TestFakeSLAMGetPosition(t *testing.T) {
 	p, componentReference, err := slamSvc.GetPosition(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, componentReference, test.ShouldEqual, expectedComponentReference)
-	fmt.Println(p.Point())
-	fmt.Println(p.Orientation())
+
 	// spatialmath.PoseAlmostEqual is used here as tiny differences were observed
 	// in floating point values between M1 mac & arm64 linux which
 	// were causing tests to pass on M1 mac but fail on ci.
