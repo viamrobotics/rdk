@@ -576,7 +576,7 @@ func (r *localRobot) getWeakDependencies(resName resource.Name, api resource.API
 		switch {
 		case n.API.IsComponent():
 			components[n] = res
-		case n.API.SubtypeName == slam.SubtypeName:
+		case n.API.SubtypeName == slam.API.SubtypeName:
 			slamServices[n] = res
 		case n.API.Type.Namespace == resource.APINamespaceRDKInternal:
 			internalResources[n] = res
@@ -586,7 +586,7 @@ func (r *localRobot) getWeakDependencies(resName resource.Name, api resource.API
 	deps := make(resource.Dependencies, len(weakDepMatchers))
 	for _, matcher := range weakDepMatchers {
 		match := func(resouces map[resource.Name]resource.Resource) {
-			for k, v := range components {
+			for k, v := range resouces {
 				if k == resName {
 					continue
 				}

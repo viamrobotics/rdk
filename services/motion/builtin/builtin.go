@@ -81,7 +81,7 @@ func (ms *builtIn) Reconfigure(
 			slamServices[name] = dep
 		}
 	}
-
+	ms.slamServices = slamServices
 	return nil
 }
 

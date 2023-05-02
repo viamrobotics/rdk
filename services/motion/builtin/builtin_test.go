@@ -22,6 +22,7 @@ import (
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/motion"
+	_ "go.viam.com/rdk/services/register"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/spatialmath"
 )

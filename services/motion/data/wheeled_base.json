@@ -1,0 +1,9 @@
+{
+  "services": [
+    {
+      "model": "fake",
+      "name": "test_slam",
+      "type": "slam"
+    }
+  ]
+}
