@@ -29,12 +29,12 @@ const gridHelperScalar = 4;
 const axesHelperSize = 8;
 
 // Note: updating the scale of the destination or base marker requires an offset update
-const baseMarkerScalar = 0.02;
+const baseMarkerScalar = 0.002;
 const destinationMarkerScalar = 0.1;
 
 const baseMarkerOffset: SvgOffset = {
-  x: 0.35,
-  y: 0,
+  x: -0.1,
+  y: -0.3,
   z: 0,
 };
 
