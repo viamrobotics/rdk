@@ -207,6 +207,8 @@ const updatePose = async (newPose: commonApi.Pose) => {
   const baseMarker = scene.getObjectByName('BaseMarker') ??
     await makeMarker(baseMarkerUrl, 'BaseMarker', baseMarkerScalar);
   baseMarker.position.set(x + baseMarkerOffset.x, y + baseMarkerOffset.y, z + baseMarkerOffset.z);
+  const theta = newPose.getTheta();
+  baseMarker.rotateZ(theta);
 };
 
 /*
@@ -270,7 +272,6 @@ const updateOrRemoveDestinationMarker = async () => {
   if (props.destVector && props.destExists) {
     const marker = scene.getObjectByName('DestinationMarker') ??
       await makeMarker(destMarkerUrl, 'DestinationMarker', destinationMarkerScalar);
-    console.log('props.destVector:', props.destVector);
     marker.position.set(
       props.destVector.x + destinationMarkerOffset.x,
       props.destVector.y + destinationMarkerOffset.y,
