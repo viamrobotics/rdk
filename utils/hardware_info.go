@@ -4,14 +4,12 @@ import (
 	"runtime"
 )
 
-// returns the architecture of the board
+// GetArchitectureInfo returns the architecture of the board.
 func GetArchitectureInfo() string {
-	var arch string = runtime.GOARCH
-	return arch
+	return runtime.GOARCH
 }
 
-// returns the OS of the board.
+// GetOSInfo returns the OS of the board.
 func GetOSInfo() string {
-	var os string = runtime.GOOS
-	return os
+	return runtime.GOOS
 }
