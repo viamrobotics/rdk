@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
 )
 
@@ -15,14 +16,9 @@ type Parts []*referenceframe.FrameSystemPart
 
 // Config is a slice of *config.FrameSystemPart.
 type Config struct {
+	resource.TriviallyValidateConfig
 	Parts
-}
-
-func (cfg Config) Validate(path string) ([]string, error) {
-	// TODO(rb): not sure how I should be validating this.
-	// Dependencies that are returned are strong dependencies and therefore not something we should do here?
-	// Can I make this TriviallyValidated?
-	return nil, nil
+	AdditionalTransforms []*referenceframe.LinkInFrame
 }
 
 // String prints out a table of each frame in the system, with columns of name, parent, translation and orientation.
@@ -69,11 +65,78 @@ func PrefixRemoteParts(parts Parts, remoteName string, remoteParent string) {
 	}
 }
 
-// NewMissingParentError returns an error for when a part has named a parent
-// whose part is missing from the collection of Parts that are undergoing
-// topological sorting.
-func NewMissingParentError(partName, parentName string) error {
-	return fmt.Errorf("part with name %s references non-existent parent %s", partName, parentName)
+// Names returns the names of input parts.
+func Names(parts Parts) []string {
+	names := make([]string, len(parts))
+	for i, p := range parts {
+		names[i] = p.FrameConfig.Name()
+	}
+	return names
+}
+
+// NewFrameSystemFromConfig assembles a frame system from a given config.
+func NewFrameSystemFromConfig(name string, cfg *Config) (referenceframe.FrameSystem, error) {
+	allParts := make(Parts, 0)
+	allParts = append(allParts, cfg.Parts...)
+	for _, tf := range cfg.AdditionalTransforms {
+		transformPart, err := referenceframe.LinkInFrameToFrameSystemPart(tf)
+		if err != nil {
+			return nil, err
+		}
+		allParts = append(allParts, transformPart)
+	}
+
+	// ensure that at least one frame connects to world if the frame system is not empty
+	if len(allParts) != 0 {
+		hasWorld := false
+		for _, part := range allParts {
+			if part.FrameConfig.Parent() == referenceframe.World {
+				hasWorld = true
+				break
+			}
+		}
+		if !hasWorld {
+			return nil, errors.New("there are no robot parts that connect to a 'world' node. Root node must be named 'world'")
+		}
+	}
+	// Topologically sort parts
+	sortedParts, err := TopologicallySort(allParts)
+	if err != nil {
+		return nil, err
+	}
+	if len(sortedParts) != len(allParts) {
+		return nil, errors.Errorf(
+			"frame system has disconnected frames. connected frames: %v, all frames: %v",
+			Names(sortedParts),
+			Names(allParts),
+		)
+	}
+	fs := referenceframe.NewEmptySimpleFrameSystem(name)
+	for _, part := range sortedParts {
+		// rename everything with prefixes
+		part.FrameConfig.SetName(part.FrameConfig.Name())
+		// prefixing for the world frame is only necessary in the case
+		// of merging multiple frame systems together, so we leave that
+		// reponsibility to the corresponding merge function
+		if part.FrameConfig.Parent() != referenceframe.World {
+			part.FrameConfig.SetParent(part.FrameConfig.Parent())
+		}
+		// make the frames from the configs
+		modelFrame, staticOffsetFrame, err := referenceframe.CreateFramesFromPart(part)
+		if err != nil {
+			return nil, err
+		}
+		// attach static offset frame to parent, attach model frame to static offset frame
+		err = fs.AddFrame(staticOffsetFrame, fs.Frame(part.FrameConfig.Parent()))
+		if err != nil {
+			return nil, err
+		}
+		err = fs.AddFrame(modelFrame, staticOffsetFrame)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return fs, nil
 }
 
 // TopologicallySort takes a potentially un-ordered slice of frame system parts and
@@ -122,13 +185,4 @@ func TopologicallySort(parts Parts) (Parts, error) {
 		}
 	}
 	return topoSortedParts, nil
-}
-
-// Names returns the names of input parts.
-func Names(parts Parts) []string {
-	names := make([]string, len(parts))
-	for i, p := range parts {
-		names[i] = p.FrameConfig.Name()
-	}
-	return names
 }

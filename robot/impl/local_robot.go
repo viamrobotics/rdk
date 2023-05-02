@@ -754,7 +754,7 @@ func (r *localRobot) FrameSystemConfig(ctx context.Context) (*framesystem.Config
 		return nil, err
 	}
 
-	return &framesystem.Config{append(localParts, remoteParts...)}, nil
+	return &framesystem.Config{Parts: append(localParts, remoteParts...)}, nil
 }
 
 // getLocalParts collects and returns the physical parts of the robot that may have frame info,

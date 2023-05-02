@@ -104,7 +104,7 @@ func (svc *frameSystemService) Reconfigure(ctx context.Context, deps resource.De
 		return err
 	}
 	svc.parts = sortedParts
-	svc.logger.Debugf("updated robot frame system:\n%v", (&Config{sortedParts}).String())
+	svc.logger.Debugf("updated robot frame system:\n%v", (&Config{Parts: sortedParts}).String())
 	return nil
 }
 
@@ -208,22 +208,10 @@ func (svc *frameSystemService) FrameSystem(
 ) (referenceframe.FrameSystem, error) {
 	ctx, span := trace.StartSpan(ctx, "services::framesystem::FrameSystem")
 	defer span.End()
-
-	allParts := make(Parts, 0)
-	allParts = append(allParts, svc.parts...)
-	for _, transformMsg := range additionalTransforms {
-		transformPart, err := referenceframe.LinkInFrameToFrameSystemPart(transformMsg)
-		if err != nil {
-			return nil, err
-		}
-		allParts = append(allParts, transformPart)
-	}
-
-	fs, err := NewFrameSystemFromParts(LocalFrameSystemName, "", allParts, svc.logger)
-	if err != nil {
-		return nil, err
-	}
-	return fs, nil
+	return NewFrameSystemFromConfig(LocalFrameSystemName, &Config{
+		Parts:                svc.parts,
+		AdditionalTransforms: additionalTransforms,
+	})
 }
 
 // TransformPointCloud applies the same pose offset to each point in a single pointcloud and returns the transformed point cloud.

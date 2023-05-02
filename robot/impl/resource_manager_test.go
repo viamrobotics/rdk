@@ -1785,10 +1785,7 @@ func (rr *dummyRobot) ResourceByName(name resource.Name) (resource.Resource, err
 }
 
 // FrameSystemConfig returns a remote robot's FrameSystem Config.
-func (rr *dummyRobot) FrameSystemConfig(
-	ctx context.Context,
-	additionalTransforms []*referenceframe.LinkInFrame,
-) (framesystem.Parts, error) {
+func (rr *dummyRobot) FrameSystemConfig(ctx context.Context) (*framesystem.Config, error) {
 	panic("change to return nil")
 }
 

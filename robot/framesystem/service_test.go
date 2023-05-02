@@ -20,14 +20,13 @@ import (
 	robotimpl "go.viam.com/rdk/robot/impl"
 	_ "go.viam.com/rdk/services/register"
 	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/testutils"
-	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/testutils/robottestutils"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
 func TestFrameSystemFromConfig(t *testing.T) {
 	// use robot/impl/data/fake.json as config input
+	ctx := context.Background()
 	emptyIn := []referenceframe.Input{}
 	zeroIn := []referenceframe.Input{{Value: 0.0}}
 	blankPos := make(map[string][]referenceframe.Input)
@@ -39,7 +38,7 @@ func TestFrameSystemFromConfig(t *testing.T) {
 	r, err := robotimpl.New(context.Background(), cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer r.Close(context.Background())
-	svc, err := framesystem.FromRobot(r)
+	fsCfg, err := r.FrameSystemConfig(ctx)
 	test.That(t, err, test.ShouldBeNil)
 
 	// use fake registrations to have a FrameSystem return
@@ -48,7 +47,7 @@ func TestFrameSystemFromConfig(t *testing.T) {
 		&spatialmath.R4AA{Theta: math.Pi / 2, RX: 0., RY: 1., RZ: 0.},
 	)
 
-	transforms := []*referenceframe.LinkInFrame{
+	fsCfg.AdditionalTransforms = []*referenceframe.LinkInFrame{
 		referenceframe.NewLinkInFrame("pieceArm", testPose, "frame1", nil),
 		referenceframe.NewLinkInFrame("pieceGripper", testPose, "frame2", nil),
 		referenceframe.NewLinkInFrame("frame2", testPose, "frame2a", nil),
@@ -56,7 +55,7 @@ func TestFrameSystemFromConfig(t *testing.T) {
 		referenceframe.NewLinkInFrame(referenceframe.World, testPose, "frame3", nil),
 	}
 
-	fs, err := svc.FrameSystem(context.Background(), transforms)
+	fs, err := framesystem.NewFrameSystemFromConfig("test", fsCfg)
 	test.That(t, err, test.ShouldBeNil)
 	// 4 frames defined + 5 from transforms, 18 frames when including the offset,
 	test.That(t, len(fs.FrameNames()), test.ShouldEqual, 18)
@@ -149,88 +148,67 @@ func TestFrameSystemFromConfig(t *testing.T) {
 	pointAlmostEqual(t, transformPose.Pose().Point(), gripperPt)
 }
 
-// All of these config files should fail.
 func TestWrongFrameSystems(t *testing.T) {
-	// use impl/data/fake_wrongconfig*.json as config input
-	logger := golog.NewTestLogger(t)
-	cfg, err := config.Read(context.Background(), rdkutils.ResolveFile("robot/impl/data/fake_wrongconfig2.json"), logger) // no world node
-	test.That(t, err, test.ShouldBeNil)
-
-	injectRobot := &inject.Robot{}
-	injectRobot.ConfigFunc = func(ctx context.Context) (*config.Config, error) {
-		return cfg, nil
-	}
-
-	injectRobot.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
-		return testutils.NewUnimplementedResource(name), nil
-	}
-
-	injectRobot.RemoteNamesFunc = func() []string {
-		return []string{}
-	}
-
-	var resources map[resource.Name]resource.Resource
 	ctx := context.Background()
-	service := framesystem.New(ctx, injectRobot, logger)
-	err = service.Reconfigure(ctx, resources, resource.Config{})
-	test.That(t, err, test.ShouldBeError, NewMissingParentError("pieceArm", "base"))
-	cfg, err = config.Read(
-		context.Background(),
-		rdkutils.ResolveFile("robot/impl/data/fake_wrongconfig3.json"),
-		logger,
-	) // one of the nodes was given the name world
-	test.That(t, err, test.ShouldBeNil)
+	logger := golog.NewTestLogger(t)
 
-	injectRobot.ConfigFunc = func(ctx context.Context) (*config.Config, error) {
-		return cfg, nil
+	testCases := []struct {
+		name string
+		num  string
+		err  error
+	}{
+		{"no world node", "2", framesystem.NewMissingParentError("pieceArm", "base")},
+		{"frame named world", "3", errors.Errorf("cannot give frame system part the name %s", referenceframe.World)},
+		{"parent field empty", "4", errors.New("parent field in frame config for part \"cameraOver\" is empty")},
 	}
-	err = service.Reconfigure(ctx, resources, resource.Config{})
-	test.That(t, err, test.ShouldBeError, errors.Errorf("cannot give frame system part the name %s", referenceframe.World))
 
-	cfg, err = config.Read(
-		context.Background(),
-		rdkutils.ResolveFile("robot/impl/data/fake_wrongconfig4.json"),
-		logger,
-	) // the parent field was left empty for a component
-	test.That(t, err, test.ShouldBeNil)
-
-	injectRobot.ConfigFunc = func(ctx context.Context) (*config.Config, error) {
-		return cfg, nil
+	// no world node
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg, err := config.Read(ctx, rdkutils.ResolveFile("robot/impl/data/fake_wrongconfig"+tc.num+".json"), logger)
+			test.That(t, err, test.ShouldBeNil)
+			r, err := robotimpl.New(ctx, cfg, logger)
+			test.That(t, err, test.ShouldBeNil)
+			defer r.Close(ctx)
+			fsCfg, err := r.FrameSystemConfig(ctx)
+			test.That(t, err, test.ShouldBeNil)
+			_, err = framesystem.NewFrameSystemFromConfig(tc.num, fsCfg)
+			test.That(t, err, test.ShouldBeError, tc.err)
+		})
 	}
-	err = service.Reconfigure(ctx, resources, resource.Config{})
-	test.That(t, err, test.ShouldBeError, errors.New("parent field in frame config for part \"cameraOver\" is empty"))
 
-	testPose := spatialmath.NewPose(
-		r3.Vector{X: 1., Y: 2., Z: 3.},
-		&spatialmath.R4AA{Theta: math.Pi / 2, RX: 0., RY: 1., RZ: 0.},
-	)
-
-	cfg, err = config.Read(context.Background(), rdkutils.ResolveFile("robot/impl/data/fake.json"), logger)
+	cfg, err := config.Read(ctx, rdkutils.ResolveFile("robot/impl/data/fake.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
-
-	r, err := robotimpl.New(context.Background(), cfg, logger)
+	r, err := robotimpl.New(ctx, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
-	defer r.Close(context.Background())
+	defer r.Close(ctx)
 
-	transforms := []*referenceframe.LinkInFrame{
-		referenceframe.NewLinkInFrame("pieceArm", testPose, "frame1", nil),
-		referenceframe.NewLinkInFrame("noParent", testPose, "frame2", nil),
-	}
-	svc, err := framesystem.FromRobot(r)
-	test.That(t, err, test.ShouldBeNil)
-	fs, err := svc.FrameSystem(context.Background(), transforms)
+	testPose := spatialmath.NewPose(r3.Vector{X: 1., Y: 2., Z: 3.}, &spatialmath.R4AA{Theta: math.Pi / 2, RX: 0., RY: 1., RZ: 0.})
 
-	test.That(t, err, test.ShouldBeError, NewMissingParentError("frame2", "noParent"))
-	test.That(t, fs, test.ShouldBeNil)
+	t.Run("frame missing parent", func(t *testing.T) {
+		transforms := []*referenceframe.LinkInFrame{
+			referenceframe.NewLinkInFrame("pieceArm", testPose, "frame1", nil),
+			referenceframe.NewLinkInFrame("noParent", testPose, "frame2", nil),
+		}
+		fsCfg, err := r.FrameSystemConfig(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		fsCfg.AdditionalTransforms = transforms
+		fs, err := framesystem.NewFrameSystemFromConfig("test", fsCfg)
+		test.That(t, err, test.ShouldBeError, framesystem.NewMissingParentError("frame2", "noParent"))
+		test.That(t, fs, test.ShouldBeNil)
+	})
 
-	transforms = []*referenceframe.LinkInFrame{
-		referenceframe.NewLinkInFrame("pieceArm", testPose, "", nil),
-	}
-	svc, err = framesystem.FromRobot(r)
-	test.That(t, err, test.ShouldBeNil)
-	fs, err = svc.FrameSystem(context.Background(), transforms)
-	test.That(t, err, test.ShouldBeError, referenceframe.ErrEmptyStringFrameName)
-	test.That(t, fs, test.ShouldBeNil)
+	t.Run("empty string frame name", func(t *testing.T) {
+		transforms := []*referenceframe.LinkInFrame{
+			referenceframe.NewLinkInFrame("pieceArm", testPose, "", nil),
+		}
+		fsCfg, err := r.FrameSystemConfig(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		fsCfg.AdditionalTransforms = transforms
+		fs, err := framesystem.NewFrameSystemFromConfig("test", fsCfg)
+		test.That(t, err, test.ShouldBeError, referenceframe.ErrEmptyStringFrameName)
+		test.That(t, fs, test.ShouldBeNil)
+	})
 }
 
 func TestServiceWithRemote(t *testing.T) {
@@ -319,14 +297,15 @@ func TestServiceWithRemote(t *testing.T) {
 
 	r2, err := robotimpl.New(context.Background(), localConfig, logger)
 	test.That(t, err, test.ShouldBeNil)
-	svc, err := framesystem.FromRobot(r2)
+	fsCfg, err := r2.FrameSystemConfig(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	fs, err := svc.FrameSystem(context.Background(), transforms)
+	fsCfg.AdditionalTransforms = transforms
+	fs, err := framesystem.NewFrameSystemFromConfig("test", fsCfg)
 
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fs.FrameNames(), test.ShouldHaveLength, 34)
 	// run the frame system service
-	allParts, err := r2.FrameSystemConfig(context.Background(), transforms)
+	allParts, err := r2.FrameSystemConfig(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	t.Logf("frame system:\n%v", allParts)
 	test.That(t, r2.Close(context.Background()), test.ShouldBeNil)

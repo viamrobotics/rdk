@@ -300,7 +300,7 @@ func TestConfigRemote(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(cfg2.Components), test.ShouldEqual, 2)
 
-	fsConfig, err := r2.FrameSystemConfig(context.Background(), nil)
+	fsConfig, err := r2.FrameSystemConfig(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fsConfig, test.ShouldHaveLength, 12)
 
@@ -1210,11 +1210,8 @@ func TestStatusRemote(t *testing.T) {
 	statusCallCount := 0
 
 	// TODO: RSDK-882 will update this so that this is not necessary
-	frameSystemConfigFunc := func(
-		ctx context.Context,
-		additionalTransforms []*referenceframe.LinkInFrame,
-	) (framesystem.Parts, error) {
-		return framesystem.Parts{
+	frameSystemConfigFunc := func(ctx context.Context) (*framesystem.Config, error) {
+		return &framesystem.Config{Parts: framesystem.Parts{
 			&referenceframe.FrameSystemPart{
 				FrameConfig: referenceframe.NewLinkInFrame(referenceframe.World, nil, "arm1", nil),
 				ModelFrame:  referenceframe.NewSimpleModel("arm1"),
@@ -1223,7 +1220,7 @@ func TestStatusRemote(t *testing.T) {
 				FrameConfig: referenceframe.NewLinkInFrame(referenceframe.World, nil, "arm2", nil),
 				ModelFrame:  referenceframe.NewSimpleModel("arm2"),
 			},
-		}, nil
+		}}, nil
 	}
 
 	injectRobot1 := &inject.Robot{

@@ -11,39 +11,26 @@ import (
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/framesystem"
+	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/testutils/inject"
 )
 
 // A robot with no components should return a frame system with just a world referenceframe.
 func TestEmptyConfigFrameService(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	injectRobot := &inject.Robot{}
-	cfg := config.Config{
-		Components: []resource.Config{},
-	}
-	injectRobot.ConfigFunc = func(ctx context.Context) (*config.Config, error) {
-		return &cfg, nil
-	}
-	injectRobot.RemoteNamesFunc = func() []string {
-		return []string{}
-	}
-
 	ctx := context.Background()
-	service := framesystem.New(ctx, injectRobot, logger)
-	parts, err := service.Config(ctx, nil)
+	r, err := robotimpl.New(ctx, &config.Config{}, logger)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, parts, test.ShouldHaveLength, 0)
-	fs, err := framesystem.NewFrameSystemFromParts("test", "", parts, logger)
+	fsCfg, err := r.FrameSystemConfig(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, fsCfg.Parts, test.ShouldHaveLength, 0)
+	fs, err := framesystem.NewFrameSystemFromConfig("test", fsCfg)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fs.FrameNames(), test.ShouldHaveLength, 0)
 }
 
 func TestNewFrameSystemFromParts(t *testing.T) {
-	logger := golog.NewTestLogger(t)
-
 	o1 := &spatialmath.R4AA{Theta: math.Pi / 2, RZ: 1}
 	o1Cfg, err := spatialmath.NewOrientationConfig(o1)
 	test.That(t, err, test.ShouldBeNil)
@@ -66,7 +53,7 @@ func TestNewFrameSystemFromParts(t *testing.T) {
 	lif2, err := l2.ParseConfig()
 	test.That(t, err, test.ShouldBeNil)
 
-	fsConfigs := []*referenceframe.FrameSystemPart{
+	parts := []*referenceframe.FrameSystemPart{
 		{
 			FrameConfig: lif1,
 		},
@@ -74,7 +61,7 @@ func TestNewFrameSystemFromParts(t *testing.T) {
 			FrameConfig: lif2,
 		},
 	}
-	frameSys, err := framesystem.NewFrameSystemFromParts("", "", fsConfigs, logger)
+	frameSys, err := framesystem.NewFrameSystemFromConfig("test", &framesystem.Config{Parts: parts})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, frameSys, test.ShouldNotBeNil)
 	frame1 := frameSys.Frame("frame1")
@@ -97,8 +84,6 @@ func TestNewFrameSystemFromParts(t *testing.T) {
 }
 
 func TestNewFrameSystemFromPartsBadConfig(t *testing.T) {
-	logger := golog.NewTestLogger(t)
-
 	o1 := &spatialmath.R4AA{Theta: math.Pi / 2, RZ: 1}
 	o1Cfg, err := spatialmath.NewOrientationConfig(o1)
 	test.That(t, err, test.ShouldBeNil)
@@ -111,12 +96,12 @@ func TestNewFrameSystemFromPartsBadConfig(t *testing.T) {
 	lif1, err := l1.ParseConfig()
 	test.That(t, err, test.ShouldBeNil)
 
-	badFSConfigs := []*referenceframe.FrameSystemPart{
+	badParts := []*referenceframe.FrameSystemPart{
 		{
 			FrameConfig: lif1,
 		},
 	}
-	fs, err := framesystem.NewFrameSystemFromParts("", "", badFSConfigs, logger)
+	fs, err := framesystem.NewFrameSystemFromConfig("test", &framesystem.Config{Parts: badParts})
 	test.That(t, err.Error(), test.ShouldContainSubstring, "there are no robot parts that connect to a 'world' node.")
 	test.That(t, fs, test.ShouldBeNil)
 }

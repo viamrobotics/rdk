@@ -322,10 +322,8 @@ func TestServerFrameSystemConfig(t *testing.T) {
 			},
 		}
 
-		injectRobot.FrameSystemConfigFunc = func(
-			ctx context.Context, additionalTransforms []*referenceframe.LinkInFrame,
-		) (framesystem.Parts, error) {
-			return framesystem.Parts(fsConfigs), nil
+		injectRobot.FrameSystemConfigFunc = func(ctx context.Context) (*framesystem.Config, error) {
+			return &framesystem.Config{Parts: fsConfigs}, nil
 		}
 		server := server.New(injectRobot)
 		req := &pb.FrameSystemConfigRequest{}
@@ -379,9 +377,7 @@ func TestServerFrameSystemConfig(t *testing.T) {
 
 	t.Run("test failing config function", func(t *testing.T) {
 		expectedErr := errors.New("failed to retrieve config")
-		injectRobot.FrameSystemConfigFunc = func(
-			ctx context.Context, additionalTransforms []*referenceframe.LinkInFrame,
-		) (framesystem.Parts, error) {
+		injectRobot.FrameSystemConfigFunc = func(ctx context.Context) (*framesystem.Config, error) {
 			return nil, expectedErr
 		}
 		req := &pb.FrameSystemConfigRequest{}
