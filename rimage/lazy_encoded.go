@@ -13,10 +13,12 @@ type LazyEncodedImage struct {
 	imgBytes []byte
 	mimeType string
 
-	decodeOnce       sync.Once
+	decodeOnce   sync.Once
+	decodeErr    interface{}
+	decodedImage image.Image
+
 	decodeConfigOnce sync.Once
-	decodeErr        interface{}
-	decodedImage     image.Image
+	decodeConfigErr  interface{}
 	bounds           *image.Rectangle
 	colorModel       color.Model
 }
@@ -55,19 +57,19 @@ func (lei *LazyEncodedImage) decodeConfig() {
 	lei.decodeConfigOnce.Do(func() {
 		defer func() {
 			if err := recover(); err != nil {
-				lei.decodeErr = err
+				lei.decodeConfigErr = err
 			}
 		}()
 		reader := bytes.NewReader(lei.imgBytes)
 		header, _, err := image.DecodeConfig(reader)
-		lei.decodeErr = err
+		lei.decodeConfigErr = err
 		if err == nil {
 			lei.bounds = &image.Rectangle{image.Point{0, 0}, image.Point{header.Width, header.Height}}
 			lei.colorModel = header.ColorModel
 		}
 	})
-	if lei.decodeErr != nil {
-		panic(lei.decodeErr)
+	if lei.decodeConfigErr != nil {
+		panic(lei.decodeConfigErr)
 	}
 }
 
