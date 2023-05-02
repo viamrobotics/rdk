@@ -8,6 +8,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
+	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/generic"
@@ -334,14 +335,19 @@ func TestModuleReloading(t *testing.T) {
 		test.That(t, resp["command"], test.ShouldEqual, "echo")
 
 		// Run 'kill_module' command through helper resource to cause module to exit
-		// with error. Assert that within five seconds, helper is modularly managed
-		// again and remains functional.
+		// with error. Assert that after module is restarted, helper is modularly
+		// managed again and remains functional.
 		_, err = h.DoCommand(ctx, map[string]interface{}{"command": "kill_module"})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring,
 			"error reading from server")
 
-		time.Sleep(5 * time.Second)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			test.That(tb, logs.FilterMessageSnippet("test-module successfully restarted").Len(),
+				test.ShouldEqual, 1)
+		})
+
 		ok = mgr.IsModularResource(rNameMyHelper)
 		test.That(t, ok, test.ShouldBeTrue)
 		resp, err = h.DoCommand(ctx, map[string]interface{}{"command": "echo"})
@@ -352,14 +358,12 @@ func TestModuleReloading(t *testing.T) {
 		err = mgr.Close(ctx)
 		test.That(t, err, test.ShouldBeNil)
 
-		// Test that logs reflect that test-module crashed and was successfully
-		// restarted.
+		// Assert that logs reflect that test-module crashed and there were no
+		// errors during restart.
 		test.That(t, logs.FilterMessageSnippet("test-module has unexpectedly exited").Len(),
 			test.ShouldEqual, 1)
 		test.That(t, logs.FilterMessageSnippet("error while restarting crashed module").Len(),
 			test.ShouldEqual, 0)
-		test.That(t, logs.FilterMessageSnippet("test-module successfully restarted").Len(),
-			test.ShouldEqual, 1)
 	})
 	t.Run("unsuccessful restart", func(t *testing.T) {
 		logger, logs := golog.NewObservedTestLogger(t)
@@ -396,15 +400,19 @@ func TestModuleReloading(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		oueRestartInterval = 10 * time.Millisecond
 
-		// Run 'kill_module' command through helper resource to cause module to exit
-		// with error. Assert that within five seconds, helper is not modularly
-		// managed and commands return error.
+		// Run 'kill_module' command through helper resource to cause module to
+		// exit with error. Assert that after three restart errors occur, helper is
+		// not modularly managed and commands return error.
 		_, err = h.DoCommand(ctx, map[string]interface{}{"command": "kill_module"})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring,
 			"error reading from server")
 
-		time.Sleep(5 * time.Second)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			test.That(tb, logs.FilterMessageSnippet("error while restarting crashed module").Len(),
+				test.ShouldEqual, 3)
+		})
 
 		ok = mgr.IsModularResource(rNameMyHelper)
 		test.That(t, ok, test.ShouldBeFalse)
@@ -416,12 +424,10 @@ func TestModuleReloading(t *testing.T) {
 		err = mgr.Close(ctx)
 		test.That(t, err, test.ShouldBeNil)
 
-		// Test that logs reflect that test-module crashed and then errored during
-		// restart three times.
+		// Assert that logs reflect that test-module crashed and was not
+		// successfully restarted.
 		test.That(t, logs.FilterMessageSnippet("test-module has unexpectedly exited").Len(),
 			test.ShouldEqual, 1)
-		test.That(t, logs.FilterMessageSnippet("error while restarting crashed module").Len(),
-			test.ShouldEqual, 3)
 		test.That(t, logs.FilterMessageSnippet("test-module successfully restarted").Len(),
 			test.ShouldEqual, 0)
 	})

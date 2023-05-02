@@ -2569,26 +2569,13 @@ func TestOrphanedResources(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring,
 			"error reading from server")
 
-		// Check for "attempt 3" in logs every 100ms for 20s max.
-		waitForThirdAttempt := func() {
-			timer := time.NewTimer(20 * time.Second)
-			tick := time.NewTicker(100 * time.Millisecond)
-			defer timer.Stop()
-			defer tick.Stop()
-			for range tick.C {
-				select {
-				case <-timer.C:
-					t.Fatal("timed out waiting for 'attempt3' in server logs")
-				default:
-				}
-
-				if logs.FilterMessageSnippet("attempt 3").Len() > 0 {
-					time.Sleep(2 * time.Second)
-					break
-				}
-			}
-		}
-		waitForThirdAttempt()
+		// Wait for "attempt 3" in logs.
+		testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
+			tb.Helper()
+			test.That(tb, logs.FilterMessageSnippet("attempt 3").Len(),
+				test.ShouldEqual, 1)
+		})
+		time.Sleep(2 * time.Second)
 
 		_, err = r.ResourceByName(generic.Named("h"))
 		test.That(t, err, test.ShouldNotBeNil)

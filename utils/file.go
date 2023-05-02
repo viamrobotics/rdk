@@ -2,11 +2,13 @@ package utils
 
 import (
 	"fmt"
-	"go.viam.com/utils"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+
+	"go.uber.org/multierr"
+	"go.viam.com/utils"
 )
 
 // ResolveFile returns the path of the given file relative to the root
@@ -31,11 +33,8 @@ func BuildInDir(dir string) error {
 	builder := exec.Command("go", "build", ".")
 	builder.Dir = ResolveFile(dir)
 	out, err := builder.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("go build error: %w", err)
-	}
-	if string(out) != "" {
-		return fmt.Errorf(`unexpected output from "go build .": %v`, out)
+	if len(out) != 0 {
+		return multierr.Combine(err, fmt.Errorf(`output from "go build .": %s`, out))
 	}
 	return nil
 }
@@ -49,5 +48,4 @@ func RemoveFileNoError(path string) {
 		}
 		return nil
 	})
-
 }

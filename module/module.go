@@ -17,7 +17,6 @@ import (
 	"go.uber.org/zap"
 	pb "go.viam.com/api/module/v1"
 	robotpb "go.viam.com/api/robot/v1"
-	rutils "go.viam.com/rdk/utils"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
@@ -28,6 +27,7 @@ import (
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/client"
+	rutils "go.viam.com/rdk/utils"
 )
 
 // CheckSocketAddressLength returns an error if the socket path is too long for the OS.
