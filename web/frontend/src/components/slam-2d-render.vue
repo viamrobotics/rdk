@@ -33,7 +33,7 @@ const baseMarkerScalar = 0.002;
 const destinationMarkerScalar = 0.1;
 
 const baseMarkerOffset: SvgOffset = {
-  x: -0.1,
+  x: -0.05,
   y: -0.3,
   z: 0,
 };
@@ -207,8 +207,6 @@ const updatePose = async (newPose: commonApi.Pose) => {
   const baseMarker = scene.getObjectByName('BaseMarker') ??
     await makeMarker(baseMarkerUrl, 'BaseMarker', baseMarkerScalar);
   baseMarker.position.set(x + baseMarkerOffset.x, y + baseMarkerOffset.y, z + baseMarkerOffset.z);
-  const theta = newPose.getTheta();
-  baseMarker.rotateZ(theta);
 };
 
 /*
