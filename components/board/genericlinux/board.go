@@ -213,11 +213,10 @@ func (b *sysfsBoard) reconfigureInterrupts(newConf *Config) error {
 		return nil // No digital interrupts to reconfigure.
 	}
 
-	// If we get here, we need to reconfigure b.gpios and b.interrupts. Any pin that already exists
-	// in the right configuration should just be copied over; closing and re-opening it risks
-	// losing its state.
+	// If we get here, we need to reconfigure b.interrupts. Any pin that already exists in the
+	// right configuration should just be copied over; closing and re-opening it risks losing its
+	// state.
 	newInterrupts := make(map[string]*digitalInterrupt, len(newConf.DigitalInterrupts))
-	newGpios := make(map[string]*gpioPin)
 
 	// Here's a helper function, which finds the new config for a pre-existing digital interrupt.
 	findNewDigIntConfig := func(interrupt *digitalInterrupt) *board.DigitalInterruptConfig {
@@ -242,8 +241,17 @@ func (b *sysfsBoard) reconfigureInterrupts(newConf *Config) error {
 	// Reuse any old interrupts that should stick around.
 	for _, oldInterrupt := range b.interrupts {
 		if newConfig := findNewDigIntConfig(oldInterrupt); newConfig == nil {
-			// The old interrupt shouldn't exist any more.
+			// The old interrupt shouldn't exist any more, but it might have become a GPIO pin.
 			oldInterrupt.Close()
+			if pinInt, err := strconv.Atoi(oldInterrupt.config.Pin); err == nil {
+				if newGpioConfig, ok := b.gpioMappings[pinInt]; ok {
+					// See gpio.go for createGpioPin.
+					b.gpios[oldInterrupt.config.Pin] = b.createGpioPin(newGpioConfig)
+				}
+			} else {
+				b.logger.Debugf("Unable to reinterpret old interrupt pin '%s' as GPIO, ignoring.",
+				                oldInterrupt.config.Pin)
+			}
 		} else {
 			newInterrupts[newConfig.Name] = oldInterrupt
 			if err := oldInterrupt.interrupt.Reconfigure(*newConfig); err != nil {
@@ -253,16 +261,17 @@ func (b *sysfsBoard) reconfigureInterrupts(newConf *Config) error {
 	}
 	b.interrupts = newInterrupts
 
-	// Reuse any old GPIO pins that should stick around, too.
-	for pin, oldGpio := range b.gpios {
-		if newConfig, ok := newConf.
-	}
-
 	// Add any new interrupts that should be freshly made.
-	// TODO
-
-	// Finally, add any new GPIO pins.
-	// TODO
+	for _, config := range newConf.DigitalInterrupts {
+		if _, ok := b.interrupts[config.Name]; !ok {
+			// TODO: remove GPIO pins
+			if interrupt, err := b.createDigitalInterrupt(b.cancelCtx, config, b.gpioMappings); err != nil {
+				return err
+			} else {
+				b.interrupts[config.Name] = interrupt
+			}
+		}
+	}
 
 	/*
 	for each old interrupt:
