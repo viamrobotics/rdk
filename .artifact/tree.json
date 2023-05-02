@@ -50843,6 +50843,266 @@
           }
         },
         "position_new": {}
+      },
+      "viam-office-02-22-2": {
+        "internal_state": {
+          "internal_state_0.pbstream": {
+            "hash": "abb4a1c3a1c25a8f2a8545b23198d96c",
+            "size": 23872
+          },
+          "internal_state_1.pbstream": {
+            "hash": "c7e6757aa2a21323a2dda2516bec7c4d",
+            "size": 2350050
+          },
+          "internal_state_10.pbstream": {
+            "hash": "718e8ac405ae15c6de0645aa438ceb90",
+            "size": 12809381
+          },
+          "internal_state_11.pbstream": {
+            "hash": "d18956d693a38077c502b606ffb369db",
+            "size": 14224758
+          },
+          "internal_state_12.pbstream": {
+            "hash": "06aa485ba45a9a6e7635170327dc2348",
+            "size": 15790549
+          },
+          "internal_state_13.pbstream": {
+            "hash": "b0cf93a2dca82c24c214acd66270ca7a",
+            "size": 17257004
+          },
+          "internal_state_14.pbstream": {
+            "hash": "f1ee6291eacad4df24a53217955575cd",
+            "size": 18195708
+          },
+          "internal_state_15.pbstream": {
+            "hash": "3a104be614cf08dc90ccc0023ad0e18a",
+            "size": 19872898
+          },
+          "internal_state_16.pbstream": {
+            "hash": "b953d8c10dddfb157c070809bb8bf4d3",
+            "size": 21550020
+          },
+          "internal_state_17.pbstream": {
+            "hash": "9bfd2f779bab1bcf6ce42493342bbd41",
+            "size": 22921669
+          },
+          "internal_state_18.pbstream": {
+            "hash": "09cd3e6c53f44713266d9e30a0549b62",
+            "size": 23938149
+          },
+          "internal_state_19.pbstream": {
+            "hash": "df0985a28f411926bc14fef611adfa9a",
+            "size": 25120461
+          },
+          "internal_state_2.pbstream": {
+            "hash": "5ee848489452f600cdcb675e5eecdd95",
+            "size": 4183609
+          },
+          "internal_state_20.pbstream": {
+            "hash": "da4843b714baa293d3a3bfc1cbdf2e06",
+            "size": 25372551
+          },
+          "internal_state_3.pbstream": {
+            "hash": "43966dcd778c11996bdeacef147b3cd6",
+            "size": 5783452
+          },
+          "internal_state_4.pbstream": {
+            "hash": "1119b0b7734acad11aa6b0f8fa67123b",
+            "size": 5855167
+          },
+          "internal_state_5.pbstream": {
+            "hash": "95a4a7a1394e13033f45721633289e27",
+            "size": 5871656
+          },
+          "internal_state_6.pbstream": {
+            "hash": "ca2096b2602bdb0a8d0227707cb38f74",
+            "size": 7189059
+          },
+          "internal_state_7.pbstream": {
+            "hash": "e80e8fc96460c566ab90bc75905fe1fc",
+            "size": 9330424
+          },
+          "internal_state_8.pbstream": {
+            "hash": "dd59af2c67c810142a4923fe3d2c06e9",
+            "size": 10618435
+          },
+          "internal_state_9.pbstream": {
+            "hash": "6053faf0adb3dd5ee6892da56eaf06f4",
+            "size": 11445172
+          }
+        },
+        "pointcloud": {
+          "pointcloud_0.pcd": {
+            "hash": "f1cac1f493278eea4a957664d74f2e9b",
+            "size": 206634
+          },
+          "pointcloud_1.pcd": {
+            "hash": "ad611360ffaccf4c065521eb21456c5b",
+            "size": 2015532
+          },
+          "pointcloud_10.pcd": {
+            "hash": "11b6650ea351e28842482cb1512b1928",
+            "size": 6375212
+          },
+          "pointcloud_11.pcd": {
+            "hash": "77e26f6a7f41709cc41cb1e60b33b11f",
+            "size": 6148460
+          },
+          "pointcloud_12.pcd": {
+            "hash": "a0d65f21bf71433b82276f655105fff1",
+            "size": 6699052
+          },
+          "pointcloud_13.pcd": {
+            "hash": "2483e0e32bea125b27ee73248c3fc7f3",
+            "size": 7082540
+          },
+          "pointcloud_14.pcd": {
+            "hash": "16aeadf4d76bfa4a1edb65bcb580959b",
+            "size": 7005420
+          },
+          "pointcloud_15.pcd": {
+            "hash": "1055dc5de3fb55b62fc8b25a51c34091",
+            "size": 7238620
+          },
+          "pointcloud_16.pcd": {
+            "hash": "e61dcd8eeb13d7410339da117955f015",
+            "size": 7018108
+          },
+          "pointcloud_17.pcd": {
+            "hash": "7e4a8248033520d8c025b18b0e8f3c6d",
+            "size": 6770396
+          },
+          "pointcloud_18.pcd": {
+            "hash": "0bd65e9ee94bf61120ee96244d85912e",
+            "size": 6510204
+          },
+          "pointcloud_19.pcd": {
+            "hash": "504fe07786f6200e17839cf11d6ec9b5",
+            "size": 6205212
+          },
+          "pointcloud_2.pcd": {
+            "hash": "542e177548cc4ef86a70ba7035ccb9f2",
+            "size": 2979916
+          },
+          "pointcloud_20.pcd": {
+            "hash": "65909fa5d1fe08423339290ed9937b5a",
+            "size": 6183804
+          },
+          "pointcloud_3.pcd": {
+            "hash": "10f22cd990e15344a162649068e84b66",
+            "size": 3569100
+          },
+          "pointcloud_4.pcd": {
+            "hash": "03a7d5ce93650cf7a1bc799d17fcab44",
+            "size": 3607404
+          },
+          "pointcloud_5.pcd": {
+            "hash": "21912ce34ff59db6e5c5a041dc1c8b9e",
+            "size": 3646876
+          },
+          "pointcloud_6.pcd": {
+            "hash": "77b5c2d6d341a7b086265f72d7f4a4ce",
+            "size": 4326972
+          },
+          "pointcloud_7.pcd": {
+            "hash": "7cc8e257e339f8332a8702771d9b9c99",
+            "size": 4186812
+          },
+          "pointcloud_8.pcd": {
+            "hash": "e6d291321194005eaf1d52299dbb78a9",
+            "size": 5387228
+          },
+          "pointcloud_9.pcd": {
+            "hash": "d49298b62a38f22c99282fe7a8b3a92b",
+            "size": 5488492
+          }
+        },
+        "position": {
+          "position_0.json": {
+            "hash": "cea76ce8e16023e8c43c703630c79490",
+            "size": 259
+          },
+          "position_1.json": {
+            "hash": "ef3ee81a5dabb9d6cd7f206d41d20e46",
+            "size": 249
+          },
+          "position_10.json": {
+            "hash": "4aa49ce5abfc2415aa5db7880e897f44",
+            "size": 249
+          },
+          "position_11.json": {
+            "hash": "e8db78c3ca49925b00a0e6de31e3a19b",
+            "size": 251
+          },
+          "position_12.json": {
+            "hash": "f9a48a8d997ac3b3cb46e9d5087be5e4",
+            "size": 249
+          },
+          "position_13.json": {
+            "hash": "45b724173465d2fb028f0fb236c65b2e",
+            "size": 250
+          },
+          "position_14.json": {
+            "hash": "a410cd9d1e8e093681972bf18dabe322",
+            "size": 258
+          },
+          "position_15.json": {
+            "hash": "91b66b84744422f03ed8fa4024666ea3",
+            "size": 252
+          },
+          "position_16.json": {
+            "hash": "1c6037944502b1e2a1faca5f0293479a",
+            "size": 252
+          },
+          "position_17.json": {
+            "hash": "5d5e779dc4f991345419173b926ea7bf",
+            "size": 252
+          },
+          "position_18.json": {
+            "hash": "0d5c0b3bd175f39ac39557213923266d",
+            "size": 249
+          },
+          "position_19.json": {
+            "hash": "8b53884c8e1ab09b8ef7fd889e8dcadb",
+            "size": 249
+          },
+          "position_2.json": {
+            "hash": "10e4badfa740b762f2f973bc4b6e8221",
+            "size": 251
+          },
+          "position_20.json": {
+            "hash": "1a1529fc779d1f1113f389b4a41e1a11",
+            "size": 249
+          },
+          "position_3.json": {
+            "hash": "8c5eab4c8753cde58bac4ff766567b8f",
+            "size": 252
+          },
+          "position_4.json": {
+            "hash": "b3c076234d6b563f343ae2f67c2cdc37",
+            "size": 250
+          },
+          "position_5.json": {
+            "hash": "95ea0ed9dce33df79a6a71490fa38f8f",
+            "size": 253
+          },
+          "position_6.json": {
+            "hash": "fa9370e6cc2d930547a9135f5f8d1d52",
+            "size": 251
+          },
+          "position_7.json": {
+            "hash": "1de5881743203fde13e90ef7461451a4",
+            "size": 246
+          },
+          "position_8.json": {
+            "hash": "705cc45af019e8da13ab30709457ab05",
+            "size": 250
+          },
+          "position_9.json": {
+            "hash": "c127298097d65f4fdc8a7805b47da3cd",
+            "size": 249
+          }
+        }
       }
     },
     "locating_in_map.lua": {
@@ -51566,6 +51826,10 @@
         "hash": "3a047d6fd440b36cbba72e5532ff3548",
         "size": 4563519
       },
+      "effdetlabels.txt": {
+        "hash": "359468bee2538de4c5950190cc1eb002",
+        "size": 699
+      },
       "effnet0.tflite": {
         "hash": "301b893e4701ec6f490c21a2435befbc",
         "size": 7165437
@@ -51573,6 +51837,10 @@
       "fakelabels.txt": {
         "hash": "9b9d5e11ece4e6fe52246a2851636145",
         "size": 50
+      },
+      "imagenetlabels.txt": {
+        "hash": "93b03dc453206b6ce0cd083f96066544",
+        "size": 23685
       },
       "lion.jpeg": {
         "hash": "7a24ee403e1606a0956d63dc744f24de",

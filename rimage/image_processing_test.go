@@ -28,7 +28,7 @@ func doCannyTest(t *testing.T, root string) {
 	goodOnes := 0
 
 	for a := 0.01; a <= .05; a += .005 {
-		outfn := fmt.Sprintf(outDir+"/%s-%v.png", root, int(1000*a))
+		outfn := fmt.Sprintf(t.TempDir()+"/%s-%v.png", root, int(1000*a))
 		t.Log(outfn)
 
 		out, err := SimpleEdgeDetection(img, a, 3.0)
@@ -122,7 +122,7 @@ func TestConvertYCbCr(t *testing.T) {
 	var yuvImg image.YCbCr
 	ImageToYCbCrForTesting(&yuvImg, orig)
 
-	err = WriteImageToFile(outDir+"/canny1-ycbcr.png", &yuvImg)
+	err = WriteImageToFile(t.TempDir()+"/canny1-ycbcr.png", &yuvImg)
 	test.That(t, err, test.ShouldBeNil)
 
 	c1, b1 := colorful.MakeColor(orig.At(100, 100))

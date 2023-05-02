@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
+	"os"
 	"sync"
 	"testing"
 
@@ -527,7 +528,7 @@ func TestManagerAdd(t *testing.T) {
 	injectVisionService := &inject.VisionService{}
 	injectVisionService.GetObjectPointCloudsFunc = func(
 		ctx context.Context,
-		cameraName, segmenterName string,
+		cameraName string,
 		extra map[string]interface{},
 	) ([]*viz.Object, error) {
 		return []*viz.Object{viz.NewEmptyObject()}, nil
@@ -1263,8 +1264,12 @@ func TestConfigRemoteAllowInsecureCreds(t *testing.T) {
 	}()
 
 	altName := primitive.NewObjectID().Hex()
-	cert, _, _, certPool, err := testutils.GenerateSelfSignedCertificate("somename", altName)
+	cert, certFile, keyFile, certPool, err := testutils.GenerateSelfSignedCertificate("somename", altName)
 	test.That(t, err, test.ShouldBeNil)
+	t.Cleanup(func() {
+		os.Remove(certFile)
+		os.Remove(keyFile)
+	})
 
 	leaf, err := x509.ParseCertificate(cert.Certificate[0])
 	test.That(t, err, test.ShouldBeNil)

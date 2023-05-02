@@ -3,7 +3,6 @@ package camera
 import (
 	"bytes"
 	"context"
-	"runtime/debug"
 
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
@@ -84,7 +83,6 @@ func newReadImageCollector(resource interface{}, params data.CollectorParams) (d
 
 		img, release, err := ReadImage(ctx, camera)
 		if err != nil {
-			debug.PrintStack()
 			return nil, data.FailedToReadErr(params.ComponentName, readImage.String(), err)
 		}
 		defer func() {

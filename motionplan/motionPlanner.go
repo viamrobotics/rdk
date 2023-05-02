@@ -9,7 +9,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/utils"
 
@@ -67,12 +66,22 @@ func PlanRobotMotion(ctx context.Context,
 	dst *frame.PoseInFrame,
 	f frame.Frame,
 	r robot.Robot,
-	fs frame.FrameSystem,
 	worldState *frame.WorldState,
 	constraintSpec *pb.Constraints,
 	planningOpts map[string]interface{},
 ) ([]map[string][]frame.Input, error) {
-	seedMap, _, err := framesystem.RobotFsCurrentInputs(ctx, r, fs)
+	// Get the framesystem service if it exists
+	fsSvc, err := framesystem.FromRobot(r)
+	if err != nil {
+		return nil, err
+	}
+
+	fs, err := fsSvc.FrameSystem(ctx, worldState.Transforms())
+	if err != nil {
+		return nil, err
+	}
+
+	seedMap, _, err := fsSvc.AllCurrentInputs(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -159,12 +168,10 @@ func motionPlanInternal(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
-	wsPb := &commonpb.WorldState{}
-	if worldState != nil {
-		wsPb, err = frame.WorldStateToProtobuf(worldState)
-		if err != nil {
-			return nil, err
-		}
+
+	wsPb, err := worldState.ToProtobuf()
+	if err != nil {
+		return nil, err
 	}
 
 	logger.Infof(

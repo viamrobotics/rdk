@@ -41,7 +41,7 @@ func TestNewWatcherNoop(t *testing.T) {
 func TestNewWatcherFile(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
-	temp, err := os.CreateTemp("", "*.json")
+	temp, err := os.CreateTemp(t.TempDir(), "*.json")
 	test.That(t, err, test.ShouldBeNil)
 	defer os.Remove(temp.Name())
 

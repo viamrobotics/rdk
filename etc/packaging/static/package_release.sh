@@ -1,7 +1,7 @@
 #!/bin/bash
 
 set -e
-cd $(realpath $0)
+cd $(dirname $(realpath $0))
 source "../../utils.sh"
 
 if get_version_tag > /dev/null

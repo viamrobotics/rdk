@@ -14,7 +14,7 @@ import (
 
 var model = resource.DefaultModelFamily.WithModel("fake")
 
-const datasetDirectory = "slam/example_cartographer_outputs/viam-office-02-22-1"
+const datasetDirectory = "slam/example_cartographer_outputs/viam-office-02-22-2"
 
 func init() {
 	resource.RegisterService(

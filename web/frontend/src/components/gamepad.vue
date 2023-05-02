@@ -5,13 +5,21 @@ import { grpc } from '@improbable-eng/grpc-web';
 import { onMounted, onUnmounted, watch } from 'vue';
 import { Timestamp } from 'google-protobuf/google/protobuf/timestamp_pb';
 import { ConnectionClosedError } from '@viamrobotics/rpc';
-import { Client, inputControllerApi as InputController, type ServiceError } from '@viamrobotics/sdk';
+import {
+  Client,
+  inputControllerApi as InputController,
+  ResponseStream,
+  robotApi,
+  type ServiceError,
+} from '@viamrobotics/sdk';
 import { toast } from '../lib/toast';
 import { rcLogConditionally } from '../lib/log';
+import { $ref } from 'vue/macros';
 
 const props = defineProps<{
   name: string;
   client: Client;
+  statusStream: ResponseStream<robotApi.StreamStatusResponse> | null
 }>();
 
 let gamepadIdx = $ref<number | null>(null);
@@ -252,6 +260,7 @@ onMounted(() => {
     return;
   }
   prevStates = { ...prevStates, ...curStates };
+  props.statusStream?.on('end', () => clearTimeout(handle));
   tick();
 });
 

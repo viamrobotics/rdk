@@ -84,7 +84,8 @@ type DataCaptureConfig struct {
 
 // Equals checks if one capture config is equal to another.
 func (c *DataCaptureConfig) Equals(other *DataCaptureConfig) bool {
-	return c.Name.String() == other.Name.String() &&
+	return c.Resource == other.Resource &&
+		c.Name.String() == other.Name.String() &&
 		c.Method == other.Method &&
 		c.CaptureFrequencyHz == other.CaptureFrequencyHz &&
 		c.CaptureQueueSize == other.CaptureQueueSize &&

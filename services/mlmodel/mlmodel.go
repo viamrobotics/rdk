@@ -18,7 +18,6 @@ func init() {
 		RPCServiceHandler:           servicepb.RegisterMLModelServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &servicepb.MLModelService_ServiceDesc,
 		RPCClient:                   NewClientFromConn,
-		MaxInstance:                 resource.DefaultMaxInstance,
 	})
 }
 

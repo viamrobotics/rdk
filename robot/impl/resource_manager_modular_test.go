@@ -15,6 +15,7 @@ import (
 	"go.viam.com/rdk/module/modmanager"
 	"go.viam.com/rdk/module/modmaninterface"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/utils"
 )
@@ -198,6 +199,7 @@ func TestModularResources(t *testing.T) {
 			API:                 motion.API,
 			Model:               resource.DefaultServiceModel,
 			ConvertedAttributes: &fake.Config{},
+			DependsOn:           []string{framesystem.InternalServiceName.String()},
 		}
 		_, err = cfg3.Validate("test", resource.APITypeServiceName)
 		test.That(t, err, test.ShouldBeNil)
