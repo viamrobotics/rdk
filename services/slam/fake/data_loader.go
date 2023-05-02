@@ -40,7 +40,7 @@ type position struct {
 }
 
 const (
-	maxDataCount          = 18
+	maxDataCount          = 24
 	internalStateTemplate = "%s/internal_state/internal_state_%d.pbstream"
 	pcdTemplate           = "%s/pointcloud/pointcloud_%d.pcd"
 	positionTemplate      = "%s/position/position_%d.json"
