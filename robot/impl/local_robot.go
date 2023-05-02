@@ -917,25 +917,27 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 		return
 	}
 
-	validateModularResources := func(confs []resource.Config) {
-		for i, c := range confs {
-			if r.modules.Provides(c) {
-				implicitDeps, err := r.modules.ValidateConfig(ctx, c)
-				if err != nil {
-					r.logger.Errorw("modular config validation error found in component: "+c.Name, "error", err)
-					continue
-				}
+	// If something was added, go through components and services in diff.Added,
+	// call Validate on all modularized resources, and store those resources'
+	// implicit dependencies.
+	if diff.Added != nil {
+		validateModularResources := func(confs []resource.Config) {
+			for i, c := range confs {
+				if r.modules.Provides(c) {
+					implicitDeps, err := r.modules.ValidateConfig(ctx, c)
+					if err != nil {
+						r.logger.Errorw("modular config validation error found in resource: "+c.Name, "error", err)
+						continue
+					}
 
-				// Modify component to add its implicit dependencies.
-				confs[i].ImplicitDependsOn = implicitDeps
+					// Modify resource to add its implicit dependencies.
+					confs[i].ImplicitDependsOn = implicitDeps
+				}
 			}
 		}
+		validateModularResources(diff.Added.Components)
+		validateModularResources(diff.Added.Services)
 	}
-
-	// Before reconfiguring, go through resources in newConfig, call Validate on all
-	// modularized resources, and store those resources' implicit dependencies.
-	validateModularResources(newConfig.Components)
-	validateModularResources(newConfig.Services)
 
 	if r.revealSensitiveConfigDiffs {
 		r.logger.Debugf("(re)configuring with %+v", diff)
