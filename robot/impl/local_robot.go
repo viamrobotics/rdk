@@ -426,8 +426,15 @@ func newWithResources(
 		return nil, err
 	}
 
-	// Once web service is started, set parent address in module manager.
+	// Once web service is started, set parent address in module manager and add
+	// initially specified modules.
 	r.manager.moduleManager.SetParentAddress(r.webSvc.ModuleAddress())
+	for _, mod := range cfg.Modules {
+		err := r.manager.moduleManager.Add(ctx, mod)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	r.activeBackgroundWorkers.Add(1)
 	r.configTicker = time.NewTicker(5 * time.Second)
