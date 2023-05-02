@@ -72,6 +72,10 @@ func newBoard(
 		interrupts: map[string]*digitalInterrupt{},
 	}
 
+	for pinNumber, mapping := range gpioMappings {
+		b.gpios[fmt.Sprintf("%d", pinNumber)] = b.createGpioPin(mapping)
+	}
+
 	if err := b.Reconfigure(ctx, nil, conf); err != nil {
 		return nil, err
 	}
