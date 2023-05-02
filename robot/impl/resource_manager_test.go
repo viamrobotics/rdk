@@ -185,7 +185,7 @@ func TestManagerForRemoteRobot(t *testing.T) {
 
 	manager := managerForDummyRobot(injectRobot)
 	defer func() {
-		test.That(t, manager.Close(context.Background(), injectRobot), test.ShouldBeNil)
+		test.That(t, manager.Close(context.Background()), test.ShouldBeNil)
 	}()
 
 	armNames := []resource.Name{arm.Named("arm1"), arm.Named("arm2")}
@@ -250,7 +250,7 @@ func TestManagerMergeNamesWithRemotes(t *testing.T) {
 
 	manager := managerForDummyRobot(injectRobot)
 	defer func() {
-		test.That(t, manager.Close(context.Background(), injectRobot), test.ShouldBeNil)
+		test.That(t, manager.Close(context.Background()), test.ShouldBeNil)
 	}()
 	manager.addRemote(
 		context.Background(),
@@ -380,7 +380,7 @@ func TestManagerResourceRemoteName(t *testing.T) {
 
 	manager := managerForDummyRobot(injectRobot)
 	defer func() {
-		test.That(t, manager.Close(context.Background(), injectRobot), test.ShouldBeNil)
+		test.That(t, manager.Close(context.Background()), test.ShouldBeNil)
 	}()
 
 	injectRemote := &inject.Robot{}
@@ -415,7 +415,7 @@ func TestManagerWithSameNameInRemoteNoPrefix(t *testing.T) {
 
 	manager := managerForDummyRobot(injectRobot)
 	defer func() {
-		test.That(t, manager.Close(context.Background(), injectRobot), test.ShouldBeNil)
+		test.That(t, manager.Close(context.Background()), test.ShouldBeNil)
 	}()
 	manager.addRemote(
 		context.Background(),
@@ -442,7 +442,7 @@ func TestManagerWithSameNameInBaseAndRemote(t *testing.T) {
 
 	manager := managerForDummyRobot(injectRobot)
 	defer func() {
-		test.That(t, manager.Close(context.Background(), injectRobot), test.ShouldBeNil)
+		test.That(t, manager.Close(context.Background()), test.ShouldBeNil)
 	}()
 	manager.addRemote(
 		context.Background(),
@@ -854,7 +854,7 @@ func TestManagerMarkRemoved(t *testing.T) {
 	}, logger)
 	checkEmpty(processesToRemove, resourcesToCloseBeforeComplete, markedResourceNames)
 
-	test.That(t, manager.Close(ctx, &localRobot{}), test.ShouldBeNil)
+	test.That(t, manager.Close(ctx), test.ShouldBeNil)
 	cancel()
 
 	ctx, cancel = context.WithCancel(context.Background())
@@ -940,7 +940,7 @@ func TestManagerMarkRemoved(t *testing.T) {
 		utils.NewStringSet("2"),
 	)
 
-	test.That(t, manager.Close(ctx, &localRobot{}), test.ShouldBeNil)
+	test.That(t, manager.Close(ctx), test.ShouldBeNil)
 	cancel()
 
 	ctx, cancel = context.WithCancel(context.Background())
@@ -1059,7 +1059,7 @@ func TestManagerMarkRemoved(t *testing.T) {
 		utils.NewStringSet("2"),
 	)
 
-	test.That(t, manager.Close(ctx, &localRobot{}), test.ShouldBeNil)
+	test.That(t, manager.Close(ctx), test.ShouldBeNil)
 	cancel()
 
 	ctx, cancel = context.WithCancel(context.Background())
@@ -1246,7 +1246,7 @@ func TestManagerMarkRemoved(t *testing.T) {
 		test.ShouldResemble,
 		utils.NewStringSet("1", "2"),
 	)
-	test.That(t, manager.Close(ctx, &localRobot{}), test.ShouldBeNil)
+	test.That(t, manager.Close(ctx), test.ShouldBeNil)
 	cancel()
 }
 
@@ -1431,7 +1431,7 @@ func TestManagerResourceRPCAPIs(t *testing.T) {
 
 	manager := managerForDummyRobot(injectRobot)
 	defer func() {
-		test.That(t, manager.Close(context.Background(), injectRobot), test.ShouldBeNil)
+		test.That(t, manager.Close(context.Background()), test.ShouldBeNil)
 	}()
 
 	api1 := resource.APINamespace("acme").WithComponentType("huwat")
@@ -1580,7 +1580,7 @@ func TestManagerEmptyResourceDesc(t *testing.T) {
 
 	manager := managerForDummyRobot(injectRobot)
 	defer func() {
-		test.That(t, manager.Close(context.Background(), injectRobot), test.ShouldBeNil)
+		test.That(t, manager.Close(context.Background()), test.ShouldBeNil)
 	}()
 
 	apis := manager.ResourceRPCAPIs()
@@ -1619,7 +1619,7 @@ func TestReconfigure(t *testing.T) {
 
 	manager := managerForDummyRobot(r)
 	defer func() {
-		test.That(t, manager.Close(ctx, r), test.ShouldBeNil)
+		test.That(t, manager.Close(ctx), test.ShouldBeNil)
 	}()
 
 	svc1 := resource.Config{
@@ -1658,7 +1658,7 @@ func TestResourceCreationPanic(t *testing.T) {
 
 	manager := managerForDummyRobot(r)
 	defer func() {
-		test.That(t, manager.Close(ctx, r), test.ShouldBeNil)
+		test.That(t, manager.Close(ctx), test.ShouldBeNil)
 		test.That(t, r.Close(ctx), test.ShouldBeNil)
 	}()
 

@@ -29,7 +29,6 @@ import (
 	"go.viam.com/rdk/module/modmaninterface"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/robot"
 )
 
 var (
@@ -39,14 +38,13 @@ var (
 )
 
 // NewManager returns a Manager.
-func NewManager(r robot.LocalRobot, options modmanageroptions.Options) (modmaninterface.ModuleManager, error) {
+func NewManager(logger golog.Logger, options modmanageroptions.Options) modmaninterface.ModuleManager {
 	return &Manager{
-		logger:       r.Logger().Named("modmanager"),
+		logger:       logger,
 		modules:      map[string]*module{},
-		r:            r,
 		rMap:         map[resource.Name]*module{},
 		untrustedEnv: options.UntrustedEnv,
-	}, nil
+	}
 }
 
 type module struct {
@@ -70,9 +68,15 @@ type Manager struct {
 	mu           sync.RWMutex
 	logger       golog.Logger
 	modules      map[string]*module
-	r            robot.LocalRobot
+	parentAddr   string
 	rMap         map[resource.Name]*module
 	untrustedEnv bool
+}
+
+// SetParentAddress sets the unix socket parent address to pass to started
+// modules. To be used after the robot's web service has been started.
+func (mgr *Manager) SetParentAddress(parentAddr string) {
+	mgr.parentAddr = parentAddr
 }
 
 // Close terminates module connections and processes.
@@ -104,12 +108,7 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, conn *grpc.Clie
 	mod := &module{name: conf.Name, exe: conf.ExePath, resources: map[resource.Name]*addedResource{}}
 	mgr.modules[conf.Name] = mod
 
-	parentAddr, err := mgr.r.ModuleAddress()
-	if err != nil {
-		return err
-	}
-
-	if err := mod.startProcess(ctx, parentAddr, mgr.logger); err != nil {
+	if err := mod.startProcess(ctx, mgr.parentAddr, mgr.logger); err != nil {
 		return errors.WithMessage(err, "error while starting module "+mod.name)
 	}
 
@@ -127,7 +126,7 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, conn *grpc.Clie
 		return errors.WithMessage(err, "error while dialing module "+mod.name)
 	}
 
-	if err := mod.checkReady(ctx, parentAddr); err != nil {
+	if err := mod.checkReady(ctx, mgr.parentAddr); err != nil {
 		return errors.WithMessage(err, "error while waiting for module to be ready "+mod.name)
 	}
 
