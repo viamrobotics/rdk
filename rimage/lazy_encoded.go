@@ -1,7 +1,9 @@
 package rimage
 
 import (
+	"bytes"
 	"context"
+	"fmt"
 	"image"
 	"image/color"
 	"sync"
@@ -15,6 +17,8 @@ type LazyEncodedImage struct {
 	decodeOnce   sync.Once
 	decodeErr    interface{}
 	decodedImage image.Image
+	bounds       *image.Rectangle
+	colorModel   color.Model
 }
 
 // NewLazyEncodedImage returns a new image that will only get decoded once actual data is needed
@@ -60,17 +64,29 @@ func (lei *LazyEncodedImage) RawData() []byte {
 
 // ColorModel returns the Image's color model.
 func (lei *LazyEncodedImage) ColorModel() color.Model {
-	lei.decode()
-	return lei.decodedImage.ColorModel()
+	if lei.colorModel == nil {
+		reader := bytes.NewReader(lei.imgBytes)
+		header, _, err := image.DecodeConfig(reader)
+		if err != nil {
+			panic(fmt.Sprintf("error extracting colorModel from lazyEncodedImage: %v", err))
+		}
+		lei.colorModel = header.ColorModel
+	}
+	return lei.colorModel
 }
 
 // Bounds returns the domain for which At can return non-zero color.
 // The bounds do not necessarily contain the point (0, 0).
 func (lei *LazyEncodedImage) Bounds() image.Rectangle {
-	if lei.decodedImage == nil {
-		lei.decode()
+	if lei.bounds == nil {
+		reader := bytes.NewReader(lei.imgBytes)
+		header, _, err := image.DecodeConfig(reader)
+		if err != nil {
+			panic(fmt.Sprintf("error extracting bounds from lazyEncodedImage: %v", err))
+		}
+		lei.bounds = &image.Rectangle{image.Point{0, 0}, image.Point{header.Width, header.Height}}
 	}
-	return lei.decodedImage.Bounds()
+	return *lei.bounds
 }
 
 // At returns the color of the pixel at (x, y).
