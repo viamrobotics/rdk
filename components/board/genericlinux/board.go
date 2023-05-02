@@ -253,6 +253,7 @@ func (b *sysfsBoard) reconfigureInterrupts(newConf *Config) error {
 				                oldInterrupt.config.Pin)
 			}
 		} else {
+			// TODO: reconfigure the interrupt
 			newInterrupts[newConfig.Name] = oldInterrupt
 			if err := oldInterrupt.interrupt.Reconfigure(*newConfig); err != nil {
 				return err
@@ -264,7 +265,10 @@ func (b *sysfsBoard) reconfigureInterrupts(newConf *Config) error {
 	// Add any new interrupts that should be freshly made.
 	for _, config := range newConf.DigitalInterrupts {
 		if _, ok := b.interrupts[config.Name]; !ok {
-			// TODO: remove GPIO pins
+			if oldPin, ok := b.gpios[config.Pin]; ok {
+				oldPin.Close()
+				delete(b.gpios, config.Pin)
+			}
 			if interrupt, err := b.createDigitalInterrupt(b.cancelCtx, config, b.gpioMappings); err != nil {
 				return err
 			} else {
