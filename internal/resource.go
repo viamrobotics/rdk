@@ -17,3 +17,12 @@ var ComponentDependencyWildcardMatcher = ResourceMatcher(componentDependencyWild
 type componentDependencyWildcardMatcher string
 
 func (c componentDependencyWildcardMatcher) notActuallyImplementedYet() {}
+
+// SLAMDependencyWildcardMatcher is used internally right now for lack of a better way to
+// "select" slam services that another resource is dependency on. Usage of this is an
+// anti-pattern and a better matcher system should exist.
+var SLAMDependencyWildcardMatcher = ResourceMatcher(slamDependencyWildcardMatcher("rdk:service:slam/*:*"))
+
+type slamDependencyWildcardMatcher string
+
+func (s slamDependencyWildcardMatcher) notActuallyImplementedYet() {}
