@@ -131,41 +131,37 @@ func unpack(inMap map[string]interface{}, name string) ([]float64, error) {
 
 // getLabelsFromMetadata returns a slice of strings--the intended labels.
 func getLabelsFromMetadata(md mlmodel.MLMetadata) []string {
-	for _, o := range md.Outputs {
-		if !strings.Contains(o.Name, "category") && !strings.Contains(o.Name, "probability") {
-			continue
-		}
-
-		if labelPath, ok := o.Extra["labels"].(string); ok {
-			var labels []string
-			f, err := os.Open(filepath.Clean(labelPath))
-			if err != nil {
-				return nil
-			}
-			defer func() {
-				if err := f.Close(); err != nil {
-					logger := golog.NewLogger("labelFile")
-					logger.Warnw("could not get labels from file", "error", err)
-					return
-				}
-			}()
-			scanner := bufio.NewScanner(f)
-			for scanner.Scan() {
-				labels = append(labels, scanner.Text())
-			}
-			// if the labels come out as one line, try splitting that line by spaces or commas to extract labels
-			// Check if the labels should be comma split first and then space split.
-			if len(labels) == 1 {
-				labels = strings.Split(labels[0], ",")
-			}
-			if len(labels) == 1 {
-				labels = strings.Split(labels[0], " ")
-			}
-
-			return labels
-		}
+	if len(md.Outputs) < 1 {
+		return nil
 	}
 
+	if labelPath, ok := md.Outputs[0].Extra["labels"].(string); ok {
+		var labels []string
+		f, err := os.Open(filepath.Clean(labelPath))
+		if err != nil {
+			return nil
+		}
+		defer func() {
+			if err := f.Close(); err != nil {
+				logger := golog.NewLogger("labelFile")
+				logger.Warnw("could not get labels from file", "error", err)
+				return
+			}
+		}()
+		scanner := bufio.NewScanner(f)
+		for scanner.Scan() {
+			labels = append(labels, scanner.Text())
+		}
+		// if the labels come out as one line, try splitting that line by spaces or commas to extract labels
+		// Check if the labels should be comma split first and then space split.
+		if len(labels) == 1 {
+			labels = strings.Split(labels[0], ",")
+		}
+		if len(labels) == 1 {
+			labels = strings.Split(labels[0], " ")
+		}
+		return labels
+	}
 	return nil
 }
 

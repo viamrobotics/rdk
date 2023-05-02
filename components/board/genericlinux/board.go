@@ -91,12 +91,28 @@ func (b *sysfsBoard) Reconfigure(
 		return err
 	}
 
-	if b.usePeriphGpio {
-		if len(newConf.DigitalInterrupts) != 0 {
-			return errors.New("digital interrupts on Periph GPIO pins are not yet supported")
-		}
+	if err := b.reconfigureSpis(newConf); err != nil {
+		return err
 	}
 
+	if err := b.reconfigureI2cs(newConf); err != nil {
+		return err
+	}
+
+	if err := b.reconfigureAnalogs(ctx, newConf); err != nil {
+		return err
+	}
+
+	if err := b.reconfigureGpios(newConf); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// This never returns errors, but we give it the same function signature as the other
+// reconfiguration helpers for consistency.
+func (b *sysfsBoard) reconfigureSpis(newConf *Config) error {
 	stillExists := map[string]struct{}{}
 	for _, c := range newConf.SPIs {
 		stillExists[c.Name] = struct{}{}
@@ -109,14 +125,18 @@ func (b *sysfsBoard) Reconfigure(
 		b.spis[c.Name] = &spiBus{}
 		b.spis[c.Name].reset(c.BusSelect)
 	}
+
 	for name := range b.spis {
 		if _, ok := stillExists[name]; ok {
 			continue
 		}
 		delete(b.spis, name)
 	}
-	stillExists = map[string]struct{}{}
+	return nil
+}
 
+func (b *sysfsBoard) reconfigureI2cs(newConf *Config) error {
+	stillExists := map[string]struct{}{}
 	for _, c := range newConf.I2Cs {
 		stillExists[c.Name] = struct{}{}
 		if curr, ok := b.i2cs[c.Name]; ok {
@@ -137,6 +157,7 @@ func (b *sysfsBoard) Reconfigure(
 		}
 		b.i2cs[c.Name] = bus
 	}
+
 	for name := range b.i2cs {
 		if _, ok := stillExists[name]; ok {
 			continue
@@ -146,8 +167,11 @@ func (b *sysfsBoard) Reconfigure(
 		}
 		delete(b.i2cs, name)
 	}
-	stillExists = map[string]struct{}{}
+	return nil
+}
 
+func (b *sysfsBoard) reconfigureAnalogs(ctx context.Context, newConf *Config) error {
+	stillExists := map[string]struct{}{}
 	for _, c := range newConf.Analogs {
 		channel, err := strconv.Atoi(c.Pin)
 		if err != nil {
@@ -170,6 +194,7 @@ func (b *sysfsBoard) Reconfigure(
 		ar := &board.MCP3008AnalogReader{channel, bus, c.ChipSelect}
 		b.analogs[c.Name] = newWrappedAnalog(ctx, c.ChipSelect, board.SmoothAnalogReader(ar, c, b.logger))
 	}
+
 	for name := range b.analogs {
 		if _, ok := stillExists[name]; ok {
 			continue
@@ -177,23 +202,31 @@ func (b *sysfsBoard) Reconfigure(
 		b.analogs[name].reset(ctx, "", nil)
 		delete(b.analogs, name)
 	}
+	return nil
+}
 
-	if !b.usePeriphGpio {
-		// TODO(RSDK-2684): we dont configure pins so we just unset them here. not really great behavior.
-		// We currently have two implementations of GPIO pins on these boards: one using
-		// libraries from periph.io and one using an ioctl approach. If we're using the
-		// latter, we need to initialize it here.
-		gpios, interrupts, err := b.gpioInitialize( // Defined in gpio.go
-			b.cancelCtx,
-			b.gpioMappings,
-			newConf.DigitalInterrupts,
-			b.logger)
-		if err != nil {
-			return err
+func (b *sysfsBoard) reconfigureGpios(newConf *Config) error {
+	if b.usePeriphGpio {
+		if len(newConf.DigitalInterrupts) != 0 {
+			return errors.New("digital interrupts on Periph GPIO pins are not yet supported")
 		}
-		b.gpios = gpios
-		b.interrupts = interrupts
+		return nil // No digital interrupts to reconfigure.
 	}
+
+	// TODO(RSDK-2684): we dont configure pins so we just unset them here. not really great behavior.
+	// We currently have two implementations of GPIO pins on these boards: one using
+	// libraries from periph.io and one using an ioctl approach. If we're using the
+	// latter, we need to initialize it here.
+	gpios, interrupts, err := b.gpioInitialize( // Defined in gpio.go
+		b.cancelCtx,
+		b.gpioMappings,
+		newConf.DigitalInterrupts,
+		b.logger)
+	if err != nil {
+		return err
+	}
+	b.gpios = gpios
+	b.interrupts = interrupts
 	return nil
 }
 

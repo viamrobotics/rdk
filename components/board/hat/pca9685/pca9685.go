@@ -92,7 +92,8 @@ const (
 	prescaleReg = 0xFE
 )
 
-var defaultAddr = 0x60
+// This should be considered const, except you cannot take the address of a const value.
+var defaultAddr = 0x40
 
 // New returns a new PCA9685 residing on the given bus and address.
 func New(ctx context.Context, deps resource.Dependencies, conf resource.Config) (*PCA9685, error) {

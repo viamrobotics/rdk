@@ -18,9 +18,11 @@ const props = defineProps<{
   client: Client
   statusStream: ResponseStream<robotApi.StreamStatusResponse> | null
 }>();
-
-const selected2dValue = $ref('manual');
-const selected3dValue = $ref('manual');
+const refreshErrorMessage = 'Error refreshing map. The map shown may be stale.';
+let refreshErrorMessage2d = $ref<string | null>();
+let refreshErrorMessage3d = $ref<string | null>();
+let selected2dValue = $ref('manual');
+let selected3dValue = $ref('manual');
 let pointCloudUpdateCount = $ref(0);
 let pointcloud = $ref<Uint8Array | undefined>();
 let pose = $ref<commonApi.Pose | undefined>();
@@ -68,10 +70,17 @@ const fetchSLAMMap = (name: string): Promise<Uint8Array> => {
         reject(error);
       }
     });
-    getPointCloudMap.on('end', (end?: { code: number }) => {
-      if (end === undefined || end.code !== 0) {
-        // the error will be logged in the 'status' callback
-        return;
+    getPointCloudMap.on('end', (end?: { code: number, details: string, metadata: grpc.Metadata }) => {
+      if (end === undefined) {
+        const error = { message: 'Stream ended without status code' };
+        reject(error);
+      } else if (end.code !== 0) {
+        const error = {
+          message: end.details,
+          code: end.code,
+          metadata: end.metadata,
+        };
+        reject(error);
       }
       const arr = concatArrayU8(chunks);
       resolve(arr);
@@ -133,6 +142,10 @@ const scheduleRefresh2d = (name: string, time: string) => {
       handleRefresh2dResponse(res);
     } catch (error) {
       handleError('refresh2d', error);
+      selected2dValue = 'manual';
+      refreshErrorMessage2d = error !== null && typeof error === 'object' && 'message' in error
+        ? `${refreshErrorMessage} ${error.message}`
+        : `${refreshErrorMessage} ${error}`;
       return;
     }
     if (refresh2DCancelled) {
@@ -150,6 +163,10 @@ const scheduleRefresh3d = (name: string, time: string) => {
       handleRefresh3dResponse(res);
     } catch (error) {
       handleError('fetchSLAMMap', error);
+      selected3dValue = 'manual';
+      refreshErrorMessage3d = error !== null && typeof error === 'object' && 'message' in error
+        ? `${refreshErrorMessage} ${error.message}`
+        : `${refreshErrorMessage} ${error}`;
       return;
     }
     if (refresh3DCancelled) {
@@ -160,9 +177,11 @@ const scheduleRefresh3d = (name: string, time: string) => {
   slam3dTimeoutId = window.setTimeout(timeoutCallback, Number.parseFloat(time) * 1000);
 };
 
-const updateSLAM2dRefreshFrequency = async (name: string, time: 'manual' | 'off' | string) => {
+const updateSLAM2dRefreshFrequency = async (name: string, time: 'manual' | string) => {
   refresh2DCancelled = true;
   window.clearTimeout(slam2dTimeoutId);
+  refreshErrorMessage2d = null;
+  refreshErrorMessage3d = null;
 
   if (time === 'manual') {
     try {
@@ -170,18 +189,22 @@ const updateSLAM2dRefreshFrequency = async (name: string, time: 'manual' | 'off'
       handleRefresh2dResponse(res);
     } catch (error) {
       handleError('refresh2d', error);
+      selected2dValue = 'manual';
+      refreshErrorMessage2d = error !== null && typeof error === 'object' && 'message' in error
+        ? `${refreshErrorMessage} ${error.message}`
+        : `${refreshErrorMessage} ${error}`;
     }
-  } else if (time === 'off') {
-    // do nothing
   } else {
     refresh2DCancelled = false;
     scheduleRefresh2d(name, time);
   }
 };
 
-const updateSLAM3dRefreshFrequency = async (name: string, time: 'manual' | 'off' | string) => {
+const updateSLAM3dRefreshFrequency = async (name: string, time: 'manual' | string) => {
   refresh3DCancelled = true;
   window.clearTimeout(slam3dTimeoutId);
+  refreshErrorMessage2d = null;
+  refreshErrorMessage3d = null;
 
   if (time === 'manual') {
     try {
@@ -189,9 +212,11 @@ const updateSLAM3dRefreshFrequency = async (name: string, time: 'manual' | 'off'
       handleRefresh3dResponse(res);
     } catch (error) {
       handleError('fetchSLAMMap', error);
+      selected3dValue = 'manual';
+      refreshErrorMessage3d = error !== null && typeof error === 'object' && 'message' in error
+        ? `${refreshErrorMessage} ${error.message}`
+        : `${refreshErrorMessage} ${error}`;
     }
-  } else if (time === 'off') {
-    // do nothing
   } else {
     refresh3DCancelled = false;
     scheduleRefresh3d(name, time);
@@ -200,12 +225,20 @@ const updateSLAM3dRefreshFrequency = async (name: string, time: 'manual' | 'off'
 
 const toggle2dExpand = () => {
   show2d = !show2d;
-  updateSLAM2dRefreshFrequency(props.name, show2d ? selected2dValue : 'off');
+  if (!show2d) {
+    selected2dValue = 'manual';
+    return;
+  }
+  updateSLAM2dRefreshFrequency(props.name, selected2dValue);
 };
 
 const toggle3dExpand = () => {
   show3d = !show3d;
-  updateSLAM3dRefreshFrequency(props.name, show3d ? selected3dValue : 'off');
+  if (!show3d) {
+    selected3dValue = 'manual';
+    return;
+  }
+  updateSLAM3dRefreshFrequency(props.name, selected3dValue);
 };
 
 const selectSLAM2dRefreshFrequency = () => {
@@ -217,11 +250,11 @@ const selectSLAMPCDRefreshFrequency = () => {
 };
 
 const refresh2dMap = () => {
-  updateSLAM2dRefreshFrequency(props.name, selected2dValue);
+  updateSLAM2dRefreshFrequency(props.name, 'manual');
 };
 
 const refresh3dMap = () => {
-  updateSLAM3dRefreshFrequency(props.name, selected3dValue);
+  updateSLAM3dRefreshFrequency(props.name, 'manual');
 };
 
 onMounted(() => {
@@ -249,7 +282,7 @@ onUnmounted(() => {
     />
     <div class="border-border-1 h-auto border-x border-b p-2">
       <div class="container mx-auto">
-        <div class="pt-4">
+        <div class="flex-col pt-4">
           <div class="flex items-center gap-2">
             <v-switch
               id="showImage"
@@ -257,6 +290,12 @@ onUnmounted(() => {
               @input="toggle2dExpand()"
             />
             <span class="pr-2">View SLAM Map (2D)</span>
+          </div>
+          <div
+            v-if="refreshErrorMessage2d && show2d"
+            class="border-l-4 border-red-500 bg-gray-100 px-4 py-3"
+          >
+            {{ refreshErrorMessage2d }}
           </div>
           <div class="float-right pb-4">
             <div class="flex">
@@ -276,8 +315,10 @@ onUnmounted(() => {
                     aria-label="Default select example"
                     @change="selectSLAM2dRefreshFrequency()"
                   >
-                    <option value="manual">
-                      Manual Refresh
+                    <option
+                      value="manual"
+                    >
+                      Manual
                     </option>
                     <option value="30">
                       Every 30 seconds
@@ -328,13 +369,19 @@ onUnmounted(() => {
             :client="client"
           />
         </div>
-        <div class="pt-4">
+        <div class="flex-col pt-4">
           <div class="flex items-center gap-2">
             <v-switch
               :value="show3d ? 'on' : 'off'"
               @input="toggle3dExpand()"
             />
             <span class="pr-2">View SLAM Map (3D)</span>
+          </div>
+          <div
+            v-if="refreshErrorMessage3d && show3d"
+            class="border-l-4 border-red-500 bg-gray-100 px-4 py-3"
+          >
+            {{ refreshErrorMessage3d }}
           </div>
           <div class="float-right pb-4">
             <div class="flex">
@@ -355,7 +402,7 @@ onUnmounted(() => {
                     @change="selectSLAMPCDRefreshFrequency()"
                   >
                     <option value="manual">
-                      Manual Refresh
+                      Manual
                     </option>
                     <option value="30">
                       Every 30 seconds
