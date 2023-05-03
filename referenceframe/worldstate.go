@@ -115,6 +115,14 @@ func (ws *WorldState) ObstacleNames() map[string]bool {
 	return copiedMap
 }
 
+// Obstacles returns the obstacles that have been added to the WorldState.
+func (ws *WorldState) Obstacles() []*GeometriesInFrame {
+	if ws == nil {
+		return []*GeometriesInFrame{}
+	}
+	return ws.obstacles
+}
+
 // Transforms returns the transforms that have been added to the WorldState.
 func (ws *WorldState) Transforms() []*LinkInFrame {
 	if ws == nil {
