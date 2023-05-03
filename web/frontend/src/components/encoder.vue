@@ -5,6 +5,7 @@ import { grpc } from '@improbable-eng/grpc-web';
 import { Client, encoderApi, ResponseStream, robotApi, type ServiceError } from '@viamrobotics/sdk';
 import { displayError } from '../lib/error';
 import { rcLogConditionally } from '../lib/log';
+import { scheduleAsyncPoll } from '../lib/schedule';
 
 const props = defineProps<{
   name: string
@@ -12,46 +13,78 @@ const props = defineProps<{
   statusStream: ResponseStream<robotApi.StreamStatusResponse> | null
 }>();
 
-let properties = $ref<encoderApi.GetPropertiesResponse.AsObject | undefined>();
+let properties = $ref<encoderApi.GetPropertiesResponse.AsObject>();
 let positionTicks = $ref(0);
 let positionDegrees = $ref(0);
 
-let refreshId = -1;
+let cancelPoll: (() => void) | undefined;
 
-const refresh = () => {
-  const req = new encoderApi.GetPositionRequest();
-  req.setName(props.name);
+const getProperties = () => new Promise<encoderApi.GetPropertiesResponse.AsObject>((resolve, reject) => {
+  const request = new encoderApi.GetPropertiesRequest();
+  request.setName(props.name);
 
-  rcLogConditionally(req);
+  rcLogConditionally(request);
+  props.client.encoderService.getProperties(
+    request,
+    new grpc.Metadata(),
+    (error: ServiceError | null, response: encoderApi.GetPropertiesResponse | null) => {
+      if (error) {
+        return reject((error as ServiceError).message);
+      }
+
+      resolve(response!.toObject());
+      properties = response!.toObject();
+    }
+  );
+})
+
+const getPosition = () => new Promise<number>((resolve, reject) => {
+  const request = new encoderApi.GetPositionRequest();
+  request.setName(props.name);
+  rcLogConditionally(request);
   props.client.encoderService.getPosition(
-    req,
+    request,
     new grpc.Metadata(),
     (error: ServiceError | null, resp: encoderApi.GetPositionResponse | null) => {
       if (error) {
-        return displayError(error as ServiceError);
+        return reject(new Error((error as ServiceError).message));
       }
 
-      positionTicks = resp!.toObject().value;
+      resolve(resp!.toObject().value);
     }
   );
+});
 
-  if (properties!.angleDegreesSupported) {
-    req.setPositionType(2);
-    rcLogConditionally(req);
-    props.client.encoderService.getPosition(
-      req,
-      new grpc.Metadata(),
-      (error: ServiceError | null, resp: encoderApi.GetPositionResponse | null) => {
-        if (error) {
-          return displayError(error as ServiceError);
-        }
+const getPositionDegrees = () => new Promise<number>((resolve, reject) => {
+  const request = new encoderApi.GetPositionRequest();
+  request.setPositionType(2);
+  rcLogConditionally(request);
 
-        positionDegrees = resp!.toObject().value;
+  props.client.encoderService.getPosition(
+    request,
+    new grpc.Metadata(),
+    (error: ServiceError | null, resp: encoderApi.GetPositionResponse | null) => {
+      if (error) {
+        return reject(new Error((error as ServiceError).message));
       }
-    );
+
+      resolve(resp!.toObject().value);
+    }
+  );
+});
+
+const refresh = async () => {
+  try {
+    positionTicks = await getPosition();
+
+    if (properties?.angleDegreesSupported) {
+      positionDegrees = await getPositionDegrees();
+    }
+  } catch (error) {
+    displayError(error);
   }
 
-  refreshId = window.setTimeout(refresh, 500);
+  cancelPoll = scheduleAsyncPoll(refresh, 500);
 };
 
 const reset = () => {
@@ -59,6 +92,7 @@ const reset = () => {
   req.setName(props.name);
 
   rcLogConditionally(req);
+
   props.client.encoderService.resetPosition(
     req,
     new grpc.Metadata(),
@@ -70,37 +104,25 @@ const reset = () => {
   );
 };
 
-onMounted(() => {
+onMounted(async () => {
   try {
-    const req = new encoderApi.GetPropertiesRequest();
-    req.setName(props.name);
+    properties = await getProperties();
 
-    rcLogConditionally(req);
-    props.client.encoderService.getProperties(
-      req,
-      new grpc.Metadata(),
-      (error: ServiceError | null, resp: encoderApi.GetPropertiesResponse | null) => {
-        if (error) {
-          if (error.message === 'Response closed without headers') {
-            refreshId = window.setTimeout(refresh, 500);
-            return;
-          }
-
-          return displayError(error as ServiceError);
-        }
-        properties = resp!.toObject();
-      }
-    );
-    refreshId = window.setTimeout(refresh, 500);
+    cancelPoll = scheduleAsyncPoll(refresh, 500);
   } catch (error) {
-    displayError(error as ServiceError);
+    if (error.message === 'Response closed without headers') {
+      cancelPoll = scheduleAsyncPoll(refresh, 500);
+      return;
+    }
+
+    displayError(error);
   }
 
-  props.statusStream?.on('end', () => clearTimeout(refreshId));
+  props.statusStream?.on('end', () => cancelPoll?.());
 });
 
 onUnmounted(() => {
-  clearTimeout(refreshId);
+  cancelPoll?.();
 });
 
 </script>
