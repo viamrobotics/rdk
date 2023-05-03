@@ -38,7 +38,8 @@ let refresh2DCancelled = true;
 let refresh3DCancelled = true;
 let updatedDest = $ref(false);
 let destinationMarker = $ref(new THREE.Vector3());
-let moveClick = $computed(() => (filterResources(props.resources, 'rdk', 'component', 'base') !== undefined));
+let moveClick = $computed(() => (
+  filterResources(props.resources, 'rdk', 'component', 'base') !== undefined) && updatedDest);
 const basePose = new commonApi.Pose();
 const motionServiceReq = new motionApi.MoveOnMapRequest();
 
@@ -508,7 +509,7 @@ onUnmounted(() => {
           />
         </div>
       </div>
-      <div class="gap-4x border-border-1 justify-start sm:border-l">
+      <div class="gap-4x border-border-1 w-full justify-start sm:border-l">
         <div
           v-if="refreshErrorMessage2d && show2d"
           class="border-l-4 border-red-500 bg-gray-100 px-4 py-3"

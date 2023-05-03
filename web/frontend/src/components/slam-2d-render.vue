@@ -115,7 +115,6 @@ raycaster.on('click', (event: THREE.Event) => {
  * svgLoader example for webgl:
  * https://github.com/mrdoob/three.js/blob/master/examples/webgl_loader_svg.html
  */
-//
 const svgLoader = new SVGLoader();
 const makeMarker = async (url : string, name: string, scalar: number) => {
   const data = await svgLoader.loadAsync(url);
@@ -407,11 +406,10 @@ watch(() => props.pointCloudUpdateCount, () => {
 });
 
 </script>
-
 <template>
   <div
     ref="container"
-    class="pcd-container relative w-full"
+    class="relative w-full"
   >
     <p class="absolute left-3 top-3 bg-white text-xs">
       Grid set to 1 meter
