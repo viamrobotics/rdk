@@ -16,7 +16,6 @@ import (
 	"go.viam.com/rdk/config"
 	modmanageroptions "go.viam.com/rdk/module/modmanager/options"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
 )
 
@@ -42,24 +41,14 @@ func TestModManagerFunctions(t *testing.T) {
 	_, err = cfgCounter1.Validate("test", resource.APITypeComponentName)
 	test.That(t, err, test.ShouldBeNil)
 
-	myRobot := &inject.Robot{}
-	myRobot.LoggerFunc = func() golog.Logger {
-		return logger
-	}
-
 	// This cannot use t.TempDir() as the path it gives on MacOS exceeds module.MaxSocketAddressLength.
 	parentAddr, err := os.MkdirTemp("", "viam-test-*")
 	test.That(t, err, test.ShouldBeNil)
 	defer os.RemoveAll(parentAddr)
 	parentAddr += "/parent.sock"
 
-	myRobot.ModuleAddressFunc = func() (string, error) {
-		return parentAddr, nil
-	}
-
 	t.Log("test Helpers")
-	mgr, err := NewManager(myRobot, modmanageroptions.Options{UntrustedEnv: false})
-	test.That(t, err, test.ShouldBeNil)
+	mgr := NewManager(parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
 
 	mod := &module{name: "test", exe: modExe}
 
@@ -92,7 +81,7 @@ func TestModManagerFunctions(t *testing.T) {
 	test.That(t, mod.process.Stop(), test.ShouldBeNil)
 
 	t.Log("test AddModule")
-	mgr, err = NewManager(myRobot, modmanageroptions.Options{UntrustedEnv: false})
+	mgr = NewManager(parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
 	test.That(t, err, test.ShouldBeNil)
 
 	modCfg := config.Module{
@@ -210,8 +199,7 @@ func TestModManagerFunctions(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Log("test UntrustedEnv")
-	mgr, err = NewManager(myRobot, modmanageroptions.Options{UntrustedEnv: true})
-	test.That(t, err, test.ShouldBeNil)
+	mgr = NewManager(parentAddr, logger, modmanageroptions.Options{UntrustedEnv: true})
 
 	modCfg = config.Module{
 		Name:    "simple-module",
@@ -255,24 +243,14 @@ func TestModManagerValidation(t *testing.T) {
 	_, err = cfgMyBase2.Validate("test", resource.APITypeComponentName)
 	test.That(t, err, test.ShouldBeNil)
 
-	myRobot := &inject.Robot{}
-	myRobot.LoggerFunc = func() golog.Logger {
-		return logger
-	}
-
 	// This cannot use t.TempDir() as the path it gives on MacOS exceeds module.MaxSocketAddressLength.
 	parentAddr, err := os.MkdirTemp("", "viam-test-*")
 	test.That(t, err, test.ShouldBeNil)
 	defer os.RemoveAll(parentAddr)
 	parentAddr += "/parent.sock"
 
-	myRobot.ModuleAddressFunc = func() (string, error) {
-		return parentAddr, nil
-	}
-
 	t.Log("adding complex module")
-	mgr, err := NewManager(myRobot, modmanageroptions.Options{UntrustedEnv: false})
-	test.That(t, err, test.ShouldBeNil)
+	mgr := NewManager(parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
 
 	modCfg := config.Module{
 		Name:    "complex-module",
