@@ -36,7 +36,7 @@ const getProperties = () => new Promise<encoderApi.GetPropertiesResponse.AsObjec
       properties = response!.toObject();
     }
   );
-})
+});
 
 const getPosition = () => new Promise<number>((resolve, reject) => {
   const request = new encoderApi.GetPositionRequest();
