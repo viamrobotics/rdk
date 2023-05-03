@@ -90,14 +90,20 @@ func TestUniqueCollisions(t *testing.T) {
 	input := make([]frame.Input, len(m.DoF()))
 	internalGeometries, _ := m.Geometries(input)
 	test.That(t, internalGeometries, test.ShouldNotBeNil)
-	zeroPositionCG, err := newCollisionGraph(internalGeometries.Geometries(), internalGeometries.Geometries(), nil, true, spatial.CollisionBuffer)
+	zeroPositionCG, err := newCollisionGraph(
+		internalGeometries.Geometries(),
+		internalGeometries.Geometries(),
+		nil, true, spatial.CollisionBuffer)
 	test.That(t, err, test.ShouldBeNil)
 
 	// case 1: no self collision - check no new collisions are returned
 	input[0] = frame.Input{Value: 1}
 	internalGeometries, _ = m.Geometries(input)
 	test.That(t, internalGeometries, test.ShouldNotBeNil)
-	cg, err := newCollisionGraph(internalGeometries.Geometries(), internalGeometries.Geometries(), zeroPositionCG, true, spatial.CollisionBuffer)
+	cg, err := newCollisionGraph(
+		internalGeometries.Geometries(),
+		internalGeometries.Geometries(),
+		zeroPositionCG, true, spatial.CollisionBuffer)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(cg.collisions(spatial.CollisionBuffer)), test.ShouldEqual, 0)
 
@@ -105,7 +111,10 @@ func TestUniqueCollisions(t *testing.T) {
 	input[4] = frame.Input{Value: 2}
 	internalGeometries, _ = m.Geometries(input)
 	test.That(t, internalGeometries, test.ShouldNotBeNil)
-	cg, err = newCollisionGraph(internalGeometries.Geometries(), internalGeometries.Geometries(), zeroPositionCG, true, spatial.CollisionBuffer)
+	cg, err = newCollisionGraph(
+		internalGeometries.Geometries(),
+		internalGeometries.Geometries(),
+		zeroPositionCG, true, spatial.CollisionBuffer)
 	test.That(t, err, test.ShouldBeNil)
 	expectedCollisions := []Collision{{"xArm6:base_top", "xArm6:wrist_link", -66.6}, {"xArm6:wrist_link", "xArm6:upper_arm", -48.1}}
 	test.That(t, collisionListsAlmostEqual(cg.collisions(spatial.CollisionBuffer), expectedCollisions), test.ShouldBeTrue)
@@ -113,7 +122,10 @@ func TestUniqueCollisions(t *testing.T) {
 	// case 3: add a collision specification that the last element of expectedCollisions should be ignored
 	zeroPositionCG.addCollisionSpecification(&expectedCollisions[1])
 
-	cg, err = newCollisionGraph(internalGeometries.Geometries(), internalGeometries.Geometries(), zeroPositionCG, true, spatial.CollisionBuffer)
+	cg, err = newCollisionGraph(
+		internalGeometries.Geometries(),
+		internalGeometries.Geometries(),
+		zeroPositionCG, true, spatial.CollisionBuffer)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, collisionListsAlmostEqual(cg.collisions(spatial.CollisionBuffer), expectedCollisions[:1]), test.ShouldBeTrue)
 }

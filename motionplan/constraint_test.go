@@ -13,7 +13,6 @@ import (
 	"go.viam.com/test"
 
 	frame "go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/spatialmath"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
@@ -220,7 +219,7 @@ func TestCollisionConstraints(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	handler := &ConstraintHandler{}
 	extras := make(map[string]interface{}, 1)
-	extras["isLinearUR"] = spatialmath.CollisionBuffer
+	extras["isLinearUR"] = spatial.CollisionBuffer
 	collisionConstraints, err := createAllCollisionConstraints(sf, fs, worldState, frame.StartPositions(fs), nil, extras)
 	test.That(t, err, test.ShouldBeNil)
 	for name, constraint := range collisionConstraints {
@@ -260,7 +259,7 @@ func BenchmarkCollisionConstraints(b *testing.B) {
 	test.That(b, err, test.ShouldBeNil)
 	handler := &ConstraintHandler{}
 	extras := make(map[string]interface{}, 1)
-	extras["isLinearUR"] = spatialmath.CollisionBuffer
+	extras["isLinearUR"] = spatial.CollisionBuffer
 	collisionConstraints, err := createAllCollisionConstraints(sf, fs, worldState, frame.StartPositions(fs), nil, extras)
 	test.That(b, err, test.ShouldBeNil)
 	for name, constraint := range collisionConstraints {

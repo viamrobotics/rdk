@@ -4,7 +4,6 @@ package universalrobots
 import (
 	"bufio"
 	"context"
-
 	// for embedding model file.
 	_ "embed"
 	"encoding/binary"
@@ -375,7 +374,9 @@ func (ua *URArm) MoveToPosition(ctx context.Context, pos spatialmath.Pose, extra
 	extras := make(map[string]interface{}, 1)
 	extras["isLinearUR"] = spatialmath.CollisionBuffer + 5
 
-	goals, err := motionplan.PlanFrameMotion(ctx, ua.logger, pos, armFrame, armFrame.InputFromProtobuf(jp), arm.DefaultArmPlannerOptions, extras)
+	goals, err := motionplan.PlanFrameMotion(
+		ctx, ua.logger, pos, armFrame,
+		armFrame.InputFromProtobuf(jp), arm.DefaultArmPlannerOptions, extras)
 	if err != nil {
 		return err
 	}

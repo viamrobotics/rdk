@@ -212,7 +212,12 @@ type collisionGraph struct {
 // newCollisionGraph instantiates a collisionGraph object and checks for collisions between the x and y sets of geometries
 // collisions that are reported in the reference CollisionSystem argument will be ignored and not stored as edges in the graph.
 // if the set y is nil, the graph will be instantiated with y = x.
-func newCollisionGraph(x, y []spatial.Geometry, reference *collisionGraph, reportDistances bool, collisionBuffer float64) (cg *collisionGraph, err error) {
+func newCollisionGraph(
+	x, y []spatial.Geometry,
+	reference *collisionGraph,
+	reportDistances bool,
+	collisionBuffer float64,
+) (cg *collisionGraph, err error) {
 	if y == nil {
 		y = x
 	}
@@ -280,7 +285,7 @@ func (cg *collisionGraph) collisions(buffer float64) []Collision {
 	var collisions []Collision
 	for xName, row := range cg.distances {
 		for yName, distance := range row {
-			if distance <= spatial.CollisionBuffer {
+			if distance <= buffer {
 				collisions = append(collisions, Collision{xName, yName, distance})
 				if !cg.reportDistances {
 					// collision found, can return early

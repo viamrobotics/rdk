@@ -46,7 +46,9 @@ const SubtypeName = "arm"
 const MTPoob = "cartesian movements are not allowed when arm joints are out of bounds"
 
 var (
-	defaultLinearConstraint  = &motionpb.LinearConstraint{}
+	defaultLinearConstraint = &motionpb.LinearConstraint{}
+
+	// DefaultArmPlannerOptions are supplied for all MoveToPosition calls.
 	DefaultArmPlannerOptions = &motionpb.Constraints{
 		LinearConstraint: []*motionpb.LinearConstraint{defaultLinearConstraint},
 	}
