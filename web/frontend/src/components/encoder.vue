@@ -30,7 +30,6 @@ const getProperties = () => new Promise<encoderApi.GetPropertiesResponse.AsObjec
     }
 
     resolve(response!.toObject());
-    properties = response!.toObject();
   });
 });
 
