@@ -118,10 +118,6 @@ const fetchSLAMPose = (name: string): Promise<commonApi.Pose> => {
 };
 
 const executeMoveOnMap = async () => {
-  if (updatedDest === false) {
-    toast.error('please select a destination to move to');
-    return;
-  }
   // get base resources
   const baseResources = filterResources(props.resources, 'rdk', 'component', 'base');
   if (baseResources === undefined) {
