@@ -96,7 +96,7 @@ func NewFrameSystemFromConfig(name string, cfg *Config) (referenceframe.FrameSys
 			}
 		}
 		if !hasWorld {
-			return nil, errors.New("there are no robot parts that connect to a 'world' node. Root node must be named 'world'")
+			return nil, NoWorldConnectionError
 		}
 	}
 	// Topologically sort parts
@@ -153,7 +153,7 @@ func TopologicallySort(parts Parts) (Parts, error) {
 	for _, part := range parts {
 		parent := part.FrameConfig.Parent()
 		if !existingParts[parent] {
-			return nil, NewMissingParentError(part.FrameConfig.Name(), parent)
+			return nil, MissingParentError(part.FrameConfig.Name(), parent)
 		}
 		children[part.FrameConfig.Parent()] = append(children[part.FrameConfig.Parent()], part)
 	}
@@ -165,7 +165,7 @@ func TopologicallySort(parts Parts) (Parts, error) {
 	stack := make([]string, 0)
 	visited := make(map[string]bool)
 	if _, ok := children[referenceframe.World]; !ok {
-		return nil, errors.New("there are no robot parts that connect to a 'world' node. Root node must be named 'world'")
+		return nil, NoWorldConnectionError
 	}
 	stack = append(stack, referenceframe.World)
 	// begin adding frames to tree

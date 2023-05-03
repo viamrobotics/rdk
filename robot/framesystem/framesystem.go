@@ -52,7 +52,7 @@ func New(ctx context.Context, deps resource.Dependencies, logger golog.Logger) (
 		components: make(map[string]resource.Resource),
 		logger:     logger,
 	}
-	if err := fs.Reconfigure(ctx, deps, resource.Config{}); err != nil {
+	if err := fs.Reconfigure(ctx, deps, resource.Config{ConvertedAttributes: &Config{}}); err != nil {
 		return nil, err
 	}
 	return fs, nil
