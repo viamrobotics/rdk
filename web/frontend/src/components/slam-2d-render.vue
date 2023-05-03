@@ -7,6 +7,42 @@ import * as THREE from 'three';
 import { MapControls } from 'three/examples/jsm/controls/OrbitControls';
 import { PCDLoader } from 'three/examples/jsm/loaders/PCDLoader';
 import type { commonApi } from '@viamrobotics/sdk';
+import { SVGLoader } from 'three/examples/jsm/loaders/SVGLoader';
+import { baseMarkerUrl } from '../lib/base-marker-url';
+import { destMarkerUrl } from '../lib/destination-marker-url';
+
+type SvgOffset = {
+  x: number,
+  y: number,
+  z: number
+}
+
+const backgroundGridColor = 0xCA_CA_CA;
+
+const gridSubparts = ['AxesPos', 'AxesNeg', 'Grid'];
+
+const gridHelperRenderOrder = 997;
+const axesHelperRenderOrder = 998;
+const svgMarkerRenderOrder = 999;
+
+const gridHelperScalar = 4;
+const axesHelperSize = 8;
+
+// Note: updating the scale of the destination or base marker requires an offset update
+const baseMarkerScalar = 0.002;
+const destinationMarkerScalar = 0.1;
+
+const baseMarkerOffset: SvgOffset = {
+  x: -0.05,
+  y: -0.3,
+  z: 0,
+};
+
+const destinationMarkerOffset: SvgOffset = {
+  x: 1.2,
+  y: 2.5,
+  z: 0,
+};
 
 /*
  * this color map is greyscale. The color map is being used map probability values of a PCD
@@ -14,15 +50,15 @@ import type { commonApi } from '@viamrobotics/sdk';
  * generated with: https://grayscale.design/app
  */
 const colorMapGrey = [
-  [247, 247, 247],
-  [239, 239, 239],
-  [223, 223, 223],
-  [202, 202, 202],
-  [168, 168, 168],
-  [135, 135, 135],
-  [109, 109, 109],
-  [95, 95, 95],
-  [74, 74, 74],
+  [240, 240, 240],
+  [220, 220, 220],
+  [200, 200, 200],
+  [190, 190, 190],
+  [170, 170, 170],
+  [150, 150, 150],
+  [40, 40, 40],
+  [20, 20, 20],
+  [10, 10, 10],
   [0, 0, 0],
 ].map(([red, green, blue]) =>
   new THREE.Vector3(red, green, blue).multiplyScalar(1 / 255));
@@ -39,8 +75,13 @@ const props = defineProps<{
   resources: commonApi.ResourceName.AsObject[]
   pointcloud?: Uint8Array
   pose?: commonApi.Pose
+  destExists: boolean
+  destVector: THREE.Vector3
+  axesVisible: boolean
 }
 >();
+
+const emit = defineEmits<{(event: 'click', point: THREE.Vector3): void}>();
 
 const loader = new PCDLoader();
 
@@ -63,25 +104,87 @@ controls.enableRotate = false;
 
 const raycaster = new MouseRaycaster({ camera, renderer, recursive: false });
 
-raycaster.on('click', (event) => {
+raycaster.on('click', (event: THREE.Event) => {
   const [intersection] = event.intersections as THREE.Intersection[];
   if (intersection && intersection.point) {
-    console.debug(intersection.point);
+    emit('click', intersection.point);
   }
 });
 
-const markerSize = 0.5;
-const marker = new THREE.Mesh(
-  new THREE.PlaneGeometry(markerSize, markerSize),
-  new THREE.MeshBasicMaterial({ color: 'red' })
-);
-marker.name = 'Marker';
-// This ensures the robot marker renders on top of the pointcloud data
-marker.renderOrder = 999;
+/*
+ * svgLoader example for webgl:
+ * https://github.com/mrdoob/three.js/blob/master/examples/webgl_loader_svg.html
+ */
+//
+const svgLoader = new SVGLoader();
+const makeMarker = async (url : string, name: string, scalar: number) => {
+  const data = await svgLoader.loadAsync(url);
+
+  const { paths } = data!;
+
+  const group = new THREE.Group();
+  group.scale.multiplyScalar(scalar);
+
+  for (const path of paths) {
+
+    const fillColor = path!.userData!.style.fill;
+
+    if (fillColor !== undefined && fillColor !== 'none') {
+      const material = new THREE.MeshBasicMaterial({
+        color: new THREE.Color().setStyle(fillColor)
+          .convertSRGBToLinear(),
+        opacity: path!.userData!.style.fillOpacity,
+        transparent: true,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+        wireframe: false,
+      });
+
+      const shapes = SVGLoader.createShapes(path!);
+
+      for (const shape of shapes) {
+
+        const geometry = new THREE.ShapeGeometry(shape);
+        const mesh = new THREE.Mesh(geometry.rotateZ(-Math.PI), material);
+        group.add(mesh);
+
+      }
+
+    }
+
+    const strokeColor = path!.userData!.style.stroke;
+
+    if (strokeColor !== undefined && strokeColor !== 'none') {
+
+      const material = new THREE.MeshBasicMaterial({
+        color: new THREE.Color().setStyle(strokeColor)
+          .convertSRGBToLinear(),
+        opacity: path!.userData!.style.strokeOpacity,
+        transparent: true,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+        wireframe: false,
+      });
+
+      for (const subPath of path!.subPaths) {
+        const geometry = SVGLoader.pointsToStroke(subPath.getPoints(), path!.userData!.style);
+        if (geometry) {
+          const mesh = new THREE.Mesh(geometry.rotateZ(-Math.PI), material);
+          group.add(mesh);
+        }
+      }
+    }
+  }
+
+  group.name = name;
+  scene.add(group);
+  group.renderOrder = svgMarkerRenderOrder;
+  return group;
+};
 
 const disposeScene = () => {
   scene.traverse((object) => {
-    if (object.name === 'Marker') {
+    if (object.name === 'BaseMarker' || object.name === 'DestinationMarker') {
       return;
     }
 
@@ -95,6 +198,15 @@ const disposeScene = () => {
   });
 
   scene.clear();
+};
+
+const updatePose = async (newPose: commonApi.Pose) => {
+  const x = newPose.getX();
+  const y = newPose.getY();
+  const z = newPose.getZ();
+  const baseMarker = scene.getObjectByName('BaseMarker') ??
+    await makeMarker(baseMarkerUrl, 'BaseMarker', baseMarkerScalar);
+  baseMarker.position.set(x + baseMarkerOffset.x, y + baseMarkerOffset.y, z + baseMarkerOffset.z);
 };
 
 /*
@@ -115,7 +227,64 @@ const colorBuckets = (probability: number): THREE.Vector3 => {
   return colorMapGrey[probToColorMapBucket(probability, colorMapGrey.length)]!;
 };
 
-const updateCloud = (pointcloud: Uint8Array) => {
+// create the x and z axes
+const createAxisHelper = (name: string, rotation: number): THREE.AxesHelper => {
+  const axesHelper = new THREE.AxesHelper(axesHelperSize);
+  axesHelper.rotateX(rotation);
+  axesHelper.scale.set(1e5, 1, 1e5);
+  axesHelper.renderOrder = axesHelperRenderOrder;
+  axesHelper.name = name;
+  axesHelper.visible = props.axesVisible;
+  return axesHelper;
+};
+
+// create the background gray grid
+const createGridHelper = (
+  points: THREE.Points<THREE.BufferGeometry, THREE.Material | THREE.Material[]>
+): THREE.GridHelper => {
+  points.geometry.computeBoundingBox();
+
+  const boundingBox = points.geometry.boundingBox!;
+  const deltaX = Math.abs(boundingBox.max.x - boundingBox.min.x);
+  const deltaZ = Math.abs(boundingBox.max.z - boundingBox.min.z);
+  let maxDelta = Math.round(Math.max(deltaX, deltaZ) * gridHelperScalar);
+
+  /*
+   * if maxDelta is an odd number the x y axes will not be layered neatly over the grey grid
+   * because we round maxDelta and then potentially decrease the value, the 1 meter grid spacing
+   * is bound to have a margin of error
+   */
+  if (maxDelta % 2 !== 0) {
+    maxDelta -= 1;
+  }
+
+  const gridHelper = new THREE.GridHelper(maxDelta, maxDelta, backgroundGridColor, backgroundGridColor);
+  gridHelper.renderOrder = gridHelperRenderOrder;
+  gridHelper.name = 'Grid';
+  gridHelper.visible = props.axesVisible;
+  gridHelper.rotateX(Math.PI / 2);
+  return gridHelper;
+};
+
+const updateOrRemoveDestinationMarker = async () => {
+  if (props.destVector && props.destExists) {
+    const marker = scene.getObjectByName('DestinationMarker') ??
+      await makeMarker(destMarkerUrl, 'DestinationMarker', destinationMarkerScalar);
+    marker.position.set(
+      props.destVector.x + destinationMarkerOffset.x,
+      props.destVector.y + destinationMarkerOffset.y,
+      props.destVector.z + destinationMarkerOffset.z
+    );
+  }
+  if (!props.destExists) {
+    const marker = scene.getObjectByName('DestinationMarker');
+    if (marker !== undefined) {
+      scene.remove(marker);
+    }
+  }
+};
+
+const updatePointCloud = (pointcloud: Uint8Array) => {
   disposeScene();
 
   const viewHeight = 1;
@@ -139,7 +308,7 @@ const updateCloud = (pointcloud: Uint8Array) => {
   controls.maxZoom = radius * 2;
 
   const intersectionPlane = new THREE.Mesh(
-    new THREE.PlaneGeometry(radius * 2, radius * 2, 1, 1).rotateX(-Math.PI / 2),
+    new THREE.PlaneGeometry(radius * 2, radius * 2, 1, 1),
     new MeshDiscardMaterial()
   );
   intersectionPlane.name = 'Intersection Plane';
@@ -161,16 +330,29 @@ const updateCloud = (pointcloud: Uint8Array) => {
     }
   }
 
-  scene.add(points);
-  scene.add(marker);
-  scene.add(intersectionPlane);
-};
+  // construct grid spaced at 1 meter
+  const gridHelper = createGridHelper(points);
 
-const updatePose = (newPose: commonApi.Pose) => {
-  const x = newPose.getX();
-  const y = newPose.getY();
-  marker.position.setX(x);
-  marker.position.setY(y);
+  // construct axes
+  const axesPos = createAxisHelper('AxesPos', Math.PI / 2);
+  axesPos.rotateY(Math.PI / 2);
+  const axesNeg = createAxisHelper('AxesNeg', -Math.PI / 2);
+  axesNeg.rotateY(Math.PI / 2);
+  axesNeg.rotateX(Math.PI);
+
+  // add objects to scene
+  scene.add(
+    gridHelper,
+    points,
+    intersectionPlane,
+    axesPos,
+    axesNeg
+  );
+
+  if (props.pose !== undefined) {
+    updatePose(props.pose!);
+  }
+  updateOrRemoveDestinationMarker();
 };
 
 onMounted(() => {
@@ -179,17 +361,29 @@ onMounted(() => {
   run();
 
   if (props.pointcloud !== undefined) {
-    updateCloud(props.pointcloud);
+    updatePointCloud(props.pointcloud);
   }
 
   if (props.pose !== undefined) {
     updatePose(props.pose);
   }
+
 });
 
 onUnmounted(() => {
   pause();
   disposeScene();
+});
+
+watch(() => [props.destVector!.x, props.destVector!.y, props.destExists], updateOrRemoveDestinationMarker);
+
+watch(() => props.axesVisible, () => {
+  for (const gridPart of gridSubparts) {
+    const part = scene.getObjectByName(gridPart);
+    if (part !== undefined) {
+      part.visible = props.axesVisible;
+    }
+  }
 });
 
 watch(() => props.pose, (newPose) => {
@@ -205,7 +399,7 @@ watch(() => props.pose, (newPose) => {
 watch(() => props.pointCloudUpdateCount, () => {
   if (props.pointcloud !== undefined) {
     try {
-      updateCloud(props.pointcloud);
+      updatePointCloud(props.pointcloud);
     } catch (error) {
       console.error('failed to update pointcloud', error);
     }
@@ -215,10 +409,78 @@ watch(() => props.pointCloudUpdateCount, () => {
 </script>
 
 <template>
-  <div class="flex flex-col gap-4">
-    <div
-      ref="container"
-      class="pcd-container border-border-1 relative w-full border"
-    />
+  <div
+    ref="container"
+    class="pcd-container relative w-full"
+  >
+    <p class="absolute left-3 top-3 bg-white text-xs">
+      Grid set to 1 meter
+    </p>
+    <div class="absolute right-3 top-3">
+      <svg
+        class="Axes-Legend"
+        width="30"
+        height="30"
+        viewBox="0 0 30 30"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <rect
+          width="10"
+          height="10"
+          rx="5"
+          fill="#BE3536"
+        />
+        <path
+          d="M4.66278 6.032H4.51878L2.76678 2.4H3.51878L4.95078 5.456H5.04678L6.47878
+             2.4H7.23078L5.47878 6.032H5.33478V8H4.66278V6.032Z"
+          fill="#FCECEA"
+        />
+        <rect
+          x="20"
+          y="20"
+          width="10"
+          height="10"
+          rx="5"
+          fill="#0066CC"
+        />
+        <path
+          d="M23.6708 22.4L24.9268 24.88H25.0708L26.3268 22.4H27.0628L25.6628 25.144V25.24L27.0628
+             28H26.3268L25.0708 25.504H24.9268L23.6708 28H22.9348L24.3348 25.24V25.144L22.9348 22.4H23.6708Z"
+          fill="#E1F3FF"
+        />
+        <rect
+          x="4"
+          y="9"
+          width="2"
+          height="17"
+          fill="#BE3536"
+        />
+        <rect
+          x="21"
+          y="24"
+          width="2"
+          height="17"
+          transform="rotate(90 21 24)"
+          fill="#0066CC"
+        />
+        <rect
+          x="0.5"
+          y="20.5"
+          width="9"
+          height="9"
+          rx="4.5"
+          fill="#E0FAE3"
+        />
+        <rect
+          x="0.5"
+          y="20.5"
+          width="9"
+          height="9"
+          rx="4.5"
+          stroke="#3D7D3F"
+        />
+      </svg>
+    </div>
   </div>
 </template>
