@@ -375,12 +375,35 @@ func (ua *URArm) MoveToPosition(ctx context.Context, pos spatialmath.Pose, extra
 	extras := make(map[string]interface{}, 1)
 	extras["isLinearUR"] = spatialmath.CollisionBuffer + 5
 
-	solution, err := motionplan.PlanFrameMotion(ctx, ua.logger, pos, armFrame, armFrame.InputFromProtobuf(jp), arm.DefaultArmPlannerOptions, extras)
+	goals, err := motionplan.PlanFrameMotion(ctx, ua.logger, pos, armFrame, armFrame.InputFromProtobuf(jp), arm.DefaultArmPlannerOptions, extras)
 	if err != nil {
 		return err
 	}
 
-	return arm.GoToWaypoints(ctx, ua, solution)
+	var blend float64
+	for i, waypoint := range goals {
+		err := ctx.Err() // make sure we haven't been cancelled
+		if err != nil {
+			return err
+		}
+
+		// check that joint positions are not out of bounds
+		positionDegs := ua.model.ProtobufFromInput(waypoint)
+		if err := arm.CheckDesiredJointPositions(ctx, ua, positionDegs.Values); err != nil {
+			return err
+		}
+
+		// set the blend radius (meters)
+		blend = 0.001 // this is 1 mm
+		// first and last goal have blend of zero to ensure we end up where we want to end up
+		if i == 0 || i == len(goals)-1 {
+			blend = 0
+		}
+		if err := ua.MoveToJointPositionRadians(ctx, referenceframe.JointPositionsToRadians(positionDegs), blend); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // MoveToJointPositions TODO.
@@ -389,7 +412,7 @@ func (ua *URArm) MoveToJointPositions(ctx context.Context, joints *pb.JointPosit
 	if err := arm.CheckDesiredJointPositions(ctx, ua, joints.Values); err != nil {
 		return err
 	}
-	return ua.MoveToJointPositionRadians(ctx, referenceframe.JointPositionsToRadians(joints))
+	return ua.MoveToJointPositionRadians(ctx, referenceframe.JointPositionsToRadians(joints), 0)
 }
 
 // Stop stops the arm with some deceleration.
@@ -411,7 +434,7 @@ func (ua *URArm) IsMoving(ctx context.Context) (bool, error) {
 }
 
 // MoveToJointPositionRadians TODO.
-func (ua *URArm) MoveToJointPositionRadians(ctx context.Context, radians []float64) error {
+func (ua *URArm) MoveToJointPositionRadians(ctx context.Context, radians []float64, blend float64) error {
 	if !ua.inRemoteMode {
 		return errors.New("UR5 is in local mode; use the polyscope to switch it to remote control mode")
 	}
@@ -425,7 +448,7 @@ func (ua *URArm) MoveToJointPositionRadians(ctx context.Context, radians []float
 		return errors.New("need 6 joints")
 	}
 
-	cmd := fmt.Sprintf("movej([%f,%f,%f,%f,%f,%f], a=%1.2f, v=%1.2f, r=0.001)\r\n",
+	cmd := fmt.Sprintf("movej([%f,%f,%f,%f,%f,%f], a=%1.2f, v=%1.2f, r=%f)\r\n",
 		radians[0],
 		radians[1],
 		radians[2],
@@ -434,6 +457,7 @@ func (ua *URArm) MoveToJointPositionRadians(ctx context.Context, radians []float
 		radians[5],
 		5.0*ua.speed,
 		4.0*ua.speed,
+		blend,
 	)
 
 	_, err := ua.connControl.Write([]byte(cmd))
@@ -449,11 +473,17 @@ func (ua *URArm) MoveToJointPositionRadians(ctx context.Context, radians []float
 		if err != nil {
 			return err
 		}
+		// Here we ensure we are close enough to the desired joint positions before
+		// returning. This prevents movej commands from overwriting each other.
 		for idx, r := range radians {
-			// we check if we have arrived at the desired joint positions
-			// blend * 1000 = 1
-			if math.Abs(r-state.Joints[idx].Qactual)*100 > 1 {
-				good = false
+			if blend == 0 {
+				if math.Round(r*100) != math.Round(state.Joints[idx].Qactual*100) {
+					good = false
+				}
+			} else {
+				if math.Abs(r-state.Joints[idx].Qactual)*100 > blend*1000 {
+					good = false
+				}
 			}
 		}
 
