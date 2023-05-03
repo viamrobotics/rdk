@@ -81,7 +81,7 @@ const refresh = async () => {
       positionDegrees = await getPositionDegrees();
     }
   } catch (error) {
-    displayError(error);
+    displayError(error as ServiceError);
   }
 
   cancelPoll = scheduleAsyncPoll(refresh, 500);
@@ -110,12 +110,12 @@ onMounted(async () => {
 
     cancelPoll = scheduleAsyncPoll(refresh, 500);
   } catch (error) {
-    if (error.message === 'Response closed without headers') {
+    if ((error as ServiceError).message === 'Response closed without headers') {
       cancelPoll = scheduleAsyncPoll(refresh, 500);
       return;
     }
 
-    displayError(error);
+    displayError(error as ServiceError);
   }
 
   props.statusStream?.on('end', () => cancelPoll?.());
