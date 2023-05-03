@@ -107,14 +107,8 @@ const reset = () => {
 onMounted(async () => {
   try {
     properties = await getProperties();
-
-    cancelPoll = scheduleAsyncPoll(refresh, 500);
+    refresh();
   } catch (error) {
-    if ((error as ServiceError).message === 'Response closed without headers') {
-      cancelPoll = scheduleAsyncPoll(refresh, 500);
-      return;
-    }
-
     displayError(error as ServiceError);
   }
 
