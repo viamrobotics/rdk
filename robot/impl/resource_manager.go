@@ -433,8 +433,12 @@ func (manager *resourceManager) Close(ctx context.Context) error {
 	if err := manager.processManager.Stop(); err != nil {
 		allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error stopping process manager"))
 	}
-	if err := manager.moduleManager.Close(ctx); err != nil {
-		allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error closing module manager"))
+	// moduleManager may be nil if startModuleManager was never called (may be
+	// the case in tests).
+	if manager.moduleManager != nil {
+		if err := manager.moduleManager.Close(ctx); err != nil {
+			allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error closing module manager"))
+		}
 	}
 
 	// our caller will close web
