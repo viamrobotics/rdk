@@ -18,6 +18,8 @@ import (
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/module/modmanager"
+	modmanageroptions "go.viam.com/rdk/module/modmanager/options"
+	modif "go.viam.com/rdk/module/modmaninterface"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/client"
@@ -41,6 +43,7 @@ var (
 type resourceManager struct {
 	resources      *resource.Graph
 	processManager pexec.ProcessManager
+	moduleManager  modif.ModuleManager
 	opts           resourceManagerOptions
 	logger         golog.Logger
 	configLock     sync.Mutex
@@ -55,6 +58,7 @@ type resourceManagerOptions struct {
 }
 
 // newResourceManager returns a properly initialized set of parts.
+// moduleManager will not be initialized until startModuleManager is called.
 func newResourceManager(
 	opts resourceManagerOptions,
 	logger golog.Logger,
@@ -79,6 +83,15 @@ func newProcessManager(
 
 func fromRemoteNameToRemoteNodeName(name string) resource.Name {
 	return resource.NewName(client.RemoteAPI, name)
+}
+
+func (manager *resourceManager) startModuleManager(
+	parentAddr string,
+	untrustedEnv bool,
+	logger golog.Logger,
+) {
+	mmOpts := modmanageroptions.Options{UntrustedEnv: untrustedEnv}
+	manager.moduleManager = modmanager.NewManager(parentAddr, logger, mmOpts)
 }
 
 // addRemote adds a remote to the manager.
@@ -377,12 +390,12 @@ func (manager *resourceManager) mergeResourceRPCAPIsWithRemote(r robot.Robot, ty
 	}
 }
 
-func (manager *resourceManager) closeResource(ctx context.Context, r robot.LocalRobot, res resource.Resource) error {
+func (manager *resourceManager) closeResource(ctx context.Context, res resource.Resource) error {
 	allErrs := res.Close(ctx)
 
 	resName := res.Name()
-	if modMan := r.ModuleManager(); modMan != nil && modMan.IsModularResource(resName) {
-		if err := r.ModuleManager().RemoveResource(ctx, resName); err != nil {
+	if manager.moduleManager != nil && manager.moduleManager.IsModularResource(resName) {
+		if err := manager.moduleManager.RemoveResource(ctx, resName); err != nil {
 			allErrs = multierr.Combine(err, errors.Wrap(err, "error removing modular resource for closure"))
 		}
 	}
@@ -396,7 +409,6 @@ func (manager *resourceManager) closeResource(ctx context.Context, r robot.Local
 // before add) or need to be removed in a different way (e.g. web internal service last).
 func (manager *resourceManager) removeMarkedAndClose(
 	ctx context.Context,
-	r robot.LocalRobot,
 	excludeFromClose map[resource.Name]struct{},
 ) ([]resource.Name, error) {
 	var allErrs error
@@ -408,25 +420,32 @@ func (manager *resourceManager) removeMarkedAndClose(
 		if _, ok := excludeFromClose[resName]; ok {
 			continue
 		}
-		allErrs = multierr.Combine(allErrs, manager.closeResource(ctx, r, res))
+		allErrs = multierr.Combine(allErrs, manager.closeResource(ctx, res))
 	}
 	return removedNames, allErrs
 }
 
 // Close attempts to close/stop all parts.
-func (manager *resourceManager) Close(ctx context.Context, r robot.LocalRobot) error {
+func (manager *resourceManager) Close(ctx context.Context) error {
 	manager.resources.MarkForRemoval(manager.resources.Clone())
 
 	var allErrs error
 	if err := manager.processManager.Stop(); err != nil {
 		allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error stopping process manager"))
 	}
+	// moduleManager may be nil if startModuleManager was never called (may be
+	// the case in tests).
+	if manager.moduleManager != nil {
+		if err := manager.moduleManager.Close(ctx); err != nil {
+			allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error closing module manager"))
+		}
+	}
 
 	// our caller will close web
 	excludeWebFromClose := map[resource.Name]struct{}{
 		web.InternalServiceName: {},
 	}
-	if _, err := manager.removeMarkedAndClose(ctx, r, excludeWebFromClose); err != nil {
+	if _, err := manager.removeMarkedAndClose(ctx, excludeWebFromClose); err != nil {
 		allErrs = multierr.Combine(allErrs, err)
 	}
 
@@ -524,8 +543,8 @@ func (manager *resourceManager) completeConfig(
 			gNode.SetLastError(errors.Wrap(err, "config validation error found in resource: "+conf.ResourceName().String()))
 			continue
 		}
-		if robot.ModuleManager().Provides(conf) {
-			if _, err := robot.ModuleManager().ValidateConfig(ctx, conf); err != nil {
+		if manager.moduleManager.Provides(conf) {
+			if _, err := manager.moduleManager.ValidateConfig(ctx, conf); err != nil {
 				manager.logger.Errorw("modular resource config validation error", "resource", conf.ResourceName(), "model", conf.Model, "error", err)
 				gNode.SetLastError(errors.Wrap(err, "config validation error found in modular resource: "+conf.ResourceName().String()))
 				continue
@@ -709,13 +728,13 @@ func (manager *resourceManager) processResource(
 	resName := conf.ResourceName()
 	deps, err := r.getDependencies(ctx, resName, gNode)
 	if err != nil {
-		return nil, false, multierr.Combine(err, manager.closeResource(ctx, r, currentRes))
+		return nil, false, multierr.Combine(err, manager.closeResource(ctx, currentRes))
 	}
 
-	isModular := r.ModuleManager().Provides(conf)
+	isModular := manager.moduleManager.Provides(conf)
 	if gNode.ResourceModel() == conf.Model {
 		if isModular {
-			if err := r.ModuleManager().ReconfigureResource(ctx, conf, modmanager.DepsToNames(deps)); err != nil {
+			if err := manager.moduleManager.ReconfigureResource(ctx, conf, modmanager.DepsToNames(deps)); err != nil {
 				return nil, false, err
 			}
 			return currentRes, false, nil
@@ -735,7 +754,7 @@ func (manager *resourceManager) processResource(
 	}
 
 	manager.logger.Debugw("rebuilding", "name", resName)
-	if err := r.manager.closeResource(ctx, r, currentRes); err != nil {
+	if err := r.manager.closeResource(ctx, currentRes); err != nil {
 		manager.logger.Error(err)
 	}
 	newRes, err := r.newResource(ctx, gNode, conf)
@@ -848,6 +867,26 @@ func (manager *resourceManager) updateResources(
 			continue
 		}
 	}
+
+	// modules are not added into the resource tree as they belong to the module manager
+	for _, mod := range conf.Added.Modules {
+		if err := manager.moduleManager.Add(ctx, mod); err != nil {
+			manager.logger.Errorw("error adding module", "module", mod.Name, "error", err)
+			continue
+		}
+	}
+	for _, mod := range conf.Modified.Modules {
+		orphanedResourceNames, err := manager.moduleManager.Reconfigure(ctx, mod)
+		if err != nil {
+			manager.logger.Errorw("error reconfiguring module", "module", mod.Name, "error", err)
+		}
+		for _, resToClose := range manager.markResourcesRemoved(orphanedResourceNames, nil) {
+			if err := resToClose.Close(ctx); err != nil {
+				manager.logger.Errorw("error closing now orphaned resource", "resource",
+					resToClose.Name().String(), "module", mod.Name, "error", err)
+			}
+		}
+	}
 	return allErrs
 }
 
@@ -897,14 +936,6 @@ func (manager *resourceManager) markRemoved(
 	logger golog.Logger,
 ) (pexec.ProcessManager, []resource.Resource, map[resource.Name]struct{}) {
 	processesToClose := newProcessManager(manager.opts, logger)
-	var resourcesToCloseBeforeComplete []resource.Resource
-	markedResourceNames := map[resource.Name]struct{}{}
-	addNames := func(names ...resource.Name) {
-		for _, name := range names {
-			markedResourceNames[name] = struct{}{}
-		}
-	}
-
 	for _, conf := range conf.Processes {
 		if manager.opts.untrustedEnv {
 			continue
@@ -920,42 +951,42 @@ func (manager *resourceManager) markRemoved(
 		}
 	}
 
+	var resourcesToMark []resource.Name
+	for _, conf := range conf.Modules {
+		orphanedResourceNames, err := manager.moduleManager.Remove(conf.Name)
+		if err != nil {
+			manager.logger.Errorw("error removing module", "module", conf.Name, "error", err)
+		}
+		resourcesToMark = append(resourcesToMark, orphanedResourceNames...)
+	}
+
 	for _, conf := range conf.Remotes {
-		remoteName := fromRemoteNameToRemoteNodeName(conf.Name)
-		resNode, ok := manager.resources.Node(remoteName)
-		if !ok {
-			continue
-		}
-		resourcesToCloseBeforeComplete = append(
-			resourcesToCloseBeforeComplete,
-			resource.NewCloseOnlyResource(remoteName, resNode.Close))
-		subG, err := manager.resources.SubGraphFrom(remoteName)
-		if err != nil {
-			manager.logger.Errorw("error while getting a subgraph", "error", err)
-			continue
-		}
-		addNames(subG.Names()...)
-		manager.resources.MarkForRemoval(subG)
+		resourcesToMark = append(
+			resourcesToMark,
+			fromRemoteNameToRemoteNodeName(conf.Name),
+		)
 	}
-	for _, compConf := range conf.Components {
-		rName := compConf.ResourceName()
-		resNode, ok := manager.resources.Node(rName)
-		if !ok {
-			continue
-		}
-		resourcesToCloseBeforeComplete = append(
-			resourcesToCloseBeforeComplete,
-			resource.NewCloseOnlyResource(rName, resNode.Close))
-		subG, err := manager.resources.SubGraphFrom(rName)
-		if err != nil {
-			manager.logger.Errorw("error while getting a subgraph", "error", err)
-			continue
-		}
-		addNames(subG.Names()...)
-		manager.resources.MarkForRemoval(subG)
+	for _, conf := range append(conf.Components, conf.Services...) {
+		resourcesToMark = append(resourcesToMark, conf.ResourceName())
 	}
-	for _, conf := range conf.Services {
-		rName := conf.ResourceName()
+	markedResourceNames := map[resource.Name]struct{}{}
+	addNames := func(names ...resource.Name) {
+		for _, name := range names {
+			markedResourceNames[name] = struct{}{}
+		}
+	}
+	resourcesToCloseBeforeComplete := manager.markResourcesRemoved(resourcesToMark, addNames)
+	return processesToClose, resourcesToCloseBeforeComplete, markedResourceNames
+}
+
+// markResourcesRemoved marks all passed in resources (assumed to be resource
+// names of components, services or remotes) for removal.
+func (manager *resourceManager) markResourcesRemoved(
+	rNames []resource.Name,
+	addNames func(names ...resource.Name),
+) []resource.Resource {
+	var resourcesToCloseBeforeComplete []resource.Resource
+	for _, rName := range rNames {
 		// Disable changes to shell in untrusted
 		if manager.opts.untrustedEnv && rName.API == shell.API {
 			continue
@@ -972,10 +1003,12 @@ func (manager *resourceManager) markRemoved(
 			manager.logger.Errorw("error while getting a subgraph", "error", err)
 			continue
 		}
-		addNames(subG.Names()...)
+		if addNames != nil {
+			addNames(subG.Names()...)
+		}
 		manager.resources.MarkForRemoval(subG)
 	}
-	return processesToClose, resourcesToCloseBeforeComplete, markedResourceNames
+	return resourcesToCloseBeforeComplete
 }
 
 func remoteDialOptions(config config.Remote, opts resourceManagerOptions) []rpc.DialOption {
