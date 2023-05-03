@@ -24,35 +24,27 @@ const getProperties = () => new Promise<encoderApi.GetPropertiesResponse.AsObjec
   request.setName(props.name);
 
   rcLogConditionally(request);
-  props.client.encoderService.getProperties(
-    request,
-    new grpc.Metadata(),
-    (error: ServiceError | null, response: encoderApi.GetPropertiesResponse | null) => {
-      if (error) {
-        return reject((error as ServiceError).message);
-      }
-
-      resolve(response!.toObject());
-      properties = response!.toObject();
+  props.client.encoderService.getProperties(request, new grpc.Metadata(), (error, response) => {
+    if (error) {
+      return reject((error as ServiceError).message);
     }
-  );
+
+    resolve(response!.toObject());
+    properties = response!.toObject();
+  });
 });
 
 const getPosition = () => new Promise<number>((resolve, reject) => {
   const request = new encoderApi.GetPositionRequest();
   request.setName(props.name);
   rcLogConditionally(request);
-  props.client.encoderService.getPosition(
-    request,
-    new grpc.Metadata(),
-    (error: ServiceError | null, resp: encoderApi.GetPositionResponse | null) => {
-      if (error) {
-        return reject(new Error((error as ServiceError).message));
-      }
-
-      resolve(resp!.toObject().value);
+  props.client.encoderService.getPosition(request, new grpc.Metadata(), (error, resp) => {
+    if (error) {
+      return reject(new Error((error as ServiceError).message));
     }
-  );
+
+    resolve(resp!.toObject().value);
+  });
 });
 
 const getPositionDegrees = () => new Promise<number>((resolve, reject) => {
@@ -60,17 +52,13 @@ const getPositionDegrees = () => new Promise<number>((resolve, reject) => {
   request.setPositionType(2);
   rcLogConditionally(request);
 
-  props.client.encoderService.getPosition(
-    request,
-    new grpc.Metadata(),
-    (error: ServiceError | null, resp: encoderApi.GetPositionResponse | null) => {
-      if (error) {
-        return reject(new Error((error as ServiceError).message));
-      }
-
-      resolve(resp!.toObject().value);
+  props.client.encoderService.getPosition(request, new grpc.Metadata(), (error, resp) => {
+    if (error) {
+      return reject(new Error((error as ServiceError).message));
     }
-  );
+
+    resolve(resp!.toObject().value);
+  });
 });
 
 const refresh = async () => {
@@ -88,20 +76,16 @@ const refresh = async () => {
 };
 
 const reset = () => {
-  const req = new encoderApi.ResetPositionRequest();
-  req.setName(props.name);
+  const request = new encoderApi.ResetPositionRequest();
+  request.setName(props.name);
 
-  rcLogConditionally(req);
+  rcLogConditionally(request);
 
-  props.client.encoderService.resetPosition(
-    req,
-    new grpc.Metadata(),
-    (error: ServiceError | null) => {
-      if (error) {
-        return displayError(error as ServiceError);
-      }
+  props.client.encoderService.resetPosition(request, new grpc.Metadata(), (error) => {
+    if (error) {
+      return displayError(error as ServiceError);
     }
-  );
+  });
 };
 
 onMounted(async () => {
