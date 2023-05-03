@@ -3,21 +3,24 @@ package builtin
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync"
+
+	"github.com/pkg/errors"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 
 	servicepb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/internal"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/services/motion"
+	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -34,6 +37,7 @@ func init() {
 			) (motion.Service, error) {
 				return NewBuiltIn(ctx, deps, conf, logger)
 			},
+			WeakDependencies: []internal.ResourceMatcher{internal.SLAMDependencyWildcardMatcher},
 		})
 }
 
@@ -64,24 +68,30 @@ func (ms *builtIn) Reconfigure(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
-) error {
+) (err error) {
 	ms.lock.Lock()
 	defer ms.lock.Unlock()
 
-	fsService, err := resource.FromDependencies[framesystem.Service](deps, framesystem.InternalServiceName)
-	if err != nil {
-		return err
+	slamServices := make(map[resource.Name]slam.Service)
+	for name, dep := range deps {
+		switch dep := dep.(type) {
+		case framesystem.Service:
+			ms.fsService = dep
+		case slam.Service:
+			slamServices[name] = dep
+		}
 	}
-	ms.fsService = fsService
+	ms.slamServices = slamServices
 	return nil
 }
 
 type builtIn struct {
 	resource.Named
 	resource.TriviallyCloseable
-	fsService framesystem.Service
-	logger    golog.Logger
-	lock      sync.Mutex
+	fsService    framesystem.Service
+	slamServices map[resource.Name]slam.Service
+	logger       golog.Logger
+	lock         sync.Mutex
 }
 
 // Move takes a goal location and will plan and execute a movement to move a component specified by its name to that destination.
@@ -165,7 +175,12 @@ func (ms *builtIn) MoveOnMap(
 	slamName resource.Name,
 	extra map[string]interface{},
 ) (bool, error) {
-	return false, errors.New("this is not implemented yet")
+	slamService, ok := ms.slamServices[slamName]
+	if !ok {
+		return false, errors.Wrap(resource.NewNotFoundError(slamName), "motion service missing weak dependency")
+	}
+	_ = slamService
+	return true, nil
 }
 
 // MoveSingleComponent will pass through a move command to a component with a MoveToPosition method that takes a pose. Arms are the only

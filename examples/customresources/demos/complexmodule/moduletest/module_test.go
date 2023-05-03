@@ -413,6 +413,6 @@ func TestValidationFailure(t *testing.T) {
 	// Assert that Validation failure is present in server output, but build failure
 	// is not.
 	test.That(t, logs.FilterMessageSnippet(
-		"modular config validation error found in component: base1").Len(), test.ShouldEqual, 1)
+		"modular config validation error found in resource: base1").Len(), test.ShouldEqual, 1)
 	test.That(t, logs.FilterMessageSnippet("error building component").Len(), test.ShouldEqual, 0)
 }

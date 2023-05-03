@@ -52,7 +52,7 @@ func NewClientFromConn(
 		client: pbClient,
 		logger: logger,
 	}
-	if modelErr != nil {
+	if modelErr == nil {
 		c.model = model
 	}
 	return c, nil
