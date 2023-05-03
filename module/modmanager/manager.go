@@ -38,10 +38,11 @@ var (
 )
 
 // NewManager returns a Manager.
-func NewManager(logger golog.Logger, options modmanageroptions.Options) modmaninterface.ModuleManager {
+func NewManager(parentAddr string, logger golog.Logger, options modmanageroptions.Options) modmaninterface.ModuleManager {
 	return &Manager{
 		logger:       logger,
 		modules:      map[string]*module{},
+		parentAddr:   parentAddr,
 		rMap:         map[resource.Name]*module{},
 		untrustedEnv: options.UntrustedEnv,
 	}
@@ -71,12 +72,6 @@ type Manager struct {
 	parentAddr   string
 	rMap         map[resource.Name]*module
 	untrustedEnv bool
-}
-
-// SetParentAddress sets the unix socket parent address to pass to started
-// modules. To be used after the robot's web service has been started.
-func (mgr *Manager) SetParentAddress(parentAddr string) {
-	mgr.parentAddr = parentAddr
 }
 
 // Close terminates module connections and processes.

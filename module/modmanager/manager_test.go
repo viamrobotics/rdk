@@ -48,8 +48,7 @@ func TestModManagerFunctions(t *testing.T) {
 	parentAddr += "/parent.sock"
 
 	t.Log("test Helpers")
-	mgr := NewManager(logger, modmanageroptions.Options{UntrustedEnv: false})
-	mgr.SetParentAddress(parentAddr)
+	mgr := NewManager(parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
 
 	mod := &module{name: "test", exe: modExe}
 
@@ -82,8 +81,7 @@ func TestModManagerFunctions(t *testing.T) {
 	test.That(t, mod.process.Stop(), test.ShouldBeNil)
 
 	t.Log("test AddModule")
-	mgr = NewManager(logger, modmanageroptions.Options{UntrustedEnv: false})
-	mgr.SetParentAddress(parentAddr)
+	mgr = NewManager(parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
 	test.That(t, err, test.ShouldBeNil)
 
 	modCfg := config.Module{
@@ -201,8 +199,7 @@ func TestModManagerFunctions(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Log("test UntrustedEnv")
-	mgr = NewManager(logger, modmanageroptions.Options{UntrustedEnv: true})
-	mgr.SetParentAddress(parentAddr)
+	mgr = NewManager(parentAddr, logger, modmanageroptions.Options{UntrustedEnv: true})
 
 	modCfg = config.Module{
 		Name:    "simple-module",
@@ -253,8 +250,7 @@ func TestModManagerValidation(t *testing.T) {
 	parentAddr += "/parent.sock"
 
 	t.Log("adding complex module")
-	mgr := NewManager(logger, modmanageroptions.Options{UntrustedEnv: false})
-	mgr.SetParentAddress(parentAddr)
+	mgr := NewManager(parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
 
 	modCfg := config.Module{
 		Name:    "complex-module",

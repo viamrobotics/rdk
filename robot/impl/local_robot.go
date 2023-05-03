@@ -426,9 +426,9 @@ func newWithResources(
 		return nil, err
 	}
 
-	// Once web service is started, set parent address in module manager and add
-	// initially specified modules.
-	r.manager.moduleManager.SetParentAddress(r.webSvc.ModuleAddress())
+	// Once web service is started, start module manager and add initially
+	// specified modules.
+	r.manager.startModuleManager(r.webSvc.ModuleAddress(), cfg.UntrustedEnv, logger)
 	for _, mod := range cfg.Modules {
 		err := r.manager.moduleManager.Add(ctx, mod)
 		if err != nil {

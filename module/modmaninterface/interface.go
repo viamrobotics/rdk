@@ -22,6 +22,5 @@ type ModuleManager interface {
 
 	Provides(cfg resource.Config) bool
 
-	SetParentAddress(string)
 	Close(ctx context.Context) error
 }

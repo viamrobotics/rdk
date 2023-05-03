@@ -58,6 +58,7 @@ type resourceManagerOptions struct {
 }
 
 // newResourceManager returns a properly initialized set of parts.
+// moduleManager will not be initialized until startModuleManager is called.
 func newResourceManager(
 	opts resourceManagerOptions,
 	logger golog.Logger,
@@ -65,7 +66,6 @@ func newResourceManager(
 	return &resourceManager{
 		resources:      resource.NewGraph(),
 		processManager: newProcessManager(opts, logger),
-		moduleManager:  newModuleManager(opts, logger),
 		opts:           opts,
 		logger:         logger,
 	}
@@ -81,16 +81,17 @@ func newProcessManager(
 	return pexec.NewProcessManager(logger)
 }
 
-func newModuleManager(
-	opts resourceManagerOptions,
-	logger golog.Logger,
-) modif.ModuleManager {
-	mmOpts := modmanageroptions.Options{UntrustedEnv: opts.untrustedEnv}
-	return modmanager.NewManager(logger, mmOpts)
-}
-
 func fromRemoteNameToRemoteNodeName(name string) resource.Name {
 	return resource.NewName(client.RemoteAPI, name)
+}
+
+func (manager *resourceManager) startModuleManager(
+	parentAddr string,
+	untrustedEnv bool,
+	logger golog.Logger,
+) {
+	mmOpts := modmanageroptions.Options{UntrustedEnv: untrustedEnv}
+	manager.moduleManager = modmanager.NewManager(parentAddr, logger, mmOpts)
 }
 
 // addRemote adds a remote to the manager.
