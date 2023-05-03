@@ -40,6 +40,11 @@ type Service interface {
 	FrameSystem(ctx context.Context, additionalTransforms []*referenceframe.LinkInFrame) (referenceframe.FrameSystem, error)
 }
 
+// FromDependencies is a helper for getting the framesystem from a collection of dependencies.
+func FromDependencies(deps resource.Dependencies) (Service, error) {
+	return resource.FromDependencies[Service](deps, InternalServiceName)
+}
+
 // New returns a new frame system service for the given robot.
 func New(ctx context.Context, deps resource.Dependencies, logger golog.Logger) (Service, error) {
 	fs := &frameSystemService{
