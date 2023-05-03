@@ -93,10 +93,9 @@ func (svc *frameSystemService) Reconfigure(ctx context.Context, deps resource.De
 		components[short] = r
 	}
 
-	// TODO(rb): should this be done in the validate function instead?
-	fsCfg, ok := conf.ConvertedAttributes.(Config)
-	if !ok {
-		return errors.New("could not read frame config")
+	fsCfg, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return err
 	}
 
 	sortedParts, err := TopologicallySort(fsCfg.Parts)
