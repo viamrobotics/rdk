@@ -1847,6 +1847,10 @@ func (rr *dummyRobot) StopAll(ctx context.Context, extra map[resource.Name]map[s
 func managerForDummyRobot(robot robot.Robot) *resourceManager {
 	manager := newResourceManager(resourceManagerOptions{}, robot.Logger().Named("manager"))
 
+	// start a dummy module manager so calls to moduleManager.Provides() do not
+	// panic.
+	manager.startModuleManager("", false, robot.Logger())
+
 	for _, name := range robot.ResourceNames() {
 		res, err := robot.ResourceByName(name)
 		if err != nil {
