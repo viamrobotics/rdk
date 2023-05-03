@@ -242,7 +242,7 @@ func createAllCollisionConstraints(
 	pbConstraint []*pb.CollisionSpecification,
 	extras map[string]interface{},
 ) (map[string]StateConstraint, error) {
-	buffer, ok := extras["path_step_size"].(float64)
+	buffer, ok := extras["isLinearUR"].(float64)
 	if !ok {
 		buffer = spatial.CollisionBuffer
 	}
