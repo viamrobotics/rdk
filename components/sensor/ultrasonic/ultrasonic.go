@@ -80,16 +80,7 @@ func newSensor(ctx context.Context, deps resource.Dependencies, name resource.Na
 	if !ok {
 		return nil, errors.Errorf("ultrasonic: cannot find board %q", config.Board)
 	}
-	i, ok := b.DigitalInterruptByName(config.EchoInterrupt)
-	if !ok {
-		return nil, errors.Errorf("ultrasonic: cannot grab digital interrupt %q", config.EchoInterrupt)
-	}
-	g, err := b.GPIOPinByName(config.TriggerPin)
-	if err != nil {
-		return nil, errors.Wrapf(err, "ultrasonic: cannot grab gpio %q", config.TriggerPin)
-	}
-	s.echoInterrupt = i
-	s.triggerPin = g
+	s.board = b
 
 	if config.TimeoutMs > 0 {
 		s.timeoutMs = config.TimeoutMs
@@ -99,8 +90,14 @@ func newSensor(ctx context.Context, deps resource.Dependencies, name resource.Na
 	}
 
 	s.ticksChan = make(chan board.Tick, 2)
-	if err := s.triggerPin.Set(ctx, false, nil); err != nil {
-		return nil, errors.Wrap(err, "ultrasonic: cannot set trigger pin to low")
+
+	// Set the trigger pin to low, so it's ready for later.
+	if triggerPin, err := b.GPIOPinByName(config.TriggerPin); err != nil {
+		return nil, errors.Wrapf(err, "ultrasonic: cannot grab gpio %q", config.TriggerPin)
+	} else {
+		if err := triggerPin.Set(ctx, false, nil); err != nil {
+			return nil, errors.Wrap(err, "ultrasonic: cannot set trigger pin to low")
+		}
 	}
 
 	return s, nil
@@ -112,8 +109,7 @@ type Sensor struct {
 	resource.AlwaysRebuild
 	mu            sync.Mutex
 	config        *Config
-	echoInterrupt board.DigitalInterrupt
-	triggerPin    board.GPIOPin
+	board         board.Board
 	ticksChan     chan board.Tick
 	timeoutMs     uint
 	cancelCtx     context.Context
@@ -130,16 +126,28 @@ func (s *Sensor) namedError(err error) error {
 func (s *Sensor) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.echoInterrupt.AddCallback(s.ticksChan)
-	defer s.echoInterrupt.RemoveCallback(s.ticksChan)
+
+	// Grab the 2 pins from the board. We don't just get these once during setup, in case the board
+	// reconfigures itself because someone decided to rewire things.
+	echoInterrupt, ok := s.board.DigitalInterruptByName(s.config.EchoInterrupt)
+	if !ok {
+		return nil, errors.Errorf("ultrasonic: cannot grab digital interrupt %q", s.config.EchoInterrupt)
+	}
+	triggerPin, err := s.board.GPIOPinByName(s.config.TriggerPin)
+	if err != nil {
+		return nil, errors.Wrapf(err, "ultrasonic: cannot grab gpio %q", s.config.TriggerPin)
+	}
+
+	echoInterrupt.AddCallback(s.ticksChan)
+	defer echoInterrupt.RemoveCallback(s.ticksChan)
 
 	// we send a high and a low to the trigger pin 10 microseconds
 	// apart to signal the sensor to begin sending the sonic pulse
-	if err := s.triggerPin.Set(ctx, true, nil); err != nil {
+	if err := triggerPin.Set(ctx, true, nil); err != nil {
 		return nil, s.namedError(errors.Wrap(err, "ultrasonic cannot set trigger pin to high"))
 	}
 	rdkutils.SelectContextOrWait(ctx, time.Microsecond*10)
-	if err := s.triggerPin.Set(ctx, false, nil); err != nil {
+	if err := triggerPin.Set(ctx, false, nil); err != nil {
 		return nil, s.namedError(errors.Wrap(err, "ultrasonic cannot set trigger pin to low"))
 	}
 	// the first signal from the interrupt indicates that the sonic
