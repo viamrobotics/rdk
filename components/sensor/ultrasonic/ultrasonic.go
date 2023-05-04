@@ -92,12 +92,12 @@ func newSensor(ctx context.Context, deps resource.Dependencies, name resource.Na
 	s.ticksChan = make(chan board.Tick, 2)
 
 	// Set the trigger pin to low, so it's ready for later.
-	if triggerPin, err := b.GPIOPinByName(config.TriggerPin); err != nil {
+	triggerPin, err := b.GPIOPinByName(config.TriggerPin)
+	if err != nil {
 		return nil, errors.Wrapf(err, "ultrasonic: cannot grab gpio %q", config.TriggerPin)
-	} else {
-		if err := triggerPin.Set(ctx, false, nil); err != nil {
-			return nil, errors.Wrap(err, "ultrasonic: cannot set trigger pin to low")
-		}
+	}
+	if err := triggerPin.Set(ctx, false, nil); err != nil {
+		return nil, errors.Wrap(err, "ultrasonic: cannot set trigger pin to low")
 	}
 
 	return s, nil

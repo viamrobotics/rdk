@@ -298,11 +298,12 @@ func (b *sysfsBoard) reconfigureInterrupts(newConf *Config) error {
 			}
 			delete(b.gpios, config.Pin)
 		}
-		if interrupt, err := b.createDigitalInterrupt(b.cancelCtx, config, b.gpioMappings); err != nil {
+
+		interrupt, err := b.createDigitalInterrupt(b.cancelCtx, config, b.gpioMappings)
+		if err != nil {
 			return err
-		} else {
-			b.interrupts[config.Name] = interrupt
 		}
+		b.interrupts[config.Name] = interrupt
 	}
 
 	return nil
