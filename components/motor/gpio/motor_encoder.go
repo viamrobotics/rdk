@@ -113,6 +113,7 @@ func newEncodedMotor(
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	em := &EncodedMotor{
 		Named:            name.AsNamed(),
+		cfg:              motorConfig,
 		ticksPerRotation: int64(motorConfig.TicksPerRotation),
 		real:             localReal,
 		cancelCtx:        cancelCtx,
@@ -174,6 +175,7 @@ type EncodedMotor struct {
 	resource.AlwaysRebuild
 
 	activeBackgroundWorkers sync.WaitGroup
+	cfg                     Config
 	real                    motor.LocalMotor
 	encoder                 encoder.Encoder
 
