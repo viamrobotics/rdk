@@ -135,7 +135,7 @@ const makeMarker = async (url : string, name: string, scalar: number) => {
           .convertSRGBToLinear(),
         opacity: path!.userData!.style.fillOpacity,
         transparent: true,
-        side: THREE.DoubleSide,
+        side: THREE.FrontSide,
         depthWrite: false,
         wireframe: false,
       });

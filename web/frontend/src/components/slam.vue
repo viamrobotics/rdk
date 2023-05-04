@@ -38,7 +38,8 @@ let refresh2DCancelled = true;
 let refresh3DCancelled = true;
 let updatedDest = $ref(false);
 let destinationMarker = $ref(new THREE.Vector3());
-let moveClick = $computed(() => (filterResources(props.resources, 'rdk', 'component', 'base') !== undefined));
+let moveClick = $computed(() => (
+  filterResources(props.resources, 'rdk', 'component', 'base') !== undefined) && updatedDest);
 const basePose = new commonApi.Pose();
 const motionServiceReq = new motionApi.MoveOnMapRequest();
 
@@ -117,18 +118,10 @@ const fetchSLAMPose = (name: string): Promise<commonApi.Pose> => {
 };
 
 const executeMoveOnMap = async () => {
-  if (updatedDest === false) {
-    toast.error('please select a destination to move to');
-    return;
-  }
+  moveClick = !moveClick;
+
   // get base resources
   const baseResources = filterResources(props.resources, 'rdk', 'component', 'base');
-  if (baseResources === undefined) {
-    toast.error('No base component detected.');
-    return;
-  }
-
-  moveClick = !moveClick;
 
   /*
    * set request name
