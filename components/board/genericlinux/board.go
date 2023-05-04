@@ -231,8 +231,15 @@ func (b *sysfsBoard) reconfigureInterrupts(newConf *Config) error {
 		}
 		if interrupt.config.Name == interrupt.config.Pin {
 			// This interrupt is named identically to its pin. It was probably created on the fly
-			// by some other component (an encoder?). Keep it initialized as-is, even though it's
-			// not explicitly mentioned in the config, because it's probably still in-use.
+			// by some other component (an encoder?). Unless there's now some other config with the
+			// same name but on a different pin, keep it initialized as-is.
+			for _, intConfig := range newConf.DigitalInterrupts {
+				if intConfig.Name == interrupt.config.Name {
+					// The name of this interrupt is defined in the new config, but on a different
+					// pin. This interrupt should be closed.
+					return nil
+				}
+			}
 			b.logger.Debugf(
 				"Keeping digital interrupt on pin %s even though it's not explicitly mentioned " +
 				"in the new board config",
