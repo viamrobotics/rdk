@@ -8,12 +8,13 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
+// GeoObstacle is a struct to store the location and geometric structure of an obstacle in a geospatial environment.
 type GeoObstacle struct {
 	location   *geo.Point
 	geometries []spatialmath.Geometry
 }
 
-// TODO: Docs
+// NewGeoObstacle constructs a GeoObstacle from a geo.Point and a slice of Geometries.
 func NewGeoObstacle(loc *geo.Point, geom []spatialmath.Geometry) *GeoObstacle {
 	return &GeoObstacle{
 		location:   loc,
@@ -21,7 +22,17 @@ func NewGeoObstacle(loc *geo.Point, geom []spatialmath.Geometry) *GeoObstacle {
 	}
 }
 
-// TODO: Docs
+// Location returns the locating coordinates of the GeoObstacle.
+func (gob *GeoObstacle) Location() *geo.Point {
+	return gob.location
+}
+
+// Geometries returns the geometries which comprise structure of the GeoObstacle.
+func (gob *GeoObstacle) Geometries() []spatialmath.Geometry {
+	return gob.geometries
+}
+
+// GeoObstacleToProtobuf converts the GeoObstacle struct into an equivalent Protobuf message.
 func GeoObstacleToProtobuf(geoObst *GeoObstacle) (*commonpb.GeoObstacle, error) {
 	var convGeoms []*commonpb.Geometry
 	for _, geometry := range geoObst.geometries {
@@ -33,11 +44,11 @@ func GeoObstacleToProtobuf(geoObst *GeoObstacle) (*commonpb.GeoObstacle, error) 
 	}, nil
 }
 
-// TODO: Docs
+// GeoObstacleFromProtobuf takes a Protobuf representation of a GeoObstacle and converts back into a Go struct.
 func GeoObstacleFromProtobuf(protoGeoObst *commonpb.GeoObstacle) (*GeoObstacle, error) {
-	convPoint := geo.NewPoint(protoGeoObst.location.GetLatitude(), protoGeoObst.location.GetLongitude())
+	convPoint := geo.NewPoint(protoGeoObst.GetLocation().GetLatitude(), protoGeoObst.GetLocation().GetLongitude())
 	convGeoms := []spatialmath.Geometry{}
-	for _, protoGeom := range protoGeoObst.geometries {
+	for _, protoGeom := range protoGeoObst.GetGeometries() {
 		newGeom, err := spatialmath.NewGeometryFromProto(protoGeom)
 		if err != nil {
 			return nil, err
@@ -46,5 +57,3 @@ func GeoObstacleFromProtobuf(protoGeoObst *commonpb.GeoObstacle) (*GeoObstacle, 
 	}
 	return NewGeoObstacle(convPoint, convGeoms), nil
 }
-
-// WIP - More methods on GeoObstacles?

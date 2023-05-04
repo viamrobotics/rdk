@@ -93,8 +93,6 @@ func (mgs *MotionService) MoveOnMap(
 	ctx context.Context,
 	componentName resource.Name,
 	destination spatialmath.Pose,
-	heading,
-	movementSensorName resource.Name,
 	slamName resource.Name,
 	extra map[string]interface{},
 ) (bool, error) {
