@@ -301,13 +301,9 @@ func TestModuleReloading(t *testing.T) {
 	parentAddr += "/parent.sock"
 
 	// These tests neither use a resource manager nor assert anything about the
-	// existence of resources in the graph. Use a dummy MarkResourcesRemoved
+	// existence of resources in the graph. Use a dummy RemoveOrphanedResources
 	// function so orphaned resource logic does not panic.
-	dummyMarkResourcesRemoved := func([]resource.Name,
-		func(names ...resource.Name),
-	) []resource.Resource {
-		return nil
-	}
+	dummyRemoveOrphanedResources := func(context.Context, []resource.Name) {}
 
 	exePath := utils.ResolveFile("module/testmodule/testmodule")
 	modCfg := config.Module{
@@ -322,8 +318,8 @@ func TestModuleReloading(t *testing.T) {
 		test.That(t, utils.BuildInDir("module/testmodule"), test.ShouldBeNil)
 
 		mgr := NewManager(parentAddr, logger, modmanageroptions.Options{
-			UntrustedEnv:         false,
-			MarkResourcesRemoved: dummyMarkResourcesRemoved,
+			UntrustedEnv:            false,
+			RemoveOrphanedResources: dummyRemoveOrphanedResources,
 		})
 		err = mgr.Add(ctx, modCfg)
 		test.That(t, err, test.ShouldBeNil)
@@ -377,8 +373,8 @@ func TestModuleReloading(t *testing.T) {
 		test.That(t, utils.BuildInDir("module/testmodule"), test.ShouldBeNil)
 
 		mgr := NewManager(parentAddr, logger, modmanageroptions.Options{
-			UntrustedEnv:         false,
-			MarkResourcesRemoved: dummyMarkResourcesRemoved,
+			UntrustedEnv:            false,
+			RemoveOrphanedResources: dummyRemoveOrphanedResources,
 		})
 		err = mgr.Add(ctx, modCfg)
 		test.That(t, err, test.ShouldBeNil)

@@ -91,8 +91,8 @@ func (manager *resourceManager) startModuleManager(
 	logger golog.Logger,
 ) {
 	mmOpts := modmanageroptions.Options{
-		UntrustedEnv:         untrustedEnv,
-		MarkResourcesRemoved: manager.markResourcesRemoved,
+		UntrustedEnv:            untrustedEnv,
+		RemoveOrphanedResources: manager.removeOrphanedResources,
 	}
 	manager.moduleManager = modmanager.NewManager(parentAddr, logger, mmOpts)
 }
@@ -1012,6 +1012,19 @@ func (manager *resourceManager) markResourcesRemoved(
 		manager.resources.MarkForRemoval(subG)
 	}
 	return resourcesToCloseBeforeComplete
+}
+
+// removeOrphanedResources is called by the module manager to remove resources
+// orphaned due to module crashes.
+func (manager *resourceManager) removeOrphanedResources(ctx context.Context,
+	rNames []resource.Name,
+) {
+	// Ignore returned resources to close, as removeMarkedAndClose will handle.
+	manager.markResourcesRemoved(rNames, nil)
+	if _, err := manager.removeMarkedAndClose(ctx, nil); err != nil {
+		manager.logger.Errorw("error removing and closing marked resources",
+			"error", err)
+	}
 }
 
 func remoteDialOptions(config config.Remote, opts resourceManagerOptions) []rpc.DialOption {

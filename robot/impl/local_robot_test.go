@@ -2582,54 +2582,48 @@ func TestOrphanedResources(t *testing.T) {
 		test.That(t, err, test.ShouldBeError,
 			resource.NewNotFoundError(generic.Named("h")))
 
-		/* Section below a WIP and awaiting input on desired behavior for
-		    * reconfiguration after module crash (unsuccessful restart)
+		// Assert that recompiling testmodule, removing testmodule and 'h' from
+		// config and adding both back re-adds 'h'.
+		//
+		// TODO(RSDK-2876): assert that we can keep 'h' in the config and it gets
+		// re-added to testmodule.
+		err = rutils.BuildInDir("module/testmodule")
+		test.That(t, err, test.ShouldBeNil)
+		r.Reconfigure(ctx, &config.Config{})
+		r.Reconfigure(ctx, cfg)
 
-				// Assert that recompiling testmodule, removing testmodule from config and
-				// adding it back re-adds 'h'.
-				err = rutils.BuildInDir("module/testmodule")
-				test.That(t, err, test.ShouldBeNil)
-				cfg2 := &config.Config{
-					Components: []resource.Config{
-						{
-							Name:  "h",
-							Model: helperModel,
-							API:   generic.API,
-						},
-					},
-				}
-				r.Reconfigure(ctx, cfg2)
-				r.Reconfigure(ctx, cfg)
+		h, err = r.ResourceByName(generic.Named("h"))
+		test.That(t, err, test.ShouldBeNil)
 
-				h, err = r.ResourceByName(generic.Named("h"))
-				test.That(t, err, test.ShouldBeNil)
+		// Assert that replacing testmodule binary with disguised simplemodule
+		// binary and killing testmodule orphans helper 'h' (not reachable), as
+		// simplemodule binary cannot manage helper 'h'.
+		err = os.Remove(rutils.ResolveFile("module/testmodule/testmodule"))
+		test.That(t, err, test.ShouldBeNil)
+		err = rutils.BuildInDir("examples/customresources/demos/simplemodule")
+		test.That(t, err, test.ShouldBeNil)
+		err = os.Rename(
+			rutils.ResolveFile("examples/customresources/demos/simplemodule/simplemodule"),
+			rutils.ResolveFile("module/testmodule/testmodule"),
+		)
+		test.That(t, err, test.ShouldBeNil)
+		_, err = h.DoCommand(ctx, map[string]interface{}{"command": "kill_module"})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring,
+			"error reading from server")
 
-				// Assert that replacing testmodule binary with disguised simplemodule
-				// binary and killing testmodule orphans helper 'h' (not reachable), as
-				// simplemodule binary cannot manage helper 'h'.
-				err = os.Remove(rutils.ResolveFile("module/testmodule/testmodule"))
-				test.That(t, err, test.ShouldBeNil)
-				err = rutils.BuildInDir("examples/customresources/demos/simplemodule")
-				test.That(t, err, test.ShouldBeNil)
-				err = os.Rename(
-					rutils.ResolveFile("examples/customresources/demos/simplemodule/simplemodule"),
-					rutils.ResolveFile("module/testmodule/testmodule"),
-				)
-				test.That(t, err, test.ShouldBeNil)
-				_, err = h.DoCommand(ctx, map[string]interface{}{"command": "kill_module"})
-				test.That(t, err, test.ShouldNotBeNil)
-				test.That(t, err.Error(), test.ShouldContainSubstring,
-					"error reading from server")
+		// Wait for "attempt 3" in logs.
+		testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
+			tb.Helper()
+			test.That(tb, logs.FilterMessageSnippet("attempt 3").Len(),
+				test.ShouldEqual, 1)
+		})
+		time.Sleep(2 * time.Second)
 
-				// Check for "attempt 3" in logs every 100ms for 20s max.
-				waitForThirdAttempt()
-
-				_, err = r.ResourceByName(generic.Named("h"))
-				test.That(t, err, test.ShouldNotBeNil)
-				test.That(t, err, test.ShouldBeError,
-					resource.NewNotFoundError(generic.Named("h")))
-
-		*/
+		_, err = r.ResourceByName(generic.Named("h"))
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldBeError,
+			resource.NewNotFoundError(generic.Named("h")))
 	})
 }
 
