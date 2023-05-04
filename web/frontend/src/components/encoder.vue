@@ -114,16 +114,16 @@ onUnmounted(() => {
       slot="title"
       crumbs="encoder"
     />
-    <div class="border-border-1 overflow-auto border border-t-0 p-4 text-left">
-      <table class="bborder-border-1 table-auto border">
+    <div class="border-medium overflow-auto border border-t-0 p-4 text-left">
+      <table class="bborder-medium table-auto border">
         <tr
           v-if="properties && (properties.ticksCountSupported ||
             (!properties.ticksCountSupported && !properties.angleDegreesSupported))"
         >
-          <th class="border-border-1 border p-2">
+          <th class="border-medium border p-2">
             Count
           </th>
-          <td class="border-border-1 border p-2">
+          <td class="border-medium border p-2">
             {{ positionTicks.toFixed(2) || 0 }}
           </td>
         </tr>
@@ -131,10 +131,10 @@ onUnmounted(() => {
           v-if="properties && (properties.angleDegreesSupported ||
             (!properties.ticksCountSupported && !properties.angleDegreesSupported))"
         >
-          <th class="border-border-1 border p-2">
+          <th class="border-medium border p-2">
             Angle (degrees)
           </th>
-          <td class="border-border-1 border p-2">
+          <td class="border-medium border p-2">
             {{ positionDegrees.toFixed(2) || 0 }}
           </td>
         </tr>

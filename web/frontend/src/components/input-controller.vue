@@ -89,7 +89,7 @@ const controls = $computed(() => {
         label="Disconnected"
       />
     </div>
-    <div class="border-border-1 border border-t-0 p-4">
+    <div class="border-medium border border-t-0 p-4">
       <template v-if="connected">
         <div
           v-for="control in controls"
