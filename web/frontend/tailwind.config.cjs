@@ -7,19 +7,6 @@ module.exports = {
         'space-grotesk': 'Space Grotesk',
         'public-sans': 'Public Sans, sans-serif',
       },
-      maxHeight: {
-        440: '440px',
-      },
-      height: {
-        '2/5': '40%',
-      },
-      screens: {
-        laptop: '834px',
-        tablet: '768px',
-      },
-      animation: {
-        'pulse-grid': 'pulse 2s cubic-bezier(0.75, 0, 0.6, 1) infinite',
-      },
       boxShadow: {
         sm: '0 4px 32px rgba(0, 0, 0, 0.06)',
       },
