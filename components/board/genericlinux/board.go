@@ -268,8 +268,17 @@ func (b *sysfsBoard) reconfigureInterrupts(newConf *Config) error {
 
 	// Add any new interrupts that should be freshly made.
 	for _, config := range newConf.DigitalInterrupts {
-		if _, ok := b.interrupts[config.Name]; ok {
-			continue // Already initialized; keep going
+		if interrupt, ok := b.interrupts[config.Name]; ok {
+			if interrupt.config.Pin == config.Pin {
+				continue // Already initialized; keep going
+			}
+			// If the interrupt's name matches but the pin does not, it's likely that the interrupt
+			// we already have was implicitly created (e.g., its name is "38" so we created it on
+			// pin 38 even though it was not explicitly mentioned in the old board config), but the
+			// new config is explicit (e.g., its name is still "38" but it's been moved to pin 37).
+			// Close the old one and initialize it anew.
+			interrupt.Close()
+			delete(b.interrupts, config.Name)
 		}
 
 		if oldPin, ok := b.gpios[config.Pin]; ok {
