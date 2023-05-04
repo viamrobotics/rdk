@@ -126,11 +126,11 @@ func (c *client) MoveOnGlobe(
 		Name:               c.name,
 		ComponentName:      protoutils.ResourceNameToProto(componentName),
 		Destination:        &commonpb.GeoPoint{Latitude: destination.Lat(), Longitude: destination.Lng()},
-		Heading:            heading,
+		Heading:            &heading,
 		MovementSensorName: protoutils.ResourceNameToProto(movementSensorName),
 		Obstacles:          obstaclesProto,
-		LinearMetersPerSec: linearVelocity,
-		AngularDegPerSec:   angularVelocity,
+		LinearMetersPerSec: &linearVelocity,
+		AngularDegPerSec:   &angularVelocity,
 		Extra:              ext,
 	})
 	if err != nil {

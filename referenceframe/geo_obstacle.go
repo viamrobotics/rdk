@@ -2,7 +2,6 @@ package referenceframe
 
 import (
 	geo "github.com/kellydunn/golang-geo"
-
 	commonpb "go.viam.com/api/common/v1"
 
 	"go.viam.com/rdk/spatialmath"
