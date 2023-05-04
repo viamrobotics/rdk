@@ -3,28 +3,15 @@ module.exports = {
   content: ['./src/**/*.{html,vue,js,ts}'],
   theme: {
     extend: {
-      color: {
-        viamBlue: '#045681',
-        gray3: '#E4E4E6',
-      },
-      textColor: {
-        'subtle-1': '#4E4F52',
-        'subtle-2': '#555',
-        default: '#282829',
-        'gray-5': '#C5C6CC',
-      },
-      backgroundColor: {
-        gray3: '#E4E4E6',
-        'subtle-1': '#4E4F52',
-      },
       fontFamily: {
         'space-grotesk': 'Space Grotesk',
+        'public-sans': 'Public Sans, sans-serif',
       },
       maxHeight: {
         440: '440px',
       },
       height: {
-        0.4: '40%',
+        '2/5': '40%',
       },
       screens: {
         laptop: '834px',
@@ -33,13 +20,31 @@ module.exports = {
       animation: {
         'pulse-grid': 'pulse 2s cubic-bezier(0.75, 0, 0.6, 1) infinite',
       },
+      boxShadow: {
+        sm: '0 4px 32px rgba(0, 0, 0, 0.06)',
+      },
+      textColor: {
+        heading: '#131414',
+        default: '#282829',
+        'subtle-1': '#4e4f52',
+        'subtle-2': '#7a7c80',
+        disabled: '#9c9ca4',
+        link: '#0066CC',
+      },
+      fill: {
+        'subtle-1': '#4e4f52',
+        'subtle-2': '#7a7c80',
+      },
+      borderColor: {
+        light: '#e4e4e6',
+        medium: '#d7d7d9',
+      },
+      backgroundColor: {
+        1: '#FBFBFC',
+        2: '#F7F7F8',
+        3: '#F1F1F4',
+      },
       colors: {
-        'text-heading': '#131414',
-        'text-default': '#282829',
-        'text-subtle-1': '#4e4f52',
-        'text-subtle-2': '#7a7c80',
-        'text-disabled': '#9c9ca4',
-        'text-link': '#0066cc',
         black: '#131414',
         'gray-9': '#282829',
         'gray-8': '#4e4f52',
@@ -65,12 +70,9 @@ module.exports = {
         'info-border': '#b6d1f4',
         'disabled-fg': '#9c9ca4',
         'disabled-bg': '#f2f2f4',
-        'bg-1': '#ffffff',
-        'bg-2': '#f7f7f8',
-        'bg-3': '#f1f1f4',
-        'border-1': '#e4e4e6',
-        'border-2': '#d7d7d9',
         'text-highlight': '#e2f1fd',
+        'power-button': '#00EF83',
+        'power-wire': '#FF0047',
       },
     },
   },

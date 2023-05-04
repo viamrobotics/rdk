@@ -16,7 +16,7 @@
   "dependencies": {
     "@fontsource/space-mono": "^4.5.12",
     "@improbable-eng/grpc-web": "^0.13.0",
-    "@viamrobotics/prime": "^0.1.10",
+    "@viamrobotics/prime": "^0.1.16",
     "@viamrobotics/rpc": "^0.1.34",
     "@viamrobotics/sdk": "^0.0.47",
     "@vueuse/core": "^9.13.0",

@@ -73,19 +73,19 @@ const getData = (sensorName: SensorName) => {
     title="Sensors"
     class="sensors"
   >
-    <div class="border-border-1 overflow-auto border border-t-0 p-4">
-      <table class="border-border-1 w-full table-auto border">
+    <div class="border-medium overflow-auto border border-t-0 p-4">
+      <table class="border-medium w-full table-auto border">
         <tr>
-          <th class="border-border-1 border p-2">
+          <th class="border-medium border p-2">
             Name
           </th>
-          <th class="border-border-1 border p-2">
+          <th class="border-medium border p-2">
             Type
           </th>
-          <th class="border-border-1 border p-2">
+          <th class="border-medium border p-2">
             Readings
           </th>
-          <th class="border-border-1 border p-2 text-center">
+          <th class="border-medium border p-2 text-center">
             <v-button
               group
               label="Get All Readings"
@@ -97,13 +97,13 @@ const getData = (sensorName: SensorName) => {
           v-for="sensorName in sensorNames"
           :key="sensorName.name"
         >
-          <td class="border-border-1 border p-2">
+          <td class="border-medium border p-2">
             {{ sensorName.name }}
           </td>
-          <td class="border-border-1 border p-2">
+          <td class="border-medium border p-2">
             {{ sensorName.subtype }}
           </td>
-          <td class="border-border-1 border p-2">
+          <td class="border-medium border p-2">
             <table style="font-size:.7em; text-align: left;">
               <tr
                 v-for="(sensorValue, sensorField) in getData(sensorName)"
@@ -120,7 +120,7 @@ const getData = (sensorName: SensorName) => {
               </tr>
             </table>
           </td>
-          <td class="border-border-1 border p-2 text-center">
+          <td class="border-medium border p-2 text-center">
             <v-button
               group
               label="Get Readings"
