@@ -81,7 +81,7 @@ func TestCreateWithSession(t *testing.T) {
 	test.That(t, op1.SessionID, test.ShouldEqual, uuid.Nil)
 	cleanup()
 
-	sess1 := session.New("someone", nil, 0, nil)
+	sess1 := session.New(ctx, "someone", 0, nil)
 	sess1Ctx := session.ToContext(ctx, sess1)
 
 	op2Ctx, cleanup := manager.Create(sess1Ctx, "foo", nil)

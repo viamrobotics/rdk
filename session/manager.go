@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	pb "go.viam.com/api/robot/v1"
 	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/resource"
@@ -12,9 +11,9 @@ import (
 
 // A Manager holds sessions for a particular robot and manages their lifetime.
 type Manager interface {
-	Start(ownerID string, peerConnInfo *pb.PeerConnectionInfo) (*Session, error)
+	Start(ctx context.Context, ownerID string) (*Session, error)
 	All() []*Session
-	FindByID(id uuid.UUID, ownerID string) (*Session, error)
+	FindByID(ctx context.Context, id uuid.UUID, ownerID string) (*Session, error)
 	AssociateResource(id uuid.UUID, resourceName resource.Name)
 	Close()
 
