@@ -39,6 +39,7 @@ import (
 	rgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/robot/web"
 	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/spatialmath"
@@ -800,9 +801,9 @@ func setupRobotCtx(t *testing.T) (context.Context, robot.Robot) {
 		return injectArm, nil
 	}
 	injectRobot.LoggerFunc = func() golog.Logger { return golog.NewTestLogger(t) }
-	// injectRobot.FrameSystemConfigFunc = func(ctx context.Context) (*framesystem.Config, error) {
-	// 	return nil, nil
-	// }
+	injectRobot.FrameSystemConfigFunc = func(ctx context.Context) (*framesystem.Config, error) {
+		return &framesystem.Config{}, nil
+	}
 
 	return context.Background(), injectRobot
 }

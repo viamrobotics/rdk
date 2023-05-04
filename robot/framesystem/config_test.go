@@ -217,7 +217,10 @@ func TestNewFrameSystemFromBadConfig(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			defer r.Close(ctx)
 			fsCfg, err := r.FrameSystemConfig(ctx)
-			test.That(t, err, test.ShouldBeNil)
+			if err != nil {
+				test.That(t, err, test.ShouldBeError, tc.err)
+				return
+			}
 			_, err = framesystem.NewFrameSystemFromConfig(tc.num, fsCfg)
 			test.That(t, err, test.ShouldBeError, tc.err)
 		})

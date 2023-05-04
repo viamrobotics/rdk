@@ -1249,7 +1249,7 @@ func TestClientConfig(t *testing.T) {
 	}
 
 	workingRobot.FrameSystemConfigFunc = func(ctx context.Context) (*framesystem.Config, error) {
-		return &framesystem.Config{}, nil
+		return &framesystem.Config{Parts: fsConfigs}, nil
 	}
 
 	configErr := errors.New("failed to retrieve config")

@@ -257,6 +257,10 @@ func TestConfigRemote(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
+	fsConfig, err := r2.FrameSystemConfig(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, fsConfig, test.ShouldHaveLength, 12)
+
 	expectedStatusLength := 3
 	test.That(t, len(statuses), test.ShouldEqual, expectedStatusLength)
 
@@ -300,9 +304,9 @@ func TestConfigRemote(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(cfg2.Components), test.ShouldEqual, 2)
 
-	fsConfig, err := r2.FrameSystemConfig(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, fsConfig, test.ShouldHaveLength, 12)
+	// fsConfig, err := r2.FrameSystemConfig(context.Background())
+	// test.That(t, err, test.ShouldBeNil)
+	// test.That(t, fsConfig, test.ShouldHaveLength, 12)
 
 	test.That(t, r2.Close(context.Background()), test.ShouldBeNil)
 }

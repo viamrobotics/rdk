@@ -6,6 +6,7 @@ package robotimpl
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -695,8 +696,10 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 		case framesystem.InternalServiceName:
 			fsCfg, err := r.FrameSystemConfig(ctx)
 			if err != nil {
-				// TODO(rb) make this into its own function
 				r.Logger().Errorw("failed to reconfigure internal service", "service", resName, "error", err)
+				// TODO(rb): we should be closing this and giving better error handling when a user tries to do something on
+				// the closed framesystem service resource
+				continue
 			}
 			if err := res.Reconfigure(ctx, components, resource.Config{ConvertedAttributes: fsCfg}); err != nil {
 				r.Logger().Errorw("failed to reconfigure internal service", "service", resName, "error", err)
@@ -814,16 +817,19 @@ func (r *localRobot) getRemoteParts(ctx context.Context) (framesystem.Parts, err
 	}
 
 	remoteParts := make(framesystem.Parts, 0)
-	for _, remoteCfg := range cfg.Remotes {
+	for _, remoteName := range r.RemoteNames() {
 		// TODO(rb): this function is starting to look awfully similar to getLocalParts, figure out if you can merge at some point
-		if remoteCfg.Frame == nil { // skip over remote if it has no frame info
-			r.logger.Debugf("remote %s has no frame config info, skipping", remoteCfg.Name)
-			continue
-		}
-
 		// build the frame system part that connects remote world to base world
 		// TODO(rb): looks like this should be safe to do without a deep copy but the version in getLocalParts deep copies anyway.
 		// Is this safe?
+		remoteCfg, err := getRemoteRobotConfig(remoteName, cfg)
+		if err != nil {
+			return nil, errors.Wrapf(err, "remote %s", remoteName)
+		}
+		if remoteCfg.Frame == nil { // skip over remote if it has no frame info
+			r.logger.Debugf("remote %s has no frame config info, skipping", remoteName)
+			continue
+		}
 		lif, err := remoteCfg.Frame.ParseConfig()
 		if err != nil {
 			return nil, err
@@ -832,6 +838,7 @@ func (r *localRobot) getRemoteParts(ctx context.Context) (framesystem.Parts, err
 		lif.SetName(parentName)
 		remoteParts = append(remoteParts, &referenceframe.FrameSystemPart{FrameConfig: lif})
 
+		// get the parts from the remote itself
 		remote, ok := r.RemoteByName(remoteCfg.Name)
 		if !ok {
 			return nil, errors.Errorf("cannot find remote robot %s", remoteCfg.Name)
@@ -845,6 +852,16 @@ func (r *localRobot) getRemoteParts(ctx context.Context) (framesystem.Parts, err
 		remoteParts = append(remoteParts, remoteFsCfg.Parts...)
 	}
 	return remoteParts, nil
+}
+
+// getRemoteRobotConfig gets the parameters for the Remote.
+func getRemoteRobotConfig(remoteName string, conf *config.Config) (*config.Remote, error) {
+	for _, rConf := range conf.Remotes {
+		if rConf.Name == remoteName {
+			return &rConf, nil
+		}
+	}
+	return nil, fmt.Errorf("cannot find Remote config with name %q", remoteName)
 }
 
 // extractModelFrameJSON finds the robot part with a given name, checks to see if it implements ModelFrame, and returns the

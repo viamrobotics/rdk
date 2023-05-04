@@ -97,6 +97,7 @@ func (svc *frameSystemService) Reconfigure(ctx context.Context, deps resource.De
 		}
 		components[short] = r
 	}
+	svc.components = components
 
 	fsCfg, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
