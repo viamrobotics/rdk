@@ -92,7 +92,7 @@ func TestCurrentInputs(t *testing.T) {
 		},
 	}
 
-	kb, err := base.WrapWithKinematics(ctx, fake.NewSLAM(resource.NewName("ba", "bar", "barf", "barfy"), logger))
+	kb, err := base.WrapWithKinematics(ctx, fake.NewSLAM(resource.NewName(slam.API, "foo"), logger))
 	test.That(t, err, test.ShouldBeNil)
 	kwb, ok := kb.(*kinematicWheeledBase)
 	test.That(t, ok, test.ShouldBeTrue)
