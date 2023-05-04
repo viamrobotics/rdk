@@ -23,9 +23,9 @@ import (
 // ResourceNameToProto converts a resource.Name to its proto counterpart.
 func ResourceNameToProto(name resource.Name) *commonpb.ResourceName {
 	return &commonpb.ResourceName{
-		Namespace: string(name.Namespace),
-		Type:      string(name.ResourceType),
-		Subtype:   string(name.ResourceSubtype),
+		Namespace: string(name.API.Type.Namespace),
+		Type:      name.API.Type.Name,
+		Subtype:   name.API.SubtypeName,
 		Name:      name.ShortName(),
 	}
 }
@@ -33,9 +33,7 @@ func ResourceNameToProto(name resource.Name) *commonpb.ResourceName {
 // ResourceNameFromProto converts a proto ResourceName to its rdk counterpart.
 func ResourceNameFromProto(name *commonpb.ResourceName) resource.Name {
 	return resource.NewName(
-		resource.Namespace(name.Namespace),
-		resource.TypeName(name.Type),
-		resource.SubtypeName(name.Subtype),
+		resource.APINamespace(name.Namespace).WithType(name.Type).WithSubtype(name.Subtype),
 		name.Name,
 	)
 }
@@ -148,14 +146,16 @@ func DoFromResourceClient(ctx context.Context, svc ClientDoCommander, name strin
 }
 
 // DoFromResourceServer is a helper to allow DoCommand() calls from any server.
-func DoFromResourceServer(ctx context.Context, resource resource.Generic,
+func DoFromResourceServer(
+	ctx context.Context,
+	res resource.Resource,
 	req *commonpb.DoCommandRequest,
 ) (*commonpb.DoCommandResponse, error) {
-	res, err := resource.DoCommand(ctx, req.Command.AsMap())
+	resp, err := res.DoCommand(ctx, req.Command.AsMap())
 	if err != nil {
 		return nil, err
 	}
-	pbRes, err := protoutils.StructToStructPb(res)
+	pbRes, err := protoutils.StructToStructPb(resp)
 	if err != nil {
 		return nil, err
 	}

@@ -4,7 +4,6 @@ package datasync
 import (
 	"context"
 	"fmt"
-	"net/url"
 	"os"
 	"strings"
 	"sync"
@@ -15,13 +14,10 @@ import (
 	"go.uber.org/atomic"
 	v1 "go.viam.com/api/app/datasync/v1"
 	goutils "go.viam.com/utils"
-	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/services/datamanager/datacapture"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 var (
@@ -41,72 +37,34 @@ type Manager interface {
 // syncer is responsible for uploading files in captureDir to the cloud.
 type syncer struct {
 	partID            string
-	conn              rpc.ClientConn
 	client            v1.DataSyncServiceClient
 	logger            golog.Logger
 	backgroundWorkers sync.WaitGroup
 	cancelCtx         context.Context
 	cancelFunc        func()
 
-	progressLock *sync.Mutex
+	progressLock sync.Mutex
 	inProgress   map[string]bool
 
 	syncErrs   chan error
-	closed     *atomic.Bool
+	closed     atomic.Bool
 	logRoutine sync.WaitGroup
 }
 
 // ManagerConstructor is a function for building a Manager.
-type ManagerConstructor func(logger golog.Logger, cfg *config.Config) (Manager, error)
-
-// NewDefaultManager returns the default Manager that syncs data to app.viam.com.
-func NewDefaultManager(logger golog.Logger, cfg *config.Config) (Manager, error) {
-	if cfg.Cloud == nil || cfg.Cloud.AppAddress == "" {
-		logger.Debug("Using no-op sync manager when Cloud config is not available")
-		return NewNoopManager(), nil
-	}
-
-	tlsConfig := config.NewTLSConfig(cfg).Config
-	rpcOpts := []rpc.DialOption{
-		rpc.WithTLSConfig(tlsConfig),
-		rpc.WithEntityCredentials(
-			cfg.Cloud.ID,
-			rpc.Credentials{
-				Type:    rdkutils.CredentialsTypeRobotSecret,
-				Payload: cfg.Cloud.Secret,
-			}),
-	}
-
-	appURLParsed, err := url.Parse(cfg.Cloud.AppAddress)
-	if err != nil {
-		return nil, err
-	}
-	conn, err := NewConnection(logger, appURLParsed.Host, rpcOpts)
-	if err != nil {
-		return nil, err
-	}
-	client := NewClient(conn)
-	return NewManager(logger, cfg.Cloud.ID, client, conn)
-}
+type ManagerConstructor func(identity string, client v1.DataSyncServiceClient, logger golog.Logger) (Manager, error)
 
 // NewManager returns a new syncer.
-func NewManager(logger golog.Logger, partID string, client v1.DataSyncServiceClient,
-	conn rpc.ClientConn,
-) (Manager, error) {
+func NewManager(identity string, client v1.DataSyncServiceClient, logger golog.Logger) (Manager, error) {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	ret := syncer{
-		partID:            partID,
-		conn:              conn,
-		client:            client,
-		logger:            logger,
-		backgroundWorkers: sync.WaitGroup{},
-		cancelCtx:         cancelCtx,
-		cancelFunc:        cancelFunc,
-		progressLock:      &sync.Mutex{},
-		inProgress:        make(map[string]bool),
-		syncErrs:          make(chan error, 10),
-		closed:            &atomic.Bool{},
-		logRoutine:        sync.WaitGroup{},
+		partID:     identity,
+		client:     client,
+		logger:     logger,
+		cancelCtx:  cancelCtx,
+		cancelFunc: cancelFunc,
+		inProgress: make(map[string]bool),
+		syncErrs:   make(chan error, 10),
 	}
 	ret.logRoutine.Add(1)
 	goutils.PanicCapturingGo(func() {
@@ -125,11 +83,6 @@ func (s *syncer) Close() {
 	s.logRoutine.Wait()
 	//nolint:errcheck
 	_ = s.logger.Sync()
-	if s.conn != nil {
-		if err := s.conn.Close(); err != nil {
-			s.logger.Errorw("error closing datasync server connection", "error", err)
-		}
-	}
 }
 
 func (s *syncer) SyncFile(path string, tags []string) {

@@ -5,22 +5,18 @@ This example demonstrates a user defining a new sensor model.
 
 ## How to add custom models
 
-Models can be added to the viam-server by creating a struct that implements the interface of the subtype we want to register.
-For example, if we want to create a sensor, we would want to make sure that we implement the Sensor interface, which includes the method `Readings` and also `DoCommand` from the `generic.Generic` interface.
-The `generic.Generic` interface allows you to add arbitrary commands with arbitrary input arguments and return messages, which is useful if you want to extend the functionality of a model implementation beyond the subtype interface.
+Models can be added to the viam-server by creating a struct that implements the interface of the API we want to register.
+For example, if we want to create a sensor, we would want to make sure that we implement the Sensor interface, which includes the method `Readings` and also `DoCommand` from the `resource.Generic` interface.
+The `resource.Generic` interface allows you to add arbitrary commands with arbitrary input arguments and return messages, which is useful if you want to extend the functionality of a model implementation beyond the API interface.
 
 ```
     type Sensor interface {
+        resource.Resource
         // Readings return data specific to the type of sensor and can be of any type.
         Readings(ctx context.Context) (map[string]interface{}, error)
-        generic.Generic
     }
 ```
 
-To make sure the struct we create implements the interface, we can check it using the go linter inside the go package like this.
-```
-    var _ = sensor.Sensor(&mySensor{})
-```
 
 The model then has to be registered through an init function, which should live in the package implementing the new model.
 Init functions are run on import, so we have to make sure we are importing it somewhere in our code!
@@ -28,15 +24,15 @@ Init functions are run on import, so we have to make sure we are importing it so
 ```
     // registering the component model on init is how we make sure the new model is picked up and usable.
     func init() {
-        registry.RegisterComponent(
-            sensor.Subtype,
-            "mySensor",
-            registry.Component{Constructor: func(
+        resource.RegisterComponent(
+            sensor.API,
+            resource.DefaultModelFamily.WithModel("mySensor"),
+            resource.Registration[sensor.Sensor, *Config]{Constructor: func(
                 ctx context.Context,
-                deps registry.Dependencies,
-                config config.Component,
+                deps resource.Dependencies,
+                conf resource.Config,
                 logger golog.Logger,
-            ) (interface{}, error) {
+            ) (sensor.Sensor, error) {
                 return newSensor(config.Name), nil
             }})
     }

@@ -23,21 +23,19 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/arm"
-	"go.viam.com/rdk/components/generic"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 )
 
-// ModelName is the name of the eva model of an arm component.
-var ModelName = resource.NewDefaultModel("eva")
+// Model is the name of the eva model of an arm component.
+var Model = resource.DefaultModelFamily.WithModel("eva")
 
-// AttrConfig is used for converting config attributes.
-type AttrConfig struct {
+// Config is used for converting config attributes.
+type Config struct {
+	resource.TriviallyValidateConfig
 	Token string `json:"token"`
 	Host  string `json:"host"`
 }
@@ -46,18 +44,11 @@ type AttrConfig struct {
 var evamodeljson []byte
 
 func init() {
-	registry.RegisterComponent(arm.Subtype, ModelName, registry.Component{
-		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-			return NewEva(ctx, config, logger)
+	resource.RegisterComponent(arm.API, Model, resource.Registration[arm.Arm, *Config]{
+		Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (arm.Arm, error) {
+			return NewEva(ctx, conf, logger)
 		},
 	})
-
-	config.RegisterComponentAttributeMapConverter(arm.Subtype, ModelName,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf AttrConfig
-			return config.TransformAttributeMapToStruct(&conf, attributes)
-		},
-		&AttrConfig{})
 }
 
 type evaData struct {
@@ -87,13 +78,14 @@ type evaData struct {
 }
 
 type eva struct {
-	generic.Unimplemented
+	resource.Named
+	resource.AlwaysRebuild
 	host         string
 	version      string
 	token        string
 	sessionToken string
 
-	moveLock *sync.Mutex
+	moveLock sync.Mutex
 	logger   golog.Logger
 	model    referenceframe.Model
 
@@ -103,18 +95,23 @@ type eva struct {
 }
 
 // NewEva TODO.
-func NewEva(ctx context.Context, cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
-	model, err := Model(cfg.Name)
+func NewEva(ctx context.Context, conf resource.Config, logger golog.Logger) (arm.Arm, error) {
+	model, err := MakeModelFrame(conf.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return nil, err
 	}
 
 	e := &eva{
-		host:      cfg.ConvertedAttributes.(*AttrConfig).Host,
+		Named:     conf.ResourceName().AsNamed(),
+		host:      newConf.Host,
 		version:   "v1",
-		token:     cfg.ConvertedAttributes.(*AttrConfig).Token,
+		token:     newConf.Token,
 		logger:    logger,
-		moveLock:  &sync.Mutex{},
 		model:     model,
 		frameJSON: evamodeljson,
 	}
@@ -307,7 +304,7 @@ func (e *eva) resetErrors(ctx context.Context) error {
 	return ctx.Err()
 }
 
-func (e *eva) Stop(ctx context.Context, extra map[string]interface{}) error {
+func (e *eva) stop(ctx context.Context) error {
 	if e.opMgr.OpRunning() {
 		return multierr.Combine(
 			e.apiRequest(ctx, "POST", "controls/pause", nil, true, nil),  // pause robot
@@ -315,6 +312,10 @@ func (e *eva) Stop(ctx context.Context, extra map[string]interface{}) error {
 		)
 	}
 	return nil
+}
+
+func (e *eva) Stop(ctx context.Context, extra map[string]interface{}) error {
+	return e.stop(ctx)
 }
 
 func (e *eva) IsMoving(ctx context.Context) (bool, error) {
@@ -393,7 +394,11 @@ func (e *eva) GoToInputs(ctx context.Context, goal []referenceframe.Input) error
 	return e.MoveToJointPositions(ctx, positionDegs, nil)
 }
 
-// Model returns the kinematics model of the eva arm, also has all Frame information.
-func Model(name string) (referenceframe.Model, error) {
+func (e *eva) Close(ctx context.Context) error {
+	return e.stop(ctx)
+}
+
+// MakeModelFrame returns the kinematics model of the eva arm, also has all Frame information.
+func MakeModelFrame(name string) (referenceframe.Model, error) {
 	return referenceframe.UnmarshalModelJSON(evamodeljson, name)
 }

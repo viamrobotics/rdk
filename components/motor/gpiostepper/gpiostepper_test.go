@@ -2,6 +2,7 @@ package gpiostepper
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"testing"
 
@@ -11,45 +12,45 @@ import (
 
 	fakeboard "go.viam.com/rdk/components/board/fake"
 	"go.viam.com/rdk/components/motor"
-	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/resource"
 )
 
 func Test1(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
-	logger := golog.NewTestLogger(t)
+	logger, obs := golog.NewObservedTestLogger(t)
 
 	b := &fakeboard.Board{GPIOPins: make(map[string]*fakeboard.GPIOPin)}
 
-	mc := AttrConfig{}
-	c := config.Component{
+	mc := Config{}
+	c := resource.Config{
 		Name: "fake_gpiostepper",
 	}
 
 	// Create motor with no board and default config
 	t.Run("gpiostepper initializing test with no board and default config", func(t *testing.T) {
-		_, err := newGPIOStepper(ctx, nil, mc, c.Name, logger)
+		_, err := newGPIOStepper(ctx, nil, mc, c.ResourceName(), logger)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
 	// Create motor with board and default config
 	t.Run("gpiostepper initializing test with board and default config", func(t *testing.T) {
-		_, err := newGPIOStepper(ctx, b, mc, c.Name, logger)
+		_, err := newGPIOStepper(ctx, b, mc, c.ResourceName(), logger)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
 	mc.Pins = PinConfig{Direction: "b"}
 
-	_, err := newGPIOStepper(ctx, b, mc, c.Name, logger)
+	_, err := newGPIOStepper(ctx, b, mc, c.ResourceName(), logger)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	mc.Pins.Step = "c"
 
-	_, err = newGPIOStepper(ctx, b, mc, c.Name, logger)
+	_, err = newGPIOStepper(ctx, b, mc, c.ResourceName(), logger)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	mc.TicksPerRotation = 200
 
-	mm, err := newGPIOStepper(ctx, b, mc, c.Name, logger)
+	mm, err := newGPIOStepper(ctx, b, mc, c.ResourceName(), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	m := mm.(*gpioStepper)
@@ -196,7 +197,10 @@ func Test1(t *testing.T) {
 
 	t.Run("motor testing with 0 rpm", func(t *testing.T) {
 		err = m.GoFor(ctx, 0, 1, nil)
-		test.That(t, err, test.ShouldBeError, motor.NewZeroRPMError())
+		test.That(t, err, test.ShouldBeNil)
+		allObs := obs.All()
+		latestLoggedEntry := allObs[len(allObs)-1]
+		test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly 0")
 	})
 
 	cancel()

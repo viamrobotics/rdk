@@ -19,25 +19,21 @@ import (
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/board"
-	"go.viam.com/rdk/components/generic"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
-// ModelName is the model used to refer to the yahboom model.
-var ModelName = resource.NewDefaultModel("yahboom-dofbot")
+// Model is the model used to refer to the yahboom model.
+var Model = resource.DefaultModelFamily.WithModel("yahboom-dofbot")
 
 //go:embed dofbot.json
 var modeljson []byte
 
-// Model returns the kinematics model of the yahboom arm, also has all Frame information.
-func Model(name string) (referenceframe.Model, error) {
+// MakeModelFrame returns the kinematics model of the yahboom arm, also has all Frame information.
+func MakeModelFrame(name string) (referenceframe.Model, error) {
 	return referenceframe.UnmarshalModelJSON(modeljson, name)
 }
 
@@ -72,41 +68,36 @@ func (jc jointConfig) toHw(degrees float64) int {
 	return hw
 }
 
-// AttrConfig is the config for a yahboom arm.
-type AttrConfig struct {
+// Config is the config for a yahboom arm.
+type Config struct {
 	Board string `json:"board"`
 	I2C   string `json:"i2c"`
 }
 
 // Validate ensures all parts of the config are valid.
-func (config *AttrConfig) Validate(path string) error {
-	if config.Board == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "board")
+func (conf *Config) Validate(path string) ([]string, error) {
+	if conf.Board == "" {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
 	}
 
-	if config.I2C == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "i2c")
+	if conf.I2C == "" {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "i2c")
 	}
-	return nil
+	return nil, nil
 }
 
 func init() {
-	registry.RegisterComponent(arm.Subtype, ModelName, registry.Component{
-		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-			return NewDofBot(ctx, deps, config, logger)
-		},
+	resource.RegisterComponent(arm.API, Model, resource.Registration[arm.Arm, *Config]{
+		Constructor: NewDofBot,
 	})
-
-	config.RegisterComponentAttributeMapConverter(arm.Subtype, ModelName,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf AttrConfig
-			return config.TransformAttributeMapToStruct(&conf, attributes)
-		}, &AttrConfig{})
 }
 
 // Dofbot implements a yahboom dofbot arm.
+// It would be nice to reconfigure atomically but this just rebuilds right now until
+// someone implements it.
 type Dofbot struct {
-	generic.Unimplemented
+	resource.Named
+	resource.AlwaysRebuild
 	handle  board.I2CHandle
 	model   referenceframe.Model
 	mu      sync.Mutex
@@ -117,35 +108,37 @@ type Dofbot struct {
 }
 
 // NewDofBot is a constructor to create a new dofbot arm.
-func NewDofBot(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (arm.LocalArm, error) {
+func NewDofBot(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (arm.Arm, error) {
 	var err error
 
-	attr, ok := config.ConvertedAttributes.(*AttrConfig)
-	if !ok {
-		return nil, rdkutils.NewUnexpectedTypeError(attr, config.ConvertedAttributes)
+	newConf, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return nil, err
 	}
 
-	a := Dofbot{}
-	a.logger = logger
+	a := Dofbot{
+		Named:  conf.ResourceName().AsNamed(),
+		logger: logger,
+	}
 
-	b, err := board.FromDependencies(deps, attr.Board)
+	b, err := board.FromDependencies(deps, newConf.Board)
 	if err != nil {
 		return nil, err
 	}
 	localB, ok := b.(board.LocalBoard)
 	if !ok {
-		return nil, fmt.Errorf("board %s is not local", attr.Board)
+		return nil, fmt.Errorf("board %s is not local", newConf.Board)
 	}
-	i2c, ok := localB.I2CByName(attr.I2C)
+	i2c, ok := localB.I2CByName(newConf.I2C)
 	if !ok {
-		return nil, fmt.Errorf("no i2c for yahboom-dofbot arm %s", config.Name)
+		return nil, fmt.Errorf("no i2c for yahboom-dofbot arm %s", conf.Name)
 	}
 	a.handle, err = i2c.OpenHandle(0x15)
 	if err != nil {
 		return nil, err
 	}
 
-	a.model, err = Model(config.Name)
+	a.model, err = MakeModelFrame(conf.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -443,6 +436,6 @@ func (a *Dofbot) GoToInputs(ctx context.Context, goal []referenceframe.Input) er
 }
 
 // Close closes the arm.
-func (a *Dofbot) Close() error {
+func (a *Dofbot) Close(ctx context.Context) error {
 	return a.handle.Close()
 }

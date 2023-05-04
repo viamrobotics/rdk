@@ -16,27 +16,23 @@ import (
 	"gonum.org/v1/gonum/mat"
 
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/movementsensor"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/spatialmath"
-	rdkutils "go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision/odometry"
 )
 
-var model = resource.NewDefaultModel("camera_mono")
+var model = resource.DefaultModelFamily.WithModel("camera_mono")
 
-// AttrConfig is used for converting config attributes of a cameramono movement sensor.
-type AttrConfig struct {
+// Config is used for converting config attributes of a cameramono movement sensor.
+type Config struct {
 	Camera       string                           `json:"camera"`
 	MotionConfig *odometry.MotionEstimationConfig `json:"motion_estimation_config"`
 }
 
 // Validate ensures all parts of the config are valid.
-func (cfg *AttrConfig) Validate(path string) ([]string, error) {
+func (cfg *Config) Validate(path string) ([]string, error) {
 	var deps []string
 	if cfg.Camera == "" {
 		return nil, utils.NewConfigValidationError(path,
@@ -86,31 +82,24 @@ func (cfg *AttrConfig) Validate(path string) ([]string, error) {
 }
 
 func init() {
-	registry.RegisterComponent(
-		movementsensor.Subtype,
+	resource.RegisterComponent(
+		movementsensor.API,
 		model,
-		registry.Component{
+		resource.Registration[movementsensor.MovementSensor, *Config]{
 			Constructor: func(
 				ctx context.Context,
-				deps registry.Dependencies,
-				config config.Component,
+				deps resource.Dependencies,
+				conf resource.Config,
 				logger golog.Logger,
-			) (interface{}, error) {
-				return newCameraMono(deps, config, logger)
+			) (movementsensor.MovementSensor, error) {
+				return newCameraMono(deps, conf, logger)
 			},
 		})
-	config.RegisterComponentAttributeMapConverter(
-		movementsensor.Subtype,
-		model,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf AttrConfig
-			return config.TransformAttributeMapToStruct(&conf, attributes)
-		},
-		&AttrConfig{})
 }
 
 type cameramono struct {
-	generic.Unimplemented
+	resource.Named
+	resource.AlwaysRebuild
 	activeBackgroundWorkers sync.WaitGroup
 	cancelCtx               context.Context
 	cancelFunc              func()
@@ -131,20 +120,20 @@ type result struct {
 }
 
 func newCameraMono(
-	deps registry.Dependencies,
-	config config.Component,
+	deps resource.Dependencies,
+	conf resource.Config,
 	logger golog.Logger,
 ) (movementsensor.MovementSensor, error) {
 	logger.Info(
 		"visual odometry using one camera implements GetPosition, GetOrientation, GetLinearVelocity and GetAngularVelocity",
 	)
 
-	conf, ok := config.ConvertedAttributes.(*AttrConfig)
-	if !ok {
-		return nil, rdkutils.NewUnexpectedTypeError(conf, config.ConvertedAttributes)
+	newConf, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return nil, err
 	}
 
-	cam, err := camera.FromDependencies(deps, conf.Camera)
+	cam, err := camera.FromDependencies(deps, newConf.Camera)
 	if err != nil {
 		return nil, err
 	}
@@ -153,6 +142,7 @@ func newCameraMono(
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 
 	co := &cameramono{
+		Named:      conf.ResourceName().AsNamed(),
 		cancelCtx:  cancelCtx,
 		cancelFunc: cancelFunc,
 		logger:     logger,
@@ -169,7 +159,7 @@ func newCameraMono(
 
 	co.stream = gostream.NewEmbeddedVideoStream(cam)
 
-	err = co.backgroundWorker(co.stream, conf.MotionConfig)
+	err = co.backgroundWorker(co.stream, newConf.MotionConfig)
 	co.err.Set(err)
 
 	return co, co.err.Get()
@@ -260,11 +250,12 @@ func (co *cameramono) getDt(startTime, endTime time.Time) (float64, bool) {
 }
 
 // Close closes all the channels and threads.
-func (co *cameramono) Close() {
+func (co *cameramono) Close(ctx context.Context) error {
 	co.cancelFunc()
 	co.activeBackgroundWorkers.Wait()
 	err := co.stream.Close(co.cancelCtx)
 	co.err.Set(err)
+	return nil
 }
 
 // Position gets the position of the moving object calculated by visual odometry.

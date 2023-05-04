@@ -26,6 +26,10 @@ func (s *simpleSource) Read(ctx context.Context) (image.Image, func(), error) {
 	return img, func() {}, err
 }
 
+func (s *simpleSource) Close(ctx context.Context) error {
+	return nil
+}
+
 func main() {
 	imgPtr := flag.String("img", "", "path to image to apply simple detection to")
 	urlPtr := flag.String("url", "", "url to image source to apply simple detection to")
@@ -45,13 +49,13 @@ func main() {
 	}
 	if *imgPtr != "" {
 		src := &simpleSource{*imgPtr}
-		cam, err := camera.NewFromReader(context.Background(), src, nil, camera.UnspecifiedStream)
+		videoSrc, err := camera.NewVideoSourceFromReader(context.Background(), src, nil, camera.UnspecifiedStream)
 		if err != nil {
 			logger.Fatal(err)
 		}
-		pipeline(cam, *threshPtr, *satPtr, *valPtr, *sizePtr, *colorPtr, logger)
+		pipeline(videoSrc, *threshPtr, *satPtr, *valPtr, *sizePtr, *colorPtr, logger)
 	} else {
-		cfg := &videosource.ServerAttrs{
+		cfg := &videosource.ServerConfig{
 			URL:    *urlPtr,
 			Stream: *streamPtr,
 		}

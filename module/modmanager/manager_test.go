@@ -9,16 +9,13 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
-	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/config"
 	modmanageroptions "go.viam.com/rdk/module/modmanager/options"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
 )
 
@@ -35,19 +32,14 @@ func TestModManagerFunctions(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	myCounterModel := resource.NewModel("acme", "demo", "mycounter")
-	rNameCounter1 := resource.NameFromSubtype(generic.Subtype, "counter1")
-	cfgCounter1 := config.Component{
+	rNameCounter1 := resource.NewName(generic.API, "counter1")
+	cfgCounter1 := resource.Config{
 		Name:  "counter1",
-		API:   generic.Subtype,
+		API:   generic.API,
 		Model: myCounterModel,
 	}
-	_, err = cfgCounter1.Validate("test")
+	_, err = cfgCounter1.Validate("test", resource.APITypeComponentName)
 	test.That(t, err, test.ShouldBeNil)
-
-	myRobot := &inject.Robot{}
-	myRobot.LoggerFunc = func() golog.Logger {
-		return logger
-	}
 
 	// This cannot use t.TempDir() as the path it gives on MacOS exceeds module.MaxSocketAddressLength.
 	parentAddr, err := os.MkdirTemp("", "viam-test-*")
@@ -55,13 +47,8 @@ func TestModManagerFunctions(t *testing.T) {
 	defer os.RemoveAll(parentAddr)
 	parentAddr += "/parent.sock"
 
-	myRobot.ModuleAddressFunc = func() (string, error) {
-		return parentAddr, nil
-	}
-
 	t.Log("test Helpers")
-	mgr, err := NewManager(myRobot, modmanageroptions.Options{UntrustedEnv: false})
-	test.That(t, err, test.ShouldBeNil)
+	mgr := NewManager(parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
 
 	mod := &module{name: "test", exe: modExe}
 
@@ -81,20 +68,20 @@ func TestModManagerFunctions(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	mod.registerResources(mgr, logger)
-	reg := registry.ComponentLookup(generic.Subtype, myCounterModel)
+	reg, ok := resource.LookupRegistration(generic.API, myCounterModel)
+	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, reg, test.ShouldNotBeNil)
 	test.That(t, reg.Constructor, test.ShouldNotBeNil)
 
-	err = mod.deregisterResources()
-	test.That(t, err, test.ShouldBeNil)
-	reg = registry.ComponentLookup(generic.Subtype, myCounterModel)
-	test.That(t, reg, test.ShouldBeNil)
+	mod.deregisterResources()
+	_, ok = resource.LookupRegistration(generic.API, myCounterModel)
+	test.That(t, ok, test.ShouldBeFalse)
 
 	test.That(t, mgr.Close(ctx), test.ShouldBeNil)
 	test.That(t, mod.process.Stop(), test.ShouldBeNil)
 
 	t.Log("test AddModule")
-	mgr, err = NewManager(myRobot, modmanageroptions.Options{UntrustedEnv: false})
+	mgr = NewManager(parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
 	test.That(t, err, test.ShouldBeNil)
 
 	modCfg := config.Module{
@@ -104,24 +91,24 @@ func TestModManagerFunctions(t *testing.T) {
 	err = mgr.Add(ctx, modCfg)
 	test.That(t, err, test.ShouldBeNil)
 
-	reg = registry.ComponentLookup(generic.Subtype, myCounterModel)
+	reg, ok = resource.LookupRegistration(generic.API, myCounterModel)
+	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, reg.Constructor, test.ShouldNotBeNil)
 
 	t.Log("test Provides")
-	ok := mgr.Provides(cfgCounter1)
+	ok = mgr.Provides(cfgCounter1)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	cfg2 := config.Component{
-		API:   motor.Subtype,
-		Model: resource.NewDefaultModel("fake"),
+	cfg2 := resource.Config{
+		API:   motor.API,
+		Model: resource.DefaultModelFamily.WithModel("fake"),
 	}
 	ok = mgr.Provides(cfg2)
 	test.That(t, ok, test.ShouldBeFalse)
 
 	t.Log("test AddResource")
-	c, err := mgr.AddResource(ctx, cfgCounter1, nil)
+	counter, err := mgr.AddResource(ctx, cfgCounter1, nil)
 	test.That(t, err, test.ShouldBeNil)
-	counter := c.(generic.Generic)
 
 	ret, err := counter.DoCommand(ctx, map[string]interface{}{"command": "get"})
 	test.That(t, err, test.ShouldBeNil)
@@ -131,7 +118,7 @@ func TestModManagerFunctions(t *testing.T) {
 	ok = mgr.IsModularResource(rNameCounter1)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	ok = mgr.IsModularResource(resource.NameFromSubtype(generic.Subtype, "missing"))
+	ok = mgr.IsModularResource(resource.NewName(generic.API, "missing"))
 	test.That(t, ok, test.ShouldBeFalse)
 
 	t.Log("test ValidateConfig")
@@ -168,7 +155,7 @@ func TestModManagerFunctions(t *testing.T) {
 
 	_, err = counter.DoCommand(ctx, map[string]interface{}{"command": "get"})
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no resource with name")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
 	t.Log("test ReconfigureModule")
 	// Re-add counter1.
@@ -205,15 +192,14 @@ func TestModManagerFunctions(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "the client connection is closing")
 
-	err = goutils.TryClose(ctx, counter)
+	err = counter.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)
 
 	err = mgr.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Log("test UntrustedEnv")
-	mgr, err = NewManager(myRobot, modmanageroptions.Options{UntrustedEnv: true})
-	test.That(t, err, test.ShouldBeNil)
+	mgr = NewManager(parentAddr, logger, modmanageroptions.Options{UntrustedEnv: true})
 
 	modCfg = config.Module{
 		Name:    "simple-module",
@@ -236,31 +222,26 @@ func TestModManagerValidation(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	myBaseModel := resource.NewModel("acme", "demo", "mybase")
-	cfgMyBase1 := config.Component{
+	cfgMyBase1 := resource.Config{
 		Name:  "mybase1",
-		API:   base.Subtype,
+		API:   base.API,
 		Model: myBaseModel,
 		Attributes: map[string]interface{}{
 			"motorL": "motor1",
 			"motorR": "motor2",
 		},
 	}
-	_, err = cfgMyBase1.Validate("test")
+	_, err = cfgMyBase1.Validate("test", resource.APITypeComponentName)
 	test.That(t, err, test.ShouldBeNil)
 	// cfgMyBase2 is missing required attributes "motorL" and "motorR" and should
 	// cause module Validation error.
-	cfgMyBase2 := config.Component{
+	cfgMyBase2 := resource.Config{
 		Name:  "mybase2",
-		API:   base.Subtype,
+		API:   base.API,
 		Model: myBaseModel,
 	}
-	_, err = cfgMyBase2.Validate("test")
+	_, err = cfgMyBase2.Validate("test", resource.APITypeComponentName)
 	test.That(t, err, test.ShouldBeNil)
-
-	myRobot := &inject.Robot{}
-	myRobot.LoggerFunc = func() golog.Logger {
-		return logger
-	}
 
 	// This cannot use t.TempDir() as the path it gives on MacOS exceeds module.MaxSocketAddressLength.
 	parentAddr, err := os.MkdirTemp("", "viam-test-*")
@@ -268,13 +249,8 @@ func TestModManagerValidation(t *testing.T) {
 	defer os.RemoveAll(parentAddr)
 	parentAddr += "/parent.sock"
 
-	myRobot.ModuleAddressFunc = func() (string, error) {
-		return parentAddr, nil
-	}
-
 	t.Log("adding complex module")
-	mgr, err := NewManager(myRobot, modmanageroptions.Options{UntrustedEnv: false})
-	test.That(t, err, test.ShouldBeNil)
+	mgr := NewManager(parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
 
 	modCfg := config.Module{
 		Name:    "complex-module",
@@ -283,7 +259,8 @@ func TestModManagerValidation(t *testing.T) {
 	err = mgr.Add(ctx, modCfg)
 	test.That(t, err, test.ShouldBeNil)
 
-	reg := registry.ComponentLookup(base.Subtype, myBaseModel)
+	reg, ok := resource.LookupRegistration(base.API, myBaseModel)
+	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, reg.Constructor, test.ShouldNotBeNil)
 
 	t.Log("test ValidateConfig")

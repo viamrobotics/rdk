@@ -6,15 +6,16 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/board"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
-	rdkutils "go.viam.com/rdk/utils"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/utils"
 )
 
-func Ptr[T any](v T) *T {
+func ptr[T any](v T) *T {
 	return &v
 }
 
@@ -22,11 +23,11 @@ func TestValidate(t *testing.T) {
 	cfg := servoConfig{
 		Pin:        "a",
 		Board:      "b",
-		MinDeg:     Ptr(1.5),
-		MaxDeg:     Ptr(90.0),
-		StartPos:   Ptr(3.5),
-		MinWidthUS: Ptr(uint(501)),
-		MaxWidthUS: Ptr(uint(2499)),
+		MinDeg:     ptr(1.5),
+		MaxDeg:     ptr(90.0),
+		StartPos:   ptr(3.5),
+		MinWidthUs: ptr(uint(501)),
+		MaxWidthUs: ptr(uint(2499)),
 	}
 
 	deps, err := cfg.Validate("test")
@@ -34,50 +35,50 @@ func TestValidate(t *testing.T) {
 	test.That(t, deps, test.ShouldContain, "b")
 	test.That(t, len(deps), test.ShouldEqual, 1)
 
-	cfg.MinDeg = Ptr(-1.5)
+	cfg.MinDeg = ptr(-1.5)
 	_, err = cfg.Validate("test")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "error validating \"test\": min_angle_deg cannot be lower than 0")
-	cfg.MinDeg = Ptr(1.5)
+	cfg.MinDeg = ptr(1.5)
 
-	cfg.MaxDeg = Ptr(90.0)
+	cfg.MaxDeg = ptr(90.0)
 
-	cfg.MinWidthUS = Ptr(uint(450))
+	cfg.MinWidthUs = ptr(uint(450))
 	_, err = cfg.Validate("test")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "error validating \"test\": min_width_us cannot be lower than 500")
-	cfg.MinWidthUS = Ptr(uint(501))
+	cfg.MinWidthUs = ptr(uint(501))
 
-	cfg.MaxWidthUS = Ptr(uint(2520))
+	cfg.MaxWidthUs = ptr(uint(2520))
 	_, err = cfg.Validate("test")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "error validating \"test\": max_width_us cannot be higher than 2500")
-	cfg.MaxWidthUS = Ptr(uint(2499))
+	cfg.MaxWidthUs = ptr(uint(2499))
 
-	cfg.StartPos = Ptr(91.0)
+	cfg.StartPos = ptr(91.0)
 	_, err = cfg.Validate("test")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(),
 		test.ShouldContainSubstring,
-		"error validating \"test\": starting_position_degs should be between 1.5 and 90.0")
+		"error validating \"test\": starting_position_deg should be between minimum (1.5) and maximum (90.0) positions")
 
-	cfg.StartPos = Ptr(1.0)
+	cfg.StartPos = ptr(1.0)
 	_, err = cfg.Validate("test")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(),
 		test.ShouldContainSubstring,
-		"error validating \"test\": starting_position_degs should be between 1.5 and 90.0")
+		"error validating \"test\": starting_position_deg should be between minimum (1.5) and maximum (90.0) positions")
 
-	cfg.StartPos = Ptr(199.0)
+	cfg.StartPos = ptr(199.0)
 	cfg.MaxDeg = nil
 	cfg.MinDeg = nil
 	_, err = cfg.Validate("test")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(),
 		test.ShouldContainSubstring,
-		"error validating \"test\": starting_position_degs should be between 0.0 and 180.0")
+		"error validating \"test\": starting_position_deg should be between minimum (0.0) and maximum (180.0) positions")
 
-	cfg.StartPos = Ptr(0.0)
+	cfg.StartPos = ptr(0.0)
 	_, err = cfg.Validate("test")
 	test.That(t, err, test.ShouldBeNil)
 
@@ -97,50 +98,62 @@ func TestValidate(t *testing.T) {
 		"error validating \"test\": \"pin\" is required")
 }
 
-func setupDependencies(t *testing.T) registry.Dependencies {
+func setupDependencies(t *testing.T) resource.Dependencies {
 	t.Helper()
 
-	deps := make(registry.Dependencies)
-	gpio := make(map[string]board.GPIOPin)
-	gpio["0"] = &mockGPIO{scale: 255, frequency: 50, innerTick: 0}
-	gpio["1"] = &mockGPIO{scale: 4095, frequency: 50, innerTick: 0}
-	deps[board.Named("mock")] = &mockBoard{gpio: gpio}
+	deps := make(resource.Dependencies)
+	board1 := inject.NewBoard("mock")
+	board1.GPIOPinNamesFunc = func() []string {
+		return []string{"0", "1"}
+	}
+
+	innerTick1, innerTick2 := 0, 0
+	scale1, scale2 := 255, 4095
+
+	pin0 := &inject.GPIOPin{}
+	pin0.PWMFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
+		pct := float64(innerTick1) / float64(scale1)
+		return pct, nil
+	}
+	pin0.PWMFreqFunc = func(ctx context.Context, extra map[string]interface{}) (uint, error) {
+		return 50, nil
+	}
+	pin0.SetPWMFunc = func(ctx context.Context, dutyCyclePct float64, extra map[string]interface{}) error {
+		innerTick1 = utils.ScaleByPct(scale1, dutyCyclePct)
+		return nil
+	}
+	pin0.SetPWMFreqFunc = func(ctx context.Context, freqHz uint, extra map[string]interface{}) error {
+		return nil
+	}
+
+	pin1 := &inject.GPIOPin{}
+	pin1.PWMFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
+		pct := float64(innerTick2) / float64(scale2)
+		return pct, nil
+	}
+	pin1.PWMFreqFunc = func(ctx context.Context, extra map[string]interface{}) (uint, error) {
+		return 50, nil
+	}
+	pin1.SetPWMFunc = func(ctx context.Context, dutyCyclePct float64, extra map[string]interface{}) error {
+		innerTick2 = utils.ScaleByPct(scale2, dutyCyclePct)
+		return nil
+	}
+	pin1.SetPWMFreqFunc = func(ctx context.Context, freqHz uint, extra map[string]interface{}) error {
+		return nil
+	}
+
+	board1.GPIOPinByNameFunc = func(name string) (board.GPIOPin, error) {
+		switch name {
+		case "0":
+			return pin0, nil
+		case "1":
+			return pin1, nil
+		default:
+			return nil, errors.New("bad pin")
+		}
+	}
+	deps[board.Named("mock")] = board1
 	return deps
-}
-
-type mockGPIO struct {
-	board.GPIOPin
-	scale     int
-	frequency int
-	innerTick int
-}
-
-func (g *mockGPIO) PWMFreq(ctx context.Context, extra map[string]interface{}) (uint, error) {
-	return uint(g.frequency), nil
-}
-
-func (g *mockGPIO) SetPWMFreq(ctx context.Context, freqHz uint, extra map[string]interface{}) error {
-	g.frequency = int(freqHz)
-	return nil
-}
-
-func (g *mockGPIO) PWM(ctx context.Context, extra map[string]interface{}) (float64, error) {
-	pct := float64(g.innerTick) / float64(g.scale)
-	return pct, nil
-}
-
-func (g *mockGPIO) SetPWM(ctx context.Context, dutyCyclePct float64, extra map[string]interface{}) error {
-	g.innerTick = rdkutils.ScaleByPct(g.scale, dutyCyclePct)
-	return nil
-}
-
-type mockBoard struct {
-	board.LocalBoard
-	gpio map[string]board.GPIOPin
-}
-
-func (b *mockBoard) GPIOPinByName(name string) (board.GPIOPin, error) {
-	return b.gpio[name], nil
 }
 
 func TestServoMove(t *testing.T) {
@@ -149,14 +162,14 @@ func TestServoMove(t *testing.T) {
 
 	ctx := context.Background()
 
-	attrs := servoConfig{
+	conf := servoConfig{
 		Pin:      "0",
 		Board:    "mock",
-		StartPos: Ptr(0.0),
+		StartPos: ptr(0.0),
 	}
 
-	cfg := config.Component{
-		ConvertedAttributes: &attrs,
+	cfg := resource.Config{
+		ConvertedAttributes: &conf,
 	}
 	servo, err := newGPIOServo(ctx, deps, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -174,14 +187,14 @@ func TestServoMove(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pos, test.ShouldEqual, 61)
 
-	attrs = servoConfig{
+	conf = servoConfig{
 		Pin:      "1",
 		Board:    "mock",
-		StartPos: Ptr(0.0),
+		StartPos: ptr(0.0),
 	}
 
-	cfg = config.Component{
-		ConvertedAttributes: &attrs,
+	cfg = resource.Config{
+		ConvertedAttributes: &conf,
 	}
 	servo, err = newGPIOServo(ctx, deps, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)

@@ -31,11 +31,15 @@ import (
 	"go.viam.com/utils/rpc"
 )
 
+// This test ends up being a great validation of the logical clock on resource graph node
+// modifications since the base depends on something it needs during initialization that
+// needs to be added to the web service before it normally would be avalilable after completing
+// a config cycle.
 func TestComplexModule(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
 	// Modify the example config to run directly, without compiling the module first.
-	cfgFilename, port, err := modifyCfg(utils.ResolveFile("examples/customresources/demos/complexmodule/module.json"), logger)
+	cfgFilename, port, err := modifyCfg(t, utils.ResolveFile("examples/customresources/demos/complexmodule/module.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, os.Remove(cfgFilename), test.ShouldBeNil)
@@ -52,7 +56,7 @@ func TestComplexModule(t *testing.T) {
 
 	server := pexec.NewManagedProcess(pexec.ProcessConfig{
 		Name: "bash",
-		Args: []string{"-c", "exec bin/`uname`-`uname -m`/server -config " + cfgFilename},
+		Args: []string{"-c", "exec bin/`uname`-`uname -m`/viam-server -config " + cfgFilename},
 		CWD:  utils.ResolveFile("./"),
 		Log:  true,
 	}, logger)
@@ -317,7 +321,7 @@ func connect(port string, logger golog.Logger) (robot.Robot, error) {
 	}
 }
 
-func modifyCfg(cfgIn string, logger golog.Logger) (string, string, error) {
+func modifyCfg(t *testing.T, cfgIn string, logger golog.Logger) (string, string, error) {
 	p, err := goutils.TryReserveRandomPort()
 	if err != nil {
 		return "", "", err
@@ -340,7 +344,7 @@ func modifyCfg(cfgIn string, logger golog.Logger) (string, string, error) {
 	if err != nil {
 		return "", "", err
 	}
-	file, err := os.CreateTemp("", "viam-test-config-*")
+	file, err := os.CreateTemp(t.TempDir(), "viam-test-config-*")
 	if err != nil {
 		return "", "", err
 	}
@@ -365,7 +369,7 @@ func TestValidationFailure(t *testing.T) {
 
 	// bad_modular_validation.json contains a "mybase" modular component that will
 	// fail modular Validation due to a missing "motorL" attribute.
-	cfgFilename, port, err := modifyCfg(
+	cfgFilename, port, err := modifyCfg(t,
 		utils.ResolveFile("examples/customresources/demos/complexmodule/moduletest/bad_modular_validation.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
@@ -380,7 +384,7 @@ func TestValidationFailure(t *testing.T) {
 
 	server := pexec.NewManagedProcess(pexec.ProcessConfig{
 		Name: "bash",
-		Args: []string{"-c", "exec bin/`uname`-`uname -m`/server -config " + cfgFilename},
+		Args: []string{"-c", "exec bin/`uname`-`uname -m`/viam-server -config " + cfgFilename},
 		CWD:  utils.ResolveFile("./"),
 		Log:  true,
 	}, logger)
@@ -409,6 +413,6 @@ func TestValidationFailure(t *testing.T) {
 	// Assert that Validation failure is present in server output, but build failure
 	// is not.
 	test.That(t, logs.FilterMessageSnippet(
-		"Modular config validation error found in component: base1").Len(), test.ShouldEqual, 1)
+		"modular config validation error found in resource: base1").Len(), test.ShouldEqual, 1)
 	test.That(t, logs.FilterMessageSnippet("error building component").Len(), test.ShouldEqual, 0)
 }

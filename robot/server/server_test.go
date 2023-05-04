@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"net"
 	"sync"
 	"testing"
 	"time"
@@ -19,11 +20,11 @@ import (
 	"go.viam.com/test"
 	vprotoutils "go.viam.com/utils/protoutils"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/peer"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/movementsensor"
-	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
@@ -41,18 +42,13 @@ var emptyResources = &pb.ResourceNamesResponse{
 	Resources: []*commonpb.ResourceName{},
 }
 
-var serverNewResource = resource.NewName(
-	resource.ResourceNamespaceRDK,
-	resource.ResourceTypeComponent,
-	arm.SubtypeName,
-	"",
-)
+var serverNewResource = arm.Named("")
 
 var serverOneResourceResponse = []*commonpb.ResourceName{
 	{
-		Namespace: string(serverNewResource.Namespace),
-		Type:      string(serverNewResource.ResourceType),
-		Subtype:   string(serverNewResource.ResourceSubtype),
+		Namespace: string(serverNewResource.API.Type.Namespace),
+		Type:      serverNewResource.API.Type.Name,
+		Subtype:   serverNewResource.API.SubtypeName,
 		Name:      serverNewResource.Name,
 	},
 }
@@ -60,7 +56,7 @@ var serverOneResourceResponse = []*commonpb.ResourceName{
 func TestServer(t *testing.T) {
 	t.Run("Metadata", func(t *testing.T) {
 		injectRobot := &inject.Robot{}
-		injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return nil }
+		injectRobot.ResourceRPCAPIsFunc = func() []resource.RPCAPI { return nil }
 		injectRobot.ResourceNamesFunc = func() []resource.Name { return []resource.Name{} }
 		server := server.New(injectRobot)
 
@@ -68,7 +64,7 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resourceResp, test.ShouldResemble, emptyResources)
 
-		injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return nil }
+		injectRobot.ResourceRPCAPIsFunc = func() []resource.RPCAPI { return nil }
 		injectRobot.ResourceNamesFunc = func() []resource.Name { return []resource.Name{serverNewResource} }
 
 		resourceResp, err = server.ResourceNames(context.Background(), &pb.ResourceNamesRequest{})
@@ -78,14 +74,14 @@ func TestServer(t *testing.T) {
 
 	t.Run("Discovery", func(t *testing.T) {
 		injectRobot := &inject.Robot{}
-		injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return nil }
+		injectRobot.ResourceRPCAPIsFunc = func() []resource.RPCAPI { return nil }
 		injectRobot.ResourceNamesFunc = func() []resource.Name { return []resource.Name{} }
 		server := server.New(injectRobot)
 
-		q := discovery.Query{arm.Named("arm").Subtype, resource.NewDefaultModel("some-arm")}
-		disc := discovery.Discovery{Query: q, Results: struct{}{}}
-		discoveries := []discovery.Discovery{disc}
-		injectRobot.DiscoverComponentsFunc = func(ctx context.Context, keys []discovery.Query) ([]discovery.Discovery, error) {
+		q := resource.DiscoveryQuery{arm.Named("arm").API, resource.DefaultModelFamily.WithModel("some-arm")}
+		disc := resource.Discovery{Query: q, Results: struct{}{}}
+		discoveries := []resource.Discovery{disc}
+		injectRobot.DiscoverComponentsFunc = func(ctx context.Context, keys []resource.DiscoveryQuery) ([]resource.Discovery, error) {
 			return discoveries, nil
 		}
 
@@ -123,7 +119,7 @@ func TestServer(t *testing.T) {
 
 	t.Run("ResourceRPCSubtypes", func(t *testing.T) {
 		injectRobot := &inject.Robot{}
-		injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return nil }
+		injectRobot.ResourceRPCAPIsFunc = func() []resource.RPCAPI { return nil }
 		injectRobot.ResourceNamesFunc = func() []resource.Name { return nil }
 		server := server.New(injectRobot)
 
@@ -139,38 +135,38 @@ func TestServer(t *testing.T) {
 		desc2, err := grpcreflect.LoadServiceDescriptor(&armpb.ArmService_ServiceDesc)
 		test.That(t, err, test.ShouldBeNil)
 
-		otherSubType := resource.NewSubtype("acme", resource.ResourceTypeComponent, "wat")
-		respWith := []resource.RPCSubtype{
+		otherAPI := resource.NewAPI("acme", "component", "wat")
+		respWith := []resource.RPCAPI{
 			{
-				Subtype: serverNewResource.Subtype,
-				Desc:    desc1,
+				API:  serverNewResource.API,
+				Desc: desc1,
 			},
 			{
-				Subtype: resource.NewSubtype("acme", resource.ResourceTypeComponent, "wat"),
-				Desc:    desc2,
+				API:  resource.NewAPI("acme", "component", "wat"),
+				Desc: desc2,
 			},
 		}
 
 		expectedResp := []*pb.ResourceRPCSubtype{
 			{
 				Subtype: &commonpb.ResourceName{
-					Namespace: string(serverNewResource.Namespace),
-					Type:      string(serverNewResource.ResourceType),
-					Subtype:   string(serverNewResource.ResourceSubtype),
+					Namespace: string(serverNewResource.API.Type.Namespace),
+					Type:      serverNewResource.API.Type.Name,
+					Subtype:   serverNewResource.API.SubtypeName,
 				},
 				ProtoService: desc1.GetFullyQualifiedName(),
 			},
 			{
 				Subtype: &commonpb.ResourceName{
-					Namespace: string(otherSubType.Namespace),
-					Type:      string(otherSubType.ResourceType),
-					Subtype:   string(otherSubType.ResourceSubtype),
+					Namespace: string(otherAPI.Type.Namespace),
+					Type:      otherAPI.Type.Name,
+					Subtype:   otherAPI.SubtypeName,
 				},
 				ProtoService: desc2.GetFullyQualifiedName(),
 			},
 		}
 
-		injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return respWith }
+		injectRobot.ResourceRPCAPIsFunc = func() []resource.RPCAPI { return respWith }
 		injectRobot.ResourceNamesFunc = func() []resource.Name { return nil }
 
 		typesResp, err = server.ResourceRPCSubtypes(context.Background(), &pb.ResourceRPCSubtypesRequest{})
@@ -181,7 +177,7 @@ func TestServer(t *testing.T) {
 	t.Run("GetOperations", func(t *testing.T) {
 		logger := golog.NewTestLogger(t)
 		injectRobot := &inject.Robot{}
-		injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return nil }
+		injectRobot.ResourceRPCAPIsFunc = func() []resource.RPCAPI { return nil }
 		injectRobot.ResourceNamesFunc = func() []resource.Name { return nil }
 		injectRobot.LoggerFunc = func() golog.Logger {
 			return logger
@@ -194,8 +190,8 @@ func TestServer(t *testing.T) {
 			Operations: []*pb.Operation{},
 		})
 
-		sess1 := session.New("owner1", nil, time.Minute, nil)
-		sess2 := session.New("owner2", nil, time.Minute, nil)
+		sess1 := session.New(context.Background(), "owner1", time.Minute, nil)
+		sess2 := session.New(context.Background(), "owner2", time.Minute, nil)
 		sess1Ctx := session.ToContext(context.Background(), sess1)
 		sess2Ctx := session.ToContext(context.Background(), sess2)
 		op1, cancel1 := injectRobot.OperationManager().Create(context.Background(), "something1", nil)
@@ -239,7 +235,7 @@ func TestServer(t *testing.T) {
 	t.Run("GetSessions", func(t *testing.T) {
 		sessMgr := &sessionManager{}
 		injectRobot := &inject.Robot{SessMgr: sessMgr}
-		injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return nil }
+		injectRobot.ResourceRPCAPIsFunc = func() []resource.RPCAPI { return nil }
 		injectRobot.ResourceNamesFunc = func() []resource.Name { return nil }
 		server := server.New(injectRobot)
 
@@ -250,26 +246,21 @@ func TestServer(t *testing.T) {
 		})
 
 		ownerID1 := "owner1"
-		remoteAddr1 := "rem1"
-		localAddr1 := "loc1"
-		info1 := &pb.PeerConnectionInfo{
-			Type:          pb.PeerConnectionType_PEER_CONNECTION_TYPE_GRPC,
-			RemoteAddress: &remoteAddr1,
-			LocalAddress:  &localAddr1,
-		}
+		remoteAddr1 := &net.TCPAddr{IP: net.IPv4(1, 2, 3, 4), Port: 5}
+		ctx1 := peer.NewContext(context.Background(), &peer.Peer{
+			Addr: remoteAddr1,
+		})
+		remoteAddr2 := &net.TCPAddr{IP: net.IPv4(2, 2, 3, 8), Port: 9}
+		ctx2 := peer.NewContext(context.Background(), &peer.Peer{
+			Addr: remoteAddr2,
+		})
+
 		ownerID2 := "owner2"
-		remoteAddr2 := "rem2"
-		localAddr2 := "loc2"
-		info2 := &pb.PeerConnectionInfo{
-			Type:          pb.PeerConnectionType_PEER_CONNECTION_TYPE_GRPC,
-			RemoteAddress: &remoteAddr2,
-			LocalAddress:  &localAddr2,
-		}
 		dur := time.Second
 
 		sessions := []*session.Session{
-			session.New(ownerID1, info1, dur, nil),
-			session.New(ownerID2, info2, dur, nil),
+			session.New(ctx1, ownerID1, dur, nil),
+			session.New(ctx2, ownerID2, dur, nil),
 		}
 
 		sessMgr.mu.Lock()
@@ -638,7 +629,7 @@ type sessionManager struct {
 	sessions []*session.Session
 }
 
-func (mgr *sessionManager) Start(ownerID string, peerConnInfo *pb.PeerConnectionInfo) (*session.Session, error) {
+func (mgr *sessionManager) Start(ctx context.Context, ownerID string) (*session.Session, error) {
 	panic("unimplemented")
 }
 
@@ -648,7 +639,7 @@ func (mgr *sessionManager) All() []*session.Session {
 	return mgr.sessions
 }
 
-func (mgr *sessionManager) FindByID(id uuid.UUID, ownerID string) (*session.Session, error) {
+func (mgr *sessionManager) FindByID(ctx context.Context, id uuid.UUID, ownerID string) (*session.Session, error) {
 	panic("unimplemented")
 }
 

@@ -15,7 +15,7 @@ import (
 )
 
 func BenchmarkNewFromFile(b *testing.B) {
-	logger := golog.NewLogger("pointcloud_benchmark")
+	logger := golog.NewTestLogger(b)
 	for i := 0; i < b.N; i++ {
 		_, err := NewFromFile(artifact.MustPath("pointcloud/test.las"), logger)
 		test.That(b, err, test.ShouldBeNil)
@@ -29,7 +29,7 @@ func TestNewFromFile(t *testing.T) {
 	numPoints := cloud.Size()
 	test.That(t, numPoints, test.ShouldEqual, 8413)
 
-	temp, err := os.CreateTemp("", "*.las")
+	temp, err := os.CreateTemp(t.TempDir(), "*.las")
 	test.That(t, err, test.ShouldBeNil)
 	defer os.Remove(temp.Name())
 
@@ -285,7 +285,7 @@ func TestRoundTripFileWithColorFloat(t *testing.T) {
 	test.That(t, outV, test.ShouldEqual, v)
 
 	// write to .las
-	temp, err := os.CreateTemp("", "*.las")
+	temp, err := os.CreateTemp(t.TempDir(), "*.las")
 	test.That(t, err, test.ShouldBeNil)
 	defer os.Remove(temp.Name())
 

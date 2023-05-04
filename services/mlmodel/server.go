@@ -8,35 +8,23 @@ import (
 	vprotoutils "go.viam.com/utils/protoutils"
 	"google.golang.org/protobuf/types/known/structpb"
 
-	"go.viam.com/rdk/subtype"
-	"go.viam.com/rdk/utils"
+	"go.viam.com/rdk/resource"
 )
 
-// subtypeServer implements the MLModelService from mlmodel.proto.
-type subtypeServer struct {
+// serviceServer implements the MLModelService from mlmodel.proto.
+type serviceServer struct {
 	pb.UnimplementedMLModelServiceServer
-	subtypeSvc subtype.Service
+	coll resource.APIResourceCollection[Service]
 }
 
-// NewServer constructs a ML Model gRPC service server.
-func NewServer(s subtype.Service) pb.MLModelServiceServer {
-	return &subtypeServer{subtypeSvc: s}
+// NewRPCServiceServer constructs a ML Model gRPC service server.
+// It is intentionally untyped to prevent use outside of tests.
+func NewRPCServiceServer(coll resource.APIResourceCollection[Service]) interface{} {
+	return &serviceServer{coll: coll}
 }
 
-func (server *subtypeServer) service(serviceName string) (Service, error) {
-	resource := server.subtypeSvc.Resource(serviceName)
-	if resource == nil {
-		return nil, utils.NewResourceNotFoundError(Named(serviceName))
-	}
-	svc, ok := resource.(Service)
-	if !ok {
-		return nil, NewUnimplementedInterfaceError(resource)
-	}
-	return svc, nil
-}
-
-func (server *subtypeServer) Infer(ctx context.Context, req *pb.InferRequest) (*pb.InferResponse, error) {
-	svc, err := server.service(req.Name)
+func (server *serviceServer) Infer(ctx context.Context, req *pb.InferRequest) (*pb.InferResponse, error) {
+	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -75,11 +63,11 @@ func asMap(x *structpb.Struct) (map[string]interface{}, error) {
 	return vs, nil
 }
 
-func (server *subtypeServer) Metadata(
+func (server *serviceServer) Metadata(
 	ctx context.Context,
 	req *pb.MetadataRequest,
 ) (*pb.MetadataResponse, error) {
-	svc, err := server.service(req.Name)
+	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}

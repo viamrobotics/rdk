@@ -11,21 +11,16 @@ import (
 	"github.com/mitchellh/mapstructure"
 	pb "go.viam.com/api/component/arm/v1"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 	"go.viam.com/utils/protoutils"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/arm/fake"
 	ur "go.viam.com/rdk/components/arm/universalrobots"
-	"go.viam.com/rdk/components/sensor"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
-	rutils "go.viam.com/rdk/utils"
 )
 
 const (
@@ -36,89 +31,7 @@ const (
 	missingArmName = "arm5"
 )
 
-func setupDependencies(t *testing.T) registry.Dependencies {
-	t.Helper()
-
-	deps := make(registry.Dependencies)
-	deps[arm.Named(testArmName)] = &mock{Name: testArmName}
-	deps[arm.Named(fakeArmName)] = "not a arm"
-	return deps
-}
-
-func setupInjectRobot() *inject.Robot {
-	arm1 := &mockLocal{Name: testArmName}
-	r := &inject.Robot{}
-	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
-		switch name {
-		case arm.Named(testArmName):
-			return arm1, nil
-		case arm.Named(fakeArmName):
-			return "not an arm", nil
-		default:
-			return nil, rutils.NewResourceNotFoundError(name)
-		}
-	}
-	r.ResourceNamesFunc = func() []resource.Name {
-		return []resource.Name{arm.Named(testArmName), sensor.Named("sensor1")}
-	}
-	return r
-}
-
-func TestGenericDo(t *testing.T) {
-	r := setupInjectRobot()
-
-	a, err := arm.FromRobot(r, testArmName)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, a, test.ShouldNotBeNil)
-
-	command := map[string]interface{}{"cmd": "test", "data1": 500}
-	ret, err := a.DoCommand(context.Background(), command)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, ret, test.ShouldEqual, command)
-}
-
-func TestFromRobot(t *testing.T) {
-	r := setupInjectRobot()
-
-	a, err := arm.FromRobot(r, testArmName)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, a, test.ShouldNotBeNil)
-
-	pose1, err := a.EndPosition(context.Background(), nil)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, pose1, test.ShouldResemble, pose)
-
-	a, err = arm.FromRobot(r, fakeArmName)
-	test.That(t, err, test.ShouldBeError, arm.NewUnimplementedInterfaceError("string"))
-	test.That(t, a, test.ShouldBeNil)
-
-	a, err = arm.FromRobot(r, missingArmName)
-	test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(arm.Named(missingArmName)))
-	test.That(t, a, test.ShouldBeNil)
-}
-
-func TestNamesFromRobot(t *testing.T) {
-	r := setupInjectRobot()
-
-	names := arm.NamesFromRobot(r)
-	test.That(t, names, test.ShouldResemble, []string{testArmName})
-}
-
-func TestFromDependencies(t *testing.T) {
-	deps := setupDependencies(t)
-
-	res, err := arm.FromDependencies(deps, testArmName)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, res, test.ShouldNotBeNil)
-
-	res, err = arm.FromDependencies(deps, fakeArmName)
-	test.That(t, err, test.ShouldBeError, rutils.DependencyTypeError[arm.Arm](fakeArmName, "string"))
-	test.That(t, res, test.ShouldBeNil)
-
-	res, err = arm.FromDependencies(deps, missingArmName)
-	test.That(t, err, test.ShouldBeError, rutils.DependencyNotFoundError(missingArmName))
-	test.That(t, res, test.ShouldBeNil)
-}
+var pose = spatialmath.NewPoseFromPoint(r3.Vector{X: 1, Y: 2, Z: 3})
 
 func TestStatusValid(t *testing.T) {
 	status := &pb.Status{
@@ -148,9 +61,6 @@ func TestStatusValid(t *testing.T) {
 }
 
 func TestCreateStatus(t *testing.T) {
-	_, err := arm.CreateStatus(context.Background(), "not an arm")
-	test.That(t, err, test.ShouldBeError, arm.NewUnimplementedLocalInterfaceError("string"))
-
 	testPose := spatialmath.NewPose(
 		r3.Vector{-802.801508917897990613710135, -248.284077946287368376943050, 9.115758604150467903082244},
 		&spatialmath.R4AA{1.5810814917942602, 0.992515011486776, -0.0953988491934626, 0.07624310818669232},
@@ -172,7 +82,7 @@ func TestCreateStatus(t *testing.T) {
 		return true, nil
 	}
 	injectArm.ModelFrameFunc = func() referenceframe.Model {
-		model, _ := ur.Model("ur5e")
+		model, _ := ur.MakeModelFrame("ur5e")
 		return model
 	}
 
@@ -185,8 +95,10 @@ func TestCreateStatus(t *testing.T) {
 		pose2 := spatialmath.NewPoseFromProtobuf(status.EndPosition)
 		test.That(t, spatialmath.PoseAlmostEqualEps(pose1, pose2, 0.01), test.ShouldBeTrue)
 
-		resourceSubtype := registry.ResourceSubtypeLookup(arm.Subtype)
-		status2, err := resourceSubtype.Status(context.Background(), injectArm)
+		resourceAPI, ok, err := resource.LookupAPIRegistration[arm.Arm](arm.API)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, ok, test.ShouldBeTrue)
+		status2, err := resourceAPI.Status(context.Background(), injectArm)
 		test.That(t, err, test.ShouldBeNil)
 
 		statusMap, err := protoutils.InterfaceToMap(status2)
@@ -238,161 +150,26 @@ func TestCreateStatus(t *testing.T) {
 		injectArm.JointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
 			return nil, errFail
 		}
-		_, err = arm.CreateStatus(context.Background(), injectArm)
+		_, err := arm.CreateStatus(context.Background(), injectArm)
 		test.That(t, err, test.ShouldBeError, errFail)
 	})
 }
 
-func TestArmName(t *testing.T) {
-	for _, tc := range []struct {
-		TestName string
-		Name     string
-		Expected resource.Name
-	}{
-		{
-			"missing name",
-			"",
-			resource.Name{
-				Subtype: resource.Subtype{
-					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
-					ResourceSubtype: arm.SubtypeName,
-				},
-				Name: "",
-			},
-		},
-		{
-			"all fields included",
-			testArmName,
-			resource.Name{
-				Subtype: resource.Subtype{
-					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
-					ResourceSubtype: arm.SubtypeName,
-				},
-				Name: testArmName,
-			},
-		},
-	} {
-		t.Run(tc.TestName, func(t *testing.T) {
-			observed := arm.Named(tc.Name)
-			test.That(t, observed, test.ShouldResemble, tc.Expected)
-		})
-	}
-}
-
-func TestWrapWithReconfigurable(t *testing.T) {
-	var actualArm1 arm.Arm = &mock{Name: testArmName}
-	reconfArm1, err := arm.WrapWithReconfigurable(actualArm1, resource.Name{})
-	test.That(t, err, test.ShouldBeNil)
-
-	_, err = arm.WrapWithReconfigurable(nil, resource.Name{})
-	test.That(t, err, test.ShouldBeError, arm.NewUnimplementedInterfaceError(nil))
-
-	reconfArm2, err := arm.WrapWithReconfigurable(reconfArm1, resource.Name{})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, reconfArm2, test.ShouldEqual, reconfArm1)
-
-	var actualArm2 arm.LocalArm = &mockLocal{Name: testArmName}
-	reconfArm3, err := arm.WrapWithReconfigurable(actualArm2, resource.Name{})
-	test.That(t, err, test.ShouldBeNil)
-
-	reconfArm4, err := arm.WrapWithReconfigurable(reconfArm3, resource.Name{})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, reconfArm4, test.ShouldResemble, reconfArm3)
-
-	_, ok := reconfArm4.(arm.LocalArm)
-	test.That(t, ok, test.ShouldBeTrue)
-}
-
-func TestReconfigurableArm(t *testing.T) {
-	actualArm1 := &mockLocal{Name: testArmName}
-	reconfArm1, err := arm.WrapWithReconfigurable(actualArm1, resource.Name{})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, reconfArm1, test.ShouldNotBeNil)
-
-	actualArm2 := &mockLocal{Name: testArmName2}
-	reconfArm2, err := arm.WrapWithReconfigurable(actualArm2, resource.Name{})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, reconfArm2, test.ShouldNotBeNil)
-	test.That(t, actualArm1.reconfCount, test.ShouldEqual, 0)
-
-	err = reconfArm1.Reconfigure(context.Background(), reconfArm2)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, reconfArm1, test.ShouldResemble, reconfArm2)
-	test.That(t, actualArm1.reconfCount, test.ShouldEqual, 2)
-
-	test.That(t, actualArm1.endPosCount, test.ShouldEqual, 0)
-	test.That(t, actualArm2.endPosCount, test.ShouldEqual, 0)
-	pose1, err := reconfArm1.(arm.Arm).EndPosition(context.Background(), nil)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, pose1, test.ShouldResemble, pose)
-	test.That(t, actualArm1.endPosCount, test.ShouldEqual, 0)
-	test.That(t, actualArm2.endPosCount, test.ShouldEqual, 1)
-
-	err = reconfArm1.Reconfigure(context.Background(), nil)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(reconfArm1, nil))
-
-	actualArm3 := &mock{Name: failArmName}
-	reconfArm3, err := arm.WrapWithReconfigurable(actualArm3, resource.Name{})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, reconfArm3, test.ShouldNotBeNil)
-
-	actualArm4 := &mock{Name: testArmName2}
-	reconfArm4, err := arm.WrapWithReconfigurable(actualArm4, resource.Name{})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, reconfArm4, test.ShouldNotBeNil)
-
-	err = reconfArm3.Reconfigure(context.Background(), reconfArm4)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, reconfArm3, test.ShouldResemble, reconfArm4)
-}
-
-func TestStop(t *testing.T) {
-	actualArm1 := &mockLocal{Name: testArmName}
-	reconfArm1, err := arm.WrapWithReconfigurable(actualArm1, resource.Name{})
-	test.That(t, err, test.ShouldBeNil)
-
-	test.That(t, actualArm1.stopCount, test.ShouldEqual, 0)
-	test.That(t, reconfArm1.(arm.Arm).Stop(context.Background(), nil), test.ShouldBeNil)
-	test.That(t, actualArm1.stopCount, test.ShouldEqual, 1)
-}
-
-func TestClose(t *testing.T) {
-	actualArm1 := &mockLocal{Name: testArmName}
-	reconfArm1, err := arm.WrapWithReconfigurable(actualArm1, resource.Name{})
-	test.That(t, err, test.ShouldBeNil)
-
-	test.That(t, actualArm1.reconfCount, test.ShouldEqual, 0)
-	test.That(t, utils.TryClose(context.Background(), reconfArm1), test.ShouldBeNil)
-	test.That(t, actualArm1.reconfCount, test.ShouldEqual, 1)
-}
-
-func TestExtraOptions(t *testing.T) {
-	actualArm1 := &mockLocal{Name: testArmName}
-	reconfArm1, err := arm.WrapWithReconfigurable(actualArm1, resource.Name{})
-	test.That(t, err, test.ShouldBeNil)
-
-	test.That(t, actualArm1.extra, test.ShouldEqual, nil)
-
-	reconfArm1.(arm.Arm).EndPosition(context.Background(), map[string]interface{}{"foo": "bar"})
-	test.That(t, actualArm1.extra, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
-}
-
 func TestOOBArm(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	cfg := config.Component{
-		Name:  arm.Subtype.String(),
-		Model: resource.NewDefaultModel("ur5e"),
-		ConvertedAttributes: &fake.AttrConfig{
+	cfg := resource.Config{
+		Name:  arm.API.String(),
+		Model: resource.DefaultModelFamily.WithModel("ur5e"),
+		ConvertedAttributes: &fake.Config{
 			ArmModel: "ur5e",
 		},
 	}
 
-	notReal, err := fake.NewArm(cfg, logger)
+	notReal, err := fake.NewArm(context.Background(), nil, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	injectedArm := &inject.Arm{
-		LocalArm: notReal,
+		Arm: notReal,
 	}
 
 	jPositions := pb.JointPositions{Values: []float64{0, 0, 0, 0, 0, 720}}
@@ -404,13 +181,6 @@ func TestOOBArm(t *testing.T) {
 	positions, err := injectedArm.JointPositions(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, positions, test.ShouldResemble, &jPositions)
-
-	t.Run("CreateStatus errors when OOB", func(t *testing.T) {
-		status, err := arm.CreateStatus(context.Background(), injectedArm)
-		test.That(t, status, test.ShouldBeNil)
-		stringCheck := "joint 0 input out of bounds, input 12.56637 needs to be within range [6.28319 -6.28319]"
-		test.That(t, err.Error(), test.ShouldEqual, stringCheck)
-	})
 
 	t.Run("EndPosition works when OOB", func(t *testing.T) {
 		jPositions := pb.JointPositions{Values: []float64{0, 0, 0, 0, 0, 720}}
@@ -436,7 +206,7 @@ func TestOOBArm(t *testing.T) {
 
 	t.Run("GoToInputs fails if more OOB", func(t *testing.T) {
 		goal := []referenceframe.Input{{Value: 11}, {Value: 10}, {Value: 10}, {Value: 11}, {Value: 10}, {Value: 10}}
-		model := injectedArm.LocalArm.ModelFrame()
+		model := injectedArm.Arm.ModelFrame()
 		positionDegs := model.ProtobufFromInput(goal)
 		err := arm.CheckDesiredJointPositions(context.Background(), injectedArm, positionDegs.Values)
 		test.That(t, err.Error(), test.ShouldEqual, "joint 0 needs to be within range [-360, 360] and cannot be moved to 630.2535746439056")
@@ -477,58 +247,18 @@ func TestOOBArm(t *testing.T) {
 	})
 }
 
-var pose = spatialmath.NewPoseFromPoint(r3.Vector{X: 1, Y: 2, Z: 3})
-
-type mock struct {
-	arm.Arm
-	Name        string
-	reconfCount int
-}
-
-func (m *mock) Close(ctx context.Context, extra map[string]interface{}) error {
-	m.reconfCount++
-	return nil
-}
-
-type mockLocal struct {
-	arm.LocalArm
-	Name        string
-	endPosCount int
-	reconfCount int
-	stopCount   int
-	extra       map[string]interface{}
-}
-
-func (m *mockLocal) EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
-	m.endPosCount++
-	m.extra = extra
-	return pose, nil
-}
-
-func (m *mockLocal) Stop(ctx context.Context, extra map[string]interface{}) error {
-	m.stopCount++
-	m.extra = extra
-	return nil
-}
-
-func (m *mockLocal) Close(ctx context.Context) error { m.reconfCount++; return nil }
-
-func (m *mockLocal) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return cmd, nil
-}
-
 func TestXArm6Locations(t *testing.T) {
 	// check the exact values/locations of arm geometries at a couple different poses
 	logger := golog.NewTestLogger(t)
-	cfg := config.Component{
-		Name:  arm.Subtype.String(),
-		Model: resource.NewDefaultModel("fake"),
-		ConvertedAttributes: &fake.AttrConfig{
+	cfg := resource.Config{
+		Name:  arm.API.String(),
+		Model: resource.DefaultModelFamily.WithModel("fake"),
+		ConvertedAttributes: &fake.Config{
 			ArmModel: "xArm6",
 		},
 	}
 
-	notReal, err := fake.NewArm(cfg, logger)
+	notReal, err := fake.NewArm(context.Background(), nil, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("home location check", func(t *testing.T) {
@@ -643,15 +373,15 @@ func TestXArm6Locations(t *testing.T) {
 func TestUR5ELocations(t *testing.T) {
 	// check the exact values/locations of arm geometries at a couple different poses
 	logger := golog.NewTestLogger(t)
-	cfg := config.Component{
-		Name:  arm.Subtype.String(),
-		Model: resource.NewDefaultModel("fake"),
-		ConvertedAttributes: &fake.AttrConfig{
+	cfg := resource.Config{
+		Name:  arm.API.String(),
+		Model: resource.DefaultModelFamily.WithModel("fake"),
+		ConvertedAttributes: &fake.Config{
 			ArmModel: "ur5e",
 		},
 	}
 
-	notReal, err := fake.NewArm(cfg, logger)
+	notReal, err := fake.NewArm(context.Background(), nil, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("home location check", func(t *testing.T) {

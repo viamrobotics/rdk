@@ -21,7 +21,6 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
-	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/pointcloud"
 )
@@ -176,7 +175,7 @@ func NewMultipleImageTestDebugger(t *testing.T, prefixOne, glob, prefixTwo strin
 	d.name = prefixOne + "-" + t.Name()
 	d.name = strings.Replace(d.name, "/", "-", 100)
 	d.name = strings.Replace(d.name, " ", "-", 100)
-	d.out = testutils.TempDirT(t, "", strings.ReplaceAll(prefixOne, "/", "_"))
+	d.out = t.TempDir()
 	return &d
 }
 

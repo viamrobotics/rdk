@@ -12,9 +12,9 @@ type FakeConvertedAttributes struct {
 
 // Validate validates that the single fake attribute Thing exists properly
 // in the struct, meant to implement the validator interface in component.go.
-func (convAttr *FakeConvertedAttributes) Validate(path string) error {
+func (convAttr *FakeConvertedAttributes) Validate(path string) ([]string, error) {
 	if convAttr.Thing == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "Thing")
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "Thing")
 	}
-	return nil
+	return nil, nil
 }

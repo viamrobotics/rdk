@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/edaniels/golog"
@@ -15,15 +16,11 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
-	"go.viam.com/rdk/components/generic"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
-var modelName = resource.NewDefaultModel("pca9685")
+var model = resource.DefaultModelFamily.WithModel("pca9685")
 
 var (
 	_ = board.Board(&PCA9685{})
@@ -39,72 +36,53 @@ type Config struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (config *Config) Validate(path string) ([]string, error) {
+func (conf *Config) Validate(path string) ([]string, error) {
 	var deps []string
-	if config.BoardName == "" {
+	if conf.BoardName == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "board_name")
 	}
-	if config.I2CName == "" {
+	if conf.I2CName == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "i2c_name")
 	}
-	if config.I2CAddress == nil {
-		config.I2CAddress = &defaultAddr
+	if conf.I2CAddress == nil {
+		conf.I2CAddress = &defaultAddr
 	}
-	if *config.I2CAddress < 0 || *config.I2CAddress > 255 {
+	if *conf.I2CAddress < 0 || *conf.I2CAddress > 255 {
 		return nil, utils.NewConfigValidationError(path, errors.New("i2c_address must be an unsigned byte"))
 	}
-	deps = append(deps, config.BoardName)
+	deps = append(deps, conf.BoardName)
 	return deps, nil
 }
 
 func init() {
-	registry.RegisterComponent(
-		board.Subtype,
-		modelName,
-		registry.Component{Constructor: func(
-			ctx context.Context,
-			deps registry.Dependencies,
-			config config.Component,
-			logger golog.Logger,
-		) (interface{}, error) {
-			conf, ok := config.ConvertedAttributes.(*Config)
-			if !ok {
-				return nil, rdkutils.NewUnexpectedTypeError(conf, config.ConvertedAttributes)
-			}
-
-			b, err := board.FromDependencies(deps, conf.BoardName)
-			if err != nil {
-				return nil, err
-			}
-			localBoard, ok := b.(board.LocalBoard)
-			if !ok {
-				return nil, fmt.Errorf("board %s is not local", conf.BoardName)
-			}
-			bus, ok := localBoard.I2CByName(conf.I2CName)
-			if !ok {
-				return nil, errors.Errorf("can't find I2C bus (%s) requested by Motor", conf.I2CName)
-			}
-
-			return New(ctx, bus, byte(*conf.I2CAddress))
-		}})
-
-	config.RegisterComponentAttributeMapConverter(
-		board.Subtype,
-		modelName,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf Config
-			return config.TransformAttributeMapToStruct(&conf, attributes)
-		},
-		&Config{})
+	resource.RegisterComponent(
+		board.API,
+		model,
+		resource.Registration[board.Board, *Config]{
+			Constructor: func(
+				ctx context.Context,
+				deps resource.Dependencies,
+				conf resource.Config,
+				logger golog.Logger,
+			) (board.Board, error) {
+				return New(ctx, deps, conf)
+			},
+		})
 }
 
 // PCA9685 is a general purpose 16-channel 12-bit PWM controller.
 type PCA9685 struct {
-	generic.Unimplemented
+	resource.Named
+	resource.AlwaysRebuild
+	resource.TriviallyCloseable
+
+	mu                  sync.RWMutex
 	address             byte
 	referenceClockSpeed int
 	bus                 board.I2C
 	gpioPins            [16]gpioPin
+	boardName           string
+	i2cName             string
 }
 
 const (
@@ -114,16 +92,15 @@ const (
 	prescaleReg = 0xFE
 )
 
-var defaultAddr = 0x60
+// This should be considered const, except you cannot take the address of a const value.
+var defaultAddr = 0x40
 
 // New returns a new PCA9685 residing on the given bus and address.
-func New(ctx context.Context, bus board.I2C, address byte) (*PCA9685, error) {
+func New(ctx context.Context, deps resource.Dependencies, conf resource.Config) (*PCA9685, error) {
 	pca := PCA9685{
-		address:             address,
+		Named:               conf.ResourceName().AsNamed(),
 		referenceClockSpeed: defaultReferenceClockSpeed,
-		bus:                 bus,
 	}
-
 	// each PWM combination spans 4 bytes
 	startAddr := byte(0x06)
 
@@ -132,11 +109,53 @@ func New(ctx context.Context, bus board.I2C, address byte) (*PCA9685, error) {
 		pca.gpioPins[chanIdx].startAddr = startAddr
 		startAddr += 4
 	}
-	if err := pca.reset(ctx); err != nil {
+
+	if err := pca.Reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
 
 	return &pca, nil
+}
+
+// Reconfigure reconfigures the board atomically and in place.
+func (pca *PCA9685) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+	newConf, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return err
+	}
+
+	b, err := board.FromDependencies(deps, newConf.BoardName)
+	if err != nil {
+		return err
+	}
+	localBoard, ok := b.(board.LocalBoard)
+	if !ok {
+		return fmt.Errorf("board %s is not local", newConf.BoardName)
+	}
+
+	bus, ok := localBoard.I2CByName(newConf.I2CName)
+	if !ok {
+		return errors.Errorf("can't find I2C bus (%s) requested by Motor", newConf.I2CName)
+	}
+	address := byte(*newConf.I2CAddress)
+
+	pca.mu.Lock()
+	defer pca.mu.Unlock()
+
+	needsReset := pca.boardName != newConf.BoardName || pca.i2cName != newConf.I2CName
+	if !needsReset {
+		return nil
+	}
+
+	pca.bus = bus
+	pca.address = address
+	pca.boardName = newConf.BoardName
+	pca.i2cName = newConf.I2CName
+	if err := pca.reset(ctx); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (pca *PCA9685) parsePin(pin string) (int, error) {
@@ -223,6 +242,9 @@ func (pca *PCA9685) frequency(ctx context.Context) (float64, error) {
 
 // SetFrequency sets the global PWM frequency for the pca.
 func (pca *PCA9685) SetFrequency(ctx context.Context, frequency float64) error {
+	pca.mu.RLock()
+	defer pca.mu.RUnlock()
+
 	prescale := byte((float64(pca.referenceClockSpeed) / 4096.0 / frequency) + 0.5)
 	if prescale < 3 {
 		return errors.New("invalid frequency")
@@ -257,22 +279,22 @@ func (pca *PCA9685) SetFrequency(ctx context.Context, frequency float64) error {
 	return nil
 }
 
-// SPINames returns the name of all known SPIs.
+// SPINames returns the names of all known SPIs.
 func (pca *PCA9685) SPINames() []string {
 	return nil
 }
 
-// I2CNames returns the name of all known I2Cs.
+// I2CNames returns the names of all known I2Cs.
 func (pca *PCA9685) I2CNames() []string {
 	return nil
 }
 
-// AnalogReaderNames returns the name of all known analog readers.
+// AnalogReaderNames returns the names of all known analog readers.
 func (pca *PCA9685) AnalogReaderNames() []string {
 	return nil
 }
 
-// DigitalInterruptNames returns the name of all known digital interrupts.
+// DigitalInterruptNames returns the names of all known digital interrupts.
 func (pca *PCA9685) DigitalInterruptNames() []string {
 	return nil
 }
@@ -322,6 +344,9 @@ func (gp *gpioPin) Set(ctx context.Context, high bool, extra map[string]interfac
 }
 
 func (gp *gpioPin) PWM(ctx context.Context, extra map[string]interface{}) (float64, error) {
+	gp.pca.mu.RLock()
+	defer gp.pca.mu.RUnlock()
+
 	handle, err := gp.pca.openHandle()
 	if err != nil {
 		return 0, err
@@ -362,6 +387,9 @@ func (gp *gpioPin) PWM(ctx context.Context, extra map[string]interface{}) (float
 }
 
 func (gp *gpioPin) SetPWM(ctx context.Context, dutyCyclePct float64, extra map[string]interface{}) error {
+	gp.pca.mu.RLock()
+	defer gp.pca.mu.RUnlock()
+
 	dutyCycle := uint16(dutyCyclePct * float64(0xffff))
 
 	handle, err := gp.pca.openHandle()
@@ -417,6 +445,9 @@ func (gp *gpioPin) SetPWM(ctx context.Context, dutyCyclePct float64, extra map[s
 }
 
 func (gp *gpioPin) PWMFreq(ctx context.Context, extra map[string]interface{}) (uint, error) {
+	gp.pca.mu.RLock()
+	defer gp.pca.mu.RUnlock()
+
 	freqHz, err := gp.pca.frequency(ctx)
 	if err != nil {
 		return 0, err
@@ -425,5 +456,8 @@ func (gp *gpioPin) PWMFreq(ctx context.Context, extra map[string]interface{}) (u
 }
 
 func (gp *gpioPin) SetPWMFreq(ctx context.Context, freqHz uint, extra map[string]interface{}) error {
+	gp.pca.mu.RLock()
+	defer gp.pca.mu.RUnlock()
+
 	return gp.pca.SetFrequency(ctx, float64(freqHz))
 }

@@ -10,9 +10,8 @@ import (
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/movementsensor"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
 )
 
@@ -21,19 +20,37 @@ const (
 	testBusName   = "i2c1"
 )
 
-func setupDependencies(t *testing.T) registry.Dependencies {
+func setupDependencies(t *testing.T) resource.Dependencies {
 	t.Helper()
 
-	deps := make(registry.Dependencies)
+	deps := make(resource.Dependencies)
 
-	actualBoard := newBoard(testBoardName)
+	actualBoard := inject.NewBoard(testBoardName)
+	i2c1 := &inject.I2C{}
+	handle1 := &inject.I2CHandle{}
+	handle1.WriteFunc = func(ctx context.Context, b []byte) error {
+		return nil
+	}
+	handle1.ReadFunc = func(ctx context.Context, count int) ([]byte, error) {
+		return nil, nil
+	}
+	handle1.CloseFunc = func() error {
+		return nil
+	}
+	i2c1.OpenHandleFunc = func(addr byte) (board.I2CHandle, error) {
+		return handle1, nil
+	}
+	actualBoard.I2CByNameFunc = func(name string) (board.I2C, bool) {
+		return i2c1, true
+	}
+
 	deps[board.Named(testBoardName)] = actualBoard
 
 	return deps
 }
 
 func TestValidateI2C(t *testing.T) {
-	fakecfg := &I2CAttrConfig{I2CBus: "some-bus"}
+	fakecfg := &I2CConfig{I2CBus: "some-bus"}
 
 	path := "path"
 	err := fakecfg.ValidateI2C(path)
@@ -48,36 +65,36 @@ func TestValidateI2C(t *testing.T) {
 func TestNewI2CMovementSensor(t *testing.T) {
 	deps := setupDependencies(t)
 
-	cfig := config.Component{
+	conf := resource.Config{
 		Name:  "movementsensor1",
-		Model: resource.NewDefaultModel("gps-nmea"),
-		Type:  movementsensor.SubtypeName,
+		Model: resource.DefaultModelFamily.WithModel("gps-nmea"),
+		API:   movementsensor.API,
 	}
 
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
 
-	g, err := newNMEAGPS(ctx, deps, cfig, logger)
+	g, err := newNMEAGPS(ctx, deps, conf, logger)
 	test.That(t, g, test.ShouldBeNil)
 	test.That(t, err, test.ShouldBeError,
-		utils.NewUnexpectedTypeError(&AttrConfig{},
-			cfig.ConvertedAttributes))
+		utils.NewUnexpectedTypeError[*Config](conf.ConvertedAttributes))
 
-	cfig = config.Component{
+	conf = resource.Config{
 		Name:  "movementsensor2",
-		Model: resource.NewDefaultModel("gps-nmea"),
-		Type:  movementsensor.SubtypeName,
-		ConvertedAttributes: &AttrConfig{
+		Model: resource.DefaultModelFamily.WithModel("gps-nmea"),
+		API:   movementsensor.API,
+		ConvertedAttributes: &Config{
 			ConnectionType: "I2C",
 			Board:          testBoardName,
 			DisableNMEA:    false,
-			I2CAttrConfig:  &I2CAttrConfig{I2CBus: testBusName},
+			I2CConfig:      &I2CConfig{I2CBus: testBusName},
 		},
 	}
-	g, err = newNMEAGPS(ctx, deps, cfig, logger)
+	g, err = newNMEAGPS(ctx, deps, conf, logger)
 	passErr := "board " + testBoardName + " is not local"
 	if err == nil || err.Error() != passErr {
 		test.That(t, err, test.ShouldBeNil)
+		test.That(t, g.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, g, test.ShouldNotBeNil)
 	}
 }
@@ -134,36 +151,6 @@ func TestCloseI2C(t *testing.T) {
 		logger:     logger,
 	}
 
-	err := g.Close()
+	err := g.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-}
-
-func newBoard(name string) *mock {
-	return &mock{
-		Name: name,
-		i2cs: []string{"i2c1"},
-		i2c:  &mockI2C{1},
-	}
-}
-
-// Mock I2C.
-type mock struct {
-	board.LocalBoard
-	Name string
-
-	i2cs []string
-	i2c  *mockI2C
-}
-
-type mockI2C struct{ handleCount int }
-
-func (m *mock) I2CNames() []string {
-	return m.i2cs
-}
-
-func (m *mock) I2CByName(name string) (*mockI2C, bool) {
-	if len(m.i2cs) == 0 {
-		return nil, false
-	}
-	return m.i2c, true
 }

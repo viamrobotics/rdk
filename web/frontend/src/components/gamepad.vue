@@ -5,13 +5,21 @@ import { grpc } from '@improbable-eng/grpc-web';
 import { onMounted, onUnmounted, watch } from 'vue';
 import { Timestamp } from 'google-protobuf/google/protobuf/timestamp_pb';
 import { ConnectionClosedError } from '@viamrobotics/rpc';
-import { Client, inputControllerApi as InputController, type ServiceError } from '@viamrobotics/sdk';
+import {
+  Client,
+  inputControllerApi as InputController,
+  ResponseStream,
+  robotApi,
+  type ServiceError,
+} from '@viamrobotics/sdk';
 import { toast } from '../lib/toast';
 import { rcLogConditionally } from '../lib/log';
+import { $ref } from 'vue/macros';
 
 const props = defineProps<{
   name: string;
   client: Client;
+  statusStream: ResponseStream<robotApi.StreamStatusResponse> | null
 }>();
 
 let gamepadIdx = $ref<number | null>(null);
@@ -252,6 +260,7 @@ onMounted(() => {
     return;
   }
   prevStates = { ...prevStates, ...curStates };
+  props.statusStream?.on('end', () => clearTimeout(handle));
   tick();
 });
 
@@ -289,7 +298,7 @@ watch(() => enabled, () => {
       >Disabled</span>
     </div>
 
-    <div class="h-full w-full border border-t-0 border-black p-4">
+    <div class="border-border-1 h-full w-full border border-t-0 p-4">
       <div class="flex flex-row">
         <label class="subtitle mr-2">Enabled</label>
         <v-switch

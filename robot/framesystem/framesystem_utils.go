@@ -14,28 +14,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
-	"go.viam.com/rdk/utils"
 )
-
-// RobotFrameSystem returns the frame system of the robot.
-func RobotFrameSystem(
-	ctx context.Context,
-	r robot.Robot,
-	additionalTransforms []*referenceframe.LinkInFrame,
-) (referenceframe.FrameSystem, error) {
-	ctx, span := trace.StartSpan(ctx, "services::framesystem::RobotFrameSystem")
-	defer span.End()
-	// create the frame system
-	allParts, err := r.FrameSystemConfig(ctx, additionalTransforms)
-	if err != nil {
-		return nil, err
-	}
-	fs, err := NewFrameSystemFromParts(LocalFrameSystemName, "", allParts, r.Logger())
-	if err != nil {
-		return nil, err
-	}
-	return fs, nil
-}
 
 // NewFrameSystemFromParts assembles a frame system from a collection of parts,
 // usually acquired by calling Config on a frame system service.
@@ -131,7 +110,7 @@ func extractModelFrameJSON(r robot.Robot, name resource.Name) (referenceframe.Mo
 	if err != nil {
 		return nil, errors.Wrapf(err, "no resource found with name %q when extracting model frame json", name)
 	}
-	if framer, ok := utils.UnwrapProxy(part).(referenceframe.ModelFramer); ok {
+	if framer, ok := part.(referenceframe.ModelFramer); ok {
 		return framer.ModelFrame(), nil
 	}
 	return nil, referenceframe.ErrNoModelInformation

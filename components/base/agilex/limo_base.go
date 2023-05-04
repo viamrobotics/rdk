@@ -17,10 +17,7 @@ import (
 	utils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/base"
-	"go.viam.com/rdk/components/generic"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 )
 
@@ -53,28 +50,18 @@ func (m steeringMode) String() string {
 	return "Unknown"
 }
 
-var modelName = resource.NewDefaultModel("agilex-limo")
+var model = resource.DefaultModelFamily.WithModel("agilex-limo")
 
 func init() {
 	controllers = make(map[string]*controller)
 
-	limoBaseComp := registry.Component{
+	resource.RegisterComponent(base.API, model, resource.Registration[base.Base, *Config]{
 		Constructor: func(
-			ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger,
-		) (interface{}, error) {
-			return CreateLimoBase(ctx, config.ConvertedAttributes.(*Config), logger)
+			ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger,
+		) (base.Base, error) {
+			return CreateLimoBase(ctx, conf, logger)
 		},
-	}
-
-	registry.RegisterComponent(base.Subtype, modelName, limoBaseComp)
-	config.RegisterComponentAttributeMapConverter(
-		base.Subtype,
-		modelName,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf Config
-			return config.TransformAttributeMapToStruct(&conf, attributes)
-		},
-		&Config{})
+	})
 }
 
 // controller is common across all limo instances sharing a controller.
@@ -96,11 +83,10 @@ type limoState struct {
 	velocityLinearGoal, velocityAngularGoal r3.Vector
 }
 type limoBase struct {
-	generic.Unimplemented
+	resource.Named
+	resource.AlwaysRebuild
 	driveMode          string
 	controller         *controller
-	state              limoState
-	stateMutex         sync.Mutex
 	opMgr              operation.SingleOperationManager
 	cancel             context.CancelFunc
 	waitGroup          sync.WaitGroup
@@ -110,10 +96,14 @@ type limoBase struct {
 	rightAngleScale    float64
 	maxLinearVelocity  int
 	maxAngularVelocity int
+
+	stateMutex sync.Mutex
+	state      limoState
 }
 
 // Config is how you configure a limo base.
 type Config struct {
+	resource.TriviallyValidateConfig
 	DriveMode    string `json:"drive_mode"`
 	SerialDevice string `json:"serial_path"` // path to /dev/ttyXXXX file
 
@@ -122,22 +112,26 @@ type Config struct {
 }
 
 // CreateLimoBase returns a AgileX limo base.
-func CreateLimoBase(ctx context.Context, config *Config, logger golog.Logger) (base.LocalBase, error) {
-	logger.Debugf("creating limo base with config %+v", config)
+func CreateLimoBase(ctx context.Context, conf resource.Config, logger golog.Logger) (base.LocalBase, error) {
+	newConf, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return nil, err
+	}
+	logger.Debugf("creating limo base with config %+v", newConf)
 
-	if config.DriveMode == "" {
+	if newConf.DriveMode == "" {
 		return nil, errors.New("drive mode must be defined and one of differential, ackermann, or omni")
 	}
 
 	globalMu.Lock()
-	sDevice := config.SerialDevice
+	sDevice := newConf.SerialDevice
 	if sDevice == "" {
 		sDevice = defaultSerial
 	}
 	ctrl, controllerExists := controllers[sDevice]
 	if !controllerExists {
 		logger.Debug("creating controller")
-		newCtrl, err := newController(sDevice, config.TestChan, logger)
+		newCtrl, err := newController(sDevice, newConf.TestChan, logger)
 		if err != nil {
 			globalMu.Unlock()
 			return nil, err
@@ -169,7 +163,8 @@ func CreateLimoBase(ctx context.Context, config *Config, logger golog.Logger) (b
 	globalMu.Unlock()
 
 	base := &limoBase{
-		driveMode:          config.DriveMode,
+		Named:              conf.ResourceName().AsNamed(),
+		driveMode:          newConf.DriveMode,
 		controller:         ctrl,
 		width:              172,
 		wheelbase:          200,
@@ -232,7 +227,7 @@ func (base *limoBase) startControlThread() {
 
 		for {
 			utils.SelectContextOrWait(ctx, time.Duration(float64(time.Millisecond)*10))
-			err := base.controlThreadLoop(ctx)
+			err := base.controlThreadLoopPass(ctx)
 			if err != nil {
 				if errors.Is(err, context.Canceled) {
 					return
@@ -243,18 +238,23 @@ func (base *limoBase) startControlThread() {
 	}()
 }
 
-func (base *limoBase) controlThreadLoop(ctx context.Context) error {
+func (base *limoBase) controlThreadLoopPass(ctx context.Context) error {
+	base.stateMutex.Lock()
+	linearGoal := base.state.velocityLinearGoal
+	angularGoal := base.state.velocityAngularGoal
+	base.stateMutex.Unlock()
+
 	var err error
 	switch base.driveMode {
 	case DIFFERENTIAL.String():
-		err = base.setMotionCommand(base.state.velocityLinearGoal.Y, -base.state.velocityAngularGoal.Z, 0, 0)
+		err = base.setMotionCommand(linearGoal.Y, -angularGoal.Z, 0, 0)
 	case ACKERMANN.String():
-		r := base.state.velocityLinearGoal.Y / base.state.velocityAngularGoal.Z
+		r := linearGoal.Y / angularGoal.Z
 		if math.Abs(r) < float64(base.width)/2.0 {
 			// Note: Do we need a tolerance comparison here? Don't think so, as velocityLinearGoal.Y should always be exactly zero
 			// when we expect it to be.
 			if r == 0 {
-				r = base.state.velocityAngularGoal.Z / math.Abs(base.state.velocityAngularGoal.Z) * (float64(base.width)/2.0 + 10)
+				r = angularGoal.Z / math.Abs(angularGoal.Z) * (float64(base.width)/2.0 + 10)
 			} else {
 				r = r / math.Abs(r) * (float64(base.width)/2.0 + 10)
 			}
@@ -272,9 +272,9 @@ func (base *limoBase) controlThreadLoop(ctx context.Context) error {
 
 		steeringAngle := innerAngle / base.rightAngleScale
 		// steering angle is in unit of .001 radians
-		err = base.setMotionCommand(base.state.velocityLinearGoal.Y, 0, 0, -steeringAngle*1000)
+		err = base.setMotionCommand(linearGoal.Y, 0, 0, -steeringAngle*1000)
 	case OMNI.String():
-		err = base.setMotionCommand(base.state.velocityLinearGoal.Y, -base.state.velocityAngularGoal.Z, base.state.velocityLinearGoal.X, 0)
+		err = base.setMotionCommand(linearGoal.Y, -angularGoal.Z, linearGoal.X, 0)
 	}
 
 	if ctx.Err() != nil {

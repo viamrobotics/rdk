@@ -23,7 +23,6 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/protoutils"
@@ -150,15 +149,16 @@ func (s *Server) ResourceNames(ctx context.Context, _ *pb.ResourceNamesRequest) 
 	return &pb.ResourceNamesResponse{Resources: rNames}, nil
 }
 
-// ResourceRPCSubtypes returns the list of resource RPC subtypes.
+// ResourceRPCSubtypes returns the list of resource RPC APIs.
+// Subtypes is an older name but preserved in proto.
 func (s *Server) ResourceRPCSubtypes(ctx context.Context, _ *pb.ResourceRPCSubtypesRequest) (*pb.ResourceRPCSubtypesResponse, error) {
-	resSubtypes := s.r.ResourceRPCSubtypes()
-	protoTypes := make([]*pb.ResourceRPCSubtype, 0, len(resSubtypes))
-	for _, rt := range resSubtypes {
+	resAPIs := s.r.ResourceRPCAPIs()
+	protoTypes := make([]*pb.ResourceRPCSubtype, 0, len(resAPIs))
+	for _, rt := range resAPIs {
 		protoTypes = append(protoTypes, &pb.ResourceRPCSubtype{
 			Subtype: protoutils.ResourceNameToProto(resource.Name{
-				Subtype: rt.Subtype,
-				Name:    "",
+				API:  rt.API,
+				Name: "",
 			}),
 			ProtoService: rt.Desc.GetFullyQualifiedName(),
 		})
@@ -172,7 +172,7 @@ func (s *Server) DiscoverComponents(ctx context.Context, req *pb.DiscoverCompone
 	// nonTriplet indicates older syntax for type and model E.g. "camera" instead of "rdk:component:camera"
 	// TODO(PRODUCT-344): remove triplet checking here after complete
 	var nonTriplet bool
-	queries := make([]discovery.Query, 0, len(req.Queries))
+	queries := make([]resource.DiscoveryQuery, 0, len(req.Queries))
 	for _, q := range req.Queries {
 		m, err := resource.NewModelFromString(q.Model)
 		if err != nil {
@@ -182,11 +182,11 @@ func (s *Server) DiscoverComponents(ctx context.Context, req *pb.DiscoverCompone
 			nonTriplet = true
 			q.Subtype = "rdk:component:" + q.Subtype
 		}
-		s, err := resource.NewSubtypeFromString(q.Subtype)
+		s, err := resource.NewAPIFromString(q.Subtype)
 		if err != nil {
 			return nil, err
 		}
-		queries = append(queries, discovery.Query{API: s, Model: m})
+		queries = append(queries, resource.DiscoveryQuery{API: s, Model: m})
 	}
 
 	discoveries, err := s.r.DiscoverComponents(ctx, queries)
@@ -202,8 +202,8 @@ func (s *Server) DiscoverComponents(ctx context.Context, req *pb.DiscoverCompone
 		}
 		pbQuery := &pb.DiscoveryQuery{Subtype: discovery.Query.API.String(), Model: discovery.Query.Model.String()}
 		if nonTriplet {
-			pbQuery.Subtype = string(discovery.Query.API.ResourceSubtype)
-			pbQuery.Model = string(discovery.Query.Model.Name)
+			pbQuery.Subtype = discovery.Query.API.SubtypeName
+			pbQuery.Model = discovery.Query.Model.Name
 		}
 		pbDiscoveries = append(
 			pbDiscoveries,
@@ -371,7 +371,7 @@ func (s *Server) StartSession(ctx context.Context, req *pb.StartSessionRequest) 
 		if err != nil {
 			return nil, err
 		}
-		if sess, err := s.r.SessionManager().FindByID(resumeWith, authUID); err != nil {
+		if sess, err := s.r.SessionManager().FindByID(ctx, resumeWith, authUID); err != nil {
 			if !errors.Is(err, session.ErrNoSession) {
 				return nil, err
 			}
@@ -383,8 +383,8 @@ func (s *Server) StartSession(ctx context.Context, req *pb.StartSessionRequest) 
 		}
 	}
 	sess, err := s.r.SessionManager().Start(
+		ctx,
 		authUID,
-		peerConnectionInfoToProto(rpc.PeerConnectionInfoFromContext(ctx)),
 	)
 	if err != nil {
 		return nil, err
@@ -393,26 +393,6 @@ func (s *Server) StartSession(ctx context.Context, req *pb.StartSessionRequest) 
 		Id:              sess.ID().String(),
 		HeartbeatWindow: durationpb.New(sess.HeartbeatWindow()),
 	}, nil
-}
-
-func peerConnectionInfoToProto(info rpc.PeerConnectionInfo) *pb.PeerConnectionInfo {
-	var connType pb.PeerConnectionType
-	switch info.ConnectionType {
-	case rpc.PeerConnectionTypeGRPC:
-		connType = pb.PeerConnectionType_PEER_CONNECTION_TYPE_GRPC
-	case rpc.PeerConnectionTypeWebRTC:
-		connType = pb.PeerConnectionType_PEER_CONNECTION_TYPE_WEBRTC
-	case rpc.PeerConnectionTypeUnknown:
-		fallthrough
-	default:
-		connType = pb.PeerConnectionType_PEER_CONNECTION_TYPE_UNSPECIFIED
-	}
-
-	return &pb.PeerConnectionInfo{
-		Type:          connType,
-		LocalAddress:  &info.LocalAddress,
-		RemoteAddress: &info.RemoteAddress,
-	}
 }
 
 // SendSessionHeartbeat sends a heartbeat to the given session.
@@ -425,7 +405,7 @@ func (s *Server) SendSessionHeartbeat(ctx context.Context, req *pb.SendSessionHe
 	if err != nil {
 		return nil, err
 	}
-	if _, err := s.r.SessionManager().FindByID(sessID, authUID); err != nil {
+	if _, err := s.r.SessionManager().FindByID(ctx, sessID, authUID); err != nil {
 		return nil, err
 	}
 	return &pb.SendSessionHeartbeatResponse{}, nil

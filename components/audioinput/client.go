@@ -16,10 +16,14 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/resource"
 )
 
 // client is an audio input client.
 type client struct {
+	resource.Named
+	resource.TriviallyReconfigurable
+	resource.TriviallyCloseable
 	conn                    rpc.ClientConn
 	client                  pb.AudioInputServiceClient
 	logger                  golog.Logger
@@ -31,17 +35,24 @@ type client struct {
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
-func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) AudioInput {
+func NewClientFromConn(
+	ctx context.Context,
+	conn rpc.ClientConn,
+	remoteName string,
+	name resource.Name,
+	logger golog.Logger,
+) (AudioInput, error) {
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	c := pb.NewAudioInputServiceClient(conn)
 	return &client{
-		name:      name,
+		Named:     name.PrependRemote(remoteName).AsNamed(),
+		name:      name.ShortName(),
 		conn:      conn,
 		client:    c,
 		logger:    logger,
 		cancelCtx: cancelCtx,
 		cancel:    cancel,
-	}
+	}, nil
 }
 
 func (c *client) Read(ctx context.Context) (wave.Audio, func(), error) {

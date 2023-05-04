@@ -1,44 +1,30 @@
-// Package generic contains a gRPC based generic service subtypeServer.
+// Package generic contains a gRPC based generic service serviceServer.
 package generic
 
 import (
 	"context"
 
-	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	genericpb "go.viam.com/api/component/generic/v1"
 	"go.viam.com/utils/protoutils"
 
-	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/resource"
 )
 
-// subtypeServer implements the generic.Generic service.
-type subtypeServer struct {
+// serviceServer implements the resource.Generic service.
+type serviceServer struct {
 	genericpb.UnimplementedGenericServiceServer
-	s subtype.Service
+	coll resource.APIResourceCollection[resource.Resource]
 }
 
-// NewServer constructs an generic gRPC service subtypeServer.
-func NewServer(s subtype.Service) genericpb.GenericServiceServer {
-	return &subtypeServer{s: s}
-}
-
-// getGeneric returns the component specified, nil if not.
-func (s *subtypeServer) getGeneric(name string) (Generic, error) {
-	resource := s.s.Resource(name)
-	if resource == nil {
-		return nil, errors.Errorf("no resource with name (%s)", name)
-	}
-	generic, ok := resource.(Generic)
-	if !ok {
-		return nil, errors.Errorf("resource with name (%s) is not a generic component", name)
-	}
-	return generic, nil
+// NewRPCServiceServer constructs an generic gRPC service serviceServer.
+func NewRPCServiceServer(coll resource.APIResourceCollection[resource.Resource]) interface{} {
+	return &serviceServer{coll: coll}
 }
 
 // DoCommand returns an arbitrary command and returns arbitrary results.
-func (s *subtypeServer) DoCommand(ctx context.Context, req *commonpb.DoCommandRequest) (*commonpb.DoCommandResponse, error) {
-	genericDevice, err := s.getGeneric(req.Name)
+func (s *serviceServer) DoCommand(ctx context.Context, req *commonpb.DoCommandRequest) (*commonpb.DoCommandResponse, error) {
+	genericDevice, err := s.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}

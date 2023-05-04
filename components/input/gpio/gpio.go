@@ -13,14 +13,11 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/input"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 )
 
-var modelName = resource.NewDefaultModel("gpio")
+var model = resource.DefaultModelFamily.WithModel("gpio")
 
 // Config is the overall config.
 type Config struct {
@@ -49,26 +46,26 @@ type ButtonConfig struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (config *Config) Validate(path string) ([]string, error) {
+func (conf *Config) Validate(path string) ([]string, error) {
 	var deps []string
-	if config.Board == "" {
+	if conf.Board == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
 	}
-	if len(config.Axes) == 0 && len(config.Buttons) == 0 {
+	if len(conf.Axes) == 0 && len(conf.Buttons) == 0 {
 		return nil, utils.NewConfigValidationError(path, errors.New("buttons and axes cannot be both empty"))
 	}
-	deps = append(deps, config.Board)
+	deps = append(deps, conf.Board)
 	return deps, nil
 }
 
-func (config *Config) validateValues() error {
-	for _, control := range config.Buttons {
+func (conf *Config) validateValues() error {
+	for _, control := range conf.Buttons {
 		if control.DebounceMs == 0 {
 			control.DebounceMs = 5
 		}
 	}
 
-	for _, axis := range config.Axes {
+	for _, axis := range conf.Axes {
 		if axis.MinChange < 1 {
 			axis.MinChange = 1
 		}
@@ -84,55 +81,49 @@ func (config *Config) validateValues() error {
 }
 
 func init() {
-	registry.RegisterComponent(input.Subtype, modelName, registry.Component{Constructor: NewGPIOController})
-
-	config.RegisterComponentAttributeMapConverter(
-		input.Subtype,
-		modelName,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf Config
-			return config.TransformAttributeMapToStruct(&conf, attributes)
-		},
-		&Config{})
+	resource.RegisterComponent(input.API, model, resource.Registration[input.Controller, *Config]{
+		Constructor: NewGPIOController,
+	})
 }
 
 // NewGPIOController returns a new input.Controller.
 func NewGPIOController(
 	ctx context.Context,
-	deps registry.Dependencies,
-	config config.Component,
+	deps resource.Dependencies,
+	conf resource.Config,
 	logger golog.Logger,
-) (interface{}, error) {
-	var c Controller
-	c.logger = logger
+) (input.Controller, error) {
+	newConf, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return nil, err
+	}
+
 	ctx, cancel := context.WithCancel(ctx)
-	c.cancelFunc = cancel
-	c.callbacks = make(map[input.Control]map[input.EventType]input.ControlFunction)
-	c.lastEvents = make(map[input.Control]input.Event)
-
-	cfg, ok := config.ConvertedAttributes.(*Config)
-	if !ok {
-		return nil, errors.New("type assertion failed on input/gpio config")
+	c := Controller{
+		Named:      conf.ResourceName().AsNamed(),
+		logger:     logger,
+		cancelFunc: cancel,
+		callbacks:  map[input.Control]map[input.EventType]input.ControlFunction{},
+		lastEvents: map[input.Control]input.Event{},
 	}
 
-	err := cfg.validateValues()
+	if err := newConf.validateValues(); err != nil {
+		return nil, err
+	}
+
+	brd, err := board.FromDependencies(deps, newConf.Board)
 	if err != nil {
 		return nil, err
 	}
 
-	brd, err := board.FromDependencies(deps, cfg.Board)
-	if err != nil {
-		return nil, err
-	}
-
-	for interrupt, control := range cfg.Buttons {
+	for interrupt, control := range newConf.Buttons {
 		err := c.newButton(ctx, brd, interrupt, *control)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	for reader, axis := range cfg.Axes {
+	for reader, axis := range newConf.Axes {
 		err := c.newAxis(ctx, brd, reader, *axis)
 		if err != nil {
 			return nil, err
@@ -144,10 +135,10 @@ func NewGPIOController(
 	return &c, nil
 }
 
-var _ = input.Controller(&Controller{})
-
 // A Controller creates an input.Controller from DigitalInterrupts and AnalogReaders.
 type Controller struct {
+	resource.Named
+	resource.AlwaysRebuild
 	mu                      sync.RWMutex
 	controls                []input.Control
 	lastEvents              map[input.Control]input.Event
@@ -155,7 +146,6 @@ type Controller struct {
 	activeBackgroundWorkers sync.WaitGroup
 	cancelFunc              func()
 	callbacks               map[input.Control]map[input.EventType]input.ControlFunction
-	generic.Unimplemented
 }
 
 // Controls lists the inputs.
@@ -203,9 +193,10 @@ func (c *Controller) RegisterControlCallback(
 }
 
 // Close terminates background worker threads.
-func (c *Controller) Close() {
+func (c *Controller) Close(ctx context.Context) error {
 	c.cancelFunc()
 	c.activeBackgroundWorkers.Wait()
+	return nil
 }
 
 func (c *Controller) makeCallbacks(ctx context.Context, eventOut input.Event) {

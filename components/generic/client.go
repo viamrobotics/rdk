@@ -9,41 +9,45 @@ import (
 	genericpb "go.viam.com/api/component/generic/v1"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
+
+	"go.viam.com/rdk/resource"
 )
 
 // client implements GenericServiceClient.
 type client struct {
+	resource.Named
+	resource.TriviallyReconfigurable
+	resource.TriviallyCloseable
 	name   string
-	conn   rpc.ClientConn
 	client genericpb.GenericServiceClient
 	logger golog.Logger
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
-func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Generic {
+func NewClientFromConn(
+	ctx context.Context,
+	conn rpc.ClientConn,
+	remoteName string,
+	name resource.Name,
+	logger golog.Logger,
+) (resource.Resource, error) {
 	c := genericpb.NewGenericServiceClient(conn)
 	return &client{
-		name:   name,
-		conn:   conn,
+		Named:  name.PrependRemote(remoteName).AsNamed(),
+		name:   name.ShortName(),
 		client: c,
 		logger: logger,
-	}
+	}, nil
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return DoFromConnection(ctx, c.conn, c.name, cmd)
-}
-
-// DoFromConnection is a helper to allow Do() calls from other component clients.
-func DoFromConnection(ctx context.Context, conn rpc.ClientConn, name string, cmd map[string]interface{}) (map[string]interface{}, error) {
-	gclient := genericpb.NewGenericServiceClient(conn)
 	command, err := protoutils.StructToStructPb(cmd)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := gclient.DoCommand(ctx, &commonpb.DoCommandRequest{
-		Name:    name,
+	resp, err := c.client.DoCommand(ctx, &commonpb.DoCommandRequest{
+		Name:    c.name,
 		Command: command,
 	})
 	if err != nil {

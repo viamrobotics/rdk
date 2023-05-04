@@ -28,28 +28,25 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/movementsensor"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	rutils "go.viam.com/rdk/utils"
 )
 
-var modelName = resource.NewDefaultModel("accel-adxl345")
+var model = resource.DefaultModelFamily.WithModel("accel-adxl345")
 
-// AttrConfig is a description of how to find an ADXL345 accelerometer on the robot.
-type AttrConfig struct {
-	BoardName              string              `json:"board"`
-	I2cBus                 string              `json:"i2c_bus"`
-	UseAlternateI2CAddress bool                `json:"use_alternate_i2c_address,omitempty"`
-	SingleTap              *TapAttrConfig      `json:"tap,omitempty"`
-	FreeFall               *FreeFallAttrConfig `json:"free_fall,omitempty"`
+// Config is a description of how to find an ADXL345 accelerometer on the robot.
+type Config struct {
+	BoardName              string          `json:"board"`
+	I2cBus                 string          `json:"i2c_bus"`
+	UseAlternateI2CAddress bool            `json:"use_alternate_i2c_address,omitempty"`
+	SingleTap              *TapConfig      `json:"tap,omitempty"`
+	FreeFall               *FreeFallConfig `json:"free_fall,omitempty"`
 }
 
-// TapAttrConfig is a description of the configs for tap registers.
-type TapAttrConfig struct {
+// TapConfig is a description of the configs for tap registers.
+type TapConfig struct {
 	AccelerometerPin int     `json:"accelerometer_pin"`
 	InterruptPin     string  `json:"interrupt_pin"`
 	ExcludeX         bool    `json:"exclude_x,omitempty"`
@@ -59,8 +56,8 @@ type TapAttrConfig struct {
 	Dur              float32 `json:"dur_us,omitempty"`
 }
 
-// FreeFallAttrConfig is a description of the configs for free fall registers.
-type FreeFallAttrConfig struct {
+// FreeFallConfig is a description of the configs for free fall registers.
+type FreeFallConfig struct {
 	AccelerometerPin int     `json:"accelerometer_pin"`
 	InterruptPin     string  `json:"interrupt_pin"`
 	Threshold        float32 `json:"threshold,omitempty"`
@@ -68,7 +65,7 @@ type FreeFallAttrConfig struct {
 }
 
 // ValidateTapConfigs validates the tap piece of the configs.
-func (tapCfg *TapAttrConfig) ValidateTapConfigs(path string) error {
+func (tapCfg *TapConfig) ValidateTapConfigs(path string) error {
 	if tapCfg.AccelerometerPin != 1 && tapCfg.AccelerometerPin != 2 {
 		return errors.New("Accelerometer pin on the ADXL345 must be 1 or 2")
 	}
@@ -86,7 +83,7 @@ func (tapCfg *TapAttrConfig) ValidateTapConfigs(path string) error {
 }
 
 // ValidateFreeFallConfigs validates the freefall piece of the configs.
-func (freefallCfg *FreeFallAttrConfig) ValidateFreeFallConfigs(path string) error {
+func (freefallCfg *FreeFallConfig) ValidateFreeFallConfigs(path string) error {
 	if freefallCfg.AccelerometerPin != 1 && freefallCfg.AccelerometerPin != 2 {
 		return errors.New("Accelerometer pin on the ADXL345 must be 1 or 2")
 	}
@@ -105,7 +102,7 @@ func (freefallCfg *FreeFallAttrConfig) ValidateFreeFallConfigs(path string) erro
 
 // Validate ensures all parts of the config are valid, and then returns the list of things we
 // depend on.
-func (cfg *AttrConfig) Validate(path string) ([]string, error) {
+func (cfg *Config) Validate(path string) ([]string, error) {
 	if cfg.BoardName == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
 	}
@@ -128,26 +125,18 @@ func (cfg *AttrConfig) Validate(path string) ([]string, error) {
 }
 
 func init() {
-	registry.RegisterComponent(movementsensor.Subtype, modelName, registry.Component{
-		Constructor: func(
-			ctx context.Context,
-			deps registry.Dependencies,
-			cfg config.Component,
-			logger golog.Logger,
-		) (interface{}, error) {
-			return NewAdxl345(ctx, deps, cfg, logger)
-		},
-	})
-
-	config.RegisterComponentAttributeMapConverter(movementsensor.Subtype, modelName,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var attr AttrConfig
-			return config.TransformAttributeMapToStruct(&attr, attributes)
-		},
-		&AttrConfig{})
+	resource.RegisterComponent(
+		movementsensor.API,
+		model,
+		resource.Registration[movementsensor.MovementSensor, *Config]{
+			Constructor: NewAdxl345,
+		})
 }
 
 type adxl345 struct {
+	resource.Named
+	resource.AlwaysRebuild
+
 	bus                      board.I2C
 	i2cAddress               byte
 	logger                   golog.Logger
@@ -166,49 +155,48 @@ type adxl345 struct {
 	cancelContext           context.Context
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
-
-	generic.Unimplemented // Implements DoCommand with an ErrUnimplemented response
 }
 
 // NewAdxl345 is a constructor to create a new object representing an ADXL345 accelerometer.
 func NewAdxl345(
 	ctx context.Context,
-	deps registry.Dependencies,
-	rawConfig config.Component,
+	deps resource.Dependencies,
+	conf resource.Config,
 	logger golog.Logger,
 ) (movementsensor.MovementSensor, error) {
-	cfg, ok := rawConfig.ConvertedAttributes.(*AttrConfig)
-	if !ok {
-		return nil, errors.New("Cannot convert attributes to correct config type")
+	newConf, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return nil, err
 	}
-	b, err := board.FromDependencies(deps, cfg.BoardName)
+	b, err := board.FromDependencies(deps, newConf.BoardName)
 	if err != nil {
 		return nil, err
 	}
 	localB, ok := b.(board.LocalBoard)
 	if !ok {
-		return nil, errors.Errorf("board %q is not local", cfg.BoardName)
+		return nil, errors.Errorf("board %q is not local", newConf.BoardName)
 	}
-	bus, ok := localB.I2CByName(cfg.I2cBus)
+	bus, ok := localB.I2CByName(newConf.I2cBus)
 	if !ok {
-		return nil, errors.Errorf("can't find I2C bus '%q' for ADXL345 sensor", cfg.I2cBus)
+		return nil, errors.Errorf("can't find I2C bus '%q' for ADXL345 sensor", newConf.I2cBus)
 	}
 
 	var address byte
-	if cfg.UseAlternateI2CAddress {
+	if newConf.UseAlternateI2CAddress {
 		address = 0x1D
 	} else {
 		address = 0x53
 	}
 
-	interruptConfigurations := getInterruptConfigurations(cfg)
-	configuredRegisterValues := getFreeFallRegisterValues(cfg.FreeFall)
-	for k, v := range getSingleTapRegisterValues(cfg.SingleTap) {
+	interruptConfigurations := getInterruptConfigurations(newConf)
+	configuredRegisterValues := getFreeFallRegisterValues(newConf.FreeFall)
+	for k, v := range getSingleTapRegisterValues(newConf.SingleTap) {
 		configuredRegisterValues[k] = v
 	}
 	cancelContext, cancelFunc := context.WithCancel(ctx)
 
 	sensor := &adxl345{
+		Named:                    conf.ResourceName().AsNamed(),
 		bus:                      bus,
 		i2cAddress:               address,
 		interruptsEnabled:        interruptConfigurations[IntEnableAddr],
@@ -229,7 +217,7 @@ func NewAdxl345(
 	deviceID, err := sensor.readByte(ctx, 0)
 	if err != nil {
 		return nil, errors.Wrapf(err, "can't read from I2C address %d on bus %q of board %q",
-			address, cfg.I2cBus, cfg.BoardName)
+			address, newConf.I2cBus, newConf.BoardName)
 	}
 	if deviceID != 0xE5 {
 		return nil, errors.Errorf("unexpected I2C device instead of ADXL345 at address %d: deviceID '%d'",
@@ -289,8 +277,8 @@ func NewAdxl345(
 	}
 
 	interruptMap := map[string]board.DigitalInterrupt{}
-	if (cfg.SingleTap != nil) && (cfg.SingleTap.InterruptPin != "") {
-		interruptMap, err = addInterruptPin(b, cfg.SingleTap.InterruptPin, interruptMap)
+	if (newConf.SingleTap != nil) && (newConf.SingleTap.InterruptPin != "") {
+		interruptMap, err = addInterruptPin(b, newConf.SingleTap.InterruptPin, interruptMap)
 		if err != nil {
 			// shut down goroutine reading sensor in the background
 			sensor.cancelFunc()
@@ -298,8 +286,8 @@ func NewAdxl345(
 		}
 	}
 
-	if (cfg.FreeFall != nil) && (cfg.FreeFall.InterruptPin != "") {
-		interruptMap, err = addInterruptPin(b, cfg.FreeFall.InterruptPin, interruptMap)
+	if (newConf.FreeFall != nil) && (newConf.FreeFall.InterruptPin != "") {
+		interruptMap, err = addInterruptPin(b, newConf.FreeFall.InterruptPin, interruptMap)
 		if err != nil {
 			// shut down goroutine reading sensor in the background
 			sensor.cancelFunc()
@@ -345,7 +333,7 @@ func addInterruptPin(b board.Board, name string, interrupts map[string]board.Dig
 }
 
 // This returns a map from register addresses to data which should be written to that register to configure the interrupt pin.
-func getInterruptConfigurations(cfg *AttrConfig) map[byte]byte {
+func getInterruptConfigurations(cfg *Config) map[byte]byte {
 	var intEnabled byte
 	var intMap byte
 
@@ -372,7 +360,7 @@ func getInterruptConfigurations(cfg *AttrConfig) map[byte]byte {
 }
 
 // This returns a map from register addresses to data which should be written to that register to configure single tap.
-func getSingleTapRegisterValues(singleTapConfigs *TapAttrConfig) map[byte]byte {
+func getSingleTapRegisterValues(singleTapConfigs *TapConfig) map[byte]byte {
 	registerValues := map[byte]byte{}
 	if singleTapConfigs == nil {
 		return registerValues
@@ -390,7 +378,7 @@ func getSingleTapRegisterValues(singleTapConfigs *TapAttrConfig) map[byte]byte {
 }
 
 // This returns a map from register addresses to data which should be written to that register to configure freefall.
-func getFreeFallRegisterValues(freeFallConfigs *FreeFallAttrConfig) map[byte]byte {
+func getFreeFallRegisterValues(freeFallConfigs *FreeFallConfig) map[byte]byte {
 	registerValues := map[byte]byte{}
 	if freeFallConfigs == nil {
 		return registerValues
@@ -490,8 +478,8 @@ func toLinearAcceleration(data []byte) r3.Vector {
 	y := int(rutils.Int16FromBytesLE(data[2:4]))
 	z := int(rutils.Int16FromBytesLE(data[4:6]))
 
-	// The default scale is +/- 2G's, but our units should be mm/sec/sec.
-	maxAcceleration := 2.0 * 9.81 /* m/sec/sec */ * 1000.0 /* mm/m */
+	// The default scale is +/- 2G's, but our units should be m/sec/sec.
+	maxAcceleration := 2.0 * 9.81 /* m/sec/sec */
 	return r3.Vector{
 		X: setScale(x, maxAcceleration),
 		Y: setScale(y, maxAcceleration),
@@ -559,7 +547,7 @@ func (adxl *adxl345) Properties(ctx context.Context, extra map[string]interface{
 }
 
 // Puts the chip into standby mode.
-func (adxl *adxl345) Close(ctx context.Context) {
+func (adxl *adxl345) Close(ctx context.Context) error {
 	adxl.mu.Lock()
 	defer adxl.mu.Unlock()
 
@@ -570,6 +558,7 @@ func (adxl *adxl345) Close(ctx context.Context) {
 	// Put the chip into standby mode by setting the Power Control register (0x2D) to 0.
 	err := adxl.writeByte(ctx, 0x2D, 0x00)
 	if err != nil {
-		adxl.logger.Errorf("Unable to turn off ADXL345 accelerometer: '%s'", err)
+		adxl.logger.Errorf("unable to turn off ADXL345 accelerometer: '%s'", err)
 	}
+	return nil
 }

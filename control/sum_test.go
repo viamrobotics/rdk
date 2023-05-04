@@ -2,14 +2,13 @@ package control
 
 import (
 	"context"
-	"sync"
 	"testing"
 	"time"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/utils"
 )
 
 func TestSumConfig(t *testing.T) {
@@ -22,7 +21,7 @@ func TestSumConfig(t *testing.T) {
 			BlockConfig{
 				Name: "Sum1",
 				Type: "Sum",
-				Attribute: config.AttributeMap{
+				Attribute: utils.AttributeMap{
 					"sum_string": "--++",
 				},
 				DependsOn: []string{"A", "B", "C", "D"},
@@ -33,7 +32,7 @@ func TestSumConfig(t *testing.T) {
 			BlockConfig{
 				Name: "Sum1",
 				Type: "Sum",
-				Attribute: config.AttributeMap{
+				Attribute: utils.AttributeMap{
 					"sum_stringS": "--++",
 				},
 				DependsOn: []string{"A", "B", "C", "D"},
@@ -44,7 +43,7 @@ func TestSumConfig(t *testing.T) {
 			BlockConfig{
 				Name: "Sum1",
 				Type: "Sum",
-				Attribute: config.AttributeMap{
+				Attribute: utils.AttributeMap{
 					"sum_string": "--++",
 				},
 				DependsOn: []string{"B", "C", "D"},
@@ -55,7 +54,7 @@ func TestSumConfig(t *testing.T) {
 			BlockConfig{
 				Name: "Sum1",
 				Type: "Sum",
-				Attribute: config.AttributeMap{
+				Attribute: utils.AttributeMap{
 					"sum_string": "--+\\",
 				},
 				DependsOn: []string{"A", "B", "C", "D"},
@@ -81,7 +80,7 @@ func TestSumNext(t *testing.T) {
 	c := BlockConfig{
 		Name: "Sum1",
 		Type: "Sum",
-		Attribute: config.AttributeMap{
+		Attribute: utils.AttributeMap{
 			"sum_string": "--++",
 		},
 		DependsOn: []string{"A", "B", "C", "D"},
@@ -90,34 +89,30 @@ func TestSumNext(t *testing.T) {
 
 	test.That(t, err, test.ShouldBeNil)
 
-	signals := []Signal{
+	signals := []*Signal{
 		{
 			name:      "A",
 			signal:    []float64{1.0},
 			time:      []int{1},
 			dimension: 1,
-			mu:        &sync.Mutex{},
 		},
 		{
 			name:      "B",
 			signal:    []float64{2.0},
 			time:      []int{2},
 			dimension: 1,
-			mu:        &sync.Mutex{},
 		},
 		{
 			name:      "C",
 			signal:    []float64{1.0},
 			time:      []int{2},
 			dimension: 1,
-			mu:        &sync.Mutex{},
 		},
 		{
 			name:      "D",
 			signal:    []float64{1.0},
 			time:      []int{1},
 			dimension: 1,
-			mu:        &sync.Mutex{},
 		},
 	}
 	out, ok := s.Next(ctx, signals, time.Millisecond*1)

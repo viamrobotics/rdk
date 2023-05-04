@@ -19,6 +19,8 @@ import (
 )
 
 type gpioPin struct {
+	parentBoard *sysfsBoard
+
 	// These values should both be considered immutable.
 	devicePath string
 	offset     uint32
@@ -33,7 +35,6 @@ type gpioPin struct {
 
 	mu        sync.Mutex
 	cancelCtx context.Context
-	waitGroup *sync.WaitGroup
 	logger    golog.Logger
 }
 
@@ -183,8 +184,8 @@ func (pin *gpioPin) startSoftwarePWM() error {
 	}
 
 	pin.swPwmRunning = true
-	pin.waitGroup.Add(1)
-	utils.ManagedGo(pin.softwarePwmLoop, pin.waitGroup.Done)
+	pin.parentBoard.activeBackgroundWorkers.Add(1)
+	utils.ManagedGo(pin.softwarePwmLoop, pin.parentBoard.activeBackgroundWorkers.Done)
 	return nil
 }
 
@@ -286,13 +287,12 @@ func (pin *gpioPin) Close() error {
 	return pin.closeGpioFd()
 }
 
-func gpioInitialize(cancelCtx context.Context, gpioMappings map[int]GPIOBoardMapping,
-	interruptConfigs []board.DigitalInterruptConfig, waitGroup *sync.WaitGroup, logger golog.Logger,
+func (b *sysfsBoard) gpioInitialize(cancelCtx context.Context, gpioMappings map[int]GPIOBoardMapping,
+	interruptConfigs []board.DigitalInterruptConfig, logger golog.Logger,
 ) (map[string]*gpioPin, map[string]*digitalInterrupt, error) {
 	interrupts := make(map[string]*digitalInterrupt, len(interruptConfigs))
 	for _, config := range interruptConfigs {
-		// The createDigitalInterrupt function is in digital_interrupts.go
-		interrupt, err := createDigitalInterrupt(cancelCtx, config, gpioMappings, waitGroup)
+		interrupt, err := b.createDigitalInterrupt(cancelCtx, config, gpioMappings)
 		if err != nil {
 			// Close all pins we've started
 			for _, runningInterrupt := range interrupts {
@@ -300,7 +300,7 @@ func gpioInitialize(cancelCtx context.Context, gpioMappings map[int]GPIOBoardMap
 			}
 			return nil, nil, err
 		}
-		interrupts[config.Pin] = interrupt
+		interrupts[config.Name] = interrupt
 	}
 
 	pins := make(map[string]*gpioPin)
@@ -312,11 +312,11 @@ func gpioInitialize(cancelCtx context.Context, gpioMappings map[int]GPIOBoardMap
 			continue
 		}
 		pin := &gpioPin{
-			devicePath: mapping.GPIOChipDev,
-			offset:     uint32(mapping.GPIO),
-			cancelCtx:  cancelCtx,
-			waitGroup:  waitGroup,
-			logger:     logger,
+			parentBoard: b,
+			devicePath:  mapping.GPIOChipDev,
+			offset:      uint32(mapping.GPIO),
+			cancelCtx:   cancelCtx,
+			logger:      logger,
 		}
 		if mapping.HWPWMSupported {
 			pin.hwPwm = newPwmDevice(mapping.PWMSysFsDir, mapping.PWMID, logger)

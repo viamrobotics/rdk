@@ -6,7 +6,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
-	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/camera/v1"
@@ -14,48 +13,36 @@ import (
 
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
-	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 )
 
-// subtypeServer implements the CameraService from camera.proto.
-type subtypeServer struct {
+// serviceServer implements the CameraService from camera.proto.
+type serviceServer struct {
 	pb.UnimplementedCameraServiceServer
-	s        subtype.Service
+	coll     resource.APIResourceCollection[Camera]
 	imgTypes map[string]ImageType
 	logger   golog.Logger
 }
 
-// NewServer constructs an camera gRPC service server.
-func NewServer(s subtype.Service) pb.CameraServiceServer {
+// NewRPCServiceServer constructs an camera gRPC service server.
+// It is intentionally untyped to prevent use outside of tests.
+func NewRPCServiceServer(coll resource.APIResourceCollection[Camera]) interface{} {
 	logger := golog.NewLogger("camserver")
 	imgTypes := make(map[string]ImageType)
-	return &subtypeServer{s: s, logger: logger, imgTypes: imgTypes}
-}
-
-// getCamera returns the camera specified, nil if not.
-func (s *subtypeServer) getCamera(name string) (Camera, error) {
-	resource := s.s.Resource(name)
-	if resource == nil {
-		return nil, errors.Errorf("no camera with name (%s)", name)
-	}
-	cam, ok := resource.(Camera)
-	if !ok {
-		return nil, errors.Errorf("resource with name (%s) is not a camera", name)
-	}
-	return cam, nil
+	return &serviceServer{coll: coll, logger: logger, imgTypes: imgTypes}
 }
 
 // GetImage returns an image from a camera of the underlying robot. If a specific MIME type
 // is requested and is not available, an error is returned.
-func (s *subtypeServer) GetImage(
+func (s *serviceServer) GetImage(
 	ctx context.Context,
 	req *pb.GetImageRequest,
 ) (*pb.GetImageResponse, error) {
 	ctx, span := trace.StartSpan(ctx, "camera::server::GetImage")
 	defer span.End()
-	cam, err := s.getCamera(req.Name)
+	cam, err := s.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -105,7 +92,7 @@ func (s *subtypeServer) GetImage(
 
 // RenderFrame renders a frame from a camera of the underlying robot to an HTTP response. A specific MIME type
 // can be requested but may not necessarily be the same one returned.
-func (s *subtypeServer) RenderFrame(
+func (s *serviceServer) RenderFrame(
 	ctx context.Context,
 	req *pb.RenderFrameRequest,
 ) (*httpbody.HttpBody, error) {
@@ -127,13 +114,13 @@ func (s *subtypeServer) RenderFrame(
 
 // GetPointCloud returns a frame from a camera of the underlying robot. A specific MIME type
 // can be requested but may not necessarily be the same one returned.
-func (s *subtypeServer) GetPointCloud(
+func (s *serviceServer) GetPointCloud(
 	ctx context.Context,
 	req *pb.GetPointCloudRequest,
 ) (*pb.GetPointCloudResponse, error) {
 	ctx, span := trace.StartSpan(ctx, "camera::server::GetPointCloud")
 	defer span.End()
-	camera, err := s.getCamera(req.Name)
+	camera, err := s.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -158,12 +145,12 @@ func (s *subtypeServer) GetPointCloud(
 	}, nil
 }
 
-func (s *subtypeServer) GetProperties(
+func (s *serviceServer) GetProperties(
 	ctx context.Context,
 	req *pb.GetPropertiesRequest,
 ) (*pb.GetPropertiesResponse, error) {
 	result := &pb.GetPropertiesResponse{}
-	camera, err := s.getCamera(req.Name)
+	camera, err := s.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -193,10 +180,10 @@ func (s *subtypeServer) GetProperties(
 }
 
 // DoCommand receives arbitrary commands.
-func (s *subtypeServer) DoCommand(ctx context.Context,
+func (s *serviceServer) DoCommand(ctx context.Context,
 	req *commonpb.DoCommandRequest,
 ) (*commonpb.DoCommandResponse, error) {
-	camera, err := s.getCamera(req.GetName())
+	camera, err := s.coll.Resource(req.GetName())
 	if err != nil {
 		return nil, err
 	}

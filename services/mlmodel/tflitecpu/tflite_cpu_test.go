@@ -2,7 +2,6 @@ package tflitecpu
 
 import (
 	"context"
-	"math/rand"
 	"net"
 	"reflect"
 	"testing"
@@ -14,11 +13,10 @@ import (
 	"go.viam.com/utils/rpc"
 
 	viamgrpc "go.viam.com/rdk/grpc"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/robot/packages"
 	"go.viam.com/rdk/services/mlmodel"
-	"go.viam.com/rdk/subtype"
 )
 
 func TestEmptyTFLiteConfig(t *testing.T) {
@@ -26,7 +24,7 @@ func TestEmptyTFLiteConfig(t *testing.T) {
 	emptyCfg := TFLiteConfig{} // empty config
 
 	// Test that empty config gives error about loading model
-	emptyGot, err := NewTFLiteCPUModel(ctx, &emptyCfg, "fakeModel")
+	emptyGot, err := NewTFLiteCPUModel(ctx, &emptyCfg, mlmodel.Named("fakeModel"))
 	test.That(t, emptyGot, test.ShouldBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "could not add model")
 }
@@ -40,11 +38,11 @@ func TestTFLiteCPUDetector(t *testing.T) {
 	}
 	// Test that a detector would give the expected output on the dog image
 	// Creating the model should populate model and attrs, but not metadata
-	out, err := NewTFLiteCPUModel(ctx, &cfg, "myDet")
+	out, err := NewTFLiteCPUModel(ctx, &cfg, mlmodel.Named("myDet"))
 	got := out.(*Model)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, got.model, test.ShouldNotBeNil)
-	test.That(t, got.attrs, test.ShouldNotBeNil)
+	test.That(t, got.conf, test.ShouldNotBeNil)
 	test.That(t, got.metadata, test.ShouldBeNil)
 
 	// Test that the Metadata() works on detector
@@ -90,11 +88,11 @@ func TestTFLiteCPUClassifier(t *testing.T) {
 	}
 
 	// Test that the tflite classifier gives the expected output on the lion image
-	out, err := NewTFLiteCPUModel(ctx, &cfg, "myClass")
+	out, err := NewTFLiteCPUModel(ctx, &cfg, mlmodel.Named("myClass"))
 	got := out.(*Model)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, got.model, test.ShouldNotBeNil)
-	test.That(t, got.attrs, test.ShouldNotBeNil)
+	test.That(t, got.conf, test.ShouldNotBeNil)
 	test.That(t, got.metadata, test.ShouldBeNil)
 
 	// Test that the Metadata() works on classifier
@@ -139,31 +137,30 @@ func TestTFLiteCPUTextModel(t *testing.T) {
 	}
 
 	// Test that even a text classifier gives an output with good input
-	out, err := NewTFLiteCPUModel(ctx, &cfg, "myTextModel")
+	out, err := NewTFLiteCPUModel(ctx, &cfg, mlmodel.Named("myTextModel"))
 	got := out.(*Model)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, got.model, test.ShouldNotBeNil)
-	test.That(t, got.attrs, test.ShouldNotBeNil)
+	test.That(t, got.conf, test.ShouldNotBeNil)
 	test.That(t, got.metadata, test.ShouldBeNil)
 
-	// Test that the Metadata() errors well when metadata does not exist
+	// Test that the Metadata() does not error even when there is none
+	// Should still populate with something
 	_, err = got.Metadata(ctx)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "metadata does not exist")
-	test.That(t, got.metadata, test.ShouldBeNil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, got.metadata, test.ShouldNotBeNil)
 
 	// Test that the Infer() works even on a text classifier
 	inputMap := make(map[string]interface{})
-	inputMap["text"] = makeRandomSlice(got.model.Info.InputHeight)
+	inputMap["text"] = makeExampleSlice(got.model.Info.InputHeight)
 	test.That(t, len(inputMap["text"].([]int32)), test.ShouldEqual, 384)
 	gotOutput, err := got.Infer(ctx, inputMap)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, gotOutput, test.ShouldNotBeNil)
-
 	test.That(t, len(gotOutput), test.ShouldEqual, 2)
 	test.That(t, gotOutput["output0"], test.ShouldNotBeNil)
 	test.That(t, gotOutput["output1"], test.ShouldNotBeNil)
 	test.That(t, gotOutput["output2"], test.ShouldBeNil)
-
 	test.That(t, len(gotOutput["output0"].([]float32)), test.ShouldEqual, 384)
 	test.That(t, len(gotOutput["output1"].([]float32)), test.ShouldEqual, 384)
 }
@@ -179,17 +176,19 @@ func TestTFLiteCPUClient(t *testing.T) {
 		ModelPath:  artifact.MustPath("vision/tflite/effdet0.tflite"),
 		NumThreads: 2,
 	}
-	myModel, err := NewTFLiteCPUModel(context.Background(), &modelParams, "myModel")
+	myModel, err := NewTFLiteCPUModel(context.Background(), &modelParams, mlmodel.Named("myModel"))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, myModel, test.ShouldNotBeNil)
 
-	omMap := map[resource.Name]interface{}{
+	resources := map[resource.Name]mlmodel.Service{
 		mlmodel.Named("testName"): myModel,
 	}
-	svc, err := subtype.New(omMap)
+	svc, err := resource.NewAPIResourceCollection(mlmodel.API, resources)
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype := registry.ResourceSubtypeLookup(mlmodel.Subtype)
-	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, svc)
+	resourceAPI, ok, err := resource.LookupAPIRegistration[mlmodel.Service](mlmodel.API)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, svc), test.ShouldBeNil)
 
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()
@@ -205,7 +204,8 @@ func TestTFLiteCPUClient(t *testing.T) {
 
 	conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
-	client := mlmodel.NewClientFromConn(context.Background(), conn, "testName", logger)
+	client, err := mlmodel.NewClientFromConn(context.Background(), conn, "", mlmodel.Named("testName"), logger)
+	test.That(t, err, test.ShouldBeNil)
 	// Test call to Metadata
 	gotMD, err := client.Metadata(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -239,11 +239,43 @@ func TestTFLiteCPUClient(t *testing.T) {
 	test.That(t, cats.Index(0).Interface().(float64), test.ShouldResemble, float64(17)) // 17 is dog
 }
 
-func makeRandomSlice(length int) []int32 {
+func makeExampleSlice(length int) []int32 {
 	out := make([]int32, 0, length)
 	for i := 0; i < length; i++ {
-		x := rand.Int31n(100)
-		out = append(out, x)
+		out = append(out, int32(i))
 	}
 	return out
+}
+
+func TestTFLiteConfigWalker(t *testing.T) {
+	makeVisionAttributes := func(modelPath string, labelPath *string) *TFLiteConfig {
+		return &TFLiteConfig{
+			ModelPath:  modelPath,
+			LabelPath:  labelPath,
+			NumThreads: 1,
+		}
+	}
+
+	labelPath := "/other/path/on/robot/textFile.txt"
+	visionAttrs := makeVisionAttributes("/some/path/on/robot/model.tflite", &labelPath)
+
+	labelPathWithRefs := "${packages.test_model}/textFile.txt"
+	visionAttrsWithRefs := makeVisionAttributes("${packages.test_model}/model.tflite", &labelPathWithRefs)
+
+	labelPathOneRef := "${packages.test_model}/textFile.txt"
+	visionAttrsOneRef := makeVisionAttributes("/some/path/on/robot/model.tflite", &labelPathOneRef)
+
+	packageManager := packages.NewNoopManager()
+	testAttributesWalker := func(t *testing.T, attrs *TFLiteConfig, expectedModelPath, expectedLabelPath string) {
+		newAttrs, err := attrs.Walk(packages.NewPackagePathVisitor(packageManager))
+		test.That(t, err, test.ShouldBeNil)
+
+		test.That(t, newAttrs.(*TFLiteConfig).ModelPath, test.ShouldEqual, expectedModelPath)
+		test.That(t, *newAttrs.(*TFLiteConfig).LabelPath, test.ShouldEqual, expectedLabelPath)
+		test.That(t, newAttrs.(*TFLiteConfig).NumThreads, test.ShouldEqual, 1)
+	}
+
+	testAttributesWalker(t, visionAttrs, "/some/path/on/robot/model.tflite", "/other/path/on/robot/textFile.txt")
+	testAttributesWalker(t, visionAttrsWithRefs, "test_model/model.tflite", "test_model/textFile.txt")
+	testAttributesWalker(t, visionAttrsOneRef, "/some/path/on/robot/model.tflite", "test_model/textFile.txt")
 }

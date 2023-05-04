@@ -7,7 +7,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/components/camera"
@@ -16,18 +15,43 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
+	"go.viam.com/rdk/services/mlmodel"
+	_ "go.viam.com/rdk/services/mlmodel/register"
 	"go.viam.com/rdk/services/vision"
+	_ "go.viam.com/rdk/services/vision/register"
+	rutils "go.viam.com/rdk/utils"
 )
 
 func buildRobotWithClassifier(logger golog.Logger) (robot.Robot, error) {
 	cfg := &config.Config{}
 
 	// create fake source camera
-	cameraComp := config.Component{
+	tfliteSrv1 := resource.Config{
+		Name:  "object_classifier",
+		API:   mlmodel.API,
+		Model: resource.DefaultModelFamily.WithModel("tflite_cpu"),
+		Attributes: rutils.AttributeMap{
+			"model_path":  artifact.MustPath("vision/classification/object_classifier.tflite"),
+			"label_path":  artifact.MustPath("vision/classification/object_labels.txt"),
+			"num_threads": 1,
+		},
+	}
+	cfg.Services = append(cfg.Services, tfliteSrv1)
+	visionSrv1 := resource.Config{
+		Name:  "vision_classifier",
+		API:   vision.API,
+		Model: resource.DefaultModelFamily.WithModel("mlmodel"),
+		Attributes: rutils.AttributeMap{
+			"mlmodel_name": "object_classifier",
+		},
+		DependsOn: []string{"object_classifier"},
+	}
+	cfg.Services = append(cfg.Services, visionSrv1)
+	cameraComp := resource.Config{
 		Name:  "fake_cam",
-		Type:  camera.SubtypeName,
-		Model: resource.NewDefaultModel("image_file"),
-		Attributes: config.AttributeMap{
+		API:   camera.API,
+		Model: resource.DefaultModelFamily.WithModel("image_file"),
+		Attributes: rutils.AttributeMap{
 			"color_image_file_path": artifact.MustPath("vision/classification/keyboard.jpg"),
 			"depth_image_file_path": "",
 		},
@@ -35,17 +59,17 @@ func buildRobotWithClassifier(logger golog.Logger) (robot.Robot, error) {
 	cfg.Components = append(cfg.Components, cameraComp)
 
 	// create classification transform camera
-	classifierComp := config.Component{
+	classifierComp := resource.Config{
 		Name:  "classification_transform_camera",
-		Type:  camera.SubtypeName,
-		Model: resource.NewDefaultModel("transform"),
-		Attributes: config.AttributeMap{
+		API:   camera.API,
+		Model: resource.DefaultModelFamily.WithModel("transform"),
+		Attributes: rutils.AttributeMap{
 			"source": "fake_cam",
-			"pipeline": []config.AttributeMap{
+			"pipeline": []rutils.AttributeMap{
 				{
 					"type": "classifications",
-					"attributes": config.AttributeMap{
-						"classifier_name":      "object_classifier",
+					"attributes": rutils.AttributeMap{
+						"classifier_name":      "vision_classifier",
 						"confidence_threshold": 0.35,
 						"max_classifications":  5,
 					},
@@ -55,6 +79,9 @@ func buildRobotWithClassifier(logger golog.Logger) (robot.Robot, error) {
 		DependsOn: []string{"fake_cam"},
 	}
 	cfg.Components = append(cfg.Components, classifierComp)
+	if err := cfg.Ensure(false, logger); err != nil {
+		return nil, err
+	}
 
 	newConfFile, err := writeTempConfig(cfg)
 	if err != nil {
@@ -67,29 +94,10 @@ func buildRobotWithClassifier(logger golog.Logger) (robot.Robot, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	// Add the classification model to the vision service
-	srv, err := vision.FirstFromRobot(r)
-	if err != nil {
-		return nil, err
-	}
-	classConf := vision.VisModelConfig{
-		Name: "object_classifier",
-		Type: "tflite_classifier",
-		Parameters: config.AttributeMap{
-			"model_path":  artifact.MustPath("vision/classification/object_classifier.tflite"),
-			"label_path":  artifact.MustPath("vision/classification/object_labels.txt"),
-			"num_threads": 1,
-		},
-	}
-	err = srv.AddClassifier(context.Background(), classConf, map[string]interface{}{})
-	if err != nil {
-		return nil, err
-	}
-
 	return r, nil
 }
 
+//nolint:dupl
 func TestClassifierSource(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx, cancel := context.WithCancel(context.Background())
@@ -104,14 +112,15 @@ func TestClassifierSource(t *testing.T) {
 
 	classifier, err := camera.FromRobot(r, "classification_transform_camera")
 	test.That(t, err, test.ShouldBeNil)
-	defer utils.TryClose(ctx, classifier)
+	defer classifier.Close(ctx)
 
 	resImg, _, err := camera.ReadImage(ctx, classifier)
 	test.That(t, err, test.ShouldBeNil)
 	ovImg := rimage.ConvertImage(resImg)
+
 	// Max classifications was 5, but this image gets classified with just 2 labels, so we
 	// test that each label is present.
-	test.That(t, ovImg.GetXY(35, 45), test.ShouldResemble, rimage.Red)
-	test.That(t, ovImg.GetXY(35, 58), test.ShouldResemble, rimage.Red)
+	test.That(t, ovImg.GetXY(149, 48), test.ShouldResemble, rimage.Red)
+	test.That(t, ovImg.GetXY(100, 75), test.ShouldResemble, rimage.Red)
 	test.That(t, classifier.Close(context.Background()), test.ShouldBeNil)
 }

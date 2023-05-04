@@ -24,29 +24,25 @@ import (
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/arm"
-	"go.viam.com/rdk/components/generic"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/utils"
 )
 
-// ModelName is the name of the UR5e model of an arm component.
-var ModelName = resource.NewDefaultModel("ur5e")
+// Model is the name of the UR5e model of an arm component.
+var Model = resource.DefaultModelFamily.WithModel("ur5e")
 
-// AttrConfig is used for converting config attributes.
-type AttrConfig struct {
+// Config is used for converting config attributes.
+type Config struct {
 	Speed               float64 `json:"speed_degs_per_sec"`
 	Host                string  `json:"host"`
 	ArmHostedKinematics bool    `json:"arm_hosted_kinematics,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
-func (cfg *AttrConfig) Validate(path string) ([]string, error) {
+func (cfg *Config) Validate(path string) ([]string, error) {
 	if cfg.Host == "" {
 		return nil, goutils.NewConfigValidationFieldRequiredError(path, "host")
 	}
@@ -60,44 +56,38 @@ func (cfg *AttrConfig) Validate(path string) ([]string, error) {
 var ur5modeljson []byte
 
 func init() {
-	registry.RegisterComponent(arm.Subtype, ModelName, registry.Component{
-		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-			return URArmConnect(ctx, config, logger)
+	resource.RegisterComponent(arm.API, Model, resource.Registration[arm.Arm, *Config]{
+		Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (arm.Arm, error) {
+			return URArmConnect(ctx, conf, logger)
 		},
 	})
-
-	config.RegisterComponentAttributeMapConverter(arm.Subtype, ModelName,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf AttrConfig
-			return config.TransformAttributeMapToStruct(&conf, attributes)
-		},
-		&AttrConfig{})
 }
 
-// Model returns the kinematics model of the ur arm, also has all Frame information.
-func Model(name string) (referenceframe.Model, error) {
+// MakeModelFrame returns the kinematics model of the ur arm, also has all Frame information.
+func MakeModelFrame(name string) (referenceframe.Model, error) {
 	return referenceframe.UnmarshalModelJSON(ur5modeljson, name)
 }
 
 // URArm TODO.
 type URArm struct {
-	generic.Unimplemented
+	resource.Named
 	io.Closer
-	mu                       *sync.Mutex
-	muMove                   sync.Mutex
-	connControl              net.Conn
-	speed                    float64
+	muMove                  sync.Mutex
+	connControl             net.Conn
+	debug                   bool
+	haveData                bool
+	logger                  golog.Logger
+	cancel                  func()
+	activeBackgroundWorkers sync.WaitGroup
+	model                   referenceframe.Model
+	opMgr                   operation.SingleOperationManager
+
+	mu                       sync.Mutex
 	state                    RobotState
 	runtimeError             error
-	debug                    bool
-	haveData                 bool
-	logger                   golog.Logger
-	cancel                   func()
-	activeBackgroundWorkers  *sync.WaitGroup
-	model                    referenceframe.Model
-	opMgr                    operation.SingleOperationManager
-	urHostedKinematics       bool
 	inRemoteMode             bool
+	speed                    float64
+	urHostedKinematics       bool
 	dashboardConnection      net.Conn
 	readRobotStateConnection net.Conn
 	host                     string
@@ -105,18 +95,28 @@ type URArm struct {
 
 const waitBackgroundWorkersDur = 5 * time.Second
 
-// UpdateAction helps hinting the reconfiguration process on what strategy to use given a modified config.
-// See config.UpdateActionType for more information.
-func (ua *URArm) UpdateAction(c *config.Component) config.UpdateActionType {
-	if newCfg, ok := c.ConvertedAttributes.(*AttrConfig); ok {
-		if ua.host != newCfg.Host {
-			return config.Reconfigure
-		}
-		ua.speed = newCfg.Speed
-		ua.urHostedKinematics = newCfg.ArmHostedKinematics
-		return config.None
+// Reconfigure atomically reconfigures this arm in place based on the new config.
+func (ua *URArm) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+	newConf, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return err
 	}
-	return config.Reconfigure
+
+	ua.mu.Lock()
+	defer ua.mu.Unlock()
+	if ua.host != newConf.Host {
+		ua.host = newConf.Host
+		if ua.dashboardConnection != nil {
+			goutils.UncheckedError(ua.dashboardConnection.Close())
+		}
+		if ua.readRobotStateConnection != nil {
+			goutils.UncheckedError(ua.readRobotStateConnection.Close())
+		}
+		return nil
+	}
+	ua.speed = newConf.Speed
+	ua.urHostedKinematics = newConf.ArmHostedKinematics
+	return nil
 }
 
 // Close TODO.
@@ -155,58 +155,57 @@ func (ua *URArm) Close(ctx context.Context) error {
 }
 
 // URArmConnect TODO.
-func URArmConnect(ctx context.Context, cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
+func URArmConnect(ctx context.Context, conf resource.Config, logger golog.Logger) (arm.Arm, error) {
 	// this is to speed up component build failure if the UR arm is not reachable
 	ctx, cancel := context.WithDeadline(ctx, time.Now().Add(5*time.Second))
 	defer cancel()
-	attrs, ok := cfg.ConvertedAttributes.(*AttrConfig)
-	if !ok {
-		return nil, utils.NewUnexpectedTypeError(attrs, cfg.ConvertedAttributes)
+	newConf, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return nil, err
 	}
 
-	if attrs.Speed > 1 || attrs.Speed < .1 {
+	if newConf.Speed > 1 || newConf.Speed < .1 {
 		return nil, errors.New("speed for universalrobots has to be between .1 and 1")
 	}
 
-	model, err := Model(cfg.Name)
+	model, err := MakeModelFrame(conf.Name)
 	if err != nil {
 		return nil, err
 	}
 
 	var d net.Dialer
 
-	connReadRobotState, err := d.DialContext(ctx, "tcp", attrs.Host+":30011")
+	connReadRobotState, err := d.DialContext(ctx, "tcp", newConf.Host+":30011")
 	if err != nil {
-		return nil, fmt.Errorf("can't connect to ur arm (%s): %w", attrs.Host, err)
+		return nil, fmt.Errorf("can't connect to ur arm (%s): %w", newConf.Host, err)
 	}
-	connDashboard, err := d.DialContext(ctx, "tcp", attrs.Host+":29999")
+	connDashboard, err := d.DialContext(ctx, "tcp", newConf.Host+":29999")
 	if err != nil {
-		return nil, fmt.Errorf("can't connect to ur arm's dashboard (%s): %w", attrs.Host, err)
+		return nil, fmt.Errorf("can't connect to ur arm's dashboard (%s): %w", newConf.Host, err)
 	}
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	newArm := &URArm{
-		mu:                       &sync.Mutex{},
-		activeBackgroundWorkers:  &sync.WaitGroup{},
+		Named:                    conf.ResourceName().AsNamed(),
 		connControl:              nil,
-		speed:                    attrs.Speed,
+		speed:                    newConf.Speed,
 		debug:                    false,
 		haveData:                 false,
 		logger:                   logger,
 		cancel:                   cancel,
 		model:                    model,
-		urHostedKinematics:       attrs.ArmHostedKinematics,
+		urHostedKinematics:       newConf.ArmHostedKinematics,
 		inRemoteMode:             false,
 		readRobotStateConnection: connReadRobotState,
 		dashboardConnection:      connDashboard,
-		host:                     attrs.Host,
+		host:                     newConf.Host,
 	}
 
 	newArm.activeBackgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
 		for {
-			readerWriter := bufio.NewReadWriter(bufio.NewReader(connDashboard), bufio.NewWriter(connDashboard))
+			readerWriter := bufio.NewReadWriter(bufio.NewReader(newArm.dashboardConnection), bufio.NewWriter(newArm.dashboardConnection))
 			err := dashboardReader(cancelCtx, *readerWriter, newArm)
-			if err != nil && (errors.Is(err, syscall.ECONNRESET) || os.IsTimeout(err)) {
+			if err != nil && (errors.Is(err, syscall.ECONNRESET) || errors.Is(err, io.ErrClosedPipe) || os.IsTimeout(err)) {
 				newArm.mu.Lock()
 				newArm.inRemoteMode = false
 				newArm.mu.Unlock()
@@ -215,7 +214,7 @@ func URArmConnect(ctx context.Context, cfg config.Component, logger golog.Logger
 						return
 					}
 					logger.Debug("attempting to reconnect to ur arm dashboard")
-					connDashboard, err = d.DialContext(cancelCtx, "tcp", attrs.Host+":29999")
+					connDashboard, err = d.DialContext(cancelCtx, "tcp", newArm.host+":29999")
 					if err == nil {
 						newArm.mu.Lock()
 						newArm.dashboardConnection = connDashboard
@@ -238,18 +237,18 @@ func URArmConnect(ctx context.Context, cfg config.Component, logger golog.Logger
 	newArm.activeBackgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
 		for {
-			err := reader(cancelCtx, connReadRobotState, newArm, func() {
+			err := reader(cancelCtx, newArm.readRobotStateConnection, newArm, func() {
 				onDataOnce.Do(func() {
 					close(onData)
 				})
 			})
-			if err != nil && (errors.Is(err, syscall.ECONNRESET) || os.IsTimeout(err)) {
+			if err != nil && (errors.Is(err, syscall.ECONNRESET) || errors.Is(err, io.ErrClosedPipe) || os.IsTimeout(err)) {
 				for {
 					if err := cancelCtx.Err(); err != nil {
 						return
 					}
 					logger.Debug("attempting to reconnect to ur arm 30011")
-					connReadRobotState, err = d.DialContext(cancelCtx, "tcp", attrs.Host+":30011")
+					connReadRobotState, err = d.DialContext(cancelCtx, "tcp", newArm.host+":30011")
 					if err == nil {
 						newArm.mu.Lock()
 						newArm.readRobotStateConnection = connReadRobotState

@@ -2,12 +2,12 @@
 <script setup lang="ts">
 
 import { onMounted, onUnmounted } from 'vue';
+import { $ref, $computed } from 'vue/macros';
 import { grpc } from '@improbable-eng/grpc-web';
 import { Duration } from 'google-protobuf/google/protobuf/duration_pb';
 import { type Credentials, ConnectionClosedError } from '@viamrobotics/rpc';
 import { toast } from '../lib/toast';
 import { displayError } from '../lib/error';
-import { addResizeListeners } from '../lib/resize';
 import { StreamManager } from './camera/stream-manager';
 import {
   Client,
@@ -34,6 +34,7 @@ import Board from './board.vue';
 import CamerasList from './camera/cameras-list.vue';
 import OperationsSessions from './operations-sessions.vue';
 import DoCommand from './do-command.vue';
+import Encoder from './encoder.vue';
 import Gantry from './gantry.vue';
 import Gripper from './gripper.vue';
 import Gamepad from './gamepad.vue';
@@ -54,7 +55,7 @@ import {
   fixServoStatus,
 } from '../lib/fixers';
 
-const props = defineProps<{
+export interface RemoteControlCardsProps {
   host: string;
   bakedAuth?: {
     authEntity: string;
@@ -62,8 +63,10 @@ const props = defineProps<{
   },
   supportedAuthTypes: string[],
   webrtcEnabled: boolean,
-  client: Client;
-}>();
+  signalingAddress: string;
+}
+
+const props = defineProps<RemoteControlCardsProps>();
 
 const relevantSubtypesForStatus = [
   'arm',
@@ -75,11 +78,33 @@ const relevantSubtypesForStatus = [
 ];
 
 const password = $ref<string>('');
+const host = $computed(() => props.host);
 const bakedAuth = $computed(() => props.bakedAuth || {} as { authEntity: string, creds: Credentials });
 const supportedAuthTypes = $computed(() => props.supportedAuthTypes);
+const webrtcEnabled = $computed(() => props.webrtcEnabled);
+const signalingAddress = $computed(() => props.signalingAddress);
 const rawStatus = $ref<Record<string, robotApi.Status>>({});
 const status = $ref<Record<string, robotApi.Status>>({});
 const errors = $ref<Record<string, boolean>>({});
+
+const impliedURL = `${location.protocol}//${location.hostname}${location.port ? `:${location.port}` : ''}`;
+const client = new Client(impliedURL, {
+  enabled: webrtcEnabled,
+  host,
+  signalingAddress,
+  rtcConfig: {
+    iceServers: [
+      {
+        urls: 'stun:global.stun.twilio.com:3478',
+      },
+    ],
+  },
+});
+
+const streamManager = new StreamManager(client);
+
+let showAuth = $ref(true);
+let isConnecting = $ref(false);
 
 let statusStream: ResponseStream<robotApi.StreamStatusResponse> | null = null;
 let lastStatusTS: number | null = null;
@@ -92,7 +117,6 @@ let resourcesOnce = false;
 let errorMessage = $ref('');
 let connectedOnce = $ref(false);
 let connectedFirstTimeResolve: (value: void) => void;
-const streamManager = new StreamManager(props.client);
 
 const connectedFirstTime = new Promise<void>((resolve) => {
   connectedFirstTimeResolve = resolve;
@@ -179,10 +203,10 @@ const querySensors = () => {
   }
   const req = new sensorsApi.GetSensorsRequest();
   req.setName(sensorsName);
-  props.client.sensorsService.getSensors(
+  client.sensorsService.getSensors(
     req,
     new grpc.Metadata(),
-    (err: ServiceError, resp: sensorsApi.GetSensorsResponse) => {
+    (err: ServiceError | null, resp: sensorsApi.GetSensorsResponse | null) => {
       if (err) {
         return displayError(err);
       }
@@ -263,14 +287,14 @@ const restartStatusStream = () => {
   streamReq.setResourceNamesList(names);
   streamReq.setEvery(new Duration().setNanos(500_000_000));
 
-  statusStream = props.client.robotService.streamStatus(streamReq);
+  statusStream = client.robotService.streamStatus(streamReq);
   if (statusStream !== null) {
     statusStream.on('data', (response: { getStatusList(): robotApi.Status[] }) => {
       updateStatus((response).getStatusList());
       lastStatusTS = Date.now();
     });
-    statusStream.on('status', (newStatus: { details: unknown }) => {
-      if (!ConnectionClosedError.isError(newStatus.details)) {
+    statusStream.on('status', (newStatus?: { details: unknown }) => {
+      if (!ConnectionClosedError.isError(newStatus!.details)) {
         console.error('error streaming robot status', newStatus);
       }
       statusStream = null;
@@ -288,10 +312,10 @@ const queryMetadata = () => {
     let resourcesChanged = false;
     let shouldRestartStatusStream = !(resourcesOnce && statusStream);
 
-    props.client.robotService.resourceNames(
+    client.robotService.resourceNames(
       new robotApi.ResourceNamesRequest(),
       new grpc.Metadata(),
-      (err: ServiceError, resp: robotApi.ResourceNamesResponse) => {
+      (err: ServiceError | null, resp: robotApi.ResourceNamesResponse | null) => {
         if (err) {
           reject(err);
           return;
@@ -309,7 +333,7 @@ const queryMetadata = () => {
             resourceNameToString(name))
         );
         const resourceSet: Set<string> = new Set(
-          resourcesList.map((name: string) => resourceNameToString(name))
+          resourcesList.map((name: commonApi.ResourceName.AsObject) => resourceNameToString(name))
         );
 
         for (const elem of resourceSet) {
@@ -356,10 +380,10 @@ const fetchCurrentOps = () => {
     const req = new robotApi.GetOperationsRequest();
 
     const now = Date.now();
-    props.client.robotService.getOperations(
+    client.robotService.getOperations(
       req,
       new grpc.Metadata(),
-      (err: ServiceError, resp: robotApi.GetOperationsResponse) => {
+      (err: ServiceError | null, resp: robotApi.GetOperationsResponse | null) => {
         if (err) {
           reject(err);
           return;
@@ -409,10 +433,10 @@ const fetchCurrentSessions = () => {
   return new Promise<robotApi.Session.AsObject[]>((resolve, reject) => {
     const req = new robotApi.GetSessionsRequest();
 
-    props.client.robotService.getSessions(
+    client.robotService.getSessions(
       req,
       new grpc.Metadata(),
-      (err: ServiceError, resp: robotApi.GetSessionsResponse) => {
+      (err: ServiceError | null, resp: robotApi.GetSessionsResponse | null) => {
         if (err) {
           if (err.code === grpc.Code.Unimplemented) {
             sessionsSupported = false;
@@ -436,10 +460,6 @@ const fetchCurrentSessions = () => {
   });
 };
 
-const isWebRtcEnabled = () => {
-  return props.webrtcEnabled;
-};
-
 const createAppConnectionManager = () => {
   const checkIntervalMillis = 10_000;
   const statuses = {
@@ -457,13 +477,13 @@ const createAppConnectionManager = () => {
       statuses.resources &&
       statuses.ops &&
       // check status on interval if direct grpc
-      (isWebRtcEnabled() || (Date.now() - lastStatusTS! <= checkIntervalMillis))
+      (webrtcEnabled || (Date.now() - lastStatusTS! <= checkIntervalMillis))
     );
   };
 
   const manageLoop = async () => {
     try {
-      const newErrors = [];
+      const newErrors: unknown[] = [];
 
       try {
         await queryMetadata();
@@ -533,7 +553,7 @@ const createAppConnectionManager = () => {
       errorMessage = 'Connection lost, attempting to reconnect ...';
 
       try {
-        console.log('reconnecting');
+        console.debug('reconnecting');
 
         // reset status/stream state
         if (statusStream) {
@@ -542,10 +562,11 @@ const createAppConnectionManager = () => {
         }
         resourcesOnce = false;
 
-        await props.client.connect();
+        await client.connect();
         await fetchCurrentOps();
+
         lastStatusTS = Date.now();
-        console.log('reconnected');
+        console.debug('reconnected');
         streamManager.refreshStreams();
       } catch (error) {
         if (ConnectionClosedError.isError(error)) {
@@ -561,6 +582,8 @@ const createAppConnectionManager = () => {
 
   const stop = () => {
     window.clearTimeout(timeout);
+    statusStream?.cancel();
+    statusStream = null;
   };
 
   const start = () => {
@@ -621,10 +644,16 @@ const nonEmpty = (object: object) => {
 
 const doConnect = async (authEntity: string, creds: Credentials, onError?: (reason?: unknown) => void) => {
   console.debug('connecting');
-  document.querySelector('#connecting')!.classList.remove('hidden');
+  isConnecting = true;
 
   try {
-    await props.client.connect(authEntity, creds);
+    await client.connect(authEntity, creds);
+
+    console.debug('connected');
+    showAuth = false;
+    disableAuthElements = false;
+    connectedOnce = true;
+    connectedFirstTimeResolve();
   } catch (error) {
     console.error('failed to connect:', error);
     if (onError) {
@@ -632,21 +661,14 @@ const doConnect = async (authEntity: string, creds: Credentials, onError?: (reas
     } else {
       toast.error('failed to connect');
     }
-    return;
   }
-
-  console.debug('connected');
-  document.querySelector('#pre-app')!.classList.add('hidden');
-  disableAuthElements = false;
-  connectedOnce = true;
-  connectedFirstTimeResolve();
 };
 
 const doLogin = (authType: string) => {
   disableAuthElements = true;
   const creds = { type: authType, payload: password };
   doConnect(props.host, creds, (error) => {
-    document.querySelector('#connecting')!.classList.add('hidden');
+    isConnecting = false;
     disableAuthElements = false;
     console.error(error);
     toast.error(`failed to connect: ${error}`);
@@ -662,218 +684,243 @@ const initConnect = () => {
   }
 };
 
+const handleUnload = () => {
+  console.debug('disconnecting');
+  appConnectionManager.stop();
+  streamManager?.close();
+  client.disconnect();
+};
+
 onMounted(async () => {
   initConnect();
   await connectedFirstTime;
 
   appConnectionManager.start();
 
-  addResizeListeners();
+  window.addEventListener('beforeunload', handleUnload);
 });
 
 onUnmounted(() => {
-  appConnectionManager.stop();
+  handleUnload();
+  window.removeEventListener('beforeunload', handleUnload);
 });
 
 </script>
 
 <template>
-  <div id="pre-app">
-    <div
-      id="connecting"
-      class="border-greendark hidden border-l-4 bg-gray-100 px-4 py-3"
-    >
-      Connecting via <template v-if="isWebRtcEnabled()">
-        WebRTC
-      </template><template v-else>
-        gRPC
-      </template>...
-    </div>
-
-    <template
-      v-for="authType in supportedAuthTypes"
-      :key="authType"
-    >
-      <div class="px-4 py-3">
-        <span>{{ authType }}: </span>
-        <div class="w-96">
-          <input
-            v-model="password"
-            :disabled="disableAuthElements"
-            class="
-                mb-2 block w-full appearance-none border p-2 text-gray-700
-                transition-colors duration-150 ease-in-out placeholder:text-gray-400 focus:outline-none
-              "
-            type="password"
-            autocomplete="off"
-            @keyup.enter="doLogin(authType)"
-          >
-          <v-button
-            :disabled="disableAuthElements"
-            label="Login"
-            @click="disableAuthElements ? undefined : doLogin(authType)"
-          />
-        </div>
+  <div>
+    <div v-if="showAuth">
+      <div
+        v-if="isConnecting"
+        class="border-greendark hidden border-l-4 bg-gray-100 px-4 py-3"
+      >
+        Connecting via <template v-if="webrtcEnabled">
+          WebRTC
+        </template><template v-else>
+          gRPC
+        </template>...
       </div>
-    </template>
-  </div>
 
-  <div class="flex flex-col gap-4 p-3">
-    <div
-      v-if="errorMessage"
-      class="border-l-4 border-red-500 bg-gray-100 px-4 py-3"
-    >
-      {{ errorMessage }}
+      <template
+        v-for="authType in supportedAuthTypes"
+        :key="authType"
+      >
+        <div class="px-4 py-3">
+          <span>{{ authType }}: </span>
+          <div class="w-96">
+            <input
+              v-model="password"
+              :disabled="disableAuthElements"
+              class="
+                  mb-2 block w-full appearance-none border p-2 text-gray-700
+                  transition-colors duration-150 ease-in-out placeholder:text-gray-400 focus:outline-none
+                "
+              type="password"
+              autocomplete="off"
+              @keyup.enter="doLogin(authType)"
+            >
+            <v-button
+              :disabled="disableAuthElements"
+              label="Login"
+              @click="disableAuthElements ? undefined : doLogin(authType)"
+            />
+          </div>
+        </div>
+      </template>
     </div>
 
-    <!-- ******* BASE *******  -->
-    <Base
-      v-for="base in filterResources(resources, 'rdk', 'component', 'base')"
-      :key="base.name"
-      :name="base.name"
-      :client="client"
-      :resources="resources"
-      :stream-manager="streamManager"
-    />
+    <div class="flex flex-col gap-4 p-3">
+      <div
+        v-if="errorMessage"
+        class="border-l-4 border-red-500 bg-gray-100 px-4 py-3"
+      >
+        {{ errorMessage }}
+      </div>
 
-    <!-- ******* GANTRY *******  -->
-    <Gantry
-      v-for="gantry in filterRdkComponentsWithStatus(resources, status, 'gantry')"
-      :key="gantry.name"
-      :name="gantry.name"
-      :client="client"
-      :status="(resourceStatusByName(gantry) as unknown as ReturnType<typeof fixGantryStatus>)"
-    />
+      <!-- ******* BASE *******  -->
+      <Base
+        v-for="base in filterResources(resources, 'rdk', 'component', 'base')"
+        :key="base.name"
+        :name="base.name"
+        :client="client"
+        :resources="resources"
+        :stream-manager="streamManager"
+        :status-stream="statusStream"
+      />
 
-    <!-- ******* MovementSensor *******  -->
-    <MovementSensor
-      v-for="sensor in filterResources(resources, 'rdk', 'component', 'movement_sensor')"
-      :key="sensor.name"
-      :name="sensor.name"
-      :client="client"
-    />
+      <!-- ******* ENCODER *******  -->
+      <Encoder
+        v-for="encoder in filterResources(resources, 'rdk', 'component', 'encoder')"
+        :key="encoder.name"
+        :name="encoder.name"
+        :client="client"
+        :status-stream="statusStream"
+      />
 
-    <!-- ******* ARM *******  -->
-    <Arm
-      v-for="arm in filterResources(resources, 'rdk', 'component', 'arm')"
-      :key="arm.name"
-      :name="arm.name"
-      :client="client"
-      :status="(resourceStatusByName(arm) as any)"
-      :raw-status="(rawResourceStatusByName(arm) as any)"
-    />
+      <!-- ******* GANTRY *******  -->
+      <Gantry
+        v-for="gantry in filterRdkComponentsWithStatus(resources, status, 'gantry')"
+        :key="gantry.name"
+        :name="gantry.name"
+        :client="client"
+        :status="(resourceStatusByName(gantry) as unknown as ReturnType<typeof fixGantryStatus>)"
+      />
 
-    <!-- ******* GRIPPER *******  -->
-    <Gripper
-      v-for="gripper in filterResources(resources, 'rdk', 'component', 'gripper')"
-      :key="gripper.name"
-      :name="gripper.name"
-      :client="client"
-    />
+      <!-- ******* MovementSensor *******  -->
+      <MovementSensor
+        v-for="sensor in filterResources(resources, 'rdk', 'component', 'movement_sensor')"
+        :key="sensor.name"
+        :name="sensor.name"
+        :client="client"
+        :status-stream="statusStream"
+      />
 
-    <!-- ******* SERVO *******  -->
-    <ServoComponent
-      v-for="servo in filterRdkComponentsWithStatus(resources, status, 'servo')"
-      :key="servo.name"
-      :name="servo.name"
-      :client="client"
-      :status="(resourceStatusByName(servo) as any)"
-      :raw-status="(rawResourceStatusByName(servo) as any)"
-    />
+      <!-- ******* ARM *******  -->
+      <Arm
+        v-for="arm in filterResources(resources, 'rdk', 'component', 'arm')"
+        :key="arm.name"
+        :name="arm.name"
+        :client="client"
+        :status="(resourceStatusByName(arm) as any)"
+        :raw-status="(rawResourceStatusByName(arm) as any)"
+      />
 
-    <!-- ******* MOTOR *******  -->
-    <Motor
-      v-for="motor in filterRdkComponentsWithStatus(resources, status, 'motor')"
-      :key="motor.name"
-      :name="motor.name"
-      :client="client"
-      :status="(resourceStatusByName(motor) as any)"
-    />
+      <!-- ******* GRIPPER *******  -->
+      <Gripper
+        v-for="gripper in filterResources(resources, 'rdk', 'component', 'gripper')"
+        :key="gripper.name"
+        :name="gripper.name"
+        :client="client"
+      />
 
-    <!-- ******* INPUT VIEW *******  -->
-    <InputController
-      v-for="controller in filteredInputControllerList()"
-      :key="controller.name"
-      :name="controller.name"
-      :status="(resourceStatusByName(controller) as any)"
-      class="input"
-    />
+      <!-- ******* SERVO *******  -->
+      <ServoComponent
+        v-for="servo in filterRdkComponentsWithStatus(resources, status, 'servo')"
+        :key="servo.name"
+        :name="servo.name"
+        :client="client"
+        :status="(resourceStatusByName(servo) as any)"
+        :raw-status="(rawResourceStatusByName(servo) as any)"
+      />
 
-    <!-- ******* WEB CONTROLS *******  -->
-    <Gamepad
-      v-for="gamepad in filteredWebGamepads()"
-      :key="gamepad.name"
-      :name="gamepad.name"
-      :client="client"
-    />
+      <!-- ******* MOTOR *******  -->
+      <Motor
+        v-for="motor in filterRdkComponentsWithStatus(resources, status, 'motor')"
+        :key="motor.name"
+        :name="motor.name"
+        :client="client"
+        :status="(resourceStatusByName(motor) as any)"
+      />
 
-    <!-- ******* BOARD *******  -->
-    <Board
-      v-for="board in filterRdkComponentsWithStatus(resources, status, 'board')"
-      :key="board.name"
-      :name="board.name"
-      :client="client"
-      :status="(resourceStatusByName(board) as any)"
-    />
+      <!-- ******* INPUT VIEW *******  -->
+      <InputController
+        v-for="controller in filteredInputControllerList()"
+        :key="controller.name"
+        :name="controller.name"
+        :status="(resourceStatusByName(controller) as any)"
+        class="input"
+      />
 
-    <!-- ******* CAMERAS *******  -->
-    <CamerasList
-      parent-name="app"
-      :client="client"
-      :stream-manager="streamManager"
-      :resources="filterResources(resources, 'rdk', 'component', 'camera')"
-    />
+      <!-- ******* WEB CONTROLS *******  -->
+      <Gamepad
+        v-for="gamepad in filteredWebGamepads()"
+        :key="gamepad.name"
+        :name="gamepad.name"
+        :client="client"
+        :status-stream="statusStream"
+      />
 
-    <!-- ******* NAVIGATION ******* -->
-    <Navigation
-      v-for="nav in filterResources(resources, 'rdk', 'service', 'navigation')"
-      :key="nav.name"
-      :resources="resources"
-      :name="nav.name"
-      :client="client"
-    />
+      <!-- ******* BOARD *******  -->
+      <Board
+        v-for="board in filterRdkComponentsWithStatus(resources, status, 'board')"
+        :key="board.name"
+        :name="board.name"
+        :client="client"
+        :status="(resourceStatusByName(board) as any)"
+      />
 
-    <!-- ******* SENSORS ******* -->
-    <Sensors
-      v-if="nonEmpty(sensorNames)"
-      :name="filterNonRemoteResources(resources, 'rdk', 'service', 'sensors')[0]!.name"
-      :client="client"
-      :sensor-names="sensorNames"
-    />
+      <!-- ******* CAMERAS *******  -->
+      <CamerasList
+        parent-name="app"
+        :client="client"
+        :stream-manager="streamManager"
+        :resources="filterResources(resources, 'rdk', 'component', 'camera')"
+        :status-stream="statusStream"
+      />
 
-    <!-- ******* AUDIO INPUTS *******  -->
-    <AudioInput
-      v-for="audioInput in filterResources(resources, 'rdk', 'component', 'audio_input')"
-      :key="audioInput.name"
-      :name="audioInput.name"
-      :client="client"
-    />
+      <!-- ******* NAVIGATION ******* -->
+      <Navigation
+        v-for="nav in filterResources(resources, 'rdk', 'service', 'navigation')"
+        :key="nav.name"
+        :resources="resources"
+        :name="nav.name"
+        :client="client"
+        :status-stream="statusStream"
+      />
 
-    <!-- ******* SLAM *******  -->
-    <Slam
-      v-for="slam in filterResources(resources, 'rdk', 'service', 'slam')"
-      :key="slam.name"
-      :name="slam.name"
-      :client="client"
-      :resources="resources"
-    />
+      <!-- ******* SENSORS ******* -->
+      <Sensors
+        v-if="nonEmpty(sensorNames)"
+        :name="filterNonRemoteResources(resources, 'rdk', 'service', 'sensors')[0]!.name"
+        :client="client"
+        :sensor-names="sensorNames"
+      />
 
-    <!-- ******* DO ******* -->
-    <DoCommand
-      v-if="nonEmpty(filterResources(resources, 'rdk', 'component', 'generic'))"
-      :client="client"
-      :resources="filterResources(resources, 'rdk', 'component', 'generic')"
-    />
+      <!-- ******* AUDIO INPUTS *******  -->
+      <AudioInput
+        v-for="audioInput in filterResources(resources, 'rdk', 'component', 'audio_input')"
+        :key="audioInput.name"
+        :name="audioInput.name"
+        :client="client"
+      />
 
-    <!-- ******* OPERATIONS AND SESSIONS ******* -->
-    <OperationsSessions
-      v-if="connectedOnce"
-      :client="client"
-      :operations="currentOps"
-      :sessions="currentSessions"
-      :sessions-supported="sessionsSupported"
-      :connection-manager="appConnectionManager"
-    />
+      <!-- ******* SLAM *******  -->
+      <Slam
+        v-for="slam in filterResources(resources, 'rdk', 'service', 'slam')"
+        :key="slam.name"
+        :name="slam.name"
+        :client="client"
+        :resources="resources"
+        :status-stream="statusStream"
+      />
+
+      <!-- ******* DO ******* -->
+      <DoCommand
+        v-if="nonEmpty(filterResources(resources, 'rdk', 'component', 'generic'))"
+        :client="client"
+        :resources="filterResources(resources, 'rdk', 'component', 'generic')"
+      />
+
+      <!-- ******* OPERATIONS AND SESSIONS ******* -->
+      <OperationsSessions
+        v-if="connectedOnce"
+        :client="client"
+        :operations="currentOps"
+        :sessions="currentSessions"
+        :sessions-supported="sessionsSupported"
+        :connection-manager="appConnectionManager"
+      />
+    </div>
   </div>
 </template>
 

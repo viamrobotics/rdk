@@ -3,6 +3,7 @@ package ffmpeg
 
 import (
 	"context"
+	"errors"
 	"image"
 	"image/jpeg"
 	"io"
@@ -18,61 +19,45 @@ import (
 	viamutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage/transform"
-	"go.viam.com/rdk/utils"
 )
 
-// AttrConfig is the attribute struct for ffmpeg cameras.
-type AttrConfig struct {
+// Config is the attribute struct for ffmpeg cameras.
+type Config struct {
+	resource.TriviallyValidateConfig
 	CameraParameters     *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters,omitempty"`
 	DistortionParameters *transform.BrownConrady            `json:"distortion_parameters,omitempty"`
 	Debug                bool                               `json:"debug,omitempty"`
 	VideoPath            string                             `json:"video_path"`
 	InputKWArgs          map[string]interface{}             `json:"input_kw_args,omitempty"`
-	Filters              []FilterAttrs                      `json:"filters,omitempty"`
+	Filters              []FilterConfig                     `json:"filters,omitempty"`
 	OutputKWArgs         map[string]interface{}             `json:"output_kw_args,omitempty"`
 }
 
-// FilterAttrs is a struct to used to configure ffmpeg filters.
-type FilterAttrs struct {
+// FilterConfig is a struct to used to configure ffmpeg filters.
+type FilterConfig struct {
 	Name   string                 `json:"name"`
 	Args   []string               `json:"args"`
 	KWArgs map[string]interface{} `json:"kw_args"`
 }
 
-var model = resource.NewDefaultModel("ffmpeg")
+var model = resource.DefaultModelFamily.WithModel("ffmpeg")
 
 func init() {
-	registry.RegisterComponent(camera.Subtype, model, registry.Component{
-		Constructor: func(ctx context.Context, _ registry.Dependencies, cfg config.Component, logger golog.Logger) (interface{}, error) {
-			attrs, ok := cfg.ConvertedAttributes.(*AttrConfig)
-			if !ok {
-				return nil, utils.NewUnexpectedTypeError(attrs, cfg.ConvertedAttributes)
-			}
-			return NewFFMPEGCamera(ctx, attrs, logger)
-		},
-	})
-
-	config.RegisterComponentAttributeMapConverter(
-		camera.Subtype,
-		model,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf AttrConfig
-			attrs, err := config.TransformAttributeMapToStruct(&conf, attributes)
+	resource.RegisterComponent(camera.API, model, resource.Registration[camera.Camera, *Config]{
+		Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (camera.Camera, error) {
+			newConf, err := resource.NativeConfig[*Config](conf)
 			if err != nil {
 				return nil, err
 			}
-			result, ok := attrs.(*AttrConfig)
-			if !ok {
-				return nil, utils.NewUnexpectedTypeError(result, attrs)
+			src, err := NewFFMPEGCamera(ctx, newConf, logger)
+			if err != nil {
+				return nil, err
 			}
-			return result, nil
+			return camera.FromVideoSource(conf.ResourceName(), src), nil
 		},
-		&AttrConfig{},
-	)
+	})
 }
 
 type ffmpegCamera struct {
@@ -84,14 +69,14 @@ type ffmpegCamera struct {
 }
 
 // NewFFMPEGCamera instantiates a new camera which leverages ffmpeg to handle a variety of potential video types.
-func NewFFMPEGCamera(ctx context.Context, attrs *AttrConfig, logger golog.Logger) (camera.Camera, error) {
+func NewFFMPEGCamera(ctx context.Context, conf *Config, logger golog.Logger) (camera.VideoSource, error) {
 	// make sure ffmpeg is in the path before doing anything else
 	if _, err := exec.LookPath("ffmpeg"); err != nil {
 		return nil, err
 	}
 	// parse attributes into ffmpeg keyword maps
-	outArgs := make(map[string]interface{}, len(attrs.OutputKWArgs))
-	for key, value := range attrs.OutputKWArgs {
+	outArgs := make(map[string]interface{}, len(conf.OutputKWArgs))
+	for key, value := range conf.OutputKWArgs {
 		outArgs[key] = value
 	}
 	outArgs["update"] = 1        // always interpret the filename as just a filename, not a pattern
@@ -113,8 +98,8 @@ func NewFFMPEGCamera(ctx context.Context, attrs *AttrConfig, logger golog.Logger
 
 	ffCam.activeBackgroundWorkers.Add(1)
 	viamutils.ManagedGo(func() {
-		stream := ffmpeg.Input(attrs.VideoPath, attrs.InputKWArgs)
-		for _, filter := range attrs.Filters {
+		stream := ffmpeg.Input(conf.VideoPath, conf.InputKWArgs)
+		for _, filter := range conf.Filters {
 			stream = stream.Filter(filter.Name, filter.Args, filter.KWArgs)
 		}
 		stream = stream.Output("pipe:", outArgs)
@@ -137,7 +122,7 @@ func NewFFMPEGCamera(ctx context.Context, attrs *AttrConfig, logger golog.Logger
 
 	// launch thread to consume images from the pipe and store the latest in shared memory
 	gotFirstFrame := make(chan struct{})
-	var latestFrame atomic.Value
+	var latestFrame atomic.Pointer[image.Image]
 	var gotFirstFrameOnce bool
 	ffCam.activeBackgroundWorkers.Add(1)
 	viamutils.ManagedGo(func() {
@@ -149,7 +134,7 @@ func NewFFMPEGCamera(ctx context.Context, attrs *AttrConfig, logger golog.Logger
 			if err != nil {
 				continue
 			}
-			latestFrame.Store(img)
+			latestFrame.Store(&img)
 			if !gotFirstFrameOnce {
 				close(gotFirstFrame)
 				gotFirstFrameOnce = true
@@ -166,11 +151,19 @@ func NewFFMPEGCamera(ctx context.Context, attrs *AttrConfig, logger golog.Logger
 			return nil, nil, ctx.Err()
 		case <-gotFirstFrame:
 		}
-		return latestFrame.Load().(image.Image), func() {}, nil
+		latest := latestFrame.Load()
+		if latest == nil {
+			return nil, func() {}, errors.New("no frame yet")
+		}
+		return *latest, func() {}, nil
 	})
 
 	ffCam.VideoReader = reader
-	return camera.NewFromReader(ctx, ffCam, &transform.PinholeCameraModel{PinholeCameraIntrinsics: attrs.CameraParameters}, camera.ColorStream)
+	return camera.NewVideoSourceFromReader(
+		ctx,
+		ffCam,
+		&transform.PinholeCameraModel{PinholeCameraIntrinsics: conf.CameraParameters},
+		camera.ColorStream)
 }
 
 func (fc *ffmpegCamera) Close(ctx context.Context) error {

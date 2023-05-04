@@ -7,10 +7,15 @@ import (
 	pb "go.viam.com/api/service/mlmodel/v1"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/structpb"
+
+	"go.viam.com/rdk/resource"
 )
 
 // client implements MLModelServiceClient.
 type client struct {
+	resource.Named
+	resource.TriviallyReconfigurable
+	resource.TriviallyCloseable
 	name   string
 	conn   rpc.ClientConn
 	client pb.MLModelServiceClient
@@ -18,15 +23,22 @@ type client struct {
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
-func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Service {
+func NewClientFromConn(
+	ctx context.Context,
+	conn rpc.ClientConn,
+	remoteName string,
+	name resource.Name,
+	logger golog.Logger,
+) (Service, error) {
 	grpcClient := pb.NewMLModelServiceClient(conn)
 	c := &client{
-		name:   name,
+		Named:  name.PrependRemote(remoteName).AsNamed(),
+		name:   name.ShortName(),
 		conn:   conn,
 		client: grpcClient,
 		logger: logger,
 	}
-	return c
+	return c, nil
 }
 
 func (c *client) Infer(ctx context.Context, input map[string]interface{}) (map[string]interface{}, error) {

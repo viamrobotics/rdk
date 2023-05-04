@@ -1,8 +1,9 @@
 <script setup lang="ts">
 
 import { onMounted, onUnmounted } from 'vue';
+import { $ref, $computed, $$ } from 'vue/macros';
 import { onClickOutside } from '@vueuse/core';
-import { BaseClient, Client, type ServiceError, commonApi } from '@viamrobotics/sdk';
+import { BaseClient, Client, type ServiceError, commonApi, ResponseStream, robotApi } from '@viamrobotics/sdk';
 import { filterResources } from '../lib/resource';
 import { displayError } from '../lib/error';
 import KeyboardInput, { type Keys } from './keyboard-input.vue';
@@ -23,6 +24,7 @@ const props = defineProps<{
   resources: commonApi.ResourceName.AsObject[];
   client: Client;
   streamManager:StreamManager
+  statusStream: ResponseStream<robotApi.StreamStatusResponse> | null
 }>();
 
 type Tabs = 'Keyboard' | 'Discrete'
@@ -292,7 +294,7 @@ onUnmounted(() => {
         @click="stop"
       />
 
-      <div class="flex flex-wrap gap-4 border border-t-0 border-black sm:flex-nowrap">
+      <div class="border-border-1 flex flex-wrap gap-4 border border-t-0 sm:flex-nowrap">
         <div class="flex min-w-fit flex-col gap-4 p-4">
           <h2 class="font-bold">
             Motor Controls
@@ -454,7 +456,7 @@ onUnmounted(() => {
         </div>
         <div
           data-parent="base"
-          class="justify-start gap-4 border-black p-4 sm:border-l"
+          class="border-border-1 justify-start gap-4 p-4 sm:border-l"
           :class="selectedView === 'Stacked' ? 'flex flex-col' : 'grid grid-cols-2 gap-4'"
         >
           <!-- ******* CAMERAS *******  -->
@@ -473,6 +475,7 @@ onUnmounted(() => {
               :refresh-rate="refreshFrequency"
               :trigger-refresh="triggerRefresh"
               :stream-manager="props.streamManager"
+              :status-stream="props.statusStream"
             />
           </template>
         </div>

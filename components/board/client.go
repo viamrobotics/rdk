@@ -16,6 +16,7 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	rprotoutils "go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/resource"
 )
 
 // errUnimplemented is used for any unimplemented methods that should
@@ -24,13 +25,15 @@ var errUnimplemented = errors.New("unimplemented")
 
 // client implements BoardServiceClient.
 type client struct {
-	conn   rpc.ClientConn
+	resource.Named
+	resource.TriviallyReconfigurable
+	resource.TriviallyCloseable
 	client pb.BoardServiceClient
 	logger golog.Logger
 
 	info           boardInfo
 	cachedStatus   *commonpb.BoardStatus
-	cachedStatusMu *sync.Mutex
+	cachedStatusMu sync.Mutex
 }
 
 type boardInfo struct {
@@ -43,20 +46,25 @@ type boardInfo struct {
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
-func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Board {
-	info := boardInfo{name: name}
+func NewClientFromConn(
+	ctx context.Context,
+	conn rpc.ClientConn,
+	remoteName string,
+	name resource.Name,
+	logger golog.Logger,
+) (Board, error) {
+	info := boardInfo{name: name.ShortName()}
 	bClient := pb.NewBoardServiceClient(conn)
 	c := &client{
-		conn:           conn,
-		client:         bClient,
-		logger:         logger,
-		info:           info,
-		cachedStatusMu: &sync.Mutex{},
+		Named:  name.PrependRemote(remoteName).AsNamed(),
+		client: bClient,
+		logger: logger,
+		info:   info,
 	}
 	if err := c.refresh(ctx); err != nil {
 		c.logger.Warn(err)
 	}
-	return c
+	return c, nil
 }
 
 func (c *client) AnalogReaderByName(name string) (AnalogReader, bool) {

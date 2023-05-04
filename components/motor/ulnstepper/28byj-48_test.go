@@ -3,6 +3,7 @@ package uln28byj
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -11,8 +12,7 @@ import (
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/motor"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 )
 
@@ -20,7 +20,7 @@ const (
 	testBoardName = "fake_board"
 )
 
-func setupDependencies(t *testing.T) registry.Dependencies {
+func setupDependencies(t *testing.T) resource.Dependencies {
 	t.Helper()
 
 	testBoard := &inject.Board{}
@@ -42,7 +42,7 @@ func setupDependencies(t *testing.T) registry.Dependencies {
 		}
 		return nil, errors.New("pin name not found")
 	}
-	deps := make(registry.Dependencies)
+	deps := make(resource.Dependencies)
 	deps[board.Named(testBoardName)] = testBoard
 	return deps
 }
@@ -62,7 +62,7 @@ func TestValid(t *testing.T) {
 		BoardName: testBoardName,
 	}
 
-	c := config.Component{
+	c := resource.Config{
 		Name:                "fake_28byj",
 		ConvertedAttributes: &mc,
 	}
@@ -165,7 +165,7 @@ func TestValid(t *testing.T) {
 
 func TestFunctions(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
-	logger := golog.NewTestLogger(t)
+	logger, obs := golog.NewObservedTestLogger(t)
 	deps := setupDependencies(t)
 
 	mc := Config{
@@ -179,7 +179,7 @@ func TestFunctions(t *testing.T) {
 		TicksPerRotation: 100,
 	}
 
-	c := config.Component{
+	c := resource.Config{
 		Name:                "fake_28byj",
 		ConvertedAttributes: &mc,
 	}
@@ -236,9 +236,18 @@ func TestFunctions(t *testing.T) {
 	t.Run("test GoFor", func(t *testing.T) {
 		err := m.GoFor(ctx, 0, 1, nil)
 		test.That(t, err, test.ShouldBeError)
+		allObs := obs.All()
+		latestLoggedEntry := allObs[len(allObs)-1]
+		test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly 0")
 
 		err = m.GoFor(ctx, -.009, 1, nil)
+		test.That(t, err, test.ShouldNotBeNil)
+
+		err = m.GoFor(ctx, 146, 1, nil)
 		test.That(t, err, test.ShouldBeNil)
+		allObs = obs.All()
+		latestLoggedEntry = allObs[len(allObs)-1]
+		test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly the max")
 	})
 
 	cancel()
@@ -260,7 +269,7 @@ func TestState(t *testing.T) {
 		TicksPerRotation: 100,
 	}
 
-	c := config.Component{
+	c := resource.Config{
 		Name:                "fake_28byj",
 		ConvertedAttributes: &mc,
 	}

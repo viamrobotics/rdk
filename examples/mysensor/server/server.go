@@ -7,10 +7,7 @@ import (
 	"github.com/edaniels/golog"
 	goutils "go.viam.com/utils"
 
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/sensor"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 
 	robotimpl "go.viam.com/rdk/robot/impl"
@@ -22,32 +19,30 @@ var logger = golog.NewDebugLogger("mysensor")
 
 // registering the component model on init is how we make sure the new model is picked up and usable.
 func init() {
-	registry.RegisterComponent(
-		sensor.Subtype,
-		resource.NewDefaultModel("mySensor"),
-		registry.Component{Constructor: func(
+	resource.RegisterComponent(
+		sensor.API,
+		resource.DefaultModelFamily.WithModel("mySensor"),
+		resource.Registration[sensor.Sensor, resource.NoNativeConfig]{Constructor: func(
 			ctx context.Context,
-			deps registry.Dependencies,
-			config config.Component,
+			deps resource.Dependencies,
+			conf resource.Config,
 			logger golog.Logger,
-		) (interface{}, error) {
-			return newSensor(config.Name), nil
+		) (sensor.Sensor, error) {
+			return newSensor(conf.ResourceName()), nil
 		}})
 }
 
-func newSensor(name string) sensor.Sensor {
-	return &mySensor{Name: name}
+func newSensor(name resource.Name) sensor.Sensor {
+	return &mySensor{
+		Named: name.AsNamed(),
+	}
 }
-
-// this checks that the mySensor struct implements the sensor.Sensor interface.
-var _ = sensor.Sensor(&mySensor{})
 
 // mySensor is a sensor device that always returns "hello world".
 type mySensor struct {
-	Name string
-
-	// generic.Unimplemented is a helper that embeds an unimplemented error in the Do method.
-	generic.Unimplemented
+	resource.Named
+	resource.AlwaysRebuild
+	resource.TriviallyCloseable
 }
 
 // Readings always returns "hello world".
@@ -60,9 +55,10 @@ func main() {
 }
 
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err error) {
-	s := &mySensor{Name: "sensor1"}
+	name := sensor.Named("sensor1")
+	s := newSensor(name)
 
-	myRobot, err := robotimpl.RobotFromResources(ctx, map[resource.Name]interface{}{sensor.Named("sensor1"): s}, logger)
+	myRobot, err := robotimpl.RobotFromResources(ctx, map[resource.Name]resource.Resource{name: s}, logger)
 	if err != nil {
 		return err
 	}

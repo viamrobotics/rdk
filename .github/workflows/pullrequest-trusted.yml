@@ -1,13 +1,13 @@
 name: Pull Request Update
 
 concurrency: 
-  group: pullrequest-untrusted-${{ github.head_ref }}
+  group: pullrequest-${{ github.head_ref }}
   cancel-in-progress: true
 
 on:
   pull_request_target:
-    branches: [ 'main' ]
-    types: [ 'labeled' ]
+    branches: [ main ]
+    types: [ labeled ]
 
 # To test workflow updates you need to work in a branch directly on viamrobotics/rdk
 # and tag your working branch instead of @main in any viamrobotics/rdk "uses" below.
@@ -19,10 +19,6 @@ jobs:
     uses: viamrobotics/rdk/.github/workflows/test.yml@main
     secrets:
       MONGODB_TEST_OUTPUT_URI: ${{ secrets.MONGODB_TEST_OUTPUT_URI }}
-
-  slam_integration_test:
-    if: github.event.label.name == 'safe to test'
-    uses: viamrobotics/rdk/.github/workflows/slam-integration-test.yml@main
 
   # This lets people add an "appimage" tag to have appimages built for the PR
   appimage:
@@ -40,5 +36,24 @@ jobs:
        always() && !cancelled() && contains(github.event.pull_request.labels.*.name, 'safe to test') &&
        contains(github.event.pull_request.labels.*.name, 'appimage-ignore-tests')
     uses: viamrobotics/rdk/.github/workflows/appimage.yml@main
+    secrets:
+      GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
+
+  # This lets people add a "static-build" tag to have static binaries built for the PR
+  main:
+    needs: [test]
+    if: |
+      always() && !cancelled() && contains(github.event.pull_request.labels.*.name, 'safe to test') &&
+      !contains(github.event.pull_request.labels.*.name, 'static-ignore-tests') &&
+      contains(github.event.pull_request.labels.*.name, 'static-build') && needs.test.result == 'success'
+    uses: viamrobotics/rdk/.github/workflows/staticbuild.yml@main
+    secrets:
+      GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
+
+  static-ignore-tests:
+    if: |
+       always() && !cancelled() && contains(github.event.pull_request.labels.*.name, 'safe to test') &&
+       contains(github.event.pull_request.labels.*.name, 'static-ignore-tests')
+    uses: viamrobotics/rdk/.github/workflows/staticbuild.yml@main
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}

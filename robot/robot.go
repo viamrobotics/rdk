@@ -13,9 +13,7 @@ import (
 	"go.viam.com/utils/pexec"
 
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/grpc"
-	modif "go.viam.com/rdk/module/modmaninterface"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
@@ -24,39 +22,28 @@ import (
 	"go.viam.com/rdk/robot/packages"
 	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/session"
-	"go.viam.com/rdk/utils"
 )
-
-// NewUnimplementedLocalInterfaceError is used when there is a failed interface check.
-func NewUnimplementedLocalInterfaceError(actual interface{}) error {
-	return utils.NewUnimplementedInterfaceError((*LocalRobot)(nil), actual)
-}
-
-// NewUnimplementedInterfaceError generic is used when there is a failed interface check.
-func NewUnimplementedInterfaceError[T any](actual interface{}) error {
-	return utils.NewUnimplementedInterfaceError((*T)(nil), actual)
-}
 
 // A Robot encompasses all functionality of some robot comprised
 // of parts, local and remote.
 type Robot interface {
 	// DiscoverComponents returns discovered component configurations.
-	DiscoverComponents(ctx context.Context, qs []discovery.Query) ([]discovery.Discovery, error)
+	DiscoverComponents(ctx context.Context, qs []resource.DiscoveryQuery) ([]resource.Discovery, error)
 
 	// RemoteByName returns a remote robot by name.
 	RemoteByName(name string) (Robot, bool)
 
 	// ResourceByName returns a resource by name
-	ResourceByName(name resource.Name) (interface{}, error)
+	ResourceByName(name resource.Name) (resource.Resource, error)
 
-	// RemoteNames returns the name of all known remote robots.
+	// RemoteNames returns the names of all known remote robots.
 	RemoteNames() []string
 
 	// ResourceNames returns a list of all known resource names.
 	ResourceNames() []resource.Name
 
-	// ResourceRPCSubtypes returns a list of all known resource RPC subtypes.
-	ResourceRPCSubtypes() []resource.RPCSubtype
+	// ResourceRPCAPIs returns a list of all known resource RPC APIs.
+	ResourceRPCAPIs() []resource.RPCAPI
 
 	// ProcessManager returns the process manager for the robot.
 	ProcessManager() pexec.ProcessManager
@@ -99,12 +86,6 @@ type Robot interface {
 	StopAll(ctx context.Context, extra map[resource.Name]map[string]interface{}) error
 }
 
-// A Refresher can refresh the contents of a robot.
-type Refresher interface {
-	// Refresh instructs the Robot to manually refresh the contents of itself.
-	Refresh(ctx context.Context) error
-}
-
 // A LocalRobot is a Robot that can have its parts modified.
 type LocalRobot interface {
 	Robot
@@ -121,16 +102,13 @@ type LocalRobot interface {
 	StartWeb(ctx context.Context, o weboptions.Options) error
 
 	// StopWeb stops the web server, will be a noop if server is not up.
-	StopWeb() error
+	StopWeb(ctx context.Context) error
 
 	// WebAddress returns the address of the web service.
 	WebAddress() (string, error)
 
 	// ModuleAddress returns the address (path) of the unix socket modules use to contact the parent.
 	ModuleAddress() (string, error)
-
-	// ModuleManager returns the module manager the robot is using.
-	ModuleManager() modif.ModuleManager
 }
 
 // A RemoteRobot is a Robot that was created through a connection.
@@ -150,8 +128,8 @@ type Status struct {
 }
 
 // AllResourcesByName returns an array of all resources that have this simple name.
-func AllResourcesByName(r Robot, name string) []interface{} {
-	all := []interface{}{}
+func AllResourcesByName(r Robot, name string) []resource.Resource {
+	all := []resource.Resource{}
 
 	for _, n := range r.ResourceNames() {
 		if n.ShortName() == name {
@@ -166,20 +144,20 @@ func AllResourcesByName(r Robot, name string) []interface{} {
 	return all
 }
 
-// NamesBySubtype is a helper for getting all names from the given Robot given the subtype.
-func NamesBySubtype(r Robot, subtype resource.Subtype) []string {
+// NamesByAPI is a helper for getting all names from the given Robot given the API.
+func NamesByAPI(r Robot, api resource.API) []string {
 	names := []string{}
 	for _, n := range r.ResourceNames() {
-		if n.Subtype == subtype {
+		if n.API == api {
 			names = append(names, n.ShortName())
 		}
 	}
 	return names
 }
 
-// TypeAndMethodDescFromMethod attempts to determine the resource subtype and its respective gRPC method information
+// TypeAndMethodDescFromMethod attempts to determine the resource API and its respective gRPC method information
 // from the given robot and method path. If nothing can be found, grpc.UnimplementedError is returned.
-func TypeAndMethodDescFromMethod(r Robot, method string) (*resource.RPCSubtype, *desc.MethodDescriptor, error) {
+func TypeAndMethodDescFromMethod(r Robot, method string) (*resource.RPCAPI, *desc.MethodDescriptor, error) {
 	methodParts := strings.Split(method, "/")
 	if len(methodParts) != 3 {
 		return nil, nil, grpc.UnimplementedError
@@ -187,11 +165,11 @@ func TypeAndMethodDescFromMethod(r Robot, method string) (*resource.RPCSubtype, 
 	protoSvc := methodParts[1]
 	protoMethod := methodParts[2]
 
-	var foundType *resource.RPCSubtype
-	for _, resSubtype := range r.ResourceRPCSubtypes() {
-		if resSubtype.Desc.GetFullyQualifiedName() == protoSvc {
-			subtypeCopy := resSubtype
-			foundType = &subtypeCopy
+	var foundType *resource.RPCAPI
+	for _, resAPI := range r.ResourceRPCAPIs() {
+		if resAPI.Desc.GetFullyQualifiedName() == protoSvc {
+			apiCopy := resAPI
+			foundType = &apiCopy
 			break
 		}
 	}
@@ -210,7 +188,7 @@ func TypeAndMethodDescFromMethod(r Robot, method string) (*resource.RPCSubtype, 
 func ResourceFromProtoMessage(
 	robot Robot,
 	msg *dynamic.Message,
-	subtype resource.Subtype,
+	api resource.API,
 ) (interface{}, resource.Name, error) {
 	// we assume a convention that there will be a field called name that will be the resource
 	// name and a string.
@@ -222,7 +200,7 @@ func ResourceFromProtoMessage(
 		return nil, resource.Name{}, fmt.Errorf("unable to determine resource name due to invalid name field %v", name)
 	}
 
-	fqName := resource.NameFromSubtype(subtype, name)
+	fqName := resource.NewName(api, name)
 
 	res, err := robot.ResourceByName(fqName)
 	if err != nil {
@@ -232,7 +210,7 @@ func ResourceFromProtoMessage(
 }
 
 // ResourceFromRobot returns a resource from a robot.
-func ResourceFromRobot[T any](robot Robot, name resource.Name) (T, error) {
+func ResourceFromRobot[T resource.Resource](robot Robot, name resource.Name) (T, error) {
 	var zero T
 	res, err := robot.ResourceByName(name)
 	if err != nil {
@@ -242,7 +220,7 @@ func ResourceFromRobot[T any](robot Robot, name resource.Name) (T, error) {
 	part, ok := res.(T)
 
 	if !ok {
-		return zero, NewUnimplementedInterfaceError[T](res)
+		return zero, resource.TypeError[T](res)
 	}
 	return part, nil
 }

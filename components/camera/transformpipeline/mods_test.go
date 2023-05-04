@@ -5,35 +5,22 @@ import (
 	"image"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"github.com/pion/mediadevices/pkg/prop"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
-	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/camera/videosource"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/utils"
 )
-
-var outDir string
-
-func init() {
-	var err error
-	outDir, err = testutils.TempDir("", "camera_transformpipeline")
-	if err != nil {
-		panic(err)
-	}
-	golog.Global().Debugf("out dir: %q", outDir)
-}
 
 func TestResizeColor(t *testing.T) {
 	img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board1_small.png"))
 	test.That(t, err, test.ShouldBeNil)
 
-	am := config.AttributeMap{
+	am := utils.AttributeMap{
 		"height_px": 20,
 		"width_px":  30,
 	}
@@ -59,7 +46,7 @@ func TestResizeDepth(t *testing.T) {
 		context.Background(), artifact.MustPath("rimage/board1_gray_small.png"))
 	test.That(t, err, test.ShouldBeNil)
 
-	am := config.AttributeMap{
+	am := utils.AttributeMap{
 		"height_px": 40,
 		"width_px":  60,
 	}
@@ -93,7 +80,7 @@ func TestRotateColorSource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
 
-	err = rimage.WriteImageToFile(outDir+"/test_rotate_color_source.png", rawImage)
+	err = rimage.WriteImageToFile(t.TempDir()+"/test_rotate_color_source.png", rawImage)
 	test.That(t, err, test.ShouldBeNil)
 
 	img2 := rimage.ConvertImage(rawImage)
@@ -127,7 +114,7 @@ func TestRotateDepthSource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
 
-	err = rimage.WriteImageToFile(outDir+"/test_rotate_depth_source.png", rawImage)
+	err = rimage.WriteImageToFile(t.TempDir()+"/test_rotate_depth_source.png", rawImage)
 	test.That(t, err, test.ShouldBeNil)
 
 	dm, err := rimage.ConvertImageToDepthMap(context.Background(), rawImage)
@@ -152,9 +139,9 @@ func BenchmarkColorRotate(b *testing.B) {
 	test.That(b, err, test.ShouldBeNil)
 
 	source := gostream.NewVideoSource(&videosource.StaticSource{ColorImg: img}, prop.Video{})
-	cam, err := camera.NewFromSource(context.Background(), source, nil, camera.ColorStream)
+	src, err := camera.WrapVideoSourceWithProjector(context.Background(), source, nil, camera.ColorStream)
 	test.That(b, err, test.ShouldBeNil)
-	rs, stream, err := newRotateTransform(context.Background(), cam, camera.ColorStream)
+	rs, stream, err := newRotateTransform(context.Background(), src, camera.ColorStream)
 	test.That(b, err, test.ShouldBeNil)
 	test.That(b, stream, test.ShouldEqual, camera.ColorStream)
 
@@ -173,9 +160,9 @@ func BenchmarkDepthRotate(b *testing.B) {
 	test.That(b, err, test.ShouldBeNil)
 
 	source := gostream.NewVideoSource(&videosource.StaticSource{DepthImg: img}, prop.Video{})
-	cam, err := camera.NewFromSource(context.Background(), source, nil, camera.DepthStream)
+	src, err := camera.WrapVideoSourceWithProjector(context.Background(), source, nil, camera.DepthStream)
 	test.That(b, err, test.ShouldBeNil)
-	rs, stream, err := newRotateTransform(context.Background(), cam, camera.DepthStream)
+	rs, stream, err := newRotateTransform(context.Background(), src, camera.DepthStream)
 	test.That(b, err, test.ShouldBeNil)
 	test.That(b, stream, test.ShouldEqual, camera.DepthStream)
 

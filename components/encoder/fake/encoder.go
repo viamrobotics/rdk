@@ -3,7 +3,7 @@ package fake
 
 import (
 	"context"
-	"errors"
+	"math"
 	"sync"
 	"time"
 
@@ -11,99 +11,101 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/encoder"
-	"go.viam.com/rdk/components/generic"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 )
 
-var fakeModel = resource.NewDefaultModel("fake")
+var fakeModel = resource.DefaultModelFamily.WithModel("fake")
 
 func init() {
-	_encoder := registry.Component{
+	resource.RegisterComponent(encoder.API, fakeModel, resource.Registration[encoder.Encoder, *Config]{
 		Constructor: func(
 			ctx context.Context,
-			deps registry.Dependencies,
-			cfg config.Component,
+			deps resource.Dependencies,
+			conf resource.Config,
 			logger golog.Logger,
-		) (interface{}, error) {
-			return newFakeEncoder(ctx, cfg)
+		) (encoder.Encoder, error) {
+			return NewEncoder(ctx, conf)
 		},
-	}
-	registry.RegisterComponent(encoder.Subtype, fakeModel, _encoder)
-
-	config.RegisterComponentAttributeMapConverter(
-		encoder.Subtype,
-		fakeModel,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var attr AttrConfig
-			return config.TransformAttributeMapToStruct(&attr, attributes)
-		}, &AttrConfig{})
+	})
 }
 
-// newFakeEncoder creates a new Encoder.
-//
-//nolint:unparam
-func newFakeEncoder(
+// NewEncoder creates a new Encoder.
+func NewEncoder(
 	ctx context.Context,
-	cfg config.Component,
+	cfg resource.Config,
 ) (encoder.Encoder, error) {
-	e := &Encoder{
+	e := &fakeEncoder{
+		Named:        cfg.ResourceName().AsNamed(),
 		position:     0,
-		positionType: encoder.PositionTypeTICKS,
+		positionType: encoder.PositionTypeTicks,
 	}
-	e.updateRate = cfg.ConvertedAttributes.(*AttrConfig).UpdateRate
+	if err := e.Reconfigure(ctx, nil, cfg); err != nil {
+		return nil, err
+	}
 
-	e.Start(ctx)
+	e.start(ctx)
 	return e, nil
 }
 
-// AttrConfig describes the configuration of a fake encoder.
-type AttrConfig struct {
+func (e *fakeEncoder) Reconfigure(
+	ctx context.Context,
+	deps resource.Dependencies,
+	conf resource.Config,
+) error {
+	newConf, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return err
+	}
+	e.mu.Lock()
+	e.updateRate = newConf.UpdateRate
+	if e.updateRate == 0 {
+		e.updateRate = 100
+	}
+	e.mu.Unlock()
+	return nil
+}
+
+// Config describes the configuration of a fake encoder.
+type Config struct {
 	UpdateRate int64 `json:"update_rate_msec,omitempty"`
 }
 
 // Validate ensures all parts of a config is valid.
-func (cfg *AttrConfig) Validate(path string) error {
-	return nil
+func (cfg *Config) Validate(path string) ([]string, error) {
+	return nil, nil
 }
 
-// Encoder keeps track of a fake motor position.
-type Encoder struct {
-	mu                      sync.Mutex
-	position                int64
+// fakeEncoder keeps track of a fake motor position.
+type fakeEncoder struct {
+	resource.Named
+	resource.TriviallyCloseable
+
 	positionType            encoder.PositionType
-	speed                   float64 // ticks per minute
-	updateRate              int64   // update position in start every updateRate ms
 	activeBackgroundWorkers sync.WaitGroup
 
-	generic.Unimplemented
+	mu         sync.RWMutex
+	position   int64
+	speed      float64 // ticks per minute
+	updateRate int64   // update position in start every updateRate ms
 }
 
 // GetPosition returns the current position in terms of ticks or
 // degrees, and whether it is a relative or absolute position.
-func (e *Encoder) GetPosition(
+func (e *fakeEncoder) GetPosition(
 	ctx context.Context,
-	positionType *encoder.PositionType,
+	positionType encoder.PositionType,
 	extra map[string]interface{},
 ) (float64, encoder.PositionType, error) {
-	if positionType != nil && *positionType == encoder.PositionTypeDEGREES {
-		err := errors.New("Encoder does not support PositionType Angle Degrees, use a different PositionType")
-		return 0, *positionType, err
+	if positionType == encoder.PositionTypeDegrees {
+		return math.NaN(), encoder.PositionTypeUnspecified, encoder.NewPositionTypeUnsupportedError(positionType)
 	}
-	e.mu.Lock()
-	defer e.mu.Unlock()
+	e.mu.RLock()
+	defer e.mu.RUnlock()
 	return float64(e.position), e.positionType, nil
 }
 
 // Start starts a background thread to run the encoder.
-func (e *Encoder) Start(cancelCtx context.Context) {
-	if e.updateRate == 0 {
-		e.mu.Lock()
-		e.updateRate = 100
-		e.mu.Unlock()
-	}
-
+func (e *fakeEncoder) start(cancelCtx context.Context) {
 	e.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
 		for {
@@ -113,12 +115,15 @@ func (e *Encoder) Start(cancelCtx context.Context) {
 			default:
 			}
 
-			if !utils.SelectContextOrWait(cancelCtx, time.Duration(e.updateRate)*time.Millisecond) {
+			e.mu.RLock()
+			updateRate := e.updateRate
+			e.mu.RUnlock()
+			if !utils.SelectContextOrWait(cancelCtx, time.Duration(updateRate)*time.Millisecond) {
 				return
 			}
 
 			e.mu.Lock()
-			e.position += int64(e.speed / float64(60*1000/e.updateRate))
+			e.position += int64(e.speed / float64(60*1000/updateRate))
 			e.mu.Unlock()
 		}
 	}, e.activeBackgroundWorkers.Done)
@@ -126,7 +131,7 @@ func (e *Encoder) Start(cancelCtx context.Context) {
 
 // ResetPosition sets the current position of the motor (adjusted by a given offset)
 // to be its new zero position.
-func (e *Encoder) ResetPosition(ctx context.Context, extra map[string]interface{}) error {
+func (e *fakeEncoder) ResetPosition(ctx context.Context, extra map[string]interface{}) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.position = int64(0)
@@ -134,15 +139,22 @@ func (e *Encoder) ResetPosition(ctx context.Context, extra map[string]interface{
 }
 
 // GetProperties returns a list of all the position types that are supported by a given encoder.
-func (e *Encoder) GetProperties(ctx context.Context, extra map[string]interface{}) (map[encoder.Feature]bool, error) {
+func (e *fakeEncoder) GetProperties(ctx context.Context, extra map[string]interface{}) (map[encoder.Feature]bool, error) {
 	return map[encoder.Feature]bool{
 		encoder.TicksCountSupported:   true,
 		encoder.AngleDegreesSupported: false,
 	}, nil
 }
 
+// Encoder is a fake encoder used for testing.
+type Encoder interface {
+	encoder.Encoder
+	SetSpeed(ctx context.Context, speed float64) error
+	SetPosition(ctx context.Context, position int64) error
+}
+
 // SetSpeed sets the speed of the fake motor the encoder is measuring.
-func (e *Encoder) SetSpeed(ctx context.Context, speed float64) error {
+func (e *fakeEncoder) SetSpeed(ctx context.Context, speed float64) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.speed = speed
@@ -150,7 +162,7 @@ func (e *Encoder) SetSpeed(ctx context.Context, speed float64) error {
 }
 
 // SetPosition sets the position of the encoder.
-func (e *Encoder) SetPosition(ctx context.Context, position int64) error {
+func (e *fakeEncoder) SetPosition(ctx context.Context, position int64) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.position = position

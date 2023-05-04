@@ -18,11 +18,9 @@ import (
 	"go.viam.com/utils"
 
 	picommon "go.viam.com/rdk/components/board/pi/common"
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/servo"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
-	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 )
 
 var (
@@ -32,33 +30,36 @@ var (
 
 // init registers a pi servo based on pigpio.
 func init() {
-	registry.RegisterComponent(
-		servo.Subtype,
-		picommon.ModelName,
-		registry.Component{
-			Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-				attr, ok := config.ConvertedAttributes.(*picommon.ServoConfig)
-				if !ok {
-					return nil, errors.New("need servo configuration")
+	resource.RegisterComponent(
+		servo.API,
+		picommon.Model,
+		resource.Registration[servo.Servo, *picommon.ServoConfig]{
+			Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (servo.Servo, error) {
+				newConf, err := resource.NativeConfig[*picommon.ServoConfig](conf)
+				if err != nil {
+					return nil, err
 				}
 
-				if attr.Pin == "" {
+				if newConf.Pin == "" {
 					return nil, errors.New("need pin for pi servo")
 				}
 
-				bcom, have := broadcomPinFromHardwareLabel(attr.Pin)
+				bcom, have := broadcomPinFromHardwareLabel(newConf.Pin)
 				if !have {
-					return nil, errors.Errorf("no hw mapping for %s", attr.Pin)
+					return nil, errors.Errorf("no hw mapping for %s", newConf.Pin)
 				}
 
-				theServo := &piPigpioServo{pin: C.uint(bcom)}
-				if attr.Min > 0 {
-					theServo.min = uint32(attr.Min)
+				theServo := &piPigpioServo{
+					Named: conf.ResourceName().AsNamed(),
+					pin:   C.uint(bcom),
 				}
-				if attr.Max > 0 {
-					theServo.max = uint32(attr.Max)
+				if newConf.Min > 0 {
+					theServo.min = uint32(newConf.Min)
 				}
-				theServo.maxRotation = uint32(attr.MaxRotation)
+				if newConf.Max > 0 {
+					theServo.max = uint32(newConf.Max)
+				}
+				theServo.maxRotation = uint32(newConf.MaxRotation)
 				if theServo.maxRotation == 0 {
 					theServo.maxRotation = uint32(servoDefaultMaxRotation)
 				}
@@ -69,22 +70,22 @@ func init() {
 					return nil, errors.New("maxRotation is less than maximum")
 				}
 
-				theServo.pinname = attr.Pin
+				theServo.pinname = newConf.Pin
 
-				if attr.StartPos == nil {
+				if newConf.StartPos == nil {
 					setPos := C.gpioServo(theServo.pin, C.uint(1500)) // a 1500ms pulsewidth positions the servo at 90 degrees
 					errorCode := int(setPos)
 					if errorCode != 0 {
 						return nil, picommon.ConvertErrorCodeToMessage(errorCode, "gpioServo failed with")
 					}
 				} else {
-					setPos := C.gpioServo(theServo.pin, C.uint(angleToPulseWidth(int(*attr.StartPos), int(theServo.maxRotation))))
+					setPos := C.gpioServo(theServo.pin, C.uint(angleToPulseWidth(int(*newConf.StartPos), int(theServo.maxRotation))))
 					errorCode := int(setPos)
 					if errorCode != 0 {
 						return nil, picommon.ConvertErrorCodeToMessage(errorCode, "gpioServo failed with")
 					}
 				}
-				if attr.HoldPos == nil || *attr.HoldPos {
+				if newConf.HoldPos == nil || *newConf.HoldPos {
 					theServo.holdPos = true
 				} else {
 					theServo.res = C.gpioGetServoPulsewidth(theServo.pin)
@@ -98,11 +99,11 @@ func init() {
 	)
 }
 
-var _ = servo.LocalServo(&piPigpioServo{})
-
 // piPigpioServo implements a servo.Servo using pigpio.
 type piPigpioServo struct {
-	generic.Unimplemented
+	resource.Named
+	resource.AlwaysRebuild
+	resource.TriviallyCloseable
 	pin         C.uint
 	pinname     string
 	res         C.int

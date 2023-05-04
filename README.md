@@ -36,7 +36,7 @@ Example with a dummy configuration: `go run web/cmd/server/main.go -config etc/c
 ### Examples
 * [SimpleServer](https://pkg.go.dev/go.viam.com/rdk/examples/simpleserver) - example for creating a simple custom server.
 * [MySensor](https://pkg.go.dev/go.viam.com/rdk/examples/mysensor) - example for creating a custom sensor.
-* [MyComponent](https://pkg.go.dev/go.viam.com/rdk/examples/mycomponent) - example for creating a custom resource subtype.
+* [MyComponent](https://pkg.go.dev/go.viam.com/rdk/examples/mycomponent) - example for creating a custom resource API.
 
 ### SDKs
 
@@ -44,6 +44,8 @@ Multiple SDKs are available for writing client applications that interface with 
 
 * Go: Provided by this repository [here](https://github.com/viamrobotics/rdk/tree/main/robot/client). Documentation can be found [here](https://pkg.go.dev/go.viam.com/rdk/robot/client)
 * Python: [Docs](https://python.viam.dev), [Repository](https://github.com/viamrobotics/viam-python-sdk)
+* Typescript: [Docs](https://ts.viam.dev/), [Repository](https://github.com/viamrobotics/viam-typescript-sdk/)
+* C++: [Docs](https://cpp.viam.dev/), [Repository](https://github.com/viamrobotics/viam-cpp-sdk/)
 * Rust: [Repository](https://github.com/viamrobotics/viam-rust-sdk)
 
 ## Development

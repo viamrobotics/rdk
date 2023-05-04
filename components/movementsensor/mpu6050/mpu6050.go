@@ -31,16 +31,13 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/movementsensor"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	rutils "go.viam.com/rdk/utils"
 )
 
-var model = resource.NewDefaultModel("gyro-mpu6050")
+var model = resource.DefaultModelFamily.WithModel("gyro-mpu6050")
 
 const (
 	defaultAddressRegister = 117
@@ -48,8 +45,8 @@ const (
 	alternateAddress       = 0x69
 )
 
-// AttrConfig is used to configure the attributes of the chip.
-type AttrConfig struct {
+// Config is used to configure the attributes of the chip.
+type Config struct {
 	BoardName              string `json:"board"`
 	I2cBus                 string `json:"i2c_bus"`
 	UseAlternateI2CAddress bool   `json:"use_alt_i2c_address,omitempty"`
@@ -57,43 +54,28 @@ type AttrConfig struct {
 
 // Validate ensures all parts of the config are valid, and then returns the list of things we
 // depend on.
-func (cfg *AttrConfig) Validate(path string) ([]string, error) {
-	if cfg.BoardName == "" {
+func (conf *Config) Validate(path string) ([]string, error) {
+	if conf.BoardName == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
 	}
-	if cfg.I2cBus == "" {
+	if conf.I2cBus == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "i2c_bus")
 	}
 
 	var deps []string
-	deps = append(deps, cfg.BoardName)
+	deps = append(deps, conf.BoardName)
 	return deps, nil
 }
 
 func init() {
-	registry.RegisterComponent(movementsensor.Subtype, model, registry.Component{
-		// Note: this looks like it can be simplified to just be `Constructor: NewMpu6050`.
-		// However, if you try that, the compiler says the types are subtly incompatible. Just
-		// leave it like this.
-		Constructor: func(
-			ctx context.Context,
-			deps registry.Dependencies,
-			cfg config.Component,
-			logger golog.Logger,
-		) (interface{}, error) {
-			return NewMpu6050(ctx, deps, cfg, logger)
-		},
+	resource.RegisterComponent(movementsensor.API, model, resource.Registration[movementsensor.MovementSensor, *Config]{
+		Constructor: NewMpu6050,
 	})
-
-	config.RegisterComponentAttributeMapConverter(movementsensor.Subtype, model,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var attr AttrConfig
-			return config.TransformAttributeMapToStruct(&attr, attributes)
-		},
-		&AttrConfig{})
 }
 
 type mpu6050 struct {
+	resource.Named
+	resource.AlwaysRebuild
 	bus        board.I2C
 	i2cAddress byte
 	mu         sync.Mutex
@@ -110,8 +92,6 @@ type mpu6050 struct {
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
 	logger                  golog.Logger
-
-	generic.Unimplemented // Implements DoCommand with an ErrUnimplemented response
 }
 
 func addressReadError(err error, address byte, bus, board string) error {
@@ -128,30 +108,30 @@ func unexpectedDeviceError(address, defaultAddress byte) error {
 // NewMpu6050 constructs a new Mpu6050 object.
 func NewMpu6050(
 	ctx context.Context,
-	deps registry.Dependencies,
-	rawConfig config.Component,
+	deps resource.Dependencies,
+	conf resource.Config,
 	logger golog.Logger,
 ) (movementsensor.MovementSensor, error) {
-	cfg, ok := rawConfig.ConvertedAttributes.(*AttrConfig)
-	if !ok {
-		return nil, rutils.NewUnexpectedTypeError(cfg, rawConfig.ConvertedAttributes)
+	newConf, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return nil, err
 	}
 
-	b, err := board.FromDependencies(deps, cfg.BoardName)
+	b, err := board.FromDependencies(deps, newConf.BoardName)
 	if err != nil {
 		return nil, err
 	}
 	localB, ok := b.(board.LocalBoard)
 	if !ok {
-		return nil, errors.Errorf("board %s is not local", cfg.BoardName)
+		return nil, errors.Errorf("board %s is not local", newConf.BoardName)
 	}
-	bus, ok := localB.I2CByName(cfg.I2cBus)
+	bus, ok := localB.I2CByName(newConf.I2cBus)
 	if !ok {
-		return nil, errors.Errorf("can't find I2C bus '%s' for MPU6050 sensor", cfg.I2cBus)
+		return nil, errors.Errorf("can't find I2C bus '%s' for MPU6050 sensor", newConf.I2cBus)
 	}
 
 	var address byte
-	if cfg.UseAlternateI2CAddress {
+	if newConf.UseAlternateI2CAddress {
 		address = alternateAddress
 	} else {
 		address = expectedDefaultAddress
@@ -160,6 +140,7 @@ func NewMpu6050(
 
 	backgroundContext, cancelFunc := context.WithCancel(ctx)
 	sensor := &mpu6050{
+		Named:             conf.ResourceName().AsNamed(),
 		bus:               bus,
 		i2cAddress:        address,
 		logger:            logger,
@@ -174,7 +155,7 @@ func NewMpu6050(
 	// back the device's non-alternative address (0x68)
 	defaultAddress, err := sensor.readByte(ctx, defaultAddressRegister)
 	if err != nil {
-		return nil, addressReadError(err, address, cfg.I2cBus, cfg.BoardName)
+		return nil, addressReadError(err, address, newConf.I2cBus, newConf.BoardName)
 	}
 	if defaultAddress != expectedDefaultAddress {
 		return nil, unexpectedDeviceError(address, defaultAddress)
@@ -295,8 +276,8 @@ func toLinearAcceleration(data []byte) r3.Vector {
 	y := int(rutils.Int16FromBytesBE(data[2:4]))
 	z := int(rutils.Int16FromBytesBE(data[4:6]))
 
-	// The scale is +/- 2G's, but our units should be mm/sec/sec.
-	maxAcceleration := 2.0 * 9.81 /* m/sec/sec */ * 1000.0 /* mm/m */
+	// The scale is +/- 2G's, but our units should be m/sec/sec.
+	maxAcceleration := 2.0 * 9.81 /* m/sec/sec */
 	return r3.Vector{
 		X: setScale(x, maxAcceleration),
 		Y: setScale(y, maxAcceleration),

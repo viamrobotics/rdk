@@ -53,15 +53,13 @@ func TestFromReaderValidate(t *testing.T) {
 		strings.NewReader(`{"components": [{"name": "foo", "type": "arm", "model": "foo"}]}`),
 		logger)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, conf, test.ShouldResemble, &config.Config{
+	expected := &config.Config{
 		ConfigFilePath: "somepath",
-		Components: []config.Component{
+		Components: []resource.Config{
 			{
-				Namespace: resource.ResourceNamespaceRDK,
-				Name:      "foo",
-				API:       arm.Subtype,
-				Model:     resource.NewDefaultModel("foo"),
-				Type:      arm.SubtypeName,
+				Name:  "foo",
+				API:   arm.API,
+				Model: resource.DefaultModelFamily.WithModel("foo"),
 			},
 		},
 		Network: config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{
@@ -71,97 +69,7 @@ func TestFromReaderValidate(t *testing.T) {
 				HeartbeatWindow: config.DefaultSessionHeartbeatWindow,
 			},
 		}},
-	})
-
-	badComponentMapConverter := func() {
-		config.RegisterComponentAttributeMapConverter(
-			resource.NewSubtype(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, "somecomponent"),
-			resource.NewDefaultModel("somemodel"),
-			func(attributes config.AttributeMap) (interface{}, error) {
-				return &conf, nil
-			}, nil)
 	}
-	test.That(t, badComponentMapConverter, test.ShouldPanic)
-
-	badServiceMapConverter := func() {
-		config.RegisterServiceAttributeMapConverter(
-			resource.NewSubtype(resource.ResourceNamespaceRDK, resource.ResourceTypeService, "someservice"),
-			resource.DefaultServiceModel,
-			func(attributes config.AttributeMap) (interface{}, error) {
-				return &conf, nil
-			}, nil,
-		)
-	}
-	test.That(t, badServiceMapConverter, test.ShouldPanic)
-}
-
-func TestTransformAttributeMapToStruct(t *testing.T) {
-	type myType struct {
-		A          string            `json:"a"`
-		B          string            `json:"b"`
-		Attributes map[string]string `json:"attributes"`
-	}
-
-	var mt myType
-	attrs := config.AttributeMap{
-		"a": "1",
-		"b": "2",
-		"c": "3",
-		"d": "4",
-		"e": 5,
-	}
-	transformed, err := config.TransformAttributeMapToStruct(&mt, attrs)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, transformed, test.ShouldResemble, &myType{
-		A: "1",
-		B: "2",
-		Attributes: map[string]string{
-			"c": "3",
-			"d": "4",
-		},
-	})
-
-	mt = myType{Attributes: map[string]string{}}
-	transformed, err = config.TransformAttributeMapToStruct(&mt, attrs)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, transformed, test.ShouldResemble, &myType{
-		A: "1",
-		B: "2",
-		Attributes: map[string]string{
-			"c": "3",
-			"d": "4",
-		},
-	})
-
-	type myExtendedType struct {
-		A          string              `json:"a"`
-		B          string              `json:"b"`
-		Attributes config.AttributeMap `json:"attributes"`
-	}
-
-	var met myExtendedType
-	transformed, err = config.TransformAttributeMapToStruct(&met, attrs)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, transformed, test.ShouldResemble, &myExtendedType{
-		A: "1",
-		B: "2",
-		Attributes: config.AttributeMap{
-			"c": "3",
-			"d": "4",
-			"e": 5,
-		},
-	})
-
-	met = myExtendedType{Attributes: config.AttributeMap{}}
-	transformed, err = config.TransformAttributeMapToStruct(&met, attrs)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, transformed, test.ShouldResemble, &myExtendedType{
-		A: "1",
-		B: "2",
-		Attributes: config.AttributeMap{
-			"c": "3",
-			"d": "4",
-			"e": 5,
-		},
-	})
+	test.That(t, expected.Ensure(false, logger), test.ShouldBeNil)
+	test.That(t, conf, test.ShouldResemble, expected)
 }

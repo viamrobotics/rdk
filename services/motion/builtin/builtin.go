@@ -3,48 +3,95 @@ package builtin
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"sync"
+
+	"github.com/pkg/errors"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 
 	servicepb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/rdk/components/arm"
-	"go.viam.com/rdk/components/generic"
-	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/internal"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/services/motion"
+	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/spatialmath"
 )
 
 func init() {
-	registry.RegisterService(motion.Subtype, resource.DefaultServiceModel, registry.Service{
-		RobotConstructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
-			return NewBuiltIn(ctx, r, c, logger)
-		},
-	})
-	resource.AddDefaultService(motion.Named(resource.DefaultServiceName))
+	resource.RegisterDefaultService(
+		motion.API,
+		resource.DefaultServiceModel,
+		resource.Registration[motion.Service, *Config]{
+			Constructor: func(
+				ctx context.Context,
+				deps resource.Dependencies,
+				conf resource.Config,
+				logger golog.Logger,
+			) (motion.Service, error) {
+				return NewBuiltIn(ctx, deps, conf, logger)
+			},
+			WeakDependencies: []internal.ResourceMatcher{internal.SLAMDependencyWildcardMatcher},
+		})
+}
+
+// Config describes how to configure the service; currently only used for specifying dependency on framesystem service
+type Config struct {
+}
+
+// Validate here adds a dependency on the internal framesystem service
+func (c *Config) Validate(path string) ([]string, error) {
+	return []string{framesystem.InternalServiceName.String()}, nil
 }
 
 // NewBuiltIn returns a new move and grab service for the given robot.
-func NewBuiltIn(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (motion.Service, error) {
-	return &builtIn{
-		r:      r,
+func NewBuiltIn(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (motion.Service, error) {
+	ms := &builtIn{
+		Named:  conf.ResourceName().AsNamed(),
 		logger: logger,
-	}, nil
+	}
+
+	if err := ms.Reconfigure(ctx, deps, conf); err != nil {
+		return nil, err
+	}
+	return ms, nil
+}
+
+// Reconfigure updates the motion service when the config has changed.
+func (ms *builtIn) Reconfigure(
+	ctx context.Context,
+	deps resource.Dependencies,
+	conf resource.Config,
+) (err error) {
+	ms.lock.Lock()
+	defer ms.lock.Unlock()
+
+	slamServices := make(map[resource.Name]slam.Service)
+	for name, dep := range deps {
+		switch dep := dep.(type) {
+		case framesystem.Service:
+			ms.fsService = dep
+		case slam.Service:
+			slamServices[name] = dep
+		}
+	}
+	ms.slamServices = slamServices
+	return nil
 }
 
 type builtIn struct {
-	generic.Unimplemented
-	r      robot.Robot
-	logger golog.Logger
+	resource.Named
+	resource.TriviallyCloseable
+	fsService    framesystem.Service
+	slamServices map[resource.Name]slam.Service
+	logger       golog.Logger
+	lock         sync.Mutex
 }
 
 // Move takes a goal location and will plan and execute a movement to move a component specified by its name to that destination.
@@ -57,19 +104,19 @@ func (ms *builtIn) Move(
 	extra map[string]interface{},
 ) (bool, error) {
 	operation.CancelOtherWithLabel(ctx, "motion-service")
-	logger := ms.r.Logger()
+	logger := ms.logger
 
 	// get goal frame
 	goalFrameName := destination.Parent()
 	logger.Debugf("goal given in frame of %q", goalFrameName)
 
-	frameSys, err := framesystem.RobotFrameSystem(ctx, ms.r, worldState.Transforms)
+	frameSys, err := ms.fsService.FrameSystem(ctx, worldState.Transforms())
 	if err != nil {
 		return false, err
 	}
 
 	// build maps of relevant components and inputs from initial inputs
-	fsInputs, resources, err := framesystem.RobotFsCurrentInputs(ctx, ms.r, frameSys)
+	fsInputs, resources, err := ms.fsService.AllCurrentInputs(ctx)
 	if err != nil {
 		return false, err
 	}
@@ -128,7 +175,12 @@ func (ms *builtIn) MoveOnMap(
 	slamName resource.Name,
 	extra map[string]interface{},
 ) (bool, error) {
-	return false, errors.New("this is not implemented yet")
+	slamService, ok := ms.slamServices[slamName]
+	if !ok {
+		return false, errors.Wrap(resource.NewNotFoundError(slamName), "motion service missing weak dependency")
+	}
+	_ = slamService
+	return true, nil
 }
 
 // MoveSingleComponent will pass through a move command to a component with a MoveToPosition method that takes a pose. Arms are the only
@@ -144,32 +196,35 @@ func (ms *builtIn) MoveSingleComponent(
 	extra map[string]interface{},
 ) (bool, error) {
 	operation.CancelOtherWithLabel(ctx, "motion-service")
-	logger := ms.r.Logger()
 
-	components := robot.AllResourcesByName(ms.r, componentName.ShortName())
-	if len(components) != 1 {
-		return false, fmt.Errorf("got %d resources instead of 1 for (%s)", len(components), componentName.ShortName())
+	// Get the arm and all initial inputs
+	fsInputs, allResources, err := ms.fsService.AllCurrentInputs(ctx)
+	if err != nil {
+		return false, err
 	}
-	movableArm, ok := components[0].(arm.Arm)
+	ms.logger.Debugf("frame system inputs: %v", fsInputs)
+
+	armResource, ok := allResources[componentName.ShortName()]
 	if !ok {
-		return false, fmt.Errorf("%v(%T) is not an Arm and cannot MoveToPosition with a Pose", componentName.ShortName(), components[0])
+		return false, fmt.Errorf("could not find a resource named %v", componentName.ShortName())
+	}
+	movableArm, ok := armResource.(arm.Arm)
+	if !ok {
+		return false, fmt.Errorf(
+			"could not cast resource named %v to an arm. MoveSingleComponent only supports moving arms for now",
+			componentName.ShortName(),
+		)
 	}
 
 	// get destination pose in frame of movable component
 	goalPose := destination.Pose()
 	if destination.Parent() != componentName.ShortName() {
-		logger.Debugf("goal given in frame of %q", destination.Parent())
+		ms.logger.Debugf("goal given in frame of %q", destination.Parent())
 
-		frameSys, err := framesystem.RobotFrameSystem(ctx, ms.r, worldState.Transforms)
+		frameSys, err := ms.fsService.FrameSystem(ctx, worldState.Transforms())
 		if err != nil {
 			return false, err
 		}
-		// get the initial inputs
-		fsInputs, _, err := framesystem.RobotFsCurrentInputs(ctx, ms.r, frameSys)
-		if err != nil {
-			return false, err
-		}
-		logger.Debugf("frame system inputs: %v", fsInputs)
 
 		// re-evaluate goalPose to be in the frame we're going to move in
 		tf, err := frameSys.Transform(fsInputs, destination, componentName.ShortName()+"_origin")
@@ -178,9 +233,9 @@ func (ms *builtIn) MoveSingleComponent(
 		}
 		goalPoseInFrame, _ := tf.(*referenceframe.PoseInFrame)
 		goalPose = goalPoseInFrame.Pose()
-		logger.Debugf("converted goal pose %q", spatialmath.PoseToProtobuf(goalPose))
+		ms.logger.Debugf("converted goal pose %q", spatialmath.PoseToProtobuf(goalPose))
 	}
-	err := movableArm.MoveToPosition(ctx, goalPose, extra)
+	err = movableArm.MoveToPosition(ctx, goalPose, extra)
 	if err == nil {
 		return true, nil
 	}
@@ -197,7 +252,7 @@ func (ms *builtIn) GetPose(
 	if destinationFrame == "" {
 		destinationFrame = referenceframe.World
 	}
-	return ms.r.TransformPose(
+	return ms.fsService.TransformPose(
 		ctx,
 		referenceframe.NewPoseInFrame(
 			componentName.ShortName(),

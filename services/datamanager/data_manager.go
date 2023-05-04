@@ -3,137 +3,95 @@ package datamanager
 
 import (
 	"context"
-	"sync"
+	"encoding/json"
+	"reflect"
 
-	"github.com/edaniels/golog"
-	"github.com/pkg/errors"
 	servicepb "go.viam.com/api/service/datamanager/v1"
-	goutils "go.viam.com/utils"
-	"go.viam.com/utils/rpc"
+	"golang.org/x/exp/slices"
 
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 )
 
 func init() {
-	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
-		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
-			return rpcServer.RegisterServiceServer(
-				ctx,
-				&servicepb.DataManagerService_ServiceDesc,
-				NewServer(subtypeSvc),
-				servicepb.RegisterDataManagerServiceHandlerFromEndpoint,
-			)
+	resource.RegisterAPIWithAssociation(
+		API,
+		resource.APIRegistration[Service]{
+			RPCServiceServerConstructor: NewRPCServiceServer,
+			RPCServiceHandler:           servicepb.RegisterDataManagerServiceHandlerFromEndpoint,
+			RPCServiceDesc:              &servicepb.DataManagerService_ServiceDesc,
+			RPCClient:                   NewClientFromConn,
+			MaxInstance:                 resource.DefaultMaxInstance,
 		},
-		RPCServiceDesc: &servicepb.DataManagerService_ServiceDesc,
-		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
-			return NewClientFromConn(ctx, conn, name, logger)
+		resource.AssociatedConfigRegistration[*DataCaptureConfigs]{
+			AttributeMapConverter: func(attributes utils.AttributeMap) (*DataCaptureConfigs, error) {
+				md, err := json.Marshal(attributes)
+				if err != nil {
+					return nil, err
+				}
+				var conf DataCaptureConfigs
+				if err := json.Unmarshal(md, &conf); err != nil {
+					return nil, err
+				}
+				return &conf, nil
+			},
 		},
-		Reconfigurable: WrapWithReconfigurable,
-		MaxInstance:    resource.DefaultMaxInstance,
-	})
+	)
 }
 
 // Service defines what a Data Manager Service should expose to the users.
 type Service interface {
+	resource.Resource
 	Sync(ctx context.Context, extra map[string]interface{}) error
-	resource.Generic
-}
-
-var (
-	_ = Service(&reconfigurableDataManager{})
-	_ = resource.Reconfigurable(&reconfigurableDataManager{})
-	_ = goutils.ContextCloser(&reconfigurableDataManager{})
-)
-
-// NewUnimplementedInterfaceError is used when there is a failed interface check.
-func NewUnimplementedInterfaceError(actual interface{}) error {
-	return utils.NewUnimplementedInterfaceError((*Service)(nil), actual)
 }
 
 // SubtypeName is the name of the type of service.
-const SubtypeName = resource.SubtypeName("data_manager")
+const SubtypeName = "data_manager"
 
-// Subtype is a constant that identifies the data manager service resource subtype.
-var Subtype = resource.NewSubtype(
-	resource.ResourceNamespaceRDK,
-	resource.ResourceTypeService,
-	SubtypeName,
-)
+// API is a variable that identifies the data manager service resource API.
+var API = resource.APINamespaceRDK.WithServiceType(SubtypeName)
 
 // Named is a helper for getting the named datamanager's typed resource name.
 func Named(name string) resource.Name {
-	return resource.NameFromSubtype(Subtype, name)
+	return resource.NewName(API, name)
 }
 
-type reconfigurableDataManager struct {
-	mu     sync.RWMutex
-	name   resource.Name
-	actual Service
+// DataCaptureConfigs specify a list of methods to capture on resources.
+type DataCaptureConfigs struct {
+	CaptureMethods []DataCaptureConfig `json:"capture_methods"`
 }
 
-func (svc *reconfigurableDataManager) Name() resource.Name {
-	return svc.name
-}
-
-func (svc *reconfigurableDataManager) Sync(ctx context.Context, extra map[string]interface{}) error {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	return svc.actual.Sync(ctx, extra)
-}
-
-func (svc *reconfigurableDataManager) DoCommand(ctx context.Context,
-	cmd map[string]interface{},
-) (map[string]interface{}, error) {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	return svc.actual.DoCommand(ctx, cmd)
-}
-
-func (svc *reconfigurableDataManager) Close(ctx context.Context) error {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	return goutils.TryClose(ctx, svc.actual)
-}
-
-func (svc *reconfigurableDataManager) Update(ctx context.Context, resources *config.Config) error {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	updateableSvc, ok := svc.actual.(config.Updateable)
-	if !ok {
-		return errors.New("reconfigurable datamanager is not ConfigUpdateable")
+// UpdateResourceNames allows the caller to modify the resource names of data capture in place.
+func (dcs *DataCaptureConfigs) UpdateResourceNames(updater func(old resource.Name) resource.Name) {
+	for idx := range dcs.CaptureMethods {
+		dcs.CaptureMethods[idx].Name = updater(dcs.CaptureMethods[idx].Name)
 	}
-	return updateableSvc.Update(ctx, resources)
 }
 
-// Reconfigure replaces the old data manager service with a new data manager.
-func (svc *reconfigurableDataManager) Reconfigure(ctx context.Context, newSvc resource.Reconfigurable) error {
-	svc.mu.Lock()
-	defer svc.mu.Unlock()
-	rSvc, ok := newSvc.(*reconfigurableDataManager)
-	if !ok {
-		return utils.NewUnexpectedTypeError(svc, newSvc)
-	}
-	if err := goutils.TryClose(ctx, svc.actual); err != nil {
-		golog.Global().Errorw("error closing old", "error", err)
-	}
-	svc.actual = rSvc.actual
-	return nil
+// DataCaptureConfig is used to initialize a collector for a component or remote.
+type DataCaptureConfig struct {
+	Resource           resource.Resource `json:"-"`
+	Name               resource.Name     `json:"name"`
+	Method             string            `json:"method"`
+	CaptureFrequencyHz float32           `json:"capture_frequency_hz"`
+	CaptureQueueSize   int               `json:"capture_queue_size"`
+	CaptureBufferSize  int               `json:"capture_buffer_size"`
+	AdditionalParams   map[string]string `json:"additional_params"`
+	Disabled           bool              `json:"disabled"`
+	Tags               []string          `json:"tags,omitempty"`
+	CaptureDirectory   string            `json:"capture_directory"`
 }
 
-// WrapWithReconfigurable wraps a data_manager as a Reconfigurable.
-func WrapWithReconfigurable(s interface{}, name resource.Name) (resource.Reconfigurable, error) {
-	svc, ok := s.(Service)
-	if !ok {
-		return nil, NewUnimplementedInterfaceError(s)
-	}
-
-	if reconfigurable, ok := s.(*reconfigurableDataManager); ok {
-		return reconfigurable, nil
-	}
-
-	return &reconfigurableDataManager{name: name, actual: svc}, nil
+// Equals checks if one capture config is equal to another.
+func (c *DataCaptureConfig) Equals(other *DataCaptureConfig) bool {
+	return c.Resource == other.Resource &&
+		c.Name.String() == other.Name.String() &&
+		c.Method == other.Method &&
+		c.CaptureFrequencyHz == other.CaptureFrequencyHz &&
+		c.CaptureQueueSize == other.CaptureQueueSize &&
+		c.CaptureBufferSize == other.CaptureBufferSize &&
+		c.Disabled == other.Disabled &&
+		slices.Compare(c.Tags, other.Tags) == 0 &&
+		reflect.DeepEqual(c.AdditionalParams, other.AdditionalParams) &&
+		c.CaptureDirectory == other.CaptureDirectory
 }

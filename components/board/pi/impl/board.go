@@ -34,41 +34,41 @@ import (
 	"go.uber.org/multierr"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/board/v1"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/board/genericlinux"
 	picommon "go.viam.com/rdk/components/board/pi/common"
-	"go.viam.com/rdk/components/generic"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
-	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
 // init registers a pi board based on pigpio.
 func init() {
-	registry.RegisterComponent(
-		board.Subtype,
-		picommon.ModelName,
-		registry.Component{Constructor: func(
-			ctx context.Context,
-			_ registry.Dependencies,
-			config config.Component,
-			logger golog.Logger,
-		) (interface{}, error) {
-			boardConfig, ok := config.ConvertedAttributes.(*genericlinux.Config)
-			if !ok {
-				return nil, rdkutils.NewUnexpectedTypeError(boardConfig, config.ConvertedAttributes)
-			}
-			return NewPigpio(ctx, boardConfig, logger)
-		}})
+	resource.RegisterComponent(
+		board.API,
+		picommon.Model,
+		resource.Registration[board.Board, *genericlinux.Config]{
+			Constructor: func(
+				ctx context.Context,
+				_ resource.Dependencies,
+				conf resource.Config,
+				logger golog.Logger,
+			) (board.Board, error) {
+				boardConfig, err := resource.NativeConfig[*genericlinux.Config](conf)
+				if err != nil {
+					return nil, err
+				}
+				return NewPigpio(ctx, conf.ResourceName(), boardConfig, logger)
+			},
+		})
 }
 
 // piPigpio is an implementation of a board.Board of a Raspberry Pi
 // accessed via pigpio.
 type piPigpio struct {
-	generic.Unimplemented
+	resource.Named
+	resource.AlwaysRebuild
 	mu              sync.Mutex
 	interruptCtx    context.Context
 	interruptCancel context.CancelFunc
@@ -91,7 +91,8 @@ var (
 )
 
 // NewPigpio makes a new pigpio based Board using the given config.
-func NewPigpio(ctx context.Context, cfg *genericlinux.Config, logger golog.Logger) (board.LocalBoard, error) {
+// TODO(RSDK-RSDK-2691): implement reconfigure.
+func NewPigpio(ctx context.Context, name resource.Name, cfg *genericlinux.Config, logger golog.Logger) (board.LocalBoard, error) {
 	// this is so we can run it inside a daemon
 	internals := C.gpioCfgGetInternals()
 	internals |= C.PI_CFG_NOSIGHANDLER
@@ -103,6 +104,7 @@ func NewPigpio(ctx context.Context, cfg *genericlinux.Config, logger golog.Logge
 	// setup
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	piInstance := &piPigpio{
+		Named:           name.AsNamed(),
 		cfg:             cfg,
 		logger:          logger,
 		isClosed:        false,
@@ -454,13 +456,17 @@ func (s *piPigpioSPI) OpenHandle() (board.SPIHandle, error) {
 	return s.openHandle, nil
 }
 
+func (s *piPigpioSPI) Close(ctx context.Context) error {
+	return nil
+}
+
 func (s *piPigpioSPIHandle) Close() error {
 	s.isClosed = true
 	s.bus.mu.Unlock()
 	return nil
 }
 
-// SPINames returns the name of all known SPI buses.
+// SPINames returns the names of all known SPI buses.
 func (pi *piPigpio) SPINames() []string {
 	if len(pi.spis) == 0 {
 		return nil
@@ -472,7 +478,7 @@ func (pi *piPigpio) SPINames() []string {
 	return names
 }
 
-// I2CNames returns the name of all known SPI buses.
+// I2CNames returns the names of all known SPI buses.
 func (pi *piPigpio) I2CNames() []string {
 	if len(pi.i2cs) == 0 {
 		return nil
@@ -484,7 +490,7 @@ func (pi *piPigpio) I2CNames() []string {
 	return names
 }
 
-// AnalogReaderNames returns the name of all known analog readers.
+// AnalogReaderNames returns the names of all known analog readers.
 func (pi *piPigpio) AnalogReaderNames() []string {
 	names := []string{}
 	for k := range pi.analogs {
@@ -493,7 +499,7 @@ func (pi *piPigpio) AnalogReaderNames() []string {
 	return names
 }
 
-// DigitalInterruptNames returns the name of all known digital interrupts.
+// DigitalInterruptNames returns the names of all known digital interrupts.
 // NOTE: During board setup, if a digital interrupt has not been created
 // for a pin, then this function will attempt to create one with the pin
 // number as the name.
@@ -590,19 +596,19 @@ func (pi *piPigpio) Close(ctx context.Context) error {
 
 	var err error
 	for _, spi := range pi.spis {
-		err = multierr.Combine(err, utils.TryClose(ctx, spi))
+		err = multierr.Combine(err, spi.Close(ctx))
 	}
 
 	for _, analog := range pi.analogs {
-		err = multierr.Combine(err, utils.TryClose(ctx, analog))
+		err = multierr.Combine(err, analog.Close(ctx))
 	}
 
 	for _, interrupt := range pi.interrupts {
-		err = multierr.Combine(err, utils.TryClose(ctx, interrupt))
+		err = multierr.Combine(err, interrupt.Close(ctx))
 	}
 
 	for _, interruptHW := range pi.interruptsHW {
-		err = multierr.Combine(err, utils.TryClose(ctx, interruptHW))
+		err = multierr.Combine(err, interruptHW.Close(ctx))
 	}
 	pi.mu.Lock()
 	pi.isClosed = true

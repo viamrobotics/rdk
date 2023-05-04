@@ -3,6 +3,7 @@ package config_test
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -16,10 +17,11 @@ import (
 	fakeboard "go.viam.com/rdk/components/board/fake"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/utils"
 )
 
 var (
-	fakeModel = resource.NewDefaultModel("fake")
+	fakeModel = resource.DefaultModelFamily.WithModel("fake")
 	extModel  = resource.NewModel("acme", "test", "model")
 )
 
@@ -41,33 +43,30 @@ func TestDiffConfigs(t *testing.T) {
 				Address: "addr2",
 			},
 		},
-		Components: []config.Component{
+		Components: []resource.Config{
 			{
-				Namespace: resource.ResourceNamespaceRDK,
-				Name:      "arm1",
-				Type:      arm.SubtypeName,
-				API:       arm.Subtype,
-				Model:     fakeModel,
-				Attributes: config.AttributeMap{
+				Name: "arm1",
+
+				API:   arm.API,
+				Model: fakeModel,
+				Attributes: utils.AttributeMap{
 					"one": float64(1),
 				},
 			},
 			{
-				Namespace: resource.ResourceNamespaceRDK,
-				Name:      "base1",
-				Type:      base.SubtypeName,
-				API:       base.Subtype,
-				Model:     fakeModel,
-				Attributes: config.AttributeMap{
+				Name: "base1",
+
+				API:   base.API,
+				Model: fakeModel,
+				Attributes: utils.AttributeMap{
 					"two": float64(2),
 				},
 			},
 			{
-				Namespace: resource.ResourceNamespaceRDK,
-				Name:      "board1",
-				Model:     fakeModel,
-				Type:      board.SubtypeName,
-				API:       board.Subtype,
+				Name:  "board1",
+				Model: fakeModel,
+
+				API: board.API,
 				ConvertedAttributes: &fakeboard.Config{
 					Analogs: []board.AnalogConfig{
 						{
@@ -116,33 +115,30 @@ func TestDiffConfigs(t *testing.T) {
 				Address: "addr4",
 			},
 		},
-		Components: []config.Component{
+		Components: []resource.Config{
 			{
-				Namespace: resource.ResourceNamespaceRDK,
-				Name:      "arm1",
-				Type:      arm.SubtypeName,
-				API:       arm.Subtype,
-				Model:     fakeModel,
-				Attributes: config.AttributeMap{
+				Name: "arm1",
+
+				API:   arm.API,
+				Model: fakeModel,
+				Attributes: utils.AttributeMap{
 					"two": float64(2),
 				},
 			},
 			{
-				Namespace: resource.ResourceNamespaceRDK,
-				Name:      "base1",
-				Type:      base.SubtypeName,
-				API:       base.Subtype,
-				Model:     extModel,
-				Attributes: config.AttributeMap{
+				Name: "base1",
+
+				API:   base.API,
+				Model: extModel,
+				Attributes: utils.AttributeMap{
 					"three": float64(3),
 				},
 			},
 			{
-				Namespace: resource.ResourceNamespaceRDK,
-				Name:      "board1",
-				Model:     fakeModel,
-				Type:      board.SubtypeName,
-				API:       board.Subtype,
+				Name:  "board1",
+				Model: fakeModel,
+
+				API: board.API,
 				ConvertedAttributes: &fakeboard.Config{
 					Analogs: []board.AnalogConfig{
 						{
@@ -246,20 +242,18 @@ func TestDiffConfigs(t *testing.T) {
 			"data/diff_config_3.json",
 			config.Diff{
 				Added: &config.Config{
-					Components: []config.Component{
+					Components: []resource.Config{
 						{
-							Namespace: resource.ResourceNamespaceRDK,
-							Name:      "base2",
-							Type:      base.SubtypeName,
-							API:       base.Subtype,
-							Model:     fakeModel,
+							Name: "base2",
+
+							API:   base.API,
+							Model: fakeModel,
 						},
 						{
-							Namespace: resource.ResourceNamespaceRDK,
-							Name:      "board2",
-							Type:      board.SubtypeName,
-							API:       board.Subtype,
-							Model:     fakeModel,
+							Name: "board2",
+
+							API:   board.API,
+							Model: fakeModel,
 							ConvertedAttributes: &fakeboard.Config{
 								DigitalInterrupts: []board.DigitalInterruptConfig{{Name: "encoder2", Pin: "16"}},
 							},
@@ -285,23 +279,21 @@ func TestDiffConfigs(t *testing.T) {
 							Address: "addr4",
 						},
 					},
-					Components: []config.Component{
+					Components: []resource.Config{
 						{
-							Namespace: resource.ResourceNamespaceRDK,
-							Name:      "arm1",
-							Type:      arm.SubtypeName,
-							API:       arm.Subtype,
-							Model:     extModel,
-							Attributes: config.AttributeMap{
+							Name: "arm1",
+
+							API:   arm.API,
+							Model: extModel,
+							Attributes: utils.AttributeMap{
 								"two": float64(2),
 							},
 						},
 						{
-							Namespace: resource.ResourceNamespaceRDK,
-							Name:      "board1",
-							Type:      board.SubtypeName,
-							API:       board.Subtype,
-							Model:     fakeModel,
+							Name: "board1",
+
+							API:   board.API,
+							Model: fakeModel,
 							ConvertedAttributes: &fakeboard.Config{
 								Analogs: []board.AnalogConfig{{Name: "analog1", Pin: "1"}},
 							},
@@ -323,14 +315,13 @@ func TestDiffConfigs(t *testing.T) {
 							ExePath: "path/to/my-module",
 						},
 					},
-					Components: []config.Component{
+					Components: []resource.Config{
 						{
-							Namespace: resource.ResourceNamespaceRDK,
-							Name:      "base1",
-							Type:      base.SubtypeName,
-							API:       base.Subtype,
-							Model:     fakeModel,
-							Attributes: config.AttributeMap{
+							Name: "base1",
+
+							API:   base.API,
+							Model: fakeModel,
+							Attributes: utils.AttributeMap{
 								"two": float64(2),
 							},
 						},
@@ -351,51 +342,38 @@ func TestDiffConfigs(t *testing.T) {
 	} {
 		// test with revealSensitiveConfigDiffs = true
 		t.Run(tc.Name, func(t *testing.T) {
-			revealSensitiveConfigDiffs := true
 			logger := golog.NewTestLogger(t)
-			left, err := config.Read(context.Background(), tc.LeftFile, logger)
-			test.That(t, err, test.ShouldBeNil)
-			right, err := config.Read(context.Background(), tc.RightFile, logger)
-			test.That(t, err, test.ShouldBeNil)
+			// ensure parts are valid for components, services, modules, and remotes
+			test.That(t, tc.Expected.Added.Ensure(false, logger), test.ShouldBeNil)
+			test.That(t, tc.Expected.Removed.Ensure(false, logger), test.ShouldBeNil)
+			test.That(t, modifiedConfigDiffValidate(tc.Expected.Modified), test.ShouldBeNil)
+			tc.Expected.Added.Network = config.NetworkConfig{}
+			tc.Expected.Removed.Network = config.NetworkConfig{}
 
-			diff, err := config.DiffConfigs(*left, *right, revealSensitiveConfigDiffs)
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, diff.Left, test.ShouldResemble, left)
-			test.That(t, diff.Right, test.ShouldResemble, right)
-			if tc.Expected.ResourcesEqual {
-				test.That(t, diff.PrettyDiff, test.ShouldBeEmpty)
-			} else {
-				test.That(t, diff.PrettyDiff, test.ShouldNotBeEmpty)
+			for _, revealSensitiveConfigDiffs := range []bool{true, false} {
+				t.Run(fmt.Sprintf("revealSensitiveConfigDiffs=%t", revealSensitiveConfigDiffs), func(t *testing.T) {
+					logger := golog.NewTestLogger(t)
+					left, err := config.Read(context.Background(), tc.LeftFile, logger)
+					test.That(t, err, test.ShouldBeNil)
+					right, err := config.Read(context.Background(), tc.RightFile, logger)
+					test.That(t, err, test.ShouldBeNil)
+
+					diff, err := config.DiffConfigs(*left, *right, revealSensitiveConfigDiffs)
+					test.That(t, err, test.ShouldBeNil)
+					test.That(t, diff.Left, test.ShouldResemble, left)
+					test.That(t, diff.Right, test.ShouldResemble, right)
+					if tc.Expected.ResourcesEqual || !revealSensitiveConfigDiffs {
+						test.That(t, diff.PrettyDiff, test.ShouldBeEmpty)
+					} else {
+						test.That(t, diff.PrettyDiff, test.ShouldNotBeEmpty)
+					}
+					diff.PrettyDiff = ""
+					tc.Expected.Left = diff.Left
+					tc.Expected.Right = diff.Right
+
+					test.That(t, diff, test.ShouldResemble, &tc.Expected)
+				})
 			}
-			diff.PrettyDiff = ""
-			tc.Expected.Left = diff.Left
-			tc.Expected.Right = diff.Right
-
-			test.That(t, diff, test.ShouldResemble, &tc.Expected)
-		})
-
-		// test with revealSensitiveConfigDiffss = false
-		t.Run(tc.Name, func(t *testing.T) {
-			revealSensitiveConfigDiffs := false
-			logger := golog.NewTestLogger(t)
-			left, err := config.Read(context.Background(), tc.LeftFile, logger)
-			test.That(t, err, test.ShouldBeNil)
-			right, err := config.Read(context.Background(), tc.RightFile, logger)
-			test.That(t, err, test.ShouldBeNil)
-
-			diff, err := config.DiffConfigs(*left, *right, revealSensitiveConfigDiffs)
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, diff.Left, test.ShouldResemble, left)
-			test.That(t, diff.Right, test.ShouldResemble, right)
-			// even when we expect different resources, we should see an empty prettyDiff
-			if !tc.Expected.ResourcesEqual {
-				test.That(t, diff.PrettyDiff, test.ShouldBeEmpty)
-			}
-			diff.PrettyDiff = ""
-			tc.Expected.Left = diff.Left
-			tc.Expected.Right = diff.Right
-
-			test.That(t, diff, test.ShouldResemble, &tc.Expected)
 		})
 	}
 }
@@ -484,10 +462,10 @@ func TestDiffNetworkingCfg(t *testing.T) {
 	cloud2 := &config.Cloud{ID: "2"}
 
 	auth1 := config.AuthConfig{
-		Handlers: []config.AuthHandlerConfig{{Config: config.AttributeMap{"key": "value"}}},
+		Handlers: []config.AuthHandlerConfig{{Config: utils.AttributeMap{"key": "value"}}},
 	}
 	auth2 := config.AuthConfig{
-		Handlers: []config.AuthHandlerConfig{{Config: config.AttributeMap{"key2": "value2"}}},
+		Handlers: []config.AuthHandlerConfig{{Config: utils.AttributeMap{"key2": "value2"}}},
 	}
 	for _, tc := range []struct {
 		Name         string
@@ -574,8 +552,8 @@ func TestDiffSanitize(t *testing.T) {
 
 	auth1 := config.AuthConfig{
 		Handlers: []config.AuthHandlerConfig{
-			{Config: config.AttributeMap{"key1": "value1"}},
-			{Config: config.AttributeMap{"key2": "value2"}},
+			{Config: utils.AttributeMap{"key1": "value1"}},
+			{Config: utils.AttributeMap{"key2": "value2"}},
 		},
 	}
 	remotes1 := []config.Remote{
@@ -646,4 +624,42 @@ func TestDiffSanitize(t *testing.T) {
 		test.That(t, diffStr, test.ShouldNotContainSubstring, rem.Auth.Credentials.Payload)
 		test.That(t, diffStr, test.ShouldNotContainSubstring, rem.Auth.SignalingCreds.Payload)
 	}
+}
+
+func modifiedConfigDiffValidate(c *config.ModifiedConfigDiff) error {
+	for idx := 0; idx < len(c.Remotes); idx++ {
+		if _, err := c.Remotes[idx].Validate(fmt.Sprintf("%s.%d", "remotes", idx)); err != nil {
+			return err
+		}
+	}
+
+	for idx := 0; idx < len(c.Components); idx++ {
+		dependsOn, err := c.Components[idx].Validate(fmt.Sprintf("%s.%d", "components", idx), resource.APITypeComponentName)
+		if err != nil {
+			return err
+		}
+		c.Components[idx].ImplicitDependsOn = dependsOn
+	}
+
+	for idx := 0; idx < len(c.Processes); idx++ {
+		if err := c.Processes[idx].Validate(fmt.Sprintf("%s.%d", "processes", idx)); err != nil {
+			return err
+		}
+	}
+
+	for idx := 0; idx < len(c.Services); idx++ {
+		dependsOn, err := c.Services[idx].Validate(fmt.Sprintf("%s.%d", "services", idx), resource.APITypeServiceName)
+		if err != nil {
+			return err
+		}
+		c.Services[idx].ImplicitDependsOn = dependsOn
+	}
+
+	for idx := 0; idx < len(c.Packages); idx++ {
+		if err := c.Packages[idx].Validate(fmt.Sprintf("%s.%d", "packages", idx)); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

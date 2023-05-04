@@ -10,37 +10,25 @@ import (
 	pb "go.viam.com/api/service/navigation/v1"
 
 	"go.viam.com/rdk/protoutils"
-	"go.viam.com/rdk/subtype"
-	"go.viam.com/rdk/utils"
+	"go.viam.com/rdk/resource"
 )
 
-// subtypeServer implements the contract from navigation.proto.
-type subtypeServer struct {
+// serviceServer implements the contract from navigation.proto.
+type serviceServer struct {
 	pb.UnimplementedNavigationServiceServer
-	subtypeSvc subtype.Service
+	coll resource.APIResourceCollection[Service]
 }
 
-// NewServer constructs a navigation gRPC service server.
-func NewServer(s subtype.Service) pb.NavigationServiceServer {
-	return &subtypeServer{subtypeSvc: s}
+// NewRPCServiceServer constructs a navigation gRPC service server.
+// It is intentionally untyped to prevent use outside of tests.
+func NewRPCServiceServer(coll resource.APIResourceCollection[Service]) interface{} {
+	return &serviceServer{coll: coll}
 }
 
-func (server *subtypeServer) service(serviceName string) (Service, error) {
-	resource := server.subtypeSvc.Resource(serviceName)
-	if resource == nil {
-		return nil, utils.NewResourceNotFoundError(Named(serviceName))
-	}
-	svc, ok := resource.(Service)
-	if !ok {
-		return nil, NewUnimplementedInterfaceError(resource)
-	}
-	return svc, nil
-}
-
-func (server *subtypeServer) GetMode(ctx context.Context, req *pb.GetModeRequest) (
+func (server *serviceServer) GetMode(ctx context.Context, req *pb.GetModeRequest) (
 	*pb.GetModeResponse, error,
 ) {
-	svc, err := server.service(req.Name)
+	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -60,10 +48,10 @@ func (server *subtypeServer) GetMode(ctx context.Context, req *pb.GetModeRequest
 	}, nil
 }
 
-func (server *subtypeServer) SetMode(ctx context.Context, req *pb.SetModeRequest) (
+func (server *serviceServer) SetMode(ctx context.Context, req *pb.SetModeRequest) (
 	*pb.SetModeResponse, error,
 ) {
-	svc, err := server.service(req.Name)
+	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -84,10 +72,10 @@ func (server *subtypeServer) SetMode(ctx context.Context, req *pb.SetModeRequest
 	return &pb.SetModeResponse{}, nil
 }
 
-func (server *subtypeServer) GetLocation(ctx context.Context, req *pb.GetLocationRequest) (
+func (server *serviceServer) GetLocation(ctx context.Context, req *pb.GetLocationRequest) (
 	*pb.GetLocationResponse, error,
 ) {
-	svc, err := server.service(req.Name)
+	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -100,10 +88,10 @@ func (server *subtypeServer) GetLocation(ctx context.Context, req *pb.GetLocatio
 	}, nil
 }
 
-func (server *subtypeServer) GetWaypoints(ctx context.Context, req *pb.GetWaypointsRequest) (
+func (server *serviceServer) GetWaypoints(ctx context.Context, req *pb.GetWaypointsRequest) (
 	*pb.GetWaypointsResponse, error,
 ) {
-	svc, err := server.service(req.Name)
+	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -123,10 +111,10 @@ func (server *subtypeServer) GetWaypoints(ctx context.Context, req *pb.GetWaypoi
 	}, nil
 }
 
-func (server *subtypeServer) AddWaypoint(ctx context.Context, req *pb.AddWaypointRequest) (
+func (server *serviceServer) AddWaypoint(ctx context.Context, req *pb.AddWaypointRequest) (
 	*pb.AddWaypointResponse, error,
 ) {
-	svc, err := server.service(req.Name)
+	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -137,10 +125,10 @@ func (server *subtypeServer) AddWaypoint(ctx context.Context, req *pb.AddWaypoin
 	return &pb.AddWaypointResponse{}, nil
 }
 
-func (server *subtypeServer) RemoveWaypoint(ctx context.Context, req *pb.RemoveWaypointRequest) (
+func (server *serviceServer) RemoveWaypoint(ctx context.Context, req *pb.RemoveWaypointRequest) (
 	*pb.RemoveWaypointResponse, error,
 ) {
-	svc, err := server.service(req.Name)
+	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -155,10 +143,10 @@ func (server *subtypeServer) RemoveWaypoint(ctx context.Context, req *pb.RemoveW
 }
 
 // DoCommand receives arbitrary commands.
-func (server *subtypeServer) DoCommand(ctx context.Context,
+func (server *serviceServer) DoCommand(ctx context.Context,
 	req *commonpb.DoCommandRequest,
 ) (*commonpb.DoCommandResponse, error) {
-	svc, err := server.service(req.Name)
+	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}

@@ -33,7 +33,7 @@ func newTicksCountCollector(resource interface{}, params data.CollectorParams) (
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
-		v, _, err := encoder.GetPosition(ctx, nil, nil)
+		v, _, err := encoder.GetPosition(ctx, PositionTypeUnspecified, nil)
 		if err != nil {
 			return nil, data.FailedToReadErr(params.ComponentName, ticksCount.String(), err)
 		}
@@ -45,7 +45,7 @@ func newTicksCountCollector(resource interface{}, params data.CollectorParams) (
 func assertEncoder(resource interface{}) (Encoder, error) {
 	encoder, ok := resource.(Encoder)
 	if !ok {
-		return nil, data.InvalidInterfaceErr(SubtypeName)
+		return nil, data.InvalidInterfaceErr(API)
 	}
 	return encoder, nil
 }

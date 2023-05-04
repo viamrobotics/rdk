@@ -1,8 +1,19 @@
 # This file provides project-level configuration for the canon dev environment utility. https://github.com/viamrobotics/canon
 viam-rdk:
+    default: true
     image_amd64: ghcr.io/viamrobotics/canon:amd64-cache
     image_arm64: ghcr.io/viamrobotics/canon:arm64-cache
-    minimum_date: 2022-12-20T18:49:25.781750658Z
+    minimum_date: 2023-04-20T00:00:00.0Z
     update_interval: 168h0m0s
     user: testbot
     group: testbot
+    persistent: true
+
+viam-rdk-antique:
+    image_amd64: ghcr.io/viamrobotics/antique:amd64-cache
+    image_arm64: ghcr.io/viamrobotics/antique:arm64-cache
+    minimum_date: 2023-04-20T00:00:00.0Z
+    update_interval: 168h0m0s
+    user: testbot
+    group: testbot
+    persistent: true

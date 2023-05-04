@@ -8,7 +8,6 @@ on:
         required: true
 
 env:
-  GOPRIVATE: "github.com/viamrobotics/*,go.viam.com/*"
   MONGODB_TEST_OUTPUT_URI: ${{ secrets.MONGODB_TEST_OUTPUT_URI }}
 
 jobs:
@@ -65,8 +64,8 @@ jobs:
       run: |
         git init
         git add .
-        chown -R testbot .
-        sudo -u testbot bash -lc '${{ matrix.build_lint }}'
+        chown -R testbot:testbot .
+        sudo -Hu testbot bash -lc '${{ matrix.build_lint }}'
         GEN_DIFF=$(git status -s)
 
         if [ -n "$GEN_DIFF" ]; then
@@ -78,7 +77,7 @@ jobs:
     - name: Test
       if: matrix.platform == 'linux/amd64'
       run: |
-        sudo --preserve-env=MONGODB_TEST_OUTPUT_URI,GITHUB_SHA,GITHUB_RUN_ID,GITHUB_RUN_NUMBER,GITHUB_RUN_ATTEMPT,GITHUB_X_PR_BASE_SHA,GITHUB_X_PR_BASE_REF,GITHUB_X_HEAD_REF,GITHUB_X_HEAD_SHA,GITHUB_REPOSITORY -u testbot bash -lc 'make cover test-web'
+        sudo --preserve-env=MONGODB_TEST_OUTPUT_URI,GITHUB_SHA,GITHUB_RUN_ID,GITHUB_RUN_NUMBER,GITHUB_RUN_ATTEMPT,GITHUB_X_PR_BASE_SHA,GITHUB_X_PR_BASE_REF,GITHUB_X_HEAD_REF,GITHUB_X_HEAD_SHA,GITHUB_REPOSITORY -Hu testbot bash -lc 'make cover test-web'
 
     # Now that RDK is public, can't directly comment without token having full read/write access
     # code-coverage-comment.yml will trigger seperately and post the actual comments
@@ -91,6 +90,11 @@ jobs:
       if: contains(github.event.pull_request.labels.*.name, 'appimage') || contains(github.event.pull_request.labels.*.name, 'appimage-ignore-tests')
       run: |
         echo "APPIMAGE=true" >> pr.env
+
+    - name: Mark static label
+      if: contains(github.event.pull_request.labels.*.name, 'static-build') || contains(github.event.pull_request.labels.*.name, 'static-ignore-tests')
+      run: |
+        echo "STATIC=true" >> pr.env
 
     - name: Upload code coverage
       uses: actions/upload-artifact@v3
@@ -151,12 +155,12 @@ jobs:
 
       - name: Install dependencies
         run: |
-          sudo apt-get -y install libgtk2.0-0 libgtk-3-0 libgbm-dev libnotify-dev libgconf-2-4 libnss3 libxss1 libasound2 libxtst6 xauth xvfb netcat lsof
+          apt-get -y install libgtk2.0-0 libgtk-3-0 libgbm-dev libnotify-dev libgconf-2-4 libnss3 libxss1 libasound2 libxtst6 xauth xvfb netcat lsof
 
       - name: Run e2e Tests
         run: |
-          chown -R testbot .
-          sudo -u testbot bash -lc 'make build-web test-e2e'
+          chown -R testbot:testbot .
+          sudo -Hu testbot bash -lc 'make build-web test-e2e'
 
   test_passing:
     name: All Tests Passing

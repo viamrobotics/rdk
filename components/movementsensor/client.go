@@ -10,31 +10,36 @@ import (
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/structpb"
 
-	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 )
 
-// check client fulfills sensor.Sensor interface.
-var _ = sensor.Sensor(&client{})
-
 // client implements MovementSensorServiceClient.
 type client struct {
+	resource.Named
+	resource.TriviallyReconfigurable
+	resource.TriviallyCloseable
 	name   string
-	conn   rpc.ClientConn
 	client pb.MovementSensorServiceClient
 	logger golog.Logger
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
-func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) MovementSensor {
+func NewClientFromConn(
+	ctx context.Context,
+	conn rpc.ClientConn,
+	remoteName string,
+	name resource.Name,
+	logger golog.Logger,
+) (MovementSensor, error) {
 	c := pb.NewMovementSensorServiceClient(conn)
 	return &client{
-		name:   name,
-		conn:   conn,
+		Named:  name.PrependRemote(remoteName).AsNamed(),
+		name:   name.ShortName(),
 		client: c,
 		logger: logger,
-	}
+	}, nil
 }
 
 func (c *client) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
@@ -50,7 +55,7 @@ func (c *client) Position(ctx context.Context, extra map[string]interface{}) (*g
 		return nil, 0, err
 	}
 	return geo.NewPoint(resp.Coordinate.Latitude, resp.Coordinate.Longitude),
-		float64(resp.AltitudeMm),
+		float64(resp.AltitudeM),
 		nil
 }
 
@@ -146,7 +151,7 @@ func (c *client) Accuracy(ctx context.Context, extra map[string]interface{}) (ma
 	if err != nil {
 		return nil, err
 	}
-	return resp.AccuracyMm, nil
+	return resp.Accuracy, nil
 }
 
 func (c *client) Properties(ctx context.Context, extra map[string]interface{}) (*Properties, error) {

@@ -11,9 +11,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
-	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 	echopb "go.viam.com/utils/proto/rpc/examples/echoresource/v1"
 	"go.viam.com/utils/rpc"
 	"go.viam.com/utils/testutils"
@@ -22,14 +20,11 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/robot/web"
 	"go.viam.com/rdk/session"
-	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/testutils/robottestutils"
 )
@@ -43,42 +38,39 @@ client behavior.
 */
 
 var (
-	someTargetName1 = resource.NewName("rdk", "bar", "baz", "barf")
-	someTargetName2 = resource.NewName("rdk", "bar", "baz", "barfy")
+	someTargetName1 = resource.NewName(resource.APINamespace("rdk").WithType("bar").WithSubtype("baz"), "barf")
+	someTargetName2 = resource.NewName(resource.APINamespace("rdk").WithType("bar").WithSubtype("baz"), "barfy")
 )
 
-var echoSubType = resource.NewSubtype(
-	resource.ResourceNamespaceRDK,
-	resource.ResourceTypeComponent,
-	resource.SubtypeName("echo"),
-)
+var echoAPI = resource.APINamespaceRDK.WithComponentType("echo")
 
 func init() {
-	registry.RegisterResourceSubtype(echoSubType, registry.ResourceSubtype{
-		Reconfigurable: wrapWithReconfigurable,
-		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
-			return rpcServer.RegisterServiceServer(
-				ctx,
-				&echopb.EchoResourceService_ServiceDesc,
-				&echoServer{s: subtypeSvc},
-				echopb.RegisterEchoResourceServiceHandlerFromEndpoint,
-			)
+	resource.RegisterAPI(echoAPI, resource.APIRegistration[resource.Resource]{
+		RPCServiceServerConstructor: func(apiResColl resource.APIResourceCollection[resource.Resource]) interface{} {
+			return &echoServer{coll: apiResColl}
 		},
-		RPCServiceDesc: &echopb.EchoResourceService_ServiceDesc,
-		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
-			return NewClientFromConn(ctx, conn, name, logger)
+		RPCServiceHandler: echopb.RegisterEchoResourceServiceHandlerFromEndpoint,
+		RPCServiceDesc:    &echopb.EchoResourceService_ServiceDesc,
+		RPCClient: func(
+			ctx context.Context,
+			conn rpc.ClientConn,
+			remoteName string,
+			name resource.Name,
+			logger golog.Logger,
+		) (resource.Resource, error) {
+			return NewClientFromConn(ctx, conn, remoteName, name, logger), nil
 		},
 	})
-	registry.RegisterComponent(
-		echoSubType,
-		resource.NewDefaultModel("fake"),
-		registry.Component{
+	resource.RegisterComponent(
+		echoAPI,
+		resource.DefaultModelFamily.WithModel("fake"),
+		resource.Registration[resource.Resource, resource.NoNativeConfig]{
 			Constructor: func(
 				ctx context.Context,
-				_ registry.Dependencies,
-				config config.Component,
+				_ resource.Dependencies,
+				conf resource.Config,
 				logger golog.Logger,
-			) (interface{}, error) {
+			) (resource.Resource, error) {
 				panic("never construct")
 			},
 		},
@@ -108,15 +100,15 @@ func TestClientSessionOptions(t *testing.T) {
 						logger := golog.NewTestLogger(t)
 
 						sessMgr := &sessionManager{}
-						arbName := resource.NameFromSubtype(echoSubType, "woo")
+						arbName := resource.NewName(echoAPI, "woo")
 						injectRobot := &inject.Robot{
 							ResourceNamesFunc: func() []resource.Name { return []resource.Name{arbName} },
-							ResourceByNameFunc: func(name resource.Name) (interface{}, error) {
-								return &dummyEcho{}, nil
+							ResourceByNameFunc: func(name resource.Name) (resource.Resource, error) {
+								return &dummyEcho{Named: arbName.AsNamed()}, nil
 							},
-							ResourceRPCSubtypesFunc: func() []resource.RPCSubtype { return nil },
-							LoggerFunc:              func() golog.Logger { return logger },
-							SessMgr:                 sessMgr,
+							ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
+							LoggerFunc:          func() golog.Logger { return logger },
+							SessMgr:             sessMgr,
 						}
 
 						svc := web.New(injectRobot, logger)
@@ -151,13 +143,12 @@ func TestClientSessionOptions(t *testing.T) {
 						var startCalled int
 						var findCalled int
 						var capOwnerID string
-						var capPeerConnInfo *pb.PeerConnectionInfo
 						var capID uuid.UUID
 						var associateCount int
 						var storedID uuid.UUID
 						var storedResourceName resource.Name
 
-						sess1 := session.New("ownerID", nil, 5*time.Second, func(id uuid.UUID, resourceName resource.Name) {
+						sess1 := session.New(context.Background(), "ownerID", 5*time.Second, func(id uuid.UUID, resourceName resource.Name) {
 							capMu.Lock()
 							associateCount++
 							storedID = id
@@ -167,15 +158,14 @@ func TestClientSessionOptions(t *testing.T) {
 						nextCtx := session.ToContext(ctx, sess1)
 
 						sessMgr.mu.Lock()
-						sessMgr.StartFunc = func(ownerID string, peerConnInfo *pb.PeerConnectionInfo) (*session.Session, error) {
+						sessMgr.StartFunc = func(ctx context.Context, ownerID string) (*session.Session, error) {
 							capMu.Lock()
 							startCalled++
 							capOwnerID = ownerID
-							capPeerConnInfo = peerConnInfo
 							capMu.Unlock()
 							return sess1, nil
 						}
-						sessMgr.FindByIDFunc = func(id uuid.UUID, ownerID string) (*session.Session, error) {
+						sessMgr.FindByIDFunc = func(ctx context.Context, id uuid.UUID, ownerID string) (*session.Session, error) {
 							if id != sess1.ID() {
 								return nil, errors.New("session id mismatch")
 							}
@@ -184,7 +174,7 @@ func TestClientSessionOptions(t *testing.T) {
 							capID = id
 							capOwnerID = ownerID
 							capMu.Unlock()
-							sess1.Heartbeat() // gotta keep session alive
+							sess1.Heartbeat(ctx) // gotta keep session alive
 							return sess1, nil
 						}
 						sessMgr.mu.Unlock()
@@ -211,7 +201,6 @@ func TestClientSessionOptions(t *testing.T) {
 							} else {
 								test.That(t, capOwnerID, test.ShouldNotEqual, "")
 							}
-							test.That(t, capPeerConnInfo, test.ShouldNotBeNil)
 							capMu.Unlock()
 
 							startAt := time.Now()
@@ -245,7 +234,7 @@ func TestClientSessionOptions(t *testing.T) {
 
 						echoRes, err := roboClient.ResourceByName(arbName)
 						test.That(t, err, test.ShouldBeNil)
-						echoClient := echoRes.(*reconfigurableClient).actual
+						echoClient := echoRes.(*dummyClient).client
 
 						echoMultiClient, err := echoClient.EchoResourceMultiple(nextCtx, &echopb.EchoResourceMultipleRequest{
 							Name:    arbName.Name,
@@ -268,7 +257,7 @@ func TestClientSessionOptions(t *testing.T) {
 						}
 						capMu.Unlock()
 
-						test.That(t, utils.TryClose(ctx, svc), test.ShouldBeNil)
+						test.That(t, svc.Close(ctx), test.ShouldBeNil)
 					})
 			}
 		}
@@ -292,17 +281,17 @@ func TestClientSessionExpiration(t *testing.T) {
 				logger := golog.NewTestLogger(t)
 
 				sessMgr := &sessionManager{}
-				arbName := resource.NameFromSubtype(echoSubType, "woo")
+				arbName := resource.NewName(echoAPI, "woo")
 
 				var dummyEcho1 dummyEcho
 				injectRobot := &inject.Robot{
 					ResourceNamesFunc: func() []resource.Name { return []resource.Name{arbName} },
-					ResourceByNameFunc: func(name resource.Name) (interface{}, error) {
+					ResourceByNameFunc: func(name resource.Name) (resource.Resource, error) {
 						return &dummyEcho1, nil
 					},
-					ResourceRPCSubtypesFunc: func() []resource.RPCSubtype { return nil },
-					LoggerFunc:              func() golog.Logger { return logger },
-					SessMgr:                 sessMgr,
+					ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
+					LoggerFunc:          func() golog.Logger { return logger },
+					SessMgr:             sessMgr,
 				}
 
 				svc := web.New(injectRobot, logger)
@@ -336,14 +325,14 @@ func TestClientSessionExpiration(t *testing.T) {
 				var startCalled int
 				var findCalled int
 
-				sess1 := session.New("ownerID", nil, 5*time.Second, nil)
-				sess2 := session.New("ownerID", nil, 5*time.Second, nil)
-				sess3 := session.New("ownerID", nil, 5*time.Second, nil)
+				sess1 := session.New(context.Background(), "ownerID", 5*time.Second, nil)
+				sess2 := session.New(context.Background(), "ownerID", 5*time.Second, nil)
+				sess3 := session.New(context.Background(), "ownerID", 5*time.Second, nil)
 				sessions := []*session.Session{sess1, sess2, sess3}
 				nextCtx := session.ToContext(ctx, sess1)
 
 				sessMgr.mu.Lock()
-				sessMgr.StartFunc = func(ownerID string, peerConnInfo *pb.PeerConnectionInfo) (*session.Session, error) {
+				sessMgr.StartFunc = func(ctx context.Context, ownerID string) (*session.Session, error) {
 					logger.Debug("start session requested")
 					capMu.Lock()
 					if startCalled != 0 && findCalled < 5 {
@@ -360,7 +349,7 @@ func TestClientSessionExpiration(t *testing.T) {
 					logger.Debug("start session started")
 					return sess, nil
 				}
-				sessMgr.FindByIDFunc = func(id uuid.UUID, ownerID string) (*session.Session, error) {
+				sessMgr.FindByIDFunc = func(ctx context.Context, id uuid.UUID, ownerID string) (*session.Session, error) {
 					capMu.Lock()
 					findCalled++
 					if startCalled == 1 && findCalled >= 5 { // expired until restart
@@ -378,7 +367,7 @@ func TestClientSessionExpiration(t *testing.T) {
 						return nil, errors.New("session id mismatch")
 					}
 					capMu.Unlock()
-					sess.Heartbeat() // gotta keep session alive
+					sess.Heartbeat(ctx) // gotta keep session alive
 					return sess, nil
 				}
 				sessMgr.mu.Unlock()
@@ -441,7 +430,7 @@ func TestClientSessionExpiration(t *testing.T) {
 
 				echoRes, err := roboClient.ResourceByName(arbName)
 				test.That(t, err, test.ShouldBeNil)
-				echoClient := echoRes.(*reconfigurableClient).actual
+				echoClient := echoRes.(*dummyClient).client
 
 				capMu.Lock()
 				test.That(t, startCalled, test.ShouldEqual, 2)
@@ -466,7 +455,7 @@ func TestClientSessionExpiration(t *testing.T) {
 				err = roboClient.Close(context.Background())
 				test.That(t, err, test.ShouldBeNil)
 
-				test.That(t, utils.TryClose(ctx, svc), test.ShouldBeNil)
+				test.That(t, svc.Close(ctx), test.ShouldBeNil)
 			})
 	}
 }
@@ -489,10 +478,10 @@ func TestClientSessionResume(t *testing.T) {
 
 				sessMgr := &sessionManager{}
 				injectRobot := &inject.Robot{
-					ResourceNamesFunc:       func() []resource.Name { return []resource.Name{} },
-					ResourceRPCSubtypesFunc: func() []resource.RPCSubtype { return nil },
-					LoggerFunc:              func() golog.Logger { return logger },
-					SessMgr:                 sessMgr,
+					ResourceNamesFunc:   func() []resource.Name { return []resource.Name{} },
+					ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
+					LoggerFunc:          func() golog.Logger { return logger },
+					SessMgr:             sessMgr,
 				}
 
 				svc := web.New(injectRobot, logger)
@@ -514,11 +503,11 @@ func TestClientSessionResume(t *testing.T) {
 				var startCalled int
 				var findCalled int
 
-				sess1 := session.New("ownerID", nil, 5*time.Second, nil)
+				sess1 := session.New(context.Background(), "ownerID", 5*time.Second, nil)
 				nextCtx := session.ToContext(ctx, sess1)
 
 				sessMgr.mu.Lock()
-				sessMgr.StartFunc = func(ownerID string, peerConnInfo *pb.PeerConnectionInfo) (*session.Session, error) {
+				sessMgr.StartFunc = func(ctx context.Context, ownerID string) (*session.Session, error) {
 					logger.Debug("start session requested")
 					capMu.Lock()
 					startCalled++
@@ -526,14 +515,14 @@ func TestClientSessionResume(t *testing.T) {
 					capMu.Unlock()
 					return sess1, nil
 				}
-				sessMgr.FindByIDFunc = func(id uuid.UUID, ownerID string) (*session.Session, error) {
+				sessMgr.FindByIDFunc = func(ctx context.Context, id uuid.UUID, ownerID string) (*session.Session, error) {
 					if id != sess1.ID() {
 						return nil, errors.New("session id mismatch")
 					}
 					capMu.Lock()
 					findCalled++
 					capMu.Unlock()
-					sess1.Heartbeat() // gotta keep session alive
+					sess1.Heartbeat(ctx) // gotta keep session alive
 					return sess1, nil
 				}
 				sessMgr.mu.Unlock()
@@ -567,7 +556,7 @@ func TestClientSessionResume(t *testing.T) {
 
 				errFindCalled := make(chan struct{})
 				sessMgr.mu.Lock()
-				sessMgr.FindByIDFunc = func(id uuid.UUID, ownerID string) (*session.Session, error) {
+				sessMgr.FindByIDFunc = func(ctx context.Context, id uuid.UUID, ownerID string) (*session.Session, error) {
 					close(errFindCalled)
 					return nil, status.New(codes.Unavailable, "disconnected or something").Err()
 				}
@@ -577,14 +566,14 @@ func TestClientSessionResume(t *testing.T) {
 				time.Sleep(time.Second)
 
 				sessMgr.mu.Lock()
-				sessMgr.FindByIDFunc = func(id uuid.UUID, ownerID string) (*session.Session, error) {
+				sessMgr.FindByIDFunc = func(ctx context.Context, id uuid.UUID, ownerID string) (*session.Session, error) {
 					if id != sess1.ID() {
 						return nil, errors.New("session id mismatch")
 					}
 					capMu.Lock()
 					findCalled++
 					capMu.Unlock()
-					sess1.Heartbeat() // gotta keep session alive
+					sess1.Heartbeat(ctx) // gotta keep session alive
 					return sess1, nil
 				}
 				sessMgr.mu.Unlock()
@@ -604,7 +593,7 @@ func TestClientSessionResume(t *testing.T) {
 				err = roboClient.Close(context.Background())
 				test.That(t, err, test.ShouldBeNil)
 
-				test.That(t, utils.TryClose(ctx, svc), test.ShouldBeNil)
+				test.That(t, svc.Close(ctx), test.ShouldBeNil)
 			})
 	}
 }
@@ -612,25 +601,25 @@ func TestClientSessionResume(t *testing.T) {
 // we don't want everyone making an inject of this, so let's keep it here for now.
 type sessionManager struct {
 	mu           sync.Mutex
-	StartFunc    func(ownerID string, peerConnInfo *pb.PeerConnectionInfo) (*session.Session, error)
-	FindByIDFunc func(id uuid.UUID, ownerID string) (*session.Session, error)
+	StartFunc    func(ctx context.Context, ownerID string) (*session.Session, error)
+	FindByIDFunc func(ctx context.Context, id uuid.UUID, ownerID string) (*session.Session, error)
 	expired      bool
 }
 
-func (mgr *sessionManager) Start(ownerID string, peerConnInfo *pb.PeerConnectionInfo) (*session.Session, error) {
+func (mgr *sessionManager) Start(ctx context.Context, ownerID string) (*session.Session, error) {
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
-	return mgr.StartFunc(ownerID, peerConnInfo)
+	return mgr.StartFunc(ctx, ownerID)
 }
 
 func (mgr *sessionManager) All() []*session.Session {
 	panic("unimplemented")
 }
 
-func (mgr *sessionManager) FindByID(id uuid.UUID, ownerID string) (*session.Session, error) {
+func (mgr *sessionManager) FindByID(ctx context.Context, id uuid.UUID, ownerID string) (*session.Session, error) {
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
-	return mgr.FindByIDFunc(id, ownerID)
+	return mgr.FindByIDFunc(ctx, id, ownerID)
 }
 
 func (mgr *sessionManager) AssociateResource(id uuid.UUID, resourceName resource.Name) {
@@ -669,7 +658,7 @@ func (mgr *sessionManager) sessionFromMetadata(ctx context.Context) (context.Con
 		if err != nil {
 			return nil, err
 		}
-		sess := session.NewWithID(sessID, "", nil, time.Minute, nil)
+		sess := session.NewWithID(ctx, sessID, "", time.Minute, nil)
 		return session.ToContext(ctx, sess), nil
 	default:
 		return nil, errors.New("found more than one session id in metadata")
@@ -714,42 +703,40 @@ func (w ssStreamContextWrapper) Context() context.Context {
 }
 
 // NewClientFromConn constructs a new client from connection passed in.
-func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) echopb.EchoResourceServiceClient {
-	return echopb.NewEchoResourceServiceClient(conn)
+func NewClientFromConn(
+	ctx context.Context,
+	conn rpc.ClientConn,
+	remoteName string,
+	name resource.Name,
+	logger golog.Logger,
+) resource.Resource {
+	c := echopb.NewEchoResourceServiceClient(conn)
+	return &dummyClient{
+		Named:  name.PrependRemote(remoteName).AsNamed(),
+		name:   name.ShortName(),
+		client: c,
+	}
 }
 
-func wrapWithReconfigurable(r interface{}, name resource.Name) (resource.Reconfigurable, error) {
-	return &reconfigurableClient{name: name, actual: r.(echopb.EchoResourceServiceClient)}, nil
-}
-
-type reconfigurableClient struct {
-	mu     sync.RWMutex
-	name   resource.Name
-	actual echopb.EchoResourceServiceClient
-}
-
-func (r *reconfigurableClient) Name() resource.Name {
-	return r.name
-}
-
-func (r *reconfigurableClient) ProxyFor() interface{} {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual
-}
-
-func (r *reconfigurableClient) Reconfigure(ctx context.Context, newBase resource.Reconfigurable) error {
-	panic("unexpected")
+type dummyClient struct {
+	resource.Named
+	resource.AlwaysRebuild
+	resource.TriviallyCloseable
+	name   string
+	client echopb.EchoResourceServiceClient
 }
 
 type dummyEcho struct {
+	resource.Named
+	resource.AlwaysRebuild
+	resource.TriviallyCloseable
 	mu        sync.Mutex
 	capSessID uuid.UUID
 }
 
 type echoServer struct {
 	echopb.UnimplementedEchoResourceServiceServer
-	s subtype.Service
+	coll resource.APIResourceCollection[resource.Resource]
 }
 
 func (srv *echoServer) EchoResourceMultiple(
@@ -758,10 +745,17 @@ func (srv *echoServer) EchoResourceMultiple(
 ) error {
 	sess, ok := session.FromContext(server.Context())
 	if ok {
-		resource := srv.s.Resource(req.Name).(*dummyEcho)
-		resource.mu.Lock()
-		resource.capSessID = sess.ID()
-		resource.mu.Unlock()
+		res, err := srv.coll.Resource(req.Name)
+		if err != nil {
+			return err
+		}
+		typed, err := resource.AsType[*dummyEcho](res)
+		if err != nil {
+			return err
+		}
+		typed.mu.Lock()
+		typed.capSessID = sess.ID()
+		typed.mu.Unlock()
 	}
 
 	session.SafetyMonitorResourceName(server.Context(), someTargetName2)

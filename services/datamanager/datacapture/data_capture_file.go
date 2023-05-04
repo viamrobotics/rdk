@@ -37,7 +37,7 @@ const (
 // messages contain the captured data.
 type File struct {
 	path     string
-	lock     *sync.Mutex
+	lock     sync.Mutex
 	file     *os.File
 	writer   *bufio.Writer
 	size     int64
@@ -66,7 +66,6 @@ func ReadFile(f *os.File) (*File, error) {
 
 	ret := File{
 		path:              f.Name(),
-		lock:              &sync.Mutex{},
 		file:              f,
 		writer:            bufio.NewWriter(f),
 		size:              finfo.Size(),
@@ -98,7 +97,6 @@ func NewFile(dir string, md *v1.DataCaptureMetadata) (*File, error) {
 		writer:            bufio.NewWriter(f),
 		file:              f,
 		size:              int64(n),
-		lock:              &sync.Mutex{},
 		initialReadOffset: int64(n),
 		readOffset:        int64(n),
 		writeOffset:       int64(n),
@@ -204,8 +202,12 @@ func (f *File) Delete() error {
 
 // BuildCaptureMetadata builds a DataCaptureMetadata object and returns error if
 // additionalParams fails to convert to anypb map.
-func BuildCaptureMetadata(compType resource.Subtype, compName string, compModel resource.Model, method string,
-	additionalParams map[string]string, tags []string,
+func BuildCaptureMetadata(
+	compAPI resource.API,
+	compName string,
+	method string,
+	additionalParams map[string]string,
+	tags []string,
 ) (*v1.DataCaptureMetadata, error) {
 	methodParams, err := protoutils.ConvertStringMapToAnyPBMap(additionalParams)
 	if err != nil {
@@ -214,9 +216,8 @@ func BuildCaptureMetadata(compType resource.Subtype, compName string, compModel 
 
 	dataType := getDataType(method)
 	return &v1.DataCaptureMetadata{
-		ComponentType:    compType.String(),
+		ComponentType:    compAPI.String(),
 		ComponentName:    compName,
-		ComponentModel:   compModel.String(),
 		MethodName:       method,
 		Type:             dataType,
 		MethodParameters: methodParams,

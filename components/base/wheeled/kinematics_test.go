@@ -9,6 +9,8 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/slam/fake"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -40,7 +42,8 @@ func TestWrapWithKinematics(t *testing.T) {
 		{spatialmath.GeometryType("bad"), false},
 	}
 
-	deps, err := testCfg.Validate("path")
+	testCfg := newTestCfg()
+	deps, err := testCfg.Validate("path", resource.APITypeComponentName)
 	test.That(t, err, test.ShouldBeNil)
 	motorDeps := fakeMotorDependencies(t, deps)
 	kinematicCfg := testCfg
@@ -54,7 +57,7 @@ func TestWrapWithKinematics(t *testing.T) {
 			kinematicCfg.Frame = frame
 			basic, err := CreateWheeledBase(ctx, motorDeps, kinematicCfg, logger)
 			test.That(t, err, test.ShouldBeNil)
-			wb, err := basic.(*wheeledBase).WrapWithKinematics(ctx, fake.NewSLAM("", logger))
+			wb, err := basic.(*wheeledBase).WrapWithKinematics(ctx, fake.NewSLAM(slam.Named("foo"), logger))
 			test.That(t, err == nil, test.ShouldEqual, tc.success)
 			if err != nil {
 				return
@@ -64,7 +67,7 @@ func TestWrapWithKinematics(t *testing.T) {
 			limits := kwb.model.DoF()
 			test.That(t, limits[0].Min, test.ShouldBeLessThan, 0)
 			test.That(t, limits[1].Min, test.ShouldBeLessThan, 0)
-			test.That(t, limits[1].Max, test.ShouldBeGreaterThan, 0)
+			test.That(t, limits[0].Max, test.ShouldBeGreaterThan, 0)
 			test.That(t, limits[1].Max, test.ShouldBeGreaterThan, 0)
 			geometry, err := kwb.model.(*referenceframe.SimpleModel).Geometries(make([]referenceframe.Input, len(limits)))
 			test.That(t, err, test.ShouldBeNil)

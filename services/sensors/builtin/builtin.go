@@ -8,34 +8,47 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/sensor"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/internal"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/sensors"
 )
 
 func init() {
-	registry.RegisterService(sensors.Subtype, resource.DefaultServiceModel, registry.Service{
-		Constructor: func(ctx context.Context, deps registry.Dependencies, c config.Service, logger golog.Logger) (interface{}, error) {
-			return NewBuiltIn(ctx, deps, c, logger)
+	resource.RegisterDefaultService(sensors.API, resource.DefaultServiceModel, resource.Registration[sensors.Service, resource.NoNativeConfig]{
+		Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger golog.Logger,
+		) (sensors.Service, error) {
+			return NewBuiltIn(ctx, deps, conf, logger)
 		},
+		// NOTE(erd): this ideally would be a matcher on all resources that
+		// contain a Readings proto method. However, these resource types
+		// are heterogeneous and do not actually have this proto method.
+		// We need to either 1. know in advance what kinds of resources are
+		// sensors 2. use a heuristic to detect it or 3. encode it in proto.
+		WeakDependencies: []internal.ResourceMatcher{internal.ComponentDependencyWildcardMatcher},
 	})
-	resource.AddDefaultService(sensors.Named(resource.DefaultServiceName))
 }
 
 // NewBuiltIn returns a new default sensor service for the given robot.
-func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.Service, logger golog.Logger) (sensors.Service, error) {
+func NewBuiltIn(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (sensors.Service, error) {
 	s := &builtIn{
+		Named:   conf.ResourceName().AsNamed(),
 		sensors: map[resource.Name]sensor.Sensor{},
 		logger:  logger,
+	}
+	if err := s.Reconfigure(ctx, deps, conf); err != nil {
+		return nil, err
 	}
 	return s, nil
 }
 
 type builtIn struct {
-	generic.Unimplemented
+	resource.Named
+	resource.TriviallyCloseable
 	mu      sync.RWMutex
 	sensors map[resource.Name]sensor.Sensor
 	logger  golog.Logger
@@ -84,13 +97,12 @@ func (s *builtIn) Readings(ctx context.Context, sensorNames []resource.Name, ext
 	return readings, nil
 }
 
-// Update updates the sensors service when the robot has changed.
-func (s *builtIn) Update(ctx context.Context, resources map[resource.Name]interface{}) error {
+func (s *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, _ resource.Config) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	sensors := map[resource.Name]sensor.Sensor{}
-	for n, r := range resources {
+	for n, r := range deps {
 		if sensor, ok := r.(sensor.Sensor); ok {
 			sensors[n] = sensor
 		}

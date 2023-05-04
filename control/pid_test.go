@@ -3,14 +3,13 @@ package control
 import (
 	"context"
 	"fmt"
-	"sync"
 	"testing"
 	"time"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/utils"
 )
 
 func TestPIDConfig(t *testing.T) {
@@ -22,7 +21,7 @@ func TestPIDConfig(t *testing.T) {
 		{
 			BlockConfig{
 				Name:      "PID1",
-				Attribute: config.AttributeMap{"kD": 0.11, "kP": 0.12, "kI": 0.22},
+				Attribute: utils.AttributeMap{"kD": 0.11, "kP": 0.12, "kI": 0.22},
 				Type:      "PID",
 				DependsOn: []string{"A", "B"},
 			},
@@ -31,7 +30,7 @@ func TestPIDConfig(t *testing.T) {
 		{
 			BlockConfig{
 				Name:      "PID1",
-				Attribute: config.AttributeMap{"kD": 0.11, "kP": 0.12, "kI": 0.22},
+				Attribute: utils.AttributeMap{"kD": 0.11, "kP": 0.12, "kI": 0.22},
 				Type:      "PID",
 				DependsOn: []string{"A"},
 			},
@@ -40,7 +39,7 @@ func TestPIDConfig(t *testing.T) {
 		{
 			BlockConfig{
 				Name:      "PID1",
-				Attribute: config.AttributeMap{"Kdd": 0.11},
+				Attribute: utils.AttributeMap{"Kdd": 0.11},
 				Type:      "PID",
 				DependsOn: []string{"A"},
 			},
@@ -64,7 +63,7 @@ func TestPIDBasicIntegralWindup(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	cfg := BlockConfig{
 		Name: "PID1",
-		Attribute: config.AttributeMap{
+		Attribute: utils.AttributeMap{
 			"kD":             0.11,
 			"kP":             0.12,
 			"kI":             0.22,
@@ -79,12 +78,11 @@ func TestPIDBasicIntegralWindup(t *testing.T) {
 	b, err := newPID(cfg, logger)
 	pid := b.(*basicPID)
 	test.That(t, err, test.ShouldBeNil)
-	s := []Signal{
+	s := []*Signal{
 		{
 			name:   "A",
 			signal: make([]float64, 1),
 			time:   make([]int, 1),
-			mu:     &sync.Mutex{},
 		},
 	}
 	for i := 0; i < 50; i++ {
@@ -124,7 +122,7 @@ func TestPIDTunner(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	cfg := BlockConfig{
 		Name: "PID1",
-		Attribute: config.AttributeMap{
+		Attribute: utils.AttributeMap{
 			"kD":             0.0,
 			"kP":             0.0,
 			"kI":             0.0,
@@ -143,12 +141,11 @@ func TestPIDTunner(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pid.tuning, test.ShouldBeTrue)
 	test.That(t, pid.tuner.currentPhase, test.ShouldEqual, begin)
-	s := []Signal{
+	s := []*Signal{
 		{
 			name:   "A",
 			signal: make([]float64, 1),
 			time:   make([]int, 1),
-			mu:     &sync.Mutex{},
 		},
 	}
 	dt := time.Millisecond * 10

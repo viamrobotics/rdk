@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"image"
 	"math"
-	"strings"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
@@ -14,11 +13,8 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/components/generic"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/robot"
@@ -29,43 +25,38 @@ import (
 
 const numThreadsVideoSource = 8 // This should be a param
 
-var modelJoinPC = resource.NewDefaultModel("join_pointclouds")
+var modelJoinPC = resource.DefaultModelFamily.WithModel("join_pointclouds")
 
 func init() {
-	registry.RegisterComponent(
-		camera.Subtype,
+	resource.RegisterComponent(
+		camera.API,
 		modelJoinPC,
-		registry.Component{RobotConstructor: func(
-			ctx context.Context,
-			r robot.Robot,
-			config config.Component,
-			logger golog.Logger,
-		) (interface{}, error) {
-			attrs, ok := config.ConvertedAttributes.(*JoinAttrs)
-			if !ok {
-				return nil, rdkutils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
-			}
-			return newJoinPointCloudSource(ctx, r, logger, attrs)
-		}})
-
-	config.RegisterComponentAttributeMapConverter(camera.Subtype, modelJoinPC,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf JoinAttrs
-			attrs, err := config.TransformAttributeMapToStruct(&conf, attributes)
-			if err != nil {
-				return nil, err
-			}
-			result, ok := attrs.(*JoinAttrs)
-			if !ok {
-				return nil, rdkutils.NewUnexpectedTypeError(result, attrs)
-			}
-			return result, nil
-		},
-		&JoinAttrs{})
+		resource.Registration[camera.Camera, *JoinConfig]{
+			DeprecatedRobotConstructor: func(
+				ctx context.Context,
+				r any,
+				conf resource.Config,
+				logger golog.Logger,
+			) (camera.Camera, error) {
+				actualR, err := rdkutils.AssertType[robot.Robot](r)
+				if err != nil {
+					return nil, err
+				}
+				newConf, err := resource.NativeConfig[*JoinConfig](conf)
+				if err != nil {
+					return nil, err
+				}
+				src, err := newJoinPointCloudSource(ctx, actualR, logger, conf.ResourceName(), newConf)
+				if err != nil {
+					return nil, err
+				}
+				return camera.FromVideoSource(conf.ResourceName(), src), nil
+			},
+		})
 }
 
-// JoinAttrs is the attribute struct for joinPointCloudSource.
-type JoinAttrs struct {
+// JoinConfig is the attribute struct for joinPointCloudSource.
+type JoinConfig struct {
 	TargetFrame   string   `json:"target_frame"`
 	SourceCameras []string `json:"source_cameras"`
 	// Closeness defines how close 2 points should be together to be considered the same point when merged.
@@ -77,7 +68,7 @@ type JoinAttrs struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (cfg *JoinAttrs) Validate(path string) ([]string, error) {
+func (cfg *JoinConfig) Validate(path string) ([]string, error) {
 	var deps []string
 	if len(cfg.SourceCameras) == 0 {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "source_cameras")
@@ -110,11 +101,12 @@ func newMergeMethodUnsupportedError(method string) MergeMethodUnsupportedError {
 // the point of view of targetName. The model needs to have the entire robot available in order to build the correct offsets
 // between robot components for the frame system transform.
 type joinPointCloudSource struct {
-	generic.Unimplemented
+	resource.Named
+	resource.AlwaysRebuild
 	sourceCameras []camera.Camera
 	sourceNames   []string
 	targetName    string
-	robot         robot.Robot
+	fsService     framesystem.Service
 	mergeMethod   MergeMethodType
 	logger        golog.Logger
 	debug         bool
@@ -123,12 +115,20 @@ type joinPointCloudSource struct {
 
 // newJoinPointCloudSource creates a camera that combines point cloud sources into one point cloud in the
 // reference frame of targetName.
-func newJoinPointCloudSource(ctx context.Context, r robot.Robot, l golog.Logger, attrs *JoinAttrs) (camera.Camera, error) {
-	joinSource := &joinPointCloudSource{}
+func newJoinPointCloudSource(
+	ctx context.Context,
+	r robot.Robot,
+	l golog.Logger,
+	name resource.Name,
+	conf *JoinConfig,
+) (camera.VideoSource, error) {
+	joinSource := &joinPointCloudSource{
+		Named: name.AsNamed(),
+	}
 	// frame to merge from
-	joinSource.sourceCameras = make([]camera.Camera, len(attrs.SourceCameras))
-	joinSource.sourceNames = make([]string, len(attrs.SourceCameras))
-	for i, source := range attrs.SourceCameras {
+	joinSource.sourceCameras = make([]camera.Camera, len(conf.SourceCameras))
+	joinSource.sourceNames = make([]string, len(conf.SourceCameras))
+	for i, source := range conf.SourceCameras {
 		joinSource.sourceNames[i] = source
 		camSource, err := camera.FromRobot(r, source)
 		if err != nil {
@@ -137,14 +137,18 @@ func newJoinPointCloudSource(ctx context.Context, r robot.Robot, l golog.Logger,
 		joinSource.sourceCameras[i] = camSource
 	}
 	// frame to merge to
-	joinSource.targetName = attrs.TargetFrame
-	joinSource.robot = r
-	joinSource.closeness = attrs.Closeness
+	joinSource.targetName = conf.TargetFrame
+	fsService, err := framesystem.FromRobot(r)
+	if err != nil {
+		return nil, err
+	}
+	joinSource.fsService = fsService
+	joinSource.closeness = conf.Closeness
 
 	joinSource.logger = l
-	joinSource.debug = attrs.Debug
+	joinSource.debug = conf.Debug
 
-	joinSource.mergeMethod = MergeMethodType(attrs.MergeMethod)
+	joinSource.mergeMethod = MergeMethodType(conf.MergeMethod)
 
 	if idx, ok := contains(joinSource.sourceNames, joinSource.targetName); ok {
 		parentCamera := joinSource.sourceCameras[idx]
@@ -153,13 +157,18 @@ func newJoinPointCloudSource(ctx context.Context, r robot.Robot, l golog.Logger,
 			props, err := parentCamera.Properties(ctx)
 			if err != nil {
 				return nil, camera.NewPropertiesError(
-					fmt.Sprintf("point cloud source at index %d for target %s", idx, attrs.TargetFrame))
+					fmt.Sprintf("point cloud source at index %d for target %s", idx, conf.TargetFrame))
 			}
 			intrinsicParams = props.IntrinsicParams
 		}
-		return camera.NewFromReader(ctx, joinSource, &transform.PinholeCameraModel{PinholeCameraIntrinsics: intrinsicParams}, camera.ColorStream)
+		return camera.NewVideoSourceFromReader(
+			ctx,
+			joinSource,
+			&transform.PinholeCameraModel{PinholeCameraIntrinsics: intrinsicParams},
+			camera.ColorStream,
+		)
 	}
-	return camera.NewFromReader(ctx, joinSource, nil, camera.ColorStream)
+	return camera.NewVideoSourceFromReader(ctx, joinSource, nil, camera.ColorStream)
 }
 
 // NextPointCloud gets all the point clouds from the source cameras,
@@ -179,12 +188,12 @@ func (jpcs *joinPointCloudSource) NextPointCloudNaive(ctx context.Context) (poin
 	ctx, span := trace.StartSpan(ctx, "joinPointCloudSource::NextPointCloudNaive")
 	defer span.End()
 
-	fs, err := framesystem.RobotFrameSystem(ctx, jpcs.robot, nil)
+	fs, err := jpcs.fsService.FrameSystem(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	inputs, err := jpcs.initializeInputs(ctx, fs)
+	inputs, _, err := jpcs.fsService.AllCurrentInputs(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -223,12 +232,12 @@ func (jpcs *joinPointCloudSource) NextPointCloudICP(ctx context.Context) (pointc
 	ctx, span := trace.StartSpan(ctx, "joinPointCloudSource::NextPointCloudICP")
 	defer span.End()
 
-	fs, err := framesystem.RobotFrameSystem(ctx, jpcs.robot, nil)
+	fs, err := jpcs.fsService.FrameSystem(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	inputs, err := jpcs.initializeInputs(ctx, fs)
+	inputs, _, err := jpcs.fsService.AllCurrentInputs(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -298,40 +307,6 @@ func (jpcs *joinPointCloudSource) NextPointCloudICP(ctx context.Context) (pointc
 	return finalPointCloud, nil
 }
 
-// initalizeInputs gets all the input positions for the robot components in order to calculate the frame system offsets.
-func (jpcs *joinPointCloudSource) initializeInputs(
-	ctx context.Context,
-	fs referenceframe.FrameSystem,
-) (map[string][]referenceframe.Input, error) {
-	inputs := referenceframe.StartPositions(fs)
-
-	for k, original := range inputs {
-		if strings.HasSuffix(k, "_origin") {
-			continue
-		}
-		if len(original) == 0 {
-			continue
-		}
-
-		all := robot.AllResourcesByName(jpcs.robot, k)
-		if len(all) != 1 {
-			return nil, fmt.Errorf("got %d resources instead of 1 for (%s)", len(all), k)
-		}
-
-		ii, ok := all[0].(referenceframe.InputEnabled)
-		if !ok {
-			return nil, fmt.Errorf("%v(%T) is not InputEnabled", k, all[0])
-		}
-
-		pos, err := ii.CurrentInputs(ctx)
-		if err != nil {
-			return nil, err
-		}
-		inputs[k] = pos
-	}
-	return inputs, nil
-}
-
 // Read gets the merged point cloud from all sources, and then uses a projection to turn it into a 2D image.
 func (jpcs *joinPointCloudSource) Read(ctx context.Context) (image.Image, func(), error) {
 	var proj transform.Projector
@@ -355,6 +330,10 @@ func (jpcs *joinPointCloudSource) Read(ctx context.Context) (image.Image, func()
 	}
 	img, _, err := proj.PointCloudToRGBD(pc)
 	return img, func() {}, err // return color image
+}
+
+func (jpcs *joinPointCloudSource) Close(ctx context.Context) error {
+	return nil
 }
 
 func contains(s []string, str string) (int, bool) {

@@ -2,18 +2,16 @@ package tmcstepper_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	fakeboard "go.viam.com/rdk/components/board/fake"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/components/motor/tmcstepper"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 )
 
@@ -46,18 +44,21 @@ func checkRx(t *testing.T, c chan []byte, expects, sends [][]byte) {
 
 const maxRpm = 500
 
-func TestTMCStepperMotor(t *testing.T) {
+func TestRPMBounds(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger, obs := golog.NewObservedTestLogger(t)
 	c := make(chan []byte)
-	b := &fakeboard.Board{}
+	b := &fakeboard.Board{
+		Named: board.Named("foo").AsNamed(),
+	}
 	b.GPIOPins = map[string]*fakeboard.GPIOPin{}
 	b.SPIs = map[string]*fakeboard.SPI{}
 	b.SPIs["main"] = &fakeboard.SPI{FIFO: c}
 
-	deps := registry.Dependencies(map[resource.Name]interface{}{board.Named(b.Name): b})
+	deps := resource.Dependencies(map[resource.Name]resource.Resource{b.Name(): b})
 
 	mc := tmcstepper.TMC5072Config{
+		BoardName:        b.Name().ShortName(),
 		SPIBus:           "main",
 		ChipSelect:       "40",
 		Index:            0,
@@ -68,7 +69,8 @@ func TestTMCStepperMotor(t *testing.T) {
 		TicksPerRotation: 200,
 	}
 
-	motorReg := registry.ComponentLookup(motor.Subtype, resource.NewDefaultModel("TMC5072"))
+	motorReg, ok := resource.LookupRegistration(motor.API, resource.DefaultModelFamily.WithModel("TMC5072"))
+	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, motorReg, test.ShouldNotBeNil)
 
 	// These are the setup register writes
@@ -89,18 +91,112 @@ func TestTMCStepperMotor(t *testing.T) {
 		{161, 0, 0, 0, 0},
 	})
 
-	m, err := motorReg.Constructor(context.Background(), deps, config.Component{Name: "motor1", ConvertedAttributes: &mc}, logger)
+	m, err := motorReg.Constructor(context.Background(), deps, resource.Config{
+		Name:                "motor1",
+		ConvertedAttributes: &mc,
+	}, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
-		test.That(t, utils.TryClose(context.Background(), m), test.ShouldBeNil)
+		test.That(t, m.Close(context.Background()), test.ShouldBeNil)
 	}()
-	_motor, ok := m.(motor.Motor)
+	motorDep, ok := m.(motor.Motor)
 	test.That(t, ok, test.ShouldBeTrue)
-	stoppableMotor, ok := _motor.(motor.LocalMotor)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	test.That(t, motorDep.GoFor(ctx, 0.05, 6.6, nil), test.ShouldNotBeNil)
+	allObs := obs.All()
+	latestLoggedEntry := allObs[len(allObs)-1]
+	test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly 0")
+
+	// Check with position at 0.0 revolutions
+	go checkRx(t, c,
+		[][]byte{
+			{33, 0, 0, 0, 0},
+			{33, 0, 0, 0, 0},
+			{160, 0, 0, 0, 0},
+			{167, 0, 8, 70, 85},
+			{173, 0, 5, 40, 0},
+			{53, 0, 0, 0, 0},
+			{53, 0, 0, 0, 0},
+		},
+		[][]byte{
+			{0, 0, 0, 0, 0},
+			{0, 0, 0, 0, 0},
+			{0, 0, 0, 0, 0},
+			{0, 0, 0, 0, 0},
+			{0, 0, 0, 0, 0},
+			{0, 0, 0, 4, 0},
+			{0, 0, 0, 4, 0},
+		},
+	)
+	test.That(t, motorDep.GoFor(ctx, 500, 6.6, nil), test.ShouldBeNil)
+	allObs = obs.All()
+	latestLoggedEntry = allObs[len(allObs)-1]
+	test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly the max")
+}
+
+func TestTMCStepperMotor(t *testing.T) {
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+	c := make(chan []byte)
+	b := &fakeboard.Board{
+		Named: board.Named("foo").AsNamed(),
+	}
+	b.GPIOPins = map[string]*fakeboard.GPIOPin{}
+	b.SPIs = map[string]*fakeboard.SPI{}
+	b.SPIs["main"] = &fakeboard.SPI{FIFO: c}
+
+	deps := resource.Dependencies(map[resource.Name]resource.Resource{b.Name(): b})
+
+	mc := tmcstepper.TMC5072Config{
+		BoardName:        b.Name().ShortName(),
+		SPIBus:           "main",
+		ChipSelect:       "40",
+		Index:            0,
+		SGThresh:         0,
+		CalFactor:        1.0,
+		MaxAcceleration:  500,
+		MaxRPM:           maxRpm,
+		TicksPerRotation: 200,
+	}
+
+	motorReg, ok := resource.LookupRegistration(motor.API, resource.DefaultModelFamily.WithModel("TMC5072"))
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, motorReg, test.ShouldNotBeNil)
+
+	// These are the setup register writes
+	go checkTx(t, c, [][]byte{
+		{236, 0, 1, 0, 195},
+		{176, 0, 6, 15, 8},
+		{237, 0, 0, 0, 0},
+		{164, 0, 0, 21, 8},
+		{166, 0, 0, 21, 8},
+		{170, 0, 0, 21, 8},
+		{168, 0, 0, 21, 8},
+		{163, 0, 0, 0, 1},
+		{171, 0, 0, 0, 10},
+		{165, 0, 2, 17, 149},
+		{177, 0, 0, 105, 234},
+		{167, 0, 0, 0, 0},
+		{160, 0, 0, 0, 1},
+		{161, 0, 0, 0, 0},
+	})
+
+	m, err := motorReg.Constructor(context.Background(), deps, resource.Config{
+		Name:                "motor1",
+		ConvertedAttributes: &mc,
+	}, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, m.Close(context.Background()), test.ShouldBeNil)
+	}()
+	motorDep, ok := m.(motor.Motor)
+	test.That(t, ok, test.ShouldBeTrue)
+	stoppableMotor, ok := motorDep.(motor.LocalMotor)
 	test.That(t, ok, test.ShouldBeTrue)
 
 	t.Run("motor supports position reporting", func(t *testing.T) {
-		features, err := _motor.Properties(ctx, nil)
+		features, err := motorDep.Properties(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, features[motor.PositionReporting], test.ShouldBeTrue)
 	})
@@ -111,14 +207,14 @@ func TestTMCStepperMotor(t *testing.T) {
 			{160, 0, 0, 0, 1},
 			{167, 0, 4, 35, 42},
 		})
-		test.That(t, _motor.SetPower(ctx, 0.5, nil), test.ShouldBeNil)
+		test.That(t, motorDep.SetPower(ctx, 0.5, nil), test.ShouldBeNil)
 
 		// Test Go backward at quarter speed
 		go checkTx(t, c, [][]byte{
 			{160, 0, 0, 0, 2},
 			{167, 0, 2, 17, 149},
 		})
-		test.That(t, _motor.SetPower(ctx, -0.25, nil), test.ShouldBeNil)
+		test.That(t, motorDep.SetPower(ctx, -0.25, nil), test.ShouldBeNil)
 	})
 
 	t.Run("motor Off testing", func(t *testing.T) {
@@ -126,7 +222,7 @@ func TestTMCStepperMotor(t *testing.T) {
 			{160, 0, 0, 0, 1},
 			{167, 0, 0, 0, 0},
 		})
-		test.That(t, _motor.Stop(ctx, nil), test.ShouldBeNil)
+		test.That(t, motorDep.Stop(ctx, nil), test.ShouldBeNil)
 	})
 
 	t.Run("motor position testing", func(t *testing.T) {
@@ -141,7 +237,7 @@ func TestTMCStepperMotor(t *testing.T) {
 				{0, 0, 3, 32, 0},
 			},
 		)
-		pos, err := _motor.Position(ctx, nil)
+		pos, err := motorDep.Position(ctx, nil)
 		test.That(t, pos, test.ShouldEqual, 4.0)
 		test.That(t, err, test.ShouldBeNil)
 	})
@@ -168,7 +264,7 @@ func TestTMCStepperMotor(t *testing.T) {
 				{0, 0, 0, 4, 0},
 			},
 		)
-		test.That(t, _motor.GoFor(ctx, 50.0, 3.2, nil), test.ShouldBeNil)
+		test.That(t, motorDep.GoFor(ctx, 50.0, 3.2, nil), test.ShouldBeNil)
 
 		// Check with position at 4.0 revolutions
 		go checkRx(t, c,
@@ -191,7 +287,7 @@ func TestTMCStepperMotor(t *testing.T) {
 				{0, 0, 0, 4, 0},
 			},
 		)
-		test.That(t, _motor.GoFor(ctx, 50.0, 3.2, nil), test.ShouldBeNil)
+		test.That(t, motorDep.GoFor(ctx, 50.0, 3.2, nil), test.ShouldBeNil)
 
 		// Check with position at 1.2 revolutions
 		go checkRx(t, c,
@@ -214,7 +310,7 @@ func TestTMCStepperMotor(t *testing.T) {
 				{0, 0, 0, 4, 0},
 			},
 		)
-		test.That(t, _motor.GoFor(ctx, 50.0, 6.6, nil), test.ShouldBeNil)
+		test.That(t, motorDep.GoFor(ctx, 50.0, 6.6, nil), test.ShouldBeNil)
 	})
 
 	t.Run("motor GoFor with negative rpm and positive revolutions", func(t *testing.T) {
@@ -239,7 +335,7 @@ func TestTMCStepperMotor(t *testing.T) {
 				{0, 0, 0, 4, 0},
 			},
 		)
-		test.That(t, _motor.GoFor(ctx, -50.0, 3.2, nil), test.ShouldBeNil)
+		test.That(t, motorDep.GoFor(ctx, -50.0, 3.2, nil), test.ShouldBeNil)
 
 		// Check with position at 4.0 revolutions
 		go checkRx(t, c,
@@ -262,7 +358,7 @@ func TestTMCStepperMotor(t *testing.T) {
 				{0, 0, 0, 4, 0},
 			},
 		)
-		test.That(t, _motor.GoFor(ctx, -50.0, 3.2, nil), test.ShouldBeNil)
+		test.That(t, motorDep.GoFor(ctx, -50.0, 3.2, nil), test.ShouldBeNil)
 
 		// Check with position at 1.2 revolutions
 		go checkRx(t, c,
@@ -285,7 +381,7 @@ func TestTMCStepperMotor(t *testing.T) {
 				{0, 0, 0, 4, 0},
 			},
 		)
-		test.That(t, _motor.GoFor(ctx, -50.0, 6.6, nil), test.ShouldBeNil)
+		test.That(t, motorDep.GoFor(ctx, -50.0, 6.6, nil), test.ShouldBeNil)
 	})
 
 	t.Run("motor GoFor with positive rpm and negative revolutions", func(t *testing.T) {
@@ -310,7 +406,7 @@ func TestTMCStepperMotor(t *testing.T) {
 				{0, 0, 0, 4, 0},
 			},
 		)
-		test.That(t, _motor.GoFor(ctx, 50.0, -3.2, nil), test.ShouldBeNil)
+		test.That(t, motorDep.GoFor(ctx, 50.0, -3.2, nil), test.ShouldBeNil)
 
 		// Check with position at 4.0 revolutions
 		go checkRx(t, c,
@@ -333,7 +429,7 @@ func TestTMCStepperMotor(t *testing.T) {
 				{0, 0, 0, 4, 0},
 			},
 		)
-		test.That(t, _motor.GoFor(ctx, 50.0, -3.2, nil), test.ShouldBeNil)
+		test.That(t, motorDep.GoFor(ctx, 50.0, -3.2, nil), test.ShouldBeNil)
 
 		// Check with position at 1.2 revolutions
 		go checkRx(t, c,
@@ -356,7 +452,7 @@ func TestTMCStepperMotor(t *testing.T) {
 				{0, 0, 0, 4, 0},
 			},
 		)
-		test.That(t, _motor.GoFor(ctx, 50.0, -6.6, nil), test.ShouldBeNil)
+		test.That(t, motorDep.GoFor(ctx, 50.0, -6.6, nil), test.ShouldBeNil)
 	})
 
 	t.Run("motor GoFor with negative rpm and negative revolutions", func(t *testing.T) {
@@ -381,7 +477,7 @@ func TestTMCStepperMotor(t *testing.T) {
 				{0, 0, 0, 4, 0},
 			},
 		)
-		test.That(t, _motor.GoFor(ctx, -50.0, -3.2, nil), test.ShouldBeNil)
+		test.That(t, motorDep.GoFor(ctx, -50.0, -3.2, nil), test.ShouldBeNil)
 
 		// Check with position at 4.0 revolutions
 		go checkRx(t, c,
@@ -404,7 +500,7 @@ func TestTMCStepperMotor(t *testing.T) {
 				{0, 0, 0, 4, 0},
 			},
 		)
-		test.That(t, _motor.GoFor(ctx, -50.0, -3.2, nil), test.ShouldBeNil)
+		test.That(t, motorDep.GoFor(ctx, -50.0, -3.2, nil), test.ShouldBeNil)
 
 		// Check with position at 1.2 revolutions
 		go checkRx(t, c,
@@ -427,11 +523,11 @@ func TestTMCStepperMotor(t *testing.T) {
 				{0, 0, 0, 4, 0},
 			},
 		)
-		test.That(t, _motor.GoFor(ctx, -50.0, -6.6, nil), test.ShouldBeNil)
+		test.That(t, motorDep.GoFor(ctx, -50.0, -6.6, nil), test.ShouldBeNil)
 	})
 
 	t.Run("motor GoFor with zero rpm", func(t *testing.T) {
-		test.That(t, _motor.GoFor(ctx, 0, 1, nil), test.ShouldBeError, motor.NewZeroRPMError())
+		test.That(t, motorDep.GoFor(ctx, 0, 1, nil), test.ShouldBeError, motor.NewZeroRPMError())
 	})
 
 	t.Run("motor is on testing", func(t *testing.T) {
@@ -446,7 +542,7 @@ func TestTMCStepperMotor(t *testing.T) {
 				{0, 0, 0, 4, 0},
 			},
 		)
-		on, powerPct, err := _motor.IsPowered(ctx, nil)
+		on, powerPct, err := motorDep.IsPowered(ctx, nil)
 		test.That(t, on, test.ShouldEqual, false)
 		test.That(t, powerPct, test.ShouldEqual, -0.25)
 		test.That(t, err, test.ShouldBeNil)
@@ -462,7 +558,7 @@ func TestTMCStepperMotor(t *testing.T) {
 				{0, 0, 0, 0, 0},
 			},
 		)
-		on, powerPct, err = _motor.IsPowered(ctx, nil)
+		on, powerPct, err = motorDep.IsPowered(ctx, nil)
 		test.That(t, on, test.ShouldEqual, true)
 		test.That(t, powerPct, test.ShouldEqual, -0.25)
 		test.That(t, err, test.ShouldBeNil)
@@ -486,7 +582,7 @@ func TestTMCStepperMotor(t *testing.T) {
 				{0, 0, 0, 0, 0},
 			},
 		)
-		test.That(t, _motor.ResetZeroPosition(ctx, 0, nil), test.ShouldBeNil)
+		test.That(t, motorDep.ResetZeroPosition(ctx, 0, nil), test.ShouldBeNil)
 
 		// No offset (and when actually on)
 		go checkRx(t, c,
@@ -499,7 +595,7 @@ func TestTMCStepperMotor(t *testing.T) {
 				{0, 0, 0, 0, 0},
 			},
 		)
-		test.That(t, _motor.ResetZeroPosition(ctx, 0, nil), test.ShouldNotBeNil)
+		test.That(t, motorDep.ResetZeroPosition(ctx, 0, nil), test.ShouldNotBeNil)
 
 		// 3.1 offset (and when actually off)
 		go checkRx(t, c,
@@ -518,7 +614,7 @@ func TestTMCStepperMotor(t *testing.T) {
 				{0, 0, 0, 0, 0},
 			},
 		)
-		test.That(t, _motor.ResetZeroPosition(ctx, 3.1, nil), test.ShouldBeNil)
+		test.That(t, motorDep.ResetZeroPosition(ctx, 3.1, nil), test.ShouldBeNil)
 	})
 
 	t.Run("motor gotillstop testing", func(t *testing.T) {
@@ -662,9 +758,9 @@ func TestTMCStepperMotor(t *testing.T) {
 			{161, 0, 0, 0, 0},
 		})
 
-		m, err := motorReg.Constructor(context.Background(), deps, config.Component{Name: "motor1", ConvertedAttributes: &mc}, logger)
+		m, err := motorReg.Constructor(context.Background(), deps, resource.Config{Name: "motor1", ConvertedAttributes: &mc}, logger)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, utils.TryClose(context.Background(), m), test.ShouldBeNil)
+		test.That(t, m.Close(context.Background()), test.ShouldBeNil)
 	})
 
 	t.Run("test under-limit current settings", func(*testing.T) {
@@ -690,9 +786,9 @@ func TestTMCStepperMotor(t *testing.T) {
 			{161, 0, 0, 0, 0},
 		})
 
-		m, err := motorReg.Constructor(context.Background(), deps, config.Component{Name: "motor1", ConvertedAttributes: &mc}, logger)
+		m, err := motorReg.Constructor(context.Background(), deps, resource.Config{Name: "motor1", ConvertedAttributes: &mc}, logger)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, utils.TryClose(context.Background(), m), test.ShouldBeNil)
+		test.That(t, m.Close(context.Background()), test.ShouldBeNil)
 	})
 
 	//nolint:dupl
@@ -720,8 +816,8 @@ func TestTMCStepperMotor(t *testing.T) {
 			{161, 0, 0, 0, 0},
 		})
 
-		m, err := motorReg.Constructor(context.Background(), deps, config.Component{Name: "motor1", ConvertedAttributes: &mc}, logger)
+		m, err := motorReg.Constructor(context.Background(), deps, resource.Config{Name: "motor1", ConvertedAttributes: &mc}, logger)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, utils.TryClose(context.Background(), m), test.ShouldBeNil)
+		test.That(t, m.Close(context.Background()), test.ShouldBeNil)
 	})
 }

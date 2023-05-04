@@ -14,71 +14,67 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-var extrinsicsModel = resource.NewDefaultModel("align_color_depth_extrinsics")
+var extrinsicsModel = resource.DefaultModelFamily.WithModel("align_color_depth_extrinsics")
 
 func init() {
-	registry.RegisterComponent(camera.Subtype, extrinsicsModel,
-		registry.Component{Constructor: func(ctx context.Context, deps registry.Dependencies,
-			config config.Component, logger golog.Logger,
-		) (interface{}, error) {
-			attrs, ok := config.ConvertedAttributes.(*extrinsicsAttrs)
-			if !ok {
-				return nil, rdkutils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
-			}
-			colorName := attrs.Color
-			color, err := camera.FromDependencies(deps, colorName)
-			if err != nil {
-				return nil, fmt.Errorf("no color camera (%s): %w", colorName, err)
-			}
+	resource.RegisterComponent(camera.API, extrinsicsModel,
+		resource.Registration[camera.Camera, *extrinsicsConfig]{
+			Constructor: func(ctx context.Context, deps resource.Dependencies,
+				conf resource.Config, logger golog.Logger,
+			) (camera.Camera, error) {
+				newConf, err := resource.NativeConfig[*extrinsicsConfig](conf)
+				if err != nil {
+					return nil, err
+				}
+				colorName := newConf.Color
+				color, err := camera.FromDependencies(deps, colorName)
+				if err != nil {
+					return nil, fmt.Errorf("no color camera (%s): %w", colorName, err)
+				}
 
-			depthName := attrs.Depth
-			depth, err := camera.FromDependencies(deps, depthName)
-			if err != nil {
-				return nil, fmt.Errorf("no depth camera (%s): %w", depthName, err)
-			}
-			return newColorDepthExtrinsics(ctx, color, depth, attrs, logger)
-		}})
+				depthName := newConf.Depth
+				depth, err := camera.FromDependencies(deps, depthName)
+				if err != nil {
+					return nil, fmt.Errorf("no depth camera (%s): %w", depthName, err)
+				}
+				src, err := newColorDepthExtrinsics(ctx, color, depth, newConf, logger)
+				if err != nil {
+					return nil, err
+				}
+				return camera.FromVideoSource(conf.ResourceName(), src), nil
+			},
+			AttributeMapConverter: func(attributes rdkutils.AttributeMap) (*extrinsicsConfig, error) {
+				if !attributes.Has("camera_system") {
+					return nil, errors.New("missing camera_system")
+				}
 
-	config.RegisterComponentAttributeMapConverter(camera.Subtype, extrinsicsModel,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf extrinsicsAttrs
-			attrs, err := config.TransformAttributeMapToStruct(&conf, attributes)
-			if err != nil {
-				return nil, err
-			}
-			result, ok := attrs.(*extrinsicsAttrs)
-			if !ok {
-				return nil, rdkutils.NewUnexpectedTypeError(result, attrs)
-			}
-			return result, nil
-		}, &extrinsicsAttrs{})
+				b, err := json.Marshal(attributes["camera_system"])
+				if err != nil {
+					return nil, err
+				}
+				matrices, err := transform.NewDepthColorIntrinsicsExtrinsicsFromBytes(b)
+				if err != nil {
+					return nil, err
+				}
+				if err := matrices.CheckValid(); err != nil {
+					return nil, err
+				}
+				attributes["camera_system"] = matrices
 
-	config.RegisterComponentAttributeConverter(camera.Subtype, extrinsicsModel, "camera_system",
-		func(val interface{}) (interface{}, error) {
-			b, err := json.Marshal(val)
-			if err != nil {
-				return nil, err
-			}
-			matrices, err := transform.NewDepthColorIntrinsicsExtrinsicsFromBytes(b)
-			if err != nil {
-				return nil, err
-			}
-			err = matrices.CheckValid()
-			return matrices, err
+				return resource.TransformAttributeMap[*extrinsicsConfig](attributes)
+			},
 		})
 }
 
-// extrinsicsAttrs is the attribute struct for aligning.
-type extrinsicsAttrs struct {
+// extrinsicsConfig is the attribute struct for aligning.
+type extrinsicsConfig struct {
 	CameraParameters     *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters"`
 	IntrinsicExtrinsic   interface{}                        `json:"camera_system"`
 	ImageType            string                             `json:"output_image_type"`
@@ -88,7 +84,7 @@ type extrinsicsAttrs struct {
 	DistortionParameters *transform.BrownConrady            `json:"distortion_parameters,omitempty"`
 }
 
-func (cfg *extrinsicsAttrs) Validate(path string) ([]string, error) {
+func (cfg *extrinsicsConfig) Validate(path string) ([]string, error) {
 	var deps []string
 	if cfg.Color == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "color_camera_name")
@@ -115,39 +111,39 @@ type colorDepthExtrinsics struct {
 }
 
 // newColorDepthExtrinsics creates a gostream.VideoSource that aligned color and depth channels.
-func newColorDepthExtrinsics(ctx context.Context, color, depth camera.Camera, attrs *extrinsicsAttrs, logger golog.Logger,
-) (camera.Camera, error) {
-	alignment, ok := attrs.IntrinsicExtrinsic.(*transform.DepthColorIntrinsicsExtrinsics)
-	if !ok {
-		return nil, rdkutils.NewUnexpectedTypeError(alignment, attrs.IntrinsicExtrinsic)
+func newColorDepthExtrinsics(ctx context.Context, color, depth camera.VideoSource, conf *extrinsicsConfig, logger golog.Logger,
+) (camera.VideoSource, error) {
+	alignment, err := rdkutils.AssertType[*transform.DepthColorIntrinsicsExtrinsics](conf.IntrinsicExtrinsic)
+	if err != nil {
+		return nil, err
 	}
-	if attrs.CameraParameters == nil {
+	if conf.CameraParameters == nil {
 		return nil, transform.ErrNoIntrinsics
 	}
-	if attrs.CameraParameters.Height <= 0 || attrs.CameraParameters.Width <= 0 {
+	if conf.CameraParameters.Height <= 0 || conf.CameraParameters.Width <= 0 {
 		return nil, errors.Errorf(
 			"colorDepthExtrinsics needs Width and Height fields set in intrinsic_parameters. Got illegal dimensions (%d, %d)",
-			attrs.CameraParameters.Width,
-			attrs.CameraParameters.Height,
+			conf.CameraParameters.Width,
+			conf.CameraParameters.Height,
 		)
 	}
 	// get the projector for the alignment camera
-	imgType := camera.ImageType(attrs.ImageType)
+	imgType := camera.ImageType(conf.ImageType)
 	videoSrc := &colorDepthExtrinsics{
 		color:     gostream.NewEmbeddedVideoStream(color),
-		colorName: attrs.Color,
+		colorName: conf.Color,
 		depth:     gostream.NewEmbeddedVideoStream(depth),
-		depthName: attrs.Depth,
+		depthName: conf.Depth,
 		aligner:   alignment,
-		projector: attrs.CameraParameters,
+		projector: conf.CameraParameters,
 		imageType: imgType,
-		height:    attrs.CameraParameters.Height,
-		width:     attrs.CameraParameters.Width,
-		debug:     attrs.Debug,
+		height:    conf.CameraParameters.Height,
+		width:     conf.CameraParameters.Width,
+		debug:     conf.Debug,
 		logger:    logger,
 	}
-	cameraModel := camera.NewPinholeModelWithBrownConradyDistortion(attrs.CameraParameters, attrs.DistortionParameters)
-	return camera.NewFromReader(
+	cameraModel := camera.NewPinholeModelWithBrownConradyDistortion(conf.CameraParameters, conf.DistortionParameters)
+	return camera.NewVideoSourceFromReader(
 		ctx,
 		videoSrc,
 		&cameraModel,

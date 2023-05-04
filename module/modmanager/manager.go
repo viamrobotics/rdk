@@ -28,9 +28,7 @@ import (
 	modmanageroptions "go.viam.com/rdk/module/modmanager/options"
 	"go.viam.com/rdk/module/modmaninterface"
 	"go.viam.com/rdk/operation"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/robot"
 )
 
 var (
@@ -40,14 +38,14 @@ var (
 )
 
 // NewManager returns a Manager.
-func NewManager(r robot.LocalRobot, options modmanageroptions.Options) (modmaninterface.ModuleManager, error) {
+func NewManager(parentAddr string, logger golog.Logger, options modmanageroptions.Options) modmaninterface.ModuleManager {
 	return &Manager{
-		logger:       r.Logger().Named("modmanager"),
+		logger:       logger,
 		modules:      map[string]*module{},
-		r:            r,
+		parentAddr:   parentAddr,
 		rMap:         map[resource.Name]*module{},
 		untrustedEnv: options.UntrustedEnv,
-	}, nil
+	}
 }
 
 type module struct {
@@ -62,7 +60,7 @@ type module struct {
 }
 
 type addedResource struct {
-	cfg  config.Component
+	conf resource.Config
 	deps []string
 }
 
@@ -71,7 +69,7 @@ type Manager struct {
 	mu           sync.RWMutex
 	logger       golog.Logger
 	modules      map[string]*module
-	r            robot.LocalRobot
+	parentAddr   string
 	rMap         map[resource.Name]*module
 	untrustedEnv bool
 }
@@ -86,31 +84,26 @@ func (mgr *Manager) Close(ctx context.Context) error {
 }
 
 // Add adds and starts a new resource module.
-func (mgr *Manager) Add(ctx context.Context, cfg config.Module) error {
-	return mgr.add(ctx, cfg, nil)
+func (mgr *Manager) Add(ctx context.Context, conf config.Module) error {
+	return mgr.add(ctx, conf, nil)
 }
 
-func (mgr *Manager) add(ctx context.Context, cfg config.Module, conn *grpc.ClientConn) error {
+func (mgr *Manager) add(ctx context.Context, conf config.Module, conn *grpc.ClientConn) error {
 	if mgr.untrustedEnv {
 		return errModularResourcesDisabled
 	}
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
 
-	_, exists := mgr.modules[cfg.Name]
+	_, exists := mgr.modules[conf.Name]
 	if exists {
 		return nil
 	}
 
-	mod := &module{name: cfg.Name, exe: cfg.ExePath, resources: map[resource.Name]*addedResource{}}
-	mgr.modules[cfg.Name] = mod
+	mod := &module{name: conf.Name, exe: conf.ExePath, resources: map[resource.Name]*addedResource{}}
+	mgr.modules[conf.Name] = mod
 
-	parentAddr, err := mgr.r.ModuleAddress()
-	if err != nil {
-		return err
-	}
-
-	if err := mod.startProcess(ctx, parentAddr, mgr.logger); err != nil {
+	if err := mod.startProcess(ctx, mgr.parentAddr, mgr.logger); err != nil {
 		return errors.WithMessage(err, "error while starting module "+mod.name)
 	}
 
@@ -128,7 +121,7 @@ func (mgr *Manager) add(ctx context.Context, cfg config.Module, conn *grpc.Clien
 		return errors.WithMessage(err, "error while dialing module "+mod.name)
 	}
 
-	if err := mod.checkReady(ctx, parentAddr); err != nil {
+	if err := mod.checkReady(ctx, mgr.parentAddr); err != nil {
 		return errors.WithMessage(err, "error while waiting for module to be ready "+mod.name)
 	}
 
@@ -140,10 +133,10 @@ func (mgr *Manager) add(ctx context.Context, cfg config.Module, conn *grpc.Clien
 
 // Reconfigure reconfigures an existing resource module and returns the names of
 // now orphaned resources.
-func (mgr *Manager) Reconfigure(ctx context.Context, cfg config.Module) ([]resource.Name, error) {
-	mod, exists := mgr.modules[cfg.Name]
+func (mgr *Manager) Reconfigure(ctx context.Context, conf config.Module) ([]resource.Name, error) {
+	mod, exists := mgr.modules[conf.Name]
 	if !exists {
-		return nil, errors.Errorf("cannot reconfigure module %s as it does not exist", cfg.Name)
+		return nil, errors.Errorf("cannot reconfigure module %s as it does not exist", conf.Name)
 	}
 	handledResources := mod.resources
 	var handledResourceNames []resource.Name
@@ -156,7 +149,7 @@ func (mgr *Manager) Reconfigure(ctx context.Context, cfg config.Module) ([]resou
 		return handledResourceNames, err
 	}
 
-	if err := mgr.add(ctx, cfg, mod.conn); err != nil {
+	if err := mgr.add(ctx, conf, mod.conn); err != nil {
 		// If re-addition fails, assume all handled resources are orphaned.
 		return handledResourceNames, err
 	}
@@ -165,9 +158,9 @@ func (mgr *Manager) Reconfigure(ctx context.Context, cfg config.Module) ([]resou
 	// handle old resource and consider that resource orphaned.
 	var orphanedResourceNames []resource.Name
 	for name, res := range handledResources {
-		if _, err := mgr.AddResource(ctx, res.cfg, res.deps); err != nil {
+		if _, err := mgr.AddResource(ctx, res.conf, res.deps); err != nil {
 			mgr.logger.Warnf("error while re-adding resource %s to module %s: %v",
-				name, cfg.Name, err)
+				name, conf.Name, err)
 			orphanedResourceNames = append(orphanedResourceNames, name)
 		}
 	}
@@ -207,9 +200,7 @@ func (mgr *Manager) remove(mod *module, reconfigure bool) error {
 		}
 	}
 
-	if err := mod.deregisterResources(); err != nil {
-		return errors.WithMessage(err, "error while deregistering resources for module "+mod.name)
-	}
+	mod.deregisterResources()
 
 	for r, m := range mgr.rMap {
 		if m == mod {
@@ -221,70 +212,61 @@ func (mgr *Manager) remove(mod *module, reconfigure bool) error {
 }
 
 // AddResource tells a component module to configure a new component.
-func (mgr *Manager) AddResource(ctx context.Context, cfg config.Component, deps []string) (interface{}, error) {
+func (mgr *Manager) AddResource(ctx context.Context, conf resource.Config, deps []string) (resource.Resource, error) {
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
-	module, ok := mgr.getModule(cfg)
+	module, ok := mgr.getModule(conf)
 	if !ok {
-		return nil, errors.Errorf("no module registered to serve resource api %s and model %s", cfg.ResourceName().Subtype, cfg.Model)
+		return nil, errors.Errorf("no module registered to serve resource api %s and model %s", conf.API, conf.Model)
 	}
 
-	cfgProto, err := config.ComponentConfigToProto(&cfg)
+	confProto, err := config.ComponentConfigToProto(&conf)
 	if err != nil {
 		return nil, err
 	}
 
-	svc, ok := mgr.r.(robot.Refresher)
-	if !ok {
-		return nil, errors.New("robot can't refresh resources")
-	}
-	if err = svc.Refresh(ctx); err != nil {
-		return nil, err
-	}
-
-	_, err = module.client.AddResource(ctx, &pb.AddResourceRequest{Config: cfgProto, Dependencies: deps})
+	_, err = module.client.AddResource(ctx, &pb.AddResourceRequest{Config: confProto, Dependencies: deps})
 	if err != nil {
 		return nil, err
 	}
-	mgr.rMap[cfg.ResourceName()] = module
-	module.resources[cfg.ResourceName()] = &addedResource{cfg, deps}
+	mgr.rMap[conf.ResourceName()] = module
+	module.resources[conf.ResourceName()] = &addedResource{conf, deps}
 
-	c := registry.ResourceSubtypeLookup(cfg.ResourceName().Subtype)
-	if c == nil || c.RPCClient == nil {
-		mgr.logger.Warnf("no built-in grpc client for modular resource %s", cfg.ResourceName())
-		return rdkgrpc.NewForeignResource(cfg.ResourceName(), module.conn), nil
+	apiInfo, ok := resource.LookupGenericAPIRegistration(conf.API)
+	if !ok || apiInfo.RPCClient == nil {
+		mgr.logger.Warnf("no built-in grpc client for modular resource %s", conf.ResourceName())
+		return rdkgrpc.NewForeignResource(conf.ResourceName(), module.conn), nil
 	}
-	nameR := cfg.ResourceName().ShortName()
-	return c.RPCClient(ctx, module.conn, nameR, mgr.logger), nil
+	return apiInfo.RPCClient(ctx, module.conn, "", conf.ResourceName(), mgr.logger)
 }
 
 // ReconfigureResource updates/reconfigures a modular component with a new configuration.
-func (mgr *Manager) ReconfigureResource(ctx context.Context, cfg config.Component, deps []string) error {
+func (mgr *Manager) ReconfigureResource(ctx context.Context, conf resource.Config, deps []string) error {
 	mgr.mu.RLock()
 	defer mgr.mu.RUnlock()
-	module, ok := mgr.getModule(cfg)
+	module, ok := mgr.getModule(conf)
 	if !ok {
-		return errors.Errorf("no module registered to serve resource api %s and model %s", cfg.ResourceName().Subtype, cfg.Model)
+		return errors.Errorf("no module registered to serve resource api %s and model %s", conf.API, conf.Model)
 	}
 
-	cfgProto, err := config.ComponentConfigToProto(&cfg)
+	confProto, err := config.ComponentConfigToProto(&conf)
 	if err != nil {
 		return err
 	}
-	_, err = module.client.ReconfigureResource(ctx, &pb.ReconfigureResourceRequest{Config: cfgProto, Dependencies: deps})
+	_, err = module.client.ReconfigureResource(ctx, &pb.ReconfigureResourceRequest{Config: confProto, Dependencies: deps})
 	if err != nil {
 		return err
 	}
-	module.resources[cfg.ResourceName()] = &addedResource{cfg, deps}
+	module.resources[conf.ResourceName()] = &addedResource{conf, deps}
 
 	return nil
 }
 
 // Provides returns true if a component/service config WOULD be handled by a module.
-func (mgr *Manager) Provides(cfg config.Component) bool {
+func (mgr *Manager) Provides(conf resource.Config) bool {
 	mgr.mu.RLock()
 	defer mgr.mu.RUnlock()
-	_, ok := mgr.getModule(cfg)
+	_, ok := mgr.getModule(conf)
 	return ok
 }
 
@@ -312,17 +294,17 @@ func (mgr *Manager) RemoveResource(ctx context.Context, name resource.Name) erro
 
 // ValidateConfig determines whether the given config is valid and returns its implicit
 // dependencies.
-func (mgr *Manager) ValidateConfig(ctx context.Context, cfg config.Component) ([]string, error) {
+func (mgr *Manager) ValidateConfig(ctx context.Context, conf resource.Config) ([]string, error) {
 	mgr.mu.RLock()
 	defer mgr.mu.RUnlock()
-	module, ok := mgr.getModule(cfg)
+	module, ok := mgr.getModule(conf)
 	if !ok {
 		return nil,
 			errors.Errorf("no module registered to serve resource api %s and model %s",
-				cfg.ResourceName().Subtype, cfg.Model)
+				conf.API, conf.Model)
 	}
 
-	cfgProto, err := config.ComponentConfigToProto(&cfg)
+	confProto, err := config.ComponentConfigToProto(&conf)
 	if err != nil {
 		return nil, err
 	}
@@ -332,7 +314,7 @@ func (mgr *Manager) ValidateConfig(ctx context.Context, cfg config.Component) ([
 	ctx, cancel = context.WithTimeout(ctx, validateConfigTimeout)
 	defer cancel()
 
-	resp, err := module.client.ValidateConfig(ctx, &pb.ValidateConfigRequest{Config: cfgProto})
+	resp, err := module.client.ValidateConfig(ctx, &pb.ValidateConfigRequest{Config: confProto})
 	// Swallow "Unimplemented" gRPC errors from modules that lack ValidateConfig
 	// receiving logic.
 	if err != nil && status.Code(err) == codes.Unimplemented {
@@ -344,12 +326,12 @@ func (mgr *Manager) ValidateConfig(ctx context.Context, cfg config.Component) ([
 	return resp.Dependencies, nil
 }
 
-func (mgr *Manager) getModule(cfg config.Component) (*module, bool) {
+func (mgr *Manager) getModule(conf resource.Config) (*module, bool) {
 	for _, module := range mgr.modules {
-		var api resource.RPCSubtype
+		var api resource.RPCAPI
 		var ok bool
 		for a := range module.handles {
-			if a.Subtype == cfg.ResourceName().Subtype {
+			if a.API == conf.API {
 				api = a
 				ok = true
 				break
@@ -359,7 +341,7 @@ func (mgr *Manager) getModule(cfg config.Component) (*module, bool) {
 			continue
 		}
 		for _, model := range module.handles[api] {
-			if cfg.Model == model {
+			if conf.Model == model {
 				return module, true
 			}
 		}
@@ -418,13 +400,13 @@ func (m *module) startProcess(ctx context.Context, parentAddr string, logger gol
 	if err := modlib.CheckSocketAddressLength(m.addr); err != nil {
 		return err
 	}
-	pcfg := pexec.ProcessConfig{
+	pconf := pexec.ProcessConfig{
 		ID:   m.name,
 		Name: m.exe,
 		Args: []string{m.addr},
 		Log:  true,
 	}
-	m.process = pexec.NewManagedProcess(pcfg, logger)
+	m.process = pexec.NewManagedProcess(pconf, logger)
 
 	err := m.process.Start(context.Background())
 	if err != nil {
@@ -475,54 +457,56 @@ func (m *module) stopProcess() error {
 
 func (m *module) registerResources(mgr modmaninterface.ModuleManager, logger golog.Logger) {
 	for api, models := range m.handles {
-		known := registry.ResourceSubtypeLookup(api.Subtype)
-		if known == nil {
-			registry.RegisterResourceSubtype(api.Subtype, registry.ResourceSubtype{ReflectRPCServiceDesc: api.Desc})
+		if _, ok := resource.LookupGenericAPIRegistration(api.API); !ok {
+			resource.RegisterAPI(
+				api.API,
+				resource.APIRegistration[resource.Resource]{ReflectRPCServiceDesc: api.Desc},
+			)
 		}
 
-		switch api.Subtype.ResourceType {
-		case resource.ResourceTypeComponent:
+		switch {
+		case api.API.IsComponent():
 			for _, model := range models {
-				registry.RegisterComponent(api.Subtype, model, registry.Component{
-					Constructor: func(ctx context.Context, deps registry.Dependencies, cfg config.Component, logger golog.Logger) (interface{}, error) {
-						return mgr.AddResource(ctx, cfg, DepsToNames(deps))
+				resource.RegisterComponent(api.API, model, resource.Registration[resource.Resource, resource.NoNativeConfig]{
+					Constructor: func(
+						ctx context.Context,
+						deps resource.Dependencies,
+						conf resource.Config,
+						logger golog.Logger,
+					) (resource.Resource, error) {
+						return mgr.AddResource(ctx, conf, DepsToNames(deps))
 					},
 				})
 			}
-		case resource.ResourceTypeService:
+		case api.API.IsService():
 			for _, model := range models {
-				registry.RegisterService(api.Subtype, model, registry.Service{
-					Constructor: func(ctx context.Context, deps registry.Dependencies, cfg config.Service, logger golog.Logger) (interface{}, error) {
-						return mgr.AddResource(ctx, config.ServiceConfigToShared(cfg), DepsToNames(deps))
+				resource.RegisterService(api.API, model, resource.Registration[resource.Resource, resource.NoNativeConfig]{
+					Constructor: func(
+						ctx context.Context,
+						deps resource.Dependencies,
+						conf resource.Config,
+						logger golog.Logger,
+					) (resource.Resource, error) {
+						return mgr.AddResource(ctx, conf, DepsToNames(deps))
 					},
 				})
 			}
 		default:
-			logger.Errorf("invalid module type: %s", api.Subtype.Type)
+			logger.Errorf("invalid module type: %s", api.API.Type)
 		}
 	}
 }
 
-func (m *module) deregisterResources() error {
+func (m *module) deregisterResources() {
 	for api, models := range m.handles {
-		switch api.Subtype.ResourceType {
-		case resource.ResourceTypeComponent:
-			for _, model := range models {
-				registry.DeregisterComponent(api.Subtype, model)
-			}
-		case resource.ResourceTypeService:
-			for _, model := range models {
-				registry.DeregisterService(api.Subtype, model)
-			}
-		default:
-			return errors.Errorf("invalid module type: %s", api.Subtype.Type)
+		for _, model := range models {
+			resource.Deregister(api.API, model)
 		}
 	}
-	return nil
 }
 
 // DepsToNames converts a dependency list to a simple string slice.
-func DepsToNames(deps registry.Dependencies) []string {
+func DepsToNames(deps resource.Dependencies) []string {
 	var depStrings []string
 	for dep := range deps {
 		depStrings = append(depStrings, dep.String())
