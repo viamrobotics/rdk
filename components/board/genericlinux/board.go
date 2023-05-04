@@ -242,10 +242,10 @@ func (b *sysfsBoard) reconfigureInterrupts(newConf *Config) error {
 		return nil
 	}
 
-	// Reuse any old interrupts that should stick around.
+	// Reuse any old interrupts that have new configs
 	for _, oldInterrupt := range b.interrupts {
 		if newConfig := findNewDigIntConfig(oldInterrupt); newConfig == nil {
-			// The old interrupt shouldn't exist any more, but it might have become a GPIO pin.
+			// The old interrupt shouldn't exist any more, but it probably became a GPIO pin.
 			oldInterrupt.Close()
 			if pinInt, err := strconv.Atoi(oldInterrupt.config.Pin); err == nil {
 				if newGpioConfig, ok := b.gpioMappings[pinInt]; ok {
@@ -253,18 +253,17 @@ func (b *sysfsBoard) reconfigureInterrupts(newConf *Config) error {
 					b.gpios[oldInterrupt.config.Pin] = b.createGpioPin(newGpioConfig)
 				}
 			} else {
-				b.logger.Debugf("Unable to reinterpret old interrupt pin '%s' as GPIO, ignoring.",
-				                oldInterrupt.config.Pin)
+				b.logger.Warnf("Unable to reinterpret old interrupt pin '%s' as GPIO, ignoring.",
+				               oldInterrupt.config.Pin)
 			}
-		} else {
-			newInterrupts[newConfig.Name] = oldInterrupt
+		} else { // The old interrupt should stick around.
 			if err := oldInterrupt.interrupt.Reconfigure(*newConfig); err != nil {
 				return err
 			}
+			oldInterrupt.config = newConfig
+			newInterrupts[newConfig.Name] = oldInterrupt
 		}
 	}
-
-	// Remove any old interrupts that should *not* stick around.
 	b.interrupts = newInterrupts
 
 	// Add any new interrupts that should be freshly made.
