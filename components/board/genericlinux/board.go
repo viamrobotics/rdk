@@ -253,7 +253,9 @@ func (b *sysfsBoard) reconfigureInterrupts(newConf *Config) error {
 	for _, oldInterrupt := range b.interrupts {
 		if newConfig := findNewDigIntConfig(oldInterrupt); newConfig == nil {
 			// The old interrupt shouldn't exist any more, but it probably became a GPIO pin.
-			oldInterrupt.Close()
+			if err := oldInterrupt.Close(); err != nil {
+				return err // This should never happen, but the linter worries anyway.
+			}
 			if pinInt, err := strconv.Atoi(oldInterrupt.config.Pin); err == nil {
 				if newGpioConfig, ok := b.gpioMappings[pinInt]; ok {
 					// See gpio.go for createGpioPin.
@@ -284,12 +286,16 @@ func (b *sysfsBoard) reconfigureInterrupts(newConf *Config) error {
 			// pin 38 even though it was not explicitly mentioned in the old board config), but the
 			// new config is explicit (e.g., its name is still "38" but it's been moved to pin 37).
 			// Close the old one and initialize it anew.
-			interrupt.Close()
+			if err := interrupt.Close(); err != nil {
+				return err
+			}
 			delete(b.interrupts, config.Name)
 		}
 
 		if oldPin, ok := b.gpios[config.Pin]; ok {
-			oldPin.Close()
+			if err := oldPin.Close(); err != nil {
+				return err
+			}
 			delete(b.gpios, config.Pin)
 		}
 		if interrupt, err := b.createDigitalInterrupt(b.cancelCtx, config, b.gpioMappings); err != nil {
