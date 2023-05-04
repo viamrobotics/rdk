@@ -20,7 +20,7 @@ func TestToFromContext(t *testing.T) {
 	_, ok := session.FromContext(context.Background())
 	test.That(t, ok, test.ShouldBeFalse)
 
-	sess1 := session.New("ownerID", nil, time.Minute, func(id uuid.UUID, resourceName resource.Name) {
+	sess1 := session.New(context.Background(), "ownerID", time.Minute, func(id uuid.UUID, resourceName resource.Name) {
 	})
 	nextCtx := session.ToContext(context.Background(), sess1)
 	sess2, ok := session.FromContext(nextCtx)
@@ -37,7 +37,7 @@ func TestSafetyMonitor(t *testing.T) {
 	var storedCount int32
 	var storedID uuid.UUID
 	var storedResourceName resource.Name
-	sess1 := session.New("ownerID", nil, time.Minute, func(id uuid.UUID, resourceName resource.Name) {
+	sess1 := session.New(context.Background(), "ownerID", time.Minute, func(id uuid.UUID, resourceName resource.Name) {
 		atomic.AddInt32(&storedCount, 1)
 		stored.Do(func() {
 			storedID = id
@@ -51,7 +51,7 @@ func TestSafetyMonitor(t *testing.T) {
 	test.That(t, storedResourceName, test.ShouldResemble, name)
 	test.That(t, atomic.LoadInt32(&storedCount), test.ShouldEqual, 1)
 
-	sess1 = session.New("ownerID", nil, 0, func(id uuid.UUID, resourceName resource.Name) {
+	sess1 = session.New(context.Background(), "ownerID", 0, func(id uuid.UUID, resourceName resource.Name) {
 		atomic.AddInt32(&storedCount, 1)
 		stored.Do(func() {
 			storedID = id
@@ -67,7 +67,7 @@ func TestSafetyMonitorForMetadata(t *testing.T) {
 	stream1 := &myStream{}
 	streamCtx := grpc.NewContextWithServerTransportStream(context.Background(), stream1)
 
-	sess1 := session.New("ownerID", nil, time.Minute, nil)
+	sess1 := session.New(context.Background(), "ownerID", time.Minute, nil)
 	nextCtx := session.ToContext(streamCtx, sess1)
 
 	name1 := resource.NewName(resource.APINamespace("foo").WithType("bar").WithSubtype("baz"), "barf")

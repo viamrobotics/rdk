@@ -8,7 +8,6 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
-	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/resource"
@@ -137,11 +136,8 @@ const (
 )
 
 // Start creates a new session that expects at least one heartbeat within the configured window.
-func (m *SessionManager) Start(
-	ownerID string,
-	peerConnInfo *pb.PeerConnectionInfo,
-) (*session.Session, error) {
-	sess := session.New(ownerID, peerConnInfo, m.heartbeatWindow, m.AssociateResource)
+func (m *SessionManager) Start(ctx context.Context, ownerID string) (*session.Session, error) {
+	sess := session.New(ctx, ownerID, m.heartbeatWindow, m.AssociateResource)
 	m.sessionResourceMu.Lock()
 	if len(m.sessions) > maxSessions {
 		return nil, errors.New("too many concurrent sessions")
@@ -155,7 +151,7 @@ func (m *SessionManager) Start(
 // extending the lifetime of the session. If ownerID is in use but the session
 // in question has a different owner, this is a security violation and we report
 // back no session found.
-func (m *SessionManager) FindByID(id uuid.UUID, ownerID string) (*session.Session, error) {
+func (m *SessionManager) FindByID(ctx context.Context, id uuid.UUID, ownerID string) (*session.Session, error) {
 	m.sessionResourceMu.RLock()
 	sess, ok := m.sessions[id]
 	if !ok || !sess.CheckOwnerID(ownerID) {
@@ -163,7 +159,7 @@ func (m *SessionManager) FindByID(id uuid.UUID, ownerID string) (*session.Sessio
 		return nil, session.ErrNoSession
 	}
 	m.sessionResourceMu.RUnlock()
-	sess.Heartbeat()
+	sess.Heartbeat(ctx)
 	return sess, nil
 }
 
