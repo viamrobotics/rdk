@@ -1,12 +1,14 @@
 package session
 
 import (
+	"context"
 	"crypto/subtle"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
 	pb "go.viam.com/api/robot/v1"
+	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/resource"
 )
@@ -26,30 +28,30 @@ type Session struct {
 
 // New makes a new session.
 func New(
+	ctx context.Context,
 	ownerID string,
-	peerConnInfo *pb.PeerConnectionInfo,
 	heartbeatWindow time.Duration,
 	associateResource func(id uuid.UUID, resourceName resource.Name),
 ) *Session {
-	return NewWithID(uuid.New(), ownerID, peerConnInfo, heartbeatWindow, associateResource)
+	return NewWithID(ctx, uuid.New(), ownerID, heartbeatWindow, associateResource)
 }
 
 // NewWithID makes a new session with an ID.
 func NewWithID(
+	ctx context.Context,
 	id uuid.UUID,
 	ownerID string,
-	peerConnInfo *pb.PeerConnectionInfo,
 	heartbeatWindow time.Duration,
 	associateResource func(id uuid.UUID, resourceName resource.Name),
 ) *Session {
-	return &Session{
+	sess := &Session{
 		id:                id,
 		ownerID:           []byte(ownerID),
-		peerConnInfo:      peerConnInfo,
-		deadline:          time.Now().Add(heartbeatWindow),
 		heartbeatWindow:   heartbeatWindow,
 		associateResource: associateResource,
 	}
+	sess.Heartbeat(ctx)
+	return sess
 }
 
 // ID returns the id of this session.
@@ -63,9 +65,10 @@ func (s *Session) CheckOwnerID(against string) bool {
 }
 
 // Heartbeat signals a single heartbeat to the session.
-func (s *Session) Heartbeat() {
+func (s *Session) Heartbeat(ctx context.Context) {
 	s.mu.Lock()
 	s.deadline = time.Now().Add(s.heartbeatWindow)
+	s.peerConnInfo = peerConnectionInfoToProto(rpc.PeerConnectionInfoFromContext(ctx))
 	s.mu.Unlock()
 }
 
@@ -100,4 +103,29 @@ func (s *Session) associateWith(targetName resource.Name) {
 	if s.associateResource != nil {
 		s.associateResource(s.ID(), targetName)
 	}
+}
+
+func peerConnectionInfoToProto(info rpc.PeerConnectionInfo) *pb.PeerConnectionInfo {
+	var connType pb.PeerConnectionType
+	switch info.ConnectionType {
+	case rpc.PeerConnectionTypeGRPC:
+		connType = pb.PeerConnectionType_PEER_CONNECTION_TYPE_GRPC
+	case rpc.PeerConnectionTypeWebRTC:
+		connType = pb.PeerConnectionType_PEER_CONNECTION_TYPE_WEBRTC
+	case rpc.PeerConnectionTypeUnknown:
+		fallthrough
+	default:
+		connType = pb.PeerConnectionType_PEER_CONNECTION_TYPE_UNSPECIFIED
+	}
+
+	pbInfo := &pb.PeerConnectionInfo{
+		Type: connType,
+	}
+	if info.LocalAddress != "" {
+		pbInfo.LocalAddress = &info.LocalAddress
+	}
+	if info.RemoteAddress != "" {
+		pbInfo.RemoteAddress = &info.RemoteAddress
+	}
+	return pbInfo
 }

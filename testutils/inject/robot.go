@@ -9,7 +9,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/google/uuid"
-	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils/pexec"
 
 	"go.viam.com/rdk/config"
@@ -277,15 +276,15 @@ func (r *Robot) ModuleAddress() (string, error) {
 
 type noopSessionManager struct{}
 
-func (m noopSessionManager) Start(ownerID string, peerConnInfo *pb.PeerConnectionInfo) (*session.Session, error) {
-	return session.New(ownerID, peerConnInfo, time.Minute, nil), nil
+func (m noopSessionManager) Start(ctx context.Context, ownerID string) (*session.Session, error) {
+	return session.New(ctx, ownerID, time.Minute, nil), nil
 }
 
 func (m noopSessionManager) All() []*session.Session {
 	return nil
 }
 
-func (m noopSessionManager) FindByID(id uuid.UUID, ownerID string) (*session.Session, error) {
+func (m noopSessionManager) FindByID(ctx context.Context, id uuid.UUID, ownerID string) (*session.Session, error) {
 	return nil, session.ErrNoSession
 }
 
