@@ -439,7 +439,7 @@ func (m *Module) addAPIFromRegistry(ctx context.Context, api resource.API) error
 
 	apiInfo, ok := resource.LookupGenericAPIRegistration(api)
 	if !ok {
-		return errors.Errorf("invariant: resource subtype does not exist for %q", api)
+		return errors.Errorf("invariant: registration does not exist for %q", api)
 	}
 
 	newColl := apiInfo.MakeEmptyCollection()
@@ -469,7 +469,7 @@ func (m *Module) AddModelFromRegistry(ctx context.Context, api resource.API, mod
 
 	apiInfo, ok := resource.LookupGenericAPIRegistration(api)
 	if !ok {
-		return errors.Errorf("invariant: resource subtype does not exist for %q", api)
+		return errors.Errorf("invariant: registration does not exist for %q", api)
 	}
 	if apiInfo.ReflectRPCServiceDesc == nil {
 		m.logger.Errorf("rpc subtype %s doesn't contain a valid ReflectRPCServiceDesc", api)

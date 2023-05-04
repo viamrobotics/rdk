@@ -430,9 +430,9 @@ func newWithResources(
 	// specified modules.
 	r.manager.startModuleManager(r.webSvc.ModuleAddress(), cfg.UntrustedEnv, logger)
 	for _, mod := range cfg.Modules {
-		err := r.manager.moduleManager.Add(ctx, mod)
-		if err != nil {
-			return nil, err
+		if err := r.manager.moduleManager.Add(ctx, mod); err != nil {
+			r.logger.Errorw("error adding module", "module", mod.Name, "error", err)
+			continue
 		}
 	}
 

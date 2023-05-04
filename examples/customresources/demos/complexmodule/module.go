@@ -32,10 +32,22 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 
 	// Models and APIs add helpers to the registry during their init().
 	// They can then be added to the module here.
-	myMod.AddModelFromRegistry(ctx, gizmoapi.API, mygizmo.Model)
-	myMod.AddModelFromRegistry(ctx, summationapi.API, mysum.Model)
-	myMod.AddModelFromRegistry(ctx, base.API, mybase.Model)
-	myMod.AddModelFromRegistry(ctx, navigation.API, mynavigation.Model)
+	err = myMod.AddModelFromRegistry(ctx, gizmoapi.API, mygizmo.Model)
+	if err != nil {
+		return err
+	}
+	err = myMod.AddModelFromRegistry(ctx, summationapi.API, mysum.Model)
+	if err != nil {
+		return err
+	}
+	err = myMod.AddModelFromRegistry(ctx, base.API, mybase.Model)
+	if err != nil {
+		return err
+	}
+	err = myMod.AddModelFromRegistry(ctx, navigation.API, mynavigation.Model)
+	if err != nil {
+		return err
+	}
 
 	err = myMod.Start(ctx)
 	defer myMod.Close(ctx)
