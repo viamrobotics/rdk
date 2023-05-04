@@ -300,6 +300,15 @@ func TestModuleReloading(t *testing.T) {
 	defer os.RemoveAll(parentAddr)
 	parentAddr += "/parent.sock"
 
+	// These tests neither use a resource manager nor assert anything about the
+	// existence of resources in the graph. Use a dummy MarkResourcesRemoved
+	// function so orphaned resource logic does not panic.
+	dummyMarkResourcesRemoved := func([]resource.Name,
+		func(names ...resource.Name),
+	) []resource.Resource {
+		return nil
+	}
+
 	exePath := utils.ResolveFile("module/testmodule/testmodule")
 	modCfg := config.Module{
 		Name:    "test-module",
@@ -312,14 +321,10 @@ func TestModuleReloading(t *testing.T) {
 		// Precompile module to avoid timeout issues when building takes too long.
 		test.That(t, utils.BuildInDir("module/testmodule"), test.ShouldBeNil)
 
-		// This cannot use t.TempDir() as the path it gives on MacOS exceeds
-		// module.MaxSocketAddressLength.
-		parentAddr, err := os.MkdirTemp("", "viam-test-*")
-		test.That(t, err, test.ShouldBeNil)
-		defer os.RemoveAll(parentAddr)
-		parentAddr += "/parent.sock"
-
-		mgr := NewManager(parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
+		mgr := NewManager(parentAddr, logger, modmanageroptions.Options{
+			UntrustedEnv:         false,
+			MarkResourcesRemoved: dummyMarkResourcesRemoved,
+		})
 		err = mgr.Add(ctx, modCfg)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -371,14 +376,10 @@ func TestModuleReloading(t *testing.T) {
 		// Precompile module to avoid timeout issues when building takes too long.
 		test.That(t, utils.BuildInDir("module/testmodule"), test.ShouldBeNil)
 
-		// This cannot use t.TempDir() as the path it gives on MacOS exceeds
-		// module.MaxSocketAddressLength.
-		parentAddr, err := os.MkdirTemp("", "viam-test-*")
-		test.That(t, err, test.ShouldBeNil)
-		defer os.RemoveAll(parentAddr)
-		parentAddr += "/parent.sock"
-
-		mgr := NewManager(parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
+		mgr := NewManager(parentAddr, logger, modmanageroptions.Options{
+			UntrustedEnv:         false,
+			MarkResourcesRemoved: dummyMarkResourcesRemoved,
+		})
 		err = mgr.Add(ctx, modCfg)
 		test.That(t, err, test.ShouldBeNil)
 

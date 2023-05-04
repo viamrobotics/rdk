@@ -214,55 +214,6 @@ func (r *localRobot) ModuleAddress() (string, error) {
 	return r.webSvc.ModuleAddress(), nil
 }
 
-// RemoveOrphanedResources is called by the module manager when a module has
-// changed (either due to crash or successful restart) and some or all of the
-// resources it handled have been orphaned. It will remove the orphaned
-// resources from the resource tree and Close them.
-func (r *localRobot) RemoveOrphanedResources(ctx context.Context,
-	orphanedResourceNames []resource.Name,
-) {
-	for _, resName := range orphanedResourceNames {
-		r.manager.logger.Debugw("removing orphaned resource", "name", resName)
-		subG, err := r.manager.resources.SubGraphFrom(resName)
-		if err != nil {
-			r.manager.logger.Errorw("error while getting a subgraph", "error", err)
-			continue
-		}
-		r.manager.resources.MarkForRemoval(subG)
-	}
-
-	r.manager.completeConfig(ctx, r)
-	r.updateWeakDependents(ctx)
-
-	// removeMarkedAndClose should Close all marked resources.
-	removedNames, removedErr := r.manager.removeMarkedAndClose(ctx, nil)
-	if removedErr != nil {
-		r.manager.logger.Errorw("error while removing and closing nodes", "error",
-			removedErr)
-		return
-	}
-	for _, removedName := range removedNames {
-		// Remove dependents of removed resources from r.config; leaving these
-		// resources in the stored config means they cannot be correctly re-added
-		// when their dependency reappears.
-		//
-		// TODO(RSDK-2876): remove this code when we start referring to a config
-		// generated from resource graph instead of r.config.
-		for i, c := range r.config.Components {
-			if c.ResourceName() == removedName {
-				r.config.Components[i] = r.config.Components[len(r.config.Components)-1]
-				r.config.Components = r.config.Components[:len(r.config.Components)-1]
-			}
-		}
-		for i, s := range r.config.Services {
-			if s.ResourceName() == removedName {
-				r.config.Services[i] = r.config.Services[len(r.config.Services)-1]
-				r.config.Services = r.config.Services[:len(r.config.Services)-1]
-			}
-		}
-	}
-}
-
 // remoteNameByResource returns the remote the resource is pulled from, if found.
 // False can mean either the resource doesn't exist or is local to the robot.
 func remoteNameByResource(resourceName resource.Name) (string, bool) {

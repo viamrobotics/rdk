@@ -90,7 +90,10 @@ func (manager *resourceManager) startModuleManager(
 	untrustedEnv bool,
 	logger golog.Logger,
 ) {
-	mmOpts := modmanageroptions.Options{UntrustedEnv: untrustedEnv}
+	mmOpts := modmanageroptions.Options{
+		UntrustedEnv:         untrustedEnv,
+		MarkResourcesRemoved: manager.markResourcesRemoved,
+	}
 	manager.moduleManager = modmanager.NewManager(parentAddr, logger, mmOpts)
 }
 

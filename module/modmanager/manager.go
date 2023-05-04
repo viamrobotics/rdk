@@ -40,11 +40,12 @@ var (
 // NewManager returns a Manager.
 func NewManager(parentAddr string, logger golog.Logger, options modmanageroptions.Options) modmaninterface.ModuleManager {
 	return &Manager{
-		logger:       logger,
-		modules:      map[string]*module{},
-		parentAddr:   parentAddr,
-		rMap:         map[resource.Name]*module{},
-		untrustedEnv: options.UntrustedEnv,
+		logger:               logger,
+		modules:              map[string]*module{},
+		parentAddr:           parentAddr,
+		rMap:                 map[resource.Name]*module{},
+		untrustedEnv:         options.UntrustedEnv,
+		markResourcesRemoved: options.MarkResourcesRemoved,
 	}
 }
 
@@ -76,12 +77,14 @@ type addedResource struct {
 
 // Manager is the root structure for the module system.
 type Manager struct {
-	mu           sync.RWMutex
-	logger       golog.Logger
-	modules      map[string]*module
-	parentAddr   string
-	rMap         map[resource.Name]*module
-	untrustedEnv bool
+	mu                   sync.RWMutex
+	logger               golog.Logger
+	modules              map[string]*module
+	parentAddr           string
+	rMap                 map[resource.Name]*module
+	untrustedEnv         bool
+	markResourcesRemoved func(rNames []resource.Name,
+		addNames func(names ...resource.Name)) []resource.Resource
 }
 
 // Close terminates module connections and processes.
@@ -426,7 +429,12 @@ func (mgr *Manager) newOUE(mod *module) func(exitCode int) bool {
 				for name := range mod.resources {
 					orphanedResourceNames = append(orphanedResourceNames, name)
 				}
-				mgr.r.RemoveOrphanedResources(ctx, orphanedResourceNames)
+				for _, resToClose := range mgr.markResourcesRemoved(orphanedResourceNames, nil) {
+					if err := resToClose.Close(ctx); err != nil {
+						mgr.logger.Errorw("error closing now orphaned resource", "resource",
+							resToClose.Name().String(), "module", mod.name, "error", err)
+					}
+				}
 			}
 		}()
 
@@ -483,7 +491,12 @@ func (mgr *Manager) newOUE(mod *module) func(exitCode int) bool {
 				orphanedResourceNames = append(orphanedResourceNames, name)
 			}
 		}
-		mgr.r.RemoveOrphanedResources(ctx, orphanedResourceNames)
+		for _, resToClose := range mgr.markResourcesRemoved(orphanedResourceNames, nil) {
+			if err := resToClose.Close(ctx); err != nil {
+				mgr.logger.Errorw("error closing now orphaned resource", "resource",
+					resToClose.Name().String(), "module", mod.name, "error", err)
+			}
+		}
 
 		// Set success to true. Since we handle process restarting ourselves,
 		// return false here so goutils knows not to attempt a process restart.
