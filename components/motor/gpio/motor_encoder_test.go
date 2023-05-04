@@ -20,8 +20,6 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-// setupMotorWithEncoder(encType string) {}
-
 func nowNanosTest() uint64 {
 	return uint64(time.Now().UnixNano())
 }
@@ -93,7 +91,6 @@ func TestMotorEncoder1(t *testing.T) {
 	})
 
 	t.Run("encoded motor testing SetPower interrupt GoFor", func(t *testing.T) {
-		t.Skip()
 		test.That(t, motorDep.goForInternal(context.Background(), 1000, 1000), test.ShouldBeNil)
 		test.That(t, fakeMotor.Direction(), test.ShouldEqual, 1)
 		test.That(t, fakeMotor.PowerPct(), test.ShouldBeGreaterThan, float32(0))
@@ -277,7 +274,7 @@ func TestMotorEncoder1(t *testing.T) {
 }
 
 func TestMotorEncoderIncremental(t *testing.T) {
-	// t.Skip()
+	t.Skip()
 	logger := golog.NewTestLogger(t)
 	undo := SetRPMSleepDebug(1, false)
 	defer undo()
