@@ -16,6 +16,7 @@ import (
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/arm/v1"
 
+	"go.viam.com/rdk/spatialmath"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
@@ -446,8 +447,8 @@ type mobile2DFrame struct {
 
 // NewMobile2DFrame instantiates a frame that can translate in the x and y dimensions and will always remain on the plane Z=0.
 func NewMobile2DFrame(name string, limits []Limit, geometry spatial.Geometry) (Frame, error) {
-	if len(limits) != 2 {
-		return nil, fmt.Errorf("cannot create a %d dof mobile frame, only support 2 dimensions currently", len(limits))
+	if len(limits) != 3 {
+		return nil, fmt.Errorf("cannot create a %d dof mobile frame, only support (x, y, theta) inputs currently", len(limits))
 	}
 	return &mobile2DFrame{baseFrame: &baseFrame{name: name, limits: limits}, geometry: geometry}, nil
 }
@@ -458,7 +459,10 @@ func (mf *mobile2DFrame) Transform(input []Input) (spatial.Pose, error) {
 	if err != nil && !strings.Contains(err.Error(), OOBErrString) {
 		return nil, err
 	}
-	return spatial.NewPoseFromPoint(r3.Vector{input[0].Value, input[1].Value, 0}), err
+	return spatial.NewPose(
+		r3.Vector{X: input[0].Value, Y: input[1].Value, Z: 0},
+		&spatialmath.OrientationVector{OZ: 1, Theta: input[2].Value},
+	), err
 }
 
 // InputFromProtobuf converts pb.JointPosition to inputs.
@@ -466,6 +470,7 @@ func (mf *mobile2DFrame) InputFromProtobuf(jp *pb.JointPositions) []Input {
 	n := make([]Input, len(jp.Values))
 	for idx, d := range jp.Values {
 		n[idx] = Input{d}
+		// TODO: should this convert deg to rad?
 	}
 	return n
 }
@@ -475,6 +480,7 @@ func (mf *mobile2DFrame) ProtobufFromInput(input []Input) *pb.JointPositions {
 	n := make([]float64, len(input))
 	for idx, a := range input {
 		n[idx] = a.Value
+		// TODO: should this convert deg to rad?
 	}
 	return &pb.JointPositions{Values: n}
 }

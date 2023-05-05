@@ -3,19 +3,20 @@ package wheeled
 import (
 	"bytes"
 	"context"
+	"errors"
 	"math"
 	"time"
 
+	"github.com/golang/geo/r3"
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/utils"
 )
 
 const (
-	positionThresholdMM     = 100
+	positionThresholdM      = 10
 	headingThresholdDegrees = 15
 )
 
@@ -41,7 +42,11 @@ func (wb *wheeledBase) WrapWithKinematics(ctx context.Context, slamSvc slam.Serv
 	if err != nil {
 		return nil, err
 	}
-	model, err := MakeModelFrame(wb.name, geometry, []referenceframe.Limit{{Min: dims.MinX, Max: dims.MaxX}, {Min: dims.MinY, Max: dims.MaxY}})
+	model, err := MakeModelFrame(
+		wb.name,
+		geometry,
+		[]referenceframe.Limit{{Min: dims.MinX, Max: dims.MaxX}, {Min: dims.MinY, Max: dims.MaxY}, {Min: -math.Pi, Max: math.Pi}},
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -56,47 +61,46 @@ func (kwb *kinematicWheeledBase) ModelFrame() referenceframe.Model {
 	return kwb.model
 }
 
-func (kwb *kinematicWheeledBase) currentPose(ctx context.Context) (spatialmath.Pose, error) {
-	// TODO: make a transformation from the component reference to the base frame
-	pose, _, err := kwb.slam.GetPosition(ctx)
-	return pose, err
-}
-
 func (kwb *kinematicWheeledBase) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
 	// TODO: make a transformation from the component reference to the base frame
-	pose, err := kwb.currentPose(ctx)
+	pose, _, err := kwb.slam.GetPosition(ctx)
 	if err != nil {
 		return nil, err
 	}
 	pt := pose.Point()
+	theta := pose.Orientation().OrientationVectorRadians().Theta
 
 	// Need to get X, Z from lidar because Y points down
 	// TODO: make a ticket to give rplidar kinematic information so that you don't have to do this here
-	return []referenceframe.Input{{Value: pt.X}, {Value: pt.Z}}, nil
+	return []referenceframe.Input{{Value: pt.X}, {Value: pt.Z}, {Value: theta}}, nil
 }
 
-func (kwb *kinematicWheeledBase) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	errorState := func() (float64, float64, error) {
-		currentPose, err := kwb.currentPose(ctx)
+func (kwb *kinematicWheeledBase) GoToInputs(ctx context.Context, inputs []referenceframe.Input) error {
+	errorState := func() (int, float64, error) {
+		currentInputs, err := kwb.CurrentInputs(ctx)
 		if err != nil {
 			return 0, 0, err
 		}
-		position := currentPose.Point().Mul(1000)
-		orientation := currentPose.Orientation().OrientationVectorRadians()
-		heading := utils.RadToDeg(math.Atan2(orientation.OX, orientation.OZ)) + 180
-		desiredHeading := utils.RadToDeg(math.Atan2(position.Z-goal[1].Value, position.X-goal[0].Value))
-		headingErr := math.Min(360-math.Abs(desiredHeading-heading), math.Abs(desiredHeading-heading))
-		positionErr := math.Hypot(position.Z-goal[1].Value, position.X-goal[0].Value)
-		kwb.logger.Warnf("CURRENT PT: %v", position)
-		kwb.logger.Warnf("GOAL: %v", goal)
-		kwb.logger.Warnf("POSITION ERROR: %f MM", positionErr)
-		kwb.logger.Warnf("HEADING: %v", heading)
-		kwb.logger.Warnf("DESIRED HEADING: %v", desiredHeading)
-		kwb.logger.Warnf("HEADING ERROR: %f DEGREES", headingErr)
-		kwb.logger.Warn("\n")
-		if desiredHeading-heading < 0 {
-			headingErr *= -1
+
+		fs := referenceframe.NewEmptySimpleFrameSystem("kwb")
+		if err := fs.AddFrame(kwb.model, fs.World()); err != nil {
+			return 0, 0, err
 		}
+		goal := referenceframe.NewPoseInFrame(
+			referenceframe.World,
+			spatialmath.NewPoseFromPoint(r3.Vector{inputs[0].Value, inputs[1].Value, 0}),
+		)
+		tf, err := fs.Transform(map[string][]referenceframe.Input{kwb.name: currentInputs}, goal, kwb.name)
+		if err != nil {
+			return 0, 0, err
+		}
+		delta, ok := tf.(*referenceframe.PoseInFrame)
+		if !ok {
+			return 0, 0, errors.New("can't interpret transformable as a pose in frame")
+		}
+		headingErr := delta.Pose().Orientation().OrientationVectorDegrees().Theta
+		positionErr := int(1000 * delta.Pose().Point().Norm())
+		kwb.logger.Warnf("POSITION ERROR: \t%f MM\tHEADING ERROR: \t%f DEGREES", positionErr, headingErr)
 		return positionErr, headingErr, nil
 	}
 
@@ -104,12 +108,13 @@ func (kwb *kinematicWheeledBase) GoToInputs(ctx context.Context, goal []referenc
 	// heading := utils.RadToDeg(currentPose.Orientation().EulerAngles().Pitch)
 	// While base is not at the goal
 	// TO DO figure out sane threshold.
+
 	positionErr, headingErr, err := errorState()
 	if err != nil {
 		return err
 	}
 
-	for positionErr > positionThresholdMM {
+	for positionErr > positionThresholdM {
 		// If heading is ok, go forward
 		// Otherwise spin until base is heading correct way
 		// TODO make a threshold
@@ -120,8 +125,7 @@ func (kwb *kinematicWheeledBase) GoToInputs(ctx context.Context, goal []referenc
 				return err
 			}
 		} else {
-			// TODO check if we are in mm in SLAM and multiply by 1000 if so
-			if err := kwb.MoveStraight(ctx, int(positionErr), 300, nil); err != nil {
+			if err := kwb.MoveStraight(ctx, positionErr, 300, nil); err != nil {
 				return err
 			}
 

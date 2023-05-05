@@ -115,19 +115,19 @@ func TestRevoluteFrame(t *testing.T) {
 }
 
 func TestMobile2DFrame(t *testing.T) {
-	expLimit := []Limit{{-10, 10}, {-10, 10}}
+	expLimit := []Limit{{-10, 10}, {-10, 10}, {-math.Pi, math.Pi}}
 	frame := &mobile2DFrame{&baseFrame{"test", expLimit}, nil}
 	// expected output
-	expPose := spatial.NewPoseFromPoint(r3.Vector{3, 5, 0})
+	expPose := spatial.NewPose(r3.Vector{3, 5, 0}, &spatial.OrientationVector{OZ: 1, Theta: math.Pi / 2})
 	// get expected transform back
-	pose, err := frame.Transform(FloatsToInputs([]float64{3, 5}))
+	pose, err := frame.Transform(FloatsToInputs([]float64{3, 5, math.Pi / 2}))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pose, test.ShouldResemble, expPose)
 	// if you feed in too many inputs, should get error back
-	_, err = frame.Transform(FloatsToInputs([]float64{3, 5, 10}))
+	_, err = frame.Transform(FloatsToInputs([]float64{3, 5, 0, 10}))
 	test.That(t, err, test.ShouldNotBeNil)
 	// if you feed in too few inputs, should get errr back
-	_, err = frame.Transform(FloatsToInputs([]float64{3, 5, 10}))
+	_, err = frame.Transform(FloatsToInputs([]float64{3}))
 	test.That(t, err, test.ShouldNotBeNil)
 	// if you try to move beyond set limits, should get an error
 	_, err = frame.Transform(FloatsToInputs([]float64{3, 100}))
