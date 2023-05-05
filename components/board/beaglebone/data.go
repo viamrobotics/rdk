@@ -95,7 +95,7 @@ var boardInfoMappings = map[string]genericlinux.BoardInformation{
 			{map[int]int{128: 80}, map[int]string{}, "600000.gpio", 846, 0, "P8_46", "", "", -1}, // BOOTMODE3
 			{map[int]int{128: 119}, map[int]string{}, "600000.gpio", 924, 0, "P9_24", "", "", -1},
 			{map[int]int{128: 127}, map[int]string{}, "600000.gpio", 925, 0, "P9_25", "", "", -1},
-			{map[int]int{36: 0}, map[int]string{}, "601000.gpio", 0, 0, "P9_41", "", "", -1},
+			{map[int]int{36: 0}, map[int]string{}, "601000.gpio", 941, 0, "P9_41", "", "", -1},
 			{map[int]int{36: 2}, map[int]string{}, "601000.gpio", 0, 0, "P9_20", "", "", -1},
 		},
 		Compats: []string{"beagle,j721e-beagleboneai64", "ti,j721e"},
