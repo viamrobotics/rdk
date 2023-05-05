@@ -11,7 +11,6 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
-	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/test"
 	echopb "go.viam.com/utils/proto/rpc/examples/echoresource/v1"
 	"go.viam.com/utils/rpc"
@@ -144,13 +143,12 @@ func TestClientSessionOptions(t *testing.T) {
 						var startCalled int
 						var findCalled int
 						var capOwnerID string
-						var capPeerConnInfo *pb.PeerConnectionInfo
 						var capID uuid.UUID
 						var associateCount int
 						var storedID uuid.UUID
 						var storedResourceName resource.Name
 
-						sess1 := session.New("ownerID", nil, 5*time.Second, func(id uuid.UUID, resourceName resource.Name) {
+						sess1 := session.New(context.Background(), "ownerID", 5*time.Second, func(id uuid.UUID, resourceName resource.Name) {
 							capMu.Lock()
 							associateCount++
 							storedID = id
@@ -160,15 +158,14 @@ func TestClientSessionOptions(t *testing.T) {
 						nextCtx := session.ToContext(ctx, sess1)
 
 						sessMgr.mu.Lock()
-						sessMgr.StartFunc = func(ownerID string, peerConnInfo *pb.PeerConnectionInfo) (*session.Session, error) {
+						sessMgr.StartFunc = func(ctx context.Context, ownerID string) (*session.Session, error) {
 							capMu.Lock()
 							startCalled++
 							capOwnerID = ownerID
-							capPeerConnInfo = peerConnInfo
 							capMu.Unlock()
 							return sess1, nil
 						}
-						sessMgr.FindByIDFunc = func(id uuid.UUID, ownerID string) (*session.Session, error) {
+						sessMgr.FindByIDFunc = func(ctx context.Context, id uuid.UUID, ownerID string) (*session.Session, error) {
 							if id != sess1.ID() {
 								return nil, errors.New("session id mismatch")
 							}
@@ -177,7 +174,7 @@ func TestClientSessionOptions(t *testing.T) {
 							capID = id
 							capOwnerID = ownerID
 							capMu.Unlock()
-							sess1.Heartbeat() // gotta keep session alive
+							sess1.Heartbeat(ctx) // gotta keep session alive
 							return sess1, nil
 						}
 						sessMgr.mu.Unlock()
@@ -204,7 +201,6 @@ func TestClientSessionOptions(t *testing.T) {
 							} else {
 								test.That(t, capOwnerID, test.ShouldNotEqual, "")
 							}
-							test.That(t, capPeerConnInfo, test.ShouldNotBeNil)
 							capMu.Unlock()
 
 							startAt := time.Now()
@@ -329,14 +325,14 @@ func TestClientSessionExpiration(t *testing.T) {
 				var startCalled int
 				var findCalled int
 
-				sess1 := session.New("ownerID", nil, 5*time.Second, nil)
-				sess2 := session.New("ownerID", nil, 5*time.Second, nil)
-				sess3 := session.New("ownerID", nil, 5*time.Second, nil)
+				sess1 := session.New(context.Background(), "ownerID", 5*time.Second, nil)
+				sess2 := session.New(context.Background(), "ownerID", 5*time.Second, nil)
+				sess3 := session.New(context.Background(), "ownerID", 5*time.Second, nil)
 				sessions := []*session.Session{sess1, sess2, sess3}
 				nextCtx := session.ToContext(ctx, sess1)
 
 				sessMgr.mu.Lock()
-				sessMgr.StartFunc = func(ownerID string, peerConnInfo *pb.PeerConnectionInfo) (*session.Session, error) {
+				sessMgr.StartFunc = func(ctx context.Context, ownerID string) (*session.Session, error) {
 					logger.Debug("start session requested")
 					capMu.Lock()
 					if startCalled != 0 && findCalled < 5 {
@@ -353,7 +349,7 @@ func TestClientSessionExpiration(t *testing.T) {
 					logger.Debug("start session started")
 					return sess, nil
 				}
-				sessMgr.FindByIDFunc = func(id uuid.UUID, ownerID string) (*session.Session, error) {
+				sessMgr.FindByIDFunc = func(ctx context.Context, id uuid.UUID, ownerID string) (*session.Session, error) {
 					capMu.Lock()
 					findCalled++
 					if startCalled == 1 && findCalled >= 5 { // expired until restart
@@ -371,7 +367,7 @@ func TestClientSessionExpiration(t *testing.T) {
 						return nil, errors.New("session id mismatch")
 					}
 					capMu.Unlock()
-					sess.Heartbeat() // gotta keep session alive
+					sess.Heartbeat(ctx) // gotta keep session alive
 					return sess, nil
 				}
 				sessMgr.mu.Unlock()
@@ -507,11 +503,11 @@ func TestClientSessionResume(t *testing.T) {
 				var startCalled int
 				var findCalled int
 
-				sess1 := session.New("ownerID", nil, 5*time.Second, nil)
+				sess1 := session.New(context.Background(), "ownerID", 5*time.Second, nil)
 				nextCtx := session.ToContext(ctx, sess1)
 
 				sessMgr.mu.Lock()
-				sessMgr.StartFunc = func(ownerID string, peerConnInfo *pb.PeerConnectionInfo) (*session.Session, error) {
+				sessMgr.StartFunc = func(ctx context.Context, ownerID string) (*session.Session, error) {
 					logger.Debug("start session requested")
 					capMu.Lock()
 					startCalled++
@@ -519,14 +515,14 @@ func TestClientSessionResume(t *testing.T) {
 					capMu.Unlock()
 					return sess1, nil
 				}
-				sessMgr.FindByIDFunc = func(id uuid.UUID, ownerID string) (*session.Session, error) {
+				sessMgr.FindByIDFunc = func(ctx context.Context, id uuid.UUID, ownerID string) (*session.Session, error) {
 					if id != sess1.ID() {
 						return nil, errors.New("session id mismatch")
 					}
 					capMu.Lock()
 					findCalled++
 					capMu.Unlock()
-					sess1.Heartbeat() // gotta keep session alive
+					sess1.Heartbeat(ctx) // gotta keep session alive
 					return sess1, nil
 				}
 				sessMgr.mu.Unlock()
@@ -560,7 +556,7 @@ func TestClientSessionResume(t *testing.T) {
 
 				errFindCalled := make(chan struct{})
 				sessMgr.mu.Lock()
-				sessMgr.FindByIDFunc = func(id uuid.UUID, ownerID string) (*session.Session, error) {
+				sessMgr.FindByIDFunc = func(ctx context.Context, id uuid.UUID, ownerID string) (*session.Session, error) {
 					close(errFindCalled)
 					return nil, status.New(codes.Unavailable, "disconnected or something").Err()
 				}
@@ -570,14 +566,14 @@ func TestClientSessionResume(t *testing.T) {
 				time.Sleep(time.Second)
 
 				sessMgr.mu.Lock()
-				sessMgr.FindByIDFunc = func(id uuid.UUID, ownerID string) (*session.Session, error) {
+				sessMgr.FindByIDFunc = func(ctx context.Context, id uuid.UUID, ownerID string) (*session.Session, error) {
 					if id != sess1.ID() {
 						return nil, errors.New("session id mismatch")
 					}
 					capMu.Lock()
 					findCalled++
 					capMu.Unlock()
-					sess1.Heartbeat() // gotta keep session alive
+					sess1.Heartbeat(ctx) // gotta keep session alive
 					return sess1, nil
 				}
 				sessMgr.mu.Unlock()
@@ -605,25 +601,25 @@ func TestClientSessionResume(t *testing.T) {
 // we don't want everyone making an inject of this, so let's keep it here for now.
 type sessionManager struct {
 	mu           sync.Mutex
-	StartFunc    func(ownerID string, peerConnInfo *pb.PeerConnectionInfo) (*session.Session, error)
-	FindByIDFunc func(id uuid.UUID, ownerID string) (*session.Session, error)
+	StartFunc    func(ctx context.Context, ownerID string) (*session.Session, error)
+	FindByIDFunc func(ctx context.Context, id uuid.UUID, ownerID string) (*session.Session, error)
 	expired      bool
 }
 
-func (mgr *sessionManager) Start(ownerID string, peerConnInfo *pb.PeerConnectionInfo) (*session.Session, error) {
+func (mgr *sessionManager) Start(ctx context.Context, ownerID string) (*session.Session, error) {
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
-	return mgr.StartFunc(ownerID, peerConnInfo)
+	return mgr.StartFunc(ctx, ownerID)
 }
 
 func (mgr *sessionManager) All() []*session.Session {
 	panic("unimplemented")
 }
 
-func (mgr *sessionManager) FindByID(id uuid.UUID, ownerID string) (*session.Session, error) {
+func (mgr *sessionManager) FindByID(ctx context.Context, id uuid.UUID, ownerID string) (*session.Session, error) {
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
-	return mgr.FindByIDFunc(id, ownerID)
+	return mgr.FindByIDFunc(ctx, id, ownerID)
 }
 
 func (mgr *sessionManager) AssociateResource(id uuid.UUID, resourceName resource.Name) {
@@ -662,7 +658,7 @@ func (mgr *sessionManager) sessionFromMetadata(ctx context.Context) (context.Con
 		if err != nil {
 			return nil, err
 		}
-		sess := session.NewWithID(sessID, "", nil, time.Minute, nil)
+		sess := session.NewWithID(ctx, sessID, "", time.Minute, nil)
 		return session.ToContext(ctx, sess), nil
 	default:
 		return nil, errors.New("found more than one session id in metadata")

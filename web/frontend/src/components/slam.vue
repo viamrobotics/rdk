@@ -399,7 +399,7 @@ onUnmounted(() => {
       slot="title"
       crumbs="slam"
     />
-    <div class="border-border-1 flex flex-wrap gap-4 border border-t-0 sm:flex-nowrap">
+    <div class="border-medium flex flex-wrap gap-4 border border-t-0 sm:flex-nowrap">
       <div class="flex min-w-fit flex-col gap-4 p-4">
         <div class="float-left pb-4">
           <div class="flex">
@@ -463,7 +463,7 @@ onUnmounted(() => {
               />
             </div>
           </div>
-          <hr class="my-4 border-t border-gray-400">
+          <hr class="border-medium my-4 border-t">
           <div class="flex flex-row">
             <p class="mb-1 pr-52 font-bold text-gray-800">
               Ending Position
@@ -613,7 +613,7 @@ onUnmounted(() => {
               <select
                 v-model="selected3dValue"
                 class="
-                      border-border-1 m-0 w-full appearance-none border border-solid bg-white
+                      border-medium m-0 w-full appearance-none border border-solid bg-white
                       bg-clip-padding px-3 py-1.5 text-xs font-normal text-gray-700 focus:outline-none"
                 aria-label="Default select example"
                 @change="selectSLAMPCDRefreshFrequency()"
