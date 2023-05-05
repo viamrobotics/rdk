@@ -1,13 +1,10 @@
 package utils
 
 import (
-	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 
-	"go.uber.org/multierr"
 	"go.viam.com/utils"
 )
 
@@ -25,18 +22,6 @@ func ResolveFile(fn string) string {
 		panic(err)
 	}
 	return filepath.Join(thisDirPath, "..", fn)
-}
-
-// BuildInDir will run "go build ." in the provided RDK directory and return
-// any build related errors.
-func BuildInDir(dir string) error {
-	builder := exec.Command("go", "build", ".")
-	builder.Dir = ResolveFile(dir)
-	out, err := builder.CombinedOutput()
-	if len(out) != 0 {
-		return multierr.Combine(err, fmt.Errorf(`output from "go build .": %s`, out))
-	}
-	return nil
 }
 
 // RemoveFileNoError will remove the file at the given path if it exists. Any

@@ -17,6 +17,7 @@ import (
 	"go.viam.com/rdk/config"
 	modmanageroptions "go.viam.com/rdk/module/modmanager/options"
 	"go.viam.com/rdk/resource"
+	rtestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/utils"
 )
 
@@ -26,7 +27,7 @@ func TestModManagerFunctions(t *testing.T) {
 	modExe := utils.ResolveFile("examples/customresources/demos/simplemodule/run.sh")
 
 	// Precompile module to avoid timeout issues when building takes too long.
-	err := utils.BuildInDir("examples/customresources/demos/simplemodule")
+	err := rtestutils.BuildInDir("examples/customresources/demos/simplemodule")
 	test.That(t, err, test.ShouldBeNil)
 
 	myCounterModel := resource.NewModel("acme", "demo", "mycounter")
@@ -213,7 +214,7 @@ func TestModManagerValidation(t *testing.T) {
 	modExe := utils.ResolveFile("examples/customresources/demos/complexmodule/run.sh")
 
 	// Precompile module to avoid timeout issues when building takes too long.
-	err := utils.BuildInDir("examples/customresources/demos/complexmodule")
+	err := rtestutils.BuildInDir("examples/customresources/demos/complexmodule")
 	test.That(t, err, test.ShouldBeNil)
 
 	myBaseModel := resource.NewModel("acme", "demo", "mybase")
@@ -311,7 +312,7 @@ func TestModuleReloading(t *testing.T) {
 		logger, logs := golog.NewObservedTestLogger(t)
 
 		// Precompile module to avoid timeout issues when building takes too long.
-		test.That(t, utils.BuildInDir("module/testmodule"), test.ShouldBeNil)
+		test.That(t, rtestutils.BuildInDir("module/testmodule"), test.ShouldBeNil)
 
 		// This test neither uses a resource manager nor asserts anything about
 		// the existence of resources in the graph. Use a dummy
@@ -377,7 +378,7 @@ func TestModuleReloading(t *testing.T) {
 		logger, logs := golog.NewObservedTestLogger(t)
 
 		// Precompile module to avoid timeout issues when building takes too long.
-		test.That(t, utils.BuildInDir("module/testmodule"), test.ShouldBeNil)
+		test.That(t, rtestutils.BuildInDir("module/testmodule"), test.ShouldBeNil)
 
 		// This test neither uses a resource manager nor asserts anything about
 		// the existence of resources in the graph. Use a dummy

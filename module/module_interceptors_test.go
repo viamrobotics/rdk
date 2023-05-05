@@ -25,6 +25,7 @@ import (
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/resource"
+	rtestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/utils"
 )
 
@@ -149,7 +150,7 @@ func connect(port string) (robotpb.RobotServiceClient, genericpb.GenericServiceC
 
 func makeConfig(t *testing.T, logger golog.Logger) (string, string, error) {
 	// Precompile module to avoid timeout issues when building takes too long.
-	if err := utils.BuildInDir("module/testmodule"); err != nil {
+	if err := rtestutils.BuildInDir("module/testmodule"); err != nil {
 		return "", "", err
 	}
 

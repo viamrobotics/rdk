@@ -2429,11 +2429,11 @@ func TestOrphanedResources(t *testing.T) {
 	logger, logs := golog.NewObservedTestLogger(t)
 
 	// Precompile modules to avoid timeout issues when building takes too long.
-	err := rutils.BuildInDir("examples/customresources/demos/complexmodule")
+	err := rtestutils.BuildInDir("examples/customresources/demos/complexmodule")
 	test.That(t, err, test.ShouldBeNil)
-	err = rutils.BuildInDir("examples/customresources/demos/simplemodule")
+	err = rtestutils.BuildInDir("examples/customresources/demos/simplemodule")
 	test.That(t, err, test.ShouldBeNil)
-	err = rutils.BuildInDir("module/testmodule")
+	err = rtestutils.BuildInDir("module/testmodule")
 	test.That(t, err, test.ShouldBeNil)
 
 	// Manually define models, as importing them can cause double registration.
@@ -2587,7 +2587,7 @@ func TestOrphanedResources(t *testing.T) {
 		//
 		// TODO(RSDK-2876): assert that we can keep 'h' in the config and it gets
 		// re-added to testmodule.
-		err = rutils.BuildInDir("module/testmodule")
+		err = rtestutils.BuildInDir("module/testmodule")
 		test.That(t, err, test.ShouldBeNil)
 		r.Reconfigure(ctx, &config.Config{})
 		r.Reconfigure(ctx, cfg)
@@ -2600,7 +2600,7 @@ func TestOrphanedResources(t *testing.T) {
 		// simplemodule binary cannot manage helper 'h'.
 		err = os.Remove(rutils.ResolveFile("module/testmodule/testmodule"))
 		test.That(t, err, test.ShouldBeNil)
-		err = rutils.BuildInDir("examples/customresources/demos/simplemodule")
+		err = rtestutils.BuildInDir("examples/customresources/demos/simplemodule")
 		test.That(t, err, test.ShouldBeNil)
 		err = os.Rename(
 			rutils.ResolveFile("examples/customresources/demos/simplemodule/simplemodule"),
@@ -2652,9 +2652,9 @@ func TestDependentAndOrphanedResources(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
 	// Precompile modules to avoid timeout issues when building takes too long.
-	err := rutils.BuildInDir("examples/customresources/demos/complexmodule")
+	err := rtestutils.BuildInDir("examples/customresources/demos/complexmodule")
 	test.That(t, err, test.ShouldBeNil)
-	err = rutils.BuildInDir("examples/customresources/demos/simplemodule")
+	err = rtestutils.BuildInDir("examples/customresources/demos/simplemodule")
 	test.That(t, err, test.ShouldBeNil)
 
 	// Manually define gizmo model, as importing it from mygizmo can cause double
