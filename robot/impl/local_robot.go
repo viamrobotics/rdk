@@ -734,6 +734,7 @@ func (r *localRobot) FrameSystemConfig(ctx context.Context) (*framesystem.Config
 	r.fsMu.RLock()
 	defer r.fsMu.RUnlock()
 
+	// TODO(rb): make a ticket to cache the frame system to avoid redundant work
 	localParts, err := r.getLocalParts(ctx)
 	if err != nil {
 		return nil, err
