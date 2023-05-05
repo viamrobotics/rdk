@@ -1570,6 +1570,9 @@ func TestManagerEmptyResourceDesc(t *testing.T) {
 		api,
 		resource.APIRegistration[resource.Resource]{},
 	)
+	defer func() {
+		resource.DeregisterAPI(api)
+	}()
 
 	injectRobot.ResourceNamesFunc = func() []resource.Name {
 		return []resource.Name{resource.NewName(api, "mock1")}
@@ -1603,6 +1606,9 @@ func TestReconfigure(t *testing.T) {
 	test.That(t, r, test.ShouldNotBeNil)
 
 	resource.RegisterAPI(api, resource.APIRegistration[resource.Resource]{})
+	defer func() {
+		resource.DeregisterAPI(api)
+	}()
 
 	resource.Register(api, resource.DefaultServiceModel, resource.Registration[resource.Resource, resource.NoNativeConfig]{
 		Constructor: func(
@@ -1616,6 +1622,9 @@ func TestReconfigure(t *testing.T) {
 			}, nil
 		},
 	})
+	defer func() {
+		resource.Deregister(api, resource.DefaultServiceModel)
+	}()
 
 	manager := managerForDummyRobot(r)
 	defer func() {
@@ -1672,6 +1681,9 @@ func TestResourceCreationPanic(t *testing.T) {
 				panic("hello")
 			},
 		})
+		defer func() {
+			resource.Deregister(api, model)
+		}()
 
 		svc1 := resource.Config{
 			Name:  "test",
@@ -1699,8 +1711,14 @@ func TestResourceCreationPanic(t *testing.T) {
 				panic("hello")
 			},
 		})
+		defer func() {
+			resource.Deregister(api, resource.DefaultServiceModel)
+		}()
 
 		resource.RegisterAPI(api, resource.APIRegistration[resource.Resource]{})
+		defer func() {
+			resource.DeregisterAPI(api)
+		}()
 
 		svc1 := resource.Config{
 			Name:  "",
