@@ -123,7 +123,7 @@ func (svc *frameSystemService) TransformPose(
 	ctx, span := trace.StartSpan(ctx, "services::framesystem::TransformPose")
 	defer span.End()
 
-	fs, err := svc.FrameSystem(ctx, []*referenceframe.LinkInFrame{})
+	fs, err := svc.FrameSystem(ctx, additionalTransforms)
 	if err != nil {
 		return nil, err
 	}
