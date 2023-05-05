@@ -22,15 +22,14 @@ var boardInfoMappings = map[string]genericlinux.BoardInformation{
 			{map[int]int{128: 39}, map[int]string{}, "600000.gpio", 921, 0, "P9_21", "", "3010000.pwm", 0}, // pwmchip2
 			{map[int]int{128: 38}, map[int]string{}, "600000.gpio", 922, 0, "P9_22", "", "3010000.pwm", 1}, // pwmchip2 BOOTMODE1
 
-			// Timer only PWM
-			{map[int]int{128: 26}, map[int]string{}, "600000.gpio", 832, 0, "P8_32", "", "", -1},
-			{map[int]int{128: 25}, map[int]string{}, "600000.gpio", 833, 0, "P8_33", "", "", -1},
-			{map[int]int{128: 24}, map[int]string{}, "600000.gpio", 835, 0, "P8_35", "", "", -1},
-			{map[int]int{128: 11}, map[int]string{}, "600000.gpio", 837, 0, "P8_37", "", "", -1},
-			{map[int]int{128: 46}, map[int]string{}, "600000.gpio", 927, 0, "P9_27", "", "", -1},
-			{map[int]int{36: 14}, map[int]string{}, "601000.gpio", 929, 0, "9_29", "", "", -1},
-			{map[int]int{36: 13}, map[int]string{}, "601000.gpio", 930, 0, "P9_30", "", "", -1},
-			{map[int]int{128: 123}, map[int]string{}, "600000.gpio", 942, 0, "P9_42", "", "", -1},
+			{map[int]int{128: 26}, map[int]string{}, "600000.gpio", 832, 0, "P8_32", "", "", -1}, // Timer-based PWM
+			{map[int]int{128: 25}, map[int]string{}, "600000.gpio", 833, 0, "P8_33", "", "", -1}, // Timer-based PWM
+			{map[int]int{128: 24}, map[int]string{}, "600000.gpio", 835, 0, "P8_35", "", "", -1}, // Timer-based PWM
+			{map[int]int{128: 11}, map[int]string{}, "600000.gpio", 837, 0, "P8_37", "", "", -1}, // Timer-based PWM
+			{map[int]int{128: 46}, map[int]string{}, "600000.gpio", 927, 0, "P9_27", "", "", -1}, // Timer-based PWM
+			{map[int]int{36: 14}, map[int]string{}, "601000.gpio", 929, 0, "9_29", "", "", -1}, // Timer-based PWM
+			{map[int]int{36: 13}, map[int]string{}, "601000.gpio", 930, 0, "P9_30", "", "", -1}, // Timer-based PWM
+			{map[int]int{128: 123}, map[int]string{}, "600000.gpio", 942, 0, "P9_42", "", "", -1}, // Timer-based PWM
 
 			// GPIO only pins
 			// beaglebone gpio mapping uses directory sys/devices/platform/bus@100000/*.gpio
