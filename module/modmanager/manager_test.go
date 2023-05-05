@@ -3,6 +3,7 @@ package modmanager
 import (
 	"context"
 	"os"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -300,11 +301,6 @@ func TestModuleReloading(t *testing.T) {
 	defer os.RemoveAll(parentAddr)
 	parentAddr += "/parent.sock"
 
-	// These tests neither use a resource manager nor assert anything about the
-	// existence of resources in the graph. Use a dummy RemoveOrphanedResources
-	// function so orphaned resource logic does not panic.
-	dummyRemoveOrphanedResources := func(context.Context, []resource.Name) {}
-
 	exePath := utils.ResolveFile("module/testmodule/testmodule")
 	modCfg := config.Module{
 		Name:    "test-module",
@@ -317,6 +313,14 @@ func TestModuleReloading(t *testing.T) {
 		// Precompile module to avoid timeout issues when building takes too long.
 		test.That(t, utils.BuildInDir("module/testmodule"), test.ShouldBeNil)
 
+		// This test neither uses a resource manager nor asserts anything about
+		// the existence of resources in the graph. Use a dummy
+		// RemoveOrphanedResources function so orphaned resource logic does not
+		// panic.
+		var dummyRemoveOrphanedResourcesCallCount atomic.Uint64
+		dummyRemoveOrphanedResources := func(context.Context, []resource.Name) {
+			dummyRemoveOrphanedResourcesCallCount.Add(1)
+		}
 		mgr := NewManager(parentAddr, logger, modmanageroptions.Options{
 			UntrustedEnv:            false,
 			RemoveOrphanedResources: dummyRemoveOrphanedResources,
@@ -365,6 +369,9 @@ func TestModuleReloading(t *testing.T) {
 			test.ShouldEqual, 1)
 		test.That(t, logs.FilterMessageSnippet("error while restarting crashed module").Len(),
 			test.ShouldEqual, 0)
+
+		// Assert that RemoveOrphanedResources was called once.
+		test.That(t, dummyRemoveOrphanedResourcesCallCount.Load(), test.ShouldEqual, 1)
 	})
 	t.Run("unsuccessful restart", func(t *testing.T) {
 		logger, logs := golog.NewObservedTestLogger(t)
@@ -372,6 +379,14 @@ func TestModuleReloading(t *testing.T) {
 		// Precompile module to avoid timeout issues when building takes too long.
 		test.That(t, utils.BuildInDir("module/testmodule"), test.ShouldBeNil)
 
+		// This test neither uses a resource manager nor asserts anything about
+		// the existence of resources in the graph. Use a dummy
+		// RemoveOrphanedResources function so orphaned resource logic does not
+		// panic.
+		var dummyRemoveOrphanedResourcesCallCount atomic.Uint64
+		dummyRemoveOrphanedResources := func(context.Context, []resource.Name) {
+			dummyRemoveOrphanedResourcesCallCount.Add(1)
+		}
 		mgr := NewManager(parentAddr, logger, modmanageroptions.Options{
 			UntrustedEnv:            false,
 			RemoveOrphanedResources: dummyRemoveOrphanedResources,
@@ -427,5 +442,8 @@ func TestModuleReloading(t *testing.T) {
 			test.ShouldEqual, 1)
 		test.That(t, logs.FilterMessageSnippet("module successfully restarted").Len(),
 			test.ShouldEqual, 0)
+
+		// Assert that RemoveOrphanedResources was called once.
+		test.That(t, dummyRemoveOrphanedResourcesCallCount.Load(), test.ShouldEqual, 1)
 	})
 }
