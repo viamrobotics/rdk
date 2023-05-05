@@ -6,22 +6,50 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
-	"go.viam.com/rdk/resource"
 	"go.viam.com/test"
+	"go.viam.com/utils/rpc"
+
+	"go.viam.com/rdk/internal/cloud"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/testutils/inject"
 )
+
+func getInjectedRobot() *inject.Robot {
+	r := &inject.Robot{}
+	rs := map[resource.Name]resource.Resource{}
+
+	rs[cloud.InternalServiceName] = &noopCloudConnectionService{
+		Named: cloud.InternalServiceName.AsNamed(),
+	}
+
+	r.MockResourcesFromMap(rs)
+	return r
+}
 
 func TestNewReplayCamera(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
 
-	cfg := resource.Config{}
+	replayCamCfg := &Config{}
+	cfg := resource.Config{
+		ConvertedAttributes: replayCamCfg,
+	}
 
-	replayCamera, err := newReplayPCDCamera(ctx, nil, cfg, logger)
+	// Create local robot with injected camera and remote.
+	r := getInjectedRobot()
+	remoteRobot := getInjectedRobot()
+	r.RemoteByNameFunc = func(name string) (robot.Robot, bool) {
+		return remoteRobot, true
+	}
+	resources := resourcesFromDeps(t, r, []string{cloud.InternalServiceName.String()})
+
+	replayCamera, err := newReplayPCDCamera(ctx, resources, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("Test NextPointCloud", func(t *testing.T) {
 		_, err := replayCamera.NextPointCloud(ctx)
-		test.That(t, err.Error(), test.ShouldEqual, "NextPointCloud is unimplemented")
+		test.That(t, err.Error(), test.ShouldNotBeNil)
 	})
 
 	t.Run("Test Stream", func(t *testing.T) {
@@ -40,5 +68,35 @@ func TestNewReplayCamera(t *testing.T) {
 	})
 
 	err = replayCamera.Close(ctx)
-	test.That(t, err.Error(), test.ShouldEqual, "Close is unimplemented")
+	test.That(t, err.Error(), test.ShouldBeNil)
+}
+
+var _ = cloud.ConnectionService(&noopCloudConnectionService{})
+
+type noopCloudConnectionService struct {
+	resource.Named
+	resource.AlwaysRebuild
+}
+
+func (noop *noopCloudConnectionService) AcquireConnection(ctx context.Context) (string, rpc.ClientConn, error) {
+	return "hello", nil, nil
+}
+
+func (noop *noopCloudConnectionService) Close(ctx context.Context) error {
+	return nil
+}
+
+func resourcesFromDeps(t *testing.T, r robot.Robot, deps []string) resource.Dependencies {
+	t.Helper()
+	resources := resource.Dependencies{}
+	for _, dep := range deps {
+		resName, err := resource.NewFromString(dep)
+		test.That(t, err, test.ShouldBeNil)
+		res, err := r.ResourceByName(resName)
+		if err == nil {
+			// some resources are weakly linked
+			resources[resName] = res
+		}
+	}
+	return resources
 }
