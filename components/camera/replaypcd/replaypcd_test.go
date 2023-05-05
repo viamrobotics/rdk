@@ -6,8 +6,9 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
-	"go.viam.com/rdk/resource"
 	"go.viam.com/test"
+
+	"go.viam.com/rdk/resource"
 )
 
 func TestNewReplayCamera(t *testing.T) {
