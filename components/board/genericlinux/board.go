@@ -276,6 +276,7 @@ func (b *sysfsBoard) reconfigureInterrupts(newConf *Config) error {
 			newInterrupts[newConfig.Name] = oldInterrupt
 		}
 	}
+	oldInterrupts := b.interrupts
 	b.interrupts = newInterrupts
 
 	// Add any new interrupts that should be freshly made.
@@ -284,14 +285,17 @@ func (b *sysfsBoard) reconfigureInterrupts(newConf *Config) error {
 			if interrupt.config.Pin == config.Pin {
 				continue // Already initialized; keep going
 			}
-			// If the interrupt's name matches but the pin does not, it's likely that the interrupt
-			// we already have was implicitly created (e.g., its name is "38" so we created it on
-			// pin 38 even though it was not explicitly mentioned in the old board config), but the
-			// new config is explicit (e.g., its name is still "38" but it's been moved to pin 37).
-			// Close the old one and initialize it anew.
+			// If the interrupt's name matches but the pin does not, the interrupt we already have
+			// was implicitly created (e.g., its name is "38" so we created it on pin 38 even
+			// though it was not explicitly mentioned in the old board config), but the new config
+			// is explicit (e.g., its name is still "38" but it's been moved to pin 37). Close the
+			// old one and initialize it anew.
 			if err := interrupt.Close(); err != nil {
 				return err
 			}
+			// Although we delete the implicit interrupt from b.interrupts, it's still in
+			// oldInterrupts, so we haven't lost the channels it reports to and can still copy them
+			// over to the new struct.
 			delete(b.interrupts, config.Name)
 		}
 
@@ -302,7 +306,15 @@ func (b *sysfsBoard) reconfigureInterrupts(newConf *Config) error {
 			delete(b.gpios, config.Pin)
 		}
 
-		interrupt, err := b.createDigitalInterrupt(b.cancelCtx, config, b.gpioMappings)
+		// If there was an old interrupt pin with this same name, reuse the part that holds its
+		// callbacks. Anything subscribed to the old pin will expect to still be subscribed to the
+		// new one.
+		var oldCallbackHolder board.ReconfigurableDigitalInterrupt
+		if oldInterrupt, ok := oldInterrupts[config.Name]; ok {
+			oldCallbackHolder = oldInterrupt.interrupt
+		}
+		interrupt, err := b.createDigitalInterrupt(
+			b.cancelCtx, config, b.gpioMappings, oldCallbackHolder)
 		if err != nil {
 			return err
 		}
@@ -473,7 +485,8 @@ func (b *sysfsBoard) DigitalInterruptByName(name string) (board.DigitalInterrupt
 		Pin:  name,
 		Type: defaultInterruptType,
 	}
-	interrupt, err := b.createDigitalInterrupt(b.cancelCtx, defaultInterruptConfig, b.gpioMappings)
+	interrupt, err := b.createDigitalInterrupt(
+		b.cancelCtx, defaultInterruptConfig, b.gpioMappings, nil)
 	if err != nil {
 		b.logger.Errorw("failed to create digital interrupt pin on the fly", "error", err)
 		return nil, false
