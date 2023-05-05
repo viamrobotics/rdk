@@ -107,13 +107,13 @@ func newSensor(ctx context.Context, deps resource.Dependencies, name resource.Na
 type Sensor struct {
 	resource.Named
 	resource.AlwaysRebuild
-	mu            sync.Mutex
-	config        *Config
-	board         board.Board
-	ticksChan     chan board.Tick
-	timeoutMs     uint
-	cancelCtx     context.Context
-	cancelFunc    func()
+	mu         sync.Mutex
+	config     *Config
+	board      board.Board
+	ticksChan  chan board.Tick
+	timeoutMs  uint
+	cancelCtx  context.Context
+	cancelFunc func()
 }
 
 func (s *Sensor) namedError(err error) error {

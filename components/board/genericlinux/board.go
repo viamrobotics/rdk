@@ -211,7 +211,9 @@ func (b *sysfsBoard) reconfigureAnalogs(ctx context.Context, newConf *Config) er
 
 // This helper function is used while reconfiguring digital interrupts. It finds the new config (if
 // any) for a pre-existing digital interrupt.
-func findNewDigIntConfig(interrupt *digitalInterrupt, newConf *Config, logger golog.Logger) *board.DigitalInterruptConfig {
+func findNewDigIntConfig(
+	interrupt *digitalInterrupt, newConf *Config, logger golog.Logger,
+) *board.DigitalInterruptConfig {
 	for _, newConfig := range newConf.DigitalInterrupts {
 		if newConfig.Pin == interrupt.config.Pin {
 			return &newConfig
@@ -229,8 +231,8 @@ func findNewDigIntConfig(interrupt *digitalInterrupt, newConf *Config, logger go
 			}
 		}
 		logger.Debugf(
-			"Keeping digital interrupt on pin %s even though it's not explicitly mentioned " +
-			"in the new board config",
+			"Keeping digital interrupt on pin %s even though it's not explicitly mentioned "+
+				"in the new board config",
 			interrupt.config.Pin)
 		return interrupt.config
 	}
@@ -264,7 +266,7 @@ func (b *sysfsBoard) reconfigureInterrupts(newConf *Config) error {
 				}
 			} else {
 				b.logger.Warnf("Unable to reinterpret old interrupt pin '%s' as GPIO, ignoring.",
-				               oldInterrupt.config.Pin)
+					oldInterrupt.config.Pin)
 			}
 		} else { // The old interrupt should stick around.
 			if err := oldInterrupt.interrupt.Reconfigure(*newConfig); err != nil {
