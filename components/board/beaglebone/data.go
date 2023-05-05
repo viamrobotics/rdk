@@ -14,6 +14,11 @@ var boardInfoMappings = map[string]genericlinux.BoardInformation{
 			// Hardware PWMs contain a number other than -1 in the last element of map
 			// beaglebone pwm mapping sys/devices/platform/bus@100000/*.pwm
 
+			// GPIO only pins
+			// beaglebone gpio mapping uses directory sys/devices/platform/bus@100000/*.gpio
+			// beaglebone 600000.gpio/ (128 lines) corresponds to gpiochip1 and /sys/class/gpio/gpiochip300/
+			// beaglebone 601000.gpio/ (36 lines) corresponds to gpiochip2 and /sys/class/gpio/gpiochip264/
+
 			{map[int]int{128: 89}, map[int]string{}, "600000.gpio", 813, 0, "P8_13", "", "3000000.pwm", 1}, // pwmchip0 V27 EHRPWM0_A
 			{map[int]int{128: 88}, map[int]string{}, "600000.gpio", 819, 0, "P8_19", "", "3000000.pwm", 0}, // pwmchip0 V29 EHRPWM0_B
 			{map[int]int{128: 93}, map[int]string{}, "600000.gpio", 914, 0, "P9_14", "", "3020000.pwm", 0}, // pwmchip4 U27 EHRPWM2_A
@@ -30,10 +35,6 @@ var boardInfoMappings = map[string]genericlinux.BoardInformation{
 			{map[int]int{36: 13}, map[int]string{}, "601000.gpio", 930, 0, "P9_30", "", "", -1}, // Timer-based PWM
 			{map[int]int{128: 123}, map[int]string{}, "600000.gpio", 942, 0, "P9_42", "", "", -1}, // Timer-based PWM
 
-			// GPIO only pins
-			// beaglebone gpio mapping uses directory sys/devices/platform/bus@100000/*.gpio
-			// beaglebone 600000.gpio/ (128 lines) corresponds to gpiochip1 and /sys/class/gpio/gpiochip300/
-			// beaglebone 601000.gpio/ (36 lines) corresponds to gpiochip2 and /sys/class/gpio/gpiochip264/
 			{map[int]int{128: 14}, map[int]string{}, "600000.gpio", 808, 0, "P8_08", "", "", -1},
 			{map[int]int{128: 15}, map[int]string{}, "600000.gpio", 807, 0, "P8_07", "", "", -1},
 			{map[int]int{128: 16}, map[int]string{}, "600000.gpio", 810, 0, "P8_10", "", "", -1},
