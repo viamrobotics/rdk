@@ -130,7 +130,6 @@ func (r *localRobot) Close(ctx context.Context) error {
 		if r.configTicker != nil {
 			r.configTicker.Stop()
 		}
-		close(r.triggerConfig)
 	}
 	r.activeBackgroundWorkers.Wait()
 
