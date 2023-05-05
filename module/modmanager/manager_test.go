@@ -345,7 +345,7 @@ func TestModuleReloading(t *testing.T) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			test.That(tb, logs.FilterMessageSnippet("test-module successfully restarted").Len(),
+			test.That(tb, logs.FilterMessageSnippet("module successfully restarted").Len(),
 				test.ShouldEqual, 1)
 		})
 
@@ -361,7 +361,7 @@ func TestModuleReloading(t *testing.T) {
 
 		// Assert that logs reflect that test-module crashed and there were no
 		// errors during restart.
-		test.That(t, logs.FilterMessageSnippet("test-module has unexpectedly exited").Len(),
+		test.That(t, logs.FilterMessageSnippet("module has unexpectedly exited").Len(),
 			test.ShouldEqual, 1)
 		test.That(t, logs.FilterMessageSnippet("error while restarting crashed module").Len(),
 			test.ShouldEqual, 0)
@@ -423,9 +423,9 @@ func TestModuleReloading(t *testing.T) {
 
 		// Assert that logs reflect that test-module crashed and was not
 		// successfully restarted.
-		test.That(t, logs.FilterMessageSnippet("test-module has unexpectedly exited").Len(),
+		test.That(t, logs.FilterMessageSnippet("module has unexpectedly exited").Len(),
 			test.ShouldEqual, 1)
-		test.That(t, logs.FilterMessageSnippet("test-module successfully restarted").Len(),
+		test.That(t, logs.FilterMessageSnippet("module successfully restarted").Len(),
 			test.ShouldEqual, 0)
 	})
 }
