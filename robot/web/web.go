@@ -481,8 +481,9 @@ func (svc *webService) updateResources(resources map[resource.Name]resource.Reso
 			if ok {
 				apiResColl = reg.MakeEmptyCollection()
 			} else {
-				// log a warning here to remind users to register their APIs, but can ignore if client communication is not wanted/needed
-				// or if resource is internal to RDK
+				// Log a warning here to remind users to register their APIs. Do not warn if the resource is internal to the RDK or
+				// the resource is handled by a remote with a possibly separate API registration. Modular resources will
+				// have API registrations already and should not reach this point in the method.
 				if a.Type.Namespace != resource.APINamespaceRDKInternal {
 					for n := range v {
 						if !n.ContainsRemoteNames() {
