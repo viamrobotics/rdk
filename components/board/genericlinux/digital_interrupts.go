@@ -63,7 +63,9 @@ func (b *sysfsBoard) createDigitalInterrupt(
 		}
 	} else {
 		interrupt = oldCallbackHolder
-		interrupt.Reconfigure(config)
+		if err := interrupt.Reconfigure(config); err != nil {
+			return nil, err // Should never have errors, but this makes the linter happy
+		}
 	}
 
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
