@@ -195,8 +195,6 @@ const disposeScene = () => {
       }
     }
   });
-
-  scene.clear();
 };
 
 const updatePose = async (newPose: commonApi.Pose) => {
@@ -348,10 +346,16 @@ const updatePointCloud = (pointcloud: Uint8Array) => {
     axesNeg
   );
 
-  if (props.pose !== undefined) {
-    updatePose(props.pose!);
+  // re-add base and destination marker so they render on top of all other objects
+  const destinationMarker = scene.getObjectByName('DestinationMarker');
+  if (destinationMarker !== undefined) {
+    scene.add(destinationMarker);
   }
-  updateOrRemoveDestinationMarker();
+
+  const baseMarker = scene.getObjectByName('BaseMarker');
+  if (baseMarker !== undefined) {
+    scene.add(baseMarker);
+  }
 };
 
 onMounted(() => {
