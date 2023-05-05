@@ -88,6 +88,7 @@ var boardInfoMappings = map[string]genericlinux.BoardInformation{
 			{map[int]int{128: 75}, map[int]string{}, "600000.gpio", 814, 0, "P8_14", "", "", -1},
 			{map[int]int{128: 76}, map[int]string{}, "600000.gpio", 820, 0, "P8_20", "", "", -1},
 			{map[int]int{128: 78}, map[int]string{}, "600000.gpio", 919, 0, "P9_19", "", "", -1},
+			{map[int]int{128: 77}, map[int]string{}, "600000.gpio", 920, 0, "P9_20", "", "", -1},
 			{map[int]int{128: 79}, map[int]string{}, "600000.gpio", 845, 0, "P8_45", "", "", -1},
 			{map[int]int{128: 80}, map[int]string{}, "600000.gpio", 846, 0, "P8_46", "", "", -1}, // BOOTMODE3
 			{map[int]int{128: 119}, map[int]string{}, "600000.gpio", 924, 0, "P9_24", "", "", -1},
