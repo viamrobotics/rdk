@@ -41,6 +41,12 @@ func (c *Config) Validate(path string) ([]string, error) {
 	return nil, nil
 }
 
+// pcdCamera is a camera model that plays back pre-captured point cloud data.
+type pcdCamera struct {
+	resource.Named
+	logger golog.Logger
+}
+
 // newReplayCamera creates a new replay camera based on the inputted config and dependencies.
 func newReplayPCDCamera(ctx context.Context, deps resource.Dependencies, cfg resource.Config, logger golog.Logger) (camera.Camera, error) {
 	cam := &pcdCamera{
@@ -48,11 +54,6 @@ func newReplayPCDCamera(ctx context.Context, deps resource.Dependencies, cfg res
 	}
 	// TODO: Add start protocol for replay camera https://viam.atlassian.net/browse/RSDK-2893
 	return cam, nil
-}
-
-// pcdCamera is a camera model that plays back pre-captured point cloud data.
-type pcdCamera struct {
-	logger golog.Logger
 }
 
 // NextPointCloud is part of the camera interface but is not implemented for replay.
@@ -82,16 +83,6 @@ func (replay *pcdCamera) Stream(ctx context.Context, errHandlers ...gostream.Err
 // Close stops replay camera but is not implemented for replay.
 func (replay *pcdCamera) Close(ctx context.Context) error {
 	return errors.New("Close is unimplemented")
-}
-
-// DoCommand is a generic function but is not implemented for replay.
-func (replay *pcdCamera) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return nil, resource.ErrDoUnimplemented
-}
-
-// Name returns the name of a replay camera but is not implemented for replay.
-func (replay *pcdCamera) Name() resource.Name {
-	return resource.Name{}
 }
 
 // Reconfigure will bring up a replay camera using the new config but is not implemented for replay.
