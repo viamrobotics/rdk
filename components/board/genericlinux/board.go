@@ -209,6 +209,34 @@ func (b *sysfsBoard) reconfigureAnalogs(ctx context.Context, newConf *Config) er
 	return nil
 }
 
+// This helper function is used while reconfiguring digital interrupts. It finds the new config (if
+// any) for a pre-existing digital interrupt.
+func findNewDigIntConfig(interrupt *digitalInterrupt, newConf *Config, logger golog.Logger) *board.DigitalInterruptConfig {
+	for _, newConfig := range newConf.DigitalInterrupts {
+		if newConfig.Pin == interrupt.config.Pin {
+			return &newConfig
+		}
+	}
+	if interrupt.config.Name == interrupt.config.Pin {
+		// This interrupt is named identically to its pin. It was probably created on the fly
+		// by some other component (an encoder?). Unless there's now some other config with the
+		// same name but on a different pin, keep it initialized as-is.
+		for _, intConfig := range newConf.DigitalInterrupts {
+			if intConfig.Name == interrupt.config.Name {
+				// The name of this interrupt is defined in the new config, but on a different
+				// pin. This interrupt should be closed.
+				return nil
+			}
+		}
+		logger.Debugf(
+			"Keeping digital interrupt on pin %s even though it's not explicitly mentioned " +
+			"in the new board config",
+			interrupt.config.Pin)
+		return interrupt.config
+	}
+	return nil
+}
+
 func (b *sysfsBoard) reconfigureInterrupts(newConf *Config) error {
 	if b.usePeriphGpio {
 		if len(newConf.DigitalInterrupts) != 0 {
@@ -222,36 +250,9 @@ func (b *sysfsBoard) reconfigureInterrupts(newConf *Config) error {
 	// state.
 	newInterrupts := make(map[string]*digitalInterrupt, len(newConf.DigitalInterrupts))
 
-	// This helper function finds the new config (if any) for a pre-existing digital interrupt.
-	findNewDigIntConfig := func(interrupt *digitalInterrupt) *board.DigitalInterruptConfig {
-		for _, newConfig := range newConf.DigitalInterrupts {
-			if newConfig.Pin == interrupt.config.Pin {
-				return &newConfig
-			}
-		}
-		if interrupt.config.Name == interrupt.config.Pin {
-			// This interrupt is named identically to its pin. It was probably created on the fly
-			// by some other component (an encoder?). Unless there's now some other config with the
-			// same name but on a different pin, keep it initialized as-is.
-			for _, intConfig := range newConf.DigitalInterrupts {
-				if intConfig.Name == interrupt.config.Name {
-					// The name of this interrupt is defined in the new config, but on a different
-					// pin. This interrupt should be closed.
-					return nil
-				}
-			}
-			b.logger.Debugf(
-				"Keeping digital interrupt on pin %s even though it's not explicitly mentioned " +
-				"in the new board config",
-				interrupt.config.Pin)
-			return interrupt.config
-		}
-		return nil
-	}
-
 	// Reuse any old interrupts that have new configs
 	for _, oldInterrupt := range b.interrupts {
-		if newConfig := findNewDigIntConfig(oldInterrupt); newConfig == nil {
+		if newConfig := findNewDigIntConfig(oldInterrupt, newConf, b.logger); newConfig == nil {
 			// The old interrupt shouldn't exist any more, but it probably became a GPIO pin.
 			if err := oldInterrupt.Close(); err != nil {
 				return err // This should never happen, but the linter worries anyway.
