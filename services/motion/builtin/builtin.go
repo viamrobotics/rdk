@@ -184,7 +184,7 @@ func (ms *builtIn) MoveOnMap(
 	return true, nil
 }
 
-// MoveOnGlobe TODO
+// MoveOnGlobe TODO(RSDK-2926): Finish documentation
 func (ms *builtIn) MoveOnGlobe(
 	ctx context.Context,
 	componentName resource.Name,

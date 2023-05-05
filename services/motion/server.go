@@ -3,6 +3,7 @@ package motion
 
 import (
 	"context"
+	"math"
 
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
@@ -67,6 +68,13 @@ func (server *serviceServer) MoveOnGlobe(ctx context.Context, req *pb.MoveOnGlob
 	if err != nil {
 		return nil, err
 	}
+	if req.Destination == nil {
+		return nil, errors.New("Must provide a destination")
+	}
+	heading := math.NaN()
+	if req.Heading != nil {
+		heading = req.GetHeading()
+	}
 	obstaclesProto := req.GetObstacles()
 	obstacles := make([]*referenceframe.GeoObstacle, 0, len(obstaclesProto))
 	for _, eachProtoObst := range obstaclesProto {
@@ -76,15 +84,23 @@ func (server *serviceServer) MoveOnGlobe(ctx context.Context, req *pb.MoveOnGlob
 		}
 		obstacles = append(obstacles, convObst)
 	}
+	linear := float32(math.NaN())
+	if req.LinearMetersPerSec != nil {
+		linear = req.GetLinearMetersPerSec()
+	}
+	angular := float32(math.NaN())
+	if req.AngularDegPerSec != nil {
+		angular = req.GetAngularDegPerSec()
+	}
 	success, err := svc.MoveOnGlobe(
 		ctx,
 		protoutils.ResourceNameFromProto(req.GetComponentName()),
 		geo.NewPoint(req.GetDestination().GetLatitude(), req.GetDestination().GetLongitude()),
-		req.GetHeading(),
+		heading,
 		protoutils.ResourceNameFromProto(req.GetMovementSensorName()),
 		obstacles,
-		req.GetLinearMetersPerSec(),
-		req.GetAngularDegPerSec(),
+		linear,
+		angular,
 		req.Extra.AsMap(),
 	)
 	return &pb.MoveOnGlobeResponse{Success: success}, err

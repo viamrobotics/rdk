@@ -6,6 +6,7 @@ import (
 
 	"github.com/edaniels/golog"
 	geo "github.com/kellydunn/golang-geo"
+	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/motion/v1"
 	vprotoutils "go.viam.com/utils/protoutils"
@@ -113,6 +114,9 @@ func (c *client) MoveOnGlobe(
 	ext, err := vprotoutils.StructToStructPb(extra)
 	if err != nil {
 		return false, err
+	}
+	if destination == nil {
+		return false, errors.New("Must provide a destination")
 	}
 	obstaclesProto := make([]*commonpb.GeoObstacle, 0, len(obstacles))
 	for _, eachObst := range obstacles {
