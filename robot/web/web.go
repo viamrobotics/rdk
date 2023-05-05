@@ -481,8 +481,19 @@ func (svc *webService) updateResources(resources map[resource.Name]resource.Reso
 			if ok {
 				apiResColl = reg.MakeEmptyCollection()
 			} else {
-				svc.logger.Debugw("making heterogeneous API resource collection", "api", a)
-				apiResColl = resource.NewEmptyAPIResourceCollection[resource.Resource](a)
+				// Log a warning here to remind users to register their APIs. Do not warn if the resource is internal to the RDK or
+				// the resource is handled by a remote with a possibly separate API registration. Modular resources will
+				// have API registrations already and should not reach this point in the method.
+				if a.Type.Namespace != resource.APINamespaceRDKInternal {
+					for n := range v {
+						if !n.ContainsRemoteNames() {
+							svc.logger.Warnw(
+								"missing registration for api, resources with this API will be unreachable through a client", "api", n.API)
+							break
+						}
+					}
+				}
+				continue
 			}
 
 			if err := apiResColl.ReplaceAll(v); err != nil {
@@ -1047,7 +1058,7 @@ func (svc *webService) initAuthHandlers(listenerTCPAddr *net.TCPAddr, options we
 
 // Register every API resource grpc service here.
 func (svc *webService) initAPIResourceCollections(ctx context.Context, mod bool) error {
-	// TODO: only register necessary services (#272)
+	// TODO (RSDK-144): only register necessary services
 	apiRegs := resource.RegisteredAPIs()
 	for s, rs := range apiRegs {
 		apiResColl, ok := svc.services[s]

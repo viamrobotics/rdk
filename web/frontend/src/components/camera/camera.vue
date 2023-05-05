@@ -115,6 +115,7 @@ watch(() => props.triggerRefresh, () => {
     <template v-if="cameraOn">
       <v-button
         v-if="cameraOn && props.showExportScreenshot"
+        class="mb-4"
         :aria-label="`View Camera: ${cameraName}`"
         icon="camera"
         label="Export Screenshot"
@@ -122,23 +123,25 @@ watch(() => props.triggerRefresh, () => {
       />
     </template>
 
-    <video
-      v-show="props.refreshRate === 'Live'"
-      :srcObject.prop="videoStream"
-      muted
-      autoplay
-      controls="false"
-      playsinline
-      :aria-label="`${cameraName} stream`"
-      :class="{ hidden: !cameraOn }"
-      class="clear-both h-fit transition-all duration-300 ease-in-out"
-    />
+    <div class="max-w-screen-md">
+      <video
+        v-show="props.refreshRate === 'Live'"
+        :srcObject.prop="videoStream"
+        muted
+        autoplay
+        controls="false"
+        playsinline
+        :aria-label="`${cameraName} stream`"
+        :class="{ hidden: !cameraOn }"
+        class="clear-both h-fit transition-all duration-300 ease-in-out"
+      />
 
-    <img
-      v-show="props.refreshRate !== 'Live'"
-      ref="imgEl"
-      :aria-label="`${cameraName} stream`"
-      :class="{ hidden: props.refreshRate === 'Live' }"
-    >
+      <img
+        v-show="props.refreshRate !== 'Live'"
+        ref="imgEl"
+        :aria-label="`${cameraName} stream`"
+        :class="{ hidden: props.refreshRate === 'Live' }"
+      >
+    </div>
   </div>
 </template>

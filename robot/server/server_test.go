@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"net"
 	"sync"
 	"testing"
 	"time"
@@ -19,6 +20,7 @@ import (
 	"go.viam.com/test"
 	vprotoutils "go.viam.com/utils/protoutils"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/peer"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	"go.viam.com/rdk/components/arm"
@@ -188,8 +190,8 @@ func TestServer(t *testing.T) {
 			Operations: []*pb.Operation{},
 		})
 
-		sess1 := session.New("owner1", nil, time.Minute, nil)
-		sess2 := session.New("owner2", nil, time.Minute, nil)
+		sess1 := session.New(context.Background(), "owner1", time.Minute, nil)
+		sess2 := session.New(context.Background(), "owner2", time.Minute, nil)
 		sess1Ctx := session.ToContext(context.Background(), sess1)
 		sess2Ctx := session.ToContext(context.Background(), sess2)
 		op1, cancel1 := injectRobot.OperationManager().Create(context.Background(), "something1", nil)
@@ -244,26 +246,21 @@ func TestServer(t *testing.T) {
 		})
 
 		ownerID1 := "owner1"
-		remoteAddr1 := "rem1"
-		localAddr1 := "loc1"
-		info1 := &pb.PeerConnectionInfo{
-			Type:          pb.PeerConnectionType_PEER_CONNECTION_TYPE_GRPC,
-			RemoteAddress: &remoteAddr1,
-			LocalAddress:  &localAddr1,
-		}
+		remoteAddr1 := &net.TCPAddr{IP: net.IPv4(1, 2, 3, 4), Port: 5}
+		ctx1 := peer.NewContext(context.Background(), &peer.Peer{
+			Addr: remoteAddr1,
+		})
+		remoteAddr2 := &net.TCPAddr{IP: net.IPv4(2, 2, 3, 8), Port: 9}
+		ctx2 := peer.NewContext(context.Background(), &peer.Peer{
+			Addr: remoteAddr2,
+		})
+
 		ownerID2 := "owner2"
-		remoteAddr2 := "rem2"
-		localAddr2 := "loc2"
-		info2 := &pb.PeerConnectionInfo{
-			Type:          pb.PeerConnectionType_PEER_CONNECTION_TYPE_GRPC,
-			RemoteAddress: &remoteAddr2,
-			LocalAddress:  &localAddr2,
-		}
 		dur := time.Second
 
 		sessions := []*session.Session{
-			session.New(ownerID1, info1, dur, nil),
-			session.New(ownerID2, info2, dur, nil),
+			session.New(ctx1, ownerID1, dur, nil),
+			session.New(ctx2, ownerID2, dur, nil),
 		}
 
 		sessMgr.mu.Lock()
@@ -628,7 +625,7 @@ type sessionManager struct {
 	sessions []*session.Session
 }
 
-func (mgr *sessionManager) Start(ownerID string, peerConnInfo *pb.PeerConnectionInfo) (*session.Session, error) {
+func (mgr *sessionManager) Start(ctx context.Context, ownerID string) (*session.Session, error) {
 	panic("unimplemented")
 }
 
@@ -638,7 +635,7 @@ func (mgr *sessionManager) All() []*session.Session {
 	return mgr.sessions
 }
 
-func (mgr *sessionManager) FindByID(id uuid.UUID, ownerID string) (*session.Session, error) {
+func (mgr *sessionManager) FindByID(ctx context.Context, id uuid.UUID, ownerID string) (*session.Session, error) {
 	panic("unimplemented")
 }
 
