@@ -9,10 +9,9 @@ var boardInfoMappings = map[string]genericlinux.BoardInformation{
 		PinDefinitions: []genericlinux.PinDefinition{
 			// GPIOChipRelativeIDs {NGPIO: LINENUM} -> {128: 93}
 			// PinNumberBoard {914} -> PinNameCVM3 "P9_14"
-			// Duplicate pins are commented out of the
 
 			// ******** DATA MAPPING ********************************
-			// PWMs contain a number other than -1 in the last element of map
+			// Hardware PWMs contain a number other than -1 in the last element of map
 			// beaglebone pwm mapping sys/devices/platform/bus@100000/*.pwm
 
 			{map[int]int{128: 89}, map[int]string{}, "600000.gpio", 813, 0, "P8_13", "", "3000000.pwm", 1}, // pwmchip0 V27 EHRPWM0_A
