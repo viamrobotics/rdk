@@ -39,14 +39,17 @@ var (
 
 // NewManager returns a Manager.
 func NewManager(parentAddr string, logger golog.Logger, options modmanageroptions.Options) modmaninterface.ModuleManager {
-	return &Manager{
-		logger:                  logger,
-		modules:                 map[string]*module{},
-		parentAddr:              parentAddr,
-		rMap:                    map[resource.Name]*module{},
-		untrustedEnv:            options.UntrustedEnv,
-		removeOrphanedResources: options.RemoveOrphanedResources,
+	mgr := &Manager{
+		logger:       logger,
+		modules:      map[string]*module{},
+		parentAddr:   parentAddr,
+		rMap:         map[resource.Name]*module{},
+		untrustedEnv: options.UntrustedEnv,
 	}
+	if options.RemoveOrphanedResources != nil {
+		mgr.removeOrphanedResources = options.RemoveOrphanedResources
+	}
+	return mgr
 }
 
 type module struct {
@@ -400,7 +403,9 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) b
 		// restarting ourselves, return false here so goutils knows not to attempt
 		// a process restart.
 		if orphanedResourceNames := mgr.attemptRestart(ctx, mod); orphanedResourceNames != nil {
-			mgr.removeOrphanedResources(ctx, orphanedResourceNames)
+			if mgr.removeOrphanedResources != nil {
+				mgr.removeOrphanedResources(ctx, orphanedResourceNames)
+			}
 			return false
 		}
 
@@ -414,7 +419,9 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) b
 				orphanedResourceNames = append(orphanedResourceNames, name)
 			}
 		}
-		mgr.removeOrphanedResources(ctx, orphanedResourceNames)
+		if mgr.removeOrphanedResources != nil {
+			mgr.removeOrphanedResources(ctx, orphanedResourceNames)
+		}
 
 		mgr.logger.Infow("module successfully restarted", "module", mod.name)
 		return false
