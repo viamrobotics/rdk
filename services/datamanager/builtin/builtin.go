@@ -531,6 +531,8 @@ func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 		// If a file was modified within the past lastModifiedMillis seconds, do not sync it (data
 		// may still be being written).
 		timeSinceMod := clock.Since(info.ModTime())
+		// When using a mock clock in tests, this can be negative since the file system will still use the system clock.
+		// Take max(timeSinceMod, 0) to account for this.
 		if timeSinceMod < 0 {
 			timeSinceMod = 0
 		}

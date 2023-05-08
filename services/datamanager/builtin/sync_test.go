@@ -448,9 +448,9 @@ func TestArbitraryFileUpload(t *testing.T) {
 				test.That(t, actMD.PartId, test.ShouldNotBeBlank)
 
 				// Validate ensuing data messages.
-				actDataRequests := urs[1:]
+				dataRequests := urs[1:]
 				var actData []byte
-				for _, d := range actDataRequests {
+				for _, d := range dataRequests {
 					actData = append(actData, d.GetFileContents().GetData()...)
 				}
 				test.That(t, actData, test.ShouldResemble, fileContents)
