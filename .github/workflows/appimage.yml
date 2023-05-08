@@ -68,18 +68,20 @@ jobs:
         gzip: false
 
     - name: Build and Package (Latest)
-      id: build_test_app
-      if: env.RELEASE_TYPE == "latest"
+      id: build_test_latest
+      if: env.RELEASE_TYPE == 'latest'
       run: |
-        echo "date=`date +%F`" >> $GITHUB_OUTPUT
         sudo -Hu testbot bash -lc 'make BUILD_CHANNEL="latest" appimage'
 
     - name: Build and Package (Tagged)
-      id: build_test_app
-      if: env.RELEASE_TYPE == "stable" || env.RELEASE_TYPE == "rc"
+      id: build_test_tagged
+      if: env.RELEASE_TYPE == 'stable' || env.RELEASE_TYPE == 'rc'
       run: |
-        echo "date=`date +%F`" >> $GITHUB_OUTPUT
         sudo -Hu testbot bash -lc 'make BUILD_CHANNEL="${{ github.ref_name }}" appimage'
+
+    - name: Set Date
+      id: build_date
+      run: echo "date=`date +%F`" >> $GITHUB_OUTPUT
 
     - name: Upload Files (Testing)
       if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
@@ -87,7 +89,7 @@ jobs:
       with:
         headers: "cache-control: no-cache"
         path: 'etc/packaging/appimages/deploy/'
-        destination: 'packages.viam.com/apps/viam-server/testing/appimage/${{ steps.build_test_app.outputs.date }}/${{ github.sha }}/'
+        destination: 'packages.viam.com/apps/viam-server/testing/appimage/${{ steps.build_date.outputs.date }}/${{ github.sha }}/'
         glob: '*'
         parent: false
         gzip: false
