@@ -21,7 +21,7 @@ jobs:
       MONGODB_TEST_OUTPUT_URI: ${{ secrets.MONGODB_TEST_OUTPUT_URI }}
 
   appimage:
-    needs: test SMURF
+    needs: test
     uses: viamrobotics/rdk/.github/workflows/appimage.yml@rc-workflows
     with:
       release_type: 'latest'
@@ -29,7 +29,7 @@ jobs:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
   staticbuild:
-    needs: test SMURF
+    needs: test
     uses: viamrobotics/rdk/.github/workflows/staticbuild.yml@rc-workflows
     with:
       release_type: 'latest'
