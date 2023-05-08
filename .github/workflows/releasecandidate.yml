@@ -13,7 +13,7 @@ on:
 # Don't forget to tag back to @main before merge.
 
 env:
-  RELEASE_TYPE: "rc"
+  RELEASE_TYPE: 'rc'
 
 jobs:
   test:
