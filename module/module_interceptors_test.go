@@ -3,16 +3,13 @@ package module_test
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"os"
-	"os/exec"
 	"strconv"
 	"testing"
 	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/google/uuid"
-	"go.uber.org/multierr"
 	commonpb "go.viam.com/api/common/v1"
 	genericpb "go.viam.com/api/component/generic/v1"
 	robotpb "go.viam.com/api/robot/v1"
@@ -28,6 +25,7 @@ import (
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/resource"
+	rtestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/utils"
 )
 
@@ -152,11 +150,8 @@ func connect(port string) (robotpb.RobotServiceClient, genericpb.GenericServiceC
 
 func makeConfig(t *testing.T, logger golog.Logger) (string, string, error) {
 	// Precompile module to avoid timeout issues when building takes too long.
-	builder := exec.Command("go", "build", ".")
-	builder.Dir = utils.ResolveFile("module/testmodule")
-	out, err := builder.CombinedOutput()
-	if len(out) != 0 || err != nil {
-		return "", "", multierr.Combine(err, fmt.Errorf("module build output: %s", out))
+	if err := rtestutils.BuildInDir("module/testmodule"); err != nil {
+		return "", "", err
 	}
 
 	p, err := goutils.TryReserveRandomPort()
