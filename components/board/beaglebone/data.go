@@ -13,6 +13,9 @@ var boardInfoMappings = map[string]genericlinux.BoardInformation{
 			// ******** DATA MAPPING ********************************
 			// Hardware PWMs contain a number other than -1 in the last element of map
 			// beaglebone pwm mapping sys/devices/platform/bus@100000/*.pwm
+			// NOTE: each hardware PWM device can only drive 1 line at a time, even though 2 lines
+			// are hooked up to each. For example, you can't have PWM signals running on lines 914
+			// and 916 at the same time, even though both of them work on their own.
 			// NOTE: pins with hardware PWM support don't work as GPIO by default
 
 			// GPIO only pins
