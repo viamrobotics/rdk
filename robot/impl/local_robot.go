@@ -21,9 +21,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/internal"
 	"go.viam.com/rdk/internal/cloud"
-	"go.viam.com/rdk/module/modmanager"
-	modmanageroptions "go.viam.com/rdk/module/modmanager/options"
-	modif "go.viam.com/rdk/module/modmaninterface"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
@@ -50,7 +47,6 @@ type localRobot struct {
 	config  *config.Config
 
 	operations                 *operation.Manager
-	modules                    modif.ModuleManager
 	sessionManager             session.Manager
 	packageManager             packages.ManagerSyncer
 	cloudConnSvc               cloud.ConnectionService
@@ -106,11 +102,6 @@ func (r *localRobot) OperationManager() *operation.Manager {
 	return r.operations
 }
 
-// ModuleManager returns the module manager for the robot.
-func (r *localRobot) ModuleManager() modif.ModuleManager {
-	return r.modules
-}
-
 // SessionManager returns the session manager for the robot.
 func (r *localRobot) SessionManager() session.Manager {
 	return r.sessionManager
@@ -139,7 +130,6 @@ func (r *localRobot) Close(ctx context.Context) error {
 		if r.configTicker != nil {
 			r.configTicker.Stop()
 		}
-		close(r.triggerConfig)
 	}
 	r.activeBackgroundWorkers.Wait()
 
@@ -148,10 +138,7 @@ func (r *localRobot) Close(ctx context.Context) error {
 		err = multierr.Combine(err, r.cloudConnSvc.Close(ctx))
 	}
 	if r.manager != nil {
-		err = multierr.Combine(err, r.manager.Close(ctx, r))
-	}
-	if r.modules != nil {
-		err = multierr.Combine(err, r.modules.Close(ctx))
+		err = multierr.Combine(err, r.manager.Close(ctx))
 	}
 	if r.packageManager != nil {
 		err = multierr.Combine(err, r.packageManager.Close(ctx))
@@ -438,15 +425,13 @@ func newWithResources(
 		return nil, err
 	}
 
-	modMgr, err := modmanager.NewManager(r, modmanageroptions.Options{UntrustedEnv: r.manager.opts.untrustedEnv})
-	if err != nil {
-		return nil, err
-	}
-	r.modules = modMgr
+	// Once web service is started, start module manager and add initially
+	// specified modules.
+	r.manager.startModuleManager(r.webSvc.ModuleAddress(), cfg.UntrustedEnv, logger)
 	for _, mod := range cfg.Modules {
-		err := r.modules.Add(ctx, mod)
-		if err != nil {
-			return nil, err
+		if err := r.manager.moduleManager.Add(ctx, mod); err != nil {
+			r.logger.Errorw("error adding module", "module", mod.Name, "error", err)
+			continue
 		}
 	}
 
@@ -922,8 +907,8 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	// and store implicit dependencies.
 	validateModularResources := func(confs []resource.Config) {
 		for i, c := range confs {
-			if r.modules.Provides(c) {
-				implicitDeps, err := r.modules.ValidateConfig(ctx, c)
+			if r.manager.moduleManager.Provides(c) {
+				implicitDeps, err := r.manager.moduleManager.ValidateConfig(ctx, c)
 				if err != nil {
 					r.logger.Errorw("modular config validation error found in resource: "+c.Name, "error", err)
 					continue
@@ -947,26 +932,6 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 		r.logger.Debugf("(re)configuring with %+v", diff)
 	}
 
-	orphanedResourceNames, err := r.reconfigureModules(ctx, diff)
-	if err != nil {
-		r.logger.Error(err)
-	}
-
-	// Before filtering config, manually add modular orphaned resources (resources
-	// handled by removed modules) to diff.Removed.
-	for _, name := range orphanedResourceNames {
-		for _, c := range newConfig.Components {
-			if c.ResourceName() == name {
-				diff.Removed.Components = append(diff.Removed.Components, c)
-			}
-		}
-		for _, s := range newConfig.Services {
-			if s.ResourceName() == name {
-				diff.Removed.Services = append(diff.Removed.Services, s)
-			}
-		}
-	}
-
 	// First we remove resources and their children that are not in the graph.
 	processesToClose, resourcesToCloseBeforeComplete, _ := r.manager.markRemoved(ctx, diff.Removed, r.logger)
 
@@ -979,14 +944,14 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	// Third we attempt to complete the config (see function for details)
 	alreadyClosed := make(map[resource.Name]struct{}, len(resourcesToCloseBeforeComplete))
 	for _, res := range resourcesToCloseBeforeComplete {
-		allErrs = multierr.Combine(allErrs, r.manager.closeResource(ctx, r, res))
+		allErrs = multierr.Combine(allErrs, r.manager.closeResource(ctx, res))
 		// avoid a double close later
 		alreadyClosed[res.Name()] = struct{}{}
 	}
 	r.manager.completeConfig(ctx, r)
 	r.updateWeakDependents(ctx)
 
-	removedNames, removedErr := r.manager.removeMarkedAndClose(ctx, r, alreadyClosed)
+	removedNames, removedErr := r.manager.removeMarkedAndClose(ctx, alreadyClosed)
 	if removedErr != nil {
 		allErrs = multierr.Combine(allErrs, removedErr)
 	}
@@ -1067,36 +1032,4 @@ func (r *localRobot) checkMaxInstance(api resource.API, max int) error {
 		}
 	}
 	return nil
-}
-
-// reconfigureModules will add, remove and reconfigure modules from the module
-// manager as needed depending on the passed-in config diff. It will return the
-// names of now orphaned resources.
-func (r *localRobot) reconfigureModules(ctx context.Context,
-	diff *config.Diff,
-) ([]resource.Name, error) {
-	for _, mod := range diff.Added.Modules {
-		if err := r.modules.Add(ctx, mod); err != nil {
-			return nil, errors.Wrapf(err, "error adding module %s ", mod.Name)
-		}
-	}
-
-	var allOrphanedResourceNames []resource.Name
-	for _, mod := range diff.Modified.Modules {
-		orphanedResourceNames, err := r.modules.Reconfigure(ctx, mod)
-		if err != nil {
-			return nil, errors.Wrapf(err, "error reconfiguring module %s ", mod.Name)
-		}
-		allOrphanedResourceNames = append(allOrphanedResourceNames, orphanedResourceNames...)
-	}
-
-	for _, mod := range diff.Removed.Modules {
-		orphanedResourceNames, err := r.modules.Remove(mod.Name)
-		if err != nil {
-			return nil, errors.Wrapf(err, "error removing module %s ", mod.Name)
-		}
-		allOrphanedResourceNames = append(allOrphanedResourceNames, orphanedResourceNames...)
-	}
-
-	return allOrphanedResourceNames, nil
 }

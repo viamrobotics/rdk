@@ -371,7 +371,7 @@ func (s *Server) StartSession(ctx context.Context, req *pb.StartSessionRequest) 
 		if err != nil {
 			return nil, err
 		}
-		if sess, err := s.r.SessionManager().FindByID(resumeWith, authUID); err != nil {
+		if sess, err := s.r.SessionManager().FindByID(ctx, resumeWith, authUID); err != nil {
 			if !errors.Is(err, session.ErrNoSession) {
 				return nil, err
 			}
@@ -383,8 +383,8 @@ func (s *Server) StartSession(ctx context.Context, req *pb.StartSessionRequest) 
 		}
 	}
 	sess, err := s.r.SessionManager().Start(
+		ctx,
 		authUID,
-		peerConnectionInfoToProto(rpc.PeerConnectionInfoFromContext(ctx)),
 	)
 	if err != nil {
 		return nil, err
@@ -393,26 +393,6 @@ func (s *Server) StartSession(ctx context.Context, req *pb.StartSessionRequest) 
 		Id:              sess.ID().String(),
 		HeartbeatWindow: durationpb.New(sess.HeartbeatWindow()),
 	}, nil
-}
-
-func peerConnectionInfoToProto(info rpc.PeerConnectionInfo) *pb.PeerConnectionInfo {
-	var connType pb.PeerConnectionType
-	switch info.ConnectionType {
-	case rpc.PeerConnectionTypeGRPC:
-		connType = pb.PeerConnectionType_PEER_CONNECTION_TYPE_GRPC
-	case rpc.PeerConnectionTypeWebRTC:
-		connType = pb.PeerConnectionType_PEER_CONNECTION_TYPE_WEBRTC
-	case rpc.PeerConnectionTypeUnknown:
-		fallthrough
-	default:
-		connType = pb.PeerConnectionType_PEER_CONNECTION_TYPE_UNSPECIFIED
-	}
-
-	return &pb.PeerConnectionInfo{
-		Type:          connType,
-		LocalAddress:  &info.LocalAddress,
-		RemoteAddress: &info.RemoteAddress,
-	}
 }
 
 // SendSessionHeartbeat sends a heartbeat to the given session.
@@ -425,7 +405,7 @@ func (s *Server) SendSessionHeartbeat(ctx context.Context, req *pb.SendSessionHe
 	if err != nil {
 		return nil, err
 	}
-	if _, err := s.r.SessionManager().FindByID(sessID, authUID); err != nil {
+	if _, err := s.r.SessionManager().FindByID(ctx, sessID, authUID); err != nil {
 		return nil, err
 	}
 	return &pb.SendSessionHeartbeatResponse{}, nil

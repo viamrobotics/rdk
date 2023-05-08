@@ -4,6 +4,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/edaniels/golog"
@@ -82,6 +83,12 @@ func (h *helper) DoCommand(ctx context.Context, req map[string]interface{}) (map
 			opsOut = append(opsOut, op.ID.String())
 		}
 		return map[string]interface{}{"ops": opsOut}, nil
+	case "echo":
+		return req, nil
+	case "kill_module":
+		os.Exit(1)
+		// unreachable return statement needed for compilation
+		return nil, errors.New("unreachable error")
 	default:
 		return nil, fmt.Errorf("unknown command string %s", cmd)
 	}
