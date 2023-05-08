@@ -79,7 +79,7 @@ type noopCloudConnectionService struct {
 }
 
 func (noop *noopCloudConnectionService) AcquireConnection(ctx context.Context) (string, rpc.ClientConn, error) {
-	return "hello", nil, nil
+	return "", nil, nil
 }
 
 func (noop *noopCloudConnectionService) Close(ctx context.Context) error {

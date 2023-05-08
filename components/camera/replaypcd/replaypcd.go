@@ -47,7 +47,13 @@ type TimeInterval struct {
 
 // Validate checks that the config attributes are valid for a replay camera.
 func (c *Config) Validate(path string) ([]string, error) {
-	return nil, nil
+
+	// check source
+
+	// check interval
+
+
+	return []string{cloud.InternalServiceName.String()}, nil
 }
 
 // pcdCamera is a camera model that plays back pre-captured point cloud data.
@@ -93,8 +99,8 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCl
 			Limit:  replay.limit,
 			Last:   replay.lastData,
 		},
-		CountOnly:     false,
-		IncludeBinary: false,
+		CountOnly:     false, //Look into
+		IncludeBinary: false, //Look into
 	})
 	if err != nil {
 		return nil, err
@@ -113,7 +119,7 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCl
 	if err != nil {
 		return nil, err
 	}
-	return pc, errors.New("NextPointCloud is unimplemented")
+	return pc, nil
 }
 
 // Properties is a part of the camera interface but is not implemented for replay.
@@ -136,7 +142,7 @@ func (replay *pcdCamera) Stream(ctx context.Context, errHandlers ...gostream.Err
 
 // Close stops replay camera and closes its connections to the cloud.
 func (replay *pcdCamera) Close(ctx context.Context) error {
-	defer replay.closeCloudConnection(ctx)
+	replay.closeCloudConnection(ctx)
 	return nil
 }
 
@@ -159,7 +165,7 @@ func (replay *pcdCamera) Reconfigure(ctx context.Context, deps resource.Dependen
 
 		replay.cloudConnSvc = cloudConnSvc
 
-		_, conn, err := cloudConnSvc.AcquireConnection(ctx)
+		_, conn, err := replay.cloudConnSvc.AcquireConnection(ctx)
 		if err != nil {
 			return err
 		}
@@ -169,17 +175,18 @@ func (replay *pcdCamera) Reconfigure(ctx context.Context, deps resource.Dependen
 		replay.dataClient = dataServiceClient
 	}
 
-	replay.source = replayCamConfig.Source         // what is default
+	replay.source = replayCamConfig.Source         // what is default (NOT OPTIONAL)
 	replay.robotID = replayCamConfig.RobotID       // what is default
-	replay.timeInterval = replayCamConfig.Interval // what is default
+	replay.timeInterval = replayCamConfig.Interval // what is default (validate they are end in past, make sure start is before end)
 
 	replay.filter = &datapb.Filter{
-		RobotId: replay.robotID,
+		ComponentName: replay.source.Name,
+		RobotId:       replay.robotID,
 		Interval: &datapb.CaptureInterval{
 			Start: timestamppb.New(replay.timeInterval.Start),
 			End:   timestamppb.New(replay.timeInterval.End),
 		},
-		// ... what other filters? camera?
+		MimeType: ["pointcloud/pcd"],
 	}
 	return nil
 }
