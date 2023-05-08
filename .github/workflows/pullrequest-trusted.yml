@@ -62,4 +62,4 @@ jobs:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
   license_finder:
-    uses: viamrobotics/rdk/.github/workflows/npm-publish.yml@rc-workflows
+    uses: viamrobotics/rdk/.github/workflows/license_finder.yml@rc-workflows

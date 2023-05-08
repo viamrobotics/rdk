@@ -42,7 +42,7 @@ jobs:
   #     NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   license_finder:
-    uses: viamrobotics/rdk/.github/workflows/npm-publish.yml@rc-workflows
+    uses: viamrobotics/rdk/.github/workflows/license_finder.yml@rc-workflows
 
   slack-workflow-status:
     if: ${{ failure() }}
