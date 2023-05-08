@@ -6,7 +6,7 @@ concurrency:
 on:
   workflow_dispatch:
   push:
-    branches: [ rc-workflows ] # SMURF revert after testing
+    branches: [ main ]
     paths-ignore:
       - 'README.md'
 
@@ -16,13 +16,13 @@ on:
 
 jobs:
   test:
-    uses: viamrobotics/rdk/.github/workflows/test.yml@rc-workflows
+    uses: viamrobotics/rdk/.github/workflows/test.yml@main
     secrets:
       MONGODB_TEST_OUTPUT_URI: ${{ secrets.MONGODB_TEST_OUTPUT_URI }}
 
   appimage:
     needs: test
-    uses: viamrobotics/rdk/.github/workflows/appimage.yml@rc-workflows
+    uses: viamrobotics/rdk/.github/workflows/appimage.yml@main
     with:
       release_type: 'latest'
     secrets:
@@ -30,20 +30,20 @@ jobs:
 
   staticbuild:
     needs: test
-    uses: viamrobotics/rdk/.github/workflows/staticbuild.yml@rc-workflows
+    uses: viamrobotics/rdk/.github/workflows/staticbuild.yml@main
     with:
       release_type: 'latest'
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
-  # npm_publish: SMURF UNCOMMENT THIS
-  #   uses: viamrobotics/rdk/.github/workflows/npm-publish.yml@rc-workflows
-  #   needs: test
-  #   secrets:
-  #     NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+  npm_publish:
+    uses: viamrobotics/rdk/.github/workflows/npm-publish.yml@main
+    needs: test
+    secrets:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   license_finder:
-    uses: viamrobotics/rdk/.github/workflows/license_finder.yml@rc-workflows
+    uses: viamrobotics/rdk/.github/workflows/license_finder.yml@main
 
   slack-workflow-status:
     if: ${{ failure() }}

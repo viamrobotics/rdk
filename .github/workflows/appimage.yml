@@ -72,13 +72,11 @@ jobs:
         gzip: false
 
     - name: Build and Package (Latest)
-      id: build_test_latest
       if: inputs.release_type == 'latest'
       run: |
         sudo -Hu testbot bash -lc 'make BUILD_CHANNEL="latest" appimage'
 
     - name: Build and Package (Tagged)
-      id: build_test_tagged
       if: inputs.release_type == 'stable' || inputs.release_type == 'rc'
       run: |
         sudo -Hu testbot bash -lc 'make RELEASE_TYPE="${{ inputs.release_type }}" BUILD_CHANNEL="${{ github.ref_name }}" appimage'
@@ -120,7 +118,7 @@ jobs:
     - name: Test AppImage
       run: |
         channel="${{ github.ref_name }}"
-        if [ "$channel" == "rc-workflows" ]; then #SMURF
+        if [ "$channel" = "main" ]; then
           channel="latest"
         fi
         export TEST_DIR=`mktemp -d -t test-viam-server-XXXXXX`
@@ -157,4 +155,4 @@ jobs:
 
     - name: Publish AppImage
       run: |
-        gsutil mv "gs://packages.viam.com/apps/viam-server/testing/appimage/${{ needs.appimage_test.outputs.date }}/${{ github.sha }}/*" "gs://packages.viam.com/apps/viam-server/SMURF/"
+        gsutil mv "gs://packages.viam.com/apps/viam-server/testing/appimage/${{ needs.appimage_test.outputs.date }}/${{ github.sha }}/*" "gs://packages.viam.com/apps/viam-server/"
