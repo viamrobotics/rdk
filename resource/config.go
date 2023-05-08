@@ -34,10 +34,8 @@ type Config struct {
 
 // NOTE: This data must be maintained with what is in Config.
 type typeSpecificConfigData struct {
-	// this can be removed in the future after a few releases.
-	Namespace string `json:"namespace"`
-
 	Name                      string                     `json:"name"`
+	Namespace                 string                     `json:"namespace"`
 	Subtype                   string                     `json:"type"`
 	Model                     Model                      `json:"model"`
 	Frame                     *referenceframe.LinkConfig `json:"frame,omitempty"`

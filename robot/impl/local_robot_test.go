@@ -801,6 +801,10 @@ func TestStopAll(t *testing.T) {
 		]
 	}
 	`, model.String())
+	defer func() {
+		resource.Deregister(arm.API, model)
+	}()
+
 	cfg, err := config.FromReader(context.Background(), "", strings.NewReader(armConfig), logger)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -918,6 +922,11 @@ func TestNewTeardown(t *testing.T) {
 		) (gripper.Gripper, error) {
 			return nil, errors.New("whoops")
 		}})
+
+	defer func() {
+		resource.Deregister(board.API, model)
+		resource.Deregister(gripper.API, model)
+	}()
 
 	failingConfig := fmt.Sprintf(`{
     "components": [
@@ -1076,6 +1085,10 @@ func TestStatus(t *testing.T) {
 			Status: func(ctx context.Context, res resource.Resource) (interface{}, error) { return nil, errFailed },
 		},
 	)
+	defer func() {
+		resource.DeregisterAPI(workingAPI)
+		resource.DeregisterAPI(failAPI)
+	}()
 
 	statuses := []robot.Status{{Name: button1, Status: map[string]interface{}{}}}
 	logger := golog.NewTestLogger(t)
