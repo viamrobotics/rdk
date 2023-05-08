@@ -15,6 +15,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/module/v1"
+	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -28,7 +29,7 @@ import (
 	"go.viam.com/rdk/module/modmaninterface"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/utils"
+	rutils "go.viam.com/rdk/utils"
 )
 
 var (
@@ -39,17 +40,14 @@ var (
 
 // NewManager returns a Manager.
 func NewManager(parentAddr string, logger golog.Logger, options modmanageroptions.Options) modmaninterface.ModuleManager {
-	mgr := &Manager{
-		logger:       logger,
-		modules:      map[string]*module{},
-		parentAddr:   parentAddr,
-		rMap:         map[resource.Name]*module{},
-		untrustedEnv: options.UntrustedEnv,
+	return &Manager{
+		logger:                  logger,
+		modules:                 map[string]*module{},
+		parentAddr:              parentAddr,
+		rMap:                    map[resource.Name]*module{},
+		untrustedEnv:            options.UntrustedEnv,
+		removeOrphanedResources: options.RemoveOrphanedResources,
 	}
-	if options.RemoveOrphanedResources != nil {
-		mgr.removeOrphanedResources = options.RemoveOrphanedResources
-	}
-	return mgr
 }
 
 type module struct {
@@ -441,7 +439,7 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 
 	// Attempt to remove module's .sock file if module did not remove it
 	// already.
-	utils.RemoveFileNoError(mod.addr)
+	rutils.RemoveFileNoError(mod.addr)
 
 	var success bool
 	defer func() {
@@ -482,8 +480,8 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 			break
 		}
 
-		// Sleep with a bit of backoff.
-		time.Sleep(time.Duration(attempt) * oueRestartInterval)
+		// Wait with a bit of backoff.
+		utils.SelectContextOrWait(ctx, time.Duration(attempt)*oueRestartInterval)
 	}
 
 	defer func() {
@@ -559,8 +557,11 @@ func (m *module) checkReady(ctx context.Context, parentAddr string) error {
 	}
 }
 
-func (m *module) startProcess(ctx context.Context, parentAddr string,
-	oue func(int) bool, logger golog.Logger,
+func (m *module) startProcess(
+	ctx context.Context,
+	parentAddr string,
+	oue func(int) bool,
+	logger golog.Logger,
 ) error {
 	m.addr = filepath.ToSlash(filepath.Join(filepath.Dir(parentAddr), m.name+".sock"))
 	if err := modlib.CheckSocketAddressLength(m.addr); err != nil {
@@ -606,7 +607,7 @@ func (m *module) stopProcess() error {
 	}
 	// Attempt to remove module's .sock file if module did not remove it
 	// already.
-	defer utils.RemoveFileNoError(m.addr)
+	defer rutils.RemoveFileNoError(m.addr)
 
 	// TODO(RSDK-2551): stop ignoring exit status 143 once Python modules handle
 	// SIGTERM correctly.
