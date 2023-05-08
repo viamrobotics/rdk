@@ -23,8 +23,8 @@ import (
 )
 
 const (
-	mmPerSecDefault  = 500
-	degPerSecDefault = 45
+	metersPerSecDefault = 0.5
+	degPerSecDefault    = 45
 )
 
 func init() {
@@ -42,13 +42,13 @@ func init() {
 
 // Config describes how to configure the service.
 type Config struct {
-	Store              navigation.StoreConfig           `json:"store"`
-	BaseName           string                           `json:"base_name"`
-	MovementSensorName string                           `json:"movement_sensor_name"`
-	MotionServiceName  string                           `json:"motion_service_name"`
-	DegPerSecDefault   float64                          `json:"degs_per_sec"`
-	MMPerSecDefault    float64                          `json:"mm_per_sec"`
-	Obstacles          referenceframe.GeoObstacleConfig `json:"obstacles,omitempty"`
+	Store               navigation.StoreConfig           `json:"store"`
+	BaseName            string                           `json:"base_name"`
+	MovementSensorName  string                           `json:"movement_sensor_name"`
+	MotionServiceName   string                           `json:"motion_service_name"`
+	DegPerSecDefault    float64                          `json:"degs_per_sec"`
+	MetersPerSecDefault float64                          `json:"meters_per_sec"`
+	Obstacles           referenceframe.GeoObstacleConfig `json:"obstacles,omitempty"`
 }
 
 // Validate creates the list of implicit dependencies.
@@ -96,9 +96,9 @@ type builtIn struct {
 	movementSensor movementsensor.MovementSensor
 	motion         motion.Motion
 
-	mmPerSecDefault  float64
-	degPerSecDefault float64
-	obstacles        []*referenceframe.GeoObstacle
+	metersPerSecDefault float64
+	degPerSecDefault    float64
+	obstacles           []*referenceframe.GeoObstacle
 
 	logger                  golog.Logger
 	cancelCtx               context.Context
@@ -152,9 +152,9 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	}
 
 	// get default speeds from config if set, else defaults from nav services const
-	straightSpeed := svcConfig.MMPerSecDefault
+	straightSpeed := svcConfig.MetersPerSecDefault
 	if straightSpeed == 0 {
-		straightSpeed = mmPerSecDefault
+		straightSpeed = metersPerSecDefault
 	}
 	spinSpeed := svcConfig.DegPerSecDefault
 	if spinSpeed == 0 {
@@ -172,7 +172,7 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	svc.base = base1
 	svc.movementSensor = movementSensor
 	svc.motion = motionSrv
-	svc.mmPerSecDefault = straightSpeed
+	svc.metersPerSecDefault = straightSpeed
 	svc.degPerSecDefault = spinSpeed
 	svc.obstacles = newObstacles
 
@@ -281,7 +281,7 @@ func (svc *builtIn) startWaypoint(extra map[string]interface{}) error {
 				distanceMm := distanceToGoal * 1000 * 1000
 				distanceMm = math.Min(distanceMm, 10*1000)
 
-				if err := svc.base.MoveStraight(ctx, int(distanceMm), svc.mmPerSecDefault, nil); err != nil {
+				if err := svc.base.MoveStraight(ctx, int(distanceMm), (svc.metersPerSecDefault * 1000), nil); err != nil {
 					return fmt.Errorf("error moving %w", err)
 				}
 
