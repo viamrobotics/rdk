@@ -99,7 +99,6 @@ func GetGPIOBoardMappings(modelName string, boardInfoMappings map[string]BoardIn
 // getCompatiblePinDefs returns a list of pin definitions, from the first BoardInformation struct
 // that appears compatible with the machine we're running on.
 func getCompatiblePinDefs(modelName string, boardInfoMappings map[string]BoardInformation) ([]PinDefinition, error) {
-
 	var compatibles utils.StringSet
 	var err error
 
@@ -108,12 +107,12 @@ func getCompatiblePinDefs(modelName string, boardInfoMappings map[string]BoardIn
 	if arch == "amd64" {
 		compatibles, err = stringSetFromX86(modelName)
 		if err != nil {
-			return nil, fmt.Errorf("search for Pindefinition ended with error [%s] ", err)
+			return nil, fmt.Errorf("search for Pindefinition ended with %w ", err)
 		}
 	} else {
 		compatibles, err = stringSetFromARM(modelName)
 		if err != nil {
-			return nil, fmt.Errorf("search for Pindefinition ended with error [%s] ", err)
+			return nil, fmt.Errorf("search for Pindefinition ended with %w ", err)
 		}
 	}
 
@@ -136,7 +135,7 @@ func getCompatiblePinDefs(modelName string, boardInfoMappings map[string]BoardIn
 // A helper function for ARM architecture to process contents of a
 // given content of a file from os.ReadFile.
 func stringSetFromARM(modelName string) (utils.StringSet, error) {
-	var path = "/proc/device-tree/compatible"
+	path := "/proc/device-tree/compatible"
 	compatiblesRd, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -151,7 +150,7 @@ func stringSetFromARM(modelName string) (utils.StringSet, error) {
 // A helper function for X86 architecture to process contents of a
 // given content of a file from os.ReadFile.
 func stringSetFromX86(modelName string) (utils.StringSet, error) {
-	var path = "/sys/devices/virtual/dmi/id/board_name"
+	path := "/sys/devices/virtual/dmi/id/board_name"
 	compatiblesRd, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
