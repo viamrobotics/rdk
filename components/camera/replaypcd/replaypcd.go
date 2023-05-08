@@ -52,7 +52,6 @@ func (c *Config) Validate(path string) ([]string, error) {
 
 	// check interval
 
-
 	return []string{cloud.InternalServiceName.String()}, nil
 }
 
@@ -80,8 +79,6 @@ func newReplayPCDCamera(ctx context.Context, deps resource.Dependencies, conf re
 		Named:  conf.ResourceName().AsNamed(),
 		logger: logger,
 		limit:  1,
-		// org_id (optional)
-		// location (optional)
 	}
 
 	if err := cam.Reconfigure(ctx, deps, conf); err != nil {
@@ -175,18 +172,18 @@ func (replay *pcdCamera) Reconfigure(ctx context.Context, deps resource.Dependen
 		replay.dataClient = dataServiceClient
 	}
 
-	replay.source = replayCamConfig.Source         // what is default (NOT OPTIONAL)
-	replay.robotID = replayCamConfig.RobotID       // what is default
-	replay.timeInterval = replayCamConfig.Interval // what is default (validate they are end in past, make sure start is before end)
+	replay.source = replayCamConfig.Source
+	replay.robotID = replayCamConfig.RobotID
+	replay.timeInterval = replayCamConfig.Interval
 
 	replay.filter = &datapb.Filter{
 		ComponentName: replay.source.Name,
 		RobotId:       replay.robotID,
+		MimeType:      []string{"pointcloud/pcd"},
 		Interval: &datapb.CaptureInterval{
 			Start: timestamppb.New(replay.timeInterval.Start),
 			End:   timestamppb.New(replay.timeInterval.End),
 		},
-		MimeType: ["pointcloud/pcd"],
 	}
 	return nil
 }
