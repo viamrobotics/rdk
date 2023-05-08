@@ -20,7 +20,7 @@ var model = resource.DefaultModelFamily.WithModel("replaypcd")
 
 func init() {
 	resource.RegisterComponent(camera.API, model, resource.Registration[camera.Camera, *Config]{
-		Constructor: newReplayPCDCamera,
+		Constructor: newPCDCamera,
 	})
 }
 
@@ -48,8 +48,8 @@ type pcdCamera struct {
 	logger golog.Logger
 }
 
-// newReplayCamera creates a new replay camera based on the inputted config and dependencies.
-func newReplayPCDCamera(ctx context.Context, deps resource.Dependencies, cfg resource.Config, logger golog.Logger) (camera.Camera, error) {
+// newPCDCamera creates a new replay camera based on the inputted config and dependencies.
+func newPCDCamera(ctx context.Context, deps resource.Dependencies, cfg resource.Config, logger golog.Logger) (camera.Camera, error) {
 	cam := &pcdCamera{
 		logger: logger,
 	}
