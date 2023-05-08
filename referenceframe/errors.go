@@ -17,9 +17,17 @@ var ErrNilPose = errors.New("pose was nil")
 // ErrMarshalingHighDOFFrame describes the error when attempting to marshal a frame with multiple degrees of freedom.
 var ErrMarshalingHighDOFFrame = errors.New("cannot marshal frame with >1 DOF, use a Model instead")
 
-// NewParentFrameMissingError returns an error indicating that the parent frame is nil.
-func NewParentFrameMissingError() error {
+var ErrNoWorldConnection = errors.New("there are no robot parts that connect to a 'world' node. Root node must be named 'world'")
+
+// NewParentFrameNilError returns an error indicating that the parent frame is nil.
+func NewParentFrameNilError() error {
 	return errors.New("parent frame is nil")
+}
+
+// NewMissingParentError returns an error for when a part has named a parent whose part is missing from the collection of Parts that are
+// becoming a FrameSystem object
+func NewParentFrameNotFound(partName, parentName string) error {
+	return errors.Errorf("part with name %s references non-existent parent %s", partName, parentName)
 }
 
 // NewFrameMissingError returns an error indicating that the given frame is missing from the framesystem.

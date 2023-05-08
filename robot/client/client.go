@@ -801,7 +801,7 @@ func (rc *RobotClient) FrameSystemConfig(ctx context.Context) (*framesystem.Conf
 		return nil, err
 	}
 	cfgs := resp.GetFrameSystemConfigs()
-	result := make(framesystem.Parts, 0, len(cfgs))
+	result := make([]*referenceframe.FrameSystemPart, 0, len(cfgs))
 	for _, cfg := range cfgs {
 		part, err := referenceframe.ProtobufToFrameSystemPart(cfg)
 		if err != nil {

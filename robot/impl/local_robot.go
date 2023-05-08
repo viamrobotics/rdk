@@ -42,8 +42,7 @@ var _ = robot.LocalRobot(&localRobot{})
 // localRobot satisfies robot.LocalRobot and defers most
 // logic to its manager.
 type localRobot struct {
-	mu sync.Mutex
-	// TODO(rb): is another mutex necessary?
+	mu      sync.Mutex
 	fsMu    sync.RWMutex
 	manager *resourceManager
 	config  *config.Config
@@ -683,8 +682,6 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 			fsCfg, err := r.FrameSystemConfig(ctx)
 			if err != nil {
 				r.Logger().Errorw("failed to reconfigure internal service", "service", resName, "error", err)
-				// TODO(rb): we should be closing this and giving better error handling when a user tries to do something on
-				// the closed framesystem service resource
 				continue
 			}
 			if err := res.Reconfigure(ctx, components, resource.Config{ConvertedAttributes: fsCfg}); err != nil {
@@ -734,7 +731,6 @@ func (r *localRobot) FrameSystemConfig(ctx context.Context) (*framesystem.Config
 	r.fsMu.RLock()
 	defer r.fsMu.RUnlock()
 
-	// TODO(rb): make a ticket to cache the frame system to avoid redundant work
 	localParts, err := r.getLocalParts(ctx)
 	if err != nil {
 		return nil, err
@@ -749,20 +745,18 @@ func (r *localRobot) FrameSystemConfig(ctx context.Context) (*framesystem.Config
 
 // getLocalParts collects and returns the physical parts of the robot that may have frame info,
 // excluding remote robots and services, etc from the robot's config.Config.
-func (r *localRobot) getLocalParts(ctx context.Context) (framesystem.Parts, error) {
-	// TODO(rb): is there still a point to calling this function over just accessing the config directly?
+func (r *localRobot) getLocalParts(ctx context.Context) ([]*referenceframe.FrameSystemPart, error) {
 	cfg, err := r.Config(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	parts := make(framesystem.Parts, 0)
+	parts := make([]*referenceframe.FrameSystemPart, 0)
 	for _, component := range cfg.Components {
 		if component.Frame == nil { // no Frame means dont include in frame system.
 			continue
 		}
 
-		// TODO(rb) all this should probably move into the referenceframe package, could be constructor for Part
 		if component.Name == referenceframe.World {
 			return nil, errors.Errorf("cannot give frame system part the name %s", referenceframe.World)
 		}
@@ -796,19 +790,15 @@ func (r *localRobot) getLocalParts(ctx context.Context) (framesystem.Parts, erro
 	return parts, nil
 }
 
-func (r *localRobot) getRemoteParts(ctx context.Context) (framesystem.Parts, error) {
-	// TODO(rb): is there still a point to calling this function over just accessing the config directly?
+func (r *localRobot) getRemoteParts(ctx context.Context) ([]*referenceframe.FrameSystemPart, error) {
 	cfg, err := r.Config(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	remoteParts := make(framesystem.Parts, 0)
+	remoteParts := make([]*referenceframe.FrameSystemPart, 0)
 	for _, remoteName := range r.RemoteNames() {
-		// TODO(rb): this function is starting to look awfully similar to getLocalParts, figure out if you can merge at some point
 		// build the frame system part that connects remote world to base world
-		// TODO(rb): looks like this should be safe to do without a deep copy but the version in getLocalParts deep copies anyway.
-		// Is this safe?
 		remoteCfg, err := getRemoteRobotConfig(remoteName, cfg)
 		if err != nil {
 			return nil, errors.Wrapf(err, "remote %s", remoteName)

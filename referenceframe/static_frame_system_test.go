@@ -20,7 +20,7 @@ func frameNames(frames []Frame) []string {
 
 func TestSimpleFrameSystemFunctions(t *testing.T) {
 	// build the system
-	fs := NewEmptySimpleFrameSystem("test")
+	fs := NewEmptyFrameSystem("test")
 	frame3Pt := r3.Vector{0., 4., 0.} // location of frame3 with respect to world frame
 	f3, err := FrameFromPoint("frame3", frame3Pt)
 	test.That(t, err, test.ShouldBeNil)
@@ -58,13 +58,13 @@ func TestSimpleFrameSystemFunctions(t *testing.T) {
 	test.That(t, len(frames), test.ShouldEqual, 1)
 
 	err = fs.AddFrame(f2, nil)
-	test.That(t, err, test.ShouldBeError, NewParentFrameMissingError())
+	test.That(t, err, test.ShouldBeError, NewParentFrameNilError())
 
 	err = fs.AddFrame(NewZeroStaticFrame("bar"), NewZeroStaticFrame("foo"))
 	test.That(t, err, test.ShouldBeError, NewFrameMissingError("foo"))
 
 	err = fs.AddFrame(NewZeroStaticFrame("bar"), nil)
-	test.That(t, err, test.ShouldBeError, NewParentFrameMissingError())
+	test.That(t, err, test.ShouldBeError, NewParentFrameNilError())
 
 	err = fs.AddFrame(NewZeroStaticFrame("frame2"), fs.World())
 	test.That(t, err, test.ShouldBeError, NewFrameAlreadyExistsError("frame2"))
@@ -78,7 +78,7 @@ func TestSimpleFrameSystemFunctions(t *testing.T) {
 // transforming a point at (1, 3, 0).
 func TestSimpleFrameTranslation(t *testing.T) {
 	// build the system
-	fs := NewEmptySimpleFrameSystem("test")
+	fs := NewEmptyFrameSystem("test")
 	frame, err := FrameFromPoint("frame", r3.Vector{0., 3., 0.}) // location of frame with respect to world frame
 	test.That(t, err, test.ShouldBeNil)
 	err = fs.AddFrame(frame, fs.World())
@@ -96,7 +96,7 @@ func TestSimpleFrameTranslation(t *testing.T) {
 // transforming a point at (1, 3, 0).
 func TestSimpleFrameTranslationWithRotation(t *testing.T) {
 	// build the system
-	fs := NewEmptySimpleFrameSystem("test")
+	fs := NewEmptyFrameSystem("test")
 	framePose := spatial.NewPose(r3.Vector{0., 3., 0.}, &spatial.R4AA{math.Pi, 0., 0., 1.})
 	f1, err := NewStaticFrame("frame", framePose)
 	test.That(t, err, test.ShouldBeNil)
@@ -132,7 +132,7 @@ All 4 frames have the same orientation.
 */
 func TestFrameTranslation(t *testing.T) {
 	// build the system
-	fs := NewEmptySimpleFrameSystem("test")
+	fs := NewEmptyFrameSystem("test")
 	frame3Pt := r3.Vector{0., 4., 0.} // location of frame3 with respect to world frame
 	f3, err := FrameFromPoint("frame3", frame3Pt)
 	test.That(t, err, test.ShouldBeNil)
@@ -178,7 +178,7 @@ world
 // frame3 is an intermediate frame at (0, 4, 0) in the world referenceframe.
 func TestFrameTransform(t *testing.T) {
 	// build the system
-	fs := NewEmptySimpleFrameSystem("test")
+	fs := NewEmptyFrameSystem("test")
 	// location of frame3 with respect to world frame
 	frame3Pt := r3.Vector{0., 4., 0.} // location of frame3 with respect to world frame
 	f3, err := FrameFromPoint("frame3", frame3Pt)
@@ -223,7 +223,7 @@ world
 // frame3 is an intermediate frame at (0, 4, 0) in the world referenceframe.
 func TestGeomtriesTransform(t *testing.T) {
 	// build the system
-	fs := NewEmptySimpleFrameSystem("test")
+	fs := NewEmptyFrameSystem("test")
 	// location of frame3 with respect to world frame
 	frame3Pt := r3.Vector{0., 4., 0.} // location of frame3 with respect to world frame
 	f3, err := FrameFromPoint("frame3", frame3Pt)
@@ -270,7 +270,7 @@ func TestGeomtriesTransform(t *testing.T) {
 
 func TestComplicatedFrameTransform(t *testing.T) {
 	// build the system
-	fs := NewEmptySimpleFrameSystem("test")
+	fs := NewEmptyFrameSystem("test")
 
 	// frame 1 rotate by 45 degrees around z axis and translate
 	frame1, err := NewStaticFrame("frame1", spatial.NewPose(r3.Vector{-1., 2., 0.}, &spatial.R4AA{math.Pi / 4, 0., 0., 1.}))
@@ -314,7 +314,7 @@ func TestComplicatedFrameTransform(t *testing.T) {
 
 func TestSystemSplitAndRejoin(t *testing.T) {
 	// build the system
-	fs := NewEmptySimpleFrameSystem("test")
+	fs := NewEmptyFrameSystem("test")
 
 	// frame 1 rotate by 45 degrees around z axis and translate
 	frame1, err := NewStaticFrame("frame1", spatial.NewPose(r3.Vector{-1., 2., 0.}, &spatial.R4AA{math.Pi / 4, 0., 0., 1.}))

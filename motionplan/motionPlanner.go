@@ -70,7 +70,7 @@ func PlanFrameMotion(ctx context.Context,
 	planningOpts map[string]interface{},
 ) ([][]frame.Input, error) {
 	// ephemerally create a framesystem containing just the frame for the solve
-	fs := frame.NewEmptySimpleFrameSystem("")
+	fs := frame.NewEmptyFrameSystem("")
 	err := fs.AddFrame(f, fs.World())
 	if err != nil {
 		return nil, err

@@ -2,10 +2,11 @@ package referenceframe
 
 import (
 	"encoding/json"
-	"errors"
+	"sort"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
+	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils/protoutils"
@@ -79,10 +80,75 @@ type simpleFrameSystem struct {
 	parents map[Frame]Frame
 }
 
-// NewEmptySimpleFrameSystem creates a graph of Frames that have.
-func NewEmptySimpleFrameSystem(name string) FrameSystem {
+// NewEmptyFrameSystem creates a graph of Frames that have.
+func NewEmptyFrameSystem(name string) FrameSystem {
 	worldFrame := NewZeroStaticFrame(World)
 	return &simpleFrameSystem{name, worldFrame, map[string]Frame{}, map[Frame]Frame{}}
+}
+
+// NewFrameSystemFromConfig assembles a frame system from a given config.
+func NewFrameSystem(name string, parts []*FrameSystemPart, additionalTransforms []*LinkInFrame) (FrameSystem, error) {
+	allParts := make([]*FrameSystemPart, 0)
+	allParts = append(allParts, parts...)
+	for _, tf := range additionalTransforms {
+		transformPart, err := LinkInFrameToFrameSystemPart(tf)
+		if err != nil {
+			return nil, err
+		}
+		allParts = append(allParts, transformPart)
+	}
+
+	// ensure that at least one frame connects to world if the frame system is not empty
+	if len(allParts) != 0 {
+		hasWorld := false
+		for _, part := range allParts {
+			if part.FrameConfig.Parent() == World {
+				hasWorld = true
+				break
+			}
+		}
+		if !hasWorld {
+			return nil, ErrNoWorldConnection
+		}
+	}
+	// Topologically sort parts
+	sortedParts, err := TopologicallySortParts(allParts)
+	if err != nil {
+		return nil, err
+	}
+	if len(sortedParts) != len(allParts) {
+		return nil, errors.Errorf(
+			"frame system has disconnected frames. connected frames: %v, all frames: %v",
+			getPartNames(sortedParts),
+			getPartNames(allParts),
+		)
+	}
+	fs := NewEmptyFrameSystem(name)
+	for _, part := range sortedParts {
+		// rename everything with prefixes
+		part.FrameConfig.SetName(part.FrameConfig.Name())
+		// prefixing for the world frame is only necessary in the case
+		// of merging multiple frame systems together, so we leave that
+		// reponsibility to the corresponding merge function
+		if part.FrameConfig.Parent() != World {
+			part.FrameConfig.SetParent(part.FrameConfig.Parent())
+		}
+		// make the frames from the configs
+		modelFrame, staticOffsetFrame, err := createFramesFromPart(part)
+		if err != nil {
+			return nil, err
+		}
+		// attach static offset frame to parent, attach model frame to static offset frame
+		err = fs.AddFrame(staticOffsetFrame, fs.Frame(part.FrameConfig.Parent()))
+		if err != nil {
+			return nil, err
+		}
+		err = fs.AddFrame(modelFrame, staticOffsetFrame)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return fs, nil
 }
 
 // World returns the base world referenceframe.
@@ -98,7 +164,7 @@ func (sfs *simpleFrameSystem) Parent(frame Frame) (Frame, error) {
 	if parent := sfs.parents[frame]; parent != nil {
 		return parent, nil
 	}
-	return nil, NewParentFrameMissingError()
+	return nil, NewParentFrameNilError()
 }
 
 // frameExists is a helper function to see if a frame with a given name already exists in the system.
@@ -165,9 +231,8 @@ func (sfs *simpleFrameSystem) FrameNames() []string {
 func (sfs *simpleFrameSystem) AddFrame(frame, parent Frame) error {
 	// check to see if parent is in system
 	if parent == nil {
-		return NewParentFrameMissingError()
+		return NewParentFrameNilError()
 	}
-
 	if !sfs.frameExists(parent.Name()) {
 		return NewFrameMissingError(parent.Name())
 	}
@@ -238,7 +303,7 @@ func (sfs *simpleFrameSystem) MergeFrameSystem(systemToMerge FrameSystem, attach
 		child := systemToMerge.Frame(name)
 		parent, err := systemToMerge.Parent(child)
 		if err != nil {
-			if errors.Is(err, NewParentFrameMissingError()) {
+			if errors.Is(err, NewParentFrameNilError()) {
 				continue
 			}
 			return err
@@ -498,8 +563,8 @@ func LinkInFrameToFrameSystemPart(transform *LinkInFrame) (*FrameSystemPart, err
 	return part, nil
 }
 
-// CreateFramesFromPart will gather the frame information and build the frames from the given robot part.
-func CreateFramesFromPart(part *FrameSystemPart) (Frame, Frame, error) {
+// createFramesFromPart will gather the frame information and build the frames from the given robot part.
+func createFramesFromPart(part *FrameSystemPart) (Frame, Frame, error) {
 	if part == nil || part.FrameConfig == nil {
 		return nil, nil, errors.New("config for FrameSystemPart is nil")
 	}
@@ -539,6 +604,63 @@ func CreateFramesFromPart(part *FrameSystemPart) (Frame, Frame, error) {
 	// Since the geometry of a frame system part is intended to be located at the origin of the model frame, we place it post-transform
 	// in the "_origin" static frame
 	return modelFrame, &tailGeometryStaticFrame{staticOriginFrame}, nil
+}
+
+// Names returns the names of input parts.
+func getPartNames(parts []*FrameSystemPart) []string {
+	names := make([]string, len(parts))
+	for i, p := range parts {
+		names[i] = p.FrameConfig.Name()
+	}
+	return names
+}
+
+// TopologicallySortParts takes a potentially un-ordered slice of frame system parts and
+// sorts them, beginning at the world node.
+func TopologicallySortParts(parts []*FrameSystemPart) ([]*FrameSystemPart, error) {
+	// set up directory to check existence of parents
+	existingParts := make(map[string]bool, len(parts))
+	existingParts[World] = true
+	for _, part := range parts {
+		existingParts[part.FrameConfig.Name()] = true
+	}
+	// make map of children
+	children := make(map[string][]*FrameSystemPart)
+	for _, part := range parts {
+		parent := part.FrameConfig.Parent()
+		if !existingParts[parent] {
+			return nil, NewParentFrameNotFound(part.FrameConfig.Name(), parent)
+		}
+		children[part.FrameConfig.Parent()] = append(children[part.FrameConfig.Parent()], part)
+	}
+	topoSortedParts := []*FrameSystemPart{} // keep track of tree structure
+	// If there are no frames, return the empty list
+	if len(children) == 0 {
+		return topoSortedParts, nil
+	}
+	stack := make([]string, 0)
+	visited := make(map[string]bool)
+	if _, ok := children[World]; !ok {
+		return nil, ErrNoWorldConnection
+	}
+	stack = append(stack, World)
+	// begin adding frames to tree
+	for len(stack) != 0 {
+		parent := stack[0] // pop the top element from the stack
+		stack = stack[1:]
+		if _, ok := visited[parent]; ok {
+			return nil, errors.Errorf("the system contains a cycle, have already visited frame %s", parent)
+		}
+		visited[parent] = true
+		sort.Slice(children[parent], func(i, j int) bool {
+			return children[parent][i].FrameConfig.Name() < children[parent][j].FrameConfig.Name()
+		}) // sort alphabetically within the topological sort
+		for _, part := range children[parent] { // add all the children to the frame system, and to the stack as new parents
+			stack = append(stack, part.FrameConfig.Name())
+			topoSortedParts = append(topoSortedParts, part)
+		}
+	}
+	return topoSortedParts, nil
 }
 
 func poseFromPositions(frame Frame, positions map[string][]Input) (spatial.Pose, error) {

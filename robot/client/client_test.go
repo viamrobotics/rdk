@@ -1726,7 +1726,6 @@ func TestGetUnknownResource(t *testing.T) {
 	}
 
 	// TODO(RSDK-882): will update this so that this is not necessary
-	// TODO(rb): might be able to remove a bunch of boilerplate if this is resolved
 	injectRobot.FrameSystemConfigFunc = func(ctx context.Context) (*framesystem.Config, error) {
 		return &framesystem.Config{}, nil
 	}

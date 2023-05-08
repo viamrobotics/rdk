@@ -2,9 +2,11 @@ package framesystem
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/edaniels/golog"
+	"github.com/jedib0t/go-pretty/table"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 
@@ -12,6 +14,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
 )
 
 // LocalFrameSystemName is the default name of the frame system created by the service.
@@ -67,6 +70,43 @@ func (svc *frameSystemService) Name() resource.Name {
 	return internalFrameSystemServiceName
 }
 
+// Config is a slice of *config.FrameSystemPart.
+type Config struct {
+	resource.TriviallyValidateConfig
+	Parts                []*referenceframe.FrameSystemPart
+	AdditionalTransforms []*referenceframe.LinkInFrame
+}
+
+// String prints out a table of each frame in the system, with columns of name, parent, translation and orientation.
+func (cfg Config) String() string {
+	t := table.NewWriter()
+	t.AppendHeader(table.Row{"#", "Name", "Parent", "Translation", "Orientation", "Geometry"})
+	t.AppendRow([]interface{}{"0", referenceframe.World, "", "", "", ""})
+	for i, part := range cfg.Parts {
+		pose := part.FrameConfig.Pose()
+		tra := pose.Point()
+		ori := pose.Orientation().EulerAngles()
+		geomString := ""
+		if gc := part.FrameConfig.Geometry(); gc != nil {
+			geomString = gc.String()
+		}
+		t.AppendRow([]interface{}{
+			fmt.Sprintf("%d", i+1),
+			part.FrameConfig.Name(),
+			part.FrameConfig.Parent(),
+			fmt.Sprintf("X:%.0f, Y:%.0f, Z:%.0f", tra.X, tra.Y, tra.Z),
+			fmt.Sprintf(
+				"Roll:%.2f, Pitch:%.2f, Yaw:%.2f",
+				utils.RadToDeg(ori.Roll),
+				utils.RadToDeg(ori.Pitch),
+				utils.RadToDeg(ori.Yaw),
+			),
+			geomString,
+		})
+	}
+	return t.Render()
+}
+
 // the frame system service collects all the relevant parts that make up the frame system from the robot
 // configs, and the remote robot configs.
 type frameSystemService struct {
@@ -75,7 +115,7 @@ type frameSystemService struct {
 	components map[string]resource.Resource
 	logger     golog.Logger
 
-	parts   Parts
+	parts   []*referenceframe.FrameSystemPart
 	partsMu sync.RWMutex
 }
 
@@ -104,7 +144,7 @@ func (svc *frameSystemService) Reconfigure(ctx context.Context, deps resource.De
 		return err
 	}
 
-	sortedParts, err := TopologicallySort(fsCfg.Parts)
+	sortedParts, err := referenceframe.TopologicallySortParts(fsCfg.Parts)
 	if err != nil {
 		return err
 	}
@@ -213,10 +253,7 @@ func (svc *frameSystemService) FrameSystem(
 ) (referenceframe.FrameSystem, error) {
 	ctx, span := trace.StartSpan(ctx, "services::framesystem::FrameSystem")
 	defer span.End()
-	return NewFrameSystemFromConfig(LocalFrameSystemName, &Config{
-		Parts:                svc.parts,
-		AdditionalTransforms: additionalTransforms,
-	})
+	return referenceframe.NewFrameSystem(LocalFrameSystemName, svc.parts, additionalTransforms)
 }
 
 // TransformPointCloud applies the same pose offset to each point in a single pointcloud and returns the transformed point cloud.
@@ -239,4 +276,18 @@ func (svc *frameSystemService) TransformPointCloud(ctx context.Context, srcpc po
 	}
 	// returned the transformed pointcloud where the transform was applied to each point
 	return pointcloud.ApplyOffset(ctx, srcpc, theTransform.Pose(), svc.logger)
+}
+
+// Prefixs applies prefixes to frame information if necessary.
+func PrefixRemoteParts(parts []*referenceframe.FrameSystemPart, remoteName string, remoteParent string) {
+	for _, part := range parts {
+		if part.FrameConfig.Parent() == referenceframe.World { // rename World of remote parts
+			part.FrameConfig.SetParent(remoteParent)
+		}
+		// rename each non-world part with prefix
+		part.FrameConfig.SetName(remoteName + ":" + part.FrameConfig.Name())
+		if part.FrameConfig.Parent() != remoteParent {
+			part.FrameConfig.SetParent(remoteName + ":" + part.FrameConfig.Parent())
+		}
+	}
 }

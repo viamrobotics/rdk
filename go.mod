@@ -47,7 +47,7 @@ require (
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.15.2
 	github.com/invopop/jsonschema v0.6.0
 	github.com/jacobsa/go-serial v0.0.0-20180131005756-15cf729a72d4
-	github.com/jedib0t/go-pretty/v6 v6.4.6
+	github.com/jedib0t/go-pretty v4.3.0+incompatible
 	github.com/jhump/protoreflect v1.15.1
 	github.com/kellydunn/golang-geo v0.7.0
 	github.com/lestrrat-go/jwx v1.2.25
@@ -125,6 +125,7 @@ require (
 	github.com/alecthomas/participle/v2 v2.0.0-alpha3 // indirect
 	github.com/alexkohler/prealloc v1.0.0 // indirect
 	github.com/alingse/asasalint v0.0.11 // indirect
+	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
 	github.com/ashanbrown/forbidigo v1.4.0 // indirect
 	github.com/ashanbrown/makezero v1.1.1 // indirect
 	github.com/aws/aws-sdk-go v1.38.20 // indirect
@@ -173,6 +174,8 @@ require (
 	github.com/go-critic/go-critic v0.6.7 // indirect
 	github.com/go-fonts/liberation v0.3.0 // indirect
 	github.com/go-latex/latex v0.0.0-20230307184459-12ec69307ad9 // indirect
+	github.com/go-openapi/errors v0.20.3 // indirect
+	github.com/go-openapi/strfmt v0.21.7 // indirect
 	github.com/go-pdf/fpdf v0.6.0 // indirect
 	github.com/go-restruct/restruct v1.2.0-alpha.0.20210525045353-983b86fa188e // indirect
 	github.com/go-toolsmith/astcast v1.1.0 // indirect
@@ -270,6 +273,7 @@ require (
 	github.com/nishanths/exhaustive v0.9.5 // indirect
 	github.com/nishanths/predeclared v0.2.2 // indirect
 	github.com/nunnatsa/ginkgolinter v0.8.1 // indirect
+	github.com/oklog/ulid v1.3.1 // indirect
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.5 // indirect

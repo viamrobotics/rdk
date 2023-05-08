@@ -71,7 +71,7 @@ func makeFakeRobot(t *testing.T) robot.Robot {
 	base1 := &inject.Base{}
 
 	r := &inject.Robot{}
-	fsParts := framesystem.Parts{
+	fsParts := []*referenceframe.FrameSystemPart{
 		{
 			FrameConfig: referenceframe.NewLinkInFrame(referenceframe.World, spatialmath.NewZeroPose(), "base1", nil),
 		},
@@ -320,7 +320,7 @@ func makeFakeRobotICP(t *testing.T) resource.Dependencies {
 	o1 := &spatialmath.EulerAngles{Roll: 0, Pitch: 0.6, Yaw: 0}
 	o2 := &spatialmath.EulerAngles{Roll: 0, Pitch: 0.6, Yaw: -0.3}
 
-	fsParts := framesystem.Parts{
+	fsParts := []*referenceframe.FrameSystemPart{
 		{
 			FrameConfig: referenceframe.NewLinkInFrame(referenceframe.World, spatialmath.NewZeroPose(), "base1", nil),
 		},

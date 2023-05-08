@@ -1211,12 +1211,12 @@ func TestStatusRemote(t *testing.T) {
 
 	// TODO: RSDK-882 will update this so that this is not necessary
 	frameSystemConfigFunc := func(ctx context.Context) (*framesystem.Config, error) {
-		return &framesystem.Config{Parts: framesystem.Parts{
-			&referenceframe.FrameSystemPart{
+		return &framesystem.Config{Parts: []*referenceframe.FrameSystemPart{
+			{
 				FrameConfig: referenceframe.NewLinkInFrame(referenceframe.World, nil, "arm1", nil),
 				ModelFrame:  referenceframe.NewSimpleModel("arm1"),
 			},
-			&referenceframe.FrameSystemPart{
+			{
 				FrameConfig: referenceframe.NewLinkInFrame(referenceframe.World, nil, "arm2", nil),
 				ModelFrame:  referenceframe.NewSimpleModel("arm2"),
 			},
