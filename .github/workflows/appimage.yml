@@ -3,6 +3,10 @@ name: Build AppImage
 on:
   workflow_dispatch:
   workflow_call:
+    inputs:
+      release_type:
+        required: true
+        type: string
     secrets:
       GCP_CREDENTIALS:
         required: true
@@ -69,15 +73,15 @@ jobs:
 
     - name: Build and Package (Latest)
       id: build_test_latest
-      if: env.RELEASE_TYPE == 'latest'
+      if: inputs.release_type == 'latest'
       run: |
         sudo -Hu testbot bash -lc 'make BUILD_CHANNEL="latest" appimage'
 
     - name: Build and Package (Tagged)
       id: build_test_tagged
-      if: env.RELEASE_TYPE == 'stable' || env.RELEASE_TYPE == 'rc'
+      if: inputs.release_type == 'stable' || inputs.release_type == 'rc'
       run: |
-        sudo -Hu testbot bash -lc 'make BUILD_CHANNEL="${{ github.ref_name }}" appimage'
+        sudo -Hu testbot bash -lc 'make RELEASE_TYPE="${{ inputs.release_type }}" BUILD_CHANNEL="${{ github.ref_name }}" appimage'
 
     - name: Set Date
       id: build_date

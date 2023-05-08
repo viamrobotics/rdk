@@ -10,9 +10,6 @@ on:
     paths-ignore:
       - 'README.md'
 
-env:
-  RELEASE_TYPE: 'latest'
-
 # To test workflow updates you need to work in a branch directly on viamrobotics/rdk
 # and tag your working branch instead of @main in any viamrobotics/rdk "uses" below.
 # Don't forget to tag back to @main before merge.
@@ -26,12 +23,16 @@ jobs:
   appimage:
     #needs: test SMURF
     uses: viamrobotics/rdk/.github/workflows/appimage.yml@rc-workflows
+    with:
+      release_type: 'latest'
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
   staticbuild:
     #needs: test SMURF
     uses: viamrobotics/rdk/.github/workflows/staticbuild.yml@rc-workflows
+    with:
+      release_type: 'latest'
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
