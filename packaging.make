@@ -26,8 +26,8 @@ appimage-deploy:
 static-release: server-static
 	rm -rf etc/packaging/static/deploy/
 	mkdir -p etc/packaging/static/deploy/
-	cp $(BIN_OUTPUT_PATH)/viam-server etc/packaging/static/deploy/viam-server-${BUILD_CHANNEL}-$(shell uname -m)
+	cp $(BIN_OUTPUT_PATH)/viam-server etc/packaging/static/deploy/viam-server-${BUILD_CHANNEL}-`uname -m`
 	if [ "${RELEASE_TYPE}" == "stable" ]; then \
-		cp $(BIN_OUTPUT_PATH)/viam-server etc/packaging/static/deploy/viam-server-stable-$(shell uname -m)
-		cp $(BIN_OUTPUT_PATH)/viam-server etc/packaging/static/deploy/viam-server-latest-$(shell uname -m)
+		cp $(BIN_OUTPUT_PATH)/viam-server etc/packaging/static/deploy/viam-server-stable-`uname -m`; \
+		cp $(BIN_OUTPUT_PATH)/viam-server etc/packaging/static/deploy/viam-server-latest-`uname -m`; \
 	fi
