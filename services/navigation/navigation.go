@@ -10,6 +10,7 @@ import (
 	servicepb "go.viam.com/api/service/navigation/v1"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 )
@@ -64,11 +65,13 @@ func FromRobot(r robot.Robot, name string) (Service, error) {
 
 // Config describes how to configure the service.
 type Config struct {
-	Store              StoreConfig `json:"store"`
-	BaseName           string      `json:"base"`
-	MovementSensorName string      `json:"movement_sensor"`
-	DegPerSecDefault   float64     `json:"degs_per_sec"`
-	MMPerSecDefault    float64     `json:"mm_per_sec"`
+	Store               StoreConfig                      `json:"store"`
+	BaseName            string                           `json:"base_name"`
+	MovementSensorName  string                           `json:"movement_sensor_name"`
+	MotionServiceName   string                           `json:"motion_service_name"`
+	DegPerSecDefault    float64                          `json:"degs_per_sec"`
+	MetersPerSecDefault float64                          `json:"meters_per_sec"`
+	Obstacles           referenceframe.GeoObstacleConfig `json:"obstacles"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -77,10 +80,13 @@ func (conf *Config) Validate(path string) ([]string, error) {
 		return nil, err
 	}
 	if conf.BaseName == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "base")
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "base_name")
 	}
 	if conf.MovementSensorName == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "movement_sensor")
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "movement_sensor_name")
 	}
+
+	// TODO(wspies): Update implicit dependencies to take motion/builtin and/or whatever named Motion service into account
+
 	return nil, nil
 }

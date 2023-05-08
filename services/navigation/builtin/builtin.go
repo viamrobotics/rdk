@@ -16,7 +16,9 @@ import (
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/movementsensor"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/navigation"
 )
 
@@ -40,11 +42,13 @@ func init() {
 
 // Config describes how to configure the service.
 type Config struct {
-	Store              navigation.StoreConfig `json:"store"`
-	BaseName           string                 `json:"base"`
-	MovementSensorName string                 `json:"movement_sensor"`
-	DegPerSecDefault   float64                `json:"degs_per_sec"`
-	MMPerSecDefault    float64                `json:"mm_per_sec"`
+	Store              navigation.StoreConfig           `json:"store"`
+	BaseName           string                           `json:"base_name"`
+	MovementSensorName string                           `json:"movement_sensor_name"`
+	MotionServiceName  string                           `json:"motion_service_name"`
+	DegPerSecDefault   float64                          `json:"degs_per_sec"`
+	MMPerSecDefault    float64                          `json:"mm_per_sec"`
+	Obstacles          referenceframe.GeoObstacleConfig `json:"obstacles,omitempty"`
 }
 
 // Validate creates the list of implicit dependencies.
@@ -60,6 +64,8 @@ func (conf *Config) Validate(path string) ([]string, error) {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "movement_sensor")
 	}
 	deps = append(deps, conf.MovementSensorName)
+
+	// TODO(wspies): Update implicit dependencies to take motion/builtin and/or whatever named Motion service into account
 
 	return deps, nil
 }
@@ -88,9 +94,12 @@ type builtIn struct {
 
 	base           base.Base
 	movementSensor movementsensor.MovementSensor
+	motion         motion.Motion
 
-	mmPerSecDefault         float64
-	degPerSecDefault        float64
+	mmPerSecDefault  float64
+	degPerSecDefault float64
+	obstacles        []*referenceframe.GeoObstacle
+
 	logger                  golog.Logger
 	cancelCtx               context.Context
 	cancelFunc              func()
@@ -110,6 +119,16 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		return err
 	}
 	movementSensor, err := movementsensor.FromDependencies(deps, svcConfig.MovementSensorName)
+	if err != nil {
+		return err
+	}
+
+	// If a Motion service name is not provided, Nav defaults to using the builtin Motion service
+	motionName := "builtin"
+	if svcConfig.MotionServiceName != "" {
+		motionName = svcConfig.MotionServiceName
+	}
+	motionSrv, err := motion.FromDependencies(deps, motionName)
 	if err != nil {
 		return err
 	}
@@ -142,12 +161,20 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		spinSpeed = degPerSecDefault
 	}
 
+	// Parse obstacles from the passed in configuration
+	newObstacles := referenceframe.GeoObstaclesFromConfig(svcConfig.Obstacles)
+	if err != nil {
+		return err
+	}
+
 	svc.store = newStore
 	svc.storeType = string(svcConfig.Store.Type)
 	svc.base = base1
 	svc.movementSensor = movementSensor
+	svc.motion = motionSrv
 	svc.mmPerSecDefault = straightSpeed
 	svc.degPerSecDefault = spinSpeed
+	svc.obstacles = newObstacles
 
 	return nil
 }
