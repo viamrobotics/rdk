@@ -25,7 +25,7 @@ jobs:
       options: --platform ${{ matrix.platform }}
     timeout-minutes: 15
     outputs:
-      date: ${{ steps.build_test_app.outputs.date }}
+      date: ${{ steps.build_date.outputs.date }}
 
     steps:
     - name: Check out code
