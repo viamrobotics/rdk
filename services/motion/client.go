@@ -3,6 +3,7 @@ package motion
 
 import (
 	"context"
+	"math"
 
 	"github.com/edaniels/golog"
 	geo "github.com/kellydunn/golang-geo"
@@ -115,31 +116,46 @@ func (c *client) MoveOnGlobe(
 	if err != nil {
 		return false, err
 	}
+
 	if destination == nil {
 		return false, errors.New("Must provide a destination")
 	}
-	obstaclesProto := make([]*commonpb.GeoObstacle, 0, len(obstacles))
-	for _, eachObst := range obstacles {
-		convObst, err := referenceframe.GeoObstacleToProtobuf(eachObst)
-		if err != nil {
-			return false, err
-		}
-		obstaclesProto = append(obstaclesProto, convObst)
-	}
-	resp, err := c.client.MoveOnGlobe(ctx, &pb.MoveOnGlobeRequest{
+
+	req := &pb.MoveOnGlobeRequest{
 		Name:               c.name,
 		ComponentName:      protoutils.ResourceNameToProto(componentName),
 		Destination:        &commonpb.GeoPoint{Latitude: destination.Lat(), Longitude: destination.Lng()},
-		Heading:            &heading,
 		MovementSensorName: protoutils.ResourceNameToProto(movementSensorName),
-		Obstacles:          obstaclesProto,
-		LinearMetersPerSec: &linearVelocity,
-		AngularDegPerSec:   &angularVelocity,
 		Extra:              ext,
-	})
+	}
+
+	// Optionals
+	if !math.IsNaN(heading) {
+		req.Heading = &heading
+	}
+	if len(obstacles) > 0 {
+		obstaclesProto := make([]*commonpb.GeoObstacle, 0, len(obstacles))
+		for _, eachObst := range obstacles {
+			convObst, err := referenceframe.GeoObstacleToProtobuf(eachObst)
+			if err != nil {
+				return false, err
+			}
+			obstaclesProto = append(obstaclesProto, convObst)
+		}
+		req.Obstacles = obstaclesProto
+	}
+	if !math.IsNaN(float64(linearVelocity)) {
+		req.LinearMetersPerSec = &linearVelocity
+	}
+	if !math.IsNaN(float64(angularVelocity)) {
+		req.AngularDegPerSec = &angularVelocity
+	}
+
+	resp, err := c.client.MoveOnGlobe(ctx, req)
 	if err != nil {
 		return false, err
 	}
+
 	return resp.Success, nil
 }
 

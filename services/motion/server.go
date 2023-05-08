@@ -71,6 +71,8 @@ func (server *serviceServer) MoveOnGlobe(ctx context.Context, req *pb.MoveOnGlob
 	if req.Destination == nil {
 		return nil, errors.New("Must provide a destination")
 	}
+
+	// Optionals
 	heading := math.NaN()
 	if req.Heading != nil {
 		heading = req.GetHeading()
@@ -92,6 +94,7 @@ func (server *serviceServer) MoveOnGlobe(ctx context.Context, req *pb.MoveOnGlob
 	if req.AngularDegPerSec != nil {
 		angular = req.GetAngularDegPerSec()
 	}
+
 	success, err := svc.MoveOnGlobe(
 		ctx,
 		protoutils.ResourceNameFromProto(req.GetComponentName()),
