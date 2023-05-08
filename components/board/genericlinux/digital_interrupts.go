@@ -18,16 +18,21 @@ import (
 
 type digitalInterrupt struct {
 	parentBoard *sysfsBoard
-	interrupt   board.DigitalInterrupt
+	interrupt   board.ReconfigurableDigitalInterrupt
 	line        *gpio.LineWithEvent
 	cancelCtx   context.Context
 	cancelFunc  func()
+	config      *board.DigitalInterruptConfig
 }
 
 func (b *sysfsBoard) createDigitalInterrupt(
 	ctx context.Context,
 	config board.DigitalInterruptConfig,
 	gpioMappings map[int]GPIOBoardMapping,
+	// If we are reconfiguring a board, we might already have channels subscribed and listening for
+	// updates from an old interrupt that we're creating on a new pin. In that case, reuse the part
+	// that holds the callbacks.
+	oldCallbackHolder board.ReconfigurableDigitalInterrupt,
 ) (*digitalInterrupt, error) {
 	pinInt, err := strconv.Atoi(config.Pin)
 	if err != nil {
@@ -50,9 +55,17 @@ func (b *sysfsBoard) createDigitalInterrupt(
 		return nil, err
 	}
 
-	interrupt, err := board.CreateDigitalInterrupt(config)
-	if err != nil {
-		return nil, multierr.Combine(err, line.Close())
+	var interrupt board.ReconfigurableDigitalInterrupt
+	if oldCallbackHolder == nil {
+		interrupt, err = board.CreateDigitalInterrupt(config)
+		if err != nil {
+			return nil, multierr.Combine(err, line.Close())
+		}
+	} else {
+		interrupt = oldCallbackHolder
+		if err := interrupt.Reconfigure(config); err != nil {
+			return nil, err // Should never have errors, but this makes the linter happy
+		}
 	}
 
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
@@ -62,6 +75,7 @@ func (b *sysfsBoard) createDigitalInterrupt(
 		line:        line,
 		cancelCtx:   cancelCtx,
 		cancelFunc:  cancelFunc,
+		config:      &config,
 	}
 	result.startMonitor()
 	return &result, nil
