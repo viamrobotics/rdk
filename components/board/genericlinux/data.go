@@ -99,30 +99,22 @@ func GetGPIOBoardMappings(modelName string, boardInfoMappings map[string]BoardIn
 // getCompatiblePinDefs returns a list of pin definitions, from the first BoardInformation struct
 // that appears compatible with the machine we're running on.
 func getCompatiblePinDefs(modelName string, boardInfoMappings map[string]BoardInformation) ([]PinDefinition, error) {
-	var path string
+
 	var compatibles utils.StringSet
+	var err error
 
 	arch := rdkutils.GetArchitectureInfo()
 
 	if arch == "amd64" {
-		path = "/sys/devices/virtual/dmi/id/board_name"
-	} else {
-		path = "/proc/device-tree/compatible"
-	}
-
-	//nolint:gosec
-	compatiblesRd, err := os.ReadFile(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, noBoardError(modelName)
+		compatibles, err = stringSetFromX86(modelName)
+		if err != nil {
+			return nil, fmt.Errorf("search for Pindefinition ended with error [%s] ", err)
 		}
-		return nil, err
-	}
-
-	if arch == "amd*" {
-		compatibles = stringSetFromX86(compatiblesRd)
 	} else {
-		compatibles = stringSetFromARM(compatiblesRd)
+		compatibles, err = stringSetFromARM(modelName)
+		if err != nil {
+			return nil, fmt.Errorf("search for Pindefinition ended with error [%s] ", err)
+		}
 	}
 
 	var pinDefs []PinDefinition
@@ -143,18 +135,36 @@ func getCompatiblePinDefs(modelName string, boardInfoMappings map[string]BoardIn
 
 // A helper function for ARM architecture to process contents of a
 // given content of a file from os.ReadFile.
-func stringSetFromARM(content []byte) utils.StringSet {
-	return utils.NewStringSet(strings.Split(string(content), "\x00")...)
+func stringSetFromARM(modelName string) (utils.StringSet, error) {
+	var path = "/proc/device-tree/compatible"
+	compatiblesRd, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, noBoardError(modelName)
+		}
+		return nil, err
+	}
+
+	return utils.NewStringSet(strings.Split(string(compatiblesRd), "\x00")...), nil
 }
 
 // A helper function for X86 architecture to process contents of a
 // given content of a file from os.ReadFile.
-func stringSetFromX86(content []byte) utils.StringSet {
-	// Remove whitespace and null characters from the content
-	content = bytes.TrimSpace(content)
-	content = bytes.ReplaceAll(content, []byte{0x00}, []byte{})
+func stringSetFromX86(modelName string) (utils.StringSet, error) {
+	var path = "/sys/devices/virtual/dmi/id/board_name"
+	compatiblesRd, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, noBoardError(modelName)
+		}
+		return nil, err
+	}
 
-	return utils.NewStringSet(string(content))
+	// Remove whitespace and null characters from the content
+	compatiblesRd = bytes.TrimSpace(compatiblesRd)
+	compatiblesRd = bytes.ReplaceAll(compatiblesRd, []byte{0x00}, []byte{})
+
+	return utils.NewStringSet(string(compatiblesRd)), nil
 }
 
 // A helper function: we read the contents of filePath and return its integer value.
