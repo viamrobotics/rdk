@@ -39,6 +39,8 @@ func stringSetFromARM(modelName string) (utils.StringSet, error) {
 	return utils.NewStringSet(strings.Split(string(compatiblesRd), "\x00")...), nil
 }
 
+// A helper function for AMD architecture to process contents of a
+// given content of a file from os.ReadFile.
 func stringSetFromX86(modelName string) (utils.StringSet, error) {
 	path := "/sys/devices/virtual/dmi/id/board_name"
 	compatiblesRd, err := os.ReadFile(path)
