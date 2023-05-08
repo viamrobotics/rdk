@@ -6,7 +6,6 @@ appimage: server-static
 	if [ "${RELEASE_TYPE}" = "stable" ]; then \
 		cd etc/packaging/appimages; \
 		BUILD_CHANNEL=stable appimage-builder --recipe viam-server-`uname -m`.yml; \
-		BUILD_CHANNEL=latest appimage-builder --recipe viam-server-`uname -m`.yml; \
 	fi
 	mkdir -p etc/packaging/appimages/deploy/
 	mv etc/packaging/appimages/*.AppImage* etc/packaging/appimages/deploy/
@@ -30,5 +29,4 @@ static-release: server-static
 	cp $(BIN_OUTPUT_PATH)/viam-server etc/packaging/static/deploy/viam-server-${BUILD_CHANNEL}-`uname -m`
 	if [ "${RELEASE_TYPE}" = "stable" ]; then \
 		cp $(BIN_OUTPUT_PATH)/viam-server etc/packaging/static/deploy/viam-server-stable-`uname -m`; \
-		cp $(BIN_OUTPUT_PATH)/viam-server etc/packaging/static/deploy/viam-server-latest-`uname -m`; \
 	fi
