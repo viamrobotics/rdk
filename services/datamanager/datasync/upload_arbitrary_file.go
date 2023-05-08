@@ -28,7 +28,7 @@ func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, f
 		Tags:          tags,
 	}
 
-	log.Println("metadata")
+	log.Println("arbitrary file metadata")
 	log.Println(md)
 
 	// Send metadata FileUploadRequest.

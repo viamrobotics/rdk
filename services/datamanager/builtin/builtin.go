@@ -73,7 +73,6 @@ type Config struct {
 	SyncIntervalMins      float64                          `json:"sync_interval_mins"`
 	CaptureDisabled       bool                             `json:"capture_disabled"`
 	ScheduledSyncDisabled bool                             `json:"sync_disabled"`
-	Tags                  []string                         `json:"tags"`
 	ResourceConfigs       []*datamanager.DataCaptureConfig `json:"resource_configs"`
 }
 
@@ -199,7 +198,6 @@ func getDurationFromHz(captureFrequencyHz float32) time.Duration {
 func (svc *builtIn) initializeOrUpdateCollector(
 	md componentMethodMetadata,
 	config *datamanager.DataCaptureConfig,
-	tags []string,
 ) (
 	*collectorAndConfig, error,
 ) {
@@ -209,11 +207,8 @@ func (svc *builtIn) initializeOrUpdateCollector(
 		config.Name.ShortName(),
 		config.Method,
 		config.AdditionalParams,
-		tags,
+		config.Tags,
 	)
-
-	log.Println("data capture metadata")
-	log.Println(captureMetadata)
 	if err != nil {
 		return nil, err
 	}
@@ -424,7 +419,7 @@ func (svc *builtIn) Reconfigure(
 					MethodParams:   fmt.Sprintf("%v", resConf.AdditionalParams),
 				}
 
-				newCollectorAndConfig, err := svc.initializeOrUpdateCollector(componentMethodMetadata, resConf, svcConfig.Tags)
+				newCollectorAndConfig, err := svc.initializeOrUpdateCollector(componentMethodMetadata, resConf)
 				if err != nil {
 					svc.logger.Errorw("failed to initialize or update collector", "error", err)
 				} else {
