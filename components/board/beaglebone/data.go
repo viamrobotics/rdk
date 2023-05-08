@@ -76,7 +76,7 @@ var boardInfoMappings = map[string]genericlinux.BoardInformation{
 			{map[int]int{128: 39}, map[int]string{}, "600000.gpio", 921, 0, "P9_21", "", "3010000.pwm", 0}, // pwmchip2
 			{map[int]int{128: 38}, map[int]string{}, "600000.gpio", 922, 0, "P9_22", "", "3010000.pwm", 1}, // pwmchip2 BOOTMODE1
 			{map[int]int{128: 10}, map[int]string{}, "600000.gpio", 923, 0, "P9_23", "", "", -1},
-			{map[int]int{128: 119}, map[int]string{}, "600000.gpio", 924, 0, "P9_24", "", "", -1},
+			{map[int]int{128: 13}, map[int]string{}, "600000.gpio", 924, 0, "P9_24", "", "", -1},
 			{map[int]int{128: 127}, map[int]string{}, "600000.gpio", 925, 0, "P9_25", "", "", -1},
 			{map[int]int{128: 12}, map[int]string{}, "600000.gpio", 926, 0, "P9_26", "", "", -1},
 			{map[int]int{128: 46}, map[int]string{}, "600000.gpio", 927, 0, "P9_27", "", "", -1}, // Timer-based PWM
