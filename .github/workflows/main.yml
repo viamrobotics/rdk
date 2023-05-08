@@ -51,6 +51,7 @@ jobs:
     needs:
       - test
       - appimage
+      - staticbuild
     runs-on: ubuntu-latest
     permissions:
       actions: 'read'
