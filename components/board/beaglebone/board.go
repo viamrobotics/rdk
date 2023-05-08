@@ -22,5 +22,5 @@ func init() {
 		golog.Global().Debugw("error getting beaglebone GPIO board mapping", "error", err)
 	}
 
-	genericlinux.RegisterBoard(modelName, gpioMappings, true)
+	genericlinux.RegisterBoard(modelName, gpioMappings, /* usePeriph = */ false)
 }
