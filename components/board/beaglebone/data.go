@@ -13,6 +13,7 @@ var boardInfoMappings = map[string]genericlinux.BoardInformation{
 			// ******** DATA MAPPING ********************************
 			// Hardware PWMs contain a number other than -1 in the last element of map
 			// beaglebone pwm mapping sys/devices/platform/bus@100000/*.pwm
+			// NOTE: pins with hardware PWM support don't work as GPIO by default
 
 			// GPIO only pins
 			// beaglebone gpio mapping uses directory sys/devices/platform/bus@100000/*.gpio
