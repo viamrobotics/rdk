@@ -86,7 +86,7 @@ func NewEmptyFrameSystem(name string) FrameSystem {
 	return &simpleFrameSystem{name, worldFrame, map[string]Frame{}, map[Frame]Frame{}}
 }
 
-// NewFrameSystemFromConfig assembles a frame system from a given config.
+// NewFrameSystem assembles a frame system from a set of parts and additional transforms.
 func NewFrameSystem(name string, parts []*FrameSystemPart, additionalTransforms []*LinkInFrame) (FrameSystem, error) {
 	allParts := make([]*FrameSystemPart, 0)
 	allParts = append(allParts, parts...)
@@ -629,7 +629,7 @@ func TopologicallySortParts(parts []*FrameSystemPart) ([]*FrameSystemPart, error
 	for _, part := range parts {
 		parent := part.FrameConfig.Parent()
 		if !existingParts[parent] {
-			return nil, NewParentFrameNotFound(part.FrameConfig.Name(), parent)
+			return nil, NewParentFrameMissingError(part.FrameConfig.Name(), parent)
 		}
 		children[part.FrameConfig.Parent()] = append(children[part.FrameConfig.Parent()], part)
 	}

@@ -30,14 +30,7 @@ func init() {
 		camera.API,
 		modelJoinPC,
 		resource.Registration[camera.Camera, *Config]{
-			Constructor: func(
-				ctx context.Context,
-				deps resource.Dependencies,
-				conf resource.Config,
-				logger golog.Logger,
-			) (camera.Camera, error) {
-				return newJoinPointCloudCamera(ctx, deps, conf, logger)
-			},
+			Constructor: newJoinPointCloudCamera,
 		},
 	)
 }

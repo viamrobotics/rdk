@@ -1,3 +1,4 @@
+// Package framesystem defines the frame system service which is responsible for managing a stateful frame system
 package framesystem
 
 import (
@@ -125,15 +126,12 @@ func (svc *frameSystemService) Reconfigure(ctx context.Context, deps resource.De
 	svc.partsMu.Lock()
 	defer svc.partsMu.Unlock()
 
-	ctx, span := trace.StartSpan(ctx, "services::framesystem::Reconfigure")
-	defer span.End()
-
 	components := make(map[string]resource.Resource)
 	for name, r := range deps {
 		short := name.ShortName()
 		// is this only for InputEnabled components or everything?
 		if _, present := components[short]; present {
-			DuplicateResourceShortNameError(short)
+			return DuplicateResourceShortNameError(short)
 		}
 		components[short] = r
 	}
@@ -251,8 +249,6 @@ func (svc *frameSystemService) FrameSystem(
 	ctx context.Context,
 	additionalTransforms []*referenceframe.LinkInFrame,
 ) (referenceframe.FrameSystem, error) {
-	ctx, span := trace.StartSpan(ctx, "services::framesystem::FrameSystem")
-	defer span.End()
 	return referenceframe.NewFrameSystem(LocalFrameSystemName, svc.parts, additionalTransforms)
 }
 
@@ -278,8 +274,8 @@ func (svc *frameSystemService) TransformPointCloud(ctx context.Context, srcpc po
 	return pointcloud.ApplyOffset(ctx, srcpc, theTransform.Pose(), svc.logger)
 }
 
-// Prefixs applies prefixes to frame information if necessary.
-func PrefixRemoteParts(parts []*referenceframe.FrameSystemPart, remoteName string, remoteParent string) {
+// PrefixRemoteParts applies prefixes to a list of FrameSystemParts appropriate to the remote they originate from.
+func PrefixRemoteParts(parts []*referenceframe.FrameSystemPart, remoteName, remoteParent string) {
 	for _, part := range parts {
 		if part.FrameConfig.Parent() == referenceframe.World { // rename World of remote parts
 			part.FrameConfig.SetParent(remoteParent)

@@ -64,7 +64,7 @@ func TestMoveFailures(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		poseInFrame := referenceframe.NewPoseInFrame("frame2", spatialmath.NewZeroPose())
 		_, err = ms.Move(ctx, arm.Named("arm1"), poseInFrame, worldState, nil, nil)
-		test.That(t, err, test.ShouldBeError, referenceframe.NewParentFrameNotFound("frame2", "noParent"))
+		test.That(t, err, test.ShouldBeError, referenceframe.NewParentFrameMissingError("frame2", "noParent"))
 	})
 }
 
@@ -306,6 +306,6 @@ func TestGetPose(t *testing.T) {
 		referenceframe.NewLinkInFrame("noParent", testPose, "testFrame", nil),
 	}
 	pose, err = ms.GetPose(context.Background(), arm.Named("arm1"), "testFrame", transforms, map[string]interface{}{})
-	test.That(t, err, test.ShouldBeError, referenceframe.NewParentFrameNotFound("testFrame", "noParent"))
+	test.That(t, err, test.ShouldBeError, referenceframe.NewParentFrameMissingError("testFrame", "noParent"))
 	test.That(t, pose, test.ShouldBeNil)
 }

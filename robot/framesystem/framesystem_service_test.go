@@ -261,7 +261,7 @@ func TestNewFrameSystemFromBadConfig(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		fsCfg.AdditionalTransforms = transforms
 		fs, err := referenceframe.NewFrameSystem("", fsCfg.Parts, fsCfg.AdditionalTransforms)
-		test.That(t, err, test.ShouldBeError, referenceframe.NewParentFrameNotFound("frame2", "noParent"))
+		test.That(t, err, test.ShouldBeError, referenceframe.NewParentFrameMissingError("frame2", "noParent"))
 		test.That(t, fs, test.ShouldBeNil)
 	})
 

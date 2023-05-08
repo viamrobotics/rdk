@@ -167,16 +167,6 @@ func (c *Config) FindComponent(name string) *resource.Config {
 	return nil
 }
 
-// TODO(rb): Not sure if this will be useful or not
-func (c *Config) FindRemote(name string) *Remote {
-	for _, remote := range c.Remotes {
-		if remote.Name == name {
-			return &remote
-		}
-	}
-	return nil
-}
-
 // UnmarshalJSON unmarshals JSON into the config and adjusts some
 // names if they are not fully filled in.
 func (c *Config) UnmarshalJSON(data []byte) error {
