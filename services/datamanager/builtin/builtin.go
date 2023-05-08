@@ -4,7 +4,6 @@ package builtin
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"sync"
@@ -361,15 +360,10 @@ func (svc *builtIn) Reconfigure(
 	svc.lock.Lock()
 	defer svc.lock.Unlock()
 
-	log.Println(conf.ConvertedAttributes)
-
 	svcConfig, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return err
 	}
-
-	log.Println("resource config")
-	//log.Println(svcConfig.ResourceConfigs[0])
 
 	cloudConnSvc, err := resource.FromDependencies[cloud.ConnectionService](deps, cloud.InternalServiceName)
 	if err != nil {
@@ -439,9 +433,6 @@ func (svc *builtIn) Reconfigure(
 	svc.collectors = newCollectors
 	svc.additionalSyncPaths = svcConfig.AdditionalSyncPaths
 	svc.additionalTags = svcConfig.AdditionalTags
-
-	log.Println("additional tags")
-	log.Println(svc.additionalTags)
 
 	if svc.syncDisabled != svcConfig.ScheduledSyncDisabled || svc.syncIntervalMins != svcConfig.SyncIntervalMins {
 		svc.syncDisabled = svcConfig.ScheduledSyncDisabled
@@ -523,7 +514,6 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 }
 
 func (svc *builtIn) sync() {
-	log.Println("SYNCING")
 	svc.flushCollectors()
 	captureToSync := getAllFilesToSync(svc.captureDir, svc.waitAfterLastModifiedMillis)
 	for _, p := range captureToSync {
@@ -533,7 +523,6 @@ func (svc *builtIn) sync() {
 	for index, ap := range svc.additionalSyncPaths {
 		arbitraryFilestoSync := getAllFilesToSync(ap, svc.waitAfterLastModifiedMillis)
 		for _, ap := range arbitraryFilestoSync {
-			log.Println(svc.additionalTags[index])
 			svc.syncer.SyncFile(ap, svc.additionalTags[index])
 		}
 	}

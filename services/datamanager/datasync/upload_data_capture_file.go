@@ -2,7 +2,6 @@ package datasync
 
 import (
 	"context"
-	"log"
 
 	v1 "go.viam.com/api/app/datasync/v1"
 
@@ -36,9 +35,6 @@ func uploadDataCaptureFile(ctx context.Context, client v1.DataSyncServiceClient,
 		},
 		SensorContents: sensorData,
 	}
-
-	log.Println("upload request")
-	log.Println(ur)
 	_, err = client.DataCaptureUpload(ctx, ur)
 	if err != nil {
 		return err
