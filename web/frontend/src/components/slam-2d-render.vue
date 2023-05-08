@@ -7,11 +7,10 @@ import * as THREE from 'three';
 import { MapControls } from 'three/examples/jsm/controls/OrbitControls';
 import { PCDLoader } from 'three/examples/jsm/loaders/PCDLoader';
 import type { commonApi } from '@viamrobotics/sdk';
-import { SVGLoader } from 'three/examples/jsm/loaders/SVGLoader';
-import { baseMarkerUrl } from '../lib/base-marker-url';
-import { destMarkerUrl } from '../lib/destination-marker-url';
+import DestMarker from '../lib/destination-marker.png?raw';
+import BaseMarker from '../lib/base-marker.png?raw';
 
-type SvgOffset = {
+interface SvgOffset {
   x: number,
   y: number,
   z: number
@@ -31,6 +30,20 @@ const axesHelperSize = 8;
 // Note: updating the scale of the destination or base marker requires an offset update
 const baseMarkerScalar = 0.002;
 const destinationMarkerScalar = 0.1;
+
+const textureLoader = new THREE.TextureLoader();
+
+const makeMarker = (png: string, name: string, scalar: number) => {
+  const geometry = new THREE.PlaneGeometry();
+  const material = new THREE.MeshBasicMaterial({ map: textureLoader.load(png), color: 'red' });
+  const marker = new THREE.Mesh(geometry, material);
+  marker.name = name;
+  marker.renderOrder = svgMarkerRenderOrder;
+  return marker;
+};
+
+const baseMarker = makeMarker(BaseMarker, 'BaseMarker', baseMarkerScalar);
+const destMarker = makeMarker(DestMarker, 'DestinationMarker', destinationMarkerScalar);
 
 const baseMarkerOffset: SvgOffset = {
   x: -0.05,
@@ -111,76 +124,6 @@ raycaster.on('click', (event: THREE.Event) => {
   }
 });
 
-/*
- * svgLoader example for webgl:
- * https://github.com/mrdoob/three.js/blob/master/examples/webgl_loader_svg.html
- */
-const svgLoader = new SVGLoader();
-const makeMarker = async (url : string, name: string, scalar: number) => {
-  const data = await svgLoader.loadAsync(url);
-
-  const { paths } = data!;
-
-  const group = new THREE.Group();
-  group.scale.multiplyScalar(scalar);
-
-  for (const path of paths) {
-
-    const fillColor = path!.userData!.style.fill;
-
-    if (fillColor !== undefined && fillColor !== 'none') {
-      const material = new THREE.MeshBasicMaterial({
-        color: new THREE.Color().setStyle(fillColor)
-          .convertSRGBToLinear(),
-        opacity: path!.userData!.style.fillOpacity,
-        transparent: true,
-        side: THREE.FrontSide,
-        depthWrite: false,
-        wireframe: false,
-      });
-
-      const shapes = SVGLoader.createShapes(path!);
-
-      for (const shape of shapes) {
-
-        const geometry = new THREE.ShapeGeometry(shape);
-        const mesh = new THREE.Mesh(geometry.rotateZ(-Math.PI), material);
-        group.add(mesh);
-
-      }
-
-    }
-
-    const strokeColor = path!.userData!.style.stroke;
-
-    if (strokeColor !== undefined && strokeColor !== 'none') {
-
-      const material = new THREE.MeshBasicMaterial({
-        color: new THREE.Color().setStyle(strokeColor)
-          .convertSRGBToLinear(),
-        opacity: path!.userData!.style.strokeOpacity,
-        transparent: true,
-        side: THREE.DoubleSide,
-        depthWrite: false,
-        wireframe: false,
-      });
-
-      for (const subPath of path!.subPaths) {
-        const geometry = SVGLoader.pointsToStroke(subPath.getPoints(), path!.userData!.style);
-        if (geometry) {
-          const mesh = new THREE.Mesh(geometry.rotateZ(-Math.PI), material);
-          group.add(mesh);
-        }
-      }
-    }
-  }
-
-  group.name = name;
-  scene.add(group);
-  group.renderOrder = svgMarkerRenderOrder;
-  return group;
-};
-
 const disposeScene = () => {
   scene.traverse((object) => {
     if (object.name === 'BaseMarker' || object.name === 'DestinationMarker') {
@@ -199,12 +142,10 @@ const disposeScene = () => {
   scene.clear();
 };
 
-const updatePose = async (newPose: commonApi.Pose) => {
+const updatePose = (newPose: commonApi.Pose) => {
   const x = newPose.getX();
   const y = newPose.getY();
   const z = newPose.getZ();
-  const baseMarker = scene.getObjectByName('BaseMarker') ??
-    await makeMarker(baseMarkerUrl, 'BaseMarker', baseMarkerScalar);
   baseMarker.position.set(x + baseMarkerOffset.x, y + baseMarkerOffset.y, z + baseMarkerOffset.z);
 };
 
@@ -238,12 +179,7 @@ const createAxisHelper = (name: string, rotation: number): THREE.AxesHelper => {
 };
 
 // create the background gray grid
-const createGridHelper = (
-  points: THREE.Points<THREE.BufferGeometry, THREE.Material | THREE.Material[]>
-): THREE.GridHelper => {
-  points.geometry.computeBoundingBox();
-
-  const boundingBox = points.geometry.boundingBox!;
+const createGridHelper = (boundingBox: THREE.Box3): THREE.GridHelper => {
   const deltaX = Math.abs(boundingBox.max.x - boundingBox.min.x);
   const deltaZ = Math.abs(boundingBox.max.z - boundingBox.min.z);
   let maxDelta = Math.round(Math.max(deltaX, deltaZ) * gridHelperScalar);
@@ -265,21 +201,18 @@ const createGridHelper = (
   return gridHelper;
 };
 
-const updateOrRemoveDestinationMarker = async () => {
+const updateOrRemoveDestinationMarker = () => {
   if (props.destVector && props.destExists) {
-    const marker = scene.getObjectByName('DestinationMarker') ??
-      await makeMarker(destMarkerUrl, 'DestinationMarker', destinationMarkerScalar);
-    marker.position.set(
+
+    destMarker.position.set(
       props.destVector.x + destinationMarkerOffset.x,
       props.destVector.y + destinationMarkerOffset.y,
       props.destVector.z + destinationMarkerOffset.z
     );
   }
+
   if (!props.destExists) {
-    const marker = scene.getObjectByName('DestinationMarker');
-    if (marker !== undefined) {
-      scene.remove(marker);
-    }
+    scene.remove(destMarker);
   }
 };
 
@@ -290,6 +223,9 @@ const updatePointCloud = (pointcloud: Uint8Array) => {
   const viewWidth = viewHeight * 2;
 
   const points = loader.parse(pointcloud.buffer);
+  const material = points.material as THREE.PointsMaterial;
+  material.sizeAttenuation = false;
+  material.size = 4;
   points.geometry.computeBoundingSphere();
 
   const { radius = 1, center = { x: 0, y: 0 } } = points.geometry.boundingSphere ?? {};
@@ -329,8 +265,10 @@ const updatePointCloud = (pointcloud: Uint8Array) => {
     }
   }
 
+  points.geometry.computeBoundingBox();
+
   // construct grid spaced at 1 meter
-  const gridHelper = createGridHelper(points);
+  const gridHelper = createGridHelper(points.geometry.boundingBox!);
 
   // construct axes
   const axesPos = createAxisHelper('AxesPos', Math.PI / 2);
@@ -351,6 +289,7 @@ const updatePointCloud = (pointcloud: Uint8Array) => {
   if (props.pose !== undefined) {
     updatePose(props.pose!);
   }
+
   updateOrRemoveDestinationMarker();
 };
 
