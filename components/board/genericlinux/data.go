@@ -119,10 +119,10 @@ func getCompatiblePinDefs(modelName string, boardInfoMappings map[string]BoardIn
 		return nil, err
 	}
 
-	if arch == "amd64" {
-		compatibles = stringSetFromFileAMD64(compatiblesRd)
+	if arch == "amd*" {
+		compatibles = stringSetFromX86(compatiblesRd)
 	} else {
-		compatibles = stringSetFromFileARM64(compatiblesRd)
+		compatibles = stringSetFromARM(compatiblesRd)
 	}
 
 	var pinDefs []PinDefinition
@@ -141,15 +141,15 @@ func getCompatiblePinDefs(modelName string, boardInfoMappings map[string]BoardIn
 	return pinDefs, nil
 }
 
-// A helper function for ARM64/aarch64 architecture to process contents of a
+// A helper function for ARM architecture to process contents of a
 // given content of a file from os.ReadFile.
-func stringSetFromFileARM64(content []byte) utils.StringSet {
+func stringSetFromARM(content []byte) utils.StringSet {
 	return utils.NewStringSet(strings.Split(string(content), "\x00")...)
 }
 
-// A helper function for AMD64/x86_64 architecture to process contents of a
+// A helper function for X86 architecture to process contents of a
 // given content of a file from os.ReadFile.
-func stringSetFromFileAMD64(content []byte) utils.StringSet {
+func stringSetFromX86(content []byte) utils.StringSet {
 	// Remove whitespace and null characters from the content
 	content = bytes.TrimSpace(content)
 	content = bytes.ReplaceAll(content, []byte{0x00}, []byte{})
