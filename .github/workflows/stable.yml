@@ -1,17 +1,15 @@
-name: Release Latest
+name: Release Stable
 
 concurrency: 
   group: ${{ github.workflow }}-${{ github.ref }}
 
 on:
-  workflow_dispatch:
   push:
-    branches: [ main ]
-    paths-ignore:
-      - 'README.md'
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
 
 env:
-  RELEASE_TYPE: "latest"
+  RELEASE_TYPE: "stable"
 
 # To test workflow updates you need to work in a branch directly on viamrobotics/rdk
 # and tag your working branch instead of @main in any viamrobotics/rdk "uses" below.

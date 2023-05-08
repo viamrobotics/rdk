@@ -28,7 +28,7 @@ jobs:
       date: ${{ steps.build_test_binary.outputs.date }}
 
     steps:
-    - name: Check out main branch code
+    - name: Check out code
       if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
       uses: actions/checkout@v3
       with:
@@ -67,12 +67,12 @@ jobs:
         parent: false
         gzip: false
 
-    - name: Build (Latest)
+    - name: Build (Tagged)
       id: build_test_binary
-      if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+      if: env.RELEASE_TYPE == "stable" || env.RELEASE_TYPE == "rc"
       run: |
         echo "date=`date +%F`" >> $GITHUB_OUTPUT
-        sudo -Hu testbot bash -lc 'make BUILD_CHANNEL="latest" static-release'
+        sudo -Hu testbot bash -lc 'make BUILD_CHANNEL="${{ github.ref_name }}" static-release'
 
     - name: Upload Files (Testing)
       if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
@@ -106,10 +106,15 @@ jobs:
 
     - name: Test Static Binary
       run: |
+        channel="${{ github.ref_name }}"
+        if [ "$channel" == "main" ]; then
+          channel="latest"
+        fi
+
         export TEST_DIR=`mktemp -d -t test-viam-server-XXXXXX`
         cd $TEST_DIR
 
-        curl -o viam-server https://storage.googleapis.com/packages.viam.com/apps/viam-server/testing/static/${{ needs.static.outputs.date }}/${{ github.sha }}/viam-server-latest-`uname -m`
+        curl -o viam-server https://storage.googleapis.com/packages.viam.com/apps/viam-server/testing/static/${{ needs.static.outputs.date }}/${{ github.sha }}/viam-server-${channel}-`uname -m`
         chmod 755 viam-server
 
         export RAND_PORT=$((30000 + $RANDOM))
