@@ -309,20 +309,7 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 			}
 
 			// Give it time to delete files after upload.
-			waitUntilNoCaptureFiles := func(captureDir string) {
-				totalWait := time.Second * 3
-				waitPerCheck := time.Millisecond * 10
-				iterations := int(totalWait / waitPerCheck)
-				files := getAllFileInfos(captureDir)
-				for i := 0; i < iterations; i++ {
-					if len(files) == 0 {
-						return
-					}
-					time.Sleep(waitPerCheck)
-					files = getAllFileInfos(captureDir)
-				}
-			}
-			waitUntilNoCaptureFiles(tmpDir)
+			waitUntilNoFiles(tmpDir)
 			err = newDMSvc.Close(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 
@@ -336,18 +323,11 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 	}
 }
 
-// TODO DATA-1268: Reimplement this test.
-// Cases: manual sync, successful, unsuccessful
-// To validate: uploaded all data once, deleted file if no error, builds additional sync paths if none exist
 func TestArbitraryFileUpload(t *testing.T) {
-	t.Skip()
 	// Set exponential factor to 1 and retry wait time to 20ms so retries happen very quickly.
 	datasync.RetryExponentialFactor.Store(int32(1))
-	datasync.InitialWaitTimeMillis.Store(int32(20))
-	syncTime := time.Millisecond * 100
-	datasync.UploadChunkSize = 1024
 	fileName := "some_file_name.txt"
-	// fileExt := ".txt"
+	fileExt := ".txt"
 
 	tests := []struct {
 		name                 string
@@ -384,71 +364,100 @@ func TestArbitraryFileUpload(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			// Set up server.
+			mockClock := clk.NewMock()
+			clock = mockClock
 			additionalPathsDir := t.TempDir()
 			captureDir := t.TempDir()
 
-			// Set up data manager.
+			// Set up dmsvc config.
 			dmsvc, r := newTestDataManager(t)
+			dmsvc.SetWaitAfterLastModifiedMillis(0)
 			defer dmsvc.Close(context.Background())
-			dmsvc.SetSyncerConstructor(getTestSyncerConstructorMock(mockDataSyncServiceClient{}))
-			cfg, deps := setupConfig(t, enabledTabularCollectorConfigPath)
-
-			// Set up service config.
-			cfg.CaptureDisabled = true
+			var mockClient = mockDataSyncServiceClient{
+				succesfulDCRequests: make(chan *v1.DataCaptureUploadRequest, 100),
+				failedDCRequests:    make(chan *v1.DataCaptureUploadRequest, 100),
+				fileUploads:         make(chan *mockFileUploadClient, 100),
+				fail:                &atomic.Bool{},
+			}
+			dmsvc.SetSyncerConstructor(getTestSyncerConstructorMock(mockClient))
+			cfg, deps := setupConfig(t, disabledTabularCollectorConfigPath)
 			cfg.ScheduledSyncDisabled = tc.scheduleSyncDisabled
 			cfg.SyncIntervalMins = syncIntervalMins
 			cfg.AdditionalSyncPaths = []string{additionalPathsDir}
 			cfg.CaptureDir = captureDir
 
 			// Start dmsvc.
-			dmsvc.SetWaitAfterLastModifiedMillis(10)
 			resources := resourcesFromDeps(t, r, deps)
 			err := dmsvc.Reconfigure(context.Background(), resources, resource.Config{
 				ConvertedAttributes: cfg,
 			})
 			test.That(t, err, test.ShouldBeNil)
 
-			// Write some files to the path.
-			fileContents := make([]byte, datasync.UploadChunkSize*4)
-			fileContents = append(fileContents, []byte("happy cows come from california")...)
+			// Write file to the path.
+			var fileContents []byte
+			for i := 0; i < 1000; i++ {
+				fileContents = append(fileContents, []byte("happy cows come from california\n")...)
+			}
 			tmpFile, err := os.Create(filepath.Join(additionalPathsDir, fileName))
 			test.That(t, err, test.ShouldBeNil)
 			_, err = tmpFile.Write(fileContents)
 			test.That(t, err, test.ShouldBeNil)
-			time.Sleep(time.Millisecond * 100)
+			test.That(t, tmpFile.Close(), test.ShouldBeNil)
 
-			// Call manual sync if desired.
+			// Advance the clock syncInterval so it tries to sync the files.
+			mockClock.Add(syncInterval)
+
+			// Call manual sync.
 			if tc.manualSync {
 				err = dmsvc.Sync(context.Background(), nil)
 				test.That(t, err, test.ShouldBeNil)
 			}
-			time.Sleep(syncTime)
+
+			// Wait for upload requests.
+			var fileUploads []*mockFileUploadClient
+			var urs []*v1.FileUploadRequest
+			// Get the successful requests
+			wait := time.After(time.Second * 5)
+			select {
+			case <-wait:
+				t.Fatalf("timed out waiting for sync request")
+			case r := <-mockClient.fileUploads:
+				fileUploads = append(fileUploads, r)
+				select {
+				case <-wait:
+					t.Fatalf("timed out waiting for sync request")
+				case <-r.closed:
+					urs = append(urs, r.urs...)
+				}
+			}
 
 			// Validate error and URs.
 			remainingFiles := getAllFilePaths(additionalPathsDir)
 			if tc.serviceFail {
-				// Error case.
+				// Error case, file should not be deleted.
 				test.That(t, len(remainingFiles), test.ShouldEqual, 1)
 			} else {
 				// Validate first metadata message.
-				// test.That(t, len(mockService.getFileUploadRequests()), test.ShouldBeGreaterThan, 0)
-				// actMD := mockService.getFileUploadRequests()[0].GetMetadata()
-				// test.That(t, actMD, test.ShouldNotBeNil)
-				// test.That(t, actMD.Type, test.ShouldEqual, v1.DataType_DATA_TYPE_FILE)
-				// test.That(t, actMD.FileName, test.ShouldEqual, fileName)
-				// test.That(t, actMD.FileExtension, test.ShouldEqual, fileExt)
-				// test.That(t, actMD.GetPartId(), test.ShouldEqual, cfg.Cloud.ID)
+				test.That(t, len(fileUploads), test.ShouldEqual, 1)
+				test.That(t, len(urs), test.ShouldBeGreaterThan, 0)
+				actMD := urs[0].GetMetadata()
+				test.That(t, actMD, test.ShouldNotBeNil)
+				test.That(t, actMD.Type, test.ShouldEqual, v1.DataType_DATA_TYPE_FILE)
+				test.That(t, actMD.FileName, test.ShouldEqual, fileName)
+				test.That(t, actMD.FileExtension, test.ShouldEqual, fileExt)
+				test.That(t, actMD.PartId, test.ShouldNotBeBlank)
 
 				// Validate ensuing data messages.
-				// actDataRequests := mockService.getFileUploadRequests()[1:]
-				// var actData []byte
-				// for _, d := range actDataRequests {
-				// 	actData = append(actData, d.GetFileContents().GetData()...)
-				// }
-				// test.That(t, actData, test.ShouldResemble, fileContents)
+				actDataRequests := urs[1:]
+				var actData []byte
+				for _, d := range actDataRequests {
+					actData = append(actData, d.GetFileContents().GetData()...)
+				}
+				test.That(t, actData, test.ShouldResemble, fileContents)
 
 				// Validate file no longer exists.
-				test.That(t, len(remainingFiles), test.ShouldEqual, 0)
+				waitUntilNoFiles(additionalPathsDir)
+				test.That(t, len(getAllFileInfos(additionalPathsDir)), test.ShouldEqual, 0)
 			}
 			test.That(t, dmsvc.Close(context.Background()), test.ShouldBeNil)
 		})
@@ -652,6 +661,7 @@ func compareSensorData(t *testing.T, dataType v1.DataType, act []*v1.SensorData,
 type mockDataSyncServiceClient struct {
 	succesfulDCRequests chan *v1.DataCaptureUploadRequest
 	failedDCRequests    chan *v1.DataCaptureUploadRequest
+	fileUploads         chan *mockFileUploadClient
 	fail                *atomic.Bool
 }
 
@@ -673,7 +683,32 @@ func (c mockDataSyncServiceClient) DataCaptureUpload(ctx context.Context, ur *v1
 }
 
 func (c mockDataSyncServiceClient) FileUpload(ctx context.Context, opts ...grpc.CallOption) (v1.DataSyncService_FileUploadClient, error) {
-	return nil, errors.New("not implemented")
+	if c.fail.Load() {
+		return nil, errors.New("oh no error!!")
+	}
+	ret := &mockFileUploadClient{closed: make(chan struct{})}
+	c.fileUploads <- ret
+	return ret, nil
+}
+
+type mockFileUploadClient struct {
+	urs    []*v1.FileUploadRequest
+	closed chan struct{}
+	grpc.ClientStream
+}
+
+func (m *mockFileUploadClient) Send(req *v1.FileUploadRequest) error {
+	m.urs = append(m.urs, req)
+	return nil
+}
+
+func (m *mockFileUploadClient) CloseAndRecv() (*v1.FileUploadResponse, error) {
+	m.closed <- struct{}{}
+	return &v1.FileUploadResponse{}, nil
+}
+
+func (m *mockFileUploadClient) CloseSend() error {
+	return nil
 }
 
 func getTestSyncerConstructorMock(client mockDataSyncServiceClient) datasync.ManagerConstructor {
@@ -695,4 +730,18 @@ func (noop *noopCloudConnectionService) AcquireConnection(ctx context.Context) (
 
 func (noop *noopCloudConnectionService) Close(ctx context.Context) error {
 	return nil
+}
+
+func waitUntilNoFiles(dir string) {
+	totalWait := time.Second * 3
+	waitPerCheck := time.Millisecond * 10
+	iterations := int(totalWait / waitPerCheck)
+	files := getAllFileInfos(dir)
+	for i := 0; i < iterations; i++ {
+		if len(files) == 0 {
+			return
+		}
+		time.Sleep(waitPerCheck)
+		files = getAllFileInfos(dir)
+	}
 }

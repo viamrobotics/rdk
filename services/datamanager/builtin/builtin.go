@@ -530,8 +530,12 @@ func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 		}
 		// If a file was modified within the past lastModifiedMillis seconds, do not sync it (data
 		// may still be being written).
-		timeSinceMod := time.Since(info.ModTime())
-		if timeSinceMod > (time.Duration(lastModifiedMillis)*time.Millisecond) || filepath.Ext(path) == datacapture.FileExt {
+		// TODO: ModTime doesn't use mock clock! How to get around...
+		timeSinceMod := clock.Since(info.ModTime())
+		if timeSinceMod < 0 {
+			timeSinceMod = 0
+		}
+		if timeSinceMod >= (time.Duration(lastModifiedMillis)*time.Millisecond) || filepath.Ext(path) == datacapture.FileExt {
 			filePaths = append(filePaths, path)
 		}
 		return nil
