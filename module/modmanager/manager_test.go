@@ -3,12 +3,13 @@ package modmanager
 import (
 	"context"
 	"os"
-	"os/exec"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
+	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/generic"
@@ -16,6 +17,7 @@ import (
 	"go.viam.com/rdk/config"
 	modmanageroptions "go.viam.com/rdk/module/modmanager/options"
 	"go.viam.com/rdk/resource"
+	rtestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/utils"
 )
 
@@ -25,10 +27,7 @@ func TestModManagerFunctions(t *testing.T) {
 	modExe := utils.ResolveFile("examples/customresources/demos/simplemodule/run.sh")
 
 	// Precompile module to avoid timeout issues when building takes too long.
-	builder := exec.Command("go", "build", ".")
-	builder.Dir = utils.ResolveFile("examples/customresources/demos/simplemodule")
-	out, err := builder.CombinedOutput()
-	test.That(t, string(out), test.ShouldEqual, "")
+	err := rtestutils.BuildInDir("examples/customresources/demos/simplemodule")
 	test.That(t, err, test.ShouldBeNil)
 
 	myCounterModel := resource.NewModel("acme", "demo", "mycounter")
@@ -52,7 +51,7 @@ func TestModManagerFunctions(t *testing.T) {
 
 	mod := &module{name: "test", exe: modExe}
 
-	err = mod.startProcess(ctx, parentAddr, logger)
+	err = mod.startProcess(ctx, parentAddr, nil, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	err = mod.dial(nil)
@@ -215,10 +214,7 @@ func TestModManagerValidation(t *testing.T) {
 	modExe := utils.ResolveFile("examples/customresources/demos/complexmodule/run.sh")
 
 	// Precompile module to avoid timeout issues when building takes too long.
-	builder := exec.Command("go", "build", ".")
-	builder.Dir = utils.ResolveFile("examples/customresources/demos/complexmodule")
-	out, err := builder.CombinedOutput()
-	test.That(t, string(out), test.ShouldEqual, "")
+	err := rtestutils.BuildInDir("examples/customresources/demos/complexmodule")
 	test.That(t, err, test.ShouldBeNil)
 
 	myBaseModel := resource.NewModel("acme", "demo", "mybase")
@@ -285,4 +281,170 @@ func TestModManagerValidation(t *testing.T) {
 
 	err = mgr.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestModuleReloading(t *testing.T) {
+	ctx := context.Background()
+
+	myHelperModel := resource.NewModel("rdk", "test", "helper")
+	rNameMyHelper := generic.Named("myhelper")
+	cfgMyHelper := resource.Config{
+		Name:  "myhelper",
+		API:   generic.API,
+		Model: myHelperModel,
+	}
+	_, err := cfgMyHelper.Validate("test", resource.APITypeComponentName)
+	test.That(t, err, test.ShouldBeNil)
+
+	// This cannot use t.TempDir() as the path it gives on MacOS exceeds module.MaxSocketAddressLength.
+	parentAddr, err := os.MkdirTemp("", "viam-test-*")
+	test.That(t, err, test.ShouldBeNil)
+	defer os.RemoveAll(parentAddr)
+	parentAddr += "/parent.sock"
+
+	exePath := utils.ResolveFile("module/testmodule/testmodule")
+	modCfg := config.Module{
+		Name:    "test-module",
+		ExePath: exePath,
+	}
+
+	t.Run("successful restart", func(t *testing.T) {
+		logger, logs := golog.NewObservedTestLogger(t)
+
+		// Precompile module to avoid timeout issues when building takes too long.
+		test.That(t, rtestutils.BuildInDir("module/testmodule"), test.ShouldBeNil)
+
+		// This test neither uses a resource manager nor asserts anything about
+		// the existence of resources in the graph. Use a dummy
+		// RemoveOrphanedResources function so orphaned resource logic does not
+		// panic.
+		var dummyRemoveOrphanedResourcesCallCount atomic.Uint64
+		dummyRemoveOrphanedResources := func(context.Context, []resource.Name) {
+			dummyRemoveOrphanedResourcesCallCount.Add(1)
+		}
+		mgr := NewManager(parentAddr, logger, modmanageroptions.Options{
+			UntrustedEnv:            false,
+			RemoveOrphanedResources: dummyRemoveOrphanedResources,
+		})
+		err = mgr.Add(ctx, modCfg)
+		test.That(t, err, test.ShouldBeNil)
+
+		// Add helper resource and ensure "echo" works correctly.
+		h, err := mgr.AddResource(ctx, cfgMyHelper, nil)
+		test.That(t, err, test.ShouldBeNil)
+		ok := mgr.IsModularResource(rNameMyHelper)
+		test.That(t, ok, test.ShouldBeTrue)
+
+		resp, err := h.DoCommand(ctx, map[string]interface{}{"command": "echo"})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldNotBeNil)
+		test.That(t, resp["command"], test.ShouldEqual, "echo")
+
+		// Run 'kill_module' command through helper resource to cause module to exit
+		// with error. Assert that after module is restarted, helper is modularly
+		// managed again and remains functional.
+		_, err = h.DoCommand(ctx, map[string]interface{}{"command": "kill_module"})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring,
+			"error reading from server")
+
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			test.That(tb, logs.FilterMessageSnippet("module successfully restarted").Len(),
+				test.ShouldEqual, 1)
+		})
+
+		ok = mgr.IsModularResource(rNameMyHelper)
+		test.That(t, ok, test.ShouldBeTrue)
+		resp, err = h.DoCommand(ctx, map[string]interface{}{"command": "echo"})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldNotBeNil)
+		test.That(t, resp["command"], test.ShouldEqual, "echo")
+
+		err = mgr.Close(ctx)
+		test.That(t, err, test.ShouldBeNil)
+
+		// Assert that logs reflect that test-module crashed and there were no
+		// errors during restart.
+		test.That(t, logs.FilterMessageSnippet("module has unexpectedly exited").Len(),
+			test.ShouldEqual, 1)
+		test.That(t, logs.FilterMessageSnippet("error while restarting crashed module").Len(),
+			test.ShouldEqual, 0)
+
+		// Assert that RemoveOrphanedResources was called once.
+		test.That(t, dummyRemoveOrphanedResourcesCallCount.Load(), test.ShouldEqual, 1)
+	})
+	t.Run("unsuccessful restart", func(t *testing.T) {
+		logger, logs := golog.NewObservedTestLogger(t)
+
+		// Precompile module to avoid timeout issues when building takes too long.
+		test.That(t, rtestutils.BuildInDir("module/testmodule"), test.ShouldBeNil)
+
+		// This test neither uses a resource manager nor asserts anything about
+		// the existence of resources in the graph. Use a dummy
+		// RemoveOrphanedResources function so orphaned resource logic does not
+		// panic.
+		var dummyRemoveOrphanedResourcesCallCount atomic.Uint64
+		dummyRemoveOrphanedResources := func(context.Context, []resource.Name) {
+			dummyRemoveOrphanedResourcesCallCount.Add(1)
+		}
+		mgr := NewManager(parentAddr, logger, modmanageroptions.Options{
+			UntrustedEnv:            false,
+			RemoveOrphanedResources: dummyRemoveOrphanedResources,
+		})
+		err = mgr.Add(ctx, modCfg)
+		test.That(t, err, test.ShouldBeNil)
+
+		// Add helper resource and ensure "echo" works correctly.
+		h, err := mgr.AddResource(ctx, cfgMyHelper, nil)
+		test.That(t, err, test.ShouldBeNil)
+		ok := mgr.IsModularResource(rNameMyHelper)
+		test.That(t, ok, test.ShouldBeTrue)
+
+		resp, err := h.DoCommand(ctx, map[string]interface{}{"command": "echo"})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldNotBeNil)
+		test.That(t, resp["command"], test.ShouldEqual, "echo")
+
+		// Remove testmodule binary, so process cannot be successfully restarted
+		// after crash. Also lower oueRestartInterval so attempted restarts happen
+		// at faster rate.
+		err = os.Remove(exePath)
+		test.That(t, err, test.ShouldBeNil)
+		oueRestartInterval = 10 * time.Millisecond
+
+		// Run 'kill_module' command through helper resource to cause module to
+		// exit with error. Assert that after three restart errors occur, helper is
+		// not modularly managed and commands return error.
+		_, err = h.DoCommand(ctx, map[string]interface{}{"command": "kill_module"})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring,
+			"error reading from server")
+
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			test.That(tb, logs.FilterMessageSnippet("error while restarting crashed module").Len(),
+				test.ShouldEqual, 3)
+		})
+
+		ok = mgr.IsModularResource(rNameMyHelper)
+		test.That(t, ok, test.ShouldBeFalse)
+		_, err = h.DoCommand(ctx, map[string]interface{}{"command": "echo"})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring,
+			"connection is closing")
+
+		err = mgr.Close(ctx)
+		test.That(t, err, test.ShouldBeNil)
+
+		// Assert that logs reflect that test-module crashed and was not
+		// successfully restarted.
+		test.That(t, logs.FilterMessageSnippet("module has unexpectedly exited").Len(),
+			test.ShouldEqual, 1)
+		test.That(t, logs.FilterMessageSnippet("module successfully restarted").Len(),
+			test.ShouldEqual, 0)
+
+		// Assert that RemoveOrphanedResources was called once.
+		test.That(t, dummyRemoveOrphanedResourcesCallCount.Load(), test.ShouldEqual, 1)
+	})
 }
