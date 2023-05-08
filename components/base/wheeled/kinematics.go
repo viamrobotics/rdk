@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"math"
-	"time"
 
 	"github.com/golang/geo/r3"
 	"go.viam.com/rdk/components/base"
@@ -98,9 +97,10 @@ func (kwb *kinematicWheeledBase) GoToInputs(ctx context.Context, inputs []refere
 		if !ok {
 			return 0, 0, errors.New("can't interpret transformable as a pose in frame")
 		}
-		headingErr := delta.Pose().Orientation().OrientationVectorDegrees().Theta
+		heading := math.Mod(delta.Pose().Orientation().OrientationVectorDegrees().Theta, 360)
+		headingErr := math.Min(heading, 360-heading)
 		positionErr := int(1000 * delta.Pose().Point().Norm())
-		kwb.logger.Warnf("POSITION ERROR: \t%f MM\tHEADING ERROR: \t%f DEGREES", positionErr, headingErr)
+		kwb.logger.Warnf("POSITION ERROR: \t%d MM\tHEADING ERROR: \t%f DEGREES", positionErr, headingErr)
 		return positionErr, headingErr, nil
 	}
 
@@ -118,26 +118,27 @@ func (kwb *kinematicWheeledBase) GoToInputs(ctx context.Context, inputs []refere
 		// If heading is ok, go forward
 		// Otherwise spin until base is heading correct way
 		// TODO make a threshold
-		if math.Abs(headingErr) > headingThresholdDegrees {
-			// TODO (rh) create context with cancel
-			// TODO use a speed that is not garbage
-			if err := kwb.Spin(ctx, headingErr, 5, nil); err != nil {
-				return err
-			}
-		} else {
-			if err := kwb.MoveStraight(ctx, positionErr, 300, nil); err != nil {
-				return err
-			}
+		// if math.Abs(headingErr) > headingThresholdDegrees {
+		// 	// TODO (rh) create context with cancel
+		// 	// TODO use a speed that is not garbage
+		// 	if err := kwb.Spin(ctx, -headingErr, 5, nil); err != nil {
+		// 		return err
+		// 	}
+		// } else {
+		// 	if err := kwb.MoveStraight(ctx, -positionErr, 300, nil); err != nil {
+		// 		return err
+		// 	}
 
-		}
+		// }
 
 		positionErr, headingErr, err = errorState()
 		if err != nil {
 			return err
 		}
-
-		time.Sleep(time.Second)
 	}
+
+	_ = positionErr
+	_ = headingErr
 	return nil
 }
 
