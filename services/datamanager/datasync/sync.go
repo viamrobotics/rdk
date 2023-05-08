@@ -4,6 +4,7 @@ package datasync
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"strings"
 	"sync"
@@ -151,6 +152,7 @@ func (s *syncer) syncDataCaptureFile(f *datacapture.File) {
 }
 
 func (s *syncer) syncArbitraryFile(f *os.File, tags []string) {
+	log.Println("syncing arb file")
 	uploadErr := exponentialRetry(
 		s.cancelCtx,
 		func(ctx context.Context) error {

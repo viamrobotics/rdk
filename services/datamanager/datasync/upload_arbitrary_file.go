@@ -3,6 +3,7 @@ package datasync
 import (
 	"context"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 
@@ -26,6 +27,9 @@ func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, f
 		FileExtension: filepath.Ext(f.Name()),
 		Tags:          tags,
 	}
+
+	log.Println("metadata")
+	log.Println(md)
 
 	// Send metadata FileUploadRequest.
 	req := &v1.FileUploadRequest{

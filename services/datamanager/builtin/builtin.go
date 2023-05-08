@@ -73,6 +73,7 @@ type Config struct {
 	SyncIntervalMins      float64                          `json:"sync_interval_mins"`
 	CaptureDisabled       bool                             `json:"capture_disabled"`
 	ScheduledSyncDisabled bool                             `json:"sync_disabled"`
+	Tags                  []string                         `json:"tags"`
 	ResourceConfigs       []*datamanager.DataCaptureConfig `json:"resource_configs"`
 }
 
@@ -198,6 +199,7 @@ func getDurationFromHz(captureFrequencyHz float32) time.Duration {
 func (svc *builtIn) initializeOrUpdateCollector(
 	md componentMethodMetadata,
 	config *datamanager.DataCaptureConfig,
+	tags []string,
 ) (
 	*collectorAndConfig, error,
 ) {
@@ -207,9 +209,10 @@ func (svc *builtIn) initializeOrUpdateCollector(
 		config.Name.ShortName(),
 		config.Method,
 		config.AdditionalParams,
-		config.Tags,
+		tags,
 	)
-	log.Println(config.Tags)
+
+	log.Println("data capture metadata")
 	log.Println(captureMetadata)
 	if err != nil {
 		return nil, err
@@ -362,10 +365,16 @@ func (svc *builtIn) Reconfigure(
 ) error {
 	svc.lock.Lock()
 	defer svc.lock.Unlock()
+
+	log.Println(conf.ConvertedAttributes)
+
 	svcConfig, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return err
 	}
+
+	log.Println("resource config")
+	//log.Println(svcConfig.ResourceConfigs[0])
 
 	cloudConnSvc, err := resource.FromDependencies[cloud.ConnectionService](deps, cloud.InternalServiceName)
 	if err != nil {
@@ -415,7 +424,7 @@ func (svc *builtIn) Reconfigure(
 					MethodParams:   fmt.Sprintf("%v", resConf.AdditionalParams),
 				}
 
-				newCollectorAndConfig, err := svc.initializeOrUpdateCollector(componentMethodMetadata, resConf)
+				newCollectorAndConfig, err := svc.initializeOrUpdateCollector(componentMethodMetadata, resConf, svcConfig.Tags)
 				if err != nil {
 					svc.logger.Errorw("failed to initialize or update collector", "error", err)
 				} else {
@@ -431,9 +440,12 @@ func (svc *builtIn) Reconfigure(
 			collAndConfig.Collector.Close()
 		}
 	}
+
 	svc.collectors = newCollectors
 	svc.additionalSyncPaths = svcConfig.AdditionalSyncPaths
 	svc.additionalTags = svcConfig.AdditionalTags
+
+	log.Println("additional tags")
 	log.Println(svc.additionalTags)
 
 	if svc.syncDisabled != svcConfig.ScheduledSyncDisabled || svc.syncIntervalMins != svcConfig.SyncIntervalMins {
@@ -516,8 +528,12 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 }
 
 func (svc *builtIn) sync() {
+	log.Println("SYNCING")
 	svc.flushCollectors()
 	captureToSync := getAllFilesToSync(svc.captureDir, svc.waitAfterLastModifiedMillis)
+	for _, p := range captureToSync {
+		svc.syncer.SyncFile(p, nil)
+	}
 
 	for index, ap := range svc.additionalSyncPaths {
 		arbitraryFilestoSync := getAllFilesToSync(ap, svc.waitAfterLastModifiedMillis)
@@ -526,9 +542,7 @@ func (svc *builtIn) sync() {
 			svc.syncer.SyncFile(ap, svc.additionalTags[index])
 		}
 	}
-	for _, p := range captureToSync {
-		svc.syncer.SyncFile(p, nil)
-	}
+
 }
 
 // nolint

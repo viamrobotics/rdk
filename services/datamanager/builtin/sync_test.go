@@ -398,9 +398,9 @@ func TestArbitraryFileUpload(t *testing.T) {
 			cfg.ScheduledSyncDisabled = tc.scheduleSyncDisabled
 			cfg.SyncIntervalMins = syncIntervalMins
 			cfg.AdditionalSyncPaths = []string{additionalPathsDir}
-			svcConfig.AdditionalTags = make([][]string, 1)
+			cfg.AdditionalTags = make([][]string, 1)
 			tags := []string{"a", "b"}
-			svcConfig.AdditionalTags[0] = tags
+			cfg.AdditionalTags[0] = tags
 			cfg.CaptureDir = captureDir
 
 			// Start dmsvc.
