@@ -6,7 +6,7 @@ concurrency:
 on:
   workflow_dispatch:
   push:
-    branches: [ main ]
+    branches: [ rc-workflows ] # SMURF revert after testing
     paths-ignore:
       - 'README.md'
 

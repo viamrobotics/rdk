@@ -6,7 +6,7 @@ concurrency:
 on:
   push:
     tags:
-      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'SMURFv[0-9]+.[0-9]+.[0-9]+'
 
 env:
   RELEASE_TYPE: "stable"
