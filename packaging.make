@@ -3,7 +3,7 @@ BUILD_CHANNEL?=local
 appimage: NO_UPX=1
 appimage: server-static
 	cd etc/packaging/appimages && BUILD_CHANNEL=${BUILD_CHANNEL} appimage-builder --recipe viam-server-`uname -m`.yml
-	if [ "${RELEASE_TYPE}" == "stable" ]; then \
+	if [ "${RELEASE_TYPE}" = "stable" ]; then \
 		cd etc/packaging/appimages && BUILD_CHANNEL=stable appimage-builder --recipe viam-server-`uname -m`.yml; \
 		cd etc/packaging/appimages && BUILD_CHANNEL=latest appimage-builder --recipe viam-server-`uname -m`.yml; \
 	fi
@@ -27,7 +27,7 @@ static-release: server-static
 	rm -rf etc/packaging/static/deploy/
 	mkdir -p etc/packaging/static/deploy/
 	cp $(BIN_OUTPUT_PATH)/viam-server etc/packaging/static/deploy/viam-server-${BUILD_CHANNEL}-`uname -m`
-	if [ "${RELEASE_TYPE}" == "stable" ]; then \
+	if [ "${RELEASE_TYPE}" = "stable" ]; then \
 		cp $(BIN_OUTPUT_PATH)/viam-server etc/packaging/static/deploy/viam-server-stable-`uname -m`; \
 		cp $(BIN_OUTPUT_PATH)/viam-server etc/packaging/static/deploy/viam-server-latest-`uname -m`; \
 	fi
