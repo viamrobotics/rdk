@@ -67,6 +67,13 @@ jobs:
         parent: false
         gzip: false
 
+    - name: Build (Latest)
+      id: build_test_binary
+      if: env.RELEASE_TYPE == "latest"
+      run: |
+        echo "date=`date +%F`" >> $GITHUB_OUTPUT
+        sudo -Hu testbot bash -lc 'make BUILD_CHANNEL="latest" static-release'
+
     - name: Build (Tagged)
       id: build_test_binary
       if: env.RELEASE_TYPE == "stable" || env.RELEASE_TYPE == "rc"

@@ -69,7 +69,7 @@ jobs:
 
     - name: Build and Package (Latest)
       id: build_test_app
-      if: ${{ env.RELEASE_TYPE }} == "latest"
+      if: env.RELEASE_TYPE == "latest"
       run: |
         echo "date=`date +%F`" >> $GITHUB_OUTPUT
         sudo -Hu testbot bash -lc 'make BUILD_CHANNEL="latest" appimage'
