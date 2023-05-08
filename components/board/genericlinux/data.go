@@ -1,7 +1,6 @@
 package genericlinux
 
 import (
-	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -102,18 +101,10 @@ func getCompatiblePinDefs(modelName string, boardInfoMappings map[string]BoardIn
 	var compatibles utils.StringSet
 	var err error
 
-	arch := rdkutils.GetArchitectureInfo()
+	compatibles, err = rdkutils.GetArchitectureInfo(modelName)
 
-	if arch == "amd64" {
-		compatibles, err = stringSetFromX86(modelName)
-		if err != nil {
-			return nil, fmt.Errorf("search for Pindefinition ended with %w ", err)
-		}
-	} else {
-		compatibles, err = stringSetFromARM(modelName)
-		if err != nil {
-			return nil, fmt.Errorf("search for Pindefinition ended with %w ", err)
-		}
+	if err != nil {
+		return nil, fmt.Errorf("error while getting hardware info %w", err)
 	}
 
 	var pinDefs []PinDefinition
@@ -130,40 +121,6 @@ func getCompatiblePinDefs(modelName string, boardInfoMappings map[string]BoardIn
 		return nil, noBoardError(modelName)
 	}
 	return pinDefs, nil
-}
-
-// A helper function for ARM architecture to process contents of a
-// given content of a file from os.ReadFile.
-func stringSetFromARM(modelName string) (utils.StringSet, error) {
-	path := "/proc/device-tree/compatible"
-	compatiblesRd, err := os.ReadFile(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, noBoardError(modelName)
-		}
-		return nil, err
-	}
-
-	return utils.NewStringSet(strings.Split(string(compatiblesRd), "\x00")...), nil
-}
-
-// A helper function for X86 architecture to process contents of a
-// given content of a file from os.ReadFile.
-func stringSetFromX86(modelName string) (utils.StringSet, error) {
-	path := "/sys/devices/virtual/dmi/id/board_name"
-	compatiblesRd, err := os.ReadFile(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, noBoardError(modelName)
-		}
-		return nil, err
-	}
-
-	// Remove whitespace and null characters from the content
-	compatiblesRd = bytes.TrimSpace(compatiblesRd)
-	compatiblesRd = bytes.ReplaceAll(compatiblesRd, []byte{0x00}, []byte{})
-
-	return utils.NewStringSet(string(compatiblesRd)), nil
 }
 
 // A helper function: we read the contents of filePath and return its integer value.
