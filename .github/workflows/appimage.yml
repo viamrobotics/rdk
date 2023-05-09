@@ -100,12 +100,12 @@ jobs:
 
   output_summary:
     name: Output Summary
-      runs-on: ubuntu-latest
-      needs: appimage
-      if: contains(github.event.pull_request.labels.*.name, 'appimage') || contains(github.event.pull_request.labels.*.name, 'appimage-ignore-tests')
-      steps:
-      - name: Display Download Links
-        run: |
+    runs-on: ubuntu-latest
+    needs: appimage
+    if: contains(github.event.pull_request.labels.*.name, 'appimage') || contains(github.event.pull_request.labels.*.name, 'appimage-ignore-tests')
+    steps:
+    - name: Display Download Links
+      run: |
         channel="pr-${{ github.event.pull_request.number }}"
         echo "### Built AppImages for ${channel}" >> $GITHUB_STEP_SUMMARY
         echo "- arm64: https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-${channel}-aarch64.AppImage" >> $GITHUB_STEP_SUMMARY
