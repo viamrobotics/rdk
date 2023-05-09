@@ -421,9 +421,6 @@ func (ua *URArm) MoveToJointPositionRadians(ctx context.Context, radians []float
 	retried := false
 	slept := 0
 	for {
-		if err := ctx.Err(); err != nil {
-			return ua.Stop(ctx, nil)
-		}
 		good := true
 		state, err := ua.State()
 		if err != nil {
