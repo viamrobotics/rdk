@@ -14,12 +14,12 @@
     }
   },
   "peerDependencies": {
-    "@viamrobotics/prime": "^0.2.0",
-    "@improbable-eng/grpc-web": "^0.15.0",
-    "@viamrobotics/rpc": "^0.1.36",
+    "@viamrobotics/prime": "~0.2.*",
+    "@improbable-eng/grpc-web": "~0.15.*",
+    "@viamrobotics/rpc": "~0.1.*",
     "@viamrobotics/sdk": "^0.0.56",
-    "google-protobuf": "^3.21.2",
-    "three": "^0.152.2",
+    "google-protobuf": "~3.*.*",
+    "three": "~0.152.*",
     "trzy": "^0.0.44"
   },
   "dependencies": {},
