@@ -6,7 +6,7 @@ concurrency:
 
 on:
   pull_request_target:
-    branches: [ rc-workflows ] #SMURF
+    branches: [ main ]
     types: [ closed ]
 
 jobs:
