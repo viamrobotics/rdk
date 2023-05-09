@@ -71,6 +71,15 @@ jobs:
         parent: false
         gzip: false
 
+    - name: Output Summary
+      if: contains(github.event.pull_request.labels.*.name, 'static-build') || contains(github.event.pull_request.labels.*.name, 'static-ignore-tests')
+      run: |
+        channel="pr-${{ github.event.pull_request.number }}"
+        echo "### Built Static Binaries for ${channel}"" >> $GITHUB_STEP_SUMMARY
+        echo "- arm64: https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-${channel}-aarch64" >> $GITHUB_STEP_SUMMARY
+        echo "- x86_64: https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-${channel}-x86_64" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
     - name: Build (Latest)
       id: build_test_latest
       if: inputs.release_type == 'latest'
@@ -160,3 +169,15 @@ jobs:
     - name: Publish Static Binary
       run: |
         gsutil mv "gs://packages.viam.com/apps/viam-server/testing/static/${{ needs.static_test.outputs.date }}/${{ github.sha }}/*" "gs://packages.viam.com/apps/viam-server/SMURF/"
+
+    - name: Output Summary
+      run: |
+        channel="${{ github.ref_name }}"
+        # we call our main branch releases "latest"
+        if [ "$channel" == "rc-workflows" ]; then #SMURF
+          channel="latest"
+        fi
+        echo "### Built Static Binaries for ${channel}"" >> $GITHUB_STEP_SUMMARY
+        echo "- arm64: https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-${channel}-aarch64" >> $GITHUB_STEP_SUMMARY
+        echo "- x86_64: https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-${channel}-x86_64" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
