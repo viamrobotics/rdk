@@ -71,15 +71,6 @@ jobs:
         parent: false
         gzip: false
 
-    - name: Output Summary
-      if: contains(github.event.pull_request.labels.*.name, 'static-build') || contains(github.event.pull_request.labels.*.name, 'static-ignore-tests')
-      run: |
-        channel="pr-${{ github.event.pull_request.number }}"
-        echo "### Built Static Binaries for ${channel}" >> $GITHUB_STEP_SUMMARY
-        echo "- arm64: https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-${channel}-aarch64" >> $GITHUB_STEP_SUMMARY
-        echo "- x86_64: https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-${channel}-x86_64" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-
     - name: Build (Latest)
       id: build_test_latest
       if: inputs.release_type == 'latest'
@@ -106,6 +97,20 @@ jobs:
         glob: 'viam-server-*'
         parent: false
         gzip: false
+
+  output_summary:
+    name: Output Summary
+    runs-on: ubuntu-latest
+    needs: static
+    if: contains(github.event.pull_request.labels.*.name, 'static-build') || contains(github.event.pull_request.labels.*.name, 'static-ignore-tests')
+    steps:
+      - name: Output Summary
+        run: |
+          channel="pr-${{ github.event.pull_request.number }}"
+          echo "### Built Static Binaries for ${channel}" >> $GITHUB_STEP_SUMMARY
+          echo "- arm64: https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-${channel}-aarch64" >> $GITHUB_STEP_SUMMARY
+          echo "- x86_64: https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-${channel}-x86_64" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
 
   static_test:
     name: Static Test
