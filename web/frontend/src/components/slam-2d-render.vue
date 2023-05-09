@@ -21,6 +21,7 @@ const pointsRenderOrder = 3;
 const axesHelperRenderOrder = 2;
 const gridHelperRenderOrder = 1;
 
+const cameraScale = 25;
 const aspectInverse = 4;
 const initialPointSize = 4;
 
@@ -112,7 +113,6 @@ controls.enableRotate = false;
 controls.screenSpacePanning = true;
 
 const scaleObjects = () => {
-  const cameraScale = 25;
   const { zoom } = camera;
 
   if (pointsMaterial) {
