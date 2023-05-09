@@ -1,4 +1,4 @@
-name: Release Stable
+name: Build and Publish Stable
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

@@ -1,4 +1,4 @@
-name: Release Candidate
+name: Build and Publish RC
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
