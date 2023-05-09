@@ -480,6 +480,9 @@ func (ua *URArm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, err
 
 // GoToInputs TODO.
 func (ua *URArm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
+	if ctx.Err() != nil {
+		return ua.Stop(ctx, nil)
+	}
 	// check that joint positions are not out of bounds
 	positionDegs := ua.model.ProtobufFromInput(goal)
 	if err := arm.CheckDesiredJointPositions(ctx, ua, positionDegs.Values); err != nil {
