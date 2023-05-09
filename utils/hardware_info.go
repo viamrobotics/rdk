@@ -51,7 +51,6 @@ func stringSetFromX86(modelName string) (utils.StringSet, error) {
 		return nil, err
 	}
 
-	// Remove whitespace and null characters from the content
 	compatiblesRd = bytes.TrimSpace(compatiblesRd)
 	compatiblesRd = bytes.ReplaceAll(compatiblesRd, []byte{0x00}, []byte{})
 

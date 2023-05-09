@@ -1,6 +1,7 @@
 // Package upboard implements an Intel based board.
 package upboard
 
+// This is experimental
 /*
 	Datasheet: https://github.com/up-board/up-community/wiki/Pinout_UP4000
 	Supported board: UP4000
@@ -27,5 +28,6 @@ func init() {
 		golog.Global().Debugw("error getting up board GPIO board mapping", "error", err)
 	}
 
+	// Not using Periph io for GPIO
 	genericlinux.RegisterBoard(modelName, gpioMappings, false)
 }
