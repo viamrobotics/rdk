@@ -85,7 +85,7 @@ const loader = new PCDLoader();
 
 const container = $ref<HTMLElement>();
 
-const { scene, renderer, canvas, start, stop, setCamera } = threeInstance({
+const { scene, renderer, canvas, start, stop, setCamera, update } = threeInstance({
   parameters: {
     antialias: true,
   },
@@ -111,16 +111,6 @@ destMarker.visible = false;
 const controls = new MapControls(camera, canvas);
 controls.enableRotate = false;
 controls.screenSpacePanning = true;
-
-const scaleObjects = () => {
-  const { zoom } = camera;
-
-  if (pointsMaterial) {
-    pointsMaterial.size = zoom * cameraScale;
-  }
-};
-
-controls.addEventListener('change', scaleObjects);
 
 const raycaster = new MouseRaycaster({ camera, renderer, recursive: false });
 
@@ -298,7 +288,16 @@ const updatePointCloud = (pointcloud: Uint8Array) => {
   updateOrRemoveDestinationMarker();
 };
 
+let removeUpdate: (() => void) | undefined;
+
 onMounted(() => {
+  removeUpdate = update(() => {
+    const { zoom } = camera;
+
+    if (pointsMaterial) {
+      pointsMaterial.size = zoom * cameraScale;
+    }
+  });
   container?.append(canvas);
 
   start();
@@ -316,6 +315,7 @@ onMounted(() => {
 onUnmounted(() => {
   stop();
   disposeScene();
+  removeUpdate?.();
 });
 
 watch(() => [props.destVector!.x, props.destVector!.y, props.destExists], updateOrRemoveDestinationMarker);
