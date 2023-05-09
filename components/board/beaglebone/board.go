@@ -22,5 +22,6 @@ func init() {
 		golog.Global().Debugw("error getting beaglebone GPIO board mapping", "error", err)
 	}
 
-	genericlinux.RegisterBoard(modelName, gpioMappings, true)
+	// The false on this line means we're not using Periph. This lets us enable hardware PWM pins.
+	genericlinux.RegisterBoard(modelName, gpioMappings, false)
 }

@@ -12,6 +12,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	goutils "go.viam.com/utils"
 )
 
 // There are times when we need to set the period to some value, any value. It must be a positive
@@ -81,10 +82,11 @@ func (pwm *pwmDevice) unexport() error {
 	}
 
 	// If we unexport the pin while it is enabled, it might continue outputting a PWM signal,
-	// causing trouble if you start using the pin for something else.
-	if err := pwm.disable(); err != nil {
-		return err
-	}
+	// causing trouble if you start using the pin for something else. So, we need to disable it.
+	// However, on certain boards (e.g., the Beaglebone AI64), disabling an already-disabled PWM
+	// device results in an error. We don't care if there's an error: it should be disabled no
+	// matter what.
+	goutils.UncheckedError(pwm.disable())
 	if err := pwm.writeChip("unexport", uint64(pwm.line)); err != nil {
 		return err
 	}
