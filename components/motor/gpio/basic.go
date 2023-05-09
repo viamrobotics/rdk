@@ -276,6 +276,7 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 		return motor.NewZeroRPMError()
 	case m.maxRPM > 0 && speed > m.maxRPM-0.1:
 		m.logger.Warnf("motor speed is nearly the max rev_per_min (%f)", m.maxRPM)
+	default:
 	}
 
 	powerPct, waitDur := goForMath(m.maxRPM, rpm, revolutions)

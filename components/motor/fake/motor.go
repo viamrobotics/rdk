@@ -91,7 +91,7 @@ type Motor struct {
 	PWM               board.GPIOPin
 	PositionReporting bool
 	Encoder           fake.Encoder
-	MaxRPM            float64
+	maxRPM            float64
 	DirFlip           bool
 	TicksPerRotation  int
 
@@ -123,11 +123,11 @@ func (m *Motor) Reconfigure(ctx context.Context, deps resource.Dependencies, con
 			}
 		}
 	}
-	m.MaxRPM = newConf.MaxRPM
+	m.maxRPM = newConf.MaxRPM
 
-	if m.MaxRPM == 0 {
+	if m.maxRPM == 0 {
 		m.Logger.Infof("Max RPM not provided to a fake motor, defaulting to %v", defaultMaxRpm)
-		m.MaxRPM = defaultMaxRpm
+		m.maxRPM = defaultMaxRpm
 	}
 
 	if newConf.Encoder != "" {
@@ -195,7 +195,7 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string
 			return errors.New("need positive nonzero TicksPerRotation")
 		}
 
-		newSpeed := (m.MaxRPM * m.powerPct) * float64(m.TicksPerRotation)
+		newSpeed := (m.maxRPM * m.powerPct) * float64(m.TicksPerRotation)
 		err := m.Encoder.SetSpeed(ctx, newSpeed)
 		if err != nil {
 			return err
@@ -262,11 +262,12 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 	case speed < 0.1:
 		m.Logger.Warn("motor speed is nearly 0 rev_per_min")
 		return motor.NewZeroRPMError()
-	case m.MaxRPM > 0 && speed > m.MaxRPM-0.1:
-		m.Logger.Warnf("motor speed is nearly the max rev_per_min (%f)", m.MaxRPM)
+	case m.maxRPM > 0 && speed > m.maxRPM-0.1:
+		m.Logger.Warnf("motor speed is nearly the max rev_per_min (%f)", m.maxRPM)
+	default:
 	}
 
-	powerPct, waitDur, dir := goForMath(m.MaxRPM, rpm, revolutions)
+	powerPct, waitDur, dir := goForMath(m.maxRPM, rpm, revolutions)
 
 	var finalPos float64
 	if m.Encoder != nil {
@@ -308,8 +309,9 @@ func (m *Motor) GoTo(ctx context.Context, rpm, pos float64, extra map[string]int
 	switch speed := math.Abs(rpm); {
 	case speed < 0.1:
 		m.Logger.Warn("motor speed is nearly 0 rev_per_min")
-	case m.MaxRPM > 0 && speed > m.MaxRPM-0.1:
-		m.Logger.Warnf("motor speed is nearly the max rev_per_min (%f)", m.MaxRPM)
+	case m.maxRPM > 0 && speed > m.maxRPM-0.1:
+		m.Logger.Warnf("motor speed is nearly the max rev_per_min (%f)", m.maxRPM)
+	default:
 	}
 
 	curPos, err := m.Position(ctx, nil)
@@ -322,7 +324,7 @@ func (m *Motor) GoTo(ctx context.Context, rpm, pos float64, extra map[string]int
 
 	revolutions := pos - curPos
 
-	powerPct, waitDur, _ := goForMath(m.MaxRPM, math.Abs(rpm), revolutions)
+	powerPct, waitDur, _ := goForMath(m.maxRPM, math.Abs(rpm), revolutions)
 
 	err = m.SetPower(ctx, powerPct, nil)
 	if err != nil {

@@ -54,7 +54,7 @@ type Motor struct {
 	c                *controller
 	Axis             string
 	TicksPerRotation int
-	MaxRPM           float64
+	maxRPM           float64
 	MaxAcceleration  float64
 	HomeRPM          float64
 	jogging          bool
@@ -149,14 +149,14 @@ func NewMotor(ctx context.Context, c *Config, name resource.Name, logger golog.L
 		c:                ctrl,
 		Axis:             c.Axis,
 		TicksPerRotation: c.TicksPerRotation,
-		MaxRPM:           c.MaxRPM,
+		maxRPM:           c.MaxRPM,
 		MaxAcceleration:  c.MaxAcceleration,
 		HomeRPM:          c.HomeRPM,
 		powerPct:         0.0,
 	}
 
-	if m.MaxRPM <= 0 {
-		m.MaxRPM = 1000 // arbitrary high value
+	if m.maxRPM <= 0 {
+		m.maxRPM = 1000 // arbitrary high value
 	}
 
 	if m.MaxAcceleration <= 0 {
@@ -164,7 +164,7 @@ func NewMotor(ctx context.Context, c *Config, name resource.Name, logger golog.L
 	}
 
 	if m.HomeRPM <= 0 {
-		m.HomeRPM = m.MaxRPM / 4
+		m.HomeRPM = m.maxRPM / 4
 	}
 
 	if err := m.configure(c); err != nil {
@@ -395,8 +395,8 @@ func (c *controller) sendCmd(cmd string) (string, error) {
 // Convert rpm to DMC4000 counts/sec.
 func (m *Motor) rpmToV(rpm float64) int {
 	rpm = math.Abs(rpm)
-	if rpm > m.MaxRPM {
-		rpm = m.MaxRPM
+	if rpm > m.maxRPM {
+		rpm = m.maxRPM
 	}
 	speed := rpm * float64(m.TicksPerRotation) / 60
 
@@ -447,12 +447,13 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string
 	case pow < 0.1:
 		m.c.logger.Warn("motor speed is nearly 0 rev_per_min")
 		return m.Stop(ctx, extra)
-	case m.MaxRPM > 0 && pow*m.MaxRPM > m.MaxRPM-0.1:
-		m.c.logger.Warnf("motor speed is nearly the max rev_per_min (%f)", m.MaxRPM)
+	case m.maxRPM > 0 && pow*m.maxRPM > m.maxRPM-0.1:
+		m.c.logger.Warnf("motor speed is nearly the max rev_per_min (%f)", m.maxRPM)
+	default:
 	}
 
 	m.powerPct = powerPct
-	return m.Jog(ctx, powerPct*m.MaxRPM)
+	return m.Jog(ctx, powerPct*m.maxRPM)
 }
 
 // Jog moves indefinitely at the specified RPM.
@@ -499,8 +500,9 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 	case speed < 0.1:
 		m.c.logger.Warn("motor speed is nearly 0 rev_per_min")
 		return motor.NewZeroRPMError()
-	case m.MaxRPM > 0 && speed > m.MaxRPM-0.1:
-		m.c.logger.Warnf("motor speed is nearly the max rev_per_min (%f)", m.MaxRPM)
+	case m.maxRPM > 0 && speed > m.maxRPM-0.1:
+		m.c.logger.Warnf("motor speed is nearly the max rev_per_min (%f)", m.maxRPM)
+	default:
 	}
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
@@ -787,8 +789,9 @@ func (m *Motor) doGoTo(rpm, position float64) error {
 	switch speed := math.Abs(rpm); {
 	case speed < 0.1:
 		m.c.logger.Warn("motor speed is nearly 0 rev_per_min")
-	case m.MaxRPM > 0 && speed > m.MaxRPM-0.1:
-		m.c.logger.Warnf("motor speed is nearly the max rev_per_min (%f)", m.MaxRPM)
+	case m.maxRPM > 0 && speed > m.maxRPM-0.1:
+		m.c.logger.Warnf("motor speed is nearly the max rev_per_min (%f)", m.maxRPM)
+	default:
 	}
 
 	// Speed

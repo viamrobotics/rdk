@@ -562,6 +562,7 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions float
 		return motor.NewZeroRPMError()
 	case m.cfg.MaxRPM > 0 && speed > m.cfg.MaxRPM-0.1:
 		m.logger.Warnf("motor speed is nearly the max rev_per_min (%f)", m.cfg.MaxRPM)
+	default:
 	}
 
 	m.stateMu.Lock()

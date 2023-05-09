@@ -423,6 +423,7 @@ func (m *Motor) doJog(ctx context.Context, rpm float64) error {
 		m.logger.Warn("motor speed is nearly 0 rev_per_min")
 	case m.maxRPM > 0 && speed0 > m.maxRPM:
 		m.logger.Warnf("motor speed is nearly the max rev_per_min (%f)", m.maxRPM)
+	default:
 	}
 
 	speed := m.rpmToV(math.Abs(rpm))
@@ -491,6 +492,7 @@ func (m *Motor) GoTo(ctx context.Context, rpm, positionRevolutions float64, extr
 		m.logger.Warn("motor speed is nearly 0 rev_per_min")
 	case m.maxRPM > 0 && speed > m.maxRPM-0.1:
 		m.logger.Warnf("motor speed is nearly the max rev_per_min (%f)", m.maxRPM)
+	default:
 	}
 
 	err := multierr.Combine(

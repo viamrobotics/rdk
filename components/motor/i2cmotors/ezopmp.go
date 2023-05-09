@@ -277,6 +277,7 @@ func (m *Ezopmp) GoFor(ctx context.Context, mLPerMin, mins float64, extra map[st
 		return motor.NewZeroRPMError()
 	case m.maxFlowRate > 0 && speed > m.maxFlowRate-0.1:
 		m.logger.Warnf("motor speed is nearly the max rev_per_min (%f)", m.maxFlowRate)
+	default:
 	}
 
 	ctx, done := m.opMgr.New(ctx)
