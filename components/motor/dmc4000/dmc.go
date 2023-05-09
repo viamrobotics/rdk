@@ -445,10 +445,10 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string
 
 	switch pow := math.Abs(powerPct); {
 	case pow < 0.1:
-		m.c.logger.Warnf("motor (%s) speed is nearly 0 rev_per_min", m.Name())
+		m.c.logger.Warn("motor speed is nearly 0 rev_per_min")
 		return m.Stop(ctx, extra)
-	case pow*m.MaxRPM > m.MaxRPM-0.1:
-		m.c.logger.Warnf("motor (%s) speed is nearly the max rev_per_min (%f)", m.Name(), m.MaxRPM)
+	case m.MaxRPM > 0 && pow*m.MaxRPM > m.MaxRPM-0.1:
+		m.c.logger.Warnf("motor speed is nearly the max rev_per_min (%f)", m.MaxRPM)
 	}
 
 	m.powerPct = powerPct
@@ -497,10 +497,10 @@ func (m *Motor) stopJog() error {
 func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
 	switch speed := math.Abs(rpm); {
 	case speed < 0.1:
-		m.c.logger.Warnf("motor (%s) speed is nearly 0 rev_per_min", m.Name())
+		m.c.logger.Warn("motor speed is nearly 0 rev_per_min")
 		return motor.NewZeroRPMError()
-	case speed > m.MaxRPM-0.1:
-		m.c.logger.Warnf("motor (%s) speed is nearly the max rev_per_min (%f)", m.Name(), m.MaxRPM)
+	case m.MaxRPM > 0 && speed > m.MaxRPM-0.1:
+		m.c.logger.Warnf("motor speed is nearly the max rev_per_min (%f)", m.MaxRPM)
 	}
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
@@ -786,9 +786,9 @@ func (m *Motor) doGoTo(rpm, position float64) error {
 
 	switch speed := math.Abs(rpm); {
 	case speed < 0.1:
-		m.c.logger.Warnf("motor (%s) speed is nearly 0 rev_per_min", m.Name())
-	case speed > m.MaxRPM-0.1:
-		m.c.logger.Warnf("motor (%s) speed is nearly the max rev_per_min (%f)", m.Name(), m.MaxRPM)
+		m.c.logger.Warn("motor speed is nearly 0 rev_per_min")
+	case m.MaxRPM > 0 && speed > m.MaxRPM-0.1:
+		m.c.logger.Warnf("motor speed is nearly the max rev_per_min (%f)", m.MaxRPM)
 	}
 
 	// Speed

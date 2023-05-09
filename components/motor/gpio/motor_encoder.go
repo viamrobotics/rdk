@@ -558,10 +558,10 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions float
 
 	switch speed := math.Abs(rpm); {
 	case speed < 0.1:
-		m.logger.Warnf("motor (%s) speed is nearly 0 rev_per_min", m.Name())
+		m.logger.Warn("motor speed is nearly 0 rev_per_min")
 		return motor.NewZeroRPMError()
-	case speed > m.cfg.MaxRPM-0.1:
-		m.logger.Warnf("motor (%s) speed is nearly the max rev_per_min (%f)", m.Name(), m.cfg.MaxRPM)
+	case m.cfg.MaxRPM > 0 && speed > m.cfg.MaxRPM-0.1:
+		m.logger.Warnf("motor speed is nearly the max rev_per_min (%f)", m.cfg.MaxRPM)
 	}
 
 	m.stateMu.Lock()

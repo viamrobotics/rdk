@@ -273,10 +273,10 @@ func (m *Ezopmp) SetPower(ctx context.Context, powerPct float64, extra map[strin
 func (m *Ezopmp) GoFor(ctx context.Context, mLPerMin, mins float64, extra map[string]interface{}) error {
 	switch speed := math.Abs(mLPerMin); {
 	case speed < 0.1:
-		m.logger.Warnf("motor (%s) speed is nearly 0 rev_per_min", m.Name())
+		m.logger.Warn("motor speed is nearly 0 rev_per_min")
 		return motor.NewZeroRPMError()
-	case speed > m.maxFlowRate-0.1:
-		m.logger.Warnf("motor (%s) speed is nearly the max rev_per_min (%f)", m.Name(), m.maxFlowRate)
+	case m.maxFlowRate > 0 && speed > m.maxFlowRate-0.1:
+		m.logger.Warnf("motor speed is nearly the max rev_per_min (%f)", m.maxFlowRate)
 	}
 
 	ctx, done := m.opMgr.New(ctx)
