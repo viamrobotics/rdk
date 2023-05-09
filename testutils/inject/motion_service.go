@@ -40,8 +40,8 @@ type MotionService struct {
 		heading float64,
 		movementSensorName resource.Name,
 		obstacles []*referenceframe.GeoObstacle,
-		linearVelocity float32,
-		angularVelocity float32,
+		linearVelocity float64,
+		angularVelocity float64,
 		extra map[string]interface{},
 	) (bool, error)
 	MoveSingleComponentFunc func(
@@ -110,14 +110,14 @@ func (mgs *MotionService) MoveOnGlobe(
 	heading float64,
 	movementSensorName resource.Name,
 	obstacles []*referenceframe.GeoObstacle,
-	linearVelocity float32,
-	angularVelocity float32,
+	linearVel float64,
+	angularVel float64,
 	extra map[string]interface{},
 ) (bool, error) {
 	if mgs.MoveOnGlobeFunc == nil {
-		return mgs.Service.MoveOnGlobe(ctx, componentName, destination, heading, movementSensorName, obstacles, linearVelocity, angularVelocity, extra)
+		return mgs.Service.MoveOnGlobe(ctx, componentName, destination, heading, movementSensorName, obstacles, linearVel, angularVel, extra)
 	}
-	return mgs.MoveOnGlobe(ctx, componentName, destination, heading, movementSensorName, obstacles, linearVelocity, angularVelocity, extra)
+	return mgs.MoveOnGlobe(ctx, componentName, destination, heading, movementSensorName, obstacles, linearVel, angularVel, extra)
 }
 
 // MoveSingleComponent calls the injected MoveSingleComponent or the real variant. It uses the same function as Move.

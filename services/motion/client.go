@@ -108,8 +108,8 @@ func (c *client) MoveOnGlobe(
 	heading float64,
 	movementSensorName resource.Name,
 	obstacles []*referenceframe.GeoObstacle,
-	linearVelocity float32,
-	angularVelocity float32,
+	linearVelocity float64,
+	angularVelocity float64,
 	extra map[string]interface{},
 ) (bool, error) {
 	ext, err := vprotoutils.StructToStructPb(extra)
@@ -144,11 +144,13 @@ func (c *client) MoveOnGlobe(
 		}
 		req.Obstacles = obstaclesProto
 	}
-	if !math.IsNaN(float64(linearVelocity)) {
-		req.LinearMetersPerSec = &linearVelocity
+	reqLinear := float32(linearVelocity)
+	if !math.IsNaN(linearVelocity) {
+		req.LinearMetersPerSec = &reqLinear
 	}
-	if !math.IsNaN(float64(angularVelocity)) {
-		req.AngularDegPerSec = &angularVelocity
+	reqAngular := float32(angularVelocity)
+	if !math.IsNaN(angularVelocity) {
+		req.AngularDegPerSec = &reqAngular
 	}
 
 	resp, err := c.client.MoveOnGlobe(ctx, req)

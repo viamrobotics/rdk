@@ -86,13 +86,13 @@ func (server *serviceServer) MoveOnGlobe(ctx context.Context, req *pb.MoveOnGlob
 		}
 		obstacles = append(obstacles, convObst)
 	}
-	linear := float32(math.NaN())
+	linear := math.NaN()
 	if req.LinearMetersPerSec != nil {
-		linear = req.GetLinearMetersPerSec()
+		linear = float64(req.GetLinearMetersPerSec())
 	}
-	angular := float32(math.NaN())
+	angular := math.NaN()
 	if req.AngularDegPerSec != nil {
-		angular = req.GetAngularDegPerSec()
+		angular = float64(req.GetAngularDegPerSec())
 	}
 
 	success, err := svc.MoveOnGlobe(

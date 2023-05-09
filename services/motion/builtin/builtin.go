@@ -192,8 +192,8 @@ func (ms *builtIn) MoveOnGlobe(
 	heading float64,
 	movementSensorName resource.Name,
 	obstacles []*referenceframe.GeoObstacle,
-	linearVelocity float32,
-	angularVelocity float32,
+	linearVelocity float64,
+	angularVelocity float64,
 	extra map[string]interface{},
 ) (bool, error) {
 	return false, errors.New("Not yet implemented")
