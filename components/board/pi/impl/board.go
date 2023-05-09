@@ -132,7 +132,7 @@ func NewPigpio(ctx context.Context, name resource.Name, cfg *genericlinux.Config
 	}()
 	instanceMu.Unlock()
 
-	cancelCtx, cancelFunc := context.WithCancel(ctx)
+	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	piInstance := &piPigpio{
 		Named:           name.AsNamed(),
 		cfg:             cfg,
