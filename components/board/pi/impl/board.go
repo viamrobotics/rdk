@@ -110,11 +110,14 @@ func NewPigpio(ctx context.Context, name resource.Name, cfg *genericlinux.Config
 			// failed to init, check for common causes
 			_, err := os.Stat("/sys/bus/platform/drivers/raspberrypi-firmware")
 			if err != nil {
+				instanceMu.Unlock()
 				return nil, errors.New("not running on a pi")
 			}
 			if os.Getuid() != 0 {
+				instanceMu.Unlock()
 				return nil, errors.New("not running as root, try sudo")
 			}
+			instanceMu.Unlock()
 			return nil, picommon.ConvertErrorCodeToMessage(int(resCode), "error")
 		}
 	}
