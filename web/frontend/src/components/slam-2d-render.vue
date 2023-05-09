@@ -4,7 +4,7 @@ import { $ref } from 'vue/macros';
 import { threeInstance, MouseRaycaster, MeshDiscardMaterial } from 'trzy';
 import { onMounted, onUnmounted, watch } from 'vue';
 import * as THREE from 'three';
-import { MapControls } from 'three/examples/jsm/controls/OrbitControls';
+import { MapControls } from 'three/examples/jsm/controls/MapControls';
 import { PCDLoader } from 'three/examples/jsm/loaders/PCDLoader';
 import type { commonApi } from '@viamrobotics/sdk';
 import { SVGLoader } from 'three/examples/jsm/loaders/SVGLoader';
@@ -87,7 +87,12 @@ const loader = new PCDLoader();
 
 const container = $ref<HTMLElement>();
 
-const { scene, renderer, canvas, run, pause, setCamera } = threeInstance();
+const { scene, renderer, canvas, start, stop, setCamera } = threeInstance({
+  parameters: {
+    antialias: true,
+  },
+  autostart: false,
+});
 
 const color = new THREE.Color(0xFF_FF_FF);
 renderer.setClearColor(color, 1);
@@ -115,7 +120,6 @@ raycaster.on('click', (event: THREE.Event) => {
  * svgLoader example for webgl:
  * https://github.com/mrdoob/three.js/blob/master/examples/webgl_loader_svg.html
  */
-//
 const svgLoader = new SVGLoader();
 const makeMarker = async (url : string, name: string, scalar: number) => {
   const data = await svgLoader.loadAsync(url);
@@ -135,7 +139,7 @@ const makeMarker = async (url : string, name: string, scalar: number) => {
           .convertSRGBToLinear(),
         opacity: path!.userData!.style.fillOpacity,
         transparent: true,
-        side: THREE.DoubleSide,
+        side: THREE.FrontSide,
         depthWrite: false,
         wireframe: false,
       });
@@ -358,7 +362,7 @@ const updatePointCloud = (pointcloud: Uint8Array) => {
 onMounted(() => {
   container?.append(canvas);
 
-  run();
+  start();
 
   if (props.pointcloud !== undefined) {
     updatePointCloud(props.pointcloud);
@@ -371,7 +375,7 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
-  pause();
+  stop();
   disposeScene();
 });
 
@@ -411,7 +415,7 @@ watch(() => props.pointCloudUpdateCount, () => {
 <template>
   <div
     ref="container"
-    class="pcd-container relative w-full"
+    class="relative w-full"
   >
     <p class="absolute left-3 top-3 bg-white text-xs">
       Grid set to 1 meter

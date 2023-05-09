@@ -27,6 +27,7 @@ import (
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/client"
+	rutils "go.viam.com/rdk/utils"
 )
 
 // CheckSocketAddressLength returns an error if the socket path is too long for the OS.
@@ -175,13 +176,8 @@ func (m *Module) Start(ctx context.Context) error {
 	m.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer m.activeBackgroundWorkers.Done()
-		defer utils.UncheckedErrorFunc(func() error {
-			// Attempt to remove module's .sock file.
-			if _, err := os.Stat(m.addr); err == nil {
-				return os.Remove(m.addr)
-			}
-			return nil
-		})
+		// Attempt to remove module's .sock file.
+		defer rutils.RemoveFileNoError(m.addr)
 		m.logger.Infof("server listening at %v", lis.Addr())
 		if err := m.server.Serve(lis); err != nil {
 			m.logger.Errorf("failed to serve: %v", err)
@@ -439,7 +435,7 @@ func (m *Module) addAPIFromRegistry(ctx context.Context, api resource.API) error
 
 	apiInfo, ok := resource.LookupGenericAPIRegistration(api)
 	if !ok {
-		return errors.Errorf("invariant: resource subtype does not exist for %q", api)
+		return errors.Errorf("invariant: registration does not exist for %q", api)
 	}
 
 	newColl := apiInfo.MakeEmptyCollection()
@@ -469,7 +465,7 @@ func (m *Module) AddModelFromRegistry(ctx context.Context, api resource.API, mod
 
 	apiInfo, ok := resource.LookupGenericAPIRegistration(api)
 	if !ok {
-		return errors.Errorf("invariant: resource subtype does not exist for %q", api)
+		return errors.Errorf("invariant: registration does not exist for %q", api)
 	}
 	if apiInfo.ReflectRPCServiceDesc == nil {
 		m.logger.Errorf("rpc subtype %s doesn't contain a valid ReflectRPCServiceDesc", api)

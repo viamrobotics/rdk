@@ -38,7 +38,8 @@ let refresh2DCancelled = true;
 let refresh3DCancelled = true;
 let updatedDest = $ref(false);
 let destinationMarker = $ref(new THREE.Vector3());
-let moveClick = $computed(() => (filterResources(props.resources, 'rdk', 'component', 'base') !== undefined));
+let moveClick = $computed(() => (
+  filterResources(props.resources, 'rdk', 'component', 'base') !== undefined) && updatedDest);
 const basePose = new commonApi.Pose();
 const motionServiceReq = new motionApi.MoveOnMapRequest();
 
@@ -117,18 +118,10 @@ const fetchSLAMPose = (name: string): Promise<commonApi.Pose> => {
 };
 
 const executeMoveOnMap = async () => {
-  if (updatedDest === false) {
-    toast.error('please select a destination to move to');
-    return;
-  }
+  moveClick = !moveClick;
+
   // get base resources
   const baseResources = filterResources(props.resources, 'rdk', 'component', 'base');
-  if (baseResources === undefined) {
-    toast.error('No base component detected.');
-    return;
-  }
-
-  moveClick = !moveClick;
 
   /*
    * set request name
@@ -399,7 +392,7 @@ onUnmounted(() => {
       slot="title"
       crumbs="slam"
     />
-    <div class="border-border-1 flex flex-wrap gap-4 border border-t-0 sm:flex-nowrap">
+    <div class="border-medium flex flex-wrap gap-4 border border-t-0 sm:flex-nowrap">
       <div class="flex min-w-fit flex-col gap-4 p-4">
         <div class="float-left pb-4">
           <div class="flex">
@@ -463,7 +456,7 @@ onUnmounted(() => {
               />
             </div>
           </div>
-          <hr class="my-4 border-t border-gray-400">
+          <hr class="border-medium my-4 border-t">
           <div class="flex flex-row">
             <p class="mb-1 pr-52 font-bold text-gray-800">
               Ending Position
@@ -508,7 +501,7 @@ onUnmounted(() => {
           />
         </div>
       </div>
-      <div class="gap-4x border-border-1 justify-start sm:border-l">
+      <div class="gap-4x border-border-1 w-full justify-start sm:border-l">
         <div
           v-if="refreshErrorMessage2d && show2d"
           class="border-l-4 border-red-500 bg-gray-100 px-4 py-3"
@@ -613,7 +606,7 @@ onUnmounted(() => {
               <select
                 v-model="selected3dValue"
                 class="
-                      border-border-1 m-0 w-full appearance-none border border-solid bg-white
+                      border-medium m-0 w-full appearance-none border border-solid bg-white
                       bg-clip-padding px-3 py-1.5 text-xs font-normal text-gray-700 focus:outline-none"
                 aria-label="Default select example"
                 @change="selectSLAMPCDRefreshFrequency()"

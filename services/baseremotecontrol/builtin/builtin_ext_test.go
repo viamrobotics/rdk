@@ -72,7 +72,7 @@ func TestSafetyMonitoring(t *testing.T) {
 	var storedCount int32
 	var storedID uuid.UUID
 	var storedResourceName resource.Name
-	sess1 := session.New("ownerID", nil, time.Minute, func(id uuid.UUID, resourceName resource.Name) {
+	sess1 := session.New(context.Background(), "ownerID", time.Minute, func(id uuid.UUID, resourceName resource.Name) {
 		atomic.AddInt32(&storedCount, 1)
 		stored.Do(func() {
 			storedID = id
