@@ -10,7 +10,7 @@ import type { commonApi } from '@viamrobotics/sdk';
 import DestMarker from '../lib/destination-marker.txt?raw';
 import BaseMarker from '../lib/base-marker.txt?raw';
 
-let pointsMaterial: THREE.PointsMaterial;
+let pointsMaterial: THREE.PointsMaterial | undefined;
 
 const backgroundGridColor = 0xCA_CA_CA;
 
