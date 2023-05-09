@@ -75,7 +75,7 @@ jobs:
       if: contains(github.event.pull_request.labels.*.name, 'static-build') || contains(github.event.pull_request.labels.*.name, 'static-ignore-tests')
       run: |
         channel="pr-${{ github.event.pull_request.number }}"
-        echo "### Built Static Binaries for ${channel}"" >> $GITHUB_STEP_SUMMARY
+        echo "### Built Static Binaries for ${channel}" >> $GITHUB_STEP_SUMMARY
         echo "- arm64: https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-${channel}-aarch64" >> $GITHUB_STEP_SUMMARY
         echo "- x86_64: https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-${channel}-x86_64" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
@@ -177,7 +177,7 @@ jobs:
         if [ "$channel" == "rc-workflows" ]; then #SMURF
           channel="latest"
         fi
-        echo "### Built Static Binaries for ${channel}"" >> $GITHUB_STEP_SUMMARY
+        echo "### Built Static Binaries for ${channel}" >> $GITHUB_STEP_SUMMARY
         echo "- arm64: https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-${channel}-aarch64" >> $GITHUB_STEP_SUMMARY
         echo "- x86_64: https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-${channel}-x86_64" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
