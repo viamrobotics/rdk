@@ -106,6 +106,7 @@ destMarker.visible = false;
 
 const controls = new MapControls(camera, canvas);
 controls.enableRotate = false;
+controls.screenSpacePanning = true;
 
 const scaleObjects = () => {
   const cameraScale = 25;
