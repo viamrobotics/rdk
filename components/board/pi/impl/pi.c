@@ -16,3 +16,8 @@ void setupInterrupt(int gpio) {
     gpioSetPullUpDown(gpio, PI_PUD_UP); // should this be configurable?
     gpioSetAlertFunc(gpio, interruptCallback);
 }
+
+void teardownInterrupt(int gpio) {
+    gpioSetAlertFunc(gpio, NULL);
+    // Do we need to unset the pullup resistors?
+}
