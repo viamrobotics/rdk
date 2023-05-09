@@ -21,6 +21,9 @@ const pointsRenderOrder = 3;
 const axesHelperRenderOrder = 2;
 const gridHelperRenderOrder = 1;
 
+const aspectInverse = 4;
+const initialPointSize = 4;
+
 const gridHelperScalar = 4;
 const axesHelperSize = 8;
 
@@ -219,13 +222,10 @@ const updateOrRemoveDestinationMarker = () => {
 const updatePointCloud = (pointcloud: Uint8Array) => {
   disposeScene();
 
-  const viewHeight = 1;
-  const viewWidth = viewHeight * 2;
-
   const points = loader.parse(pointcloud.buffer);
   pointsMaterial = points.material as THREE.PointsMaterial;
   pointsMaterial.sizeAttenuation = false;
-  pointsMaterial.size = 4;
+  pointsMaterial.size = initialPointSize;
   points.geometry.computeBoundingSphere();
   points.renderOrder = pointsRenderOrder;
 
@@ -234,10 +234,13 @@ const updatePointCloud = (pointcloud: Uint8Array) => {
   controls.target.set(center.x, center.y, 0);
   camera.lookAt(center.x, center.y, 0);
 
+  const viewHeight = 1;
+  const viewWidth = viewHeight * 2;
   const aspect = canvas.clientHeight / canvas.clientWidth;
+
   camera.zoom = aspect > 1
-    ? viewHeight / (radius * 4)
-    : camera.zoom = viewWidth / (radius * 4);
+    ? viewHeight / (radius * aspectInverse)
+    : viewWidth / (radius * aspectInverse);
 
   controls.maxZoom = radius * 2;
 
