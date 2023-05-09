@@ -4,10 +4,10 @@ package modmanager
 import (
 	"context"
 	"io/fs"
-	"os"
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/edaniels/golog"
@@ -29,6 +29,7 @@ import (
 	"go.viam.com/rdk/module/modmaninterface"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
+	rutils "go.viam.com/rdk/utils"
 )
 
 var (
@@ -40,11 +41,12 @@ var (
 // NewManager returns a Manager.
 func NewManager(parentAddr string, logger golog.Logger, options modmanageroptions.Options) modmaninterface.ModuleManager {
 	return &Manager{
-		logger:       logger,
-		modules:      map[string]*module{},
-		parentAddr:   parentAddr,
-		rMap:         map[resource.Name]*module{},
-		untrustedEnv: options.UntrustedEnv,
+		logger:                  logger,
+		modules:                 map[string]*module{},
+		parentAddr:              parentAddr,
+		rMap:                    map[resource.Name]*module{},
+		untrustedEnv:            options.UntrustedEnv,
+		removeOrphanedResources: options.RemoveOrphanedResources,
 	}
 }
 
@@ -57,6 +59,16 @@ type module struct {
 	client    pb.ModuleServiceClient
 	addr      string
 	resources map[resource.Name]*addedResource
+
+	// inRecovery stores whether or not an OnUnexpectedExit function is trying
+	// to recover a crash of this module; inRecoveryLock guards the execution of
+	// an OnUnexpectedExit function for this module.
+	//
+	// NOTE(benjirewis): Using just an atomic boolean is not sufficient, as OUE
+	// functions for the same module cannot overlap and should not continue after
+	// another OUE has finished.
+	inRecovery     atomic.Bool
+	inRecoveryLock sync.Mutex
 }
 
 type addedResource struct {
@@ -66,12 +78,13 @@ type addedResource struct {
 
 // Manager is the root structure for the module system.
 type Manager struct {
-	mu           sync.RWMutex
-	logger       golog.Logger
-	modules      map[string]*module
-	parentAddr   string
-	rMap         map[resource.Name]*module
-	untrustedEnv bool
+	mu                      sync.RWMutex
+	logger                  golog.Logger
+	modules                 map[string]*module
+	parentAddr              string
+	rMap                    map[resource.Name]*module
+	untrustedEnv            bool
+	removeOrphanedResources func(ctx context.Context, rNames []resource.Name)
 }
 
 // Close terminates module connections and processes.
@@ -103,7 +116,8 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, conn *grpc.Clie
 	mod := &module{name: conf.Name, exe: conf.ExePath, resources: map[resource.Name]*addedResource{}}
 	mgr.modules[conf.Name] = mod
 
-	if err := mod.startProcess(ctx, mgr.parentAddr, mgr.logger); err != nil {
+	if err := mod.startProcess(ctx, mgr.parentAddr,
+		mgr.newOnUnexpectedExitHandler(mod), mgr.logger); err != nil {
 		return errors.WithMessage(err, "error while starting module "+mod.name)
 	}
 
@@ -349,6 +363,154 @@ func (mgr *Manager) getModule(conf resource.Config) (*module, bool) {
 	return nil, false
 }
 
+var (
+	// oueTimeout is the length of time for which an OnUnexpectedExit function
+	// can execute blocking calls.
+	oueTimeout = 2 * time.Minute
+	// oueRestartInterval is the interval of time at which an OnUnexpectedExit
+	// function can attempt to restart the module process. Multiple restart
+	// attempts will use basic backoff.
+	oueRestartInterval = 5 * time.Second
+)
+
+// newOnUnexpectedExitHandler returns the appropriate OnUnexpectedExit function
+// for the passed-in module to include in the pexec.ProcessConfig.
+func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) bool {
+	return func(exitCode int) bool {
+		mod.inRecoveryLock.Lock()
+		defer mod.inRecoveryLock.Unlock()
+		if mod.inRecovery.Load() {
+			return false
+		}
+		mod.inRecovery.Store(true)
+		defer mod.inRecovery.Store(false)
+
+		// Use oueTimeout for entire attempted module restart.
+		ctx, cancel := context.WithTimeout(context.Background(), oueTimeout)
+		defer cancel()
+
+		// Log error immediately, as this is unexpected behavior.
+		mgr.logger.Errorw(
+			"module has unexpectedly exited, attempting to restart it",
+			"module", mod.name,
+			"exit_code", exitCode,
+		)
+
+		// If attemptRestart returns any orphaned resource names, restart failed,
+		// and we should remove orphaned resources. Since we handle process
+		// restarting ourselves, return false here so goutils knows not to attempt
+		// a process restart.
+		if orphanedResourceNames := mgr.attemptRestart(ctx, mod); orphanedResourceNames != nil {
+			if mgr.removeOrphanedResources != nil {
+				mgr.removeOrphanedResources(ctx, orphanedResourceNames)
+			}
+			return false
+		}
+
+		// Otherwise, add old module process' resources to new module; warn if new
+		// module cannot handle old resource and remove now orphaned resources.
+		var orphanedResourceNames []resource.Name
+		for name, res := range mod.resources {
+			if _, err := mgr.AddResource(ctx, res.conf, res.deps); err != nil {
+				mgr.logger.Warnw("error while re-adding resource to module",
+					"resource", name, "module", mod.name, "error", err)
+				orphanedResourceNames = append(orphanedResourceNames, name)
+			}
+		}
+		if mgr.removeOrphanedResources != nil {
+			mgr.removeOrphanedResources(ctx, orphanedResourceNames)
+		}
+
+		mgr.logger.Infow("module successfully restarted", "module", mod.name)
+		return false
+	}
+}
+
+// attemptRestart will attempt to restart the module up to three times and
+// return the names of now orphaned resources.
+func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.Name {
+	mgr.mu.Lock()
+	defer mgr.mu.Unlock()
+
+	var orphanedResourceNames []resource.Name
+	for name := range mod.resources {
+		orphanedResourceNames = append(orphanedResourceNames, name)
+	}
+
+	// Attempt to remove module's .sock file if module did not remove it
+	// already.
+	rutils.RemoveFileNoError(mod.addr)
+
+	var success bool
+	defer func() {
+		if !success {
+			// Deregister module's resources, remove module, and close connection if
+			// restart fails. Process will already be stopped.
+			mod.deregisterResources()
+			for r, m := range mgr.rMap {
+				if m == mod {
+					delete(mgr.rMap, r)
+				}
+			}
+			delete(mgr.modules, mod.name)
+			if mod.conn != nil {
+				if err := mod.conn.Close(); err != nil {
+					mgr.logger.Errorw("error while closing connection from crashed module",
+						"module", mod.name,
+						"error", err)
+				}
+			}
+		}
+	}()
+
+	// No need to check mgr.untrustedEnv, as we're restarting the same
+	// executable we were given for initial module addition.
+
+	// Attempt to restart module process 3 times.
+	for attempt := 1; attempt < 4; attempt++ {
+		if err := mod.startProcess(ctx, mgr.parentAddr,
+			mgr.newOnUnexpectedExitHandler(mod), mgr.logger); err != nil {
+			mgr.logger.Errorf("attempt %d: error while restarting crashed module %s: %v",
+				attempt, mod.name, err)
+			if attempt == 3 {
+				// return early upon last attempt failure.
+				return orphanedResourceNames
+			}
+		} else {
+			break
+		}
+
+		// Wait with a bit of backoff.
+		utils.SelectContextOrWait(ctx, time.Duration(attempt)*oueRestartInterval)
+	}
+
+	defer func() {
+		if !success {
+			// Stop restarted module process if there are later failures.
+			if err := mod.stopProcess(); err != nil {
+				mgr.logger.Error(err)
+			}
+		}
+	}()
+
+	// dial will re-use connection; old connection can still be used when module
+	// crashes.
+	if err := mod.dial(mod.conn); err != nil {
+		mgr.logger.Errorw("error while dialing restarted module",
+			"module", mod.name, "error", err)
+		return orphanedResourceNames
+	}
+
+	if err := mod.checkReady(ctx, mgr.parentAddr); err != nil {
+		mgr.logger.Errorw("error while waiting for restarted module to be ready",
+			"module", mod.name, "error", err)
+		return orphanedResourceNames
+	}
+
+	success = true
+	return nil
+}
+
 // dial will use the passed-in connection to make a new module service client
 // or Dial m.addr if the passed-in connection is nil.
 func (m *module) dial(conn *grpc.ClientConn) error {
@@ -395,16 +557,22 @@ func (m *module) checkReady(ctx context.Context, parentAddr string) error {
 	}
 }
 
-func (m *module) startProcess(ctx context.Context, parentAddr string, logger golog.Logger) error {
+func (m *module) startProcess(
+	ctx context.Context,
+	parentAddr string,
+	oue func(int) bool,
+	logger golog.Logger,
+) error {
 	m.addr = filepath.ToSlash(filepath.Join(filepath.Dir(parentAddr), m.name+".sock"))
 	if err := modlib.CheckSocketAddressLength(m.addr); err != nil {
 		return err
 	}
 	pconf := pexec.ProcessConfig{
-		ID:   m.name,
-		Name: m.exe,
-		Args: []string{m.addr},
-		Log:  true,
+		ID:               m.name,
+		Name:             m.exe,
+		Args:             []string{m.addr},
+		Log:              true,
+		OnUnexpectedExit: oue,
 	}
 	m.process = pexec.NewManagedProcess(pconf, logger)
 
@@ -437,14 +605,9 @@ func (m *module) stopProcess() error {
 	if m.process == nil {
 		return nil
 	}
-	defer utils.UncheckedErrorFunc(func() error {
-		// Attempt to remove module's .sock file if module did not remove it
-		// already.
-		if _, err := os.Stat(m.addr); err == nil {
-			return os.Remove(m.addr)
-		}
-		return nil
-	})
+	// Attempt to remove module's .sock file if module did not remove it
+	// already.
+	defer rutils.RemoveFileNoError(m.addr)
 
 	// TODO(RSDK-2551): stop ignoring exit status 143 once Python modules handle
 	// SIGTERM correctly.

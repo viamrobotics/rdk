@@ -22,13 +22,13 @@ import (
 )
 
 // Model is the model of a replay camera.
-var model = resource.DefaultModelFamily.WithModel("replaypcd")
+var model = resource.DefaultModelFamily.WithModel("replay_pcd")
 
 var errEndOfDataset = errors.New("Reached end of dataset")
 
 func init() {
 	resource.RegisterComponent(camera.API, model, resource.Registration[camera.Camera, *Config]{
-		Constructor: newReplayPCDCamera,
+		Constructor: newPCDCamera,
 	})
 }
 
