@@ -104,10 +104,7 @@ const baseMarker = makeMarker(BaseMarker, 'BaseMarker');
 const destMarker = makeMarker(DestMarker, 'DestinationMarker');
 destMarker.visible = false;
 
-// const inspector = new Inspector({ THREE, scene, camera, renderer, options: { location: 'overlay' } });
-
 const controls = new MapControls(camera, canvas);
-controls.enablePan = true;
 controls.enableRotate = false;
 
 const scaleObjects = () => {
