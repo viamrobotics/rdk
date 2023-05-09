@@ -380,3 +380,21 @@ func TestServer(t *testing.T) {
 		test.That(t, resp.IntrinsicParameters.CenterYPx, test.ShouldEqual, 100)
 	})
 }
+
+/*
+func TestServerTimestamps(t *testing.T) {
+	injectCamera := &inject.Camera{}
+	cameras := map[resource.Name]camera.Camera{
+		camera.Named(testCameraName): injectCamera,
+	}
+	cameraSvc, err := resource.NewAPIResourceCollection(camera.API, cameras)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+	camSvc := camera.NewRPCServiceServer(cameraSvc).(pb.CameraServiceServer)
+
+	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
+		context.WithValue()
+	}
+
+}*/

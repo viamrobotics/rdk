@@ -44,7 +44,6 @@ func (s *serviceServer) GetImage(
 	ctx context.Context,
 	req *pb.GetImageRequest,
 ) (*pb.GetImageResponse, error) {
-	s.logger.Error("here in get image")
 	ctx, span := trace.StartSpan(ctx, "camera::server::GetImage")
 	defer span.End()
 	cam, err := s.coll.Resource(req.Name)
@@ -101,7 +100,6 @@ func (s *serviceServer) RenderFrame(
 	ctx context.Context,
 	req *pb.RenderFrameRequest,
 ) (*httpbody.HttpBody, error) {
-	fmt.Println("here in render from")
 	ctx, span := trace.StartSpan(ctx, "camera::server::RenderFrame")
 	defer span.End()
 	if req.MimeType == "" {
@@ -124,7 +122,6 @@ func (s *serviceServer) GetPointCloud(
 	ctx context.Context,
 	req *pb.GetPointCloudRequest,
 ) (*pb.GetPointCloudResponse, error) {
-	fmt.Println("here in get point cloud server")
 	ctx, span := trace.StartSpan(ctx, "camera::server::GetPointCloud")
 	defer span.End()
 	camera, err := s.coll.Resource(req.Name)
