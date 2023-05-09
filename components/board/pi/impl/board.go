@@ -143,7 +143,7 @@ func NewPigpio(ctx context.Context, name resource.Name, cfg *genericlinux.Config
 }
 
 func (pi *piPigpio) Reconfigure(
-    ctx context.Context,
+    _ context.Context,
     _ resource.Dependencies,
     conf resource.Config,
 ) error {
