@@ -147,6 +147,9 @@ func (piInstance *piPigpio) Reconfigure(
     _ resource.Dependencies,
     conf resource.Config,
 ) error {
+	piInstance.mu.Lock()
+	defer piInstance.mu.Unlock()
+
 	// setup I2C buses
 	if len(cfg.I2Cs) != 0 {
 		piInstance.i2cs = make(map[string]board.I2C, len(cfg.I2Cs))
