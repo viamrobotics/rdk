@@ -20,13 +20,12 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage/transform"
-	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 )
 
-func makeFakeRobot(t *testing.T) robot.Robot {
+func makeFakeRobot(t *testing.T) resource.Dependencies {
 	t.Helper()
 	logger := golog.NewTestLogger(t)
 	cam1 := &inject.Camera{}
@@ -70,7 +69,6 @@ func makeFakeRobot(t *testing.T) robot.Robot {
 	}
 	base1 := &inject.Base{}
 
-	r := &inject.Robot{}
 	fsParts := []*referenceframe.FrameSystemPart{
 		{
 			FrameConfig: referenceframe.NewLinkInFrame(referenceframe.World, spatialmath.NewZeroPose(), "base1", nil),
@@ -89,38 +87,24 @@ func makeFakeRobot(t *testing.T) robot.Robot {
 			FrameConfig: referenceframe.NewLinkInFrame("cam2", spatialmath.NewPoseFromPoint(r3.Vector{0, 100, 0}), "cam3", nil),
 		},
 	}
-	r.FrameSystemConfigFunc = func(_ context.Context) (*framesystem.Config, error) {
-		return &framesystem.Config{Parts: fsParts}, nil
-	}
-
-	r.LoggerFunc = func() golog.Logger {
-		return logger
-	}
-	r.ResourceNamesFunc = func() []resource.Name {
-		return []resource.Name{camera.Named("cam1"), camera.Named("cam2"), camera.Named("cam3"), base.Named("base1")}
-	}
-	r.ResourceByNameFunc = func(n resource.Name) (resource.Resource, error) {
-		switch n.Name {
-		case "cam1":
-			return cam1, nil
-		case "cam2":
-			return cam2, nil
-		case "cam3":
-			return cam3, nil
-		case "base1":
-			return base1, nil
-		default:
-			return nil, resource.NewNotFoundError(n)
-		}
-	}
-	return r
+	deps := make(resource.Dependencies)
+	deps[camera.Named("cam1")] = cam1
+	deps[camera.Named("cam2")] = cam2
+	deps[camera.Named("cam3")] = cam3
+	deps[base.Named("base1")] = base1
+	fsSvc, err := framesystem.New(context.Background(), resource.Dependencies{}, logger)
+	test.That(t, err, test.ShouldBeNil)
+	err = fsSvc.Reconfigure(context.Background(), deps, resource.Config{ConvertedAttributes: &framesystem.Config{Parts: fsParts}})
+	test.That(t, err, test.ShouldBeNil)
+	deps[framesystem.InternalServiceName] = fsSvc
+	return deps
 }
 
 func TestJoinPointCloudNaive(t *testing.T) {
 	// TODO(RSDK-1200): remove skip when complete
 	t.Skip("remove skip once RSDK-1200 improvement is complete")
-	r := makeFakeRobot(t)
-	defer r.Close(context.Background())
+	deps := makeFakeRobot(t)
+
 	// PoV from base1
 	conf := &Config{
 		Debug:         true,
@@ -128,13 +112,6 @@ func TestJoinPointCloudNaive(t *testing.T) {
 		TargetFrame:   "base1",
 		MergeMethod:   "naive",
 	}
-	var deps resource.Dependencies
-	for _, name := range conf.SourceCameras {
-		cam, err := camera.FromRobot(r, name)
-		test.That(t, err, test.ShouldBeNil)
-		deps[camera.Named(name)] = cam
-	}
-
 	joinedCam, err := newJoinPointCloudCamera(context.Background(), deps, resource.Config{ConvertedAttributes: conf}, utils.Logger)
 	test.That(t, err, test.ShouldBeNil)
 	pc, err := joinedCam.NextPointCloud(context.Background())

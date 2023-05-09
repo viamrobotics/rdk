@@ -6,7 +6,6 @@ package robotimpl
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -793,14 +792,10 @@ func (r *localRobot) getRemoteFrameSystemParts(ctx context.Context) ([]*referenc
 	}
 
 	remoteParts := make([]*referenceframe.FrameSystemPart, 0)
-	for _, remoteName := range r.RemoteNames() {
+	for _, remoteCfg := range cfg.Remotes {
 		// build the frame system part that connects remote world to base world
-		remoteCfg, err := getRemoteRobotConfig(remoteName, cfg)
-		if err != nil {
-			return nil, errors.Wrapf(err, "remote %s", remoteName)
-		}
 		if remoteCfg.Frame == nil { // skip over remote if it has no frame info
-			r.logger.Debugf("remote %s has no frame config info, skipping", remoteName)
+			r.logger.Debugf("remote %s has no frame config info, skipping", remoteCfg.Name)
 			continue
 		}
 		lif, err := remoteCfg.Frame.ParseConfig()
@@ -824,16 +819,6 @@ func (r *localRobot) getRemoteFrameSystemParts(ctx context.Context) ([]*referenc
 		remoteParts = append(remoteParts, remoteFsCfg.Parts...)
 	}
 	return remoteParts, nil
-}
-
-// getRemoteRobotConfig gets the parameters for the Remote.
-func getRemoteRobotConfig(remoteName string, conf *config.Config) (*config.Remote, error) {
-	for _, rConf := range conf.Remotes {
-		if rConf.Name == remoteName {
-			return &rConf, nil
-		}
-	}
-	return nil, fmt.Errorf("cannot find Remote config with name %q", remoteName)
 }
 
 // extractModelFrameJSON finds the robot part with a given name, checks to see if it implements ModelFrame, and returns the
