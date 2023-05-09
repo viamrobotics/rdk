@@ -150,6 +150,10 @@ func (ms *builtIn) Move(
 	if err != nil {
 		return false, err
 	}
+	if ctx.Err() != nil {
+		ms.logger.Infof("successfully canceled motion service Move")
+		return true, ctx.Err()
+	}
 
 	// move all the components
 	for _, step := range output {
