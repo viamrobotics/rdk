@@ -3,6 +3,7 @@ package motion
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
@@ -27,6 +28,8 @@ func NewRPCServiceServer(coll resource.APIResourceCollection[Service]) interface
 }
 
 func (server *serviceServer) Move(ctx context.Context, req *pb.MoveRequest) (*pb.MoveResponse, error) {
+	fmt.Println("server.go")
+	fmt.Println("ctx.Err(): ", ctx.Err())
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
@@ -43,6 +46,9 @@ func (server *serviceServer) Move(ctx context.Context, req *pb.MoveRequest) (*pb
 		req.GetConstraints(),
 		req.Extra.AsMap(),
 	)
+	fmt.Println("&pb.MoveResponse{Success: success}: ", &pb.MoveResponse{Success: success})
+	fmt.Println("err: ", err)
+
 	return &pb.MoveResponse{Success: success}, err
 }
 

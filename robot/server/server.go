@@ -6,6 +6,7 @@ package server
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -102,6 +103,7 @@ func convertInterfaceToStruct(i interface{}) (*structpb.Struct, error) {
 func (s *Server) CancelOperation(ctx context.Context, req *pb.CancelOperationRequest) (*pb.CancelOperationResponse, error) {
 	op := s.r.OperationManager().FindString(req.Id)
 	if op != nil {
+		fmt.Println("we have found an op that we can cancel")
 		op.Cancel()
 	}
 	return &pb.CancelOperationResponse{}, nil

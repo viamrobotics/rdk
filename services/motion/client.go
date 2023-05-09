@@ -3,6 +3,7 @@ package motion
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/edaniels/golog"
 	pb "go.viam.com/api/service/motion/v1"
@@ -51,6 +52,8 @@ func (c *client) Move(
 	constraints *pb.Constraints,
 	extra map[string]interface{},
 ) (bool, error) {
+
+	fmt.Println("client.go")
 	ext, err := vprotoutils.StructToStructPb(extra)
 	if err != nil {
 		return false, err
@@ -68,6 +71,7 @@ func (c *client) Move(
 		Extra:         ext,
 	})
 	if err != nil {
+		fmt.Println("err: ", err)
 		return false, err
 	}
 	return resp.Success, nil

@@ -3,6 +3,7 @@ package operation
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -38,6 +39,7 @@ type Operation struct {
 
 // Cancel cancel the context associated with an operation.
 func (o *Operation) Cancel() {
+	fmt.Println("o.Method: ", o.Method)
 	o.cancel()
 }
 
@@ -159,7 +161,10 @@ func (m *Manager) createWithID(ctx context.Context, id uuid.UUID, method string,
 
 // Get returns the current Operation. This can be nil.
 func Get(ctx context.Context) *Operation {
+	// fmt.Println("opid.go/Get()")
+	// fmt.Println("opidKey: ", opidKey)
 	o := ctx.Value(opidKey)
+	// fmt.Println("o: ", o)
 	if o == nil {
 		return nil
 	}
@@ -169,6 +174,7 @@ func Get(ctx context.Context) *Operation {
 // CancelOtherWithLabel will cancel all operations besides this one with this label.
 // if no Operation is set, will do nothing.
 func CancelOtherWithLabel(ctx context.Context, label string) {
+	// fmt.Println("opid.go/CancelOtherWithLabel()")
 	if o := Get(ctx); o != nil {
 		o.CancelOtherWithLabel(label)
 	}
