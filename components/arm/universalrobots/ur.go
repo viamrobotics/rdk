@@ -422,7 +422,6 @@ func (ua *URArm) MoveToJointPositionRadians(ctx context.Context, radians []float
 	slept := 0
 	for {
 		if err := ctx.Err(); err != nil {
-			fmt.Println("WE ARE CANCELLED - this is hit 1")
 			return ua.Stop(ctx, nil)
 		}
 		good := true
@@ -467,7 +466,6 @@ func (ua *URArm) MoveToJointPositionRadians(ctx context.Context, radians []float
 
 		// TODO(erh): make responsive on new message
 		if !goutils.SelectContextOrWait(ctx, 10*time.Millisecond) {
-			fmt.Println("WE ARE CANCELLED - this is hit 2")
 			return ua.Stop(ctx, nil)
 		}
 		slept += 10
