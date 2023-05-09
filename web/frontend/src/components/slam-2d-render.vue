@@ -16,6 +16,8 @@ interface SvgOffset {
   z: number
 }
 
+let pointsMaterial: THREE.PointsMaterial;
+
 const backgroundGridColor = 0xCA_CA_CA;
 
 const gridSubparts = ['AxesPos', 'AxesNeg', 'Grid'];
@@ -35,7 +37,7 @@ const textureLoader = new THREE.TextureLoader();
 
 const makeMarker = (png: string, name: string, scalar: number) => {
   const geometry = new THREE.PlaneGeometry();
-  const material = new THREE.MeshBasicMaterial({ map: textureLoader.load(png), color: 'red' });
+  const material = new THREE.MeshBasicMaterial({ color: 'red' });
   const marker = new THREE.Mesh(geometry, material);
   marker.name = name;
   marker.renderOrder = svgMarkerRenderOrder;
@@ -118,7 +120,13 @@ setCamera(camera);
 scene.add(camera);
 
 const controls = new MapControls(camera, canvas);
-controls.enableRotate = false;
+// controls.enableRotate = false;
+
+controls.addEventListener('change', () => {
+  if (pointsMaterial) {
+    pointsMaterial.size = camera.zoom * 25;
+  }
+});
 
 const raycaster = new MouseRaycaster({ camera, renderer, recursive: false });
 
@@ -228,9 +236,9 @@ const updatePointCloud = (pointcloud: Uint8Array) => {
   const viewWidth = viewHeight * 2;
 
   const points = loader.parse(pointcloud.buffer);
-  const material = points.material as THREE.PointsMaterial;
-  material.sizeAttenuation = false;
-  material.size = 4;
+  pointsMaterial = points.material as THREE.PointsMaterial;
+  pointsMaterial.sizeAttenuation = false;
+  pointsMaterial.size = 4;
   points.geometry.computeBoundingSphere();
 
   const { radius = 1, center = { x: 0, y: 0 } } = points.geometry.boundingSphere ?? {};

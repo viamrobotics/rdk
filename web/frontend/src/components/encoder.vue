@@ -70,8 +70,6 @@ const refresh = async () => {
   } catch (error) {
     displayError(error as ServiceError);
   }
-
-  cancelPoll = scheduleAsyncPoll(refresh, 500);
 };
 
 const reset = () => {
@@ -91,6 +89,7 @@ onMounted(async () => {
   try {
     properties = await getProperties();
     refresh();
+    scheduleAsyncPoll(refresh, 2000);
   } catch (error) {
     displayError(error as ServiceError);
   }

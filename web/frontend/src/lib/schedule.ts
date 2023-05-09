@@ -3,13 +3,9 @@ export const scheduleAsyncPoll = (callback: () => Promise<void>, interval: numbe
   let timeoutId = -1;
 
   const refreshAndScheduleNext = async () => {
+    console.log('here')
     await callback();
 
-    // eslint-disable-next-line no-use-before-define
-    scheduleNext();
-  };
-
-  const scheduleNext = () => {
     if (cancelled) {
       return;
     }
@@ -22,7 +18,7 @@ export const scheduleAsyncPoll = (callback: () => Promise<void>, interval: numbe
     window.clearTimeout(timeoutId);
   };
 
-  scheduleNext();
+  timeoutId = window.setTimeout(refreshAndScheduleNext, interval);
 
   return cancel;
 };
