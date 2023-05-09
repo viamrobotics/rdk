@@ -1,14 +1,12 @@
-name: Build and Publish Latest
+name: Build and Publish Stable
 
-concurrency: 
+concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
 
 on:
-  workflow_dispatch:
   push:
-    branches: [ main ]
-    paths-ignore:
-      - 'README.md'
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
 
 # To test workflow updates you need to work in a branch directly on viamrobotics/rdk
 # and tag your working branch instead of @main in any viamrobotics/rdk "uses" below.
@@ -24,7 +22,7 @@ jobs:
     needs: test
     uses: viamrobotics/rdk/.github/workflows/appimage.yml@main
     with:
-      release_type: 'latest'
+      release_type: 'stable'
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
@@ -32,18 +30,9 @@ jobs:
     needs: test
     uses: viamrobotics/rdk/.github/workflows/staticbuild.yml@main
     with:
-      release_type: 'latest'
+      release_type: 'stable'
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
-
-  npm_publish:
-    uses: viamrobotics/rdk/.github/workflows/npm-publish.yml@main
-    needs: test
-    secrets:
-      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-  license_finder:
-    uses: viamrobotics/rdk/.github/workflows/license_finder.yml@main
 
   slack-workflow-status:
     if: ${{ failure() }}
