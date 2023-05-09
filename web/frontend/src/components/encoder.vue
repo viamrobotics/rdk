@@ -5,7 +5,7 @@ import { grpc } from '@improbable-eng/grpc-web';
 import { Client, encoderApi, ResponseStream, robotApi, type ServiceError } from '@viamrobotics/sdk';
 import { displayError } from '../lib/error';
 import { rcLogConditionally } from '../lib/log';
-import { scheduleAsyncPoll } from '../lib/schedule';
+import { setAsyncInterval } from '../lib/schedule';
 
 const props = defineProps<{
   name: string
@@ -17,7 +17,7 @@ let properties = $ref<encoderApi.GetPropertiesResponse.AsObject>();
 let positionTicks = $ref(0);
 let positionDegrees = $ref(0);
 
-let cancelPoll: (() => void) | undefined;
+let cancelInterval: (() => void) | undefined;
 
 const getProperties = () => new Promise<encoderApi.GetPropertiesResponse.AsObject>((resolve, reject) => {
   const request = new encoderApi.GetPropertiesRequest();
@@ -89,16 +89,16 @@ onMounted(async () => {
   try {
     properties = await getProperties();
     refresh();
-    scheduleAsyncPoll(refresh, 2000);
+    cancelInterval = setAsyncInterval(refresh, 500);
   } catch (error) {
     displayError(error as ServiceError);
   }
 
-  props.statusStream?.on('end', () => cancelPoll?.());
+  props.statusStream?.on('end', () => cancelInterval?.());
 });
 
 onUnmounted(() => {
-  cancelPoll?.();
+  cancelInterval?.();
 });
 
 </script>

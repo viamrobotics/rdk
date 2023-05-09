@@ -7,14 +7,8 @@ import * as THREE from 'three';
 import { MapControls } from 'three/examples/jsm/controls/MapControls';
 import { PCDLoader } from 'three/examples/jsm/loaders/PCDLoader';
 import type { commonApi } from '@viamrobotics/sdk';
-import DestMarker from '../lib/destination-marker.png?raw';
-import BaseMarker from '../lib/base-marker.png?raw';
-
-interface SvgOffset {
-  x: number,
-  y: number,
-  z: number
-}
+import DestMarker from '../lib/destination-marker.txt?raw';
+import BaseMarker from '../lib/base-marker.txt?raw';
 
 let pointsMaterial: THREE.PointsMaterial;
 
@@ -22,42 +16,27 @@ const backgroundGridColor = 0xCA_CA_CA;
 
 const gridSubparts = ['AxesPos', 'AxesNeg', 'Grid'];
 
-const gridHelperRenderOrder = 997;
-const axesHelperRenderOrder = 998;
-const svgMarkerRenderOrder = 999;
+const svgMarkerRenderOrder = 4;
+const pointsRenderOrder = 3;
+const axesHelperRenderOrder = 2;
+const gridHelperRenderOrder = 1;
 
 const gridHelperScalar = 4;
 const axesHelperSize = 8;
 
-// Note: updating the scale of the destination or base marker requires an offset update
-const baseMarkerScalar = 0.002;
-const destinationMarkerScalar = 0.1;
-
 const textureLoader = new THREE.TextureLoader();
 
-const makeMarker = (png: string, name: string, scalar: number) => {
+const makeMarker = (png: string, name: string) => {
   const geometry = new THREE.PlaneGeometry();
-  const material = new THREE.MeshBasicMaterial({ color: 'red' });
+  const material = new THREE.MeshBasicMaterial({ map: textureLoader.load(png), transparent: true });
   const marker = new THREE.Mesh(geometry, material);
   marker.name = name;
   marker.renderOrder = svgMarkerRenderOrder;
   return marker;
 };
 
-const baseMarker = makeMarker(BaseMarker, 'BaseMarker', baseMarkerScalar);
-const destMarker = makeMarker(DestMarker, 'DestinationMarker', destinationMarkerScalar);
-
-const baseMarkerOffset: SvgOffset = {
-  x: -0.05,
-  y: -0.3,
-  z: 0,
-};
-
-const destinationMarkerOffset: SvgOffset = {
-  x: 1.2,
-  y: 2.5,
-  z: 0,
-};
+const baseMarkerOffset = new THREE.Vector3(-0.05, -0.3, 0);
+const destinationMarkerOffset = new THREE.Vector3(0, 0.5, 0);
 
 /*
  * this color map is greyscale. The color map is being used map probability values of a PCD
@@ -114,19 +93,33 @@ renderer.setClearColor(color, 1);
 
 canvas.style.cssText = 'width:100%;height:100%;';
 
-const camera = new THREE.OrthographicCamera(-1, 1, 0.5, -0.5, -1, 1000);
-camera.userData.size = 2;
+const camera = new THREE.OrthographicCamera();
+camera.near = -1000;
+camera.far = 1000;
+camera.userData.size = 1;
 setCamera(camera);
 scene.add(camera);
 
-const controls = new MapControls(camera, canvas);
-// controls.enableRotate = false;
+const baseMarker = makeMarker(BaseMarker, 'BaseMarker');
+const destMarker = makeMarker(DestMarker, 'DestinationMarker');
+destMarker.visible = false;
 
-controls.addEventListener('change', () => {
+// const inspector = new Inspector({ THREE, scene, camera, renderer, options: { location: 'overlay' } });
+
+const controls = new MapControls(camera, canvas);
+controls.enablePan = true;
+controls.enableRotate = false;
+
+const scaleObjects = () => {
+  const cameraScale = 25;
+  const { zoom } = camera;
+
   if (pointsMaterial) {
-    pointsMaterial.size = camera.zoom * 25;
+    pointsMaterial.size = zoom * cameraScale;
   }
-});
+};
+
+controls.addEventListener('change', scaleObjects);
 
 const raycaster = new MouseRaycaster({ camera, renderer, recursive: false });
 
@@ -159,7 +152,7 @@ const updatePose = (newPose: commonApi.Pose) => {
   const x = newPose.getX();
   const y = newPose.getY();
   const z = newPose.getZ();
-  baseMarker.position.set(x + baseMarkerOffset.x, y + baseMarkerOffset.y, z + baseMarkerOffset.z);
+  baseMarker.position.set(x, y, z).add(baseMarkerOffset);
 };
 
 /*
@@ -216,16 +209,12 @@ const createGridHelper = (boundingBox: THREE.Box3): THREE.GridHelper => {
 
 const updateOrRemoveDestinationMarker = () => {
   if (props.destVector && props.destExists) {
-
-    destMarker.position.set(
-      props.destVector.x + destinationMarkerOffset.x,
-      props.destVector.y + destinationMarkerOffset.y,
-      props.destVector.z + destinationMarkerOffset.z
-    );
+    destMarker.visible = true;
+    destMarker.position.copy(props.destVector).add(destinationMarkerOffset);
   }
 
   if (!props.destExists) {
-    scene.remove(destMarker);
+    destMarker.visible = false;
   }
 };
 
@@ -240,19 +229,18 @@ const updatePointCloud = (pointcloud: Uint8Array) => {
   pointsMaterial.sizeAttenuation = false;
   pointsMaterial.size = 4;
   points.geometry.computeBoundingSphere();
+  points.renderOrder = pointsRenderOrder;
 
   const { radius = 1, center = { x: 0, y: 0 } } = points.geometry.boundingSphere ?? {};
   camera.position.set(center.x, center.y, 100);
+  controls.target.set(center.x, center.y, 0);
   camera.lookAt(center.x, center.y, 0);
 
   const aspect = canvas.clientHeight / canvas.clientWidth;
   camera.zoom = aspect > 1
-    ? viewHeight / (radius * 2)
-    : camera.zoom = viewWidth / (radius * 2);
+    ? viewHeight / (radius * 4)
+    : camera.zoom = viewWidth / (radius * 4);
 
-  camera.updateProjectionMatrix();
-
-  controls.target.set(center.x, center.y, 0);
   controls.maxZoom = radius * 2;
 
   const intersectionPlane = new THREE.Mesh(
@@ -296,13 +284,16 @@ const updatePointCloud = (pointcloud: Uint8Array) => {
     points,
     intersectionPlane,
     axesPos,
-    axesNeg
+    axesNeg,
+    baseMarker,
+    destMarker
   );
 
   if (props.pose !== undefined) {
     updatePose(props.pose!);
   }
 
+  scaleObjects();
   updateOrRemoveDestinationMarker();
 };
 

@@ -1,9 +1,8 @@
-export const scheduleAsyncPoll = (callback: () => Promise<void>, interval: number) => {
+export const setAsyncInterval = (callback: () => Promise<void>, interval: number) => {
   let cancelled = false;
   let timeoutId = -1;
 
   const refreshAndScheduleNext = async () => {
-    console.log('here')
     await callback();
 
     if (cancelled) {
