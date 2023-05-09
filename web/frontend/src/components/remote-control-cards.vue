@@ -576,7 +576,7 @@ const createAppConnectionManager = () => {
         }
       }
     } finally {
-     // timeout = window.setTimeout(manageLoop, 500);
+      timeout = window.setTimeout(manageLoop, 500);
     }
   };
 
