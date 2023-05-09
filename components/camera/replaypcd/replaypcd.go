@@ -46,11 +46,19 @@ type TimeInterval struct {
 }
 
 // Validate checks that the config attributes are valid for a replay camera.
-func (c *Config) Validate(path string) ([]string, error) {
+func (cfg *Config) Validate(path string) ([]string, error) {
 
-	// check source
+	if cfg.Source.Name == "" {
+		return nil, goutils.NewConfigValidationFieldRequiredError(path, "source")
+	}
 
-	// check interval
+	if cfg.Interval.Start.After(time.Now()) || cfg.Interval.End.After(time.Now()) {
+		return nil, errors.New("invalid config, start and end times must be in the past")
+	}
+
+	if cfg.Interval.Start.After(cfg.Interval.End) {
+		return nil, errors.New("invalid config, end time must be after start time")
+	}
 
 	return []string{cloud.InternalServiceName.String()}, nil
 }
@@ -108,7 +116,7 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCl
 		return nil, errEndOfDataset
 	}
 
-	replay.lastData = resp.GetLast()
+	replay.lastData = resp.GetLast() // before or after endOfDataset
 
 	data := resp.Data[0].Binary
 

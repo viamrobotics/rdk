@@ -7,6 +7,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
+	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/internal/cloud"
@@ -69,6 +70,34 @@ func TestNewReplayCamera(t *testing.T) {
 
 	err = replayCamera.Close(ctx)
 	test.That(t, err.Error(), test.ShouldBeNil)
+}
+
+func TestInvalidReplayPCDCameraConfigs(t *testing.T) {
+	// logger := golog.NewTestLogger(t)
+	// ctx := context.Background()
+
+	// Create local robot with injected camera and remote.
+	r := getInjectedRobot()
+	remoteRobot := getInjectedRobot()
+	r.RemoteByNameFunc = func(name string) (robot.Robot, bool) {
+		return remoteRobot, true
+	}
+	//resources := resourcesFromDeps(t, r, []string{cloud.InternalServiceName.String()})
+
+	t.Run("Yes source", func(t *testing.T) {
+		replayCamCfg := &Config{Source: resource.Name{Name: "test"}}
+		deps, err := replayCamCfg.Validate("")
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, deps, test.ShouldResemble, []string{cloud.InternalServiceName.String()})
+	})
+	t.Run("No source", func(t *testing.T) {
+		replayCamCfg := &Config{}
+		deps, err := replayCamCfg.Validate("")
+		test.That(t, err, test.ShouldBeError,
+			goutils.NewConfigValidationFieldRequiredError("", "source"))
+		test.That(t, deps, test.ShouldBeNil)
+	})
+
 }
 
 var _ = cloud.ConnectionService(&noopCloudConnectionService{})
