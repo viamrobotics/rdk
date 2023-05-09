@@ -122,14 +122,6 @@ func NewPigpio(ctx context.Context, name resource.Name, cfg *genericlinux.Config
 		}
 	}
 	pigpioInitialized = true
-
-	initGood := false
-	defer func() {
-		if !initGood {
-			C.gpioTerminate()
-			logger.Debug("Pi GPIO terminated due to failed init.")
-		}
-	}()
 	instanceMu.Unlock()
 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
@@ -143,6 +135,8 @@ func NewPigpio(ctx context.Context, name resource.Name, cfg *genericlinux.Config
 	}
 
 	if err := piInstance.Reconfigure(ctx, nil, cfg); err != nil {
+		C.gpioTerminate()
+		logger.Debug("Pi GPIO terminated due to failed init.")
 		return nil, err
 	}
 	return piInstance, nil
@@ -214,7 +208,6 @@ func (piInstance *piPigpio) Reconfigure(
 	instanceMu.Lock()
 	instances[piInstance] = struct{}{}
 	instanceMu.Unlock()
-	initGood = true
 	return piInstance, nil
 }
 
