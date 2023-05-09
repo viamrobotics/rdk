@@ -142,6 +142,17 @@ func NewPigpio(ctx context.Context, name resource.Name, cfg *genericlinux.Config
 		interruptCancel: cancelFunc,
 	}
 
+	if err := piInstance.Reconfigure(ctx, nil, cfg); err != nil {
+		return nil, err
+	}
+	return piInstance, nil
+}
+
+func (piInstance *piPigpio) Reconfigure(
+    ctx context.Context,
+    _ resource.Dependencies,
+    conf resource.Config,
+) error {
 	// setup I2C buses
 	if len(cfg.I2Cs) != 0 {
 		piInstance.i2cs = make(map[string]board.I2C, len(cfg.I2Cs))
