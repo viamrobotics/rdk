@@ -4,7 +4,7 @@ import { $ref } from 'vue/macros';
 import { threeInstance, MouseRaycaster, MeshDiscardMaterial } from 'trzy';
 import { onMounted, onUnmounted, watch } from 'vue';
 import * as THREE from 'three';
-import { MapControls } from 'three/examples/jsm/controls/OrbitControls';
+import { MapControls } from 'three/examples/jsm/controls/MapControls';
 import { PCDLoader } from 'three/examples/jsm/loaders/PCDLoader';
 import type { commonApi } from '@viamrobotics/sdk';
 import { SVGLoader } from 'three/examples/jsm/loaders/SVGLoader';
@@ -87,7 +87,12 @@ const loader = new PCDLoader();
 
 const container = $ref<HTMLElement>();
 
-const { scene, renderer, canvas, run, pause, setCamera } = threeInstance();
+const { scene, renderer, canvas, start, stop, setCamera } = threeInstance({
+  parameters: {
+    antialias: true,
+  },
+  autostart: false,
+});
 
 const color = new THREE.Color(0xFF_FF_FF);
 renderer.setClearColor(color, 1);
@@ -357,7 +362,7 @@ const updatePointCloud = (pointcloud: Uint8Array) => {
 onMounted(() => {
   container?.append(canvas);
 
-  run();
+  start();
 
   if (props.pointcloud !== undefined) {
     updatePointCloud(props.pointcloud);
@@ -370,7 +375,7 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
-  pause();
+  stop();
   disposeScene();
 });
 
