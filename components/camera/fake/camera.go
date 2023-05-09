@@ -3,6 +3,7 @@ package fake
 
 import (
 	"context"
+	"fmt"
 	"image"
 	"image/color"
 	"math"
@@ -171,6 +172,8 @@ type Camera struct {
 
 // Read always returns the same image of a yellow to blue gradient.
 func (c *Camera) Read(ctx context.Context) (image.Image, func(), error) {
+	//fmt.Println("here in fake camera read")
+
 	if c.cacheImage != nil {
 		return c.cacheImage, func() {}, nil
 	}
@@ -195,6 +198,8 @@ func (c *Camera) Read(ctx context.Context) (image.Image, func(), error) {
 
 // NextPointCloud always returns a pointcloud of a yellow to blue gradient, with the depth determined by the intensity of blue.
 func (c *Camera) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+	fmt.Println("here in next point cloud")
+
 	if c.cachePointCloud != nil {
 		return c.cachePointCloud, nil
 	}

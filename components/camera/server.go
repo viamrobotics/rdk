@@ -3,6 +3,8 @@ package camera
 import (
 	"bytes"
 	"context"
+	"fmt"
+	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
@@ -10,6 +12,8 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/camera/v1"
 	"google.golang.org/genproto/googleapis/api/httpbody"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/protoutils"
@@ -40,6 +44,7 @@ func (s *serviceServer) GetImage(
 	ctx context.Context,
 	req *pb.GetImageRequest,
 ) (*pb.GetImageResponse, error) {
+	s.logger.Error("here in get image")
 	ctx, span := trace.StartSpan(ctx, "camera::server::GetImage")
 	defer span.End()
 	cam, err := s.coll.Resource(req.Name)
@@ -96,6 +101,7 @@ func (s *serviceServer) RenderFrame(
 	ctx context.Context,
 	req *pb.RenderFrameRequest,
 ) (*httpbody.HttpBody, error) {
+	fmt.Println("here in render from")
 	ctx, span := trace.StartSpan(ctx, "camera::server::RenderFrame")
 	defer span.End()
 	if req.MimeType == "" {
@@ -118,6 +124,7 @@ func (s *serviceServer) GetPointCloud(
 	ctx context.Context,
 	req *pb.GetPointCloudRequest,
 ) (*pb.GetPointCloudResponse, error) {
+	fmt.Println("here in get point cloud server")
 	ctx, span := trace.StartSpan(ctx, "camera::server::GetPointCloud")
 	defer span.End()
 	camera, err := s.coll.Resource(req.Name)
@@ -136,6 +143,14 @@ func (s *serviceServer) GetPointCloud(
 	err = pointcloud.ToPCD(pc, &buf, pointcloud.PCDBinary)
 	pcdSpan.End()
 	if err != nil {
+		return nil, err
+	}
+
+	// If the camera provided timestamps with the point cloud, send these to the client.
+	if err := grpc.SendHeader(ctx, metadata.MD{
+		TimeRequestedMetadataKey: []string{fmt.Sprintf("%v", time.Now())}, // TODO: change these from time.Now
+		TimeReceivedMetadataKey:  []string{fmt.Sprintf("%v", time.Now())}, // TODO: change these from time.Now
+	}); err != nil {
 		return nil, err
 	}
 

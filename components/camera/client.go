@@ -13,6 +13,8 @@ import (
 	pb "go.viam.com/api/component/camera/v1"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/protoutils"
@@ -61,6 +63,9 @@ func NewClientFromConn(
 func (c *client) Read(ctx context.Context) (image.Image, func(), error) {
 	ctx, span := trace.StartSpan(ctx, "camera::client::Read")
 	defer span.End()
+
+	fmt.Println("here in Read")
+
 	mimeType := gostream.MIMETypeHint(ctx, "")
 	expectedType, _ := utils.CheckLazyMIMEType(mimeType)
 	resp, err := c.client.GetImage(ctx, &pb.GetImageRequest{
@@ -91,6 +96,8 @@ func (c *client) Stream(
 ) (gostream.VideoStream, error) {
 	cancelCtxWithMIME := gostream.WithMIMETypeHint(c.cancelCtx, gostream.MIMETypeHint(ctx, ""))
 	streamCtx, stream, frameCh := gostream.NewMediaStreamForChannel[image.Image](cancelCtxWithMIME)
+
+	fmt.Println("here in stream")
 
 	c.mu.Lock()
 	if err := c.cancelCtx.Err(); err != nil {
@@ -135,15 +142,21 @@ func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 	ctx, span := trace.StartSpan(ctx, "camera::client::NextPointCloud")
 	defer span.End()
 
+	fmt.Println("here in next point cloud")
+
 	ctx, getPcdSpan := trace.StartSpan(ctx, "camera::client::NextPointCloud::GetPointCloud")
+	var header metadata.MD
 	resp, err := c.client.GetPointCloud(ctx, &pb.GetPointCloudRequest{
 		Name:     c.name,
 		MimeType: utils.MimeTypePCD,
-	})
+	}, grpc.Header(&header))
 	getPcdSpan.End()
 	if err != nil {
 		return nil, err
 	}
+
+	fmt.Println("timestamp metadata req: ", header.Get(TimeRequestedMetadataKey))
+	fmt.Println("timestamp metadata rec: ", header.Get(TimeReceivedMetadataKey))
 
 	if resp.MimeType != utils.MimeTypePCD {
 		return nil, fmt.Errorf("unknown pc mime type %s", resp.MimeType)

@@ -41,8 +41,16 @@ func init() {
 	}, newReadImageCollector)
 }
 
-// SubtypeName is a constant that identifies the camera resource subtype string.
-const SubtypeName = "camera"
+const (
+	// SubtypeName is a constant that identifies the camera resource subtype string.
+	SubtypeName = "camera"
+
+	// TODO: add documentation
+	TimeRequestedMetadataKey = "viam-time-requested"
+
+	// TODO: add documentation
+	TimeReceivedMetadataKey = "viam-time-received"
+)
 
 // API is a variable that identifies the camera resource API.
 var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
