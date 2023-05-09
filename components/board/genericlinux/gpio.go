@@ -6,16 +6,12 @@ package genericlinux
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/mkch/gpio"
-	"go.uber.org/multierr"
 	"go.viam.com/utils"
-
-	"go.viam.com/rdk/components/board"
 )
 
 type gpioPin struct {
@@ -287,41 +283,16 @@ func (pin *gpioPin) Close() error {
 	return pin.closeGpioFd()
 }
 
-func (b *sysfsBoard) gpioInitialize(cancelCtx context.Context, gpioMappings map[int]GPIOBoardMapping,
-	interruptConfigs []board.DigitalInterruptConfig, logger golog.Logger,
-) (map[string]*gpioPin, map[string]*digitalInterrupt, error) {
-	interrupts := make(map[string]*digitalInterrupt, len(interruptConfigs))
-	for _, config := range interruptConfigs {
-		interrupt, err := b.createDigitalInterrupt(cancelCtx, config, gpioMappings)
-		if err != nil {
-			// Close all pins we've started
-			for _, runningInterrupt := range interrupts {
-				err = multierr.Combine(err, runningInterrupt.Close())
-			}
-			return nil, nil, err
-		}
-		interrupts[config.Name] = interrupt
+func (b *sysfsBoard) createGpioPin(mapping GPIOBoardMapping) *gpioPin {
+	pin := gpioPin{
+		parentBoard: b,
+		devicePath:  mapping.GPIOChipDev,
+		offset:      uint32(mapping.GPIO),
+		cancelCtx:   b.cancelCtx,
+		logger:      b.logger,
 	}
-
-	pins := make(map[string]*gpioPin)
-	for pinNumber, mapping := range gpioMappings {
-		if _, ok := interrupts[fmt.Sprintf("%d", pinNumber)]; ok {
-			logger.Debugf(
-				"Skipping initialization of GPIO pin %s because it's configured as an interrupt",
-				pinNumber)
-			continue
-		}
-		pin := &gpioPin{
-			parentBoard: b,
-			devicePath:  mapping.GPIOChipDev,
-			offset:      uint32(mapping.GPIO),
-			cancelCtx:   cancelCtx,
-			logger:      logger,
-		}
-		if mapping.HWPWMSupported {
-			pin.hwPwm = newPwmDevice(mapping.PWMSysFsDir, mapping.PWMID, logger)
-		}
-		pins[fmt.Sprintf("%d", pinNumber)] = pin
+	if mapping.HWPWMSupported {
+		pin.hwPwm = newPwmDevice(mapping.PWMSysFsDir, mapping.PWMID, b.logger)
 	}
-	return pins, interrupts, nil
+	return &pin
 }
