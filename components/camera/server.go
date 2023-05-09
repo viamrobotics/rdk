@@ -3,8 +3,6 @@ package camera
 import (
 	"bytes"
 	"context"
-	"fmt"
-	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
@@ -144,11 +142,18 @@ func (s *serviceServer) GetPointCloud(
 	}
 
 	// If the camera provided timestamps with the point cloud, send these to the client.
-	if err := grpc.SendHeader(ctx, metadata.MD{
-		TimeRequestedMetadataKey: []string{fmt.Sprintf("%v", time.Now())}, // TODO: change these from time.Now
-		TimeReceivedMetadataKey:  []string{fmt.Sprintf("%v", time.Now())}, // TODO: change these from time.Now
-	}); err != nil {
-		return nil, err
+	if pcdSourceWithTS, ok := camera.(PointCloudSourceWithTimestamps); ok {
+		timeRequested, timeReceived, err := pcdSourceWithTS.NextPointCloudTimestamps(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		if err := grpc.SendHeader(ctx, metadata.MD{
+			TimeRequestedMetadataKey: []string{timeRequested.String()},
+			TimeReceivedMetadataKey:  []string{timeReceived.String()},
+		}); err != nil {
+			return nil, err
+		}
 	}
 
 	return &pb.GetPointCloudResponse{

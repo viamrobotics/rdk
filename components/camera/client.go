@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"image"
 	"sync"
+	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
@@ -37,6 +38,8 @@ type client struct {
 	activeBackgroundWorkers sync.WaitGroup
 	cancelCtx               context.Context
 	cancel                  func()
+	lastPCDTimeRequested    time.Time
+	lastPCDTimeReceived     time.Time
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
@@ -149,6 +152,24 @@ func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 		return nil, err
 	}
 
+	// Get timestamps from the gRPC header if they're provided.
+	timeRequested := header.Get(TimeRequestedMetadataKey)
+	if len(timeRequested) > 0 {
+		asTime, err := time.Parse("2006-01-02 15:04:05.999999999 -0700 MST", timeRequested[0])
+		if err != nil {
+			return nil, fmt.Errorf("unexpected error while parsing time: %v", err)
+		}
+		c.lastPCDTimeRequested = asTime
+	}
+	timeReceived := header.Get(TimeReceivedMetadataKey)
+	if len(timeReceived) > 0 {
+		asTime, err := time.Parse("2006-01-02 15:04:05.999999999 -0700 MST", timeReceived[0])
+		if err != nil {
+			return nil, fmt.Errorf("unexpected error while parsing time: %v", err)
+		}
+		c.lastPCDTimeReceived = asTime
+	}
+
 	if resp.MimeType != utils.MimeTypePCD {
 		return nil, fmt.Errorf("unknown pc mime type %s", resp.MimeType)
 	}
@@ -159,6 +180,10 @@ func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 
 		return pointcloud.ReadPCD(bytes.NewReader(resp.PointCloud))
 	}()
+}
+
+func (c *client) NextPointCloudTimestamps(_ context.Context) (time.Time, time.Time, error) {
+	return c.lastPCDTimeRequested, c.lastPCDTimeReceived, nil
 }
 
 func (c *client) Projector(ctx context.Context) (transform.Projector, error) {
