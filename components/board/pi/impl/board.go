@@ -101,20 +101,8 @@ func NewPigpio(ctx context.Context, name resource.Name, cfg *genericlinux.Config
 		return nil, picommon.ConvertErrorCodeToMessage(int(resCode), "gpioCfgSetInternals failed with code")
 	}
 
-	// setup
-	cancelCtx, cancelFunc := context.WithCancel(ctx)
-	piInstance := &piPigpio{
-		Named:           name.AsNamed(),
-		cfg:             cfg,
-		logger:          logger,
-		isClosed:        false,
-		interruptCtx:    cancelCtx,
-		interruptCancel: cancelFunc,
-	}
-
+	// If pigpio is not initialized, do so now.
 	instanceMu.Lock()
-
-	// if pigpio is not initialized, only then we initialize it.
 	if !pigpioInitialized {
 		resCode = C.gpioInitialise()
 		if resCode < 0 {
@@ -130,7 +118,6 @@ func NewPigpio(ctx context.Context, name resource.Name, cfg *genericlinux.Config
 			return nil, picommon.ConvertErrorCodeToMessage(int(resCode), "error")
 		}
 	}
-
 	pigpioInitialized = true
 
 	initGood := false
@@ -141,6 +128,16 @@ func NewPigpio(ctx context.Context, name resource.Name, cfg *genericlinux.Config
 		}
 	}()
 	instanceMu.Unlock()
+
+	cancelCtx, cancelFunc := context.WithCancel(ctx)
+	piInstance := &piPigpio{
+		Named:           name.AsNamed(),
+		cfg:             cfg,
+		logger:          logger,
+		isClosed:        false,
+		interruptCtx:    cancelCtx,
+		interruptCancel: cancelFunc,
+	}
 
 	// setup I2C buses
 	if len(cfg.I2Cs) != 0 {
