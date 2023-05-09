@@ -172,10 +172,6 @@ func GoToWaypoints(ctx context.Context, a Arm, waypoints [][]referenceframe.Inpu
 // CheckDesiredJointPositions validates that the desired joint positions either bring the joint back
 // in bounds or do not move the joint more out of bounds.
 func CheckDesiredJointPositions(ctx context.Context, a Arm, desiredJoints []float64) error {
-	if err := ctx.Err(); err != nil {
-		fmt.Println("WE ARE CANCELLED")
-		return err
-	}
 	currentJointPos, err := a.JointPositions(ctx, nil)
 	if err != nil {
 		return err
