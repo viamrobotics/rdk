@@ -328,6 +328,7 @@ func TestArbitraryFileUpload(t *testing.T) {
 	datasync.RetryExponentialFactor.Store(int32(1))
 	fileName := "some_file_name.txt"
 	fileExt := ".txt"
+	tags := []string{"a", "b"}
 
 	tests := []struct {
 		name                 string
@@ -384,9 +385,7 @@ func TestArbitraryFileUpload(t *testing.T) {
 			cfg.ScheduledSyncDisabled = tc.scheduleSyncDisabled
 			cfg.SyncIntervalMins = syncIntervalMins
 			cfg.AdditionalSyncPaths = []string{additionalPathsDir}
-			cfg.AdditionalTags = make([][]string, 1)
-			tags := []string{"a", "b"}
-			cfg.AdditionalTags[0] = tags
+			cfg.AdditionalTags = [][]string{tags}
 			cfg.CaptureDir = captureDir
 
 			// Start dmsvc.
@@ -449,6 +448,7 @@ func TestArbitraryFileUpload(t *testing.T) {
 				test.That(t, actMD.FileName, test.ShouldEqual, fileName)
 				test.That(t, actMD.FileExtension, test.ShouldEqual, fileExt)
 				test.That(t, actMD.PartId, test.ShouldNotBeBlank)
+				test.That(t, actMD.Tags, test.ShouldResemble, tags)
 
 				// Validate ensuing data messages.
 				dataRequests := urs[1:]
