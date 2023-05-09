@@ -50,6 +50,24 @@ func setupInjectRobot() *inject.Robot {
 	return r
 }
 
+func TestAllResourcesByName(t *testing.T) {
+	r := setupInjectRobot()
+
+	resources := robot.AllResourcesByName(r, "arm1")
+	test.That(t, resources, test.ShouldResemble, []resource.Resource{hereRes, hereRes})
+
+	resources = robot.AllResourcesByName(r, "remote:arm1")
+	test.That(t, resources, test.ShouldResemble, []resource.Resource{hereRes})
+
+	test.That(t, func() { robot.AllResourcesByName(r, "arm2") }, test.ShouldPanic)
+
+	resources = robot.AllResourcesByName(r, "sensor1")
+	test.That(t, resources, test.ShouldResemble, []resource.Resource{hereRes})
+
+	resources = robot.AllResourcesByName(r, "blah")
+	test.That(t, resources, test.ShouldBeEmpty)
+}
+
 func TestNamesFromRobot(t *testing.T) {
 	r := setupInjectRobot()
 

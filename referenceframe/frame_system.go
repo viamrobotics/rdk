@@ -88,7 +88,7 @@ func NewEmptyFrameSystem(name string) FrameSystem {
 
 // NewFrameSystem assembles a frame system from a set of parts and additional transforms.
 func NewFrameSystem(name string, parts []*FrameSystemPart, additionalTransforms []*LinkInFrame) (FrameSystem, error) {
-	allParts := make([]*FrameSystemPart, 0)
+	allParts := make([]*FrameSystemPart, 0, len(parts)+len(additionalTransforms))
 	allParts = append(allParts, parts...)
 	for _, tf := range additionalTransforms {
 		transformPart, err := LinkInFrameToFrameSystemPart(tf)
@@ -164,7 +164,7 @@ func (sfs *simpleFrameSystem) Parent(frame Frame) (Frame, error) {
 	if parent := sfs.parents[frame]; parent != nil {
 		return parent, nil
 	}
-	return nil, NewParentFrameNilError()
+	return nil, NewParentFrameNilError(frame.Name())
 }
 
 // frameExists is a helper function to see if a frame with a given name already exists in the system.
@@ -231,7 +231,7 @@ func (sfs *simpleFrameSystem) FrameNames() []string {
 func (sfs *simpleFrameSystem) AddFrame(frame, parent Frame) error {
 	// check to see if parent is in system
 	if parent == nil {
-		return NewParentFrameNilError()
+		return NewParentFrameNilError(frame.Name())
 	}
 	if !sfs.frameExists(parent.Name()) {
 		return NewFrameMissingError(parent.Name())
@@ -303,7 +303,7 @@ func (sfs *simpleFrameSystem) MergeFrameSystem(systemToMerge FrameSystem, attach
 		child := systemToMerge.Frame(name)
 		parent, err := systemToMerge.Parent(child)
 		if err != nil {
-			if errors.Is(err, NewParentFrameNilError()) {
+			if errors.Is(err, NewParentFrameNilError(child.Name())) {
 				continue
 			}
 			return err

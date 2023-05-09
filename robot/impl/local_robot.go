@@ -43,7 +43,6 @@ var _ = robot.LocalRobot(&localRobot{})
 // logic to its manager.
 type localRobot struct {
 	mu      sync.Mutex
-	fsMu    sync.RWMutex
 	manager *resourceManager
 	config  *config.Config
 
@@ -728,14 +727,11 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 // can build its frame system. requests the remote components from the remote's frame system service.
 // NOTE(RDK-258): If remotes can trigger a local robot to reconfigure, you don't need to update remotes in every call.
 func (r *localRobot) FrameSystemConfig(ctx context.Context) (*framesystem.Config, error) {
-	r.fsMu.RLock()
-	defer r.fsMu.RUnlock()
-
-	localParts, err := r.getLocalParts(ctx)
+	localParts, err := r.getLocalFrameSystemParts(ctx)
 	if err != nil {
 		return nil, err
 	}
-	remoteParts, err := r.getRemoteParts(ctx)
+	remoteParts, err := r.getRemoteFrameSystemParts(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -743,9 +739,9 @@ func (r *localRobot) FrameSystemConfig(ctx context.Context) (*framesystem.Config
 	return &framesystem.Config{Parts: append(localParts, remoteParts...)}, nil
 }
 
-// getLocalParts collects and returns the physical parts of the robot that may have frame info,
+// getLocalFrameSystemParts collects and returns the physical parts of the robot that may have frame info,
 // excluding remote robots and services, etc from the robot's config.Config.
-func (r *localRobot) getLocalParts(ctx context.Context) ([]*referenceframe.FrameSystemPart, error) {
+func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*referenceframe.FrameSystemPart, error) {
 	cfg, err := r.Config(ctx)
 	if err != nil {
 		return nil, err
@@ -790,7 +786,7 @@ func (r *localRobot) getLocalParts(ctx context.Context) ([]*referenceframe.Frame
 	return parts, nil
 }
 
-func (r *localRobot) getRemoteParts(ctx context.Context) ([]*referenceframe.FrameSystemPart, error) {
+func (r *localRobot) getRemoteFrameSystemParts(ctx context.Context) ([]*referenceframe.FrameSystemPart, error) {
 	cfg, err := r.Config(ctx)
 	if err != nil {
 		return nil, err
@@ -824,7 +820,6 @@ func (r *localRobot) getRemoteParts(ctx context.Context) ([]*referenceframe.Fram
 		if err != nil {
 			return nil, errors.Wrapf(err, "remote %s", remote)
 		}
-		// TODO: it jumps out to me as wrong that we are mutating the remote subparts but this is how it has been done
 		framesystem.PrefixRemoteParts(remoteFsCfg.Parts, remoteCfg.Name, parentName)
 		remoteParts = append(remoteParts, remoteFsCfg.Parts...)
 	}

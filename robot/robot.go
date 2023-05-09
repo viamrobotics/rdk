@@ -48,7 +48,7 @@ type Robot interface {
 	// ProcessManager returns the process manager for the robot.
 	ProcessManager() pexec.ProcessManager
 
-	// OperationManager returns the operation manager the robot is using.
+	// OperationManager returns the operation manager the robot  is using.
 	OperationManager() *operation.Manager
 
 	// SessionManager returns the session manager the robot is using.
@@ -125,6 +125,25 @@ type RemoteRobot interface {
 type Status struct {
 	Name   resource.Name
 	Status interface{}
+}
+
+// AllResourcesByName returns an array of all resources that have this short name.
+// NOTE: this function queries by the shortname rather than the fully qualified resource name which is not recommended practice
+// and may become deprecated in the future.
+func AllResourcesByName(r Robot, name string) []resource.Resource {
+	all := []resource.Resource{}
+
+	for _, n := range r.ResourceNames() {
+		if n.ShortName() == name {
+			r, err := r.ResourceByName(n)
+			if err != nil {
+				panic("this should be impossible")
+			}
+			all = append(all, r)
+		}
+	}
+
+	return all
 }
 
 // NamesByAPI is a helper for getting all names from the given Robot given the API.

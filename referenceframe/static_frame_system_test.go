@@ -58,13 +58,13 @@ func TestSimpleFrameSystemFunctions(t *testing.T) {
 	test.That(t, len(frames), test.ShouldEqual, 1)
 
 	err = fs.AddFrame(f2, nil)
-	test.That(t, err, test.ShouldBeError, NewParentFrameNilError())
+	test.That(t, err, test.ShouldBeError, NewParentFrameNilError(f2.Name()))
 
 	err = fs.AddFrame(NewZeroStaticFrame("bar"), NewZeroStaticFrame("foo"))
 	test.That(t, err, test.ShouldBeError, NewFrameMissingError("foo"))
 
 	err = fs.AddFrame(NewZeroStaticFrame("bar"), nil)
-	test.That(t, err, test.ShouldBeError, NewParentFrameNilError())
+	test.That(t, err, test.ShouldBeError, NewParentFrameNilError("bar"))
 
 	err = fs.AddFrame(NewZeroStaticFrame("frame2"), fs.World())
 	test.That(t, err, test.ShouldBeError, NewFrameAlreadyExistsError("frame2"))
