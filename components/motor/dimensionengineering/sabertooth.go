@@ -238,6 +238,7 @@ func NewMotor(ctx context.Context, c *Config, name resource.Name, logger golog.L
 		dirFlip:     c.DirectionFlip,
 		minPowerPct: c.MinPowerPct,
 		maxPowerPct: c.MaxPowerPct,
+		maxRPM:      c.MaxRPM,
 	}
 
 	if err := m.configure(c); err != nil {
