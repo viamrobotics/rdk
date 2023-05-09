@@ -284,7 +284,6 @@ const updatePointCloud = (pointcloud: Uint8Array) => {
     updatePose(props.pose!);
   }
 
-  scaleObjects();
   updateOrRemoveDestinationMarker();
 };
 
