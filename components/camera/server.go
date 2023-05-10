@@ -129,14 +129,8 @@ func (s *serviceServer) GetPointCloud(
 	if err != nil {
 		return nil, err
 	}
-	// Return nil point cloud
-	s.logger.Info("In serviceServer GetPointCloud")
 	if pc == nil {
-		s.logger.Info("point cloud was nil")
-		return &pb.GetPointCloudResponse{
-			MimeType:   utils.MimeTypePCD,
-			PointCloud: []byte{},
-		}, nil
+		panic("point cloud was nil")
 	}
 
 	var buf bytes.Buffer

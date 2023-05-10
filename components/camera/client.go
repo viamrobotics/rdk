@@ -1,6 +1,7 @@
 package camera
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"image"
@@ -131,8 +132,6 @@ func (c *client) Stream(
 }
 
 func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
-	c.logger.Info("here in client NextPointCloud")
-
 	ctx, span := trace.StartSpan(ctx, "camera::client::NextPointCloud")
 	defer span.End()
 
@@ -142,8 +141,6 @@ func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 		MimeType: utils.MimeTypePCD,
 	})
 	getPcdSpan.End()
-
-	return nil, nil
 	if err != nil {
 		return nil, err
 	}
@@ -156,8 +153,7 @@ func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 		_, span := trace.StartSpan(ctx, "camera::client::NextPointCloud::ReadPCD")
 		defer span.End()
 
-		return nil, nil
-		//return pointcloud.ReadPCD(bytes.NewReader(resp.PointCloud))
+		return pointcloud.ReadPCD(bytes.NewReader(resp.PointCloud))
 	}()
 }
 
