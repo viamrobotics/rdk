@@ -43,7 +43,6 @@ func (server *serviceServer) Move(ctx context.Context, req *pb.MoveRequest) (*pb
 		req.GetConstraints(),
 		req.Extra.AsMap(),
 	)
-
 	return &pb.MoveResponse{Success: success}, err
 }
 
