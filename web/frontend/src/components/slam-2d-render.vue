@@ -135,6 +135,8 @@ const disposeScene = () => {
       }
     }
   });
+
+  scene.clear();
 };
 
 const updatePose = (newPose: commonApi.Pose) => {
@@ -277,10 +279,6 @@ const updatePointCloud = (pointcloud: Uint8Array) => {
     baseMarker,
     destMarker
   );
-
-  if (props.pose !== undefined) {
-    updatePose(props.pose!);
-  }
 
   updateOrRemoveDestinationMarker();
 };
