@@ -90,18 +90,7 @@ var (
 	instances         = map[*piPigpio]struct{}{}
 )
 
-// NewPigpio makes a new pigpio based Board using the given config.
-// TODO(RSDK-RSDK-2691): implement reconfigure.
-func NewPigpio(ctx context.Context, name resource.Name, cfg *genericlinux.Config, logger golog.Logger) (board.LocalBoard, error) {
-	// this is so we can run it inside a daemon
-	internals := C.gpioCfgGetInternals()
-	internals |= C.PI_CFG_NOSIGHANDLER
-	resCode := C.gpioCfgSetInternals(internals)
-	if resCode < 0 {
-		return nil, picommon.ConvertErrorCodeToMessage(int(resCode), "gpioCfgSetInternals failed with code")
-	}
-
-	// If pigpio is not initialized, do so now.
+func initializePigpio() error {
 	instanceMu.Lock()
 	if !pigpioInitialized {
 		resCode = C.gpioInitialise()
@@ -123,6 +112,22 @@ func NewPigpio(ctx context.Context, name resource.Name, cfg *genericlinux.Config
 	}
 	pigpioInitialized = true
 	instanceMu.Unlock()
+}
+
+// NewPigpio makes a new pigpio based Board using the given config.
+// TODO(RSDK-RSDK-2691): implement reconfigure.
+func NewPigpio(ctx context.Context, name resource.Name, cfg *genericlinux.Config, logger golog.Logger) (board.LocalBoard, error) {
+	// this is so we can run it inside a daemon
+	internals := C.gpioCfgGetInternals()
+	internals |= C.PI_CFG_NOSIGHANDLER
+	resCode := C.gpioCfgSetInternals(internals)
+	if resCode < 0 {
+		return nil, picommon.ConvertErrorCodeToMessage(int(resCode), "gpioCfgSetInternals failed with code")
+	}
+
+	if err := initializePigpio(); err != nil {
+		return err
+	}
 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	piInstance := &piPigpio{
