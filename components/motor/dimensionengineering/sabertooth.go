@@ -238,6 +238,7 @@ func NewMotor(ctx context.Context, c *Config, name resource.Name, logger golog.L
 		dirFlip:     c.DirectionFlip,
 		minPowerPct: c.MinPowerPct,
 		maxPowerPct: c.MaxPowerPct,
+		maxRPM:      c.MaxRPM,
 	}
 
 	if err := m.configure(c); err != nil {
@@ -345,9 +346,10 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string
 	rawSpeed := powerPct * maxSpeed
 	switch speed := math.Abs(rawSpeed); {
 	case speed < 0.1:
-		m.c.logger.Warnf("motor (%s) speed is nearly 0 rev_per_min", m.Name())
-	case speed > m.maxRPM-0.1:
-		m.c.logger.Warnf("motor (%s) speed is nearly the max rev_per_min (%f)", m.Name(), m.maxRPM)
+		m.c.logger.Warn("motor speed is nearly 0 rev_per_min")
+	case m.maxRPM > 0 && speed > m.maxRPM-0.1:
+		m.c.logger.Warnf("motor speed is nearly the max rev_per_min (%f)", m.maxRPM)
+	default:
 	}
 	if math.Signbit(rawSpeed) {
 		rawSpeed *= -1
