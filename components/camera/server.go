@@ -130,7 +130,10 @@ func (s *serviceServer) GetPointCloud(
 		return nil, err
 	}
 	if pc == nil {
-		panic("point cloud was nil")
+		return &pb.GetPointCloudResponse{
+			MimeType:   utils.MimeTypePCD,
+			PointCloud: nil,
+		}, nil
 	}
 
 	var buf bytes.Buffer
