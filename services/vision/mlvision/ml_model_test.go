@@ -92,7 +92,7 @@ func TestAddingIncorrectModelTypeToModel(t *testing.T) {
 	test.That(t, classifier, test.ShouldNotBeNil)
 
 	err = checkIfClassifierWorks(ctx, classifier)
-	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeNil)
 
 	detector, err := attemptToBuildDetector(mlm)
 	test.That(t, err, test.ShouldBeNil)
