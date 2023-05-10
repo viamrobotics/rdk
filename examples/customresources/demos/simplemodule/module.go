@@ -36,7 +36,10 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 	resource.RegisterComponent(generic.API, myModel, resource.Registration[resource.Resource, resource.NoNativeConfig]{
 		Constructor: newCounter,
 	})
-	myMod.AddModelFromRegistry(ctx, generic.API, myModel)
+	err = myMod.AddModelFromRegistry(ctx, generic.API, myModel)
+	if err != nil {
+		return err
+	}
 
 	// The module is started.
 	err = myMod.Start(ctx)

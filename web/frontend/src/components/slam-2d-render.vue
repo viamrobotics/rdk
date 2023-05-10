@@ -4,9 +4,43 @@ import { $ref } from 'vue/macros';
 import { threeInstance, MouseRaycaster, MeshDiscardMaterial } from 'trzy';
 import { onMounted, onUnmounted, watch } from 'vue';
 import * as THREE from 'three';
-import { MapControls } from 'three/examples/jsm/controls/OrbitControls';
+import { MapControls } from 'three/examples/jsm/controls/MapControls';
 import { PCDLoader } from 'three/examples/jsm/loaders/PCDLoader';
 import type { commonApi } from '@viamrobotics/sdk';
+import DestMarker from '../lib/destination-marker.txt?raw';
+import BaseMarker from '../lib/base-marker.txt?raw';
+
+let pointsMaterial: THREE.PointsMaterial | undefined;
+
+const backgroundGridColor = 0xCA_CA_CA;
+
+const gridSubparts = ['AxesPos', 'AxesNeg', 'Grid'];
+
+const svgMarkerRenderOrder = 4;
+const pointsRenderOrder = 3;
+const axesHelperRenderOrder = 2;
+const gridHelperRenderOrder = 1;
+
+const cameraScale = 25;
+const aspectInverse = 4;
+const initialPointSize = 4;
+
+const gridHelperScalar = 4;
+const axesHelperSize = 8;
+
+const textureLoader = new THREE.TextureLoader();
+
+const makeMarker = (png: string, name: string) => {
+  const geometry = new THREE.PlaneGeometry();
+  const material = new THREE.MeshBasicMaterial({ map: textureLoader.load(png), transparent: true });
+  const marker = new THREE.Mesh(geometry, material);
+  marker.name = name;
+  marker.renderOrder = svgMarkerRenderOrder;
+  return marker;
+};
+
+const baseMarkerOffset = new THREE.Vector3(-0.05, -0.3, 0);
+const destinationMarkerOffset = new THREE.Vector3(0, 0.5, 0);
 
 /*
  * this color map is greyscale. The color map is being used map probability values of a PCD
@@ -14,15 +48,15 @@ import type { commonApi } from '@viamrobotics/sdk';
  * generated with: https://grayscale.design/app
  */
 const colorMapGrey = [
-  [247, 247, 247],
-  [239, 239, 239],
-  [223, 223, 223],
-  [202, 202, 202],
-  [168, 168, 168],
-  [135, 135, 135],
-  [109, 109, 109],
-  [95, 95, 95],
-  [74, 74, 74],
+  [240, 240, 240],
+  [220, 220, 220],
+  [200, 200, 200],
+  [190, 190, 190],
+  [170, 170, 170],
+  [150, 150, 150],
+  [40, 40, 40],
+  [20, 20, 20],
+  [10, 10, 10],
   [0, 0, 0],
 ].map(([red, green, blue]) =>
   new THREE.Vector3(red, green, blue).multiplyScalar(1 / 255));
@@ -39,49 +73,57 @@ const props = defineProps<{
   resources: commonApi.ResourceName.AsObject[]
   pointcloud?: Uint8Array
   pose?: commonApi.Pose
+  destExists: boolean
+  destVector: THREE.Vector3
+  axesVisible: boolean
 }
 >();
+
+const emit = defineEmits<{(event: 'click', point: THREE.Vector3): void}>();
 
 const loader = new PCDLoader();
 
 const container = $ref<HTMLElement>();
 
-const { scene, renderer, canvas, run, pause, setCamera } = threeInstance();
+const { scene, renderer, canvas, start, stop, setCamera, update } = threeInstance({
+  parameters: {
+    antialias: true,
+  },
+  autostart: false,
+});
 
 const color = new THREE.Color(0xFF_FF_FF);
 renderer.setClearColor(color, 1);
 
 canvas.style.cssText = 'width:100%;height:100%;';
 
-const camera = new THREE.OrthographicCamera(-1, 1, 0.5, -0.5, -1, 1000);
-camera.userData.size = 2;
+const camera = new THREE.OrthographicCamera();
+camera.near = -1000;
+camera.far = 1000;
+camera.userData.size = 1;
 setCamera(camera);
 scene.add(camera);
 
+const baseMarker = makeMarker(BaseMarker, 'BaseMarker');
+const destMarker = makeMarker(DestMarker, 'DestinationMarker');
+destMarker.visible = false;
+
 const controls = new MapControls(camera, canvas);
 controls.enableRotate = false;
+controls.screenSpacePanning = true;
 
 const raycaster = new MouseRaycaster({ camera, renderer, recursive: false });
 
-raycaster.on('click', (event) => {
+raycaster.on('click', (event: THREE.Event) => {
   const [intersection] = event.intersections as THREE.Intersection[];
   if (intersection && intersection.point) {
-    console.debug(intersection.point);
+    emit('click', intersection.point);
   }
 });
 
-const markerSize = 0.5;
-const marker = new THREE.Mesh(
-  new THREE.PlaneGeometry(markerSize, markerSize),
-  new THREE.MeshBasicMaterial({ color: 'red' })
-);
-marker.name = 'Marker';
-// This ensures the robot marker renders on top of the pointcloud data
-marker.renderOrder = 999;
-
 const disposeScene = () => {
   scene.traverse((object) => {
-    if (object.name === 'Marker') {
+    if (object.name === 'BaseMarker' || object.name === 'DestinationMarker') {
       return;
     }
 
@@ -95,6 +137,13 @@ const disposeScene = () => {
   });
 
   scene.clear();
+};
+
+const updatePose = (newPose: commonApi.Pose) => {
+  const x = newPose.getX();
+  const y = newPose.getY();
+  const z = newPose.getZ();
+  baseMarker.position.set(x, y, z).add(baseMarkerOffset);
 };
 
 /*
@@ -115,31 +164,78 @@ const colorBuckets = (probability: number): THREE.Vector3 => {
   return colorMapGrey[probToColorMapBucket(probability, colorMapGrey.length)]!;
 };
 
-const updateCloud = (pointcloud: Uint8Array) => {
+// create the x and z axes
+const createAxisHelper = (name: string, rotation: number): THREE.AxesHelper => {
+  const axesHelper = new THREE.AxesHelper(axesHelperSize);
+  axesHelper.rotateX(rotation);
+  axesHelper.scale.set(1e5, 1, 1e5);
+  axesHelper.renderOrder = axesHelperRenderOrder;
+  axesHelper.name = name;
+  axesHelper.visible = props.axesVisible;
+  return axesHelper;
+};
+
+// create the background gray grid
+const createGridHelper = (boundingBox: THREE.Box3): THREE.GridHelper => {
+  const deltaX = Math.abs(boundingBox.max.x - boundingBox.min.x);
+  const deltaZ = Math.abs(boundingBox.max.z - boundingBox.min.z);
+  let maxDelta = Math.round(Math.max(deltaX, deltaZ) * gridHelperScalar);
+
+  /*
+   * if maxDelta is an odd number the x y axes will not be layered neatly over the grey grid
+   * because we round maxDelta and then potentially decrease the value, the 1 meter grid spacing
+   * is bound to have a margin of error
+   */
+  if (maxDelta % 2 !== 0) {
+    maxDelta -= 1;
+  }
+
+  const gridHelper = new THREE.GridHelper(maxDelta, maxDelta, backgroundGridColor, backgroundGridColor);
+  gridHelper.renderOrder = gridHelperRenderOrder;
+  gridHelper.name = 'Grid';
+  gridHelper.visible = props.axesVisible;
+  gridHelper.rotateX(Math.PI / 2);
+  return gridHelper;
+};
+
+const updateOrRemoveDestinationMarker = () => {
+  if (props.destVector && props.destExists) {
+    destMarker.visible = true;
+    destMarker.position.copy(props.destVector).add(destinationMarkerOffset);
+  }
+
+  if (!props.destExists) {
+    destMarker.visible = false;
+  }
+};
+
+const updatePointCloud = (pointcloud: Uint8Array) => {
   disposeScene();
 
-  const viewHeight = 1;
-  const viewWidth = viewHeight * 2;
-
   const points = loader.parse(pointcloud.buffer);
+  pointsMaterial = points.material as THREE.PointsMaterial;
+  pointsMaterial.sizeAttenuation = false;
+  pointsMaterial.size = initialPointSize;
   points.geometry.computeBoundingSphere();
+  points.renderOrder = pointsRenderOrder;
 
   const { radius = 1, center = { x: 0, y: 0 } } = points.geometry.boundingSphere ?? {};
   camera.position.set(center.x, center.y, 100);
+  controls.target.set(center.x, center.y, 0);
   camera.lookAt(center.x, center.y, 0);
 
+  const viewHeight = 1;
+  const viewWidth = viewHeight * 2;
   const aspect = canvas.clientHeight / canvas.clientWidth;
+
   camera.zoom = aspect > 1
-    ? viewHeight / (radius * 2)
-    : camera.zoom = viewWidth / (radius * 2);
+    ? viewHeight / (radius * aspectInverse)
+    : viewWidth / (radius * aspectInverse);
 
-  camera.updateProjectionMatrix();
-
-  controls.target.set(center.x, center.y, 0);
   controls.maxZoom = radius * 2;
 
   const intersectionPlane = new THREE.Mesh(
-    new THREE.PlaneGeometry(radius * 2, radius * 2, 1, 1).rotateX(-Math.PI / 2),
+    new THREE.PlaneGeometry(radius * 2, radius * 2, 1, 1),
     new MeshDiscardMaterial()
   );
   intersectionPlane.name = 'Intersection Plane';
@@ -161,35 +257,75 @@ const updateCloud = (pointcloud: Uint8Array) => {
     }
   }
 
-  scene.add(points);
-  scene.add(marker);
-  scene.add(intersectionPlane);
+  points.geometry.computeBoundingBox();
+
+  // construct grid spaced at 1 meter
+  const gridHelper = createGridHelper(points.geometry.boundingBox!);
+
+  // construct axes
+  const axesPos = createAxisHelper('AxesPos', Math.PI / 2);
+  axesPos.rotateY(Math.PI / 2);
+  const axesNeg = createAxisHelper('AxesNeg', -Math.PI / 2);
+  axesNeg.rotateY(Math.PI / 2);
+  axesNeg.rotateX(Math.PI);
+
+  // add objects to scene
+  scene.add(
+    gridHelper,
+    points,
+    intersectionPlane,
+    axesPos,
+    axesNeg,
+    baseMarker,
+    destMarker
+  );
+
+  if (props.pose !== undefined) {
+    updatePose(props.pose!);
+  }
+
+  updateOrRemoveDestinationMarker();
 };
 
-const updatePose = (newPose: commonApi.Pose) => {
-  const x = newPose.getX();
-  const y = newPose.getY();
-  marker.position.setX(x);
-  marker.position.setY(y);
-};
+let removeUpdate: (() => void) | undefined;
 
 onMounted(() => {
+  removeUpdate = update(() => {
+    const { zoom } = camera;
+
+    if (pointsMaterial) {
+      pointsMaterial.size = zoom * cameraScale;
+    }
+  });
   container?.append(canvas);
 
-  run();
+  start();
 
   if (props.pointcloud !== undefined) {
-    updateCloud(props.pointcloud);
+    updatePointCloud(props.pointcloud);
   }
 
   if (props.pose !== undefined) {
     updatePose(props.pose);
   }
+
 });
 
 onUnmounted(() => {
-  pause();
+  stop();
   disposeScene();
+  removeUpdate?.();
+});
+
+watch(() => [props.destVector!.x, props.destVector!.y, props.destExists], updateOrRemoveDestinationMarker);
+
+watch(() => props.axesVisible, () => {
+  for (const gridPart of gridSubparts) {
+    const part = scene.getObjectByName(gridPart);
+    if (part !== undefined) {
+      part.visible = props.axesVisible;
+    }
+  }
 });
 
 watch(() => props.pose, (newPose) => {
@@ -205,7 +341,7 @@ watch(() => props.pose, (newPose) => {
 watch(() => props.pointCloudUpdateCount, () => {
   if (props.pointcloud !== undefined) {
     try {
-      updateCloud(props.pointcloud);
+      updatePointCloud(props.pointcloud);
     } catch (error) {
       console.error('failed to update pointcloud', error);
     }
@@ -215,10 +351,78 @@ watch(() => props.pointCloudUpdateCount, () => {
 </script>
 
 <template>
-  <div class="flex flex-col gap-4">
-    <div
-      ref="container"
-      class="pcd-container border-border-1 relative w-full border"
-    />
+  <div
+    ref="container"
+    class="relative w-full"
+  >
+    <p class="absolute left-3 top-3 bg-white text-xs">
+      Grid set to 1 meter
+    </p>
+    <div class="absolute right-3 top-3">
+      <svg
+        class="Axes-Legend"
+        width="30"
+        height="30"
+        viewBox="0 0 30 30"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <rect
+          width="10"
+          height="10"
+          rx="5"
+          fill="#BE3536"
+        />
+        <path
+          d="M4.66278 6.032H4.51878L2.76678 2.4H3.51878L4.95078 5.456H5.04678L6.47878
+             2.4H7.23078L5.47878 6.032H5.33478V8H4.66278V6.032Z"
+          fill="#FCECEA"
+        />
+        <rect
+          x="20"
+          y="20"
+          width="10"
+          height="10"
+          rx="5"
+          fill="#0066CC"
+        />
+        <path
+          d="M23.6708 22.4L24.9268 24.88H25.0708L26.3268 22.4H27.0628L25.6628 25.144V25.24L27.0628
+             28H26.3268L25.0708 25.504H24.9268L23.6708 28H22.9348L24.3348 25.24V25.144L22.9348 22.4H23.6708Z"
+          fill="#E1F3FF"
+        />
+        <rect
+          x="4"
+          y="9"
+          width="2"
+          height="17"
+          fill="#BE3536"
+        />
+        <rect
+          x="21"
+          y="24"
+          width="2"
+          height="17"
+          transform="rotate(90 21 24)"
+          fill="#0066CC"
+        />
+        <rect
+          x="0.5"
+          y="20.5"
+          width="9"
+          height="9"
+          rx="4.5"
+          fill="#E0FAE3"
+        />
+        <rect
+          x="0.5"
+          y="20.5"
+          width="9"
+          height="9"
+          rx="4.5"
+          stroke="#3D7D3F"
+        />
+      </svg>
+    </div>
   </div>
 </template>

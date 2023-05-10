@@ -206,7 +206,7 @@ func associateSession(
 		return ctx, nil
 	}
 	authEntity, _ := rpc.ContextAuthEntity(ctx)
-	sess, err := m.FindByID(sessID, authEntity.Entity)
+	sess, err := m.FindByID(ctx, sessID, authEntity.Entity)
 	if err != nil {
 		return nil, err
 	}

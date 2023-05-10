@@ -153,7 +153,7 @@ onMounted(async () => {
     </div>
 
     <div>
-      <div class="border-border-1 border border-t-0 p-4">
+      <div class="border-medium border border-t-0 p-4">
         <v-radio
           label="Set Power"
           :options="properties?.positionReporting ? 'Go, Go For, Go To' : 'Go'"
@@ -228,7 +228,7 @@ onMounted(async () => {
               :selected="direction === 1 ? 'Forwards' : 'Backwards'"
               @input="setDirection($event.detail.value)"
             />
-            <div class="w-80">
+            <div class="w-full">
               <v-slider
                 id="power"
                 class="ml-2 max-w-xs pt-2"

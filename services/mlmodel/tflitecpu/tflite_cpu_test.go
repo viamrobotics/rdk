@@ -2,7 +2,6 @@ package tflitecpu
 
 import (
 	"context"
-	"math/rand"
 	"net"
 	"reflect"
 	"testing"
@@ -153,7 +152,7 @@ func TestTFLiteCPUTextModel(t *testing.T) {
 
 	// Test that the Infer() works even on a text classifier
 	inputMap := make(map[string]interface{})
-	inputMap["text"] = makeRandomSlice(got.model.Info.InputHeight)
+	inputMap["text"] = makeExampleSlice(got.model.Info.InputHeight)
 	test.That(t, len(inputMap["text"].([]int32)), test.ShouldEqual, 384)
 	gotOutput, err := got.Infer(ctx, inputMap)
 	test.That(t, err, test.ShouldBeNil)
@@ -240,11 +239,10 @@ func TestTFLiteCPUClient(t *testing.T) {
 	test.That(t, cats.Index(0).Interface().(float64), test.ShouldResemble, float64(17)) // 17 is dog
 }
 
-func makeRandomSlice(length int) []int32 {
+func makeExampleSlice(length int) []int32 {
 	out := make([]int32, 0, length)
 	for i := 0; i < length; i++ {
-		x := rand.Int31n(100)
-		out = append(out, x)
+		out = append(out, int32(i))
 	}
 	return out
 }

@@ -1,8 +1,11 @@
 package utils
 
 import (
+	"os"
 	"path/filepath"
 	"runtime"
+
+	"go.viam.com/utils"
 )
 
 // ResolveFile returns the path of the given file relative to the root
@@ -19,4 +22,15 @@ func ResolveFile(fn string) string {
 		panic(err)
 	}
 	return filepath.Join(thisDirPath, "..", fn)
+}
+
+// RemoveFileNoError will remove the file at the given path if it exists. Any
+// errors will be suppressed.
+func RemoveFileNoError(path string) {
+	utils.UncheckedErrorFunc(func() error {
+		if _, err := os.Stat(path); err == nil {
+			return os.Remove(path)
+		}
+		return nil
+	})
 }

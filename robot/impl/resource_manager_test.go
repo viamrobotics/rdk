@@ -185,7 +185,7 @@ func TestManagerForRemoteRobot(t *testing.T) {
 
 	manager := managerForDummyRobot(injectRobot)
 	defer func() {
-		test.That(t, manager.Close(context.Background(), injectRobot), test.ShouldBeNil)
+		test.That(t, manager.Close(context.Background()), test.ShouldBeNil)
 	}()
 
 	armNames := []resource.Name{arm.Named("arm1"), arm.Named("arm2")}
@@ -250,7 +250,7 @@ func TestManagerMergeNamesWithRemotes(t *testing.T) {
 
 	manager := managerForDummyRobot(injectRobot)
 	defer func() {
-		test.That(t, manager.Close(context.Background(), injectRobot), test.ShouldBeNil)
+		test.That(t, manager.Close(context.Background()), test.ShouldBeNil)
 	}()
 	manager.addRemote(
 		context.Background(),
@@ -380,7 +380,7 @@ func TestManagerResourceRemoteName(t *testing.T) {
 
 	manager := managerForDummyRobot(injectRobot)
 	defer func() {
-		test.That(t, manager.Close(context.Background(), injectRobot), test.ShouldBeNil)
+		test.That(t, manager.Close(context.Background()), test.ShouldBeNil)
 	}()
 
 	injectRemote := &inject.Robot{}
@@ -415,7 +415,7 @@ func TestManagerWithSameNameInRemoteNoPrefix(t *testing.T) {
 
 	manager := managerForDummyRobot(injectRobot)
 	defer func() {
-		test.That(t, manager.Close(context.Background(), injectRobot), test.ShouldBeNil)
+		test.That(t, manager.Close(context.Background()), test.ShouldBeNil)
 	}()
 	manager.addRemote(
 		context.Background(),
@@ -442,7 +442,7 @@ func TestManagerWithSameNameInBaseAndRemote(t *testing.T) {
 
 	manager := managerForDummyRobot(injectRobot)
 	defer func() {
-		test.That(t, manager.Close(context.Background(), injectRobot), test.ShouldBeNil)
+		test.That(t, manager.Close(context.Background()), test.ShouldBeNil)
 	}()
 	manager.addRemote(
 		context.Background(),
@@ -854,7 +854,7 @@ func TestManagerMarkRemoved(t *testing.T) {
 	}, logger)
 	checkEmpty(processesToRemove, resourcesToCloseBeforeComplete, markedResourceNames)
 
-	test.That(t, manager.Close(ctx, &localRobot{}), test.ShouldBeNil)
+	test.That(t, manager.Close(ctx), test.ShouldBeNil)
 	cancel()
 
 	ctx, cancel = context.WithCancel(context.Background())
@@ -940,7 +940,7 @@ func TestManagerMarkRemoved(t *testing.T) {
 		utils.NewStringSet("2"),
 	)
 
-	test.That(t, manager.Close(ctx, &localRobot{}), test.ShouldBeNil)
+	test.That(t, manager.Close(ctx), test.ShouldBeNil)
 	cancel()
 
 	ctx, cancel = context.WithCancel(context.Background())
@@ -1059,7 +1059,7 @@ func TestManagerMarkRemoved(t *testing.T) {
 		utils.NewStringSet("2"),
 	)
 
-	test.That(t, manager.Close(ctx, &localRobot{}), test.ShouldBeNil)
+	test.That(t, manager.Close(ctx), test.ShouldBeNil)
 	cancel()
 
 	ctx, cancel = context.WithCancel(context.Background())
@@ -1246,7 +1246,7 @@ func TestManagerMarkRemoved(t *testing.T) {
 		test.ShouldResemble,
 		utils.NewStringSet("1", "2"),
 	)
-	test.That(t, manager.Close(ctx, &localRobot{}), test.ShouldBeNil)
+	test.That(t, manager.Close(ctx), test.ShouldBeNil)
 	cancel()
 }
 
@@ -1431,7 +1431,7 @@ func TestManagerResourceRPCAPIs(t *testing.T) {
 
 	manager := managerForDummyRobot(injectRobot)
 	defer func() {
-		test.That(t, manager.Close(context.Background(), injectRobot), test.ShouldBeNil)
+		test.That(t, manager.Close(context.Background()), test.ShouldBeNil)
 	}()
 
 	api1 := resource.APINamespace("acme").WithComponentType("huwat")
@@ -1570,6 +1570,9 @@ func TestManagerEmptyResourceDesc(t *testing.T) {
 		api,
 		resource.APIRegistration[resource.Resource]{},
 	)
+	defer func() {
+		resource.DeregisterAPI(api)
+	}()
 
 	injectRobot.ResourceNamesFunc = func() []resource.Name {
 		return []resource.Name{resource.NewName(api, "mock1")}
@@ -1580,7 +1583,7 @@ func TestManagerEmptyResourceDesc(t *testing.T) {
 
 	manager := managerForDummyRobot(injectRobot)
 	defer func() {
-		test.That(t, manager.Close(context.Background(), injectRobot), test.ShouldBeNil)
+		test.That(t, manager.Close(context.Background()), test.ShouldBeNil)
 	}()
 
 	apis := manager.ResourceRPCAPIs()
@@ -1603,6 +1606,9 @@ func TestReconfigure(t *testing.T) {
 	test.That(t, r, test.ShouldNotBeNil)
 
 	resource.RegisterAPI(api, resource.APIRegistration[resource.Resource]{})
+	defer func() {
+		resource.DeregisterAPI(api)
+	}()
 
 	resource.Register(api, resource.DefaultServiceModel, resource.Registration[resource.Resource, resource.NoNativeConfig]{
 		Constructor: func(
@@ -1616,10 +1622,13 @@ func TestReconfigure(t *testing.T) {
 			}, nil
 		},
 	})
+	defer func() {
+		resource.Deregister(api, resource.DefaultServiceModel)
+	}()
 
 	manager := managerForDummyRobot(r)
 	defer func() {
-		test.That(t, manager.Close(ctx, r), test.ShouldBeNil)
+		test.That(t, manager.Close(ctx), test.ShouldBeNil)
 	}()
 
 	svc1 := resource.Config{
@@ -1658,7 +1667,7 @@ func TestResourceCreationPanic(t *testing.T) {
 
 	manager := managerForDummyRobot(r)
 	defer func() {
-		test.That(t, manager.Close(ctx, r), test.ShouldBeNil)
+		test.That(t, manager.Close(ctx), test.ShouldBeNil)
 		test.That(t, r.Close(ctx), test.ShouldBeNil)
 	}()
 
@@ -1672,6 +1681,9 @@ func TestResourceCreationPanic(t *testing.T) {
 				panic("hello")
 			},
 		})
+		defer func() {
+			resource.Deregister(api, model)
+		}()
 
 		svc1 := resource.Config{
 			Name:  "test",
@@ -1699,8 +1711,14 @@ func TestResourceCreationPanic(t *testing.T) {
 				panic("hello")
 			},
 		})
+		defer func() {
+			resource.Deregister(api, resource.DefaultServiceModel)
+		}()
 
 		resource.RegisterAPI(api, resource.APIRegistration[resource.Resource]{})
+		defer func() {
+			resource.DeregisterAPI(api)
+		}()
 
 		svc1 := resource.Config{
 			Name:  "",
@@ -1846,6 +1864,10 @@ func (rr *dummyRobot) StopAll(ctx context.Context, extra map[resource.Name]map[s
 // except for its remotes.
 func managerForDummyRobot(robot robot.Robot) *resourceManager {
 	manager := newResourceManager(resourceManagerOptions{}, robot.Logger().Named("manager"))
+
+	// start a dummy module manager so calls to moduleManager.Provides() do not
+	// panic.
+	manager.startModuleManager("", false, robot.Logger())
 
 	for _, name := range robot.ResourceNames() {
 		res, err := robot.ResourceByName(name)

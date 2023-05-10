@@ -10,6 +10,7 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/gripper"
 
@@ -21,6 +22,8 @@ import (
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/motion"
+	_ "go.viam.com/rdk/services/register"
+	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -218,6 +221,20 @@ func TestMoveSingleComponent(t *testing.T) {
 		_, err = ms.MoveSingleComponent(context.Background(), arm.Named("pieceArm"), grabPose, worldState, map[string]interface{}{})
 		test.That(t, err, test.ShouldBeNil)
 	})
+}
+
+func TestMoveOnMap(t *testing.T) {
+	ms, closeFn := setupMotionServiceFromConfig(t, "../data/wheeled_base.json")
+	defer closeFn()
+	success, err := ms.MoveOnMap(
+		context.Background(),
+		base.Named("test_base"),
+		spatialmath.NewPoseFromPoint(r3.Vector{Y: 10}),
+		slam.Named("test_slam"),
+		nil,
+	)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, success, test.ShouldBeTrue)
 }
 
 func TestMultiplePieces(t *testing.T) {

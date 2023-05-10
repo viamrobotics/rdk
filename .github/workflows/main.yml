@@ -1,4 +1,4 @@
-name: Main Branch Update
+name: Build and Publish Latest
 
 concurrency: 
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -9,8 +9,6 @@ on:
     branches: [ main ]
     paths-ignore:
       - 'README.md'
-    tags:
-      - 'v[0-9]+.[0-9]+.[0-9]+'
 
 # To test workflow updates you need to work in a branch directly on viamrobotics/rdk
 # and tag your working branch instead of @main in any viamrobotics/rdk "uses" below.
@@ -25,12 +23,16 @@ jobs:
   appimage:
     needs: test
     uses: viamrobotics/rdk/.github/workflows/appimage.yml@main
+    with:
+      release_type: 'latest'
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
   staticbuild:
     needs: test
     uses: viamrobotics/rdk/.github/workflows/staticbuild.yml@main
+    with:
+      release_type: 'latest'
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
@@ -40,12 +42,16 @@ jobs:
     secrets:
       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
+  license_finder:
+    uses: viamrobotics/rdk/.github/workflows/license_finder.yml@main
+
   slack-workflow-status:
     if: ${{ failure() }}
     name: Post Workflow Status To Slack
     needs:
       - test
       - appimage
+      - staticbuild
     runs-on: ubuntu-latest
     permissions:
       actions: 'read'

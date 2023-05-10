@@ -83,7 +83,7 @@ func (opts *BackoffTuningOptions) getErrorThrottledHandler(logger golog.Logger) 
 		}
 
 		sleep := opts.GetSleepTimeFromErrorCount(errorCount)
-		logger.Debugw("error getting media", "error", err, "count", errorCount, "sleep", sleep)
+		logger.Errorw("error getting media", "error", err, "count", errorCount, "sleep", sleep)
 		utils.SelectContextOrWait(ctx, sleep)
 	}
 }
