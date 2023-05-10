@@ -126,6 +126,9 @@ func (svc *frameSystemService) Reconfigure(ctx context.Context, deps resource.De
 	svc.partsMu.Lock()
 	defer svc.partsMu.Unlock()
 
+	_, span := trace.StartSpan(ctx, "services::framesystem::Reconfigure")
+	defer span.End()
+
 	components := make(map[string]resource.Resource)
 	for name, r := range deps {
 		short := name.ShortName()
@@ -249,6 +252,8 @@ func (svc *frameSystemService) FrameSystem(
 	ctx context.Context,
 	additionalTransforms []*referenceframe.LinkInFrame,
 ) (referenceframe.FrameSystem, error) {
+	_, span := trace.StartSpan(ctx, "services::framesystem::FrameSystem")
+	defer span.End()
 	return referenceframe.NewFrameSystem(LocalFrameSystemName, svc.parts, additionalTransforms)
 }
 
