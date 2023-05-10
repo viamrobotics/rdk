@@ -92,26 +92,23 @@ var (
 
 func initializePigpio() error {
 	instanceMu.Lock()
+	defer instanceMu.Unlock()
+
 	if !pigpioInitialized {
 		resCode = C.gpioInitialise()
 		if resCode < 0 {
-			instanceMu.Unlock()
 			// failed to init, check for common causes
 			_, err := os.Stat("/sys/bus/platform/drivers/raspberrypi-firmware")
 			if err != nil {
-				instanceMu.Unlock()
 				return nil, errors.New("not running on a pi")
 			}
 			if os.Getuid() != 0 {
-				instanceMu.Unlock()
 				return nil, errors.New("not running as root, try sudo")
 			}
-			instanceMu.Unlock()
 			return nil, picommon.ConvertErrorCodeToMessage(int(resCode), "error")
 		}
 	}
 	pigpioInitialized = true
-	instanceMu.Unlock()
 }
 
 // NewPigpio makes a new pigpio based Board using the given config.
