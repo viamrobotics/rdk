@@ -610,9 +610,6 @@ func (pi *piPigpio) Close(ctx context.Context) error {
 		err = multierr.Combine(err, interrupt.Close(ctx))
 	}
 
-	for _, interruptHW := range pi.interruptsHW {
-		err = multierr.Combine(err, interruptHW.Close(ctx))
-	}
 	pi.mu.Lock()
 	pi.isClosed = true
 	pi.mu.Unlock()
