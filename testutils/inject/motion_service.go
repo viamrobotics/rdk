@@ -29,7 +29,6 @@ type MotionService struct {
 		ctx context.Context,
 		componentName resource.Name,
 		destination spatialmath.Pose,
-		worldState *referenceframe.WorldState,
 		slamName resource.Name,
 		extra map[string]interface{},
 	) (bool, error)
@@ -88,7 +87,7 @@ func (mgs *MotionService) Move(
 	return mgs.MoveFunc(ctx, componentName, destination, worldState, constraints, extra)
 }
 
-// MoveOnMap calls the inkected MoveOnMap or the real variant.
+// MoveOnMap calls the injected MoveOnMap or the real variant.
 func (mgs *MotionService) MoveOnMap(
 	ctx context.Context,
 	componentName resource.Name,
@@ -99,7 +98,7 @@ func (mgs *MotionService) MoveOnMap(
 	if mgs.MoveOnMapFunc == nil {
 		return mgs.Service.MoveOnMap(ctx, componentName, destination, slamName, extra)
 	}
-	return mgs.MoveOnMap(ctx, componentName, destination, slamName, extra)
+	return mgs.MoveOnMapFunc(ctx, componentName, destination, slamName, extra)
 }
 
 // MoveOnGlobe calls the injected MoveOnGlobe or the real variant.
@@ -117,7 +116,7 @@ func (mgs *MotionService) MoveOnGlobe(
 	if mgs.MoveOnGlobeFunc == nil {
 		return mgs.Service.MoveOnGlobe(ctx, componentName, destination, heading, movementSensorName, obstacles, linearVel, angularVel, extra)
 	}
-	return mgs.MoveOnGlobe(ctx, componentName, destination, heading, movementSensorName, obstacles, linearVel, angularVel, extra)
+	return mgs.MoveOnGlobeFunc(ctx, componentName, destination, heading, movementSensorName, obstacles, linearVel, angularVel, extra)
 }
 
 // MoveSingleComponent calls the injected MoveSingleComponent or the real variant. It uses the same function as Move.
