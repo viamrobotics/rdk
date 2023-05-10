@@ -1,4 +1,3 @@
-
 <script setup lang="ts">
 
 import { $ref, $computed } from 'vue/macros';
@@ -22,7 +21,13 @@ const props = defineProps<{
   resources: commonApi.ResourceName.AsObject[]
   client: Client
   statusStream: ResponseStream<robotApi.StreamStatusResponse> | null
-}>();
+  operations: {
+    op: robotApi.Operation.AsObject
+    elapsed: number
+  }[]
+}
+>();
+
 const refreshErrorMessage = 'Error refreshing map. The map shown may be stale.';
 let refreshErrorMessage2d = $ref<string | null>();
 let refreshErrorMessage3d = $ref<string | null>();
@@ -38,8 +43,6 @@ let refresh2DCancelled = true;
 let refresh3DCancelled = true;
 let updatedDest = $ref(false);
 let destinationMarker = $ref(new THREE.Vector3());
-let moveClick = $computed(() => (
-  filterResources(props.resources, 'rdk', 'component', 'base') !== undefined) && updatedDest);
 const basePose = new commonApi.Pose();
 const motionServiceReq = new motionApi.MoveOnMapRequest();
 
@@ -47,6 +50,19 @@ const loaded2d = $computed(() => (pointcloud !== undefined && pose !== undefined
 
 let slam2dTimeoutId = -1;
 let slam3dTimeoutId = -1;
+
+const moveClicked = $computed(() => {
+  for (const element of props.operations) {
+    if (element.op.method.includes('MoveOnMap')) {
+      return true;
+    }
+  }
+  return false;
+});
+
+// allowMove is only true if we have a base, there exists a destination and there is no in-flight MoveOnMap req
+let allowMove = $computed(() => (
+  filterResources(props.resources, 'rdk', 'component', 'base') !== undefined) && updatedDest && !moveClicked);
 
 const concatArrayU8 = (arrays: Uint8Array[]) => {
   const totalLength = arrays.reduce((acc, value) => acc + value.length, 0);
@@ -117,8 +133,13 @@ const fetchSLAMPose = (name: string): Promise<commonApi.Pose> => {
   });
 };
 
+const executeDeleteDestinationMarker = () => {
+  updatedDest = false;
+  destinationMarker = new THREE.Vector3();
+};
+
 const executeMoveOnMap = async () => {
-  moveClick = !moveClick;
+  allowMove = !allowMove;
 
   // get base resources
   const baseResources = filterResources(props.resources, 'rdk', 'component', 'base');
@@ -169,15 +190,28 @@ const executeMoveOnMap = async () => {
     new grpc.Metadata(),
     (error: ServiceError | null, response: motionApi.MoveOnMapResponse | null) => {
       if (error) {
-        moveClick = !moveClick;
+        allowMove = !allowMove;
+        executeDeleteDestinationMarker();
         toast.error(`Error moving: ${error}`);
         return;
       }
-      moveClick = !moveClick;
+      allowMove = !allowMove;
+      executeDeleteDestinationMarker();
       toast.success(`MoveOnMap success: ${response!.getSuccess()}`);
     }
   );
 
+};
+
+const executeStopMoveOnMap = () => {
+  for (const element of props.operations) {
+    if (element.op.method.includes('MoveOnMap')) {
+      const req = new robotApi.CancelOperationRequest();
+      req.setId(element.op.id);
+      rcLogConditionally(req);
+      props.client.robotService.cancelOperation(req, new grpc.Metadata(), displayError);
+    }
+  }
 };
 
 const refresh2d = async (name: string) => {
@@ -359,11 +393,6 @@ const baseCopyPosition = () => {
   copyToClipboardWithToast(JSON.stringify(basePose.toObject()));
 };
 
-const executeDeleteDestinationMarker = () => {
-  updatedDest = false;
-  destinationMarker = new THREE.Vector3();
-};
-
 const toggleAxes = () => {
   showAxes = !showAxes;
 };
@@ -391,6 +420,14 @@ onUnmounted(() => {
     <v-breadcrumbs
       slot="title"
       crumbs="slam"
+    />
+    <v-button
+      slot="header"
+      variant="danger"
+      icon="stop-circle"
+      :disabled="!moveClicked ? 'true' : 'false'"
+      label="STOP"
+      @click="executeStopMoveOnMap()"
     />
     <div class="border-medium flex flex-wrap gap-4 border border-t-0 sm:flex-nowrap">
       <div class="flex min-w-fit flex-col gap-4 p-4">
@@ -490,7 +527,7 @@ onUnmounted(() => {
             label="Move"
             variant="success"
             icon="play-circle-filled"
-            :disabled="moveClick ? 'false' : 'true'"
+            :disabled="allowMove ? 'false' : 'true'"
             @click="executeMoveOnMap()"
           />
           <v-switch
