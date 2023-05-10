@@ -67,8 +67,8 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCl
 	// the gRPC header.
 	if stream := grpc.ServerTransportStreamFromContext(ctx); stream != nil {
 		if err := grpc.SendHeader(ctx, metadata.MD{
-			TimeRequestedMetadataKey: []string{time.Now().String()},
-			TimeReceivedMetadataKey:  []string{time.Now().String()},
+			camera.TimeRequestedMetadataKey: []string{time.Now().String()},
+			camera.TimeReceivedMetadataKey:  []string{time.Now().String()},
 		}); err != nil {
 			return nil, err
 		}

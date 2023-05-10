@@ -129,6 +129,9 @@ func (s *serviceServer) GetPointCloud(
 	if err != nil {
 		return nil, err
 	}
+	if pc == nil {
+		panic("point cloud was nil")
+	}
 
 	var buf bytes.Buffer
 	buf.Grow(200 + (pc.Size() * 4 * 4)) // 4 numbers per point, each 4 bytes
