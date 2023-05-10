@@ -100,15 +100,16 @@ func initializePigpio() error {
 			// failed to init, check for common causes
 			_, err := os.Stat("/sys/bus/platform/drivers/raspberrypi-firmware")
 			if err != nil {
-				return nil, errors.New("not running on a pi")
+				return errors.New("not running on a pi")
 			}
 			if os.Getuid() != 0 {
-				return nil, errors.New("not running as root, try sudo")
+				return errors.New("not running as root, try sudo")
 			}
-			return nil, picommon.ConvertErrorCodeToMessage(int(resCode), "error")
+			return picommon.ConvertErrorCodeToMessage(int(resCode), "error")
 		}
 	}
 	pigpioInitialized = true
+	return nil
 }
 
 // NewPigpio makes a new pigpio based Board using the given config.
