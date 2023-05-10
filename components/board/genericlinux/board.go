@@ -72,6 +72,10 @@ func newBoard(
 		interrupts: map[string]*digitalInterrupt{},
 	}
 
+	for pinNumber, mapping := range gpioMappings {
+		b.gpios[fmt.Sprintf("%d", pinNumber)] = b.createGpioPin(mapping)
+	}
+
 	if err := b.Reconfigure(ctx, nil, conf); err != nil {
 		return nil, err
 	}
@@ -103,7 +107,7 @@ func (b *sysfsBoard) Reconfigure(
 		return err
 	}
 
-	if err := b.reconfigureGpios(newConf); err != nil {
+	if err := b.reconfigureInterrupts(newConf); err != nil {
 		return err
 	}
 
@@ -205,7 +209,37 @@ func (b *sysfsBoard) reconfigureAnalogs(ctx context.Context, newConf *Config) er
 	return nil
 }
 
-func (b *sysfsBoard) reconfigureGpios(newConf *Config) error {
+// This helper function is used while reconfiguring digital interrupts. It finds the new config (if
+// any) for a pre-existing digital interrupt.
+func findNewDigIntConfig(
+	interrupt *digitalInterrupt, newConf *Config, logger golog.Logger,
+) *board.DigitalInterruptConfig {
+	for _, newConfig := range newConf.DigitalInterrupts {
+		if newConfig.Pin == interrupt.config.Pin {
+			return &newConfig
+		}
+	}
+	if interrupt.config.Name == interrupt.config.Pin {
+		// This interrupt is named identically to its pin. It was probably created on the fly
+		// by some other component (an encoder?). Unless there's now some other config with the
+		// same name but on a different pin, keep it initialized as-is.
+		for _, intConfig := range newConf.DigitalInterrupts {
+			if intConfig.Name == interrupt.config.Name {
+				// The name of this interrupt is defined in the new config, but on a different
+				// pin. This interrupt should be closed.
+				return nil
+			}
+		}
+		logger.Debugf(
+			"Keeping digital interrupt on pin %s even though it's not explicitly mentioned "+
+				"in the new board config",
+			interrupt.config.Pin)
+		return interrupt.config
+	}
+	return nil
+}
+
+func (b *sysfsBoard) reconfigureInterrupts(newConf *Config) error {
 	if b.usePeriphGpio {
 		if len(newConf.DigitalInterrupts) != 0 {
 			return errors.New("digital interrupts on Periph GPIO pins are not yet supported")
@@ -213,20 +247,80 @@ func (b *sysfsBoard) reconfigureGpios(newConf *Config) error {
 		return nil // No digital interrupts to reconfigure.
 	}
 
-	// TODO(RSDK-2684): we dont configure pins so we just unset them here. not really great behavior.
-	// We currently have two implementations of GPIO pins on these boards: one using
-	// libraries from periph.io and one using an ioctl approach. If we're using the
-	// latter, we need to initialize it here.
-	gpios, interrupts, err := b.gpioInitialize( // Defined in gpio.go
-		b.cancelCtx,
-		b.gpioMappings,
-		newConf.DigitalInterrupts,
-		b.logger)
-	if err != nil {
-		return err
+	// If we get here, we need to reconfigure b.interrupts. Any pin that already exists in the
+	// right configuration should just be copied over; closing and re-opening it risks losing its
+	// state.
+	newInterrupts := make(map[string]*digitalInterrupt, len(newConf.DigitalInterrupts))
+
+	// Reuse any old interrupts that have new configs
+	for _, oldInterrupt := range b.interrupts {
+		if newConfig := findNewDigIntConfig(oldInterrupt, newConf, b.logger); newConfig == nil {
+			// The old interrupt shouldn't exist any more, but it probably became a GPIO pin.
+			if err := oldInterrupt.Close(); err != nil {
+				return err // This should never happen, but the linter worries anyway.
+			}
+			if pinInt, err := strconv.Atoi(oldInterrupt.config.Pin); err == nil {
+				if newGpioConfig, ok := b.gpioMappings[pinInt]; ok {
+					// See gpio.go for createGpioPin.
+					b.gpios[oldInterrupt.config.Pin] = b.createGpioPin(newGpioConfig)
+				}
+			} else {
+				b.logger.Warnf("Unable to reinterpret old interrupt pin '%s' as GPIO, ignoring.",
+					oldInterrupt.config.Pin)
+			}
+		} else { // The old interrupt should stick around.
+			if err := oldInterrupt.interrupt.Reconfigure(*newConfig); err != nil {
+				return err
+			}
+			oldInterrupt.config = newConfig
+			newInterrupts[newConfig.Name] = oldInterrupt
+		}
 	}
-	b.gpios = gpios
-	b.interrupts = interrupts
+	oldInterrupts := b.interrupts
+	b.interrupts = newInterrupts
+
+	// Add any new interrupts that should be freshly made.
+	for _, config := range newConf.DigitalInterrupts {
+		if interrupt, ok := b.interrupts[config.Name]; ok {
+			if interrupt.config.Pin == config.Pin {
+				continue // Already initialized; keep going
+			}
+			// If the interrupt's name matches but the pin does not, the interrupt we already have
+			// was implicitly created (e.g., its name is "38" so we created it on pin 38 even
+			// though it was not explicitly mentioned in the old board config), but the new config
+			// is explicit (e.g., its name is still "38" but it's been moved to pin 37). Close the
+			// old one and initialize it anew.
+			if err := interrupt.Close(); err != nil {
+				return err
+			}
+			// Although we delete the implicit interrupt from b.interrupts, it's still in
+			// oldInterrupts, so we haven't lost the channels it reports to and can still copy them
+			// over to the new struct.
+			delete(b.interrupts, config.Name)
+		}
+
+		if oldPin, ok := b.gpios[config.Pin]; ok {
+			if err := oldPin.Close(); err != nil {
+				return err
+			}
+			delete(b.gpios, config.Pin)
+		}
+
+		// If there was an old interrupt pin with this same name, reuse the part that holds its
+		// callbacks. Anything subscribed to the old pin will expect to still be subscribed to the
+		// new one.
+		var oldCallbackHolder board.ReconfigurableDigitalInterrupt
+		if oldInterrupt, ok := oldInterrupts[config.Name]; ok {
+			oldCallbackHolder = oldInterrupt.interrupt
+		}
+		interrupt, err := b.createDigitalInterrupt(
+			b.cancelCtx, config, b.gpioMappings, oldCallbackHolder)
+		if err != nil {
+			return err
+		}
+		b.interrupts[config.Name] = interrupt
+	}
+
 	return nil
 }
 
@@ -391,7 +485,8 @@ func (b *sysfsBoard) DigitalInterruptByName(name string) (board.DigitalInterrupt
 		Pin:  name,
 		Type: defaultInterruptType,
 	}
-	interrupt, err := b.createDigitalInterrupt(b.cancelCtx, defaultInterruptConfig, b.gpioMappings)
+	interrupt, err := b.createDigitalInterrupt(
+		b.cancelCtx, defaultInterruptConfig, b.gpioMappings, nil)
 	if err != nil {
 		b.logger.Errorw("failed to create digital interrupt pin on the fly", "error", err)
 		return nil, false

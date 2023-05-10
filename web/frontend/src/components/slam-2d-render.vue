@@ -4,45 +4,43 @@ import { $ref } from 'vue/macros';
 import { threeInstance, MouseRaycaster, MeshDiscardMaterial } from 'trzy';
 import { onMounted, onUnmounted, watch } from 'vue';
 import * as THREE from 'three';
-import { MapControls } from 'three/examples/jsm/controls/OrbitControls';
+import { MapControls } from 'three/examples/jsm/controls/MapControls';
 import { PCDLoader } from 'three/examples/jsm/loaders/PCDLoader';
 import type { commonApi } from '@viamrobotics/sdk';
-import { SVGLoader } from 'three/examples/jsm/loaders/SVGLoader';
-import { baseMarkerUrl } from '../lib/base-marker-url';
-import { destMarkerUrl } from '../lib/destination-marker-url';
+import DestMarker from '../lib/destination-marker.txt?raw';
+import BaseMarker from '../lib/base-marker.txt?raw';
 
-type SvgOffset = {
-  x: number,
-  y: number,
-  z: number
-}
+let pointsMaterial: THREE.PointsMaterial | undefined;
 
 const backgroundGridColor = 0xCA_CA_CA;
 
 const gridSubparts = ['AxesPos', 'AxesNeg', 'Grid'];
 
-const gridHelperRenderOrder = 997;
-const axesHelperRenderOrder = 998;
-const svgMarkerRenderOrder = 999;
+const svgMarkerRenderOrder = 4;
+const pointsRenderOrder = 3;
+const axesHelperRenderOrder = 2;
+const gridHelperRenderOrder = 1;
+
+const cameraScale = 25;
+const aspectInverse = 4;
+const initialPointSize = 4;
 
 const gridHelperScalar = 4;
 const axesHelperSize = 8;
 
-// Note: updating the scale of the destination or base marker requires an offset update
-const baseMarkerScalar = 0.002;
-const destinationMarkerScalar = 0.1;
+const textureLoader = new THREE.TextureLoader();
 
-const baseMarkerOffset: SvgOffset = {
-  x: -0.05,
-  y: -0.3,
-  z: 0,
+const makeMarker = (png: string, name: string) => {
+  const geometry = new THREE.PlaneGeometry();
+  const material = new THREE.MeshBasicMaterial({ map: textureLoader.load(png), transparent: true });
+  const marker = new THREE.Mesh(geometry, material);
+  marker.name = name;
+  marker.renderOrder = svgMarkerRenderOrder;
+  return marker;
 };
 
-const destinationMarkerOffset: SvgOffset = {
-  x: 1.2,
-  y: 2.5,
-  z: 0,
-};
+const baseMarkerOffset = new THREE.Vector3(-0.05, -0.3, 0);
+const destinationMarkerOffset = new THREE.Vector3(0, 0.5, 0);
 
 /*
  * this color map is greyscale. The color map is being used map probability values of a PCD
@@ -87,20 +85,32 @@ const loader = new PCDLoader();
 
 const container = $ref<HTMLElement>();
 
-const { scene, renderer, canvas, run, pause, setCamera } = threeInstance();
+const { scene, renderer, canvas, start, stop, setCamera, update } = threeInstance({
+  parameters: {
+    antialias: true,
+  },
+  autostart: false,
+});
 
 const color = new THREE.Color(0xFF_FF_FF);
 renderer.setClearColor(color, 1);
 
 canvas.style.cssText = 'width:100%;height:100%;';
 
-const camera = new THREE.OrthographicCamera(-1, 1, 0.5, -0.5, -1, 1000);
-camera.userData.size = 2;
+const camera = new THREE.OrthographicCamera();
+camera.near = -1000;
+camera.far = 1000;
+camera.userData.size = 1;
 setCamera(camera);
 scene.add(camera);
 
+const baseMarker = makeMarker(BaseMarker, 'BaseMarker');
+const destMarker = makeMarker(DestMarker, 'DestinationMarker');
+destMarker.visible = false;
+
 const controls = new MapControls(camera, canvas);
 controls.enableRotate = false;
+controls.screenSpacePanning = true;
 
 const raycaster = new MouseRaycaster({ camera, renderer, recursive: false });
 
@@ -110,76 +120,6 @@ raycaster.on('click', (event: THREE.Event) => {
     emit('click', intersection.point);
   }
 });
-
-/*
- * svgLoader example for webgl:
- * https://github.com/mrdoob/three.js/blob/master/examples/webgl_loader_svg.html
- */
-const svgLoader = new SVGLoader();
-const makeMarker = async (url : string, name: string, scalar: number) => {
-  const data = await svgLoader.loadAsync(url);
-
-  const { paths } = data!;
-
-  const group = new THREE.Group();
-  group.scale.multiplyScalar(scalar);
-
-  for (const path of paths) {
-
-    const fillColor = path!.userData!.style.fill;
-
-    if (fillColor !== undefined && fillColor !== 'none') {
-      const material = new THREE.MeshBasicMaterial({
-        color: new THREE.Color().setStyle(fillColor)
-          .convertSRGBToLinear(),
-        opacity: path!.userData!.style.fillOpacity,
-        transparent: true,
-        side: THREE.FrontSide,
-        depthWrite: false,
-        wireframe: false,
-      });
-
-      const shapes = SVGLoader.createShapes(path!);
-
-      for (const shape of shapes) {
-
-        const geometry = new THREE.ShapeGeometry(shape);
-        const mesh = new THREE.Mesh(geometry.rotateZ(-Math.PI), material);
-        group.add(mesh);
-
-      }
-
-    }
-
-    const strokeColor = path!.userData!.style.stroke;
-
-    if (strokeColor !== undefined && strokeColor !== 'none') {
-
-      const material = new THREE.MeshBasicMaterial({
-        color: new THREE.Color().setStyle(strokeColor)
-          .convertSRGBToLinear(),
-        opacity: path!.userData!.style.strokeOpacity,
-        transparent: true,
-        side: THREE.DoubleSide,
-        depthWrite: false,
-        wireframe: false,
-      });
-
-      for (const subPath of path!.subPaths) {
-        const geometry = SVGLoader.pointsToStroke(subPath.getPoints(), path!.userData!.style);
-        if (geometry) {
-          const mesh = new THREE.Mesh(geometry.rotateZ(-Math.PI), material);
-          group.add(mesh);
-        }
-      }
-    }
-  }
-
-  group.name = name;
-  scene.add(group);
-  group.renderOrder = svgMarkerRenderOrder;
-  return group;
-};
 
 const disposeScene = () => {
   scene.traverse((object) => {
@@ -199,13 +139,11 @@ const disposeScene = () => {
   scene.clear();
 };
 
-const updatePose = async (newPose: commonApi.Pose) => {
+const updatePose = (newPose: commonApi.Pose) => {
   const x = newPose.getX();
   const y = newPose.getY();
   const z = newPose.getZ();
-  const baseMarker = scene.getObjectByName('BaseMarker') ??
-    await makeMarker(baseMarkerUrl, 'BaseMarker', baseMarkerScalar);
-  baseMarker.position.set(x + baseMarkerOffset.x, y + baseMarkerOffset.y, z + baseMarkerOffset.z);
+  baseMarker.position.set(x, y, z).add(baseMarkerOffset);
 };
 
 /*
@@ -238,12 +176,7 @@ const createAxisHelper = (name: string, rotation: number): THREE.AxesHelper => {
 };
 
 // create the background gray grid
-const createGridHelper = (
-  points: THREE.Points<THREE.BufferGeometry, THREE.Material | THREE.Material[]>
-): THREE.GridHelper => {
-  points.geometry.computeBoundingBox();
-
-  const boundingBox = points.geometry.boundingBox!;
+const createGridHelper = (boundingBox: THREE.Box3): THREE.GridHelper => {
   const deltaX = Math.abs(boundingBox.max.x - boundingBox.min.x);
   const deltaZ = Math.abs(boundingBox.max.z - boundingBox.min.z);
   let maxDelta = Math.round(Math.max(deltaX, deltaZ) * gridHelperScalar);
@@ -265,45 +198,40 @@ const createGridHelper = (
   return gridHelper;
 };
 
-const updateOrRemoveDestinationMarker = async () => {
+const updateOrRemoveDestinationMarker = () => {
   if (props.destVector && props.destExists) {
-    const marker = scene.getObjectByName('DestinationMarker') ??
-      await makeMarker(destMarkerUrl, 'DestinationMarker', destinationMarkerScalar);
-    marker.position.set(
-      props.destVector.x + destinationMarkerOffset.x,
-      props.destVector.y + destinationMarkerOffset.y,
-      props.destVector.z + destinationMarkerOffset.z
-    );
+    destMarker.visible = true;
+    destMarker.position.copy(props.destVector).add(destinationMarkerOffset);
   }
+
   if (!props.destExists) {
-    const marker = scene.getObjectByName('DestinationMarker');
-    if (marker !== undefined) {
-      scene.remove(marker);
-    }
+    destMarker.visible = false;
   }
 };
 
 const updatePointCloud = (pointcloud: Uint8Array) => {
   disposeScene();
 
-  const viewHeight = 1;
-  const viewWidth = viewHeight * 2;
-
   const points = loader.parse(pointcloud.buffer);
+  pointsMaterial = points.material as THREE.PointsMaterial;
+  pointsMaterial.sizeAttenuation = false;
+  pointsMaterial.size = initialPointSize;
   points.geometry.computeBoundingSphere();
+  points.renderOrder = pointsRenderOrder;
 
   const { radius = 1, center = { x: 0, y: 0 } } = points.geometry.boundingSphere ?? {};
   camera.position.set(center.x, center.y, 100);
+  controls.target.set(center.x, center.y, 0);
   camera.lookAt(center.x, center.y, 0);
 
+  const viewHeight = 1;
+  const viewWidth = viewHeight * 2;
   const aspect = canvas.clientHeight / canvas.clientWidth;
+
   camera.zoom = aspect > 1
-    ? viewHeight / (radius * 2)
-    : camera.zoom = viewWidth / (radius * 2);
+    ? viewHeight / (radius * aspectInverse)
+    : viewWidth / (radius * aspectInverse);
 
-  camera.updateProjectionMatrix();
-
-  controls.target.set(center.x, center.y, 0);
   controls.maxZoom = radius * 2;
 
   const intersectionPlane = new THREE.Mesh(
@@ -329,8 +257,10 @@ const updatePointCloud = (pointcloud: Uint8Array) => {
     }
   }
 
+  points.geometry.computeBoundingBox();
+
   // construct grid spaced at 1 meter
-  const gridHelper = createGridHelper(points);
+  const gridHelper = createGridHelper(points.geometry.boundingBox!);
 
   // construct axes
   const axesPos = createAxisHelper('AxesPos', Math.PI / 2);
@@ -345,19 +275,31 @@ const updatePointCloud = (pointcloud: Uint8Array) => {
     points,
     intersectionPlane,
     axesPos,
-    axesNeg
+    axesNeg,
+    baseMarker,
+    destMarker
   );
 
   if (props.pose !== undefined) {
     updatePose(props.pose!);
   }
+
   updateOrRemoveDestinationMarker();
 };
 
+let removeUpdate: (() => void) | undefined;
+
 onMounted(() => {
+  removeUpdate = update(() => {
+    const { zoom } = camera;
+
+    if (pointsMaterial) {
+      pointsMaterial.size = zoom * cameraScale;
+    }
+  });
   container?.append(canvas);
 
-  run();
+  start();
 
   if (props.pointcloud !== undefined) {
     updatePointCloud(props.pointcloud);
@@ -370,8 +312,9 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
-  pause();
+  stop();
   disposeScene();
+  removeUpdate?.();
 });
 
 watch(() => [props.destVector!.x, props.destVector!.y, props.destExists], updateOrRemoveDestinationMarker);

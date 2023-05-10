@@ -40,6 +40,7 @@ func TestSabertoothMotor(t *testing.T) {
 		TestChan:      c,
 		SerialAddress: 128,
 		DirectionFlip: false,
+		MaxRPM:        1,
 	}
 
 	motorReg, ok := resource.LookupRegistration(motor.API, sabertoothModel)
@@ -102,6 +103,7 @@ func TestSabertoothMotor(t *testing.T) {
 		TestChan:      c,
 		SerialAddress: 128,
 		DirectionFlip: false,
+		MaxRPM:        1,
 	}
 
 	m2, err := motorReg.Constructor(context.Background(), deps, resource.Config{Name: "motor2", ConvertedAttributes: &mc2}, logger)
@@ -167,6 +169,7 @@ func TestSabertoothMotorDirectionFlip(t *testing.T) {
 		TestChan:      c,
 		SerialAddress: 128,
 		DirectionFlip: true,
+		MaxRPM:        1,
 	}
 
 	motorReg, ok := resource.LookupRegistration(motor.API, sabertoothModel)
@@ -222,6 +225,7 @@ func TestSabertoothMotorDirectionFlip(t *testing.T) {
 		TestChan:      c,
 		SerialAddress: 128,
 		DirectionFlip: true,
+		MaxRPM:        1,
 	}
 
 	m2, err := motorReg.Constructor(context.Background(), deps, resource.Config{Name: "motor2", ConvertedAttributes: &mc2}, logger)
@@ -286,6 +290,7 @@ func TestSabertoothRampConfig(t *testing.T) {
 		TestChan:      c,
 		SerialAddress: 128,
 		RampValue:     100,
+		MaxRPM:        1,
 	}
 
 	motorReg, ok := resource.LookupRegistration(motor.API, sabertoothModel)
@@ -318,6 +323,7 @@ func TestSabertoothAddressMapping(t *testing.T) {
 		MotorChannel:  1,
 		TestChan:      c,
 		SerialAddress: 129,
+		MaxRPM:        1,
 	}
 
 	motorReg, ok := resource.LookupRegistration(motor.API, sabertoothModel)
@@ -342,6 +348,7 @@ func TestInvalidMotorChannel(t *testing.T) {
 		MotorChannel:  3,
 		TestChan:      c,
 		SerialAddress: 129,
+		MaxRPM:        1,
 	}
 
 	motorReg, ok := resource.LookupRegistration(motor.API, sabertoothModel)
@@ -364,6 +371,7 @@ func TestInvalidBaudRate(t *testing.T) {
 		TestChan:      c,
 		SerialAddress: 129,
 		BaudRate:      1,
+		MaxRPM:        1,
 	}
 
 	motorReg, ok := resource.LookupRegistration(motor.API, sabertoothModel)
@@ -385,6 +393,7 @@ func TestInvalidSerialAddress(t *testing.T) {
 		MotorChannel:  1,
 		TestChan:      c,
 		SerialAddress: 140,
+		MaxRPM:        1,
 	}
 
 	motorReg, ok := resource.LookupRegistration(motor.API, sabertoothModel)
@@ -408,6 +417,7 @@ func TestInvalidMinPowerPct(t *testing.T) {
 		SerialAddress: 129,
 		MinPowerPct:   0.7,
 		MaxPowerPct:   0.5,
+		MaxRPM:        1,
 	}
 
 	motorReg, ok := resource.LookupRegistration(motor.API, sabertoothModel)
@@ -431,6 +441,7 @@ func TestInvalidMaxPowerPct(t *testing.T) {
 		SerialAddress: 129,
 		MinPowerPct:   0.7,
 		MaxPowerPct:   1.5,
+		MaxRPM:        1,
 	}
 
 	motorReg, ok := resource.LookupRegistration(motor.API, sabertoothModel)
@@ -455,6 +466,7 @@ func TestMultipleInvalidParameters(t *testing.T) {
 		SerialAddress: 140,
 		MinPowerPct:   1.7,
 		MaxPowerPct:   1.5,
+		MaxRPM:        1,
 	}
 
 	motorReg, ok := resource.LookupRegistration(motor.API, sabertoothModel)
