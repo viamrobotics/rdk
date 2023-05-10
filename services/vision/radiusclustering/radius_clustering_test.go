@@ -53,6 +53,7 @@ func TestRadiusClusteringSegmentation(t *testing.T) {
 	params.ClusteringRadiusMm = 5.0
 	seg, err := registerRCSegmenter(context.Background(), name, params, r)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, seg.Name(), test.ShouldResemble, name)
 
 	// fails on not finding camera
 	_, err = seg.GetObjectPointClouds(context.Background(), "no_camera", map[string]interface{}{})

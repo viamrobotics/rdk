@@ -71,6 +71,7 @@ func Test3DSegmentsFromDetector(t *testing.T) {
 	name3 := vision.Named("test_rcs")
 	seg, err := register3DSegmenterFromDetector(context.Background(), name3, params, r)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, seg.Name(), test.ShouldResemble, name3)
 
 	// fails on not finding camera
 	_, err = seg.GetObjectPointClouds(context.Background(), "no_camera", map[string]interface{}{})

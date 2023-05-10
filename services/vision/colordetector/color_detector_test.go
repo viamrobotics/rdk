@@ -24,6 +24,7 @@ func TestColorDetector(t *testing.T) {
 	name := vision.Named("test_cd")
 	srv, err := registerColorDetector(ctx, name, &inp, r)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, srv.Name(), test.ShouldResemble, name)
 	img, err := rimage.NewImageFromFile(artifact.MustPath("vision/objectdetection/detection_test.jpg"))
 	test.That(t, err, test.ShouldBeNil)
 
