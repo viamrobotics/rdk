@@ -52,7 +52,6 @@ func stringSetFromX86(modelName string) (utils.StringSet, error) {
 	}
 
 	compatiblesRd = bytes.TrimSpace(compatiblesRd)
-	compatiblesRd = bytes.ReplaceAll(compatiblesRd, []byte{0x00}, []byte{})
 
 	return utils.NewStringSet(string(compatiblesRd)), nil
 }
