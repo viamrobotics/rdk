@@ -48,7 +48,7 @@ type Robot interface {
 	// ProcessManager returns the process manager for the robot.
 	ProcessManager() pexec.ProcessManager
 
-	// OperationManager returns the operation manager the robot  is using.
+	// OperationManager returns the operation manager the robot is using.
 	OperationManager() *operation.Manager
 
 	// SessionManager returns the session manager the robot is using.

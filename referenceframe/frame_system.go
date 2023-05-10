@@ -125,26 +125,16 @@ func NewFrameSystem(name string, parts []*FrameSystemPart, additionalTransforms 
 	}
 	fs := NewEmptyFrameSystem(name)
 	for _, part := range sortedParts {
-		// rename everything with prefixes
-		part.FrameConfig.SetName(part.FrameConfig.Name())
-		// prefixing for the world frame is only necessary in the case
-		// of merging multiple frame systems together, so we leave that
-		// reponsibility to the corresponding merge function
-		if part.FrameConfig.Parent() != World {
-			part.FrameConfig.SetParent(part.FrameConfig.Parent())
-		}
 		// make the frames from the configs
 		modelFrame, staticOffsetFrame, err := createFramesFromPart(part)
 		if err != nil {
 			return nil, err
 		}
 		// attach static offset frame to parent, attach model frame to static offset frame
-		err = fs.AddFrame(staticOffsetFrame, fs.Frame(part.FrameConfig.Parent()))
-		if err != nil {
+		if err = fs.AddFrame(staticOffsetFrame, fs.Frame(part.FrameConfig.Parent())); err != nil {
 			return nil, err
 		}
-		err = fs.AddFrame(modelFrame, staticOffsetFrame)
-		if err != nil {
+		if err = fs.AddFrame(modelFrame, staticOffsetFrame); err != nil {
 			return nil, err
 		}
 	}

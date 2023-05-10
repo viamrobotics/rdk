@@ -724,7 +724,6 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 // Config returns the info of each individual part that makes up the frame system
 // The output of this function is to be sent over GRPC to the client, so the client
 // can build its frame system. requests the remote components from the remote's frame system service.
-// NOTE(RDK-258): If remotes can trigger a local robot to reconfigure, you don't need to update remotes in every call.
 func (r *localRobot) FrameSystemConfig(ctx context.Context) (*framesystem.Config, error) {
 	localParts, err := r.getLocalFrameSystemParts(ctx)
 	if err != nil {

@@ -121,7 +121,6 @@ type frameSystemService struct {
 }
 
 // Reconfigure will rebuild the frame system from the newly updated robot.
-// NOTE(RDK-258): If remotes can trigger a local robot to reconfigure, you can cache the remoteParts in svc as well.
 func (svc *frameSystemService) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	svc.partsMu.Lock()
 	defer svc.partsMu.Unlock()
