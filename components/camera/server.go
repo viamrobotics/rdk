@@ -10,8 +10,6 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/camera/v1"
 	"google.golang.org/genproto/googleapis/api/httpbody"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/metadata"
 
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/protoutils"
@@ -139,21 +137,6 @@ func (s *serviceServer) GetPointCloud(
 	pcdSpan.End()
 	if err != nil {
 		return nil, err
-	}
-
-	// If the camera provided timestamps with the point cloud, send these to the client.
-	if pcdSourceWithTS, ok := camera.(PointCloudSourceWithTimestamps); ok {
-		timeRequested, timeReceived, err := pcdSourceWithTS.NextPointCloudTimestamps(ctx)
-		if err != nil {
-			return nil, err
-		}
-
-		if err := grpc.SendHeader(ctx, metadata.MD{
-			TimeRequestedMetadataKey: []string{timeRequested.String()},
-			TimeReceivedMetadataKey:  []string{timeReceived.String()},
-		}); err != nil {
-			return nil, err
-		}
 	}
 
 	return &pb.GetPointCloudResponse{

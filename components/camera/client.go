@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"image"
 	"sync"
-	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
@@ -14,8 +13,6 @@ import (
 	pb "go.viam.com/api/component/camera/v1"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/metadata"
 
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/protoutils"
@@ -38,8 +35,6 @@ type client struct {
 	activeBackgroundWorkers sync.WaitGroup
 	cancelCtx               context.Context
 	cancel                  func()
-	lastPCDTimeRequested    time.Time
-	lastPCDTimeReceived     time.Time
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
@@ -66,7 +61,6 @@ func NewClientFromConn(
 func (c *client) Read(ctx context.Context) (image.Image, func(), error) {
 	ctx, span := trace.StartSpan(ctx, "camera::client::Read")
 	defer span.End()
-
 	mimeType := gostream.MIMETypeHint(ctx, "")
 	expectedType, _ := utils.CheckLazyMIMEType(mimeType)
 	resp, err := c.client.GetImage(ctx, &pb.GetImageRequest{
@@ -142,32 +136,13 @@ func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 	defer span.End()
 
 	ctx, getPcdSpan := trace.StartSpan(ctx, "camera::client::NextPointCloud::GetPointCloud")
-	var header metadata.MD
 	resp, err := c.client.GetPointCloud(ctx, &pb.GetPointCloudRequest{
 		Name:     c.name,
 		MimeType: utils.MimeTypePCD,
-	}, grpc.Header(&header))
+	})
 	getPcdSpan.End()
 	if err != nil {
 		return nil, err
-	}
-
-	// Get timestamps from the gRPC header if they're provided.
-	timeRequested := header.Get(TimeRequestedMetadataKey)
-	if len(timeRequested) > 0 {
-		asTime, err := time.Parse("2006-01-02 15:04:05.999999999 -0700 MST", timeRequested[0])
-		if err != nil {
-			return nil, fmt.Errorf("unexpected error while parsing time: %v", err)
-		}
-		c.lastPCDTimeRequested = asTime
-	}
-	timeReceived := header.Get(TimeReceivedMetadataKey)
-	if len(timeReceived) > 0 {
-		asTime, err := time.Parse("2006-01-02 15:04:05.999999999 -0700 MST", timeReceived[0])
-		if err != nil {
-			return nil, fmt.Errorf("unexpected error while parsing time: %v", err)
-		}
-		c.lastPCDTimeReceived = asTime
 	}
 
 	if resp.MimeType != utils.MimeTypePCD {
@@ -180,10 +155,6 @@ func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 
 		return pointcloud.ReadPCD(bytes.NewReader(resp.PointCloud))
 	}()
-}
-
-func (c *client) NextPointCloudTimestamps(_ context.Context) (time.Time, time.Time, error) {
-	return c.lastPCDTimeRequested, c.lastPCDTimeReceived, nil
 }
 
 func (c *client) Projector(ctx context.Context) (transform.Projector, error) {

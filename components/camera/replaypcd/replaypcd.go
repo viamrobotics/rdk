@@ -8,6 +8,8 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"github.com/pkg/errors"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/pointcloud"
@@ -60,7 +62,19 @@ func newPCDCamera(ctx context.Context, deps resource.Dependencies, cfg resource.
 // NextPointCloud is part of the camera interface but is not implemented for replay.
 func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
 	var pc pointcloud.PointCloud
-	return pc, errors.New("NextPointCloud is unimplemented")
+
+	// If the caller is communicating with the replay camera over gRPC, set the timestamps on
+	// the gRPC header.
+	if stream := grpc.ServerTransportStreamFromContext(ctx); stream != nil {
+		if err := grpc.SendHeader(ctx, metadata.MD{
+			TimeRequestedMetadataKey: []string{time.Now().String()},
+			TimeReceivedMetadataKey:  []string{time.Now().String()},
+		}); err != nil {
+			return nil, err
+		}
+	}
+
+	return pc, nil
 }
 
 // Properties is a part of the camera interface but is not implemented for replay.
