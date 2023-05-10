@@ -5,6 +5,8 @@ import (
 	"image"
 	"strconv"
 
+	"go.uber.org/multierr"
+
 	"github.com/nfnt/resize"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
@@ -47,12 +49,15 @@ func attemptToBuildClassifier(mlm mlmodel.Service) (classification.Classifier, e
 		}
 
 		var err2 error
-
+		var err3 error
 		probs, err := unpack(outMap, "probability")
 		if err != nil || len(probs) == 0 {
 			probs, err2 = unpack(outMap, DefaultOutTensorName+"0")
-			if err2 != nil {
-				return nil, multierr.Combine(err, err2)
+			if err2 != nil || len(probs) == 0 {
+				probs, err3 = unpack(outMap, "")
+				if err3 != nil {
+					return nil, multierr.Combine(err, err2, err3)
+				}
 			}
 		}
 

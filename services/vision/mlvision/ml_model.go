@@ -108,12 +108,25 @@ func registerMLModelVisionService(
 }
 
 // Unpack output based on expected type and force it into a []float64.
+// If "" is selected as the name argument, we will attempt to unpack the first entity in the map.
 func unpack(inMap map[string]interface{}, name string) ([]float64, error) {
 	var out []float64
-	me := inMap[name]
+	var me interface{}
+	if name != "" {
+		me = inMap[name]
+	} else {
+		if len(inMap) < 1 {
+			return nil, errors.New("could not unpack nonexistent first tensor")
+		}
+		for _, v := range inMap {
+			me = v
+			break
+		}
+	}
 	if me == nil {
 		return nil, errors.Errorf("no such tensor named %q to unpack", name)
 	}
+
 	switch v := me.(type) {
 	case []uint8:
 		out = make([]float64, 0, len(v))
