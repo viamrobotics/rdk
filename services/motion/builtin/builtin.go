@@ -92,7 +92,6 @@ type builtIn struct {
 	slamServices map[resource.Name]slam.Service
 	logger       golog.Logger
 	lock         sync.Mutex
-	// opMgr        operation.SingleOperationManager
 }
 
 // Move takes a goal location and will plan and execute a movement to move a component specified by its name to that destination.
@@ -138,8 +137,7 @@ func (ms *builtIn) Move(
 	goalPose, _ := tf.(*referenceframe.PoseInFrame)
 
 	// the goal is to move the component to goalPose which is specified in coordinates of goalFrameName
-	output, err := motionplan.PlanMotion(
-		ctx,
+	output, err := motionplan.PlanMotion(ctx,
 		logger,
 		goalPose,
 		movingFrame,
@@ -157,18 +155,11 @@ func (ms *builtIn) Move(
 	for _, step := range output {
 		// TODO(erh): what order? parallel?
 		for name, inputs := range step {
-			// fmt.Println("inside for loop")
-
-			// if err := ctx.Err(); err != nil {
-			// 	fmt.Println("WE ARE CANCELLED")
-			// 	return false, err
-			// }
 			if len(inputs) == 0 {
 				continue
 			}
 			err := resources[name].GoToInputs(ctx, inputs)
 			if err != nil {
-				// HEREEE
 				return false, err
 			}
 		}

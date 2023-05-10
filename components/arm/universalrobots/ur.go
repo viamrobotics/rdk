@@ -318,10 +318,6 @@ func (ua *URArm) State() (RobotState, error) {
 
 // JointPositions TODO.
 func (ua *URArm) JointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
-	if err := ctx.Err(); err != nil {
-		fmt.Println("WE ARE CANCELLED")
-		return nil, err
-	}
 	radians := []float64{}
 	state, err := ua.State()
 	if err != nil {
@@ -367,10 +363,6 @@ func (ua *URArm) MoveToPosition(ctx context.Context, pos spatialmath.Pose, extra
 // MoveToJointPositions TODO.
 func (ua *URArm) MoveToJointPositions(ctx context.Context, joints *pb.JointPositions, extra map[string]interface{}) error {
 	// check that joint positions are not out of bounds
-	if err := ctx.Err(); err != nil {
-		fmt.Println("WE ARE CANCELLED")
-		return err
-	}
 	if err := arm.CheckDesiredJointPositions(ctx, ua, joints.Values); err != nil {
 		return err
 	}
@@ -397,15 +389,11 @@ func (ua *URArm) IsMoving(ctx context.Context) (bool, error) {
 
 // MoveToJointPositionRadians TODO.
 func (ua *URArm) MoveToJointPositionRadians(ctx context.Context, radians []float64) error {
-	if err := ctx.Err(); err != nil {
-		fmt.Println("WE ARE CANCELLED")
-		return err
-	}
 	if !ua.inRemoteMode {
 		return errors.New("UR5 is in local mode; use the polyscope to switch it to remote control mode")
 	}
-	// ctx, done := ua.opMgr.New(ctx)
-	// defer done()
+	ctx, done := ua.opMgr.New(ctx)
+	defer done()
 
 	ua.muMove.Lock()
 	defer ua.muMove.Unlock()
@@ -433,14 +421,9 @@ func (ua *URArm) MoveToJointPositionRadians(ctx context.Context, radians []float
 	retried := false
 	slept := 0
 	for {
-		if err := ctx.Err(); err != nil {
-			fmt.Println("WE ARE CANCELLED")
-			return err
-		}
 		good := true
 		state, err := ua.State()
 		if err != nil {
-			fmt.Println("err:1 ", err)
 			return err
 		}
 		for idx, r := range radians {
@@ -455,14 +438,12 @@ func (ua *URArm) MoveToJointPositionRadians(ctx context.Context, radians []float
 
 		err = ua.getAndResetRuntimeError()
 		if err != nil {
-			fmt.Println("err:2 ", err)
 			return err
 		}
 
 		if slept > 5000 && !retried {
 			_, err := ua.connControl.Write([]byte(cmd))
 			if err != nil {
-				fmt.Println("err:3 ", err)
 				return err
 			}
 			retried = true
@@ -482,14 +463,7 @@ func (ua *URArm) MoveToJointPositionRadians(ctx context.Context, radians []float
 
 		// TODO(erh): make responsive on new message
 		if !goutils.SelectContextOrWait(ctx, 10*time.Millisecond) {
-			if err := ctx.Err(); err != nil {
-				fmt.Println("WE ARE CANCELLED")
-				return ua.Stop(ctx, nil)
-				// return err
-			} else {
-				return ctx.Err()
-			}
-
+			return ctx.Err()
 		}
 		slept += 10
 	}

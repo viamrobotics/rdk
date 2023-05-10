@@ -53,10 +53,7 @@ func (m *Manager) UnaryServerInterceptor(
 	info *grpc.UnaryServerInfo,
 	handler grpc.UnaryHandler,
 ) (interface{}, error) {
-	// fmt.Println("operation/web.go/UnaryServerInterceptor()")
-	// fmt.Println("info.FullMethod: ", info.FullMethod)
 	ctx, done := m.CreateFromIncomingContext(ctx, info.FullMethod)
-	// fmt.Println("info.FullMethod")
 	defer done()
 	if op := Get(ctx); op != nil && op.ID.String() != "" {
 		utils.UncheckedError(grpc.SetHeader(ctx, metadata.MD{opidMetadataKey: []string{op.ID.String()}}))
@@ -83,7 +80,6 @@ func (m *Manager) StreamServerInterceptor(
 
 // CreateFromIncomingContext creates a new operation from an incoming context.
 func (m *Manager) CreateFromIncomingContext(ctx context.Context, method string) (context.Context, func()) {
-	// fmt.Println("method: ", method)
 	meta, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
 		m.logger.Warnw("failed to pull metadata from context", "method", method)
