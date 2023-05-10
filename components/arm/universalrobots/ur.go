@@ -4,6 +4,7 @@ package universalrobots
 import (
 	"bufio"
 	"context"
+
 	// for embedding model file.
 	_ "embed"
 	"encoding/binary"
@@ -462,7 +463,7 @@ func (ua *URArm) MoveToJointPositionRadians(ctx context.Context, radians []float
 
 		// TODO(erh): make responsive on new message
 		if !goutils.SelectContextOrWait(ctx, 10*time.Millisecond) {
-			return ua.Stop(ctx, nil)
+			return ctx.Err()
 		}
 		slept += 10
 	}
@@ -479,9 +480,6 @@ func (ua *URArm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, err
 
 // GoToInputs TODO.
 func (ua *URArm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	if ctx.Err() != nil {
-		return ua.Stop(ctx, nil)
-	}
 	// check that joint positions are not out of bounds
 	positionDegs := ua.model.ProtobufFromInput(goal)
 	if err := arm.CheckDesiredJointPositions(ctx, ua, positionDegs.Values); err != nil {

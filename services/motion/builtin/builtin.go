@@ -136,6 +136,12 @@ func (ms *builtIn) Move(
 	}
 	goalPose, _ := tf.(*referenceframe.PoseInFrame)
 
+	// check for cancelled context before we are start planning
+	if ctx.Err() != nil {
+		ms.logger.Infof("successfully canceled motion service Move")
+		return true, ctx.Err()
+	}
+
 	// the goal is to move the component to goalPose which is specified in coordinates of goalFrameName
 	output, err := motionplan.PlanMotion(ctx,
 		logger,
@@ -150,6 +156,8 @@ func (ms *builtIn) Move(
 	if err != nil {
 		return false, err
 	}
+
+	// check for cancelled context after we are done planning
 	if ctx.Err() != nil {
 		ms.logger.Infof("successfully canceled motion service Move")
 		return true, ctx.Err()
@@ -164,6 +172,7 @@ func (ms *builtIn) Move(
 			}
 			err := resources[name].GoToInputs(ctx, inputs)
 			if err != nil {
+				stop(ctx, resources, output)
 				return false, err
 			}
 		}
@@ -265,4 +274,21 @@ func (ms *builtIn) GetPose(
 		destinationFrame,
 		supplementalTransforms,
 	)
+}
+
+func stop(
+	ctx context.Context,
+	resources map[string]referenceframe.InputEnabled,
+	output []map[string][]referenceframe.Input,
+) error {
+	for _, step := range output {
+		for name := range step {
+			if actuator, ok := resources[name].(resource.Actuator); ok {
+				if err := actuator.Stop(ctx, nil); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
 }
