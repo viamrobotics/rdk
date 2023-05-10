@@ -94,20 +94,23 @@ func initializePigpio() error {
 	instanceMu.Lock()
 	defer instanceMu.Unlock()
 
-	if !pigpioInitialized {
-		resCode = C.gpioInitialise()
-		if resCode < 0 {
-			// failed to init, check for common causes
-			_, err := os.Stat("/sys/bus/platform/drivers/raspberrypi-firmware")
-			if err != nil {
-				return errors.New("not running on a pi")
-			}
-			if os.Getuid() != 0 {
-				return errors.New("not running as root, try sudo")
-			}
-			return picommon.ConvertErrorCodeToMessage(int(resCode), "error")
-		}
+	if pigpioInitialized {
+		return nil
 	}
+
+	resCode = C.gpioInitialise()
+	if resCode < 0 {
+		// failed to init, check for common causes
+		_, err := os.Stat("/sys/bus/platform/drivers/raspberrypi-firmware")
+		if err != nil {
+			return errors.New("not running on a pi")
+		}
+		if os.Getuid() != 0 {
+			return errors.New("not running as root, try sudo")
+		}
+		return picommon.ConvertErrorCodeToMessage(int(resCode), "error")
+	}
+
 	pigpioInitialized = true
 	return nil
 }
