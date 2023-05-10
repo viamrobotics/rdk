@@ -151,26 +151,22 @@ func (pi *piPigpio) Reconfigure(
 	defer pi.mu.Unlock()
 
 	// setup I2C buses
-	if len(cfg.I2Cs) != 0 {
-		pi.i2cs = make(map[string]board.I2C, len(cfg.I2Cs))
-		for _, sc := range cfg.I2Cs {
-			id, err := strconv.Atoi(sc.Bus)
-			if err != nil {
-				return nil, err
-			}
-			pi.i2cs[sc.Name] = &piPigpioI2C{pi: pi, id: id}
+	pi.i2cs = make(map[string]board.I2C, len(cfg.I2Cs))
+	for _, sc := range cfg.I2Cs {
+		id, err := strconv.Atoi(sc.Bus)
+		if err != nil {
+			return nil, err
 		}
+		pi.i2cs[sc.Name] = &piPigpioI2C{pi: pi, id: id}
 	}
 
 	// setup SPI buses
-	if len(cfg.SPIs) != 0 {
-		pi.spis = make(map[string]board.SPI, len(cfg.SPIs))
-		for _, sc := range cfg.SPIs {
-			if sc.BusSelect != "0" && sc.BusSelect != "1" {
-				return nil, errors.New("only SPI buses 0 and 1 are available on Pi boards")
-			}
-			pi.spis[sc.Name] = &piPigpioSPI{pi: pi, busSelect: sc.BusSelect}
+	pi.spis = make(map[string]board.SPI, len(cfg.SPIs))
+	for _, sc := range cfg.SPIs {
+		if sc.BusSelect != "0" && sc.BusSelect != "1" {
+			return nil, errors.New("only SPI buses 0 and 1 are available on Pi boards")
 		}
+		pi.spis[sc.Name] = &piPigpioSPI{pi: pi, busSelect: sc.BusSelect}
 	}
 
 	// setup analogs
