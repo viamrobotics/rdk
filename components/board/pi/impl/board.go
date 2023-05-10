@@ -601,14 +601,18 @@ func (pi *piPigpio) Close(ctx context.Context) error {
 	for _, spi := range pi.spis {
 		err = multierr.Combine(err, spi.Close(ctx))
 	}
+	pi.spis = map[string]board.SPI{}
 
 	for _, analog := range pi.analogs {
 		err = multierr.Combine(err, analog.Close(ctx))
 	}
+	pi.analogs = map[string]board.AnalogReader{}
 
 	for _, interrupt := range pi.interrupts {
 		err = multierr.Combine(err, interrupt.Close(ctx))
 	}
+	pi.interrupts = map[string]board.DigitalInterrupt{}
+	pi.interruptsHW = map[uint]board.DigitalInterrupt{}
 
 	pi.mu.Lock()
 	pi.isClosed = true
