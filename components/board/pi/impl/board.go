@@ -196,6 +196,12 @@ func (pi *piPigpio) performConfiguration(
 	}
 
 	// setup interrupts
+	// For each old interrupt:
+	//     if you're supposed to copy it over, do so
+	//     else close it
+	// for each new interrupt:
+	//     if it exists but is wrong, close it
+	//     if it doesn't exist, create it
 	pi.interrupts = map[string]board.DigitalInterrupt{}
 	pi.interruptsHW = map[uint]board.DigitalInterrupt{}
 	for _, c := range cfg.DigitalInterrupts {
