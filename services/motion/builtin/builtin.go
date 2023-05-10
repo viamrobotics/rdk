@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/pkg/errors"
 
@@ -180,6 +181,7 @@ func (ms *builtIn) MoveOnMap(
 		return false, errors.Wrap(resource.NewNotFoundError(slamName), "motion service missing weak dependency")
 	}
 	_ = slamService
+	time.Sleep(time.Second * 10)
 	return true, nil
 }
 

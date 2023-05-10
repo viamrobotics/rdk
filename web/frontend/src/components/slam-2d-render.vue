@@ -278,15 +278,8 @@ const updatePointCloud = (pointcloud: Uint8Array) => {
     destMarker
   );
 
-  // re-add base and destination marker so they render on top of all other objects
-  const destinationMarker = scene.getObjectByName('DestinationMarker');
-  if (destinationMarker !== undefined) {
-    scene.add(destinationMarker);
-  }
-
-  const baseMarker = scene.getObjectByName('BaseMarker');
-  if (baseMarker !== undefined) {
-    scene.add(baseMarker);
+  if (props.pose !== undefined) {
+    updatePose(props.pose!);
   }
 
   updateOrRemoveDestinationMarker();
