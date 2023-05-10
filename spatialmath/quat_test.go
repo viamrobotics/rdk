@@ -2,7 +2,6 @@ package spatialmath
 
 import (
 	"math"
-	"runtime"
 	"testing"
 
 	"github.com/golang/geo/r3"
@@ -35,9 +34,9 @@ func TestAngleAxisConversion2(t *testing.T) {
 func TestEulerAnglesConversion(t *testing.T) {
 	// TODO RSDK-2010 (rh) handle edge cases properly while
 	// maintaining quadrant in euler conversions
-	if runtime.GOARCH == "arm64" {
-		t.Skip()
-	}
+	// if runtime.GOARCH == "arm64" {
+	// 	t.Skip()
+	// }
 
 	// gimbal lock edge case: pitch is π / 2
 	expectedEA := EulerAngles{math.Pi / 4.0, math.Pi / 2.0, math.Pi}
