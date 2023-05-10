@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/edaniels/golog"
@@ -52,7 +51,6 @@ type TimeInterval struct {
 
 // Validate checks that the config attributes are valid for a replay camera.
 func (cfg *Config) Validate(path string) ([]string, error) {
-
 	if cfg.Source == "" {
 		return nil, goutils.NewConfigValidationFieldRequiredError(path, "source")
 	}
@@ -106,7 +104,6 @@ func newPCDCamera(ctx context.Context, deps resource.Dependencies, conf resource
 
 // NextPointCloud returns a pointcloud retrieved the next from cloud storage based on the applied filter.
 func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
-	fmt.Printf("SINGLE CALL: Filter: %v Limit: %v Last: %v\n", replay.filter, replay.limit, replay.lastData)
 	resp, err := replay.dataClient.BinaryDataByFilter(ctx, &datapb.BinaryDataByFilterRequest{
 		DataRequest: &datapb.DataRequest{
 			Filter:    replay.filter,
@@ -119,7 +116,7 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCl
 	})
 	if err != nil {
 		return nil, err
-	} // BROKEN HERE
+	}
 
 	// If no data is returned, return an error.
 	if len(resp.GetData()) == 0 {
@@ -129,8 +126,6 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCl
 	replay.lastData = resp.GetLast()
 
 	data := resp.Data[0].GetBinary()
-	metadata := resp.Data[0].GetMetadata()
-	fmt.Println(fmt.Sprintf("%v", metadata.TimeReceived.AsTime()))
 
 	r, err := gzip.NewReader(bytes.NewBuffer(data))
 	if err != nil {
@@ -176,7 +171,6 @@ func (replay *pcdCamera) Close(ctx context.Context) error {
 
 // Reconfigure will bring up a replay camera using the new config but is not implemented for replay.
 func (replay *pcdCamera) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
-
 	replayCamConfig, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return err

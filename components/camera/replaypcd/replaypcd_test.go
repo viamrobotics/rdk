@@ -31,7 +31,7 @@ func getNoopCloudDependencies(t *testing.T) resource.Dependencies {
 	return resourcesFromDeps(t, r, []string{cloud.InternalServiceName.String()})
 }
 
-func createNewReplayPCDCamera(t *testing.T, ctx context.Context, replayCamCfg *Config, validDeps bool) (camera.Camera, error) {
+func createNewReplayPCDCamera(ctx context.Context, t *testing.T, replayCamCfg *Config, validDeps bool) (camera.Camera, error) {
 	logger := golog.NewTestLogger(t)
 
 	cfg := resource.Config{
@@ -50,7 +50,7 @@ func TestNewReplayPCD(t *testing.T) {
 
 	t.Run("valid config with internal cloud service", func(t *testing.T) {
 		replayCamCfg := &Config{Source: "source"}
-		replayCamera, err := createNewReplayPCDCamera(t, ctx, replayCamCfg, true)
+		replayCamera, err := createNewReplayPCDCamera(ctx, t, replayCamCfg, true)
 		test.That(t, err, test.ShouldBeNil)
 
 		err = replayCamera.Close(ctx)
@@ -59,11 +59,10 @@ func TestNewReplayPCD(t *testing.T) {
 
 	t.Run("no internal cloud service", func(t *testing.T) {
 		replayCamCfg := &Config{Source: "source"}
-		replayCamera, err := createNewReplayPCDCamera(t, ctx, replayCamCfg, false)
+		replayCamera, err := createNewReplayPCDCamera(ctx, t, replayCamCfg, false)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "missing from dependencies")
 		test.That(t, replayCamera, test.ShouldBeNil)
-
 	})
 
 	t.Run("bad start timestamp", func(t *testing.T) {
@@ -73,7 +72,7 @@ func TestNewReplayPCD(t *testing.T) {
 				Start: "bad timestamp",
 			},
 		}
-		replayCamera, err := createNewReplayPCDCamera(t, ctx, replayCamCfg, true)
+		replayCamera, err := createNewReplayPCDCamera(ctx, t, replayCamCfg, true)
 		test.That(t, err, test.ShouldBeError, errors.New("invalid time format, use RFC3339"))
 		test.That(t, replayCamera, test.ShouldBeNil)
 	})
@@ -85,7 +84,7 @@ func TestNewReplayPCD(t *testing.T) {
 				End: "bad timestamp",
 			},
 		}
-		replayCamera, err := createNewReplayPCDCamera(t, ctx, replayCamCfg, true)
+		replayCamera, err := createNewReplayPCDCamera(ctx, t, replayCamCfg, true)
 		test.That(t, err, test.ShouldBeError, errors.New("invalid time format, use RFC3339"))
 		test.That(t, replayCamera, test.ShouldBeNil)
 	})
@@ -95,13 +94,13 @@ func TestNextPointCloud(t *testing.T) {
 	ctx := context.Background()
 
 	replayCamCfg := &Config{Source: "test"}
-	replayCamera, err := createNewReplayPCDCamera(t, ctx, replayCamCfg, true)
+	replayCamera, err := createNewReplayPCDCamera(ctx, t, replayCamCfg, true)
 	test.That(t, err, test.ShouldBeNil)
 
-	// t.Run("Test NextPointCloud", func(t *testing.T) {
-	// 	_, err := replayCamera.NextPointCloud(ctx)
-	// 	test.That(t, err.Error(), test.ShouldNotBeNil)
-	// })
+	t.Run("Test NextPointCloud", func(t *testing.T) {
+		_, err := replayCamera.NextPointCloud(ctx)
+		test.That(t, err.Error(), test.ShouldNotBeNil)
+	})
 
 	err = replayCamera.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)
@@ -206,7 +205,7 @@ func TestUnimplementedFunctions(t *testing.T) {
 	ctx := context.Background()
 
 	replayCamCfg := &Config{Source: "test"}
-	replayCamera, err := createNewReplayPCDCamera(t, ctx, replayCamCfg, true)
+	replayCamera, err := createNewReplayPCDCamera(ctx, t, replayCamCfg, true)
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("Test Stream", func(t *testing.T) {
