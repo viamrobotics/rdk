@@ -78,8 +78,8 @@ type piPigpio struct {
 	analogs         map[string]board.AnalogReader
 	i2cs            map[string]board.I2C
 	spis            map[string]board.SPI
-	interrupts      map[string]board.DigitalInterrupt
-	interruptsHW    map[uint]board.DigitalInterrupt
+	interrupts      map[string]board.DigitalInterrupt // Maps interrupt names to interrupts
+	interruptsHW    map[uint]board.DigitalInterrupt // Maps broadcom addresses to the same
 	logger          golog.Logger
 	isClosed        bool
 }
