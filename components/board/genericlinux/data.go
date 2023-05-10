@@ -97,7 +97,7 @@ func GetGPIOBoardMappings(modelName string, boardInfoMappings map[string]BoardIn
 // getCompatiblePinDefs returns a list of pin definitions, from the first BoardInformation struct
 // that appears compatible with the machine we're running on.
 func getCompatiblePinDefs(modelName string, boardInfoMappings map[string]BoardInformation) ([]PinDefinition, error) {
-	compatibles, err := rdkutils.GetArchitectureInfo(modelName)
+	compatibles, err := rdkutils.GetDeviceInfo(modelName)
 	if err != nil {
 		return nil, fmt.Errorf("error while getting hardware info %w", err)
 	}

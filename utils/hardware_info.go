@@ -10,8 +10,8 @@ import (
 	"go.viam.com/utils"
 )
 
-// GetArchitectureInfo returns the architecture of the board.
-func GetArchitectureInfo(modelName string) (utils.StringSet, error) {
+// GetDeviceInfo returns the device information in stringset.
+func GetDeviceInfo(modelName string) (utils.StringSet, error) {
 	arch := runtime.GOARCH
 
 	switch {
@@ -24,10 +24,10 @@ func GetArchitectureInfo(modelName string) (utils.StringSet, error) {
 	}
 }
 
-// A helper function for ARM architecture to process contents of a
-// given content of a file from os.ReadFile.
+// A helper function for ARM architecture to process contents of the
+// device path and returns the compatible device information.
 func stringSetFromARM(modelName string) (utils.StringSet, error) {
-	path := "/proc/device-tree/compatible"
+	const path = "/proc/device-tree/compatible"
 	compatiblesRd, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -39,10 +39,10 @@ func stringSetFromARM(modelName string) (utils.StringSet, error) {
 	return utils.NewStringSet(strings.Split(string(compatiblesRd), "\x00")...), nil
 }
 
-// A helper function for AMD architecture to process contents of a
-// given content of a file from os.ReadFile.
+// A helper function for AMD architecture to process contents of the
+// device path and returns the compatible device information.
 func stringSetFromX86(modelName string) (utils.StringSet, error) {
-	path := "/sys/devices/virtual/dmi/id/board_name"
+	const path = "/sys/devices/virtual/dmi/id/board_name"
 	compatiblesRd, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
