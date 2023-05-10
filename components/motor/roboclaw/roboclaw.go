@@ -161,7 +161,7 @@ func (m *roboclawMotor) SetPower(ctx context.Context, powerPct float64, extra ma
 func (m *roboclawMotor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
 	speed := math.Abs(rpm)
 	if speed < 0.1 {
-		m.logger.Warnf("motor (%s) speed is nearly 0 rev_per_min", m.Name())
+		m.logger.Warn("motor speed is nearly 0 rev_per_min")
 		return motor.NewZeroRPMError()
 	}
 
