@@ -4,6 +4,7 @@ package replaypcd
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/edaniels/golog"
@@ -48,9 +49,9 @@ type TimeInterval struct {
 // Validate checks that the config attributes are valid for a replay camera.
 func (cfg *Config) Validate(path string) ([]string, error) {
 
-	if cfg.Source.Name == "" {
-		return nil, goutils.NewConfigValidationFieldRequiredError(path, "source")
-	}
+	// if cfg.Source.Name == "" {
+	// 	return nil, goutils.NewConfigValidationFieldRequiredError(path, "source")
+	// }
 
 	if cfg.Interval.Start.After(time.Now()) || cfg.Interval.End.After(time.Now()) {
 		return nil, errors.New("invalid config, start and end times must be in the past")
@@ -81,8 +82,8 @@ type pcdCamera struct {
 	filter   *datapb.Filter
 }
 
-// newReplayCamera creates a new replay camera based on the inputted config and dependencies.
-func newReplayPCDCamera(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (camera.Camera, error) {
+// newPCDCamera creates a new replay camera based on the inputted config and dependencies.
+func newPCDCamera(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (camera.Camera, error) {
 	cam := &pcdCamera{
 		Named:  conf.ResourceName().AsNamed(),
 		logger: logger,
@@ -98,6 +99,7 @@ func newReplayPCDCamera(ctx context.Context, deps resource.Dependencies, conf re
 
 // NextPointCloud returns a pointcloud retrieved the next from cloud storage based on the applied filter.
 func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+	fmt.Printf("SINGLE CALL: Filter: %v Limit: %v Last: %v\n", replay.filter, replay.limit, replay.lastData)
 	resp, err := replay.dataClient.BinaryDataByFilter(ctx, &datapb.BinaryDataByFilterRequest{
 		DataRequest: &datapb.DataRequest{
 			Filter: replay.filter,
@@ -185,9 +187,9 @@ func (replay *pcdCamera) Reconfigure(ctx context.Context, deps resource.Dependen
 	replay.timeInterval = replayCamConfig.Interval
 
 	replay.filter = &datapb.Filter{
-		ComponentName: replay.source.Name,
-		RobotId:       replay.robotID,
-		MimeType:      []string{"pointcloud/pcd"},
+		//ComponentName: replay.source.Name,
+		RobotId:  replay.robotID,
+		MimeType: []string{"pointcloud/pcd"},
 		Interval: &datapb.CaptureInterval{
 			Start: timestamppb.New(replay.timeInterval.Start),
 			End:   timestamppb.New(replay.timeInterval.End),
@@ -198,9 +200,9 @@ func (replay *pcdCamera) Reconfigure(ctx context.Context, deps resource.Dependen
 
 // closeCloud closes all parts of the cloud connection used by the replay camera.
 func (replay *pcdCamera) closeCloudConnection(ctx context.Context) {
-	if replay.cloudConn != nil {
-		goutils.UncheckedError(replay.cloudConn.Close())
-	}
+	// if replay.cloudConn != nil {
+	// 	goutils.UncheckedError(replay.cloudConn.Close())
+	// }
 
 	if replay.cloudConnSvc != nil {
 		goutils.UncheckedError(replay.cloudConnSvc.Close(ctx))

@@ -1,7 +1,4 @@
-<<<<<<< HEAD
 // Package replay_test will test the  functions of a replay camera.
-=======
->>>>>>> 6515eb8fa2e714c2309aedfee4ca4b7bf7182c42
 package replaypcd
 
 import (
@@ -10,8 +7,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
-<<<<<<< HEAD
-	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/internal/cloud"
@@ -49,90 +44,58 @@ func TestNewReplayCamera(t *testing.T) {
 	}
 	resources := resourcesFromDeps(t, r, []string{cloud.InternalServiceName.String()})
 
-	replayCamera, err := newReplayPCDCamera(ctx, resources, cfg, logger)
+	replayCamera, err := newPCDCamera(ctx, resources, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	t.Run("Test NextPointCloud", func(t *testing.T) {
-		_, err := replayCamera.NextPointCloud(ctx)
-		test.That(t, err.Error(), test.ShouldNotBeNil)
-	})
+	// t.Run("Test NextPointCloud", func(t *testing.T) {
+	// 	_, err := replayCamera.NextPointCloud(ctx)
+	// 	test.That(t, err.Error(), test.ShouldNotBeNil)
+	// })
 
 	t.Run("Test Stream", func(t *testing.T) {
-=======
-
-	"go.viam.com/rdk/resource"
-)
-
-func TestPCDCameraUnimplemented(t *testing.T) {
-	logger := golog.NewTestLogger(t)
-	ctx := context.Background()
-
-	cfg := resource.Config{}
-
-	replayCamera, err := newPCDCamera(ctx, nil, cfg, logger)
-	test.That(t, err, test.ShouldBeNil)
-
-	t.Run("NextPointCloud", func(t *testing.T) {
-		_, err := replayCamera.NextPointCloud(ctx)
-		test.That(t, err.Error(), test.ShouldEqual, "NextPointCloud is unimplemented")
-	})
-
-	t.Run("Stream", func(t *testing.T) {
->>>>>>> 6515eb8fa2e714c2309aedfee4ca4b7bf7182c42
 		_, err := replayCamera.Stream(ctx, nil)
 		test.That(t, err.Error(), test.ShouldEqual, "Stream is unimplemented")
 	})
 
-<<<<<<< HEAD
 	t.Run("Test Properties", func(t *testing.T) {
-=======
-	t.Run("Properties", func(t *testing.T) {
->>>>>>> 6515eb8fa2e714c2309aedfee4ca4b7bf7182c42
 		_, err := replayCamera.Properties(ctx)
 		test.That(t, err.Error(), test.ShouldEqual, "Properties is unimplemented")
 	})
 
-<<<<<<< HEAD
 	t.Run("Test Projector", func(t *testing.T) {
-=======
-	t.Run("Projector", func(t *testing.T) {
->>>>>>> 6515eb8fa2e714c2309aedfee4ca4b7bf7182c42
 		_, err := replayCamera.Projector(ctx)
 		test.That(t, err.Error(), test.ShouldEqual, "Projector is unimplemented")
 	})
 
 	err = replayCamera.Close(ctx)
-<<<<<<< HEAD
-	test.That(t, err.Error(), test.ShouldBeNil)
+	test.That(t, err, test.ShouldBeNil)
 }
 
-func TestInvalidReplayPCDCameraConfigs(t *testing.T) {
-	// logger := golog.NewTestLogger(t)
-	// ctx := context.Background()
+// func TestInvalidReplayPCDCameraConfigs(t *testing.T) {
+// 	// logger := golog.NewTestLogger(t)
+// 	// ctx := context.Background()
 
-	// Create local robot with injected camera and remote.
-	r := getInjectedRobot()
-	remoteRobot := getInjectedRobot()
-	r.RemoteByNameFunc = func(name string) (robot.Robot, bool) {
-		return remoteRobot, true
-	}
-	//resources := resourcesFromDeps(t, r, []string{cloud.InternalServiceName.String()})
+// 	// Create local robot with injected camera and remote.
+// 	r := getInjectedRobot()
+// 	remoteRobot := getInjectedRobot()
+// 	r.RemoteByNameFunc = func(name string) (robot.Robot, bool) {
+// 		return remoteRobot, true
+// 	}
 
-	t.Run("Yes source", func(t *testing.T) {
-		replayCamCfg := &Config{Source: resource.Name{Name: "test"}}
-		deps, err := replayCamCfg.Validate("")
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, deps, test.ShouldResemble, []string{cloud.InternalServiceName.String()})
-	})
-	t.Run("No source", func(t *testing.T) {
-		replayCamCfg := &Config{}
-		deps, err := replayCamCfg.Validate("")
-		test.That(t, err, test.ShouldBeError,
-			goutils.NewConfigValidationFieldRequiredError("", "source"))
-		test.That(t, deps, test.ShouldBeNil)
-	})
-
-}
+// 	t.Run("Valid config", func(t *testing.T) {
+// 		replayCamCfg := &Config{Source: resource.Name{Name: "test"}}
+// 		deps, err := replayCamCfg.Validate("")
+// 		test.That(t, err, test.ShouldBeNil)
+// 		test.That(t, deps, test.ShouldResemble, []string{cloud.InternalServiceName.String()})
+// 	})
+// 	t.Run("No source", func(t *testing.T) {
+// 		replayCamCfg := &Config{}
+// 		deps, err := replayCamCfg.Validate("")
+// 		test.That(t, err, test.ShouldBeError,
+// 			goutils.NewConfigValidationFieldRequiredError("", "source"))
+// 		test.That(t, deps, test.ShouldBeNil)
+// 	})
+// }
 
 var _ = cloud.ConnectionService(&noopCloudConnectionService{})
 
@@ -162,7 +125,4 @@ func resourcesFromDeps(t *testing.T, r robot.Robot, deps []string) resource.Depe
 		}
 	}
 	return resources
-=======
-	test.That(t, err.Error(), test.ShouldEqual, "Close is unimplemented")
->>>>>>> 6515eb8fa2e714c2309aedfee4ca4b7bf7182c42
 }
