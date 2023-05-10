@@ -3,6 +3,7 @@ package client
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"strings"
 	"sync"
@@ -24,9 +25,11 @@ import (
 	"go.viam.com/utils/rpc"
 	googlegrpc "google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
 	"google.golang.org/grpc/status"
 
+	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/pointcloud"
@@ -248,6 +251,25 @@ func (rc *RobotClient) handleStreamDisconnect(
 	return &handleDisconnectClientStream{cs, rc}, err
 }
 
+func myInterceptor(ctx context.Context, method string, req, reply interface{}, cc *googlegrpc.ClientConn, invoker googlegrpc.UnaryInvoker, opts ...googlegrpc.CallOption) error {
+	var header metadata.MD
+	opts = append(opts, googlegrpc.Header(&header))
+	invoker(
+		ctx,
+		method,
+		req,
+		reply,
+		cc,
+		opts...,
+	)
+
+	if len(header.Get(camera.TimeRequestedMetadataKey)) > 0 {
+		panic(fmt.Sprint("!! I PANICKED !!", header.Get(camera.TimeRequestedMetadataKey)[0]))
+		panic(header.Get(camera.TimeRequestedMetadataKey))
+	}
+	return nil
+}
+
 // New constructs a new RobotClient that is served at the given address. The given
 // context can be used to cancel the operation.
 func New(ctx context.Context, address string, logger golog.Logger, opts ...RobotClientOption) (*RobotClient, error) {
@@ -289,6 +311,8 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 		// operations
 		rpc.WithUnaryClientInterceptor(operation.UnaryClientInterceptor),
 		rpc.WithStreamClientInterceptor(operation.StreamClientInterceptor),
+		// camera
+		rpc.WithUnaryClientInterceptor(myInterceptor),
 	)
 
 	if err := rc.connect(ctx); err != nil {
