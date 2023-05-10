@@ -32,7 +32,7 @@ func BenchmarkAddMLVisionModel(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		service, err := registerMLModelVisionService(ctx, name.Name, &modelCfg, &inject.Robot{}, golog.NewLogger("benchmark"))
+		service, err := registerMLModelVisionService(ctx, name, &modelCfg, &inject.Robot{}, golog.NewLogger("benchmark"))
 		test.That(b, err, test.ShouldBeNil)
 		test.That(b, service, test.ShouldNotBeNil)
 	}
@@ -54,7 +54,7 @@ func BenchmarkUseMLVisionModel(b *testing.B) {
 	test.That(b, out, test.ShouldNotBeNil)
 	modelCfg := MLModelConfig{ModelName: name.Name}
 
-	service, err := registerMLModelVisionService(ctx, name.Name, &modelCfg, &inject.Robot{}, golog.NewLogger("benchmark"))
+	service, err := registerMLModelVisionService(ctx, name, &modelCfg, &inject.Robot{}, golog.NewLogger("benchmark"))
 	test.That(b, err, test.ShouldBeNil)
 	test.That(b, service, test.ShouldNotBeNil)
 

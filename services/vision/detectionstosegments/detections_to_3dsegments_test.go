@@ -29,7 +29,8 @@ func (s *simpleDetector) Detect(context.Context, image.Image) ([]objectdetection
 func Test3DSegmentsFromDetector(t *testing.T) {
 	r := &inject.Robot{}
 	m := &simpleDetector{}
-	svc, err := vision.NewService("testDetector", r, nil, nil, m.Detect, nil)
+	name := vision.Named("testDetector")
+	svc, err := vision.NewService(name, r, nil, nil, m.Detect, nil)
 	test.That(t, err, test.ShouldBeNil)
 	cam := &inject.Camera{}
 	cam.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
@@ -39,7 +40,7 @@ func Test3DSegmentsFromDetector(t *testing.T) {
 		return &transform.ParallelProjection{}, nil
 	}
 	r.ResourceNamesFunc = func() []resource.Name {
-		return []resource.Name{camera.Named("fakeCamera"), vision.Named("testDetector")}
+		return []resource.Name{camera.Named("fakeCamera"), name}
 	}
 	r.ResourceByNameFunc = func(n resource.Name) (resource.Resource, error) {
 		switch n.Name {
@@ -56,17 +57,19 @@ func Test3DSegmentsFromDetector(t *testing.T) {
 		ConfidenceThresh: 0.2,
 	}
 	// bad registration, no parameters
-	_, err = register3DSegmenterFromDetector(context.Background(), "test_seg", nil, r)
+	name2 := vision.Named("test_seg")
+	_, err = register3DSegmenterFromDetector(context.Background(), name2, nil, r)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot be nil")
 	// bad registration, no such detector
 	params.DetectorName = "noDetector"
-	_, err = register3DSegmenterFromDetector(context.Background(), "test_seg", params, r)
+	_, err = register3DSegmenterFromDetector(context.Background(), name2, params, r)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "could not find necessary dependency")
 	// successful registration
 	params.DetectorName = "testDetector"
-	seg, err := register3DSegmenterFromDetector(context.Background(), "test_rcs", params, r)
+	name3 := vision.Named("test_rcs")
+	seg, err := register3DSegmenterFromDetector(context.Background(), name3, params, r)
 	test.That(t, err, test.ShouldBeNil)
 
 	// fails on not finding camera

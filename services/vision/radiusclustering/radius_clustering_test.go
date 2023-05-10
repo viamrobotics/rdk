@@ -11,6 +11,7 @@ import (
 	"go.viam.com/rdk/components/camera"
 	pc "go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/vision/segmentation"
 )
@@ -39,17 +40,18 @@ func TestRadiusClusteringSegmentation(t *testing.T) {
 		MeanKFiltering:     10.,
 	}
 	// bad registration, no parameters
-	_, err := registerRCSegmenter(context.Background(), "test_rcs", nil, r)
+	name := vision.Named("test_rcs")
+	_, err := registerRCSegmenter(context.Background(), name, nil, r)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot be nil")
 	// bad registration, parameters out of bounds
 	params.ClusteringRadiusMm = -3.0
-	_, err = registerRCSegmenter(context.Background(), "test_rcs", params, r)
+	_, err = registerRCSegmenter(context.Background(), name, params, r)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "segmenter config error")
 	// successful registration
 	params.ClusteringRadiusMm = 5.0
-	seg, err := registerRCSegmenter(context.Background(), "test_rcs", params, r)
+	seg, err := registerRCSegmenter(context.Background(), name, params, r)
 	test.That(t, err, test.ShouldBeNil)
 
 	// fails on not finding camera
