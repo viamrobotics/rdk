@@ -295,8 +295,7 @@ func TestConfigRemote(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, convMap, test.ShouldResemble, armStatus)
 
-	cfg2, err := r2.Config(context.Background())
-	test.That(t, err, test.ShouldBeNil)
+	cfg2 := r2.Config()
 	test.That(t, len(cfg2.Components), test.ShouldEqual, 2)
 
 	fsConfig, err := r2.FrameSystemConfig(context.Background())
@@ -2591,14 +2590,20 @@ func TestOrphanedResources(t *testing.T) {
 		test.That(t, err, test.ShouldBeError,
 			resource.NewNotFoundError(generic.Named("h")))
 
-		// Assert that recompiling testmodule, removing testmodule and 'h' from
-		// config and adding both back re-adds 'h'.
-		//
-		// TODO(RSDK-2876): assert that we can keep 'h' in the config and it gets
-		// re-added to testmodule.
+		// Assert that recompiling testmodule, removing testmodule from config and
+		// adding it back re-adds 'h'.
 		err = rtestutils.BuildInDir("module/testmodule")
 		test.That(t, err, test.ShouldBeNil)
-		r.Reconfigure(ctx, &config.Config{})
+		cfg2 := &config.Config{
+			Components: []resource.Config{
+				{
+					Name:  "h",
+					Model: helperModel,
+					API:   generic.API,
+				},
+			},
+		}
+		r.Reconfigure(ctx, cfg2)
 		r.Reconfigure(ctx, cfg)
 
 		h, err = r.ResourceByName(generic.Named("h"))

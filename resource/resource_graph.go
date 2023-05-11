@@ -213,6 +213,46 @@ func (g *Graph) FindNodesByAPI(api API) []Name {
 	return ret
 }
 
+// RemoteConfigs returns the configs of all remote API nodes.
+func (g *Graph) RemoteConfigs() []Config {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	var remotes []Config
+	for k, v := range g.nodes {
+		// using client.RemoteAPI can cause an import cycle.
+		if k.API == APINamespaceRDK.WithType("remote").WithSubtype("") {
+			remotes = append(remotes, v.Config())
+		}
+	}
+	return remotes
+}
+
+// ComponentConfigs returns the configs of all component API nodes.
+func (g *Graph) ComponentConfigs() []Config {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	var components []Config
+	for k, v := range g.nodes {
+		if k.API.IsComponent() {
+			components = append(components, v.Config())
+		}
+	}
+	return components
+}
+
+// ServiceConfigs returns the configs of all service API nodes.
+func (g *Graph) ServiceConfigs() []Config {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	var services []Config
+	for k, v := range g.nodes {
+		if k.API.IsService() {
+			services = append(services, v.Config())
+		}
+	}
+	return services
+}
+
 // findNodesByShortName returns all resources matching the given short name.
 func (g *Graph) findNodesByShortName(name string) []Name {
 	hasRemote := strings.Contains(name, ":")
