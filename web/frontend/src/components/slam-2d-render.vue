@@ -280,10 +280,6 @@ const updatePointCloud = (pointcloud: Uint8Array) => {
     destMarker
   );
 
-  if (props.pose !== undefined) {
-    updatePose(props.pose!);
-  }
-
   updateOrRemoveDestinationMarker();
 };
 
