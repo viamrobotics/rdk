@@ -22,7 +22,6 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
-	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
@@ -59,7 +58,6 @@ func TestClient(t *testing.T) {
 	zeroPoseInFrame := referenceframe.NewPoseInFrame("", zeroPose)
 	globeDest := geo.NewPoint(0.0, 0.0)
 	gripperName := gripper.Named("fake")
-	slamName := slam.Named("test-slam")
 	baseName := base.Named("test-base")
 	gpsName := movementsensor.Named("test-gps")
 
@@ -95,15 +93,6 @@ func TestClient(t *testing.T) {
 		) (bool, error) {
 			return success, nil
 		}
-		injectMS.MoveOnMapFunc = func(
-			ctx context.Context,
-			componentName resource.Name,
-			destination spatialmath.Pose,
-			slamName resource.Name,
-			extra map[string]interface{},
-		) (bool, error) {
-			return false, errors.New("Not yet implemented")
-		}
 		injectMS.MoveOnGlobeFunc = func(
 			ctx context.Context,
 			componentName resource.Name,
@@ -135,12 +124,6 @@ func TestClient(t *testing.T) {
 		result, err := client.Move(ctx, gripperName, zeroPoseInFrame, nil, nil, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, result, test.ShouldEqual, success)
-
-		// MoveOnMap
-		mapResult, err := client.MoveOnMap(ctx, baseName, zeroPose, slamName, nil)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, notYetImplementedErr.Error())
-		test.That(t, mapResult, test.ShouldEqual, false)
 
 		// MoveOnGlobe
 		globeResult, err := client.MoveOnGlobe(ctx, baseName, globeDest, math.NaN(), gpsName, nil, math.NaN(), math.NaN(), nil)
@@ -205,15 +188,7 @@ func TestClient(t *testing.T) {
 		) (bool, error) {
 			return false, passedErr
 		}
-		injectMS.MoveOnMapFunc = func(
-			ctx context.Context,
-			componentName resource.Name,
-			destination spatialmath.Pose,
-			slamName resource.Name,
-			extra map[string]interface{},
-		) (bool, error) {
-			return false, errors.New("Not yet implemented")
-		}
+		passedErr = errors.New("fake moveonglobe error")
 		injectMS.MoveOnGlobeFunc = func(
 			ctx context.Context,
 			componentName resource.Name,
@@ -225,7 +200,7 @@ func TestClient(t *testing.T) {
 			angularVelocity float64,
 			extra map[string]interface{},
 		) (bool, error) {
-			return false, errors.New("Not yet implemented")
+			return false, passedErr
 		}
 		passedErr = errors.New("fake GetPose error")
 		injectMS.GetPoseFunc = func(
@@ -240,6 +215,12 @@ func TestClient(t *testing.T) {
 
 		// Move
 		resp, err := client2.Move(ctx, gripperName, zeroPoseInFrame, nil, nil, nil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, passedErr.Error())
+		test.That(t, resp, test.ShouldEqual, false)
+
+		// MoveOnGlobe
+		resp, err = client2.MoveOnGlobe(ctx, baseName, globeDest, math.NaN(), gpsName, nil, math.NaN(), math.NaN(), nil)
+		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, passedErr.Error())
 		test.That(t, resp, test.ShouldEqual, false)
 

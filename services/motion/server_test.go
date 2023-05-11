@@ -5,12 +5,15 @@ import (
 	"errors"
 	"testing"
 
+	geo "github.com/kellydunn/golang-geo"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/test"
 	vprotoutils "go.viam.com/utils/protoutils"
 
+	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/gripper"
+	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -98,6 +101,41 @@ func TestServerMove(t *testing.T) {
 	resp, err = server.Move(context.Background(), grabRequest2)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp.GetSuccess(), test.ShouldBeTrue)
+}
+
+func TestServerMoveOnGlobe(t *testing.T) {
+	injectMS := &inject.MotionService{}
+	resources := map[resource.Name]motion.Service{
+		testMotionServiceName: injectMS,
+	}
+	server, err := newServer(resources)
+	test.That(t, err, test.ShouldBeNil)
+
+	moveOnGlobeRequest := &pb.MoveOnGlobeRequest{
+		Name:               testMotionServiceName.ShortName(),
+		ComponentName:      protoutils.ResourceNameToProto(base.Named("test-base")),
+		Destination:        &commonpb.GeoPoint{Latitude: 0.0, Longitude: 0.0},
+		MovementSensorName: protoutils.ResourceNameToProto(movementsensor.Named("test-gps")),
+	}
+	notYetImplementedErr := errors.New("Not yet implemented")
+
+	injectMS.MoveOnGlobeFunc = func(
+		ctx context.Context,
+		componentName resource.Name,
+		destination *geo.Point,
+		heading float64,
+		movementSensorName resource.Name,
+		obstacles []*referenceframe.GeoObstacle,
+		linearVelocity float64,
+		angularVelocity float64,
+		extra map[string]interface{},
+	) (bool, error) {
+		return false, notYetImplementedErr
+	}
+	moveOnGlobeResponse, err := server.MoveOnGlobe(context.Background(), moveOnGlobeRequest)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, notYetImplementedErr.Error())
+	test.That(t, moveOnGlobeResponse.GetSuccess(), test.ShouldBeFalse)
 }
 
 func TestServerDoCommand(t *testing.T) {
