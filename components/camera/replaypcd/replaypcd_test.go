@@ -2,21 +2,49 @@
 package replaypcd
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strconv"
 	"testing"
+	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
+	datapb "go.viam.com/api/app/data/v1"
 	"go.viam.com/test"
+	"go.viam.com/utils"
 	goutils "go.viam.com/utils"
+	"go.viam.com/utils/artifact"
 	"go.viam.com/utils/rpc"
+	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/components/camera"
+	dsmock "go.viam.com/rdk/components/camera/replaypcd/mock_v1"
 	"go.viam.com/rdk/internal/cloud"
+	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/testutils/inject"
 )
+
+const datasetDirectory = "slam/mock_lidar/%d.pcd"
+const numFiles = 15
+
+func getPointCloudFromArtifact(t *testing.T, i int) pointcloud.PointCloud {
+	path := filepath.Clean(artifact.MustPath(fmt.Sprintf(datasetDirectory, i)))
+	pcdFile, err := os.Open(path)
+	defer utils.UncheckedErrorFunc(pcdFile.Close)
+
+	pcExpected, err := pointcloud.ReadPCD(pcdFile)
+	test.That(t, err, test.ShouldBeNil)
+
+	return pcExpected
+}
 
 func getNoopCloudDependencies(t *testing.T) resource.Dependencies {
 	r := &inject.Robot{}
@@ -90,21 +118,258 @@ func TestNewReplayPCD(t *testing.T) {
 	})
 }
 
+func getNextDataAfterFilter(filter *datapb.Filter, last string) (int, error) {
+	start := 0
+	end := 1000
+	startTime := filter.Interval.Start
+	if startTime != nil {
+		start = int(startTime.AsTime().Second())
+	}
+	endTime := filter.Interval.End
+	if endTime != nil {
+		end = int(endTime.AsTime().Second())
+	}
+
+	possibleData := makeFilteredRange(0, numFiles, start, end)
+
+	if last == "" {
+		if len(possibleData) != 0 {
+			return possibleData[0], nil
+		}
+	} else {
+		lastFileNum, err := strconv.Atoi(last)
+		if err != nil {
+			return 0, err
+		}
+		for i := range possibleData {
+			if possibleData[i] > lastFileNum {
+				return possibleData[i], nil
+			}
+		}
+	}
+	return 0, errEndOfDataset
+}
+
+func createMockDataServiceClient(t *testing.T) datapb.DataServiceClient {
+	ctrl := gomock.NewController(t)
+	dataService := dsmock.NewMockDataServiceClient(ctrl)
+
+	dataService.EXPECT().BinaryDataByFilter(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, req *datapb.BinaryDataByFilterRequest, opts ...grpc.CallOption) (*datapb.BinaryDataByFilterResponse, error) {
+			// Parse request
+			filter := req.DataRequest.GetFilter()
+			last := req.DataRequest.GetLast()
+
+			newFileNum, err := getNextDataAfterFilter(filter, last)
+			if err != nil {
+				return nil, err
+			}
+
+			// Get point cloud data
+			path := filepath.Clean(artifact.MustPath(fmt.Sprintf(datasetDirectory, newFileNum)))
+			data, err := os.ReadFile(path)
+			if err != nil {
+				return nil, err
+			}
+
+			var b bytes.Buffer
+			gz := gzip.NewWriter(&b)
+			gz.Write(data)
+			gz.Close()
+			dataCompressed := b.Bytes()
+
+			// Construct response
+			binaryData := &datapb.BinaryData{
+				Binary:   dataCompressed,
+				Metadata: &datapb.BinaryMetadata{},
+			}
+
+			resp := &datapb.BinaryDataByFilterResponse{
+				Data: []*datapb.BinaryData{binaryData},
+				Last: fmt.Sprint(newFileNum),
+			}
+			return resp, nil
+		}).AnyTimes()
+	return dataService
+}
+
 func TestNextPointCloud(t *testing.T) {
-	ctx := context.Background()
 
-	replayCamCfg := &Config{Source: "test"}
-	replayCamera, err := createNewReplayPCDCamera(ctx, t, replayCamCfg, true)
-	test.That(t, err, test.ShouldBeNil)
+	t.Run("Calling NextPointCloud no filter", func(t *testing.T) {
+		ctx := context.Background()
 
-	t.Run("Test NextPointCloud", func(t *testing.T) {
-		_, err := replayCamera.NextPointCloud(ctx)
-		test.That(t, err.Error(), test.ShouldNotBeNil)
+		replayCamCfg := &Config{Source: "test"}
+		replayCamera, err := createNewReplayPCDCamera(ctx, t, replayCamCfg, true)
+		test.That(t, err, test.ShouldBeNil)
+
+		rr := replayCamera.(*pcdCamera)
+		rr.dataClient = createMockDataServiceClient(t)
+
+		for i := 0; i < numFiles; i++ {
+			pc, err := rr.NextPointCloud(ctx)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, pc, test.ShouldResemble, getPointCloudFromArtifact(t, i))
+		}
+
+		pc, err := rr.NextPointCloud(ctx)
+		test.That(t, err, test.ShouldBeError, errEndOfDataset)
+		test.That(t, pc, test.ShouldBeNil)
+
+		err = rr.Close(ctx)
+		test.That(t, err, test.ShouldBeNil)
 	})
 
-	err = replayCamera.Close(ctx)
-	test.That(t, err, test.ShouldBeNil)
+	t.Run("Calling NextPointCloud with filter no data", func(t *testing.T) {
+		ctx := context.Background()
+
+		replayCamCfg := &Config{
+			Source: "test",
+			Interval: TimeInterval{
+				Start: "2000-01-01T12:00:30Z",
+				End:   "2000-01-01T12:00:40Z",
+			},
+		}
+
+		replayCamera, err := createNewReplayPCDCamera(ctx, t, replayCamCfg, true)
+		test.That(t, err, test.ShouldBeNil)
+
+		rr := replayCamera.(*pcdCamera)
+		rr.dataClient = createMockDataServiceClient(t)
+
+		pc, err := rr.NextPointCloud(ctx)
+		test.That(t, err, test.ShouldBeError, errEndOfDataset)
+		test.That(t, pc, test.ShouldBeNil)
+
+		err = rr.Close(ctx)
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("Calling NextPointCloud with start and end filter", func(t *testing.T) {
+		ctx := context.Background()
+
+		replayCamCfg := &Config{
+			Source: "test",
+			Interval: TimeInterval{
+				Start: "2000-01-01T12:00:05Z",
+				End:   "2000-01-01T12:00:10Z",
+			},
+		}
+
+		replayCamera, err := createNewReplayPCDCamera(ctx, t, replayCamCfg, true)
+		test.That(t, err, test.ShouldBeNil)
+
+		rr := replayCamera.(*pcdCamera)
+		rr.dataClient = createMockDataServiceClient(t)
+
+		startTime, err := time.Parse(timeFormat, replayCamCfg.Interval.Start)
+		test.That(t, err, test.ShouldBeNil)
+		endTime, err := time.Parse(timeFormat, replayCamCfg.Interval.End)
+		test.That(t, err, test.ShouldBeNil)
+
+		for i := startTime.Second(); i < endTime.Second(); i++ {
+			pc, err := rr.NextPointCloud(ctx)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, pc, test.ShouldResemble, getPointCloudFromArtifact(t, i))
+		}
+
+		pc, err := rr.NextPointCloud(ctx)
+		test.That(t, err, test.ShouldBeError, errEndOfDataset)
+		test.That(t, pc, test.ShouldBeNil)
+
+		err = rr.Close(ctx)
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("Calling NextPointCloud with end filter", func(t *testing.T) {
+		ctx := context.Background()
+
+		replayCamCfg := &Config{
+			Source: "test",
+			Interval: TimeInterval{
+				End: "2000-01-01T12:00:10Z",
+			},
+		}
+
+		replayCamera, err := createNewReplayPCDCamera(ctx, t, replayCamCfg, true)
+		test.That(t, err, test.ShouldBeNil)
+
+		rr := replayCamera.(*pcdCamera)
+		rr.dataClient = createMockDataServiceClient(t)
+
+		endTime, err := time.Parse(timeFormat, replayCamCfg.Interval.End)
+		test.That(t, err, test.ShouldBeNil)
+
+		for i := 0; i < endTime.Second(); i++ {
+			pc, err := rr.NextPointCloud(ctx)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, pc, test.ShouldResemble, getPointCloudFromArtifact(t, i))
+		}
+
+		pc, err := rr.NextPointCloud(ctx)
+		test.That(t, err, test.ShouldBeError, errEndOfDataset)
+		test.That(t, pc, test.ShouldBeNil)
+
+		err = rr.Close(ctx)
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("Calling NextPointCloud with start filter", func(t *testing.T) {
+		ctx := context.Background()
+
+		replayCamCfg := &Config{
+			Source: "test",
+			Interval: TimeInterval{
+				Start: "2000-01-01T12:00:05Z",
+			},
+		}
+
+		replayCamera, err := createNewReplayPCDCamera(ctx, t, replayCamCfg, true)
+		test.That(t, err, test.ShouldBeNil)
+
+		rr := replayCamera.(*pcdCamera)
+		rr.dataClient = createMockDataServiceClient(t)
+
+		startTime, err := time.Parse(timeFormat, replayCamCfg.Interval.Start)
+		test.That(t, err, test.ShouldBeNil)
+
+		for i := startTime.Second(); i < numFiles; i++ {
+			pc, err := rr.NextPointCloud(ctx)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, pc, test.ShouldResemble, getPointCloudFromArtifact(t, i))
+		}
+
+		pc, err := rr.NextPointCloud(ctx)
+		test.That(t, err, test.ShouldBeError, errEndOfDataset)
+		test.That(t, pc, test.ShouldBeNil)
+
+		err = rr.Close(ctx)
+		test.That(t, err, test.ShouldBeNil)
+	})
 }
+
+// func Test2NextPointCloud(t *testing.T) {
+// 	ctx := context.Background()
+
+// 	replayCamCfg := &Config{Source: "test"}
+// 	replayCamera, err := createNewReplayPCDCamera(ctx, t, replayCamCfg, true)
+// 	test.That(t, err, test.ShouldBeNil)
+
+// 	t.Run("Calling NextPointCloud", func(t *testing.T) {
+// 		i := 0
+// 		path := filepath.Clean(artifact.MustPath(fmt.Sprintf(datasetDirectory, i)))
+// 		pcdFile, err := os.Open(path)
+// 		defer utils.UncheckedErrorFunc(pcdFile.Close)
+// 		pcExpected, err := pointcloud.ReadPCD(pcdFile)
+// 		test.That(t, err, test.ShouldBeNil)
+
+// 		pc, err := replayCamera.NextPointCloud(ctx)
+// 		test.That(t, err, test.ShouldBeNil)
+// 		test.That(t, pcExpected, test.ShouldResemble, pc)
+// 	})
+
+// 	err = replayCamera.Close(ctx)
+// 	test.That(t, err, test.ShouldBeNil)
+// }
 
 func TestConfigValidation(t *testing.T) {
 	t.Run("Valid config with source and no timestamp", func(t *testing.T) {
@@ -121,7 +386,7 @@ func TestConfigValidation(t *testing.T) {
 		replayCamCfg := &Config{
 			Source: "test",
 			Interval: TimeInterval{
-				Start: "2000-01-01T12:00:00",
+				Start: "2000-01-01T12:00:00Z",
 			},
 		}
 		deps, err := replayCamCfg.Validate("")
@@ -133,7 +398,7 @@ func TestConfigValidation(t *testing.T) {
 		replayCamCfg := &Config{
 			Source: "test",
 			Interval: TimeInterval{
-				End: "2000-01-01T12:00:00",
+				End: "2000-01-01T12:00:00Z",
 			},
 		}
 		deps, err := replayCamCfg.Validate("")
@@ -145,8 +410,8 @@ func TestConfigValidation(t *testing.T) {
 		replayCamCfg := &Config{
 			Source: "test",
 			Interval: TimeInterval{
-				Start: "2000-01-01T12:00:00",
-				End:   "2000-01-01T12:00:01",
+				Start: "2000-01-01T12:00:00Z",
+				End:   "2000-01-01T12:00:01Z",
 			},
 		}
 		deps, err := replayCamCfg.Validate("")
@@ -166,7 +431,7 @@ func TestConfigValidation(t *testing.T) {
 		replayCamCfg := &Config{
 			Source: "test",
 			Interval: TimeInterval{
-				Start: "3000-01-01T12:00:00",
+				Start: "3000-01-01T12:00:00Z",
 			},
 		}
 		deps, err := replayCamCfg.Validate("")
@@ -178,7 +443,7 @@ func TestConfigValidation(t *testing.T) {
 		replayCamCfg := &Config{
 			Source: "test",
 			Interval: TimeInterval{
-				End: "3000-01-01T12:00:00",
+				End: "3000-01-01T12:00:00Z",
 			},
 		}
 		deps, err := replayCamCfg.Validate("")
@@ -190,8 +455,8 @@ func TestConfigValidation(t *testing.T) {
 		replayCamCfg := &Config{
 			Source: "test",
 			Interval: TimeInterval{
-				Start: "2000-01-01T12:00:01",
-				End:   "2000-01-01T12:00:00",
+				Start: "2000-01-01T12:00:01Z",
+				End:   "2000-01-01T12:00:00Z",
 			},
 		}
 		deps, err := replayCamCfg.Validate("")
@@ -255,4 +520,14 @@ func resourcesFromDeps(t *testing.T, r robot.Robot, deps []string) resource.Depe
 		}
 	}
 	return resources
+}
+func makeFilteredRange(min, max, start, end int) []int {
+	a := []int{}
+	for i := 0; i < max-min; i++ {
+		val := min + i
+		if val >= start && val < end {
+			a = append(a, val)
+		}
+	}
+	return a
 }
