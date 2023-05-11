@@ -3,6 +3,7 @@ package builtin
 import (
 	"context"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 	"sort"
@@ -20,6 +21,7 @@ import (
 	"go.viam.com/rdk/services/datamanager/datasync"
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
+	"golang.org/x/exp/slices"
 	"google.golang.org/grpc"
 )
 
@@ -326,9 +328,17 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 func TestArbitraryFileUpload(t *testing.T) {
 	// Set exponential factor to 1 and retry wait time to 20ms so retries happen very quickly.
 	datasync.RetryExponentialFactor.Store(int32(1))
-	fileName := "some_file_name.txt"
+	fileName1 := "some_file_name.txt"
+	fileName2 := "some_file_name2.txt"
+	fileNamesToSync := []string{fileName1, fileName2}
 	fileExt := ".txt"
-	tags := []string{"a", "b"}
+	tags1 := []string{"a", "b"}
+	tags2 := []string{"c", "d"}
+
+	fileNamesToTags := map[string][]string{
+		fileName1: tags1,
+		fileName2: tags2,
+	}
 
 	tests := []struct {
 		name                 string
@@ -367,8 +377,13 @@ func TestArbitraryFileUpload(t *testing.T) {
 			// Set up server.
 			mockClock := clk.NewMock()
 			clock = mockClock
-			additionalPathsDir := t.TempDir()
+			additionalPathsDir1 := t.TempDir()
+			additionalPathsDir2 := t.TempDir()
 			captureDir := t.TempDir()
+			additionalSyncPaths := map[string][]string{
+				additionalPathsDir1: tags1,
+				additionalPathsDir2: tags2,
+			}
 
 			// Set up dmsvc config.
 			dmsvc, r := newTestDataManager(t)
@@ -384,9 +399,8 @@ func TestArbitraryFileUpload(t *testing.T) {
 			cfg, deps := setupConfig(t, disabledTabularCollectorConfigPath)
 			cfg.ScheduledSyncDisabled = tc.scheduleSyncDisabled
 			cfg.SyncIntervalMins = syncIntervalMins
-			cfg.AdditionalSyncPaths = []string{additionalPathsDir}
-			cfg.AdditionalTags = [][]string{tags}
 			cfg.CaptureDir = captureDir
+			cfg.AdditionalSyncPaths = additionalSyncPaths
 
 			// Start dmsvc.
 			resources := resourcesFromDeps(t, r, deps)
@@ -400,11 +414,19 @@ func TestArbitraryFileUpload(t *testing.T) {
 			for i := 0; i < 1000; i++ {
 				fileContents = append(fileContents, []byte("happy cows come from california\n")...)
 			}
-			tmpFile, err := os.Create(filepath.Join(additionalPathsDir, fileName))
+			tmpFile, err := os.Create(filepath.Join(additionalPathsDir1, fileName1))
 			test.That(t, err, test.ShouldBeNil)
 			_, err = tmpFile.Write(fileContents)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, tmpFile.Close(), test.ShouldBeNil)
+
+			tmpFile2, err := os.Create(filepath.Join(additionalPathsDir2, fileName2))
+			test.That(t, err, test.ShouldBeNil)
+			_, err = tmpFile2.Write(fileContents)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, tmpFile2.Close(), test.ShouldBeNil)
+
+			filesToSync := []*os.File{tmpFile, tmpFile2}
 
 			// Advance the clock syncInterval so it tries to sync the files.
 			mockClock.Add(syncInterval)
@@ -420,38 +442,52 @@ func TestArbitraryFileUpload(t *testing.T) {
 			var urs []*v1.FileUploadRequest
 			// Get the successful requests
 			wait := time.After(time.Second * 5)
-			select {
-			case <-wait:
-				t.Fatalf("timed out waiting for sync request")
-			case r := <-mockClient.fileUploads:
-				fileUploads = append(fileUploads, r)
+			for i := 0; i < len(filesToSync); i++ {
 				select {
 				case <-wait:
 					t.Fatalf("timed out waiting for sync request")
-				case <-r.closed:
-					urs = append(urs, r.urs...)
+				case r := <-mockClient.fileUploads:
+					fileUploads = append(fileUploads, r)
+					select {
+					case <-wait:
+						t.Fatalf("timed out waiting for sync request")
+					case <-r.closed:
+						urs = append(urs, r.urs...)
+					}
 				}
 			}
 
 			// Validate error and URs.
-			remainingFiles := getAllFilePaths(additionalPathsDir)
+			remainingFiles := getAllFilePaths(additionalPathsDir1)
+			remainingFiles = append(remainingFiles, getAllFilePaths(additionalPathsDir2)...)
 			if tc.serviceFail {
-				// Error case, file should not be deleted.
-				test.That(t, len(remainingFiles), test.ShouldEqual, 1)
+				// Error case, files should not be deleted.
+				test.That(t, len(remainingFiles), test.ShouldEqual, 2)
 			} else {
-				// Validate first metadata message.
-				test.That(t, len(fileUploads), test.ShouldEqual, 1)
+
+				// Validate first metadata message for each upload request.
+				test.That(t, len(fileUploads), test.ShouldEqual, len(filesToSync))
 				test.That(t, len(urs), test.ShouldBeGreaterThan, 0)
-				actMD := urs[0].GetMetadata()
-				test.That(t, actMD, test.ShouldNotBeNil)
-				test.That(t, actMD.Type, test.ShouldEqual, v1.DataType_DATA_TYPE_FILE)
-				test.That(t, actMD.FileName, test.ShouldEqual, fileName)
-				test.That(t, actMD.FileExtension, test.ShouldEqual, fileExt)
-				test.That(t, actMD.PartId, test.ShouldNotBeBlank)
-				test.That(t, actMD.Tags, test.ShouldResemble, tags)
+
+				metadatas := []*v1.UploadMetadata{}
+
+				// Each file has two upload requests, getting the first ones.
+				for index, ur := range urs {
+					if index%2 == 0 {
+						metadatas = append(metadatas, ur.GetMetadata())
+					}
+				}
+				for _, actMD := range metadatas {
+					test.That(t, actMD, test.ShouldNotBeNil)
+					test.That(t, actMD.Type, test.ShouldEqual, v1.DataType_DATA_TYPE_FILE)
+					test.That(t, slices.Contains(fileNamesToSync, actMD.FileName), test.ShouldBeTrue)
+					test.That(t, actMD.FileExtension, test.ShouldEqual, fileExt)
+					test.That(t, actMD.PartId, test.ShouldNotBeBlank)
+					test.That(t, fileNamesToTags[actMD.FileName], test.ShouldResemble, actMD.Tags)
+				}
 
 				// Validate ensuing data messages.
-				dataRequests := urs[1:]
+				dataRequests := urs[1:2]
 				var actData []byte
 				for _, d := range dataRequests {
 					actData = append(actData, d.GetFileContents().GetData()...)
@@ -459,8 +495,11 @@ func TestArbitraryFileUpload(t *testing.T) {
 				test.That(t, actData, test.ShouldResemble, fileContents)
 
 				// Validate file no longer exists.
-				waitUntilNoFiles(additionalPathsDir)
-				test.That(t, len(getAllFileInfos(additionalPathsDir)), test.ShouldEqual, 0)
+				waitUntilNoFiles(additionalPathsDir1)
+				waitUntilNoFiles(additionalPathsDir2)
+				test.That(t, len(getAllFileInfos(additionalPathsDir1)), test.ShouldEqual, 0)
+				test.That(t, len(getAllFileInfos(additionalPathsDir2)), test.ShouldEqual, 0)
+
 			}
 			test.That(t, dmsvc.Close(context.Background()), test.ShouldBeNil)
 		})
@@ -706,7 +745,9 @@ func (m *mockFileUploadClient) Send(req *v1.FileUploadRequest) error {
 }
 
 func (m *mockFileUploadClient) CloseAndRecv() (*v1.FileUploadResponse, error) {
+	log.Println("in close and recv")
 	m.closed <- struct{}{}
+	log.Println("m.closed")
 	return &v1.FileUploadResponse{}, nil
 }
 
