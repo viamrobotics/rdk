@@ -1,6 +1,8 @@
 import vue from '@vitejs/plugin-vue';
 import Hashes from 'jshashes';
 import { defineConfig } from 'vite';
+import path from 'node:path';
+import url from 'node:url';
 
 const MD5 = new Hashes.MD5();
 
@@ -53,5 +55,10 @@ export default defineConfig({
   },
   server: {
     port: 5174,
+  },
+  resolve: {
+    alias: {
+      '@': path.resolve(path.dirname(url.fileURLToPath(import.meta.url)), './src'),
+    },
   },
 });

@@ -3,16 +3,16 @@
 
 import { $ref, $computed } from 'vue/macros';
 import { grpc } from '@improbable-eng/grpc-web';
-import { toast } from '../lib/toast';
+import { toast } from '@/lib/toast';
 import { Struct } from 'google-protobuf/google/protobuf/struct_pb';
 import * as THREE from 'three';
 import { Client, commonApi, ResponseStream, robotApi, ServiceError, slamApi, motionApi } from '@viamrobotics/sdk';
-import { displayError, isServiceError } from '../lib/error';
-import { rcLogConditionally } from '../lib/log';
-import PCD from './pcd/pcd-view.vue';
-import { copyToClipboardWithToast } from '../lib/copy-to-clipboard';
-import Slam2dRender from './slam-2d-render.vue';
-import { filterResources } from '../lib/resource';
+import { displayError, isServiceError } from '@/lib/error';
+import { rcLogConditionally } from '@/lib/log';
+import PCD from '../pcd/pcd-view.vue';
+import { copyToClipboardWithToast } from '@/lib/copy-to-clipboard';
+import Slam2dRenderer from './2d-renderer.vue';
+import { filterResources } from '@/lib/resource';
 import { onMounted, onUnmounted } from 'vue';
 
 type MapAndPose = { map: Uint8Array, pose: commonApi.Pose}
@@ -369,6 +369,7 @@ const toggleAxes = () => {
 };
 
 onMounted(() => {
+  toggle2dExpand()
   props.statusStream?.on('end', () => {
     window.clearTimeout(slam2dTimeoutId);
     window.clearTimeout(slam3dTimeoutId);
@@ -384,6 +385,7 @@ onUnmounted(() => {
 
 <template>
   <v-collapse
+    open
     :title="props.name"
     class="slam"
     @toggle="toggle2dExpand()"
@@ -472,7 +474,7 @@ onUnmounted(() => {
               label="x"
               incrementor="slider"
               :value="destinationMarker.x"
-              step="0.1"
+              step="0.5"
               @input="handleUpdateDestX($event)"
             />
             <v-input
@@ -481,7 +483,7 @@ onUnmounted(() => {
               label="y"
               incrementor="slider"
               :value="destinationMarker.y"
-              step="0.1"
+              step="0.5"
               @input="handleUpdateDestY($event)"
             />
           </div>
@@ -564,7 +566,7 @@ onUnmounted(() => {
               />
             </div>
           </div>
-          <Slam2dRender
+          <Slam2dRenderer
             :point-cloud-update-count="pointCloudUpdateCount"
             :pointcloud="pointcloud"
             :pose="pose"

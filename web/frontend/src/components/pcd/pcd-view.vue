@@ -6,6 +6,7 @@
  * This is causing memory leaks.
  */
 
+import { $ref, $computed } from 'vue/macros';
 import { onMounted, onUnmounted, watch } from 'vue';
 import * as THREE from 'three';
 import { PCDLoader } from 'three/examples/jsm/loaders/PCDLoader';

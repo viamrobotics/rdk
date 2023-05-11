@@ -37,6 +37,9 @@
       "scripthost"
     ],
     "outDir": "dist",
+    "paths": {
+      "@/*": ["src/*"],
+    },
   },
   "include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/.vue"],
   "references": [{ "path": "./tsconfig.node.json" }]
