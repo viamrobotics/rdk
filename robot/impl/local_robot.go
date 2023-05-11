@@ -446,6 +446,10 @@ func newWithResources(
 	// detected and in testing.
 	goutils.ManagedGo(func() {
 		for {
+			if closeCtx.Err() != nil {
+				return
+			}
+
 			select {
 			case <-closeCtx.Done():
 				return
