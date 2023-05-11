@@ -52138,6 +52138,10 @@
         "hash": "93b03dc453206b6ce0cd083f96066544",
         "size": 23685
       },
+      "lampshade.jpg": {
+        "hash": "d3bd30dd375e610925ab8edafa907767",
+        "size": 86278
+      },
       "lion.jpeg": {
         "hash": "7a24ee403e1606a0956d63dc744f24de",
         "size": 31645
@@ -52149,6 +52153,14 @@
       "mobilenet.tflite": {
         "hash": "66ee95e3edbaa9b3de5138cf1cbb127d",
         "size": 1866640
+      },
+      "mobilenetlogitlabels.txt": {
+        "hash": "9a59ebc6b30aa6edffa8f17abbeb5b74",
+        "size": 10483
+      },
+      "mobilenetlogits.tflite": {
+        "hash": "6219259140b1d3a05314083d7024d4a7",
+        "size": 16019482
       },
       "mobilenetv2_class.tflite": {
         "hash": "4fc85180f4b6c4bf2fb9417b94d84bcd",
@@ -52169,6 +52181,14 @@
       "ssdmobilenet.tflite": {
         "hash": "4c421353bf0a105c5ffba593ffee4099",
         "size": 27523960
+      },
+      "useslogitlabels.txt": {
+        "hash": "9a59ebc6b30aa6edffa8f17abbeb5b74",
+        "size": 10483
+      },
+      "useslogits.tflite": {
+        "hash": "6219259140b1d3a05314083d7024d4a7",
+        "size": 16019482
       }
     },
     "white1.png": {

@@ -114,15 +114,13 @@ func unpack(inMap map[string]interface{}, name string) ([]float64, error) {
 	var me interface{}
 	if name != "" {
 		me = inMap[name]
-	} else {
-		if len(inMap) < 1 {
-			return nil, errors.New("could not unpack nonexistent first tensor")
-		}
+	} else if len(inMap) == 1 {
 		for _, v := range inMap {
 			me = v
 			break
 		}
 	}
+
 	if me == nil {
 		return nil, errors.Errorf("no such tensor named %q to unpack", name)
 	}

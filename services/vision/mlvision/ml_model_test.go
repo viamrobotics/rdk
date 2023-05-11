@@ -92,7 +92,7 @@ func TestAddingIncorrectModelTypeToModel(t *testing.T) {
 	test.That(t, classifier, test.ShouldNotBeNil)
 
 	err = checkIfClassifierWorks(ctx, classifier)
-	test.That(t, err, test.ShouldBeNil)
+	test.That(t, err, test.ShouldNotBeNil)
 
 	detector, err := attemptToBuildDetector(mlm)
 	test.That(t, err, test.ShouldBeNil)
@@ -356,6 +356,37 @@ func TestMoreMLClassifiers(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, bestClass[0].Label(), test.ShouldResemble, "292")
 	test.That(t, bestClass[0].Score(), test.ShouldBeGreaterThan, 0.93)
+
+	// Test that "logit" using mobileNet classifier gives some result on image
+	modelLoc = artifact.MustPath("vision/tflite/mobilenetlogits.tflite")
+	labelLoc := artifact.MustPath("vision/tflite/mobilenetlogitlabels.txt")
+
+	pic, err = rimage.NewImageFromFile(artifact.MustPath("vision/tflite/lampshade.jpg"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pic, test.ShouldNotBeNil)
+	cfg = tflitecpu.TFLiteConfig{
+		ModelPath:  modelLoc,
+		NumThreads: 2,
+		LabelPath:  &labelLoc,
+	}
+	outModel, err = tflitecpu.NewTFLiteCPUModel(ctx, &cfg, mlmodel.Named("mobileNetLogits"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, outModel, test.ShouldNotBeNil)
+	check, err = outModel.Metadata(ctx)
+	test.That(t, check, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeNil)
+
+	gotClassifier, err = attemptToBuildClassifier(outModel)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, gotClassifier, test.ShouldNotBeNil)
+	gotClassifications, err = gotClassifier(ctx, pic)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, gotClassifications, test.ShouldNotBeNil)
+	bestClass, err = gotClassifications.TopN(1)
+	test.That(t, err, test.ShouldBeNil)
+	// These results are bad (functioning and legible but incorrect) but shouldn't change
+	test.That(t, bestClass[0].Label(), test.ShouldResemble, "mask")
+	test.That(t, bestClass[0].Score(), test.ShouldBeGreaterThan, 0.98)
 }
 
 func TestLabelReader(t *testing.T) {
