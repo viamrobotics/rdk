@@ -1,7 +1,6 @@
 package camera
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"image"
@@ -151,14 +150,11 @@ func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 		return nil, err
 	}
 
-	if len(header.Get(TimeRequestedMetadataKey)) > 0 {
-		panic(fmt.Sprint("!! I PANICKED !!", header.Get(TimeRequestedMetadataKey)[0]))
-	}
-
 	// Get timestamps from the gRPC header if they're provided.
 	timeRequested := header.Get(TimeRequestedMetadataKey)
 	if len(timeRequested) > 0 {
-		asTime, err := time.Parse("2006-01-02 15:04:05.999999999 -0700 MST", timeRequested[0])
+		c.logger.Info(timeRequested)
+		asTime, err := time.Parse(time.RFC3339, timeRequested[0])
 		if err != nil {
 			return nil, fmt.Errorf("unexpected error while parsing time: %v", err)
 		}
@@ -166,7 +162,8 @@ func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 	}
 	timeReceived := header.Get(TimeReceivedMetadataKey)
 	if len(timeReceived) > 0 {
-		asTime, err := time.Parse("2006-01-02 15:04:05.999999999 -0700 MST", timeReceived[0])
+		c.logger.Info(timeReceived)
+		asTime, err := time.Parse(time.RFC3339, timeReceived[0])
 		if err != nil {
 			return nil, fmt.Errorf("unexpected error while parsing time: %v", err)
 		}
@@ -181,7 +178,8 @@ func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 		_, span := trace.StartSpan(ctx, "camera::client::NextPointCloud::ReadPCD")
 		defer span.End()
 
-		return pointcloud.ReadPCD(bytes.NewReader(resp.PointCloud))
+		return nil, nil
+		//return pointcloud.ReadPCD(bytes.NewReader(resp.PointCloud))
 	}()
 }
 
