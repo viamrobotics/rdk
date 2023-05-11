@@ -1038,7 +1038,7 @@ func (manager *resourceManager) removeOrphanedResources(ctx context.Context,
 func (manager *resourceManager) createConfig() *config.Config {
 	conf := &config.Config{}
 
-	for _, resName := range manager.ResourceNames() {
+	for _, resName := range manager.resources.Names() {
 		gNode, ok := manager.resources.Node(resName)
 		if !ok {
 			continue
