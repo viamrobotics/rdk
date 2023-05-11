@@ -367,7 +367,6 @@ func TestValidate(t *testing.T) {
 }
 
 // waitForMotorsToStop is unused except for tests, polls all motors to see if they're on
-// TODO: Audit in  RSDK-1880.
 func (wb *wheeledBase) waitForMotorsToStop(ctx context.Context) error {
 	for {
 		if !utils.SelectContextOrWait(ctx, 10*time.Millisecond) {

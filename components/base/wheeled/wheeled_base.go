@@ -1,6 +1,12 @@
 // Package wheeled implements some bases, like a wheeled base.
 package wheeled
 
+/*	This driver package enables control of a wheeled base, supporting
+	spinning, straight movement, velocity and power control, and stopping.
+	It provides configuration validation and implements the base interface
+	for movement control.
+*/
+
 import (
 	"context"
 	"fmt"
