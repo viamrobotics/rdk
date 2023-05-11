@@ -203,7 +203,8 @@ func (wb *wheeledBase) SetVelocity(ctx context.Context, linear, angular r3.Vecto
 	wb.opMgr.CancelRunning(ctx)
 
 	wb.logger.Debugf(
-		"received a SetVelocity with linear.X: %.2f, linear.Y: %.2f linear.Z: %.2f (mmPerSec), angular.X: %.2f, angular.Y: %.2f, angular.Z: %.2f",
+		"received a SetVelocity with linear.X: %.2f, linear.Y: %.2f linear.Z: %.2f"+
+			" (mmPerSec), angular.X: %.2f, angular.Y: %.2f, angular.Z: %.2f",
 		linear.X, linear.Y, linear.Z, angular.X, angular.Y, angular.Z)
 
 	l, r := wb.velocityMath(linear.Y, angular.Z)
@@ -216,7 +217,8 @@ func (wb *wheeledBase) SetPower(ctx context.Context, linear, angular r3.Vector, 
 	wb.opMgr.CancelRunning(ctx)
 
 	wb.logger.Debugf(
-		"received a SetPower with linear.X: %.2f, linear.Y: %.2f linear.Z: %.2f, angular.X: %.2f, angular.Y: %.2f, angular.Z: %.2f",
+		"received a SetPower with linear.X: %.2f, linear.Y: %.2f linear.Z: %.2f,"+
+			" angular.X: %.2f, angular.Y: %.2f, angular.Z: %.2f",
 		linear.X, linear.Y, linear.Z, angular.X, angular.Y, angular.Z)
 
 	lPower, rPower := wb.differentialDrive(linear.Y, angular.Z)
