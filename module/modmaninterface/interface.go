@@ -20,7 +20,7 @@ type ModuleManager interface {
 	IsModularResource(name resource.Name) bool
 	ValidateConfig(ctx context.Context, cfg resource.Config) ([]string, error)
 
-	ModuleConfigs() []config.Module
+	Configs() []config.Module
 	Provides(cfg resource.Config) bool
 
 	Close(ctx context.Context) error

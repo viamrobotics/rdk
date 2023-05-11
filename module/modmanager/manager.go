@@ -276,18 +276,18 @@ func (mgr *Manager) ReconfigureResource(ctx context.Context, conf resource.Confi
 	return nil
 }
 
-// ModuleConfigs returns a slice of config.Module representing the currently
-// managed modules.
-func (mgr *Manager) ModuleConfigs() []config.Module {
+// Configs returns a slice of config.Module representing the currently managed
+// modules.
+func (mgr *Manager) Configs() []config.Module {
 	mgr.mu.RLock()
 	defer mgr.mu.RUnlock()
-	var moduleConfigs []config.Module
+	var configs []config.Module
 	for _, mod := range mgr.modules {
-		moduleConfigs = append(moduleConfigs, config.Module{
+		configs = append(configs, config.Module{
 			Name: mod.name, ExePath: mod.exe,
 		})
 	}
-	return moduleConfigs
+	return configs
 }
 
 // Provides returns true if a component/service config WOULD be handled by a module.

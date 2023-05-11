@@ -428,7 +428,7 @@ func (m *dummyModMan) IsModularResource(name resource.Name) bool {
 	return name.Name != "builtin"
 }
 
-func (m *dummyModMan) ModuleConfigs() []config.Module {
+func (m *dummyModMan) Configs() []config.Module {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return nil

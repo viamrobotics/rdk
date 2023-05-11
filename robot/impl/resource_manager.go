@@ -1038,21 +1038,36 @@ func (manager *resourceManager) removeOrphanedResources(ctx context.Context,
 func (manager *resourceManager) createConfig() *config.Config {
 	conf := &config.Config{}
 
-	conf.Components = append(conf.Components, manager.resources.ComponentConfigs()...)
-	conf.Modules = append(conf.Modules, manager.moduleManager.ModuleConfigs()...)
+	for _, resName := range manager.ResourceNames() {
+		gNode, ok := manager.resources.Node(resName)
+		if !ok {
+			continue
+		}
+		resConf := gNode.Config()
+
+		// gocritic will complain that this if-else chain should be a switch, but
+		// it's really a mix of == and bool method checks.
+		//
+		//nolint: gocritic
+		if resName.API == client.RemoteAPI {
+			remoteConf, ok := resConf.ConvertedAttributes.(*config.Remote)
+			if !ok {
+				manager.logger.Errorw("ConvertedAttributes is not a config.Remote")
+				continue
+			}
+
+			conf.Remotes = append(conf.Remotes, *remoteConf)
+		} else if resName.API.IsComponent() {
+			conf.Components = append(conf.Components, resConf)
+		} else if resName.API.IsService() {
+			conf.Services = append(conf.Services, resConf)
+		}
+	}
+
+	conf.Modules = append(conf.Modules, manager.moduleManager.Configs()...)
 	for _, processConf := range manager.processConfigs {
 		conf.Processes = append(conf.Processes, processConf)
 	}
-	for _, resourceConf := range manager.resources.RemoteConfigs() {
-		remoteConf, ok := resourceConf.ConvertedAttributes.(*config.Remote)
-		if !ok {
-			manager.logger.Errorw("ConvertedAttributes is not a config.Remote")
-			continue
-		}
-
-		conf.Remotes = append(conf.Remotes, *remoteConf)
-	}
-	conf.Services = append(conf.Services, manager.resources.ServiceConfigs()...)
 
 	return conf
 }

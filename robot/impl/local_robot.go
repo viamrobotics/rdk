@@ -177,8 +177,7 @@ func (r *localRobot) StopAll(ctx context.Context, extra map[resource.Name]map[st
 	return nil
 }
 
-// Config returns a config representing the current state of the resource
-// manager.
+// Config returns a config representing the current state of the robot.
 func (r *localRobot) Config() *config.Config {
 	return r.manager.createConfig()
 }

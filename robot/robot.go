@@ -90,8 +90,7 @@ type Robot interface {
 type LocalRobot interface {
 	Robot
 
-	// Config returns a config representing the current state of the resource
-	// manager.
+	// Config returns a config representing the current state of the robot.
 	Config() *config.Config
 
 	// Reconfigure instructs the robot to safely reconfigure itself based
