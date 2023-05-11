@@ -4,6 +4,7 @@ package datasync
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"strings"
 	"sync"
@@ -30,6 +31,7 @@ var (
 
 // Manager is responsible for enqueuing files in captureDir and uploading them to the cloud.
 type Manager interface {
+	SyncCaptureFile(path string)
 	SyncFile(path string, tags []string)
 	Close()
 }
@@ -85,7 +87,7 @@ func (s *syncer) Close() {
 	_ = s.logger.Sync()
 }
 
-func (s *syncer) SyncFile(path string, tags []string) {
+func (s *syncer) SyncCaptureFile(path string) {
 	s.backgroundWorkers.Add(1)
 	goutils.PanicCapturingGo(func() {
 		defer s.backgroundWorkers.Done()
@@ -106,23 +108,45 @@ func (s *syncer) SyncFile(path string, tags []string) {
 				}
 				return
 			}
-
-			if datacapture.IsDataCaptureFile(f) {
-				captureFile, err := datacapture.ReadFile(f)
+			captureFile, err := datacapture.ReadFile(f)
+			if err != nil {
+				s.syncErrs <- errors.Wrap(err, "error reading data capture file")
+				err := f.Close()
 				if err != nil {
-					s.syncErrs <- errors.Wrap(err, "error reading data capture file")
-					err := f.Close()
-					if err != nil {
-						s.syncErrs <- errors.Wrap(err, "error closing data capture file")
-					}
-					return
+					s.syncErrs <- errors.Wrap(err, "error closing data capture file")
 				}
-				s.syncDataCaptureFile(captureFile)
-			} else {
-				s.syncArbitraryFile(f, tags)
+				return
 			}
-			s.unmarkInProgress(path)
+			s.syncDataCaptureFile(captureFile)
 		}
+	})
+}
+
+func (s *syncer) SyncFile(path string, tags []string) {
+	s.backgroundWorkers.Add(1)
+	log.Println("syncing file")
+	goutils.PanicCapturingGo(func() {
+		defer s.backgroundWorkers.Done()
+		select {
+		case <-s.cancelCtx.Done():
+			return
+		default:
+			if !s.markInProgress(path) {
+				return
+			}
+			//nolint:gosec
+			f, err := os.Open(path)
+			if err != nil {
+				// Don't log if the file does not exist, because that means it was successfully synced and deleted
+				// in between paths being built and this executing.
+				if !errors.Is(err, os.ErrNotExist) {
+					s.logger.Errorw("error opening file", "error", err)
+				}
+				return
+			}
+			s.syncArbitraryFile(f, tags)
+		}
+		s.unmarkInProgress(path)
 	})
 }
 

@@ -4,6 +4,7 @@ package builtin
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"sync"
@@ -67,8 +68,7 @@ var errCaptureDirectoryConfigurationDisabled = errors.New("changing the capture 
 // Config describes how to configure the service.
 type Config struct {
 	CaptureDir            string                           `json:"capture_dir"`
-	AdditionalSyncPaths   []string                         `json:"additional_sync_paths"`
-	AdditionalTags        [][]string                       `json:"additional_tags"`
+	AdditionalSyncPaths   map[string][]string              `json:"additional_sync_paths"`
 	SyncIntervalMins      float64                          `json:"sync_interval_mins"`
 	CaptureDisabled       bool                             `json:"capture_disabled"`
 	ScheduledSyncDisabled bool                             `json:"sync_disabled"`
@@ -91,8 +91,7 @@ type builtIn struct {
 	backgroundWorkers           sync.WaitGroup
 	waitAfterLastModifiedMillis int
 
-	additionalSyncPaths []string
-	additionalTags      [][]string
+	additionalSyncPaths map[string][]string
 	syncDisabled        bool
 	syncIntervalMins    float64
 	syncRoutineCancelFn context.CancelFunc
@@ -118,8 +117,7 @@ func NewBuiltIn(
 		captureDir:                  viamCaptureDotDir,
 		collectors:                  make(map[componentMethodMetadata]*collectorAndConfig),
 		syncIntervalMins:            0,
-		additionalSyncPaths:         []string{},
-		additionalTags:              [][]string{},
+		additionalSyncPaths:         map[string][]string{},
 		waitAfterLastModifiedMillis: 10000,
 		syncerConstructor:           datasync.NewManager,
 	}
@@ -432,7 +430,6 @@ func (svc *builtIn) Reconfigure(
 
 	svc.collectors = newCollectors
 	svc.additionalSyncPaths = svcConfig.AdditionalSyncPaths
-	svc.additionalTags = svcConfig.AdditionalTags
 
 	if svc.syncDisabled != svcConfig.ScheduledSyncDisabled || svc.syncIntervalMins != svcConfig.SyncIntervalMins {
 		svc.syncDisabled = svcConfig.ScheduledSyncDisabled
@@ -517,13 +514,14 @@ func (svc *builtIn) sync() {
 	svc.flushCollectors()
 	captureToSync := getAllFilesToSync(svc.captureDir, svc.waitAfterLastModifiedMillis)
 	for _, p := range captureToSync {
-		svc.syncer.SyncFile(p, nil)
+		svc.syncer.SyncCaptureFile(p)
 	}
 
-	for index, ap := range svc.additionalSyncPaths {
-		arbitraryFilestoSync := getAllFilesToSync(ap, svc.waitAfterLastModifiedMillis)
-		for _, ap := range arbitraryFilestoSync {
-			svc.syncer.SyncFile(ap, svc.additionalTags[index])
+	for path, tags := range svc.additionalSyncPaths {
+		log.Println("syncing additional")
+		arbitraryFilestoSync := getAllFilesToSync(path, svc.waitAfterLastModifiedMillis)
+		for _, path := range arbitraryFilestoSync {
+			svc.syncer.SyncFile(path, tags)
 		}
 	}
 
