@@ -18,7 +18,7 @@ import (
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
-	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
+	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/robot/packages"
 	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/session"
@@ -61,7 +61,7 @@ type Robot interface {
 	Logger() golog.Logger
 
 	// FrameSystemConfig returns the individual parts that make up a robot's frame system
-	FrameSystemConfig(ctx context.Context, additionalTransforms []*referenceframe.LinkInFrame) (framesystemparts.Parts, error)
+	FrameSystemConfig(ctx context.Context) (*framesystem.Config, error)
 
 	// TransformPose will transform the pose of the requested poseInFrame to the desired frame in the robot's frame system.
 	TransformPose(
@@ -127,7 +127,9 @@ type Status struct {
 	Status interface{}
 }
 
-// AllResourcesByName returns an array of all resources that have this simple name.
+// AllResourcesByName returns an array of all resources that have this short name.
+// NOTE: this function queries by the shortname rather than the fully qualified resource name which is not recommended practice
+// and may become deprecated in the future.
 func AllResourcesByName(r Robot, name string) []resource.Resource {
 	all := []resource.Resource{}
 

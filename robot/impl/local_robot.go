@@ -28,7 +28,6 @@ import (
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/robot/framesystem"
-	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 	"go.viam.com/rdk/robot/packages"
 	"go.viam.com/rdk/robot/web"
 	weboptions "go.viam.com/rdk/robot/web/options"
@@ -330,6 +329,7 @@ func newWithResources(
 	opts ...Option,
 ) (robot.LocalRobot, error) {
 	var rOpts options
+	var err error
 	for _, opt := range opts {
 		opt.apply(&rOpts)
 	}
@@ -399,7 +399,10 @@ func newWithResources(
 	// we assume these never appear in our configs and as such will not be removed from the
 	// resource graph
 	r.webSvc = web.New(r, logger, rOpts.webOptions...)
-	r.frameSvc = framesystem.New(ctx, r, logger)
+	r.frameSvc, err = framesystem.New(ctx, resource.Dependencies{}, logger)
+	if err != nil {
+		return nil, err
+	}
 	if err := r.manager.resources.AddNode(
 		web.InternalServiceName,
 		resource.NewConfiguredGraphNode(resource.Config{}, r.webSvc, builtinModel)); err != nil {
@@ -668,8 +671,17 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 	// For now, we pass all resources and empty configs.
 	for resName, res := range internalResources {
 		switch resName {
-		case web.InternalServiceName, framesystem.InternalServiceName:
+		case web.InternalServiceName:
 			if err := res.Reconfigure(ctx, allResources, resource.Config{}); err != nil {
+				r.Logger().Errorw("failed to reconfigure internal service", "service", resName, "error", err)
+			}
+		case framesystem.InternalServiceName:
+			fsCfg, err := r.FrameSystemConfig(ctx)
+			if err != nil {
+				r.Logger().Errorw("failed to reconfigure internal service", "service", resName, "error", err)
+				continue
+			}
+			if err := res.Reconfigure(ctx, components, resource.Config{ConvertedAttributes: fsCfg}); err != nil {
 				r.Logger().Errorw("failed to reconfigure internal service", "service", resName, "error", err)
 			}
 		case packages.InternalServiceName, cloud.InternalServiceName:
@@ -708,12 +720,116 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 	}
 }
 
-// FrameSystemConfig returns the info of each individual part that makes up a robot's frame system.
-func (r *localRobot) FrameSystemConfig(
-	ctx context.Context,
-	additionalTransforms []*referenceframe.LinkInFrame,
-) (framesystemparts.Parts, error) {
-	return r.frameSvc.Config(ctx, additionalTransforms)
+// Config returns the info of each individual part that makes up the frame system
+// The output of this function is to be sent over GRPC to the client, so the client
+// can build its frame system. requests the remote components from the remote's frame system service.
+func (r *localRobot) FrameSystemConfig(ctx context.Context) (*framesystem.Config, error) {
+	localParts, err := r.getLocalFrameSystemParts(ctx)
+	if err != nil {
+		return nil, err
+	}
+	remoteParts, err := r.getRemoteFrameSystemParts(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &framesystem.Config{Parts: append(localParts, remoteParts...)}, nil
+}
+
+// getLocalFrameSystemParts collects and returns the physical parts of the robot that may have frame info,
+// excluding remote robots and services, etc from the robot's config.Config.
+func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*referenceframe.FrameSystemPart, error) {
+	cfg, err := r.Config(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	parts := make([]*referenceframe.FrameSystemPart, 0)
+	for _, component := range cfg.Components {
+		if component.Frame == nil { // no Frame means dont include in frame system.
+			continue
+		}
+
+		if component.Name == referenceframe.World {
+			return nil, errors.Errorf("cannot give frame system part the name %s", referenceframe.World)
+		}
+		if component.Frame.Parent == "" {
+			return nil, errors.Errorf("parent field in frame config for part %q is empty", component.Name)
+		}
+		cfgCopy := &referenceframe.LinkConfig{
+			ID:          component.Frame.ID,
+			Translation: component.Frame.Translation,
+			Orientation: component.Frame.Orientation,
+			Geometry:    component.Frame.Geometry,
+			Parent:      component.Frame.Parent,
+		}
+		if cfgCopy.ID == "" {
+			cfgCopy.ID = component.Name
+		}
+		model, err := r.extractModelFrameJSON(component.ResourceName())
+		if err != nil && !errors.Is(err, referenceframe.ErrNoModelInformation) {
+			// When we have non-nil errors here, it is because the resource is not yet available.
+			// In this case, we will exclude it from the FS.
+			// When it becomes available, it will be included.
+			continue
+		}
+		lif, err := cfgCopy.ParseConfig()
+		if err != nil {
+			return nil, err
+		}
+
+		parts = append(parts, &referenceframe.FrameSystemPart{FrameConfig: lif, ModelFrame: model})
+	}
+	return parts, nil
+}
+
+func (r *localRobot) getRemoteFrameSystemParts(ctx context.Context) ([]*referenceframe.FrameSystemPart, error) {
+	cfg, err := r.Config(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	remoteParts := make([]*referenceframe.FrameSystemPart, 0)
+	for _, remoteCfg := range cfg.Remotes {
+		// build the frame system part that connects remote world to base world
+		if remoteCfg.Frame == nil { // skip over remote if it has no frame info
+			r.logger.Debugf("remote %s has no frame config info, skipping", remoteCfg.Name)
+			continue
+		}
+		lif, err := remoteCfg.Frame.ParseConfig()
+		if err != nil {
+			return nil, err
+		}
+		parentName := remoteCfg.Name + "_" + referenceframe.World
+		lif.SetName(parentName)
+		remoteParts = append(remoteParts, &referenceframe.FrameSystemPart{FrameConfig: lif})
+
+		// get the parts from the remote itself
+		remote, ok := r.RemoteByName(remoteCfg.Name)
+		if !ok {
+			return nil, errors.Errorf("cannot find remote robot %s", remoteCfg.Name)
+		}
+		remoteFsCfg, err := remote.FrameSystemConfig(ctx)
+		if err != nil {
+			return nil, errors.Wrapf(err, "remote %s", remote)
+		}
+		framesystem.PrefixRemoteParts(remoteFsCfg.Parts, remoteCfg.Name, parentName)
+		remoteParts = append(remoteParts, remoteFsCfg.Parts...)
+	}
+	return remoteParts, nil
+}
+
+// extractModelFrameJSON finds the robot part with a given name, checks to see if it implements ModelFrame, and returns the
+// JSON []byte if it does, or nil if it doesn't.
+func (r *localRobot) extractModelFrameJSON(name resource.Name) (referenceframe.Model, error) {
+	part, err := r.ResourceByName(name)
+	if err != nil {
+		return nil, err
+	}
+	if framer, ok := part.(referenceframe.ModelFramer); ok {
+		return framer.ModelFrame(), nil
+	}
+	return nil, referenceframe.ErrNoModelInformation
 }
 
 // TransformPose will transform the pose of the requested poseInFrame to the desired frame in the robot's frame system.

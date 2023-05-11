@@ -53,7 +53,6 @@ import (
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/robot/framesystem"
-	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/robot/packages"
 	putils "go.viam.com/rdk/robot/packages/testutils"
@@ -300,9 +299,9 @@ func TestConfigRemote(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(cfg2.Components), test.ShouldEqual, 2)
 
-	fsConfig, err := r2.FrameSystemConfig(context.Background(), nil)
+	fsConfig, err := r2.FrameSystemConfig(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, fsConfig, test.ShouldHaveLength, 12)
+	test.That(t, fsConfig.Parts, test.ShouldHaveLength, 12)
 
 	test.That(t, r2.Close(context.Background()), test.ShouldBeNil)
 }
@@ -1223,20 +1222,17 @@ func TestStatusRemote(t *testing.T) {
 	statusCallCount := 0
 
 	// TODO: RSDK-882 will update this so that this is not necessary
-	frameSystemConfigFunc := func(
-		ctx context.Context,
-		additionalTransforms []*referenceframe.LinkInFrame,
-	) (framesystemparts.Parts, error) {
-		return framesystemparts.Parts{
-			&referenceframe.FrameSystemPart{
+	frameSystemConfigFunc := func(ctx context.Context) (*framesystem.Config, error) {
+		return &framesystem.Config{Parts: []*referenceframe.FrameSystemPart{
+			{
 				FrameConfig: referenceframe.NewLinkInFrame(referenceframe.World, nil, "arm1", nil),
 				ModelFrame:  referenceframe.NewSimpleModel("arm1"),
 			},
-			&referenceframe.FrameSystemPart{
+			{
 				FrameConfig: referenceframe.NewLinkInFrame(referenceframe.World, nil, "arm2", nil),
 				ModelFrame:  referenceframe.NewSimpleModel("arm2"),
 			},
-		}, nil
+		}}, nil
 	}
 
 	injectRobot1 := &inject.Robot{

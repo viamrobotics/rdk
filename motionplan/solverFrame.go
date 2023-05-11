@@ -62,7 +62,7 @@ func newSolverFrame(fs frame.FrameSystem, solveFrameName, goalFrameName string, 
 			}
 		}
 		if moveF == nil {
-			return frame.NewEmptySimpleFrameSystem(""), nil
+			return frame.NewEmptyFrameSystem(""), nil
 		}
 		return fs.FrameSystemSubset(moveF)
 	}
