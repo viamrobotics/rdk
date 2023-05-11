@@ -128,7 +128,7 @@ func TestFramesFromPart(t *testing.T) {
 		FrameConfig: &LinkInFrame{PoseInFrame: &PoseInFrame{name: "test"}},
 		ModelFrame:  nil,
 	}
-	_, _, err = CreateFramesFromPart(part)
+	_, _, err = createFramesFromPart(part)
 	test.That(t, err, test.ShouldBeNil)
 
 	// slightly specified part
@@ -136,7 +136,7 @@ func TestFramesFromPart(t *testing.T) {
 		FrameConfig: &LinkInFrame{PoseInFrame: &PoseInFrame{name: "test", parent: "world"}},
 		ModelFrame:  nil,
 	}
-	modelFrame, originFrame, err := CreateFramesFromPart(part)
+	modelFrame, originFrame, err := createFramesFromPart(part)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, modelFrame, test.ShouldResemble, NewZeroStaticFrame(part.FrameConfig.name))
 	originTailFrame, ok := NewZeroStaticFrame(part.FrameConfig.name + "_origin").(*staticFrame)
@@ -159,7 +159,7 @@ func TestFramesFromPart(t *testing.T) {
 		FrameConfig: lif,
 		ModelFrame:  model,
 	}
-	modelFrame, originFrame, err = CreateFramesFromPart(part)
+	modelFrame, originFrame, err = createFramesFromPart(part)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, modelFrame.Name(), test.ShouldEqual, part.FrameConfig.name)
 	test.That(t, modelFrame.DoF(), test.ShouldResemble, part.ModelFrame.DoF())
@@ -180,7 +180,7 @@ func TestFramesFromPart(t *testing.T) {
 		FrameConfig: lif,
 		ModelFrame:  model,
 	}
-	modelFrame, originFrame, err = CreateFramesFromPart(part)
+	modelFrame, originFrame, err = createFramesFromPart(part)
 	test.That(t, err, test.ShouldBeNil)
 	modelGeoms, err := modelFrame.Geometries(make([]Input, len(modelFrame.DoF())))
 	test.That(t, err, test.ShouldBeNil)
@@ -207,7 +207,7 @@ func TestFramesFromPart(t *testing.T) {
 		FrameConfig: lif,
 		ModelFrame:  model,
 	}
-	modelFrame, originFrame, err = CreateFramesFromPart(part)
+	modelFrame, originFrame, err = createFramesFromPart(part)
 	test.That(t, err, test.ShouldBeNil)
 	modelFrameGeoms, err := modelFrame.Geometries(make([]Input, len(modelFrame.DoF())))
 	test.That(t, err, test.ShouldBeNil)
@@ -302,7 +302,7 @@ func TestFrameSystemToPCD(t *testing.T) {
 	}
 
 	t.Run("displaced box with another box as its child", func(t *testing.T) {
-		fs := NewEmptySimpleFrameSystem("test")
+		fs := NewEmptyFrameSystem("test")
 		logger := golog.NewTestLogger(t)
 		// ------
 		name0 := "frame0"
@@ -335,7 +335,7 @@ func TestFrameSystemToPCD(t *testing.T) {
 		}
 	})
 	t.Run("displaced box with another box as its child with nil inputs", func(t *testing.T) {
-		fs := NewEmptySimpleFrameSystem("test")
+		fs := NewEmptyFrameSystem("test")
 		logger := golog.NewTestLogger(t)
 		// ------
 		name0 := "frame0"
@@ -368,7 +368,7 @@ func TestFrameSystemToPCD(t *testing.T) {
 	})
 
 	t.Run("incorrectly defined frame system, i.e. with nil parent for frame0", func(t *testing.T) {
-		fs := NewEmptySimpleFrameSystem("test")
+		fs := NewEmptyFrameSystem("test")
 		logger := golog.NewTestLogger(t)
 		// ------
 		name := "frame"
@@ -387,7 +387,7 @@ func TestFrameSystemToPCD(t *testing.T) {
 	})
 
 	t.Run("correct frame system with nil input and DOF = 0", func(t *testing.T) {
-		fs := NewEmptySimpleFrameSystem("test")
+		fs := NewEmptyFrameSystem("test")
 		logger := golog.NewTestLogger(t)
 		// ------
 		name := "frame"
@@ -407,7 +407,7 @@ func TestFrameSystemToPCD(t *testing.T) {
 	})
 
 	t.Run("correct frame system with nil input and DOF != 0", func(t *testing.T) {
-		fs := NewEmptySimpleFrameSystem("test")
+		fs := NewEmptyFrameSystem("test")
 		logger := golog.NewTestLogger(t)
 		jsonData, err := os.ReadFile(rdkutils.ResolveFile("config/data/model_frame_geoms.json"))
 		test.That(t, err, test.ShouldBeNil)
@@ -428,7 +428,7 @@ func TestFrameSystemToPCD(t *testing.T) {
 			FrameConfig: lif,
 			ModelFrame:  model,
 		}
-		armFrame, _, err := CreateFramesFromPart(part)
+		armFrame, _, err := createFramesFromPart(part)
 		test.That(t, err, test.ShouldBeNil)
 		fs.AddFrame(armFrame, fs.World())
 		// -----
@@ -437,7 +437,7 @@ func TestFrameSystemToPCD(t *testing.T) {
 		test.That(t, outMap, test.ShouldBeEmpty)
 	})
 	t.Run("correct frame system with a parent child relationship, with nil input and DOF != 0", func(t *testing.T) {
-		fs := NewEmptySimpleFrameSystem("test")
+		fs := NewEmptyFrameSystem("test")
 		logger := golog.NewTestLogger(t)
 		jsonData, err := os.ReadFile(rdkutils.ResolveFile("config/data/model_frame_geoms.json"))
 		test.That(t, err, test.ShouldBeNil)
@@ -458,7 +458,7 @@ func TestFrameSystemToPCD(t *testing.T) {
 			FrameConfig: lif,
 			ModelFrame:  model,
 		}
-		armFrame, _, err := CreateFramesFromPart(part)
+		armFrame, _, err := createFramesFromPart(part)
 		test.That(t, err, test.ShouldBeNil)
 		fs.AddFrame(armFrame, fs.World())
 		// -----
@@ -488,7 +488,7 @@ func TestFrameSystemToPCD(t *testing.T) {
 	})
 
 	t.Run("arm with a block attached to the end effector", func(t *testing.T) {
-		fs := NewEmptySimpleFrameSystem("test")
+		fs := NewEmptyFrameSystem("test")
 		logger := golog.NewTestLogger(t)
 		jsonData, err := os.ReadFile(rdkutils.ResolveFile("config/data/model_frame_geoms.json"))
 		test.That(t, err, test.ShouldBeNil)
@@ -509,7 +509,7 @@ func TestFrameSystemToPCD(t *testing.T) {
 			FrameConfig: lif,
 			ModelFrame:  model,
 		}
-		armFrame, _, err := CreateFramesFromPart(part)
+		armFrame, _, err := createFramesFromPart(part)
 		test.That(t, err, test.ShouldBeNil)
 		fs.AddFrame(armFrame, fs.World())
 		blockName := "block"
