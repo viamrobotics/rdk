@@ -98,7 +98,7 @@ func initializePigpio() error {
 		return nil
 	}
 
-	resCode = C.gpioInitialise()
+	resCode := C.gpioInitialise()
 	if resCode < 0 {
 		// failed to init, check for common causes
 		_, err := os.Stat("/sys/bus/platform/drivers/raspberrypi-firmware")
@@ -127,7 +127,7 @@ func NewPigpio(ctx context.Context, name resource.Name, cfg *genericlinux.Config
 	}
 
 	if err := initializePigpio(); err != nil {
-		return err
+		return nil, err
 	}
 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
@@ -153,6 +153,11 @@ func (pi *piPigpio) Reconfigure(
     _ resource.Dependencies,
     conf resource.Config,
 ) error {
+	cfg, err := resource.NativeConfig[*genericlinux.Config](conf)
+	if err != nil {
+		return err
+	}
+
 	pi.mu.Lock()
 	defer pi.mu.Unlock()
 
@@ -161,7 +166,7 @@ func (pi *piPigpio) Reconfigure(
 	for _, sc := range cfg.I2Cs {
 		id, err := strconv.Atoi(sc.Bus)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		pi.i2cs[sc.Name] = &piPigpioI2C{pi: pi, id: id}
 	}
@@ -170,7 +175,7 @@ func (pi *piPigpio) Reconfigure(
 	pi.spis = make(map[string]board.SPI, len(cfg.SPIs))
 	for _, sc := range cfg.SPIs {
 		if sc.BusSelect != "0" && sc.BusSelect != "1" {
-			return nil, errors.New("only SPI buses 0 and 1 are available on Pi boards")
+			return errors.New("only SPI buses 0 and 1 are available on Pi boards")
 		}
 		pi.spis[sc.Name] = &piPigpioSPI{pi: pi, busSelect: sc.BusSelect}
 	}
@@ -180,16 +185,16 @@ func (pi *piPigpio) Reconfigure(
 	for _, ac := range cfg.Analogs {
 		channel, err := strconv.Atoi(ac.Pin)
 		if err != nil {
-			return nil, errors.Errorf("bad analog pin (%s)", ac.Pin)
+			return errors.Errorf("bad analog pin (%s)", ac.Pin)
 		}
 
 		bus, have := pi.SPIByName(ac.SPIBus)
 		if !have {
-			return nil, errors.Errorf("can't find SPI bus (%s) requested by AnalogReader", ac.SPIBus)
+			return errors.Errorf("can't find SPI bus (%s) requested by AnalogReader", ac.SPIBus)
 		}
 
 		ar := &board.MCP3008AnalogReader{channel, bus, ac.ChipSelect}
-		pi.analogs[ac.Name] = board.SmoothAnalogReader(ar, ac, logger)
+		pi.analogs[ac.Name] = board.SmoothAnalogReader(ar, ac, pi.logger)
 	}
 
 	// setup interrupts
@@ -198,12 +203,12 @@ func (pi *piPigpio) Reconfigure(
 	for _, c := range cfg.DigitalInterrupts {
 		bcom, have := broadcomPinFromHardwareLabel(c.Pin)
 		if !have {
-			return nil, errors.Errorf("no hw mapping for %s", c.Pin)
+			return errors.Errorf("no hw mapping for %s", c.Pin)
 		}
 
 		di, err := board.CreateDigitalInterrupt(c)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		pi.interrupts[c.Name] = di
 		pi.interruptsHW[bcom] = di
@@ -213,7 +218,7 @@ func (pi *piPigpio) Reconfigure(
 	instanceMu.Lock()
 	instances[pi] = struct{}{}
 	instanceMu.Unlock()
-	return pi, nil
+	return nil
 }
 
 // GPIOPinNames returns the names of all known GPIO pins.
