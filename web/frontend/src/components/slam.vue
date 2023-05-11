@@ -60,9 +60,13 @@ const moveClicked = $computed(() => {
   return false;
 });
 
+// get all resources which are bases
+const baseResources = $computed(() => filterResources(props.resources, 'rdk', 'component', 'base'));
+
 // allowMove is only true if we have a base, there exists a destination and there is no in-flight MoveOnMap req
 let allowMove = $computed(() => (
-  filterResources(props.resources, 'rdk', 'component', 'base') !== undefined) && updatedDest && !moveClicked);
+  (baseResources !== undefined) &&
+  (baseResources.length > 0) && updatedDest && !moveClicked));
 
 const concatArrayU8 = (arrays: Uint8Array[]) => {
   const totalLength = arrays.reduce((acc, value) => acc + value.length, 0);
@@ -140,9 +144,6 @@ const executeDeleteDestinationMarker = () => {
 
 const executeMoveOnMap = async () => {
   allowMove = !allowMove;
-
-  // get base resources
-  const baseResources = filterResources(props.resources, 'rdk', 'component', 'base');
 
   /*
    * set request name
