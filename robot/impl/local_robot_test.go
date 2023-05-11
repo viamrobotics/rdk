@@ -296,7 +296,9 @@ func TestConfigRemote(t *testing.T) {
 	test.That(t, convMap, test.ShouldResemble, armStatus)
 
 	cfg2 := r2.Config()
-	test.That(t, len(cfg2.Components), test.ShouldEqual, 2)
+	// Number of components should be equal to sum of number of local components
+	// (2) and remote components (18).
+	test.That(t, len(cfg2.Components), test.ShouldEqual, 20)
 
 	fsConfig, err := r2.FrameSystemConfig(context.Background())
 	test.That(t, err, test.ShouldBeNil)
