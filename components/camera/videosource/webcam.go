@@ -100,6 +100,7 @@ func Discover(_ context.Context, getDrivers func() []driver.Driver, logger golog
 			pbProp := &pb.Property{
 				WidthPx:     int32(prop.Video.Width),
 				HeightPx:    int32(prop.Video.Height),
+				FrameRate:   float32(prop.Video.FrameRate),
 				FrameFormat: string(prop.Video.FrameFormat),
 			}
 			wc.Properties = append(wc.Properties, pbProp)
@@ -135,6 +136,7 @@ type WebcamConfig struct {
 	Path                 string                             `json:"video_path,omitempty"`
 	Width                int                                `json:"width_px,omitempty"`
 	Height               int                                `json:"height_px,omitempty"`
+	FrameRate            float32                            `json:"frame_rate,omitempty"`
 }
 
 func (c WebcamConfig) needsDriverReinit(other WebcamConfig) bool {
@@ -158,7 +160,12 @@ func makeConstraints(conf *WebcamConfig, debug bool, logger golog.Logger) mediad
 			} else {
 				constraint.Height = prop.IntRanged{Min: 0, Ideal: 480, Max: 2160}
 			}
-			constraint.FrameRate = prop.FloatRanged{0, 200, 60}
+
+			if conf.FrameRate > 0.0 {
+				constraint.FrameRate = prop.FloatExact(conf.FrameRate)
+			} else {
+				constraint.FrameRate = prop.FloatRanged{Min: 0.0, Ideal: 30.0, Max: 140.0}
+			}
 
 			if conf.Format == "" {
 				constraint.FrameFormat = prop.FrameFormatOneOf{
