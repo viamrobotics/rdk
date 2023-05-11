@@ -32,16 +32,19 @@ const axesHelperSize = 8;
 const textureLoader = new THREE.TextureLoader();
 
 const makeMarker = (png: string, name: string) => {
-  const geometry = new THREE.PlaneGeometry();
-  const material = new THREE.MeshBasicMaterial({ map: textureLoader.load(png), transparent: true });
-  const marker = new THREE.Mesh(geometry, material);
+  const material = new THREE.SpriteMaterial({
+    map: textureLoader.load(png),
+    sizeAttenuation: false,
+    color: '#FF0047',
+  });
+  const marker = new THREE.Sprite(material);
   marker.name = name;
   marker.renderOrder = svgMarkerRenderOrder;
   return marker;
 };
 
-const baseMarkerOffset = new THREE.Vector3(-0.05, -0.3, 0);
-const destinationMarkerOffset = new THREE.Vector3(0, 0.5, 0);
+
+const destinationMarkerOffset = new THREE.Vector3(0, 0.4, 0);
 
 /*
  * this color map is greyscale. The color map is being used map probability values of a PCD
@@ -149,7 +152,7 @@ const updatePose = (newPose: commonApi.Pose) => {
   const x = newPose.getX();
   const y = newPose.getY();
   const z = newPose.getZ();
-  baseMarker.position.set(x, y, z).add(baseMarkerOffset);
+  baseMarker.position.set(x, y, z);
 };
 
 /*
