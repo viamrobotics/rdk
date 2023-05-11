@@ -4,7 +4,6 @@ package builtin
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"sync"
@@ -518,7 +517,6 @@ func (svc *builtIn) sync() {
 	}
 
 	for path, tags := range svc.additionalSyncPaths {
-		log.Println("syncing additional")
 		arbitraryFilestoSync := getAllFilesToSync(path, svc.waitAfterLastModifiedMillis)
 		for _, path := range arbitraryFilestoSync {
 			svc.syncer.SyncFile(path, tags)

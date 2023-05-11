@@ -4,7 +4,6 @@ package datasync
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"strings"
 	"sync"
@@ -124,7 +123,6 @@ func (s *syncer) SyncCaptureFile(path string) {
 
 func (s *syncer) SyncFile(path string, tags []string) {
 	s.backgroundWorkers.Add(1)
-	log.Println("syncing file")
 	goutils.PanicCapturingGo(func() {
 		defer s.backgroundWorkers.Done()
 		select {
