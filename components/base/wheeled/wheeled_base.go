@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
@@ -273,40 +272,6 @@ func (wb *wheeledBase) straightDistanceToMotorInputs(distanceMm int, mmPerSec fl
 	rpm := 60 * rotationsPerSec
 
 	return rpm, rotations
-}
-
-// WaitForMotorsToStop is unused except for tests, polls all motors to see if they're on
-// TODO: Audit in  RSDK-1880.
-func (wb *wheeledBase) WaitForMotorsToStop(ctx context.Context) error {
-	for {
-		if !utils.SelectContextOrWait(ctx, 10*time.Millisecond) {
-			return ctx.Err()
-		}
-
-		anyOn := false
-		anyOff := false
-
-		for _, m := range wb.allMotors {
-			isOn, _, err := m.IsPowered(ctx, nil)
-			if err != nil {
-				return err
-			}
-			if isOn {
-				anyOn = true
-			} else {
-				anyOff = true
-			}
-		}
-
-		if !anyOn {
-			return nil
-		}
-
-		if anyOff {
-			// once one motor turns off, we turn them all off
-			return wb.Stop(ctx, nil)
-		}
-	}
 }
 
 // Stop commands the base to stop moving.
