@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-	"github.com/pkg/errors"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/board"
@@ -28,9 +27,10 @@ func TestPiPigpio(t *testing.T) {
 			{Name: "servo-i", Pin: "22", Type: "servo"},
 		},
 	}
+	resourceConfig := resource.Config{ConvertedAttributes: &cfg}
 
-	pp, err := NewPigpio(ctx, board.Named("foo"), &cfg, logger)
-	if errors.Is(err, errors.New("not running on a pi")) {
+	pp, err := newPigpio(ctx, board.Named("foo"), resourceConfig, logger)
+	if err != nil && err.Error() == "not running on a pi" {
 		t.Skip("not running on a pi")
 		return
 	}
