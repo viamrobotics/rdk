@@ -49,11 +49,11 @@ func TestNewReplayPCD(t *testing.T) {
 		test.That(t, serverClose(), test.ShouldBeNil)
 	})
 
-	t.Run("no internal cloud service", func(t *testing.T) {
+	t.Run("bad internal cloud service", func(t *testing.T) {
 		replayCamCfg := &Config{Source: "source"}
 		replayCamera, _, err := createNewReplayPCDCamera(ctx, t, replayCamCfg, false)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "missing from dependencies")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "cloud connection error")
 		test.That(t, replayCamera, test.ShouldBeNil)
 	})
 
@@ -234,6 +234,32 @@ func TestNextPointCloud(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, pc, test.ShouldResemble, getPointCloudFromArtifact(t, i))
 		}
+
+		// Confirm the end of the dataset was reached when expected
+		pc, err := replayCamera.NextPointCloud(ctx)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errEndOfDataset.Error())
+		test.That(t, pc, test.ShouldBeNil)
+
+		err = replayCamera.Close(ctx)
+		test.That(t, err, test.ShouldBeNil)
+
+		test.That(t, serverClose(), test.ShouldBeNil)
+	})
+
+	t.Run("Calling NextPointCloud with filter no data", func(t *testing.T) {
+		ctx := context.Background()
+
+		replayCamCfg := &Config{
+			Source: "test",
+			Interval: TimeInterval{
+				Start: "2000-01-01T12:00:30Z",
+				End:   "2000-01-01T12:00:40Z",
+			},
+		}
+
+		replayCamera, serverClose, err := createNewReplayPCDCamera(ctx, t, replayCamCfg, true)
+		test.That(t, err, test.ShouldBeNil)
 
 		// Confirm the end of the dataset was reached when expected
 		pc, err := replayCamera.NextPointCloud(ctx)

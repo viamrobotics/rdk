@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
 	datapb "go.viam.com/api/app/data/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
@@ -72,7 +73,7 @@ func (mDServer *mockDataServiceServer) BinaryDataByFilter(ctx context.Context, r
 
 // createMockCloudDependencies creates a mockDataServiceServer and rpc client connection to it which is then
 // stored in a mockCloudConnectionService.
-func createMockCloudDependencies(ctx context.Context, t *testing.T, logger golog.Logger) (resource.Dependencies, func() error) {
+func createMockCloudDependencies(ctx context.Context, t *testing.T, logger golog.Logger, b bool) (resource.Dependencies, func() error) {
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
@@ -90,13 +91,17 @@ func createMockCloudDependencies(ctx context.Context, t *testing.T, logger golog
 	conn, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	r := &inject.Robot{}
-	rs := map[resource.Name]resource.Resource{}
-	rs[cloud.InternalServiceName] = &cloudinject.CloudConnectionService{
+	mockCloudConnectionService := &cloudinject.CloudConnectionService{
 		Named: cloud.InternalServiceName.AsNamed(),
 		Conn:  conn,
 	}
+	if !b {
+		mockCloudConnectionService.AcquireConnectionErr = errors.New("cloud connection error")
+	}
 
+	r := &inject.Robot{}
+	rs := map[resource.Name]resource.Resource{}
+	rs[cloud.InternalServiceName] = mockCloudConnectionService
 	r.MockResourcesFromMap(rs)
 
 	return resourcesFromDeps(t, r, []string{cloud.InternalServiceName.String()}), rpcServer.Stop
@@ -108,11 +113,11 @@ func createNewReplayPCDCamera(ctx context.Context, t *testing.T, replayCamCfg *C
 ) (camera.Camera, func() error, error) {
 	logger := golog.NewTestLogger(t)
 
-	var resources resource.Dependencies
-	var closeRPCFunc func() error
-	if validDeps {
-		resources, closeRPCFunc = createMockCloudDependencies(ctx, t, logger)
-	}
+	// var resources resource.Dependencies
+	// var closeRPCFunc func() error
+	// if validDeps {
+	resources, closeRPCFunc := createMockCloudDependencies(ctx, t, logger, validDeps)
+	// }
 
 	cfg := resource.Config{ConvertedAttributes: replayCamCfg}
 	cam, err := newPCDCamera(ctx, resources, cfg, logger)
