@@ -111,7 +111,6 @@ func initializePigpio() error {
 }
 
 // NewPigpio makes a new pigpio based Board using the given config.
-// TODO(RSDK-RSDK-2691): implement reconfigure.
 func NewPigpio(ctx context.Context, name resource.Name, cfg resource.Config, logger golog.Logger) (board.LocalBoard, error) {
 	// this is so we can run it inside a daemon
 	internals := C.gpioCfgGetInternals()
@@ -134,7 +133,7 @@ func NewPigpio(ctx context.Context, name resource.Name, cfg resource.Config, log
 		interruptCancel: cancelFunc,
 	}
 
-	if err := piInstance.Reconfigure(ctx, nil, cfg); err != nil {
+	if err := piInstance.performConfiguration(ctx, nil, cfg); err != nil {
 		C.gpioTerminate()
 		logger.Debug("Pi GPIO terminated due to failed init.")
 		return nil, err
@@ -142,7 +141,8 @@ func NewPigpio(ctx context.Context, name resource.Name, cfg resource.Config, log
 	return piInstance, nil
 }
 
-func (pi *piPigpio) Reconfigure(
+// TODO(RSDK-RSDK-2691): implement reconfigure.
+func (pi *piPigpio) performConfiguration(
     _ context.Context,
     _ resource.Dependencies,
     conf resource.Config,
