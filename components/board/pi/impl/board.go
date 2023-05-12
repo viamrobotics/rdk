@@ -224,7 +224,6 @@ func (pi *piPigpio) reconfigureAnalogs(conf resource.Config) error {
 }
 
 func (pi *piPigpio) reconfigureInterrupts(conf resource.Config) error {
-	// setup interrupts
 	// For each old interrupt:
 	//     if you're supposed to copy it over, do so
 	//     else close it
@@ -233,18 +232,31 @@ func (pi *piPigpio) reconfigureInterrupts(conf resource.Config) error {
 	//     if it doesn't exist, create it
 
 	// We reuse the old interrupts when possible.
-	oldInterrupts = pi.interrupts
-	oldInterruptsHW = pi.interruptsHW
-	pi.interrupts = map[string]board.DigitalInterrupt{}
-	pi.interruptsHW = map[uint]board.DigitalInterrupt{}
+	newInterrupts = map[string]board.DigitalInterrupt{}
+	newInterruptsHW = map[uint]board.DigitalInterrupt{}
 
-	for name, interrupt := range oldInterrupts {
-		if newConfig := getInterruptConfig(name, cfg); newConfig != nil {
-		} else {
-			// No longer used.
-			interrupt.Close()
+	for name, oldInterrupt := range oldInterrupts {
+		if newIntConfig := findNewInterruptConfig(oldInterrupt, cfg); newIntConfig == nil {
+			// The old interrupt is longer used.
+			if err := oldInterrupt.Close(); err != nil {
+				return err // This should never happen, but the linter worries anyway.
+			}
+		} else { // The old interrupt should stick around
+			if err := oldInterrupt.Reconfigure(newIntConfig); err != nil {
+				return err
+			}
+			bcom, ok := broadcomPinFromHardwareLabel(newIntConfig.Pin)
+			if !ok {
+				return errors.Errorf("no hw mapping for %s", newIntConfig.Pin)
+			}
+			newInterrupts[newIntConfig.Name] = oldInterrupt
+			newInterruptsHw[bcom] = oldInterrupt
 		}
 	}
+	oldInterrupts = pi.interrupts
+	oldInterruptsHW = pi.interruptsHW
+	pi.interrupts = newInterrupts
+	pi.interruptsHW = newInterruptsHW
 
 	for _, c := range cfg.DigitalInterrupts {
 		bcom, have := broadcomPinFromHardwareLabel(c.Pin)
