@@ -22,7 +22,7 @@ func TestDubinsRRT(t *testing.T) {
 	test.That(t, err, test.ShouldEqual, nil)
 
 	// add it to a frame system
-	fs := frame.NewEmptySimpleFrameSystem("test")
+	fs := frame.NewEmptyFrameSystem("test")
 	err = fs.AddFrame(model, fs.Frame(frame.World))
 	test.That(t, err, test.ShouldEqual, nil)
 
