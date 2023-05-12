@@ -118,7 +118,14 @@ func (m *SessionManager) expireLoop(ctx context.Context) {
 		}()
 
 		if len(toDelete) != 0 {
-			m.logger.Debugw("sessions expired", "session_ids", toDelete)
+			// Logging to the app struggles to pass along uuid.UUID due to an
+			// inability to convert the type to proto. Pass deleted IDs as a slice of
+			// strings instead.
+			var deletedIDs []string
+			for id := range toDelete {
+				deletedIDs = append(deletedIDs, id.String())
+			}
+			m.logger.Debugw("sessions expired", "session_ids", deletedIDs)
 		}
 		if len(toStop) != 0 {
 			m.logger.Debugw("tried to stop some resources", "resources", toStop)
