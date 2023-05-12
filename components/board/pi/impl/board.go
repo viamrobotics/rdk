@@ -74,7 +74,7 @@ type piPigpio struct {
 	i2cs            map[string]board.I2C
 	spis            map[string]board.SPI
 	interrupts      map[string]board.DigitalInterrupt // Maps interrupt names to interrupts
-	interruptsHW    map[uint]board.DigitalInterrupt // Maps broadcom addresses to the same
+	interruptsHW    map[uint]board.DigitalInterrupt   // Maps broadcom addresses to the same
 	logger          golog.Logger
 	isClosed        bool
 }
@@ -143,9 +143,9 @@ func NewPigpio(ctx context.Context, name resource.Name, cfg resource.Config, log
 
 // TODO(RSDK-RSDK-2691): implement reconfigure.
 func (pi *piPigpio) performConfiguration(
-    _ context.Context,
-    _ resource.Dependencies,
-    conf resource.Config,
+	_ context.Context,
+	_ resource.Dependencies,
+	conf resource.Config,
 ) error {
 	cfg, err := resource.NativeConfig[*genericlinux.Config](conf)
 	if err != nil {
