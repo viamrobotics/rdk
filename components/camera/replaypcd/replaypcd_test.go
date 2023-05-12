@@ -52,12 +52,10 @@ func TestNewReplayPCD(t *testing.T) {
 
 	t.Run("no internal cloud service", func(t *testing.T) {
 		replayCamCfg := &Config{Source: "source"}
-		replayCamera, serverClose, err := createNewReplayPCDCamera(ctx, t, replayCamCfg, false)
+		replayCamera, _, err := createNewReplayPCDCamera(ctx, t, replayCamCfg, false)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "missing from dependencies")
 		test.That(t, replayCamera, test.ShouldBeNil)
-
-		test.That(t, serverClose(), test.ShouldBeNil)
 	})
 
 	t.Run("bad start timestamp", func(t *testing.T) {
