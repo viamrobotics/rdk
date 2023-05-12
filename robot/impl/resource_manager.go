@@ -1053,7 +1053,7 @@ func (manager *resourceManager) createConfig() *config.Config {
 			remoteConf, err := rutils.AssertType[*config.Remote](resConf.ConvertedAttributes)
 			if err != nil {
 				manager.logger.Errorw("remote has unexpected type for ConvertedAttributes",
-					"resource", resName.String(),
+					"remote", resName.String(),
 					"error", err)
 				continue
 			}
