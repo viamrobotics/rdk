@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-	"github.com/pkg/errors"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/board"
@@ -31,7 +30,11 @@ func TestPiPigpio(t *testing.T) {
 	resourceConfig := resource.Config{ConvertedAttributes: &cfg}
 
 	pp, err := NewPigpio(ctx, board.Named("foo"), resourceConfig, logger)
-	if errors.Is(err, errors.New("not running on a pi")) {
+	// Go's error comparison is shallow, meaning it only checks if two variables point to the same
+	// location in memory. We want to check if the error is due to not running on a raspberry pi,
+	// regardless of whether it's a new copy of the error. Consequently, we can't use `errors.Is`
+	// to compare the error directly to one that we think it should resemble.
+	if err.Error() == "not running on a pi" {
 		t.Skip("not running on a pi")
 		return
 	}

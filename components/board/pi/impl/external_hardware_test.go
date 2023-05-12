@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-	"github.com/pkg/errors"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/board"
@@ -41,7 +40,7 @@ func TestPiHardware(t *testing.T) {
 	resourceConfig := resource.Config{ConvertedAttributes: &cfg}
 
 	pp, err := NewPigpio(ctx, board.Named("foo"), resourceConfig, logger)
-	if errors.Is(err, errors.New("not running on a pi")) {
+	if err.Error() == "not running on a pi" {
 		t.Skip("not running on a pi")
 		return
 	}
