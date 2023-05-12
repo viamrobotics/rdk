@@ -37,6 +37,7 @@
       "scripthost"
     ],
     "outDir": "dist",
+    "baseUrl": "./",
     "paths": {
       "@/*": ["src/*"],
     },

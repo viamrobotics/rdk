@@ -192,7 +192,7 @@ const createGridHelper = (): GridHelper => {
 const updateOrRemoveDestinationMarker = () => {
   if (props.destVector && props.destExists) {
     destMarker.visible = true;
-    destMarker.position.copy(props.destVector)
+    destMarker.position.copy(props.destVector);
   }
 
   if (!props.destExists) {

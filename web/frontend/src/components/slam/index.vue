@@ -369,7 +369,7 @@ const toggleAxes = () => {
 };
 
 onMounted(() => {
-  toggle2dExpand()
+  toggle2dExpand();
   props.statusStream?.on('end', () => {
     window.clearTimeout(slam2dTimeoutId);
     window.clearTimeout(slam3dTimeoutId);
@@ -409,8 +409,8 @@ onUnmounted(() => {
                 <select
                   v-model="selected2dValue"
                   class="
-                      m-0 w-full appearance-none border border-solid border-black bg-white bg-clip-padding px-3 py-1.5
-                      text-xs font-normal text-gray-700 focus:outline-none
+                      border-medium text-default m-0 w-full appearance-none border border-solid bg-white
+                      bg-clip-padding px-3 py-1.5 text-xs font-normal focus:outline-none
                     "
                   aria-label="Default select example"
                   @change="selectSLAM2dRefreshFrequency()"
@@ -581,79 +581,73 @@ onUnmounted(() => {
         </div>
       </div>
     </div>
-    <div class="pt-4">
-      <div class="flex items-center gap-2">
-        <v-switch
-          :value="show3d ? 'on' : 'off'"
-          @input="toggle3dExpand()"
-        />
-        <span class="pr-2">View SLAM Map (3D)</span>
-      </div>
+    <div class="border-medium border border-t-transparent p-4 ">
+      <v-switch
+        label="View SLAM Map (3D)"
+        :value="show3d ? 'on' : 'off'"
+        @input="toggle3dExpand()"
+      />
       <div
         v-if="refreshErrorMessage3d && show3d"
         class="border-l-4 border-red-500 bg-gray-100 px-4 py-3"
       >
         {{ refreshErrorMessage3d }}
       </div>
-      <div class="float-right pb-4">
-        <div class="flex">
-          <div
-            v-if="show3d"
-            class="w-64"
-          >
-            <p class="font-label mb-1 text-gray-800">
-              Refresh frequency
-            </p>
-            <div class="relative">
-              <select
-                v-model="selected3dValue"
-                class="
+      <div class="flex items-end gap-2">
+        <div
+          v-if="show3d"
+          class="w-56"
+        >
+          <p class="font-label mb-1 text-gray-800">
+            Refresh frequency
+          </p>
+          <div class="relative">
+            <select
+              v-model="selected3dValue"
+              class="
                       border-medium m-0 w-full appearance-none border border-solid bg-white
                       bg-clip-padding px-3 py-1.5 text-xs font-normal text-gray-700 focus:outline-none"
-                aria-label="Default select example"
-                @change="selectSLAMPCDRefreshFrequency()"
+              aria-label="Default select example"
+              @change="selectSLAMPCDRefreshFrequency()"
+            >
+              <option value="manual">
+                Manual Refresh
+              </option>
+              <option value="30">
+                Every 30 seconds
+              </option>
+              <option value="10">
+                Every 10 seconds
+              </option>
+              <option value="5">
+                Every 5 seconds
+              </option>
+              <option value="1">
+                Every second
+              </option>
+            </select>
+            <div
+              class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2"
+            >
+              <svg
+                class="text-default h-4 w-4 stroke-2"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                stroke-linejoin="round"
+                stroke-linecap="round"
+                fill="none"
               >
-                <option value="manual">
-                  Manual Refresh
-                </option>
-                <option value="30">
-                  Every 30 seconds
-                </option>
-                <option value="10">
-                  Every 10 seconds
-                </option>
-                <option value="5">
-                  Every 5 seconds
-                </option>
-                <option value="1">
-                  Every second
-                </option>
-              </select>
-              <div
-                class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2"
-              >
-                <svg
-                  class="h-4 w-4 stroke-2 text-gray-700"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  stroke-linejoin="round"
-                  stroke-linecap="round"
-                  fill="none"
-                >
-                  <path d="M18 16L12 22L6 16" />
-                </svg>
-              </div>
+                <path d="M18 16L12 22L6 16" />
+              </svg>
             </div>
           </div>
-          <div class="px-2 pt-7">
-            <v-button
-              v-if="show3d"
-              icon="refresh"
-              label="Refresh"
-              @click="refresh3dMap()"
-            />
-          </div>
         </div>
+        <v-button
+          v-if="show3d"
+          icon="refresh"
+          label="Refresh"
+          @click="refresh3dMap()"
+        />
       </div>
       <PCD
         v-if="show3d"
