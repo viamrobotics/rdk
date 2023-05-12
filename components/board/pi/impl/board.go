@@ -55,7 +55,7 @@ func init() {
 				conf resource.Config,
 				logger golog.Logger,
 			) (board.Board, error) {
-				return NewPigpio(ctx, conf.ResourceName(), conf, logger)
+				return newPigpio(ctx, conf.ResourceName(), conf, logger)
 			},
 		})
 }
@@ -110,8 +110,8 @@ func initializePigpio() error {
 	return nil
 }
 
-// NewPigpio makes a new pigpio based Board using the given config.
-func NewPigpio(ctx context.Context, name resource.Name, cfg resource.Config, logger golog.Logger) (board.LocalBoard, error) {
+// newPigpio makes a new pigpio based Board using the given config.
+func newPigpio(ctx context.Context, name resource.Name, cfg resource.Config, logger golog.Logger) (board.LocalBoard, error) {
 	// this is so we can run it inside a daemon
 	internals := C.gpioCfgGetInternals()
 	internals |= C.PI_CFG_NOSIGHANDLER

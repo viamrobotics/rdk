@@ -29,7 +29,7 @@ func TestPiPigpio(t *testing.T) {
 	}
 	resourceConfig := resource.Config{ConvertedAttributes: &cfg}
 
-	pp, err := NewPigpio(ctx, board.Named("foo"), resourceConfig, logger)
+	pp, err := newPigpio(ctx, board.Named("foo"), resourceConfig, logger)
 	// Go's error comparison is shallow, meaning it only checks if two variables point to the same
 	// location in memory. We want to check if the error is due to not running on a raspberry pi,
 	// regardless of whether it's a new copy of the error. Consequently, we can't use `errors.Is`
