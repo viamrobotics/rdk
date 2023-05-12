@@ -266,10 +266,6 @@ const updatePointCloud = (pointcloud: Uint8Array) => {
     intersectionPlane
   );
 
-  if (props.pose !== undefined) {
-    updatePose(props.pose!);
-  }
-
   updateOrRemoveDestinationMarker();
 };
 
