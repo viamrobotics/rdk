@@ -159,7 +159,29 @@ func (pi *piPigpio) performConfiguration(
 	pi.mu.Lock()
 	defer pi.mu.Unlock()
 
-	// setup I2C buses
+	if err := pi.reconfigureI2cs(cfg); err != nil {
+		return err
+	}
+
+	if err := pi.reconfigureSpis(cfg); err != nil {
+		return err
+	}
+
+	if err := pi.reconfigureAnalogs(cfg); err != nil {
+		return err
+	}
+
+	if err := pi.reconfigureInterrupts(cfg); err != nil {
+		return err
+	}
+
+	instanceMu.Lock()
+	instances[pi] = struct{}{}
+	instanceMu.Unlock()
+	return nil
+}
+
+func (pi *piPigpio) reconfigureI2cs(conf resource.Config) error {
 	pi.i2cs = make(map[string]board.I2C, len(cfg.I2Cs))
 	for _, sc := range cfg.I2Cs {
 		id, err := strconv.Atoi(sc.Bus)
@@ -168,8 +190,10 @@ func (pi *piPigpio) performConfiguration(
 		}
 		pi.i2cs[sc.Name] = &piPigpioI2C{pi: pi, id: id}
 	}
+	return nil
+}
 
-	// setup SPI buses
+func (pi *piPigpio) reconfigureSpis(conf resource.Config) error {
 	pi.spis = make(map[string]board.SPI, len(cfg.SPIs))
 	for _, sc := range cfg.SPIs {
 		if sc.BusSelect != "0" && sc.BusSelect != "1" {
@@ -177,8 +201,10 @@ func (pi *piPigpio) performConfiguration(
 		}
 		pi.spis[sc.Name] = &piPigpioSPI{pi: pi, busSelect: sc.BusSelect}
 	}
+	return nil
+}
 
-	// setup analogs
+func (pi *piPigpio) reconfigureAnalogs(conf resource.Config) error {
 	pi.analogs = map[string]board.AnalogReader{}
 	for _, ac := range cfg.Analogs {
 		channel, err := strconv.Atoi(ac.Pin)
@@ -194,7 +220,10 @@ func (pi *piPigpio) performConfiguration(
 		ar := &board.MCP3008AnalogReader{channel, bus, ac.ChipSelect}
 		pi.analogs[ac.Name] = board.SmoothAnalogReader(ar, ac, pi.logger)
 	}
+	return nil
+}
 
+func (pi *piPigpio) reconfigureInterrupts(conf resource.Config) error {
 	// setup interrupts
 	// For each old interrupt:
 	//     if you're supposed to copy it over, do so
@@ -218,11 +247,6 @@ func (pi *piPigpio) performConfiguration(
 		pi.interruptsHW[bcom] = di
 		C.setupInterrupt(C.int(bcom))
 	}
-
-	instanceMu.Lock()
-	instances[pi] = struct{}{}
-	instanceMu.Unlock()
-	return nil
 }
 
 // GPIOPinNames returns the names of all known GPIO pins.
