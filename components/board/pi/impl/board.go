@@ -231,8 +231,21 @@ func (pi *piPigpio) reconfigureInterrupts(conf resource.Config) error {
 	// for each new interrupt:
 	//     if it exists but is wrong, close it
 	//     if it doesn't exist, create it
+
+	// We reuse the old interrupts when possible.
+	oldInterrupts = pi.interrupts
+	oldInterruptsHW = pi.interruptsHW
 	pi.interrupts = map[string]board.DigitalInterrupt{}
 	pi.interruptsHW = map[uint]board.DigitalInterrupt{}
+
+	for name, interrupt := range oldInterrupts {
+		if newConfig := getInterruptConfig(name, cfg); newConfig != nil {
+		} else {
+			// No longer used.
+			interrupt.Close()
+		}
+	}
+
 	for _, c := range cfg.DigitalInterrupts {
 		bcom, have := broadcomPinFromHardwareLabel(c.Pin)
 		if !have {
