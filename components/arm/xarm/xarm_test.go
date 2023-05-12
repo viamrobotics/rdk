@@ -25,7 +25,7 @@ var (
 
 // This will test solving the path to write the word "VIAM" on a whiteboard.
 func TestWriteViam(t *testing.T) {
-	fs := frame.NewEmptySimpleFrameSystem("test")
+	fs := frame.NewEmptyFrameSystem("test")
 
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)

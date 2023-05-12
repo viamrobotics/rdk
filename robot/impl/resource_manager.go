@@ -502,6 +502,10 @@ func (manager *resourceManager) completeConfig(
 			}
 			manager.addRemote(ctx, rr, gNode, *remConf)
 			rr.SetParentNotifier(func() {
+				if robot.closeContext.Err() != nil {
+					return
+				}
+
 				// Trigger completeConfig goroutine execution when a change in remote
 				// is detected.
 				select {

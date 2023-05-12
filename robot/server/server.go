@@ -218,20 +218,13 @@ func (s *Server) DiscoverComponents(ctx context.Context, req *pb.DiscoverCompone
 }
 
 // FrameSystemConfig returns the info of each individual part that makes up the frame system.
-func (s *Server) FrameSystemConfig(
-	ctx context.Context,
-	req *pb.FrameSystemConfigRequest,
-) (*pb.FrameSystemConfigResponse, error) {
-	transforms, err := referenceframe.LinkInFramesFromTransformsProtobuf(req.GetSupplementalTransforms())
+func (s *Server) FrameSystemConfig(ctx context.Context, req *pb.FrameSystemConfigRequest) (*pb.FrameSystemConfigResponse, error) {
+	fsCfg, err := s.r.FrameSystemConfig(ctx)
 	if err != nil {
 		return nil, err
 	}
-	sortedParts, err := s.r.FrameSystemConfig(ctx, transforms)
-	if err != nil {
-		return nil, err
-	}
-	configs := make([]*pb.FrameSystemConfig, len(sortedParts))
-	for i, part := range sortedParts {
+	configs := make([]*pb.FrameSystemConfig, len(fsCfg.Parts))
+	for i, part := range fsCfg.Parts {
 		c, err := part.ToProtobuf()
 		if err != nil {
 			if errors.Is(err, referenceframe.ErrNoModelInformation) {
