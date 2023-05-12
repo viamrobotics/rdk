@@ -15,6 +15,7 @@ let points: THREE.Points | undefined;
 let pointsMaterial: THREE.PointsMaterial | undefined;
 let intersectionPlane: THREE.Mesh | undefined;
 
+const markerColor = '#FF0047';
 const backgroundGridColor = '#cacaca';
 
 const svgMarkerRenderOrder = 4;
@@ -25,7 +26,7 @@ const gridHelperRenderOrder = 1;
 const cameraScale = 12.5;
 const aspectInverse = 4;
 const initialPointSize = 4;
-
+const baseSpriteSize = 0.05;
 const axesHelperSize = 8;
 
 const textureLoader = new THREE.TextureLoader();
@@ -34,15 +35,13 @@ const makeMarker = (png: string, name: string) => {
   const material = new THREE.SpriteMaterial({
     map: textureLoader.load(png),
     sizeAttenuation: false,
-    color: '#FF0047',
+    color: markerColor,
   });
   const marker = new THREE.Sprite(material);
   marker.name = name;
   marker.renderOrder = svgMarkerRenderOrder;
   return marker;
 };
-
-const destinationMarkerOffset = new THREE.Vector3(0, 0.4, 0);
 
 /*
  * this color map is greyscale. The color map is being used map probability values of a PCD
@@ -93,7 +92,7 @@ const { scene, renderer, canvas, start, stop, setCamera, update } = threeInstanc
   autostart: false,
 });
 
-renderer.setClearColor(0xFF_FF_FF, 1);
+renderer.setClearColor('white', 1);
 
 canvas.style.cssText = 'width:100%;height:100%;';
 
@@ -107,6 +106,7 @@ scene.add(camera);
 const baseMarker = makeMarker(BaseMarker, 'BaseMarker');
 const destMarker = makeMarker(DestMarker, 'DestinationMarker');
 destMarker.visible = false;
+destMarker.center.set(0.5, 0.05);
 
 let userControlling = false;
 
@@ -192,7 +192,7 @@ const createGridHelper = (): GridHelper => {
 const updateOrRemoveDestinationMarker = () => {
   if (props.destVector && props.destExists) {
     destMarker.visible = true;
-    destMarker.position.copy(props.destVector).add(destinationMarkerOffset);
+    destMarker.position.copy(props.destVector)
   }
 
   if (!props.destExists) {
@@ -278,8 +278,7 @@ const scaleObjects = () => {
     pointsMaterial.size = zoom * cameraScale * window.devicePixelRatio;
   }
 
-  const spriteSize = 0.05 / zoom;
-
+  const spriteSize = baseSpriteSize / zoom;
   baseMarker.scale.set(spriteSize, spriteSize, 1);
   destMarker.scale.set(spriteSize, spriteSize, 1);
 };
