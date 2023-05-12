@@ -40,7 +40,7 @@ func TestPiHardware(t *testing.T) {
 	resourceConfig := resource.Config{ConvertedAttributes: &cfg}
 
 	pp, err := newPigpio(ctx, board.Named("foo"), resourceConfig, logger)
-	if err.Error() == "not running on a pi" {
+	if err != nil && err.Error() == "not running on a pi" {
 		t.Skip("not running on a pi")
 		return
 	}
