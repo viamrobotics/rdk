@@ -1,7 +1,7 @@
 <script setup lang="ts">
 
 import { $ref } from 'vue/macros';
-import { threeInstance, MouseRaycaster, MeshDiscardMaterial } from 'trzy';
+import { threeInstance, MouseRaycaster, MeshDiscardMaterial, GridHelper } from 'trzy';
 import { onMounted, onUnmounted, watch } from 'vue';
 import * as THREE from 'three';
 import { MapControls } from 'three/examples/jsm/controls/MapControls';
@@ -11,22 +11,21 @@ import DestMarker from '@/lib/destination-marker.txt?raw';
 import BaseMarker from '@/lib/base-marker.txt?raw';
 import Legend from './2d-legend.vue';
 
+let points: THREE.Points | undefined;
 let pointsMaterial: THREE.PointsMaterial | undefined;
+let intersectionPlane: THREE.Mesh | undefined;
 
-const backgroundGridColor = 0xCA_CA_CA;
-
-const gridSubparts = ['AxesPos', 'AxesNeg', 'Grid'];
+const backgroundGridColor = '#cacaca';
 
 const svgMarkerRenderOrder = 4;
 const pointsRenderOrder = 3;
 const axesHelperRenderOrder = 2;
 const gridHelperRenderOrder = 1;
 
-const cameraScale = 25;
+const cameraScale = 12.5;
 const aspectInverse = 4;
 const initialPointSize = 4;
 
-const gridHelperScalar = 4;
 const axesHelperSize = 8;
 
 const textureLoader = new THREE.TextureLoader();
@@ -42,7 +41,6 @@ const makeMarker = (png: string, name: string) => {
   marker.renderOrder = svgMarkerRenderOrder;
   return marker;
 };
-
 
 const destinationMarkerOffset = new THREE.Vector3(0, 0.4, 0);
 
@@ -80,8 +78,7 @@ const props = defineProps<{
   destExists: boolean
   destVector: THREE.Vector3
   axesVisible: boolean
-}
->();
+}>();
 
 const emit = defineEmits<{(event: 'click', point: THREE.Vector3): void}>();
 
@@ -96,8 +93,7 @@ const { scene, renderer, canvas, start, stop, setCamera, update } = threeInstanc
   autostart: false,
 });
 
-const color = new THREE.Color(0xFF_FF_FF);
-renderer.setClearColor(color, 1);
+renderer.setClearColor(0xFF_FF_FF, 1);
 
 canvas.style.cssText = 'width:100%;height:100%;';
 
@@ -130,22 +126,20 @@ raycaster.on('click', (event: THREE.Event) => {
   }
 });
 
-const disposeScene = () => {
-  scene.traverse((object) => {
-    if (object.name === 'BaseMarker' || object.name === 'DestinationMarker') {
-      return;
+const dispose = (object?: THREE.Object3D) => {
+  if (!object) {
+    return;
+  }
+
+  scene.remove(object);
+
+  if (object instanceof THREE.Points || object instanceof THREE.Mesh) {
+    object.geometry.dispose();
+
+    if (object.material instanceof THREE.Material) {
+      object.material.dispose();
     }
-
-    if (object instanceof THREE.Points || object instanceof THREE.Mesh) {
-      object.geometry.dispose();
-
-      if (object.material instanceof THREE.Material) {
-        object.material.dispose();
-      }
-    }
-  });
-
-  scene.clear();
+  }
 };
 
 const updatePose = (newPose: commonApi.Pose) => {
@@ -174,9 +168,10 @@ const colorBuckets = (probability: number): THREE.Vector3 => {
 };
 
 // create the x and z axes
-const createAxisHelper = (name: string, rotation: number): THREE.AxesHelper => {
+const createAxisHelper = (name: string, rotateX = 0, rotateY = 0): THREE.AxesHelper => {
   const axesHelper = new THREE.AxesHelper(axesHelperSize);
-  axesHelper.rotateX(rotation);
+  axesHelper.rotateX(rotateX);
+  axesHelper.rotateY(rotateY);
   axesHelper.scale.set(1e5, 1, 1e5);
   axesHelper.renderOrder = axesHelperRenderOrder;
   axesHelper.name = name;
@@ -185,21 +180,8 @@ const createAxisHelper = (name: string, rotation: number): THREE.AxesHelper => {
 };
 
 // create the background gray grid
-const createGridHelper = (boundingBox: THREE.Box3): THREE.GridHelper => {
-  const deltaX = Math.abs(boundingBox.max.x - boundingBox.min.x);
-  const deltaZ = Math.abs(boundingBox.max.z - boundingBox.min.z);
-  let maxDelta = Math.round(Math.max(deltaX, deltaZ) * gridHelperScalar);
-
-  /*
-   * if maxDelta is an odd number the x y axes will not be layered neatly over the grey grid
-   * because we round maxDelta and then potentially decrease the value, the 1 meter grid spacing
-   * is bound to have a margin of error
-   */
-  if (maxDelta % 2 !== 0) {
-    maxDelta -= 1;
-  }
-
-  const gridHelper = new THREE.GridHelper(maxDelta, maxDelta, backgroundGridColor, backgroundGridColor);
+const createGridHelper = (): GridHelper => {
+  const gridHelper = new GridHelper(1, 10, backgroundGridColor);
   gridHelper.renderOrder = gridHelperRenderOrder;
   gridHelper.name = 'Grid';
   gridHelper.visible = props.axesVisible;
@@ -218,11 +200,19 @@ const updateOrRemoveDestinationMarker = () => {
   }
 };
 
-const updatePointCloud = (pointcloud: Uint8Array) => {
-  console.log('refresh');
-  disposeScene();
+// construct grid spaced at 1 meter
+const gridHelper = createGridHelper();
 
-  const points = loader.parse(pointcloud.buffer);
+// construct axes
+const axesPos = createAxisHelper('AxesPos', Math.PI / 2, Math.PI / 2);
+const axesNeg = createAxisHelper('AxesNeg', -Math.PI / 2, Math.PI / 2);
+axesNeg.rotateX(Math.PI);
+
+const updatePointCloud = (pointcloud: Uint8Array) => {
+  dispose(points);
+  dispose(intersectionPlane);
+
+  points = loader.parse(pointcloud.buffer);
   pointsMaterial = points.material as THREE.PointsMaterial;
   pointsMaterial.sizeAttenuation = false;
   pointsMaterial.size = initialPointSize;
@@ -247,7 +237,7 @@ const updatePointCloud = (pointcloud: Uint8Array) => {
 
   controls.maxZoom = radius * 2;
 
-  const intersectionPlane = new THREE.Mesh(
+  intersectionPlane = new THREE.Mesh(
     new THREE.PlaneGeometry(radius * 2, radius * 2, 1, 1),
     new MeshDiscardMaterial()
   );
@@ -270,27 +260,10 @@ const updatePointCloud = (pointcloud: Uint8Array) => {
     }
   }
 
-  points.geometry.computeBoundingBox();
-
-  // construct grid spaced at 1 meter
-  const gridHelper = createGridHelper(points.geometry.boundingBox!);
-
-  // construct axes
-  const axesPos = createAxisHelper('AxesPos', Math.PI / 2);
-  axesPos.rotateY(Math.PI / 2);
-  const axesNeg = createAxisHelper('AxesNeg', -Math.PI / 2);
-  axesNeg.rotateY(Math.PI / 2);
-  axesNeg.rotateX(Math.PI);
-
   // add objects to scene
   scene.add(
-    gridHelper,
     points,
-    intersectionPlane,
-    axesPos,
-    axesNeg,
-    baseMarker,
-    destMarker
+    intersectionPlane
   );
 
   if (props.pose !== undefined) {
@@ -302,15 +275,30 @@ const updatePointCloud = (pointcloud: Uint8Array) => {
 
 let removeUpdate: (() => void) | undefined;
 
-onMounted(() => {
-  removeUpdate = update(() => {
-    const { zoom } = camera;
+const scaleObjects = () => {
+  const { zoom } = camera;
 
-    if (pointsMaterial) {
-      pointsMaterial.size = zoom * cameraScale;
-    }
-  });
+  if (pointsMaterial) {
+    pointsMaterial.size = zoom * cameraScale * window.devicePixelRatio;
+  }
+
+  const spriteSize = 0.05 / zoom;
+
+  baseMarker.scale.set(spriteSize, spriteSize, 1);
+  destMarker.scale.set(spriteSize, spriteSize, 1);
+};
+
+onMounted(() => {
+  removeUpdate = update(scaleObjects);
   container?.append(canvas);
+
+  scene.add(
+    gridHelper,
+    axesPos,
+    axesNeg,
+    baseMarker,
+    destMarker
+  );
 
   start();
 
@@ -321,24 +309,20 @@ onMounted(() => {
   if (props.pose !== undefined) {
     updatePose(props.pose);
   }
-
 });
 
 onUnmounted(() => {
   stop();
-  disposeScene();
+  scene.traverse((object) => dispose(object));
   removeUpdate?.();
 });
 
 watch(() => [props.destVector!.x, props.destVector!.y, props.destExists], updateOrRemoveDestinationMarker);
 
-watch(() => props.axesVisible, () => {
-  for (const gridPart of gridSubparts) {
-    const part = scene.getObjectByName(gridPart);
-    if (part !== undefined) {
-      part.visible = props.axesVisible;
-    }
-  }
+watch(() => props.axesVisible, (visible: boolean) => {
+  axesPos.visible = visible;
+  axesNeg.visible = visible;
+  gridHelper.visible = visible;
 });
 
 watch(() => props.pose, (newPose) => {

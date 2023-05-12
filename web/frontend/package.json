@@ -50,7 +50,7 @@
     "terser": "5.17.2",
     "three": "0.152.2",
     "three-inspect": "0.3.2",
-    "trzy": "0.0.44",
+    "trzy": "0.0.45",
     "typescript": "5.0.4",
     "vite": "4.3.5",
     "vitest": "0.31.0",

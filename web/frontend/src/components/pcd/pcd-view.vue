@@ -9,6 +9,7 @@
 import { $ref, $computed } from 'vue/macros';
 import { onMounted, onUnmounted, watch } from 'vue';
 import * as THREE from 'three';
+import { OrbitControlsGizmo, GridHelper } from 'trzy';
 import { PCDLoader } from 'three/examples/jsm/loaders/PCDLoader';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls';
@@ -24,6 +25,7 @@ const props = defineProps<{
 }>();
 
 const container = $ref<HTMLDivElement>();
+const gizmoContainer = $ref<HTMLDivElement>();
 
 let cube: THREE.LineSegments;
 let displayGrid = true;
@@ -46,6 +48,9 @@ const distanceFromCamera = $computed(() => Math.round(
 
 const loader = new PCDLoader();
 const scene = new THREE.Scene();
+const world = new THREE.Object3D();
+scene.add(world);
+
 const ambientLight = new THREE.AmbientLight(0xFF_FF_FF, 3);
 scene.add(ambientLight);
 
@@ -72,6 +77,8 @@ transformControls.setMode('translate');
 transformControls.enabled = false;
 
 transformControls.addEventListener('dragging-changed', (event) => {
+
+  console.log(event)
   controls.enabled = !event.value;
 });
 
@@ -83,20 +90,15 @@ const vec3 = new THREE.Vector3();
 const sphereGeometry = new THREE.SphereGeometry(0.01, 16, 16);
 const sphereWireframe = new THREE.WireframeGeometry(sphereGeometry);
 const sphere = new THREE.LineSegments(sphereWireframe);
-scene.add(sphere);
+world.add(sphere);
 
 const sphereMaterial = sphere.material as THREE.MeshBasicMaterial;
 sphereMaterial.color.set('black');
 sphereMaterial.transparent = true;
 sphereMaterial.opacity = 0.4;
 
-const size = 10;
-const divisions = 10;
-const gridHelper = new THREE.GridHelper(size, divisions);
+const gridHelper = new GridHelper(1, 10, '#cacaca');
 scene.add(gridHelper);
-
-const gridMaterial = gridHelper.material as THREE.MeshBasicMaterial;
-gridMaterial.color.set('black');
 
 const getSegmenterParameters = () => {
   // const req = new visionApi.GetSegmenterParametersRequest();
@@ -241,19 +243,19 @@ const setBoundingBox = (box: commonApi.RectangularPrism, centerPoint: THREE.Vect
   lineSegments.position.copy(centerPoint);
   lineSegments.name = 'bounding-box';
 
-  const previousBox = scene.getObjectByName('bounding-box')!;
+  const previousBox = world.getObjectByName('bounding-box')!;
   if (previousBox) {
-    scene.remove(previousBox);
+    world.remove(previousBox);
   }
 
   cube = lineSegments;
-  scene.add(cube);
+  world.add(cube);
 };
 
 const update = (cloud: Uint8Array) => {
   // dispose old resources
   if (mesh) {
-    scene.remove(mesh);
+    world.remove(mesh);
     mesh.geometry.dispose();
     (mesh.material as THREE.MeshBasicMaterial).dispose();
   }
@@ -289,11 +291,11 @@ const update = (cloud: Uint8Array) => {
 
   mesh.instanceMatrix.needsUpdate = true;
 
-  scene.add(mesh);
+  world.add(mesh);
   transformControls.attach(mesh);
 
   if (cube) {
-    scene.add(cube);
+    world.add(cube);
   }
 };
 
@@ -398,8 +400,8 @@ const handleCanvasMouseUp = (event: MouseEvent) => {
 
   raycaster.setFromCamera(mouse, camera);
 
-  const [intersect] = raycaster.intersectObjects([scene.getObjectByName('points')!]);
-  const points = scene.getObjectByName('points') as THREE.InstancedMesh;
+  const [intersect] = raycaster.intersectObjects([world.getObjectByName('points')!]);
+  const points = world.getObjectByName('points') as THREE.InstancedMesh;
 
   if (intersect?.instanceId === undefined) {
     toast.info('No point intersected.');
@@ -444,9 +446,9 @@ const handleToggleTransformControls = () => {
   transformEnabled = transformControls.enabled;
 
   if (transformControls.enabled) {
-    scene.add(transformControls);
+    world.add(transformControls);
   } else {
-    scene.remove(transformControls);
+    world.remove(transformControls);
   }
 };
 
@@ -457,7 +459,7 @@ const handleTransformModeChange = (event: CustomEvent) => {
 };
 
 const handlePointsResize = (event: CustomEvent) => {
-  const points = scene.getObjectByName('points') as THREE.InstancedMesh;
+  const points = world.getObjectByName('points') as THREE.InstancedMesh;
   const scale = event.detail.value;
 
   for (let i = 0; i < points.count; i += 1) {
@@ -488,9 +490,13 @@ const init = (pointcloud: Uint8Array) => {
   }
 };
 
+let gizmo: OrbitControlsGizmo | undefined;
+
 onMounted(() => {
   container?.append(renderer.domElement);
   renderer.setAnimationLoop(animate);
+
+  gizmo = new OrbitControlsGizmo({ camera, el: gizmoContainer, controls });
 
   if (props.pointcloud) {
     init(props.pointcloud);
@@ -499,6 +505,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   renderer.setAnimationLoop(null);
+  gizmo?.dispose();
 });
 
 watch(() => props.pointcloud, (updated?: Uint8Array) => {
@@ -534,16 +541,22 @@ watch(() => props.pointcloud, (updated?: Uint8Array) => {
       class="pcd-container border-medium relative w-full border"
       @mousedown="handleCanvasMouseDown"
       @mouseup="handleCanvasMouseUp"
-    />
+    >
+      <div
+        ref="gizmoContainer"
+        class="absolute right-2 top-2"
+      />
+    </div>
 
     <div class="relative flex w-full flex-wrap items-center justify-between gap-12">
       <div class="w-full max-w-xs pl-4 pt-2">
-        <v-slider
-          label="Points Scaling"
+        <v-input
+          label="Points size"
+          type="number"
           min="0.1"
+          step="0.1"
           value="1"
-          max="3"
-          step="0.05"
+          incrementor="slider"
           @input="handlePointsResize"
         />
       </div>
