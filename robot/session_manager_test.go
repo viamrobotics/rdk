@@ -55,7 +55,6 @@ func TestSessionManager(t *testing.T) {
 	test.That(t, allSessions[1], test.ShouldBeIn, fooSess, barSess)
 }
 
-// mostly a regression test for RSDK-2796
 func TestSessionManagerExpiredSessions(t *testing.T) {
 	ctx := context.Background()
 	logger, logs := golog.NewObservedTestLogger(t)
@@ -73,14 +72,9 @@ func TestSessionManagerExpiredSessions(t *testing.T) {
 	_, err := sm.Start(ctx, "foo")
 	test.That(t, err, test.ShouldBeNil)
 
-	// associate an actuating resource somehow
-	// sm.AssociateResource(sess.ID(),
-
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
 		test.That(tb, logs.FilterMessageSnippet("sessions expired").Len(),
 			test.ShouldEqual, 1)
 	})
-
-	time.Sleep(2 * time.Second)
 }
