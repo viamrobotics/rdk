@@ -28,8 +28,9 @@ func TestPiPigpio(t *testing.T) {
 			{Name: "servo-i", Pin: "22", Type: "servo"},
 		},
 	}
+	resourceConfig := resource.Config{ConvertedAttributes: &cfg}
 
-	pp, err := NewPigpio(ctx, board.Named("foo"), &cfg, logger)
+	pp, err := NewPigpio(ctx, board.Named("foo"), resourceConfig, logger)
 	if errors.Is(err, errors.New("not running on a pi")) {
 		t.Skip("not running on a pi")
 		return

@@ -55,11 +55,7 @@ func init() {
 				conf resource.Config,
 				logger golog.Logger,
 			) (board.Board, error) {
-				boardConfig, err := resource.NativeConfig[*genericlinux.Config](conf)
-				if err != nil {
-					return nil, err
-				}
-				return NewPigpio(ctx, conf.ResourceName(), boardConfig, logger)
+				return NewPigpio(ctx, conf.ResourceName(), conf, logger)
 			},
 		})
 }
@@ -116,7 +112,7 @@ func initializePigpio() error {
 
 // NewPigpio makes a new pigpio based Board using the given config.
 // TODO(RSDK-RSDK-2691): implement reconfigure.
-func NewPigpio(ctx context.Context, name resource.Name, cfg *genericlinux.Config, logger golog.Logger) (board.LocalBoard, error) {
+func NewPigpio(ctx context.Context, name resource.Name, cfg resource.Config, logger golog.Logger) (board.LocalBoard, error) {
 	// this is so we can run it inside a daemon
 	internals := C.gpioCfgGetInternals()
 	internals |= C.PI_CFG_NOSIGHANDLER
