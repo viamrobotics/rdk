@@ -1050,9 +1050,11 @@ func (manager *resourceManager) createConfig() *config.Config {
 		//
 		//nolint: gocritic
 		if resName.API == client.RemoteAPI {
-			remoteConf, ok := resConf.ConvertedAttributes.(*config.Remote)
-			if !ok {
-				manager.logger.Errorw("ConvertedAttributes is not a config.Remote")
+			remoteConf, err := rutils.AssertType[*config.Remote](resConf.ConvertedAttributes)
+			if err != nil {
+				manager.logger.Errorw("remote has unexpected type for ConvertedAttributes",
+					"resource", resName.String(),
+					"error", err)
 				continue
 			}
 
