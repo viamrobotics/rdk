@@ -18,7 +18,7 @@ type CloudConnectionService struct {
 
 // AcquireConnection returns a connection to the rpc server stored in the mockCloudConnectionService object.
 func (noop *CloudConnectionService) AcquireConnection(ctx context.Context) (string, rpc.ClientConn, error) {
-	return "", noop.Conn, nil
+	return "hello", noop.Conn, nil
 }
 
 // Close is used by the mockCloudConnectionService to complete the cloud connection service interface.
