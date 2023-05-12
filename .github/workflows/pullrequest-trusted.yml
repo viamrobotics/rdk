@@ -28,6 +28,8 @@ jobs:
       !contains(github.event.pull_request.labels.*.name, 'appimage-ignore-tests') &&
       contains(github.event.pull_request.labels.*.name, 'appimage') && needs.test.result == 'success'
     uses: viamrobotics/rdk/.github/workflows/appimage.yml@main
+    with:
+      release_type: 'pr'
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
@@ -36,6 +38,8 @@ jobs:
        always() && !cancelled() && contains(github.event.pull_request.labels.*.name, 'safe to test') &&
        contains(github.event.pull_request.labels.*.name, 'appimage-ignore-tests')
     uses: viamrobotics/rdk/.github/workflows/appimage.yml@main
+    with:
+      release_type: 'pr'
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
@@ -47,6 +51,8 @@ jobs:
       !contains(github.event.pull_request.labels.*.name, 'static-ignore-tests') &&
       contains(github.event.pull_request.labels.*.name, 'static-build') && needs.test.result == 'success'
     uses: viamrobotics/rdk/.github/workflows/staticbuild.yml@main
+    with:
+      release_type: 'pr'
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
@@ -55,5 +61,10 @@ jobs:
        always() && !cancelled() && contains(github.event.pull_request.labels.*.name, 'safe to test') &&
        contains(github.event.pull_request.labels.*.name, 'static-ignore-tests')
     uses: viamrobotics/rdk/.github/workflows/staticbuild.yml@main
+    with:
+      release_type: 'pr'
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
+
+  license_finder:
+    uses: viamrobotics/rdk/.github/workflows/license_finder.yml@main

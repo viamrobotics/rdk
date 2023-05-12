@@ -29,7 +29,7 @@ func init() {
 			if err != nil {
 				return nil, err
 			}
-			return registerRCSegmenter(ctx, c.ResourceName().Name, attrs, actualR)
+			return registerRCSegmenter(ctx, c.ResourceName(), attrs, actualR)
 		},
 	})
 }
@@ -37,7 +37,7 @@ func init() {
 // registerRCSegmenter creates a new 3D radius clustering segmenter from the config.
 func registerRCSegmenter(
 	ctx context.Context,
-	name string,
+	name resource.Name,
 	conf *segmentation.RadiusClusteringConfig,
 	r robot.Robot,
 ) (vision.Service, error) {

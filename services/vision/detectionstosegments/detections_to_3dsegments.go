@@ -31,7 +31,7 @@ func init() {
 			if err != nil {
 				return nil, err
 			}
-			return register3DSegmenterFromDetector(ctx, c.ResourceName().Name, attrs, actualR)
+			return register3DSegmenterFromDetector(ctx, c.ResourceName(), attrs, actualR)
 		},
 	})
 }
@@ -39,7 +39,7 @@ func init() {
 // register3DSegmenterFromDetector creates a 3D segmenter from a previously registered detector.
 func register3DSegmenterFromDetector(
 	ctx context.Context,
-	name string,
+	name resource.Name,
 	conf *segmentation.DetectionSegmenterConfig,
 	r robot.Robot,
 ) (vision.Service, error) {

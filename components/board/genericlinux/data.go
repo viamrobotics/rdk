@@ -8,7 +8,8 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
-	"go.viam.com/utils"
+
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 // adapted from https://github.com/NVIDIA/jetson-gpio (MIT License)
@@ -96,16 +97,10 @@ func GetGPIOBoardMappings(modelName string, boardInfoMappings map[string]BoardIn
 // getCompatiblePinDefs returns a list of pin definitions, from the first BoardInformation struct
 // that appears compatible with the machine we're running on.
 func getCompatiblePinDefs(modelName string, boardInfoMappings map[string]BoardInformation) ([]PinDefinition, error) {
-	const compatiblePath = "/proc/device-tree/compatible"
-
-	compatiblesRd, err := os.ReadFile(compatiblePath)
+	compatibles, err := rdkutils.GetDeviceInfo(modelName)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, noBoardError(modelName)
-		}
-		return nil, err
+		return nil, fmt.Errorf("error while getting hardware info %w", err)
 	}
-	compatibles := utils.NewStringSet(strings.Split(string(compatiblesRd), "\x00")...)
 
 	var pinDefs []PinDefinition
 	for _, info := range boardInfoMappings {

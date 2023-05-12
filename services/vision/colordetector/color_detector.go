@@ -29,7 +29,7 @@ func init() {
 			if err != nil {
 				return nil, err
 			}
-			return registerColorDetector(ctx, c.ResourceName().Name, attrs, actualR)
+			return registerColorDetector(ctx, c.ResourceName(), attrs, actualR)
 		},
 	})
 }
@@ -37,7 +37,7 @@ func init() {
 // registerColorDetector creates a new Color Detector from the config.
 func registerColorDetector(
 	ctx context.Context,
-	name string,
+	name resource.Name,
 	conf *objdet.ColorDetectorConfig,
 	r robot.Robot,
 ) (vision.Service, error) {
