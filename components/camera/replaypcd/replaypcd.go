@@ -102,7 +102,7 @@ func newPCDCamera(ctx context.Context, deps resource.Dependencies, conf resource
 	return cam, nil
 }
 
-// NextPointCloud returns a pointcloud retrieved the next from cloud storage based on the applied filter.
+// NextPointCloud returns a point cloud retrieved the next from cloud storage based on the applied filter.
 func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
 	resp, err := replay.dataClient.BinaryDataByFilter(ctx, &datapb.BinaryDataByFilterRequest{
 		DataRequest: &datapb.DataRequest{
@@ -124,7 +124,6 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCl
 	}
 
 	replay.lastData = resp.GetLast()
-
 	data := resp.Data[0].GetBinary()
 
 	r, err := gzip.NewReader(bytes.NewBuffer(data))
@@ -232,7 +231,7 @@ func (replay *pcdCamera) closeCloudConnection(ctx context.Context) {
 	}
 }
 
-// initCloudConnection creates a rpc connection and data service.
+// initCloudConnection creates a rpc client connection and data service.
 func (replay *pcdCamera) initCloudConnection(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, grpcConnectionTimeout)
 	defer cancel()
