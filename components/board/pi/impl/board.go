@@ -135,7 +135,7 @@ func newPigpio(ctx context.Context, name resource.Name, cfg resource.Config, log
 
 	if err := piInstance.performConfiguration(ctx, nil, cfg); err != nil {
 		C.gpioTerminate()
-		logger.Debug("Pi GPIO terminated due to failed init.")
+		logger.Error("Pi GPIO terminated due to failed init.")
 		return nil, err
 	}
 	return piInstance, nil
