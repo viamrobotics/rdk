@@ -74,8 +74,6 @@ transformControls.setMode('translate');
 transformControls.enabled = false;
 
 transformControls.addEventListener('dragging-changed', (event) => {
-
-  console.log(event);
   controls.enabled = !event.value;
 });
 
@@ -94,7 +92,10 @@ sphereMaterial.color.set('black');
 sphereMaterial.transparent = true;
 sphereMaterial.opacity = 0.4;
 
-const gridHelper = new GridHelper(1, 10, '#cacaca');
+const cellSize = 1;
+const largeCellSize = 10;
+const gridColor = '#cacaca';
+const gridHelper = new GridHelper(cellSize, largeCellSize, gridColor);
 scene.add(gridHelper);
 
 const getSegmenterParameters = () => {
