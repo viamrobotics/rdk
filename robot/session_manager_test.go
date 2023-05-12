@@ -6,12 +6,13 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	"go.viam.com/test"
+	"go.viam.com/utils/testutils"
+
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/session"
 	"go.viam.com/rdk/testutils/inject"
-	"go.viam.com/test"
-	"go.viam.com/utils/testutils"
 )
 
 func TestSessionManager(t *testing.T) {
