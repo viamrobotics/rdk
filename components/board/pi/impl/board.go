@@ -72,7 +72,6 @@ type piPigpio struct {
 	mu              sync.Mutex
 	interruptCtx    context.Context
 	interruptCancel context.CancelFunc
-	cfg             *genericlinux.Config
 	duty            int // added for mutex
 	gpioConfigSet   map[int]bool
 	analogs         map[string]board.AnalogReader
@@ -133,7 +132,6 @@ func NewPigpio(ctx context.Context, name resource.Name, cfg *genericlinux.Config
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	piInstance := &piPigpio{
 		Named:           name.AsNamed(),
-		cfg:             cfg,
 		logger:          logger,
 		isClosed:        false,
 		interruptCtx:    cancelCtx,
