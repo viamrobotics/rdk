@@ -72,14 +72,14 @@ func (mDServer *mockDataServiceServer) BinaryDataByFilter(ctx context.Context, r
 
 // createMockCloudDependencies creates a mockDataServiceServer and rpc client connection to it which is then
 // stored in a mockCloudConnectionService.
-func createMockCloudDependencies(t *testing.T, logger golog.Logger) (resource.Dependencies, func() error) {
+func createMockCloudDependencies(ctx context.Context, t *testing.T, logger golog.Logger) (resource.Dependencies, func() error) {
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, rpcServer.RegisterServiceServer(
-		context.Background(),
+		ctx,
 		&datapb.DataService_ServiceDesc,
 		&mockDataServiceServer{},
 		datapb.RegisterDataServiceHandlerFromEndpoint,
@@ -87,7 +87,7 @@ func createMockCloudDependencies(t *testing.T, logger golog.Logger) (resource.De
 
 	go rpcServer.Serve(listener)
 
-	conn, err := viamgrpc.Dial(context.Background(), listener.Addr().String(), logger)
+	conn, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	r := &inject.Robot{}
@@ -111,7 +111,7 @@ func createNewReplayPCDCamera(ctx context.Context, t *testing.T, replayCamCfg *C
 	var resources resource.Dependencies
 	var closeRPCFunc func() error
 	if validDeps {
-		resources, closeRPCFunc = createMockCloudDependencies(t, logger)
+		resources, closeRPCFunc = createMockCloudDependencies(ctx, t, logger)
 	}
 
 	cfg := resource.Config{ConvertedAttributes: replayCamCfg}
