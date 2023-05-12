@@ -18,10 +18,10 @@ build: build-web build-go
 build-go:
 	go build ./...
 
-build-web: web/runtime-shared/static/control.js
+build-web: web/runtime-shared/static/rc-control.js
 
 # only generate static files when source has changed.
-web/runtime-shared/static/control.js: web/frontend/src/*/* web/frontend/src/*/*/* web/frontend/src/*.* web/frontend/scripts/* web/frontend/*.*
+web/runtime-shared/static/rc-control.js: web/frontend/src/*/* web/frontend/src/*/*/* web/frontend/src/*.* web/frontend/scripts/* web/frontend/*.*
 	rm -rf web/runtime-shared/static
 	npm ci --audit=false --prefix web/frontend
 	npm run build-prod --prefix web/frontend

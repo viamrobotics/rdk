@@ -25,7 +25,7 @@ export default defineConfig({
         control: './src/main.ts',
       },
       output: {
-        entryFileNames: '[name].js',
+        entryFileNames: 'rc-[name].js',
         chunkFileNames: (chunk) => {
           // eslint-disable-next-line unicorn/no-array-reduce
           const code = Object.keys(chunk.modules).reduce(
