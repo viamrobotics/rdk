@@ -1,4 +1,3 @@
-// Package replay_test will test the  functions of a replay camera.
 package replaypcd
 
 import (

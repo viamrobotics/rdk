@@ -102,7 +102,7 @@ func newPCDCamera(ctx context.Context, deps resource.Dependencies, conf resource
 	return cam, nil
 }
 
-// NextPointCloud returns a point cloud retrieved the next from cloud storage based on the applied filter.
+// NextPointCloud returns a point cloud retrieved from app based on the applied filter.
 func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
 	resp, err := replay.dataClient.BinaryDataByFilter(ctx, &datapb.BinaryDataByFilterRequest{
 		DataRequest: &datapb.DataRequest{

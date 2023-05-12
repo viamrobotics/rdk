@@ -1,4 +1,3 @@
-// Package replay_test will test the  functions of a replay camera.
 package replaypcd
 
 import (
@@ -21,6 +20,7 @@ import (
 	"go.viam.com/rdk/components/camera"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/internal/cloud"
+	cloudinject "go.viam.com/rdk/internal/testutils/inject"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/testutils/inject"
@@ -92,9 +92,9 @@ func createMockCloudDependencies(ctx context.Context, t *testing.T, logger golog
 
 	r := &inject.Robot{}
 	rs := map[resource.Name]resource.Resource{}
-	rs[cloud.InternalServiceName] = &mockCloudConnectionService{
+	rs[cloud.InternalServiceName] = &cloudinject.CloudConnectionService{
 		Named: cloud.InternalServiceName.AsNamed(),
-		conn:  conn,
+		Conn:  conn,
 	}
 
 	r.MockResourcesFromMap(rs)
@@ -118,25 +118,6 @@ func createNewReplayPCDCamera(ctx context.Context, t *testing.T, replayCamCfg *C
 	cam, err := newPCDCamera(ctx, resources, cfg, logger)
 
 	return cam, closeRPCFunc, err
-}
-
-var _ = cloud.ConnectionService(&mockCloudConnectionService{})
-
-// mockCloudConnectionService creates a mocked version of a cloud connection service.
-type mockCloudConnectionService struct {
-	resource.Named
-	resource.AlwaysRebuild
-	conn rpc.ClientConn
-}
-
-// AcquireConnection returns a connection to the rpc server stored in the mockCloudConnectionService object.
-func (noop *mockCloudConnectionService) AcquireConnection(ctx context.Context) (string, rpc.ClientConn, error) {
-	return "", noop.conn, nil
-}
-
-// Close is used by the mockCloudConnectionService to complete the cloud connection service interface.
-func (noop *mockCloudConnectionService) Close(ctx context.Context) error {
-	return nil
 }
 
 // resourcesFromDeps returns a list of dependencies from the provided robot.

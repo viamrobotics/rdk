@@ -19,6 +19,7 @@ import (
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/internal/cloud"
+	cloudinject "go.viam.com/rdk/internal/testutils/inject"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/datamanager"
@@ -33,7 +34,7 @@ func getInjectedRobot() *inject.Robot {
 	r := &inject.Robot{}
 	rs := map[resource.Name]resource.Resource{}
 
-	rs[cloud.InternalServiceName] = &noopCloudConnectionService{
+	rs[cloud.InternalServiceName] = &cloudinject.CloudConnectionService{
 		Named: cloud.InternalServiceName.AsNamed(),
 	}
 
