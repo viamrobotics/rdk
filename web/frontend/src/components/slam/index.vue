@@ -369,7 +369,6 @@ const toggleAxes = () => {
 };
 
 onMounted(() => {
-  toggle2dExpand();
   props.statusStream?.on('end', () => {
     window.clearTimeout(slam2dTimeoutId);
     window.clearTimeout(slam3dTimeoutId);
@@ -385,7 +384,6 @@ onUnmounted(() => {
 
 <template>
   <v-collapse
-    open
     :title="props.name"
     class="slam"
     @toggle="toggle2dExpand()"
@@ -474,7 +472,7 @@ onUnmounted(() => {
               label="x"
               incrementor="slider"
               :value="destinationMarker.x"
-              step="0.5"
+              step="0.1"
               @input="handleUpdateDestX($event)"
             />
             <v-input
@@ -483,7 +481,7 @@ onUnmounted(() => {
               label="y"
               incrementor="slider"
               :value="destinationMarker.y"
-              step="0.5"
+              step="0.1"
               @input="handleUpdateDestY($event)"
             />
           </div>
