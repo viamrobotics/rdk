@@ -183,16 +183,10 @@ func (ms *builtIn) MoveOnMap(
 		return false, errors.Wrap(resource.NewNotFoundError(slamName), "motion service missing weak dependency")
 	}
 
-	ms.logger.Warn(componentName)
-	ms.logger.Warn(ms.components)
-
 	// create a KinematicBase from the componentName
 	b, ok := ms.components[componentName]
 	if !ok {
-		return false, fmt.Errorf(
-			"only Base components are supported for MoveOnMap: could not find an Base named %v",
-			componentName,
-		)
+		return false, fmt.Errorf("only Base components are supported for MoveOnMap: could not find an Base named %v", componentName)
 	}
 	kw, ok := b.(base.KinematicWrappable)
 	if !ok {
