@@ -61,7 +61,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/robot"
-	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
+	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/robot/server"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils"
@@ -121,11 +121,8 @@ func TestStatusClient(t *testing.T) {
 	}
 
 	// TODO(RSDK-882): will update this so that this is not necessary
-	frameSystemConfigFunc := func(
-		ctx context.Context,
-		additionalTransforms []*referenceframe.LinkInFrame,
-	) (framesystemparts.Parts, error) {
-		return framesystemparts.Parts{}, nil
+	frameSystemConfigFunc := func(ctx context.Context) (*framesystem.Config, error) {
+		return &framesystem.Config{}, nil
 	}
 
 	injectRobot1 := &inject.Robot{
@@ -298,8 +295,8 @@ func TestStatusClient(t *testing.T) {
 			},
 		},
 	}
-	injectRobot1.ConfigFunc = func(ctx context.Context) (*config.Config, error) {
-		return &cfg, nil
+	injectRobot1.ConfigFunc = func() *config.Config {
+		return &cfg
 	}
 
 	client, err := New(context.Background(), listener1.Addr().String(), logger)
@@ -670,11 +667,8 @@ func TestClientDisconnect(t *testing.T) {
 	}
 
 	// TODO(RSDK-882): will update this so that this is not necessary
-	injectRobot.FrameSystemConfigFunc = func(
-		ctx context.Context,
-		additionalTransforms []*referenceframe.LinkInFrame,
-	) (framesystemparts.Parts, error) {
-		return framesystemparts.Parts{}, nil
+	injectRobot.FrameSystemConfigFunc = func(ctx context.Context) (*framesystem.Config, error) {
+		return &framesystem.Config{}, nil
 	}
 
 	go gServer.Serve(listener)
@@ -905,11 +899,8 @@ func TestClientReconnect(t *testing.T) {
 	}
 
 	// TODO(RSDK-882): will update this so that this is not necessary
-	injectRobot.FrameSystemConfigFunc = func(
-		ctx context.Context,
-		additionalTransforms []*referenceframe.LinkInFrame,
-	) (framesystemparts.Parts, error) {
-		return framesystemparts.Parts{}, nil
+	injectRobot.FrameSystemConfigFunc = func(ctx context.Context) (*framesystem.Config, error) {
+		return &framesystem.Config{}, nil
 	}
 
 	injectArm := &inject.Arm{}
@@ -1257,17 +1248,12 @@ func TestClientConfig(t *testing.T) {
 		},
 	}
 
-	workingRobot.FrameSystemConfigFunc = func(
-		ctx context.Context,
-		additionalTransforms []*referenceframe.LinkInFrame,
-	) (framesystemparts.Parts, error) {
-		return framesystemparts.Parts(fsConfigs), nil
+	workingRobot.FrameSystemConfigFunc = func(ctx context.Context) (*framesystem.Config, error) {
+		return &framesystem.Config{Parts: fsConfigs}, nil
 	}
+
 	configErr := errors.New("failed to retrieve config")
-	failingRobot.FrameSystemConfigFunc = func(
-		ctx context.Context,
-		additionalTransforms []*referenceframe.LinkInFrame,
-	) (framesystemparts.Parts, error) {
+	failingRobot.FrameSystemConfigFunc = func(ctx context.Context) (*framesystem.Config, error) {
 		return nil, configErr
 	}
 
@@ -1291,11 +1277,11 @@ func TestClientConfig(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("client test config for working frame service", func(t *testing.T) {
-		frameSystemParts, err := workingFSClient.FrameSystemConfig(ctx, nil)
+		config, err := workingFSClient.FrameSystemConfig(ctx)
 		test.That(t, err, test.ShouldBeNil)
-		err = ensurePartsAreEqual(fsConfigs[0], frameSystemParts[0])
+		err = ensurePartsAreEqual(fsConfigs[0], config.Parts[0])
 		test.That(t, err, test.ShouldBeNil)
-		err = ensurePartsAreEqual(fsConfigs[1], frameSystemParts[1])
+		err = ensurePartsAreEqual(fsConfigs[1], config.Parts[1])
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -1305,11 +1291,11 @@ func TestClientConfig(t *testing.T) {
 	t.Run("dialed client test config for working frame service", func(t *testing.T) {
 		workingDialedClient, err := New(ctx, listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		frameSystemParts, err := workingDialedClient.FrameSystemConfig(ctx, nil)
+		config, err := workingDialedClient.FrameSystemConfig(ctx)
 		test.That(t, err, test.ShouldBeNil)
-		err = ensurePartsAreEqual(fsConfigs[0], frameSystemParts[0])
+		err = ensurePartsAreEqual(fsConfigs[0], config.Parts[0])
 		test.That(t, err, test.ShouldBeNil)
-		err = ensurePartsAreEqual(fsConfigs[1], frameSystemParts[1])
+		err = ensurePartsAreEqual(fsConfigs[1], config.Parts[1])
 		test.That(t, err, test.ShouldBeNil)
 		err = workingDialedClient.Close(ctx)
 		test.That(t, err, test.ShouldBeNil)
@@ -1322,7 +1308,7 @@ func TestClientConfig(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("client test config for failing frame service", func(t *testing.T) {
-		frameSystemParts, err := failingFSClient.FrameSystemConfig(ctx, nil)
+		frameSystemParts, err := failingFSClient.FrameSystemConfig(ctx)
 		test.That(t, frameSystemParts, test.ShouldBeNil)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
@@ -1333,7 +1319,7 @@ func TestClientConfig(t *testing.T) {
 	t.Run("dialed client test config for failing frame service with failing config", func(t *testing.T) {
 		failingDialedClient, err := New(ctx, listener2.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		parts, err := failingDialedClient.FrameSystemConfig(ctx, nil)
+		parts, err := failingDialedClient.FrameSystemConfig(ctx)
 		test.That(t, parts, test.ShouldBeNil)
 		test.That(t, err, test.ShouldNotBeNil)
 
@@ -1469,11 +1455,8 @@ func TestForeignResource(t *testing.T) {
 	injectRobot.ResourceRPCAPIsFunc = func() []resource.RPCAPI { return respWith }
 	injectRobot.ResourceNamesFunc = func() []resource.Name { return respWithResources }
 	// TODO(RSDK-882): will update this so that this is not necessary
-	injectRobot.FrameSystemConfigFunc = func(
-		ctx context.Context,
-		additionalTransforms []*referenceframe.LinkInFrame,
-	) (framesystemparts.Parts, error) {
-		return framesystemparts.Parts{}, nil
+	injectRobot.FrameSystemConfigFunc = func(ctx context.Context) (*framesystem.Config, error) {
+		return &framesystem.Config{}, nil
 	}
 
 	gServer := grpc.NewServer()
@@ -1606,13 +1589,9 @@ func TestRemoteClientMatch(t *testing.T) {
 	}
 
 	// TODO(RSDK-882): will update this so that this is not necessary
-	injectRobot1.FrameSystemConfigFunc = func(
-		ctx context.Context,
-		additionalTransforms []*referenceframe.LinkInFrame,
-	) (framesystemparts.Parts, error) {
-		return framesystemparts.Parts{}, nil
+	injectRobot1.FrameSystemConfigFunc = func(ctx context.Context) (*framesystem.Config, error) {
+		return &framesystem.Config{}, nil
 	}
-
 	pb.RegisterRobotServiceServer(gServer1, server.New(injectRobot1))
 
 	injectArm := &inject.Arm{}
@@ -1747,11 +1726,8 @@ func TestGetUnknownResource(t *testing.T) {
 	}
 
 	// TODO(RSDK-882): will update this so that this is not necessary
-	injectRobot.FrameSystemConfigFunc = func(
-		ctx context.Context,
-		additionalTransforms []*referenceframe.LinkInFrame,
-	) (framesystemparts.Parts, error) {
-		return framesystemparts.Parts{}, nil
+	injectRobot.FrameSystemConfigFunc = func(ctx context.Context) (*framesystem.Config, error) {
+		return &framesystem.Config{}, nil
 	}
 
 	gServer := grpc.NewServer()

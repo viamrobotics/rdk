@@ -14,8 +14,6 @@ import (
 
 	"go.viam.com/rdk/referenceframe"
 	frame "go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -52,33 +50,6 @@ func PlanMotion(ctx context.Context,
 	return motionPlanInternal(ctx, logger, dst, f, seedMap, fs, worldState, constraintSpec, planningOpts)
 }
 
-// PlanRobotMotion plans a motion to destination for a given frame. A robot object is passed in and current position inputs are determined.
-func PlanRobotMotion(ctx context.Context,
-	dst *frame.PoseInFrame,
-	f frame.Frame,
-	r robot.Robot,
-	worldState *frame.WorldState,
-	constraintSpec *pb.Constraints,
-	planningOpts map[string]interface{},
-) ([]map[string][]frame.Input, error) {
-	// Get the framesystem service if it exists
-	fsSvc, err := framesystem.FromRobot(r)
-	if err != nil {
-		return nil, err
-	}
-
-	fs, err := fsSvc.FrameSystem(ctx, worldState.Transforms())
-	if err != nil {
-		return nil, err
-	}
-
-	seedMap, _, err := fsSvc.AllCurrentInputs(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return motionPlanInternal(ctx, r.Logger(), dst, f, seedMap, fs, worldState, constraintSpec, planningOpts)
-}
-
 // PlanFrameMotion plans a motion to destination for a given frame with no frame system. It will create a new FS just for the plan.
 // WorldState is not supported in the absence of a real frame system.
 func PlanFrameMotion(ctx context.Context,
@@ -90,7 +61,7 @@ func PlanFrameMotion(ctx context.Context,
 	planningOpts map[string]interface{},
 ) ([][]frame.Input, error) {
 	// ephemerally create a framesystem containing just the frame for the solve
-	fs := frame.NewEmptySimpleFrameSystem("")
+	fs := frame.NewEmptyFrameSystem("")
 	if err := fs.AddFrame(f, fs.World()); err != nil {
 		return nil, err
 	}
@@ -113,7 +84,7 @@ func PlanMapMotion(
 	planningOpts map[string]interface{},
 ) ([][]frame.Input, error) {
 	// ephemerally create a framesystem containing just the frame for the solve
-	fs := frame.NewEmptySimpleFrameSystem("")
+	fs := frame.NewEmptyFrameSystem("")
 	if err := fs.AddFrame(f, fs.World()); err != nil {
 		return nil, err
 	}

@@ -132,7 +132,7 @@ func constrainedXArmMotion() (*planConfig, error) {
 }
 
 func TestPlanningWithGripper(t *testing.T) {
-	fs := frame.NewEmptySimpleFrameSystem("")
+	fs := frame.NewEmptyFrameSystem("")
 	ur5e, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/universalrobots/ur5e.json"), "ur")
 	test.That(t, err, test.ShouldBeNil)
 	err = fs.AddFrame(ur5e, fs.World())
@@ -190,7 +190,7 @@ func simple2DMap() (*planConfig, error) {
 	}
 
 	// add it to the frame system
-	fs := frame.NewEmptySimpleFrameSystem("test")
+	fs := frame.NewEmptyFrameSystem("test")
 	if err := fs.AddFrame(model, fs.Frame(frame.World)); err != nil {
 		return nil, err
 	}
@@ -242,7 +242,7 @@ func simpleXArmMotion() (*planConfig, error) {
 	}
 
 	// add it to the frame system
-	fs := frame.NewEmptySimpleFrameSystem("test")
+	fs := frame.NewEmptyFrameSystem("test")
 	if err := fs.AddFrame(xarm, fs.Frame(frame.World)); err != nil {
 		return nil, err
 	}
@@ -278,7 +278,7 @@ func simpleUR5eMotion() (*planConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	fs := frame.NewEmptySimpleFrameSystem("test")
+	fs := frame.NewEmptyFrameSystem("test")
 	if err = fs.AddFrame(ur5e, fs.Frame(frame.World)); err != nil {
 		return nil, err
 	}
@@ -334,7 +334,7 @@ func testPlanner(t *testing.T, plannerFunc plannerConstructor, config planConfig
 
 func makeTestFS(t *testing.T) frame.FrameSystem {
 	t.Helper()
-	fs := frame.NewEmptySimpleFrameSystem("test")
+	fs := frame.NewEmptyFrameSystem("test")
 
 	urOffset, err := frame.NewStaticFrame("urOffset", spatialmath.NewPoseFromPoint(r3.Vector{100, 100, 200}))
 	test.That(t, err, test.ShouldBeNil)
@@ -500,7 +500,7 @@ func TestReachOverArm(t *testing.T) {
 		"offset",
 		spatialmath.NewPose(r3.Vector{Y: -500, Z: 100}, &spatialmath.OrientationVector{OZ: -1}),
 	)
-	fs := frame.NewEmptySimpleFrameSystem("test")
+	fs := frame.NewEmptyFrameSystem("test")
 	fs.AddFrame(offset, fs.World())
 	fs.AddFrame(xarm, offset)
 
@@ -597,7 +597,7 @@ func TestSolverFrameGeometries(t *testing.T) {
 }
 
 func TestArmConstraintSpecificationSolve(t *testing.T) {
-	fs := frame.NewEmptySimpleFrameSystem("")
+	fs := frame.NewEmptyFrameSystem("")
 	x, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fs.AddFrame(x, fs.World()), test.ShouldBeNil)

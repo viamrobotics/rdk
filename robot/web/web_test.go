@@ -37,10 +37,9 @@ import (
 	"go.viam.com/rdk/config"
 	gizmopb "go.viam.com/rdk/examples/customresources/apis/proto/api/component/gizmo/v1"
 	rgrpc "go.viam.com/rdk/grpc"
-	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
+	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/robot/web"
 	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/spatialmath"
@@ -795,15 +794,15 @@ func setupRobotCtx(t *testing.T) (context.Context, robot.Robot) {
 		return pos, nil
 	}
 	injectRobot := &inject.Robot{}
-	injectRobot.ConfigFunc = func(ctx context.Context) (*config.Config, error) { return &config.Config{}, nil }
+	injectRobot.ConfigFunc = func() *config.Config { return &config.Config{} }
 	injectRobot.ResourceNamesFunc = func() []resource.Name { return resources }
 	injectRobot.ResourceRPCAPIsFunc = func() []resource.RPCAPI { return nil }
 	injectRobot.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
 		return injectArm, nil
 	}
 	injectRobot.LoggerFunc = func() golog.Logger { return golog.NewTestLogger(t) }
-	injectRobot.FrameSystemConfigFunc = func(ctx context.Context, at []*referenceframe.LinkInFrame) (framesystemparts.Parts, error) {
-		return nil, nil
+	injectRobot.FrameSystemConfigFunc = func(ctx context.Context) (*framesystem.Config, error) {
+		return &framesystem.Config{}, nil
 	}
 
 	return context.Background(), injectRobot
@@ -857,7 +856,7 @@ func TestForeignResource(t *testing.T) {
 
 	injectRobot := &inject.Robot{}
 	injectRobot.LoggerFunc = func() golog.Logger { return logger }
-	injectRobot.ConfigFunc = func(ctx context.Context) (*config.Config, error) { return &config.Config{}, nil }
+	injectRobot.ConfigFunc = func() *config.Config { return &config.Config{} }
 	injectRobot.ResourceNamesFunc = func() []resource.Name {
 		return []resource.Name{
 			resource.NewName(resourceAPI, "thing1"),

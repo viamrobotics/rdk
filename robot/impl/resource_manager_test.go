@@ -53,7 +53,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/client"
-	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
+	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/robot/packages"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/shell"
@@ -721,13 +721,11 @@ func TestManagerNewComponent(t *testing.T) {
 	robotForRemote := &localRobot{
 		manager: newResourceManager(resourceManagerOptions{}, logger),
 		logger:  logger,
-		config:  cfg,
 	}
 	diff, err := config.DiffConfigs(config.Config{}, *cfg, true)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, robotForRemote.manager.updateResources(context.Background(), diff), test.ShouldBeNil)
 	test.That(t, robotForRemote.manager.resources.ResolveDependencies(logger), test.ShouldBeNil)
-	robotForRemote.config.Components[8].DependsOn = append(robotForRemote.config.Components[8].DependsOn, "arm3")
 
 	diff = &config.Diff{
 		Added: &config.Config{},
@@ -1803,10 +1801,7 @@ func (rr *dummyRobot) ResourceByName(name resource.Name) (resource.Resource, err
 }
 
 // FrameSystemConfig returns a remote robot's FrameSystem Config.
-func (rr *dummyRobot) FrameSystemConfig(
-	ctx context.Context,
-	additionalTransforms []*referenceframe.LinkInFrame,
-) (framesystemparts.Parts, error) {
+func (rr *dummyRobot) FrameSystemConfig(ctx context.Context) (*framesystem.Config, error) {
 	panic("change to return nil")
 }
 

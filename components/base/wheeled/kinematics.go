@@ -73,7 +73,7 @@ func (kwb *kinematicWheeledBase) CurrentInputs(ctx context.Context) ([]reference
 
 func (kwb *kinematicWheeledBase) GoToInputs(ctx context.Context, inputs []referenceframe.Input) (err error) {
 	// create a frame system to be used during the context of this function, used to locate the goal in the base frame
-	fs := referenceframe.NewEmptySimpleFrameSystem("kwb")
+	fs := referenceframe.NewEmptyFrameSystem("")
 	if err := fs.AddFrame(kwb.model, fs.World()); err != nil {
 		return err
 	}

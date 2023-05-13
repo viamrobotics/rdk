@@ -45,7 +45,7 @@ func init() {
 			if err != nil {
 				return nil, err
 			}
-			return registerMLModelVisionService(ctx, c.ResourceName().Name, attrs, actualR, logger)
+			return registerMLModelVisionService(ctx, c.ResourceName(), attrs, actualR, logger)
 		},
 	})
 }
@@ -58,7 +58,7 @@ type MLModelConfig struct {
 
 func registerMLModelVisionService(
 	ctx context.Context,
-	name string,
+	name resource.Name,
 	params *MLModelConfig,
 	r robot.Robot,
 	logger golog.Logger,
