@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	positionThresholdM      = 10
+	positionThresholdMM     = 100
 	headingThresholdDegrees = 15
 )
 
@@ -44,7 +44,7 @@ func (wb *wheeledBase) WrapWithKinematics(ctx context.Context, slamSvc slam.Serv
 	model, err := MakeModelFrame(
 		wb.name,
 		geometry,
-		[]referenceframe.Limit{{Min: dims.MinX, Max: dims.MaxX}, {Min: dims.MinY, Max: dims.MaxY}, {Min: -math.Pi, Max: math.Pi}},
+		[]referenceframe.Limit{{Min: dims.MinX, Max: dims.MaxX}, {Min: dims.MinY, Max: dims.MaxY}, {Min: -2 * math.Pi, Max: 2 * math.Pi}},
 	)
 	if err != nil {
 		return nil, err
@@ -67,14 +67,14 @@ func (kwb *kinematicWheeledBase) CurrentInputs(ctx context.Context) ([]reference
 		return nil, err
 	}
 	pt := pose.Point()
-	theta := pose.Orientation().OrientationVectorRadians().Theta
+	theta := math.Mod(pose.Orientation().OrientationVectorRadians().Theta, 2*math.Pi) - math.Pi
 
 	// Need to get X, Z from lidar because Y points down
 	// TODO: make a ticket to give rplidar kinematic information so that you don't have to do this here
-	return []referenceframe.Input{{Value: pt.X}, {Value: pt.Z}, {Value: theta}}, nil
+	return []referenceframe.Input{{Value: pt.X}, {Value: pt.Y}, {Value: theta}}, nil
 }
 
-func (kwb *kinematicWheeledBase) GoToInputs(ctx context.Context, inputs []referenceframe.Input) error {
+func (kwb *kinematicWheeledBase) GoToInputs(ctx context.Context, inputs []referenceframe.Input) (err error) {
 	errorState := func() (int, float64, error) {
 		currentInputs, err := kwb.CurrentInputs(ctx)
 		if err != nil {
@@ -85,10 +85,16 @@ func (kwb *kinematicWheeledBase) GoToInputs(ctx context.Context, inputs []refere
 		if err := fs.AddFrame(kwb.model, fs.World()); err != nil {
 			return 0, 0, err
 		}
+
+		desiredHeading := math.Atan2(currentInputs[1].Value-inputs[1].Value, currentInputs[0].Value-inputs[0].Value)
 		goal := referenceframe.NewPoseInFrame(
 			referenceframe.World,
-			spatialmath.NewPoseFromPoint(r3.Vector{inputs[0].Value, inputs[1].Value, 0}),
+			spatialmath.NewPose(
+				r3.Vector{X: inputs[0].Value, Y: inputs[1].Value},
+				&spatialmath.OrientationVector{OZ: 1, Theta: desiredHeading},
+			),
 		)
+		// kwb.logger.Warnf("CURRENT INPUTS: %q", currentInputs)
 		tf, err := fs.Transform(map[string][]referenceframe.Input{kwb.name: currentInputs}, goal, kwb.name)
 		if err != nil {
 			return 0, 0, err
@@ -97,9 +103,10 @@ func (kwb *kinematicWheeledBase) GoToInputs(ctx context.Context, inputs []refere
 		if !ok {
 			return 0, 0, errors.New("can't interpret transformable as a pose in frame")
 		}
-		heading := math.Mod(delta.Pose().Orientation().OrientationVectorDegrees().Theta, 360)
-		headingErr := math.Min(heading, 360-heading)
+		headingErr := math.Mod(delta.Pose().Orientation().OrientationVectorDegrees().Theta, 360)
 		positionErr := int(1000 * delta.Pose().Point().Norm())
+		// kwb.logger.Warnf("HEADING: %f\tDESIRED: %f", utils.RadToDeg(currentInputs[2].Value), utils.RadToDeg(desiredHeading))
+		// kwb.logger.Warnf("HEADING ERROR: \t%f DEGREES", headingErr)
 		kwb.logger.Warnf("POSITION ERROR: \t%d MM\tHEADING ERROR: \t%f DEGREES", positionErr, headingErr)
 		return positionErr, headingErr, nil
 	}
@@ -109,37 +116,46 @@ func (kwb *kinematicWheeledBase) GoToInputs(ctx context.Context, inputs []refere
 	// While base is not at the goal
 	// TO DO figure out sane threshold.
 
-	positionErr, headingErr, err := errorState()
-	if err != nil {
-		return err
-	}
+	// for {
+	// 	_, _, err := errorState()
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// }
 
-	for positionErr > positionThresholdM {
+	// positionErr, headingErr, err := errorState()
+	// if err != nil {
+	// 	return err
+	// }
+	// if err := kwb.Spin(ctx, -headingErr, 100, nil); err != nil {
+	// 	return err
+	// }
+	// positionErr, headingErr, err = errorState()
+	// if err != nil {
+	// 	return err
+	// }
+	// _ = positionErr
+	// _ = headingErr
+
+	for distErr, headingErr, err := errorState(); err == nil && distErr > positionThresholdMM; distErr, headingErr, err = errorState() {
 		// If heading is ok, go forward
 		// Otherwise spin until base is heading correct way
 		// TODO make a threshold
-		// if math.Abs(headingErr) > headingThresholdDegrees {
-		// 	// TODO (rh) create context with cancel
-		// 	// TODO use a speed that is not garbage
-		// 	if err := kwb.Spin(ctx, -headingErr, 5, nil); err != nil {
-		// 		return err
-		// 	}
-		// } else {
-		// 	if err := kwb.MoveStraight(ctx, -positionErr, 300, nil); err != nil {
-		// 		return err
-		// 	}
-
-		// }
-
-		positionErr, headingErr, err = errorState()
+		if math.Abs(headingErr) > headingThresholdDegrees {
+			// TODO (rh) create context with cancel
+			// TODO use a speed that is not garbage
+			kwb.logger.Warnf("SPINNING: %f DEGREES", headingErr)
+			err = kwb.Spin(ctx, -headingErr, 60, nil)
+		} else {
+			kwb.logger.Warnf("DRIVING: %f MM", -distErr)
+			err = kwb.MoveStraight(ctx, distErr, 300, nil)
+		}
 		if err != nil {
 			return err
 		}
 	}
 
-	_ = positionErr
-	_ = headingErr
-	return nil
+	return err
 }
 
 // MakeModelFrame builds the kinematic model associated with the kinematicWheeledBase
