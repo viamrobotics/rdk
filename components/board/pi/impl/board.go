@@ -575,7 +575,6 @@ func (pi *piPigpio) SetPowerMode(ctx context.Context, mode pb.PowerMode, duratio
 
 // Close attempts to close all parts of the board cleanly.
 func (pi *piPigpio) Close(ctx context.Context) error {
-	var terminate bool
 	// Prevent duplicate calls to Close a board as this may overlap with
 	// the reinitialization of the board
 	pi.mu.Lock()
@@ -587,9 +586,6 @@ func (pi *piPigpio) Close(ctx context.Context) error {
 	pi.mu.Unlock()
 	pi.interruptCancel()
 	instanceMu.Lock()
-	if len(instances) == 1 {
-		terminate = true
-	}
 	delete(instances, pi)
 
 	instanceMu.Unlock()
