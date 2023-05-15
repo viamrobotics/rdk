@@ -181,7 +181,7 @@ func (pi *piPigpio) performConfiguration(
 	return nil
 }
 
-func (pi *piPigpio) reconfigureI2cs(conf resource.Config) error {
+func (pi *piPigpio) reconfigureI2cs(cfg *genericlinux.Config) error {
 	pi.i2cs = make(map[string]board.I2C, len(cfg.I2Cs))
 	for _, sc := range cfg.I2Cs {
 		id, err := strconv.Atoi(sc.Bus)
@@ -193,7 +193,7 @@ func (pi *piPigpio) reconfigureI2cs(conf resource.Config) error {
 	return nil
 }
 
-func (pi *piPigpio) reconfigureSpis(conf resource.Config) error {
+func (pi *piPigpio) reconfigureSpis(cfg *genericlinux.Config) error {
 	pi.spis = make(map[string]board.SPI, len(cfg.SPIs))
 	for _, sc := range cfg.SPIs {
 		if sc.BusSelect != "0" && sc.BusSelect != "1" {
@@ -204,7 +204,7 @@ func (pi *piPigpio) reconfigureSpis(conf resource.Config) error {
 	return nil
 }
 
-func (pi *piPigpio) reconfigureAnalogs(conf resource.Config) error {
+func (pi *piPigpio) reconfigureAnalogs(cfg *genericlinux.Config) error {
 	pi.analogs = map[string]board.AnalogReader{}
 	for _, ac := range cfg.Analogs {
 		channel, err := strconv.Atoi(ac.Pin)
@@ -223,7 +223,7 @@ func (pi *piPigpio) reconfigureAnalogs(conf resource.Config) error {
 	return nil
 }
 
-func (pi *piPigpio) reconfigureInterrupts(conf resource.Config) error {
+func (pi *piPigpio) reconfigureInterrupts(cfg *genericlinux.Config) error {
 	// For each old interrupt:
 	//     if you're supposed to copy it over, do so
 	//     else close it
