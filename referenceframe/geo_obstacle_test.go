@@ -43,5 +43,4 @@ func TestGeoObstacles(t *testing.T) {
 	})
 
 	// test forward and backward conversion from config to geoObstacle
-
 }
