@@ -5,7 +5,6 @@ import (
 	"context"
 	"image"
 	"sync"
-	"time"
 
 	"github.com/edaniels/gostream"
 	"github.com/pion/mediadevices/pkg/prop"
@@ -106,13 +105,6 @@ type projectorProvider interface {
 // A PointCloudSource is a source that can generate pointclouds.
 type PointCloudSource interface {
 	NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error)
-}
-
-// PointCloudSourceWithTimestamps is a source that provides timestamps correlated with its
-// pointclouds.
-type PointCloudSourceWithTimestamps interface {
-	PointCloudSource
-	NextPointCloudTimestamps(ctx context.Context) (time.Time, time.Time, error)
 }
 
 // FromVideoSource creates a Camera resource from a VideoSource.
