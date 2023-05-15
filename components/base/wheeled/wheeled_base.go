@@ -11,6 +11,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"sync"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
@@ -92,11 +93,62 @@ type wheeledBase struct {
 	right     []motor.Motor
 	allMotors []motor.Motor
 
+	mu     sync.Mutex
 	opMgr  operation.SingleOperationManager
 	logger golog.Logger
 
 	name  string
 	frame *referenceframe.LinkConfig
+}
+
+// Reconfigure reconfigures the base atomically and in place.
+func (wb *wheeledBase) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+	newConf, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return err
+	}
+
+	// resetting the left motor list
+	wb.left = make([]motor.Motor, 0)
+
+	for _, name := range newConf.Left {
+		m, err := motor.FromDependencies(deps, name)
+		if err != nil {
+			return errors.Wrapf(err, "no left motor named (%s)", name)
+		}
+		props, err := m.Properties(ctx, nil)
+		if props[motor.PositionReporting] && err != nil {
+			wb.logger.Debugf("motor %s can report its position for base", name)
+		}
+		wb.left = append(wb.left, m)
+	}
+
+	// resetting the right motor list
+	wb.right = make([]motor.Motor, 0)
+
+	for _, name := range newConf.Right {
+		m, err := motor.FromDependencies(deps, name)
+		if err != nil {
+			return errors.Wrapf(err, "no right motor named (%s)", name)
+		}
+		props, err := m.Properties(ctx, nil)
+		if props[motor.PositionReporting] && err != nil {
+			wb.logger.Debugf("motor %s can report its position for base", name)
+		}
+		wb.right = append(wb.right, m)
+	}
+
+	wb.allMotors = append(wb.allMotors, wb.left...)
+	wb.allMotors = append(wb.allMotors, wb.right...)
+
+	wb.mu.Lock()
+	defer wb.mu.Unlock()
+
+	wb.widthMm = newConf.WidthMM
+	wb.wheelCircumferenceMm = newConf.WheelCircumferenceMM
+	wb.spinSlipFactor = newConf.SpinSlipFactor
+
+	return nil
 }
 
 // Spin commands a base to turn about its center at a angular speed and for a specific angle.
@@ -141,7 +193,8 @@ func (wb *wheeledBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSe
 	return wb.runAll(ctx, rpm, rotations, rpm, rotations)
 }
 
-// runsAll the base motors in parallel with the required speeds and rotations.
+// runAll executes motor commands in parallel for left and right motors,
+// with specified speeds and rotations and stops the base if an error occurs.
 func (wb *wheeledBase) runAll(ctx context.Context, leftRPM, leftRotations, rightRPM, rightRotations float64) error {
 	fs := []rdkutils.SimpleFunc{}
 
@@ -203,8 +256,8 @@ func (wb *wheeledBase) SetVelocity(ctx context.Context, linear, angular r3.Vecto
 	wb.opMgr.CancelRunning(ctx)
 
 	wb.logger.Debugf(
-		"received a SetVelocity with linear.X: %.2f, linear.Y: %.2f linear.Z: %.2f"+
-			" (mmPerSec), angular.X: %.2f, angular.Y: %.2f, angular.Z: %.2f",
+		"received a SetVelocity with linear.X: %.2f, linear.Y: %.2f linear.Z: %.2f(mmPerSec),"+
+			" angular.X: %.2f, angular.Y: %.2f, angular.Z: %.2f",
 		linear.X, linear.Y, linear.Z, angular.X, angular.Y, angular.Z)
 
 	l, r := wb.velocityMath(linear.Y, angular.Z)
@@ -326,7 +379,7 @@ func CreateWheeledBase(
 		return nil, err
 	}
 
-	wb := &wheeledBase{
+	wb := wheeledBase{
 		Named:                conf.ResourceName().AsNamed(),
 		widthMm:              newConf.WidthMM,
 		wheelCircumferenceMm: newConf.WheelCircumferenceMM,
@@ -340,31 +393,9 @@ func CreateWheeledBase(
 		wb.spinSlipFactor = 1
 	}
 
-	for _, name := range newConf.Left {
-		m, err := motor.FromDependencies(deps, name)
-		if err != nil {
-			return nil, errors.Wrapf(err, "no left motor named (%s)", name)
-		}
-		props, err := m.Properties(ctx, nil)
-		if props[motor.PositionReporting] && err != nil {
-			wb.logger.Debugf("motor %s can report its position for base", name)
-		}
-		wb.left = append(wb.left, m)
+	if err := wb.Reconfigure(ctx, deps, conf); err != nil {
+		return nil, err
 	}
 
-	for _, name := range newConf.Right {
-		m, err := motor.FromDependencies(deps, name)
-		if err != nil {
-			return nil, errors.Wrapf(err, "no right motor named (%s)", name)
-		}
-		props, err := m.Properties(ctx, nil)
-		if props[motor.PositionReporting] && err != nil {
-			wb.logger.Debugf("motor %s can report its position for base", name)
-		}
-		wb.right = append(wb.right, m)
-	}
-
-	wb.allMotors = append(wb.allMotors, wb.left...)
-	wb.allMotors = append(wb.allMotors, wb.right...)
-	return wb, nil
+	return &wb, nil
 }
