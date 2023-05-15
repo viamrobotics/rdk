@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/pkg/errors"
 	"go.viam.com/test"
@@ -38,335 +37,318 @@ func getPointCloudFromArtifact(t *testing.T, i int) pointcloud.PointCloud {
 func TestNewReplayPCD(t *testing.T) {
 	ctx := context.Background()
 
-	t.Run("valid config with internal cloud service", func(t *testing.T) {
-		replayCamCfg := &Config{Source: "source"}
-		replayCamera, serverClose, err := createNewReplayPCDCamera(ctx, t, replayCamCfg, true)
-		test.That(t, err, test.ShouldBeNil)
-
-		err = replayCamera.Close(ctx)
-		test.That(t, err, test.ShouldBeNil)
-
-		test.That(t, serverClose(), test.ShouldBeNil)
-	})
-
-	t.Run("bad internal cloud service", func(t *testing.T) {
-		replayCamCfg := &Config{Source: "source"}
-		replayCamera, _, err := createNewReplayPCDCamera(ctx, t, replayCamCfg, false)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "cloud connection error")
-		test.That(t, replayCamera, test.ShouldBeNil)
-	})
-
-	t.Run("bad start timestamp", func(t *testing.T) {
-		replayCamCfg := &Config{
-			Source: "source",
-			Interval: TimeInterval{
-				Start: "bad timestamp",
+	cases := []struct {
+		description          string
+		cfg                  *Config
+		expectedErr          error
+		validCloudConnection bool
+	}{
+		{
+			description: "valid config with internal cloud service",
+			cfg: &Config{
+				Source: "source",
 			},
-		}
-		replayCamera, serverClose, err := createNewReplayPCDCamera(ctx, t, replayCamCfg, true)
-		test.That(t, err, test.ShouldBeError, errors.New("invalid time format, use RFC3339"))
-		test.That(t, replayCamera, test.ShouldBeNil)
-
-		test.That(t, serverClose(), test.ShouldBeNil)
-	})
-
-	t.Run("bad end timestamp", func(t *testing.T) {
-		replayCamCfg := &Config{
-			Source: "source",
-			Interval: TimeInterval{
-				End: "bad timestamp",
+			validCloudConnection: true,
+		},
+		{
+			description: "bad internal cloud service",
+			cfg: &Config{
+				Source: "source",
 			},
-		}
-		replayCamera, serverClose, err := createNewReplayPCDCamera(ctx, t, replayCamCfg, true)
-		test.That(t, err, test.ShouldBeError, errors.New("invalid time format, use RFC3339"))
-		test.That(t, replayCamera, test.ShouldBeNil)
+			validCloudConnection: false,
+			expectedErr:          errors.New("failure to connect to the cloud: cloud connection error"),
+		},
+		{
+			description: "bad start timestamp",
+			cfg: &Config{
+				Source: "source",
+				Interval: TimeInterval{
+					Start: "bad timestamp",
+				},
+			},
+			validCloudConnection: true,
+			expectedErr:          errors.New("invalid time format for start time, missed during config validation"),
+		},
+		{
+			description: "bad end timestamp",
+			cfg: &Config{
+				Source: "source",
+				Interval: TimeInterval{
+					End: "bad timestamp",
+				},
+			},
+			validCloudConnection: true,
+			expectedErr:          errors.New("invalid time format for end time, missed during config validation"),
+		},
+	}
 
-		test.That(t, serverClose(), test.ShouldBeNil)
-	})
+	for _, tt := range cases {
+		t.Run(tt.description, func(t *testing.T) {
+			replayCamera, serverClose, err := createNewReplayPCDCamera(ctx, t, tt.cfg, tt.validCloudConnection)
+			if err != nil {
+				test.That(t, err, test.ShouldBeError, tt.expectedErr)
+				test.That(t, replayCamera, test.ShouldBeNil)
+			} else {
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, replayCamera, test.ShouldNotBeNil)
+
+				err = replayCamera.Close(ctx)
+				test.That(t, err, test.ShouldBeNil)
+			}
+
+			if tt.validCloudConnection {
+				test.That(t, serverClose(), test.ShouldBeNil)
+			}
+		})
+	}
 }
 
 func TestNextPointCloud(t *testing.T) {
-	t.Run("Calling NextPointCloud no filter", func(t *testing.T) {
-		ctx := context.Background()
+	ctx := context.Background()
 
-		replayCamCfg := &Config{Source: "test"}
-		replayCamera, serverClose, err := createNewReplayPCDCamera(ctx, t, replayCamCfg, true)
-		test.That(t, err, test.ShouldBeNil)
+	cases := []struct {
+		description  string
+		cfg          *Config
+		startFileNum int
+		endFileNum   int
+	}{
+		{
+			description: "Calling NextPointCloud no filter",
+			cfg: &Config{
+				Source: "source",
+			},
+			startFileNum: 0,
+			endFileNum:   numPCDFiles,
+		},
+		{
+			description: "Calling NextPointCloud with filter no data",
+			cfg: &Config{
+				Source: "source",
+				Interval: TimeInterval{
+					Start: "2000-01-01T12:00:30Z",
+					End:   "2000-01-01T12:00:40Z",
+				},
+			},
+			startFileNum: -1,
+			endFileNum:   -1,
+		},
+		{
+			description: "Calling NextPointCloud with end filter",
+			cfg: &Config{
+				Source: "source",
+				Interval: TimeInterval{
+					End: "2000-01-01T12:00:10Z",
+				},
+			},
+			startFileNum: 0,
+			endFileNum:   10,
+		},
+		{
+			description: "Calling NextPointCloud with start filter",
+			cfg: &Config{
+				Source: "source",
+				Interval: TimeInterval{
+					Start: "2000-01-01T12:00:05Z",
+				},
+			},
+			startFileNum: 5,
+			endFileNum:   numPCDFiles,
+		},
+		{
+			description: "Calling NextPointCloud with start and end filter",
+			cfg: &Config{
+				Source: "source",
+				Interval: TimeInterval{
+					Start: "2000-01-01T12:00:05Z",
+					End:   "2000-01-01T12:00:10Z",
+				},
+			},
+			startFileNum: 5,
+			endFileNum:   10,
+		},
+		{
+			description: "Calling NextPointCloud with bad source",
+			cfg: &Config{
+				Source: "bad_source",
+			},
+			startFileNum: -1,
+			endFileNum:   -1,
+		},
+		{
+			description: "Calling NextPointCloud with robot_id",
+			cfg: &Config{
+				Source:  "source",
+				RobotID: "robot_id",
+			},
+			startFileNum: 0,
+			endFileNum:   numPCDFiles,
+		},
+		{
+			description: "Calling NextPointCloud with bad robot_id",
+			cfg: &Config{
+				Source:  "source",
+				RobotID: "bad_robot_id",
+			},
+			startFileNum: -1,
+			endFileNum:   -1,
+		},
+	}
 
-		// Iterate through all files
-		for i := 0; i < numPCDFiles; i++ {
-			pc, err := replayCamera.NextPointCloud(ctx)
+	for _, tt := range cases {
+		t.Run(tt.description, func(t *testing.T) {
+			replayCamera, serverClose, err := createNewReplayPCDCamera(ctx, t, tt.cfg, true)
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, pc, test.ShouldResemble, getPointCloudFromArtifact(t, i))
-		}
+			test.That(t, replayCamera, test.ShouldNotBeNil)
 
-		// Confirm the end of the dataset was reached when expected
-		pc, err := replayCamera.NextPointCloud(ctx)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, errEndOfDataset.Error())
-		test.That(t, pc, test.ShouldBeNil)
+			// Iterate through all files that meet the provided filter
+			if tt.startFileNum != -1 {
+				for i := tt.startFileNum; i < tt.endFileNum; i++ {
+					pc, err := replayCamera.NextPointCloud(ctx)
+					test.That(t, err, test.ShouldBeNil)
+					test.That(t, pc, test.ShouldResemble, getPointCloudFromArtifact(t, i))
+				}
+			}
 
-		err = replayCamera.Close(ctx)
-		test.That(t, err, test.ShouldBeNil)
-
-		test.That(t, serverClose(), test.ShouldBeNil)
-	})
-
-	t.Run("Calling NextPointCloud with filter no data", func(t *testing.T) {
-		ctx := context.Background()
-
-		replayCamCfg := &Config{
-			Source: "test",
-			Interval: TimeInterval{
-				Start: "2000-01-01T12:00:30Z",
-				End:   "2000-01-01T12:00:40Z",
-			},
-		}
-
-		replayCamera, serverClose, err := createNewReplayPCDCamera(ctx, t, replayCamCfg, true)
-		test.That(t, err, test.ShouldBeNil)
-
-		// Confirm the end of the dataset was reached when expected
-		pc, err := replayCamera.NextPointCloud(ctx)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, errEndOfDataset.Error())
-		test.That(t, pc, test.ShouldBeNil)
-
-		err = replayCamera.Close(ctx)
-		test.That(t, err, test.ShouldBeNil)
-
-		test.That(t, serverClose(), test.ShouldBeNil)
-	})
-
-	t.Run("Calling NextPointCloud with start and end filter", func(t *testing.T) {
-		ctx := context.Background()
-
-		replayCamCfg := &Config{
-			Source: "test",
-			Interval: TimeInterval{
-				Start: "2000-01-01T12:00:05Z",
-				End:   "2000-01-01T12:00:10Z",
-			},
-		}
-
-		replayCamera, serverClose, err := createNewReplayPCDCamera(ctx, t, replayCamCfg, true)
-		test.That(t, err, test.ShouldBeNil)
-
-		startTime, err := time.Parse(timeFormat, replayCamCfg.Interval.Start)
-		test.That(t, err, test.ShouldBeNil)
-		endTime, err := time.Parse(timeFormat, replayCamCfg.Interval.End)
-		test.That(t, err, test.ShouldBeNil)
-
-		// Iterate through files that meet the provided filter
-		for i := startTime.Second(); i < endTime.Second(); i++ {
+			// Confirm the end of the dataset was reached when expected
 			pc, err := replayCamera.NextPointCloud(ctx)
+			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, err.Error(), test.ShouldContainSubstring, errEndOfDataset.Error())
+			test.That(t, pc, test.ShouldBeNil)
+
+			err = replayCamera.Close(ctx)
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, pc, test.ShouldResemble, getPointCloudFromArtifact(t, i))
-		}
 
-		// Confirm the end of the dataset was reached when expected
-		pc, err := replayCamera.NextPointCloud(ctx)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, errEndOfDataset.Error())
-		test.That(t, pc, test.ShouldBeNil)
-
-		err = replayCamera.Close(ctx)
-		test.That(t, err, test.ShouldBeNil)
-
-		test.That(t, serverClose(), test.ShouldBeNil)
-	})
-
-	t.Run("Calling NextPointCloud with end filter", func(t *testing.T) {
-		ctx := context.Background()
-
-		replayCamCfg := &Config{
-			Source: "test",
-			Interval: TimeInterval{
-				End: "2000-01-01T12:00:10Z",
-			},
-		}
-
-		replayCamera, serverClose, err := createNewReplayPCDCamera(ctx, t, replayCamCfg, true)
-		test.That(t, err, test.ShouldBeNil)
-
-		endTime, err := time.Parse(timeFormat, replayCamCfg.Interval.End)
-		test.That(t, err, test.ShouldBeNil)
-
-		// Iterate through files that meet the provided filter
-		for i := 0; i < endTime.Second(); i++ {
-			pc, err := replayCamera.NextPointCloud(ctx)
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, pc, test.ShouldResemble, getPointCloudFromArtifact(t, i))
-		}
-
-		// Confirm the end of the dataset was reached when expected
-		pc, err := replayCamera.NextPointCloud(ctx)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, errEndOfDataset.Error())
-		test.That(t, pc, test.ShouldBeNil)
-
-		err = replayCamera.Close(ctx)
-		test.That(t, err, test.ShouldBeNil)
-
-		test.That(t, serverClose(), test.ShouldBeNil)
-	})
-
-	t.Run("Calling NextPointCloud with start filter", func(t *testing.T) {
-		ctx := context.Background()
-
-		replayCamCfg := &Config{
-			Source: "test",
-			Interval: TimeInterval{
-				Start: "2000-01-01T12:00:05Z",
-			},
-		}
-
-		replayCamera, serverClose, err := createNewReplayPCDCamera(ctx, t, replayCamCfg, true)
-		test.That(t, err, test.ShouldBeNil)
-
-		startTime, err := time.Parse(timeFormat, replayCamCfg.Interval.Start)
-		test.That(t, err, test.ShouldBeNil)
-
-		// Iterate through files that meet the provided filter
-		for i := startTime.Second(); i < numPCDFiles; i++ {
-			pc, err := replayCamera.NextPointCloud(ctx)
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, pc, test.ShouldResemble, getPointCloudFromArtifact(t, i))
-		}
-
-		// Confirm the end of the dataset was reached when expected
-		pc, err := replayCamera.NextPointCloud(ctx)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, errEndOfDataset.Error())
-		test.That(t, pc, test.ShouldBeNil)
-
-		err = replayCamera.Close(ctx)
-		test.That(t, err, test.ShouldBeNil)
-
-		test.That(t, serverClose(), test.ShouldBeNil)
-	})
-
-	t.Run("Calling NextPointCloud with filter no data", func(t *testing.T) {
-		ctx := context.Background()
-
-		replayCamCfg := &Config{
-			Source: "test",
-			Interval: TimeInterval{
-				Start: "2000-01-01T12:00:30Z",
-				End:   "2000-01-01T12:00:40Z",
-			},
-		}
-
-		replayCamera, serverClose, err := createNewReplayPCDCamera(ctx, t, replayCamCfg, true)
-		test.That(t, err, test.ShouldBeNil)
-
-		// Confirm the end of the dataset was reached when expected
-		pc, err := replayCamera.NextPointCloud(ctx)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, errEndOfDataset.Error())
-		test.That(t, pc, test.ShouldBeNil)
-
-		err = replayCamera.Close(ctx)
-		test.That(t, err, test.ShouldBeNil)
-
-		test.That(t, serverClose(), test.ShouldBeNil)
-	})
+			test.That(t, serverClose(), test.ShouldBeNil)
+		})
+	}
 }
 
 func TestConfigValidation(t *testing.T) {
-	t.Run("Valid config with source and no timestamp", func(t *testing.T) {
-		replayCamCfg := &Config{
-			Source:   "test",
-			Interval: TimeInterval{},
-		}
-		deps, err := replayCamCfg.Validate("")
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, deps, test.ShouldResemble, []string{cloud.InternalServiceName.String()})
-	})
-
-	t.Run("Valid config with start timestamp", func(t *testing.T) {
-		replayCamCfg := &Config{
-			Source: "test",
-			Interval: TimeInterval{
-				Start: "2000-01-01T12:00:00Z",
+	cases := []struct {
+		description  string
+		cfg          *Config
+		expectedDeps []string
+		expectedErr  error
+	}{
+		{
+			description: "Valid config with source and no timestamp",
+			cfg: &Config{
+				Source:   "test",
+				Interval: TimeInterval{},
 			},
-		}
-		deps, err := replayCamCfg.Validate("")
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, deps, test.ShouldResemble, []string{cloud.InternalServiceName.String()})
-	})
-
-	t.Run("Valid config with end timestamp", func(t *testing.T) {
-		replayCamCfg := &Config{
-			Source: "test",
-			Interval: TimeInterval{
-				End: "2000-01-01T12:00:00Z",
+			expectedDeps: []string{cloud.InternalServiceName.String()},
+		},
+		{
+			description: "Valid config with source and any robot id",
+			cfg: &Config{
+				Source:  "test",
+				RobotID: "test",
 			},
-		}
-		deps, err := replayCamCfg.Validate("")
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, deps, test.ShouldResemble, []string{cloud.InternalServiceName.String()})
-	})
-
-	t.Run("Valid config with start and end timestamps", func(t *testing.T) {
-		replayCamCfg := &Config{
-			Source: "test",
-			Interval: TimeInterval{
-				Start: "2000-01-01T12:00:00Z",
-				End:   "2000-01-01T12:00:01Z",
+			expectedDeps: []string{cloud.InternalServiceName.String()},
+		},
+		{
+			description: "Valid config with start timestamp",
+			cfg: &Config{
+				Source: "test",
+				Interval: TimeInterval{
+					Start: "2000-01-01T12:00:00Z",
+				},
 			},
-		}
-		deps, err := replayCamCfg.Validate("")
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, deps, test.ShouldResemble, []string{cloud.InternalServiceName.String()})
-	})
-
-	t.Run("Invalid config no source and no timestamp", func(t *testing.T) {
-		replayCamCfg := &Config{}
-		deps, err := replayCamCfg.Validate("")
-		test.That(t, err, test.ShouldBeError,
-			utils.NewConfigValidationFieldRequiredError("", "source"))
-		test.That(t, deps, test.ShouldBeNil)
-	})
-
-	t.Run("Invalid config with bad start timestamp", func(t *testing.T) {
-		replayCamCfg := &Config{
-			Source: "test",
-			Interval: TimeInterval{
-				Start: "3000-01-01T12:00:00Z",
+			expectedDeps: []string{cloud.InternalServiceName.String()},
+		},
+		{
+			description: "Valid config with end timestamp",
+			cfg: &Config{
+				Source: "test",
+				Interval: TimeInterval{
+					End: "2000-01-01T12:00:00Z",
+				},
 			},
-		}
-		deps, err := replayCamCfg.Validate("")
-		test.That(t, err, test.ShouldBeError, errors.New("invalid config, start time must be in the past"))
-		test.That(t, deps, test.ShouldBeNil)
-	})
-
-	t.Run("Invalid config with bad end timestamp", func(t *testing.T) {
-		replayCamCfg := &Config{
-			Source: "test",
-			Interval: TimeInterval{
-				End: "3000-01-01T12:00:00Z",
+			expectedDeps: []string{cloud.InternalServiceName.String()},
+		},
+		{
+			description: "Valid config with start and end timestamps",
+			cfg: &Config{
+				Source: "test",
+				Interval: TimeInterval{
+					Start: "2000-01-01T12:00:00Z",
+					End:   "2000-01-01T12:00:01Z",
+				},
 			},
-		}
-		deps, err := replayCamCfg.Validate("")
-		test.That(t, err, test.ShouldBeError, errors.New("invalid config, end time must be in the past"))
-		test.That(t, deps, test.ShouldBeNil)
-	})
-
-	t.Run("Invalid config with start after end timestamps", func(t *testing.T) {
-		replayCamCfg := &Config{
-			Source: "test",
-			Interval: TimeInterval{
-				Start: "2000-01-01T12:00:01Z",
-				End:   "2000-01-01T12:00:00Z",
+			expectedDeps: []string{cloud.InternalServiceName.String()},
+		},
+		{
+			description: "Invalid config no source and no timestamp",
+			cfg: &Config{
+				Source:   "",
+				Interval: TimeInterval{},
 			},
-		}
-		deps, err := replayCamCfg.Validate("")
+			expectedErr: utils.NewConfigValidationFieldRequiredError("", "source"),
+		},
+		{
+			description: "Invalid config with bad start timestamp format",
+			cfg: &Config{
+				Source: "test",
+				Interval: TimeInterval{
+					Start: "gibberish",
+				},
+			},
+			expectedErr: errors.New("invalid time format for start time, use RFC3339"),
+		},
+		{
+			description: "Invalid config with bad end timestamp format",
+			cfg: &Config{
+				Source: "test",
+				Interval: TimeInterval{
+					End: "gibberish",
+				},
+			},
+			expectedErr: errors.New("invalid time format for end time, use RFC3339"),
+		},
+		{
+			description: "Invalid config with bad start timestamp",
+			cfg: &Config{
+				Source: "test",
+				Interval: TimeInterval{
+					Start: "3000-01-01T12:00:00Z",
+				},
+			},
+			expectedErr: errors.New("invalid config, start time must be in the past"),
+		},
+		{
+			description: "Invalid config with bad end timestamp",
+			cfg: &Config{
+				Source: "test",
+				Interval: TimeInterval{
+					End: "3000-01-01T12:00:00Z",
+				},
+			},
+			expectedErr: errors.New("invalid config, end time must be in the past"),
+		},
+		{
+			description: "Invalid config with start after end timestamps",
+			cfg: &Config{
+				Source: "test",
+				Interval: TimeInterval{
+					Start: "2000-01-01T12:00:01Z",
+					End:   "2000-01-01T12:00:00Z",
+				},
+			},
+			expectedErr: errors.New("invalid config, end time must be after start time"),
+		},
+	}
 
-		test.That(t, err, test.ShouldBeError, errors.New("invalid config, end time must be after start time"))
-		test.That(t, deps, test.ShouldBeNil)
-	})
+	for _, tt := range cases {
+		t.Run(tt.description, func(t *testing.T) {
+			deps, err := tt.cfg.Validate("")
+			if tt.expectedErr != nil {
+				test.That(t, err, test.ShouldBeError, tt.expectedErr)
+			} else {
+				test.That(t, err, test.ShouldBeNil)
+			}
+			test.That(t, deps, test.ShouldResemble, tt.expectedDeps)
+		})
+	}
 }
 
 func TestUnimplementedFunctions(t *testing.T) {
@@ -376,17 +358,17 @@ func TestUnimplementedFunctions(t *testing.T) {
 	replayCamera, serverClose, err := createNewReplayPCDCamera(ctx, t, replayCamCfg, true)
 	test.That(t, err, test.ShouldBeNil)
 
-	t.Run("Test Stream", func(t *testing.T) {
+	t.Run("Stream", func(t *testing.T) {
 		_, err := replayCamera.Stream(ctx, nil)
 		test.That(t, err.Error(), test.ShouldEqual, "Stream is unimplemented")
 	})
 
-	t.Run("Test Properties", func(t *testing.T) {
+	t.Run("Properties", func(t *testing.T) {
 		_, err := replayCamera.Properties(ctx)
 		test.That(t, err.Error(), test.ShouldEqual, "Properties is unimplemented")
 	})
 
-	t.Run("Test Projector", func(t *testing.T) {
+	t.Run("Projector", func(t *testing.T) {
 		_, err := replayCamera.Projector(ctx)
 		test.That(t, err.Error(), test.ShouldEqual, "Projector is unimplemented")
 	})

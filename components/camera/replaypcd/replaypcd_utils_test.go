@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"context"
 	"fmt"
+	"math"
 	"net"
 	"os"
 	"path/filepath"
@@ -28,7 +29,7 @@ import (
 )
 
 // mockDataServiceServer is a struct that includes unimplemented versions of all the Data Service endpoints. These
-// can be overwritten to allow developers to triggers desired behaviors during testing.
+// can be overwritten to allow developers to trigger desired behaviors during testing.
 type mockDataServiceServer struct {
 	datapb.UnimplementedDataServiceServer
 }
@@ -113,11 +114,7 @@ func createNewReplayPCDCamera(ctx context.Context, t *testing.T, replayCamCfg *C
 ) (camera.Camera, func() error, error) {
 	logger := golog.NewTestLogger(t)
 
-	// var resources resource.Dependencies
-	// var closeRPCFunc func() error
-	// if validDeps {
 	resources, closeRPCFunc := createMockCloudDependencies(ctx, t, logger, validDeps)
-	// }
 
 	cfg := resource.Config{ConvertedAttributes: replayCamCfg}
 	cam, err := newPCDCamera(ctx, resources, cfg, logger)
@@ -144,50 +141,44 @@ func resourcesFromDeps(t *testing.T, r robot.Robot, deps []string) resource.Depe
 // getNextDataAfterFilter returns the next point cloud data to be return based on the provided filter and
 // last returned item.
 func getNextDataAfterFilter(filter *datapb.Filter, last string) (int, error) {
-	// Apply the time-based filter based on the second's value in the start and end fields. Because artifacts
+	// Basic component part (source) filter
+	if filter.ComponentName != "" && filter.ComponentName != "source" {
+		return 0, errEndOfDataset
+	}
+
+	// Basic robot_id filter
+	if filter.RobotId != "" && filter.RobotId != "robot_id" {
+		return 0, errEndOfDataset
+	}
+
+	// Apply the time-based filter based on the seconds value in the start and end fields. Because artifacts
 	// do not have timestamps associated with them but are numerically ordered we can approximate the filtering
 	// by sorting for the files which occur after the start second count and before the end second count.
+	// For example, if there are 15 files in the artifact directory, the start time is 2000-01-01T12:00:10Z
+	// and the end time is 2000-01-01T12:00:14Z, we will return files 10-14.
 	start := 0
-	end := 1000
-	startTime := filter.Interval.Start
-	if startTime != nil {
-		start = startTime.AsTime().Second()
+	end := numPCDFiles
+	if filter.Interval.Start != nil {
+		start = filter.Interval.Start.AsTime().Second()
 	}
-	endTime := filter.Interval.End
-	if endTime != nil {
-		end = endTime.AsTime().Second()
+	if filter.Interval.End != nil {
+		end = int(math.Min(float64(filter.Interval.End.AsTime().Second()), float64(end)))
 	}
 
-	possibleData := makeFilteredRange(0, numPCDFiles, start, end)
-
-	// Return most recent file after last (should it exist)
 	if last == "" {
-		if len(possibleData) != 0 {
-			return possibleData[0], nil
-		}
-	} else {
-		lastFileNum, err := strconv.Atoi(last)
-		if err != nil {
-			return 0, err
-		}
-		for i := range possibleData {
-			if possibleData[i] > lastFileNum {
-				return possibleData[i], nil
-			}
-		}
+		return getFile(start, end)
 	}
-	return 0, errEndOfDataset
+	lastFileNum, err := strconv.Atoi(last)
+	if err != nil {
+		return 0, err
+	}
+	return getFile(lastFileNum+1, end)
 }
 
-// makeFilteredRange returns a numerical range of values representing the possible files to be returned
-// after filtering.
-func makeFilteredRange(min, max, start, end int) []int {
-	a := []int{}
-	for i := 0; i < max-min; i++ {
-		val := min + i
-		if val >= start && val < end {
-			a = append(a, val)
-		}
+// getFile will return the next file to be returned after checking it satisfies the end condition.
+func getFile(i, end int) (int, error) {
+	if i < end {
+		return i, nil
 	}
-	return a
+	return 0, errEndOfDataset
 }

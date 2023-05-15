@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"sync"
 	"time"
 
 	"github.com/edaniels/golog"
@@ -25,7 +26,7 @@ import (
 // Model is the model of a replay camera.
 var (
 	model                 = resource.DefaultModelFamily.WithModel("replay_pcd")
-	errEndOfDataset       = errors.New("Reached end of dataset")
+	errEndOfDataset       = errors.New("reached end of dataset")
 	timeFormat            = time.RFC3339
 	grpcConnectionTimeout = 10 * time.Second
 )
@@ -55,15 +56,30 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 		return nil, goutils.NewConfigValidationFieldRequiredError(path, "source")
 	}
 
-	if cfg.Interval.Start != "" && cfg.Interval.Start > time.Now().UTC().Format(timeFormat) {
-		return nil, errors.New("invalid config, start time must be in the past")
+	var err error
+	var startTime time.Time
+	if cfg.Interval.Start != "" {
+		startTime, err = time.Parse(timeFormat, cfg.Interval.Start)
+		if err != nil {
+			return nil, errors.New("invalid time format for start time, use RFC3339")
+		}
+		if startTime.After(time.Now()) {
+			return nil, errors.New("invalid config, start time must be in the past")
+		}
 	}
 
-	if cfg.Interval.End != "" && cfg.Interval.End > time.Now().UTC().Format(timeFormat) {
-		return nil, errors.New("invalid config, end time must be in the past")
+	var endTime time.Time
+	if cfg.Interval.End != "" {
+		endTime, err = time.Parse(timeFormat, cfg.Interval.End)
+		if err != nil {
+			return nil, errors.New("invalid time format for end time, use RFC3339")
+		}
+		if endTime.After(time.Now()) {
+			return nil, errors.New("invalid config, end time must be in the past")
+		}
 	}
 
-	if cfg.Interval.Start != "" && cfg.Interval.End != "" && cfg.Interval.Start > cfg.Interval.End {
+	if cfg.Interval.Start != "" && cfg.Interval.End != "" && startTime.After(endTime) {
 		return nil, errors.New("invalid config, end time must be after start time")
 	}
 
@@ -79,12 +95,12 @@ type pcdCamera struct {
 	cloudConn    rpc.ClientConn
 	dataClient   datapb.DataServiceClient
 
-	source  string
-	robotID string
-
 	lastData string
 	limit    uint64
 	filter   *datapb.Filter
+
+	closedMutex sync.RWMutex
+	closed      bool
 }
 
 // newPCDCamera creates a new replay camera based on the inputted config and dependencies.
@@ -93,6 +109,7 @@ func newPCDCamera(ctx context.Context, deps resource.Dependencies, conf resource
 		Named:  conf.ResourceName().AsNamed(),
 		logger: logger,
 		limit:  1,
+		closed: false,
 	}
 
 	if err := cam.Reconfigure(ctx, deps, conf); err != nil {
@@ -102,8 +119,14 @@ func newPCDCamera(ctx context.Context, deps resource.Dependencies, conf resource
 	return cam, nil
 }
 
-// NextPointCloud returns a point cloud retrieved from app based on the applied filter.
+// NextPointCloud returns the next point cloud retrieved from cloud storage based on the applied filter.
 func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+	replay.closedMutex.RLock()
+	defer replay.closedMutex.RUnlock()
+	if replay.closed {
+		return nil, errors.New("session closed")
+	}
+
 	resp, err := replay.dataClient.BinaryDataByFilter(ctx, &datapb.BinaryDataByFilterRequest{
 		DataRequest: &datapb.DataRequest{
 			Filter:    replay.filter,
@@ -118,7 +141,7 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCl
 		return nil, err
 	}
 
-	// If no data is returned, return an error.
+	// If no data is returned, return an error indicating we've reached the end of the dataset.
 	if len(resp.GetData()) == 0 {
 		return nil, errEndOfDataset
 	}
@@ -165,11 +188,21 @@ func (replay *pcdCamera) Stream(ctx context.Context, errHandlers ...gostream.Err
 // Close stops replay camera and closes its connections to the cloud.
 func (replay *pcdCamera) Close(ctx context.Context) error {
 	replay.closeCloudConnection(ctx)
+	replay.closedMutex.Lock()
+	defer replay.closedMutex.Unlock()
+	replay.closed = true
 	return nil
 }
 
-// Reconfigure will bring up a replay camera using the new config but is not implemented for replay.
+// Reconfigure finishes the bring up of the replay camera by evaluating given arguments and setting up the required cloud
+// connection.
 func (replay *pcdCamera) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+	replay.closedMutex.RLock()
+	defer replay.closedMutex.RUnlock()
+	if replay.closed {
+		return errors.New("session closed")
+	}
+
 	replayCamConfig, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return err
@@ -186,16 +219,14 @@ func (replay *pcdCamera) Reconfigure(ctx context.Context, deps resource.Dependen
 		replay.cloudConnSvc = cloudConnSvc
 
 		if err := replay.initCloudConnection(ctx); err != nil {
-			defer replay.closeCloudConnection(ctx)
+			replay.closeCloudConnection(ctx)
 			return errors.Wrap(err, "failure to connect to the cloud")
 		}
 	}
 
-	replay.source = replayCamConfig.Source
-	replay.robotID = replayCamConfig.RobotID
 	replay.filter = &datapb.Filter{
-		ComponentName: replay.source,
-		RobotId:       replay.robotID,
+		ComponentName: replayCamConfig.Source,
+		RobotId:       replayCamConfig.RobotID,
 		MimeType:      []string{"pointcloud/pcd"},
 		Interval:      &datapb.CaptureInterval{},
 	}
@@ -204,7 +235,7 @@ func (replay *pcdCamera) Reconfigure(ctx context.Context, deps resource.Dependen
 		startTime, err := time.Parse(timeFormat, replayCamConfig.Interval.Start)
 		if err != nil {
 			defer replay.closeCloudConnection(ctx)
-			return errors.New("invalid time format, use RFC3339")
+			return errors.New("invalid time format for start time, missed during config validation")
 		}
 		replay.filter.Interval.Start = timestamppb.New(startTime)
 	}
@@ -213,14 +244,14 @@ func (replay *pcdCamera) Reconfigure(ctx context.Context, deps resource.Dependen
 		endTime, err := time.Parse(timeFormat, replayCamConfig.Interval.End)
 		if err != nil {
 			defer replay.closeCloudConnection(ctx)
-			return errors.New("invalid time format, use RFC3339")
+			return errors.New("invalid time format for end time, missed during config validation")
 		}
 		replay.filter.Interval.End = timestamppb.New(endTime)
 	}
 	return nil
 }
 
-// closeCloud closes all parts of the cloud connection used by the replay camera.
+// closeCloudConnection closes all parts of the cloud connection used by the replay camera.
 func (replay *pcdCamera) closeCloudConnection(ctx context.Context) {
 	if replay.cloudConn != nil {
 		goutils.UncheckedError(replay.cloudConn.Close())
