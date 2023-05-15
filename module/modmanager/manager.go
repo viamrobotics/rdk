@@ -22,6 +22,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 
+	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
 	rdkgrpc "go.viam.com/rdk/grpc"
 	modlib "go.viam.com/rdk/module"
@@ -522,6 +523,7 @@ func (m *module) dial(conn *grpc.ClientConn) error {
 			"unix://"+m.addr,
 			grpc.WithTransportCredentials(insecure.NewCredentials()),
 			grpc.WithChainUnaryInterceptor(
+				camera.ContextWithTimestampsUnaryClientInterceptor,
 				grpc_retry.UnaryClientInterceptor(),
 				operation.UnaryClientInterceptor,
 			),

@@ -1,7 +1,10 @@
 package utils
 
-import "context"
+import (
+	"context"
+)
 
+// TODO: add documentation to this file
 type ContextWithMetadata struct {
 	context.Context
 	md map[string]string
