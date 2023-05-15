@@ -64,7 +64,7 @@ const moveClicked = $computed(() => {
 const baseResources = $computed(() => filterResources(props.resources, 'rdk', 'component', 'base'));
 
 // allowMove is only true if we have a base, there exists a destination and there is no in-flight MoveOnMap req
-let allowMove = $computed(() => (
+const allowMove = $computed(() => (
   (baseResources !== undefined) &&
   (baseResources.length > 0) && updatedDest && !moveClicked));
 
@@ -143,7 +143,6 @@ const executeDeleteDestinationMarker = () => {
 };
 
 const executeMoveOnMap = async () => {
-  allowMove = !allowMove;
 
   /*
    * set request name
@@ -191,12 +190,10 @@ const executeMoveOnMap = async () => {
     new grpc.Metadata(),
     (error: ServiceError | null, response: motionApi.MoveOnMapResponse | null) => {
       if (error) {
-        allowMove = !allowMove;
         executeDeleteDestinationMarker();
         toast.error(`Error moving: ${error}`);
         return;
       }
-      allowMove = !allowMove;
       executeDeleteDestinationMarker();
       toast.success(`MoveOnMap success: ${response!.getSuccess()}`);
     }
@@ -426,7 +423,7 @@ onUnmounted(() => {
       slot="header"
       variant="danger"
       icon="stop-circle"
-      :disabled="!moveClicked ? 'true' : 'false'"
+      :disabled="moveClicked ? 'false' : 'true'"
       label="STOP"
       @click="executeStopMoveOnMap()"
     />
