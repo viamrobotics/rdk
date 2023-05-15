@@ -270,7 +270,9 @@ func (pi *piPigpio) reconfigureInterrupts(conf resource.Config) error {
 		}
 		pi.interrupts[c.Name] = di
 		pi.interruptsHW[bcom] = di
-		C.setupInterrupt(C.int(bcom))
+		if result := C.setupInterrupt(C.int(bcom)); result != 0 {
+			return picommon.ConvertErrorCodeToMessage(int(result), "error")
+		}
 	}
 }
 
@@ -618,6 +620,11 @@ func (pi *piPigpio) DigitalInterruptByName(name string) (board.DigitalInterrupt,
 			pi.interrupts[name] = d
 			pi.interruptsHW[bcom] = d
 			C.setupInterrupt(C.int(bcom))
+			if result := C.setupInterrupt(C.int(bcom)); result != 0 {
+				err := picommon.ConvertErrorCodeToMessage(int(result), "error")
+				pi.logger.Errorf("Unable to set up interrupt on pin %s: %s", name, err)
+				return nil, false
+			}
 			return d, true
 		}
 	}
