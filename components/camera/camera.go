@@ -3,9 +3,7 @@ package camera
 
 import (
 	"context"
-	"fmt"
 	"image"
-	"reflect"
 	"sync"
 
 	"github.com/edaniels/gostream"
@@ -15,8 +13,6 @@ import (
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/camera/v1"
 	viamutils "go.viam.com/utils"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/metadata"
 
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/pointcloud"
@@ -25,7 +21,6 @@ import (
 	"go.viam.com/rdk/rimage/depthadapter"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/utils"
 )
 
 func init() {
@@ -351,38 +346,4 @@ func SimultaneousColorDepthNext(ctx context.Context, color, depth gostream.Video
 	})
 	wg.Wait()
 	return col, dm
-}
-
-func ContextWithTimestampsUnaryClientInterceptor(
-	ctx context.Context,
-	method string,
-	req, reply interface{},
-	cc *grpc.ClientConn,
-	invoker grpc.UnaryInvoker,
-	opts ...grpc.CallOption,
-) error {
-	var header metadata.MD
-	opts = append(opts, grpc.Header(&header))
-	invoker(ctx, method, req, reply, cc, opts...)
-
-	if len(header.Get(TimeRequestedMetadataKey)) > 0 {
-		_, ok := ctx.(*utils.ContextWithMetadata)
-		cType := reflect.TypeOf(ctx)
-		panic(fmt.Sprint("!! I PANICKED !!", header.Get(TimeRequestedMetadataKey)[0], ok, cType))
-	}
-
-	if ctxWithMD, ok := ctx.(*utils.ContextWithMetadata); ok {
-		panic("here!")
-		// Get timestamps from the gRPC header if they're provided.
-		timeRequested := header.Get(TimeRequestedMetadataKey)
-		if len(timeRequested) > 0 {
-			ctxWithMD.WithValue(TimeRequestedMetadataKey, timeRequested[0])
-		}
-		timeReceived := header.Get(TimeReceivedMetadataKey)
-		if len(timeReceived) > 0 {
-			ctxWithMD.WithValue(TimeReceivedMetadataKey, timeReceived[0])
-		}
-	}
-
-	return nil
 }
