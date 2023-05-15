@@ -1,6 +1,7 @@
 package camera
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"image"
@@ -149,18 +150,14 @@ func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 		return nil, err
 	}
 
-	c.logger.Info("in camera client")
 	if hasCtxWithMD {
-		c.logger.Info(" found context with metadata")
 		// Get timestamps from the gRPC header if they're provided.
 		timeRequested := header.Get(TimeRequestedMetadataKey)
 		if len(timeRequested) > 0 {
-			c.logger.Info(timeRequested)
 			ctxWithMD.WithValue(TimeRequestedMetadataKey, timeRequested[0])
 		}
 		timeReceived := header.Get(TimeReceivedMetadataKey)
 		if len(timeReceived) > 0 {
-			c.logger.Info(timeReceived)
 			ctxWithMD.WithValue(TimeReceivedMetadataKey, timeReceived[0])
 		}
 	}
@@ -173,8 +170,7 @@ func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 		_, span := trace.StartSpan(ctx, "camera::client::NextPointCloud::ReadPCD")
 		defer span.End()
 
-		return nil, nil
-		//return pointcloud.ReadPCD(bytes.NewReader(resp.PointCloud))
+		return pointcloud.ReadPCD(bytes.NewReader(resp.PointCloud))
 	}()
 }
 
