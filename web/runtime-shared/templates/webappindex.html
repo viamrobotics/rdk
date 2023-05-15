@@ -18,8 +18,8 @@
     <link rel="stylesheet" href="/static/rdk/main.css?v={{ .Version }}" />
     <script type="module">window.PRIME_CONFIG = { base: '/static/rdk' }</script>
     {{ else if eq .Env "production" }}
-    <link rel="preload" href="/static/prime.css" as="style">
-    <link rel="stylesheet" href="/static/main.css" />
+    <link rel="preload" href="{{ .StaticHost }}/static/prime.css" as="style">
+    <link rel="stylesheet" href="{{ .StaticHost }}/static/main.css" />
     <script type="module">window.PRIME_CONFIG = { base: '/static' }</script>
     {{ else if eq .Env "development" }}
     <script type="module">window.PRIME_CONFIG = { base: '/static' }</script>
@@ -38,9 +38,7 @@
     {{ end }}
 
     {{ if eq .Env "production" }}
-    <script type="module" src="/static/remote-control/rc-control.js"></script>
-    {{ end }}
-
+    <script type="module" src="{{ .StaticHost }}/static/remote-control/rc-control.js"></script>    
     {{ end }}
   </body>
 </html>
