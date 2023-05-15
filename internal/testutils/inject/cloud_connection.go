@@ -9,7 +9,7 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-// CloudConnectionService stores the functions and variables to create a mock cloud connection service.
+// CloudConnectionService is an implementation of the cloud.ConnectionService interface used for testing.
 type CloudConnectionService struct {
 	resource.Named
 	resource.AlwaysRebuild
@@ -17,7 +17,7 @@ type CloudConnectionService struct {
 	AcquireConnectionErr error
 }
 
-// AcquireConnection returns a connection to the rpc server stored in the mockCloudConnectionService object.
+// AcquireConnection returns a connection to the rpc server stored in the cloud connection service object.
 func (cloudConnService *CloudConnectionService) AcquireConnection(ctx context.Context) (string, rpc.ClientConn, error) {
 	if cloudConnService.AcquireConnectionErr != nil {
 		return "", nil, cloudConnService.AcquireConnectionErr
@@ -25,7 +25,7 @@ func (cloudConnService *CloudConnectionService) AcquireConnection(ctx context.Co
 	return "hello", cloudConnService.Conn, nil
 }
 
-// Close is used by the mockCloudConnectionService to complete the cloud connection service interface.
+// Close is used by the CloudConnectionService to complete the cloud.ConnectionService interface.
 func (cloudConnService *CloudConnectionService) Close(ctx context.Context) error {
 	return nil
 }
