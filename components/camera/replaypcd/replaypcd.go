@@ -99,8 +99,8 @@ type pcdCamera struct {
 	limit    uint64
 	filter   *datapb.Filter
 
-	closedMutex sync.RWMutex
-	closed      bool
+	mu     sync.RWMutex
+	closed bool
 }
 
 // newPCDCamera creates a new replay camera based on the inputted config and dependencies.
@@ -121,8 +121,8 @@ func newPCDCamera(ctx context.Context, deps resource.Dependencies, conf resource
 
 // NextPointCloud returns the next point cloud retrieved from cloud storage based on the applied filter.
 func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
-	replay.closedMutex.RLock()
-	defer replay.closedMutex.RUnlock()
+	replay.mu.RLock()
+	defer replay.mu.RUnlock()
 	if replay.closed {
 		return nil, errors.New("session closed")
 	}
@@ -188,8 +188,8 @@ func (replay *pcdCamera) Stream(ctx context.Context, errHandlers ...gostream.Err
 // Close stops replay camera and closes its connections to the cloud.
 func (replay *pcdCamera) Close(ctx context.Context) error {
 	replay.closeCloudConnection(ctx)
-	replay.closedMutex.Lock()
-	defer replay.closedMutex.Unlock()
+	replay.mu.Lock()
+	defer replay.mu.Unlock()
 	replay.closed = true
 	return nil
 }
@@ -197,8 +197,8 @@ func (replay *pcdCamera) Close(ctx context.Context) error {
 // Reconfigure finishes the bring up of the replay camera by evaluating given arguments and setting up the required cloud
 // connection.
 func (replay *pcdCamera) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
-	replay.closedMutex.RLock()
-	defer replay.closedMutex.RUnlock()
+	replay.mu.RLock()
+	defer replay.mu.RUnlock()
 	if replay.closed {
 		return errors.New("session closed")
 	}
