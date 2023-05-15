@@ -118,9 +118,6 @@ func (m *SessionManager) expireLoop(ctx context.Context) {
 		}()
 
 		if len(toDelete) != 0 {
-			// Logging to the app struggles to pass along uuid.UUID due to an
-			// inability to convert the type to proto. Pass deleted IDs as a slice of
-			// strings instead.
 			var deletedIDs []string
 			for id := range toDelete {
 				deletedIDs = append(deletedIDs, id.String())
