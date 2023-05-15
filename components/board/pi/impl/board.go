@@ -592,11 +592,7 @@ func (pi *piPigpio) Close(ctx context.Context) error {
 	}
 	delete(instances, pi)
 
-	if terminate {
-		instanceMu.Unlock()
-	} else {
-		instanceMu.Unlock()
-	}
+	instanceMu.Unlock()
 
 	var err error
 	for _, spi := range pi.spis {
