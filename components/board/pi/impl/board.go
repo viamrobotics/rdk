@@ -73,8 +73,10 @@ type piPigpio struct {
 	analogs         map[string]board.AnalogReader
 	i2cs            map[string]board.I2C
 	spis            map[string]board.SPI
-	interrupts      map[string]board.DigitalInterrupt // Maps interrupt names to interrupts
-	interruptsHW    map[uint]board.DigitalInterrupt   // Maps broadcom addresses to the same
+	// `interrupts` maps interrupt names to the interrupts. `interruptsHW` makes broadcom addresses
+	// to these same values.
+	interrupts      map[string]board.ReconfigurableDigitalInterrupt
+	interruptsHW    map[uint]board.ReconfigurableDigitalInterrupt
 	logger          golog.Logger
 	isClosed        bool
 }
@@ -223,6 +225,10 @@ func (pi *piPigpio) reconfigureAnalogs(cfg *genericlinux.Config) error {
 	return nil
 }
 
+func findNewInterruptConfig(oldInterrupt board.ReconfigurableDigitalInterrupt, cfg *genericlinux.Config) *board.DigitalInterruptConfig {
+	return nil
+}
+
 func (pi *piPigpio) reconfigureInterrupts(cfg *genericlinux.Config) error {
 	// For each old interrupt:
 	//     if you're supposed to copy it over, do so
@@ -232,10 +238,10 @@ func (pi *piPigpio) reconfigureInterrupts(cfg *genericlinux.Config) error {
 	//     if it doesn't exist, create it
 
 	// We reuse the old interrupts when possible.
-	newInterrupts = map[string]board.DigitalInterrupt{}
-	newInterruptsHW = map[uint]board.DigitalInterrupt{}
+	newInterrupts := map[string]board.ReconfigurableDigitalInterrupt{}
+	newInterruptsHW := map[uint]board.ReconfigurableDigitalInterrupt{}
 
-	for name, oldInterrupt := range oldInterrupts {
+	for _, oldInterrupt := range pi.interrupts {
 		if newIntConfig := findNewInterruptConfig(oldInterrupt, cfg); newIntConfig == nil {
 			// The old interrupt is longer used.
 			if err := oldInterrupt.Close(); err != nil {
@@ -250,13 +256,20 @@ func (pi *piPigpio) reconfigureInterrupts(cfg *genericlinux.Config) error {
 				return errors.Errorf("no hw mapping for %s", newIntConfig.Pin)
 			}
 			newInterrupts[newIntConfig.Name] = oldInterrupt
-			newInterruptsHw[bcom] = oldInterrupt
+			newInterruptsHW[bcom] = oldInterrupt
 		}
 	}
-	oldInterrupts = pi.interrupts
-	oldInterruptsHW = pi.interruptsHW
+	oldInterrupts := pi.interrupts
+	oldInterruptsHW := pi.interruptsHW
 	pi.interrupts = newInterrupts
 	pi.interruptsHW = newInterruptsHW
+	// TODO: remove these when the variables are used and the compiler isn't complaining about it
+	for k, v := range oldInterrupts {
+		oldInterrupts[k] = v
+	}
+	for k, v := range oldInterruptsHW {
+		oldInterruptsHW[k] = v
+	}
 
 	for _, c := range cfg.DigitalInterrupts {
 		bcom, have := broadcomPinFromHardwareLabel(c.Pin)
@@ -274,6 +287,7 @@ func (pi *piPigpio) reconfigureInterrupts(cfg *genericlinux.Config) error {
 			return picommon.ConvertErrorCodeToMessage(int(result), "error")
 		}
 	}
+	return nil
 }
 
 // GPIOPinNames returns the names of all known GPIO pins.
