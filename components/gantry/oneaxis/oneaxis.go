@@ -74,10 +74,6 @@ func (cfg *Config) validate() ([]string, error) {
 		return nil, errors.New("limit pin enabled muist be set to true or false")
 	}
 
-	if cfg.Axis.X == 0 && cfg.Axis.Y == 0 && cfg.Axis.Z == 0 {
-		return nil, errors.New("gantry axis undefined, need one translational axis")
-	}
-
 	if cfg.Axis.X == 1 && cfg.Axis.Y == 1 ||
 		cfg.Axis.X == 1 && cfg.Axis.Z == 1 || cfg.Axis.Y == 1 && cfg.Axis.Z == 1 {
 		return nil, errors.New("only one translational axis of movement allowed for single axis gantry")
@@ -156,6 +152,10 @@ func newOneAxis(ctx context.Context, deps resource.Dependencies, conf resource.C
 
 	if oAx.rpm == 0 {
 		oAx.rpm = 100
+	}
+
+	if oAx.axis.LargestComponent() == 0 {
+		oAx.axis = r3.Vector{X: 1, Y: 0, Z: 0}
 	}
 
 	switch len(oAx.limitSwitchPins) {
@@ -247,7 +247,7 @@ func (g *oneAxis) homeTwoLimSwitch(ctx context.Context) error {
 	g.positionLimits = []float64{positionA, positionB}
 
 	// Go backwards so limit stops are not hit.
-	x := g.linearToRotational(0.8 * g.lengthMm)
+	x := g.rotationalToLinear(0.8 * g.lengthMm)
 	err = g.motor.GoTo(ctx, g.rpm, x, nil)
 	if err != nil {
 		return err
@@ -284,7 +284,7 @@ func (g *oneAxis) homeEncoder(ctx context.Context) error {
 	return nil
 }
 
-func (g *oneAxis) linearToRotational(positions float64) float64 {
+func (g *oneAxis) rotationalToLinear(positions float64) float64 {
 	theRange := g.positionLimits[1] - g.positionLimits[0]
 	x := positions / g.lengthMm
 	x = g.positionLimits[0] + (x * theRange)
@@ -379,7 +379,7 @@ func (g *oneAxis) MoveToPosition(ctx context.Context, positions []float64, extra
 		return fmt.Errorf("out of range (%.2f) min: 0 max: %.2f", positions[0], g.lengthMm)
 	}
 
-	x := g.linearToRotational(positions[0])
+	x := g.rotationalToLinear(positions[0])
 	// Limit switch errors that stop the motors.
 	// Currently needs to be moved by underlying gantry motor.
 	if len(g.limitSwitchPins) > 0 {
