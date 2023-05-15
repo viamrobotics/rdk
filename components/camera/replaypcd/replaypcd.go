@@ -234,7 +234,7 @@ func (replay *pcdCamera) Reconfigure(ctx context.Context, deps resource.Dependen
 	if replayCamConfig.Interval.Start != "" {
 		startTime, err := time.Parse(timeFormat, replayCamConfig.Interval.Start)
 		if err != nil {
-			defer replay.closeCloudConnection(ctx)
+			replay.closeCloudConnection(ctx)
 			return errors.New("invalid time format for start time, missed during config validation")
 		}
 		replay.filter.Interval.Start = timestamppb.New(startTime)
@@ -243,7 +243,7 @@ func (replay *pcdCamera) Reconfigure(ctx context.Context, deps resource.Dependen
 	if replayCamConfig.Interval.End != "" {
 		endTime, err := time.Parse(timeFormat, replayCamConfig.Interval.End)
 		if err != nil {
-			defer replay.closeCloudConnection(ctx)
+			replay.closeCloudConnection(ctx)
 			return errors.New("invalid time format for end time, missed during config validation")
 		}
 		replay.filter.Interval.End = timestamppb.New(endTime)

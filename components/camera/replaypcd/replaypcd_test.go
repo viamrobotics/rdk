@@ -3,6 +3,7 @@ package replaypcd
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"testing"
@@ -16,10 +17,9 @@ import (
 	"go.viam.com/rdk/pointcloud"
 )
 
-const (
-	datasetDirectory = "slam/mock_lidar/%d.pcd"
-	numPCDFiles      = 15
-)
+const datasetDirectory = "slam/mock_lidar/%d.pcd"
+
+var numPCDFiles = 15
 
 // getPointCloudFromArtifact will return a point cloud based on the provided artifact path.
 func getPointCloudFromArtifact(t *testing.T, i int) pointcloud.PointCloud {
@@ -223,6 +223,50 @@ func TestNextPointCloud(t *testing.T) {
 	}
 }
 
+func TestLiveNextPointCloud(t *testing.T) {
+	ctx := context.Background()
+
+	numPCDFilesOriginal := numPCDFiles
+	numPCDFiles = 10
+	defer func() { numPCDFiles = numPCDFilesOriginal }()
+
+	cfg := &Config{
+		Source: "source",
+	}
+
+	replayCamera, serverClose, err := createNewReplayPCDCamera(ctx, t, cfg, true)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, replayCamera, test.ShouldNotBeNil)
+
+	// Iterate through all files that meet the provided filter
+	i := 0
+	for {
+		fmt.Println(i)
+		pc, err := replayCamera.NextPointCloud(ctx)
+		if i >= numPCDFiles {
+			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, err.Error(), test.ShouldContainSubstring, errEndOfDataset.Error())
+			test.That(t, pc, test.ShouldBeNil)
+
+			// Add new files for future processing
+			numPCDFiles += rand.Intn(3)
+
+			if numPCDFiles >= numPCDFilesOriginal {
+				break
+			}
+		} else {
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, pc, test.ShouldResemble, getPointCloudFromArtifact(t, i))
+			i += 1
+		}
+	}
+
+	err = replayCamera.Close(ctx)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, serverClose(), test.ShouldBeNil)
+}
+
 func TestConfigValidation(t *testing.T) {
 	cases := []struct {
 		description  string
@@ -233,7 +277,7 @@ func TestConfigValidation(t *testing.T) {
 		{
 			description: "Valid config with source and no timestamp",
 			cfg: &Config{
-				Source:   "test",
+				Source:   "source",
 				Interval: TimeInterval{},
 			},
 			expectedDeps: []string{cloud.InternalServiceName.String()},
@@ -241,15 +285,15 @@ func TestConfigValidation(t *testing.T) {
 		{
 			description: "Valid config with source and any robot id",
 			cfg: &Config{
-				Source:  "test",
-				RobotID: "test",
+				Source:  "source",
+				RobotID: "source",
 			},
 			expectedDeps: []string{cloud.InternalServiceName.String()},
 		},
 		{
 			description: "Valid config with start timestamp",
 			cfg: &Config{
-				Source: "test",
+				Source: "source",
 				Interval: TimeInterval{
 					Start: "2000-01-01T12:00:00Z",
 				},
@@ -259,7 +303,7 @@ func TestConfigValidation(t *testing.T) {
 		{
 			description: "Valid config with end timestamp",
 			cfg: &Config{
-				Source: "test",
+				Source: "source",
 				Interval: TimeInterval{
 					End: "2000-01-01T12:00:00Z",
 				},
@@ -269,7 +313,7 @@ func TestConfigValidation(t *testing.T) {
 		{
 			description: "Valid config with start and end timestamps",
 			cfg: &Config{
-				Source: "test",
+				Source: "source",
 				Interval: TimeInterval{
 					Start: "2000-01-01T12:00:00Z",
 					End:   "2000-01-01T12:00:01Z",
@@ -288,7 +332,7 @@ func TestConfigValidation(t *testing.T) {
 		{
 			description: "Invalid config with bad start timestamp format",
 			cfg: &Config{
-				Source: "test",
+				Source: "source",
 				Interval: TimeInterval{
 					Start: "gibberish",
 				},
@@ -298,7 +342,7 @@ func TestConfigValidation(t *testing.T) {
 		{
 			description: "Invalid config with bad end timestamp format",
 			cfg: &Config{
-				Source: "test",
+				Source: "source",
 				Interval: TimeInterval{
 					End: "gibberish",
 				},
@@ -308,7 +352,7 @@ func TestConfigValidation(t *testing.T) {
 		{
 			description: "Invalid config with bad start timestamp",
 			cfg: &Config{
-				Source: "test",
+				Source: "source",
 				Interval: TimeInterval{
 					Start: "3000-01-01T12:00:00Z",
 				},
@@ -318,7 +362,7 @@ func TestConfigValidation(t *testing.T) {
 		{
 			description: "Invalid config with bad end timestamp",
 			cfg: &Config{
-				Source: "test",
+				Source: "source",
 				Interval: TimeInterval{
 					End: "3000-01-01T12:00:00Z",
 				},
@@ -328,7 +372,7 @@ func TestConfigValidation(t *testing.T) {
 		{
 			description: "Invalid config with start after end timestamps",
 			cfg: &Config{
-				Source: "test",
+				Source: "source",
 				Interval: TimeInterval{
 					Start: "2000-01-01T12:00:01Z",
 					End:   "2000-01-01T12:00:00Z",
@@ -354,7 +398,7 @@ func TestConfigValidation(t *testing.T) {
 func TestUnimplementedFunctions(t *testing.T) {
 	ctx := context.Background()
 
-	replayCamCfg := &Config{Source: "test"}
+	replayCamCfg := &Config{Source: "source"}
 	replayCamera, serverClose, err := createNewReplayPCDCamera(ctx, t, replayCamCfg, true)
 	test.That(t, err, test.ShouldBeNil)
 
