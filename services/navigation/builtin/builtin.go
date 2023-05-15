@@ -94,7 +94,7 @@ type builtIn struct {
 
 	base           base.Base
 	movementSensor movementsensor.MovementSensor
-	motion         motion.Motion
+	motion         motion.Service
 
 	metersPerSecDefault float64
 	degPerSecDefault    float64
@@ -162,7 +162,7 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	}
 
 	// Parse obstacles from the passed in configuration
-	newObstacles := referenceframe.GeoObstaclesFromConfig(svcConfig.Obstacles)
+	newObstacles, err := referenceframe.GeoObstaclesFromConfig(svcConfig.Obstacles)
 	if err != nil {
 		return err
 	}

@@ -41,4 +41,7 @@ func TestGeoObstacles(t *testing.T) {
 		test.That(t, testPoint, test.ShouldResemble, convGeoObst.Location())
 		test.That(t, testGeoms, test.ShouldResemble, convGeoObst.Geometries())
 	})
+
+	// test forward and backward conversion from config to geoObstacle
+
 }
