@@ -133,6 +133,8 @@ func (c *client) Stream(
 }
 
 func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+	ctxWithMD, hasCtxWithMD := ctx.(*utils.ContextWithMetadata)
+
 	ctx, span := trace.StartSpan(ctx, "camera::client::NextPointCloud")
 	defer span.End()
 
@@ -147,7 +149,9 @@ func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 		return nil, err
 	}
 
-	if ctxWithMD, ok := ctx.(*utils.ContextWithMetadata); ok {
+	c.logger.Info("in camera client")
+	if hasCtxWithMD {
+		c.logger.Info(" found context with metadata")
 		// Get timestamps from the gRPC header if they're provided.
 		timeRequested := header.Get(TimeRequestedMetadataKey)
 		if len(timeRequested) > 0 {

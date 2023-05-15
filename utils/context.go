@@ -16,10 +16,12 @@ func NewContextWithMetadata(ctx context.Context) context.Context {
 
 func (ctx *ContextWithMetadata) Value(key any) any {
 	if s, ok := key.(string); ok {
-		return ctx.md[s]
+		if v, ok := ctx.md[s]; ok {
+			return v
+		}
 	}
 
-	return ""
+	return ctx.Context.Value(key)
 }
 
 func (ctx *ContextWithMetadata) WithValue(key, value string) {
