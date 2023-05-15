@@ -108,6 +108,7 @@ func makeServerForRobotLogger(t *testing.T) serverForRobotLogger {
 
 func TestNetLoggerBatchWrites(t *testing.T) {
 	server := makeServerForRobotLogger(t)
+	defer server.stop()
 
 	logger := golog.NewTestLogger(t)
 	nl, err := newNetLogger(server.cloudConfig, logger, zap.NewAtomicLevelAt(zap.InfoLevel))
@@ -124,8 +125,9 @@ func TestNetLoggerBatchWrites(t *testing.T) {
 
 	nl.Sync()
 	nl.Close()
-	server.stop()
 
+	server.service.logsMu.Lock()
+	defer server.service.logsMu.Unlock()
 	test.That(t, server.service.logBatches, test.ShouldHaveLength, 2)
 	test.That(t, server.service.logBatches[0], test.ShouldHaveLength, 100)
 	test.That(t, server.service.logBatches[1], test.ShouldHaveLength, 1)
@@ -136,6 +138,7 @@ func TestNetLoggerBatchWrites(t *testing.T) {
 
 func TestNetLoggerBatchFailureAndRetry(t *testing.T) {
 	server := makeServerForRobotLogger(t)
+	defer server.stop()
 
 	logger := golog.NewTestLogger(t)
 	nl, err := newNetLogger(server.cloudConfig, logger, zap.NewAtomicLevelAt(zap.InfoLevel))
@@ -160,8 +163,9 @@ func TestNetLoggerBatchFailureAndRetry(t *testing.T) {
 
 	nl.Sync()
 	nl.Close()
-	server.stop()
 
+	server.service.logsMu.Lock()
+	defer server.service.logsMu.Unlock()
 	test.That(t, server.service.logs, test.ShouldHaveLength, numLogs)
 	for i := 0; i < numLogs-1; i++ {
 		test.That(t, server.service.logs[i].Message, test.ShouldEqual, "Some-info")
@@ -171,6 +175,7 @@ func TestNetLoggerBatchFailureAndRetry(t *testing.T) {
 
 func TestNetLoggerUnderlyingLoggerDoesntRecurse(t *testing.T) {
 	server := makeServerForRobotLogger(t)
+	defer server.stop()
 
 	logger := golog.NewTestLogger(t)
 	nl, err := newNetLogger(server.cloudConfig, logger, zap.NewAtomicLevelAt(zap.InfoLevel))
@@ -186,14 +191,16 @@ func TestNetLoggerUnderlyingLoggerDoesntRecurse(t *testing.T) {
 
 	nl.Sync()
 	nl.Close()
-	server.stop()
 
+	server.service.logsMu.Lock()
+	defer server.service.logsMu.Unlock()
 	test.That(t, server.service.logs, test.ShouldHaveLength, 1)
 	test.That(t, server.service.logs[0].Message, test.ShouldEqual, "should write to network")
 }
 
 func TestNetLoggerLogLevel(t *testing.T) {
 	server := makeServerForRobotLogger(t)
+	defer server.stop()
 
 	logger := golog.NewTestLogger(t)
 	level := zap.NewAtomicLevelAt(zap.InfoLevel)
@@ -216,8 +223,9 @@ func TestNetLoggerLogLevel(t *testing.T) {
 	nl.Sync()
 
 	nl.Close()
-	server.stop()
 
+	server.service.logsMu.Lock()
+	defer server.service.logsMu.Unlock()
 	test.That(t, server.service.logs, test.ShouldHaveLength, 3)
 	test.That(t, server.service.logs[0].Message, test.ShouldEqual, "info level")
 	test.That(t, server.service.logs[0].Level, test.ShouldEqual, "info")
