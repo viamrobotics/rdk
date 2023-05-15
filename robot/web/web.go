@@ -108,6 +108,7 @@ type AppTemplateData struct {
 	WebRTCSignalingAddress string                 `json:"webrtc_signaling_address"`
 	Env                    string                 `json:"env"`
 	Host                   string                 `json:"host"`
+	StaticHost             string                 `json:"static_host"`
 	SupportedAuthTypes     []string               `json:"supported_auth_types"`
 	AuthEntity             string                 `json:"auth_entity"`
 	BakedAuth              map[string]interface{} `json:"baked_auth"`
@@ -128,6 +129,7 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var data AppTemplateData
+	data.StaticHost = app.options.StaticHost
 
 	if err := r.ParseForm(); err != nil {
 		app.logger.Debugw("failed to parse form", "error", err)
@@ -724,7 +726,8 @@ func (svc *webService) installWeb(mux *goji.Mux, theRobot robot.Robot, options w
 			return err
 		}
 		if len(matches) == 0 {
-			svc.logger.Warnw("Couldn't find any static files when running RDK. Make sure to run 'make build-web'.")
+			svc.logger.Warnw("Couldn't find any static files when running RDK. Make sure to run 'make build-web' - using app.viam.com")
+			app.options.StaticHost = "https://app.viam.com"
 		}
 		staticDir = http.FS(embedFS)
 	}
