@@ -241,7 +241,6 @@ func TestLiveNextPointCloud(t *testing.T) {
 	// Iterate through all files that meet the provided filter
 	i := 0
 	for {
-		fmt.Println(i)
 		pc, err := replayCamera.NextPointCloud(ctx)
 		if i >= numPCDFiles {
 			test.That(t, err, test.ShouldNotBeNil)
@@ -257,7 +256,7 @@ func TestLiveNextPointCloud(t *testing.T) {
 		} else {
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, pc, test.ShouldResemble, getPointCloudFromArtifact(t, i))
-			i += 1
+			i++
 		}
 	}
 
