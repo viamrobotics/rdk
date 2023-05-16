@@ -675,13 +675,14 @@ func (pi *piPigpio) DigitalInterruptByName(name string) (board.DigitalInterrupt,
 			if err != nil {
 				return nil, false
 			}
-			pi.interrupts[name] = d
-			pi.interruptsHW[bcom] = d
 			if result := C.setupInterrupt(C.int(bcom)); result != 0 {
 				err := picommon.ConvertErrorCodeToMessage(int(result), "error")
 				pi.logger.Errorf("Unable to set up interrupt on pin %s: %s", name, err)
 				return nil, false
 			}
+
+			pi.interrupts[name] = d
+			pi.interruptsHW[bcom] = d
 			return d, true
 		}
 	}
