@@ -4,6 +4,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"time"
 
@@ -22,10 +23,17 @@ var (
 )
 
 func main() {
-	utils.ContextualMain(mainWithArgs, golog.NewDevelopmentLogger("TestModule"))
+	logger, err := module.NewLoggerFromArgs("TestModule")
+	if err != nil {
+		log.Printf("NewLoggerFromArgs error: %v\n", err)
+	}
+
+	utils.ContextualMain(mainWithArgs, logger)
 }
 
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error {
+	logger.Debug("debug mode enabled")
+
 	var err error
 	myMod, err = module.NewModuleFromArgs(ctx, logger)
 	if err != nil {

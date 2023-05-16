@@ -17,6 +17,9 @@ type Module struct {
 	Name string `json:"name"`
 	// ExePath is the path (either absolute, or relative to the working directory) to the executable module file.
 	ExePath string `json:"executable_path"`
+	// Debug represents whether the module executable should be started with -debug. If Debug is unset, the
+	// module will be started with -debug only if the module manager has a Debug log level.
+	Debug *bool `json:"debug"`
 }
 
 // Validate checks if the config is valid.

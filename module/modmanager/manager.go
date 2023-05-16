@@ -14,6 +14,7 @@ import (
 	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	"go.uber.org/zap/zapcore"
 	pb "go.viam.com/api/module/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
@@ -53,6 +54,7 @@ func NewManager(parentAddr string, logger golog.Logger, options modmanageroption
 type module struct {
 	name      string
 	exe       string
+	debug     *bool
 	process   pexec.ManagedProcess
 	handles   modlib.HandlerMap
 	conn      *grpc.ClientConn
@@ -113,7 +115,12 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, conn *grpc.Clie
 		return nil
 	}
 
-	mod := &module{name: conf.Name, exe: conf.ExePath, resources: map[resource.Name]*addedResource{}}
+	mod := &module{
+		name:      conf.Name,
+		exe:       conf.ExePath,
+		debug:     conf.Debug,
+		resources: map[resource.Name]*addedResource{},
+	}
 	mgr.modules[conf.Name] = mod
 
 	if err := mod.startProcess(ctx, mgr.parentAddr,
@@ -581,10 +588,20 @@ func (m *module) startProcess(
 	if err := modlib.CheckSocketAddressLength(m.addr); err != nil {
 		return err
 	}
+
+	// Start module process with -debug if:
+	//  * debug is set to true on the module
+	//  * debug is unset on the module but manager log level is Debug
+	args := []string{m.addr}
+	if (m.debug != nil && *m.debug) ||
+		(m.debug == nil && logger.Level() == zapcore.DebugLevel) {
+		args = append(args, "-debug")
+	}
+
 	pconf := pexec.ProcessConfig{
 		ID:               m.name,
 		Name:             m.exe,
-		Args:             []string{m.addr},
+		Args:             args,
 		Log:              true,
 		OnUnexpectedExit: oue,
 	}

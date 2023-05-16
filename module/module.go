@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/edaniels/golog"
 	"github.com/fullstorydev/grpcurl"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/grpcreflect"
@@ -148,12 +149,39 @@ func NewModule(ctx context.Context, address string, logger *zap.SugaredLogger) (
 	return m, nil
 }
 
+var errMissingSocketPath = errors.New("need socket path as command line argument")
+
 // NewModuleFromArgs directly parses the command line argument to get its address.
 func NewModuleFromArgs(ctx context.Context, logger *zap.SugaredLogger) (*Module, error) {
 	if len(os.Args) < 2 {
-		return nil, errors.New("need socket path as command line argument")
+		return nil, errMissingSocketPath
 	}
 	return NewModule(ctx, os.Args[1], logger)
+}
+
+// Arguments for the module executable.
+type Arguments struct {
+	Debug bool     `flag:"debug"`
+	Extra []string `flag:",extra"`
+}
+
+// NewLoggerFromArgs can be used to create a golog.Logger at either
+// "DebugLevel" or "InfoLevel" if -debug is or is not provided in os.Args
+// respectively. It will ignore all other provided arguments.
+func NewLoggerFromArgs(moduleName string) (golog.Logger, error) {
+	if len(os.Args) < 2 {
+		return nil, errMissingSocketPath
+	}
+
+	var argsParsed Arguments
+	if err := utils.ParseFlags(os.Args[1:], &argsParsed); err != nil {
+		return nil, err
+	}
+
+	if argsParsed.Debug {
+		return golog.NewDebugLogger(moduleName), nil
+	}
+	return golog.NewDevelopmentLogger(moduleName), nil
 }
 
 // Start starts the module service and grpc server.
