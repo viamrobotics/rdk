@@ -328,7 +328,9 @@ func (pi *piPigpio) reconfigureInterrupts(ctx context.Context, cfg *genericlinux
 		} else {
 			// This digital interrupt is no longer used.
 			interrupt.Close(ctx)
-			C.teardownInterrupt(C.int(bcom))
+			if result := C.teardownInterrupt(C.int(bcom)); result != 0 {
+				return picommon.ConvertErrorCodeToMessage(int(result), "error")
+			}
 		}
 	}
 
@@ -739,8 +741,11 @@ func (pi *piPigpio) Close(ctx context.Context) error {
 	}
 	pi.analogs = map[string]board.AnalogReader{}
 
-	for _, interrupt := range pi.interrupts {
+	for bcom, interrupt := range pi.interruptsHW {
 		err = multierr.Combine(err, interrupt.Close(ctx))
+		if result := C.teardownInterrupt(C.int(bcom)); result != 0 {
+			err = multierr.Combine(err, picommon.ConvertErrorCodeToMessage(int(result), "error"))
+		}
 	}
 	pi.interrupts = map[string]board.ReconfigurableDigitalInterrupt{}
 	pi.interruptsHW = map[uint]board.ReconfigurableDigitalInterrupt{}
