@@ -180,8 +180,8 @@ func (pi *piPigpio) performConfiguration(
 	}
 
 	instanceMu.Lock()
+	defer instanceMu.Unlock()
 	instances[pi] = struct{}{}
-	instanceMu.Unlock()
 	return nil
 }
 
@@ -747,8 +747,8 @@ func (pi *piPigpio) Close(ctx context.Context) error {
 	pi.interruptsHW = map[uint]board.ReconfigurableDigitalInterrupt{}
 
 	pi.mu.Lock()
+	defer pi.mu.Unlock()
 	pi.isClosed = true
-	pi.mu.Unlock()
 	return err
 }
 
