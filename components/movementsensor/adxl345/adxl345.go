@@ -68,7 +68,7 @@ type FreeFallConfig struct {
 	Time             float32 `json:"time_ms,omitempty"`
 }
 
-// ValidateTapConfigs validates the tap piece of the configs.
+// ValidateTapConfigs validates the tap piece of the config.
 func (tapCfg *TapConfig) ValidateTapConfigs(path string) error {
 	if tapCfg.AccelerometerPin != 1 && tapCfg.AccelerometerPin != 2 {
 		return errors.New("Accelerometer pin on the ADXL345 must be 1 or 2")
@@ -86,7 +86,7 @@ func (tapCfg *TapConfig) ValidateTapConfigs(path string) error {
 	return nil
 }
 
-// ValidateFreeFallConfigs validates the freefall piece of the configs.
+// ValidateFreeFallConfigs validates the freefall piece of the config.
 func (freefallCfg *FreeFallConfig) ValidateFreeFallConfigs(path string) error {
 	if freefallCfg.AccelerometerPin != 1 && freefallCfg.AccelerometerPin != 2 {
 		return errors.New("Accelerometer pin on the ADXL345 must be 1 or 2")
@@ -147,6 +147,7 @@ type adxl345 struct {
 	interruptsEnabled        byte
 	interruptsFound          map[InterruptID]int
 	configuredRegisterValues map[byte]byte
+
 	// Used only to remove the callbacks from the interrupts upon closing component.
 	interruptChannels map[board.DigitalInterrupt]chan board.Tick
 
