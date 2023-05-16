@@ -1,4 +1,4 @@
-//go:build linux
+//go:build linux && vcamera
 
 package videosource_test
 
@@ -28,7 +28,6 @@ func findWebcam(t *testing.T, webcams []*pb.Webcam, name string) *pb.Webcam {
 }
 
 func TestWebcamDiscovery(t *testing.T) {
-	t.Skip() // TODO: install dependencies to Github-hosted runners
 	logger := golog.NewTestLogger(t)
 
 	reg, ok := resource.LookupRegistration(camera.API, videosource.ModelWebcam)
@@ -79,7 +78,6 @@ func newWebcamConfig(name, path string) resource.Config {
 }
 
 func TestWebcamGetImage(t *testing.T) {
-	t.Skip() // TODO: install dependencies to Github-hosted runners
 	logger := golog.NewTestLogger(t)
 	config, err := vcamera.Builder(logger).
 		NewCamera(62, "Lo Res Webcam", vcamera.Resolution{Width: 640, Height: 480}).
