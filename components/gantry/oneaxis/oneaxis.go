@@ -134,33 +134,24 @@ func newOneAxis(ctx context.Context, deps resource.Dependencies, conf resource.C
 		oAx.rpm = 100
 	}
 
-	switch len(oAx.limitSwitchPins) {
-	case 1:
-		if oAx.mmPerRevolution <= 0 {
+	np := len(oAx.limitSwitchPins)
+	switch np {
+	case 1, 2:
+
+		board, err := board.FromDependencies(deps, newConf.Board)
+		if err != nil {
+			return nil, err
+		}
+		oAx.board = board
+
+		PinEnable := *newConf.LimitPinEnabled
+		oAx.limitHigh = PinEnable
+
+		if oAx.mmPerRevolution <= 0 && np == 1 {
 			return nil, errors.New("gantry with one limit switch per axis needs a mm_per_length ratio defined")
 		}
-
-		board, err := board.FromDependencies(deps, newConf.Board)
-		if err != nil {
-			return nil, err
-		}
-		oAx.board = board
-
-		PinEnable := *newConf.LimitPinEnabled
-		oAx.limitHigh = PinEnable
-
-	case 2:
-		board, err := board.FromDependencies(deps, newConf.Board)
-		if err != nil {
-			return nil, err
-		}
-		oAx.board = board
-
-		PinEnable := *newConf.LimitPinEnabled
-		oAx.limitHigh = PinEnable
-
 	case 0:
-		// do nothing
+		// do nothing, validation takes care of all checks already
 	default:
 		np := len(oAx.limitSwitchPins)
 		return nil, errors.Errorf("invalid gantry type: need 1, 2 or 0 pins per axis, have %v pins", np)
