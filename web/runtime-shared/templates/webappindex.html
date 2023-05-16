@@ -40,5 +40,7 @@
     {{ if eq .Env "production" }}
     <script type="module" src="{{ .StaticHost }}/static/remote-control/rc-control.js"></script>    
     {{ end }}
+
+    {{ end }}
   </body>
 </html>
