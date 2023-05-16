@@ -2,7 +2,8 @@
 	"modules": [
 		{
 			"name": "AcmeModule",
-			"executable_path": "./complexmodule"
+			"executable_path": "./complexmodule",
+			"debug": true
 		}
 	],
 	"services": [

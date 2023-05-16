@@ -2973,3 +2973,53 @@ func TestDependentAndOrphanedResources(t *testing.T) {
 	test.That(t, resp, test.ShouldNotBeNil)
 	test.That(t, resp, test.ShouldResemble, cmd)
 }
+
+func TestModuleDebugReconfigure(t *testing.T) {
+	ctx := context.Background()
+	// We must use an Info level observed test logger to avoid testmodule
+	// inheriting debug mode from the module manager.
+	logger, logs := rtestutils.NewInfoObservedTestLogger(t)
+
+	// Precompile module to avoid timeout issues when building takes too long.
+	err := rtestutils.BuildInDir("module/testmodule")
+	test.That(t, err, test.ShouldBeNil)
+
+	// Create robot with testmodule with Debug unset and assert that after two
+	// seconds, "debug mode enabled" debug log is not output by testmodule.
+	cfg := &config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "mod",
+				ExePath: rutils.ResolveFile("module/testmodule/testmodule"),
+			},
+		},
+	}
+	r, err := robotimpl.New(ctx, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+	}()
+
+	time.Sleep(2 * time.Second)
+	test.That(t, logs.FilterMessageSnippet("debug mode enabled").Len(),
+		test.ShouldEqual, 0)
+
+	// Reconfigure testmodule to have Debug set to true and assert that "debug
+	// mode enabled" debug log is eventually output by testmodule.
+	trueBool := true
+	cfg2 := &config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "mod",
+				ExePath: rutils.ResolveFile("module/testmodule/testmodule"),
+				Debug:   &trueBool,
+			},
+		},
+	}
+	r.Reconfigure(ctx, cfg2)
+
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		test.That(tb, logs.FilterMessageSnippet("debug mode enabled").Len(),
+			test.ShouldEqual, 1)
+	})
+}

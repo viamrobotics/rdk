@@ -8,9 +8,6 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
-	"go.uber.org/zap/zaptest"
 	"go.uber.org/zap/zaptest/observer"
 	"go.viam.com/test"
 	"go.viam.com/utils/testutils"
@@ -453,17 +450,6 @@ func TestModuleReloading(t *testing.T) {
 	})
 }
 
-// newInfoObservedTestLogger is a copy of NewObservedTestLogger with info level
-// debugging instead of debug level.
-func newInfoObservedTestLogger(tb testing.TB) (golog.Logger, *observer.ObservedLogs) {
-	logger := zaptest.NewLogger(tb, zaptest.Level(zap.InfoLevel), zaptest.WrapOptions(zap.AddCaller()))
-	observerCore, observedLogs := observer.New(zap.LevelEnablerFunc(zapcore.InfoLevel.Enabled))
-	logger = logger.WithOptions(zap.WrapCore(func(c zapcore.Core) zapcore.Core {
-		return zapcore.NewTee(c, observerCore)
-	}))
-	return logger.Sugar(), observedLogs
-}
-
 func TestDebugModule(t *testing.T) {
 	ctx := context.Background()
 
@@ -530,7 +516,7 @@ func TestDebugModule(t *testing.T) {
 			if tc.managerDebugEnabled {
 				logger, logs = golog.NewObservedTestLogger(t)
 			} else {
-				logger, logs = newInfoObservedTestLogger(t)
+				logger, logs = rtestutils.NewInfoObservedTestLogger(t)
 			}
 			mgr := NewManager(parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
 			defer mgr.Close(ctx)

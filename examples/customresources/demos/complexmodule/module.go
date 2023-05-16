@@ -21,7 +21,15 @@ import (
 )
 
 func main() {
-	utils.ContextualMain(mainWithArgs, golog.NewDevelopmentLogger("ComplexModule"))
+	// NewLoggerFromArgs can be used to create a golog.Logger at either
+	// "DebugLevel" or "InfoLevel" if -debug is or is not provided in os.Args
+	// respectively. It will ignore all other provided arguments.
+	logger, err := module.NewLoggerFromArgs("ComplexModule")
+	if err != nil {
+		panic(err)
+	}
+
+	utils.ContextualMain(mainWithArgs, logger)
 }
 
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err error) {
