@@ -138,8 +138,8 @@ func resourcesFromDeps(t *testing.T, r robot.Robot, deps []string) resource.Depe
 	return resources
 }
 
-// getNextDataAfterFilter returns the next point cloud data to be return based on the provided filter and
-// last returned item.
+// getNextDataAfterFilter returns the artifact index of the next point cloud data to be return based on
+// the provided filter and last returned artifact.
 func getNextDataAfterFilter(filter *datapb.Filter, last string) (int, error) {
 	// Basic component part (source) filter
 	if filter.ComponentName != "" && filter.ComponentName != "source" {

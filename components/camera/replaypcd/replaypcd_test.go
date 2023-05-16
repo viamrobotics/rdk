@@ -223,6 +223,8 @@ func TestNextPointCloud(t *testing.T) {
 	}
 }
 
+// TestLiveNextPointCloud checks the replay pcd camera's ability to handle new data being added to the
+// database the pool during a session.
 func TestLiveNextPointCloud(t *testing.T) {
 	ctx := context.Background()
 
@@ -336,7 +338,7 @@ func TestConfigValidation(t *testing.T) {
 					Start: "gibberish",
 				},
 			},
-			expectedErr: errors.New("invalid time format for start time, use RFC3339"),
+			expectedErr: errors.New("invalid time format for start time (UTC), use RFC3339"),
 		},
 		{
 			description: "Invalid config with bad end timestamp format",
@@ -346,7 +348,7 @@ func TestConfigValidation(t *testing.T) {
 					End: "gibberish",
 				},
 			},
-			expectedErr: errors.New("invalid time format for end time, use RFC3339"),
+			expectedErr: errors.New("invalid time format for end time (UTC), use RFC3339"),
 		},
 		{
 			description: "Invalid config with bad start timestamp",
@@ -356,7 +358,7 @@ func TestConfigValidation(t *testing.T) {
 					Start: "3000-01-01T12:00:00Z",
 				},
 			},
-			expectedErr: errors.New("invalid config, start time must be in the past"),
+			expectedErr: errors.New("invalid config, start time (UTC) must be in the past"),
 		},
 		{
 			description: "Invalid config with bad end timestamp",
@@ -366,7 +368,7 @@ func TestConfigValidation(t *testing.T) {
 					End: "3000-01-01T12:00:00Z",
 				},
 			},
-			expectedErr: errors.New("invalid config, end time must be in the past"),
+			expectedErr: errors.New("invalid config, end time (UTC) must be in the past"),
 		},
 		{
 			description: "Invalid config with start after end timestamps",
@@ -377,7 +379,7 @@ func TestConfigValidation(t *testing.T) {
 					End:   "2000-01-01T12:00:00Z",
 				},
 			},
-			expectedErr: errors.New("invalid config, end time must be after start time"),
+			expectedErr: errors.New("invalid config, end time (UTC) must be after start time (UTC)"),
 		},
 	}
 
