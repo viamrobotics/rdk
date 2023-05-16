@@ -13,8 +13,6 @@ import (
 	pb "go.viam.com/api/component/camera/v1"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/metadata"
 
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/protoutils"
@@ -134,32 +132,17 @@ func (c *client) Stream(
 }
 
 func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
-	ctxWithMD, hasCtxWithMD := ctx.(*utils.ContextWithMetadata)
-
 	ctx, span := trace.StartSpan(ctx, "camera::client::NextPointCloud")
 	defer span.End()
 
 	ctx, getPcdSpan := trace.StartSpan(ctx, "camera::client::NextPointCloud::GetPointCloud")
-	var header metadata.MD
 	resp, err := c.client.GetPointCloud(ctx, &pb.GetPointCloudRequest{
 		Name:     c.name,
 		MimeType: utils.MimeTypePCD,
-	}, grpc.Header(&header))
+	})
 	getPcdSpan.End()
 	if err != nil {
 		return nil, err
-	}
-
-	if hasCtxWithMD {
-		// Get timestamps from the gRPC header if they're provided.
-		timeRequested := header.Get(TimeRequestedMetadataKey)
-		if len(timeRequested) > 0 {
-			ctxWithMD.WithValue(TimeRequestedMetadataKey, timeRequested[0])
-		}
-		timeReceived := header.Get(TimeReceivedMetadataKey)
-		if len(timeReceived) > 0 {
-			ctxWithMD.WithValue(TimeReceivedMetadataKey, timeReceived[0])
-		}
 	}
 
 	if resp.MimeType != utils.MimeTypePCD {
