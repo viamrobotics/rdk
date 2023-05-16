@@ -475,6 +475,7 @@ func TestPosition(t *testing.T) {
 		},
 		board:           createFakeBoard(),
 		positionLimits:  []float64{0, 1},
+		posRange:        1.0,
 		limitHigh:       true,
 		limitSwitchPins: []string{"1", "2"},
 		logger:          logger,
@@ -631,6 +632,7 @@ func TestCurrentInputs(t *testing.T) {
 		limitSwitchPins: []string{"1", "2"},
 		lengthMm:        float64(200),
 		positionLimits:  []float64{0, 2},
+		posRange:        2.0,
 	}
 
 	input, err := fakegantry.CurrentInputs(ctx)
@@ -646,6 +648,7 @@ func TestCurrentInputs(t *testing.T) {
 		limitSwitchPins: []string{"1"},
 		lengthMm:        float64(200),
 		positionLimits:  []float64{0, 2},
+		posRange:        2.0,
 	}
 
 	input, err = fakegantry.CurrentInputs(ctx)
