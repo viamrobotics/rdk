@@ -735,12 +735,11 @@ func (pi *piPigpio) Close(ctx context.Context) error {
 	// Prevent duplicate calls to Close a board as this may overlap with
 	// the reinitialization of the board
 	pi.mu.Lock()
+	defer pi.mu.Unlock()
 	if pi.isClosed {
 		pi.logger.Info("Duplicate call to close pi board detected, skipping")
-		pi.mu.Unlock()
 		return nil
 	}
-	pi.mu.Unlock()
 	pi.interruptCancel()
 
 	instanceMu.Lock()
@@ -779,8 +778,6 @@ func (pi *piPigpio) Close(ctx context.Context) error {
 	pi.interrupts = map[string]board.ReconfigurableDigitalInterrupt{}
 	pi.interruptsHW = map[uint]board.ReconfigurableDigitalInterrupt{}
 
-	pi.mu.Lock()
-	defer pi.mu.Unlock()
 	pi.isClosed = true
 	return err
 }
