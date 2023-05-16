@@ -151,6 +151,39 @@ func (wb *wheeledBase) Reconfigure(ctx context.Context, deps resource.Dependenci
 	return nil
 }
 
+// CreateWheeledBase returns a new wheeled base defined by the given config.
+func CreateWheeledBase(
+	ctx context.Context,
+	deps resource.Dependencies,
+	conf resource.Config,
+	logger golog.Logger,
+) (base.LocalBase, error) {
+	newConf, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return nil, err
+	}
+
+	wb := wheeledBase{
+		Named:                conf.ResourceName().AsNamed(),
+		widthMm:              newConf.WidthMM,
+		wheelCircumferenceMm: newConf.WheelCircumferenceMM,
+		spinSlipFactor:       newConf.SpinSlipFactor,
+		logger:               logger,
+		name:                 conf.Name,
+		frame:                conf.Frame,
+	}
+
+	if wb.spinSlipFactor == 0 {
+		wb.spinSlipFactor = 1
+	}
+
+	if err := wb.Reconfigure(ctx, deps, conf); err != nil {
+		return nil, err
+	}
+
+	return &wb, nil
+}
+
 // Spin commands a base to turn about its center at a angular speed and for a specific angle.
 func (wb *wheeledBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
 	ctx, done := wb.opMgr.New(ctx)
@@ -365,37 +398,4 @@ func (wb *wheeledBase) Close(ctx context.Context) error {
 // Width returns the width of the base as configured by the user.
 func (wb *wheeledBase) Width(ctx context.Context) (int, error) {
 	return wb.widthMm, nil
-}
-
-// CreateWheeledBase returns a new wheeled base defined by the given config.
-func CreateWheeledBase(
-	ctx context.Context,
-	deps resource.Dependencies,
-	conf resource.Config,
-	logger golog.Logger,
-) (base.LocalBase, error) {
-	newConf, err := resource.NativeConfig[*Config](conf)
-	if err != nil {
-		return nil, err
-	}
-
-	wb := wheeledBase{
-		Named:                conf.ResourceName().AsNamed(),
-		widthMm:              newConf.WidthMM,
-		wheelCircumferenceMm: newConf.WheelCircumferenceMM,
-		spinSlipFactor:       newConf.SpinSlipFactor,
-		logger:               logger,
-		name:                 conf.Name,
-		frame:                conf.Frame,
-	}
-
-	if wb.spinSlipFactor == 0 {
-		wb.spinSlipFactor = 1
-	}
-
-	if err := wb.Reconfigure(ctx, deps, conf); err != nil {
-		return nil, err
-	}
-
-	return &wb, nil
 }
