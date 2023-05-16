@@ -157,7 +157,7 @@ func newOneAxis(ctx context.Context, deps resource.Dependencies, conf resource.C
 		return nil, errors.Errorf("invalid gantry type: need 1, 2 or 0 pins per axis, have %v pins", np)
 	}
 
-	if err := oAx.home(ctx); err != nil {
+	if err := oAx.home(ctx, np); err != nil {
 		return nil, err
 	}
 
@@ -166,13 +166,13 @@ func newOneAxis(ctx context.Context, deps resource.Dependencies, conf resource.C
 	return oAx, nil
 }
 
-func (g *oneAxis) home(ctx context.Context) error {
+func (g *oneAxis) home(ctx context.Context, np int) error {
 	ctx, done := g.opMgr.New(ctx)
 	defer done()
 
 	// Mapping one limit switch motor0->limsw0, motor1 ->limsw1, motor 2 -> limsw2
 	// Mapping two limit switch motor0->limSw0,limSw1; motor1->limSw2,limSw3; motor2->limSw4,limSw5
-	switch len(g.limitSwitchPins) {
+	switch np {
 	// An axis with one limit switch will go till it hits the limit switch, encode that position as the
 	// zero position of the one-axis, and adds a second position limit based on the steps per length.
 	case 1:
