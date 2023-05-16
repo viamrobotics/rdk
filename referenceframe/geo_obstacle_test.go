@@ -57,7 +57,6 @@ func TestGeoObstacles(t *testing.T) {
 		test.That(t, testPoint.Lat(), test.ShouldEqual, conv.Location.Latitude)
 		test.That(t, testPoint.Lng(), test.ShouldEqual, conv.Location.Longitude)
 		test.That(t, conv.Geometries, test.ShouldResemble, []*commonpb.Geometry{testSphere.ToProtobuf()})
-
 	})
 
 	t.Run("Conversion from GeoObstacleConfig to GeoObstacle", func(t *testing.T) {
@@ -67,5 +66,4 @@ func TestGeoObstacles(t *testing.T) {
 		test.That(t, conv[0].location, test.ShouldResemble, gob.location)
 		test.That(t, conv[0].geometries, test.ShouldResemble, gob.geometries)
 	})
-
 }
