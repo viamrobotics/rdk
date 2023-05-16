@@ -64,6 +64,10 @@ func init() {
 // accessed via pigpio.
 type piPigpio struct {
 	resource.Named
+	// To prevent deadlocks, we must never lock this mutex while instanceMu, defined below, is
+	// locked. It's okay to lock instanceMu while this is locked, though. This invariant prevents
+	// deadlocks if both mutexes are locked by separate goroutines and are each waiting to lock the
+	// other as well.
 	mu              sync.Mutex
 	interruptCtx    context.Context
 	interruptCancel context.CancelFunc
@@ -82,8 +86,11 @@ type piPigpio struct {
 
 var (
 	pigpioInitialized bool
-	instanceMu        sync.RWMutex
-	instances         = map[*piPigpio]struct{}{}
+	// To prevent deadlocks, we must never lock the mutex of a specific piPigpio struct, above,
+	// while this is locked. It is okay to lock this while one of those other mutexes is locked
+	// instead.
+	instanceMu sync.RWMutex
+	instances  = map[*piPigpio]struct{}{}
 )
 
 func initializePigpio() error {
@@ -710,6 +717,7 @@ func (pi *piPigpio) Close(ctx context.Context) error {
 	}
 	pi.mu.Unlock()
 	pi.interruptCancel()
+
 	instanceMu.Lock()
 	if len(instances) == 1 {
 		terminate = true
