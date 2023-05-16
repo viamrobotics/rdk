@@ -57,20 +57,22 @@ func GeoObstacleFromProtobuf(protoGeoObst *commonpb.GeoObstacle) (*GeoObstacle, 
 	return NewGeoObstacle(convPoint, convGeoms), nil
 }
 
-// GeoObstacleConfig is a struct to store the location and geometric structure of an obstacle in a geospatial environment.
+// GeoObstacleConfig specifies the format of GeoObstacles specified through the configuration file.
 type GeoObstacleConfig struct {
 	Location   *commonpb.GeoPoint   `json:"location"`
-	Geometries []*commonpb.Geometry `json:"obstacles"`
+	Geometries []*commonpb.Geometry `json:"geometries"`
 }
 
 // NewGeoObstacleConfig takes a GeoObstacle and returns a GeoObstacleConfig.
 func NewGeoObstacleConfig(geo GeoObstacle) (*GeoObstacleConfig, error) {
-	config := &GeoObstacleConfig{}
-	config.Location.Latitude = geo.location.Lat()
-	config.Location.Longitude = geo.location.Lng()
-
+	protoGeom := []*commonpb.Geometry{}
 	for _, geom := range geo.geometries {
-		config.Geometries = append(config.Geometries, geom.ToProtobuf())
+		protoGeom = append(protoGeom, geom.ToProtobuf())
+	}
+
+	config := &GeoObstacleConfig{
+		Location:   &commonpb.GeoPoint{Latitude: geo.location.Lat(), Longitude: geo.location.Lng()},
+		Geometries: protoGeom,
 	}
 
 	return config, nil
@@ -87,7 +89,7 @@ func GeoObstaclesFromConfig(config GeoObstacleConfig) ([]*GeoObstacle, error) {
 		if err != nil {
 			return nil, err
 		}
-		gob.geometries = []spatialmath.Geometry{geom}
+		gob.geometries = append(gob.geometries, geom)
 		gobs = append(gobs, &gob)
 	}
 	return gobs, nil
