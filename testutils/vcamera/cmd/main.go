@@ -7,10 +7,12 @@
 package main
 
 import (
-	"github.com/edaniels/golog"
-	"go.viam.com/rdk/testutils/vcamera"
 	"os"
 	"os/signal"
+
+	"github.com/edaniels/golog"
+
+	"go.viam.com/rdk/testutils/vcamera"
 )
 
 func main() {
