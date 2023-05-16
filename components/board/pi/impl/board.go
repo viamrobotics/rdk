@@ -281,6 +281,9 @@ func (pi *piPigpio) reconfigureInterrupts(ctx context.Context, cfg *genericlinux
 		newInterruptsHW[bcom] = interrupt
 		delete(interruptsToClose, interrupt)
 
+		// We also need to remove the reused interrupt from oldInterrupts and oldInterruptsHW, to
+		// avoid double-reuse (e.g., the old interrupt had name "foo" on pin 7, and the new config
+		// has name "foo" on pin 8 and name "bar" on pin 7).
 		if oldName, ok := findInterruptName(interrupt, oldInterrupts); ok {
 			delete(oldInterrupts, oldName)
 		} else {
