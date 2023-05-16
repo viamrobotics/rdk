@@ -64,7 +64,6 @@ func init() {
 // accessed via pigpio.
 type piPigpio struct {
 	resource.Named
-	resource.AlwaysRebuild
 	mu              sync.Mutex
 	interruptCtx    context.Context
 	interruptCancel context.CancelFunc
@@ -135,7 +134,7 @@ func newPigpio(ctx context.Context, name resource.Name, cfg resource.Config, log
 		interruptCancel: cancelFunc,
 	}
 
-	if err := piInstance.performConfiguration(ctx, nil, cfg); err != nil {
+	if err := piInstance.Reconfigure(ctx, nil, cfg); err != nil {
 		// This has to happen outside of the lock to avoid a deadlock with interrupts.
 		C.gpioTerminate()
 		instanceMu.Lock()
@@ -147,8 +146,7 @@ func newPigpio(ctx context.Context, name resource.Name, cfg resource.Config, log
 	return piInstance, nil
 }
 
-// TODO(RSDK-RSDK-2691): implement reconfigure.
-func (pi *piPigpio) performConfiguration(
+func (pi *piPigpio) Reconfigure(
 	ctx context.Context,
 	_ resource.Dependencies,
 	conf resource.Config,
