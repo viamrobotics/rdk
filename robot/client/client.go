@@ -27,7 +27,6 @@ import (
 	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
 	"google.golang.org/grpc/status"
 
-	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/pointcloud"
@@ -39,6 +38,7 @@ import (
 	"go.viam.com/rdk/robot/packages"
 	"go.viam.com/rdk/session"
 	"go.viam.com/rdk/spatialmath"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 var (
@@ -279,7 +279,7 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 	// interceptors are applied in order from first to last
 	rc.dialOptions = append(
 		rc.dialOptions,
-		rpc.WithUnaryClientInterceptor(camera.ContextWithTimestampsUnaryClientInterceptor),
+		rpc.WithUnaryClientInterceptor(rdkutils.ContextWithMetadataUnaryClientInterceptor),
 		// error handling
 		rpc.WithUnaryClientInterceptor(rc.handleUnaryDisconnect),
 		rpc.WithStreamClientInterceptor(rc.handleStreamDisconnect),

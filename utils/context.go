@@ -1,30 +1,31 @@
 package utils
 
-import "context"
+import (
+	"context"
 
-type ContextWithMetadata struct {
-	context.Context
-	md map[string]string
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
+)
+
+const MetadataKey = "viam-metadata"
+
+func ContextWithMetadata(ctx context.Context) (context.Context, map[string][]string) {
+	md := make(map[string][]string)
+	ctx = context.WithValue(ctx, MetadataKey, md)
+	return ctx, md
 }
 
-func NewContextWithMetadata(ctx context.Context) context.Context {
-	return &ContextWithMetadata{
-		Context: ctx,
-		md:      make(map[string]string),
-	}
-}
+func ContextWithMetadataUnaryClientInterceptor(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+	var header metadata.MD
+	opts = append(opts, grpc.Header(&header))
+	invoker(ctx, method, req, reply, cc, opts...)
 
-func (ctx *ContextWithMetadata) Value(key any) any {
-	if s, ok := key.(string); ok {
-		if v, ok := ctx.md[s]; ok {
-			return v
+	md := ctx.Value(MetadataKey)
+	if mdMap, ok := md.(map[string][]string); ok {
+		for key, value := range header {
+			mdMap[key] = value
 		}
 	}
 
-	return ctx.Context.Value(key)
-}
-
-func (ctx *ContextWithMetadata) WithValue(key, value string) {
-	ctx.md[key] = value
-	return
+	return nil
 }

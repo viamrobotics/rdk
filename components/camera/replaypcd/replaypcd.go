@@ -123,7 +123,6 @@ func newPCDCamera(ctx context.Context, deps resource.Dependencies, conf resource
 
 // NextPointCloud returns the next point cloud retrieved from cloud storage based on the applied filter.
 func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
-
 	replay.mu.RLock()
 	defer replay.mu.RUnlock()
 	if replay.closed {
