@@ -269,10 +269,37 @@ func (pi *piPigpio) reconfigureInterrupts(ctx context.Context, cfg *genericlinux
 	newInterrupts := map[string]board.ReconfigurableDigitalInterrupt{}
 	newInterruptsHW := map[uint]board.ReconfigurableDigitalInterrupt{}
 
+	// This begins as a set of all interrupts, but we'll remove the ones we reuse. Then, we'll
+	// close whatever is left over.
 	interruptsToClose := make(map[board.ReconfigurableDigitalInterrupt]struct{}, len(oldInterrupts))
 	for _, interrupt := range oldInterrupts {
 		interruptsToClose[interrupt] = struct{}{}
-	} // We'll remove the reused interrupts from this map, and then close the rest.
+	}
+
+	reuseInterrupt := func(interrupt board.ReconfigurableDigitalInterrupt, name string, bcom uint) {
+		newInterrupts[name] = interrupt
+		newInterruptsHW[bcom] = interrupt
+		delete(interruptsToClose, interrupt)
+
+		if oldName, ok := findInterruptName(interrupt, oldInterrupts); ok {
+			delete(oldInterrupts, oldName)
+		} else {
+			// This should never happen. However, if it does, nothing is obviously broken, so we'll
+			// just log the weirdness and continue.
+			pi.logger.Errorf(
+				"Tried reconfiguring old interrupt to new name %s and broadcom address %s, " +
+				"but couldn't find its old name!?", name, bcom)
+		}
+
+		if oldBcom, ok := findInterruptBcom(interrupt, oldInterruptsHW); ok {
+			delete(oldInterruptsHW, oldBcom)
+		} else {
+			// This should never happen, either, but is similarly not really a problem.
+			pi.logger.Errorf(
+				"Tried reconfiguring old interrupt to new name %s and broadcom address %s, " +
+				"but couldn't find its old bcom!?", name, bcom)
+		}
+	}
 
 	for _, newConfig := range cfg.DigitalInterrupts {
 		bcom, ok := broadcomPinFromHardwareLabel(newConfig.Pin)
@@ -282,17 +309,12 @@ func (pi *piPigpio) reconfigureInterrupts(ctx context.Context, cfg *genericlinux
 
 		// Try reusing an interrupt with the same pin
 		if oldInterrupt, ok := oldInterruptsHW[bcom]; ok {
-			newInterrupts[newConfig.Name] = oldInterrupt
-			newInterruptsHW[bcom] = oldInterrupt
-			delete(interruptsToClose, oldInterrupt)
+			reuseInterrupt(oldInterrupt, newConfig.Name, bcom)
 			continue
 		}
-
 		// If that didn't work, try reusing an interrupt with the same name
 		if oldInterrupt, ok := oldInterrupts[newConfig.Name]; ok {
-			newInterrupts[newConfig.Name] = oldInterrupt
-			newInterruptsHW[bcom] = oldInterrupt
-			delete(interruptsToClose, oldInterrupt)
+			reuseInterrupt(oldInterrupt, newConfig.Name, bcom)
 			continue
 		}
 
