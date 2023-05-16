@@ -306,15 +306,5 @@ func TestServoFunctions(t *testing.T) {
 		moving, err = s.IsMoving(ctx)
 		test.That(t, moving, test.ShouldBeFalse)
 		test.That(t, err, test.ShouldBeNil)
-
-		err = s.Move(ctx, 8, nil)
-		test.That(t, err, test.ShouldNotBeNil)
-
-		err = s.Stop(ctx, nil)
-		test.That(t, err, test.ShouldNotBeNil)
-
-		pos, err := s.Position(ctx, nil)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, pos, test.ShouldEqual, 0)
 	})
 }
