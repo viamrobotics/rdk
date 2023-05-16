@@ -28,7 +28,6 @@ import (
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/robot/framesystem"
-	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 	"go.viam.com/rdk/robot/packages"
 	"go.viam.com/rdk/robot/web"
 	weboptions "go.viam.com/rdk/robot/web/options"
@@ -44,7 +43,6 @@ var _ = robot.LocalRobot(&localRobot{})
 type localRobot struct {
 	mu      sync.Mutex
 	manager *resourceManager
-	config  *config.Config
 
 	operations                 *operation.Manager
 	sessionManager             session.Manager
@@ -179,13 +177,9 @@ func (r *localRobot) StopAll(ctx context.Context, extra map[resource.Name]map[st
 	return nil
 }
 
-// Config returns the config used to construct the robot. Only local resources are returned.
-// This is allowed to be partial or empty.
-func (r *localRobot) Config(ctx context.Context) (*config.Config, error) {
-	cfgCpy := *r.config
-	cfgCpy.Components = append([]resource.Config{}, cfgCpy.Components...)
-
-	return &cfgCpy, nil
+// Config returns a config representing the current state of the robot.
+func (r *localRobot) Config() *config.Config {
+	return r.manager.createConfig()
 }
 
 // Logger returns the logger the robot is using.
@@ -330,6 +324,7 @@ func newWithResources(
 	opts ...Option,
 ) (robot.LocalRobot, error) {
 	var rOpts options
+	var err error
 	for _, opt := range opts {
 		opt.apply(&rOpts)
 	}
@@ -399,7 +394,10 @@ func newWithResources(
 	// we assume these never appear in our configs and as such will not be removed from the
 	// resource graph
 	r.webSvc = web.New(r, logger, rOpts.webOptions...)
-	r.frameSvc = framesystem.New(ctx, r, logger)
+	r.frameSvc, err = framesystem.New(ctx, resource.Dependencies{}, logger)
+	if err != nil {
+		return nil, err
+	}
 	if err := r.manager.resources.AddNode(
 		web.InternalServiceName,
 		resource.NewConfiguredGraphNode(resource.Config{}, r.webSvc, builtinModel)); err != nil {
@@ -443,6 +441,10 @@ func newWithResources(
 	// detected and in testing.
 	goutils.ManagedGo(func() {
 		for {
+			if closeCtx.Err() != nil {
+				return
+			}
+
 			select {
 			case <-closeCtx.Done():
 				return
@@ -460,7 +462,6 @@ func newWithResources(
 		}
 	}, r.activeBackgroundWorkers.Done)
 
-	r.config = &config.Config{}
 	r.Reconfigure(ctx, cfg)
 
 	for name, res := range resources {
@@ -668,8 +669,17 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 	// For now, we pass all resources and empty configs.
 	for resName, res := range internalResources {
 		switch resName {
-		case web.InternalServiceName, framesystem.InternalServiceName:
+		case web.InternalServiceName:
 			if err := res.Reconfigure(ctx, allResources, resource.Config{}); err != nil {
+				r.Logger().Errorw("failed to reconfigure internal service", "service", resName, "error", err)
+			}
+		case framesystem.InternalServiceName:
+			fsCfg, err := r.FrameSystemConfig(ctx)
+			if err != nil {
+				r.Logger().Errorw("failed to reconfigure internal service", "service", resName, "error", err)
+				continue
+			}
+			if err := res.Reconfigure(ctx, components, resource.Config{ConvertedAttributes: fsCfg}); err != nil {
 				r.Logger().Errorw("failed to reconfigure internal service", "service", resName, "error", err)
 			}
 		case packages.InternalServiceName, cloud.InternalServiceName:
@@ -700,20 +710,119 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 			r.Logger().Errorw("failed to reconfigure resource with weak dependencies", "resource", resName, "error", err)
 		}
 	}
-	for _, conf := range r.config.Components {
+	conf := r.Config()
+	for _, conf := range conf.Components {
 		updateResourceWeakDependents(conf)
 	}
-	for _, conf := range r.config.Services {
+	for _, conf := range conf.Services {
 		updateResourceWeakDependents(conf)
 	}
 }
 
-// FrameSystemConfig returns the info of each individual part that makes up a robot's frame system.
-func (r *localRobot) FrameSystemConfig(
-	ctx context.Context,
-	additionalTransforms []*referenceframe.LinkInFrame,
-) (framesystemparts.Parts, error) {
-	return r.frameSvc.Config(ctx, additionalTransforms)
+// Config returns the info of each individual part that makes up the frame system
+// The output of this function is to be sent over GRPC to the client, so the client
+// can build its frame system. requests the remote components from the remote's frame system service.
+func (r *localRobot) FrameSystemConfig(ctx context.Context) (*framesystem.Config, error) {
+	localParts, err := r.getLocalFrameSystemParts()
+	if err != nil {
+		return nil, err
+	}
+	remoteParts, err := r.getRemoteFrameSystemParts(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &framesystem.Config{Parts: append(localParts, remoteParts...)}, nil
+}
+
+// getLocalFrameSystemParts collects and returns the physical parts of the robot that may have frame info,
+// excluding remote robots and services, etc from the robot's config.Config.
+func (r *localRobot) getLocalFrameSystemParts() ([]*referenceframe.FrameSystemPart, error) {
+	cfg := r.Config()
+
+	parts := make([]*referenceframe.FrameSystemPart, 0)
+	for _, component := range cfg.Components {
+		if component.Frame == nil { // no Frame means dont include in frame system.
+			continue
+		}
+
+		if component.Name == referenceframe.World {
+			return nil, errors.Errorf("cannot give frame system part the name %s", referenceframe.World)
+		}
+		if component.Frame.Parent == "" {
+			return nil, errors.Errorf("parent field in frame config for part %q is empty", component.Name)
+		}
+		cfgCopy := &referenceframe.LinkConfig{
+			ID:          component.Frame.ID,
+			Translation: component.Frame.Translation,
+			Orientation: component.Frame.Orientation,
+			Geometry:    component.Frame.Geometry,
+			Parent:      component.Frame.Parent,
+		}
+		if cfgCopy.ID == "" {
+			cfgCopy.ID = component.Name
+		}
+		model, err := r.extractModelFrameJSON(component.ResourceName())
+		if err != nil && !errors.Is(err, referenceframe.ErrNoModelInformation) {
+			// When we have non-nil errors here, it is because the resource is not yet available.
+			// In this case, we will exclude it from the FS.
+			// When it becomes available, it will be included.
+			continue
+		}
+		lif, err := cfgCopy.ParseConfig()
+		if err != nil {
+			return nil, err
+		}
+
+		parts = append(parts, &referenceframe.FrameSystemPart{FrameConfig: lif, ModelFrame: model})
+	}
+	return parts, nil
+}
+
+func (r *localRobot) getRemoteFrameSystemParts(ctx context.Context) ([]*referenceframe.FrameSystemPart, error) {
+	cfg := r.Config()
+
+	remoteParts := make([]*referenceframe.FrameSystemPart, 0)
+	for _, remoteCfg := range cfg.Remotes {
+		// build the frame system part that connects remote world to base world
+		if remoteCfg.Frame == nil { // skip over remote if it has no frame info
+			r.logger.Debugf("remote %s has no frame config info, skipping", remoteCfg.Name)
+			continue
+		}
+		lif, err := remoteCfg.Frame.ParseConfig()
+		if err != nil {
+			return nil, err
+		}
+		parentName := remoteCfg.Name + "_" + referenceframe.World
+		lif.SetName(parentName)
+		remoteParts = append(remoteParts, &referenceframe.FrameSystemPart{FrameConfig: lif})
+
+		// get the parts from the remote itself
+		remote, ok := r.RemoteByName(remoteCfg.Name)
+		if !ok {
+			return nil, errors.Errorf("cannot find remote robot %s", remoteCfg.Name)
+		}
+		remoteFsCfg, err := remote.FrameSystemConfig(ctx)
+		if err != nil {
+			return nil, errors.Wrapf(err, "remote %s", remote)
+		}
+		framesystem.PrefixRemoteParts(remoteFsCfg.Parts, remoteCfg.Name, parentName)
+		remoteParts = append(remoteParts, remoteFsCfg.Parts...)
+	}
+	return remoteParts, nil
+}
+
+// extractModelFrameJSON finds the robot part with a given name, checks to see if it implements ModelFrame, and returns the
+// JSON []byte if it does, or nil if it doesn't.
+func (r *localRobot) extractModelFrameJSON(name resource.Name) (referenceframe.Model, error) {
+	part, err := r.ResourceByName(name)
+	if err != nil {
+		return nil, err
+	}
+	if framer, ok := part.(referenceframe.ModelFramer); ok {
+		return framer.ModelFrame(), nil
+	}
+	return nil, referenceframe.ErrNoModelInformation
 }
 
 // TransformPose will transform the pose of the requested poseInFrame to the desired frame in the robot's frame system.
@@ -825,8 +934,7 @@ func dialRobotClient(
 
 // Reconfigure will safely reconfigure a robot based on the given config. It will make
 // a best effort to remove no longer in use parts, but if it fails to do so, they could
-// possibly leak resources.
-// The given config is assumed to be owned by the robot now.
+// possibly leak resources. The given config may be modified by Reconfigure.
 func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) {
 	var allErrs error
 
@@ -891,9 +999,9 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 		allErrs = multierr.Combine(allErrs, err)
 	}
 
-	// Now that we have the new config and all references are resolved, diff it with the old
-	// config to see what has changed.
-	diff, err := config.DiffConfigs(*r.config, *newConfig, r.revealSensitiveConfigDiffs)
+	// Now that we have the new config and all references are resolved, diff it
+	// with the current generated config to see what has changed.
+	diff, err := config.DiffConfigs(*r.Config(), *newConfig, r.revealSensitiveConfigDiffs)
 	if err != nil {
 		r.logger.Errorw("error diffing the configs", "error", err)
 		return
@@ -932,48 +1040,30 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 		r.logger.Debugf("(re)configuring with %+v", diff)
 	}
 
-	// First we remove resources and their children that are not in the graph.
+	// First we mark diff.Removed resources and their children for removal.
 	processesToClose, resourcesToCloseBeforeComplete, _ := r.manager.markRemoved(ctx, diff.Removed, r.logger)
 
-	// Second we update the resource graph.
+	// Second we update the resource graph and stop any removed processes.
 	allErrs = multierr.Combine(allErrs, r.manager.updateResources(ctx, diff))
-	r.config = newConfig
-
 	allErrs = multierr.Combine(allErrs, processesToClose.Stop())
 
-	// Third we attempt to complete the config (see function for details)
+	// Third we attempt to Close resources.
 	alreadyClosed := make(map[resource.Name]struct{}, len(resourcesToCloseBeforeComplete))
 	for _, res := range resourcesToCloseBeforeComplete {
 		allErrs = multierr.Combine(allErrs, r.manager.closeResource(ctx, res))
 		// avoid a double close later
 		alreadyClosed[res.Name()] = struct{}{}
 	}
+
+	// Fourth we attempt to complete the config (see function for details) and
+	// update weak dependents.
 	r.manager.completeConfig(ctx, r)
 	r.updateWeakDependents(ctx)
 
-	removedNames, removedErr := r.manager.removeMarkedAndClose(ctx, alreadyClosed)
-	if removedErr != nil {
-		allErrs = multierr.Combine(allErrs, removedErr)
-	}
-	for _, removedName := range removedNames {
-		// Remove dependents of removed resources from r.config; leaving these
-		// resources in the stored config means they cannot be correctly re-added
-		// when their dependency reappears.
-		//
-		// TODO(RSDK-2876): remove this code when we start referring to a config
-		// generated from resource graph instead of r.config.
-		for i, c := range r.config.Components {
-			if c.ResourceName() == removedName {
-				r.config.Components[i] = r.config.Components[len(r.config.Components)-1]
-				r.config.Components = r.config.Components[:len(r.config.Components)-1]
-			}
-		}
-		for i, s := range r.config.Services {
-			if s.ResourceName() == removedName {
-				r.config.Services[i] = r.config.Services[len(r.config.Services)-1]
-				r.config.Services = r.config.Services[:len(r.config.Services)-1]
-			}
-		}
+	// Finally we actually remove marked resources and Close any that are
+	// still unclosed.
+	if err := r.manager.removeMarkedAndClose(ctx, alreadyClosed); err != nil {
+		allErrs = multierr.Combine(allErrs, err)
 	}
 
 	// cleanup unused packages after all old resources have been closed above. This ensures

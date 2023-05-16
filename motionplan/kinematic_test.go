@@ -166,7 +166,7 @@ func TestDeriv(t *testing.T) {
 // Test dynamic frame systems
 // Since kinematics imports reference frame, this needs to be here to avoid circular dependencies.
 func TestDynamicFrameSystemXArm(t *testing.T) {
-	fs := frame.NewEmptySimpleFrameSystem("test")
+	fs := frame.NewEmptyFrameSystem("test")
 
 	model, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
@@ -202,7 +202,7 @@ func TestDynamicFrameSystemXArm(t *testing.T) {
 // gripper on a 3cm stick. We also model a xArm6 which is placed on an XY gantry, which is zeroed at (-50,-50,-200).
 // Ensure that we are able to transform points from the camera frame into world frame, to gantry frame, and to xarm frame.
 func TestComplicatedDynamicFrameSystem(t *testing.T) {
-	fs := frame.NewEmptySimpleFrameSystem("test")
+	fs := frame.NewEmptyFrameSystem("test")
 
 	// robot offsets
 	urOffset, err := frame.NewStaticFrame("urOffset", spatial.NewPoseFromPoint(r3.Vector{100, 100, 200}))

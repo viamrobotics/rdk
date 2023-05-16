@@ -1,3 +1,4 @@
+// Package framesystem defines the frame system service which is responsible for managing a stateful frame system
 package framesystem
 
 import (
@@ -6,14 +7,13 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
+	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/robot"
-	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
@@ -33,28 +33,33 @@ var InternalServiceName = resource.NewName(API, "builtin")
 // A Service that returns the frame system for a robot.
 type Service interface {
 	resource.Resource
-	Config(ctx context.Context, additionalTransforms []*referenceframe.LinkInFrame) (framesystemparts.Parts, error)
 	TransformPose(
-		ctx context.Context, pose *referenceframe.PoseInFrame, dst string,
+		ctx context.Context,
+		pose *referenceframe.PoseInFrame,
+		dst string,
 		additionalTransforms []*referenceframe.LinkInFrame,
 	) (*referenceframe.PoseInFrame, error)
 	TransformPointCloud(ctx context.Context, srcpc pointcloud.PointCloud, srcName, dstName string) (pointcloud.PointCloud, error)
-	AllCurrentInputs(ctx context.Context) (map[string][]referenceframe.Input, map[string]referenceframe.InputEnabled, error)
+	CurrentInputs(ctx context.Context) (map[string][]referenceframe.Input, map[string]referenceframe.InputEnabled, error)
 	FrameSystem(ctx context.Context, additionalTransforms []*referenceframe.LinkInFrame) (referenceframe.FrameSystem, error)
 }
 
-// New returns a new frame system service for the given robot.
-func New(ctx context.Context, r robot.Robot, logger golog.Logger) Service {
-	return &frameSystemService{
-		Named:  InternalServiceName.AsNamed(),
-		r:      r,
-		logger: logger,
-	}
+// FromDependencies is a helper for getting the framesystem from a collection of dependencies.
+func FromDependencies(deps resource.Dependencies) (Service, error) {
+	return resource.FromDependencies[Service](deps, InternalServiceName)
 }
 
-// FromRobot is a helper for getting the framesystem service from the given Robot.
-func FromRobot(r robot.Robot) (Service, error) {
-	return robot.ResourceFromRobot[Service](r, InternalServiceName)
+// New returns a new frame system service for the given robot.
+func New(ctx context.Context, deps resource.Dependencies, logger golog.Logger) (Service, error) {
+	fs := &frameSystemService{
+		Named:      InternalServiceName.AsNamed(),
+		components: make(map[string]resource.Resource),
+		logger:     logger,
+	}
+	if err := fs.Reconfigure(ctx, deps, resource.Config{ConvertedAttributes: &Config{}}); err != nil {
+		return nil, err
+	}
+	return fs, nil
 }
 
 var internalFrameSystemServiceName = resource.NewName(
@@ -66,83 +71,86 @@ func (svc *frameSystemService) Name() resource.Name {
 	return internalFrameSystemServiceName
 }
 
+// Config is a slice of *config.FrameSystemPart.
+type Config struct {
+	resource.TriviallyValidateConfig
+	Parts                []*referenceframe.FrameSystemPart
+	AdditionalTransforms []*referenceframe.LinkInFrame
+}
+
+// String prints out a table of each frame in the system, with columns of name, parent, translation and orientation.
+func (cfg Config) String() string {
+	t := table.NewWriter()
+	t.AppendHeader(table.Row{"#", "Name", "Parent", "Translation", "Orientation", "Geometry"})
+	t.AppendRow([]interface{}{"0", referenceframe.World, "", "", "", ""})
+	for i, part := range cfg.Parts {
+		pose := part.FrameConfig.Pose()
+		tra := pose.Point()
+		ori := pose.Orientation().EulerAngles()
+		geomString := ""
+		if gc := part.FrameConfig.Geometry(); gc != nil {
+			geomString = gc.String()
+		}
+		t.AppendRow([]interface{}{
+			fmt.Sprintf("%d", i+1),
+			part.FrameConfig.Name(),
+			part.FrameConfig.Parent(),
+			fmt.Sprintf("X:%.0f, Y:%.0f, Z:%.0f", tra.X, tra.Y, tra.Z),
+			fmt.Sprintf(
+				"Roll:%.2f, Pitch:%.2f, Yaw:%.2f",
+				utils.RadToDeg(ori.Roll),
+				utils.RadToDeg(ori.Pitch),
+				utils.RadToDeg(ori.Yaw),
+			),
+			geomString,
+		})
+	}
+	return t.Render()
+}
+
 // the frame system service collects all the relevant parts that make up the frame system from the robot
 // configs, and the remote robot configs.
 type frameSystemService struct {
 	resource.Named
 	resource.TriviallyCloseable
-	r      robot.Robot
-	logger golog.Logger
+	components map[string]resource.Resource
+	logger     golog.Logger
 
-	partsMu     sync.RWMutex
-	localParts  framesystemparts.Parts                     // gotten from the local robot's config.Config
-	offsetParts map[string]*referenceframe.FrameSystemPart // gotten from local robot's config.Remote
+	parts   []*referenceframe.FrameSystemPart
+	partsMu sync.RWMutex
 }
 
 // Reconfigure will rebuild the frame system from the newly updated robot.
-// NOTE(RDK-258): If remotes can trigger a local robot to reconfigure, you can cache the remoteParts in svc as well.
-// NOTE(erd): this doesn't utilize the dependencies and instead uses the robot which we would rather avoid.
-func (svc *frameSystemService) Reconfigure(ctx context.Context, _ resource.Dependencies, _ resource.Config) error {
+func (svc *frameSystemService) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	svc.partsMu.Lock()
 	defer svc.partsMu.Unlock()
 
-	ctx, span := trace.StartSpan(ctx, "services::framesystem::Update")
-	defer span.End()
-	err := svc.updateLocalParts(ctx)
-	if err != nil {
-		return err
-	}
-	err = svc.updateOffsetParts(ctx)
-	if err != nil {
-		return err
-	}
-	remoteParts, err := svc.updateRemoteParts(ctx)
-	if err != nil {
-		return err
-	}
-	// combine the parts, sort, and print the result
-	allParts := combineParts(svc.localParts, svc.offsetParts, remoteParts)
-	sortedParts, err := framesystemparts.TopologicallySort(allParts)
-	if err != nil {
-		return err
-	}
-	svc.logger.Debugf("updated robot frame system:\n%v", sortedParts.String())
-	return nil
-}
-
-// Config returns the info of each individual part that makes up the frame system
-// The output of this function is to be sent over GRPC to the client, so the client
-// can build its frame system. requests the remote components from the remote's frame system service.
-// NOTE(RDK-258): If remotes can trigger a local robot to reconfigure, you don't need to update remotes in every call.
-func (svc *frameSystemService) Config(
-	ctx context.Context,
-	additionalTransforms []*referenceframe.LinkInFrame,
-) (framesystemparts.Parts, error) {
-	svc.partsMu.RLock()
-	defer svc.partsMu.RUnlock()
-
-	ctx, span := trace.StartSpan(ctx, "services::framesystem::Config")
+	_, span := trace.StartSpan(ctx, "services::framesystem::Reconfigure")
 	defer span.End()
 
-	// update parts from remotes
-	remoteParts, err := svc.updateRemoteParts(ctx)
-	if err != nil {
-		return nil, err
-	}
-	// build the config
-	allParts := combineParts(svc.localParts, svc.offsetParts, remoteParts)
-	for _, transformMsg := range additionalTransforms {
-		newPart, err := referenceframe.LinkInFrameToFrameSystemPart(transformMsg)
-		if err != nil {
-			return nil, err
+	components := make(map[string]resource.Resource)
+	for name, r := range deps {
+		short := name.ShortName()
+		// is this only for InputEnabled components or everything?
+		if _, present := components[short]; present {
+			return DuplicateResourceShortNameError(short)
 		}
-		allParts = append(allParts, newPart)
+		components[short] = r
 	}
-	sortedParts, err := framesystemparts.TopologicallySort(allParts)
+	svc.components = components
+
+	fsCfg, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return sortedParts, nil
+
+	sortedParts, err := referenceframe.TopologicallySortParts(fsCfg.Parts)
+	if err != nil {
+		return err
+	}
+	svc.parts = sortedParts
+	svc.logger.Debugf("updated robot frame system:\n%v", (&Config{Parts: sortedParts}).String())
+	return nil
 }
 
 // TransformPose will transform the pose of the requested poseInFrame to the desired frame in the robot's frame system.
@@ -155,12 +163,7 @@ func (svc *frameSystemService) TransformPose(
 	ctx, span := trace.StartSpan(ctx, "services::framesystem::TransformPose")
 	defer span.End()
 
-	// get the frame system and initial inputs
-	allParts, err := svc.Config(ctx, additionalTransforms)
-	if err != nil {
-		return nil, err
-	}
-	fs, err := NewFrameSystemFromParts(LocalFrameSystemName, "", allParts, svc.logger)
+	fs, err := svc.FrameSystem(ctx, additionalTransforms)
 	if err != nil {
 		return nil, err
 	}
@@ -170,24 +173,24 @@ func (svc *frameSystemService) TransformPose(
 	defer svc.partsMu.RUnlock()
 
 	// build maps of relevant components and inputs from initial inputs
-	for name, original := range input {
-		// determine frames to skip
-		if len(original) == 0 {
+	for name, inputs := range input {
+		// skip frame if it does not have input
+		if len(inputs) == 0 {
 			continue
 		}
 
 		// add component to map
-		components := robot.AllResourcesByName(svc.r, name)
-		if len(components) != 1 {
-			return nil, wrongNumberOfResourcesError(len(components), name)
-		}
-		component, ok := components[0].(referenceframe.InputEnabled)
+		component, ok := svc.components[name]
 		if !ok {
-			return nil, fmt.Errorf("%v(%T) is not InputEnabled", name, components[0])
+			return nil, DependencyNotFoundError(name)
+		}
+		inputEnabled, ok := component.(referenceframe.InputEnabled)
+		if !ok {
+			return nil, NotInputEnabledError(component)
 		}
 
 		// add input to map
-		pos, err := component.CurrentInputs(ctx)
+		pos, err := inputEnabled.CurrentInputs(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -202,9 +205,9 @@ func (svc *frameSystemService) TransformPose(
 	return pose, nil
 }
 
-// AllCurrentInputs will get present inputs for a framesystem from a robot and return a map of those inputs, as well as a map of the
+// CurrentInputs will get present inputs for a framesystem from a robot and return a map of those inputs, as well as a map of the
 // InputEnabled resources that those inputs came from.
-func (svc *frameSystemService) AllCurrentInputs(
+func (svc *frameSystemService) CurrentInputs(
 	ctx context.Context,
 ) (map[string][]referenceframe.Input, map[string]referenceframe.InputEnabled, error) {
 	fs, err := svc.FrameSystem(ctx, []*referenceframe.LinkInFrame{})
@@ -222,18 +225,18 @@ func (svc *frameSystemService) AllCurrentInputs(
 		}
 
 		// add component to map
-		components := robot.AllResourcesByName(svc.r, name)
-		if len(components) != 1 {
-			return nil, nil, wrongNumberOfResourcesError(len(components), name)
-		}
-		component, ok := components[0].(referenceframe.InputEnabled)
+		component, ok := svc.components[name]
 		if !ok {
-			return nil, nil, fmt.Errorf("%v(%T) is not InputEnabled", name, components[0])
+			return nil, nil, DependencyNotFoundError(name)
 		}
-		resources[name] = component
+		inputEnabled, ok := component.(referenceframe.InputEnabled)
+		if !ok {
+			return nil, nil, NotInputEnabledError(component)
+		}
+		resources[name] = inputEnabled
 
 		// add input to map
-		pos, err := component.CurrentInputs(ctx)
+		pos, err := inputEnabled.CurrentInputs(ctx)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -248,18 +251,9 @@ func (svc *frameSystemService) FrameSystem(
 	ctx context.Context,
 	additionalTransforms []*referenceframe.LinkInFrame,
 ) (referenceframe.FrameSystem, error) {
-	ctx, span := trace.StartSpan(ctx, "services::framesystem::FrameSystem")
+	_, span := trace.StartSpan(ctx, "services::framesystem::FrameSystem")
 	defer span.End()
-	// create the frame system
-	allParts, err := svc.r.FrameSystemConfig(ctx, additionalTransforms)
-	if err != nil {
-		return nil, err
-	}
-	fs, err := NewFrameSystemFromParts(LocalFrameSystemName, "", allParts, svc.r.Logger())
-	if err != nil {
-		return nil, err
-	}
-	return fs, nil
+	return referenceframe.NewFrameSystem(LocalFrameSystemName, svc.parts, additionalTransforms)
 }
 
 // TransformPointCloud applies the same pose offset to each point in a single pointcloud and returns the transformed point cloud.
@@ -281,123 +275,19 @@ func (svc *frameSystemService) TransformPointCloud(ctx context.Context, srcpc po
 		return nil, err
 	}
 	// returned the transformed pointcloud where the transform was applied to each point
-	return pointcloud.ApplyOffset(ctx, srcpc, theTransform.Pose(), svc.r.Logger())
+	return pointcloud.ApplyOffset(ctx, srcpc, theTransform.Pose(), svc.logger)
 }
 
-// updateLocalParts collects the physical parts of the robot that may have frame info,
-// excluding remote robots and services, etc from the robot's config.Config.
-func (svc *frameSystemService) updateLocalParts(ctx context.Context) error {
-	ctx, span := trace.StartSpan(ctx, "services::framesystem::updateLocalParts")
-	defer span.End()
-	parts := make(map[string]*referenceframe.FrameSystemPart)
-	seen := make(map[string]bool)
-	local, err := utils.AssertType[robot.LocalRobot](svc.r)
-	if err != nil {
-		return err
+// PrefixRemoteParts applies prefixes to a list of FrameSystemParts appropriate to the remote they originate from.
+func PrefixRemoteParts(parts []*referenceframe.FrameSystemPart, remoteName, remoteParent string) {
+	for _, part := range parts {
+		if part.FrameConfig.Parent() == referenceframe.World { // rename World of remote parts
+			part.FrameConfig.SetParent(remoteParent)
+		}
+		// rename each non-world part with prefix
+		part.FrameConfig.SetName(remoteName + ":" + part.FrameConfig.Name())
+		if part.FrameConfig.Parent() != remoteParent {
+			part.FrameConfig.SetParent(remoteName + ":" + part.FrameConfig.Parent())
+		}
 	}
-	cfg, err := local.Config(ctx) // Eventually there will be another function that gathers the frame system config
-	if err != nil {
-		return err
-	}
-	for _, c := range cfg.Components {
-		if c.Frame == nil { // no Frame means dont include in frame system.
-			continue
-		}
-		if c.Name == referenceframe.World {
-			return errors.Errorf("cannot give frame system part the name %s", referenceframe.World)
-		}
-		if c.Frame.Parent == "" {
-			return errors.Errorf("parent field in frame config for part %q is empty", c.Name)
-		}
-		cfgCopy := &referenceframe.LinkConfig{
-			ID:          c.Frame.ID,
-			Translation: c.Frame.Translation,
-			Orientation: c.Frame.Orientation,
-			Geometry:    c.Frame.Geometry,
-			Parent:      c.Frame.Parent,
-		}
-		if cfgCopy.ID == "" {
-			cfgCopy.ID = c.Name
-		}
-		seen[c.Name] = true
-		model, err := extractModelFrameJSON(svc.r, c.ResourceName())
-		if err != nil && !errors.Is(err, referenceframe.ErrNoModelInformation) {
-			// When we have non-nil erros here, it is because the resource is not yet available.
-			// In this case, we will exclude it from the FS.
-			// When it becomes available, it will be included.
-			continue
-		}
-		lif, err := cfgCopy.ParseConfig()
-		if err != nil {
-			return err
-		}
-		parts[cfgCopy.ID] = &referenceframe.FrameSystemPart{FrameConfig: lif, ModelFrame: model}
-	}
-	svc.localParts = framesystemparts.PartMapToPartSlice(parts)
-	return nil
-}
-
-// updateOffsetParts collects the frame offset information from the config.Remote of the local robot.
-func (svc *frameSystemService) updateOffsetParts(ctx context.Context) error {
-	ctx, span := trace.StartSpan(ctx, "services::framesystem::updateOffsetParts")
-	defer span.End()
-	local, err := utils.AssertType[robot.LocalRobot](svc.r)
-	if err != nil {
-		return err
-	}
-	conf, err := local.Config(ctx)
-	if err != nil {
-		return err
-	}
-	remoteNames := local.RemoteNames()
-	offsetParts := make(map[string]*referenceframe.FrameSystemPart)
-	for _, remoteName := range remoteNames {
-		rConf, err := getRemoteRobotConfig(remoteName, conf)
-		if err != nil {
-			return errors.Wrapf(err, "remote %s", remoteName)
-		}
-		if rConf.Frame == nil { // skip over remote if it has no frame info
-			svc.logger.Debugf("remote %s has no frame config info, skipping", remoteName)
-			continue
-		}
-
-		lif, err := rConf.Frame.ParseConfig()
-		if err != nil {
-			return err
-		}
-		// build the frame system part that connects remote world to base world
-		connection := &referenceframe.FrameSystemPart{
-			FrameConfig: lif,
-		}
-		connection.FrameConfig.SetName(rConf.Name + "_" + referenceframe.World)
-		offsetParts[remoteName] = connection
-	}
-	svc.offsetParts = offsetParts
-	return nil
-}
-
-// updateRemoteParts is a helper function to get parts from the connected remote robots, and renames them.
-func (svc *frameSystemService) updateRemoteParts(ctx context.Context) (map[string]framesystemparts.Parts, error) {
-	ctx, span := trace.StartSpan(ctx, "services::framesystem::updateRemoteParts")
-	defer span.End()
-	// get frame parts for each remote robot, skip if not in remote offset map
-	remoteParts := make(map[string]framesystemparts.Parts)
-	remoteNames := svc.r.RemoteNames()
-	for _, remoteName := range remoteNames {
-		if _, ok := svc.offsetParts[remoteName]; !ok {
-			continue // no remote frame info, skipping
-		}
-		remote, ok := svc.r.RemoteByName(remoteName)
-		if !ok {
-			return nil, errors.Errorf("cannot find remote robot %s", remoteName)
-		}
-		rParts, err := robotFrameSystemConfig(ctx, remote)
-		if err != nil {
-			return nil, errors.Wrapf(err, "remote %s", remoteName)
-		}
-		connectionName := remoteName + "_" + referenceframe.World
-		rParts = framesystemparts.RenameRemoteParts(rParts, remoteName, connectionName)
-		remoteParts[remoteName] = rParts
-	}
-	return remoteParts, nil
 }

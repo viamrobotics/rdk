@@ -136,7 +136,7 @@ func TestLineFollow(t *testing.T) {
 	pointGrad := gradFunc(&State{Position: query})
 	test.That(t, pointGrad, test.ShouldBeLessThan, 0.001*0.001)
 
-	fs := frame.NewEmptySimpleFrameSystem("test")
+	fs := frame.NewEmptyFrameSystem("test")
 
 	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm7_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
@@ -211,7 +211,7 @@ func TestCollisionConstraints(t *testing.T) {
 	// setup zero position as reference CollisionGraph and use it in handler
 	model, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
-	fs := frame.NewEmptySimpleFrameSystem("test")
+	fs := frame.NewEmptyFrameSystem("test")
 	err = fs.AddFrame(model, fs.Frame(frame.World))
 	test.That(t, err, test.ShouldBeNil)
 	sf, err := newSolverFrame(fs, model.Name(), frame.World, frame.StartPositions(fs))
@@ -248,7 +248,7 @@ func BenchmarkCollisionConstraints(b *testing.B) {
 	// setup zero position as reference CollisionGraph and use it in handler
 	model, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "")
 	test.That(b, err, test.ShouldBeNil)
-	fs := frame.NewEmptySimpleFrameSystem("test")
+	fs := frame.NewEmptyFrameSystem("test")
 	err = fs.AddFrame(model, fs.Frame(frame.World))
 	test.That(b, err, test.ShouldBeNil)
 	sf, err := newSolverFrame(fs, model.Name(), frame.World, frame.StartPositions(fs))

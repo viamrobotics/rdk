@@ -17,10 +17,8 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage/transform"
-	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/spatialmath"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 const numThreadsVideoSource = 8 // This should be a param
@@ -31,32 +29,14 @@ func init() {
 	resource.RegisterComponent(
 		camera.API,
 		modelJoinPC,
-		resource.Registration[camera.Camera, *JoinConfig]{
-			DeprecatedRobotConstructor: func(
-				ctx context.Context,
-				r any,
-				conf resource.Config,
-				logger golog.Logger,
-			) (camera.Camera, error) {
-				actualR, err := rdkutils.AssertType[robot.Robot](r)
-				if err != nil {
-					return nil, err
-				}
-				newConf, err := resource.NativeConfig[*JoinConfig](conf)
-				if err != nil {
-					return nil, err
-				}
-				src, err := newJoinPointCloudSource(ctx, actualR, logger, conf.ResourceName(), newConf)
-				if err != nil {
-					return nil, err
-				}
-				return camera.FromVideoSource(conf.ResourceName(), src), nil
-			},
-		})
+		resource.Registration[camera.Camera, *Config]{
+			Constructor: newJoinPointCloudCamera,
+		},
+	)
 }
 
-// JoinConfig is the attribute struct for joinPointCloudSource.
-type JoinConfig struct {
+// Config is the attribute struct for joinPointCloudSource.
+type Config struct {
 	TargetFrame   string   `json:"target_frame"`
 	SourceCameras []string `json:"source_cameras"`
 	// Closeness defines how close 2 points should be together to be considered the same point when merged.
@@ -68,12 +48,13 @@ type JoinConfig struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (cfg *JoinConfig) Validate(path string) ([]string, error) {
+func (cfg *Config) Validate(path string) ([]string, error) {
 	var deps []string
 	if len(cfg.SourceCameras) == 0 {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "source_cameras")
 	}
 	deps = append(deps, cfg.SourceCameras...)
+	deps = append(deps, framesystem.InternalServiceName.String())
 	return deps, nil
 }
 
@@ -100,7 +81,7 @@ func newMergeMethodUnsupportedError(method string) MergeMethodUnsupportedError {
 // joinPointCloudSource takes image sources that can produce point clouds and merges them together from
 // the point of view of targetName. The model needs to have the entire robot available in order to build the correct offsets
 // between robot components for the frame system transform.
-type joinPointCloudSource struct {
+type joinPointCloudCamera struct {
 	resource.Named
 	resource.AlwaysRebuild
 	sourceCameras []camera.Camera
@@ -111,103 +92,116 @@ type joinPointCloudSource struct {
 	logger        golog.Logger
 	debug         bool
 	closeness     float64
+	src           camera.VideoSource
 }
 
 // newJoinPointCloudSource creates a camera that combines point cloud sources into one point cloud in the
 // reference frame of targetName.
-func newJoinPointCloudSource(
+func newJoinPointCloudCamera(
 	ctx context.Context,
-	r robot.Robot,
-	l golog.Logger,
-	name resource.Name,
-	conf *JoinConfig,
-) (camera.VideoSource, error) {
-	joinSource := &joinPointCloudSource{
-		Named: name.AsNamed(),
+	deps resource.Dependencies,
+	conf resource.Config,
+	logger golog.Logger,
+) (camera.Camera, error) {
+	joinCam := &joinPointCloudCamera{
+		Named:  conf.ResourceName().AsNamed(),
+		logger: logger,
 	}
-	// frame to merge from
-	joinSource.sourceCameras = make([]camera.Camera, len(conf.SourceCameras))
-	joinSource.sourceNames = make([]string, len(conf.SourceCameras))
-	for i, source := range conf.SourceCameras {
-		joinSource.sourceNames[i] = source
-		camSource, err := camera.FromRobot(r, source)
-		if err != nil {
-			return nil, fmt.Errorf("no camera source called (%s): %w", source, err)
-		}
-		joinSource.sourceCameras[i] = camSource
-	}
-	// frame to merge to
-	joinSource.targetName = conf.TargetFrame
-	fsService, err := framesystem.FromRobot(r)
-	if err != nil {
+
+	if err := joinCam.Reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
-	joinSource.fsService = fsService
-	joinSource.closeness = conf.Closeness
+	return camera.FromVideoSource(conf.ResourceName(), joinCam.src), nil
+}
 
-	joinSource.logger = l
-	joinSource.debug = conf.Debug
+func (jpcc *joinPointCloudCamera) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+	cfg, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return err
+	}
 
-	joinSource.mergeMethod = MergeMethodType(conf.MergeMethod)
+	// frame to merge from
+	jpcc.sourceCameras = make([]camera.Camera, len(cfg.SourceCameras))
+	jpcc.sourceNames = make([]string, len(cfg.SourceCameras))
+	for i, source := range cfg.SourceCameras {
+		jpcc.sourceNames[i] = source
+		camSource, err := camera.FromDependencies(deps, source)
+		if err != nil {
+			return fmt.Errorf("no camera source called (%s): %w", source, err)
+		}
+		jpcc.sourceCameras[i] = camSource
+	}
+	// frame to merge to
+	jpcc.targetName = cfg.TargetFrame
+	jpcc.fsService, err = framesystem.FromDependencies(deps)
+	if err != nil {
+		return err
+	}
+	jpcc.closeness = cfg.Closeness
 
-	if idx, ok := contains(joinSource.sourceNames, joinSource.targetName); ok {
-		parentCamera := joinSource.sourceCameras[idx]
+	jpcc.debug = cfg.Debug
+
+	jpcc.mergeMethod = MergeMethodType(cfg.MergeMethod)
+
+	if idx, ok := contains(jpcc.sourceNames, jpcc.targetName); ok {
+		parentCamera := jpcc.sourceCameras[idx]
 		var intrinsicParams *transform.PinholeCameraIntrinsics
 		if parentCamera != nil {
 			props, err := parentCamera.Properties(ctx)
 			if err != nil {
-				return nil, camera.NewPropertiesError(
-					fmt.Sprintf("point cloud source at index %d for target %s", idx, conf.TargetFrame))
+				return camera.NewPropertiesError(fmt.Sprintf("point cloud source at index %d for target %s", idx, jpcc.targetName))
 			}
 			intrinsicParams = props.IntrinsicParams
 		}
-		return camera.NewVideoSourceFromReader(
+		jpcc.src, err = camera.NewVideoSourceFromReader(
 			ctx,
-			joinSource,
+			jpcc,
 			&transform.PinholeCameraModel{PinholeCameraIntrinsics: intrinsicParams},
 			camera.ColorStream,
 		)
+		return err
 	}
-	return camera.NewVideoSourceFromReader(ctx, joinSource, nil, camera.ColorStream)
+	jpcc.src, err = camera.NewVideoSourceFromReader(ctx, jpcc, nil, camera.ColorStream)
+	return err
 }
 
 // NextPointCloud gets all the point clouds from the source cameras,
 // and puts the points in one point cloud in the frame of targetFrame.
-func (jpcs *joinPointCloudSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
-	switch jpcs.mergeMethod {
+func (jpcc *joinPointCloudCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+	switch jpcc.mergeMethod {
 	case Naive, Null:
-		return jpcs.NextPointCloudNaive(ctx)
+		return jpcc.NextPointCloudNaive(ctx)
 	case ICP:
-		return jpcs.NextPointCloudICP(ctx)
+		return jpcc.NextPointCloudICP(ctx)
 	default:
-		return nil, newMergeMethodUnsupportedError(string(jpcs.mergeMethod))
+		return nil, newMergeMethodUnsupportedError(string(jpcc.mergeMethod))
 	}
 }
 
-func (jpcs *joinPointCloudSource) NextPointCloudNaive(ctx context.Context) (pointcloud.PointCloud, error) {
+func (jpcc *joinPointCloudCamera) NextPointCloudNaive(ctx context.Context) (pointcloud.PointCloud, error) {
 	ctx, span := trace.StartSpan(ctx, "joinPointCloudSource::NextPointCloudNaive")
 	defer span.End()
 
-	fs, err := jpcs.fsService.FrameSystem(ctx, nil)
+	fs, err := jpcc.fsService.FrameSystem(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	inputs, _, err := jpcs.fsService.AllCurrentInputs(ctx)
+	inputs, _, err := jpcc.fsService.CurrentInputs(ctx)
 	if err != nil {
 		return nil, err
 	}
-	cloudFuncs := make([]pointcloud.CloudAndOffsetFunc, len(jpcs.sourceCameras))
-	for i, cam := range jpcs.sourceCameras {
+	cloudFuncs := make([]pointcloud.CloudAndOffsetFunc, len(jpcc.sourceCameras))
+	for i, cam := range jpcc.sourceCameras {
 		iCopy := i
 		camCopy := cam
 		pcSrc := func(ctx context.Context) (pointcloud.PointCloud, spatialmath.Pose, error) {
-			ctx, span := trace.StartSpan(ctx, "camera::joinPointCloudSource::NextPointCloud::"+jpcs.sourceNames[iCopy]+"-NextPointCloud")
+			ctx, span := trace.StartSpan(ctx, "camera::joinPointCloudSource::NextPointCloud::"+jpcc.sourceNames[iCopy]+"-NextPointCloud")
 			defer span.End()
 			var framePose spatialmath.Pose
-			if jpcs.sourceNames[iCopy] != jpcs.targetName {
-				sourceFrame := referenceframe.NewPoseInFrame(jpcs.sourceNames[iCopy], spatialmath.NewZeroPose())
-				theTransform, err := fs.Transform(inputs, sourceFrame, jpcs.targetName)
+			if jpcc.sourceNames[iCopy] != jpcc.targetName {
+				sourceFrame := referenceframe.NewPoseInFrame(jpcc.sourceNames[iCopy], spatialmath.NewZeroPose())
+				theTransform, err := fs.Transform(inputs, sourceFrame, jpcc.targetName)
 				if err != nil {
 					return nil, nil, err
 				}
@@ -218,80 +212,80 @@ func (jpcs *joinPointCloudSource) NextPointCloudNaive(ctx context.Context) (poin
 				return nil, nil, err
 			}
 			if pc == nil {
-				return nil, nil, errors.Errorf("camera %q returned a nil point cloud", jpcs.sourceNames[iCopy])
+				return nil, nil, errors.Errorf("camera %q returned a nil point cloud", jpcc.sourceNames[iCopy])
 			}
 			return pc, framePose, nil
 		}
 		cloudFuncs[iCopy] = pcSrc
 	}
 
-	return pointcloud.MergePointClouds(ctx, cloudFuncs, jpcs.logger)
+	return pointcloud.MergePointClouds(ctx, cloudFuncs, jpcc.logger)
 }
 
-func (jpcs *joinPointCloudSource) NextPointCloudICP(ctx context.Context) (pointcloud.PointCloud, error) {
+func (jpcc *joinPointCloudCamera) NextPointCloudICP(ctx context.Context) (pointcloud.PointCloud, error) {
 	ctx, span := trace.StartSpan(ctx, "joinPointCloudSource::NextPointCloudICP")
 	defer span.End()
 
-	fs, err := jpcs.fsService.FrameSystem(ctx, nil)
+	fs, err := jpcc.fsService.FrameSystem(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	inputs, _, err := jpcs.fsService.AllCurrentInputs(ctx)
+	inputs, _, err := jpcc.fsService.CurrentInputs(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	targetIndex := 0
 
-	for i, camName := range jpcs.sourceNames {
-		if camName == jpcs.targetName {
+	for i, camName := range jpcc.sourceNames {
+		if camName == jpcc.targetName {
 			targetIndex = i
 			break
 		}
 	}
 
-	targetPointCloud, err := jpcs.sourceCameras[targetIndex].NextPointCloud(ctx)
+	targetPointCloud, err := jpcc.sourceCameras[targetIndex].NextPointCloud(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	finalPointCloud := pointcloud.ToKDTree(targetPointCloud)
-	for i := range jpcs.sourceCameras {
+	for i := range jpcc.sourceCameras {
 		if i == targetIndex {
 			continue
 		}
 
-		pcSrc, err := jpcs.sourceCameras[i].NextPointCloud(ctx)
+		pcSrc, err := jpcc.sourceCameras[i].NextPointCloud(ctx)
 		if err != nil {
 			return nil, err
 		}
 
-		sourceFrame := referenceframe.NewPoseInFrame(jpcs.sourceNames[i], spatialmath.NewZeroPose())
-		theTransform, err := fs.Transform(inputs, sourceFrame, jpcs.targetName)
+		sourceFrame := referenceframe.NewPoseInFrame(jpcc.sourceNames[i], spatialmath.NewZeroPose())
+		theTransform, err := fs.Transform(inputs, sourceFrame, jpcc.targetName)
 		if err != nil {
 			return nil, err
 		}
 
 		registeredPointCloud, info, err := pointcloud.RegisterPointCloudICP(pcSrc, finalPointCloud,
-			theTransform.(*referenceframe.PoseInFrame).Pose(), jpcs.debug, numThreadsVideoSource)
+			theTransform.(*referenceframe.PoseInFrame).Pose(), jpcc.debug, numThreadsVideoSource)
 		if err != nil {
 			return nil, err
 		}
-		if jpcs.debug {
-			jpcs.logger.Debugf("Learned Transform = %v", info.OptResult.Location.X)
+		if jpcc.debug {
+			jpcc.logger.Debugf("Learned Transform = %v", info.OptResult.Location.X)
 		}
 		transformDist := math.Sqrt(math.Pow(info.OptResult.Location.X[0]-info.X0[0], 2) +
 			math.Pow(info.OptResult.Location.X[1]-info.X0[1], 2) +
 			math.Pow(info.OptResult.Location.X[2]-info.X0[2], 2))
 		if transformDist > 100 {
-			jpcs.logger.Warnf(`Transform is %f away from transform defined in frame system. 
+			jpcc.logger.Warnf(`Transform is %f away from transform defined in frame system. 
 			This may indicate an incorrect frame system.`, transformDist)
 		}
 		registeredPointCloud.Iterate(0, 0, func(p r3.Vector, d pointcloud.Data) bool {
 			nearest, _, _, _ := finalPointCloud.NearestNeighbor(p)
 			distance := math.Sqrt(math.Pow(p.X-nearest.X, 2) + math.Pow(p.Y-nearest.Y, 2) + math.Pow(p.Z-nearest.Z, 2))
-			if distance > jpcs.closeness {
+			if distance > jpcc.closeness {
 				err = finalPointCloud.Set(p, d)
 				if err != nil {
 					return false
@@ -308,11 +302,11 @@ func (jpcs *joinPointCloudSource) NextPointCloudICP(ctx context.Context) (pointc
 }
 
 // Read gets the merged point cloud from all sources, and then uses a projection to turn it into a 2D image.
-func (jpcs *joinPointCloudSource) Read(ctx context.Context) (image.Image, func(), error) {
+func (jpcc *joinPointCloudCamera) Read(ctx context.Context) (image.Image, func(), error) {
 	var proj transform.Projector
 	var err error
-	if idx, ok := contains(jpcs.sourceNames, jpcs.targetName); ok {
-		proj, err = jpcs.sourceCameras[idx].Projector(ctx)
+	if idx, ok := contains(jpcc.sourceNames, jpcc.targetName); ok {
+		proj, err = jpcc.sourceCameras[idx].Projector(ctx)
 		if err != nil && !errors.Is(err, transform.ErrNoIntrinsics) {
 			return nil, nil, err
 		}
@@ -321,18 +315,18 @@ func (jpcs *joinPointCloudSource) Read(ctx context.Context) (image.Image, func()
 		proj = &transform.ParallelProjection{}
 	}
 
-	pc, err := jpcs.NextPointCloud(ctx)
+	pc, err := jpcc.NextPointCloud(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
-	if jpcs.debug && pc != nil {
-		jpcs.logger.Debugf("joinPointCloudSource Read: number of points in pointcloud: %d", pc.Size())
+	if jpcc.debug && pc != nil {
+		jpcc.logger.Debugf("joinPointCloudSource Read: number of points in pointcloud: %d", pc.Size())
 	}
 	img, _, err := proj.PointCloudToRGBD(pc)
 	return img, func() {}, err // return color image
 }
 
-func (jpcs *joinPointCloudSource) Close(ctx context.Context) error {
+func (jpcc *joinPointCloudCamera) Close(ctx context.Context) error {
 	return nil
 }
 
