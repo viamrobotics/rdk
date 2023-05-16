@@ -107,7 +107,7 @@ func (c *client) MoveOnGlobe(
 	destination *geo.Point,
 	heading float64,
 	movementSensorName resource.Name,
-	obstacles []*referenceframe.GeoObstacle,
+	obstacles []*spatialmath.GeoObstacle,
 	linearVelocity float64,
 	angularVelocity float64,
 	extra map[string]interface{},
@@ -136,7 +136,7 @@ func (c *client) MoveOnGlobe(
 	if len(obstacles) > 0 {
 		obstaclesProto := make([]*commonpb.GeoObstacle, 0, len(obstacles))
 		for _, eachObst := range obstacles {
-			convObst, err := referenceframe.GeoObstacleToProtobuf(eachObst)
+			convObst, err := spatialmath.GeoObstacleToProtobuf(eachObst)
 			if err != nil {
 				return false, err
 			}

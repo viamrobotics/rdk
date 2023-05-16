@@ -191,7 +191,7 @@ func (ms *builtIn) MoveOnGlobe(
 	destination *geo.Point,
 	heading float64,
 	movementSensorName resource.Name,
-	obstacles []*referenceframe.GeoObstacle,
+	obstacles []*spatialmath.GeoObstacle,
 	linearVelocity float64,
 	angularVelocity float64,
 	extra map[string]interface{},

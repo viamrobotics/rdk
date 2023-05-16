@@ -78,9 +78,9 @@ func (server *serviceServer) MoveOnGlobe(ctx context.Context, req *pb.MoveOnGlob
 		heading = req.GetHeading()
 	}
 	obstaclesProto := req.GetObstacles()
-	obstacles := make([]*referenceframe.GeoObstacle, 0, len(obstaclesProto))
+	obstacles := make([]*spatialmath.GeoObstacle, 0, len(obstaclesProto))
 	for _, eachProtoObst := range obstaclesProto {
-		convObst, err := referenceframe.GeoObstacleFromProtobuf(eachProtoObst)
+		convObst, err := spatialmath.GeoObstacleFromProtobuf(eachProtoObst)
 		if err != nil {
 			return nil, err
 		}
