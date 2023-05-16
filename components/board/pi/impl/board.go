@@ -256,13 +256,6 @@ func findInterruptBcom(
 }
 
 func (pi *piPigpio) reconfigureInterrupts(ctx context.Context, cfg *genericlinux.Config) error {
-	// For each old interrupt:
-	//     if you're supposed to copy it over, do so
-	//     else close it
-	// for each new interrupt:
-	//     if it exists but is wrong, close it
-	//     if it doesn't exist, create it
-
 	// We reuse the old interrupts when possible.
 	oldInterrupts := pi.interrupts
 	oldInterruptsHW := pi.interruptsHW
