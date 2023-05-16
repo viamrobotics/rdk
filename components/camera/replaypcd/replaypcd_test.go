@@ -244,7 +244,7 @@ func TestLiveNextPointCloud(t *testing.T) {
 	i := 0
 	for {
 		pc, err := replayCamera.NextPointCloud(ctx)
-		if i >= numPCDFiles {
+		if i == numPCDFiles {
 			test.That(t, err, test.ShouldNotBeNil)
 			test.That(t, err.Error(), test.ShouldContainSubstring, errEndOfDataset.Error())
 			test.That(t, pc, test.ShouldBeNil)
