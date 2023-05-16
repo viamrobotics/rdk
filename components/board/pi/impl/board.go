@@ -225,8 +225,30 @@ func (pi *piPigpio) reconfigureAnalogs(cfg *genericlinux.Config) error {
 	return nil
 }
 
-func findNewInterruptConfig(oldInterrupt board.ReconfigurableDigitalInterrupt, cfg *genericlinux.Config) *board.DigitalInterruptConfig {
-	return nil
+func findInterruptName(
+	interrupt board.ReconfigurableDigitalInterrupt,
+	interrupts map[string]board.ReconfigurableDigitalInterrupt,
+) (string, bool) {
+	for key, value := range interrupts {
+		if value == interrupt {
+			return key, true
+		}
+	}
+
+	return "", false
+}
+
+func findInterruptBcom(
+	interrupt board.ReconfigurableDigitalInterrupt,
+	interruptsHW map[uint]board.ReconfigurableDigitalInterrupt,
+) (uint, bool) {
+	for key, value := range interruptsHW {
+		if value == interrupt {
+			return key, true
+		}
+	}
+
+	return 0, false
 }
 
 func (pi *piPigpio) reconfigureInterrupts(cfg *genericlinux.Config) error {
@@ -238,55 +260,78 @@ func (pi *piPigpio) reconfigureInterrupts(cfg *genericlinux.Config) error {
 	//     if it doesn't exist, create it
 
 	// We reuse the old interrupts when possible.
+	oldInterrupts := pi.interrupts
+	oldInterruptsHW := pi.interruptsHW
 	newInterrupts := map[string]board.ReconfigurableDigitalInterrupt{}
 	newInterruptsHW := map[uint]board.ReconfigurableDigitalInterrupt{}
 
-	for _, oldInterrupt := range pi.interrupts {
-		if newIntConfig := findNewInterruptConfig(oldInterrupt, cfg); newIntConfig == nil {
-			// The old interrupt is longer used.
-			if err := oldInterrupt.Close(); err != nil {
-				return err // This should never happen, but the linter worries anyway.
-			}
-		} else { // The old interrupt should stick around
-			if err := oldInterrupt.Reconfigure(newIntConfig); err != nil {
-				return err
-			}
-			bcom, ok := broadcomPinFromHardwareLabel(newIntConfig.Pin)
-			if !ok {
-				return errors.Errorf("no hw mapping for %s", newIntConfig.Pin)
-			}
-			newInterrupts[newIntConfig.Name] = oldInterrupt
+	interruptsToClose := make(map[board.ReconfigurableDigitalInterrupt]struct{}, len(oldInterrupts))
+	for _, interrupt := range oldInterrupts {
+		interruptsToClose[interrupt] = struct{}{}
+	} // We'll remove the reused interrupts from this map, and then close the rest.
+
+	for _, newConfig := range cfg.DigitalInterrupts {
+		bcom, ok := broadcomPinFromHardwareLabel(newConfig.Pin)
+		if !ok {
+			return errors.Errorf("no hw mapping for %s", newConfig.Pin)
+		}
+
+		// Try reusing an interrupt with the same pin
+		if oldInterrupt, ok := oldInterruptsHW[bcom]; ok {
+			newInterrupts[newConfig.Name] = oldInterrupt
 			newInterruptsHW[bcom] = oldInterrupt
-		}
-	}
-	oldInterrupts := pi.interrupts
-	oldInterruptsHW := pi.interruptsHW
-	pi.interrupts = newInterrupts
-	pi.interruptsHW = newInterruptsHW
-	// TODO: remove these when the variables are used and the compiler isn't complaining about it
-	for k, v := range oldInterrupts {
-		oldInterrupts[k] = v
-	}
-	for k, v := range oldInterruptsHW {
-		oldInterruptsHW[k] = v
-	}
-
-	for _, c := range cfg.DigitalInterrupts {
-		bcom, have := broadcomPinFromHardwareLabel(c.Pin)
-		if !have {
-			return errors.Errorf("no hw mapping for %s", c.Pin)
+			delete(interruptsToClose, oldInterrupt)
+			continue
 		}
 
-		di, err := board.CreateDigitalInterrupt(c)
+		// If that didn't work, try reusing an interrupt with the same name
+		if oldInterrupt, ok := oldInterrupts[newConfig.Name]; ok {
+			newInterrupts[newConfig.Name] = oldInterrupt
+			newInterruptsHW[bcom] = oldInterrupt
+			delete(interruptsToClose, oldInterrupt)
+			continue
+		}
+
+		// Otherwise, create the new interrupt from scratch.
+		di, err := board.CreateDigitalInterrupt(newConfig)
 		if err != nil {
 			return err
 		}
-		pi.interrupts[c.Name] = di
-		pi.interruptsHW[bcom] = di
+		newInterrupts[newConfig.Name] = di
+		newInterruptsHW[bcom] = di
 		if result := C.setupInterrupt(C.int(bcom)); result != 0 {
 			return picommon.ConvertErrorCodeToMessage(int(result), "error")
 		}
 	}
+
+	// For the remaining interrupts, keep any that look implicitly created (interrupts whose name
+	// matches its broadcom address), and get rid of the rest.
+	for interrupt, _ := range interruptsToClose {
+		name, ok := findInterruptName(interrupt, oldInterrupts)
+		if !ok {
+			// This should never happen
+			return errors.Errorf("Logic bug: found old interrupt %s without old name!?", interrupt)
+		}
+
+		bcom, ok := findInterruptBcom(interrupt, oldInterruptsHW)
+		if !ok {
+			// This should never happen, either
+			return errors.Errorf("Logic bug: found old interrupt %s without old bcom!?", interrupt)
+		}
+
+		if expectedBcom, ok := broadcomPinFromHardwareLabel(name); ok && bcom == expectedBcom {
+			// This digital interrupt looks like it was implicitly created. Keep it around!
+			newInterrupts[name] = interrupt
+			newInterruptsHW[bcom] = interrupt
+		} else {
+			// This digital interrupt is no longer used.
+			interrupt.Close()
+			C.teardownInterrupt(C.int(bcom))
+		}
+	}
+
+	pi.interrupts = newInterrupts
+	pi.interruptsHW = newInterruptsHW
 	return nil
 }
 
