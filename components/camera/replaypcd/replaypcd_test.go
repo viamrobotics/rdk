@@ -224,7 +224,8 @@ func TestNextPointCloud(t *testing.T) {
 }
 
 // TestLiveNextPointCloud checks the replay pcd camera's ability to handle new data being added to the
-// database the pool during a session.
+// database the pool during a session, proving that NextPointCloud can return new data even after
+// returning errEndOfDataset.
 func TestLiveNextPointCloud(t *testing.T) {
 	ctx := context.Background()
 
