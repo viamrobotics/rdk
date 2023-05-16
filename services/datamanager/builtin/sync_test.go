@@ -14,12 +14,10 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
-	"go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/datamanager/datacapture"
 	"go.viam.com/rdk/services/datamanager/datasync"
 	"go.viam.com/test"
-	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
 )
 
@@ -715,21 +713,6 @@ func getTestSyncerConstructorMock(client mockDataSyncServiceClient) datasync.Man
 	return func(identity string, _ v1.DataSyncServiceClient, logger golog.Logger) (datasync.Manager, error) {
 		return datasync.NewManager(identity, client, logger)
 	}
-}
-
-var _ = cloud.ConnectionService(&noopCloudConnectionService{})
-
-type noopCloudConnectionService struct {
-	resource.Named
-	resource.AlwaysRebuild
-}
-
-func (noop *noopCloudConnectionService) AcquireConnection(ctx context.Context) (string, rpc.ClientConn, error) {
-	return "hello", nil, nil
-}
-
-func (noop *noopCloudConnectionService) Close(ctx context.Context) error {
-	return nil
 }
 
 func waitUntilNoFiles(dir string) {
