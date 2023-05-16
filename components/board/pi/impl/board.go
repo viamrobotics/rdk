@@ -73,7 +73,7 @@ type piPigpio struct {
 	analogs         map[string]board.AnalogReader
 	i2cs            map[string]board.I2C
 	spis            map[string]board.SPI
-	// `interrupts` maps interrupt names to the interrupts. `interruptsHW` makes broadcom addresses
+	// `interrupts` maps interrupt names to the interrupts. `interruptsHW` maps broadcom addresses
 	// to these same values.
 	interrupts      map[string]board.ReconfigurableDigitalInterrupt
 	interruptsHW    map[uint]board.ReconfigurableDigitalInterrupt
