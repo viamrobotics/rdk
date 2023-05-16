@@ -255,14 +255,14 @@ func (m *gpioStepper) doCycle(ctx context.Context) (time.Duration, error) {
 // have to be locked to call.
 func (m *gpioStepper) doStep(ctx context.Context, forward bool) error {
 	err := multierr.Combine(
-		// m.enable(ctx, true),
-		// m.dirPin.Set(ctx, forward, nil),
+		m.enable(ctx, true),
+		m.dirPin.Set(ctx, forward, nil),
 		m.stepPin.Set(ctx, true, nil))
 	if err != nil {
 		return err
 	}
 	// stay high for half the delay
-	// time.Sleep(m.stepperDelay / 2)
+	time.Sleep(m.stepperDelay / 2)
 
 	if err := m.stepPin.Set(ctx, false, nil); err != nil {
 		return err
@@ -313,14 +313,9 @@ func (m *gpioStepper) goForInternal(ctx context.Context, rpm, revolutions float6
 	}
 
 	var d int64 = 1
-	var forward bool = true
 	if math.Signbit(revolutions) != math.Signbit(rpm) {
 		d = -1
-		forward = false
 	}
-
-	m.dirPin.Set(ctx, forward, nil)
-	m.enable(ctx, true)
 
 	m.lock.Lock()
 	defer m.lock.Unlock()
