@@ -37,41 +37,29 @@ type Config struct {
 
 // Validate ensures all parts of the config are valid.
 func (cfg *Config) Validate(path string) ([]string, error) {
-	deps, err := cfg.validate()
-	if err != nil {
-		err = utils.NewConfigValidationError(path, err)
-	}
-	return deps, err
-}
-
-func (cfg *Config) validate() ([]string, error) {
 	var deps []string
 
 	if len(cfg.Motor) == 0 {
-		return nil, errors.New("cannot find motor for gantry")
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "motor")
 	}
 	deps = append(deps, cfg.Motor)
 
 	if cfg.LengthMm <= 0 {
-		return nil, errors.New("each axis needs a non-zero and positive length")
-	}
-
-	if len(cfg.LimitSwitchPins) == 0 && len(cfg.Board) > 0 {
-		return nil, errors.New("gantry with encoders have to assign boards or controllers to motors")
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "length_mm")
 	}
 
 	if len(cfg.Board) == 0 && len(cfg.LimitSwitchPins) > 0 {
-		return nil, errors.New("cannot find board for gantry")
-	} else if cfg.Board != "" {
+		return nil, errors.New("gantries with limit_pins require a board to sense limit hits")
+	} else {
 		deps = append(deps, cfg.Board)
 	}
 
 	if len(cfg.LimitSwitchPins) == 1 && cfg.MmPerRevolution == 0 {
-		return nil, errors.New("gantry has one limit switch per axis, needs pulley radius to set position limits")
+		return nil, errors.New("the one-axis gantry has one limit switch axis, needs pulley radius to set position limits")
 	}
 
 	if len(cfg.LimitSwitchPins) > 0 && cfg.LimitPinEnabled == nil {
-		return nil, errors.New("limit pin enabled muist be set to true or false")
+		return nil, errors.New("limit pin enabled must be set to true or false")
 	}
 
 	if cfg.Axis.X == 1 && cfg.Axis.Y == 1 ||
@@ -97,7 +85,6 @@ type oneAxis struct {
 
 	limitSwitchPins []string
 	limitHigh       bool
-	limitType       limitType
 	positionLimits  []float64
 
 	lengthMm        float64
@@ -110,14 +97,6 @@ type oneAxis struct {
 	logger golog.Logger
 	opMgr  operation.SingleOperationManager
 }
-
-type limitType string
-
-const (
-	limitEncoder = limitType("encoder")
-	limitOnePin  = limitType("onePinOneLength")
-	limitTwoPin  = limitType("twoPin")
-)
 
 // NewOneAxis creates a new one axis gantry.
 func newOneAxis(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (gantry.Gantry, error) {
@@ -154,13 +133,8 @@ func newOneAxis(ctx context.Context, deps resource.Dependencies, conf resource.C
 		oAx.rpm = 100
 	}
 
-	if oAx.axis.LargestComponent() == 0 {
-		oAx.axis = r3.Vector{X: 1, Y: 0, Z: 0}
-	}
-
 	switch len(oAx.limitSwitchPins) {
 	case 1:
-		oAx.limitType = limitOnePin
 		if oAx.mmPerRevolution <= 0 {
 			return nil, errors.New("gantry with one limit switch per axis needs a mm_per_length ratio defined")
 		}
@@ -175,7 +149,6 @@ func newOneAxis(ctx context.Context, deps resource.Dependencies, conf resource.C
 		oAx.limitHigh = PinEnable
 
 	case 2:
-		oAx.limitType = limitTwoPin
 		board, err := board.FromDependencies(deps, newConf.Board)
 		if err != nil {
 			return nil, err
@@ -186,29 +159,29 @@ func newOneAxis(ctx context.Context, deps resource.Dependencies, conf resource.C
 		oAx.limitHigh = PinEnable
 
 	case 0:
-		oAx.limitType = limitEncoder
+		// do nothing
 	default:
 		np := len(oAx.limitSwitchPins)
 		return nil, errors.Errorf("invalid gantry type: need 1, 2 or 0 pins per axis, have %v pins", np)
 	}
 
-	if err := oAx.Home(ctx); err != nil {
+	if err := oAx.home(ctx); err != nil {
 		return nil, err
 	}
 
 	return oAx, nil
 }
 
-func (g *oneAxis) Home(ctx context.Context) error {
+func (g *oneAxis) home(ctx context.Context) error {
 	ctx, done := g.opMgr.New(ctx)
 	defer done()
 
 	// Mapping one limit switch motor0->limsw0, motor1 ->limsw1, motor 2 -> limsw2
 	// Mapping two limit switch motor0->limSw0,limSw1; motor1->limSw2,limSw3; motor2->limSw4,limSw5
-	switch g.limitType {
+	switch len(g.limitSwitchPins) {
 	// An axis with one limit switch will go till it hits the limit switch, encode that position as the
 	// zero position of the one-axis, and adds a second position limit based on the steps per length.
-	case limitOnePin:
+	case 1:
 		err := g.homeOneLimSwitch(ctx)
 		if err != nil {
 			return err
@@ -216,13 +189,13 @@ func (g *oneAxis) Home(ctx context.Context) error {
 	// An axis with two limit switches will go till it hits the first limit switch, encode that position as the
 	// zero position of the one-axis, then go till it hits the second limit switch, then encode that position as the
 	// at-length position of the one-axis.
-	case limitTwoPin:
+	case 2:
 		err := g.homeTwoLimSwitch(ctx)
 		if err != nil {
 			return err
 		}
 	// An axis with an encoder will encode the
-	case limitEncoder:
+	case 0:
 		err := g.homeEncoder(ctx)
 		if err != nil {
 			return err
