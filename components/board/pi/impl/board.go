@@ -184,6 +184,7 @@ func (pi *piPigpio) Reconfigure(
 }
 
 func (pi *piPigpio) reconfigureI2cs(ctx context.Context, cfg *genericlinux.Config) error {
+	// No need to reconfigure the old I2C buses; just throw them out and make new ones.
 	pi.i2cs = make(map[string]board.I2C, len(cfg.I2Cs))
 	for _, sc := range cfg.I2Cs {
 		id, err := strconv.Atoi(sc.Bus)
@@ -196,6 +197,7 @@ func (pi *piPigpio) reconfigureI2cs(ctx context.Context, cfg *genericlinux.Confi
 }
 
 func (pi *piPigpio) reconfigureSpis(ctx context.Context, cfg *genericlinux.Config) error {
+	// No need to reconfigure the old SPI buses; just throw them out and make new ones.
 	pi.spis = make(map[string]board.SPI, len(cfg.SPIs))
 	for _, sc := range cfg.SPIs {
 		if sc.BusSelect != "0" && sc.BusSelect != "1" {
@@ -207,6 +209,7 @@ func (pi *piPigpio) reconfigureSpis(ctx context.Context, cfg *genericlinux.Confi
 }
 
 func (pi *piPigpio) reconfigureAnalogs(ctx context.Context, cfg *genericlinux.Config) error {
+	// No need to reconfigure the old analog readers; just throw them out and make new ones.
 	pi.analogs = map[string]board.AnalogReader{}
 	for _, ac := range cfg.Analogs {
 		channel, err := strconv.Atoi(ac.Pin)
@@ -225,6 +228,8 @@ func (pi *piPigpio) reconfigureAnalogs(ctx context.Context, cfg *genericlinux.Co
 	return nil
 }
 
+// This is a helper function for digital interrupt reconfiguration. It finds the key in the map
+// whose value is the given interrupt, and returns that key and whether we successfully found it.
 func findInterruptName(
 	interrupt board.ReconfigurableDigitalInterrupt,
 	interrupts map[string]board.ReconfigurableDigitalInterrupt,
@@ -234,10 +239,10 @@ func findInterruptName(
 			return key, true
 		}
 	}
-
 	return "", false
 }
 
+// This is a very similar helper function, which does the same thing but for broadcom addresses.
 func findInterruptBcom(
 	interrupt board.ReconfigurableDigitalInterrupt,
 	interruptsHW map[uint]board.ReconfigurableDigitalInterrupt,
@@ -247,7 +252,6 @@ func findInterruptBcom(
 			return key, true
 		}
 	}
-
 	return 0, false
 }
 
