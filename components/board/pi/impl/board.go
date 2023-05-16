@@ -149,7 +149,7 @@ func newPigpio(ctx context.Context, name resource.Name, cfg resource.Config, log
 
 // TODO(RSDK-RSDK-2691): implement reconfigure.
 func (pi *piPigpio) performConfiguration(
-	_ context.Context,
+	ctx context.Context,
 	_ resource.Dependencies,
 	conf resource.Config,
 ) error {
@@ -161,19 +161,21 @@ func (pi *piPigpio) performConfiguration(
 	pi.mu.Lock()
 	defer pi.mu.Unlock()
 
-	if err := pi.reconfigureI2cs(cfg); err != nil {
+	if err := pi.reconfigureI2cs(ctx, cfg); err != nil {
 		return err
 	}
 
-	if err := pi.reconfigureSpis(cfg); err != nil {
+	if err := pi.reconfigureSpis(ctx, cfg); err != nil {
 		return err
 	}
 
-	if err := pi.reconfigureAnalogs(cfg); err != nil {
+	if err := pi.reconfigureAnalogs(ctx, cfg); err != nil {
 		return err
 	}
 
-	if err := pi.reconfigureInterrupts(cfg); err != nil {
+	// This is the only one that actually uses ctx, but we pass it to all previous helpers, too, to
+	// keep the interface consistent.
+	if err := pi.reconfigureInterrupts(ctx, cfg); err != nil {
 		return err
 	}
 
@@ -183,7 +185,7 @@ func (pi *piPigpio) performConfiguration(
 	return nil
 }
 
-func (pi *piPigpio) reconfigureI2cs(cfg *genericlinux.Config) error {
+func (pi *piPigpio) reconfigureI2cs(ctx context.Context, cfg *genericlinux.Config) error {
 	pi.i2cs = make(map[string]board.I2C, len(cfg.I2Cs))
 	for _, sc := range cfg.I2Cs {
 		id, err := strconv.Atoi(sc.Bus)
@@ -195,7 +197,7 @@ func (pi *piPigpio) reconfigureI2cs(cfg *genericlinux.Config) error {
 	return nil
 }
 
-func (pi *piPigpio) reconfigureSpis(cfg *genericlinux.Config) error {
+func (pi *piPigpio) reconfigureSpis(ctx context.Context, cfg *genericlinux.Config) error {
 	pi.spis = make(map[string]board.SPI, len(cfg.SPIs))
 	for _, sc := range cfg.SPIs {
 		if sc.BusSelect != "0" && sc.BusSelect != "1" {
@@ -206,7 +208,7 @@ func (pi *piPigpio) reconfigureSpis(cfg *genericlinux.Config) error {
 	return nil
 }
 
-func (pi *piPigpio) reconfigureAnalogs(cfg *genericlinux.Config) error {
+func (pi *piPigpio) reconfigureAnalogs(ctx context.Context, cfg *genericlinux.Config) error {
 	pi.analogs = map[string]board.AnalogReader{}
 	for _, ac := range cfg.Analogs {
 		channel, err := strconv.Atoi(ac.Pin)
@@ -251,7 +253,7 @@ func findInterruptBcom(
 	return 0, false
 }
 
-func (pi *piPigpio) reconfigureInterrupts(cfg *genericlinux.Config) error {
+func (pi *piPigpio) reconfigureInterrupts(ctx context.Context, cfg *genericlinux.Config) error {
 	// For each old interrupt:
 	//     if you're supposed to copy it over, do so
 	//     else close it
@@ -325,7 +327,7 @@ func (pi *piPigpio) reconfigureInterrupts(cfg *genericlinux.Config) error {
 			newInterruptsHW[bcom] = interrupt
 		} else {
 			// This digital interrupt is no longer used.
-			interrupt.Close()
+			interrupt.Close(ctx)
 			C.teardownInterrupt(C.int(bcom))
 		}
 	}
