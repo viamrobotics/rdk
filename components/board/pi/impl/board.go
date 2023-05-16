@@ -78,10 +78,10 @@ type piPigpio struct {
 	spis            map[string]board.SPI
 	// `interrupts` maps interrupt names to the interrupts. `interruptsHW` maps broadcom addresses
 	// to these same values.
-	interrupts      map[string]board.ReconfigurableDigitalInterrupt
-	interruptsHW    map[uint]board.ReconfigurableDigitalInterrupt
-	logger          golog.Logger
-	isClosed        bool
+	interrupts   map[string]board.ReconfigurableDigitalInterrupt
+	interruptsHW map[uint]board.ReconfigurableDigitalInterrupt
+	logger       golog.Logger
+	isClosed     bool
 }
 
 var (
@@ -290,8 +290,8 @@ func (pi *piPigpio) reconfigureInterrupts(ctx context.Context, cfg *genericlinux
 			// This should never happen. However, if it does, nothing is obviously broken, so we'll
 			// just log the weirdness and continue.
 			pi.logger.Errorf(
-				"Tried reconfiguring old interrupt to new name %s and broadcom address %s, " +
-				"but couldn't find its old name!?", name, bcom)
+				"Tried reconfiguring old interrupt to new name %s and broadcom address %s, "+
+					"but couldn't find its old name!?", name, bcom)
 		}
 
 		if oldBcom, ok := findInterruptBcom(interrupt, oldInterruptsHW); ok {
@@ -299,8 +299,8 @@ func (pi *piPigpio) reconfigureInterrupts(ctx context.Context, cfg *genericlinux
 		} else {
 			// This should never happen, either, but is similarly not really a problem.
 			pi.logger.Errorf(
-				"Tried reconfiguring old interrupt to new name %s and broadcom address %s, " +
-				"but couldn't find its old bcom!?", name, bcom)
+				"Tried reconfiguring old interrupt to new name %s and broadcom address %s, "+
+					"but couldn't find its old bcom!?", name, bcom)
 		}
 	}
 
@@ -335,7 +335,7 @@ func (pi *piPigpio) reconfigureInterrupts(ctx context.Context, cfg *genericlinux
 
 	// For the remaining interrupts, keep any that look implicitly created (interrupts whose name
 	// matches its broadcom address), and get rid of the rest.
-	for interrupt, _ := range interruptsToClose {
+	for interrupt := range interruptsToClose {
 		name, ok := findInterruptName(interrupt, oldInterrupts)
 		if !ok {
 			// This should never happen
@@ -354,7 +354,9 @@ func (pi *piPigpio) reconfigureInterrupts(ctx context.Context, cfg *genericlinux
 			newInterruptsHW[bcom] = interrupt
 		} else {
 			// This digital interrupt is no longer used.
-			interrupt.Close(ctx)
+			if err := interrupt.Close(ctx); err != nil {
+				return err // This should never happen, but it makes the linter happy.
+			}
 			if result := C.teardownInterrupt(C.int(bcom)); result != 0 {
 				return picommon.ConvertErrorCodeToMessage(int(result), "error")
 			}
