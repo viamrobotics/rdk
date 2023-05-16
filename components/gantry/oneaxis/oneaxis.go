@@ -250,15 +250,13 @@ func (g *oneAxis) MoveToPosition(ctx context.Context, positions []float64, extra
 			return g.motor.Stop(ctx, extra)
 		}
 
-		err = g.motor.GoTo(ctx, g.rpm, x, extra)
-		if err != nil {
+		if err = g.motor.GoTo(ctx, g.rpm, x, extra); err != nil {
 			return err
 		}
 	}
 
 	g.logger.Debugf("going to %.2f at speed %.2f", x, g.rpm)
-	err := g.motor.GoTo(ctx, g.rpm, x, extra)
-	if err != nil {
+	if err := g.motor.GoTo(ctx, g.rpm, x, extra); err != nil {
 		return err
 	}
 	return nil

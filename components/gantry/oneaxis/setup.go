@@ -69,22 +69,19 @@ func (g *oneAxis) home(ctx context.Context) error {
 	// An axis with one limit switch will go till it hits the limit switch, encode that position as the
 	// zero position of the one-axis, and adds a second position limit based on the steps per length.
 	case 1:
-		err := g.homeOneLimSwitch(ctx)
-		if err != nil {
+		if err := g.homeOneLimSwitch(ctx); err != nil {
 			return err
 		}
 	// An axis with two limit switches will go till it hits the first limit switch, encode that position as the
 	// zero position of the one-axis, then go till it hits the second limit switch, then encode that position as the
 	// at-length position of the one-axis.
 	case 2:
-		err := g.homeTwoLimSwitch(ctx)
-		if err != nil {
+		if err := g.homeTwoLimSwitch(ctx); err != nil {
 			return err
 		}
 	// An axis with an encoder will encode the
 	case 0:
-		err := g.homeEncoder(ctx)
-		if err != nil {
+		if err := g.homeEncoder(ctx); err != nil {
 			return err
 		}
 	}
@@ -107,9 +104,8 @@ func (g *oneAxis) homeTwoLimSwitch(ctx context.Context) error {
 	g.positionLimits = []float64{positionA, positionB}
 
 	// Go backwards so limit stops are not hit.
-	x := g.rotationalToLinear(0.8 * g.lengthMm,)
-	err = g.motor.GoTo(ctx, g.rpm, x, nil)
-	if err != nil {
+	x := g.rotationalToLinear(0.8 * g.lengthMm)
+	if err = g.motor.GoTo(ctx, g.rpm, x, nil); err != nil {
 		return err
 	}
 	return nil
