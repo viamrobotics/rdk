@@ -45,10 +45,12 @@ const (
 	// SubtypeName is a constant that identifies the camera resource subtype string.
 	SubtypeName = "camera"
 
-	// TODO: add documentation
+	// TimeRequestedMetadataKey is optional metadata in the gRPC response header that correlates
+	// to the time right before the point cloud was captured.
 	TimeRequestedMetadataKey = "viam-time-requested"
 
-	// TODO: add documentation
+	// TimeReceivedMetadataKey is optional metadata in the gRPC response header that correlates
+	// to the time right after the point cloud was captured.
 	TimeReceivedMetadataKey = "viam-time-received"
 )
 
