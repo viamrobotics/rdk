@@ -352,28 +352,15 @@ func SimultaneousColorDepthNext(ctx context.Context, color, depth gostream.Video
 	return col, dm
 }
 
-func ContextWithTimestampsUnaryClientInterceptor(
-	ctx context.Context,
-	method string,
-	req, reply interface{},
-	cc *grpc.ClientConn,
-	invoker grpc.UnaryInvoker,
-	opts ...grpc.CallOption,
-) error {
+func ContextWithTimestampsUnaryClientInterceptor(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
 	var header metadata.MD
 	opts = append(opts, grpc.Header(&header))
 	invoker(ctx, method, req, reply, cc, opts...)
 
 	md := ctx.Value("viam-metadata")
-	if mdMap, ok := md.(map[string]string); ok {
-		// Get timestamps from the gRPC header if they're provided.
-		timeRequested := header.Get(TimeRequestedMetadataKey)
-		if len(timeRequested) > 0 {
-			mdMap[TimeRequestedMetadataKey] = timeRequested[0]
-		}
-		timeReceived := header.Get(TimeReceivedMetadataKey)
-		if len(timeReceived) > 0 {
-			mdMap[TimeReceivedMetadataKey] = timeReceived[0]
+	if mdMap, ok := md.(map[string][]string); ok {
+		for key, value := range header {
+			mdMap[key] = value
 		}
 	}
 
