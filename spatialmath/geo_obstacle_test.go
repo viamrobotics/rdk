@@ -1,4 +1,4 @@
-package referenceframe
+package spatialmath
 
 import (
 	"testing"
@@ -6,17 +6,15 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
-
-	"go.viam.com/rdk/spatialmath"
 )
 
 func TestGeoObstacles(t *testing.T) {
 	testLatitude := 39.58836
 	testLongitude := -105.64464
 	testPoint := geo.NewPoint(testLatitude, testLongitude)
-	testSphere, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 100, "sphere")
+	testSphere, err := NewSphere(NewZeroPose(), 100, "sphere")
 	test.That(t, err, test.ShouldBeNil)
-	testGeoms := []spatialmath.Geometry{testSphere}
+	testGeoms := []Geometry{testSphere}
 
 	testGeoObst := NewGeoObstacle(testPoint, testGeoms)
 	test.That(t, testPoint, test.ShouldResemble, testGeoObst.Location())
