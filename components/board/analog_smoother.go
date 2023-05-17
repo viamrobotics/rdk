@@ -37,6 +37,10 @@ func SmoothAnalogReader(r AnalogReader, c AnalogConfig, logger golog.Logger) *An
 		logger:            logger,
 		cancel:            cancel,
 	}
+	if smoother.SamplesPerSecond <= 0 {
+		logger.Debug("Can't read nonpositive samples per second; defaulting to 1 instead")
+		smoother.SamplesPerSecond = 1
+	}
 	smoother.Start(cancelCtx)
 	return smoother
 }
