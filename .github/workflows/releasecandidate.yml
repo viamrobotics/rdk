@@ -18,18 +18,18 @@ jobs:
     secrets:
       MONGODB_TEST_OUTPUT_URI: ${{ secrets.MONGODB_TEST_OUTPUT_URI }}
 
-  appimage:
-    needs: test
-    uses: viamrobotics/rdk/.github/workflows/appimage.yml@main
-    with:
-      release_type: 'rc'
-    secrets:
-      GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
+  # appimage:
+  #   needs: test
+  #   uses: viamrobotics/rdk/.github/workflows/appimage.yml@main
+  #   with:
+  #     release_type: 'rc'
+  #   secrets:
+  #     GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
-  staticbuild:
-    needs: test
-    uses: viamrobotics/rdk/.github/workflows/staticbuild.yml@main
-    with:
-      release_type: 'rc'
-    secrets:
-      GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
+  # staticbuild:
+  #   needs: test
+  #   uses: viamrobotics/rdk/.github/workflows/staticbuild.yml@main
+  #   with:
+  #     release_type: 'rc'
+  #   secrets:
+  #     GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
