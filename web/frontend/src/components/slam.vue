@@ -99,7 +99,7 @@ const fetchSLAMMap = (name: string): Promise<Uint8Array> => {
   });
 };
 
-const fetchSLAMPose = (name: string): Promise<commonApi.Pose> => {
+const fetchSLAMPose = (name: string): Promise<slamApi.GetPositionResponse> => {
   return new Promise((resolve, reject): void => {
     const req = new slamApi.GetPositionRequest();
     req.setName(name);
@@ -111,7 +111,7 @@ const fetchSLAMPose = (name: string): Promise<commonApi.Pose> => {
           reject(error);
           return;
         }
-        resolve(res!.getPose()!);
+        resolve(res!);
       }
     );
   });
@@ -131,7 +131,8 @@ const executeMoveOnMap = async () => {
 
   // set pose in frame
   const destination = new commonApi.Pose();
-  const value = await fetchSLAMPose(props.name);
+  const resp = await fetchSLAMPose(props.name);
+  const value = resp.getPose()!;
   destination.setX(destinationMarker.x);
   destination.setY(destinationMarker.y);
   destination.setZ(destinationMarker.z);
@@ -182,10 +183,15 @@ const executeMoveOnMap = async () => {
 
 const refresh2d = async (name: string) => {
   const map = await fetchSLAMMap(name);
-  const returnedPose = await fetchSLAMPose(name);
-  returnedPose.setX(returnedPose.getX() / 1000);
-  returnedPose.setY(returnedPose.getY() / 1000);
-  returnedPose.setZ(returnedPose.getZ() / 1000);
+  const response = await fetchSLAMPose(name);
+  const returnedPose = response.getPose()!;
+  // TODO: Remove this check when APP and carto are both up to date [RSDK-3166]
+  const extra = response.getExtra()!;
+  if (extra["response_in_millimeters"]) {
+    returnedPose.setX(returnedPose.getX() / 1000);
+    returnedPose.setY(returnedPose.getY() / 1000);
+    returnedPose.setZ(returnedPose.getZ() / 1000);
+  }
   const mapAndPose: MapAndPose = {
     map,
     pose: returnedPose,
