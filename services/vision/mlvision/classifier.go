@@ -57,6 +57,9 @@ func attemptToBuildClassifier(mlm mlmodel.Service) (classification.Classifier, e
 		}
 
 		confs := checkClassificationScores(probs)
+		if labels != nil && len(labels) != len(confs) {
+			return nil, errors.New("length of output expected to be length of label list (but is not)")
+		}
 		classifications := make(classification.Classifications, 0, len(confs))
 		for i := 0; i < len(confs); i++ {
 			if labels != nil {
