@@ -552,9 +552,12 @@ func TestPlanMapMotion(t *testing.T) {
 		[]*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(referenceframe.World, []spatialmath.Geometry{box})},
 		nil,
 	)
-	plan, err := PlanMapMotion(ctx, logger, dst, kb.ModelFrame(), inputs, worldState, nil)
+	// TODO(RSDK-2314): when MoveOnMap is implemented this will need to change to PlanMapMotion, the world state will be used and should
+	// result in a path of more than 2 waypoints
+	_ = worldState
+	plan, err := PlanFrameMotion(ctx, logger, dst, kb.ModelFrame(), inputs, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(plan), test.ShouldBeGreaterThan, 2)
+	test.That(t, len(plan), test.ShouldEqual, 2)
 }
 
 func TestSliceUniq(t *testing.T) {

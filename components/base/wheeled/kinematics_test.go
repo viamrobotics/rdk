@@ -96,13 +96,9 @@ func TestCurrentInputs(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	kwb, ok := kb.(*kinematicWheeledBase)
 	test.That(t, ok, test.ShouldBeTrue)
-	for i := 0; i < 100; i++ {
-		slam.GetPointCloudMapFull(ctx, kwb.slam)
-	}
 	for i := 0; i < 10; i++ {
-		inputs, err := kwb.CurrentInputs(ctx)
+		_, err := kwb.CurrentInputs(ctx)
 		test.That(t, err, test.ShouldBeNil)
-		_ = inputs
 		slam.GetPointCloudMapFull(ctx, kwb.slam)
 	}
 }

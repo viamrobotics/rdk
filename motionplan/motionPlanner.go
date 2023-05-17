@@ -12,7 +12,6 @@ import (
 	pb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/utils"
 
-	"go.viam.com/rdk/referenceframe"
 	frame "go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -68,29 +67,6 @@ func PlanFrameMotion(ctx context.Context,
 	destination := frame.NewPoseInFrame(frame.World, dst)
 	seedMap := map[string][]frame.Input{f.Name(): seed}
 	solutionMap, err := motionPlanInternal(ctx, logger, destination, f, seedMap, fs, nil, constraintSpec, planningOpts)
-	if err != nil {
-		return nil, err
-	}
-	return FrameStepsFromRobotPath(f.Name(), solutionMap)
-}
-
-func PlanMapMotion(
-	ctx context.Context,
-	logger golog.Logger,
-	dst spatialmath.Pose,
-	f frame.Frame,
-	seed []frame.Input,
-	worldState *referenceframe.WorldState,
-	planningOpts map[string]interface{},
-) ([][]frame.Input, error) {
-	// ephemerally create a framesystem containing just the frame for the solve
-	fs := frame.NewEmptyFrameSystem("")
-	if err := fs.AddFrame(f, fs.World()); err != nil {
-		return nil, err
-	}
-	destination := frame.NewPoseInFrame(frame.World, dst)
-	seedMap := map[string][]frame.Input{f.Name(): seed}
-	solutionMap, err := motionPlanInternal(ctx, logger, destination, f, seedMap, fs, worldState, nil, planningOpts)
 	if err != nil {
 		return nil, err
 	}
