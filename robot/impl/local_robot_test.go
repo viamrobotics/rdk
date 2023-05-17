@@ -2783,6 +2783,10 @@ func TestOrphanedResources(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err, test.ShouldBeError,
 			resource.NewNotFoundError(generic.Named("h")))
+
+		// Also assert that generic helper resource was deregistered.
+		_, ok := resource.LookupRegistration(generic.API, helperModel)
+		test.That(t, ok, test.ShouldBeFalse)
 	})
 }
 

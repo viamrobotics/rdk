@@ -429,12 +429,15 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) b
 		}
 
 		// Otherwise, add old module process' resources to new module; warn if new
-		// module cannot handle old resource and remove now orphaned resources.
+		// module cannot handle old resource, deregister that resource and remove
+		// it from mod.resources. Finally, handle orphaned resources.
 		var orphanedResourceNames []resource.Name
 		for name, res := range mod.resources {
 			if _, err := mgr.AddResource(ctx, res.conf, res.deps); err != nil {
 				mgr.logger.Warnw("error while re-adding resource to module",
 					"resource", name, "module", mod.name, "error", err)
+				resource.Deregister(res.conf.API, res.conf.Model)
+				delete(mod.resources, name)
 				orphanedResourceNames = append(orphanedResourceNames, name)
 			}
 		}
