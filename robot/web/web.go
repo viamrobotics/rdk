@@ -104,6 +104,7 @@ func (app *robotWebApp) Init() error {
 
 // AppTemplateData is used to render the remote control page.
 type AppTemplateData struct {
+	External               bool                   `json:"external"`
 	WebRTCEnabled          bool                   `json:"webrtc_enabled"`
 	WebRTCSignalingAddress string                 `json:"webrtc_signaling_address"`
 	Env                    string                 `json:"env"`
