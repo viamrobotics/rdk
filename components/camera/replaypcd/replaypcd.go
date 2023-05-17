@@ -152,13 +152,13 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCl
 	// the gRPC header.
 	md := resp.GetData()[0].GetMetadata()
 	if stream := grpc.ServerTransportStreamFromContext(ctx); stream != nil {
-		timeReq := md.GetTimeRequested()
-		timeRec := md.GetTimeReceived()
-
 		var grpcMetadata metadata.MD = make(map[string][]string)
+
+		timeReq := md.GetTimeRequested()
 		if timeReq != nil {
 			grpcMetadata[camera.TimeRequestedMetadataKey] = []string{timeReq.AsTime().Format(time.RFC3339Nano)}
 		}
+		timeRec := md.GetTimeReceived()
 		if timeRec != nil {
 			grpcMetadata[camera.TimeReceivedMetadataKey] = []string{timeRec.AsTime().Format(time.RFC3339Nano)}
 		}
