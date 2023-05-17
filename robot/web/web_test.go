@@ -794,7 +794,7 @@ func setupRobotCtx(t *testing.T) (context.Context, robot.Robot) {
 		return pos, nil
 	}
 	injectRobot := &inject.Robot{}
-	injectRobot.ConfigFunc = func(ctx context.Context) (*config.Config, error) { return &config.Config{}, nil }
+	injectRobot.ConfigFunc = func() *config.Config { return &config.Config{} }
 	injectRobot.ResourceNamesFunc = func() []resource.Name { return resources }
 	injectRobot.ResourceRPCAPIsFunc = func() []resource.RPCAPI { return nil }
 	injectRobot.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
@@ -856,7 +856,7 @@ func TestForeignResource(t *testing.T) {
 
 	injectRobot := &inject.Robot{}
 	injectRobot.LoggerFunc = func() golog.Logger { return logger }
-	injectRobot.ConfigFunc = func(ctx context.Context) (*config.Config, error) { return &config.Config{}, nil }
+	injectRobot.ConfigFunc = func() *config.Config { return &config.Config{} }
 	injectRobot.ResourceNamesFunc = func() []resource.Name {
 		return []resource.Name{
 			resource.NewName(resourceAPI, "thing1"),

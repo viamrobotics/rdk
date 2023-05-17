@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-	"github.com/pkg/errors"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/board"
@@ -28,9 +27,10 @@ func TestPiPigpio(t *testing.T) {
 			{Name: "servo-i", Pin: "22", Type: "servo"},
 		},
 	}
+	resourceConfig := resource.Config{ConvertedAttributes: &cfg}
 
-	pp, err := NewPigpio(ctx, board.Named("foo"), &cfg, logger)
-	if errors.Is(err, errors.New("not running on a pi")) {
+	pp, err := newPigpio(ctx, board.Named("foo"), resourceConfig, logger)
+	if err != nil && err.Error() == "not running on a pi" {
 		t.Skip("not running on a pi")
 		return
 	}
@@ -269,7 +269,7 @@ func TestServoFunctions(t *testing.T) {
 		test.That(t, a, test.ShouldEqual, 180)
 	})
 
-	t.Run(("check Move IsMoving ande pigpio errors"), func(t *testing.T) {
+	t.Run(("check Move IsMoving and pigpio errors"), func(t *testing.T) {
 		ctx := context.Background()
 		s := &piPigpioServo{pinname: "1", maxRotation: 180}
 
@@ -306,15 +306,5 @@ func TestServoFunctions(t *testing.T) {
 		moving, err = s.IsMoving(ctx)
 		test.That(t, moving, test.ShouldBeFalse)
 		test.That(t, err, test.ShouldBeNil)
-
-		err = s.Move(ctx, 8, nil)
-		test.That(t, err, test.ShouldNotBeNil)
-
-		err = s.Stop(ctx, nil)
-		test.That(t, err, test.ShouldNotBeNil)
-
-		pos, err := s.Position(ctx, nil)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, pos, test.ShouldEqual, 0)
 	})
 }

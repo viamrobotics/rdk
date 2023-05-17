@@ -55,11 +55,7 @@ func init() {
 				conf resource.Config,
 				logger golog.Logger,
 			) (board.Board, error) {
-				boardConfig, err := resource.NativeConfig[*genericlinux.Config](conf)
-				if err != nil {
-					return nil, err
-				}
-				return NewPigpio(ctx, conf.ResourceName(), boardConfig, logger)
+				return newPigpio(ctx, conf.ResourceName(), conf, logger)
 			},
 		})
 }
@@ -72,14 +68,13 @@ type piPigpio struct {
 	mu              sync.Mutex
 	interruptCtx    context.Context
 	interruptCancel context.CancelFunc
-	cfg             *genericlinux.Config
 	duty            int // added for mutex
 	gpioConfigSet   map[int]bool
 	analogs         map[string]board.AnalogReader
 	i2cs            map[string]board.I2C
 	spis            map[string]board.SPI
-	interrupts      map[string]board.DigitalInterrupt
-	interruptsHW    map[uint]board.DigitalInterrupt
+	interrupts      map[string]board.DigitalInterrupt // Maps interrupt names to interrupts
+	interruptsHW    map[uint]board.DigitalInterrupt   // Maps broadcom addresses to the same
 	logger          golog.Logger
 	isClosed        bool
 }
@@ -90,9 +85,33 @@ var (
 	instances         = map[*piPigpio]struct{}{}
 )
 
-// NewPigpio makes a new pigpio based Board using the given config.
-// TODO(RSDK-RSDK-2691): implement reconfigure.
-func NewPigpio(ctx context.Context, name resource.Name, cfg *genericlinux.Config, logger golog.Logger) (board.LocalBoard, error) {
+func initializePigpio() error {
+	instanceMu.Lock()
+	defer instanceMu.Unlock()
+
+	if pigpioInitialized {
+		return nil
+	}
+
+	resCode := C.gpioInitialise()
+	if resCode < 0 {
+		// failed to init, check for common causes
+		_, err := os.Stat("/sys/bus/platform/drivers/raspberrypi-firmware")
+		if err != nil {
+			return errors.New("not running on a pi")
+		}
+		if os.Getuid() != 0 {
+			return errors.New("not running as root, try sudo")
+		}
+		return picommon.ConvertErrorCodeToMessage(int(resCode), "error")
+	}
+
+	pigpioInitialized = true
+	return nil
+}
+
+// newPigpio makes a new pigpio based Board using the given config.
+func newPigpio(ctx context.Context, name resource.Name, cfg resource.Config, logger golog.Logger) (board.LocalBoard, error) {
 	// this is so we can run it inside a daemon
 	internals := C.gpioCfgGetInternals()
 	internals |= C.PI_CFG_NOSIGHANDLER
@@ -101,110 +120,99 @@ func NewPigpio(ctx context.Context, name resource.Name, cfg *genericlinux.Config
 		return nil, picommon.ConvertErrorCodeToMessage(int(resCode), "gpioCfgSetInternals failed with code")
 	}
 
-	// setup
-	cancelCtx, cancelFunc := context.WithCancel(ctx)
+	if err := initializePigpio(); err != nil {
+		return nil, err
+	}
+
+	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	piInstance := &piPigpio{
 		Named:           name.AsNamed(),
-		cfg:             cfg,
 		logger:          logger,
 		isClosed:        false,
 		interruptCtx:    cancelCtx,
 		interruptCancel: cancelFunc,
 	}
 
-	instanceMu.Lock()
+	if err := piInstance.performConfiguration(ctx, nil, cfg); err != nil {
+		C.gpioTerminate()
+		logger.Error("Pi GPIO terminated due to failed init.")
+		return nil, err
+	}
+	return piInstance, nil
+}
 
-	// if pigpio is not initialized, only then we initialize it.
-	if !pigpioInitialized {
-		resCode = C.gpioInitialise()
-		if resCode < 0 {
-			instanceMu.Unlock()
-			// failed to init, check for common causes
-			_, err := os.Stat("/sys/bus/platform/drivers/raspberrypi-firmware")
-			if err != nil {
-				return nil, errors.New("not running on a pi")
-			}
-			if os.Getuid() != 0 {
-				return nil, errors.New("not running as root, try sudo")
-			}
-			return nil, picommon.ConvertErrorCodeToMessage(int(resCode), "error")
-		}
+// TODO(RSDK-RSDK-2691): implement reconfigure.
+func (pi *piPigpio) performConfiguration(
+	_ context.Context,
+	_ resource.Dependencies,
+	conf resource.Config,
+) error {
+	cfg, err := resource.NativeConfig[*genericlinux.Config](conf)
+	if err != nil {
+		return err
 	}
 
-	pigpioInitialized = true
-
-	initGood := false
-	defer func() {
-		if !initGood {
-			C.gpioTerminate()
-			logger.Debug("Pi GPIO terminated due to failed init.")
-		}
-	}()
-	instanceMu.Unlock()
+	pi.mu.Lock()
+	defer pi.mu.Unlock()
 
 	// setup I2C buses
-	if len(cfg.I2Cs) != 0 {
-		piInstance.i2cs = make(map[string]board.I2C, len(cfg.I2Cs))
-		for _, sc := range cfg.I2Cs {
-			id, err := strconv.Atoi(sc.Bus)
-			if err != nil {
-				return nil, err
-			}
-			piInstance.i2cs[sc.Name] = &piPigpioI2C{pi: piInstance, id: id}
+	pi.i2cs = make(map[string]board.I2C, len(cfg.I2Cs))
+	for _, sc := range cfg.I2Cs {
+		id, err := strconv.Atoi(sc.Bus)
+		if err != nil {
+			return err
 		}
+		pi.i2cs[sc.Name] = &piPigpioI2C{pi: pi, id: id}
 	}
 
 	// setup SPI buses
-	if len(cfg.SPIs) != 0 {
-		piInstance.spis = make(map[string]board.SPI, len(cfg.SPIs))
-		for _, sc := range cfg.SPIs {
-			if sc.BusSelect != "0" && sc.BusSelect != "1" {
-				return nil, errors.New("only SPI buses 0 and 1 are available on Pi boards")
-			}
-			piInstance.spis[sc.Name] = &piPigpioSPI{pi: piInstance, busSelect: sc.BusSelect}
+	pi.spis = make(map[string]board.SPI, len(cfg.SPIs))
+	for _, sc := range cfg.SPIs {
+		if sc.BusSelect != "0" && sc.BusSelect != "1" {
+			return errors.New("only SPI buses 0 and 1 are available on Pi boards")
 		}
+		pi.spis[sc.Name] = &piPigpioSPI{pi: pi, busSelect: sc.BusSelect}
 	}
 
 	// setup analogs
-	piInstance.analogs = map[string]board.AnalogReader{}
+	pi.analogs = map[string]board.AnalogReader{}
 	for _, ac := range cfg.Analogs {
 		channel, err := strconv.Atoi(ac.Pin)
 		if err != nil {
-			return nil, errors.Errorf("bad analog pin (%s)", ac.Pin)
+			return errors.Errorf("bad analog pin (%s)", ac.Pin)
 		}
 
-		bus, have := piInstance.SPIByName(ac.SPIBus)
+		bus, have := pi.SPIByName(ac.SPIBus)
 		if !have {
-			return nil, errors.Errorf("can't find SPI bus (%s) requested by AnalogReader", ac.SPIBus)
+			return errors.Errorf("can't find SPI bus (%s) requested by AnalogReader", ac.SPIBus)
 		}
 
 		ar := &board.MCP3008AnalogReader{channel, bus, ac.ChipSelect}
-		piInstance.analogs[ac.Name] = board.SmoothAnalogReader(ar, ac, logger)
+		pi.analogs[ac.Name] = board.SmoothAnalogReader(ar, ac, pi.logger)
 	}
 
 	// setup interrupts
-	piInstance.interrupts = map[string]board.DigitalInterrupt{}
-	piInstance.interruptsHW = map[uint]board.DigitalInterrupt{}
+	pi.interrupts = map[string]board.DigitalInterrupt{}
+	pi.interruptsHW = map[uint]board.DigitalInterrupt{}
 	for _, c := range cfg.DigitalInterrupts {
 		bcom, have := broadcomPinFromHardwareLabel(c.Pin)
 		if !have {
-			return nil, errors.Errorf("no hw mapping for %s", c.Pin)
+			return errors.Errorf("no hw mapping for %s", c.Pin)
 		}
 
 		di, err := board.CreateDigitalInterrupt(c)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		piInstance.interrupts[c.Name] = di
-		piInstance.interruptsHW[bcom] = di
+		pi.interrupts[c.Name] = di
+		pi.interruptsHW[bcom] = di
 		C.setupInterrupt(C.int(bcom))
 	}
 
 	instanceMu.Lock()
-	instances[piInstance] = struct{}{}
+	instances[pi] = struct{}{}
 	instanceMu.Unlock()
-	initGood = true
-	return piInstance, nil
+	return nil
 }
 
 // GPIOPinNames returns the names of all known GPIO pins.
@@ -500,9 +508,6 @@ func (pi *piPigpio) AnalogReaderNames() []string {
 }
 
 // DigitalInterruptNames returns the names of all known digital interrupts.
-// NOTE: During board setup, if a digital interrupt has not been created
-// for a pin, then this function will attempt to create one with the pin
-// number as the name.
 func (pi *piPigpio) DigitalInterruptNames() []string {
 	names := []string{}
 	for k := range pi.interrupts {
@@ -530,6 +535,9 @@ func (pi *piPigpio) I2CByName(name string) (board.I2C, bool) {
 }
 
 // DigitalInterruptByName returns a digital interrupt by name.
+// NOTE: During board setup, if a digital interrupt has not been created
+// for a pin, then this function will attempt to create one with the pin
+// number as the name.
 func (pi *piPigpio) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool) {
 	pi.mu.Lock()
 	defer pi.mu.Unlock()
@@ -567,7 +575,6 @@ func (pi *piPigpio) SetPowerMode(ctx context.Context, mode pb.PowerMode, duratio
 
 // Close attempts to close all parts of the board cleanly.
 func (pi *piPigpio) Close(ctx context.Context) error {
-	var terminate bool
 	// Prevent duplicate calls to Close a board as this may overlap with
 	// the reinitialization of the board
 	pi.mu.Lock()
@@ -579,37 +586,27 @@ func (pi *piPigpio) Close(ctx context.Context) error {
 	pi.mu.Unlock()
 	pi.interruptCancel()
 	instanceMu.Lock()
-	if len(instances) == 1 {
-		terminate = true
-	}
 	delete(instances, pi)
 
-	if terminate {
-		pigpioInitialized = false
-		instanceMu.Unlock()
-		// This has to happen outside of the lock to avoid a deadlock with interrupts.
-		C.gpioTerminate()
-		pi.logger.Debug("Pi GPIO terminated properly.")
-	} else {
-		instanceMu.Unlock()
-	}
+	instanceMu.Unlock()
 
 	var err error
 	for _, spi := range pi.spis {
 		err = multierr.Combine(err, spi.Close(ctx))
 	}
+	pi.spis = map[string]board.SPI{}
 
 	for _, analog := range pi.analogs {
 		err = multierr.Combine(err, analog.Close(ctx))
 	}
+	pi.analogs = map[string]board.AnalogReader{}
 
 	for _, interrupt := range pi.interrupts {
 		err = multierr.Combine(err, interrupt.Close(ctx))
 	}
+	pi.interrupts = map[string]board.DigitalInterrupt{}
+	pi.interruptsHW = map[uint]board.DigitalInterrupt{}
 
-	for _, interruptHW := range pi.interruptsHW {
-		err = multierr.Combine(err, interruptHW.Close(ctx))
-	}
 	pi.mu.Lock()
 	pi.isClosed = true
 	pi.mu.Unlock()
