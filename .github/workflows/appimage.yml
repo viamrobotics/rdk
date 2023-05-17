@@ -2,6 +2,10 @@ name: Build AppImage
 
 on:
   workflow_dispatch:
+    inputs:
+      release_type:
+        required: true
+        type: string
   workflow_call:
     inputs:
       release_type:
