@@ -8,13 +8,16 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
+	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	servicepb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/gripper"
+	"go.viam.com/rdk/components/movementsensor"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -30,6 +33,7 @@ var (
 )
 
 func TestClient(t *testing.T) {
+	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 	listener1, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
@@ -46,13 +50,18 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, svc), test.ShouldBeNil)
-	grabPose := referenceframe.NewPoseInFrame("", spatialmath.NewZeroPose())
-	resourceName := gripper.Named("fake")
-	test.That(t, err, test.ShouldBeNil)
-	ctx := context.Background()
 
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()
+
+	zeroPose := spatialmath.NewZeroPose()
+	zeroPoseInFrame := referenceframe.NewPoseInFrame("", zeroPose)
+	globeDest := geo.NewPoint(0.0, 0.0)
+	gripperName := gripper.Named("fake")
+	baseName := base.Named("test-base")
+	gpsName := movementsensor.Named("test-gps")
+
+	notYetImplementedErr := errors.New("Not yet implemented")
 
 	// failing
 	t.Run("Failing client", func(t *testing.T) {
@@ -84,6 +93,19 @@ func TestClient(t *testing.T) {
 		) (bool, error) {
 			return success, nil
 		}
+		injectMS.MoveOnGlobeFunc = func(
+			ctx context.Context,
+			componentName resource.Name,
+			destination *geo.Point,
+			heading float64,
+			movementSensorName resource.Name,
+			obstacles []*spatialmath.GeoObstacle,
+			linearVelocity float64,
+			angularVelocity float64,
+			extra map[string]interface{},
+		) (bool, error) {
+			return false, errors.New("Not yet implemented")
+		}
 		injectMS.GetPoseFunc = func(
 			ctx context.Context,
 			componentName resource.Name,
@@ -98,15 +120,22 @@ func TestClient(t *testing.T) {
 				destinationFrame+componentName.Name, spatialmath.NewPoseFromPoint(r3.Vector{1, 2, 3})), nil
 		}
 
-		result, err := client.Move(ctx, resourceName, grabPose, nil, nil, nil)
+		// Move
+		result, err := client.Move(ctx, gripperName, zeroPoseInFrame, nil, nil, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, result, test.ShouldEqual, success)
 
+		// MoveOnGlobe
+		globeResult, err := client.MoveOnGlobe(ctx, baseName, globeDest, math.NaN(), gpsName, nil, math.NaN(), math.NaN(), nil)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, notYetImplementedErr.Error())
+		test.That(t, globeResult, test.ShouldEqual, false)
+
+		// GetPose
 		testPose := spatialmath.NewPose(
 			r3.Vector{X: 1., Y: 2., Z: 3.},
 			&spatialmath.R4AA{Theta: math.Pi / 2, RX: 0., RY: 1., RZ: 0.},
 		)
-
 		transforms := []*referenceframe.LinkInFrame{
 			referenceframe.NewLinkInFrame("arm1", testPose, "frame1", nil),
 			referenceframe.NewLinkInFrame("frame1", testPose, "frame2", nil),
@@ -159,6 +188,20 @@ func TestClient(t *testing.T) {
 		) (bool, error) {
 			return false, passedErr
 		}
+		passedErr = errors.New("fake moveonglobe error")
+		injectMS.MoveOnGlobeFunc = func(
+			ctx context.Context,
+			componentName resource.Name,
+			destination *geo.Point,
+			heading float64,
+			movementSensorName resource.Name,
+			obstacles []*spatialmath.GeoObstacle,
+			linearVelocity float64,
+			angularVelocity float64,
+			extra map[string]interface{},
+		) (bool, error) {
+			return false, passedErr
+		}
 		passedErr = errors.New("fake GetPose error")
 		injectMS.GetPoseFunc = func(
 			ctx context.Context,
@@ -170,9 +213,18 @@ func TestClient(t *testing.T) {
 			return nil, passedErr
 		}
 
-		resp, err := client2.Move(ctx, resourceName, grabPose, nil, nil, nil)
+		// Move
+		resp, err := client2.Move(ctx, gripperName, zeroPoseInFrame, nil, nil, nil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, passedErr.Error())
 		test.That(t, resp, test.ShouldEqual, false)
+
+		// MoveOnGlobe
+		resp, err = client2.MoveOnGlobe(ctx, baseName, globeDest, math.NaN(), gpsName, nil, math.NaN(), math.NaN(), nil)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, passedErr.Error())
+		test.That(t, resp, test.ShouldEqual, false)
+
+		// GetPose
 		_, err = client2.GetPose(context.Background(), arm.Named("arm1"), "foo", nil, map[string]interface{}{})
 		test.That(t, err.Error(), test.ShouldContainSubstring, passedErr.Error())
 		test.That(t, client2.Close(context.Background()), test.ShouldBeNil)
