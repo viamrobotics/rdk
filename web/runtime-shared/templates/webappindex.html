@@ -30,7 +30,7 @@
     <div id="app"></div>
 
     {{ if .External }}
-    <script type="module" src="/static/remote-control/rc-control.js?v={{ .Version }}"></script>
+    <script type="module" src="/static/rc-control.js?v={{ .Version }}"></script>
     {{ else }}
 
     {{ if eq .Env "development" }}
@@ -38,7 +38,7 @@
     {{ end }}
 
     {{ if eq .Env "production" }}
-    <script type="module" src="{{ .StaticHost }}/static/remote-control/rc-control.js"></script>    
+    <script type="module" src="{{ .StaticHost }}/static/rc-control.js"></script>    
     {{ end }}
 
     {{ end }}
