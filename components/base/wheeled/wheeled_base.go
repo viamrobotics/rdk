@@ -93,22 +93,29 @@ type wheeledBase struct {
 	right     []motor.Motor
 	allMotors []motor.Motor
 
-	mu     sync.Mutex
 	opMgr  operation.SingleOperationManager
 	logger golog.Logger
 
+	mu    sync.Mutex
 	name  string
 	frame *referenceframe.LinkConfig
 }
 
 // Reconfigure reconfigures the base atomically and in place.
 func (wb *wheeledBase) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+	wb.mu.Lock()
+	defer wb.mu.Unlock()
+
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return err
 	}
 
-	// resetting the left motor list
+	if newConf.SpinSlipFactor == 0 {
+		newConf.SpinSlipFactor = 1
+	}
+
+	// Resetting the left motor list
 	wb.left = make([]motor.Motor, 0)
 
 	for _, name := range newConf.Left {
@@ -116,14 +123,10 @@ func (wb *wheeledBase) Reconfigure(ctx context.Context, deps resource.Dependenci
 		if err != nil {
 			return errors.Wrapf(err, "no left motor named (%s)", name)
 		}
-		props, err := m.Properties(ctx, nil)
-		if props[motor.PositionReporting] && err != nil {
-			wb.logger.Debugf("motor %s can report its position for base", name)
-		}
 		wb.left = append(wb.left, m)
 	}
 
-	// resetting the right motor list
+	// Resetting the right motor list
 	wb.right = make([]motor.Motor, 0)
 
 	for _, name := range newConf.Right {
@@ -131,18 +134,11 @@ func (wb *wheeledBase) Reconfigure(ctx context.Context, deps resource.Dependenci
 		if err != nil {
 			return errors.Wrapf(err, "no right motor named (%s)", name)
 		}
-		props, err := m.Properties(ctx, nil)
-		if props[motor.PositionReporting] && err != nil {
-			wb.logger.Debugf("motor %s can report its position for base", name)
-		}
 		wb.right = append(wb.right, m)
 	}
 
 	wb.allMotors = append(wb.allMotors, wb.left...)
 	wb.allMotors = append(wb.allMotors, wb.right...)
-
-	wb.mu.Lock()
-	defer wb.mu.Unlock()
 
 	wb.widthMm = newConf.WidthMM
 	wb.wheelCircumferenceMm = newConf.WheelCircumferenceMM
@@ -171,10 +167,6 @@ func CreateWheeledBase(
 		logger:               logger,
 		name:                 conf.Name,
 		frame:                conf.Frame,
-	}
-
-	if wb.spinSlipFactor == 0 {
-		wb.spinSlipFactor = 1
 	}
 
 	if err := wb.Reconfigure(ctx, deps, conf); err != nil {
