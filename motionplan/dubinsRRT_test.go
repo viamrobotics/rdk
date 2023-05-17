@@ -18,7 +18,7 @@ func TestDubinsRRT(t *testing.T) {
 	limits := []frame.Limit{{Min: -10, Max: 10}, {Min: -10, Max: 10}}
 
 	// build model
-	model, err := frame.NewMobile2DFrame("name", limits, robotGeometry)
+	model, err := frame.New2DMobileModelFrame("name", limits, robotGeometry)
 	test.That(t, err, test.ShouldEqual, nil)
 
 	// add it to a frame system

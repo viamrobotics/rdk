@@ -184,7 +184,7 @@ func simple2DMap() (*planConfig, error) {
 		return nil, err
 	}
 	modelName := "mobile-base"
-	model, err := frame.NewMobile2DFrame(modelName, limits, physicalGeometry)
+	model, err := frame.New2DMobileModelFrame(modelName, limits, physicalGeometry)
 	if err != nil {
 		return nil, err
 	}
@@ -552,12 +552,34 @@ func TestPlanMapMotion(t *testing.T) {
 		[]*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(referenceframe.World, []spatialmath.Geometry{box})},
 		nil,
 	)
-	// TODO(RSDK-2314): when MoveOnMap is implemented this will need to change to PlanMapMotion, the world state will be used and should
-	// result in a path of more than 2 waypoints
-	_ = worldState
-	plan, err := PlanFrameMotion(ctx, logger, dst, kb.ModelFrame(), inputs, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(plan), test.ShouldEqual, 2)
+
+	// TODO(RSDK-2314): when MoveOnMap is implemented this will need to change to PlanMapMotion
+	PlanMapMotion := func(
+		ctx context.Context,
+		logger golog.Logger,
+		dst spatialmath.Pose,
+		f frame.Frame,
+		seed []frame.Input,
+		worldState *referenceframe.WorldState,
+	) ([][]frame.Input, error) {
+		// ephemerally create a framesystem containing just the frame for the solve
+		fs := referenceframe.NewEmptyFrameSystem("")
+		if err := fs.AddFrame(f, fs.World()); err != nil {
+			return nil, err
+		}
+		destination := frame.NewPoseInFrame(frame.World, dst)
+		seedMap := map[string][]frame.Input{f.Name(): seed}
+		solutionMap, err := motionPlanInternal(ctx, logger, destination, f, seedMap, fs, worldState, nil, nil)
+		if err != nil {
+			return nil, err
+		}
+		return FrameStepsFromRobotPath(f.Name(), solutionMap)
+	}
+
+	plan, err := PlanMapMotion(ctx, logger, dst, kb.ModelFrame(), inputs, worldState)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(plan), test.ShouldBeGreaterThan, 2)
 }
 
 func TestSliceUniq(t *testing.T) {

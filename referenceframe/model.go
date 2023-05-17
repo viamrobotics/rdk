@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/arm/v1"
@@ -306,4 +307,33 @@ func ModelFromPath(modelPath, name string) (Model, error) {
 		return model, errUnsupportedFileType
 	}
 	return model, err
+}
+
+// New2DMobileModelFrame builds the kinematic model associated with the kinematicWheeledBase
+// Note that this model is not intended to be registered in the frame system.
+func New2DMobileModelFrame(name string, limits []Limit, collisionGeometry spatialmath.Geometry) (Model, error) {
+	if len(limits) != 3 {
+		return nil, errors.Errorf("Must have 3DOF state (x, y, theta) to create 2DMobildModelFrame, have %d dof", len(limits))
+	}
+
+	// build the model - SLAM convention is that the XY plane is the ground plane
+	x, err := NewTranslationalFrame("x", r3.Vector{X: 1}, limits[0])
+	if err != nil {
+		return nil, err
+	}
+	y, err := NewTranslationalFrame("y", r3.Vector{Y: 1}, limits[1])
+	if err != nil {
+		return nil, err
+	}
+	theta, err := NewRotationalFrame("theta", *spatialmath.NewR4AA(), limits[2])
+	if err != nil {
+		return nil, err
+	}
+	geometry, err := NewStaticFrameWithGeometry("geometry", spatialmath.NewZeroPose(), collisionGeometry)
+	if err != nil {
+		return nil, err
+	}
+	model := NewSimpleModel(name)
+	model.OrdTransforms = []Frame{x, y, theta, geometry}
+	return model, nil
 }

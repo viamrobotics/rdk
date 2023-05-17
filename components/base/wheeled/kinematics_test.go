@@ -99,6 +99,7 @@ func TestCurrentInputs(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		_, err := kwb.CurrentInputs(ctx)
 		test.That(t, err, test.ShouldBeNil)
-		slam.GetPointCloudMapFull(ctx, kwb.slam)
+		_, err = slam.GetPointCloudMapFull(ctx, kwb.slam)
+		test.That(t, err, test.ShouldBeNil)
 	}
 }

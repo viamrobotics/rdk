@@ -41,11 +41,12 @@ func (wb *wheeledBase) WrapWithKinematics(ctx context.Context, slamSvc slam.Serv
 	if err != nil {
 		return nil, err
 	}
-	model, err := MakeModelFrame(wb.name, geometry, []referenceframe.Limit{
+	limits := []referenceframe.Limit{
 		{Min: dims.MinX, Max: dims.MaxX},
 		{Min: dims.MinY, Max: dims.MaxY},
 		{Min: -2 * math.Pi, Max: 2 * math.Pi},
-	})
+	}
+	model, err := referenceframe.New2DMobileModelFrame(wb.name, limits, geometry)
 	if err != nil {
 		return nil, err
 	}
@@ -108,7 +109,6 @@ func (kwb *kinematicWheeledBase) GoToInputs(ctx context.Context, inputs []refere
 		// calculate the error state
 		headingErr := math.Mod(delta.Pose().Orientation().OrientationVectorDegrees().Theta, 360)
 		positionErr := int(1000 * delta.Pose().Point().Norm())
-		kwb.logger.Debugf("Position error: \t%d mm\tHeading error: \t%f degrees", positionErr, headingErr)
 		return positionErr, headingErr, nil
 	}
 
@@ -117,11 +117,9 @@ func (kwb *kinematicWheeledBase) GoToInputs(ctx context.Context, inputs []refere
 	// TODO(rb): check for the context being cancelled and stop if so
 	for distErr, headingErr, err := errorState(); err == nil && distErr > positionThresholdMM; distErr, headingErr, err = errorState() {
 		if math.Abs(headingErr) > headingThresholdDegrees {
-			// base is headed off course; spin to correct
-			err = kwb.Spin(ctx, -headingErr, 60, nil)
+			err = kwb.Spin(ctx, -headingErr, 60, nil) // base is headed off course; spin to correct
 		} else {
-			// base is pointed the correct direction; forge onward
-			err = kwb.MoveStraight(ctx, distErr, 300, nil)
+			err = kwb.MoveStraight(ctx, distErr, 300, nil) // base is pointed the correct direction; forge onward
 		}
 		if err != nil {
 			return err
@@ -129,17 +127,4 @@ func (kwb *kinematicWheeledBase) GoToInputs(ctx context.Context, inputs []refere
 	}
 
 	return err
-}
-
-// MakeModelFrame builds the kinematic model associated with the kinematicWheeledBase
-// Note that this model is not intended to be registered in the frame system.
-func MakeModelFrame(name string, collisionGeometry spatialmath.Geometry, limits []referenceframe.Limit) (referenceframe.Model, error) {
-	// build the model - SLAM convention is that the XY plane is the ground plane
-	frame2D, err := referenceframe.NewMobile2DFrame(collisionGeometry.Label(), limits, collisionGeometry)
-	if err != nil {
-		return nil, err
-	}
-	model := referenceframe.NewSimpleModel(name)
-	model.OrdTransforms = []referenceframe.Frame{frame2D}
-	return model, nil
 }

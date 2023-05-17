@@ -16,7 +16,6 @@ import (
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/arm/v1"
 
-	"go.viam.com/rdk/spatialmath"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
@@ -438,69 +437,4 @@ func (rf rotationalFrame) MarshalJSON() ([]byte, error) {
 func (rf *rotationalFrame) AlmostEquals(otherFrame Frame) bool {
 	other, ok := otherFrame.(*rotationalFrame)
 	return ok && rf.baseFrame.AlmostEquals(other.baseFrame) && spatial.R3VectorAlmostEqual(rf.rotAxis, other.rotAxis, 1e-8)
-}
-
-type mobile2DFrame struct {
-	*baseFrame
-	geometry spatial.Geometry
-}
-
-// NewMobile2DFrame instantiates a frame that can translate in the x and y dimensions and will always remain on the plane Z=0.
-func NewMobile2DFrame(name string, limits []Limit, geometry spatial.Geometry) (Frame, error) {
-	if len(limits) != 3 {
-		return nil, fmt.Errorf("cannot create a %d dof mobile frame, only support (x, y, theta) inputs currently", len(limits))
-	}
-	return &mobile2DFrame{baseFrame: &baseFrame{name: name, limits: limits}, geometry: geometry}, nil
-}
-
-func (mf *mobile2DFrame) Transform(input []Input) (spatial.Pose, error) {
-	err := mf.validInputs(input)
-	// We allow out-of-bounds calculations, but will return a non-nil error
-	if err != nil && !strings.Contains(err.Error(), OOBErrString) {
-		return nil, err
-	}
-	return spatial.NewPose(
-		r3.Vector{X: input[0].Value, Y: input[1].Value, Z: 0},
-		&spatialmath.OrientationVector{OZ: 1, Theta: input[2].Value},
-	), err
-}
-
-// InputFromProtobuf converts pb.JointPosition to inputs.
-func (mf *mobile2DFrame) InputFromProtobuf(jp *pb.JointPositions) []Input {
-	n := make([]Input, len(jp.Values))
-	for idx, d := range jp.Values {
-		n[idx] = Input{d}
-		// TODO: should this convert deg to rad?
-	}
-	return n
-}
-
-// ProtobufFromInput converts inputs to pb.JointPosition.
-func (mf *mobile2DFrame) ProtobufFromInput(input []Input) *pb.JointPositions {
-	n := make([]float64, len(input))
-	for idx, a := range input {
-		n[idx] = a.Value
-		// TODO: should this convert deg to rad?
-	}
-	return &pb.JointPositions{Values: n}
-}
-
-func (mf *mobile2DFrame) Geometries(input []Input) (*GeometriesInFrame, error) {
-	if mf.geometry == nil {
-		return NewGeometriesInFrame(mf.Name(), nil), nil
-	}
-	pose, err := mf.Transform(input)
-	if pose == nil || (err != nil && !strings.Contains(err.Error(), OOBErrString)) {
-		return nil, err
-	}
-	return NewGeometriesInFrame(mf.name, []spatial.Geometry{mf.geometry.Transform(pose)}), err
-}
-
-func (mf mobile2DFrame) MarshalJSON() ([]byte, error) {
-	return nil, fmt.Errorf("MarshalJSON not implemented for type %T", mf)
-}
-
-func (mf *mobile2DFrame) AlmostEquals(otherFrame Frame) bool {
-	other, ok := otherFrame.(*rotationalFrame)
-	return ok && mf.baseFrame.AlmostEquals(other.baseFrame)
 }

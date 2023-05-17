@@ -38,7 +38,7 @@ func init() {
 			},
 			WeakDependencies: []internal.ResourceMatcher{
 				internal.SLAMDependencyWildcardMatcher,
-				internal.ComponentDependencyWildcardMatcher, // once ResourceMatchers are more built out this should only match bases
+				internal.ComponentDependencyWildcardMatcher, // TODO(rb): when a better matcher system is built make this match Actuators
 			},
 		})
 }
@@ -182,13 +182,13 @@ func (ms *builtIn) MoveOnMap(
 	}
 
 	// create a KinematicBase from the componentName
-	b, ok := ms.components[componentName]
+	component, ok := ms.components[componentName]
 	if !ok {
 		return false, resource.DependencyNotFoundError(componentName)
 	}
-	kw, ok := b.(base.KinematicWrappable)
+	kw, ok := component.(base.KinematicWrappable)
 	if !ok {
-		return false, fmt.Errorf("cannot move component of type %T because it is not a KinematicWrappable base", b)
+		return false, fmt.Errorf("cannot move component of type %T because it is not a KinematicWrappable Base", component)
 	}
 	kb, err := kw.WrapWithKinematics(ctx, slamService)
 	if err != nil {
@@ -234,13 +234,13 @@ func (ms *builtIn) MoveSingleComponent(
 	operation.CancelOtherWithLabel(ctx, "motion-service")
 
 	// Get the arm and all initial inputs
-	fsInputs, allResources, err := ms.fsService.CurrentInputs(ctx)
+	fsInputs, _, err := ms.fsService.CurrentInputs(ctx)
 	if err != nil {
 		return false, err
 	}
 	ms.logger.Debugf("frame system inputs: %v", fsInputs)
 
-	armResource, ok := allResources[componentName.ShortName()]
+	armResource, ok := ms.components[componentName]
 	if !ok {
 		return false, fmt.Errorf("could not find a resource named %v", componentName.ShortName())
 	}

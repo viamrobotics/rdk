@@ -114,29 +114,6 @@ func TestRevoluteFrame(t *testing.T) {
 	test.That(t, limit[0], test.ShouldResemble, expLimit[0])
 }
 
-func TestMobile2DFrame(t *testing.T) {
-	expLimit := []Limit{{-10, 10}, {-10, 10}, {-math.Pi, math.Pi}}
-	frame := &mobile2DFrame{&baseFrame{"test", expLimit}, nil}
-	// expected output
-	expPose := spatial.NewPose(r3.Vector{3, 5, 0}, &spatial.OrientationVector{OZ: 1, Theta: math.Pi / 2})
-	// get expected transform back
-	pose, err := frame.Transform(FloatsToInputs([]float64{3, 5, math.Pi / 2}))
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, pose, test.ShouldResemble, expPose)
-	// if you feed in too many inputs, should get error back
-	_, err = frame.Transform(FloatsToInputs([]float64{3, 5, 0, 10}))
-	test.That(t, err, test.ShouldNotBeNil)
-	// if you feed in too few inputs, should get errr back
-	_, err = frame.Transform(FloatsToInputs([]float64{3}))
-	test.That(t, err, test.ShouldNotBeNil)
-	// if you try to move beyond set limits, should get an error
-	_, err = frame.Transform(FloatsToInputs([]float64{3, 100}))
-	test.That(t, err, test.ShouldNotBeNil)
-	// gets the correct limits back
-	limit := frame.DoF()
-	test.That(t, limit[0], test.ShouldResemble, expLimit[0])
-}
-
 func TestGeometries(t *testing.T) {
 	bc, err := spatial.NewBox(spatial.NewZeroPose(), r3.Vector{1, 1, 1}, "")
 	test.That(t, err, test.ShouldBeNil)
@@ -156,13 +133,6 @@ func TestGeometries(t *testing.T) {
 	geometries, err = rf.Geometries([]Input{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(geometries.Geometries()), test.ShouldEqual, 0)
-
-	// test creating a new mobile frame with a geometry
-	mf, err := NewMobile2DFrame("", []Limit{{-10, 10}, {-10, 10}}, bc)
-	test.That(t, err, test.ShouldBeNil)
-	geometries, err = mf.Geometries(FloatsToInputs([]float64{0, 10}))
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, expectedBox.AlmostEqual(geometries.Geometries()[0]), test.ShouldBeTrue)
 
 	// test creating a new static frame with a geometry
 	expectedBox = bc.Transform(spatial.NewZeroPose())
@@ -230,14 +200,14 @@ func TestSerializationRotations(t *testing.T) {
 }
 
 func TestRandomFrameInputs(t *testing.T) {
-	frame, _ := NewMobile2DFrame("", []Limit{{-10, 10}, {-10, 10}}, nil)
+	frame, _ := NewTranslationalFrame("", r3.Vector{X: 1}, Limit{-10, 10})
 	seed := rand.New(rand.NewSource(23))
 	for i := 0; i < 100; i++ {
 		_, err := frame.Transform(RandomFrameInputs(frame, seed))
 		test.That(t, err, test.ShouldBeNil)
 	}
 
-	limitedFrame, _ := NewMobile2DFrame("", []Limit{{-2, 2}, {-2, 2}}, nil)
+	limitedFrame, _ := NewTranslationalFrame("", r3.Vector{X: 1}, Limit{-2, 2})
 	for i := 0; i < 100; i++ {
 		_, err := limitedFrame.Transform(RestrictedRandomFrameInputs(frame, seed, .2))
 		test.That(t, err, test.ShouldBeNil)
