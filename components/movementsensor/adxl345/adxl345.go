@@ -544,8 +544,6 @@ func (adxl *adxl345) Readings(ctx context.Context, extra map[string]interface{})
 }
 
 func (adxl *adxl345) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
-	// We don't implement any of the MovementSensor interface yet, though hopefully
-	// LinearAcceleration will be added to the interface soon.
 	return &movementsensor.Properties{
 		LinearAccelerationSupported: true,
 	}, nil
