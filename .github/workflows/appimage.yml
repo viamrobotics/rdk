@@ -19,6 +19,7 @@ jobs:
   appimage:
     name: AppImage Build
     strategy:
+      fail-fast: false
       matrix:
         include:
           - arch: [x64, qemu-host]
