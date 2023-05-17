@@ -86,7 +86,10 @@ func attemptToBuildDetector(mlm mlmodel.Service) (objectdetection.Detector, erro
 		}
 
 		// Now reshape outMap into Detections
-		detections := make([]objectdetection.Detection, 0, len(categories))
+		if len(categories) != len(scores) || 4*len(scores) != len(locations) {
+			return nil, errors.New("output tensor sizes did not match each other as expected")
+		}
+		detections := make([]objectdetection.Detection, 0, len(scores))
 		for i := 0; i < len(scores); i++ {
 			xmin, ymin, xmax, ymax := utils.Clamp(locations[4*i+getIndex(boxOrder, 0)], 0, 1)*float64(origW),
 				utils.Clamp(locations[4*i+getIndex(boxOrder, 1)], 0, 1)*float64(origH),
