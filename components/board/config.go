@@ -50,6 +50,9 @@ func (config *AnalogConfig) Validate(path string) error {
 	if config.Name == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "name")
 	}
+	if config.SamplesPerSecond <= 0 {
+		return utils.NewConfigValidationError(path, "SamplesPerSecond must be non-negative")
+	}
 	return nil
 }
 
