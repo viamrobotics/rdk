@@ -353,9 +353,7 @@ func setupDependencies(mockData []byte) (resource.Config, resource.Dependencies)
 
 //nolint:dupl
 func TestLinearAcceleration(t *testing.T) {
-	// linear acceleration, temperature, and angular velocity are all read
-	// sequentially from the same series of 16-bytes, so we need to fill in
-	// the mock data at the appropriate portion of the sequence
+
 	linearAccelMockData := make([]byte, 16)
 	// x-accel
 	linearAccelMockData[0] = 40
