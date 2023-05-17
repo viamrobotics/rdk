@@ -7,6 +7,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
+	"go.viam.com/utils"
 	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/components/board"
@@ -17,6 +18,41 @@ import (
 
 func nowNanosTest() uint64 {
 	return uint64(time.Now().UnixNano())
+}
+
+func TestValidateConfig(t *testing.T) {
+	boardName := "local"
+	t.Run("fails with no board supplied", func(t *testing.T) {
+		cfg := Config{
+			I2cBus: "thing",
+		}
+		deps, err := cfg.Validate("path")
+		expectedErr := utils.NewConfigValidationFieldRequiredError("path", "board")
+		test.That(t, err, test.ShouldBeError, expectedErr)
+		test.That(t, deps, test.ShouldBeEmpty)
+	})
+
+	t.Run("fails with no I2C bus", func(t *testing.T) {
+		cfg := Config{
+			BoardName: boardName,
+		}
+		deps, err := cfg.Validate("path")
+		expectedErr := utils.NewConfigValidationFieldRequiredError("path", "i2c_bus")
+		test.That(t, err, test.ShouldBeError, expectedErr)
+		test.That(t, deps, test.ShouldBeEmpty)
+	})
+
+	t.Run("adds board name to dependencies on success", func(t *testing.T) {
+		cfg := Config{
+			BoardName: boardName,
+			I2cBus:    "thing2",
+		}
+		deps, err := cfg.Validate("path")
+
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(deps), test.ShouldEqual, 1)
+		test.That(t, deps[0], test.ShouldResemble, boardName)
+	})
 }
 
 func sendInterrupt(ctx context.Context, adxl movementsensor.MovementSensor, t *testing.T, interrupt board.DigitalInterrupt, key string) {
