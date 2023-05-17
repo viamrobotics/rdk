@@ -24,6 +24,9 @@ func attemptToBuildClassifier(mlm mlmodel.Service) (classification.Classifier, e
 	var inHeight, inWidth uint
 	inType := md.Inputs[0].DataType
 	labels := getLabelsFromMetadata(md)
+	if len(md.Inputs[0].Shape) < 4 {
+		return nil, errors.New("could not get input dimensions")
+	}
 	if shape := md.Inputs[0].Shape; getIndex(shape, 3) == 1 {
 		inHeight, inWidth = uint(shape[2]), uint(shape[3])
 	} else {
