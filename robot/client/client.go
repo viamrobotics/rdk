@@ -38,7 +38,7 @@ import (
 	"go.viam.com/rdk/robot/packages"
 	"go.viam.com/rdk/session"
 	"go.viam.com/rdk/spatialmath"
-	rdkutils "go.viam.com/rdk/utils"
+	"go.viam.com/rdk/utils/contextutils"
 )
 
 var (
@@ -279,7 +279,7 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 	// interceptors are applied in order from first to last
 	rc.dialOptions = append(
 		rc.dialOptions,
-		rpc.WithUnaryClientInterceptor(rdkutils.ContextWithMetadataUnaryClientInterceptor),
+		rpc.WithUnaryClientInterceptor(contextutils.ContextWithMetadataUnaryClientInterceptor),
 		// error handling
 		rpc.WithUnaryClientInterceptor(rc.handleUnaryDisconnect),
 		rpc.WithStreamClientInterceptor(rc.handleStreamDisconnect),
