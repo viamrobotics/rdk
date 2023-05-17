@@ -238,6 +238,7 @@ func (m *SimpleModel) inputsToFrames(inputs []Input, collectAll bool) ([]*static
 			} else {
 				geometry = geometries[0]
 			}
+			// TODO(pl): Part of the implementation for GetGeometries will require removing the single geometry restriction
 			fixedFrame, err := NewStaticFrameWithGeometry(transform.Name(), composedTransformation, geometry)
 			if err != nil {
 				return nil, err

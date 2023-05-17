@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/pkg/errors"
-
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 
@@ -180,17 +178,17 @@ func (ms *builtIn) MoveOnMap(
 	// get the SLAM Service from the slamName
 	slamService, ok := ms.slamServices[slamName]
 	if !ok {
-		return false, errors.Wrap(resource.NewNotFoundError(slamName), "motion service missing weak dependency")
+		return false, resource.DependencyNotFoundError(slamName)
 	}
 
 	// create a KinematicBase from the componentName
 	b, ok := ms.components[componentName]
 	if !ok {
-		return false, fmt.Errorf("only Base components are supported for MoveOnMap: could not find an Base named %v", componentName)
+		return false, resource.DependencyNotFoundError(componentName)
 	}
 	kw, ok := b.(base.KinematicWrappable)
 	if !ok {
-		return false, fmt.Errorf("cannot move base of type %T because it is not KinematicWrappable", b)
+		return false, fmt.Errorf("cannot move component of type %T because it is not a KinematicWrappable base", b)
 	}
 	kb, err := kw.WrapWithKinematics(ctx, slamService)
 	if err != nil {
