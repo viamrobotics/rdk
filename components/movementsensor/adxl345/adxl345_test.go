@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/testutils"
@@ -267,4 +268,121 @@ func TestReadInterrupts(t *testing.T) {
 		test.That(t, sensor.interruptsFound[SingleTap], test.ShouldEqual, 0)
 		test.That(t, sensor.interruptsFound[FreeFall], test.ShouldEqual, 0)
 	})
+}
+
+func TestInitializationFailureOnChipCommunication(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	testBoardName := "board"
+	i2cName := "i2c"
+
+	t.Run("fails on read error", func(t *testing.T) {
+		cfg := resource.Config{
+			Name:  "movementsensor",
+			Model: model,
+			API:   movementsensor.API,
+			ConvertedAttributes: &Config{
+				BoardName: testBoardName,
+				I2cBus:    i2cName,
+			},
+		}
+		i2cHandle := &inject.I2CHandle{}
+		readErr := errors.New("read error")
+		i2cHandle.ReadBlockDataFunc = func(ctx context.Context, register byte, numBytes uint8) ([]byte, error) {
+			if register == 0xE5 {
+				return nil, readErr
+			}
+			return []byte{}, nil
+		}
+		i2cHandle.CloseFunc = func() error { return nil }
+		mockBoard := &inject.Board{}
+		mockBoard.I2CByNameFunc = func(name string) (board.I2C, bool) {
+			i2c := &inject.I2C{}
+			i2c.OpenHandleFunc = func(addr byte) (board.I2CHandle, error) {
+				return i2cHandle, nil
+			}
+			return i2c, true
+		}
+		deps := resource.Dependencies{
+			resource.NewName(board.API, testBoardName): mockBoard,
+		}
+		sensor, err := NewAdxl345(context.Background(), deps, cfg, logger)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, sensor, test.ShouldBeNil)
+	})
+
+}
+
+func setupDependencies(mockData []byte) (resource.Config, resource.Dependencies) {
+	testBoardName := "board"
+	i2cName := "i2c"
+
+	cfg := resource.Config{
+		Name:  "movementsensor",
+		Model: model,
+		API:   movementsensor.API,
+		ConvertedAttributes: &Config{
+			BoardName:              testBoardName,
+			I2cBus:                 i2cName,
+			UseAlternateI2CAddress: true,
+		},
+	}
+
+	i2cHandle := &inject.I2CHandle{}
+	i2cHandle.ReadBlockDataFunc = func(ctx context.Context, register byte, numBytes uint8) ([]byte, error) {
+		if register == 0 {
+			return []byte{0xE5}, nil
+		}
+		return mockData, nil
+	}
+	i2cHandle.WriteByteDataFunc = func(ctx context.Context, b1, b2 byte) error {
+		return nil
+	}
+	i2cHandle.CloseFunc = func() error { return nil }
+	mockBoard := &inject.Board{}
+	mockBoard.I2CByNameFunc = func(name string) (board.I2C, bool) {
+		i2c := &inject.I2C{}
+		i2c.OpenHandleFunc = func(addr byte) (board.I2CHandle, error) {
+			return i2cHandle, nil
+		}
+		return i2c, true
+	}
+	return cfg, resource.Dependencies{
+		resource.NewName(board.API, testBoardName): mockBoard,
+	}
+}
+
+//nolint:dupl
+func TestLinearAcceleration(t *testing.T) {
+	// linear acceleration, temperature, and angular velocity are all read
+	// sequentially from the same series of 16-bytes, so we need to fill in
+	// the mock data at the appropriate portion of the sequence
+	linearAccelMockData := make([]byte, 16)
+	// x-accel
+	linearAccelMockData[0] = 40
+	linearAccelMockData[1] = 0
+	expectedAccelX := 1.5328125000000001
+	// y-accel
+	linearAccelMockData[2] = 50
+	linearAccelMockData[3] = 0
+	expectedAccelY := 1.916015625
+	// z-accel
+	linearAccelMockData[4] = 80
+	linearAccelMockData[5] = 0
+	expectedAccelZ := 3.0656250000000003
+
+	logger := golog.NewTestLogger(t)
+	cfg, deps := setupDependencies(linearAccelMockData)
+	sensor, err := NewAdxl345(context.Background(), deps, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer sensor.Close(context.Background())
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		linAcc, err := sensor.LinearAcceleration(context.Background(), nil)
+		test.That(tb, err, test.ShouldBeNil)
+		test.That(tb, linAcc, test.ShouldNotBeZeroValue)
+	})
+	accel, err := sensor.LinearAcceleration(context.Background(), nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, accel.X, test.ShouldEqual, expectedAccelX)
+	test.That(t, accel.Y, test.ShouldEqual, expectedAccelY)
+	test.That(t, accel.Z, test.ShouldEqual, expectedAccelZ)
 }
