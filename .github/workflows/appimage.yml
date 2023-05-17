@@ -106,11 +106,11 @@ jobs:
       run: |
         sudo -Hu testbot bash -lc 'make RELEASE_TYPE="${{ inputs.release_type }}" BUILD_CHANNEL="${{ github.ref_name }}" appimage'
 
-  # SMURF
-  #   - name: Set Date
-  #     id: build_date
-  #     run: echo "date=`date +%F`" >> $GITHUB_OUTPUT
+    - name: Set Date
+      id: build_date
+      run: echo "date=`date +%F`" >> $GITHUB_OUTPUT
 
+  # SMURF
   #   - name: Upload Files (Testing)
   #     if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
   #     uses: google-github-actions/upload-cloud-storage@v0.10.4

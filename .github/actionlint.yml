@@ -2,3 +2,14 @@ self-hosted-runner:
   labels:
     - qemu-host
     - pi4
+    - buildjet-2vcpu-ubuntu-2204
+    - buildjet-4vcpu-ubuntu-2204
+    - buildjet-8vcpu-ubuntu-2204
+    - buildjet-16vcpu-ubuntu-2204
+    - buildjet-32vcpu-ubuntu-2204
+    - buildjet-64vcpu-ubuntu-2204
+    - buildjet-2vcpu-ubuntu-2204-arm
+    - buildjet-4vcpu-ubuntu-2204-arm
+    - buildjet-8vcpu-ubuntu-2204-arm
+    - buildjet-16vcpu-ubuntu-2204-arm
+    - buildjet-32vcpu-ubuntu-2204-arm
