@@ -156,11 +156,11 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCl
 
 		timeReq := md.GetTimeRequested()
 		if timeReq != nil {
-			grpcMetadata[camera.TimeRequestedMetadataKey] = []string{timeReq.AsTime().Format(time.RFC3339Nano)}
+			grpcMetadata.Set(camera.TimeRequestedMetadataKey, timeReq.AsTime().Format(time.RFC3339Nano))
 		}
 		timeRec := md.GetTimeReceived()
 		if timeRec != nil {
-			grpcMetadata[camera.TimeReceivedMetadataKey] = []string{timeRec.AsTime().Format(time.RFC3339Nano)}
+			grpcMetadata.Set(camera.TimeReceivedMetadataKey, timeRec.AsTime().Format(time.RFC3339Nano))
 		}
 
 		if err := grpc.SendHeader(ctx, grpcMetadata); err != nil {
