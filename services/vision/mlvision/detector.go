@@ -25,7 +25,7 @@ func attemptToBuildDetector(mlm mlmodel.Service) (objectdetection.Detector, erro
 	// Set up input type, height, width, and labels
 	var inHeight, inWidth uint
 	if len(md.Inputs) < 1 {
-		return nil, errors.New("could not get input information")
+		return nil, errors.New("could not get information about first input tensor")
 	}
 	inType := md.Inputs[0].DataType
 	labels := getLabelsFromMetadata(md)
@@ -35,7 +35,7 @@ func attemptToBuildDetector(mlm mlmodel.Service) (objectdetection.Detector, erro
 	}
 
 	if len(md.Inputs[0].Shape) < 4 {
-		return nil, errors.New("could not get input dimensions")
+		return nil, errors.New("could not retrieve dimensions for input tensor")
 	}
 
 	if shape := md.Inputs[0].Shape; getIndex(shape, 3) == 1 {

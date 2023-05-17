@@ -23,12 +23,12 @@ func attemptToBuildClassifier(mlm mlmodel.Service) (classification.Classifier, e
 	// Set up input type, height, width, and labels
 	var inHeight, inWidth uint
 	if len(md.Inputs) < 1 {
-		return nil, errors.New("could not get input dimensions")
+		return nil, errors.New("could not get information about first input tensor")
 	}
 	inType := md.Inputs[0].DataType
 	labels := getLabelsFromMetadata(md)
 	if len(md.Inputs[0].Shape) < 4 {
-		return nil, errors.New("could not get input dimensions")
+		return nil, errors.New("could not retrieve dimensions for input tensor")
 	}
 	if shape := md.Inputs[0].Shape; getIndex(shape, 3) == 1 {
 		inHeight, inWidth = uint(shape[2]), uint(shape[3])
