@@ -1,7 +1,6 @@
 package board
 
 import (
-	"github.com/pkg/errors"
 	"go.viam.com/utils"
 )
 
@@ -52,8 +51,7 @@ func (config *AnalogConfig) Validate(path string) error {
 		return utils.NewConfigValidationFieldRequiredError(path, "name")
 	}
 	if config.SamplesPerSecond <= 0 {
-		return utils.NewConfigValidationError(
-			path, errors.New("SamplesPerSecond must be non-negative"))
+		return utils.NewConfigValidationError(path, "SamplesPerSecond must be non-negative")
 	}
 	return nil
 }
