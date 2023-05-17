@@ -91,7 +91,7 @@ func (as *AnalogSmoother) Start(ctx context.Context) {
 	//    numSamples        4
 
 	numSamples := (as.SamplesPerSecond * as.AverageOverMillis) / 1000
-	if numSamples == 0 {
+	if numSamples <= 0 {
 		as.logger.Debug("Can't smooth over 0 samples at a time; defaulting to 1")
 		numSamples = 1
 	}
