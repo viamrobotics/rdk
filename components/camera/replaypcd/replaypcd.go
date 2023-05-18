@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
-	"io"
 	"sync"
 	"time"
 
@@ -138,6 +137,7 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCl
 		return nil, errors.New("session closed")
 	}
 
+	// Retrieve next cached data and remove from cache
 	if len(replay.cachedData) != 0 {
 		data := replay.cachedData[0]
 
@@ -148,11 +148,12 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCl
 			return nil, errors.Wrapf(data.err, "cache data contained an error")
 		}
 
-		// Pop first element off cache
 		replay.cachedData = replay.cachedData[1:]
 
 		return data.pc, nil
 	}
+
+	// Retrieve and cache new batch of data if needed
 	resp, err := replay.dataClient.BinaryDataByFilter(ctx, &datapb.BinaryDataByFilterRequest{
 		DataRequest: &datapb.DataRequest{
 			Filter:    replay.filter,
@@ -169,9 +170,7 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCl
 
 	replay.lastData = resp.GetLast()
 
-	// Perform batching
 	if replay.limit != 1 {
-		// Get ordered list of ids for the cache
 		var ids []string
 		for _, dataResponse := range resp.Data {
 			ids = append(ids, dataResponse.GetMetadata().Id)
@@ -180,11 +179,7 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCl
 		return replay.NextPointCloud(ctx)
 	}
 
-	r, err := decodeResponseData(resp.GetData(), replay.logger)
-	if err != nil {
-		return nil, err
-	}
-	pc, err := pointcloud.ReadPCD(r)
+	pc, err := decodeResponseData(resp.GetData(), replay.logger)
 	if err != nil {
 		return nil, err
 	}
@@ -194,7 +189,8 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCl
 
 // cacheDataInOrder iterates through the given sets of ids, performing the download of the respective
 // data in parallel using go routines. The downloaded data is then sent through channels to a for loop
-// which caches them in the pcdCamera object, waiting until all data has be received before continuing.
+// which caches them, in order, in the pcdCamera object, waiting until all data has been received before
+// continuing.
 func (replay *pcdCamera) cacheDataInOrder(ctx context.Context, ids []string) {
 	// Initialize cache with an ordered id-correlated array of empty data
 	for _, id := range ids {
@@ -223,13 +219,7 @@ func (replay *pcdCamera) cacheDataInOrder(ctx context.Context, ids []string) {
 			}
 
 			// Decode response data
-			var r io.Reader
-			r, cData.err = decodeResponseData(resp.GetData(), replay.logger)
-			if cData.err != nil {
-				replay.cacheCh <- cData
-				return
-			}
-			cData.pc, cData.err = pointcloud.ReadPCD(r)
+			cData.pc, cData.err = decodeResponseData(resp.GetData(), replay.logger)
 
 			// Send data to cache channel for processing
 			replay.cacheCh <- cData
@@ -379,8 +369,8 @@ func (replay *pcdCamera) initCloudConnection(ctx context.Context) error {
 	return nil
 }
 
-// decodeResponseData uncompresses the gzipped byte array into a standard byte array.
-func decodeResponseData(respData []*datapb.BinaryData, logger golog.Logger) (io.Reader, error) {
+// decodeResponseData decompresses the gzipped byte array.
+func decodeResponseData(respData []*datapb.BinaryData, logger golog.Logger) (pointcloud.PointCloud, error) {
 
 	// If no data is returned, return an error indicating we've reached the end of the dataset.
 	if len(respData) == 0 {
@@ -397,5 +387,11 @@ func decodeResponseData(respData []*datapb.BinaryData, logger golog.Logger) (io.
 			logger.Warnw("Failed to close gzip reader", "warn", err)
 		}
 	}()
-	return r, nil
+
+	pc, err := pointcloud.ReadPCD(r)
+	if err != nil {
+		return nil, err
+	}
+
+	return pc, nil
 }
