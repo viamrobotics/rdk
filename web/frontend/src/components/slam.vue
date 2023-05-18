@@ -132,11 +132,11 @@ const fetchFeatureFlags = (name: string): Promise<{[key: string]: boolean}> => {
          *  signifies that the feature flag is false
          */
         if (error) {
-          if (error.code !== grpc.Code.Unimplemented) {
-            reject(error);
+          if (error.code === grpc.Code.Unimplemented) {
+            resolve({});
             return;
           }
-          resolve({});
+          reject(error);
           return;
 
         }
