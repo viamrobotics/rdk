@@ -13,9 +13,7 @@ import PCD from './pcd/pcd-view.vue';
 import { copyToClipboardWithToast } from '../lib/copy-to-clipboard';
 import Slam2dRender from './slam-2d-render.vue';
 import { filterResources } from '../lib/resource';
-import { onMounted, onUnmounted, resolveComponent } from 'vue';
-import { Metadata } from '@improbable-eng/grpc-web/dist/typings/metadata';
-import { DoCommandResponse } from '@viamrobotics/sdk/dist/gen/common/v1/common_pb';
+import { onMounted, onUnmounted } from 'vue';
 
 type MapAndPose = { map: Uint8Array, pose: commonApi.Pose}
 
@@ -123,19 +121,23 @@ const fetchFeatureFlags = (name: string): Promise<{[key: string]: boolean}> => {
   return new Promise((resolve, reject): void => {
     const request = new commonApi.DoCommandRequest();
     request.setName(name);
-    request.setCommand(Struct.fromJavaScript({'feature_flag': true}))
-    props.client.slamService.doCommand(request, new grpc.Metadata(), (error: ServiceError|null, responseMessage: commonApi.DoCommandResponse|null) => {
-      if (error) {
-        if (error.code !== grpc.Code.Unimplemented) {
-          reject(error)
-          return
-        } else {
-          resolve({})
-          return
+    request.setCommand(Struct.fromJavaScript({ feature_flag: true }));
+    props.client.slamService.doCommand(
+      request,
+      new grpc.Metadata(),
+      (error: ServiceError|null, responseMessage: commonApi.DoCommandResponse|null) => {
+        if (error) {
+          if (error.code !== grpc.Code.Unimplemented) {
+            reject(error);
+            return;
+          }
+          resolve({});
+          return;
+
         }
+        resolve(responseMessage!.getResult()?.toJavaScript() as {[key: string]: boolean});
       }
-      resolve(responseMessage!.getResult()?.toJavaScript() as {[key: string]: boolean})
-    })
+    );
   });
 };
 
@@ -207,9 +209,9 @@ const refresh2d = async (name: string) => {
 
   const map = await fetchSLAMMap(name);
   const returnedPose = await fetchSLAMPose(name);
-  
+
   // TODO: Remove this check when APP and carto are both up to date [RSDK-3166]
-  if (flags && flags["response_in_millimeters"]) {
+  if (flags && flags.response_in_millimeters) {
     returnedPose.setX(returnedPose.getX() / 1000);
     returnedPose.setY(returnedPose.getY() / 1000);
     returnedPose.setZ(returnedPose.getZ() / 1000);
