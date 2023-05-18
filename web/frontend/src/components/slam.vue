@@ -65,8 +65,11 @@ const baseResources = $computed(() => filterResources(props.resources, 'rdk', 'c
 
 // allowMove is only true if we have a base, there exists a destination and there is no in-flight MoveOnMap req
 const allowMove = $computed(() => (
-  (baseResources !== undefined) &&
-  (baseResources.length > 0) && updatedDest && !moveClicked));
+  baseResources !== undefined &&
+  baseResources.length > 0 &&
+  updatedDest &&
+  !moveClicked
+));
 
 const concatArrayU8 = (arrays: Uint8Array[]) => {
   const totalLength = arrays.reduce((acc, value) => acc + value.length, 0);
@@ -137,12 +140,12 @@ const fetchSLAMPose = (name: string): Promise<commonApi.Pose> => {
   });
 };
 
-const executeDeleteDestinationMarker = () => {
+const deleteDestinationMarker = () => {
   updatedDest = false;
   destinationMarker = new THREE.Vector3();
 };
 
-const executeMoveOnMap = async () => {
+const moveOnMap = async () => {
 
   /*
    * set request name
@@ -190,11 +193,11 @@ const executeMoveOnMap = async () => {
     new grpc.Metadata(),
     (error: ServiceError | null, response: motionApi.MoveOnMapResponse | null) => {
       if (error) {
-        executeDeleteDestinationMarker();
+        deleteDestinationMarker();
         toast.error(`Error moving: ${error}`);
         return;
       }
-      executeDeleteDestinationMarker();
+      deleteDestinationMarker();
       toast.success(`MoveOnMap success: ${response!.getSuccess()}`);
     }
   );
@@ -498,7 +501,7 @@ onUnmounted(() => {
             </p>
             <v-icon
               name="trash"
-              @click="executeDeleteDestinationMarker()"
+              @click="deleteDestinationMarker()"
             />
           </div>
           <div class="flex flex-row pb-2">
@@ -526,7 +529,7 @@ onUnmounted(() => {
             variant="success"
             icon="play-circle-filled"
             :disabled="allowMove ? 'false' : 'true'"
-            @click="executeMoveOnMap()"
+            @click="moveOnMap()"
           />
           <v-switch
             class="pt-2"
