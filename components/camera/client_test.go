@@ -14,6 +14,8 @@ import (
 	"github.com/edaniels/gostream"
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 
 	"go.viam.com/rdk/components/camera"
 	viamgrpc "go.viam.com/rdk/grpc"
@@ -24,6 +26,7 @@ import (
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
+	"go.viam.com/rdk/utils/contextutils"
 )
 
 func TestClient(t *testing.T) {
@@ -389,4 +392,61 @@ func TestClientLazyImage(t *testing.T) {
 	test.That(t, compVal, test.ShouldEqual, 0) // exact copy, no color conversion
 
 	test.That(t, conn.Close(), test.ShouldBeNil)
+}
+
+func TestClientWithInterceptor(t *testing.T) {
+	// Set up gRPC server
+	logger := golog.NewTestLogger(t)
+	listener1, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
+	test.That(t, err, test.ShouldBeNil)
+
+	// Set up camera that adds timestamps into the gRPC response header.
+	injectCamera := &inject.Camera{}
+
+	pcA := pointcloud.New()
+	err = pcA.Set(pointcloud.NewVector(5, 5, 5), nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
+		var grpcMetadata metadata.MD = make(map[string][]string)
+		grpcMetadata.Set("hello", "world")
+		grpc.SendHeader(ctx, grpcMetadata)
+		return pcA, nil
+	}
+
+	// Register CameraService API in our gRPC server.
+	resources := map[resource.Name]camera.Camera{
+		camera.Named(testCameraName): injectCamera,
+	}
+	cameraSvc, err := resource.NewAPIResourceCollection(camera.API, resources)
+	test.That(t, err, test.ShouldBeNil)
+	resourceAPI, ok, err := resource.LookupAPIRegistration[camera.Camera](camera.API)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, cameraSvc), test.ShouldBeNil)
+
+	// Start serving requests.
+	go rpcServer.Serve(listener1)
+	defer rpcServer.Stop()
+
+	// Set up gRPC client with context with metadata interceptor.
+	conn, err := viamgrpc.Dial(
+		context.Background(),
+		listener1.Addr().String(),
+		logger,
+		rpc.WithUnaryClientInterceptor(contextutils.ContextWithMetadataUnaryClientInterceptor),
+	)
+	test.That(t, err, test.ShouldBeNil)
+	camera1Client, err := camera.NewClientFromConn(context.Background(), conn, "", camera.Named(testCameraName), logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Construct a ContextWithMetadata to pass into NextPointCloud.
+	ctx, md := contextutils.ContextWithMetadata(context.Background())
+	pcB, err := camera1Client.NextPointCloud(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	_, got := pcB.At(5, 5, 5)
+	test.That(t, got, test.ShouldBeTrue)
+	test.That(t, md["hello"][0], test.ShouldEqual, "world")
 }
