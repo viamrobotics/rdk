@@ -14,6 +14,7 @@ import (
 
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/session"
+	"go.viam.com/rdk/testutils"
 )
 
 func TestToFromContext(t *testing.T) {
@@ -64,7 +65,7 @@ func TestSafetyMonitor(t *testing.T) {
 }
 
 func TestSafetyMonitorForMetadata(t *testing.T) {
-	stream1 := &myStream{}
+	stream1 := testutils.NewServerTransportStream()
 	streamCtx := grpc.NewContextWithServerTransportStream(context.Background(), stream1)
 
 	sess1 := session.New(context.Background(), "ownerID", time.Minute, nil)
@@ -73,9 +74,9 @@ func TestSafetyMonitorForMetadata(t *testing.T) {
 	name1 := resource.NewName(resource.APINamespace("foo").WithType("bar").WithSubtype("baz"), "barf")
 	name2 := resource.NewName(resource.APINamespace("woo").WithType("war").WithSubtype("waz"), "warf")
 	session.SafetyMonitor(nextCtx, myThing{Named: name1.AsNamed()})
-	test.That(t, stream1.md[session.SafetyMonitoredResourceMetadataKey], test.ShouldResemble, []string{name1.String()})
+	test.That(t, stream1.Value(session.SafetyMonitoredResourceMetadataKey), test.ShouldResemble, []string{name1.String()})
 	session.SafetyMonitor(nextCtx, myThing{Named: name2.AsNamed()})
-	test.That(t, stream1.md[session.SafetyMonitoredResourceMetadataKey], test.ShouldResemble, []string{name2.String()})
+	test.That(t, stream1.Value(session.SafetyMonitoredResourceMetadataKey), test.ShouldResemble, []string{name2.String()})
 }
 
 type myThing struct {

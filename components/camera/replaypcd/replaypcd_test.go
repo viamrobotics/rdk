@@ -6,7 +6,6 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
-	"sync"
 	"testing"
 
 	"github.com/pkg/errors"
@@ -14,10 +13,10 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/metadata"
 
 	"go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/utils/contextutils"
 )
 
@@ -441,7 +440,7 @@ func TestNextPointCloudTimestamps(t *testing.T) {
 
 	// Repeatedly call NextPointCloud, checking for timestamps in the gRPC header.
 	for i := 0; i < numPCDFiles; i++ {
-		serverStream := &myStream{}
+		serverStream := testutils.NewServerTransportStream()
 		ctx = grpc.NewContextWithServerTransportStream(ctx, serverStream)
 		pc, err := replayCamera.NextPointCloud(ctx)
 		test.That(t, err, test.ShouldBeNil)
@@ -450,8 +449,8 @@ func TestNextPointCloudTimestamps(t *testing.T) {
 		expectedTimeReq := fmt.Sprintf(testTime, i)
 		expectedTimeRec := fmt.Sprintf(testTime, i+1)
 
-		actualTimeReq := serverStream.md[contextutils.TimeRequestedMetadataKey][0]
-		actualTimeRec := serverStream.md[contextutils.TimeReceivedMetadataKey][0]
+		actualTimeReq := serverStream.Value(contextutils.TimeRequestedMetadataKey)[0]
+		actualTimeRec := serverStream.Value(contextutils.TimeReceivedMetadataKey)[0]
 
 		test.That(t, expectedTimeReq, test.ShouldEqual, actualTimeReq)
 		test.That(t, expectedTimeRec, test.ShouldEqual, actualTimeRec)
@@ -467,24 +466,4 @@ func TestNextPointCloudTimestamps(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, serverClose(), test.ShouldBeNil)
-}
-
-type myStream struct {
-	mu sync.Mutex
-	grpc.ServerTransportStream
-	md metadata.MD
-}
-
-func (s *myStream) SetHeader(md metadata.MD) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.md = md.Copy()
-	return nil
-}
-
-func (s *myStream) SendHeader(md metadata.MD) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.md = md.Copy()
-	return nil
 }
