@@ -1,3 +1,4 @@
+// Package contextutils provides utility for adding and retrieving metadata to/from a context.
 package contextutils
 
 import (
@@ -7,9 +8,11 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
+type contextKey string
+
 const (
 	// MetadataKey is the key used to access metadata from a context with metadata.
-	MetadataKey = "viam-metadata"
+	MetadataKey = contextKey("viam-metadata")
 
 	// TimeRequestedMetadataKey is optional metadata in the gRPC response header that correlates
 	// to the time right before the point cloud was captured.
@@ -36,10 +39,20 @@ func ContextWithMetadata(ctx context.Context) (context.Context, map[string][]str
 
 // ContextWithMetadataUnaryClientInterceptor attempts to read metadata from the gRPC header and
 // injects the metadata into the context if the caller has passed in a context with metadata.
-func ContextWithMetadataUnaryClientInterceptor(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+func ContextWithMetadataUnaryClientInterceptor(
+	ctx context.Context,
+	method string,
+	req, reply interface{},
+	cc *grpc.ClientConn,
+	invoker grpc.UnaryInvoker,
+	opts ...grpc.CallOption,
+) error {
 	var header metadata.MD
 	opts = append(opts, grpc.Header(&header))
-	invoker(ctx, method, req, reply, cc, opts...)
+	err := invoker(ctx, method, req, reply, cc, opts...)
+	if err != nil {
+		return err
+	}
 
 	md := ctx.Value(MetadataKey)
 	if mdMap, ok := md.(map[string][]string); ok {

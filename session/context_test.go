@@ -10,7 +10,6 @@ import (
 	"github.com/google/uuid"
 	"go.viam.com/test"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/metadata"
 
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/session"
@@ -83,17 +82,4 @@ type myThing struct {
 	resource.Named
 	resource.AlwaysRebuild
 	resource.TriviallyCloseable
-}
-
-type myStream struct {
-	mu sync.Mutex
-	grpc.ServerTransportStream
-	md metadata.MD
-}
-
-func (s *myStream) SetHeader(md metadata.MD) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.md = md.Copy()
-	return nil
 }

@@ -51,16 +51,20 @@ func (td *TrackingDialer) DialFunc(
 	return conn, cached, err
 }
 
+// ServerTransportStream implements grpc.ServerTransportStream and can be used to test setting
+// metadata in the gRPC response header.
 type ServerTransportStream struct {
 	mu sync.Mutex
 	grpc.ServerTransportStream
 	md metadata.MD
 }
 
+// NewServerTransportStream creates a new ServerTransportStream.
 func NewServerTransportStream() *ServerTransportStream {
 	return &ServerTransportStream{}
 }
 
+// SetHeader implements grpc.ServerTransportStream.
 func (s *ServerTransportStream) SetHeader(md metadata.MD) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -68,6 +72,7 @@ func (s *ServerTransportStream) SetHeader(md metadata.MD) error {
 	return nil
 }
 
+// SendHeader implements grpc.ServerTransportStream.
 func (s *ServerTransportStream) SendHeader(md metadata.MD) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -75,6 +80,7 @@ func (s *ServerTransportStream) SendHeader(md metadata.MD) error {
 	return nil
 }
 
+// Value returns the value in the metadata map corresponding stored for the given key.
 func (s *ServerTransportStream) Value(key string) []string {
 	s.mu.Lock()
 	defer s.mu.Unlock()

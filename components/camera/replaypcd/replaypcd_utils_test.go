@@ -30,7 +30,7 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
-var testTime string = "2000-01-01T12:00:%02dZ"
+var testTime = "2000-01-01T12:00:%02dZ"
 
 // mockDataServiceServer is a struct that includes unimplemented versions of all the Data Service endpoints. These
 // can be overwritten to allow developers to trigger desired behaviors during testing.
