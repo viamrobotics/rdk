@@ -4,7 +4,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"time"
 
@@ -23,12 +22,7 @@ var (
 )
 
 func main() {
-	logger, err := module.NewLoggerFromArgs("TestModule")
-	if err != nil {
-		log.Printf("NewLoggerFromArgs error: %v\n", err)
-	}
-
-	utils.ContextualMain(mainWithArgs, logger)
+	utils.ContextualMain(mainWithArgs, module.NewLoggerFromArgs("TestModule"))
 }
 
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error {

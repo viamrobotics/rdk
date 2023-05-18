@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"runtime"
+	"strings"
 	"sync"
 	"time"
 
@@ -149,39 +150,21 @@ func NewModule(ctx context.Context, address string, logger *zap.SugaredLogger) (
 	return m, nil
 }
 
-var errMissingSocketPath = errors.New("need socket path as command line argument")
-
 // NewModuleFromArgs directly parses the command line argument to get its address.
 func NewModuleFromArgs(ctx context.Context, logger *zap.SugaredLogger) (*Module, error) {
 	if len(os.Args) < 2 {
-		return nil, errMissingSocketPath
+		return nil, errors.New("need socket path as command line argument")
 	}
 	return NewModule(ctx, os.Args[1], logger)
 }
 
-// Arguments for the module executable.
-type Arguments struct {
-	Debug bool     `flag:"debug"`
-	Extra []string `flag:",extra"`
-}
-
-// NewLoggerFromArgs can be used to create a golog.Logger at either
-// "DebugLevel" or "InfoLevel" if -debug is or is not provided in os.Args
-// respectively. It will ignore all other provided arguments.
-func NewLoggerFromArgs(moduleName string) (golog.Logger, error) {
-	if len(os.Args) < 2 {
-		return nil, errMissingSocketPath
+// NewLoggerFromArgs can be used to create a golog.Logger at "DebugLevel" if
+// -debug is the third argument in os.Args and at "InfoLevel" otherwise.
+func NewLoggerFromArgs(moduleName string) golog.Logger {
+	if len(os.Args) >= 3 && strings.HasSuffix(os.Args[2], "-debug") {
+		return golog.NewDebugLogger(moduleName)
 	}
-
-	var argsParsed Arguments
-	if err := utils.ParseFlags(os.Args[1:], &argsParsed); err != nil {
-		return nil, err
-	}
-
-	if argsParsed.Debug {
-		return golog.NewDebugLogger(moduleName), nil
-	}
-	return golog.NewDevelopmentLogger(moduleName), nil
+	return golog.NewDevelopmentLogger(moduleName)
 }
 
 // Start starts the module service and grpc server.
