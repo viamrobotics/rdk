@@ -1932,7 +1932,27 @@ func TestConfigPackageReferenceReplacement(t *testing.T) {
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 }
 
+// removeBuiltinServices removes services with a "builtin" name and for testing
+// purposes.
+func removeBuiltinServices(cfg *config.Config) *config.Config {
+	if cfg == nil {
+		return nil
+	}
+
+	var nonBuiltInSvcs []resource.Config
+	for _, svc := range cfg.Services {
+		if svc.Name != resource.DefaultServiceName {
+			nonBuiltInSvcs = append(nonBuiltInSvcs, svc)
+		}
+	}
+	cfg.Services = nonBuiltInSvcs
+	return cfg
+}
+
 func TestConfigMethod(t *testing.T) {
+	// Partially a regression test for RSDK-3177 (internal services and implicit
+	// dependencies should not be returned from Config method).
+
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 
@@ -1946,8 +1966,8 @@ func TestConfigMethod(t *testing.T) {
 		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	}()
 
-	// Assert that Config method returns an empty config.
-	test.That(t, r.Config(), test.ShouldResemble, &config.Config{})
+	// Assert that Config method returns only built-in services.
+	test.That(t, removeBuiltinServices(r.Config()), test.ShouldResemble, &config.Config{})
 
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 	err = r.StartWeb(ctx, options)
@@ -2007,18 +2027,17 @@ func TestConfigMethod(t *testing.T) {
 			},
 		},
 	}
+
 	// Create copy of expectedCfg since Reconfigure modifies cfg.
 	expectedCfg := *cfg
 	r.Reconfigure(ctx, cfg)
 
-	// Assert that Config method returns a config identical to cfg.
-	//
-	// Partially a regression test for RSDK-3177 (internal services and implicit
-	// dependencies should not be added).
+	// Assert that Config method returns expected value.
 	actualCfg := r.Config()
 
 	// Manually inspect component resources as ordering of config is
 	// non-deterministic within slices
+	test.That(t, len(actualCfg.Components), test.ShouldEqual, 3)
 	for _, comp := range actualCfg.Components {
 		isMyBase := comp.Equals(expectedCfg.Components[0])
 		isMotor1 := comp.Equals(expectedCfg.Components[1])
@@ -2035,7 +2054,7 @@ func TestConfigMethod(t *testing.T) {
 	actualCfg.Remotes = nil
 	expectedCfg.Remotes = nil
 
-	test.That(t, actualCfg, test.ShouldResemble, &expectedCfg)
+	test.That(t, removeBuiltinServices(actualCfg), test.ShouldResemble, &expectedCfg)
 }
 
 func TestReconnectRemote(t *testing.T) {
