@@ -13,7 +13,9 @@ import PCD from './pcd/pcd-view.vue';
 import { copyToClipboardWithToast } from '../lib/copy-to-clipboard';
 import Slam2dRender from './slam-2d-render.vue';
 import { filterResources } from '../lib/resource';
-import { onMounted, onUnmounted } from 'vue';
+import { onMounted, onUnmounted, resolveComponent } from 'vue';
+import { Metadata } from '@improbable-eng/grpc-web/dist/typings/metadata';
+import { DoCommandResponse } from '@viamrobotics/sdk/dist/gen/common/v1/common_pb';
 
 type MapAndPose = { map: Uint8Array, pose: commonApi.Pose}
 
@@ -99,7 +101,7 @@ const fetchSLAMMap = (name: string): Promise<Uint8Array> => {
   });
 };
 
-const fetchSLAMPose = (name: string): Promise<slamApi.GetPositionResponse> => {
+const fetchSLAMPose = (name: string): Promise<commonApi.Pose> => {
   return new Promise((resolve, reject): void => {
     const req = new slamApi.GetPositionRequest();
     req.setName(name);
@@ -111,9 +113,23 @@ const fetchSLAMPose = (name: string): Promise<slamApi.GetPositionResponse> => {
           reject(error);
           return;
         }
-        resolve(res!);
+        resolve(res!.getPose()!);
       }
     );
+  });
+};
+
+const fetchFeatureFlags = (name: string): Promise<commonApi.DoCommandResponse> => {
+  return new Promise((resolve, reject): void => {
+    const request = new commonApi.DoCommandRequest();
+    request.setName(name);
+    request.setCommand(Struct.fromJavaScript({'feature_flag': true}))
+    props.client.slamService.doCommand(request, new grpc.Metadata(), (error: ServiceError|null, responseMessage: commonApi.DoCommandResponse|null) => {
+      if (error) {
+        toast.error(`Error fetching feature flags: ${error}`)
+      }
+      resolve(responseMessage!)
+    })
   });
 };
 
@@ -131,8 +147,7 @@ const executeMoveOnMap = async () => {
 
   // set pose in frame
   const destination = new commonApi.Pose();
-  const resp = await fetchSLAMPose(props.name);
-  const value = resp.getPose()!;
+  const value = await fetchSLAMPose(props.name);
   destination.setX(destinationMarker.x);
   destination.setY(destinationMarker.y);
   destination.setZ(destinationMarker.z);
@@ -182,12 +197,13 @@ const executeMoveOnMap = async () => {
 };
 
 const refresh2d = async (name: string) => {
+  const doCommandResponse = await fetchFeatureFlags(name);
+  const flags = doCommandResponse?.getResult()?.toJavaScript()
   const map = await fetchSLAMMap(name);
-  const response = await fetchSLAMPose(name);
-  const returnedPose = response.getPose()!;
+  const returnedPose = await fetchSLAMPose(name);
+  
   // TODO: Remove this check when APP and carto are both up to date [RSDK-3166]
-  const extra = response.getExtra()!;
-  if (extra["response_in_millimeters"]) {
+  if (flags && flags["response_in_millimeters"]) {
     returnedPose.setX(returnedPose.getX() / 1000);
     returnedPose.setY(returnedPose.getY() / 1000);
     returnedPose.setZ(returnedPose.getZ() / 1000);
