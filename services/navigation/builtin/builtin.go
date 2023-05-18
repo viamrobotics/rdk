@@ -17,12 +17,13 @@ import (
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/navigation"
 )
 
 const (
-	mmPerSecDefault  = 500
-	degPerSecDefault = 45
+	metersPerSecDefault = 0.5
+	degPerSecDefault    = 45
 )
 
 func init() {
@@ -40,11 +41,12 @@ func init() {
 
 // Config describes how to configure the service.
 type Config struct {
-	Store              navigation.StoreConfig `json:"store"`
-	BaseName           string                 `json:"base"`
-	MovementSensorName string                 `json:"movement_sensor"`
-	DegPerSecDefault   float64                `json:"degs_per_sec"`
-	MMPerSecDefault    float64                `json:"mm_per_sec"`
+	Store               navigation.StoreConfig `json:"store"`
+	BaseName            string                 `json:"base_name"`
+	MovementSensorName  string                 `json:"movement_sensor_name"`
+	MotionServiceName   string                 `json:"motion_service_name"`
+	DegPerSecDefault    float64                `json:"degs_per_sec"`
+	MetersPerSecDefault float64                `json:"meters_per_sec"`
 }
 
 // Validate creates the list of implicit dependencies.
@@ -88,8 +90,9 @@ type builtIn struct {
 
 	base           base.Base
 	movementSensor movementsensor.MovementSensor
+	motion         motion.Service
 
-	mmPerSecDefault         float64
+	metersPerSecDefault     float64
 	degPerSecDefault        float64
 	logger                  golog.Logger
 	cancelCtx               context.Context
@@ -114,6 +117,16 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		return err
 	}
 
+	// If a Motion service name is not provided, Nav defaults to using the builtin Motion service
+	motionName := "builtin"
+	if svcConfig.MotionServiceName != "" {
+		motionName = svcConfig.MotionServiceName
+	}
+	motionSrv, err := motion.FromDependencies(deps, motionName)
+	if err != nil {
+		return err
+	}
+
 	var newStore navigation.NavStore
 	if svc.storeType != string(svcConfig.Store.Type) {
 		switch svcConfig.Store.Type {
@@ -133,9 +146,9 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	}
 
 	// get default speeds from config if set, else defaults from nav services const
-	straightSpeed := svcConfig.MMPerSecDefault
+	straightSpeed := svcConfig.MetersPerSecDefault
 	if straightSpeed == 0 {
-		straightSpeed = mmPerSecDefault
+		straightSpeed = metersPerSecDefault
 	}
 	spinSpeed := svcConfig.DegPerSecDefault
 	if spinSpeed == 0 {
@@ -146,7 +159,8 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	svc.storeType = string(svcConfig.Store.Type)
 	svc.base = base1
 	svc.movementSensor = movementSensor
-	svc.mmPerSecDefault = straightSpeed
+	svc.motion = motionSrv
+	svc.metersPerSecDefault = straightSpeed
 	svc.degPerSecDefault = spinSpeed
 
 	return nil
@@ -254,7 +268,7 @@ func (svc *builtIn) startWaypoint(extra map[string]interface{}) error {
 				distanceMm := distanceToGoal * 1000 * 1000
 				distanceMm = math.Min(distanceMm, 10*1000)
 
-				if err := svc.base.MoveStraight(ctx, int(distanceMm), svc.mmPerSecDefault, nil); err != nil {
+				if err := svc.base.MoveStraight(ctx, int(distanceMm), (svc.metersPerSecDefault * 1000), nil); err != nil {
 					return fmt.Errorf("error moving %w", err)
 				}
 
