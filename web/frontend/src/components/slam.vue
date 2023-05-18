@@ -126,6 +126,8 @@ const fetchFeatureFlags = (name: string): Promise<{[key: string]: boolean}> => {
       request,
       new grpc.Metadata(),
       (error: ServiceError|null, responseMessage: commonApi.DoCommandResponse|null) => {
+        //Note: we ignore unimplementedError because in the current implementation it 
+        // signifies that the feature flag is false
         if (error) {
           if (error.code !== grpc.Code.Unimplemented) {
             reject(error);
