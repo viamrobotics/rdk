@@ -10,6 +10,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
+	geo "github.com/kellydunn/golang-geo"
 
 	servicepb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/rdk/components/arm"
@@ -181,6 +182,21 @@ func (ms *builtIn) MoveOnMap(
 	}
 	_ = slamService
 	return true, nil
+}
+
+// MoveOnGlobe TODO(RSDK-2926): Finish documentation
+func (ms *builtIn) MoveOnGlobe(
+	ctx context.Context,
+	componentName resource.Name,
+	destination *geo.Point,
+	heading float64,
+	movementSensorName resource.Name,
+	obstacles []*spatialmath.GeoObstacle,
+	linearVelocity float64,
+	angularVelocity float64,
+	extra map[string]interface{},
+) (bool, error) {
+	return false, errors.New("Not yet implemented")
 }
 
 // MoveSingleComponent will pass through a move command to a component with a MoveToPosition method that takes a pose. Arms are the only
