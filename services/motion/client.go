@@ -3,8 +3,12 @@ package motion
 
 import (
 	"context"
+	"math"
 
 	"github.com/edaniels/golog"
+	geo "github.com/kellydunn/golang-geo"
+	"github.com/pkg/errors"
+	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/motion/v1"
 	vprotoutils "go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
@@ -94,6 +98,66 @@ func (c *client) MoveOnMap(
 	if err != nil {
 		return false, err
 	}
+	return resp.Success, nil
+}
+
+func (c *client) MoveOnGlobe(
+	ctx context.Context,
+	componentName resource.Name,
+	destination *geo.Point,
+	heading float64,
+	movementSensorName resource.Name,
+	obstacles []*spatialmath.GeoObstacle,
+	linearVelocity float64,
+	angularVelocity float64,
+	extra map[string]interface{},
+) (bool, error) {
+	ext, err := vprotoutils.StructToStructPb(extra)
+	if err != nil {
+		return false, err
+	}
+
+	if destination == nil {
+		return false, errors.New("Must provide a destination")
+	}
+
+	req := &pb.MoveOnGlobeRequest{
+		Name:               c.name,
+		ComponentName:      protoutils.ResourceNameToProto(componentName),
+		Destination:        &commonpb.GeoPoint{Latitude: destination.Lat(), Longitude: destination.Lng()},
+		MovementSensorName: protoutils.ResourceNameToProto(movementSensorName),
+		Extra:              ext,
+	}
+
+	// Optionals
+	if !math.IsNaN(heading) {
+		req.Heading = &heading
+	}
+	if len(obstacles) > 0 {
+		obstaclesProto := make([]*commonpb.GeoObstacle, 0, len(obstacles))
+		for _, eachObst := range obstacles {
+			convObst, err := spatialmath.GeoObstacleToProtobuf(eachObst)
+			if err != nil {
+				return false, err
+			}
+			obstaclesProto = append(obstaclesProto, convObst)
+		}
+		req.Obstacles = obstaclesProto
+	}
+	reqLinear := float32(linearVelocity)
+	if !math.IsNaN(linearVelocity) {
+		req.LinearMetersPerSec = &reqLinear
+	}
+	reqAngular := float32(angularVelocity)
+	if !math.IsNaN(angularVelocity) {
+		req.AngularDegPerSec = &reqAngular
+	}
+
+	resp, err := c.client.MoveOnGlobe(ctx, req)
+	if err != nil {
+		return false, err
+	}
+
 	return resp.Success, nil
 }
 

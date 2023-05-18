@@ -7,12 +7,14 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
+	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/gripper"
+	"go.viam.com/rdk/components/movementsensor"
 
 	// register.
 	commonpb "go.viam.com/api/common/v1"
@@ -235,6 +237,26 @@ func TestMoveOnMap(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, success, test.ShouldBeTrue)
+}
+
+// TODO(RSDK-2926): Revisit after MoveOnGlobe implementation is completed, needs test cases for optional specs, etc.
+func TestMoveOnGlobe(t *testing.T) {
+	ms, closeFn := setupMotionServiceFromConfig(t, "../data/gps_base.json")
+	defer closeFn()
+
+	success, err := ms.MoveOnGlobe(
+		context.Background(),
+		base.Named("test-base"),
+		geo.NewPoint(0.0, 0.0),
+		math.NaN(),
+		movementsensor.Named("test-gps"),
+		nil,
+		math.NaN(),
+		math.NaN(),
+		nil,
+	)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "Not yet implemented")
+	test.That(t, success, test.ShouldBeFalse)
 }
 
 func TestMultiplePieces(t *testing.T) {
