@@ -34,7 +34,7 @@ func ContextWithMetadata(ctx context.Context) (context.Context, map[string][]str
 	return ctx, md
 }
 
-// ContextWithMetadataUnaryClientInterceptor attempst to read metadata from the gRPC header and
+// ContextWithMetadataUnaryClientInterceptor attempts to read metadata from the gRPC header and
 // injects the metadata into the context if the caller has passed in a context with metadata.
 func ContextWithMetadataUnaryClientInterceptor(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
 	var header metadata.MD
