@@ -136,8 +136,9 @@ func (manager *resourceManager) remoteResourceNames(remoteName resource.Name) []
 }
 
 var (
-	unknownModel = resource.DefaultModelFamily.WithModel("unknown")
-	builtinModel = resource.DefaultModelFamily.WithModel("builtin")
+	unknownModel     = resource.DefaultModelFamily.WithModel("unknown")
+	builtinModelName = "builtin"
+	builtinModel     = resource.DefaultModelFamily.WithModel(builtinModelName)
 )
 
 // maybe in the future this can become an actual resource with its own type
@@ -1065,9 +1066,12 @@ func (manager *resourceManager) createConfig() *config.Config {
 			conf.Remotes = append(conf.Remotes, *remoteConf)
 		} else if resName.API.IsComponent() {
 			conf.Components = append(conf.Components, resConf)
-		} else if resName.API.IsService() &&
-			resName.API.Type.Namespace != resource.APINamespaceRDKInternal {
-			conf.Services = append(conf.Services, resConf)
+		} else if resName.API.IsService() {
+			// Only append non-internal, non-builtin services.
+			if resName.API.Type.Namespace != resource.APINamespaceRDKInternal &&
+				resName.Name != builtinModelName {
+				conf.Services = append(conf.Services, resConf)
+			}
 		}
 	}
 

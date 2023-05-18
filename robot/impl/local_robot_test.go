@@ -1932,6 +1932,112 @@ func TestConfigPackageReferenceReplacement(t *testing.T) {
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 }
 
+func TestConfigMethod(t *testing.T) {
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+
+	// Precompile modules to avoid timeout issues when building takes too long.
+	err := rtestutils.BuildInDir("examples/customresources/demos/complexmodule")
+	test.That(t, err, test.ShouldBeNil)
+
+	r, err := robotimpl.New(context.Background(), &config.Config{}, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+	}()
+
+	// Assert that Config method returns an empty config.
+	test.That(t, r.Config(), test.ShouldResemble, &config.Config{})
+
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+	err = r.StartWeb(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Manually define mybase model, as importing it can cause double registration.
+	myBaseModel := resource.NewModel("acme", "demo", "mybase")
+
+	cfg := &config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "mod",
+				ExePath: rutils.ResolveFile("examples/customresources/demos/complexmodule/run.sh"),
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:  "myBase",
+				API:   base.API,
+				Model: myBaseModel,
+				Attributes: rutils.AttributeMap{
+					"motorL": "motor1",
+					"motorR": "motor2",
+				},
+			},
+			{
+				Name:  "motor1",
+				API:   motor.API,
+				Model: fakeModel,
+			},
+			{
+				Name:  "motor2",
+				API:   motor.API,
+				Model: fakeModel,
+			},
+		},
+		Services: []resource.Config{
+			{
+				Name:  "fake1",
+				API:   datamanager.API,
+				Model: fakeModel,
+			},
+		},
+		Remotes: []config.Remote{
+			{
+				Name:    "foo",
+				Address: addr,
+			},
+		},
+		Processes: []pexec.ProcessConfig{
+			{
+				ID:      "1",
+				Name:    "bash",
+				Args:    []string{"-c", "echo heythere"},
+				Log:     true,
+				OneShot: true,
+			},
+		},
+	}
+	// Create copy of expectedCfg since Reconfigure modifies cfg.
+	expectedCfg := *cfg
+	r.Reconfigure(ctx, cfg)
+
+	// Assert that Config method returns a config identical to cfg.
+	//
+	// Partially a regression test for RSDK-3177 (internal services and implicit
+	// dependencies should not be added).
+	actualCfg := r.Config()
+
+	// Manually inspect component resources as ordering of config is
+	// non-deterministic within slices
+	for _, comp := range actualCfg.Components {
+		isMyBase := comp.Equals(expectedCfg.Components[0])
+		isMotor1 := comp.Equals(expectedCfg.Components[1])
+		isMotor2 := comp.Equals(expectedCfg.Components[2])
+		test.That(t, isMyBase || isMotor1 || isMotor2, test.ShouldBeTrue)
+	}
+	actualCfg.Components = nil
+	expectedCfg.Components = nil
+
+	// Manually inspect remote resource as Equals should be used
+	// (alreadyValidated will have been set to true).
+	test.That(t, len(actualCfg.Remotes), test.ShouldEqual, 1)
+	test.That(t, actualCfg.Remotes[0].Equals(expectedCfg.Remotes[0]), test.ShouldBeTrue)
+	actualCfg.Remotes = nil
+	expectedCfg.Remotes = nil
+
+	test.That(t, actualCfg, test.ShouldResemble, &expectedCfg)
+}
+
 func TestReconnectRemote(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
