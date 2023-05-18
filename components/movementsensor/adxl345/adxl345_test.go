@@ -351,7 +351,6 @@ func TestReadInterrupts(t *testing.T) {
 }
 
 func TestLinearAcceleration(t *testing.T) {
-
 	linearAccelMockData := make([]byte, 16)
 	// x-accel
 	linearAccelMockData[0] = 40

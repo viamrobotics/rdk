@@ -41,8 +41,9 @@ import (
 var model = resource.DefaultModelFamily.WithModel("accel-adxl345")
 
 const (
-	defaultRegister  = 0
-	expectedDeviceID = 0xE5
+	defaultRegister      = 0
+	expectedDeviceID     = 0xE5
+	powerControlRegister = 0x2D
 )
 
 // Config is a description of how to find an ADXL345 accelerometer on the robot.
@@ -229,12 +230,12 @@ func NewAdxl345(
 		return nil, movementsensor.AddressReadError(err, address, newConf.I2cBus, newConf.BoardName)
 	}
 	if deviceID != expectedDeviceID {
-		return nil, movementsensor.UnexpectedDeviceError(address, deviceID, "ADXL354")
+		return nil, movementsensor.UnexpectedDeviceError(address, deviceID, sensor.Name().Name)
 	}
 
 	// The chip starts out in standby mode. Set it to measurement mode so we can get data from it.
 	// To do this, we set the Power Control register (0x2D) to turn on the 8's bit.
-	if err = sensor.writeByte(ctx, 0x2D, 0x08); err != nil {
+	if err = sensor.writeByte(ctx, powerControlRegister, 0x08); err != nil {
 		return nil, errors.Wrap(err, "unable to put ADXL345 into measurement mode")
 	}
 
@@ -562,7 +563,7 @@ func (adxl *adxl345) Close(ctx context.Context) error {
 	}
 
 	// Put the chip into standby mode by setting the Power Control register (0x2D) to 0.
-	err := adxl.writeByte(ctx, 0x2D, 0x00)
+	err := adxl.writeByte(ctx, powerControlRegister, 0x00)
 	if err != nil {
 		adxl.logger.Errorf("unable to turn off ADXL345 accelerometer: '%s'", err)
 	}

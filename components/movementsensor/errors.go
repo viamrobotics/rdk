@@ -6,7 +6,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-// AddressReadError returns a standard error for when we can not from an I2C bus.
+// AddressReadError returns a standard error for when we can not read from an I2C bus.
 func AddressReadError(err error, address byte, bus, board string) error {
 	msg := fmt.Sprintf("can't read from I2C address %d on bus %s of board %s",
 		address, bus, board)
