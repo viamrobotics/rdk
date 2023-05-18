@@ -56,12 +56,92 @@ func TestValidateConfig(t *testing.T) {
 	})
 }
 
+func setupDependencies(mockData []byte) (resource.Config, resource.Dependencies) {
+	testBoardName := "board"
+	i2cName := "i2c"
+
+	cfg := resource.Config{
+		Name:  "movementsensor",
+		Model: model,
+		API:   movementsensor.API,
+		ConvertedAttributes: &Config{
+			BoardName:              testBoardName,
+			I2cBus:                 i2cName,
+			UseAlternateI2CAddress: true,
+		},
+	}
+
+	i2cHandle := &inject.I2CHandle{}
+	i2cHandle.ReadBlockDataFunc = func(ctx context.Context, register byte, numBytes uint8) ([]byte, error) {
+		if register == 0 {
+			return []byte{0xE5}, nil
+		}
+		return mockData, nil
+	}
+	i2cHandle.WriteByteDataFunc = func(ctx context.Context, b1, b2 byte) error {
+		return nil
+	}
+	i2cHandle.CloseFunc = func() error { return nil }
+	mockBoard := &inject.Board{}
+	mockBoard.I2CByNameFunc = func(name string) (board.I2C, bool) {
+		i2c := &inject.I2C{}
+		i2c.OpenHandleFunc = func(addr byte) (board.I2CHandle, error) {
+			return i2cHandle, nil
+		}
+		return i2c, true
+	}
+	return cfg, resource.Dependencies{
+		resource.NewName(board.API, testBoardName): mockBoard,
+	}
+}
+
 func sendInterrupt(ctx context.Context, adxl movementsensor.MovementSensor, t *testing.T, interrupt board.DigitalInterrupt, key string) {
 	interrupt.Tick(ctx, true, nowNanosTest())
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		readings, err := adxl.Readings(ctx, map[string]interface{}{})
 		test.That(tb, err, test.ShouldBeNil)
 		test.That(tb, readings[key], test.ShouldNotBeZeroValue)
+	})
+}
+
+func TestInitializationFailureOnChipCommunication(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	testBoardName := "board"
+	i2cName := "i2c"
+
+	t.Run("fails on read error", func(t *testing.T) {
+		cfg := resource.Config{
+			Name:  "movementsensor",
+			Model: model,
+			API:   movementsensor.API,
+			ConvertedAttributes: &Config{
+				BoardName: testBoardName,
+				I2cBus:    i2cName,
+			},
+		}
+		i2cHandle := &inject.I2CHandle{}
+		readErr := errors.New("read error")
+		i2cHandle.ReadBlockDataFunc = func(ctx context.Context, register byte, numBytes uint8) ([]byte, error) {
+			if register == defaultRegister {
+				return nil, readErr
+			}
+			return []byte{}, nil
+		}
+		i2cHandle.CloseFunc = func() error { return nil }
+		mockBoard := &inject.Board{}
+		mockBoard.I2CByNameFunc = func(name string) (board.I2C, bool) {
+			i2c := &inject.I2C{}
+			i2c.OpenHandleFunc = func(addr byte) (board.I2CHandle, error) {
+				return i2cHandle, nil
+			}
+			return i2c, true
+		}
+		deps := resource.Dependencies{
+			resource.NewName(board.API, testBoardName): mockBoard,
+		}
+		sensor, err := NewAdxl345(context.Background(), deps, cfg, logger)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, sensor, test.ShouldBeNil)
 	})
 }
 
@@ -270,88 +350,6 @@ func TestReadInterrupts(t *testing.T) {
 	})
 }
 
-func TestInitializationFailureOnChipCommunication(t *testing.T) {
-	logger := golog.NewTestLogger(t)
-	testBoardName := "board"
-	i2cName := "i2c"
-
-	t.Run("fails on read error", func(t *testing.T) {
-		cfg := resource.Config{
-			Name:  "movementsensor",
-			Model: model,
-			API:   movementsensor.API,
-			ConvertedAttributes: &Config{
-				BoardName: testBoardName,
-				I2cBus:    i2cName,
-			},
-		}
-		i2cHandle := &inject.I2CHandle{}
-		readErr := errors.New("read error")
-		i2cHandle.ReadBlockDataFunc = func(ctx context.Context, register byte, numBytes uint8) ([]byte, error) {
-			if register == defaultRegister {
-				return nil, readErr
-			}
-			return []byte{}, nil
-		}
-		i2cHandle.CloseFunc = func() error { return nil }
-		mockBoard := &inject.Board{}
-		mockBoard.I2CByNameFunc = func(name string) (board.I2C, bool) {
-			i2c := &inject.I2C{}
-			i2c.OpenHandleFunc = func(addr byte) (board.I2CHandle, error) {
-				return i2cHandle, nil
-			}
-			return i2c, true
-		}
-		deps := resource.Dependencies{
-			resource.NewName(board.API, testBoardName): mockBoard,
-		}
-		sensor, err := NewAdxl345(context.Background(), deps, cfg, logger)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err, test.ShouldBeError)
-		test.That(t, sensor, test.ShouldBeNil)
-	})
-}
-
-func setupDependencies(mockData []byte) (resource.Config, resource.Dependencies) {
-	testBoardName := "board"
-	i2cName := "i2c"
-
-	cfg := resource.Config{
-		Name:  "movementsensor",
-		Model: model,
-		API:   movementsensor.API,
-		ConvertedAttributes: &Config{
-			BoardName:              testBoardName,
-			I2cBus:                 i2cName,
-			UseAlternateI2CAddress: true,
-		},
-	}
-
-	i2cHandle := &inject.I2CHandle{}
-	i2cHandle.ReadBlockDataFunc = func(ctx context.Context, register byte, numBytes uint8) ([]byte, error) {
-		if register == 0 {
-			return []byte{0xE5}, nil
-		}
-		return mockData, nil
-	}
-	i2cHandle.WriteByteDataFunc = func(ctx context.Context, b1, b2 byte) error {
-		return nil
-	}
-	i2cHandle.CloseFunc = func() error { return nil }
-	mockBoard := &inject.Board{}
-	mockBoard.I2CByNameFunc = func(name string) (board.I2C, bool) {
-		i2c := &inject.I2C{}
-		i2c.OpenHandleFunc = func(addr byte) (board.I2CHandle, error) {
-			return i2cHandle, nil
-		}
-		return i2c, true
-	}
-	return cfg, resource.Dependencies{
-		resource.NewName(board.API, testBoardName): mockBoard,
-	}
-}
-
-//nolint:dupl
 func TestLinearAcceleration(t *testing.T) {
 
 	linearAccelMockData := make([]byte, 16)
