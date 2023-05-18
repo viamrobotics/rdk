@@ -71,6 +71,7 @@ type Config struct {
 	SyncIntervalMins      float64                          `json:"sync_interval_mins"`
 	CaptureDisabled       bool                             `json:"capture_disabled"`
 	ScheduledSyncDisabled bool                             `json:"sync_disabled"`
+	Tags                  []string                         `json:"tags"`
 	ResourceConfigs       []*datamanager.DataCaptureConfig `json:"resource_configs"`
 }
 
@@ -194,6 +195,7 @@ func getDurationFromHz(captureFrequencyHz float32) time.Duration {
 func (svc *builtIn) initializeOrUpdateCollector(
 	md componentMethodMetadata,
 	config *datamanager.DataCaptureConfig,
+	tags []string,
 ) (
 	*collectorAndConfig, error,
 ) {
@@ -203,7 +205,7 @@ func (svc *builtIn) initializeOrUpdateCollector(
 		config.Name.ShortName(),
 		config.Method,
 		config.AdditionalParams,
-		config.Tags,
+		tags,
 	)
 	if err != nil {
 		return nil, err
@@ -369,7 +371,7 @@ func (svc *builtIn) Reconfigure(
 	reinitSyncer := cloudConnSvc != svc.cloudConnSvc
 	svc.cloudConnSvc = cloudConnSvc
 
-	svc.updateDataCaptureConfigs(deps, svcConfig.ResourceConfigs, svcConfig.CaptureDir)
+	svc.updateDataCaptureConfigs(deps, svcConfig.ResourceConfigs, svcConfig.CaptureDir, svcConfig.Tags)
 
 	if !utils.IsTrustedEnvironment(ctx) && svcConfig.CaptureDir != "" && svcConfig.CaptureDir != viamCaptureDotDir {
 		return errCaptureDirectoryConfigurationDisabled
@@ -409,7 +411,7 @@ func (svc *builtIn) Reconfigure(
 					MethodParams:   fmt.Sprintf("%v", resConf.AdditionalParams),
 				}
 
-				newCollectorAndConfig, err := svc.initializeOrUpdateCollector(componentMethodMetadata, resConf)
+				newCollectorAndConfig, err := svc.initializeOrUpdateCollector(componentMethodMetadata, resConf, svcConfig.Tags)
 				if err != nil {
 					svc.logger.Errorw("failed to initialize or update collector", "error", err)
 				} else {
@@ -549,6 +551,7 @@ func (svc *builtIn) updateDataCaptureConfigs(
 	resources resource.Dependencies,
 	resourceConfigs []*datamanager.DataCaptureConfig,
 	captureDir string,
+	tags []string,
 ) {
 	for _, resConf := range resourceConfigs {
 		res, err := resources.Lookup(resConf.Name)
@@ -559,5 +562,6 @@ func (svc *builtIn) updateDataCaptureConfigs(
 
 		resConf.Resource = res
 		resConf.CaptureDirectory = captureDir
+		resConf.Tags = tags
 	}
 }
