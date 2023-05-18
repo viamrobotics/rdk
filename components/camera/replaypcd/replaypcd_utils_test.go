@@ -34,24 +34,21 @@ type mockDataServiceServer struct {
 	datapb.UnimplementedDataServiceServer
 }
 
-// BinaryDataByFilter is a mocked version of the Data Service function of a similar name. It returns a response with
-// data corresponding to a stored pcd artifact based on the filter and last file accessed.
-func (mDServer *mockDataServiceServer) BinaryDataByFilter(ctx context.Context, req *datapb.BinaryDataByFilterRequest,
-) (*datapb.BinaryDataByFilterResponse, error) {
+// BinaryDataByIDs is a mocked version of the Data Service function of a similar name. It returns a response with
+// data corresponding to a stored pcd artifact based on the given ID.
+func (mDServer *mockDataServiceServer) BinaryDataByIDs(ctx context.Context, req *datapb.BinaryDataByIDsRequest,
+) (*datapb.BinaryDataByIDsResponse, error) {
 	// Parse request
-	filter := req.DataRequest.GetFilter()
-	last := req.DataRequest.GetLast()
+	fileID := req.FileIds[0]
 
-	newFileNum, err := getNextDataAfterFilter(filter, last)
+	artifactPath, err := artifact.Path(fileID)
 	if err != nil {
-		return nil, err
+		return nil, errEndOfDataset
 	}
-
-	// Get point cloud data in gzip compressed format
-	path := filepath.Clean(artifact.MustPath(fmt.Sprintf(datasetDirectory, newFileNum)))
+	path := filepath.Clean(artifactPath)
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, err
+		return nil, errEndOfDataset
 	}
 
 	var dataBuf bytes.Buffer
@@ -60,16 +57,69 @@ func (mDServer *mockDataServiceServer) BinaryDataByFilter(ctx context.Context, r
 	gz.Close()
 
 	// Construct response
-	binaryData := &datapb.BinaryData{
+	binaryData := datapb.BinaryData{
 		Binary:   dataBuf.Bytes(),
-		Metadata: &datapb.BinaryMetadata{},
+		Metadata: &datapb.BinaryMetadata{Id: fileID},
+	}
+	resp := &datapb.BinaryDataByIDsResponse{
+		Data: []*datapb.BinaryData{&binaryData},
 	}
 
-	resp := &datapb.BinaryDataByFilterResponse{
-		Data: []*datapb.BinaryData{binaryData},
-		Last: fmt.Sprint(newFileNum),
-	}
 	return resp, nil
+}
+
+// BinaryDataByFilter is a mocked version of the Data Service function of a similar name. It returns a response with
+// data corresponding to a stored pcd artifact based on the filter and last file accessed.
+func (mDServer *mockDataServiceServer) BinaryDataByFilter(ctx context.Context, req *datapb.BinaryDataByFilterRequest,
+) (*datapb.BinaryDataByFilterResponse, error) {
+	// Parse request
+	filter := req.DataRequest.GetFilter()
+	last := req.DataRequest.GetLast()
+	limit := req.DataRequest.GetLimit()
+	includeBinary := req.IncludeBinary
+
+	newFileNum, err := getNextDataAfterFilter(filter, last)
+	if err != nil {
+		return nil, err
+	}
+
+	// Construct response
+	var resp datapb.BinaryDataByFilterResponse
+	if includeBinary {
+		// Get point cloud data in gzip compressed format
+		artifactPath, err := artifact.Path(fmt.Sprintf(datasetDirectory, newFileNum))
+		if err != nil {
+			return nil, errEndOfDataset
+		}
+		path := filepath.Clean(artifactPath)
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return nil, errEndOfDataset
+		}
+
+		var dataBuf bytes.Buffer
+		gz := gzip.NewWriter(&dataBuf)
+		gz.Write(data)
+		gz.Close()
+
+		binaryData := datapb.BinaryData{
+			Binary:   dataBuf.Bytes(),
+			Metadata: &datapb.BinaryMetadata{Id: fmt.Sprintf(datasetDirectory, newFileNum)},
+		}
+
+		resp.Data = []*datapb.BinaryData{&binaryData}
+		resp.Last = fmt.Sprint(newFileNum)
+	} else {
+		for i := 0; i < int(limit); i++ {
+			binaryData := datapb.BinaryData{
+				Metadata: &datapb.BinaryMetadata{Id: fmt.Sprintf(datasetDirectory, newFileNum+i)},
+			}
+			resp.Data = append(resp.Data, &binaryData)
+		}
+		resp.Last = fmt.Sprint(newFileNum + int(limit) - 1)
+	}
+
+	return &resp, nil
 }
 
 // createMockCloudDependencies creates a mockDataServiceServer and rpc client connection to it which is then

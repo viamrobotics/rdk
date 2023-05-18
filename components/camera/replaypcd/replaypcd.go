@@ -44,7 +44,6 @@ type Config struct {
 	RobotID   string       `json:"robot_id,omitempty"`
 	Interval  TimeInterval `json:"time_interval,omitempty"`
 	BatchSize *uint64      `json:"batch_size,omitempty"`
-	Cache     bool         `json:"cache,omitempty"`
 }
 
 // TimeInterval holds the start and end time used to filter data.
@@ -146,7 +145,6 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCl
 		if !data.ready {
 			return nil, errors.New("data from cache not returned")
 		}
-
 		if data.err != nil {
 			return nil, errors.Wrapf(data.err, "cache data contained an error")
 		}
@@ -208,7 +206,6 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCl
 }
 
 func (replay *pcdCamera) updateCache(ctx context.Context, ids []string) {
-
 	// Initialize cache with an ordered id-correlated array of empty data
 	for _, id := range ids {
 		replay.cachedData = append(replay.cachedData, cachedData{id: id})
@@ -218,9 +215,9 @@ func (replay *pcdCamera) updateCache(ctx context.Context, ids []string) {
 	var wg sync.WaitGroup
 
 	// Parallelize download of data associated with the given ids by using goroutines
-	for i, id := range ids {
+	for _, id := range ids {
 		wg.Add(1)
-		go func(i int, id string) {
+		go func(id string) {
 			defer wg.Done()
 			cData := cachedData{id: id, ready: true}
 			// Call BinaryDataByIDs
@@ -255,7 +252,7 @@ func (replay *pcdCamera) updateCache(ctx context.Context, ids []string) {
 			cData.pc, cData.err = pointcloud.ReadPCD(r)
 			// Send data to cache channel for processing
 			replay.cacheCh <- cData
-		}(i, id)
+		}(id)
 	}
 
 	// Wait for all downloaded data to be returned via the cache channel. A timeout has been added to this
@@ -406,7 +403,6 @@ func (replay *pcdCamera) initCloudConnection(ctx context.Context) error {
 }
 
 func extractData(data []byte, logger golog.Logger) (io.Reader, error) {
-
 	r, err := gzip.NewReader(bytes.NewBuffer(data))
 	if err != nil {
 		return nil, err

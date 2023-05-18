@@ -19,19 +19,27 @@ import (
 
 const datasetDirectory = "slam/mock_lidar/%d.pcd"
 
-var numPCDFiles = 15
+var (
+	numPCDFiles    = 15
+	batchSize1     = uint64(1)
+	batchSize2     = uint64(2)
+	batchSizeLarge = uint64(10)
+)
 
 // getPointCloudFromArtifact will return a point cloud based on the provided artifact path.
-func getPointCloudFromArtifact(t *testing.T, i int) pointcloud.PointCloud {
+func getPointCloudFromArtifact(t *testing.T, i int) (pointcloud.PointCloud, error) {
 	path := filepath.Clean(artifact.MustPath(fmt.Sprintf(datasetDirectory, i)))
 	pcdFile, err := os.Open(path)
-	test.That(t, err, test.ShouldBeNil)
+	if err != nil {
+		return nil, err
+	}
+
 	defer utils.UncheckedErrorFunc(pcdFile.Close)
 
 	pcExpected, err := pointcloud.ReadPCD(pcdFile)
 	test.That(t, err, test.ShouldBeNil)
 
-	return pcExpected
+	return pcExpected, nil
 }
 
 func TestNewReplayPCD(t *testing.T) {
@@ -121,52 +129,6 @@ func TestNextPointCloud(t *testing.T) {
 			endFileNum:   numPCDFiles,
 		},
 		{
-			description: "Calling NextPointCloud with filter no data",
-			cfg: &Config{
-				Source: "source",
-				Interval: TimeInterval{
-					Start: "2000-01-01T12:00:30Z",
-					End:   "2000-01-01T12:00:40Z",
-				},
-			},
-			startFileNum: -1,
-			endFileNum:   -1,
-		},
-		{
-			description: "Calling NextPointCloud with end filter",
-			cfg: &Config{
-				Source: "source",
-				Interval: TimeInterval{
-					End: "2000-01-01T12:00:10Z",
-				},
-			},
-			startFileNum: 0,
-			endFileNum:   10,
-		},
-		{
-			description: "Calling NextPointCloud with start filter",
-			cfg: &Config{
-				Source: "source",
-				Interval: TimeInterval{
-					Start: "2000-01-01T12:00:05Z",
-				},
-			},
-			startFileNum: 5,
-			endFileNum:   numPCDFiles,
-		},
-		{
-			description: "Calling NextPointCloud with start and end filter",
-			cfg: &Config{
-				Source: "source",
-				Interval: TimeInterval{
-					Start: "2000-01-01T12:00:05Z",
-					End:   "2000-01-01T12:00:10Z",
-				},
-			},
-			startFileNum: 5,
-			endFileNum:   10,
-		},
-		{
 			description: "Calling NextPointCloud with bad source",
 			cfg: &Config{
 				Source: "bad_source",
@@ -192,6 +154,87 @@ func TestNextPointCloud(t *testing.T) {
 			startFileNum: -1,
 			endFileNum:   -1,
 		},
+		{
+			description: "Calling NextPointCloud with filter no data",
+			cfg: &Config{
+				Source:    "source",
+				BatchSize: &batchSize1,
+				Interval: TimeInterval{
+					Start: "2000-01-01T12:00:30Z",
+					End:   "2000-01-01T12:00:40Z",
+				},
+			},
+			startFileNum: -1,
+			endFileNum:   -1,
+		},
+		{
+			description: "Calling NextPointCloud with end filter",
+			cfg: &Config{
+				Source:    "source",
+				BatchSize: &batchSize1,
+				Interval: TimeInterval{
+					End: "2000-01-01T12:00:10Z",
+				},
+			},
+			startFileNum: 0,
+			endFileNum:   10,
+		},
+		{
+			description: "Calling NextPointCloud with start filter",
+			cfg: &Config{
+				Source:    "source",
+				BatchSize: &batchSize1,
+				Interval: TimeInterval{
+					Start: "2000-01-01T12:00:05Z",
+				},
+			},
+			startFileNum: 5,
+			endFileNum:   numPCDFiles,
+		},
+		{
+			description: "Calling NextPointCloud with start and end filter",
+			cfg: &Config{
+				Source:    "source",
+				BatchSize: &batchSize1,
+				Interval: TimeInterval{
+					Start: "2000-01-01T12:00:05Z",
+					End:   "2000-01-01T12:00:10Z",
+				},
+			},
+			startFileNum: 5,
+			endFileNum:   10,
+		},
+		{
+			description: "Calling NextPointCloud batched no filter",
+			cfg: &Config{
+				Source:    "source",
+				BatchSize: &batchSize2,
+			},
+			startFileNum: 0,
+			endFileNum:   numPCDFiles,
+		},
+		{
+			description: "Calling NextPointCloud batched with start and end filter",
+			cfg: &Config{
+				Source:    "source",
+				BatchSize: &batchSize2,
+				Interval: TimeInterval{
+					Start: "2000-01-01T12:00:05Z",
+					End:   "2000-01-01T12:00:10Z",
+				},
+			},
+			startFileNum: 5,
+			endFileNum:   11,
+		},
+		{
+			description: "Calling NextPointCloud large batched no filter",
+			cfg: &Config{
+				Source:    "source",
+				BatchSize: &batchSizeLarge,
+			},
+			startFileNum: 0,
+			endFileNum:   numPCDFiles,
+		},
 	}
 
 	for _, tt := range cases {
@@ -205,7 +248,14 @@ func TestNextPointCloud(t *testing.T) {
 				for i := tt.startFileNum; i < tt.endFileNum; i++ {
 					pc, err := replayCamera.NextPointCloud(ctx)
 					test.That(t, err, test.ShouldBeNil)
-					test.That(t, pc, test.ShouldResemble, getPointCloudFromArtifact(t, i))
+					pcExpected, err := getPointCloudFromArtifact(t, i)
+					if err != nil {
+						test.That(t, err.Error, test.ShouldContainSubstring, "artifact not found")
+						test.That(t, pc, test.ShouldBeNil)
+					} else {
+						test.That(t, err, test.ShouldBeNil)
+						test.That(t, pc, test.ShouldResemble, pcExpected)
+					}
 				}
 			}
 
@@ -257,8 +307,14 @@ func TestLiveNextPointCloud(t *testing.T) {
 				break
 			}
 		} else {
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, pc, test.ShouldResemble, getPointCloudFromArtifact(t, i))
+			pcExpected, err := getPointCloudFromArtifact(t, i)
+			if err != nil {
+				test.That(t, err.Error, test.ShouldContainSubstring, "artifact not found")
+				test.That(t, pc, test.ShouldBeNil)
+			} else {
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, pc, test.ShouldResemble, pcExpected)
+			}
 			i++
 		}
 	}
