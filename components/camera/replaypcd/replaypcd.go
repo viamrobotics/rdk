@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
-	"fmt"
 	"io"
 	"sync"
 	"time"
@@ -110,7 +109,6 @@ type pcdCamera struct {
 	limit    uint64
 	filter   *datapb.Filter
 
-	cache      bool // temp for benchmarking, will be replaced with a check of limit value in the future
 	cachedData []cachedData
 	cacheCh    chan cachedData
 
@@ -136,87 +134,6 @@ func newPCDCamera(ctx context.Context, deps resource.Dependencies, conf resource
 
 // NextPointCloud returns the next point cloud retrieved from cloud storage based on the applied filter.
 func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
-	replay.mu.RLock()
-	defer replay.mu.RUnlock()
-	if replay.closed {
-		return nil, errors.New("session closed")
-	}
-
-	startTime := time.Now()
-	if !replay.cache {
-		var pcOutput pointcloud.PointCloud
-		fmt.Println("USING NO CACHE")
-		for i := 0; i < int(replay.limit); i++ {
-			pc, err := replay.NextPointCloudSingle(ctx)
-			if err != nil {
-				return nil, err
-			}
-			if i == 0 {
-				pcOutput = pc
-			}
-		}
-		t := time.Now().Sub(startTime).Seconds() * 1000
-		fmt.Printf("Average time: %vms\n", t/float64(replay.limit))
-		return pcOutput, nil
-	}
-
-	fmt.Println("USING CACHE")
-	pc, err := replay.NextPointCloudMultiple(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	t := time.Now().Sub(startTime).Seconds() * 1000
-	fmt.Printf("Average time: %vms\n", t/float64(replay.limit))
-	return pc, err
-}
-
-// NextPointCloud returns the next point cloud retrieved from cloud storage based on the applied filter.
-func (replay *pcdCamera) NextPointCloudSingle(ctx context.Context) (pointcloud.PointCloud, error) {
-	startTime := time.Now()
-	resp, err := replay.dataClient.BinaryDataByFilter(ctx, &datapb.BinaryDataByFilterRequest{
-		DataRequest: &datapb.DataRequest{
-			Filter:    replay.filter,
-			Limit:     1,
-			Last:      replay.lastData,
-			SortOrder: datapb.Order_ORDER_ASCENDING,
-		},
-		CountOnly:     false,
-		IncludeBinary: true,
-	})
-	if err != nil {
-		return nil, err
-	}
-	fmt.Printf(" -- %v\n", time.Now().Sub(startTime))
-
-	// If no data is returned, return an error indicating we've reached the end of the dataset.
-	if len(resp.GetData()) == 0 {
-		return nil, errEndOfDataset
-	}
-
-	replay.lastData = resp.GetLast()
-	data := resp.Data[0].GetBinary()
-
-	r, err := gzip.NewReader(bytes.NewBuffer(data))
-	if err != nil {
-		return nil, errors.Errorf("Failed to initialize gzip reader: %v", err)
-	}
-
-	defer func() {
-		if err = r.Close(); err != nil {
-			replay.logger.Warnw("Failed to close gzip reader", "warn", err)
-		}
-	}()
-
-	pc, err := pointcloud.ReadPCD(r)
-	if err != nil {
-		return nil, err
-	}
-	return pc, nil
-}
-
-// NextPointCloud returns the next point cloud retrieved from cloud storage based on the applied filter.
-func (replay *pcdCamera) NextPointCloudMultiple(ctx context.Context) (pointcloud.PointCloud, error) {
 	if len(replay.cachedData) != 0 {
 		data := replay.cachedData[0]
 
@@ -243,7 +160,7 @@ func (replay *pcdCamera) NextPointCloudMultiple(ctx context.Context) (pointcloud
 			SortOrder: datapb.Order_ORDER_ASCENDING,
 		},
 		CountOnly:     false,
-		IncludeBinary: false,
+		IncludeBinary: replay.limit == 1,
 	})
 	if err != nil {
 		return nil, err
@@ -256,16 +173,32 @@ func (replay *pcdCamera) NextPointCloudMultiple(ctx context.Context) (pointcloud
 
 	replay.lastData = resp.GetLast()
 
-	// Get ordered list of ids for the cache
-	var ids []string
-	for _, dataResponse := range resp.Data {
-		ids = append(ids, dataResponse.GetMetadata().Id)
+	// Perform batching
+	if replay.limit != 1 {
+		// Get ordered list of ids for the cache
+		var ids []string
+		for _, dataResponse := range resp.Data {
+			ids = append(ids, dataResponse.GetMetadata().Id)
+		}
+
+		// Update the cache
+		replay.updateCache(ctx, ids)
+
+		return replay.NextPointCloud(ctx)
 	}
 
-	// Update the cache
-	replay.updateCache(ctx, ids)
+	data := resp.Data[0].GetBinary()
 
-	return replay.NextPointCloudMultiple(ctx)
+	r, err := extractData(data, replay.logger)
+	if err != nil {
+		return nil, err
+	}
+
+	pc, err := pointcloud.ReadPCD(r)
+	if err != nil {
+		return nil, err
+	}
+	return pc, nil
 }
 
 func (replay *pcdCamera) updateCache(ctx context.Context, ids []string) {
@@ -411,8 +344,6 @@ func (replay *pcdCamera) Reconfigure(ctx context.Context, deps resource.Dependen
 	} else {
 		replay.limit = *replayCamConfig.BatchSize
 	}
-
-	replay.cache = replayCamConfig.Cache
 
 	replay.filter = &datapb.Filter{
 		ComponentName: replayCamConfig.Source,
