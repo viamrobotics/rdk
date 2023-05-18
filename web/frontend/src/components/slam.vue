@@ -119,16 +119,22 @@ const fetchSLAMPose = (name: string): Promise<commonApi.Pose> => {
   });
 };
 
-const fetchFeatureFlags = (name: string): Promise<commonApi.DoCommandResponse> => {
+const fetchFeatureFlags = (name: string): Promise<{[key: string]: boolean}> => {
   return new Promise((resolve, reject): void => {
     const request = new commonApi.DoCommandRequest();
     request.setName(name);
     request.setCommand(Struct.fromJavaScript({'feature_flag': true}))
     props.client.slamService.doCommand(request, new grpc.Metadata(), (error: ServiceError|null, responseMessage: commonApi.DoCommandResponse|null) => {
       if (error) {
-        toast.error(`Error fetching feature flags: ${error}`)
+        if (error.code !== grpc.Code.Unimplemented) {
+          reject(error)
+          return
+        } else {
+          resolve({})
+          return
+        }
       }
-      resolve(responseMessage!)
+      resolve(responseMessage!.getResult()?.toJavaScript() as {[key: string]: boolean})
     })
   });
 };
@@ -197,8 +203,8 @@ const executeMoveOnMap = async () => {
 };
 
 const refresh2d = async (name: string) => {
-  const doCommandResponse = await fetchFeatureFlags(name);
-  const flags = doCommandResponse?.getResult()?.toJavaScript()
+  const flags = await fetchFeatureFlags(name);
+
   const map = await fetchSLAMMap(name);
   const returnedPose = await fetchSLAMPose(name);
   
