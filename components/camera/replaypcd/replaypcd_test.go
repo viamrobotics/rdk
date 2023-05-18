@@ -2,19 +2,14 @@ package replaypcd
 
 import (
 	"context"
-	"fmt"
 	"math/rand"
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils"
-	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/internal/cloud"
-	"go.viam.com/rdk/pointcloud"
 )
 
 const datasetDirectory = "slam/mock_lidar/%d.pcd"
@@ -23,24 +18,8 @@ var (
 	numPCDFiles    = 15
 	batchSize1     = uint64(1)
 	batchSize2     = uint64(2)
-	batchSizeLarge = uint64(10)
+	batchSizeLarge = uint64(100)
 )
-
-// getPointCloudFromArtifact will return a point cloud based on the provided artifact path.
-func getPointCloudFromArtifact(t *testing.T, i int) (pointcloud.PointCloud, error) {
-	path := filepath.Clean(artifact.MustPath(fmt.Sprintf(datasetDirectory, i)))
-	pcdFile, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-
-	defer utils.UncheckedErrorFunc(pcdFile.Close)
-
-	pcExpected, err := pointcloud.ReadPCD(pcdFile)
-	test.That(t, err, test.ShouldBeNil)
-
-	return pcExpected, nil
-}
 
 func TestNewReplayPCD(t *testing.T) {
 	ctx := context.Background()
@@ -248,7 +227,7 @@ func TestNextPointCloud(t *testing.T) {
 				for i := tt.startFileNum; i < tt.endFileNum; i++ {
 					pc, err := replayCamera.NextPointCloud(ctx)
 					test.That(t, err, test.ShouldBeNil)
-					pcExpected, err := getPointCloudFromArtifact(t, i)
+					pcExpected, err := getPointCloudFromArtifact(i)
 					if err != nil {
 						test.That(t, err.Error, test.ShouldContainSubstring, "artifact not found")
 						test.That(t, pc, test.ShouldBeNil)
@@ -307,7 +286,7 @@ func TestLiveNextPointCloud(t *testing.T) {
 				break
 			}
 		} else {
-			pcExpected, err := getPointCloudFromArtifact(t, i)
+			pcExpected, err := getPointCloudFromArtifact(i)
 			if err != nil {
 				test.That(t, err.Error, test.ShouldContainSubstring, "artifact not found")
 				test.That(t, pc, test.ShouldBeNil)

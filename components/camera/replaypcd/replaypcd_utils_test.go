@@ -16,6 +16,7 @@ import (
 	"github.com/pkg/errors"
 	datapb "go.viam.com/api/app/data/v1"
 	"go.viam.com/test"
+	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
 	"go.viam.com/utils/rpc"
 
@@ -23,6 +24,7 @@ import (
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/internal/cloud"
 	cloudinject "go.viam.com/rdk/internal/testutils/inject"
+	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/testutils/inject"
@@ -41,24 +43,14 @@ func (mDServer *mockDataServiceServer) BinaryDataByIDs(ctx context.Context, req 
 	// Parse request
 	fileID := req.FileIds[0]
 
-	artifactPath, err := artifact.Path(fileID)
+	data, err := getCompressedBytesFromArtifact(fileID)
 	if err != nil {
-		return nil, errEndOfDataset
+		return nil, err
 	}
-	path := filepath.Clean(artifactPath)
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, errEndOfDataset
-	}
-
-	var dataBuf bytes.Buffer
-	gz := gzip.NewWriter(&dataBuf)
-	gz.Write(data)
-	gz.Close()
 
 	// Construct response
 	binaryData := datapb.BinaryData{
-		Binary:   dataBuf.Bytes(),
+		Binary:   data,
 		Metadata: &datapb.BinaryMetadata{Id: fileID},
 	}
 	resp := &datapb.BinaryDataByIDsResponse{
@@ -86,24 +78,13 @@ func (mDServer *mockDataServiceServer) BinaryDataByFilter(ctx context.Context, r
 	// Construct response
 	var resp datapb.BinaryDataByFilterResponse
 	if includeBinary {
-		// Get point cloud data in gzip compressed format
-		artifactPath, err := artifact.Path(fmt.Sprintf(datasetDirectory, newFileNum))
+		data, err := getCompressedBytesFromArtifact(fmt.Sprintf(datasetDirectory, newFileNum))
 		if err != nil {
-			return nil, errEndOfDataset
+			return nil, err
 		}
-		path := filepath.Clean(artifactPath)
-		data, err := os.ReadFile(path)
-		if err != nil {
-			return nil, errEndOfDataset
-		}
-
-		var dataBuf bytes.Buffer
-		gz := gzip.NewWriter(&dataBuf)
-		gz.Write(data)
-		gz.Close()
 
 		binaryData := datapb.BinaryData{
-			Binary:   dataBuf.Bytes(),
+			Binary:   data,
 			Metadata: &datapb.BinaryMetadata{Id: fmt.Sprintf(datasetDirectory, newFileNum)},
 		}
 
@@ -231,4 +212,43 @@ func getFile(i, end int) (int, error) {
 		return i, nil
 	}
 	return 0, errEndOfDataset
+}
+
+// getCompressedBytesFromArtifact will return an array of bytes based on the provided
+// artifact path compressed via gzip.
+func getCompressedBytesFromArtifact(inputPath string) ([]byte, error) {
+	artifactPath, err := artifact.Path(inputPath)
+	if err != nil {
+		return nil, errEndOfDataset
+	}
+	path := filepath.Clean(artifactPath)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, errEndOfDataset
+	}
+
+	var dataBuf bytes.Buffer
+	gz := gzip.NewWriter(&dataBuf)
+	gz.Write(data)
+	gz.Close()
+
+	return dataBuf.Bytes(), nil
+}
+
+// getPointCloudFromArtifact will return a point cloud based on the provided artifact path.
+func getPointCloudFromArtifact(i int) (pointcloud.PointCloud, error) {
+	path := filepath.Clean(artifact.MustPath(fmt.Sprintf(datasetDirectory, i)))
+	pcdFile, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+
+	defer utils.UncheckedErrorFunc(pcdFile.Close)
+
+	pcExpected, err := pointcloud.ReadPCD(pcdFile)
+	if err != nil {
+		return nil, err
+	}
+
+	return pcExpected, nil
 }

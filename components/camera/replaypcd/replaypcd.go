@@ -226,7 +226,7 @@ func (replay *pcdCamera) cacheDataInOrder(ctx context.Context, ids []string) {
 		}(id)
 	}
 
-	// Wait for all downloaded data to be returned via the cache channel
+	// Wait for all downloaded data to be returned from the cache channel
 	for {
 		// Check if all data has been returned
 		done := true
@@ -268,11 +268,13 @@ func (replay *pcdCamera) Stream(ctx context.Context, errHandlers ...gostream.Err
 	return stream, errors.New("Stream is unimplemented")
 }
 
-// Close stops replay camera and closes its connections to the cloud.
+// Close stops replay camera, closes the channels and its connections to the cloud.
 func (replay *pcdCamera) Close(ctx context.Context) error {
+	// Close cache channel
 	close(replay.cacheCh)
-
+	// Close cloud connection
 	replay.closeCloudConnection(ctx)
+
 	replay.mu.Lock()
 	defer replay.mu.Unlock()
 	replay.closed = true
@@ -371,7 +373,6 @@ func (replay *pcdCamera) initCloudConnection(ctx context.Context) error {
 
 // decodeResponseData decompresses the gzipped byte array.
 func decodeResponseData(respData []*datapb.BinaryData, logger golog.Logger) (pointcloud.PointCloud, error) {
-
 	// If no data is returned, return an error indicating we've reached the end of the dataset.
 	if len(respData) == 0 {
 		return nil, errEndOfDataset
