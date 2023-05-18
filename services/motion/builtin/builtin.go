@@ -200,11 +200,11 @@ func (ms *builtIn) MoveOnMap(
 	if err != nil {
 		return false, err
 	}
-	ms.logger.Infof("base position: %v", inputs)
+	ms.logger.Debugf("base position: %v", inputs)
 
 	// make call to motionplan
 	dst := spatialmath.NewPoseFromPoint(destination.Point())
-	ms.logger.Infof("goal position: %v", dst)
+	ms.logger.Debugf("goal position: %v", dst)
 	plan, err := motionplan.PlanFrameMotion(ctx, ms.logger, dst, kb.ModelFrame(), inputs, nil, extra)
 	if err != nil {
 		return false, err
