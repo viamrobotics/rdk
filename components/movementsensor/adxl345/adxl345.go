@@ -40,6 +40,11 @@ import (
 
 var model = resource.DefaultModelFamily.WithModel("accel-adxl345")
 
+const (
+	defaultRegister  = 0
+	expectedDeviceID = 0xE5
+)
+
 // Config is a description of how to find an ADXL345 accelerometer on the robot.
 type Config struct {
 	BoardName              string          `json:"board"`
@@ -219,14 +224,12 @@ func NewAdxl345(
 
 	// To check that we're able to talk to the chip, we should be able to read register 0 and get
 	// back the device ID (0xE5).
-	deviceID, err := sensor.readByte(ctx, 0)
+	deviceID, err := sensor.readByte(ctx, defaultRegister)
 	if err != nil {
-		return nil, errors.Wrapf(err, "can't read from I2C address %d on bus %q of board %q",
-			address, newConf.I2cBus, newConf.BoardName)
+		return nil, movementsensor.AddressReadError(err, address, newConf.I2cBus, newConf.BoardName)
 	}
-	if deviceID != 0xE5 {
-		return nil, errors.Errorf("unexpected I2C device instead of ADXL345 at address %d: deviceID '%d'",
-			address, deviceID)
+	if deviceID != expectedDeviceID {
+		return nil, movementsensor.UnexpectedDeviceError(address, deviceID, "ADXL354")
 	}
 
 	// The chip starts out in standby mode. Set it to measurement mode so we can get data from it.
