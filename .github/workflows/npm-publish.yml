@@ -10,7 +10,7 @@ on:
 jobs:
   publish:
     if: github.repository_owner == 'viamrobotics'
-    runs-on: [self-hosted, x64]
+    runs-on: [x64, qemu-host]
     container:
       image: ghcr.io/viamrobotics/canon:amd64-cache
 
@@ -25,9 +25,10 @@ jobs:
           npm ci --prefix ./web/frontend --audit=false
           npm run build-npm --prefix ./web/frontend
 
-      - name: Publish
-        uses: JS-DevTools/npm-publish@v2
-        with:
-          token: ${{ secrets.NPM_TOKEN }}
-          package: ./web/frontend/package.json
-          access: public
+      # SMURF
+      # - name: Publish
+      #   uses: JS-DevTools/npm-publish@v2
+      #   with:
+      #     token: ${{ secrets.NPM_TOKEN }}
+      #     package: ./web/frontend/package.json
+      #     access: public

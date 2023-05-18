@@ -17,14 +17,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - arch: buildjet-32vcpu-ubuntu-2204
+          - arch: [x64, qemu-host]
             image: ghcr.io/viamrobotics/canon:amd64-cache
             platform: linux/amd64
-            build_lint: 'make build lint'
           - arch: buildjet-16vcpu-ubuntu-2204-arm
             image: ghcr.io/viamrobotics/canon:arm64-cache
             platform: linux/arm64
-            build_lint: 'make build-go lint-go'
     runs-on: ${{ matrix.arch }}
     container:
       image: ${{ matrix.image }}
@@ -35,8 +33,6 @@ jobs:
     - name: Check out code
       if: github.event_name != 'pull_request_target'
       uses: actions/checkout@v3
-      with:
-        fetch-depth: 2
 
     - name: Check out PR branch code
       if: github.event_name == 'pull_request_target'
@@ -61,12 +57,12 @@ jobs:
         echo "GITHUB_X_PR_BASE_SHA=${{ github.event.pull_request.base.sha }}" >> $GITHUB_ENV
         echo "GITHUB_X_PR_BASE_REF=${{ github.event.pull_request.base.ref }}" >> $GITHUB_ENV
 
-    - name: Verify no uncommitted changes from "${{ matrix.build_lint }}"
+    - name: Verify no uncommitted changes from "make build lint"
       run: |
         git init
         git add .
         chown -R testbot:testbot .
-        sudo -Hu testbot bash -lc '${{ matrix.build_lint }}'
+        sudo -Hu testbot bash -lc 'make build lint'
         GEN_DIFF=$(git status -s)
 
         if [ -n "$GEN_DIFF" ]; then
@@ -121,15 +117,12 @@ jobs:
     - name: Check out main branch code
       if: github.event_name != 'pull_request_target'
       uses: actions/checkout@v3
-      with:
-        fetch-depth: 2
 
     - name: Check out PR branch code
       if: github.event_name == 'pull_request_target'
       uses: actions/checkout@v3
       with:
         ref: ${{ github.event.pull_request.head.sha }}
-        fetch-depth: 2
 
     - name: Test
       run: make test-pi
@@ -144,15 +137,12 @@ jobs:
       - name: Check out main branch code
         if: github.event_name != 'pull_request_target'
         uses: actions/checkout@v3
-        with:
-          fetch-depth: 2
 
       - name: Check out PR branch code
         if: github.event_name == 'pull_request_target'
         uses: actions/checkout@v3
         with:
           ref: ${{ github.event.pull_request.head.sha }}
-          fetch-depth: 2
 
       - name: Install dependencies
         run: |
