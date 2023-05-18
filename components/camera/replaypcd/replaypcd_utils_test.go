@@ -214,8 +214,8 @@ func getFile(i, end int) (int, error) {
 	return 0, errEndOfDataset
 }
 
-// getCompressedBytesFromArtifact will return an array of bytes based on the provided
-// artifact path compressed via gzip.
+// getCompressedBytesFromArtifact will return an array of bytes from the
+// provided artifact path, compressing them using gzip.
 func getCompressedBytesFromArtifact(inputPath string) ([]byte, error) {
 	artifactPath, err := artifact.Path(inputPath)
 	if err != nil {
