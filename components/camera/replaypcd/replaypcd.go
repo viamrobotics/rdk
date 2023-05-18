@@ -54,9 +54,9 @@ type TimeInterval struct {
 
 type cachedData struct {
 	id    string
-	ready bool
 	pc    pointcloud.PointCloud
 	err   error
+	ready bool
 }
 
 // Validate checks that the config attributes are valid for a replay camera.
@@ -120,7 +120,6 @@ func newPCDCamera(ctx context.Context, deps resource.Dependencies, conf resource
 	cam := &pcdCamera{
 		Named:   conf.ResourceName().AsNamed(),
 		logger:  logger,
-		closed:  false,
 		cacheCh: make(chan cachedData),
 	}
 
@@ -149,12 +148,10 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCl
 			return nil, errors.Wrapf(data.err, "cache data contained an error")
 		}
 
-		pc := data.pc
-
 		// Pop first element off cache
 		replay.cachedData = replay.cachedData[1:]
 
-		return pc, nil
+		return data.pc, nil
 	}
 	resp, err := replay.dataClient.BinaryDataByFilter(ctx, &datapb.BinaryDataByFilterRequest{
 		DataRequest: &datapb.DataRequest{
@@ -170,11 +167,6 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCl
 		return nil, err
 	}
 
-	// If no data is returned, return an error indicating we've reached the end of the dataset.
-	if len(resp.GetData()) == 0 {
-		return nil, errEndOfDataset
-	}
-
 	replay.lastData = resp.GetLast()
 
 	// Perform batching
@@ -184,79 +176,67 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCl
 		for _, dataResponse := range resp.Data {
 			ids = append(ids, dataResponse.GetMetadata().Id)
 		}
-
-		// Update the cache
-		replay.updateCache(ctx, ids)
-
+		replay.cacheDataInOrder(ctx, ids)
 		return replay.NextPointCloud(ctx)
 	}
 
-	data := resp.Data[0].GetBinary()
-
-	r, err := extractData(data, replay.logger)
+	r, err := decodeResponseData(resp.GetData(), replay.logger)
 	if err != nil {
 		return nil, err
 	}
-
 	pc, err := pointcloud.ReadPCD(r)
 	if err != nil {
 		return nil, err
 	}
+
 	return pc, nil
 }
 
-func (replay *pcdCamera) updateCache(ctx context.Context, ids []string) {
+// cacheDataInOrder iterates through the given sets of ids, performing the download of the respective
+// data in parallel using go routines. The downloaded data is then sent through channels to a for loop
+// which caches them in the pcdCamera object, waiting until all data has be received before continuing.
+func (replay *pcdCamera) cacheDataInOrder(ctx context.Context, ids []string) {
 	// Initialize cache with an ordered id-correlated array of empty data
 	for _, id := range ids {
 		replay.cachedData = append(replay.cachedData, cachedData{id: id})
 	}
 
 	ctxTimeout, cancelTimeout := context.WithTimeout(ctx, time.Second)
+	defer cancelTimeout()
 	var wg sync.WaitGroup
 
-	// Parallelize download of data associated with the given ids by using goroutines
+	// Parallelize download of data based on given ids
 	for _, id := range ids {
 		wg.Add(1)
 		go func(id string) {
 			defer wg.Done()
 			cData := cachedData{id: id, ready: true}
-			// Call BinaryDataByIDs
+
 			var resp *datapb.BinaryDataByIDsResponse
 			resp, cData.err = replay.dataClient.BinaryDataByIDs(ctxTimeout, &datapb.BinaryDataByIDsRequest{
 				FileIds:       []string{id},
 				IncludeBinary: true,
 			})
-
 			if cData.err != nil {
 				replay.cacheCh <- cData
 				return
 			}
 
-			// Check if data is present
-			if len(resp.GetData()) == 0 {
-				cData.err = errEndOfDataset
-				replay.cacheCh <- cData
-				return
-			}
-
-			// Extract data
-			data := resp.Data[0].GetBinary()
-
+			// Decode response data
 			var r io.Reader
-			r, cData.err = extractData(data, replay.logger)
+			r, cData.err = decodeResponseData(resp.GetData(), replay.logger)
 			if cData.err != nil {
 				replay.cacheCh <- cData
 				return
 			}
-
 			cData.pc, cData.err = pointcloud.ReadPCD(r)
+
 			// Send data to cache channel for processing
 			replay.cacheCh <- cData
 		}(id)
 	}
 
-	// Wait for all downloaded data to be returned via the cache channel. A timeout has been added to this
-	// process to ensure this doesn't block indefinitely
+	// Wait for all downloaded data to be returned via the cache channel
 	for {
 		// Check if all data has been returned
 		done := true
@@ -264,14 +244,11 @@ func (replay *pcdCamera) updateCache(ctx context.Context, ids []string) {
 			done = done && cache.ready
 		}
 		if done {
-			cancelTimeout()
 			return
 		}
-
-		// Extract data from channel
+		// Cache data from channel
 		select {
 		case <-ctxTimeout.Done():
-			cancelTimeout()
 			return
 		case cData := <-replay.cacheCh:
 			for i, cache := range replay.cachedData {
@@ -402,8 +379,15 @@ func (replay *pcdCamera) initCloudConnection(ctx context.Context) error {
 	return nil
 }
 
-func extractData(data []byte, logger golog.Logger) (io.Reader, error) {
-	r, err := gzip.NewReader(bytes.NewBuffer(data))
+// decodeResponseData uncompresses the gzipped byte array into a standard byte array.
+func decodeResponseData(respData []*datapb.BinaryData, logger golog.Logger) (io.Reader, error) {
+
+	// If no data is returned, return an error indicating we've reached the end of the dataset.
+	if len(respData) == 0 {
+		return nil, errEndOfDataset
+	}
+
+	r, err := gzip.NewReader(bytes.NewBuffer(respData[0].GetBinary()))
 	if err != nil {
 		return nil, err
 	}
