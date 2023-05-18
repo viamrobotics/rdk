@@ -195,7 +195,6 @@ func getDurationFromHz(captureFrequencyHz float32) time.Duration {
 func (svc *builtIn) initializeOrUpdateCollector(
 	md componentMethodMetadata,
 	config *datamanager.DataCaptureConfig,
-	tags []string,
 ) (
 	*collectorAndConfig, error,
 ) {
@@ -205,7 +204,7 @@ func (svc *builtIn) initializeOrUpdateCollector(
 		config.Name.ShortName(),
 		config.Method,
 		config.AdditionalParams,
-		tags,
+		config.Tags,
 	)
 	if err != nil {
 		return nil, err
@@ -310,28 +309,6 @@ func (svc *builtIn) initSyncer(ctx context.Context) error {
 	return nil
 }
 
-// getCollectorFromConfig returns the collector and metadata that is referenced based on specific config atrributes
-func (svc *builtIn) getCollectorFromConfig(attributes datamanager.DataCaptureConfig) (data.Collector, *componentMethodMetadata) {
-	// Create component/method metadata to check if the collector exists.
-	metadata := data.MethodMetadata{
-		API:        attributes.Resource.Name().API,
-		MethodName: attributes.Method,
-	}
-
-	componentMetadata := componentMethodMetadata{
-		ComponentName:  attributes.Resource.Name().ShortName(),
-		MethodMetadata: metadata,
-		MethodParams:   fmt.Sprintf("%v", attributes.AdditionalParams),
-	}
-
-	if storedCollectorParams, ok := svc.collectors[componentMetadata]; ok {
-		collector := storedCollectorParams.Collector
-		return collector, &componentMetadata
-	}
-
-	return nil, nil
-}
-
 // TODO: Determine desired behavior if sync is disabled. Do we wan to allow manual syncs, then?
 //       If so, how could a user cancel it?
 
@@ -371,7 +348,7 @@ func (svc *builtIn) Reconfigure(
 	reinitSyncer := cloudConnSvc != svc.cloudConnSvc
 	svc.cloudConnSvc = cloudConnSvc
 
-	svc.updateDataCaptureConfigs(deps, svcConfig.ResourceConfigs, svcConfig.CaptureDir, svcConfig.Tags)
+	svc.updateDataCaptureConfigs(deps, svcConfig.ResourceConfigs, svcConfig.CaptureDir)
 
 	if !utils.IsTrustedEnvironment(ctx) && svcConfig.CaptureDir != "" && svcConfig.CaptureDir != viamCaptureDotDir {
 		return errCaptureDirectoryConfigurationDisabled
@@ -411,7 +388,10 @@ func (svc *builtIn) Reconfigure(
 					MethodParams:   fmt.Sprintf("%v", resConf.AdditionalParams),
 				}
 
-				newCollectorAndConfig, err := svc.initializeOrUpdateCollector(componentMethodMetadata, resConf, svcConfig.Tags)
+				// We only use service-level tags.
+				resConf.Tags = svcConfig.Tags
+
+				newCollectorAndConfig, err := svc.initializeOrUpdateCollector(componentMethodMetadata, resConf)
 				if err != nil {
 					svc.logger.Errorw("failed to initialize or update collector", "error", err)
 				} else {
@@ -551,7 +531,6 @@ func (svc *builtIn) updateDataCaptureConfigs(
 	resources resource.Dependencies,
 	resourceConfigs []*datamanager.DataCaptureConfig,
 	captureDir string,
-	tags []string,
 ) {
 	for _, resConf := range resourceConfigs {
 		res, err := resources.Lookup(resConf.Name)
@@ -562,6 +541,5 @@ func (svc *builtIn) updateDataCaptureConfigs(
 
 		resConf.Resource = res
 		resConf.CaptureDirectory = captureDir
-		resConf.Tags = tags
 	}
 }
