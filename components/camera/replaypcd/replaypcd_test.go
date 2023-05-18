@@ -6,15 +6,19 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 
 	"go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/utils/contextutils"
 )
 
 const datasetDirectory = "slam/mock_lidar/%d.pcd"
@@ -423,4 +427,64 @@ func TestUnimplementedFunctions(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, serverClose(), test.ShouldBeNil)
+}
+
+// TestNextPointCloudTimestamps tests that calls to NextPointCloud on the replay camera will inject
+// the time received and time requested metadata into the gRPC response header.
+func TestNextPointCloudTimestamps(t *testing.T) {
+	// Construct replay camera.
+	ctx := context.Background()
+	cfg := &Config{Source: "source"}
+	replayCamera, serverClose, err := createNewReplayPCDCamera(ctx, t, cfg, true)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, replayCamera, test.ShouldNotBeNil)
+
+	// Repeatedly call NextPointCloud, checking for timestamps in the gRPC header.
+	for i := 0; i < numPCDFiles; i++ {
+		serverStream := &myStream{}
+		ctx = grpc.NewContextWithServerTransportStream(ctx, serverStream)
+		pc, err := replayCamera.NextPointCloud(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, pc, test.ShouldResemble, getPointCloudFromArtifact(t, i))
+
+		expectedTimeReq := fmt.Sprintf(testTime, i)
+		expectedTimeRec := fmt.Sprintf(testTime, i+1)
+
+		actualTimeReq := serverStream.md[contextutils.TimeRequestedMetadataKey][0]
+		actualTimeRec := serverStream.md[contextutils.TimeReceivedMetadataKey][0]
+
+		test.That(t, expectedTimeReq, test.ShouldEqual, actualTimeReq)
+		test.That(t, expectedTimeRec, test.ShouldEqual, actualTimeRec)
+	}
+
+	// Confirm the end of the dataset was reached when expected
+	pc, err := replayCamera.NextPointCloud(ctx)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, errEndOfDataset.Error())
+	test.That(t, pc, test.ShouldBeNil)
+
+	err = replayCamera.Close(ctx)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, serverClose(), test.ShouldBeNil)
+}
+
+type myStream struct {
+	mu sync.Mutex
+	grpc.ServerTransportStream
+	md metadata.MD
+}
+
+func (s *myStream) SetHeader(md metadata.MD) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.md = md.Copy()
+	return nil
+}
+
+func (s *myStream) SendHeader(md metadata.MD) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.md = md.Copy()
+	return nil
 }

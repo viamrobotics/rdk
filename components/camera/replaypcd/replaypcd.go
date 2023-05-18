@@ -23,6 +23,7 @@ import (
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage/transform"
+	"go.viam.com/rdk/utils/contextutils"
 )
 
 // Model is the model of a replay camera.
@@ -156,11 +157,11 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCl
 
 		timeReq := md.GetTimeRequested()
 		if timeReq != nil {
-			grpcMetadata.Set(camera.TimeRequestedMetadataKey, timeReq.AsTime().Format(time.RFC3339Nano))
+			grpcMetadata.Set(contextutils.TimeRequestedMetadataKey, timeReq.AsTime().Format(time.RFC3339Nano))
 		}
 		timeRec := md.GetTimeReceived()
 		if timeRec != nil {
-			grpcMetadata.Set(camera.TimeReceivedMetadataKey, timeRec.AsTime().Format(time.RFC3339Nano))
+			grpcMetadata.Set(contextutils.TimeReceivedMetadataKey, timeRec.AsTime().Format(time.RFC3339Nano))
 		}
 
 		if err := grpc.SendHeader(ctx, grpcMetadata); err != nil {
