@@ -20,9 +20,11 @@ jobs:
           - arch: [x64, qemu-host]
             image: ghcr.io/viamrobotics/canon:amd64-cache
             platform: linux/amd64
+            test_cmd: "make cover test-web"
           - arch: [buildjet-8vcpu-ubuntu-2204-arm]
             image: ghcr.io/viamrobotics/canon:arm64-cache
             platform: linux/arm64
+            test_cmd: "make test-go test-web"
     runs-on: ${{ matrix.arch }}
     container:
       image: ${{ matrix.image }}
@@ -73,7 +75,7 @@ jobs:
 
     - name: Test
       run: |
-        sudo --preserve-env=MONGODB_TEST_OUTPUT_URI,GITHUB_SHA,GITHUB_RUN_ID,GITHUB_RUN_NUMBER,GITHUB_RUN_ATTEMPT,GITHUB_X_PR_BASE_SHA,GITHUB_X_PR_BASE_REF,GITHUB_X_HEAD_REF,GITHUB_X_HEAD_SHA,GITHUB_REPOSITORY -Hu testbot bash -lc 'make cover test-web'
+        sudo --preserve-env=MONGODB_TEST_OUTPUT_URI,GITHUB_SHA,GITHUB_RUN_ID,GITHUB_RUN_NUMBER,GITHUB_RUN_ATTEMPT,GITHUB_X_PR_BASE_SHA,GITHUB_X_PR_BASE_REF,GITHUB_X_HEAD_REF,GITHUB_X_HEAD_SHA,GITHUB_REPOSITORY -Hu testbot bash -lc '${{ matrix.test_cmd }}'
 
     # Now that RDK is public, can't directly comment without token having full read/write access
     # code-coverage-comment.yml will trigger seperately and post the actual comments
