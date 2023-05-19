@@ -140,10 +140,6 @@ const fetchSLAMPose = (name: string): Promise<commonApi.Pose> => {
   });
 };
 
-const deleteDestinationMarker = () => {
-  updatedDest = false;
-  destinationMarker = new THREE.Vector3();
-};
 const fetchFeatureFlags = (name: string): Promise<{[key: string]: boolean}> => {
   return new Promise((resolve, reject): void => {
     const request = new commonApi.DoCommandRequest();
@@ -173,8 +169,10 @@ const fetchFeatureFlags = (name: string): Promise<{[key: string]: boolean}> => {
   });
 };
 
-const executeMoveOnMap = async () => {
-  moveClick = !moveClick;
+const deleteDestinationMarker = () => {
+  updatedDest = false;
+  destinationMarker = new THREE.Vector3();
+};
 
 const moveOnMap = async () => {
 
@@ -185,11 +183,20 @@ const moveOnMap = async () => {
   motionServiceReq.setName('builtin');
 
   // set pose in frame
+  const flags = await fetchFeatureFlags(props.name);
   const destination = new commonApi.Pose();
   const value = await fetchSLAMPose(props.name);
-  destination.setX(destinationMarker.x);
-  destination.setY(destinationMarker.y);
-  destination.setZ(destinationMarker.z);
+
+  // if we allow pose to be returned in millimeters we must convert to meters
+  if (flags && flags.response_in_millimeters) {
+    destination.setX(destinationMarker.x * 1000);
+    destination.setY(destinationMarker.y * 1000);
+    destination.setZ(destinationMarker.z * 1000);
+  } else {
+    destination.setX(destinationMarker.x);
+    destination.setY(destinationMarker.y);
+    destination.setZ(destinationMarker.z);
+  }
   destination.setOX(value.getOX());
   destination.setOY(value.getOY());
   destination.setOZ(value.getOZ());
