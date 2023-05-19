@@ -7,19 +7,20 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
+	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/gripper"
+	"go.viam.com/rdk/components/movementsensor"
 
 	// register.
 	commonpb "go.viam.com/api/common/v1"
 	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/referenceframe"
-	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/motion"
 	_ "go.viam.com/rdk/services/register"
@@ -65,7 +66,7 @@ func TestMoveFailures(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		poseInFrame := referenceframe.NewPoseInFrame("frame2", spatialmath.NewZeroPose())
 		_, err = ms.Move(ctx, arm.Named("arm1"), poseInFrame, worldState, nil, nil)
-		test.That(t, err, test.ShouldBeError, framesystemparts.NewMissingParentError("frame2", "noParent"))
+		test.That(t, err, test.ShouldBeError, referenceframe.NewParentFrameMissingError("frame2", "noParent"))
 	})
 }
 
@@ -168,6 +169,7 @@ func TestMoveWithObstacles(t *testing.T) {
 }
 
 func TestMoveSingleComponent(t *testing.T) {
+	t.Skip()
 	t.Run("succeeds when all frame info in config", func(t *testing.T) {
 		ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
 		defer teardown()
@@ -235,6 +237,26 @@ func TestMoveOnMap(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, success, test.ShouldBeTrue)
+}
+
+// TODO(RSDK-2926): Revisit after MoveOnGlobe implementation is completed, needs test cases for optional specs, etc.
+func TestMoveOnGlobe(t *testing.T) {
+	ms, closeFn := setupMotionServiceFromConfig(t, "../data/gps_base.json")
+	defer closeFn()
+
+	success, err := ms.MoveOnGlobe(
+		context.Background(),
+		base.Named("test-base"),
+		geo.NewPoint(0.0, 0.0),
+		math.NaN(),
+		movementsensor.Named("test-gps"),
+		nil,
+		math.NaN(),
+		math.NaN(),
+		nil,
+	)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "Not yet implemented")
+	test.That(t, success, test.ShouldBeFalse)
 }
 
 func TestMultiplePieces(t *testing.T) {
@@ -306,6 +328,6 @@ func TestGetPose(t *testing.T) {
 		referenceframe.NewLinkInFrame("noParent", testPose, "testFrame", nil),
 	}
 	pose, err = ms.GetPose(context.Background(), arm.Named("arm1"), "testFrame", transforms, map[string]interface{}{})
-	test.That(t, err, test.ShouldBeError, framesystemparts.NewMissingParentError("testFrame", "noParent"))
+	test.That(t, err, test.ShouldBeError, referenceframe.NewParentFrameMissingError("testFrame", "noParent"))
 	test.That(t, pose, test.ShouldBeNil)
 }

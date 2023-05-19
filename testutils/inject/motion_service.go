@@ -3,6 +3,7 @@ package inject
 import (
 	"context"
 
+	geo "github.com/kellydunn/golang-geo"
 	servicepb "go.viam.com/api/service/motion/v1"
 
 	"go.viam.com/rdk/referenceframe"
@@ -28,8 +29,18 @@ type MotionService struct {
 		ctx context.Context,
 		componentName resource.Name,
 		destination spatialmath.Pose,
-		worldState *referenceframe.WorldState,
 		slamName resource.Name,
+		extra map[string]interface{},
+	) (bool, error)
+	MoveOnGlobeFunc func(
+		ctx context.Context,
+		componentName resource.Name,
+		destination *geo.Point,
+		heading float64,
+		movementSensorName resource.Name,
+		obstacles []*spatialmath.GeoObstacle,
+		linearVelocity float64,
+		angularVelocity float64,
 		extra map[string]interface{},
 	) (bool, error)
 	MoveSingleComponentFunc func(
@@ -76,7 +87,7 @@ func (mgs *MotionService) Move(
 	return mgs.MoveFunc(ctx, componentName, destination, worldState, constraints, extra)
 }
 
-// MoveOnMap calls the inkected MoveOnMap or the real variant.
+// MoveOnMap calls the injected MoveOnMap or the real variant.
 func (mgs *MotionService) MoveOnMap(
 	ctx context.Context,
 	componentName resource.Name,
@@ -87,7 +98,25 @@ func (mgs *MotionService) MoveOnMap(
 	if mgs.MoveOnMapFunc == nil {
 		return mgs.Service.MoveOnMap(ctx, componentName, destination, slamName, extra)
 	}
-	return mgs.MoveOnMap(ctx, componentName, destination, slamName, extra)
+	return mgs.MoveOnMapFunc(ctx, componentName, destination, slamName, extra)
+}
+
+// MoveOnGlobe calls the injected MoveOnGlobe or the real variant.
+func (mgs *MotionService) MoveOnGlobe(
+	ctx context.Context,
+	componentName resource.Name,
+	destination *geo.Point,
+	heading float64,
+	movementSensorName resource.Name,
+	obstacles []*spatialmath.GeoObstacle,
+	linearVel float64,
+	angularVel float64,
+	extra map[string]interface{},
+) (bool, error) {
+	if mgs.MoveOnGlobeFunc == nil {
+		return mgs.Service.MoveOnGlobe(ctx, componentName, destination, heading, movementSensorName, obstacles, linearVel, angularVel, extra)
+	}
+	return mgs.MoveOnGlobeFunc(ctx, componentName, destination, heading, movementSensorName, obstacles, linearVel, angularVel, extra)
 }
 
 // MoveSingleComponent calls the injected MoveSingleComponent or the real variant. It uses the same function as Move.
