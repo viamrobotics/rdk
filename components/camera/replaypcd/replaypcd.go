@@ -23,13 +23,17 @@ import (
 	"go.viam.com/rdk/rimage/transform"
 )
 
-// Model is the model of a replay camera.
-var (
-	model                 = resource.DefaultModelFamily.WithModel("replay_pcd")
-	errEndOfDataset       = errors.New("reached end of dataset")
+const (
 	timeFormat            = time.RFC3339
 	grpcConnectionTimeout = 10 * time.Second
 	downloadTimeout       = 30 * time.Second
+	maxCacheSize          = 100
+)
+
+// Model is the model of a replay camera.
+var (
+	model           = resource.DefaultModelFamily.WithModel("replay_pcd")
+	errEndOfDataset = errors.New("reached end of dataset")
 )
 
 func init() {
@@ -52,13 +56,19 @@ type TimeInterval struct {
 	End   string `json:"end,omitempty"`
 }
 
-// cacheEntry stores data that was downloaded from a previous operation but has not yet been passed
-// to the caller. cacheEntries are initially instantiated with only an id to preserve download
-// order; once the download has been completed, any resulting point clouds or errors are emplaced.
+// cacheEntries store data that was downloaded from a previous operation but has not yet been passed
+// to the caller
 type cacheEntry struct {
-	id  string
 	pc  pointcloud.PointCloud
 	err error
+}
+
+// cacheMapEntries are used when batching is desired by emplacing, in order, the id along with the location
+// where the data will be stored in the cache. Once the download has been completed, this link is removed
+// from the cacheMap.
+type cacheMapEntry struct {
+	id    string
+	index int
 }
 
 // Validate checks that the config attributes are valid for a replay camera.
@@ -94,6 +104,10 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 		return nil, errors.New("invalid config, end time (UTC) must be after start time (UTC)")
 	}
 
+	if cfg.BatchSize != nil && *cfg.BatchSize > uint64(maxCacheSize) {
+		return nil, errors.Errorf("batch_size must be less than or equal to %d", maxCacheSize)
+	}
+
 	return []string{cloud.InternalServiceName.String()}, nil
 }
 
@@ -110,7 +124,8 @@ type pcdCamera struct {
 	limit    uint64
 	filter   *datapb.Filter
 
-	cache []cacheEntry
+	cache    []cacheEntry
+	cacheMap []cacheMapEntry
 
 	activeBackgroundWorkers sync.WaitGroup
 
@@ -123,6 +138,7 @@ func newPCDCamera(ctx context.Context, deps resource.Dependencies, conf resource
 	cam := &pcdCamera{
 		Named:  conf.ResourceName().AsNamed(),
 		logger: logger,
+		cache:  make([]cacheEntry, maxCacheSize),
 	}
 
 	if err := cam.Reconfigure(ctx, deps, conf); err != nil {
@@ -140,8 +156,9 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCl
 		return nil, errors.New("session closed")
 	}
 
-	// Retrieve next cached data and remove from cache, if no data remains in the cache, download a new batch
-	if len(replay.cache) != 0 {
+	// Retrieve next cached data and remove from cacheMap, if no data remains in the cacheMap, download a
+	// new batch
+	if len(replay.cacheMap) != 0 {
 		return replay.getDataFromCache()
 	}
 
@@ -166,9 +183,9 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCl
 	// If using a batch size greater than 1, use the metadata from BinaryDataByFilter to download data in parallel
 	// and cache the results
 	if replay.limit > 1 {
-		for _, dataResponse := range resp.Data {
-			newCacheEntry := cacheEntry{id: dataResponse.GetMetadata().Id}
-			replay.cache = append(replay.cache, newCacheEntry)
+		for i, dataResponse := range resp.Data {
+			cmEntry := cacheMapEntry{id: dataResponse.GetMetadata().Id, index: i}
+			replay.cacheMap = append(replay.cacheMap, cmEntry)
 		}
 		ctxTimeout, cancelTimeout := context.WithTimeout(ctx, downloadTimeout)
 		defer cancelTimeout()
@@ -195,29 +212,31 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCl
 	return pc, nil
 }
 
-// downloadBatch iterates through the current cache, performing the download of the respective data in
-// parallel using go routines and waits for them to complete before returning.
+// downloadBatch iterates through the current cacheMap, performing the download of the respective data in
+// parallel using go routines and adds all of them to the cache before returning.
 func (replay *pcdCamera) downloadBatch(ctx context.Context, ch chan struct{}) {
 	defer replay.activeBackgroundWorkers.Done()
 
-	// Parallelize download of data based on given ids
+	// Parallelize download of data based on ids in cacheMap
 	var wg sync.WaitGroup
-	wg.Add(len(replay.cache))
-	for i := range replay.cache {
-		i := i
+	wg.Add(len(replay.cacheMap))
+	for _, cMap := range replay.cacheMap {
+		cMap := cMap
+
 		goutils.PanicCapturingGo(func() {
 			defer wg.Done()
+
 			var resp *datapb.BinaryDataByIDsResponse
-			resp, replay.cache[i].err = replay.dataClient.BinaryDataByIDs(ctx, &datapb.BinaryDataByIDsRequest{
-				FileIds:       []string{replay.cache[i].id},
+			resp, replay.cache[cMap.index].err = replay.dataClient.BinaryDataByIDs(ctx, &datapb.BinaryDataByIDsRequest{
+				FileIds:       []string{cMap.id},
 				IncludeBinary: true,
 			})
-			if replay.cache[i].err != nil {
+			if replay.cache[cMap.index].err != nil {
 				return
 			}
 
 			// Decode response data
-			replay.cache[i].pc, replay.cache[i].err = decodeResponseData(resp.GetData(), replay.logger)
+			replay.cache[cMap.index].pc, replay.cache[cMap.index].err = decodeResponseData(resp.GetData(), replay.logger)
 		})
 	}
 	defer close(ch)
@@ -226,13 +245,15 @@ func (replay *pcdCamera) downloadBatch(ctx context.Context, ch chan struct{}) {
 
 // getDataFromCache retrieves the next cached data and removes it from the cache.
 func (replay *pcdCamera) getDataFromCache() (pointcloud.PointCloud, error) {
-	data := replay.cache[0]
+	index := replay.cacheMap[0].index
+
+	data := replay.cache[index]
 
 	if data.err != nil {
 		return nil, errors.Wrapf(data.err, "cache data contained an error")
 	}
 
-	replay.cache = replay.cache[1:]
+	replay.cacheMap = replay.cacheMap[1:]
 
 	return data.pc, nil
 }
@@ -258,6 +279,7 @@ func (replay *pcdCamera) Stream(ctx context.Context, errHandlers ...gostream.Err
 // Close stops replay camera, closes the channels and its connections to the cloud.
 func (replay *pcdCamera) Close(ctx context.Context) error {
 	replay.activeBackgroundWorkers.Wait()
+
 	// Close cloud connection
 	replay.closeCloudConnection(ctx)
 

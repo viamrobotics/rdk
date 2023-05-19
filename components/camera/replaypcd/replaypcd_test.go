@@ -15,11 +15,12 @@ import (
 const datasetDirectory = "slam/mock_lidar/%d.pcd"
 
 var (
-	numPCDFiles    = 15
-	batchSize1     = uint64(1)
-	batchSize2     = uint64(2)
-	batchSize3     = uint64(3)
-	batchSizeLarge = uint64(100)
+	numPCDFiles       = 15
+	batchSize1        = uint64(1)
+	batchSize2        = uint64(2)
+	batchSize3        = uint64(3)
+	batchSizeLarge    = uint64(100)
+	batchSizeTooLarge = uint64(1000)
 )
 
 func TestNewReplayPCD(t *testing.T) {
@@ -426,6 +427,18 @@ func TestConfigValidation(t *testing.T) {
 				},
 			},
 			expectedErr: errors.New("invalid config, end time (UTC) must be after start time (UTC)"),
+		},
+		{
+			description: "Invalid config with batch size above max",
+			cfg: &Config{
+				Source: "source",
+				Interval: TimeInterval{
+					Start: "2000-01-01T12:00:00Z",
+					End:   "2000-01-01T12:00:01Z",
+				},
+				BatchSize: &batchSizeTooLarge,
+			},
+			expectedErr: errors.New("batch_size must be less than or equal to 100"),
 		},
 	}
 
