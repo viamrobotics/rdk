@@ -6,7 +6,9 @@ concurrency:
 on:
   workflow_dispatch:
   push:
-    branches: [ buildjet ] #SMURF
+    branches: [ main ]
+    paths-ignore:
+      - 'README.md'
 
 # To test workflow updates you need to work in a branch directly on viamrobotics/rdk
 # and tag your working branch instead of @main in any viamrobotics/rdk "uses" below.
@@ -14,13 +16,13 @@ on:
 
 jobs:
   test:
-    uses: viamrobotics/rdk/.github/workflows/test.yml@buildjet
+    uses: viamrobotics/rdk/.github/workflows/test.yml@main
     secrets:
       MONGODB_TEST_OUTPUT_URI: ${{ secrets.MONGODB_TEST_OUTPUT_URI }}
 
   appimage:
     needs: test
-    uses: viamrobotics/rdk/.github/workflows/appimage.yml@buildjet
+    uses: viamrobotics/rdk/.github/workflows/appimage.yml@main
     with:
       release_type: 'latest'
     secrets:
@@ -28,20 +30,20 @@ jobs:
 
   staticbuild:
     needs: test
-    uses: viamrobotics/rdk/.github/workflows/staticbuild.yml@buildjet
+    uses: viamrobotics/rdk/.github/workflows/staticbuild.yml@main
     with:
       release_type: 'latest'
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
   npm_publish:
-    uses: viamrobotics/rdk/.github/workflows/npm-publish.yml@buildjet
+    uses: viamrobotics/rdk/.github/workflows/npm-publish.yml@main
     needs: test
     secrets:
       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   license_finder:
-    uses: viamrobotics/rdk/.github/workflows/license_finder.yml@buildjet
+    uses: viamrobotics/rdk/.github/workflows/license_finder.yml@main
 
   slack-workflow-status:
     if: ${{ failure() }}

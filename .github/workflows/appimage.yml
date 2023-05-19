@@ -28,7 +28,6 @@ jobs:
           - arch: [buildjet-8vcpu-ubuntu-2204-arm]
             image: ghcr.io/viamrobotics/canon:arm64-cache
             platform: linux/arm64
-
     runs-on: ${{ matrix.arch }}
     container:
       image: ${{ matrix.image }}
@@ -140,7 +139,7 @@ jobs:
         fi
         channel="${{ github.ref_name }}"
         # we call our main branch releases "latest"
-        if [ "$channel" = "buildjet" ]; then # SMURF
+        if [ "$channel" = "main" ]; then
           channel="latest"
         fi
         export TEST_DIR=`mktemp -d -t test-viam-server-XXXXXX`
@@ -177,7 +176,7 @@ jobs:
 
     - name: Publish AppImage
       run: |
-        gsutil mv "gs://packages.viam.com/apps/viam-server/testing/appimage/${{ needs.appimage_test.outputs.date }}/${{ github.sha }}/*" "gs://packages.viam.com/apps/viam-server/SMURF/"
+        gsutil mv "gs://packages.viam.com/apps/viam-server/testing/appimage/${{ needs.appimage_test.outputs.date }}/${{ github.sha }}/*" "gs://packages.viam.com/apps/viam-server/"
 
     - name: Output Summary
       run: |

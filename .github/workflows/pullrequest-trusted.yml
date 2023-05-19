@@ -6,17 +6,17 @@ concurrency:
 
 on:
   pull_request_target:
-    branches: [ buildjet ] # SMURF
+    branches: [ main ]
     types: [ labeled ]
 
 # To test workflow updates you need to work in a branch directly on viamrobotics/rdk
-# and tag your working branch instead of @buildjet in any viamrobotics/rdk "uses" below.
-# Don't forget to tag back to @buildjet before merge.
+# and tag your working branch instead of @main in any viamrobotics/rdk "uses" below.
+# Don't forget to tag back to @main before merge.
 
 jobs:
   test:
     if: (github.event.label.name == 'safe to test' || github.event.label.name == 'appimage')
-    uses: viamrobotics/rdk/.github/workflows/test.yml@buildjet
+    uses: viamrobotics/rdk/.github/workflows/test.yml@main
     secrets:
       MONGODB_TEST_OUTPUT_URI: ${{ secrets.MONGODB_TEST_OUTPUT_URI }}
 
@@ -27,7 +27,7 @@ jobs:
       always() && !cancelled() && contains(github.event.pull_request.labels.*.name, 'safe to test') &&
       !contains(github.event.pull_request.labels.*.name, 'appimage-ignore-tests') &&
       contains(github.event.pull_request.labels.*.name, 'appimage') && needs.test.result == 'success'
-    uses: viamrobotics/rdk/.github/workflows/appimage.yml@buildjet
+    uses: viamrobotics/rdk/.github/workflows/appimage.yml@main
     with:
       release_type: 'pr'
     secrets:
@@ -37,7 +37,7 @@ jobs:
     if: |
        always() && !cancelled() && contains(github.event.pull_request.labels.*.name, 'safe to test') &&
        contains(github.event.pull_request.labels.*.name, 'appimage-ignore-tests')
-    uses: viamrobotics/rdk/.github/workflows/appimage.yml@buildjet
+    uses: viamrobotics/rdk/.github/workflows/appimage.yml@main
     with:
       release_type: 'pr'
     secrets:
@@ -50,7 +50,7 @@ jobs:
       always() && !cancelled() && contains(github.event.pull_request.labels.*.name, 'safe to test') &&
       !contains(github.event.pull_request.labels.*.name, 'static-ignore-tests') &&
       contains(github.event.pull_request.labels.*.name, 'static-build') && needs.test.result == 'success'
-    uses: viamrobotics/rdk/.github/workflows/staticbuild.yml@buildjet
+    uses: viamrobotics/rdk/.github/workflows/staticbuild.yml@main
     with:
       release_type: 'pr'
     secrets:
@@ -60,11 +60,11 @@ jobs:
     if: |
        always() && !cancelled() && contains(github.event.pull_request.labels.*.name, 'safe to test') &&
        contains(github.event.pull_request.labels.*.name, 'static-ignore-tests')
-    uses: viamrobotics/rdk/.github/workflows/staticbuild.yml@buildjet
+    uses: viamrobotics/rdk/.github/workflows/staticbuild.yml@main
     with:
       release_type: 'pr'
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
   license_finder:
-    uses: viamrobotics/rdk/.github/workflows/license_finder.yml@buildjet
+    uses: viamrobotics/rdk/.github/workflows/license_finder.yml@main
