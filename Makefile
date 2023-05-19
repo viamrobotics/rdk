@@ -1,3 +1,4 @@
+#SMURF
 BIN_OUTPUT_PATH = bin/$(shell uname -s)-$(shell uname -m)
 
 TOOL_BIN = bin/gotools/$(shell uname -s)-$(shell uname -m)
