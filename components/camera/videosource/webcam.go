@@ -100,7 +100,7 @@ func Discover(_ context.Context, getDrivers func() []driver.Driver, logger golog
 			pbProp := &pb.Property{
 				WidthPx:     int32(prop.Video.Width),
 				HeightPx:    int32(prop.Video.Height),
-				FrameRate:   float32(prop.Video.FrameRate),
+				FrameRate:   prop.Video.FrameRate,
 				FrameFormat: string(prop.Video.FrameFormat),
 			}
 			wc.Properties = append(wc.Properties, pbProp)
