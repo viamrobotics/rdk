@@ -1,3 +1,4 @@
+// Package gpio implements a GPIO based motor.
 package gpio
 
 import (
@@ -402,6 +403,7 @@ func (m *EncodedMotor) rpmMonitorPass(pos, lastPos, now, lastTime int64, rpmDebu
 
 	// slow down so we don't overshoot
 	// halve and quarter rpm values based on seconds remaining in move
+
 	desiredRPM := m.state.desiredRPM
 	timeLeftSeconds := math.Abs(60.0 * rotationsLeft / desiredRPM)
 
@@ -528,6 +530,7 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
+
 	if err := m.goForInternal(ctx, rpm, revolutions); err != nil {
 		return err
 	}

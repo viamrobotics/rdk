@@ -140,7 +140,7 @@ func TestMotorEncoder1(t *testing.T) {
 		})
 	})
 
-	t.Run("encoded motor testing GoFor (REV + | REV +)", func(t *testing.T) {
+	t.Run("encoded motor testing GoFor (RPM + | REV +)", func(t *testing.T) {
 		test.That(t, motorDep.goForInternal(context.Background(), 1000, 1), test.ShouldBeNil)
 		test.That(t, fakeMotor.Direction(), test.ShouldEqual, 1)
 		test.That(t, fakeMotor.PowerPct(), test.ShouldBeGreaterThan, 0)
@@ -229,7 +229,7 @@ func TestMotorEncoder1(t *testing.T) {
 		test.That(t, motorDep.Stop(context.Background(), nil), test.ShouldBeNil)
 	})
 
-	t.Run("encoded motor testing GoFor (REV - | REV -)", func(t *testing.T) {
+	t.Run("encoded motor testing GoFor (RPM - | REV -)", func(t *testing.T) {
 		test.That(t, motorDep.goForInternal(context.Background(), -1000, -1), test.ShouldBeNil)
 		test.That(t, fakeMotor.Direction(), test.ShouldEqual, 1)
 		test.That(t, fakeMotor.PowerPct(), test.ShouldBeGreaterThan, 0)
