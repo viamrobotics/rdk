@@ -135,6 +135,11 @@ jobs:
 
     - name: Test AppImage
       run: |
+        dpkg -l | grep libfuse2
+        if [ $? -ne 0 ]; then
+          apt update
+          apt install -y libfuse2 fuse3
+        fi
         channel="${{ github.ref_name }}"
         # we call our main branch releases "latest"
         if [ "$channel" = "buildjet" ]; then # SMURF
