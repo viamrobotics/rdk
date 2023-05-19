@@ -19,6 +19,7 @@ jobs:
   static:
     name: Antique Build
     strategy:
+      fail-fast: false
       matrix:
         include:
           - arch: [x64, qemu-host]
@@ -116,6 +117,7 @@ jobs:
     name: Static Test
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
     strategy:
+      fail-fast: false
       matrix:
         arch: [[x64, qemu-host], [buildjet-2vcpu-ubuntu-2204-arm], [arm64, pi4]]
     needs: static
