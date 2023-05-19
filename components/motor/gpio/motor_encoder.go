@@ -649,7 +649,7 @@ func (m *EncodedMotor) Close(ctx context.Context) error {
 // at a specific speed. Regardless of the directionality of the RPM this function will move the motor
 // towards the specified target.
 func (m *EncodedMotor) GoTo(ctx context.Context, rpm, targetPosition float64, extra map[string]interface{}) error {
-	rpm *= float64(m.flip)
+	rpm = math.Abs(rpm) * float64(m.flip)
 	curPos, err := m.Position(ctx, extra)
 	if err != nil {
 		return err
