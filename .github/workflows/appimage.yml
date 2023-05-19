@@ -137,7 +137,7 @@ jobs:
       run: |
         channel="${{ github.ref_name }}"
         # we call our main branch releases "latest"
-        if [ "$channel" = "main" ]; then
+        if [ "$channel" = "buildjet" ]; then # SMURF
           channel="latest"
         fi
         export TEST_DIR=`mktemp -d -t test-viam-server-XXXXXX`
