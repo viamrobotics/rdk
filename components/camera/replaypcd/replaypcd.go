@@ -29,6 +29,7 @@ var (
 	errEndOfDataset       = errors.New("reached end of dataset")
 	timeFormat            = time.RFC3339
 	grpcConnectionTimeout = 10 * time.Second
+	downloadTimeout       = 30 * time.Second
 )
 
 func init() {
@@ -51,7 +52,11 @@ type TimeInterval struct {
 	End   string `json:"end,omitempty"`
 }
 
-type cachedData struct {
+// cacheEntry stored data that was downloaded from a previous operation but has not yet been past
+// to the caller. cacheEntries are initially instantiated with only an id to preserve download
+// order; once the download has been completed, ready is set to true and any resulting point clouds
+// and errors are emplaced.
+type cacheEntry struct {
 	id    string
 	pc    pointcloud.PointCloud
 	err   error
@@ -107,8 +112,8 @@ type pcdCamera struct {
 	limit    uint64
 	filter   *datapb.Filter
 
-	cachedData []cachedData
-	cacheCh    chan cachedData
+	cache   []cacheEntry
+	cacheCh chan cacheEntry
 
 	mu     sync.RWMutex
 	closed bool
@@ -119,7 +124,7 @@ func newPCDCamera(ctx context.Context, deps resource.Dependencies, conf resource
 	cam := &pcdCamera{
 		Named:   conf.ResourceName().AsNamed(),
 		logger:  logger,
-		cacheCh: make(chan cachedData),
+		cacheCh: make(chan cacheEntry),
 	}
 
 	if err := cam.Reconfigure(ctx, deps, conf); err != nil {
@@ -137,12 +142,13 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCl
 		return nil, errors.New("session closed")
 	}
 
-	// Retrieve next cached data and remove from cache
-	if len(replay.cachedData) != 0 {
+	// Retrieve next cached data and remove from cache, if no data remains in the cache, download a new batch
+	if len(replay.cache) != 0 {
 		return replay.getDataFromCache()
 	}
 
-	// Retrieve data from the cloud, if batching is detected only metadata is returned here
+	// Retrieve data from the cloud. If the batch size is one, only metadata is returned here, otherwise
+	// IncludeBinary can be set to true and the data can be downloaded directly via BinaryDataByFilter
 	resp, err := replay.dataClient.BinaryDataByFilter(ctx, &datapb.BinaryDataByFilterRequest{
 		DataRequest: &datapb.DataRequest{
 			Filter:    replay.filter,
@@ -160,16 +166,16 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCl
 	replay.lastData = resp.GetLast()
 
 	// If batching use metadata to download data in parallel, caching results
-	if replay.limit != 1 {
+	if replay.limit > 1 {
 		for _, dataResponse := range resp.Data {
-			emptyCache := cachedData{id: dataResponse.GetMetadata().Id}
-			replay.cachedData = append(replay.cachedData, emptyCache)
+			newCacheEntry := cacheEntry{id: dataResponse.GetMetadata().Id}
+			replay.cache = append(replay.cache, newCacheEntry)
 		}
-		ctxTimeout, cancelTimeout := context.WithTimeout(ctx, time.Second)
+		ctxTimeout, cancelTimeout := context.WithTimeout(ctx, downloadTimeout)
 		defer cancelTimeout()
 
-		replay.startParallelDownloadFromID(ctxTimeout)
-		replay.updateCache(ctxTimeout)
+		replay.downloadBatch(ctxTimeout)
+		replay.waitForDataAndUpdateCache(ctxTimeout)
 		return replay.NextPointCloud(ctx)
 	}
 
@@ -182,17 +188,19 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCl
 	return pc, nil
 }
 
-// startParallelDownloadFromID iterates through the current cache, performing the download of the
-// respective data in parallel using go routines.
-func (replay *pcdCamera) startParallelDownloadFromID(ctx context.Context) {
+// downloadBatch iterates through the current cache, performing the download of the respective data in
+// parallel using go routines.
+func (replay *pcdCamera) downloadBatch(ctx context.Context) {
 	var wg sync.WaitGroup
 
 	// Parallelize download of data based on given ids
-	for _, cache := range replay.cachedData {
+	for _, cEntry := range replay.cache {
 		wg.Add(1)
 		go func(id string) {
 			defer wg.Done()
-			cData := cachedData{id: id, ready: true}
+			// A new cacheEntry is created here with the associated id and ready set to true as, once the
+			// go routine has completed, it will always have either an error or point cloud associated with it.
+			cData := cacheEntry{id: id, ready: true}
 
 			var resp *datapb.BinaryDataByIDsResponse
 			resp, cData.err = replay.dataClient.BinaryDataByIDs(ctx, &datapb.BinaryDataByIDsRequest{
@@ -207,20 +215,20 @@ func (replay *pcdCamera) startParallelDownloadFromID(ctx context.Context) {
 			// Decode response data
 			cData.pc, cData.err = decodeResponseData(resp.GetData(), replay.logger)
 
-			// Send data to cache channel for processing
+			// Send data to cache channel to be added to the cache
 			replay.cacheCh <- cData
-		}(cache.id)
+		}(cEntry.id)
 	}
 }
 
-// updateCache monitors the cache channel until all data has been returned or the timeout has
+// waitForDataAndUpdateCache monitors the cache channel until all data has been returned or the timeout has
 // been triggered.
-func (replay *pcdCamera) updateCache(ctx context.Context) {
+func (replay *pcdCamera) waitForDataAndUpdateCache(ctx context.Context) {
 	for {
 		// Check if all data has been returned
 		done := true
-		for _, cache := range replay.cachedData {
-			done = done && cache.ready
+		for _, c := range replay.cache {
+			done = done && c.ready
 		}
 		if done {
 			return
@@ -230,9 +238,9 @@ func (replay *pcdCamera) updateCache(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case cData := <-replay.cacheCh:
-			for i, cache := range replay.cachedData {
-				if cache.id == cData.id {
-					replay.cachedData[i] = cData
+			for i, c := range replay.cache {
+				if c.id == cData.id {
+					replay.cache[i] = cData
 				}
 			}
 		}
@@ -241,7 +249,7 @@ func (replay *pcdCamera) updateCache(ctx context.Context) {
 
 // getDataFromCache retrieves the next cached data and removes it from the cache.
 func (replay *pcdCamera) getDataFromCache() (pointcloud.PointCloud, error) {
-	data := replay.cachedData[0]
+	data := replay.cache[0]
 
 	if !data.ready {
 		return nil, errors.New("data from cache not returned")
@@ -250,7 +258,7 @@ func (replay *pcdCamera) getDataFromCache() (pointcloud.PointCloud, error) {
 		return nil, errors.Wrapf(data.err, "cache data contained an error")
 	}
 
-	replay.cachedData = replay.cachedData[1:]
+	replay.cache = replay.cache[1:]
 
 	return data.pc, nil
 }
