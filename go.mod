@@ -64,7 +64,7 @@ require (
 	github.com/pion/mediadevices v0.4.1-0.20230516182502-138499b52db1
 	github.com/pion/rtp v1.7.13
 	github.com/pion/webrtc/v3 v3.2.4
-	github.com/rhysd/actionlint v1.6.23
+	github.com/rhysd/actionlint v1.6.24
 	github.com/rs/cors v1.9.0
 	github.com/sergi/go-diff v1.3.1
 	github.com/sjwhitworth/golearn v0.0.0-20211014193759-a8b69c276cd8
