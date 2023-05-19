@@ -634,6 +634,10 @@ func TestResourceGraphFindNodeByName(t *testing.T) {
 	test.That(t, names, test.ShouldHaveLength, 1)
 	names = gA.findNodesByShortName("D")
 	test.That(t, names, test.ShouldHaveLength, 0)
+
+	// find nodes with full remote name
+	names = gA.findNodesByShortName("remote:A")
+	test.That(t, names, test.ShouldHaveLength, 1)
 }
 
 var cfgA = []fakeComponent{

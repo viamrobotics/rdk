@@ -224,7 +224,8 @@ func (g *Graph) findNodesByShortName(name string) []Name {
 		if hasRemote {
 			// check the whole remote. we could technically check
 			// a prefix of the remote but thats excluded for now.
-			if nodeName.ShortName() == name {
+			nameParts := strings.Split(name, ":")
+			if nodeName.ShortName() == nameParts[len(nameParts)-1] {
 				matches = append(matches, nodeName)
 			}
 			continue
