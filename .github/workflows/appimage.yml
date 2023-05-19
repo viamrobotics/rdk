@@ -135,10 +135,12 @@ jobs:
 
     - name: Test AppImage
       run: |
-        dpkg -l | grep libfuse2
-        if [ $? -ne 0 ]; then
+        cat /etc/os-release
+        uname -a
+        dpkg -l | grep fuse
+        if [ "$(uname -m)" == "aarch64" ]; then
           apt update
-          apt install -y libfuse2 fuse3
+          apt install -y libfuse2 fuse3 curl
         fi
         channel="${{ github.ref_name }}"
         # we call our main branch releases "latest"
