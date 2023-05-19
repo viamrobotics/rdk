@@ -296,9 +296,8 @@ func TestConfigRemote(t *testing.T) {
 	test.That(t, convMap, test.ShouldResemble, armStatus)
 
 	cfg2 := r2.Config()
-	// Number of components should be equal to sum of number of local components
-	// (2) and remote components (18).
-	test.That(t, len(cfg2.Components), test.ShouldEqual, 20)
+	// Components should only include local components.
+	test.That(t, len(cfg2.Components), test.ShouldEqual, 2)
 
 	fsConfig, err := r2.FrameSystemConfig(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -1932,7 +1931,7 @@ func TestConfigPackageReferenceReplacement(t *testing.T) {
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 }
 
-// removeBuiltinServices removes services with a "builtin" name and for testing
+// removeBuiltinServices removes services with a "builtin" name for testing
 // purposes.
 func removeBuiltinServices(cfg *config.Config) *config.Config {
 	if cfg == nil {
@@ -1976,8 +1975,17 @@ func TestConfigMethod(t *testing.T) {
 	}
 	test.That(t, removeBuiltinServices(actualCfg), test.ShouldResemble, &config.Config{})
 
+	// Use a remote with components and services to ensure none of its resources
+	// will be returned by Config.
+	remoteCfg, err := config.Read(context.Background(), "data/remote_fake.json", logger)
+	test.That(t, err, test.ShouldBeNil)
+	remoteRobot, err := robotimpl.New(ctx, remoteCfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, remoteRobot.Close(context.Background()), test.ShouldBeNil)
+	}()
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
-	err = r.StartWeb(ctx, options)
+	err = remoteRobot.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Manually define mybase model, as importing it can cause double registration.
