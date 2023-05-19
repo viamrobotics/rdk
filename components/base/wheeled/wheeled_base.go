@@ -1,10 +1,32 @@
 // Package wheeled implements some bases, like a wheeled base.
 package wheeled
 
-/*	This driver package enables control of a wheeled base, supporting
-	spinning, straight movement, velocity and power control, and stopping.
-	It provides configuration validation and implements the base interface
-	for movement control.
+/*
+   The Viam wheeled package implements a wheeled robot base with differential drive control. The base must have an equal
+   number of motors on its left and right sides. The base's width and wheel circumference dimensions are required to
+   compute wheel speeds to move the base straight distances or spin to headings at the desired input speeds. A spin slip
+   factor acts as a multiplier to adjust power delivery to the wheels when each side of the base is undergoing unequal
+   friction because of the surface it is moving on.
+   Any motors can be used for the base motors (encoded, un-encoded, steppers, servos) as long as they update their position
+   continuously (not limited to 0-360 or any other domain).
+   Adding a movementsensor that supports Orientation provides feedback to a Spin command to correct the heading. As of
+   April 2023, this feature is experimental.
+   Configuring a base with a frame will create a kinematic base that can be used by Viam's motion service to plan paths
+   when a SLAM service is also present. This feature is experimental.
+   Example Config:
+   {
+     "name": "myBase",
+     "type": "base",
+     "model": "wheeled",
+     "attributes": {
+       "right": ["right1", "right2"],
+       "left": ["left1", "left2"],
+       "spin_slip_factor": 1.76,
+       "wheel_circumference_mm": 217,
+       "width_mm": 260,
+     },
+     "depends_on": ["left1", "left2", "right1", "right2", "local"],
+   },
 */
 
 import (
