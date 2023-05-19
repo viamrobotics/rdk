@@ -57,7 +57,7 @@ type TimeInterval struct {
 }
 
 // cacheEntries store data that was downloaded from a previous operation but has not yet been passed
-// to the caller
+// to the caller.
 type cacheEntry struct {
 	pc  pointcloud.PointCloud
 	err error
