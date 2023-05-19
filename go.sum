@@ -188,7 +188,6 @@ github.com/bgentry/speakeasy v0.1.0/go.mod h1:+zsyZBPWlz7T6j88CTgSN5bM796AkVf0kB
 github.com/bketelsen/crypt v0.0.3-0.20200106085610-5cbc8cc4026c/go.mod h1:MKsuJmJgSg28kpZDP6UIiPt0e0Oz0kqKNGyRaWEPv84=
 github.com/bkielbasa/cyclop v1.2.0 h1:7Jmnh0yL2DjKfw28p86YTd/B4lRGcNuu12sKE35sM7A=
 github.com/bkielbasa/cyclop v1.2.0/go.mod h1:qOI0yy6A7dYC4Zgsa72Ppm9kONl0RoIlPbzot9mhmeI=
-github.com/blackjack/webcam v0.0.0-20230411204030-32744c21431f/go.mod h1:G0X+rEqYPWSq0dG8OMf8M446MtKytzpPjgS3HbdOJZ4=
 github.com/blackjack/webcam v0.0.0-20230502173554-3b52e93e8607 h1:KG44gkEm6X8qGbJnv9Ef02OSWYtP0pGnu5Pw8QiWxys=
 github.com/blackjack/webcam v0.0.0-20230502173554-3b52e93e8607/go.mod h1:G0X+rEqYPWSq0dG8OMf8M446MtKytzpPjgS3HbdOJZ4=
 github.com/blend/go-sdk v1.1.1/go.mod h1:IP1XHXFveOXHRnojRJO7XvqWGqyzevtXND9AdSztAe8=
@@ -1148,8 +1147,8 @@ github.com/pion/logging v0.2.2/go.mod h1:k0/tDVsRCX2Mb2ZEmTqNa7CWsQPc+YYCB7Q+5pa
 github.com/pion/mdns v0.0.7/go.mod h1:4iP2UbeFhLI/vWju/bw6ZfwjJzk0z8DNValjGxR/dD8=
 github.com/pion/mdns v0.0.8-0.20230502060824-17c664ea7d5c h1:yuxunGfPeXnWCP9ke+iS2nq7K/q+17ynSgOeLkd5f20=
 github.com/pion/mdns v0.0.8-0.20230502060824-17c664ea7d5c/go.mod h1:658EdZmbrzmxLVC2qYP6pRgHtZTAzMoLadjBUVetgH4=
-github.com/pion/mediadevices v0.4.1-0.20230424151458-cadb1557556f h1:5Lhe7IohTrzNzg95dc0QgjU14J9t6SI0vbMqpHbx4AQ=
-github.com/pion/mediadevices v0.4.1-0.20230424151458-cadb1557556f/go.mod h1:iGUccKClQlqAgraxj4KJVLTtQ4XvXbqOkVq+mf5NkHQ=
+github.com/pion/mediadevices v0.4.1-0.20230516182502-138499b52db1 h1:H4eWm0IyrkQP3WDTN/KvDg3oJ5Gc2P1MJ3RDXWmFdZI=
+github.com/pion/mediadevices v0.4.1-0.20230516182502-138499b52db1/go.mod h1:6ClYcrdbnaDGMMIfzNRxJj7YzYGoKpRSa1+D54riwSU=
 github.com/pion/randutil v0.1.0 h1:CFG1UdESneORglEsnimhUjf33Rwjubwj6xfiOXBa3mA=
 github.com/pion/randutil v0.1.0/go.mod h1:XcJrSMMbbMRhASFVOlj/5hQial/Y8oH/HVo7TBZq+j8=
 github.com/pion/rtcp v1.2.10 h1:nkr3uj+8Sp97zyItdN60tE/S6vk4al5CPRR6Gejsdjc=
@@ -1163,8 +1162,9 @@ github.com/pion/sctp v1.8.7/go.mod h1:g1Ul+ARqZq5JEmoFy87Q/4CePtKnTJ1QCL9dBBdN6A
 github.com/pion/sdp/v3 v3.0.6 h1:WuDLhtuFUUVpTfus9ILC4HRyHsW6TdugjEX/QY9OiUw=
 github.com/pion/sdp/v3 v3.0.6/go.mod h1:iiFWFpQO8Fy3S5ldclBkpXqmWy02ns78NOKoLLL0YQw=
 github.com/pion/srtp/v2 v2.0.12/go.mod h1:C3Ep44hlOo2qEYaq4ddsmK5dL63eLehXFbHaZ9F5V9Y=
-github.com/pion/srtp/v2 v2.0.14 h1:Glt0MqEvINrDxL+aanmK4DiFjvs+uN2iYc6XD/iKpoY=
 github.com/pion/srtp/v2 v2.0.14/go.mod h1:b/pQOlDrbB0HEH5EUAQXzSYxikFbNcNuKmF8tM0hCtw=
+github.com/pion/srtp/v2 v2.0.15 h1:+tqRtXGsGwHC0G0IUIAzRmdkHvriF79IHVfZGfHrQoA=
+github.com/pion/srtp/v2 v2.0.15/go.mod h1:b/pQOlDrbB0HEH5EUAQXzSYxikFbNcNuKmF8tM0hCtw=
 github.com/pion/stun v0.4.0/go.mod h1:QPsh1/SbXASntw3zkkrIk3ZJVKz4saBY2G7S10P3wCw=
 github.com/pion/stun v0.5.2 h1:J/8glQnDV91dfk2+ZnGN0o9bUJgABhTNljwfQWByoXE=
 github.com/pion/stun v0.5.2/go.mod h1:TNo1HjyjaFVpMZsvowqPeV8TfwRytympQC0//neaksA=
