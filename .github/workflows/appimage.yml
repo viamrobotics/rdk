@@ -135,9 +135,8 @@ jobs:
 
     - name: Test AppImage
       run: |
-        if grep -q 'Ubuntu 22.04' /etc/os-release; then
-          sudo apt update
-          sudo apt install -y libfuse2 curl
+        if echo "${{ matrix.arch }}" | grep -q buildjet; then
+          sudo apt-get install -y libfuse2
         fi
         channel="${{ github.ref_name }}"
         # we call our main branch releases "latest"
