@@ -527,7 +527,6 @@ func (m *EncodedMotor) computeRamp(oldPower, newPower float64) float64 {
 // Both the RPM and the revolutions can be assigned negative values to move in a backwards direction.
 // Note: if both are negative the motor will spin in the forward direction.
 func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
-
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
 
@@ -602,7 +601,8 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions float
 	if err != nil {
 		return err
 	}
-	if !isOn { // if we're off we start slow, otherwise we just set the desired rpm
+	if !isOn {
+		// if we're off we start slow, otherwise we just set the desired rpm
 		err := m.setPower(ctx, 0.03*float64(d)*float64(m.flip), true)
 		if err != nil {
 			return err
@@ -649,7 +649,6 @@ func (m *EncodedMotor) Close(ctx context.Context) error {
 // at a specific speed. Regardless of the directionality of the RPM this function will move the motor
 // towards the specified target.
 func (m *EncodedMotor) GoTo(ctx context.Context, rpm, targetPosition float64, extra map[string]interface{}) error {
-
 	rpm *= float64(m.flip)
 	curPos, err := m.Position(ctx, extra)
 	if err != nil {
