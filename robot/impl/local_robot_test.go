@@ -1966,8 +1966,15 @@ func TestConfigMethod(t *testing.T) {
 		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	}()
 
-	// Assert that Config method returns only built-in services.
-	test.That(t, removeBuiltinServices(r.Config()), test.ShouldResemble, &config.Config{})
+	// Assert that Config method returns only built-in services (data_manager,
+	// motion and sensors).
+	actualCfg := r.Config()
+	test.That(t, len(actualCfg.Services), test.ShouldEqual, 3)
+	for _, comp := range actualCfg.Services {
+		test.That(t, comp.API.SubtypeName, test.ShouldBeIn, datamanager.API.SubtypeName,
+			motion.API.SubtypeName, sensors.API.SubtypeName)
+	}
+	test.That(t, removeBuiltinServices(actualCfg), test.ShouldResemble, &config.Config{})
 
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 	err = r.StartWeb(ctx, options)
@@ -1994,21 +2001,24 @@ func TestConfigMethod(t *testing.T) {
 				},
 			},
 			{
-				Name:  "motor1",
-				API:   motor.API,
-				Model: fakeModel,
+				Name:                "motor1",
+				API:                 motor.API,
+				Model:               fakeModel,
+				ConvertedAttributes: &fakemotor.Config{},
 			},
 			{
-				Name:  "motor2",
-				API:   motor.API,
-				Model: fakeModel,
+				Name:                "motor2",
+				API:                 motor.API,
+				Model:               fakeModel,
+				ConvertedAttributes: &fakemotor.Config{},
 			},
 		},
 		Services: []resource.Config{
 			{
-				Name:  "fake1",
-				API:   datamanager.API,
-				Model: fakeModel,
+				Name:                "fake1",
+				API:                 datamanager.API,
+				Model:               resource.DefaultServiceModel,
+				ConvertedAttributes: &builtin.Config{},
 			},
 		},
 		Remotes: []config.Remote{
@@ -2033,7 +2043,7 @@ func TestConfigMethod(t *testing.T) {
 	r.Reconfigure(ctx, cfg)
 
 	// Assert that Config method returns expected value.
-	actualCfg := r.Config()
+	actualCfg = r.Config()
 
 	// Manually inspect component resources as ordering of config is
 	// non-deterministic within slices
