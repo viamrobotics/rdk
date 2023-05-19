@@ -6,23 +6,10 @@
         {
             "name": "robot1",
             "address": "something-unique"
-        }
-    ],
-    "components": [
+        },
         {
-            "name": "somebase",
-            "type": "base",
-            "model": "wheeled",
-            "attributes": {
-                "right": [
-                  "motor1"
-                ],
-                "width_mm": 200,
-                "wheel_circumference_mm": 10,
-                "left": [
-                  "motor1"
-                ]
-              }
+            "name": "robot2",
+            "address": "localhost:8080"
         }
     ]
 }
