@@ -66,7 +66,7 @@ const baseResources = $computed(() => filterResources(props.resources, 'rdk', 'c
 // allowMove is only true if we have a base, there exists a destination and there is no in-flight MoveOnMap req
 const allowMove = $computed(() => (
   baseResources !== undefined &&
-  baseResources.length > 0 &&
+  baseResources.length === 1 &&
   updatedDest &&
   !moveClicked
 ));
@@ -204,7 +204,7 @@ const moveOnMap = async () => {
 
 };
 
-const executeStopMoveOnMap = () => {
+const stopMoveOnMap = () => {
   for (const element of props.operations) {
     if (element.op.method.includes('MoveOnMap')) {
       const req = new robotApi.CancelOperationRequest();
@@ -428,7 +428,7 @@ onUnmounted(() => {
       icon="stop-circle"
       :disabled="moveClicked ? 'false' : 'true'"
       label="STOP"
-      @click="executeStopMoveOnMap()"
+      @click="stopMoveOnMap()"
     />
     <div class="border-medium flex flex-wrap gap-4 border border-t-0 sm:flex-nowrap">
       <div class="flex min-w-fit flex-col gap-4 p-4">
