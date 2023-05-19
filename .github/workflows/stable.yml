@@ -6,7 +6,7 @@ concurrency:
 on:
   push:
     tags:
-      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'SMURFv[0-9]+.[0-9]+.[0-9]+'
 
 # To test workflow updates you need to work in a branch directly on viamrobotics/rdk
 # and tag your working branch instead of @main in any viamrobotics/rdk "uses" below.
@@ -14,41 +14,41 @@ on:
 
 jobs:
   test:
-    uses: viamrobotics/rdk/.github/workflows/test.yml@main
+    uses: viamrobotics/rdk/.github/workflows/test.yml@buildjet
     secrets:
       MONGODB_TEST_OUTPUT_URI: ${{ secrets.MONGODB_TEST_OUTPUT_URI }}
 
-  appimage:
-    needs: test
-    uses: viamrobotics/rdk/.github/workflows/appimage.yml@main
-    with:
-      release_type: 'stable'
-    secrets:
-      GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
+  # appimage:
+  #   needs: test
+  #   uses: viamrobotics/rdk/.github/workflows/appimage.yml@main
+  #   with:
+  #     release_type: 'stable'
+  #   secrets:
+  #     GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
-  staticbuild:
-    needs: test
-    uses: viamrobotics/rdk/.github/workflows/staticbuild.yml@main
-    with:
-      release_type: 'stable'
-    secrets:
-      GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
+  # staticbuild:
+  #   needs: test
+  #   uses: viamrobotics/rdk/.github/workflows/staticbuild.yml@main
+  #   with:
+  #     release_type: 'stable'
+  #   secrets:
+  #     GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
-  slack-workflow-status:
-    if: ${{ failure() }}
-    name: Post Workflow Status To Slack
-    needs:
-      - test
-      - appimage
-      - staticbuild
-    runs-on: ubuntu-latest
-    permissions:
-      actions: 'read'
-    steps:
-      - name: Slack Workflow Notification
-        uses: Gamesight/slack-workflow-status@master
-        with:
-          repo_token: ${{secrets.GITHUB_TOKEN}}
-          slack_webhook_url: ${{secrets.SLACK_WEBHOOK_URL}}
-          channel: '#team-devops'
-          name: 'Workflow Status'
+  # slack-workflow-status:
+  #   if: ${{ failure() }}
+  #   name: Post Workflow Status To Slack
+  #   needs:
+  #     - test
+  #     - appimage
+  #     - staticbuild
+  #   runs-on: ubuntu-latest
+  #   permissions:
+  #     actions: 'read'
+  #   steps:
+  #     - name: Slack Workflow Notification
+  #       uses: Gamesight/slack-workflow-status@master
+  #       with:
+  #         repo_token: ${{secrets.GITHUB_TOKEN}}
+  #         slack_webhook_url: ${{secrets.SLACK_WEBHOOK_URL}}
+  #         channel: '#team-devops'
+  #         name: 'Workflow Status'

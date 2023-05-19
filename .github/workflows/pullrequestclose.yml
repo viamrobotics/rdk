@@ -6,7 +6,7 @@ concurrency:
 
 on:
   pull_request_target:
-    branches: [ main ]
+    branches: [ buildjet ]
     types: [ closed ]
 
 jobs:
