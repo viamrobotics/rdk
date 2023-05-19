@@ -18,6 +18,7 @@ var (
 	numPCDFiles    = 15
 	batchSize1     = uint64(1)
 	batchSize2     = uint64(2)
+	batchSize3     = uint64(3)
 	batchSizeLarge = uint64(100)
 )
 
@@ -184,7 +185,7 @@ func TestNextPointCloud(t *testing.T) {
 			endFileNum:   10,
 		},
 		{
-			description: "Calling NextPointCloud batched no filter",
+			description: "Calling NextPointCloud with non-divisible batch size",
 			cfg: &Config{
 				Source:    "source",
 				BatchSize: &batchSize2,
@@ -193,7 +194,16 @@ func TestNextPointCloud(t *testing.T) {
 			endFileNum:   numPCDFiles,
 		},
 		{
-			description: "Calling NextPointCloud batched with start and end filter",
+			description: "Calling NextPointCloud with divisible batch size",
+			cfg: &Config{
+				Source:    "source",
+				BatchSize: &batchSize3,
+			},
+			startFileNum: 0,
+			endFileNum:   numPCDFiles,
+		},
+		{
+			description: "Calling NextPointCloud with batching and a start and end filter",
 			cfg: &Config{
 				Source:    "source",
 				BatchSize: &batchSize2,
@@ -206,7 +216,7 @@ func TestNextPointCloud(t *testing.T) {
 			endFileNum:   11,
 		},
 		{
-			description: "Calling NextPointCloud large batched no filter",
+			description: "Calling NextPointCloud with a large batch size",
 			cfg: &Config{
 				Source:    "source",
 				BatchSize: &batchSizeLarge,
