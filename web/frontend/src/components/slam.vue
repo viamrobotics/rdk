@@ -183,20 +183,11 @@ const moveOnMap = async () => {
   motionServiceReq.setName('builtin');
 
   // set pose in frame
-  const flags = await fetchFeatureFlags(props.name);
   const destination = new commonApi.Pose();
   const value = await fetchSLAMPose(props.name);
-
-  // if we allow pose to be returned in millimeters we must convert to meters
-  if (flags && flags.response_in_millimeters) {
-    destination.setX(destinationMarker.x * 1000);
-    destination.setY(destinationMarker.y * 1000);
-    destination.setZ(destinationMarker.z * 1000);
-  } else {
-    destination.setX(destinationMarker.x);
-    destination.setY(destinationMarker.y);
-    destination.setZ(destinationMarker.z);
-  }
+  destination.setX(destinationMarker.x);
+  destination.setY(destinationMarker.y);
+  destination.setZ(destinationMarker.z);
   destination.setOX(value.getOX());
   destination.setOY(value.getOY());
   destination.setOZ(value.getOZ());
