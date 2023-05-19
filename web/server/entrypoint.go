@@ -174,18 +174,47 @@ func (s *robotServer) runServer(ctx context.Context) error {
 
 	utils.PanicCapturingGo(func() {
 		defer close(forceShutdown)
-		select {
-		case <-slowWatcher:
+
+		<-ctx.Done()
+
+		slowTicker := time.NewTicker(10 * time.Second)
+		defer slowTicker.Stop()
+
+		checkDone := func() bool {
 			select {
-			// the successful shutdown case has us close(doneServing), followed by slowWatcherCancel,
-			// meaning both may be selected so we check to see if doneServing was also closed. If the
-			// deadline truly elapses, there's a chance we shutdown cleanly at the exact same time which may
-			// result in not catching this case.
+			case <-slowWatcher:
+				select {
+				// the successful shutdown case has us close(doneServing), followed by slowWatcherCancel,
+				// meaning both may be selected so we check to see if doneServing was also closed. If the
+				// deadline truly elapses, there's a chance we shutdown cleanly at the exact same time which may
+				// result in not catching this case.
+				case <-doneServing:
+					return true
+				default:
+					s.logger.Fatalw("server failed to cleanly shutdown after deadline", "deadline", hungShutdownDeadline)
+					return true
+				}
 			case <-doneServing:
+				return true
 			default:
-				s.logger.Fatalw("server failed to cleanly shutdown after deadline", "deadline", hungShutdownDeadline)
+				return false
 			}
-		case <-doneServing:
+		}
+
+		for {
+			select {
+			case <-slowWatcher:
+				if checkDone() {
+					return
+				}
+			case <-doneServing:
+				return
+			case <-slowTicker.C:
+				if checkDone() {
+					return
+				}
+				s.logger.Warn("waiting for clean shutdown")
+			}
 		}
 	})
 
