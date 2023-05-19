@@ -11,6 +11,7 @@ import (
 	"go.viam.com/rdk/components/arm/fake"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/utils"
 )
 
 func TestResourceType(t *testing.T) {
@@ -835,6 +836,12 @@ func TestDependenciesLookup(t *testing.T) {
 	res, err = deps.Lookup(armName)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res, test.ShouldEqual, someArm)
+
+	remoteArmName2 := arm.Named("robot2:foo")
+	deps[remoteArmName2] = someArm
+	t.Log("but not if there are two remote names with the samse naked name")
+	_, err = deps.Lookup(armName)
+	test.That(t, err, test.ShouldBeError, utils.NewRemoteResourceClashError(armName.Name))
 
 	sensorName := movementsensor.Named("foo")
 	_, err = deps.Lookup(sensorName)

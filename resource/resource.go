@@ -87,7 +87,7 @@ func (d Dependencies) Lookup(name Name) (Resource, error) {
 			var res Resource
 			// we assume the map is small and not costly to search
 			for depName, depRes := range d {
-				if depName.API != name.API || depName.Name != name.Name {
+				if !(depName.API == name.API && depName.Name == name.Name) {
 					continue
 				}
 				if res != nil {
