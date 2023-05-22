@@ -7,8 +7,8 @@ import * as THREE from 'three';
 import { MapControls } from 'three/examples/jsm/controls/MapControls';
 import { PCDLoader } from 'three/examples/jsm/loaders/PCDLoader';
 import type { commonApi } from '@viamrobotics/sdk';
-import DestMarker from '@/lib/destination-marker.txt?raw';
-import BaseMarker from '@/lib/base-marker.txt?raw';
+import DestMarker from '@/lib/images/destination-marker.txt?raw';
+import BaseMarker from '@/lib/images/base-marker.txt?raw';
 import Legend from './2d-legend.vue';
 
 let points: THREE.Points | undefined;
