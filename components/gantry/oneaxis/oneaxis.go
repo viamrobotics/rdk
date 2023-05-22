@@ -169,7 +169,6 @@ func newOneAxis(ctx context.Context, deps resource.Dependencies, conf resource.C
 func (g *oneAxis) home(ctx context.Context, np int) error {
 	ctx, done := g.opMgr.New(ctx)
 	defer done()
-
 	// Mapping one limit switch motor0->limsw0, motor1 ->limsw1, motor 2 -> limsw2
 	// Mapping two limit switch motor0->limSw0,limSw1; motor1->limSw2,limSw3; motor2->limSw4,limSw5
 	switch np {

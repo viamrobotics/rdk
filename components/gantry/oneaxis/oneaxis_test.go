@@ -197,7 +197,7 @@ func TestHome(t *testing.T) {
 		rpm:             float64(300),
 		limitSwitchPins: []string{"1"},
 	}
-	err := fakegantry.home(ctx)
+	err := fakegantry.home(ctx, len(fakegantry.limitSwitchPins))
 	test.That(t, err, test.ShouldBeNil)
 
 	goForErr := errors.New("GoFor failed")
@@ -222,7 +222,7 @@ func TestHome(t *testing.T) {
 		motor:  fakeMotor,
 		logger: logger,
 	}
-	err = fakegantry.home(ctx)
+	err = fakegantry.home(ctx, len(fakegantry.limitSwitchPins))
 	test.That(t, err, test.ShouldBeError, posErr)
 
 	fakegantry = &oneAxis{
@@ -233,13 +233,13 @@ func TestHome(t *testing.T) {
 		rpm:             float64(300),
 		limitSwitchPins: []string{"1", "2"},
 	}
-	err = fakegantry.home(ctx)
+	err = fakegantry.home(ctx, len(fakegantry.limitSwitchPins))
 	test.That(t, err, test.ShouldBeNil)
 
 	fakegantry = &oneAxis{
 		motor: fakeMotor,
 	}
-	err = fakegantry.home(ctx)
+	err = fakegantry.home(ctx, len(fakegantry.limitSwitchPins)
 	test.That(t, err, test.ShouldBeError, posErr)
 
 	fakegantry = &oneAxis{
@@ -250,7 +250,7 @@ func TestHome(t *testing.T) {
 		rpm:             float64(300),
 		limitSwitchPins: []string{"1", "2"},
 	}
-	err = fakegantry.home(ctx)
+	err = fakegantry.home(ctx, len(fakegantry.limitSwitchPins))
 	test.That(t, err, test.ShouldBeNil)
 }
 
