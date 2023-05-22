@@ -278,7 +278,9 @@ func (pi *piPigpio) reconfigureInterrupts(ctx context.Context, cfg *genericlinux
 		interruptsToClose[interrupt] = struct{}{}
 	}
 
-	reuseInterrupt := func(interrupt board.ReconfigurableDigitalInterrupt, name string, bcom uint) {
+	reuseInterrupt := func(
+		interrupt board.ReconfigurableDigitalInterrupt, name string, bcom uint,
+	) error {
 		newInterrupts[name] = interrupt
 		newInterruptsHW[bcom] = interrupt
 		delete(interruptsToClose, interrupt)
@@ -298,12 +300,20 @@ func (pi *piPigpio) reconfigureInterrupts(ctx context.Context, cfg *genericlinux
 
 		if oldBcom, ok := findInterruptBcom(interrupt, oldInterruptsHW); ok {
 			delete(oldInterruptsHW, oldBcom)
+			if result := C.teardownInterrupt(C.int(oldBcom)); result != 0 {
+				return picommon.ConvertErrorCodeToMessage(int(result), "error")
+			}
 		} else {
 			// This should never happen, either, but is similarly not really a problem.
 			pi.logger.Errorf(
 				"Tried reconfiguring old interrupt to new name %s and broadcom address %s, "+
 					"but couldn't find its old bcom!?", name, bcom)
 		}
+
+		if result := C.setupInterrupt(C.int(bcom)); result != 0 {
+			return picommon.ConvertErrorCodeToMessage(int(result), "error")
+		}
+		return nil
 	}
 
 	for _, newConfig := range cfg.DigitalInterrupts {
@@ -314,12 +324,16 @@ func (pi *piPigpio) reconfigureInterrupts(ctx context.Context, cfg *genericlinux
 
 		// Try reusing an interrupt with the same pin
 		if oldInterrupt, ok := oldInterruptsHW[bcom]; ok {
-			reuseInterrupt(oldInterrupt, newConfig.Name, bcom)
+			if err := reuseInterrupt(oldInterrupt, newConfig.Name, bcom); err != nil {
+				return err
+			}
 			continue
 		}
 		// If that didn't work, try reusing an interrupt with the same name
 		if oldInterrupt, ok := oldInterrupts[newConfig.Name]; ok {
-			reuseInterrupt(oldInterrupt, newConfig.Name, bcom)
+			if err := reuseInterrupt(oldInterrupt, newConfig.Name, bcom); err != nil {
+				return err
+			}
 			continue
 		}
 
