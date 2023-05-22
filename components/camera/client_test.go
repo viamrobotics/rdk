@@ -409,9 +409,10 @@ func TestClientWithInterceptor(t *testing.T) {
 	err = pcA.Set(pointcloud.NewVector(5, 5, 5), nil)
 	test.That(t, err, test.ShouldBeNil)
 
+	k, v := "hello", "world"
 	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		var grpcMetadata metadata.MD = make(map[string][]string)
-		grpcMetadata.Set("hello", "world")
+		grpcMetadata.Set(k, v)
 		grpc.SendHeader(ctx, grpcMetadata)
 		return pcA, nil
 	}
@@ -450,7 +451,7 @@ func TestClientWithInterceptor(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	_, got := pcB.At(5, 5, 5)
 	test.That(t, got, test.ShouldBeTrue)
-	test.That(t, md["hello"][0], test.ShouldEqual, "world")
+	test.That(t, md[k][0], test.ShouldEqual, v)
 
 	test.That(t, conn.Close(), test.ShouldBeNil)
 }

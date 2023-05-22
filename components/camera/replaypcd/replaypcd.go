@@ -164,7 +164,7 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCl
 			grpcMetadata.Set(contextutils.TimeReceivedMetadataKey, timeRec.AsTime().Format(time.RFC3339Nano))
 		}
 
-		if err := grpc.SendHeader(ctx, grpcMetadata); err != nil {
+		if err := grpc.SetHeader(ctx, grpcMetadata); err != nil {
 			return nil, err
 		}
 	}

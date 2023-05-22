@@ -61,26 +61,22 @@ type ServerTransportStream struct {
 
 // NewServerTransportStream creates a new ServerTransportStream.
 func NewServerTransportStream() *ServerTransportStream {
-	return &ServerTransportStream{}
+	return &ServerTransportStream{
+		md: metadata.New(make(map[string]string)),
+	}
 }
 
 // SetHeader implements grpc.ServerTransportStream.
 func (s *ServerTransportStream) SetHeader(md metadata.MD) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.md = md.Copy()
+	for k, v := range md {
+		s.md[k] = v
+	}
 	return nil
 }
 
-// SendHeader implements grpc.ServerTransportStream.
-func (s *ServerTransportStream) SendHeader(md metadata.MD) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.md = md.Copy()
-	return nil
-}
-
-// Value returns the value in the metadata map corresponding stored for the given key.
+// Value returns the value in the metadata map corresponding to a given key.
 func (s *ServerTransportStream) Value(key string) []string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
