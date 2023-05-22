@@ -208,7 +208,7 @@ func TestModularResources(t *testing.T) {
 
 		// Add a modular service
 		r.Reconfigure(context.Background(), &config.Config{
-			Services: []resource.Config{cfg},
+			Components: []resource.Config{cfg},
 		})
 		_, err = r.ResourceByName(cfg.ResourceName())
 		test.That(t, err, test.ShouldBeNil)
@@ -217,7 +217,7 @@ func TestModularResources(t *testing.T) {
 
 		// Reconfigure a modular service
 		r.Reconfigure(context.Background(), &config.Config{
-			Services: []resource.Config{cfg2},
+			Components: []resource.Config{cfg2},
 		})
 		_, err = r.ResourceByName(cfg2.ResourceName())
 		test.That(t, err, test.ShouldBeNil)
@@ -227,7 +227,7 @@ func TestModularResources(t *testing.T) {
 
 		// Add a non-modular service
 		r.Reconfigure(context.Background(), &config.Config{
-			Services: []resource.Config{cfg2, cfg3},
+			Components: []resource.Config{cfg2, cfg3},
 		})
 		_, err = r.ResourceByName(cfg2.ResourceName())
 		test.That(t, err, test.ShouldBeNil)
@@ -426,12 +426,6 @@ func (m *dummyModMan) IsModularResource(name resource.Name) bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return name.Name != "builtin"
-}
-
-func (m *dummyModMan) Configs() []config.Module {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	return nil
 }
 
 func (m *dummyModMan) Provides(cfg resource.Config) bool {
