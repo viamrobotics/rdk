@@ -1043,10 +1043,6 @@ func (manager *resourceManager) createConfig() *config.Config {
 	conf := &config.Config{}
 
 	for _, resName := range manager.resources.Names() {
-		// Ignore non-local resources.
-		if resName.ContainsRemoteNames() {
-			continue
-		}
 		gNode, ok := manager.resources.Node(resName)
 		if !ok {
 			continue
@@ -1070,7 +1066,9 @@ func (manager *resourceManager) createConfig() *config.Config {
 		} else if resName.API.IsComponent() {
 			conf.Components = append(conf.Components, resConf)
 		} else if resName.API.IsService() &&
-			resName.API.Type.Namespace != resource.APINamespaceRDKInternal {
+			resName.API.Type.Namespace != resource.APINamespaceRDKInternal &&
+			!resName.ContainsRemoteNames() {
+			// Only append non-internal, non-remote service configs.
 			conf.Services = append(conf.Services, resConf)
 		}
 	}
