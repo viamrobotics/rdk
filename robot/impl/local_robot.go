@@ -804,7 +804,7 @@ func (r *localRobot) getRemoteFrameSystemParts(ctx context.Context) ([]*referenc
 		}
 		remoteFsCfg, err := remote.FrameSystemConfig(ctx)
 		if err != nil {
-			return nil, errors.Wrapf(err, "remote %s", remote)
+			return nil, errors.Wrapf(err, "error from remote %s", remoteCfg.Name)
 		}
 		framesystem.PrefixRemoteParts(remoteFsCfg.Parts, remoteCfg.Name, parentName)
 		remoteParts = append(remoteParts, remoteFsCfg.Parts...)
