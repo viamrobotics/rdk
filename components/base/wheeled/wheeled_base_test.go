@@ -87,7 +87,7 @@ func TestWheelBaseMath(t *testing.T) {
 		err := base.MoveStraight(ctx, 1000, 0, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = base.waitForMotorsToStop(ctx)
+		err = waitForMotorsToStop(ctx, base)
 		test.That(t, err, test.ShouldBeNil)
 
 		for _, m := range base.allMotors {
@@ -102,7 +102,7 @@ func TestWheelBaseMath(t *testing.T) {
 		err := base.MoveStraight(ctx, 0, 1000, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = base.waitForMotorsToStop(ctx)
+		err = waitForMotorsToStop(ctx, base)
 		test.That(t, err, test.ShouldBeNil)
 
 		for _, m := range base.allMotors {
@@ -124,7 +124,7 @@ func TestWheelBaseMath(t *testing.T) {
 		test.That(t, isOn, test.ShouldBeTrue)
 		test.That(t, powerPct, test.ShouldEqual, 1.0)
 
-		err = base.waitForMotorsToStop(ctx)
+		err = waitForMotorsToStop(ctx, base)
 		test.That(t, err, test.ShouldBeNil)
 
 		for _, m := range base.allMotors {
@@ -134,7 +134,7 @@ func TestWheelBaseMath(t *testing.T) {
 			test.That(t, powerPct, test.ShouldEqual, 0.0)
 		}
 
-		err = base.waitForMotorsToStop(ctx)
+		err = waitForMotorsToStop(ctx, base)
 		test.That(t, err, test.ShouldBeNil)
 
 		for _, m := range base.allMotors {
@@ -367,7 +367,7 @@ func TestValidate(t *testing.T) {
 }
 
 // waitForMotorsToStop polls all motors to see if they're on.
-func (wb *wheeledBase) waitForMotorsToStop(ctx context.Context) error {
+func waitForMotorsToStop(ctx context.Context, wb *wheeledBase) error {
 	for {
 		if !utils.SelectContextOrWait(ctx, 10*time.Millisecond) {
 			return ctx.Err()
