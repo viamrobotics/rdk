@@ -14,6 +14,8 @@ import (
 	datapb "go.viam.com/api/app/data/v1"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/components/camera"
@@ -21,6 +23,7 @@ import (
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage/transform"
+	"go.viam.com/rdk/utils/contextutils"
 )
 
 const (
@@ -30,8 +33,8 @@ const (
 	maxCacheSize          = 100
 )
 
-// Model is the model of a replay camera.
 var (
+	// model is the model of a replay camera.
 	model           = resource.DefaultModelFamily.WithModel("replay_pcd")
 	errEndOfDataset = errors.New("reached end of dataset")
 )
@@ -146,6 +149,30 @@ func newPCDCamera(ctx context.Context, deps resource.Dependencies, conf resource
 	}
 
 	return cam, nil
+}
+
+func addGRPCMetadata(ctx context.Context, data *datapb.BinaryData) error {
+	// If the caller is communicating with the replay camera over gRPC, set the timestamps on
+	// the gRPC header.
+	md := data.GetMetadata()
+	if stream := grpc.ServerTransportStreamFromContext(ctx); stream != nil {
+		var grpcMetadata metadata.MD = make(map[string][]string)
+
+		timeReq := md.GetTimeRequested()
+		if timeReq != nil {
+			grpcMetadata.Set(contextutils.TimeRequestedMetadataKey, timeReq.AsTime().Format(time.RFC3339Nano))
+		}
+		timeRec := md.GetTimeReceived()
+		if timeRec != nil {
+			grpcMetadata.Set(contextutils.TimeReceivedMetadataKey, timeRec.AsTime().Format(time.RFC3339Nano))
+		}
+
+		if err := grpc.SetHeader(ctx, grpcMetadata); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // NextPointCloud returns the next point cloud retrieved from cloud storage based on the applied filter.

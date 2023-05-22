@@ -134,7 +134,11 @@ func newPigpio(ctx context.Context, name resource.Name, cfg resource.Config, log
 	}
 
 	if err := piInstance.performConfiguration(ctx, nil, cfg); err != nil {
+		// This has to happen outside of the lock to avoid a deadlock with interrupts.
 		C.gpioTerminate()
+		instanceMu.Lock()
+		pigpioInitialized = false
+		instanceMu.Unlock()
 		logger.Error("Pi GPIO terminated due to failed init.")
 		return nil, err
 	}

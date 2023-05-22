@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
@@ -19,6 +20,7 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
 	"go.viam.com/utils/rpc"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/components/camera"
 	viamgrpc "go.viam.com/rdk/grpc"
@@ -29,6 +31,8 @@ import (
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/testutils/inject"
 )
+
+const testTime = "2000-01-01T12:00:%02dZ"
 
 // mockDataServiceServer is a struct that includes unimplemented versions of all the Data Service endpoints. These
 // can be overwritten to allow developers to trigger desired behaviors during testing.
@@ -84,8 +88,9 @@ func (mDServer *mockDataServiceServer) BinaryDataByFilter(ctx context.Context, r
 		}
 
 		binaryData := datapb.BinaryData{
-			Binary:   data,
-			Metadata: &datapb.BinaryMetadata{Id: fmt.Sprintf(datasetDirectory, newFileNum)},
+			Binary: data,
+			Metadata: &datapb.BinaryMetadata{
+				Id: fmt.Sprintf(datasetDirectory, newFileNum)},
 		}
 
 		resp.Data = []*datapb.BinaryData{&binaryData}
@@ -98,6 +103,20 @@ func (mDServer *mockDataServiceServer) BinaryDataByFilter(ctx context.Context, r
 			resp.Data = append(resp.Data, &binaryData)
 		}
 		resp.Last = fmt.Sprint(newFileNum + int(limit) - 1)
+	}
+
+	// TODO: add this somewhere sensible
+	timeReq, err := time.Parse(time.RFC3339, fmt.Sprintf(testTime, newFileNum))
+	if err != nil {
+		return nil, errors.Wrap(err, "failed parsing time")
+	}
+	timeRec := timeReq.Add(time.Second)
+	binaryData := &datapb.BinaryData{
+		Binary: dataBuf.Bytes(),
+		Metadata: &datapb.BinaryMetadata{
+			TimeRequested: timestamppb.New(timeReq),
+			TimeReceived:  timestamppb.New(timeRec),
+		},
 	}
 
 	return &resp, nil

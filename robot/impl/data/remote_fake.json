@@ -26,5 +26,17 @@
                 "model-path": "../../components/arm/fake/fake_model.json"
             }
         }
+    ],
+    "services": [
+        {
+            "name": "slam1",
+            "type": "slam",
+            "model": "fake"
+        },
+        {
+            "name": "data_manager1",
+            "type": "data_manager",
+            "model": "fake"
+        }
     ]
 }

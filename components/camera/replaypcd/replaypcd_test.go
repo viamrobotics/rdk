@@ -2,14 +2,19 @@ package replaypcd
 
 import (
 	"context"
+	"fmt"
 	"math/rand"
 	"testing"
 
 	"github.com/pkg/errors"
+	"go.viam.com/rdk/internal/cloud"
 	"go.viam.com/test"
 	"go.viam.com/utils"
+	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/internal/cloud"
+	"go.viam.com/rdk/testutils"
+	"go.viam.com/rdk/utils/contextutils"
 )
 
 const datasetDirectory = "slam/mock_lidar/%d.pcd"
@@ -476,6 +481,46 @@ func TestUnimplementedFunctions(t *testing.T) {
 		_, err := replayCamera.Projector(ctx)
 		test.That(t, err.Error(), test.ShouldEqual, "Projector is unimplemented")
 	})
+
+	err = replayCamera.Close(ctx)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, serverClose(), test.ShouldBeNil)
+}
+
+// TestNextPointCloudTimestamps tests that calls to NextPointCloud on the replay camera will inject
+// the time received and time requested metadata into the gRPC response header.
+func TestNextPointCloudTimestamps(t *testing.T) {
+	// Construct replay camera.
+	ctx := context.Background()
+	cfg := &Config{Source: "source"}
+	replayCamera, serverClose, err := createNewReplayPCDCamera(ctx, t, cfg, true)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, replayCamera, test.ShouldNotBeNil)
+
+	// Repeatedly call NextPointCloud, checking for timestamps in the gRPC header.
+	for i := 0; i < numPCDFiles; i++ {
+		serverStream := testutils.NewServerTransportStream()
+		ctx = grpc.NewContextWithServerTransportStream(ctx, serverStream)
+		pc, err := replayCamera.NextPointCloud(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, pc, test.ShouldResemble, getPointCloudFromArtifact(t, i))
+
+		expectedTimeReq := fmt.Sprintf(testTime, i)
+		expectedTimeRec := fmt.Sprintf(testTime, i+1)
+
+		actualTimeReq := serverStream.Value(contextutils.TimeRequestedMetadataKey)[0]
+		actualTimeRec := serverStream.Value(contextutils.TimeReceivedMetadataKey)[0]
+
+		test.That(t, expectedTimeReq, test.ShouldEqual, actualTimeReq)
+		test.That(t, expectedTimeRec, test.ShouldEqual, actualTimeRec)
+	}
+
+	// Confirm the end of the dataset was reached when expected
+	pc, err := replayCamera.NextPointCloud(ctx)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, errEndOfDataset.Error())
+	test.That(t, pc, test.ShouldBeNil)
 
 	err = replayCamera.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)

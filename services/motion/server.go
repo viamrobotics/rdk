@@ -3,7 +3,9 @@ package motion
 
 import (
 	"context"
+	"math"
 
+	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/motion/v1"
@@ -59,6 +61,52 @@ func (server *serviceServer) MoveOnMap(ctx context.Context, req *pb.MoveOnMapReq
 		req.Extra.AsMap(),
 	)
 	return &pb.MoveOnMapResponse{Success: success}, err
+}
+
+func (server *serviceServer) MoveOnGlobe(ctx context.Context, req *pb.MoveOnGlobeRequest) (*pb.MoveOnGlobeResponse, error) {
+	svc, err := server.coll.Resource(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	if req.Destination == nil {
+		return nil, errors.New("Must provide a destination")
+	}
+
+	// Optionals
+	heading := math.NaN()
+	if req.Heading != nil {
+		heading = req.GetHeading()
+	}
+	obstaclesProto := req.GetObstacles()
+	obstacles := make([]*spatialmath.GeoObstacle, 0, len(obstaclesProto))
+	for _, eachProtoObst := range obstaclesProto {
+		convObst, err := spatialmath.GeoObstacleFromProtobuf(eachProtoObst)
+		if err != nil {
+			return nil, err
+		}
+		obstacles = append(obstacles, convObst)
+	}
+	linear := math.NaN()
+	if req.LinearMetersPerSec != nil {
+		linear = float64(req.GetLinearMetersPerSec())
+	}
+	angular := math.NaN()
+	if req.AngularDegPerSec != nil {
+		angular = float64(req.GetAngularDegPerSec())
+	}
+
+	success, err := svc.MoveOnGlobe(
+		ctx,
+		protoutils.ResourceNameFromProto(req.GetComponentName()),
+		geo.NewPoint(req.GetDestination().GetLatitude(), req.GetDestination().GetLongitude()),
+		heading,
+		protoutils.ResourceNameFromProto(req.GetMovementSensorName()),
+		obstacles,
+		linear,
+		angular,
+		req.Extra.AsMap(),
+	)
+	return &pb.MoveOnGlobeResponse{Success: success}, err
 }
 
 func (server *serviceServer) MoveSingleComponent(
