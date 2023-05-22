@@ -594,22 +594,21 @@ func (m *module) startProcess(
 		return err
 	}
 
-	// Start module process with supplied log level or "debug" if none is
-	// supplied and module manager has a DebugLevel logger.
-	args := []string{m.addr}
-	if m.logLevel != "" {
-		args = append(args, fmt.Sprintf(logLevelArgumentTemplate, m.logLevel))
-	} else if logger.Level().Enabled(zapcore.DebugLevel) {
-		args = append(args, fmt.Sprintf(logLevelArgumentTemplate, "debug"))
-	}
-
 	pconf := pexec.ProcessConfig{
 		ID:               m.name,
 		Name:             m.exe,
-		Args:             args,
+		Args:             []string{m.addr},
 		Log:              true,
 		OnUnexpectedExit: oue,
 	}
+	// Start module process with supplied log level or "debug" if none is
+	// supplied and module manager has a DebugLevel logger.
+	if m.logLevel != "" {
+		pconf.Args = append(pconf.Args, fmt.Sprintf(logLevelArgumentTemplate, m.logLevel))
+	} else if logger.Level().Enabled(zapcore.DebugLevel) {
+		pconf.Args = append(pconf.Args, fmt.Sprintf(logLevelArgumentTemplate, "debug"))
+	}
+
 	m.process = pexec.NewManagedProcess(pconf, logger)
 
 	err := m.process.Start(context.Background())
