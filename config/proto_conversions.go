@@ -224,8 +224,9 @@ func ServiceConfigFromProto(protoConf *pb.ServiceConfig) (*resource.Config, erro
 // ModuleConfigToProto converts Module to the proto equivalent.
 func ModuleConfigToProto(module *Module) (*pb.ModuleConfig, error) {
 	proto := pb.ModuleConfig{
-		Name: module.Name,
-		Path: module.ExePath,
+		Name:     module.Name,
+		Path:     module.ExePath,
+		LogLevel: module.LogLevel,
 	}
 
 	return &proto, nil
@@ -234,8 +235,9 @@ func ModuleConfigToProto(module *Module) (*pb.ModuleConfig, error) {
 // ModuleConfigFromProto creates Module from the proto equivalent.
 func ModuleConfigFromProto(proto *pb.ModuleConfig) (*Module, error) {
 	module := Module{
-		Name:    proto.GetName(),
-		ExePath: proto.GetPath(),
+		Name:     proto.GetName(),
+		ExePath:  proto.GetPath(),
+		LogLevel: proto.GetLogLevel(),
 	}
 	return &module, nil
 }
