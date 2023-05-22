@@ -71,6 +71,7 @@ type Config struct {
 	SyncIntervalMins      float64                          `json:"sync_interval_mins"`
 	CaptureDisabled       bool                             `json:"capture_disabled"`
 	ScheduledSyncDisabled bool                             `json:"sync_disabled"`
+	Tags                  []string                         `json:"tags"`
 	ResourceConfigs       []*datamanager.DataCaptureConfig `json:"resource_configs"`
 }
 
@@ -308,28 +309,6 @@ func (svc *builtIn) initSyncer(ctx context.Context) error {
 	return nil
 }
 
-// getCollectorFromConfig returns the collector and metadata that is referenced based on specific config atrributes
-func (svc *builtIn) getCollectorFromConfig(attributes datamanager.DataCaptureConfig) (data.Collector, *componentMethodMetadata) {
-	// Create component/method metadata to check if the collector exists.
-	metadata := data.MethodMetadata{
-		API:        attributes.Resource.Name().API,
-		MethodName: attributes.Method,
-	}
-
-	componentMetadata := componentMethodMetadata{
-		ComponentName:  attributes.Resource.Name().ShortName(),
-		MethodMetadata: metadata,
-		MethodParams:   fmt.Sprintf("%v", attributes.AdditionalParams),
-	}
-
-	if storedCollectorParams, ok := svc.collectors[componentMetadata]; ok {
-		collector := storedCollectorParams.Collector
-		return collector, &componentMetadata
-	}
-
-	return nil, nil
-}
-
 // TODO: Determine desired behavior if sync is disabled. Do we wan to allow manual syncs, then?
 //       If so, how could a user cancel it?
 
@@ -408,6 +387,9 @@ func (svc *builtIn) Reconfigure(
 					MethodMetadata: methodMetadata,
 					MethodParams:   fmt.Sprintf("%v", resConf.AdditionalParams),
 				}
+
+				// We only use service-level tags.
+				resConf.Tags = svcConfig.Tags
 
 				newCollectorAndConfig, err := svc.initializeOrUpdateCollector(componentMethodMetadata, resConf)
 				if err != nil {

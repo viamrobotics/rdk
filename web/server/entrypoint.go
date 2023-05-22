@@ -163,13 +163,66 @@ func (s *robotServer) runServer(ctx context.Context) error {
 	}
 	cancel()
 
+	hungShutdownDeadline := 90 * time.Second
 	slowWatcher, slowWatcherCancel := utils.SlowGoroutineWatcherAfterContext(
-		ctx, 90*time.Second, "server is taking a while to shutdown", s.logger)
+		ctx, hungShutdownDeadline, "server is taking a while to shutdown", s.logger)
+
+	doneServing := make(chan struct{})
+
+	forceShutdown := make(chan struct{})
+	defer func() { <-forceShutdown }()
+
+	utils.PanicCapturingGo(func() {
+		defer close(forceShutdown)
+
+		<-ctx.Done()
+
+		slowTicker := time.NewTicker(10 * time.Second)
+		defer slowTicker.Stop()
+
+		checkDone := func() bool {
+			select {
+			case <-slowWatcher:
+				select {
+				// the successful shutdown case has us close(doneServing), followed by slowWatcherCancel,
+				// meaning both may be selected so we check to see if doneServing was also closed. If the
+				// deadline truly elapses, there's a chance we shutdown cleanly at the exact same time which may
+				// result in not catching this case.
+				case <-doneServing:
+					return true
+				default:
+					s.logger.Fatalw("server failed to cleanly shutdown after deadline", "deadline", hungShutdownDeadline)
+					return true
+				}
+			case <-doneServing:
+				return true
+			default:
+				return false
+			}
+		}
+
+		for {
+			select {
+			case <-slowWatcher:
+				if checkDone() {
+					return
+				}
+			case <-doneServing:
+				return
+			case <-slowTicker.C:
+				if checkDone() {
+					return
+				}
+				s.logger.Warn("waiting for clean shutdown")
+			}
+		}
+	})
 
 	err = s.serveWeb(ctx, cfg)
 	if err != nil {
 		s.logger.Errorw("error serving web", "error", err)
 	}
+	close(doneServing)
 	slowWatcherCancel()
 	<-slowWatcher
 

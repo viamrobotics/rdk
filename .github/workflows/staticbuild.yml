@@ -2,6 +2,10 @@ name: Build Semi-Static Binary
 
 on:
   workflow_dispatch:
+    inputs:
+      release_type:
+        required: true
+        type: string
   workflow_call:
     inputs:
       release_type:
@@ -15,12 +19,13 @@ jobs:
   static:
     name: Antique Build
     strategy:
+      fail-fast: false
       matrix:
         include:
           - arch: [x64, qemu-host]
             image: ghcr.io/viamrobotics/antique:amd64-cache
             platform: linux/amd64
-          - arch: [arm64, qemu-host]
+          - arch: [buildjet-8vcpu-ubuntu-2204-arm]
             image: ghcr.io/viamrobotics/antique:arm64-cache
             platform: linux/arm64
     runs-on: ${{ matrix.arch }}
@@ -35,15 +40,12 @@ jobs:
     - name: Check out code
       if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
       uses: actions/checkout@v3
-      with:
-        fetch-depth: 2
 
     - name: Check out PR branch code
       if: github.event_name == 'pull_request_target'
       uses: actions/checkout@v3
       with:
         ref: ${{ github.event.pull_request.head.sha }}
-        fetch-depth: 2
 
     - name: Clean and Fix Permissions
       run: |
@@ -114,8 +116,9 @@ jobs:
     name: Static Test
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
     strategy:
+      fail-fast: false
       matrix:
-        arch: [[x64, qemu-host], [arm64, qemu-host], [arm64, pi4]]
+        arch: [[x64, qemu-host], [buildjet-2vcpu-ubuntu-2204-arm], [arm64, pi4]]
     needs: static
     runs-on: ${{ matrix.arch }}
     timeout-minutes: 15
