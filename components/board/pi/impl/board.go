@@ -68,14 +68,14 @@ type piPigpio struct {
 	// locked. It's okay to lock instanceMu while this is locked, though. This invariant prevents
 	// deadlocks if both mutexes are locked by separate goroutines and are each waiting to lock the
 	// other as well.
-	mu              sync.Mutex
-	interruptCtx    context.Context
-	interruptCancel context.CancelFunc
-	duty            int // added for mutex
-	gpioConfigSet   map[int]bool
-	analogs         map[string]board.AnalogReader
-	i2cs            map[string]board.I2C
-	spis            map[string]board.SPI
+	mu            sync.Mutex
+	cancelCtx     context.Context
+	cancelFunc    context.CancelFunc
+	duty          int // added for mutex
+	gpioConfigSet map[int]bool
+	analogs       map[string]board.AnalogReader
+	i2cs          map[string]board.I2C
+	spis          map[string]board.SPI
 	// `interrupts` maps interrupt names to the interrupts. `interruptsHW` maps broadcom addresses
 	// to these same values.
 	interrupts   map[string]board.ReconfigurableDigitalInterrupt
@@ -137,8 +137,8 @@ func newPigpio(ctx context.Context, name resource.Name, cfg resource.Config, log
 		Named:           name.AsNamed(),
 		logger:          logger,
 		isClosed:        false,
-		interruptCtx:    cancelCtx,
-		interruptCancel: cancelFunc,
+		cancelCtx:    cancelCtx,
+		cancelFunc: cancelFunc,
 	}
 
 	if err := piInstance.Reconfigure(ctx, nil, cfg); err != nil {
@@ -742,7 +742,7 @@ func (pi *piPigpio) Close(ctx context.Context) error {
 		pi.logger.Info("Duplicate call to close pi board detected, skipping")
 		return nil
 	}
-	pi.interruptCancel()
+	pi.cancelFunc()
 
 	instanceMu.Lock()
 	if len(instances) == 1 {
@@ -817,7 +817,7 @@ func pigpioInterruptCallback(gpio, level int, rawTick uint32) {
 		}
 		// this should *not* block for long otherwise the lock
 		// will be held
-		err := i.Tick(instance.interruptCtx, high, tick*1000)
+		err := i.Tick(instance.cancelCtx, high, tick*1000)
 		if err != nil {
 			instance.logger.Error(err)
 		}
