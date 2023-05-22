@@ -1,38 +1,11 @@
 // Package wheeled implements some bases, like a wheeled base.
 package wheeled
 
-/*
-   The Viam wheeled package implements a wheeled robot base with differential drive control. The base must have an equal
-   number of motors on its left and right sides. The base's width and wheel circumference dimensions are required to
-   compute wheel speeds to move the base straight distances or spin to headings at the desired input speeds. A spin slip
-   factor acts as a multiplier to adjust power delivery to the wheels when each side of the base is undergoing unequal
-   friction because of the surface it is moving on.
-   Any motors can be used for the base motors (encoded, un-encoded, steppers, servos) as long as they update their position
-   continuously (not limited to 0-360 or any other domain).
-
-   Configuring a base with a frame will create a kinematic base that can be used by Viam's motion service to plan paths
-   when a SLAM service is also present. This feature is experimental.
-   Example Config:
-   {
-     "name": "myBase",
-     "type": "base",
-     "model": "wheeled",
-     "attributes": {
-       "right": ["right1", "right2"],
-       "left": ["left1", "left2"],
-       "spin_slip_factor": 1.76,
-       "wheel_circumference_mm": 217,
-       "width_mm": 260,
-     },
-     "depends_on": ["left1", "left2", "right1", "right2", "local"],
-   },
-*/
-
 import (
 	"context"
 	"fmt"
 	"math"
-	"sync"
+	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
@@ -117,84 +90,8 @@ type wheeledBase struct {
 	opMgr  operation.SingleOperationManager
 	logger golog.Logger
 
-	mu    sync.Mutex
 	name  string
 	frame *referenceframe.LinkConfig
-}
-
-// Reconfigure reconfigures the base atomically and in place.
-func (wb *wheeledBase) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
-	wb.mu.Lock()
-	defer wb.mu.Unlock()
-
-	newConf, err := resource.NativeConfig[*Config](conf)
-	if err != nil {
-		return err
-	}
-
-	if newConf.SpinSlipFactor == 0 {
-		newConf.SpinSlipFactor = 1
-	}
-
-	// Resetting the left motor list
-	wb.left = make([]motor.Motor, 0)
-
-	for _, name := range newConf.Left {
-		m, err := motor.FromDependencies(deps, name)
-		if err != nil {
-			return errors.Wrapf(err, "no left motor named (%s)", name)
-		}
-		wb.left = append(wb.left, m)
-	}
-
-	// Resetting the right motor list
-	wb.right = make([]motor.Motor, 0)
-
-	for _, name := range newConf.Right {
-		m, err := motor.FromDependencies(deps, name)
-		if err != nil {
-			return errors.Wrapf(err, "no right motor named (%s)", name)
-		}
-		wb.right = append(wb.right, m)
-	}
-
-	wb.allMotors = append(wb.allMotors, wb.left...)
-	wb.allMotors = append(wb.allMotors, wb.right...)
-
-	wb.widthMm = newConf.WidthMM
-	wb.wheelCircumferenceMm = newConf.WheelCircumferenceMM
-	wb.spinSlipFactor = newConf.SpinSlipFactor
-
-	return nil
-}
-
-// CreateWheeledBase returns a new wheeled base defined by the given config.
-func CreateWheeledBase(
-	ctx context.Context,
-	deps resource.Dependencies,
-	conf resource.Config,
-	logger golog.Logger,
-) (base.LocalBase, error) {
-	newConf, err := resource.NativeConfig[*Config](conf)
-	if err != nil {
-		return nil, err
-	}
-
-	wb := wheeledBase{
-		Named:                conf.ResourceName().AsNamed(),
-		widthMm:              newConf.WidthMM,
-		wheelCircumferenceMm: newConf.WheelCircumferenceMM,
-		spinSlipFactor:       newConf.SpinSlipFactor,
-		logger:               logger,
-		name:                 conf.Name,
-		frame:                conf.Frame,
-	}
-
-	if err := wb.Reconfigure(ctx, deps, conf); err != nil {
-		return nil, err
-	}
-
-	return &wb, nil
 }
 
 // Spin commands a base to turn about its center at a angular speed and for a specific angle.
@@ -239,8 +136,7 @@ func (wb *wheeledBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSe
 	return wb.runAll(ctx, rpm, rotations, rpm, rotations)
 }
 
-// runAll executes motor commands in parallel for left and right motors,
-// with specified speeds and rotations and stops the base if an error occurs.
+// runsAll the base motors in parallel with the required speeds and rotations.
 func (wb *wheeledBase) runAll(ctx context.Context, leftRPM, leftRotations, rightRPM, rightRotations float64) error {
 	fs := []rdkutils.SimpleFunc{}
 
@@ -302,8 +198,7 @@ func (wb *wheeledBase) SetVelocity(ctx context.Context, linear, angular r3.Vecto
 	wb.opMgr.CancelRunning(ctx)
 
 	wb.logger.Debugf(
-		"received a SetVelocity with linear.X: %.2f, linear.Y: %.2f linear.Z: %.2f(mmPerSec),"+
-			" angular.X: %.2f, angular.Y: %.2f, angular.Z: %.2f",
+		"received a SetVelocity with linear.X: %.2f, linear.Y: %.2f linear.Z: %.2f (mmPerSec), angular.X: %.2f, angular.Y: %.2f, angular.Z: %.2f",
 		linear.X, linear.Y, linear.Z, angular.X, angular.Y, angular.Z)
 
 	l, r := wb.velocityMath(linear.Y, angular.Z)
@@ -316,8 +211,7 @@ func (wb *wheeledBase) SetPower(ctx context.Context, linear, angular r3.Vector, 
 	wb.opMgr.CancelRunning(ctx)
 
 	wb.logger.Debugf(
-		"received a SetPower with linear.X: %.2f, linear.Y: %.2f linear.Z: %.2f,"+
-			" angular.X: %.2f, angular.Y: %.2f, angular.Z: %.2f",
+		"received a SetPower with linear.X: %.2f, linear.Y: %.2f linear.Z: %.2f, angular.X: %.2f, angular.Y: %.2f, angular.Z: %.2f",
 		linear.X, linear.Y, linear.Z, angular.X, angular.Y, angular.Z)
 
 	lPower, rPower := wb.differentialDrive(linear.Y, angular.Z)
@@ -381,6 +275,40 @@ func (wb *wheeledBase) straightDistanceToMotorInputs(distanceMm int, mmPerSec fl
 	return rpm, rotations
 }
 
+// WaitForMotorsToStop is unused except for tests, polls all motors to see if they're on
+// TODO: Audit in  RSDK-1880.
+func (wb *wheeledBase) WaitForMotorsToStop(ctx context.Context) error {
+	for {
+		if !utils.SelectContextOrWait(ctx, 10*time.Millisecond) {
+			return ctx.Err()
+		}
+
+		anyOn := false
+		anyOff := false
+
+		for _, m := range wb.allMotors {
+			isOn, _, err := m.IsPowered(ctx, nil)
+			if err != nil {
+				return err
+			}
+			if isOn {
+				anyOn = true
+			} else {
+				anyOff = true
+			}
+		}
+
+		if !anyOn {
+			return nil
+		}
+
+		if anyOff {
+			// once one motor turns off, we turn them all off
+			return wb.Stop(ctx, nil)
+		}
+	}
+}
+
 // Stop commands the base to stop moving.
 func (wb *wheeledBase) Stop(ctx context.Context, extra map[string]interface{}) error {
 	var err error
@@ -411,4 +339,59 @@ func (wb *wheeledBase) Close(ctx context.Context) error {
 // Width returns the width of the base as configured by the user.
 func (wb *wheeledBase) Width(ctx context.Context) (int, error) {
 	return wb.widthMm, nil
+}
+
+// CreateWheeledBase returns a new wheeled base defined by the given config.
+func CreateWheeledBase(
+	ctx context.Context,
+	deps resource.Dependencies,
+	conf resource.Config,
+	logger golog.Logger,
+) (base.LocalBase, error) {
+	newConf, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return nil, err
+	}
+
+	wb := &wheeledBase{
+		Named:                conf.ResourceName().AsNamed(),
+		widthMm:              newConf.WidthMM,
+		wheelCircumferenceMm: newConf.WheelCircumferenceMM,
+		spinSlipFactor:       newConf.SpinSlipFactor,
+		logger:               logger,
+		name:                 conf.Name,
+		frame:                conf.Frame,
+	}
+
+	if wb.spinSlipFactor == 0 {
+		wb.spinSlipFactor = 1
+	}
+
+	for _, name := range newConf.Left {
+		m, err := motor.FromDependencies(deps, name)
+		if err != nil {
+			return nil, errors.Wrapf(err, "no left motor named (%s)", name)
+		}
+		props, err := m.Properties(ctx, nil)
+		if props[motor.PositionReporting] && err != nil {
+			wb.logger.Debugf("motor %s can report its position for base", name)
+		}
+		wb.left = append(wb.left, m)
+	}
+
+	for _, name := range newConf.Right {
+		m, err := motor.FromDependencies(deps, name)
+		if err != nil {
+			return nil, errors.Wrapf(err, "no right motor named (%s)", name)
+		}
+		props, err := m.Properties(ctx, nil)
+		if props[motor.PositionReporting] && err != nil {
+			wb.logger.Debugf("motor %s can report its position for base", name)
+		}
+		wb.right = append(wb.right, m)
+	}
+
+	wb.allMotors = append(wb.allMotors, wb.left...)
+	wb.allMotors = append(wb.allMotors, wb.right...)
+	return wb, nil
 }
