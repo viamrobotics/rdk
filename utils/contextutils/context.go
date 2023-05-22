@@ -11,8 +11,8 @@ import (
 type contextKey string
 
 const (
-	// MetadataKey is the key used to access metadata from a context with metadata.
-	MetadataKey = contextKey("viam-metadata")
+	// MetadataContextKey is the key used to access metadata from a context with metadata.
+	MetadataContextKey = contextKey("viam-metadata")
 
 	// TimeRequestedMetadataKey is optional metadata in the gRPC response header that correlates
 	// to the time right before the point cloud was captured.
@@ -26,14 +26,14 @@ const (
 // ContextWithMetadata attaches a metadata map to the context.
 func ContextWithMetadata(ctx context.Context) (context.Context, map[string][]string) {
 	// If the context already has metadata, return that and leave the context untouched.
-	existingMD := ctx.Value(MetadataKey)
+	existingMD := ctx.Value(MetadataContextKey)
 	if mdMap, ok := existingMD.(map[string][]string); ok {
 		return ctx, mdMap
 	}
 
 	// Otherwise, add a metadata map to the context.
 	md := make(map[string][]string)
-	ctx = context.WithValue(ctx, MetadataKey, md)
+	ctx = context.WithValue(ctx, MetadataContextKey, md)
 	return ctx, md
 }
 
@@ -54,7 +54,7 @@ func ContextWithMetadataUnaryClientInterceptor(
 		return err
 	}
 
-	md := ctx.Value(MetadataKey)
+	md := ctx.Value(MetadataContextKey)
 	if mdMap, ok := md.(map[string][]string); ok {
 		for key, value := range header {
 			mdMap[key] = value

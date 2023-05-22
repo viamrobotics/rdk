@@ -10,18 +10,18 @@ import (
 func TestContextWithMetadata(t *testing.T) {
 	// nothing in context
 	ctx := context.Background()
-	mdFromContext := ctx.Value(MetadataKey)
+	mdFromContext := ctx.Value(MetadataContextKey)
 	test.That(t, mdFromContext, test.ShouldBeNil)
 
 	// initialize metadata, empty at first
 	ctx, md := ContextWithMetadata(ctx)
 	test.That(t, md, test.ShouldBeEmpty)
-	test.That(t, ctx.Value(MetadataKey), test.ShouldBeEmpty)
+	test.That(t, ctx.Value(MetadataContextKey), test.ShouldBeEmpty)
 
 	// add values to local metadata and show context metadata has updated
 	k, v := "hello", []string{"world"}
 	md[k] = v
-	mdFromContext = ctx.Value(MetadataKey)
+	mdFromContext = ctx.Value(MetadataContextKey)
 	mdMap, ok := mdFromContext.(map[string][]string)
 	test.That(t, ok, test.ShouldEqual, true)
 	test.That(t, mdMap[k], test.ShouldResemble, v)
@@ -34,8 +34,8 @@ func TestContextWithMetadata(t *testing.T) {
 	// ContextWithMetadata will add viam-metadata again, but will not be able to access old
 	// metadata
 	someString := "iamastring"
-	ctx = context.WithValue(ctx, MetadataKey, someString)
-	mdFromContext = ctx.Value(MetadataKey)
+	ctx = context.WithValue(ctx, MetadataContextKey, someString)
+	mdFromContext = ctx.Value(MetadataContextKey)
 	mdString, ok := mdFromContext.(string)
 	test.That(t, ok, test.ShouldEqual, true)
 	test.That(t, mdString, test.ShouldEqual, someString)
@@ -43,9 +43,9 @@ func TestContextWithMetadata(t *testing.T) {
 	ctx, md = ContextWithMetadata(ctx)
 	test.That(t, md, test.ShouldBeEmpty)
 
-	mdFromContext = ctx.Value(MetadataKey)
+	mdFromContext = ctx.Value(MetadataContextKey)
 	mdMap, ok = mdFromContext.(map[string][]string)
 	test.That(t, ok, test.ShouldEqual, true)
 	test.That(t, mdMap, test.ShouldBeEmpty)
-	test.That(t, ctx.Value(MetadataKey), test.ShouldBeEmpty)
+	test.That(t, ctx.Value(MetadataContextKey), test.ShouldBeEmpty)
 }
