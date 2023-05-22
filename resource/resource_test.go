@@ -839,7 +839,7 @@ func TestDependenciesLookup(t *testing.T) {
 
 	remoteArmName2 := arm.Named("robot2:foo")
 	deps[remoteArmName2] = someArm
-	t.Log("but not if there are two remote names with the samse naked name")
+	t.Log("but not if there are two remote names with the same naked name")
 	_, err = deps.Lookup(armName)
 	test.That(t, err, test.ShouldBeError, utils.NewRemoteResourceClashError(armName.Name))
 
