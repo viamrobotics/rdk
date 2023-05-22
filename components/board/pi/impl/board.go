@@ -77,7 +77,7 @@ type piPigpio struct {
 	i2cs          map[string]board.I2C
 	spis          map[string]board.SPI
 	// `interrupts` maps interrupt names to the interrupts. `interruptsHW` maps broadcom addresses
-	// to these same values.
+	// to these same values. The two should always have the same set of values.
 	interrupts   map[string]board.ReconfigurableDigitalInterrupt
 	interruptsHW map[uint]board.ReconfigurableDigitalInterrupt
 	logger       golog.Logger
@@ -266,6 +266,8 @@ func (pi *piPigpio) reconfigureInterrupts(ctx context.Context, cfg *genericlinux
 	// We reuse the old interrupts when possible.
 	oldInterrupts := pi.interrupts
 	oldInterruptsHW := pi.interruptsHW
+	// Like with pi.interrupts and pi.interruptsHW, these two will have identical values, mapped to
+	// using different keys.
 	newInterrupts := map[string]board.ReconfigurableDigitalInterrupt{}
 	newInterruptsHW := map[uint]board.ReconfigurableDigitalInterrupt{}
 
