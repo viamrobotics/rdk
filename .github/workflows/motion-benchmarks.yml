@@ -19,15 +19,12 @@ jobs:
     - name: Check out main branch code
       if: github.event_name != 'pull_request_target'
       uses: actions/checkout@v3
-      with:
-        fetch-depth: 2
 
     - name: Check out PR branch code
       if: github.event_name == 'pull_request_target'
       uses: actions/checkout@v3
       with:
         ref: ${{ github.event.pull_request.head.sha }}
-        fetch-depth: 2
 
     - name: Check out code in motion-testing repository
       uses: actions/checkout@v3
