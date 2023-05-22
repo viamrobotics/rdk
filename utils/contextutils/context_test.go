@@ -46,5 +46,6 @@ func TestContextWithMetadata(t *testing.T) {
 	mdFromContext = ctx.Value(MetadataKey)
 	mdMap, ok = mdFromContext.(map[string][]string)
 	test.That(t, ok, test.ShouldEqual, true)
+	test.That(t, mdMap, test.ShouldBeEmpty)
 	test.That(t, ctx.Value(MetadataKey), test.ShouldBeEmpty)
 }
