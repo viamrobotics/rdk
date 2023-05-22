@@ -77,14 +77,18 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	if err := conf.Store.Validate(fmt.Sprintf("%s.%s", path, "store")); err != nil {
 		return nil, err
 	}
+
 	if conf.BaseName == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "base_name")
 	}
+
 	if conf.MovementSensorName == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "movement_sensor_name")
 	}
+
 	if conf.MotionServiceName == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "motion_service_name")
 	}
+
 	return nil, nil
 }

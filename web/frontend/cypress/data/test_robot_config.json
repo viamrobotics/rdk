@@ -105,11 +105,18 @@
     "services": [
         {
             "name": "test_vision",
-            "type": "vision"
+            "type": "vision",
+            "model": "radius_clustering_segmenter",
+            "attributes": {
+              "min_points_in_plane": 1,
+              "min_points_in_segment": 1,
+              "clustering_radius_mm": 1
+            }
         },
         {
             "name": "test_motion",
-            "type": "motion"
+            "type": "motion",
+            "attributes": {}
         },
         {
             "name": "test_navigation",
@@ -118,8 +125,11 @@
                 "store": {
                     "type": "memory"
                 },
-                "movement_sensor": "test_movement",
-                "base": "test_base"
+                "movement_sensor_name": "test_movement",
+                "motion_service_name": "test_motion",
+                "base_name": "test_base",
+                "degs_per_sec": 1,
+                "meters_per_sec": 1
             }
         }
     ]

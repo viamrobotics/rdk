@@ -63,6 +63,12 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	}
 	deps = append(deps, conf.MovementSensorName)
 
+	if conf.MotionServiceName == "" {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "motion_service_name")
+	}
+
+	deps = append(deps, resource.NewName(motion.API, conf.MotionServiceName).String())
+
 	return deps, nil
 }
 
