@@ -3,7 +3,7 @@
 		{
 			"name": "AcmeModule",
 			"executable_path": "./complexmodule",
-			"debug": true
+			"log_level": "debug"
 		}
 	],
 	"services": [
