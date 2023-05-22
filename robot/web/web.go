@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"io"
 	"io/fs"
+	"math"
 	"net"
 	"net/http"
 	"net/http/pprof"
@@ -621,6 +622,19 @@ func (svc *webService) makeStreamServer(ctx context.Context) (*StreamServer, err
 		config.Name = name
 		if isVideo {
 			config.AudioEncoderFactory = nil
+
+			// set TargetFrameRate to the framerate of the video source if available
+			props, err := svc.videoSources[name].MediaProperties(ctx)
+			if err != nil {
+				svc.logger.Warnw("failed to get video source properties", "name", name, "error", err)
+			} else if props.FrameRate > 0.0 {
+				// round float up to nearest int
+				config.TargetFrameRate = int(math.Ceil(float64(props.FrameRate)))
+			}
+			// default to 60fps if the video source doesn't have a framerate
+			if config.TargetFrameRate == 0 {
+				config.TargetFrameRate = 60
+			}
 
 			if runtime.GOOS == "windows" {
 				// TODO(RSDK-1771): support video on windows

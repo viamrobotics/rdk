@@ -23,7 +23,7 @@ jobs:
             image: ghcr.io/viamrobotics/canon:amd64
             platform: linux/amd64
             make_target: 'canon-cache-amd64-ci'
-          - arch: [arm64, qemu-host]
+          - arch: [buildjet-8vcpu-ubuntu-2204-arm]
             image: ghcr.io/viamrobotics/canon:arm64
             platform: linux/arm64
             make_target: 'canon-cache-arm64-ci'
@@ -60,7 +60,7 @@ jobs:
             image: ghcr.io/viamrobotics/canon:amd64
             platform: linux/amd64
             make_target: 'antique-cache-amd64-ci'
-          - arch: [arm64, qemu-host]
+          - arch: [buildjet-8vcpu-ubuntu-2204-arm]
             image: ghcr.io/viamrobotics/canon:arm64
             platform: linux/arm64
             make_target: 'antique-cache-arm64-ci'

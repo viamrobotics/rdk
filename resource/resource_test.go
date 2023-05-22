@@ -1,13 +1,17 @@
 package resource_test
 
 import (
+	"context"
 	"testing"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/components/arm/fake"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/utils"
 )
 
 func TestResourceType(t *testing.T) {
@@ -794,4 +798,56 @@ func TestNewPossibleRDKServiceAPIFromString(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestDependenciesLookup(t *testing.T) {
+	deps := resource.Dependencies{}
+
+	armName := arm.Named("foo")
+	_, err := deps.Lookup(armName)
+	test.That(t, err, test.ShouldBeError, resource.DependencyNotFoundError(armName))
+	remoteArmName := arm.Named("robot1:foo")
+	_, err = deps.Lookup(remoteArmName)
+	test.That(t, err, test.ShouldBeError, resource.DependencyNotFoundError(remoteArmName))
+
+	logger := golog.NewTestLogger(t)
+	someArm, err := fake.NewArm(context.Background(), nil, resource.Config{ConvertedAttributes: &fake.Config{}}, logger)
+	test.That(t, err, test.ShouldBeNil)
+	deps[armName] = someArm
+
+	t.Log("adding an arm by just its name should allow it to be looked up by that same name")
+	res, err := deps.Lookup(armName)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, res, test.ShouldEqual, someArm)
+
+	t.Log("but not the remote name since its too specific")
+	_, err = deps.Lookup(remoteArmName)
+	test.That(t, err, test.ShouldBeError, resource.DependencyNotFoundError(remoteArmName))
+
+	deps = resource.Dependencies{}
+	deps[remoteArmName] = someArm
+
+	t.Log("adding an arm by its remote name should allow it to be looked up by the same remote name")
+	res, err = deps.Lookup(remoteArmName)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, res, test.ShouldEqual, someArm)
+
+	t.Log("as well as just the arm name since it is not specific")
+	res, err = deps.Lookup(armName)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, res, test.ShouldEqual, someArm)
+
+	remoteArmName2 := arm.Named("robot2:foo")
+	deps[remoteArmName2] = someArm
+	t.Log("but not if there are two remote names with the same naked name")
+	_, err = deps.Lookup(armName)
+	test.That(t, err, test.ShouldBeError, utils.NewRemoteResourceClashError(armName.Name))
+
+	sensorName := movementsensor.Named("foo")
+	_, err = deps.Lookup(sensorName)
+	test.That(t, err, test.ShouldBeError, resource.DependencyNotFoundError(sensorName))
+
+	remoteSensorName := movementsensor.Named("robot1:foo")
+	_, err = deps.Lookup(remoteSensorName)
+	test.That(t, err, test.ShouldBeError, resource.DependencyNotFoundError(remoteSensorName))
 }
