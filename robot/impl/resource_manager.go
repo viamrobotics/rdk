@@ -1065,10 +1065,7 @@ func (manager *resourceManager) createConfig() *config.Config {
 			conf.Remotes = append(conf.Remotes, *remoteConf)
 		} else if resName.API.IsComponent() {
 			conf.Components = append(conf.Components, resConf)
-		} else if resName.API.IsService() &&
-			resName.API.Type.Namespace != resource.APINamespaceRDKInternal &&
-			!resName.ContainsRemoteNames() {
-			// Only append non-internal, non-remote service configs.
+		} else if resName.API.IsService() {
 			conf.Services = append(conf.Services, resConf)
 		}
 	}
