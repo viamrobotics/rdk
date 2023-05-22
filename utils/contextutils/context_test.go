@@ -31,7 +31,8 @@ func TestContextWithMetadata(t *testing.T) {
 	test.That(t, md[k], test.ShouldResemble, v)
 
 	// if metadata value gets overwritten with non-metadata value, next call to
-	// ContextWithMetadata will add viam-metadata again
+	// ContextWithMetadata will add viam-metadata again, but will not be able to access old
+	// metadata
 	someString := "iamastring"
 	ctx = context.WithValue(ctx, MetadataKey, someString)
 	mdFromContext = ctx.Value(MetadataKey)
@@ -46,8 +47,4 @@ func TestContextWithMetadata(t *testing.T) {
 	mdMap, ok = mdFromContext.(map[string][]string)
 	test.That(t, ok, test.ShouldEqual, true)
 	test.That(t, ctx.Value(MetadataKey), test.ShouldBeEmpty)
-}
-
-func TestContextWithMetadataUnaryClientInterceptor(t *testing.T) {
-
 }
