@@ -1,4 +1,3 @@
-
 <script setup lang="ts">
 
 import { $ref, $computed } from 'vue/macros';
@@ -22,7 +21,13 @@ const props = defineProps<{
   resources: commonApi.ResourceName.AsObject[]
   client: Client
   statusStream: ResponseStream<robotApi.StreamStatusResponse> | null
-}>();
+  operations: {
+    op: robotApi.Operation.AsObject
+    elapsed: number
+  }[]
+}
+>();
+
 const refreshErrorMessage = 'Error refreshing map. The map shown may be stale.';
 let refreshErrorMessage2d = $ref<string | null>();
 let refreshErrorMessage3d = $ref<string | null>();
@@ -38,8 +43,6 @@ let refresh2DCancelled = true;
 let refresh3DCancelled = true;
 let updatedDest = $ref(false);
 let destinationMarker = $ref(new THREE.Vector3());
-let moveClick = $computed(() => (
-  filterResources(props.resources, 'rdk', 'component', 'base') !== undefined) && updatedDest);
 const basePose = new commonApi.Pose();
 const motionServiceReq = new motionApi.MoveOnMapRequest();
 
@@ -47,6 +50,26 @@ const loaded2d = $computed(() => (pointcloud !== undefined && pose !== undefined
 
 let slam2dTimeoutId = -1;
 let slam3dTimeoutId = -1;
+
+const moveClicked = $computed(() => {
+  for (const element of props.operations) {
+    if (element.op.method.includes('MoveOnMap')) {
+      return true;
+    }
+  }
+  return false;
+});
+
+// get all resources which are bases
+const baseResources = $computed(() => filterResources(props.resources, 'rdk', 'component', 'base'));
+
+// allowMove is only true if we have a base, there exists a destination and there is no in-flight MoveOnMap req
+const allowMove = $computed(() => (
+  baseResources !== undefined &&
+  baseResources.length === 1 &&
+  updatedDest &&
+  !moveClicked
+));
 
 const concatArrayU8 = (arrays: Uint8Array[]) => {
   const totalLength = arrays.reduce((acc, value) => acc + value.length, 0);
@@ -117,11 +140,41 @@ const fetchSLAMPose = (name: string): Promise<commonApi.Pose> => {
   });
 };
 
-const executeMoveOnMap = async () => {
-  moveClick = !moveClick;
+const fetchFeatureFlags = (name: string): Promise<{[key: string]: boolean}> => {
+  return new Promise((resolve, reject): void => {
+    const request = new commonApi.DoCommandRequest();
+    request.setName(name);
+    request.setCommand(Struct.fromJavaScript({ feature_flag: true }));
+    props.client.slamService.doCommand(
+      request,
+      new grpc.Metadata(),
+      (error: ServiceError|null, responseMessage: commonApi.DoCommandResponse|null) => {
 
-  // get base resources
-  const baseResources = filterResources(props.resources, 'rdk', 'component', 'base');
+        /*
+         * Note: we ignore unimplementedError because in the current implementation it
+         *  signifies that the feature flag is false
+         */
+        if (error) {
+          if (error.code === grpc.Code.Unimplemented) {
+            resolve({});
+            return;
+          }
+          reject(error);
+          return;
+
+        }
+        resolve(responseMessage!.getResult()?.toJavaScript() as {[key: string]: boolean});
+      }
+    );
+  });
+};
+
+const deleteDestinationMarker = () => {
+  updatedDest = false;
+  destinationMarker = new THREE.Vector3();
+};
+
+const moveOnMap = async () => {
 
   /*
    * set request name
@@ -169,20 +222,40 @@ const executeMoveOnMap = async () => {
     new grpc.Metadata(),
     (error: ServiceError | null, response: motionApi.MoveOnMapResponse | null) => {
       if (error) {
-        moveClick = !moveClick;
+        deleteDestinationMarker();
         toast.error(`Error moving: ${error}`);
         return;
       }
-      moveClick = !moveClick;
+      deleteDestinationMarker();
       toast.success(`MoveOnMap success: ${response!.getSuccess()}`);
     }
   );
 
 };
 
+const stopMoveOnMap = () => {
+  for (const element of props.operations) {
+    if (element.op.method.includes('MoveOnMap')) {
+      const req = new robotApi.CancelOperationRequest();
+      req.setId(element.op.id);
+      rcLogConditionally(req);
+      props.client.robotService.cancelOperation(req, new grpc.Metadata(), displayError);
+    }
+  }
+};
+
 const refresh2d = async (name: string) => {
+  const flags = await fetchFeatureFlags(name);
+
   const map = await fetchSLAMMap(name);
   const returnedPose = await fetchSLAMPose(name);
+
+  // TODO: Remove this check when APP and carto are both up to date [RSDK-3166]
+  if (flags && flags.response_in_millimeters) {
+    returnedPose.setX(returnedPose.getX() / 1000);
+    returnedPose.setY(returnedPose.getY() / 1000);
+    returnedPose.setZ(returnedPose.getZ() / 1000);
+  }
   const mapAndPose: MapAndPose = {
     map,
     pose: returnedPose,
@@ -359,11 +432,6 @@ const baseCopyPosition = () => {
   copyToClipboardWithToast(JSON.stringify(basePose.toObject()));
 };
 
-const executeDeleteDestinationMarker = () => {
-  updatedDest = false;
-  destinationMarker = new THREE.Vector3();
-};
-
 const toggleAxes = () => {
   showAxes = !showAxes;
 };
@@ -391,6 +459,14 @@ onUnmounted(() => {
     <v-breadcrumbs
       slot="title"
       crumbs="slam"
+    />
+    <v-button
+      slot="header"
+      variant="danger"
+      icon="stop-circle"
+      :disabled="moveClicked ? 'false' : 'true'"
+      label="STOP"
+      @click="stopMoveOnMap()"
     />
     <div class="border-medium flex flex-wrap gap-4 border border-t-0 sm:flex-nowrap">
       <div class="flex min-w-fit flex-col gap-4 p-4">
@@ -463,7 +539,7 @@ onUnmounted(() => {
             </p>
             <v-icon
               name="trash"
-              @click="executeDeleteDestinationMarker()"
+              @click="deleteDestinationMarker()"
             />
           </div>
           <div class="flex flex-row pb-2">
@@ -490,8 +566,8 @@ onUnmounted(() => {
             label="Move"
             variant="success"
             icon="play-circle-filled"
-            :disabled="moveClick ? 'false' : 'true'"
-            @click="executeMoveOnMap()"
+            :disabled="allowMove ? 'false' : 'true'"
+            @click="moveOnMap()"
           />
           <v-switch
             class="pt-2"

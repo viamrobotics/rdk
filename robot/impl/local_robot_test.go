@@ -295,9 +295,10 @@ func TestConfigRemote(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, convMap, test.ShouldResemble, armStatus)
 
-	cfg2, err := r2.Config(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(cfg2.Components), test.ShouldEqual, 2)
+	cfg2 := r2.Config()
+	// Number of components should be equal to sum of number of local components
+	// (2) and remote components (18).
+	test.That(t, len(cfg2.Components), test.ShouldEqual, 20)
 
 	fsConfig, err := r2.FrameSystemConfig(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -1931,6 +1932,141 @@ func TestConfigPackageReferenceReplacement(t *testing.T) {
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 }
 
+// removeBuiltinServices removes services with a "builtin" name and for testing
+// purposes.
+func removeBuiltinServices(cfg *config.Config) *config.Config {
+	if cfg == nil {
+		return nil
+	}
+
+	var nonBuiltInSvcs []resource.Config
+	for _, svc := range cfg.Services {
+		if svc.Name != resource.DefaultServiceName {
+			nonBuiltInSvcs = append(nonBuiltInSvcs, svc)
+		}
+	}
+	cfg.Services = nonBuiltInSvcs
+	return cfg
+}
+
+func TestConfigMethod(t *testing.T) {
+	// Partially a regression test for RSDK-3177 (internal services and implicit
+	// dependencies should not be returned from Config method).
+
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+
+	// Precompile modules to avoid timeout issues when building takes too long.
+	err := rtestutils.BuildInDir("examples/customresources/demos/complexmodule")
+	test.That(t, err, test.ShouldBeNil)
+
+	r, err := robotimpl.New(context.Background(), &config.Config{}, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+	}()
+
+	// Assert that Config method returns only built-in services (data_manager,
+	// motion and sensors).
+	actualCfg := r.Config()
+	test.That(t, len(actualCfg.Services), test.ShouldEqual, 3)
+	for _, comp := range actualCfg.Services {
+		test.That(t, comp.API.SubtypeName, test.ShouldBeIn, datamanager.API.SubtypeName,
+			motion.API.SubtypeName, sensors.API.SubtypeName)
+	}
+	test.That(t, removeBuiltinServices(actualCfg), test.ShouldResemble, &config.Config{})
+
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+	err = r.StartWeb(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Manually define mybase model, as importing it can cause double registration.
+	myBaseModel := resource.NewModel("acme", "demo", "mybase")
+
+	cfg := &config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "mod",
+				ExePath: rutils.ResolveFile("examples/customresources/demos/complexmodule/run.sh"),
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:  "myBase",
+				API:   base.API,
+				Model: myBaseModel,
+				Attributes: rutils.AttributeMap{
+					"motorL": "motor1",
+					"motorR": "motor2",
+				},
+			},
+			{
+				Name:                "motor1",
+				API:                 motor.API,
+				Model:               fakeModel,
+				ConvertedAttributes: &fakemotor.Config{},
+			},
+			{
+				Name:                "motor2",
+				API:                 motor.API,
+				Model:               fakeModel,
+				ConvertedAttributes: &fakemotor.Config{},
+			},
+		},
+		Services: []resource.Config{
+			{
+				Name:                "fake1",
+				API:                 datamanager.API,
+				Model:               resource.DefaultServiceModel,
+				ConvertedAttributes: &builtin.Config{},
+			},
+		},
+		Remotes: []config.Remote{
+			{
+				Name:    "foo",
+				Address: addr,
+			},
+		},
+		Processes: []pexec.ProcessConfig{
+			{
+				ID:      "1",
+				Name:    "bash",
+				Args:    []string{"-c", "echo heythere"},
+				Log:     true,
+				OneShot: true,
+			},
+		},
+	}
+
+	// Create copy of expectedCfg since Reconfigure modifies cfg.
+	expectedCfg := *cfg
+	r.Reconfigure(ctx, cfg)
+
+	// Assert that Config method returns expected value.
+	actualCfg = r.Config()
+
+	// Manually inspect component resources as ordering of config is
+	// non-deterministic within slices
+	test.That(t, len(actualCfg.Components), test.ShouldEqual, 3)
+	for _, comp := range actualCfg.Components {
+		isMyBase := comp.Equals(expectedCfg.Components[0])
+		isMotor1 := comp.Equals(expectedCfg.Components[1])
+		isMotor2 := comp.Equals(expectedCfg.Components[2])
+		test.That(t, isMyBase || isMotor1 || isMotor2, test.ShouldBeTrue)
+	}
+	actualCfg.Components = nil
+	expectedCfg.Components = nil
+
+	// Manually inspect remote resource as Equals should be used
+	// (alreadyValidated will have been set to true).
+	test.That(t, len(actualCfg.Remotes), test.ShouldEqual, 1)
+	test.That(t, actualCfg.Remotes[0].Equals(expectedCfg.Remotes[0]), test.ShouldBeTrue)
+	actualCfg.Remotes = nil
+	expectedCfg.Remotes = nil
+
+	test.That(t, removeBuiltinServices(actualCfg), test.ShouldResemble, &expectedCfg)
+}
+
 func TestReconnectRemote(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
@@ -2591,14 +2727,20 @@ func TestOrphanedResources(t *testing.T) {
 		test.That(t, err, test.ShouldBeError,
 			resource.NewNotFoundError(generic.Named("h")))
 
-		// Assert that recompiling testmodule, removing testmodule and 'h' from
-		// config and adding both back re-adds 'h'.
-		//
-		// TODO(RSDK-2876): assert that we can keep 'h' in the config and it gets
-		// re-added to testmodule.
+		// Assert that recompiling testmodule, removing testmodule from config and
+		// adding it back re-adds 'h'.
 		err = rtestutils.BuildInDir("module/testmodule")
 		test.That(t, err, test.ShouldBeNil)
-		r.Reconfigure(ctx, &config.Config{})
+		cfg2 := &config.Config{
+			Components: []resource.Config{
+				{
+					Name:  "h",
+					Model: helperModel,
+					API:   generic.API,
+				},
+			},
+		}
+		r.Reconfigure(ctx, cfg2)
 		r.Reconfigure(ctx, cfg)
 
 		h, err = r.ResourceByName(generic.Named("h"))

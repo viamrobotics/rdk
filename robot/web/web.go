@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"io"
 	"io/fs"
+	"math"
 	"net"
 	"net/http"
 	"net/http/pprof"
@@ -108,6 +109,7 @@ type AppTemplateData struct {
 	WebRTCSignalingAddress string                 `json:"webrtc_signaling_address"`
 	Env                    string                 `json:"env"`
 	Host                   string                 `json:"host"`
+	StaticHost             string                 `json:"static_host"`
 	SupportedAuthTypes     []string               `json:"supported_auth_types"`
 	AuthEntity             string                 `json:"auth_entity"`
 	BakedAuth              map[string]interface{} `json:"baked_auth"`
@@ -128,6 +130,7 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var data AppTemplateData
+	data.StaticHost = app.options.StaticHost
 
 	if err := r.ParseForm(); err != nil {
 		app.logger.Debugw("failed to parse form", "error", err)
@@ -620,6 +623,19 @@ func (svc *webService) makeStreamServer(ctx context.Context) (*StreamServer, err
 		if isVideo {
 			config.AudioEncoderFactory = nil
 
+			// set TargetFrameRate to the framerate of the video source if available
+			props, err := svc.videoSources[name].MediaProperties(ctx)
+			if err != nil {
+				svc.logger.Warnw("failed to get video source properties", "name", name, "error", err)
+			} else if props.FrameRate > 0.0 {
+				// round float up to nearest int
+				config.TargetFrameRate = int(math.Ceil(float64(props.FrameRate)))
+			}
+			// default to 60fps if the video source doesn't have a framerate
+			if config.TargetFrameRate == 0 {
+				config.TargetFrameRate = 60
+			}
+
 			if runtime.GOOS == "windows" {
 				// TODO(RSDK-1771): support video on windows
 				svc.logger.Warnw("not starting video stream since not supported on Windows yet", "name", name)
@@ -724,7 +740,8 @@ func (svc *webService) installWeb(mux *goji.Mux, theRobot robot.Robot, options w
 			return err
 		}
 		if len(matches) == 0 {
-			svc.logger.Warnw("Couldn't find any static files when running RDK. Make sure to run 'make build-web'.")
+			svc.logger.Warnw("Couldn't find any static files when running RDK. Make sure to run 'make build-web' - using app.viam.com")
+			app.options.StaticHost = "https://app.viam.com"
 		}
 		staticDir = http.FS(embedFS)
 	}

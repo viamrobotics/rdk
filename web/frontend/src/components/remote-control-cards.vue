@@ -902,6 +902,7 @@ onUnmounted(() => {
         :client="client"
         :resources="resources"
         :status-stream="statusStream"
+        :operations="currentOps"
       />
 
       <!-- ******* DO ******* -->
