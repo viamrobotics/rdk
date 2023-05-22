@@ -456,9 +456,6 @@ func TestDebugModule(t *testing.T) {
 	// Precompile module to avoid timeout issues when building takes too long.
 	test.That(t, rtestutils.BuildInDir("module/testmodule"), test.ShouldBeNil)
 
-	falseBool := false
-	trueBool := true
-
 	// This cannot use t.TempDir() as the path it gives on MacOS exceeds module.MaxSocketAddressLength.
 	parentAddr, err := os.MkdirTemp("", "viam-test-*")
 	test.That(t, err, test.ShouldBeNil)
@@ -468,43 +465,43 @@ func TestDebugModule(t *testing.T) {
 	testCases := []struct {
 		name                   string
 		managerDebugEnabled    bool
-		moduleDebugEnabled     *bool
+		moduleLogLevel         string
 		debugStatementExpected bool
 	}{
 		{
-			"manager false debug/module unset debug",
+			"manager false debug/module empty log",
 			false,
-			nil,
-			false,
-		},
-		{
-			"manager false debug/module false debug",
-			false,
-			&falseBool,
+			"",
 			false,
 		},
 		{
-			"manager false debug/module true debug",
+			"manager false debug/module info log",
 			false,
-			&trueBool,
-			true,
-		},
-		{
-			"manager true debug/module unset debug",
-			true,
-			nil,
-			true,
-		},
-		{
-			"manager true debug/module false debug",
-			true,
-			&falseBool,
+			"info",
 			false,
 		},
 		{
-			"manager true debug/module true debug",
+			"manager false debug/module debug log",
+			false,
+			"debug",
 			true,
-			&trueBool,
+		},
+		{
+			"manager true debug/module empty log",
+			true,
+			"",
+			true,
+		},
+		{
+			"manager true debug/module info log",
+			true,
+			"info",
+			false,
+		},
+		{
+			"manager true debug/module debug log",
+			true,
+			"debug",
 			true,
 		},
 	}
@@ -522,9 +519,9 @@ func TestDebugModule(t *testing.T) {
 			defer mgr.Close(ctx)
 
 			modCfg := config.Module{
-				Name:    "test-module",
-				ExePath: utils.ResolveFile("module/testmodule/testmodule"),
-				Debug:   tc.moduleDebugEnabled,
+				Name:     "test-module",
+				ExePath:  utils.ResolveFile("module/testmodule/testmodule"),
+				LogLevel: tc.moduleLogLevel,
 			}
 
 			err = mgr.Add(ctx, modCfg)

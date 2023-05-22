@@ -6,7 +6,6 @@ import (
 	"net"
 	"os"
 	"runtime"
-	"strings"
 	"sync"
 	"time"
 
@@ -159,9 +158,10 @@ func NewModuleFromArgs(ctx context.Context, logger *zap.SugaredLogger) (*Module,
 }
 
 // NewLoggerFromArgs can be used to create a golog.Logger at "DebugLevel" if
-// -debug is the third argument in os.Args and at "InfoLevel" otherwise.
+// "--log-level=debug" is the third argument in os.Args and at "InfoLevel"
+// otherwise.
 func NewLoggerFromArgs(moduleName string) golog.Logger {
-	if len(os.Args) >= 3 && strings.HasSuffix(os.Args[2], "-debug") {
+	if len(os.Args) >= 3 && os.Args[2] == "--log-level=debug" {
 		return golog.NewDebugLogger(moduleName)
 	}
 	return golog.NewDevelopmentLogger(moduleName)

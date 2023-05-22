@@ -3,6 +3,7 @@ package modmanager
 
 import (
 	"context"
+	"fmt"
 	"io/fs"
 	"path/filepath"
 	"strings"
@@ -36,6 +37,7 @@ import (
 var (
 	validateConfigTimeout       = 5 * time.Second
 	errMessageExitStatus143     = "exit status 143"
+	logLevelArgumentTemplate    = "--log-level=%s"
 	errModularResourcesDisabled = errors.New("modular resources disabled in untrusted environment")
 )
 
@@ -54,7 +56,7 @@ func NewManager(parentAddr string, logger golog.Logger, options modmanageroption
 type module struct {
 	name      string
 	exe       string
-	debug     *bool
+	logLevel  string
 	process   pexec.ManagedProcess
 	handles   modlib.HandlerMap
 	conn      *grpc.ClientConn
@@ -118,7 +120,7 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, conn *grpc.Clie
 	mod := &module{
 		name:      conf.Name,
 		exe:       conf.ExePath,
-		debug:     conf.Debug,
+		logLevel:  conf.LogLevel,
 		resources: map[resource.Name]*addedResource{},
 	}
 	mgr.modules[conf.Name] = mod
@@ -592,13 +594,13 @@ func (m *module) startProcess(
 		return err
 	}
 
-	// Start module process with -debug if:
-	//  * debug is set to true on the module
-	//  * debug is unset on the module but manager log level is Debug
+	// Start module process with supplied log level or "debug" if none is
+	// supplied and module manager has a DebugLevel logger.
 	args := []string{m.addr}
-	if (m.debug != nil && *m.debug) ||
-		(m.debug == nil && logger.Level() == zapcore.DebugLevel) {
-		args = append(args, "-debug")
+	if m.logLevel != "" {
+		args = append(args, fmt.Sprintf(logLevelArgumentTemplate, m.logLevel))
+	} else if logger.Level().Enabled(zapcore.DebugLevel) {
+		args = append(args, fmt.Sprintf(logLevelArgumentTemplate, "debug"))
 	}
 
 	pconf := pexec.ProcessConfig{

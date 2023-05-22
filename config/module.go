@@ -17,9 +17,10 @@ type Module struct {
 	Name string `json:"name"`
 	// ExePath is the path (either absolute, or relative to the working directory) to the executable module file.
 	ExePath string `json:"executable_path"`
-	// Debug represents whether the module executable should be started with -debug. If Debug is unset, the
-	// module will be started with -debug only if the module manager has a Debug log level.
-	Debug *bool `json:"debug"`
+	// LogLevel represents the level at which the module should log its messages. It will be passed as a commandline
+	// argument "log-level" (i.e. preceded by "--log-level=") to the module executable. If unset or set to an empty
+	// string, "--log-level=debug" will be passed to the module executable if the server was started with "-debug".
+	LogLevel string `json:"log_level"`
 }
 
 // Validate checks if the config is valid.

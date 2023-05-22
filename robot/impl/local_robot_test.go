@@ -2988,7 +2988,7 @@ func TestModuleDebugReconfigure(t *testing.T) {
 	err := rtestutils.BuildInDir("module/testmodule")
 	test.That(t, err, test.ShouldBeNil)
 
-	// Create robot with testmodule with Debug unset and assert that after two
+	// Create robot with testmodule with LogLevel unset and assert that after two
 	// seconds, "debug mode enabled" debug log is not output by testmodule.
 	cfg := &config.Config{
 		Modules: []config.Module{
@@ -3008,15 +3008,14 @@ func TestModuleDebugReconfigure(t *testing.T) {
 	test.That(t, logs.FilterMessageSnippet("debug mode enabled").Len(),
 		test.ShouldEqual, 0)
 
-	// Reconfigure testmodule to have Debug set to true and assert that "debug
+	// Reconfigure testmodule to have a "debug" LogLevel and assert that "debug
 	// mode enabled" debug log is eventually output by testmodule.
-	trueBool := true
 	cfg2 := &config.Config{
 		Modules: []config.Module{
 			{
-				Name:    "mod",
-				ExePath: rutils.ResolveFile("module/testmodule/testmodule"),
-				Debug:   &trueBool,
+				Name:     "mod",
+				ExePath:  rutils.ResolveFile("module/testmodule/testmodule"),
+				LogLevel: "debug",
 			},
 		},
 	}
