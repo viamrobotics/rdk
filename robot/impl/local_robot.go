@@ -786,7 +786,7 @@ func (r *localRobot) getRemoteFrameSystemParts(ctx context.Context) ([]*referenc
 	for _, remoteCfg := range cfg.Remotes {
 		// build the frame system part that connects remote world to base world
 		if remoteCfg.Frame == nil { // skip over remote if it has no frame info
-			r.logger.Debugf("remote %s has no frame config info, skipping", remoteCfg.Name)
+			r.logger.Debugf("remote %q has no frame config info, skipping", remoteCfg.Name)
 			continue
 		}
 		lif, err := remoteCfg.Frame.ParseConfig()
@@ -800,11 +800,11 @@ func (r *localRobot) getRemoteFrameSystemParts(ctx context.Context) ([]*referenc
 		// get the parts from the remote itself
 		remote, ok := r.RemoteByName(remoteCfg.Name)
 		if !ok {
-			return nil, errors.Errorf("cannot find remote robot %s", remoteCfg.Name)
+			return nil, errors.Errorf("cannot find remote robot %q", remoteCfg.Name)
 		}
 		remoteFsCfg, err := remote.FrameSystemConfig(ctx)
 		if err != nil {
-			return nil, errors.Wrapf(err, "remote %s", remote)
+			return nil, errors.Wrapf(err, "error from remote %q", remoteCfg.Name)
 		}
 		framesystem.PrefixRemoteParts(remoteFsCfg.Parts, remoteCfg.Name, parentName)
 		remoteParts = append(remoteParts, remoteFsCfg.Parts...)
