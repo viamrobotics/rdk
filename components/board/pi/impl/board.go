@@ -134,10 +134,10 @@ func newPigpio(ctx context.Context, name resource.Name, cfg resource.Config, log
 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	piInstance := &piPigpio{
-		Named:           name.AsNamed(),
-		logger:          logger,
-		isClosed:        false,
-		cancelCtx:    cancelCtx,
+		Named:      name.AsNamed(),
+		logger:     logger,
+		isClosed:   false,
+		cancelCtx:  cancelCtx,
 		cancelFunc: cancelFunc,
 	}
 
