@@ -105,13 +105,7 @@
     "services": [
         {
             "name": "test_vision",
-            "type": "vision",
-            "model": "radius_clustering_segmenter",
-            "attributes": {
-              "min_points_in_plane": 1,
-              "min_points_in_segment": 1,
-              "clustering_radius_mm": 1
-            }
+            "type": "vision"
         },
         {
             "name": "test_motion",
