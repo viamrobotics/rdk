@@ -372,6 +372,8 @@ func (pi *piPigpio) reconfigureInterrupts(ctx context.Context, cfg *genericlinux
 
 // GPIOPinNames returns the names of all known GPIO pins.
 func (pi *piPigpio) GPIOPinNames() []string {
+	pi.mu.Lock()
+	defer pi.mu.Unlock()
 	names := make([]string, 0, len(piHWPinToBroadcom))
 	for k := range piHWPinToBroadcom {
 		names = append(names, k)
@@ -381,6 +383,8 @@ func (pi *piPigpio) GPIOPinNames() []string {
 
 // GPIOPinByName returns a GPIOPin by name.
 func (pi *piPigpio) GPIOPinByName(pin string) (board.GPIOPin, error) {
+	pi.mu.Lock()
+	defer pi.mu.Unlock()
 	bcom, have := broadcomPinFromHardwareLabel(pin)
 	if !have {
 		return nil, errors.Errorf("no hw pin for (%s)", pin)
@@ -466,9 +470,9 @@ func (pi *piPigpio) pwmBcom(bcom int) (float64, error) {
 
 // SetPWMBcom sets the given broadcom pin to the given PWM duty cycle.
 func (pi *piPigpio) SetPWMBcom(bcom int, dutyCyclePct float64) error {
-	dutyCycle := rdkutils.ScaleByPct(255, dutyCyclePct)
 	pi.mu.Lock()
 	defer pi.mu.Unlock()
+	dutyCycle := rdkutils.ScaleByPct(255, dutyCyclePct)
 	pi.duty = int(C.gpioPWM(C.uint(bcom), C.uint(dutyCycle)))
 	if pi.duty != 0 {
 		return errors.Errorf("pwm set fail %d", pi.duty)
@@ -483,6 +487,8 @@ func (pi *piPigpio) pwmFreqBcom(bcom int) (uint, error) {
 
 // SetPWMFreqBcom sets the given broadcom pin to the given PWM frequency.
 func (pi *piPigpio) SetPWMFreqBcom(bcom int, freqHz uint) error {
+	pi.mu.Lock()
+	defer pi.mu.Unlock()
 	if freqHz == 0 {
 		freqHz = 800 // Original default from libpigpio
 	}
@@ -631,6 +637,8 @@ func (s *piPigpioSPIHandle) Close() error {
 
 // SPINames returns the names of all known SPI buses.
 func (pi *piPigpio) SPINames() []string {
+	pi.mu.Lock()
+	defer pi.mu.Unlock()
 	if len(pi.spis) == 0 {
 		return nil
 	}
@@ -643,6 +651,8 @@ func (pi *piPigpio) SPINames() []string {
 
 // I2CNames returns the names of all known SPI buses.
 func (pi *piPigpio) I2CNames() []string {
+	pi.mu.Lock()
+	defer pi.mu.Unlock()
 	if len(pi.i2cs) == 0 {
 		return nil
 	}
@@ -655,6 +665,8 @@ func (pi *piPigpio) I2CNames() []string {
 
 // AnalogReaderNames returns the names of all known analog readers.
 func (pi *piPigpio) AnalogReaderNames() []string {
+	pi.mu.Lock()
+	defer pi.mu.Unlock()
 	names := []string{}
 	for k := range pi.analogs {
 		names = append(names, k)
@@ -664,6 +676,8 @@ func (pi *piPigpio) AnalogReaderNames() []string {
 
 // DigitalInterruptNames returns the names of all known digital interrupts.
 func (pi *piPigpio) DigitalInterruptNames() []string {
+	pi.mu.Lock()
+	defer pi.mu.Unlock()
 	names := []string{}
 	for k := range pi.interrupts {
 		names = append(names, k)
@@ -673,18 +687,24 @@ func (pi *piPigpio) DigitalInterruptNames() []string {
 
 // AnalogReaderByName returns an analog reader by name.
 func (pi *piPigpio) AnalogReaderByName(name string) (board.AnalogReader, bool) {
+	pi.mu.Lock()
+	defer pi.mu.Unlock()
 	a, ok := pi.analogs[name]
 	return a, ok
 }
 
 // SPIByName returns an SPI bus by name.
 func (pi *piPigpio) SPIByName(name string) (board.SPI, bool) {
+	pi.mu.Lock()
+	defer pi.mu.Unlock()
 	s, ok := pi.spis[name]
 	return s, ok
 }
 
 // I2CByName returns an I2C by name.
 func (pi *piPigpio) I2CByName(name string) (board.I2C, bool) {
+	pi.mu.Lock()
+	defer pi.mu.Unlock()
 	s, ok := pi.i2cs[name]
 	return s, ok
 }
