@@ -137,7 +137,7 @@ func (wb *wheeledBase) Reconfigure(ctx context.Context, deps resource.Dependenci
 	}
 
 	wb.spinSlipFactor = newConf.SpinSlipFactor
-	
+
 	// Check if wb.left is different from newConf.Left before changing wb.left
 	if len(wb.left) != len(newConf.Left) {
 		// Resetting the left motor list
