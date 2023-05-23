@@ -182,7 +182,6 @@ func (wb *wheeledBase) Reconfigure(ctx context.Context, deps resource.Dependenci
 		// Compare each element of the slices
 		for i := range wb.right {
 			if wb.right[i].Name().String() != newConf.Right[i] {
-
 				wb.right = make([]motor.Motor, 0)
 
 				for _, name := range newConf.Right {
