@@ -62,8 +62,10 @@ type TimeInterval struct {
 // cacheEntries store data that was downloaded from a previous operation but has not yet been passed
 // to the caller.
 type cacheEntry struct {
-	pc  pointcloud.PointCloud
-	err error
+	pc      pointcloud.PointCloud
+	timeReq *timestamppb.Timestamp
+	timeRec *timestamppb.Timestamp
+	err     error
 }
 
 // cacheMapEntries are used when batching is desired by emplacing, in order, the id along with the location
@@ -151,22 +153,17 @@ func newPCDCamera(ctx context.Context, deps resource.Dependencies, conf resource
 	return cam, nil
 }
 
-func addGRPCMetadata(ctx context.Context, data *datapb.BinaryData) error {
-	// If the caller is communicating with the replay camera over gRPC, set the timestamps on
-	// the gRPC header.
-	md := data.GetMetadata()
+// addGRPCMetadata adds information from the data reponse to the gRPC response header if one is
+// found in the context.
+func addGRPCMetadata(ctx context.Context, timeReq, timeRec *timestamppb.Timestamp) error {
 	if stream := grpc.ServerTransportStreamFromContext(ctx); stream != nil {
 		var grpcMetadata metadata.MD = make(map[string][]string)
-
-		timeReq := md.GetTimeRequested()
 		if timeReq != nil {
 			grpcMetadata.Set(contextutils.TimeRequestedMetadataKey, timeReq.AsTime().Format(time.RFC3339Nano))
 		}
-		timeRec := md.GetTimeReceived()
 		if timeRec != nil {
 			grpcMetadata.Set(contextutils.TimeReceivedMetadataKey, timeRec.AsTime().Format(time.RFC3339Nano))
 		}
-
 		if err := grpc.SetHeader(ctx, grpcMetadata); err != nil {
 			return err
 		}
@@ -186,7 +183,7 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCl
 	// Retrieve next cached data and remove from cacheMap, if no data remains in the cacheMap, download a
 	// new batch
 	if len(replay.cacheMap) != 0 {
-		return replay.getDataFromCache()
+		return replay.getDataFromCache(ctx)
 	}
 
 	// Retrieve data from the cloud. If the batch size is one, only metadata is returned here, otherwise
@@ -235,7 +232,10 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCl
 	if err != nil {
 		return nil, err
 	}
-
+	err = addGRPCMetadata(ctx, resp.GetData()[0].GetMetadata().GetTimeRequested(), resp.GetData()[0].GetMetadata().GetTimeReceived())
+	if err != nil {
+		return nil, err
+	}
 	return pc, nil
 }
 
@@ -264,6 +264,11 @@ func (replay *pcdCamera) downloadBatch(ctx context.Context, ch chan struct{}) {
 
 			// Decode response data
 			replay.cache[cMap.index].pc, replay.cache[cMap.index].err = decodeResponseData(resp.GetData(), replay.logger)
+
+			if replay.cache[cMap.index].err == nil {
+				replay.cache[cMap.index].timeReq = resp.GetData()[0].GetMetadata().GetTimeRequested()
+				replay.cache[cMap.index].timeRec = resp.GetData()[0].GetMetadata().GetTimeReceived()
+			}
 		})
 	}
 	defer close(ch)
@@ -271,16 +276,21 @@ func (replay *pcdCamera) downloadBatch(ctx context.Context, ch chan struct{}) {
 }
 
 // getDataFromCache retrieves the next cached data and removes it from the cache.
-func (replay *pcdCamera) getDataFromCache() (pointcloud.PointCloud, error) {
+func (replay *pcdCamera) getDataFromCache(ctx context.Context) (pointcloud.PointCloud, error) {
 	index := replay.cacheMap[0].index
 
+	// Grab the next cached data and update the cache map immediately, even if there's an error,
+	// so we don't get stuck in a loop checking for and returning the same error.
 	data := replay.cache[index]
-
+	replay.cacheMap = replay.cacheMap[1:]
 	if data.err != nil {
 		return nil, errors.Wrapf(data.err, "cache data contained an error")
 	}
 
-	replay.cacheMap = replay.cacheMap[1:]
+	err := addGRPCMetadata(ctx, data.timeReq, data.timeRec)
+	if err != nil {
+		return nil, err
+	}
 
 	return data.pc, nil
 }

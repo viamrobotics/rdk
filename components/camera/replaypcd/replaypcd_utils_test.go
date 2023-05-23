@@ -87,39 +87,49 @@ func (mDServer *mockDataServiceServer) BinaryDataByFilter(ctx context.Context, r
 			return nil, err
 		}
 
+		timeReq, timeRec, err := timestampsFromFileNum(newFileNum)
+		if err != nil {
+			return nil, err
+		}
 		binaryData := datapb.BinaryData{
 			Binary: data,
 			Metadata: &datapb.BinaryMetadata{
-				Id: fmt.Sprintf(datasetDirectory, newFileNum)},
+				Id:            fmt.Sprintf(datasetDirectory, newFileNum),
+				TimeRequested: timeReq,
+				TimeReceived:  timeRec,
+			},
 		}
 
 		resp.Data = []*datapb.BinaryData{&binaryData}
 		resp.Last = fmt.Sprint(newFileNum)
 	} else {
 		for i := 0; i < int(limit); i++ {
+			timeReq, timeRec, err := timestampsFromFileNum(newFileNum + i)
+			if err != nil {
+				return nil, err
+			}
 			binaryData := datapb.BinaryData{
-				Metadata: &datapb.BinaryMetadata{Id: fmt.Sprintf(datasetDirectory, newFileNum+i)},
+				Metadata: &datapb.BinaryMetadata{
+					Id:            fmt.Sprintf(datasetDirectory, newFileNum+i),
+					TimeRequested: timeReq,
+					TimeReceived:  timeRec,
+				},
 			}
 			resp.Data = append(resp.Data, &binaryData)
 		}
 		resp.Last = fmt.Sprint(newFileNum + int(limit) - 1)
 	}
 
-	// TODO: add this somewhere sensible
-	timeReq, err := time.Parse(time.RFC3339, fmt.Sprintf(testTime, newFileNum))
+	return &resp, nil
+}
+
+func timestampsFromFileNum(fileNum int) (*timestamppb.Timestamp, *timestamppb.Timestamp, error) {
+	timeReq, err := time.Parse(time.RFC3339, fmt.Sprintf(testTime, fileNum))
 	if err != nil {
-		return nil, errors.Wrap(err, "failed parsing time")
+		return nil, nil, errors.Wrap(err, "failed parsing time")
 	}
 	timeRec := timeReq.Add(time.Second)
-	binaryData := &datapb.BinaryData{
-		Binary: dataBuf.Bytes(),
-		Metadata: &datapb.BinaryMetadata{
-			TimeRequested: timestamppb.New(timeReq),
-			TimeReceived:  timestamppb.New(timeRec),
-		},
-	}
-
-	return &resp, nil
+	return timestamppb.New(timeReq), timestamppb.New(timeRec), nil
 }
 
 // createMockCloudDependencies creates a mockDataServiceServer and rpc client connection to it which is then

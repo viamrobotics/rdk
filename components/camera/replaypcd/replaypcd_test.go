@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
-	"go.viam.com/rdk/internal/cloud"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"google.golang.org/grpc"
@@ -24,7 +23,7 @@ var (
 	batchSize1        = uint64(1)
 	batchSize2        = uint64(2)
 	batchSize3        = uint64(3)
-	batchSizeLarge    = uint64(100)
+	batchSizeLarge    = uint64(50)
 	batchSizeTooLarge = uint64(1000)
 )
 
@@ -504,7 +503,9 @@ func TestNextPointCloudTimestamps(t *testing.T) {
 		ctx = grpc.NewContextWithServerTransportStream(ctx, serverStream)
 		pc, err := replayCamera.NextPointCloud(ctx)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, pc, test.ShouldResemble, getPointCloudFromArtifact(t, i))
+		pcExpected, err := getPointCloudFromArtifact(i)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, pc, test.ShouldResemble, pcExpected)
 
 		expectedTimeReq := fmt.Sprintf(testTime, i)
 		expectedTimeRec := fmt.Sprintf(testTime, i+1)
