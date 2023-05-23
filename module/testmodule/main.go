@@ -22,10 +22,12 @@ var (
 )
 
 func main() {
-	utils.ContextualMain(mainWithArgs, golog.NewDevelopmentLogger("TestModule"))
+	utils.ContextualMain(mainWithArgs, module.NewLoggerFromArgs("TestModule"))
 }
 
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error {
+	logger.Debug("debug mode enabled")
+
 	var err error
 	myMod, err = module.NewModuleFromArgs(ctx, logger)
 	if err != nil {
