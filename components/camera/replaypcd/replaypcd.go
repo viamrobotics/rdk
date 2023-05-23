@@ -213,7 +213,6 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCl
 	}
 
 	return replay.NextPointCloud(ctx)
-
 }
 
 // downloadBatch iterates through the current cache, performing the download of the respective data in
@@ -244,7 +243,6 @@ func (replay *pcdCamera) downloadBatch(ctx context.Context) {
 				dataToCache.timeReq = resp.GetData()[0].GetMetadata().GetTimeRequested()
 				dataToCache.timeRec = resp.GetData()[0].GetMetadata().GetTimeReceived()
 			}
-
 		})
 	}
 	wg.Wait()

@@ -490,7 +490,6 @@ func TestUnimplementedFunctions(t *testing.T) {
 // TestNextPointCloudTimestamps tests that calls to NextPointCloud on the replay camera will inject
 // the time received and time requested metadata into the gRPC response header.
 func TestNextPointCloudTimestamps(t *testing.T) {
-
 	testCameraWithCfg := func(cfg *Config) {
 		// Construct replay camera.
 		ctx := context.Background()

@@ -54,7 +54,7 @@ func (mDServer *mockDataServiceServer) BinaryDataByIDs(ctx context.Context, req 
 	}
 
 	// Construct response
-	fileNumStr := strings.TrimLeft(strings.TrimRight(fileID, ".pcd"), "slam/mock_lidar/")
+	fileNumStr := strings.TrimPrefix(strings.TrimSuffix(fileID, ".pcd"), "slam/mock_lidar/")
 	fileNum, err := strconv.Atoi(fileNumStr)
 	if err != nil {
 		return nil, err
