@@ -153,25 +153,6 @@ func newPCDCamera(ctx context.Context, deps resource.Dependencies, conf resource
 	return cam, nil
 }
 
-// addGRPCMetadata adds information from the data reponse to the gRPC response header if one is
-// found in the context.
-func addGRPCMetadata(ctx context.Context, timeReq, timeRec *timestamppb.Timestamp) error {
-	if stream := grpc.ServerTransportStreamFromContext(ctx); stream != nil {
-		var grpcMetadata metadata.MD = make(map[string][]string)
-		if timeReq != nil {
-			grpcMetadata.Set(contextutils.TimeRequestedMetadataKey, timeReq.AsTime().Format(time.RFC3339Nano))
-		}
-		if timeRec != nil {
-			grpcMetadata.Set(contextutils.TimeReceivedMetadataKey, timeRec.AsTime().Format(time.RFC3339Nano))
-		}
-		if err := grpc.SetHeader(ctx, grpcMetadata); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 // NextPointCloud returns the next point cloud retrieved from cloud storage based on the applied filter.
 func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
 	replay.mu.RLock()
@@ -204,46 +185,48 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCl
 
 	replay.lastData = resp.GetLast()
 
-	// If using a batch size greater than 1, use the metadata from BinaryDataByFilter to download data in parallel
-	// and cache the results
-	if replay.limit > 1 {
-		for i, dataResponse := range resp.Data {
-			cmEntry := cacheMapEntry{id: dataResponse.GetMetadata().Id, index: i}
-			replay.cacheMap = append(replay.cacheMap, cmEntry)
+	// If using a batch size equal to 1, we already received the data itself, so decode and
+	// return the binary data directly
+	if replay.limit == 1 {
+		pc, err := decodeResponseData(resp.GetData(), replay.logger)
+		if err != nil {
+			return nil, err
 		}
-		ctxTimeout, cancelTimeout := context.WithTimeout(ctx, downloadTimeout)
-		defer cancelTimeout()
-
-		ch := make(chan struct{})
-		replay.activeBackgroundWorkers.Add(1)
-		goutils.PanicCapturingGo(func() { replay.downloadBatch(ctxTimeout, ch) })
-
-		select {
-		case <-ch:
-		case <-ctxTimeout.Done():
-			return nil, errors.New("context canceled")
+		err = addGRPCMetadata(ctx, resp.GetData()[0].GetMetadata().GetTimeRequested(), resp.GetData()[0].GetMetadata().GetTimeReceived())
+		if err != nil {
+			return nil, err
 		}
-
-		return replay.NextPointCloud(ctx)
+		return pc, nil
 	}
 
-	// If using a batch size equal to 1, decode and return the binary directly
-	pc, err := decodeResponseData(resp.GetData(), replay.logger)
-	if err != nil {
-		return nil, err
+	// Otherwise if using a batch size greater than 1, use the metadata from BinaryDataByFilter
+	// to download data in parallel and cache the results
+	for i, dataResponse := range resp.Data {
+		cmEntry := cacheMapEntry{id: dataResponse.GetMetadata().Id, index: i}
+		replay.cacheMap = append(replay.cacheMap, cmEntry)
 	}
-	err = addGRPCMetadata(ctx, resp.GetData()[0].GetMetadata().GetTimeRequested(), resp.GetData()[0].GetMetadata().GetTimeReceived())
-	if err != nil {
-		return nil, err
+	ctxTimeout, cancelTimeout := context.WithTimeout(ctx, downloadTimeout)
+	defer cancelTimeout()
+
+	ch := make(chan struct{})
+	goutils.PanicCapturingGo(func() {
+		defer close(ch)
+		replay.downloadBatch(ctxTimeout)
+	})
+
+	select {
+	case <-ch:
+	case <-ctxTimeout.Done():
+		return nil, errors.New("context canceled")
 	}
-	return pc, nil
+
+	return replay.NextPointCloud(ctx)
+
 }
 
 // downloadBatch iterates through the current cacheMap, performing the download of the respective data in
 // parallel using go routines and adds all of them to the cache before returning.
-func (replay *pcdCamera) downloadBatch(ctx context.Context, ch chan struct{}) {
-	defer replay.activeBackgroundWorkers.Done()
-
+func (replay *pcdCamera) downloadBatch(ctx context.Context) {
 	// Parallelize download of data based on ids in cacheMap
 	var wg sync.WaitGroup
 	wg.Add(len(replay.cacheMap))
@@ -271,7 +254,6 @@ func (replay *pcdCamera) downloadBatch(ctx context.Context, ch chan struct{}) {
 			}
 		})
 	}
-	defer close(ch)
 	wg.Wait()
 }
 
@@ -293,6 +275,25 @@ func (replay *pcdCamera) getDataFromCache(ctx context.Context) (pointcloud.Point
 	}
 
 	return data.pc, nil
+}
+
+// addGRPCMetadata adds timestamps from the data response to the gRPC response header if one is
+// found in the context.
+func addGRPCMetadata(ctx context.Context, timeReq, timeRec *timestamppb.Timestamp) error {
+	if stream := grpc.ServerTransportStreamFromContext(ctx); stream != nil {
+		var grpcMetadata metadata.MD = make(map[string][]string)
+		if timeReq != nil {
+			grpcMetadata.Set(contextutils.TimeRequestedMetadataKey, timeReq.AsTime().Format(time.RFC3339Nano))
+		}
+		if timeRec != nil {
+			grpcMetadata.Set(contextutils.TimeReceivedMetadataKey, timeRec.AsTime().Format(time.RFC3339Nano))
+		}
+		if err := grpc.SetHeader(ctx, grpcMetadata); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // Properties is a part of the camera interface but is not implemented for replay.
