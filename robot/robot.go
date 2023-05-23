@@ -90,8 +90,9 @@ type Robot interface {
 type LocalRobot interface {
 	Robot
 
-	// Config returns a config representing the current state of the robot.
-	Config() *config.Config
+	// Config returns the local config used to construct the robot.
+	// This is allowed to be partial or empty.
+	Config(ctx context.Context) (*config.Config, error)
 
 	// Reconfigure instructs the robot to safely reconfigure itself based
 	// on the given new config.
