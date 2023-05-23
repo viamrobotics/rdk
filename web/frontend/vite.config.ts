@@ -22,6 +22,12 @@ export default defineConfig({
   build: {
     minify: 'terser',
     sourcemap: true,
+
+    /**
+     * This is currently set to infinity due to the lack of an asset pipeline
+     * when RC is embedded in app.viam.com.
+     */
+    assetsInlineLimit: Number.POSITIVE_INFINITY,
     rollupOptions: {
       input: {
         control: './src/main.ts',

@@ -7,8 +7,8 @@ import * as THREE from 'three';
 import { MapControls } from 'three/examples/jsm/controls/MapControls';
 import { PCDLoader } from 'three/examples/jsm/loaders/PCDLoader';
 import type { commonApi } from '@viamrobotics/sdk';
-import DestMarker from '@/lib/images/destination-marker.txt?raw';
-import BaseMarker from '@/lib/images/base-marker.txt?raw';
+import DestMarker from '@/lib/images/destination-marker.png';
+import BaseMarker from '@/lib/images/base-marker.png';
 import Legend from './2d-legend.vue';
 
 let points: THREE.Points | undefined;
@@ -113,9 +113,6 @@ let userControlling = false;
 const controls = new MapControls(camera, canvas);
 controls.enableRotate = false;
 controls.screenSpacePanning = true;
-controls.addEventListener('start', () => {
-  userControlling = true;
-});
 
 const raycaster = new MouseRaycaster({ camera, renderer, recursive: false });
 
@@ -198,6 +195,11 @@ const updateOrRemoveDestinationMarker = () => {
   if (!props.destExists) {
     destMarker.visible = false;
   }
+};
+
+const handleUserControl = () => {
+  userControlling = true;
+  controls.removeEventListener('start', handleUserControl);
 };
 
 // construct grid spaced at 1 meter
@@ -295,6 +297,8 @@ onMounted(() => {
     destMarker
   );
 
+  controls.addEventListener('start', handleUserControl);
+
   start();
 
   if (props.pointcloud !== undefined) {
@@ -310,6 +314,9 @@ onUnmounted(() => {
   stop();
   scene.traverse((object) => dispose(object));
   removeUpdate?.();
+
+  controls.removeEventListener('start', handleUserControl);
+  userControlling = false;
 });
 
 watch(() => [props.destVector!.x, props.destVector!.y, props.destExists], updateOrRemoveDestinationMarker);
