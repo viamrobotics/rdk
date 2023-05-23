@@ -99,7 +99,7 @@ type oneAxis struct {
 	opMgr  operation.SingleOperationManager
 }
 
-// NewOneAxis creates a new one axis gantry.
+// newOneAxis creates a new one axis gantry.
 func newOneAxis(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (gantry.Gantry, error) {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
@@ -237,6 +237,9 @@ func (g *oneAxis) homeOneLimSwitch(ctx context.Context) error {
 	return nil
 }
 
+// home encoder assumes that you have places one of the stepper motors where you
+// want your zero position to be, you need to know which way is "forward"
+// on your motor.
 func (g *oneAxis) homeEncoder(ctx context.Context) error {
 	revPerLength := g.lengthMm / g.mmPerRevolution
 
