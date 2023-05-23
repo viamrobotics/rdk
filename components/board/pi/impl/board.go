@@ -780,22 +780,6 @@ func (pi *piPigpio) Close(ctx context.Context) error {
 	}
 	pi.cancelFunc()
 
-	instanceMu.Lock()
-	if len(instances) == 1 {
-		terminate = true
-	}
-	delete(instances, pi)
-
-	if terminate {
-		pigpioInitialized = false
-		instanceMu.Unlock()
-		// This has to happen outside of the lock to avoid a deadlock with interrupts.
-		C.gpioTerminate()
-		pi.logger.Debug("Pi GPIO terminated properly.")
-	} else {
-		instanceMu.Unlock()
-	}
-
 	var err error
 	for _, spi := range pi.spis {
 		err = multierr.Combine(err, spi.Close(ctx))
@@ -815,6 +799,22 @@ func (pi *piPigpio) Close(ctx context.Context) error {
 	}
 	pi.interrupts = map[string]board.ReconfigurableDigitalInterrupt{}
 	pi.interruptsHW = map[uint]board.ReconfigurableDigitalInterrupt{}
+
+	instanceMu.Lock()
+	if len(instances) == 1 {
+		terminate = true
+	}
+	delete(instances, pi)
+
+	if terminate {
+		pigpioInitialized = false
+		instanceMu.Unlock()
+		// This has to happen outside of the lock to avoid a deadlock with interrupts.
+		C.gpioTerminate()
+		pi.logger.Debug("Pi GPIO terminated properly.")
+	} else {
+		instanceMu.Unlock()
+	}
 
 	pi.isClosed = true
 	return err
