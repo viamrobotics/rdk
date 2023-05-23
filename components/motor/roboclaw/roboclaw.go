@@ -20,6 +20,8 @@ import (
 
 var model = resource.DefaultModelFamily.WithModel("roboclaw")
 
+const maxRPM = 200
+
 // Config is used for converting motor config attributes.
 type Config struct {
 	SerialPath       string `json:"serial_path"`
@@ -104,7 +106,7 @@ func newRoboClaw(deps resource.Dependencies, conf resource.Config, logger golog.
 		motorConfig.Address = 128
 	}
 
-	if motorConfig.TicksPerRotation <= 0 {
+	if motorConfig.TicksPerRotation < 0 {
 		motorConfig.TicksPerRotation = 1
 	}
 
@@ -119,6 +121,7 @@ func newRoboClaw(deps resource.Dependencies, conf resource.Config, logger golog.
 		conf:   motorConfig,
 		addr:   uint8(motorConfig.Address),
 		logger: logger,
+		maxRPM: maxRPM,
 	}, nil
 }
 
@@ -129,7 +132,8 @@ type roboclawMotor struct {
 	conn *roboclaw.Roboclaw
 	conf *Config
 
-	addr uint8
+	addr   uint8
+	maxRPM float64
 
 	logger golog.Logger
 	opMgr  operation.SingleOperationManager
@@ -158,11 +162,45 @@ func (m *roboclawMotor) SetPower(ctx context.Context, powerPct float64, extra ma
 	}
 }
 
+// If revolutions is 0, the returned wait duration will be 0 representing that
+// the motor should run indefinitely.
+func goForMath(rpm, revolutions float64) (float64, time.Duration) {
+
+	if revolutions == 0 {
+		powerPct := 1.0
+		return powerPct, 0
+	}
+
+	dir := rpm * revolutions / math.Abs(revolutions*rpm)
+	powerPct := math.Abs(rpm) / maxRPM * dir
+	waitDur := time.Duration(math.Abs(revolutions/rpm)*60*1000) * time.Millisecond
+	return powerPct, waitDur
+}
+
 func (m *roboclawMotor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
 	speed := math.Abs(rpm)
 	if speed < 0.1 {
 		m.logger.Warn("motor speed is nearly 0 rev_per_min")
 		return motor.NewZeroRPMError()
+	}
+
+	if rpm > maxRPM {
+		rpm = maxRPM
+	} else if rpm < -1*maxRPM {
+		rpm = -1 * maxRPM
+	}
+
+	// If no encoders present, distance traveled is estimated based on max RPM.
+	if m.conf.TicksPerRotation == 0 {
+		powerPct, waitDur := goForMath(rpm, revolutions)
+		m.logger.Debugf("distance traveled is a time based estimation with max RPM 200, running for %f seconds", waitDur.Seconds())
+		err := m.SetPower(ctx, powerPct, extra)
+		if err != nil {
+			return err
+		}
+		if m.opMgr.NewTimedWaitOp(ctx, waitDur) {
+			return m.Stop(ctx, extra)
+		}
 	}
 
 	ctx, done := m.opMgr.New(ctx)
@@ -188,6 +226,10 @@ func (m *roboclawMotor) GoFor(ctx context.Context, rpm, revolutions float64, ext
 }
 
 func (m *roboclawMotor) GoTo(ctx context.Context, rpm, positionRevolutions float64, extra map[string]interface{}) error {
+	//If there are no encoders present GoTo not supported
+	if m.conf.TicksPerRotation == 0 {
+		return motor.NewGoToUnsupportedError(m.Name().ShortName())
+	}
 	pos, err := m.Position(ctx, extra)
 	if err != nil {
 		return err
