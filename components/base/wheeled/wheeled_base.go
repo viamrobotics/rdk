@@ -96,7 +96,7 @@ func init() {
 		Constructor: func(
 			ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger,
 		) (base.Base, error) {
-			return CreateWheeledBase(ctx, deps, conf, logger)
+			return createWheeledBase(ctx, deps, conf, logger)
 		},
 	}
 
@@ -212,8 +212,8 @@ func (wb *wheeledBase) Reconfigure(ctx context.Context, deps resource.Dependenci
 	return nil
 }
 
-// CreateWheeledBase returns a new wheeled base defined by the given config.
-func CreateWheeledBase(
+// createWheeledBase returns a new wheeled base defined by the given config.
+func createWheeledBase(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
