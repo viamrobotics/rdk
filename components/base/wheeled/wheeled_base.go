@@ -136,26 +136,65 @@ func (wb *wheeledBase) Reconfigure(ctx context.Context, deps resource.Dependenci
 		newConf.SpinSlipFactor = 1
 	}
 
-	// Resetting the left motor list
-	wb.left = make([]motor.Motor, 0)
+	// Check if wb.left is different from newConf.Left before changing wb.left
+	if len(wb.left) != len(newConf.Left) {
+		// Resetting the left motor list
+		wb.left = make([]motor.Motor, 0)
 
-	for _, name := range newConf.Left {
-		m, err := motor.FromDependencies(deps, name)
-		if err != nil {
-			return errors.Wrapf(err, "no left motor named (%s)", name)
+		for _, name := range newConf.Left {
+			m, err := motor.FromDependencies(deps, name)
+			if err != nil {
+				return errors.Wrapf(err, "no left motor named (%s)", name)
+			}
+			wb.left = append(wb.left, m)
 		}
-		wb.left = append(wb.left, m)
+	} else {
+		// Compare each element of the slices
+		for i := range wb.left {
+			if wb.left[i].Name().String() != newConf.Left[i] {
+				// Resetting the left motor list
+				wb.left = make([]motor.Motor, 0)
+
+				for _, name := range newConf.Left {
+					m, err := motor.FromDependencies(deps, name)
+					if err != nil {
+						return errors.Wrapf(err, "no left motor named (%s)", name)
+					}
+					wb.left = append(wb.left, m)
+				}
+				break
+			}
+		}
 	}
 
-	// Resetting the right motor list
-	wb.right = make([]motor.Motor, 0)
+	if len(wb.right) != len(newConf.Right) {
+		// Resetting the left motor list
+		wb.right = make([]motor.Motor, 0)
 
-	for _, name := range newConf.Right {
-		m, err := motor.FromDependencies(deps, name)
-		if err != nil {
-			return errors.Wrapf(err, "no right motor named (%s)", name)
+		for _, name := range newConf.Right {
+			m, err := motor.FromDependencies(deps, name)
+			if err != nil {
+				return errors.Wrapf(err, "no right motor named (%s)", name)
+			}
+			wb.right = append(wb.right, m)
 		}
-		wb.right = append(wb.right, m)
+	} else {
+		// Compare each element of the slices
+		for i := range wb.right {
+			if wb.right[i].Name().String() != newConf.Right[i] {
+
+				wb.right = make([]motor.Motor, 0)
+
+				for _, name := range newConf.Right {
+					m, err := motor.FromDependencies(deps, name)
+					if err != nil {
+						return errors.Wrapf(err, "no right motor named (%s)", name)
+					}
+					wb.right = append(wb.right, m)
+				}
+				break
+			}
+		}
 	}
 
 	wb.allMotors = append(wb.allMotors, wb.left...)
