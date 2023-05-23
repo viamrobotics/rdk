@@ -298,9 +298,9 @@ func (imu *wit) parseWIT(line string) error {
 		if len(line) < 7 {
 			return fmt.Errorf("line is wrong for imu acceleration %d %v", len(line), line)
 		}
-		imu.acceleration.X = scale(line[1], line[2], 16) * 9806.65 // converts of mm_per_sec_per_sec in NYC
-		imu.acceleration.Y = scale(line[3], line[4], 16) * 9806.65
-		imu.acceleration.Z = scale(line[5], line[6], 16) * 9806.65
+		imu.acceleration.X = scale(line[1], line[2], 16) * 9.80665 // converts to m_per_sec_per_sec in NYC
+		imu.acceleration.Y = scale(line[3], line[4], 16) * 9.80665
+		imu.acceleration.Z = scale(line[5], line[6], 16) * 9.80665
 	}
 
 	if line[0] == 0x54 {
