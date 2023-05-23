@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -53,9 +54,22 @@ func (mDServer *mockDataServiceServer) BinaryDataByIDs(ctx context.Context, req 
 	}
 
 	// Construct response
+	fileNumStr := strings.TrimLeft(strings.TrimRight(fileID, ".pcd"), "slam/mock_lidar/")
+	fileNum, err := strconv.Atoi(fileNumStr)
+	if err != nil {
+		return nil, err
+	}
+	timeReq, timeRec, err := timestampsFromFileNum(fileNum)
+	if err != nil {
+		return nil, err
+	}
 	binaryData := datapb.BinaryData{
-		Binary:   data,
-		Metadata: &datapb.BinaryMetadata{Id: fileID},
+		Binary: data,
+		Metadata: &datapb.BinaryMetadata{
+			Id:            fileID,
+			TimeRequested: timeReq,
+			TimeReceived:  timeRec,
+		},
 	}
 	resp := &datapb.BinaryDataByIDsResponse{
 		Data: []*datapb.BinaryData{&binaryData},

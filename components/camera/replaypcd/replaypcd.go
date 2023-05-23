@@ -59,21 +59,14 @@ type TimeInterval struct {
 	End   string `json:"end,omitempty"`
 }
 
-// cacheEntries store data that was downloaded from a previous operation but has not yet been passed
+// cacheEntry stores data that was downloaded from a previous operation but has not yet been passed
 // to the caller.
 type cacheEntry struct {
+	id      string
 	pc      pointcloud.PointCloud
 	timeReq *timestamppb.Timestamp
 	timeRec *timestamppb.Timestamp
 	err     error
-}
-
-// cacheMapEntries are used when batching is desired by emplacing, in order, the id along with the location
-// where the data will be stored in the cache. Once the download has been completed, this link is removed
-// from the cacheMap.
-type cacheMapEntry struct {
-	id    string
-	index int
 }
 
 // Validate checks that the config attributes are valid for a replay camera.
@@ -129,8 +122,7 @@ type pcdCamera struct {
 	limit    uint64
 	filter   *datapb.Filter
 
-	cache    []cacheEntry
-	cacheMap []cacheMapEntry
+	cache []*cacheEntry
 
 	activeBackgroundWorkers sync.WaitGroup
 
@@ -143,7 +135,6 @@ func newPCDCamera(ctx context.Context, deps resource.Dependencies, conf resource
 	cam := &pcdCamera{
 		Named:  conf.ResourceName().AsNamed(),
 		logger: logger,
-		cache:  make([]cacheEntry, maxCacheSize),
 	}
 
 	if err := cam.Reconfigure(ctx, deps, conf); err != nil {
@@ -161,9 +152,9 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCl
 		return nil, errors.New("session closed")
 	}
 
-	// Retrieve next cached data and remove from cacheMap, if no data remains in the cacheMap, download a
+	// Retrieve next cached data and remove from cache, if no data remains in the cache, download a
 	// new batch
-	if len(replay.cacheMap) != 0 {
+	if len(replay.cache) != 0 {
 		return replay.getDataFromCache(ctx)
 	}
 
@@ -201,9 +192,10 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCl
 
 	// Otherwise if using a batch size greater than 1, use the metadata from BinaryDataByFilter
 	// to download data in parallel and cache the results
+	replay.cache = make([]*cacheEntry, replay.limit)
+
 	for i, dataResponse := range resp.Data {
-		cmEntry := cacheMapEntry{id: dataResponse.GetMetadata().Id, index: i}
-		replay.cacheMap = append(replay.cacheMap, cmEntry)
+		replay.cache[i] = &cacheEntry{id: dataResponse.GetMetadata().Id}
 	}
 	ctxTimeout, cancelTimeout := context.WithTimeout(ctx, downloadTimeout)
 	defer cancelTimeout()
@@ -224,34 +216,35 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCl
 
 }
 
-// downloadBatch iterates through the current cacheMap, performing the download of the respective data in
-// parallel using go routines and adds all of them to the cache before returning.
+// downloadBatch iterates through the current cache, performing the download of the respective data in
+// parallel and adds all of them to the cache before returning.
 func (replay *pcdCamera) downloadBatch(ctx context.Context) {
-	// Parallelize download of data based on ids in cacheMap
+	// Parallelize download of data based on ids in cache
 	var wg sync.WaitGroup
-	wg.Add(len(replay.cacheMap))
-	for _, cMap := range replay.cacheMap {
-		cMap := cMap
+	wg.Add(len(replay.cache))
+	for _, dataToCache := range replay.cache {
+		dataToCache := dataToCache
 
 		goutils.PanicCapturingGo(func() {
 			defer wg.Done()
 
 			var resp *datapb.BinaryDataByIDsResponse
-			resp, replay.cache[cMap.index].err = replay.dataClient.BinaryDataByIDs(ctx, &datapb.BinaryDataByIDsRequest{
-				FileIds:       []string{cMap.id},
+			resp, dataToCache.err = replay.dataClient.BinaryDataByIDs(ctx, &datapb.BinaryDataByIDsRequest{
+				FileIds:       []string{dataToCache.id},
 				IncludeBinary: true,
 			})
-			if replay.cache[cMap.index].err != nil {
+			if dataToCache.err != nil {
 				return
 			}
 
 			// Decode response data
-			replay.cache[cMap.index].pc, replay.cache[cMap.index].err = decodeResponseData(resp.GetData(), replay.logger)
+			dataToCache.pc, dataToCache.err = decodeResponseData(resp.GetData(), replay.logger)
 
-			if replay.cache[cMap.index].err == nil {
-				replay.cache[cMap.index].timeReq = resp.GetData()[0].GetMetadata().GetTimeRequested()
-				replay.cache[cMap.index].timeRec = resp.GetData()[0].GetMetadata().GetTimeReceived()
+			if dataToCache.err == nil {
+				dataToCache.timeReq = resp.GetData()[0].GetMetadata().GetTimeRequested()
+				dataToCache.timeRec = resp.GetData()[0].GetMetadata().GetTimeReceived()
 			}
+
 		})
 	}
 	wg.Wait()
@@ -259,14 +252,12 @@ func (replay *pcdCamera) downloadBatch(ctx context.Context) {
 
 // getDataFromCache retrieves the next cached data and removes it from the cache.
 func (replay *pcdCamera) getDataFromCache(ctx context.Context) (pointcloud.PointCloud, error) {
-	index := replay.cacheMap[0].index
-
-	// Grab the next cached data and update the cache map immediately, even if there's an error,
+	// Grab the next cached data and update the cache immediately, even if there's an error,
 	// so we don't get stuck in a loop checking for and returning the same error.
-	data := replay.cache[index]
-	replay.cacheMap = replay.cacheMap[1:]
+	data := replay.cache[0]
+	replay.cache = replay.cache[1:]
 	if data.err != nil {
-		return nil, errors.Wrapf(data.err, "cache data contained an error")
+		return nil, errors.Wrap(data.err, "cache data contained an error")
 	}
 
 	err := addGRPCMetadata(ctx, data.timeReq, data.timeRec)
@@ -362,6 +353,7 @@ func (replay *pcdCamera) Reconfigure(ctx context.Context, deps resource.Dependen
 	} else {
 		replay.limit = *replayCamConfig.BatchSize
 	}
+	replay.cache = nil
 
 	replay.filter = &datapb.Filter{
 		ComponentName: replayCamConfig.Source,
@@ -369,6 +361,7 @@ func (replay *pcdCamera) Reconfigure(ctx context.Context, deps resource.Dependen
 		MimeType:      []string{"pointcloud/pcd"},
 		Interval:      &datapb.CaptureInterval{},
 	}
+	replay.lastData = ""
 
 	if replayCamConfig.Interval.Start != "" {
 		startTime, err := time.Parse(timeFormat, replayCamConfig.Interval.Start)
@@ -387,6 +380,7 @@ func (replay *pcdCamera) Reconfigure(ctx context.Context, deps resource.Dependen
 		}
 		replay.filter.Interval.End = timestamppb.New(endTime)
 	}
+
 	return nil
 }
 
