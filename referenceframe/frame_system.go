@@ -564,8 +564,7 @@ func createFramesFromPart(part *FrameSystemPart) (Frame, Frame, error) {
 	if part.ModelFrame == nil {
 		modelFrame = NewZeroStaticFrame(part.FrameConfig.Name())
 	} else {
-		part.ModelFrame.ChangeName(part.FrameConfig.Name())
-		modelFrame = part.ModelFrame
+		modelFrame = NewNamedFrame(part.ModelFrame, part.FrameConfig.Name())
 	}
 	// staticOriginFrame defines a change in origin from the parent part.
 	// If it is empty, the new frame will have the same origin as the parent.

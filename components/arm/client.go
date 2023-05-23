@@ -6,6 +6,7 @@ import (
 	"errors"
 
 	"github.com/edaniels/golog"
+	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
 	robotpb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils/protoutils"
@@ -158,6 +159,30 @@ func (c *client) IsMoving(ctx context.Context) (bool, error) {
 		return false, err
 	}
 	return resp.IsMoving, nil
+}
+
+func (c *client) Geometries(ctx context.Context) ([]spatialmath.Geometry, error) {
+	resp, err := c.client.GetGeometries(ctx, &commonpb.GetGeometriesRequest{Name: c.name})
+	if err != nil {
+		return nil, err
+	}
+	geometries := make([]spatialmath.Geometry, 0, len(resp.Geometries))
+	for _, pbGeom := range resp.Geometries {
+		geom, err := spatialmath.NewGeometryFromProto(pbGeom)
+		if err != nil {
+			return nil, err
+		}
+		geometries = append(geometries, geom)
+	}
+	return geometries, nil
+}
+
+func (c *client) Kinematics(ctx context.Context) (commonpb.KinematicsFileFormat, []byte, error) {
+	resp, err := c.client.GetKinematics(ctx, &commonpb.GetKinematicsRequest{Name: c.name})
+	if err != nil {
+		return 0, nil, err
+	}
+	return resp.GetFormat(), resp.GetKinematicsData(), nil
 }
 
 func getModel(ctx context.Context, r robotpb.RobotServiceClient, name string) (referenceframe.Model, error) {

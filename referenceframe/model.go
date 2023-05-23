@@ -18,16 +18,10 @@ import (
 // errUnsupportedFileType is returned if we try to build a model from an inproper extension.
 var errUnsupportedFileType = errors.New("only files with .json and .urdf file extensions are supported")
 
-// ModelFramer has a method that returns the kinematics information needed to build a dynamic referenceframe.
-type ModelFramer interface {
-	ModelFrame() Model
-}
-
 // A Model represents a frame that can change its name, and can return itself as a ModelConfig struct.
 type Model interface {
 	Frame
 	ModelConfig() *ModelConfig
-	ChangeName(string)
 }
 
 // SimpleModel TODO.
@@ -60,11 +54,6 @@ func GenerateRandomConfiguration(m Model, randSeed *rand.Rand) []float64 {
 		jointPos = append(jointPos, newPos)
 	}
 	return jointPos
-}
-
-// ChangeName changes the name of this model - necessary for building frame systems.
-func (m *SimpleModel) ChangeName(name string) {
-	m.name = name
 }
 
 // ModelConfig returns the ModelConfig object used to create this model.

@@ -108,6 +108,36 @@ func (s *serviceServer) IsMoving(ctx context.Context, req *pb.IsMovingRequest) (
 	return &pb.IsMovingResponse{IsMoving: moving}, nil
 }
 
+// Geometries queries of a component is in motion.
+func (s *serviceServer) Geometries(ctx context.Context, req *commonpb.GetGeometriesRequest) (*commonpb.GetGeometriesResponse, error) {
+	arm, err := s.coll.Resource(req.GetName())
+	if err != nil {
+		return nil, err
+	}
+	geometries, err := arm.Geometries(ctx)
+	if err != nil {
+		return nil, err
+	}
+	pbGeoms := make([]*commonpb.Geometry, 0, len(geometries))
+	for _, geom := range geometries {
+		pbGeoms = append(pbGeoms, geom.ToProtobuf())
+	}
+	return &commonpb.GetGeometriesResponse{Geometries: pbGeoms}, nil
+}
+
+// Kinematics queries of a component is in motion.
+func (s *serviceServer) Kinematics(ctx context.Context, req *commonpb.GetKinematicsRequest) (*commonpb.GetKinematicsResponse, error) {
+	arm, err := s.coll.Resource(req.GetName())
+	if err != nil {
+		return nil, err
+	}
+	format, filedata, err := arm.Kinematics(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &commonpb.GetKinematicsResponse{Format: format, KinematicsData: filedata}, nil
+}
+
 // DoCommand receives arbitrary commands.
 func (s *serviceServer) DoCommand(ctx context.Context,
 	req *commonpb.DoCommandRequest,

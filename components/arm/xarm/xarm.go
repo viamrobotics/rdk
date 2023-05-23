@@ -12,9 +12,11 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 
+	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
 )
@@ -57,6 +59,7 @@ type xArm struct {
 	started  bool
 	opMgr    operation.SingleOperationManager
 	logger   golog.Logger
+	modelName string
 
 	mu    sync.RWMutex
 	conn  net.Conn
@@ -78,18 +81,27 @@ const (
 	ModelNameLite = "xArmLite" // ModelNameLite is the name of an xArmLite
 )
 
-// MakeModelFrame returns the kinematics model of the xarm arm, which has all Frame information.
-func MakeModelFrame(name, modelName string) (referenceframe.Model, error) {
+// embeddedKinematics maps the embedded kinematics files to the arm model names
+func embeddedKinematics(modelName string) ([]byte, error) {
 	switch modelName {
 	case ModelName6DOF:
-		return referenceframe.UnmarshalModelJSON(xArm6modeljson, name)
+		return xArm6modeljson, nil
 	case ModelNameLite:
-		return referenceframe.UnmarshalModelJSON(xArmLitemodeljson, name)
+		return xArmLitemodeljson, nil
 	case ModelName7DOF:
-		return referenceframe.UnmarshalModelJSON(xArm7modeljson, name)
+		return xArm7modeljson, nil
 	default:
 		return nil, fmt.Errorf("no kinematics information for xarm of model %s", modelName)
 	}
+}
+
+// MakeModelFrame returns the kinematics model of the xarm arm, which has all Frame information.
+func MakeModelFrame(name, modelName string) (referenceframe.Model, error) {
+	kinFile, err := embeddedKinematics(modelName)
+	if err != nil {
+		return nil, err
+	}
+	return referenceframe.UnmarshalModelJSON(kinFile, name)
 }
 
 func init() {
@@ -124,6 +136,7 @@ func NewxArm(ctx context.Context, conf resource.Config, logger golog.Logger, mod
 		model:   model,
 		started: false,
 		logger:  logger,
+		modelName: modelName,
 	}
 
 	if err := xA.Reconfigure(ctx, nil, conf); err != nil {
@@ -196,7 +209,22 @@ func (x *xArm) GoToInputs(ctx context.Context, goal []referenceframe.Input) erro
 	return x.MoveToJointPositions(ctx, positionDegs, nil)
 }
 
-// ModelFrame returns the dynamic frame of the model.
-func (x *xArm) ModelFrame() referenceframe.Model {
-	return x.model
+func (x *xArm) Kinematics(ctx context.Context) (commonpb.KinematicsFileFormat, []byte, error) {
+	bytes, err := embeddedKinematics(x.modelName)
+	if err != nil {
+		return 0, nil, err
+	}
+	return commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_SVA, bytes, nil
+}
+
+func (x *xArm) Geometries(ctx context.Context) ([]spatialmath.Geometry, error) {
+	inputs, err := x.CurrentInputs(ctx)
+	if err != nil {
+		return nil, err
+	}
+	gif, err := x.model.Geometries(inputs)
+	if err != nil {
+		return nil, err
+	}
+	return gif.Geometries(), nil
 }
