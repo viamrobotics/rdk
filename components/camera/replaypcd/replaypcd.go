@@ -209,7 +209,7 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCl
 	select {
 	case <-ch:
 	case <-ctxTimeout.Done():
-		return nil, errors.Errorf("context canceled after download deadline exceeded")
+		return nil, errors.New("context canceled after download deadline exceeded")
 	}
 
 	return replay.NextPointCloud(ctx)
