@@ -45,14 +45,14 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 	deps = append(deps, cfg.Motor)
 
 	if cfg.LengthMm <= 0 {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "length_mm")
+		err := utils.NewConfigValidationFieldRequiredError(path, "length_mm")
+		return nil, errors.Wrap(err, "length must be non-zero and positive")
 	}
 
 	if len(cfg.Board) == 0 && len(cfg.LimitSwitchPins) > 0 {
 		return nil, errors.New("gantries with limit_pins require a board to sense limit hits")
-	} else {
-		deps = append(deps, cfg.Board)
 	}
+	deps = append(deps, cfg.Board)
 
 	if len(cfg.LimitSwitchPins) == 1 && cfg.MmPerRevolution == 0 {
 		return nil, errors.New("the one-axis gantry has one limit switch axis, needs pulley radius to set position limits")
@@ -86,7 +86,7 @@ type oneAxis struct {
 	limitSwitchPins []string
 	limitHigh       bool
 	positionLimits  []float64
-	posRange        float64
+	positionRange   float64
 
 	lengthMm        float64
 	mmPerRevolution float64
@@ -161,7 +161,7 @@ func newOneAxis(ctx context.Context, deps resource.Dependencies, conf resource.C
 		return nil, err
 	}
 
-	oAx.posRange = oAx.positionLimits[1] - oAx.positionLimits[0]
+	oAx.positionRange = oAx.positionLimits[1] - oAx.positionLimits[0]
 
 	return oAx, nil
 }
@@ -210,7 +210,7 @@ func (g *oneAxis) homeTwoLimSwitch(ctx context.Context) error {
 	g.positionLimits = []float64{positionA, positionB}
 
 	// Go backwards so limit stops are not hit.
-	x := g.rotationalToLinear(0.8 * g.lengthMm)
+	x := g.gantryToMotorPosition(0.8 * g.lengthMm)
 	if err = g.motor.GoTo(ctx, g.rpm, x, nil); err != nil {
 		return err
 	}
@@ -229,6 +229,12 @@ func (g *oneAxis) homeOneLimSwitch(ctx context.Context) error {
 
 	g.positionLimits = []float64{positionA, positionB}
 
+	// Go backwards so limit stops are not hit.
+	x := g.gantryToMotorPosition(0.2 * g.lengthMm)
+	if err = g.motor.GoTo(ctx, g.rpm, x, nil); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -246,9 +252,9 @@ func (g *oneAxis) homeEncoder(ctx context.Context) error {
 	return nil
 }
 
-func (g *oneAxis) rotationalToLinear(positions float64) float64 {
+func (g *oneAxis) gantryToMotorPosition(positions float64) float64 {
 	x := positions / g.lengthMm
-	x = g.positionLimits[0] + (x * g.posRange)
+	x = g.positionLimits[0] + (x * g.positionRange)
 
 	return x
 }
@@ -316,7 +322,7 @@ func (g *oneAxis) Position(ctx context.Context, extra map[string]interface{}) ([
 		return []float64{}, err
 	}
 
-	x := g.lengthMm * ((pos - g.positionLimits[0]) / g.posRange)
+	x := g.lengthMm * ((pos - g.positionLimits[0]) / g.positionRange)
 
 	return []float64{x}, nil
 }
@@ -339,7 +345,7 @@ func (g *oneAxis) MoveToPosition(ctx context.Context, positions []float64, extra
 		return fmt.Errorf("out of range (%.2f) min: 0 max: %.2f", positions[0], g.lengthMm)
 	}
 
-	x := g.rotationalToLinear(positions[0])
+	x := g.gantryToMotorPosition(positions[0])
 	// Limit switch errors that stop the motors.
 	// Currently needs to be moved by underlying gantry motor.
 	if len(g.limitSwitchPins) > 0 {

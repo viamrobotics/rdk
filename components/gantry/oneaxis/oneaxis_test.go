@@ -33,11 +33,12 @@ func createFakeMotor() motor.Motor {
 		},
 		PositionFunc: func(ctx context.Context, extra map[string]interface{}) (float64, error) {
 			return float64(count + 1), nil
-		}, ResetZeroPositionFunc: func(ctx context.Context, offset float64, extra map[string]interface{}) error { return nil },
-		GoToFunc:     func(ctx context.Context, rpm, position float64, extra map[string]interface{}) error { return nil },
-		GoForFunc:    func(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error { return nil },
-		StopFunc:     func(ctx context.Context, extra map[string]interface{}) error { return nil },
-		SetPowerFunc: func(ctx context.Context, powerPct float64, extra map[string]interface{}) error { return nil },
+		},
+		ResetZeroPositionFunc: func(ctx context.Context, offset float64, extra map[string]interface{}) error { return nil },
+		GoToFunc:              func(ctx context.Context, rpm, position float64, extra map[string]interface{}) error { return nil },
+		GoForFunc:             func(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error { return nil },
+		StopFunc:              func(ctx context.Context, extra map[string]interface{}) error { return nil },
+		SetPowerFunc:          func(ctx context.Context, powerPct float64, extra map[string]interface{}) error { return nil },
 	}
 }
 
@@ -239,7 +240,7 @@ func TestHome(t *testing.T) {
 	fakegantry = &oneAxis{
 		motor: fakeMotor,
 	}
-	err = fakegantry.home(ctx, len(fakegantry.limitSwitchPins)
+	err = fakegantry.home(ctx, len(fakegantry.limitSwitchPins))
 	test.That(t, err, test.ShouldBeError, posErr)
 
 	fakegantry = &oneAxis{
@@ -475,7 +476,7 @@ func TestPosition(t *testing.T) {
 		},
 		board:           createFakeBoard(),
 		positionLimits:  []float64{0, 1},
-		posRange:        1.0,
+		positionRange:   1.0,
 		limitHigh:       true,
 		limitSwitchPins: []string{"1", "2"},
 		logger:          logger,
@@ -632,7 +633,7 @@ func TestCurrentInputs(t *testing.T) {
 		limitSwitchPins: []string{"1", "2"},
 		lengthMm:        float64(200),
 		positionLimits:  []float64{0, 2},
-		posRange:        2.0,
+		positionRange:   2.0,
 	}
 
 	input, err := fakegantry.CurrentInputs(ctx)
@@ -648,7 +649,7 @@ func TestCurrentInputs(t *testing.T) {
 		limitSwitchPins: []string{"1"},
 		lengthMm:        float64(200),
 		positionLimits:  []float64{0, 2},
-		posRange:        2.0,
+		positionRange:   2.0,
 	}
 
 	input, err = fakegantry.CurrentInputs(ctx)
