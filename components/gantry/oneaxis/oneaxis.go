@@ -1,4 +1,4 @@
-// Package oneaxis implements a one-axis gantry.
+// Package oneaxis implements a oneaxis gantry.
 package oneaxis
 
 import (
@@ -55,7 +55,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 	deps = append(deps, cfg.Board)
 
 	if len(cfg.LimitSwitchPins) == 1 && cfg.MmPerRevolution == 0 {
-		return nil, errors.New("the one-axis gantry has one limit switch axis, needs pulley radius to set position limits")
+		return nil, errors.New("the oneaxis gantry has one limit switch axis, needs pulley radius to set position limits")
 	}
 
 	if len(cfg.LimitSwitchPins) > 0 && cfg.LimitPinEnabled == nil {
@@ -173,14 +173,14 @@ func (g *oneAxis) home(ctx context.Context, np int) error {
 	// Mapping two limit switch motor0->limSw0,limSw1; motor1->limSw2,limSw3; motor2->limSw4,limSw5
 	switch np {
 	// An axis with one limit switch will go till it hits the limit switch, encode that position as the
-	// zero position of the one-axis, and adds a second position limit based on the steps per length.
+	// zero position of the oneaxis, and adds a second position limit based on the steps per length.
 	case 1:
 		if err := g.homeOneLimSwitch(ctx); err != nil {
 			return err
 		}
 	// An axis with two limit switches will go till it hits the first limit switch, encode that position as the
-	// zero position of the one-axis, then go till it hits the second limit switch, then encode that position as the
-	// at-length position of the one-axis.
+	// zero position of the oneaxis, then go till it hits the second limit switch, then encode that position as the
+	// at-length position of the oneaxis.
 	case 2:
 		if err := g.homeTwoLimSwitch(ctx); err != nil {
 			return err
