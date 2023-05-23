@@ -529,8 +529,12 @@ func TestNextPointCloudTimestamps(t *testing.T) {
 		test.That(t, serverClose(), test.ShouldBeNil)
 	}
 
-	cfg := &Config{Source: "source"}
-	testCameraWithCfg(cfg)
-	cfg = &Config{Source: "source", BatchSize: &batchSize2}
-	testCameraWithCfg(cfg)
+	t.Run("no batching", func(t *testing.T) {
+		cfg := &Config{Source: "source"}
+		testCameraWithCfg(cfg)
+	})
+	t.Run("with batching", func(t *testing.T) {
+		cfg := &Config{Source: "source", BatchSize: &batchSize2}
+		testCameraWithCfg(cfg)
+	})
 }

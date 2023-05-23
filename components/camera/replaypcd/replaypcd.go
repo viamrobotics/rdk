@@ -158,7 +158,7 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCl
 		return replay.getDataFromCache(ctx)
 	}
 
-	// Retrieve data from the cloud. If the batch size is one, only metadata is returned here, otherwise
+	// Retrieve data from the cloud. If the batch size is > 1, only metadata is returned here, otherwise
 	// IncludeBinary can be set to true and the data can be downloaded directly via BinaryDataByFilter
 	resp, err := replay.dataClient.BinaryDataByFilter(ctx, &datapb.BinaryDataByFilterRequest{
 		DataRequest: &datapb.DataRequest{
@@ -176,8 +176,8 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCl
 
 	replay.lastData = resp.GetLast()
 
-	// If using a batch size equal to 1, we already received the data itself, so decode and
-	// return the binary data directly
+	// If using a batch size of 1, we already received the data itself, so decode and return the
+	// binary data directly
 	if replay.limit == 1 {
 		pc, err := decodeResponseData(resp.GetData(), replay.logger)
 		if err != nil {
@@ -190,16 +190,16 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCl
 		return pc, nil
 	}
 
-	// Otherwise if using a batch size greater than 1, use the metadata from BinaryDataByFilter
-	// to download data in parallel and cache the results
+	// Otherwise if using a batch size > 1, use the metadata from BinaryDataByFilter to download
+	// data in parallel and cache the results
 	replay.cache = make([]*cacheEntry, replay.limit)
 
 	for i, dataResponse := range resp.Data {
 		replay.cache[i] = &cacheEntry{id: dataResponse.GetMetadata().Id}
 	}
+
 	ctxTimeout, cancelTimeout := context.WithTimeout(ctx, downloadTimeout)
 	defer cancelTimeout()
-
 	ch := make(chan struct{})
 	goutils.PanicCapturingGo(func() {
 		defer close(ch)
@@ -209,7 +209,7 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCl
 	select {
 	case <-ch:
 	case <-ctxTimeout.Done():
-		return nil, errors.New("context canceled")
+		return nil, errors.Errorf("context canceled after download deadline exceeded")
 	}
 
 	return replay.NextPointCloud(ctx)
@@ -238,7 +238,6 @@ func (replay *pcdCamera) downloadBatch(ctx context.Context) {
 
 			// Decode response data
 			dataToCache.pc, dataToCache.err = decodeResponseData(resp.GetData(), replay.logger)
-
 			if dataToCache.err == nil {
 				dataToCache.timeReq = resp.GetData()[0].GetMetadata().GetTimeRequested()
 				dataToCache.timeRec = resp.GetData()[0].GetMetadata().GetTimeReceived()
