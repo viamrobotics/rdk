@@ -161,8 +161,6 @@ func newOneAxis(ctx context.Context, deps resource.Dependencies, conf resource.C
 		return nil, err
 	}
 
-	oAx.positionRange = oAx.positionLimits[1] - oAx.positionLimits[0]
-
 	return oAx, nil
 }
 
@@ -208,6 +206,7 @@ func (g *oneAxis) homeTwoLimSwitch(ctx context.Context) error {
 	g.logger.Debugf("positionA: %0.2f positionB: %0.2f", positionA, positionB)
 
 	g.positionLimits = []float64{positionA, positionB}
+	g.positionRange = positionB - positionA
 
 	// Go backwards so limit stops are not hit.
 	x := g.gantryToMotorPosition(0.8 * g.lengthMm)
@@ -301,6 +300,8 @@ func (g *oneAxis) testLimit(ctx context.Context, zero bool) (float64, error) {
 	return g.motor.Position(ctx, nil)
 }
 
+// this function may need to be run in the background upon initialisation of the ganty,
+// also may need to use a digital intterupt pin instead of a gpio pin.
 func (g *oneAxis) limitHit(ctx context.Context, zero bool) (bool, error) {
 	offset := 0
 	if !zero {
