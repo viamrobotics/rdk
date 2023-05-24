@@ -10,7 +10,6 @@ import type { commonApi } from '@viamrobotics/sdk';
 import DestMarker from '@/lib/images/destination-marker.txt?raw';
 import BaseMarker from '@/lib/images/base-marker.txt?raw';
 import Legend from './2d-legend.vue';
-import Inspector from 'three-inspect'
 
 let points: THREE.Points | undefined;
 let pointsMaterial: THREE.PointsMaterial | undefined;
@@ -144,10 +143,11 @@ const updatePose = (newPose: commonApi.Pose) => {
   const x = newPose.getX();
   const y = newPose.getY();
   const z = newPose.getZ();
+
   baseMarker.position.set(x, y, z);
 
-  const theta = newPose.getTheta();
-  baseMarker.rotation.set(0, 0, theta);
+  const theta = THREE.MathUtils.degToRad(newPose.getTheta());
+  baseMarker.geometry.rotateZ(theta);
 };
 
 /*
