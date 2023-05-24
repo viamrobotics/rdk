@@ -19,6 +19,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/navigation"
+	"go.viam.com/rdk/spatialmath"
 )
 
 const (
@@ -41,12 +42,13 @@ func init() {
 
 // Config describes how to configure the service.
 type Config struct {
-	Store               navigation.StoreConfig `json:"store"`
-	BaseName            string                 `json:"base_name"`
-	MovementSensorName  string                 `json:"movement_sensor_name"`
-	MotionServiceName   string                 `json:"motion_service_name"`
-	DegPerSecDefault    float64                `json:"degs_per_sec"`
-	MetersPerSecDefault float64                `json:"meters_per_sec"`
+	Store               navigation.StoreConfig        `json:"store"`
+	BaseName            string                        `json:"base_name"`
+	MovementSensorName  string                        `json:"movement_sensor_name"`
+	MotionServiceName   string                        `json:"motion_service_name"`
+	DegPerSecDefault    float64                       `json:"degs_per_sec"`
+	MetersPerSecDefault float64                       `json:"meters_per_sec"`
+	Obstacles           spatialmath.GeoObstacleConfig `json:"obstacles,omitempty"`
 }
 
 // Validate creates the list of implicit dependencies.
@@ -97,6 +99,7 @@ type builtIn struct {
 	base           base.Base
 	movementSensor movementsensor.MovementSensor
 	motion         motion.Service
+	obstacles      []*spatialmath.GeoObstacle
 
 	metersPerSecDefault     float64
 	degPerSecDefault        float64
@@ -161,6 +164,12 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		spinSpeed = degPerSecDefault
 	}
 
+	// Parse obstacles from the passed in configuration
+	newObstacles, err := spatialmath.GeoObstaclesFromConfig(svcConfig.Obstacles)
+	if err != nil {
+		return err
+	}
+
 	svc.store = newStore
 	svc.storeType = string(svcConfig.Store.Type)
 	svc.base = base1
@@ -168,6 +177,7 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	svc.motion = motionSrv
 	svc.metersPerSecDefault = straightSpeed
 	svc.degPerSecDefault = spinSpeed
+	svc.obstacles = newObstacles
 
 	return nil
 }

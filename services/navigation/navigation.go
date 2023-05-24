@@ -12,6 +12,7 @@ import (
 
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/spatialmath"
 )
 
 func init() {
@@ -64,12 +65,13 @@ func FromRobot(r robot.Robot, name string) (Service, error) {
 
 // Config describes how to configure the service.
 type Config struct {
-	Store               StoreConfig `json:"store"`
-	BaseName            string      `json:"base_name"`
-	MovementSensorName  string      `json:"movement_sensor_name"`
-	MotionServiceName   string      `json:"motion_service_name"`
-	DegPerSecDefault    float64     `json:"degs_per_sec"`
-	MetersPerSecDefault float64     `json:"meters_per_sec"`
+	Store               StoreConfig                   `json:"store"`
+	BaseName            string                        `json:"base_name"`
+	MovementSensorName  string                        `json:"movement_sensor_name"`
+	MotionServiceName   string                        `json:"motion_service_name"`
+	DegPerSecDefault    float64                       `json:"degs_per_sec"`
+	MetersPerSecDefault float64                       `json:"meters_per_sec"`
+	Obstacles           spatialmath.GeoObstacleConfig `json:"obstacles,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
