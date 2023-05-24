@@ -14,6 +14,7 @@ const (
 	jetsonTX2NX    = "jetson_tx2_NX"
 	jetsonOrin     = "jetson_orin"
 	jetsonOrinNX   = "jetson_orin_nx"
+	jetsonOrinNano = "jetson_orin_nano"
 )
 
 var boardInfoMappings = map[string]genericlinux.BoardInformation{
@@ -435,4 +436,18 @@ var boardInfoMappings = map[string]genericlinux.BoardInformation{
 			"nvidia,p3509-0000+p3767-0000",
 		},
 	},
+}
+
+init() {
+	// The Orin Nano uses the exact same pin mapping as the Orin NX. We set that up here rather
+	// than copying and pasting those definitions.
+	boardInfoMappings[jetsonOrinNano] = genericlinux.PinDefinition{
+		boardInfoMappings[jetsonOrinNX].PinDefinitions,
+		[]string{
+			"nvidia,p3768-0000+p3767-0003",
+			"nvidia,p3768-0000+p3767-0005",
+			"nvidia,p3767-0003",
+			"nvidia,p3767-0005",
+		}
+	}
 }
