@@ -144,6 +144,9 @@ const updatePose = (newPose: commonApi.Pose) => {
   const y = newPose.getY();
   const z = newPose.getZ();
   baseMarker.position.set(x, y, z);
+
+  const theta = newPose.getTheta();
+  baseMarker.rotation.set(0, 0, theta);
 };
 
 /*
