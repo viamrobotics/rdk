@@ -109,8 +109,7 @@
         },
         {
             "name": "test_motion",
-            "type": "motion",
-            "attributes": {}
+            "type": "motion"
         },
         {
             "name": "test_navigation",
