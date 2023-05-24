@@ -38,7 +38,7 @@ import (
 var model = resource.DefaultModelFamily.WithModel("accel-adxl345")
 
 const (
-	deviceIdRegister     = 0
+	deviceIDRegister     = 0
 	expectedDeviceID     = 0xE5
 	powerControlRegister = 0x2D
 )
@@ -222,7 +222,7 @@ func NewAdxl345(
 
 	// To check that we're able to talk to the chip, we should be able to read register 0 and get
 	// back the device ID (0xE5).
-	deviceID, err := sensor.readByte(ctx, deviceIdRegister)
+	deviceID, err := sensor.readByte(ctx, deviceIDRegister)
 	if err != nil {
 		return nil, movementsensor.AddressReadError(err, address, newConf.I2cBus, newConf.BoardName)
 	}
