@@ -720,7 +720,6 @@ func TestManagerNewComponent(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	robotForRemote := &localRobot{
 		manager: newResourceManager(resourceManagerOptions{}, logger),
-		logger:  logger,
 		config:  cfg,
 	}
 	diff, err := config.DiffConfigs(config.Config{}, *cfg, true)

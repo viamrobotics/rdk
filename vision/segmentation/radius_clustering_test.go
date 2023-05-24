@@ -37,6 +37,7 @@ func TestRadiusClusteringValidate(t *testing.T) {
 
 // get a segmentation of a pointcloud and calculate each object's center.
 func TestPixelSegmentation(t *testing.T) {
+	t.Parallel()
 	logger := golog.NewTestLogger(t)
 	injectCamera := &inject.Camera{}
 	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {

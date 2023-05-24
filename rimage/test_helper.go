@@ -163,8 +163,18 @@ type MultipleImageTestDebuggerProcessor interface {
 	) error
 }
 
+const debugTestEnvVar = "VIAM_DEBUG"
+
+func checkSkipDebugTest(t *testing.T) {
+	t.Helper()
+	if os.Getenv(debugTestEnvVar) == "" {
+		t.Skipf("set environment variable %q to run this test", debugTestEnvVar)
+	}
+}
+
 // NewMultipleImageTestDebugger TODO.
 func NewMultipleImageTestDebugger(t *testing.T, prefixOne, glob, prefixTwo string) *MultipleImageTestDebugger {
+	checkSkipDebugTest(t)
 	t.Helper()
 	d := MultipleImageTestDebugger{logger: golog.NewTestLogger(t)}
 	d.glob = glob

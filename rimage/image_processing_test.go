@@ -13,10 +13,12 @@ import (
 )
 
 func TestCanny1(t *testing.T) {
+	t.Parallel()
 	doCannyTest(t, "canny1")
 }
 
 func TestCanny2(t *testing.T) {
+	t.Parallel()
 	doCannyTest(t, "canny2")
 }
 
@@ -78,6 +80,7 @@ func doCannyTest(t *testing.T, root string) {
 }
 
 func TestCloneImage(t *testing.T) {
+	t.Parallel()
 	img, err := readImageFromFile(artifact.MustPath("rimage/canny1.png"))
 	test.That(t, err, test.ShouldBeNil)
 
@@ -224,9 +227,7 @@ func TestCannyBlocks(t *testing.T) {
 		magDataInt[idx] = NewColor(uint8(math.Round(magData[idx])), uint8(math.Round(magData[idx])), uint8(math.Round(magData[idx])))
 	}
 	magOut := Image{
-		data:   magDataInt,
-		width:  gtGrad.Width(),
-		height: gtGrad.Height(),
+		data: magDataInt,
 	}
 
 	// NMS
@@ -237,9 +238,7 @@ func TestCannyBlocks(t *testing.T) {
 		nmsDataInt[idx] = NewColor(uint8(math.Round(nmsData[idx])), uint8(math.Round(nmsData[idx])), uint8(math.Round(nmsData[idx])))
 	}
 	nmsOut := Image{
-		data:   nmsDataInt,
-		width:  gtGrad.Width(),
-		height: gtGrad.Height(),
+		data: nmsDataInt,
 	}
 
 	// run tests
