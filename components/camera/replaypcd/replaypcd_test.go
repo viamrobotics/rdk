@@ -12,6 +12,7 @@ import (
 	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/internal/cloud"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/utils/contextutils"
 )
@@ -78,7 +79,7 @@ func TestNewReplayPCD(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.description, func(t *testing.T) {
-			replayCamera, serverClose, err := createNewReplayPCDCamera(ctx, t, tt.cfg, tt.validCloudConnection)
+			replayCamera, _, serverClose, err := createNewReplayPCDCamera(ctx, t, tt.cfg, tt.validCloudConnection)
 			if err != nil {
 				test.That(t, err, test.ShouldBeError, tt.expectedErr)
 				test.That(t, replayCamera, test.ShouldBeNil)
@@ -243,7 +244,7 @@ func TestNextPointCloud(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.description, func(t *testing.T) {
-			replayCamera, serverClose, err := createNewReplayPCDCamera(ctx, t, tt.cfg, true)
+			replayCamera, _, serverClose, err := createNewReplayPCDCamera(ctx, t, tt.cfg, true)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, replayCamera, test.ShouldNotBeNil)
 
@@ -291,7 +292,7 @@ func TestLiveNextPointCloud(t *testing.T) {
 		Source: "source",
 	}
 
-	replayCamera, serverClose, err := createNewReplayPCDCamera(ctx, t, cfg, true)
+	replayCamera, _, serverClose, err := createNewReplayPCDCamera(ctx, t, cfg, true)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, replayCamera, test.ShouldNotBeNil)
 
@@ -473,7 +474,7 @@ func TestUnimplementedFunctions(t *testing.T) {
 	ctx := context.Background()
 
 	replayCamCfg := &Config{Source: "source"}
-	replayCamera, serverClose, err := createNewReplayPCDCamera(ctx, t, replayCamCfg, true)
+	replayCamera, _, serverClose, err := createNewReplayPCDCamera(ctx, t, replayCamCfg, true)
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("Stream", func(t *testing.T) {
@@ -503,7 +504,7 @@ func TestNextPointCloudTimestamps(t *testing.T) {
 	testCameraWithCfg := func(cfg *Config) {
 		// Construct replay camera.
 		ctx := context.Background()
-		replayCamera, serverClose, err := createNewReplayPCDCamera(ctx, t, cfg, true)
+		replayCamera, _, serverClose, err := createNewReplayPCDCamera(ctx, t, cfg, true)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, replayCamera, test.ShouldNotBeNil)
 
@@ -547,4 +548,61 @@ func TestNextPointCloudTimestamps(t *testing.T) {
 		cfg := &Config{Source: "source", BatchSize: &batchSize2}
 		testCameraWithCfg(cfg)
 	})
+}
+
+func TestReconfigure(t *testing.T) {
+	// Construct replay camera
+	cfg := &Config{Source: "source"}
+	ctx := context.Background()
+	replayCamera, deps, serverClose, err := createNewReplayPCDCamera(ctx, t, cfg, true)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, replayCamera, test.ShouldNotBeNil)
+
+	// Call NextPointCloud to iterate through a few files
+	for i := 0; i < 3; i++ {
+		pc, err := replayCamera.NextPointCloud(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		pcExpected, err := getPointCloudFromArtifact(i)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, pc, test.ShouldResemble, pcExpected)
+	}
+
+	// Reconfigure with a new batch size
+	cfg = &Config{Source: "source", BatchSize: &batchSize4}
+	replayCamera.Reconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
+
+	// Call NextPointCloud a couple more times, ensuring that we start over from the beginning
+	// of the dataset after calling Reconfigure
+	for i := 0; i < 5; i++ {
+		pc, err := replayCamera.NextPointCloud(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		pcExpected, err := getPointCloudFromArtifact(i)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, pc, test.ShouldResemble, pcExpected)
+	}
+
+	// Reconfigure again, batch size 1
+	cfg = &Config{Source: "source", BatchSize: &batchSize1}
+	replayCamera.Reconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
+
+	// Again verify dataset starts from beginning
+	for i := 0; i < numPCDFiles; i++ {
+		pc, err := replayCamera.NextPointCloud(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		pcExpected, err := getPointCloudFromArtifact(i)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, pc, test.ShouldResemble, pcExpected)
+	}
+
+	// Confirm the end of the dataset was reached when expected
+	pc, err := replayCamera.NextPointCloud(ctx)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, errEndOfDataset.Error())
+	test.That(t, pc, test.ShouldBeNil)
+
+	err = replayCamera.Close(ctx)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, serverClose(), test.ShouldBeNil)
+
 }

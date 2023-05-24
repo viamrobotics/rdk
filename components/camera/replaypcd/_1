@@ -1,0 +1,40 @@
+=== RUN   TestNextPointCloud
+=== RUN   TestNextPointCloud/Calling_NextPointCloud_with_non-divisible_batch_size,_last_batch_size_1
+    logger.go:130: 2023-05-24T11:52:18.616-0400	DEBUG	rpc/server.go:413	auth audience unset; using instance names instead	{"auth_audience": ["6cafb5c2-fa3e-4402-a801-4a9b227e23ff"]}
+    logger.go:130: 2023-05-24T11:52:18.616-0400	DEBUG	rpc/server.go:418	auth issuer unset; using first auth audience member instead	{"auth_issuer": "6cafb5c2-fa3e-4402-a801-4a9b227e23ff"}
+    logger.go:130: 2023-05-24T11:52:18.617-0400	DEBUG	webrtc	rpc/wrtc_client.go:109	connecting to signaling server	{"signaling_server": "127.0.0.1:50885", "host": "127.0.0.1:50885"}
+    logger.go:130: 2023-05-24T11:52:18.618-0400	WARN	webrtc	rpc/dialer.go:250	downgrading from TLS to plaintext	{"address": "127.0.0.1:50885", "with_credentials": false}
+    logger.go:130: 2023-05-24T11:52:18.618-0400	DEBUG	webrtc	rpc/wrtc_client.go:155	connected to signaling server	{"signaling_server": "127.0.0.1:50885"}
+    logger.go:130: 2023-05-24T11:52:18.620-0400	WARN	rpc/dialer.go:250	downgrading from TLS to plaintext	{"address": "127.0.0.1:50885", "with_credentials": false}
+    logger.go:130: 2023-05-24T11:52:18.621-0400	DEBUG	rpc/dial.go:189	connected via gRPC	{"address": "127.0.0.1:50885"}
+    logger.go:130: 2023-05-24T11:52:18.834-0400	ERROR	zap/options.go:212	finished unary call with code Unknown	{"grpc.start_time": "2023-05-24T11:52:18-04:00", "grpc.request.deadline": "2023-05-24T11:52:48-04:00", "system": "grpc", "span.kind": "server", "grpc.service": "viam.app.data.v1.DataService", "grpc.method": "BinaryDataByIDs", "error": "rpc error: code = Unknown desc = reached end of dataset", "grpc.code": "Unknown", "grpc.time_ms": 1.348}
+    logger.go:130: 2023-05-24T11:52:18.839-0400	INFO	rpc/server.go:769	stopping
+    logger.go:130: 2023-05-24T11:52:18.839-0400	DEBUG	rpc/server.go:781	stopping gRPC server
+    logger.go:130: 2023-05-24T11:52:18.839-0400	DEBUG	rpc/server.go:783	canceling service servers for gateway
+    logger.go:130: 2023-05-24T11:52:18.839-0400	DEBUG	rpc/server.go:787	service servers for gateway canceled
+    logger.go:130: 2023-05-24T11:52:18.839-0400	DEBUG	rpc/server.go:796	shutting down HTTP server
+    logger.go:130: 2023-05-24T11:52:18.840-0400	DEBUG	rpc/server.go:798	HTTP server shut down
+    logger.go:130: 2023-05-24T11:52:18.840-0400	INFO	rpc/server.go:800	stopped cleanly
+=== RUN   TestNextPointCloud/Calling_NextPointCloud_with_non-divisible_batch_size,_last_batch_>_1
+    logger.go:130: 2023-05-24T11:52:18.840-0400	DEBUG	rpc/server.go:413	auth audience unset; using instance names instead	{"auth_audience": ["59a7bb5b-70e5-402a-8524-1f55e0d181c1"]}
+    logger.go:130: 2023-05-24T11:52:18.840-0400	DEBUG	rpc/server.go:418	auth issuer unset; using first auth audience member instead	{"auth_issuer": "59a7bb5b-70e5-402a-8524-1f55e0d181c1"}
+    logger.go:130: 2023-05-24T11:52:18.841-0400	DEBUG	webrtc	rpc/wrtc_client.go:109	connecting to signaling server	{"signaling_server": "127.0.0.1:50894", "host": "127.0.0.1:50894"}
+    logger.go:130: 2023-05-24T11:52:18.841-0400	WARN	webrtc	rpc/dialer.go:250	downgrading from TLS to plaintext	{"address": "127.0.0.1:50894", "with_credentials": false}
+    logger.go:130: 2023-05-24T11:52:18.841-0400	DEBUG	webrtc	rpc/wrtc_client.go:155	connected to signaling server	{"signaling_server": "127.0.0.1:50894"}
+    logger.go:130: 2023-05-24T11:52:18.842-0400	WARN	rpc/dialer.go:250	downgrading from TLS to plaintext	{"address": "127.0.0.1:50894", "with_credentials": false}
+    logger.go:130: 2023-05-24T11:52:18.842-0400	DEBUG	rpc/dial.go:189	connected via gRPC	{"address": "127.0.0.1:50894"}
+    logger.go:130: 2023-05-24T11:52:18.900-0400	ERROR	zap/options.go:212	finished unary call with code Unknown	{"grpc.start_time": "2023-05-24T11:52:18-04:00", "grpc.request.deadline": "2023-05-24T11:52:48-04:00", "system": "grpc", "span.kind": "server", "grpc.service": "viam.app.data.v1.DataService", "grpc.method": "BinaryDataByIDs", "error": "rpc error: code = Unknown desc = reached end of dataset", "grpc.code": "Unknown", "grpc.time_ms": 1.276}
+    logger.go:130: 2023-05-24T11:52:18.912-0400	INFO	rpc/server.go:769	stopping
+    logger.go:130: 2023-05-24T11:52:18.912-0400	DEBUG	rpc/server.go:781	stopping gRPC server
+    logger.go:130: 2023-05-24T11:52:18.912-0400	DEBUG	rpc/server.go:783	canceling service servers for gateway
+    logger.go:130: 2023-05-24T11:52:18.912-0400	DEBUG	rpc/server.go:787	service servers for gateway canceled
+    logger.go:130: 2023-05-24T11:52:18.912-0400	DEBUG	rpc/server.go:796	shutting down HTTP server
+    logger.go:130: 2023-05-24T11:52:18.912-0400	DEBUG	rpc/server.go:798	HTTP server shut down
+    logger.go:130: 2023-05-24T11:52:18.912-0400	INFO	rpc/server.go:800	stopped cleanly
+--- PASS: TestNextPointCloud (0.30s)
+    --- PASS: TestNextPointCloud/Calling_NextPointCloud_with_non-divisible_batch_size,_last_batch_size_1 (0.23s)
+    --- PASS: TestNextPointCloud/Calling_NextPointCloud_with_non-divisible_batch_size,_last_batch_>_1 (0.07s)
+=== RUN   TestNextPointCloudTimestamps
+--- PASS: TestNextPointCloudTimestamps (0.00s)
+PASS
+ok  	go.viam.com/rdk/components/camera/replaypcd	2.090s

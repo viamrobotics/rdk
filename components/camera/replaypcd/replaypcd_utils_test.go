@@ -189,7 +189,7 @@ func createMockCloudDependencies(ctx context.Context, t *testing.T, logger golog
 // createNewReplayPCDCamera will create a new replay_pcd camera based on the provided config with either
 // a valid or invalid data client.
 func createNewReplayPCDCamera(ctx context.Context, t *testing.T, replayCamCfg *Config, validDeps bool,
-) (camera.Camera, func() error, error) {
+) (camera.Camera, resource.Dependencies, func() error, error) {
 	logger := golog.NewTestLogger(t)
 
 	resources, closeRPCFunc := createMockCloudDependencies(ctx, t, logger, validDeps)
@@ -197,7 +197,7 @@ func createNewReplayPCDCamera(ctx context.Context, t *testing.T, replayCamCfg *C
 	cfg := resource.Config{ConvertedAttributes: replayCamCfg}
 	cam, err := newPCDCamera(ctx, resources, cfg, logger)
 
-	return cam, closeRPCFunc, err
+	return cam, resources, closeRPCFunc, err
 }
 
 // resourcesFromDeps returns a list of dependencies from the provided robot.
