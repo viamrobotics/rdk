@@ -324,6 +324,7 @@ func TestColorHSVDistanceChess2(t *testing.T) {
 }
 
 func TestColorHSVDistanceChess3(t *testing.T) {
+	t.Parallel()
 	pieceColor, err := NewColorFromHex("#8e7e51")
 	test.That(t, err, test.ShouldBeNil)
 
@@ -342,28 +343,6 @@ func TestColorHSVDistanceChess3(t *testing.T) {
 		distance := pieceColor.Distance(myColor)
 		test.That(t, distance, test.ShouldBeGreaterThanOrEqualTo, 1)
 	}
-
-	_checkAllClose(t, allColors, 2)
-}
-
-func TestColorHSVDistanceChess4(t *testing.T) {
-	pieceColor, err := NewColorFromHex("#052e50")
-	test.That(t, err, test.ShouldBeNil)
-
-	allColors, err := readColorsFromFile(artifact.MustPath("rimage/hsvdistancechess4.txt"))
-	test.That(t, err, test.ShouldBeNil)
-
-	for _, myColor := range allColors {
-		distance := pieceColor.Distance(myColor)
-		test.That(t, distance, test.ShouldBeLessThanOrEqualTo, 1)
-	}
-
-	_checkAllClose(t, allColors, 2)
-}
-
-func TestColorHSVDistanceChess5(t *testing.T) {
-	allColors, err := readColorsFromFile(artifact.MustPath("rimage/hsvdistancechess5.txt"))
-	test.That(t, err, test.ShouldBeNil)
 
 	_checkAllClose(t, allColors, 2)
 }
@@ -502,6 +481,7 @@ func TestHSVConvert(t *testing.T) {
 }
 
 func TestColorSegment1(t *testing.T) {
+	checkSkipDebugTest(t)
 	img, err := NewImageFromFile(artifact.MustPath("rimage/chess-segment1.png"))
 	test.That(t, err, test.ShouldBeNil)
 

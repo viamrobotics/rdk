@@ -3,7 +3,6 @@ package segmentation_test
 import (
 	"context"
 	"image"
-	"os"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -16,8 +15,6 @@ import (
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision/segmentation"
 )
-
-const debugObjSeg = "VIAM_DEBUG"
 
 var (
 	gripperComboParamsPath = utils.ResolveFile("vision/segmentation/data/gripper_combo_parameters.json")
@@ -85,10 +82,6 @@ func (h *segmentObjectTestHelper) Process(
 }
 
 func TestObjectSegmentationAlignedIntel(t *testing.T) {
-	objSegTest := os.Getenv(debugObjSeg)
-	if objSegTest == "" {
-		t.Skipf("set environmental variable %q to run this test", debugObjSeg)
-	}
 	d := rimage.NewMultipleImageTestDebugger(t, "segmentation/aligned_intel/color", "*.png", "segmentation/aligned_intel/depth")
 	aligner, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(intel515ParamsPath)
 	test.That(t, err, test.ShouldBeNil)
@@ -163,10 +156,6 @@ func (h *gripperSegmentTestHelper) Process(
 }
 
 func TestGripperObjectSegmentation(t *testing.T) {
-	objSegTest := os.Getenv(debugObjSeg)
-	if objSegTest == "" {
-		t.Skipf("set environmental variable %v to run this test", debugObjSeg)
-	}
 	d := rimage.NewMultipleImageTestDebugger(t, "segmentation/gripper/color", "*.png", "segmentation/gripper/depth")
 	camera, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(gripperComboParamsPath)
 	test.That(t, err, test.ShouldBeNil)
