@@ -51,7 +51,8 @@ func (conf *Config) Validate(path string) ([]string, error) {
 		return nil, errors.New("serial address must be between 128 and 135")
 	}
 
-	if conf.SerialBaud != 2400 && conf.SerialBaud != 9600 && conf.SerialBaud != 19200 && conf.SerialBaud != 38400 && conf.SerialBaud != 115200 {
+	if conf.SerialBaud != 2400 && conf.SerialBaud != 9600 && conf.SerialBaud != 19200 &&
+		conf.SerialBaud != 38400 && conf.SerialBaud != 115200 {
 		return nil, errors.New("invalid baud_rate, acceptable values are 2400, 9600, 19200, 38400, 115200")
 	}
 	return nil, nil
@@ -98,7 +99,7 @@ func getOrCreateConnection(config *Config) (*roboclaw.Roboclaw, error) {
 		return newConn, nil
 	}
 	if baudRates[connection] != config.SerialBaud {
-		return nil, errors.New("cannot have multiple roboclaw motors with different baud")
+		return nil, errors.New("cannot have multiple roboclaw motors with different baud rates")
 	}
 	return connection, nil
 }
@@ -126,16 +127,14 @@ func newRoboClaw(conf resource.Config, logger golog.Logger) (motor.Motor, error)
 		return nil, err
 	}
 
-	motor := &roboclawMotor{
+	return &roboclawMotor{
 		Named:  conf.ResourceName().AsNamed(),
 		conn:   c,
 		conf:   motorConfig,
 		addr:   uint8(motorConfig.Address),
 		logger: logger,
 		maxRPM: maxRPM,
-	}
-
-	return motor, nil
+	}, nil
 }
 
 type roboclawMotor struct {
@@ -196,14 +195,13 @@ func (m *roboclawMotor) GoFor(ctx context.Context, rpm, revolutions float64, ext
 		return motor.NewZeroRPMError()
 	}
 
-	if rpm > maxRPM {
-		rpm = maxRPM
-	} else if rpm < -1*maxRPM {
-		rpm = -1 * maxRPM
-	}
-
 	// If no encoders present, distance traveled is estimated based on max RPM.
 	if m.conf.TicksPerRotation == 0 {
+		if rpm > maxRPM {
+			rpm = maxRPM
+		} else if rpm < -1*maxRPM {
+			rpm = -1 * maxRPM
+		}
 		powerPct, waitDur := goForMath(rpm, revolutions)
 		m.logger.Info("distance traveled is a time based estimation with max RPM 200. For increased accuracy, connect encoders")
 		err := m.SetPower(ctx, powerPct, extra)
@@ -241,7 +239,6 @@ func (m *roboclawMotor) GoFor(ctx context.Context, rpm, revolutions float64, ext
 }
 
 func (m *roboclawMotor) GoTo(ctx context.Context, rpm, positionRevolutions float64, extra map[string]interface{}) error {
-
 	if m.conf.TicksPerRotation == 0 {
 		return errors.New("roboclaw needs an encoder connected to use GoTo")
 	}
