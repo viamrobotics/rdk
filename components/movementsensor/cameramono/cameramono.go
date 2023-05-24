@@ -138,7 +138,6 @@ func newCameraMono(
 		return nil, err
 	}
 
-	ctx := context.Background()
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 
 	co := &cameramono{
