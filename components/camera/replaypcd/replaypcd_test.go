@@ -23,6 +23,7 @@ var (
 	batchSize1        = uint64(1)
 	batchSize2        = uint64(2)
 	batchSize3        = uint64(3)
+	batchSize4        = uint64(4)
 	batchSizeLarge    = uint64(50)
 	batchSizeTooLarge = uint64(1000)
 )
@@ -190,10 +191,19 @@ func TestNextPointCloud(t *testing.T) {
 			endFileNum:   10,
 		},
 		{
-			description: "Calling NextPointCloud with non-divisible batch size",
+			description: "Calling NextPointCloud with non-divisible batch size, last batch size 1",
 			cfg: &Config{
 				Source:    "source",
 				BatchSize: &batchSize2,
+			},
+			startFileNum: 0,
+			endFileNum:   numPCDFiles,
+		},
+		{
+			description: "Calling NextPointCloud with non-divisible batch size, last batch > 1",
+			cfg: &Config{
+				Source:    "source",
+				BatchSize: &batchSize4,
 			},
 			startFileNum: 0,
 			endFileNum:   numPCDFiles,

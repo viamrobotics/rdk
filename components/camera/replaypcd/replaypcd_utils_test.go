@@ -118,6 +118,10 @@ func (mDServer *mockDataServiceServer) BinaryDataByFilter(ctx context.Context, r
 		resp.Last = fmt.Sprint(newFileNum)
 	} else {
 		for i := 0; i < int(limit); i++ {
+			if newFileNum+i >= numPCDFiles {
+				break
+			}
+
 			timeReq, timeRec, err := timestampsFromFileNum(newFileNum + i)
 			if err != nil {
 				return nil, err
