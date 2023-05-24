@@ -7,9 +7,6 @@ package adxl345
 	The datasheet for this chip is available at:
 	https://www.analog.com/media/en/technical-documentation/data-sheets/adxl345.pdf
 
-	We support reading the accelerometer data off of the chip. We do not yet support using the
-	digital interrupt pins to notify on events (freefall, collision, etc.).
-
 	Because we only support I2C interaction, the CS pin must be wired to hot (which tells the chip
 	which communication interface to use). The chip has two possible I2C addresses, which can be
 	selected by wiring the SDO pin to either hot or ground:
@@ -41,7 +38,7 @@ import (
 var model = resource.DefaultModelFamily.WithModel("accel-adxl345")
 
 const (
-	defaultRegister      = 0
+	deviceIdRegister     = 0
 	expectedDeviceID     = 0xE5
 	powerControlRegister = 0x2D
 )
@@ -225,7 +222,7 @@ func NewAdxl345(
 
 	// To check that we're able to talk to the chip, we should be able to read register 0 and get
 	// back the device ID (0xE5).
-	deviceID, err := sensor.readByte(ctx, defaultRegister)
+	deviceID, err := sensor.readByte(ctx, deviceIdRegister)
 	if err != nil {
 		return nil, movementsensor.AddressReadError(err, address, newConf.I2cBus, newConf.BoardName)
 	}

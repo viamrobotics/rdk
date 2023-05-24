@@ -122,7 +122,7 @@ func TestInitializationFailureOnChipCommunication(t *testing.T) {
 		i2cHandle := &inject.I2CHandle{}
 		readErr := errors.New("read error")
 		i2cHandle.ReadBlockDataFunc = func(ctx context.Context, register byte, numBytes uint8) ([]byte, error) {
-			if register == defaultRegister {
+			if register == deviceIdRegister {
 				return nil, readErr
 			}
 			return []byte{}, nil
