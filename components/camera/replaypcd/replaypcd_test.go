@@ -604,5 +604,4 @@ func TestReconfigure(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, serverClose(), test.ShouldBeNil)
-
 }
