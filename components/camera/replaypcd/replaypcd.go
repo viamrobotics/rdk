@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"math"
 	"sync"
 	"time"
 
@@ -174,6 +175,9 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCl
 		return nil, err
 	}
 
+	if len(resp.GetData()) == 0 {
+		return nil, errEndOfDataset
+	}
 	replay.lastData = resp.GetLast()
 
 	// If using a batch size of 1, we already received the data itself, so decode and return the
@@ -192,7 +196,8 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCl
 
 	// Otherwise if using a batch size > 1, use the metadata from BinaryDataByFilter to download
 	// data in parallel and cache the results
-	replay.cache = make([]*cacheEntry, replay.limit)
+	replay.cache = make([]*cacheEntry, int(math.Min(float64(replay.limit), float64(len(resp.Data)))))
+
 	for i, dataResponse := range resp.Data {
 		replay.cache[i] = &cacheEntry{id: dataResponse.GetMetadata().Id}
 	}
@@ -411,7 +416,7 @@ func (replay *pcdCamera) initCloudConnection(ctx context.Context) error {
 func decodeResponseData(respData []*datapb.BinaryData, logger golog.Logger) (pointcloud.PointCloud, error) {
 	// If no data is returned, return an error indicating we've reached the end of the dataset.
 	if len(respData) == 0 {
-		return nil, errEndOfDataset
+		return nil, errors.New("no response data; this should never happen")
 	}
 
 	r, err := gzip.NewReader(bytes.NewBuffer(respData[0].GetBinary()))
