@@ -4,13 +4,13 @@ package roboclaw
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math"
 	"time"
 
 	"github.com/CPRT/roboclaw"
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
 	utils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/motor"
@@ -18,7 +18,11 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-var model = resource.DefaultModelFamily.WithModel("roboclaw")
+var (
+	model       = resource.DefaultModelFamily.WithModel("roboclaw")
+	connections map[string]*roboclaw.Roboclaw
+	baudRates   map[*roboclaw.Roboclaw]int
+)
 
 const maxRPM = 200
 
@@ -43,7 +47,13 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	if conf.SerialBaud <= 0 {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "serial_baud_rate")
 	}
+	if conf.Address != 0 && (conf.Address < 128 || conf.Address > 135) {
+		return nil, errors.New("serial address must be between 128 and 135")
+	}
 
+	if conf.SerialBaud != 2400 && conf.SerialBaud != 9600 && conf.SerialBaud != 19200 && conf.SerialBaud != 38400 && conf.SerialBaud != 115200 {
+		return nil, errors.New("invalid baud_rate, acceptable values are 2400, 9600, 19200, 38400, 115200")
+	}
 	return nil, nil
 }
 
@@ -52,6 +62,8 @@ func (conf *Config) wrongNumberError() error {
 }
 
 func init() {
+	connections = make(map[string]*roboclaw.Roboclaw)
+	baudRates = make(map[*roboclaw.Roboclaw]int)
 	resource.RegisterComponent(
 		motor.API,
 		model,
@@ -62,37 +74,36 @@ func init() {
 				conf resource.Config,
 				logger golog.Logger,
 			) (motor.Motor, error) {
-				return newRoboClaw(deps, conf, logger)
+				return newRoboClaw(conf, logger)
 			},
 		},
 	)
 }
 
-func getOrCreateConnection(deps resource.Dependencies, config *Config) (*roboclaw.Roboclaw, error) {
-	// Check if a dependent component hs a roboclaw motor with the same serial config. This allows
+func getOrCreateConnection(config *Config) (*roboclaw.Roboclaw, error) {
+	// Check if there is already a roboclaw motor connection with the same serial config. This allows
 	// multiple motors to share the same controller without stepping on each other.
-	for _, res := range deps {
-		m, ok := res.(*roboclawMotor)
-		if !ok {
-			continue
+	connection, ok := connections[config.SerialPath]
+	if !ok {
+		c := &roboclaw.Config{Name: config.SerialPath, Retries: 3}
+		if config.SerialBaud > 0 {
+			c.Baud = config.SerialBaud
 		}
-		if m.conf.SerialPath != config.SerialPath {
-			continue
+		newConn, err := roboclaw.Init(c)
+		if err != nil {
+			return nil, err
 		}
-		if m.conf.SerialBaud != config.SerialBaud {
-			return nil, errors.New("cannot have multiple roboclaw motors with different baud")
-		}
-		return m.conn, nil
+		connections[config.SerialPath] = newConn
+		baudRates[newConn] = config.SerialBaud
+		return newConn, nil
 	}
-
-	c := &roboclaw.Config{Name: config.SerialPath, Retries: 3}
-	if config.SerialBaud > 0 {
-		c.Baud = config.SerialBaud
+	if baudRates[connection] != config.SerialBaud {
+		return nil, errors.New("cannot have multiple roboclaw motors with different baud")
 	}
-	return roboclaw.Init(c)
+	return connection, nil
 }
 
-func newRoboClaw(deps resource.Dependencies, conf resource.Config, logger golog.Logger) (motor.Motor, error) {
+func newRoboClaw(conf resource.Config, logger golog.Logger) (motor.Motor, error) {
 	motorConfig, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return nil, err
@@ -110,19 +121,21 @@ func newRoboClaw(deps resource.Dependencies, conf resource.Config, logger golog.
 		motorConfig.TicksPerRotation = 1
 	}
 
-	c, err := getOrCreateConnection(deps, motorConfig)
+	c, err := getOrCreateConnection(motorConfig)
 	if err != nil {
 		return nil, err
 	}
 
-	return &roboclawMotor{
+	motor := &roboclawMotor{
 		Named:  conf.ResourceName().AsNamed(),
 		conn:   c,
 		conf:   motorConfig,
 		addr:   uint8(motorConfig.Address),
 		logger: logger,
 		maxRPM: maxRPM,
-	}, nil
+	}
+
+	return motor, nil
 }
 
 type roboclawMotor struct {
@@ -162,10 +175,9 @@ func (m *roboclawMotor) SetPower(ctx context.Context, powerPct float64, extra ma
 	}
 }
 
-// If revolutions is 0, the returned wait duration will be 0 representing that
-// the motor should run indefinitely.
 func goForMath(rpm, revolutions float64) (float64, time.Duration) {
-
+	// If revolutions is 0, the returned wait duration will be 0 representing that
+	// the motor should run indefinitely.
 	if revolutions == 0 {
 		powerPct := 1.0
 		return powerPct, 0
@@ -193,10 +205,13 @@ func (m *roboclawMotor) GoFor(ctx context.Context, rpm, revolutions float64, ext
 	// If no encoders present, distance traveled is estimated based on max RPM.
 	if m.conf.TicksPerRotation == 0 {
 		powerPct, waitDur := goForMath(rpm, revolutions)
-		m.logger.Debugf("distance traveled is a time based estimation with max RPM 200, running for %f seconds", waitDur.Seconds())
+		m.logger.Info("distance traveled is a time based estimation with max RPM 200. For increased accuracy, connect encoders")
 		err := m.SetPower(ctx, powerPct, extra)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "error in GoFor")
+		}
+		if revolutions == 0 {
+			return nil
 		}
 		if m.opMgr.NewTimedWaitOp(ctx, waitDur) {
 			return m.Stop(ctx, extra)
@@ -226,9 +241,9 @@ func (m *roboclawMotor) GoFor(ctx context.Context, rpm, revolutions float64, ext
 }
 
 func (m *roboclawMotor) GoTo(ctx context.Context, rpm, positionRevolutions float64, extra map[string]interface{}) error {
-	//If there are no encoders present GoTo not supported
+
 	if m.conf.TicksPerRotation == 0 {
-		return motor.NewGoToUnsupportedError(m.Name().ShortName())
+		return errors.New("roboclaw needs an encoder connected to use GoTo")
 	}
 	pos, err := m.Position(ctx, extra)
 	if err != nil {
