@@ -5,8 +5,8 @@ concurrency:
   cancel-in-progress: true
 
 on:
-  pull_request_target:
-    branches: [ main ]
+  pull_request: # UNDO ME
+    branches: [ slim_tests ] # UNDO ME
     types: [ labeled ]
 
 # To test workflow updates you need to work in a branch directly on viamrobotics/rdk
@@ -16,7 +16,7 @@ on:
 jobs:
   test:
     if: (github.event.label.name == 'safe to test' || github.event.label.name == 'appimage')
-    uses: viamrobotics/rdk/.github/workflows/test.yml@main
+    uses: viamrobotics/rdk/.github/workflows/test.yml@slim_tests # UNDO ME
     secrets:
       MONGODB_TEST_OUTPUT_URI: ${{ secrets.MONGODB_TEST_OUTPUT_URI }}
 
