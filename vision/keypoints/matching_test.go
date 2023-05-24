@@ -14,6 +14,7 @@ import (
 )
 
 func TestRangeInt(t *testing.T) {
+	t.Parallel()
 	u1, l1 := 2, -5
 	step1 := 1
 	r1 := rangeInt(u1, l1, step1)
@@ -40,6 +41,7 @@ func TestRangeInt(t *testing.T) {
 }
 
 func TestMatchDescriptors(t *testing.T) {
+	t.Parallel()
 	logger := golog.NewTestLogger(t)
 	tempDir := t.TempDir()
 
@@ -110,6 +112,7 @@ func TestMatchDescriptors(t *testing.T) {
 }
 
 func TestGetMatchingKeyPoints(t *testing.T) {
+	t.Parallel()
 	logger := golog.NewTestLogger(t)
 	cfg, err := LoadORBConfiguration("orbconfig.json")
 	test.That(t, err, test.ShouldBeNil)
@@ -147,6 +150,7 @@ func TestGetMatchingKeyPoints(t *testing.T) {
 }
 
 func TestOrbMatching(t *testing.T) {
+	t.Parallel()
 	logger := golog.NewTestLogger(t)
 	orbConf := &ORBConfig{
 		Layers:          4,

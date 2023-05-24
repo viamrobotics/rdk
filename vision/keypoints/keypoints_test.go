@@ -17,6 +17,7 @@ func generateRandomKeypoint(max int) image.Point {
 }
 
 func TestRescaleKeypoints(t *testing.T) {
+	t.Parallel()
 	kps := make(KeyPoints, 10)
 	rescaledKeypoints := RescaleKeypoints(kps, 2)
 	test.That(t, rescaledKeypoints[0], test.ShouldResemble, kps[0])

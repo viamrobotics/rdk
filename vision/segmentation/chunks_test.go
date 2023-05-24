@@ -142,6 +142,7 @@ func (cid *chunkImageDebug) Process(
 }
 
 func TestChunk1(t *testing.T) {
+	t.Parallel()
 	chunkTest := os.Getenv(debugChunks)
 	if chunkTest == "" {
 		t.Skipf("set environmental variable %q to run this test", debugChunks)

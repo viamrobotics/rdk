@@ -16,6 +16,7 @@ import (
 )
 
 func TestPngEncodings(t *testing.T) {
+	t.Parallel()
 	openBytes, err := os.ReadFile(artifact.MustPath("rimage/opencv_encoded_image.png"))
 	test.That(t, err, test.ShouldBeNil)
 	openGray16, err := png.Decode(bytes.NewReader(openBytes))
@@ -33,6 +34,7 @@ func TestPngEncodings(t *testing.T) {
 }
 
 func TestDecodeImage(t *testing.T) {
+	t.Parallel()
 	img := image.NewNRGBA(image.Rect(0, 0, 4, 8))
 	img.Set(3, 3, Red)
 
@@ -40,6 +42,7 @@ func TestDecodeImage(t *testing.T) {
 	test.That(t, png.Encode(&buf, img), test.ShouldBeNil)
 
 	t.Run("lazy", func(t *testing.T) {
+		t.Parallel()
 		decoded, err := DecodeImage(context.Background(), buf.Bytes(), utils.WithLazyMIMEType(utils.MimeTypePNG))
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, decoded, test.ShouldHaveSameTypeAs, &LazyEncodedImage{})
@@ -50,6 +53,7 @@ func TestDecodeImage(t *testing.T) {
 }
 
 func TestEncodeImage(t *testing.T) {
+	t.Parallel()
 	img := image.NewNRGBA(image.Rect(0, 0, 4, 8))
 	img.Set(3, 3, Red)
 
@@ -60,6 +64,7 @@ func TestEncodeImage(t *testing.T) {
 	test.That(t, libjpeg.Encode(&bufJPEG, img, jpegEncoderOptions), test.ShouldBeNil)
 
 	t.Run("lazy", func(t *testing.T) {
+		t.Parallel()
 		// fast
 		lazyImg := NewLazyEncodedImage(buf.Bytes(), "hehe")
 		encoded, err := EncodeImage(context.Background(), lazyImg, "hehe")
@@ -72,6 +77,7 @@ func TestEncodeImage(t *testing.T) {
 		test.That(t, encoded, test.ShouldResemble, buf.Bytes())
 	})
 	t.Run("jpeg from png", func(t *testing.T) {
+		t.Parallel()
 		lazyImg := NewLazyEncodedImage(buf.Bytes(), utils.MimeTypePNG)
 		encoded, err := EncodeImage(context.Background(), lazyImg, utils.MimeTypeJPEG)
 		test.That(t, err, test.ShouldBeNil)
@@ -80,6 +86,7 @@ func TestEncodeImage(t *testing.T) {
 }
 
 func TestRawRGBAEncodingDecoding(t *testing.T) {
+	t.Parallel()
 	img := image.NewNRGBA(image.Rect(0, 0, 4, 8))
 	img.Set(3, 3, Red)
 
@@ -114,6 +121,7 @@ func TestRawRGBAEncodingDecoding(t *testing.T) {
 }
 
 func TestRawDepthEncodingDecoding(t *testing.T) {
+	t.Parallel()
 	img := NewEmptyDepthMap(4, 8)
 	for x := 0; x < 4; x++ {
 		for y := 0; y < 8; y++ {

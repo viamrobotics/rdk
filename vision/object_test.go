@@ -11,6 +11,7 @@ import (
 )
 
 func TestObjectCreation(t *testing.T) {
+	t.Parallel()
 	// test empty objects
 	obj, err := NewObject(nil)
 	test.That(t, err, test.ShouldBeNil)

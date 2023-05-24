@@ -22,6 +22,7 @@ func init() {
 }
 
 func TestPlaneConfig(t *testing.T) {
+	t.Parallel()
 	cfg := VoxelGridPlaneConfig{}
 	// invalid weight threshold
 	cfg.WeightThresh = -1.
@@ -49,6 +50,7 @@ func TestPlaneConfig(t *testing.T) {
 }
 
 func TestSegmentPlane(t *testing.T) {
+	t.Parallel()
 	// Intel Sensor Extrinsic data from manufacturer
 	// Intel sensor depth 1024x768 to  RGB 1280x720
 	// Translation Vector : [-0.000828434,0.0139185,-0.0033418]
@@ -94,6 +96,7 @@ func TestSegmentPlane(t *testing.T) {
 }
 
 func TestDepthMapToPointCloud(t *testing.T) {
+	t.Parallel()
 	d, err := rimage.NewDepthMapFromFile(
 		context.Background(),
 		artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.png"))
@@ -107,6 +110,7 @@ func TestDepthMapToPointCloud(t *testing.T) {
 }
 
 func TestProjectPlane3dPointsToRGBPlane(t *testing.T) {
+	t.Parallel()
 	rgb, err := rimage.NewImageFromFile(artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036_color.png"))
 	test.That(t, err, test.ShouldBeNil)
 	d, err := rimage.NewDepthMapFromFile(
@@ -166,6 +170,7 @@ func BenchmarkPlaneSegmentPointCloud(b *testing.B) {
 }
 
 func TestPointCloudSplit(t *testing.T) {
+	t.Parallel()
 	// make a simple point cloud
 	cloud := pc.New()
 	var err error

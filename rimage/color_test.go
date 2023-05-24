@@ -101,6 +101,7 @@ func _assertNotSame(t *testing.T, a, b Color) {
 }
 
 func TestColorHSVColorConversion(t *testing.T) {
+	t.Parallel()
 	c, err := colorful.Hex("#ff0000")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, c.Hex(), test.ShouldEqual, "#ff0000")
@@ -127,6 +128,7 @@ func TestColorHSVColorConversion(t *testing.T) {
 }
 
 func TestColorBits(t *testing.T) {
+	t.Parallel()
 	c := newcolor(1, 2, 3, 10001, 5, 6)
 	r, g, b := c.RGB255()
 	h, s, v := c.hsv()
@@ -139,6 +141,7 @@ func TestColorBits(t *testing.T) {
 }
 
 func TestColorRoundTrip(t *testing.T) {
+	t.Parallel()
 	c := NewColor(17, 83, 133)
 	c2 := NewColorFromColor(c)
 	test.That(t, c2.Hex(), test.ShouldEqual, c.Hex())
@@ -152,6 +155,7 @@ func TestColorRoundTrip(t *testing.T) {
 }
 
 func TestColorHSVDistanceSanityCheckDiff(t *testing.T) {
+	t.Parallel()
 	data := [][]float64{
 		{0.0, 0.5, 0.5},
 		{0.2, 0.5, 0.3},
@@ -167,6 +171,7 @@ func TestColorHSVDistanceSanityCheckDiff(t *testing.T) {
 }
 
 func TestColorHSVDistanceSanityCheck(t *testing.T) {
+	t.Parallel()
 	_, s, v := Red.hsv()
 	test.That(t, s, test.ShouldEqual, 255)
 	test.That(t, v, test.ShouldEqual, 255)
@@ -180,6 +185,7 @@ func TestColorHSVDistanceSanityCheck(t *testing.T) {
 }
 
 func TestColorHSVDistanceSanityCheck2(t *testing.T) {
+	t.Parallel()
 	// check rotating aroudn 360
 	_assertSame(t, NewColorFromHSV(190, 1.0, 1.0), NewColorFromHSV(195, 1.0, 1.0))
 	_assertSame(t, NewColorFromHSV(355, 1.0, 1.0), NewColorFromHSV(359, 1.0, 1.0))
@@ -221,6 +227,7 @@ func TestColorHSVDistanceSanityCheck2(t *testing.T) {
 }
 
 func TestColorHSVDistanceBlacks1(t *testing.T) {
+	t.Parallel()
 	data := []Color{
 		NewColorFromHexOrPanic("#020300"),
 		NewColorFromHexOrPanic("#010101"),
@@ -241,6 +248,7 @@ func TestColorHSVDistanceBlacks1(t *testing.T) {
 }
 
 func TestColorHSVDistanceDarks(t *testing.T) {
+	t.Parallel()
 	veryDarkBlue := NewColorFromHexOrPanic("#0a1a1f")
 	mostlyDarkBlue := NewColorFromHexOrPanic("#09202d")
 
@@ -260,6 +268,7 @@ func TestColorHSVDistanceDarks(t *testing.T) {
 }
 
 func TestColorRatioOffFrom135Finish(t *testing.T) {
+	t.Parallel()
 	data := [][]float64{
 		{.000, 0.50},
 		{.125, 0.75},
@@ -279,6 +288,7 @@ func TestColorRatioOffFrom135Finish(t *testing.T) {
 }
 
 func TestColorRatioOffFrom135(t *testing.T) {
+	t.Parallel()
 	data := [][]float64{
 		{1.0, 1.0, 1.0}, // a 45 degree angle is "bad" so should be 1
 		{-1.0, -1.0, 1.0},
@@ -298,6 +308,7 @@ func TestColorRatioOffFrom135(t *testing.T) {
 }
 
 func TestColorHSVDistanceChess1(t *testing.T) {
+	t.Parallel()
 	x1 := NewColor(158, 141, 112)
 	x2 := NewColor(176, 154, 101)
 
@@ -314,6 +325,7 @@ func TestColorHSVDistanceChess1(t *testing.T) {
 }
 
 func TestColorHSVDistanceChess2(t *testing.T) {
+	t.Parallel()
 	data := []Color{
 		NewColor(5, 51, 85),
 		NewColor(158, 141, 112),
@@ -324,6 +336,7 @@ func TestColorHSVDistanceChess2(t *testing.T) {
 }
 
 func TestColorHSVDistanceChess3(t *testing.T) {
+	t.Parallel()
 	pieceColor, err := NewColorFromHex("#8e7e51")
 	test.That(t, err, test.ShouldBeNil)
 
@@ -347,6 +360,7 @@ func TestColorHSVDistanceChess3(t *testing.T) {
 }
 
 func TestColorHSVDistanceChess4(t *testing.T) {
+	t.Parallel()
 	pieceColor, err := NewColorFromHex("#052e50")
 	test.That(t, err, test.ShouldBeNil)
 
@@ -362,6 +376,7 @@ func TestColorHSVDistanceChess4(t *testing.T) {
 }
 
 func TestColorHSVDistanceChess5(t *testing.T) {
+	t.Parallel()
 	allColors, err := readColorsFromFile(artifact.MustPath("rimage/hsvdistancechess5.txt"))
 	test.That(t, err, test.ShouldBeNil)
 
@@ -391,6 +406,7 @@ func readColorsFromFile(fn string) ([]Color, error) {
 }
 
 func TestColorHSVDistanceChessA(t *testing.T) {
+	t.Parallel()
 	_assertNotCloseHex(t, "#8c9173", "#7b7e6c", 1.0)
 	_assertNotCloseHex(t, "#909571", "#83876f", .99) // I "broke" this when changing H,S,V to smaller types, thing it's ok
 	_assertNotCloseHex(t, "#0d1e2a", "#0e273f", 1.0)
@@ -398,12 +414,14 @@ func TestColorHSVDistanceChessA(t *testing.T) {
 }
 
 func TestColorHSVDistanceChessB(t *testing.T) {
+	t.Parallel()
 	a := NewColorFromHexOrPanic("#828263")
 	b := NewColorFromHexOrPanic("#868363")
 	_assertSame(t, a, b)
 }
 
 func TestColorHSVDistanceRandom1(t *testing.T) {
+	t.Parallel()
 	test.That(t, _assertCloseHex(t, "#182b2b", "#0f2725", 1.2), test.ShouldBeTrue)
 	test.That(t, _assertCloseHex(t, "#2f433c", "#283e3d", 1.1), test.ShouldBeTrue)
 	test.That(t, _assertCloseHex(t, "#001b3d", "#002856", 1.1), test.ShouldBeTrue)
@@ -446,6 +464,7 @@ func TestColorHSVDistanceRandom1(t *testing.T) {
 }
 
 func TestColorConvert(t *testing.T) {
+	t.Parallel()
 	// estimate of max error we're ok with based on conversion lossyness
 	okError := float64(math.MaxUint16) * (1 - math.Pow(255.0/256.0, 4))
 
@@ -474,6 +493,7 @@ func TestColorConvert(t *testing.T) {
 }
 
 func TestHSVConvert(t *testing.T) {
+	t.Parallel()
 	tt := func(c color.Color) {
 		me := NewColorFromColor(c)
 		them, ok := colorful.MakeColor(c)
@@ -502,6 +522,7 @@ func TestHSVConvert(t *testing.T) {
 }
 
 func TestColorSegment1(t *testing.T) {
+	t.Parallel()
 	img, err := NewImageFromFile(artifact.MustPath("rimage/chess-segment1.png"))
 	test.That(t, err, test.ShouldBeNil)
 

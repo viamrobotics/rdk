@@ -18,6 +18,7 @@ func increasingArray(start, inc float64, total int) []float64 {
 }
 
 func TestWarp1(t *testing.T) {
+	t.Parallel()
 	size := 5
 
 	src := []image.Point{
@@ -49,6 +50,7 @@ func TestWarp1(t *testing.T) {
 }
 
 func TestWarp2(t *testing.T) {
+	t.Parallel()
 	img, err := NewImageFromFile(artifact.MustPath("rimage/canny1.png"))
 	test.That(t, err, test.ShouldBeNil)
 
@@ -102,6 +104,7 @@ func BenchmarkWarp(b *testing.B) {
 }
 
 func TestWarpInvert(t *testing.T) {
+	t.Parallel()
 	toSlice := func(m mat.Matrix) []float64 {
 		a := []float64{}
 		for x := 0; x < 3; x++ {
@@ -133,6 +136,7 @@ func TestWarpInvert(t *testing.T) {
 }
 
 func TestWarpSmall1(t *testing.T) {
+	t.Parallel()
 	// this is mostly making sure this test actually runs
 	// as it requires a non-standard matrix invert
 	img, err := readImageFromFile(artifact.MustPath("rimage/warpsmall1.jpg"))

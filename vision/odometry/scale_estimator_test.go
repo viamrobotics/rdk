@@ -79,6 +79,7 @@ func readJSONGroundTruth(logger golog.Logger) *poseGroundTruth {
 }
 
 func TestPlaneFrom3PointsDistance(t *testing.T) {
+	t.Parallel()
 	points := []r3.Vector{{0, 0, 0}, {0, 1, 0}, {1, 0, 0}}
 	normal, offset := estimatePlaneFrom3Points(points[0], points[1], points[2])
 	test.That(t, normal.X, test.ShouldEqual, 0)
@@ -91,6 +92,7 @@ func TestPlaneFrom3PointsDistance(t *testing.T) {
 }
 
 func TestGetPlaneInliers(t *testing.T) {
+	t.Parallel()
 	points := generatePointZEqualsZeroPlane(1000)
 	normal := r3.Vector{0, 0, 1}
 	offset := 0.0
@@ -107,6 +109,7 @@ func TestGetPlaneInliers(t *testing.T) {
 }
 
 func TestEstimatePitch(t *testing.T) {
+	t.Parallel()
 	// get pose from kitti odometry dataset
 	poseData := []float64{
 		9.999996e-01, -9.035185e-04, -2.101169e-04, 1.289128e-03,
@@ -129,6 +132,7 @@ func TestEstimatePitch(t *testing.T) {
 }
 
 func TestEstimateCameraHeight(t *testing.T) {
+	t.Parallel()
 	logger := golog.NewTestLogger(t)
 	gt := readJSONGroundTruth(logger)
 	pts1 := convert2DSliceToVectorSlice(gt.Pts1)

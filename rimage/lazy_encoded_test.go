@@ -12,6 +12,7 @@ import (
 )
 
 func TestLazyEncodedImage(t *testing.T) {
+	t.Parallel()
 	img := image.NewNRGBA(image.Rect(0, 0, 4, 8))
 	img.Set(3, 3, Red)
 

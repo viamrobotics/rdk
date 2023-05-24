@@ -15,6 +15,7 @@ import (
 )
 
 func TestClusteringVoxelConfig(t *testing.T) {
+	t.Parallel()
 	// invalid voxel size
 	cfg := segmentation.RadiusClusteringVoxelConfig{}
 	err := cfg.CheckValid()
@@ -44,6 +45,7 @@ func TestClusteringVoxelConfig(t *testing.T) {
 }
 
 func TestVoxelSegmentMeans(t *testing.T) {
+	t.Parallel()
 	logger := golog.NewTestLogger(t)
 	cam := &inject.Camera{}
 	cam.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {

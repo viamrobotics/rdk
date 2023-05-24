@@ -9,6 +9,7 @@ import (
 )
 
 func TestGenerateSamplePairs(t *testing.T) {
+	t.Parallel()
 	logger := golog.NewTestLogger(t)
 	patchSize := 250
 	descSize := 128

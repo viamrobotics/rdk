@@ -10,6 +10,7 @@ import (
 )
 
 func TestPaddingFloat64(t *testing.T) {
+	t.Parallel()
 	img := mat.NewDense(10, 10, nil)
 	for i := 0; i < 10; i++ {
 		for j := 0; j < 10; j++ {
@@ -29,6 +30,7 @@ func TestPaddingFloat64(t *testing.T) {
 }
 
 func TestPaddingGray(t *testing.T) {
+	t.Parallel()
 	rect := image.Rect(0, 0, 10, 12)
 	img := image.NewGray(rect)
 	for x := 0; x < 10; x++ {

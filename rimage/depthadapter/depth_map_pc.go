@@ -4,6 +4,7 @@ package depthadapter
 import (
 	"image"
 	"sync"
+	"sync/atomic"
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
@@ -69,11 +70,10 @@ func newDMPointCloudAdapter(dm *rimage.DepthMap, p transform.Projector) *dmPoint
 	wg.Wait()
 	cache := pointcloud.NewWithPrealloc(size)
 	return &dmPointCloudAdapter{
-		dm:     newDm,
-		size:   size,
-		p:      p,
-		cache:  cache,
-		cached: false,
+		dm:    newDm,
+		size:  size,
+		p:     p,
+		cache: cache,
 	}
 }
 
@@ -82,7 +82,7 @@ type dmPointCloudAdapter struct {
 	p         transform.Projector
 	size      int
 	cache     pointcloud.PointCloud
-	cached    bool
+	cached    atomic.Bool
 	cacheLock sync.Mutex
 }
 
@@ -98,7 +98,7 @@ func (dm *dmPointCloudAdapter) Size() int {
 
 // genCache generates the cache if it is not already generated.
 func (dm *dmPointCloudAdapter) genCache() {
-	if dm.cached {
+	if dm.cached.Load() {
 		return
 	}
 	var wg sync.WaitGroup
@@ -115,7 +115,7 @@ func (dm *dmPointCloudAdapter) genCache() {
 		utils.PanicCapturingGo(func() { f(loopCopy) })
 	}
 	wg.Wait()
-	dm.cached = true
+	dm.cached.Store(true)
 }
 
 func (dm *dmPointCloudAdapter) MetaData() pointcloud.MetaData {
@@ -133,7 +133,7 @@ func (dm *dmPointCloudAdapter) At(x, y, z float64) (pointcloud.Data, bool) {
 }
 
 func (dm *dmPointCloudAdapter) Iterate(numBatches, myBatch int, fn func(pt r3.Vector, d pointcloud.Data) bool) {
-	if dm.cached {
+	if dm.cached.Load() {
 		dm.cache.Iterate(numBatches, myBatch, fn)
 		return
 	}
@@ -150,7 +150,7 @@ func (dm *dmPointCloudAdapter) Iterate(numBatches, myBatch int, fn func(pt r3.Ve
 			if err != nil {
 				panic(err)
 			}
-			if !dm.cached {
+			if !dm.cached.Load() {
 				err = dm.safeCacheSet(vec, nil)
 				if err != nil {
 					panic(err)
@@ -163,6 +163,6 @@ func (dm *dmPointCloudAdapter) Iterate(numBatches, myBatch int, fn func(pt r3.Ve
 	}
 	// Since there is no orchestrator for Iterate, we need to check within each process
 	if dm.size == dm.cache.Size() {
-		dm.cached = true
+		dm.cached.Store(true)
 	}
 }

@@ -13,6 +13,7 @@ import (
 )
 
 func TestColorDetector(t *testing.T) {
+	t.Parallel()
 	// make the original source
 	img, err := rimage.NewImageFromFile(artifact.MustPath("vision/objectdetection/detection_test.jpg"))
 	test.That(t, err, test.ShouldBeNil)
@@ -68,6 +69,7 @@ func TestColorDetector(t *testing.T) {
 }
 
 func TestHueToString(t *testing.T) {
+	t.Parallel()
 	theColor := rimage.Red
 	hue, _, _ := theColor.HsvNormal()
 	test.That(t, hueToString(hue), test.ShouldEqual, "red")

@@ -204,6 +204,7 @@ func (d *MultipleImageTestDebugger) Process(t *testing.T, x MultipleImageTestDeb
 
 	// group and block parallel runs by having a subtest parent
 	t.Run("files", func(t *testing.T) {
+		t.Parallel()
 		t.Helper()
 		for _, f := range files {
 			if !IsImageFile(f) {

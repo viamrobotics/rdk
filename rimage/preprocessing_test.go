@@ -46,6 +46,7 @@ func (h *smoothTestHelper) Process(
 }
 
 func TestSmoothGripper(t *testing.T) {
+	t.Parallel()
 	d := NewMultipleImageTestDebugger(t, "align/gripper1/depth", "*.png", "")
 	err := d.Process(t, &smoothTestHelper{})
 	test.That(t, err, test.ShouldBeNil)
@@ -136,6 +137,7 @@ func (h *cannyTestHelper) Process(
 }
 
 func TestDepthPreprocessCanny(t *testing.T) {
+	t.Parallel()
 	d := NewMultipleImageTestDebugger(t, "depthpreprocess/color", "*.png", "depthpreprocess/depth")
 	err := d.Process(t, &cannyTestHelper{})
 	test.That(t, err, test.ShouldBeNil)
@@ -170,6 +172,7 @@ func (h *preprocessTestHelper) Process(
 }
 
 func TestDepthPreprocess(t *testing.T) {
+	t.Parallel()
 	d := NewMultipleImageTestDebugger(t, "depthpreprocess/color", "*.png", "depthpreprocess/depth")
 	err := d.Process(t, &preprocessTestHelper{})
 	test.That(t, err, test.ShouldBeNil)

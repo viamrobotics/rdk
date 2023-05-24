@@ -12,6 +12,7 @@ import (
 )
 
 func TestNewMotion3DFromRotationTranslation(t *testing.T) {
+	t.Parallel()
 	// rotation = Id
 	rot := mat.NewDense(3, 3, nil)
 	rot.Set(0, 0, 1)
@@ -28,6 +29,7 @@ func TestNewMotion3DFromRotationTranslation(t *testing.T) {
 }
 
 func TestEstimateMotionFrom2Frames(t *testing.T) {
+	t.Parallel()
 	// TODO(RSDK-586): Re-enable after testing new field changes during hack-week.
 	t.Skip()
 

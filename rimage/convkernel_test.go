@@ -7,6 +7,7 @@ import (
 )
 
 func TestNewKernel(t *testing.T) {
+	t.Parallel()
 	k, err := NewKernel(5, 5)
 	// test creation
 	test.That(t, err, test.ShouldBeNil)
