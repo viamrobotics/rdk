@@ -42,7 +42,7 @@ const toggleExpand = async () => {
       slot="title"
       crumbs="audio_input"
     />
-    <div class="border-medium h-auto border-x border-b p-2">
+    <div class="border-medium h-auto border border-t-0 p-2">
       <div class="container mx-auto">
         <div class="pt-4">
           <div class="flex items-center gap-2">
