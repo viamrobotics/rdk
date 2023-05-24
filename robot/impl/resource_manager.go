@@ -43,7 +43,6 @@ var (
 type resourceManager struct {
 	resources      *resource.Graph
 	processManager pexec.ProcessManager
-	processConfigs map[string]pexec.ProcessConfig
 	moduleManager  modif.ModuleManager
 	opts           resourceManagerOptions
 	logger         golog.Logger
@@ -67,7 +66,6 @@ func newResourceManager(
 	return &resourceManager{
 		resources:      resource.NewGraph(),
 		processManager: newProcessManager(opts, logger),
-		processConfigs: make(map[string]pexec.ProcessConfig),
 		opts:           opts,
 		logger:         logger,
 	}
@@ -415,17 +413,19 @@ func (manager *resourceManager) closeResource(ctx context.Context, res resource.
 func (manager *resourceManager) removeMarkedAndClose(
 	ctx context.Context,
 	excludeFromClose map[resource.Name]struct{},
-) error {
+) ([]resource.Name, error) {
 	var allErrs error
 	toClose := manager.resources.RemoveMarked()
+	removedNames := make([]resource.Name, 0, len(toClose))
 	for _, res := range toClose {
 		resName := res.Name()
+		removedNames = append(removedNames, resName)
 		if _, ok := excludeFromClose[resName]; ok {
 			continue
 		}
 		allErrs = multierr.Combine(allErrs, manager.closeResource(ctx, res))
 	}
-	return allErrs
+	return removedNames, allErrs
 }
 
 // Close attempts to close/stop all parts.
@@ -448,7 +448,7 @@ func (manager *resourceManager) Close(ctx context.Context) error {
 	excludeWebFromClose := map[resource.Name]struct{}{
 		web.InternalServiceName: {},
 	}
-	if err := manager.removeMarkedAndClose(ctx, excludeWebFromClose); err != nil {
+	if _, err := manager.removeMarkedAndClose(ctx, excludeWebFromClose); err != nil {
 		allErrs = multierr.Combine(allErrs, err)
 	}
 
@@ -854,7 +854,6 @@ func (manager *resourceManager) updateResources(
 			manager.logger.Errorw("error while adding process; skipping", "process", p.ID, "error", err)
 			continue
 		}
-		manager.processConfigs[p.ID] = p
 	}
 	for _, p := range conf.Modified.Processes {
 		if manager.opts.untrustedEnv {
@@ -869,16 +868,11 @@ func (manager *resourceManager) updateResources(
 		} else {
 			manager.logger.Errorw("couldn't find modified process", "process", p.ID)
 		}
-
-		// Remove processConfig from map in case re-addition fails.
-		delete(manager.processConfigs, p.ID)
-
 		_, err := manager.processManager.AddProcessFromConfig(ctx, p)
 		if err != nil {
 			manager.logger.Errorw("error while changing process; skipping", "process", p.ID, "error", err)
 			continue
 		}
-		manager.processConfigs[p.ID] = p
 	}
 
 	// modules are not added into the resource tree as they belong to the module manager
@@ -959,7 +953,6 @@ func (manager *resourceManager) markRemoved(
 			manager.logger.Errorw("couldn't remove process", "process", conf.ID)
 			continue
 		}
-		delete(manager.processConfigs, conf.ID)
 		if _, err := processesToClose.AddProcess(ctx, proc, false); err != nil {
 			manager.logger.Errorw("couldn't add process", "process", conf.ID, "error", err)
 		}
@@ -1030,57 +1023,12 @@ func (manager *resourceManager) markResourcesRemoved(
 func (manager *resourceManager) removeOrphanedResources(ctx context.Context,
 	rNames []resource.Name,
 ) {
+	// Ignore returned resources to close, as removeMarkedAndClose will handle.
 	manager.markResourcesRemoved(rNames, nil)
-	if err := manager.removeMarkedAndClose(ctx, nil); err != nil {
+	if _, err := manager.removeMarkedAndClose(ctx, nil); err != nil {
 		manager.logger.Errorw("error removing and closing marked resources",
 			"error", err)
 	}
-}
-
-// createConfig will create a config.Config based on the current state of the
-// resource graph, processManager and moduleManager.
-func (manager *resourceManager) createConfig() *config.Config {
-	conf := &config.Config{}
-
-	for _, resName := range manager.resources.Names() {
-		// Ignore non-local resources.
-		if resName.ContainsRemoteNames() {
-			continue
-		}
-		gNode, ok := manager.resources.Node(resName)
-		if !ok {
-			continue
-		}
-		resConf := gNode.Config()
-
-		// gocritic will complain that this if-else chain should be a switch, but
-		// it's really a mix of == and bool method checks.
-		//
-		//nolint: gocritic
-		if resName.API == client.RemoteAPI {
-			remoteConf, err := rutils.AssertType[*config.Remote](resConf.ConvertedAttributes)
-			if err != nil {
-				manager.logger.Errorw("remote has unexpected type for ConvertedAttributes",
-					"remote", resName.String(),
-					"error", err)
-				continue
-			}
-
-			conf.Remotes = append(conf.Remotes, *remoteConf)
-		} else if resName.API.IsComponent() {
-			conf.Components = append(conf.Components, resConf)
-		} else if resName.API.IsService() &&
-			resName.API.Type.Namespace != resource.APINamespaceRDKInternal {
-			conf.Services = append(conf.Services, resConf)
-		}
-	}
-
-	conf.Modules = append(conf.Modules, manager.moduleManager.Configs()...)
-	for _, processConf := range manager.processConfigs {
-		conf.Processes = append(conf.Processes, processConf)
-	}
-
-	return conf
 }
 
 func remoteDialOptions(config config.Remote, opts resourceManagerOptions) []rpc.DialOption {

@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/edaniels/golog"
 	"github.com/fullstorydev/grpcurl"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/grpcreflect"
@@ -154,6 +155,17 @@ func NewModuleFromArgs(ctx context.Context, logger *zap.SugaredLogger) (*Module,
 		return nil, errors.New("need socket path as command line argument")
 	}
 	return NewModule(ctx, os.Args[1], logger)
+}
+
+// NewLoggerFromArgs can be used to create a golog.Logger at "DebugLevel" if
+// "--log-level=debug" is the third argument in os.Args and at "InfoLevel"
+// otherwise. See config.Module.LogLevel documentation for more info on how
+// to start modules with a "log-level" commandline argument.
+func NewLoggerFromArgs(moduleName string) golog.Logger {
+	if len(os.Args) >= 3 && os.Args[2] == "--log-level=debug" {
+		return golog.NewDebugLogger(moduleName)
+	}
+	return golog.NewDevelopmentLogger(moduleName)
 }
 
 // Start starts the module service and grpc server.
