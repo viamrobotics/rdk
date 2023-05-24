@@ -24,6 +24,7 @@ func writePicture(img image.Image, p string) error {
 }
 
 func TestVectorFieldToDenseAndBack(t *testing.T) {
+	t.Parallel()
 	width, height := 200, 100
 	vf := MakeEmptyVectorField2D(width, height)
 	for x := 0; x < width; x++ {
@@ -49,6 +50,7 @@ func TestVectorFieldToDenseAndBack(t *testing.T) {
 }
 
 func TestSobelFilter(t *testing.T) {
+	t.Parallel()
 	outDir := t.TempDir()
 	golog.NewTestLogger(t).Debugf("out dir: %q", outDir)
 	// circle.png is 300x200 canvas, circle is 150 pixels in diameter, centered at (150,100)

@@ -11,6 +11,7 @@ import (
 )
 
 func TestGetMinChessCorner(t *testing.T) {
+	t.Parallel()
 	x := getMinChessCorner("a8")
 	test.That(t, x.X, test.ShouldEqual, 0)
 	test.That(t, x.Y, test.ShouldEqual, 0)
@@ -28,6 +29,7 @@ func _testBoardHeight(t *testing.T, game *Game, board *Board, square string, min
 }
 
 func TestWarpColorAndDepthToChess1(t *testing.T) {
+	t.Parallel()
 	logger := golog.NewTestLogger(t)
 	outDir := t.TempDir()
 
@@ -50,6 +52,7 @@ func TestWarpColorAndDepthToChess1(t *testing.T) {
 }
 
 func TestWarpColorAndDepthToChess2(t *testing.T) {
+	t.Parallel()
 	logger := golog.NewTestLogger(t)
 	outDir := t.TempDir()
 
@@ -81,6 +84,7 @@ func TestWarpColorAndDepthToChess2(t *testing.T) {
 }
 
 func TestWarpColorAndDepthToChess3(t *testing.T) {
+	t.Parallel()
 	logger := golog.NewTestLogger(t)
 	outDir := t.TempDir()
 
@@ -111,6 +115,7 @@ func TestWarpColorAndDepthToChess3(t *testing.T) {
 }
 
 func TestArmBlock1(t *testing.T) {
+	t.Parallel()
 	logger := golog.NewTestLogger(t)
 	board, err := FindAndWarpBoardFromFiles(
 		artifact.MustPath("vision/chess/armblock1.png"), artifact.MustPath("vision/chess/armblock1.dat.gz"), true, logger)
@@ -123,6 +128,7 @@ func TestArmBlock1(t *testing.T) {
 }
 
 func TestWarpColorAndDepthToChess4(t *testing.T) {
+	t.Parallel()
 	logger := golog.NewTestLogger(t)
 
 	chessPath := artifact.MustPath("vision/chess")
@@ -142,6 +148,7 @@ func TestWarpColorAndDepthToChess4(t *testing.T) {
 }
 
 func TestWarpColorAndDepthToChess5(t *testing.T) {
+	t.Parallel()
 	logger := golog.NewTestLogger(t)
 
 	chessPath := artifact.MustPath("vision/chess")

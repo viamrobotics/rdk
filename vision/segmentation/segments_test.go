@@ -80,6 +80,7 @@ func createPointClouds(t *testing.T) *Segments {
 }
 
 func TestAssignCluter(t *testing.T) {
+	t.Parallel()
 	clusters := createPointClouds(t)
 	test.That(t, clusters.N(), test.ShouldEqual, 3)
 
@@ -99,6 +100,7 @@ func TestAssignCluter(t *testing.T) {
 }
 
 func TestMergeCluster(t *testing.T) {
+	t.Parallel()
 	clusters := createPointClouds(t)
 
 	// before merge

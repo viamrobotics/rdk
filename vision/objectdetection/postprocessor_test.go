@@ -8,6 +8,7 @@ import (
 )
 
 func TestPostprocessors(t *testing.T) {
+	t.Parallel()
 	d := []Detection{
 		NewDetection(image.Rect(0, 0, 30, 30), 0.5, "A"),
 		NewDetection(image.Rect(0, 0, 300, 300), 0.6, "B"),

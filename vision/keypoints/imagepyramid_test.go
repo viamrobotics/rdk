@@ -10,6 +10,7 @@ import (
 )
 
 func TestDownscaleImage(t *testing.T) {
+	t.Parallel()
 	// create test image
 	rectImage := image.NewGray(image.Rect(0, 0, 300, 200))
 	whiteRect := image.Rect(50, 30, 100, 150)
@@ -34,6 +35,7 @@ func TestDownscaleImage(t *testing.T) {
 }
 
 func TestGetNumberOctaves(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		imgSize image.Point
 		want    int
@@ -49,6 +51,7 @@ func TestGetNumberOctaves(t *testing.T) {
 }
 
 func TestGetImagePyramid(t *testing.T) {
+	t.Parallel()
 	// create test image
 	rectImage := image.NewGray(image.Rect(0, 0, 300, 200))
 	whiteRect := image.Rect(50, 30, 100, 150)

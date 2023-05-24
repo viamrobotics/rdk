@@ -16,6 +16,7 @@ import (
 )
 
 func TestDetectionSource(t *testing.T) {
+	t.Parallel()
 	// make the original source
 	sourceImg, err := rimage.NewImageFromFile(artifact.MustPath("vision/objectdetection/detection_test.jpg"))
 	test.That(t, err, test.ShouldBeNil)
@@ -75,6 +76,7 @@ func TestDetectionSource(t *testing.T) {
 }
 
 func TestEmptyDetection(t *testing.T) {
+	t.Parallel()
 	d := objectdetection.NewDetection(image.Rectangle{}, 0., "")
 	test.That(t, d.Score(), test.ShouldEqual, 0.0)
 	test.That(t, d.Label(), test.ShouldEqual, "")

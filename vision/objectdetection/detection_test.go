@@ -12,6 +12,7 @@ import (
 )
 
 func TestBuildFunc(t *testing.T) {
+	t.Parallel()
 	img := rimage.NewImage(400, 400)
 	_, err := Build(nil, nil, nil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "must have a Detector")

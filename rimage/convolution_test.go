@@ -9,6 +9,7 @@ import (
 )
 
 func TestConvolveGray(t *testing.T) {
+	t.Parallel()
 	// test that image test files are in artifacts
 	im, err := NewImageFromFile(artifact.MustPath("rimage/binary_image.jpg"))
 	test.That(t, err, test.ShouldBeNil)
@@ -45,6 +46,7 @@ func TestConvolveGray(t *testing.T) {
 }
 
 func TestConvolveGrayFloat64(t *testing.T) {
+	t.Parallel()
 	// test that image test files are in artifacts
 	im, err := NewImageFromFile(artifact.MustPath("rimage/binary_image.jpg"))
 	bounds := im.Bounds()
@@ -81,6 +83,7 @@ func TestConvolveGrayFloat64(t *testing.T) {
 }
 
 func TestGetSobelY(t *testing.T) {
+	t.Parallel()
 	k := GetSobelY()
 	test.That(t, k.Height, test.ShouldEqual, 3)
 	test.That(t, k.Width, test.ShouldEqual, 3)
@@ -91,6 +94,7 @@ func TestGetSobelY(t *testing.T) {
 }
 
 func TestGetBlur3(t *testing.T) {
+	t.Parallel()
 	k := GetBlur3()
 	test.That(t, k.Height, test.ShouldEqual, 3)
 	test.That(t, k.Width, test.ShouldEqual, 3)
@@ -101,6 +105,7 @@ func TestGetBlur3(t *testing.T) {
 }
 
 func TestGetGaussian3(t *testing.T) {
+	t.Parallel()
 	k := GetGaussian3()
 	test.That(t, k.Height, test.ShouldEqual, 3)
 	test.That(t, k.Width, test.ShouldEqual, 3)
@@ -118,6 +123,7 @@ func TestGetGaussian3(t *testing.T) {
 }
 
 func TestGetGaussian5(t *testing.T) {
+	t.Parallel()
 	k := GetGaussian5()
 	test.That(t, k.Height, test.ShouldEqual, 5)
 	test.That(t, k.Width, test.ShouldEqual, 5)

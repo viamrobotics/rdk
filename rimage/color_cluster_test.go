@@ -21,9 +21,11 @@ func doTest(t *testing.T, fn string, numClusters int) {
 }
 
 func TestCluster1(t *testing.T) {
+	t.Parallel()
 	doTest(t, "warped-board-1605543525.png", 4)
 }
 
 func TestCluster2(t *testing.T) {
+	t.Parallel()
 	doTest(t, "chess-segment2.png", 3)
 }

@@ -85,6 +85,7 @@ func (h *segmentObjectTestHelper) Process(
 }
 
 func TestObjectSegmentationAlignedIntel(t *testing.T) {
+	t.Parallel()
 	objSegTest := os.Getenv(debugObjSeg)
 	if objSegTest == "" {
 		t.Skipf("set environmental variable %q to run this test", debugObjSeg)
@@ -163,6 +164,7 @@ func (h *gripperSegmentTestHelper) Process(
 }
 
 func TestGripperObjectSegmentation(t *testing.T) {
+	t.Parallel()
 	objSegTest := os.Getenv(debugObjSeg)
 	if objSegTest == "" {
 		t.Skipf("set environmental variable %v to run this test", debugObjSeg)

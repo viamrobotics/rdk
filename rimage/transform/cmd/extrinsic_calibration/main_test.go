@@ -17,6 +17,7 @@ import (
 )
 
 func TestMainCalibrate(t *testing.T) {
+	t.Parallel()
 	outDir := t.TempDir()
 	logger := golog.NewTestLogger(t)
 

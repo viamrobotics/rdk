@@ -11,6 +11,7 @@ import (
 )
 
 func TestComputeBRIEFDescriptors(t *testing.T) {
+	t.Parallel()
 	// load config
 	cfg := LoadFASTConfiguration("kpconfig.json")
 	test.That(t, cfg, test.ShouldNotBeNil)

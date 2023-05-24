@@ -1,8 +1,8 @@
 name: PR Test Label Manager
 
 on:
-  pull_request_target:
-    branches: [ main ]
+  pull_request: # UNDO ME
+    branches: [ slim_tests ] # UNDO ME
     types: [ opened, synchronize, reopened ]
 
 jobs:
@@ -10,7 +10,7 @@ jobs:
     name: PR Test Label Manager
     runs-on: ubuntu-latest
     if: |
-      github.event_name == 'pull_request_target' &&
+      github.event_name == 'pull_request' &&
       contains(fromJson('["opened", "synchronize", "reopened"]'), github.event.action)
     steps:
       - name: "Check Membership and Label PR"
