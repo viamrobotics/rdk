@@ -146,8 +146,8 @@ func newPCDCamera(ctx context.Context, deps resource.Dependencies, conf resource
 
 // NextPointCloud returns the next point cloud retrieved from cloud storage based on the applied filter.
 func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
-	replay.mu.RLock()
-	defer replay.mu.RUnlock()
+	replay.mu.Lock()
+	defer replay.mu.Unlock()
 	if replay.closed {
 		return nil, errors.New("session closed")
 	}
@@ -193,7 +193,6 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCl
 	// Otherwise if using a batch size > 1, use the metadata from BinaryDataByFilter to download
 	// data in parallel and cache the results
 	replay.cache = make([]*cacheEntry, replay.limit)
-
 	for i, dataResponse := range resp.Data {
 		replay.cache[i] = &cacheEntry{id: dataResponse.GetMetadata().Id}
 	}
@@ -212,7 +211,7 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCl
 		return nil, errors.New("context canceled after download deadline exceeded")
 	}
 
-	return replay.NextPointCloud(ctx)
+	return replay.getDataFromCache(ctx)
 }
 
 // downloadBatch iterates through the current cache, performing the download of the respective data in
