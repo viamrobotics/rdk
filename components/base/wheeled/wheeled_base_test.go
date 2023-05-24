@@ -366,7 +366,7 @@ func TestValidate(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
-// waitForMotorsToStop polls all motors to see if they're on, used only for testing
+// waitForMotorsToStop polls all motors to see if they're on, used only for testing.
 func waitForMotorsToStop(ctx context.Context, wb *wheeledBase) error {
 	for {
 		if !utils.SelectContextOrWait(ctx, 10*time.Millisecond) {
