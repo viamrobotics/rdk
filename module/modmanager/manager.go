@@ -3,6 +3,7 @@ package modmanager
 
 import (
 	"context"
+	"fmt"
 	"io/fs"
 	"path/filepath"
 	"strings"
@@ -14,6 +15,7 @@ import (
 	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	"go.uber.org/zap/zapcore"
 	pb "go.viam.com/api/module/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
@@ -35,6 +37,7 @@ import (
 var (
 	validateConfigTimeout       = 5 * time.Second
 	errMessageExitStatus143     = "exit status 143"
+	logLevelArgumentTemplate    = "--log-level=%s"
 	errModularResourcesDisabled = errors.New("modular resources disabled in untrusted environment")
 )
 
@@ -53,6 +56,7 @@ func NewManager(parentAddr string, logger golog.Logger, options modmanageroption
 type module struct {
 	name      string
 	exe       string
+	logLevel  string
 	process   pexec.ManagedProcess
 	handles   modlib.HandlerMap
 	conn      *grpc.ClientConn
@@ -113,7 +117,12 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, conn *grpc.Clie
 		return nil
 	}
 
-	mod := &module{name: conf.Name, exe: conf.ExePath, resources: map[resource.Name]*addedResource{}}
+	mod := &module{
+		name:      conf.Name,
+		exe:       conf.ExePath,
+		logLevel:  conf.LogLevel,
+		resources: map[resource.Name]*addedResource{},
+	}
 	mgr.modules[conf.Name] = mod
 
 	if err := mod.startProcess(ctx, mgr.parentAddr,
@@ -276,20 +285,6 @@ func (mgr *Manager) ReconfigureResource(ctx context.Context, conf resource.Confi
 	return nil
 }
 
-// Configs returns a slice of config.Module representing the currently managed
-// modules.
-func (mgr *Manager) Configs() []config.Module {
-	mgr.mu.RLock()
-	defer mgr.mu.RUnlock()
-	var configs []config.Module
-	for _, mod := range mgr.modules {
-		configs = append(configs, config.Module{
-			Name: mod.name, ExePath: mod.exe,
-		})
-	}
-	return configs
-}
-
 // Provides returns true if a component/service config WOULD be handled by a module.
 func (mgr *Manager) Provides(conf resource.Config) bool {
 	mgr.mu.RLock()
@@ -422,12 +417,15 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) b
 		}
 
 		// Otherwise, add old module process' resources to new module; warn if new
-		// module cannot handle old resource and remove now orphaned resources.
+		// module cannot handle old resource, deregister that resource and remove
+		// it from mod.resources. Finally, handle orphaned resources.
 		var orphanedResourceNames []resource.Name
 		for name, res := range mod.resources {
 			if _, err := mgr.AddResource(ctx, res.conf, res.deps); err != nil {
 				mgr.logger.Warnw("error while re-adding resource to module",
 					"resource", name, "module", mod.name, "error", err)
+				resource.Deregister(res.conf.API, res.conf.Model)
+				delete(mod.resources, name)
 				orphanedResourceNames = append(orphanedResourceNames, name)
 			}
 		}
@@ -581,6 +579,7 @@ func (m *module) startProcess(
 	if err := modlib.CheckSocketAddressLength(m.addr); err != nil {
 		return err
 	}
+
 	pconf := pexec.ProcessConfig{
 		ID:               m.name,
 		Name:             m.exe,
@@ -588,6 +587,14 @@ func (m *module) startProcess(
 		Log:              true,
 		OnUnexpectedExit: oue,
 	}
+	// Start module process with supplied log level or "debug" if none is
+	// supplied and module manager has a DebugLevel logger.
+	if m.logLevel != "" {
+		pconf.Args = append(pconf.Args, fmt.Sprintf(logLevelArgumentTemplate, m.logLevel))
+	} else if logger.Level().Enabled(zapcore.DebugLevel) {
+		pconf.Args = append(pconf.Args, fmt.Sprintf(logLevelArgumentTemplate, "debug"))
+	}
+
 	m.process = pexec.NewManagedProcess(pconf, logger)
 
 	err := m.process.Start(context.Background())
