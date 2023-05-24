@@ -204,7 +204,7 @@ func NewWit(
 	}
 
 	portReader := bufio.NewReader(i.port)
-	i.startUpdateLoop(ctx, portReader, logger)
+	i.startUpdateLoop(context.Background(), portReader, logger)
 
 	return &i, nil
 }

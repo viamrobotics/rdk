@@ -139,7 +139,7 @@ func newCameraMono(
 	}
 
 	ctx := context.Background()
-	cancelCtx, cancelFunc := context.WithCancel(ctx)
+	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 
 	co := &cameramono{
 		Named:      conf.ResourceName().AsNamed(),
