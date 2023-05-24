@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sync"
 	"time"
 
@@ -92,6 +93,7 @@ type builtIn struct {
 	waitAfterLastModifiedMillis int
 
 	additionalSyncPaths []string
+	tags                []string
 	syncDisabled        bool
 	syncIntervalMins    float64
 	syncRoutineCancelFn context.CancelFunc
@@ -118,6 +120,7 @@ func NewBuiltIn(
 		collectors:                  make(map[componentMethodMetadata]*collectorAndConfig),
 		syncIntervalMins:            0,
 		additionalSyncPaths:         []string{},
+		tags:                        []string{},
 		waitAfterLastModifiedMillis: 10000,
 		syncerConstructor:           datasync.NewManager,
 	}
@@ -426,6 +429,7 @@ func (svc *builtIn) Reconfigure(
 					return err
 				}
 			}
+			svc.syncer.SetArbitraryFileTags(svc.tags)
 			svc.startSyncScheduler(svc.syncIntervalMins)
 		} else {
 			if svc.syncTicker != nil {
@@ -434,6 +438,9 @@ func (svc *builtIn) Reconfigure(
 			}
 			svc.closeSyncer()
 		}
+	} else if svc.syncer != nil && !reflect.DeepEqual(svc.tags, svcConfig.Tags) {
+		svc.tags = svcConfig.Tags
+		svc.syncer.SetArbitraryFileTags(svc.tags)
 	}
 
 	return nil
