@@ -6,14 +6,15 @@
  * This is causing memory leaks.
  */
 
+import { $ref, $computed } from 'vue/macros';
 import { onMounted, onUnmounted, watch } from 'vue';
 import * as THREE from 'three';
+import { OrbitControlsGizmo, GridHelper } from 'trzy';
 import { PCDLoader } from 'three/examples/jsm/loaders/PCDLoader';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls';
 import { toast } from '../../lib/toast';
 import { Client, commonApi } from '@viamrobotics/sdk';
-import InfoButton from '../info-button.vue';
 
 const props = defineProps<{
   resources: commonApi.ResourceName.AsObject[]
@@ -23,6 +24,7 @@ const props = defineProps<{
 }>();
 
 const container = $ref<HTMLDivElement>();
+const gizmoContainer = $ref<HTMLDivElement>();
 
 let cube: THREE.LineSegments;
 let displayGrid = true;
@@ -45,6 +47,7 @@ const distanceFromCamera = $computed(() => Math.round(
 
 const loader = new PCDLoader();
 const scene = new THREE.Scene();
+
 const ambientLight = new THREE.AmbientLight(0xFF_FF_FF, 3);
 scene.add(ambientLight);
 
@@ -89,13 +92,11 @@ sphereMaterial.color.set('black');
 sphereMaterial.transparent = true;
 sphereMaterial.opacity = 0.4;
 
-const size = 10;
-const divisions = 10;
-const gridHelper = new THREE.GridHelper(size, divisions);
+const cellSize = 1;
+const largeCellSize = 10;
+const gridColor = '#cacaca';
+const gridHelper = new GridHelper(cellSize, largeCellSize, gridColor);
 scene.add(gridHelper);
-
-const gridMaterial = gridHelper.material as THREE.MeshBasicMaterial;
-gridMaterial.color.set('black');
 
 const getSegmenterParameters = () => {
   // const req = new visionApi.GetSegmenterParametersRequest();
@@ -487,9 +488,13 @@ const init = (pointcloud: Uint8Array) => {
   }
 };
 
+let gizmo: OrbitControlsGizmo | undefined;
+
 onMounted(() => {
   container?.append(renderer.domElement);
   renderer.setAnimationLoop(animate);
+
+  gizmo = new OrbitControlsGizmo({ camera, el: gizmoContainer as HTMLElement, controls });
 
   if (props.pointcloud) {
     init(props.pointcloud);
@@ -498,6 +503,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   renderer.setAnimationLoop(null);
+  gizmo?.dispose();
 });
 
 watch(() => props.pointcloud, (updated?: Uint8Array) => {
@@ -509,80 +515,103 @@ watch(() => props.pointcloud, (updated?: Uint8Array) => {
 </script>
 
 <template>
-  <div class="flex flex-col gap-4">
-    <div class="flex justify-end gap-2">
-      <v-button
-        icon="center"
-        label="Center"
-        @click="handleCenter"
+  <div class="flex gap-4">
+    <div class="relative flex w-fit min-w-[370px] flex-col gap-4 pt-4">
+      <v-input
+        class="w-20"
+        label="Points size"
+        type="number"
+        min="0.1"
+        step="0.1"
+        value="1"
+        incrementor="slider"
+        @input="handlePointsResize"
       />
-      <a
-        ref="download"
-        download="pointcloud.txt"
-      >
-        <v-button
-          icon="download"
-          label="Download Raw Data"
-          @click="() => {}"
-        />
-      </a>
-    </div>
-
-    <div
-      ref="container"
-      class="pcd-container border-medium relative w-full border"
-      @mousedown="handleCanvasMouseDown"
-      @mouseup="handleCanvasMouseUp"
-    />
-
-    <div class="relative flex w-full flex-wrap items-center justify-between gap-12">
-      <div class="w-full max-w-xs pl-4 pt-2">
-        <v-slider
-          label="Points Scaling"
-          min="0.1"
-          value="1"
-          max="3"
-          step="0.05"
-          @input="handlePointsResize"
-        />
-      </div>
 
       <div class="flex items-center gap-1">
-        <span class="text-xs">Controls</span>
-        <InfoButton
-          :info-rows="[
-            'Rotate - Left/Click + Drag',
-            'Pan - Right/Two Finger Click + Drag',
-            'Zoom - Wheel/Two Finger Scroll',
-          ]"
+        <v-button
+          icon="center"
+          label="Center"
+          @click="handleCenter"
         />
+
+        <a
+          ref="download"
+          download="pointcloud.txt"
+        >
+          <v-button
+            icon="download"
+            label="Download Raw Data"
+            @click="() => {}"
+          />
+        </a>
       </div>
 
-      <label class="flex flex-col gap-1 text-xs">
-        <div class="flex items-center gap-1.5">
-          Transform controls
-          <v-switch
-            value="off"
-            @input="handleToggleTransformControls"
-          />
-        </div>
-
-        <v-radio
-          v-if="transformEnabled"
-          class="w-full"
-          options="Translate, Rotate, Scale"
-          selected="Translate"
-          @input="handleTransformModeChange"
-        />
-      </label>
-
-      <label class="flex items-center gap-1.5 text-xs">
-        Grid
+      <div class="flex gap-2">
         <v-switch
+          label="Grid"
           value="on"
           @input="handleToggleGrid"
         />
-      </label>
+
+        <div>
+          <v-switch
+            label="Transform controls"
+            value="off"
+            @input="handleToggleTransformControls"
+          />
+
+          <v-radio
+            v-if="transformEnabled"
+            options="Translate, Rotate, Scale"
+            selected="Translate"
+            @input="handleTransformModeChange"
+          />
+        </div>
+      </div>
+
+      <div class="flex flex-wrap gap-2">
+        <div class="w-full text-xs">
+          Selected Point Position
+        </div>
+        <v-input
+          class="w-20"
+          readonly
+          label="X"
+          labelposition="left"
+          :value="click.x"
+        />
+        <v-input
+          class="w-20"
+          readonly
+          label="Y"
+          labelposition="left"
+          :value="click.y"
+        />
+        <v-input
+          class="w-20"
+          readonly
+          labelposition="left"
+          label="Z"
+          :value="click.z"
+        />
+      </div>
+
+      <div class="text-xs">
+        Distance From Camera: {{ distanceFromCamera }}mm
+      </div>
+
+      <small class="flex w-20 items-center gap-1">
+        Controls
+        <v-tooltip location="top">
+          <v-icon name="info-outline" />
+          <span slot="text">
+            <p>Rotate - Left/Click + Drag</p>
+            <p>Pan - Right/Two Finger Click + Drag</p>
+            <p>Zoom - Wheel/Two Finger Scroll</p>
+          </span>
+        </v-tooltip>
+      </small>
     </div>
 
     <div
@@ -645,34 +674,8 @@ watch(() => props.pointcloud, (updated?: Uint8Array) => {
         @click="findSegments"
       />
     </div>
-    <div class="pt-4">
-      <div class="pb-1 text-xs">
-        Selected Point Position
-      </div>
-      <div class="flex flex-wrap gap-3">
-        <v-input
-          readonly
-          label="X"
-          labelposition="left"
-          :value="click.x"
-        />
-        <v-input
-          readonly
-          label="Y"
-          labelposition="left"
-          :value="click.y"
-        />
-        <v-input
-          readonly
-          labelposition="left"
-          label="Z"
-          :value="click.z"
-        />
-      </div>
 
-      <div class="pt-4 text-xs">
-        Distance From Camera: {{ distanceFromCamera }}mm
-      </div>
+    <div>
       <div
         v-if="false"
         class="flex pb-8 pt-4"
@@ -720,6 +723,18 @@ watch(() => props.pointcloud, (updated?: Uint8Array) => {
           </span>
         </div>
       </div>
+    </div>
+
+    <div
+      ref="container"
+      class="pcd-container border-medium relative w-full border"
+      @mousedown="handleCanvasMouseDown"
+      @mouseup="handleCanvasMouseUp"
+    >
+      <div
+        ref="gizmoContainer"
+        class="absolute right-2 top-2"
+      />
     </div>
   </div>
 </template>

@@ -44,7 +44,7 @@ import MovementSensor from './movement-sensor.vue';
 import Navigation from './navigation.vue';
 import ServoComponent from './servo.vue';
 import Sensors from './sensors.vue';
-import Slam from './slam.vue';
+import Slam from './slam/index.vue';
 
 import {
   fixArmStatus,
