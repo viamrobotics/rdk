@@ -8,6 +8,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/motor"
@@ -52,7 +53,7 @@ func TestWheelBaseMath(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	motorDeps := fakeMotorDependencies(t, deps)
 
-	baseBase, err := CreateWheeledBase(context.Background(), motorDeps, testCfg, logger)
+	baseBase, err := createWheeledBase(context.Background(), motorDeps, testCfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, baseBase, test.ShouldNotBeNil)
 	base, ok := baseBase.(*wheeledBase)
@@ -86,7 +87,7 @@ func TestWheelBaseMath(t *testing.T) {
 		err := base.MoveStraight(ctx, 1000, 0, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = base.WaitForMotorsToStop(ctx)
+		err = waitForMotorsToStop(ctx, base)
 		test.That(t, err, test.ShouldBeNil)
 
 		for _, m := range base.allMotors {
@@ -101,7 +102,7 @@ func TestWheelBaseMath(t *testing.T) {
 		err := base.MoveStraight(ctx, 0, 1000, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = base.WaitForMotorsToStop(ctx)
+		err = waitForMotorsToStop(ctx, base)
 		test.That(t, err, test.ShouldBeNil)
 
 		for _, m := range base.allMotors {
@@ -112,7 +113,7 @@ func TestWheelBaseMath(t *testing.T) {
 		}
 	})
 
-	t.Run("WaitForMotorsToStop", func(t *testing.T) {
+	t.Run("waitForMotorsToStop", func(t *testing.T) {
 		err := base.Stop(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -123,7 +124,7 @@ func TestWheelBaseMath(t *testing.T) {
 		test.That(t, isOn, test.ShouldBeTrue)
 		test.That(t, powerPct, test.ShouldEqual, 1.0)
 
-		err = base.WaitForMotorsToStop(ctx)
+		err = waitForMotorsToStop(ctx, base)
 		test.That(t, err, test.ShouldBeNil)
 
 		for _, m := range base.allMotors {
@@ -133,7 +134,7 @@ func TestWheelBaseMath(t *testing.T) {
 			test.That(t, powerPct, test.ShouldEqual, 0.0)
 		}
 
-		err = base.WaitForMotorsToStop(ctx)
+		err = waitForMotorsToStop(ctx, base)
 		test.That(t, err, test.ShouldBeNil)
 
 		for _, m := range base.allMotors {
@@ -324,7 +325,7 @@ func TestWheeledBaseConstructor(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	motorDeps := fakeMotorDependencies(t, deps)
 
-	baseBase, err := CreateWheeledBase(ctx, motorDeps, testCfg, logger)
+	baseBase, err := createWheeledBase(ctx, motorDeps, testCfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	base, ok := baseBase.(*wheeledBase)
 	test.That(t, ok, test.ShouldBeTrue)
@@ -363,4 +364,37 @@ func TestValidate(t *testing.T) {
 	deps, err = cfg.Validate("path")
 	test.That(t, deps, test.ShouldResemble, []string{"fl-m", "bl-m", "fr-m", "br-m"})
 	test.That(t, err, test.ShouldBeNil)
+}
+
+// waitForMotorsToStop polls all motors to see if they're on, used only for testing.
+func waitForMotorsToStop(ctx context.Context, wb *wheeledBase) error {
+	for {
+		if !utils.SelectContextOrWait(ctx, 10*time.Millisecond) {
+			return ctx.Err()
+		}
+
+		anyOn := false
+		anyOff := false
+
+		for _, m := range wb.allMotors {
+			isOn, _, err := m.IsPowered(ctx, nil)
+			if err != nil {
+				return err
+			}
+			if isOn {
+				anyOn = true
+			} else {
+				anyOff = true
+			}
+		}
+
+		if !anyOn {
+			return nil
+		}
+
+		if anyOff {
+			// once one motor turns off, we turn them all off
+			return wb.Stop(ctx, nil)
+		}
+	}
 }
