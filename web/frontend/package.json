@@ -20,7 +20,7 @@
     "@viamrobotics/sdk": "^0.1.0",
     "google-protobuf": "~3.*.*",
     "three": "~0.152.*",
-    "trzy": "^0.0.44"
+    "trzy": "0.0.45"
   },
   "dependencies": {},
   "devDependencies": {
