@@ -12,7 +12,7 @@ const (
 	jetsonTX1      = "jetson_tx1"
 	jetsonNano     = "jetson_nano"
 	jetsonTX2NX    = "jetson_tx2_NX"
-	jetsonOrin     = "jetson_orin"
+	jetsonOrinAGX  = "jetson_orin_agx"
 	jetsonOrinNX   = "jetson_orin_nx"
 	jetsonOrinNano = "jetson_orin_nano"
 )
@@ -440,7 +440,7 @@ var boardInfoMappings = map[string]genericlinux.BoardInformation{
 			"nvidia,jetson-nano",
 		},
 	},
-	jetsonOrin: {
+	jetsonOrinAGX: {
 		jetsonOrinPins,
 		[]string{
 			"nvidia,p3737-0000+p3701-0000",
