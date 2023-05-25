@@ -42,6 +42,7 @@ func TestDecodeImage(t *testing.T) {
 	test.That(t, png.Encode(&buf, img), test.ShouldBeNil)
 
 	t.Run("lazy", func(t *testing.T) {
+		t.Parallel()
 		decoded, err := DecodeImage(context.Background(), buf.Bytes(), utils.WithLazyMIMEType(utils.MimeTypePNG))
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, decoded, test.ShouldHaveSameTypeAs, &LazyEncodedImage{})
@@ -63,6 +64,7 @@ func TestEncodeImage(t *testing.T) {
 	test.That(t, libjpeg.Encode(&bufJPEG, img, jpegEncoderOptions), test.ShouldBeNil)
 
 	t.Run("lazy", func(t *testing.T) {
+		t.Parallel()
 		// fast
 		lazyImg := NewLazyEncodedImage(buf.Bytes(), "hehe")
 		encoded, err := EncodeImage(context.Background(), lazyImg, "hehe")
@@ -75,6 +77,7 @@ func TestEncodeImage(t *testing.T) {
 		test.That(t, encoded, test.ShouldResemble, buf.Bytes())
 	})
 	t.Run("jpeg from png", func(t *testing.T) {
+		t.Parallel()
 		lazyImg := NewLazyEncodedImage(buf.Bytes(), utils.MimeTypePNG)
 		encoded, err := EncodeImage(context.Background(), lazyImg, utils.MimeTypeJPEG)
 		test.That(t, err, test.ShouldBeNil)

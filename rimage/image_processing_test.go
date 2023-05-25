@@ -231,9 +231,7 @@ func TestCannyBlocks(t *testing.T) {
 		magDataInt[idx] = NewColor(uint8(math.Round(magData[idx])), uint8(math.Round(magData[idx])), uint8(math.Round(magData[idx])))
 	}
 	magOut := Image{
-		data:   magDataInt,
-		width:  gtGrad.Width(),
-		height: gtGrad.Height(),
+		data: magDataInt,
 	}
 
 	// NMS
@@ -244,9 +242,7 @@ func TestCannyBlocks(t *testing.T) {
 		nmsDataInt[idx] = NewColor(uint8(math.Round(nmsData[idx])), uint8(math.Round(nmsData[idx])), uint8(math.Round(nmsData[idx])))
 	}
 	nmsOut := Image{
-		data:   nmsDataInt,
-		width:  gtGrad.Width(),
-		height: gtGrad.Height(),
+		data: nmsDataInt,
 	}
 
 	// run tests
@@ -258,9 +254,11 @@ func TestCannyBlocks(t *testing.T) {
 		{"nms", nmsOut.data, gtNms.data},
 	}
 	for _, tt := range tests {
+		ttCopy := tt
 		t.Run(tt.testName, func(t *testing.T) {
-			test.That(t, len(tt.dataOut), test.ShouldEqual, len(tt.dataGT))
-			test.That(t, tt.dataOut, test.ShouldResemble, tt.dataGT)
+			t.Parallel()
+			test.That(t, len(ttCopy.dataOut), test.ShouldEqual, len(ttCopy.dataGT))
+			test.That(t, ttCopy.dataOut, test.ShouldResemble, ttCopy.dataGT)
 		})
 	}
 }
