@@ -3,6 +3,7 @@ package builtin
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math"
 	"sync"
@@ -20,6 +21,7 @@ import (
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/navigation"
 	"go.viam.com/rdk/spatialmath"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 const (
@@ -37,18 +39,30 @@ func init() {
 		) (navigation.Service, error) {
 			return NewBuiltIn(ctx, deps, conf, logger)
 		},
+		AttributeMapConverter: func(attributes rdkutils.AttributeMap) (*Config, error) {
+			b, err := json.Marshal(attributes)
+			if err != nil {
+				return nil, err
+			}
+
+			var fooCfg Config
+			if err := json.Unmarshal(b, &fooCfg); err != nil {
+				return nil, err
+			}
+			return &fooCfg, nil
+		},
 	})
 }
 
 // Config describes how to configure the service.
 type Config struct {
-	Store               navigation.StoreConfig        `json:"store"`
-	BaseName            string                        `json:"base_name"`
-	MovementSensorName  string                        `json:"movement_sensor_name"`
-	MotionServiceName   string                        `json:"motion_service_name"`
-	DegPerSecDefault    float64                       `json:"degs_per_sec"`
-	MetersPerSecDefault float64                       `json:"meters_per_sec"`
-	Obstacles           spatialmath.GeoObstacleConfig `json:"obstacles,omitempty"`
+	Store               navigation.StoreConfig           `json:"store"`
+	BaseName            string                           `json:"base_name"`
+	MovementSensorName  string                           `json:"movement_sensor_name"`
+	MotionServiceName   string                           `json:"motion_service_name"`
+	DegPerSecDefault    float64                          `json:"degs_per_sec"`
+	MetersPerSecDefault float64                          `json:"meters_per_sec"`
+	Obstacles           []*spatialmath.GeoObstacleConfig `json:"obstacles,omitempty"`
 }
 
 // Validate creates the list of implicit dependencies.
@@ -165,7 +179,7 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	}
 
 	// Parse obstacles from the passed in configuration
-	newObstacles, err := spatialmath.GeoObstaclesFromConfig(svcConfig.Obstacles)
+	newObstacles, err := spatialmath.GeoObstaclesFromConfigs(svcConfig.Obstacles)
 	if err != nil {
 		return err
 	}
