@@ -26,6 +26,7 @@ var (
 
 // Test finding the planes in an image with depth.
 func TestPlaneSegmentImageAndDepthMap(t *testing.T) {
+	t.Parallel()
 	logger := golog.NewTestLogger(t)
 	planeSegTest := os.Getenv(debugPlaneSeg)
 	if planeSegTest == "" {
@@ -140,6 +141,7 @@ func (h *segmentTestHelper) Process(
 
 // testing out gripper plane segmentation.
 func TestGripperPlaneSegmentation(t *testing.T) {
+	t.Parallel()
 	planeSegTest := os.Getenv(debugPlaneSeg)
 	if planeSegTest == "" {
 		t.Skipf("set environmental variable %q to run this test", debugPlaneSeg)

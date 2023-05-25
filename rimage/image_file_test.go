@@ -16,6 +16,7 @@ import (
 )
 
 func TestPngEncodings(t *testing.T) {
+	t.Parallel()
 	openBytes, err := os.ReadFile(artifact.MustPath("rimage/opencv_encoded_image.png"))
 	test.That(t, err, test.ShouldBeNil)
 	openGray16, err := png.Decode(bytes.NewReader(openBytes))
@@ -33,6 +34,7 @@ func TestPngEncodings(t *testing.T) {
 }
 
 func TestDecodeImage(t *testing.T) {
+	t.Parallel()
 	img := image.NewNRGBA(image.Rect(0, 0, 4, 8))
 	img.Set(3, 3, Red)
 
@@ -50,6 +52,7 @@ func TestDecodeImage(t *testing.T) {
 }
 
 func TestEncodeImage(t *testing.T) {
+	t.Parallel()
 	img := image.NewNRGBA(image.Rect(0, 0, 4, 8))
 	img.Set(3, 3, Red)
 
@@ -80,6 +83,7 @@ func TestEncodeImage(t *testing.T) {
 }
 
 func TestRawRGBAEncodingDecoding(t *testing.T) {
+	t.Parallel()
 	img := image.NewNRGBA(image.Rect(0, 0, 4, 8))
 	img.Set(3, 3, Red)
 
@@ -114,6 +118,7 @@ func TestRawRGBAEncodingDecoding(t *testing.T) {
 }
 
 func TestRawDepthEncodingDecoding(t *testing.T) {
+	t.Parallel()
 	img := NewEmptyDepthMap(4, 8)
 	for x := 0; x < 4; x++ {
 		for y := 0; y < 8; y++ {

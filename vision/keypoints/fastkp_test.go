@@ -23,6 +23,7 @@ func createTestImage() *image.Gray {
 }
 
 func TestLoadFASTConfiguration(t *testing.T) {
+	t.Parallel()
 	cfg := LoadFASTConfiguration("kpconfig.json")
 	test.That(t, cfg, test.ShouldNotBeNil)
 	test.That(t, cfg.Threshold, test.ShouldEqual, 20)
@@ -31,6 +32,7 @@ func TestLoadFASTConfiguration(t *testing.T) {
 }
 
 func TestGetPointValuesInNeighborhood(t *testing.T) {
+	t.Parallel()
 	// create test image
 	rectImage := createTestImage()
 	// testing cross neighborhood
@@ -62,6 +64,7 @@ func TestGetPointValuesInNeighborhood(t *testing.T) {
 }
 
 func TestIsValidSlice(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		s        []float64
 		n        int
@@ -78,6 +81,7 @@ func TestIsValidSlice(t *testing.T) {
 }
 
 func TestSumPositiveValues(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		s        []float64
 		expected float64
@@ -92,6 +96,7 @@ func TestSumPositiveValues(t *testing.T) {
 }
 
 func TestSumNegativeValues(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		s        []float64
 		expected float64
@@ -106,6 +111,7 @@ func TestSumNegativeValues(t *testing.T) {
 }
 
 func TestGetBrighterValues(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		s        []float64
 		t        float64
@@ -120,6 +126,7 @@ func TestGetBrighterValues(t *testing.T) {
 }
 
 func TestGetDarkerValues(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		s        []float64
 		t        float64
@@ -134,6 +141,7 @@ func TestGetDarkerValues(t *testing.T) {
 }
 
 func TestComputeFAST(t *testing.T) {
+	t.Parallel()
 	// load config
 	cfg := LoadFASTConfiguration("kpconfig.json")
 	test.That(t, cfg, test.ShouldNotBeNil)
@@ -163,6 +171,7 @@ func TestComputeFAST(t *testing.T) {
 }
 
 func TestNewFASTKeypointsFromImage(t *testing.T) {
+	t.Parallel()
 	// load config
 	cfg := LoadFASTConfiguration("kpconfig.json")
 	test.That(t, cfg, test.ShouldNotBeNil)

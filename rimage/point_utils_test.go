@@ -10,10 +10,12 @@ import (
 )
 
 func TestPointDistance(t *testing.T) {
+	t.Parallel()
 	test.That(t, PointDistance(image.Point{0, 3}, image.Point{4, 0}), test.ShouldEqual, 5.0)
 }
 
 func TestPointCenter(t *testing.T) {
+	t.Parallel()
 	all := []image.Point{
 		{0, 0},
 		{2, 0},
@@ -30,12 +32,14 @@ func TestPointCenter(t *testing.T) {
 }
 
 func TestPointAngle(t *testing.T) {
+	t.Parallel()
 	test.That(t, PointAngle(image.Point{0, 0}, image.Point{1, 0}), test.ShouldEqual, 0.0)
 	test.That(t, PointAngle(image.Point{0, 0}, image.Point{1, 1}), test.ShouldEqual, math.Pi/4)
 	test.That(t, PointAngle(image.Point{0, 0}, image.Point{-1, -1}), test.ShouldEqual, math.Pi/4-math.Pi)
 }
 
 func TestPointBoundingBox(t *testing.T) {
+	t.Parallel()
 	r := BoundingBox([]image.Point{
 		{100, 100},
 		{200, 200},
@@ -49,6 +53,7 @@ func TestPointBoundingBox(t *testing.T) {
 }
 
 func TestR2ToImage(t *testing.T) {
+	t.Parallel()
 	imagePoint := image.Point{2, 3}
 
 	test.That(t, R2PointToImagePoint(r2.Point{2.36, 3.004}), test.ShouldResemble, imagePoint)
@@ -71,6 +76,7 @@ func TestR2ToImage(t *testing.T) {
 }
 
 func TestSliceVecsToXsYs(t *testing.T) {
+	t.Parallel()
 	pts := []r2.Point{
 		{0, 0},
 		{1, 2},
@@ -86,6 +92,7 @@ func TestSliceVecsToXsYs(t *testing.T) {
 }
 
 func TestAreCollinear(t *testing.T) {
+	t.Parallel()
 	a := r2.Point{0, 0}
 	b := r2.Point{1, 1}
 	c := r2.Point{2, 2}

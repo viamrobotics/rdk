@@ -58,6 +58,7 @@ func circle(n int) []Point {
 }
 
 func TestConvexHull(t *testing.T) {
+	t.Parallel()
 	// test square + point at the centroid
 	points := []Point{{0, 0}, {1, 1}, {0, 1}, {1, 0}, {0.5, 0.5}}
 	hull := ConvexHull(points)
@@ -80,6 +81,7 @@ func TestConvexHull(t *testing.T) {
 }
 
 func TestTricky(t *testing.T) {
+	t.Parallel()
 	var points []Point
 	rnd := rand.New(rand.NewSource(99))
 	for len(points) < 100000 {
@@ -103,6 +105,7 @@ func TestTricky(t *testing.T) {
 }
 
 func TestCases(t *testing.T) {
+	t.Parallel()
 	// test one point
 	tri1, err := Triangulate([]Point{{0, 0}})
 
@@ -148,6 +151,7 @@ func TestCases(t *testing.T) {
 }
 
 func TestUniform(t *testing.T) {
+	t.Parallel()
 	rnd := rand.New(rand.NewSource(99))
 	points := uniform(100000, rnd)
 	tri, err := Triangulate(points)
@@ -158,6 +162,7 @@ func TestUniform(t *testing.T) {
 }
 
 func TestNormal(t *testing.T) {
+	t.Parallel()
 	rnd := rand.New(rand.NewSource(99))
 	points := normal(100000, rnd)
 	tri, err := Triangulate(points)
@@ -168,6 +173,7 @@ func TestNormal(t *testing.T) {
 }
 
 func TestGrid(t *testing.T) {
+	t.Parallel()
 	points := grid(100000)
 	tri, err := Triangulate(points)
 	test.That(t, err, test.ShouldBeNil)
@@ -187,6 +193,7 @@ func TestGrid(t *testing.T) {
 }
 
 func TestCircle(t *testing.T) {
+	t.Parallel()
 	points := circle(10000)
 	tri, err := Triangulate(points)
 	test.That(t, err, test.ShouldBeNil)
@@ -195,6 +202,7 @@ func TestCircle(t *testing.T) {
 }
 
 func TestGetTriangleIdsMap(t *testing.T) {
+	t.Parallel()
 	points := circle(10000)
 	tri, err := Triangulate(points)
 	test.That(t, err, test.ShouldBeNil)
@@ -210,6 +218,7 @@ func TestGetTriangleIdsMap(t *testing.T) {
 }
 
 func TestGetTriangles(t *testing.T) {
+	t.Parallel()
 	points := circle(10000)
 	points3D := make([]r3.Vector, len(points))
 	for i, pt := range points {

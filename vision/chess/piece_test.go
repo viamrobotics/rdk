@@ -16,6 +16,7 @@ func _testPieceStatusHelper(t *testing.T, game *Game, board *Board, square, corr
 }
 
 func TestPiece1(t *testing.T) {
+	t.Parallel()
 	logger := golog.NewTestLogger(t)
 	outDir := t.TempDir()
 	theBoard, err := FindAndWarpBoardFromFiles(

@@ -13,10 +13,12 @@ import (
 )
 
 func TestCanny1(t *testing.T) {
+	t.Parallel()
 	doCannyTest(t, "canny1")
 }
 
 func TestCanny2(t *testing.T) {
+	t.Parallel()
 	doCannyTest(t, "canny2")
 }
 
@@ -78,6 +80,7 @@ func doCannyTest(t *testing.T, root string) {
 }
 
 func TestCloneImage(t *testing.T) {
+	t.Parallel()
 	img, err := readImageFromFile(artifact.MustPath("rimage/canny1.png"))
 	test.That(t, err, test.ShouldBeNil)
 
@@ -116,6 +119,7 @@ func BenchmarkConvertImage(b *testing.B) {
 }
 
 func TestConvertYCbCr(t *testing.T) {
+	t.Parallel()
 	orig, err := readImageFromFile(artifact.MustPath("rimage/canny1.png"))
 	test.That(t, err, test.ShouldBeNil)
 
@@ -147,6 +151,7 @@ func BenchmarkConvertImageYCbCr(b *testing.B) {
 }
 
 func TestColorInterpolation(t *testing.T) {
+	t.Parallel()
 	img := NewImage(2, 2)
 	img.SetXY(0, 0, NewColorFromHSV(30, 0, 0))
 	img.SetXY(1, 0, NewColorFromHSV(40, .5, .5))
@@ -188,6 +193,7 @@ func TestColorInterpolation(t *testing.T) {
 }
 
 func TestCanny(t *testing.T) {
+	t.Parallel()
 	imgOriginal, err := readImageFromFile(artifact.MustPath("rimage/canny_test_1.jpg"))
 	test.That(t, err, test.ShouldBeNil)
 	img := ConvertImage(imgOriginal)
@@ -205,6 +211,7 @@ func TestCanny(t *testing.T) {
 }
 
 func TestCannyBlocks(t *testing.T) {
+	t.Parallel()
 	// load test image and GT
 	imgOriginal, err := readImageFromFile(artifact.MustPath("rimage/edge_test_image.png"))
 	test.That(t, err, test.ShouldBeNil)

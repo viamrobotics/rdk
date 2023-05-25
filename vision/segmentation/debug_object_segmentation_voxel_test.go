@@ -87,6 +87,7 @@ func (h *gripperVoxelSegmentTestHelper) Process(
 }
 
 func TestGripperVoxelObjectSegmentation(t *testing.T) {
+	t.Parallel()
 	objSegTest := os.Getenv(debugObjSeg)
 	if objSegTest == "" {
 		t.Skipf("set environmental variable %q to run this test", debugObjSeg)

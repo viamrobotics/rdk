@@ -16,6 +16,7 @@ import (
 )
 
 func TestColorObjects(t *testing.T) {
+	t.Parallel()
 	// create camera
 	img, err := rimage.NewImageFromFile(artifact.MustPath("segmentation/aligned_intel/color/desktop2.png"))
 	test.That(t, err, test.ShouldBeNil)
@@ -67,6 +68,7 @@ func TestColorObjects(t *testing.T) {
 }
 
 func TestColorObjectsValidate(t *testing.T) {
+	t.Parallel()
 	cfg := segmentation.ColorObjectsConfig{}
 	// tolerance value too big
 	cfg.HueTolerance = 10.

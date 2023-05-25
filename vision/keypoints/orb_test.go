@@ -13,6 +13,7 @@ import (
 )
 
 func TestLoadORBConfiguration(t *testing.T) {
+	t.Parallel()
 	cfg, err := LoadORBConfiguration("orbconfig.json")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, cfg, test.ShouldNotBeNil)
@@ -47,6 +48,7 @@ func TestLoadORBConfiguration(t *testing.T) {
 }
 
 func TestComputeORBKeypoints(t *testing.T) {
+	t.Parallel()
 	logger := golog.NewTestLogger(t)
 	cfg, err := LoadORBConfiguration("orbconfig.json")
 	test.That(t, err, test.ShouldBeNil)
@@ -74,6 +76,7 @@ func TestComputeORBKeypoints(t *testing.T) {
 }
 
 func TestMatchingWithRotation(t *testing.T) {
+	t.Parallel()
 	logger := golog.NewTestLogger(t)
 	cfg, err := LoadORBConfiguration("orbconfig.json")
 	test.That(t, err, test.ShouldBeNil)
