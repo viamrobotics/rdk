@@ -9,9 +9,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/testutils"
 
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/session"
 	"go.viam.com/rdk/testutils/inject"
