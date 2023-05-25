@@ -786,6 +786,30 @@ func TestWebAddFirstStream(t *testing.T) {
 	test.That(t, conn.Close(), test.ShouldBeNil)
 }
 
+func TestWebStreamImmediateClose(t *testing.T) {
+	// Primarily a regression test for RSDK-2418
+
+	// Start a robot with a camera
+	robot := &inject.Robot{}
+	cam1 := &inject.Camera{}
+	rs := map[resource.Name]resource.Resource{camera.Named("camera1"): cam1}
+	robot.MockResourcesFromMap(rs)
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// Start service
+	logger := golog.NewTestLogger(t)
+	robot.LoggerFunc = func() golog.Logger { return logger }
+	options, _, _ := robottestutils.CreateBaseOptionsAndListener(t)
+	svc := web.New(robot, logger, web.WithStreamConfig(x264.DefaultStreamConfig))
+	err := svc.Start(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Immediately Close service.
+	cancel()
+	test.That(t, svc.Close(ctx), test.ShouldBeNil)
+}
+
 func setupRobotCtx(t *testing.T) (context.Context, robot.Robot) {
 	t.Helper()
 
