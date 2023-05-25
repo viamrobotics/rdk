@@ -371,8 +371,6 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger golog.Logge
 		return nil, errors.Wrap(err, "error copying config")
 	}
 
-	// parse here
-
 	// Copy does not presve ConfigFilePath and we need to pass it along manually
 	cfg.ConfigFilePath = unprocessedConfig.ConfigFilePath
 
