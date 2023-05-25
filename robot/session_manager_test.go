@@ -9,7 +9,9 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/testutils"
 
+	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/session"
 	"go.viam.com/rdk/testutils/inject"
@@ -78,4 +80,45 @@ func TestSessionManagerExpiredSessions(t *testing.T) {
 		test.That(tb, logs.FilterMessageSnippet("sessions expired").Len(),
 			test.ShouldEqual, 1)
 	})
+}
+
+func TestSessionManagerExpiredSessionsDuringClose(t *testing.T) {
+	// Primarily a regression test for RSDK-3176
+
+	ctx := context.Background()
+	logger, logs := golog.NewObservedTestLogger(t)
+	r := &inject.Robot{}
+
+	r.LoggerFunc = func() golog.Logger {
+		return logger
+	}
+	// Setup inject robot to always return a NewNotFoundError for ResourceByName.
+	// We want to mimic the behavior of the robot when the resource manager has
+	// been closed, and the resource has been removed from the graph.
+	r.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
+		return nil, resource.NewNotFoundError(name)
+	}
+
+	heartbeatWindow := 100 * time.Millisecond
+	sm := robot.NewSessionManager(r, heartbeatWindow)
+
+	// Start a new session and associate a generic resource with it.
+	fooSess, err := sm.Start(ctx, "fooSess")
+	test.That(t, err, test.ShouldBeNil)
+	sm.AssociateResource(fooSess.ID(), generic.Named("foo"))
+
+	// Sleep for the heartbeat window to cause a session expiration. Close the
+	// session manager immediately after to potentially cause the expireLoop to
+	// try to handle "foo"'s expired session.
+	time.Sleep(heartbeatWindow)
+	sm.Close()
+
+	// Assert that no session expiration errors are logged (expireLoop returned
+	// early after double-checking context expiration).
+	test.That(t, logs.FilterMessageSnippet("sessions expired").Len(),
+		test.ShouldEqual, 0)
+	test.That(t, logs.FilterMessageSnippet("tried to stop some resources").Len(),
+		test.ShouldEqual, 0)
+	test.That(t, logs.FilterMessageSnippet("failed to stop some resources").Len(),
+		test.ShouldEqual, 0)
 }
