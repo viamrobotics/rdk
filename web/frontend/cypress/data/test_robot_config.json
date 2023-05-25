@@ -122,7 +122,31 @@
                 "motion_service_name": "test_motion",
                 "base_name": "test_base",
                 "degs_per_sec": 1,
-                "meters_per_sec": 1
+                "meters_per_sec": 1,
+                "obstacles":[{
+                    "geometries": [{
+                        "label":"aLabel",
+                        "orientation":{
+                            "type":"ov_degrees",
+                            "value":{
+                                "x":1,
+                                "y":0,
+                                "z":0,
+                                "th": 90
+                            }
+                        },
+                        "r":10,
+                        "translation":{
+                            "x":1,
+                            "y":1,
+                            "z":1
+                        }
+                    }],
+                    "location":{
+                        "latitude":1,
+                        "longitude":1
+                    }
+                }]
             }
         }
     ]
