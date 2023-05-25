@@ -65,6 +65,7 @@ var claraAGXXavierPins = []genericlinux.PinDefinition{
 	{map[int]int{224: 64, 169: 52}, map[int]string{169: "PI.00"}, "2200000.gpio", 40, 21, "I2S2_DOUT", "DAP2_DOUT", "", -1},
 }
 
+//nolint:dupl // This is not actually a duplicate of jetsonTX2NXPins despite what the linter thinks
 var jetsonNXPins = []genericlinux.PinDefinition{
 	{map[int]int{224: 148, 169: 118}, map[int]string{169: "PS.04"}, "2200000.gpio", 7, 4, "GPIO09", "AUD_MCLK", "", -1},
 	{map[int]int{224: 140, 169: 112}, map[int]string{169: "PR.04"}, "2200000.gpio", 11, 17, "UART1_RTS", "UART1_RTS", "", -1},
@@ -168,6 +169,7 @@ var jetsonXavierPins = []genericlinux.PinDefinition{
 	{map[int]int{224: 64, 169: 52}, map[int]string{169: "PI.00"}, "2200000.gpio", 40, 21, "I2S2_DOUT", "DAP2_DOUT", "", -1},
 }
 
+//nolint:dupl // This is not actually a duplicate of jetsonNXPins despite wht the linter thinks
 var jetsonTX2NXPins = []genericlinux.PinDefinition{
 	{map[int]int{192: 76, 140: 66}, map[int]string{140: "PJ.04"}, "2200000.gpio", 7, 4, "GPIO09", "AUD_MCLK", "", -1},
 	{map[int]int{64: 28, 47: 23}, map[int]string{47: "PW.04"}, "c2f0000.gpio", 11, 17, "UART1_RTS", "UART3_RTS", "", -1},
