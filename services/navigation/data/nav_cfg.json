@@ -25,7 +25,7 @@
             [{
                 "geometries":
                 [{
-                    "label":"me",
+                    "label":"aLabel",
                     "orientation":{
                         "type":"ov_degrees",
                         "value":{

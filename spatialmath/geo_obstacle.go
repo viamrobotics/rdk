@@ -80,7 +80,7 @@ func NewGeoObstacleConfig(geo GeoObstacle) (*GeoObstacleConfig, error) {
 	return config, nil
 }
 
-// GeoObstaclesFromConfig takes a GeoObstacleConfig and returns a list of GeoObstacles.
+// GeoObstaclesFromConfigs takes a GeoObstacleConfig and returns a list of GeoObstacles.
 func GeoObstaclesFromConfigs(configs []*GeoObstacleConfig) ([]*GeoObstacle, error) {
 	var gobs []*GeoObstacle
 	for _, cfg := range configs {
