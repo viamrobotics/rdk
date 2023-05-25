@@ -2,6 +2,25 @@
 // NOTE: This implementation is experimental and incomplete. Expect backward-breaking changes.
 package roboclaw
 
+/* Manufacturer:  		    Basicmicro
+Supported Models: 	Roboclaw 2x7A, Roboclaw 2x15A (other models have not been tested)
+Resources:
+	 2x7A DataSheet: https://downloads.basicmicro.com/docs/roboclaw_datasheet_2x7A.pdf
+	 2x15A DataSheet: https://downloads.basicmicro.com/docs/roboclaw_datasheet_2x15A.pdf
+	 User Manual: https://downloads.basicmicro.com/docs/roboclaw_user_manual.pdf
+
+This driver can connect to the roboclaw DC motor controller using a usb connection given as a serial path.
+Note that the roboclaw must be initalized using the BasicMicro Motion Studio application prior to use.
+The roboclaw must be in packet serial mode. The default address is 128.
+Encoders can be attached to the roboclaw controller using the EN1 and EN2 pins. If encoders are connected,
+update the ticks_per_rotation field in the config.
+
+Configuration:
+Number of motors: specfies the channel the motor is connected to on the controller (1 or 2)
+Serial baud rate: default of the roboclaw is 38400
+Serial path: path to serial file
+*/
+
 import (
 	"context"
 	"fmt"
@@ -11,6 +30,7 @@ import (
 	"github.com/CPRT/roboclaw"
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	rutils "go.viam.com/rdk/utils"
 	utils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/motor"
@@ -19,12 +39,16 @@ import (
 )
 
 var (
-	model       = resource.DefaultModelFamily.WithModel("roboclaw")
-	connections map[string]*roboclaw.Roboclaw
-	baudRates   map[*roboclaw.Roboclaw]int
+	model               = resource.DefaultModelFamily.WithModel("roboclaw")
+	connections         map[string]*roboclaw.Roboclaw
+	baudRates           map[*roboclaw.Roboclaw]int
+	validBaudRates      = []uint{460800, 230400, 115200, 57600, 38400, 19200, 9600, 2400}
+	newConnectionNeeded bool
 )
 
-const maxRPM = 200
+// Note that this maxRPM value was determined through very limited testing
+const maxRPM = 250
+const minutesToMS = 60000
 
 // Config is used for converting motor config attributes.
 type Config struct {
@@ -43,19 +67,61 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	if conf.SerialPath == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "serial_path")
 	}
-
-	if conf.SerialBaud <= 0 {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "serial_baud_rate")
-	}
 	if conf.Address != 0 && (conf.Address < 128 || conf.Address > 135) {
 		return nil, errors.New("serial address must be between 128 and 135")
 	}
 
-	if conf.SerialBaud != 2400 && conf.SerialBaud != 9600 && conf.SerialBaud != 19200 &&
-		conf.SerialBaud != 38400 && conf.SerialBaud != 115200 {
-		return nil, errors.New("invalid baud_rate, acceptable values are 2400, 9600, 19200, 38400, 115200")
+	if conf.TicksPerRotation < 0 {
+		return nil, utils.NewConfigValidationError(path, errors.New("Ticks Per Rotation must be a positive number"))
+	}
+
+	if !rutils.ValidateBaudRate(validBaudRates, conf.SerialBaud) {
+		return nil, utils.NewConfigValidationError(path, errors.Errorf("Baud rate invalid, must be one of these values: %v", validBaudRates))
 	}
 	return nil, nil
+}
+
+// Reconfigure automatically reconfigures the roboclaw when the config changes
+func (m *roboclawMotor) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+	newConfig, err := resource.NativeConfig[*Config](conf)
+	newConnectionNeeded = false
+	if err != nil {
+		return err
+	}
+
+	if m.conf.TicksPerRotation != newConfig.TicksPerRotation {
+		m.conf.TicksPerRotation = newConfig.TicksPerRotation
+	}
+
+	if m.conf.SerialBaud != newConfig.SerialBaud {
+		m.conf.SerialBaud = newConfig.SerialBaud
+		newConnectionNeeded = true
+	}
+
+	if m.conf.SerialPath != newConfig.SerialPath {
+		m.conf.SerialBaud = newConfig.SerialBaud
+		newConnectionNeeded = true
+	}
+
+	if m.conf.Number != newConfig.Number {
+		m.conf.Number = newConfig.Number
+	}
+
+	if newConfig.Address != 0 && m.conf.Address != newConfig.Address {
+		m.conf.Address = newConfig.Address
+		m.addr = uint8(newConfig.Address)
+		newConnectionNeeded = true
+	}
+
+	if newConnectionNeeded {
+		conn, err := getOrCreateConnection(newConfig)
+		if err != nil {
+			return err
+		}
+		m.conn = conn
+	}
+
+	return nil
 }
 
 func (conf *Config) wrongNumberError() error {
@@ -75,7 +141,7 @@ func init() {
 				conf resource.Config,
 				logger golog.Logger,
 			) (motor.Motor, error) {
-				return newRoboClaw(conf, logger)
+				return newRoboClaw(conf, deps, logger)
 			},
 		},
 	)
@@ -98,13 +164,14 @@ func getOrCreateConnection(config *Config) (*roboclaw.Roboclaw, error) {
 		baudRates[newConn] = config.SerialBaud
 		return newConn, nil
 	}
+
 	if baudRates[connection] != config.SerialBaud {
 		return nil, errors.New("cannot have multiple roboclaw motors with different baud rates")
 	}
 	return connection, nil
 }
 
-func newRoboClaw(conf resource.Config, logger golog.Logger) (motor.Motor, error) {
+func newRoboClaw(conf resource.Config, deps resource.Dependencies, logger golog.Logger) (motor.Motor, error) {
 	motorConfig, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return nil, err
@@ -118,23 +185,27 @@ func newRoboClaw(conf resource.Config, logger golog.Logger) (motor.Motor, error)
 		motorConfig.Address = 128
 	}
 
-	if motorConfig.TicksPerRotation < 0 {
-		motorConfig.TicksPerRotation = 1
-	}
-
 	c, err := getOrCreateConnection(motorConfig)
 	if err != nil {
 		return nil, err
 	}
 
-	return &roboclawMotor{
+	rc := &roboclawMotor{
 		Named:  conf.ResourceName().AsNamed(),
 		conn:   c,
 		conf:   motorConfig,
 		addr:   uint8(motorConfig.Address),
 		logger: logger,
 		maxRPM: maxRPM,
-	}, nil
+	}
+
+	err = rc.Reconfigure(context.Background(), deps, conf)
+	if err != nil {
+		return nil, err
+	}
+
+	return rc, nil
+
 }
 
 type roboclawMotor struct {
@@ -184,7 +255,7 @@ func goForMath(rpm, revolutions float64) (float64, time.Duration) {
 
 	dir := rpm * revolutions / math.Abs(revolutions*rpm)
 	powerPct := math.Abs(rpm) / maxRPM * dir
-	waitDur := time.Duration(math.Abs(revolutions/rpm)*60*1000) * time.Millisecond
+	waitDur := time.Duration(math.Abs(revolutions/rpm)*minutesToMS) * time.Millisecond
 	return powerPct, waitDur
 }
 
@@ -203,7 +274,7 @@ func (m *roboclawMotor) GoFor(ctx context.Context, rpm, revolutions float64, ext
 			rpm = -1 * maxRPM
 		}
 		powerPct, waitDur := goForMath(rpm, revolutions)
-		m.logger.Info("distance traveled is a time based estimation with max RPM 200. For increased accuracy, connect encoders")
+		m.logger.Info("distance traveled is a time based estimation with max RPM 250. For increased accuracy, connect encoders")
 		err := m.SetPower(ctx, powerPct, extra)
 		if err != nil {
 			return errors.Wrap(err, "error in GoFor")

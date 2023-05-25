@@ -44,7 +44,7 @@ import (
 
 var model = resource.DefaultModelFamily.WithModel("imu-wit")
 
-var baudRateList = [...]uint{115200, 9600, 0}
+var baudRateList = []uint{115200, 9600, 0}
 
 // Config is used for converting a witmotion IMU MovementSensor config attributes.
 type Config struct {
@@ -60,13 +60,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 	}
 
 	// Validating baud rate
-	isValid := false
-	for _, val := range baudRateList {
-		if val == cfg.BaudRate {
-			isValid = true
-		}
-	}
-	if !isValid {
+	if !rutils.ValidateBaudRate(baudRateList, int(cfg.BaudRate)) {
 		return nil, utils.NewConfigValidationError(path, errors.Errorf("Baud rate is not in %v", baudRateList))
 	}
 
