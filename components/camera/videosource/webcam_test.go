@@ -31,7 +31,7 @@ func newFakeDriver(label string, props []prop.Media) driver.Driver {
 
 func testGetDrivers() []driver.Driver {
 	props := prop.Media{
-		Video: prop.Video{Width: 320, Height: 240, FrameFormat: "some format"},
+		Video: prop.Video{Width: 320, Height: 240, FrameFormat: "some format", FrameRate: 30.0},
 	}
 	withProps := newFakeDriver("some label", []prop.Media{props})
 	withoutProps := newFakeDriver("another label", []prop.Media{})
@@ -52,4 +52,5 @@ func TestDiscoveryWebcam(t *testing.T) {
 	test.That(t, respProps[0].WidthPx, test.ShouldResemble, int32(320))
 	test.That(t, respProps[0].HeightPx, test.ShouldResemble, int32(240))
 	test.That(t, respProps[0].FrameFormat, test.ShouldResemble, "some format")
+	test.That(t, respProps[0].FrameRate, test.ShouldResemble, float32(30))
 }

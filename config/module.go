@@ -17,6 +17,14 @@ type Module struct {
 	Name string `json:"name"`
 	// ExePath is the path (either absolute, or relative to the working directory) to the executable module file.
 	ExePath string `json:"executable_path"`
+	// LogLevel represents the level at which the module should log its messages. It will be passed as a commandline
+	// argument "log-level" (i.e. preceded by "--log-level=") to the module executable. If unset or set to an empty
+	// string, "--log-level=debug" will be passed to the module executable if the server was started with "-debug".
+	//
+	// SDK logger-creation utilities, such as module.NewLoggerFromArgs, will create an "Info" level logger when any
+	// value besides "" or "debug" is used for LogLevel ("log_level" in JSON). In other words, setting a LogLevel
+	// of something like "info" will ignore the debug setting on the server.
+	LogLevel string `json:"log_level"`
 }
 
 // Validate checks if the config is valid.

@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"io"
 	"io/fs"
+	"math"
 	"net"
 	"net/http"
 	"net/http/pprof"
@@ -281,7 +282,7 @@ type webService struct {
 	modAddr                 string
 	logger                  golog.Logger
 	cancelCtx               context.Context
-	cancelFuncs             []func()
+	cancelFunc              func()
 	isRunning               bool
 	activeBackgroundWorkers sync.WaitGroup
 
@@ -309,21 +310,16 @@ func (svc *webService) Start(ctx context.Context, o weboptions.Options) error {
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 
 	svc.cancelCtx = cancelCtx
-	svc.cancelFuncs = append(svc.cancelFuncs, cancelFunc)
+	svc.cancelFunc = cancelFunc
 
 	if err := svc.runWeb(svc.cancelCtx, o); err != nil {
-		cancelFunc()
-		svc.cancelFuncs = nil
+		if svc.cancelFunc != nil {
+			svc.cancelFunc()
+		}
 		svc.isRunning = false
 		return err
 	}
 	return nil
-}
-
-func (svc *webService) addCancelFunc(fn func()) {
-	svc.mu.Lock()
-	defer svc.mu.Unlock()
-	svc.cancelFuncs = append(svc.cancelFuncs, fn)
 }
 
 // RunWeb starts the web server on the robot with web options and blocks until we cancel the context.
@@ -516,10 +512,9 @@ func (svc *webService) updateResources(resources map[resource.Name]resource.Reso
 func (svc *webService) Stop() {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
-	for _, fn := range svc.cancelFuncs {
-		fn()
+	if svc.cancelFunc != nil {
+		svc.cancelFunc()
 	}
-	svc.cancelFuncs = nil
 	svc.isRunning = false
 }
 
@@ -528,10 +523,9 @@ func (svc *webService) Close(ctx context.Context) error {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
 	var err error
-	for _, fn := range svc.cancelFuncs {
-		fn()
+	if svc.cancelFunc != nil {
+		svc.cancelFunc()
 	}
-	svc.cancelFuncs = nil
 	svc.isRunning = false
 	if svc.modServer != nil {
 		err = svc.modServer.Stop()
@@ -622,6 +616,19 @@ func (svc *webService) makeStreamServer(ctx context.Context) (*StreamServer, err
 		if isVideo {
 			config.AudioEncoderFactory = nil
 
+			// set TargetFrameRate to the framerate of the video source if available
+			props, err := svc.videoSources[name].MediaProperties(ctx)
+			if err != nil {
+				svc.logger.Warnw("failed to get video source properties", "name", name, "error", err)
+			} else if props.FrameRate > 0.0 {
+				// round float up to nearest int
+				config.TargetFrameRate = int(math.Ceil(float64(props.FrameRate)))
+			}
+			// default to 60fps if the video source doesn't have a framerate
+			if config.TargetFrameRate == 0 {
+				config.TargetFrameRate = 60
+			}
+
 			if runtime.GOOS == "windows" {
 				// TODO(RSDK-1771): support video on windows
 				svc.logger.Warnw("not starting video stream since not supported on Windows yet", "name", name)
@@ -690,19 +697,19 @@ func (svc *webService) startStream(streamFunc func(opts *webstream.BackoffTuning
 }
 
 func (svc *webService) startVideoStream(ctx context.Context, source gostream.VideoSource, stream gostream.Stream) {
+	// Honor ctx that may be coming from a Reconfigure.
 	ctxWithJPEGHint := gostream.WithMIMETypeHint(ctx, rutils.WithLazyMIMEType(rutils.MimeTypeJPEG))
 	svc.startStream(func(opts *webstream.BackoffTuningOptions) error {
-		cancelCtx, cancelFunc := utils.MergeContext(svc.cancelCtx, ctxWithJPEGHint)
-		svc.addCancelFunc(cancelFunc)
-		return webstream.StreamVideoSource(cancelCtx, source, stream, opts, svc.logger)
+		streamVideoCtx, _ := utils.MergeContext(svc.cancelCtx, ctxWithJPEGHint)
+		return webstream.StreamVideoSource(streamVideoCtx, source, stream, opts, svc.logger)
 	})
 }
 
 func (svc *webService) startAudioStream(ctx context.Context, source gostream.AudioSource, stream gostream.Stream) {
 	svc.startStream(func(opts *webstream.BackoffTuningOptions) error {
-		cancelCtx, cancelFunc := utils.MergeContext(svc.cancelCtx, ctx)
-		svc.addCancelFunc(cancelFunc)
-		return webstream.StreamAudioSource(cancelCtx, source, stream, opts, svc.logger)
+		// Merge ctx that may be coming from a Reconfigure.
+		streamAudioCtx, _ := utils.MergeContext(svc.cancelCtx, ctx)
+		return webstream.StreamAudioSource(streamAudioCtx, source, stream, opts, svc.logger)
 	})
 }
 
@@ -726,8 +733,8 @@ func (svc *webService) installWeb(mux *goji.Mux, theRobot robot.Robot, options w
 			return err
 		}
 		if len(matches) == 0 {
-			svc.logger.Warnw("Couldn't find any static files when running RDK. Make sure to run 'make build-web' - using app.viam.com")
-			app.options.StaticHost = "https://app.viam.com"
+			svc.logger.Warnw("Couldn't find any static files when running RDK. Make sure to run 'make build-web' - using staticrc.viam.com")
+			app.options.StaticHost = "https://staticrc.viam.com"
 		}
 		staticDir = http.FS(embedFS)
 	}

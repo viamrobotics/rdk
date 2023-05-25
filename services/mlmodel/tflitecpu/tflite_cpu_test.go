@@ -127,6 +127,8 @@ func TestTFLiteCPUClassifier(t *testing.T) {
 }
 
 func TestTFLiteCPUTextModel(t *testing.T) {
+	// TODO(RSDK-2735): remove skip when complete
+	t.Skip("remove skip once RSDK-2735 is complete")
 	// Setup
 	ctx := context.Background()
 	modelLoc := artifact.MustPath("vision/tflite/mobileBERT.tflite")

@@ -55,7 +55,7 @@ func TestWrapWithKinematics(t *testing.T) {
 		t.Run(string(tc.geoType), func(t *testing.T) {
 			frame.Geometry.Type = tc.geoType
 			kinematicCfg.Frame = frame
-			basic, err := CreateWheeledBase(ctx, motorDeps, kinematicCfg, logger)
+			basic, err := createWheeledBase(ctx, motorDeps, kinematicCfg, logger)
 			test.That(t, err, test.ShouldBeNil)
 			wb, err := basic.(*wheeledBase).WrapWithKinematics(ctx, fake.NewSLAM(slam.Named("foo"), logger))
 			test.That(t, err == nil, test.ShouldEqual, tc.success)
