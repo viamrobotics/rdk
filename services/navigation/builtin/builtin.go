@@ -125,8 +125,8 @@ type builtIn struct {
 	motion         motion.Service
 	obstacles      []*spatialmath.GeoObstacle
 
-	metersPerSecDefault     float64
-	degPerSecDefault        float64
+	metersPerSec            float64
+	degPerSec               float64
 	logger                  golog.Logger
 	cancelCtx               context.Context
 	cancelFunc              func()
@@ -184,6 +184,8 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	svc.movementSensor = movementSensor
 	svc.motion = motionSrv
 	svc.obstacles = newObstacles
+	svc.metersPerSec = svcConfig.MetersPerSec
+	svc.degPerSec = svcConfig.DegPerSec
 
 	return nil
 }
@@ -283,7 +285,7 @@ func (svc *builtIn) startWaypoint(extra map[string]interface{}) error {
 				// TODO(erh->erd): maybe need an arc/stroke abstraction?
 				// - Remember that we added -1*bearingDelta instead of steeringDir
 				// - Test both naval/land to prove it works
-				if err := svc.base.Spin(ctx, -1*bearingDelta, svc.degPerSecDefault, nil); err != nil {
+				if err := svc.base.Spin(ctx, -1*bearingDelta, svc.degPerSec, nil); err != nil {
 					return fmt.Errorf("error turning: %w", err)
 				}
 
@@ -291,7 +293,7 @@ func (svc *builtIn) startWaypoint(extra map[string]interface{}) error {
 				distanceMm = math.Min(distanceMm, 10*1000)
 
 				// TODO: handle swap from mm to meters
-				if err := svc.base.MoveStraight(ctx, int(distanceMm), (svc.metersPerSecDefault * 1000), nil); err != nil {
+				if err := svc.base.MoveStraight(ctx, int(distanceMm), (svc.metersPerSec * 1000), nil); err != nil {
 					return fmt.Errorf("error moving %w", err)
 				}
 
