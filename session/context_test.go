@@ -10,10 +10,10 @@ import (
 	"github.com/google/uuid"
 	"go.viam.com/test"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/metadata"
 
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/session"
+	"go.viam.com/rdk/testutils"
 )
 
 func TestToFromContext(t *testing.T) {
@@ -64,7 +64,7 @@ func TestSafetyMonitor(t *testing.T) {
 }
 
 func TestSafetyMonitorForMetadata(t *testing.T) {
-	stream1 := &myStream{}
+	stream1 := testutils.NewServerTransportStream()
 	streamCtx := grpc.NewContextWithServerTransportStream(context.Background(), stream1)
 
 	sess1 := session.New(context.Background(), "ownerID", time.Minute, nil)
@@ -73,26 +73,13 @@ func TestSafetyMonitorForMetadata(t *testing.T) {
 	name1 := resource.NewName(resource.APINamespace("foo").WithType("bar").WithSubtype("baz"), "barf")
 	name2 := resource.NewName(resource.APINamespace("woo").WithType("war").WithSubtype("waz"), "warf")
 	session.SafetyMonitor(nextCtx, myThing{Named: name1.AsNamed()})
-	test.That(t, stream1.md[session.SafetyMonitoredResourceMetadataKey], test.ShouldResemble, []string{name1.String()})
+	test.That(t, stream1.Value(session.SafetyMonitoredResourceMetadataKey), test.ShouldResemble, []string{name1.String()})
 	session.SafetyMonitor(nextCtx, myThing{Named: name2.AsNamed()})
-	test.That(t, stream1.md[session.SafetyMonitoredResourceMetadataKey], test.ShouldResemble, []string{name2.String()})
+	test.That(t, stream1.Value(session.SafetyMonitoredResourceMetadataKey), test.ShouldResemble, []string{name2.String()})
 }
 
 type myThing struct {
 	resource.Named
 	resource.AlwaysRebuild
 	resource.TriviallyCloseable
-}
-
-type myStream struct {
-	mu sync.Mutex
-	grpc.ServerTransportStream
-	md metadata.MD
-}
-
-func (s *myStream) SetHeader(md metadata.MD) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.md = md.Copy()
-	return nil
 }

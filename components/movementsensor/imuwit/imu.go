@@ -44,7 +44,7 @@ import (
 
 var model = resource.DefaultModelFamily.WithModel("imu-wit")
 
-var baudRateList = [...]uint{115200, 9600, 0}
+var baudRateList = []uint{115200, 9600, 0}
 
 // Config is used for converting a witmotion IMU MovementSensor config attributes.
 type Config struct {
@@ -60,13 +60,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 	}
 
 	// Validating baud rate
-	isValid := false
-	for _, val := range baudRateList {
-		if val == cfg.BaudRate {
-			isValid = true
-		}
-	}
-	if !isValid {
+	if !rutils.ValidateBaudRate(baudRateList, int(cfg.BaudRate)) {
 		return nil, utils.NewConfigValidationError(path, errors.Errorf("Baud rate is not in %v", baudRateList))
 	}
 
@@ -204,7 +198,7 @@ func NewWit(
 	}
 
 	portReader := bufio.NewReader(i.port)
-	i.startUpdateLoop(ctx, portReader, logger)
+	i.startUpdateLoop(context.Background(), portReader, logger)
 
 	return &i, nil
 }
@@ -298,9 +292,9 @@ func (imu *wit) parseWIT(line string) error {
 		if len(line) < 7 {
 			return fmt.Errorf("line is wrong for imu acceleration %d %v", len(line), line)
 		}
-		imu.acceleration.X = scale(line[1], line[2], 16) * 9806.65 // converts of mm_per_sec_per_sec in NYC
-		imu.acceleration.Y = scale(line[3], line[4], 16) * 9806.65
-		imu.acceleration.Z = scale(line[5], line[6], 16) * 9806.65
+		imu.acceleration.X = scale(line[1], line[2], 16) * 9.80665 // converts to m_per_sec_per_sec in NYC
+		imu.acceleration.Y = scale(line[3], line[4], 16) * 9.80665
+		imu.acceleration.Z = scale(line[5], line[6], 16) * 9.80665
 	}
 
 	if line[0] == 0x54 {

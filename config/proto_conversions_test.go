@@ -171,8 +171,9 @@ var testCloudConfig = Cloud{
 }
 
 var testModule = Module{
-	Name:    "testmod",
-	ExePath: "/tmp/test.mod",
+	Name:     "testmod",
+	ExePath:  "/tmp/test.mod",
+	LogLevel: "debug",
 }
 
 var testPackageConfig = PackageConfig{
@@ -207,6 +208,7 @@ func init() {
 func validateModule(t *testing.T, actual, expected Module) {
 	test.That(t, actual.Name, test.ShouldEqual, expected.Name)
 	test.That(t, actual.ExePath, test.ShouldEqual, expected.ExePath)
+	test.That(t, actual.LogLevel, test.ShouldEqual, expected.LogLevel)
 }
 
 func TestModuleConfigToProto(t *testing.T) {
