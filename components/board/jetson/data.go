@@ -17,7 +17,7 @@ const (
 	jetsonOrinNano = "jetson_orin_nano"
 )
 
-var claraAGXXavierPins := []genericlinux.PinDefinition{
+var claraAGXXavierPins = []genericlinux.PinDefinition{
 	{map[int]int{224: 134, 169: 106}, map[int]string{169: "PQ.06"}, "2200000.gpio", 7, 4, "MCLK05", "SOC_GPIO42", "", -1},
 	{map[int]int{224: 140, 169: 112}, map[int]string{169: "PR.04"}, "2200000.gpio", 11, 17, "UART1_RTS", "UART1_RTS", "", -1},
 	{map[int]int{224: 63, 169: 51}, map[int]string{169: "PH.07"}, "2200000.gpio", 12, 18, "I2S2_CLK", "DAP2_SCLK", "", -1},
@@ -65,7 +65,7 @@ var claraAGXXavierPins := []genericlinux.PinDefinition{
 	{map[int]int{224: 64, 169: 52}, map[int]string{169: "PI.00"}, "2200000.gpio", 40, 21, "I2S2_DOUT", "DAP2_DOUT", "", -1},
 }
 
-jetsonNXPins := []genericlinux.PinDefinition{
+var jetsonNXPins = []genericlinux.PinDefinition{
 	{map[int]int{224: 148, 169: 118}, map[int]string{169: "PS.04"}, "2200000.gpio", 7, 4, "GPIO09", "AUD_MCLK", "", -1},
 	{map[int]int{224: 140, 169: 112}, map[int]string{169: "PR.04"}, "2200000.gpio", 11, 17, "UART1_RTS", "UART1_RTS", "", -1},
 	{map[int]int{224: 157, 169: 127}, map[int]string{169: "PT.05"}, "2200000.gpio", 12, 18, "I2S0_SCLK", "DAP5_SCLK", "", -1},
@@ -110,7 +110,7 @@ jetsonNXPins := []genericlinux.PinDefinition{
 	{map[int]int{224: 158, 169: 128}, map[int]string{169: "PT.06"}, "2200000.gpio", 40, 21, "I2S0_DOUT", "DAP5_DOUT", "", -1},
 }
 
-jetsonXavierPins := []genericlinux.PinDefinition{
+var jetsonXavierPins = []genericlinux.PinDefinition{
 	{map[int]int{224: 134, 169: 106}, map[int]string{169: "PQ.06"}, "2200000.gpio", 7, 4, "MCLK05", "SOC_GPIO42", "", -1},
 	{map[int]int{224: 140, 169: 112}, map[int]string{169: "PR.04"}, "2200000.gpio", 11, 17, "UART1_RTS", "UART1_RTS", "", -1},
 	{map[int]int{224: 63, 169: 51}, map[int]string{169: "PH.07"}, "2200000.gpio", 12, 18, "I2S2_CLK", "DAP2_SCLK", "", -1},
@@ -168,7 +168,7 @@ jetsonXavierPins := []genericlinux.PinDefinition{
 	{map[int]int{224: 64, 169: 52}, map[int]string{169: "PI.00"}, "2200000.gpio", 40, 21, "I2S2_DOUT", "DAP2_DOUT", "", -1},
 }
 
-jetsonTX2NXPins := []genericlinux.PinDefinition{
+var jetsonTX2NXPins = []genericlinux.PinDefinition{
 	{map[int]int{192: 76, 140: 66}, map[int]string{140: "PJ.04"}, "2200000.gpio", 7, 4, "GPIO09", "AUD_MCLK", "", -1},
 	{map[int]int{64: 28, 47: 23}, map[int]string{47: "PW.04"}, "c2f0000.gpio", 11, 17, "UART1_RTS", "UART3_RTS", "", -1},
 	{map[int]int{192: 72, 140: 62}, map[int]string{140: "PJ.00"}, "2200000.gpio", 12, 18, "I2S0_SCLK", "DAP1_SCLK", "", -1},
@@ -193,7 +193,7 @@ jetsonTX2NXPins := []genericlinux.PinDefinition{
 	{map[int]int{192: 73, 140: 63}, map[int]string{140: "PJ.01"}, "2200000.gpio", 40, 21, "I2S0_DOUT", "DAP1_DOUT", "", -1},
 }
 
-jetsonTX2Pins := []genericlinux.PinDefinition{
+var jetsonTX2Pins = []genericlinux.PinDefinition{
 	{map[int]int{192: 76, 140: 66}, map[int]string{140: "PJ.04"}, "2200000.gpio", 7, 4, "PAUDIO_MCLK", "AUD_MCLK", "", -1},
 	// Output-only (due to base board)
 	{map[int]int{192: 146, 140: 117}, map[int]string{140: "PT.02"}, "2200000.gpio", 11, 17, "PUART0_RTS", "UART1_RTS", "", -1},
@@ -263,7 +263,7 @@ jetsonTX2Pins := []genericlinux.PinDefinition{
 	{map[int]int{192: 73, 140: 63}, map[int]string{140: "PJ.01"}, "2200000.gpio", 40, 21, "I2S0_SDOUT", "DAP1_DOUT", "", -1},
 }
 
-jetsonTX1Pins := []genericlinux.PinDefinition{
+var jetsonTX1Pins = []genericlinux.PinDefinition{
 	{map[int]int{-1: 216}, nil, "6000d000.gpio", 7, 4, "AUDIO_MCLK", "AUD_MCLK", "", -1},
 	// Output-only (due to base board)
 	{map[int]int{-1: 162}, nil, "6000d000.gpio", 11, 17, "UART0_RTS", "UART1_RTS", "", -1},
@@ -291,7 +291,7 @@ jetsonTX1Pins := []genericlinux.PinDefinition{
 	{map[int]int{-1: 10}, nil, "6000d000.gpio", 40, 21, "I2S0_SDOUT", "DAP1_DOUT", "", -1},
 }
 
-jetsonNanoPins := []genericlinux.PinDefinition{
+var jetsonNanoPins = []genericlinux.PinDefinition{
 	{map[int]int{-1: 216}, nil, "6000d000.gpio", 7, 4, "GPIO9", "AUD_MCLK", "", -1},
 	{map[int]int{-1: 50}, nil, "6000d000.gpio", 11, 17, "UART1_RTS", "UART2_RTS", "", -1},
 	{map[int]int{-1: 79}, nil, "6000d000.gpio", 12, 18, "I2S0_SCLK", "DAP4_SCLK", "", -1},
@@ -323,7 +323,7 @@ jetsonNanoPins := []genericlinux.PinDefinition{
 // https://github.com/NVIDIA/jetson-gpio/blob/master/lib/python/Jetson/GPIO/gpio_pin_data.py
 // We were unable to find the broadcom channel numbers for these pins, but (as of April
 // 2023) Viam doesn't use those values for anything anyway.
-jetsonOrinPins := []genericlinux.PinDefinition{
+var jetsonOrinPins = []genericlinux.PinDefinition{
 	{map[int]int{32: 22}, map[int]string{32: "PDD.02"}, "c2f0000.gpio", 3, -1, "I2C4_DAT", "GP16_I2C8_DAT", "", -1},
 	{map[int]int{32: 21}, map[int]string{32: "PDD.01"}, "c2f0000.gpio", 5, -1, "I2C4_CLK", "GP81_I2C9_CLK", "", -1},
 	{map[int]int{164: 106}, map[int]string{164: "PQ.06"}, "2200000.gpio", 7, 4, "MCLK05", "GP66", "", -1},
@@ -359,7 +359,7 @@ jetsonOrinPins := []genericlinux.PinDefinition{
 }
 
 // This pin mapping is used for both the Jetson Orin NX and the Jetson Orin Nano.
-jetsonOrinNXPins := []genericlinux.PinDefinition{
+var jetsonOrinNXPins = []genericlinux.PinDefinition{
 	{map[int]int{164: 144}, map[int]string{164: "PAC.06"}, "2200000.gpio", 7, 4, "GPIO09", "GP167", "", -1},
 	{map[int]int{164: 112}, map[int]string{164: "PR.04"}, "2200000.gpio", 11, 17, "UART1_RTS", "GP72_UART1_RTS_N", "", -1},
 	{map[int]int{164: 50}, map[int]string{164: "PH.07"}, "2200000.gpio", 12, 18, "I2S0_SCLK", "GP122", "", -1},
@@ -460,6 +460,6 @@ var boardInfoMappings = map[string]genericlinux.BoardInformation{
 			"nvidia,p3768-0000+p3767-0005",
 			"nvidia,p3767-0003",
 			"nvidia,p3767-0005",
-		}
+		},
 	},
 }
