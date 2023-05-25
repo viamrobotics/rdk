@@ -33,7 +33,7 @@ type Robot struct {
 	ResourceNamesFunc      func() []resource.Name
 	ResourceRPCAPIsFunc    func() []resource.RPCAPI
 	ProcessManagerFunc     func() pexec.ProcessManager
-	ConfigFunc             func() *config.Config
+	ConfigFunc             func(ctx context.Context) (*config.Config, error)
 	LoggerFunc             func() golog.Logger
 	CloseFunc              func(ctx context.Context) error
 	StopAllFunc            func(ctx context.Context, extra map[resource.Name]map[string]interface{}) error
@@ -165,13 +165,13 @@ func (r *Robot) PackageManager() packages.Manager {
 }
 
 // Config calls the injected Config or the real version.
-func (r *Robot) Config() *config.Config {
+func (r *Robot) Config(ctx context.Context) (*config.Config, error) {
 	r.Mu.RLock()
 	defer r.Mu.RUnlock()
 	if r.ConfigFunc == nil {
-		return r.LocalRobot.Config()
+		return r.LocalRobot.Config(ctx)
 	}
-	return r.ConfigFunc()
+	return r.ConfigFunc(ctx)
 }
 
 // Logger calls the injected Logger or the real version.
