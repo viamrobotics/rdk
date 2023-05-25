@@ -733,8 +733,8 @@ func (svc *webService) installWeb(mux *goji.Mux, theRobot robot.Robot, options w
 			return err
 		}
 		if len(matches) == 0 {
-			svc.logger.Warnw("Couldn't find any static files when running RDK. Make sure to run 'make build-web' - using app.viam.com")
-			app.options.StaticHost = "https://app.viam.com"
+			svc.logger.Warnw("Couldn't find any static files when running RDK. Make sure to run 'make build-web' - using staticrc.viam.com")
+			app.options.StaticHost = "https://staticrc.viam.com"
 		}
 		staticDir = http.FS(embedFS)
 	}
