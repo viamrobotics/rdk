@@ -439,3 +439,15 @@ func (a *Dofbot) GoToInputs(ctx context.Context, goal []referenceframe.Input) er
 func (a *Dofbot) Close(ctx context.Context) error {
 	return a.handle.Close()
 }
+
+func (a *Dofbot) Geometries(ctx context.Context) ([]spatialmath.Geometry, error) {
+	inputs, err := a.CurrentInputs(ctx)
+	if err != nil {
+		return nil, err
+	}
+	gif, err := a.model.Geometries(inputs)
+	if err != nil {
+		return nil, err
+	}
+	return gif.Geometries(), nil
+}

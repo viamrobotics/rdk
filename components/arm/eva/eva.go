@@ -402,3 +402,15 @@ func (e *eva) Close(ctx context.Context) error {
 func MakeModelFrame(name string) (referenceframe.Model, error) {
 	return referenceframe.UnmarshalModelJSON(evamodeljson, name)
 }
+
+func (e *eva) Geometries(ctx context.Context) ([]spatialmath.Geometry, error) {
+	inputs, err := e.CurrentInputs(ctx)
+	if err != nil {
+		return nil, err
+	}
+	gif, err := e.model.Geometries(inputs)
+	if err != nil {
+		return nil, err
+	}
+	return gif.Geometries(), nil
+}

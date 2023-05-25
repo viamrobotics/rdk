@@ -216,3 +216,15 @@ func (a *Arm) Close(ctx context.Context) error {
 	a.CloseCount++
 	return nil
 }
+
+func (a *Arm) Geometries(ctx context.Context) ([]spatialmath.Geometry, error) {
+	inputs, err := a.CurrentInputs(ctx)
+	if err != nil {
+		return nil, err
+	}
+	gif, err := a.model.Geometries(inputs)
+	if err != nil {
+		return nil, err
+	}
+	return gif.Geometries(), nil
+}

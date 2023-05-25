@@ -20,6 +20,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	
 	pb "go.viam.com/api/component/arm/v1"
 	goutils "go.viam.com/utils"
 
@@ -486,6 +487,19 @@ func (ua *URArm) GoToInputs(ctx context.Context, goal []referenceframe.Input) er
 	}
 	return ua.MoveToJointPositions(ctx, positionDegs, nil)
 }
+
+func (ua *URArm) Geometries(ctx context.Context) ([]spatialmath.Geometry, error) {
+	inputs, err := ua.CurrentInputs(ctx)
+	if err != nil {
+		return nil, err
+	}
+	gif, err := ua.model.Geometries(inputs)
+	if err != nil {
+		return nil, err
+	}
+	return gif.Geometries(), nil
+}
+
 
 // AddToLog TODO.
 func (ua *URArm) AddToLog(msg string) error {

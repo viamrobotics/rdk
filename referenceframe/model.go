@@ -24,6 +24,10 @@ type Model interface {
 	ModelConfig() *ModelConfig
 }
 
+type ModelFramer interface {
+	ModelFrame() Model
+}
+
 // SimpleModel TODO.
 type SimpleModel struct {
 	*baseFrame

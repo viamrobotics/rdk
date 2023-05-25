@@ -125,16 +125,19 @@ func (s *serviceServer) Geometries(ctx context.Context, req *commonpb.GetGeometr
 	return &commonpb.GetGeometriesResponse{Geometries: pbGeoms}, nil
 }
 
-// Kinematics queries of a component is in motion.
-func (s *serviceServer) Kinematics(ctx context.Context, req *commonpb.GetKinematicsRequest) (*commonpb.GetKinematicsResponse, error) {
+// GetKinematics queries of a component is in motion.
+func (s *serviceServer) GetKinematics(ctx context.Context, req *commonpb.GetKinematicsRequest) (*commonpb.GetKinematicsResponse, error) {
 	arm, err := s.coll.Resource(req.GetName())
 	if err != nil {
 		return nil, err
 	}
-	format, filedata, err := arm.Kinematics(ctx)
+	model := arm.ModelFrame()
+	filedata, err := model.MarshalJSON()
 	if err != nil {
 		return nil, err
 	}
+	// Marshalled models always marshal to SVA
+	format := commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_SVA
 	return &commonpb.GetKinematicsResponse{Format: format, KinematicsData: filedata}, nil
 }
 

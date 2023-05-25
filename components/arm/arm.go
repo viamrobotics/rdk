@@ -63,6 +63,7 @@ func Named(name string) resource.Name {
 // An Arm represents a physical robotic arm that exists in three-dimensional space.
 type Arm interface {
 	resource.Resource
+	referenceframe.ModelFramer
 	resource.Shaped
 	resource.Actuator
 	referenceframe.InputEnabled
@@ -108,10 +109,7 @@ func CreateStatus(ctx context.Context, a Arm) (*pb.Status, error) {
 	if err != nil {
 		return nil, err
 	}
-	model, err := resource.ActuatorFrame(ctx, a)
-	if err != nil {
-		return nil, err
-	}
+	model := a.ModelFrame()
 	endPosition, err := motionplan.ComputeOOBPosition(model, jointPositions)
 	if err != nil {
 		return nil, err
@@ -129,10 +127,7 @@ func Move(ctx context.Context, logger golog.Logger, a Arm, dst spatialmath.Pose)
 	if err != nil {
 		return err
 	}
-	model, err := resource.ActuatorFrame(ctx, a)
-	if err != nil {
-		return err
-	}
+	model := a.ModelFrame()
 	// check that joint positions are not out of bounds
 	_, err = motionplan.ComputePosition(model, joints)
 	if err != nil && strings.Contains(err.Error(), referenceframe.OOBErrString) {
@@ -151,10 +146,7 @@ func Move(ctx context.Context, logger golog.Logger, a Arm, dst spatialmath.Pose)
 // Plan is a helper function to be called by arm implementations to abstract away the default procedure for using the
 // motion planning library with arms.
 func Plan(ctx context.Context, logger golog.Logger, a Arm, dst spatialmath.Pose) ([][]referenceframe.Input, error) {
-	model, err := resource.ActuatorFrame(ctx, a)
-	if err != nil {
-		return nil, err
-	}
+	model := a.ModelFrame()
 	jp, err := a.JointPositions(ctx, nil)
 	if err != nil {
 		return nil, err
@@ -186,10 +178,7 @@ func CheckDesiredJointPositions(ctx context.Context, a Arm, desiredJoints []floa
 		return err
 	}
 	checkPositions := currentJointPos.Values
-	model, err := resource.ActuatorFrame(ctx, a)
-	if err != nil {
-		return err
-	}
+	model := a.ModelFrame()
 	limits := model.DoF()
 	for i, val := range desiredJoints {
 		max := limits[i].Max

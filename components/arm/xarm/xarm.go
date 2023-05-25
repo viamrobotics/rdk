@@ -12,7 +12,6 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 
-	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
@@ -209,14 +208,6 @@ func (x *xArm) GoToInputs(ctx context.Context, goal []referenceframe.Input) erro
 	return x.MoveToJointPositions(ctx, positionDegs, nil)
 }
 
-func (x *xArm) Kinematics(ctx context.Context) (commonpb.KinematicsFileFormat, []byte, error) {
-	bytes, err := embeddedKinematics(x.modelName)
-	if err != nil {
-		return 0, nil, err
-	}
-	return commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_SVA, bytes, nil
-}
-
 func (x *xArm) Geometries(ctx context.Context) ([]spatialmath.Geometry, error) {
 	inputs, err := x.CurrentInputs(ctx)
 	if err != nil {
@@ -227,4 +218,9 @@ func (x *xArm) Geometries(ctx context.Context) ([]spatialmath.Geometry, error) {
 		return nil, err
 	}
 	return gif.Geometries(), nil
+}
+
+// ModelFrame returns all the information necessary for including the arm in a FrameSystem.
+func (x *xArm) ModelFrame() referenceframe.Model {
+	return x.model
 }

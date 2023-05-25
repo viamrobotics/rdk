@@ -18,13 +18,11 @@ package resource
 
 import (
 	"context"
-	"fmt"
 	"reflect"
 	"regexp"
 	"strings"
 
 	commonpb "go.viam.com/api/common/v1"
-	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 
 	"github.com/jhump/protoreflect/desc"
@@ -120,39 +118,6 @@ type Actuator interface {
 
 	// Stop stops all movement for the resource
 	Stop(context.Context, map[string]interface{}) error
-	
-	// The kinematics of the actuating piece, returned in a file type parseable by Viam
-	Kinematics(context.Context) (commonpb.KinematicsFileFormat, []byte, error)
-}
-
-// ActuatorFrame will retrieve the kinematics data from an actuator and parse that data into a usable frame
-func ActuatorFrame(ctx context.Context, act Actuator) (referenceframe.Frame, error) {
-	res, ok := act.(Resource) // actuators are defined as a type of resource so this should always work
-	if !ok {
-		return nil, errors.New("unable to cast actuator to a resource")
-	}
-	name := res.Name().ShortName()
-	
-	format, data, err := act.Kinematics(ctx)
-	if err != nil {
-		return nil, err
-	}
-	
-	switch format {
-	case commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_SVA:
-		return referenceframe.UnmarshalModelJSON(data, name)
-	case commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_URDF:
-		modelconf, err := referenceframe.ConvertURDFToConfig(data, name)
-		if err != nil {
-			return nil, err
-		}
-		return modelconf.ParseConfig(name)
-	default:
-		if formatName, ok := commonpb.KinematicsFileFormat_name[int32(format)]; ok {
-			return nil, fmt.Errorf("unable to parse file of type %s", formatName)
-		}
-		return nil, fmt.Errorf("unable to parse unknown file type %d", format)
-	}
 }
 
 type Shaped interface {

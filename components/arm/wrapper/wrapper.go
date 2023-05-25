@@ -179,3 +179,15 @@ func (wrapper *Arm) GoToInputs(ctx context.Context, goal []referenceframe.Input)
 	}
 	return wrapper.MoveToJointPositions(ctx, positionDegs, nil)
 }
+
+func (wrapper *Arm) Geometries(ctx context.Context) ([]spatialmath.Geometry, error) {
+	inputs, err := wrapper.CurrentInputs(ctx)
+	if err != nil {
+		return nil, err
+	}
+	gif, err := wrapper.model.Geometries(inputs)
+	if err != nil {
+		return nil, err
+	}
+	return gif.Geometries(), nil
+}
