@@ -56,13 +56,13 @@ func init() {
 
 // Config describes how to configure the service.
 type Config struct {
-	Store               navigation.StoreConfig           `json:"store"`
-	BaseName            string                           `json:"base_name"`
-	MovementSensorName  string                           `json:"movement_sensor_name"`
-	MotionServiceName   string                           `json:"motion_service_name"`
-	DegPerSecDefault    float64                          `json:"degs_per_sec"`
-	MetersPerSecDefault float64                          `json:"meters_per_sec"`
-	Obstacles           []*spatialmath.GeoObstacleConfig `json:"obstacles,omitempty"`
+	Store              navigation.StoreConfig           `json:"store"`
+	BaseName           string                           `json:"base_name"`
+	MovementSensorName string                           `json:"movement_sensor_name"`
+	MotionServiceName  string                           `json:"motion_service_name"`
+	DegPerSec          float64                          `json:"degs_per_sec"`
+	MetersPerSec       float64                          `json:"meters_per_sec"`
+	Obstacles          []*spatialmath.GeoObstacleConfig `json:"obstacles,omitempty"`
 }
 
 // Validate creates the list of implicit dependencies.
@@ -80,10 +80,17 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	deps = append(deps, conf.MovementSensorName)
 
 	if conf.MotionServiceName == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "motion_service_name")
+		conf.MotionServiceName = "builtin"
 	}
-
 	deps = append(deps, resource.NewName(motion.API, conf.MotionServiceName).String())
+
+	// get default speeds from config if set, else defaults from nav services const
+	if conf.MetersPerSec == 0 {
+		conf.MetersPerSec = metersPerSecDefault
+	}
+	if conf.DegPerSec == 0 {
+		conf.DegPerSec = degPerSecDefault
+	}
 
 	return deps, nil
 }
@@ -139,13 +146,7 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	if err != nil {
 		return err
 	}
-
-	// If a Motion service name is not provided, Nav defaults to using the builtin Motion service
-	motionName := "builtin"
-	if svcConfig.MotionServiceName != "" {
-		motionName = svcConfig.MotionServiceName
-	}
-	motionSrv, err := motion.FromDependencies(deps, motionName)
+	motionSrv, err := motion.FromDependencies(deps, svcConfig.MotionServiceName)
 	if err != nil {
 		return err
 	}
@@ -168,16 +169,6 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		newStore = svc.store
 	}
 
-	// get default speeds from config if set, else defaults from nav services const
-	straightSpeed := svcConfig.MetersPerSecDefault
-	if straightSpeed == 0 {
-		straightSpeed = metersPerSecDefault
-	}
-	spinSpeed := svcConfig.DegPerSecDefault
-	if spinSpeed == 0 {
-		spinSpeed = degPerSecDefault
-	}
-
 	// Parse obstacles from the passed in configuration
 	newObstacles, err := spatialmath.GeoObstaclesFromConfigs(svcConfig.Obstacles)
 	if err != nil {
@@ -189,8 +180,6 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	svc.base = base1
 	svc.movementSensor = movementSensor
 	svc.motion = motionSrv
-	svc.metersPerSecDefault = straightSpeed
-	svc.degPerSecDefault = spinSpeed
 	svc.obstacles = newObstacles
 
 	return nil
