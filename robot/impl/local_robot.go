@@ -46,6 +46,9 @@ type localRobot struct {
 	manager       *resourceManager
 	mostRecentCfg config.Config
 
+	fsConfig    *framesystem.Config
+	lastFSError error
+
 	operations                 *operation.Manager
 	sessionManager             session.Manager
 	packageManager             packages.ManagerSyncer
@@ -703,12 +706,15 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 					r.Logger().Errorw("failed to reconfigure internal service", "service", resName, "error", err)
 				}
 			case framesystem.InternalServiceName:
-				fsCfg, err := r.FrameSystemConfig(ctxWithTimeout)
+				fsCfg, err := r.getFrameSystemConfig(ctx)
+				r.fsConfig = fsCfg
 				if err != nil {
+					r.lastFSError = err
 					r.Logger().Errorw("failed to reconfigure internal service", "service", resName, "error", err)
-					break
+					return
 				}
-				if err := res.Reconfigure(ctxWithTimeout, components, resource.Config{ConvertedAttributes: fsCfg}); err != nil {
+				if err := res.Reconfigure(ctx, components, resource.Config{ConvertedAttributes: fsCfg}); err != nil {
+					r.lastFSError = err
 					r.Logger().Errorw("failed to reconfigure internal service", "service", resName, "error", err)
 				}
 			case packages.InternalServiceName, cloud.InternalServiceName:
@@ -774,10 +780,17 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 	}
 }
 
-// Config returns the info of each individual part that makes up the frame system
+// config returns the info of each individual part that makes up the frame system
 // The output of this function is to be sent over GRPC to the client, so the client
 // can build its frame system. requests the remote components from the remote's frame system service.
 func (r *localRobot) FrameSystemConfig(ctx context.Context) (*framesystem.Config, error) {
+	if r.fsConfig == nil {
+		return nil, r.lastFSError
+	}
+	return r.fsConfig, nil
+}
+
+func (r *localRobot) getFrameSystemConfig(ctx context.Context) (*framesystem.Config, error) {
 	localParts, err := r.getLocalFrameSystemParts()
 	if err != nil {
 		return nil, err

@@ -131,7 +131,6 @@ func (svc *frameSystemService) Reconfigure(ctx context.Context, deps resource.De
 	components := make(map[string]resource.Resource)
 	for name, r := range deps {
 		short := name.ShortName()
-		// is this only for InputEnabled components or everything?
 		if _, present := components[short]; present {
 			return DuplicateResourceShortNameError(short)
 		}
