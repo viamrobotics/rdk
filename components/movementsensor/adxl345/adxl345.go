@@ -201,7 +201,7 @@ func NewAdxl345(
 	for k, v := range getSingleTapRegisterValues(newConf.SingleTap) {
 		configuredRegisterValues[k] = v
 	}
-	cancelContext, cancelFunc := context.WithCancel(ctx)
+	cancelContext, cancelFunc := context.WithCancel(context.Background())
 
 	sensor := &adxl345{
 		Named:                    conf.ResourceName().AsNamed(),
