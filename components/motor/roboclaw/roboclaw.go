@@ -10,7 +10,7 @@ Resources:
 	 User Manual: https://downloads.basicmicro.com/docs/roboclaw_user_manual.pdf
 
 This driver can connect to the roboclaw DC motor controller using a usb connection given as a serial path.
-Note that the roboclaw must be initalized using the BasicMicro Motion Studio application prior to use.
+Note that the roboclaw must be initialized using the BasicMicro Motion Studio application prior to use.
 The roboclaw must be in packet serial mode. The default address is 128.
 Encoders can be attached to the roboclaw controller using the EN1 and EN2 pins. If encoders are connected,
 update the ticks_per_rotation field in the config.
@@ -30,12 +30,12 @@ import (
 	"github.com/CPRT/roboclaw"
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-	rutils "go.viam.com/rdk/utils"
 	utils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
+	rutils "go.viam.com/rdk/utils"
 )
 
 var (
@@ -46,9 +46,11 @@ var (
 	newConnectionNeeded bool
 )
 
-// Note that this maxRPM value was determined through very limited testing
-const maxRPM = 250
-const minutesToMS = 60000
+// Note that this maxRPM value was determined through very limited testing.
+const (
+	maxRPM      = 250
+	minutesToMS = 60000
+)
 
 // Config is used for converting motor config attributes.
 type Config struct {
@@ -81,7 +83,7 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	return nil, nil
 }
 
-// Reconfigure automatically reconfigures the roboclaw when the config changes
+// Reconfigure automatically reconfigures the roboclaw when the config changes.
 func (m *roboclawMotor) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	newConnectionNeeded = false
 	newConfig, err := resource.NativeConfig[*Config](conf)
