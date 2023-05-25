@@ -45,11 +45,11 @@ func init() {
 				return nil, err
 			}
 
-			var fooCfg Config
-			if err := json.Unmarshal(b, &fooCfg); err != nil {
+			var cfg Config
+			if err := json.Unmarshal(b, &cfg); err != nil {
 				return nil, err
 			}
-			return &fooCfg, nil
+			return &cfg, nil
 		},
 	})
 }
