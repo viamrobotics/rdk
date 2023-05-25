@@ -13,12 +13,12 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/jacobsa/go-serial/serial"
 	"github.com/pkg/errors"
-	rutils "go.viam.com/rdk/utils"
 	utils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
+	rutils "go.viam.com/rdk/utils"
 )
 
 // https://www.dimensionengineering.com/datasheets/Sabertooth2x60.pdf

@@ -83,8 +83,8 @@ func (conf *Config) Validate(path string) ([]string, error) {
 
 // Reconfigure automatically reconfigures the roboclaw when the config changes
 func (m *roboclawMotor) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
-	newConfig, err := resource.NativeConfig[*Config](conf)
 	newConnectionNeeded = false
+	newConfig, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return err
 	}
@@ -141,7 +141,7 @@ func init() {
 				conf resource.Config,
 				logger golog.Logger,
 			) (motor.Motor, error) {
-				return newRoboClaw(conf, deps, logger)
+				return newRoboClaw(conf, logger)
 			},
 		},
 	)
@@ -171,7 +171,7 @@ func getOrCreateConnection(config *Config) (*roboclaw.Roboclaw, error) {
 	return connection, nil
 }
 
-func newRoboClaw(conf resource.Config, deps resource.Dependencies, logger golog.Logger) (motor.Motor, error) {
+func newRoboClaw(conf resource.Config, logger golog.Logger) (motor.Motor, error) {
 	motorConfig, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return nil, err
@@ -190,22 +190,14 @@ func newRoboClaw(conf resource.Config, deps resource.Dependencies, logger golog.
 		return nil, err
 	}
 
-	rc := &roboclawMotor{
+	return &roboclawMotor{
 		Named:  conf.ResourceName().AsNamed(),
 		conn:   c,
 		conf:   motorConfig,
 		addr:   uint8(motorConfig.Address),
 		logger: logger,
 		maxRPM: maxRPM,
-	}
-
-	err = rc.Reconfigure(context.Background(), deps, conf)
-	if err != nil {
-		return nil, err
-	}
-
-	return rc, nil
-
+	}, nil
 }
 
 type roboclawMotor struct {
