@@ -56,13 +56,14 @@ func init() {
 
 // Config describes how to configure the service.
 type Config struct {
-	Store              navigation.StoreConfig           `json:"store"`
-	BaseName           string                           `json:"base_name"`
-	MovementSensorName string                           `json:"movement_sensor_name"`
-	MotionServiceName  string                           `json:"motion_service_name"`
-	DegPerSec          float64                          `json:"degs_per_sec"`
-	MetersPerSec       float64                          `json:"meters_per_sec"`
-	Obstacles          []*spatialmath.GeoObstacleConfig `json:"obstacles,omitempty"`
+	Store              navigation.StoreConfig `json:"store"`
+	BaseName           string                 `json:"base_name"`
+	MovementSensorName string                 `json:"movement_sensor_name"`
+	MotionServiceName  string                 `json:"motion_service_name"`
+	// DegPerSec and MetersPerSec are targets and not hard limits on speed
+	DegPerSec    float64                          `json:"degs_per_sec"`
+	MetersPerSec float64                          `json:"meters_per_sec"`
+	Obstacles    []*spatialmath.GeoObstacleConfig `json:"obstacles,omitempty"`
 }
 
 // Validate creates the list of implicit dependencies.
@@ -287,6 +288,7 @@ func (svc *builtIn) startWaypoint(extra map[string]interface{}) error {
 				distanceMm := distanceToGoal * 1000 * 1000
 				distanceMm = math.Min(distanceMm, 10*1000)
 
+				// TODO: handle swap from mm to meters
 				if err := svc.base.MoveStraight(ctx, int(distanceMm), (svc.metersPerSecDefault * 1000), nil); err != nil {
 					return fmt.Errorf("error moving %w", err)
 				}
