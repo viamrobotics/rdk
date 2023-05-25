@@ -39,6 +39,8 @@ func init() {
 		) (navigation.Service, error) {
 			return NewBuiltIn(ctx, deps, conf, logger)
 		},
+		// TODO: We can move away from using AttributeMapConverter if we change the way
+		// that we allow orientations to be specified within orientation_json.go
 		AttributeMapConverter: func(attributes rdkutils.AttributeMap) (*Config, error) {
 			b, err := json.Marshal(attributes)
 			if err != nil {
