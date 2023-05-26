@@ -2,7 +2,6 @@ package robot
 
 import (
 	"context"
-	"strings"
 	"sync"
 	"time"
 
@@ -112,7 +111,7 @@ func (m *SessionManager) expireLoop(ctx context.Context) {
 						// cannot be found. If the error is a not found error and the
 						// context has errored, return without appending to resourceErrs
 						// and set serverClosing to true.
-						if strings.Contains(err.Error(), resource.NewNotFoundError(resName).Error()) && ctx.Err() != nil {
+						if resource.IsNotFoundError(err) && ctx.Err() != nil {
 							serverClosing = true
 							return
 						}
