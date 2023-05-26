@@ -102,8 +102,8 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 		return nil, errors.New("invalid config, end time (UTC) must be after start time (UTC)")
 	}
 
-	if cfg.BatchSize != nil && *cfg.BatchSize > uint64(maxCacheSize) {
-		return nil, errors.Errorf("batch_size must be less than or equal to %d", maxCacheSize)
+	if cfg.BatchSize != nil && (*cfg.BatchSize > uint64(maxCacheSize) || *cfg.BatchSize == 0) {
+		return nil, errors.Errorf("batch_size must be between 1 and %d", maxCacheSize)
 	}
 
 	return []string{cloud.InternalServiceName.String()}, nil
@@ -123,8 +123,6 @@ type pcdCamera struct {
 	filter   *datapb.Filter
 
 	cache []*cacheEntry
-
-	activeBackgroundWorkers sync.WaitGroup
 
 	mu     sync.RWMutex
 	closed bool
@@ -190,7 +188,9 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCl
 		if err != nil {
 			return nil, err
 		}
-		if err := addGRPCMetadata(ctx, resp.GetData()[0].GetMetadata().GetTimeRequested(), resp.GetData()[0].GetMetadata().GetTimeReceived()); err != nil {
+		if err := addGRPCMetadata(ctx,
+			resp.GetData()[0].GetMetadata().GetTimeRequested(),
+			resp.GetData()[0].GetMetadata().GetTimeReceived()); err != nil {
 			return nil, err
 		}
 		return pc, nil
@@ -302,14 +302,12 @@ func (replay *pcdCamera) Stream(ctx context.Context, errHandlers ...gostream.Err
 
 // Close stops replay camera, closes the channels and its connections to the cloud.
 func (replay *pcdCamera) Close(ctx context.Context) error {
-	replay.activeBackgroundWorkers.Wait()
-
-	// Close cloud connection
-	replay.closeCloudConnection(ctx)
-
 	replay.mu.Lock()
 	defer replay.mu.Unlock()
+
 	replay.closed = true
+	// Close cloud connection
+	replay.closeCloudConnection(ctx)
 	return nil
 }
 

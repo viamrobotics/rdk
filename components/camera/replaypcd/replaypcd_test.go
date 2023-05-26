@@ -21,6 +21,7 @@ const datasetDirectory = "slam/mock_lidar/%d.pcd"
 
 var (
 	numPCDFiles       = 15
+	batchSize0        = uint64(0)
 	batchSize1        = uint64(1)
 	batchSize2        = uint64(2)
 	batchSize3        = uint64(3)
@@ -453,7 +454,19 @@ func TestConfigValidation(t *testing.T) {
 				},
 				BatchSize: &batchSizeTooLarge,
 			},
-			expectedErr: errors.New("batch_size must be less than or equal to 100"),
+			expectedErr: errors.New("batch_size must be between 1 and 100"),
+		},
+		{
+			description: "Invalid config with batch size 0",
+			cfg: &Config{
+				Source: "source",
+				Interval: TimeInterval{
+					Start: "2000-01-01T12:00:00Z",
+					End:   "2000-01-01T12:00:01Z",
+				},
+				BatchSize: &batchSize0,
+			},
+			expectedErr: errors.New("batch_size must be between 1 and 100"),
 		},
 	}
 
