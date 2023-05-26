@@ -43,7 +43,7 @@ func TestFakeSLAMGetPosition(t *testing.T) {
 }
 
 func TestFakeSLAMStateful(t *testing.T) {
-	t.Skip("skip this test")
+	t.Skip("Skipping this test because it takes too long. Re-enable in RSDK-3341")
 	t.Run("Test getting a PCD map via streaming APIs advances the test data", func(t *testing.T) {
 		slamSvc := &SLAM{Named: slam.Named("test").AsNamed(), logger: golog.NewTestLogger(t)}
 		verifyGetPointCloudMapStateful(t, slamSvc)
