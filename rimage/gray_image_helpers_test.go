@@ -8,6 +8,7 @@ import (
 )
 
 func TestGrayAndAvg(t *testing.T) {
+	t.Parallel()
 	im, _ := NewImageFromFile(artifact.MustPath("calibrate/chess3.jpeg"))
 	im2, _ := MultiplyGrays(MakeGray(im), MakeGray(im))
 	got := GetGrayAvg(im2)

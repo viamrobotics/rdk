@@ -89,11 +89,8 @@ issues:
         - dupword
         - errcheck
         - exhaustive
-        - forcetypeassert
         - goconst
         - gosec
-        - govet
-        - noctx
     - path: /doc.go$
       linters:
         - lll
