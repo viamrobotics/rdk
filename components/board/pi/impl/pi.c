@@ -11,8 +11,21 @@ void interruptCallback(int gpio, int level, uint32_t tick) {
     pigpioInterruptCallback(gpio, level, tick);
 }
 
-void setupInterrupt(int gpio) {
-    gpioSetMode(gpio, PI_INPUT);
-    gpioSetPullUpDown(gpio, PI_PUD_UP); // should this be configurable?
-    gpioSetAlertFunc(gpio, interruptCallback);
+int setupInterrupt(int gpio) {
+    int result = gpioSetMode(gpio, PI_INPUT);
+    if (result != 0) {
+        return result;
+    }
+    result = gpioSetPullUpDown(gpio, PI_PUD_UP); // should this be configurable?
+    if (result != 0) {
+        return result;
+    }
+    result = gpioSetAlertFunc(gpio, interruptCallback);
+    return result;
+}
+
+int teardownInterrupt(int gpio) {
+    int result = gpioSetAlertFunc(gpio, NULL);
+    // Do we need to unset the pullup resistors?
+    return result;
 }
