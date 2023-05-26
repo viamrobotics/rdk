@@ -6,6 +6,7 @@ package robotimpl
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -35,6 +36,8 @@ import (
 	"go.viam.com/rdk/session"
 	"go.viam.com/rdk/utils"
 )
+
+const resourceConstructTimeout = time.Minute
 
 var _ = robot.LocalRobot(&localRobot{})
 
@@ -607,6 +610,29 @@ func (r *localRobot) getWeakDependencies(resName resource.Name, api resource.API
 	return deps
 }
 
+func timeOutError(name resource.Name) error {
+	return fmt.Errorf("Resource %s timed out during reconfigure", name)
+}
+
+func unbuildableDependencyError(name resource.Name) error {
+	return fmt.Errorf("Resource %s could not be built because it has one or more unbuildable dependencies", name)
+}
+
+// returns `true` if a resource is unbuildable due to unbuilt dependencies
+func unbuildableResource(dependencies []string, resourceName string, timedOutResources map[string]bool) bool {
+	if timedOutResources[resourceName] {
+		return true
+	}
+
+	for _, dep := range dependencies {
+		if timedOutResources[dep] {
+			timedOutResources[resourceName] = true
+			return true
+		}
+	}
+	return false
+}
+
 func (r *localRobot) newResource(
 	ctx context.Context,
 	gNode *resource.GraphNode,
@@ -638,15 +664,37 @@ func (r *localRobot) newResource(
 		}
 	}
 
-	resLogger := r.logger.Named(conf.ResourceName().String())
-	if resInfo.Constructor != nil {
-		return resInfo.Constructor(ctx, deps, conf, resLogger)
+	type newResource struct {
+		resource resource.Resource
+		err      error
 	}
-	if resInfo.DeprecatedRobotConstructor == nil {
-		return nil, errors.Errorf("invariant: no constructor for %q", conf.API)
+
+	resourceChan := make(chan newResource)
+
+	ctxWithTimeout, timeoutCancel := context.WithTimeout(ctx, resourceConstructTimeout)
+	defer timeoutCancel()
+	go func() {
+		resLogger := r.logger.Named(conf.ResourceName().String())
+		if resInfo.Constructor != nil {
+			res, err := resInfo.Constructor(ctxWithTimeout, deps, conf, resLogger)
+			resourceChan <- newResource{res, err}
+			return
+		}
+		if resInfo.DeprecatedRobotConstructor == nil {
+			resourceChan <- newResource{nil, errors.Errorf("invariant: no constructor for %q", conf.API)}
+		}
+		r.logger.Warnw("using deprecated robot constructor", "api", resName.API, "model", conf.Model)
+		res, err := resInfo.DeprecatedRobotConstructor(ctxWithTimeout, r, conf, resLogger)
+		resourceChan <- newResource{res, err}
+	}()
+
+	select {
+	case ret := <-resourceChan:
+		return ret.resource, ret.err
+
+	case <-ctxWithTimeout.Done():
+		return nil, errors.Errorf("Timed out constructing new resource %s", conf.Name)
 	}
-	r.logger.Warnw("using deprecated robot constructor", "api", resName.API, "model", conf.Model)
-	return resInfo.DeprecatedRobotConstructor(ctx, r, conf, resLogger)
 }
 
 func (r *localRobot) updateWeakDependents(ctx context.Context) {
@@ -704,7 +752,10 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 		}
 	}
 
+	reconfigureChan := make(chan bool)
+
 	updateResourceWeakDependents := func(conf resource.Config) {
+		defer func() { reconfigureChan <- true }()
 		resName := conf.ResourceName()
 		resNode, ok := r.manager.resources.Node(resName)
 		if !ok {
@@ -726,12 +777,45 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 			r.Logger().Errorw("failed to reconfigure resource with weak dependencies", "resource", resName, "error", err)
 		}
 	}
+
+	timedOutResources := make(map[string]bool)
+
 	conf := r.Config()
-	for _, conf := range conf.Components {
-		updateResourceWeakDependents(conf)
+	for _, cfg := range conf.Components {
+		if unbuildableResource(cfg.Dependencies(), cfg.Name, timedOutResources) {
+			r.Logger().Error(unbuildableDependencyError(cfg.ResourceName()))
+			continue
+		}
+
+		ctxWithTimeout, timeoutCancel := context.WithTimeout(ctx, resourceConstructTimeout)
+		defer timeoutCancel()
+		go updateResourceWeakDependents(cfg)
+		select {
+		case <-reconfigureChan:
+			continue
+		case <-ctxWithTimeout.Done():
+			r.Logger().Error(timeOutError(cfg.ResourceName()))
+			timedOutResources[cfg.Name] = true
+			continue
+		}
 	}
-	for _, conf := range conf.Services {
-		updateResourceWeakDependents(conf)
+	for _, cfg := range conf.Services {
+		if unbuildableResource(cfg.Dependencies(), cfg.Name, timedOutResources) {
+			r.Logger().Error(unbuildableDependencyError(cfg.ResourceName()))
+			continue
+		}
+
+		ctxWithTimeout, timeoutCancel := context.WithTimeout(ctx, resourceConstructTimeout)
+		defer timeoutCancel()
+		go updateResourceWeakDependents(cfg)
+		select {
+		case <-reconfigureChan:
+			continue
+		case <-ctxWithTimeout.Done():
+			r.Logger().Error(timeOutError(cfg.ResourceName()))
+			timedOutResources[cfg.Name] = true
+			continue
+		}
 	}
 }
 

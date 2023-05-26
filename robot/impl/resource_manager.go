@@ -527,58 +527,79 @@ func (manager *resourceManager) completeConfig(
 	}
 
 	resourceNames := manager.resources.ReverseTopologicalSort()
+	resourceChan := make(chan bool)
+	timedOutResources := make(map[string]bool)
+
 	for _, resName := range resourceNames {
-		gNode, ok := manager.resources.Node(resName)
-		if !ok || !gNode.NeedsReconfigure() {
-			continue
-		}
-		if !(resName.API.IsComponent() || resName.API.IsService()) {
-			continue
-		}
-		var verb string
-		if gNode.IsUninitialized() {
-			verb = "configuring"
-		} else {
-			verb = "reconfiguring"
-		}
-		manager.logger.Debugw(fmt.Sprintf("now %s resource", verb), "resource", resName)
-		conf := gNode.Config()
-
-		// this is done in config validation but partial start rules require us to check again
-		if _, err := conf.Validate("", resName.API.Type.Name); err != nil {
-			manager.logger.Errorw("resource config validation error", "resource", conf.ResourceName(), "model", conf.Model, "error", err)
-			gNode.SetLastError(errors.Wrap(err, "config validation error found in resource: "+conf.ResourceName().String()))
-			continue
-		}
-		if manager.moduleManager.Provides(conf) {
-			if _, err := manager.moduleManager.ValidateConfig(ctx, conf); err != nil {
-				manager.logger.Errorw("modular resource config validation error", "resource", conf.ResourceName(), "model", conf.Model, "error", err)
-				gNode.SetLastError(errors.Wrap(err, "config validation error found in modular resource: "+conf.ResourceName().String()))
-				continue
+		ctxWithTimeout, timeoutCancel := context.WithTimeout(ctx, resourceConstructTimeout)
+		defer timeoutCancel()
+		go func() {
+			defer func() { resourceChan <- true }()
+			gNode, ok := manager.resources.Node(resName)
+			if !ok || !gNode.NeedsReconfigure() {
+				return
 			}
-		}
+			if !(resName.API.IsComponent() || resName.API.IsService()) {
+				return
+			}
+			var verb string
+			if gNode.IsUninitialized() {
+				verb = "configuring"
+			} else {
+				verb = "reconfiguring"
+			}
+			manager.logger.Debugw(fmt.Sprintf("now %s resource", verb), "resource", resName)
+			conf := gNode.Config()
+			if unbuildableResource(conf.Dependencies(), resName.Name, timedOutResources) {
+				robot.Logger().Error(unbuildableDependencyError(resName))
+				return
+			}
 
-		switch {
-		case resName.API.IsComponent(), resName.API.IsService():
-			newRes, newlyBuilt, err := manager.processResource(ctx, conf, gNode, robot)
-			if newlyBuilt || err != nil {
-				if err := manager.markChildrenForUpdate(resName); err != nil {
-					manager.logger.Errorw(
-						"failed to mark children of resource for update",
-						"resource", resName,
-						"reason", err)
+			// this is done in config validation but partial start rules require us to check again
+			if _, err := conf.Validate("", resName.API.Type.Name); err != nil {
+				manager.logger.Errorw("resource config validation error", "resource", conf.ResourceName(), "model", conf.Model, "error", err)
+				gNode.SetLastError(errors.Wrap(err, "config validation error found in resource: "+conf.ResourceName().String()))
+				return
+			}
+			if manager.moduleManager.Provides(conf) {
+				if _, err := manager.moduleManager.ValidateConfig(ctx, conf); err != nil {
+					manager.logger.Errorw("modular resource config validation error", "resource", conf.ResourceName(), "model", conf.Model, "error", err)
+					gNode.SetLastError(errors.Wrap(err, "config validation error found in modular resource: "+conf.ResourceName().String()))
+					return
 				}
 			}
-			if err != nil {
-				manager.logger.Errorw("error building resource", "resource", conf.ResourceName(), "model", conf.Model, "error", err)
-				gNode.SetLastError(errors.Wrap(err, "resource build error"))
-				continue
+
+			switch {
+			case resName.API.IsComponent(), resName.API.IsService():
+				newRes, newlyBuilt, err := manager.processResource(ctx, conf, gNode, robot)
+				if newlyBuilt || err != nil {
+					if err := manager.markChildrenForUpdate(resName); err != nil {
+						manager.logger.Errorw(
+							"failed to mark children of resource for update",
+							"resource", resName,
+							"reason", err)
+					}
+				}
+				if err != nil {
+					manager.logger.Errorw("error building resource", "resource", conf.ResourceName(), "model", conf.Model, "error", err)
+					gNode.SetLastError(errors.Wrap(err, "resource build error"))
+					return
+				}
+				gNode.SwapResource(newRes, conf.Model)
+			default:
+				err := errors.New("config is not for a component or service")
+				manager.logger.Errorw(err.Error(), "resource", resName)
+				gNode.SetLastError(err)
 			}
-			gNode.SwapResource(newRes, conf.Model)
-		default:
-			err := errors.New("config is not for a component or service")
-			manager.logger.Errorw(err.Error(), "resource", resName)
-			gNode.SetLastError(err)
+		}()
+
+		select {
+		case <-resourceChan:
+			continue
+		case <-ctxWithTimeout.Done():
+			timedOutResources[resName.Name] = true
+			robot.Logger().Error(timeOutError(resName))
+			continue
 		}
 	}
 }
