@@ -3,7 +3,7 @@
         "base": "IsMoving",
         "board": "GPIOPinByName",
         "camera": "Properties",
-        "encoder": "Position", 
+        "encoder": "Properties", 
         "motor": "IsMoving",
         "sensor": "Readings",
         "servo": "Position",
