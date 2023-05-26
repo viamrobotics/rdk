@@ -1,8 +1,8 @@
 name: PR Test Label Manager
 
 on:
-  pull_request: # UNDO ME
-    branches: [ slim_tests ] # UNDO ME
+  pull_request_target:
+    branches: [ main ]
     types: [ opened, synchronize, reopened ]
 
 jobs:
