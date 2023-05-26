@@ -205,16 +205,9 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCl
 
 	ctxTimeout, cancelTimeout := context.WithTimeout(ctx, downloadTimeout)
 	defer cancelTimeout()
-	ch := make(chan struct{})
-	goutils.PanicCapturingGo(func() {
-		defer close(ch)
-		replay.downloadBatch(ctxTimeout)
-	})
-
-	select {
-	case <-ch:
-	case <-ctxTimeout.Done():
-		return nil, errors.New("context canceled after download deadline exceeded")
+	replay.downloadBatch(ctxTimeout)
+	if ctxTimeout.Err() != nil {
+		return nil, errors.Wrap(ctxTimeout.Err(), "failed to download batch")
 	}
 
 	return replay.getDataFromCache(ctx)
