@@ -413,7 +413,8 @@ func (svc *builtIn) Reconfigure(
 	svc.collectors = newCollectors
 	svc.additionalSyncPaths = svcConfig.AdditionalSyncPaths
 
-	if svc.syncDisabled != svcConfig.ScheduledSyncDisabled || svc.syncIntervalMins != svcConfig.SyncIntervalMins {
+	if svc.syncDisabled != svcConfig.ScheduledSyncDisabled || svc.syncIntervalMins != svcConfig.SyncIntervalMins ||
+		!reflect.DeepEqual(svc.tags, svcConfig.Tags) {
 		svc.syncDisabled = svcConfig.ScheduledSyncDisabled
 		svc.syncIntervalMins = svcConfig.SyncIntervalMins
 
@@ -438,9 +439,6 @@ func (svc *builtIn) Reconfigure(
 			}
 			svc.closeSyncer()
 		}
-	} else if svc.syncer != nil && !reflect.DeepEqual(svc.tags, svcConfig.Tags) {
-		svc.tags = svcConfig.Tags
-		svc.syncer.SetArbitraryFileTags(svc.tags)
 	}
 
 	return nil
