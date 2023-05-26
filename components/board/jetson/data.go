@@ -325,7 +325,7 @@ var jetsonNanoPins = []genericlinux.PinDefinition{
 // https://github.com/NVIDIA/jetson-gpio/blob/master/lib/python/Jetson/GPIO/gpio_pin_data.py
 // We were unable to find the broadcom channel numbers for these pins, but (as of April
 // 2023) Viam doesn't use those values for anything anyway.
-var jetsonOrinPins = []genericlinux.PinDefinition{
+var jetsonOrinAGXPins = []genericlinux.PinDefinition{
 	{map[int]int{32: 22}, map[int]string{32: "PDD.02"}, "c2f0000.gpio", 3, -1, "I2C4_DAT", "GP16_I2C8_DAT", "", -1},
 	{map[int]int{32: 21}, map[int]string{32: "PDD.01"}, "c2f0000.gpio", 5, -1, "I2C4_CLK", "GP81_I2C9_CLK", "", -1},
 	{map[int]int{164: 106}, map[int]string{164: "PQ.06"}, "2200000.gpio", 7, 4, "MCLK05", "GP66", "", -1},
@@ -443,7 +443,7 @@ var boardInfoMappings = map[string]genericlinux.BoardInformation{
 		},
 	},
 	jetsonOrinAGX: {
-		jetsonOrinPins,
+		jetsonOrinAGXPins,
 		[]string{
 			"nvidia,p3737-0000+p3701-0000",
 			"nvidia,p3737-0000+p3701-0004",
