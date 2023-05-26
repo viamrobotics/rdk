@@ -26,6 +26,7 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
 )
 
 // Placeholder definitions for a few known constants.
@@ -83,6 +84,22 @@ func FromDependencies[T Resource](resources Dependencies, name Name) (T, error) 
 func (d Dependencies) Lookup(name Name) (Resource, error) {
 	res, ok := d[name]
 	if !ok {
+		if !name.ContainsRemoteNames() {
+			var res Resource
+			// we assume the map is small and not costly to search
+			for depName, depRes := range d {
+				if !(depName.API == name.API && depName.Name == name.Name) {
+					continue
+				}
+				if res != nil {
+					return nil, utils.NewRemoteResourceClashError(name.Name)
+				}
+				res = depRes
+			}
+			if res != nil {
+				return res, nil
+			}
+		}
 		return nil, DependencyNotFoundError(name)
 	}
 	return res, nil

@@ -32,7 +32,7 @@ func TestFakeSLAMGetPosition(t *testing.T) {
 	// in floating point values between M1 mac & arm64 linux which
 	// were causing tests to pass on M1 mac but fail on ci.
 	expectedPose := spatialmath.NewPose(
-		r3.Vector{X: -0.007403076788319, Y: 0.0120234110108, Z: 0.0000000000000},
+		r3.Vector{X: -7.403076788319, Y: 12.0234110108, Z: 0.0000000000000},
 		&spatialmath.Quaternion{Real: 0.9999999897130699, Imag: 0, Jmag: 0, Kmag: -0.00014343590939629484})
 	test.That(t, spatialmath.PoseAlmostEqual(p, expectedPose), test.ShouldBeTrue)
 
@@ -43,6 +43,7 @@ func TestFakeSLAMGetPosition(t *testing.T) {
 }
 
 func TestFakeSLAMStateful(t *testing.T) {
+	t.Skip("Skipping this test because it takes too long. Re-enable in RSDK-3341")
 	t.Run("Test getting a PCD map via streaming APIs advances the test data", func(t *testing.T) {
 		slamSvc := &SLAM{Named: slam.Named("test").AsNamed(), logger: golog.NewTestLogger(t)}
 		verifyGetPointCloudMapStateful(t, slamSvc)

@@ -10,28 +10,72 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	datapb "go.viam.com/api/app/data/v1"
 	"go.viam.com/test"
+	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
 	"go.viam.com/utils/rpc"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/components/camera"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/internal/cloud"
 	cloudinject "go.viam.com/rdk/internal/testutils/inject"
+	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/testutils/inject"
 )
 
+const testTime = "2000-01-01T12:00:%02dZ"
+
 // mockDataServiceServer is a struct that includes unimplemented versions of all the Data Service endpoints. These
 // can be overwritten to allow developers to trigger desired behaviors during testing.
 type mockDataServiceServer struct {
 	datapb.UnimplementedDataServiceServer
+}
+
+// BinaryDataByIDs is a mocked version of the Data Service function of a similar name. It returns a response with
+// data corresponding to a stored pcd artifact based on the given ID.
+func (mDServer *mockDataServiceServer) BinaryDataByIDs(ctx context.Context, req *datapb.BinaryDataByIDsRequest,
+) (*datapb.BinaryDataByIDsResponse, error) {
+	// Parse request
+	fileID := req.FileIds[0]
+
+	data, err := getCompressedBytesFromArtifact(fileID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Construct response
+	fileNumStr := strings.TrimPrefix(strings.TrimSuffix(fileID, ".pcd"), "slam/mock_lidar/")
+	fileNum, err := strconv.Atoi(fileNumStr)
+	if err != nil {
+		return nil, err
+	}
+	timeReq, timeRec, err := timestampsFromFileNum(fileNum)
+	if err != nil {
+		return nil, err
+	}
+	binaryData := datapb.BinaryData{
+		Binary: data,
+		Metadata: &datapb.BinaryMetadata{
+			Id:            fileID,
+			TimeRequested: timeReq,
+			TimeReceived:  timeRec,
+		},
+	}
+	resp := &datapb.BinaryDataByIDsResponse{
+		Data: []*datapb.BinaryData{&binaryData},
+	}
+
+	return resp, nil
 }
 
 // BinaryDataByFilter is a mocked version of the Data Service function of a similar name. It returns a response with
@@ -41,35 +85,69 @@ func (mDServer *mockDataServiceServer) BinaryDataByFilter(ctx context.Context, r
 	// Parse request
 	filter := req.DataRequest.GetFilter()
 	last := req.DataRequest.GetLast()
+	limit := req.DataRequest.GetLimit()
+	includeBinary := req.IncludeBinary
 
 	newFileNum, err := getNextDataAfterFilter(filter, last)
 	if err != nil {
 		return nil, err
 	}
 
-	// Get point cloud data in gzip compressed format
-	path := filepath.Clean(artifact.MustPath(fmt.Sprintf(datasetDirectory, newFileNum)))
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-
-	var dataBuf bytes.Buffer
-	gz := gzip.NewWriter(&dataBuf)
-	gz.Write(data)
-	gz.Close()
-
 	// Construct response
-	binaryData := &datapb.BinaryData{
-		Binary:   dataBuf.Bytes(),
-		Metadata: &datapb.BinaryMetadata{},
+	var resp datapb.BinaryDataByFilterResponse
+	if includeBinary {
+		data, err := getCompressedBytesFromArtifact(fmt.Sprintf(datasetDirectory, newFileNum))
+		if err != nil {
+			return nil, err
+		}
+
+		timeReq, timeRec, err := timestampsFromFileNum(newFileNum)
+		if err != nil {
+			return nil, err
+		}
+		binaryData := datapb.BinaryData{
+			Binary: data,
+			Metadata: &datapb.BinaryMetadata{
+				Id:            fmt.Sprintf(datasetDirectory, newFileNum),
+				TimeRequested: timeReq,
+				TimeReceived:  timeRec,
+			},
+		}
+
+		resp.Data = []*datapb.BinaryData{&binaryData}
+		resp.Last = fmt.Sprint(newFileNum)
+	} else {
+		for i := 0; i < int(limit); i++ {
+			if newFileNum+i >= numPCDFiles {
+				break
+			}
+
+			timeReq, timeRec, err := timestampsFromFileNum(newFileNum + i)
+			if err != nil {
+				return nil, err
+			}
+			binaryData := datapb.BinaryData{
+				Metadata: &datapb.BinaryMetadata{
+					Id:            fmt.Sprintf(datasetDirectory, newFileNum+i),
+					TimeRequested: timeReq,
+					TimeReceived:  timeRec,
+				},
+			}
+			resp.Data = append(resp.Data, &binaryData)
+		}
+		resp.Last = fmt.Sprint(newFileNum + int(limit) - 1)
 	}
 
-	resp := &datapb.BinaryDataByFilterResponse{
-		Data: []*datapb.BinaryData{binaryData},
-		Last: fmt.Sprint(newFileNum),
+	return &resp, nil
+}
+
+func timestampsFromFileNum(fileNum int) (*timestamppb.Timestamp, *timestamppb.Timestamp, error) {
+	timeReq, err := time.Parse(time.RFC3339, fmt.Sprintf(testTime, fileNum))
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "failed parsing time")
 	}
-	return resp, nil
+	timeRec := timeReq.Add(time.Second)
+	return timestamppb.New(timeReq), timestamppb.New(timeRec), nil
 }
 
 // createMockCloudDependencies creates a mockDataServiceServer and rpc client connection to it which is then
@@ -111,7 +189,7 @@ func createMockCloudDependencies(ctx context.Context, t *testing.T, logger golog
 // createNewReplayPCDCamera will create a new replay_pcd camera based on the provided config with either
 // a valid or invalid data client.
 func createNewReplayPCDCamera(ctx context.Context, t *testing.T, replayCamCfg *Config, validDeps bool,
-) (camera.Camera, func() error, error) {
+) (camera.Camera, resource.Dependencies, func() error, error) {
 	logger := golog.NewTestLogger(t)
 
 	resources, closeRPCFunc := createMockCloudDependencies(ctx, t, logger, validDeps)
@@ -119,7 +197,7 @@ func createNewReplayPCDCamera(ctx context.Context, t *testing.T, replayCamCfg *C
 	cfg := resource.Config{ConvertedAttributes: replayCamCfg}
 	cam, err := newPCDCamera(ctx, resources, cfg, logger)
 
-	return cam, closeRPCFunc, err
+	return cam, resources, closeRPCFunc, err
 }
 
 // resourcesFromDeps returns a list of dependencies from the provided robot.
@@ -181,4 +259,43 @@ func getFile(i, end int) (int, error) {
 		return i, nil
 	}
 	return 0, errEndOfDataset
+}
+
+// getCompressedBytesFromArtifact will return an array of bytes from the
+// provided artifact path, compressing them using gzip.
+func getCompressedBytesFromArtifact(inputPath string) ([]byte, error) {
+	artifactPath, err := artifact.Path(inputPath)
+	if err != nil {
+		return nil, errEndOfDataset
+	}
+	path := filepath.Clean(artifactPath)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, errEndOfDataset
+	}
+
+	var dataBuf bytes.Buffer
+	gz := gzip.NewWriter(&dataBuf)
+	gz.Write(data)
+	gz.Close()
+
+	return dataBuf.Bytes(), nil
+}
+
+// getPointCloudFromArtifact will return a point cloud based on the provided artifact path.
+func getPointCloudFromArtifact(i int) (pointcloud.PointCloud, error) {
+	path := filepath.Clean(artifact.MustPath(fmt.Sprintf(datasetDirectory, i)))
+	pcdFile, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+
+	defer utils.UncheckedErrorFunc(pcdFile.Close)
+
+	pcExpected, err := pointcloud.ReadPCD(pcdFile)
+	if err != nil {
+		return nil, err
+	}
+
+	return pcExpected, nil
 }

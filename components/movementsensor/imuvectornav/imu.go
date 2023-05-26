@@ -59,7 +59,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 
 func init() {
 	resource.RegisterComponent(movementsensor.API, model, resource.Registration[movementsensor.MovementSensor, *Config]{
-		Constructor: NewVectorNav,
+		Constructor: newVectorNav,
 	})
 }
 
@@ -113,10 +113,10 @@ const (
 	vpeAccTunning                vectornavRegister = 38
 )
 
-// NewVectorNav connect and set up a vectornav IMU over SPI.
+// newVectorNav connect and set up a vectornav IMU over SPI.
 // Will also compensate for acceleration and delta velocity bias over one second so be
 // sure the IMU is still when calling this function.
-func NewVectorNav(
+func newVectorNav(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
@@ -233,7 +233,7 @@ func NewVectorNav(
 		return nil, err
 	}
 	var cancelCtx context.Context
-	cancelCtx, v.cancelFunc = context.WithCancel(ctx)
+	cancelCtx, v.cancelFunc = context.WithCancel(context.Background())
 	// optionally start a polling goroutine
 	if pfreq > 0 {
 		logger.Debugf("vecnav: will pool at %d Hz", pfreq)

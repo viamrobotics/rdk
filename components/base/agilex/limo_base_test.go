@@ -7,19 +7,12 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/components/motor/fake"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/testutils/inject"
 )
 
 func TestLimoBaseConstructor(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
-
-	fakeRobot := &inject.Robot{}
-	fakeRobot.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
-		return &fake.Motor{}, nil
-	}
 
 	c := make(chan []uint8, 100)
 

@@ -14,16 +14,17 @@ jobs:
   build_and_test:
     name: Build and Test
     strategy:
+      fail-fast: false
       matrix:
         include:
-          - arch: [x64, qemu-host]
+          - arch: [buildjet-16vcpu-ubuntu-2204]
             image: ghcr.io/viamrobotics/canon:amd64-cache
             platform: linux/amd64
-            build_lint: 'make build lint'
-          - arch: [arm64, qemu-host]
+            test_cmd: "make cover test-web"
+          - arch: [buildjet-16vcpu-ubuntu-2204-arm]
             image: ghcr.io/viamrobotics/canon:arm64-cache
             platform: linux/arm64
-            build_lint: 'make build-go lint-go'
+            test_cmd: "make cover test-web"
     runs-on: ${{ matrix.arch }}
     container:
       image: ${{ matrix.image }}
@@ -34,8 +35,6 @@ jobs:
     - name: Check out code
       if: github.event_name != 'pull_request_target'
       uses: actions/checkout@v3
-      with:
-        fetch-depth: 2
 
     - name: Check out PR branch code
       if: github.event_name == 'pull_request_target'
@@ -60,12 +59,12 @@ jobs:
         echo "GITHUB_X_PR_BASE_SHA=${{ github.event.pull_request.base.sha }}" >> $GITHUB_ENV
         echo "GITHUB_X_PR_BASE_REF=${{ github.event.pull_request.base.ref }}" >> $GITHUB_ENV
 
-    - name: Verify no uncommitted changes from "${{ matrix.build_lint }}"
+    - name: Verify no uncommitted changes from "make build lint"
       run: |
         git init
         git add .
         chown -R testbot:testbot .
-        sudo -Hu testbot bash -lc '${{ matrix.build_lint }}'
+        sudo -Hu testbot bash -lc 'make build lint'
         GEN_DIFF=$(git status -s)
 
         if [ -n "$GEN_DIFF" ]; then
@@ -75,9 +74,8 @@ jobs:
         fi
 
     - name: Test
-      if: matrix.platform == 'linux/amd64'
       run: |
-        sudo --preserve-env=MONGODB_TEST_OUTPUT_URI,GITHUB_SHA,GITHUB_RUN_ID,GITHUB_RUN_NUMBER,GITHUB_RUN_ATTEMPT,GITHUB_X_PR_BASE_SHA,GITHUB_X_PR_BASE_REF,GITHUB_X_HEAD_REF,GITHUB_X_HEAD_SHA,GITHUB_REPOSITORY -Hu testbot bash -lc 'make cover test-web'
+        sudo --preserve-env=MONGODB_TEST_OUTPUT_URI,GITHUB_SHA,GITHUB_RUN_ID,GITHUB_RUN_NUMBER,GITHUB_RUN_ATTEMPT,GITHUB_X_PR_BASE_SHA,GITHUB_X_PR_BASE_REF,GITHUB_X_HEAD_REF,GITHUB_X_HEAD_SHA,GITHUB_REPOSITORY -Hu testbot bash -lc '${{ matrix.test_cmd }}'
 
     # Now that RDK is public, can't directly comment without token having full read/write access
     # code-coverage-comment.yml will trigger seperately and post the actual comments
@@ -120,22 +118,19 @@ jobs:
     - name: Check out main branch code
       if: github.event_name != 'pull_request_target'
       uses: actions/checkout@v3
-      with:
-        fetch-depth: 2
 
     - name: Check out PR branch code
       if: github.event_name == 'pull_request_target'
       uses: actions/checkout@v3
       with:
         ref: ${{ github.event.pull_request.head.sha }}
-        fetch-depth: 2
 
     - name: Test
       run: make test-pi
 
   test_e2e:
     name: Test End-to-End
-    runs-on: [x64, qemu-host]
+    runs-on: [buildjet-8vcpu-ubuntu-2204]
     container:
       image: ghcr.io/viamrobotics/canon:amd64-cache
       options: --platform linux/amd64
@@ -143,15 +138,12 @@ jobs:
       - name: Check out main branch code
         if: github.event_name != 'pull_request_target'
         uses: actions/checkout@v3
-        with:
-          fetch-depth: 2
 
       - name: Check out PR branch code
         if: github.event_name == 'pull_request_target'
         uses: actions/checkout@v3
         with:
           ref: ${{ github.event.pull_request.head.sha }}
-          fetch-depth: 2
 
       - name: Install dependencies
         run: |
@@ -165,7 +157,7 @@ jobs:
   test_passing:
     name: All Tests Passing
     needs: [test_pi, build_and_test, test_e2e]
-    runs-on: [x64, qemu-host]
+    runs-on: [ubuntu-latest]
     if: always()
     steps:
       - name: Check Results

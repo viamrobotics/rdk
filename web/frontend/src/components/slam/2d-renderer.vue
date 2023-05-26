@@ -1,46 +1,47 @@
 <script setup lang="ts">
 
 import { $ref } from 'vue/macros';
-import { threeInstance, MouseRaycaster, MeshDiscardMaterial } from 'trzy';
+import { threeInstance, MouseRaycaster, MeshDiscardMaterial, GridHelper } from 'trzy';
 import { onMounted, onUnmounted, watch } from 'vue';
 import * as THREE from 'three';
 import { MapControls } from 'three/examples/jsm/controls/MapControls';
 import { PCDLoader } from 'three/examples/jsm/loaders/PCDLoader';
 import type { commonApi } from '@viamrobotics/sdk';
-import DestMarker from '../lib/destination-marker.txt?raw';
-import BaseMarker from '../lib/base-marker.txt?raw';
+import DestMarker from '@/lib/images/destination-marker.txt?raw';
+import BaseMarker from '@/lib/images/base-marker.txt?raw';
+import Legend from './2d-legend.vue';
 
+let points: THREE.Points | undefined;
 let pointsMaterial: THREE.PointsMaterial | undefined;
+let intersectionPlane: THREE.Mesh | undefined;
 
-const backgroundGridColor = 0xCA_CA_CA;
-
-const gridSubparts = ['AxesPos', 'AxesNeg', 'Grid'];
+const markerColor = '#FF0047';
+const backgroundGridColor = '#cacaca';
 
 const svgMarkerRenderOrder = 4;
 const pointsRenderOrder = 3;
 const axesHelperRenderOrder = 2;
 const gridHelperRenderOrder = 1;
 
-const cameraScale = 25;
+const cameraScale = 12.5;
 const aspectInverse = 4;
 const initialPointSize = 4;
-
-const gridHelperScalar = 4;
+const baseSpriteSize = 0.05;
 const axesHelperSize = 8;
 
 const textureLoader = new THREE.TextureLoader();
 
 const makeMarker = (png: string, name: string) => {
-  const geometry = new THREE.PlaneGeometry();
-  const material = new THREE.MeshBasicMaterial({ map: textureLoader.load(png), transparent: true });
-  const marker = new THREE.Mesh(geometry, material);
+  const material = new THREE.SpriteMaterial({
+    map: textureLoader.load(png),
+    sizeAttenuation: false,
+    color: markerColor,
+  });
+  const marker = new THREE.Sprite(material);
   marker.name = name;
   marker.renderOrder = svgMarkerRenderOrder;
   return marker;
 };
-
-const baseMarkerOffset = new THREE.Vector3(-0.05, -0.3, 0);
-const destinationMarkerOffset = new THREE.Vector3(0, 0.5, 0);
 
 /*
  * this color map is greyscale. The color map is being used map probability values of a PCD
@@ -76,8 +77,7 @@ const props = defineProps<{
   destExists: boolean
   destVector: THREE.Vector3
   axesVisible: boolean
-}
->();
+}>();
 
 const emit = defineEmits<{(event: 'click', point: THREE.Vector3): void}>();
 
@@ -92,8 +92,7 @@ const { scene, renderer, canvas, start, stop, setCamera, update } = threeInstanc
   autostart: false,
 });
 
-const color = new THREE.Color(0xFF_FF_FF);
-renderer.setClearColor(color, 1);
+renderer.setClearColor('white', 1);
 
 canvas.style.cssText = 'width:100%;height:100%;';
 
@@ -107,6 +106,9 @@ scene.add(camera);
 const baseMarker = makeMarker(BaseMarker, 'BaseMarker');
 const destMarker = makeMarker(DestMarker, 'DestinationMarker');
 destMarker.visible = false;
+destMarker.center.set(0.5, 0.05);
+
+let userControlling = false;
 
 const controls = new MapControls(camera, canvas);
 controls.enableRotate = false;
@@ -121,29 +123,31 @@ raycaster.on('click', (event: THREE.Event) => {
   }
 });
 
-const disposeScene = () => {
-  scene.traverse((object) => {
-    if (object.name === 'BaseMarker' || object.name === 'DestinationMarker') {
-      return;
+const dispose = (object?: THREE.Object3D) => {
+  if (!object) {
+    return;
+  }
+
+  scene.remove(object);
+
+  if (object instanceof THREE.Points || object instanceof THREE.Mesh) {
+    object.geometry.dispose();
+
+    if (object.material instanceof THREE.Material) {
+      object.material.dispose();
     }
-
-    if (object instanceof THREE.Points || object instanceof THREE.Mesh) {
-      object.geometry.dispose();
-
-      if (object.material instanceof THREE.Material) {
-        object.material.dispose();
-      }
-    }
-  });
-
-  scene.clear();
+  }
 };
 
 const updatePose = (newPose: commonApi.Pose) => {
   const x = newPose.getX();
   const y = newPose.getY();
   const z = newPose.getZ();
-  baseMarker.position.set(x, y, z).add(baseMarkerOffset);
+
+  baseMarker.position.set(x, y, z);
+
+  const theta = THREE.MathUtils.degToRad(newPose.getTheta());
+  baseMarker.geometry.rotateZ(theta);
 };
 
 /*
@@ -165,9 +169,10 @@ const colorBuckets = (probability: number): THREE.Vector3 => {
 };
 
 // create the x and z axes
-const createAxisHelper = (name: string, rotation: number): THREE.AxesHelper => {
+const createAxisHelper = (name: string, rotateX = 0, rotateY = 0): THREE.AxesHelper => {
   const axesHelper = new THREE.AxesHelper(axesHelperSize);
-  axesHelper.rotateX(rotation);
+  axesHelper.rotateX(rotateX);
+  axesHelper.rotateY(rotateY);
   axesHelper.scale.set(1e5, 1, 1e5);
   axesHelper.renderOrder = axesHelperRenderOrder;
   axesHelper.name = name;
@@ -176,21 +181,8 @@ const createAxisHelper = (name: string, rotation: number): THREE.AxesHelper => {
 };
 
 // create the background gray grid
-const createGridHelper = (boundingBox: THREE.Box3): THREE.GridHelper => {
-  const deltaX = Math.abs(boundingBox.max.x - boundingBox.min.x);
-  const deltaZ = Math.abs(boundingBox.max.z - boundingBox.min.z);
-  let maxDelta = Math.round(Math.max(deltaX, deltaZ) * gridHelperScalar);
-
-  /*
-   * if maxDelta is an odd number the x y axes will not be layered neatly over the grey grid
-   * because we round maxDelta and then potentially decrease the value, the 1 meter grid spacing
-   * is bound to have a margin of error
-   */
-  if (maxDelta % 2 !== 0) {
-    maxDelta -= 1;
-  }
-
-  const gridHelper = new THREE.GridHelper(maxDelta, maxDelta, backgroundGridColor, backgroundGridColor);
+const createGridHelper = (): GridHelper => {
+  const gridHelper = new GridHelper(1, 10, backgroundGridColor);
   gridHelper.renderOrder = gridHelperRenderOrder;
   gridHelper.name = 'Grid';
   gridHelper.visible = props.axesVisible;
@@ -201,7 +193,7 @@ const createGridHelper = (boundingBox: THREE.Box3): THREE.GridHelper => {
 const updateOrRemoveDestinationMarker = () => {
   if (props.destVector && props.destExists) {
     destMarker.visible = true;
-    destMarker.position.copy(props.destVector).add(destinationMarkerOffset);
+    destMarker.position.copy(props.destVector);
   }
 
   if (!props.destExists) {
@@ -209,10 +201,24 @@ const updateOrRemoveDestinationMarker = () => {
   }
 };
 
-const updatePointCloud = (pointcloud: Uint8Array) => {
-  disposeScene();
+const handleUserControl = () => {
+  userControlling = true;
+  controls.removeEventListener('start', handleUserControl);
+};
 
-  const points = loader.parse(pointcloud.buffer);
+// construct grid spaced at 1 meter
+const gridHelper = createGridHelper();
+
+// construct axes
+const axesPos = createAxisHelper('AxesPos', Math.PI / 2, Math.PI / 2);
+const axesNeg = createAxisHelper('AxesNeg', -Math.PI / 2, Math.PI / 2);
+axesNeg.rotateX(Math.PI);
+
+const updatePointCloud = (pointcloud: Uint8Array) => {
+  dispose(points);
+  dispose(intersectionPlane);
+
+  points = loader.parse(pointcloud.buffer);
   pointsMaterial = points.material as THREE.PointsMaterial;
   pointsMaterial.sizeAttenuation = false;
   pointsMaterial.size = initialPointSize;
@@ -220,21 +226,24 @@ const updatePointCloud = (pointcloud: Uint8Array) => {
   points.renderOrder = pointsRenderOrder;
 
   const { radius = 1, center = { x: 0, y: 0 } } = points.geometry.boundingSphere ?? {};
-  camera.position.set(center.x, center.y, 100);
-  controls.target.set(center.x, center.y, 0);
-  camera.lookAt(center.x, center.y, 0);
 
-  const viewHeight = 1;
-  const viewWidth = viewHeight * 2;
-  const aspect = canvas.clientHeight / canvas.clientWidth;
+  if (!userControlling) {
+    camera.position.set(center.x, center.y, 100);
+    controls.target.set(center.x, center.y, 0);
+    camera.lookAt(center.x, center.y, 0);
 
-  camera.zoom = aspect > 1
-    ? viewHeight / (radius * aspectInverse)
-    : viewWidth / (radius * aspectInverse);
+    const viewHeight = 1;
+    const viewWidth = viewHeight * 2;
+    const aspect = canvas.clientHeight / canvas.clientWidth;
+
+    camera.zoom = aspect > 1
+      ? viewHeight / (radius * aspectInverse)
+      : viewWidth / (radius * aspectInverse);
+  }
 
   controls.maxZoom = radius * 2;
 
-  const intersectionPlane = new THREE.Mesh(
+  intersectionPlane = new THREE.Mesh(
     new THREE.PlaneGeometry(radius * 2, radius * 2, 1, 1),
     new MeshDiscardMaterial()
   );
@@ -257,27 +266,10 @@ const updatePointCloud = (pointcloud: Uint8Array) => {
     }
   }
 
-  points.geometry.computeBoundingBox();
-
-  // construct grid spaced at 1 meter
-  const gridHelper = createGridHelper(points.geometry.boundingBox!);
-
-  // construct axes
-  const axesPos = createAxisHelper('AxesPos', Math.PI / 2);
-  axesPos.rotateY(Math.PI / 2);
-  const axesNeg = createAxisHelper('AxesNeg', -Math.PI / 2);
-  axesNeg.rotateY(Math.PI / 2);
-  axesNeg.rotateX(Math.PI);
-
   // add objects to scene
   scene.add(
-    gridHelper,
     points,
-    intersectionPlane,
-    axesPos,
-    axesNeg,
-    baseMarker,
-    destMarker
+    intersectionPlane
   );
 
   updateOrRemoveDestinationMarker();
@@ -285,15 +277,31 @@ const updatePointCloud = (pointcloud: Uint8Array) => {
 
 let removeUpdate: (() => void) | undefined;
 
-onMounted(() => {
-  removeUpdate = update(() => {
-    const { zoom } = camera;
+const scaleObjects = () => {
+  const { zoom } = camera;
 
-    if (pointsMaterial) {
-      pointsMaterial.size = zoom * cameraScale;
-    }
-  });
+  if (pointsMaterial) {
+    pointsMaterial.size = zoom * cameraScale * window.devicePixelRatio;
+  }
+
+  const spriteSize = baseSpriteSize / zoom;
+  baseMarker.scale.set(spriteSize, spriteSize, 1);
+  destMarker.scale.set(spriteSize, spriteSize, 1);
+};
+
+onMounted(() => {
+  removeUpdate = update(scaleObjects);
   container?.append(canvas);
+
+  scene.add(
+    gridHelper,
+    axesPos,
+    axesNeg,
+    baseMarker,
+    destMarker
+  );
+
+  controls.addEventListener('start', handleUserControl);
 
   start();
 
@@ -304,24 +312,23 @@ onMounted(() => {
   if (props.pose !== undefined) {
     updatePose(props.pose);
   }
-
 });
 
 onUnmounted(() => {
   stop();
-  disposeScene();
+  scene.traverse((object) => dispose(object));
   removeUpdate?.();
+
+  controls.removeEventListener('start', handleUserControl);
+  userControlling = false;
 });
 
 watch(() => [props.destVector!.x, props.destVector!.y, props.destExists], updateOrRemoveDestinationMarker);
 
-watch(() => props.axesVisible, () => {
-  for (const gridPart of gridSubparts) {
-    const part = scene.getObjectByName(gridPart);
-    if (part !== undefined) {
-      part.visible = props.axesVisible;
-    }
-  }
+watch(() => props.axesVisible, (visible: boolean) => {
+  axesPos.visible = visible;
+  axesNeg.visible = visible;
+  gridHelper.visible = visible;
 });
 
 watch(() => props.pose, (newPose) => {
@@ -355,70 +362,7 @@ watch(() => props.pointCloudUpdateCount, () => {
       Grid set to 1 meter
     </p>
     <div class="absolute right-3 top-3">
-      <svg
-        class="Axes-Legend"
-        width="30"
-        height="30"
-        viewBox="0 0 30 30"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <rect
-          width="10"
-          height="10"
-          rx="5"
-          fill="#BE3536"
-        />
-        <path
-          d="M4.66278 6.032H4.51878L2.76678 2.4H3.51878L4.95078 5.456H5.04678L6.47878
-             2.4H7.23078L5.47878 6.032H5.33478V8H4.66278V6.032Z"
-          fill="#FCECEA"
-        />
-        <rect
-          x="20"
-          y="20"
-          width="10"
-          height="10"
-          rx="5"
-          fill="#0066CC"
-        />
-        <path
-          d="M23.6708 22.4L24.9268 24.88H25.0708L26.3268 22.4H27.0628L25.6628 25.144V25.24L27.0628
-             28H26.3268L25.0708 25.504H24.9268L23.6708 28H22.9348L24.3348 25.24V25.144L22.9348 22.4H23.6708Z"
-          fill="#E1F3FF"
-        />
-        <rect
-          x="4"
-          y="9"
-          width="2"
-          height="17"
-          fill="#BE3536"
-        />
-        <rect
-          x="21"
-          y="24"
-          width="2"
-          height="17"
-          transform="rotate(90 21 24)"
-          fill="#0066CC"
-        />
-        <rect
-          x="0.5"
-          y="20.5"
-          width="9"
-          height="9"
-          rx="4.5"
-          fill="#E0FAE3"
-        />
-        <rect
-          x="0.5"
-          y="20.5"
-          width="9"
-          height="9"
-          rx="4.5"
-          stroke="#3D7D3F"
-        />
-      </svg>
+      <Legend />
     </div>
   </div>
 </template>

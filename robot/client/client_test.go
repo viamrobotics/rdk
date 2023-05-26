@@ -295,8 +295,8 @@ func TestStatusClient(t *testing.T) {
 			},
 		},
 	}
-	injectRobot1.ConfigFunc = func() *config.Config {
-		return &cfg
+	injectRobot1.ConfigFunc = func(ctx context.Context) (*config.Config, error) {
+		return &cfg, nil
 	}
 
 	client, err := New(context.Background(), listener1.Addr().String(), logger)
