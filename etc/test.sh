@@ -9,7 +9,7 @@ if [[ "$1" == "cover" ]]; then
 fi
 
 # We run analyzetests on every run, pass or fail. We only run analyzecoverage when all tests passed.
-gotestsum --format standard-verbose --jsonfile json.log -- -timeout 20m -tags=no_skip -race $COVER ./...
+gotestsum --format standard-verbose --jsonfile json.log -- -timeout 15m -tags=no_skip -race $COVER ./...
 SUCCESS=$?
 
 cat json.log | go run ./etc/analyzetests/main.go
