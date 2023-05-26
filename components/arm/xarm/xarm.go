@@ -50,15 +50,14 @@ const (
 
 type xArm struct {
 	resource.Named
-	dof       int
-	tid       uint16
-	moveHZ    float64 // Number of joint positions to send per second
-	moveLock  sync.Mutex
-	model     referenceframe.Model
-	started   bool
-	opMgr     operation.SingleOperationManager
-	logger    golog.Logger
-	modelName string
+	dof      int
+	tid      uint16
+	moveHZ   float64 // Number of joint positions to send per second
+	moveLock sync.Mutex
+	model    referenceframe.Model
+	started  bool
+	opMgr    operation.SingleOperationManager
+	logger   golog.Logger
 
 	mu    sync.RWMutex
 	conn  net.Conn
@@ -80,27 +79,18 @@ const (
 	ModelNameLite = "xArmLite" // ModelNameLite is the name of an xArmLite
 )
 
-// embeddedKinematics maps the embedded kinematics files to the arm model names.
-func embeddedKinematics(modelName string) ([]byte, error) {
+// MakeModelFrame returns the kinematics model of the xarm arm, which has all Frame information.
+func MakeModelFrame(name, modelName string) (referenceframe.Model, error) {
 	switch modelName {
 	case ModelName6DOF:
-		return xArm6modeljson, nil
+		return referenceframe.UnmarshalModelJSON(xArm6modeljson, name)
 	case ModelNameLite:
-		return xArmLitemodeljson, nil
+		return referenceframe.UnmarshalModelJSON(xArmLitemodeljson, name)
 	case ModelName7DOF:
-		return xArm7modeljson, nil
+		return referenceframe.UnmarshalModelJSON(xArm7modeljson, name)
 	default:
 		return nil, fmt.Errorf("no kinematics information for xarm of model %s", modelName)
 	}
-}
-
-// MakeModelFrame returns the kinematics model of the xarm arm, which has all Frame information.
-func MakeModelFrame(name, modelName string) (referenceframe.Model, error) {
-	kinFile, err := embeddedKinematics(modelName)
-	if err != nil {
-		return nil, err
-	}
-	return referenceframe.UnmarshalModelJSON(kinFile, name)
 }
 
 func init() {
@@ -128,14 +118,13 @@ func NewxArm(ctx context.Context, conf resource.Config, logger golog.Logger, mod
 	}
 
 	xA := xArm{
-		Named:     conf.ResourceName().AsNamed(),
-		dof:       len(model.DoF()),
-		tid:       0,
-		moveHZ:    defaultMoveHz,
-		model:     model,
-		started:   false,
-		logger:    logger,
-		modelName: modelName,
+		Named:   conf.ResourceName().AsNamed(),
+		dof:     len(model.DoF()),
+		tid:     0,
+		moveHZ:  defaultMoveHz,
+		model:   model,
+		started: false,
+		logger:  logger,
 	}
 
 	if err := xA.Reconfigure(ctx, nil, conf); err != nil {
