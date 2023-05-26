@@ -4,12 +4,20 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 ROOT_DIR="$DIR/../"
 cd $ROOT_DIR
 
-if [[ "$1" == "cover" ]]; then
+# Race is unsupported on some linux/arm64 hosts. See https://github.com/golang/go/issues/29948.
+# To run without race, use `make test-no-race` or `make test-go-no-race`.
+
+if [[ "$1" == "cover-with-race" ]]; then
 	COVER=-coverprofile=coverage.txt
+	RACE=-race
+fi
+
+if [[ "$1" == "race" ]]; then
+	RACE=-race
 fi
 
 # We run analyzetests on every run, pass or fail. We only run analyzecoverage when all tests passed.
-gotestsum --format standard-verbose --jsonfile json.log -- -timeout 15m -tags=no_skip -race $COVER ./...
+gotestsum --format standard-verbose --jsonfile json.log -- -timeout 15m -tags=no_skip $RACE $COVER ./...
 SUCCESS=$?
 
 cat json.log | go run ./etc/analyzetests/main.go
