@@ -730,10 +730,10 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 		}
 	}
 
-	reconfigureChan := make(chan bool)
+	reconfigureChan := make(chan struct{})
 
 	updateResourceWeakDependents := func(conf resource.Config) {
-		defer func() { reconfigureChan <- true }()
+		defer func() { reconfigureChan <- struct{}{} }()
 		resName := conf.ResourceName()
 		resNode, ok := r.manager.resources.Node(resName)
 		if !ok {
