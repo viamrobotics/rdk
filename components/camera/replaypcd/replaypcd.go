@@ -62,11 +62,11 @@ type TimeInterval struct {
 // cacheEntry stores data that was downloaded from a previous operation but has not yet been passed
 // to the caller.
 type cacheEntry struct {
-	id      string
-	pc      pointcloud.PointCloud
-	timeReq *timestamppb.Timestamp
-	timeRec *timestamppb.Timestamp
-	err     error
+	id            string
+	pc            pointcloud.PointCloud
+	timeRequested *timestamppb.Timestamp
+	timeReceived  *timestamppb.Timestamp
+	err           error
 }
 
 // Validate checks that the config attributes are valid for a replay camera.
@@ -146,6 +146,10 @@ func newPCDCamera(ctx context.Context, deps resource.Dependencies, conf resource
 
 // NextPointCloud returns the next point cloud retrieved from cloud storage based on the applied filter.
 func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+	// First acquire the lock, so that it's safe to populate the cache and/or retrieve and
+	// remove the next data point from the cache. Note that if multiple threads call
+	// NextPointCloud concurrently, they may get data out-of-order, since there's no guarantee
+	// about who acquires the lock first.
 	replay.mu.Lock()
 	defer replay.mu.Unlock()
 	if replay.closed {
@@ -186,8 +190,7 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCl
 		if err != nil {
 			return nil, err
 		}
-		err = addGRPCMetadata(ctx, resp.GetData()[0].GetMetadata().GetTimeRequested(), resp.GetData()[0].GetMetadata().GetTimeReceived())
-		if err != nil {
+		if err := addGRPCMetadata(ctx, resp.GetData()[0].GetMetadata().GetTimeRequested(), resp.GetData()[0].GetMetadata().GetTimeReceived()); err != nil {
 			return nil, err
 		}
 		return pc, nil
@@ -224,32 +227,33 @@ func (replay *pcdCamera) downloadBatch(ctx context.Context) {
 	var wg sync.WaitGroup
 	wg.Add(len(replay.cache))
 	for _, dataToCache := range replay.cache {
-		dataToCache := dataToCache
+		data := dataToCache
 
 		goutils.PanicCapturingGo(func() {
 			defer wg.Done()
 
 			var resp *datapb.BinaryDataByIDsResponse
-			resp, dataToCache.err = replay.dataClient.BinaryDataByIDs(ctx, &datapb.BinaryDataByIDsRequest{
-				FileIds:       []string{dataToCache.id},
+			resp, data.err = replay.dataClient.BinaryDataByIDs(ctx, &datapb.BinaryDataByIDsRequest{
+				FileIds:       []string{data.id},
 				IncludeBinary: true,
 			})
-			if dataToCache.err != nil {
+			if data.err != nil {
 				return
 			}
 
 			// Decode response data
-			dataToCache.pc, dataToCache.err = decodeResponseData(resp.GetData(), replay.logger)
-			if dataToCache.err == nil {
-				dataToCache.timeReq = resp.GetData()[0].GetMetadata().GetTimeRequested()
-				dataToCache.timeRec = resp.GetData()[0].GetMetadata().GetTimeReceived()
+			data.pc, data.err = decodeResponseData(resp.GetData(), replay.logger)
+			if data.err == nil {
+				data.timeRequested = resp.GetData()[0].GetMetadata().GetTimeRequested()
+				data.timeReceived = resp.GetData()[0].GetMetadata().GetTimeReceived()
 			}
 		})
 	}
 	wg.Wait()
 }
 
-// getDataFromCache retrieves the next cached data and removes it from the cache.
+// getDataFromCache retrieves the next cached data and removes it from the cache. It assumes the
+// write lock is being held.
 func (replay *pcdCamera) getDataFromCache(ctx context.Context) (pointcloud.PointCloud, error) {
 	// Grab the next cached data and update the cache immediately, even if there's an error,
 	// so we don't get stuck in a loop checking for and returning the same error.
@@ -259,8 +263,7 @@ func (replay *pcdCamera) getDataFromCache(ctx context.Context) (pointcloud.Point
 		return nil, errors.Wrap(data.err, "cache data contained an error")
 	}
 
-	err := addGRPCMetadata(ctx, data.timeReq, data.timeRec)
-	if err != nil {
+	if err := addGRPCMetadata(ctx, data.timeRequested, data.timeReceived); err != nil {
 		return nil, err
 	}
 
@@ -269,14 +272,14 @@ func (replay *pcdCamera) getDataFromCache(ctx context.Context) (pointcloud.Point
 
 // addGRPCMetadata adds timestamps from the data response to the gRPC response header if one is
 // found in the context.
-func addGRPCMetadata(ctx context.Context, timeReq, timeRec *timestamppb.Timestamp) error {
+func addGRPCMetadata(ctx context.Context, timeRequested, timeReceived *timestamppb.Timestamp) error {
 	if stream := grpc.ServerTransportStreamFromContext(ctx); stream != nil {
 		var grpcMetadata metadata.MD = make(map[string][]string)
-		if timeReq != nil {
-			grpcMetadata.Set(contextutils.TimeRequestedMetadataKey, timeReq.AsTime().Format(time.RFC3339Nano))
+		if timeRequested != nil {
+			grpcMetadata.Set(contextutils.TimeRequestedMetadataKey, timeRequested.AsTime().Format(time.RFC3339Nano))
 		}
-		if timeRec != nil {
-			grpcMetadata.Set(contextutils.TimeReceivedMetadataKey, timeRec.AsTime().Format(time.RFC3339Nano))
+		if timeReceived != nil {
+			grpcMetadata.Set(contextutils.TimeReceivedMetadataKey, timeReceived.AsTime().Format(time.RFC3339Nano))
 		}
 		if err := grpc.SetHeader(ctx, grpcMetadata); err != nil {
 			return err
@@ -320,8 +323,8 @@ func (replay *pcdCamera) Close(ctx context.Context) error {
 // Reconfigure finishes the bring up of the replay camera by evaluating given arguments and setting up the required cloud
 // connection.
 func (replay *pcdCamera) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
-	replay.mu.RLock()
-	defer replay.mu.RUnlock()
+	replay.mu.Lock()
+	defer replay.mu.Unlock()
 	if replay.closed {
 		return errors.New("session closed")
 	}
