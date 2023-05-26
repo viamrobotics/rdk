@@ -664,37 +664,15 @@ func (r *localRobot) newResource(
 		}
 	}
 
-	type newResource struct {
-		resource resource.Resource
-		err      error
+	resLogger := r.logger.Named(conf.ResourceName().String())
+	if resInfo.Constructor != nil {
+		return resInfo.Constructor(ctx, deps, conf, resLogger)
 	}
-
-	resourceChan := make(chan newResource)
-
-	ctxWithTimeout, timeoutCancel := context.WithTimeout(ctx, resourceConstructTimeout)
-	defer timeoutCancel()
-	go func() {
-		resLogger := r.logger.Named(conf.ResourceName().String())
-		if resInfo.Constructor != nil {
-			res, err := resInfo.Constructor(ctxWithTimeout, deps, conf, resLogger)
-			resourceChan <- newResource{res, err}
-			return
-		}
-		if resInfo.DeprecatedRobotConstructor == nil {
-			resourceChan <- newResource{nil, errors.Errorf("invariant: no constructor for %q", conf.API)}
-		}
-		r.logger.Warnw("using deprecated robot constructor", "api", resName.API, "model", conf.Model)
-		res, err := resInfo.DeprecatedRobotConstructor(ctxWithTimeout, r, conf, resLogger)
-		resourceChan <- newResource{res, err}
-	}()
-
-	select {
-	case ret := <-resourceChan:
-		return ret.resource, ret.err
-
-	case <-ctxWithTimeout.Done():
-		return nil, errors.Errorf("Timed out constructing new resource %s", conf.Name)
+	if resInfo.DeprecatedRobotConstructor == nil {
+		return nil, errors.Errorf("invariant: no constructor for %q", conf.API)
 	}
+	r.logger.Warnw("using deprecated robot constructor", "api", resName.API, "model", conf.Model)
+	return resInfo.DeprecatedRobotConstructor(ctx, r, conf, resLogger)
 }
 
 func (r *localRobot) updateWeakDependents(ctx context.Context) {

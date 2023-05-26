@@ -527,14 +527,19 @@ func (manager *resourceManager) completeConfig(
 	}
 
 	resourceNames := manager.resources.ReverseTopologicalSort()
-	resourceChan := make(chan bool)
+	resourceChan := make(chan struct{})
 	timedOutResources := make(map[string]bool)
 
 	for _, resName := range resourceNames {
 		ctxWithTimeout, timeoutCancel := context.WithTimeout(ctx, resourceConstructTimeout)
 		defer timeoutCancel()
 		go func() {
-			defer func() { resourceChan <- true }()
+			defer func() {
+				if r := recover(); r != nil {
+					manager.logger.Error(errors.Wrap(errors.Errorf("%v", r), "panic processing resource"))
+				}
+				resourceChan <- struct{}{}
+			}()
 			gNode, ok := manager.resources.Node(resName)
 			if !ok || !gNode.NeedsReconfigure() {
 				return
@@ -595,11 +600,9 @@ func (manager *resourceManager) completeConfig(
 
 		select {
 		case <-resourceChan:
-			continue
 		case <-ctxWithTimeout.Done():
 			timedOutResources[resName.Name] = true
 			robot.Logger().Error(timeOutError(resName))
-			continue
 		}
 	}
 }
