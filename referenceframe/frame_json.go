@@ -2,6 +2,7 @@ package referenceframe
 
 import (
 	"github.com/golang/geo/r3"
+	"github.com/pkg/errors"
 
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -70,6 +71,12 @@ func NewLinkConfig(frame staticFrame) (*LinkConfig, error) {
 
 // ParseConfig converts a LinkConfig into a staticFrame.
 func (cfg *LinkConfig) ParseConfig() (*LinkInFrame, error) {
+	if cfg.ID == World {
+		return nil, errors.Errorf("cannot give frame system part the name %s", World)
+	}
+	if cfg.Parent == "" {
+		return nil, errors.Errorf("parent field in frame config for part %q is empty", cfg.ID)
+	}
 	pose, err := cfg.Pose()
 	if err != nil {
 		return nil, err
@@ -85,6 +92,18 @@ func (cfg *LinkConfig) ParseConfig() (*LinkInFrame, error) {
 		}
 	}
 	return NewLinkInFrame(cfg.Parent, pose, cfg.ID, geom), nil
+}
+
+// Rename makes a deep copy of the config with an ID corresponding to the given name
+func (cfg *LinkConfig) Rename(name string) *LinkConfig {
+	cfgCopy := &LinkConfig{
+		ID:          name,
+		Translation: cfg.Translation,
+		Orientation: cfg.Orientation,
+		Geometry:    cfg.Geometry,
+		Parent:      cfg.Parent,
+	}
+	return cfgCopy
 }
 
 // Pose will parse out the Pose of a LinkConfig and return it if it is valid.

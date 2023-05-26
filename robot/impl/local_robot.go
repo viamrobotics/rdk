@@ -784,6 +784,9 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 // The output of this function is to be sent over GRPC to the client, so the client
 // can build its frame system. requests the remote components from the remote's frame system service.
 func (r *localRobot) FrameSystemConfig(ctx context.Context) (*framesystem.Config, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	if r.fsConfig == nil {
 		return nil, r.lastFSError
 	}
@@ -810,26 +813,19 @@ func (r *localRobot) getLocalFrameSystemParts() ([]*referenceframe.FrameSystemPa
 
 	parts := make([]*referenceframe.FrameSystemPart, 0)
 	for _, component := range cfg.Components {
-		if component.Frame == nil { // no Frame means dont include in frame system.
+		frame := component.Frame
+		if frame == nil { // no Frame means dont include in frame system.
 			continue
 		}
 
-		if component.Name == referenceframe.World {
-			return nil, errors.Errorf("cannot give frame system part the name %s", referenceframe.World)
+		if frame.ID == "" {
+			frame = frame.Rename(component.Name)
 		}
-		if component.Frame.Parent == "" {
-			return nil, errors.Errorf("parent field in frame config for part %q is empty", component.Name)
+		link, err := frame.ParseConfig()
+		if err != nil {
+			return nil, err
 		}
-		cfgCopy := &referenceframe.LinkConfig{
-			ID:          component.Frame.ID,
-			Translation: component.Frame.Translation,
-			Orientation: component.Frame.Orientation,
-			Geometry:    component.Frame.Geometry,
-			Parent:      component.Frame.Parent,
-		}
-		if cfgCopy.ID == "" {
-			cfgCopy.ID = component.Name
-		}
+
 		model, err := r.extractModelFrameJSON(component.ResourceName())
 		if err != nil && !errors.Is(err, referenceframe.ErrNoModelInformation) {
 			// When we have non-nil errors here, it is because the resource is not yet available.
@@ -837,12 +833,8 @@ func (r *localRobot) getLocalFrameSystemParts() ([]*referenceframe.FrameSystemPa
 			// When it becomes available, it will be included.
 			continue
 		}
-		lif, err := cfgCopy.ParseConfig()
-		if err != nil {
-			return nil, err
-		}
 
-		parts = append(parts, &referenceframe.FrameSystemPart{FrameConfig: lif, ModelFrame: model})
+		parts = append(parts, &referenceframe.FrameSystemPart{FrameConfig: link, ModelFrame: model})
 	}
 	return parts, nil
 }
