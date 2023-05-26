@@ -4,40 +4,26 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 ROOT_DIR="$DIR/../"
 cd $ROOT_DIR
 
-if [[ "$1" == "cover" ]]; then
-	COVER1=-coverprofile=coverage.txt
-	COVER2=-coverprofile=coverage2.txt
-fi
+# Race is unsupported on some linux/arm64 hosts. See https://github.com/golang/go/issues/29948.
+# To run without race, use `make test-no-race` or `make test-go-no-race`.
 
-# race isn't supported on the pi or jetson (and possibly other arm boards)
-# https://github.com/golang/go/issues/29948
-if [ "$(uname -m)" != "aarch64" ] || [ "$(uname)" != "Linux" ]; then
+if [[ "$1" == "cover-with-race" ]]; then
+	COVER=-coverprofile=coverage.txt
 	RACE=-race
-else
-	# Tests take way longer on SBCs
-	TIMEOUT="-timeout 40m"
 fi
 
-gotestsum --format standard-verbose --jsonfile json.log -- -tags=no_skip $RACE $COVER1 `go list ./... | grep -Ev "go.viam.com/rdk/(vision|rimage)"` &
-PID1=$!
-gotestsum --format standard-verbose --jsonfile json2.log -- -tags=no_skip $TIMEOUT $COVER2 go.viam.com/rdk/vision/... go.viam.com/rdk/rimage/... &
-PID2=$!
-
-trap "kill -9 $PID1 $PID2" INT
-
-FAIL=0
-wait $PID1 || let "FAIL+=1"
-wait $PID2 || let "FAIL+=2"
-
-cat json.log json2.log | go run ./etc/analyzetests/main.go
-
-if [ "$FAIL" != "0" ]; then
-	exit $FAIL
+if [[ "$1" == "race" ]]; then
+	RACE=-race
 fi
 
-cat coverage.txt coverage2.txt | go run ./etc/analyzecoverage/main.go
+# We run analyzetests on every run, pass or fail. We only run analyzecoverage when all tests passed.
+gotestsum --format standard-verbose --jsonfile json.log -- -tags=no_skip $RACE $COVER ./...
+SUCCESS=$?
 
-if [[ "$1" == "cover" ]]; then
-	sed '1d' coverage2.txt >> coverage.txt
-	gocov convert coverage.txt | gocov-xml > coverage.xml
+cat json.log | go run ./etc/analyzetests/main.go
+
+if [ "$SUCCESS" != "0" ]; then
+	exit 1
 fi
+
+cat coverage.txt | go run ./etc/analyzecoverage/main.go

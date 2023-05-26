@@ -503,15 +503,6 @@ func TestPosition(t *testing.T) {
 	positions, err = fakegantry.Position(ctx, nil)
 	test.That(t, positions, test.ShouldResemble, []float64{})
 	test.That(t, err, test.ShouldNotBeNil)
-
-	injectGPIOPin := &inject.GPIOPin{}
-	injectGPIOPin.GetFunc = func(ctx context.Context, extra map[string]interface{}) (bool, error) {
-		return true, errors.New("not supported")
-	}
-	injectGPIOPinGood := &inject.GPIOPin{}
-	injectGPIOPinGood.GetFunc = func(ctx context.Context, extra map[string]interface{}) (bool, error) {
-		return false, nil
-	}
 }
 
 func TestLengths(t *testing.T) {

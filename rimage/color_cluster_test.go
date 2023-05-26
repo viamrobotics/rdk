@@ -8,6 +8,7 @@ import (
 )
 
 func doTest(t *testing.T, fn string, numClusters int) {
+	checkSkipDebugTest(t)
 	t.Helper()
 	img, err := NewImageFromFile(artifact.MustPath("rimage/" + fn))
 	test.That(t, err, test.ShouldBeNil)

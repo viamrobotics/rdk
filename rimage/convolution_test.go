@@ -9,6 +9,7 @@ import (
 )
 
 func TestConvolveGray(t *testing.T) {
+	t.Parallel()
 	// test that image test files are in artifacts
 	im, err := NewImageFromFile(artifact.MustPath("rimage/binary_image.jpg"))
 	test.That(t, err, test.ShouldBeNil)
@@ -45,6 +46,7 @@ func TestConvolveGray(t *testing.T) {
 }
 
 func TestConvolveGrayFloat64(t *testing.T) {
+	t.Parallel()
 	// test that image test files are in artifacts
 	im, err := NewImageFromFile(artifact.MustPath("rimage/binary_image.jpg"))
 	bounds := im.Bounds()

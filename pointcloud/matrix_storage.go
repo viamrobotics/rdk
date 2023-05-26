@@ -1,17 +1,26 @@
 package pointcloud
 
-import "github.com/golang/geo/r3"
+import (
+	"sync"
+
+	"github.com/golang/geo/r3"
+)
 
 type matrixStorage struct {
+	mu       sync.RWMutex
 	points   []PointAndData
 	indexMap map[r3.Vector]uint // TODO (aidanglickman): when r3.Vector has a hash method update this to save space
 }
 
 func (ms *matrixStorage) Size() int {
+	ms.mu.RLock()
+	defer ms.mu.RUnlock()
 	return len(ms.points)
 }
 
 func (ms *matrixStorage) Set(v r3.Vector, d Data) error {
+	ms.mu.Lock()
+	defer ms.mu.Unlock()
 	if v.X > maxPreciseFloat64 || v.X < minPreciseFloat64 {
 		return newOutOfRangeErr("x", v.X)
 	}
@@ -31,6 +40,8 @@ func (ms *matrixStorage) Set(v r3.Vector, d Data) error {
 }
 
 func (ms *matrixStorage) At(x, y, z float64) (Data, bool) {
+	ms.mu.RLock()
+	defer ms.mu.RUnlock()
 	// TODO (aidanglickman): Update this whole function with the new hashing
 	v := r3.Vector{x, y, z}
 	if i, found := ms.indexMap[v]; found {
@@ -40,6 +51,8 @@ func (ms *matrixStorage) At(x, y, z float64) (Data, bool) {
 }
 
 func (ms *matrixStorage) Iterate(numBatches, myBatch int, fn func(p r3.Vector, d Data) bool) {
+	ms.mu.RLock()
+	defer ms.mu.RUnlock()
 	lowerBound := 0
 	upperBound := ms.Size()
 	if numBatches > 0 {
