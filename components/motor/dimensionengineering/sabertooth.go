@@ -18,6 +18,7 @@ import (
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
+	rutils "go.viam.com/rdk/utils"
 )
 
 // https://www.dimensionengineering.com/datasheets/Sabertooth2x60.pdf
@@ -25,8 +26,9 @@ var model = resource.DefaultModelFamily.WithModel("de-sabertooth")
 
 // controllers is global to all instances, mapped by serial device.
 var (
-	globalMu    sync.Mutex
-	controllers map[string]*controller
+	globalMu       sync.Mutex
+	controllers    map[string]*controller
+	validBaudRates = []uint{115200, 38400, 19200, 9600, 2400}
 )
 
 // controller is common across all Sabertooth motor instances sharing a controller.
@@ -179,6 +181,9 @@ func (cfg *Config) validateValues() error {
 	}
 	if cfg.SerialAddress < 128 || cfg.SerialAddress > 135 {
 		errs = append(errs, "invalid address, acceptable values are 128 thru 135")
+	}
+	if !rutils.ValidateBaudRate(validBaudRates, cfg.BaudRate) {
+		errs = append(errs, fmt.Sprintf("invalid baud_rate, acceptable values are %v", validBaudRates))
 	}
 	if cfg.BaudRate != 2400 && cfg.BaudRate != 9600 && cfg.BaudRate != 19200 && cfg.BaudRate != 38400 && cfg.BaudRate != 115200 {
 		errs = append(errs, "invalid baud_rate, acceptable values are 2400, 9600, 19200, 38400, 115200")

@@ -19,7 +19,15 @@ func TestFixOvIncrement(t *testing.T) {
 		OY:    1,
 		OZ:    0,
 	}
-	pos2 := pos1
+	pos2 := commonpb.Pose{
+		X:     pos1.X,
+		Y:     pos1.Y,
+		Z:     pos1.Z,
+		Theta: pos1.Theta,
+		OX:    pos1.OX,
+		OY:    pos1.OY,
+		OZ:    pos1.OZ,
+	}
 
 	// Increment, but we're not pointing at Z axis, so should do nothing
 	pos2.OX = -0.1

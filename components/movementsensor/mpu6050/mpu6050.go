@@ -138,7 +138,7 @@ func NewMpu6050(
 	}
 	logger.Debugf("Using address %d for MPU6050 sensor", address)
 
-	backgroundContext, cancelFunc := context.WithCancel(ctx)
+	backgroundContext, cancelFunc := context.WithCancel(context.Background())
 	sensor := &mpu6050{
 		Named:             conf.ResourceName().AsNamed(),
 		bus:               bus,
