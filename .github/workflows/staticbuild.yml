@@ -22,10 +22,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - arch: [buildjet-8vcpu-ubuntu-2204]
+          - arch: [ubuntu-latest]
             image: ghcr.io/viamrobotics/antique:amd64-cache
             platform: linux/amd64
-          - arch: [buildjet-8vcpu-ubuntu-2204-arm]
+          - arch: [buildjet-2vcpu-ubuntu-2204-arm]
             image: ghcr.io/viamrobotics/antique:arm64-cache
             platform: linux/arm64
     runs-on: ${{ matrix.arch }}
@@ -118,7 +118,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        arch: [[buildjet-8vcpu-ubuntu-2204], [buildjet-2vcpu-ubuntu-2204-arm], [arm64, pi4]]
+        arch: [[ubuntu-latest], [buildjet-2vcpu-ubuntu-2204-arm], [arm64, pi4]]
     needs: static
     runs-on: ${{ matrix.arch }}
     timeout-minutes: 15
