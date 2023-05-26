@@ -403,6 +403,8 @@ func MakeModelFrame(name string) (referenceframe.Model, error) {
 	return referenceframe.UnmarshalModelJSON(evamodeljson, name)
 }
 
+// Geometries returns the list of geometries associated with the resource, in any order. The poses of the geometries reflect their
+// current location relative to the frame of the resource.
 func (e *eva) Geometries(ctx context.Context) ([]spatialmath.Geometry, error) {
 	inputs, err := e.CurrentInputs(ctx)
 	if err != nil {

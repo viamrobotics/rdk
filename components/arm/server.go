@@ -108,8 +108,8 @@ func (s *serviceServer) IsMoving(ctx context.Context, req *pb.IsMovingRequest) (
 	return &pb.IsMovingResponse{IsMoving: moving}, nil
 }
 
-// Geometries queries of a component is in motion.
-func (s *serviceServer) Geometries(ctx context.Context, req *commonpb.GetGeometriesRequest) (*commonpb.GetGeometriesResponse, error) {
+// GetGeometries returns the geometries associated with the arm.
+func (s *serviceServer) GetGeometries(ctx context.Context, req *commonpb.GetGeometriesRequest) (*commonpb.GetGeometriesResponse, error) {
 	arm, err := s.coll.Resource(req.GetName())
 	if err != nil {
 		return nil, err
@@ -125,13 +125,16 @@ func (s *serviceServer) Geometries(ctx context.Context, req *commonpb.GetGeometr
 	return &commonpb.GetGeometriesResponse{Geometries: pbGeoms}, nil
 }
 
-// GetKinematics queries of a component is in motion.
+// GetKinematics returns the kinematics information associated with the arm.
 func (s *serviceServer) GetKinematics(ctx context.Context, req *commonpb.GetKinematicsRequest) (*commonpb.GetKinematicsResponse, error) {
 	arm, err := s.coll.Resource(req.GetName())
 	if err != nil {
 		return nil, err
 	}
 	model := arm.ModelFrame()
+	if model == nil {
+		return &commonpb.GetKinematicsResponse{Format: commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_UNSPECIFIED}, nil
+	}
 	filedata, err := model.MarshalJSON()
 	if err != nil {
 		return nil, err

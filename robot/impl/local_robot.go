@@ -814,13 +814,13 @@ func (r *localRobot) getRemoteFrameSystemParts(ctx context.Context) ([]*referenc
 
 // extractModelFrameJSON finds the robot part with a given name, checks to see if it implements ModelFrame, and returns the
 // JSON []byte if it does, or nil if it doesn't.
-func (r *localRobot) extractModelFrameJSON(name resource.Name) (, error) {
+func (r *localRobot) extractModelFrameJSON(name resource.Name) (referenceframe.Model, error) {
 	part, err := r.ResourceByName(name)
 	if err != nil {
 		return nil, err
 	}
-	if actuator, ok := part.(resource.Actuator); ok {
-		return framer.GetKinematics(), nil
+	if framer, ok := part.(referenceframe.ModelFramer); ok {
+		return framer.ModelFrame(), nil
 	}
 	return nil, referenceframe.ErrNoModelInformation
 }

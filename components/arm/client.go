@@ -177,10 +177,10 @@ func (c *client) updateKinematics(ctx context.Context) (referenceframe.Model, er
 	if err != nil {
 		return nil, err
 	}
-	
+
 	format := resp.GetFormat()
 	data := resp.GetKinematicsData()
-	
+
 	switch format {
 	case commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_SVA:
 		return referenceframe.UnmarshalModelJSON(data, c.name)
@@ -190,6 +190,8 @@ func (c *client) updateKinematics(ctx context.Context) (referenceframe.Model, er
 			return nil, err
 		}
 		return modelconf.ParseConfig(c.name)
+	case commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_UNSPECIFIED:
+		fallthrough
 	default:
 		if formatName, ok := commonpb.KinematicsFileFormat_name[int32(format)]; ok {
 			return nil, fmt.Errorf("unable to parse file of type %s", formatName)

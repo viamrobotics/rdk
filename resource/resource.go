@@ -22,11 +22,10 @@ import (
 	"regexp"
 	"strings"
 
-	commonpb "go.viam.com/api/common/v1"
-	"go.viam.com/rdk/spatialmath"
-
 	"github.com/jhump/protoreflect/desc"
 	"github.com/pkg/errors"
+
+	"go.viam.com/rdk/spatialmath"
 )
 
 // Placeholder definitions for a few known constants.
@@ -120,7 +119,10 @@ type Actuator interface {
 	Stop(context.Context, map[string]interface{}) error
 }
 
+// Shaped is any resource that can have geometries.
 type Shaped interface {
+	// Geometries returns the list of geometries associated with the resource, in any order. The poses of the geometries reflect their
+	// current location relative to the frame of the resource.
 	Geometries(context.Context) ([]spatialmath.Geometry, error)
 }
 
@@ -199,17 +201,6 @@ func AsType[T Resource](from Resource) (T, error) {
 		return zero, TypeError[T](from)
 	}
 	return res, nil
-}
-
-// TrivialKinematics is to be embedded in Actuators for which we want drivers but do not want to explicitly support kinematics at this
-// time. Embedding this will cause Kinematics() to return a frame with 0dof, 0 translation, and 0 orientation change
-type TrivialKinematics struct{}
-
-func (tk TrivialKinematics) Kinematics(ctx context.Context) (commonpb.KinematicsFileFormat, []byte, error) {
-	// The minimal byte string to yield 
-	data := []byte("{\"links\": [{\"parent\": \"world\"}]}")
-	viamFormat := commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_SVA
-	return viamFormat, data, nil
 }
 
 type closeOnlyResource struct {

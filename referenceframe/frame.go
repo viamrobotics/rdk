@@ -198,6 +198,18 @@ func (nf *noGeometryFrame) Geometries(input []Input) (*GeometriesInFrame, error)
 	return NewGeometriesInFrame(nf.Name(), nil), nil
 }
 
+// namedFrame is used to change the name of a frame.
+type namedFrame struct {
+	Frame
+	name string
+}
+
+// Name returns the name of the namedFrame.
+func (nf *namedFrame) Name() string {
+	return nf.name
+}
+
+// NewNamedFrame will return a frame which has a new name but otherwise passes through all functions of the original frame.
 func NewNamedFrame(frame Frame, name string) Frame {
 	return &namedFrame{Frame: frame, name: name}
 }
@@ -468,17 +480,6 @@ func (rf rotationalFrame) MarshalJSON() ([]byte, error) {
 func (rf *rotationalFrame) AlmostEquals(otherFrame Frame) bool {
 	other, ok := otherFrame.(*rotationalFrame)
 	return ok && rf.baseFrame.AlmostEquals(other.baseFrame) && spatial.R3VectorAlmostEqual(rf.rotAxis, other.rotAxis, 1e-8)
-}
-
-// namedFrame is used to change the name of a frame
-type namedFrame struct {
-	Frame
-	name string
-}
-
-// Name returns the name of the namedFrame.
-func (nf *namedFrame) Name() string {
-	return nf.name
 }
 
 type mobile2DFrame struct {

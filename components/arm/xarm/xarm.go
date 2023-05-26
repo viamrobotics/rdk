@@ -15,8 +15,8 @@ import (
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
 
@@ -50,14 +50,14 @@ const (
 
 type xArm struct {
 	resource.Named
-	dof      int
-	tid      uint16
-	moveHZ   float64 // Number of joint positions to send per second
-	moveLock sync.Mutex
-	model    referenceframe.Model
-	started  bool
-	opMgr    operation.SingleOperationManager
-	logger   golog.Logger
+	dof       int
+	tid       uint16
+	moveHZ    float64 // Number of joint positions to send per second
+	moveLock  sync.Mutex
+	model     referenceframe.Model
+	started   bool
+	opMgr     operation.SingleOperationManager
+	logger    golog.Logger
 	modelName string
 
 	mu    sync.RWMutex
@@ -80,7 +80,7 @@ const (
 	ModelNameLite = "xArmLite" // ModelNameLite is the name of an xArmLite
 )
 
-// embeddedKinematics maps the embedded kinematics files to the arm model names
+// embeddedKinematics maps the embedded kinematics files to the arm model names.
 func embeddedKinematics(modelName string) ([]byte, error) {
 	switch modelName {
 	case ModelName6DOF:
@@ -128,13 +128,13 @@ func NewxArm(ctx context.Context, conf resource.Config, logger golog.Logger, mod
 	}
 
 	xA := xArm{
-		Named:   conf.ResourceName().AsNamed(),
-		dof:     len(model.DoF()),
-		tid:     0,
-		moveHZ:  defaultMoveHz,
-		model:   model,
-		started: false,
-		logger:  logger,
+		Named:     conf.ResourceName().AsNamed(),
+		dof:       len(model.DoF()),
+		tid:       0,
+		moveHZ:    defaultMoveHz,
+		model:     model,
+		started:   false,
+		logger:    logger,
 		modelName: modelName,
 	}
 

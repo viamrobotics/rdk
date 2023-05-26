@@ -24,6 +24,7 @@ type Model interface {
 	ModelConfig() *ModelConfig
 }
 
+// ModelFramer has a method that returns the kinematics information needed to build a dynamic referenceframe.
 type ModelFramer interface {
 	ModelFrame() Model
 }

@@ -17,6 +17,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
 )
 
 func init() {
@@ -181,8 +182,8 @@ func CheckDesiredJointPositions(ctx context.Context, a Arm, desiredJoints []floa
 	model := a.ModelFrame()
 	limits := model.DoF()
 	for i, val := range desiredJoints {
-		max := limits[i].Max
-		min := limits[i].Min
+		max := utils.RadToDeg(limits[i].Max)
+		min := utils.RadToDeg(limits[i].Min)
 		currPosition := checkPositions[i]
 		// to make sure that val is a valid input
 		// it must either bring the joint more

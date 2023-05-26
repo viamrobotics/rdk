@@ -1,7 +1,6 @@
 package referenceframe
 
 import (
-	"fmt"
 	"testing"
 
 	"go.viam.com/test"
