@@ -106,23 +106,25 @@ func (h *depthSourceTestHelper) Process(
 }
 
 func TestDepthSourceGripper(t *testing.T) {
+	d := rimage.NewMultipleImageTestDebugger(t, "align/gripper1/depth", "*.png", "")
+
 	proj, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(
 		utils.ResolveFile("components/camera/transformpipeline/data/gripper_parameters.json"),
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	d := rimage.NewMultipleImageTestDebugger(t, "align/gripper1/depth", "*.png", "")
 	err = d.Process(t, &depthSourceTestHelper{proj})
 	test.That(t, err, test.ShouldBeNil)
 }
 
 func TestDepthSourceIntel(t *testing.T) {
+	d := rimage.NewMultipleImageTestDebugger(t, "align/intel515/depth", "*.png", "")
+
 	proj, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(
 		utils.ResolveFile("components/camera/transformpipeline/data/intel515_parameters.json"),
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	d := rimage.NewMultipleImageTestDebugger(t, "align/intel515/depth", "*.png", "")
 	err = d.Process(t, &depthSourceTestHelper{proj})
 	test.That(t, err, test.ShouldBeNil)
 }
