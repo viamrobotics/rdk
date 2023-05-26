@@ -31,7 +31,7 @@ func (s *serviceServer) GetPosition(
 	if err != nil {
 		return nil, err
 	}
-	position, positionType, err := enc.GetPosition(ctx, ToEncoderPositionType(req.PositionType), req.Extra.AsMap())
+	position, positionType, err := enc.Position(ctx, ToEncoderPositionType(req.PositionType), req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +66,7 @@ func (s *serviceServer) GetProperties(
 	if err != nil {
 		return nil, errors.Errorf("no encoder (%s) found", encoderName)
 	}
-	features, err := enc.GetProperties(ctx, req.Extra.AsMap())
+	features, err := enc.Properties(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}

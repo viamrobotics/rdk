@@ -13,11 +13,11 @@ type Encoder struct {
 	name              resource.Name
 	DoFunc            func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	ResetPositionFunc func(ctx context.Context, extra map[string]interface{}) error
-	GetPositionFunc   func(ctx context.Context,
+	PositionFunc      func(ctx context.Context,
 		positionType encoder.PositionType,
 		extra map[string]interface{},
 	) (float64, encoder.PositionType, error)
-	GetPropertiesFunc func(ctx context.Context, extra map[string]interface{}) (map[encoder.Feature]bool, error)
+	PropertiesFunc func(ctx context.Context, extra map[string]interface{}) (map[encoder.Feature]bool, error)
 }
 
 // NewEncoder returns a new injected Encoder.
@@ -38,24 +38,24 @@ func (e *Encoder) ResetPosition(ctx context.Context, extra map[string]interface{
 	return e.ResetPositionFunc(ctx, extra)
 }
 
-// GetPosition calls the injected GetPosition or the real version.
-func (e *Encoder) GetPosition(
+// Position calls the injected Position or the real version.
+func (e *Encoder) Position(
 	ctx context.Context,
 	positionType encoder.PositionType,
 	extra map[string]interface{},
 ) (float64, encoder.PositionType, error) {
-	if e.GetPositionFunc == nil {
-		return e.Encoder.GetPosition(ctx, positionType, extra)
+	if e.PositionFunc == nil {
+		return e.Encoder.Position(ctx, positionType, extra)
 	}
-	return e.GetPositionFunc(ctx, positionType, extra)
+	return e.PositionFunc(ctx, positionType, extra)
 }
 
-// GetProperties calls the injected Properties or the real version.
-func (e *Encoder) GetProperties(ctx context.Context, extra map[string]interface{}) (map[encoder.Feature]bool, error) {
-	if e.GetPropertiesFunc == nil {
-		return e.Encoder.GetProperties(ctx, extra)
+// Properties calls the injected Properties or the real version.
+func (e *Encoder) Properties(ctx context.Context, extra map[string]interface{}) (map[encoder.Feature]bool, error) {
+	if e.PropertiesFunc == nil {
+		return e.Encoder.Properties(ctx, extra)
 	}
-	return e.GetPropertiesFunc(ctx, extra)
+	return e.PropertiesFunc(ctx, extra)
 }
 
 // DoCommand calls the injected DoCommand or the real version.
