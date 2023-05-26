@@ -611,14 +611,14 @@ func (r *localRobot) getWeakDependencies(resName resource.Name, api resource.API
 }
 
 func timeOutError(name resource.Name) error {
-	return fmt.Errorf("Resource %s timed out during reconfigure", name)
+	return fmt.Errorf("resource %s timed out during reconfigure", name)
 }
 
 func unbuildableDependencyError(name resource.Name) error {
-	return fmt.Errorf("Resource %s could not be built because it has one or more unbuildable dependencies", name)
+	return fmt.Errorf("resource %s could not be built because it has one or more unbuildable dependencies", name)
 }
 
-// returns `true` if a resource is unbuildable due to unbuilt dependencies
+// returns `true` if a resource is unbuildable due to unbuilt dependencies.
 func unbuildableResource(dependencies []string, resourceName string, timedOutResources map[string]bool) bool {
 	if timedOutResources[resourceName] {
 		return true
