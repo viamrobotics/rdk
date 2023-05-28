@@ -41,6 +41,7 @@ type Service interface {
 	) (*referenceframe.PoseInFrame, error)
 	TransformPointCloud(ctx context.Context, srcpc pointcloud.PointCloud, srcName, dstName string) (pointcloud.PointCloud, error)
 	CurrentInputs(ctx context.Context) (map[string][]referenceframe.Input, map[string]referenceframe.InputEnabled, error)
+	CachedConfig(ctx context.Context) (*Config, error)
 	FrameSystem(ctx context.Context, additionalTransforms []*referenceframe.LinkInFrame) (referenceframe.FrameSystem, error)
 }
 
@@ -118,6 +119,9 @@ type frameSystemService struct {
 
 	parts   []*referenceframe.FrameSystemPart
 	partsMu sync.RWMutex
+
+	lastReconfigureError error
+	lastConfig           *Config
 }
 
 // Reconfigure will rebuild the frame system from the newly updated robot.
@@ -132,7 +136,9 @@ func (svc *frameSystemService) Reconfigure(ctx context.Context, deps resource.De
 	for name, r := range deps {
 		short := name.ShortName()
 		if _, present := components[short]; present {
-			return DuplicateResourceShortNameError(short)
+			svc.lastConfig = nil
+			svc.lastReconfigureError = DuplicateResourceShortNameError(short)
+			return svc.lastReconfigureError
 		}
 		components[short] = r
 	}
@@ -140,15 +146,21 @@ func (svc *frameSystemService) Reconfigure(ctx context.Context, deps resource.De
 
 	fsCfg, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
+		svc.lastConfig = nil
+		svc.lastReconfigureError = err
 		return err
 	}
 
 	sortedParts, err := referenceframe.TopologicallySortParts(fsCfg.Parts)
 	if err != nil {
+		svc.lastConfig = nil
+		svc.lastReconfigureError = err
 		return err
 	}
 	svc.parts = sortedParts
 	svc.logger.Debugf("updated robot frame system:\n%v", (&Config{Parts: sortedParts}).String())
+	svc.lastReconfigureError = nil
+	svc.lastConfig = fsCfg
 	return nil
 }
 
@@ -252,7 +264,21 @@ func (svc *frameSystemService) FrameSystem(
 ) (referenceframe.FrameSystem, error) {
 	_, span := trace.StartSpan(ctx, "services::framesystem::FrameSystem")
 	defer span.End()
+	if svc.lastReconfigureError != nil {
+		return nil, svc.lastReconfigureError
+	}
 	return referenceframe.NewFrameSystem(LocalFrameSystemName, svc.parts, additionalTransforms)
+}
+
+// CachedConfig returns the config which was most recently used to configure the framesystem service.
+func (svc *frameSystemService) CachedConfig(ctx context.Context) (*Config, error) {
+	svc.partsMu.Lock()
+	defer svc.partsMu.Unlock()
+
+	if svc.lastReconfigureError != nil {
+		return nil, svc.lastReconfigureError
+	}
+	return svc.lastConfig, nil
 }
 
 // TransformPointCloud applies the same pose offset to each point in a single pointcloud and returns the transformed point cloud.

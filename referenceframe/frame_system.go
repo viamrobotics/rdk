@@ -98,31 +98,13 @@ func NewFrameSystem(name string, parts []*FrameSystemPart, additionalTransforms 
 		allParts = append(allParts, transformPart)
 	}
 
-	// ensure that at least one frame connects to world if the frame system is not empty
-	if len(allParts) != 0 {
-		hasWorld := false
-		for _, part := range allParts {
-			if part.FrameConfig.Parent() == World {
-				hasWorld = true
-				break
-			}
-		}
-		if !hasWorld {
-			return nil, ErrNoWorldConnection
-		}
-	}
 	// Topologically sort parts
 	sortedParts, err := TopologicallySortParts(allParts)
 	if err != nil {
 		return nil, err
 	}
-	if len(sortedParts) != len(allParts) {
-		return nil, errors.Errorf(
-			"frame system has disconnected frames. connected frames: %v, all frames: %v",
-			getPartNames(sortedParts),
-			getPartNames(allParts),
-		)
-	}
+
+	// Build the frame sytem from the parts
 	fs := NewEmptyFrameSystem(name)
 	for _, part := range sortedParts {
 		// make the frames from the configs
@@ -620,6 +602,20 @@ func getPartNames(parts []*FrameSystemPart) []string {
 // TopologicallySortParts takes a potentially un-ordered slice of frame system parts and
 // sorts them, beginning at the world node.
 func TopologicallySortParts(parts []*FrameSystemPart) ([]*FrameSystemPart, error) {
+	// ensure that at least one frame connects to world if the frame system is not empty
+	if len(parts) != 0 {
+		hasWorld := false
+		for _, part := range parts {
+			if part.FrameConfig.Parent() == World {
+				hasWorld = true
+				break
+			}
+		}
+		if !hasWorld {
+			return nil, ErrNoWorldConnection
+		}
+	}
+
 	// set up directory to check existence of parents
 	existingParts := make(map[string]bool, len(parts))
 	existingParts[World] = true
@@ -661,6 +657,14 @@ func TopologicallySortParts(parts []*FrameSystemPart) ([]*FrameSystemPart, error
 			stack = append(stack, part.FrameConfig.Name())
 			topoSortedParts = append(topoSortedParts, part)
 		}
+	}
+
+	if len(topoSortedParts) != len(parts) {
+		return nil, errors.Errorf(
+			"frame system has disconnected frames. connected frames: %v, all frames: %v",
+			getPartNames(topoSortedParts),
+			getPartNames(parts),
+		)
 	}
 	return topoSortedParts, nil
 }
