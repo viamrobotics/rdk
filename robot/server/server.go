@@ -219,12 +219,12 @@ func (s *Server) DiscoverComponents(ctx context.Context, req *pb.DiscoverCompone
 
 // FrameSystemConfig returns the info of each individual part that makes up the frame system.
 func (s *Server) FrameSystemConfig(ctx context.Context, req *pb.FrameSystemConfigRequest) (*pb.FrameSystemConfigResponse, error) {
-	fsCfg, err := s.r.FrameSystemConfig(ctx)
+	parts, err := s.r.FrameSystemParts(ctx)
 	if err != nil {
 		return nil, err
 	}
-	configs := make([]*pb.FrameSystemConfig, len(fsCfg.Parts))
-	for i, part := range fsCfg.Parts {
+	configs := make([]*pb.FrameSystemConfig, len(parts))
+	for i, part := range parts {
 		c, err := part.ToProtobuf()
 		if err != nil {
 			if errors.Is(err, referenceframe.ErrNoModelInformation) {

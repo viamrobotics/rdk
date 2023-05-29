@@ -804,21 +804,17 @@ func (rc *RobotClient) DiscoverComponents(ctx context.Context, qs []resource.Dis
 }
 
 // FrameSystemConfig returns the info of each individual part that makes up the frame system.
-func (rc *RobotClient) FrameSystemConfig(ctx context.Context) (*framesystem.Config, error) {
+func (rc *RobotClient) FrameSystemParts(ctx context.Context) ([]*framesystem.FrameSystemPartConfig, error) {
 	resp, err := rc.client.FrameSystemConfig(ctx, &pb.FrameSystemConfigRequest{})
 	if err != nil {
 		return nil, err
 	}
 	cfgs := resp.GetFrameSystemConfigs()
-	result := make([]*referenceframe.FrameSystemPart, 0, len(cfgs))
+	result := make([]*framesystem.FrameSystemPartConfig, 0, len(cfgs))
 	for _, cfg := range cfgs {
-		part, err := referenceframe.ProtobufToFrameSystemPart(cfg)
-		if err != nil {
-			return nil, err
-		}
-		result = append(result, part)
+		result = append(result, &framesystem.FrameSystemPartConfig{Protobuf: cfg})
 	}
-	return &framesystem.Config{Parts: result}, nil
+	return result, nil
 }
 
 // TransformPose will transform the pose of the requested poseInFrame to the desired frame in the robot's frame system.

@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 
+	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -41,7 +42,7 @@ type Service interface {
 	) (*referenceframe.PoseInFrame, error)
 	TransformPointCloud(ctx context.Context, srcpc pointcloud.PointCloud, srcName, dstName string) (pointcloud.PointCloud, error)
 	CurrentInputs(ctx context.Context) (map[string][]referenceframe.Input, map[string]referenceframe.InputEnabled, error)
-	CachedConfig(ctx context.Context) (*Config, error)
+	CachedParts(ctx context.Context) ([]*referenceframe.FrameSystemPart, error)
 	FrameSystem(ctx context.Context, additionalTransforms []*referenceframe.LinkInFrame) (referenceframe.FrameSystem, error)
 }
 
@@ -75,38 +76,13 @@ func (svc *frameSystemService) Name() resource.Name {
 // Config is a slice of *config.FrameSystemPart.
 type Config struct {
 	resource.TriviallyValidateConfig
-	Parts                []*referenceframe.FrameSystemPart
-	AdditionalTransforms []*referenceframe.LinkInFrame
+	PartConfigs []*FrameSystemPartConfig
 }
 
-// String prints out a table of each frame in the system, with columns of name, parent, translation and orientation.
-func (cfg Config) String() string {
-	t := table.NewWriter()
-	t.AppendHeader(table.Row{"#", "Name", "Parent", "Translation", "Orientation", "Geometry"})
-	t.AppendRow([]interface{}{"0", referenceframe.World, "", "", "", ""})
-	for i, part := range cfg.Parts {
-		pose := part.FrameConfig.Pose()
-		tra := pose.Point()
-		ori := pose.Orientation().EulerAngles()
-		geomString := ""
-		if gc := part.FrameConfig.Geometry(); gc != nil {
-			geomString = gc.String()
-		}
-		t.AppendRow([]interface{}{
-			fmt.Sprintf("%d", i+1),
-			part.FrameConfig.Name(),
-			part.FrameConfig.Parent(),
-			fmt.Sprintf("X:%.0f, Y:%.0f, Z:%.0f", tra.X, tra.Y, tra.Z),
-			fmt.Sprintf(
-				"Roll:%.2f, Pitch:%.2f, Yaw:%.2f",
-				utils.RadToDeg(ori.Roll),
-				utils.RadToDeg(ori.Pitch),
-				utils.RadToDeg(ori.Yaw),
-			),
-			geomString,
-		})
-	}
-	return t.Render()
+type FrameSystemPartConfig struct {
+	Name        string
+	FrameConfig *referenceframe.LinkConfig
+	Protobuf    *pb.FrameSystemConfig
 }
 
 // the frame system service collects all the relevant parts that make up the frame system from the robot
@@ -121,7 +97,42 @@ type frameSystemService struct {
 	partsMu sync.RWMutex
 
 	lastReconfigureError error
-	lastConfig           *Config
+}
+
+func (svc *frameSystemService) ConfigToParts(cfg *Config) (parts []*referenceframe.FrameSystemPart, err error) {
+	for _, component := range cfg.PartConfigs {
+		var part *referenceframe.FrameSystemPart
+		if component.Protobuf != nil {
+			part, err = referenceframe.ProtobufToFrameSystemPart(component.Protobuf)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			frame := component.FrameConfig
+			if frame == nil { // no Frame means dont include in frame system.
+				continue
+			}
+
+			if frame.ID == "" {
+				frame = frame.Rename(component.Name)
+			}
+			link, err := frame.ParseConfig()
+			if err != nil {
+				return nil, err
+			}
+
+			model, err := svc.extractModelFrameJSON(component.Name)
+			if err != nil && !errors.Is(err, referenceframe.ErrNoModelInformation) {
+				// When we have non-nil errors here, it is because the resource is not yet available.
+				// In this case, we will exclude it from the FS.
+				// When it becomes available, it will be included.
+				continue
+			}
+			part = &referenceframe.FrameSystemPart{FrameConfig: link, ModelFrame: model}
+		}
+		parts = append(parts, part)
+	}
+	return parts, nil
 }
 
 // Reconfigure will rebuild the frame system from the newly updated robot.
@@ -136,7 +147,7 @@ func (svc *frameSystemService) Reconfigure(ctx context.Context, deps resource.De
 	for name, r := range deps {
 		short := name.ShortName()
 		if _, present := components[short]; present {
-			svc.lastConfig = nil
+			svc.parts = nil
 			svc.lastReconfigureError = DuplicateResourceShortNameError(short)
 			return svc.lastReconfigureError
 		}
@@ -146,21 +157,27 @@ func (svc *frameSystemService) Reconfigure(ctx context.Context, deps resource.De
 
 	fsCfg, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
-		svc.lastConfig = nil
+		svc.parts = nil
 		svc.lastReconfigureError = err
 		return err
 	}
 
-	sortedParts, err := referenceframe.TopologicallySortParts(fsCfg.Parts)
+	parts, err := svc.ConfigToParts(fsCfg)
 	if err != nil {
-		svc.lastConfig = nil
+		svc.parts = nil
+		svc.lastReconfigureError = err
+		return err
+	}
+
+	sortedParts, err := referenceframe.TopologicallySortParts(parts)
+	if err != nil {
+		svc.parts = nil
 		svc.lastReconfigureError = err
 		return err
 	}
 	svc.parts = sortedParts
-	svc.logger.Debugf("updated robot frame system:\n%v", (&Config{Parts: sortedParts}).String())
 	svc.lastReconfigureError = nil
-	svc.lastConfig = fsCfg
+	svc.logger.Debugf("updated robot frame system:\n%v", svc.String())
 	return nil
 }
 
@@ -271,14 +288,14 @@ func (svc *frameSystemService) FrameSystem(
 }
 
 // CachedConfig returns the config which was most recently used to configure the framesystem service.
-func (svc *frameSystemService) CachedConfig(ctx context.Context) (*Config, error) {
+func (svc *frameSystemService) CachedParts(ctx context.Context) ([]*referenceframe.FrameSystemPart, error) {
 	svc.partsMu.Lock()
 	defer svc.partsMu.Unlock()
 
 	if svc.lastReconfigureError != nil {
 		return nil, svc.lastReconfigureError
 	}
-	return svc.lastConfig, nil
+	return svc.parts, nil
 }
 
 // TransformPointCloud applies the same pose offset to each point in a single pointcloud and returns the transformed point cloud.
@@ -315,4 +332,47 @@ func PrefixRemoteParts(parts []*referenceframe.FrameSystemPart, remoteName, remo
 			part.FrameConfig.SetParent(remoteName + ":" + part.FrameConfig.Parent())
 		}
 	}
+}
+
+// String prints out a table of each frame in the system, with columns of name, parent, translation and orientation.
+func (svc *frameSystemService) String() string {
+	t := table.NewWriter()
+	t.AppendHeader(table.Row{"#", "Name", "Parent", "Translation", "Orientation", "Geometry"})
+	t.AppendRow([]interface{}{"0", referenceframe.World, "", "", "", ""})
+	for i, part := range svc.parts {
+		pose := part.FrameConfig.Pose()
+		tra := pose.Point()
+		ori := pose.Orientation().EulerAngles()
+		geomString := ""
+		if gc := part.FrameConfig.Geometry(); gc != nil {
+			geomString = gc.String()
+		}
+		t.AppendRow([]interface{}{
+			fmt.Sprintf("%d", i+1),
+			part.FrameConfig.Name(),
+			part.FrameConfig.Parent(),
+			fmt.Sprintf("X:%.0f, Y:%.0f, Z:%.0f", tra.X, tra.Y, tra.Z),
+			fmt.Sprintf(
+				"Roll:%.2f, Pitch:%.2f, Yaw:%.2f",
+				utils.RadToDeg(ori.Roll),
+				utils.RadToDeg(ori.Pitch),
+				utils.RadToDeg(ori.Yaw),
+			),
+			geomString,
+		})
+	}
+	return t.Render()
+}
+
+// extractModelFrameJSON finds the robot part with a given name, checks to see if it implements ModelFrame, and returns the
+// JSON []byte if it does, or nil if it doesn't.
+func (svc *frameSystemService) extractModelFrameJSON(name string) (referenceframe.Model, error) {
+	part, ok := svc.components[name]
+	if !ok {
+		return nil, DependencyNotFoundError(name)
+	}
+	if framer, ok := part.(referenceframe.ModelFramer); ok {
+		return framer.ModelFrame(), nil
+	}
+	return nil, referenceframe.ErrNoModelInformation
 }

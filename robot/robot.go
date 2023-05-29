@@ -18,7 +18,6 @@ import (
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/robot/packages"
 	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/session"
@@ -61,7 +60,7 @@ type Robot interface {
 	Logger() golog.Logger
 
 	// FrameSystemConfig returns the individual parts that make up a robot's frame system
-	FrameSystemConfig(ctx context.Context) (*framesystem.Config, error)
+	FrameSystemParts(ctx context.Context) ([]*referenceframe.FrameSystemPart, error)
 
 	// TransformPose will transform the pose of the requested poseInFrame to the desired frame in the robot's frame system.
 	TransformPose(

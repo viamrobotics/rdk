@@ -777,11 +777,11 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 // config returns the info of each individual part that makes up the frame system
 // The output of this function is to be sent over GRPC to the client, so the client
 // can build its frame system. requests the remote components from the remote's frame system service.
-func (r *localRobot) FrameSystemConfig(ctx context.Context) (*framesystem.Config, error) {
-	return r.frameSvc.CachedConfig(ctx)
+func (r *localRobot) FrameSystemParts(ctx context.Context) ([]*referenceframe.FrameSystemPart, error) {
+	return r.frameSvc.CachedParts(ctx)
 }
 
-func (r *localRobot) getFrameSystemConfig(ctx context.Context) (*framesystem.Config, error) {
+func (r *localRobot) buildFrameSystemConfig(ctx context.Context) (*framesystem.Config, error) {
 	localParts, err := r.getLocalFrameSystemParts()
 	if err != nil {
 		return nil, err
@@ -791,66 +791,44 @@ func (r *localRobot) getFrameSystemConfig(ctx context.Context) (*framesystem.Con
 		return nil, err
 	}
 
-	return &framesystem.Config{Parts: append(localParts, remoteParts...)}, nil
+	return &framesystem.Config{PartConfigs: append(localParts, remoteParts...)}, nil
 }
 
 // getLocalFrameSystemParts collects and returns the physical parts of the robot that may have frame info,
 // excluding remote robots and services, etc from the robot's config.Config.
-func (r *localRobot) getLocalFrameSystemParts() ([]*referenceframe.FrameSystemPart, error) {
+func (r *localRobot) getLocalFrameSystemParts() ([]*framesystem.PartConfig, error) {
 	cfg := r.Config()
 
-	parts := make([]*referenceframe.FrameSystemPart, 0)
+	parts := make([]*framesystem.PartConfig, 0, len(cfg.Components))
 	for _, component := range cfg.Components {
-		frame := component.Frame
-		if frame == nil { // no Frame means dont include in frame system.
+		if component.Frame == nil { // no Frame means dont include in frame system.
 			continue
 		}
 
-		if frame.ID == "" {
-			frame = frame.Rename(component.Name)
-		}
-		link, err := frame.ParseConfig()
-		if err != nil {
-			return nil, err
-		}
-
-		model, err := r.extractModelFrameJSON(component.ResourceName())
-		if err != nil && !errors.Is(err, referenceframe.ErrNoModelInformation) {
-			// When we have non-nil errors here, it is because the resource is not yet available.
-			// In this case, we will exclude it from the FS.
-			// When it becomes available, it will be included.
-			continue
-		}
-
-		parts = append(parts, &referenceframe.FrameSystemPart{FrameConfig: link, ModelFrame: model})
+		parts = append(parts, &framesystem.PartConfig{Name: component.Name, FrameConfig: component.Frame})
 	}
 	return parts, nil
 }
 
-func (r *localRobot) getRemoteFrameSystemParts(ctx context.Context) ([]*referenceframe.FrameSystemPart, error) {
+func (r *localRobot) getRemoteFrameSystemParts(ctx context.Context) ([]*framesystem.PartConfig, error) {
 	cfg := r.Config()
 
-	remoteParts := make([]*referenceframe.FrameSystemPart, 0)
+	remoteParts := make([]*framesystem.PartConfig, 0)
 	for _, remoteCfg := range cfg.Remotes {
 		// build the frame system part that connects remote world to base world
 		if remoteCfg.Frame == nil { // skip over remote if it has no frame info
 			r.logger.Debugf("remote %q has no frame config info, skipping", remoteCfg.Name)
 			continue
 		}
-		lif, err := remoteCfg.Frame.ParseConfig()
-		if err != nil {
-			return nil, err
-		}
 		parentName := remoteCfg.Name + "_" + referenceframe.World
-		lif.SetName(parentName)
-		remoteParts = append(remoteParts, &referenceframe.FrameSystemPart{FrameConfig: lif})
+		remoteParts = append(remoteParts, &framesystem.PartConfig{FrameConfig: remoteCfg.Frame.Rename(parentName)})
 
 		// get the parts from the remote itself
 		remote, ok := r.RemoteByName(remoteCfg.Name)
 		if !ok {
 			return nil, errors.Errorf("cannot find remote robot %q", remoteCfg.Name)
 		}
-		remoteFsCfg, err := remote.FrameSystemConfig(ctx)
+		remoteFsCfg, err := remote.FrameSystemParts(ctx)
 		if err != nil {
 			return nil, errors.Wrapf(err, "error from remote %q", remoteCfg.Name)
 		}
@@ -858,19 +836,6 @@ func (r *localRobot) getRemoteFrameSystemParts(ctx context.Context) ([]*referenc
 		remoteParts = append(remoteParts, remoteFsCfg.Parts...)
 	}
 	return remoteParts, nil
-}
-
-// extractModelFrameJSON finds the robot part with a given name, checks to see if it implements ModelFrame, and returns the
-// JSON []byte if it does, or nil if it doesn't.
-func (r *localRobot) extractModelFrameJSON(name resource.Name) (referenceframe.Model, error) {
-	part, err := r.ResourceByName(name)
-	if err != nil {
-		return nil, err
-	}
-	if framer, ok := part.(referenceframe.ModelFramer); ok {
-		return framer.ModelFrame(), nil
-	}
-	return nil, referenceframe.ErrNoModelInformation
 }
 
 // TransformPose will transform the pose of the requested poseInFrame to the desired frame in the robot's frame system.
