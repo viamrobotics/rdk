@@ -50,11 +50,16 @@ typecheck-web:
 	npm run typecheck --prefix web/frontend
 
 cover: tool-install
-	PATH=$(PATH_WITH_TOOLS) ./etc/test.sh cover
+	PATH=$(PATH_WITH_TOOLS) ./etc/test.sh cover-with-race
 
 test: test-go test-web
 
+test-no-race: test-go-no-race test-web
+
 test-go: tool-install
+	PATH=$(PATH_WITH_TOOLS) ./etc/test.sh race
+
+test-go-no-race: tool-install
 	PATH=$(PATH_WITH_TOOLS) ./etc/test.sh
 
 test-web:

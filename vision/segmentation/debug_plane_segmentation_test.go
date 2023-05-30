@@ -3,7 +3,6 @@ package segmentation
 import (
 	"context"
 	"image"
-	"os"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -16,8 +15,6 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-const debugPlaneSeg = "VIAM_DEBUG"
-
 var (
 	gripperComboParamsPath = utils.ResolveFile("vision/segmentation/data/gripper_combo_parameters.json")
 	intelJSONPath          = utils.ResolveFile("vision/segmentation/data/intel.json")
@@ -26,18 +23,14 @@ var (
 
 // Test finding the planes in an image with depth.
 func TestPlaneSegmentImageAndDepthMap(t *testing.T) {
+	d := rimage.NewMultipleImageTestDebugger(t, "segmentation/planes/color", "*.png", "segmentation/planes/depth")
 	logger := golog.NewTestLogger(t)
-	planeSegTest := os.Getenv(debugPlaneSeg)
-	if planeSegTest == "" {
-		t.Skipf("set environmental variable %q to run this test", debugPlaneSeg)
-	}
 	config, err := config.Read(context.Background(), intelJSONPath, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	c := config.FindComponent("front")
 	test.That(t, c, test.ShouldNotBeNil)
 
-	d := rimage.NewMultipleImageTestDebugger(t, "segmentation/planes/color", "*.png", "segmentation/planes/depth")
 	aligner, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(intel515ParamsPath)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -140,10 +133,6 @@ func (h *segmentTestHelper) Process(
 
 // testing out gripper plane segmentation.
 func TestGripperPlaneSegmentation(t *testing.T) {
-	planeSegTest := os.Getenv(debugPlaneSeg)
-	if planeSegTest == "" {
-		t.Skipf("set environmental variable %q to run this test", debugPlaneSeg)
-	}
 	d := rimage.NewMultipleImageTestDebugger(t, "segmentation/gripper/color", "*.png", "segmentation/gripper/depth")
 	camera, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(gripperComboParamsPath)
 	test.That(t, err, test.ShouldBeNil)

@@ -17,6 +17,7 @@ import (
 )
 
 func TestRawDepthMap(t *testing.T) {
+	t.Parallel()
 	m, err := ParseRawDepthMap(artifact.MustPath("rimage/board2.dat.gz"))
 	test.That(t, err, test.ShouldBeNil)
 
@@ -50,6 +51,7 @@ func TestRawDepthMap(t *testing.T) {
 }
 
 func TestDepthMap(t *testing.T) {
+	t.Parallel()
 	m, err := NewDepthMapFromFile(context.Background(), artifact.MustPath("rimage/board2_gray.png"))
 	test.That(t, err, test.ShouldBeNil)
 
@@ -85,6 +87,7 @@ func TestDepthMap(t *testing.T) {
 }
 
 func TestCloneDepthMap(t *testing.T) {
+	t.Parallel()
 	m, err := NewDepthMapFromFile(context.Background(), artifact.MustPath("rimage/board2_gray.png"))
 	test.That(t, err, test.ShouldBeNil)
 
@@ -144,6 +147,7 @@ func TestDepthRotate90(t *testing.T) {
 }
 
 func TestToGray16Picture(t *testing.T) {
+	t.Parallel()
 	iwd, err := newImageWithDepth(
 		context.Background(),
 		artifact.MustPath("rimage/board2.png"), artifact.MustPath("rimage/board2.dat.gz"), false,

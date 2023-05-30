@@ -23,6 +23,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/motion"
+	"go.viam.com/rdk/services/motion/builtin"
 	_ "go.viam.com/rdk/services/register"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/spatialmath"
@@ -235,8 +236,8 @@ func TestMoveOnMap(t *testing.T) {
 		slam.Named("test_slam"),
 		nil,
 	)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, success, test.ShouldBeTrue)
+	test.That(t, err, test.ShouldBeError, builtin.ErrNotImplemented)
+	test.That(t, success, test.ShouldBeFalse)
 }
 
 // TODO(RSDK-2926): Revisit after MoveOnGlobe implementation is completed, needs test cases for optional specs, etc.
@@ -255,7 +256,7 @@ func TestMoveOnGlobe(t *testing.T) {
 		math.NaN(),
 		nil,
 	)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "Not yet implemented")
+	test.That(t, err, test.ShouldBeError, builtin.ErrNotImplemented)
 	test.That(t, success, test.ShouldBeFalse)
 }
 
