@@ -34,7 +34,6 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/robot/packages"
 	"go.viam.com/rdk/session"
 	"go.viam.com/rdk/spatialmath"
@@ -804,15 +803,19 @@ func (rc *RobotClient) DiscoverComponents(ctx context.Context, qs []resource.Dis
 }
 
 // FrameSystemConfig returns the info of each individual part that makes up the frame system.
-func (rc *RobotClient) FrameSystemParts(ctx context.Context) ([]*framesystem.FrameSystemPartConfig, error) {
+func (rc *RobotClient) FrameSystemParts(ctx context.Context) ([]*referenceframe.FrameSystemPart, error) {
 	resp, err := rc.client.FrameSystemConfig(ctx, &pb.FrameSystemConfigRequest{})
 	if err != nil {
 		return nil, err
 	}
 	cfgs := resp.GetFrameSystemConfigs()
-	result := make([]*framesystem.FrameSystemPartConfig, 0, len(cfgs))
+	result := make([]*referenceframe.FrameSystemPart, 0, len(cfgs))
 	for _, cfg := range cfgs {
-		result = append(result, &framesystem.FrameSystemPartConfig{Protobuf: cfg})
+		part, err := referenceframe.ProtobufToFrameSystemPart(cfg)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, part)
 	}
 	return result, nil
 }

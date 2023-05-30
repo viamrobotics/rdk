@@ -828,12 +828,11 @@ func (r *localRobot) getRemoteFrameSystemParts(ctx context.Context) ([]*framesys
 		if !ok {
 			return nil, errors.Errorf("cannot find remote robot %q", remoteCfg.Name)
 		}
-		remoteFsCfg, err := remote.FrameSystemParts(ctx)
+		remoteFSParts, err := remote.FrameSystemParts(ctx)
 		if err != nil {
 			return nil, errors.Wrapf(err, "error from remote %q", remoteCfg.Name)
 		}
-		framesystem.PrefixRemoteParts(remoteFsCfg.Parts, remoteCfg.Name, parentName)
-		remoteParts = append(remoteParts, remoteFsCfg.Parts...)
+		remoteParts = append(remoteParts, framesystem.ProcessRemoteFrameSystem(remoteFSParts, remoteCfg.Name, parentName)...)
 	}
 	return remoteParts, nil
 }

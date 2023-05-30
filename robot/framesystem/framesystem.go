@@ -11,7 +11,6 @@ import (
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 
-	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -82,7 +81,11 @@ type Config struct {
 type FrameSystemPartConfig struct {
 	Name        string
 	FrameConfig *referenceframe.LinkConfig
-	Protobuf    *pb.FrameSystemConfig
+
+	// Preprocessed is a field that if filled means that no further processing of the config is necessary
+	// This is efficient because parts that are returned from remotes should not have to be turned into configs only
+	// to be converted back into FrameSystemParts once in the framesystem service
+	PreprocessedPart *referenceframe.FrameSystemPart
 }
 
 // the frame system service collects all the relevant parts that make up the frame system from the robot
@@ -102,17 +105,10 @@ type frameSystemService struct {
 func (svc *frameSystemService) ConfigToParts(cfg *Config) (parts []*referenceframe.FrameSystemPart, err error) {
 	for _, component := range cfg.PartConfigs {
 		var part *referenceframe.FrameSystemPart
-		if component.Protobuf != nil {
-			part, err = referenceframe.ProtobufToFrameSystemPart(component.Protobuf)
-			if err != nil {
-				return nil, err
-			}
+		if component.PreprocessedPart != nil {
+			part = component.PreprocessedPart
 		} else {
 			frame := component.FrameConfig
-			if frame == nil { // no Frame means dont include in frame system.
-				continue
-			}
-
 			if frame.ID == "" {
 				frame = frame.Rename(component.Name)
 			}
@@ -321,7 +317,8 @@ func (svc *frameSystemService) TransformPointCloud(ctx context.Context, srcpc po
 }
 
 // PrefixRemoteParts applies prefixes to a list of FrameSystemParts appropriate to the remote they originate from.
-func PrefixRemoteParts(parts []*referenceframe.FrameSystemPart, remoteName, remoteParent string) {
+func ProcessRemoteFrameSystem(parts []*referenceframe.FrameSystemPart, remoteName, remoteParent string) []*FrameSystemPartConfig {
+	partConfigs := make([]*FrameSystemPartConfig, 0, len(parts))
 	for _, part := range parts {
 		if part.FrameConfig.Parent() == referenceframe.World { // rename World of remote parts
 			part.FrameConfig.SetParent(remoteParent)
@@ -331,7 +328,9 @@ func PrefixRemoteParts(parts []*referenceframe.FrameSystemPart, remoteName, remo
 		if part.FrameConfig.Parent() != remoteParent {
 			part.FrameConfig.SetParent(remoteName + ":" + part.FrameConfig.Parent())
 		}
+		partConfigs = append(partConfigs, &FrameSystemPartConfig{PreprocessedPart: part})
 	}
+	return partConfigs
 }
 
 // String prints out a table of each frame in the system, with columns of name, parent, translation and orientation.

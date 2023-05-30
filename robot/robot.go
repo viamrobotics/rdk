@@ -59,7 +59,7 @@ type Robot interface {
 	// Logger returns the logger the robot is using.
 	Logger() golog.Logger
 
-	// FrameSystemConfig returns the individual parts that make up a robot's frame system
+	// FrameSystemParts returns the individual parts that make up a robot's frame system
 	FrameSystemParts(ctx context.Context) ([]*referenceframe.FrameSystemPart, error)
 
 	// TransformPose will transform the pose of the requested poseInFrame to the desired frame in the robot's frame system.
