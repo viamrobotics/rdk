@@ -273,7 +273,7 @@ func (g *RTKMovementSensor) start() error {
 		g.lastPosition = nil
 		return err
 	}
-	return g.err.Get()
+	return nil
 }
 
 // Connect attempts to connect to ntrip client until successful connection or timeout.
