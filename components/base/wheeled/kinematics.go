@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	positionThresholdMM     = 100
+	distThresholdMM         = 100
 	headingThresholdDegrees = 15
 )
 
@@ -23,6 +23,7 @@ type kinematicWheeledBase struct {
 	*wheeledBase
 	slam  slam.Service
 	model referenceframe.Model
+	fs    referenceframe.FrameSystem
 }
 
 // WrapWithKinematics takes a wheeledBase component and adds a slam service to it
@@ -50,10 +51,15 @@ func (wb *wheeledBase) WrapWithKinematics(ctx context.Context, slamSvc slam.Serv
 	if err != nil {
 		return nil, err
 	}
+	fs := referenceframe.NewEmptyFrameSystem("")
+	if err := fs.AddFrame(model, fs.World()); err != nil {
+		return nil, err
+	}
 	return &kinematicWheeledBase{
 		wheeledBase: wb,
 		slam:        slamSvc,
 		model:       model,
+		fs:          fs,
 	}, err
 }
 
@@ -72,59 +78,72 @@ func (kwb *kinematicWheeledBase) CurrentInputs(ctx context.Context) ([]reference
 	return []referenceframe.Input{{Value: pt.X}, {Value: pt.Y}, {Value: theta}}, nil
 }
 
-func (kwb *kinematicWheeledBase) GoToInputs(ctx context.Context, inputs []referenceframe.Input) (err error) {
-	// create a frame system to be used during the context of this function, used to locate the goal in the base frame
-	fs := referenceframe.NewEmptyFrameSystem("")
-	if err := fs.AddFrame(kwb.model, fs.World()); err != nil {
-		return err
-	}
-
-	// create a function for the error state, which is defined as [positional error, heading error]
-	errorState := func() (int, float64, error) {
-		currentInputs, err := kwb.CurrentInputs(ctx)
-		if err != nil {
-			return 0, 0, err
-		}
-
-		// create a goal pose in the world frame
-		desiredHeading := math.Atan2(currentInputs[1].Value-inputs[1].Value, currentInputs[0].Value-inputs[0].Value)
-		goal := referenceframe.NewPoseInFrame(
-			referenceframe.World,
-			spatialmath.NewPose(
-				r3.Vector{X: inputs[0].Value, Y: inputs[1].Value},
-				&spatialmath.OrientationVector{OZ: 1, Theta: desiredHeading},
-			),
-		)
-
-		// transform the goal pose such that it is in the base frame
-		tf, err := fs.Transform(map[string][]referenceframe.Input{kwb.name: currentInputs}, goal, kwb.name)
-		if err != nil {
-			return 0, 0, err
-		}
-		delta, ok := tf.(*referenceframe.PoseInFrame)
-		if !ok {
-			return 0, 0, errors.New("can't interpret transformable as a pose in frame")
-		}
-
-		// calculate the error state
-		headingErr := math.Mod(delta.Pose().Orientation().OrientationVectorDegrees().Theta, 360)
-		positionErr := int(1000 * delta.Pose().Point().Norm())
-		return positionErr, headingErr, nil
-	}
-
+func (kwb *kinematicWheeledBase) GoToInputs(ctx context.Context, desired []referenceframe.Input) (err error) {
 	// this loop polls the error state and issues a corresponding command to move the base to the objective
 	// when the base is within the positional threshold of the goal, exit the loop
 	// TODO(rb): check for the context being cancelled and stop if so
-	for distErr, headingErr, err := errorState(); err == nil && distErr > positionThresholdMM; distErr, headingErr, err = errorState() {
-		if math.Abs(headingErr) > headingThresholdDegrees {
-			err = kwb.Spin(ctx, -headingErr, 60, nil) // base is headed off course; spin to correct
-		} else {
-			err = kwb.MoveStraight(ctx, distErr, 300, nil) // base is pointed the correct direction; forge onward
-		}
+	for {
+		current, err := kwb.CurrentInputs(ctx)
 		if err != nil {
 			return err
 		}
+
+		// get to the x, y location first
+		desiredHeading := math.Atan2(current[1].Value-desired[1].Value, current[0].Value-desired[0].Value)
+		if commanded, err := kwb.issueCommand(ctx, current, []referenceframe.Input{desired[0], desired[1], {desiredHeading}}); err != nil {
+			if commanded {
+				continue
+			}
+		}
+
+		// no command to move to the x, y location was issued, correct the heading and then exit
+		if commanded, err := kwb.issueCommand(ctx, current, []referenceframe.Input{current[0], current[1], desired[2]}); err != nil {
+			if !commanded {
+				return nil
+			}
+		}
+	}
+}
+
+// issueCommand issues a relevant command to move the base to the given desired inputs and returns the boolean describing
+// if it issued a command successfully.  If it is already at the location it will not need to issue another command and can therefore
+// return a false.
+func (kwb *kinematicWheeledBase) issueCommand(ctx context.Context, current, desired []referenceframe.Input) (bool, error) {
+	distErr, headingErr, err := kwb.errorState(current, desired)
+	if err != nil {
+		return false, err
+	}
+	if distErr > distThresholdMM && math.Abs(headingErr) > headingThresholdDegrees {
+		return true, kwb.Spin(ctx, -headingErr, 60, nil) // base is headed off course; spin to correct
+	} else if distErr > distThresholdMM {
+		return true, kwb.MoveStraight(ctx, distErr, 300, nil) // base is pointed the correct direction but not there yet; forge onward
+	}
+	return false, nil
+}
+
+// create a function for the error state, which is defined as [positional error, heading error]
+func (kwb *kinematicWheeledBase) errorState(current, desired []referenceframe.Input) (int, float64, error) {
+	// create a goal pose in the world frame
+	goal := referenceframe.NewPoseInFrame(
+		referenceframe.World,
+		spatialmath.NewPose(
+			r3.Vector{X: desired[0].Value, Y: desired[1].Value},
+			&spatialmath.OrientationVector{OZ: 1, Theta: desired[2].Value},
+		),
+	)
+
+	// transform the goal pose such that it is in the base frame
+	tf, err := kwb.fs.Transform(map[string][]referenceframe.Input{kwb.name: current}, goal, kwb.name)
+	if err != nil {
+		return 0, 0, err
+	}
+	delta, ok := tf.(*referenceframe.PoseInFrame)
+	if !ok {
+		return 0, 0, errors.New("can't interpret transformable as a pose in frame")
 	}
 
-	return err
+	// calculate the error state
+	headingErr := math.Mod(delta.Pose().Orientation().OrientationVectorDegrees().Theta, 360)
+	positionErr := int(1000 * delta.Pose().Point().Norm())
+	return positionErr, headingErr, nil
 }
