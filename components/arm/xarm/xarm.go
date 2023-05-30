@@ -16,6 +16,7 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
 
@@ -190,13 +191,25 @@ func (x *xArm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error
 func (x *xArm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
 	// check that joint positions are not out of bounds
 	positionDegs := x.model.ProtobufFromInput(goal)
-	if err := arm.CheckDesiredJointPositions(ctx, x, positionDegs.Values); err != nil {
+	if err := arm.CheckDesiredJointPositions(ctx, x, positionDegs); err != nil {
 		return err
 	}
 	return x.MoveToJointPositions(ctx, positionDegs, nil)
 }
 
-// ModelFrame returns the dynamic frame of the model.
+func (x *xArm) Geometries(ctx context.Context) ([]spatialmath.Geometry, error) {
+	inputs, err := x.CurrentInputs(ctx)
+	if err != nil {
+		return nil, err
+	}
+	gif, err := x.model.Geometries(inputs)
+	if err != nil {
+		return nil, err
+	}
+	return gif.Geometries(), nil
+}
+
+// ModelFrame returns all the information necessary for including the arm in a FrameSystem.
 func (x *xArm) ModelFrame() referenceframe.Model {
 	return x.model
 }

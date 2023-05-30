@@ -362,7 +362,7 @@ func (ua *URArm) MoveToPosition(ctx context.Context, pos spatialmath.Pose, extra
 // MoveToJointPositions TODO.
 func (ua *URArm) MoveToJointPositions(ctx context.Context, joints *pb.JointPositions, extra map[string]interface{}) error {
 	// check that joint positions are not out of bounds
-	if err := arm.CheckDesiredJointPositions(ctx, ua, joints.Values); err != nil {
+	if err := arm.CheckDesiredJointPositions(ctx, ua, joints); err != nil {
 		return err
 	}
 	return ua.MoveToJointPositionRadians(ctx, referenceframe.JointPositionsToRadians(joints))
@@ -481,10 +481,25 @@ func (ua *URArm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, err
 func (ua *URArm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
 	// check that joint positions are not out of bounds
 	positionDegs := ua.model.ProtobufFromInput(goal)
-	if err := arm.CheckDesiredJointPositions(ctx, ua, positionDegs.Values); err != nil {
+	if err := arm.CheckDesiredJointPositions(ctx, ua, positionDegs); err != nil {
 		return err
 	}
 	return ua.MoveToJointPositions(ctx, positionDegs, nil)
+}
+
+// Geometries returns the list of geometries associated with the resource, in any order. The poses of the geometries reflect their
+// current location relative to the frame of the resource.
+func (ua *URArm) Geometries(ctx context.Context) ([]spatialmath.Geometry, error) {
+	// TODO (pl): RSDK-3316 abstract this to general arm function
+	inputs, err := ua.CurrentInputs(ctx)
+	if err != nil {
+		return nil, err
+	}
+	gif, err := ua.model.Geometries(inputs)
+	if err != nil {
+		return nil, err
+	}
+	return gif.Geometries(), nil
 }
 
 // AddToLog TODO.
