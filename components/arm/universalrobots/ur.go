@@ -490,6 +490,7 @@ func (ua *URArm) GoToInputs(ctx context.Context, goal []referenceframe.Input) er
 // Geometries returns the list of geometries associated with the resource, in any order. The poses of the geometries reflect their
 // current location relative to the frame of the resource.
 func (ua *URArm) Geometries(ctx context.Context) ([]spatialmath.Geometry, error) {
+	// TODO (pl): RSDK-3316 abstract this to general arm function
 	inputs, err := ua.CurrentInputs(ctx)
 	if err != nil {
 		return nil, err
