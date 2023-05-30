@@ -417,6 +417,7 @@ func (svc *builtIn) Reconfigure(
 		!reflect.DeepEqual(svc.tags, svcConfig.Tags) {
 		svc.syncDisabled = svcConfig.ScheduledSyncDisabled
 		svc.syncIntervalMins = svcConfig.SyncIntervalMins
+		svc.tags = svcConfig.Tags
 
 		svc.cancelSyncScheduler()
 		if !svc.syncDisabled && svc.syncIntervalMins != 0.0 {
