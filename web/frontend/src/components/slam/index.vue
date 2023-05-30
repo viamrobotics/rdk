@@ -476,7 +476,7 @@ onUnmounted(() => {
       label="STOP"
       @click="stopMoveOnMap()"
     />
-    <div class="border-medium flex flex-wrap gap-4 border border-t-0 sm:flex-nowrap">
+    <div class="flex flex-wrap gap-4 border border-t-0 border-medium sm:flex-nowrap">
       <div class="flex min-w-fit flex-col gap-4 p-4">
         <div class="float-left pb-4">
           <div class="flex">
@@ -491,8 +491,8 @@ onUnmounted(() => {
                 <select
                   v-model="selected2dValue"
                   class="
-                      border-medium text-default m-0 w-full appearance-none border border-solid bg-white
-                      bg-clip-padding px-3 py-1.5 text-xs font-normal focus:outline-none
+                      m-0 w-full appearance-none border border-solid border-medium bg-white bg-clip-padding
+                      px-3 py-1.5 text-xs font-normal text-default focus:outline-none
                     "
                   aria-label="Default select example"
                   @change="selectSLAM2dRefreshFrequency()"
@@ -540,7 +540,7 @@ onUnmounted(() => {
               />
             </div>
           </div>
-          <hr class="border-medium my-4 border-t">
+          <hr class="my-4 border-t border-medium">
           <div class="flex flex-row">
             <p class="mb-1 pr-52 font-bold text-gray-800">
               Ending Position
@@ -663,7 +663,7 @@ onUnmounted(() => {
         </div>
       </div>
     </div>
-    <div class="border-medium border border-t-transparent p-4 ">
+    <div class="border border-medium border-t-transparent p-4 ">
       <v-switch
         label="View SLAM Map (3D)"
         :value="show3d ? 'on' : 'off'"
@@ -687,7 +687,7 @@ onUnmounted(() => {
             <select
               v-model="selected3dValue"
               class="
-                      border-medium m-0 w-full appearance-none border border-solid bg-white
+                      m-0 w-full appearance-none border border-solid border-medium bg-white
                       bg-clip-padding px-3 py-1.5 text-xs font-normal text-gray-700 focus:outline-none"
               aria-label="Default select example"
               @change="selectSLAMPCDRefreshFrequency()"
@@ -712,7 +712,7 @@ onUnmounted(() => {
               class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2"
             >
               <svg
-                class="text-default h-4 w-4 stroke-2"
+                class="h-4 w-4 stroke-2 text-default"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
                 stroke-linejoin="round"

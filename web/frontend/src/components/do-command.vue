@@ -75,7 +75,7 @@ const namesToPrettySelect = (resourcesToPretty: commonApi.ResourceName.AsObject[
     title="DoCommand()"
     class="doCommand"
   >
-    <div class="border-medium h-full w-full border border-t-0 p-4">
+    <div class="h-full w-full border border-t-0 border-medium p-4">
       <v-select
         label="Selected Component"
         placeholder="Select a component"
@@ -90,7 +90,7 @@ const namesToPrettySelect = (resourcesToPretty: commonApi.ResourceName.AsObject[
           <p class="text-large">
             Input
           </p>
-          <div class="border-medium h-[250px] w-full max-w-full border p-2">
+          <div class="h-[250px] w-full max-w-full border border-medium p-2">
             <v-code-editor
               language="json"
               value="{}"
@@ -110,7 +110,7 @@ const namesToPrettySelect = (resourcesToPretty: commonApi.ResourceName.AsObject[
           <p class="text-large">
             Output
           </p>
-          <div class="border-medium h-[250px] w-full border p-2">
+          <div class="h-[250px] w-full border border-medium p-2">
             <v-code-editor
               language="json"
               :value="output"

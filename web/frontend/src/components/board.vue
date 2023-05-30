@@ -87,19 +87,19 @@ const setPWMFrequency = async () => {
       slot="title"
       crumbs="board"
     />
-    <div class="border-medium overflow-auto border border-t-0 p-4">
+    <div class="overflow-auto border border-t-0 border-medium p-4">
       <h3 class="mb-2">
         Analogs
       </h3>
-      <table class="border-medium mb-4 table-auto border">
+      <table class="mb-4 table-auto border border-medium">
         <tr
           v-for="(analog, analogName) in status.analogsMap"
           :key="analogName"
         >
-          <th class="border-medium border p-2">
+          <th class="border border-medium p-2">
             {{ analogName }}
           </th>
-          <td class="border-medium border p-2">
+          <td class="border border-medium p-2">
             {{ analog.value || 0 }}
           </td>
         </tr>
@@ -107,15 +107,15 @@ const setPWMFrequency = async () => {
       <h3 class="mb-2">
         Digital Interrupts
       </h3>
-      <table class="border-medium mb-4 w-full table-auto border">
+      <table class="mb-4 w-full table-auto border border-medium">
         <tr
           v-for="(di, interruptName) in status.digitalInterruptsMap"
           :key="interruptName"
         >
-          <th class="border-medium border p-2">
+          <th class="border border-medium p-2">
             {{ interruptName }}
           </th>
-          <td class="border-medium border p-2">
+          <td class="border border-medium p-2">
             {{ di.value || 0 }}
           </td>
         </tr>
@@ -123,12 +123,12 @@ const setPWMFrequency = async () => {
       <h3 class="mb-2">
         GPIO
       </h3>
-      <table class="border-medium mb-4 w-full table-auto border">
+      <table class="mb-4 w-full table-auto border border-medium">
         <tr>
-          <th class="border-medium border p-2">
+          <th class="border border-medium p-2">
             Get
           </th>
-          <td class="border-medium border p-2">
+          <td class="border border-medium p-2">
             <div class="flex flex-wrap items-end gap-2">
               <v-input
                 label="Pin"
@@ -155,7 +155,7 @@ const setPWMFrequency = async () => {
           </td>
         </tr>
         <tr>
-          <th class="border-medium border p-2">
+          <th class="border border-medium p-2">
             Set
           </th>
           <td class="p-2">
@@ -168,7 +168,7 @@ const setPWMFrequency = async () => {
               />
               <select
                 v-model="setLevel"
-                class="border-medium mr-2 h-[30px] border bg-white text-sm"
+                class="mr-2 h-[30px] border border-medium bg-white text-sm"
               >
                 <option>low</option>
                 <option>high</option>

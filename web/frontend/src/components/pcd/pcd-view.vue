@@ -624,7 +624,7 @@ watch(() => props.pointcloud, (updated?: Uint8Array) => {
           v-model="selectedSegmenter"
           placeholder="Choose"
           class="
-            border-medium m-0 w-full appearance-none border border-solid bg-white
+            m-0 w-full appearance-none border border-solid border-medium bg-white
             bg-clip-padding px-3 py-1.5 text-xs font-normal text-gray-700 focus:outline-none
           "
           aria-label="Select segmenter"
@@ -694,7 +694,7 @@ watch(() => props.pointcloud, (updated?: Uint8Array) => {
           <select
             v-model="selectedObject"
             class="
-              border-medium m-0 w-full appearance-none border border-solid bg-white
+              m-0 w-full appearance-none border border-solid border-medium bg-white
               bg-clip-padding px-3 py-1.5 text-xs font-normal text-gray-700 focus:outline-none
             "
             :class="['py-2 pl-2']"
@@ -727,7 +727,7 @@ watch(() => props.pointcloud, (updated?: Uint8Array) => {
 
     <div
       ref="container"
-      class="pcd-container border-medium relative w-full border"
+      class="pcd-container relative w-full border border-medium"
       @mousedown="handleCanvasMouseDown"
       @mouseup="handleCanvasMouseUp"
     >

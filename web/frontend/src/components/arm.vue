@@ -240,11 +240,11 @@ const armCopyJoints = (status: ArmStatus) => {
         @click.stop="stop()"
       />
     </div>
-    <div class="border-medium border border-t-0 p-4">
+    <div class="border border-t-0 border-medium p-4">
       <div class="mb-4 flex flex-wrap gap-4">
         <div
           v-if="toggle[name]"
-          class="border-medium border p-4"
+          class="border border-medium p-4"
         >
           <h3 class="mb-2">
             END POSITION (mms)
@@ -257,7 +257,7 @@ const armCopyJoints = (status: ArmStatus) => {
               <label class="py-1 pr-2 text-right">{{ cc.endPosition[1] }}</label>
               <input
                 v-model="cc.endPositionValue"
-                class="border-medium border px-4 py-1"
+                class="border border-medium px-4 py-1"
               >
             </template>
           </div>
@@ -277,7 +277,7 @@ const armCopyJoints = (status: ArmStatus) => {
         </div>
         <div
           v-if="toggle[name]"
-          class="border-medium border p-4"
+          class="border border-medium p-4"
         >
           <h3 class="mb-2">
             JOINTS (degrees)
@@ -290,7 +290,7 @@ const armCopyJoints = (status: ArmStatus) => {
               <label class="py-1 pr-2 text-right">Joint {{ bb.joint }}</label>
               <input
                 v-model="bb.jointValue"
-                class="border-medium border px-4 py-1"
+                class="border border-medium px-4 py-1"
               >
             </template>
           </div>
@@ -312,7 +312,7 @@ const armCopyJoints = (status: ArmStatus) => {
       <div class="flex flex-wrap gap-4">
         <div
           v-if="status"
-          class="border-medium border p-4"
+          class="border border-medium p-4"
         >
           <h3 class="mb-2">
             END POSITION (mms)
@@ -367,7 +367,7 @@ const armCopyJoints = (status: ArmStatus) => {
         </div>
         <div
           v-if="status"
-          class="border-medium border p-4"
+          class="border border-medium p-4"
         >
           <h3 class="mb-2">
             JOINTS (degrees)

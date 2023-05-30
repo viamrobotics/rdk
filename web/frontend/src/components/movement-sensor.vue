@@ -183,7 +183,7 @@ onUnmounted(() => {
       slot="title"
       crumbs="movement_sensor"
     />
-    <div class="border-medium flex flex-wrap gap-4 border border-t-0 p-4">
+    <div class="flex flex-wrap gap-4 border border-t-0 border-medium p-4">
       <template v-if="properties">
         <div
           v-if="properties.positionSupported"
@@ -192,28 +192,28 @@ onUnmounted(() => {
           <h3 class="mb-1">
             Position
           </h3>
-          <table class="border-medium w-full border border-t-0 p-4">
+          <table class="w-full border border-t-0 border-medium p-4">
             <tr>
-              <th class="border-medium border p-2">
+              <th class="border border-medium p-2">
                 Latitude
               </th>
-              <td class="border-medium border p-2">
+              <td class="border border-medium p-2">
                 {{ coordinate?.latitude.toFixed(6) }}
               </td>
             </tr>
             <tr>
-              <th class="border-medium border p-2">
+              <th class="border border-medium p-2">
                 Longitude
               </th>
-              <td class="border-medium border p-2">
+              <td class="border border-medium p-2">
                 {{ coordinate?.longitude.toFixed(6) }}
               </td>
             </tr>
             <tr>
-              <th class="border-medium border p-2">
+              <th class="border border-medium p-2">
                 Altitide (m)
               </th>
-              <td class="border-medium border p-2">
+              <td class="border border-medium p-2">
                 {{ altitudeM?.toFixed(2) }}
               </td>
             </tr>
@@ -233,36 +233,36 @@ onUnmounted(() => {
           <h3 class="mb-1">
             Orientation (degrees)
           </h3>
-          <table class="border-medium w-full border border-t-0 p-4">
+          <table class="w-full border border-t-0 border-medium p-4">
             <tr>
-              <th class="border-medium border p-2">
+              <th class="border border-medium p-2">
                 OX
               </th>
-              <td class="border-medium border p-2">
+              <td class="border border-medium p-2">
                 {{ orientation?.oX.toFixed(2) }}
               </td>
             </tr>
             <tr>
-              <th class="border-medium border p-2">
+              <th class="border border-medium p-2">
                 OY
               </th>
-              <td class="border-medium border p-2">
+              <td class="border border-medium p-2">
                 {{ orientation?.oY.toFixed(2) }}
               </td>
             </tr>
             <tr>
-              <th class="border-medium border p-2">
+              <th class="border border-medium p-2">
                 OZ
               </th>
-              <td class="border-medium border p-2">
+              <td class="border border-medium p-2">
                 {{ orientation?.oZ.toFixed(2) }}
               </td>
             </tr>
             <tr>
-              <th class="border-medium border p-2">
+              <th class="border border-medium p-2">
                 Theta
               </th>
-              <td class="border-medium border p-2">
+              <td class="border border-medium p-2">
                 {{ orientation?.theta.toFixed(2) }}
               </td>
             </tr>
@@ -276,28 +276,28 @@ onUnmounted(() => {
           <h3 class="mb-1">
             Angular Velocity (degrees/second)
           </h3>
-          <table class="border-medium w-full border border-t-0 p-4">
+          <table class="w-full border border-t-0 border-medium p-4">
             <tr>
-              <th class="border-medium border p-2">
+              <th class="border border-medium p-2">
                 X
               </th>
-              <td class="border-medium border p-2">
+              <td class="border border-medium p-2">
                 {{ angularVelocity?.x.toFixed(2) }}
               </td>
             </tr>
             <tr>
-              <th class="border-medium border p-2">
+              <th class="border border-medium p-2">
                 Y
               </th>
-              <td class="border-medium border p-2">
+              <td class="border border-medium p-2">
                 {{ angularVelocity?.y.toFixed(2) }}
               </td>
             </tr>
             <tr>
-              <th class="border-medium border p-2">
+              <th class="border border-medium p-2">
                 Z
               </th>
-              <td class="border-medium border p-2">
+              <td class="border border-medium p-2">
                 {{ angularVelocity?.z.toFixed(2) }}
               </td>
             </tr>
@@ -311,28 +311,28 @@ onUnmounted(() => {
           <h3 class="mb-1">
             Linear Velocity (m/s)
           </h3>
-          <table class="border-medium w-full border border-t-0 p-4">
+          <table class="w-full border border-t-0 border-medium p-4">
             <tr>
-              <th class="border-medium border p-2">
+              <th class="border border-medium p-2">
                 X
               </th>
-              <td class="border-medium border p-2">
+              <td class="border border-medium p-2">
                 {{ linearVelocity?.x.toFixed(2) }}
               </td>
             </tr>
             <tr>
-              <th class="border-medium border p-2">
+              <th class="border border-medium p-2">
                 Y
               </th>
-              <td class="border-medium border p-2">
+              <td class="border border-medium p-2">
                 {{ linearVelocity?.y.toFixed(2) }}
               </td>
             </tr>
             <tr>
-              <th class="border-medium border p-2">
+              <th class="border border-medium p-2">
                 Z
               </th>
-              <td class="border-medium border p-2">
+              <td class="border border-medium p-2">
                 {{ linearVelocity?.z.toFixed(2) }}
               </td>
             </tr>
@@ -346,28 +346,28 @@ onUnmounted(() => {
           <h3 class="mb-1">
             Linear Acceleration (m/second^2)
           </h3>
-          <table class="border-medium w-full border border-t-0 p-4">
+          <table class="w-full border border-t-0 border-medium p-4">
             <tr>
-              <th class="border-medium border p-2">
+              <th class="border border-medium p-2">
                 X
               </th>
-              <td class="border-medium border p-2">
+              <td class="border border-medium p-2">
                 {{ linearAcceleration?.x.toFixed(2) }}
               </td>
             </tr>
             <tr>
-              <th class="border-medium border p-2">
+              <th class="border border-medium p-2">
                 Y
               </th>
-              <td class="border-medium border p-2">
+              <td class="border border-medium p-2">
                 {{ linearAcceleration?.y.toFixed(2) }}
               </td>
             </tr>
             <tr>
-              <th class="border-medium border p-2">
+              <th class="border border-medium p-2">
                 Z
               </th>
-              <td class="border-medium border p-2">
+              <td class="border border-medium p-2">
                 {{ linearAcceleration?.z.toFixed(2) }}
               </td>
             </tr>
@@ -381,12 +381,12 @@ onUnmounted(() => {
           <h3 class="mb-1">
             Compass Heading
           </h3>
-          <table class="border-medium w-full border border-t-0 p-4">
+          <table class="w-full border border-t-0 border-medium p-4">
             <tr>
-              <th class="border-medium border p-2">
+              <th class="border border-medium p-2">
                 Compass
               </th>
-              <td class="border-medium border p-2">
+              <td class="border border-medium p-2">
                 {{ compassHeading?.toFixed(2) }}
               </td>
             </tr>

@@ -294,7 +294,7 @@ onUnmounted(() => {
         @click="stop"
       />
 
-      <div class="border-medium flex flex-wrap gap-4 border border-t-0 sm:flex-nowrap">
+      <div class="flex flex-wrap gap-4 border border-t-0 border-medium sm:flex-nowrap">
         <div class="flex min-w-fit flex-col gap-4 p-4">
           <h2 class="font-bold">
             Motor Controls
@@ -405,7 +405,7 @@ onUnmounted(() => {
             />
           </div>
 
-          <hr class="border-medium my-4 border-t">
+          <hr class="my-4 border-t border-medium">
 
           <h2 class="font-bold">
             Live Feeds
@@ -456,7 +456,7 @@ onUnmounted(() => {
         </div>
         <div
           data-parent="base"
-          class="border-medium justify-start gap-4 p-4 sm:border-l"
+          class="justify-start gap-4 border-medium p-4 sm:border-l"
           :class="selectedView === 'Stacked' ? 'flex flex-col' : 'grid grid-cols-2 gap-4'"
         >
           <!-- ******* CAMERAS *******  -->
