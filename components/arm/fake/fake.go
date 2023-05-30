@@ -158,7 +158,7 @@ func (a *Arm) MoveToPosition(ctx context.Context, pos spatialmath.Pose, extra ma
 
 // MoveToJointPositions sets the joints.
 func (a *Arm) MoveToJointPositions(ctx context.Context, joints *pb.JointPositions, extra map[string]interface{}) error {
-	if err := arm.CheckDesiredJointPositions(ctx, a, joints.Values); err != nil {
+	if err := arm.CheckDesiredJointPositions(ctx, a, joints); err != nil {
 		return err
 	}
 	a.mu.RLock()
@@ -203,7 +203,7 @@ func (a *Arm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error
 	a.mu.RLock()
 	positionDegs := a.model.ProtobufFromInput(goal)
 	a.mu.RUnlock()
-	if err := arm.CheckDesiredJointPositions(ctx, a, positionDegs.Values); err != nil {
+	if err := arm.CheckDesiredJointPositions(ctx, a, positionDegs); err != nil {
 		return err
 	}
 	return a.MoveToJointPositions(ctx, positionDegs, nil)

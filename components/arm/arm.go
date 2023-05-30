@@ -17,7 +17,6 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/utils"
 )
 
 func init() {
@@ -173,28 +172,29 @@ func GoToWaypoints(ctx context.Context, a Arm, waypoints [][]referenceframe.Inpu
 
 // CheckDesiredJointPositions validates that the desired joint positions either bring the joint back
 // in bounds or do not move the joint more out of bounds.
-func CheckDesiredJointPositions(ctx context.Context, a Arm, desiredJoints []float64) error {
+func CheckDesiredJointPositions(ctx context.Context, a Arm, desiredJoints *pb.JointPositions) error {
 	currentJointPos, err := a.JointPositions(ctx, nil)
 	if err != nil {
 		return err
 	}
-	checkPositions := currentJointPos.Values
 	model := a.ModelFrame()
+	checkPositions := model.InputFromProtobuf(currentJointPos)
 	limits := model.DoF()
-	for i, val := range desiredJoints {
-		max := utils.RadToDeg(limits[i].Max)
-		min := utils.RadToDeg(limits[i].Min)
+	inputs := model.InputFromProtobuf(desiredJoints)
+	for i, val := range inputs {
+		max := limits[i].Max
+		min := limits[i].Min
 		currPosition := checkPositions[i]
 		// to make sure that val is a valid input
 		// it must either bring the joint more
 		// inbounds or keep the joint inbounds.
-		if currPosition > max {
-			max = currPosition
-		} else if currPosition < min {
-			min = currPosition
+		if currPosition.Value > limits[i].Max {
+			max = currPosition.Value
+		} else if currPosition.Value < limits[i].Min {
+			min = currPosition.Value
 		}
-		if val > max || val < min {
-			return fmt.Errorf("joint %v needs to be within range [%v, %v] and cannot be moved to %v", i, min, max, val)
+		if val.Value > max || val.Value < min {
+			return fmt.Errorf("joint %v needs to be within range [%v, %v] and cannot be moved to %v", i, min, max, val.Value)
 		}
 	}
 	return nil

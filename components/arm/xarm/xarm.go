@@ -191,7 +191,7 @@ func (x *xArm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error
 func (x *xArm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
 	// check that joint positions are not out of bounds
 	positionDegs := x.model.ProtobufFromInput(goal)
-	if err := arm.CheckDesiredJointPositions(ctx, x, positionDegs.Values); err != nil {
+	if err := arm.CheckDesiredJointPositions(ctx, x, positionDegs); err != nil {
 		return err
 	}
 	return x.MoveToJointPositions(ctx, positionDegs, nil)

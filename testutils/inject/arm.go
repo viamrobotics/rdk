@@ -109,8 +109,7 @@ func (a *Arm) ModelFrame() referenceframe.Model {
 		if a.Arm != nil {
 			return a.Arm.ModelFrame()
 		}
-		data := []byte("{\"links\": [{\"parent\": \"world\"}]}")
-		model, _ := referenceframe.UnmarshalModelJSON(data, "")
+		model := referenceframe.NewSimpleModel("")
 		return model
 	}
 	return a.ModelFrameFunc()

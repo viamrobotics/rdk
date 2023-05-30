@@ -209,6 +209,14 @@ func (nf *namedFrame) Name() string {
 	return nf.name
 }
 
+func (nf *namedFrame) Geometries(inputs []Input) (*GeometriesInFrame, error) {
+	gif, err := nf.Frame.Geometries(inputs)
+	if err != nil {
+		return nil, err
+	}
+	return NewGeometriesInFrame(nf.name, gif.geometries), nil
+}
+
 // NewNamedFrame will return a frame which has a new name but otherwise passes through all functions of the original frame.
 func NewNamedFrame(frame Frame, name string) Frame {
 	return &namedFrame{Frame: frame, name: name}

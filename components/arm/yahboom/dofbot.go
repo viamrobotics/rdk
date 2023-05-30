@@ -173,7 +173,7 @@ func (a *Dofbot) MoveToPosition(ctx context.Context, pos spatialmath.Pose, extra
 // MoveToJointPositions moves the arm's joints to the given positions.
 func (a *Dofbot) MoveToJointPositions(ctx context.Context, pos *componentpb.JointPositions, extra map[string]interface{}) error {
 	// check that joint positions are not out of bounds
-	if err := arm.CheckDesiredJointPositions(ctx, a, pos.Values); err != nil {
+	if err := arm.CheckDesiredJointPositions(ctx, a, pos); err != nil {
 		return err
 	}
 
@@ -429,7 +429,7 @@ func (a *Dofbot) CurrentInputs(ctx context.Context) ([]referenceframe.Input, err
 func (a *Dofbot) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
 	// check that joint positions are not out of bounds
 	positionDegs := a.model.ProtobufFromInput(goal)
-	if err := arm.CheckDesiredJointPositions(ctx, a, positionDegs.Values); err != nil {
+	if err := arm.CheckDesiredJointPositions(ctx, a, positionDegs); err != nil {
 		return err
 	}
 	return a.MoveToJointPositions(ctx, a.model.ProtobufFromInput(goal), nil)
