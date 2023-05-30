@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted } from 'vue';
-import { $ref } from 'vue/macros';
+import { $ref } from '@vue-macros/reactivity-transform/macros';
 import { grpc } from '@improbable-eng/grpc-web';
-import { Client, encoderApi, ResponseStream, robotApi, type ServiceError } from '@viamrobotics/sdk';
+import { Client, encoderApi, type ResponseStream, robotApi, type ServiceError } from '@viamrobotics/sdk';
 import { displayError } from '../lib/error';
 import { rcLogConditionally } from '../lib/log';
 import { setAsyncInterval } from '../lib/schedule';

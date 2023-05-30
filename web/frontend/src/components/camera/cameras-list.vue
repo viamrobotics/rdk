@@ -10,7 +10,7 @@ import Camera from './camera.vue';
 import PCD from '../pcd/pcd.vue';
 import { selectedMap } from '../../lib/camera-state';
 import type { StreamManager } from './stream-manager';
-import { $ref } from 'vue/macros';
+import { $ref } from '@vue-macros/reactivity-transform/macros';
 
 const props = defineProps<{
   resources: commonApi.ResourceName.AsObject[],

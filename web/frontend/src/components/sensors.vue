@@ -1,7 +1,8 @@
 <script setup lang="ts">
 
+import { $ref } from '@vue-macros/reactivity-transform/macros';
 import { grpc } from '@improbable-eng/grpc-web';
-import { Client, sensorsApi, commonApi, ServiceError } from '@viamrobotics/sdk';
+import { Client, sensorsApi, commonApi, type ServiceError } from '@viamrobotics/sdk';
 import { toast } from '../lib/toast';
 import { resourceNameToString } from '../lib/resource';
 import { rcLogConditionally } from '../lib/log';

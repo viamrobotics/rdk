@@ -1,4 +1,6 @@
 <script setup lang="ts">
+
+import { $ref } from '@vue-macros/reactivity-transform/macros';
 import { ArmClient, Client } from '@viamrobotics/sdk';
 import type { Pose, ServiceError } from '@viamrobotics/sdk';
 import { copyToClipboardWithToast } from '../lib/copy-to-clipboard';

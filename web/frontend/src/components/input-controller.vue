@@ -1,6 +1,6 @@
 <script setup lang="ts">
 
-import { computed } from 'vue';
+import { $computed } from '@vue-macros/reactivity-transform/macros';
 import type { inputControllerApi } from '@viamrobotics/sdk';
 
 const props = defineProps<{
@@ -31,7 +31,7 @@ const controlOrder = [
   'ButtonEStop',
 ];
 
-const connected = computed(() => {
+const connected = $computed(() => {
   for (const { event } of props.status.eventsList) {
     if (event !== 'Disconnect') {
       return true;
@@ -51,7 +51,7 @@ const getValue = (controlMatch: string) => {
 };
 
 const controls = $computed(() => {
-  const pendingControls = [];
+  const pendingControls: [control: string, value: string][] = [];
 
   for (const ctrl of controlOrder) {
     const value = getValue(ctrl);

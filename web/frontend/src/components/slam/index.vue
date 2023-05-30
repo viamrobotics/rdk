@@ -1,11 +1,19 @@
 <script setup lang="ts">
 
-import { $ref, $computed } from 'vue/macros';
+import { $ref, $computed } from '@vue-macros/reactivity-transform/macros';
 import { grpc } from '@improbable-eng/grpc-web';
 import { toast } from '@/lib/toast';
 import { Struct } from 'google-protobuf/google/protobuf/struct_pb';
 import * as THREE from 'three';
-import { Client, commonApi, ResponseStream, robotApi, ServiceError, slamApi, motionApi } from '@viamrobotics/sdk';
+import {
+  Client,
+  commonApi,
+  type ResponseStream,
+  robotApi,
+  type ServiceError,
+  slamApi,
+  motionApi,
+} from '@viamrobotics/sdk';
 import { displayError, isServiceError } from '@/lib/error';
 import { rcLogConditionally } from '@/lib/log';
 import PCD from '../pcd/pcd-view.vue';

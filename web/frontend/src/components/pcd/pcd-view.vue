@@ -6,7 +6,7 @@
  * This is causing memory leaks.
  */
 
-import { $ref, $computed } from 'vue/macros';
+import { $ref, $computed } from '@vue-macros/reactivity-transform/macros';
 import { onMounted, onUnmounted, watch } from 'vue';
 import * as THREE from 'three';
 import { OrbitControlsGizmo, GridHelper } from 'trzy';

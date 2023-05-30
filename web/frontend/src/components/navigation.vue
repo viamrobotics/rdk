@@ -1,10 +1,11 @@
 <script setup lang="ts">
 
-import { ref, onMounted, onUnmounted } from 'vue';
+import { $ref } from '@vue-macros/reactivity-transform/macros';
+import { onMounted, onUnmounted } from 'vue';
 import { grpc } from '@improbable-eng/grpc-web';
 import { toast } from '../lib/toast';
 import { filterResources } from '../lib/resource';
-import { Client, commonApi, robotApi, navigationApi, type ServiceError, ResponseStream } from '@viamrobotics/sdk';
+import { Client, commonApi, robotApi, navigationApi, type ServiceError, type ResponseStream } from '@viamrobotics/sdk';
 import { Struct } from 'google-protobuf/google/protobuf/struct_pb';
 import { rcLogConditionally } from '../lib/log';
 
@@ -24,32 +25,14 @@ let map: google.maps.Map;
 let updateWaypointsId: number;
 let updateLocationsId: number;
 
-const mapInit = ref(false);
-const googleApiKey = ref('');
-const location = ref('');
-const res = ref();
-const container = ref<HTMLElement>();
+let mapInit = $ref(false);
+let googleApiKey = $ref('');
+const location = $ref('');
+const container = $ref<HTMLElement>();
 
-const grpcCallback = (
-  error: ServiceError | null,
-  responseMessage: (navigationApi.SetModeResponse | null),
-  stringify = true
-) => {
+const grpcCallback = (error: ServiceError | null) => {
   if (error) {
     toast.error(error.message);
-    return;
-  }
-  if (stringify) {
-    try {
-      if (responseMessage === null) {
-        res.value = null;
-        return;
-      }
-
-      res.value = JSON.stringify(responseMessage.toObject());
-    } catch (_error) {
-      toast.error(`${_error}`);
-    }
   }
 };
 
@@ -71,7 +54,7 @@ const setNavigationMode = (mode: 'manual' | 'waypoint') => {
 };
 
 const setNavigationLocation = () => {
-  const [latStr, lngStr] = location.value.split(',');
+  const [latStr, lngStr] = location.split(',');
   if (latStr === undefined || lngStr === undefined) {
     return;
   }
@@ -110,7 +93,7 @@ const setNavigationLocation = () => {
 const initNavigation = async () => {
   await mapReady;
 
-  map = new window.google.maps.Map(container.value!, { zoom: 18 });
+  map = new window.google.maps.Map(container!, { zoom: 18 });
   map.addListener('click', (event: google.maps.MapMouseEvent) => {
     const lat = event.latLng?.lat();
     const lng = event.latLng?.lng();
@@ -144,7 +127,7 @@ const initNavigation = async () => {
       req,
       new grpc.Metadata(),
       (err: ServiceError | null, resp: navigationApi.GetWaypointsResponse | null) => {
-        grpcCallback(err, resp, false);
+        grpcCallback(err);
 
         if (err) {
           updateWaypointsId = window.setTimeout(updateWaypoints, 1000);
@@ -229,7 +212,7 @@ const initNavigation = async () => {
       req,
       new grpc.Metadata(),
       (err: ServiceError | null, resp: navigationApi.GetLocationResponse | null) => {
-        grpcCallback(err, resp, false);
+        grpcCallback(err);
 
         if (err) {
           updateLocationsId = window.setTimeout(updateLocation, 1000);
@@ -263,10 +246,9 @@ const loadMaps = () => {
     return;
   }
 
-  const key = googleApiKey.value;
   const script = document.createElement('script');
   script.id = 'google-maps';
-  script.src = `https://maps.googleapis.com/maps/api/js?key=${key}` +
+  script.src = `https://maps.googleapis.com/maps/api/js?key=${googleApiKey}` +
     '&callback=googleMapsInit&libraries=&v=weekly&map_ids=google-maps-1';
   script.async = true;
   document.head.append(script);
@@ -278,8 +260,8 @@ window.googleMapsInit = () => {
 };
 
 const initNavigationView = () => {
-  window.localStorage.setItem('nav-svc-google-api-key', googleApiKey.value);
-  mapInit.value = true;
+  window.localStorage.setItem('nav-svc-google-api-key', googleApiKey);
+  mapInit = true;
   loadMaps();
   initNavigation();
 };
@@ -287,7 +269,7 @@ const initNavigationView = () => {
 onMounted(() => {
   const apiKey = window.localStorage.getItem('nav-svc-google-api-key');
   if (apiKey) {
-    googleApiKey.value = apiKey;
+    googleApiKey = apiKey;
     initNavigationView();
   }
 

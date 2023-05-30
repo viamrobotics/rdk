@@ -56,7 +56,7 @@ const grab = () => {
         @click.stop="stop"
       />
     </div>
-    <div class="border-medium flex gap-2 border border-t-0 p-4">
+    <div class="flex gap-2 border border-t-0 border-medium p-4">
       <v-button
         label="Open"
         @click="open"

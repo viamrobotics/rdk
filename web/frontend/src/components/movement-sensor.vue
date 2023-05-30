@@ -2,11 +2,11 @@
 
 import { onMounted, onUnmounted } from 'vue';
 import { grpc } from '@improbable-eng/grpc-web';
-import { Client, movementSensorApi as movementsensorApi, ServiceError } from '@viamrobotics/sdk';
-import type{ ResponseStream, commonApi, robotApi } from '@viamrobotics/sdk';
+import { Client, movementSensorApi as movementsensorApi, type ServiceError } from '@viamrobotics/sdk';
+import type { ResponseStream, commonApi, robotApi } from '@viamrobotics/sdk';
 import { displayError } from '../lib/error';
 import { rcLogConditionally } from '../lib/log';
-import { $ref } from 'vue/macros';
+import { $ref } from '@vue-macros/reactivity-transform/macros';
 
 const props = defineProps<{
   name: string

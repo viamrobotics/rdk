@@ -1,9 +1,9 @@
 <script setup lang="ts">
 
 import { onMounted, onUnmounted } from 'vue';
-import { $ref, $computed, $$ } from 'vue/macros';
+import { $ref, $computed, $$ } from '@vue-macros/reactivity-transform/macros';
 import { onClickOutside } from '@vueuse/core';
-import { BaseClient, Client, type ServiceError, commonApi, ResponseStream, robotApi } from '@viamrobotics/sdk';
+import { BaseClient, Client, type ServiceError, commonApi, type ResponseStream, robotApi } from '@viamrobotics/sdk';
 import { filterResources } from '../lib/resource';
 import { displayError } from '../lib/error';
 import KeyboardInput, { type Keys } from './keyboard-input.vue';

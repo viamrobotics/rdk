@@ -8,13 +8,13 @@ import { ConnectionClosedError } from '@viamrobotics/rpc';
 import {
   Client,
   inputControllerApi as InputController,
-  ResponseStream,
+  type ResponseStream,
   robotApi,
   type ServiceError,
 } from '@viamrobotics/sdk';
 import { toast } from '../lib/toast';
 import { rcLogConditionally } from '../lib/log';
-import { $ref } from 'vue/macros';
+import { $ref } from '@vue-macros/reactivity-transform/macros';
 
 const props = defineProps<{
   name: string;

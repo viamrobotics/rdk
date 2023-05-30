@@ -1,8 +1,8 @@
 <script setup lang="ts">
 
-import { computed, ref } from 'vue';
+import { $ref, $computed } from '@vue-macros/reactivity-transform/macros';
 import { Struct } from 'google-protobuf/google/protobuf/struct_pb';
-import { Client, commonApi, ServiceError } from '@viamrobotics/sdk';
+import { Client, commonApi, type ServiceError } from '@viamrobotics/sdk';
 import { toast } from '../lib/toast';
 import { resourceNameToString } from '../lib/resource';
 import { rcLogConditionally } from '../lib/log';
@@ -12,12 +12,12 @@ const props = defineProps<{
   client: Client
 }>();
 
-const resources = computed(() => props.resources);
+const resources = $computed(() => props.resources);
 
-const selectedComponent = ref();
-const input = ref();
-const output = ref();
-const executing = ref(false);
+const selectedComponent = $ref('');
+const input = $ref('');
+let output = $ref('');
+let executing = $ref(false);
 
 const doCommand = (name: string, command: string) => {
   if (!name || !command) {
@@ -27,25 +27,25 @@ const doCommand = (name: string, command: string) => {
   request.setName(name);
   request.setCommand(Struct.fromJavaScript(JSON.parse(command)));
 
-  executing.value = true;
+  executing = true;
   rcLogConditionally(request);
   props.client.genericService.doCommand(
     request,
     (error: ServiceError | null, response: commonApi.DoCommandResponse | null) => {
       if (error) {
         toast.error(`Error executing command on ${name}: ${error}`);
-        executing.value = false;
+        executing = false;
         return;
       }
 
       if (!response) {
         toast.error(`Invalid response when executing command on ${name}`);
-        executing.value = false;
+        executing = false;
         return;
       }
 
-      output.value = JSON.stringify(response?.getResult()?.toObject(), null, '\t');
-      executing.value = false;
+      output = JSON.stringify(response?.getResult()?.toObject(), null, '\t');
+      executing = false;
     }
   );
 };
