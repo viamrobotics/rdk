@@ -28,10 +28,10 @@ func TestEmptyConfigFrameService(t *testing.T) {
 	ctx := context.Background()
 	r, err := robotimpl.New(ctx, &config.Config{}, logger)
 	test.That(t, err, test.ShouldBeNil)
-	fsCfg, err := r.FrameSystemConfig(ctx)
+	parts, err := r.FrameSystemConfig(ctx)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, fsCfg.Parts, test.ShouldHaveLength, 0)
-	fs, err := referenceframe.NewFrameSystem("test", fsCfg.Parts, fsCfg.AdditionalTransforms)
+	test.That(t, parts, test.ShouldHaveLength, 0)
+	fs, err := referenceframe.NewFrameSystem("test", parts, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fs.FrameNames(), test.ShouldHaveLength, 0)
 }
@@ -103,7 +103,7 @@ func TestNewFrameSystemFromConfigWithTransforms(t *testing.T) {
 	r, err := robotimpl.New(context.Background(), cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer r.Close(context.Background())
-	fsCfg, err := r.FrameSystemConfig(ctx)
+	parts, err := r.FrameSystemConfig(ctx)
 	test.That(t, err, test.ShouldBeNil)
 
 	// use fake registrations to have a FrameSystem return
@@ -112,7 +112,7 @@ func TestNewFrameSystemFromConfigWithTransforms(t *testing.T) {
 		&spatialmath.R4AA{Theta: math.Pi / 2, RX: 0., RY: 1., RZ: 0.},
 	)
 
-	fsCfg.AdditionalTransforms = []*referenceframe.LinkInFrame{
+	additionalTransforms := []*referenceframe.LinkInFrame{
 		referenceframe.NewLinkInFrame("pieceArm", testPose, "frame1", nil),
 		referenceframe.NewLinkInFrame("pieceGripper", testPose, "frame2", nil),
 		referenceframe.NewLinkInFrame("frame2", testPose, "frame2a", nil),
@@ -120,7 +120,7 @@ func TestNewFrameSystemFromConfigWithTransforms(t *testing.T) {
 		referenceframe.NewLinkInFrame(referenceframe.World, testPose, "frame3", nil),
 	}
 
-	fs, err := referenceframe.NewFrameSystem("test", fsCfg.Parts, fsCfg.AdditionalTransforms)
+	fs, err := referenceframe.NewFrameSystem("test", parts, additionalTransforms)
 	test.That(t, err, test.ShouldBeNil)
 	// 4 frames defined + 5 from transforms, 18 frames when including the offset,
 	test.That(t, len(fs.FrameNames()), test.ShouldEqual, 18)
@@ -222,9 +222,9 @@ func TestNewFrameSystemFromBadConfig(t *testing.T) {
 		num  string
 		err  error
 	}{
-		// {"no world node", "2", referenceframe.ErrNoWorldConnection},
+		{"no world node", "2", referenceframe.ErrNoWorldConnection},
 		{"frame named world", "3", errors.Errorf("cannot give frame system part the name %s", referenceframe.World)},
-		// {"parent field empty", "4", errors.New("parent field in frame config for part \"cameraOver\" is empty")},
+		{"parent field empty", "4", errors.New("parent field in frame config for part \"cameraOver\" is empty")},
 	}
 
 	for _, tc := range testCases {
@@ -234,12 +234,12 @@ func TestNewFrameSystemFromBadConfig(t *testing.T) {
 			r, err := robotimpl.New(ctx, cfg, logger)
 			test.That(t, err, test.ShouldBeNil)
 			defer r.Close(ctx)
-			fsCfg, err := r.FrameSystemConfig(ctx)
+			parts, err := r.FrameSystemConfig(ctx)
 			if err != nil {
 				test.That(t, err, test.ShouldBeError, tc.err)
 				return
 			}
-			_, err = referenceframe.NewFrameSystem(tc.num, fsCfg.Parts, fsCfg.AdditionalTransforms)
+			_, err = referenceframe.NewFrameSystem(tc.num, parts, nil)
 			test.That(t, err, test.ShouldBeError, tc.err)
 		})
 	}
@@ -257,10 +257,9 @@ func TestNewFrameSystemFromBadConfig(t *testing.T) {
 			referenceframe.NewLinkInFrame("pieceArm", testPose, "frame1", nil),
 			referenceframe.NewLinkInFrame("noParent", testPose, "frame2", nil),
 		}
-		fsCfg, err := r.FrameSystemConfig(ctx)
+		parts, err := r.FrameSystemConfig(ctx)
 		test.That(t, err, test.ShouldBeNil)
-		fsCfg.AdditionalTransforms = transforms
-		fs, err := referenceframe.NewFrameSystem("", fsCfg.Parts, fsCfg.AdditionalTransforms)
+		fs, err := referenceframe.NewFrameSystem("", parts, transforms)
 		test.That(t, err, test.ShouldBeError, referenceframe.NewParentFrameMissingError("frame2", "noParent"))
 		test.That(t, fs, test.ShouldBeNil)
 	})
@@ -269,10 +268,9 @@ func TestNewFrameSystemFromBadConfig(t *testing.T) {
 		transforms := []*referenceframe.LinkInFrame{
 			referenceframe.NewLinkInFrame("pieceArm", testPose, "", nil),
 		}
-		fsCfg, err := r.FrameSystemConfig(ctx)
+		parts, err := r.FrameSystemConfig(ctx)
 		test.That(t, err, test.ShouldBeNil)
-		fsCfg.AdditionalTransforms = transforms
-		fs, err := referenceframe.NewFrameSystem("", fsCfg.Parts, fsCfg.AdditionalTransforms)
+		fs, err := referenceframe.NewFrameSystem("", parts, transforms)
 		test.That(t, err, test.ShouldBeError, referenceframe.ErrEmptyStringFrameName)
 		test.That(t, fs, test.ShouldBeNil)
 	})
@@ -364,10 +362,9 @@ func TestServiceWithRemote(t *testing.T) {
 
 	r2, err := robotimpl.New(context.Background(), localConfig, logger)
 	test.That(t, err, test.ShouldBeNil)
-	fsCfg, err := r2.FrameSystemConfig(context.Background())
+	parts, err := r2.FrameSystemConfig(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	fsCfg.AdditionalTransforms = transforms
-	fs, err := referenceframe.NewFrameSystem("test", fsCfg.Parts, fsCfg.AdditionalTransforms)
+	fs, err := referenceframe.NewFrameSystem("test", parts, transforms)
 
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fs.FrameNames(), test.ShouldHaveLength, 34)

@@ -803,7 +803,7 @@ func (rc *RobotClient) DiscoverComponents(ctx context.Context, qs []resource.Dis
 }
 
 // FrameSystemConfig returns the info of each individual part that makes up the frame system.
-func (rc *RobotClient) FrameSystemParts(ctx context.Context) ([]*referenceframe.FrameSystemPart, error) {
+func (rc *RobotClient) FrameSystemConfig(ctx context.Context) ([]*referenceframe.FrameSystemPart, error) {
 	resp, err := rc.client.FrameSystemConfig(ctx, &pb.FrameSystemConfigRequest{})
 	if err != nil {
 		return nil, err

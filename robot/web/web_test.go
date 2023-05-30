@@ -825,7 +825,7 @@ func setupRobotCtx(t *testing.T) (context.Context, robot.Robot) {
 		return injectArm, nil
 	}
 	injectRobot.LoggerFunc = func() golog.Logger { return golog.NewTestLogger(t) }
-	injectRobot.FrameSystemPartsFunc = func(ctx context.Context) ([]*referenceframe.FrameSystemPart, error) {
+	injectRobot.FrameSystemConfigFunc = func(ctx context.Context) ([]*referenceframe.FrameSystemPart, error) {
 		return make([]*referenceframe.FrameSystemPart, 0), nil
 	}
 

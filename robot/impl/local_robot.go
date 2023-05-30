@@ -703,10 +703,11 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 					r.Logger().Errorw("failed to reconfigure internal service", "service", resName, "error", err)
 				}
 			case framesystem.InternalServiceName:
-				fsCfg, err := r.getFrameSystemConfig(ctx)
+
+				fsCfg, err := r.buildFrameSystemConfig(ctx)
 				if err != nil {
 					r.Logger().Errorw("failed to reconfigure internal service", "service", resName, "error", err)
-					return
+					continue
 				}
 				if err := res.Reconfigure(ctx, components, resource.Config{ConvertedAttributes: fsCfg}); err != nil {
 					r.Logger().Errorw("failed to reconfigure internal service", "service", resName, "error", err)
@@ -782,22 +783,18 @@ func (r *localRobot) FrameSystemParts(ctx context.Context) ([]*referenceframe.Fr
 }
 
 func (r *localRobot) buildFrameSystemConfig(ctx context.Context) (*framesystem.Config, error) {
-	localParts, err := r.getLocalFrameSystemParts()
-	if err != nil {
-		return nil, err
-	}
-	remoteParts, err := r.getRemoteFrameSystemParts(ctx)
+	remoteParts, err := r.getRemoteFrameSystemConfig(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	return &framesystem.Config{PartConfigs: append(localParts, remoteParts...)}, nil
+	return &framesystem.Config{PartConfigs: append(r.getLocalFrameSystemConfig(), remoteParts...)}, nil
 }
 
-// getLocalFrameSystemParts collects and returns the physical parts of the robot that may have frame info,
+// getLocalFrameSystemConfig collects and returns the physical parts of the robot that may have frame info,
 // excluding remote robots and services, etc from the robot's config.Config.
-func (r *localRobot) getLocalFrameSystemParts() ([]*framesystem.PartConfig, error) {
-	cfg := r.Config()
+func (r *localRobot) getLocalFrameSystemConfig(ctx context.Context) ([]*framesystem.FrameSystemPartConfig, error) {
+	cfg := r.Config(ctx)
 
 	parts := make([]*framesystem.PartConfig, 0, len(cfg.Components))
 	for _, component := range cfg.Components {
@@ -810,8 +807,8 @@ func (r *localRobot) getLocalFrameSystemParts() ([]*framesystem.PartConfig, erro
 	return parts, nil
 }
 
-func (r *localRobot) getRemoteFrameSystemParts(ctx context.Context) ([]*framesystem.PartConfig, error) {
-	cfg := r.Config()
+func (r *localRobot) getRemoteFrameSystemConfig(ctx context.Context) ([]*framesystem.FrameSystemPartConfig, error) {
+	cfg := r.Config(ctx)
 
 	remoteParts := make([]*framesystem.PartConfig, 0)
 	for _, remoteCfg := range cfg.Remotes {
@@ -828,7 +825,7 @@ func (r *localRobot) getRemoteFrameSystemParts(ctx context.Context) ([]*framesys
 		if !ok {
 			return nil, errors.Errorf("cannot find remote robot %q", remoteCfg.Name)
 		}
-		remoteFSParts, err := remote.FrameSystemParts(ctx)
+		remoteFSParts, err := remote.FrameSystemConfig(ctx)
 		if err != nil {
 			return nil, errors.Wrapf(err, "error from remote %q", remoteCfg.Name)
 		}

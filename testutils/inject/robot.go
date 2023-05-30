@@ -36,7 +36,7 @@ type Robot struct {
 	LoggerFunc             func() golog.Logger
 	CloseFunc              func(ctx context.Context) error
 	StopAllFunc            func(ctx context.Context, extra map[resource.Name]map[string]interface{}) error
-	FrameSystemPartsFunc   func(ctx context.Context) ([]*referenceframe.FrameSystemPart, error)
+	FrameSystemConfigFunc  func(ctx context.Context) ([]*referenceframe.FrameSystemPart, error)
 	TransformPoseFunc      func(
 		ctx context.Context,
 		pose *referenceframe.PoseInFrame,
@@ -217,14 +217,14 @@ func (r *Robot) DiscoverComponents(ctx context.Context, keys []resource.Discover
 }
 
 // FrameSystemConfig calls the injected FrameSystemConfig or the real version.
-func (r *Robot) FrameSystemParts(ctx context.Context) ([]*referenceframe.FrameSystemPart, error) {
+func (r *Robot) FrameSystemConfig(ctx context.Context) ([]*referenceframe.FrameSystemPart, error) {
 	r.Mu.RLock()
 	defer r.Mu.RUnlock()
-	if r.FrameSystemPartsFunc == nil {
-		return r.LocalRobot.FrameSystemParts(ctx)
+	if r.FrameSystemConfigFunc == nil {
+		return r.LocalRobot.FrameSystemConfig(ctx)
 	}
 
-	return r.FrameSystemPartsFunc(ctx)
+	return r.FrameSystemConfigFunc(ctx)
 }
 
 // TransformPose calls the injected TransformPose or the real version.

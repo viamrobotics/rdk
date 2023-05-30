@@ -84,7 +84,7 @@ type FrameSystemPartConfig struct {
 
 	// Preprocessed is a field that if filled means that no further processing of the config is necessary
 	// This is efficient because parts that are returned from remotes should not have to be turned into configs only
-	// to be converted back into FrameSystemParts once in the framesystem service
+	// to be converted back into FrameSystemConfig once in the framesystem service
 	PreprocessedPart *referenceframe.FrameSystemPart
 }
 
@@ -316,7 +316,7 @@ func (svc *frameSystemService) TransformPointCloud(ctx context.Context, srcpc po
 	return pointcloud.ApplyOffset(ctx, srcpc, theTransform.Pose(), svc.logger)
 }
 
-// PrefixRemoteParts applies prefixes to a list of FrameSystemParts appropriate to the remote they originate from.
+// PrefixRemoteParts applies prefixes to a list of FrameSystemConfig appropriate to the remote they originate from.
 func ProcessRemoteFrameSystem(parts []*referenceframe.FrameSystemPart, remoteName, remoteParent string) []*FrameSystemPartConfig {
 	partConfigs := make([]*FrameSystemPartConfig, 0, len(parts))
 	for _, part := range parts {
