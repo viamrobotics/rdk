@@ -732,7 +732,7 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 
 	reconfigureChan := make(chan struct{})
 
-	updateResourceWeakDependents := func(conf resource.Config) {
+	updateResourceWeakDependents := func(conf resource.Config, ctx context.Context) {
 		defer func() { reconfigureChan <- struct{}{} }()
 		resName := conf.ResourceName()
 		resNode, ok := r.manager.resources.Node(resName)
@@ -767,7 +767,7 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 
 		ctxWithTimeout, timeoutCancel := context.WithTimeout(ctx, resourceConstructTimeout)
 		defer timeoutCancel()
-		go updateResourceWeakDependents(cfg)
+		go updateResourceWeakDependents(cfg, ctxWithTimeout)
 		select {
 		case <-reconfigureChan:
 			continue
@@ -785,7 +785,7 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 
 		ctxWithTimeout, timeoutCancel := context.WithTimeout(ctx, resourceConstructTimeout)
 		defer timeoutCancel()
-		go updateResourceWeakDependents(cfg)
+		go updateResourceWeakDependents(cfg, ctxWithTimeout)
 		select {
 		case <-reconfigureChan:
 			continue
