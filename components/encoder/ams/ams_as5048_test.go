@@ -92,28 +92,28 @@ func TestAMSEncoder(t *testing.T) {
 
 	t.Run("test automatically set to type ticks", func(t *testing.T) {
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			pos, _, _ := enc.GetPosition(ctx, encoder.PositionTypeUnspecified, nil)
+			pos, _, _ := enc.Position(ctx, encoder.PositionTypeUnspecified, nil)
 			test.That(tb, pos, test.ShouldNotEqual, 0.0)
 		})
-		pos, posType, _ := enc.GetPosition(ctx, encoder.PositionTypeUnspecified, nil)
+		pos, posType, _ := enc.Position(ctx, encoder.PositionTypeUnspecified, nil)
 		test.That(t, pos, test.ShouldAlmostEqual, 0.4, 0.1)
 		test.That(t, posType, test.ShouldEqual, 1)
 	})
 	t.Run("test ticks type from input", func(t *testing.T) {
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			pos, _, _ := enc.GetPosition(ctx, encoder.PositionTypeTicks, nil)
+			pos, _, _ := enc.Position(ctx, encoder.PositionTypeTicks, nil)
 			test.That(tb, pos, test.ShouldNotEqual, 0.0)
 		})
-		pos, posType, _ := enc.GetPosition(ctx, encoder.PositionTypeUnspecified, nil)
+		pos, posType, _ := enc.Position(ctx, encoder.PositionTypeUnspecified, nil)
 		test.That(t, pos, test.ShouldAlmostEqual, 0.4, 0.1)
 		test.That(t, posType, test.ShouldEqual, 1)
 	})
 	t.Run("test degrees type from input", func(t *testing.T) {
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			pos, _, _ := enc.GetPosition(ctx, encoder.PositionTypeTicks, nil)
+			pos, _, _ := enc.Position(ctx, encoder.PositionTypeTicks, nil)
 			test.That(tb, pos, test.ShouldNotEqual, 0.0)
 		})
-		pos, posType, _ := enc.GetPosition(ctx, encoder.PositionTypeDegrees, nil)
+		pos, posType, _ := enc.Position(ctx, encoder.PositionTypeDegrees, nil)
 		test.That(t, pos, test.ShouldAlmostEqual, 142, 0.1)
 		test.That(t, posType, test.ShouldEqual, 2)
 	})
@@ -182,7 +182,7 @@ func TestAMSEncoderReset(t *testing.T) {
 		})
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			pos, posType, _ := enc.GetPosition(ctx, encoder.PositionTypeUnspecified, nil)
+			pos, posType, _ := enc.Position(ctx, encoder.PositionTypeUnspecified, nil)
 			test.That(tb, pos, test.ShouldAlmostEqual, 0, 0.1)
 			test.That(tb, posType, test.ShouldEqual, 1)
 		})

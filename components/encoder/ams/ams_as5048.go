@@ -244,13 +244,13 @@ func (enc *Encoder) updatePosition(ctx context.Context) error {
 	return nil
 }
 
-// GetPosition returns the total number of rotations detected
+// Position returns the total number of rotations detected
 // by the encoder (rather than a number of pulse state transitions)
 // because this encoder is absolute and not incremental. As a result
 // a user MUST set ticks_per_rotation on the config of the corresponding
 // motor to 1. Any other value will result in completely incorrect
 // position measurements by the motor.
-func (enc *Encoder) GetPosition(
+func (enc *Encoder) Position(
 	ctx context.Context, positionType encoder.PositionType, extra map[string]interface{},
 ) (float64, encoder.PositionType, error) {
 	enc.mu.RLock()
@@ -306,8 +306,8 @@ func (enc *Encoder) ResetPosition(
 	return nil
 }
 
-// GetProperties returns a list of all the position types that are supported by a given encoder.
-func (enc *Encoder) GetProperties(ctx context.Context, extra map[string]interface{}) (map[encoder.Feature]bool, error) {
+// Properties returns a list of all the position types that are supported by a given encoder.
+func (enc *Encoder) Properties(ctx context.Context, extra map[string]interface{}) (map[encoder.Feature]bool, error) {
 	return map[encoder.Feature]bool{
 		encoder.TicksCountSupported:   true,
 		encoder.AngleDegreesSupported: true,
