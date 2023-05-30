@@ -145,7 +145,8 @@ type RTKMovementSensor struct {
 	ntripClient *NtripInfo
 	ntripStatus bool
 
-	err movementsensor.LastError
+	err          movementsensor.LastError
+	lastPosition *geo.Point
 
 	nmeamovementsensor gpsnmea.NmeaMovementSensor
 	inputProtocol      string
@@ -253,6 +254,11 @@ func (g *RTKMovementSensor) start() error {
 		utils.PanicCapturingGo(func() { g.receiveAndWriteI2C(g.cancelCtx) })
 	}
 
+	if err := g.start(); err != nil {
+		// Set lastPosition to nil if there's an error
+		g.lastPosition = nil
+		return err
+	}
 	return g.err.Get()
 }
 
@@ -577,12 +583,26 @@ func (g *RTKMovementSensor) Position(ctx context.Context, extra map[string]inter
 	g.ntripMu.Lock()
 	lastError := g.err.Get()
 	if lastError != nil {
-		defer g.ntripMu.Unlock()
-		return geo.NewPoint(0, 0), 0, lastError
+		// Return the last known position if there's an error
+		lastPosition := g.lastPosition
+		g.ntripMu.Unlock()
+		if lastPosition != nil {
+			return lastPosition, 0, nil
+		}
+		return nil, 0, lastError
 	}
 	g.ntripMu.Unlock()
 
-	return g.nmeamovementsensor.Position(ctx, extra)
+	// Get the current position using the nmeamovementsensor
+	position, accuracy, err := g.nmeamovementsensor.Position(ctx, extra)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// Update the last known position
+	g.lastPosition = position
+
+	return position, accuracy, nil
 }
 
 // LinearVelocity passthrough.
@@ -728,6 +748,8 @@ func (g *RTKMovementSensor) Close(ctx context.Context) error {
 		}
 		g.ntripClient.Stream = nil
 	}
+
+	g.lastPosition = nil
 
 	g.ntripMu.Unlock()
 	g.activeBackgroundWorkers.Wait()
