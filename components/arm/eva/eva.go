@@ -152,7 +152,7 @@ func (e *eva) MoveToPosition(ctx context.Context, pos spatialmath.Pose, extra ma
 
 func (e *eva) MoveToJointPositions(ctx context.Context, newPositions *pb.JointPositions, extra map[string]interface{}) error {
 	// check that joint positions are not out of bounds
-	if err := arm.CheckDesiredJointPositions(ctx, e, newPositions.Values); err != nil {
+	if err := arm.CheckDesiredJointPositions(ctx, e, newPositions); err != nil {
 		return err
 	}
 	ctx, done := e.opMgr.New(ctx)
@@ -388,7 +388,7 @@ func (e *eva) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error)
 
 func (e *eva) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
 	positionDegs := e.model.ProtobufFromInput(goal)
-	if err := arm.CheckDesiredJointPositions(ctx, e, positionDegs.Values); err != nil {
+	if err := arm.CheckDesiredJointPositions(ctx, e, positionDegs); err != nil {
 		return err
 	}
 	return e.MoveToJointPositions(ctx, positionDegs, nil)
@@ -401,4 +401,18 @@ func (e *eva) Close(ctx context.Context) error {
 // MakeModelFrame returns the kinematics model of the eva arm, also has all Frame information.
 func MakeModelFrame(name string) (referenceframe.Model, error) {
 	return referenceframe.UnmarshalModelJSON(evamodeljson, name)
+}
+
+// Geometries returns the list of geometries associated with the resource, in any order. The poses of the geometries reflect their
+// current location relative to the frame of the resource.
+func (e *eva) Geometries(ctx context.Context) ([]spatialmath.Geometry, error) {
+	inputs, err := e.CurrentInputs(ctx)
+	if err != nil {
+		return nil, err
+	}
+	gif, err := e.model.Geometries(inputs)
+	if err != nil {
+		return nil, err
+	}
+	return gif.Geometries(), nil
 }
