@@ -106,7 +106,12 @@ func (a *Arm) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[st
 // ModelFrame calls the injected ModelFrame or the real version.
 func (a *Arm) ModelFrame() referenceframe.Model {
 	if a.ModelFrameFunc == nil {
-		return a.Arm.ModelFrame()
+		if a.Arm != nil {
+			return a.Arm.ModelFrame()
+		}
+		data := []byte("{\"links\": [{\"parent\": \"world\"}]}")
+		model, _ := referenceframe.UnmarshalModelJSON(data, "")
+		return model
 	}
 	return a.ModelFrameFunc()
 }
