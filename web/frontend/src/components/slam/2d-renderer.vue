@@ -140,14 +140,14 @@ const dispose = (object?: THREE.Object3D) => {
 };
 
 const updatePose = (newPose: commonApi.Pose) => {
-  const x = newPose.getX();
-  const y = newPose.getY();
-  const z = newPose.getZ();
+  const x = newPose.getX() / 1000;
+  const y = newPose.getY() / 1000;
+  const z = newPose.getZ() / 1000;
 
   baseMarker.position.set(x, y, z);
 
   const theta = THREE.MathUtils.degToRad(newPose.getTheta());
-  baseMarker.geometry.rotateZ(theta);
+  baseMarker.material.rotation = theta;
 };
 
 /*
