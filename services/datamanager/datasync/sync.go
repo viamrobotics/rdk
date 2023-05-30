@@ -31,6 +31,7 @@ var (
 // Manager is responsible for enqueuing files in captureDir and uploading them to the cloud.
 type Manager interface {
 	SyncFile(path string)
+	SetArbitraryFileTags(tags []string)
 	Close()
 }
 
@@ -42,6 +43,7 @@ type syncer struct {
 	backgroundWorkers sync.WaitGroup
 	cancelCtx         context.Context
 	cancelFunc        func()
+	arbitraryFileTags []string
 
 	progressLock sync.Mutex
 	inProgress   map[string]bool
@@ -58,13 +60,14 @@ type ManagerConstructor func(identity string, client v1.DataSyncServiceClient, l
 func NewManager(identity string, client v1.DataSyncServiceClient, logger golog.Logger) (Manager, error) {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	ret := syncer{
-		partID:     identity,
-		client:     client,
-		logger:     logger,
-		cancelCtx:  cancelCtx,
-		cancelFunc: cancelFunc,
-		inProgress: make(map[string]bool),
-		syncErrs:   make(chan error, 10),
+		partID:            identity,
+		client:            client,
+		logger:            logger,
+		cancelCtx:         cancelCtx,
+		cancelFunc:        cancelFunc,
+		arbitraryFileTags: []string{},
+		inProgress:        make(map[string]bool),
+		syncErrs:          make(chan error, 10),
 	}
 	ret.logRoutine.Add(1)
 	goutils.PanicCapturingGo(func() {
@@ -83,6 +86,10 @@ func (s *syncer) Close() {
 	s.logRoutine.Wait()
 	//nolint:errcheck
 	_ = s.logger.Sync()
+}
+
+func (s *syncer) SetArbitraryFileTags(tags []string) {
+	s.arbitraryFileTags = tags
 }
 
 func (s *syncer) SyncFile(path string) {
@@ -154,7 +161,7 @@ func (s *syncer) syncArbitraryFile(f *os.File) {
 	uploadErr := exponentialRetry(
 		s.cancelCtx,
 		func(ctx context.Context) error {
-			err := uploadArbitraryFile(ctx, s.client, f, s.partID)
+			err := uploadArbitraryFile(ctx, s.client, f, s.partID, s.arbitraryFileTags)
 			if err != nil {
 				s.syncErrs <- errors.Wrap(err, fmt.Sprintf("error uploading file %s", f.Name()))
 			}
