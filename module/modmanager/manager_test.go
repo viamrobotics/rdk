@@ -382,7 +382,7 @@ func TestModuleReloading(t *testing.T) {
 		test.That(t, rtestutils.BuildInDir("module/testmodule"), test.ShouldBeNil)
 
 		// lower global timeout early to avoid race with actual restart code
-		defer func(origVal time.Duration){
+		defer func(origVal time.Duration) {
 			oueRestartInterval = origVal
 		}(oueRestartInterval)
 		oueRestartInterval = 10 * time.Millisecond
