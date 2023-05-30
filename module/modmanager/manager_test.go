@@ -381,6 +381,12 @@ func TestModuleReloading(t *testing.T) {
 		// Precompile module to avoid timeout issues when building takes too long.
 		test.That(t, rtestutils.BuildInDir("module/testmodule"), test.ShouldBeNil)
 
+		// lower global timeout early to avoid race with actual restart code
+		defer func(origVal time.Duration) {
+			oueRestartInterval = origVal
+		}(oueRestartInterval)
+		oueRestartInterval = 10 * time.Millisecond
+
 		// This test neither uses a resource manager nor asserts anything about
 		// the existence of resources in the graph. Use a dummy
 		// RemoveOrphanedResources function so orphaned resource logic does not
@@ -412,7 +418,6 @@ func TestModuleReloading(t *testing.T) {
 		// at faster rate.
 		err = os.Remove(exePath)
 		test.That(t, err, test.ShouldBeNil)
-		oueRestartInterval = 10 * time.Millisecond
 
 		// Run 'kill_module' command through helper resource to cause module to
 		// exit with error. Assert that after three restart errors occur, helper is
