@@ -4,10 +4,11 @@ package arm
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/edaniels/golog"
+	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
-	robotpb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 
@@ -39,21 +40,17 @@ func NewClientFromConn(
 	logger golog.Logger,
 ) (Arm, error) {
 	pbClient := pb.NewArmServiceClient(conn)
-	// TODO(DATA-853): requires that this support models being changed on the fly, not just at creation
-	// TODO(RSDK-882): will update this so that this is not necessary
-	r := robotpb.NewRobotServiceClient(conn)
-	model, modelErr := getModel(ctx, r, name.ShortName())
-	if modelErr != nil {
-		logger.Errorw("error getting model for arm; will not allow certain methods")
-	}
 	c := &client{
 		Named:  name.PrependRemote(remoteName).AsNamed(),
 		name:   name.ShortName(),
 		client: pbClient,
 		logger: logger,
 	}
-	if modelErr == nil {
-		c.model = model
+	clientFrame, err := c.updateKinematics(ctx)
+	if err != nil {
+		logger.Errorw("error getting model for arm; will not allow certain methods")
+	} else {
+		c.model = clientFrame
 	}
 	return c, nil
 }
@@ -160,20 +157,46 @@ func (c *client) IsMoving(ctx context.Context) (bool, error) {
 	return resp.IsMoving, nil
 }
 
-func getModel(ctx context.Context, r robotpb.RobotServiceClient, name string) (referenceframe.Model, error) {
-	resp, err := r.FrameSystemConfig(ctx, &robotpb.FrameSystemConfigRequest{})
+func (c *client) Geometries(ctx context.Context) ([]spatialmath.Geometry, error) {
+	resp, err := c.client.GetGeometries(ctx, &commonpb.GetGeometriesRequest{Name: c.name})
 	if err != nil {
 		return nil, err
 	}
-	cfgs := resp.GetFrameSystemConfigs()
-	for _, cfg := range cfgs {
-		if cfg.GetFrame().GetReferenceFrame() == name {
-			part, err := referenceframe.ProtobufToFrameSystemPart(cfg)
-			if err == nil {
-				return part.ModelFrame, nil
-			}
+	geometries := make([]spatialmath.Geometry, 0, len(resp.Geometries))
+	for _, pbGeom := range resp.Geometries {
+		geom, err := spatialmath.NewGeometryFromProto(pbGeom)
+		if err != nil {
 			return nil, err
 		}
+		geometries = append(geometries, geom)
 	}
-	return nil, errors.New("mo model found")
+	return geometries, nil
+}
+
+func (c *client) updateKinematics(ctx context.Context) (referenceframe.Model, error) {
+	resp, err := c.client.GetKinematics(ctx, &commonpb.GetKinematicsRequest{Name: c.name})
+	if err != nil {
+		return nil, err
+	}
+
+	format := resp.GetFormat()
+	data := resp.GetKinematicsData()
+
+	switch format {
+	case commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_SVA:
+		return referenceframe.UnmarshalModelJSON(data, c.name)
+	case commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_URDF:
+		modelconf, err := referenceframe.ConvertURDFToConfig(data, c.name)
+		if err != nil {
+			return nil, err
+		}
+		return modelconf.ParseConfig(c.name)
+	case commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_UNSPECIFIED:
+		fallthrough
+	default:
+		if formatName, ok := commonpb.KinematicsFileFormat_name[int32(format)]; ok {
+			return nil, fmt.Errorf("unable to parse file of type %s", formatName)
+		}
+		return nil, fmt.Errorf("unable to parse unknown file type %d", format)
+	}
 }

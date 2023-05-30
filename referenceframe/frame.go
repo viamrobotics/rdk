@@ -198,6 +198,30 @@ func (nf *noGeometryFrame) Geometries(input []Input) (*GeometriesInFrame, error)
 	return NewGeometriesInFrame(nf.Name(), nil), nil
 }
 
+// namedFrame is used to change the name of a frame.
+type namedFrame struct {
+	Frame
+	name string
+}
+
+// Name returns the name of the namedFrame.
+func (nf *namedFrame) Name() string {
+	return nf.name
+}
+
+func (nf *namedFrame) Geometries(inputs []Input) (*GeometriesInFrame, error) {
+	gif, err := nf.Frame.Geometries(inputs)
+	if err != nil {
+		return nil, err
+	}
+	return NewGeometriesInFrame(nf.name, gif.geometries), nil
+}
+
+// NewNamedFrame will return a frame which has a new name but otherwise passes through all functions of the original frame.
+func NewNamedFrame(frame Frame, name string) Frame {
+	return &namedFrame{Frame: frame, name: name}
+}
+
 // NewStaticFrame creates a frame given a pose relative to its parent. The pose is fixed for all time.
 // Pose is not allowed to be nil.
 func NewStaticFrame(name string, pose spatial.Pose) (Frame, error) {
@@ -444,11 +468,6 @@ func (rf *rotationalFrame) ProtobufFromInput(input []Input) *pb.JointPositions {
 // design choice made for simplicity. staticFrame and translationalFrame should be used instead.
 func (rf *rotationalFrame) Geometries(input []Input) (*GeometriesInFrame, error) {
 	return nil, fmt.Errorf("Geometries not implemented for type %T", rf)
-}
-
-// Name returns the name of the referenceframe.
-func (rf *rotationalFrame) Name() string {
-	return rf.name
 }
 
 func (rf rotationalFrame) MarshalJSON() ([]byte, error) {
