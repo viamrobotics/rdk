@@ -28,7 +28,7 @@ import {
 } from '../lib/resource';
 
 import Arm from './arm.vue';
-import AudioInput from './audio-input.vue';
+import AudioInputSvelte from './audio-input.svelte';
 import Base from './base.vue';
 import Board from './board.vue';
 import CamerasList from './camera/cameras-list.vue';
@@ -45,6 +45,9 @@ import Navigation from './navigation.vue';
 import ServoComponent from './servo.vue';
 import Sensors from './sensors.vue';
 import Slam from './slam/index.vue';
+import { svelteAdapter } from '../lib/svelte-adapter';
+
+const AudioInput = svelteAdapter(AudioInputSvelte);
 
 import {
   fixArmStatus,
