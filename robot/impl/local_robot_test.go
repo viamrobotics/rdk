@@ -1931,31 +1931,37 @@ func TestConfigPackageReferenceReplacement(t *testing.T) {
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 }
 
-// removeBuiltinServices removes services with a "builtin" name for testing
-// purposes.
-func removeBuiltinServices(cfg *config.Config) *config.Config {
+// removeDefaultServices removes default services and returns the removed
+// services for testing purposes.
+func removeDefaultServices(cfg *config.Config) []resource.Config {
 	if cfg == nil {
 		return nil
 	}
 
-	var nonBuiltInSvcs []resource.Config
-	for _, svc := range cfg.Services {
-		if svc.Name != resource.DefaultServiceName {
-			nonBuiltInSvcs = append(nonBuiltInSvcs, svc)
-		}
+	// Make a set of registered default services.
+	registeredDefaultSvcs := make(map[resource.Name]bool)
+	for _, name := range resource.DefaultServices() {
+		registeredDefaultSvcs[name] = true
 	}
-	cfg.Services = nonBuiltInSvcs
-	return cfg
+
+	var defaultSvcs, nonDefaultSvcs []resource.Config
+	for _, svc := range cfg.Services {
+		if registeredDefaultSvcs[svc.ResourceName()] {
+			defaultSvcs = append(defaultSvcs, svc)
+			continue
+		}
+		nonDefaultSvcs = append(nonDefaultSvcs, svc)
+	}
+
+	cfg.Services = nonDefaultSvcs
+	return defaultSvcs
 }
 
 func TestConfigMethod(t *testing.T) {
-	// Partially a regression test for RSDK-3177 (internal services and implicit
-	// dependencies should not be returned from Config method).
-
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 
-	// Precompile modules to avoid timeout issues when building takes too long.
+	// Precompile complex module to avoid timeout issues when building takes too long.
 	complexPath, err := rtestutils.BuildTempModule(t, "examples/customresources/demos/complexmodule")
 	test.That(t, err, test.ShouldBeNil)
 
@@ -1965,15 +1971,16 @@ func TestConfigMethod(t *testing.T) {
 		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	}()
 
-	// Assert that Config method returns only built-in services (data_manager,
-	// motion and sensors).
+	// Assert that Config method returns the three default services: data_manager,
+	// motion and sensors.
 	actualCfg := r.Config()
-	test.That(t, len(actualCfg.Services), test.ShouldEqual, 3)
-	for _, comp := range actualCfg.Services {
-		test.That(t, comp.API.SubtypeName, test.ShouldBeIn, datamanager.API.SubtypeName,
+	defaultSvcs := removeDefaultServices(actualCfg)
+	test.That(t, len(defaultSvcs), test.ShouldEqual, 3)
+	for _, svc := range defaultSvcs {
+		test.That(t, svc.API.SubtypeName, test.ShouldBeIn, datamanager.API.SubtypeName,
 			motion.API.SubtypeName, sensors.API.SubtypeName)
 	}
-	test.That(t, removeBuiltinServices(actualCfg), test.ShouldResemble, &config.Config{})
+	test.That(t, actualCfg, test.ShouldResemble, &config.Config{})
 
 	// Use a remote with components and services to ensure none of its resources
 	// will be returned by Config.
@@ -1994,8 +2001,9 @@ func TestConfigMethod(t *testing.T) {
 	cfg := &config.Config{
 		Modules: []config.Module{
 			{
-				Name:    "mod",
-				ExePath: complexPath,
+				Name:     "mod",
+				ExePath:  complexPath,
+				LogLevel: "info",
 			},
 		},
 		Components: []resource.Config{
@@ -2013,6 +2021,7 @@ func TestConfigMethod(t *testing.T) {
 				API:                 motor.API,
 				Model:               fakeModel,
 				ConvertedAttributes: &fakemotor.Config{},
+				ImplicitDependsOn:   []string{"builtin:sensors"},
 			},
 			{
 				Name:                "motor2",
@@ -2027,6 +2036,12 @@ func TestConfigMethod(t *testing.T) {
 				API:                 datamanager.API,
 				Model:               resource.DefaultServiceModel,
 				ConvertedAttributes: &builtin.Config{},
+				ImplicitDependsOn:   []string{"foo:builtin:data_manager"},
+			},
+			{
+				Name:  "builtin",
+				API:   navigation.API,
+				Model: resource.DefaultServiceModel,
 			},
 		},
 		Remotes: []config.Remote{
@@ -2053,6 +2068,26 @@ func TestConfigMethod(t *testing.T) {
 	// Assert that Config method returns expected value.
 	actualCfg = r.Config()
 
+	// Assert that default motion and sensor services are still present, but data
+	// manager default service has been replaced by the "fake1" data manager service.
+	defaultSvcs = removeDefaultServices(actualCfg)
+	test.That(t, len(defaultSvcs), test.ShouldEqual, 2)
+	for _, svc := range defaultSvcs {
+		test.That(t, svc.API.SubtypeName, test.ShouldBeIn, motion.API.SubtypeName,
+			sensors.API.SubtypeName)
+	}
+
+	// Manually inspect remaining service resources as ordering of config is
+	// non-deterministic within slices.
+	test.That(t, len(actualCfg.Services), test.ShouldEqual, 2)
+	for _, svc := range actualCfg.Services {
+		isFake1DM := svc.Equals(expectedCfg.Services[0])
+		isBuiltinNav := svc.Equals(expectedCfg.Services[1])
+		test.That(t, isFake1DM || isBuiltinNav, test.ShouldBeTrue)
+	}
+	actualCfg.Services = nil
+	expectedCfg.Services = nil
+
 	// Manually inspect component resources as ordering of config is
 	// non-deterministic within slices
 	test.That(t, len(actualCfg.Components), test.ShouldEqual, 3)
@@ -2072,7 +2107,7 @@ func TestConfigMethod(t *testing.T) {
 	actualCfg.Remotes = nil
 	expectedCfg.Remotes = nil
 
-	test.That(t, removeBuiltinServices(actualCfg), test.ShouldResemble, &expectedCfg)
+	test.That(t, actualCfg, test.ShouldResemble, &expectedCfg)
 }
 
 func TestReconnectRemote(t *testing.T) {

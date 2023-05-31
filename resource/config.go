@@ -161,12 +161,15 @@ func (assoc AssociatedResourceConfig) MarshalJSON() ([]byte, error) {
 	})
 }
 
-// Equals checks if the two configs are deeply equal to each other.
+// Equals checks if the two configs are deeply equal to each other. Validation
+// related fields and implicit dependencies will be ignored.
 func (conf Config) Equals(other Config) bool {
 	conf.alreadyValidated = false
+	conf.ImplicitDependsOn = nil
 	conf.cachedImplicitDeps = nil
 	conf.cachedErr = nil
 	other.alreadyValidated = false
+	other.ImplicitDependsOn = nil
 	other.cachedImplicitDeps = nil
 	other.cachedErr = nil
 	//nolint:govet
@@ -174,7 +177,6 @@ func (conf Config) Equals(other Config) bool {
 }
 
 // Dependencies returns the deduplicated union of user-defined and implicit dependencies.
-// Implicit dependencies will be set to nil.
 func (conf *Config) Dependencies() []string {
 	result := make([]string, 0, len(conf.DependsOn)+len(conf.ImplicitDependsOn))
 	seen := make(map[string]struct{})
@@ -190,7 +192,6 @@ func (conf *Config) Dependencies() []string {
 	for _, dep := range conf.ImplicitDependsOn {
 		appendUniq(dep)
 	}
-	conf.ImplicitDependsOn = nil
 	return result
 }
 
