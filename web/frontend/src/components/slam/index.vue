@@ -33,10 +33,10 @@ const props = defineProps<{
     op: robotApi.Operation.AsObject
     elapsed: number
   }[]
-}
->();
+}>();
 
 const refreshErrorMessage = 'Error refreshing map. The map shown may be stale.';
+const displayPose = $ref({ x: 0, y: 0, z: 0, ox: 0, oy: 0, oz: 0, th: 0 });
 let refreshErrorMessage2d = $ref<string | null>();
 let refreshErrorMessage3d = $ref<string | null>();
 let selected2dValue = $ref('manual');
@@ -51,7 +51,7 @@ let refresh2DCancelled = true;
 let refresh3DCancelled = true;
 let updatedDest = $ref(false);
 let destinationMarker = $ref(new THREE.Vector3());
-const basePose = new commonApi.Pose();
+
 const motionServiceReq = new motionApi.MoveOnMapRequest();
 
 const loaded2d = $computed(() => (pointcloud !== undefined && pose !== undefined));
@@ -275,14 +275,15 @@ const handleRefresh2dResponse = (response: MapAndPose): void => {
   pointcloud = response.map;
   pose = response.pose;
 
-  // we round to the tenths per figma design
-  basePose.setX(Number(pose!.getX()!.toFixed(1)!));
-  basePose.setY(Number(pose!.getY()!.toFixed(1)!));
-  basePose.setZ(Number(pose!.getZ()!.toFixed(1)!));
-  basePose.setOX(Number(pose!.getOX()!.toFixed(1)!));
-  basePose.setOY(Number(pose!.getOY()!.toFixed(1)!));
-  basePose.setOZ(Number(pose!.getOZ()!.toFixed(1)!));
-  basePose.setTheta(Number(pose!.getTheta()!.toFixed(1)!));
+  displayPose.x = Number(pose.getX().toFixed(1));
+  displayPose.y = Number(pose.getY().toFixed(1));
+  displayPose.z = Number(pose.getZ().toFixed(1));
+
+  displayPose.ox = Number(pose.getOX().toFixed(1));
+  displayPose.oy = Number(pose.getOY().toFixed(1));
+  displayPose.oz = Number(pose.getOZ().toFixed(1));
+  displayPose.th = Number(pose.getTheta().toFixed(1));
+
   pointCloudUpdateCount += 1;
 };
 
@@ -437,7 +438,7 @@ const handleUpdateDestY = (event: CustomEvent<{ value: string }>) => {
 };
 
 const baseCopyPosition = () => {
-  copyToClipboardWithToast(JSON.stringify(basePose.toObject()));
+  copyToClipboardWithToast(JSON.stringify(displayPose));
 };
 
 const toggleAxes = () => {
@@ -602,17 +603,17 @@ onUnmounted(() => {
                 <p class="items-end pr-2 text-xs text-gray-500">
                   x
                 </p>
-                <p>{{ basePose.getX() }}</p>
+                <p>{{ displayPose.x }}</p>
 
                 <p class="pl-9 pr-2 text-xs text-gray-500">
                   y
                 </p>
-                <p>{{ basePose.getY() }}</p>
+                <p>{{ displayPose.y }}</p>
 
                 <p class="pl-9 pr-2 text-xs text-gray-500">
                   z
                 </p>
-                <p>{{ basePose.getZ() }}</p>
+                <p>{{ displayPose.z }}</p>
               </div>
             </div>
             <div class="flex flex-col pl-10">
@@ -623,22 +624,22 @@ onUnmounted(() => {
                 <p class="pr-2 text-xs text-gray-500">
                   o<sub>x</sub>
                 </p>
-                <p>{{ basePose.getOX() }}</p>
+                <p>{{ displayPose.ox }}</p>
 
                 <p class="pl-9 pr-2 text-xs text-gray-500">
                   o<sub>y</sub>
                 </p>
-                <p>{{ basePose.getOY() }}</p>
+                <p>{{ displayPose.oy }}</p>
 
                 <p class="pl-9 pr-2 text-xs text-gray-500">
                   o<sub>z</sub>
                 </p>
-                <p>{{ basePose.getOZ() }}</p>
+                <p>{{ displayPose.oz }}</p>
 
                 <p class="pl-9 pr-2 text-xs text-gray-500">
                   &theta;
                 </p>
-                <p>{{ basePose.getTheta() }}</p>
+                <p>{{ displayPose.th }}</p>
               </div>
             </div>
             <div class="pl-4 pt-2">
