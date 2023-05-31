@@ -85,6 +85,7 @@ func (m *SessionManager) expireLoop(ctx context.Context) {
 		m.sessionResourceMu.RUnlock()
 
 		var resourceErrs []error
+		var serverClosing bool
 		func() {
 			m.sessionResourceMu.Lock()
 			defer m.sessionResourceMu.Unlock()
@@ -104,6 +105,16 @@ func (m *SessionManager) expireLoop(ctx context.Context) {
 					}()
 					res, err := m.robot.ResourceByName(resName)
 					if err != nil {
+						// It's possible at this point that the robot is Closing, the
+						// resource manager has already been closed, and the resource
+						// associated with the session has been removed from the graph and
+						// cannot be found. If the error is a not found error and the
+						// context has errored, return without appending to resourceErrs
+						// and set serverClosing to true.
+						if resource.IsNotFoundError(err) && ctx.Err() != nil {
+							serverClosing = true
+							return
+						}
 						resourceErrs = append(resourceErrs, err)
 						return
 					}
@@ -114,13 +125,16 @@ func (m *SessionManager) expireLoop(ctx context.Context) {
 						}
 					}
 				}()
+				if serverClosing {
+					return
+				}
 			}
 		}()
+		if serverClosing {
+			return
+		}
 
 		if len(toDelete) != 0 {
-			// Logging to the app struggles to pass along uuid.UUID due to an
-			// inability to convert the type to proto. Pass deleted IDs as a slice of
-			// strings instead.
 			var deletedIDs []string
 			for id := range toDelete {
 				deletedIDs = append(deletedIDs, id.String())

@@ -140,7 +140,7 @@ func TestMotorEncoder1(t *testing.T) {
 		})
 	})
 
-	t.Run("encoded motor testing GoFor (REV + | REV +)", func(t *testing.T) {
+	t.Run("encoded motor testing GoFor (RPM + | REV +)", func(t *testing.T) {
 		test.That(t, motorDep.goForInternal(context.Background(), 1000, 1), test.ShouldBeNil)
 		test.That(t, fakeMotor.Direction(), test.ShouldEqual, 1)
 		test.That(t, fakeMotor.PowerPct(), test.ShouldBeGreaterThan, 0)
@@ -170,7 +170,7 @@ func TestMotorEncoder1(t *testing.T) {
 		test.That(t, motorDep.Stop(context.Background(), nil), test.ShouldBeNil)
 	})
 
-	t.Run("encoded motor testing GoFor (REV - | REV +)", func(t *testing.T) {
+	t.Run("encoded motor testing GoFor (RPM - | REV +)", func(t *testing.T) {
 		test.That(t, motorDep.goForInternal(context.Background(), -1000, 1), test.ShouldBeNil)
 		test.That(t, fakeMotor.Direction(), test.ShouldEqual, -1)
 		test.That(t, fakeMotor.PowerPct(), test.ShouldBeLessThan, 0)
@@ -199,7 +199,7 @@ func TestMotorEncoder1(t *testing.T) {
 		test.That(t, motorDep.Stop(context.Background(), nil), test.ShouldBeNil)
 	})
 
-	t.Run("encoded motor testing GoFor (REV + | REV -)", func(t *testing.T) {
+	t.Run("encoded motor testing GoFor (RPM + | REV -)", func(t *testing.T) {
 		test.That(t, motorDep.goForInternal(context.Background(), 1000, -1), test.ShouldBeNil)
 		test.That(t, fakeMotor.Direction(), test.ShouldEqual, -1)
 		test.That(t, fakeMotor.PowerPct(), test.ShouldBeLessThan, 0)
@@ -229,7 +229,7 @@ func TestMotorEncoder1(t *testing.T) {
 		test.That(t, motorDep.Stop(context.Background(), nil), test.ShouldBeNil)
 	})
 
-	t.Run("encoded motor testing GoFor (REV - | REV -)", func(t *testing.T) {
+	t.Run("encoded motor testing GoFor (RPM - | REV -)", func(t *testing.T) {
 		test.That(t, motorDep.goForInternal(context.Background(), -1000, -1), test.ShouldBeNil)
 		test.That(t, fakeMotor.Direction(), test.ShouldEqual, 1)
 		test.That(t, fakeMotor.PowerPct(), test.ShouldBeGreaterThan, 0)
@@ -361,7 +361,7 @@ func TestMotorEncoderIncremental(t *testing.T) {
 			tb.Helper()
 			pos := enc.RawPosition()
 			test.That(tb, pos, test.ShouldEqual, 1)
-			posFl, _, err := enc.GetPosition(context.Background(), encoder.PositionTypeUnspecified, nil)
+			posFl, _, err := enc.Position(context.Background(), encoder.PositionTypeUnspecified, nil)
 			pos = int64(posFl)
 			test.That(tb, pos, test.ShouldEqual, 0)
 			test.That(tb, err, test.ShouldBeNil)
@@ -372,7 +372,7 @@ func TestMotorEncoderIncremental(t *testing.T) {
 			tb.Helper()
 			pos := enc.RawPosition()
 			test.That(tb, pos, test.ShouldEqual, 2)
-			posFl, _, err := enc.GetPosition(context.Background(), encoder.PositionTypeUnspecified, nil)
+			posFl, _, err := enc.Position(context.Background(), encoder.PositionTypeUnspecified, nil)
 			pos = int64(posFl)
 			test.That(tb, pos, test.ShouldEqual, 1)
 			test.That(tb, err, test.ShouldBeNil)
@@ -383,7 +383,7 @@ func TestMotorEncoderIncremental(t *testing.T) {
 			tb.Helper()
 			pos := enc.RawPosition()
 			test.That(tb, pos, test.ShouldEqual, 3)
-			posFl, _, err := enc.GetPosition(context.Background(), encoder.PositionTypeUnspecified, nil)
+			posFl, _, err := enc.Position(context.Background(), encoder.PositionTypeUnspecified, nil)
 			pos = int64(posFl)
 			test.That(tb, pos, test.ShouldEqual, 1)
 			test.That(tb, err, test.ShouldBeNil)
@@ -394,7 +394,7 @@ func TestMotorEncoderIncremental(t *testing.T) {
 			tb.Helper()
 			pos := enc.RawPosition()
 			test.That(tb, pos, test.ShouldEqual, 4)
-			posFl, _, err := enc.GetPosition(context.Background(), encoder.PositionTypeUnspecified, nil)
+			posFl, _, err := enc.Position(context.Background(), encoder.PositionTypeUnspecified, nil)
 			pos = int64(posFl)
 			test.That(tb, pos, test.ShouldEqual, 2)
 			test.That(tb, err, test.ShouldBeNil)
@@ -421,7 +421,7 @@ func TestMotorEncoderIncremental(t *testing.T) {
 			tb.Helper()
 			pos := enc.RawPosition()
 			test.That(tb, pos, test.ShouldEqual, 1)
-			posFl, _, err := enc.GetPosition(context.Background(), encoder.PositionTypeUnspecified, nil)
+			posFl, _, err := enc.Position(context.Background(), encoder.PositionTypeUnspecified, nil)
 			pos = int64(posFl)
 			test.That(tb, pos, test.ShouldEqual, 0)
 			test.That(tb, err, test.ShouldBeNil)
@@ -432,7 +432,7 @@ func TestMotorEncoderIncremental(t *testing.T) {
 			tb.Helper()
 			pos := enc.RawPosition()
 			test.That(tb, pos, test.ShouldEqual, 2)
-			posFl, _, err := enc.GetPosition(context.Background(), encoder.PositionTypeUnspecified, nil)
+			posFl, _, err := enc.Position(context.Background(), encoder.PositionTypeUnspecified, nil)
 			pos = int64(posFl)
 			test.That(tb, pos, test.ShouldEqual, 1)
 			test.That(tb, err, test.ShouldBeNil)
@@ -443,7 +443,7 @@ func TestMotorEncoderIncremental(t *testing.T) {
 			tb.Helper()
 			pos := enc.RawPosition()
 			test.That(tb, pos, test.ShouldEqual, 3)
-			posFl, _, err := enc.GetPosition(context.Background(), encoder.PositionTypeUnspecified, nil)
+			posFl, _, err := enc.Position(context.Background(), encoder.PositionTypeUnspecified, nil)
 			pos = int64(posFl)
 			test.That(tb, pos, test.ShouldEqual, 1)
 			test.That(tb, err, test.ShouldBeNil)
@@ -454,7 +454,7 @@ func TestMotorEncoderIncremental(t *testing.T) {
 			tb.Helper()
 			pos := enc.RawPosition()
 			test.That(tb, pos, test.ShouldEqual, 4)
-			posFl, _, err := enc.GetPosition(context.Background(), encoder.PositionTypeUnspecified, nil)
+			posFl, _, err := enc.Position(context.Background(), encoder.PositionTypeUnspecified, nil)
 			pos = int64(posFl)
 			test.That(tb, pos, test.ShouldEqual, 2)
 			test.That(tb, err, test.ShouldBeNil)
@@ -465,7 +465,7 @@ func TestMotorEncoderIncremental(t *testing.T) {
 			tb.Helper()
 			pos := enc.RawPosition()
 			test.That(tb, pos, test.ShouldEqual, 3)
-			posFl, _, err := enc.GetPosition(context.Background(), encoder.PositionTypeUnspecified, nil)
+			posFl, _, err := enc.Position(context.Background(), encoder.PositionTypeUnspecified, nil)
 			pos = int64(posFl)
 			test.That(tb, pos, test.ShouldEqual, 1)
 			test.That(tb, err, test.ShouldBeNil)
@@ -476,7 +476,7 @@ func TestMotorEncoderIncremental(t *testing.T) {
 			tb.Helper()
 			pos := enc.RawPosition()
 			test.That(tb, pos, test.ShouldEqual, 2)
-			posFl, _, err := enc.GetPosition(context.Background(), encoder.PositionTypeUnspecified, nil)
+			posFl, _, err := enc.Position(context.Background(), encoder.PositionTypeUnspecified, nil)
 			pos = int64(posFl)
 			test.That(tb, pos, test.ShouldEqual, 1)
 			test.That(tb, err, test.ShouldBeNil)
@@ -487,7 +487,7 @@ func TestMotorEncoderIncremental(t *testing.T) {
 			tb.Helper()
 			pos := enc.RawPosition()
 			test.That(tb, pos, test.ShouldEqual, 1)
-			posFl, _, err := enc.GetPosition(context.Background(), encoder.PositionTypeUnspecified, nil)
+			posFl, _, err := enc.Position(context.Background(), encoder.PositionTypeUnspecified, nil)
 			pos = int64(posFl)
 			test.That(tb, pos, test.ShouldEqual, 0)
 			test.That(tb, err, test.ShouldBeNil)
@@ -498,7 +498,7 @@ func TestMotorEncoderIncremental(t *testing.T) {
 			tb.Helper()
 			pos := enc.RawPosition()
 			test.That(tb, pos, test.ShouldEqual, 0)
-			posFl, _, err := enc.GetPosition(context.Background(), encoder.PositionTypeUnspecified, nil)
+			posFl, _, err := enc.Position(context.Background(), encoder.PositionTypeUnspecified, nil)
 			pos = int64(posFl)
 			test.That(tb, pos, test.ShouldEqual, 0)
 			test.That(tb, err, test.ShouldBeNil)

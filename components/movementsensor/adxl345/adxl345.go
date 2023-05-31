@@ -1,20 +1,21 @@
-// Package adxl345 implements the MovementSensor interface for the ADXL345 accelerometer attached
-// to an I2C bus on the robot (the chip supports communicating over SPI as well, but this package
-// does not support that interface). The datasheet for this chip is available at:
-// https://www.analog.com/media/en/technical-documentation/data-sheets/adxl345.pdf
-//
-// We support reading the accelerometer data off of the chip. We do not yet support using the
-// digital interrupt pins to notify on events (freefall, collision, etc.).
-//
-// Because we only support I2C interaction, the CS pin must be wired to hot (which tells the chip
-// which communication interface to use). The chip has two possible I2C addresses, which can be
-// selected by wiring the SDO pin to either hot or ground:
-//   - if SDO is wired to ground, it uses the default I2C address of 0x53
-//   - if SDO is wired to hot, it uses the alternate I2C address of 0x1D
-//
-// If you use the alternate address, your config file for this component must set its
-// "use_alternate_i2c_address" boolean to true.
+// Package adxl345 implements the MovementSensor interface for the ADXL345 accelerometer.
 package adxl345
+
+/*
+	This package supports ADXL345 accelerometer attached to an I2C bus on the robot (the chip supports
+	communicating over SPI as well, but this package does not support that interface).
+	The datasheet for this chip is available at:
+	https://www.analog.com/media/en/technical-documentation/data-sheets/adxl345.pdf
+
+	Because we only support I2C interaction, the CS pin must be wired to hot (which tells the chip
+	which communication interface to use). The chip has two possible I2C addresses, which can be
+	selected by wiring the SDO pin to either hot or ground:
+	- if SDO is wired to ground, it uses the default I2C address of 0x53
+	- if SDO is wired to hot, it uses the alternate I2C address of 0x1D
+
+	If you use the alternate address, your config file for this component must set its
+	"use_alternate_i2c_address" boolean to true.
+*/
 
 import (
 	"context"
@@ -35,6 +36,12 @@ import (
 )
 
 var model = resource.DefaultModelFamily.WithModel("accel-adxl345")
+
+const (
+	deviceIDRegister     = 0
+	expectedDeviceID     = 0xE5
+	powerControlRegister = 0x2D
+)
 
 // Config is a description of how to find an ADXL345 accelerometer on the robot.
 type Config struct {
@@ -64,7 +71,7 @@ type FreeFallConfig struct {
 	Time             float32 `json:"time_ms,omitempty"`
 }
 
-// ValidateTapConfigs validates the tap piece of the configs.
+// ValidateTapConfigs validates the tap piece of the config.
 func (tapCfg *TapConfig) ValidateTapConfigs(path string) error {
 	if tapCfg.AccelerometerPin != 1 && tapCfg.AccelerometerPin != 2 {
 		return errors.New("Accelerometer pin on the ADXL345 must be 1 or 2")
@@ -82,7 +89,7 @@ func (tapCfg *TapConfig) ValidateTapConfigs(path string) error {
 	return nil
 }
 
-// ValidateFreeFallConfigs validates the freefall piece of the configs.
+// ValidateFreeFallConfigs validates the freefall piece of the config.
 func (freefallCfg *FreeFallConfig) ValidateFreeFallConfigs(path string) error {
 	if freefallCfg.AccelerometerPin != 1 && freefallCfg.AccelerometerPin != 2 {
 		return errors.New("Accelerometer pin on the ADXL345 must be 1 or 2")
@@ -143,6 +150,7 @@ type adxl345 struct {
 	interruptsEnabled        byte
 	interruptsFound          map[InterruptID]int
 	configuredRegisterValues map[byte]byte
+
 	// Used only to remove the callbacks from the interrupts upon closing component.
 	interruptChannels map[board.DigitalInterrupt]chan board.Tick
 
@@ -193,7 +201,7 @@ func NewAdxl345(
 	for k, v := range getSingleTapRegisterValues(newConf.SingleTap) {
 		configuredRegisterValues[k] = v
 	}
-	cancelContext, cancelFunc := context.WithCancel(ctx)
+	cancelContext, cancelFunc := context.WithCancel(context.Background())
 
 	sensor := &adxl345{
 		Named:                    conf.ResourceName().AsNamed(),
@@ -214,19 +222,17 @@ func NewAdxl345(
 
 	// To check that we're able to talk to the chip, we should be able to read register 0 and get
 	// back the device ID (0xE5).
-	deviceID, err := sensor.readByte(ctx, 0)
+	deviceID, err := sensor.readByte(ctx, deviceIDRegister)
 	if err != nil {
-		return nil, errors.Wrapf(err, "can't read from I2C address %d on bus %q of board %q",
-			address, newConf.I2cBus, newConf.BoardName)
+		return nil, movementsensor.AddressReadError(err, address, newConf.I2cBus, newConf.BoardName)
 	}
-	if deviceID != 0xE5 {
-		return nil, errors.Errorf("unexpected I2C device instead of ADXL345 at address %d: deviceID '%d'",
-			address, deviceID)
+	if deviceID != expectedDeviceID {
+		return nil, movementsensor.UnexpectedDeviceError(address, deviceID, sensor.Name().Name)
 	}
 
 	// The chip starts out in standby mode. Set it to measurement mode so we can get data from it.
 	// To do this, we set the Power Control register (0x2D) to turn on the 8's bit.
-	if err = sensor.writeByte(ctx, 0x2D, 0x08); err != nil {
+	if err = sensor.writeByte(ctx, powerControlRegister, 0x08); err != nil {
 		return nil, errors.Wrap(err, "unable to put ADXL345 into measurement mode")
 	}
 
@@ -539,8 +545,6 @@ func (adxl *adxl345) Readings(ctx context.Context, extra map[string]interface{})
 }
 
 func (adxl *adxl345) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
-	// We don't implement any of the MovementSensor interface yet, though hopefully
-	// LinearAcceleration will be added to the interface soon.
 	return &movementsensor.Properties{
 		LinearAccelerationSupported: true,
 	}, nil
@@ -556,7 +560,7 @@ func (adxl *adxl345) Close(ctx context.Context) error {
 	}
 
 	// Put the chip into standby mode by setting the Power Control register (0x2D) to 0.
-	err := adxl.writeByte(ctx, 0x2D, 0x00)
+	err := adxl.writeByte(ctx, powerControlRegister, 0x00)
 	if err != nil {
 		adxl.logger.Errorf("unable to turn off ADXL345 accelerometer: '%s'", err)
 	}

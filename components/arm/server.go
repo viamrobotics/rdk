@@ -108,6 +108,42 @@ func (s *serviceServer) IsMoving(ctx context.Context, req *pb.IsMovingRequest) (
 	return &pb.IsMovingResponse{IsMoving: moving}, nil
 }
 
+// GetGeometries returns the geometries associated with the arm.
+func (s *serviceServer) GetGeometries(ctx context.Context, req *commonpb.GetGeometriesRequest) (*commonpb.GetGeometriesResponse, error) {
+	arm, err := s.coll.Resource(req.GetName())
+	if err != nil {
+		return nil, err
+	}
+	geometries, err := arm.Geometries(ctx)
+	if err != nil {
+		return nil, err
+	}
+	pbGeoms := make([]*commonpb.Geometry, 0, len(geometries))
+	for _, geom := range geometries {
+		pbGeoms = append(pbGeoms, geom.ToProtobuf())
+	}
+	return &commonpb.GetGeometriesResponse{Geometries: pbGeoms}, nil
+}
+
+// GetKinematics returns the kinematics information associated with the arm.
+func (s *serviceServer) GetKinematics(ctx context.Context, req *commonpb.GetKinematicsRequest) (*commonpb.GetKinematicsResponse, error) {
+	arm, err := s.coll.Resource(req.GetName())
+	if err != nil {
+		return nil, err
+	}
+	model := arm.ModelFrame()
+	if model == nil {
+		return &commonpb.GetKinematicsResponse{Format: commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_UNSPECIFIED}, nil
+	}
+	filedata, err := model.MarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	// Marshalled models always marshal to SVA
+	format := commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_SVA
+	return &commonpb.GetKinematicsResponse{Format: format, KinematicsData: filedata}, nil
+}
+
 // DoCommand receives arbitrary commands.
 func (s *serviceServer) DoCommand(ctx context.Context,
 	req *commonpb.DoCommandRequest,

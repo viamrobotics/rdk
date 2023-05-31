@@ -4,6 +4,7 @@ package piimpl
 
 import (
 	"context"
+	"os"
 	"testing"
 	"time"
 
@@ -40,8 +41,8 @@ func TestPiHardware(t *testing.T) {
 	resourceConfig := resource.Config{ConvertedAttributes: &cfg}
 
 	pp, err := newPigpio(ctx, board.Named("foo"), resourceConfig, logger)
-	if err != nil && err.Error() == "not running on a pi" {
-		t.Skip("not running on a pi")
+	if os.Getuid() != 0 || err != nil && err.Error() == "not running on a pi" {
+		t.Skip("not running as root on a pi")
 		return
 	}
 	test.That(t, err, test.ShouldBeNil)

@@ -16,6 +16,7 @@ import (
 )
 
 func TestPngEncodings(t *testing.T) {
+	t.Parallel()
 	openBytes, err := os.ReadFile(artifact.MustPath("rimage/opencv_encoded_image.png"))
 	test.That(t, err, test.ShouldBeNil)
 	openGray16, err := png.Decode(bytes.NewReader(openBytes))

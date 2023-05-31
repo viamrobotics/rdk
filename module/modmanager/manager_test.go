@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	"go.uber.org/zap/zaptest/observer"
 	"go.viam.com/test"
 	"go.viam.com/utils/testutils"
 
@@ -380,6 +381,12 @@ func TestModuleReloading(t *testing.T) {
 		// Precompile module to avoid timeout issues when building takes too long.
 		test.That(t, rtestutils.BuildInDir("module/testmodule"), test.ShouldBeNil)
 
+		// lower global timeout early to avoid race with actual restart code
+		defer func(origVal time.Duration) {
+			oueRestartInterval = origVal
+		}(oueRestartInterval)
+		oueRestartInterval = 10 * time.Millisecond
+
 		// This test neither uses a resource manager nor asserts anything about
 		// the existence of resources in the graph. Use a dummy
 		// RemoveOrphanedResources function so orphaned resource logic does not
@@ -411,7 +418,6 @@ func TestModuleReloading(t *testing.T) {
 		// at faster rate.
 		err = os.Remove(exePath)
 		test.That(t, err, test.ShouldBeNil)
-		oueRestartInterval = 10 * time.Millisecond
 
 		// Run 'kill_module' command through helper resource to cause module to
 		// exit with error. Assert that after three restart errors occur, helper is
@@ -447,4 +453,98 @@ func TestModuleReloading(t *testing.T) {
 		// Assert that RemoveOrphanedResources was called once.
 		test.That(t, dummyRemoveOrphanedResourcesCallCount.Load(), test.ShouldEqual, 1)
 	})
+}
+
+func TestDebugModule(t *testing.T) {
+	ctx := context.Background()
+
+	// Precompile module to avoid timeout issues when building takes too long.
+	test.That(t, rtestutils.BuildInDir("module/testmodule"), test.ShouldBeNil)
+
+	// This cannot use t.TempDir() as the path it gives on MacOS exceeds module.MaxSocketAddressLength.
+	parentAddr, err := os.MkdirTemp("", "viam-test-*")
+	test.That(t, err, test.ShouldBeNil)
+	defer os.RemoveAll(parentAddr)
+	parentAddr += "/parent.sock"
+
+	testCases := []struct {
+		name                   string
+		managerDebugEnabled    bool
+		moduleLogLevel         string
+		debugStatementExpected bool
+	}{
+		{
+			"manager false debug/module empty log",
+			false,
+			"",
+			false,
+		},
+		{
+			"manager false debug/module info log",
+			false,
+			"info",
+			false,
+		},
+		{
+			"manager false debug/module debug log",
+			false,
+			"debug",
+			true,
+		},
+		{
+			"manager true debug/module empty log",
+			true,
+			"",
+			true,
+		},
+		{
+			"manager true debug/module info log",
+			true,
+			"info",
+			false,
+		},
+		{
+			"manager true debug/module debug log",
+			true,
+			"debug",
+			true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			var logger golog.Logger
+			var logs *observer.ObservedLogs
+			if tc.managerDebugEnabled {
+				logger, logs = golog.NewObservedTestLogger(t)
+			} else {
+				logger, logs = rtestutils.NewInfoObservedTestLogger(t)
+			}
+			mgr := NewManager(parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
+			defer mgr.Close(ctx)
+
+			modCfg := config.Module{
+				Name:     "test-module",
+				ExePath:  utils.ResolveFile("module/testmodule/testmodule"),
+				LogLevel: tc.moduleLogLevel,
+			}
+
+			err = mgr.Add(ctx, modCfg)
+			test.That(t, err, test.ShouldBeNil)
+
+			if tc.debugStatementExpected {
+				testutils.WaitForAssertion(t, func(tb testing.TB) {
+					test.That(tb, logs.FilterMessageSnippet("debug mode enabled").Len(),
+						test.ShouldEqual, 1)
+				})
+				return
+			}
+
+			// Assert that after two seconds, "debug mode enabled" debug log is not
+			// printed by testmodule
+			time.Sleep(2 * time.Second)
+			test.That(t, logs.FilterMessageSnippet("debug mode enabled").Len(),
+				test.ShouldEqual, 0)
+		})
+	}
 }

@@ -3,12 +3,10 @@ package navigation
 
 import (
 	"context"
-	"fmt"
 
 	geo "github.com/kellydunn/golang-geo"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	servicepb "go.viam.com/api/service/navigation/v1"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -60,27 +58,4 @@ func Named(name string) resource.Name {
 // FromRobot is a helper for getting the named navigation service from the given Robot.
 func FromRobot(r robot.Robot, name string) (Service, error) {
 	return robot.ResourceFromRobot[Service](r, Named(name))
-}
-
-// Config describes how to configure the service.
-type Config struct {
-	Store              StoreConfig `json:"store"`
-	BaseName           string      `json:"base"`
-	MovementSensorName string      `json:"movement_sensor"`
-	DegPerSecDefault   float64     `json:"degs_per_sec"`
-	MMPerSecDefault    float64     `json:"mm_per_sec"`
-}
-
-// Validate ensures all parts of the config are valid.
-func (conf *Config) Validate(path string) ([]string, error) {
-	if err := conf.Store.Validate(fmt.Sprintf("%s.%s", path, "store")); err != nil {
-		return nil, err
-	}
-	if conf.BaseName == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "base")
-	}
-	if conf.MovementSensorName == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "movement_sensor")
-	}
-	return nil, nil
 }

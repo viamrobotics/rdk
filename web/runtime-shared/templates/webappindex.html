@@ -14,8 +14,8 @@
     </script>
 
     {{ if eq .Env "production" }}
-    <link rel="preload" href="/static/prime.css" as="style">
-    <link rel="stylesheet" href="/static/main.css" />
+    <link rel="preload" href="{{ .StaticHost }}/static/prime.css" as="style">
+    <link rel="stylesheet" href="{{ .StaticHost }}/static/main.css" />
     {{ end }}
     <script type="module">window.PRIME_CONFIG = { base: '/static' }</script>
   </head>
@@ -26,7 +26,7 @@
     {{ if eq .Env "development" }}
     <script type="module" src="http://localhost:5174/src/main.ts"></script>
     {{ else }}
-    <script type="module" src="/static/control.js"></script>
+    <script type="module" src="{{ .StaticHost }}/static/control.js"></script>
     {{ end }}
   </body>
 </html>

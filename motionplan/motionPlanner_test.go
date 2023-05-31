@@ -59,10 +59,11 @@ func TestUnconstrainedMotion(t *testing.T) {
 		{"7D plan test", simpleXArmMotion},
 	}
 	for _, testCase := range testCases {
-		t.Run(testCase.name, func(t *testing.T) {
+		tcCopy := testCase
+		t.Run(tcCopy.name, func(t *testing.T) {
 			t.Parallel()
 			for _, p := range planners {
-				testPlanner(t, p, testCase.config, 1)
+				testPlanner(t, p, tcCopy.config, 1)
 			}
 		})
 	}
@@ -80,10 +81,11 @@ func TestConstrainedMotion(t *testing.T) {
 		{"linear motion, no-spill", constrainedXArmMotion},
 	}
 	for _, testCase := range testCases {
-		t.Run(testCase.name, func(t *testing.T) {
+		tcCopy := testCase
+		t.Run(tcCopy.name, func(t *testing.T) {
 			t.Parallel()
 			for _, p := range planners {
-				testPlanner(t, p, testCase.config, 1)
+				testPlanner(t, p, tcCopy.config, 1)
 			}
 		})
 	}

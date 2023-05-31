@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sync"
 	"time"
 
@@ -71,6 +72,7 @@ type Config struct {
 	SyncIntervalMins      float64                          `json:"sync_interval_mins"`
 	CaptureDisabled       bool                             `json:"capture_disabled"`
 	ScheduledSyncDisabled bool                             `json:"sync_disabled"`
+	Tags                  []string                         `json:"tags"`
 	ResourceConfigs       []*datamanager.DataCaptureConfig `json:"resource_configs"`
 }
 
@@ -91,6 +93,7 @@ type builtIn struct {
 	waitAfterLastModifiedMillis int
 
 	additionalSyncPaths []string
+	tags                []string
 	syncDisabled        bool
 	syncIntervalMins    float64
 	syncRoutineCancelFn context.CancelFunc
@@ -117,6 +120,7 @@ func NewBuiltIn(
 		collectors:                  make(map[componentMethodMetadata]*collectorAndConfig),
 		syncIntervalMins:            0,
 		additionalSyncPaths:         []string{},
+		tags:                        []string{},
 		waitAfterLastModifiedMillis: 10000,
 		syncerConstructor:           datasync.NewManager,
 	}
@@ -308,28 +312,6 @@ func (svc *builtIn) initSyncer(ctx context.Context) error {
 	return nil
 }
 
-// getCollectorFromConfig returns the collector and metadata that is referenced based on specific config atrributes
-func (svc *builtIn) getCollectorFromConfig(attributes datamanager.DataCaptureConfig) (data.Collector, *componentMethodMetadata) {
-	// Create component/method metadata to check if the collector exists.
-	metadata := data.MethodMetadata{
-		API:        attributes.Resource.Name().API,
-		MethodName: attributes.Method,
-	}
-
-	componentMetadata := componentMethodMetadata{
-		ComponentName:  attributes.Resource.Name().ShortName(),
-		MethodMetadata: metadata,
-		MethodParams:   fmt.Sprintf("%v", attributes.AdditionalParams),
-	}
-
-	if storedCollectorParams, ok := svc.collectors[componentMetadata]; ok {
-		collector := storedCollectorParams.Collector
-		return collector, &componentMetadata
-	}
-
-	return nil, nil
-}
-
 // TODO: Determine desired behavior if sync is disabled. Do we wan to allow manual syncs, then?
 //       If so, how could a user cancel it?
 
@@ -409,6 +391,9 @@ func (svc *builtIn) Reconfigure(
 					MethodParams:   fmt.Sprintf("%v", resConf.AdditionalParams),
 				}
 
+				// We only use service-level tags.
+				resConf.Tags = svcConfig.Tags
+
 				newCollectorAndConfig, err := svc.initializeOrUpdateCollector(componentMethodMetadata, resConf)
 				if err != nil {
 					svc.logger.Errorw("failed to initialize or update collector", "error", err)
@@ -428,9 +413,11 @@ func (svc *builtIn) Reconfigure(
 	svc.collectors = newCollectors
 	svc.additionalSyncPaths = svcConfig.AdditionalSyncPaths
 
-	if svc.syncDisabled != svcConfig.ScheduledSyncDisabled || svc.syncIntervalMins != svcConfig.SyncIntervalMins {
+	if svc.syncDisabled != svcConfig.ScheduledSyncDisabled || svc.syncIntervalMins != svcConfig.SyncIntervalMins ||
+		!reflect.DeepEqual(svc.tags, svcConfig.Tags) {
 		svc.syncDisabled = svcConfig.ScheduledSyncDisabled
 		svc.syncIntervalMins = svcConfig.SyncIntervalMins
+		svc.tags = svcConfig.Tags
 
 		svc.cancelSyncScheduler()
 		if !svc.syncDisabled && svc.syncIntervalMins != 0.0 {
@@ -444,6 +431,7 @@ func (svc *builtIn) Reconfigure(
 					return err
 				}
 			}
+			svc.syncer.SetArbitraryFileTags(svc.tags)
 			svc.startSyncScheduler(svc.syncIntervalMins)
 		} else {
 			if svc.syncTicker != nil {

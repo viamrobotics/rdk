@@ -1,6 +1,8 @@
 import vue from '@vitejs/plugin-vue';
 import Hashes from 'jshashes';
 import { defineConfig } from 'vite';
+import path from 'node:path';
+import url from 'node:url';
 
 const MD5 = new Hashes.MD5();
 
@@ -20,6 +22,12 @@ export default defineConfig({
   build: {
     minify: 'terser',
     sourcemap: true,
+
+    /**
+     * This is currently set to infinity due to the lack of an asset pipeline
+     * when RC is embedded in app.viam.com.
+     */
+    assetsInlineLimit: Number.POSITIVE_INFINITY,
     rollupOptions: {
       input: {
         control: './src/main.ts',
@@ -53,5 +61,10 @@ export default defineConfig({
   },
   server: {
     port: 5174,
+  },
+  resolve: {
+    alias: {
+      '@': path.resolve(path.dirname(url.fileURLToPath(import.meta.url)), './src'),
+    },
   },
 });

@@ -49,6 +49,7 @@ func TestWarp1(t *testing.T) {
 }
 
 func TestWarp2(t *testing.T) {
+	t.Parallel()
 	img, err := NewImageFromFile(artifact.MustPath("rimage/canny1.png"))
 	test.That(t, err, test.ShouldBeNil)
 

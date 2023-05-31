@@ -3,6 +3,7 @@ package builtin
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math"
 	"sync"
@@ -17,12 +18,15 @@ import (
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/navigation"
+	"go.viam.com/rdk/spatialmath"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 const (
-	mmPerSecDefault  = 500
-	degPerSecDefault = 45
+	metersPerSecDefault = 0.5
+	degPerSecDefault    = 45
 )
 
 func init() {
@@ -35,16 +39,33 @@ func init() {
 		) (navigation.Service, error) {
 			return NewBuiltIn(ctx, deps, conf, logger)
 		},
+		// TODO: We can move away from using AttributeMapConverter if we change the way
+		// that we allow orientations to be specified within orientation_json.go
+		AttributeMapConverter: func(attributes rdkutils.AttributeMap) (*Config, error) {
+			b, err := json.Marshal(attributes)
+			if err != nil {
+				return nil, err
+			}
+
+			var cfg Config
+			if err := json.Unmarshal(b, &cfg); err != nil {
+				return nil, err
+			}
+			return &cfg, nil
+		},
 	})
 }
 
 // Config describes how to configure the service.
 type Config struct {
 	Store              navigation.StoreConfig `json:"store"`
-	BaseName           string                 `json:"base"`
-	MovementSensorName string                 `json:"movement_sensor"`
-	DegPerSecDefault   float64                `json:"degs_per_sec"`
-	MMPerSecDefault    float64                `json:"mm_per_sec"`
+	BaseName           string                 `json:"base_name"`
+	MovementSensorName string                 `json:"movement_sensor_name"`
+	MotionServiceName  string                 `json:"motion_service_name"`
+	// DegPerSec and MetersPerSec are targets and not hard limits on speed
+	DegPerSec    float64                          `json:"degs_per_sec"`
+	MetersPerSec float64                          `json:"meters_per_sec"`
+	Obstacles    []*spatialmath.GeoObstacleConfig `json:"obstacles,omitempty"`
 }
 
 // Validate creates the list of implicit dependencies.
@@ -60,6 +81,19 @@ func (conf *Config) Validate(path string) ([]string, error) {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "movement_sensor")
 	}
 	deps = append(deps, conf.MovementSensorName)
+
+	if conf.MotionServiceName == "" {
+		conf.MotionServiceName = "builtin"
+	}
+	deps = append(deps, resource.NewName(motion.API, conf.MotionServiceName).String())
+
+	// get default speeds from config if set, else defaults from nav services const
+	if conf.MetersPerSec == 0 {
+		conf.MetersPerSec = metersPerSecDefault
+	}
+	if conf.DegPerSec == 0 {
+		conf.DegPerSec = degPerSecDefault
+	}
 
 	return deps, nil
 }
@@ -88,9 +122,11 @@ type builtIn struct {
 
 	base           base.Base
 	movementSensor movementsensor.MovementSensor
+	motion         motion.Service
+	obstacles      []*spatialmath.GeoObstacle
 
-	mmPerSecDefault         float64
-	degPerSecDefault        float64
+	metersPerSec            float64
+	degPerSec               float64
 	logger                  golog.Logger
 	cancelCtx               context.Context
 	cancelFunc              func()
@@ -113,6 +149,10 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	if err != nil {
 		return err
 	}
+	motionSrv, err := motion.FromDependencies(deps, svcConfig.MotionServiceName)
+	if err != nil {
+		return err
+	}
 
 	var newStore navigation.NavStore
 	if svc.storeType != string(svcConfig.Store.Type) {
@@ -132,22 +172,20 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		newStore = svc.store
 	}
 
-	// get default speeds from config if set, else defaults from nav services const
-	straightSpeed := svcConfig.MMPerSecDefault
-	if straightSpeed == 0 {
-		straightSpeed = mmPerSecDefault
-	}
-	spinSpeed := svcConfig.DegPerSecDefault
-	if spinSpeed == 0 {
-		spinSpeed = degPerSecDefault
+	// Parse obstacles from the passed in configuration
+	newObstacles, err := spatialmath.GeoObstaclesFromConfigs(svcConfig.Obstacles)
+	if err != nil {
+		return err
 	}
 
 	svc.store = newStore
 	svc.storeType = string(svcConfig.Store.Type)
 	svc.base = base1
 	svc.movementSensor = movementSensor
-	svc.mmPerSecDefault = straightSpeed
-	svc.degPerSecDefault = spinSpeed
+	svc.motion = motionSrv
+	svc.obstacles = newObstacles
+	svc.metersPerSec = svcConfig.MetersPerSec
+	svc.degPerSec = svcConfig.DegPerSec
 
 	return nil
 }
@@ -247,14 +285,15 @@ func (svc *builtIn) startWaypoint(extra map[string]interface{}) error {
 				// TODO(erh->erd): maybe need an arc/stroke abstraction?
 				// - Remember that we added -1*bearingDelta instead of steeringDir
 				// - Test both naval/land to prove it works
-				if err := svc.base.Spin(ctx, -1*bearingDelta, svc.degPerSecDefault, nil); err != nil {
+				if err := svc.base.Spin(ctx, -1*bearingDelta, svc.degPerSec, nil); err != nil {
 					return fmt.Errorf("error turning: %w", err)
 				}
 
 				distanceMm := distanceToGoal * 1000 * 1000
 				distanceMm = math.Min(distanceMm, 10*1000)
 
-				if err := svc.base.MoveStraight(ctx, int(distanceMm), svc.mmPerSecDefault, nil); err != nil {
+				// TODO: handle swap from mm to meters
+				if err := svc.base.MoveStraight(ctx, int(distanceMm), (svc.metersPerSec * 1000), nil); err != nil {
 					return fmt.Errorf("error moving %w", err)
 				}
 

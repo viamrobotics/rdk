@@ -21,7 +21,7 @@ func TestEncoder(t *testing.T) {
 
 	// Get and set position
 	t.Run("get and set position", func(t *testing.T) {
-		pos, positionType, err := e.GetPosition(ctx, encoder.PositionTypeUnspecified, nil)
+		pos, positionType, err := e.Position(ctx, encoder.PositionTypeUnspecified, nil)
 		test.That(t, pos, test.ShouldEqual, 0)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, positionType, test.ShouldEqual, encoder.PositionTypeTicks)
@@ -31,7 +31,7 @@ func TestEncoder(t *testing.T) {
 		err = e1.SetPosition(ctx, 1)
 		test.That(t, err, test.ShouldBeNil)
 
-		pos, _, err = e.GetPosition(ctx, encoder.PositionTypeUnspecified, nil)
+		pos, _, err = e.Position(ctx, encoder.PositionTypeUnspecified, nil)
 		test.That(t, pos, test.ShouldEqual, 1)
 		test.That(t, err, test.ShouldBeNil)
 	})
@@ -41,7 +41,7 @@ func TestEncoder(t *testing.T) {
 		err := e.ResetPosition(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		pos, _, err := e.GetPosition(ctx, encoder.PositionTypeUnspecified, nil)
+		pos, _, err := e.Position(ctx, encoder.PositionTypeUnspecified, nil)
 		test.That(t, pos, test.ShouldEqual, 0)
 		test.That(t, err, test.ShouldBeNil)
 	})
@@ -49,7 +49,7 @@ func TestEncoder(t *testing.T) {
 	t.Run("specify a type", func(t *testing.T) {
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			ticks, positionType, err := e.GetPosition(context.Background(), encoder.PositionTypeTicks, nil)
+			ticks, positionType, err := e.Position(context.Background(), encoder.PositionTypeTicks, nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, ticks, test.ShouldEqual, 0)
 			test.That(tb, positionType, test.ShouldEqual, encoder.PositionTypeTicks)
@@ -58,7 +58,7 @@ func TestEncoder(t *testing.T) {
 	t.Run("get properties", func(t *testing.T) {
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			props, err := e.GetProperties(ctx, nil)
+			props, err := e.Properties(ctx, nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, props[encoder.TicksCountSupported], test.ShouldBeTrue)
 			test.That(tb, props[encoder.AngleDegreesSupported], test.ShouldBeFalse)
@@ -89,7 +89,7 @@ func TestEncoder(t *testing.T) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			pos, _, err := e.GetPosition(ctx, encoder.PositionTypeUnspecified, nil)
+			pos, _, err := e.Position(ctx, encoder.PositionTypeUnspecified, nil)
 			test.That(tb, pos, test.ShouldBeGreaterThan, 0)
 			test.That(tb, err, test.ShouldBeNil)
 		})

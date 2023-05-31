@@ -24,6 +24,9 @@ import (
 
 	"github.com/jhump/protoreflect/desc"
 	"github.com/pkg/errors"
+
+	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
 )
 
 // Placeholder definitions for a few known constants.
@@ -81,6 +84,22 @@ func FromDependencies[T Resource](resources Dependencies, name Name) (T, error) 
 func (d Dependencies) Lookup(name Name) (Resource, error) {
 	res, ok := d[name]
 	if !ok {
+		if !name.ContainsRemoteNames() {
+			var res Resource
+			// we assume the map is small and not costly to search
+			for depName, depRes := range d {
+				if !(depName.API == name.API && depName.Name == name.Name) {
+					continue
+				}
+				if res != nil {
+					return nil, utils.NewRemoteResourceClashError(name.Name)
+				}
+				res = depRes
+			}
+			if res != nil {
+				return res, nil
+			}
+		}
 		return nil, DependencyNotFoundError(name)
 	}
 	return res, nil
@@ -115,6 +134,13 @@ type Actuator interface {
 
 	// Stop stops all movement for the resource
 	Stop(context.Context, map[string]interface{}) error
+}
+
+// Shaped is any resource that can have geometries.
+type Shaped interface {
+	// Geometries returns the list of geometries associated with the resource, in any order. The poses of the geometries reflect their
+	// current location relative to the frame of the resource.
+	Geometries(context.Context) ([]spatialmath.Geometry, error)
 }
 
 // ErrDoUnimplemented is returned if the DoCommand methods is not implemented.
