@@ -91,7 +91,7 @@ func (kwb *kinematicWheeledBase) GoToInputs(ctx context.Context, desired []refer
 			return err
 		}
 
-		// get to the x, y location first
+		// get to the x, y location first - note that from the base's perspective +y is forward
 		desiredHeading := math.Atan2(current[1].Value-desired[1].Value, current[0].Value-desired[0].Value)
 		if commanded, err := kwb.issueCommand(ctx, current, []referenceframe.Input{desired[0], desired[1], {desiredHeading}}); err != nil {
 			if commanded {

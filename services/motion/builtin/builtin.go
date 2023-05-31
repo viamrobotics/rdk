@@ -40,7 +40,7 @@ func init() {
 			},
 			WeakDependencies: []internal.ResourceMatcher{
 				internal.SLAMDependencyWildcardMatcher,
-				internal.ComponentDependencyWildcardMatcher, // TODO(rb): when a better matcher system is built make this match Actuators
+				internal.ComponentDependencyWildcardMatcher,
 			},
 		})
 }
