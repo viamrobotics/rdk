@@ -1,9 +1,10 @@
 <script setup lang="ts">
+
+import { $ref } from '@vue-macros/reactivity-transform/macros';
 import { onMounted } from 'vue';
-import { Client, motorApi, MotorClient, ServiceError } from '@viamrobotics/sdk';
+import { Client, motorApi, MotorClient, type ServiceError } from '@viamrobotics/sdk';
 import { displayError } from '../lib/error';
 import { rcLogConditionally } from '../lib/log';
-import InfoButton from './info-button.vue';
 
 const motorPosFormat = new Intl.NumberFormat(undefined, { maximumFractionDigits: 3 });
 const props = defineProps<{
@@ -153,7 +154,7 @@ onMounted(async () => {
     </div>
 
     <div>
-      <div class="border-medium border border-t-0 p-4">
+      <div class="border border-t-0 border-medium p-4">
         <v-radio
           label="Set Power"
           :options="properties?.positionReporting ? 'Go, Go For, Go To' : 'Go'"
@@ -168,7 +169,9 @@ onMounted(async () => {
           >
             <div class="flex items-center gap-1 place-self-end pr-2">
               <span class="text-lg">{{ movementType }}</span>
-              <InfoButton :info-rows="['Relative to Home']" />
+              <v-tooltip text="Relative to Home">
+                <v-icon name="info-outline" />
+              </v-tooltip>
             </div>
             <v-input
               type="number"
@@ -191,7 +194,9 @@ onMounted(async () => {
           >
             <div class="flex items-center gap-1 place-self-end pr-2">
               <span class="text-lg">{{ movementType }}</span>
-              <InfoButton :info-rows="['Relative to where the robot is currently']" />
+              <v-tooltip text="Relative to where the robot is currently">
+                <v-icon name="info-outline" />
+              </v-tooltip>
             </div>
             <v-input
               type="number"
@@ -220,7 +225,9 @@ onMounted(async () => {
           >
             <div class="flex flex-wrap gap-2">
               <span class="text-lg">{{ movementType }}</span>
-              <InfoButton :info-rows="['Continuously moves']" />
+              <v-tooltip text="Continuously moves">
+                <v-icon name="info-outline" />
+              </v-tooltip>
             </div>
             <v-radio
               label="Direction of Rotation"

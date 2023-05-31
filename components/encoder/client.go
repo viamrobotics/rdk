@@ -41,9 +41,9 @@ func NewClientFromConn(
 	}, nil
 }
 
-// GetPosition returns the current position in terms of ticks or
+// Position returns the current position in terms of ticks or
 // degrees, and whether it is a relative or absolute position.
-func (c *client) GetPosition(
+func (c *client) Position(
 	ctx context.Context,
 	positionType PositionType,
 	extra map[string]interface{},
@@ -74,8 +74,8 @@ func (c *client) ResetPosition(ctx context.Context, extra map[string]interface{}
 	return err
 }
 
-// GetProperties returns a list of all the position types that are supported by a given encoder.
-func (c *client) GetProperties(ctx context.Context, extra map[string]interface{}) (map[Feature]bool, error) {
+// Properties returns a list of all the position types that are supported by a given encoder.
+func (c *client) Properties(ctx context.Context, extra map[string]interface{}) (map[Feature]bool, error) {
 	ext, err := structpb.NewStruct(extra)
 	if err != nil {
 		return nil, err

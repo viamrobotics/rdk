@@ -42,6 +42,9 @@ func init() {
 		})
 }
 
+// ErrNotImplemented is thrown when an unreleased function is called
+var ErrNotImplemented = errors.New("function coming soon but not yet implemented")
+
 // Config describes how to configure the service; currently only used for specifying dependency on framesystem service
 type Config struct {
 }
@@ -181,7 +184,7 @@ func (ms *builtIn) MoveOnMap(
 		return false, errors.Wrap(resource.NewNotFoundError(slamName), "motion service missing weak dependency")
 	}
 	_ = slamService
-	return true, nil
+	return false, ErrNotImplemented
 }
 
 // MoveOnGlobe TODO(RSDK-2926): Finish documentation
@@ -196,7 +199,7 @@ func (ms *builtIn) MoveOnGlobe(
 	angularVelocity float64,
 	extra map[string]interface{},
 ) (bool, error) {
-	return false, errors.New("Not yet implemented")
+	return false, ErrNotImplemented
 }
 
 // MoveSingleComponent will pass through a move command to a component with a MoveToPosition method that takes a pose. Arms are the only

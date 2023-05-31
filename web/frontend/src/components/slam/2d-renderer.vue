@@ -1,6 +1,6 @@
 <script setup lang="ts">
 
-import { $ref } from 'vue/macros';
+import { $ref } from '@vue-macros/reactivity-transform/macros';
 import { threeInstance, MouseRaycaster, MeshDiscardMaterial, GridHelper } from 'trzy';
 import { onMounted, onUnmounted, watch } from 'vue';
 import * as THREE from 'three';

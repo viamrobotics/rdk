@@ -77,7 +77,7 @@ func TestEncoder(t *testing.T) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			ticks, _, err := enc.GetPosition(context.Background(), encoder.PositionTypeUnspecified, nil)
+			ticks, _, err := enc.Position(context.Background(), encoder.PositionTypeUnspecified, nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, ticks, test.ShouldEqual, 1)
 		})
@@ -97,7 +97,7 @@ func TestEncoder(t *testing.T) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			ticks, _, err := enc.GetPosition(context.Background(), encoder.PositionTypeUnspecified, nil)
+			ticks, _, err := enc.Position(context.Background(), encoder.PositionTypeUnspecified, nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, ticks, test.ShouldEqual, -1)
 		})
@@ -119,7 +119,7 @@ func TestEncoder(t *testing.T) {
 		// by the encoder worker
 		time.Sleep(50 * time.Millisecond)
 
-		ticks, _, err := enc.GetPosition(context.Background(), encoder.PositionTypeUnspecified, nil)
+		ticks, _, err := enc.Position(context.Background(), encoder.PositionTypeUnspecified, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ticks, test.ShouldEqual, 0)
 	})
@@ -133,7 +133,7 @@ func TestEncoder(t *testing.T) {
 		// reset position to 0
 		err = enc.ResetPosition(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
-		ticks, _, err := enc.GetPosition(context.Background(), encoder.PositionTypeUnspecified, nil)
+		ticks, _, err := enc.Position(context.Background(), encoder.PositionTypeUnspecified, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ticks, test.ShouldEqual, 0)
 	})
@@ -153,7 +153,7 @@ func TestEncoder(t *testing.T) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			ticks, _, err := enc.GetPosition(context.Background(), encoder.PositionTypeUnspecified, nil)
+			ticks, _, err := enc.Position(context.Background(), encoder.PositionTypeUnspecified, nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, ticks, test.ShouldEqual, 1)
 		})
@@ -161,7 +161,7 @@ func TestEncoder(t *testing.T) {
 		// reset tick
 		err = enc.ResetPosition(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
-		ticks, _, err := enc.GetPosition(context.Background(), encoder.PositionTypeUnspecified, nil)
+		ticks, _, err := enc.Position(context.Background(), encoder.PositionTypeUnspecified, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ticks, test.ShouldEqual, 0)
 
@@ -171,7 +171,7 @@ func TestEncoder(t *testing.T) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			ticks, _, err := enc.GetPosition(context.Background(), encoder.PositionTypeUnspecified, nil)
+			ticks, _, err := enc.Position(context.Background(), encoder.PositionTypeUnspecified, nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, ticks, test.ShouldEqual, 1)
 		})
@@ -190,7 +190,7 @@ func TestEncoder(t *testing.T) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			ticks, positionType, err := enc.GetPosition(context.Background(), encoder.PositionTypeTicks, nil)
+			ticks, positionType, err := enc.Position(context.Background(), encoder.PositionTypeTicks, nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, ticks, test.ShouldEqual, 1)
 			test.That(tb, positionType, test.ShouldEqual, encoder.PositionTypeTicks)
@@ -210,7 +210,7 @@ func TestEncoder(t *testing.T) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			_, _, err := enc.GetPosition(context.Background(), encoder.PositionTypeDegrees, nil)
+			_, _, err := enc.Position(context.Background(), encoder.PositionTypeDegrees, nil)
 			test.That(tb, err.Error(), test.ShouldContainSubstring, "encoder does not support")
 			test.That(tb, err.Error(), test.ShouldContainSubstring, "degrees")
 		})
@@ -223,7 +223,7 @@ func TestEncoder(t *testing.T) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			props, err := enc.GetProperties(ctx, nil)
+			props, err := enc.Properties(ctx, nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, props[encoder.TicksCountSupported], test.ShouldBeTrue)
 			test.That(tb, props[encoder.AngleDegreesSupported], test.ShouldBeFalse)

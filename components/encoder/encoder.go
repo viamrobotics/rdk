@@ -61,14 +61,14 @@ func (t PositionType) String() string {
 type Encoder interface {
 	resource.Resource
 
-	// GetPosition returns the current position in terms of ticks or degrees, and whether it is a relative or absolute position.
-	GetPosition(ctx context.Context, positionType PositionType, extra map[string]interface{}) (float64, PositionType, error)
+	// Position returns the current position in terms of ticks or degrees, and whether it is a relative or absolute position.
+	Position(ctx context.Context, positionType PositionType, extra map[string]interface{}) (float64, PositionType, error)
 
 	// ResetPosition sets the current position of the motor to be its new zero position.
 	ResetPosition(ctx context.Context, extra map[string]interface{}) error
 
-	// GetProperties returns a list of all the position types that are supported by a given encoder
-	GetProperties(ctx context.Context, extra map[string]interface{}) (map[Feature]bool, error)
+	// Properties returns a list of all the position types that are supported by a given encoder
+	Properties(ctx context.Context, extra map[string]interface{}) (map[Feature]bool, error)
 }
 
 // Named is a helper for getting the named Encoder's typed resource name.

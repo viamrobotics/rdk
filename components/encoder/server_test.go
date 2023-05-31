@@ -39,7 +39,7 @@ func TestServerGetPosition(t *testing.T) {
 	test.That(t, resp, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	failingEncoder.GetPositionFunc = func(
+	failingEncoder.PositionFunc = func(
 		ctx context.Context,
 		positionType encoder.PositionType,
 		extra map[string]interface{},
@@ -51,7 +51,7 @@ func TestServerGetPosition(t *testing.T) {
 	test.That(t, resp, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	workingEncoder.GetPositionFunc = func(
+	workingEncoder.PositionFunc = func(
 		ctx context.Context,
 		positionType encoder.PositionType,
 		extra map[string]interface{},
@@ -99,7 +99,7 @@ func TestServerGetProperties(t *testing.T) {
 	test.That(t, resp, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	failingEncoder.GetPropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (map[encoder.Feature]bool, error) {
+	failingEncoder.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (map[encoder.Feature]bool, error) {
 		return nil, errors.New("properties not found")
 	}
 	req = pb.GetPropertiesRequest{Name: failEncoderName}
@@ -107,7 +107,7 @@ func TestServerGetProperties(t *testing.T) {
 	test.That(t, resp, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	workingEncoder.GetPropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (map[encoder.Feature]bool, error) {
+	workingEncoder.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (map[encoder.Feature]bool, error) {
 		return map[encoder.Feature]bool{
 			encoder.TicksCountSupported:   true,
 			encoder.AngleDegreesSupported: false,

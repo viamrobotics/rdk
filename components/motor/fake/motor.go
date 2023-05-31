@@ -162,7 +162,7 @@ func (m *Motor) Position(ctx context.Context, extra map[string]interface{}) (flo
 		return 0, errors.New("encoder is not defined")
 	}
 
-	ticks, _, err := m.Encoder.GetPosition(ctx, encoder.PositionTypeUnspecified, extra)
+	ticks, _, err := m.Encoder.Position(ctx, encoder.PositionTypeUnspecified, extra)
 	if err != nil {
 		return 0, err
 	}

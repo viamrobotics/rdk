@@ -1,4 +1,4 @@
-import { CameraClient, ServiceError, StreamClient, type Client } from '@viamrobotics/sdk';
+import { CameraClient, type ServiceError, StreamClient, type Client } from '@viamrobotics/sdk';
 import { displayError } from '../../lib/error';
 
 export class CameraManager {

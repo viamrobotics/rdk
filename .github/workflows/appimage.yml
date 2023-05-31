@@ -134,7 +134,7 @@ jobs:
 
     - name: Test AppImage
       run: |
-        if echo "${{ matrix.arch[0] }}" | grep -q buildjet; then
+        if echo "${{ matrix.arch[0] }}" | grep -q ubuntu; then
           sudo apt-get install -y libfuse2
         fi
         channel="${{ github.ref_name }}"
