@@ -146,8 +146,8 @@ const updatePose = (newPose: commonApi.Pose) => {
 
   baseMarker.position.set(x, y, z);
 
-  const theta = THREE.MathUtils.degToRad(newPose.getTheta());
-  baseMarker.geometry.rotateZ(theta);
+  const theta = THREE.MathUtils.degToRad(newPose.getTheta() - 90);
+  baseMarker.material.rotation = theta;
 };
 
 /*

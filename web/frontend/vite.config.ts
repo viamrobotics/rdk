@@ -7,19 +7,21 @@ import url from 'node:url';
 
 const MD5 = new Hashes.MD5();
 
+export const plugins = [
+  vue({
+    template: {
+      compilerOptions: {
+        // treat all tags with a dash as custom elements
+        isCustomElement: (tag) => tag.includes('-'),
+      },
+    },
+  }),
+  reactivityTransform(),
+];
+
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [
-    vue({
-      template: {
-        compilerOptions: {
-          // treat all tags with a dash as custom elements
-          isCustomElement: (tag) => tag.includes('-'),
-        },
-      },
-    }),
-    reactivityTransform(),
-  ],
+  plugins,
   build: {
     sourcemap: true,
 
