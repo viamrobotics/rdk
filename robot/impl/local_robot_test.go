@@ -1999,11 +1999,18 @@ func TestConfigMethod(t *testing.T) {
 	myBaseModel := resource.NewModel("acme", "demo", "mybase")
 
 	cfg := &config.Config{
+		Cloud: &config.Cloud{},
 		Modules: []config.Module{
 			{
 				Name:     "mod",
 				ExePath:  complexPath,
 				LogLevel: "info",
+			},
+		},
+		Remotes: []config.Remote{
+			{
+				Name:    "foo",
+				Address: addr,
 			},
 		},
 		Components: []resource.Config{
@@ -2030,6 +2037,15 @@ func TestConfigMethod(t *testing.T) {
 				ConvertedAttributes: &fakemotor.Config{},
 			},
 		},
+		Processes: []pexec.ProcessConfig{
+			{
+				ID:      "1",
+				Name:    "bash",
+				Args:    []string{"-c", "echo heythere"},
+				Log:     true,
+				OneShot: true,
+			},
+		},
 		Services: []resource.Config{
 			{
 				Name:                "fake1",
@@ -2044,21 +2060,17 @@ func TestConfigMethod(t *testing.T) {
 				Model: resource.DefaultServiceModel,
 			},
 		},
-		Remotes: []config.Remote{
+		Packages: []config.PackageConfig{
 			{
-				Name:    "foo",
-				Address: addr,
+				Name:    "some-name-1",
+				Package: "package-1",
+				Version: "v1",
 			},
 		},
-		Processes: []pexec.ProcessConfig{
-			{
-				ID:      "1",
-				Name:    "bash",
-				Args:    []string{"-c", "echo heythere"},
-				Log:     true,
-				OneShot: true,
-			},
-		},
+		Network:             config.NetworkConfig{},
+		Auth:                config.AuthConfig{},
+		Debug:               true,
+		DisablePartialStart: true,
 	}
 
 	// Create copy of expectedCfg since Reconfigure modifies cfg.

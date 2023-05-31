@@ -41,8 +41,9 @@ var _ = robot.LocalRobot(&localRobot{})
 // localRobot satisfies robot.LocalRobot and defers most
 // logic to its manager.
 type localRobot struct {
-	mu      sync.Mutex
-	manager *resourceManager
+	mu            sync.Mutex
+	manager       *resourceManager
+	mostRecentCfg config.Config
 
 	operations                 *operation.Manager
 	sessionManager             session.Manager
@@ -179,7 +180,21 @@ func (r *localRobot) StopAll(ctx context.Context, extra map[resource.Name]map[st
 
 // Config returns a config representing the current state of the robot.
 func (r *localRobot) Config() *config.Config {
-	return r.manager.createConfig()
+	cfg := r.mostRecentCfg
+
+	// Use resource manager to generate Modules, Remotes, Components, Processes
+	// and Services.
+	//
+	// NOTE(benji): it would be great if the resource manager could somehow
+	// generate Cloud, Packages, Network and Auth fields.
+	generatedCfg := r.manager.createConfig()
+	cfg.Modules = generatedCfg.Modules
+	cfg.Remotes = generatedCfg.Remotes
+	cfg.Components = generatedCfg.Components
+	cfg.Processes = generatedCfg.Processes
+	cfg.Services = generatedCfg.Services
+
+	return &cfg
 }
 
 // Logger returns the logger the robot is using.
@@ -462,6 +477,7 @@ func newWithResources(
 		}
 	}, r.activeBackgroundWorkers.Done)
 
+	r.mostRecentCfg = config.Config{}
 	r.Reconfigure(ctx, cfg)
 
 	for name, res := range resources {
@@ -1009,6 +1025,8 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	if diff.ResourcesEqual {
 		return
 	}
+	// Set mostRecentConfig if resources were not equal.
+	r.mostRecentCfg = *newConfig
 
 	// If something was added or modified, go through components and services in
 	// diff.Added and diff.Modified, call Validate on all those that are modularized,
