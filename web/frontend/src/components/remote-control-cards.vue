@@ -2,7 +2,7 @@
 <script setup lang="ts">
 
 import { onMounted, onUnmounted } from 'vue';
-import { $ref, $computed } from 'vue/macros';
+import { $ref, $computed } from '@vue-macros/reactivity-transform/macros';
 import { grpc } from '@improbable-eng/grpc-web';
 import { Duration } from 'google-protobuf/google/protobuf/duration_pb';
 import { type Credentials, ConnectionClosedError } from '@viamrobotics/rpc';
@@ -11,8 +11,8 @@ import { displayError } from '../lib/error';
 import { StreamManager } from './camera/stream-manager';
 import {
   Client,
-  ResponseStream,
-  ServiceError,
+  type ResponseStream,
+  type ServiceError,
   commonApi,
   robotApi,
   sensorsApi,

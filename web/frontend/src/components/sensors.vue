@@ -1,7 +1,8 @@
 <script setup lang="ts">
 
+import { $ref } from '@vue-macros/reactivity-transform/macros';
 import { grpc } from '@improbable-eng/grpc-web';
-import { Client, sensorsApi, commonApi, ServiceError } from '@viamrobotics/sdk';
+import { Client, sensorsApi, commonApi, type ServiceError } from '@viamrobotics/sdk';
 import { toast } from '../lib/toast';
 import { resourceNameToString } from '../lib/resource';
 import { rcLogConditionally } from '../lib/log';
@@ -73,19 +74,19 @@ const getData = (sensorName: SensorName) => {
     title="Sensors"
     class="sensors"
   >
-    <div class="border-medium overflow-auto border border-t-0 p-4">
-      <table class="border-medium w-full table-auto border">
+    <div class="overflow-auto border border-t-0 border-medium p-4">
+      <table class="w-full table-auto border border-medium">
         <tr>
-          <th class="border-medium border p-2">
+          <th class="border border-medium p-2">
             Name
           </th>
-          <th class="border-medium border p-2">
+          <th class="border border-medium p-2">
             Type
           </th>
-          <th class="border-medium border p-2">
+          <th class="border border-medium p-2">
             Readings
           </th>
-          <th class="border-medium border p-2 text-center">
+          <th class="border border-medium p-2 text-center">
             <v-button
               group
               label="Get All Readings"
@@ -97,13 +98,13 @@ const getData = (sensorName: SensorName) => {
           v-for="sensorName in sensorNames"
           :key="sensorName.name"
         >
-          <td class="border-medium border p-2">
+          <td class="border border-medium p-2">
             {{ sensorName.name }}
           </td>
-          <td class="border-medium border p-2">
+          <td class="border border-medium p-2">
             {{ sensorName.subtype }}
           </td>
-          <td class="border-medium border p-2">
+          <td class="border border-medium p-2">
             <table style="font-size:.7em; text-align: left;">
               <tr
                 v-for="(sensorValue, sensorField) in getData(sensorName)"
@@ -120,7 +121,7 @@ const getData = (sensorName: SensorName) => {
               </tr>
             </table>
           </td>
-          <td class="border-medium border p-2 text-center">
+          <td class="border border-medium p-2 text-center">
             <v-button
               group
               label="Get Readings"

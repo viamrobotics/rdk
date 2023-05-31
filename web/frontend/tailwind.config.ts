@@ -1,5 +1,6 @@
-// eslint-disable-next-line unicorn/prefer-module
-module.exports = {
+import type { Config } from 'tailwindcss';
+
+export default {
   content: ['./src/**/*.{html,vue,js,ts}'],
   theme: {
     extend: {
@@ -65,4 +66,4 @@ module.exports = {
   },
   plugins: [],
   safelist: ['list-disc', 'h-[400px]'],
-};
+} satisfies Config;

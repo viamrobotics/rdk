@@ -69,7 +69,7 @@ module.exports = {
     'max-params': 'off',
     'max-statements': 'off',
     'multiline-ternary': ['error', 'always-multiline'],
-    "no-shadow": "off",
+    'no-shadow': 'off',
     'prefer-destructuring': [
       'error', {
         AssignmentExpression: { array: false, object: false },
@@ -81,7 +81,7 @@ module.exports = {
     'object-curly-spacing': ['error', 'always'],
     'object-property-newline': ['error', { allowAllPropertiesOnSameLine: true }],
     'no-continue': 'off',
-    "no-duplicate-imports": "off",
+    'no-duplicate-imports': 'off',
     'no-extra-parens': 'off',
     'no-magic-numbers': 'off',
     'no-multiple-empty-lines': ['error', { max: 1 }],
@@ -167,12 +167,13 @@ module.exports = {
 
     // Typescript
     '@typescript-eslint/indent': ['error', 2],
-    "@typescript-eslint/no-duplicate-imports": ["error"],
+    '@typescript-eslint/no-duplicate-imports': ['error'],
     '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
     '@typescript-eslint/no-explicit-any': 'error',
     '@typescript-eslint/no-non-null-assertion': 'off',
     '@typescript-eslint/ban-ts-comment': 'warn',
-    '@typescript-eslint/no-shadow': ['error'], // https://github.com/typescript-eslint/typescript-eslint/issues/2483#issuecomment-687095358
+    // https://github.com/typescript-eslint/typescript-eslint/issues/2483#issuecomment-687095358
+    '@typescript-eslint/no-shadow': ['error'],
 
     // Promise
     'promise/prefer-await-to-then': 'error',
