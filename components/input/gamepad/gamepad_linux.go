@@ -39,7 +39,7 @@ func init() {
 	})
 }
 
-func createController(ctx context.Context, name resource.Name, logger golog.Logger, devFile string, reconnect bool) input.Controller {
+func createController(_ context.Context, name resource.Name, logger golog.Logger, devFile string, reconnect bool) input.Controller {
 	ctxWithCancel, cancel := context.WithCancel(context.Background())
 	g := gamepad{
 		Named:      name.AsNamed(),
