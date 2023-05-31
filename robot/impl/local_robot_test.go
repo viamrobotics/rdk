@@ -295,8 +295,8 @@ func TestConfigRemote(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, convMap, test.ShouldResemble, armStatus)
 
-	cfg2, err := r2.Config(context.Background())
-	test.That(t, err, test.ShouldBeNil)
+	cfg2 := r2.Config()
+	// Components should only include local components.
 	test.That(t, len(cfg2.Components), test.ShouldEqual, 2)
 
 	fsConfig, err := r2.FrameSystemConfig(context.Background())
@@ -1949,6 +1949,9 @@ func removeBuiltinServices(cfg *config.Config) *config.Config {
 }
 
 func TestConfigMethod(t *testing.T) {
+	// Partially a regression test for RSDK-3177 (internal services and implicit
+	// dependencies should not be returned from Config method).
+
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 
@@ -1964,15 +1967,12 @@ func TestConfigMethod(t *testing.T) {
 
 	// Assert that Config method returns only built-in services (data_manager,
 	// motion and sensors).
-	actualCfg, err := r.Config(ctx)
-	test.That(t, err, test.ShouldBeNil)
+	actualCfg := r.Config()
 	test.That(t, len(actualCfg.Services), test.ShouldEqual, 3)
 	for _, comp := range actualCfg.Services {
 		test.That(t, comp.API.SubtypeName, test.ShouldBeIn, datamanager.API.SubtypeName,
 			motion.API.SubtypeName, sensors.API.SubtypeName)
 	}
-	// Config() will also initialize Components, so it will not be nil as expected.
-	actualCfg.Components = nil
 	test.That(t, removeBuiltinServices(actualCfg), test.ShouldResemble, &config.Config{})
 
 	// Use a remote with components and services to ensure none of its resources
@@ -2051,8 +2051,7 @@ func TestConfigMethod(t *testing.T) {
 	r.Reconfigure(ctx, cfg)
 
 	// Assert that Config method returns expected value.
-	actualCfg, err = r.Config(ctx)
-	test.That(t, err, test.ShouldBeNil)
+	actualCfg = r.Config()
 
 	// Manually inspect component resources as ordering of config is
 	// non-deterministic within slices
@@ -2736,14 +2735,20 @@ func TestOrphanedResources(t *testing.T) {
 		test.That(t, err, test.ShouldBeError,
 			resource.NewNotFoundError(generic.Named("h")))
 
-		// Assert that restoring testmodule, removing testmodule and 'h' from
-		// config and adding both back re-adds 'h'.
-		//
-		// TODO(RSDK-2876): assert that we can keep 'h' in the config and it gets
-		// re-added to testmodule.
+		// Assert that restoring testmodule, removing testmodule from config and
+		// adding it back re-adds 'h'.
 		err = os.Rename(testPath+".disabled", testPath)
 		test.That(t, err, test.ShouldBeNil)
-		r.Reconfigure(ctx, &config.Config{})
+		cfg2 := &config.Config{
+			Components: []resource.Config{
+				{
+					Name:  "h",
+					Model: helperModel,
+					API:   generic.API,
+				},
+			},
+		}
+		r.Reconfigure(ctx, cfg2)
 		r.Reconfigure(ctx, cfg)
 
 		h, err = r.ResourceByName(generic.Named("h"))

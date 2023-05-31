@@ -720,13 +720,12 @@ func TestManagerNewComponent(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	robotForRemote := &localRobot{
 		manager: newResourceManager(resourceManagerOptions{}, logger),
-		config:  cfg,
+		logger:  logger,
 	}
 	diff, err := config.DiffConfigs(config.Config{}, *cfg, true)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, robotForRemote.manager.updateResources(context.Background(), diff), test.ShouldBeNil)
 	test.That(t, robotForRemote.manager.resources.ResolveDependencies(logger), test.ShouldBeNil)
-	robotForRemote.config.Components[8].DependsOn = append(robotForRemote.config.Components[8].DependsOn, "arm3")
 
 	diff = &config.Diff{
 		Added: &config.Config{},
