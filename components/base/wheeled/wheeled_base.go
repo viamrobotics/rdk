@@ -58,7 +58,7 @@ type Config struct {
 	SpinSlipFactor       float64  `json:"spin_slip_factor,omitempty"`
 	Left                 []string `json:"left"`
 	Right                []string `json:"right"`
-	MovementSensor       []string `json:"movement_sensor,omitempty"`
+	MovementSensor       []string `json:"movement_sensors,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -234,10 +234,17 @@ func createWheeledBase(
 
 	if len(newConf.MovementSensor) != 0 {
 		baseCtx := context.Background()
-		sb, err := attachSensorsToBase(baseCtx, &wb, deps, newConf.MovementSensor, logger)
-		if err != nil {
+		sb := &sensorBase{base: &wb, logger: logger, baseCtx: ctx, Named: wb.Name().AsNamed()}
+		
+		if err = sb.Reconfigure(ctx, deps, conf); err != nil {
 			return nil, err
 		}
+
+		// TODO simplify this function and call from Reconfigure
+		if err := attachSensorsToBase(baseCtx, sb, deps, newConf.MovementSensor); err != nil {
+			return nil, err
+		}
+
 		return sb, nil
 	}
 
@@ -459,63 +466,3 @@ func (wb *wheeledBase) Close(ctx context.Context) error {
 func (wb *wheeledBase) Width(ctx context.Context) (int, error) {
 	return wb.widthMm, nil
 }
-
-// <<<<<<< HEAD
-
-// createWheeledBase returns a new wheeled base defined by the given config.
-// func createWheeledBase(
-// 	ctx context.Context,
-// 	deps resource.Dependencies,
-// 	conf resource.Config,
-// 	logger golog.Logger,
-// ) (base.Base, error) {
-// 	newConf, err := resource.NativeConfig[*Config](conf)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	wb := &wheeledBase{
-// 		Named:                conf.ResourceName().AsNamed(),
-// 		widthMm:              newConf.WidthMM,
-// 		wheelCircumferenceMm: newConf.WheelCircumferenceMM,
-// 		spinSlipFactor:       newConf.SpinSlipFactor,
-// 		logger:               logger,
-// 		name:                 conf.Name,
-// 		frame:                conf.Frame,
-// 	}
-
-// 	if wb.spinSlipFactor == 0 {
-// 		wb.spinSlipFactor = 1
-// 	}
-
-// 	for _, name := range newConf.Left {
-// 		m, err := motor.FromDependencies(deps, name)
-// 		if err != nil {
-// 			return nil, errors.Wrapf(err, "no left motor named (%s)", name)
-// 		}
-// 		props, err := m.Properties(ctx, nil)
-// 		if props[motor.PositionReporting] && err != nil {
-// 			wb.logger.Debugf("motor %s can report its position for base", name)
-// 		}
-// 		wb.left = append(wb.left, m)
-// 	}
-
-// 	for _, name := range newConf.Right {
-// 		m, err := motor.FromDependencies(deps, name)
-// 		if err != nil {
-// 			return nil, errors.Wrapf(err, "no right motor named (%s)", name)
-// 		}
-// 		props, err := m.Properties(ctx, nil)
-// 		if props[motor.PositionReporting] && err != nil {
-// 			wb.logger.Debugf("motor %s can report its position for base", name)
-// 		}
-// 		wb.right = append(wb.right, m)
-// 	}
-
-// 	wb.allMotors = append(wb.allMotors, wb.left...)
-// 	wb.allMotors = append(wb.allMotors, wb.right...)
-
-// 	return wb, nil
-// }
-// =======
-// >>>>>>> 0022df26e9bd33151f507079e7532aa5917c5425

@@ -29,10 +29,10 @@ const (
 
 type sensorBase struct {
 	resource.Named
-	resource.AlwaysRebuild
 	logger golog.Logger
 
 	activeBackgroundWorkers sync.WaitGroup
+	mu                      sync.Mutex
 	base                    base.Base
 	baseCtx                 context.Context
 
@@ -48,19 +48,17 @@ type sensorBase struct {
 
 func attachSensorsToBase(
 	ctx context.Context,
-	base *wheeledBase,
+	sb *sensorBase,
 	deps resource.Dependencies,
 	ms []string,
-	logger golog.Logger,
-) (base.Base, error) {
+) error {
 	// use base's creator context as the long standing context for the sensor loop
-	sb := &sensorBase{base: base, logger: logger, baseCtx: ctx, Named: base.Name().AsNamed()}
 
 	var oriMsName string
 	for _, msName := range ms {
 		ms, err := movementsensor.FromDependencies(deps, msName)
 		if err != nil {
-			return nil, errors.Wrapf(err, "no movement_sensor namesd (%s)", msName)
+			return errors.Wrapf(err, "no movement_sensor namesd (%s)", msName)
 		}
 		sb.allSensors = append(sb.allSensors, ms)
 		props, err := ms.Properties(ctx, nil)
@@ -72,7 +70,44 @@ func attachSensorsToBase(
 
 	sb.logger.Infof("using sensor %s as orientation sensor for base", oriMsName)
 
-	return sb, nil
+	return nil
+}
+
+func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+
+	sb.mu.Lock()
+	defer sb.mu.Unlock()
+
+	newConf, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return err
+	}
+
+	// This is nifty, make it a function to be shared, and test.
+	if len(sb.allSensors) != len(newConf.MovementSensor) {
+		//
+		sb.allSensors = make([]movementsensor.MovementSensor, 0)
+		for _, msName := range newConf.MovementSensor {
+			ms, err := movementsensor.FromDependencies(deps, msName)
+			if err != nil {
+				return errors.Wrapf(err, "no movement_sensor namesd (%s)", msName)
+			}
+			sb.allSensors = append(sb.allSensors, ms)
+		}
+	} else {
+		for i := range sb.allSensors {
+			if sb.allSensors[i].Name().String() != newConf.MovementSensor[i] {
+				ms, err := movementsensor.FromDependencies(deps, newConf.MovementSensor[i])
+				if err != nil {
+					return errors.Wrapf(err, "no movement_sensor namesd (%s)", newConf.MovementSensor[i])
+				}
+				sb.allSensors[i] = ms
+			}
+		}
+
+	}
+
+	return nil
 }
 
 // setPolling determines whether we want the sensor loop to run and stop the base with sensor feedback
