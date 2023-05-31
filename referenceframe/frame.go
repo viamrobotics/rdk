@@ -189,15 +189,6 @@ func (sf *tailGeometryStaticFrame) Geometries(input []Input) (*GeometriesInFrame
 	return NewGeometriesInFrame(sf.name, []spatial.Geometry{newGeom}), nil
 }
 
-// noGeometryFrame is a frame wrapper which will always return nil for its geometry. Use this to remove the geometries from any frame.
-type noGeometryFrame struct {
-	Frame
-}
-
-func (nf *noGeometryFrame) Geometries(input []Input) (*GeometriesInFrame, error) {
-	return NewGeometriesInFrame(nf.Name(), nil), nil
-}
-
 // namedFrame is used to change the name of a frame.
 type namedFrame struct {
 	Frame

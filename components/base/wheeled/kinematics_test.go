@@ -79,7 +79,8 @@ func TestWrapWithKinematics(t *testing.T) {
 	}
 }
 
-func newWheeledBase(ctx context.Context, logger golog.Logger) *kinematicWheeledBase {
+func newWheeledBase(ctx context.Context, t *testing.T, logger golog.Logger) *kinematicWheeledBase {
+	t.Helper()
 	wb := &wheeledBase{
 		widthMm:              400,
 		wheelCircumferenceMm: 25,
@@ -102,7 +103,7 @@ func newWheeledBase(ctx context.Context, logger golog.Logger) *kinematicWheeledB
 func TestCurrentInputs(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
-	wb := newWheeledBase(logger)
+	kwb := newWheeledBase(ctx, t, logger)
 
 	for i := 0; i < 10; i++ {
 		_, err := kwb.CurrentInputs(ctx)
@@ -115,11 +116,14 @@ func TestCurrentInputs(t *testing.T) {
 func TestErrorState(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
-	wb := newWheeledBase(logger)
+	wb := newWheeledBase(ctx, t, logger).wheeledBase
 	sphere, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 1, "")
 	test.That(t, err, test.ShouldBeNil)
 	model, err := referenceframe.New2DMobileModelFrame(wb.name, []referenceframe.Limit{{-10, 10}, {-10, 10}, {-math.Pi, math.Pi}}, sphere)
 	test.That(t, err, test.ShouldBeNil)
+	fs := referenceframe.NewEmptyFrameSystem("")
+	test.That(t, fs.AddFrame(model, fs.World()), test.ShouldBeNil)
+
 	slam := inject.NewSLAMService("the slammer")
 	slam.GetPositionFunc = func(ctx context.Context) (spatialmath.Pose, string, error) {
 		return spatialmath.NewZeroPose(), "", nil
@@ -128,11 +132,11 @@ func TestErrorState(t *testing.T) {
 		wheeledBase: wb,
 		slam:        slam,
 		model:       model,
+		fs:          fs,
 	}
 	desiredInput := []referenceframe.Input{{3}, {4}, {utils.DegToRad(30)}}
 	distErr, headingErr, err := kwb.errorState(make([]referenceframe.Input, 3), desiredInput)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, distErr, test.ShouldEqual, 1000*r3.Vector{desiredInput[0].Value, desiredInput[1].Value, 0}.Norm())
-	test.That(t, headingErr, test.ShouldEqual, desiredInput[2])
-
+	test.That(t, headingErr, test.ShouldAlmostEqual, 30)
 }

@@ -13,13 +13,7 @@ import (
 	motionpb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/components/base"
-	"go.viam.com/rdk/components/base/wheeled"
-	"go.viam.com/rdk/referenceframe"
 	frame "go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/services/slam"
-	"go.viam.com/rdk/services/slam/fake"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
@@ -528,30 +522,20 @@ func TestPlanMapMotion(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 
-	// build kinematic base
-	testCfg := resource.Config{
-		Name:  "test",
-		API:   slam.API,
-		Model: resource.Model{Name: "wheeled_base"},
-		Frame: &referenceframe.LinkConfig{
-			Parent:   referenceframe.World,
-			Geometry: &spatialmath.GeometryConfig{R: 20},
-		},
-		ConvertedAttributes: &wheeled.Config{},
-	}
-	testBase, err := wheeled.CreateWheeledBase(ctx, resource.Dependencies{}, testCfg, logger)
+	// build kinematic base model
+	sphere, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 10, "base")
 	test.That(t, err, test.ShouldBeNil)
-	kb, err := testBase.(base.KinematicWrappable).WrapWithKinematics(ctx, fake.NewSLAM(resource.NewName(slam.API, "test_slam"), logger))
-	test.That(t, err, test.ShouldBeNil)
-
-	// test ability to plan
-	inputs, err := kb.CurrentInputs(ctx)
+	model, err := frame.New2DMobileModelFrame(
+		"test",
+		[]frame.Limit{{-100, 100}, {-100, 100}, {-2 * math.Pi, 2 * math.Pi}},
+		sphere,
+	)
 	test.That(t, err, test.ShouldBeNil)
 	dst := spatialmath.NewPoseFromPoint(r3.Vector{0, 100, 0})
 	box, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{0, 50, 0}), r3.Vector{25, 25, 25}, "impediment")
 	test.That(t, err, test.ShouldBeNil)
-	worldState, err := referenceframe.NewWorldState(
-		[]*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(referenceframe.World, []spatialmath.Geometry{box})},
+	worldState, err := frame.NewWorldState(
+		[]*frame.GeometriesInFrame{frame.NewGeometriesInFrame(frame.World, []spatialmath.Geometry{box})},
 		nil,
 	)
 	test.That(t, err, test.ShouldBeNil)
@@ -563,10 +547,10 @@ func TestPlanMapMotion(t *testing.T) {
 		dst spatialmath.Pose,
 		f frame.Frame,
 		seed []frame.Input,
-		worldState *referenceframe.WorldState,
+		worldState *frame.WorldState,
 	) ([][]frame.Input, error) {
 		// ephemerally create a framesystem containing just the frame for the solve
-		fs := referenceframe.NewEmptyFrameSystem("")
+		fs := frame.NewEmptyFrameSystem("")
 		if err := fs.AddFrame(f, fs.World()); err != nil {
 			return nil, err
 		}
@@ -579,7 +563,7 @@ func TestPlanMapMotion(t *testing.T) {
 		return FrameStepsFromRobotPath(f.Name(), solutionMap)
 	}
 
-	plan, err := PlanMapMotion(ctx, logger, dst, kb.ModelFrame(), inputs, worldState)
+	plan, err := PlanMapMotion(ctx, logger, dst, model, make([]frame.Input, 3), worldState)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(plan), test.ShouldBeGreaterThan, 2)
 }

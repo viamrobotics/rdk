@@ -7,6 +7,7 @@ import (
 	"math"
 
 	"github.com/golang/geo/r3"
+
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
@@ -17,6 +18,8 @@ import (
 const (
 	distThresholdMM         = 100
 	headingThresholdDegrees = 15
+	defaultAngularVelocity  = 60  // degrees per second
+	defaultLinearVelocity   = 300 // mm per second
 )
 
 type kinematicWheeledBase struct {
@@ -114,14 +117,16 @@ func (kwb *kinematicWheeledBase) issueCommand(ctx context.Context, current, desi
 		return false, err
 	}
 	if distErr > distThresholdMM && math.Abs(headingErr) > headingThresholdDegrees {
-		return true, kwb.Spin(ctx, -headingErr, 60, nil) // base is headed off course; spin to correct
+		// base is headed off course; spin to correct
+		return true, kwb.Spin(ctx, -headingErr, defaultAngularVelocity, nil)
 	} else if distErr > distThresholdMM {
-		return true, kwb.MoveStraight(ctx, distErr, 300, nil) // base is pointed the correct direction but not there yet; forge onward
+		// base is pointed the correct direction but not there yet; forge onward
+		return true, kwb.MoveStraight(ctx, distErr, defaultLinearVelocity, nil)
 	}
 	return false, nil
 }
 
-// create a function for the error state, which is defined as [positional error, heading error]
+// create a function for the error state, which is defined as [positional error, heading error].
 func (kwb *kinematicWheeledBase) errorState(current, desired []referenceframe.Input) (int, float64, error) {
 	// create a goal pose in the world frame
 	goal := referenceframe.NewPoseInFrame(

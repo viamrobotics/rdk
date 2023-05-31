@@ -304,8 +304,8 @@ func ModelFromPath(modelPath, name string) (Model, error) {
 }
 
 // New2DMobileModelFrame builds the kinematic model associated with the kinematicWheeledBase
-// This model is intended to be used with a mobile base and has 3DOF corresponding to a state of x, y, and theta 
-// where x and y are the positional coordinates the base is located about and theta is the rotation about the z axis
+// This model is intended to be used with a mobile base and has 3DOF corresponding to a state of x, y, and theta
+// where x and y are the positional coordinates the base is located about and theta is the rotation about the z axis.
 func New2DMobileModelFrame(name string, limits []Limit, collisionGeometry spatialmath.Geometry) (Model, error) {
 	if len(limits) != 3 {
 		return nil, errors.Errorf("Must have 3DOF state (x, y, theta) to create 2DMobildModelFrame, have %d dof", len(limits))

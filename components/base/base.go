@@ -66,6 +66,7 @@ type LocalBase interface {
 	Width(ctx context.Context) (int, error)
 }
 
+// KinematicWrappable describes a base that can be wrapped with a kinematic model.
 type KinematicWrappable interface {
 	WrapWithKinematics(context.Context, slam.Service) (KinematicBase, error)
 }
