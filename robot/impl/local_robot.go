@@ -6,7 +6,6 @@ package robotimpl
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -37,7 +36,7 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-const resourceConstructTimeout = time.Minute
+var ResourceConstructTimeout = time.Minute
 
 var _ = robot.LocalRobot(&localRobot{})
 
@@ -610,29 +609,6 @@ func (r *localRobot) getWeakDependencies(resName resource.Name, api resource.API
 	return deps
 }
 
-func timeOutError(name resource.Name) error {
-	return fmt.Errorf("resource %s timed out during reconfigure", name)
-}
-
-func unbuildableDependencyError(name resource.Name) error {
-	return fmt.Errorf("resource %s could not be built because it has one or more unbuildable dependencies", name)
-}
-
-// returns `true` if a resource is unbuildable due to unbuilt dependencies.
-func unbuildableResource(dependencies []string, resourceName string, timedOutResources map[string]bool) bool {
-	if timedOutResources[resourceName] {
-		return true
-	}
-
-	for _, dep := range dependencies {
-		if timedOutResources[dep] {
-			timedOutResources[resourceName] = true
-			return true
-		}
-	}
-	return false
-}
-
 func (r *localRobot) newResource(
 	ctx context.Context,
 	gNode *resource.GraphNode,
@@ -710,6 +686,8 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 	// service depends on all resources.
 	// For now, we pass all resources and empty configs.
 	for resName, res := range internalResources {
+		ctx, timeoutCancel := context.WithTimeout(ctx, ResourceConstructTimeout)
+		defer timeoutCancel()
 		switch resName {
 		case web.InternalServiceName:
 			if err := res.Reconfigure(ctx, allResources, resource.Config{}); err != nil {
@@ -732,7 +710,7 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 
 	reconfigureChan := make(chan struct{})
 
-	updateResourceWeakDependents := func(conf resource.Config, ctx context.Context) {
+	updateResourceWeakDependents := func(ctx context.Context, conf resource.Config) {
 		defer func() { reconfigureChan <- struct{}{} }()
 		resName := conf.ResourceName()
 		resNode, ok := r.manager.resources.Node(resName)
@@ -756,44 +734,11 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 		}
 	}
 
-	timedOutResources := make(map[string]bool)
-
-	conf := r.Config()
-	for _, cfg := range conf.Components {
-		if unbuildableResource(cfg.Dependencies(), cfg.Name, timedOutResources) {
-			r.Logger().Error(unbuildableDependencyError(cfg.ResourceName()))
-			continue
-		}
-
-		ctxWithTimeout, timeoutCancel := context.WithTimeout(ctx, resourceConstructTimeout)
+	cfg := r.Config()
+	for _, conf := range append(cfg.Components, cfg.Services...) {
+		ctxWithTimeout, timeoutCancel := context.WithTimeout(ctx, ResourceConstructTimeout)
 		defer timeoutCancel()
-		go updateResourceWeakDependents(cfg, ctxWithTimeout)
-		select {
-		case <-reconfigureChan:
-			continue
-		case <-ctxWithTimeout.Done():
-			r.Logger().Error(timeOutError(cfg.ResourceName()))
-			timedOutResources[cfg.Name] = true
-			continue
-		}
-	}
-	for _, cfg := range conf.Services {
-		if unbuildableResource(cfg.Dependencies(), cfg.Name, timedOutResources) {
-			r.Logger().Error(unbuildableDependencyError(cfg.ResourceName()))
-			continue
-		}
-
-		ctxWithTimeout, timeoutCancel := context.WithTimeout(ctx, resourceConstructTimeout)
-		defer timeoutCancel()
-		go updateResourceWeakDependents(cfg, ctxWithTimeout)
-		select {
-		case <-reconfigureChan:
-			continue
-		case <-ctxWithTimeout.Done():
-			r.Logger().Error(timeOutError(cfg.ResourceName()))
-			timedOutResources[cfg.Name] = true
-			continue
-		}
+		updateResourceWeakDependents(ctxWithTimeout, conf)
 	}
 }
 

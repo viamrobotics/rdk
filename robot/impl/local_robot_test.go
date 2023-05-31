@@ -19,6 +19,7 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -3100,3 +3101,37 @@ func TestResourcelessModuleRemove(t *testing.T) {
 			test.ShouldEqual, 1)
 	})
 }
+
+//func TestResourceConstructTimeout(t *testing.T) {
+//ctx := context.Background()
+//logger, logs := golog.NewObservedTestLogger(t)
+//cfg, err := config.Read(context.Background(), "data/fake.json", logger)
+//test.That(t, err, test.ShouldBeNil)
+
+//println("1\n")
+
+//r, err := robotimpl.New(ctx, cfg, logger)
+//println("2\n")
+//test.That(t, err, test.ShouldBeNil)
+//testutils.WaitForAssertion(t, func(tb testing.TB) {
+//test.That(tb, logs.FilterMessageSnippet("timed out during reconfigure").Len(), test.ShouldBeGreaterThan, 1)
+//})
+
+//println("3\n")
+//r.Close(ctx)
+//println("4\n")
+
+//oldResourceConstructTimeout := robotimpl.ResourceConstructTimeout
+//defer func() { robotimpl.ResourceConstructTimeout = oldResourceConstructTimeout }()
+//robotimpl.ResourceConstructTimeout = time.Microsecond / 1000
+//println("5\n")
+
+////ctx2, cancel := context.WithTimeout(ctx, robotimpl.ResourceConstructTimeout)
+////defer cancel()
+////_, err = robotimpl.New(ctx2, cfg, logger)
+////println("6\n")
+////test.That(t, err, test.ShouldBeNil)
+////testutils.WaitForAssertion(t, func(tb testing.TB) {
+////test.That(tb, logs.FilterMessageSnippet("timed out during reconfigure").Len(), test.ShouldBeGreaterThan, 1)
+////})
+//}

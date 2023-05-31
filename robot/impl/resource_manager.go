@@ -527,82 +527,61 @@ func (manager *resourceManager) completeConfig(
 	}
 
 	resourceNames := manager.resources.ReverseTopologicalSort()
-	resourceChan := make(chan struct{})
-	timedOutResources := make(map[string]bool)
 
 	for _, resName := range resourceNames {
-		ctxWithTimeout, timeoutCancel := context.WithTimeout(ctx, resourceConstructTimeout)
+		ctxWithTimeout, timeoutCancel := context.WithTimeout(ctx, ResourceConstructTimeout)
 		defer timeoutCancel()
-		go func() {
-			defer func() {
-				if r := recover(); r != nil {
-					manager.logger.Error(errors.Wrap(errors.Errorf("%v", r), "panic processing resource"))
-				}
-				resourceChan <- struct{}{}
-			}()
-			gNode, ok := manager.resources.Node(resName)
-			if !ok || !gNode.NeedsReconfigure() {
-				return
-			}
-			if !(resName.API.IsComponent() || resName.API.IsService()) {
-				return
-			}
-			var verb string
-			if gNode.IsUninitialized() {
-				verb = "configuring"
-			} else {
-				verb = "reconfiguring"
-			}
-			manager.logger.Debugw(fmt.Sprintf("now %s resource", verb), "resource", resName)
-			conf := gNode.Config()
-			if unbuildableResource(conf.Dependencies(), resName.Name, timedOutResources) {
-				robot.Logger().Error(unbuildableDependencyError(resName))
-				return
-			}
+		gNode, ok := manager.resources.Node(resName)
+		if !ok || !gNode.NeedsReconfigure() {
+			return
+		}
+		if !(resName.API.IsComponent() || resName.API.IsService()) {
+			return
+		}
+		var verb string
+		if gNode.IsUninitialized() {
+			verb = "configuring"
+		} else {
+			verb = "reconfiguring"
+		}
+		manager.logger.Debugw(fmt.Sprintf("now %s resource", verb), "resource", resName)
+		conf := gNode.Config()
 
-			// this is done in config validation but partial start rules require us to check again
-			if _, err := conf.Validate("", resName.API.Type.Name); err != nil {
-				manager.logger.Errorw("resource config validation error", "resource", conf.ResourceName(), "model", conf.Model, "error", err)
-				gNode.SetLastError(errors.Wrap(err, "config validation error found in resource: "+conf.ResourceName().String()))
+		// this is done in config validation but partial start rules require us to check again
+		if _, err := conf.Validate("", resName.API.Type.Name); err != nil {
+			manager.logger.Errorw("resource config validation error", "resource", conf.ResourceName(), "model", conf.Model, "error", err)
+			gNode.SetLastError(errors.Wrap(err, "config validation error found in resource: "+conf.ResourceName().String()))
+			return
+		}
+		if manager.moduleManager.Provides(conf) {
+			if _, err := manager.moduleManager.ValidateConfig(ctxWithTimeout, conf); err != nil {
+				manager.logger.Errorw("modular resource config validation error", "resource", conf.ResourceName(), "model", conf.Model, "error", err)
+				gNode.SetLastError(errors.Wrap(err, "config validation error found in modular resource: "+conf.ResourceName().String()))
 				return
 			}
-			if manager.moduleManager.Provides(conf) {
-				if _, err := manager.moduleManager.ValidateConfig(ctxWithTimeout, conf); err != nil {
-					manager.logger.Errorw("modular resource config validation error", "resource", conf.ResourceName(), "model", conf.Model, "error", err)
-					gNode.SetLastError(errors.Wrap(err, "config validation error found in modular resource: "+conf.ResourceName().String()))
-					return
+		}
+
+		switch {
+		case resName.API.IsComponent(), resName.API.IsService():
+			newRes, newlyBuilt, err := manager.processResource(ctxWithTimeout, conf, gNode, robot)
+			if newlyBuilt || err != nil {
+				if err := manager.markChildrenForUpdate(resName); err != nil {
+					manager.logger.Errorw(
+						"failed to mark children of resource for update",
+						"resource", resName,
+						"reason", err)
 				}
 			}
-
-			switch {
-			case resName.API.IsComponent(), resName.API.IsService():
-				newRes, newlyBuilt, err := manager.processResource(ctxWithTimeout, conf, gNode, robot)
-				if newlyBuilt || err != nil {
-					if err := manager.markChildrenForUpdate(resName); err != nil {
-						manager.logger.Errorw(
-							"failed to mark children of resource for update",
-							"resource", resName,
-							"reason", err)
-					}
-				}
-				if err != nil {
-					manager.logger.Errorw("error building resource", "resource", conf.ResourceName(), "model", conf.Model, "error", err)
-					gNode.SetLastError(errors.Wrap(err, "resource build error"))
-					return
-				}
-				gNode.SwapResource(newRes, conf.Model)
-			default:
-				err := errors.New("config is not for a component or service")
-				manager.logger.Errorw(err.Error(), "resource", resName)
-				gNode.SetLastError(err)
+			if err != nil {
+				manager.logger.Errorw("error building resource", "resource", conf.ResourceName(), "model", conf.Model, "error", err)
+				gNode.SetLastError(errors.Wrap(err, "resource build error"))
+				return
 			}
-		}()
-
-		select {
-		case <-resourceChan:
-		case <-ctxWithTimeout.Done():
-			timedOutResources[resName.Name] = true
-			robot.Logger().Error(timeOutError(resName))
+			gNode.SwapResource(newRes, conf.Model)
+		default:
+			err := errors.New("config is not for a component or service")
+			manager.logger.Errorw(err.Error(), "resource", resName)
+			gNode.SetLastError(err)
 		}
 	}
 }
