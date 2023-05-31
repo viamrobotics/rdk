@@ -13,6 +13,7 @@ import (
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
+	rutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/resource"
@@ -46,6 +47,7 @@ func init() {
 				sourceName := newConf.Source
 				source, err := camera.FromRobot(actualR, sourceName)
 				if err != nil {
+					fmt.Println("Erroring here, init")
 					return nil, fmt.Errorf("no source camera for transform pipeline (%s): %w", sourceName, err)
 				}
 				src, err := newTransformPipeline(ctx, source, newConf, actualR)
@@ -67,6 +69,16 @@ type transformConfig struct {
 	Pipeline             []Transformation                   `json:"pipeline"`
 }
 
+// Validate ensures all parts of the config are valid.
+func (cfg *transformConfig) Validate(path string) ([]string, error) {
+	var deps []string
+	if len(cfg.Source) == 0 {
+		return nil, rutils.NewConfigValidationFieldRequiredError("%q is required", "source")
+	}
+	deps = append(deps, cfg.Source)
+	return deps, nil
+}
+
 func newTransformPipeline(
 	ctx context.Context,
 	source gostream.VideoSource,
@@ -74,6 +86,7 @@ func newTransformPipeline(
 	r robot.Robot,
 ) (camera.VideoSource, error) {
 	if source == nil {
+		fmt.Println("Erroring here, newTransformPipeline")
 		return nil, errors.New("no source camera for transform pipeline")
 	}
 	if len(cfg.Pipeline) == 0 {
