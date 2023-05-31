@@ -5,14 +5,14 @@ import {
   CameraClient,
   Client,
   commonApi,
-  ResponseStream,
+  type ResponseStream,
   robotApi,
-  ServiceError,
+  type ServiceError,
 } from '@viamrobotics/sdk';
 import { selectedMap } from '../../lib/camera-state';
 import type { CameraManager } from './camera-manager';
 import type { StreamManager } from './stream-manager';
-import { $ref, $computed } from 'vue/macros';
+import { $ref, $computed } from '@vue-macros/reactivity-transform/macros';
 
 const props = defineProps< {
   cameraName: string;

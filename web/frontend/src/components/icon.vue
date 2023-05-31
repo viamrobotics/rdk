@@ -1,6 +1,6 @@
 <script setup lang="ts">
 
-import { computed } from 'vue';
+import { $computed } from '@vue-macros/reactivity-transform/macros';
 
 const props = withDefaults(defineProps<{
   path: string
@@ -17,7 +17,7 @@ const props = withDefaults(defineProps<{
   title: '',
 });
 
-const rotation = computed(() => {
+const rotation = $computed(() => {
   return `rotate(${props.rotate} 12 12)`;
 });
 

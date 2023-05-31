@@ -1,5 +1,6 @@
 <script setup lang="ts">
 
+import { $ref } from '@vue-macros/reactivity-transform/macros';
 import {
   CameraClient,
   Client,

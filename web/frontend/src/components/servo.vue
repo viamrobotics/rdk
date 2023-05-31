@@ -1,7 +1,7 @@
 <script setup lang="ts">
 
 import { grpc } from '@improbable-eng/grpc-web';
-import { Client, ServiceError, servoApi } from '@viamrobotics/sdk';
+import { Client, type ServiceError, servoApi } from '@viamrobotics/sdk';
 import { displayError } from '../lib/error';
 import { rcLogConditionally } from '../lib/log';
 
@@ -58,7 +58,7 @@ const move = (amount: number) => {
         variant="danger"
         @click="stop"
       />
-      <div class="border-medium border border-t-0 p-4">
+      <div class="border border-t-0 border-medium p-4">
         <h3 class="mb-1 text-sm">
           Angle: {{ status.positionDeg }}
         </h3>

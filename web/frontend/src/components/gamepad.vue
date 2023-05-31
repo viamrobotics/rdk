@@ -8,13 +8,13 @@ import { ConnectionClosedError } from '@viamrobotics/rpc';
 import {
   Client,
   inputControllerApi as InputController,
-  ResponseStream,
+  type ResponseStream,
   robotApi,
   type ServiceError,
 } from '@viamrobotics/sdk';
 import { toast } from '../lib/toast';
 import { rcLogConditionally } from '../lib/log';
-import { $ref } from 'vue/macros';
+import { $ref } from '@vue-macros/reactivity-transform/macros';
 
 const props = defineProps<{
   name: string;
@@ -298,7 +298,7 @@ watch(() => enabled, () => {
       >Disabled</span>
     </div>
 
-    <div class="border-medium h-full w-full border border-t-0 p-4">
+    <div class="h-full w-full border border-t-0 border-medium p-4">
       <div class="flex flex-row">
         <label class="subtitle mr-2">Enabled</label>
         <v-switch
