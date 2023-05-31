@@ -7,12 +7,28 @@ import { displayError } from '@/lib/error';
 export let name: string;
 export let client: Client;
 
+let audio: HTMLAudioElement
+
 let isOn = false;
 
 const toggleExpand = async () => {
   isOn = !isOn
 
   const streams = new StreamClient(client);
+
+  streams.on('track', (event) => {
+    const [eventStream] = (event as { streams: MediaStream[] }).streams;
+
+    if (!eventStream) {
+      throw new Error('expected event stream to exist');
+    }
+
+    if (eventStream.id !== name) {
+      return;
+    }
+
+    audio.srcObject = eventStream;
+  });
 
   if (isOn) {
     try {
@@ -41,16 +57,13 @@ const toggleExpand = async () => {
           <v-switch
             id="audio-input"
             value={isOn ? 'on' : 'off'}
-            on:change={toggleExpand}
+            on:input={toggleExpand}
           />
           <span class="pr-2">Listen</span>
         </div>
 
         {#if isOn}
-          <div
-            data-stream={name}
-            class="clear-both h-fit transition-all duration-300 ease-in-out"
-          />
+          <audio class='py-2' controls autoplay bind:this={audio} />
         {/if}
       </div>
     </div>

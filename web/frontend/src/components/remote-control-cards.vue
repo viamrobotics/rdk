@@ -28,7 +28,7 @@ import {
 } from '../lib/resource';
 
 import Arm from './arm.vue';
-import AudioInputSvelte from './audio-input.svelte';
+import AudioInputSvelte from './audio-input/index.svelte';
 import Base from './base.vue';
 import Board from './board.vue';
 import CamerasList from './camera/cameras-list.vue';
