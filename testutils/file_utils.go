@@ -12,7 +12,7 @@ import (
 )
 
 // BuildTempModule will run "go build ." in the provided RDK directory and return
-// any build related errors.
+// the path to the built temporary file and any build related errors.
 func BuildTempModule(tb testing.TB, dir string) (string, error) {
 	tb.Helper()
 	modPath := filepath.Join(tb.TempDir(), filepath.Base(dir))
