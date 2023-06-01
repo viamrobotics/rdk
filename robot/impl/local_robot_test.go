@@ -1953,7 +1953,7 @@ func TestConfigMethod(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
 	// Precompile modules to avoid timeout issues when building takes too long.
-	err := rtestutils.BuildInDir("examples/customresources/demos/complexmodule")
+	complexPath, err := rtestutils.BuildTempModule(t, "examples/customresources/demos/complexmodule")
 	test.That(t, err, test.ShouldBeNil)
 
 	r, err := robotimpl.New(context.Background(), &config.Config{}, logger)
@@ -1995,7 +1995,7 @@ func TestConfigMethod(t *testing.T) {
 		Modules: []config.Module{
 			{
 				Name:    "mod",
-				ExePath: rutils.ResolveFile("examples/customresources/demos/complexmodule/run.sh"),
+				ExePath: complexPath,
 			},
 		},
 		Components: []resource.Config{
@@ -2583,11 +2583,11 @@ func TestOrphanedResources(t *testing.T) {
 	logger, logs := golog.NewObservedTestLogger(t)
 
 	// Precompile modules to avoid timeout issues when building takes too long.
-	err := rtestutils.BuildInDir("examples/customresources/demos/complexmodule")
+	complexPath, err := rtestutils.BuildTempModule(t, "examples/customresources/demos/complexmodule")
 	test.That(t, err, test.ShouldBeNil)
-	err = rtestutils.BuildInDir("examples/customresources/demos/simplemodule")
+	simplePath, err := rtestutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
 	test.That(t, err, test.ShouldBeNil)
-	err = rtestutils.BuildInDir("module/testmodule")
+	testPath, err := rtestutils.BuildTempModule(t, "module/testmodule")
 	test.That(t, err, test.ShouldBeNil)
 
 	// Manually define models, as importing them can cause double registration.
@@ -2608,7 +2608,7 @@ func TestOrphanedResources(t *testing.T) {
 			Modules: []config.Module{
 				{
 					Name:    "mod",
-					ExePath: rutils.ResolveFile("examples/customresources/demos/complexmodule/run.sh"),
+					ExePath: complexPath,
 				},
 			},
 			Components: []resource.Config{
@@ -2635,7 +2635,7 @@ func TestOrphanedResources(t *testing.T) {
 			Modules: []config.Module{
 				{
 					Name:    "mod",
-					ExePath: rutils.ResolveFile("examples/customresources/demos/simplemodule/run.sh"),
+					ExePath: simplePath,
 				},
 			},
 			Components: []resource.Config{
@@ -2698,7 +2698,7 @@ func TestOrphanedResources(t *testing.T) {
 			Modules: []config.Module{
 				{
 					Name:    "mod",
-					ExePath: rutils.ResolveFile("module/testmodule/testmodule"),
+					ExePath: testPath,
 				},
 			},
 			Components: []resource.Config{
@@ -2716,7 +2716,7 @@ func TestOrphanedResources(t *testing.T) {
 
 		// Assert that removing testmodule binary and killing testmodule orphans
 		// helper 'h' a couple seconds after third restart attempt.
-		err = os.Remove(rutils.ResolveFile("module/testmodule/testmodule"))
+		err = os.Rename(testPath, testPath+".disabled")
 		test.That(t, err, test.ShouldBeNil)
 		_, err = h.DoCommand(ctx, map[string]interface{}{"command": "kill_module"})
 		test.That(t, err, test.ShouldNotBeNil)
@@ -2736,12 +2736,12 @@ func TestOrphanedResources(t *testing.T) {
 		test.That(t, err, test.ShouldBeError,
 			resource.NewNotFoundError(generic.Named("h")))
 
-		// Assert that recompiling testmodule, removing testmodule and 'h' from
+		// Assert that restoring testmodule, removing testmodule and 'h' from
 		// config and adding both back re-adds 'h'.
 		//
 		// TODO(RSDK-2876): assert that we can keep 'h' in the config and it gets
 		// re-added to testmodule.
-		err = rtestutils.BuildInDir("module/testmodule")
+		err = os.Rename(testPath+".disabled", testPath)
 		test.That(t, err, test.ShouldBeNil)
 		r.Reconfigure(ctx, &config.Config{})
 		r.Reconfigure(ctx, cfg)
@@ -2752,14 +2752,9 @@ func TestOrphanedResources(t *testing.T) {
 		// Assert that replacing testmodule binary with disguised simplemodule
 		// binary and killing testmodule orphans helper 'h' (not reachable), as
 		// simplemodule binary cannot manage helper 'h'.
-		err = os.Remove(rutils.ResolveFile("module/testmodule/testmodule"))
+		tmpPath, err := rtestutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
 		test.That(t, err, test.ShouldBeNil)
-		err = rtestutils.BuildInDir("examples/customresources/demos/simplemodule")
-		test.That(t, err, test.ShouldBeNil)
-		err = os.Rename(
-			rutils.ResolveFile("examples/customresources/demos/simplemodule/simplemodule"),
-			rutils.ResolveFile("module/testmodule/testmodule"),
-		)
+		err = os.Rename(tmpPath, testPath)
 		test.That(t, err, test.ShouldBeNil)
 		_, err = h.DoCommand(ctx, map[string]interface{}{"command": "kill_module"})
 		test.That(t, err, test.ShouldNotBeNil)
@@ -2810,9 +2805,9 @@ func TestDependentAndOrphanedResources(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
 	// Precompile modules to avoid timeout issues when building takes too long.
-	err := rtestutils.BuildInDir("examples/customresources/demos/complexmodule")
+	complexPath, err := rtestutils.BuildTempModule(t, "examples/customresources/demos/complexmodule")
 	test.That(t, err, test.ShouldBeNil)
-	err = rtestutils.BuildInDir("examples/customresources/demos/simplemodule")
+	simplePath, err := rtestutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
 	test.That(t, err, test.ShouldBeNil)
 
 	// Manually define gizmo model, as importing it from mygizmo can cause double
@@ -2853,7 +2848,7 @@ func TestDependentAndOrphanedResources(t *testing.T) {
 		Modules: []config.Module{
 			{
 				Name:    "mod",
-				ExePath: rutils.ResolveFile("examples/customresources/demos/complexmodule/run.sh"),
+				ExePath: complexPath,
 			},
 		},
 		Components: []resource.Config{
@@ -2890,7 +2885,7 @@ func TestDependentAndOrphanedResources(t *testing.T) {
 		Modules: []config.Module{
 			{
 				Name:    "mod",
-				ExePath: rutils.ResolveFile("examples/customresources/demos/simplemodule/run.sh"),
+				ExePath: simplePath,
 			},
 		},
 		Components: []resource.Config{
@@ -2980,7 +2975,7 @@ func TestModuleDebugReconfigure(t *testing.T) {
 	logger, logs := rtestutils.NewInfoObservedTestLogger(t)
 
 	// Precompile module to avoid timeout issues when building takes too long.
-	err := rtestutils.BuildInDir("module/testmodule")
+	testPath, err := rtestutils.BuildTempModule(t, "module/testmodule")
 	test.That(t, err, test.ShouldBeNil)
 
 	// Create robot with testmodule with LogLevel unset and assert that after two
@@ -2989,7 +2984,7 @@ func TestModuleDebugReconfigure(t *testing.T) {
 		Modules: []config.Module{
 			{
 				Name:    "mod",
-				ExePath: rutils.ResolveFile("module/testmodule/testmodule"),
+				ExePath: testPath,
 			},
 		},
 	}
@@ -3009,7 +3004,7 @@ func TestModuleDebugReconfigure(t *testing.T) {
 		Modules: []config.Module{
 			{
 				Name:     "mod",
-				ExePath:  rutils.ResolveFile("module/testmodule/testmodule"),
+				ExePath:  testPath,
 				LogLevel: "debug",
 			},
 		},
