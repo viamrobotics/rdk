@@ -1038,7 +1038,9 @@ func (manager *resourceManager) removeOrphanedResources(ctx context.Context,
 }
 
 // createConfig will create a config.Config based on the current state of the
-// resource graph, processManager and moduleManager.
+// resource graph, processManager and moduleManager. The created config will
+// possibly contain default services registered by the RDK and not specified by
+// the user in their config.
 func (manager *resourceManager) createConfig() *config.Config {
 	conf := &config.Config{}
 
