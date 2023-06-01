@@ -227,6 +227,8 @@ const refresh2d = async (name: string) => {
   const map = await fetchSLAMMap(name);
   const returnedPose = await fetchSLAMPose(name);
 
+  // The pose is returned in millimeters, but we need 
+  // to convert to meters to display on the frontend.
   returnedPose.setX(returnedPose.getX() / 1000);
   returnedPose.setY(returnedPose.getY() / 1000);
   returnedPose.setZ(returnedPose.getZ() / 1000);
