@@ -19,16 +19,16 @@ import (
 	modmanageroptions "go.viam.com/rdk/module/modmanager/options"
 	"go.viam.com/rdk/resource"
 	rtestutils "go.viam.com/rdk/testutils"
-	"go.viam.com/rdk/utils"
 )
 
 func TestModManagerFunctions(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
-	modExe := utils.ResolveFile("examples/customresources/demos/simplemodule/run.sh")
 
-	// Precompile module to avoid timeout issues when building takes too long.
-	err := rtestutils.BuildInDir("examples/customresources/demos/simplemodule")
+	// Precompile module copies to avoid timeout issues when building takes too long.
+	modPath, err := rtestutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
+	test.That(t, err, test.ShouldBeNil)
+	modPath2, err := rtestutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
 	test.That(t, err, test.ShouldBeNil)
 
 	myCounterModel := resource.NewModel("acme", "demo", "mycounter")
@@ -50,7 +50,7 @@ func TestModManagerFunctions(t *testing.T) {
 	t.Log("test Helpers")
 	mgr := NewManager(parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
 
-	mod := &module{name: "test", exe: modExe}
+	mod := &module{name: "test", exe: modPath}
 
 	err = mod.startProcess(ctx, parentAddr, nil, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -86,7 +86,7 @@ func TestModManagerFunctions(t *testing.T) {
 
 	modCfg := config.Module{
 		Name:    "simple-module",
-		ExePath: modExe,
+		ExePath: modPath,
 	}
 	err = mgr.Add(ctx, modCfg)
 	test.That(t, err, test.ShouldBeNil)
@@ -166,8 +166,8 @@ func TestModManagerFunctions(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ret["total"], test.ShouldEqual, 24)
 
-	// Change underlying binary path of module to be a copy of simplemodule/run.sh.
-	modCfg.ExePath = utils.ResolveFile("module/modmanager/data/simplemoduleruncopy.sh")
+	// Change underlying binary path of module to be a different copy of the same module
+	modCfg.ExePath = modPath2
 
 	// Reconfigure module with new ExePath.
 	orphanedResourceNames, err := mgr.Reconfigure(ctx, modCfg)
@@ -203,7 +203,7 @@ func TestModManagerFunctions(t *testing.T) {
 
 	modCfg = config.Module{
 		Name:    "simple-module",
-		ExePath: modExe,
+		ExePath: modPath,
 	}
 	err = mgr.Add(ctx, modCfg)
 	test.That(t, err, test.ShouldEqual, errModularResourcesDisabled)
@@ -212,10 +212,9 @@ func TestModManagerFunctions(t *testing.T) {
 func TestModManagerValidation(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
-	modExe := utils.ResolveFile("examples/customresources/demos/complexmodule/run.sh")
 
 	// Precompile module to avoid timeout issues when building takes too long.
-	err := rtestutils.BuildInDir("examples/customresources/demos/complexmodule")
+	modPath, err := rtestutils.BuildTempModule(t, "examples/customresources/demos/complexmodule")
 	test.That(t, err, test.ShouldBeNil)
 
 	myBaseModel := resource.NewModel("acme", "demo", "mybase")
@@ -251,7 +250,7 @@ func TestModManagerValidation(t *testing.T) {
 
 	modCfg := config.Module{
 		Name:    "complex-module",
-		ExePath: modExe,
+		ExePath: modPath,
 	}
 	err = mgr.Add(ctx, modCfg)
 	test.That(t, err, test.ShouldBeNil)
@@ -303,17 +302,15 @@ func TestModuleReloading(t *testing.T) {
 	defer os.RemoveAll(parentAddr)
 	parentAddr += "/parent.sock"
 
-	exePath := utils.ResolveFile("module/testmodule/testmodule")
-	modCfg := config.Module{
-		Name:    "test-module",
-		ExePath: exePath,
-	}
+	modCfg := config.Module{Name: "test-module"}
 
 	t.Run("successful restart", func(t *testing.T) {
 		logger, logs := golog.NewObservedTestLogger(t)
 
 		// Precompile module to avoid timeout issues when building takes too long.
-		test.That(t, rtestutils.BuildInDir("module/testmodule"), test.ShouldBeNil)
+		modPath, err := rtestutils.BuildTempModule(t, "module/testmodule")
+		test.That(t, err, test.ShouldBeNil)
+		modCfg.ExePath = modPath
 
 		// This test neither uses a resource manager nor asserts anything about
 		// the existence of resources in the graph. Use a dummy
@@ -379,7 +376,9 @@ func TestModuleReloading(t *testing.T) {
 		logger, logs := golog.NewObservedTestLogger(t)
 
 		// Precompile module to avoid timeout issues when building takes too long.
-		test.That(t, rtestutils.BuildInDir("module/testmodule"), test.ShouldBeNil)
+		modPath, err := rtestutils.BuildTempModule(t, "module/testmodule")
+		test.That(t, err, test.ShouldBeNil)
+		modCfg.ExePath = modPath
 
 		// lower global timeout early to avoid race with actual restart code
 		defer func(origVal time.Duration) {
@@ -416,7 +415,7 @@ func TestModuleReloading(t *testing.T) {
 		// Remove testmodule binary, so process cannot be successfully restarted
 		// after crash. Also lower oueRestartInterval so attempted restarts happen
 		// at faster rate.
-		err = os.Remove(exePath)
+		err = os.Remove(modPath)
 		test.That(t, err, test.ShouldBeNil)
 
 		// Run 'kill_module' command through helper resource to cause module to
@@ -459,7 +458,8 @@ func TestDebugModule(t *testing.T) {
 	ctx := context.Background()
 
 	// Precompile module to avoid timeout issues when building takes too long.
-	test.That(t, rtestutils.BuildInDir("module/testmodule"), test.ShouldBeNil)
+	modPath, err := rtestutils.BuildTempModule(t, "module/testmodule")
+	test.That(t, err, test.ShouldBeNil)
 
 	// This cannot use t.TempDir() as the path it gives on MacOS exceeds module.MaxSocketAddressLength.
 	parentAddr, err := os.MkdirTemp("", "viam-test-*")
@@ -525,7 +525,7 @@ func TestDebugModule(t *testing.T) {
 
 			modCfg := config.Module{
 				Name:     "test-module",
-				ExePath:  utils.ResolveFile("module/testmodule/testmodule"),
+				ExePath:  modPath,
 				LogLevel: tc.moduleLogLevel,
 			}
 
