@@ -23,8 +23,8 @@ import (
 
 var model = resource.DefaultModelFamily.WithModel("oneaxis")
 
-// LIMIT_ERROR_MARGIN is added or subtracted from the location of the limit switch to ensure the switch is not passed
-const LIMIT_ERROR_MARGIN = 0.25
+// LimitErrorMargin is added or subtracted from the location of the limit switch to ensure the switch is not passed.
+const LimitErrorMargin = 0.25
 
 // Config is used for converting oneAxis config attributes.
 type Config struct {
@@ -357,20 +357,19 @@ func (g *oneAxis) MoveToPosition(ctx context.Context, positions []float64, extra
 	// Limit switch errors that stop the motors.
 	// Currently needs to be moved by underlying gantry motor.
 	if len(g.limitSwitchPins) > 0 {
-
 		// Stops if position x is past the 0 limit switch
-		if x <= (g.positionLimits[0] + LIMIT_ERROR_MARGIN) {
-			g.logger.Debugf("limit: %.2f", g.positionLimits[0]+LIMIT_ERROR_MARGIN)
+		if x <= (g.positionLimits[0] + LimitErrorMargin) {
+			g.logger.Debugf("limit: %.2f", g.positionLimits[0]+LimitErrorMargin)
 			g.logger.Debugf("position x: %.2f", x)
-			g.logger.Errorf("Cannot move past limit switch!")
+			g.logger.Error("Cannot move past limit switch!")
 			return g.motor.Stop(ctx, extra)
 		}
 
 		// Stops if position x is past the at-length limit switch
-		if x >= (g.positionLimits[1] - LIMIT_ERROR_MARGIN) {
-			g.logger.Debugf("limit: %.2f", g.positionLimits[1]-LIMIT_ERROR_MARGIN)
+		if x >= (g.positionLimits[1] - LimitErrorMargin) {
+			g.logger.Debugf("limit: %.2f", g.positionLimits[1]-LimitErrorMargin)
 			g.logger.Debugf("position x: %.2f", x)
-			g.logger.Errorf("Cannot move past limit switch!")
+			g.logger.Error("Cannot move past limit switch!")
 			return g.motor.Stop(ctx, extra)
 		}
 	}
