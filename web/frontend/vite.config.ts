@@ -1,5 +1,6 @@
 import vue from '@vitejs/plugin-vue';
 import reactivityTransform from '@vue-macros/reactivity-transform/dist/vite';
+import { svelte } from '@sveltejs/vite-plugin-svelte';
 import Hashes from 'jshashes';
 import { defineConfig } from 'vite';
 import path from 'node:path';
@@ -17,6 +18,7 @@ export const plugins = [
     },
   }),
   reactivityTransform(),
+  svelte(),
 ];
 
 // https://vitejs.dev/config/
