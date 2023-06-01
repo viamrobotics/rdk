@@ -14,6 +14,7 @@ import (
 
 	"go.viam.com/rdk/components/arm"
 	viamgrpc "go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/robot/server"
@@ -61,6 +62,12 @@ func TestClient(t *testing.T) {
 		extraOptions = extra
 		return arm.ErrStopUnimplemented
 	}
+	injectArm.ModelFrameFunc = func() referenceframe.Model {
+		data := []byte("{\"links\": [{\"parent\": \"world\"}]}")
+		model, err := referenceframe.UnmarshalModelJSON(data, "")
+		test.That(t, err, test.ShouldBeNil)
+		return model
+	}
 
 	pos2 := spatialmath.NewPoseFromPoint(r3.Vector{X: 4, Y: 5, Z: 6})
 	jointPos2 := &componentpb.JointPositions{Values: []float64{4.0, 5.0, 6.0}}
@@ -82,6 +89,12 @@ func TestClient(t *testing.T) {
 	}
 	injectArm2.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
 		return nil
+	}
+	injectArm2.ModelFrameFunc = func() referenceframe.Model {
+		data := []byte("{\"links\": [{\"parent\": \"world\"}]}")
+		model, err := referenceframe.UnmarshalModelJSON(data, "")
+		test.That(t, err, test.ShouldBeNil)
+		return model
 	}
 
 	armSvc, err := resource.NewAPIResourceCollection(

@@ -9,6 +9,7 @@ import (
 )
 
 func TestCloneImageWithDepth(t *testing.T) {
+	t.Parallel()
 	iwd, err := newImageWithDepth(
 		context.Background(),
 		artifact.MustPath("rimage/board1.png"),
@@ -28,6 +29,7 @@ func TestCloneImageWithDepth(t *testing.T) {
 }
 
 func TestImageToDepthMap(t *testing.T) {
+	t.Parallel()
 	iwd, err := newImageWithDepth(context.Background(),
 		artifact.MustPath("rimage/board2.png"), artifact.MustPath("rimage/board2.dat.gz"), false)
 	test.That(t, err, test.ShouldBeNil)
@@ -43,6 +45,7 @@ func TestImageToDepthMap(t *testing.T) {
 }
 
 func TestConvertToDepthMap(t *testing.T) {
+	t.Parallel()
 	iwd, err := newImageWithDepth(context.Background(),
 		artifact.MustPath("rimage/board2.png"), artifact.MustPath("rimage/board2.dat.gz"), false)
 	test.That(t, err, test.ShouldBeNil)

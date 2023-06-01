@@ -10,7 +10,21 @@ import (
 
 // NewNotFoundError is used when a resource is not found.
 func NewNotFoundError(name Name) error {
-	return errors.Errorf("resource %q not found", name)
+	return &notFoundError{name}
+}
+
+// IsNotFoundError returns if the given error is any kind of not found error.
+func IsNotFoundError(err error) bool {
+	var errArt *notFoundError
+	return errors.As(err, &errArt)
+}
+
+type notFoundError struct {
+	name Name
+}
+
+func (e *notFoundError) Error() string {
+	return fmt.Sprintf("resource %q not found", e.name)
 }
 
 // NewNotAvailableError is used when a resource is not available because of some error.

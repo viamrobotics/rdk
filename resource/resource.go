@@ -25,6 +25,7 @@ import (
 	"github.com/jhump/protoreflect/desc"
 	"github.com/pkg/errors"
 
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
 
@@ -133,6 +134,13 @@ type Actuator interface {
 
 	// Stop stops all movement for the resource
 	Stop(context.Context, map[string]interface{}) error
+}
+
+// Shaped is any resource that can have geometries.
+type Shaped interface {
+	// Geometries returns the list of geometries associated with the resource, in any order. The poses of the geometries reflect their
+	// current location relative to the frame of the resource.
+	Geometries(context.Context) ([]spatialmath.Geometry, error)
 }
 
 // ErrDoUnimplemented is returned if the DoCommand methods is not implemented.

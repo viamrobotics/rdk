@@ -3,7 +3,6 @@ package transformpipeline
 import (
 	"context"
 	"image"
-	"os"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -19,16 +18,6 @@ import (
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
 )
-
-const debugVideoTransform = "VIAM_DEBUG"
-
-func debugVideoTransformOrSkip(t *testing.T) {
-	t.Helper()
-	VideoTransformTest := os.Getenv(debugVideoTransform)
-	if VideoTransformTest == "" {
-		t.Skipf("set environmental variable %q to run this test", debugVideoTransform)
-	}
-}
 
 func TestDepthSource(t *testing.T) {
 	img, err := rimage.NewDepthMapFromFile(
@@ -117,25 +106,25 @@ func (h *depthSourceTestHelper) Process(
 }
 
 func TestDepthSourceGripper(t *testing.T) {
-	debugVideoTransformOrSkip(t)
+	d := rimage.NewMultipleImageTestDebugger(t, "align/gripper1/depth", "*.png", "")
+
 	proj, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(
 		utils.ResolveFile("components/camera/transformpipeline/data/gripper_parameters.json"),
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	d := rimage.NewMultipleImageTestDebugger(t, "align/gripper1/depth", "*.png", "")
 	err = d.Process(t, &depthSourceTestHelper{proj})
 	test.That(t, err, test.ShouldBeNil)
 }
 
 func TestDepthSourceIntel(t *testing.T) {
-	debugVideoTransformOrSkip(t)
+	d := rimage.NewMultipleImageTestDebugger(t, "align/intel515/depth", "*.png", "")
+
 	proj, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(
 		utils.ResolveFile("components/camera/transformpipeline/data/intel515_parameters.json"),
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	d := rimage.NewMultipleImageTestDebugger(t, "align/intel515/depth", "*.png", "")
 	err = d.Process(t, &depthSourceTestHelper{proj})
 	test.That(t, err, test.ShouldBeNil)
 }

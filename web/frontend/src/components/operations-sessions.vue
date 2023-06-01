@@ -50,7 +50,7 @@ const peerConnectionType = (info?: robotApi.PeerConnectionInfo.AsObject) => {
     :title="sessionsSupported ? 'Operations & Sessions' : 'Operations'"
     class="operations"
   >
-    <div class="border-medium border border-t-0 p-4">
+    <div class="border border-t-0 border-medium p-4">
       <template
         v-if="connectionManager"
       >
@@ -77,42 +77,42 @@ const peerConnectionType = (info?: robotApi.PeerConnectionInfo.AsObject) => {
           <div class="p-2 font-bold">
             Operations
           </div>
-          <table class="border-medium w-full table-auto border">
+          <table class="w-full table-auto border border-medium">
             <tr>
-              <th class="border-medium border p-2">
+              <th class="border border-medium p-2">
                 id
               </th>
-              <th class="border-medium border p-2">
+              <th class="border border-medium p-2">
                 session
               </th>
-              <th class="border-medium border p-2">
+              <th class="border border-medium p-2">
                 method
               </th>
-              <th class="border-medium border p-2">
+              <th class="border border-medium p-2">
                 elapsed time
               </th>
-              <th class="border-medium border p-2" />
+              <th class="border border-medium p-2" />
             </tr>
             <tr
               v-for="{ op, elapsed } in operations"
               :key="op.id"
             >
-              <td class="border-medium border p-2">
+              <td class="border border-medium p-2">
                 {{ op.id }} <span
                   v-if="client.sessionId === op.sessionId"
                   class="font-bold"
                 >(this session)</span>
               </td>
-              <td class="border-medium border p-2">
+              <td class="border border-medium p-2">
                 {{ op.sessionId || 'N/A' }}
               </td>
-              <td class="border-medium border p-2">
+              <td class="border border-medium p-2">
                 {{ op.method }}
               </td>
-              <td class="border-medium border p-2">
+              <td class="border border-medium p-2">
                 {{ elapsed }} ms
               </td>
-              <td class="border-medium border p-2 text-center">
+              <td class="border border-medium p-2 text-center">
                 <v-button
                   label="Kill"
                   @click="killOperation(op.id)"
@@ -129,18 +129,18 @@ const peerConnectionType = (info?: robotApi.PeerConnectionInfo.AsObject) => {
           <div class="p-2 font-bold">
             Sessions
           </div>
-          <table class="border-medium w-full table-auto border">
+          <table class="w-full table-auto border border-medium">
             <tr>
-              <th class="border-medium border p-2">
+              <th class="border border-medium p-2">
                 id
               </th>
-              <th class="border-medium border p-2">
+              <th class="border border-medium p-2">
                 type
               </th>
-              <th class="border-medium border p-2">
+              <th class="border border-medium p-2">
                 remote address
               </th>
-              <th class="border-medium border p-2">
+              <th class="border border-medium p-2">
                 local address
               </th>
             </tr>
@@ -148,19 +148,19 @@ const peerConnectionType = (info?: robotApi.PeerConnectionInfo.AsObject) => {
               v-for="sess in sessions"
               :key="sess.id"
             >
-              <td class="border-medium border p-2">
+              <td class="border border-medium p-2">
                 {{ sess.id }} <span
                   v-if="client.sessionId && sess.id === client.sessionId"
                   class="font-bold"
                 >(ours)</span>
               </td>
-              <td class="border-medium border p-2">
+              <td class="border border-medium p-2">
                 {{ peerConnectionType(sess.peerConnectionInfo) }}
               </td>
-              <td class="border-medium border p-2">
+              <td class="border border-medium p-2">
                 {{ sess.peerConnectionInfo?.remoteAddress || 'N/A' }}
               </td>
-              <td class="border-medium border p-2">
+              <td class="border border-medium p-2">
                 {{ sess.peerConnectionInfo?.localAddress || 'N/A' }}
               </td>
             </tr>

@@ -158,7 +158,7 @@ func (a *Arm) MoveToPosition(ctx context.Context, pos spatialmath.Pose, extra ma
 
 // MoveToJointPositions sets the joints.
 func (a *Arm) MoveToJointPositions(ctx context.Context, joints *pb.JointPositions, extra map[string]interface{}) error {
-	if err := arm.CheckDesiredJointPositions(ctx, a, joints.Values); err != nil {
+	if err := arm.CheckDesiredJointPositions(ctx, a, joints); err != nil {
 		return err
 	}
 	a.mu.RLock()
@@ -203,7 +203,7 @@ func (a *Arm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error
 	a.mu.RLock()
 	positionDegs := a.model.ProtobufFromInput(goal)
 	a.mu.RUnlock()
-	if err := arm.CheckDesiredJointPositions(ctx, a, positionDegs.Values); err != nil {
+	if err := arm.CheckDesiredJointPositions(ctx, a, positionDegs); err != nil {
 		return err
 	}
 	return a.MoveToJointPositions(ctx, positionDegs, nil)
@@ -215,4 +215,18 @@ func (a *Arm) Close(ctx context.Context) error {
 	defer a.mu.Unlock()
 	a.CloseCount++
 	return nil
+}
+
+// Geometries returns the list of geometries associated with the resource, in any order. The poses of the geometries reflect their
+// current location relative to the frame of the resource.
+func (a *Arm) Geometries(ctx context.Context) ([]spatialmath.Geometry, error) {
+	inputs, err := a.CurrentInputs(ctx)
+	if err != nil {
+		return nil, err
+	}
+	gif, err := a.model.Geometries(inputs)
+	if err != nil {
+		return nil, err
+	}
+	return gif.Geometries(), nil
 }

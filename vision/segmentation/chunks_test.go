@@ -3,7 +3,6 @@ package segmentation
 import (
 	"context"
 	"image"
-	"os"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -13,8 +12,6 @@ import (
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
 )
-
-const debugChunks = "VIAM_DEBUG"
 
 func init() {
 	utils.ParallelFactor = 1
@@ -142,10 +139,6 @@ func (cid *chunkImageDebug) Process(
 }
 
 func TestChunk1(t *testing.T) {
-	chunkTest := os.Getenv(debugChunks)
-	if chunkTest == "" {
-		t.Skipf("set environmental variable %q to run this test", debugChunks)
-	}
 	d := rimage.NewMultipleImageTestDebugger(t, "segmentation/test1/color", "*.png", "segmentation/test1/depth")
 	err := d.Process(t, &chunkImageDebug{})
 	test.That(t, err, test.ShouldBeNil)

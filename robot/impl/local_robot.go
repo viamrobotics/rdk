@@ -131,6 +131,7 @@ func (r *localRobot) Close(ctx context.Context) error {
 		}
 	}
 	r.activeBackgroundWorkers.Wait()
+	r.sessionManager.Close()
 
 	var err error
 	if r.cloudConnSvc != nil {
@@ -145,7 +146,6 @@ func (r *localRobot) Close(ctx context.Context) error {
 	if r.webSvc != nil {
 		err = multierr.Combine(err, r.webSvc.Close(ctx))
 	}
-	r.sessionManager.Close()
 	return err
 }
 

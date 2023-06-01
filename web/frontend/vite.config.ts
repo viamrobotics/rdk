@@ -1,4 +1,5 @@
 import vue from '@vitejs/plugin-vue';
+import reactivityTransform from '@vue-macros/reactivity-transform/dist/vite';
 import Hashes from 'jshashes';
 import { defineConfig } from 'vite';
 import path from 'node:path';
@@ -6,21 +7,22 @@ import url from 'node:url';
 
 const MD5 = new Hashes.MD5();
 
+export const plugins = [
+  vue({
+    template: {
+      compilerOptions: {
+        // treat all tags with a dash as custom elements
+        isCustomElement: (tag) => tag.includes('-'),
+      },
+    },
+  }),
+  reactivityTransform(),
+];
+
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [
-    vue({
-      reactivityTransform: true,
-      template: {
-        compilerOptions: {
-          // treat all tags with a dash as custom elements
-          isCustomElement: (tag) => tag.includes('-'),
-        },
-      },
-    }),
-  ],
+  plugins,
   build: {
-    minify: 'terser',
     sourcemap: true,
 
     /**
