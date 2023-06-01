@@ -13,7 +13,7 @@ import (
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
-	rutils "go.viam.com/utils"
+	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/resource"
@@ -72,7 +72,7 @@ type transformConfig struct {
 func (cfg *transformConfig) Validate(path string) ([]string, error) {
 	var deps []string
 	if len(cfg.Source) == 0 {
-		return nil, rutils.NewConfigValidationFieldRequiredError("%q is required", "source")
+		return nil, goutils.NewConfigValidationFieldRequiredError(path, "source")
 	}
 	deps = append(deps, cfg.Source)
 	return deps, nil
