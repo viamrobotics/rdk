@@ -129,18 +129,13 @@ func motionPlanInternal(ctx context.Context,
 		return nil, err
 	}
 
-	wsPb, err := worldState.ToProtobuf()
-	if err != nil {
-		return nil, err
-	}
-
 	logger.Infof(
 		"planning motion for frame %s. Goal: %v Starting seed map %v, startPose %v, worldstate: %v",
 		f.Name(),
 		frame.PoseInFrameToProtobuf(goal),
 		seedMap,
 		spatialmath.PoseToProtobuf(startPose),
-		wsPb,
+		worldState.String(),
 	)
 	logger.Debugf("constraint specs for this step: %v", constraintSpec)
 	logger.Debugf("motion config for this step: %v", motionConfig)

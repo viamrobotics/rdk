@@ -6,6 +6,7 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 
 	"go.viam.com/rdk/spatialmath"
+	"github.com/jedib0t/go-pretty/v6/table"
 )
 
 const unnamedWorldStateGeometryPrefix = "unnamedWorldStateGeometry_"
@@ -100,6 +101,31 @@ func (ws *WorldState) ToProtobuf() (*commonpb.WorldState, error) {
 		Obstacles:  convertGeometriesToProto(ws.obstacles),
 		Transforms: transforms,
 	}, nil
+}
+
+// returns a string representation of the geometries in the WorldState
+func (ws *WorldState) String() string {
+	if ws == nil {
+		return ""
+	}
+	
+	t := table.NewWriter()
+	t.AppendHeader(table.Row{"Name", "Geometry Type", "Parent"})
+	for  _, geometries := range ws.obstacles {
+		for _, geometry := range geometries.geometries {
+			name := geometry.Label()
+			string_rep := geometry.String()
+			parent := geometries.frame
+
+			t.AppendRow([]interface{}{
+				name,
+				string_rep,
+				parent,
+			})
+		}
+	}
+	return t.Render()
+
 }
 
 // ObstacleNames returns the set of geometry names that have been registered in the WorldState, represented as a map.
