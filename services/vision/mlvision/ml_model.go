@@ -78,7 +78,7 @@ func registerMLModelVisionService(
 		err := checkIfClassifierWorks(ctx, classifierFunc)
 		if err != nil {
 			classifierFunc = nil
-			logger.Infow("unable to use ml model as a classifier, will attempt to evaluate as detector and segmenter", "model", params.ModelName, "error", err)
+			logger.Debugw("unable to use ml model as a classifier, will attempt to evaluate as detector and segmenter", "model", params.ModelName, "error", err)
 		} else {
 			logger.Infow("model fulfills a vision service classifier", "model", params.ModelName)
 		}
@@ -91,7 +91,7 @@ func registerMLModelVisionService(
 		err = checkIfDetectorWorks(ctx, detectorFunc)
 		if err != nil {
 			detectorFunc = nil
-			logger.Infow("unable to use ml model as a detector, will attempt to evaluate as segmenter", "model", params.ModelName, "error", err)
+			logger.Debugw("unable to use ml model as a detector, will attempt to evaluate as segmenter", "model", params.ModelName, "error", err)
 		} else {
 			logger.Infow("model fulfills a vision service detector", "model", params.ModelName)
 		}
@@ -99,7 +99,7 @@ func registerMLModelVisionService(
 
 	segmenter3DFunc, err := attemptToBuild3DSegmenter(mlm)
 	if err != nil {
-		logger.Infow("unable to use ml model as segmenter", "model", params.ModelName, "error", err)
+		logger.Debugw("unable to use ml model as segmenter", "model", params.ModelName, "error", err)
 	} else {
 		logger.Infow("model fulfills a vision service 3D segmenter", "model", params.ModelName)
 	}
