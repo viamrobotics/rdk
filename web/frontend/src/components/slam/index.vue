@@ -227,7 +227,6 @@ const refresh2d = async (name: string) => {
   const map = await fetchSLAMMap(name);
   const returnedPose = await fetchSLAMPose(name);
 
-
   returnedPose.setX(returnedPose.getX() / 1000);
   returnedPose.setY(returnedPose.getY() / 1000);
   returnedPose.setZ(returnedPose.getZ() / 1000);
