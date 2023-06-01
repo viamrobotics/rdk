@@ -31,7 +31,7 @@ func TestFakeBase(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	kb, err := b.(*Base).WrapWithKinematics(ctx, fake.NewSLAM(slam.Named("test"), logger))
 	test.That(t, err, test.ShouldBeNil)
-	expected := referenceframe.FloatsToInputs([]float64{10, 11})
+	expected := referenceframe.FloatsToInputs([]float64{10, 11, 0})
 	test.That(t, kb.GoToInputs(ctx, expected), test.ShouldBeNil)
 	inputs, err := kb.CurrentInputs(ctx)
 	test.That(t, err, test.ShouldBeNil)

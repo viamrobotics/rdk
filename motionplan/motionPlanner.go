@@ -46,17 +46,7 @@ func PlanMotion(ctx context.Context,
 	constraintSpec *pb.Constraints,
 	planningOpts map[string]interface{},
 ) ([]map[string][]frame.Input, error) {
-	return motionPlanInternal(
-		ctx,
-		logger,
-		dst,
-		f,
-		seedMap,
-		fs,
-		worldState,
-		constraintSpec,
-		planningOpts,
-	)
+	return motionPlanInternal(ctx, logger, dst, f, seedMap, fs, worldState, constraintSpec, planningOpts)
 }
 
 // PlanFrameMotion plans a motion to destination for a given frame with no frame system. It will create a new FS just for the plan.
@@ -71,23 +61,12 @@ func PlanFrameMotion(ctx context.Context,
 ) ([][]frame.Input, error) {
 	// ephemerally create a framesystem containing just the frame for the solve
 	fs := frame.NewEmptyFrameSystem("")
-	err := fs.AddFrame(f, fs.World())
-	if err != nil {
+	if err := fs.AddFrame(f, fs.World()); err != nil {
 		return nil, err
 	}
 	destination := frame.NewPoseInFrame(frame.World, dst)
 	seedMap := map[string][]frame.Input{f.Name(): seed}
-	solutionMap, err := motionPlanInternal(
-		ctx,
-		logger,
-		destination,
-		f,
-		seedMap,
-		fs,
-		nil,
-		constraintSpec,
-		planningOpts,
-	)
+	solutionMap, err := motionPlanInternal(ctx, logger, destination, f, seedMap, fs, nil, constraintSpec, planningOpts)
 	if err != nil {
 		return nil, err
 	}

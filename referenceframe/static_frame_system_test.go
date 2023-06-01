@@ -22,17 +22,17 @@ func TestSimpleFrameSystemFunctions(t *testing.T) {
 	// build the system
 	fs := NewEmptyFrameSystem("test")
 	frame3Pt := r3.Vector{0., 4., 0.} // location of frame3 with respect to world frame
-	f3, err := FrameFromPoint("frame3", frame3Pt)
+	f3, err := NewStaticFrame("frame3", spatial.NewPoseFromPoint(frame3Pt))
 	test.That(t, err, test.ShouldBeNil)
 	err = fs.AddFrame(f3, fs.World())
 	test.That(t, err, test.ShouldBeNil)
 	frame1Pt := r3.Vector{0., 3., 0.} // location of frame1 with respect to frame3
-	f1, err := FrameFromPoint("frame1", frame1Pt)
+	f1, err := NewStaticFrame("frame1", spatial.NewPoseFromPoint(frame1Pt))
 	test.That(t, err, test.ShouldBeNil)
 	err = fs.AddFrame(f1, fs.Frame("frame3"))
 	test.That(t, err, test.ShouldBeNil)
 	frame2Pt := r3.Vector{5., 1., 0.} // location of frame2 with respect to world frame
-	f2, err := FrameFromPoint("frame2", frame2Pt)
+	f2, err := NewStaticFrame("frame2", spatial.NewPoseFromPoint(frame2Pt))
 	test.That(t, err, test.ShouldBeNil)
 	err = fs.AddFrame(f2, fs.World())
 	test.That(t, err, test.ShouldBeNil)
@@ -79,7 +79,7 @@ func TestSimpleFrameSystemFunctions(t *testing.T) {
 func TestSimpleFrameTranslation(t *testing.T) {
 	// build the system
 	fs := NewEmptyFrameSystem("test")
-	frame, err := FrameFromPoint("frame", r3.Vector{0., 3., 0.}) // location of frame with respect to world frame
+	frame, err := NewStaticFrame("frame", spatial.NewPoseFromPoint(r3.Vector{0., 3., 0.})) // location of frame with respect to world frame
 	test.That(t, err, test.ShouldBeNil)
 	err = fs.AddFrame(frame, fs.World())
 	test.That(t, err, test.ShouldBeNil)
@@ -134,17 +134,17 @@ func TestFrameTranslation(t *testing.T) {
 	// build the system
 	fs := NewEmptyFrameSystem("test")
 	frame3Pt := r3.Vector{0., 4., 0.} // location of frame3 with respect to world frame
-	f3, err := FrameFromPoint("frame3", frame3Pt)
+	f3, err := NewStaticFrame("frame3", spatial.NewPoseFromPoint(frame3Pt))
 	test.That(t, err, test.ShouldBeNil)
 	err = fs.AddFrame(f3, fs.World())
 	test.That(t, err, test.ShouldBeNil)
 	frame1Pt := r3.Vector{0., 3., 0.} // location of frame1 with respect to frame3
-	f1, err := FrameFromPoint("frame1", frame1Pt)
+	f1, err := NewStaticFrame("frame1", spatial.NewPoseFromPoint(frame1Pt))
 	test.That(t, err, test.ShouldBeNil)
 	err = fs.AddFrame(f1, fs.Frame("frame3"))
 	test.That(t, err, test.ShouldBeNil)
 	frame2Pt := r3.Vector{5., 1., 0.} // location of frame2 with respect to world frame
-	f2, err := FrameFromPoint("frame2", frame2Pt)
+	f2, err := NewStaticFrame("frame2", spatial.NewPoseFromPoint(frame2Pt))
 	test.That(t, err, test.ShouldBeNil)
 	err = fs.AddFrame(f2, fs.World())
 	test.That(t, err, test.ShouldBeNil)
@@ -181,12 +181,12 @@ func TestFrameTransform(t *testing.T) {
 	fs := NewEmptyFrameSystem("test")
 	// location of frame3 with respect to world frame
 	frame3Pt := r3.Vector{0., 4., 0.} // location of frame3 with respect to world frame
-	f3, err := FrameFromPoint("frame3", frame3Pt)
+	f3, err := NewStaticFrame("frame3", spatial.NewPoseFromPoint(frame3Pt))
 	test.That(t, err, test.ShouldBeNil)
 	err = fs.AddFrame(f3, fs.World())
 	test.That(t, err, test.ShouldBeNil)
 	frame1Pt := r3.Vector{0., 3., 0.} // location of frame1 with respect to frame3
-	f1, err := FrameFromPoint("frame1", frame1Pt)
+	f1, err := NewStaticFrame("frame1", spatial.NewPoseFromPoint(frame1Pt))
 	test.That(t, err, test.ShouldBeNil)
 	err = fs.AddFrame(f1, fs.Frame("frame3"))
 	test.That(t, err, test.ShouldBeNil)
@@ -226,12 +226,12 @@ func TestGeomtriesTransform(t *testing.T) {
 	fs := NewEmptyFrameSystem("test")
 	// location of frame3 with respect to world frame
 	frame3Pt := r3.Vector{0., 4., 0.} // location of frame3 with respect to world frame
-	f3, err := FrameFromPoint("frame3", frame3Pt)
+	f3, err := NewStaticFrame("frame3", spatial.NewPoseFromPoint(frame3Pt))
 	test.That(t, err, test.ShouldBeNil)
 	err = fs.AddFrame(f3, fs.World())
 	test.That(t, err, test.ShouldBeNil)
 	frame1Pt := r3.Vector{0., 3., 0.} // location of frame1 with respect to frame3
-	f1, err := FrameFromPoint("frame1", frame1Pt)
+	f1, err := NewStaticFrame("frame1", spatial.NewPoseFromPoint(frame1Pt))
 	test.That(t, err, test.ShouldBeNil)
 	err = fs.AddFrame(f1, fs.Frame("frame3"))
 	test.That(t, err, test.ShouldBeNil)
