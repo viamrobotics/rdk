@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -14,6 +15,7 @@ import (
 	servicepb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/base"
+	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/internal"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/operation"
@@ -47,6 +49,36 @@ func init() {
 
 // ErrNotImplemented is thrown when an unreleased function is called
 var ErrNotImplemented = errors.New("function coming soon but not yet implemented")
+
+// Localizer is an interface which both slam and movementsensor can satisfy when wrapped respectively.
+type Localizer interface {
+	GlobalPosition(context.Context) (spatialmath.Pose, error)
+}
+
+// SlamWrapper is a struct which only wraps an existing slam service
+type SlamWrapper struct {
+	slam.Service
+}
+
+// GlobalPosition returns slam's current position
+func (s SlamWrapper) GlobalPosition(ctx context.Context) (spatialmath.Pose, error) {
+	pose, _, err := s.GetPosition(ctx)
+	return pose, err
+}
+
+// MovementSensorWrapper is a struct which only wraps an existing movementsensor
+type MovementSensorWrapper struct {
+	movementsensor.MovementSensor
+}
+
+// GlobalPosition returns a movementsensor's current position
+func (m MovementSensorWrapper) GlobalPosition(ctx context.Context) (spatialmath.Pose, error) {
+	gp, _, err := m.Position(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	return spatialmath.GeoPointToPose(gp), nil
+}
 
 // Config describes how to configure the service; currently only used for specifying dependency on framesystem service
 type Config struct {
@@ -196,7 +228,8 @@ func (ms *builtIn) MoveOnMap(
 	if !ok {
 		return false, fmt.Errorf("cannot move component of type %T because it is not a KinematicWrappable Base", component)
 	}
-	kb, err := kw.WrapWithKinematics(ctx, slamService)
+	wrapper := SlamWrapper{slamService}
+	kb, err := kw.WrapWithKinematics(ctx, wrapper)
 	if err != nil {
 		return false, err
 	}
@@ -225,18 +258,114 @@ func (ms *builtIn) MoveOnMap(
 	return true, nil
 }
 
-// MoveOnGlobe TODO(RSDK-2926): Finish documentation
+// MoveOnGlobe will move the given component to the given destination on the globe.
+// Bases are the only component that supports this.
 func (ms *builtIn) MoveOnGlobe(
 	ctx context.Context,
 	componentName resource.Name,
 	destination *geo.Point,
-	heading float64,
+	heading float64, //optional
 	movementSensorName resource.Name,
 	obstacles []*spatialmath.GeoObstacle,
-	linearVelocity float64,
-	angularVelocity float64,
+	linearVelocity float64, //optional
+	angularVelocity float64, //optional
 	extra map[string]interface{},
 ) (bool, error) {
+	operation.CancelOtherWithLabel(ctx, "motion-service")
+
+	frameSys, err := ms.fsService.FrameSystem(ctx, nil)
+	if err != nil {
+		return false, err
+	}
+
+	// build maps of relevant components and inputs from initial inputs
+	fsInputs, resources, err := ms.fsService.CurrentInputs(ctx)
+	if err != nil {
+		return false, err
+	}
+
+	// handle optional heading, linearVelocity and angularVelocity
+	if math.IsNaN(heading) {
+		ms.logger.Info("no heading specified - we will achieve the current heading at destination")
+	}
+	if math.IsNaN(linearVelocity) || linearVelocity == 0 {
+		linearVelocity = 0.5
+		ms.logger.Infof("no linearVelocity specified - we will default to using: %f", linearVelocity)
+	}
+	if math.IsNaN(angularVelocity) || angularVelocity == 0 {
+		angularVelocity = 45
+		ms.logger.Infof("no angularVelocity specified - we will default to using: %f", angularVelocity)
+	}
+
+	// get movementsensor
+	sensorComponent, ok := ms.components[movementSensorName]
+	if !ok {
+		return false, resource.DependencyNotFoundError(componentName)
+	}
+	movementSensor, ok := sensorComponent.(movementsensor.MovementSensor)
+	if !ok {
+		return false, fmt.Errorf("cannot cast component of type %T because it is not a MovementSensor", sensorComponent)
+	}
+
+	// convert destination into a spatialmath pose in frame with respect to 0 latitude, 0 longitude
+	dst := spatialmath.GeoPointToPose(destination)
+	goalPIF := referenceframe.NewPoseInFrame("world", dst)
+
+	// convert GeoObstacles into GeometriesInFrame then into a Worldstate
+	geoms := spatialmath.GeoObstaclesToGeometries(obstacles)
+	gif := referenceframe.NewGeometriesInFrame("world", geoms)
+	wrldst, err := referenceframe.NewWorldState([]*referenceframe.GeometriesInFrame{gif}, nil)
+	if err != nil {
+		return false, err
+	}
+
+	// create a KinematicBase from the componentName
+	baseComponent, ok := ms.components[componentName]
+	if !ok {
+		return false, fmt.Errorf("only Base components are supported for MoveOnMap: could not find an Base named %v", componentName)
+	}
+	kw, ok := baseComponent.(base.KinematicWrappable)
+	if !ok {
+		return false, fmt.Errorf("cannot move base of type %T because it is not KinematicWrappable", baseComponent)
+	}
+	wrapper := MovementSensorWrapper{movementSensor}
+	kb, err := kw.WrapWithKinematics(ctx, wrapper)
+	if err != nil {
+		return false, err
+	}
+
+	// check for cancelled context before we are start planning
+	if ctx.Err() != nil {
+		ms.logger.Info("successfully canceled motion service MoveOnGlobe")
+		return true, ctx.Err()
+	}
+
+	// make call to motionplan
+	plan, err := motionplan.PlanMotion(ctx, ms.logger, goalPIF, kb.ModelFrame(), fsInputs, frameSys, wrldst, nil, extra)
+	if err != nil {
+		return false, err
+	}
+
+	// check for cancelled context after we are done planning
+	if ctx.Err() != nil {
+		ms.logger.Info("successfully canceled motion service MoveOnGlobe")
+		return true, ctx.Err()
+	}
+
+	// execute the plan
+	for _, step := range plan {
+		for name, inputs := range step {
+			if len(inputs) == 0 {
+				continue
+			}
+			if err := resources[name].GoToInputs(ctx, inputs); err != nil {
+				// if context is cancelled we only stop the base
+				kb.Stop(ctx, nil)
+				return false, err
+			}
+		}
+	}
+
 	return false, ErrNotImplemented
 }
 

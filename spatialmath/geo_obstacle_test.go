@@ -3,6 +3,7 @@ package spatialmath
 import (
 	"testing"
 
+	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
@@ -12,7 +13,8 @@ func TestGeoObstacles(t *testing.T) {
 	testLatitude := 39.58836
 	testLongitude := -105.64464
 	testPoint := geo.NewPoint(testLatitude, testLongitude)
-	testSphere, err := NewSphere(NewZeroPose(), 100, "sphere")
+	testPose := NewPoseFromPoint(r3.Vector{2, 3, 4})
+	testSphere, err := NewSphere(testPose, 100, "sphere")
 	test.That(t, err, test.ShouldBeNil)
 	testGeoms := []Geometry{testSphere}
 
@@ -41,28 +43,33 @@ func TestGeoObstacles(t *testing.T) {
 	})
 
 	// test forward and backward conversion from GeoObstacleConfig to GeoObstacle
-	gc, err := NewGeometryConfig(testSphere)
-	test.That(t, err, test.ShouldBeNil)
+	gob := NewGeoObstacle(testPoint, []Geometry{testSphere})
 
 	gobCfg := GeoObstacleConfig{
 		Location:   &commonpb.GeoPoint{Latitude: testLatitude, Longitude: testLongitude},
-		Geometries: []*GeometryConfig{gc},
+		Geometries: []*commonpb.Geometry{testSphere.ToProtobuf()},
 	}
 
 	t.Run("Conversion from GeoObstacle to GeoObstacleConfig", func(t *testing.T) {
-		conv, err := NewGeoObstacleConfig(*testGeoObst)
+		conv, err := NewGeoObstacleConfig(gob)
 		test.That(t, err, test.ShouldBeNil)
 
 		test.That(t, testPoint.Lat(), test.ShouldEqual, conv.Location.Latitude)
 		test.That(t, testPoint.Lng(), test.ShouldEqual, conv.Location.Longitude)
-		test.That(t, conv.Geometries, test.ShouldResemble, []*GeometryConfig{gc})
+		test.That(t, conv.Geometries, test.ShouldResemble, []*commonpb.Geometry{testSphere.ToProtobuf()})
 	})
 
 	t.Run("Conversion from GeoObstacleConfig to GeoObstacle", func(t *testing.T) {
 		conv, err := GeoObstaclesFromConfig(&gobCfg)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(conv), test.ShouldEqual, 1)
-		test.That(t, conv[0].location, test.ShouldResemble, testGeoObst.location)
-		test.That(t, conv[0].geometries, test.ShouldResemble, testGeoObst.geometries)
+		test.That(t, conv[0].location, test.ShouldResemble, gob.location)
+		test.That(t, conv[0].geometries, test.ShouldResemble, gob.geometries)
+	})
+
+	t.Run("Conversion from GeoObstacle to Geometry", func(t *testing.T) {
+		geoms := GeoObstaclesToGeometries([]*GeoObstacle{gob})
+		test.That(t, len(geoms), test.ShouldEqual, 1)
+		test.That(t, geoms[0].Pose(), test.ShouldResemble, Compose(GeoPointToPose(testPoint), testPose))
 	})
 }

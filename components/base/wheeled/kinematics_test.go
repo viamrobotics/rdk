@@ -11,6 +11,7 @@ import (
 
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	motion "go.viam.com/rdk/services/motion/builtin"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/slam/fake"
 	"go.viam.com/rdk/spatialmath"
@@ -108,8 +109,6 @@ func TestCurrentInputs(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		_, err := kwb.CurrentInputs(ctx)
 		test.That(t, err, test.ShouldBeNil)
-		_, err = slam.GetPointCloudMapFull(ctx, kwb.slam)
-		test.That(t, err, test.ShouldBeNil)
 	}
 }
 
@@ -128,9 +127,10 @@ func TestErrorState(t *testing.T) {
 	slam.GetPositionFunc = func(ctx context.Context) (spatialmath.Pose, string, error) {
 		return spatialmath.NewZeroPose(), "", nil
 	}
+	wrapper := motion.SlamWrapper{Service: slam}
 	kwb := &kinematicWheeledBase{
 		wheeledBase: wb,
-		slam:        slam,
+		Localizer:   wrapper,
 		model:       model,
 		fs:          fs,
 	}
