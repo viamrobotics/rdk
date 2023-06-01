@@ -47,7 +47,6 @@ func init() {
 				sourceName := newConf.Source
 				source, err := camera.FromRobot(actualR, sourceName)
 				if err != nil {
-					fmt.Println("Erroring here, init")
 					return nil, fmt.Errorf("no source camera for transform pipeline (%s): %w", sourceName, err)
 				}
 				src, err := newTransformPipeline(ctx, source, newConf, actualR)
