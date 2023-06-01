@@ -3,11 +3,10 @@ package referenceframe
 import (
 	"testing"
 
+	"github.com/jedib0t/go-pretty/v6/table"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/spatialmath"
-
-	"github.com/jedib0t/go-pretty/v6/table"
 )
 
 func TestWorldStateConstruction(t *testing.T) {
@@ -45,14 +44,15 @@ func TestWorldStateConstruction(t *testing.T) {
 }
 
 func TestString(t *testing.T) {
-	
 	foo, _ := spatialmath.NewSphere(spatialmath.NewZeroPose(), 10, "foo")
 	bar, _ := spatialmath.NewSphere(spatialmath.NewZeroPose(), 5, "bar")
 	testgeo, _ := spatialmath.NewSphere(spatialmath.NewZeroPose(), 7, "testgeo")
 
-	ws, _ := NewWorldState([]*GeometriesInFrame{NewGeometriesInFrame("world", []spatialmath.Geometry{foo, bar}), 
-												NewGeometriesInFrame("camera", []spatialmath.Geometry{testgeo})}, nil)
-	
+	ws, _ := NewWorldState([]*GeometriesInFrame{
+		NewGeometriesInFrame("world", []spatialmath.Geometry{foo, bar}),
+		NewGeometriesInFrame("camera", []spatialmath.Geometry{testgeo}),
+	}, nil)
+
 	testTable := table.NewWriter()
 	testTable.AppendHeader(table.Row{"Name", "Geometry Type", "Parent"})
 	testTable.AppendRow([]interface{}{
