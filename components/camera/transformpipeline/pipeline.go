@@ -86,7 +86,6 @@ func newTransformPipeline(
 	r robot.Robot,
 ) (camera.VideoSource, error) {
 	if source == nil {
-		fmt.Println("Erroring here, newTransformPipeline")
 		return nil, errors.New("no source camera for transform pipeline")
 	}
 	if len(cfg.Pipeline) == 0 {
