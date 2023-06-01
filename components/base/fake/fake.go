@@ -28,7 +28,7 @@ func init() {
 				conf resource.Config,
 				logger golog.Logger,
 			) (base.Base, error) {
-				return &Base{Named: conf.ResourceName().AsNamed()}, nil
+				return NewBase(ctx, conf)
 			},
 		},
 	)

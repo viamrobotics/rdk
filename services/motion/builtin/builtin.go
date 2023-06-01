@@ -221,8 +221,7 @@ func (ms *builtIn) MoveOnMap(
 			return false, err
 		}
 	}
-	_ = slamService
-	return false, ErrNotImplemented
+	return true, nil
 }
 
 // MoveOnGlobe TODO(RSDK-2926): Finish documentation

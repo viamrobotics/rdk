@@ -84,8 +84,7 @@ func (kwb *kinematicWheeledBase) CurrentInputs(ctx context.Context) ([]reference
 func (kwb *kinematicWheeledBase) GoToInputs(ctx context.Context, desired []referenceframe.Input) (err error) {
 	// this loop polls the error state and issues a corresponding command to move the base to the objective
 	// when the base is within the positional threshold of the goal, exit the loop
-	// TODO(rb): check for the context being cancelled and stop if so
-	for {
+	for err = ctx.Err(); err == nil; err = ctx.Err() {
 		current, err := kwb.CurrentInputs(ctx)
 		if err != nil {
 			return err
@@ -106,6 +105,7 @@ func (kwb *kinematicWheeledBase) GoToInputs(ctx context.Context, desired []refer
 			}
 		}
 	}
+	return err
 }
 
 // issueCommand issues a relevant command to move the base to the given desired inputs and returns the boolean describing
