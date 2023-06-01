@@ -7,7 +7,7 @@ import { displayError } from '@/lib/error';
 export let name: string;
 export let client: Client;
 
-let audio: HTMLAudioElement
+let audio: HTMLAudioElement;
 
 let isOn = false;
 
@@ -63,7 +63,12 @@ const toggleExpand = async () => {
         </div>
 
         {#if isOn}
-          <audio class='py-2' controls autoplay bind:this={audio} />
+          <audio
+            class='py-2'
+            controls
+            autoplay
+            bind:this={audio}
+          />
         {/if}
       </div>
     </div>
