@@ -16,11 +16,11 @@
         "api":"rdk:service:navigation",
         "model":"rdk:builtin:builtin",
         "attributes":{
-            "base_name":"test_base",
+            "base":"test_base",
             "degs_per_sec":1,
             "meters_per_sec":1,
-            "motion_service_name":"builtin",
-            "movement_sensor_name":"test_movement",
+            "motion_service":"builtin",
+            "movement_sensor":"test_movement",
             "obstacles":
             [{
                 "geometries":
@@ -45,8 +45,8 @@
                     }
                 }],
                 "location":{
-                    "latitude":1,
-                    "longitude":1
+                    "latitude": 40.771593,
+                    "longitude": -73.981793
                 }
             }],
             "store":{

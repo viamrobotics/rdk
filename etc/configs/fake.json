@@ -137,8 +137,8 @@
                 "store": {
                     "type": "memory"
                 },
-                "movement_sensor_name": "movement_sensor1",
-                "base_name": "base1"
+                "movement_sensor": "movement_sensor1",
+                "base": "base1"
             }
         },
         {

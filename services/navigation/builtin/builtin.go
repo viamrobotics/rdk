@@ -59,9 +59,9 @@ func init() {
 // Config describes how to configure the service.
 type Config struct {
 	Store              navigation.StoreConfig `json:"store"`
-	BaseName           string                 `json:"base_name"`
-	MovementSensorName string                 `json:"movement_sensor_name"`
-	MotionServiceName  string                 `json:"motion_service_name"`
+	BaseName           string                 `json:"base"`
+	MovementSensorName string                 `json:"movement_sensor"`
+	MotionServiceName  string                 `json:"motion_service"`
 	// DegPerSec and MetersPerSec are targets and not hard limits on speed
 	DegPerSec    float64                          `json:"degs_per_sec"`
 	MetersPerSec float64                          `json:"meters_per_sec"`
