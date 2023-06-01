@@ -174,7 +174,7 @@ func TestPlanningWithGripper(t *testing.T) {
 // ------------------------.
 func simple2DMap() (*planConfig, error) {
 	// build model
-	limits := []frame.Limit{{Min: -100, Max: 100}, {Min: -100, Max: 100}}
+	limits := []frame.Limit{{Min: -100, Max: 100}, {Min: -100, Max: 100}, {Min: -2 * math.Pi, Max: 2 * math.Pi}}
 	physicalGeometry, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{X: 10, Y: 10, Z: 10}, "")
 	if err != nil {
 		return nil, err
@@ -207,7 +207,7 @@ func simple2DMap() (*planConfig, error) {
 	// setup planner options
 	opt := newBasicPlannerOptions()
 	startInput := frame.StartPositions(fs)
-	startInput[modelName] = frame.FloatsToInputs([]float64{-90., 90.})
+	startInput[modelName] = frame.FloatsToInputs([]float64{-90., 90., 0})
 	goal := spatialmath.NewPoseFromPoint(r3.Vector{X: 90, Y: 90, Z: 0})
 	opt.SetGoalMetric(NewSquaredNormMetric(goal))
 	sf, err := newSolverFrame(fs, modelName, frame.World, startInput)

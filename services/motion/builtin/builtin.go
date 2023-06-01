@@ -185,6 +185,7 @@ func (ms *builtIn) MoveOnMap(
 	if !ok {
 		return false, resource.DependencyNotFoundError(slamName)
 	}
+	ms.logger.Warnf("This feature is currently experimental and does not support obstacle avoidance with SLAM maps yet")
 
 	// create a KinematicBase from the componentName
 	component, ok := ms.components[componentName]

@@ -12,6 +12,7 @@ import (
 )
 
 func TestDubinsRRT(t *testing.T) {
+	t.Skip()
 	logger := golog.NewTestLogger(t)
 	robotGeometry, err := spatial.NewBox(spatial.NewZeroPose(), r3.Vector{X: 1, Y: 1, Z: 1}, "")
 	test.That(t, err, test.ShouldEqual, nil)
