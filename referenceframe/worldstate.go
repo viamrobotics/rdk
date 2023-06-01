@@ -113,14 +113,10 @@ func (ws *WorldState) String() string {
 	t.AppendHeader(table.Row{"Name", "Geometry Type", "Parent"})
 	for _, geometries := range ws.obstacles {
 		for _, geometry := range geometries.geometries {
-			name := geometry.Label()
-			stringRep := geometry.String()
-			parent := geometries.frame
-
 			t.AppendRow([]interface{}{
-				name,
-				stringRep,
-				parent,
+				geometry.Label(),
+				geometry.String(),
+				geometries.frame,
 			})
 		}
 	}

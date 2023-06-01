@@ -44,14 +44,18 @@ func TestWorldStateConstruction(t *testing.T) {
 }
 
 func TestString(t *testing.T) {
-	foo, _ := spatialmath.NewSphere(spatialmath.NewZeroPose(), 10, "foo")
-	bar, _ := spatialmath.NewSphere(spatialmath.NewZeroPose(), 5, "bar")
-	testgeo, _ := spatialmath.NewSphere(spatialmath.NewZeroPose(), 7, "testgeo")
+	foo, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 10, "foo")
+	test.That(t, err, test.ShouldBeNil)
+	bar, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 5, "bar")
+	test.That(t, err, test.ShouldBeNil)
+	testgeo, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 7, "testgeo")
+	test.That(t, err, test.ShouldBeNil)
 
-	ws, _ := NewWorldState([]*GeometriesInFrame{
+	ws, err := NewWorldState([]*GeometriesInFrame{
 		NewGeometriesInFrame("world", []spatialmath.Geometry{foo, bar}),
 		NewGeometriesInFrame("camera", []spatialmath.Geometry{testgeo}),
 	}, nil)
+	test.That(t, err, test.ShouldBeNil)
 
 	testTable := table.NewWriter()
 	testTable.AppendHeader(table.Row{"Name", "Geometry Type", "Parent"})
