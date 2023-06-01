@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"sync"
 
 	"github.com/de-bkg/gognss/pkg/ntrip"
@@ -72,8 +71,6 @@ type I2CConfig struct {
 // Validate ensures all parts of the config are valid.
 func (cfg *Config) Validate(path string) ([]string, error) {
 	var deps []string
-	log.Println("validating config...")
-	log.Println(cfg.CorrectionSource)
 	switch cfg.CorrectionSource {
 	case ntripStr:
 		return nil, cfg.NtripConfig.ValidateNtrip(path)
@@ -114,15 +111,12 @@ func (cfg *SerialConfig) ValidateSerial(path string) error {
 
 // ValidateNtrip ensures all parts of the config are valid.
 func (cfg *NtripConfig) ValidateNtrip(path string) error {
-	log.Println("validiating ntrip")
-	log.Println(cfg)
 	if cfg.NtripAddr == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "ntrip_addr")
 	}
 	if cfg.NtripPath == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "ntrip_path")
 	}
-	log.Println("N trip validated")
 	return nil
 }
 
@@ -152,7 +146,7 @@ type RTKMovementSensor struct {
 	ntripStatus bool
 
 	err          movementsensor.LastError
-	lastPosition *geo.Point
+	lastposition movementsensor.LastPosition
 
 	nmeamovementsensor gpsnmea.NmeaMovementSensor
 	inputProtocol      string
@@ -170,7 +164,6 @@ func newRTKMovementSensor(
 	conf resource.Config,
 	logger golog.Logger,
 ) (movementsensor.MovementSensor, error) {
-	log.Println("new ")
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return nil, err
@@ -178,16 +171,15 @@ func newRTKMovementSensor(
 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	g := &RTKMovementSensor{
-		Named:      conf.ResourceName().AsNamed(),
-		cancelCtx:  cancelCtx,
-		cancelFunc: cancelFunc,
-		logger:     logger,
-		err:        movementsensor.NewLastError(1, 1),
+		Named:        conf.ResourceName().AsNamed(),
+		cancelCtx:    cancelCtx,
+		cancelFunc:   cancelFunc,
+		logger:       logger,
+		err:          movementsensor.NewLastError(1, 1),
+		lastposition: movementsensor.NewLastPosition(),
 	}
 
-	g.inputProtocol = newConf.NtripInputProtocol
-
-	log.Println("making new rtk sensor")
+	g.inputProtocol = newConf.CorrectionSource
 
 	nmeaConf := &gpsnmea.Config{
 		ConnectionType: newConf.ConnectionType,
@@ -198,15 +190,12 @@ func newRTKMovementSensor(
 	// Init NMEAMovementSensor
 	switch g.inputProtocol {
 	case serialStr:
-		log.Println("input serial")
 		var err error
 		nmeaConf.SerialConfig = (*gpsnmea.SerialConfig)(newConf.SerialConfig)
-		log.Println(nmeaConf.SerialConfig)
 		g.nmeamovementsensor, err = gpsnmea.NewSerialGPSNMEA(ctx, conf.ResourceName(), nmeaConf, logger)
 		if err != nil {
 			return nil, err
 		}
-		log.Println("made new serial GPS NMEA")
 	case i2cStr:
 		var err error
 		nmeaConf.I2CConfig = (*gpsnmea.I2CConfig)(newConf.I2CConfig)
@@ -235,15 +224,13 @@ func newRTKMovementSensor(
 		g.logger.Info("ntrip_baud using default baud rate 38400")
 	}
 
-	if g.writepath == "" {
+	if g.writepath != "" {
 		g.logger.Info("ntrip_path will use same path for writing RCTM messages to gps")
 		g.writepath = newConf.NtripPath
 	}
 
-	if newConf.CorrectionSource == i2cStr {
-		// I2C address only, assumes address is correct since this was checked when gps was initialized
-		g.addr = byte(newConf.I2cAddr)
-	}
+	// I2C address only, assumes address is correct since this was checked when gps was initialized
+	g.addr = byte(newConf.I2cAddr)
 
 	if err := g.start(); err != nil {
 		return nil, err
@@ -256,6 +243,7 @@ func (g *RTKMovementSensor) start() error {
 	// TODO(RDK-1639): Test out what happens if we call this line and then the ReceiveAndWrite*
 	// correction data goes wrong. Could anything worse than uncorrected data occur?
 	if err := g.nmeamovementsensor.Start(g.cancelCtx); err != nil {
+		g.lastposition.GetLastPosition()
 		return err
 	}
 
@@ -268,12 +256,7 @@ func (g *RTKMovementSensor) start() error {
 		utils.PanicCapturingGo(func() { g.receiveAndWriteI2C(g.cancelCtx) })
 	}
 
-	if err := g.start(); err != nil {
-		// Set lastPosition to nil if there's an error
-		g.lastPosition = nil
-		return err
-	}
-	return nil
+	return g.err.Get()
 }
 
 // Connect attempts to connect to ntrip client until successful connection or timeout.
@@ -514,8 +497,6 @@ func (g *RTKMovementSensor) receiveAndWriteSerial() {
 		g.logger.Infof("caster %s seems to be down", g.ntripClient.URL)
 	}
 
-	log.Println("write path")
-	log.Println(g.writepath)
 	options := slib.OpenOptions{
 		PortName:        g.writepath,
 		BaudRate:        uint(g.wbaud),
@@ -561,10 +542,8 @@ func (g *RTKMovementSensor) receiveAndWriteSerial() {
 			return
 		default:
 		}
-		log.Println("getting the stream")
+
 		msg, err := scanner.NextMessage()
-		log.Println("message")
-		log.Println(msg)
 		if err != nil {
 			g.ntripMu.Lock()
 			g.ntripStatus = false
@@ -598,29 +577,16 @@ func (g *RTKMovementSensor) NtripStatus() (bool, error) {
 
 // Position returns the current geographic location of the MOVEMENTSENSOR.
 func (g *RTKMovementSensor) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+	g.lastposition.SetLastPosition(&geo.Point{})
 	g.ntripMu.Lock()
 	lastError := g.err.Get()
 	if lastError != nil {
-		// Return the last known position if there's an error
-		lastPosition := g.lastPosition
-		g.ntripMu.Unlock()
-		if lastPosition != nil {
-			return lastPosition, 0, nil
-		}
-		return nil, 0, lastError
+		defer g.ntripMu.Unlock()
+		return g.lastposition.GetLastPosition(), 0, lastError
 	}
 	g.ntripMu.Unlock()
 
-	// Get the current position using the nmeamovementsensor
-	position, accuracy, err := g.nmeamovementsensor.Position(ctx, extra)
-	if err != nil {
-		return nil, 0, err
-	}
-
-	// Update the last known position
-	g.lastPosition = position
-
-	return position, accuracy, nil
+	return g.nmeamovementsensor.Position(ctx, extra)
 }
 
 // LinearVelocity passthrough.
@@ -766,8 +732,6 @@ func (g *RTKMovementSensor) Close(ctx context.Context) error {
 		}
 		g.ntripClient.Stream = nil
 	}
-
-	g.lastPosition = nil
 
 	g.ntripMu.Unlock()
 	g.activeBackgroundWorkers.Wait()
