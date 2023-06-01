@@ -236,8 +236,8 @@ func TestMoveOnMap(t *testing.T) {
 		slam.Named("test_slam"),
 		nil,
 	)
-	test.That(t, err, test.ShouldBeError, builtin.ErrNotImplemented)
-	test.That(t, success, test.ShouldBeFalse)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, success, test.ShouldBeTrue)
 }
 
 // TODO(RSDK-2926): Revisit after MoveOnGlobe implementation is completed, needs test cases for optional specs, etc.

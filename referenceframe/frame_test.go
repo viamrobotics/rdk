@@ -114,29 +114,6 @@ func TestRevoluteFrame(t *testing.T) {
 	test.That(t, limit[0], test.ShouldResemble, expLimit[0])
 }
 
-func TestMobile2DFrame(t *testing.T) {
-	expLimit := []Limit{{-10, 10}, {-10, 10}}
-	frame := &mobile2DFrame{&baseFrame{"test", expLimit}, nil}
-	// expected output
-	expPose := spatial.NewPoseFromPoint(r3.Vector{3, 5, 0})
-	// get expected transform back
-	pose, err := frame.Transform(FloatsToInputs([]float64{3, 5}))
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, pose, test.ShouldResemble, expPose)
-	// if you feed in too many inputs, should get error back
-	_, err = frame.Transform(FloatsToInputs([]float64{3, 5, 10}))
-	test.That(t, err, test.ShouldNotBeNil)
-	// if you feed in too few inputs, should get errr back
-	_, err = frame.Transform(FloatsToInputs([]float64{3, 5, 10}))
-	test.That(t, err, test.ShouldNotBeNil)
-	// if you try to move beyond set limits, should get an error
-	_, err = frame.Transform(FloatsToInputs([]float64{3, 100}))
-	test.That(t, err, test.ShouldNotBeNil)
-	// gets the correct limits back
-	limit := frame.DoF()
-	test.That(t, limit[0], test.ShouldResemble, expLimit[0])
-}
-
 func TestGeometries(t *testing.T) {
 	bc, err := spatial.NewBox(spatial.NewZeroPose(), r3.Vector{1, 1, 1}, "")
 	test.That(t, err, test.ShouldBeNil)
@@ -154,26 +131,12 @@ func TestGeometries(t *testing.T) {
 	rf, err := NewRotationalFrame("", spatial.R4AA{3.7, 2.1, 3.1, 4.1}, Limit{5, 6})
 	test.That(t, err, test.ShouldBeNil)
 	geometries, err = rf.Geometries([]Input{})
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, geometries, test.ShouldBeNil)
-
-	// test creating a new mobile frame with a geometry
-	mf, err := NewMobile2DFrame("", []Limit{{-10, 10}, {-10, 10}}, bc)
 	test.That(t, err, test.ShouldBeNil)
-	geometries, err = mf.Geometries(FloatsToInputs([]float64{0, 10}))
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, expectedBox.AlmostEqual(geometries.Geometries()[0]), test.ShouldBeTrue)
+	test.That(t, len(geometries.Geometries()), test.ShouldEqual, 0)
 
 	// test creating a new static frame with a geometry
 	expectedBox = bc.Transform(spatial.NewZeroPose())
 	sf, err := NewStaticFrameWithGeometry("", pose, bc)
-	test.That(t, err, test.ShouldBeNil)
-	geometries, err = sf.Geometries([]Input{})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, expectedBox.AlmostEqual(geometries.Geometries()[0]), test.ShouldBeTrue)
-
-	// test inheriting a geometry creator
-	sf, err = NewStaticFrameFromFrame(tf, pose)
 	test.That(t, err, test.ShouldBeNil)
 	geometries, err = sf.Geometries([]Input{})
 	test.That(t, err, test.ShouldBeNil)
@@ -237,14 +200,14 @@ func TestSerializationRotations(t *testing.T) {
 }
 
 func TestRandomFrameInputs(t *testing.T) {
-	frame, _ := NewMobile2DFrame("", []Limit{{-10, 10}, {-10, 10}}, nil)
+	frame, _ := NewTranslationalFrame("", r3.Vector{X: 1}, Limit{-10, 10})
 	seed := rand.New(rand.NewSource(23))
 	for i := 0; i < 100; i++ {
 		_, err := frame.Transform(RandomFrameInputs(frame, seed))
 		test.That(t, err, test.ShouldBeNil)
 	}
 
-	limitedFrame, _ := NewMobile2DFrame("", []Limit{{-2, 2}, {-2, 2}}, nil)
+	limitedFrame, _ := NewTranslationalFrame("", r3.Vector{X: 1}, Limit{-2, 2})
 	for i := 0; i < 100; i++ {
 		_, err := limitedFrame.Transform(RestrictedRandomFrameInputs(frame, seed, .2))
 		test.That(t, err, test.ShouldBeNil)

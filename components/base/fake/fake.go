@@ -4,13 +4,13 @@ package fake
 import (
 	"bytes"
 	"context"
+	"math"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/components/base"
-	"go.viam.com/rdk/components/base/wheeled"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -28,7 +28,7 @@ func init() {
 				conf resource.Config,
 				logger golog.Logger,
 			) (base.Base, error) {
-				return &Base{Named: conf.ResourceName().AsNamed()}, nil
+				return NewBase(ctx, conf)
 			},
 		},
 	)
@@ -116,8 +116,12 @@ func (b *Base) WrapWithKinematics(ctx context.Context, slamSvc slam.Service) (ba
 	if err != nil {
 		return nil, err
 	}
-	limits := []referenceframe.Limit{{Min: dims.MinX, Max: dims.MaxX}, {Min: dims.MinY, Max: dims.MaxY}}
-	model, err := wheeled.MakeModelFrame(b.Name().ShortName(), geometry, limits)
+	limits := []referenceframe.Limit{
+		{Min: dims.MinX, Max: dims.MaxX},
+		{Min: dims.MinY, Max: dims.MaxY},
+		{Min: -2 * math.Pi, Max: 2 * math.Pi},
+	}
+	model, err := referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits, geometry)
 	if err != nil {
 		return nil, errors.Wrap(err, "fake base cannot be created")
 	}

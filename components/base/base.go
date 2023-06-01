@@ -12,6 +12,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -63,6 +64,11 @@ type LocalBase interface {
 	Base
 	// Width returns the width of the base in millimeters.
 	Width(ctx context.Context) (int, error)
+}
+
+// KinematicWrappable describes a base that can be wrapped with a kinematic model.
+type KinematicWrappable interface {
+	WrapWithKinematics(context.Context, slam.Service) (KinematicBase, error)
 }
 
 // KinematicBase is an interface for Bases that also satisfy the ModelFramer and InputEnabled interfaces.
