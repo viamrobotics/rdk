@@ -203,10 +203,10 @@ func (g *oneAxis) homeTwoLimSwitch(ctx context.Context) error {
 		return err
 	}
 
-	g.logger.Debugf("positionA: %0.2f positionB: %0.2f", positionA, positionB)
-
 	g.positionLimits = []float64{positionA, positionB}
 	g.positionRange = positionB - positionA
+
+	g.logger.Infof("positionA: %0.2f positionB: %0.2f range: %0.2f", g.positionLimits[0], g.positionLimits[1], g.positionRange)
 
 	// Go backwards so limit stops are not hit.
 	x := g.gantryToMotorPosition(0.8 * g.lengthMm)
@@ -257,7 +257,6 @@ func (g *oneAxis) homeEncoder(ctx context.Context) error {
 func (g *oneAxis) gantryToMotorPosition(positions float64) float64 {
 	x := positions / g.lengthMm
 	x = g.positionLimits[0] + (x * g.positionRange)
-
 	return x
 }
 
@@ -299,8 +298,9 @@ func (g *oneAxis) testLimit(ctx context.Context, zero bool) (float64, error) {
 			return 0, ctx.Err()
 		}
 	}
-
-	return g.motor.Position(ctx, nil)
+	position, err := g.motor.Position(ctx, nil)
+	time.Sleep(1 * time.Second)
+	return position, err
 }
 
 // this function may need to be run in the background upon initialisation of the ganty,
@@ -358,45 +358,28 @@ func (g *oneAxis) MoveToPosition(ctx context.Context, positions []float64, extra
 			return err
 		}
 
-		// Hits backwards limit switch, goes in forwards direction until limit switch is cleared
-		if hit {
-			if x < g.positionLimits[0] {
-				dir := float64(1)
-				if err = g.motor.GoFor(ctx, dir*g.rpm, 0, extra); err != nil {
-					return err
-				}
-				for hit {
-					if hit, err = g.limitHit(ctx, true); err != nil {
-						return err
-					}
-				}
+		// Hits backwards limit switch, and stops if position x is past the limit switch
+		if (hit == true) || (x <= (g.positionLimits[0] + 0.25)) {
+			g.logger.Debugf("limit: %.2f", g.positionLimits[0]+0.25)
+			g.logger.Debugf("position x: %.2f", x)
+			if x <= (g.positionLimits[0] + 0.25) {
+				g.logger.Errorf("Cannot move past limit switch!")
+				return g.motor.Stop(ctx, extra)
 			}
-			return g.motor.Stop(ctx, extra)
 		}
 
 		hit, err = g.limitHit(ctx, false)
 		if err != nil {
 			return err
 		}
-
-		// Hits forward limit switch, goes in backwards direction until limit switch is cleared
-		if hit {
-			if x > g.positionLimits[1] {
-				dir := float64(-1)
-				if err = g.motor.GoFor(ctx, dir*g.rpm, 0, extra); err != nil {
-					return err
-				}
-				for hit {
-					if hit, err = g.limitHit(ctx, false); err != nil {
-						return err
-					}
-				}
+		// Hits forwards limit switch, and stops if position x is past the limit switch
+		if (hit == true) || (x >= (g.positionLimits[1] - 0.25)) {
+			g.logger.Debugf("limit: %.2f", g.positionLimits[1]-0.25)
+			g.logger.Debugf("position x: %.2f", x)
+			if x >= (g.positionLimits[1] - 0.25) {
+				g.logger.Errorf("Cannot move past limit switch!")
+				return g.motor.Stop(ctx, extra)
 			}
-			return g.motor.Stop(ctx, extra)
-		}
-
-		if err = g.motor.GoTo(ctx, g.rpm, x, extra); err != nil {
-			return err
 		}
 	}
 
