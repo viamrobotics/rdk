@@ -22,7 +22,9 @@ import (
 )
 
 var model = resource.DefaultModelFamily.WithModel("oneaxis")
-var LIMIT_ERROR_MARGIN = 0.25
+
+// LIMIT_ERROR_MARGIN is added or subtracted from the location of the limit switch to ensure the switch is not passed
+const LIMIT_ERROR_MARGIN = 0.25
 
 // Config is used for converting oneAxis config attributes.
 type Config struct {
@@ -299,6 +301,7 @@ func (g *oneAxis) testLimit(ctx context.Context, zero bool) (float64, error) {
 			return 0, ctx.Err()
 		}
 	}
+	// Short pause after stopping to increase the precision of the position of each limit switch
 	position, err := g.motor.Position(ctx, nil)
 	time.Sleep(250 * time.Millisecond)
 	return position, err
