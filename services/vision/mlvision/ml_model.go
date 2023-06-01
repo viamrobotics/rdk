@@ -73,12 +73,14 @@ func registerMLModelVisionService(
 
 	classifierFunc, err := attemptToBuildClassifier(mlm)
 	if err != nil {
-		logger.Infow("unable to use ml model as a classifier, will attempt to evaluate as detector and segmenter", "model", params.ModelName, "error", err)
+		logger.Debugw("unable to use ml model as a classifier, will attempt to evaluate as"+
+			"detector and segmenter", "model", params.ModelName, "error", err)
 	} else {
 		err := checkIfClassifierWorks(ctx, classifierFunc)
 		if err != nil {
 			classifierFunc = nil
-			logger.Debugw("unable to use ml model as a classifier, will attempt to evaluate as detector and segmenter", "model", params.ModelName, "error", err)
+			logger.Debugw("unable to use ml model as a classifier, will attempt to evaluate as detector"+
+				" and segmenter", "model", params.ModelName, "error", err)
 		} else {
 			logger.Infow("model fulfills a vision service classifier", "model", params.ModelName)
 		}
@@ -86,12 +88,14 @@ func registerMLModelVisionService(
 
 	detectorFunc, err := attemptToBuildDetector(mlm)
 	if err != nil {
-		logger.Infow("unable to use ml model as a detector, will attempt to evaluate as segmenter", "model", params.ModelName, "error", err)
+		logger.Debugw("unable to use ml model as a detector, will attempt to evaluate as segmenter",
+			"model", params.ModelName, "error", err)
 	} else {
 		err = checkIfDetectorWorks(ctx, detectorFunc)
 		if err != nil {
 			detectorFunc = nil
-			logger.Debugw("unable to use ml model as a detector, will attempt to evaluate as segmenter", "model", params.ModelName, "error", err)
+			logger.Debugw("unable to use ml model as a detector, will attempt to evaluate as segmenter",
+				"model", params.ModelName, "error", err)
 		} else {
 			logger.Infow("model fulfills a vision service detector", "model", params.ModelName)
 		}
