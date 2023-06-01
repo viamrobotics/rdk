@@ -148,35 +148,6 @@ const fetchSLAMPose = (name: string): Promise<commonApi.Pose> => {
   });
 };
 
-const fetchFeatureFlags = (name: string): Promise<{[key: string]: boolean}> => {
-  return new Promise((resolve, reject): void => {
-    const request = new commonApi.DoCommandRequest();
-    request.setName(name);
-    request.setCommand(Struct.fromJavaScript({ feature_flag: true }));
-    props.client.slamService.doCommand(
-      request,
-      new grpc.Metadata(),
-      (error: ServiceError|null, responseMessage: commonApi.DoCommandResponse|null) => {
-
-        /*
-         * Note: we ignore unimplementedError because in the current implementation it
-         *  signifies that the feature flag is false
-         */
-        if (error) {
-          if (error.code === grpc.Code.Unimplemented || error.code === grpc.Code.Unknown) {
-            resolve({});
-            return;
-          }
-          reject(error);
-          return;
-
-        }
-        resolve(responseMessage!.getResult()?.toJavaScript() as {[key: string]: boolean});
-      }
-    );
-  });
-};
-
 const deleteDestinationMarker = () => {
   updatedDest = false;
   destinationMarker = new THREE.Vector3();
@@ -253,17 +224,14 @@ const stopMoveOnMap = () => {
 };
 
 const refresh2d = async (name: string) => {
-  const flags = await fetchFeatureFlags(name);
-
   const map = await fetchSLAMMap(name);
   const returnedPose = await fetchSLAMPose(name);
 
-  // TODO: Remove this check when APP and carto are both up to date [RSDK-3166]
-  if (flags && flags.response_in_millimeters) {
-    returnedPose.setX(returnedPose.getX() / 1000);
-    returnedPose.setY(returnedPose.getY() / 1000);
-    returnedPose.setZ(returnedPose.getZ() / 1000);
-  }
+
+  returnedPose.setX(returnedPose.getX() / 1000);
+  returnedPose.setY(returnedPose.getY() / 1000);
+  returnedPose.setZ(returnedPose.getZ() / 1000);
+
   const mapAndPose: MapAndPose = {
     map,
     pose: returnedPose,
