@@ -22,6 +22,7 @@ import (
 )
 
 var model = resource.DefaultModelFamily.WithModel("oneaxis")
+var LIMIT_ERROR_MARGIN = 0.25
 
 // Config is used for converting oneAxis config attributes.
 type Config struct {
@@ -206,7 +207,7 @@ func (g *oneAxis) homeTwoLimSwitch(ctx context.Context) error {
 	g.positionLimits = []float64{positionA, positionB}
 	g.positionRange = positionB - positionA
 
-	g.logger.Infof("positionA: %0.2f positionB: %0.2f range: %0.2f", g.positionLimits[0], g.positionLimits[1], g.positionRange)
+	g.logger.Debugf("positionA: %0.2f positionB: %0.2f range: %0.2f", g.positionLimits[0], g.positionLimits[1], g.positionRange)
 
 	// Go backwards so limit stops are not hit.
 	x := g.gantryToMotorPosition(0.8 * g.lengthMm)
@@ -299,7 +300,7 @@ func (g *oneAxis) testLimit(ctx context.Context, zero bool) (float64, error) {
 		}
 	}
 	position, err := g.motor.Position(ctx, nil)
-	time.Sleep(1 * time.Second)
+	time.Sleep(250 * time.Millisecond)
 	return position, err
 }
 
@@ -353,33 +354,21 @@ func (g *oneAxis) MoveToPosition(ctx context.Context, positions []float64, extra
 	// Limit switch errors that stop the motors.
 	// Currently needs to be moved by underlying gantry motor.
 	if len(g.limitSwitchPins) > 0 {
-		hit, err := g.limitHit(ctx, true)
-		if err != nil {
-			return err
+
+		// Stops if position x is past the 0 limit switch
+		if x <= (g.positionLimits[0] + LIMIT_ERROR_MARGIN) {
+			g.logger.Debugf("limit: %.2f", g.positionLimits[0]+LIMIT_ERROR_MARGIN)
+			g.logger.Debugf("position x: %.2f", x)
+			g.logger.Errorf("Cannot move past limit switch!")
+			return g.motor.Stop(ctx, extra)
 		}
 
-		// Hits backwards limit switch, and stops if position x is past the limit switch
-		if (hit == true) || (x <= (g.positionLimits[0] + 0.25)) {
-			g.logger.Debugf("limit: %.2f", g.positionLimits[0]+0.25)
+		// Stops if position x is past the at-length limit switch
+		if x >= (g.positionLimits[1] - LIMIT_ERROR_MARGIN) {
+			g.logger.Debugf("limit: %.2f", g.positionLimits[1]-LIMIT_ERROR_MARGIN)
 			g.logger.Debugf("position x: %.2f", x)
-			if x <= (g.positionLimits[0] + 0.25) {
-				g.logger.Errorf("Cannot move past limit switch!")
-				return g.motor.Stop(ctx, extra)
-			}
-		}
-
-		hit, err = g.limitHit(ctx, false)
-		if err != nil {
-			return err
-		}
-		// Hits forwards limit switch, and stops if position x is past the limit switch
-		if (hit == true) || (x >= (g.positionLimits[1] - 0.25)) {
-			g.logger.Debugf("limit: %.2f", g.positionLimits[1]-0.25)
-			g.logger.Debugf("position x: %.2f", x)
-			if x >= (g.positionLimits[1] - 0.25) {
-				g.logger.Errorf("Cannot move past limit switch!")
-				return g.motor.Stop(ctx, extra)
-			}
+			g.logger.Errorf("Cannot move past limit switch!")
+			return g.motor.Stop(ctx, extra)
 		}
 	}
 
