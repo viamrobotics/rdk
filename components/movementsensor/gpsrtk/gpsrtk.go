@@ -179,7 +179,7 @@ func newRTKMovementSensor(
 		lastposition: movementsensor.NewLastPosition(),
 	}
 
-	g.inputProtocol = newConf.CorrectionSource
+	g.inputProtocol = newConf.NtripInputProtocol
 
 	nmeaConf := &gpsnmea.Config{
 		ConnectionType: newConf.ConnectionType,
