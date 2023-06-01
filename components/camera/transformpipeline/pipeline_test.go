@@ -2,7 +2,6 @@ package transformpipeline
 
 import (
 	"context"
-	"fmt"
 	"testing"
 
 	"github.com/edaniels/gostream"
@@ -243,7 +242,6 @@ func TestTransformPipelineValidateFail(t *testing.T) {
 	}
 	path := "path"
 	deps, err := transformConf.Validate(path)
-	fmt.Println(err.Error())
 	test.That(t, err.Error(), test.ShouldResemble, "error validating \"path\": \"source\" is required")
 	test.That(t, deps, test.ShouldBeNil)
 }
