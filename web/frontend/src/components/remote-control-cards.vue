@@ -32,22 +32,26 @@ import AudioInputSvelte from './audio-input/index.svelte';
 import Base from './base.vue';
 import Board from './board.vue';
 import CamerasList from './camera/cameras-list.vue';
-import OperationsSessions from './operations-sessions.vue';
+import OperationsSessionsSvelte from './operations-sessions/index.svelte';
 import DoCommand from './do-command.vue';
 import Encoder from './encoder.vue';
 import Gantry from './gantry.vue';
 import Gripper from './gripper.vue';
 import Gamepad from './gamepad.vue';
 import InputController from './input-controller.vue';
-import Motor from './motor-detail.vue';
-import MovementSensor from './movement-sensor.vue';
+import MotorSvelte from './motor/index.svelte';
+import MovementSensorSvelte from './movement-sensor/index.svelte';
 import Navigation from './navigation.vue';
-import ServoComponent from './servo.vue';
+import ServoSvelte from './servo/index.svelte';
 import Sensors from './sensors.vue';
 import Slam from './slam/index.vue';
 import { svelteAdapter } from '../lib/svelte-adapter';
 
 const AudioInput = svelteAdapter(AudioInputSvelte);
+const Motor = svelteAdapter(MotorSvelte);
+const MovementSensor = svelteAdapter(MovementSensorSvelte);
+const OperationsSessions = svelteAdapter(OperationsSessionsSvelte);
+const Servo = svelteAdapter(ServoSvelte);
 
 import {
   fixArmStatus,
@@ -125,7 +129,7 @@ const connectedFirstTime = new Promise<void>((resolve) => {
   connectedFirstTimeResolve = resolve;
 });
 
-let appConnectionManager = $ref<{
+interface ConnectionManager {
   statuses: {
     resources: boolean;
     ops: boolean;
@@ -135,7 +139,9 @@ let appConnectionManager = $ref<{
   start(): void;
   isConnected(): boolean;
   rtt: number;
-}>(null!);
+}
+
+let appConnectionManager = $ref<ConnectionManager | null>(null);
 
 const handleError = (message: string, error: unknown, onceKey: string) => {
   if (onceKey) {
@@ -391,7 +397,9 @@ const fetchCurrentOps = () => {
           reject(err);
           return;
         }
-        appConnectionManager.rtt = Math.max(Date.now() - now, 0);
+        if (appConnectionManager) {
+          appConnectionManager.rtt = Math.max(Date.now() - now, 0);
+        }
 
         if (!resp) {
           reject(new Error('An unexpected issue occurred.'));
@@ -689,7 +697,7 @@ const initConnect = () => {
 
 const handleUnload = () => {
   console.debug('disconnecting');
-  appConnectionManager.stop();
+  appConnectionManager?.stop();
   streamManager?.close();
   client.disconnect();
 };
@@ -698,7 +706,7 @@ onMounted(async () => {
   initConnect();
   await connectedFirstTime;
 
-  appConnectionManager.start();
+  appConnectionManager?.start();
 
   window.addEventListener('beforeunload', handleUnload);
 });
@@ -795,7 +803,7 @@ onUnmounted(() => {
         :key="sensor.name"
         :name="sensor.name"
         :client="client"
-        :status-stream="statusStream"
+        :statusStream="statusStream"
       />
 
       <!-- ******* ARM *******  -->
@@ -817,13 +825,13 @@ onUnmounted(() => {
       />
 
       <!-- ******* SERVO *******  -->
-      <ServoComponent
+      <Servo
         v-for="servo in filterRdkComponentsWithStatus(resources, status, 'servo')"
         :key="servo.name"
         :name="servo.name"
         :client="client"
         :status="(resourceStatusByName(servo) as any)"
-        :raw-status="(rawResourceStatusByName(servo) as any)"
+        :rawStatus="(rawResourceStatusByName(servo) as any)"
       />
 
       <!-- ******* MOTOR *******  -->
@@ -917,12 +925,12 @@ onUnmounted(() => {
 
       <!-- ******* OPERATIONS AND SESSIONS ******* -->
       <OperationsSessions
-        v-if="connectedOnce"
+        v-if="connectedOnce && appConnectionManager"
         :client="client"
         :operations="currentOps"
         :sessions="currentSessions"
-        :sessions-supported="sessionsSupported"
-        :connection-manager="appConnectionManager"
+        :sessionsSupported="sessionsSupported"
+        :connectionManager="appConnectionManager"
       />
     </div>
   </div>
