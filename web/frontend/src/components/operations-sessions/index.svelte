@@ -94,14 +94,14 @@ const peerConnectionType = (info?: robotApi.PeerConnectionInfo.AsObject) => {
     {#if sessionsSupported}
       <div class="overflow-auto">
         <div class="p-2 font-bold">Sessions</div>
-          <table class="w-full table-auto border border-medium">
-            <tr>
-              <th class="border border-medium p-2">id</th>
-              <th class="border border-medium p-2">type</th>
-              <th class="border border-medium p-2">remote address</th>
-              <th class="border border-medium p-2">local address</th>
-            </tr>
-            {#each sessions as session (session.id)}
+        <table class="w-full table-auto border border-medium">
+          <tr>
+            <th class="border border-medium p-2">id</th>
+            <th class="border border-medium p-2">type</th>
+            <th class="border border-medium p-2">remote address</th>
+            <th class="border border-medium p-2">local address</th>
+          </tr>
+          {#each sessions as session (session.id)}
             <tr>
               <td class="border border-medium p-2">
                 {session.id}
