@@ -61,7 +61,7 @@ type Config struct {
 	SpinSlipFactor       float64  `json:"spin_slip_factor,omitempty"`
 	Left                 []string `json:"left"`
 	Right                []string `json:"right"`
-	MovementSensor       []string `json:"movement_sensors,omitempty"`
+	MovementSensor       []string `json:"movement_sensor,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -91,6 +91,10 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 
 	deps = append(deps, cfg.Left...)
 	deps = append(deps, cfg.Right...)
+
+	if len(cfg.MovementSensor) != 0 {
+		deps = append(deps, cfg.MovementSensor...)
+	}
 
 	return deps, nil
 }
@@ -235,19 +239,14 @@ func createWheeledBase(
 		return nil, err
 	}
 
+	// TODO (rh) simplify this function and call Reconfigure
 	if len(newConf.MovementSensor) != 0 {
 		baseCtx := context.Background()
 		sb := &sensorBase{base: &wb, logger: logger, baseCtx: ctx, Named: wb.Name().AsNamed()}
 
-		if err = sb.Reconfigure(ctx, deps, conf); err != nil {
-			return nil, err
-		}
-
-		// TODO simplify this function and call from Reconfigure
 		if err := attachSensorsToBase(baseCtx, sb, deps, newConf.MovementSensor); err != nil {
 			return nil, err
 		}
-
 		return sb, nil
 	}
 
