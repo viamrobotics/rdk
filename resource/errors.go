@@ -68,6 +68,14 @@ func (e *mustRebuildError) Error() string {
 	return fmt.Sprintf("cannot reconfigure %q; must rebuild", e.name)
 }
 
+func NewBuildTimeoutError(name Name) error {
+	return fmt.Errorf("resource %s timed out during reconfigure", name)
+}
+
+func NewUnbuildableError(name Name) error {
+	return fmt.Errorf("resource %s could not be built because it has one or more unbuildable dependencies", name)
+}
+
 // DependencyNotFoundError is used when a resource is not found in a dependencies.
 func DependencyNotFoundError(name Name) error {
 	return errors.Errorf("%q missing from dependencies", name)

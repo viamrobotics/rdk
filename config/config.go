@@ -576,6 +576,11 @@ type NetworkConfigData struct {
 
 	// Sessions configures session management.
 	Sessions SessionsConfig `json:"sessions"`
+
+	// ResourceConfigurationTimeout determines the duration after which resource
+	// constructor/reconfiguration calls should timeout. Defaults to one minute;
+	// no timeout is applied if set to 0.
+	ResourceConfigurationTimeout *time.Duration `json:"resource_configuration_timeout,omitempty"`
 }
 
 // MarshalJSON marshals out this config.

@@ -150,6 +150,11 @@ func (wb *wheeledBase) Reconfigure(ctx context.Context, deps resource.Dependenci
 		wb.left = make([]motor.Motor, 0)
 
 		for _, name := range newConf.Left {
+			select {
+			case <-ctx.Done():
+				return resource.NewBuildTimeoutError(wb.Name())
+			default:
+			}
 			m, err := motor.FromDependencies(deps, name)
 			if err != nil {
 				return errors.Wrapf(err, "no left motor named (%s)", name)
@@ -159,6 +164,11 @@ func (wb *wheeledBase) Reconfigure(ctx context.Context, deps resource.Dependenci
 	} else {
 		// Compare each element of the slices
 		for i := range wb.left {
+			select {
+			case <-ctx.Done():
+				return resource.NewBuildTimeoutError(wb.Name())
+			default:
+			}
 			if wb.left[i].Name().String() != newConf.Left[i] {
 				// Resetting the left motor list
 				wb.left = make([]motor.Motor, 0)
@@ -180,6 +190,11 @@ func (wb *wheeledBase) Reconfigure(ctx context.Context, deps resource.Dependenci
 		wb.right = make([]motor.Motor, 0)
 
 		for _, name := range newConf.Right {
+			select {
+			case <-ctx.Done():
+				return resource.NewBuildTimeoutError(wb.Name())
+			default:
+			}
 			m, err := motor.FromDependencies(deps, name)
 			if err != nil {
 				return errors.Wrapf(err, "no right motor named (%s)", name)
@@ -189,6 +204,11 @@ func (wb *wheeledBase) Reconfigure(ctx context.Context, deps resource.Dependenci
 	} else {
 		// Compare each element of the slices
 		for i := range wb.right {
+			select {
+			case <-ctx.Done():
+				return resource.NewBuildTimeoutError(wb.Name())
+			default:
+			}
 			if wb.right[i].Name().String() != newConf.Right[i] {
 				wb.right = make([]motor.Motor, 0)
 

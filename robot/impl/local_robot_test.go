@@ -37,6 +37,7 @@ import (
 	"go.viam.com/rdk/components/arm/fake"
 	"go.viam.com/rdk/components/audioinput"
 	"go.viam.com/rdk/components/base"
+	"go.viam.com/rdk/components/base/wheeled"
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/generic"
@@ -3102,36 +3103,138 @@ func TestResourcelessModuleRemove(t *testing.T) {
 	})
 }
 
-//func TestResourceConstructTimeout(t *testing.T) {
-//ctx := context.Background()
-//logger, logs := golog.NewObservedTestLogger(t)
-//cfg, err := config.Read(context.Background(), "data/fake.json", logger)
-//test.That(t, err, test.ShouldBeNil)
+func TestResourceConstructTimeout(t *testing.T) {
+	cfg := &config.Config{}
+	ctx := context.Background()
+	logger, logs := golog.NewObservedTestLogger(t)
 
-//println("1\n")
+	r, err := robotimpl.New(ctx, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
 
-//r, err := robotimpl.New(ctx, cfg, logger)
-//println("2\n")
-//test.That(t, err, test.ShouldBeNil)
-//testutils.WaitForAssertion(t, func(tb testing.TB) {
-//test.That(tb, logs.FilterMessageSnippet("timed out during reconfigure").Len(), test.ShouldBeGreaterThan, 1)
-//})
+	// test no error logging with default config
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		test.That(tb, logs.FilterMessageSnippet("error building resource").Len(), test.ShouldEqual, 0)
+	})
 
-//println("3\n")
-//r.Close(ctx)
-//println("4\n")
+	// create new config with resource that conceivably could time out
+	newCfg := &config.Config{
+		Components: []resource.Config{
+			{
+				Name:  "fakewheel",
+				API:   base.API,
+				Model: wheeled.Model,
+				ConvertedAttributes: &wheeled.Config{
+					Right:                []string{"left", "right"},
+					Left:                 []string{"left", "right"},
+					WheelCircumferenceMM: 1,
+					WidthMM:              2,
+				},
+				DependsOn: []string{"left", "right"},
+			},
+			{
+				Name:                "left",
+				API:                 motor.API,
+				Model:               fakeModel,
+				ConvertedAttributes: &fakemotor.Config{},
+			},
+			{Name: "right",
+				API:                 motor.API,
+				Model:               fakeModel,
+				ConvertedAttributes: &fakemotor.Config{},
+			},
+		},
+	}
 
-//oldResourceConstructTimeout := robotimpl.ResourceConstructTimeout
-//defer func() { robotimpl.ResourceConstructTimeout = oldResourceConstructTimeout }()
-//robotimpl.ResourceConstructTimeout = time.Microsecond / 1000
-//println("5\n")
+	r.Reconfigure(ctx, newCfg)
+	// test no error logging with default timeout window and wheeled base
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		test.That(tb, logs.FilterMessageSnippet("error building resource").Len(), test.ShouldEqual, 0)
+	})
 
-////ctx2, cancel := context.WithTimeout(ctx, robotimpl.ResourceConstructTimeout)
-////defer cancel()
-////_, err = robotimpl.New(ctx2, cfg, logger)
-////println("6\n")
-////test.That(t, err, test.ShouldBeNil)
-////testutils.WaitForAssertion(t, func(tb testing.TB) {
-////test.That(tb, logs.FilterMessageSnippet("timed out during reconfigure").Len(), test.ShouldBeGreaterThan, 1)
-////})
-//}
+	// new cfg with timeout window set to nil, wheeled base modified to ensure reconfigure
+	var infiniteDuration time.Duration = 0
+	newerCfg := &config.Config{
+		Components: []resource.Config{
+			{
+				Name:  "fakewheel",
+				API:   base.API,
+				Model: wheeled.Model,
+				ConvertedAttributes: &wheeled.Config{
+					Right:                []string{"left"},
+					Left:                 []string{"right"},
+					WheelCircumferenceMM: 1,
+					WidthMM:              2,
+				},
+				DependsOn: []string{"left", "right"},
+			},
+			{
+				Name:                "left",
+				API:                 motor.API,
+				Model:               fakeModel,
+				ConvertedAttributes: &fakemotor.Config{},
+			},
+			{Name: "right",
+				API:                 motor.API,
+				Model:               fakeModel,
+				ConvertedAttributes: &fakemotor.Config{},
+			},
+		},
+		Network: config.NetworkConfig{
+			NetworkConfigData: config.NetworkConfigData{
+				ResourceConfigurationTimeout: &infiniteDuration,
+			},
+		},
+	}
+
+	r.Reconfigure(ctx, newerCfg)
+	// test no error logged when Timeout is nil
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		test.That(tb, logs.FilterMessageSnippet("error building resource").Len(), test.ShouldEqual, 0)
+	})
+
+	// create new cfg with wheeled base modified to trigger Reconfigure, and timeout
+	// set to the shortest possible window to ensure timeout
+	ns := time.Nanosecond
+	newestCfg := &config.Config{
+		Components: []resource.Config{
+			{
+				Name:  "fakewheel",
+				API:   base.API,
+				Model: wheeled.Model,
+				ConvertedAttributes: &wheeled.Config{
+					Right:                []string{"right"},
+					Left:                 []string{"left"},
+					WheelCircumferenceMM: 1,
+					WidthMM:              2,
+				},
+				DependsOn: []string{"left", "right"},
+			},
+			{
+				Name:                "left",
+				API:                 motor.API,
+				Model:               fakeModel,
+				ConvertedAttributes: &fakemotor.Config{},
+			},
+			{Name: "right",
+				API:                 motor.API,
+				Model:               fakeModel,
+				ConvertedAttributes: &fakemotor.Config{},
+			},
+		},
+		Network: config.NetworkConfig{
+			NetworkConfigData: config.NetworkConfigData{
+				ResourceConfigurationTimeout: &ns,
+			},
+		},
+	}
+
+	r.Reconfigure(ctx, newestCfg)
+	// test that an error is logged when using arbitrarily short timeout window
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		test.That(tb, logs.FilterMessageSnippet("error building resource").Len(), test.ShouldEqual, 1)
+	})
+
+	err = r.Close(ctx)
+	test.That(t, err, test.ShouldBeNil)
+
+}
