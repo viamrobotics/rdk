@@ -106,6 +106,17 @@ const client = new Client(impliedURL, {
       },
     ],
   },
+
+  /*
+   * TODO(RSDK-3183): Opt out of reconnection management in the Typescript
+   * SDK because the Remote Control implements it's own reconnection management.
+   *
+   * The Typescript SDK only manages reconnections for WebRTC connections - once
+   * it can manage reconnections for direct gRPC connections, then we remove
+   * reconnection management from the Remote Control panel entirely and just rely
+   * on the Typescript SDK for that.
+   */
+  noReconnect: true,
 });
 
 const streamManager = new StreamManager(client);
