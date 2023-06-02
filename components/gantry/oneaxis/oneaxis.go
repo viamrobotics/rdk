@@ -4,6 +4,7 @@ package oneaxis
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/edaniels/golog"
@@ -84,6 +85,7 @@ type oneAxis struct {
 
 	board board.Board
 	motor motor.Motor
+	mu    sync.Mutex
 
 	limitSwitchPins []string
 	limitHigh       bool
@@ -167,6 +169,8 @@ func newOneAxis(ctx context.Context, deps resource.Dependencies, conf resource.C
 }
 
 func (g *oneAxis) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
 	needsToReHome := false
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
