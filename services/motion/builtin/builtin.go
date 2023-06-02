@@ -2,6 +2,7 @@
 package builtin
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -19,6 +20,7 @@ import (
 	"go.viam.com/rdk/internal"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/operation"
+	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/framesystem"
@@ -50,34 +52,46 @@ func init() {
 // ErrNotImplemented is thrown when an unreleased function is called
 var ErrNotImplemented = errors.New("function coming soon but not yet implemented")
 
+// TODO: localizer should live in another package - probably motion service
 // Localizer is an interface which both slam and movementsensor can satisfy when wrapped respectively.
 type Localizer interface {
 	GlobalPosition(context.Context) (spatialmath.Pose, error)
+	LocalizationExtents() []referenceframe.Limit
 }
 
 // SlamWrapper is a struct which only wraps an existing slam service
-type SlamWrapper struct {
+type SLAMLocalizer struct {
 	slam.Service
+	Limits []referenceframe.Limit
 }
 
 // GlobalPosition returns slam's current position
-func (s SlamWrapper) GlobalPosition(ctx context.Context) (spatialmath.Pose, error) {
+func (s SLAMLocalizer) GlobalPosition(ctx context.Context) (spatialmath.Pose, error) {
 	pose, _, err := s.GetPosition(ctx)
 	return pose, err
 }
 
+func (s SLAMLocalizer) LocalizationExtents() []referenceframe.Limit {
+	return s.Limits
+}
+
 // MovementSensorWrapper is a struct which only wraps an existing movementsensor
-type MovementSensorWrapper struct {
+type MovementSensorLocalizer struct {
 	movementsensor.MovementSensor
+	Limits []referenceframe.Limit
 }
 
 // GlobalPosition returns a movementsensor's current position
-func (m MovementSensorWrapper) GlobalPosition(ctx context.Context) (spatialmath.Pose, error) {
+func (m MovementSensorLocalizer) GlobalPosition(ctx context.Context) (spatialmath.Pose, error) {
 	gp, _, err := m.Position(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 	return spatialmath.GeoPointToPose(gp), nil
+}
+
+func (m MovementSensorLocalizer) LocalizationExtents() []referenceframe.Limit {
+	return m.Limits
 }
 
 // Config describes how to configure the service; currently only used for specifying dependency on framesystem service
@@ -111,31 +125,36 @@ func (ms *builtIn) Reconfigure(
 	ms.lock.Lock()
 	defer ms.lock.Unlock()
 
-	slamServices := make(map[resource.Name]slam.Service)
+	localizers := make(map[resource.Name]Localizer)
 	components := make(map[resource.Name]resource.Resource)
 	for name, dep := range deps {
 		switch dep := dep.(type) {
 		case framesystem.Service:
 			ms.fsService = dep
-		case slam.Service:
-			slamServices[name] = dep
+		case slam.Service, movementsensor.MovementSensor:
+			localizer, err := ms.NewLocalizer(ctx, dep, nil)
+			if err != nil {
+				return err
+			}
+			localizers[name] = localizer
+
 		default:
 			components[name] = dep
 		}
 	}
 	ms.components = components
-	ms.slamServices = slamServices
+	ms.localizers = localizers
 	return nil
 }
 
 type builtIn struct {
 	resource.Named
 	resource.TriviallyCloseable
-	fsService    framesystem.Service
-	slamServices map[resource.Name]slam.Service
-	components   map[resource.Name]resource.Resource
-	logger       golog.Logger
-	lock         sync.Mutex
+	fsService  framesystem.Service
+	localizers map[resource.Name]Localizer
+	components map[resource.Name]resource.Resource
+	logger     golog.Logger
+	lock       sync.Mutex
 }
 
 // Move takes a goal location and will plan and execute a movement to move a component specified by its name to that destination.
@@ -213,7 +232,7 @@ func (ms *builtIn) MoveOnMap(
 	operation.CancelOtherWithLabel(ctx, "motion-service")
 
 	// get the SLAM Service from the slamName
-	slamService, ok := ms.slamServices[slamName]
+	localizer, ok := ms.localizers[slamName]
 	if !ok {
 		return false, resource.DependencyNotFoundError(slamName)
 	}
@@ -228,8 +247,7 @@ func (ms *builtIn) MoveOnMap(
 	if !ok {
 		return false, fmt.Errorf("cannot move component of type %T because it is not a KinematicWrappable Base", component)
 	}
-	wrapper := SlamWrapper{slamService}
-	kb, err := kw.WrapWithKinematics(ctx, wrapper)
+	kb, err := kw.WrapWithKinematics(ctx, localizer)
 	if err != nil {
 		return false, err
 	}
@@ -264,37 +282,32 @@ func (ms *builtIn) MoveOnGlobe(
 	ctx context.Context,
 	componentName resource.Name,
 	destination *geo.Point,
-	heading float64, //optional
+	heading float64,
 	movementSensorName resource.Name,
 	obstacles []*spatialmath.GeoObstacle,
-	linearVelocity float64, //optional
-	angularVelocity float64, //optional
+	linearVelocity float64,
+	angularVelocity float64,
 	extra map[string]interface{},
 ) (bool, error) {
 	operation.CancelOtherWithLabel(ctx, "motion-service")
 
-	frameSys, err := ms.fsService.FrameSystem(ctx, nil)
-	if err != nil {
-		return false, err
-	}
+	// create a new empty framesystem which we will add our base to
+	fs := referenceframe.NewEmptyFrameSystem("")
 
 	// build maps of relevant components and inputs from initial inputs
-	fsInputs, resources, err := ms.fsService.CurrentInputs(ctx)
+	_, resources, err := ms.fsService.CurrentInputs(ctx)
 	if err != nil {
 		return false, err
 	}
 
-	// handle optional heading, linearVelocity and angularVelocity
-	if math.IsNaN(heading) {
-		ms.logger.Info("no heading specified - we will achieve the current heading at destination")
+	localizer, ok := ms.localizers[movementSensorName]
+	if !ok {
+		return false, resource.DependencyNotFoundError(movementSensorName)
 	}
-	if math.IsNaN(linearVelocity) || linearVelocity == 0 {
-		linearVelocity = 0.5
-		ms.logger.Infof("no linearVelocity specified - we will default to using: %f", linearVelocity)
-	}
-	if math.IsNaN(angularVelocity) || angularVelocity == 0 {
-		angularVelocity = 45
-		ms.logger.Infof("no angularVelocity specified - we will default to using: %f", angularVelocity)
+
+	wrappedMovementSensor, ok := localizer.(MovementSensorLocalizer)
+	if !ok {
+		return false, resource.DependencyNotFoundError(movementSensorName)
 	}
 
 	// get movementsensor
@@ -307,9 +320,22 @@ func (ms *builtIn) MoveOnGlobe(
 		return false, fmt.Errorf("cannot cast component of type %T because it is not a MovementSensor", sensorComponent)
 	}
 
+	currentPosition, _, err := movementSensor.Position(ctx, nil)
+	if err != nil {
+		return false, err
+	}
+
+	// calculte the limits
+	latDist, lngDist := spatialmath.GetCartesianDistance(currentPosition, destination)
+	wrappedMovementSensor.Limits = []referenceframe.Limit{
+		{Min: latDist*1000000 + 40, Max: latDist*1000000 + 40},
+		{Min: lngDist*1000000 + 40, Max: lngDist*1000000 + 40},
+		{Min: -2 * math.Pi, Max: 2 * math.Pi},
+	}
+
 	// convert destination into a spatialmath pose in frame with respect to 0 latitude, 0 longitude
 	dst := spatialmath.GeoPointToPose(destination)
-	goalPIF := referenceframe.NewPoseInFrame("world", dst)
+	dstPIF := referenceframe.NewPoseInFrame("world", dst)
 
 	// convert GeoObstacles into GeometriesInFrame then into a Worldstate
 	geoms := spatialmath.GeoObstaclesToGeometries(obstacles)
@@ -328,8 +354,7 @@ func (ms *builtIn) MoveOnGlobe(
 	if !ok {
 		return false, fmt.Errorf("cannot move base of type %T because it is not KinematicWrappable", baseComponent)
 	}
-	wrapper := MovementSensorWrapper{movementSensor}
-	kb, err := kw.WrapWithKinematics(ctx, wrapper)
+	kb, err := kw.WrapWithKinematics(ctx, wrappedMovementSensor)
 	if err != nil {
 		return false, err
 	}
@@ -340,8 +365,20 @@ func (ms *builtIn) MoveOnGlobe(
 		return true, ctx.Err()
 	}
 
+	// get current position
+	inputs, err := kb.CurrentInputs(ctx)
+	if err != nil {
+		return false, err
+	}
+	seedMap := map[string][]referenceframe.Input{kb.ModelFrame().Name(): inputs}
+
+	// Add the kinematic wheeled base to the framesystem
+	if err := fs.AddFrame(kb.ModelFrame(), fs.World()); err != nil {
+		return false, err
+	}
+
 	// make call to motionplan
-	plan, err := motionplan.PlanMotion(ctx, ms.logger, goalPIF, kb.ModelFrame(), fsInputs, frameSys, wrldst, nil, extra)
+	plan, err := motionplan.PlanMotion(ctx, ms.logger, dstPIF, kb.ModelFrame(), seedMap, fs, wrldst, nil, extra)
 	if err != nil {
 		return false, err
 	}
@@ -365,8 +402,7 @@ func (ms *builtIn) MoveOnGlobe(
 			}
 		}
 	}
-
-	return false, ErrNotImplemented
+	return true, nil
 }
 
 // MoveSingleComponent will pass through a move command to a component with a MoveToPosition method that takes a pose. Arms are the only
@@ -444,4 +480,32 @@ func (ms *builtIn) GetPose(
 		destinationFrame,
 		supplementalTransforms,
 	)
+}
+
+func (ms *builtIn) NewLocalizer(ctx context.Context, res resource.Resource, limits []referenceframe.Limit) (Localizer, error) {
+	switch res := res.(type) {
+	case slam.Service:
+		if limits == nil {
+			// gets the extents of the SLAM map
+			data, err := slam.GetPointCloudMapFull(ctx, res)
+			if err != nil {
+				return nil, err
+			}
+			dims, err := pointcloud.GetPCDMetaData(bytes.NewReader(data))
+			if err != nil {
+				return nil, err
+			}
+			limits = []referenceframe.Limit{
+				{Min: dims.MinX, Max: dims.MaxX},
+				{Min: dims.MinY, Max: dims.MaxY},
+				{Min: -2 * math.Pi, Max: 2 * math.Pi},
+			}
+		}
+		return &SLAMLocalizer{res, limits}, nil
+	case movementsensor.MovementSensor:
+		return &MovementSensorLocalizer{res, limits}, nil
+	default:
+		return nil, errors.New("TODO: write an error")
+	}
+
 }

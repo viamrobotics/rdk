@@ -1,6 +1,7 @@
 package wheeled
 
 import (
+	"bytes"
 	"context"
 	"math"
 	"testing"
@@ -9,6 +10,7 @@ import (
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	motion "go.viam.com/rdk/services/motion/builtin"
@@ -61,7 +63,8 @@ func TestWrapWithKinematics(t *testing.T) {
 			kinematicCfg.Frame = frame
 			basic, err := createWheeledBase(ctx, motorDeps, kinematicCfg, logger)
 			test.That(t, err, test.ShouldBeNil)
-			wb, err := basic.(*wheeledBase).WrapWithKinematics(ctx, fake.NewSLAM(slam.Named("foo"), logger))
+			wrapper := getSLAMLocalizer(t)
+			wb, err := basic.(*wheeledBase).WrapWithKinematics(ctx, wrapper)
 			test.That(t, err == nil, test.ShouldEqual, tc.success)
 			if err != nil {
 				return
@@ -94,7 +97,8 @@ func newWheeledBase(ctx context.Context, t *testing.T, logger golog.Logger) *kin
 			},
 		},
 	}
-	kb, err := wb.WrapWithKinematics(ctx, fake.NewSLAM(resource.NewName(slam.API, "foo"), golog.NewTestLogger(t)))
+	wrapper := getSLAMLocalizer(t)
+	kb, err := wb.WrapWithKinematics(ctx, wrapper)
 	test.That(t, err, test.ShouldBeNil)
 	kwb, ok := kb.(*kinematicWheeledBase)
 	test.That(t, ok, test.ShouldBeTrue)
@@ -127,7 +131,7 @@ func TestErrorState(t *testing.T) {
 	slam.GetPositionFunc = func(ctx context.Context) (spatialmath.Pose, string, error) {
 		return spatialmath.NewZeroPose(), "", nil
 	}
-	wrapper := motion.SlamWrapper{Service: slam}
+	wrapper := getSLAMLocalizer(t)
 	kwb := &kinematicWheeledBase{
 		wheeledBase: wb,
 		Localizer:   wrapper,
@@ -139,4 +143,28 @@ func TestErrorState(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, distErr, test.ShouldEqual, 1000*r3.Vector{desiredInput[0].Value, desiredInput[1].Value, 0}.Norm())
 	test.That(t, headingErr, test.ShouldAlmostEqual, 30)
+}
+
+func getSLAMLocalizer(t *testing.T) *motion.SLAMLocalizer {
+	t.Helper()
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+	fakeSLAM := fake.NewSLAM(slam.Named("test"), logger)
+
+	// construct limits
+	data, err := slam.GetPointCloudMapFull(ctx, fakeSLAM)
+	test.That(t, err, test.ShouldBeNil)
+	dims, err := pointcloud.GetPCDMetaData(bytes.NewReader(data))
+	test.That(t, err, test.ShouldBeNil)
+	limits := []referenceframe.Limit{
+		{Min: dims.MinX, Max: dims.MaxX},
+		{Min: dims.MinY, Max: dims.MaxY},
+		{Min: -2 * math.Pi, Max: 2 * math.Pi},
+	}
+
+	// construct localizer
+	return &motion.SLAMLocalizer{
+		Service: fakeSLAM,
+		Limits:  limits,
+	}
 }

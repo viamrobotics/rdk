@@ -23,7 +23,6 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/motion"
-	"go.viam.com/rdk/services/motion/builtin"
 	_ "go.viam.com/rdk/services/register"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/spatialmath"
@@ -256,8 +255,8 @@ func TestMoveOnGlobe(t *testing.T) {
 		math.NaN(),
 		nil,
 	)
-	test.That(t, err, test.ShouldBeError, builtin.ErrNotImplemented)
-	test.That(t, success, test.ShouldBeFalse)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, success, test.ShouldBeTrue)
 }
 
 func TestMultiplePieces(t *testing.T) {
