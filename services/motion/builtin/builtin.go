@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"bytes"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
@@ -23,6 +24,7 @@ import (
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/pointcloud"
 )
 
 func init() {
@@ -200,6 +202,24 @@ func (ms *builtIn) MoveOnMap(
 	if err != nil {
 		return false, err
 	}
+
+	pointCloudData, err := slam.GetPointCloudMapFull(ctx, slamService)
+	if err != nil {
+		return false, err
+	}
+	octree, err := pointcloud.ReadPCDToBasicOctree(bytes.NewReader(pointCloudData))
+	if err != nil {
+		return false, err
+	}
+
+	threshold := 50
+	buffer := 10.0
+	constraint := motionplan.NewOctreeCollisionConstraint(octree, threshold, buffer)
+
+	if extra == nil {
+		extra = make(map[string]interface{})
+	}
+	extra["slam_octree_constraint"] = constraint
 
 	// get current position
 	inputs, err := kb.CurrentInputs(ctx)
