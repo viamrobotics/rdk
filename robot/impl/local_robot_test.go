@@ -3152,7 +3152,7 @@ func TestResourceConstructTimeout(t *testing.T) {
 	})
 
 	// new cfg with timeout window set to nil, wheeled base modified to ensure reconfigure
-	var infiniteDuration time.Duration = 0
+	var infiniteDuration time.Duration
 	newerCfg := &config.Config{
 		Components: []resource.Config{
 			{
