@@ -114,7 +114,7 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 			return err
 		}
 
-		// starts a goroutine with wheeled base's runAll function running in the background
+		// starts a goroutine from within wheeled base's runAll function to run motors in the background
 		return sb.startRunningMotors(ctx, angleDeg, degsPerSec)
 	}
 }
@@ -138,7 +138,6 @@ func (sb *sensorBase) stopSpinWithSensor(
 	targetYaw, dir, _ := findSpinParams(angleDeg, degsPerSec, startYaw)
 
 	errBound := boundCheckTarget
-	// checkTurns := math.Abs(angleDeg) >= oneTurn && fullTurns > 0
 
 	// reset error counter for imu reading errors
 	errCounter := 0
@@ -147,8 +146,8 @@ func (sb *sensorBase) stopSpinWithSensor(
 	// timeout duration is a multiplier times the expected time to perform a movement
 	spinTimeEst := time.Duration(int(time.Second) * int(math.Abs(angleDeg/degsPerSec)))
 	timeOut := 5 * spinTimeEst
-	if 5*spinTimeEst < 30*time.Second {
-		timeOut = 30 * time.Second
+	if 5*spinTimeEst < 10*time.Second {
+		timeOut = 10 * time.Second
 	}
 
 	sb.activeBackgroundWorkers.Add(1)
@@ -186,10 +185,6 @@ func (sb *sensorBase) stopSpinWithSensor(
 					}
 					continue
 				}
-
-				// if the imu yaw reading is close to 360, we are near a full turn,
-				// so we adjust the current reading by 360 * the number of turns we've done
-
 				errCounter = 0 // reset reading error count to zero if we are successfully reading again
 
 				atTarget, overShot, minTravel := getTurnState(currYaw, startYaw, targetYaw, dir, angleDeg, errBound)
@@ -276,7 +271,7 @@ func findSpinParams(angleDeg, degsPerSec, currYaw float64) (float64, float64, in
 		// counterclockwise spin calls add angles
 		// the signs being different --> clockwise spin call
 		// clockwise spin calls subtract angles
-		dir = -1
+		dir = -1.0
 	}
 	targetYaw := addAnglesInDomain(angleDeg*dir, currYaw)
 	fullTurns := int(math.Abs(angleDeg)) / oneTurn
