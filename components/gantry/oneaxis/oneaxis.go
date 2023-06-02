@@ -181,12 +181,10 @@ func (g *oneAxis) Reconfigure(ctx context.Context, deps resource.Dependencies, c
 	if g.mmPerRevolution != newConf.MmPerRevolution {
 		g.mmPerRevolution = newConf.MmPerRevolution
 	}
-	if g.axis != newConf.Axis {
-		g.axis = newConf.Axis
-	}
 
 	// Rerun homing if anything with the limit switch pins changes
 	if (len(g.limitSwitchPins) != len(newConf.LimitSwitchPins)) || (g.limitHigh != *newConf.LimitPinEnabled) {
+		g.limitHigh = *newConf.LimitPinEnabled
 		if err = g.home(ctx, len(newConf.LimitSwitchPins)); err != nil {
 			return err
 		}
@@ -201,7 +199,7 @@ func (g *oneAxis) Reconfigure(ctx context.Context, deps resource.Dependencies, c
 	}
 
 	// Rerun homing if the motor changes
-	if g.motor.Name().String() != newConf.Motor {
+	if g.motor.Name().ShortName() != newConf.Motor {
 		if err = g.home(ctx, len(g.limitSwitchPins)); err != nil {
 			return err
 		}
@@ -252,7 +250,7 @@ func (g *oneAxis) homeTwoLimSwitch(ctx context.Context) error {
 	g.positionLimits = []float64{positionA, positionB}
 	g.positionRange = positionB - positionA
 
-	g.logger.Infof("positionA: %0.2f positionB: %0.2f range: %0.2f", g.positionLimits[0], g.positionLimits[1], g.positionRange)
+	g.logger.Debugf("positionA: %0.2f positionB: %0.2f range: %0.2f", g.positionLimits[0], g.positionLimits[1], g.positionRange)
 
 	// Go backwards so limit stops are not hit.
 	x := g.gantryToMotorPosition(0.8 * g.lengthMm)
