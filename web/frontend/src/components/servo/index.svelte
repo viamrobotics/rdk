@@ -20,7 +20,7 @@ const stop = () => {
 
 const move = (amount: number) => {
   const servo = rawStatus;
-  console.log(servo)
+
   // @ts-expect-error @TODO Proto is incorrectly typing this. It expects servo.positionDeg
   const oldAngle = servo.position_deg ?? 0;
 
