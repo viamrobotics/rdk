@@ -68,10 +68,12 @@ func (e *mustRebuildError) Error() string {
 	return fmt.Sprintf("cannot reconfigure %q; must rebuild", e.name)
 }
 
+// NewBuildTimeoutError is used when a resource times out during construction or reconfiguration.
 func NewBuildTimeoutError(name Name) error {
 	return fmt.Errorf("resource %s timed out during reconfigure", name)
 }
 
+// NewUnbuildableError is used when a resource cannot be built because it has unbuildable dependencies.
 func NewUnbuildableError(name Name) error {
 	return fmt.Errorf("resource %s could not be built because it has one or more unbuildable dependencies", name)
 }

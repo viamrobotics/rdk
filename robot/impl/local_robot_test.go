@@ -19,7 +19,6 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
-
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -3137,7 +3136,8 @@ func TestResourceConstructTimeout(t *testing.T) {
 				Model:               fakeModel,
 				ConvertedAttributes: &fakemotor.Config{},
 			},
-			{Name: "right",
+			{
+				Name:                "right",
 				API:                 motor.API,
 				Model:               fakeModel,
 				ConvertedAttributes: &fakemotor.Config{},
@@ -3173,7 +3173,8 @@ func TestResourceConstructTimeout(t *testing.T) {
 				Model:               fakeModel,
 				ConvertedAttributes: &fakemotor.Config{},
 			},
-			{Name: "right",
+			{
+				Name:                "right",
 				API:                 motor.API,
 				Model:               fakeModel,
 				ConvertedAttributes: &fakemotor.Config{},
@@ -3215,7 +3216,8 @@ func TestResourceConstructTimeout(t *testing.T) {
 				Model:               fakeModel,
 				ConvertedAttributes: &fakemotor.Config{},
 			},
-			{Name: "right",
+			{
+				Name:                "right",
 				API:                 motor.API,
 				Model:               fakeModel,
 				ConvertedAttributes: &fakemotor.Config{},
@@ -3236,5 +3238,4 @@ func TestResourceConstructTimeout(t *testing.T) {
 
 	err = r.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)
-
 }
