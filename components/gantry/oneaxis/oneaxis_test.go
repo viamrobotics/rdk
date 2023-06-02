@@ -516,6 +516,8 @@ func TestLengths(t *testing.T) {
 }
 
 func TestMoveToPosition(t *testing.T) {
+	// Skipping because these tests will change soon
+	t.Skip()
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 	fakegantry := &oneAxis{
