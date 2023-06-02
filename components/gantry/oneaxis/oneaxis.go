@@ -23,8 +23,8 @@ import (
 
 var model = resource.DefaultModelFamily.WithModel("oneaxis")
 
-// LimitErrorMargin is added or subtracted from the location of the limit switch to ensure the switch is not passed.
-const LimitErrorMargin = 0.25
+// limitErrorMargin is added or subtracted from the location of the limit switch to ensure the switch is not passed.
+const limitErrorMargin = 0.25
 
 // Config is used for converting oneAxis config attributes.
 type Config struct {
@@ -209,7 +209,7 @@ func (g *oneAxis) homeTwoLimSwitch(ctx context.Context) error {
 	g.positionLimits = []float64{positionA, positionB}
 	g.positionRange = positionB - positionA
 
-	g.logger.Debugf("positionA: %0.2f positionB: %0.2f range: %0.2f", g.positionLimits[0], g.positionLimits[1], g.positionRange)
+	g.logger.Infof("positionA: %0.2f positionB: %0.2f range: %0.2f", g.positionLimits[0], g.positionLimits[1], g.positionRange)
 
 	// Go backwards so limit stops are not hit.
 	x := g.gantryToMotorPosition(0.8 * g.lengthMm)
@@ -358,16 +358,16 @@ func (g *oneAxis) MoveToPosition(ctx context.Context, positions []float64, extra
 	// Currently needs to be moved by underlying gantry motor.
 	if len(g.limitSwitchPins) > 0 {
 		// Stops if position x is past the 0 limit switch
-		if x <= (g.positionLimits[0] + LimitErrorMargin) {
-			g.logger.Debugf("limit: %.2f", g.positionLimits[0]+LimitErrorMargin)
+		if x <= (g.positionLimits[0] + limitErrorMargin) {
+			g.logger.Debugf("limit: %.2f", g.positionLimits[0]+limitErrorMargin)
 			g.logger.Debugf("position x: %.2f", x)
 			g.logger.Error("Cannot move past limit switch!")
 			return g.motor.Stop(ctx, extra)
 		}
 
 		// Stops if position x is past the at-length limit switch
-		if x >= (g.positionLimits[1] - LimitErrorMargin) {
-			g.logger.Debugf("limit: %.2f", g.positionLimits[1]-LimitErrorMargin)
+		if x >= (g.positionLimits[1] - limitErrorMargin) {
+			g.logger.Debugf("limit: %.2f", g.positionLimits[1]-limitErrorMargin)
 			g.logger.Debugf("position x: %.2f", x)
 			g.logger.Error("Cannot move past limit switch!")
 			return g.motor.Stop(ctx, extra)
