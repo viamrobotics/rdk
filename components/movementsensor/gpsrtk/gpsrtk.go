@@ -169,7 +169,7 @@ func newRTKMovementSensor(
 	}
 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
-	g := &RTKMovementSensor{
+	gpsrtk := &RTKMovementSensor{
 		Named:      conf.ResourceName().AsNamed(),
 		cancelCtx:  cancelCtx,
 		cancelFunc: cancelFunc,
@@ -177,7 +177,11 @@ func newRTKMovementSensor(
 		err:        movementsensor.NewLastError(1, 1),
 	}
 
-	g.inputProtocol = newConf.CorrectionSource
+	if newConf.CorrectionSource == ntripStr {
+		gpsrtk.inputProtocol = newConf.NtripInputProtocol
+	} else {
+		gpsrtk.inputProtocol = newConf.CorrectionSource
+	}
 
 	nmeaConf := &gpsnmea.Config{
 		ConnectionType: newConf.ConnectionType,
@@ -186,29 +190,28 @@ func newRTKMovementSensor(
 	}
 
 	// Init NMEAMovementSensor
-	switch g.inputProtocol {
+	switch gpsrtk.inputProtocol {
 	case serialStr:
 		var err error
 		nmeaConf.SerialConfig = (*gpsnmea.SerialConfig)(newConf.SerialConfig)
-		g.nmeamovementsensor, err = gpsnmea.NewSerialGPSNMEA(ctx, conf.ResourceName(), nmeaConf, logger)
+		gpsrtk.nmeamovementsensor, err = gpsnmea.NewSerialGPSNMEA(ctx, conf.ResourceName(), nmeaConf, logger)
 		if err != nil {
 			return nil, err
 		}
 	case i2cStr:
 		var err error
 		nmeaConf.I2CConfig = (*gpsnmea.I2CConfig)(newConf.I2CConfig)
-		g.nmeamovementsensor, err = gpsnmea.NewPmtkI2CGPSNMEA(ctx, deps, conf.ResourceName(), nmeaConf, logger)
+		gpsrtk.nmeamovementsensor, err = gpsnmea.NewPmtkI2CGPSNMEA(ctx, deps, conf.ResourceName(), nmeaConf, logger)
 		if err != nil {
 			return nil, err
 		}
 	default:
 		// Invalid protocol
-		return nil, fmt.Errorf("%s is not a valid protocol", g.inputProtocol)
+		return nil, fmt.Errorf("%s is not a valid protocol", gpsrtk.inputProtocol)
 	}
 
 	// Init ntripInfo from attributes
-
-	g.ntripClient = &NtripInfo{
+	gpsrtk.ntripClient = &NtripInfo{
 		URL:                newConf.NtripAddr,
 		Username:           newConf.NtripUser,
 		Password:           newConf.NtripPass,
@@ -217,23 +220,26 @@ func newRTKMovementSensor(
 	}
 
 	// baud rate
-	g.wbaud = newConf.NtripBaud
-	if g.wbaud == 38400 {
-		g.logger.Info("ntrip_baud using default baud rate 38400")
+	if newConf.NtripBaud == 0 {
+		newConf.NtripBaud = 115200
+		gpsrtk.logger.Info("ntrip_baud using default baud rate 115200")
 	}
+	gpsrtk.wbaud = newConf.NtripBaud
 
-	if g.writepath != "" {
-		g.logger.Info("ntrip_path will use same path for writing RCTM messages to gps")
-		g.writepath = newConf.NtripPath
+	if gpsrtk.writepath == "" {
+		gpsrtk.logger.Info("RTK will use the same serial path as the GPS data to write RCTM messages")
+		gpsrtk.writepath = newConf.NtripPath
 	}
 
 	// I2C address only, assumes address is correct since this was checked when gps was initialized
-	g.addr = byte(newConf.I2cAddr)
+	if newConf.CorrectionSource == i2cStr {
+		gpsrtk.addr = byte(newConf.I2cAddr)
+	}
 
-	if err := g.start(); err != nil {
+	if err := gpsrtk.start(); err != nil {
 		return nil, err
 	}
-	return g, g.err.Get()
+	return gpsrtk, gpsrtk.err.Get()
 }
 
 // Start begins NTRIP receiver with specified protocol and begins reading/updating MovementSensor measurements.
