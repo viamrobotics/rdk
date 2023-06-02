@@ -30,6 +30,8 @@ import (
 // ErrRoverValidation contains the model substring for the available correction source types.
 var ErrRoverValidation = fmt.Errorf("only serial, I2C, and ntrip are supported correction sources for %s", roverModel.Name)
 
+var roverModel = resource.DefaultModelFamily.WithModel("gps-rtk")
+
 // Config is used for converting NMEA MovementSensor with RTK capabilities config attributes.
 type Config struct {
 	CorrectionSource string `json:"correction_source"`
@@ -114,13 +116,11 @@ func (cfg *NtripConfig) ValidateNtrip(path string) error {
 	if cfg.NtripAddr == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "ntrip_addr")
 	}
-	if cfg.NtripPath == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "ntrip_path")
+	if cfg.NtripInputProtocol == "" {
+		return utils.NewConfigValidationFieldRequiredError(path, "ntrip_input_protocol")
 	}
 	return nil
 }
-
-var roverModel = resource.DefaultModelFamily.WithModel("gps-rtk")
 
 func init() {
 	resource.RegisterComponent(
@@ -169,7 +169,7 @@ func newRTKMovementSensor(
 	}
 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
-	gpsrtk := &RTKMovementSensor{
+	g := &RTKMovementSensor{
 		Named:      conf.ResourceName().AsNamed(),
 		cancelCtx:  cancelCtx,
 		cancelFunc: cancelFunc,
@@ -178,9 +178,9 @@ func newRTKMovementSensor(
 	}
 
 	if newConf.CorrectionSource == ntripStr {
-		gpsrtk.inputProtocol = newConf.NtripInputProtocol
+		g.inputProtocol = newConf.NtripInputProtocol
 	} else {
-		gpsrtk.inputProtocol = newConf.CorrectionSource
+		g.inputProtocol = newConf.CorrectionSource
 	}
 
 	nmeaConf := &gpsnmea.Config{
@@ -190,28 +190,28 @@ func newRTKMovementSensor(
 	}
 
 	// Init NMEAMovementSensor
-	switch gpsrtk.inputProtocol {
+	switch g.inputProtocol {
 	case serialStr:
 		var err error
 		nmeaConf.SerialConfig = (*gpsnmea.SerialConfig)(newConf.SerialConfig)
-		gpsrtk.nmeamovementsensor, err = gpsnmea.NewSerialGPSNMEA(ctx, conf.ResourceName(), nmeaConf, logger)
+		g.nmeamovementsensor, err = gpsnmea.NewSerialGPSNMEA(ctx, conf.ResourceName(), nmeaConf, logger)
 		if err != nil {
 			return nil, err
 		}
 	case i2cStr:
 		var err error
 		nmeaConf.I2CConfig = (*gpsnmea.I2CConfig)(newConf.I2CConfig)
-		gpsrtk.nmeamovementsensor, err = gpsnmea.NewPmtkI2CGPSNMEA(ctx, deps, conf.ResourceName(), nmeaConf, logger)
+		g.nmeamovementsensor, err = gpsnmea.NewPmtkI2CGPSNMEA(ctx, deps, conf.ResourceName(), nmeaConf, logger)
 		if err != nil {
 			return nil, err
 		}
 	default:
 		// Invalid protocol
-		return nil, fmt.Errorf("%s is not a valid protocol", gpsrtk.inputProtocol)
+		return nil, fmt.Errorf("%s is not a valid protocol", g.inputProtocol)
 	}
 
 	// Init ntripInfo from attributes
-	gpsrtk.ntripClient = &NtripInfo{
+	g.ntripClient = &NtripInfo{
 		URL:                newConf.NtripAddr,
 		Username:           newConf.NtripUser,
 		Password:           newConf.NtripPass,
@@ -222,24 +222,24 @@ func newRTKMovementSensor(
 	// baud rate
 	if newConf.NtripBaud == 0 {
 		newConf.NtripBaud = 115200
-		gpsrtk.logger.Info("ntrip_baud using default baud rate 115200")
+		g.logger.Info("ntrip_baud using default baud rate 115200")
 	}
-	gpsrtk.wbaud = newConf.NtripBaud
+	g.wbaud = newConf.NtripBaud
 
-	if gpsrtk.writepath == "" {
-		gpsrtk.logger.Info("RTK will use the same serial path as the GPS data to write RCTM messages")
-		gpsrtk.writepath = newConf.NtripPath
+	if newConf.NtripPath == "" {
+		g.logger.Info("RTK will use the same serial path as the GPS data to write RCTM messages")
+		g.writepath = newConf.SerialPath
 	}
 
 	// I2C address only, assumes address is correct since this was checked when gps was initialized
 	if newConf.CorrectionSource == i2cStr {
-		gpsrtk.addr = byte(newConf.I2cAddr)
+		g.addr = byte(newConf.I2cAddr)
 	}
 
-	if err := gpsrtk.start(); err != nil {
+	if err := g.start(); err != nil {
 		return nil, err
 	}
-	return gpsrtk, gpsrtk.err.Get()
+	return g, g.err.Get()
 }
 
 // Start begins NTRIP receiver with specified protocol and begins reading/updating MovementSensor measurements.

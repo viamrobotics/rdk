@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"sync"
 
 	"github.com/adrianmo/go-nmea"
@@ -46,6 +47,7 @@ type SerialNMEAMovementSensor struct {
 
 // NewSerialGPSNMEA gps that communicates over serial.
 func NewSerialGPSNMEA(ctx context.Context, name resource.Name, conf *Config, logger golog.Logger) (NmeaMovementSensor, error) {
+	log.Println("new serial")
 	serialPath := conf.SerialConfig.SerialPath
 	if serialPath == "" {
 		return nil, fmt.Errorf("SerialNMEAMovementSensor expected non-empty string for %q", conf.SerialConfig.SerialPath)
@@ -57,8 +59,8 @@ func NewSerialGPSNMEA(ctx context.Context, name resource.Name, conf *Config, log
 	}
 	baudRate := conf.SerialConfig.SerialBaudRate
 	if baudRate == 0 {
-		baudRate = 9600
-		logger.Info("SerialNMEAMovementSensor: serial_baud_rate using default 9600")
+		baudRate = 115200
+		logger.Info("SerialNMEAMovementSensor: serial_baud_rate using default 115200")
 	}
 	correctionBaudRate := conf.SerialConfig.SerialCorrectionBaudRate
 	if correctionBaudRate == 0 {
@@ -141,6 +143,7 @@ func (g *SerialNMEAMovementSensor) Start(ctx context.Context) error {
 
 // GetCorrectionInfo returns the serial path that takes in rtcm corrections and baudrate for reading.
 func (g *SerialNMEAMovementSensor) GetCorrectionInfo() (string, uint) {
+	log.Println("getting correction info")
 	return g.correctionPath, g.correctionBaudRate
 }
 

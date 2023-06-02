@@ -65,7 +65,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 	case serialStr:
 		return nil, cfg.SerialConfig.ValidateSerial(path)
 	default:
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "connection_type")
+		return nil, connectionTypeError(cfg.ConnectionType, serialStr, i2cStr)
 	}
 }
 
