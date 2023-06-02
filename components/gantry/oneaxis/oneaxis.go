@@ -167,40 +167,36 @@ func newOneAxis(ctx context.Context, deps resource.Dependencies, conf resource.C
 }
 
 func (g *oneAxis) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+	needsToReHome := false
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return err
 	}
 
-	if g.lengthMm != newConf.LengthMm {
-		g.lengthMm = newConf.LengthMm
-	}
-	if g.rpm != newConf.GantryRPM {
-		g.rpm = newConf.GantryRPM
-	}
-	if g.mmPerRevolution != newConf.MmPerRevolution {
-		g.mmPerRevolution = newConf.MmPerRevolution
-	}
+	g.lengthMm = newConf.LengthMm
+	g.rpm = newConf.GantryRPM
+	g.mmPerRevolution = newConf.MmPerRevolution
 
 	// Rerun homing if anything with the limit switch pins changes
 	if (len(g.limitSwitchPins) != len(newConf.LimitSwitchPins)) || (g.limitHigh != *newConf.LimitPinEnabled) {
 		g.limitHigh = *newConf.LimitPinEnabled
-		if err = g.home(ctx, len(newConf.LimitSwitchPins)); err != nil {
-			return err
-		}
+		needsToReHome = true
 	} else {
 		for i, pin := range g.limitSwitchPins {
 			if pin != newConf.LimitSwitchPins[i] {
-				if err = g.home(ctx, len(newConf.LimitSwitchPins)); err != nil {
-					return err
-				}
+				newConf.LimitSwitchPins[i] = pin
+				needsToReHome = true
 			}
 		}
 	}
 
 	// Rerun homing if the motor changes
 	if g.motor.Name().ShortName() != newConf.Motor {
-		if err = g.home(ctx, len(g.limitSwitchPins)); err != nil {
+		needsToReHome = true
+	}
+
+	if needsToReHome {
+		if err = g.home(ctx, len(newConf.LimitSwitchPins)); err != nil {
 			return err
 		}
 	}
