@@ -434,17 +434,17 @@ func (lb *limoBase) IsMoving(ctx context.Context) (bool, error) {
 }
 
 func (lb *limoBase) Properties(ctx context.Context, extra map[string]interface{}) (map[base.Feature]float64, error) {
-	var lbTurningRadius float64
+	var lbTurnRadiusM float64
 
 	switch lb.driveMode {
 	case ACKERMANN.String():
-		lbTurningRadius = agileXMinimumTurningRadiusM
+		lbTurnRadiusM = agileXMinimumTurningRadiusM
 	default:
-		lbTurningRadius = 0
+		lbTurnRadiusM = 0.0 // omni and differential can turn in place
 	}
 
 	return map[base.Feature]float64{
-		base.TurningRadiusM: lbTurningRadius,
+		base.TurningRadiusM: lbTurnRadiusM,
 		base.WidthM:         float64(lb.width),
 	}, nil
 }
