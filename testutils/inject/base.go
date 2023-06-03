@@ -16,7 +16,6 @@ type Base struct {
 	DoFunc           func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	MoveStraightFunc func(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error
 	SpinFunc         func(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error
-	WidthFunc        func(ctx context.Context) (int, error)
 	StopFunc         func(ctx context.Context, extra map[string]interface{}) error
 	IsMovingFunc     func(context.Context) (bool, error)
 	CloseFunc        func(ctx context.Context) error
@@ -48,14 +47,6 @@ func (b *Base) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map
 		return b.LocalBase.Spin(ctx, angleDeg, degsPerSec, extra)
 	}
 	return b.SpinFunc(ctx, angleDeg, degsPerSec, extra)
-}
-
-// Width calls the injected Width or the real version.
-func (b *Base) Width(ctx context.Context) (int, error) {
-	if b.WidthFunc == nil {
-		return b.LocalBase.Width(ctx)
-	}
-	return b.WidthFunc(ctx)
 }
 
 // Stop calls the injected Stop or the real version.
