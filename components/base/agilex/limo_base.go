@@ -1,4 +1,4 @@
-// Package limo implements the AgileX Limo lb
+// Package limo implements the AgileX Limo base
 package limo
 
 import (
@@ -309,7 +309,7 @@ func (c *controller) sendFrame(frame *limoFrame) error {
 	return nil
 }
 
-// see https://github.com/agilexrobotics/limo_ros/blob/master/limo_lb/src/limo_driver.cpp
+// see https://github.com/agilexrobotics/limo_ros/blob/master/limo_base/src/limo_driver.cpp
 func (lb *limoBase) setMotionCommand(linearVel float64,
 	angularVel, lateralVel, steeringAngle float64,
 ) error {
