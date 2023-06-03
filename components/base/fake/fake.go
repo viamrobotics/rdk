@@ -34,7 +34,10 @@ func init() {
 	)
 }
 
-const defaultWidth = 600
+const (
+	defaultWidthMm               = 600
+	defaultMinimumTurningRadiusM = 0.8
+)
 
 // Base is a fake base that returns what it was provided in each method.
 type Base struct {
@@ -74,7 +77,7 @@ func (b *Base) SetVelocity(ctx context.Context, linear, angular r3.Vector, extra
 
 // Width returns some arbitrary width.
 func (b *Base) Width(ctx context.Context) (int, error) {
-	return defaultWidth, nil
+	return defaultWidthMm, nil
 }
 
 // Stop does nothing.
@@ -91,6 +94,13 @@ func (b *Base) IsMoving(ctx context.Context) (bool, error) {
 func (b *Base) Close(ctx context.Context) error {
 	b.CloseCount++
 	return nil
+}
+
+func (b *Base) Properties(ctx context.Context, extra map[string]interface{}) (map[base.Feature]float64, error) {
+	return map[base.Feature]float64{
+		base.TurningRadiusM: defaultMinimumTurningRadiusM,
+		base.WidthM:       defaultWidthMm * 0.001, // convert t0 meters
+	}, nil
 }
 
 type kinematicBase struct {

@@ -4,6 +4,7 @@ package base
 import (
 	"context"
 
+	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/base/v1"
 
@@ -133,6 +134,23 @@ func (s *serviceServer) IsMoving(ctx context.Context, req *pb.IsMovingRequest) (
 		return nil, err
 	}
 	return &pb.IsMovingResponse{IsMoving: moving}, nil
+}
+
+func (s *serviceServer) GetProperties(
+	ctx context.Context,
+	req *pb.GetPropertiesRequest,
+) (*pb.GetPropertiesResponse, error) {
+	baseName := req.GetName()
+	base, err := s.coll.Resource(baseName)
+	if err != nil {
+		return nil, errors.Errorf("no base (%s) found", baseName)
+	}
+
+	features, err := base.Properties(ctx, req.Extra.AsMap())
+	if err != nil {
+		return nil, err
+	}
+	return &FeatureMapToProtoResponse(features)
 }
 
 // DoCommand receives arbitrary commands.

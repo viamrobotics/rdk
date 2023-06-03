@@ -130,6 +130,10 @@ func (base *MyBase) IsMoving(ctx context.Context) (bool, error) {
 	return false, nil
 }
 
+func (base *MyBase) Properties(ctx context.Context, extra map[string]interface{}) (map[base.Feature]float64, error) {
+	return nil, errUnimplemented
+}
+
 func (base *MyBase) Close(ctx context.Context) error {
 	return base.Stop(ctx, nil)
 }

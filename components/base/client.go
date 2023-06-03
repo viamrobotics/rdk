@@ -10,6 +10,7 @@ import (
 	pb "go.viam.com/api/component/base/v1"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
@@ -132,4 +133,18 @@ func (c *client) IsMoving(ctx context.Context) (bool, error) {
 		return false, err
 	}
 	return resp.IsMoving, nil
+}
+
+func (c *client) Properties(ctx context.Context, extra map[string]interface{}) (map[Feature]float64, error) {
+	ext, err := structpb.NewStruct(extra)
+	if err != nil {
+		return nil, err
+	}
+
+	req := &pb.GetPropertiesRequest{Name: c.name, Extra: ext}
+	resp, err := c.client.GetProperties(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	return ProtoFeaturesToMap(resp), nil
 }

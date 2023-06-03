@@ -178,3 +178,32 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 }
+
+func TestServerGetProperties(t *testing.T) {
+	baseServer, workingBase, failingBase, _ := newServer()
+
+	// fails on a bad base
+	req := pb.GetPropertiesRequest{Name: fakeBaseName}
+	resp, err := baseServer.GetProperties(context.Background(), &req)
+	test.That(t, resp, test.ShouldBeNil)
+	test.That(t, err, test.ShouldNotBeNil)
+
+	failingBase.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (map[base.Feature]float64, error) {
+		return nil, errors.New("properties not found")
+	}
+	req = pb.GetPropertiesRequest{Name: fakeBaseName}
+	resp, err = baseServer.GetProperties(context.Background(), &req)
+	test.That(t, resp, test.ShouldBeNil)
+	test.That(t, err, test.ShouldNotBeNil)
+
+	workingBase.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (map[base.Feature]float64, error) {
+		return map[base.Feature]float64{
+			base.TurningRadiusM: 0.1,
+			base.WidthM:         0.2,
+		}, nil
+	}
+	req = pb.GetPropertiesRequest{Name: fakeBaseName}
+	resp, err = baseServer.GetProperties(context.Background(), &req)
+	test.That(t, resp, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeNil)
+}

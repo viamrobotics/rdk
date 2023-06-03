@@ -45,6 +45,12 @@ func setupWorkingBase(
 	workingBase.WidthFunc = func(ctx context.Context) (int, error) {
 		return width, nil
 	}
+	workingBase.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (map[base.Feature]float64, error) {
+		return map[base.Feature]float64{
+			base.TurningRadiusM: 1.2,
+			base.WidthM:         0.6,
+		}, nil
+	}
 }
 
 func setupBrokenBase(brokenBase *inject.Base) string {
@@ -69,6 +75,9 @@ func setupBrokenBase(brokenBase *inject.Base) string {
 	}
 	brokenBase.WidthFunc = func(ctx context.Context) (int, error) {
 		return 0, errors.New(errMsg)
+	}
+	brokenBase.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (map[base.Feature]float64, error) {
+		return nil, errors.New(errMsg)
 	}
 	return errMsg
 }

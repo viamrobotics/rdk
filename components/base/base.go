@@ -57,6 +57,8 @@ type Base interface {
 	// linear is in mmPerSec
 	// angular is in degsPerSec
 	SetVelocity(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error
+
+	Properties(ctx context.Context, extra map[string]interface{}) (map[Feature]float64, error)
 }
 
 // A LocalBase represents a physical base of a robot that can report the width of itself.
