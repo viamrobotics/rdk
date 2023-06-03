@@ -443,7 +443,7 @@ func (lb *limoBase) Properties(ctx context.Context, extra map[string]interface{}
 	}, nil
 }
 
-// DoCommand executes additional commands beyond the lb{} interface.
+// DoCommand executes additional commands beyond the Base{} interface.
 func (lb *limoBase) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	name, ok := cmd["command"]
 	if !ok {
