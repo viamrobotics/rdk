@@ -26,9 +26,9 @@ func TestLimoBaseConstructor(t *testing.T) {
 		TestChan:  c,
 	}
 
-	b, err := createLimoBase(context.Background(), deps, resource.Config{ConvertedAttributes: cfg}, logger)
+	newBase, err := createLimoBase(context.Background(), deps, resource.Config{ConvertedAttributes: cfg}, logger)
 	test.That(t, err, test.ShouldBeNil)
-	lb, ok := b.(*limoBase)
+	lb, ok := newBase.(*limoBase)
 	test.That(t, ok, test.ShouldBeTrue)
 	props, err := lb.Properties(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
