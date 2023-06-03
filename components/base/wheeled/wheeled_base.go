@@ -218,7 +218,7 @@ func createWheeledBase(
 	deps resource.Dependencies,
 	conf resource.Config,
 	logger golog.Logger,
-) (base.LocalBase, error) {
+) (base.Base, error) {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return nil, err

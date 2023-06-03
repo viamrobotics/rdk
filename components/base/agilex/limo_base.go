@@ -59,13 +59,7 @@ var model = resource.DefaultModelFamily.WithModel("agilex-limo")
 func init() {
 	controllers = make(map[string]*controller)
 
-	resource.RegisterComponent(base.API, model, resource.Registration[base.Base, *Config]{
-		Constructor: func(
-			ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger,
-		) (base.Base, error) {
-			return createLimoBase(ctx, deps, conf, logger)
-		},
-	})
+	resource.RegisterComponent(base.API, model, resource.Registration[base.Base, *Config]{Constructor: createLimoBase})
 }
 
 // controller is common across all limo instances sharing a controller.
@@ -116,7 +110,7 @@ type Config struct {
 }
 
 // createLimoBase returns a AgileX limo base.
-func createLimoBase(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (base.LocalBase, error) {
+func createLimoBase(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (base.Base, error) {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return nil, err

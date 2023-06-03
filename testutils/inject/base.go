@@ -11,7 +11,7 @@ import (
 
 // Base is an injected base.
 type Base struct {
-	base.LocalBase
+	base.Base
 	name             resource.Name
 	DoFunc           func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	MoveStraightFunc func(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error
@@ -36,7 +36,7 @@ func (b *Base) Name() resource.Name {
 // MoveStraight calls the injected MoveStraight or the real version.
 func (b *Base) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error {
 	if b.MoveStraightFunc == nil {
-		return b.LocalBase.MoveStraight(ctx, distanceMm, mmPerSec, extra)
+		return b.Base.MoveStraight(ctx, distanceMm, mmPerSec, extra)
 	}
 	return b.MoveStraightFunc(ctx, distanceMm, mmPerSec, extra)
 }
@@ -44,7 +44,7 @@ func (b *Base) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float6
 // Spin calls the injected Spin or the real version.
 func (b *Base) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
 	if b.SpinFunc == nil {
-		return b.LocalBase.Spin(ctx, angleDeg, degsPerSec, extra)
+		return b.Base.Spin(ctx, angleDeg, degsPerSec, extra)
 	}
 	return b.SpinFunc(ctx, angleDeg, degsPerSec, extra)
 }
@@ -52,7 +52,7 @@ func (b *Base) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map
 // Stop calls the injected Stop or the real version.
 func (b *Base) Stop(ctx context.Context, extra map[string]interface{}) error {
 	if b.StopFunc == nil {
-		return b.LocalBase.Stop(ctx, extra)
+		return b.Base.Stop(ctx, extra)
 	}
 	return b.StopFunc(ctx, extra)
 }
@@ -60,7 +60,7 @@ func (b *Base) Stop(ctx context.Context, extra map[string]interface{}) error {
 // IsMoving calls the injected IsMoving or the real version.
 func (b *Base) IsMoving(ctx context.Context) (bool, error) {
 	if b.IsMovingFunc == nil {
-		return b.LocalBase.IsMoving(ctx)
+		return b.Base.IsMoving(ctx)
 	}
 	return b.IsMovingFunc(ctx)
 }
@@ -68,10 +68,10 @@ func (b *Base) IsMoving(ctx context.Context) (bool, error) {
 // Close calls the injected Close or the real version.
 func (b *Base) Close(ctx context.Context) error {
 	if b.CloseFunc == nil {
-		if b.LocalBase == nil {
+		if b.Base == nil {
 			return nil
 		}
-		return b.LocalBase.Close(ctx)
+		return b.Base.Close(ctx)
 	}
 	return b.CloseFunc(ctx)
 }
@@ -79,7 +79,7 @@ func (b *Base) Close(ctx context.Context) error {
 // DoCommand calls the injected DoCommand or the real version.
 func (b *Base) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	if b.DoFunc == nil {
-		return b.LocalBase.DoCommand(ctx, cmd)
+		return b.Base.DoCommand(ctx, cmd)
 	}
 	return b.DoFunc(ctx, cmd)
 }
@@ -87,14 +87,14 @@ func (b *Base) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[s
 // SetPower calls the injected SetPower or the real version.
 func (b *Base) SetPower(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
 	if b.SetPowerFunc == nil {
-		return b.LocalBase.SetPower(ctx, linear, angular, extra)
+		return b.Base.SetPower(ctx, linear, angular, extra)
 	}
 	return b.SetPowerFunc(ctx, linear, angular, extra)
 }
 
 func (b *Base) Properties(ctx context.Context, extra map[string]interface{}) (map[base.Feature]float64, error) {
 	if b.PropertiesFunc == nil {
-		return b.LocalBase.Properties(ctx, extra)
+		return b.Base.Properties(ctx, extra)
 	}
 	return b.PropertiesFunc(ctx, extra)
 }

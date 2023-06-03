@@ -21,16 +21,7 @@ func init() {
 	resource.RegisterComponent(
 		base.API,
 		resource.DefaultModelFamily.WithModel("fake"),
-		resource.Registration[base.Base, resource.NoNativeConfig]{
-			Constructor: func(
-				ctx context.Context,
-				deps resource.Dependencies,
-				conf resource.Config,
-				logger golog.Logger,
-			) (base.Base, error) {
-				return NewBase(ctx, conf)
-			},
-		},
+		resource.Registration[base.Base, resource.NoNativeConfig]{Constructor: NewBase},
 	)
 }
 
@@ -48,7 +39,7 @@ type Base struct {
 }
 
 // NewBase instantiates a new base of the fake model type.
-func NewBase(ctx context.Context, conf resource.Config) (base.LocalBase, error) {
+func NewBase(ctx context.Context, _ resource.Dependencies, conf resource.Config, _ golog.Logger) (base.Base, error) {
 	return &Base{
 		Named:    conf.ResourceName().AsNamed(),
 		geometry: conf.Frame,

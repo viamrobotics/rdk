@@ -61,11 +61,6 @@ type Base interface {
 	Properties(ctx context.Context, extra map[string]interface{}) (map[Feature]float64, error)
 }
 
-// A LocalBase represents a physical base of a robot that can report the width of itself.
-type LocalBase interface {
-	Base
-}
-
 // KinematicWrappable describes a base that can be wrapped with a kinematic model.
 type KinematicWrappable interface {
 	WrapWithKinematics(context.Context, slam.Service) (KinematicBase, error)
