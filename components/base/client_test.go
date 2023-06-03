@@ -185,6 +185,9 @@ func TestClient(t *testing.T) {
 		err = failingBaseClient.Spin(context.Background(), 42.0, 42.0, nil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, brokenBaseErrMsg)
 
+		_, err = failingBaseClient.Properties(context.Background(), nil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, brokenBaseErrMsg)
+
 		err = failingBaseClient.Stop(context.Background(), nil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, brokenBaseErrMsg)
 
