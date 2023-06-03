@@ -64,8 +64,6 @@ type Base interface {
 // A LocalBase represents a physical base of a robot that can report the width of itself.
 type LocalBase interface {
 	Base
-	// Width returns the width of the base in millimeters.
-	Width(ctx context.Context) (int, error)
 }
 
 // KinematicWrappable describes a base that can be wrapped with a kinematic model.
@@ -140,32 +138,4 @@ func CollisionGeometry(cfg *referenceframe.LinkConfig) (spatialmath.Geometry, er
 		return nil, err
 	}
 	return sphere, nil
-}
-
-// A Move describes instructions for a robot to spin followed by moving straight.
-type Move struct {
-	DistanceMm int
-	MmPerSec   float64
-	AngleDeg   float64
-	DegsPerSec float64
-	Extra      map[string]interface{}
-}
-
-// DoMove performs the given move on the given base.
-func DoMove(ctx context.Context, move Move, base Base) error {
-	if move.AngleDeg != 0 {
-		err := base.Spin(ctx, move.AngleDeg, move.DegsPerSec, move.Extra)
-		if err != nil {
-			return err
-		}
-	}
-
-	if move.DistanceMm != 0 {
-		err := base.MoveStraight(ctx, move.DistanceMm, move.MmPerSec, move.Extra)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
 }

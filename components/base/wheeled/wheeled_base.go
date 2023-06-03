@@ -452,14 +452,9 @@ func (wb *wheeledBase) Close(ctx context.Context) error {
 	return wb.Stop(ctx, nil)
 }
 
-// Width returns the width of the base as configured by the user.
-func (wb *wheeledBase) Width(ctx context.Context) (int, error) {
-	return wb.widthMm, nil
-}
-
 func (wb *wheeledBase) Properties(ctx context.Context, extra map[string]interface{}) (map[base.Feature]float64, error) {
 	return map[base.Feature]float64{
 		base.TurningRadiusM: 0.0,
-		base.WidthM:       float64(wb.widthMm) * 0.001, // convert to meters from mm
+		base.WidthM:         float64(wb.widthMm) * 0.001, // convert to meters from mm
 	}, nil
 }

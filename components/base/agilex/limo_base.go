@@ -490,7 +490,3 @@ func (lb *limoBase) Close(ctx context.Context) error {
 	}
 	return nil
 }
-
-func (base *limoBase) Width(ctx context.Context) (int, error) {
-	return base.width, nil
-}

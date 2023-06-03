@@ -75,11 +75,6 @@ func (b *Base) SetVelocity(ctx context.Context, linear, angular r3.Vector, extra
 	return nil
 }
 
-// Width returns some arbitrary width.
-func (b *Base) Width(ctx context.Context) (int, error) {
-	return defaultWidthMm, nil
-}
-
 // Stop does nothing.
 func (b *Base) Stop(ctx context.Context, extra map[string]interface{}) error {
 	return nil
@@ -99,7 +94,7 @@ func (b *Base) Close(ctx context.Context) error {
 func (b *Base) Properties(ctx context.Context, extra map[string]interface{}) (map[base.Feature]float64, error) {
 	return map[base.Feature]float64{
 		base.TurningRadiusM: defaultMinimumTurningRadiusM,
-		base.WidthM:       defaultWidthMm * 0.001, // convert t0 meters
+		base.WidthM:         defaultWidthMm * 0.001, // convert to meters
 	}, nil
 }
 

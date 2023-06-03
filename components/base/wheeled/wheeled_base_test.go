@@ -53,44 +53,44 @@ func TestWheelBaseMath(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	motorDeps := fakeMotorDependencies(t, deps)
 
-	baseBase, err := createWheeledBase(context.Background(), motorDeps, testCfg, logger)
+	newBase, err := createWheeledBase(context.Background(), motorDeps, testCfg, logger)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, baseBase, test.ShouldNotBeNil)
-	base, ok := baseBase.(*wheeledBase)
+	test.That(t, newBase, test.ShouldNotBeNil)
+	wb, ok := newBase.(*wheeledBase)
 	test.That(t, ok, test.ShouldBeTrue)
 
 	t.Run("basics", func(t *testing.T) {
-		temp, err := base.Width(ctx)
+		props, err := wb.Properties(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, temp, test.ShouldEqual, 100)
+		test.That(t, props[base.WidthM], test.ShouldEqual, 100)
 	})
 
 	t.Run("math_straight", func(t *testing.T) {
-		rpm, rotations := base.straightDistanceToMotorInputs(1000, 1000)
+		rpm, rotations := wb.straightDistanceToMotorInputs(1000, 1000)
 		test.That(t, rpm, test.ShouldEqual, 60.0)
 		test.That(t, rotations, test.ShouldEqual, 1.0)
 
-		rpm, rotations = base.straightDistanceToMotorInputs(-1000, 1000)
+		rpm, rotations = wb.straightDistanceToMotorInputs(-1000, 1000)
 		test.That(t, rpm, test.ShouldEqual, 60.0)
 		test.That(t, rotations, test.ShouldEqual, -1.0)
 
-		rpm, rotations = base.straightDistanceToMotorInputs(1000, -1000)
+		rpm, rotations = wb.straightDistanceToMotorInputs(1000, -1000)
 		test.That(t, rpm, test.ShouldEqual, -60.0)
 		test.That(t, rotations, test.ShouldEqual, 1.0)
 
-		rpm, rotations = base.straightDistanceToMotorInputs(-1000, -1000)
+		rpm, rotations = wb.straightDistanceToMotorInputs(-1000, -1000)
 		test.That(t, rpm, test.ShouldEqual, -60.0)
 		test.That(t, rotations, test.ShouldEqual, -1.0)
 	})
 
 	t.Run("straight no speed", func(t *testing.T) {
-		err := base.MoveStraight(ctx, 1000, 0, nil)
+		err := wb.MoveStraight(ctx, 1000, 0, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = waitForMotorsToStop(ctx, base)
+		err = waitForMotorsToStop(ctx, wb)
 		test.That(t, err, test.ShouldBeNil)
 
-		for _, m := range base.allMotors {
+		for _, m := range wb.allMotors {
 			isOn, powerPct, err := m.IsPowered(context.Background(), nil)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, isOn, test.ShouldBeFalse)
@@ -99,13 +99,13 @@ func TestWheelBaseMath(t *testing.T) {
 	})
 
 	t.Run("straight no distance", func(t *testing.T) {
-		err := base.MoveStraight(ctx, 0, 1000, nil)
+		err := wb.MoveStraight(ctx, 0, 1000, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = waitForMotorsToStop(ctx, base)
+		err = waitForMotorsToStop(ctx, wb)
 		test.That(t, err, test.ShouldBeNil)
 
-		for _, m := range base.allMotors {
+		for _, m := range wb.allMotors {
 			isOn, powerPct, err := m.IsPowered(context.Background(), nil)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, isOn, test.ShouldBeFalse)
@@ -114,30 +114,30 @@ func TestWheelBaseMath(t *testing.T) {
 	})
 
 	t.Run("waitForMotorsToStop", func(t *testing.T) {
-		err := base.Stop(ctx, nil)
+		err := wb.Stop(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = base.allMotors[0].SetPower(ctx, 1, nil)
+		err = wb.allMotors[0].SetPower(ctx, 1, nil)
 		test.That(t, err, test.ShouldBeNil)
-		isOn, powerPct, err := base.allMotors[0].IsPowered(ctx, nil)
+		isOn, powerPct, err := wb.allMotors[0].IsPowered(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, isOn, test.ShouldBeTrue)
 		test.That(t, powerPct, test.ShouldEqual, 1.0)
 
-		err = waitForMotorsToStop(ctx, base)
+		err = waitForMotorsToStop(ctx, wb)
 		test.That(t, err, test.ShouldBeNil)
 
-		for _, m := range base.allMotors {
+		for _, m := range wb.allMotors {
 			isOn, powerPct, err := m.IsPowered(ctx, nil)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, isOn, test.ShouldBeFalse)
 			test.That(t, powerPct, test.ShouldEqual, 0.0)
 		}
 
-		err = waitForMotorsToStop(ctx, base)
+		err = waitForMotorsToStop(ctx, wb)
 		test.That(t, err, test.ShouldBeNil)
 
-		for _, m := range base.allMotors {
+		for _, m := range wb.allMotors {
 			isOn, powerPct, err := m.IsPowered(ctx, nil)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, isOn, test.ShouldBeFalse)
@@ -145,20 +145,20 @@ func TestWheelBaseMath(t *testing.T) {
 		}
 	})
 
-	test.That(t, base.Close(context.Background()), test.ShouldBeNil)
+	test.That(t, wb.Close(context.Background()), test.ShouldBeNil)
 	t.Run("go block", func(t *testing.T) {
 		go func() {
 			time.Sleep(time.Millisecond * 10)
-			err = base.Stop(ctx, nil)
+			err = wb.Stop(ctx, nil)
 			if err != nil {
 				panic(err)
 			}
 		}()
 
-		err := base.MoveStraight(ctx, 10000, 1000, nil)
+		err := wb.MoveStraight(ctx, 10000, 1000, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		for _, m := range base.allMotors {
+		for _, m := range wb.allMotors {
 			isOn, powerPct, err := m.IsPowered(ctx, nil)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, isOn, test.ShouldBeFalse)
@@ -167,43 +167,43 @@ func TestWheelBaseMath(t *testing.T) {
 	})
 	// Spin tests
 	t.Run("spin math", func(t *testing.T) {
-		rpms, rotations := base.spinMath(90, 10)
+		rpms, rotations := wb.spinMath(90, 10)
 		test.That(t, rpms, test.ShouldAlmostEqual, 0.523, 0.001)
 		test.That(t, rotations, test.ShouldAlmostEqual, 0.0785, 0.001)
 
-		rpms, rotations = base.spinMath(-90, 10)
+		rpms, rotations = wb.spinMath(-90, 10)
 		test.That(t, rpms, test.ShouldAlmostEqual, -0.523, 0.001)
 		test.That(t, rotations, test.ShouldAlmostEqual, 0.0785, 0.001)
 
-		rpms, rotations = base.spinMath(90, -10)
+		rpms, rotations = wb.spinMath(90, -10)
 		test.That(t, rpms, test.ShouldAlmostEqual, -0.523, 0.001)
 		test.That(t, rotations, test.ShouldAlmostEqual, 0.0785, 0.001)
 
-		rpms, rotations = base.spinMath(-90, -10)
+		rpms, rotations = wb.spinMath(-90, -10)
 		test.That(t, rpms, test.ShouldAlmostEqual, 0.523, 0.001)
 		test.That(t, rotations, test.ShouldAlmostEqual, 0.0785, 0.001)
 
-		rpms, rotations = base.spinMath(60, 10)
+		rpms, rotations = wb.spinMath(60, 10)
 		test.That(t, rpms, test.ShouldAlmostEqual, 0.523, 0.001)
 		test.That(t, rotations, test.ShouldAlmostEqual, 0.0523, 0.001)
 
-		rpms, rotations = base.spinMath(30, 10)
+		rpms, rotations = wb.spinMath(30, 10)
 		test.That(t, rpms, test.ShouldAlmostEqual, 0.523, 0.001)
 		test.That(t, rotations, test.ShouldAlmostEqual, 0.0261, 0.001)
 	})
 	t.Run("spin block", func(t *testing.T) {
 		go func() {
 			time.Sleep(time.Millisecond * 10)
-			err := base.Stop(ctx, nil)
+			err := wb.Stop(ctx, nil)
 			if err != nil {
 				panic(err)
 			}
 		}()
 
-		err := base.Spin(ctx, 5, 5, nil)
+		err := wb.Spin(ctx, 5, 5, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		for _, m := range base.allMotors {
+		for _, m := range wb.allMotors {
 			isOn, powerPct, err := m.IsPowered(ctx, nil)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, isOn, test.ShouldBeFalse)
@@ -213,29 +213,29 @@ func TestWheelBaseMath(t *testing.T) {
 
 	// Velocity tests
 	t.Run("velocity math curved", func(t *testing.T) {
-		l, r := base.velocityMath(1000, 10)
+		l, r := wb.velocityMath(1000, 10)
 		test.That(t, l, test.ShouldAlmostEqual, 59.476, 0.01)
 		test.That(t, r, test.ShouldAlmostEqual, 60.523, 0.01)
 
-		l, r = base.velocityMath(-1000, -10)
+		l, r = wb.velocityMath(-1000, -10)
 		test.That(t, l, test.ShouldAlmostEqual, -59.476, 0.01)
 		test.That(t, r, test.ShouldAlmostEqual, -60.523, 0.01)
 
-		l, r = base.velocityMath(1000, -10)
+		l, r = wb.velocityMath(1000, -10)
 		test.That(t, l, test.ShouldAlmostEqual, 60.523, 0.01)
 		test.That(t, r, test.ShouldAlmostEqual, 59.476, 0.01)
 
-		l, r = base.velocityMath(-1000, 10)
+		l, r = wb.velocityMath(-1000, 10)
 		test.That(t, l, test.ShouldAlmostEqual, -60.523, 0.01)
 		test.That(t, r, test.ShouldAlmostEqual, -59.476, 0.01)
 	})
 
 	t.Run("arc math zero angle", func(t *testing.T) {
-		l, r := base.velocityMath(1000, 0)
+		l, r := wb.velocityMath(1000, 0)
 		test.That(t, l, test.ShouldEqual, 60.0)
 		test.That(t, r, test.ShouldEqual, 60.0)
 
-		l, r = base.velocityMath(-1000, 0)
+		l, r = wb.velocityMath(-1000, 0)
 		test.That(t, l, test.ShouldEqual, -60.0)
 		test.That(t, r, test.ShouldEqual, -60.0)
 	})
@@ -245,21 +245,21 @@ func TestWheelBaseMath(t *testing.T) {
 
 		// Go straight (↑)
 		t.Logf("Go straight (↑)")
-		fwdL, fwdR = base.differentialDrive(1, 0)
+		fwdL, fwdR = wb.differentialDrive(1, 0)
 		test.That(t, fwdL, test.ShouldBeGreaterThan, 0)
 		test.That(t, fwdR, test.ShouldBeGreaterThan, 0)
 		test.That(t, math.Abs(fwdL), test.ShouldEqual, math.Abs(fwdR))
 
 		// Go forward-left (↰)
 		t.Logf("Go forward-left (↰)")
-		fwdL, fwdR = base.differentialDrive(1, 1)
+		fwdL, fwdR = wb.differentialDrive(1, 1)
 		test.That(t, fwdL, test.ShouldBeGreaterThan, 0)
 		test.That(t, fwdR, test.ShouldBeGreaterThan, 0)
 		test.That(t, math.Abs(fwdL), test.ShouldBeLessThan, math.Abs(fwdR))
 
 		// Go reverse-left (↲)
 		t.Logf("Go reverse-left (↲)")
-		revL, revR = base.differentialDrive(-1, 1)
+		revL, revR = wb.differentialDrive(-1, 1)
 		test.That(t, revL, test.ShouldBeLessThan, 0)
 		test.That(t, revR, test.ShouldBeLessThan, 0)
 		test.That(t, math.Abs(revL), test.ShouldBeLessThan, math.Abs(revR))
@@ -270,14 +270,14 @@ func TestWheelBaseMath(t *testing.T) {
 
 		// Go forward-right (↱)
 		t.Logf("Go forward-right (↱)")
-		fwdL, fwdR = base.differentialDrive(1, -1)
+		fwdL, fwdR = wb.differentialDrive(1, -1)
 		test.That(t, fwdL, test.ShouldBeGreaterThan, 0)
 		test.That(t, fwdR, test.ShouldBeGreaterThan, 0)
 		test.That(t, math.Abs(fwdL), test.ShouldBeGreaterThan, math.Abs(revL))
 
 		// Go reverse-right (↳)
 		t.Logf("Go reverse-right (↳)")
-		revL, revR = base.differentialDrive(-1, -1)
+		revL, revR = wb.differentialDrive(-1, -1)
 		test.That(t, revL, test.ShouldBeLessThan, 0)
 		test.That(t, revR, test.ShouldBeLessThan, 0)
 		test.That(t, math.Abs(revL), test.ShouldBeGreaterThan, math.Abs(revR))
@@ -288,13 +288,13 @@ func TestWheelBaseMath(t *testing.T) {
 
 		// Test spin left (↺)
 		t.Logf("Test spin left (↺)")
-		spinL, spinR := base.differentialDrive(0, 1)
+		spinL, spinR := wb.differentialDrive(0, 1)
 		test.That(t, spinL, test.ShouldBeLessThanOrEqualTo, 0)
 		test.That(t, spinR, test.ShouldBeGreaterThan, 0)
 
 		// Test spin right (↻)
 		t.Logf("Test spin right (↻)")
-		spinL, spinR = base.differentialDrive(0, -1)
+		spinL, spinR = wb.differentialDrive(0, -1)
 		test.That(t, spinL, test.ShouldBeGreaterThan, 0)
 		test.That(t, spinR, test.ShouldBeLessThanOrEqualTo, 0)
 	})
@@ -325,13 +325,13 @@ func TestWheeledBaseConstructor(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	motorDeps := fakeMotorDependencies(t, deps)
 
-	baseBase, err := createWheeledBase(ctx, motorDeps, testCfg, logger)
+	newBase, err := createWheeledBase(ctx, motorDeps, testCfg, logger)
 	test.That(t, err, test.ShouldBeNil)
-	base, ok := baseBase.(*wheeledBase)
+	wb, ok := newBase.(*wheeledBase)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, len(base.left), test.ShouldEqual, 2)
-	test.That(t, len(base.right), test.ShouldEqual, 2)
-	test.That(t, len(base.allMotors), test.ShouldEqual, 4)
+	test.That(t, len(wb.left), test.ShouldEqual, 2)
+	test.That(t, len(wb.right), test.ShouldEqual, 2)
+	test.That(t, len(wb.allMotors), test.ShouldEqual, 4)
 }
 
 func TestValidate(t *testing.T) {
