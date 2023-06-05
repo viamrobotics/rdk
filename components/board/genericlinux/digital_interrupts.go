@@ -105,7 +105,7 @@ func (di *digitalInterrupt) Close() error {
 	return di.line.Close()
 }
 
-// struct implements GPIOPin to support reading current state of digital interrupt pins as GPIO inputs.
+// struct implements board.GPIOPin to support reading current state of digital interrupt pins as GPIO inputs.
 type gpioInterruptWrapperPin struct {
 	interrupt digitalInterrupt
 }
@@ -130,14 +130,20 @@ func (gp gpioInterruptWrapperPin) PWM(ctx context.Context, extra map[string]inte
 	return 0, errors.New("cannot get PWM of a digital interrupt pin")
 }
 
-func (gp gpioInterruptWrapperPin) SetPWM(ctx context.Context, dutyCyclePct float64, extra map[string]interface{}) error {
+func (gp gpioInterruptWrapperPin) SetPWM(
+	ctx context.Context, dutyCyclePct float64, extra map[string]interface{},
+) error {
 	return errors.New("cannot set PWM of a digital interrupt pin")
 }
 
-func (gp gpioInterruptWrapperPin) PWMFreq(ctx context.Context, extra map[string]interface{}) (uint, error) {
+func (gp gpioInterruptWrapperPin) PWMFreq(
+	ctx context.Context, extra map[string]interface{},
+) (uint, error) {
 	return 0, errors.New("cannot get PWM freq of a digital interrupt pin")
 }
 
-func (gp gpioInterruptWrapperPin) SetPWMFreq(ctx context.Context, freqHz uint, extra map[string]interface{}) error {
+func (gp gpioInterruptWrapperPin) SetPWMFreq(
+	ctx context.Context, freqHz uint, extra map[string]interface{},
+) error {
 	return errors.New("cannot set PWM freq of a digital interrupt pin")
 }
