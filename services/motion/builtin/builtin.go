@@ -311,7 +311,7 @@ func (ms *builtIn) MoveOnGlobe(
 		return false, err
 	}
 
-	// recalculate limits with destination and current position
+	// construct naive limits from destintion and current position
 	minX := math.Min(currentPose.Point().X, dstPose.Point().X)
 	maxX := math.Max(currentPose.Point().X, dstPose.Point().X)
 	minY := math.Min(currentPose.Point().Y, dstPose.Point().Y)
@@ -322,13 +322,13 @@ func (ms *builtIn) MoveOnGlobe(
 		{Min: -2 * math.Pi, Max: 2 * math.Pi},
 	}
 
-	// get worldstate limits
+	// recalculate limits with respect to worldstate
 	limits = wrldst.BoundingBox(ctx, limits)
 
 	// create a KinematicBase from the componentName
 	baseComponent, ok := ms.components[componentName]
 	if !ok {
-		return false, fmt.Errorf("only Base components are supported for MoveOnMap: could not find an Base named %v", componentName)
+		return false, fmt.Errorf("only Base components are supported for MoveOnGlobe: could not find an Base named %v", componentName)
 	}
 	kw, ok := baseComponent.(base.KinematicWrappable)
 	if !ok {
