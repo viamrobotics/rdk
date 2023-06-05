@@ -68,7 +68,7 @@ type LocalBase interface {
 
 // KinematicWrappable describes a base that can be wrapped with a kinematic model.
 type KinematicWrappable interface {
-	WrapWithKinematics(context.Context, localizer.Localizer) (KinematicBase, error)
+	WrapWithKinematics(context.Context, localizer.Localizer, []referenceframe.Limit) (KinematicBase, error)
 }
 
 // KinematicBase is an interface for Bases that also satisfy the ModelFramer and InputEnabled interfaces.

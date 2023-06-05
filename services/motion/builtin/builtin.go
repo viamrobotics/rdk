@@ -2,9 +2,11 @@
 package builtin
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -18,6 +20,7 @@ import (
 	"go.viam.com/rdk/internal"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/operation"
+	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/framesystem"
@@ -189,11 +192,32 @@ func (ms *builtIn) MoveOnMap(
 	operation.CancelOtherWithLabel(ctx, motionOpId)
 
 	// get the SLAM Service from the slamName
-	slamSvc, ok := ms.localizers[slamName]
+	local, ok := ms.localizers[slamName]
 	if !ok {
 		return false, resource.DependencyNotFoundError(slamName)
 	}
 	ms.logger.Warn("This feature is currently experimental and does not support obstacle avoidance with SLAM maps yet")
+
+	// assert localizer as a slam service and get map limits
+	slamSvc, ok := local.(localizer.SLAMLocalizer)
+	if !ok {
+		return false, fmt.Errorf("cannot assert local of type %T as slam service", local)
+	}
+
+	// gets the extents of the SLAM map
+	data, err := slam.GetPointCloudMapFull(ctx, slamSvc)
+	if err != nil {
+		return false, err
+	}
+	dims, err := pointcloud.GetPCDMetaData(bytes.NewReader(data))
+	if err != nil {
+		return false, err
+	}
+	limits := []referenceframe.Limit{
+		{Min: dims.MinX, Max: dims.MaxX},
+		{Min: dims.MinY, Max: dims.MaxY},
+		{Min: -2 * math.Pi, Max: 2 * math.Pi},
+	}
 
 	// create a KinematicBase from the componentName
 	component, ok := ms.components[componentName]
@@ -204,7 +228,7 @@ func (ms *builtIn) MoveOnMap(
 	if !ok {
 		return false, fmt.Errorf("cannot move component of type %T because it is not a KinematicWrappable Base", component)
 	}
-	kb, err := kw.WrapWithKinematics(ctx, slamSvc)
+	kb, err := kw.WrapWithKinematics(ctx, local, limits)
 	if err != nil {
 		return false, err
 	}
@@ -258,14 +282,26 @@ func (ms *builtIn) MoveOnGlobe(
 	}
 
 	// get the localizer
-	localizer, ok := ms.localizers[movementSensorName]
+	local, ok := ms.localizers[movementSensorName]
 	if !ok {
 		return false, resource.DependencyNotFoundError(movementSensorName)
 	}
 
+	// assert localizer as a movementSensor to get map limits
+	movementSensor, ok := local.(movementsensor.MovementSensor)
+	if !ok {
+		return false, fmt.Errorf("cannot assert local of type %T as a movementSensor", local)
+	}
+
+	currentPosition, _, err := movementSensor.Position(ctx, nil)
+	if err != nil {
+		return false, err
+	}
+	currentPose := spatialmath.GeoPointToPose(currentPosition)
+
 	// convert destination into a spatialmath pose in frame with respect to 0 latitude, 0 longitude
-	dst := spatialmath.GeoPointToPose(destination)
-	dstPIF := referenceframe.NewPoseInFrame(referenceframe.World, dst)
+	dstPose := spatialmath.GeoPointToPose(destination)
+	dstPIF := referenceframe.NewPoseInFrame(referenceframe.World, dstPose)
 
 	// convert GeoObstacles into GeometriesInFrame then into a Worldstate
 	geoms := spatialmath.GeoObstaclesToGeometries(obstacles)
@@ -273,6 +309,19 @@ func (ms *builtIn) MoveOnGlobe(
 	wrldst, err := referenceframe.NewWorldState([]*referenceframe.GeometriesInFrame{gif}, nil)
 	if err != nil {
 		return false, err
+	}
+	// get worldstate limits
+	limits := wrldst.BoundingBox(ctx)
+
+	// recalculate limits with destination and current position
+	minX := math.Min(math.Min(currentPose.Point().X, dstPose.Point().X), limits[0].Min)
+	maxX := math.Min(math.Max(currentPose.Point().X, dstPose.Point().X), limits[0].Max)
+	minY := math.Min(math.Min(currentPose.Point().Y, dstPose.Point().Y), limits[1].Min)
+	maxY := math.Min(math.Max(currentPose.Point().Y, dstPose.Point().Y), limits[1].Max)
+	limits = []referenceframe.Limit{
+		{Min: minX, Max: maxX},
+		{Min: minY, Max: maxY},
+		{Min: -2 * math.Pi, Max: 2 * math.Pi},
 	}
 
 	// create a KinematicBase from the componentName
@@ -284,7 +333,7 @@ func (ms *builtIn) MoveOnGlobe(
 	if !ok {
 		return false, fmt.Errorf("cannot move base of type %T because it is not KinematicWrappable", baseComponent)
 	}
-	kb, err := kw.WrapWithKinematics(ctx, localizer)
+	kb, err := kw.WrapWithKinematics(ctx, local, limits)
 	if err != nil {
 		return false, err
 	}
@@ -422,4 +471,18 @@ func (ms *builtIn) NewLocalizer(ctx context.Context, res resource.Resource) (loc
 	default:
 		return nil, fmt.Errorf("cannot localize on resource of type %T", res)
 	}
+}
+
+func boundingBox(ctx context.Context, start, goal spatialmath.Pose, wrldst referenceframe.WorldState) []referenceframe.Limit {
+	minX := math.Min(start.Point().X, goal.Point().X)
+	maxX := math.Min(start.Point().X, goal.Point().X)
+	minY := math.Min(start.Point().Y, goal.Point().Y)
+	maxY := math.Min(start.Point().Y, goal.Point().Y)
+
+	return []referenceframe.Limit{
+		{Min: minX, Max: maxX},
+		{Min: minY, Max: maxY},
+		{Min: -2 * math.Pi, Max: 2 * math.Pi},
+	}
+
 }

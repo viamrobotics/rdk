@@ -2,20 +2,16 @@
 package fake
 
 import (
-	"bytes"
 	"context"
 	"errors"
-	"math"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 
 	"go.viam.com/rdk/components/base"
-	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion/localizer"
-	"go.viam.com/rdk/services/slam"
 )
 
 func init() {
@@ -102,26 +98,12 @@ type kinematicBase struct {
 }
 
 // WrapWithKinematics creates a KinematicBase from the fake Base so that it satisfies the ModelFramer and InputEnabled interfaces.
-func (b *Base) WrapWithKinematics(ctx context.Context, local localizer.Localizer) (base.KinematicBase, error) {
+func (b *Base) WrapWithKinematics(ctx context.Context, local localizer.Localizer, limits []referenceframe.Limit) (base.KinematicBase, error) {
 	slamSvc, ok := local.(localizer.SLAMLocalizer)
 	if ok {
-		// gets the extents of the SLAM map
-		data, err := slam.GetPointCloudMapFull(ctx, slamSvc)
-		if err != nil {
-			return nil, err
-		}
-		dims, err := pointcloud.GetPCDMetaData(bytes.NewReader(data))
-		if err != nil {
-			return nil, err
-		}
 		geometry, err := base.CollisionGeometry(b.geometry)
 		if err != nil {
 			return nil, err
-		}
-		limits := []referenceframe.Limit{
-			{Min: dims.MinX, Max: dims.MaxX},
-			{Min: dims.MinY, Max: dims.MaxY},
-			{Min: -2 * math.Pi, Max: 2 * math.Pi},
 		}
 		model, err := referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits, geometry)
 		if err != nil {
@@ -144,11 +126,6 @@ func (b *Base) WrapWithKinematics(ctx context.Context, local localizer.Localizer
 		geometry, err := base.CollisionGeometry(b.geometry)
 		if err != nil {
 			return nil, err
-		}
-		limits := []referenceframe.Limit{
-			{Min: math.Inf(-1), Max: math.Inf(1)},
-			{Min: math.Inf(-1), Max: math.Inf(1)},
-			{Min: -2 * math.Pi, Max: 2 * math.Pi},
 		}
 		model, err := referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits, geometry)
 		if err != nil {

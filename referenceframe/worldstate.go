@@ -1,6 +1,7 @@
 package referenceframe
 
 import (
+	"context"
 	"strconv"
 
 	commonpb "go.viam.com/api/common/v1"
@@ -139,4 +140,42 @@ func (ws *WorldState) ObstaclesInWorldFrame(fs FrameSystem, inputs map[string][]
 		allGeometries = append(allGeometries, tf.(*GeometriesInFrame).Geometries()...)
 	}
 	return NewGeometriesInFrame(World, allGeometries), nil
+}
+
+// ObstaclesInWorldFrame takes a frame system and a set of inputs for that frame system and converts all the obstacles
+// in the WorldState such that they are in the frame system's World reference frame.
+func (ws *WorldState) BoundingBox(ctx context.Context) []Limit {
+	var xSlice []float64
+	var ySlice []float64
+
+	if ws == nil {
+		return nil
+	}
+
+	for _, gf := range ws.obstacles {
+		for _, geom := range gf.geometries {
+			xSlice = append(xSlice, geom.Pose().Point().X)
+			ySlice = append(ySlice, geom.Pose().Point().Y)
+		}
+	}
+	minX, maxX := minandmax(xSlice)
+	minY, maxY := minandmax(ySlice)
+	return []Limit{
+		{Min: minX, Max: maxX},
+		{Min: minY, Max: maxY},
+	}
+}
+
+func minandmax(values []float64) (float64, float64) {
+	min := values[0]
+	max := values[0]
+	for _, number := range values {
+		if number < min {
+			min = number
+		}
+		if number > max {
+			max = number
+		}
+	}
+	return min, max
 }
