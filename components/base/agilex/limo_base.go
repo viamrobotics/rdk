@@ -28,8 +28,8 @@ var (
 
 // default port for limo serial comm.
 const (
-	defaultSerial               = "/dev/ttyTHS1"
-	agileXMinimumTurningRadiusM = 0.4 // from datasheet at: https://www.wevolver.com/specs/agilex-limo
+	defaultSerialPath               = "/dev/ttyTHS1"
+	minTurningRadiusM = 0.4 // from datasheet at: https://www.wevolver.com/specs/agilex-limo
 
 )
 
