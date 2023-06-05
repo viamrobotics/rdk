@@ -31,53 +31,27 @@ type kinematicWheeledBase struct {
 // It also adds kinematic model so that it can be controlled.
 func (wb *wheeledBase) WrapWithKinematics(
 	ctx context.Context,
-	local localizer.Localizer,
+	localizer localizer.Localizer,
 	limits []referenceframe.Limit,
 ) (base.KinematicBase, error) {
-	slamSvc, ok := local.(localizer.SLAMLocalizer)
-	if ok {
-		geometry, err := base.CollisionGeometry(wb.frame)
-		if err != nil {
-			return nil, err
-		}
-		model, err := referenceframe.New2DMobileModelFrame(wb.name, limits, geometry)
-		if err != nil {
-			return nil, err
-		}
-		fs := referenceframe.NewEmptyFrameSystem("")
-		if err := fs.AddFrame(model, fs.World()); err != nil {
-			return nil, err
-		}
-		return &kinematicWheeledBase{
-			wheeledBase: wb,
-			Localizer:   slamSvc,
-			model:       model,
-			fs:          fs,
-		}, err
+	geometry, err := base.CollisionGeometry(wb.frame)
+	if err != nil {
+		return nil, err
 	}
-
-	movementSensor, ok := local.(localizer.MovementSensorLocalizer)
-	if ok {
-		geometry, err := base.CollisionGeometry(wb.frame)
-		if err != nil {
-			return nil, err
-		}
-		model, err := referenceframe.New2DMobileModelFrame(wb.name, limits, geometry)
-		if err != nil {
-			return nil, err
-		}
-		fs := referenceframe.NewEmptyFrameSystem("")
-		if err := fs.AddFrame(model, fs.World()); err != nil {
-			return nil, err
-		}
-		return &kinematicWheeledBase{
-			wheeledBase: wb,
-			Localizer:   movementSensor,
-			model:       model,
-			fs:          fs,
-		}, err
+	model, err := referenceframe.New2DMobileModelFrame(wb.name, limits, geometry)
+	if err != nil {
+		return nil, err
 	}
-	return nil, nil
+	fs := referenceframe.NewEmptyFrameSystem("")
+	if err := fs.AddFrame(model, fs.World()); err != nil {
+		return nil, err
+	}
+	return &kinematicWheeledBase{
+		wheeledBase: wb,
+		Localizer:   localizer,
+		model:       model,
+		fs:          fs,
+	}, err
 }
 
 func (kwb *kinematicWheeledBase) ModelFrame() referenceframe.Model {

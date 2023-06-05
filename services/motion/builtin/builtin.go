@@ -192,16 +192,16 @@ func (ms *builtIn) MoveOnMap(
 	operation.CancelOtherWithLabel(ctx, motionOpId)
 
 	// get the SLAM Service from the slamName
-	local, ok := ms.localizers[slamName]
+	localizer, ok := ms.localizers[slamName]
 	if !ok {
 		return false, resource.DependencyNotFoundError(slamName)
 	}
 	ms.logger.Warn("This feature is currently experimental and does not support obstacle avoidance with SLAM maps yet")
 
 	// assert localizer as a slam service and get map limits
-	slamSvc, ok := local.(localizer.SLAMLocalizer)
+	slamSvc, ok := localizer.(slam.Service)
 	if !ok {
-		return false, fmt.Errorf("cannot assert local of type %T as slam service", local)
+		return false, fmt.Errorf("cannot assert local of type %T as slam service", localizer)
 	}
 
 	// gets the extents of the SLAM map
@@ -228,7 +228,7 @@ func (ms *builtIn) MoveOnMap(
 	if !ok {
 		return false, fmt.Errorf("cannot move component of type %T because it is not a KinematicWrappable Base", component)
 	}
-	kb, err := kw.WrapWithKinematics(ctx, local, limits)
+	kb, err := kw.WrapWithKinematics(ctx, localizer, limits)
 	if err != nil {
 		return false, err
 	}
@@ -310,19 +310,20 @@ func (ms *builtIn) MoveOnGlobe(
 	if err != nil {
 		return false, err
 	}
-	// get worldstate limits
-	limits := wrldst.BoundingBox(ctx)
 
 	// recalculate limits with destination and current position
-	minX := math.Min(math.Min(currentPose.Point().X, dstPose.Point().X), limits[0].Min)
-	maxX := math.Min(math.Max(currentPose.Point().X, dstPose.Point().X), limits[0].Max)
-	minY := math.Min(math.Min(currentPose.Point().Y, dstPose.Point().Y), limits[1].Min)
-	maxY := math.Min(math.Max(currentPose.Point().Y, dstPose.Point().Y), limits[1].Max)
-	limits = []referenceframe.Limit{
+	minX := math.Min(currentPose.Point().X, dstPose.Point().X)
+	maxX := math.Max(currentPose.Point().X, dstPose.Point().X)
+	minY := math.Min(currentPose.Point().Y, dstPose.Point().Y)
+	maxY := math.Max(currentPose.Point().Y, dstPose.Point().Y)
+	limits := []referenceframe.Limit{
 		{Min: minX, Max: maxX},
 		{Min: minY, Max: maxY},
 		{Min: -2 * math.Pi, Max: 2 * math.Pi},
 	}
+
+	// get worldstate limits
+	limits = wrldst.BoundingBox(ctx, limits)
 
 	// create a KinematicBase from the componentName
 	baseComponent, ok := ms.components[componentName]

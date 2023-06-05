@@ -3,7 +3,6 @@ package fake
 
 import (
 	"context"
-	"errors"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
@@ -100,53 +99,27 @@ type kinematicBase struct {
 // WrapWithKinematics creates a KinematicBase from the fake Base so that it satisfies the ModelFramer and InputEnabled interfaces.
 func (b *Base) WrapWithKinematics(
 	ctx context.Context,
-	local localizer.Localizer,
+	localizer localizer.Localizer,
 	limits []referenceframe.Limit,
 ) (base.KinematicBase, error) {
-	slamSvc, ok := local.(localizer.SLAMLocalizer)
-	if ok {
-		geometry, err := base.CollisionGeometry(b.geometry)
-		if err != nil {
-			return nil, err
-		}
-		model, err := referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits, geometry)
-		if err != nil {
-			return nil, err
-		}
-		fs := referenceframe.NewEmptyFrameSystem("")
-		if err := fs.AddFrame(model, fs.World()); err != nil {
-			return nil, err
-		}
-		return &kinematicBase{
-			Base:      b,
-			model:     model,
-			Localizer: slamSvc,
-			inputs:    make([]referenceframe.Input, len(model.DoF())),
-		}, err
+	geometry, err := base.CollisionGeometry(b.geometry)
+	if err != nil {
+		return nil, err
 	}
-
-	movementSensor, ok := local.(localizer.MovementSensorLocalizer)
-	if ok {
-		geometry, err := base.CollisionGeometry(b.geometry)
-		if err != nil {
-			return nil, err
-		}
-		model, err := referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits, geometry)
-		if err != nil {
-			return nil, err
-		}
-		fs := referenceframe.NewEmptyFrameSystem("")
-		if err := fs.AddFrame(model, fs.World()); err != nil {
-			return nil, err
-		}
-		return &kinematicBase{
-			Base:      b,
-			model:     model,
-			Localizer: movementSensor,
-			inputs:    make([]referenceframe.Input, len(model.DoF())),
-		}, err
+	model, err := referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits, geometry)
+	if err != nil {
+		return nil, err
 	}
-	return nil, errors.New("TODO: write an error")
+	fs := referenceframe.NewEmptyFrameSystem("")
+	if err := fs.AddFrame(model, fs.World()); err != nil {
+		return nil, err
+	}
+	return &kinematicBase{
+		Base:      b,
+		model:     model,
+		Localizer: localizer,
+		inputs:    make([]referenceframe.Input, len(model.DoF())),
+	}, err
 }
 
 func (kb *kinematicBase) ModelFrame() referenceframe.Model {
