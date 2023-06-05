@@ -144,6 +144,7 @@ module.exports = {
     'vue/multi-word-component-names': 'off',
     'vue/no-undef-components': ['error', { ignorePatterns: ['-'] }],
     'vue/require-default-prop': 'off',
+    'vue/attribute-hyphenation': 'off',
 
     // Unicorn
     'unicorn/no-empty-file': 'off',
