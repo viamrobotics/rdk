@@ -138,7 +138,10 @@
                     "type": "memory"
                 },
                 "movement_sensor": "movement_sensor1",
-                "base": "base1"
+                "base": "base1",
+                "motion_service": "builtin",
+                "degs_per_sec": 1,
+                "meters_per_sec": 1    
             }
         },
         {
