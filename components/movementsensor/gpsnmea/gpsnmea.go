@@ -110,7 +110,7 @@ func init() {
 
 const (
 	connectionType = "connection_type"
-	i2cStr         = "I2C"
+	i2cStr         = "i2c"
 	serialStr      = "serial"
 	rtkStr         = "rtk"
 )

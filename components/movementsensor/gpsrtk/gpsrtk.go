@@ -18,6 +18,7 @@ import (
 	"github.com/golang/geo/r3"
 	slib "github.com/jacobsa/go-serial/serial"
 	geo "github.com/kellydunn/golang-geo"
+	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
@@ -73,22 +74,37 @@ type I2CConfig struct {
 // Validate ensures all parts of the config are valid.
 func (cfg *Config) Validate(path string) ([]string, error) {
 	var deps []string
+	var allErrs error
+
 	switch cfg.CorrectionSource {
 	case ntripStr:
-		return nil, cfg.NtripConfig.ValidateNtrip(path)
+		allErrs = multierr.Combine(cfg.NtripConfig.ValidateNtrip(path))
 	case i2cStr:
 		if cfg.Board == "" {
-			return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
+			allErrs = multierr.Combine(allErrs, utils.NewConfigValidationFieldRequiredError(path, "board"))
 		}
 		deps = append(deps, cfg.Board)
-		return deps, cfg.I2CConfig.ValidateI2C(path)
+		allErrs = multierr.Combine(allErrs, cfg.I2CConfig.ValidateI2C(path))
 	case serialStr:
-		return nil, cfg.SerialConfig.ValidateSerial(path)
+		allErrs = multierr.Combine(allErrs, cfg.SerialConfig.ValidateSerial(path))
 	case "":
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "correction_source")
+		allErrs = multierr.Combine(allErrs, utils.NewConfigValidationFieldRequiredError(path, "correction_source"))
 	default:
-		return nil, ErrRoverValidation
+		allErrs = multierr.Combine(allErrs, ErrRoverValidation)
 	}
+	switch cfg.ConnectionType {
+	case i2cStr:
+		if cfg.Board == "" {
+			allErrs = multierr.Combine(allErrs, utils.NewConfigValidationFieldRequiredError(path, "board"))
+		}
+		deps = append(deps, cfg.Board)
+		allErrs = multierr.Combine(allErrs, cfg.I2CConfig.ValidateI2C(path))
+	case serialStr:
+		allErrs = multierr.Combine(allErrs, cfg.SerialConfig.ValidateSerial(path))
+	default:
+		allErrs = multierr.Combine(allErrs, ErrRoverValidation)
+	}
+	return deps, allErrs
 }
 
 // ValidateI2C ensures all parts of the config are valid.
@@ -226,14 +242,31 @@ func newRTKMovementSensor(
 	}
 	g.wbaud = newConf.NtripBaud
 
-	if newConf.NtripPath == "" {
-		g.logger.Info("RTK will use the same serial path as the GPS data to write RCTM messages")
-		g.writepath = newConf.SerialPath
+	if g.inputProtocol == serialStr {
+		if newConf.NtripPath == "" {
+			g.logger.Info("RTK will use the same serial path as the GPS data to write RCTM messages")
+			g.writepath = newConf.SerialPath
+		}
 	}
 
 	// I2C address only, assumes address is correct since this was checked when gps was initialized
-	if newConf.CorrectionSource == i2cStr {
+	if g.inputProtocol == i2cStr {
 		g.addr = byte(newConf.I2cAddr)
+
+		b, err := board.FromDependencies(deps, newConf.Board)
+		if err != nil {
+			return nil, fmt.Errorf("gps init: failed to find board: %w", err)
+		}
+		localB, ok := b.(board.LocalBoard)
+		if !ok {
+			return nil, fmt.Errorf("board %s is not local", newConf.Board)
+		}
+
+		i2cbus, ok := localB.I2CByName(newConf.I2CBus)
+		if !ok {
+			return nil, fmt.Errorf("gps init: failed to find i2c bus %s", newConf.I2CBus)
+		}
+		g.bus = i2cbus
 	}
 
 	if err := g.start(); err != nil {
