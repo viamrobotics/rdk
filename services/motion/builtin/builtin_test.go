@@ -170,15 +170,15 @@ func TestMoveWithObstacles(t *testing.T) {
 }
 
 func TestMoveSingleComponent(t *testing.T) {
-	t.Skip()
+	ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
+	defer teardown()
+
+	grabPose := spatialmath.NewPoseFromPoint(r3.Vector{-25, 30, 0})
 	t.Run("succeeds when all frame info in config", func(t *testing.T) {
-		ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
-		defer teardown()
-		grabPose := referenceframe.NewPoseInFrame("c", spatialmath.NewPoseFromPoint(r3.Vector{-25, 30, 0}))
 		_, err := ms.MoveSingleComponent(
 			context.Background(),
 			arm.Named("pieceArm"),
-			grabPose,
+			referenceframe.NewPoseInFrame("c", grabPose),
 			nil,
 			map[string]interface{}{},
 		)
@@ -186,13 +186,10 @@ func TestMoveSingleComponent(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 	})
 	t.Run("fails due to gripper not being an arm", func(t *testing.T) {
-		ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
-		defer teardown()
-		grabPose := referenceframe.NewPoseInFrame("c", spatialmath.NewPoseFromPoint(r3.Vector{-20, -30, -40}))
 		_, err := ms.MoveSingleComponent(
 			context.Background(),
 			gripper.Named("pieceGripper"),
-			grabPose,
+			referenceframe.NewPoseInFrame("c", grabPose),
 			nil,
 			map[string]interface{}{},
 		)
@@ -201,27 +198,18 @@ func TestMoveSingleComponent(t *testing.T) {
 	})
 
 	t.Run("succeeds with supplemental info in world state", func(t *testing.T) {
-		ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
-		defer teardown()
-		homePose, err := ms.GetPose(context.Background(), arm.Named("pieceArm"), "", nil, nil)
-		test.That(t, err, test.ShouldBeNil)
-
-		testPose := spatialmath.NewPose(
-			r3.Vector{homePose.Pose().Point().X + 20, homePose.Pose().Point().Y, homePose.Pose().Point().Z},
-			homePose.Pose().Orientation(),
+		worldState, err := referenceframe.NewWorldState(
+			nil,
+			[]*referenceframe.LinkInFrame{referenceframe.NewLinkInFrame("c", spatialmath.NewZeroPose(), "testFrame2", nil)},
 		)
-		transforms := []*referenceframe.LinkInFrame{
-			referenceframe.NewLinkInFrame(referenceframe.World, testPose, "testFrame2", nil),
-		}
-		worldState, err := referenceframe.NewWorldState(nil, transforms)
 		test.That(t, err, test.ShouldBeNil)
-		poseToGrab := spatialmath.NewPose(
-			r3.Vector{X: 1., Y: 0., Z: 0.},
-			homePose.Pose().Orientation(),
+		_, err = ms.MoveSingleComponent(
+			context.Background(),
+			arm.Named("pieceArm"),
+			referenceframe.NewPoseInFrame("testFrame2", grabPose),
+			worldState,
+			map[string]interface{}{},
 		)
-
-		grabPose := referenceframe.NewPoseInFrame("testFrame2", poseToGrab)
-		_, err = ms.MoveSingleComponent(context.Background(), arm.Named("pieceArm"), grabPose, worldState, map[string]interface{}{})
 		test.That(t, err, test.ShouldBeNil)
 	})
 }
