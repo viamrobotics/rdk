@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"sync"
 
 	"github.com/de-bkg/gognss/pkg/ntrip"
@@ -538,8 +537,6 @@ func (g *RTKMovementSensor) receiveAndWriteSerial() {
 	if !g.ntripClient.Client.IsCasterAlive() {
 		g.logger.Infof("caster %s seems to be down", g.ntripClient.URL)
 	}
-
-	log.Println(g.writepath)
 
 	options := slib.OpenOptions{
 		PortName:        g.writepath,
