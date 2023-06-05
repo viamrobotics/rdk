@@ -93,7 +93,6 @@ func NewPmtkI2CGPSNMEA(
 
 // Start begins reading nmea messages from module and updates gps data.
 func (g *PmtkI2CNMEAMovementSensor) Start(ctx context.Context) error {
-
 	handle, err := g.bus.OpenHandle(g.addr)
 	if err != nil {
 		g.logger.Errorf("can't open gps i2c %s", err)
