@@ -232,7 +232,7 @@ func TestMoveOnMap(t *testing.T) {
 	success, err := ms.MoveOnMap(
 		context.Background(),
 		base.Named("test_base"),
-		spatialmath.NewPoseFromPoint(r3.Vector{Y: 10}),
+		spatialmath.NewPoseFromPoint(r3.Vector{X: 1.26, Y: 0.17}),
 		slam.Named("test_slam"),
 		nil,
 	)

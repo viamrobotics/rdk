@@ -47,7 +47,8 @@ const (
 )
 
 func fakeGetPointCloudMap(_ context.Context, datasetDir string, slamSvc *SLAM) (func() ([]byte, error), error) {
-	path := filepath.Clean(artifact.MustPath(fmt.Sprintf(pcdTemplate, datasetDir, slamSvc.getCount())))
+	// path := filepath.Clean(artifact.MustPath(fmt.Sprintf(pcdTemplate, datasetDir, slamSvc.getCount())))
+	path := "/Users/nandinithakur/Desktop/sample/map/octagonspace.pcd"
 	slamSvc.logger.Debug("Reading " + path)
 	file, err := os.Open(path)
 	if err != nil {

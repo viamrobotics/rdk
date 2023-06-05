@@ -129,7 +129,7 @@ func (b *Base) WrapWithKinematics(ctx context.Context, slamSvc slam.Service) (ba
 		Base:   b,
 		model:  model,
 		slam:   slamSvc,
-		inputs: make([]referenceframe.Input, len(model.DoF())),
+		inputs: referenceframe.FloatsToInputs([]float64{-0.0345, -0.1447, 0}),
 	}, nil
 }
 

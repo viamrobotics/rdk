@@ -2,7 +2,6 @@ package motionplan
 
 import (
 	"context"
-	"encoding/json"
 	"math"
 	"math/rand"
 	"time"
@@ -39,14 +38,14 @@ func newRRTStarConnectOptions(planOpts *plannerOptions) (*rrtStarConnectOptions,
 		rrtOptions:       newRRTOptions(),
 	}
 	// convert map to json
-	jsonString, err := json.Marshal(planOpts.extra)
-	if err != nil {
-		return nil, err
-	}
-	err = json.Unmarshal(jsonString, algOpts)
-	if err != nil {
-		return nil, err
-	}
+	// jsonString, err := json.Marshal(planOpts.extra)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// err = json.Unmarshal(jsonString, algOpts)
+	// if err != nil {
+	// 	return nil, err
+	// }
 	return algOpts, nil
 }
 
