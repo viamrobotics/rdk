@@ -241,8 +241,8 @@ func newRTKMovementSensor(
 
 	// baud rate
 	if newConf.NtripBaud == 0 {
-		newConf.NtripBaud = 115200
-		g.logger.Info("ntrip_baud using default baud rate 115200")
+		newConf.NtripBaud = 38400
+		g.logger.Info("ntrip_baud using default baud rate 38400")
 	}
 	g.wbaud = newConf.NtripBaud
 
