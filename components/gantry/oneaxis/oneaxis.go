@@ -4,6 +4,7 @@ package oneaxis
 import (
 	"context"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/edaniels/golog"
@@ -170,10 +171,9 @@ func newOneAxis(ctx context.Context, deps resource.Dependencies, conf resource.C
 func (g *oneAxis) home(ctx context.Context, np int) error {
 	ctx, done := g.opMgr.New(ctx)
 	defer done()
-	// Mapping one limit switch motor0->limsw0, motor1 ->limsw1, motor 2 -> limsw2
-	// Mapping two limit switch motor0->limSw0,limSw1; motor1->limSw2,limSw3; motor2->limSw4,limSw5
 
-	var positionA, positionB float64
+	positionA := math.NaN()
+	positionB := math.NaN()
 	var err error
 	switch np {
 	// An axis with an encoder will encode the zero position, and add the second position limit
@@ -195,6 +195,9 @@ func (g *oneAxis) home(ctx context.Context, np int) error {
 		revPerLength := g.lengthMm / g.mmPerRevolution
 		positionB = positionA + revPerLength
 
+		if positionA == math.NaN() || positionB == math.NaN() {
+			return errors.New("positionA and positionB are not both valid numbers")
+		}
 		x := g.gantryToMotorPosition(0.2 * g.lengthMm)
 		if err = g.motor.GoTo(ctx, g.rpm, x, nil); err != nil {
 			return err
@@ -211,6 +214,10 @@ func (g *oneAxis) home(ctx context.Context, np int) error {
 		if err != nil {
 			return err
 		}
+
+		if positionA == math.NaN() || positionB == math.NaN() {
+			return errors.New("positionA and positionB are not both valid numbers")
+		}
 		x := g.gantryToMotorPosition(0.8 * g.lengthMm)
 		if err = g.motor.GoTo(ctx, g.rpm, x, nil); err != nil {
 			return err
@@ -218,6 +225,9 @@ func (g *oneAxis) home(ctx context.Context, np int) error {
 	}
 	g.positionLimits = []float64{positionA, positionB}
 	g.positionRange = positionB - positionA
+	if g.positionRange == 0 || g.positionRange == math.NaN() {
+		return errors.New("positionRange is 0 or not a valid number")
+	}
 	g.logger.Debugf("positionA: %0.2f positionB: %0.2f range: %0.2f", g.positionLimits[0], g.positionLimits[1], g.positionRange)
 
 	return nil
