@@ -594,13 +594,13 @@ func (g *RTKMovementSensor) Position(ctx context.Context, extra map[string]inter
 	}
 	g.ntripMu.Unlock()
 
-	position, accuracy, err := g.nmeamovementsensor.Position(ctx, extra)
+	position, alt, err := g.nmeamovementsensor.Position(ctx, extra)
 	if err != nil {
 		// Use the last known valid position if current position is (0,0)
 		if position != nil && (position.Lng() == 0 && position.Lat() == 0) {
 			lastPosition := g.lastposition.GetLastPosition()
 			if lastPosition != nil {
-				return lastPosition, accuracy, nil
+				return lastPosition, alt, nil
 			}
 		}
 		return nil, 0, err
@@ -608,16 +608,16 @@ func (g *RTKMovementSensor) Position(ctx context.Context, extra map[string]inter
 
 	// Check if the current position is different from the last position and non-zero
 	lastPosition := g.lastposition.GetLastPosition()
-	if !arePointsEqual(position, lastPosition) {
+	if !g.lastposition.ArePointsEqual(position, lastPosition) {
 		g.lastposition.SetLastPosition(position)
 	}
 
 	// Update the last known valid position if the current position is non-zero
-	if position != nil && !isZeroPosition(position) {
+	if position != nil && !g.lastposition.IsZeroPosition(position) {
 		g.lastposition.SetLastPosition(position)
 	}
 
-	return position, accuracy, nil
+	return position, alt, nil
 }
 
 // LinearVelocity passthrough.
@@ -771,17 +771,4 @@ func (g *RTKMovementSensor) Close(ctx context.Context) error {
 		return err
 	}
 	return nil
-}
-
-// arePointsEqual checks if two geo.Point instances are equal.
-func arePointsEqual(p1, p2 *geo.Point) bool {
-	if p1 == nil || p2 == nil {
-		return p1 == p2
-	}
-	return p1.Lng() == p2.Lng() && p1.Lat() == p2.Lat()
-}
-
-// isZeroPosition checks if a geo.Point represents the zero position (0, 0).
-func isZeroPosition(p *geo.Point) bool {
-	return p.Lng() == 0 && p.Lat() == 0
 }

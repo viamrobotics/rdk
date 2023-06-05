@@ -148,14 +148,33 @@ func (g *SerialNMEAMovementSensor) GetCorrectionInfo() (string, uint) {
 
 // Position position, altitide.
 func (g *SerialNMEAMovementSensor) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+	lastPosition := g.lastposition.GetLastPosition()
+
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	if g.data.location == nil {
-		fmt.Printf("g.data.location is nil %v, printing lastposition %v\n", g.data.location, g.lastposition.GetLastPosition())
-		return g.lastposition.GetLastPosition(), 0, errNilLocation
+
+	currentPosition := g.data.location
+
+	if currentPosition == nil {
+		return lastPosition, 0, errNilLocation
 	}
-	fmt.Printf("g.data.location is NOT nil %v\n", g.data.location)
-	return g.data.location, g.data.alt, g.err.Get()
+
+	// if current position is (0,0) we will return the last non zero position
+	if g.lastposition.IsZeroPosition(currentPosition) && !g.lastposition.IsZeroPosition(lastPosition) {
+		return lastPosition, g.data.alt, g.err.Get()
+	}
+
+	// updating lastposition if it is different from the current position
+	if !g.lastposition.ArePointsEqual(currentPosition, lastPosition) {
+		g.lastposition.SetLastPosition(currentPosition)
+	}
+
+	// updating the last known valid position if the current position is non-zero
+	if currentPosition != nil && !g.lastposition.IsZeroPosition(currentPosition) {
+		g.lastposition.SetLastPosition(currentPosition)
+	}
+
+	return currentPosition, g.data.alt, g.err.Get()
 }
 
 // Accuracy returns the accuracy, hDOP and vDOP.

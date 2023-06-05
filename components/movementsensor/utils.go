@@ -160,3 +160,16 @@ func (le *LastError) Get() error {
 	le.count = 0
 	return errToReturn
 }
+
+// ArePointsEqual checks if two geo.Point instances are equal.
+func (lp *LastPosition) ArePointsEqual(p1, p2 *geo.Point) bool {
+	if p1 == nil || p2 == nil {
+		return p1 == p2
+	}
+	return p1.Lng() == p2.Lng() && p1.Lat() == p2.Lat()
+}
+
+// IsZeroPosition checks if a geo.Point represents the zero position (0, 0).
+func (lp *LastPosition) IsZeroPosition(p *geo.Point) bool {
+	return p.Lng() == 0 && p.Lat() == 0
+}
