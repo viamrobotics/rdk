@@ -95,7 +95,6 @@ func (ms *builtIn) Reconfigure(
 				return err
 			}
 			localizers[name] = localizer
-
 		default:
 			components[name] = dep
 		}
