@@ -247,6 +247,7 @@ func (g *RTKMovementSensor) start() error {
 	// correction data goes wrong. Could anything worse than uncorrected data occur?
 	if err := g.nmeamovementsensor.Start(g.cancelCtx); err != nil {
 		g.lastposition.GetLastPosition()
+		fmt.Printf("lastposition at start %v", g.lastposition.GetLastPosition())
 		return err
 	}
 
@@ -575,21 +576,48 @@ func (g *RTKMovementSensor) receiveAndWriteSerial() {
 func (g *RTKMovementSensor) NtripStatus() (bool, error) {
 	g.ntripMu.Lock()
 	defer g.ntripMu.Unlock()
+	fmt.Printf("ntripStatus is %v\n", g.ntripStatus)
 	return g.ntripStatus, g.err.Get()
 }
 
 // Position returns the current geographic location of the MOVEMENTSENSOR.
 func (g *RTKMovementSensor) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
-	g.lastposition.SetLastPosition(&geo.Point{})
 	g.ntripMu.Lock()
 	lastError := g.err.Get()
 	if lastError != nil {
-		defer g.ntripMu.Unlock()
-		return g.lastposition.GetLastPosition(), 0, lastError
+		lastPosition := g.lastposition.GetLastPosition()
+		g.ntripMu.Unlock()
+		if lastPosition != nil {
+			return lastPosition, 0, nil
+		}
+		return nil, 0, lastError
 	}
 	g.ntripMu.Unlock()
 
-	return g.nmeamovementsensor.Position(ctx, extra)
+	position, accuracy, err := g.nmeamovementsensor.Position(ctx, extra)
+	if err != nil {
+		// Use the last known valid position if current position is (0,0)
+		if position != nil && (position.Lng() == 0 && position.Lat() == 0) {
+			lastPosition := g.lastposition.GetLastPosition()
+			if lastPosition != nil {
+				return lastPosition, accuracy, nil
+			}
+		}
+		return nil, 0, err
+	}
+
+	// Check if the current position is different from the last position and non-zero
+	lastPosition := g.lastposition.GetLastPosition()
+	if !arePointsEqual(position, lastPosition) {
+		g.lastposition.SetLastPosition(position)
+	}
+
+	// Update the last known valid position if the current position is non-zero
+	if position != nil && !isZeroPosition(position) {
+		g.lastposition.SetLastPosition(position)
+	}
+
+	return position, accuracy, nil
 }
 
 // LinearVelocity passthrough.
@@ -743,4 +771,17 @@ func (g *RTKMovementSensor) Close(ctx context.Context) error {
 		return err
 	}
 	return nil
+}
+
+// arePointsEqual checks if two geo.Point instances are equal.
+func arePointsEqual(p1, p2 *geo.Point) bool {
+	if p1 == nil || p2 == nil {
+		return p1 == p2
+	}
+	return p1.Lng() == p2.Lng() && p1.Lat() == p2.Lat()
+}
+
+// isZeroPosition checks if a geo.Point represents the zero position (0, 0).
+func isZeroPosition(p *geo.Point) bool {
+	return p.Lng() == 0 && p.Lat() == 0
 }

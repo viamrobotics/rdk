@@ -34,8 +34,9 @@ type SerialNMEAMovementSensor struct {
 	data                    gpsData
 	activeBackgroundWorkers sync.WaitGroup
 
-	disableNmea bool
-	err         movementsensor.LastError
+	disableNmea  bool
+	err          movementsensor.LastError
+	lastposition movementsensor.LastPosition
 
 	dev                io.ReadWriteCloser
 	path               string
@@ -96,6 +97,7 @@ func NewSerialGPSNMEA(ctx context.Context, name resource.Name, conf *Config, log
 		correctionBaudRate: uint(correctionBaudRate),
 		disableNmea:        disableNmea,
 		err:                movementsensor.NewLastError(1, 1),
+		lastposition:       movementsensor.NewLastPosition(),
 	}
 
 	if err := g.Start(ctx); err != nil {
@@ -149,8 +151,10 @@ func (g *SerialNMEAMovementSensor) Position(ctx context.Context, extra map[strin
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	if g.data.location == nil {
-		return geo.NewPoint(0, 0), 0, errNilLocation
+		fmt.Printf("g.data.location is nil %v, printing lastposition %v\n", g.data.location, g.lastposition.GetLastPosition())
+		return g.lastposition.GetLastPosition(), 0, errNilLocation
 	}
+	fmt.Printf("g.data.location is NOT nil %v\n", g.data.location)
 	return g.data.location, g.data.alt, g.err.Get()
 }
 

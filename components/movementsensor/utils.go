@@ -99,7 +99,7 @@ func NewLastError(size, threshold int) LastError {
 // NewLastPosition creates a new point that's 0,0
 // go-staticcheck.
 func NewLastPosition() LastPosition {
-	return LastPosition{lastposition: geo.NewPoint(0, 0)}
+	return LastPosition{lastposition: geo.NewPoint(math.NaN(), math.NaN())}
 }
 
 // GetLastPosition returns the last known position.
