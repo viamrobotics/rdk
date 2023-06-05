@@ -201,10 +201,10 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 		tryExtend := func(target []referenceframe.Input) (node, node, error) {
 			// attempt to extend maps 1 and 2 towards the target
 			utils.PanicCapturingGo(func() {
-				nm.nearestNeighbor(nmContext, mp.planOpts, target, map1, m1chan)
+				nm.nearestNeighbor(nmContext, mp.planOpts, &basicNode{target}, map1, m1chan)
 			})
 			utils.PanicCapturingGo(func() {
-				nm.nearestNeighbor(nmContext, mp.planOpts, target, map2, m2chan)
+				nm.nearestNeighbor(nmContext, mp.planOpts, &basicNode{target}, map2, m2chan)
 			})
 			nearest1 := <-m1chan
 			nearest2 := <-m2chan

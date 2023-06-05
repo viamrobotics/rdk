@@ -328,12 +328,28 @@ func newCollisionConstraint(
 
 	// create constraint from reference collision graph
 	constraint := func(state *State) bool {
-		internal, err := state.Frame.Geometries(state.Configuration)
-		if err != nil && internal == nil {
-			return false
+		var internalGeoms []spatial.Geometry
+		if state.Configuration != nil {
+			internal, err := state.Frame.Geometries(state.Configuration)
+			if err != nil && internal == nil {
+				return false
+			}
+			internalGeoms = internal.Geometries()
+		} else {
+			// If we didn't pass a Configuration, but we do have a Position, then get the geometries at the zero state and
+			// transform them to the Position
+			if state.Position != nil {
+				internal, err := state.Frame.Geometries(make([]referenceframe.Input, len(state.Frame.DoF())))
+				if err != nil && internal == nil {
+					return false
+				}
+				internalGeoms = internal.Geometries()
+			} else {
+				return false
+			}
 		}
 
-		cg, err := newCollisionGraph(internal.Geometries(), static, zeroCG, reportDistances)
+		cg, err := newCollisionGraph(internalGeoms, static, zeroCG, reportDistances)
 		if err != nil {
 			return false
 		}

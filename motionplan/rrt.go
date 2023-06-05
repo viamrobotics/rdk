@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/spatialmath"
 )
 
 const (
@@ -139,6 +140,15 @@ type costNode struct {
 
 func newCostNode(q []referenceframe.Input, cost float64) *costNode {
 	return &costNode{&basicNode{q: q}, cost}
+}
+
+type configurationNode struct {
+	q []referenceframe.Input
+	endConfig spatialmath.Pose
+}
+
+func (n *configurationNode) Q() []referenceframe.Input {
+	return n.q
 }
 
 // nodePair groups together nodes in a tuple
