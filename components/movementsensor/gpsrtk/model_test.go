@@ -32,7 +32,7 @@ func TestGPSModels(t *testing.T) {
 		}`
 		_, err := config.FromReader(ctx, "", strings.NewReader(cfg1), logger)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, gpsrtk.ErrRoverValidation.Error())
+		test.That(t, err.Error(), test.ShouldContainSubstring, gpsrtk.ErrCorrectionSourceValidation.Error())
 	})
 
 	t.Run("station", func(t *testing.T) {

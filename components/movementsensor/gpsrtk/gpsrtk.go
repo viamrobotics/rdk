@@ -29,7 +29,8 @@ import (
 )
 
 // ErrRoverValidation contains the model substring for the available correction source types.
-var ErrRoverValidation = fmt.Errorf("only serial, I2C, and ntrip are supported correction sources for %s", roverModel.Name)
+var ErrCorrectionSourceValidation = fmt.Errorf("only serial, i2c, and ntrip are supported correction sources for %s", roverModel.Name)
+var ErrConnectionTypeValidation = fmt.Errorf("only serial and i2c are supported connection types for %s", roverModel.Name)
 
 var roverModel = resource.DefaultModelFamily.WithModel("gps-rtk")
 
@@ -90,7 +91,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 	case "":
 		allErrs = multierr.Combine(allErrs, utils.NewConfigValidationFieldRequiredError(path, "correction_source"))
 	default:
-		allErrs = multierr.Combine(allErrs, ErrRoverValidation)
+		allErrs = multierr.Combine(allErrs, ErrCorrectionSourceValidation)
 	}
 	switch cfg.ConnectionType {
 	case i2cStr:
@@ -101,8 +102,10 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 		allErrs = multierr.Combine(allErrs, cfg.I2CConfig.ValidateI2C(path))
 	case serialStr:
 		allErrs = multierr.Combine(allErrs, cfg.SerialConfig.ValidateSerial(path))
+	case "":
+		allErrs = multierr.Combine(allErrs, utils.NewConfigValidationFieldRequiredError(path, "connection_type"))
 	default:
-		allErrs = multierr.Combine(allErrs, ErrRoverValidation)
+		allErrs = multierr.Combine(allErrs, ErrConnectionTypeValidation)
 	}
 	return deps, allErrs
 }

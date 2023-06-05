@@ -58,8 +58,9 @@ func TestModelTypeCreators(t *testing.T) {
 
 func TestValidateRTK(t *testing.T) {
 	path := "path"
-	fakecfg := &Config{NtripConfig: &NtripConfig{}}
+	fakecfg := &Config{NtripConfig: &NtripConfig{}, ConnectionType: "serial", SerialConfig: &SerialConfig{SerialPath: "some-path"}}
 	_, err := fakecfg.Validate(path)
+
 	test.That(t, err, test.ShouldBeError,
 		utils.NewConfigValidationFieldRequiredError(path, "correction_source"))
 
@@ -74,10 +75,10 @@ func TestValidateRTK(t *testing.T) {
 		t,
 		err,
 		test.ShouldBeError,
-		utils.NewConfigValidationFieldRequiredError(path, "ntrip_path"),
+		utils.NewConfigValidationFieldRequiredError(path, "ntrip_input_protocol"),
 	)
 
-	fakecfg.NtripConfig.NtripPath = "some-ntrip-path"
+	fakecfg.NtripConfig.NtripInputProtocol = "serial"
 	_, err = fakecfg.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
 }

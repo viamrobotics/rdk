@@ -84,7 +84,7 @@ func TestNewI2CMovementSensor(t *testing.T) {
 		Model: resource.DefaultModelFamily.WithModel("gps-nmea"),
 		API:   movementsensor.API,
 		ConvertedAttributes: &Config{
-			ConnectionType: "I2C",
+			ConnectionType: "i2c",
 			Board:          testBoardName,
 			DisableNMEA:    false,
 			I2CConfig:      &I2CConfig{I2CBus: testBusName},
