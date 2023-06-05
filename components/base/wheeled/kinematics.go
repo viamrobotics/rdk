@@ -1,6 +1,7 @@
 package wheeled
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"math"
@@ -8,8 +9,10 @@ import (
 	"github.com/golang/geo/r3"
 
 	"go.viam.com/rdk/components/base"
+	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
-	motion "go.viam.com/rdk/services/motion/builtin"
+	"go.viam.com/rdk/services/motion/localizer"
+	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -22,37 +25,77 @@ const (
 
 type kinematicWheeledBase struct {
 	*wheeledBase
-	motion.Localizer
+	localizer.Localizer
 	model referenceframe.Model
 	fs    referenceframe.FrameSystem
 }
 
 // WrapWithKinematics takes a wheeledBase component and adds a slam service to it
 // It also adds kinematic model so that it can be controlled.
-func (wb *wheeledBase) WrapWithKinematics(ctx context.Context, localizer motion.Localizer) (base.KinematicBase, error) {
-	geometry, err := base.CollisionGeometry(wb.frame)
-	if err != nil {
-		return nil, err
+func (wb *wheeledBase) WrapWithKinematics(ctx context.Context, local localizer.Localizer) (base.KinematicBase, error) {
+	slamSvc, ok := local.(localizer.SLAMLocalizer)
+	if ok {
+		// gets the extents of the SLAM map
+		data, err := slam.GetPointCloudMapFull(ctx, slamSvc)
+		if err != nil {
+			return nil, err
+		}
+		dims, err := pointcloud.GetPCDMetaData(bytes.NewReader(data))
+		if err != nil {
+			return nil, err
+		}
+		geometry, err := base.CollisionGeometry(wb.frame)
+		if err != nil {
+			return nil, err
+		}
+		limits := []referenceframe.Limit{
+			{Min: dims.MinX, Max: dims.MaxX},
+			{Min: dims.MinY, Max: dims.MaxY},
+			{Min: -2 * math.Pi, Max: 2 * math.Pi},
+		}
+		model, err := referenceframe.New2DMobileModelFrame(wb.name, limits, geometry)
+		if err != nil {
+			return nil, err
+		}
+		fs := referenceframe.NewEmptyFrameSystem("")
+		if err := fs.AddFrame(model, fs.World()); err != nil {
+			return nil, err
+		}
+		return &kinematicWheeledBase{
+			wheeledBase: wb,
+			Localizer:   slamSvc,
+			model:       model,
+			fs:          fs,
+		}, err
 	}
 
-	limits := localizer.LocalizationExtents()
-
-	model, err := referenceframe.New2DMobileModelFrame(wb.name, limits, geometry)
-	if err != nil {
-		return nil, err
+	movementSensor, ok := local.(localizer.MovementSensorLocalizer)
+	if ok {
+		geometry, err := base.CollisionGeometry(wb.frame)
+		if err != nil {
+			return nil, err
+		}
+		limits := []referenceframe.Limit{
+			{Min: math.Inf(-1), Max: math.Inf(1)},
+			{Min: math.Inf(-1), Max: math.Inf(1)},
+			{Min: -2 * math.Pi, Max: 2 * math.Pi},
+		}
+		model, err := referenceframe.New2DMobileModelFrame(wb.name, limits, geometry)
+		if err != nil {
+			return nil, err
+		}
+		fs := referenceframe.NewEmptyFrameSystem("")
+		if err := fs.AddFrame(model, fs.World()); err != nil {
+			return nil, err
+		}
+		return &kinematicWheeledBase{
+			wheeledBase: wb,
+			Localizer:   movementSensor,
+			model:       model,
+			fs:          fs,
+		}, err
 	}
-
-	fs := referenceframe.NewEmptyFrameSystem("")
-	if err := fs.AddFrame(model, fs.World()); err != nil {
-		return nil, err
-	}
-
-	return &kinematicWheeledBase{
-		wheeledBase: wb,
-		Localizer:   localizer,
-		model:       model,
-		fs:          fs,
-	}, err
+	return nil, nil
 }
 
 func (kwb *kinematicWheeledBase) ModelFrame() referenceframe.Model {

@@ -1,18 +1,15 @@
 package fake
 
 import (
-	"bytes"
 	"context"
-	"math"
 	"testing"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
-	motion "go.viam.com/rdk/services/motion/builtin"
+	"go.viam.com/rdk/services/motion/localizer"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/slam/fake"
 	"go.viam.com/rdk/spatialmath"
@@ -35,21 +32,9 @@ func TestFakeBase(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	fakeSLAM := fake.NewSLAM(slam.Named("test"), logger)
 
-	// construct limits
-	data, err := slam.GetPointCloudMapFull(ctx, fakeSLAM)
-	test.That(t, err, test.ShouldBeNil)
-	dims, err := pointcloud.GetPCDMetaData(bytes.NewReader(data))
-	test.That(t, err, test.ShouldBeNil)
-	limits := []referenceframe.Limit{
-		{Min: dims.MinX, Max: dims.MaxX},
-		{Min: dims.MinY, Max: dims.MaxY},
-		{Min: -2 * math.Pi, Max: 2 * math.Pi},
-	}
-
 	// construct localizer
-	localizer := &motion.SLAMLocalizer{
+	localizer := &localizer.SLAMLocalizer{
 		Service: fakeSLAM,
-		Limits:  limits,
 	}
 
 	kb, err := b.(*Base).WrapWithKinematics(ctx, localizer)

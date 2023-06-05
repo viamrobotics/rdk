@@ -1,7 +1,6 @@
 package wheeled
 
 import (
-	"bytes"
 	"context"
 	"math"
 	"testing"
@@ -10,10 +9,9 @@ import (
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
-	motion "go.viam.com/rdk/services/motion/builtin"
+	"go.viam.com/rdk/services/motion/localizer"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/slam/fake"
 	"go.viam.com/rdk/spatialmath"
@@ -145,26 +143,13 @@ func TestErrorState(t *testing.T) {
 	test.That(t, headingErr, test.ShouldAlmostEqual, 30)
 }
 
-func getSLAMLocalizer(t *testing.T) *motion.SLAMLocalizer {
+func getSLAMLocalizer(t *testing.T) *localizer.SLAMLocalizer {
 	t.Helper()
-	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 	fakeSLAM := fake.NewSLAM(slam.Named("test"), logger)
 
-	// construct limits
-	data, err := slam.GetPointCloudMapFull(ctx, fakeSLAM)
-	test.That(t, err, test.ShouldBeNil)
-	dims, err := pointcloud.GetPCDMetaData(bytes.NewReader(data))
-	test.That(t, err, test.ShouldBeNil)
-	limits := []referenceframe.Limit{
-		{Min: dims.MinX, Max: dims.MaxX},
-		{Min: dims.MinY, Max: dims.MaxY},
-		{Min: -2 * math.Pi, Max: 2 * math.Pi},
-	}
-
 	// construct localizer
-	return &motion.SLAMLocalizer{
+	return &localizer.SLAMLocalizer{
 		Service: fakeSLAM,
-		Limits:  limits,
 	}
 }

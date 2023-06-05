@@ -2,16 +2,20 @@
 package fake
 
 import (
+	"bytes"
 	"context"
+	"errors"
+	"math"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
-	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/components/base"
+	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
-	motion "go.viam.com/rdk/services/motion/builtin"
+	"go.viam.com/rdk/services/motion/localizer"
+	"go.viam.com/rdk/services/slam"
 )
 
 func init() {
@@ -93,30 +97,75 @@ func (b *Base) Close(ctx context.Context) error {
 type kinematicBase struct {
 	*Base
 	model referenceframe.Model
-	motion.Localizer
+	localizer.Localizer
 	inputs []referenceframe.Input
 }
 
 // WrapWithKinematics creates a KinematicBase from the fake Base so that it satisfies the ModelFramer and InputEnabled interfaces.
-func (b *Base) WrapWithKinematics(ctx context.Context, localizer motion.Localizer) (base.KinematicBase, error) {
-	geometry, err := base.CollisionGeometry(b.geometry)
-	if err != nil {
-		return nil, err
+func (b *Base) WrapWithKinematics(ctx context.Context, local localizer.Localizer) (base.KinematicBase, error) {
+	slamSvc, ok := local.(localizer.SLAMLocalizer)
+	if ok {
+		// gets the extents of the SLAM map
+		data, err := slam.GetPointCloudMapFull(ctx, slamSvc)
+		if err != nil {
+			return nil, err
+		}
+		dims, err := pointcloud.GetPCDMetaData(bytes.NewReader(data))
+		if err != nil {
+			return nil, err
+		}
+		geometry, err := base.CollisionGeometry(b.geometry)
+		if err != nil {
+			return nil, err
+		}
+		limits := []referenceframe.Limit{
+			{Min: dims.MinX, Max: dims.MaxX},
+			{Min: dims.MinY, Max: dims.MaxY},
+			{Min: -2 * math.Pi, Max: 2 * math.Pi},
+		}
+		model, err := referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits, geometry)
+		if err != nil {
+			return nil, err
+		}
+		fs := referenceframe.NewEmptyFrameSystem("")
+		if err := fs.AddFrame(model, fs.World()); err != nil {
+			return nil, err
+		}
+		return &kinematicBase{
+			Base:      b,
+			model:     model,
+			Localizer: slamSvc,
+			inputs:    make([]referenceframe.Input, len(model.DoF())),
+		}, err
 	}
 
-	limits := localizer.LocalizationExtents()
-
-	model, err := referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits, geometry)
-	if err != nil {
-		return nil, errors.Wrap(err, "fake base cannot be created")
+	movementSensor, ok := local.(localizer.MovementSensorLocalizer)
+	if ok {
+		geometry, err := base.CollisionGeometry(b.geometry)
+		if err != nil {
+			return nil, err
+		}
+		limits := []referenceframe.Limit{
+			{Min: math.Inf(-1), Max: math.Inf(1)},
+			{Min: math.Inf(-1), Max: math.Inf(1)},
+			{Min: -2 * math.Pi, Max: 2 * math.Pi},
+		}
+		model, err := referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits, geometry)
+		if err != nil {
+			return nil, err
+		}
+		fs := referenceframe.NewEmptyFrameSystem("")
+		if err := fs.AddFrame(model, fs.World()); err != nil {
+			return nil, err
+		}
+		return &kinematicBase{
+			Base:      b,
+			model:     model,
+			Localizer: movementSensor,
+			inputs:    make([]referenceframe.Input, len(model.DoF())),
+		}, err
 	}
-
-	return &kinematicBase{
-		Base:      b,
-		model:     model,
-		Localizer: localizer,
-		inputs:    make([]referenceframe.Input, len(model.DoF())),
-	}, nil
+	return nil, errors.New("TODO: write an error")
 }
 
 func (kb *kinematicBase) ModelFrame() referenceframe.Model {

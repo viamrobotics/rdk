@@ -239,24 +239,25 @@ func TestMoveOnMap(t *testing.T) {
 	test.That(t, success, test.ShouldBeTrue)
 }
 
-// TODO(RSDK-2926): Revisit after MoveOnGlobe implementation is completed, needs test cases for optional specs, etc.
 func TestMoveOnGlobe(t *testing.T) {
 	ms, closeFn := setupMotionServiceFromConfig(t, "../data/gps_base.json")
 	defer closeFn()
 
-	success, err := ms.MoveOnGlobe(
-		context.Background(),
-		base.Named("test-base"),
-		geo.NewPoint(0.0, 0.0),
-		math.NaN(),
-		movementsensor.Named("test-gps"),
-		nil,
-		math.NaN(),
-		math.NaN(),
-		nil,
-	)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, success, test.ShouldBeTrue)
+	t.Run("ensure success", func(t *testing.T) {
+		success, err := ms.MoveOnGlobe(
+			context.Background(),
+			base.Named("test-base"),
+			geo.NewPoint(0.0, 0.0),
+			math.NaN(),
+			movementsensor.Named("test-gps"),
+			nil,
+			math.NaN(),
+			math.NaN(),
+			nil,
+		)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, success, test.ShouldBeTrue)
+	})
 }
 
 func TestMultiplePieces(t *testing.T) {
