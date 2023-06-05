@@ -84,7 +84,7 @@ type LastError struct {
 	count int     // How many items in errs are non-nil
 }
 
-// LastPosition stores the last position see by the movement sensor.
+// LastPosition stores the last position seen by the movement sensor.
 type LastPosition struct {
 	lastposition *geo.Point
 	mu           sync.Mutex
@@ -96,7 +96,7 @@ func NewLastError(size, threshold int) LastError {
 	return LastError{errs: make([]error, size), threshold: threshold}
 }
 
-// NewLastPosition creates a new point that's 0,0
+// NewLastPosition creates a new point that's (NaN, NaN)
 // go-staticcheck.
 func NewLastPosition() LastPosition {
 	return LastPosition{lastposition: geo.NewPoint(math.NaN(), math.NaN())}
@@ -112,8 +112,8 @@ func (lp *LastPosition) GetLastPosition() *geo.Point {
 // SetLastPosition updates the last known position.
 func (lp *LastPosition) SetLastPosition(position *geo.Point) {
 	lp.mu.Lock()
+	defer lp.mu.Unlock()
 	lp.lastposition = position
-	lp.mu.Unlock()
 }
 
 // Set stores an error to be retrieved later.
