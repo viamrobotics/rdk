@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"sync"
 
 	"github.com/de-bkg/gognss/pkg/ntrip"
@@ -588,7 +589,7 @@ func (g *RTKMovementSensor) Position(ctx context.Context, extra map[string]inter
 		if lastPosition != nil {
 			return lastPosition, 0, nil
 		}
-		return nil, 0, lastError
+		return geo.NewPoint(math.NaN(), math.NaN()), 0, lastError
 	}
 	g.ntripMu.Unlock()
 
