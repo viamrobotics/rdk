@@ -1460,11 +1460,15 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, eB.Tick(context.Background(), true, uint64(time.Now().UnixNano())), test.ShouldBeNil)
 		test.That(t, eA.Tick(context.Background(), true, uint64(time.Now().UnixNano())), test.ShouldBeNil)
 
+		time.Sleep(time.Second)
+
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			c, err = m.Position(context.Background(), nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, c, test.ShouldEqual, 1)
 		})
+
+		test.That(t, nil, test.ShouldNotBeNil)
 
 		_, err = motor.FromRobot(robot, "m2")
 		test.That(t, err, test.ShouldNotBeNil)
@@ -1638,6 +1642,7 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, ok, test.ShouldBeTrue)
 		_, ok = robot.ProcessManager().ProcessByID("2")
 		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, false, test.ShouldBeTrue)
 	})
 
 	t.Run("child component fails dep", func(t *testing.T) {
@@ -1707,6 +1712,8 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, eA.Tick(context.Background(), false, uint64(time.Now().UnixNano())), test.ShouldBeNil)
 		test.That(t, eB.Tick(context.Background(), true, uint64(time.Now().UnixNano())), test.ShouldBeNil)
 		test.That(t, eA.Tick(context.Background(), true, uint64(time.Now().UnixNano())), test.ShouldBeNil)
+
+		time.Sleep(time.Second)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			c, err = m.Position(context.Background(), nil)
@@ -2016,6 +2023,7 @@ func TestRobotReconfigure(t *testing.T) {
 					mockNamed("mock6"),
 				},
 			)...))
+		test.That(t, nil, test.ShouldNotBeNil)
 	})
 	t.Run("complex diff", func(t *testing.T) {
 		resetComponentFailureState()

@@ -636,6 +636,7 @@ func (r *localRobot) newResource(
 	if err != nil {
 		return nil, err
 	}
+	println("", deps)
 
 	c, ok := resource.LookupGenericAPIRegistration(resName.API)
 	if ok {
@@ -692,9 +693,10 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 	// For example, the framesystem should depend on all input enabled components while the web
 	// service depends on all resources.
 	// For now, we pass all resources and empty configs.
-	withTimeout := r.resourceConfigurationTimeout != 0
+	shouldTimeout := r.resourceConfigurationTimeout != 0
 	for resName, res := range internalResources {
-		if withTimeout {
+		ctx := ctx
+		if shouldTimeout {
 			ctxWithTimeout, timeoutCancel := context.WithTimeout(ctx, r.resourceConfigurationTimeout)
 			ctx = ctxWithTimeout
 			defer timeoutCancel()
@@ -744,7 +746,7 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 
 	cfg := r.Config()
 	for _, conf := range append(cfg.Components, cfg.Services...) {
-		if withTimeout {
+		if shouldTimeout {
 			ctxWithTimeout, timeoutCancel := context.WithTimeout(ctx, r.resourceConfigurationTimeout)
 			ctx = ctxWithTimeout
 			defer timeoutCancel()

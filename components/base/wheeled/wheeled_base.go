@@ -155,7 +155,7 @@ func (wb *wheeledBase) Reconfigure(ctx context.Context, deps resource.Dependenci
 				}
 				m, err := motor.FromDependencies(deps, name)
 				if err != nil {
-					return newMotors, errors.Wrapf(err, "no motor named (%s)", name)
+					return newMotors, errors.Wrapf(err, "no left motor named (%s)", name)
 				}
 				newMotors = append(newMotors, m)
 			}
@@ -168,10 +168,11 @@ func (wb *wheeledBase) Reconfigure(ctx context.Context, deps resource.Dependenci
 				default:
 				}
 				if (*curr)[i].Name().String() != (*fromConfig)[i] {
+
 					for _, name := range *fromConfig {
 						m, err := motor.FromDependencies(deps, name)
 						if err != nil {
-							return newMotors, errors.Wrapf(err, "no motor named (%s)", name)
+							return newMotors, errors.Wrapf(err, "no left motor named (%s)", name)
 						}
 						newMotors = append(newMotors, m)
 					}
@@ -182,7 +183,7 @@ func (wb *wheeledBase) Reconfigure(ctx context.Context, deps resource.Dependenci
 		return newMotors, nil
 	}
 
-	// Check if wb.left is different from newConf.Left before changing wb.left
+	//Check if wb.left is different from newConf.Left before changing wb.left
 	left, err := updateMotors(&wb.left, &newConf.Left)
 	wb.left = left
 	if err != nil {
@@ -194,6 +195,85 @@ func (wb *wheeledBase) Reconfigure(ctx context.Context, deps resource.Dependenci
 	if err != nil {
 		return err
 	}
+
+	//if len(wb.left) != len(newConf.Left) {
+	//// Resetting the left motor list
+	//wb.left = make([]motor.Motor, 0)
+
+	//for _, name := range newConf.Left {
+	//select {
+	//case <-ctx.Done():
+	//return resource.NewBuildTimeoutError(wb.Name())
+	//default:
+	//}
+	//m, err := motor.FromDependencies(deps, name)
+	//if err != nil {
+	//return errors.Wrapf(err, "no left motor named (%s)", name)
+	//}
+	//wb.left = append(wb.left, m)
+	//}
+	//} else {
+	//// Compare each element of the slices
+	//for i := range wb.left {
+	//select {
+	//case <-ctx.Done():
+	//return resource.NewBuildTimeoutError(wb.Name())
+	//default:
+	//}
+	//if wb.left[i].Name().String() != newConf.Left[i] {
+	//// Resetting the left motor list
+	//wb.left = make([]motor.Motor, 0)
+
+	//for _, name := range newConf.Left {
+	//m, err := motor.FromDependencies(deps, name)
+	//if err != nil {
+	//return errors.Wrapf(err, "no left motor named (%s)", name)
+	//}
+	//wb.left = append(wb.left, m)
+	//}
+	//break
+	//}
+	//}
+	//}
+
+	//if len(wb.right) != len(newConf.Right) {
+	//// Resetting the right motor list
+	//wb.right = make([]motor.Motor, 0)
+
+	//for _, name := range newConf.Right {
+	//select {
+	//case <-ctx.Done():
+	//return resource.NewBuildTimeoutError(wb.Name())
+	//default:
+	//}
+	//m, err := motor.FromDependencies(deps, name)
+	//if err != nil {
+	//return errors.Wrapf(err, "no right motor named (%s)", name)
+	//}
+	//wb.right = append(wb.right, m)
+	//}
+	//} else {
+	//// Compare each element of the slices
+	//for i := range wb.right {
+	//select {
+	//case <-ctx.Done():
+	//return resource.NewBuildTimeoutError(wb.Name())
+	//default:
+	//}
+	//if wb.right[i].Name().String() != newConf.Right[i] {
+	//wb.right = make([]motor.Motor, 0)
+
+	//for _, name := range newConf.Right {
+	//m, err := motor.FromDependencies(deps, name)
+	//if err != nil {
+	//return errors.Wrapf(err, "no right motor named (%s)", name)
+	//}
+	//wb.right = append(wb.right, m)
+	//}
+	//break
+	//}
+	//}
+	//}
 
 	wb.allMotors = append(wb.allMotors, wb.left...)
 	wb.allMotors = append(wb.allMotors, wb.right...)

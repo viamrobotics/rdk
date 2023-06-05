@@ -19,6 +19,7 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -3108,6 +3109,9 @@ func TestResourceConstructTimeout(t *testing.T) {
 	logger, logs := golog.NewObservedTestLogger(t)
 
 	r, err := robotimpl.New(ctx, cfg, logger)
+	defer func() {
+		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+	}()
 	test.That(t, err, test.ShouldBeNil)
 
 	// test no error logging with default config
@@ -3235,7 +3239,4 @@ func TestResourceConstructTimeout(t *testing.T) {
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		test.That(tb, logs.FilterMessageSnippet("error building resource").Len(), test.ShouldEqual, 1)
 	})
-
-	err = r.Close(ctx)
-	test.That(t, err, test.ShouldBeNil)
 }
