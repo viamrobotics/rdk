@@ -20,8 +20,6 @@ const {
     :webrtc-enabled="webrtcEnabled"
     :signaling-address="webrtcSignalingAddress"
   />
-
-  <div id="map" class="w-[500px] h-[500px]" />
 </template>
 
 <style>
