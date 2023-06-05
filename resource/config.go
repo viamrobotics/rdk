@@ -161,12 +161,15 @@ func (assoc AssociatedResourceConfig) MarshalJSON() ([]byte, error) {
 	})
 }
 
-// Equals checks if the two configs are deeply equal to each other.
+// Equals checks if the two configs are deeply equal to each other. Validation
+// related fields and implicit dependencies will be ignored.
 func (conf Config) Equals(other Config) bool {
 	conf.alreadyValidated = false
+	conf.ImplicitDependsOn = nil
 	conf.cachedImplicitDeps = nil
 	conf.cachedErr = nil
 	other.alreadyValidated = false
+	other.ImplicitDependsOn = nil
 	other.cachedImplicitDeps = nil
 	other.cachedErr = nil
 	//nolint:govet
