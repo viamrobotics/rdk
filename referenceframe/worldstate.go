@@ -163,7 +163,7 @@ func (ws *WorldState) ObstaclesInWorldFrame(fs FrameSystem, inputs map[string][]
 	return NewGeometriesInFrame(World, allGeometries), nil
 }
 
-// BoundingBox returns a list of limits specifying max and min x and y values
+// BoundingBox returns a list of limits specifying max and min x and y values.
 func (ws *WorldState) BoundingBox(ctx context.Context) []Limit {
 	var xSlice []float64
 	var ySlice []float64

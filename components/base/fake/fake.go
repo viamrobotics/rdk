@@ -101,7 +101,8 @@ type kinematicBase struct {
 func (b *Base) WrapWithKinematics(
 	ctx context.Context,
 	local localizer.Localizer,
-	limits []referenceframe.Limit) (base.KinematicBase, error) {
+	limits []referenceframe.Limit,
+) (base.KinematicBase, error) {
 	slamSvc, ok := local.(localizer.SLAMLocalizer)
 	if ok {
 		geometry, err := base.CollisionGeometry(b.geometry)
