@@ -8,11 +8,11 @@ import (
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/base/v1"
-	"go.viam.com/rdk/services/motion/localizer"
 
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/services/motion/localizer"
 	"go.viam.com/rdk/spatialmath"
 )
 

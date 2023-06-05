@@ -163,8 +163,7 @@ func (ws *WorldState) ObstaclesInWorldFrame(fs FrameSystem, inputs map[string][]
 	return NewGeometriesInFrame(World, allGeometries), nil
 }
 
-// ObstaclesInWorldFrame takes a frame system and a set of inputs for that frame system and converts all the obstacles
-// in the WorldState such that they are in the frame system's World reference frame.
+// BoundingBox returns a list of limits specifying max and min x and y values
 func (ws *WorldState) BoundingBox(ctx context.Context) []Limit {
 	var xSlice []float64
 	var ySlice []float64

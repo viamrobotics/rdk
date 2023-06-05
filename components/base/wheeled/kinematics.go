@@ -29,7 +29,10 @@ type kinematicWheeledBase struct {
 
 // WrapWithKinematics takes a wheeledBase component and adds a slam service to it
 // It also adds kinematic model so that it can be controlled.
-func (wb *wheeledBase) WrapWithKinematics(ctx context.Context, local localizer.Localizer, limits []referenceframe.Limit) (base.KinematicBase, error) {
+func (wb *wheeledBase) WrapWithKinematics(
+	ctx context.Context,
+	local localizer.Localizer,
+	limits []referenceframe.Limit) (base.KinematicBase, error) {
 	slamSvc, ok := local.(localizer.SLAMLocalizer)
 	if ok {
 		geometry, err := base.CollisionGeometry(wb.frame)

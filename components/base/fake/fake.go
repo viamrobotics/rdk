@@ -98,7 +98,10 @@ type kinematicBase struct {
 }
 
 // WrapWithKinematics creates a KinematicBase from the fake Base so that it satisfies the ModelFramer and InputEnabled interfaces.
-func (b *Base) WrapWithKinematics(ctx context.Context, local localizer.Localizer, limits []referenceframe.Limit) (base.KinematicBase, error) {
+func (b *Base) WrapWithKinematics(
+	ctx context.Context,
+	local localizer.Localizer,
+	limits []referenceframe.Limit) (base.KinematicBase, error) {
 	slamSvc, ok := local.(localizer.SLAMLocalizer)
 	if ok {
 		geometry, err := base.CollisionGeometry(b.geometry)

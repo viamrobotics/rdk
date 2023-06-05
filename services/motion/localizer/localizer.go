@@ -1,3 +1,4 @@
+// Package localizer introduces an interface which both slam and movementsensor can satisfy when wrapped respectively
 package localizer
 
 import (
