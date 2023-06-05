@@ -247,7 +247,6 @@ func (g *RTKMovementSensor) start() error {
 	// correction data goes wrong. Could anything worse than uncorrected data occur?
 	if err := g.nmeamovementsensor.Start(g.cancelCtx); err != nil {
 		g.lastposition.GetLastPosition()
-		fmt.Printf("lastposition at start %v", g.lastposition.GetLastPosition())
 		return err
 	}
 
@@ -576,7 +575,6 @@ func (g *RTKMovementSensor) receiveAndWriteSerial() {
 func (g *RTKMovementSensor) NtripStatus() (bool, error) {
 	g.ntripMu.Lock()
 	defer g.ntripMu.Unlock()
-	fmt.Printf("ntripStatus is %v\n", g.ntripStatus)
 	return g.ntripStatus, g.err.Get()
 }
 

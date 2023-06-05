@@ -170,7 +170,7 @@ func (g *SerialNMEAMovementSensor) Position(ctx context.Context, extra map[strin
 	}
 
 	// updating the last known valid position if the current position is non-zero
-	if currentPosition != nil && !g.lastposition.IsZeroPosition(currentPosition) {
+	if !g.lastposition.IsZeroPosition(currentPosition) {
 		g.lastposition.SetLastPosition(currentPosition)
 	}
 
