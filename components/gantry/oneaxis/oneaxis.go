@@ -186,9 +186,9 @@ func (g *oneAxis) Reconfigure(ctx context.Context, deps resource.Dependencies, c
 		g.limitHigh = *newConf.LimitPinEnabled
 		needsToReHome = true
 	} else {
-		for i, pin := range g.limitSwitchPins {
-			if pin != newConf.LimitSwitchPins[i] {
-				newConf.LimitSwitchPins[i] = pin
+		for i, pin := range newConf.LimitSwitchPins {
+			if pin != g.limitSwitchPins[i] {
+				g.limitSwitchPins[i] = pin
 				needsToReHome = true
 			}
 		}
