@@ -1,8 +1,5 @@
 declare global {
   interface Window {
-    // Google
-    googleMapsInit: () => void;
-
     /*
      * Our variables. @TODO: Remove most if not all of these. Do not add more.
      * This is an anti-pattern.

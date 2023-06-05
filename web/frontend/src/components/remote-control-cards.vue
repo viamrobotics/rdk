@@ -41,7 +41,7 @@ import Gamepad from './gamepad.vue';
 import InputController from './input-controller.vue';
 import MotorSvelte from './motor/index.svelte';
 import MovementSensorSvelte from './movement-sensor/index.svelte';
-import Navigation from './navigation.vue';
+import NavigationSvelte from './navigation/index.svelte';
 import ServoSvelte from './servo/index.svelte';
 import Sensors from './sensors.vue';
 import Slam from './slam/index.vue';
@@ -50,6 +50,7 @@ import { svelteAdapter } from '../lib/svelte-adapter';
 const AudioInput = svelteAdapter(AudioInputSvelte);
 const Motor = svelteAdapter(MotorSvelte);
 const MovementSensor = svelteAdapter(MovementSensorSvelte);
+const Navigation = svelteAdapter(NavigationSvelte);
 const OperationsSessions = svelteAdapter(OperationsSessionsSvelte);
 const Servo = svelteAdapter(ServoSvelte);
 
@@ -897,7 +898,7 @@ onUnmounted(() => {
         :resources="resources"
         :name="nav.name"
         :client="client"
-        :status-stream="statusStream"
+        :statusStream="statusStream"
       />
 
       <!-- ******* SENSORS ******* -->
