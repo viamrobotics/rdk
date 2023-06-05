@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"sync"
 
 	"github.com/de-bkg/gognss/pkg/ntrip"
@@ -209,7 +210,7 @@ func newRTKMovementSensor(
 	}
 
 	// Init NMEAMovementSensor
-	switch g.inputProtocol {
+	switch newConf.ConnectionType {
 	case serialStr:
 		var err error
 		nmeaConf.SerialConfig = (*gpsnmea.SerialConfig)(newConf.SerialConfig)
@@ -249,6 +250,8 @@ func newRTKMovementSensor(
 		if newConf.NtripPath == "" {
 			g.logger.Info("RTK will use the same serial path as the GPS data to write RCTM messages")
 			g.writepath = newConf.SerialPath
+		} else {
+			g.writepath = newConf.NtripPath
 		}
 	}
 
@@ -535,6 +538,8 @@ func (g *RTKMovementSensor) receiveAndWriteSerial() {
 	if !g.ntripClient.Client.IsCasterAlive() {
 		g.logger.Infof("caster %s seems to be down", g.ntripClient.URL)
 	}
+
+	log.Println(g.writepath)
 
 	options := slib.OpenOptions{
 		PortName:        g.writepath,
