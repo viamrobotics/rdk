@@ -76,5 +76,5 @@
     "cypress:ci": "cypress run",
     "cypress": "cypress open",
     "test:unit": "echo \"no tests exist yet\""
-  },
+  }
 }
