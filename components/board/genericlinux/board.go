@@ -589,9 +589,9 @@ func (b *sysfsBoard) GPIOPinByName(pinName string) (board.GPIOPin, error) {
 	pin, ok := b.gpios[pinName]
 	if !ok {
 		// check if pin is a digital interrupt
-		interrupt, interrupt_ok := b.interrupts[pinName]
+		interrupt, interruptOk := b.interrupts[pinName]
 
-		if !interrupt_ok {
+		if !interruptOk {
 			return nil, errors.Errorf("cannot find GPIO for unknown pin: %s", pinName)
 		}
 

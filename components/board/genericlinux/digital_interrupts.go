@@ -25,7 +25,7 @@ type digitalInterrupt struct {
 	config      *board.DigitalInterruptConfig
 }
 
-// struct to support reading from digital interrupt pins
+// struct to support reading from digital interrupt pins.
 type gpioInterruptWrapperPin struct {
 	interrupt digitalInterrupt
 }
