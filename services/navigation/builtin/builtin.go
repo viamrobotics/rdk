@@ -297,6 +297,8 @@ func (svc *builtIn) startWaypoint(extra map[string]interface{}) error {
 					return fmt.Errorf("error moving %w", err)
 				}
 
+				motion.MoveOnGlobe(ctx, nil, path)
+
 				return nil
 			}
 
