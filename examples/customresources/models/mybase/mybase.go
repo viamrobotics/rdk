@@ -135,8 +135,8 @@ func (myBase *MyBase) IsMoving(ctx context.Context) (bool, error) {
 	return false, nil
 }
 
-func (myBase *MyBase) Properties(ctx context.Context, extra map[string]interface{}) (base.Feature, error) {
-	return base.Feature{
+func (myBase *MyBase) Properties(ctx context.Context, extra map[string]interface{}) (base.Properties, error) {
+	return base.Properties{
 		TurningRadiusMeters: myBaseTruningRadiusM,
 		WidthMeters:         myBaseWidthMm * 0.001, // converting millimeters to meters
 	}, nil

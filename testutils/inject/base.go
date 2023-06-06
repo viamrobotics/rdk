@@ -20,7 +20,7 @@ type Base struct {
 	IsMovingFunc     func(context.Context) (bool, error)
 	CloseFunc        func(ctx context.Context) error
 	SetPowerFunc     func(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error
-	PropertiesFunc   func(ctx context.Context, extra map[string]interface{}) (base.Feature, error)
+	PropertiesFunc   func(ctx context.Context, extra map[string]interface{}) (base.Properties, error)
 }
 
 // NewBase returns a new injected base.
@@ -93,7 +93,7 @@ func (b *Base) SetPower(ctx context.Context, linear, angular r3.Vector, extra ma
 }
 
 // Properties returns the base's properties.
-func (b *Base) Properties(ctx context.Context, extra map[string]interface{}) (base.Feature, error) {
+func (b *Base) Properties(ctx context.Context, extra map[string]interface{}) (base.Properties, error) {
 	if b.PropertiesFunc == nil {
 		return b.Base.Properties(ctx, extra)
 	}

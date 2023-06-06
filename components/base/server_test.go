@@ -134,8 +134,8 @@ func TestServer(t *testing.T) {
 		turnRadius := 0.1
 		width := 0.2
 		// on a successful get properties
-		workingBase.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (base.Feature, error) {
-			return base.Feature{
+		workingBase.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (base.Properties, error) {
+			return base.Properties{
 				TurningRadiusMeters: turnRadius,
 				WidthMeters:         width,
 			}, nil
@@ -148,8 +148,8 @@ func TestServer(t *testing.T) {
 		// on a failing get properties
 		errMsg := "properties not found"
 
-		brokenBase.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (base.Feature, error) {
-			return base.Feature{}, errors.New(errMsg)
+		brokenBase.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (base.Properties, error) {
+			return base.Properties{}, errors.New(errMsg)
 		}
 		req = &pb.GetPropertiesRequest{Name: failBaseName}
 		resp, err = server.GetProperties(context.Background(), req)

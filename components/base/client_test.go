@@ -21,7 +21,7 @@ func setupWorkingBase(
 	workingBase *inject.Base,
 	argsReceived map[string][]interface{},
 	// width int,
-	expectedFeatures base.Feature,
+	expectedFeatures base.Properties,
 ) {
 	workingBase.MoveStraightFunc = func(
 		ctx context.Context, distanceMm int,
@@ -43,7 +43,7 @@ func setupWorkingBase(
 		return nil
 	}
 
-	workingBase.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (base.Feature, error) {
+	workingBase.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (base.Properties, error) {
 		return expectedFeatures, nil
 	}
 }
@@ -74,8 +74,8 @@ func setupBrokenBase(brokenBase *inject.Base) {
 		return errors.New(errMsgStop)
 	}
 
-	brokenBase.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (base.Feature, error) {
-		return base.Feature{}, errors.New(errMsgProperties)
+	brokenBase.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (base.Properties, error) {
+		return base.Properties{}, errors.New(errMsgProperties)
 	}
 }
 
@@ -90,7 +90,7 @@ func TestClient(t *testing.T) {
 
 	workingBase := &inject.Base{}
 	// expectedWidth := 100
-	expectedFeatures := base.Feature{
+	expectedFeatures := base.Properties{
 		TurningRadiusMeters: 1.2,
 		WidthMeters:         float64(100) * 0.001,
 	}

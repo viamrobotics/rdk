@@ -135,16 +135,16 @@ func (c *client) IsMoving(ctx context.Context) (bool, error) {
 	return resp.IsMoving, nil
 }
 
-func (c *client) Properties(ctx context.Context, extra map[string]interface{}) (Feature, error) {
+func (c *client) Properties(ctx context.Context, extra map[string]interface{}) (Properties, error) {
 	ext, err := structpb.NewStruct(extra)
 	if err != nil {
-		return Feature{}, err
+		return Properties{}, err
 	}
 
 	req := &pb.GetPropertiesRequest{Name: c.name, Extra: ext}
 	resp, err := c.client.GetProperties(ctx, req)
 	if err != nil {
-		return Feature{}, err
+		return Properties{}, err
 	}
 	return ProtoFeaturesToMap(resp), nil
 }

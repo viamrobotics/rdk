@@ -428,7 +428,7 @@ func (lb *limoBase) IsMoving(ctx context.Context) (bool, error) {
 	return true, nil
 }
 
-func (lb *limoBase) Properties(ctx context.Context, extra map[string]interface{}) (base.Feature, error) {
+func (lb *limoBase) Properties(ctx context.Context, extra map[string]interface{}) (base.Properties, error) {
 	var lbTurnRadiusM float64
 
 	switch lb.driveMode {
@@ -438,7 +438,7 @@ func (lb *limoBase) Properties(ctx context.Context, extra map[string]interface{}
 		lbTurnRadiusM = 0.0 // omni and differential can turn in place
 	}
 
-	return base.Feature{
+	return base.Properties{
 		TurningRadiusMeters: lbTurnRadiusM,
 		// WidthMeters:         float64(lb.width) * 0.001, // convert from mm to meters
 		WidthMeters: float64(defaultBaseWidthM), // convert from mm to meters
