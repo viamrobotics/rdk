@@ -20,7 +20,7 @@ import (
 func setupWorkingBase(
 	workingBase *inject.Base,
 	argsReceived map[string][]interface{},
-	width int,
+	// width int,
 	expectedFeatures base.Feature,
 ) {
 	workingBase.MoveStraightFunc = func(
@@ -89,12 +89,12 @@ func TestClient(t *testing.T) {
 	argsReceived := map[string][]interface{}{}
 
 	workingBase := &inject.Base{}
-	expectedWidth := 100
+	// expectedWidth := 100
 	expectedFeatures := base.Feature{
 		TurningRadiusMeters: 1.2,
-		WidthMeters:         float64(expectedWidth) * 0.001,
+		WidthMeters:         float64(100) * 0.001,
 	}
-	setupWorkingBase(workingBase, argsReceived, expectedWidth, expectedFeatures)
+	setupWorkingBase(workingBase, argsReceived, /*expectedWidth,*/ expectedFeatures)
 
 	brokenBase := &inject.Base{}
 	setupBrokenBase(brokenBase)

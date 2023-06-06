@@ -4,7 +4,6 @@ package base
 import (
 	"context"
 
-	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/base/v1"
 
@@ -143,7 +142,7 @@ func (s *serviceServer) GetProperties(
 	baseName := req.GetName()
 	base, err := s.coll.Resource(baseName)
 	if err != nil {
-		return nil, errors.Errorf("no base (%s) found", baseName)
+		return nil, err
 	}
 
 	features, err := base.Properties(ctx, req.Extra.AsMap())
