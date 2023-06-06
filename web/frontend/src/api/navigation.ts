@@ -35,8 +35,8 @@ export const setWaypoint = (
   request.setLocation(point);
 
   rcLogConditionally(request);
-  client.navigationService.addWaypoint(request, new grpc.Metadata(), (error) => (
-    error ? reject(error) : resolve(null)
+  client.navigationService.addWaypoint(request, new grpc.Metadata(), (error, response) => (
+    error ? reject(error) : resolve(response)
   ));
 });
 

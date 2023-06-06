@@ -16,7 +16,7 @@ export let statusStream: ResponseStream<robotApi.StreamStatusResponse> | null
 let updateWaypointsId: number;
 let updateLocationsId: number;
 
-let location = '';
+let refreshRate = 500;
 
 const setNavigationMode = async (event: CustomEvent) => {
   const mode = event.detail.value.toLowerCase() as 'manual' | 'waypoint'
@@ -38,17 +38,20 @@ const setNavigationMode = async (event: CustomEvent) => {
 
 let map: maplibregl.Map
 
-const marker = new maplibregl.Marker()
+const createWaypointMarker = () => {
+  return new maplibregl.Marker({ scale: 0.7 })
+}
 
 const handleClick = async (event: maplibregl.MapMouseEvent) => {
-  marker.setLngLat(event.lngLat).addTo(map);
+  if (event.originalEvent.button > 0) {
+    return
+  }
 
   const { lat, lng } = event.lngLat;
 
   try {
     await setWaypoint(client, lat, lng, name)
   } catch (error) {
-    marker.remove()
     toast.error((error as ServiceError).message)
   }
 }
@@ -87,7 +90,6 @@ const initNavigation = async () => {
   let centered = false;
 
   const knownWaypoints: Record<string, maplibregl.Marker> = {};
-  let localLabelCounter = 0;
 
   const refresh = async () => {
     let waypoints: navigationApi.Waypoint[]
@@ -115,22 +117,21 @@ const initNavigation = async () => {
         continue;
       }
 
-      localLabelCounter += 1;
-
-      const marker = new maplibregl.Marker({
-        // label: `${localLabelCounter}`,
-      });
+      const marker = createWaypointMarker()
 
       marker.setLngLat([position.lng, position.lat]).addTo(map)
 
       currentWaypoints[posStr] = marker;
       knownWaypoints[posStr] = marker;
 
-      marker.on('dblclick', async () => {
+      marker.getElement().addEventListener('contextmenu', async () => {
+        marker.remove()
+
         try {
-          removeWaypoint(client, name, waypoint.getId());
+          await removeWaypoint(client, name, waypoint.getId());
         } catch (error) {
           toast.error((error as ServiceError).message)
+          marker.addTo(map)
         }
       });
     }
@@ -145,14 +146,14 @@ const initNavigation = async () => {
       delete knownWaypoints[key];
     }
 
-    updateWaypointsId = window.setTimeout(refresh, 1000);
+    updateWaypointsId = window.setTimeout(refresh, refreshRate);
   };
 
   refresh();
 
-  const locationMarker = new maplibregl.Marker({
-    // label: 'robot'
-  });
+  const robotMarker = new maplibregl.Marker({ color: 'red' });
+
+  robotMarker.setPopup(new maplibregl.Popup().setHTML('robot'));
 
   const updateLocation = async () => {
     try {
@@ -163,21 +164,17 @@ const initNavigation = async () => {
         map.setCenter(position);
       }
 
-      locationMarker.setLngLat([position.lng, position.lat]).addTo(map);
+      robotMarker.setLngLat([position.lng, position.lat]).addTo(map);
 
-      updateLocationsId = window.setTimeout(updateLocation, 1000);
+      updateLocationsId = window.setTimeout(updateLocation, refreshRate);
     } catch (error) {
       toast.error((error as ServiceError).message)
-      updateLocationsId = window.setTimeout(updateLocation, 1000);
+      updateLocationsId = window.setTimeout(updateLocation, refreshRate);
     }
   };
 
   updateLocation();
 };
-
-const handleLocationInput = (event: CustomEvent) => {
-  location = event.detail.value
-}
 
 const handleToggle = (event: CustomEvent<{ open: boolean }>) => {
   const { open } = event.detail
