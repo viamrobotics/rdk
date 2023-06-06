@@ -34,10 +34,8 @@ func TestFakeBase(t *testing.T) {
 	limits, err := fakeSLAM.GetLimits(ctx)
 	test.That(t, err, test.ShouldBeNil)
 
-	// construct localizer
-	localizer := &motion.SLAMLocalizer{
-		Service: fakeSLAM,
-	}
+	localizer, err := motion.NewLocalizer(ctx, fakeSLAM)
+	test.That(t, err, test.ShouldBeNil)
 
 	kb, err := b.(*Base).WrapWithKinematics(ctx, localizer, limits)
 	test.That(t, err, test.ShouldBeNil)

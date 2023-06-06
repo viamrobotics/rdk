@@ -91,9 +91,9 @@ func (b *Base) Close(ctx context.Context) error {
 
 type kinematicBase struct {
 	*Base
-	model referenceframe.Model
-	motion.Localizer
-	inputs []referenceframe.Input
+	model     referenceframe.Model
+	localizer motion.Localizer
+	inputs    []referenceframe.Input
 }
 
 // WrapWithKinematics creates a KinematicBase from the fake Base so that it satisfies the ModelFramer and InputEnabled interfaces.
@@ -117,7 +117,7 @@ func (b *Base) WrapWithKinematics(
 	return &kinematicBase{
 		Base:      b,
 		model:     model,
-		Localizer: localizer,
+		localizer: localizer,
 		inputs:    make([]referenceframe.Input, len(model.DoF())),
 	}, err
 }

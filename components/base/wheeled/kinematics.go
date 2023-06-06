@@ -22,9 +22,9 @@ const (
 
 type kinematicWheeledBase struct {
 	*wheeledBase
-	motion.Localizer
-	model referenceframe.Model
-	fs    referenceframe.FrameSystem
+	localizer motion.Localizer
+	model     referenceframe.Model
+	fs        referenceframe.FrameSystem
 }
 
 // WrapWithKinematics takes a wheeledBase component and adds a slam service to it
@@ -48,7 +48,7 @@ func (wb *wheeledBase) WrapWithKinematics(
 	}
 	return &kinematicWheeledBase{
 		wheeledBase: wb,
-		Localizer:   localizer,
+		localizer:   localizer,
 		model:       model,
 		fs:          fs,
 	}, err
@@ -60,7 +60,7 @@ func (kwb *kinematicWheeledBase) ModelFrame() referenceframe.Model {
 
 func (kwb *kinematicWheeledBase) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
 	// TODO(rb): make a transformation from the component reference to the base frame
-	pose, err := kwb.Localizer.GlobalPosition(ctx)
+	pose, err := kwb.localizer.GlobalPosition(ctx)
 	if err != nil {
 		return nil, err
 	}

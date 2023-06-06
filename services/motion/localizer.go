@@ -19,32 +19,32 @@ type Localizer interface {
 func NewLocalizer(ctx context.Context, res resource.Resource) (Localizer, error) {
 	switch res := res.(type) {
 	case slam.Service:
-		return &SLAMLocalizer{Service: res}, nil
+		return &slamLocalizer{Service: res}, nil
 	case movementsensor.MovementSensor:
-		return &MovementSensorLocalizer{MovementSensor: res}, nil
+		return &movementSensorLocalizer{MovementSensor: res}, nil
 	default:
 		return nil, fmt.Errorf("cannot localize on resource of type %T", res)
 	}
 }
 
-// SLAMLocalizer is a struct which only wraps an existing slam service.
-type SLAMLocalizer struct {
+// slamLocalizer is a struct which only wraps an existing slam service.
+type slamLocalizer struct {
 	slam.Service
 }
 
 // GlobalPosition returns slam's current position.
-func (s SLAMLocalizer) GlobalPosition(ctx context.Context) (spatialmath.Pose, error) {
+func (s slamLocalizer) GlobalPosition(ctx context.Context) (spatialmath.Pose, error) {
 	pose, _, err := s.GetPosition(ctx)
 	return pose, err
 }
 
 // MovementSensorLocalizer is a struct which only wraps an existing movementsensor.
-type MovementSensorLocalizer struct {
+type movementSensorLocalizer struct {
 	movementsensor.MovementSensor
 }
 
 // GlobalPosition returns a movementsensor's current position.
-func (m MovementSensorLocalizer) GlobalPosition(ctx context.Context) (spatialmath.Pose, error) {
+func (m movementSensorLocalizer) GlobalPosition(ctx context.Context) (spatialmath.Pose, error) {
 	gp, _, err := m.Position(ctx, nil)
 	if err != nil {
 		return nil, err

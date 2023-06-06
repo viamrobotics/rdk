@@ -62,7 +62,7 @@ func TestWrapWithKinematics(t *testing.T) {
 			basic, err := createWheeledBase(ctx, motorDeps, kinematicCfg, logger)
 			test.That(t, err, test.ShouldBeNil)
 			wrapper, limits := getSLAMLocalizer(t)
-			wb, err := basic.(*wheeledBase).WrapWithKinematics(ctx, wrapper, limits)
+			wb, err := basic.(*wheeledBase).WrapWithKinematics(ctx, *wrapper, limits)
 			test.That(t, err == nil, test.ShouldEqual, tc.success)
 			if err != nil {
 				return
@@ -96,7 +96,7 @@ func newWheeledBase(ctx context.Context, t *testing.T, logger golog.Logger) *kin
 		},
 	}
 	wrapper, limits := getSLAMLocalizer(t)
-	kb, err := wb.WrapWithKinematics(ctx, wrapper, limits)
+	kb, err := wb.WrapWithKinematics(ctx, *wrapper, limits)
 	test.That(t, err, test.ShouldBeNil)
 	kwb, ok := kb.(*kinematicWheeledBase)
 	test.That(t, ok, test.ShouldBeTrue)
@@ -132,7 +132,7 @@ func TestErrorState(t *testing.T) {
 	wrapper, _ := getSLAMLocalizer(t)
 	kwb := &kinematicWheeledBase{
 		wheeledBase: wb,
-		Localizer:   wrapper,
+		localizer:   *wrapper,
 		model:       model,
 		fs:          fs,
 	}
@@ -143,7 +143,7 @@ func TestErrorState(t *testing.T) {
 	test.That(t, headingErr, test.ShouldAlmostEqual, 30)
 }
 
-func getSLAMLocalizer(t *testing.T) (*motion.SLAMLocalizer, []referenceframe.Limit) {
+func getSLAMLocalizer(t *testing.T) (*motion.Localizer, []referenceframe.Limit) {
 	t.Helper()
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
@@ -154,7 +154,7 @@ func getSLAMLocalizer(t *testing.T) (*motion.SLAMLocalizer, []referenceframe.Lim
 	test.That(t, err, test.ShouldBeNil)
 
 	// construct localizer
-	return &motion.SLAMLocalizer{
-		Service: fakeSLAM,
-	}, limits
+	localizer, err := motion.NewLocalizer(ctx, fakeSLAM)
+	test.That(t, err, test.ShouldBeNil)
+	return &localizer, limits
 }
