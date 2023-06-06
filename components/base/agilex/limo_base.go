@@ -29,9 +29,8 @@ var (
 // default port for limo serial comm.
 const (
 	defaultSerialPath  = "/dev/ttyTHS1"
-	minTurningRadiusM  = 0.4           // from datasheet at: https://www.wevolver.com/specs/agilex-limo
-	defaultBaseTreadMm = 172           // "Tread" from datasheet at: https://www.wevolver.com/specs/agilex-limo
-	defaultBaseWidthM  = 220.0 * 0.001 // Width from engineering drawing athttps://docs.trossenrobotics.com/agilex_limo_docs/specifications/limo.html
+	minTurningRadiusM  = 0.4 // from datasheet at: https://www.wevolver.com/specs/agilex-limo
+	defaultBaseTreadMm = 172 // "Tread" from datasheet at: https://www.wevolver.com/specs/agilex-limo
 )
 
 // valid steering modes for limo.
@@ -440,8 +439,7 @@ func (lb *limoBase) Properties(ctx context.Context, extra map[string]interface{}
 
 	return base.Properties{
 		TurningRadiusMeters: lbTurnRadiusM,
-		// WidthMeters:         float64(lb.width) * 0.001, // convert from mm to meters
-		WidthMeters: float64(defaultBaseWidthM), // convert from mm to meters
+		WidthMeters:         float64(lb.width) * 0.001, // conver from mm to meters
 	}, nil
 }
 
