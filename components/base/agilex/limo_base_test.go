@@ -14,7 +14,8 @@ func TestLimoBaseConstructor(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 	deps := resource.Dependencies{}
-	expectedWidth := float64(defaultBaseTreadMm) * 0.001
+	// expectedWidth := float64(defaultBaseTreadMm) * 0.001
+	expectedWidth := defaultBaseWidthM
 	expectedTurningRadius := minTurningRadiusM // only for ackerman
 
 	c := make(chan []uint8, 100)
