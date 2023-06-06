@@ -1,6 +1,7 @@
 package pointcloud
 
 import (
+	"fmt"
 	"math"
 
 	"github.com/golang/geo/r3"
@@ -71,7 +72,7 @@ func (octree *BasicOctree) splitIntoOctants() error {
 						Y: j * newSideLength / 2.,
 						Z: k * newSideLength / 2.,
 					}
-					newCenter := octree.center.Add(centerOffset)
+					newCenter := limitFloatingPointPrecision(octree.center.Add(centerOffset), floatPointPrecision)
 
 					// Create a new basic octree child
 					child := &BasicOctree{
@@ -99,6 +100,9 @@ func (octree *BasicOctree) splitIntoOctants() error {
 
 // Checks that a point should be inside a basic octree based on its center and defined side length.
 func (octree *BasicOctree) checkPointPlacement(p r3.Vector) bool {
+	fmt.Printf(" ------ X calc: %v <= %v \n", math.Abs(octree.center.X-p.X), octree.sideLength/2.)
+	fmt.Printf(" ------ Y calc: %v <= %v \n", math.Abs(octree.center.Y-p.Y), octree.sideLength/2.)
+	fmt.Printf(" ------ Z calc: %v <= %v \n", math.Abs(octree.center.Z-p.Z), octree.sideLength/2.)
 	return ((math.Abs(octree.center.X-p.X) <= octree.sideLength/2.) &&
 		(math.Abs(octree.center.Y-p.Y) <= octree.sideLength/2.) &&
 		(math.Abs(octree.center.Z-p.Z) <= octree.sideLength/2.))
@@ -108,6 +112,10 @@ func (octree *BasicOctree) checkPointPlacement(p r3.Vector) bool {
 // If the maximum recursion depth is reached before a valid node is found for the point it will return
 // an error.
 func (octree *BasicOctree) helperSet(p r3.Vector, d Data, recursionDepth int) (int, error) {
+	fmt.Printf("Octree Node | Center: (%.2f, %.2f, %.2f) Side Length: %v | Point: (%.2f, %.2f, %.2f)\n", octree.center.X, octree.center.Y, octree.center.Z, octree.sideLength, p.X, p.Y, p.Z)
+
+	p = limitFloatingPointPrecision(p, floatPointPrecision)
+
 	if recursionDepth >= maxRecursionDepth {
 		return 0, errors.New("error max allowable recursion depth reached")
 	}
@@ -122,7 +130,11 @@ func (octree *BasicOctree) helperSet(p r3.Vector, d Data, recursionDepth int) (i
 	var err error
 	switch octree.node.nodeType {
 	case internalNode:
-		for _, childNode := range octree.node.children {
+		for i, childNode := range octree.node.children {
+			fmt.Println(i)
+			fmt.Printf("--- Child Node | Center: (%v, %v, %v) Side Length: %v | Point: (%v, %v, %v)\n", childNode.center.X, childNode.center.Y, childNode.center.Z, childNode.sideLength, p.X, p.Y, p.Z)
+			fmt.Printf("--- XBounds: [%.2f, %.2f] | %.2f\n--- YBounds: [%.2f, %.2f] | %.2f\n--- ZBounds: [%.2f, %.2f] | %.2f\n", childNode.center.X-childNode.sideLength/2, childNode.center.X+childNode.sideLength/2, p.X, childNode.center.Y-childNode.sideLength/2, childNode.center.Y+childNode.sideLength/2, p.Y, childNode.center.Z-childNode.sideLength/2, childNode.center.Z+childNode.sideLength/2, p.Z)
+
 			if childNode.checkPointPlacement(p) {
 				mv, err := childNode.helperSet(p, d, recursionDepth+1)
 				if err == nil {
@@ -200,4 +212,12 @@ func getCenterFromPcMetaData(meta MetaData) r3.Vector {
 // Helper function for calculating the max side length of a pointcloud based on its metadata.
 func getMaxSideLengthFromPcMetaData(meta MetaData) float64 {
 	return math.Max((meta.MaxX - meta.MinX), math.Max((meta.MaxY-meta.MinY), (meta.MaxZ-meta.MinZ)))
+}
+
+func limitFloatingPointPrecision(value r3.Vector, precision int) r3.Vector {
+	return r3.Vector{
+		X: math.Floor(value.X*math.Pow10(precision)) / math.Pow10(precision),
+		Y: math.Floor(value.Y*math.Pow10(precision)) / math.Pow10(precision),
+		Z: math.Floor(value.Z*math.Pow10(precision)) / math.Pow10(precision),
+	}
 }

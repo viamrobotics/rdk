@@ -14,7 +14,8 @@ const (
 	octreeVersion = 1.0
 	// This value allows for high level of granularity in the octree while still allowing for fast access times
 	// even on a pi.
-	maxRecursionDepth = 1000
+	maxRecursionDepth   = 1000
+	floatPointPrecision = 7
 )
 
 // NodeType represents the possible types of nodes in an octree.
@@ -49,7 +50,7 @@ func NewBasicOctree(center r3.Vector, sideLength float64) (*BasicOctree, error) 
 
 	octree := &BasicOctree{
 		node:       newLeafNodeEmpty(),
-		center:     center,
+		center:     limitFloatingPointPrecision(center, floatPointPrecision),
 		sideLength: sideLength,
 		size:       0,
 		meta:       NewMetaData(),

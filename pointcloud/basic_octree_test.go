@@ -1,6 +1,7 @@
 package pointcloud
 
 import (
+	"fmt"
 	"math"
 	"os"
 	"path/filepath"
@@ -696,4 +697,44 @@ func TestCachedMaxProbability(t *testing.T) {
 		mp = octree.node.children[0].MaxVal()
 		test.That(t, mp, test.ShouldEqual, -2)
 	})
+}
+
+// Test the functionalities involved with converting a pointcloud into a basic octree.
+func TestOctreeCreation(t *testing.T) {
+
+	path := "/Users/jeremyhyde/Downloads/octagonspace.pcd"
+	pcdFile, err := os.Open(path)
+	defer utils.UncheckedErrorFunc(pcdFile.Close)
+	test.That(t, err, test.ShouldBeNil)
+
+	startPC, err := ReadPCDToBasicOctree(pcdFile)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, err, test.ShouldBeNil)
+
+	center := getCenterFromPcMetaData(startPC.MetaData())
+	maxSideLength := getMaxSideLengthFromPcMetaData(startPC.MetaData())
+
+	basicOct, err := NewBasicOctree(center, maxSideLength)
+	test.That(t, err, test.ShouldBeNil)
+
+	startPC.Iterate(0, 0, func(p r3.Vector, d Data) bool {
+		if err = basicOct.Set(p, d); err != nil {
+			return false
+		}
+		return true
+	})
+
+	test.That(t, startPC.Size(), test.ShouldEqual, basicOct.Size())
+	//test.That(t, startPC.MetaData(), test.ShouldResemble, basicOct.meta)
+
+	// Check all points from the pointcloud have been properly added to the new basic octree
+	startPC.Iterate(0, 0, func(p r3.Vector, d Data) bool {
+		dOct, ok := basicOct.At(p.X, p.Y, p.Z)
+		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, d, test.ShouldResemble, dOct)
+		return true
+	})
+	fmt.Println("HELLO")
+	validateBasicOctree(t, basicOct, center, maxSideLength)
 }

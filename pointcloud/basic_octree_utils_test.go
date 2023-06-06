@@ -1,6 +1,7 @@
 package pointcloud
 
 import (
+	"fmt"
 	"math"
 	"testing"
 
@@ -170,10 +171,12 @@ func validateBasicOctree(t *testing.T, bOct *BasicOctree, center r3.Vector, side
 	t.Helper()
 
 	test.That(t, sideLength, test.ShouldEqual, bOct.sideLength)
-	test.That(t, center, test.ShouldResemble, bOct.center)
+	test.That(t, limitFloatingPointPrecision(center, floatPointPrecision), test.ShouldResemble, limitFloatingPointPrecision(bOct.center, floatPointPrecision))
 
+	fmt.Println("HELLO2")
 	validateMetadata(t, bOct)
 
+	fmt.Println("HELLO3")
 	var size int
 	maxVal := emptyProb
 	switch bOct.node.nodeType {
