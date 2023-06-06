@@ -45,7 +45,7 @@ type Base struct {
 }
 
 // NewBase instantiates a new base of the fake model type.
-func NewBase(ctx context.Context, conf resource.Config) (base.LocalBase, error) {
+func NewBase(ctx context.Context, conf resource.Config) (base.Base, error) {
 	return &Base{
 		Named:    conf.ResourceName().AsNamed(),
 		geometry: conf.Frame,

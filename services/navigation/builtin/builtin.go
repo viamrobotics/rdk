@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
-	"time"
 
 	"github.com/edaniels/golog"
 	geo "github.com/kellydunn/golang-geo"
@@ -238,9 +237,9 @@ func (svc *builtIn) startWaypoint(extra map[string]interface{}) error {
 
 		path := []*geo.Point{}
 		for {
-			if !utils.SelectContextOrWait(svc.cancelCtx, 500*time.Millisecond) {
-				return
-			}
+			// if !utils.SelectContextOrWait(svc.cancelCtx, 500*time.Millisecond) {
+			// 	return
+			// }
 			currentLoc, _, err := svc.movementSensor.Position(svc.cancelCtx, extra)
 			if err != nil {
 				svc.logger.Errorw("failed to get gps location", "error", err)
@@ -264,8 +263,6 @@ func (svc *builtIn) startWaypoint(extra map[string]interface{}) error {
 				if err != nil {
 					return err
 				}
-
-				
 
 				// bearingDelta := computeBearing(bearingToGoal, currentBearing)
 				// steeringDir := -bearingDelta / 180.0
@@ -296,7 +293,7 @@ func (svc *builtIn) startWaypoint(extra map[string]interface{}) error {
 				goal := wp.ToPoint()
 
 				// have ability to define destination heading here, but waypoint structure doesn't allow for that so using bearingToGoal as heading
-				_, err = svc.motion.MoveOnGlobe(ctx, svc.base.Name(), goal, bearingToGoal, svc.movementSensor.Name(), svc.obstacles, svc.metersPerSec * 1000, svc.degPerSec, nil)
+				_, err = svc.motion.MoveOnGlobe(ctx, svc.base.Name(), goal, bearingToGoal, svc.movementSensor.Name(), svc.obstacles, svc.metersPerSec*1000, svc.degPerSec, nil)
 
 				if err != nil {
 					return svc.waypointReached(ctx)

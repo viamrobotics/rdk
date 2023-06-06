@@ -7,12 +7,20 @@ import (
 
 	"github.com/edaniels/golog"
 	geo "github.com/kellydunn/golang-geo"
+	"go.viam.com/rdk/components/base"
 	_ "go.viam.com/rdk/components/base/fake"
+	fakebase "go.viam.com/rdk/components/base/fake"
 	_ "go.viam.com/rdk/components/movementsensor/fake"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/resource"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	_ "go.viam.com/rdk/services/motion/builtin"
 	"go.viam.com/rdk/services/navigation"
+	"go.viam.com/rdk/services/slam"
+	fakeslam "go.viam.com/rdk/services/slam/fake"
+	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/test"
 )
 
@@ -69,4 +77,68 @@ func TestNavSetup(t *testing.T) {
 	wayPt, err = ns.Waypoints(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(wayPt), test.ShouldEqual, 0)
+}
+
+func TestStartWaypoint(t *testing.T) {
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+	
+	injectMS := inject.NewMotionService("test_motion")
+	cfg := resource.Config{
+		Name: "test_base",
+		Frame: &referenceframe.LinkConfig{Geometry: &spatialmath.GeometryConfig{R: 100}},
+	}
+
+	fakeBase, err := fakebase.NewBase(ctx, cfg)
+	test.That(t, err, test.ShouldBeNil)
+
+	kinematicBase, err := fakeBase.(base.KinematicWrappable).WrapWithKinematics(ctx, fakeslam.NewSLAM(slam.Named("foo"), logger))
+	test.That(t, err, test.ShouldBeNil)
+
+	injectMovementSensor := inject.NewMovementSensor("test_movement")
+
+	injectMS.MoveOnGlobeFunc = func(
+		ctx context.Context,
+		componentName resource.Name,
+		destination *geo.Point,
+		heading float64,
+		movementSensorName resource.Name,
+		obstacles []*spatialmath.GeoObstacle,
+		linearVelocity float64,
+		angularVelocity float64,
+		extra map[string]interface{},
+	) (bool, error) {
+		err := kinematicBase.GoToInputs(ctx, referenceframe.FloatsToInputs([]float64{destination.Lat(), destination.Lng(), 0}))
+		return true, err
+	}
+
+	ns, err := NewBuiltIn(
+		ctx, 
+		resource.Dependencies{injectMS.Name(): injectMS, fakeBase.Name(): fakeBase, injectMovementSensor.Name(): injectMovementSensor},
+		resource.Config{
+			ConvertedAttributes: &Config{
+				Store: navigation.StoreConfig{
+					Type: navigation.StoreTypeMemory,
+				},
+				BaseName: "test_base",
+				MovementSensorName: "test_movement",
+				MotionServiceName: "test_motion",
+				DegPerSec: 1,
+				MetersPerSec: 1,
+			},
+		},
+		logger,
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	pt := geo.NewPoint(1, 0)
+	err = ns.AddWaypoint(ctx, pt, nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	err = ns.SetMode(ctx, 1, nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	inputs, err := kinematicBase.CurrentInputs(ctx)
+	actualpt := geo.NewPoint(inputs[0].Value, inputs[1].Value)
+	test.That(t, actualpt, test.ShouldResemble, pt)
 }
