@@ -43,7 +43,7 @@ import MotorSvelte from './motor/index.svelte';
 import MovementSensorSvelte from './movement-sensor/index.svelte';
 import Navigation from './navigation.vue';
 import ServoSvelte from './servo/index.svelte';
-import Sensors from './sensors.vue';
+import SensorsSvelte from './sensors/index.svelte';
 import Slam from './slam/index.vue';
 import { svelteAdapter } from '../lib/svelte-adapter';
 
@@ -52,6 +52,7 @@ const Motor = svelteAdapter(MotorSvelte);
 const MovementSensor = svelteAdapter(MovementSensorSvelte);
 const OperationsSessions = svelteAdapter(OperationsSessionsSvelte);
 const Servo = svelteAdapter(ServoSvelte);
+const Sensors = svelteAdapter(SensorsSvelte);
 
 import {
   fixArmStatus,
@@ -905,7 +906,7 @@ onUnmounted(() => {
         v-if="nonEmpty(sensorNames)"
         :name="filterNonRemoteResources(resources, 'rdk', 'service', 'sensors')[0]!.name"
         :client="client"
-        :sensor-names="sensorNames"
+        :sensorNames="sensorNames"
       />
 
       <!-- ******* AUDIO INPUTS *******  -->
