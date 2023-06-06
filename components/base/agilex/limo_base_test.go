@@ -18,6 +18,7 @@ func TestLimoBaseConstructor(t *testing.T) {
 
 	_, err := CreateLimoBase(context.Background(), resource.Config{ConvertedAttributes: &Config{}}, logger)
 	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldStartWith, "drive mode must be defined")
 
 	cfg := &Config{
 		DriveMode: "ackermann",
@@ -28,6 +29,8 @@ func TestLimoBaseConstructor(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	base, ok := baseBase.(*limoBase)
 	test.That(t, ok, test.ShouldBeTrue)
+
+	test.That(t, controllers[defaultSerial], test.ShouldNotBeNil)
 	width, _ := base.Width(ctx)
 	test.That(t, width, test.ShouldEqual, 172)
 	base.Close(ctx)
