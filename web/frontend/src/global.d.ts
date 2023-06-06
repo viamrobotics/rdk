@@ -1,5 +1,6 @@
 declare global {
   interface Window {
+
     /*
      * Our variables. @TODO: Remove most if not all of these. Do not add more.
      * This is an anti-pattern.
