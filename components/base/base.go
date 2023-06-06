@@ -58,7 +58,7 @@ type Base interface {
 	// angular is in degsPerSec
 	SetVelocity(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error
 
-	Properties(ctx context.Context, extra map[string]interface{}) (map[Feature]float64, error)
+	Properties(ctx context.Context, extra map[string]interface{}) (Feature, error)
 }
 
 // KinematicWrappable describes a base that can be wrapped with a kinematic model.

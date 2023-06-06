@@ -28,9 +28,9 @@ var (
 
 // default port for limo serial comm.
 const (
-	defaultSerialPath               = "/dev/ttyTHS1"
-	minTurningRadiusM = 0.4 // from datasheet at: https://www.wevolver.com/specs/agilex-limo
-
+	defaultSerialPath  = "/dev/ttyTHS1"
+	minTurningRadiusM  = 0.4 // from datasheet at: https://www.wevolver.com/specs/agilex-limo
+	defaultBaseTreadMm = 172 // "Tread" from datasheet at: https://www.wevolver.com/specs/agilex-limo
 )
 
 // valid steering modes for limo.
@@ -124,7 +124,7 @@ func createLimoBase(ctx context.Context, _ resource.Dependencies, conf resource.
 	globalMu.Lock()
 	sDevice := newConf.SerialDevice
 	if sDevice == "" {
-		sDevice = defaultSerial
+		sDevice = defaultSerialPath
 	}
 	ctrl, controllerExists := controllers[sDevice]
 	if !controllerExists {
@@ -164,7 +164,7 @@ func createLimoBase(ctx context.Context, _ resource.Dependencies, conf resource.
 		Named:              conf.ResourceName().AsNamed(),
 		driveMode:          newConf.DriveMode,
 		controller:         ctrl,
-		width:              172,
+		width:              defaultBaseTreadMm,
 		wheelbase:          200,
 		maxLinearVelocity:  1200,
 		maxAngularVelocity: 180,
@@ -427,19 +427,19 @@ func (lb *limoBase) IsMoving(ctx context.Context) (bool, error) {
 	return true, nil
 }
 
-func (lb *limoBase) Properties(ctx context.Context, extra map[string]interface{}) (map[base.Feature]float64, error) {
+func (lb *limoBase) Properties(ctx context.Context, extra map[string]interface{}) (base.Feature, error) {
 	var lbTurnRadiusM float64
 
 	switch lb.driveMode {
 	case ACKERMANN.String():
-		lbTurnRadiusM = agileXMinimumTurningRadiusM
+		lbTurnRadiusM = minTurningRadiusM
 	default:
 		lbTurnRadiusM = 0.0 // omni and differential can turn in place
 	}
 
-	return map[base.Feature]float64{
-		base.TurningRadiusM: lbTurnRadiusM,
-		base.WidthM:         float64(lb.width),
+	return base.Feature{
+		TurningRadiusMeters: lbTurnRadiusM,
+		WidthMeters:         float64(lb.width) * 0.001, // conver from mm to meters
 	}, nil
 }
 

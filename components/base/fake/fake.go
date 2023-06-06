@@ -82,10 +82,11 @@ func (b *Base) Close(ctx context.Context) error {
 	return nil
 }
 
-func (b *Base) Properties(ctx context.Context, extra map[string]interface{}) (map[base.Feature]float64, error) {
-	return map[base.Feature]float64{
-		base.TurningRadiusM: defaultMinimumTurningRadiusM,
-		base.WidthM:         defaultWidthMm * 0.001, // convert to meters
+// Properties returns the base's properties.
+func (b *Base) Properties(ctx context.Context, extra map[string]interface{}) (base.Feature, error) {
+	return base.Feature{
+		TurningRadiusMeters: defaultMinimumTurningRadiusM,
+		WidthMeters:         defaultWidthMm * 0.001, // convert to meters
 	}, nil
 }
 

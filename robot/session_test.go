@@ -918,8 +918,8 @@ func (db *dummyBase) IsMoving(context.Context) (bool, error) {
 	return false, nil
 }
 
-func (db *dummyBase) Properties(ctx context.Context, extra map[string]interface{}) (map[base.Feature]float64, error) {
-	return map[base.Feature]float64{}, nil
+func (db *dummyBase) Properties(ctx context.Context, extra map[string]interface{}) (base.Feature, error) {
+	return base.Feature{}, nil
 }
 
 // NewClientFromConn constructs a new client from connection passed in.

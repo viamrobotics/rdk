@@ -92,15 +92,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 }
 
 func init() {
-	wheeledBaseComp := resource.Registration[base.Base, *Config]{
-		Constructor: func(
-			ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger,
-		) (base.Base, error) {
-			return createWheeledBase(ctx, deps, conf, logger)
-		},
-	}
-
-	resource.RegisterComponent(base.API, Model, wheeledBaseComp)
+	resource.RegisterComponent(base.API, Model, resource.Registration[base.Base, *Config]{Constructor: createWheeledBase})
 }
 
 type wheeledBase struct {
@@ -452,9 +444,9 @@ func (wb *wheeledBase) Close(ctx context.Context) error {
 	return wb.Stop(ctx, nil)
 }
 
-func (wb *wheeledBase) Properties(ctx context.Context, extra map[string]interface{}) (map[base.Feature]float64, error) {
-	return map[base.Feature]float64{
-		base.TurningRadiusM: 0.0,
-		base.WidthM:         float64(wb.widthMm) * 0.001, // convert to meters from mm
+func (wb *wheeledBase) Properties(ctx context.Context, extra map[string]interface{}) (base.Feature, error) {
+	return base.Feature{
+		TurningRadiusMeters: 0.0,
+		WidthMeters:         float64(wb.widthMm) * 0.001, // convert to meters from mm
 	}, nil
 }

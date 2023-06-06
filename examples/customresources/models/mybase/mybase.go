@@ -21,6 +21,11 @@ var (
 	errUnimplemented = errors.New("unimplemented")
 )
 
+const (
+	myBaseWidthMm        = 500.0 // our dummy base has a wheel tread of 500 millimeters
+	myBaseTruningRadiusM = 0.3   // our dummy base turns around a circle of radius .3 meters
+)
+
 func init() {
 	resource.RegisterComponent(base.API, Model, resource.Registration[base.Base, *MyBaseConfig]{
 		Constructor: newBase,
@@ -87,38 +92,38 @@ type MyBase struct {
 	logger golog.Logger
 }
 
-func (base *MyBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error {
+func (myBase *MyBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error {
 	return errUnimplemented
 }
 
-func (base *MyBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
+func (myBase *MyBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
 	return errUnimplemented
 }
 
-func (base *MyBase) SetVelocity(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
+func (myBase *MyBase) SetVelocity(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
 	return errUnimplemented
 }
 
-func (base *MyBase) SetPower(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
-	base.logger.Debugf("SetPower Linear: %.2f Angular: %.2f", linear.Y, angular.Z)
+func (myBase *MyBase) SetPower(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
+	myBase.logger.Debugf("SetPower Linear: %.2f Angular: %.2f", linear.Y, angular.Z)
 	if math.Abs(linear.Y) < 0.01 && math.Abs(angular.Z) < 0.01 {
-		return base.Stop(ctx, extra)
+		return myBase.Stop(ctx, extra)
 	}
 	sum := math.Abs(linear.Y) + math.Abs(angular.Z)
-	err1 := base.left.SetPower(ctx, (linear.Y-angular.Z)/sum, extra)
-	err2 := base.right.SetPower(ctx, (linear.Y+angular.Z)/sum, extra)
+	err1 := myBase.left.SetPower(ctx, (linear.Y-angular.Z)/sum, extra)
+	err2 := myBase.right.SetPower(ctx, (linear.Y+angular.Z)/sum, extra)
 	return multierr.Combine(err1, err2)
 }
 
-func (base *MyBase) Stop(ctx context.Context, extra map[string]interface{}) error {
-	base.logger.Debug("Stop")
-	err1 := base.left.Stop(ctx, extra)
-	err2 := base.right.Stop(ctx, extra)
+func (myBase *MyBase) Stop(ctx context.Context, extra map[string]interface{}) error {
+	myBase.logger.Debug("Stop")
+	err1 := myBase.left.Stop(ctx, extra)
+	err2 := myBase.right.Stop(ctx, extra)
 	return multierr.Combine(err1, err2)
 }
 
-func (base *MyBase) IsMoving(ctx context.Context) (bool, error) {
-	for _, m := range []motor.Motor{base.left, base.right} {
+func (myBase *MyBase) IsMoving(ctx context.Context) (bool, error) {
+	for _, m := range []motor.Motor{myBase.left, myBase.right} {
 		isMoving, _, err := m.IsPowered(ctx, nil)
 		if err != nil {
 			return false, err
@@ -130,10 +135,13 @@ func (base *MyBase) IsMoving(ctx context.Context) (bool, error) {
 	return false, nil
 }
 
-func (base *MyBase) Properties(ctx context.Context, extra map[string]interface{}) (map[base.Feature]float64, error) {
-	return nil, errUnimplemented
+func (myBase *MyBase) Properties(ctx context.Context, extra map[string]interface{}) (base.Feature, error) {
+	return base.Feature{
+		TurningRadiusMeters: myBaseTruningRadiusM,
+		WidthMeters:         myBaseWidthMm * 0.001, // converting millimeters to meters
+	}, nil
 }
 
-func (base *MyBase) Close(ctx context.Context) error {
-	return base.Stop(ctx, nil)
+func (myBase *MyBase) Close(ctx context.Context) error {
+	return myBase.Stop(ctx, nil)
 }

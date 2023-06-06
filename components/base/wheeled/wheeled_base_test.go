@@ -62,7 +62,7 @@ func TestWheelBaseMath(t *testing.T) {
 	t.Run("basics", func(t *testing.T) {
 		props, err := wb.Properties(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, props[base.WidthM], test.ShouldEqual, 100)
+		test.That(t, props.WidthMeters, test.ShouldEqual, 100*0.001)
 	})
 
 	t.Run("math_straight", func(t *testing.T) {
