@@ -26,6 +26,7 @@ import (
 )
 
 func TestInjectedCameras(t *testing.T) {
+	base1 := &inject.Base{}
 	cam1 := &inject.Camera{}
 	cam2 := &inject.Camera{}
 	cam3 := &inject.Camera{}
@@ -47,7 +48,7 @@ func TestInjectedCameras(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		return pc3, nil
 	}
-	base1 := &inject.Base{}
+	// create a very simple frame system
 	fs := inject.NewFrameSystemService()
 	fs.CurrentInputsFunc = func(ctx context.Context) (map[string][]referenceframe.Input, map[string]referenceframe.InputEnabled, error) {
 		return nil, nil, nil // doesn't matter for test
