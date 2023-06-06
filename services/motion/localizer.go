@@ -15,7 +15,7 @@ type Localizer interface {
 	GlobalPosition(context.Context) (spatialmath.Pose, error)
 }
 
-// NewLocalizer constructs either a SLAMLocalizer or MovementSensorLocalizer from the given resource
+// NewLocalizer constructs either a SLAMLocalizer or MovementSensorLocalizer from the given resource.
 func NewLocalizer(ctx context.Context, res resource.Resource) (Localizer, error) {
 	switch res := res.(type) {
 	case slam.Service:
