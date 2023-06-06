@@ -66,8 +66,7 @@ func TestValidateRTK(t *testing.T) {
 
 	fakecfg.CorrectionSource = "ntrip"
 	_, err = fakecfg.Validate(path)
-	test.That(t, err, test.ShouldBeError,
-		utils.NewConfigValidationFieldRequiredError(path, "ntrip_addr"))
+	test.That(t, err, test.ShouldBeError, utils.NewConfigValidationFieldRequiredError(path, "ntrip_addr"))
 
 	fakecfg.NtripConfig.NtripAddr = "http://fakeurl"
 	_, err = fakecfg.Validate(path)
@@ -77,8 +76,7 @@ func TestValidateRTK(t *testing.T) {
 		test.ShouldBeError,
 		utils.NewConfigValidationFieldRequiredError(path, "ntrip_input_protocol"),
 	)
-
-	fakecfg.NtripConfig.NtripInputProtocol = "serial"
+	fakecfg.NtripInputProtocol = "serial"
 	_, err = fakecfg.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
 }
@@ -130,6 +128,7 @@ func TestNewRTKMovementSensor(t *testing.T) {
 			},
 			ConvertedAttributes: &Config{
 				CorrectionSource: "serial",
+				ConnectionType:   "serial",
 				Board:            "",
 				SerialConfig: &SerialConfig{
 					SerialPath:               path,
@@ -179,6 +178,7 @@ func TestNewRTKMovementSensor(t *testing.T) {
 			},
 			ConvertedAttributes: &Config{
 				CorrectionSource: "i2c",
+				ConnectionType:   "i2c",
 				Board:            testBoardName,
 				I2CConfig: &I2CConfig{
 					I2CBus:      testBusName,

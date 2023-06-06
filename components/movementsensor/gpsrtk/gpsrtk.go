@@ -18,7 +18,6 @@ import (
 	"github.com/golang/geo/r3"
 	slib "github.com/jacobsa/go-serial/serial"
 	geo "github.com/kellydunn/golang-geo"
-	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
@@ -78,11 +77,10 @@ type I2CConfig struct {
 // Validate ensures all parts of the config are valid.
 func (cfg *Config) Validate(path string) ([]string, error) {
 	var deps []string
-	var allErrs error
 
 	dep, err := cfg.validateCorrectionSource(path)
 	if err != nil {
-		allErrs = multierr.Combine(allErrs, err)
+		return nil, err
 	}
 	if dep != nil {
 		deps = append(deps, dep...)
@@ -90,7 +88,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 
 	dep, err = cfg.validateConnectionType(path)
 	if err != nil {
-		allErrs = multierr.Combine(allErrs, err)
+		return nil, err
 	}
 	if dep != nil {
 		deps = append(deps, dep...)
@@ -99,14 +97,14 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 	if cfg.CorrectionSource == ntripStr {
 		dep, err = cfg.validateNtripInputProtocol(path)
 		if err != nil {
-			allErrs = multierr.Combine(allErrs, err)
+			return nil, err
 		}
 	}
 	if dep != nil {
 		deps = append(deps, dep...)
 	}
 
-	return deps, allErrs
+	return deps, nil
 }
 
 func (cfg *Config) validateCorrectionSource(path string) ([]string, error) {
@@ -158,8 +156,6 @@ func (cfg *Config) validateNtripInputProtocol(path string) ([]string, error) {
 		return deps, cfg.I2CConfig.ValidateI2C(path)
 	case serialStr:
 		return nil, cfg.SerialConfig.ValidateSerial(path)
-	case "":
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "ntrip_input_protocol")
 	default:
 		return nil, errInputProtocolValidation
 	}
@@ -280,7 +276,7 @@ func newRTKMovementSensor(
 		}
 	default:
 		// Invalid protocol
-		return nil, fmt.Errorf("%s is not a valid protocol", g.inputProtocol)
+		return nil, fmt.Errorf("%s is not a valid connection type", newConf.ConnectionType)
 	}
 
 	// Init ntripInfo from attributes
