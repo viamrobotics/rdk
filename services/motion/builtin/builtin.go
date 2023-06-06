@@ -269,6 +269,15 @@ func (ms *builtIn) MoveOnGlobe(
 		return false, resource.DependencyNotFoundError(movementSensorName)
 	}
 
+	// assert localizer as movementSensor to get current geo point
+	movementSensor, ok := localizer.(movementsensor.MovementSensor)
+	if !ok {
+		return false, fmt.Errorf("cannot assert localizer of type %T as movementSensor", localizer)
+	}
+
+	currentGP, _, _ := movementSensor.Position(ctx, nil)
+	straightlineDistance := currentGP.GreatCircleDistance(destination)
+
 	// convert destination into spatialmath.Pose with respect to lat = 0 = lng
 	dstPose := spatialmath.GeoPointToPose(destination)
 	dstPIF := referenceframe.NewPoseInFrame(referenceframe.World, dstPose)
@@ -283,8 +292,8 @@ func (ms *builtIn) MoveOnGlobe(
 
 	// construct limits
 	limits := []referenceframe.Limit{
-		{Min: math.Inf(-1), Max: math.Inf(1)},
-		{Min: math.Inf(-1), Max: math.Inf(1)},
+		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
+		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
 		{Min: -2 * math.Pi, Max: 2 * math.Pi},
 	}
 
