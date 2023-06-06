@@ -72,13 +72,16 @@ func (fs *FrameSystemService) TransformPointCloud(
 }
 
 // CurrentInputs calls the injected method or the real variant.
-func (fs *FrameSystemService) CurrentInputs(ctx context.Context) (map[string][]referenceframe.Input, map[string]referenceframe.InputEnabled, error) {
+func (fs *FrameSystemService) CurrentInputs(ctx context.Context) (
+	map[string][]referenceframe.Input, map[string]referenceframe.InputEnabled, error,
+) {
 	if fs.CurrentInputsFunc == nil {
 		return fs.Service.CurrentInputs(ctx)
 	}
 	return fs.CurrentInputsFunc(ctx)
 }
 
+// FrameSystem calls the injected method of the real variant.
 func (fs *FrameSystemService) FrameSystem(
 	ctx context.Context,
 	additionalTransforms []*referenceframe.LinkInFrame,
