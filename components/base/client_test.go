@@ -20,11 +20,10 @@ import (
 func setupWorkingBase(
 	workingBase *inject.Base,
 	argsReceived map[string][]interface{},
-	// width int,
 	expectedFeatures base.Properties,
 ) {
 	workingBase.MoveStraightFunc = func(
-		ctx context.Context, distanceMm int,
+		_ context.Context, distanceMm int,
 		mmPerSec float64,
 		extra map[string]interface{},
 	) error {
@@ -33,7 +32,7 @@ func setupWorkingBase(
 	}
 
 	workingBase.SpinFunc = func(
-		ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{},
+		_ context.Context, angleDeg, degsPerSec float64, extra map[string]interface{},
 	) error {
 		argsReceived["Spin"] = []interface{}{angleDeg, degsPerSec, extra}
 		return nil
@@ -89,12 +88,11 @@ func TestClient(t *testing.T) {
 	argsReceived := map[string][]interface{}{}
 
 	workingBase := &inject.Base{}
-	// expectedWidth := 100
 	expectedFeatures := base.Properties{
 		TurningRadiusMeters: 1.2,
 		WidthMeters:         float64(100) * 0.001,
 	}
-	setupWorkingBase(workingBase, argsReceived /*expectedWidth,*/, expectedFeatures)
+	setupWorkingBase(workingBase, argsReceived, expectedFeatures)
 
 	brokenBase := &inject.Base{}
 	setupBrokenBase(brokenBase)
@@ -136,45 +134,50 @@ func TestClient(t *testing.T) {
 	t.Run("working base client", func(t *testing.T) {
 		expectedExtra := map[string]interface{}{"foo": "bar"}
 
-		// MoveStraight
-		distance := 42
-		mmPerSec := 42.0
-		err = workingBaseClient.MoveStraight(
-			context.Background(),
-			distance,
-			mmPerSec,
-			map[string]interface{}{"foo": "bar"},
-		)
-		test.That(t, err, test.ShouldBeNil)
-		expectedArgs := []interface{}{distance, mmPerSec, expectedExtra}
-		test.That(t, argsReceived["MoveStraight"], test.ShouldResemble, expectedArgs)
+		t.Run("working MoveStraight", func(t *testing.T) {
+			distance := 42
+			mmPerSec := 42.0
+			err = workingBaseClient.MoveStraight(
+				context.Background(),
+				distance,
+				mmPerSec,
+				map[string]interface{}{"foo": "bar"},
+			)
+			test.That(t, err, test.ShouldBeNil)
+			expectedArgs := []interface{}{distance, mmPerSec, expectedExtra}
+			test.That(t, argsReceived["MoveStraight"], test.ShouldResemble, expectedArgs)
+		})
 
-		// DoCommand
-		resp, err := workingBaseClient.DoCommand(context.Background(), testutils.TestCommand)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp["command"], test.ShouldEqual, testutils.TestCommand["command"])
-		test.That(t, resp["data"], test.ShouldEqual, testutils.TestCommand["data"])
+		t.Run("working DoCommand", func(t *testing.T) {
+			resp, err := workingBaseClient.DoCommand(context.Background(), testutils.TestCommand)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, resp["command"], test.ShouldEqual, testutils.TestCommand["command"])
+			test.That(t, resp["data"], test.ShouldEqual, testutils.TestCommand["data"])
+		})
 
-		// Spin
-		angleDeg := 90.0
-		degsPerSec := 30.0
-		err = workingBaseClient.Spin(
-			context.Background(),
-			angleDeg,
-			degsPerSec,
-			map[string]interface{}{"foo": "bar"})
-		test.That(t, err, test.ShouldBeNil)
-		expectedArgs = []interface{}{angleDeg, degsPerSec, expectedExtra}
-		test.That(t, argsReceived["Spin"], test.ShouldResemble, expectedArgs)
+		t.Run("working Spin", func(t *testing.T) {
+			angleDeg := 90.0
+			degsPerSec := 30.0
+			err = workingBaseClient.Spin(
+				context.Background(),
+				angleDeg,
+				degsPerSec,
+				map[string]interface{}{"foo": "bar"})
+			test.That(t, err, test.ShouldBeNil)
+			expectedArgs := []interface{}{angleDeg, degsPerSec, expectedExtra}
+			test.That(t, argsReceived["Spin"], test.ShouldResemble, expectedArgs)
+		})
 
-		// Properties
-		features, err := workingBaseClient.Properties(context.Background(), expectedExtra)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, features, test.ShouldResemble, expectedFeatures)
+		t.Run("working Properties", func(t *testing.T) {
+			features, err := workingBaseClient.Properties(context.Background(), expectedExtra)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, features, test.ShouldResemble, expectedFeatures)
+		})
 
-		// Stop
-		err = workingBaseClient.Stop(context.Background(), nil)
-		test.That(t, err, test.ShouldBeNil)
+		t.Run("working Stop", func(t *testing.T) {
+			err = workingBaseClient.Stop(context.Background(), nil)
+			test.That(t, err, test.ShouldBeNil)
+		})
 	})
 
 	t.Run("working base client by dialing", func(t *testing.T) {

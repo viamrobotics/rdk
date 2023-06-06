@@ -23,7 +23,7 @@ var (
 
 const (
 	myBaseWidthMm        = 500.0 // our dummy base has a wheel tread of 500 millimeters
-	myBaseTruningRadiusM = 0.3   // our dummy base turns around a circle of radius .3 meters
+	myBaseTurningRadiusM = 0.3   // our dummy base turns around a circle of radius .3 meters
 )
 
 func init() {
@@ -137,7 +137,7 @@ func (myBase *MyBase) IsMoving(ctx context.Context) (bool, error) {
 
 func (myBase *MyBase) Properties(ctx context.Context, extra map[string]interface{}) (base.Properties, error) {
 	return base.Properties{
-		TurningRadiusMeters: myBaseTruningRadiusM,
+		TurningRadiusMeters: myBaseTurningRadiusM,
 		WidthMeters:         myBaseWidthMm * 0.001, // converting millimeters to meters
 	}, nil
 }

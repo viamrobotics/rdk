@@ -439,7 +439,7 @@ func (lb *limoBase) Properties(ctx context.Context, extra map[string]interface{}
 
 	return base.Properties{
 		TurningRadiusMeters: lbTurnRadiusM,
-		WidthMeters:         float64(lb.width) * 0.001, // conver from mm to meters
+		WidthMeters:         float64(lb.width) * 0.001, // convert from mm to meters
 	}, nil
 }
 

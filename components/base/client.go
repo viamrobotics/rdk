@@ -146,5 +146,5 @@ func (c *client) Properties(ctx context.Context, extra map[string]interface{}) (
 	if err != nil {
 		return Properties{}, err
 	}
-	return ProtoFeaturesToMap(resp), nil
+	return ProtoFeaturesToProperties(resp), nil
 }
