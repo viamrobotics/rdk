@@ -10,7 +10,7 @@ import (
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/services/motion/localizer"
+	"go.viam.com/rdk/services/motion"
 )
 
 func init() {
@@ -92,14 +92,14 @@ func (b *Base) Close(ctx context.Context) error {
 type kinematicBase struct {
 	*Base
 	model referenceframe.Model
-	localizer.Localizer
+	motion.Localizer
 	inputs []referenceframe.Input
 }
 
 // WrapWithKinematics creates a KinematicBase from the fake Base so that it satisfies the ModelFramer and InputEnabled interfaces.
 func (b *Base) WrapWithKinematics(
 	ctx context.Context,
-	localizer localizer.Localizer,
+	localizer motion.Localizer,
 	limits []referenceframe.Limit,
 ) (base.KinematicBase, error) {
 	geometry, err := base.CollisionGeometry(b.geometry)

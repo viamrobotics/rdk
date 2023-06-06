@@ -12,7 +12,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/services/motion/localizer"
+	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -68,7 +68,7 @@ type LocalBase interface {
 
 // KinematicWrappable describes a base that can be wrapped with a kinematic model.
 type KinematicWrappable interface {
-	WrapWithKinematics(context.Context, localizer.Localizer, []referenceframe.Limit) (KinematicBase, error)
+	WrapWithKinematics(context.Context, motion.Localizer, []referenceframe.Limit) (KinematicBase, error)
 }
 
 // KinematicBase is an interface for Bases that also satisfy the ModelFramer and InputEnabled interfaces.

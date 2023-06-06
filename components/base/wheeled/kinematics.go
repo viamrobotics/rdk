@@ -9,7 +9,7 @@ import (
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/services/motion/localizer"
+	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -22,7 +22,7 @@ const (
 
 type kinematicWheeledBase struct {
 	*wheeledBase
-	localizer.Localizer
+	motion.Localizer
 	model referenceframe.Model
 	fs    referenceframe.FrameSystem
 }
@@ -31,7 +31,7 @@ type kinematicWheeledBase struct {
 // It also adds kinematic model so that it can be controlled.
 func (wb *wheeledBase) WrapWithKinematics(
 	ctx context.Context,
-	localizer localizer.Localizer,
+	localizer motion.Localizer,
 	limits []referenceframe.Limit,
 ) (base.KinematicBase, error) {
 	geometry, err := base.CollisionGeometry(wb.frame)
