@@ -53,11 +53,15 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := conf.IntrinsicParams.CheckValid(); err != nil {
-		return nil, err
+	if conf.IntrinsicParams != nil {
+		if err := conf.IntrinsicParams.CheckValid(); err != nil {
+			return nil, err
+		}
 	}
-	if err := conf.DistortionParams.CheckValid(); err != nil {
-		return nil, err
+	if conf.DistortionParams != nil {
+		if err := conf.DistortionParams.CheckValid(); err != nil {
+			return nil, err
+		}
 	}
 	return nil, nil
 }
