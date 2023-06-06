@@ -125,7 +125,7 @@ func GetCartesianDistance(p, q *geo.Point) (float64, float64) {
 func GeoPointToPose(p *geo.Point) Pose {
 	latDist, lngDist := GetCartesianDistance(geo.NewPoint(0, 0), p)
 	// multiply by 1000000 to convert km to mm
-	return NewPoseFromPoint(r3.Vector{latDist * 1000000, lngDist * 1000000, 0})
+	return NewPoseFromPoint(r3.Vector{latDist * 1e6, lngDist * 1e6, 0})
 }
 
 // GeoObstaclesToGeometries converts GeoObstacles into a Geometries.
