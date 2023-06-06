@@ -264,7 +264,7 @@ func (ms *builtIn) MoveOnGlobe(
 	fs := referenceframe.NewEmptyFrameSystem("")
 
 	// build maps of input enabled resources
-	_, resources, err := ms.fsService.CurrentInputs(ctx)
+	inputs, resources, err := ms.fsService.CurrentInputs(ctx)
 	if err != nil {
 		return false, err
 	}
@@ -276,6 +276,9 @@ func (ms *builtIn) MoveOnGlobe(
 	}
 
 	currentPose, err := localizer.GlobalPosition(ctx)
+	if err != nil {
+		return false, err
+	}
 
 	// convert destination into a spatialmath pose in frame with respect to 0 latitude, 0 longitude
 	dstPose := spatialmath.GeoPointToPose(destination)
@@ -318,11 +321,7 @@ func (ms *builtIn) MoveOnGlobe(
 	}
 
 	// get current position
-	inputs, err := kb.CurrentInputs(ctx)
-	if err != nil {
-		return false, err
-	}
-	inputMap := map[string][]referenceframe.Input{kb.ModelFrame().Name(): inputs}
+	inputMap := map[string][]referenceframe.Input{kb.ModelFrame().Name(): inputs[componentName.Name]}
 
 	// Add the kinematic wheeled base to the framesystem
 	if err := fs.AddFrame(kb.ModelFrame(), fs.World()); err != nil {
