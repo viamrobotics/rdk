@@ -1,8 +1,6 @@
 package referenceframe
 
 import (
-	"context"
-	"math"
 	"strconv"
 
 	"github.com/jedib0t/go-pretty/v6/table"
@@ -162,41 +160,4 @@ func (ws *WorldState) ObstaclesInWorldFrame(fs FrameSystem, inputs map[string][]
 		allGeometries = append(allGeometries, tf.(*GeometriesInFrame).Geometries()...)
 	}
 	return NewGeometriesInFrame(World, allGeometries), nil
-}
-
-// BoundingBox returns a list of limits specifying max and min x and y values.
-func (ws *WorldState) BoundingBox(ctx context.Context, limits []Limit) []Limit {
-	var xSlice []float64
-	var ySlice []float64
-
-	if len(ws.obstacleNames) == 0 {
-		return limits
-	}
-
-	for _, gf := range ws.obstacles {
-		for _, geom := range gf.geometries {
-			xSlice = append(xSlice, geom.Pose().Point().X)
-			ySlice = append(ySlice, geom.Pose().Point().Y)
-		}
-	}
-	minX, maxX := minandmax(xSlice)
-	minY, maxY := minandmax(ySlice)
-	return []Limit{
-		{Min: math.Min(minX, limits[0].Min), Max: math.Max(maxX, limits[0].Max)},
-		{Min: math.Min(minY, limits[1].Min), Max: math.Max(maxY, limits[0].Max)},
-	}
-}
-
-func minandmax(values []float64) (float64, float64) {
-	min := values[0]
-	max := values[0]
-	for _, number := range values {
-		if number < min {
-			min = number
-		}
-		if number > max {
-			max = number
-		}
-	}
-	return min, max
 }

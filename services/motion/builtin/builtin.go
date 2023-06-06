@@ -198,7 +198,7 @@ func (ms *builtIn) MoveOnMap(
 	// assert localizer as a slam service and get map limits
 	slamSvc, ok := localizer.(slam.Service)
 	if !ok {
-		return false, fmt.Errorf("cannot assert local of type %T as slam service", localizer)
+		return false, fmt.Errorf("cannot assert localizer of type %T as slam service", localizer)
 	}
 
 	// gets the extents of the SLAM map
@@ -260,27 +260,16 @@ func (ms *builtIn) MoveOnGlobe(
 ) (bool, error) {
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
 
-	// create a new empty framesystem which we will add our base to
+	// create a new empty framesystem which we add our base to
 	fs := referenceframe.NewEmptyFrameSystem("")
 
-	// build maps of input enabled resources
-	_, resources, err := ms.fsService.CurrentInputs(ctx)
-	if err != nil {
-		return false, err
-	}
-
-	// get the movementSensor from the componentName
+	// get the localizer from the componentName
 	localizer, ok := ms.localizer[movementSensorName]
 	if !ok {
 		return false, resource.DependencyNotFoundError(movementSensorName)
 	}
 
-	currentPose, err := localizer.GlobalPosition(ctx)
-	if err != nil {
-		return false, err
-	}
-
-	// convert destination into a spatialmath pose in frame with respect to 0 latitude, 0 longitude
+	// convert destination into spatialmath.Pose with respect to lat = 0 = lng
 	dstPose := spatialmath.GeoPointToPose(destination)
 	dstPIF := referenceframe.NewPoseInFrame(referenceframe.World, dstPose)
 
@@ -292,19 +281,12 @@ func (ms *builtIn) MoveOnGlobe(
 		return false, err
 	}
 
-	// construct naive limits from destintion and current position
-	minX := math.Min(currentPose.Point().X, dstPose.Point().X)
-	maxX := math.Max(currentPose.Point().X, dstPose.Point().X)
-	minY := math.Min(currentPose.Point().Y, dstPose.Point().Y)
-	maxY := math.Max(currentPose.Point().Y, dstPose.Point().Y)
+	// construct limits
 	limits := []referenceframe.Limit{
-		{Min: minX, Max: maxX},
-		{Min: minY, Max: maxY},
+		{Min: math.Inf(-1), Max: math.Inf(1)},
+		{Min: math.Inf(-1), Max: math.Inf(1)},
 		{Min: -2 * math.Pi, Max: 2 * math.Pi},
 	}
-
-	// recalculate limits with respect to worldstate
-	limits = wrldst.BoundingBox(ctx, limits)
 
 	// create a KinematicBase from the componentName
 	baseComponent, ok := ms.components[componentName]
@@ -325,7 +307,7 @@ func (ms *builtIn) MoveOnGlobe(
 	if err != nil {
 		return false, err
 	}
-	inputMap := map[string][]referenceframe.Input{kb.ModelFrame().Name(): inputs}
+	inputMap := map[string][]referenceframe.Input{componentName.Name: inputs}
 
 	// Add the kinematic wheeled base to the framesystem
 	if err := fs.AddFrame(kb.ModelFrame(), fs.World()); err != nil {
@@ -352,17 +334,18 @@ func (ms *builtIn) MoveOnGlobe(
 
 	// execute the plan
 	for _, step := range plan {
-		for name, inputs := range step {
+		for _, inputs := range step {
 			if len(inputs) == 0 {
 				continue
 			}
-			if err := resources[name].GoToInputs(ctx, inputs); err != nil {
+			if err := kb.GoToInputs(ctx, inputs); err != nil {
 				// if context is cancelled we only stop the base
 				kb.Stop(ctx, nil)
 				return false, err
 			}
 		}
 	}
+
 	return true, nil
 }
 

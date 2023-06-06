@@ -112,7 +112,7 @@ func GeoObstaclesFromConfig(config *GeoObstacleConfig) ([]*GeoObstacle, error) {
 	return gobs, nil
 }
 
-// GetCartesianDistance calculates the great circle distance between p and q.
+// GetCartesianDistance calculates the latitude and longitide displacement between p and q in kilometers.
 func GetCartesianDistance(p, q *geo.Point) (float64, float64) {
 	mod := geo.NewPoint(p.Lat(), q.Lng())
 	// Calculates the Haversine distance between two points in kilometers
@@ -124,7 +124,7 @@ func GetCartesianDistance(p, q *geo.Point) (float64, float64) {
 // GeoPointToPose converts p into a spatialmath pose relative to lng = 0 = lat.
 func GeoPointToPose(p *geo.Point) Pose {
 	latDist, lngDist := GetCartesianDistance(geo.NewPoint(0, 0), p)
-	// multiple by 1000000 to convert km to mm
+	// multiply by 1000000 to convert km to mm
 	return NewPoseFromPoint(r3.Vector{latDist * 1000000, lngDist * 1000000, 0})
 }
 

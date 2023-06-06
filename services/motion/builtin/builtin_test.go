@@ -247,7 +247,7 @@ func TestMoveOnGlobe(t *testing.T) {
 		success, err := ms.MoveOnGlobe(
 			context.Background(),
 			base.Named("test-base"),
-			geo.NewPoint(0.0, 0.0),
+			geo.NewPoint(0, 0),
 			math.NaN(),
 			movementsensor.Named("test-gps"),
 			nil,
