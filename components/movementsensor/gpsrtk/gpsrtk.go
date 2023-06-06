@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 	"sync"
 
 	"github.com/de-bkg/gognss/pkg/ntrip"
@@ -28,8 +29,7 @@ import (
 )
 
 var (
-	// ErrCorrectionSourceValidation contains the model substring for the available correction source types.
-	ErrCorrectionSourceValidation = fmt.Errorf("only serial, i2c, and ntrip are supported correction sources for %s", roverModel.Name)
+	errCorrectionSourceValidation = fmt.Errorf("only serial, i2c, and ntrip are supported correction sources for %s", roverModel.Name)
 	errConnectionTypeValidation   = fmt.Errorf("only serial and i2c are supported connection types for %s", roverModel.Name)
 	errInputProtocolValidation    = fmt.Errorf("only serial and i2c are supported input protocols for %s", roverModel.Name)
 )
@@ -123,13 +123,13 @@ func (cfg *Config) validateCorrectionSource(path string) ([]string, error) {
 	case "":
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "correction_source")
 	default:
-		return nil, ErrCorrectionSourceValidation
+		return nil, errCorrectionSourceValidation
 	}
 }
 
 func (cfg *Config) validateConnectionType(path string) ([]string, error) {
 	var deps []string
-	switch cfg.ConnectionType {
+	switch strings.ToLower(cfg.ConnectionType) {
 	case i2cStr:
 		if cfg.Board == "" {
 			return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
@@ -247,7 +247,7 @@ func newRTKMovementSensor(
 	}
 
 	if newConf.CorrectionSource == ntripStr {
-		g.inputProtocol = newConf.NtripInputProtocol
+		g.inputProtocol = strings.ToLower(newConf.NtripInputProtocol)
 	} else {
 		g.inputProtocol = newConf.CorrectionSource
 	}
@@ -259,7 +259,7 @@ func newRTKMovementSensor(
 	}
 
 	// Init NMEAMovementSensor
-	switch newConf.ConnectionType {
+	switch strings.ToLower(newConf.ConnectionType) {
 	case serialStr:
 		var err error
 		nmeaConf.SerialConfig = (*gpsnmea.SerialConfig)(newConf.SerialConfig)
@@ -295,17 +295,16 @@ func newRTKMovementSensor(
 	}
 	g.wbaud = newConf.NtripBaud
 
-	if g.inputProtocol == serialStr {
-		if newConf.NtripPath == "" {
+	switch g.inputProtocol {
+	case serialStr:
+		switch newConf.NtripPath {
+		case "":
 			g.logger.Info("RTK will use the same serial path as the GPS data to write RCTM messages")
 			g.writepath = newConf.SerialPath
-		} else {
+		default:
 			g.writepath = newConf.NtripPath
 		}
-	}
-
-	// I2C address only, assumes address is correct since this was checked when gps was initialized
-	if g.inputProtocol == i2cStr {
+	case i2cStr:
 		g.addr = byte(newConf.I2cAddr)
 
 		b, err := board.FromDependencies(deps, newConf.Board)

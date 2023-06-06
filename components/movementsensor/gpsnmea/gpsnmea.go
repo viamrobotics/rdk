@@ -3,6 +3,7 @@ package gpsnmea
 
 import (
 	"context"
+	"strings"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
@@ -55,7 +56,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "connection_type")
 	}
 
-	switch cfg.ConnectionType {
+	switch strings.ToLower(cfg.ConnectionType) {
 	case i2cStr:
 		if cfg.Board == "" {
 			return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
@@ -126,7 +127,7 @@ func newNMEAGPS(
 		return nil, err
 	}
 
-	switch newConf.ConnectionType {
+	switch strings.ToLower(newConf.ConnectionType) {
 	case serialStr:
 		return NewSerialGPSNMEA(ctx, conf.ResourceName(), newConf, logger)
 	case i2cStr:
