@@ -255,7 +255,8 @@ func (svc *builtIn) startWaypoint(extra map[string]interface{}) error {
 			}
 
 			navOnce := func(ctx context.Context) error {
-				if len(path) <= 1 {
+				if len(path) < 1 {
+					// TODO: fix this error
 					return errors.New("not enough gps data")
 				}
 

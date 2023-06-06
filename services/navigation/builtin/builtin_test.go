@@ -82,10 +82,11 @@ func TestNavSetup(t *testing.T) {
 func TestStartWaypoint(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
-	
+
 	injectMS := inject.NewMotionService("test_motion")
 	cfg := resource.Config{
-		Name: "test_base",
+		Name:  "test_base",
+		API:   base.API,
 		Frame: &referenceframe.LinkConfig{Geometry: &spatialmath.GeometryConfig{R: 100}},
 	}
 
@@ -96,6 +97,10 @@ func TestStartWaypoint(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	injectMovementSensor := inject.NewMovementSensor("test_movement")
+	injectMovementSensor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error){
+		inputs, err := kinematicBase.CurrentInputs(ctx)
+		return geo.NewPoint(inputs[0].Value, inputs[1].Value), 0, err
+	}
 
 	injectMS.MoveOnGlobeFunc = func(
 		ctx context.Context,
@@ -113,18 +118,18 @@ func TestStartWaypoint(t *testing.T) {
 	}
 
 	ns, err := NewBuiltIn(
-		ctx, 
+		ctx,
 		resource.Dependencies{injectMS.Name(): injectMS, fakeBase.Name(): fakeBase, injectMovementSensor.Name(): injectMovementSensor},
 		resource.Config{
 			ConvertedAttributes: &Config{
 				Store: navigation.StoreConfig{
 					Type: navigation.StoreTypeMemory,
 				},
-				BaseName: "test_base",
+				BaseName:           "test_base",
 				MovementSensorName: "test_movement",
-				MotionServiceName: "test_motion",
-				DegPerSec: 1,
-				MetersPerSec: 1,
+				MotionServiceName:  "test_motion",
+				DegPerSec:          1,
+				MetersPerSec:       1,
 			},
 		},
 		logger,
