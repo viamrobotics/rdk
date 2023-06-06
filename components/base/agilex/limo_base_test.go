@@ -31,4 +31,7 @@ func TestLimoBaseConstructor(t *testing.T) {
 	width, _ := base.Width(ctx)
 	test.That(t, width, test.ShouldEqual, 172)
 	base.Close(ctx)
+
+	cont := controllers["/dev/ttyTHS1"]
+	test.That(t, logger, test.ShouldEqual, cont.logger)
 }

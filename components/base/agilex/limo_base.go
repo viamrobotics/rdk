@@ -21,11 +21,6 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-var (
-	globalMu    sync.Mutex
-	controllers map[string]*controller
-)
-
 // default port for limo serial comm.
 const defaultSerial = "/dev/ttyTHS1"
 
@@ -53,8 +48,6 @@ func (m steeringMode) String() string {
 var model = resource.DefaultModelFamily.WithModel("agilex-limo")
 
 func init() {
-	controllers = make(map[string]*controller)
-
 	resource.RegisterComponent(base.API, model, resource.Registration[base.Base, *Config]{
 		Constructor: func(
 			ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger,
@@ -62,15 +55,6 @@ func init() {
 			return CreateLimoBase(ctx, conf, logger)
 		},
 	})
-}
-
-// controller is common across all limo instances sharing a controller.
-type controller struct {
-	mu           sync.Mutex
-	port         io.ReadWriteCloser
-	serialDevice string
-	logger       golog.Logger
-	testChan     chan []uint8
 }
 
 type limoFrame struct {
@@ -86,7 +70,6 @@ type limoBase struct {
 	resource.Named
 	resource.AlwaysRebuild
 	driveMode          string
-	controller         *controller
 	opMgr              operation.SingleOperationManager
 	cancel             context.CancelFunc
 	waitGroup          sync.WaitGroup
@@ -96,6 +79,10 @@ type limoBase struct {
 	rightAngleScale    float64
 	maxLinearVelocity  int
 	maxAngularVelocity int
+
+	serialMutex sync.Mutex
+	serialPort  io.ReadWriteCloser
+	testChan    chan []uint8
 
 	stateMutex sync.Mutex
 	state      limoState
@@ -123,44 +110,35 @@ func CreateLimoBase(ctx context.Context, conf resource.Config, logger golog.Logg
 		return nil, errors.New("drive mode must be defined and one of differential, ackermann, or omni")
 	}
 
-	globalMu.Lock()
 	sDevice := newConf.SerialDevice
 	if sDevice == "" {
 		sDevice = defaultSerial
 	}
-	ctrl, controllerExists := controllers[sDevice]
-	if !controllerExists {
-		logger.Debug("creating controller")
-		newCtrl, err := newController(sDevice, newConf.TestChan, logger)
-		if err != nil {
-			globalMu.Unlock()
-			return nil, err
-		}
-
-		controllers[sDevice] = newCtrl
-		ctrl = newCtrl
-
-		// enable commanded mode
-		frame := new(limoFrame)
-		frame.id = 0x421
-		frame.data = make([]uint8, 8)
-		frame.data[0] = 0x01
-		frame.data[1] = 0
-		frame.data[2] = 0
-		frame.data[3] = 0
-		frame.data[4] = 0
-		frame.data[5] = 0
-		frame.data[6] = 0
-		frame.data[7] = 0
-
-		logger.Debug("Will send init frame")
-		err = ctrl.sendFrame(frame)
-		if err != nil && !strings.HasPrefix(err.Error(), "error enabling commanded mode") {
-			globalMu.Unlock()
-			return nil, err
-		}
+	logger.Debug("creating controller")
+	ctrl, err := newController(sDevice, newConf.TestChan, logger)
+	if err != nil {
+		return nil, err
 	}
-	globalMu.Unlock()
+
+	// enable commanded mode
+	frame := new(limoFrame)
+	frame.id = 0x421
+	frame.data = make([]uint8, 8)
+	frame.data[0] = 0x01
+	frame.data[1] = 0
+	frame.data[2] = 0
+	frame.data[3] = 0
+	frame.data[4] = 0
+	frame.data[5] = 0
+	frame.data[6] = 0
+	frame.data[7] = 0
+
+	logger.Debug("Will send init frame")
+	err = ctrl.sendFrame(frame)
+	if err != nil && !strings.HasPrefix(err.Error(), "error enabling commanded mode") {
+		// TODO close controller
+		return nil, err
+	}
 
 	base := &limoBase{
 		Named:              conf.ResourceName().AsNamed(),
@@ -186,11 +164,7 @@ func CreateLimoBase(ctx context.Context, conf resource.Config, logger golog.Logg
 	return base, nil
 }
 
-func newController(sDevice string, testChan chan []uint8, logger golog.Logger) (*controller, error) {
-	ctrl := new(controller)
-	ctrl.serialDevice = sDevice
-	ctrl.logger = logger
-
+func (base *limoBase) initSerialConnection(sDevice string, testChan chan []uint8, logger golog.Logger) error {
 	if testChan == nil {
 		logger.Debug("opening serial connection")
 		serialOptions := serial.OpenOptions{
@@ -298,6 +272,9 @@ func (c *controller) sendFrame(frame *limoFrame) error {
 	}
 	data[frameLen-1] = uint8(checksum & 0xff)
 
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if c.testChan != nil {
 		c.logger.Debug("writing to test chan")
 		c.testChan <- data
@@ -332,12 +309,10 @@ func (base *limoBase) setMotionCommand(linearVel float64,
 	frame.data[6] = uint8(steeringCmd >> 8)
 	frame.data[7] = uint8(steeringCmd & 0x00ff)
 
-	base.controller.mu.Lock()
 	err := base.controller.sendFrame(frame)
 	if err != nil {
 		base.controller.logger.Error(err)
 	}
-	base.controller.mu.Unlock()
 
 	return err
 }
@@ -461,6 +436,7 @@ func (base *limoBase) Close(ctx context.Context) error {
 	if err := base.Stop(ctx, nil); err != nil {
 		return err
 	}
+
 	if base.cancel != nil {
 		base.controller.logger.Debug("calling cancel()")
 		base.cancel()
