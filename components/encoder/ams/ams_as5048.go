@@ -125,7 +125,7 @@ func newAS5048Encoder(
 	conf resource.Config,
 	logger *zap.SugaredLogger,
 ) (encoder.Encoder, error) {
-	cancelCtx, cancel := context.WithCancel(ctx)
+	cancelCtx, cancel := context.WithCancel(context.Background())
 	res := &Encoder{
 		Named:        conf.ResourceName().AsNamed(),
 		cancelCtx:    cancelCtx,
@@ -187,7 +187,7 @@ func (enc *Encoder) startPositionLoop(ctx context.Context) error {
 			if enc.cancelCtx.Err() != nil {
 				return
 			}
-			if err := enc.updatePosition(ctx); err != nil {
+			if err := enc.updatePosition(enc.cancelCtx); err != nil {
 				enc.logger.Errorf(
 					"error in position loop (skipping update): %s", err.Error(),
 				)
@@ -276,33 +276,39 @@ func (enc *Encoder) ResetPosition(
 	// on the struct
 	enc.position = 0
 	enc.rotations = 0
+
+	i2cHandle, err := enc.i2cBus.OpenHandle(enc.i2cAddr)
+	if err != nil {
+		return err
+	}
+	defer utils.UncheckedErrorFunc(i2cHandle.Close)
+
 	// clear current zero position
-	err := enc.writeByteDataToBus(ctx, enc.i2cBus, enc.i2cAddr, byte(0x16), byte(0))
-	if err != nil {
+	if err := i2cHandle.WriteByteData(ctx, byte(0x16), byte(0)); err != nil {
 		return err
 	}
-	err = enc.writeByteDataToBus(ctx, enc.i2cBus, enc.i2cAddr, byte(0x17), byte(0))
-	if err != nil {
+	if err := i2cHandle.WriteByteData(ctx, byte(0x17), byte(0)); err != nil {
 		return err
 	}
+
 	// read current position
-	currentMSB, err := enc.readByteDataFromBus(ctx, enc.i2cBus, enc.i2cAddr, byte(0xFE))
+	currentMSB, err := i2cHandle.ReadByteData(ctx, byte(0xFE))
 	if err != nil {
 		return err
 	}
-	currentLSB, err := enc.readByteDataFromBus(ctx, enc.i2cBus, enc.i2cAddr, byte(0xFF))
+	currentLSB, err := i2cHandle.ReadByteData(ctx, byte(0xFF))
 	if err != nil {
 		return err
 	}
+
 	// write current position to zero register
-	err = enc.writeByteDataToBus(ctx, enc.i2cBus, enc.i2cAddr, byte(0x16), currentMSB)
-	if err != nil {
+	if err := i2cHandle.WriteByteData(ctx, byte(0x16), currentMSB); err != nil {
 		return err
 	}
-	err = enc.writeByteDataToBus(ctx, enc.i2cBus, enc.i2cAddr, byte(0x17), currentLSB)
-	if err != nil {
+	if err := i2cHandle.WriteByteData(ctx, byte(0x17), currentLSB); err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -335,19 +341,4 @@ func (enc *Encoder) readByteDataFromBus(ctx context.Context, bus board.I2C, addr
 		}
 	}()
 	return i2cHandle.ReadByteData(ctx, register)
-}
-
-// writeByteDataToBus opens a handle for the bus adhoc to perform a single write.
-// The handle is closed at the end.
-func (enc *Encoder) writeByteDataToBus(ctx context.Context, bus board.I2C, addr, register, data byte) error {
-	i2cHandle, err := bus.OpenHandle(addr)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err := i2cHandle.Close(); err != nil {
-			enc.logger.Error(err)
-		}
-	}()
-	return i2cHandle.WriteByteData(ctx, register, data)
 }
