@@ -11,7 +11,8 @@ import { Struct } from 'google-protobuf/google/protobuf/struct_pb';
 import { rcLogConditionally } from '@/lib/log';
 import Collapse from '../collapse.svelte';
 import maplibregl from 'maplibre-gl'; 
-    import { onMount, afterUpdate } from 'svelte';
+import { onMount, afterUpdate } from 'svelte';
+    import { setMode } from '@/api/navigation';
 
 onMount(() => console.log('mount'))
 afterUpdate(() => console.log('update'))
@@ -32,7 +33,7 @@ const grpcCallback = (error: ServiceError | null) => {
   }
 };
 
-const setNavigationMode = (event: CustomEvent) => {
+const setNavigationMode = async (event: CustomEvent) => {
   const mode = event.detail.value.toLowerCase() as 'manual' | 'waypoint'
 
   let pbMode: 0 | 1 | 2 = navigationApi.Mode.MODE_UNSPECIFIED;
@@ -42,6 +43,8 @@ const setNavigationMode = (event: CustomEvent) => {
   } else if (mode === 'waypoint') {
     pbMode = navigationApi.Mode.MODE_WAYPOINT;
   }
+
+  setMode(client, name, mode)
 
   const req = new navigationApi.SetModeRequest();
   req.setName(name);
