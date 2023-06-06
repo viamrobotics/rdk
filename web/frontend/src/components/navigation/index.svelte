@@ -11,11 +11,7 @@ import { Struct } from 'google-protobuf/google/protobuf/struct_pb';
 import { rcLogConditionally } from '@/lib/log';
 import Collapse from '../collapse.svelte';
 import maplibregl from 'maplibre-gl'; 
-import { onMount, afterUpdate } from 'svelte';
-    import { setMode } from '@/api/navigation';
-
-onMount(() => console.log('mount'))
-afterUpdate(() => console.log('update'))
+import { setMode, setWaypoint, getWaypoints, removeWaypoint, getLocation } from '@/api/navigation';
 
 export let resources: commonApi.ResourceName.AsObject[]
 export let name: string
@@ -26,12 +22,6 @@ let updateWaypointsId: number;
 let updateLocationsId: number;
 
 let location = '';
-
-const grpcCallback = (error: ServiceError | null) => {
-  if (error) {
-    toast.error(error.message);
-  }
-};
 
 const setNavigationMode = async (event: CustomEvent) => {
   const mode = event.detail.value.toLowerCase() as 'manual' | 'waypoint'
@@ -44,14 +34,11 @@ const setNavigationMode = async (event: CustomEvent) => {
     pbMode = navigationApi.Mode.MODE_WAYPOINT;
   }
 
-  setMode(client, name, mode)
-
-  const req = new navigationApi.SetModeRequest();
-  req.setName(name);
-  req.setMode(pbMode);
-
-  rcLogConditionally(req);
-  client.navigationService.setMode(req, new grpc.Metadata(), grpcCallback);
+  try {
+    await setMode(client, name, pbMode)
+  } catch (error) {
+    toast.error((error as ServiceError).message);
+  }
 };
 
 const setNavigationLocation = () => {
@@ -88,67 +75,59 @@ const setNavigationLocation = () => {
   );
 
   rcLogConditionally(req);
-  client.genericService.doCommand(req, new grpc.Metadata(), grpcCallback);
+  client.genericService.doCommand(req, new grpc.Metadata(), (error: ServiceError | null) => {
+    if (error) {
+      toast.error(error.message);
+    }
+  });
 };
 
 let map: maplibregl.Map
 
 const marker = new maplibregl.Marker()
 
-const handleClick = (event: maplibregl.MapMouseEvent) => {
+const handleClick = async (event: maplibregl.MapMouseEvent) => {
   marker.setLngLat(event.lngLat).addTo(map);
 
   const { lat, lng } = event.lngLat;
 
-  const req = new navigationApi.AddWaypointRequest();
-  const point = new commonApi.GeoPoint();
-
-  point.setLatitude(lat);
-  point.setLongitude(lng);
-  req.setName(name);
-  req.setLocation(point);
-
-  rcLogConditionally(req);
-  client.navigationService.addWaypoint(req, new grpc.Metadata(), grpcCallback);
+  try {
+    await setWaypoint(client, lat, lng, name)
+  } catch (error) {
+    marker.remove()
+    toast.error((error as ServiceError).message)
+  }
 }
 
 const initNavigation = async () => {
-  const style = {
+  const style: maplibregl.StyleSpecification = {
     version: 8,
     sources: {
       osm: {
-        type: "raster",
-        tiles: ["https://a.tile.openstreetmap.org/{z}/{x}/{y}.png"],
+        type: 'raster',
+        tiles: ['https://a.tile.openstreetmap.org/{z}/{x}/{y}.png'],
         tileSize: 256,
-        attribution: "&copy; OpenStreetMap Contributors",
+        attribution: '&copy; OpenStreetMap Contributors',
         maxzoom: 19,
       },
     },
     layers: [
       {
-        id: "osm",
-        type: "raster",
-        source: "osm",
+        id: 'osm',
+        type: 'raster',
+        source: 'osm',
       },
     ],
   };
 
   map = new maplibregl.Map({
     container: 'navigation-map',
-    style, // stylesheet location
-    center: [-74.5, 40], // starting position [lng, lat]
-    zoom: 9 // starting zoom
+    style,
+    center: [-74.5, 40],
+    zoom: 9
   });
 
   map.addControl(new maplibregl.NavigationControl());
-
-  map.on('load', () => {
-    map.addSource('navigation-map', {
-    type: 'geojson',
-    data: 'https://d2ad6b4ur7yvpq.cloudfront.net/naturalearth-3.3.0/ne_10m_ports.geojson'
-  });
-  })
-
   map.on('click', handleClick);
 
   let centered = false;
@@ -156,120 +135,87 @@ const initNavigation = async () => {
   const knownWaypoints: Record<string, maplibregl.Marker> = {};
   let localLabelCounter = 0;
 
-  const updateWaypoints = () => {
-    const req = new navigationApi.GetWaypointsRequest();
-    req.setName(name);
+  const refresh = async () => {
+    let waypoints: navigationApi.Waypoint[]
 
-    rcLogConditionally(req);
-    client.navigationService.getWaypoints(
-      req,
-      new grpc.Metadata(),
-      (err: ServiceError | null, resp: navigationApi.GetWaypointsResponse | null) => {
-        grpcCallback(err);
+    try {
+      waypoints = await getWaypoints(client, name)
+    } catch (error) {
+      toast.error((error as ServiceError).message)
+      updateWaypointsId = window.setTimeout(refresh, 1000);
+      return;
+    }
 
-        if (err) {
-          updateWaypointsId = window.setTimeout(updateWaypoints, 1000);
-          return;
-        }
+    const currentWaypoints: Record<string, maplibregl.Marker> = {};
 
-        let waypoints: navigationApi.Waypoint[] = [];
+    for (const waypoint of waypoints) {
+      const position = {
+        lat: waypoint.getLocation()?.getLatitude() ?? 0,
+        lng: waypoint.getLocation()?.getLongitude() ?? 0,
+      };
 
-        if (resp) {
-          waypoints = resp.getWaypointsList();
-        }
+      const posStr = JSON.stringify(position);
 
-        const currentWaypoints: Record<string, maplibregl.Marker> = {};
-
-        for (const waypoint of waypoints) {
-          const position = {
-            lat: waypoint.getLocation()?.getLatitude() ?? 0,
-            lng: waypoint.getLocation()?.getLongitude() ?? 0,
-          };
-
-          const posStr = JSON.stringify(position);
-
-          if (knownWaypoints[posStr]) {
-            currentWaypoints[posStr] = knownWaypoints[posStr]!;
-            continue;
-          }
-
-          localLabelCounter += 1;
-
-          const marker = new maplibregl.Marker({
-            // label: `${localLabelCounter}`,
-          });
-
-          marker.setLngLat([position.lng, position.lat]).addTo(map)
-
-          currentWaypoints[posStr] = marker;
-          knownWaypoints[posStr] = marker;
-
-          marker.on('dblclick', () => {
-            const waypointRequest = new navigationApi.RemoveWaypointRequest();
-            waypointRequest.setName(name);
-            waypointRequest.setId(waypoint.getId());
-
-            rcLogConditionally(req);
-            client.navigationService.removeWaypoint(
-              waypointRequest,
-              new grpc.Metadata(),
-              grpcCallback
-            );
-          });
-        }
-
-        const waypointsToDelete = Object.keys(knownWaypoints).filter(
-          (elem) => !(elem in currentWaypoints)
-        );
-
-        for (const key of waypointsToDelete) {
-          const marker = knownWaypoints[key]!;
-          marker.remove();
-          delete knownWaypoints[key];
-        }
-
-        updateWaypointsId = window.setTimeout(updateWaypoints, 1000);
+      if (knownWaypoints[posStr]) {
+        currentWaypoints[posStr] = knownWaypoints[posStr]!;
+        continue;
       }
+
+      localLabelCounter += 1;
+
+      const marker = new maplibregl.Marker({
+        // label: `${localLabelCounter}`,
+      });
+
+      marker.setLngLat([position.lng, position.lat]).addTo(map)
+
+      currentWaypoints[posStr] = marker;
+      knownWaypoints[posStr] = marker;
+
+      marker.on('dblclick', async () => {
+        try {
+          removeWaypoint(client, name, waypoint.getId());
+        } catch (error) {
+          toast.error((error as ServiceError).message)
+        }
+      });
+    }
+
+    const waypointsToDelete = Object.keys(knownWaypoints).filter(
+      (elem) => !(elem in currentWaypoints)
     );
+
+    for (const key of waypointsToDelete) {
+      const marker = knownWaypoints[key]!;
+      marker.remove();
+      delete knownWaypoints[key];
+    }
+
+    updateWaypointsId = window.setTimeout(refresh, 1000);
   };
 
-  updateWaypoints();
+  refresh();
 
   const locationMarker = new maplibregl.Marker({
     // label: 'robot'
   });
 
-  const updateLocation = () => {
-    const req = new navigationApi.GetLocationRequest();
-    req.setName(name);
+  const updateLocation = async () => {
+    try {
+      const position = await getLocation(client, name)
 
-    rcLogConditionally(req);
-    client.navigationService.getLocation(
-      req,
-      new grpc.Metadata(),
-      (err: ServiceError | null, resp: navigationApi.GetLocationResponse | null) => {
-        grpcCallback(err);
-
-        if (err) {
-          updateLocationsId = window.setTimeout(updateLocation, 1000);
-          return;
-        }
-
-        const position = {
-          lat: resp?.getLocation()?.getLatitude() ?? 0,
-          lng: resp?.getLocation()?.getLongitude() ?? 0,
-        };
-
-        if (!centered) {
-          centered = true;
-          map.setCenter(position);
-        }
-
-        locationMarker.setLngLat([position.lng, position.lat]).addTo(map);
-
-        updateLocationsId = window.setTimeout(updateLocation, 1000);
+      if (!centered) {
+        centered = true;
+        map.setCenter(position);
       }
-    );
+
+      locationMarker.setLngLat([position.lng, position.lat]).addTo(map);
+
+      updateLocationsId = window.setTimeout(updateLocation, 1000);
+    } catch (error) {
+      toast.error((error as ServiceError).message)
+      updateLocationsId = window.setTimeout(updateLocation, 1000);
+    }
   };
 
   updateLocation();
@@ -280,7 +226,6 @@ const handleLocationInput = (event: CustomEvent) => {
 }
 
 const handleToggle = (event: CustomEvent<{ open: boolean }>) => {
-  console.log(event)
   const { open } = event.detail
 
   if (open) {
