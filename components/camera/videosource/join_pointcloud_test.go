@@ -25,6 +25,74 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
+func TestInjectedCameras(t *testing.T) {
+	cam1 := &inject.Camera{}
+	cam2 := &inject.Camera{}
+	cam3 := &inject.Camera{}
+	cam1.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
+		pc1 := pointcloud.NewWithPrealloc(1)
+		err := pc1.Set(pointcloud.NewVector(1, 0, 0), pointcloud.NewColoredData(color.NRGBA{255, 0, 0, 255}))
+		test.That(t, err, test.ShouldBeNil)
+		return pc1, nil
+	}
+	cam2.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
+		pc2 := pointcloud.NewWithPrealloc(1)
+		err := pc2.Set(pointcloud.NewVector(0, 1, 0), pointcloud.NewColoredData(color.NRGBA{0, 255, 0, 255}))
+		test.That(t, err, test.ShouldBeNil)
+		return pc2, nil
+	}
+	cam3.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
+		pc3 := pointcloud.NewWithPrealloc(1)
+		err := pc3.Set(pointcloud.NewVector(0, 0, 1), pointcloud.NewColoredData(color.NRGBA{0, 0, 255, 255}))
+		test.That(t, err, test.ShouldBeNil)
+		return pc3, nil
+	}
+	base1 := &inject.Base{}
+	fs := inject.NewFrameSystemService()
+	fs.CurrentInputsFunc = func(ctx context.Context) (map[string][]referenceframe.Input, map[string]referenceframe.InputEnabled, error) {
+		return nil, nil, nil // doesn't matter for test
+	}
+	fs.FrameSystemFunc = func(ctx context.Context, additionalTransforms []*referenceframe.LinkInFrame) (referenceframe.FrameSystem, error) {
+		sfs := referenceframe.NewEmptyFrameSystem("builtin")
+		cam1Frame, err := referenceframe.NewStaticFrame("cam1", spatialmath.NewPoseFromPoint(r3.Vector{1, 0, 0}))
+		test.That(t, err, test.ShouldBeNil)
+		cam2Frame, err := referenceframe.NewStaticFrame("cam2", spatialmath.NewPoseFromPoint(r3.Vector{0, 1, 0}))
+		test.That(t, err, test.ShouldBeNil)
+		cam3Frame, err := referenceframe.NewStaticFrame("cam3", spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 1}))
+		test.That(t, err, test.ShouldBeNil)
+		base1Frame, err := referenceframe.NewStaticFrame("base1", spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0}))
+		test.That(t, err, test.ShouldBeNil)
+		err = sfs.AddFrame(base1Frame, sfs.World())
+		test.That(t, err, test.ShouldBeNil)
+		err = sfs.AddFrame(cam1Frame, sfs.World())
+		test.That(t, err, test.ShouldBeNil)
+		err = sfs.AddFrame(cam2Frame, sfs.World())
+		test.That(t, err, test.ShouldBeNil)
+		err = sfs.AddFrame(cam3Frame, sfs.World())
+		test.That(t, err, test.ShouldBeNil)
+		return sfs, nil
+	}
+	deps := make(resource.Dependencies)
+	deps[camera.Named("cam1")] = cam1
+	deps[camera.Named("cam2")] = cam2
+	deps[camera.Named("cam3")] = cam3
+	deps[base.Named("base1")] = base1
+	deps[fs.Name()] = fs
+	// PoV from base1
+	conf := &Config{
+		Debug:         true,
+		SourceCameras: []string{"cam1", "cam2", "cam3"},
+		TargetFrame:   "base1",
+		MergeMethod:   "naive",
+	}
+	joinedCam, err := newJoinPointCloudCamera(context.Background(), deps, resource.Config{ConvertedAttributes: conf}, utils.Logger)
+	test.That(t, err, test.ShouldBeNil)
+	pc, err := joinedCam.NextPointCloud(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pc, test.ShouldNotBeNil)
+	test.That(t, pc.Size(), test.ShouldEqual, 3)
+}
+
 func makeFakeRobot(t *testing.T) resource.Dependencies {
 	t.Helper()
 	logger := golog.NewTestLogger(t)

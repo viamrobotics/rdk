@@ -9,8 +9,8 @@ import (
 	"go.viam.com/rdk/robot/framesystem"
 )
 
-// FrameSystemService represents a fake instance of an framesystem service.
-// Due to the nature of the FrameSystem service, there should never be more than one on a robot.
+// FrameSystemService represents a fake instance of a framesystem service.
+// Due to the nature of the framesystem service, there should never be more than one on a robot.
 // If you use an injected frame system, do not also create the system's default frame system as well.
 type FrameSystemService struct {
 	framesystem.Service
