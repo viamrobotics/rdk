@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"math"
 	"sync"
 	"time"
 
@@ -261,45 +260,49 @@ func (svc *builtIn) startWaypoint(extra map[string]interface{}) error {
 					return errors.New("not enough gps data")
 				}
 
-				currentBearing, err := svc.computeCurrentBearing(ctx, path)
+				bearingToGoal, _, err := svc.waypointDirectionAndDistanceToGo(ctx, currentLoc)
 				if err != nil {
 					return err
 				}
 
-				bearingToGoal, distanceToGoal, err := svc.waypointDirectionAndDistanceToGo(ctx, currentLoc)
+				
+
+				// bearingDelta := computeBearing(bearingToGoal, currentBearing)
+				// steeringDir := -bearingDelta / 180.0
+
+				// svc.logger.Debugf("currentBearing: %0.0f bearingToGoal: %0.0f distanceToGoal: %0.3f bearingDelta: %0.1f steeringDir: %0.2f",
+				// 	currentBearing, bearingToGoal, distanceToGoal, bearingDelta, steeringDir)
+
+				// // TODO(erh->erd): maybe need an arc/stroke abstraction?
+				// // - Remember that we added -1*bearingDelta instead of steeringDir
+				// // - Test both naval/land to prove it works
+				// if err := svc.base.Spin(ctx, -1*bearingDelta, svc.degPerSec, nil); err != nil {
+				// 	return fmt.Errorf("error turning: %w", err)
+				// }
+
+				// distanceMm := distanceToGoal * 1000 * 1000
+				// distanceMm = math.Min(distanceMm, 10*1000)
+
+				// // TODO: handle swap from mm to meters
+				// if err := svc.base.MoveStraight(ctx, int(distanceMm), (svc.metersPerSec * 1000), nil); err != nil {
+				// 	return fmt.Errorf("error moving %w", err)
+				// }
+
+				wp, err := svc.nextWaypoint(ctx)
 				if err != nil {
-					return err
+					return fmt.Errorf("waypoint error: %w", err)
 				}
 
-				if distanceToGoal < .005 {
-					svc.logger.Debug("i made it")
+				goal := wp.ToPoint()
+
+				// have ability to define destination heading here, but waypoint structure doesn't allow for that so using bearingToGoal as heading
+				_, err = svc.motion.MoveOnGlobe(ctx, svc.base.Name(), goal, bearingToGoal, svc.movementSensor.Name(), svc.obstacles, svc.metersPerSec * 1000, svc.degPerSec, nil)
+
+				if err != nil {
 					return svc.waypointReached(ctx)
 				}
 
-				bearingDelta := computeBearing(bearingToGoal, currentBearing)
-				steeringDir := -bearingDelta / 180.0
-
-				svc.logger.Debugf("currentBearing: %0.0f bearingToGoal: %0.0f distanceToGoal: %0.3f bearingDelta: %0.1f steeringDir: %0.2f",
-					currentBearing, bearingToGoal, distanceToGoal, bearingDelta, steeringDir)
-
-				// TODO(erh->erd): maybe need an arc/stroke abstraction?
-				// - Remember that we added -1*bearingDelta instead of steeringDir
-				// - Test both naval/land to prove it works
-				if err := svc.base.Spin(ctx, -1*bearingDelta, svc.degPerSec, nil); err != nil {
-					return fmt.Errorf("error turning: %w", err)
-				}
-
-				distanceMm := distanceToGoal * 1000 * 1000
-				distanceMm = math.Min(distanceMm, 10*1000)
-
-				// TODO: handle swap from mm to meters
-				if err := svc.base.MoveStraight(ctx, int(distanceMm), (svc.metersPerSec * 1000), nil); err != nil {
-					return fmt.Errorf("error moving %w", err)
-				}
-
-				motion.MoveOnGlobe(ctx, nil, path)
-
-				return nil
+				return err
 			}
 
 			if err := navOnce(svc.cancelCtx); err != nil {
