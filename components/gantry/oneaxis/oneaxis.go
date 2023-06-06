@@ -349,8 +349,6 @@ func (g *oneAxis) limitHit(ctx context.Context, zero bool) (bool, error) {
 
 // Position returns the position in millimeters.
 func (g *oneAxis) Position(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
-	g.mu.Lock()
-	defer g.mu.Unlock()
 	pos, err := g.motor.Position(ctx, extra)
 	if err != nil {
 		return []float64{}, err
@@ -370,8 +368,6 @@ func (g *oneAxis) Lengths(ctx context.Context, extra map[string]interface{}) ([]
 
 // MoveToPosition moves along an axis using inputs in millimeters.
 func (g *oneAxis) MoveToPosition(ctx context.Context, positions []float64, extra map[string]interface{}) error {
-	g.mu.Lock()
-	defer g.mu.Unlock()
 	ctx, done := g.opMgr.New(ctx)
 	defer done()
 
@@ -413,8 +409,6 @@ func (g *oneAxis) MoveToPosition(ctx context.Context, positions []float64, extra
 
 // Stop stops the motor of the gantry.
 func (g *oneAxis) Stop(ctx context.Context, extra map[string]interface{}) error {
-	g.mu.Lock()
-	defer g.mu.Unlock()
 	ctx, done := g.opMgr.New(ctx)
 	defer done()
 	return g.motor.Stop(ctx, extra)
