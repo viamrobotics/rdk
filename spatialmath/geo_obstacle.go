@@ -58,20 +58,24 @@ func GeoObstacleFromProtobuf(protoGeoObst *commonpb.GeoObstacle) (*GeoObstacle, 
 
 // GeoObstacleConfig specifies the format of GeoObstacles specified through the configuration file.
 type GeoObstacleConfig struct {
-	Location   *commonpb.GeoPoint   `json:"location"`
-	Geometries []*commonpb.Geometry `json:"geometries"`
+	Location   *commonpb.GeoPoint `json:"location"`
+	Geometries []*GeometryConfig  `json:"geometries"`
 }
 
 // NewGeoObstacleConfig takes a GeoObstacle and returns a GeoObstacleConfig.
-func NewGeoObstacleConfig(geo *GeoObstacle) (*GeoObstacleConfig, error) {
-	protoGeom := []*commonpb.Geometry{}
+func NewGeoObstacleConfig(geo GeoObstacle) (*GeoObstacleConfig, error) {
+	geomCfgs := []*GeometryConfig{}
 	for _, geom := range geo.geometries {
-		protoGeom = append(protoGeom, geom.ToProtobuf())
+		gc, err := NewGeometryConfig(geom)
+		if err != nil {
+			return nil, err
+		}
+		geomCfgs = append(geomCfgs, gc)
 	}
 
 	config := &GeoObstacleConfig{
 		Location:   &commonpb.GeoPoint{Latitude: geo.location.Lat(), Longitude: geo.location.Lng()},
-		Geometries: protoGeom,
+		Geometries: geomCfgs,
 	}
 
 	return config, nil
@@ -97,7 +101,8 @@ func GeoObstaclesFromConfig(config *GeoObstacleConfig) ([]*GeoObstacle, error) {
 		gob := GeoObstacle{}
 
 		gob.location = geo.NewPoint(config.Location.Latitude, config.Location.Longitude)
-		geom, err := NewGeometryFromProto(navGeom)
+
+		geom, err := navGeom.ParseConfig()
 		if err != nil {
 			return nil, err
 		}
