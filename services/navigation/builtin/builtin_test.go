@@ -33,9 +33,9 @@ func setupNavigationServiceFromConfig(t *testing.T, configFilename string) (navi
 }
 
 func TestNavSetup(t *testing.T) {
-	setupNavigationServiceFromConfig(t, "../data/nav_cfg.json")
 	ns, teardown := setupNavigationServiceFromConfig(t, "../data/nav_cfg.json")
 	defer teardown()
+
 	ctx := context.Background()
 
 	navMode, err := ns.Mode(ctx, nil)
