@@ -2,11 +2,15 @@
 package fake
 
 import (
+	"bytes"
 	"context"
+	"math"
 
 	"github.com/edaniels/golog"
 	"go.opencensus.io/trace"
 
+	"go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/spatialmath"
@@ -86,4 +90,22 @@ func (slamSvc *SLAM) GetInternalState(ctx context.Context) (func() ([]byte, erro
 // with it at a time.
 func (slamSvc *SLAM) incrementDataCount() {
 	slamSvc.dataCount = ((slamSvc.dataCount + 1) % maxDataCount)
+}
+
+// GetLimits returns the bounds of the slam map as a list of referenceframe.Limits.
+func (slamSvc *SLAM) GetLimits(ctx context.Context) ([]referenceframe.Limit, error) {
+	data, err := slam.GetPointCloudMapFull(ctx, slamSvc)
+	if err != nil {
+		return nil, err
+	}
+	dims, err := pointcloud.GetPCDMetaData(bytes.NewReader(data))
+	if err != nil {
+		return nil, err
+	}
+
+	return []referenceframe.Limit{
+		{Min: dims.MinX, Max: dims.MaxX},
+		{Min: dims.MinY, Max: dims.MaxY},
+		{Min: -2 * math.Pi, Max: 2 * math.Pi},
+	}, nil
 }

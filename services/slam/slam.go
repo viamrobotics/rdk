@@ -3,13 +3,17 @@
 package slam
 
 import (
+	"bytes"
 	"context"
 	"io"
+	"math"
 
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	pb "go.viam.com/api/service/slam/v1"
 
+	"go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/spatialmath"
@@ -86,4 +90,22 @@ func GetInternalStateFull(ctx context.Context, slamSvc Service) ([]byte, error) 
 		return nil, err
 	}
 	return HelperConcatenateChunksToFull(callback)
+}
+
+// GetLimits returns the bounds of the slam map as a list of referenceframe.Limits.
+func GetLimits(ctx context.Context, svc Service) ([]referenceframe.Limit, error) {
+	data, err := GetPointCloudMapFull(ctx, svc)
+	if err != nil {
+		return nil, err
+	}
+	dims, err := pointcloud.GetPCDMetaData(bytes.NewReader(data))
+	if err != nil {
+		return nil, err
+	}
+
+	return []referenceframe.Limit{
+		{Min: dims.MinX, Max: dims.MaxX},
+		{Min: dims.MinY, Max: dims.MaxY},
+		{Min: -2 * math.Pi, Max: 2 * math.Pi},
+	}, nil
 }
