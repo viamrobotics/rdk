@@ -94,7 +94,7 @@ func TestClient(t *testing.T) {
 		TurningRadiusMeters: 1.2,
 		WidthMeters:         float64(100) * 0.001,
 	}
-	setupWorkingBase(workingBase, argsReceived, /*expectedWidth,*/ expectedFeatures)
+	setupWorkingBase(workingBase, argsReceived /*expectedWidth,*/, expectedFeatures)
 
 	brokenBase := &inject.Base{}
 	setupBrokenBase(brokenBase)
