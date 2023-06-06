@@ -895,7 +895,6 @@ onUnmounted(() => {
       <Navigation
         v-for="nav in filterResources(resources, 'rdk', 'service', 'navigation')"
         :key="nav.name"
-        :resources="resources"
         :name="nav.name"
         :client="client"
         :statusStream="statusStream"

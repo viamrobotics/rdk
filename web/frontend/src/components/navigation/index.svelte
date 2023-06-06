@@ -3,17 +3,12 @@
 <script setup lang="ts">
 
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { grpc } from '@improbable-eng/grpc-web';
 import { toast } from '@/lib/toast';
-import { filterResources } from '@/lib/resource';
-import { Client, commonApi, robotApi, navigationApi, type ServiceError, type ResponseStream } from '@viamrobotics/sdk';
-import { Struct } from 'google-protobuf/google/protobuf/struct_pb';
-import { rcLogConditionally } from '@/lib/log';
+import { Client, robotApi, navigationApi, type ServiceError, type ResponseStream } from '@viamrobotics/sdk';
 import Collapse from '../collapse.svelte';
 import maplibregl from 'maplibre-gl'; 
 import { setMode, setWaypoint, getWaypoints, removeWaypoint, getLocation } from '@/api/navigation';
 
-export let resources: commonApi.ResourceName.AsObject[]
 export let name: string
 export let client: Client
 export let statusStream: ResponseStream<robotApi.StreamStatusResponse> | null
@@ -39,47 +34,6 @@ const setNavigationMode = async (event: CustomEvent) => {
   } catch (error) {
     toast.error((error as ServiceError).message);
   }
-};
-
-const setNavigationLocation = () => {
-  const [latStr, lngStr] = location.split(',');
-  if (latStr === undefined || lngStr === undefined) {
-    return;
-  }
-
-  const lat = Number.parseFloat(latStr);
-  const lng = Number.parseFloat(lngStr);
-
-  // TODO: Not sure how this works (if it does), robotApi has no ResourceRunCommandRequest method
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const req = new (robotApi as any).ResourceRunCommandRequest();
-  let gpsName = '';
-
-  const [gps] = filterResources(resources ?? [], 'rdk', 'component', 'gps');
-
-  if (gps) {
-    gpsName = gps.name;
-  } else {
-    toast.error('no gps device found');
-    return;
-  }
-
-  req.setName(name);
-  req.setResourceName(gpsName);
-  req.setCommandName('set_location');
-  req.setArgs(
-    Struct.fromJavaScript({
-      latitude: lat,
-      longitude: lng,
-    })
-  );
-
-  rcLogConditionally(req);
-  client.genericService.doCommand(req, new grpc.Metadata(), (error: ServiceError | null) => {
-    if (error) {
-      toast.error(error.message);
-    }
-  });
 };
 
 let map: maplibregl.Map
@@ -267,20 +221,9 @@ const handleClose = () => {
       on:input={setNavigationMode}
     />
 
-    <v-button
-      label="Try Set Location"
-      on:click={setNavigationLocation}
-    />
-
     <div
       id='navigation-map'
       class="mb-2 h-[400px] w-full"
-    />
-
-    <v-input
-      label="Location"
-      value={location}
-      on:input={handleLocationInput}
     />
   </div>
 </Collapse>
