@@ -730,7 +730,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div>
+  <div class="remote-control">
     <div v-if="showAuth">
       <div
         v-if="isConnecting"
