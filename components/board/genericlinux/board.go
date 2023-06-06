@@ -586,11 +586,16 @@ func (b *sysfsBoard) GPIOPinByName(pinName string) (board.GPIOPin, error) {
 		return b.periphGPIOPinByName(pinName)
 	}
 	// Otherwise, the pins are stored in b.gpios.
-	pin, ok := b.gpios[pinName]
-	if !ok {
-		return nil, errors.Errorf("cannot find GPIO for unknown pin: %s", pinName)
+	if pin, ok := b.gpios[pinName]; ok {
+		return pin, nil
 	}
-	return pin, nil
+
+	// check if pin is a digital interrupt
+	if interrupt, interruptOk := b.interrupts[pinName]; interruptOk {
+		return &gpioInterruptWrapperPin{*interrupt}, nil
+	}
+
+	return nil, errors.Errorf("cannot find GPIO for unknown pin: %s", pinName)
 }
 
 func (b *sysfsBoard) periphGPIOPinByName(pinName string) (board.GPIOPin, error) {
