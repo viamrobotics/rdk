@@ -7,10 +7,13 @@ import { BaseClient, Client, type ServiceError, commonApi, type ResponseStream, 
 import { filterResources } from '../lib/resource';
 import { displayError } from '../lib/error';
 import KeyboardInput, { type Keys } from './keyboard-input.vue';
-import Camera from './camera/camera.vue';
+import CameraSvelte from './camera/camera.svelte';
 import { rcLogConditionally } from '../lib/log';
 import { selectedMap } from '../lib/camera-state';
 import type { StreamManager } from './camera/stream-manager';
+import { svelteAdapter } from '../lib/svelte-adapter';
+
+const Camera = svelteAdapter(CameraSvelte);
 
 const enum Keymap {
   LEFT = 'a',
@@ -466,16 +469,15 @@ onUnmounted(() => {
           >
             <Camera
               v-if="openCameras[camera.name]"
-              :camera-name="camera.name"
-              parent-name="base"
               :client="client"
+              :streamManager="props.streamManager"
+              :statusStream="props.statusStream"
+              :cameraName="camera.name"
+              :showExportScreenshot="true"
+              :refreshRate="refreshFrequency"
               :resources="resources"
-              :show-refresh="true"
-              :show-export-screenshot="false"
-              :refresh-rate="refreshFrequency"
-              :trigger-refresh="triggerRefresh"
-              :stream-manager="props.streamManager"
-              :status-stream="props.statusStream"
+              :showRefresh="true"
+              :triggerRefresh="triggerRefresh"
             />
           </template>
         </div>

@@ -16,11 +16,14 @@ import {
 } from '@viamrobotics/sdk';
 import { displayError, isServiceError } from '@/lib/error';
 import { rcLogConditionally } from '@/lib/log';
-import PCD from '../pcd/pcd-view.vue';
+import PCDSvelte from '../pcd/pcd-view.svelte';
 import { copyToClipboardWithToast } from '@/lib/copy-to-clipboard';
 import Slam2dRenderer from './2d-renderer.vue';
 import { filterResources } from '@/lib/resource';
 import { onMounted, onUnmounted } from 'vue';
+import { svelteAdapter } from '../../lib/svelte-adapter';
+
+const PCD = svelteAdapter(PCDSvelte);
 
 type MapAndPose = { map: Uint8Array, pose: commonApi.Pose}
 
