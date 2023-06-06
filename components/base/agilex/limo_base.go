@@ -470,7 +470,7 @@ func (base *limoBase) Close(ctx context.Context) error {
 	}
 
 	// always delete the controller as there is no connection re-use
-	// TODO(RSDK-2333): remove the controllers map and embed serial port in the limo base struct
+	// TODO(RSDK-3516): remove the controllers map and embed serial port in the limo base struct
 	globalMu.Lock()
 	defer globalMu.Unlock()
 	if base.controller.port != nil {
