@@ -1,6 +1,6 @@
 {
   "name": "@viamrobotics/remote-control",
-  "version": "1.1.13",
+  "version": "2.0.0",
   "license": "Apache-2.0",
   "type": "module",
   "files": [
@@ -20,6 +20,7 @@
     "@viamrobotics/sdk": "0.2.0-pre.1",
     "google-protobuf": "~3.*.*",
     "three": "~0.152.*",
+    "tailwindcss": "~3.3.*",
     "trzy": "0.0.49"
   },
   "devDependencies": {
@@ -69,7 +70,7 @@
     "start": "node ./node_modules/vite/bin/vite.js --host",
     "build": "node ./node_modules/vite/bin/vite.js build && npm run copy-prime-assets",
     "build-prod": "node ./node_modules/vite/bin/vite.js build --no-sourcemap && npm run copy-prime-assets",
-    "build-npm": "node ./node_modules/vite/bin/vite.js build --config vite.lib.config.ts && vue-tsc --emitDeclarationOnly",
+    "build-npm": "node ./node_modules/vite/bin/vite.js build --config vite.lib.config.ts && vue-tsc --project ./tsconfig.lib.json --emitDeclarationOnly",
     "typecheck": "vue-tsc --noEmit",
     "preview": "vite preview",
     "lint": "eslint 'src/**/*.{ts,js,vue}' --fix --ignore-pattern 'gen/'",
