@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"sync"
 
 	"github.com/de-bkg/gognss/pkg/ntrip"
@@ -28,9 +29,12 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-// ErrRoverValidation contains the model substring for the available correction source types.
-var ErrCorrectionSourceValidation = fmt.Errorf("only serial, i2c, and ntrip are supported correction sources for %s", roverModel.Name)
-var errConnectionTypeValidation = fmt.Errorf("only serial and i2c are supported connection types for %s", roverModel.Name)
+var (
+	// ErrCorrectionSourceValidation contains the model substring for the available correction source types.
+	ErrCorrectionSourceValidation = fmt.Errorf("only serial, i2c, and ntrip are supported correction sources for %s", roverModel.Name)
+	errConnectionTypeValidation   = fmt.Errorf("only serial and i2c are supported connection types for %s", roverModel.Name)
+	errInputProtocolValidation    = fmt.Errorf("only serial and i2c are supported input protocols for %s", roverModel.Name)
+)
 
 var roverModel = resource.DefaultModelFamily.WithModel("gps-rtk")
 
@@ -77,37 +81,89 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 	var deps []string
 	var allErrs error
 
+	dep, err := cfg.validateCorrectionSource(path)
+	if err != nil {
+		allErrs = multierr.Combine(allErrs, err)
+	}
+	if dep != nil {
+		deps = append(deps, dep...)
+	}
+
+	dep, err = cfg.validateConnectionType(path)
+	if err != nil {
+		allErrs = multierr.Combine(allErrs, err)
+	}
+	if dep != nil {
+		deps = append(deps, dep...)
+	}
+
+	if cfg.CorrectionSource == ntripStr {
+		dep, err = cfg.validateNtripInputProtocol(path)
+		if err != nil {
+			allErrs = multierr.Combine(allErrs, err)
+		}
+	}
+	if dep != nil {
+		deps = append(deps, dep...)
+	}
+
+	return deps, allErrs
+}
+
+func (cfg *Config) validateCorrectionSource(path string) ([]string, error) {
+	var deps []string
 	switch cfg.CorrectionSource {
 	case ntripStr:
-		allErrs = multierr.Combine(cfg.NtripConfig.ValidateNtrip(path))
+		return nil, cfg.NtripConfig.ValidateNtrip(path)
 	case i2cStr:
 		if cfg.Board == "" {
-			allErrs = multierr.Combine(allErrs, utils.NewConfigValidationFieldRequiredError(path, "board"))
+			return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
 		}
 		deps = append(deps, cfg.Board)
-		allErrs = multierr.Combine(allErrs, cfg.I2CConfig.ValidateI2C(path))
+		return deps, cfg.I2CConfig.ValidateI2C(path)
 	case serialStr:
-		allErrs = multierr.Combine(allErrs, cfg.SerialConfig.ValidateSerial(path))
+		return nil, cfg.SerialConfig.ValidateSerial(path)
 	case "":
-		allErrs = multierr.Combine(allErrs, utils.NewConfigValidationFieldRequiredError(path, "correction_source"))
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "correction_source")
 	default:
-		allErrs = multierr.Combine(allErrs, ErrCorrectionSourceValidation)
+		return nil, ErrCorrectionSourceValidation
 	}
+}
+
+func (cfg *Config) validateConnectionType(path string) ([]string, error) {
+	var deps []string
 	switch cfg.ConnectionType {
 	case i2cStr:
 		if cfg.Board == "" {
-			allErrs = multierr.Combine(allErrs, utils.NewConfigValidationFieldRequiredError(path, "board"))
+			return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
 		}
 		deps = append(deps, cfg.Board)
-		allErrs = multierr.Combine(allErrs, cfg.I2CConfig.ValidateI2C(path))
+		return deps, cfg.I2CConfig.ValidateI2C(path)
 	case serialStr:
-		allErrs = multierr.Combine(allErrs, cfg.SerialConfig.ValidateSerial(path))
+		return nil, cfg.SerialConfig.ValidateSerial(path)
 	case "":
-		allErrs = multierr.Combine(allErrs, utils.NewConfigValidationFieldRequiredError(path, "connection_type"))
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "connection_type")
 	default:
-		allErrs = multierr.Combine(allErrs, errConnectionTypeValidation)
+		return nil, errConnectionTypeValidation
 	}
-	return deps, allErrs
+}
+
+func (cfg *Config) validateNtripInputProtocol(path string) ([]string, error) {
+	var deps []string
+	switch cfg.NtripInputProtocol {
+	case i2cStr:
+		if cfg.Board == "" {
+			return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
+		}
+		deps = append(deps, cfg.Board)
+		return deps, cfg.I2CConfig.ValidateI2C(path)
+	case serialStr:
+		return nil, cfg.SerialConfig.ValidateSerial(path)
+	case "":
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "ntrip_input_protocol")
+	default:
+		return nil, errInputProtocolValidation
+	}
 }
 
 // ValidateI2C ensures all parts of the config are valid.
@@ -118,7 +174,6 @@ func (cfg *I2CConfig) ValidateI2C(path string) error {
 	if cfg.I2cAddr == 0 {
 		return utils.NewConfigValidationFieldRequiredError(path, "i2c_addr")
 	}
-
 	return nil
 }
 
@@ -217,6 +272,7 @@ func newRTKMovementSensor(
 		if err != nil {
 			return nil, err
 		}
+		log.Println("created new serial nmea")
 	case i2cStr:
 		var err error
 		nmeaConf.I2CConfig = (*gpsnmea.I2CConfig)(newConf.I2CConfig)
@@ -256,6 +312,7 @@ func newRTKMovementSensor(
 
 	// I2C address only, assumes address is correct since this was checked when gps was initialized
 	if g.inputProtocol == i2cStr {
+		log.Println("making i2c stuff")
 		g.addr = byte(newConf.I2cAddr)
 
 		b, err := board.FromDependencies(deps, newConf.Board)
