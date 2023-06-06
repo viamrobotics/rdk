@@ -199,15 +199,21 @@ func (enc *Encoder) startPositionLoop(ctx context.Context) error {
 }
 
 func (enc *Encoder) readPosition(ctx context.Context) (float64, error) {
+	i2cHandle, err := enc.i2cBus.OpenHandle(enc.i2cAddr)
+	if err != nil {
+		return 0, err
+	}
+	defer utils.UncheckedErrorFunc(i2cHandle.Close)
+
 	// retrieve the 8 most significant bits of the 14-bit resolution
 	// position
-	msB, err := enc.readByteDataFromBus(ctx, enc.i2cBus, enc.i2cAddr, byte(0xFE))
+	msB, err := i2cHandle.ReadByteData(ctx, byte(0xFE))
 	if err != nil {
 		return 0, err
 	}
 	// retrieve the 6 least significant bits of as a byte (where
 	// the front two bits are irrelevant)
-	lsB, err := enc.readByteDataFromBus(ctx, enc.i2cBus, enc.i2cAddr, byte(0xFF))
+	lsB, err := i2cHandle.ReadByteData(ctx, byte(0xFF))
 	if err != nil {
 		return 0, err
 	}
@@ -326,19 +332,4 @@ func (enc *Encoder) Close(ctx context.Context) error {
 	enc.cancel()
 	enc.activeBackgroundWorkers.Wait()
 	return nil
-}
-
-// readByteDataFromBus opens a handle for the bus adhoc to perform a single read
-// and returns the result. The handle is closed at the end.
-func (enc *Encoder) readByteDataFromBus(ctx context.Context, bus board.I2C, addr, register byte) (byte, error) {
-	i2cHandle, err := bus.OpenHandle(addr)
-	if err != nil {
-		return 0, err
-	}
-	defer func() {
-		if err := i2cHandle.Close(); err != nil {
-			enc.logger.Error(err)
-		}
-	}()
-	return i2cHandle.ReadByteData(ctx, register)
 }
