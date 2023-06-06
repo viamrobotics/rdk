@@ -312,7 +312,6 @@ func newRTKMovementSensor(
 
 	// I2C address only, assumes address is correct since this was checked when gps was initialized
 	if g.inputProtocol == i2cStr {
-		log.Println("making i2c stuff")
 		g.addr = byte(newConf.I2cAddr)
 
 		b, err := board.FromDependencies(deps, newConf.Board)
