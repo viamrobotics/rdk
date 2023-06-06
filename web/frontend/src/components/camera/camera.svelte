@@ -64,6 +64,8 @@ const exportScreenshot = async (cameraName: string) => {
 onMount(async () => {
   statusStream?.on('end', () => clearFrameInterval());
 
+  videoEl.srcObject = cameraManager.videoStream;
+
   cameraManager.onOpen = () => {
     videoEl.srcObject = cameraManager.videoStream;
   }

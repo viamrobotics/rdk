@@ -48,7 +48,7 @@ import Slam from './slam/index.vue';
 import { svelteAdapter } from '../lib/svelte-adapter';
 
 const AudioInput = svelteAdapter(AudioInputSvelte);
-const CamerasList = svelteAdapter(CamerasListSvelte);
+const CamerasList = svelteAdapter(CamerasListSvelte, { display: 'flex', 'flex-direction': 'column', gap: '1rem' });
 const Motor = svelteAdapter(MotorSvelte);
 const MovementSensor = svelteAdapter(MovementSensorSvelte);
 const OperationsSessions = svelteAdapter(OperationsSessionsSvelte);
