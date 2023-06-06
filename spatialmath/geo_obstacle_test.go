@@ -43,33 +43,28 @@ func TestGeoObstacles(t *testing.T) {
 	})
 
 	// test forward and backward conversion from GeoObstacleConfig to GeoObstacle
-	gob := NewGeoObstacle(testPoint, []Geometry{testSphere})
+	gc, err := NewGeometryConfig(testSphere)
+	test.That(t, err, test.ShouldBeNil)
 
 	gobCfg := GeoObstacleConfig{
 		Location:   &commonpb.GeoPoint{Latitude: testLatitude, Longitude: testLongitude},
-		Geometries: []*commonpb.Geometry{testSphere.ToProtobuf()},
+		Geometries: []*GeometryConfig{gc},
 	}
 
 	t.Run("Conversion from GeoObstacle to GeoObstacleConfig", func(t *testing.T) {
-		conv, err := NewGeoObstacleConfig(gob)
+		conv, err := NewGeoObstacleConfig(*testGeoObst)
 		test.That(t, err, test.ShouldBeNil)
 
 		test.That(t, testPoint.Lat(), test.ShouldEqual, conv.Location.Latitude)
 		test.That(t, testPoint.Lng(), test.ShouldEqual, conv.Location.Longitude)
-		test.That(t, conv.Geometries, test.ShouldResemble, []*commonpb.Geometry{testSphere.ToProtobuf()})
+		test.That(t, conv.Geometries, test.ShouldResemble, []*GeometryConfig{gc})
 	})
 
 	t.Run("Conversion from GeoObstacleConfig to GeoObstacle", func(t *testing.T) {
 		conv, err := GeoObstaclesFromConfig(&gobCfg)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(conv), test.ShouldEqual, 1)
-		test.That(t, conv[0].location, test.ShouldResemble, gob.location)
-		test.That(t, conv[0].geometries, test.ShouldResemble, gob.geometries)
-	})
-
-	t.Run("Conversion from GeoObstacle to Geometry", func(t *testing.T) {
-		geoms := GeoObstaclesToGeometries([]*GeoObstacle{gob})
-		test.That(t, len(geoms), test.ShouldEqual, 1)
-		test.That(t, geoms[0].Pose(), test.ShouldResemble, Compose(GeoPointToPose(testPoint), testPose))
+		test.That(t, conv[0].location, test.ShouldResemble, testGeoObst.location)
+		test.That(t, conv[0].geometries, test.ShouldResemble, testGeoObst.geometries)
 	})
 }
