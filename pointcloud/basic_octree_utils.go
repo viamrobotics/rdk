@@ -99,9 +99,9 @@ func (octree *BasicOctree) splitIntoOctants() error {
 
 // Checks that a point should be inside a basic octree based on its center and defined side length.
 func (octree *BasicOctree) checkPointPlacement(p r3.Vector) bool {
-	return ((math.Abs(octree.center.X-p.X) <= 1.0001*octree.sideLength/2.) &&
-		(math.Abs(octree.center.Y-p.Y) <= 1.0001*octree.sideLength/2.) &&
-		(math.Abs(octree.center.Z-p.Z) <= 1.0001*octree.sideLength/2.))
+	return ((math.Abs(octree.center.X-p.X) <= (1+nodeRegionOverlap)*octree.sideLength/2.) &&
+		(math.Abs(octree.center.Y-p.Y) <= (1+nodeRegionOverlap)*octree.sideLength/2.) &&
+		(math.Abs(octree.center.Z-p.Z) <= (1+nodeRegionOverlap)*octree.sideLength/2.))
 }
 
 // helperSet is used by Set to recursive move through a basic octree while tracking recursion depth.
