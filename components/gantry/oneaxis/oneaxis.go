@@ -138,13 +138,31 @@ func (g *oneAxis) Reconfigure(ctx context.Context, deps resource.Dependencies, c
 	}
 
 	// Rerun homing if the board has changed
-	if g.board.Name().ShortName() != newConf.Board {
+	if g.board == nil || g.board.Name().ShortName() != newConf.Board {
 		board, err := board.FromDependencies(deps, newConf.Board)
 		if err != nil {
 			return err
 		}
 		g.board = board
 		needsToReHome = true
+	}
+
+	// Rerun homing if the motor changes
+	if g.motor == nil || g.motor.Name().ShortName() != newConf.Motor {
+		needsToReHome = true
+		motorDep, err := motor.FromDependencies(deps, newConf.Motor)
+		if err != nil {
+			return err
+		}
+		features, err := motorDep.Properties(ctx, nil)
+		if err != nil {
+			return err
+		}
+		ok := features[motor.PositionReporting]
+		if !ok {
+			return motor.NewFeatureUnsupportedError(motor.PositionReporting, newConf.Motor)
+		}
+		g.motor = motorDep
 	}
 
 	// Rerun homing if anything with the limit switch pins changes
@@ -162,24 +180,6 @@ func (g *oneAxis) Reconfigure(ctx context.Context, deps resource.Dependencies, c
 	}
 	if len(newConf.LimitSwitchPins) > 2 {
 		return errors.Errorf("invalid gantry type: need 1, 2 or 0 pins per axis, have %v pins", len(newConf.LimitSwitchPins))
-	}
-
-	// Rerun homing if the motor changes
-	if g.motor.Name().ShortName() != newConf.Motor {
-		needsToReHome = true
-		motorDep, err := motor.FromDependencies(deps, newConf.Motor)
-		if err != nil {
-			return err
-		}
-		features, err := motorDep.Properties(ctx, nil)
-		if err != nil {
-			return err
-		}
-		ok := features[motor.PositionReporting]
-		if !ok {
-			return motor.NewFeatureUnsupportedError(motor.PositionReporting, newConf.Motor)
-		}
-		g.motor = motorDep
 	}
 
 	if needsToReHome {

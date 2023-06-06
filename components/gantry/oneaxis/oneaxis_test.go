@@ -150,6 +150,7 @@ func TestNewOneAxis(t *testing.T) {
 			LimitSwitchPins: []string{"1", "2", "3"},
 			LengthMm:        1.0,
 			Board:           boardName,
+			LimitPinEnabled: &setTrue,
 		},
 	}
 	_, err = newOneAxis(ctx, deps, fakecfg, logger)
@@ -168,6 +169,7 @@ func TestNewOneAxis(t *testing.T) {
 	}
 	deps = make(resource.Dependencies)
 	deps[motor.Named(motorName)] = injectMotor
+	deps[board.Named(boardName)] = createFakeBoard()
 
 	_, err = newOneAxis(ctx, deps, fakecfg, logger)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid gantry type")
@@ -182,6 +184,7 @@ func TestNewOneAxis(t *testing.T) {
 
 	deps = make(resource.Dependencies)
 	deps[motor.Named(motorName)] = injectMotor
+	deps[board.Named(boardName)] = createFakeBoard()
 	_, err = newOneAxis(ctx, deps, fakecfg, logger)
 	expectedErr := motor.NewFeatureUnsupportedError(motor.PositionReporting, motorName)
 	test.That(t, err, test.ShouldBeError, expectedErr)
