@@ -13,10 +13,13 @@ import (
 func TestLimoBaseConstructor(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
+	deps := resource.Dependencies{}
+	expectedWidth := float64(defaultBaseTreadMm) * 0.001
+	expectedTurningRadius := minTurningRadiusM // only for ackerman
 
 	c := make(chan []uint8, 100)
 
-	_, err := CreateLimoBase(context.Background(), resource.Config{ConvertedAttributes: &Config{}}, logger)
+	_, err := createLimoBase(ctx, deps, resource.Config{ConvertedAttributes: &Config{}}, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	cfg := &Config{
@@ -24,11 +27,36 @@ func TestLimoBaseConstructor(t *testing.T) {
 		TestChan:  c,
 	}
 
-	baseBase, err := CreateLimoBase(context.Background(), resource.Config{ConvertedAttributes: cfg}, logger)
+	lb, err := createLimoBase(ctx, deps, resource.Config{ConvertedAttributes: cfg}, logger)
 	test.That(t, err, test.ShouldBeNil)
-	base, ok := baseBase.(*limoBase)
-	test.That(t, ok, test.ShouldBeTrue)
-	width, _ := base.Width(ctx)
-	test.That(t, width, test.ShouldEqual, 172)
-	base.Close(ctx)
+	props, err := lb.Properties(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, props.WidthMeters, test.ShouldEqual, expectedWidth)
+	test.That(t, props.TurningRadiusMeters, test.ShouldEqual, expectedTurningRadius)
+	lb.Close(ctx)
+
+	cfg = &Config{
+		DriveMode: "differential",
+		TestChan:  c,
+	}
+	lb, err = createLimoBase(context.Background(), deps, resource.Config{ConvertedAttributes: cfg}, logger)
+	test.That(t, err, test.ShouldBeNil)
+	props, err = lb.Properties(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, props.WidthMeters, test.ShouldEqual, expectedWidth)
+	test.That(t, props.TurningRadiusMeters, test.ShouldEqual, 0) // not ackerman, so zero
+	lb.Close(ctx)
+
+	cfg = &Config{
+		DriveMode: "omni",
+		TestChan:  c,
+	}
+	lb, err = createLimoBase(context.Background(), deps, resource.Config{ConvertedAttributes: cfg}, logger)
+	test.That(t, err, test.ShouldBeNil)
+	props, err = lb.Properties(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, props.WidthMeters, test.ShouldEqual, expectedWidth)
+	test.That(t, props.TurningRadiusMeters, test.ShouldEqual, 0) // not ackerman, so zero
+	lb.Close(ctx)
 }

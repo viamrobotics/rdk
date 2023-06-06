@@ -92,15 +92,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 }
 
 func init() {
-	wheeledBaseComp := resource.Registration[base.Base, *Config]{
-		Constructor: func(
-			ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger,
-		) (base.Base, error) {
-			return createWheeledBase(ctx, deps, conf, logger)
-		},
-	}
-
-	resource.RegisterComponent(base.API, Model, wheeledBaseComp)
+	resource.RegisterComponent(base.API, Model, resource.Registration[base.Base, *Config]{Constructor: createWheeledBase})
 }
 
 type wheeledBase struct {
@@ -218,7 +210,7 @@ func createWheeledBase(
 	deps resource.Dependencies,
 	conf resource.Config,
 	logger golog.Logger,
-) (base.LocalBase, error) {
+) (base.Base, error) {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return nil, err
@@ -452,7 +444,9 @@ func (wb *wheeledBase) Close(ctx context.Context) error {
 	return wb.Stop(ctx, nil)
 }
 
-// Width returns the width of the base as configured by the user.
-func (wb *wheeledBase) Width(ctx context.Context) (int, error) {
-	return wb.widthMm, nil
+func (wb *wheeledBase) Properties(ctx context.Context, extra map[string]interface{}) (base.Properties, error) {
+	return base.Properties{
+		TurningRadiusMeters: 0.0,
+		WidthMeters:         float64(wb.widthMm) * 0.001, // convert to meters from mm
+	}, nil
 }
