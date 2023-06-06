@@ -1,3 +1,8 @@
+<!--
+  Rendering embedded maps inside of a shadow dom is currently broken for MapLibreGL.
+  This Collapse component is taken from PRIME but removes all web component behavior.
+  Once we've completed the svelte migration it can be removed and replaced with the PRIME component.
+-->
 <script lang="ts">
 
 import { createEventDispatcher, tick } from 'svelte';
