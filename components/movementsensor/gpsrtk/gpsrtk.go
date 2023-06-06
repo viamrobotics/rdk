@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"sync"
 
 	"github.com/de-bkg/gognss/pkg/ntrip"
@@ -272,7 +271,6 @@ func newRTKMovementSensor(
 		if err != nil {
 			return nil, err
 		}
-		log.Println("created new serial nmea")
 	case i2cStr:
 		var err error
 		nmeaConf.I2CConfig = (*gpsnmea.I2CConfig)(newConf.I2CConfig)
