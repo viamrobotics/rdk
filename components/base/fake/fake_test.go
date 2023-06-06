@@ -28,7 +28,7 @@ func TestFakeBase(t *testing.T) {
 
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
-	b, err := NewBase(ctx, conf)
+	b, err := NewBase(ctx, resource.Dependencies{}, conf, logger)
 	test.That(t, err, test.ShouldBeNil)
 	fakeSLAM := fake.NewSLAM(slam.Named("test"), logger)
 	limits, err := fakeSLAM.GetLimits(ctx)
