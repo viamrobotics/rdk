@@ -589,8 +589,17 @@ func createFramesFromPart(part *FrameSystemPart) (Frame, Frame, error) {
 		if err != nil {
 			return nil, nil, err
 		}
+		pose, err := staticOriginFrame.Transform([]Input{})
+		if err != nil {
+			return nil, nil, err
+		}
 		if len(offsetGeom.Geometries()) > 0 {
-			modelFrame = &noGeometryFrame{modelFrame}
+			// If there are offset geometries, they should replace the static geometries, so the static frame is recreated with no geoms
+			noGeomFrame, err := NewStaticFrame(modelFrame.Name(), pose)
+			if err != nil {
+				return nil, nil, err
+			}
+			modelFrame = noGeomFrame
 		}
 	}
 

@@ -1,18 +1,29 @@
 <script setup lang="ts">
 
-import { $ref, $computed } from 'vue/macros';
+import { $ref, $computed } from '@vue-macros/reactivity-transform/macros';
 import { grpc } from '@improbable-eng/grpc-web';
 import { toast } from '@/lib/toast';
 import { Struct } from 'google-protobuf/google/protobuf/struct_pb';
 import * as THREE from 'three';
-import { Client, commonApi, ResponseStream, robotApi, ServiceError, slamApi, motionApi } from '@viamrobotics/sdk';
+import {
+  Client,
+  commonApi,
+  type ResponseStream,
+  robotApi,
+  type ServiceError,
+  slamApi,
+  motionApi,
+} from '@viamrobotics/sdk';
 import { displayError, isServiceError } from '@/lib/error';
 import { rcLogConditionally } from '@/lib/log';
-import PCD from '../pcd/pcd-view.vue';
+import PCDSvelte from '../pcd/pcd-view.svelte';
 import { copyToClipboardWithToast } from '@/lib/copy-to-clipboard';
 import Slam2dRenderer from './2d-renderer.vue';
 import { filterResources } from '@/lib/resource';
 import { onMounted, onUnmounted } from 'vue';
+import { svelteAdapter } from '../../lib/svelte-adapter';
+
+const PCD = svelteAdapter(PCDSvelte);
 
 type MapAndPose = { map: Uint8Array, pose: commonApi.Pose}
 
@@ -25,10 +36,10 @@ const props = defineProps<{
     op: robotApi.Operation.AsObject
     elapsed: number
   }[]
-}
->();
+}>();
 
 const refreshErrorMessage = 'Error refreshing map. The map shown may be stale.';
+const displayPose = $ref({ x: 0, y: 0, z: 0, ox: 0, oy: 0, oz: 0, th: 0 });
 let refreshErrorMessage2d = $ref<string | null>();
 let refreshErrorMessage3d = $ref<string | null>();
 let selected2dValue = $ref('manual');
@@ -43,7 +54,7 @@ let refresh2DCancelled = true;
 let refresh3DCancelled = true;
 let updatedDest = $ref(false);
 let destinationMarker = $ref(new THREE.Vector3());
-const basePose = new commonApi.Pose();
+
 const motionServiceReq = new motionApi.MoveOnMapRequest();
 
 const loaded2d = $computed(() => (pointcloud !== undefined && pose !== undefined));
@@ -140,35 +151,6 @@ const fetchSLAMPose = (name: string): Promise<commonApi.Pose> => {
   });
 };
 
-const fetchFeatureFlags = (name: string): Promise<{[key: string]: boolean}> => {
-  return new Promise((resolve, reject): void => {
-    const request = new commonApi.DoCommandRequest();
-    request.setName(name);
-    request.setCommand(Struct.fromJavaScript({ feature_flag: true }));
-    props.client.slamService.doCommand(
-      request,
-      new grpc.Metadata(),
-      (error: ServiceError|null, responseMessage: commonApi.DoCommandResponse|null) => {
-
-        /*
-         * Note: we ignore unimplementedError because in the current implementation it
-         *  signifies that the feature flag is false
-         */
-        if (error) {
-          if (error.code === grpc.Code.Unimplemented || error.code === grpc.Code.Unknown) {
-            resolve({});
-            return;
-          }
-          reject(error);
-          return;
-
-        }
-        resolve(responseMessage!.getResult()?.toJavaScript() as {[key: string]: boolean});
-      }
-    );
-  });
-};
-
 const deleteDestinationMarker = () => {
   updatedDest = false;
   destinationMarker = new THREE.Vector3();
@@ -245,17 +227,17 @@ const stopMoveOnMap = () => {
 };
 
 const refresh2d = async (name: string) => {
-  const flags = await fetchFeatureFlags(name);
-
   const map = await fetchSLAMMap(name);
   const returnedPose = await fetchSLAMPose(name);
 
-  // TODO: Remove this check when APP and carto are both up to date [RSDK-3166]
-  if (flags && flags.response_in_millimeters) {
-    returnedPose.setX(returnedPose.getX() / 1000);
-    returnedPose.setY(returnedPose.getY() / 1000);
-    returnedPose.setZ(returnedPose.getZ() / 1000);
-  }
+  /*
+   * The pose is returned in millimeters, but we need
+   * to convert to meters to display on the frontend.
+   */
+  returnedPose.setX(returnedPose.getX() / 1000);
+  returnedPose.setY(returnedPose.getY() / 1000);
+  returnedPose.setZ(returnedPose.getZ() / 1000);
+
   const mapAndPose: MapAndPose = {
     map,
     pose: returnedPose,
@@ -267,14 +249,15 @@ const handleRefresh2dResponse = (response: MapAndPose): void => {
   pointcloud = response.map;
   pose = response.pose;
 
-  // we round to the tenths per figma design
-  basePose.setX(Number(pose!.getX()!.toFixed(1)!));
-  basePose.setY(Number(pose!.getY()!.toFixed(1)!));
-  basePose.setZ(Number(pose!.getZ()!.toFixed(1)!));
-  basePose.setOX(Number(pose!.getOX()!.toFixed(1)!));
-  basePose.setOY(Number(pose!.getOY()!.toFixed(1)!));
-  basePose.setOZ(Number(pose!.getOZ()!.toFixed(1)!));
-  basePose.setTheta(Number(pose!.getTheta()!.toFixed(1)!));
+  displayPose.x = Number(pose.getX().toFixed(1));
+  displayPose.y = Number(pose.getY().toFixed(1));
+  displayPose.z = Number(pose.getZ().toFixed(1));
+
+  displayPose.ox = Number(pose.getOX().toFixed(1));
+  displayPose.oy = Number(pose.getOY().toFixed(1));
+  displayPose.oz = Number(pose.getOZ().toFixed(1));
+  displayPose.th = Number(pose.getTheta().toFixed(1));
+
   pointCloudUpdateCount += 1;
 };
 
@@ -429,7 +412,7 @@ const handleUpdateDestY = (event: CustomEvent<{ value: string }>) => {
 };
 
 const baseCopyPosition = () => {
-  copyToClipboardWithToast(JSON.stringify(basePose.toObject()));
+  copyToClipboardWithToast(JSON.stringify(displayPose));
 };
 
 const toggleAxes = () => {
@@ -468,7 +451,7 @@ onUnmounted(() => {
       label="STOP"
       @click="stopMoveOnMap()"
     />
-    <div class="border-medium flex flex-wrap gap-4 border border-t-0 sm:flex-nowrap">
+    <div class="flex flex-wrap gap-4 border border-t-0 border-medium sm:flex-nowrap">
       <div class="flex min-w-fit flex-col gap-4 p-4">
         <div class="float-left pb-4">
           <div class="flex">
@@ -483,8 +466,8 @@ onUnmounted(() => {
                 <select
                   v-model="selected2dValue"
                   class="
-                      border-medium text-default m-0 w-full appearance-none border border-solid bg-white
-                      bg-clip-padding px-3 py-1.5 text-xs font-normal focus:outline-none
+                      m-0 w-full appearance-none border border-solid border-medium bg-white bg-clip-padding
+                      px-3 py-1.5 text-xs font-normal text-default focus:outline-none
                     "
                   aria-label="Default select example"
                   @change="selectSLAM2dRefreshFrequency()"
@@ -532,7 +515,7 @@ onUnmounted(() => {
               />
             </div>
           </div>
-          <hr class="border-medium my-4 border-t">
+          <hr class="my-4 border-t border-medium">
           <div class="flex flex-row">
             <p class="mb-1 pr-52 font-bold text-gray-800">
               Ending Position
@@ -594,17 +577,17 @@ onUnmounted(() => {
                 <p class="items-end pr-2 text-xs text-gray-500">
                   x
                 </p>
-                <p>{{ basePose.getX() }}</p>
+                <p>{{ displayPose.x }}</p>
 
                 <p class="pl-9 pr-2 text-xs text-gray-500">
                   y
                 </p>
-                <p>{{ basePose.getY() }}</p>
+                <p>{{ displayPose.y }}</p>
 
                 <p class="pl-9 pr-2 text-xs text-gray-500">
                   z
                 </p>
-                <p>{{ basePose.getZ() }}</p>
+                <p>{{ displayPose.z }}</p>
               </div>
             </div>
             <div class="flex flex-col pl-10">
@@ -615,22 +598,22 @@ onUnmounted(() => {
                 <p class="pr-2 text-xs text-gray-500">
                   o<sub>x</sub>
                 </p>
-                <p>{{ basePose.getOX() }}</p>
+                <p>{{ displayPose.ox }}</p>
 
                 <p class="pl-9 pr-2 text-xs text-gray-500">
                   o<sub>y</sub>
                 </p>
-                <p>{{ basePose.getOY() }}</p>
+                <p>{{ displayPose.oy }}</p>
 
                 <p class="pl-9 pr-2 text-xs text-gray-500">
                   o<sub>z</sub>
                 </p>
-                <p>{{ basePose.getOZ() }}</p>
+                <p>{{ displayPose.oz }}</p>
 
                 <p class="pl-9 pr-2 text-xs text-gray-500">
                   &theta;
                 </p>
-                <p>{{ basePose.getTheta() }}</p>
+                <p>{{ displayPose.th }}</p>
               </div>
             </div>
             <div class="pl-4 pt-2">
@@ -655,7 +638,7 @@ onUnmounted(() => {
         </div>
       </div>
     </div>
-    <div class="border-medium border border-t-transparent p-4 ">
+    <div class="border border-medium border-t-transparent p-4 ">
       <v-switch
         label="View SLAM Map (3D)"
         :value="show3d ? 'on' : 'off'"
@@ -679,7 +662,7 @@ onUnmounted(() => {
             <select
               v-model="selected3dValue"
               class="
-                      border-medium m-0 w-full appearance-none border border-solid bg-white
+                      m-0 w-full appearance-none border border-solid border-medium bg-white
                       bg-clip-padding px-3 py-1.5 text-xs font-normal text-gray-700 focus:outline-none"
               aria-label="Default select example"
               @change="selectSLAMPCDRefreshFrequency()"
@@ -704,7 +687,7 @@ onUnmounted(() => {
               class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2"
             >
               <svg
-                class="text-default h-4 w-4 stroke-2"
+                class="h-4 w-4 stroke-2 text-default"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
                 stroke-linejoin="round"

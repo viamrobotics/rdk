@@ -29,8 +29,9 @@ func TestDiffConfigs(t *testing.T) {
 	config1 := config.Config{
 		Modules: []config.Module{
 			{
-				Name:    "my-module",
-				ExePath: "path/to/my-module",
+				Name:     "my-module",
+				ExePath:  "path/to/my-module",
+				LogLevel: "info",
 			},
 		},
 		Remotes: []config.Remote{
@@ -101,8 +102,9 @@ func TestDiffConfigs(t *testing.T) {
 	config2 := config.ModifiedConfigDiff{
 		Modules: []config.Module{
 			{
-				Name:    "my-module",
-				ExePath: "new/path/to/my-module",
+				Name:     "my-module",
+				ExePath:  "new/path/to/my-module",
+				LogLevel: "debug",
 			},
 		},
 		Remotes: []config.Remote{
@@ -311,8 +313,9 @@ func TestDiffConfigs(t *testing.T) {
 				Removed: &config.Config{
 					Modules: []config.Module{
 						{
-							Name:    "my-module",
-							ExePath: "path/to/my-module",
+							Name:     "my-module",
+							ExePath:  "path/to/my-module",
+							LogLevel: "info",
 						},
 					},
 					Components: []resource.Config{

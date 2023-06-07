@@ -99,8 +99,8 @@ func TestModelGeometries(t *testing.T) {
 
 	// test zero pose of model
 	inputs := make([]Input, len(m.DoF()))
-	geometries, _ := m.Geometries(inputs)
-	test.That(t, geometries, test.ShouldNotBeNil)
+	geometries, err := m.Geometries(inputs)
+	test.That(t, err, test.ShouldBeNil)
 	link1 := geometries.GeometryByName("test:link1").Pose().Point()
 	test.That(t, spatial.R3VectorAlmostEqual(link1, r3.Vector{0, 0, 10}, 1e-8), test.ShouldBeTrue)
 	link2 := geometries.GeometryByName("test:link2").Pose().Point()
@@ -114,4 +114,30 @@ func TestModelGeometries(t *testing.T) {
 	test.That(t, spatial.R3VectorAlmostEqual(link1, r3.Vector{0, 0, 10}, 1e-8), test.ShouldBeTrue)
 	link2 = geometries.GeometryByName("test:link2").Pose().Point()
 	test.That(t, spatial.R3VectorAlmostEqual(link2, r3.Vector{10, 0, 10}, 1e-8), test.ShouldBeTrue)
+}
+
+func Test2DMobileModelFrame(t *testing.T) {
+	expLimit := []Limit{{-10, 10}, {-10, 10}, {-math.Pi, math.Pi}}
+	sphere, err := spatial.NewSphere(spatial.NewZeroPose(), 10, "")
+	test.That(t, err, test.ShouldBeNil)
+	frame, err := New2DMobileModelFrame("test", expLimit, sphere)
+	test.That(t, err, test.ShouldBeNil)
+	// expected output
+	expPose := spatial.NewPose(r3.Vector{3, 5, 0}, &spatial.OrientationVector{OZ: 1, Theta: math.Pi / 2})
+	// get expected transform back
+	pose, err := frame.Transform(FloatsToInputs([]float64{3, 5, math.Pi / 2}))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pose, test.ShouldResemble, expPose)
+	// if you feed in too many inputs, should get error back
+	_, err = frame.Transform(FloatsToInputs([]float64{3, 5, 0, 10}))
+	test.That(t, err, test.ShouldNotBeNil)
+	// if you feed in too few inputs, should get errr back
+	_, err = frame.Transform(FloatsToInputs([]float64{3}))
+	test.That(t, err, test.ShouldNotBeNil)
+	// if you try to move beyond set limits, should get an error
+	_, err = frame.Transform(FloatsToInputs([]float64{3, 100}))
+	test.That(t, err, test.ShouldNotBeNil)
+	// gets the correct limits back
+	limit := frame.DoF()
+	test.That(t, limit[0], test.ShouldResemble, expLimit[0])
 }

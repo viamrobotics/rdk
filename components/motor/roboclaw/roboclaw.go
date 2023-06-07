@@ -204,7 +204,6 @@ func newRoboClaw(conf resource.Config, logger golog.Logger) (motor.Motor, error)
 
 type roboclawMotor struct {
 	resource.Named
-	resource.AlwaysRebuild
 	resource.TriviallyCloseable
 	conn *roboclaw.Roboclaw
 	conf *Config

@@ -100,9 +100,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 }
 
 func init() {
-	resource.RegisterComponent(base.API, Model, resource.Registration[base.Base, *Config]{
-		Constructor: createWheeledBase,
-	})
+	resource.RegisterComponent(base.API, Model, resource.Registration[base.Base, *Config]{Constructor: createWheeledBase})
 }
 
 type wheeledBase struct {
@@ -242,7 +240,7 @@ func createWheeledBase(
 	// TODO (rh) simplify this function and call Reconfigure
 	if len(newConf.MovementSensor) != 0 {
 		baseCtx := context.Background()
-		sb := &sensorBase{base: &wb, logger: logger, baseCtx: ctx, Named: wb.Name().AsNamed()}
+		sb := &sensorBase{wBase: &wb, logger: logger, baseCtx: ctx, Named: wb.Name().AsNamed()}
 
 		if err := attachSensorsToBase(baseCtx, sb, deps, newConf.MovementSensor); err != nil {
 			return nil, err
@@ -464,7 +462,9 @@ func (wb *wheeledBase) Close(ctx context.Context) error {
 	return wb.Stop(ctx, nil)
 }
 
-// Width returns the width of the base as configured by the user.
-func (wb *wheeledBase) Width(ctx context.Context) (int, error) {
-	return wb.widthMm, nil
+func (wb *wheeledBase) Properties(ctx context.Context, extra map[string]interface{}) (base.Properties, error) {
+	return base.Properties{
+		TurningRadiusMeters: 0.0,
+		WidthMeters:         float64(wb.widthMm) * 0.001, // convert to meters from mm
+	}, nil
 }

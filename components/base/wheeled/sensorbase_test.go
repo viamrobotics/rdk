@@ -285,7 +285,7 @@ func TestSpinWithMovementSensor(t *testing.T) {
 	}
 
 	sensorBase := &sensorBase{
-		base:        &base,
+		wBase:        &base,
 		sensorMu:    sync.Mutex{},
 		sensorDone:  sensorCancel,
 		allSensors:  []movementsensor.MovementSensor{ms},

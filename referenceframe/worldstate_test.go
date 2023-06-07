@@ -3,6 +3,7 @@ package referenceframe
 import (
 	"testing"
 
+	"github.com/jedib0t/go-pretty/v6/table"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/spatialmath"
@@ -40,4 +41,39 @@ func TestWorldStateConstruction(t *testing.T) {
 	// test that you can add multiple geometries with no name
 	_, err = NewWorldState([]*GeometriesInFrame{NewGeometriesInFrame("", []spatialmath.Geometry{noname, unnamed})}, nil)
 	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestString(t *testing.T) {
+	foo, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 10, "foo")
+	test.That(t, err, test.ShouldBeNil)
+	bar, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 5, "bar")
+	test.That(t, err, test.ShouldBeNil)
+	testgeo, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 7, "testgeo")
+	test.That(t, err, test.ShouldBeNil)
+
+	ws, err := NewWorldState([]*GeometriesInFrame{
+		NewGeometriesInFrame("world", []spatialmath.Geometry{foo, bar}),
+		NewGeometriesInFrame("camera", []spatialmath.Geometry{testgeo}),
+	}, nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	testTable := table.NewWriter()
+	testTable.AppendHeader(table.Row{"Name", "Geometry Type", "Parent"})
+	testTable.AppendRow([]interface{}{
+		"foo",
+		foo.String(),
+		"world",
+	})
+	testTable.AppendRow([]interface{}{
+		"bar",
+		bar.String(),
+		"world",
+	})
+	testTable.AppendRow([]interface{}{
+		"testgeo",
+		testgeo.String(),
+		"camera",
+	})
+
+	test.That(t, ws.String(), test.ShouldEqual, testTable.Render())
 }

@@ -189,15 +189,6 @@ func (sf *tailGeometryStaticFrame) Geometries(input []Input) (*GeometriesInFrame
 	return NewGeometriesInFrame(sf.name, []spatial.Geometry{newGeom}), nil
 }
 
-// noGeometryFrame is a frame wrapper which will always return nil for its geometry. Use this to remove the geometries from any frame.
-type noGeometryFrame struct {
-	Frame
-}
-
-func (nf *noGeometryFrame) Geometries(input []Input) (*GeometriesInFrame, error) {
-	return NewGeometriesInFrame(nf.Name(), nil), nil
-}
-
 // namedFrame is used to change the name of a frame.
 type namedFrame struct {
 	Frame
@@ -243,29 +234,6 @@ func NewStaticFrameWithGeometry(name string, pose spatial.Pose, geometry spatial
 		return nil, errors.New("pose is not allowed to be nil")
 	}
 	return &staticFrame{&baseFrame{name, []Limit{}}, pose, geometry}, nil
-}
-
-// NewStaticFrameFromFrame creates a frame given a pose relative to its parent.  The pose is fixed for all time.
-// It inherits its name and geometry properties from the specified Frame. Pose is not allowed to be nil.
-func NewStaticFrameFromFrame(frame Frame, pose spatial.Pose) (Frame, error) {
-	if pose == nil {
-		return nil, errors.New("pose is not allowed to be nil")
-	}
-	switch f := frame.(type) {
-	case *staticFrame:
-		return NewStaticFrameWithGeometry(frame.Name(), pose, f.geometry)
-	case *translationalFrame:
-		return NewStaticFrameWithGeometry(frame.Name(), pose, f.geometry)
-	case *mobile2DFrame:
-		return NewStaticFrameWithGeometry(frame.Name(), pose, f.geometry)
-	default:
-		return NewStaticFrame(frame.Name(), pose)
-	}
-}
-
-// FrameFromPoint creates a new Frame from a 3D point.
-func FrameFromPoint(name string, point r3.Vector) (Frame, error) {
-	return NewStaticFrame(name, spatial.NewPoseFromPoint(point))
 }
 
 // Transform returns the pose associated with this static referenceframe.
@@ -467,7 +435,7 @@ func (rf *rotationalFrame) ProtobufFromInput(input []Input) *pb.JointPositions {
 // Geometries will always return (nil, nil) for rotationalFrames, as not allowing rotationalFrames to occupy geometries is a
 // design choice made for simplicity. staticFrame and translationalFrame should be used instead.
 func (rf *rotationalFrame) Geometries(input []Input) (*GeometriesInFrame, error) {
-	return nil, fmt.Errorf("Geometries not implemented for type %T", rf)
+	return NewGeometriesInFrame(rf.Name(), nil), nil
 }
 
 func (rf rotationalFrame) MarshalJSON() ([]byte, error) {
@@ -488,64 +456,4 @@ func (rf rotationalFrame) MarshalJSON() ([]byte, error) {
 func (rf *rotationalFrame) AlmostEquals(otherFrame Frame) bool {
 	other, ok := otherFrame.(*rotationalFrame)
 	return ok && rf.baseFrame.AlmostEquals(other.baseFrame) && spatial.R3VectorAlmostEqual(rf.rotAxis, other.rotAxis, 1e-8)
-}
-
-type mobile2DFrame struct {
-	*baseFrame
-	geometry spatial.Geometry
-}
-
-// NewMobile2DFrame instantiates a frame that can translate in the x and y dimensions and will always remain on the plane Z=0.
-func NewMobile2DFrame(name string, limits []Limit, geometry spatial.Geometry) (Frame, error) {
-	if len(limits) != 2 {
-		return nil, fmt.Errorf("cannot create a %d dof mobile frame, only support 2 dimensions currently", len(limits))
-	}
-	return &mobile2DFrame{baseFrame: &baseFrame{name: name, limits: limits}, geometry: geometry}, nil
-}
-
-func (mf *mobile2DFrame) Transform(input []Input) (spatial.Pose, error) {
-	err := mf.validInputs(input)
-	// We allow out-of-bounds calculations, but will return a non-nil error
-	if err != nil && !strings.Contains(err.Error(), OOBErrString) {
-		return nil, err
-	}
-	return spatial.NewPoseFromPoint(r3.Vector{input[0].Value, input[1].Value, 0}), err
-}
-
-// InputFromProtobuf converts pb.JointPosition to inputs.
-func (mf *mobile2DFrame) InputFromProtobuf(jp *pb.JointPositions) []Input {
-	n := make([]Input, len(jp.Values))
-	for idx, d := range jp.Values {
-		n[idx] = Input{d}
-	}
-	return n
-}
-
-// ProtobufFromInput converts inputs to pb.JointPosition.
-func (mf *mobile2DFrame) ProtobufFromInput(input []Input) *pb.JointPositions {
-	n := make([]float64, len(input))
-	for idx, a := range input {
-		n[idx] = a.Value
-	}
-	return &pb.JointPositions{Values: n}
-}
-
-func (mf *mobile2DFrame) Geometries(input []Input) (*GeometriesInFrame, error) {
-	if mf.geometry == nil {
-		return NewGeometriesInFrame(mf.Name(), nil), nil
-	}
-	pose, err := mf.Transform(input)
-	if pose == nil || (err != nil && !strings.Contains(err.Error(), OOBErrString)) {
-		return nil, err
-	}
-	return NewGeometriesInFrame(mf.name, []spatial.Geometry{mf.geometry.Transform(pose)}), err
-}
-
-func (mf mobile2DFrame) MarshalJSON() ([]byte, error) {
-	return nil, fmt.Errorf("MarshalJSON not implemented for type %T", mf)
-}
-
-func (mf *mobile2DFrame) AlmostEquals(otherFrame Frame) bool {
-	other, ok := otherFrame.(*rotationalFrame)
-	return ok && mf.baseFrame.AlmostEquals(other.baseFrame)
 }

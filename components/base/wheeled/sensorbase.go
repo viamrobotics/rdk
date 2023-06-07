@@ -33,7 +33,7 @@ type sensorBase struct {
 	logger                 golog.Logger
 
 	activeBackgroundWorkers sync.WaitGroup
-	base                    base.Base
+	wBase                   base.Base // the inherited wheeled base
 	baseCtx                 context.Context
 
 	sensorMu      sync.Mutex
@@ -98,7 +98,7 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 	case angleDeg >= 360:
 		sb.setPolling(false)
 		sb.logger.Warn("feedback for spin calls over 360 not supported yet, spinning without sensor")
-		return sb.base.Spin(ctx, angleDeg, degsPerSec, nil)
+		return sb.wBase.Spin(ctx, angleDeg, degsPerSec, nil)
 	default:
 		// check if a sensor context has been started
 		if sb.sensorDone != nil {
@@ -120,7 +120,7 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 }
 
 func (sb *sensorBase) startRunningMotors(ctx context.Context, angleDeg, degsPerSec float64) error {
-	wb := sb.base.(*wheeledBase)
+	wb := sb.wBase.(*wheeledBase)
 	rpm, _ := wb.spinMath(angleDeg, degsPerSec)
 	err := wb.runAll(ctx, -rpm, 0, rpm, 0)
 	return err
@@ -318,7 +318,7 @@ func (sb *sensorBase) MoveStraight(
 	ctx, done := sb.opMgr.New(ctx)
 	defer done()
 	sb.setPolling(false)
-	return sb.base.MoveStraight(ctx, distanceMm, mmPerSec, extra)
+	return sb.wBase.MoveStraight(ctx, distanceMm, mmPerSec, extra)
 }
 
 func (sb *sensorBase) SetVelocity(
@@ -326,7 +326,7 @@ func (sb *sensorBase) SetVelocity(
 ) error {
 	sb.opMgr.CancelRunning(ctx)
 	sb.setPolling(false)
-	return sb.base.SetVelocity(ctx, linear, angular, extra)
+	return sb.wBase.SetVelocity(ctx, linear, angular, extra)
 }
 
 func (sb *sensorBase) SetPower(
@@ -334,18 +334,22 @@ func (sb *sensorBase) SetPower(
 ) error {
 	sb.opMgr.CancelRunning(ctx)
 	sb.setPolling(false)
-	return sb.base.SetPower(ctx, linear, angular, extra)
+	return sb.wBase.SetPower(ctx, linear, angular, extra)
 }
 
 func (sb *sensorBase) Stop(ctx context.Context, extra map[string]interface{}) error {
 	sb.logger.Info("stop called")
 	sb.opMgr.CancelRunning(ctx)
 	sb.setPolling(false)
-	return sb.base.Stop(ctx, extra)
+	return sb.wBase.Stop(ctx, extra)
 }
 
 func (sb *sensorBase) IsMoving(ctx context.Context) (bool, error) {
-	return sb.base.IsMoving(ctx)
+	return sb.wBase.IsMoving(ctx)
+}
+
+func (sb *sensorBase) Properties(ctx context.Context, extra map[string]interface{}) (base.Properties, error) {
+	return sb.wBase.Properties(ctx, extra)
 }
 
 func (sb *sensorBase) Close(ctx context.Context) error {
