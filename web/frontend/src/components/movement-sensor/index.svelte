@@ -1,11 +1,12 @@
 <script lang="ts">
 
-import { onMount, onDestroy } from 'svelte';
-import { grpc } from '@improbable-eng/grpc-web';
+import { onMount } from 'svelte';
 import { Client, movementSensorApi as movementsensorApi, type ServiceError } from '@viamrobotics/sdk';
 import type { ResponseStream, commonApi, robotApi } from '@viamrobotics/sdk';
 import { displayError } from '@/lib/error';
-import { rcLogConditionally } from '@/lib/log';
+import Collapse from '../collapse.svelte';
+import { getProperties, getOrientation, getAngularVelocity, getLinearAcceleration, getLinearVelocity, getCompassHeading, getPosition } from '@/api/movement-sensor';
+import { setAsyncInterval } from '@/lib/schedule';
 
 export let name: string
 export let client: Client
@@ -20,158 +21,54 @@ let coordinate: commonApi.GeoPoint.AsObject | undefined;
 let altitudeM: number | undefined;
 let properties: movementsensorApi.GetPropertiesResponse.AsObject | undefined;
 
-let refreshId = -1;
+let clearInterval: (() => void) | undefined;
 
 const refresh = async () => {
-  properties = await new Promise((resolve) => {
-    const req = new movementsensorApi.GetPropertiesRequest();
-    req.setName(name);
+  properties = await getProperties(client, name)
 
-    rcLogConditionally(req);
-    client.movementSensorService.getProperties(
-      req,
-      new grpc.Metadata(),
-      (err: ServiceError | null, resp: movementsensorApi.GetPropertiesResponse | null) => {
-        if (err) {
-          if (err.message === 'Response closed without headers') {
-            refreshId = window.setTimeout(refresh, 500);
-            return;
-          }
-          return displayError(err);
-        }
-
-        resolve(resp!.toObject());
-      }
-    );
-  });
-
-  if (properties?.orientationSupported) {
-    const req = new movementsensorApi.GetOrientationRequest();
-    req.setName(name);
-
-    rcLogConditionally(req);
-    client.movementSensorService.getOrientation(
-      req,
-      new grpc.Metadata(),
-      (err: ServiceError | null, resp: movementsensorApi.GetOrientationResponse | null) => {
-        if (err) {
-          return displayError(err);
-        }
-
-        orientation = resp!.toObject().orientation;
-      }
-    );
+  if (!properties) {
+    return
   }
 
-  if (properties?.angularVelocitySupported) {
-    const req = new movementsensorApi.GetAngularVelocityRequest();
-    req.setName(name);
+  try {
+    const results = await Promise.all([
+      properties.orientationSupported ? getOrientation(client, name) : undefined,
+      properties.angularVelocitySupported ? getAngularVelocity(client, name) : undefined,
+      properties.linearAccelerationSupported ? getLinearAcceleration(client, name) : undefined,
+      properties.linearVelocitySupported ? getLinearVelocity(client, name) : undefined,
+      properties.compassHeadingSupported ? getCompassHeading(client, name) : undefined,
+      properties.positionSupported ? getPosition(client, name): undefined,
+    ] as const)
 
-    rcLogConditionally(req);
-    client.movementSensorService.getAngularVelocity(
-      req,
-      new grpc.Metadata(),
-      (err: ServiceError | null, resp: movementsensorApi.GetAngularVelocityResponse | null) => {
-        if (err) {
-          return displayError(err);
-        }
+    console.log(results)
 
-        angularVelocity = resp!.toObject().angularVelocity;
-      }
-    );
+    orientation = results[0]
+    angularVelocity = results[1]
+    linearAcceleration = results[2]
+    linearVelocity = results[3]
+    compassHeading = results[4]
+    coordinate = results[5]?.coordinate
+    altitudeM = results[5]?.altitudeM
+  } catch (error) {
+    displayError(error as ServiceError)
   }
-
-  if (properties?.linearAccelerationSupported) {
-    const req = new movementsensorApi.GetLinearAccelerationRequest();
-    req.setName(name);
-
-    rcLogConditionally(req);
-    client.movementSensorService.getLinearAcceleration(
-      req,
-      new grpc.Metadata(),
-      (err: ServiceError | null, resp: movementsensorApi.GetLinearAccelerationResponse | null) => {
-        if (err) {
-          return displayError(err);
-        }
-
-        linearAcceleration = resp!.toObject().linearAcceleration;
-      }
-    );
-  }
-
-  if (properties?.linearVelocitySupported) {
-    const req = new movementsensorApi.GetLinearVelocityRequest();
-    req.setName(name);
-
-    rcLogConditionally(req);
-    client.movementSensorService.getLinearVelocity(
-      req,
-      new grpc.Metadata(),
-      (err: ServiceError | null, resp: movementsensorApi.GetLinearVelocityResponse | null) => {
-        if (err) {
-          return displayError(err);
-        }
-
-        linearVelocity = resp!.toObject().linearVelocity;
-      }
-    );
-  }
-
-  if (properties?.compassHeadingSupported) {
-    const req = new movementsensorApi.GetCompassHeadingRequest();
-    req.setName(name);
-
-    rcLogConditionally(req);
-    client.movementSensorService.getCompassHeading(
-      req,
-      new grpc.Metadata(),
-      (err: ServiceError | null, resp: movementsensorApi.GetCompassHeadingResponse | null) => {
-        if (err) {
-          return displayError(err);
-        }
-
-        compassHeading = resp!.toObject().value;
-      }
-    );
-  }
-
-  if (properties?.positionSupported) {
-    const req = new movementsensorApi.GetPositionRequest();
-    req.setName(name);
-
-    rcLogConditionally(req);
-    client.movementSensorService.getPosition(
-      req,
-      new grpc.Metadata(),
-      (err: ServiceError | null, resp: movementsensorApi.GetPositionResponse | null) => {
-        if (err) {
-          return displayError(err);
-        }
-
-        const temp = resp!.toObject();
-        coordinate = temp.coordinate;
-        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-        // @ts-ignore `altitudeM` is correct from teh protos
-        altitudeM = temp.altitudeM;
-      }
-    );
-  }
-
-  refreshId = window.setTimeout(refresh, 500);
-  statusStream?.on('end', () => clearTimeout(refreshId));
 };
 
-onMount(() => {
-  refreshId = window.setTimeout(refresh, 500);
-});
+const handleToggle = (event: CustomEvent<{ open: boolean }>) => {
+  if (event.detail.open) {
+    clearInterval = setAsyncInterval(refresh, 500);
+  } else {
+    clearInterval?.();
+  }
+}
 
-onDestroy(() => {
-  clearTimeout(refreshId);
-});
+onMount(() => {
+  statusStream?.on('end', () => clearInterval?.());
+})
 
 </script>
 
-<v-collapse title={name}>
+<Collapse title={name} on:toggle={handleToggle}>
   <v-breadcrumbs slot="title" crumbs="movement_sensor" />
   <div class="flex flex-wrap gap-4 text-sm border border-t-0 border-medium p-4">
     {#if properties?.positionSupported}
@@ -374,4 +271,4 @@ onDestroy(() => {
       </div>
     {/if}
   </div>
-</v-collapse>
+</Collapse>

@@ -4,6 +4,7 @@ import { grpc } from '@improbable-eng/grpc-web';
 import { Client, type ServiceError, servoApi } from '@viamrobotics/sdk';
 import { displayError } from '@/lib/error';
 import { rcLogConditionally } from '@/lib/log';
+    import Collapse from '../collapse.svelte';
 
 export let name: string;
 export let status: servoApi.Status.AsObject;
@@ -40,7 +41,7 @@ const move = (amount: number) => {
 
 </script>
 
-<v-collapse title={name} class="servo">
+<Collapse title={name}>
   <v-breadcrumbs slot="title" crumbs="servo" />
   <v-button
     slot="header"
@@ -59,4 +60,4 @@ const move = (amount: number) => {
       <v-button label="10" on:click={() => move(10)} />
     </div>
   </div>
-</v-collapse>
+</Collapse>
