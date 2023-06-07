@@ -172,57 +172,50 @@ func (g *oneAxis) home(ctx context.Context, np int) error {
 	ctx, done := g.opMgr.New(ctx)
 	defer done()
 
-	positionA := math.NaN()
-	positionB := math.NaN()
-	var err error
 	switch np {
 	// An axis with an encoder will encode the zero position, and add the second position limit
 	// based on the steps per length
 	case 0:
-		revPerLength := g.lengthMm / g.mmPerRevolution
-		positionA, err = g.motor.Position(ctx, nil)
-		if err != nil {
+		if err := g.homeEncoder(ctx); err != nil {
 			return err
 		}
-		positionB = positionA + revPerLength
 	// An axis with one limit switch will go till it hits the limit switch, encode that position as the
 	// zero position of the oneaxis, and adds a second position limit based on the steps per length.
-	case 1:
-		positionA, err = g.testLimit(ctx, true)
-		if err != nil {
-			return err
-		}
-		revPerLength := g.lengthMm / g.mmPerRevolution
-		positionB = positionA + revPerLength
-
-		if positionA == math.NaN() || positionB == math.NaN() {
-			return errors.New("positionA and positionB are not both valid numbers")
-		}
-		x := g.gantryToMotorPosition(0.2 * g.lengthMm)
-		if err = g.motor.GoTo(ctx, g.rpm, x, nil); err != nil {
-			return err
-		}
 	// An axis with two limit switches will go till it hits the first limit switch, encode that position as the
 	// zero position of the oneaxis, then go till it hits the second limit switch, then encode that position as the
 	// at-length position of the oneaxis.
-	case 2:
-		positionA, err = g.testLimit(ctx, true)
-		if err != nil {
+	case 1, 2:
+		if err := g.homeLimSwitch(ctx); err != nil {
 			return err
 		}
+	}
+
+	return nil
+}
+
+func (g *oneAxis) homeLimSwitch(ctx context.Context) error {
+	positionA := math.NaN()
+	positionB := math.NaN()
+	var start float64
+	positionA, err := g.testLimit(ctx, true)
+	if err != nil {
+		return err
+	}
+
+	if len(g.limitSwitchPins) > 1 {
+		// Multiple limit switches, get positionB from testLimit
 		positionB, err = g.testLimit(ctx, false)
 		if err != nil {
 			return err
 		}
-
-		if positionA == math.NaN() || positionB == math.NaN() {
-			return errors.New("positionA and positionB are not both valid numbers")
-		}
-		x := g.gantryToMotorPosition(0.8 * g.lengthMm)
-		if err = g.motor.GoTo(ctx, g.rpm, x, nil); err != nil {
-			return err
-		}
+		start = 0.8
+	} else {
+		// Only one limit switch, calculate positionB
+		revPerLength := g.lengthMm / g.mmPerRevolution
+		positionB = positionA + revPerLength
+		start = 0.2
 	}
+
 	g.positionLimits = []float64{positionA, positionB}
 	g.positionRange = positionB - positionA
 	if g.positionRange == 0 || g.positionRange == math.NaN() {
@@ -230,7 +223,36 @@ func (g *oneAxis) home(ctx context.Context, np int) error {
 	}
 	g.logger.Debugf("positionA: %0.2f positionB: %0.2f range: %0.2f", g.positionLimits[0], g.positionLimits[1], g.positionRange)
 
+	// Go to start position so limit stops are not hit.
+	if err = g.goToStart(ctx, start); err != nil {
+		return err
+	}
+
 	return nil
+}
+
+// home encoder assumes that you have places one of the stepper motors where you
+// want your zero position to be, you need to know which way is "forward"
+// on your motor.
+func (g *oneAxis) homeEncoder(ctx context.Context) error {
+	revPerLength := g.lengthMm / g.mmPerRevolution
+
+	positionA, err := g.motor.Position(ctx, nil)
+	if err != nil {
+		return err
+	}
+
+	positionB := positionA + revPerLength
+
+	g.positionLimits = []float64{positionA, positionB}
+	return nil
+}
+
+func (g *oneAxis) goToStart(ctx context.Context, percent float64) error {
+	x := g.gantryToMotorPosition(percent * g.lengthMm)
+	if err := g.motor.GoTo(ctx, g.rpm, x, nil); err != nil {
+		return err
+	}
 }
 
 func (g *oneAxis) gantryToMotorPosition(positions float64) float64 {
