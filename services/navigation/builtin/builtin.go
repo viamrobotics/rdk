@@ -218,44 +218,17 @@ func (svc *builtIn) SetMode(ctx context.Context, mode navigation.Mode, extra map
 	return nil
 }
 
-func (svc *builtIn) computeCurrentBearing(ctx context.Context, path []*geo.Point) (float64, error) {
-	props, err := svc.movementSensor.Properties(ctx, nil)
-	if err != nil {
-		return 0, err
-	}
-	if props.CompassHeadingSupported {
-		return svc.movementSensor.CompassHeading(ctx, nil)
-	}
-	pathLen := len(path)
-	return fixAngle(path[pathLen-2].BearingTo(path[pathLen-1])), nil
-}
-
 func (svc *builtIn) startWaypoint(extra map[string]interface{}) error {
 	svc.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer svc.activeBackgroundWorkers.Done()
 
-		path := []*geo.Point{}
-
-		currentLoc, _, err := svc.movementSensor.Position(svc.cancelCtx, extra)
+		currentLoc, err := svc.Location(svc.cancelCtx, extra)
 		if err != nil {
 			svc.logger.Errorw("failed to get gps location", "error", err)
 		}
 
-		if len(path) <= 1 || currentLoc.GreatCircleDistance(path[len(path)-1]) > .0001 {
-			// gps often updates less frequently
-			path = append(path, currentLoc)
-			if len(path) > 2 {
-				path = path[len(path)-2:]
-			}
-		}
-
 		navOnce := func(ctx context.Context) error {
-			if len(path) < 1 {
-				// TODO: fix this error
-				return errors.New("not enough gps data")
-			}
-
 			bearingToGoal, _, err := svc.waypointDirectionAndDistanceToGo(ctx, currentLoc)
 			if err != nil {
 				return err
@@ -269,7 +242,7 @@ func (svc *builtIn) startWaypoint(extra map[string]interface{}) error {
 			goal := wp.ToPoint()
 
 			// have ability to define destination heading here, but waypoint structure doesn't allow for that so using bearingToGoal as heading
-			_, err = svc.motion.MoveOnGlobe(ctx, svc.base.Name(), goal, bearingToGoal, svc.movementSensor.Name(), svc.obstacles, svc.metersPerSec*1000, svc.degPerSec, nil)
+			_, err = svc.motion.MoveOnGlobe(ctx, svc.base.Name(), goal, bearingToGoal, svc.movementSensor.Name(), svc.obstacles, svc.metersPerSec*1000, svc.degPerSec, extra)
 
 			if err == nil {
 				return svc.waypointReached(ctx)
@@ -283,6 +256,7 @@ func (svc *builtIn) startWaypoint(extra map[string]interface{}) error {
 			svc.logger.Infof("waypoint error: %w", err)
 		}
 
+		// loop until no waypoints remaining
 		for err == nil {
 			if navErr := navOnce(svc.cancelCtx); err != nil {
 				svc.logger.Infof("error navigating: %s", navErr)
@@ -358,20 +332,4 @@ func fixAngle(a float64) float64 {
 		a -= 360
 	}
 	return a
-}
-
-func computeBearing(a, b float64) float64 {
-	a = fixAngle(a)
-	b = fixAngle(b)
-
-	t := b - a
-	if t < -180 {
-		t += 360
-	}
-
-	if t > 180 {
-		t -= 360
-	}
-
-	return t
 }
