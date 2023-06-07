@@ -636,7 +636,6 @@ func (r *localRobot) newResource(
 	if err != nil {
 		return nil, err
 	}
-	println("", deps)
 
 	c, ok := resource.LookupGenericAPIRegistration(resName.API)
 	if ok {

@@ -576,7 +576,6 @@ func (manager *resourceManager) completeConfig(
 				}
 			}
 			if err != nil {
-				println("AN ERROR EXISTS\n\n\n, ", err.Error(), resName.String())
 				manager.logger.Errorw("error building resource", "resource", conf.ResourceName(), "model", conf.Model, "error", err)
 				gNode.SetLastError(errors.Wrap(err, "resource build error"))
 				continue
@@ -729,7 +728,6 @@ func (manager *resourceManager) processResource(
 	if gNode.IsUninitialized() {
 		newRes, err := r.newResource(ctx, gNode, conf)
 		if err != nil {
-			println("failed 1, ", err.Error())
 			return nil, false, err
 		}
 		return newRes, true, nil
@@ -743,7 +741,6 @@ func (manager *resourceManager) processResource(
 	resName := conf.ResourceName()
 	deps, err := r.getDependencies(ctx, resName, gNode)
 	if err != nil {
-		println("failed 2")
 		return nil, false, multierr.Combine(err, manager.closeResource(ctx, currentRes))
 	}
 
@@ -751,7 +748,6 @@ func (manager *resourceManager) processResource(
 	if gNode.ResourceModel() == conf.Model {
 		if isModular {
 			if err := manager.moduleManager.ReconfigureResource(ctx, conf, modmanager.DepsToNames(deps)); err != nil {
-				println("failed 3")
 				return nil, false, err
 			}
 			return currentRes, false, nil
@@ -763,7 +759,6 @@ func (manager *resourceManager) processResource(
 		}
 
 		if !resource.IsMustRebuildError(err) {
-			println("failed 4")
 			return nil, false, err
 		}
 	} else {
@@ -777,10 +772,8 @@ func (manager *resourceManager) processResource(
 	}
 	newRes, err := r.newResource(ctx, gNode, conf)
 	if err != nil {
-		println("failed 5")
 		return nil, false, err
 	}
-	println("Processed resource")
 	return newRes, true, nil
 }
 

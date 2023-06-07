@@ -73,12 +73,6 @@ func NewBuildTimeoutError(name Name) error {
 	return fmt.Errorf("resource %s timed out during reconfigure", name)
 }
 
-// CR erodkin: delete me
-// NewUnbuildableError is used when a resource cannot be built because it has unbuildable dependencies.
-func NewUnbuildableError(name Name) error {
-	return fmt.Errorf("resource %s could not be built because it has one or more unbuildable dependencies", name)
-}
-
 // DependencyNotFoundError is used when a resource is not found in a dependencies.
 func DependencyNotFoundError(name Name) error {
 	return errors.Errorf("%q missing from dependencies", name)

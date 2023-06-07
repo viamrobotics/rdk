@@ -1466,8 +1466,6 @@ func TestRobotReconfigure(t *testing.T) {
 			test.That(tb, c, test.ShouldEqual, 1)
 		})
 
-		test.That(t, nil, test.ShouldNotBeNil)
-
 		_, err = motor.FromRobot(robot, "m2")
 		test.That(t, err, test.ShouldNotBeNil)
 
