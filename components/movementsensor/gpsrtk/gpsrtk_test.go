@@ -58,15 +58,15 @@ func TestModelTypeCreators(t *testing.T) {
 
 func TestValidateRTK(t *testing.T) {
 	path := "path"
-	fakecfg := &Config{NtripConfig: &NtripConfig{}}
+	fakecfg := &Config{NtripConfig: &NtripConfig{}, ConnectionType: "serial", SerialConfig: &SerialConfig{SerialPath: "some-path"}}
 	_, err := fakecfg.Validate(path)
+
 	test.That(t, err, test.ShouldBeError,
 		utils.NewConfigValidationFieldRequiredError(path, "correction_source"))
 
 	fakecfg.CorrectionSource = "ntrip"
 	_, err = fakecfg.Validate(path)
-	test.That(t, err, test.ShouldBeError,
-		utils.NewConfigValidationFieldRequiredError(path, "ntrip_addr"))
+	test.That(t, err, test.ShouldBeError, utils.NewConfigValidationFieldRequiredError(path, "ntrip_addr"))
 
 	fakecfg.NtripConfig.NtripAddr = "http://fakeurl"
 	_, err = fakecfg.Validate(path)
@@ -74,10 +74,9 @@ func TestValidateRTK(t *testing.T) {
 		t,
 		err,
 		test.ShouldBeError,
-		utils.NewConfigValidationFieldRequiredError(path, "ntrip_path"),
+		utils.NewConfigValidationFieldRequiredError(path, "ntrip_input_protocol"),
 	)
-
-	fakecfg.NtripConfig.NtripPath = "some-ntrip-path"
+	fakecfg.NtripInputProtocol = "serial"
 	_, err = fakecfg.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
 }
@@ -129,6 +128,7 @@ func TestNewRTKMovementSensor(t *testing.T) {
 			},
 			ConvertedAttributes: &Config{
 				CorrectionSource: "serial",
+				ConnectionType:   "serial",
 				Board:            "",
 				SerialConfig: &SerialConfig{
 					SerialPath:               path,
@@ -178,6 +178,7 @@ func TestNewRTKMovementSensor(t *testing.T) {
 			},
 			ConvertedAttributes: &Config{
 				CorrectionSource: "i2c",
+				ConnectionType:   "i2c",
 				Board:            testBoardName,
 				I2CConfig: &I2CConfig{
 					I2CBus:      testBusName,
