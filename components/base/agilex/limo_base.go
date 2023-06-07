@@ -261,7 +261,7 @@ func (lb *limoBase) controlThreadLoopPass(ctx context.Context) error {
 }
 
 // Sends the serial frame. Must be run inside a lock.
-func (base *limoBase) sendFrame(frame *limoFrame) error {
+func (lb *limoBase) sendFrame(frame *limoFrame) error {
 	var checksum uint32
 	var frameLen uint8 = 0x0e
 	data := make([]uint8, 14)
@@ -275,14 +275,14 @@ func (base *limoBase) sendFrame(frame *limoFrame) error {
 	}
 	data[frameLen-1] = uint8(checksum & 0xff)
 
-	base.serialMutex.Lock()
-	defer base.serialMutex.Unlock()
+	lb.serialMutex.Lock()
+	defer lb.serialMutex.Unlock()
 
-	if base.testChan != nil {
-		base.logger.Debug("writing to test chan")
-		base.testChan <- data
+	if lb.testChan != nil {
+		lb.logger.Debug("writing to test chan")
+		lb.testChan <- data
 	} else {
-		_, err := base.serialPort.Write(data)
+		_, err := lb.serialPort.Write(data)
 		if err != nil {
 			return err
 		}
