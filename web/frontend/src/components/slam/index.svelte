@@ -9,15 +9,15 @@ import {
   robotApi,
   type ServiceError,
 } from '@viamrobotics/sdk';
-import { displayError, isServiceError } from '@/lib/error';
-import PCD from '@/components/pcd/pcd-view.svelte'
 import { copyToClipboardWithToast } from '@/lib/copy-to-clipboard';
-import Slam2dRenderer from './2d-renderer.svelte';
 import { filterResources } from '@/lib/resource';
 import { getPointCloudMap, getSLAMPosition } from '@/api/slam';
 import { moveOnMap, stopMoveOnMap } from '@/api/motion';
 import { toast } from '@/lib/toast';
 import { setAsyncInterval } from '@/lib/schedule';
+import Collapse from '@/components/collapse.svelte';
+import PCD from '@/components/pcd/pcd-view.svelte'
+import Slam2dRenderer from './2d-renderer.svelte';
 
 export let name: string
 export let resources: commonApi.ResourceName.AsObject[]
@@ -30,8 +30,6 @@ const refreshErrorMessage = 'Error refreshing map. The map shown may be stale.';
 let clear2dRefresh: (() => void) | undefined
 let clear3dRefresh: (() => void) | undefined
 
-let slam2dTimeoutId: number;
-let slam3dTimeoutId: number;
 let refreshErrorMessage2d: string | undefined;
 let refreshErrorMessage3d: string | undefined;
 let refresh2dRate = 'manual';
@@ -54,14 +52,6 @@ $: allowMove = baseResources.length === 1 && destination && !moveClicked;
 
 const deleteDestinationMarker = () => {
   destination = undefined;
-};
-
-const handleError = (errorLocation: string, error: unknown): void => {
-  if (isServiceError(error)) {
-    displayError(error as ServiceError);
-  } else {
-    displayError(`${errorLocation} hit error: ${error}`);
-  }
 };
 
 const refresh2d = async () => {
@@ -92,8 +82,6 @@ const refresh3d = async () => {
   try {
     pointcloud = await getPointCloudMap(client, name);
   } catch (error) {
-    handleError('fetchSLAMMap', error);
-    refresh3dRate = 'manual';
     refreshErrorMessage3d = error !== null && typeof error === 'object' && 'message' in error
       ? `${refreshErrorMessage} ${error.message}`
       : `${refreshErrorMessage} ${error}`;
@@ -197,6 +185,19 @@ const handleStopMoveClick = async () => {
   }
 }
 
+const toggleExpand = (event: CustomEvent<{ open: boolean }>) => {
+  const { open } = event.detail;
+
+  console.log(event)
+
+  if (open) {
+    toggle2dExpand();
+  } else {
+    clear2dRefresh?.();
+    clear3dRefresh?.();
+  }
+}
+
 onMount(() => {
   statusStream?.on('end', () => {
     clear2dRefresh?.();
@@ -211,15 +212,11 @@ onDestroy(() => {
 
 </script>
 
-<v-collapse
+<Collapse
   title={name}
-  class="slam"
-  on:toggle={toggle2dExpand}
+  on:toggle={toggleExpand}
 >
-  <v-breadcrumbs
-    slot="title"
-    crumbs="slam"
-  />
+  <v-breadcrumbs slot="title" crumbs="slam" />
   <v-button
     slot="header"
     variant="danger"
@@ -471,10 +468,11 @@ onDestroy(() => {
           icon="refresh"
           label="Refresh"
           on:click={refresh3dMap}
+          on:keydown={refresh3dMap}
         />
       </div>
 
       <PCD {pointcloud} />
     {/if}
   </div>
-</v-collapse>
+</Collapse>
