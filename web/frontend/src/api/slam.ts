@@ -16,10 +16,7 @@ const concatArrayU8 = (arrays: Uint8Array[]) => {
   return result;
 };
 
-export const getPointCloudMap = (
-  client: Client,
-  name: string
-): Promise<Uint8Array> => new Promise((resolve, reject) => {
+export const getPointCloudMap = (client: Client, name: string) => {
   const request = new slamApi.GetPointCloudMapRequest();
   request.setName(name);
   rcLogConditionally(request);
@@ -32,33 +29,35 @@ export const getPointCloudMap = (
     chunks.push(chunk);
   });
 
-  stream.on('status', (status) => {
-    if (status.code !== 0) {
-      const error = {
-        message: status.details,
-        code: status.code,
-        metadata: status.metadata,
-      };
-      reject(error);
-    }
-  });
+  return new Promise<Uint8Array>((resolve, reject) => {
+    stream.on('status', (status) => {
+      if (status.code !== 0) {
+        const error = {
+          message: status.details,
+          code: status.code,
+          metadata: status.metadata,
+        };
+        reject(error);
+      }
+    });
 
-  stream.on('end', (end) => {
-    if (end === undefined) {
-      const error = { message: 'Stream ended without status code' };
-      reject(error);
-    } else if (end.code !== 0) {
-      const error = {
-        message: end.details,
-        code: end.code,
-        metadata: end.metadata,
-      };
-      reject(error);
-    }
-    const arr = concatArrayU8(chunks);
-    resolve(arr);
+    stream.on('end', (end) => {
+      if (end === undefined) {
+        const error = { message: 'Stream ended without status code' };
+        reject(error);
+      } else if (end.code !== 0) {
+        const error = {
+          message: end.details,
+          code: end.code,
+          metadata: end.metadata,
+        };
+        reject(error);
+      }
+      const arr = concatArrayU8(chunks);
+      resolve(arr);
+    });
   });
-});
+};
 
 export const getSLAMPosition = (
   client: Client,
