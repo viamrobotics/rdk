@@ -91,7 +91,7 @@ const refresh3d = async () => {
 
 const updateSLAM2dRefreshFrequency = async () => {
   clear2dRefresh?.();
-  refresh2d();
+  await refresh2d();
 
   refreshErrorMessage2d = undefined;
 
@@ -102,7 +102,7 @@ const updateSLAM2dRefreshFrequency = async () => {
 
 const updateSLAM3dRefreshFrequency = async () => {
   clear3dRefresh?.();
-  refresh3d();
+  await refresh3d();
 
   refreshErrorMessage3d = undefined;
 
