@@ -49,8 +49,9 @@ func NewBasicOctree(center r3.Vector, sideLength float64) (*BasicOctree, error) 
 	}
 
 	octree := &BasicOctree{
-		node:       newLeafNodeEmpty(),
-		center:     limitFloatingPointPrecision(center, floatPointPrecision),
+		node: newLeafNodeEmpty(),
+		//center:     limitFloatingPointPrecision(center, floatPointPrecision),
+		center:     center,
 		sideLength: sideLength,
 		size:       0,
 		meta:       NewMetaData(),
@@ -72,6 +73,12 @@ func (octree *BasicOctree) MaxVal() int {
 // Set recursively iterates through a basic octree, attempting to add a given point and data to the tree after
 // ensuring it falls within the bounds of the given basic octree.
 func (octree *BasicOctree) Set(p r3.Vector, d Data) error {
+	p = r3.Vector{
+		X: truncateFloatingPoint(p.X, floatPointPrecision),
+		Y: truncateFloatingPoint(p.Y, floatPointPrecision),
+		Z: truncateFloatingPoint(p.Z, floatPointPrecision),
+	}
+
 	_, err := octree.helperSet(p, d, 0)
 	return err
 }
@@ -79,6 +86,11 @@ func (octree *BasicOctree) Set(p r3.Vector, d Data) error {
 // At traverses a basic octree to see if a point exists at the specified location. If a point does exist, its data
 // is returned along with true. If a point does not exist, no data is returned and the boolean is returned false.
 func (octree *BasicOctree) At(x, y, z float64) (Data, bool) {
+
+	x = truncateFloatingPoint(x, floatPointPrecision)
+	y = truncateFloatingPoint(y, floatPointPrecision)
+	z = truncateFloatingPoint(z, floatPointPrecision)
+
 	// Check if point could exist in octree given bounds
 	if !octree.checkPointPlacement(r3.Vector{X: x, Y: y, Z: z}) {
 		return nil, false

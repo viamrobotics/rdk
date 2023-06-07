@@ -1,7 +1,6 @@
 package pointcloud
 
 import (
-	"fmt"
 	"math"
 	"testing"
 
@@ -171,12 +170,16 @@ func validateBasicOctree(t *testing.T, bOct *BasicOctree, center r3.Vector, side
 	t.Helper()
 
 	test.That(t, sideLength, test.ShouldEqual, bOct.sideLength)
-	test.That(t, limitFloatingPointPrecision(center, floatPointPrecision), test.ShouldResemble, limitFloatingPointPrecision(bOct.center, floatPointPrecision))
+	//test.That(t, limitFloatingPointPrecision(center, floatPointPrecision), test.ShouldResemble, limitFloatingPointPrecision(bOct.center, floatPointPrecision))
+	test.That(t, center, test.ShouldResemble, bOct.center)
 
-	fmt.Println("HELLO2")
-	validateMetadata(t, bOct)
+	newMetadata := NewMetaData()
+	bOct.Iterate(0, 0, func(p r3.Vector, d Data) bool {
+		newMetadata.Merge(p, d)
+		return true
+	})
+	validateMetadata(t, bOct, newMetadata)
 
-	fmt.Println("HELLO3")
 	var size int
 	maxVal := emptyProb
 	switch bOct.node.nodeType {
@@ -243,26 +246,51 @@ func validateBasicOctree(t *testing.T, bOct *BasicOctree, center r3.Vector, side
 }
 
 // Helper function for checking basic octree metadata.
-func validateMetadata(t *testing.T, bOct *BasicOctree) {
-	t.Helper()
+func validateMetadata(t *testing.T, bOct *BasicOctree, metadata MetaData) {
+	//t.Helper()
 
-	metadata := NewMetaData()
-	bOct.Iterate(0, 0, func(p r3.Vector, d Data) bool {
-		metadata.Merge(p, d)
-		return true
-	})
+	tolerance := 0.0001
 
 	test.That(t, bOct.meta.HasColor, test.ShouldEqual, metadata.HasColor)
 	test.That(t, bOct.meta.HasValue, test.ShouldEqual, metadata.HasValue)
-	test.That(t, bOct.meta.MaxX, test.ShouldEqual, metadata.MaxX)
-	test.That(t, bOct.meta.MinX, test.ShouldEqual, metadata.MinX)
-	test.That(t, bOct.meta.MaxY, test.ShouldEqual, metadata.MaxY)
-	test.That(t, bOct.meta.MinY, test.ShouldEqual, metadata.MinY)
-	test.That(t, bOct.meta.MaxZ, test.ShouldEqual, metadata.MaxZ)
-	test.That(t, bOct.meta.MinZ, test.ShouldEqual, metadata.MinZ)
+
+	if math.Abs(metadata.MinX) == math.MaxFloat64 {
+		test.That(t, bOct.meta.MinX, test.ShouldEqual, metadata.MinX)
+	} else {
+		test.That(t, bOct.meta.MinX, test.ShouldBeBetween, metadata.MinX-tolerance, metadata.MinX+tolerance)
+	}
+	if math.Abs(metadata.MaxX) == math.MaxFloat64 {
+		test.That(t, bOct.meta.MaxX, test.ShouldEqual, metadata.MaxX)
+	} else {
+		test.That(t, bOct.meta.MaxX, test.ShouldBeBetween, metadata.MaxX-tolerance, metadata.MaxX+tolerance)
+	}
+	if math.Abs(metadata.MinY) == math.MaxFloat64 {
+		test.That(t, bOct.meta.MinY, test.ShouldEqual, metadata.MinY)
+	} else {
+		test.That(t, bOct.meta.MinY, test.ShouldBeBetween, metadata.MinY-tolerance, metadata.MinY+tolerance)
+	}
+	if math.Abs(metadata.MaxY) == math.MaxFloat64 {
+		test.That(t, bOct.meta.MaxY, test.ShouldEqual, metadata.MaxY)
+	} else {
+		test.That(t, bOct.meta.MaxY, test.ShouldBeBetween, metadata.MaxY-tolerance, metadata.MaxY+tolerance)
+	}
+	if math.Abs(metadata.MinZ) == math.MaxFloat64 {
+		test.That(t, bOct.meta.MinZ, test.ShouldEqual, metadata.MinZ)
+	} else {
+		test.That(t, bOct.meta.MinZ, test.ShouldBeBetween, metadata.MinZ-tolerance, metadata.MinZ+tolerance)
+	}
+	if math.Abs(metadata.MaxZ) == math.MaxFloat64 {
+		test.That(t, bOct.meta.MaxZ, test.ShouldEqual, metadata.MaxZ)
+	} else {
+		test.That(t, bOct.meta.MaxZ, test.ShouldBeBetween, metadata.MaxZ-tolerance, metadata.MaxZ+tolerance)
+	}
+	// test.That(t, bOct.meta.MaxX, test.ShouldBeBetween, metadata.MaxX-tolerance, metadata.MaxX+tolerance)
+	// test.That(t, bOct.meta.MinY, test.ShouldBeBetween, metadata.MinY-tolerance, metadata.MinY+tolerance)
+	// test.That(t, bOct.meta.MaxY, test.ShouldBeBetween, metadata.MaxY-tolerance, metadata.MaxY+tolerance)
+	// test.That(t, bOct.meta.MinZ, test.ShouldBeBetween, metadata.MinZ-tolerance, metadata.MinZ+tolerance)
+	// test.That(t, bOct.meta.MaxZ, test.ShouldBeBetween, metadata.MaxZ-tolerance, metadata.MaxZ+tolerance)
 
 	// tolerance value to handle uncertainties in float point calculations
-	tolerance := 0.0001
 	test.That(t, bOct.meta.TotalX(), test.ShouldBeBetween, metadata.TotalX()-tolerance, metadata.TotalX()+tolerance)
 	test.That(t, bOct.meta.TotalY(), test.ShouldBeBetween, metadata.TotalY()-tolerance, metadata.TotalY()+tolerance)
 	test.That(t, bOct.meta.TotalZ(), test.ShouldBeBetween, metadata.TotalZ()-tolerance, metadata.TotalZ()+tolerance)

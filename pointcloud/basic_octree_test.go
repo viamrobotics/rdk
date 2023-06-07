@@ -1,7 +1,6 @@
 package pointcloud
 
 import (
-	"fmt"
 	"math"
 	"os"
 	"path/filepath"
@@ -580,11 +579,15 @@ func TestBasicOctreePointcloudIngestion(t *testing.T) {
 	})
 
 	test.That(t, startPC.Size(), test.ShouldEqual, basicOct.Size())
-	test.That(t, startPC.MetaData(), test.ShouldResemble, basicOct.meta)
+	validateMetadata(t, basicOct, startPC.MetaData())
 
 	// Check all points from the pointcloud have been properly added to the new basic octree
 	startPC.Iterate(0, 0, func(p r3.Vector, d Data) bool {
-		dOct, ok := basicOct.At(p.X, p.Y, p.Z)
+		dOct, ok := basicOct.At(
+			truncateFloatingPoint(p.X, floatPointPrecision),
+			truncateFloatingPoint(p.Y, floatPointPrecision),
+			truncateFloatingPoint(p.Z, floatPointPrecision),
+		)
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, d, test.ShouldResemble, dOct)
 		return true
@@ -619,11 +622,15 @@ func testPCDToBasicOctree(t *testing.T, artifactPath string) {
 	test.That(t, ok, test.ShouldBeTrue)
 
 	test.That(t, basic.Size(), test.ShouldEqual, basicOct.Size())
-	test.That(t, basic.MetaData(), test.ShouldResemble, basicOct.MetaData())
+	validateMetadata(t, basicOct, basic.MetaData())
 
 	// Check all points from the pcd have been properly added to the new basic octree
 	basic.Iterate(0, 0, func(p r3.Vector, d Data) bool {
-		dOct, ok := basicOct.At(p.X, p.Y, p.Z)
+		dOct, ok := basicOct.At(
+			truncateFloatingPoint(p.X, floatPointPrecision),
+			truncateFloatingPoint(p.Y, floatPointPrecision),
+			truncateFloatingPoint(p.Z, floatPointPrecision),
+		)
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, d, test.ShouldResemble, dOct)
 		return true
@@ -726,15 +733,18 @@ func TestOctreeCreation(t *testing.T) {
 	})
 
 	test.That(t, startPC.Size(), test.ShouldEqual, basicOct.Size())
-	//test.That(t, startPC.MetaData(), test.ShouldResemble, basicOct.meta)
+	validateMetadata(t, basicOct, startPC.MetaData())
 
 	// Check all points from the pointcloud have been properly added to the new basic octree
 	startPC.Iterate(0, 0, func(p r3.Vector, d Data) bool {
-		dOct, ok := basicOct.At(p.X, p.Y, p.Z)
+		dOct, ok := basicOct.At(
+			truncateFloatingPoint(p.X, floatPointPrecision),
+			truncateFloatingPoint(p.Y, floatPointPrecision),
+			truncateFloatingPoint(p.Z, floatPointPrecision),
+		)
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, d, test.ShouldResemble, dOct)
 		return true
 	})
-	fmt.Println("HELLO")
 	validateBasicOctree(t, basicOct, center, maxSideLength)
 }
