@@ -4,16 +4,6 @@ import { Struct } from 'google-protobuf/google/protobuf/struct_pb';
 import { getSLAMPosition } from './slam';
 import { rcLogConditionally } from '@/lib/log';
 
-export interface Pose {
-  x: number
-  y: number
-  z: number
-  ox: number
-  oy: number
-  oz: number
-  th: number
-}
-
 export const moveOnMap = async (client: Client, name: string, componentName: string, x: number, y: number) => {
   const request = new motionApi.MoveOnMapRequest();
 

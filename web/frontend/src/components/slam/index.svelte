@@ -27,6 +27,9 @@ export let operations: { op: robotApi.Operation.AsObject; elapsed: number }[]
 
 const refreshErrorMessage = 'Error refreshing map. The map shown may be stale.';
 
+let clear2dRefresh: (() => void) | undefined
+let clear3dRefresh: (() => void) | undefined
+
 let slam2dTimeoutId: number;
 let slam3dTimeoutId: number;
 let refreshErrorMessage2d: string | undefined;
@@ -38,12 +41,10 @@ let pose: commonApi.Pose | undefined;
 let show2d = false;
 let show3d = false;
 let showAxes = true;
-let refresh2DCancelled = true;
-let refresh3DCancelled = true;
-let destination: THREE.Vector2 | undefined
+let destination: THREE.Vector2 | undefined;
 
 $: loaded2d = pointcloud !== undefined && pose !== undefined;
-$: moveClicked = operations.find(({ op }) => op.method.includes('MoveOnMap'))
+$: moveClicked = operations.find(({ op }) => op.method.includes('MoveOnMap'));
 
 // get all resources which are bases
 $: baseResources = filterResources(resources, 'rdk', 'component', 'base');
@@ -52,24 +53,7 @@ $: baseResources = filterResources(resources, 'rdk', 'component', 'base');
 $: allowMove = baseResources.length === 1 && destination && !moveClicked;
 
 const deleteDestinationMarker = () => {
-  destination = undefined
-};
-
-const refresh2d = async () => {
-  const [map, nextPose] = await Promise.all([
-    getPointCloudMap(client, name),
-    getSLAMPosition(client, name),
-  ])
-
-  /*
-   * The pose is returned in millimeters, but we need
-   * to convert to meters to display on the frontend.
-   */
-  nextPose?.setX(nextPose.getX() / 1000);
-  nextPose?.setY(nextPose.getY() / 1000);
-  nextPose?.setZ(nextPose.getZ() / 1000);
-
-  return { map, nextPose };
+  destination = undefined;
 };
 
 const handleError = (errorLocation: string, error: unknown): void => {
@@ -80,28 +64,31 @@ const handleError = (errorLocation: string, error: unknown): void => {
   }
 };
 
-const scheduleRefresh2d = async () => {
+const refresh2d = async () => {
   try {
-    const response = await refresh2d();
-    pointcloud = response.map;
-    pose = response.nextPose;
+    const [map, nextPose] = await Promise.all([
+      getPointCloudMap(client, name),
+      getSLAMPosition(client, name),
+    ])
+
+    /*
+    * The pose is returned in millimeters, but we need
+    * to convert to meters to display on the frontend.
+    */
+    nextPose?.setX(nextPose.getX() / 1000);
+    nextPose?.setY(nextPose.getY() / 1000);
+    nextPose?.setZ(nextPose.getZ() / 1000);
+
+    pointcloud = map;
+    pose = nextPose;
   } catch (error) {
-    handleError('refresh2d', error);
-    refresh2dRate = 'manual';
     refreshErrorMessage2d = error !== null && typeof error === 'object' && 'message' in error
       ? `${refreshErrorMessage} ${error.message}`
       : `${refreshErrorMessage} ${error}`;
-    return;
   }
-
-  if (refresh2DCancelled) {
-    return;
-  }
-  
-  slam2dTimeoutId = window.setTimeout(scheduleRefresh2d, Number.parseFloat(refresh2dRate) * 1000);
 };
 
-const scheduleRefresh3d = async () => {
+const refresh3d = async () => {
   try {
     pointcloud = await getPointCloudMap(client, name);
   } catch (error) {
@@ -112,58 +99,27 @@ const scheduleRefresh3d = async () => {
       : `${refreshErrorMessage} ${error}`;
     return;
   }
-
-  if (refresh3DCancelled) {
-    return;
-  }
-
-  slam3dTimeoutId = window.setTimeout(scheduleRefresh3d, Number.parseFloat(refresh3dRate) * 1000);
 };
 
 const updateSLAM2dRefreshFrequency = async () => {
-  refresh2DCancelled = true;
-  window.clearTimeout(slam2dTimeoutId);
-  refreshErrorMessage2d = undefined;
-  refreshErrorMessage3d = undefined;
+  clear2dRefresh?.();
+  refresh2d();
 
-  if (refresh2dRate === 'manual') {
-    try {
-      const response = await refresh2d();
-      pointcloud = response.map;
-      pose = response.pose
-    } catch (error) {
-      handleError('refresh2d', error);
-      refresh2dRate = 'manual';
-      refreshErrorMessage2d = error !== null && typeof error === 'object' && 'message' in error
-        ? `${refreshErrorMessage} ${error.message}`
-        : `${refreshErrorMessage} ${error}`;
-    }
-  } else {
-    refresh2DCancelled = false;
-    scheduleRefresh2d();
+  refreshErrorMessage2d = undefined;
+
+  if (refresh2dRate !== 'manual') {
+    clear2dRefresh = setAsyncInterval(refresh2d, Number.parseFloat(refresh2dRate) * 1000)
   }
 };
 
 const updateSLAM3dRefreshFrequency = async () => {
-  refresh3DCancelled = true;
-  window.clearTimeout(slam3dTimeoutId);
-  refreshErrorMessage2d = undefined;
+  clear3dRefresh?.();
+  refresh3d();
+
   refreshErrorMessage3d = undefined;
 
-  if (refresh3dRate === 'manual') {
-    try {
-      pointcloud = await getPointCloudMap(client, name);
-    } catch (error) {
-      handleError('fetchSLAMMap', error);
-      refresh3dRate = 'manual';
-      refreshErrorMessage3d = error !== null && typeof error === 'object' && 'message' in error
-        ? `${refreshErrorMessage} ${error.message}`
-        : `${refreshErrorMessage} ${error}`;
-    }
-  } else {
-    refresh3DCancelled = false;
-    setAsyncInterval(scheduleRefresh3d, Number.parseFloat(refresh3dRate) * 1000)
-    scheduleRefresh3d();
+  if (refresh3dRate !== 'manual') {
+    clear3dRefresh = setAsyncInterval(refresh3d, Number.parseFloat(refresh3dRate) * 1000)
   }
 };
 
@@ -210,7 +166,15 @@ const handleUpdateDestY = (event: CustomEvent<{ value: string }>) => {
 };
 
 const baseCopyPosition = () => {
-  copyToClipboardWithToast(JSON.stringify(pose));
+  copyToClipboardWithToast(JSON.stringify({
+    x: pose?.getX(),
+    y: pose?.getY(),
+    z: pose?.getZ(),
+    ox: 0,
+    oy: 0,
+    oz: 1,
+    th: pose?.getTheta(),
+  }));
 };
 
 const toggleAxes = () => {
@@ -235,14 +199,14 @@ const handleStopMoveClick = async () => {
 
 onMount(() => {
   statusStream?.on('end', () => {
-    window.clearTimeout(slam2dTimeoutId);
-    window.clearTimeout(slam3dTimeoutId);
+    clear2dRefresh?.();
+    clear3dRefresh?.();
   });
 });
 
 onDestroy(() => {
-  window.clearTimeout(slam2dTimeoutId);
-  window.clearTimeout(slam3dTimeoutId);
+  clear2dRefresh?.();
+  clear3dRefresh?.();
 });
 
 </script>
@@ -321,17 +285,20 @@ onDestroy(() => {
               label="Refresh"
               icon="refresh"
               on:click={refresh2dMap}
+              on:keydown={refresh2dMap}
             />
           </div>
         </div>
         <hr class="my-4 border-t border-medium">
         <div class="flex flex-row">
           <p class="mb-1 pr-52 font-bold text-gray-800">
-            Ending Position
+            Ending position
           </p>
-          <v-icon
-            name="trash"
+          <v-button
+            variant="icon"
+            icon="trash"
             on:click={deleteDestinationMarker}
+            on:keydown={deleteDestinationMarker}
           />
         </div>
         <div class="flex flex-row pb-2">
@@ -339,8 +306,8 @@ onDestroy(() => {
             type="number"
             label="x"
             incrementor="slider"
-            value={destination?.x}
-            step="0.1"
+            value={destination?.x ?? ''}
+            step="1"
             on:input={handleUpdateDestX}
           />
           <v-input
@@ -348,8 +315,8 @@ onDestroy(() => {
             type="number"
             label="y"
             incrementor="slider"
-            value={destination?.y}
-            step="0.1"
+            value={destination?.y ?? ''}
+            step="1"
             on:input={handleUpdateDestY}
           />
         </div>
@@ -419,13 +386,16 @@ onDestroy(() => {
                 </div>
               {/if}
             </div>
-            <div class="pl-4 pt-2">
-              <v-icon
-                name="copy"
-                on:click={baseCopyPosition}
-              />
-            </div>
+
+            <v-button
+              class="pl-4 pt-2"
+              variant='icon'
+              icon='copy'
+              on:click={baseCopyPosition}
+              on:keydown={baseCopyPosition}
+            />
           </div>
+
           <Slam2dRenderer
             {pointcloud}
             {pose}
@@ -504,11 +474,7 @@ onDestroy(() => {
         />
       </div>
 
-      <PCD
-        {resources}
-        {pointcloud}
-        {client}
-      />
+      <PCD {pointcloud} />
     {/if}
   </div>
 </v-collapse>
