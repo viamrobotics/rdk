@@ -216,7 +216,7 @@ func (g *oneAxis) homeLimSwitch(ctx context.Context) error {
 	g.positionLimits = []float64{positionA, positionB}
 	g.positionRange = positionB - positionA
 	if g.positionRange == 0 {
-		return errors.New("positionRange is 0 or not a valid number")
+		g.logger.Error("positionRange is 0 or not a valid number")
 	}
 	g.logger.Debugf("positionA: %0.2f positionB: %0.2f range: %0.2f", g.positionLimits[0], g.positionLimits[1], g.positionRange)
 
