@@ -38,7 +38,7 @@ import Encoder from './encoder.vue';
 import Gantry from './gantry.vue';
 import Gripper from './gripper.vue';
 import Gamepad from './gamepad.vue';
-import InputController from './input-controller.vue';
+import InputControllerSvelte from './input-controller/index.svelte';
 import MotorSvelte from './motor/index.svelte';
 import MovementSensorSvelte from './movement-sensor/index.svelte';
 import Navigation from './navigation.vue';
@@ -48,6 +48,7 @@ import Slam from './slam/index.vue';
 import { svelteAdapter } from '../lib/svelte-adapter';
 
 const AudioInput = svelteAdapter(AudioInputSvelte);
+const InputController = svelteAdapter(InputControllerSvelte);
 const Motor = svelteAdapter(MotorSvelte);
 const MovementSensor = svelteAdapter(MovementSensorSvelte);
 const OperationsSessions = svelteAdapter(OperationsSessionsSvelte);
