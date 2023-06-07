@@ -37,7 +37,7 @@ export const getAngularVelocity = (client: Client, name: string) => {
   rcLogConditionally(req);
 
   return new Promise<commonApi.Vector3.AsObject | undefined>((resolve, reject) => {
-    client.movementSensorService.getAngularVelocity(req,new grpc.Metadata(), (error, response) => (
+    client.movementSensorService.getAngularVelocity(req, new grpc.Metadata(), (error, response) => (
       error ? reject(error) : resolve(response?.toObject().angularVelocity)
     ));
   });
