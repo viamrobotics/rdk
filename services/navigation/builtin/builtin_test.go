@@ -92,7 +92,7 @@ func TestStartWaypoint(t *testing.T) {
 		Frame: &referenceframe.LinkConfig{Geometry: &spatialmath.GeometryConfig{R: 100}},
 	}
 
-	fakeBase, err := fakebase.NewBase(ctx, cfg)
+	fakeBase, err := fakebase.NewBase(ctx, nil, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	kinematicBase, err := fakeBase.(base.KinematicWrappable).WrapWithKinematics(ctx, fakeslam.NewSLAM(slam.Named("foo"), logger))

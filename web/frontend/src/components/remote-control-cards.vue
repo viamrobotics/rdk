@@ -31,7 +31,7 @@ import Arm from './arm.vue';
 import AudioInputSvelte from './audio-input/index.svelte';
 import Base from './base.vue';
 import Board from './board.vue';
-import CamerasList from './camera/cameras-list.vue';
+import CamerasListSvelte from './camera/index.svelte';
 import OperationsSessionsSvelte from './operations-sessions/index.svelte';
 import DoCommand from './do-command.vue';
 import Encoder from './encoder.vue';
@@ -48,6 +48,7 @@ import Slam from './slam/index.vue';
 import { svelteAdapter } from '../lib/svelte-adapter';
 
 const AudioInput = svelteAdapter(AudioInputSvelte);
+const CamerasList = svelteAdapter(CamerasListSvelte, { display: 'flex', 'flex-direction': 'column', gap: '1rem' });
 const Motor = svelteAdapter(MotorSvelte);
 const MovementSensor = svelteAdapter(MovementSensorSvelte);
 const OperationsSessions = svelteAdapter(OperationsSessionsSvelte);
@@ -730,7 +731,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div>
+  <div class="remote-control">
     <div v-if="showAuth">
       <div
         v-if="isConnecting"
@@ -883,11 +884,10 @@ onUnmounted(() => {
 
       <!-- ******* CAMERAS *******  -->
       <CamerasList
-        parent-name="app"
         :client="client"
-        :stream-manager="streamManager"
+        :streamManager="streamManager"
         :resources="filterResources(resources, 'rdk', 'component', 'camera')"
-        :status-stream="statusStream"
+        :statusStream="statusStream"
       />
 
       <!-- ******* NAVIGATION ******* -->
