@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/edaniels/golog"
 	geo "github.com/kellydunn/golang-geo"
@@ -148,10 +147,11 @@ func TestStartWaypoint(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	err = ns.SetMode(ctx, 1, nil)
+
 	test.That(t, err, test.ShouldBeNil)
 
 	// TODO: find better way to await return from SetMode before running next test case
-	time.Sleep(time.Second)
+	ns.(*builtIn).activeBackgroundWorkers.Wait()
 
 	inputs, err := kinematicBase.CurrentInputs(ctx)
 	actualpt := geo.NewPoint(inputs[0].Value, inputs[1].Value)
