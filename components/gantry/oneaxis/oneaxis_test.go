@@ -152,6 +152,7 @@ func TestNewOneAxis(t *testing.T) {
 			Board:           boardName,
 		},
 	}
+
 	_, err = newOneAxis(ctx, deps, fakecfg, logger)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid gantry type: need 1, 2 or 0 pins per axis, have 3 pins")
 
