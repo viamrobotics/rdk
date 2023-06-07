@@ -3,7 +3,9 @@ package builtin
 
 import (
 	"context"
+	"fmt"
 	"testing"
+	"time"
 
 	"github.com/edaniels/golog"
 	geo "github.com/kellydunn/golang-geo"
@@ -97,7 +99,7 @@ func TestStartWaypoint(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	injectMovementSensor := inject.NewMovementSensor("test_movement")
-	injectMovementSensor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error){
+	injectMovementSensor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
 		inputs, err := kinematicBase.CurrentInputs(ctx)
 		return geo.NewPoint(inputs[0].Value, inputs[1].Value), 0, err
 	}
@@ -114,6 +116,7 @@ func TestStartWaypoint(t *testing.T) {
 		extra map[string]interface{},
 	) (bool, error) {
 		err := kinematicBase.GoToInputs(ctx, referenceframe.FloatsToInputs([]float64{destination.Lat(), destination.Lng(), 0}))
+		fmt.Println(kinematicBase.CurrentInputs(ctx))
 		return true, err
 	}
 
@@ -140,8 +143,14 @@ func TestStartWaypoint(t *testing.T) {
 	err = ns.AddWaypoint(ctx, pt, nil)
 	test.That(t, err, test.ShouldBeNil)
 
+	pt = geo.NewPoint(3, 1)
+	err = ns.AddWaypoint(ctx, pt, nil)
+	test.That(t, err, test.ShouldBeNil)
+
 	err = ns.SetMode(ctx, 1, nil)
 	test.That(t, err, test.ShouldBeNil)
+
+	time.Sleep(time.Second*2)
 
 	inputs, err := kinematicBase.CurrentInputs(ctx)
 	actualpt := geo.NewPoint(inputs[0].Value, inputs[1].Value)

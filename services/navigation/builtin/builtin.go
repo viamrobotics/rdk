@@ -236,77 +236,60 @@ func (svc *builtIn) startWaypoint(extra map[string]interface{}) error {
 		defer svc.activeBackgroundWorkers.Done()
 
 		path := []*geo.Point{}
-		for {
-			// if !utils.SelectContextOrWait(svc.cancelCtx, 500*time.Millisecond) {
-			// 	return
-			// }
-			currentLoc, _, err := svc.movementSensor.Position(svc.cancelCtx, extra)
+
+		currentLoc, _, err := svc.movementSensor.Position(svc.cancelCtx, extra)
+		if err != nil {
+			svc.logger.Errorw("failed to get gps location", "error", err)
+		}
+
+		if len(path) <= 1 || currentLoc.GreatCircleDistance(path[len(path)-1]) > .0001 {
+			// gps often updates less frequently
+			path = append(path, currentLoc)
+			if len(path) > 2 {
+				path = path[len(path)-2:]
+			}
+		}
+
+		navOnce := func(ctx context.Context) error {
+			if len(path) < 1 {
+				// TODO: fix this error
+				return errors.New("not enough gps data")
+			}
+
+			bearingToGoal, _, err := svc.waypointDirectionAndDistanceToGo(ctx, currentLoc)
 			if err != nil {
-				svc.logger.Errorw("failed to get gps location", "error", err)
-				continue
-			}
-
-			if len(path) <= 1 || currentLoc.GreatCircleDistance(path[len(path)-1]) > .0001 {
-				// gps often updates less frequently
-				path = append(path, currentLoc)
-				if len(path) > 2 {
-					path = path[len(path)-2:]
-				}
-			}
-
-			navOnce := func(ctx context.Context) error {
-				if len(path) < 1 {
-					// TODO: fix this error
-					return errors.New("not enough gps data")
-				}
-
-				bearingToGoal, _, err := svc.waypointDirectionAndDistanceToGo(ctx, currentLoc)
-				if err != nil {
-					return err
-				}
-
-				// bearingDelta := computeBearing(bearingToGoal, currentBearing)
-				// steeringDir := -bearingDelta / 180.0
-
-				// svc.logger.Debugf("currentBearing: %0.0f bearingToGoal: %0.0f distanceToGoal: %0.3f bearingDelta: %0.1f steeringDir: %0.2f",
-				// 	currentBearing, bearingToGoal, distanceToGoal, bearingDelta, steeringDir)
-
-				// // TODO(erh->erd): maybe need an arc/stroke abstraction?
-				// // - Remember that we added -1*bearingDelta instead of steeringDir
-				// // - Test both naval/land to prove it works
-				// if err := svc.base.Spin(ctx, -1*bearingDelta, svc.degPerSec, nil); err != nil {
-				// 	return fmt.Errorf("error turning: %w", err)
-				// }
-
-				// distanceMm := distanceToGoal * 1000 * 1000
-				// distanceMm = math.Min(distanceMm, 10*1000)
-
-				// // TODO: handle swap from mm to meters
-				// if err := svc.base.MoveStraight(ctx, int(distanceMm), (svc.metersPerSec * 1000), nil); err != nil {
-				// 	return fmt.Errorf("error moving %w", err)
-				// }
-
-				wp, err := svc.nextWaypoint(ctx)
-				if err != nil {
-					return fmt.Errorf("waypoint error: %w", err)
-				}
-
-				goal := wp.ToPoint()
-
-				// have ability to define destination heading here, but waypoint structure doesn't allow for that so using bearingToGoal as heading
-				_, err = svc.motion.MoveOnGlobe(ctx, svc.base.Name(), goal, bearingToGoal, svc.movementSensor.Name(), svc.obstacles, svc.metersPerSec*1000, svc.degPerSec, nil)
-
-				if err != nil {
-					return svc.waypointReached(ctx)
-				}
-
 				return err
 			}
 
-			if err := navOnce(svc.cancelCtx); err != nil {
-				svc.logger.Infof("error navigating: %s", err)
+			wp, err := svc.nextWaypoint(ctx)
+			if err != nil {
+				return fmt.Errorf("waypoint error: %w", err)
 			}
+
+			goal := wp.ToPoint()
+
+			// have ability to define destination heading here, but waypoint structure doesn't allow for that so using bearingToGoal as heading
+			_, err = svc.motion.MoveOnGlobe(ctx, svc.base.Name(), goal, bearingToGoal, svc.movementSensor.Name(), svc.obstacles, svc.metersPerSec*1000, svc.degPerSec, nil)
+
+			if err == nil {
+				return svc.waypointReached(ctx)
+			}
+
+			return err
 		}
+
+		_, err = svc.nextWaypoint(svc.cancelCtx)
+		if err != nil {
+			svc.logger.Infof("waypoint error: %w", err)
+		}
+
+		for err == nil {
+			if navErr := navOnce(svc.cancelCtx); err != nil {
+				svc.logger.Infof("error navigating: %s", navErr)
+			}
+			_, err = svc.nextWaypoint(svc.cancelCtx)
+		}
+
 	})
 	return nil
 }
