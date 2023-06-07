@@ -44,7 +44,7 @@ import MovementSensorSvelte from './movement-sensor/index.svelte';
 import NavigationSvelte from './navigation/index.svelte';
 import ServoSvelte from './servo/index.svelte';
 import Sensors from './sensors.vue';
-import Slam from './slam/index.vue';
+import SlamSvelte from './slam/index.svelte';
 import { svelteAdapter } from '../lib/svelte-adapter';
 
 const AudioInput = svelteAdapter(AudioInputSvelte);
@@ -54,6 +54,7 @@ const MovementSensor = svelteAdapter(MovementSensorSvelte);
 const Navigation = svelteAdapter(NavigationSvelte);
 const OperationsSessions = svelteAdapter(OperationsSessionsSvelte);
 const Servo = svelteAdapter(ServoSvelte);
+const Slam = svelteAdapter(SlamSvelte);
 
 import {
   fixArmStatus,
@@ -923,7 +924,7 @@ onUnmounted(() => {
         :name="slam.name"
         :client="client"
         :resources="resources"
-        :status-stream="statusStream"
+        :statusStream="statusStream"
         :operations="currentOps"
       />
 
