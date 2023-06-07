@@ -482,5 +482,18 @@ func (lb *limoBase) Close(ctx context.Context) error {
 		lb.waitGroup.Wait()
 		lb.controller.logger.Debug("done waiting on cancel")
 	}
+
+	// always delete the controller as there is no connection re-use
+	// TODO(RSDK-3516): remove the controllers map and embed serial port in the limo base struct
+	globalMu.Lock()
+	defer globalMu.Unlock()
+	if lb.controller.port != nil {
+		if err := lb.controller.port.Close(); err != nil {
+			return err
+		}
+		lb.controller.port = nil
+	}
+	delete(controllers, lb.controller.serialDevice)
+
 	return nil
 }
