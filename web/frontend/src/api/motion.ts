@@ -59,7 +59,7 @@ export const stopMoveOnMap = (client: Client, operations: { op: robotApi.Operati
   const match = operations.find(({ op }) => op.method.includes('MoveOnMap'));
 
   if (!match) {
-    return Promise.reject(new Error('Operation not found!'));
+    throw new Error('Operation not found!');
   }
 
   const req = new robotApi.CancelOperationRequest();
