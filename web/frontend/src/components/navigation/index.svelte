@@ -7,7 +7,7 @@ import { toast } from '@/lib/toast';
 import { Client, robotApi, navigationApi, type ServiceError, type ResponseStream } from '@viamrobotics/sdk';
 import Collapse from '../collapse.svelte';
 import maplibregl from 'maplibre-gl'; 
-import { setMode, setWaypoint, getWaypoints, removeWaypoint, getLocation } from '@/api/navigation';
+import { setMode, setWaypoint, getWaypoints, removeWaypoint, getLocation, type NavigationModes } from '@/api/navigation';
 
 export let name: string
 export let client: Client
@@ -21,7 +21,7 @@ let refreshRate = 500;
 const setNavigationMode = async (event: CustomEvent) => {
   const mode = event.detail.value.toLowerCase() as 'manual' | 'waypoint'
 
-  let pbMode: 0 | 1 | 2 = navigationApi.Mode.MODE_UNSPECIFIED;
+  let pbMode: NavigationModes = navigationApi.Mode.MODE_UNSPECIFIED;
 
   if (mode === 'manual') {
     pbMode = navigationApi.Mode.MODE_MANUAL;

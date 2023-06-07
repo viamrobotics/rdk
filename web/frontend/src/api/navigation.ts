@@ -2,13 +2,15 @@ import { Client, commonApi, navigationApi } from '@viamrobotics/sdk';
 import { grpc } from '@improbable-eng/grpc-web';
 import { rcLogConditionally } from '@/lib/log';
 
-export const setMode = (
-  client: Client,
-  name: string,
-  mode:
+export type NavigationModes =
   | typeof navigationApi.Mode.MODE_MANUAL
   | typeof navigationApi.Mode.MODE_UNSPECIFIED
   | typeof navigationApi.Mode.MODE_WAYPOINT
+
+export const setMode = (
+  client: Client,
+  name: string,
+  mode: NavigationModes
 ) => new Promise((resolve, reject) => {
   const request = new navigationApi.SetModeRequest();
   request.setName(name);
