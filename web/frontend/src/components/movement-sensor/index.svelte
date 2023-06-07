@@ -40,8 +40,6 @@ const refresh = async () => {
       properties.positionSupported ? getPosition(client, name): undefined,
     ] as const)
 
-    console.log(results)
-
     orientation = results[0]
     angularVelocity = results[1]
     linearAcceleration = results[2]

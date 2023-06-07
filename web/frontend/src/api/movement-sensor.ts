@@ -5,11 +5,12 @@ import type { commonApi } from '@viamrobotics/sdk';
 import { rcLogConditionally } from '@/lib/log';
 
 export const getProperties = (client: Client, name: string) => {
-  return new Promise<movementSensorApi.GetPropertiesResponse.AsObject | undefined>((resolve, reject) => {
-    const req = new movementSensorApi.GetPropertiesRequest();
-    req.setName(name);
+  const req = new movementSensorApi.GetPropertiesRequest();
+  req.setName(name);
 
-    rcLogConditionally(req);
+  rcLogConditionally(req);
+
+  return new Promise<movementSensorApi.GetPropertiesResponse.AsObject | undefined>((resolve, reject) => {
     client.movementSensorService.getProperties(req, new grpc.Metadata(), (error, response) => (
       error ? reject(error) : resolve(response?.toObject())
     ));
