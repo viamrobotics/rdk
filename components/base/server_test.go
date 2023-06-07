@@ -32,6 +32,9 @@ func TestServer(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("MoveStraight", func(t *testing.T) {
+		speed := 2.3
+		distance := int64(1)
+
 		// on successful move straight
 		workingBase.MoveStraightFunc = func(
 			ctx context.Context, distanceMm int,
@@ -42,8 +45,8 @@ func TestServer(t *testing.T) {
 		}
 		req := &pb.MoveStraightRequest{
 			Name:       testBaseName,
-			MmPerSec:   2.3,
-			DistanceMm: 1,
+			MmPerSec:   speed,
+			DistanceMm: distance,
 		}
 		resp, err := server.MoveStraight(context.Background(), req)
 		test.That(t, err, test.ShouldBeNil)
@@ -60,35 +63,27 @@ func TestServer(t *testing.T) {
 		}
 		req = &pb.MoveStraightRequest{
 			Name:       failBaseName,
-			MmPerSec:   2.3,
-			DistanceMm: 1,
+			MmPerSec:   speed,
+			DistanceMm: distance,
 		}
 		resp, err = server.MoveStraight(context.Background(), req)
 		test.That(t, resp, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeError, errors.New(errMsg))
 
-		// failure on bad base handled
-		req = &pb.MoveStraightRequest{
-			Name:       fakeBaseName,
-			MmPerSec:   2.3,
-			DistanceMm: 1,
-		}
-		resp, err = server.MoveStraight(context.Background(), req)
-		test.That(t, resp, test.ShouldBeNil)
-		test.That(t, err, test.ShouldNotBeNil)
-
 		// failure on unfound base
 		req = &pb.MoveStraightRequest{
 			Name:       "dne",
-			MmPerSec:   2.3,
-			DistanceMm: 1,
+			MmPerSec:   speed,
+			DistanceMm: distance,
 		}
 		resp, err = server.MoveStraight(context.Background(), req)
 		test.That(t, resp, test.ShouldBeNil)
-		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, resource.IsNotFoundError(err), test.ShouldBeTrue)
 	})
 
 	t.Run("Spin", func(t *testing.T) {
+		angSpeed := 45.0
+		angle := 90.0
 		// on successful spin
 		workingBase.SpinFunc = func(
 			ctx context.Context,
@@ -99,8 +94,8 @@ func TestServer(t *testing.T) {
 		}
 		req := &pb.SpinRequest{
 			Name:       testBaseName,
-			DegsPerSec: 42.0,
-			AngleDeg:   42.0,
+			DegsPerSec: angSpeed,
+			AngleDeg:   angle,
 		}
 		resp, err := server.Spin(context.Background(), req)
 		test.That(t, err, test.ShouldBeNil)
@@ -117,32 +112,55 @@ func TestServer(t *testing.T) {
 		}
 		req = &pb.SpinRequest{
 			Name:       failBaseName,
-			DegsPerSec: 42.0,
-			AngleDeg:   42.0,
+			DegsPerSec: angSpeed,
+			AngleDeg:   angle,
 		}
 		resp, err = server.Spin(context.Background(), req)
 		test.That(t, resp, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeError, errors.New(errMsg))
 
-		// failure on bad base handled
-		req = &pb.SpinRequest{
-			Name:       fakeBaseName,
-			DegsPerSec: 42.0,
-			AngleDeg:   42.0,
-		}
-		resp, err = server.Spin(context.Background(), req)
-		test.That(t, resp, test.ShouldBeNil)
-		test.That(t, err, test.ShouldNotBeNil)
-
 		// failure on unfound base
 		req = &pb.SpinRequest{
 			Name:       "dne",
-			DegsPerSec: 42.0,
-			AngleDeg:   42.0,
+			DegsPerSec: angSpeed,
+			AngleDeg:   angle,
 		}
 		resp, err = server.Spin(context.Background(), req)
 		test.That(t, resp, test.ShouldBeNil)
-		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, resource.IsNotFoundError(err), test.ShouldBeTrue)
+	})
+
+	t.Run("Properties", func(t *testing.T) {
+		turnRadius := 0.1
+		width := 0.2
+		// on a successful get properties
+		workingBase.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (base.Properties, error) {
+			return base.Properties{
+				TurningRadiusMeters: turnRadius,
+				WidthMeters:         width,
+			}, nil
+		}
+		req := &pb.GetPropertiesRequest{Name: testBaseName}
+		resp, err := server.GetProperties(context.Background(), req) // TODO (rh) rename server to bServer after review
+		test.That(t, resp, test.ShouldResemble, &pb.GetPropertiesResponse{WidthMeters: width, TurningRadiusMeters: turnRadius})
+		test.That(t, err, test.ShouldBeNil)
+
+		// on a failing get properties
+		errMsg := "properties not found"
+
+		brokenBase.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (base.Properties, error) {
+			return base.Properties{}, errors.New(errMsg)
+		}
+		req = &pb.GetPropertiesRequest{Name: failBaseName}
+		resp, err = server.GetProperties(context.Background(), req)
+		test.That(t, resp, test.ShouldBeNil)
+		test.That(t, err, test.ShouldBeError, errors.New(errMsg))
+
+		// failure on base not found
+		req = &pb.GetPropertiesRequest{Name: "dne"}
+		resp, err = server.GetProperties(context.Background(), req)
+		test.That(t, resp, test.ShouldBeNil)
+		test.That(t, resource.IsNotFoundError(err), test.ShouldBeTrue)
 	})
 
 	t.Run("Stop", func(t *testing.T) {
@@ -165,16 +183,10 @@ func TestServer(t *testing.T) {
 		test.That(t, resp, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeError, errors.New(errMsg))
 
-		// failure on bad base handled
-		req = &pb.StopRequest{Name: fakeBaseName}
-		resp, err = server.Stop(context.Background(), req)
-		test.That(t, resp, test.ShouldBeNil)
-		test.That(t, err, test.ShouldNotBeNil)
-
-		// failure on unfound base
+		// failure on base not found
 		req = &pb.StopRequest{Name: "dne"}
 		resp, err = server.Stop(context.Background(), req)
 		test.That(t, resp, test.ShouldBeNil)
-		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, resource.IsNotFoundError(err), test.ShouldBeTrue)
 	})
 }
