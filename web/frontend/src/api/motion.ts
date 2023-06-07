@@ -56,19 +56,19 @@ export const moveOnMap = async (client: Client, name: string, componentName: str
 };
 
 export const stopMoveOnMap = (client: Client, operations: { op: robotApi.Operation.AsObject }[]) => {
+  const match = operations.find(({ op }) => op.method.includes('MoveOnMap'));
+
+  if (!match) {
+    return Promise.reject(new Error('Operation not found!'));
+  }
+
+  const req = new robotApi.CancelOperationRequest();
+  req.setId(match.op.id);
+  rcLogConditionally(req);
+
   return new Promise((resolve, reject) => {
-    const match = operations.find(({ op }) => op.method.includes('MoveOnMap'));
-
-    if (match) {
-      const req = new robotApi.CancelOperationRequest();
-      req.setId(match.op.id);
-      rcLogConditionally(req);
-      client.robotService.cancelOperation(req, new grpc.Metadata(), (error, response) => (
-        error ? reject(error) : resolve(response)
-      ));
-      return;
-    }
-
-    reject(new Error('Operation not found!'));
+    client.robotService.cancelOperation(req, new grpc.Metadata(), (error, response) => (
+      error ? reject(error) : resolve(response)
+    ));
   });
 };
