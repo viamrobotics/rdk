@@ -81,6 +81,8 @@ func (cfg *StationConfig) Validate(path string) ([]string, error) {
 	default:
 		return nil, ErrStationValidation
 	}
+
+	deps = append(deps, cfg.Children...)
 	return deps, nil
 }
 
@@ -182,13 +184,14 @@ func newRTKStation(
 	r.serialPorts = make([]io.Writer, 0)
 
 	for _, movementsensorName := range r.movementsensorNames {
-		movementsensor, err := movementsensor.FromDependencies(deps, movementsensorName)
-		localmovementsensor := movementsensor
+		movementSensor, err := movementsensor.FromDependencies(deps, movementsensorName)
+		rtk := movementSensor.(*RTKMovementSensor)
+
 		if err != nil {
 			return nil, err
 		}
 
-		switch t := localmovementsensor.(type) {
+		switch t := rtk.nmeamovementsensor.(type) {
 		case *gpsnmea.SerialNMEAMovementSensor:
 			path, br := t.GetCorrectionInfo()
 
