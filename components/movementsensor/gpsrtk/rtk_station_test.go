@@ -78,6 +78,7 @@ func TestValidate(t *testing.T) {
 
 	fakecfg.NtripConfig.NtripAddr = "some-ntrip-address"
 	fakecfg.NtripPath = "some-ntrip-path"
+	fakecfg.NtripInputProtocol = "some-protocol"
 	_, err = fakecfg.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
 
