@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"strconv"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/edaniels/golog"
@@ -22,8 +21,6 @@ import (
 	"periph.io/x/conn/v3/gpio"
 	"periph.io/x/conn/v3/gpio/gpioreg"
 	"periph.io/x/conn/v3/physic"
-	"periph.io/x/conn/v3/spi"
-	"periph.io/x/conn/v3/spi/spireg"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/grpc"
@@ -389,62 +386,6 @@ func (b *sysfsBoard) SPIByName(name string) (board.SPI, bool) {
 	return s, ok
 }
 
-type spiBus struct {
-	mu         sync.Mutex
-	openHandle *spiHandle
-	bus        atomic.Pointer[string]
-}
-
-type spiHandle struct {
-	bus      *spiBus
-	isClosed bool
-}
-
-func (sb *spiBus) OpenHandle() (board.SPIHandle, error) {
-	sb.mu.Lock()
-	sb.openHandle = &spiHandle{bus: sb, isClosed: false}
-	return sb.openHandle, nil
-}
-
-func (sb *spiBus) Close(ctx context.Context) error {
-	return nil
-}
-
-func (sb *spiBus) reset(bus string) {
-	sb.bus.Store(&bus)
-}
-
-func (sh *spiHandle) Xfer(ctx context.Context, baud uint, chipSelect string, mode uint, tx []byte) (rx []byte, err error) {
-	if sh.isClosed {
-		return nil, errors.New("can't use Xfer() on an already closed SPIHandle")
-	}
-
-	busPtr := sh.bus.bus.Load()
-	if busPtr == nil {
-		return nil, errors.New("no bus selected")
-	}
-
-	port, err := spireg.Open(fmt.Sprintf("SPI%s.%s", *busPtr, chipSelect))
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		err = multierr.Combine(err, port.Close())
-	}()
-	conn, err := port.Connect(physic.Hertz*physic.Frequency(baud), spi.Mode(mode), 8)
-	if err != nil {
-		return nil, err
-	}
-	rx = make([]byte, len(tx))
-	return rx, conn.Tx(tx, rx)
-}
-
-func (sh *spiHandle) Close() error {
-	sh.isClosed = true
-	sh.bus.mu.Unlock()
-	return nil
-}
-
 func (b *sysfsBoard) I2CByName(name string) (board.I2C, bool) {
 	i, ok := b.i2cs[name]
 	return i, ok
@@ -574,23 +515,21 @@ func (b *sysfsBoard) getGPIOLine(hwPin string) (gpio.PinIO, bool, error) {
 	return pin, hwPWMSupported, nil
 }
 
-type periphGpioPin struct {
-	b              *sysfsBoard
-	pin            gpio.PinIO
-	pinName        string
-	hwPWMSupported bool
-}
-
 func (b *sysfsBoard) GPIOPinByName(pinName string) (board.GPIOPin, error) {
 	if b.usePeriphGpio {
 		return b.periphGPIOPinByName(pinName)
 	}
 	// Otherwise, the pins are stored in b.gpios.
-	pin, ok := b.gpios[pinName]
-	if !ok {
-		return nil, errors.Errorf("cannot find GPIO for unknown pin: %s", pinName)
+	if pin, ok := b.gpios[pinName]; ok {
+		return pin, nil
 	}
-	return pin, nil
+
+	// check if pin is a digital interrupt
+	if interrupt, interruptOk := b.interrupts[pinName]; interruptOk {
+		return &gpioInterruptWrapperPin{*interrupt}, nil
+	}
+
+	return nil, errors.Errorf("cannot find GPIO for unknown pin: %s", pinName)
 }
 
 func (b *sysfsBoard) periphGPIOPinByName(pinName string) (board.GPIOPin, error) {
@@ -600,41 +539,6 @@ func (b *sysfsBoard) periphGPIOPinByName(pinName string) (board.GPIOPin, error) 
 	}
 
 	return periphGpioPin{b, pin, pinName, hwPWMSupported}, nil
-}
-
-func (gp periphGpioPin) Set(ctx context.Context, high bool, extra map[string]interface{}) error {
-	gp.b.mu.Lock()
-	defer gp.b.mu.Unlock()
-
-	delete(gp.b.pwms, gp.pinName)
-
-	return gp.set(high)
-}
-
-// This function is separate from Set(), above, because this one does not remove the pin from the
-// board's pwms map. When simulating PWM in software, we use this function to turn the pin on and
-// off while continuing to treat it as a PWM pin.
-func (gp periphGpioPin) set(high bool) error {
-	l := gpio.Low
-	if high {
-		l = gpio.High
-	}
-	return gp.pin.Out(l)
-}
-
-func (gp periphGpioPin) Get(ctx context.Context, extra map[string]interface{}) (bool, error) {
-	return gp.pin.Read() == gpio.High, nil
-}
-
-func (gp periphGpioPin) PWM(ctx context.Context, extra map[string]interface{}) (float64, error) {
-	gp.b.mu.RLock()
-	defer gp.b.mu.RUnlock()
-
-	pwm, ok := gp.b.pwms[gp.pinName]
-	if !ok {
-		return 0, fmt.Errorf("missing pin %s", gp.pinName)
-	}
-	return float64(pwm.dutyCycle) / float64(gpio.DutyMax), nil
 }
 
 // expects to already have lock acquired.
@@ -678,66 +582,6 @@ func (b *sysfsBoard) softwarePWMLoop(ctx context.Context, gp periphGpioPin) {
 			return
 		}
 	}
-}
-
-func (gp periphGpioPin) SetPWM(ctx context.Context, dutyCyclePct float64, extra map[string]interface{}) error {
-	gp.b.mu.Lock()
-	defer gp.b.mu.Unlock()
-
-	last, alreadySet := gp.b.pwms[gp.pinName]
-	var freqHz physic.Frequency
-	if last.frequency != 0 {
-		freqHz = last.frequency
-	}
-	duty := gpio.Duty(dutyCyclePct * float64(gpio.DutyMax))
-	last.dutyCycle = duty
-	gp.b.pwms[gp.pinName] = last
-
-	if gp.hwPWMSupported {
-		err := gp.pin.PWM(duty, freqHz)
-		// TODO: [RSDK-569] (rh) find or implement a PWM sysfs that works with hardware pwm mappings
-		// periph.io does not implement PWM
-		if err != nil {
-			return errors.New("sysfs PWM not currently supported, use another pin for software PWM loops")
-		}
-	}
-
-	if !alreadySet {
-		gp.b.startSoftwarePWMLoop(gp)
-	}
-
-	return nil
-}
-
-func (gp periphGpioPin) PWMFreq(ctx context.Context, extra map[string]interface{}) (uint, error) {
-	gp.b.mu.RLock()
-	defer gp.b.mu.RUnlock()
-
-	return uint(gp.b.pwms[gp.pinName].frequency / physic.Hertz), nil
-}
-
-func (gp periphGpioPin) SetPWMFreq(ctx context.Context, freqHz uint, extra map[string]interface{}) error {
-	gp.b.mu.Lock()
-	defer gp.b.mu.Unlock()
-
-	last, alreadySet := gp.b.pwms[gp.pinName]
-	var duty gpio.Duty
-	if last.dutyCycle != 0 {
-		duty = last.dutyCycle
-	}
-	frequency := physic.Hertz * physic.Frequency(freqHz)
-	last.frequency = frequency
-	gp.b.pwms[gp.pinName] = last
-
-	if gp.hwPWMSupported {
-		return gp.pin.PWM(duty, frequency)
-	}
-
-	if !alreadySet {
-		gp.b.startSoftwarePWMLoop(gp)
-	}
-
-	return nil
 }
 
 func (b *sysfsBoard) Status(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {

@@ -64,7 +64,6 @@ func NewPmtkI2CGPSNMEA(
 		conf.I2CConfig.I2CBaudRate = 38400
 		logger.Warn("using default baudrate : 38400")
 	}
-
 	disableNmea := conf.DisableNMEA
 	if disableNmea {
 		logger.Info("SerialNMEAMovementSensor: NMEA reading disabled")
