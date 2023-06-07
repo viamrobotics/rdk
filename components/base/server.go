@@ -135,6 +135,23 @@ func (s *serviceServer) IsMoving(ctx context.Context, req *pb.IsMovingRequest) (
 	return &pb.IsMovingResponse{IsMoving: moving}, nil
 }
 
+func (s *serviceServer) GetProperties(
+	ctx context.Context,
+	req *pb.GetPropertiesRequest,
+) (*pb.GetPropertiesResponse, error) {
+	baseName := req.GetName()
+	base, err := s.coll.Resource(baseName)
+	if err != nil {
+		return nil, err
+	}
+
+	features, err := base.Properties(ctx, req.Extra.AsMap())
+	if err != nil {
+		return nil, err
+	}
+	return PropertiesToProtoResponse(features)
+}
+
 // DoCommand receives arbitrary commands.
 func (s *serviceServer) DoCommand(ctx context.Context,
 	req *commonpb.DoCommandRequest,

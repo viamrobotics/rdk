@@ -31,7 +31,7 @@ import Arm from './arm.vue';
 import AudioInputSvelte from './audio-input/index.svelte';
 import Base from './base.vue';
 import Board from './board.vue';
-import CamerasList from './camera/cameras-list.vue';
+import CamerasListSvelte from './camera/index.svelte';
 import OperationsSessionsSvelte from './operations-sessions/index.svelte';
 import DoCommand from './do-command.vue';
 import Encoder from './encoder.vue';
@@ -41,16 +41,18 @@ import Gamepad from './gamepad.vue';
 import InputControllerSvelte from './input-controller/index.svelte';
 import MotorSvelte from './motor/index.svelte';
 import MovementSensorSvelte from './movement-sensor/index.svelte';
-import Navigation from './navigation.vue';
+import NavigationSvelte from './navigation/index.svelte';
 import ServoSvelte from './servo/index.svelte';
 import SensorsSvelte from './sensors/index.svelte';
 import Slam from './slam/index.vue';
 import { svelteAdapter } from '../lib/svelte-adapter';
 
 const AudioInput = svelteAdapter(AudioInputSvelte);
+const CamerasList = svelteAdapter(CamerasListSvelte, { display: 'flex', 'flex-direction': 'column', gap: '1rem' });
 const InputController = svelteAdapter(InputControllerSvelte);
 const Motor = svelteAdapter(MotorSvelte);
 const MovementSensor = svelteAdapter(MovementSensorSvelte);
+const Navigation = svelteAdapter(NavigationSvelte);
 const OperationsSessions = svelteAdapter(OperationsSessionsSvelte);
 const Servo = svelteAdapter(ServoSvelte);
 const Sensors = svelteAdapter(SensorsSvelte);
@@ -732,7 +734,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div>
+  <div class="remote-control">
     <div v-if="showAuth">
       <div
         v-if="isConnecting"
@@ -885,21 +887,19 @@ onUnmounted(() => {
 
       <!-- ******* CAMERAS *******  -->
       <CamerasList
-        parent-name="app"
         :client="client"
-        :stream-manager="streamManager"
+        :streamManager="streamManager"
         :resources="filterResources(resources, 'rdk', 'component', 'camera')"
-        :status-stream="statusStream"
+        :statusStream="statusStream"
       />
 
       <!-- ******* NAVIGATION ******* -->
       <Navigation
         v-for="nav in filterResources(resources, 'rdk', 'service', 'navigation')"
         :key="nav.name"
-        :resources="resources"
         :name="nav.name"
         :client="client"
-        :status-stream="statusStream"
+        :statusStream="statusStream"
       />
 
       <!-- ******* SENSORS ******* -->
