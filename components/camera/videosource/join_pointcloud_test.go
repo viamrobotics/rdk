@@ -26,10 +26,11 @@ import (
 )
 
 func TestInjectedCameras(t *testing.T) {
-	base1 := &inject.Base{}
-	cam1 := &inject.Camera{}
-	cam2 := &inject.Camera{}
-	cam3 := &inject.Camera{}
+	base1 := inject.NewBase("base1")
+	cam1 := inject.NewCamera("cam1")
+	cam2 := inject.NewCamera("cam2")
+	cam3 := inject.NewCamera("cam3")
+	fs := inject.NewFrameSystemService()
 	cam1.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		pc1 := pointcloud.NewWithPrealloc(1)
 		err := pc1.Set(pointcloud.NewVector(1, 0, 0), pointcloud.NewColoredData(color.NRGBA{255, 0, 0, 255}))
@@ -49,7 +50,6 @@ func TestInjectedCameras(t *testing.T) {
 		return pc3, nil
 	}
 	// create a very simple frame system
-	fs := inject.NewFrameSystemService()
 	fs.CurrentInputsFunc = func(ctx context.Context) (map[string][]referenceframe.Input, map[string]referenceframe.InputEnabled, error) {
 		return nil, nil, nil // doesn't matter for test
 	}
@@ -74,10 +74,10 @@ func TestInjectedCameras(t *testing.T) {
 		return sfs, nil
 	}
 	deps := make(resource.Dependencies)
-	deps[camera.Named("cam1")] = cam1
-	deps[camera.Named("cam2")] = cam2
-	deps[camera.Named("cam3")] = cam3
-	deps[base.Named("base1")] = base1
+	deps[cam1.Name()] = cam1
+	deps[cam2.Name()] = cam2
+	deps[cam3.Name()] = cam3
+	deps[base1.Name()] = base1
 	deps[fs.Name()] = fs
 	// PoV from base1
 	conf := &Config{
