@@ -253,6 +253,7 @@ func (g *oneAxis) goToStart(ctx context.Context, percent float64) error {
 	if err := g.motor.GoTo(ctx, g.rpm, x, nil); err != nil {
 		return err
 	}
+	return nil
 }
 
 func (g *oneAxis) gantryToMotorPosition(positions float64) float64 {
