@@ -34,9 +34,9 @@ const setupCamera = (cameraName: string) => {
 
 const handleRefreshInput = (name: string) => {
   return (event: CustomEvent) => {
-    refreshFrequency[name] = event.detail.value
-  }
-}
+    refreshFrequency[name] = event.detail.value;
+  };
+};
 
 </script>
 
@@ -71,7 +71,9 @@ const handleRefreshInput = (name: string) => {
               v-if=""
               icon="refresh"
               label="Refresh"
-              on:click={() => { triggerRefresh = !triggerRefresh }}
+              on:click={() => {
+                triggerRefresh = !triggerRefresh;
+              }}
             />
           {/if}
         </div>

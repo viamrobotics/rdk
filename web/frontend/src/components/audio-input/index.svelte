@@ -13,7 +13,7 @@ let audio: HTMLAudioElement;
 let isOn = false;
 
 const toggleExpand = async () => {
-  isOn = !isOn
+  isOn = !isOn;
 
   const streams = new StreamClient(client);
 
