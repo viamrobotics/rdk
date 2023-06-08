@@ -223,23 +223,18 @@ func (svc *builtIn) startWaypoint(extra map[string]interface{}) error {
 	utils.PanicCapturingGo(func() {
 		defer svc.activeBackgroundWorkers.Done()
 
-		currentLoc, err := svc.Location(svc.cancelCtx, extra)
-		if err != nil {
-			svc.logger.Errorw("failed to get gps location", "error", err)
-		}
-
-		navOnce := func(ctx context.Context) error {
-			bearingToGoal, _, err := svc.waypointDirectionAndDistanceToGo(ctx, currentLoc)
+		navOnce := func(ctx context.Context, wp navigation.Waypoint) error {
+			currentLoc, err := svc.Location(svc.cancelCtx, extra)
 			if err != nil {
-				return err
-			}
-
-			wp, err := svc.nextWaypoint(ctx)
-			if err != nil {
-				return fmt.Errorf("waypoint error: %w", err)
+				svc.logger.Errorw("failed to get gps location", "error", err)
 			}
 
 			goal := wp.ToPoint()
+
+			bearingToGoal := currentLoc.BearingTo(goal)
+			if err != nil {
+				return err
+			}
 
 			// have ability to define destination heading here, but waypoint structure doesn't allow for that so using bearingToGoal as heading
 			_, err = svc.motion.MoveOnGlobe(ctx, svc.base.Name(), goal, bearingToGoal, svc.movementSensor.Name(), svc.obstacles, svc.metersPerSec*1000, svc.degPerSec, extra)
@@ -251,32 +246,20 @@ func (svc *builtIn) startWaypoint(extra map[string]interface{}) error {
 			return err
 		}
 
-		_, err = svc.nextWaypoint(svc.cancelCtx)
-		if err != nil {
-			svc.logger.Infof("waypoint error: %w", err)
-		}
-
 		// loop until no waypoints remaining
-		for err == nil {
-			if navErr := navOnce(svc.cancelCtx); err != nil {
+		for {
+			wp, err := svc.nextWaypoint(svc.cancelCtx)
+			if err != nil {
+				return
+			}
+
+			if navErr := navOnce(svc.cancelCtx, wp); err != nil {
 				svc.logger.Infof("error navigating: %s", navErr)
 			}
-			_, err = svc.nextWaypoint(svc.cancelCtx)
 		}
 
 	})
 	return nil
-}
-
-func (svc *builtIn) waypointDirectionAndDistanceToGo(ctx context.Context, currentLoc *geo.Point) (float64, float64, error) {
-	wp, err := svc.nextWaypoint(ctx)
-	if err != nil {
-		return 0, 0, err
-	}
-
-	goal := wp.ToPoint()
-
-	return fixAngle(currentLoc.BearingTo(goal)), currentLoc.GreatCircleDistance(goal), nil
 }
 
 func (svc *builtIn) Location(ctx context.Context, extra map[string]interface{}) (*geo.Point, error) {
@@ -322,14 +305,4 @@ func (svc *builtIn) Close(ctx context.Context) error {
 	svc.cancelFunc()
 	svc.activeBackgroundWorkers.Wait()
 	return svc.store.Close(ctx)
-}
-
-func fixAngle(a float64) float64 {
-	for a < 0 {
-		a += 360
-	}
-	for a > 360 {
-		a -= 360
-	}
-	return a
 }

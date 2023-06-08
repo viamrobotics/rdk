@@ -150,7 +150,6 @@ func TestStartWaypoint(t *testing.T) {
 
 	test.That(t, err, test.ShouldBeNil)
 
-	// TODO: find better way to await return from SetMode before running next test case
 	ns.(*builtIn).activeBackgroundWorkers.Wait()
 
 	inputs, err := kinematicBase.CurrentInputs(ctx)
