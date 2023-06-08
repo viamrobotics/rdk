@@ -29,7 +29,6 @@ interface RawArmStatus extends ArmStatus {
 
 type Field = 'x' | 'y' | 'z' | 'oX' | 'oY' | 'oZ' | 'theta'
 
-
 export let name: string;
 export let status: ArmStatus | undefined;
 export let rawStatus: RawArmStatus | undefined;
@@ -197,9 +196,9 @@ const armModifyAll = () => {
   toggle[name] = newStatus;
 };
 
-const armCopyPosition = (status: ArmStatus) => {
+const armCopyPosition = () => {
   // eslint-disable-next-line unicorn/no-array-reduce
-  copyToClipboardWithToast(JSON.stringify(status.pos_pieces.reduce((acc, cur) => {
+  copyToClipboardWithToast(JSON.stringify(status?.pos_pieces.reduce((acc, cur) => {
     return {
       ...acc,
       [`${cur.endPosition[0]}`]: cur.endPositionValue,
@@ -207,9 +206,9 @@ const armCopyPosition = (status: ArmStatus) => {
   }, {})));
 };
 
-const armCopyJoints = (status: ArmStatus) => {
+const armCopyJoints = () => {
   // eslint-disable-next-line unicorn/no-array-reduce
-  copyToClipboardWithToast(JSON.stringify(status.joint_pieces.reduce((acc, cur) => {
+  copyToClipboardWithToast(JSON.stringify(status?.joint_pieces.reduce((acc, cur) => {
     return {
       ...acc,
       [`${cur.joint}`]: cur.jointValue,
@@ -334,7 +333,7 @@ const armCopyJoints = (status: ArmStatus) => {
             <v-button
               label="Copy"
               class="flex-auto text-right"
-              on:click={() => armCopyPosition(status)}
+              on:click={armCopyPosition}
             />
             <div class="flex-auto text-right">
               <v-button
@@ -383,7 +382,7 @@ const armCopyJoints = (status: ArmStatus) => {
             <v-button
               label="Copy"
               class="flex-auto text-right"
-              on:click={() => armCopyJoints(status)}
+              on:click={armCopyJoints}
             />
             <div class="flex-auto text-right">
               <v-button

@@ -5,11 +5,12 @@ module.exports = {
     es2021: true,
     node: true,
   },
-  parser: 'vue-eslint-parser',
+  parser: "@typescript-eslint/parser",
   parserOptions: {
-    parser: '@typescript-eslint/parser',
     ecmaVersion: 'latest',
     sourceType: 'module',
+    project: './tsconfig.json',
+    extraFileExtensions: ['.svelte', '.vue'],
   },
   plugins: [
     'vue',
@@ -17,6 +18,7 @@ module.exports = {
     'unicorn',
     'tailwindcss',
     'promise',
+    'svelte',
   ],
   extends: [
     'plugin:@typescript-eslint/recommended',
@@ -26,10 +28,50 @@ module.exports = {
     'plugin:vue/vue3-essential',
     'plugin:vue/vue3-strongly-recommended',
     'plugin:vue/vue3-recommended',
+    'plugin:svelte/recommended',
+    'plugin:svelte/prettier',
     'plugin:promise/recommended',
   ],
-  ignorePatterns: ['**/node_modules/**', '*.json', '**/protos/**'],
+  ignorePatterns: ['**/node_modules/**', '*.json', '**/protos/**', 'converter.js'],
+  overrides: [
+    {
+      files: ['*.ts'],
+      parser: '@typescript-eslint/parser',
+    }, {
+      files: ['*.svelte'],
+      parser: 'svelte-eslint-parser',
+      parserOptions: {
+        parser: '@typescript-eslint/parser',
+      },
+    }, {
+      files: ['*.vue'],
+      parser: 'vue-eslint-parser',
+      parserOptions: {
+        parser: '@typescript-eslint/parser',
+      },
+    }
+  ],
+  settings: {
+    'import/extensions': ['.vue'],
+    'import/parsers': {
+      '@typescript-eslint/parser': ['.ts', '.js'],
+    },
+    'import/resolver': {
+      typescript: {
+        alwaysTryTypes: true,
+        project: './tsconfig.json',
+      },
+      'eslint-import-resolver-custom-alias': {
+        alias: {
+          '@': './frontend/src',
+        },
+        extensions: ['.ts', '.js', '.vue'],
+      },
+    },
+  },
   rules: {
+    'svelte/valid-compile': 'warn',
+  
     // https://github.com/eslint/eslint/issues/13956
     indent: 'off',
     'array-element-newline': ['error', 'consistent'],
@@ -179,29 +221,4 @@ module.exports = {
     // Promise
     'promise/prefer-await-to-then': 'error',
   },
-  settings: {
-    'import/extensions': ['.vue'],
-    'import/parsers': {
-      '@typescript-eslint/parser': ['.ts', '.js'],
-    },
-    'import/resolver': {
-      typescript: {
-        alwaysTryTypes: true,
-        project: './tsconfig.json',
-      },
-      'eslint-import-resolver-custom-alias': {
-        alias: {
-          '@': './frontend/src',
-        },
-        extensions: ['.ts', '.js', '.vue'],
-      },
-    },
-  },
-  // User ts parser for typescript files
-  overrides: [
-    {
-      files: ['*.ts'],
-      parser: '@typescript-eslint/parser',
-    },
-  ],
 };

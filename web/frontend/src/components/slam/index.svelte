@@ -16,19 +16,19 @@ import { moveOnMap, stopMoveOnMap } from '@/api/motion';
 import { toast } from '@/lib/toast';
 import { setAsyncInterval } from '@/lib/schedule';
 import Collapse from '@/components/collapse.svelte';
-import PCD from '@/components/pcd/pcd-view.svelte'
+import PCD from '@/components/pcd/pcd-view.svelte';
 import Slam2dRenderer from './2d-renderer.svelte';
 
-export let name: string
-export let resources: commonApi.ResourceName.AsObject[]
-export let client: Client
-export let statusStream: ResponseStream<robotApi.StreamStatusResponse> | null
-export let operations: { op: robotApi.Operation.AsObject; elapsed: number }[]
+export let name: string;
+export let resources: commonApi.ResourceName.AsObject[];
+export let client: Client;
+export let statusStream: ResponseStream<robotApi.StreamStatusResponse> | null;
+export let operations: { op: robotApi.Operation.AsObject; elapsed: number }[];
 
 const refreshErrorMessage = 'Error refreshing map. The map shown may be stale.';
 
-let clear2dRefresh: (() => void) | undefined
-let clear3dRefresh: (() => void) | undefined
+let clear2dRefresh: (() => void) | undefined;
+let clear3dRefresh: (() => void) | undefined;
 
 let refreshErrorMessage2d: string | undefined;
 let refreshErrorMessage3d: string | undefined;
@@ -59,12 +59,12 @@ const refresh2d = async () => {
     const [map, nextPose] = await Promise.all([
       getPointCloudMap(client, name),
       getSLAMPosition(client, name),
-    ])
+    ]);
 
     /*
-    * The pose is returned in millimeters, but we need
-    * to convert to meters to display on the frontend.
-    */
+     * The pose is returned in millimeters, but we need
+     * to convert to meters to display on the frontend.
+     */
     nextPose?.setX(nextPose.getX() / 1000);
     nextPose?.setY(nextPose.getY() / 1000);
     nextPose?.setZ(nextPose.getZ() / 1000);
@@ -85,29 +85,29 @@ const refresh3d = async () => {
     refreshErrorMessage3d = error !== null && typeof error === 'object' && 'message' in error
       ? `${refreshErrorMessage} ${error.message}`
       : `${refreshErrorMessage} ${error}`;
-    return;
+
   }
 };
 
-const updateSLAM2dRefreshFrequency = async () => {
+const updateSLAM2dRefreshFrequency = () => {
   clear2dRefresh?.();
-  await refresh2d();
+  refresh2d();
 
   refreshErrorMessage2d = undefined;
 
   if (refresh2dRate !== 'manual') {
-    clear2dRefresh = setAsyncInterval(refresh2d, Number.parseFloat(refresh2dRate) * 1000)
+    clear2dRefresh = setAsyncInterval(refresh2d, Number.parseFloat(refresh2dRate) * 1000);
   }
 };
 
-const updateSLAM3dRefreshFrequency = async () => {
+const updateSLAM3dRefreshFrequency = () => {
   clear3dRefresh?.();
-  await refresh3d();
+  refresh3d();
 
   refreshErrorMessage3d = undefined;
 
   if (refresh3dRate !== 'manual') {
-    clear3dRefresh = setAsyncInterval(refresh3d, Number.parseFloat(refresh3dRate) * 1000)
+    clear3dRefresh = setAsyncInterval(refresh3d, Number.parseFloat(refresh3dRate) * 1000);
   }
 };
 
@@ -130,12 +130,12 @@ const toggle2dExpand = () => {
 };
 
 const refresh2dMap = () => {
-  refresh2dRate = 'manual'
+  refresh2dRate = 'manual';
   updateSLAM2dRefreshFrequency();
 };
 
 const refresh3dMap = () => {
-  refresh2dRate = 'manual'
+  refresh2dRate = 'manual';
   updateSLAM3dRefreshFrequency();
 };
 
@@ -144,12 +144,12 @@ const handle2dRenderClick = (event: CustomEvent) => {
 };
 
 const handleUpdateDestX = (event: CustomEvent<{ value: string }>) => {
-  destination ??= new THREE.Vector2()
+  destination ??= new THREE.Vector2();
   destination.x = Number.parseFloat(event.detail.value);
 };
 
 const handleUpdateDestY = (event: CustomEvent<{ value: string }>) => {
-  destination ??= new THREE.Vector2()
+  destination ??= new THREE.Vector2();
   destination.y = Number.parseFloat(event.detail.value);
 };
 
@@ -171,24 +171,22 @@ const toggleAxes = () => {
 
 const handleMoveClick = async () => {
   try {
-    await moveOnMap(client, name, baseResources[0]!.name, destination!.x, destination!.y)
+    await moveOnMap(client, name, baseResources[0]!.name, destination!.x, destination!.y);
   } catch (error) {
-    toast.error((error as ServiceError).message)
+    toast.error((error as ServiceError).message);
   }
-}
+};
 
 const handleStopMoveClick = async () => {
   try {
-    await stopMoveOnMap(client, operations)
+    await stopMoveOnMap(client, operations);
   } catch (error) {
-    toast.error((error as ServiceError).message)
+    toast.error((error as ServiceError).message);
   }
-}
+};
 
 const toggleExpand = (event: CustomEvent<{ open: boolean }>) => {
   const { open } = event.detail;
-
-  console.log(event)
 
   if (open) {
     toggle2dExpand();
@@ -196,7 +194,7 @@ const toggleExpand = (event: CustomEvent<{ open: boolean }>) => {
     clear2dRefresh?.();
     clear3dRefresh?.();
   }
-}
+};
 
 onMount(() => {
   statusStream?.on('end', () => {
@@ -348,7 +346,7 @@ onDestroy(() => {
               <p class="text-xs">
                 Current Position
               </p>
-              
+
               {#if pose}
                 <div class="flex flex-row items-center">
                   <p class="items-end pr-2 text-xs text-gray-500">x</p>
@@ -416,7 +414,7 @@ onDestroy(() => {
         {refreshErrorMessage3d}
       </div>
     {/if}
-    
+
     {#if show3d}
       <div class="flex items-end gap-2">
         <div class="w-56">
