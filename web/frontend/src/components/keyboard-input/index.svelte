@@ -9,16 +9,17 @@
     mdiReload as d,
     mdiArrowDown as s,
   } from "@mdi/js";
-  import Icon from "../icon";
-
-  const emit = defineEmits<{
-    (event: "keydown", key: Keys): void;
-    (event: "keyup", key: Keys): void;
-    (event: "toggle", active: boolean): void;
-    (event: "update-keyboard-state", value: boolean): void;
-  }>();
+  import Icon from "../icon/index.svelte";
+  import { createEventDispatcher } from "svelte";
 
   export let isActive: boolean;
+
+  const dispatch = createEventDispatcher<{
+    keydown: {key: Keys},
+    keyup: {key: Keys},
+    toggle: {active: boolean},
+    'update-keyboard-state': {value: boolean},
+  }>();
 
   const keyIcons = { w, a, s, d };
 
@@ -48,15 +49,14 @@
     );
   };
 
-  const emitKeyDown = (key: Keys) => {
+  const dispatchKeyDown = (key: Keys) => {
     pressedKeys[key] = true;
-
-    emit("keydown", key);
+    dispatch("keydown", {key});
   };
 
-  const emitKeyUp = (key: Keys) => {
+  const dispatchKeyUp = (key: Keys) => {
     pressedKeys[key] = false;
-    emit("keyup", key);
+    dispatch("keyup", {key});
   };
 
   const handleKeyDown = (event: KeyboardEvent) => {
@@ -69,7 +69,7 @@
       return;
     }
 
-    emitKeyDown(key);
+    dispatchKeyDown(key);
   };
 
   const handleKeyUp = (event: KeyboardEvent) => {
@@ -78,7 +78,7 @@
 
     const key = normalizeKey(event.key);
     if (key !== null) {
-      emitKeyUp(key);
+      dispatchKeyUp(key);
     }
   };
 
@@ -91,16 +91,16 @@
       window.removeEventListener("keyup", handleKeyUp);
     }
 
-    emit("update-keyboard-state", nowActive);
-    emit("toggle", nowActive);
+    dispatch("update-keyboard-state", {value: nowActive});
+    dispatch("toggle", {value: nowActive});
   };
 
   const handlePointerDown = (key: Keys) => {
-    emitKeyDown(key);
+    dispatchKeyDown(key);
   };
 
   const handlePointerUp = (key: Keys) => {
-    emitKeyUp(key);
+    dispatchKeyUp(key);
   };
 
   $: if (!isActive) {

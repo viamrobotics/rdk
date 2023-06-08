@@ -312,7 +312,7 @@ onUnmounted(() => {
 
           <div v-if="selectedMode === 'Keyboard'">
             <KeyboardInput
-              :is-active="keyboardStates.isActive"
+              :isActive="keyboardStates.isActive"
               @keydown="handleKeyDown"
               @keyup="handleKeyUp"
               @toggle="handleToggle"
