@@ -107,10 +107,6 @@ func (b *Base) WrapWithKinematics(
 	if err != nil {
 		return nil, err
 	}
-	fs := referenceframe.NewEmptyFrameSystem("")
-	if err := fs.AddFrame(model, fs.World()); err != nil {
-		return nil, err
-	}
 	return &kinematicBase{
 		Base:      b,
 		model:     model,
