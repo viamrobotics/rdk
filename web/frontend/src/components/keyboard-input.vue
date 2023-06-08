@@ -5,8 +5,12 @@ export type Keys = 'w' | 'a' | 's' | 'd'
 
 import { $ref } from '@vue-macros/reactivity-transform/macros';
 import { mdiArrowUp as w, mdiRestore as a, mdiReload as d, mdiArrowDown as s } from '@mdi/js';
-import Icon from './icon.vue';
+import IconSvelte from './icon/index.svelte';
+// import Icon from './icon.vue';
 import { watch, onUnmounted } from 'vue';
+import { svelteAdapter } from '../lib/svelte-adapter';
+
+const Icon = svelteAdapter(IconSvelte);
 
 const emit = defineEmits<{(event: 'keydown', key: Keys): void
   (event: 'keyup', key: Keys): void

@@ -6,7 +6,7 @@ import { onClickOutside } from '@vueuse/core';
 import { BaseClient, Client, type ServiceError, commonApi, type ResponseStream, robotApi } from '@viamrobotics/sdk';
 import { filterResources } from '../lib/resource';
 import { displayError } from '../lib/error';
-import KeyboardInput, { type Keys } from './keyboard-input.vue';
+import KeyboardInputSvelte, { type Keys } from './keyboard-input/index.svelte';
 import CameraSvelte from './camera/camera.svelte';
 import { rcLogConditionally } from '../lib/log';
 import { selectedMap } from '../lib/camera-state';
@@ -14,6 +14,7 @@ import type { StreamManager } from './camera/stream-manager';
 import { svelteAdapter } from '../lib/svelte-adapter';
 
 const Camera = svelteAdapter(CameraSvelte);
+const KeyboardInput = svelteAdapter(KeyboardInputSvelte);
 
 const enum Keymap {
   LEFT = 'a',
