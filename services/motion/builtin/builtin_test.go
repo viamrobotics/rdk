@@ -301,10 +301,6 @@ func TestMoveOnGlobe(t *testing.T) {
 	})
 }
 
-func NewBuiltIn() {
-	panic("unimplemented")
-}
-
 func TestMultiplePieces(t *testing.T) {
 	var err error
 	ms, teardown := setupMotionServiceFromConfig(t, "../data/fake_tomato.json")
