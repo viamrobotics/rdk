@@ -39,7 +39,6 @@ var roverModel = resource.DefaultModelFamily.WithModel("gps-rtk")
 // Config is used for converting NMEA MovementSensor with RTK capabilities config attributes.
 type Config struct {
 	CorrectionSource string `json:"correction_source"`
-	Board            string `json:"board,omitempty"`
 	ConnectionType   string `json:"connection_type,omitempty"`
 
 	*SerialConfig `json:"serial_attributes,omitempty"`
@@ -69,6 +68,7 @@ type SerialConfig struct {
 
 // I2CConfig is used for converting attributes for a correction source.
 type I2CConfig struct {
+	Board       string `json:"board"`
 	I2CBus      string `json:"i2c_bus"`
 	I2cAddr     int    `json:"i2c_addr"`
 	I2CBaudRate int    `json:"i2c_baud_rate,omitempty"`
@@ -254,7 +254,6 @@ func newRTKMovementSensor(
 
 	nmeaConf := &gpsnmea.Config{
 		ConnectionType: newConf.ConnectionType,
-		Board:          newConf.Board,
 		DisableNMEA:    false,
 	}
 
@@ -269,7 +268,8 @@ func newRTKMovementSensor(
 		}
 	case i2cStr:
 		var err error
-		nmeaConf.I2CConfig = (*gpsnmea.I2CConfig)(newConf.I2CConfig)
+		nmeaConf.Board = newConf.I2CConfig.Board
+		nmeaConf.I2CConfig = &gpsnmea.I2CConfig{I2CBus: newConf.I2CBus, I2CBaudRate: newConf.I2CBaudRate, I2cAddr: newConf.I2cAddr}
 		g.nmeamovementsensor, err = gpsnmea.NewPmtkI2CGPSNMEA(ctx, deps, conf.ResourceName(), nmeaConf, logger)
 		if err != nil {
 			return nil, err

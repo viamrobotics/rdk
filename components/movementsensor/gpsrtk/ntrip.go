@@ -41,29 +41,6 @@ type NtripInfo struct {
 	MaxConnectAttempts int
 }
 
-func newNtripCorrectionSource(conf *StationConfig, logger golog.Logger) (correctionSource, error) {
-	cancelCtx, cancelFunc := context.WithCancel(context.Background())
-
-	n := &ntripCorrectionSource{
-		cancelCtx:  cancelCtx,
-		cancelFunc: cancelFunc,
-		logger:     logger,
-		// Overloaded boards can have flaky I2C busses. Only report errors if at least 5 of the
-		// last 10 attempts have failed.
-		err: movementsensor.NewLastError(10, 5),
-	}
-
-	// Init ntripInfo from attributes
-	ntripInfoComp, err := newNtripInfo(conf.NtripConfig, logger)
-	if err != nil {
-		return nil, err
-	}
-	n.info = ntripInfoComp
-
-	n.logger.Debug("Returning n")
-	return n, n.err.Get()
-}
-
 func newNtripInfo(cfg *NtripConfig, logger golog.Logger) (*NtripInfo, error) {
 	n := &NtripInfo{}
 

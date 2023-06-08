@@ -129,7 +129,6 @@ func TestNewRTKMovementSensor(t *testing.T) {
 			ConvertedAttributes: &Config{
 				CorrectionSource: "serial",
 				ConnectionType:   "serial",
-				Board:            "",
 				SerialConfig: &SerialConfig{
 					SerialPath:               path,
 					SerialBaudRate:           0,
@@ -179,8 +178,8 @@ func TestNewRTKMovementSensor(t *testing.T) {
 			ConvertedAttributes: &Config{
 				CorrectionSource: "i2c",
 				ConnectionType:   "i2c",
-				Board:            testBoardName,
 				I2CConfig: &I2CConfig{
+					Board:       testBoardName,
 					I2CBus:      testBusName,
 					I2cAddr:     0,
 					I2CBaudRate: 115200,

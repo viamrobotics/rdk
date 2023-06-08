@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -98,6 +99,7 @@ func newSerialCorrectionSource(conf *StationConfig, logger golog.Logger) (correc
 
 // Start reads correction data from the serial port and sends it into the correctionReader.
 func (s *serialCorrectionSource) Start(ready chan<- bool) {
+	log.Println("starting serial correction reader")
 	s.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer s.activeBackgroundWorkers.Done()
@@ -138,12 +140,14 @@ func (s *serialCorrectionSource) Start(ready chan<- bool) {
 			}
 
 			msg, err := scanner.NextMessage()
+			log.Println("RTCM message")
+			log.Println(msg)
+
 			if err != nil {
 				s.logger.Errorf("Error reading RTCM message: %s", err)
 				s.err.Set(err)
 				return
 			}
-
 			switch msg.(type) {
 			case rtcm3.MessageUnknown:
 				continue

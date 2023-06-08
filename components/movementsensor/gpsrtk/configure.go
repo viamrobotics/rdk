@@ -82,7 +82,6 @@ func ConfigureBaseRTKStation(conf resource.Config) error {
 		return err
 	}
 	correctionType := newConf.CorrectionSource
-	surveyIn := newConf.SurveyIn
 	requiredAcc := newConf.RequiredAccuracy
 	observationTime := newConf.RequiredTime
 
@@ -92,7 +91,6 @@ func ConfigureBaseRTKStation(conf resource.Config) error {
 		observationTime: observationTime,
 		msgsToEnable:    rtcmMsgs, // defaults
 		msgsToDisable:   nmeaMsgs, // defaults
-		surveyIn:        surveyIn,
 	}
 
 	// already configured
@@ -169,7 +167,7 @@ func ConfigureRoverDefault(conf resource.Config) error {
 }
 
 func (c *configCommand) serialConfigure(conf resource.Config) error {
-	newConf, err := resource.NativeConfig[*Config](conf)
+	newConf, err := resource.NativeConfig[*StationConfig](conf)
 	if err != nil {
 		return err
 	}

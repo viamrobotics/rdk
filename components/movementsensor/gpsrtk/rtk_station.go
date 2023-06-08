@@ -18,7 +18,6 @@ import (
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/movementsensor"
-	"go.viam.com/rdk/components/movementsensor/gpsnmea"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -29,14 +28,11 @@ type StationConfig struct {
 	Children         []string `json:"children,omitempty"`
 	Board            string   `json:"board,omitempty"`
 
-	// non ntrip
-	SurveyIn         string  `json:"svin,omitempty"`
 	RequiredAccuracy float64 `json:"required_accuracy,omitempty"` // fixed number 1-5, 5 being the highest accuracy
 	RequiredTime     int     `json:"required_time_sec,omitempty"`
 
 	*SerialConfig `json:"serial_attributes,omitempty"`
 	*I2CConfig    `json:"i2c_attributes,omitempty"`
-	*NtripConfig  `json:"ntrip_attributes,omitempty"`
 }
 
 const (
@@ -46,26 +42,26 @@ const (
 	timeMode  = "time"
 )
 
+var stationModel = resource.DefaultModelFamily.WithModel("rtk-station")
+
 // ErrStationValidation contains the model substring for the available correction source types.
-var ErrStationValidation = fmt.Errorf("only serial, I2C, and ntrip are supported correction sources for %s", stationModel.Name)
+var ErrStationValidation = fmt.Errorf("only serial, I2C are supported for %s", stationModel.Name)
+var errRequiredAccuracy = fmt.Errorf("Required Accuracy can be 1-5")
 
 // Validate ensures all parts of the config are valid.
 func (cfg *StationConfig) Validate(path string) ([]string, error) {
 	var deps []string
-
-	// not ntrip, using serial or i2c for correction source
-	if cfg.SurveyIn == timeMode {
-		if cfg.RequiredAccuracy == 0 {
-			return nil, utils.NewConfigValidationFieldRequiredError(path, "required_accuracy")
-		}
-		if cfg.RequiredTime == 0 {
-			return nil, utils.NewConfigValidationFieldRequiredError(path, "required_time")
-		}
+	if cfg.RequiredAccuracy == 0 {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "required_accuracy")
+	}
+	if cfg.RequiredAccuracy < 0 || cfg.RequiredAccuracy > 5 {
+		return nil, errRequiredAccuracy
+	}
+	if cfg.RequiredTime == 0 {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "required_time")
 	}
 
 	switch cfg.CorrectionSource {
-	case ntripStr:
-		return nil, cfg.NtripConfig.ValidateNtrip(path)
 	case i2cStr:
 		if cfg.Board == "" {
 			return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
@@ -86,8 +82,6 @@ func (cfg *StationConfig) Validate(path string) ([]string, error) {
 	return deps, nil
 }
 
-var stationModel = resource.DefaultModelFamily.WithModel("rtk-station")
-
 func init() {
 	resource.RegisterComponent(
 		movementsensor.API,
@@ -102,7 +96,7 @@ type rtkStation struct {
 	resource.AlwaysRebuild
 	logger              golog.Logger
 	correction          correctionSource
-	correctionType      string
+	protocol            string
 	i2cPaths            []i2cBusAddr
 	serialPorts         []io.Writer
 	serialWriter        io.Writer
@@ -147,15 +141,10 @@ func newRTKStation(
 		err:        movementsensor.NewLastError(1, 1),
 	}
 
-	r.correctionType = newConf.CorrectionSource
+	r.protocol = newConf.CorrectionSource
 
 	// Init correction source
-	switch r.correctionType {
-	case ntripStr:
-		r.correction, err = newNtripCorrectionSource(newConf, logger)
-		if err != nil {
-			return nil, err
-		}
+	switch r.protocol {
 	case serialStr:
 		r.correction, err = newSerialCorrectionSource(newConf, logger)
 		if err != nil {
@@ -167,8 +156,8 @@ func newRTKStation(
 			return nil, err
 		}
 	default:
-		// Invalid source
-		return nil, fmt.Errorf("%s is not a valid correction source", r.correctionType)
+		// Invalid protocol
+		return nil, fmt.Errorf("%s is not a valid correction output protocol", r.protocol)
 	}
 
 	r.movementsensorNames = newConf.Children
@@ -181,23 +170,23 @@ func newRTKStation(
 
 	// Init movementsensor correction input addresses
 	r.logger.Debug("Init movementsensor")
-	r.serialPorts = make([]io.Writer, 0)
 
 	for _, movementsensorName := range r.movementsensorNames {
 		movementSensor, err := movementsensor.FromDependencies(deps, movementsensorName)
-		rtk := movementSensor.(*RTKMovementSensor)
-
 		if err != nil {
 			return nil, err
 		}
+		rtkgps := movementSensor.(*RTKMovementSensor)
 
-		switch t := rtk.nmeamovementsensor.(type) {
-		case *gpsnmea.SerialNMEAMovementSensor:
-			path, br := t.GetCorrectionInfo()
+		switch rtkgps.inputProtocol {
+		case serialStr:
+			r.serialPorts = make([]io.Writer, 0)
+			path := rtkgps.writepath
+			baudRate := rtkgps.wbaud
 
 			options := serial.OpenOptions{
 				PortName:        path,
-				BaudRate:        br,
+				BaudRate:        uint(baudRate),
 				DataBits:        8,
 				StopBits:        1,
 				MinimumReadSize: 4,
@@ -210,18 +199,19 @@ func newRTKStation(
 
 			r.serialPorts = append(r.serialPorts, port)
 
-		case *gpsnmea.PmtkI2CNMEAMovementSensor:
-			bus, addr := t.GetBusAddr()
+			r.logger.Debug("Init multiwriter")
+			r.serialWriter = io.MultiWriter(r.serialPorts...)
+
+		case i2cStr:
+			bus := rtkgps.bus
+			addr := rtkgps.addr
 			busAddr := i2cBusAddr{bus: bus, addr: addr}
 
 			r.i2cPaths = append(r.i2cPaths, busAddr)
 		default:
-			return nil, errors.New("child is not valid gpsnmeaMovementSensor type")
+			return nil, errors.New("child is not valid gpsrtk type")
 		}
 	}
-
-	r.logger.Debug("Init multiwriter")
-	r.serialWriter = io.MultiWriter(r.serialPorts...)
 	r.logger.Debug("Starting")
 
 	r.Start(ctx)
@@ -255,10 +245,6 @@ func (r *rtkStation) Start(ctx context.Context) {
 		}
 
 		reader := io.TeeReader(stream, r.serialWriter)
-
-		if r.correctionType == ntripStr {
-			r.correction.(*ntripCorrectionSource).ntripStatus = true
-		}
 
 		// write corrections to all open ports and i2c handles
 		for {

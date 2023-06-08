@@ -52,49 +52,134 @@ func setupDependencies(t *testing.T) resource.Dependencies {
 }
 
 func TestValidate(t *testing.T) {
-	fakecfg := &StationConfig{
-		CorrectionSource: "",
-		Children:         []string{},
-		SurveyIn:         "",
-		RequiredAccuracy: 0,
-		RequiredTime:     0,
-		SerialConfig:     &SerialConfig{},
-		I2CConfig:        &I2CConfig{},
-		NtripConfig:      &NtripConfig{},
-	}
 	path := "path"
-	_, err := fakecfg.Validate(path)
-	test.That(t, err, test.ShouldBeError,
-		utils.NewConfigValidationFieldRequiredError(path, "correction_source"))
+	testi2cAddr := 44
+	tests := []struct {
+		name          string
+		stationConfig *StationConfig
+		expectedErr   error
+		protocol      string
+	}{
+		{
+			name: "A valid config with serial connection should result in no errors",
+			stationConfig: &StationConfig{
+				CorrectionSource: "serial",
+				Children:         []string{},
+				RequiredAccuracy: 4,
+				RequiredTime:     200,
+				SerialConfig: &SerialConfig{
+					SerialCorrectionPath:     "some-path",
+					SerialCorrectionBaudRate: 9600,
+				},
+				I2CConfig: &I2CConfig{},
+			},
+		},
+		{
+			name: "A valid config with i2c connection should result in no errors",
+			stationConfig: &StationConfig{
+				CorrectionSource: "i2c",
+				Children:         []string{},
+				RequiredAccuracy: 4,
+				RequiredTime:     200,
+				SerialConfig:     &SerialConfig{},
+				I2CConfig: &I2CConfig{
+					Board:   "pi",
+					I2CBus:  "some-bus",
+					I2cAddr: testi2cAddr,
+				},
+			},
+		},
+		{
+			name: "A config without a correction source should result in error",
+			stationConfig: &StationConfig{
+				CorrectionSource: "",
+				Children:         []string{},
+				RequiredAccuracy: 4,
+				RequiredTime:     200,
+				SerialConfig:     &SerialConfig{},
+				I2CConfig:        &I2CConfig{},
+			},
+			expectedErr: utils.NewConfigValidationFieldRequiredError(path, "correction_source"),
+		},
+		{
+			name: "a config with no RequiredAccuracy should result in error",
+			stationConfig: &StationConfig{
+				CorrectionSource: "i2c",
+				Children:         []string{},
+				RequiredAccuracy: 0,
+				RequiredTime:     0,
+				SerialConfig:     &SerialConfig{},
+				I2CConfig:        &I2CConfig{},
+			},
+			expectedErr: utils.NewConfigValidationFieldRequiredError(path, "required_accuracy"),
+		},
+		{
+			name: "a config with no RequiredTime should result in error",
+			stationConfig: &StationConfig{
+				CorrectionSource: "i2c",
+				Children:         []string{},
+				RequiredAccuracy: 5,
+				RequiredTime:     0,
+				SerialConfig:     &SerialConfig{},
+				I2CConfig:        &I2CConfig{},
+			},
+			expectedErr: utils.NewConfigValidationFieldRequiredError(path, "required_time"),
+		},
+		{
+			name: "The required accuracy can only be values 1-5",
+			stationConfig: &StationConfig{
+				CorrectionSource: "i2c",
+				Children:         []string{},
+				RequiredAccuracy: 6,
+				RequiredTime:     200,
+				SerialConfig:     &SerialConfig{},
+				I2CConfig:        &I2CConfig{},
+			},
+			expectedErr: errRequiredAccuracy,
+		},
+		{
+			name: "serial station without a serial correction path should result in error",
+			stationConfig: &StationConfig{
+				CorrectionSource: "serial",
+				Children:         []string{},
+				RequiredAccuracy: 5,
+				RequiredTime:     200,
+				SerialConfig:     &SerialConfig{},
+				I2CConfig:        &I2CConfig{},
+			},
+			expectedErr: utils.NewConfigValidationFieldRequiredError(path, "serial_correction_path"),
+		},
+		{
+			name: "i2c station without a board should result in error",
+			stationConfig: &StationConfig{
+				CorrectionSource: "i2c",
+				Children:         []string{},
+				RequiredAccuracy: 5,
+				RequiredTime:     200,
+				SerialConfig:     &SerialConfig{},
+				I2CConfig: &I2CConfig{
+					I2CBus:  "some-bus",
+					I2cAddr: testi2cAddr,
+				},
+			},
+			expectedErr: utils.NewConfigValidationFieldRequiredError(path, "board"),
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			deps, err := tc.stationConfig.Validate(path)
 
-	fakecfg.CorrectionSource = "notvalid"
-	_, err = fakecfg.Validate("path")
-	test.That(t, err, test.ShouldBeError, ErrStationValidation)
+			if tc.expectedErr != nil {
+				test.That(t, err, test.ShouldBeError, tc.expectedErr)
+				test.That(t, len(deps), test.ShouldEqual, 0)
+			} else {
+				if tc.protocol == i2cStr {
+					test.That(t, deps[0], test.ShouldEqual, "pi")
+				}
+			}
 
-	// ntrip
-	fakecfg.CorrectionSource = "ntrip"
-	_, err = fakecfg.Validate(path)
-	test.That(t, err, test.ShouldBeError, utils.NewConfigValidationFieldRequiredError(path, "ntrip_addr"))
-
-	fakecfg.NtripConfig.NtripAddr = "some-ntrip-address"
-	fakecfg.NtripPath = "some-ntrip-path"
-	fakecfg.NtripInputProtocol = "some-protocol"
-	_, err = fakecfg.Validate("path")
-	test.That(t, err, test.ShouldBeNil)
-
-	// serial
-	fakecfg.CorrectionSource = "serial"
-	_, err = fakecfg.Validate(path)
-	test.That(t, err, test.ShouldBeError, utils.NewConfigValidationFieldRequiredError(path, "serial_correction_path"))
-
-	fakecfg.SerialConfig.SerialCorrectionPath = "some-serial-path"
-	_, err = fakecfg.Validate("path")
-	test.That(t, err, test.ShouldBeNil)
-
-	// I2C
-	fakecfg.CorrectionSource = "i2c"
-	_, err = fakecfg.Validate("path")
-	test.That(t, err, test.ShouldBeError, utils.NewConfigValidationFieldRequiredError(path, "board"))
+		})
+	}
 }
 
 func TestRTK(t *testing.T) {
@@ -110,13 +195,6 @@ func TestRTK(t *testing.T) {
 		ConvertedAttributes: &StationConfig{
 			CorrectionSource: "ntrip",
 			Board:            testBoardName,
-			NtripConfig: &NtripConfig{
-				NtripAddr:            "some_ntrip_address",
-				NtripConnectAttempts: 10,
-				NtripMountpoint:      "NJI2",
-				NtripPass:            "",
-				NtripUser:            "",
-			},
 		},
 	}
 
@@ -156,17 +234,8 @@ func TestRTK(t *testing.T) {
 		ConvertedAttributes: &StationConfig{
 			CorrectionSource: "i2c",
 			Board:            testBoardName,
-			SurveyIn:         "",
 			I2CConfig: &I2CConfig{
 				I2CBus: testBusName,
-			},
-			NtripConfig: &NtripConfig{
-				NtripAddr:            "some_ntrip_address",
-				NtripConnectAttempts: 10,
-				NtripMountpoint:      "NJI2",
-				NtripPass:            "",
-				NtripUser:            "",
-				NtripPath:            path,
 			},
 		},
 	}
@@ -243,38 +312,4 @@ func TestClose(t *testing.T) {
 
 	err = g.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)
-}
-
-func TestRTKStationConnect(t *testing.T) {
-	logger := golog.NewTestLogger(t)
-	ctx := context.Background()
-	cancelCtx, cancelFunc := context.WithCancel(ctx)
-	info := &NtripInfo{
-		URL:                "invalidurl",
-		Username:           "user",
-		Password:           "pwd",
-		MountPoint:         "",
-		MaxConnectAttempts: 10,
-	}
-	g := &ntripCorrectionSource{
-		cancelCtx:  cancelCtx,
-		cancelFunc: cancelFunc,
-		logger:     logger,
-		info:       info,
-	}
-
-	// create new ntrip client and connect
-	err := g.Connect()
-	test.That(t, err, test.ShouldNotBeNil)
-
-	g.info.URL = "http://fakeurl"
-	err = g.Connect()
-	test.That(t, err, test.ShouldBeNil)
-
-	err = g.GetStream()
-	test.That(t, err, test.ShouldNotBeNil)
-
-	g.info.MountPoint = "mp"
-	err = g.GetStream()
-	test.That(t, err.Error(), test.ShouldContainSubstring, "lookup fakeurl")
 }
