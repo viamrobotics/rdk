@@ -257,7 +257,7 @@ func (svc *builtIn) startWaypoint(extra map[string]interface{}) error {
 
 func (svc *builtIn) Location(ctx context.Context, extra map[string]interface{}) (*geo.Point, error) {
 	if svc.movementSensor == nil {
-		return nil, errors.New("no way to get location")
+		return nil, errors.New("must specify movement sensor to get current location")
 	}
 	loc, _, err := svc.movementSensor.Position(ctx, extra)
 	return loc, err
