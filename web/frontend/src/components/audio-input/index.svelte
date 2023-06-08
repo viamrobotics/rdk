@@ -3,6 +3,7 @@
 import { StreamClient } from '@viamrobotics/sdk';
 import type { Client, ServiceError } from '@viamrobotics/sdk';
 import { displayError } from '@/lib/error';
+import Collapse from '@/components/collapse.svelte';
 
 export let name: string;
 export let client: Client;
@@ -12,7 +13,7 @@ let audio: HTMLAudioElement;
 let isOn = false;
 
 const toggleExpand = async () => {
-  isOn = !isOn
+  isOn = !isOn;
 
   const streams = new StreamClient(client);
 
@@ -48,7 +49,7 @@ const toggleExpand = async () => {
 
 </script>
 
-<v-collapse title={name}>
+<Collapse title={name}>
   <v-breadcrumbs slot="title" crumbs="audio_input" />
   <div class="h-auto border border-t-0 border-medium p-2">
     <div class="container mx-auto">
@@ -73,4 +74,4 @@ const toggleExpand = async () => {
       </div>
     </div>
   </div>
-</v-collapse>
+</Collapse>

@@ -6,20 +6,27 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { toast } from '@/lib/toast';
 import { Client, robotApi, navigationApi, type ServiceError, type ResponseStream } from '@viamrobotics/sdk';
 import Collapse from '../collapse.svelte';
-import maplibregl from 'maplibre-gl'; 
-import { setMode, setWaypoint, getWaypoints, removeWaypoint, getLocation, type NavigationModes } from '@/api/navigation';
+import maplibregl from 'maplibre-gl';
+import {
+  setMode,
+  setWaypoint,
+  getWaypoints,
+  removeWaypoint,
+  getLocation,
+  type NavigationModes,
+} from '@/api/navigation';
 
-export let name: string
-export let client: Client
-export let statusStream: ResponseStream<robotApi.StreamStatusResponse> | null
+export let name: string;
+export let client: Client;
+export let statusStream: ResponseStream<robotApi.StreamStatusResponse> | null;
 
 let updateWaypointsId: number;
 let updateLocationsId: number;
 
-let refreshRate = 500;
+const refreshRate = 500;
 
 const setNavigationMode = async (event: CustomEvent) => {
-  const mode = event.detail.value.toLowerCase() as 'manual' | 'waypoint'
+  const mode = event.detail.value.toLowerCase() as 'manual' | 'waypoint';
 
   let pbMode: NavigationModes = navigationApi.Mode.MODE_UNSPECIFIED;
 
@@ -30,33 +37,33 @@ const setNavigationMode = async (event: CustomEvent) => {
   }
 
   try {
-    await setMode(client, name, pbMode)
+    await setMode(client, name, pbMode);
   } catch (error) {
     toast.error((error as ServiceError).message);
   }
 };
 
-let map: maplibregl.Map
+let map: maplibregl.Map;
 
 const createWaypointMarker = () => {
-  return new maplibregl.Marker({ scale: 0.7 })
-}
+  return new maplibregl.Marker({ scale: 0.7 });
+};
 
 const handleClick = async (event: maplibregl.MapMouseEvent) => {
   if (event.originalEvent.button > 0) {
-    return
+    return;
   }
 
   const { lat, lng } = event.lngLat;
 
   try {
-    await setWaypoint(client, lat, lng, name)
+    await setWaypoint(client, lat, lng, name);
   } catch (error) {
-    toast.error((error as ServiceError).message)
+    toast.error((error as ServiceError).message);
   }
-}
+};
 
-const initNavigation = async () => {
+const initNavigation = () => {
   const style: maplibregl.StyleSpecification = {
     version: 8,
     sources: {
@@ -81,7 +88,7 @@ const initNavigation = async () => {
     container: 'navigation-map',
     style,
     center: [-74.5, 40],
-    zoom: 9
+    zoom: 9,
   });
 
   map.addControl(new maplibregl.NavigationControl());
@@ -92,12 +99,12 @@ const initNavigation = async () => {
   const knownWaypoints: Record<string, maplibregl.Marker> = {};
 
   const refresh = async () => {
-    let waypoints: navigationApi.Waypoint[]
+    let waypoints: navigationApi.Waypoint[];
 
     try {
-      waypoints = await getWaypoints(client, name)
+      waypoints = await getWaypoints(client, name);
     } catch (error) {
-      toast.error((error as ServiceError).message)
+      toast.error((error as ServiceError).message);
       updateWaypointsId = window.setTimeout(refresh, 1000);
       return;
     }
@@ -117,21 +124,22 @@ const initNavigation = async () => {
         continue;
       }
 
-      const marker = createWaypointMarker()
+      const marker = createWaypointMarker();
 
-      marker.setLngLat([position.lng, position.lat]).addTo(map)
+      marker.setLngLat([position.lng, position.lat]).addTo(map);
 
       currentWaypoints[posStr] = marker;
       knownWaypoints[posStr] = marker;
 
+      // eslint-disable-next-line no-loop-func
       marker.getElement().addEventListener('contextmenu', async () => {
-        marker.remove()
+        marker.remove();
 
         try {
           await removeWaypoint(client, name, waypoint.getId());
         } catch (error) {
-          toast.error((error as ServiceError).message)
-          marker.addTo(map)
+          toast.error((error as ServiceError).message);
+          marker.addTo(map);
         }
       });
     }
@@ -157,7 +165,7 @@ const initNavigation = async () => {
 
   const updateLocation = async () => {
     try {
-      const position = await getLocation(client, name)
+      const position = await getLocation(client, name);
 
       if (!centered) {
         centered = true;
@@ -168,23 +176,13 @@ const initNavigation = async () => {
 
       updateLocationsId = window.setTimeout(updateLocation, refreshRate);
     } catch (error) {
-      toast.error((error as ServiceError).message)
+      toast.error((error as ServiceError).message);
       updateLocationsId = window.setTimeout(updateLocation, refreshRate);
     }
   };
 
   updateLocation();
 };
-
-const handleToggle = (event: CustomEvent<{ open: boolean }>) => {
-  const { open } = event.detail
-
-  if (open) {
-    handleOpen()
-  } else {
-    handleClose()
-  }
-}
 
 const handleOpen = () => {
   initNavigation();
@@ -198,6 +196,16 @@ const handleOpen = () => {
 const handleClose = () => {
   clearTimeout(updateWaypointsId);
   clearTimeout(updateLocationsId);
+};
+
+const handleToggle = (event: CustomEvent<{ open: boolean }>) => {
+  const { open } = event.detail;
+
+  if (open) {
+    handleOpen();
+  } else {
+    handleClose();
+  }
 };
 
 </script>

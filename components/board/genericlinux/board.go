@@ -493,7 +493,7 @@ func (b *sysfsBoard) GPIOPinNames() []string {
 
 func (b *sysfsBoard) getGPIOLine(hwPin string) (gpio.PinIO, bool, error) {
 	pinName := hwPin
-	hwPWMSupported := true
+	hwPWMSupported := false
 	if b.gpioMappings != nil {
 		pinParsed, err := strconv.ParseInt(hwPin, 10, 32)
 		if err != nil {

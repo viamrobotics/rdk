@@ -27,7 +27,7 @@ import {
   filterComponentsWithNames,
 } from '../lib/resource';
 
-import Arm from './arm.vue';
+import ArmSvelte from './arm/index.svelte';
 import AudioInputSvelte from './audio-input/index.svelte';
 import Base from './base.vue';
 import Board from './board.vue';
@@ -38,25 +38,29 @@ import Encoder from './encoder.vue';
 import GantrySvelte from './gantry/index.svelte';
 import GripperSvelte from './gripper/index.svelte';
 import GamepadSvelte from './gamepad/index.svelte';
-import InputController from './input-controller.vue';
+import InputControllerSvelte from './input-controller/index.svelte';
 import MotorSvelte from './motor/index.svelte';
 import MovementSensorSvelte from './movement-sensor/index.svelte';
 import NavigationSvelte from './navigation/index.svelte';
 import ServoSvelte from './servo/index.svelte';
-import Sensors from './sensors.vue';
-import Slam from './slam/index.vue';
+import SensorsSvelte from './sensors/index.svelte';
+import SlamSvelte from './slam/index.svelte';
 import { svelteAdapter } from '../lib/svelte-adapter';
 
+const Arm = svelteAdapter(ArmSvelte);
 const AudioInput = svelteAdapter(AudioInputSvelte);
 const CamerasList = svelteAdapter(CamerasListSvelte, { display: 'flex', 'flex-direction': 'column', gap: '1rem' });
 const Gantry = svelteAdapter(GantrySvelte);
 const Gripper = svelteAdapter(GripperSvelte);
 const Gamepad = svelteAdapter(GamepadSvelte);
+const InputController = svelteAdapter(InputControllerSvelte);
 const Motor = svelteAdapter(MotorSvelte);
 const MovementSensor = svelteAdapter(MovementSensorSvelte);
 const Navigation = svelteAdapter(NavigationSvelte);
 const OperationsSessions = svelteAdapter(OperationsSessionsSvelte);
+const Sensors = svelteAdapter(SensorsSvelte);
 const Servo = svelteAdapter(ServoSvelte);
+const Slam = svelteAdapter(SlamSvelte);
 
 import {
   fixArmStatus,
@@ -829,7 +833,7 @@ onUnmounted(() => {
         :name="arm.name"
         :client="client"
         :status="(resourceStatusByName(arm) as any)"
-        :raw-status="(rawResourceStatusByName(arm) as any)"
+        :rawStatus="(rawResourceStatusByName(arm) as any)"
       />
 
       <!-- ******* GRIPPER *******  -->
@@ -908,7 +912,7 @@ onUnmounted(() => {
         v-if="nonEmpty(sensorNames)"
         :name="filterNonRemoteResources(resources, 'rdk', 'service', 'sensors')[0]!.name"
         :client="client"
-        :sensor-names="sensorNames"
+        :sensorNames="sensorNames"
       />
 
       <!-- ******* AUDIO INPUTS *******  -->
@@ -926,7 +930,7 @@ onUnmounted(() => {
         :name="slam.name"
         :client="client"
         :resources="resources"
-        :status-stream="statusStream"
+        :statusStream="statusStream"
         :operations="currentOps"
       />
 
