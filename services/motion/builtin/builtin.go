@@ -269,21 +269,24 @@ func (ms *builtIn) MoveOnGlobe(
 		return false, resource.DependencyNotFoundError(movementSensorName)
 	}
 
-	// assert localizer as movementSensor to get current geo point
-	movementSensor, ok := localizer.(movementsensor.MovementSensor)
-	if !ok {
-		return false, fmt.Errorf("cannot assert localizer of type %T as movementSensor", localizer)
-	}
-
-	currentGP, _, _ := movementSensor.Position(ctx, nil)
-	straightlineDistance := currentGP.GreatCircleDistance(destination)
+	currentPIF, _ := localizer.CurrentPosition(ctx)
 
 	// convert destination into spatialmath.Pose with respect to lat = 0 = lng
 	dstPose := spatialmath.GeoPointToPose(destination)
-	dstPIF := referenceframe.NewPoseInFrame(referenceframe.World, dstPose)
 
-	// convert GeoObstacles into GeometriesInFrame then into a Worldstate
-	geoms := spatialmath.GeoObstaclesToGeometries(obstacles)
+	// convert the destination to be relative to the currentPIF
+	relativeDestinationPt := r3.Vector{
+		X: dstPose.Point().X - currentPIF.Pose().Point().X,
+		Y: dstPose.Point().Y - currentPIF.Pose().Point().Y,
+		Z: 0,
+	}
+
+	relativeDstPose := spatialmath.NewPoseFromPoint(relativeDestinationPt)
+	dstPIF := referenceframe.NewPoseInFrame(referenceframe.World, relativeDstPose)
+
+	// convert GeoObstacles into GeometriesInFrame with respect to the base's starting point
+	geoms := spatialmath.GeoObstaclesToGeometries(obstacles, currentPIF.Pose().Point())
+
 	gif := referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)
 	wrldst, err := referenceframe.NewWorldState([]*referenceframe.GeometriesInFrame{gif}, nil)
 	if err != nil {
@@ -291,6 +294,8 @@ func (ms *builtIn) MoveOnGlobe(
 	}
 
 	// construct limits
+	// TODO: have limits become a function of current position, destination and worldstate
+	straightlineDistance := math.Abs(dstPose.Point().Distance(currentPIF.Pose().Point()))
 	limits := []referenceframe.Limit{
 		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
 		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
@@ -321,12 +326,6 @@ func (ms *builtIn) MoveOnGlobe(
 	// Add the kinematic wheeled base to the framesystem
 	if err := fs.AddFrame(kb.ModelFrame(), fs.World()); err != nil {
 		return false, err
-	}
-
-	// check for cancelled context before we are start planning
-	if ctx.Err() != nil {
-		ms.logger.Info("successfully canceled motion service MoveOnGlobe")
-		return true, ctx.Err()
 	}
 
 	// make call to motionplan

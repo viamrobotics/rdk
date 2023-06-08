@@ -231,21 +231,78 @@ func TestMoveOnGlobe(t *testing.T) {
 	ms, closeFn := setupMotionServiceFromConfig(t, "../data/gps_base.json")
 	defer closeFn()
 
-	t.Run("ensure success", func(t *testing.T) {
+	motionCfg := make(map[string]interface{})
+	motionCfg["motion_profile"] = "position_only"
+
+	t.Run("ensure success to a nearby geo point", func(t *testing.T) {
+		// TODO: This test should be updated such that we can navigate to an
+		// arbitrary latitude and longitude
+
 		success, err := ms.MoveOnGlobe(
 			context.Background(),
 			base.Named("test-base"),
-			geo.NewPoint(0, 0),
+			geo.NewPoint(40.7, -73.9800009),
 			math.NaN(),
 			movementsensor.Named("test-gps"),
 			nil,
 			math.NaN(),
 			math.NaN(),
-			nil,
+			motionCfg,
 		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, success, test.ShouldBeTrue)
 	})
+	t.Run("go around an obstacle", func(t *testing.T) {
+		// fake movement sensor returns geoPoint at (40.7, -73.98)
+		// to achieve the destination we must travel in the positive x direction
+
+		// create geometry
+		boxPose := spatialmath.NewPoseFromPoint(r3.Vector{50, 0, 0})
+		boxDims := r3.Vector{2, 30, 10}
+		geometries, err := spatialmath.NewBox(boxPose, boxDims, "wall")
+		test.That(t, err, test.ShouldBeNil)
+		geoObstacle := spatialmath.NewGeoObstacle(geo.NewPoint(40.7, -73.98), []spatialmath.Geometry{geometries})
+
+		success, err := ms.MoveOnGlobe(
+			context.Background(),
+			base.Named("test-base"),
+			geo.NewPoint(40.7, -73.9800009),
+			math.NaN(),
+			movementsensor.Named("test-gps"),
+			[]*spatialmath.GeoObstacle{geoObstacle},
+			math.NaN(),
+			math.NaN(),
+			motionCfg,
+		)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, success, test.ShouldBeTrue)
+	})
+
+	t.Run("fail because of long wall", func(t *testing.T) {
+		boxPose := spatialmath.NewPoseFromPoint(r3.Vector{50, 0, 0})
+		boxDims := r3.Vector{2, 100000, 10}
+		geometries, err := spatialmath.NewBox(boxPose, boxDims, "wall")
+		test.That(t, err, test.ShouldBeNil)
+		geoObstacle := spatialmath.NewGeoObstacle(geo.NewPoint(40.7, -73.98), []spatialmath.Geometry{geometries})
+
+		success, _ := ms.MoveOnGlobe(
+			context.Background(),
+			base.Named("test-base"),
+			geo.NewPoint(40.7, -73.9800009),
+			math.NaN(),
+			movementsensor.Named("test-gps"),
+			[]*spatialmath.GeoObstacle{geoObstacle},
+			math.NaN(),
+			math.NaN(),
+			motionCfg,
+		)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, success, test.ShouldBeFalse)
+	})
+}
+
+func NewBuiltIn() {
+	panic("unimplemented")
 }
 
 func TestMultiplePieces(t *testing.T) {

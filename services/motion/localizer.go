@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"go.viam.com/rdk/components/movementsensor"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/spatialmath"
@@ -12,10 +13,10 @@ import (
 
 // Localizer is an interface which both slam and movementsensor can satisfy when wrapped respectively.
 type Localizer interface {
-	GlobalPosition(context.Context) (spatialmath.Pose, error)
+	CurrentPosition(context.Context) (referenceframe.PoseInFrame, error)
 }
 
-// NewLocalizer constructs either a SLAMLocalizer or MovementSensorLocalizer from the given resource.
+// NewLocalizer constructs either a slamLocalizer or movementSensorLocalizer from the given resource.
 func NewLocalizer(ctx context.Context, res resource.Resource) (Localizer, error) {
 	switch res := res.(type) {
 	case slam.Service:
@@ -32,22 +33,28 @@ type slamLocalizer struct {
 	slam.Service
 }
 
-// GlobalPosition returns slam's current position.
-func (s slamLocalizer) GlobalPosition(ctx context.Context) (spatialmath.Pose, error) {
+// CurrentPosition returns slam's current position.
+func (s slamLocalizer) CurrentPosition(ctx context.Context) (referenceframe.PoseInFrame, error) {
+	var pif referenceframe.PoseInFrame
 	pose, _, err := s.GetPosition(ctx)
-	return pose, err
+	if err != nil {
+		return pif, err
+	}
+	return *referenceframe.NewPoseInFrame(referenceframe.World, pose), err
 }
 
-// MovementSensorLocalizer is a struct which only wraps an existing movementsensor.
+// movementSensorLocalizer is a struct which only wraps an existing movementsensor.
 type movementSensorLocalizer struct {
 	movementsensor.MovementSensor
 }
 
-// GlobalPosition returns a movementsensor's current position.
-func (m movementSensorLocalizer) GlobalPosition(ctx context.Context) (spatialmath.Pose, error) {
+// CurrentPosition returns a movementsensor's current position.
+func (m movementSensorLocalizer) CurrentPosition(ctx context.Context) (referenceframe.PoseInFrame, error) {
+	var pif referenceframe.PoseInFrame
 	gp, _, err := m.Position(ctx, nil)
 	if err != nil {
-		return nil, err
+		return pif, err
 	}
-	return spatialmath.GeoPointToPose(gp), nil
+	pose := spatialmath.GeoPointToPose(gp)
+	return *referenceframe.NewPoseInFrame(referenceframe.World, pose), nil
 }
