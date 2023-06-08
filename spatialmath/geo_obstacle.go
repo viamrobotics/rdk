@@ -63,7 +63,7 @@ type GeoObstacleConfig struct {
 }
 
 // NewGeoObstacleConfig takes a GeoObstacle and returns a GeoObstacleConfig.
-func NewGeoObstacleConfig(geo GeoObstacle) (*GeoObstacleConfig, error) {
+func NewGeoObstacleConfig(geo *GeoObstacle) (*GeoObstacleConfig, error) {
 	geomCfgs := []*GeometryConfig{}
 	for _, geom := range geo.geometries {
 		gc, err := NewGeometryConfig(geom)
@@ -128,16 +128,22 @@ func GeoPointToPose(p *geo.Point) Pose {
 	return NewPoseFromPoint(r3.Vector{latDist * 1e6, lngDist * 1e6, 0})
 }
 
-// GeoObstaclesToGeometries converts GeoObstacles into a Geometries.
-func GeoObstaclesToGeometries(obstacles []*GeoObstacle) []Geometry {
+// GeoObstaclesToGeometries converts a list of GeoObstacles into a list of Geometries.
+func GeoObstaclesToGeometries(obstacles []*GeoObstacle, worldOrigin r3.Vector) []Geometry {
 	// we note that there are two transformations to be accounted for
 	// when converting a GeoObstacle. Namely, the obstacle's pose needs to
 	// transformed by the specified in GPS coordinates.
 	geoms := []Geometry{}
 	for _, v := range obstacles {
-		origin := GeoPointToPose(v.location)
+		obstacleOrigin := GeoPointToPose(v.location)
+		relativeDestinationPt := r3.Vector{
+			X: obstacleOrigin.Point().X - worldOrigin.X,
+			Y: obstacleOrigin.Point().Y - worldOrigin.Y,
+			Z: 0,
+		}
+		relativeDstPose := NewPoseFromPoint(relativeDestinationPt)
 		for _, geom := range v.geometries {
-			geo := geom.Transform(origin)
+			geo := geom.Transform(relativeDstPose)
 			geoms = append(geoms, geo)
 		}
 	}

@@ -52,7 +52,7 @@ func TestGeoObstacles(t *testing.T) {
 	}
 
 	t.Run("Conversion from GeoObstacle to GeoObstacleConfig", func(t *testing.T) {
-		conv, err := NewGeoObstacleConfig(*testGeoObst)
+		conv, err := NewGeoObstacleConfig(testGeoObst)
 		test.That(t, err, test.ShouldBeNil)
 
 		test.That(t, testPoint.Lat(), test.ShouldEqual, conv.Location.Latitude)
