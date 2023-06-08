@@ -182,14 +182,11 @@ func (wb *wheeledBase) Reconfigure(ctx context.Context, deps resource.Dependenci
 		return newMotors, nil
 	}
 
-
 	left, err := updateMotors(&wb.left, &newConf.Left)
 	wb.left = left
 	if err != nil {
 		return err
 	}
-
-
 	right, err := updateMotors(&wb.right, &newConf.Right)
 	wb.right = right
 	if err != nil {
