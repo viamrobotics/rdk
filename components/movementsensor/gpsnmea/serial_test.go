@@ -68,8 +68,10 @@ func TestNewSerialMovementSensor(t *testing.T) {
 			Board:          "local",
 			DisableNMEA:    false,
 			SerialConfig: &SerialConfig{
-				SerialPath:     path,
-				SerialBaudRate: 0,
+				SerialPath:               path,
+				SerialBaudRate:           0,
+				SerialCorrectionPath:     path,
+				SerialCorrectionBaudRate: 0,
 			},
 			I2CConfig: &I2CConfig{},
 		},
@@ -102,7 +104,9 @@ func TestReadingsSerial(t *testing.T) {
 		valid:      valid,
 		fixQuality: fix,
 	}
-
+	path := "somepath"
+	g.correctionPath = path
+	g.correctionBaudRate = 9600
 	loc1, alt1, err := g.Position(ctx, make(map[string]interface{}))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, loc1, test.ShouldEqual, loc)
