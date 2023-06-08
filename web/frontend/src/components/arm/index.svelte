@@ -1,14 +1,14 @@
-<script setup lang="ts">
+<script lang="ts">
 
-import { $ref } from '@vue-macros/reactivity-transform/macros';
 import { ArmClient, Client } from '@viamrobotics/sdk';
 import type { Pose, ServiceError } from '@viamrobotics/sdk';
-import { copyToClipboardWithToast } from '../lib/copy-to-clipboard';
-import { displayError } from '../lib/error';
-import { roundTo2Decimals } from '../lib/math';
-import { rcLogConditionally } from '../lib/log';
+import { copyToClipboardWithToast } from '@/lib/copy-to-clipboard';
+import { displayError } from '@/lib/error';
+import { roundTo2Decimals } from '@/lib/math';
+import { rcLogConditionally } from '@/lib/log';
+import Collapse from '@/components/collapse.svelte';
 
-export interface ArmStatus {
+interface ArmStatus {
   pos_pieces: {
     endPosition: string[]
     endPositionValue: number
@@ -20,7 +20,7 @@ export interface ArmStatus {
   }[]
 }
 
-export interface RawArmStatus extends ArmStatus {
+interface RawArmStatus extends ArmStatus {
   joint_positions: {
     values: number[]
   }
@@ -29,12 +29,11 @@ export interface RawArmStatus extends ArmStatus {
 
 type Field = 'x' | 'y' | 'z' | 'oX' | 'oY' | 'oZ' | 'theta'
 
-const props = defineProps<{
-  name: string
-  status?: ArmStatus,
-  rawStatus?: RawArmStatus
-  client: Client
-}>();
+
+export let name: string;
+export let status: ArmStatus | undefined;
+export let rawStatus: RawArmStatus | undefined;
+export let client: Client;
 
 const fieldMap = [
   ['x', 'x'],
@@ -56,9 +55,9 @@ const updateFieldMap: Record<string, Field> = {
   OZ: 'oZ',
 } as const;
 
-const toggle = $ref<Record<string, ArmStatus>>({});
+const toggle: Record<string, ArmStatus> = {};
 
-const armClient = new ArmClient(props.client, props.name, { requestLogger: rcLogConditionally });
+const armClient = new ArmClient(client, name, { requestLogger: rcLogConditionally });
 
 const stop = async () => {
   try {
@@ -69,7 +68,7 @@ const stop = async () => {
 };
 
 const armModifyAllDoEndPosition = async () => {
-  const newPieces = toggle[props.name]!.pos_pieces;
+  const newPieces = toggle[name]!.pos_pieces;
 
   const newPose: Pose = {
     x: 0,
@@ -92,17 +91,17 @@ const armModifyAllDoEndPosition = async () => {
   } catch (error) {
     displayError(error as ServiceError);
   }
-  delete toggle[props.name];
+  delete toggle[name];
 };
 
 const armModifyAllCancel = () => {
-  delete toggle[props.name];
+  delete toggle[name];
 };
 
 const armModifyAllDoJoint = async () => {
-  const arm = props.rawStatus!;
+  const arm = rawStatus!;
   const newList = arm.joint_positions.values;
-  const newPieces = toggle[props.name]!.joint_pieces;
+  const newPieces = toggle[name]!.joint_pieces;
 
   for (let i = 0; i < newPieces.length && i < newList.length; i += 1) {
     newList[newPieces[i]!.joint] = newPieces[i]!.jointValue;
@@ -113,12 +112,12 @@ const armModifyAllDoJoint = async () => {
   } catch (error) {
     displayError(error as ServiceError);
   }
-  delete toggle[props.name];
+  delete toggle[name];
 };
 
 const armEndPositionInc = async (updateField: string, amount: number) => {
   const adjustedAmount = updateField[0] === 'o' || updateField[0] === 'O' ? amount / 100 : amount;
-  const arm = props.rawStatus!;
+  const arm = rawStatus!;
   const old = arm.end_position;
 
   const newPose: Pose = {
@@ -148,7 +147,7 @@ const armEndPositionInc = async (updateField: string, amount: number) => {
 };
 
 const armJointInc = async (field: number, amount: number) => {
-  const arm = props.rawStatus!;
+  const arm = rawStatus!;
   const newList = arm.joint_positions.values;
   newList[field] += amount;
 
@@ -160,7 +159,7 @@ const armJointInc = async (field: number, amount: number) => {
 };
 
 const armHome = async () => {
-  const arm = props.rawStatus!;
+  const arm = rawStatus!;
   const newList = arm.joint_positions.values;
 
   for (let i = 0; i < newList.length; i += 1) {
@@ -175,7 +174,7 @@ const armHome = async () => {
 };
 
 const armModifyAll = () => {
-  const arm = props.status!;
+  const arm = status!;
   const newStatus: ArmStatus = {
     pos_pieces: [],
     joint_pieces: [],
@@ -195,7 +194,7 @@ const armModifyAll = () => {
     });
   }
 
-  toggle[props.name] = newStatus;
+  toggle[name] = newStatus;
 };
 
 const armCopyPosition = (status: ArmStatus) => {
@@ -220,207 +219,182 @@ const armCopyJoints = (status: ArmStatus) => {
 
 </script>
 
-<template>
-  <v-collapse
-    :title="name"
-    class="arm"
+<Collapse title={name}>
+  <v-breadcrumbs
+    slot="title"
+    crumbs="arm"
+  />
+  <div
+    slot="header"
+    class="flex items-center justify-between gap-2"
   >
-    <v-breadcrumbs
-      slot="title"
-      crumbs="arm"
+    <v-button
+      variant="danger"
+      icon="stop-circle"
+      label="STOP"
+      on:click|stopPropagation={stop}
     />
-    <div
-      slot="header"
-      class="flex items-center justify-between gap-2"
-    >
-      <v-button
-        variant="danger"
-        icon="stop-circle"
-        label="STOP"
-        @click.stop="stop()"
-      />
-    </div>
-    <div class="border border-t-0 border-medium p-4">
-      <div class="mb-4 flex flex-wrap gap-4">
-        <div
-          v-if="toggle[name]"
-          class="border border-medium p-4"
-        >
+  </div>
+  <div class="border border-t-0 border-medium p-4">
+    <div class="mb-4 flex flex-wrap gap-4">
+      {#if toggle[name]}
+        <div class="border border-medium p-4">
           <h3 class="mb-2">
             END POSITION (mms)
           </h3>
+
           <div class="inline-grid grid-cols-2 gap-1 pb-1">
-            <template
-              v-for="cc in toggle[name]!.pos_pieces"
-              :key="cc.endPosition[0]"
-            >
-              <label class="py-1 pr-2 text-right">{{ cc.endPosition[1] }}</label>
+            {#each toggle[name].pos_pieces as piece (piece.endPosition[0])}
+              <label class="py-1 pr-2 text-right">{piece.endPosition[1]}</label>
               <input
-                v-model="cc.endPositionValue"
+                bind:value={piece.endPositionValue}
                 class="border border-medium px-4 py-1"
-              >
-            </template>
+              />
+            {/each}
           </div>
+
           <div class="mt-2 flex gap-2">
             <v-button
               class="mr-4 whitespace-nowrap"
               label="Go To End Position"
-              @click="armModifyAllDoEndPosition"
+              on:click={armModifyAllDoEndPosition}
             />
             <div class="flex-auto text-right">
               <v-button
                 label="Cancel"
-                @click="armModifyAllCancel"
+                on:click={armModifyAllCancel}
               />
             </div>
           </div>
         </div>
-        <div
-          v-if="toggle[name]"
-          class="border border-medium p-4"
-        >
+        <div class="border border-medium p-4">
           <h3 class="mb-2">
             JOINTS (degrees)
           </h3>
           <div class="grid grid-cols-2 gap-1 pb-1">
-            <template
-              v-for="bb in toggle[name]!.joint_pieces"
-              :key="bb.joint"
-            >
-              <label class="py-1 pr-2 text-right">Joint {{ bb.joint }}</label>
+            {#each toggle[name].joint_pieces as piece (piece.joint)}
+              <label class="py-1 pr-2 text-right">Joint {piece.joint}</label>
               <input
-                v-model="bb.jointValue"
+                bind:value={piece.jointValue}
                 class="border border-medium px-4 py-1"
               >
-            </template>
+            {/each}
           </div>
           <div class="mt-2 flex gap-2">
             <v-button
               label="Go To Joints"
-              @click="armModifyAllDoJoint"
+              on:click={armModifyAllDoJoint}
             />
             <div class="flex-auto text-right">
               <v-button
                 label="Cancel"
-                @click="armModifyAllCancel"
+                on:click={armModifyAllCancel}
               />
             </div>
           </div>
         </div>
-      </div>
+      {/if}
+    </div>
 
-      <div class="flex flex-wrap gap-4">
-        <div
-          v-if="status"
-          class="border border-medium p-4"
-        >
+    <div class="flex flex-wrap gap-4">
+      {#if status}
+        <div class="border border-medium p-4">
           <h3 class="mb-2">
             END POSITION (mms)
           </h3>
           <div class="inline-grid grid-cols-6 gap-1 pb-1">
-            <template
-              v-for="aa in status.pos_pieces"
-              :key="aa.endPosition[0]"
-            >
-              <h4 class="py-1 pr-2 text-right">
-                {{ aa.endPosition[1] }}
-              </h4>
+            {#each status.pos_pieces as piece (piece.endPosition[0])}
+              <h4 class="py-1 pr-2 text-right">{piece.endPosition[1]}</h4>
               <v-button
                 label="--"
-                @click="armEndPositionInc(aa.endPosition[1]!, -10)"
+                on:click={() => armEndPositionInc(piece.endPosition[1], -10)}
               />
               <v-button
                 label="-"
-                @click="armEndPositionInc(aa.endPosition[1]!, -1)"
+                on:click={() => armEndPositionInc(piece.endPosition[1], -1)}
               />
               <v-button
                 label="+"
-                @click="armEndPositionInc(aa.endPosition[1]!, 1)"
+                on:click={() => armEndPositionInc(piece.endPosition[1], 1)}
               />
               <v-button
                 label="++"
-                @click="armEndPositionInc(aa.endPosition[1]!, 10)"
+                on:click={() => armEndPositionInc(piece.endPosition[1], 10)}
               />
               <h4 class="py-1">
-                {{ aa.endPositionValue.toFixed(2) }}
+                {piece.endPositionValue.toFixed(2)}
               </h4>
-            </template>
+            {/each}
           </div>
           <div class="mt-2 flex gap-2">
             <v-button
               label="Home"
-              @click="armHome"
+              on:click={armHome}
             />
             <v-button
               label="Copy"
               class="flex-auto text-right"
-              @click="() => armCopyPosition(status!)"
+              on:click={() => armCopyPosition(status)}
             />
             <div class="flex-auto text-right">
               <v-button
                 class="whitespace-nowrap"
                 label="Modify All"
-                @click="armModifyAll"
+                on:click={armModifyAll}
               />
             </div>
           </div>
         </div>
-        <div
-          v-if="status"
-          class="border border-medium p-4"
-        >
+        <div class="border border-medium p-4">
           <h3 class="mb-2">
             JOINTS (degrees)
           </h3>
           <div class="inline-grid grid-cols-6 gap-1 pb-1">
-            <template
-              v-for="aa in status.joint_pieces"
-              :key="aa.joint"
-            >
+            {#each status.joint_pieces as piece (piece.joint)}
               <h4 class="whitespace-nowrap py-1 pr-2 text-right">
-                Joint {{ aa.joint }}
+                Joint {piece.joint}
               </h4>
               <v-button
                 label="--"
-                @click="armJointInc(aa.joint, -10)"
+                on:click={() => armJointInc(piece.joint, -10)}
               />
               <v-button
                 label="-"
-                @click="armJointInc(aa.joint, -1)"
+                on:click={() => armJointInc(piece.joint, -1)}
               />
               <v-button
                 label="+"
-                @click="armJointInc(aa.joint, 1)"
+                on:click={() => armJointInc(piece.joint, 1)}
               />
               <v-button
                 label="++"
-                @click="armJointInc(aa.joint, 10)"
+                on:click={() => armJointInc(piece.joint, 10)}
               />
               <h4 class="py-1 pl-2">
-                {{ aa.jointValue.toFixed(2) }}
+                {piece.jointValue.toFixed(2)}
               </h4>
-            </template>
+            {/each}
           </div>
           <div class="mt-2 flex gap-2">
             <v-button
               label="Home"
-              @click="armHome"
+              on:click={armHome}
             />
             <v-button
               label="Copy"
               class="flex-auto text-right"
-              @click="() => armCopyJoints(status!)"
+              on:click={() => armCopyJoints(status)}
             />
             <div class="flex-auto text-right">
               <v-button
                 class="whitespace-nowrap"
                 label="Modify All"
-                @click="armModifyAll"
+                on:click={armModifyAll}
               />
             </div>
           </div>
         </div>
-      </div>
+      {/if}
     </div>
-  </v-collapse>
-</template>
+  </div>
+</Collapse>

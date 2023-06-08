@@ -1,9 +1,9 @@
 <script lang="ts">
 
-import { onMount } from 'svelte';
 import { Client, motorApi, MotorClient, type ServiceError } from '@viamrobotics/sdk';
 import { displayError } from '@/lib/error';
 import { rcLogConditionally } from '@/lib/log';
+import Collapse from '../collapse.svelte';
 
 const motorPosFormat = new Intl.NumberFormat(undefined, {
   maximumFractionDigits: 3,
@@ -126,17 +126,21 @@ const motorStop = async () => {
   }
 };
 
-onMount(async () => {
+const handleToggle = async (event: CustomEvent<{ open: boolean }>) => {
+  if (event.detail.open === false) {
+    return
+  }
+
   try {
     properties = await motorClient.getProperties();
   } catch (error) {
     displayError(error as ServiceError);
   }
-});
+}
 
 </script>
 
-<v-collapse title={name}>
+<Collapse title={name} on:toggle={handleToggle}>
   <v-breadcrumbs crumbs="motor" slot="title" />
   <div class="flex items-center justify-between gap-2" slot="header">
     {#if properties?.positionReporting}
@@ -251,4 +255,4 @@ onMount(async () => {
       </div>
     </div>
   </div>
-</v-collapse>
+</Collapse>
