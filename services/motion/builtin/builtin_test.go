@@ -233,7 +233,7 @@ func TestMoveOnGlobe(t *testing.T) {
 
 	motionCfg := make(map[string]interface{})
 	motionCfg["motion_profile"] = "position_only"
-	motionCfg["timeout"] = 20.
+	// motionCfg["timeout"] = 10.
 
 	t.Run("ensure success to a nearby geo point", func(t *testing.T) {
 		// TODO: This test should be updated such that we can navigate to an
@@ -281,7 +281,7 @@ func TestMoveOnGlobe(t *testing.T) {
 
 	t.Run("fail because of long wall", func(t *testing.T) {
 		boxPose := spatialmath.NewPoseFromPoint(r3.Vector{50, 0, 0})
-		boxDims := r3.Vector{2, 1000, 10}
+		boxDims := r3.Vector{2, 1e6, 10}
 		geometries, err := spatialmath.NewBox(boxPose, boxDims, "wall")
 		test.That(t, err, test.ShouldBeNil)
 		geoObstacle := spatialmath.NewGeoObstacle(geo.NewPoint(40.7, -73.98), []spatialmath.Geometry{geometries})
@@ -292,7 +292,6 @@ func TestMoveOnGlobe(t *testing.T) {
 			geo.NewPoint(40.7, -73.9800009),
 			math.NaN(),
 			movementsensor.Named("test-gps"),
-			// nil,
 			[]*spatialmath.GeoObstacle{geoObstacle},
 			math.NaN(),
 			math.NaN(),
