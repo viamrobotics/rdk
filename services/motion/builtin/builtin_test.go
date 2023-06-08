@@ -233,7 +233,7 @@ func TestMoveOnGlobe(t *testing.T) {
 
 	motionCfg := make(map[string]interface{})
 	motionCfg["motion_profile"] = "position_only"
-	// motionCfg["timeout"] = 10.
+	motionCfg["timeout"] = 10.
 
 	t.Run("ensure success to a nearby geo point", func(t *testing.T) {
 		// TODO: This test should be updated such that we can navigate to an
