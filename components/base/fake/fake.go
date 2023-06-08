@@ -112,7 +112,7 @@ func (b *Base) WrapWithKinematics(
 		model:     model,
 		localizer: localizer,
 		inputs:    make([]referenceframe.Input, len(model.DoF())),
-	}, err
+	}, nil
 }
 
 func (kb *kinematicBase) ModelFrame() referenceframe.Model {

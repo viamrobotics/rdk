@@ -51,7 +51,7 @@ func (wb *wheeledBase) WrapWithKinematics(
 		localizer:   localizer,
 		model:       model,
 		fs:          fs,
-	}, err
+	}, nil
 }
 
 func (kwb *kinematicWheeledBase) ModelFrame() referenceframe.Model {
