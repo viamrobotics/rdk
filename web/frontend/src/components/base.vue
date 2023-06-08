@@ -459,7 +459,6 @@ onUnmounted(() => {
           </div>
         </div>
         <div
-          data-parent="base"
           class="justify-start gap-4 border-medium p-4 sm:border-l"
           :class="selectedView === 'Stacked' ? 'flex flex-col' : 'grid grid-cols-2 gap-4'"
         >

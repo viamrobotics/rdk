@@ -28,7 +28,10 @@ const handleClick = async (event: Event) => {
 
 <div class="relative w-full">
   <div
-    class='border border-light bg-white w-full py-2 px-4 flex flex-reverse items-center justify-between text-default cursor-pointer'
+    class='
+      border border-light bg-white w-full py-2 px-4
+      flex flex-reverse items-center justify-between text-default cursor-pointer
+    '
     on:click={handleClick}
     on:keyup|stopPropagation|preventDefault={handleClick}
   >
