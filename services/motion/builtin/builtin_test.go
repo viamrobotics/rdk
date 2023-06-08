@@ -2,7 +2,9 @@ package builtin_test
 
 import (
 	"context"
+	"io"
 	"math"
+	"os"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -12,9 +14,12 @@ import (
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/base"
+	"go.viam.com/rdk/components/base/fake"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/gripper"
 	"go.viam.com/rdk/components/movementsensor"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/testutils/inject"
 
 	// register.
 	commonpb "go.viam.com/api/common/v1"
@@ -215,12 +220,49 @@ func TestMoveSingleComponent(t *testing.T) {
 }
 
 func TestMoveOnMap(t *testing.T) {
-	ms, closeFn := setupMotionServiceFromConfig(t, "../data/wheeled_base.json")
-	defer closeFn()
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+	injectSlam := inject.NewSLAMService("test_slam")
+
+	const chunkSizeBytes = 1 * 1024 * 1024
+
+	injectSlam.GetPointCloudMapFunc = func(ctx context.Context) (func() ([]byte, error), error) {
+		path := "/Users/nandinithakur/Desktop/sample/map/octagonspace.pcd"
+		file, err := os.Open(path)
+		if err != nil {
+			return nil, err
+		}
+		return func() ([]byte, error) { return io.ReadAll(file) }, nil
+	}
+
+	injectSlam.GetPositionFunc = func(ctx context.Context) (spatialmath.Pose, string, error) {
+		fakePose := spatialmath.NewPoseFromPoint(r3.Vector{X: -0.0345, Y: -0.145})
+		return fakePose, "", nil
+	}
+
+	cfg := resource.Config{
+		Name:  "test_base",
+		API:   base.API,
+		Frame: &referenceframe.LinkConfig{Geometry: &spatialmath.GeometryConfig{R: 100}},
+	}
+
+	fakeBase, err := fake.NewBase(ctx, nil, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	ms, err := builtin.NewBuiltIn(
+		ctx,
+		resource.Dependencies{injectSlam.Name(): injectSlam, fakeBase.Name(): fakeBase},
+		resource.Config{
+			ConvertedAttributes: &builtin.Config{},
+		},
+		logger,
+	)
+	test.That(t, err, test.ShouldBeNil)
+
 	success, err := ms.MoveOnMap(
 		context.Background(),
 		base.Named("test_base"),
-		spatialmath.NewPoseFromPoint(r3.Vector{X: 1.26, Y: 0.17}),
+		spatialmath.NewPoseFromPoint(r3.Vector{X: 1.26, Y: 0.1705}),
 		slam.Named("test_slam"),
 		nil,
 	)
