@@ -27,14 +27,7 @@
     "ButtonEStop",
   ];
 
-  $: connected = ((eventsList: inputControllerApi.Event.AsObject[]) => {
-    for (const { event } of eventsList) {
-      if (event !== "Disconnect") {
-        return true;
-      }
-    }
-    return false;
-  })(status.eventsList);
+  $: connected = status.eventsList.some(({ event }) => event !== 'Disconnect')
 
   const getValue = (
     eventsList: inputControllerApi.Event.AsObject[],
