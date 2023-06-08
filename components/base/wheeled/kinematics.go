@@ -60,12 +60,12 @@ func (kwb *kinematicWheeledBase) ModelFrame() referenceframe.Model {
 
 func (kwb *kinematicWheeledBase) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
 	// TODO(rb): make a transformation from the component reference to the base frame
-	pose, err := kwb.localizer.GlobalPosition(ctx)
+	pif, err := kwb.localizer.CurrentPosition(ctx)
 	if err != nil {
 		return nil, err
 	}
-	pt := pose.Point()
-	theta := math.Mod(pose.Orientation().OrientationVectorRadians().Theta, 2*math.Pi) - math.Pi
+	pt := pif.Pose().Point()
+	theta := math.Mod(pif.Pose().Orientation().OrientationVectorRadians().Theta, 2*math.Pi) - math.Pi
 	return []referenceframe.Input{{Value: pt.X}, {Value: pt.Y}, {Value: theta}}, nil
 }
 
