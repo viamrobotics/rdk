@@ -1039,8 +1039,8 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	if newConfig.Network.ResourceConfigurationTimeout != nil {
 		r.resourceConfigurationTimeout = *newConfig.Network.ResourceConfigurationTimeout
 	}
-	// Now that we have the new config and all references are resolved, diff it with the old
-	// config to see what has changed.
+	// Now that we have the new config and all references are resolved, diff it
+	// with the current generated config to see what has changed
 	diff, err := config.DiffConfigs(*r.Config(), *newConfig, r.revealSensitiveConfigDiffs)
 	if err != nil {
 		r.logger.Errorw("error diffing the configs", "error", err)
