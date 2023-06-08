@@ -39,7 +39,7 @@
       resourceName.setName(inputName);
       return resourceName;
     });
-    req.setName(inputName);
+    req.setName(name);
     req.setSensorNamesList(names);
 
     rcLogConditionally(req);
