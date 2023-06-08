@@ -145,10 +145,15 @@ func newCostNode(q []referenceframe.Input, cost float64) *costNode {
 type configurationNode struct {
 	q []referenceframe.Input
 	endConfig spatialmath.Pose
+	cost float64
 }
 
 func (n *configurationNode) Q() []referenceframe.Input {
 	return n.q
+}
+
+func (n *configurationNode) Cost() float64 {
+	return n.cost
 }
 
 // nodePair groups together nodes in a tuple
@@ -187,14 +192,16 @@ func extractPath(startMap, goalMap map[node]node, pair *nodePair) []node {
 	for i, j := 0, len(path)-1; i < j; i, j = i+1, j-1 {
 		path[i], path[j] = path[j], path[i]
 	}
-
-	// skip goalReached node and go directly to its parent in order to not repeat this node
-	goalReached = goalMap[goalReached]
-
-	// extract the path to the goal
-	for goalReached != nil {
-		path = append(path, goalReached)
+	
+	if goalReached != nil {
+		// skip goalReached node and go directly to its parent in order to not repeat this node
 		goalReached = goalMap[goalReached]
+
+		// extract the path to the goal
+		for goalReached != nil {
+			path = append(path, goalReached)
+			goalReached = goalMap[goalReached]
+		}
 	}
 	return path
 }

@@ -178,7 +178,7 @@ type planner struct {
 }
 
 func newPlanner(frame frame.Frame, seed *rand.Rand, logger golog.Logger, opt *plannerOptions) (*planner, error) {
-	ik, err := CreateCombinedIKSolver(frame, logger, opt.NumThreads)
+	ik, err := CreateCombinedIKSolver(frame, logger, opt.NumThreads, opt.GoalThreshold)
 	if err != nil {
 		return nil, err
 	}

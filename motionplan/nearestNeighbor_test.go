@@ -28,7 +28,7 @@ func TestNearestNeighbor(t *testing.T) {
 	// test serial NN
 	opt := newBasicPlannerOptions()
 	utils.PanicCapturingGo(func() {
-		nm.nearestNeighbor(ctx, opt, seed, rrtMap, m1chan)
+		nm.nearestNeighbor(ctx, opt, &basicNode{seed}, rrtMap, m1chan)
 	})
 	nn := <-m1chan
 	test.That(t, nn.Q()[0].Value, test.ShouldAlmostEqual, 23.0)
@@ -41,7 +41,7 @@ func TestNearestNeighbor(t *testing.T) {
 	seed = []referenceframe.Input{{723.6}}
 	// test parallel NN
 	utils.PanicCapturingGo(func() {
-		nm.nearestNeighbor(ctx, opt, seed, rrtMap, m1chan)
+		nm.nearestNeighbor(ctx, opt, &basicNode{seed}, rrtMap, m1chan)
 	})
 	nn = <-m1chan
 	test.That(t, nn.Q()[0].Value, test.ShouldAlmostEqual, 724.0)

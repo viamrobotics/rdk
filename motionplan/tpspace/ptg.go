@@ -18,7 +18,9 @@ import (
 type PTG interface {
 	
 	// WorldSpaceToTP Converts an x, y world space coord to a k, d (alpha index plus distance) TP-space coord
-	WorldSpaceToTP(float64, float64) (uint, float64, error)
+	// Also returns a bool representing whether the xy is a within-traj match vs an extrapolation
+	//~ WorldSpaceToTP(float64, float64) (uint, float64, bool)
+	WorldSpaceToTP(float64, float64, float64) []*TrajNode
 	
 	// RefDistance returns the maximum distance that a single precomputed trajectory may travel
 	RefDistance() float64
@@ -27,8 +29,13 @@ type PTG interface {
 	Trajectory(uint) []*TrajNode
 }
 
+type PTGProvider interface {
+	PTGs() []PTG
+}
+
 type PrecomputePTG interface {
-	ptgDiffDriveSteer(alpha, t, x, y, phi float64) (float64, float64, error)
+	// TODO: this should operate on alpha, d rather than the prior t,x,y,phi
+	PtgDiffDriveSteer(alpha, t, x, y, phi float64) (float64, float64, error)
 }
 
 type TrajNode struct {
@@ -36,17 +43,11 @@ type TrajNode struct {
 	Pose spatialmath.Pose // for 2d, we only use x, y, and OV theta
 	Time float64 // elapsed time on trajectory
 	Dist float64 // distance travelled down trajectory
+	K uint // alpha k-value at this node
 	V float64 // linvel at this node
 	W float64 // angvel at this node
-}
-
-type trajSimConf struct {
-	maxTime float64 // secs of robot execution to simulate
-	maxDist float64
-	diffT float64 // discretize trajectory simulation to this time granularity
-	minDist float64 // Save traj points at this arc distance granularity
-	alphaCnt uint
-	turnRad float64 // robot turning radius
+	ptX float64
+	ptY float64
 }
 
 // discretized path back to alpha
