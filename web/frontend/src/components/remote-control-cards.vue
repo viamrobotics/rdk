@@ -869,7 +869,6 @@ onUnmounted(() => {
         :key="controller.name"
         :name="controller.name"
         :status="(resourceStatusByName(controller) as any)"
-        class="input"
       />
 
       <!-- ******* WEB CONTROLS *******  -->
