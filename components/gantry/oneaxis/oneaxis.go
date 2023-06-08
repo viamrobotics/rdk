@@ -23,6 +23,9 @@ import (
 
 var model = resource.DefaultModelFamily.WithModel("oneaxis")
 
+// limitErrorMargin is added or subtracted from the location of the limit switch to ensure the switch is not passed.
+const limitErrorMargin = 0.25
+
 // Config is used for converting oneAxis config attributes.
 type Config struct {
 	Board           string    `json:"board,omitempty"` // used to read limit switch pins and control motor with gpio pins
@@ -167,70 +170,58 @@ func newOneAxis(ctx context.Context, deps resource.Dependencies, conf resource.C
 func (g *oneAxis) home(ctx context.Context, np int) error {
 	ctx, done := g.opMgr.New(ctx)
 	defer done()
-	// Mapping one limit switch motor0->limsw0, motor1 ->limsw1, motor 2 -> limsw2
-	// Mapping two limit switch motor0->limSw0,limSw1; motor1->limSw2,limSw3; motor2->limSw4,limSw5
+
 	switch np {
-	// An axis with one limit switch will go till it hits the limit switch, encode that position as the
-	// zero position of the oneaxis, and adds a second position limit based on the steps per length.
-	case 1:
-		if err := g.homeOneLimSwitch(ctx); err != nil {
-			return err
-		}
-	// An axis with two limit switches will go till it hits the first limit switch, encode that position as the
-	// zero position of the oneaxis, then go till it hits the second limit switch, then encode that position as the
-	// at-length position of the oneaxis.
-	case 2:
-		if err := g.homeTwoLimSwitch(ctx); err != nil {
-			return err
-		}
-	// An axis with an encoder will encode the
+	// An axis with an encoder will encode the zero position, and add the second position limit
+	// based on the steps per length
 	case 0:
 		if err := g.homeEncoder(ctx); err != nil {
 			return err
 		}
+	// An axis with one limit switch will go till it hits the limit switch, encode that position as the
+	// zero position of the oneaxis, and adds a second position limit based on the steps per length.
+	// An axis with two limit switches will go till it hits the first limit switch, encode that position as the
+	// zero position of the oneaxis, then go till it hits the second limit switch, then encode that position as the
+	// at-length position of the oneaxis.
+	case 1, 2:
+		if err := g.homeLimSwitch(ctx); err != nil {
+			return err
+		}
 	}
+
 	return nil
 }
 
-func (g *oneAxis) homeTwoLimSwitch(ctx context.Context) error {
+func (g *oneAxis) homeLimSwitch(ctx context.Context) error {
+	var positionA, positionB, start float64
 	positionA, err := g.testLimit(ctx, true)
 	if err != nil {
 		return err
 	}
 
-	positionB, err := g.testLimit(ctx, false)
-	if err != nil {
-		return err
+	if len(g.limitSwitchPins) > 1 {
+		// Multiple limit switches, get positionB from testLimit
+		positionB, err = g.testLimit(ctx, false)
+		if err != nil {
+			return err
+		}
+		start = 0.8
+	} else {
+		// Only one limit switch, calculate positionB
+		revPerLength := g.lengthMm / g.mmPerRevolution
+		positionB = positionA + revPerLength
+		start = 0.2
 	}
-
-	g.logger.Debugf("positionA: %0.2f positionB: %0.2f", positionA, positionB)
 
 	g.positionLimits = []float64{positionA, positionB}
 	g.positionRange = positionB - positionA
-
-	// Go backwards so limit stops are not hit.
-	x := g.gantryToMotorPosition(0.8 * g.lengthMm)
-	if err = g.motor.GoTo(ctx, g.rpm, x, nil); err != nil {
-		return err
+	if g.positionRange == 0 {
+		g.logger.Error("positionRange is 0 or not a valid number")
 	}
-	return nil
-}
+	g.logger.Debugf("positionA: %0.2f positionB: %0.2f range: %0.2f", g.positionLimits[0], g.positionLimits[1], g.positionRange)
 
-func (g *oneAxis) homeOneLimSwitch(ctx context.Context) error {
-	// One pin always and only should go backwards.
-	positionA, err := g.testLimit(ctx, true)
-	if err != nil {
-		return err
-	}
-
-	revPerLength := g.lengthMm / g.mmPerRevolution
-	positionB := positionA + revPerLength
-
-	g.positionLimits = []float64{positionA, positionB}
-
-	// Go backwards so limit stops are not hit.
-	x := g.gantryToMotorPosition(0.2 * g.lengthMm)
-	if err = g.motor.GoTo(ctx, g.rpm, x, nil); err != nil {
+	// Go to start position so limit stops are not hit.
+	if err = g.goToStart(ctx, start); err != nil {
 		return err
 	}
 
@@ -254,10 +245,17 @@ func (g *oneAxis) homeEncoder(ctx context.Context) error {
 	return nil
 }
 
+func (g *oneAxis) goToStart(ctx context.Context, percent float64) error {
+	x := g.gantryToMotorPosition(percent * g.lengthMm)
+	if err := g.motor.GoTo(ctx, g.rpm, x, nil); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (g *oneAxis) gantryToMotorPosition(positions float64) float64 {
 	x := positions / g.lengthMm
 	x = g.positionLimits[0] + (x * g.positionRange)
-
 	return x
 }
 
@@ -299,8 +297,10 @@ func (g *oneAxis) testLimit(ctx context.Context, zero bool) (float64, error) {
 			return 0, ctx.Err()
 		}
 	}
-
-	return g.motor.Position(ctx, nil)
+	// Short pause after stopping to increase the precision of the position of each limit switch
+	position, err := g.motor.Position(ctx, nil)
+	time.Sleep(250 * time.Millisecond)
+	return position, err
 }
 
 // this function may need to be run in the background upon initialisation of the ganty,
@@ -353,35 +353,20 @@ func (g *oneAxis) MoveToPosition(ctx context.Context, positions []float64, extra
 	// Limit switch errors that stop the motors.
 	// Currently needs to be moved by underlying gantry motor.
 	if len(g.limitSwitchPins) > 0 {
-		hit, err := g.limitHit(ctx, true)
-		if err != nil {
-			return err
-		}
-
-		// Hits backwards limit switch, goes in forwards direction for two revolutions
-		if hit {
-			if x < g.positionLimits[0] {
-				dir := float64(1)
-				return g.motor.GoFor(ctx, dir*g.rpm, 2, extra)
-			}
+		// Stops if position x is past the 0 limit switch
+		if x <= (g.positionLimits[0] + limitErrorMargin) {
+			g.logger.Debugf("limit: %.2f", g.positionLimits[0]+limitErrorMargin)
+			g.logger.Debugf("position x: %.2f", x)
+			g.logger.Error("Cannot move past limit switch!")
 			return g.motor.Stop(ctx, extra)
 		}
 
-		// Hits forward limit switch, goes in backwards direction for two revolutions
-		hit, err = g.limitHit(ctx, false)
-		if err != nil {
-			return err
-		}
-		if hit {
-			if x > g.positionLimits[1] {
-				dir := float64(-1)
-				return g.motor.GoFor(ctx, dir*g.rpm, 2, extra)
-			}
+		// Stops if position x is past the at-length limit switch
+		if x >= (g.positionLimits[1] - limitErrorMargin) {
+			g.logger.Debugf("limit: %.2f", g.positionLimits[1]-limitErrorMargin)
+			g.logger.Debugf("position x: %.2f", x)
+			g.logger.Error("Cannot move past limit switch!")
 			return g.motor.Stop(ctx, extra)
-		}
-
-		if err = g.motor.GoTo(ctx, g.rpm, x, extra); err != nil {
-			return err
 		}
 	}
 
