@@ -345,10 +345,8 @@ func newWithResources(
 		opt.apply(&rOpts)
 	}
 
-	var resourceConfigurationTimeout time.Duration
-	if cfg.Network.ResourceConfigurationTimeout == nil {
-		resourceConfigurationTimeout = time.Minute
-	} else {
+	resourceConfigurationTimeout := time.Minute
+	if cfg.Network.ResourceConfigurationTimeout != nil {
 		resourceConfigurationTimeout = *cfg.Network.ResourceConfigurationTimeout
 	}
 

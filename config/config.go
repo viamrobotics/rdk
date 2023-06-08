@@ -611,6 +611,9 @@ func (nc *NetworkConfig) Validate(path string) error {
 	if (nc.TLSCertFile == "") != (nc.TLSKeyFile == "") {
 		return utils.NewConfigValidationError(path, errors.New("must provide both tls_cert_file and tls_key_file"))
 	}
+	if nc.ResourceConfigurationTimeout != nil && *nc.ResourceConfigurationTimeout < 0 {
+		return utils.NewConfigValidationError(path, errors.New("cannot provide a negative duration for resource configuration timeout"))
+	}
 
 	return nc.Sessions.Validate(path + ".sessions")
 }

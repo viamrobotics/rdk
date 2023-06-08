@@ -144,10 +144,10 @@ func (wb *wheeledBase) Reconfigure(ctx context.Context, deps resource.Dependenci
 
 	wb.spinSlipFactor = newConf.SpinSlipFactor
 
-	updateMotors := func(curr *[]motor.Motor, fromConfig *[]string) ([]motor.Motor, error) {
+	updateMotors := func(curr []motor.Motor, fromConfig []string) ([]motor.Motor, error) {
 		newMotors := make([]motor.Motor, 0)
-		if len(*curr) != len(*fromConfig) {
-			for _, name := range *fromConfig {
+		if len(curr) != len(fromConfig) {
+			for _, name := range fromConfig {
 				select {
 				case <-ctx.Done():
 					return newMotors, resource.NewBuildTimeoutError(wb.Name())
@@ -155,23 +155,23 @@ func (wb *wheeledBase) Reconfigure(ctx context.Context, deps resource.Dependenci
 				}
 				m, err := motor.FromDependencies(deps, name)
 				if err != nil {
-					return newMotors, errors.Wrapf(err, "no left motor named (%s)", name)
+					return newMotors, errors.Wrapf(err, "no motor named (%s)", name)
 				}
 				newMotors = append(newMotors, m)
 			}
 		} else {
 			// Compare each element of the slices
-			for i := range *curr {
+			for i := range curr {
 				select {
 				case <-ctx.Done():
 					return newMotors, resource.NewBuildTimeoutError(wb.Name())
 				default:
 				}
-				if (*curr)[i].Name().String() != (*fromConfig)[i] {
-					for _, name := range *fromConfig {
+				if (curr)[i].Name().String() != (fromConfig)[i] {
+					for _, name := range fromConfig {
 						m, err := motor.FromDependencies(deps, name)
 						if err != nil {
-							return newMotors, errors.Wrapf(err, "no left motor named (%s)", name)
+							return newMotors, errors.Wrapf(err, "no motor named (%s)", name)
 						}
 						newMotors = append(newMotors, m)
 					}
@@ -182,12 +182,12 @@ func (wb *wheeledBase) Reconfigure(ctx context.Context, deps resource.Dependenci
 		return newMotors, nil
 	}
 
-	left, err := updateMotors(&wb.left, &newConf.Left)
+	left, err := updateMotors(wb.left, newConf.Left)
 	wb.left = left
 	if err != nil {
 		return err
 	}
-	right, err := updateMotors(&wb.right, &newConf.Right)
+	right, err := updateMotors(wb.right, newConf.Right)
 	wb.right = right
 	if err != nil {
 		return err
