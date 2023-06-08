@@ -37,7 +37,6 @@ import DoCommand from './do-command.vue';
 import Encoder from './encoder.vue';
 import GantrySvelte from './gantry/index.svelte';
 import GripperSvelte from './gripper/index.svelte';
-import Gamepad from './gamepad.vue';
 import GamepadSvelte from './gamepad/index.svelte';
 import InputController from './input-controller.vue';
 import MotorSvelte from './motor/index.svelte';
@@ -52,7 +51,7 @@ const AudioInput = svelteAdapter(AudioInputSvelte);
 const CamerasList = svelteAdapter(CamerasListSvelte, { display: 'flex', 'flex-direction': 'column', gap: '1rem' });
 const Gantry = svelteAdapter(GantrySvelte);
 const Gripper = svelteAdapter(GripperSvelte);
-const GamepadS = svelteAdapter(GamepadSvelte);
+const Gamepad = svelteAdapter(GamepadSvelte);
 const Motor = svelteAdapter(MotorSvelte);
 const MovementSensor = svelteAdapter(MovementSensorSvelte);
 const Navigation = svelteAdapter(NavigationSvelte);
@@ -871,15 +870,6 @@ onUnmounted(() => {
 
       <!-- ******* WEB CONTROLS *******  -->
       <Gamepad
-        v-for="gamepad in filteredWebGamepads()"
-        :key="gamepad.name"
-        :name="gamepad.name"
-        :client="client"
-        :status-stream="statusStream"
-      />
-
-      <!-- ******* WEB CONTROLS *******  -->
-      <GamepadS
         v-for="gamepad in filteredWebGamepads()"
         :key="gamepad.name"
         :name="gamepad.name"
