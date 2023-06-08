@@ -27,7 +27,7 @@ import {
   filterComponentsWithNames,
 } from '../lib/resource';
 
-import Arm from './arm.vue';
+import ArmSvelte from './arm/index.svelte';
 import AudioInputSvelte from './audio-input/index.svelte';
 import Base from './base.vue';
 import Board from './board.vue';
@@ -47,6 +47,7 @@ import Sensors from './sensors.vue';
 import SlamSvelte from './slam/index.svelte';
 import { svelteAdapter } from '../lib/svelte-adapter';
 
+const Arm = svelteAdapter(ArmSvelte);
 const AudioInput = svelteAdapter(AudioInputSvelte);
 const CamerasList = svelteAdapter(CamerasListSvelte, { display: 'flex', 'flex-direction': 'column', gap: '1rem' });
 const Motor = svelteAdapter(MotorSvelte);
@@ -827,7 +828,7 @@ onUnmounted(() => {
         :name="arm.name"
         :client="client"
         :status="(resourceStatusByName(arm) as any)"
-        :raw-status="(rawResourceStatusByName(arm) as any)"
+        :rawStatus="(rawResourceStatusByName(arm) as any)"
       />
 
       <!-- ******* GRIPPER *******  -->
