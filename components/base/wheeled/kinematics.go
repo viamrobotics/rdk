@@ -92,14 +92,14 @@ func (kwb *kinematicWheeledBase) GoToInputs(ctx context.Context, desired []refer
 
 		// get to the x, y location first - note that from the base's perspective +y is forward
 		desiredHeading := math.Atan2(current[1].Value-desired[1].Value, current[0].Value-desired[0].Value)
-		if commanded, err := kwb.issueCommand(ctx, current, []referenceframe.Input{desired[0], desired[1], {desiredHeading}}); err != nil {
+		if commanded, err := kwb.issueCommand(ctx, current, []referenceframe.Input{desired[0], desired[1], {desiredHeading}}); err == nil {
 			if commanded {
 				continue
 			}
 		}
 
 		// no command to move to the x, y location was issued, correct the heading and then exit
-		if commanded, err := kwb.issueCommand(ctx, current, []referenceframe.Input{current[0], current[1], desired[2]}); err != nil {
+		if commanded, err := kwb.issueCommand(ctx, current, []referenceframe.Input{current[0], current[1], desired[2]}); err == nil {
 			if !commanded {
 				return nil
 			}
@@ -149,6 +149,6 @@ func (kwb *kinematicWheeledBase) errorState(current, desired []referenceframe.In
 
 	// calculate the error state
 	headingErr := math.Mod(delta.Pose().Orientation().OrientationVectorDegrees().Theta, 360)
-	positionErr := int(1000 * delta.Pose().Point().Norm())
+	positionErr := int(delta.Pose().Point().Norm())
 	return positionErr, headingErr, nil
 }
