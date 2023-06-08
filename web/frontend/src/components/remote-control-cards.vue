@@ -27,7 +27,7 @@ import {
   filterComponentsWithNames,
 } from '../lib/resource';
 
-import Arm from './arm.vue';
+import ArmSvelte from './arm/index.svelte';
 import AudioInputSvelte from './audio-input/index.svelte';
 import Base from './base.vue';
 import Board from './board.vue';
@@ -44,9 +44,10 @@ import MovementSensorSvelte from './movement-sensor/index.svelte';
 import NavigationSvelte from './navigation/index.svelte';
 import ServoSvelte from './servo/index.svelte';
 import Sensors from './sensors.vue';
-import Slam from './slam/index.vue';
+import SlamSvelte from './slam/index.svelte';
 import { svelteAdapter } from '../lib/svelte-adapter';
 
+const Arm = svelteAdapter(ArmSvelte);
 const AudioInput = svelteAdapter(AudioInputSvelte);
 const CamerasList = svelteAdapter(CamerasListSvelte, { display: 'flex', 'flex-direction': 'column', gap: '1rem' });
 const Motor = svelteAdapter(MotorSvelte);
@@ -54,6 +55,7 @@ const MovementSensor = svelteAdapter(MovementSensorSvelte);
 const Navigation = svelteAdapter(NavigationSvelte);
 const OperationsSessions = svelteAdapter(OperationsSessionsSvelte);
 const Servo = svelteAdapter(ServoSvelte);
+const Slam = svelteAdapter(SlamSvelte);
 
 import {
   fixArmStatus,
@@ -826,7 +828,7 @@ onUnmounted(() => {
         :name="arm.name"
         :client="client"
         :status="(resourceStatusByName(arm) as any)"
-        :raw-status="(rawResourceStatusByName(arm) as any)"
+        :rawStatus="(rawResourceStatusByName(arm) as any)"
       />
 
       <!-- ******* GRIPPER *******  -->
@@ -923,7 +925,7 @@ onUnmounted(() => {
         :name="slam.name"
         :client="client"
         :resources="resources"
-        :status-stream="statusStream"
+        :statusStream="statusStream"
         :operations="currentOps"
       />
 

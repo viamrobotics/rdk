@@ -8,6 +8,7 @@ import type {
 
 import Camera from './camera.svelte';
 import PCD from '../pcd/index.svelte';
+import Collapse from '../collapse.svelte';
 import { selectedMap } from '@/lib/camera-state';
 import type { StreamManager } from './stream-manager';
 
@@ -40,11 +41,7 @@ const handleRefreshInput = (name: string) => {
 </script>
 
 {#each resources as camera (camera.name)}
-  <v-collapse
-    title={camera.name}
-    class="camera"
-    data-parent="app"
-  >
+  <Collapse title={camera.name}>
     <v-breadcrumbs
       slot="title"
       crumbs="camera"
@@ -96,5 +93,5 @@ const handleRefreshInput = (name: string) => {
         cameraName={camera.name}
       />
     </div>
-  </v-collapse>
+  </Collapse>
 {/each}

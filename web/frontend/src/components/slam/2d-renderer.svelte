@@ -1,15 +1,21 @@
-<script setup lang="ts">
+<script lang="ts">
 
-import { $ref } from '@vue-macros/reactivity-transform/macros';
 import { threeInstance, MouseRaycaster, MeshDiscardMaterial, GridHelper } from 'trzy';
-import { onMounted, onUnmounted, watch } from 'vue';
+import { onMount, onDestroy, createEventDispatcher } from 'svelte';
 import * as THREE from 'three';
 import { MapControls } from 'three/examples/jsm/controls/MapControls';
 import { PCDLoader } from 'three/examples/jsm/loaders/PCDLoader';
 import type { commonApi } from '@viamrobotics/sdk';
 import DestMarker from '@/lib/images/destination-marker.txt?raw';
 import BaseMarker from '@/lib/images/base-marker.txt?raw';
-import Legend from './2d-legend.vue';
+import Legend from './2d-legend.svelte';
+
+export let pointcloud: Uint8Array | undefined
+export let pose: commonApi.Pose | undefined
+export let destination: THREE.Vector2 | undefined
+export let axesVisible: boolean
+
+const dispatch = createEventDispatcher()
 
 let points: THREE.Points | undefined;
 let pointsMaterial: THREE.PointsMaterial | undefined;
@@ -62,28 +68,9 @@ const colorMapGrey = [
 ].map(([red, green, blue]) =>
   new THREE.Vector3(red, green, blue).multiplyScalar(1 / 255));
 
-const props = defineProps<{
-  name: string
-
-  /*
-   * NOTE: This is needed as vue doesn't support watchers for Uint8Array
-   * so we use the pointCloudUpdateCount as a signal that the pointcloud
-   * has changed & needs to be re rendered.
-   */
-  pointCloudUpdateCount: number
-  resources: commonApi.ResourceName.AsObject[]
-  pointcloud?: Uint8Array
-  pose?: commonApi.Pose
-  destExists: boolean
-  destVector: THREE.Vector3
-  axesVisible: boolean
-}>();
-
-const emit = defineEmits<{(event: 'click', point: THREE.Vector3): void}>();
-
 const loader = new PCDLoader();
 
-const container = $ref<HTMLElement>();
+let container: HTMLElement
 
 const { scene, renderer, canvas, start, stop, setCamera, update } = threeInstance({
   parameters: {
@@ -119,7 +106,7 @@ const raycaster = new MouseRaycaster({ camera, renderer, recursive: false });
 raycaster.on('click', (event: THREE.Event) => {
   const [intersection] = event.intersections as THREE.Intersection[];
   if (intersection && intersection.point) {
-    emit('click', intersection.point);
+    dispatch('click', intersection.point);
   }
 });
 
@@ -176,7 +163,7 @@ const createAxisHelper = (name: string, rotateX = 0, rotateY = 0): THREE.AxesHel
   axesHelper.scale.set(1e5, 1, 1e5);
   axesHelper.renderOrder = axesHelperRenderOrder;
   axesHelper.name = name;
-  axesHelper.visible = props.axesVisible;
+  axesHelper.visible = axesVisible;
   return axesHelper;
 };
 
@@ -185,20 +172,9 @@ const createGridHelper = (): GridHelper => {
   const gridHelper = new GridHelper(1, 10, backgroundGridColor);
   gridHelper.renderOrder = gridHelperRenderOrder;
   gridHelper.name = 'Grid';
-  gridHelper.visible = props.axesVisible;
+  gridHelper.visible = axesVisible;
   gridHelper.rotateX(Math.PI / 2);
   return gridHelper;
-};
-
-const updateOrRemoveDestinationMarker = () => {
-  if (props.destVector && props.destExists) {
-    destMarker.visible = true;
-    destMarker.position.copy(props.destVector);
-  }
-
-  if (!props.destExists) {
-    destMarker.visible = false;
-  }
 };
 
 const handleUserControl = () => {
@@ -271,8 +247,6 @@ const updatePointCloud = (pointcloud: Uint8Array) => {
     points,
     intersectionPlane
   );
-
-  updateOrRemoveDestinationMarker();
 };
 
 let removeUpdate: (() => void) | undefined;
@@ -289,7 +263,7 @@ const scaleObjects = () => {
   destMarker.scale.set(spriteSize, spriteSize, 1);
 };
 
-onMounted(() => {
+onMount(() => {
   removeUpdate = update(scaleObjects);
   container?.append(canvas);
 
@@ -305,16 +279,16 @@ onMounted(() => {
 
   start();
 
-  if (props.pointcloud !== undefined) {
-    updatePointCloud(props.pointcloud);
+  if (pointcloud !== undefined) {
+    updatePointCloud(pointcloud);
   }
 
-  if (props.pose !== undefined) {
-    updatePose(props.pose);
+  if (pose !== undefined) {
+    updatePose(pose);
   }
 });
 
-onUnmounted(() => {
+onDestroy(() => {
   stop();
   scene.traverse((object) => dispose(object));
   removeUpdate?.();
@@ -323,46 +297,51 @@ onUnmounted(() => {
   userControlling = false;
 });
 
-watch(() => [props.destVector!.x, props.destVector!.y, props.destExists], updateOrRemoveDestinationMarker);
+$: {
+  if (destination) {
+    destMarker.visible = true;
+    destMarker.position.set(destination.x, destination.y, 0);
+  } else {
+    destMarker.visible = false;
+  }
+}
 
-watch(() => props.axesVisible, (visible: boolean) => {
-  axesPos.visible = visible;
-  axesNeg.visible = visible;
-  gridHelper.visible = visible;
-});
+$: {
+  axesPos.visible = axesVisible;
+  axesNeg.visible = axesVisible;
+  gridHelper.visible = axesVisible;
+}
 
-watch(() => props.pose, (newPose) => {
-  if (newPose !== undefined) {
+$: {
+  if (pose !== undefined) {
     try {
-      updatePose(newPose);
+      updatePose(pose);
     } catch (error) {
       console.error('failed to update pose', error);
     }
   }
-});
+}
 
-watch(() => props.pointCloudUpdateCount, () => {
-  if (props.pointcloud !== undefined) {
+$: {
+  if (pointcloud !== undefined) {
     try {
-      updatePointCloud(props.pointcloud);
+      updatePointCloud(pointcloud);
     } catch (error) {
       console.error('failed to update pointcloud', error);
     }
   }
-});
+}
 
 </script>
 
-<template>
-  <div
-    ref="container"
-    class="relative w-full"
-  >
-    <p class="absolute left-3 top-3 bg-white text-xs">
-      Grid set to 1 meter
-    </p>
-    <div class="absolute right-3 top-3">
-      <Legend />
-    </div>
+<div
+  bind:this={container}
+  class="relative w-full"
+>
+  <p class="absolute left-3 top-3 bg-white text-xs">
+    Grid set to 1 meter
+  </p>
+  <div class="absolute right-3 top-3">
+    <Legend />
   </div>
-</template>
+</div>
