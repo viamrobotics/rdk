@@ -168,7 +168,6 @@ func (wb *wheeledBase) Reconfigure(ctx context.Context, deps resource.Dependenci
 				default:
 				}
 				if (*curr)[i].Name().String() != (*fromConfig)[i] {
-
 					for _, name := range *fromConfig {
 						m, err := motor.FromDependencies(deps, name)
 						if err != nil {
@@ -183,12 +182,13 @@ func (wb *wheeledBase) Reconfigure(ctx context.Context, deps resource.Dependenci
 		return newMotors, nil
 	}
 
-	//Check if wb.left is different from newConf.Left before changing wb.left
+
 	left, err := updateMotors(&wb.left, &newConf.Left)
 	wb.left = left
 	if err != nil {
 		return err
 	}
+
 
 	right, err := updateMotors(&wb.right, &newConf.Right)
 	wb.right = right
