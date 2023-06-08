@@ -110,15 +110,13 @@ func (ws *WorldState) String() string {
 	}
 
 	t := table.NewWriter()
-	t.AppendHeader(table.Row{"Name", "Geometry Type", "Parent", "Position", "Orientation Vector Degrees"})
+	t.AppendHeader(table.Row{"Name", "Geometry Type", "Parent"})
 	for _, geometries := range ws.obstacles {
 		for _, geometry := range geometries.geometries {
 			t.AppendRow([]interface{}{
 				geometry.Label(),
 				geometry.String(),
 				geometries.frame,
-				geometry.Pose().Point(),
-				geometry.Pose().Orientation().OrientationVectorDegrees(),
 			})
 		}
 	}
