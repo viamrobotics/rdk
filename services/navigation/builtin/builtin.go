@@ -226,30 +226,27 @@ func (svc *builtIn) startWaypoint(extra map[string]interface{}) error {
 		navOnce := func(ctx context.Context, wp navigation.Waypoint) error {
 			currentLoc, err := svc.Location(svc.cancelCtx, extra)
 			if err != nil {
-				svc.logger.Errorw("failed to get gps location", "error", err)
+				return err
 			}
 
 			goal := wp.ToPoint()
 
 			bearingToGoal := currentLoc.BearingTo(goal)
-			if err != nil {
-				return err
-			}
 
 			// have ability to define destination heading here, but waypoint structure doesn't allow for that so using bearingToGoal as heading
 			_, err = svc.motion.MoveOnGlobe(ctx, svc.base.Name(), goal, bearingToGoal, svc.movementSensor.Name(), svc.obstacles, svc.metersPerSec*1000, svc.degPerSec, extra)
 
-			if err == nil {
-				return svc.waypointReached(ctx)
+			if err != nil {
+				return err
 			}
 
-			return err
+			return svc.waypointReached(ctx)
 		}
 
 		// loop until no waypoints remaining
 		for wp, err := svc.nextWaypoint(svc.cancelCtx); err == nil; wp, err = svc.nextWaypoint(svc.cancelCtx){
-			if navErr := navOnce(svc.cancelCtx, wp); err != nil {
-				svc.logger.Infof("error navigating: %s", navErr)
+			if err := navOnce(svc.cancelCtx, wp); err != nil {
+				svc.logger.Infof("error navigating: %s", err)
 			}
 		}
 
