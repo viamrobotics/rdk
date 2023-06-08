@@ -247,12 +247,7 @@ func (svc *builtIn) startWaypoint(extra map[string]interface{}) error {
 		}
 
 		// loop until no waypoints remaining
-		for {
-			wp, err := svc.nextWaypoint(svc.cancelCtx)
-			if err != nil {
-				return
-			}
-
+		for wp, err := svc.nextWaypoint(svc.cancelCtx); err == nil; wp, err = svc.nextWaypoint(svc.cancelCtx){
 			if navErr := navOnce(svc.cancelCtx, wp); err != nil {
 				svc.logger.Infof("error navigating: %s", navErr)
 			}
