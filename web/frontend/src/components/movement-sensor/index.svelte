@@ -74,7 +74,7 @@ onMount(() => {
 
 onDestroy(() => {
   clearInterval?.();
-})
+});
 
 </script>
 

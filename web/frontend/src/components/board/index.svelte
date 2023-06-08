@@ -79,7 +79,7 @@ const handleGetPinInput = (event: CustomEvent) => {
 
 const handleSetPinInput = (event: CustomEvent) => {
   setPin = event.detail.value;
-}
+};
 
 const handlePwmInput = (event: CustomEvent) => {
   pwm = event.detail.value;
