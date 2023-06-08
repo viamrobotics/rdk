@@ -340,6 +340,10 @@ func (ms *builtIn) MoveOnGlobe(
 	// execute the plan
 	for _, step := range plan {
 		for _, inputs := range step {
+			if ctx.Err() != nil {
+				ms.logger.Infof("successfully canceled motion service MoveOnGlove")
+				return false, ctx.Err()
+			}
 			if len(inputs) == 0 {
 				continue
 			}
