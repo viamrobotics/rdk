@@ -87,7 +87,9 @@ func GetGPIOBoardMappings(modelName string, boardInfoMappings map[string]BoardIn
 	}
 	pwmChipsInfo, err := getPwmChipDefs(pinDefs)
 	if err != nil {
-		return nil, err
+		fmt.Printf("couldn't getPwmChipDefs: %v\n", err)
+		fmt.Println("ERROR: this needs to be logged properly. We were unable to get the PWM chip info. Will continue without it...")
+		pwmChipsInfo = map[string]pwmChipData{}
 	}
 
 	mapping, err := getBoardMapping(pinDefs, gpioChipsInfo, pwmChipsInfo)
@@ -299,8 +301,8 @@ func getBoardMapping(pinDefs []PinDefinition, gpioChipsInfo map[string]gpioChipD
 				// This pin isn't supposed to have hardware PWM support; all is well.
 				pwmChipInfo = dummyPwmInfo
 			} else {
-				return nil, fmt.Errorf("unknown PWM device %s for pin %d",
-					pinDef.GPIOChipSysFSDir, key)
+				fmt.Println("ERROR: log this properly. We're unable to find the PWM chip for this pin, but will continue without it.")
+				pwmChipInfo = dummyPwmInfo
 			}
 		}
 
