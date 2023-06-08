@@ -100,7 +100,7 @@ func (ms *builtIn) Reconfigure(
 		}
 	}
 	ms.components = components
-	ms.localizer = localizers
+	ms.localizers = localizers
 	return nil
 }
 
@@ -108,7 +108,7 @@ type builtIn struct {
 	resource.Named
 	resource.TriviallyCloseable
 	fsService  framesystem.Service
-	localizer  map[resource.Name]motion.Localizer
+	localizers map[resource.Name]motion.Localizer
 	components map[resource.Name]resource.Resource
 	logger     golog.Logger
 	lock       sync.Mutex
@@ -189,7 +189,7 @@ func (ms *builtIn) MoveOnMap(
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
 
 	// get the SLAM Service from the slamName
-	localizer, ok := ms.localizer[slamName]
+	localizer, ok := ms.localizers[slamName]
 	if !ok {
 		return false, resource.DependencyNotFoundError(slamName)
 	}
@@ -264,12 +264,16 @@ func (ms *builtIn) MoveOnGlobe(
 	fs := referenceframe.NewEmptyFrameSystem("")
 
 	// get the localizer from the componentName
-	localizer, ok := ms.localizer[movementSensorName]
+	localizer, ok := ms.localizers[movementSensorName]
 	if !ok {
 		return false, resource.DependencyNotFoundError(movementSensorName)
 	}
 
-	currentPIF, _ := localizer.CurrentPosition(ctx)
+	// get localizer current pose in frame
+	currentPIF, err := localizer.CurrentPosition(ctx)
+	if err != nil {
+		return false, err
+	}
 
 	// convert destination into spatialmath.Pose with respect to lat = 0 = lng
 	dstPose := spatialmath.GeoPointToPose(destination)
@@ -294,7 +298,6 @@ func (ms *builtIn) MoveOnGlobe(
 	}
 
 	// construct limits
-	// TODO: have limits become a function of current position, destination and worldstate
 	straightlineDistance := math.Abs(dstPose.Point().Distance(currentPIF.Pose().Point()))
 	limits := []referenceframe.Limit{
 		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
@@ -332,12 +335,6 @@ func (ms *builtIn) MoveOnGlobe(
 	plan, err := motionplan.PlanMotion(ctx, ms.logger, dstPIF, kb.ModelFrame(), inputMap, fs, wrldst, nil, extra)
 	if err != nil {
 		return false, err
-	}
-
-	// check for cancelled context after we are done planning
-	if ctx.Err() != nil {
-		ms.logger.Info("successfully canceled motion service MoveOnGlobe")
-		return true, ctx.Err()
 	}
 
 	// execute the plan
