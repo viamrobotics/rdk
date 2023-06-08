@@ -16,7 +16,7 @@ export let client: Client;
 const boardClient = new BoardClient(client, name, { requestLogger: rcLogConditionally });
 
 let getPin = '';
-const setPin = '';
+let setPin = '';
 let setLevel = '';
 let pwm = '';
 let pwmFrequency = '';
@@ -73,9 +73,13 @@ const setPWMFrequency = async () => {
   }
 };
 
-const handlePinInput = (event: CustomEvent) => {
+const handleGetPinInput = (event: CustomEvent) => {
   getPin = event.detail.value;
 };
+
+const handleSetPinInput = (event: CustomEvent) => {
+  setPin = event.detail.value;
+}
 
 const handlePwmInput = (event: CustomEvent) => {
   pwm = event.detail.value;
@@ -138,8 +142,8 @@ const handlePwmFrequencyInput = (event: CustomEvent) => {
             <v-input
               label="Pin"
               type="integer"
-              :value="getPin"
-              on:input={handlePinInput}
+              value={getPin}
+              on:input={handleGetPinInput}
             />
             <v-button
               label="Get Pin State"
@@ -167,10 +171,11 @@ const handlePwmFrequencyInput = (event: CustomEvent) => {
         <td class="p-2">
           <div class="flex flex-wrap items-end gap-2">
             <v-input
-              v-model="setPin"
+              value={setPin}
               type="integer"
               class="mr-2"
               label="Pin"
+              on:input={handleSetPinInput}
             />
             <select
               bind:value={setLevel}
