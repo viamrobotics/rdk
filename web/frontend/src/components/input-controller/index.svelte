@@ -1,33 +1,33 @@
 <script lang="ts">
-  import type { inputControllerApi } from "@viamrobotics/sdk";
+  import type { inputControllerApi } from '@viamrobotics/sdk';
 
   export let name: string;
   export let status: inputControllerApi.Status.AsObject;
 
   const controlOrder = [
-    "AbsoluteX",
-    "AbsoluteY",
-    "AbsoluteRX",
-    "AbsoluteRY",
-    "AbsoluteZ",
-    "AbsoluteRZ",
-    "AbsoluteHat0X",
-    "AbsoluteHat0Y",
-    "ButtonSouth",
-    "ButtonEast",
-    "ButtonWest",
-    "ButtonNorth",
-    "ButtonLT",
-    "ButtonRT",
-    "ButtonLThumb",
-    "ButtonRThumb",
-    "ButtonSelect",
-    "ButtonStart",
-    "ButtonMenu",
-    "ButtonEStop",
+    'AbsoluteX',
+    'AbsoluteY',
+    'AbsoluteRX',
+    'AbsoluteRY',
+    'AbsoluteZ',
+    'AbsoluteRZ',
+    'AbsoluteHat0X',
+    'AbsoluteHat0Y',
+    'ButtonSouth',
+    'ButtonEast',
+    'ButtonWest',
+    'ButtonNorth',
+    'ButtonLT',
+    'ButtonRT',
+    'ButtonLThumb',
+    'ButtonRThumb',
+    'ButtonSelect',
+    'ButtonStart',
+    'ButtonMenu',
+    'ButtonEStop',
   ];
 
-  $: connected = status.eventsList.some(({ event }) => event !== 'Disconnect')
+  $: connected = status.eventsList.some(({ event }) => event !== 'Disconnect');
 
   const getValue = (
     eventsList: inputControllerApi.Event.AsObject[],
@@ -35,13 +35,13 @@
   ) => {
     for (const { control, value } of eventsList) {
       if (control === controlMatch) {
-        return control.includes("Absolute")
+        return control.includes('Absolute')
           ? value.toFixed(4)
           : value.toFixed(0);
       }
     }
 
-    return "";
+    return '';
   };
 
   $: controls = ((eventsList: inputControllerApi.Event.AsObject[]) => {
@@ -49,9 +49,9 @@
 
     for (const ctrl of controlOrder) {
       const value = getValue(eventsList, ctrl);
-      if (value !== "") {
+      if (value !== '') {
         pendingControls.push([
-          ctrl.replace("Absolute", "").replace("Button", ""),
+          ctrl.replace('Absolute', '').replace('Button', ''),
           value,
         ]);
       }

@@ -1,14 +1,14 @@
 <script lang="ts">
-  import { grpc } from "@improbable-eng/grpc-web";
+  import { grpc } from '@improbable-eng/grpc-web';
   import {
     Client,
     sensorsApi,
     commonApi,
     type ServiceError,
-  } from "@viamrobotics/sdk";
-  import { toast } from "@/lib/toast";
-  import { resourceNameToString } from "@/lib/resource";
-  import { rcLogConditionally } from "@/lib/log";
+  } from '@viamrobotics/sdk';
+  import { toast } from '@/lib/toast';
+  import { resourceNameToString } from '@/lib/resource';
+  import { rcLogConditionally } from '@/lib/log';
 
   interface SensorName {
     name: string;
@@ -27,19 +27,19 @@
     lng: number;
   }
 
-  let sensorReadings: Record<string, Record<string, Reading>> = {};
+  const sensorReadings: Record<string, Record<string, Reading>> = {};
 
   const getReadings = (inputNames: SensorName[]) => {
     const req = new sensorsApi.GetReadingsRequest();
-    const names = inputNames.map(({ name, namespace, type, subtype }) => {
+    const names = inputNames.map(({ name: inputName, namespace, type, subtype }) => {
       const resourceName = new commonApi.ResourceName();
       resourceName.setNamespace(namespace);
       resourceName.setType(type);
       resourceName.setSubtype(subtype);
-      resourceName.setName(name);
+      resourceName.setName(inputName);
       return resourceName;
     });
-    req.setName(name);
+    req.setName(inputName);
     req.setSensorNamesList(names);
 
     rcLogConditionally(req);
@@ -69,8 +69,8 @@
     );
   };
 
-  const getData = (sensorReadings: Record<string, Record<string, Reading>>, sensorName: SensorName) => {
-    const data = sensorReadings[resourceNameToString(sensorName)];
+  const getData = (readings: Record<string, Record<string, Reading>>, sensorName: SensorName) => {
+    const data = readings[resourceNameToString(sensorName)];
     return data ? Object.entries(data) : [];
   };
 </script>
@@ -107,7 +107,8 @@
                   <th>{sensorField}</th>
                   <td>
                     {JSON.stringify(sensorValue)}
-                    {#if sensorValue._type == 'geopoint'}
+                    <!-- eslint-disable-next-line no-underscore-dangle -->
+                    {#if sensorValue._type === 'geopoint'}
                     <a
                       href={`https://www.google.com/maps/search/${sensorValue.lat},${sensorValue.lng}`}
                       >google maps</a
