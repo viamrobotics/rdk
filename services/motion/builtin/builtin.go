@@ -347,8 +347,6 @@ func (ms *builtIn) MoveOnGlobe(
 				continue
 			}
 			if err := kb.GoToInputs(ctx, inputs); err != nil {
-				// if context is cancelled we only stop the base
-				kb.Stop(ctx, nil)
 				return false, err
 			}
 		}
