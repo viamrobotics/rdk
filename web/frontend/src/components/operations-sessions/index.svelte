@@ -20,7 +20,6 @@ const killOperation = (id: string) => {
   client.robotService.cancelOperation(req, new grpc.Metadata(), displayError);
 };
 
-
 const peerConnectionType = (info?: robotApi.PeerConnectionInfo.AsObject) => {
   if (!info) {
     return 'N/A';

@@ -10,12 +10,12 @@ import DestMarker from '@/lib/images/destination-marker.txt?raw';
 import BaseMarker from '@/lib/images/base-marker.txt?raw';
 import Legend from './2d-legend.svelte';
 
-export let pointcloud: Uint8Array | undefined
-export let pose: commonApi.Pose | undefined
-export let destination: THREE.Vector2 | undefined
-export let axesVisible: boolean
+export let pointcloud: Uint8Array | undefined;
+export let pose: commonApi.Pose | undefined;
+export let destination: THREE.Vector2 | undefined;
+export let axesVisible: boolean;
 
-const dispatch = createEventDispatcher()
+const dispatch = createEventDispatcher();
 
 let points: THREE.Points | undefined;
 let pointsMaterial: THREE.PointsMaterial | undefined;
@@ -70,7 +70,7 @@ const colorMapGrey = [
 
 const loader = new PCDLoader();
 
-let container: HTMLElement
+let container: HTMLElement;
 
 const { scene, renderer, canvas, start, stop, setCamera, update } = threeInstance({
   parameters: {
@@ -190,11 +190,11 @@ const axesPos = createAxisHelper('AxesPos', Math.PI / 2, Math.PI / 2);
 const axesNeg = createAxisHelper('AxesNeg', -Math.PI / 2, Math.PI / 2);
 axesNeg.rotateX(Math.PI);
 
-const updatePointCloud = (pointcloud: Uint8Array) => {
+const updatePointCloud = (cloud: Uint8Array) => {
   dispose(points);
   dispose(intersectionPlane);
 
-  points = loader.parse(pointcloud.buffer);
+  points = loader.parse(cloud.buffer);
   pointsMaterial = points.material as THREE.PointsMaterial;
   pointsMaterial.sizeAttenuation = false;
   pointsMaterial.size = initialPointSize;

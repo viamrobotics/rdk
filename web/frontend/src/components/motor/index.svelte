@@ -48,20 +48,20 @@ const setMovementType = (event: CustomEvent) => {
 };
 
 const setPosition = (event: CustomEvent) => {
-  position = event.detail.value
-}
+  position = event.detail.value;
+};
 
 const setRpm = (event: CustomEvent) => {
-  rpm = event.detail.value
-}
+  rpm = event.detail.value;
+};
 
 const setRevolutions = (event: CustomEvent) => {
-  revolutions = event.detail.value
-}
+  revolutions = event.detail.value;
+};
 
 const setPowerSlider = (event: CustomEvent) => {
-  power = event.detail.value
-}
+  power = event.detail.value;
+};
 
 const setDirection = (event: CustomEvent) => {
   switch (event.detail.value) {
@@ -128,7 +128,7 @@ const motorStop = async () => {
 
 const handleToggle = async (event: CustomEvent<{ open: boolean }>) => {
   if (event.detail.open === false) {
-    return
+    return;
   }
 
   try {
@@ -136,7 +136,7 @@ const handleToggle = async (event: CustomEvent<{ open: boolean }>) => {
   } catch (error) {
     displayError(error as ServiceError);
   }
-}
+};
 
 </script>
 

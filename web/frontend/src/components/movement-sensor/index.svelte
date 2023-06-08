@@ -5,12 +5,20 @@ import { Client, movementSensorApi as movementsensorApi, type ServiceError } fro
 import type { ResponseStream, commonApi, robotApi } from '@viamrobotics/sdk';
 import { displayError } from '@/lib/error';
 import Collapse from '../collapse.svelte';
-import { getProperties, getOrientation, getAngularVelocity, getLinearAcceleration, getLinearVelocity, getCompassHeading, getPosition } from '@/api/movement-sensor';
 import { setAsyncInterval } from '@/lib/schedule';
+import {
+  getProperties,
+  getOrientation,
+  getAngularVelocity,
+  getLinearAcceleration,
+  getLinearVelocity,
+  getCompassHeading,
+  getPosition,
+} from '@/api/movement-sensor';
 
-export let name: string
-export let client: Client
-export let statusStream: ResponseStream<robotApi.StreamStatusResponse> | null
+export let name: string;
+export let client: Client;
+export let statusStream: ResponseStream<robotApi.StreamStatusResponse> | null;
 
 let orientation: commonApi.Orientation.AsObject | undefined;
 let angularVelocity: commonApi.Vector3.AsObject | undefined;
@@ -24,10 +32,10 @@ let properties: movementsensorApi.GetPropertiesResponse.AsObject | undefined;
 let clearInterval: (() => void) | undefined;
 
 const refresh = async () => {
-  properties = await getProperties(client, name)
+  properties = await getProperties(client, name);
 
   if (!properties) {
-    return
+    return;
   }
 
   try {
@@ -37,18 +45,18 @@ const refresh = async () => {
       properties.linearAccelerationSupported ? getLinearAcceleration(client, name) : undefined,
       properties.linearVelocitySupported ? getLinearVelocity(client, name) : undefined,
       properties.compassHeadingSupported ? getCompassHeading(client, name) : undefined,
-      properties.positionSupported ? getPosition(client, name): undefined,
-    ] as const)
+      properties.positionSupported ? getPosition(client, name) : undefined,
+    ] as const);
 
-    orientation = results[0]
-    angularVelocity = results[1]
-    linearAcceleration = results[2]
-    linearVelocity = results[3]
-    compassHeading = results[4]
-    coordinate = results[5]?.coordinate
-    altitudeM = results[5]?.altitudeM
+    orientation = results[0];
+    angularVelocity = results[1];
+    linearAcceleration = results[2];
+    linearVelocity = results[3];
+    compassHeading = results[4];
+    coordinate = results[5]?.coordinate;
+    altitudeM = results[5]?.altitudeM;
   } catch (error) {
-    displayError(error as ServiceError)
+    displayError(error as ServiceError);
   }
 };
 
@@ -58,11 +66,11 @@ const handleToggle = (event: CustomEvent<{ open: boolean }>) => {
   } else {
     clearInterval?.();
   }
-}
+};
 
 onMount(() => {
   statusStream?.on('end', () => clearInterval?.());
-})
+});
 
 </script>
 
