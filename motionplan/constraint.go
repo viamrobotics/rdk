@@ -3,7 +3,6 @@ package motionplan
 import (
 	"errors"
 	"math"
-	"fmt"
 
 	"github.com/golang/geo/r3"
 	pb "go.viam.com/api/service/motion/v1"
@@ -242,9 +241,8 @@ func createAllCollisionConstraints(
 	inputs map[string][]referenceframe.Input,
 	pbConstraint []*pb.CollisionSpecification,
 ) (map[string]StateConstraint, error) {
-	
 	constraintMap := map[string]StateConstraint{}
-	
+
 	// extract inputs corresponding to the frame
 	frameInputs, err := frame.mapToSlice(inputs)
 	if err != nil {
@@ -276,13 +274,12 @@ func createAllCollisionConstraints(
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("ws obs", obstacles)
 
 	allowedCollisions, err := collisionSpecificationsFromProto(pbConstraint, frameSystemGeometries, worldState)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if len(obstacles.Geometries()) > 0 {
 		// create constraint to keep moving geometries from hitting world state obstacles
 		// can use zeroth element of worldState.Obstacles because ToWorldFrame returns only one GeometriesInFrame
@@ -335,7 +332,6 @@ func newCollisionConstraint(
 	for _, specification := range collisionSpecifications {
 		zeroCG.addCollisionSpecification(specification)
 	}
-	fmt.Println("collisions", zeroCG.collisions())
 
 	// create constraint from reference collision graph
 	constraint := func(state *State) bool {
@@ -357,7 +353,6 @@ func newCollisionConstraint(
 				movedGeoms := internal.Geometries()
 				for _, geom := range movedGeoms {
 					internalGeoms = append(internalGeoms, geom.Transform(state.Position))
-					//~ fmt.Println("tforming to", geom.Transform(state.Position).Pose().Point())
 				}
 			} else {
 				return false
@@ -365,9 +360,6 @@ func newCollisionConstraint(
 		}
 
 		cg, err := newCollisionGraph(internalGeoms, static, zeroCG, reportDistances)
-		//~ fmt.Println("static", static, "at", static[0].Pose().Point())
-		//~ fmt.Println("internalGeoms", internalGeoms)
-		//~ fmt.Println("collisions", cg.collisions())
 		if err != nil {
 			return false
 		}

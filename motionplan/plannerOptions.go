@@ -1,7 +1,6 @@
 package motionplan
 
 import (
-	//~ "math"
 	"runtime"
 
 	pb "go.viam.com/api/service/motion/v1"
@@ -40,8 +39,8 @@ const (
 	// default number of times to try to smooth the path.
 	defaultSmoothIter = 20
 
-	// default amount of closeness to get to the goal
-	defaultGoalThreshold = defaultEpsilon*defaultEpsilon*defaultEpsilon*defaultEpsilon
+	// default amount of closeness to get to the goal.
+	defaultGoalThreshold = defaultEpsilon * defaultEpsilon * defaultEpsilon * defaultEpsilon
 
 	// descriptions of constraints.
 	defaultLinearConstraintDesc         = "Constraint to follow linear path"
@@ -126,7 +125,7 @@ type plannerOptions struct {
 
 	// Number of cpu cores to use
 	NumThreads int `json:"num_threads"`
-	
+
 	// How close to get to the goal
 	GoalThreshold float64 `json:"goal_threshold"`
 

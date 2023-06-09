@@ -7,19 +7,17 @@ import (
 	"sync"
 
 	"go.viam.com/utils"
-
-	//~ "go.viam.com/rdk/referenceframe"
 )
 
 const defaultNeighborsBeforeParallelization = 1000
 
 type neighborManager struct {
-	nnKeys    chan node
-	neighbors chan *neighbor
-	nnLock    sync.RWMutex
-	seedPos   node
-	ready     bool
-	nCPU      int
+	nnKeys            chan node
+	neighbors         chan *neighbor
+	nnLock            sync.RWMutex
+	seedPos           node
+	ready             bool
+	nCPU              int
 	parallelNeighbors int
 }
 
@@ -64,7 +62,7 @@ func (nm *neighborManager) nearestNeighbor(
 	if nm.parallelNeighbors == 0 {
 		nm.parallelNeighbors = defaultNeighborsBeforeParallelization
 	}
-	
+
 	if len(rrtMap) > nm.parallelNeighbors && nm.nCPU > 1 {
 		// If the map is large, calculate distances in parallel
 		returnChan <- nm.parallelNearestNeighbor(ctx, planOpts, seed, rrtMap)

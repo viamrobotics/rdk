@@ -1,20 +1,16 @@
 package tpspace
 
-import(
+import (
 	"math"
-	
+
 	rutils "go.viam.com/rdk/utils"
 )
 
 // This does something with circles
-// Other ptgs will be based on this ptg somehow
+// Other ptgs will be based on this ptg somehow.
 type ptgDiffDriveC struct {
-	resolution float64 // mm
-	refDist float64
-	numPaths uint
 	maxMps float64
 	maxDps float64
-	turnRad float64 // mm
 	k      float64 // k = +1 for forwards, -1 for backwards
 }
 
@@ -22,7 +18,7 @@ func NewCirclePTG(maxMps, maxDps, k float64) PrecomputePTG {
 	return &ptgDiffDriveC{
 		maxMps: maxMps,
 		maxDps: maxDps,
-		k: k,
+		k:      k,
 	}
 }
 
