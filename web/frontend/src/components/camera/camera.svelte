@@ -107,9 +107,9 @@ $: updateCameraRefreshRate();
   {#if showExportScreenshot}
     <v-button
       class="mb-4"
-      aria-label={`View Camera: ${cameraName}`}
+      aria-label={`View camera: ${cameraName}`}
       icon="camera"
-      label="Export Screenshot"
+      label="Export screenshot"
       on:click={exportScreenshot}
     />
   {/if}

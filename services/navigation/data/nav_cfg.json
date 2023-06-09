@@ -13,13 +13,9 @@
     "services":
     [{
         "name":"test_navigation",
-        "api":"rdk:service:navigation",
-        "model":"rdk:builtin:builtin",
+        "type": "navigation",
         "attributes":{
             "base":"test_base",
-            "degs_per_sec":1,
-            "meters_per_sec":1,
-            "motion_service":"builtin",
             "movement_sensor":"test_movement",
             "obstacles":
             [{

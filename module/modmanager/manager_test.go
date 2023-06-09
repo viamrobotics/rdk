@@ -186,6 +186,13 @@ func TestModManagerFunctions(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, orphanedResourceNames, test.ShouldResemble, []resource.Name{rNameCounter1})
 
+	// module will only really go away after resources within it are removed/closed
+	ok = mgr.IsModularResource(rNameCounter1)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	err = mgr.RemoveResource(ctx, rNameCounter1)
+	test.That(t, err, test.ShouldBeNil)
+
 	ok = mgr.IsModularResource(rNameCounter1)
 	test.That(t, ok, test.ShouldBeFalse)
 	_, err = counter.DoCommand(ctx, map[string]interface{}{"command": "get"})
