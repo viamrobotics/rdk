@@ -29,7 +29,7 @@ import {
 
 import ArmSvelte from './arm/index.svelte';
 import AudioInputSvelte from './audio-input/index.svelte';
-import Base from './base.vue';
+import BaseSvelte from './base/index.svelte';
 import Board from './board.vue';
 import CamerasListSvelte from './camera/index.svelte';
 import OperationsSessionsSvelte from './operations-sessions/index.svelte';
@@ -49,6 +49,7 @@ import { svelteAdapter } from '../lib/svelte-adapter';
 
 const Arm = svelteAdapter(ArmSvelte);
 const AudioInput = svelteAdapter(AudioInputSvelte);
+const Base = svelteAdapter(BaseSvelte);
 const CamerasList = svelteAdapter(CamerasListSvelte, { display: 'flex', 'flex-direction': 'column', gap: '1rem' });
 const InputController = svelteAdapter(InputControllerSvelte);
 const Motor = svelteAdapter(MotorSvelte);
@@ -792,8 +793,8 @@ onUnmounted(() => {
         :name="base.name"
         :client="client"
         :resources="resources"
-        :stream-manager="streamManager"
-        :status-stream="statusStream"
+        :streamManager="streamManager"
+        :statusStream="statusStream"
       />
 
       <!-- ******* ENCODER *******  -->

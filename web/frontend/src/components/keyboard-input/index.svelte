@@ -10,16 +10,11 @@
     mdiArrowDown as s,
   } from "@mdi/js";
   import Icon from "../icon/index.svelte";
-  import { createEventDispatcher } from "svelte";
 
   export let isActive: boolean;
-
-  const dispatch = createEventDispatcher<{
-    keydown: {key: Keys},
-    keyup: {key: Keys},
-    toggle: {active: boolean},
-    'update-keyboard-state': {value: boolean},
-  }>();
+  export let onKeyDown: (key: Keys) => void;
+  export let onKeyUp: (key: Keys) => void;
+  export let onUpdateKeyboardState: (isActive: boolean) => void;
 
   const keyIcons = { w, a, s, d };
 
@@ -51,12 +46,12 @@
 
   const dispatchKeyDown = (key: Keys) => {
     pressedKeys[key] = true;
-    dispatch("keydown", {key});
+    onKeyDown(key);
   };
 
   const dispatchKeyUp = (key: Keys) => {
     pressedKeys[key] = false;
-    dispatch("keyup", {key});
+    onKeyUp(key);
   };
 
   const handleKeyDown = (event: KeyboardEvent) => {
@@ -91,8 +86,7 @@
       window.removeEventListener("keyup", handleKeyUp);
     }
 
-    dispatch("update-keyboard-state", {value: nowActive});
-    dispatch("toggle", {value: nowActive});
+    onUpdateKeyboardState(nowActive);
   };
 
   const handlePointerDown = (key: Keys) => {
@@ -117,7 +111,9 @@
     label={isActive ? "Keyboard Enabled" : "Keyboard Disabled"}
     class="w-fit pr-4"
     value={isActive ? "on" : "off"}
-    on:input={toggleKeyboard}
+    on:input={() => {
+      toggleKeyboard(!isActive);
+    }}
   />
   <div class="flex justify-center gap-2">
     {#each keysLayout as lineKeys, index (index)}
@@ -128,9 +124,15 @@
             class:bg-gray-200={pressedKeys[key]}
             class:text-gray-800={pressedKeys[key]}
             class:bg-white={!pressedKeys[key]}
-            on:pointerdown={() => handlePointerDown(key)}
-            on:pointerup={() => handlePointerUp(key)}
-            on:pointerleave={() => handlePointerUp(key)}
+            on:pointerdown={() => {
+              handlePointerDown(key);
+            }}
+            on:pointerup={() => {
+              handlePointerUp(key);
+            }}
+            on:pointerleave={() => {
+              handlePointerUp(key);
+            }}
           >
             {key}
             <Icon path={keyIcons[key]} />
