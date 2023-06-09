@@ -238,7 +238,7 @@ const armCopyJoints = () => {
       on:click|stopPropagation={stop}
     />
   </div>
-  <div class="border border-t-0 border-medium p-4">
+  <div class="border border-t-0 border-medium p-4 text-sm">
     <div class="mb-4 flex flex-wrap gap-4">
       {#if toggle[name]}
         <div class="border border-medium p-4">
@@ -302,7 +302,7 @@ const armCopyJoints = () => {
     <div class="flex flex-wrap gap-4">
       {#if status}
         <div class="border border-medium p-4">
-          <h3 class="mb-2">
+          <h3 class="mb-2 font-bold">
             End position (mms)
           </h3>
           <div class="inline-grid grid-cols-6 gap-1 pb-1">
@@ -342,15 +342,15 @@ const armCopyJoints = () => {
             <div class="flex-auto text-right">
               <v-button
                 class="whitespace-nowrap"
-                label="Modify All"
+                label="Modify all"
                 on:click={armModifyAll}
               />
             </div>
           </div>
         </div>
         <div class="border border-medium p-4">
-          <h3 class="mb-2">
-            JOINTS (degrees)
+          <h3 class="mb-2 font-bold">
+            Joints (degrees)
           </h3>
           <div class="inline-grid grid-cols-6 gap-1 pb-1">
             {#each status.joint_pieces as piece (piece.joint)}
@@ -391,7 +391,7 @@ const armCopyJoints = () => {
             <div class="flex-auto text-right">
               <v-button
                 class="whitespace-nowrap"
-                label="Modify All"
+                label="Modify all"
                 on:click={armModifyAll}
               />
             </div>

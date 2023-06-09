@@ -246,7 +246,7 @@ onDestroy(() => {
                 on:change={updateSLAM2dRefreshFrequency}
               >
                 <option value="manual">
-                  Manual Refresh
+                  Manual refresh
                 </option>
                 <option value="30">
                   Every 30 seconds
@@ -405,7 +405,7 @@ onDestroy(() => {
 
   <div class="border border-medium border-t-transparent p-4">
     <v-switch
-      label="View SLAM Map (3D)"
+      label="View SLAM map (3D)"
       value={show3d ? 'on' : 'off'}
       on:input={toggle3dExpand}
     />
@@ -432,7 +432,7 @@ onDestroy(() => {
               on:change={updateSLAM3dRefreshFrequency}
             >
               <option value="manual">
-                Manual Refresh
+                Manual refresh
               </option>
               <option value="30">
                 Every 30 seconds

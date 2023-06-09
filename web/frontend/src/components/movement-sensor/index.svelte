@@ -164,7 +164,7 @@ onDestroy(() => {
     {#if properties?.angularVelocitySupported}
       <div class="overflow-auto">
         <h3 class="mb-1">
-          Angular Velocity (degrees/second)
+          Angular velocity (degrees/second)
         </h3>
         <table class="w-full border border-t-0 border-medium p-4">
           <tr>
@@ -198,7 +198,7 @@ onDestroy(() => {
     {#if properties?.linearVelocitySupported}
       <div class="overflow-auto">
         <h3 class="mb-1">
-          Linear Velocity (m/s)
+          Linear velocity (m/s)
         </h3>
         <table class="w-full border border-t-0 border-medium p-4">
           <tr>
@@ -232,7 +232,7 @@ onDestroy(() => {
     {#if properties?.linearAccelerationSupported}
       <div class="overflow-auto">
         <h3 class="mb-1">
-          Linear Acceleration (m/second^2)
+          Linear acceleration (m/second^2)
         </h3>
         <table class="w-full border border-t-0 border-medium p-4">
           <tr>
@@ -266,7 +266,7 @@ onDestroy(() => {
     {#if properties?.compassHeadingSupported}
       <div class="overflow-auto">
         <h3 class="mb-1">
-          Compass Heading
+          Compass heading
         </h3>
         <table class="w-full border border-t-0 border-medium p-4">
           <tr>

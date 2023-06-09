@@ -77,7 +77,7 @@
 </script>
 
 <Collapse title="Sensors">
-  <div class="overflow-auto border border-t-0 border-medium p-4">
+  <div class="overflow-auto border border-t-0 border-medium p-4 text-sm">
     <table class="w-full table-auto border border-medium">
       <tr>
         <th class="border border-medium p-2"> Name </th>
