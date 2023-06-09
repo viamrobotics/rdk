@@ -146,13 +146,13 @@ func TestStartWaypoint(t *testing.T) {
 	err = ns.AddWaypoint(ctx, pt, nil)
 	test.That(t, err, test.ShouldBeNil)
 
-	err = ns.SetMode(ctx, 1, nil)
-
+	err = ns.SetMode(ctx, navigation.ModeExperimental, nil)
 	test.That(t, err, test.ShouldBeNil)
-
 	ns.(*builtIn).activeBackgroundWorkers.Wait()
 
 	inputs, err := kinematicBase.CurrentInputs(ctx)
-	actualpt := geo.NewPoint(inputs[0].Value, inputs[1].Value)
-	test.That(t, actualpt, test.ShouldResemble, pt)
+	test.That(t, err, test.ShouldBeNil)
+	actualPt := geo.NewPoint(inputs[0].Value, inputs[1].Value)
+	test.That(t, actualPt.Lat(), test.ShouldEqual, pt.Lat())
+	test.That(t, actualPt.Lng(), test.ShouldEqual, pt.Lng())
 }
