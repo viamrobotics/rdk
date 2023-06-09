@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -146,8 +145,6 @@ func (s *serialCorrectionSource) Start(ready chan<- bool) {
 			}
 
 			msg, err := scanner.NextMessage()
-			log.Println("RTCM message")
-			log.Println(msg)
 
 			if err != nil {
 				s.logger.Errorf("Error reading RTCM message: %s", err)

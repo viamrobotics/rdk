@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -156,7 +155,6 @@ func newRTKStation(
 			return nil, err
 		}
 	case i2cStr:
-		log.Println("new i2c correction source")
 		r.correctionSource, err = newI2CCorrectionSource(deps, newConf, logger)
 		if err != nil {
 			return nil, err
@@ -167,7 +165,6 @@ func newRTKStation(
 	}
 
 	r.movementsensorNames = newConf.Children
-	log.Println(r.movementsensorNames)
 
 	err = ConfigureBaseRTKStation(conf)
 	if err != nil {
@@ -213,7 +210,6 @@ func newRTKStation(
 			}
 
 		case i2cStr:
-			log.Println("here i2c rtk input protocol")
 			bus := rtkgps.bus
 			addr := rtkgps.addr
 			busAddr := i2cBusAddr{bus: bus, addr: addr}
@@ -281,7 +277,6 @@ func (r *rtkStation) Start(ctx context.Context) {
 			// write buf to all i2c handles
 			for _, busAddr := range r.i2cPaths {
 				// open handle
-				log.Println("open handle")
 				handle, err := busAddr.bus.OpenHandle(busAddr.addr)
 				if err != nil {
 					r.logger.Errorf("can't open movementsensor i2c handle: %s", err)

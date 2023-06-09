@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -94,7 +93,6 @@ func (s *i2cCorrectionSource) Start(ready chan<- bool) {
 			return
 		}
 
-		log.Println("here")
 		// open I2C handle every time
 		handle, err := s.bus.OpenHandle(s.addr)
 		// Record the error value no matter what. If it's nil, this will prevent us from reporting
