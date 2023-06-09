@@ -2,7 +2,6 @@ package wheeled
 
 import (
 	"context"
-	"math"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -120,7 +119,7 @@ func TestErrorState(t *testing.T) {
 	wb := newWheeledBase(ctx, t, logger).wheeledBase
 	sphere, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 1, "")
 	test.That(t, err, test.ShouldBeNil)
-	model, err := referenceframe.New2DMobileModelFrame(wb.name, []referenceframe.Limit{{-10, 10}, {-10, 10}, {-math.Pi, math.Pi}}, sphere)
+	model, err := referenceframe.New2DMobileModelFrame(wb.name, []referenceframe.Limit{{-10, 10}, {-10, 10}}, sphere)
 	test.That(t, err, test.ShouldBeNil)
 	fs := referenceframe.NewEmptyFrameSystem("")
 	test.That(t, fs.AddFrame(model, fs.World()), test.ShouldBeNil)
