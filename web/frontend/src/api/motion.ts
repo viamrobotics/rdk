@@ -16,8 +16,8 @@ export const moveOnMap = async (client: Client, name: string, componentName: str
   const lastPose = await getSLAMPosition(client, name);
 
   const destination = new commonApi.Pose();
-  destination.setX(x);
-  destination.setY(y);
+  destination.setX(x * 1000);
+  destination.setY(y * 1000);
   destination.setZ(0);
   destination.setOX(lastPose!.getOX());
   destination.setOY(lastPose!.getOY());
