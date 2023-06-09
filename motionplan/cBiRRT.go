@@ -4,7 +4,6 @@ package motionplan
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"math"
 	"math/rand"
@@ -66,14 +65,14 @@ func newCbirrtOptions(planOpts *plannerOptions, frame referenceframe.Frame) (*cb
 		rrtOptions:      newRRTOptions(),
 	}
 	// convert map to json
-	jsonString, err := json.Marshal(planOpts.extra)
-	if err != nil {
-		return nil, err
-	}
-	err = json.Unmarshal(jsonString, algOpts)
-	if err != nil {
-		return nil, err
-	}
+	// jsonString, err := json.Marshal(planOpts.extra)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// err = json.Unmarshal(jsonString, algOpts)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
 	algOpts.qstep = getFrameSteps(frame, algOpts.FrameStep)
 
