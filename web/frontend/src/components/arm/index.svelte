@@ -114,7 +114,11 @@ const armModifyAllDoJoint = async () => {
   delete toggle[name];
 };
 
-const armEndPositionInc = async (updateField: string, amount: number) => {
+const armEndPositionInc = async (updateField: string | undefined, amount: number) => {
+  if (updateField === undefined) {
+    return;
+  }
+
   const adjustedAmount = updateField[0] === 'o' || updateField[0] === 'O' ? amount / 100 : amount;
   const arm = rawStatus!;
   const old = arm.end_position;
@@ -243,7 +247,7 @@ const armCopyJoints = () => {
           </h3>
 
           <div class="inline-grid grid-cols-2 gap-1 pb-1">
-            {#each toggle[name].pos_pieces as piece (piece.endPosition[0])}
+            {#each (toggle[name]?.pos_pieces ?? []) as piece (piece.endPosition[0])}
               <label class="py-1 pr-2 text-right">{piece.endPosition[1]}</label>
               <input
                 bind:value={piece.endPositionValue}
@@ -271,7 +275,7 @@ const armCopyJoints = () => {
             Joints (degrees)
           </h3>
           <div class="grid grid-cols-2 gap-1 pb-1">
-            {#each toggle[name].joint_pieces as piece (piece.joint)}
+            {#each (toggle[name]?.joint_pieces ?? []) as piece (piece.joint)}
               <label class="py-1 pr-2 text-right">Joint {piece.joint}</label>
               <input
                 bind:value={piece.jointValue}

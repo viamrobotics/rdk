@@ -68,7 +68,6 @@ const handleRefreshInput = (name: string) => {
 
           {#if refreshFrequency[camera.name] !== 'Live'}
             <v-button
-              v-if=""
               icon="refresh"
               label="Refresh"
               on:click={() => {
