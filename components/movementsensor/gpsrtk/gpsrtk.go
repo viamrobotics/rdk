@@ -180,7 +180,7 @@ func newRTKMovementSensor(
 		lastposition: movementsensor.NewLastPosition(),
 	}
 
-	g.inputProtocol = newConf.NtripInputProtocol
+	g.inputProtocol = newConf.CorrectionSource
 
 	nmeaConf := &gpsnmea.Config{
 		ConnectionType: newConf.ConnectionType,
@@ -225,16 +225,13 @@ func newRTKMovementSensor(
 		g.logger.Info("ntrip_baud using default baud rate 38400")
 	}
 
-	if g.writepath == "" {
+	if g.writepath != "" {
 		g.logger.Info("ntrip_path will use same path for writing RCTM messages to gps")
 		g.writepath = newConf.NtripPath
 	}
 
 	// I2C address only, assumes address is correct since this was checked when gps was initialized
-	if newConf.CorrectionSource == i2cStr {
-		// I2C address only, assumes address is correct since this was checked when gps was initialized
-		g.addr = byte(newConf.I2cAddr)
-	}
+	g.addr = byte(newConf.I2cAddr)
 
 	if err := g.start(); err != nil {
 		return nil, err
