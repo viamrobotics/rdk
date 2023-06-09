@@ -146,7 +146,7 @@ func TestStartWaypoint(t *testing.T) {
 	err = ns.AddWaypoint(ctx, pt, nil)
 	test.That(t, err, test.ShouldBeNil)
 
-	err = ns.SetMode(ctx, navigation.ModeWaypoint, map[string]interface{}{"expeimental": true})
+	err = ns.SetMode(ctx, navigation.ModeWaypoint, map[string]interface{}{"experimental": true})
 	test.That(t, err, test.ShouldBeNil)
 	ns.(*builtIn).activeBackgroundWorkers.Wait()
 
