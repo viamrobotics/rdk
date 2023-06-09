@@ -8,7 +8,7 @@
 import { onMount, createEventDispatcher, tick } from 'svelte';
 
 export let title = '';
-export let open = localStorage.getItem(`rc.collapse.${title}.open`) ? true : false;
+export let open = Boolean(localStorage.getItem(`rc.collapse.${title}.open`));
 
 const dispatch = createEventDispatcher();
 
@@ -20,9 +20,9 @@ const handleClick = async (event: Event) => {
   open = !open;
 
   if (open) {
-    localStorage.setItem(`rc.collapse.${title}.open`, 'true')
+    localStorage.setItem(`rc.collapse.${title}.open`, 'true');
   } else {
-    localStorage.removeItem(`rc.collapse.${title}.open`)
+    localStorage.removeItem(`rc.collapse.${title}.open`);
   }
 
   await tick();
@@ -34,7 +34,7 @@ onMount(() => {
   if (open) {
     dispatch('toggle', { open: true });
   }
-})
+});
 
 </script>
 
