@@ -9,12 +9,15 @@ import (
 	"time"
 
 	clk "github.com/benbjohnson/clock"
+	"github.com/golang/geo/r3"
 
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/datamanager/datacapture"
+	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/test"
 )
 
@@ -27,50 +30,11 @@ var (
 	infrequentCaptureTabularCollectorConfigPath = "services/datamanager/data/fake_robot_with_infrequent_capture.json"
 	remoteCollectorConfigPath                   = "services/datamanager/data/fake_robot_with_remote_and_data_manager.json"
 	emptyFileBytesSize                          = 100 // size of leading metadata message
+	captureInterval                             = time.Millisecond * 10
+	uniqueDataValues                            = 1
 )
 
 func TestDataCaptureEnabled(t *testing.T) {
-	// passTime repeatedly increments mc by interval until the context is canceled.
-	passTime := func(ctx context.Context, mc *clk.Mock, interval time.Duration) chan struct{} {
-		done := make(chan struct{})
-		go func() {
-			for {
-				select {
-				case <-ctx.Done():
-					close(done)
-					return
-				default:
-					mc.Add(interval)
-				}
-			}
-		}()
-		return done
-	}
-
-	captureInterval := time.Millisecond * 10
-	testFilesContainSensorData := func(t *testing.T, dir string) {
-		t.Helper()
-		var sd []*v1.SensorData
-		filePaths := getAllFilePaths(dir)
-		for _, path := range filePaths {
-			d, err := datacapture.SensorDataFromFilePath(path)
-			// It's possible a file was closed (and so its extension changed) in between the points where we gathered
-			// file names and here. So if the file does not exist, check if the extension has just been changed.
-			if errors.Is(err, os.ErrNotExist) {
-				path = strings.TrimSuffix(path, filepath.Ext(path)) + datacapture.FileExt
-				d, err = datacapture.SensorDataFromFilePath(path)
-			}
-			test.That(t, err, test.ShouldBeNil)
-			sd = append(sd, d...)
-		}
-
-		test.That(t, len(sd), test.ShouldBeGreaterThan, 0)
-		for _, d := range sd {
-			test.That(t, d.GetStruct(), test.ShouldNotBeNil)
-			test.That(t, d.GetMetadata(), test.ShouldNotBeNil)
-		}
-	}
-
 	tests := []struct {
 		name                          string
 		initialServiceDisableStatus   bool
@@ -185,8 +149,8 @@ func TestDataCaptureEnabled(t *testing.T) {
 			donePassingTime1 := passTime(passTimeCtx1, mockClock, captureInterval)
 
 			if !tc.initialServiceDisableStatus && !tc.initialCollectorDisableStatus {
-				waitForCaptureFiles(initCaptureDir)
-				testFilesContainSensorData(t, initCaptureDir)
+				waitForCaptureFilesToExceedN(initCaptureDir, 0)
+				testFilesContainSensorData(t, initCaptureDir, uniqueDataValues)
 			} else {
 				initialCaptureFiles := getAllFileInfos(initCaptureDir)
 				test.That(t, len(initialCaptureFiles), test.ShouldEqual, 0)
@@ -218,8 +182,8 @@ func TestDataCaptureEnabled(t *testing.T) {
 			donePassingTime2 := passTime(passTimeCtx2, mockClock, captureInterval)
 
 			if !tc.newServiceDisableStatus && !tc.newCollectorDisableStatus {
-				waitForCaptureFiles(updatedCaptureDir)
-				testFilesContainSensorData(t, updatedCaptureDir)
+				waitForCaptureFilesToExceedN(updatedCaptureDir, 0)
+				testFilesContainSensorData(t, updatedCaptureDir, uniqueDataValues)
 			} else {
 				updatedCaptureFiles := getAllFileInfos(updatedCaptureDir)
 				test.That(t, len(updatedCaptureFiles), test.ShouldEqual, 0)
@@ -235,13 +199,119 @@ func TestDataCaptureEnabled(t *testing.T) {
 	}
 }
 
-func waitForCaptureFiles(captureDir string) {
+func TestSwitchResource(t *testing.T) {
+	captureDir := t.TempDir()
+	mockClock := clk.NewMock()
+	// Make mockClock the package level clock used by the dmsvc so that we can simulate time's passage
+	clock = mockClock
+
+	// Set up robot config.
+	config, deps := setupConfig(t, enabledTabularCollectorConfigPath)
+	config.CaptureDisabled = false
+	config.ScheduledSyncDisabled = true
+	config.CaptureDir = captureDir
+
+	// Build and start data manager.
+	dmsvc, r := newTestDataManager(t)
+	defer func() {
+		test.That(t, dmsvc.Close(context.Background()), test.ShouldBeNil)
+	}()
+
+	resources := resourcesFromDeps(t, r, deps)
+	err := dmsvc.Reconfigure(context.Background(), resources, resource.Config{
+		ConvertedAttributes: config,
+	})
+	test.That(t, err, test.ShouldBeNil)
+	passTimeCtx1, cancelPassTime1 := context.WithCancel(context.Background())
+	donePassingTime1 := passTime(passTimeCtx1, mockClock, captureInterval)
+
+	waitForCaptureFilesToExceedN(captureDir, 0)
+	testFilesContainSensorData(t, captureDir, uniqueDataValues)
+
+	cancelPassTime1()
+	<-donePassingTime1
+
+	// Change resource on robot.
+	for resource := range resources {
+		if resource.Name == "arm1" {
+			newResource := inject.NewArm(resource.Name)
+			newResource.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
+				return spatialmath.NewPoseFromPoint(r3.Vector{X: 888, Y: 888, Z: 888}), nil
+			}
+			resources[resource] = newResource
+		}
+	}
+
+	err = dmsvc.Reconfigure(context.Background(), resources, resource.Config{
+		ConvertedAttributes: config,
+	})
+	test.That(t, err, test.ShouldBeNil)
+
+	passTimeCtx2, cancelPassTime2 := context.WithCancel(context.Background())
+	donePassingTime2 := passTime(passTimeCtx2, mockClock, captureInterval)
+
+	// Test that sensor data is captured from the new collector.
+	waitForCaptureFilesToExceedN(captureDir, len(getAllFileInfos(captureDir)))
+	testFilesContainSensorData(t, captureDir, uniqueDataValues+1)
+
+	cancelPassTime2()
+	<-donePassingTime2
+}
+
+// passTime repeatedly increments mc by interval until the context is canceled.
+func passTime(ctx context.Context, mc *clk.Mock, interval time.Duration) chan struct{} {
+	done := make(chan struct{})
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				close(done)
+				return
+			default:
+				mc.Add(interval)
+			}
+		}
+	}()
+	return done
+}
+
+func testFilesContainSensorData(t *testing.T, dir string, expectedUniqueDataValues int) {
+	t.Helper()
+	var sd []*v1.SensorData
+	valueSet := map[float64]struct{}{}
+	filePaths := getAllFilePaths(dir)
+	for _, path := range filePaths {
+		d, err := datacapture.SensorDataFromFilePath(path)
+		// It's possible a file was closed (and so its extension changed) in between the points where we gathered
+		// file names and here. So if the file does not exist, check if the extension has just been changed.
+		if errors.Is(err, os.ErrNotExist) {
+			path = strings.TrimSuffix(path, filepath.Ext(path)) + datacapture.FileExt
+			d, err = datacapture.SensorDataFromFilePath(path)
+		}
+		for _, datapoint := range d {
+			valueSet[datapoint.GetStruct().GetFields()["Number"].GetStructValue().GetFields()["Dual"].GetStructValue().GetFields()["Jmag"].GetNumberValue()] = struct{}{}
+		}
+		test.That(t, err, test.ShouldBeNil)
+		sd = append(sd, d...)
+	}
+
+	test.That(t, len(sd), test.ShouldBeGreaterThan, 0)
+	for _, d := range sd {
+		test.That(t, d.GetStruct(), test.ShouldNotBeNil)
+		test.That(t, d.GetMetadata(), test.ShouldNotBeNil)
+	}
+
+	// Each collector's mocked capture method should output a different value. Assert that we see the expected number of unique data values.
+	test.That(t, len(valueSet), test.ShouldEqual, expectedUniqueDataValues)
+}
+
+func waitForCaptureFilesToExceedN(captureDir string, n int) {
 	totalWait := time.Second * 2
 	waitPerCheck := time.Millisecond * 10
 	iterations := int(totalWait / waitPerCheck)
 	files := getAllFileInfos(captureDir)
 	for i := 0; i < iterations; i++ {
-		if len(files) > 0 && files[0].Size() > int64(emptyFileBytesSize) {
+		if len(files) > n && files[n].Size() > int64(emptyFileBytesSize) {
 			return
 		}
 		time.Sleep(waitPerCheck)
