@@ -98,7 +98,7 @@ func TestSpinWithMSMath(t *testing.T) {
 		ori, err := ms.Orientation(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		calcYaw := addAnglesInDomain(rdkutils.RadToDeg(ori.EulerAngles().Yaw), 0)
-		measYaw, err := getCurrentYaw(ctx, ms)
+		measYaw, err := getCurrentYaw(ms)
 		test.That(t, measYaw, test.ShouldEqual, calcYaw)
 		test.That(t, measYaw > 0, test.ShouldBeTrue)
 		test.That(t, calcYaw > 0, test.ShouldBeTrue)
@@ -285,7 +285,7 @@ func TestSpinWithMovementSensor(t *testing.T) {
 	}
 
 	sensorBase := &sensorBase{
-		wBase:        &base,
+		wBase:       &base,
 		sensorMu:    sync.Mutex{},
 		sensorDone:  sensorCancel,
 		allSensors:  []movementsensor.MovementSensor{ms},

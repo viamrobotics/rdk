@@ -237,12 +237,10 @@ func createWheeledBase(
 		return nil, err
 	}
 
-	// TODO (rh) simplify this function and call Reconfigure
 	if len(newConf.MovementSensor) != 0 {
-		baseCtx := context.Background()
-		sb := &sensorBase{wBase: &wb, logger: logger, baseCtx: ctx, Named: wb.Name().AsNamed()}
+		sb := &sensorBase{wBase: &wb, logger: logger, Named: conf.ResourceName().AsNamed()}
 
-		if err := attachSensorsToBase(baseCtx, sb, deps, newConf.MovementSensor); err != nil {
+		if err := sb.Reconfigure(ctx, deps, conf); err != nil {
 			return nil, err
 		}
 		return sb, nil

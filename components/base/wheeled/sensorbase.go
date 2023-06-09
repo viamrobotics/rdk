@@ -29,12 +29,13 @@ const (
 
 type sensorBase struct {
 	resource.Named
-	resource.AlwaysRebuild // TODO (rh) implement reconfigure
-	logger                 golog.Logger
+	// resource.AlwaysRebuild // TODO (rh) implement reconfigure
+	logger golog.Logger
+	mu     sync.Mutex
 
 	activeBackgroundWorkers sync.WaitGroup
 	wBase                   base.Base // the inherited wheeled base
-	baseCtx                 context.Context
+	// baseCtx                 context.Context
 
 	sensorMu      sync.Mutex
 	sensorDone    func()
@@ -46,29 +47,49 @@ type sensorBase struct {
 	orientation movementsensor.MovementSensor
 }
 
-func attachSensorsToBase(
-	ctx context.Context,
-	sb *sensorBase,
-	deps resource.Dependencies,
-	ms []string,
-) error {
-	// use base's creator context as the long standing context for the sensor loop
-	var oriMsName string
-	for _, msName := range ms {
-		ms, err := movementsensor.FromDependencies(deps, msName)
-		if err != nil {
-			return errors.Wrapf(err, "no movement_sensor namesd (%s)", msName)
+func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+	newConf, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return err
+	}
+
+	sb.mu.Lock()
+	defer sb.mu.Unlock()
+
+	if len(sb.allSensors) != len(newConf.MovementSensor) {
+		for _, name := range newConf.MovementSensor {
+			ms, err := movementsensor.FromDependencies(deps, name)
+			if err != nil {
+				return errors.Wrapf(err, "no movement sensor named (%s)", name)
+			}
+			sb.allSensors = append(sb.allSensors, ms)
 		}
-		sb.allSensors = append(sb.allSensors, ms)
-		props, err := ms.Properties(ctx, nil)
+	} else {
+		// Compare each element of the slices
+		for i := range sb.allSensors {
+			if sb.allSensors[i].Name().String() != newConf.MovementSensor[i] {
+				for _, name := range newConf.MovementSensor {
+					ms, err := movementsensor.FromDependencies(deps, name)
+					if err != nil {
+						return errors.Wrapf(err, "no movement sensor named (%s)", name)
+					}
+					sb.allSensors[i] = ms
+				}
+				break
+			}
+		}
+	}
+
+	var oriMsName string
+	for _, ms := range sb.allSensors {
+		props, err := ms.Properties(context.Background(), nil)
 		if props.OrientationSupported && err == nil {
 			sb.orientation = ms
-			oriMsName = msName
+			oriMsName = ms.Name().ShortName()
 		}
 	}
 
 	sb.logger.Infof("using sensor %s as orientation sensor for base", oriMsName)
-
 	return nil
 }
 
@@ -77,8 +98,8 @@ func attachSensorsToBase(
 // currently when a orientation reporting sensor is used in Spin.
 func (sb *sensorBase) setPolling(isActive bool) {
 	sb.sensorMu.Lock()
+	defer sb.sensorMu.Unlock()
 	sb.sensorPolling = isActive
-	sb.sensorMu.Unlock()
 }
 
 // isPolling gets whether the base is actively polling a sensor.
@@ -90,47 +111,62 @@ func (sb *sensorBase) isPolling() bool {
 
 // Spin commands a base to turn about its center at a angular speed and for a specific angle.
 func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
-	ctx, done := sb.opMgr.New(ctx)
-	defer done()
 
 	sb.logger.Infof("angleDeg %v, degsPerSec %v", angleDeg, degsPerSec)
 	switch {
-	case angleDeg >= 360:
+	case int(angleDeg) >= 360:
 		sb.setPolling(false)
 		sb.logger.Warn("feedback for spin calls over 360 not supported yet, spinning without sensor")
 		return sb.wBase.Spin(ctx, angleDeg, degsPerSec, nil)
 	default:
+		ctx, done := sb.opMgr.New(ctx)
+		defer done()
 		// check if a sensor context has been started
 		if sb.sensorDone != nil {
 			sb.sensorDone()
 		}
 
+		sb.logger.Infof("staring sensor loop")
 		sb.setPolling(true)
 		// start a sensor context for the sensor loop based on the longstanding base
 		// creator context
 		var sensorCtx context.Context
-		sensorCtx, sb.sensorDone = context.WithCancel(sb.baseCtx)
+		sensorCtx, sb.sensorDone = context.WithCancel(context.Background())
 		if err := sb.stopSpinWithSensor(sensorCtx, angleDeg, degsPerSec); err != nil {
 			return err
 		}
 
-		// starts a goroutine from within wheeled base's runAll function to run motors in the background
-		return sb.startRunningMotors(ctx, angleDeg, degsPerSec)
+		// // starts a goroutine from within wheeled base's runAll function to run motors in the background
+		if err := sb.startRunningMotors(ctx, angleDeg, degsPerSec); err != nil {
+			return err
+		}
+
+		wb := sb.wBase.(*wheeledBase)
+		motor := wb.allMotors[0]
+		sb.opMgr.WaitTillNotPowered(ctx, 500*time.Millisecond, motor,
+			func(context.Context, map[string]interface{}) error {
+				return nil
+			},
+		)
+		return nil
 	}
 }
 
 func (sb *sensorBase) startRunningMotors(ctx context.Context, angleDeg, degsPerSec float64) error {
-	wb := sb.wBase.(*wheeledBase)
-	rpm, _ := wb.spinMath(angleDeg, degsPerSec)
-	err := wb.runAll(ctx, -rpm, 0, rpm, 0)
-	return err
+	if math.Signbit(angleDeg) != math.Signbit(degsPerSec) {
+		degsPerSec *= -1
+	}
+	return sb.wBase.SetVelocity(ctx,
+		r3.Vector{X: 0, Y: 0, Z: 0},
+		r3.Vector{X: 0, Y: 0, Z: degsPerSec}, nil)
+
 }
 
 func (sb *sensorBase) stopSpinWithSensor(
 	ctx context.Context, angleDeg, degsPerSec float64,
 ) error {
 	// imu readings are limited from 0 -> 360
-	startYaw, err := getCurrentYaw(ctx, sb.orientation)
+	startYaw, err := getCurrentYaw(sb.orientation)
 	if err != nil {
 		return err
 	}
@@ -142,9 +178,9 @@ func (sb *sensorBase) stopSpinWithSensor(
 	// reset error counter for imu reading errors
 	errCounter := 0
 
-	startTime := time.Now()
 	// timeout duration is a multiplier times the expected time to perform a movement
 	spinTimeEst := time.Duration(int(time.Second) * int(math.Abs(angleDeg/degsPerSec)))
+	startTime := time.Now()
 	timeOut := 5 * spinTimeEst
 	if 5*spinTimeEst < 10*time.Second {
 		timeOut = 10 * time.Second
@@ -154,6 +190,7 @@ func (sb *sensorBase) stopSpinWithSensor(
 	utils.ManagedGo(func() {
 		ticker := time.NewTicker(yawPollTime)
 		defer ticker.Stop()
+
 		for {
 			// check if we want to poll the sensor at all
 			// other API calls set this to false so that this for loop stops
@@ -161,27 +198,29 @@ func (sb *sensorBase) stopSpinWithSensor(
 				ticker.Stop()
 			}
 
-			if err := ctx.Err(); err != nil {
+			if err = ctx.Err(); err != nil {
+				sb.logger.Info("context cancelled")
+				ticker.Stop()
 				return
 			}
 
 			select {
 			case <-ctx.Done():
+				sb.logger.Info("context done")
 				ticker.Stop()
 				return
 			case <-ticker.C:
-
 				// imu readings are limited from 0 -> 360
-				currYaw, err := getCurrentYaw(ctx, sb.orientation)
+				currYaw, err := getCurrentYaw(sb.orientation)
 				if err != nil {
 					errCounter++
 					if errCounter > 100 {
 						sb.logger.Error(errors.Wrap(
-							err, "imu sensor unreachable, 100 error counts when trying to read yaw angle, stopping base"))
-						if err := sb.Stop(ctx, nil); err != nil {
-							sb.logger.Error(err)
+							err,
+							"imu sensor unreachable, 100 error counts when trying to read yaw angle, stopping base"))
+						if err = sb.Stop(ctx, nil); err != nil {
+							return
 						}
-						return
 					}
 					continue
 				}
@@ -190,10 +229,10 @@ func (sb *sensorBase) stopSpinWithSensor(
 				atTarget, overShot, minTravel := getTurnState(currYaw, startYaw, targetYaw, dir, angleDeg, errBound)
 
 				if sensorDebug {
-					sb.logger.Debugf("minTravel %t, atTarget %t, overshot %t", minTravel, atTarget, overShot)
-					sb.logger.Debugf("angleDeg %.2f, increment %.2f", // , fullTurns %d",
+					sb.logger.Infof("minTravel %t, atTarget %t, overshot %t", minTravel, atTarget, overShot)
+					sb.logger.Infof("angleDeg %.2f, increment %.2f", // , fullTurns %d",
 						angleDeg, increment) // , fullTurns)
-					sb.logger.Debugf("currYaw %.2f, startYaw %.2f, targetYaw %.2f",
+					sb.logger.Infof("currYaw %.2f, startYaw %.2f, targetYaw %.2f",
 						currYaw, startYaw, targetYaw)
 				}
 
@@ -201,13 +240,14 @@ func (sb *sensorBase) stopSpinWithSensor(
 				// check if we've overshot our target by the errTarget value
 				// check if we've travelled at all
 				if minTravel && (atTarget || overShot) {
+					// if sensorDebug {
+					sb.logger.Infof(
+						"stopping base with errAngle:%.2f, overshot? %t",
+						math.Abs(targetYaw-currYaw), overShot)
+					// }
+
 					if err := sb.Stop(ctx, nil); err != nil {
 						return
-					}
-					if sensorDebug {
-						sb.logger.Debugf(
-							"stopping base with errAngle:%.2f, overshot? %t",
-							math.Abs(targetYaw-currYaw), overShot)
 					}
 				}
 
@@ -219,10 +259,15 @@ func (sb *sensorBase) stopSpinWithSensor(
 					return
 				}
 			}
+
+			// if utils.SelectContextOrWait(ctx, timeOut) {
+			// 	sb.Stop(ctx, nil)
+			// 	sb.logger.Infof("closing context with time")
+			// }
 		}
 
 	}, sb.activeBackgroundWorkers.Done)
-	return nil
+	return err
 }
 
 func getTurnState(currYaw, startYaw, targetYaw, dir, angleDeg, errorBound float64) (atTarget, overShot, minTravel bool) {
@@ -230,10 +275,7 @@ func getTurnState(currYaw, startYaw, targetYaw, dir, angleDeg, errorBound float6
 	overShot = hasOverShot(currYaw, startYaw, targetYaw, dir)
 	travelIncrement := math.Abs(angleDeg * increment)
 	// // check the case where we're asking for a 360 degree turn, this results in a zero travelIncrement
-	// if rdkutils.Float64AlmostEqual(travelIncrement, 0.0, 0.001) {
-	// 	travelIncrement = boundCheckTarget
-	// }
-	if angleDeg < 360 {
+	if math.Abs(angleDeg) < 360 {
 		minTravel = math.Abs(currYaw-startYaw) > travelIncrement
 	} else {
 		minTravel = false
@@ -241,13 +283,13 @@ func getTurnState(currYaw, startYaw, targetYaw, dir, angleDeg, errorBound float6
 	return atTarget, overShot, minTravel
 }
 
-func getCurrentYaw(ctx context.Context, ms movementsensor.MovementSensor,
+func getCurrentYaw(ms movementsensor.MovementSensor,
 ) (float64, error) {
-	ctx, done := context.WithCancel(ctx)
+	ctx, done := context.WithCancel(context.Background())
 	defer done()
 	orientation, err := ms.Orientation(ctx, nil)
 	if err != nil {
-		return 0, err
+		return math.NaN(), err
 	}
 	// add Pi to make the computation for overshoot simpler
 	// turns imus from -180 -> 180 to a 0 -> 360 range
@@ -273,7 +315,7 @@ func findSpinParams(angleDeg, degsPerSec, currYaw float64) (float64, float64, in
 		// clockwise spin calls subtract angles
 		dir = -1.0
 	}
-	targetYaw := addAnglesInDomain(angleDeg*dir, currYaw)
+	targetYaw := addAnglesInDomain(angleDeg, currYaw)
 	fullTurns := int(math.Abs(angleDeg)) / oneTurn
 
 	return targetYaw, dir, fullTurns
@@ -353,13 +395,14 @@ func (sb *sensorBase) Properties(ctx context.Context, extra map[string]interface
 }
 
 func (sb *sensorBase) Close(ctx context.Context) error {
-	sb.activeBackgroundWorkers.Wait()
-	sb.logger.Infof("Close called")
-
-	// check if a sensor context has been started
+	if err := sb.Stop(ctx, nil); err != nil {
+		return err
+	}
+	// check if a sensor context is still alive
 	if sb.sensorDone != nil {
 		sb.sensorDone()
 	}
 
-	return sb.Stop(ctx, nil)
+	sb.activeBackgroundWorkers.Wait()
+	return nil
 }
