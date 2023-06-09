@@ -16,6 +16,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	robotimpl "go.viam.com/rdk/robot/impl"
+	"go.viam.com/rdk/services/motion"
 	_ "go.viam.com/rdk/services/motion/builtin"
 	"go.viam.com/rdk/services/navigation"
 	"go.viam.com/rdk/services/slam"
@@ -98,7 +99,13 @@ func TestStartWaypoint(t *testing.T) {
 	fakeBase, err := fakebase.NewBase(ctx, nil, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	kinematicBase, err := fakeBase.(base.KinematicWrappable).WrapWithKinematics(ctx, fakeslam.NewSLAM(slam.Named("foo"), logger))
+	fakeSlam := fakeslam.NewSLAM(slam.Named("foo"), logger)
+	limits, err := fakeSlam.GetLimits(ctx)
+	test.That(t, err, test.ShouldBeNil)
+
+	localizer, err := motion.NewLocalizer(ctx, fakeslam.NewSLAM(slam.Named("foo"), logger))
+
+	kinematicBase, err := fakeBase.(base.KinematicWrappable).WrapWithKinematics(ctx, localizer, limits)
 	test.That(t, err, test.ShouldBeNil)
 
 	injectMovementSensor := inject.NewMovementSensor("test_movement")
