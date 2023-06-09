@@ -209,9 +209,13 @@ func (svc *builtIn) SetMode(ctx context.Context, mode navigation.Mode, extra map
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	svc.cancelCtx = cancelCtx
 	svc.cancelFunc = cancelFunc
-
 	svc.mode = navigation.ModeManual
 	if mode == navigation.ModeWaypoint {
+		if extra != nil && extra["experimental"] == true {
+			if err := svc.startWaypointExperimental(extra); err != nil {
+				return err
+			}
+		}
 		if err := svc.startWaypoint(extra); err != nil {
 			return err
 		}
@@ -388,4 +392,48 @@ func computeBearing(a, b float64) float64 {
 	}
 
 	return t
+}
+
+func (svc *builtIn) startWaypointExperimental(extra map[string]interface{}) error {
+	svc.activeBackgroundWorkers.Add(1)
+	utils.PanicCapturingGo(func() {
+		defer svc.activeBackgroundWorkers.Done()
+
+		navOnce := func(ctx context.Context, wp navigation.Waypoint) error {
+			currentLoc, err := svc.Location(svc.cancelCtx, extra)
+			if err != nil {
+				return err
+			}
+
+			// have ability to define destination heading here, but waypoint structure
+			// doesn't allow for that so using bearingToGoal as heading
+			goal := wp.ToPoint()
+			_, err = svc.motion.MoveOnGlobe(
+				ctx,
+				svc.base.Name(),
+				goal,
+				currentLoc.BearingTo(goal),
+				svc.movementSensor.Name(),
+				svc.obstacles,
+				svc.metersPerSec*1000,
+				svc.degPerSec,
+				extra,
+			)
+			if err != nil {
+				return err
+			}
+
+			return svc.waypointReached(ctx)
+		}
+
+		// loop until no waypoints remaining
+		for wp, err := svc.nextWaypoint(svc.cancelCtx); err == nil; wp, err = svc.nextWaypoint(svc.cancelCtx) {
+			svc.logger.Infof("navigating to waypoint: %+v", wp)
+			if err := navOnce(svc.cancelCtx, wp); err != nil {
+				svc.logger.Infof("error navigating: %s", err)
+			}
+		}
+
+	})
+	return nil
 }

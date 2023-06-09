@@ -17,7 +17,7 @@ export let client: Client;
 export let showExportScreenshot: boolean;
 export let refreshRate: string | undefined;
 export let streamManager: StreamManager;
-export let statusStream: ResponseStream<robotApi.StreamStatusResponse> | null
+export let statusStream: ResponseStream<robotApi.StreamStatusResponse> | null;
 
 let imgEl: HTMLImageElement;
 let videoEl: HTMLVideoElement;
@@ -47,7 +47,7 @@ const updateCameraRefreshRate = () => {
   }
 };
 
-const exportScreenshot = async (cameraName: string) => {
+const exportScreenshot = async () => {
   let blob;
   try {
     blob = await new CameraClient(client, cameraName).renderFrame(
@@ -61,14 +61,14 @@ const exportScreenshot = async (cameraName: string) => {
   window.open(URL.createObjectURL(blob), '_blank');
 };
 
-onMount(async () => {
+onMount(() => {
   statusStream?.on('end', () => clearFrameInterval());
 
   videoEl.srcObject = cameraManager.videoStream;
 
   cameraManager.onOpen = () => {
     videoEl.srcObject = cameraManager.videoStream;
-  }
+  };
 });
 
 onDestroy(() => {
@@ -110,7 +110,7 @@ $: updateCameraRefreshRate();
       aria-label={`View Camera: ${cameraName}`}
       icon="camera"
       label="Export Screenshot"
-      on:click={() => exportScreenshot(cameraName)}
+      on:click={exportScreenshot}
     />
   {/if}
 

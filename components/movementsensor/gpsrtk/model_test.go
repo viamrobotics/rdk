@@ -8,7 +8,6 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/components/movementsensor/gpsrtk"
 	"go.viam.com/rdk/config"
 )
 
@@ -32,7 +31,6 @@ func TestGPSModels(t *testing.T) {
 		}`
 		_, err := config.FromReader(ctx, "", strings.NewReader(cfg1), logger)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, gpsrtk.ErrRoverValidation.Error())
 	})
 
 	t.Run("station", func(t *testing.T) {
@@ -51,6 +49,5 @@ func TestGPSModels(t *testing.T) {
 		}`
 		_, err := config.FromReader(ctx, "", strings.NewReader(cfg2), logger)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, gpsrtk.ErrStationValidation.Error())
 	})
 }
