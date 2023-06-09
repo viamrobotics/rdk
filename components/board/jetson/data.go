@@ -17,6 +17,8 @@ const (
 	jetsonOrinNano = "jetson_orin_nano"
 )
 
+//TODO: fix ngpio numbers in pin definitions for the jetsonTX1, jetsonNano
+
 var claraAGXXavierPins = []genericlinux.PinDefinition{
 	{map[int]int{169: 106}, map[int]string{169: "PQ.06"}, "2200000.gpio", 7, 4, "MCLK05", "SOC_GPIO42", "", -1},
 	{map[int]int{169: 112}, map[int]string{169: "PR.04"}, "2200000.gpio", 11, 17, "UART1_RTS", "UART1_RTS", "", -1},
@@ -171,37 +173,37 @@ var jetsonXavierPins = []genericlinux.PinDefinition{
 
 //nolint:dupl // This is not actually a duplicate of jetsonNXPins despite wht the linter thinks
 var jetsonTX2NXPins = []genericlinux.PinDefinition{
-	{map[int]int{192: 76, 140: 66}, map[int]string{140: "PJ.04"}, "2200000.gpio", 7, 4, "GPIO09", "AUD_MCLK", "", -1},
-	{map[int]int{64: 28, 47: 23}, map[int]string{47: "PW.04"}, "c2f0000.gpio", 11, 17, "UART1_RTS", "UART3_RTS", "", -1},
-	{map[int]int{192: 72, 140: 62}, map[int]string{140: "PJ.00"}, "2200000.gpio", 12, 18, "I2S0_SCLK", "DAP1_SCLK", "", -1},
-	{map[int]int{64: 17, 47: 12}, map[int]string{47: "PV.01"}, "c2f0000.gpio", 13, 27, "SPI1_SCK", "GPIO_SEN1", "", -1},
-	{map[int]int{192: 18, 140: 16}, map[int]string{140: "PC.02"}, "2200000.gpio", 15, 22, "GPIO12", "DAP2_DOUT", "", -1},
-	{map[int]int{192: 19, 140: 17}, map[int]string{140: "PC.03"}, "2200000.gpio", 16, 23, "SPI1_CS1", "DAP2_DIN", "", -1},
-	{map[int]int{64: 20, 47: 15}, map[int]string{47: "PV.04"}, "c2f0000.gpio", 18, 24, "SPI1_CS0", "GPIO_SEN4", "", -1},
-	{map[int]int{192: 58, 140: 49}, map[int]string{140: "PH.02"}, "2200000.gpio", 19, 10, "SPI0_MOSI", "GPIO_WAN7", "", -1},
-	{map[int]int{192: 57, 140: 48}, map[int]string{140: "PH.01"}, "2200000.gpio", 21, 9, "SPI0_MISO", "GPIO_WAN6", "", -1},
-	{map[int]int{64: 18, 47: 13}, map[int]string{47: "PV.02"}, "c2f0000.gpio", 22, 25, "SPI1_MISO", "GPIO_SEN2", "", -1},
-	{map[int]int{192: 56, 140: 47}, map[int]string{140: "PH.00"}, "2200000.gpio", 23, 11, "SPI1_CLK", "GPIO_WAN5", "", -1},
-	{map[int]int{192: 59, 140: 50}, map[int]string{140: "PH.03"}, "2200000.gpio", 24, 8, "SPI0_CS0", "GPIO_WAN8", "", -1},
-	{map[int]int{192: 163, 140: 130}, map[int]string{140: "PY.03"}, "2200000.gpio", 26, 7, "SPI0_CS1", "GPIO_MDM4", "", -1},
-	{map[int]int{192: 105, 140: 86}, map[int]string{140: "PN.01"}, "2200000.gpio", 29, 5, "GPIO01", "GPIO_CAM2", "", -1},
-	{map[int]int{64: 50, 47: 41}, map[int]string{47: "PEE.02"}, "c2f0000.gpio", 31, 6, "GPIO11", "TOUCH_CLK", "", -1},
-	{map[int]int{64: 8, 47: 5}, map[int]string{47: "PU.00"}, "c2f0000.gpio", 32, 12, "GPIO07", "GPIO_DIS0", "3280000.pwm", 0},
-	{map[int]int{64: 13, 47: 10}, map[int]string{47: "PU.05"}, "c2f0000.gpio", 33, 13, "GPIO13", "GPIO_DIS5", "32a0000.pwm", 0},
-	{map[int]int{192: 75, 140: 65}, map[int]string{140: "PJ.03"}, "2200000.gpio", 35, 19, "I2S0_FS", "DAP1_FS", "", -1},
-	{map[int]int{64: 29, 47: 24}, map[int]string{47: "PW.05"}, "c2f0000.gpio", 36, 16, "UART1_CTS", "UART3_CTS", "", -1},
-	{map[int]int{64: 19, 47: 14}, map[int]string{47: "PV.03"}, "c2f0000.gpio", 37, 26, "SPI1_MOSI", "GPIO_SEN3", "", -1},
-	{map[int]int{192: 74, 140: 64}, map[int]string{140: "PJ.02"}, "2200000.gpio", 38, 20, "I2S0_DIN", "DAP1_DIN", "", -1},
-	{map[int]int{192: 73, 140: 63}, map[int]string{140: "PJ.01"}, "2200000.gpio", 40, 21, "I2S0_DOUT", "DAP1_DOUT", "", -1},
+	{map[int]int{192: 76}, map[int]string{140: "PJ.04"}, "2200000.gpio", 7, 4, "GPIO09", "AUD_MCLK", "", -1},
+	{map[int]int{64: 28}, map[int]string{47: "PW.04"}, "c2f0000.gpio", 11, 17, "UART1_RTS", "UART3_RTS", "", -1},
+	{map[int]int{192: 72}, map[int]string{140: "PJ.00"}, "2200000.gpio", 12, 18, "I2S0_SCLK", "DAP1_SCLK", "", -1},
+	{map[int]int{64: 17}, map[int]string{47: "PV.01"}, "c2f0000.gpio", 13, 27, "SPI1_SCK", "GPIO_SEN1", "", -1},
+	{map[int]int{192: 18}, map[int]string{140: "PC.02"}, "2200000.gpio", 15, 22, "GPIO12", "DAP2_DOUT", "", -1},
+	{map[int]int{192: 19}, map[int]string{140: "PC.03"}, "2200000.gpio", 16, 23, "SPI1_CS1", "DAP2_DIN", "", -1},
+	{map[int]int{64: 20}, map[int]string{47: "PV.04"}, "c2f0000.gpio", 18, 24, "SPI1_CS0", "GPIO_SEN4", "", -1},
+	{map[int]int{192: 58}, map[int]string{140: "PH.02"}, "2200000.gpio", 19, 10, "SPI0_MOSI", "GPIO_WAN7", "", -1},
+	{map[int]int{192: 57}, map[int]string{140: "PH.01"}, "2200000.gpio", 21, 9, "SPI0_MISO", "GPIO_WAN6", "", -1},
+	{map[int]int{64: 18}, map[int]string{47: "PV.02"}, "c2f0000.gpio", 22, 25, "SPI1_MISO", "GPIO_SEN2", "", -1},
+	{map[int]int{192: 56}, map[int]string{140: "PH.00"}, "2200000.gpio", 23, 11, "SPI1_CLK", "GPIO_WAN5", "", -1},
+	{map[int]int{192: 59}, map[int]string{140: "PH.03"}, "2200000.gpio", 24, 8, "SPI0_CS0", "GPIO_WAN8", "", -1},
+	{map[int]int{192: 163}, map[int]string{140: "PY.03"}, "2200000.gpio", 26, 7, "SPI0_CS1", "GPIO_MDM4", "", -1},
+	{map[int]int{192: 105}, map[int]string{140: "PN.01"}, "2200000.gpio", 29, 5, "GPIO01", "GPIO_CAM2", "", -1},
+	{map[int]int{64: 50}, map[int]string{47: "PEE.02"}, "c2f0000.gpio", 31, 6, "GPIO11", "TOUCH_CLK", "", -1},
+	{map[int]int{64: 8}, map[int]string{47: "PU.00"}, "c2f0000.gpio", 32, 12, "GPIO07", "GPIO_DIS0", "3280000.pwm", 0},
+	{map[int]int{64: 13}, map[int]string{47: "PU.05"}, "c2f0000.gpio", 33, 13, "GPIO13", "GPIO_DIS5", "32a0000.pwm", 0},
+	{map[int]int{192: 75}, map[int]string{140: "PJ.03"}, "2200000.gpio", 35, 19, "I2S0_FS", "DAP1_FS", "", -1},
+	{map[int]int{64: 29}, map[int]string{47: "PW.05"}, "c2f0000.gpio", 36, 16, "UART1_CTS", "UART3_CTS", "", -1},
+	{map[int]int{64: 19}, map[int]string{47: "PV.03"}, "c2f0000.gpio", 37, 26, "SPI1_MOSI", "GPIO_SEN3", "", -1},
+	{map[int]int{192: 74}, map[int]string{140: "PJ.02"}, "2200000.gpio", 38, 20, "I2S0_DIN", "DAP1_DIN", "", -1},
+	{map[int]int{192: 73}, map[int]string{140: "PJ.01"}, "2200000.gpio", 40, 21, "I2S0_DOUT", "DAP1_DOUT", "", -1},
 }
 
 var jetsonTX2Pins = []genericlinux.PinDefinition{
-	{map[int]int{192: 76, 140: 66}, map[int]string{140: "PJ.04"}, "2200000.gpio", 7, 4, "PAUDIO_MCLK", "AUD_MCLK", "", -1},
+	{map[int]int{192: 76}, map[int]string{140: "PJ.04"}, "2200000.gpio", 7, 4, "PAUDIO_MCLK", "AUD_MCLK", "", -1},
 	// Output-only (due to base board)
-	{map[int]int{192: 146, 140: 117}, map[int]string{140: "PT.02"}, "2200000.gpio", 11, 17, "PUART0_RTS", "UART1_RTS", "", -1},
-	{map[int]int{192: 72, 140: 62}, map[int]string{140: "PJ.00"}, "2200000.gpio", 12, 18, "PI2S0_CLK", "DAP1_SCLK", "", -1},
+	{map[int]int{192: 146}, map[int]string{140: "PT.02"}, "2200000.gpio", 11, 17, "PUART0_RTS", "UART1_RTS", "", -1},
+	{map[int]int{192: 72}, map[int]string{140: "PJ.00"}, "2200000.gpio", 12, 18, "PI2S0_CLK", "DAP1_SCLK", "", -1},
 	{
-		map[int]int{192: 77, 140: 67},
+		map[int]int{192: 77},
 		map[int]string{140: "PJ.05"},
 		"2200000.gpio",
 		13,
@@ -213,9 +215,9 @@ var jetsonTX2Pins = []genericlinux.PinDefinition{
 	},
 	{map[int]int{-1: 15}, nil, "3160000.i2c/i2c-0/0-0074", 15, 22, "GPIO_EXP_P17", "GPIO_EXP_P17", "", -1},
 	// Input-only (due to module):
-	{map[int]int{64: 40, 47: 31}, map[int]string{47: "PAA.00"}, "c2f0000.gpio", 16, 23, "AO_DMIC_IN_DAT", "CAN_GPIO0", "", -1},
+	{map[int]int{64: 40}, map[int]string{47: "PAA.00"}, "c2f0000.gpio", 16, 23, "AO_DMIC_IN_DAT", "CAN_GPIO0", "", -1},
 	{
-		map[int]int{192: 161, 140: 128},
+		map[int]int{192: 161},
 		map[int]string{140: "PY.01"},
 		"2200000.gpio",
 		18,
@@ -225,18 +227,18 @@ var jetsonTX2Pins = []genericlinux.PinDefinition{
 		"",
 		-1,
 	},
-	{map[int]int{192: 109, 140: 90}, map[int]string{140: "PN.05"}, "2200000.gpio", 19, 10, "SPI1_MOSI", "GPIO_CAM6", "", -1},
-	{map[int]int{192: 108, 140: 89}, map[int]string{140: "PN.04"}, "2200000.gpio", 21, 9, "SPI1_MISO", "GPIO_CAM5", "", -1},
+	{map[int]int{192: 109}, map[int]string{140: "PN.05"}, "2200000.gpio", 19, 10, "SPI1_MOSI", "GPIO_CAM6", "", -1},
+	{map[int]int{192: 108}, map[int]string{140: "PN.04"}, "2200000.gpio", 21, 9, "SPI1_MISO", "GPIO_CAM5", "", -1},
 	{map[int]int{-1: 14}, nil, "3160000.i2c/i2c-0/0-0074", 22, 25, "GPIO_EXP_P16", "GPIO_EXP_P16", "", -1},
-	{map[int]int{192: 107, 140: 88}, map[int]string{140: "PN.03"}, "2200000.gpio", 23, 11, "SPI1_CLK", "GPIO_CAM4", "", -1},
-	{map[int]int{192: 110, 140: 91}, map[int]string{140: "PN.06"}, "2200000.gpio", 24, 8, "SPI1_CS0", "GPIO_CAM7", "", -1},
+	{map[int]int{192: 107}, map[int]string{140: "PN.03"}, "2200000.gpio", 23, 11, "SPI1_CLK", "GPIO_CAM4", "", -1},
+	{map[int]int{192: 110}, map[int]string{140: "PN.06"}, "2200000.gpio", 24, 8, "SPI1_CS0", "GPIO_CAM7", "", -1},
 	// Board pin 26 is not available on this board
-	{map[int]int{192: 78, 140: 68}, map[int]string{140: "PJ.06"}, "2200000.gpio", 29, 5, "GPIO19_AUD_RST", "GPIO_AUD1", "", -1},
-	{map[int]int{64: 42, 47: 33}, map[int]string{47: "PAA.02"}, "c2f0000.gpio", 31, 6, "GPIO9_MOTION_INT", "CAN_GPIO2", "", -1},
+	{map[int]int{192: 78}, map[int]string{140: "PJ.06"}, "2200000.gpio", 29, 5, "GPIO19_AUD_RST", "GPIO_AUD1", "", -1},
+	{map[int]int{64: 42}, map[int]string{47: "PAA.02"}, "c2f0000.gpio", 31, 6, "GPIO9_MOTION_INT", "CAN_GPIO2", "", -1},
 	// Output-only (due to module):
-	{map[int]int{64: 41, 47: 32}, map[int]string{47: "PAA.01"}, "c2f0000.gpio", 32, 12, "AO_DMIC_IN_CLK", "CAN_GPIO1", "", -1},
+	{map[int]int{64: 41}, map[int]string{47: "PAA.01"}, "c2f0000.gpio", 32, 12, "AO_DMIC_IN_CLK", "CAN_GPIO1", "", -1},
 	{
-		map[int]int{192: 69, 140: 59},
+		map[int]int{192: 69},
 		map[int]string{140: "PI.05"},
 		"2200000.gpio",
 		33,
@@ -246,12 +248,12 @@ var jetsonTX2Pins = []genericlinux.PinDefinition{
 		"",
 		-1,
 	},
-	{map[int]int{192: 75, 140: 65}, map[int]string{140: "PJ.03"}, "2200000.gpio", 35, 19, "I2S0_LRCLK", "DAP1_FS", "", -1},
+	{map[int]int{192: 75}, map[int]string{140: "PJ.03"}, "2200000.gpio", 35, 19, "I2S0_LRCLK", "DAP1_FS", "", -1},
 	// Input-only (due to base board) IF NVIDIA debug card NOT plugged in
 	// Output-only (due to base board) IF NVIDIA debug card plugged in
-	{map[int]int{192: 147, 140: 118}, map[int]string{140: "PT.03"}, "2200000.gpio", 36, 16, "UART0_CTS", "UART1_CTS", "", -1},
+	{map[int]int{192: 147}, map[int]string{140: "PT.03"}, "2200000.gpio", 36, 16, "UART0_CTS", "UART1_CTS", "", -1},
 	{
-		map[int]int{192: 68, 140: 58},
+		map[int]int{192: 68},
 		map[int]string{140: "PI.04"},
 		"2200000.gpio",
 		37,
@@ -261,8 +263,8 @@ var jetsonTX2Pins = []genericlinux.PinDefinition{
 		"",
 		-1,
 	},
-	{map[int]int{192: 74, 140: 64}, map[int]string{140: "PJ.02"}, "2200000.gpio", 38, 20, "I2S0_SDIN", "DAP1_DIN", "", -1},
-	{map[int]int{192: 73, 140: 63}, map[int]string{140: "PJ.01"}, "2200000.gpio", 40, 21, "I2S0_SDOUT", "DAP1_DOUT", "", -1},
+	{map[int]int{192: 74}, map[int]string{140: "PJ.02"}, "2200000.gpio", 38, 20, "I2S0_SDIN", "DAP1_DIN", "", -1},
+	{map[int]int{192: 73}, map[int]string{140: "PJ.01"}, "2200000.gpio", 40, 21, "I2S0_SDOUT", "DAP1_DOUT", "", -1},
 }
 
 var jetsonTX1Pins = []genericlinux.PinDefinition{
