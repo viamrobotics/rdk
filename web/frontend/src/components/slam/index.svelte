@@ -220,7 +220,7 @@ onDestroy(() => {
     variant="danger"
     icon="stop-circle"
     disabled={moveClicked ? 'false' : 'true'}
-    label="STOP"
+    label="Stop"
     on:click={handleStopMoveClick}
     on:keydown={handleStopMoveClick}
   />

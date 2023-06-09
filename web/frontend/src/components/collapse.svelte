@@ -5,10 +5,10 @@
 -->
 <script lang="ts">
 
-import { createEventDispatcher, tick } from 'svelte';
+import { onMount, createEventDispatcher, tick } from 'svelte';
 
 export let title = '';
-export let open = false;
+export let open = localStorage.getItem(`rc.collapse.${title}.open`) ? true : false;
 
 const dispatch = createEventDispatcher();
 
@@ -19,10 +19,22 @@ const handleClick = async (event: Event) => {
 
   open = !open;
 
+  if (open) {
+    localStorage.setItem(`rc.collapse.${title}.open`, 'true')
+  } else {
+    localStorage.removeItem(`rc.collapse.${title}.open`)
+  }
+
   await tick();
 
   dispatch('toggle', { open });
 };
+
+onMount(() => {
+  if (open) {
+    dispatch('toggle', { open: true });
+  }
+})
 
 </script>
 
