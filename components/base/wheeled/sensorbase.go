@@ -35,11 +35,10 @@ type sensorBase struct {
 
 	activeBackgroundWorkers sync.WaitGroup
 	wBase                   base.Base // the inherited wheeled base
-	// baseCtx                 context.Context
 
-	sensorMu      sync.Mutex
-	sensorDone    func()
-	sensorPolling bool
+	sensorLoopMu      sync.Mutex
+	sensorLoopDone    func()
+	sensorLoopPolling bool
 
 	opMgr operation.SingleOperationManager
 
@@ -97,16 +96,16 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 // should be set to false everywhere except when sensor feedback should be polled
 // currently when a orientation reporting sensor is used in Spin.
 func (sb *sensorBase) setPolling(isActive bool) {
-	sb.sensorMu.Lock()
-	defer sb.sensorMu.Unlock()
-	sb.sensorPolling = isActive
+	sb.sensorLoopMu.Lock()
+	defer sb.sensorLoopMu.Unlock()
+	sb.sensorLoopPolling = isActive
 }
 
 // isPolling gets whether the base is actively polling a sensor.
 func (sb *sensorBase) isPolling() bool {
-	sb.sensorMu.Lock()
-	defer sb.sensorMu.Unlock()
-	return sb.sensorPolling
+	sb.sensorLoopMu.Lock()
+	defer sb.sensorLoopMu.Unlock()
+	return sb.sensorLoopPolling
 }
 
 // Spin commands a base to turn about its center at a angular speed and for a specific angle.
@@ -122,8 +121,8 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 		ctx, done := sb.opMgr.New(ctx)
 		defer done()
 		// check if a sensor context has been started
-		if sb.sensorDone != nil {
-			sb.sensorDone()
+		if sb.sensorLoopDone != nil {
+			sb.sensorLoopDone()
 		}
 
 		sb.logger.Infof("staring sensor loop")
@@ -131,7 +130,7 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 		// start a sensor context for the sensor loop based on the longstanding base
 		// creator context
 		var sensorCtx context.Context
-		sensorCtx, sb.sensorDone = context.WithCancel(context.Background())
+		sensorCtx, sb.sensorLoopDone = context.WithCancel(context.Background())
 		if err := sb.stopSpinWithSensor(sensorCtx, angleDeg, degsPerSec); err != nil {
 			return err
 		}
@@ -399,8 +398,8 @@ func (sb *sensorBase) Close(ctx context.Context) error {
 		return err
 	}
 	// check if a sensor context is still alive
-	if sb.sensorDone != nil {
-		sb.sensorDone()
+	if sb.sensorLoopDone != nil {
+		sb.sensorLoopDone()
 	}
 
 	sb.activeBackgroundWorkers.Wait()

@@ -11,9 +11,7 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/base"
-	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/components/movementsensor"
-	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
@@ -253,52 +251,29 @@ func TestHasOverShot(t *testing.T) {
 }
 
 func TestSpinWithMovementSensor(t *testing.T) {
-	m := inject.Motor{
-		GoForFunc: func(ctx context.Context, rpm, rotations float64, extra map[string]interface{}) error {
-			return nil
-		},
-		StopFunc: func(ctx context.Context, extra map[string]interface{}) error {
-			return nil
-		},
-	}
-	ms := &inject.MovementSensor{
-		OrientationFunc: func(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
-			return &spatialmath.EulerAngles{Yaw: 1}, nil
-		},
-	}
+	ms := inject.NewMovementSensor("spinny")
+	wb := inject.NewBase("fakey-basey")
 
 	logger := golog.NewDebugLogger("loggie")
 
 	ctx := context.Background()
 	sensorCtx, sensorCancel := context.WithCancel(ctx)
-	base := wheeledBase{
-		widthMm:              1,
-		wheelCircumferenceMm: 1,
-		spinSlipFactor:       0,
-		left:                 []motor.Motor{&m},
-		right:                []motor.Motor{&m},
-		allMotors:            []motor.Motor{&m},
-
-		opMgr:  operation.SingleOperationManager{},
-		logger: logger,
-		name:   "basie",
-	}
-
 	sensorBase := &sensorBase{
-		wBase:       &base,
-		sensorMu:    sync.Mutex{},
-		sensorDone:  sensorCancel,
+		logger:      logger,
+		wBase:       wb,
+		sensorLoopMu:    sync.Mutex{},
+		sensorLoopDone:  sensorCancel,
 		allSensors:  []movementsensor.MovementSensor{ms},
 		orientation: ms,
 	}
 
 	err := sensorBase.stopSpinWithSensor(sensorCtx, 10, 50)
 	test.That(t, err, test.ShouldBeNil)
-	// we have no way of stopping the sensor in this little test
-	// so we stop runnign goroutines manually and test our function
+	// we have no way of stopping the sensor loop in this little test
+	// so we stop running goroutines manually and test our function
 	// sensorBase.stopSensors()
 	sensorBase.setPolling(false)
-	sensorBase.sensorDone()
+	sensorBase.sensorLoopDone()
 }
 
 func sConfig() resource.Config {
