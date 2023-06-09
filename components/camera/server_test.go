@@ -9,7 +9,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/edaniels/gostream"
+	"github.com/viamrobotics/gostream"
 	pb "go.viam.com/api/component/camera/v1"
 	"go.viam.com/test"
 

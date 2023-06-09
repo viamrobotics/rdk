@@ -6,8 +6,8 @@ import (
 	"image/color"
 
 	"github.com/disintegration/imaging"
-	"github.com/edaniels/gostream"
 	"github.com/pkg/errors"
+	"github.com/viamrobotics/gostream"
 	"go.opencensus.io/trace"
 	"golang.org/x/image/draw"
 
