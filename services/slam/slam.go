@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"math"
 
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
@@ -106,6 +105,5 @@ func GetLimits(ctx context.Context, svc Service) ([]referenceframe.Limit, error)
 	return []referenceframe.Limit{
 		{Min: dims.MinX, Max: dims.MaxX},
 		{Min: dims.MinY, Max: dims.MaxY},
-		{Min: -2 * math.Pi, Max: 2 * math.Pi},
 	}, nil
 }

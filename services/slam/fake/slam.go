@@ -4,7 +4,6 @@ package fake
 import (
 	"bytes"
 	"context"
-	"math"
 
 	"github.com/edaniels/golog"
 	"go.opencensus.io/trace"
@@ -106,6 +105,5 @@ func (slamSvc *SLAM) GetLimits(ctx context.Context) ([]referenceframe.Limit, err
 	return []referenceframe.Limit{
 		{Min: dims.MinX, Max: dims.MaxX},
 		{Min: dims.MinY, Max: dims.MaxY},
-		{Min: -2 * math.Pi, Max: 2 * math.Pi},
 	}, nil
 }
