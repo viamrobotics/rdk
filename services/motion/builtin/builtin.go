@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -15,6 +16,7 @@ import (
 	servicepb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/base"
+	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/internal"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/operation"
@@ -46,6 +48,8 @@ func init() {
 			},
 		})
 }
+
+const builtinOpLabel = "motion-service"
 
 // ErrNotImplemented is thrown when an unreleased function is called
 var ErrNotImplemented = errors.New("function coming soon but not yet implemented")
@@ -81,31 +85,35 @@ func (ms *builtIn) Reconfigure(
 	ms.lock.Lock()
 	defer ms.lock.Unlock()
 
-	slamServices := make(map[resource.Name]slam.Service)
+	localizers := make(map[resource.Name]motion.Localizer)
 	components := make(map[resource.Name]resource.Resource)
 	for name, dep := range deps {
 		switch dep := dep.(type) {
 		case framesystem.Service:
 			ms.fsService = dep
-		case slam.Service:
-			slamServices[name] = dep
+		case slam.Service, movementsensor.MovementSensor:
+			localizer, err := motion.NewLocalizer(ctx, dep)
+			if err != nil {
+				return err
+			}
+			localizers[name] = localizer
 		default:
 			components[name] = dep
 		}
 	}
 	ms.components = components
-	ms.slamServices = slamServices
+	ms.localizers = localizers
 	return nil
 }
 
 type builtIn struct {
 	resource.Named
 	resource.TriviallyCloseable
-	fsService    framesystem.Service
-	slamServices map[resource.Name]slam.Service
-	components   map[resource.Name]resource.Resource
-	logger       golog.Logger
-	lock         sync.Mutex
+	fsService  framesystem.Service
+	localizers map[resource.Name]motion.Localizer
+	components map[resource.Name]resource.Resource
+	logger     golog.Logger
+	lock       sync.Mutex
 }
 
 // Move takes a goal location and will plan and execute a movement to move a component specified by its name to that destination.
@@ -117,7 +125,7 @@ func (ms *builtIn) Move(
 	constraints *servicepb.Constraints,
 	extra map[string]interface{},
 ) (bool, error) {
-	operation.CancelOtherWithLabel(ctx, "motion-service")
+	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
 
 	// get goal frame
 	goalFrameName := destination.Parent()
@@ -180,14 +188,26 @@ func (ms *builtIn) MoveOnMap(
 	slamName resource.Name,
 	extra map[string]interface{},
 ) (bool, error) {
-	operation.CancelOtherWithLabel(ctx, "motion-service")
+	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
 
 	// get the SLAM Service from the slamName
-	slamService, ok := ms.slamServices[slamName]
+	localizer, ok := ms.localizers[slamName]
 	if !ok {
 		return false, resource.DependencyNotFoundError(slamName)
 	}
 	ms.logger.Warn("This feature is currently experimental and does not support obstacle avoidance with SLAM maps yet")
+
+	// assert localizer as a slam service and get map limits
+	slamSvc, ok := localizer.(slam.Service)
+	if !ok {
+		return false, fmt.Errorf("cannot assert localizer of type %T as slam service", localizer)
+	}
+
+	// gets the extents of the SLAM map
+	limits, err := slam.GetLimits(ctx, slamSvc)
+	if err != nil {
+		return false, err
+	}
 
 	// create a KinematicBase from the componentName
 	component, ok := ms.components[componentName]
@@ -198,12 +218,12 @@ func (ms *builtIn) MoveOnMap(
 	if !ok {
 		return false, fmt.Errorf("cannot move component of type %T because it is not a KinematicWrappable Base", component)
 	}
-	kb, err := kw.WrapWithKinematics(ctx, slamService)
+	kb, err := kw.WrapWithKinematics(ctx, localizer, limits)
 	if err != nil {
 		return false, err
 	}
 
-	pointCloudData, err := slam.GetPointCloudMapFull(ctx, slamService)
+	pointCloudData, err := slam.GetPointCloudMapFull(ctx, slamSvc)
 	if err != nil {
 		return false, err
 	}
@@ -245,7 +265,8 @@ func (ms *builtIn) MoveOnMap(
 	return true, nil
 }
 
-// MoveOnGlobe TODO(RSDK-2926): Finish documentation
+// MoveOnGlobe will move the given component to the given destination on the globe.
+// Bases are the only component that supports this.
 func (ms *builtIn) MoveOnGlobe(
 	ctx context.Context,
 	componentName resource.Name,
@@ -257,7 +278,100 @@ func (ms *builtIn) MoveOnGlobe(
 	angularVelocity float64,
 	extra map[string]interface{},
 ) (bool, error) {
-	return false, ErrNotImplemented
+	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
+
+	// create a new empty framesystem which we add our base to
+	fs := referenceframe.NewEmptyFrameSystem("")
+
+	// get the localizer from the componentName
+	localizer, ok := ms.localizers[movementSensorName]
+	if !ok {
+		return false, resource.DependencyNotFoundError(movementSensorName)
+	}
+
+	// get localizer current pose in frame
+	currentPIF, err := localizer.CurrentPosition(ctx)
+	if err != nil {
+		return false, err
+	}
+
+	// convert destination into spatialmath.Pose with respect to lat = 0 = lng
+	dstPose := spatialmath.GeoPointToPose(destination)
+
+	// convert the destination to be relative to the currentPIF
+	relativeDestinationPt := r3.Vector{
+		X: dstPose.Point().X - currentPIF.Pose().Point().X,
+		Y: dstPose.Point().Y - currentPIF.Pose().Point().Y,
+		Z: 0,
+	}
+
+	relativeDstPose := spatialmath.NewPoseFromPoint(relativeDestinationPt)
+	dstPIF := referenceframe.NewPoseInFrame(referenceframe.World, relativeDstPose)
+
+	// convert GeoObstacles into GeometriesInFrame with respect to the base's starting point
+	geoms := spatialmath.GeoObstaclesToGeometries(obstacles, currentPIF.Pose().Point())
+
+	gif := referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)
+	wrldst, err := referenceframe.NewWorldState([]*referenceframe.GeometriesInFrame{gif}, nil)
+	if err != nil {
+		return false, err
+	}
+
+	// construct limits
+	straightlineDistance := math.Abs(dstPose.Point().Distance(currentPIF.Pose().Point()))
+	limits := []referenceframe.Limit{
+		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
+		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
+	}
+
+	// create a KinematicBase from the componentName
+	baseComponent, ok := ms.components[componentName]
+	if !ok {
+		return false, fmt.Errorf("only Base components are supported for MoveOnGlobe: could not find an Base named %v", componentName)
+	}
+	kw, ok := baseComponent.(base.KinematicWrappable)
+	if !ok {
+		return false, fmt.Errorf("cannot move base of type %T because it is not KinematicWrappable", baseComponent)
+	}
+	kb, err := kw.WrapWithKinematics(ctx, localizer, limits)
+	if err != nil {
+		return false, err
+	}
+
+	// get current position
+	inputs, err := kb.CurrentInputs(ctx)
+	if err != nil {
+		return false, err
+	}
+	inputMap := map[string][]referenceframe.Input{componentName.Name: inputs}
+
+	// Add the kinematic wheeled base to the framesystem
+	if err := fs.AddFrame(kb.ModelFrame(), fs.World()); err != nil {
+		return false, err
+	}
+
+	// make call to motionplan
+	plan, err := motionplan.PlanMotion(ctx, ms.logger, dstPIF, kb.ModelFrame(), inputMap, fs, wrldst, nil, extra)
+	if err != nil {
+		return false, err
+	}
+
+	// execute the plan
+	for _, step := range plan {
+		for _, inputs := range step {
+			if ctx.Err() != nil {
+				return false, ctx.Err()
+			}
+			if len(inputs) == 0 {
+				continue
+			}
+			if err := kb.GoToInputs(ctx, inputs); err != nil {
+				return false, err
+			}
+		}
+	}
+
+	return true, nil
 }
 
 // MoveSingleComponent will pass through a move command to a component with a MoveToPosition method that takes a pose. Arms are the only
@@ -272,7 +386,7 @@ func (ms *builtIn) MoveSingleComponent(
 	worldState *referenceframe.WorldState,
 	extra map[string]interface{},
 ) (bool, error) {
-	operation.CancelOtherWithLabel(ctx, "motion-service")
+	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
 
 	// Get the arm and all initial inputs
 	fsInputs, _, err := ms.fsService.CurrentInputs(ctx)
