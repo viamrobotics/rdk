@@ -86,7 +86,6 @@ func newSerialCorrectionSource(conf *StationConfig, logger golog.Logger) (correc
 	if conf.SerialConfig.TestChan != nil {
 		s.TestChan = conf.SerialConfig.TestChan
 	} else {
-
 		options := serial.OpenOptions{
 			PortName:        serialPath,
 			BaudRate:        uint(baudRate),

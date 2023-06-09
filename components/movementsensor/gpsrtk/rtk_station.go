@@ -46,8 +46,10 @@ const (
 var stationModel = resource.DefaultModelFamily.WithModel("rtk-station")
 
 // ErrStationValidation contains the model substring for the available correction source types.
-var ErrStationValidation = fmt.Errorf("only serial, I2C are supported for %s", stationModel.Name)
-var errRequiredAccuracy = fmt.Errorf("required Accuracy can be 1-5")
+var (
+	ErrStationValidation = fmt.Errorf("only serial, I2C are supported for %s", stationModel.Name)
+	errRequiredAccuracy  = errors.New("required Accuracy can be 1-5")
+)
 
 // Validate ensures all parts of the config are valid.
 func (cfg *StationConfig) Validate(path string) ([]string, error) {
@@ -96,7 +98,7 @@ type rtkStation struct {
 	resource.Named
 	resource.AlwaysRebuild
 	logger              golog.Logger
-	correction          correctionSource
+	correctionSource    correctionSource
 	protocol            string
 	i2cPaths            []i2cBusAddr
 	serialPorts         []io.Writer
@@ -149,13 +151,13 @@ func newRTKStation(
 	// Init correction source
 	switch r.protocol {
 	case serialStr:
-		r.correction, err = newSerialCorrectionSource(newConf, logger)
+		r.correctionSource, err = newSerialCorrectionSource(newConf, logger)
 		if err != nil {
 			return nil, err
 		}
 	case i2cStr:
 		log.Println("new i2c correction source")
-		r.correction, err = newI2CCorrectionSource(deps, newConf, logger)
+		r.correctionSource, err = newI2CCorrectionSource(deps, newConf, logger)
 		if err != nil {
 			return nil, err
 		}
@@ -191,7 +193,6 @@ func newRTKStation(
 			if newConf.SerialConfig.TestChan != nil {
 				r.testChan = newConf.SerialConfig.TestChan
 			} else {
-
 				options := serial.OpenOptions{
 					PortName:        path,
 					BaudRate:        uint(baudRate),
@@ -240,14 +241,14 @@ func (r *rtkStation) Start(ctx context.Context) {
 
 		// read from correction source
 		ready := make(chan bool)
-		r.correction.Start(ready)
+		r.correctionSource.Start(ready)
 
 		select {
 		case <-ready:
 		case <-r.cancelCtx.Done():
 			return
 		}
-		stream, err := r.correction.Reader()
+		stream, err := r.correctionSource.Reader()
 		if err != nil {
 			r.logger.Errorf("Unable to get reader: %s", err)
 			r.err.Set(err)
@@ -312,7 +313,7 @@ func (r *rtkStation) Close(ctx context.Context) error {
 	r.activeBackgroundWorkers.Wait()
 
 	// close correction source
-	err := r.correction.Close(ctx)
+	err := r.correctionSource.Close(ctx)
 	if err != nil {
 		return err
 	}

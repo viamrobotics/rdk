@@ -283,12 +283,9 @@ func newRTKMovementSensor(
 	}
 
 	// Init ntripInfo from attributes
-	g.ntripClient = &NtripInfo{
-		URL:                newConf.NtripAddr,
-		Username:           newConf.NtripUser,
-		Password:           newConf.NtripPass,
-		MountPoint:         newConf.NtripMountpoint,
-		MaxConnectAttempts: 3,
+	g.ntripClient, err = newNtripInfo(newConf.NtripConfig, g.logger)
+	if err != nil {
+		return nil, err
 	}
 
 	// baud rate

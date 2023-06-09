@@ -216,12 +216,9 @@ func TestValidate(t *testing.T) {
 			if tc.expectedErr != nil {
 				test.That(t, err, test.ShouldBeError, tc.expectedErr)
 				test.That(t, len(deps), test.ShouldEqual, 0)
-			} else {
-				if tc.stationConfig.CorrectionSource == i2cStr {
-					test.That(t, deps[0], test.ShouldEqual, testBoardName)
-				}
+			} else if tc.stationConfig.CorrectionSource == i2cStr {
+				test.That(t, deps[0], test.ShouldEqual, testBoardName)
 			}
-
 		})
 	}
 }
@@ -311,41 +308,40 @@ func TestClose(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
-	g := rtkStation{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
 	r := io.NopCloser(strings.NewReader("hello world"))
-	n := &ntripCorrectionSource{
-		cancelCtx:        cancelCtx,
-		cancelFunc:       cancelFunc,
-		logger:           logger,
-		correctionReader: r,
+
+	tests := []struct {
+		name        string
+		baseStation *rtkStation
+		expectedErr error
+	}{
+		{
+			name: "Should close serial with no errors",
+			baseStation: &rtkStation{
+				cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger, correctionSource: &serialCorrectionSource{
+					cancelCtx:        cancelCtx,
+					cancelFunc:       cancelFunc,
+					logger:           logger,
+					correctionReader: r,
+				},
+			},
+		},
+		{
+			name: "should close i2c with no errors",
+			baseStation: &rtkStation{
+				cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger, correctionSource: &i2cCorrectionSource{
+					cancelCtx:        cancelCtx,
+					cancelFunc:       cancelFunc,
+					logger:           logger,
+					correctionReader: r,
+				},
+			},
+		},
 	}
-	n.info = makeMockNtripClient()
-	g.correction = n
-
-	err := g.Close(ctx)
-	test.That(t, err, test.ShouldBeNil)
-
-	g = rtkStation{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
-	s := &serialCorrectionSource{
-		cancelCtx:        cancelCtx,
-		cancelFunc:       cancelFunc,
-		logger:           logger,
-		correctionReader: r,
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.baseStation.Close(ctx)
+			test.That(t, err, test.ShouldBeNil)
+		})
 	}
-	g.correction = s
-
-	err = g.Close(ctx)
-	test.That(t, err, test.ShouldBeNil)
-
-	g = rtkStation{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
-	i := &i2cCorrectionSource{
-		cancelCtx:        cancelCtx,
-		cancelFunc:       cancelFunc,
-		logger:           logger,
-		correctionReader: r,
-	}
-	g.correction = i
-
-	err = g.Close(ctx)
-	test.That(t, err, test.ShouldBeNil)
 }

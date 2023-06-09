@@ -139,6 +139,11 @@ func (g *SerialNMEAMovementSensor) Start(ctx context.Context) error {
 	return g.err.Get()
 }
 
+// GetCorrectionInfo returns the serial path that takes in rtcm corrections and baudrate for reading.
+func (g *SerialNMEAMovementSensor) GetCorrectionInfo() (string, uint) {
+	return g.correctionPath, g.correctionBaudRate
+}
+
 // Position position, altitide.
 func (g *SerialNMEAMovementSensor) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
 	g.mu.RLock()
