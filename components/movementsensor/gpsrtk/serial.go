@@ -145,7 +145,6 @@ func (s *serialCorrectionSource) Start(ready chan<- bool) {
 			}
 
 			msg, err := scanner.NextMessage()
-
 			if err != nil {
 				s.logger.Errorf("Error reading RTCM message: %s", err)
 				s.err.Set(err)
