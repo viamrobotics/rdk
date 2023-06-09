@@ -8,8 +8,12 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+	genericpb "go.viam.com/api/component/generic/v1"
+	robotpb "go.viam.com/api/robot/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/testutils"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 
 	"go.viam.com/rdk/robot/client"
 	weboptions "go.viam.com/rdk/robot/web/options"
@@ -40,4 +44,24 @@ func NewRobotClient(tb testing.TB, logger *zap.SugaredLogger, addr string, dur t
 	)
 	test.That(tb, err, test.ShouldBeNil)
 	return robotClient
+}
+
+func Connect(port string) (robotpb.RobotServiceClient, genericpb.GenericServiceClient, *grpc.ClientConn, error) {
+	ctxTimeout, cancelFunc := context.WithTimeout(context.Background(), time.Minute)
+	defer cancelFunc()
+
+	var conn *grpc.ClientConn
+	conn, err := grpc.DialContext(ctxTimeout,
+		"dns:///localhost:"+port,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithBlock(),
+	)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	rc := robotpb.NewRobotServiceClient(conn)
+	gc := genericpb.NewGenericServiceClient(conn)
+
+	return rc, gc, conn, nil
 }
