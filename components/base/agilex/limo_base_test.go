@@ -21,6 +21,7 @@ func TestLimoBaseConstructor(t *testing.T) {
 
 	_, err := createLimoBase(ctx, deps, resource.Config{ConvertedAttributes: &Config{}}, logger)
 	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldStartWith, "drive mode must be defined")
 
 	cfg := &Config{
 		DriveMode: "ackermann",
@@ -32,6 +33,7 @@ func TestLimoBaseConstructor(t *testing.T) {
 	props, err := lb.Properties(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 
+	test.That(t, controllers[defaultSerialPath], test.ShouldNotBeNil)
 	test.That(t, props.WidthMeters, test.ShouldEqual, expectedWidth)
 	test.That(t, props.TurningRadiusMeters, test.ShouldEqual, expectedTurningRadius)
 	lb.Close(ctx)
@@ -59,4 +61,6 @@ func TestLimoBaseConstructor(t *testing.T) {
 	test.That(t, props.WidthMeters, test.ShouldEqual, expectedWidth)
 	test.That(t, props.TurningRadiusMeters, test.ShouldEqual, 0) // not ackerman, so zero
 	lb.Close(ctx)
+
+	test.That(t, controllers, test.ShouldBeEmpty)
 }

@@ -8,6 +8,7 @@ import type {
 
 import Camera from './camera.svelte';
 import PCD from '../pcd/index.svelte';
+import Collapse from '../collapse.svelte';
 import { selectedMap } from '@/lib/camera-state';
 import type { StreamManager } from './stream-manager';
 
@@ -33,18 +34,14 @@ const setupCamera = (cameraName: string) => {
 
 const handleRefreshInput = (name: string) => {
   return (event: CustomEvent) => {
-    refreshFrequency[name] = event.detail.value
-  }
-}
+    refreshFrequency[name] = event.detail.value;
+  };
+};
 
 </script>
 
 {#each resources as camera (camera.name)}
-  <v-collapse
-    title={camera.name}
-    class="camera"
-    data-parent="app"
-  >
+  <Collapse title={camera.name}>
     <v-breadcrumbs
       slot="title"
       crumbs="camera"
@@ -71,10 +68,11 @@ const handleRefreshInput = (name: string) => {
 
           {#if refreshFrequency[camera.name] !== 'Live'}
             <v-button
-              v-if=""
               icon="refresh"
               label="Refresh"
-              on:click={() => { triggerRefresh = !triggerRefresh }}
+              on:click={() => {
+                triggerRefresh = !triggerRefresh;
+              }}
             />
           {/if}
         </div>
@@ -96,5 +94,5 @@ const handleRefreshInput = (name: string) => {
         cameraName={camera.name}
       />
     </div>
-  </v-collapse>
+  </Collapse>
 {/each}
