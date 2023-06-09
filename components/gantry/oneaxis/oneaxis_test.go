@@ -150,6 +150,7 @@ func TestNewOneAxis(t *testing.T) {
 			LimitSwitchPins: []string{"1", "2", "3"},
 			LengthMm:        1.0,
 			Board:           boardName,
+			LimitPinEnabled: &setTrue,
 		},
 	}
 
@@ -169,6 +170,7 @@ func TestNewOneAxis(t *testing.T) {
 	}
 	deps = make(resource.Dependencies)
 	deps[motor.Named(motorName)] = injectMotor
+	deps[board.Named(boardName)] = createFakeBoard()
 
 	_, err = newOneAxis(ctx, deps, fakecfg, logger)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid gantry type")
@@ -183,9 +185,50 @@ func TestNewOneAxis(t *testing.T) {
 
 	deps = make(resource.Dependencies)
 	deps[motor.Named(motorName)] = injectMotor
+	deps[board.Named(boardName)] = createFakeBoard()
 	_, err = newOneAxis(ctx, deps, fakecfg, logger)
 	expectedErr := motor.NewFeatureUnsupportedError(motor.PositionReporting, motorName)
 	test.That(t, err, test.ShouldBeError, expectedErr)
+}
+
+func TestReconfigure(t *testing.T) {
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+	deps := createFakeDepsForTestNewOneAxis(t)
+	fakecfg := resource.Config{
+		Name: testGName,
+		ConvertedAttributes: &Config{
+			Motor:           motorName,
+			LimitSwitchPins: []string{"1", "2"},
+			LengthMm:        1.0,
+			Board:           boardName,
+			LimitPinEnabled: &setTrue,
+			GantryRPM:       float64(300),
+		},
+	}
+	fakegantry, err := newOneAxis(ctx, deps, fakecfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	g := fakegantry.(*oneAxis)
+
+	newconf := resource.Config{
+		Name: testGName,
+		ConvertedAttributes: &Config{
+			Motor:           motorName,
+			LimitSwitchPins: []string{"1", "3"},
+			LengthMm:        5.0,
+			Board:           boardName,
+			LimitPinEnabled: &setTrue,
+			GantryRPM:       float64(400),
+			MmPerRevolution: 10,
+		},
+	}
+	err = fakegantry.Reconfigure(ctx, deps, newconf)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, g.limitSwitchPins, test.ShouldResemble, []string{"1", "3"})
+	test.That(t, g.lengthMm, test.ShouldEqual, 5.0)
+	test.That(t, g.rpm, test.ShouldEqual, float64(400))
+	test.That(t, g.mmPerRevolution, test.ShouldEqual, 10)
 }
 
 func TestHome(t *testing.T) {

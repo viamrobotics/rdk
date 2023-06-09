@@ -38,22 +38,24 @@ import Encoder from './encoder.vue';
 import Gantry from './gantry.vue';
 import Gripper from './gripper.vue';
 import Gamepad from './gamepad.vue';
-import InputController from './input-controller.vue';
+import InputControllerSvelte from './input-controller/index.svelte';
 import MotorSvelte from './motor/index.svelte';
 import MovementSensorSvelte from './movement-sensor/index.svelte';
 import NavigationSvelte from './navigation/index.svelte';
 import ServoSvelte from './servo/index.svelte';
-import Sensors from './sensors.vue';
+import SensorsSvelte from './sensors/index.svelte';
 import SlamSvelte from './slam/index.svelte';
 import { svelteAdapter } from '../lib/svelte-adapter';
 
 const Arm = svelteAdapter(ArmSvelte);
 const AudioInput = svelteAdapter(AudioInputSvelte);
 const CamerasList = svelteAdapter(CamerasListSvelte, { display: 'flex', 'flex-direction': 'column', gap: '1rem' });
+const InputController = svelteAdapter(InputControllerSvelte);
 const Motor = svelteAdapter(MotorSvelte);
 const MovementSensor = svelteAdapter(MovementSensorSvelte);
 const Navigation = svelteAdapter(NavigationSvelte);
 const OperationsSessions = svelteAdapter(OperationsSessionsSvelte);
+const Sensors = svelteAdapter(SensorsSvelte);
 const Servo = svelteAdapter(ServoSvelte);
 const Slam = svelteAdapter(SlamSvelte);
 
@@ -907,7 +909,7 @@ onUnmounted(() => {
         v-if="nonEmpty(sensorNames)"
         :name="filterNonRemoteResources(resources, 'rdk', 'service', 'sensors')[0]!.name"
         :client="client"
-        :sensor-names="sensorNames"
+        :sensorNames="sensorNames"
       />
 
       <!-- ******* AUDIO INPUTS *******  -->

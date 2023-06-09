@@ -94,7 +94,7 @@ func NewIncrementalEncoder(
 	conf resource.Config,
 	logger golog.Logger,
 ) (encoder.Encoder, error) {
-	cancelCtx, cancelFunc := context.WithCancel(ctx)
+	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	e := &Encoder{
 		Named:        conf.ResourceName().AsNamed(),
 		logger:       logger,
@@ -153,7 +153,7 @@ func (e *Encoder) Reconfigure(
 		return nil
 	}
 	utils.UncheckedError(e.Close(ctx))
-	cancelCtx, cancelFunc := context.WithCancel(ctx)
+	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	e.CancelCtx = cancelCtx
 	e.cancelFunc = cancelFunc
 
