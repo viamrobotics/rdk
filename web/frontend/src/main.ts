@@ -1,7 +1,8 @@
-import { createApp } from 'vue';
 import '@viamrobotics/prime';
 import './tailwind.css';
 import './index.css';
-import App from './app.vue';
+import App from './app.svelte';
 
-createApp(App).mount('#app');
+export default new App({
+  target: document.querySelector('#app')!,
+});

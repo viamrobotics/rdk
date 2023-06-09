@@ -1,5 +1,5 @@
-import { useToast } from 'vue-toast-notification';
-
-export const toast = useToast({
-  position: 'top-right',
-});
+export const toast = {
+  error: (message: string) => console.error(message),
+  info: (message: string) => console.error(message),
+  warn: (message: string) => console.error(message),
+};

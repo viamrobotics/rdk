@@ -1,10 +1,7 @@
 {
   "extends": "@viamrobotics/typescript-config/base.json",
   "compilerOptions": {
-    "types": [
-      "vite/client",
-      "@vue-macros/reactivity-transform/macros-global"
-    ],
+    "types": ["vite/client"],
   
     // Export options
     "declaration": true,
@@ -17,5 +14,5 @@
     "noPropertyAccessFromIndexSignature": false,
     "exactOptionalPropertyTypes": false,
   },
-  "include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.vue", "src/**/*.svelte"],
+  "include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.svelte"],
 }

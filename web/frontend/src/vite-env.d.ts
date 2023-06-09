@@ -1,5 +1,6 @@
 /* eslint-disable multiline-comment-style */
 /* eslint-disable spaced-comment */
+
 /// <reference types="svelte" />
 /// <reference types="vite/client" />
 
