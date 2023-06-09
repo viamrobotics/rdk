@@ -52,26 +52,22 @@ const toggleExpand = async () => {
 <Collapse title={name}>
   <v-breadcrumbs slot="title" crumbs="audio_input" />
   <div class="h-auto border border-t-0 border-medium p-2">
-    <div class="container mx-auto">
-      <div class="pt-4">
-        <div class="flex items-center gap-2">
-          <v-switch
-            id="audio-input"
-            value={isOn ? 'on' : 'off'}
-            on:input={toggleExpand}
-          />
-          <span class="pr-2">Listen</span>
-        </div>
-
-        {#if isOn}
-          <audio
-            class='py-2'
-            controls
-            autoplay
-            bind:this={audio}
-          />
-        {/if}
-      </div>
+    <div class="flex items-center gap-2">
+      <v-switch
+        id="audio-input"
+        label='Listen'
+        value={isOn ? 'on' : 'off'}
+        on:input={toggleExpand}
+      />
     </div>
+
+    {#if isOn}
+      <audio
+        class='py-2'
+        controls
+        autoplay
+        bind:this={audio}
+      />
+    {/if}
   </div>
 </Collapse>
