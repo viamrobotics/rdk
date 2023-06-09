@@ -207,7 +207,7 @@ func (ms *builtIn) MoveOnMap(
 	if err != nil {
 		return false, err
 	}
-	octree, err := pointcloud.ReadPCDToBasicOctree(bytes.NewReader(pointCloudData))
+	octree, err := pointcloud.ReadPCDToBasicOctree(bytes.NewReader(pointCloudData), true)
 	if err != nil {
 		return false, err
 	}
