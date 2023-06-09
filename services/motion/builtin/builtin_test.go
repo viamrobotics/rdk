@@ -2,7 +2,6 @@ package builtin_test
 
 import (
 	"context"
-	"io"
 	"math"
 	"os"
 	"testing"
@@ -11,6 +10,7 @@ import (
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/test"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/base"
@@ -232,11 +232,20 @@ func TestMoveOnMap(t *testing.T) {
 		if err != nil {
 			return nil, err
 		}
-		return func() ([]byte, error) { return io.ReadAll(file) }, nil
+		chunk := make([]byte, chunkSizeBytes)
+		f := func() ([]byte, error) {
+			bytesRead, err := file.Read(chunk)
+			if err != nil {
+				defer utils.UncheckedErrorFunc(file.Close)
+				return nil, err
+			}
+			return chunk[:bytesRead], err
+		}
+		return f, nil
 	}
 
 	injectSlam.GetPositionFunc = func(ctx context.Context) (spatialmath.Pose, string, error) {
-		fakePose := spatialmath.NewPoseFromPoint(r3.Vector{X: -0.0345, Y: -0.145})
+		fakePose := spatialmath.NewPoseFromPoint(r3.Vector{X: -0.0345*1000, Y: -0.145*1000})
 		return fakePose, "", nil
 	}
 
@@ -262,7 +271,7 @@ func TestMoveOnMap(t *testing.T) {
 	success, err := ms.MoveOnMap(
 		context.Background(),
 		base.Named("test_base"),
-		spatialmath.NewPoseFromPoint(r3.Vector{X: 1.26, Y: 0.1705}),
+		spatialmath.NewPoseFromPoint(r3.Vector{X: 1.26*1000, Y: 0.1705*1000}),
 		slam.Named("test_slam"),
 		nil,
 	)
