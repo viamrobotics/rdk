@@ -307,8 +307,8 @@ func ModelFromPath(modelPath, name string) (Model, error) {
 // This model is intended to be used with a mobile base and has 3DOF corresponding to a state of x, y, and theta
 // where x and y are the positional coordinates the base is located about and theta is the rotation about the z axis.
 func New2DMobileModelFrame(name string, limits []Limit, collisionGeometry spatialmath.Geometry) (Model, error) {
-	if len(limits) != 3 {
-		return nil, errors.Errorf("Must have 3DOF state (x, y, theta) to create 2DMobildModelFrame, have %d dof", len(limits))
+	if len(limits) != 2 {
+		return nil, errors.Errorf("Must have 2DOF state (x, y) to create 2DMobildModelFrame, have %d dof", len(limits))
 	}
 
 	// build the model - SLAM convention is that the XY plane is the ground plane
@@ -320,7 +320,8 @@ func New2DMobileModelFrame(name string, limits []Limit, collisionGeometry spatia
 	if err != nil {
 		return nil, err
 	}
-	theta, err := NewRotationalFrame("theta", *spatialmath.NewR4AA(), limits[2])
+	orientationLimit := Limit{Min: -2 * math.Pi, Max: 2 * math.Pi}
+	theta, err := NewRotationalFrame("theta", *spatialmath.NewR4AA(), orientationLimit)
 	if err != nil {
 		return nil, err
 	}
