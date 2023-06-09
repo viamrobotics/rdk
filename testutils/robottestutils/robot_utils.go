@@ -50,6 +50,7 @@ func NewRobotClient(tb testing.TB, logger *zap.SugaredLogger, addr string, dur t
 	return robotClient
 }
 
+// Connect creates a new RobotServiceClient pointing to a server running on localhost:port.
 func Connect(port string) (robotpb.RobotServiceClient, genericpb.GenericServiceClient, *grpc.ClientConn, error) {
 	ctxTimeout, cancelFunc := context.WithTimeout(context.Background(), time.Minute)
 	defer cancelFunc()
@@ -70,6 +71,7 @@ func Connect(port string) (robotpb.RobotServiceClient, genericpb.GenericServiceC
 	return rc, gc, conn, nil
 }
 
+// MakeTempConfig writes a config.Config object to a temporary file for testing.
 func MakeTempConfig(t *testing.T, cfg *config.Config, logger golog.Logger) (string, error) {
 	if err := cfg.Ensure(false, logger); err != nil {
 		return "", err

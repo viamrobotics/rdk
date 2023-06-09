@@ -7,14 +7,14 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
-
 	robotpb "go.viam.com/api/robot/v1"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/testutils/robottestutils"
-	"go.viam.com/rdk/utils"
 	"go.viam.com/test"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/pexec"
+
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/testutils/robottestutils"
+	"go.viam.com/rdk/utils"
 )
 
 // numResources is the # of resources in /etc/configs/fake.json + the 2
