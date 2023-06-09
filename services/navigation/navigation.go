@@ -28,7 +28,6 @@ type Mode uint8
 const (
 	ModeManual = Mode(iota)
 	ModeWaypoint
-	ModeExperimental
 )
 
 // A Service controls the navigation for a robot.

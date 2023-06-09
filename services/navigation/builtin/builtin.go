@@ -210,14 +210,13 @@ func (svc *builtIn) SetMode(ctx context.Context, mode navigation.Mode, extra map
 	svc.cancelCtx = cancelCtx
 	svc.cancelFunc = cancelFunc
 	svc.mode = navigation.ModeManual
-	switch mode {
-	case navigation.ModeWaypoint:
-		if err := svc.startWaypoint(extra); err != nil {
-			return err
+	if mode == navigation.ModeWaypoint {
+		if extra != nil && extra["experimental"] == true {
+			if err := svc.startWaypointExperimental(extra); err != nil {
+				return err
+			}
 		}
-		svc.mode = mode
-	case navigation.ModeExperimental:
-		if err := svc.startWaypointExperimental(extra); err != nil {
+		if err := svc.startWaypoint(extra); err != nil {
 			return err
 		}
 		svc.mode = mode
