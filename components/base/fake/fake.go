@@ -2,19 +2,15 @@
 package fake
 
 import (
-	"bytes"
 	"context"
-	"math"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
-	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/components/base"
-	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/services/slam"
+	"go.viam.com/rdk/services/motion"
 )
 
 func init() {
@@ -92,41 +88,30 @@ func (b *Base) Properties(ctx context.Context, extra map[string]interface{}) (ba
 
 type kinematicBase struct {
 	*Base
-	model  referenceframe.Model
-	slam   slam.Service
-	inputs []referenceframe.Input
+	model     referenceframe.Model
+	localizer motion.Localizer
+	inputs    []referenceframe.Input
 }
 
 // WrapWithKinematics creates a KinematicBase from the fake Base so that it satisfies the ModelFramer and InputEnabled interfaces.
-func (b *Base) WrapWithKinematics(ctx context.Context, slamSvc slam.Service) (base.KinematicBase, error) {
+func (b *Base) WrapWithKinematics(
+	ctx context.Context,
+	localizer motion.Localizer,
+	limits []referenceframe.Limit,
+) (base.KinematicBase, error) {
 	geometry, err := base.CollisionGeometry(b.geometry)
 	if err != nil {
 		return nil, err
 	}
-
-	// gets the extents of the SLAM map
-	data, err := slam.GetPointCloudMapFull(ctx, slamSvc)
-	if err != nil {
-		return nil, err
-	}
-	dims, err := pointcloud.GetPCDMetaData(bytes.NewReader(data))
-	if err != nil {
-		return nil, err
-	}
-	limits := []referenceframe.Limit{
-		{Min: dims.MinX, Max: dims.MaxX},
-		{Min: dims.MinY, Max: dims.MaxY},
-		{Min: -2 * math.Pi, Max: 2 * math.Pi},
-	}
 	model, err := referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits, geometry)
 	if err != nil {
-		return nil, errors.Wrap(err, "fake base cannot be created")
+		return nil, err
 	}
 	return &kinematicBase{
-		Base:   b,
-		model:  model,
-		slam:   slamSvc,
-		inputs: make([]referenceframe.Input, len(model.DoF())),
+		Base:      b,
+		model:     model,
+		localizer: localizer,
+		inputs:    make([]referenceframe.Input, len(model.DoF())),
 	}, nil
 }
 

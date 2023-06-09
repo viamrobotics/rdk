@@ -119,10 +119,7 @@
                     "type": "memory"
                 },
                 "movement_sensor": "test_movement",
-                "motion_service": "test_motion",
                 "base": "test_base",
-                "degs_per_sec": 1,
-                "meters_per_sec": 1,
                 "obstacles":[{
                     "geometries": [{
                         "label":"aLabel",

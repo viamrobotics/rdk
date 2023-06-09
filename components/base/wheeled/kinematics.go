@@ -1,7 +1,6 @@
 package wheeled
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"math"
@@ -9,9 +8,8 @@ import (
 	"github.com/golang/geo/r3"
 
 	"go.viam.com/rdk/components/base"
-	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/services/slam"
+	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -24,31 +22,21 @@ const (
 
 type kinematicWheeledBase struct {
 	*wheeledBase
-	slam  slam.Service
-	model referenceframe.Model
-	fs    referenceframe.FrameSystem
+	localizer motion.Localizer
+	model     referenceframe.Model
+	fs        referenceframe.FrameSystem
 }
 
 // WrapWithKinematics takes a wheeledBase component and adds a slam service to it
 // It also adds kinematic model so that it can be controlled.
-func (wb *wheeledBase) WrapWithKinematics(ctx context.Context, slamSvc slam.Service) (base.KinematicBase, error) {
-	// gets the extents of the SLAM map
-	data, err := slam.GetPointCloudMapFull(ctx, slamSvc)
-	if err != nil {
-		return nil, err
-	}
-	dims, err := pointcloud.GetPCDMetaData(bytes.NewReader(data))
-	if err != nil {
-		return nil, err
-	}
+func (wb *wheeledBase) WrapWithKinematics(
+	ctx context.Context,
+	localizer motion.Localizer,
+	limits []referenceframe.Limit,
+) (base.KinematicBase, error) {
 	geometry, err := base.CollisionGeometry(wb.frame)
 	if err != nil {
 		return nil, err
-	}
-	limits := []referenceframe.Limit{
-		{Min: dims.MinX, Max: dims.MaxX},
-		{Min: dims.MinY, Max: dims.MaxY},
-		{Min: -2 * math.Pi, Max: 2 * math.Pi},
 	}
 	model, err := referenceframe.New2DMobileModelFrame(wb.name, limits, geometry)
 	if err != nil {
@@ -60,10 +48,10 @@ func (wb *wheeledBase) WrapWithKinematics(ctx context.Context, slamSvc slam.Serv
 	}
 	return &kinematicWheeledBase{
 		wheeledBase: wb,
-		slam:        slamSvc,
+		localizer:   localizer,
 		model:       model,
 		fs:          fs,
-	}, err
+	}, nil
 }
 
 func (kwb *kinematicWheeledBase) ModelFrame() referenceframe.Model {
@@ -72,12 +60,12 @@ func (kwb *kinematicWheeledBase) ModelFrame() referenceframe.Model {
 
 func (kwb *kinematicWheeledBase) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
 	// TODO(rb): make a transformation from the component reference to the base frame
-	pose, _, err := kwb.slam.GetPosition(ctx)
+	pif, err := kwb.localizer.CurrentPosition(ctx)
 	if err != nil {
 		return nil, err
 	}
-	pt := pose.Point()
-	theta := math.Mod(pose.Orientation().OrientationVectorRadians().Theta, 2*math.Pi) - math.Pi
+	pt := pif.Pose().Point()
+	theta := math.Mod(pif.Pose().Orientation().OrientationVectorRadians().Theta, 2*math.Pi) - math.Pi
 	return []referenceframe.Input{{Value: pt.X}, {Value: pt.Y}, {Value: theta}}, nil
 }
 
