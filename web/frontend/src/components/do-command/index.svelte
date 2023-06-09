@@ -67,7 +67,7 @@ const namesToPrettySelect = (resourcesToPretty: commonApi.ResourceName.AsObject[
 <Collapse title="DoCommand()">
   <div class="h-full w-full border border-t-0 border-medium p-4">
     <v-select
-      label="Selected Component"
+      label="Selected component"
       placeholder="Select a component"
       options={namesToPrettySelect(resources)}
       value={selectedComponent}
@@ -77,7 +77,7 @@ const namesToPrettySelect = (resourcesToPretty: commonApi.ResourceName.AsObject[
     />
     <div class="flex h-full w-full flex-row flex-wrap gap-2">
       <div class="h-full w-full">
-        <p class="text-large">
+        <p class="text-sm">
           Input
         </p>
         <div class="h-[250px] w-full max-w-full border border-medium p-2">
@@ -97,7 +97,7 @@ const namesToPrettySelect = (resourcesToPretty: commonApi.ResourceName.AsObject[
         />
       </div>
       <div class="h-full w-full">
-        <p class="text-large">
+        <p class="text-sm">
           Output
         </p>
         <div class="h-[250px] w-full border border-medium p-2">

@@ -74,12 +74,13 @@
   <div class="border border-t-0 border-medium p-4">
     {#if connected}
       {#each controls as control (control[0])}
-        <div class="ml-0 flex w-[8ex] flex-col">
-          <p class="subtitle m-0">
-            {control[0]}
-          </p>
-          {control[1]}
-        </div>
+        <v-input
+          readonly
+          class='w-20'
+          labelposition='left'
+          label={control[0]}
+          value={control[1]}
+        />
       {/each}
     {/if}
   </div>
