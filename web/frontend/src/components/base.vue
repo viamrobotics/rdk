@@ -293,7 +293,7 @@ onUnmounted(() => {
         slot="header"
         variant="danger"
         icon="stop-circle"
-        label="STOP"
+        label="Stop"
         @click="stop"
       />
 

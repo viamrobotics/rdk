@@ -29,17 +29,11 @@ const togglePCDExpand = () => {
 <div class="pt-4">
   <div class="flex gap-2 align-top">
     <v-switch
-      label={pcdExpanded ? 'Hide Point Cloud Data' : 'View Point Cloud Data'}
+      tooltip='When turned on, point cloud will be recalculated'
+      label='View point cloud data'
       value={pcdExpanded ? 'on' : 'off'}
       on:input={togglePCDExpand}
     />
-
-    <v-tooltip
-      text="When turned on, point cloud will be recalculated."
-      location="top"
-    >
-      <v-icon name="info-outline" />
-    </v-tooltip>
   </div>
 
   {#if pcdExpanded}
