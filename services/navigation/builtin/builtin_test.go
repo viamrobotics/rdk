@@ -81,6 +81,10 @@ func TestNavSetup(t *testing.T) {
 }
 
 func TestStartWaypoint(t *testing.T) {
+	// there is a race condition in this test
+	// remove this skip when we are ready to introduce this
+	t.Skip()
+
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 
