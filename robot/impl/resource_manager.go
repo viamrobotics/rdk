@@ -528,10 +528,10 @@ func (manager *resourceManager) completeConfig(
 
 	resourceNames := manager.resources.ReverseTopologicalSort()
 	for _, resName := range resourceNames {
-		ctx := ctx
+		configCtx := ctx
 		if robot.resourceConfigurationTimeout != 0 {
 			ctxWithTimeout, timeoutCancel := context.WithTimeout(ctx, robot.resourceConfigurationTimeout)
-			ctx = ctxWithTimeout
+			configCtx = ctxWithTimeout
 			defer timeoutCancel()
 		}
 		gNode, ok := manager.resources.Node(resName)
@@ -557,7 +557,7 @@ func (manager *resourceManager) completeConfig(
 			continue
 		}
 		if manager.moduleManager.Provides(conf) {
-			if _, err := manager.moduleManager.ValidateConfig(ctx, conf); err != nil {
+			if _, err := manager.moduleManager.ValidateConfig(configCtx, conf); err != nil {
 				manager.logger.Errorw("modular resource config validation error", "resource", conf.ResourceName(), "model", conf.Model, "error", err)
 				gNode.SetLastError(errors.Wrap(err, "config validation error found in modular resource: "+conf.ResourceName().String()))
 				continue
@@ -566,7 +566,7 @@ func (manager *resourceManager) completeConfig(
 
 		switch {
 		case resName.API.IsComponent(), resName.API.IsService():
-			newRes, newlyBuilt, err := manager.processResource(ctx, conf, gNode, robot)
+			newRes, newlyBuilt, err := manager.processResource(configCtx, conf, gNode, robot)
 			if newlyBuilt || err != nil {
 				if err := manager.markChildrenForUpdate(resName); err != nil {
 					manager.logger.Errorw(

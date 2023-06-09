@@ -692,24 +692,24 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 	// For now, we pass all resources and empty configs.
 	shouldTimeout := r.resourceConfigurationTimeout != 0
 	for resName, res := range internalResources {
-		ctx := ctx
+		configCtx := ctx
 		if shouldTimeout {
 			ctxWithTimeout, timeoutCancel := context.WithTimeout(ctx, r.resourceConfigurationTimeout)
-			ctx = ctxWithTimeout
+			configCtx = ctxWithTimeout
 			defer timeoutCancel()
 		}
 		switch resName {
 		case web.InternalServiceName:
-			if err := res.Reconfigure(ctx, allResources, resource.Config{}); err != nil {
+			if err := res.Reconfigure(configCtx, allResources, resource.Config{}); err != nil {
 				r.Logger().Errorw("failed to reconfigure internal service", "service", resName, "error", err)
 			}
 		case framesystem.InternalServiceName:
-			fsCfg, err := r.FrameSystemConfig(ctx)
+			fsCfg, err := r.FrameSystemConfig(configCtx)
 			if err != nil {
 				r.Logger().Errorw("failed to reconfigure internal service", "service", resName, "error", err)
 				continue
 			}
-			if err := res.Reconfigure(ctx, components, resource.Config{ConvertedAttributes: fsCfg}); err != nil {
+			if err := res.Reconfigure(configCtx, components, resource.Config{ConvertedAttributes: fsCfg}); err != nil {
 				r.Logger().Errorw("failed to reconfigure internal service", "service", resName, "error", err)
 			}
 		case packages.InternalServiceName, cloud.InternalServiceName:
@@ -743,13 +743,13 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 
 	cfg := r.Config()
 	for _, conf := range append(cfg.Components, cfg.Services...) {
-		ctx := ctx
+		configCtx := ctx
 		if shouldTimeout {
 			ctxWithTimeout, timeoutCancel := context.WithTimeout(ctx, r.resourceConfigurationTimeout)
-			ctx = ctxWithTimeout
+			configCtx = ctxWithTimeout
 			defer timeoutCancel()
 		}
-		updateResourceWeakDependents(ctx, conf)
+		updateResourceWeakDependents(configCtx, conf)
 	}
 }
 
