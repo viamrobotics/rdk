@@ -4,13 +4,13 @@ package fake
 import (
 	"bytes"
 	"context"
+	"math"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/components/base"
-	"go.viam.com/rdk/components/base/wheeled"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -21,20 +21,14 @@ func init() {
 	resource.RegisterComponent(
 		base.API,
 		resource.DefaultModelFamily.WithModel("fake"),
-		resource.Registration[base.Base, resource.NoNativeConfig]{
-			Constructor: func(
-				ctx context.Context,
-				deps resource.Dependencies,
-				conf resource.Config,
-				logger golog.Logger,
-			) (base.Base, error) {
-				return &Base{Named: conf.ResourceName().AsNamed()}, nil
-			},
-		},
+		resource.Registration[base.Base, resource.NoNativeConfig]{Constructor: NewBase},
 	)
 }
 
-const defaultWidth = 600
+const (
+	defaultWidthMm               = 600
+	defaultMinimumTurningRadiusM = 0.8
+)
 
 // Base is a fake base that returns what it was provided in each method.
 type Base struct {
@@ -45,7 +39,7 @@ type Base struct {
 }
 
 // NewBase instantiates a new base of the fake model type.
-func NewBase(ctx context.Context, conf resource.Config) (base.LocalBase, error) {
+func NewBase(ctx context.Context, _ resource.Dependencies, conf resource.Config, _ golog.Logger) (base.Base, error) {
 	return &Base{
 		Named:    conf.ResourceName().AsNamed(),
 		geometry: conf.Frame,
@@ -72,11 +66,6 @@ func (b *Base) SetVelocity(ctx context.Context, linear, angular r3.Vector, extra
 	return nil
 }
 
-// Width returns some arbitrary width.
-func (b *Base) Width(ctx context.Context) (int, error) {
-	return defaultWidth, nil
-}
-
 // Stop does nothing.
 func (b *Base) Stop(ctx context.Context, extra map[string]interface{}) error {
 	return nil
@@ -91,6 +80,14 @@ func (b *Base) IsMoving(ctx context.Context) (bool, error) {
 func (b *Base) Close(ctx context.Context) error {
 	b.CloseCount++
 	return nil
+}
+
+// Properties returns the base's properties.
+func (b *Base) Properties(ctx context.Context, extra map[string]interface{}) (base.Properties, error) {
+	return base.Properties{
+		TurningRadiusMeters: defaultMinimumTurningRadiusM,
+		WidthMeters:         defaultWidthMm * 0.001, // convert to meters
+	}, nil
 }
 
 type kinematicBase struct {
@@ -116,8 +113,12 @@ func (b *Base) WrapWithKinematics(ctx context.Context, slamSvc slam.Service) (ba
 	if err != nil {
 		return nil, err
 	}
-	limits := []referenceframe.Limit{{Min: dims.MinX, Max: dims.MaxX}, {Min: dims.MinY, Max: dims.MaxY}}
-	model, err := wheeled.MakeModelFrame(b.Name().ShortName(), geometry, limits)
+	limits := []referenceframe.Limit{
+		{Min: dims.MinX, Max: dims.MaxX},
+		{Min: dims.MinY, Max: dims.MaxY},
+		{Min: -2 * math.Pi, Max: 2 * math.Pi},
+	}
+	model, err := referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits, geometry)
 	if err != nil {
 		return nil, errors.Wrap(err, "fake base cannot be created")
 	}

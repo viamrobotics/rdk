@@ -1,0 +1,57 @@
+{
+    "components":
+    [{
+        "model": "fake",
+        "name": "test_base",
+        "type": "base"
+    },
+    {
+        "name": "test_movement",
+        "type": "movement_sensor",
+        "model": "fake"
+    }],
+    "services":
+    [{
+        "name":"test_navigation",
+        "api":"rdk:service:navigation",
+        "model":"rdk:builtin:builtin",
+        "attributes":{
+            "base":"test_base",
+            "degs_per_sec":1,
+            "meters_per_sec":1,
+            "motion_service":"builtin",
+            "movement_sensor":"test_movement",
+            "obstacles":
+            [{
+                "geometries":
+                [{
+                    "label":"aLabel",
+                    "orientation":{
+                        "type":"ov_degrees",
+                        "value":{
+                            "X":1,
+                            "Y":0,
+                            "Z":0,
+                            "Th": 90
+                        }
+                    },
+                    "x":10,
+                    "y":10,
+                    "z":10,
+                    "translation":{
+                        "x":1,
+                        "y":1,
+                        "z":1
+                    }
+                }],
+                "location":{
+                    "latitude": 1,
+                    "longitude": 1
+                }
+            }],
+            "store":{
+                "type":"memory"
+            }
+        }
+    }]
+}

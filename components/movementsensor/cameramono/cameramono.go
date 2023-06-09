@@ -125,7 +125,7 @@ func newCameraMono(
 	logger golog.Logger,
 ) (movementsensor.MovementSensor, error) {
 	logger.Info(
-		"visual odometry using one camera implements GetPosition, GetOrientation, GetLinearVelocity and GetAngularVelocity",
+		"visual odometry using one camera implements Position, Orientation, LinearVelocity and AngularVelocity",
 	)
 
 	newConf, err := resource.NativeConfig[*Config](conf)
@@ -138,8 +138,7 @@ func newCameraMono(
 		return nil, err
 	}
 
-	ctx := context.Background()
-	cancelCtx, cancelFunc := context.WithCancel(ctx)
+	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 
 	co := &cameramono{
 		Named:      conf.ResourceName().AsNamed(),

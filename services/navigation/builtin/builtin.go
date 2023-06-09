@@ -3,10 +3,9 @@ package builtin
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
-	"math"
 	"sync"
-	"time"
 
 	"github.com/edaniels/golog"
 	geo "github.com/kellydunn/golang-geo"
@@ -17,12 +16,15 @@ import (
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/navigation"
+	"go.viam.com/rdk/spatialmath"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 const (
-	mmPerSecDefault  = 500
-	degPerSecDefault = 45
+	metersPerSecDefault = 0.5
+	degPerSecDefault    = 45
 )
 
 func init() {
@@ -35,6 +37,20 @@ func init() {
 		) (navigation.Service, error) {
 			return NewBuiltIn(ctx, deps, conf, logger)
 		},
+		// TODO: We can move away from using AttributeMapConverter if we change the way
+		// that we allow orientations to be specified within orientation_json.go
+		AttributeMapConverter: func(attributes rdkutils.AttributeMap) (*Config, error) {
+			b, err := json.Marshal(attributes)
+			if err != nil {
+				return nil, err
+			}
+
+			var cfg Config
+			if err := json.Unmarshal(b, &cfg); err != nil {
+				return nil, err
+			}
+			return &cfg, nil
+		},
 	})
 }
 
@@ -43,8 +59,11 @@ type Config struct {
 	Store              navigation.StoreConfig `json:"store"`
 	BaseName           string                 `json:"base"`
 	MovementSensorName string                 `json:"movement_sensor"`
-	DegPerSecDefault   float64                `json:"degs_per_sec"`
-	MMPerSecDefault    float64                `json:"mm_per_sec"`
+	MotionServiceName  string                 `json:"motion_service"`
+	// DegPerSec and MetersPerSec are targets and not hard limits on speed
+	DegPerSec    float64                          `json:"degs_per_sec"`
+	MetersPerSec float64                          `json:"meters_per_sec"`
+	Obstacles    []*spatialmath.GeoObstacleConfig `json:"obstacles,omitempty"`
 }
 
 // Validate creates the list of implicit dependencies.
@@ -60,6 +79,19 @@ func (conf *Config) Validate(path string) ([]string, error) {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "movement_sensor")
 	}
 	deps = append(deps, conf.MovementSensorName)
+
+	if conf.MotionServiceName == "" {
+		conf.MotionServiceName = "builtin"
+	}
+	deps = append(deps, resource.NewName(motion.API, conf.MotionServiceName).String())
+
+	// get default speeds from config if set, else defaults from nav services const
+	if conf.MetersPerSec == 0 {
+		conf.MetersPerSec = metersPerSecDefault
+	}
+	if conf.DegPerSec == 0 {
+		conf.DegPerSec = degPerSecDefault
+	}
 
 	return deps, nil
 }
@@ -88,9 +120,11 @@ type builtIn struct {
 
 	base           base.Base
 	movementSensor movementsensor.MovementSensor
+	motion         motion.Service
+	obstacles      []*spatialmath.GeoObstacle
 
-	mmPerSecDefault         float64
-	degPerSecDefault        float64
+	metersPerSec            float64
+	degPerSec               float64
 	logger                  golog.Logger
 	cancelCtx               context.Context
 	cancelFunc              func()
@@ -113,6 +147,10 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	if err != nil {
 		return err
 	}
+	motionSrv, err := motion.FromDependencies(deps, svcConfig.MotionServiceName)
+	if err != nil {
+		return err
+	}
 
 	var newStore navigation.NavStore
 	if svc.storeType != string(svcConfig.Store.Type) {
@@ -132,22 +170,20 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		newStore = svc.store
 	}
 
-	// get default speeds from config if set, else defaults from nav services const
-	straightSpeed := svcConfig.MMPerSecDefault
-	if straightSpeed == 0 {
-		straightSpeed = mmPerSecDefault
-	}
-	spinSpeed := svcConfig.DegPerSecDefault
-	if spinSpeed == 0 {
-		spinSpeed = degPerSecDefault
+	// Parse obstacles from the passed in configuration
+	newObstacles, err := spatialmath.GeoObstaclesFromConfigs(svcConfig.Obstacles)
+	if err != nil {
+		return err
 	}
 
 	svc.store = newStore
 	svc.storeType = string(svcConfig.Store.Type)
 	svc.base = base1
 	svc.movementSensor = movementSensor
-	svc.mmPerSecDefault = straightSpeed
-	svc.degPerSecDefault = spinSpeed
+	svc.motion = motionSrv
+	svc.obstacles = newObstacles
+	svc.metersPerSec = svcConfig.MetersPerSec
+	svc.degPerSec = svcConfig.DegPerSec
 
 	return nil
 }
@@ -182,107 +218,46 @@ func (svc *builtIn) SetMode(ctx context.Context, mode navigation.Mode, extra map
 	return nil
 }
 
-func (svc *builtIn) computeCurrentBearing(ctx context.Context, path []*geo.Point) (float64, error) {
-	props, err := svc.movementSensor.Properties(ctx, nil)
-	if err != nil {
-		return 0, err
-	}
-	if props.CompassHeadingSupported {
-		return svc.movementSensor.CompassHeading(ctx, nil)
-	}
-	pathLen := len(path)
-	return fixAngle(path[pathLen-2].BearingTo(path[pathLen-1])), nil
-}
-
 func (svc *builtIn) startWaypoint(extra map[string]interface{}) error {
 	svc.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer svc.activeBackgroundWorkers.Done()
 
-		path := []*geo.Point{}
-		for {
-			if !utils.SelectContextOrWait(svc.cancelCtx, 500*time.Millisecond) {
-				return
-			}
-			currentLoc, _, err := svc.movementSensor.Position(svc.cancelCtx, extra)
+		navOnce := func(ctx context.Context, wp navigation.Waypoint) error {
+			currentLoc, err := svc.Location(svc.cancelCtx, extra)
 			if err != nil {
-				svc.logger.Errorw("failed to get gps location", "error", err)
-				continue
+				return err
 			}
 
-			if len(path) <= 1 || currentLoc.GreatCircleDistance(path[len(path)-1]) > .0001 {
-				// gps often updates less frequently
-				path = append(path, currentLoc)
-				if len(path) > 2 {
-					path = path[len(path)-2:]
-				}
+			goal := wp.ToPoint()
+
+			bearingToGoal := currentLoc.BearingTo(goal)
+
+			// have ability to define destination heading here, but waypoint structure doesn't allow for that so using bearingToGoal as heading
+			_, err = svc.motion.MoveOnGlobe(ctx, svc.base.Name(), goal, bearingToGoal, svc.movementSensor.Name(), svc.obstacles, svc.metersPerSec*1000, svc.degPerSec, extra)
+
+			if err != nil {
+				return err
 			}
 
-			navOnce := func(ctx context.Context) error {
-				if len(path) <= 1 {
-					return errors.New("not enough gps data")
-				}
+			return svc.waypointReached(ctx)
+		}
 
-				currentBearing, err := svc.computeCurrentBearing(ctx, path)
-				if err != nil {
-					return err
-				}
-
-				bearingToGoal, distanceToGoal, err := svc.waypointDirectionAndDistanceToGo(ctx, currentLoc)
-				if err != nil {
-					return err
-				}
-
-				if distanceToGoal < .005 {
-					svc.logger.Debug("i made it")
-					return svc.waypointReached(ctx)
-				}
-
-				bearingDelta := computeBearing(bearingToGoal, currentBearing)
-				steeringDir := -bearingDelta / 180.0
-
-				svc.logger.Debugf("currentBearing: %0.0f bearingToGoal: %0.0f distanceToGoal: %0.3f bearingDelta: %0.1f steeringDir: %0.2f",
-					currentBearing, bearingToGoal, distanceToGoal, bearingDelta, steeringDir)
-
-				// TODO(erh->erd): maybe need an arc/stroke abstraction?
-				// - Remember that we added -1*bearingDelta instead of steeringDir
-				// - Test both naval/land to prove it works
-				if err := svc.base.Spin(ctx, -1*bearingDelta, svc.degPerSecDefault, nil); err != nil {
-					return fmt.Errorf("error turning: %w", err)
-				}
-
-				distanceMm := distanceToGoal * 1000 * 1000
-				distanceMm = math.Min(distanceMm, 10*1000)
-
-				if err := svc.base.MoveStraight(ctx, int(distanceMm), svc.mmPerSecDefault, nil); err != nil {
-					return fmt.Errorf("error moving %w", err)
-				}
-
-				return nil
-			}
-
-			if err := navOnce(svc.cancelCtx); err != nil {
+		// loop until no waypoints remaining
+		for wp, err := svc.nextWaypoint(svc.cancelCtx); err == nil; wp, err = svc.nextWaypoint(svc.cancelCtx){
+			svc.logger.Infof("navigating to waypoint: %+v", wp)
+			if err := navOnce(svc.cancelCtx, wp); err != nil {
 				svc.logger.Infof("error navigating: %s", err)
 			}
 		}
+
 	})
 	return nil
 }
 
-func (svc *builtIn) waypointDirectionAndDistanceToGo(ctx context.Context, currentLoc *geo.Point) (float64, float64, error) {
-	wp, err := svc.nextWaypoint(ctx)
-	if err != nil {
-		return 0, 0, err
-	}
-
-	goal := wp.ToPoint()
-
-	return fixAngle(currentLoc.BearingTo(goal)), currentLoc.GreatCircleDistance(goal), nil
-}
-
 func (svc *builtIn) Location(ctx context.Context, extra map[string]interface{}) (*geo.Point, error) {
 	if svc.movementSensor == nil {
-		return nil, errors.New("no way to get location")
+		return nil, errors.New("must specify movement sensor to get current location")
 	}
 	loc, _, err := svc.movementSensor.Position(ctx, extra)
 	return loc, err
@@ -323,30 +298,4 @@ func (svc *builtIn) Close(ctx context.Context) error {
 	svc.cancelFunc()
 	svc.activeBackgroundWorkers.Wait()
 	return svc.store.Close(ctx)
-}
-
-func fixAngle(a float64) float64 {
-	for a < 0 {
-		a += 360
-	}
-	for a > 360 {
-		a -= 360
-	}
-	return a
-}
-
-func computeBearing(a, b float64) float64 {
-	a = fixAngle(a)
-	b = fixAngle(b)
-
-	t := b - a
-	if t < -180 {
-		t += 360
-	}
-
-	if t > 180 {
-		t -= 360
-	}
-
-	return t
 }

@@ -4,6 +4,7 @@ package oneaxis
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/edaniels/golog"
@@ -22,6 +23,9 @@ import (
 )
 
 var model = resource.DefaultModelFamily.WithModel("oneaxis")
+
+// limitErrorMargin is added or subtracted from the location of the limit switch to ensure the switch is not passed.
+const limitErrorMargin = 0.25
 
 // Config is used for converting oneAxis config attributes.
 type Config struct {
@@ -78,10 +82,10 @@ func init() {
 
 type oneAxis struct {
 	resource.Named
-	resource.AlwaysRebuild
 
 	board board.Board
 	motor motor.Motor
+	mu    sync.Mutex
 
 	limitSwitchPins []string
 	limitHigh       bool
@@ -101,136 +105,147 @@ type oneAxis struct {
 
 // newOneAxis creates a new one axis gantry.
 func newOneAxis(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (gantry.Gantry, error) {
+	oAx := &oneAxis{
+		Named:  conf.ResourceName().AsNamed(),
+		logger: logger,
+	}
+
+	if err := oAx.Reconfigure(ctx, deps, conf); err != nil {
+		return nil, err
+	}
+	return oAx, nil
+}
+
+func (g *oneAxis) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	needsToReHome := false
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	motorDep, err := motor.FromDependencies(deps, newConf.Motor)
-	if err != nil {
-		return nil, err
+	// Changing these attributes does not rerun homing
+	g.lengthMm = newConf.LengthMm
+	g.mmPerRevolution = newConf.MmPerRevolution
+	if g.mmPerRevolution <= 0 && len(newConf.LimitSwitchPins) == 1 {
+		return errors.New("gantry with one limit switch per axis needs a mm_per_length ratio defined")
 	}
-	features, err := motorDep.Properties(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-	ok := features[motor.PositionReporting]
-	if !ok {
-		return nil, motor.NewFeatureUnsupportedError(motor.PositionReporting, newConf.Motor)
-	}
-
-	oAx := &oneAxis{
-		Named:           conf.ResourceName().AsNamed(),
-		motor:           motorDep,
-		logger:          logger,
-		limitSwitchPins: newConf.LimitSwitchPins,
-		lengthMm:        newConf.LengthMm,
-		mmPerRevolution: newConf.MmPerRevolution,
-		rpm:             newConf.GantryRPM,
-		axis:            newConf.Axis,
+	g.axis = newConf.Axis
+	g.rpm = newConf.GantryRPM
+	if g.rpm == 0 {
+		g.rpm = 100
 	}
 
-	if oAx.rpm == 0 {
-		oAx.rpm = 100
-	}
-
-	np := len(oAx.limitSwitchPins)
-	switch np {
-	case 1, 2:
-
+	// Rerun homing if the board has changed
+	if g.board == nil || g.board.Name().ShortName() != newConf.Board {
 		board, err := board.FromDependencies(deps, newConf.Board)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		oAx.board = board
-
-		PinEnable := *newConf.LimitPinEnabled
-		oAx.limitHigh = PinEnable
-
-		if oAx.mmPerRevolution <= 0 && np == 1 {
-			return nil, errors.New("gantry with one limit switch per axis needs a mm_per_length ratio defined")
-		}
-	case 0:
-		// do nothing, validation takes care of all checks already
-	default:
-		np := len(oAx.limitSwitchPins)
-		return nil, errors.Errorf("invalid gantry type: need 1, 2 or 0 pins per axis, have %v pins", np)
+		g.board = board
+		needsToReHome = true
 	}
 
-	if err := oAx.home(ctx, np); err != nil {
-		return nil, err
+	// Rerun homing if the motor changes
+	if g.motor == nil || g.motor.Name().ShortName() != newConf.Motor {
+		needsToReHome = true
+		motorDep, err := motor.FromDependencies(deps, newConf.Motor)
+		if err != nil {
+			return err
+		}
+		features, err := motorDep.Properties(ctx, nil)
+		if err != nil {
+			return err
+		}
+		ok := features[motor.PositionReporting]
+		if !ok {
+			return motor.NewFeatureUnsupportedError(motor.PositionReporting, newConf.Motor)
+		}
+		g.motor = motorDep
 	}
 
-	return oAx, nil
+	// Rerun homing if anything with the limit switch pins changes
+	if (len(g.limitSwitchPins) != len(newConf.LimitSwitchPins)) || (g.limitHigh != *newConf.LimitPinEnabled) {
+		g.limitHigh = *newConf.LimitPinEnabled
+		needsToReHome = true
+		g.limitSwitchPins = newConf.LimitSwitchPins
+	} else {
+		for i, pin := range newConf.LimitSwitchPins {
+			if pin != g.limitSwitchPins[i] {
+				g.limitSwitchPins[i] = pin
+				needsToReHome = true
+			}
+		}
+	}
+	if len(newConf.LimitSwitchPins) > 2 {
+		return errors.Errorf("invalid gantry type: need 1, 2 or 0 pins per axis, have %v pins", len(newConf.LimitSwitchPins))
+	}
+
+	if needsToReHome {
+		if err = g.home(ctx, len(newConf.LimitSwitchPins)); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (g *oneAxis) home(ctx context.Context, np int) error {
 	ctx, done := g.opMgr.New(ctx)
 	defer done()
-	// Mapping one limit switch motor0->limsw0, motor1 ->limsw1, motor 2 -> limsw2
-	// Mapping two limit switch motor0->limSw0,limSw1; motor1->limSw2,limSw3; motor2->limSw4,limSw5
+
 	switch np {
-	// An axis with one limit switch will go till it hits the limit switch, encode that position as the
-	// zero position of the oneaxis, and adds a second position limit based on the steps per length.
-	case 1:
-		if err := g.homeOneLimSwitch(ctx); err != nil {
-			return err
-		}
-	// An axis with two limit switches will go till it hits the first limit switch, encode that position as the
-	// zero position of the oneaxis, then go till it hits the second limit switch, then encode that position as the
-	// at-length position of the oneaxis.
-	case 2:
-		if err := g.homeTwoLimSwitch(ctx); err != nil {
-			return err
-		}
-	// An axis with an encoder will encode the
+	// An axis with an encoder will encode the zero position, and add the second position limit
+	// based on the steps per length
 	case 0:
 		if err := g.homeEncoder(ctx); err != nil {
 			return err
 		}
+	// An axis with one limit switch will go till it hits the limit switch, encode that position as the
+	// zero position of the oneaxis, and adds a second position limit based on the steps per length.
+	// An axis with two limit switches will go till it hits the first limit switch, encode that position as the
+	// zero position of the oneaxis, then go till it hits the second limit switch, then encode that position as the
+	// at-length position of the oneaxis.
+	case 1, 2:
+		if err := g.homeLimSwitch(ctx); err != nil {
+			return err
+		}
 	}
+
 	return nil
 }
 
-func (g *oneAxis) homeTwoLimSwitch(ctx context.Context) error {
+func (g *oneAxis) homeLimSwitch(ctx context.Context) error {
+	var positionA, positionB, start float64
 	positionA, err := g.testLimit(ctx, true)
 	if err != nil {
 		return err
 	}
 
-	positionB, err := g.testLimit(ctx, false)
-	if err != nil {
-		return err
+	if len(g.limitSwitchPins) > 1 {
+		// Multiple limit switches, get positionB from testLimit
+		positionB, err = g.testLimit(ctx, false)
+		if err != nil {
+			return err
+		}
+		start = 0.8
+	} else {
+		// Only one limit switch, calculate positionB
+		revPerLength := g.lengthMm / g.mmPerRevolution
+		positionB = positionA + revPerLength
+		start = 0.2
 	}
-
-	g.logger.Debugf("positionA: %0.2f positionB: %0.2f", positionA, positionB)
 
 	g.positionLimits = []float64{positionA, positionB}
 	g.positionRange = positionB - positionA
-
-	// Go backwards so limit stops are not hit.
-	x := g.gantryToMotorPosition(0.8 * g.lengthMm)
-	if err = g.motor.GoTo(ctx, g.rpm, x, nil); err != nil {
-		return err
+	if g.positionRange == 0 {
+		g.logger.Error("positionRange is 0 or not a valid number")
 	}
-	return nil
-}
+	g.logger.Debugf("positionA: %0.2f positionB: %0.2f range: %0.2f", g.positionRange)
 
-func (g *oneAxis) homeOneLimSwitch(ctx context.Context) error {
-	// One pin always and only should go backwards.
-	positionA, err := g.testLimit(ctx, true)
-	if err != nil {
-		return err
-	}
-
-	revPerLength := g.lengthMm / g.mmPerRevolution
-	positionB := positionA + revPerLength
-
-	g.positionLimits = []float64{positionA, positionB}
-
-	// Go backwards so limit stops are not hit.
-	x := g.gantryToMotorPosition(0.2 * g.lengthMm)
-	if err = g.motor.GoTo(ctx, g.rpm, x, nil); err != nil {
+	// Go to start position so limit stops are not hit.
+	if err = g.goToStart(ctx, start); err != nil {
 		return err
 	}
 
@@ -254,10 +269,17 @@ func (g *oneAxis) homeEncoder(ctx context.Context) error {
 	return nil
 }
 
+func (g *oneAxis) goToStart(ctx context.Context, percent float64) error {
+	x := g.gantryToMotorPosition(percent * g.lengthMm)
+	if err := g.motor.GoTo(ctx, g.rpm, x, nil); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (g *oneAxis) gantryToMotorPosition(positions float64) float64 {
 	x := positions / g.lengthMm
 	x = g.positionLimits[0] + (x * g.positionRange)
-
 	return x
 }
 
@@ -299,8 +321,10 @@ func (g *oneAxis) testLimit(ctx context.Context, zero bool) (float64, error) {
 			return 0, ctx.Err()
 		}
 	}
-
-	return g.motor.Position(ctx, nil)
+	// Short pause after stopping to increase the precision of the position of each limit switch
+	position, err := g.motor.Position(ctx, nil)
+	time.Sleep(250 * time.Millisecond)
+	return position, err
 }
 
 // this function may need to be run in the background upon initialisation of the ganty,
@@ -333,6 +357,8 @@ func (g *oneAxis) Position(ctx context.Context, extra map[string]interface{}) ([
 
 // Lengths returns the physical lengths of an axis of a Gantry.
 func (g *oneAxis) Lengths(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
 	return []float64{g.lengthMm}, nil
 }
 
@@ -353,35 +379,20 @@ func (g *oneAxis) MoveToPosition(ctx context.Context, positions []float64, extra
 	// Limit switch errors that stop the motors.
 	// Currently needs to be moved by underlying gantry motor.
 	if len(g.limitSwitchPins) > 0 {
-		hit, err := g.limitHit(ctx, true)
-		if err != nil {
-			return err
-		}
-
-		// Hits backwards limit switch, goes in forwards direction for two revolutions
-		if hit {
-			if x < g.positionLimits[0] {
-				dir := float64(1)
-				return g.motor.GoFor(ctx, dir*g.rpm, 2, extra)
-			}
+		// Stops if position x is past the 0 limit switch
+		if x <= (g.positionLimits[0] + limitErrorMargin) {
+			g.logger.Debugf("limit: %.2f", g.positionLimits[0]+limitErrorMargin)
+			g.logger.Debugf("position x: %.2f", x)
+			g.logger.Error("Cannot move past limit switch!")
 			return g.motor.Stop(ctx, extra)
 		}
 
-		// Hits forward limit switch, goes in backwards direction for two revolutions
-		hit, err = g.limitHit(ctx, false)
-		if err != nil {
-			return err
-		}
-		if hit {
-			if x > g.positionLimits[1] {
-				dir := float64(-1)
-				return g.motor.GoFor(ctx, dir*g.rpm, 2, extra)
-			}
+		// Stops if position x is past the at-length limit switch
+		if x >= (g.positionLimits[1] - limitErrorMargin) {
+			g.logger.Debugf("limit: %.2f", g.positionLimits[1]-limitErrorMargin)
+			g.logger.Debugf("position x: %.2f", x)
+			g.logger.Error("Cannot move past limit switch!")
 			return g.motor.Stop(ctx, extra)
-		}
-
-		if err = g.motor.GoTo(ctx, g.rpm, x, extra); err != nil {
-			return err
 		}
 	}
 
@@ -401,16 +412,22 @@ func (g *oneAxis) Stop(ctx context.Context, extra map[string]interface{}) error 
 
 // Close calls stop.
 func (g *oneAxis) Close(ctx context.Context) error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
 	return g.Stop(ctx, nil)
 }
 
 // IsMoving returns whether the gantry is moving.
 func (g *oneAxis) IsMoving(ctx context.Context) (bool, error) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
 	return g.opMgr.OpRunning(), nil
 }
 
 // ModelFrame returns the frame model of the Gantry.
 func (g *oneAxis) ModelFrame() referenceframe.Model {
+	g.mu.Lock()
+	defer g.mu.Unlock()
 	if g.model == nil {
 		var errs error
 		m := referenceframe.NewSimpleModel("")
@@ -435,6 +452,8 @@ func (g *oneAxis) ModelFrame() referenceframe.Model {
 
 // CurrentInputs returns the current inputs of the Gantry frame.
 func (g *oneAxis) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
 	res, err := g.Position(ctx, nil)
 	if err != nil {
 		return nil, err
@@ -444,5 +463,7 @@ func (g *oneAxis) CurrentInputs(ctx context.Context) ([]referenceframe.Input, er
 
 // GoToInputs moves the gantry to a goal position in the Gantry frame.
 func (g *oneAxis) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
 	return g.MoveToPosition(ctx, referenceframe.InputsToFloats(goal), nil)
 }

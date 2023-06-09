@@ -135,7 +135,7 @@ func newRTKStation(
 		return nil, err
 	}
 
-	cancelCtx, cancelFunc := context.WithCancel(ctx)
+	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 
 	r := &rtkStation{
 		Named:      conf.ResourceName().AsNamed(),

@@ -54,3 +54,59 @@ func GeoObstacleFromProtobuf(protoGeoObst *commonpb.GeoObstacle) (*GeoObstacle, 
 	}
 	return NewGeoObstacle(convPoint, convGeoms), nil
 }
+
+// GeoObstacleConfig specifies the format of GeoObstacles specified through the configuration file.
+type GeoObstacleConfig struct {
+	Location   *commonpb.GeoPoint `json:"location"`
+	Geometries []*GeometryConfig  `json:"geometries"`
+}
+
+// NewGeoObstacleConfig takes a GeoObstacle and returns a GeoObstacleConfig.
+func NewGeoObstacleConfig(geo GeoObstacle) (*GeoObstacleConfig, error) {
+	geomCfgs := []*GeometryConfig{}
+	for _, geom := range geo.geometries {
+		gc, err := NewGeometryConfig(geom)
+		if err != nil {
+			return nil, err
+		}
+		geomCfgs = append(geomCfgs, gc)
+	}
+
+	config := &GeoObstacleConfig{
+		Location:   &commonpb.GeoPoint{Latitude: geo.location.Lat(), Longitude: geo.location.Lng()},
+		Geometries: geomCfgs,
+	}
+
+	return config, nil
+}
+
+// GeoObstaclesFromConfigs takes a GeoObstacleConfig and returns a list of GeoObstacles.
+func GeoObstaclesFromConfigs(configs []*GeoObstacleConfig) ([]*GeoObstacle, error) {
+	var gobs []*GeoObstacle
+	for _, cfg := range configs {
+		gob, err := GeoObstaclesFromConfig(cfg)
+		if err != nil {
+			return nil, err
+		}
+		gobs = append(gobs, gob...)
+	}
+	return gobs, nil
+}
+
+// GeoObstaclesFromConfig takes a GeoObstacleConfig and returns a list of GeoObstacles.
+func GeoObstaclesFromConfig(config *GeoObstacleConfig) ([]*GeoObstacle, error) {
+	var gobs []*GeoObstacle
+	for _, navGeom := range config.Geometries {
+		gob := GeoObstacle{}
+
+		gob.location = geo.NewPoint(config.Location.Latitude, config.Location.Longitude)
+
+		geom, err := navGeom.ParseConfig()
+		if err != nil {
+			return nil, err
+		}
+		gob.geometries = append(gob.geometries, geom)
+		gobs = append(gobs, &gob)
+	}
+	return gobs, nil
+}

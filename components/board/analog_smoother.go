@@ -21,6 +21,7 @@ type AnalogSmoother struct {
 	AverageOverMillis       int
 	SamplesPerSecond        int
 	data                    *utils.RollingAverage
+	lastData                int
 	lastError               atomic.Pointer[errValue]
 	logger                  golog.Logger
 	cancel                  func()
@@ -36,6 +37,10 @@ func SmoothAnalogReader(r AnalogReader, c AnalogConfig, logger golog.Logger) *An
 		SamplesPerSecond:  c.SamplesPerSecond,
 		logger:            logger,
 		cancel:            cancel,
+	}
+	if smoother.SamplesPerSecond <= 0 {
+		logger.Debug("Can't read nonpositive samples per second; defaulting to 1 instead")
+		smoother.SamplesPerSecond = 1
 	}
 	smoother.Start(cancelCtx)
 	return smoother
@@ -56,6 +61,10 @@ func (as *AnalogSmoother) Close(ctx context.Context) error {
 
 // Read returns the smoothed out reading.
 func (as *AnalogSmoother) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
+	if as.data == nil { // We're using raw data, and not averaging
+		return as.lastData, nil
+	}
+
 	avg := as.data.Average()
 	lastErr := as.lastError.Load()
 	if lastErr == nil {
@@ -87,8 +96,15 @@ func (as *AnalogSmoother) Start(ctx context.Context) {
 	//    numSamples        4
 
 	numSamples := (as.SamplesPerSecond * as.AverageOverMillis) / 1000
-	as.data = utils.NewRollingAverage(numSamples)
-	nanosBetween := 1e9 / as.SamplesPerSecond
+	var nanosBetween int
+	if numSamples >= 1 {
+		as.data = utils.NewRollingAverage(numSamples)
+		nanosBetween = 1e9 / as.SamplesPerSecond
+	} else {
+		as.logger.Debug("Too few samples to smooth over; defaulting to raw data.")
+		as.data = nil
+		nanosBetween = as.AverageOverMillis * 1e6
+	}
 
 	as.activeBackgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
@@ -104,7 +120,10 @@ func (as *AnalogSmoother) Start(ctx context.Context) {
 				continue
 			}
 
-			as.data.Add(reading)
+			as.lastData = reading
+			if as.data != nil {
+				as.data.Add(reading)
+			}
 
 			end := time.Now()
 

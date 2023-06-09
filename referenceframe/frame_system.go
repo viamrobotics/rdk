@@ -564,8 +564,11 @@ func createFramesFromPart(part *FrameSystemPart) (Frame, Frame, error) {
 	if part.ModelFrame == nil {
 		modelFrame = NewZeroStaticFrame(part.FrameConfig.Name())
 	} else {
-		part.ModelFrame.ChangeName(part.FrameConfig.Name())
-		modelFrame = part.ModelFrame
+		if part.ModelFrame.Name() != part.FrameConfig.Name() {
+			modelFrame = NewNamedFrame(part.ModelFrame, part.FrameConfig.Name())
+		} else {
+			modelFrame = part.ModelFrame
+		}
 	}
 	// staticOriginFrame defines a change in origin from the parent part.
 	// If it is empty, the new frame will have the same origin as the parent.
@@ -586,8 +589,17 @@ func createFramesFromPart(part *FrameSystemPart) (Frame, Frame, error) {
 		if err != nil {
 			return nil, nil, err
 		}
+		pose, err := staticOriginFrame.Transform([]Input{})
+		if err != nil {
+			return nil, nil, err
+		}
 		if len(offsetGeom.Geometries()) > 0 {
-			modelFrame = &noGeometryFrame{modelFrame}
+			// If there are offset geometries, they should replace the static geometries, so the static frame is recreated with no geoms
+			noGeomFrame, err := NewStaticFrame(modelFrame.Name(), pose)
+			if err != nil {
+				return nil, nil, err
+			}
+			modelFrame = noGeomFrame
 		}
 	}
 

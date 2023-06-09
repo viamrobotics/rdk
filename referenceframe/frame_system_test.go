@@ -26,8 +26,6 @@ func TestFrameModelPart(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	var modelJSONMap map[string]interface{}
 	json.Unmarshal(jsonData, &modelJSONMap)
-	kinematics, err := protoutils.StructToStructPb(modelJSONMap)
-	test.That(t, err, test.ShouldBeNil)
 	model, err := UnmarshalModelJSON(jsonData, "")
 	test.That(t, err, test.ShouldBeNil)
 
@@ -99,7 +97,6 @@ func TestFrameModelPart(t *testing.T) {
 				Pose:           pose,
 			},
 		},
-		Kinematics: kinematics,
 	}
 	test.That(t, result.Frame.ReferenceFrame, test.ShouldEqual, exp.Frame.ReferenceFrame)
 	test.That(t, result.Frame.PoseInObserverFrame, test.ShouldResemble, exp.Frame.PoseInObserverFrame)

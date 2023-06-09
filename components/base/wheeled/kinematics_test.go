@@ -2,6 +2,7 @@ package wheeled
 
 import (
 	"context"
+	"math"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -13,6 +14,8 @@ import (
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/slam/fake"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/utils"
 )
 
 func TestWrapWithKinematics(t *testing.T) {
@@ -74,4 +77,66 @@ func TestWrapWithKinematics(t *testing.T) {
 			test.That(t, geometry.GeometryByName(testCfg.Name+":"+label).AlmostEqual(expectedSphere), test.ShouldBeTrue)
 		})
 	}
+}
+
+func newWheeledBase(ctx context.Context, t *testing.T, logger golog.Logger) *kinematicWheeledBase {
+	t.Helper()
+	wb := &wheeledBase{
+		widthMm:              400,
+		wheelCircumferenceMm: 25,
+		logger:               logger,
+		name:                 "count basie",
+		frame: &referenceframe.LinkConfig{
+			Parent: referenceframe.World,
+			Geometry: &spatialmath.GeometryConfig{
+				R: 400,
+			},
+		},
+	}
+	kb, err := wb.WrapWithKinematics(ctx, fake.NewSLAM(resource.NewName(slam.API, "foo"), golog.NewTestLogger(t)))
+	test.That(t, err, test.ShouldBeNil)
+	kwb, ok := kb.(*kinematicWheeledBase)
+	test.That(t, ok, test.ShouldBeTrue)
+	return kwb
+}
+
+func TestCurrentInputs(t *testing.T) {
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+	kwb := newWheeledBase(ctx, t, logger)
+
+	for i := 0; i < 10; i++ {
+		_, err := kwb.CurrentInputs(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		_, err = slam.GetPointCloudMapFull(ctx, kwb.slam)
+		test.That(t, err, test.ShouldBeNil)
+	}
+}
+
+func TestErrorState(t *testing.T) {
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+	wb := newWheeledBase(ctx, t, logger).wheeledBase
+	sphere, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 1, "")
+	test.That(t, err, test.ShouldBeNil)
+	model, err := referenceframe.New2DMobileModelFrame(wb.name, []referenceframe.Limit{{-10, 10}, {-10, 10}, {-math.Pi, math.Pi}}, sphere)
+	test.That(t, err, test.ShouldBeNil)
+	fs := referenceframe.NewEmptyFrameSystem("")
+	test.That(t, fs.AddFrame(model, fs.World()), test.ShouldBeNil)
+
+	slam := inject.NewSLAMService("the slammer")
+	slam.GetPositionFunc = func(ctx context.Context) (spatialmath.Pose, string, error) {
+		return spatialmath.NewZeroPose(), "", nil
+	}
+	kwb := &kinematicWheeledBase{
+		wheeledBase: wb,
+		slam:        slam,
+		model:       model,
+		fs:          fs,
+	}
+	desiredInput := []referenceframe.Input{{3}, {4}, {utils.DegToRad(30)}}
+	distErr, headingErr, err := kwb.errorState(make([]referenceframe.Input, 3), desiredInput)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, distErr, test.ShouldEqual, 1000*r3.Vector{desiredInput[0].Value, desiredInput[1].Value, 0}.Norm())
+	test.That(t, headingErr, test.ShouldAlmostEqual, 30)
 }

@@ -106,7 +106,7 @@ func TestConnectStopsBase(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	myBaseName := base.Named("warf")
-	injectBase := &inject.Base{LocalBase: &fake.Base{
+	injectBase := &inject.Base{Base: &fake.Base{
 		Named: myBaseName.AsNamed(),
 	}}
 

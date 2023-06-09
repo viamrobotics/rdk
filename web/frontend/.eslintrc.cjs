@@ -5,11 +5,12 @@ module.exports = {
     es2021: true,
     node: true,
   },
-  parser: 'vue-eslint-parser',
+  parser: "@typescript-eslint/parser",
   parserOptions: {
-    parser: '@typescript-eslint/parser',
     ecmaVersion: 'latest',
     sourceType: 'module',
+    project: './tsconfig.json',
+    extraFileExtensions: ['.svelte', '.vue'],
   },
   plugins: [
     'vue',
@@ -17,6 +18,7 @@ module.exports = {
     'unicorn',
     'tailwindcss',
     'promise',
+    'svelte',
   ],
   extends: [
     'plugin:@typescript-eslint/recommended',
@@ -26,10 +28,50 @@ module.exports = {
     'plugin:vue/vue3-essential',
     'plugin:vue/vue3-strongly-recommended',
     'plugin:vue/vue3-recommended',
+    'plugin:svelte/recommended',
+    'plugin:svelte/prettier',
     'plugin:promise/recommended',
   ],
-  ignorePatterns: ['**/node_modules/**', '*.json', '**/protos/**'],
+  ignorePatterns: ['**/node_modules/**', '*.json', '**/protos/**', 'converter.js'],
+  overrides: [
+    {
+      files: ['*.ts'],
+      parser: '@typescript-eslint/parser',
+    }, {
+      files: ['*.svelte'],
+      parser: 'svelte-eslint-parser',
+      parserOptions: {
+        parser: '@typescript-eslint/parser',
+      },
+    }, {
+      files: ['*.vue'],
+      parser: 'vue-eslint-parser',
+      parserOptions: {
+        parser: '@typescript-eslint/parser',
+      },
+    }
+  ],
+  settings: {
+    'import/extensions': ['.vue'],
+    'import/parsers': {
+      '@typescript-eslint/parser': ['.ts', '.js'],
+    },
+    'import/resolver': {
+      typescript: {
+        alwaysTryTypes: true,
+        project: './tsconfig.json',
+      },
+      'eslint-import-resolver-custom-alias': {
+        alias: {
+          '@': './frontend/src',
+        },
+        extensions: ['.ts', '.js', '.vue'],
+      },
+    },
+  },
   rules: {
+    'svelte/valid-compile': 'warn',
+  
     // https://github.com/eslint/eslint/issues/13956
     indent: 'off',
     'array-element-newline': ['error', 'consistent'],
@@ -69,7 +111,7 @@ module.exports = {
     'max-params': 'off',
     'max-statements': 'off',
     'multiline-ternary': ['error', 'always-multiline'],
-    "no-shadow": "off",
+    'no-shadow': 'off',
     'prefer-destructuring': [
       'error', {
         AssignmentExpression: { array: false, object: false },
@@ -81,7 +123,7 @@ module.exports = {
     'object-curly-spacing': ['error', 'always'],
     'object-property-newline': ['error', { allowAllPropertiesOnSameLine: true }],
     'no-continue': 'off',
-    "no-duplicate-imports": "off",
+    'no-duplicate-imports': 'off',
     'no-extra-parens': 'off',
     'no-magic-numbers': 'off',
     'no-multiple-empty-lines': ['error', { max: 1 }],
@@ -144,6 +186,7 @@ module.exports = {
     'vue/multi-word-component-names': 'off',
     'vue/no-undef-components': ['error', { ignorePatterns: ['-'] }],
     'vue/require-default-prop': 'off',
+    'vue/attribute-hyphenation': 'off',
 
     // Unicorn
     'unicorn/no-empty-file': 'off',
@@ -167,39 +210,15 @@ module.exports = {
 
     // Typescript
     '@typescript-eslint/indent': ['error', 2],
-    "@typescript-eslint/no-duplicate-imports": ["error"],
+    '@typescript-eslint/no-duplicate-imports': ['error'],
     '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
     '@typescript-eslint/no-explicit-any': 'error',
     '@typescript-eslint/no-non-null-assertion': 'off',
     '@typescript-eslint/ban-ts-comment': 'warn',
-    '@typescript-eslint/no-shadow': ['error'], // https://github.com/typescript-eslint/typescript-eslint/issues/2483#issuecomment-687095358
+    // https://github.com/typescript-eslint/typescript-eslint/issues/2483#issuecomment-687095358
+    '@typescript-eslint/no-shadow': ['error'],
 
     // Promise
     'promise/prefer-await-to-then': 'error',
   },
-  settings: {
-    'import/extensions': ['.vue'],
-    'import/parsers': {
-      '@typescript-eslint/parser': ['.ts', '.js'],
-    },
-    'import/resolver': {
-      typescript: {
-        alwaysTryTypes: true,
-        project: './tsconfig.json',
-      },
-      'eslint-import-resolver-custom-alias': {
-        alias: {
-          '@': './frontend/src',
-        },
-        extensions: ['.ts', '.js', '.vue'],
-      },
-    },
-  },
-  // User ts parser for typescript files
-  overrides: [
-    {
-      files: ['*.ts'],
-      parser: '@typescript-eslint/parser',
-    },
-  ],
 };
