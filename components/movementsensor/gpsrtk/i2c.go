@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -35,7 +36,7 @@ func newI2CCorrectionSource(
 	conf *StationConfig,
 	logger golog.Logger,
 ) (correctionSource, error) {
-	b, err := board.FromDependencies(deps, conf.Board)
+	b, err := board.FromDependencies(deps, conf.I2CConfig.Board)
 	if err != nil {
 		return nil, fmt.Errorf("gps init: failed to find board: %w", err)
 	}
@@ -93,6 +94,7 @@ func (s *i2cCorrectionSource) Start(ready chan<- bool) {
 			return
 		}
 
+		log.Println("here")
 		// open I2C handle every time
 		handle, err := s.bus.OpenHandle(s.addr)
 		// Record the error value no matter what. If it's nil, this will prevent us from reporting

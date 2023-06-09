@@ -12,15 +12,19 @@ import (
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/movementsensor"
+	"go.viam.com/rdk/components/movementsensor/gpsnmea"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
-	rutils "go.viam.com/rdk/utils"
 )
 
 const (
-	testBoardName = "board1"
-	testBusName   = "i2c1"
+	testBoardName  = "board1"
+	testBusName    = "i2c1"
+	testi2cAddr    = 44
+	testSerialPath = "some-path"
 )
+
+var c = make(chan []byte, 1024)
 
 func setupDependencies(t *testing.T) resource.Dependencies {
 	t.Helper()
@@ -48,17 +52,57 @@ func setupDependencies(t *testing.T) resource.Dependencies {
 
 	deps[board.Named(testBoardName)] = actualBoard
 
+	conf := resource.Config{
+		Name:  "rtk-sensor1",
+		Model: resource.DefaultModelFamily.WithModel("gps-nmea"),
+		API:   movementsensor.API,
+	}
+
+	serialnmeaConf := &gpsnmea.Config{
+		ConnectionType: serialStr,
+		SerialConfig: &gpsnmea.SerialConfig{
+			SerialPath: "some-path",
+			TestChan:   c,
+		},
+	}
+
+	i2cnmeaConf := &gpsnmea.Config{
+		ConnectionType: i2cStr,
+		Board:          testBoardName,
+		I2CConfig: &gpsnmea.I2CConfig{
+			I2CBus:  testBusName,
+			I2cAddr: testi2cAddr,
+		},
+	}
+
+	logger := golog.NewTestLogger(t)
+	ctx := context.Background()
+
+	serialNMEA, _ := gpsnmea.NewSerialGPSNMEA(ctx, conf.ResourceName(), serialnmeaConf, logger)
+
+	conf.Name = "rtk-sensor2"
+	i2cNMEA, _ := gpsnmea.NewPmtkI2CGPSNMEA(ctx, deps, conf.ResourceName(), i2cnmeaConf, logger)
+
+	rtkSensor1 := &RTKMovementSensor{
+		nmeamovementsensor: serialNMEA, inputProtocol: serialStr,
+	}
+
+	rtkSensor2 := &RTKMovementSensor{
+		nmeamovementsensor: i2cNMEA, inputProtocol: i2cStr,
+	}
+
+	deps[movementsensor.Named("rtk-sensor1")] = rtkSensor1
+	deps[movementsensor.Named("rtk-sensor2")] = rtkSensor2
+
 	return deps
 }
 
 func TestValidate(t *testing.T) {
 	path := "path"
-	testi2cAddr := 44
 	tests := []struct {
 		name          string
 		stationConfig *StationConfig
 		expectedErr   error
-		protocol      string
 	}{
 		{
 			name: "A valid config with serial connection should result in no errors",
@@ -83,8 +127,8 @@ func TestValidate(t *testing.T) {
 				RequiredTime:     200,
 				SerialConfig:     &SerialConfig{},
 				I2CConfig: &I2CConfig{
-					Board:   "pi",
-					I2CBus:  "some-bus",
+					Board:   testBoardName,
+					I2CBus:  testBusName,
 					I2cAddr: testi2cAddr,
 				},
 			},
@@ -158,7 +202,7 @@ func TestValidate(t *testing.T) {
 				RequiredTime:     200,
 				SerialConfig:     &SerialConfig{},
 				I2CConfig: &I2CConfig{
-					I2CBus:  "some-bus",
+					I2CBus:  testBusName,
 					I2cAddr: testi2cAddr,
 				},
 			},
@@ -173,8 +217,8 @@ func TestValidate(t *testing.T) {
 				test.That(t, err, test.ShouldBeError, tc.expectedErr)
 				test.That(t, len(deps), test.ShouldEqual, 0)
 			} else {
-				if tc.protocol == i2cStr {
-					test.That(t, deps[0], test.ShouldEqual, "pi")
+				if tc.stationConfig.CorrectionSource == i2cStr {
+					test.That(t, deps[0], test.ShouldEqual, testBoardName)
 				}
 			}
 
@@ -182,93 +226,85 @@ func TestValidate(t *testing.T) {
 	}
 }
 
-func TestRTK(t *testing.T) {
+func TestNewRTKStation(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
 	deps := setupDependencies(t)
 
-	// test NTRIPConnection Source
-	conf := resource.Config{
-		Name:  "rtk1",
-		Model: resource.DefaultModelFamily.WithModel("rtk-station"),
-		API:   movementsensor.API,
-		ConvertedAttributes: &StationConfig{
-			CorrectionSource: "ntrip",
-			Board:            testBoardName,
+	c := make(chan []byte, 1024)
+
+	tests := []struct {
+		name        string
+		config      resource.Config
+		expectedErr error
+	}{
+		{
+			name: "A valid config with serial connection should result in no errors",
+			config: resource.Config{
+				Name:  testStationName,
+				Model: stationModel,
+				API:   movementsensor.API,
+				ConvertedAttributes: &StationConfig{
+					CorrectionSource: "serial",
+					Children:         []string{"rtk-sensor1"},
+					RequiredAccuracy: 4,
+					RequiredTime:     200,
+					SerialConfig: &SerialConfig{
+						SerialCorrectionPath:     "testChan",
+						SerialCorrectionBaudRate: 9600,
+						TestChan:                 c,
+					},
+					I2CConfig: &I2CConfig{},
+				},
+			},
 		},
-	}
-
-	// TODO(RSDK-2698): this test is not really doing anything since it needs a mocked
-	// I2C; it used to just test a random error; it still does.
-	g, err := newRTKStation(ctx, deps, conf, logger)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, g.Name(), test.ShouldResemble, conf.ResourceName())
-	test.That(t, g.Close(context.Background()), test.ShouldBeNil)
-
-	// test serial connection source
-	path := "/dev/serial/by-id/usb-u-blox_AG_-_www.u-blox.com_u-blox_GNSS_receiver-if00"
-	conf = resource.Config{
-		Name:  "rtk1",
-		Model: resource.DefaultModelFamily.WithModel("rtk-station"),
-		API:   movementsensor.API,
-		ConvertedAttributes: &StationConfig{
-			CorrectionSource: "serial",
-			SerialConfig: &SerialConfig{
-				SerialCorrectionPath: path,
+		{
+			name: "A valid config with i2c connection should result in no errors",
+			config: resource.Config{
+				Name:  testStationName,
+				Model: stationModel,
+				API:   movementsensor.API,
+				ConvertedAttributes: &StationConfig{
+					CorrectionSource: "i2c",
+					Children:         []string{"rtk-sensor2"},
+					RequiredAccuracy: 4,
+					RequiredTime:     200,
+					SerialConfig:     &SerialConfig{},
+					I2CConfig: &I2CConfig{
+						Board:   testBoardName,
+						I2CBus:  testBusName,
+						I2cAddr: testi2cAddr,
+					},
+				},
+			},
+		},
+		{
+			name: "A rtk base station can send corrections to multiple children",
+			config: resource.Config{
+				Name:  testStationName,
+				Model: stationModel,
+				API:   movementsensor.API,
+				ConvertedAttributes: &StationConfig{
+					CorrectionSource: "serial",
+					Children:         []string{"rtk-sensor1", "rtk-sensor2"},
+					RequiredAccuracy: 4,
+					RequiredTime:     200,
+					SerialConfig: &SerialConfig{
+						SerialCorrectionPath: "some-path",
+						TestChan:             c,
+					},
+					I2CConfig: &I2CConfig{},
+				},
 			},
 		},
 	}
-
-	// TODO(RSDK-2698): this test is not really doing anything since it needs a mocked
-	// I2C; it used to just test a random error; it still does.
-	_, err = newRTKStation(ctx, deps, conf, logger)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no such file or directory")
-
-	// test I2C correction source
-	conf = resource.Config{
-		Name:       "rtk1",
-		Model:      resource.DefaultModelFamily.WithModel("rtk-station"),
-		API:        movementsensor.API,
-		Attributes: rutils.AttributeMap{},
-		ConvertedAttributes: &StationConfig{
-			CorrectionSource: "i2c",
-			Board:            testBoardName,
-			I2CConfig: &I2CConfig{
-				I2CBus: testBusName,
-			},
-		},
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			g, err := newRTKStation(ctx, deps, tc.config, logger)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, g.Name(), test.ShouldResemble, tc.config.ResourceName())
+		})
 	}
-
-	// TODO(RSDK-2698): this test is not really doing anything since it needs a mocked
-	// I2C; it used to just test a random error; it still does.
-	g, err = newRTKStation(ctx, deps, conf, logger)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, g.Name(), test.ShouldResemble, conf.ResourceName())
-	test.That(t, g.Close(context.Background()), test.ShouldBeNil)
-
-	// test invalid source
-	conf = resource.Config{
-		Name:  "rtk1",
-		Model: resource.DefaultModelFamily.WithModel("rtk-station"),
-		API:   movementsensor.API,
-		Attributes: rutils.AttributeMap{
-			"correction_source":      "invalid-protocol",
-			"ntrip_addr":             "some_ntrip_address",
-			"ntrip_username":         "",
-			"ntrip_password":         "",
-			"ntrip_mountpoint":       "NJI2",
-			"ntrip_connect_attempts": 10,
-			"children":               "gps1",
-			"board":                  testBoardName,
-			"bus":                    testBusName,
-		},
-		ConvertedAttributes: &StationConfig{
-			CorrectionSource: "invalid",
-		},
-	}
-	_, err = newRTKStation(ctx, deps, conf, logger)
-	test.That(t, err, test.ShouldNotBeNil)
 }
 
 func TestClose(t *testing.T) {

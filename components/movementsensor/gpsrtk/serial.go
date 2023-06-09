@@ -28,6 +28,9 @@ type serialCorrectionSource struct {
 	correctionReader   io.ReadCloser // reader for rctm corrections only
 
 	err movementsensor.LastError
+
+	// TestChan is a fake "serial" path for test use only
+	TestChan chan []uint8 `json:"-"`
 }
 
 type pipeReader struct {
@@ -80,18 +83,23 @@ func newSerialCorrectionSource(conf *StationConfig, logger golog.Logger) (correc
 		s.logger.Info("SerialCorrectionSource: correction_baud using default 9600")
 	}
 
-	options := serial.OpenOptions{
-		PortName:        serialPath,
-		BaudRate:        uint(baudRate),
-		DataBits:        8,
-		StopBits:        1,
-		MinimumReadSize: 4,
-	}
+	if conf.SerialConfig.TestChan != nil {
+		s.TestChan = conf.SerialConfig.TestChan
+	} else {
 
-	var err error
-	s.port, err = serial.Open(options)
-	if err != nil {
-		return nil, err
+		options := serial.OpenOptions{
+			PortName:        serialPath,
+			BaudRate:        uint(baudRate),
+			DataBits:        8,
+			StopBits:        1,
+			MinimumReadSize: 4,
+		}
+
+		var err error
+		s.port, err = serial.Open(options)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return s, s.err.Get()
@@ -99,7 +107,6 @@ func newSerialCorrectionSource(conf *StationConfig, logger golog.Logger) (correc
 
 // Start reads correction data from the serial port and sends it into the correctionReader.
 func (s *serialCorrectionSource) Start(ready chan<- bool) {
-	log.Println("starting serial correction reader")
 	s.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer s.activeBackgroundWorkers.Done()

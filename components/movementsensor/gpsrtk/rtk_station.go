@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -46,7 +47,7 @@ var stationModel = resource.DefaultModelFamily.WithModel("rtk-station")
 
 // ErrStationValidation contains the model substring for the available correction source types.
 var ErrStationValidation = fmt.Errorf("only serial, I2C are supported for %s", stationModel.Name)
-var errRequiredAccuracy = fmt.Errorf("Required Accuracy can be 1-5")
+var errRequiredAccuracy = fmt.Errorf("required Accuracy can be 1-5")
 
 // Validate ensures all parts of the config are valid.
 func (cfg *StationConfig) Validate(path string) ([]string, error) {
@@ -107,6 +108,8 @@ type rtkStation struct {
 	activeBackgroundWorkers sync.WaitGroup
 
 	err movementsensor.LastError
+
+	testChan chan []byte
 }
 
 type correctionSource interface {
@@ -151,16 +154,18 @@ func newRTKStation(
 			return nil, err
 		}
 	case i2cStr:
+		log.Println("new i2c correction source")
 		r.correction, err = newI2CCorrectionSource(deps, newConf, logger)
 		if err != nil {
 			return nil, err
 		}
 	default:
 		// Invalid protocol
-		return nil, fmt.Errorf("%s is not a valid correction output protocol", r.protocol)
+		return nil, fmt.Errorf("%s is not a valid correction source protocol", r.protocol)
 	}
 
 	r.movementsensorNames = newConf.Children
+	log.Println(r.movementsensorNames)
 
 	err = ConfigureBaseRTKStation(conf)
 	if err != nil {
@@ -183,26 +188,31 @@ func newRTKStation(
 			r.serialPorts = make([]io.Writer, 0)
 			path := rtkgps.writepath
 			baudRate := rtkgps.wbaud
+			if newConf.SerialConfig.TestChan != nil {
+				r.testChan = newConf.SerialConfig.TestChan
+			} else {
 
-			options := serial.OpenOptions{
-				PortName:        path,
-				BaudRate:        uint(baudRate),
-				DataBits:        8,
-				StopBits:        1,
-				MinimumReadSize: 4,
+				options := serial.OpenOptions{
+					PortName:        path,
+					BaudRate:        uint(baudRate),
+					DataBits:        8,
+					StopBits:        1,
+					MinimumReadSize: 4,
+				}
+
+				port, err := serial.Open(options)
+				if err != nil {
+					return nil, err
+				}
+
+				r.serialPorts = append(r.serialPorts, port)
+
+				r.logger.Debug("Init multiwriter")
+				r.serialWriter = io.MultiWriter(r.serialPorts...)
 			}
-
-			port, err := serial.Open(options)
-			if err != nil {
-				return nil, err
-			}
-
-			r.serialPorts = append(r.serialPorts, port)
-
-			r.logger.Debug("Init multiwriter")
-			r.serialWriter = io.MultiWriter(r.serialPorts...)
 
 		case i2cStr:
+			log.Println("here i2c rtk input protocol")
 			bus := rtkgps.bus
 			addr := rtkgps.addr
 			busAddr := i2cBusAddr{bus: bus, addr: addr}
@@ -270,6 +280,7 @@ func (r *rtkStation) Start(ctx context.Context) {
 			// write buf to all i2c handles
 			for _, busAddr := range r.i2cPaths {
 				// open handle
+				log.Println("open handle")
 				handle, err := busAddr.bus.OpenHandle(busAddr.addr)
 				if err != nil {
 					r.logger.Errorf("can't open movementsensor i2c handle: %s", err)
