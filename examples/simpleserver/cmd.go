@@ -5,7 +5,7 @@ import (
 	"context"
 
 	"github.com/edaniels/golog"
-	"github.com/edaniels/gostream/codec/x264"
+	"github.com/viamrobotics/gostream/codec/x264"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/arm"

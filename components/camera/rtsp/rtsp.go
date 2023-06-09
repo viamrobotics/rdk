@@ -15,9 +15,9 @@ import (
 	"github.com/aler9/gortsplib/v2/pkg/liberrors"
 	"github.com/aler9/gortsplib/v2/pkg/url"
 	"github.com/edaniels/golog"
-	"github.com/edaniels/gostream"
 	"github.com/pion/rtp"
 	"github.com/pkg/errors"
+	"github.com/viamrobotics/gostream"
 	"go.uber.org/multierr"
 	goutils "go.viam.com/utils"
 

@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-	"github.com/edaniels/gostream"
+	"github.com/viamrobotics/gostream"
 	"go.viam.com/utils"
 )
 
