@@ -2,7 +2,6 @@ package module_test
 
 import (
 	"context"
-	"encoding/json"
 	"os"
 	"strconv"
 	"testing"
@@ -151,22 +150,6 @@ func makeConfig(t *testing.T, logger golog.Logger) (string, string, error) {
 			Name:  "helper1",
 		}},
 	}
-	if err := cfg.Ensure(false, logger); err != nil {
-		return "", "", err
-	}
-
-	output, err := json.Marshal(cfg)
-	if err != nil {
-		return "", "", err
-	}
-	file, err := os.CreateTemp(t.TempDir(), "viam-test-config-*")
-	if err != nil {
-		return "", "", err
-	}
-	cfgFilename := file.Name()
-	_, err = file.Write(output)
-	if err != nil {
-		return "", "", err
-	}
-	return cfgFilename, port, file.Close()
+	cfgFilename, err := robottestutils.MakeTempConfig(t, &cfg, logger)
+	return cfgFilename, port, err
 }

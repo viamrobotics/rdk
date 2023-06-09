@@ -3,8 +3,6 @@ package server_test
 
 import (
 	"context"
-	"encoding/json"
-	"os"
 	"strconv"
 	"testing"
 
@@ -19,11 +17,13 @@ import (
 	"go.viam.com/utils/pexec"
 )
 
+// numResources is the # of resources in /etc/configs/fake.json + the 2
+// expected builtin resources.
 const numResources = 19
 
-func TestOpID(t *testing.T) {
+func TestNumResources(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	cfgFilename := "/Users/bashareid/Developer/rdk/etc/configs/fake.json"
+	cfgFilename := "./../../etc/configs/fake.json"
 	cfg, err := config.Read(context.Background(), cfgFilename, logger)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -32,7 +32,7 @@ func TestOpID(t *testing.T) {
 
 	port := strconv.Itoa(p)
 	cfg.Network.BindAddress = ":" + port
-	cfgFilename, err = makeTempConfig(t, cfg, logger)
+	cfgFilename, err = robottestutils.MakeTempConfig(t, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	server := pexec.NewManagedProcess(pexec.ProcessConfig{
@@ -58,23 +58,4 @@ func TestOpID(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, len(resourceNames.Resources), test.ShouldEqual, numResources)
-}
-
-func makeTempConfig(t *testing.T, cfg *config.Config, logger golog.Logger) (string, error) {
-	if err := cfg.Ensure(false, logger); err != nil {
-		return "", err
-	}
-	output, err := json.Marshal(cfg)
-	if err != nil {
-		return "", err
-	}
-	file, err := os.CreateTemp(t.TempDir(), "fake-*")
-	if err != nil {
-		return "", err
-	}
-	_, err = file.Write(output)
-	if err != nil {
-		return "", err
-	}
-	return file.Name(), file.Close()
 }
