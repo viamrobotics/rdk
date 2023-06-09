@@ -212,7 +212,7 @@ func (ms *builtIn) MoveOnMap(
 		return false, err
 	}
 
-	threshold := 50
+	threshold := 60
 	buffer := 10.0
 	constraint := motionplan.NewOctreeCollisionConstraint(octree, threshold, buffer)
 

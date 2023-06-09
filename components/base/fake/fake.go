@@ -122,11 +122,18 @@ func (b *Base) WrapWithKinematics(ctx context.Context, slamSvc slam.Service) (ba
 	if err != nil {
 		return nil, errors.Wrap(err, "fake base cannot be created")
 	}
+
+	initialPose, _, err := slamSvc.GetPosition(ctx)
+	if err != nil {
+		return nil, err
+	}
+	initialPoint := initialPose.Point()
+
 	return &kinematicBase{
 		Base:   b,
 		model:  model,
 		slam:   slamSvc,
-		inputs: referenceframe.FloatsToInputs([]float64{-0.0345, -0.1447, 0}),
+		inputs: referenceframe.FloatsToInputs([]float64{initialPoint.X, initialPoint.Y, initialPose.Orientation().OrientationVectorRadians().Theta}),
 	}, nil
 }
 
