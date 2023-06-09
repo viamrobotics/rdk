@@ -302,7 +302,6 @@ func (ms *builtIn) MoveOnGlobe(
 	limits := []referenceframe.Limit{
 		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
 		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
-		{Min: -2 * math.Pi, Max: 2 * math.Pi},
 	}
 
 	// create a KinematicBase from the componentName
