@@ -60,6 +60,11 @@ func (dm *DepthMap) Height() int {
 	return dm.height
 }
 
+// Data returns the data from the depth map.
+func (dm *DepthMap) Data() []Depth {
+	return dm.data
+}
+
 // Bounds returns the rectangle dimensions of the image.
 func (dm *DepthMap) Bounds() image.Rectangle {
 	return image.Rect(0, 0, dm.width, dm.height)

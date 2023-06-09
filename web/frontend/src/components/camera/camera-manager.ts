@@ -4,6 +4,8 @@ import { displayError } from '../../lib/error';
 export class CameraManager {
   cameraClient: CameraClient;
 
+  onOpen: (() => void) | undefined;
+
   constructor (
     client: Client,
     private cameraName: string,
@@ -40,6 +42,7 @@ export class CameraManager {
         return;
       }
       this.videoStream = eventStream;
+      this.onOpen?.();
     });
   }
 

@@ -27,27 +27,37 @@ import {
   filterComponentsWithNames,
 } from '../lib/resource';
 
-import Arm from './arm.vue';
+import ArmSvelte from './arm/index.svelte';
 import AudioInputSvelte from './audio-input/index.svelte';
 import Base from './base.vue';
 import Board from './board.vue';
-import CamerasList from './camera/cameras-list.vue';
-import OperationsSessions from './operations-sessions.vue';
+import CamerasListSvelte from './camera/index.svelte';
+import OperationsSessionsSvelte from './operations-sessions/index.svelte';
 import DoCommand from './do-command.vue';
 import Encoder from './encoder.vue';
 import Gantry from './gantry.vue';
 import Gripper from './gripper.vue';
 import Gamepad from './gamepad.vue';
-import InputController from './input-controller.vue';
-import Motor from './motor-detail.vue';
-import MovementSensor from './movement-sensor.vue';
-import Navigation from './navigation.vue';
-import ServoComponent from './servo.vue';
-import Sensors from './sensors.vue';
-import Slam from './slam/index.vue';
+import InputControllerSvelte from './input-controller/index.svelte';
+import MotorSvelte from './motor/index.svelte';
+import MovementSensorSvelte from './movement-sensor/index.svelte';
+import NavigationSvelte from './navigation/index.svelte';
+import ServoSvelte from './servo/index.svelte';
+import SensorsSvelte from './sensors/index.svelte';
+import SlamSvelte from './slam/index.svelte';
 import { svelteAdapter } from '../lib/svelte-adapter';
 
+const Arm = svelteAdapter(ArmSvelte);
 const AudioInput = svelteAdapter(AudioInputSvelte);
+const CamerasList = svelteAdapter(CamerasListSvelte, { display: 'flex', 'flex-direction': 'column', gap: '1rem' });
+const InputController = svelteAdapter(InputControllerSvelte);
+const Motor = svelteAdapter(MotorSvelte);
+const MovementSensor = svelteAdapter(MovementSensorSvelte);
+const Navigation = svelteAdapter(NavigationSvelte);
+const OperationsSessions = svelteAdapter(OperationsSessionsSvelte);
+const Sensors = svelteAdapter(SensorsSvelte);
+const Servo = svelteAdapter(ServoSvelte);
+const Slam = svelteAdapter(SlamSvelte);
 
 import {
   fixArmStatus,
@@ -102,6 +112,17 @@ const client = new Client(impliedURL, {
       },
     ],
   },
+
+  /*
+   * TODO(RSDK-3183): Opt out of reconnection management in the Typescript
+   * SDK because the Remote Control implements it's own reconnection management.
+   *
+   * The Typescript SDK only manages reconnections for WebRTC connections - once
+   * it can manage reconnections for direct gRPC connections, then we remove
+   * reconnection management from the Remote Control panel entirely and just rely
+   * on the Typescript SDK for that.
+   */
+  noReconnect: true,
 });
 
 const streamManager = new StreamManager(client);
@@ -125,7 +146,7 @@ const connectedFirstTime = new Promise<void>((resolve) => {
   connectedFirstTimeResolve = resolve;
 });
 
-let appConnectionManager = $ref<{
+interface ConnectionManager {
   statuses: {
     resources: boolean;
     ops: boolean;
@@ -135,7 +156,9 @@ let appConnectionManager = $ref<{
   start(): void;
   isConnected(): boolean;
   rtt: number;
-}>(null!);
+}
+
+let appConnectionManager = $ref<ConnectionManager | null>(null);
 
 const handleError = (message: string, error: unknown, onceKey: string) => {
   if (onceKey) {
@@ -391,7 +414,9 @@ const fetchCurrentOps = () => {
           reject(err);
           return;
         }
-        appConnectionManager.rtt = Math.max(Date.now() - now, 0);
+        if (appConnectionManager) {
+          appConnectionManager.rtt = Math.max(Date.now() - now, 0);
+        }
 
         if (!resp) {
           reject(new Error('An unexpected issue occurred.'));
@@ -689,7 +714,7 @@ const initConnect = () => {
 
 const handleUnload = () => {
   console.debug('disconnecting');
-  appConnectionManager.stop();
+  appConnectionManager?.stop();
   streamManager?.close();
   client.disconnect();
 };
@@ -698,7 +723,7 @@ onMounted(async () => {
   initConnect();
   await connectedFirstTime;
 
-  appConnectionManager.start();
+  appConnectionManager?.start();
 
   window.addEventListener('beforeunload', handleUnload);
 });
@@ -711,7 +736,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div>
+  <div class="remote-control">
     <div v-if="showAuth">
       <div
         v-if="isConnecting"
@@ -795,7 +820,7 @@ onUnmounted(() => {
         :key="sensor.name"
         :name="sensor.name"
         :client="client"
-        :status-stream="statusStream"
+        :statusStream="statusStream"
       />
 
       <!-- ******* ARM *******  -->
@@ -805,7 +830,7 @@ onUnmounted(() => {
         :name="arm.name"
         :client="client"
         :status="(resourceStatusByName(arm) as any)"
-        :raw-status="(rawResourceStatusByName(arm) as any)"
+        :rawStatus="(rawResourceStatusByName(arm) as any)"
       />
 
       <!-- ******* GRIPPER *******  -->
@@ -817,13 +842,13 @@ onUnmounted(() => {
       />
 
       <!-- ******* SERVO *******  -->
-      <ServoComponent
+      <Servo
         v-for="servo in filterRdkComponentsWithStatus(resources, status, 'servo')"
         :key="servo.name"
         :name="servo.name"
         :client="client"
         :status="(resourceStatusByName(servo) as any)"
-        :raw-status="(rawResourceStatusByName(servo) as any)"
+        :rawStatus="(rawResourceStatusByName(servo) as any)"
       />
 
       <!-- ******* MOTOR *******  -->
@@ -864,21 +889,19 @@ onUnmounted(() => {
 
       <!-- ******* CAMERAS *******  -->
       <CamerasList
-        parent-name="app"
         :client="client"
-        :stream-manager="streamManager"
+        :streamManager="streamManager"
         :resources="filterResources(resources, 'rdk', 'component', 'camera')"
-        :status-stream="statusStream"
+        :statusStream="statusStream"
       />
 
       <!-- ******* NAVIGATION ******* -->
       <Navigation
         v-for="nav in filterResources(resources, 'rdk', 'service', 'navigation')"
         :key="nav.name"
-        :resources="resources"
         :name="nav.name"
         :client="client"
-        :status-stream="statusStream"
+        :statusStream="statusStream"
       />
 
       <!-- ******* SENSORS ******* -->
@@ -886,7 +909,7 @@ onUnmounted(() => {
         v-if="nonEmpty(sensorNames)"
         :name="filterNonRemoteResources(resources, 'rdk', 'service', 'sensors')[0]!.name"
         :client="client"
-        :sensor-names="sensorNames"
+        :sensorNames="sensorNames"
       />
 
       <!-- ******* AUDIO INPUTS *******  -->
@@ -904,7 +927,7 @@ onUnmounted(() => {
         :name="slam.name"
         :client="client"
         :resources="resources"
-        :status-stream="statusStream"
+        :statusStream="statusStream"
         :operations="currentOps"
       />
 
@@ -917,12 +940,12 @@ onUnmounted(() => {
 
       <!-- ******* OPERATIONS AND SESSIONS ******* -->
       <OperationsSessions
-        v-if="connectedOnce"
+        v-if="connectedOnce && appConnectionManager"
         :client="client"
         :operations="currentOps"
         :sessions="currentSessions"
-        :sessions-supported="sessionsSupported"
-        :connection-manager="appConnectionManager"
+        :sessionsSupported="sessionsSupported"
+        :connectionManager="appConnectionManager"
       />
     </div>
   </div>

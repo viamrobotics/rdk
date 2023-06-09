@@ -35,3 +35,17 @@ The file paths listed in the `files` field of `package.json` determines what is 
 ### Using the NPM Package
 
 If you intend to use the Remote Control in you own application, consider whether or not your application will be creating its own connection to the robot using the [Viam TypeScript SDK](https://github.com/viamrobotics/viam-typescript-sdk). If so, be aware the Remote Control also creates and manages its own SDK `Client`. If you intend to use the Remote Control _and_ make your own SDK `Client` to make API calls, you will want to make sure you disconnect from your `Client` after each API call so you do not maintain multiple long-running connections to the robot. 
+
+The NPM package _does not_ include styles. Instead, we require `tailwindcss` as a peer dependency, and you must include the NPM package artifacts in your tailwind config:
+
+```js
+// tailwind.config.js
+module.exports = {
+  content: [
+    './components/**/*.{html,js}',
+    './pages/**/*.{html,js}',
+    './node_modules/@viamrobotics/remote-control/**/*.js',
+  ],
+  // ...
+}
+```
