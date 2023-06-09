@@ -2,11 +2,11 @@
 package builtin
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"sync"
-	"bytes"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
@@ -18,13 +18,13 @@ import (
 	"go.viam.com/rdk/internal"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/operation"
+	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/pointcloud"
 )
 
 func init() {
@@ -207,7 +207,7 @@ func (ms *builtIn) MoveOnMap(
 	if err != nil {
 		return false, err
 	}
-	octree, err := pointcloud.ReadPCDToBasicOctree(bytes.NewReader(pointCloudData), true)
+	octree, err := pointcloud.ReadPCDToBasicOctree(bytes.NewReader(pointCloudData))
 	if err != nil {
 		return false, err
 	}
