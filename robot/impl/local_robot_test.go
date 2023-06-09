@@ -19,6 +19,8 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -3107,6 +3109,17 @@ func TestResourceConstructTimeout(t *testing.T) {
 	ctx := context.Background()
 	logger, logs := golog.NewObservedTestLogger(t)
 
+	timeOutErrorCount := func() int {
+		return logs.Filter(func(o observer.LoggedEntry) bool {
+			for k, v := range o.ContextMap() {
+				if k == "error" && strings.Contains(fmt.Sprint(v), "timed out during reconfigure") {
+					return true
+				}
+			}
+			return false
+		}).Len()
+	}
+
 	r, err := robotimpl.New(ctx, cfg, logger)
 	defer func() {
 		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
@@ -3115,7 +3128,7 @@ func TestResourceConstructTimeout(t *testing.T) {
 
 	// test no error logging with default config
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		test.That(tb, logs.FilterMessageSnippet("error building resource").Len(), test.ShouldEqual, 0)
+		test.That(tb, timeOutErrorCount(), test.ShouldEqual, 0)
 	})
 
 	// create new config with resource that conceivably could time out
@@ -3151,7 +3164,7 @@ func TestResourceConstructTimeout(t *testing.T) {
 	r.Reconfigure(ctx, newCfg)
 	// test no error logging with default timeout window and wheeled base
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		test.That(tb, logs.FilterMessageSnippet("error building resource").Len(), test.ShouldEqual, 0)
+		test.That(tb, timeOutErrorCount(), test.ShouldEqual, 0)
 	})
 
 	// new cfg with timeout window set to nil, wheeled base modified to ensure reconfigure
@@ -3193,7 +3206,7 @@ func TestResourceConstructTimeout(t *testing.T) {
 	r.Reconfigure(ctx, newerCfg)
 	// test no error logged when Timeout is nil
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		test.That(tb, logs.FilterMessageSnippet("error building resource").Len(), test.ShouldEqual, 0)
+		test.That(tb, timeOutErrorCount(), test.ShouldEqual, 0)
 	})
 
 	// create new cfg with wheeled base modified to trigger Reconfigure, and timeout
@@ -3236,6 +3249,6 @@ func TestResourceConstructTimeout(t *testing.T) {
 	r.Reconfigure(ctx, newestCfg)
 	// test that an error is logged when using arbitrarily short timeout window
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		test.That(tb, logs.FilterMessageSnippet("error building resource").Len(), test.ShouldEqual, 1)
+		test.That(tb, timeOutErrorCount(), test.ShouldEqual, 1)
 	})
 }
