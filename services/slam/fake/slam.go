@@ -50,7 +50,7 @@ func NewSLAM(name resource.Name, logger golog.Logger) *SLAM {
 	return &SLAM{
 		Named:     name.AsNamed(),
 		logger:    logger,
-		dataCount: 0,
+		dataCount: -1,
 	}
 }
 
@@ -73,7 +73,7 @@ func (slamSvc *SLAM) GetPosition(ctx context.Context) (spatialmath.Pose, string,
 func (slamSvc *SLAM) GetPointCloudMap(ctx context.Context) (func() ([]byte, error), error) {
 	ctx, span := trace.StartSpan(ctx, "slam::fake::GetPointCloudMap")
 	defer span.End()
-	// slamSvc.incrementDataCount()
+	slamSvc.incrementDataCount()
 	return fakeGetPointCloudMap(ctx, datasetDirectory, slamSvc)
 }
 
