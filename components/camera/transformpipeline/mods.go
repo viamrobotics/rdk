@@ -138,3 +138,65 @@ func (rs *resizeSource) Read(ctx context.Context) (image.Image, func(), error) {
 func (rs *resizeSource) Close(ctx context.Context) error {
 	return rs.originalStream.Close(ctx)
 }
+
+// cropConfig are the attributes for a crop transform.
+type cropConfig struct {
+	XMin int `json:"x_min_px"`
+	YMin int `json:"y_min_px"`
+	XMax int `json:"x_max_px"`
+	YMax int `json:"y_max_px"`
+}
+
+type cropSource struct {
+	originalStream gostream.VideoStream
+	cropWindow     image.Rectangle
+}
+
+// newCropTransform creates a new crop transform.
+func newCropTransform(
+	ctx context.Context, source gostream.VideoSource, stream camera.ImageType, am utils.AttributeMap,
+) (gostream.VideoSource, camera.ImageType, error) {
+	conf, err := resource.TransformAttributeMap[*cropConfig](am)
+	if err != nil {
+		return nil, camera.UnspecifiedStream, err
+	}
+	if conf.XMin >= conf.XMax {
+		return nil, camera.UnspecifiedStream, errors.New("cannot crop image to 0 width (x_min is >= x_max)")
+	}
+	if conf.YMin >= conf.YMax {
+		return nil, camera.UnspecifiedStream, errors.New("cannot crop image to 0 height (y_min is >= y_max)")
+	}
+	cropRect := image.Rect(conf.XMin, conf.YMin, conf.XMax, conf.YMax)
+
+	reader := &cropSource{gostream.NewEmbeddedVideoStream(source), cropRect}
+	src, err := camera.NewVideoSourceFromReader(ctx, reader, nil, stream)
+	if err != nil {
+		return nil, camera.UnspecifiedStream, err
+	}
+	return src, stream, err
+}
+
+// Next crops the 2D image depending on the crop window.
+func (cs *cropSource) Read(ctx context.Context) (image.Image, func(), error) {
+	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::crop::Read")
+	defer span.End()
+	orig, release, err := cs.originalStream.Next(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	type subImager interface {
+		SubImage(r image.Rectangle) image.Image
+	}
+	simg, ok := orig.(subImager)
+	if !ok {
+		return nil, nil, errors.Errorf("image type %T does not support cropping", orig)
+	}
+
+	return simg.SubImage(cs.cropWindow), release, nil
+
+}
+
+// Close closes the original stream.
+func (cs *cropSource) Close(ctx context.Context) error {
+	return cs.originalStream.Close(ctx)
+}

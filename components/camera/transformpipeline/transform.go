@@ -21,6 +21,7 @@ const (
 	transformTypeIdentity        = transformType("identity")
 	transformTypeRotate          = transformType("rotate")
 	transformTypeResize          = transformType("resize")
+	transformTypeResize          = transformType("crop")
 	transformTypeDepthPretty     = transformType("depth_to_pretty")
 	transformTypeOverlay         = transformType("overlay")
 	transformTypeUndistort       = transformType("undistort")
@@ -56,6 +57,11 @@ var registeredTransformConfigs = map[transformType]*transformRegistration{
 		string(transformTypeResize),
 		&resizeConfig{},
 		"Resizes the image to the specified height and width",
+	},
+	transformTypeCrop: {
+		string(transformTypeCrop),
+		&cropConfig{},
+		"Crop the image to the specified rectangle in pixels",
 	},
 	transformTypeDepthPretty: {
 		string(transformTypeDepthPretty),
@@ -130,6 +136,8 @@ func buildTransform(
 		return newRotateTransform(ctx, source, stream)
 	case transformTypeResize:
 		return newResizeTransform(ctx, source, stream, tr.Attributes)
+	case transformTypeCrop:
+		return newCropTransform(ctx, source, stream, tr.Attributes)
 	case transformTypeDepthPretty:
 		return newDepthToPrettyTransform(ctx, source, stream)
 	case transformTypeOverlay:

@@ -16,6 +16,54 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+func TestCrop(t *testing.T) {
+	am := utils.AttributeMap{
+		"x_min_px": 10,
+		"y_min_px": 30,
+		"x_max_px": 20,
+		"y_max_px": 40,
+	}
+	img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board1_small.png"))
+	test.That(t, err, test.ShouldBeNil)
+	dm, err := rimage.NewDepthMapFromFile(
+		context.Background(), artifact.MustPath("rimage/board1_gray_small.png"))
+	test.That(t, err, test.ShouldBeNil)
+
+	// test depth source
+	source := gostream.NewVideoSource(&videosource.StaticSource{DepthImg: dm}, prop.Video{})
+	out, _, err := camera.ReadImage(context.Background(), source)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, out.Bounds().Dx(), test.ShouldEqual, 128)
+	test.That(t, out.Bounds().Dy(), test.ShouldEqual, 72)
+
+	rs, stream, err := newCropTransform(context.Background(), source, camera.DepthStream, am)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, stream, test.ShouldEqual, camera.DepthStream)
+	out, _, err = camera.ReadImage(context.Background(), rs)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, out.Bounds().Dx(), test.ShouldEqual, 10)
+	test.That(t, out.Bounds().Dy(), test.ShouldEqual, 10)
+	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
+	test.That(t, source.Close(context.Background()), test.ShouldBeNil)
+
+	// test color source
+	source = gostream.NewVideoSource(&videosource.StaticSource{ColorImg: img}, prop.Video{})
+	out, _, err = camera.ReadImage(context.Background(), source)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, out.Bounds().Dx(), test.ShouldEqual, 128)
+	test.That(t, out.Bounds().Dy(), test.ShouldEqual, 72)
+
+	rs, stream, err = newCropTransform(context.Background(), source, camera.ColorStream, am)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, stream, test.ShouldEqual, camera.ColorStream)
+	out, _, err = camera.ReadImage(context.Background(), rs)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, out.Bounds().Dx(), test.ShouldEqual, 10)
+	test.That(t, out.Bounds().Dy(), test.ShouldEqual, 10)
+	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
+	test.That(t, source.Close(context.Background()), test.ShouldBeNil)
+}
+
 func TestResizeColor(t *testing.T) {
 	img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board1_small.png"))
 	test.That(t, err, test.ShouldBeNil)

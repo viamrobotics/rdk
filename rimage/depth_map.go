@@ -99,7 +99,7 @@ func (dm *DepthMap) At(x, y int) color.Color {
 func (dm *DepthMap) ColorModel() color.Model { return color.Gray16Model }
 
 // SubImage returns a cropped image of the original DepthMap from the given rectangle.
-func (dm *DepthMap) SubImage(r image.Rectangle) *DepthMap {
+func (dm *DepthMap) SubImage(r image.Rectangle) image.Image {
 	if r.Empty() {
 		return &DepthMap{}
 	}
