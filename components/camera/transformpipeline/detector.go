@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"image"
 
-	"github.com/edaniels/gostream"
+	"github.com/viamrobotics/gostream"
 	"go.opencensus.io/trace"
 
 	"go.viam.com/rdk/components/camera"

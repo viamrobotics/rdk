@@ -117,7 +117,7 @@ func TestModelGeometries(t *testing.T) {
 }
 
 func Test2DMobileModelFrame(t *testing.T) {
-	expLimit := []Limit{{-10, 10}, {-10, 10}, {-math.Pi, math.Pi}}
+	expLimit := []Limit{{-10, 10}, {-10, 10}}
 	sphere, err := spatial.NewSphere(spatial.NewZeroPose(), 10, "")
 	test.That(t, err, test.ShouldBeNil)
 	frame, err := New2DMobileModelFrame("test", expLimit, sphere)

@@ -3,6 +3,7 @@ package spatialmath
 import (
 	"testing"
 
+	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
@@ -12,7 +13,8 @@ func TestGeoObstacles(t *testing.T) {
 	testLatitude := 39.58836
 	testLongitude := -105.64464
 	testPoint := geo.NewPoint(testLatitude, testLongitude)
-	testSphere, err := NewSphere(NewZeroPose(), 100, "sphere")
+	testPose := NewPoseFromPoint(r3.Vector{2, 3, 4})
+	testSphere, err := NewSphere(testPose, 100, "sphere")
 	test.That(t, err, test.ShouldBeNil)
 	testGeoms := []Geometry{testSphere}
 
@@ -50,7 +52,7 @@ func TestGeoObstacles(t *testing.T) {
 	}
 
 	t.Run("Conversion from GeoObstacle to GeoObstacleConfig", func(t *testing.T) {
-		conv, err := NewGeoObstacleConfig(*testGeoObst)
+		conv, err := NewGeoObstacleConfig(testGeoObst)
 		test.That(t, err, test.ShouldBeNil)
 
 		test.That(t, testPoint.Lat(), test.ShouldEqual, conv.Location.Latitude)

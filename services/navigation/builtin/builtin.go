@@ -5,7 +5,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"sync"
+	"time"
 
 	"github.com/edaniels/golog"
 	geo "github.com/kellydunn/golang-geo"
@@ -207,9 +209,13 @@ func (svc *builtIn) SetMode(ctx context.Context, mode navigation.Mode, extra map
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	svc.cancelCtx = cancelCtx
 	svc.cancelFunc = cancelFunc
-
 	svc.mode = navigation.ModeManual
 	if mode == navigation.ModeWaypoint {
+		if extra != nil && extra["experimental"] == true {
+			if err := svc.startWaypointExperimental(extra); err != nil {
+				return err
+			}
+		}
 		if err := svc.startWaypoint(extra); err != nil {
 			return err
 		}
@@ -218,46 +224,108 @@ func (svc *builtIn) SetMode(ctx context.Context, mode navigation.Mode, extra map
 	return nil
 }
 
+func (svc *builtIn) computeCurrentBearing(ctx context.Context, path []*geo.Point) (float64, error) {
+	props, err := svc.movementSensor.Properties(ctx, nil)
+	if err != nil {
+		return 0, err
+	}
+	if props.CompassHeadingSupported {
+		return svc.movementSensor.CompassHeading(ctx, nil)
+	}
+	pathLen := len(path)
+	return fixAngle(path[pathLen-2].BearingTo(path[pathLen-1])), nil
+}
+
 func (svc *builtIn) startWaypoint(extra map[string]interface{}) error {
 	svc.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer svc.activeBackgroundWorkers.Done()
 
-		navOnce := func(ctx context.Context, wp navigation.Waypoint) error {
-			currentLoc, err := svc.Location(svc.cancelCtx, extra)
+		path := []*geo.Point{}
+		for {
+			if !utils.SelectContextOrWait(svc.cancelCtx, 500*time.Millisecond) {
+				return
+			}
+			currentLoc, _, err := svc.movementSensor.Position(svc.cancelCtx, extra)
 			if err != nil {
-				return err
+				svc.logger.Errorw("failed to get gps location", "error", err)
+				continue
 			}
 
-			goal := wp.ToPoint()
-
-			bearingToGoal := currentLoc.BearingTo(goal)
-
-			// have ability to define destination heading here, but waypoint structure doesn't allow for that so using bearingToGoal as heading
-			_, err = svc.motion.MoveOnGlobe(ctx, svc.base.Name(), goal, bearingToGoal, svc.movementSensor.Name(), svc.obstacles, svc.metersPerSec*1000, svc.degPerSec, extra)
-
-			if err != nil {
-				return err
+			if len(path) <= 1 || currentLoc.GreatCircleDistance(path[len(path)-1]) > .0001 {
+				// gps often updates less frequently
+				path = append(path, currentLoc)
+				if len(path) > 2 {
+					path = path[len(path)-2:]
+				}
 			}
 
-			return svc.waypointReached(ctx)
-		}
+			navOnce := func(ctx context.Context) error {
+				if len(path) <= 1 {
+					return errors.New("not enough gps data")
+				}
 
-		// loop until no waypoints remaining
-		for wp, err := svc.nextWaypoint(svc.cancelCtx); err == nil; wp, err = svc.nextWaypoint(svc.cancelCtx){
-			svc.logger.Infof("navigating to waypoint: %+v", wp)
-			if err := navOnce(svc.cancelCtx, wp); err != nil {
+				currentBearing, err := svc.computeCurrentBearing(ctx, path)
+				if err != nil {
+					return err
+				}
+
+				bearingToGoal, distanceToGoal, err := svc.waypointDirectionAndDistanceToGo(ctx, currentLoc)
+				if err != nil {
+					return err
+				}
+
+				if distanceToGoal < .005 {
+					svc.logger.Debug("i made it")
+					return svc.waypointReached(ctx)
+				}
+
+				bearingDelta := computeBearing(bearingToGoal, currentBearing)
+				steeringDir := -bearingDelta / 180.0
+
+				svc.logger.Debugf("currentBearing: %0.0f bearingToGoal: %0.0f distanceToGoal: %0.3f bearingDelta: %0.1f steeringDir: %0.2f",
+					currentBearing, bearingToGoal, distanceToGoal, bearingDelta, steeringDir)
+
+				// TODO(erh->erd): maybe need an arc/stroke abstraction?
+				// - Remember that we added -1*bearingDelta instead of steeringDir
+				// - Test both naval/land to prove it works
+				if err := svc.base.Spin(ctx, -1*bearingDelta, svc.degPerSec, nil); err != nil {
+					return fmt.Errorf("error turning: %w", err)
+				}
+
+				distanceMm := distanceToGoal * 1000 * 1000
+				distanceMm = math.Min(distanceMm, 10*1000)
+
+				// TODO: handle swap from mm to meters
+				if err := svc.base.MoveStraight(ctx, int(distanceMm), (svc.metersPerSec * 1000), nil); err != nil {
+					return fmt.Errorf("error moving %w", err)
+				}
+
+				return nil
+			}
+
+			if err := navOnce(svc.cancelCtx); err != nil {
 				svc.logger.Infof("error navigating: %s", err)
 			}
 		}
-
 	})
 	return nil
 }
 
+func (svc *builtIn) waypointDirectionAndDistanceToGo(ctx context.Context, currentLoc *geo.Point) (float64, float64, error) {
+	wp, err := svc.nextWaypoint(ctx)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	goal := wp.ToPoint()
+
+	return fixAngle(currentLoc.BearingTo(goal)), currentLoc.GreatCircleDistance(goal), nil
+}
+
 func (svc *builtIn) Location(ctx context.Context, extra map[string]interface{}) (*geo.Point, error) {
 	if svc.movementSensor == nil {
-		return nil, errors.New("must specify movement sensor to get current location")
+		return nil, errors.New("no way to get location")
 	}
 	loc, _, err := svc.movementSensor.Position(ctx, extra)
 	return loc, err
@@ -298,4 +366,74 @@ func (svc *builtIn) Close(ctx context.Context) error {
 	svc.cancelFunc()
 	svc.activeBackgroundWorkers.Wait()
 	return svc.store.Close(ctx)
+}
+
+func fixAngle(a float64) float64 {
+	for a < 0 {
+		a += 360
+	}
+	for a > 360 {
+		a -= 360
+	}
+	return a
+}
+
+func computeBearing(a, b float64) float64 {
+	a = fixAngle(a)
+	b = fixAngle(b)
+
+	t := b - a
+	if t < -180 {
+		t += 360
+	}
+
+	if t > 180 {
+		t -= 360
+	}
+
+	return t
+}
+
+func (svc *builtIn) startWaypointExperimental(extra map[string]interface{}) error {
+	svc.activeBackgroundWorkers.Add(1)
+	utils.PanicCapturingGo(func() {
+		defer svc.activeBackgroundWorkers.Done()
+
+		navOnce := func(ctx context.Context, wp navigation.Waypoint) error {
+			currentLoc, err := svc.Location(svc.cancelCtx, extra)
+			if err != nil {
+				return err
+			}
+
+			// have ability to define destination heading here, but waypoint structure
+			// doesn't allow for that so using bearingToGoal as heading
+			goal := wp.ToPoint()
+			_, err = svc.motion.MoveOnGlobe(
+				ctx,
+				svc.base.Name(),
+				goal,
+				currentLoc.BearingTo(goal),
+				svc.movementSensor.Name(),
+				svc.obstacles,
+				svc.metersPerSec*1000,
+				svc.degPerSec,
+				extra,
+			)
+			if err != nil {
+				return err
+			}
+
+			return svc.waypointReached(ctx)
+		}
+
+		// loop until no waypoints remaining
+		for wp, err := svc.nextWaypoint(svc.cancelCtx); err == nil; wp, err = svc.nextWaypoint(svc.cancelCtx) {
+			svc.logger.Infof("navigating to waypoint: %+v", wp)
+			if err := navOnce(svc.cancelCtx, wp); err != nil {
+				svc.logger.Infof("error navigating: %s", err)
+			}
+		}
+
+	})
+	return nil
 }

@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-	"github.com/edaniels/gostream"
 	"github.com/pion/mediadevices"
 	"github.com/pion/mediadevices/pkg/driver"
 	"github.com/pion/mediadevices/pkg/driver/availability"
@@ -17,6 +16,7 @@ import (
 	"github.com/pion/mediadevices/pkg/frame"
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pkg/errors"
+	"github.com/viamrobotics/gostream"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/camera/v1"
 	goutils "go.viam.com/utils"

@@ -68,7 +68,7 @@ onDestroy(() => {
     slot="title"
     crumbs="encoder"
   />
-  <div class="overflow-auto border border-t-0 border-medium p-4 text-left">
+  <div class="overflow-auto border border-t-0 border-medium p-4 text-left text-sm">
     <table class="bborder-medium table-auto border">
       {#if properties?.ticksCountSupported || (!properties?.ticksCountSupported && !properties?.angleDegreesSupported)}
         <tr>

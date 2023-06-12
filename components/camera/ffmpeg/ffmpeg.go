@@ -12,8 +12,8 @@ import (
 	"sync/atomic"
 
 	"github.com/edaniels/golog"
-	"github.com/edaniels/gostream"
 	ffmpeg "github.com/u2takey/ffmpeg-go"
+	"github.com/viamrobotics/gostream"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapio"
 	viamutils "go.viam.com/utils"

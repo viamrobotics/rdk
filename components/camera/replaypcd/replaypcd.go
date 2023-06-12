@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-	"github.com/edaniels/gostream"
 	"github.com/pkg/errors"
+	"github.com/viamrobotics/gostream"
 	datapb "go.viam.com/api/app/data/v1"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
