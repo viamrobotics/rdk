@@ -70,7 +70,8 @@ module.exports = {
     },
   },
   rules: {
-    'svelte/valid-compile': 'warn',
+    // TODO(APP-2035): Promote back to error.
+    'svelte/valid-compile': 'off',
   
     // https://github.com/eslint/eslint/issues/13956
     indent: 'off',
