@@ -1,6 +1,6 @@
 package web
 
-import "github.com/edaniels/gostream"
+import "github.com/viamrobotics/gostream"
 
 // options configures a web service.
 type options struct {
