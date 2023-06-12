@@ -296,7 +296,7 @@
       slot="header"
       variant="danger"
       icon="stop-circle"
-      label="STOP"
+      label="Stop"
       on:click={stop}
     />
 
@@ -304,9 +304,9 @@
       class="flex flex-wrap gap-4 border border-t-0 border-medium sm:flex-nowrap"
     >
       <div class="flex min-w-fit flex-col gap-4 p-4">
-        <h2 class="font-bold">Motor Controls</h2>
+        <h2 class="font-bold">Motor controls</h2>
         <v-radio
-          label="Control Mode"
+          label="Control mode"
           options="Keyboard, Discrete"
           selected={selectedMode}
           on:input={(event) => {
@@ -341,7 +341,7 @@
         {#if selectedMode === "Discrete"}
           <div class="flex flex-col gap-4">
             <v-radio
-              label="Movement Mode"
+              label="Movement mode"
               options="Straight, Spin"
               selected={movementMode}
               on:input={(event) => {
@@ -350,7 +350,7 @@
             />
             {#if movementMode === "Straight"}
               <v-radio
-                label="Movement Type"
+                label="Movement type"
                 options="Continuous, Discrete"
                 selected={movementType}
                 on:input={(event) => {
@@ -421,7 +421,7 @@
               <v-button
                 icon="play-circle-filled"
                 variant="success"
-                label="RUN"
+                label="Run"
                 on:click={baseRun}
               />
             {/if}
@@ -430,7 +430,7 @@
 
         <hr class="my-4 border-t border-medium" />
 
-        <h2 class="font-bold">Live Feeds</h2>
+        <h2 class="font-bold">Live feeds</h2>
 
         <v-radio
           label="View"

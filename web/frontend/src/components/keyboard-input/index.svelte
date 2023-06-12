@@ -108,7 +108,7 @@
 
 <div>
   <v-switch
-    label={isActive ? "Keyboard Enabled" : "Keyboard Disabled"}
+    label={isActive ? "Keyboard enabled" : "Keyboard disabled"}
     class="w-fit pr-4"
     value={isActive ? "on" : "off"}
     on:input={() => {
