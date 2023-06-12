@@ -184,16 +184,7 @@ func (cs *cropSource) Read(ctx context.Context) (image.Image, func(), error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	type subImager interface {
-		SubImage(r image.Rectangle) image.Image
-	}
-	simg, ok := orig.(subImager)
-	if !ok {
-		return nil, nil, errors.Errorf("image type %T does not support cropping", orig)
-	}
-
-	return simg.SubImage(cs.cropWindow), release, nil
-
+	return imaging.Crop(orig, cs.cropWindow), release, nil
 }
 
 // Close closes the original stream.

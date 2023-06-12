@@ -21,7 +21,7 @@ const (
 	transformTypeIdentity        = transformType("identity")
 	transformTypeRotate          = transformType("rotate")
 	transformTypeResize          = transformType("resize")
-	transformTypeResize          = transformType("crop")
+	transformTypeCrop            = transformType("crop")
 	transformTypeDepthPretty     = transformType("depth_to_pretty")
 	transformTypeOverlay         = transformType("overlay")
 	transformTypeUndistort       = transformType("undistort")

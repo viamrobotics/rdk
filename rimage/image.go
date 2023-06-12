@@ -127,7 +127,7 @@ func (i *Image) Circle(center image.Point, radius int, c Color) {
 }
 
 // SubImage returns a subset of the image defined by the given rectangle.
-func (i *Image) SubImage(r image.Rectangle) image.Image {
+func (i *Image) SubImage(r image.Rectangle) *Image {
 	if r.Empty() {
 		return &Image{}
 	}
