@@ -1,15 +1,16 @@
 <script lang="ts">
-  import { onDestroy } from "svelte";
+  /* eslint-disable id-length */
+  import { onDestroy } from 'svelte';
 
-  export type Keys = "w" | "a" | "s" | "d";
+  export type Keys = 'w' | 'a' | 's' | 'd';
 
   import {
     mdiArrowUp as w,
     mdiRestore as a,
     mdiReload as d,
     mdiArrowDown as s,
-  } from "@mdi/js";
-  import Icon from "../icon/index.svelte";
+  } from '@mdi/js';
+  import Icon from '../icon/index.svelte';
 
   export let isActive: boolean;
   export let onKeyDown: (key: Keys) => void;
@@ -25,20 +26,20 @@
     d: false,
   };
 
-  const keysLayout = [["a"], ["w", "s"], ["d"]] as const;
+  const keysLayout = [['a'], ['w', 's'], ['d']] as const;
 
   const normalizeKey = (key: string): Keys | null => {
     return (
       (
         {
-          w: "w",
-          a: "a",
-          s: "s",
-          d: "d",
-          arrowup: "w",
-          arrowleft: "a",
-          arrowdown: "s",
-          arrowright: "d",
+          w: 'w',
+          a: 'a',
+          s: 's',
+          d: 'd',
+          arrowup: 'w',
+          arrowleft: 'a',
+          arrowdown: 's',
+          arrowright: 'd',
         } as Record<string, Keys>
       )[key.toLowerCase()] ?? null
     );
@@ -79,11 +80,11 @@
 
   const toggleKeyboard = (nowActive: boolean) => {
     if (nowActive) {
-      window.addEventListener("keydown", handleKeyDown, false);
-      window.addEventListener("keyup", handleKeyUp, false);
+      window.addEventListener('keydown', handleKeyDown, false);
+      window.addEventListener('keyup', handleKeyUp, false);
     } else {
-      window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("keyup", handleKeyUp);
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
     }
 
     onUpdateKeyboardState(nowActive);
@@ -108,9 +109,9 @@
 
 <div>
   <v-switch
-    label={isActive ? "Keyboard enabled" : "Keyboard disabled"}
+    label={isActive ? 'Keyboard enabled' : 'Keyboard disabled'}
     class="w-fit pr-4"
-    value={isActive ? "on" : "off"}
+    value={isActive ? 'on' : 'off'}
     on:input={() => {
       toggleKeyboard(!isActive);
     }}

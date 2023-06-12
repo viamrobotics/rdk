@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, onDestroy } from "svelte";
+  import { onMount, onDestroy } from 'svelte';
   import {
     BaseClient,
     Client,
@@ -7,15 +7,15 @@
     commonApi,
     type ResponseStream,
     robotApi,
-  } from "@viamrobotics/sdk";
-  import { filterResources } from "../../lib/resource";
-  import { displayError } from "../../lib/error";
-  import KeyboardInput, { type Keys } from "../keyboard-input/index.svelte";
-  import Camera from "../camera/camera.svelte";
-  import { rcLogConditionally } from "../../lib/log";
-  import { selectedMap } from "../../lib/camera-state";
-  import { clickOutside } from "../../lib/click-outside";
-  import type { StreamManager } from "./camera/stream-manager";
+  } from '@viamrobotics/sdk';
+  import { filterResources } from '../../lib/resource';
+  import { displayError } from '../../lib/error';
+  import KeyboardInput, { type Keys } from '../keyboard-input/index.svelte';
+  import Camera from '../camera/camera.svelte';
+  import { rcLogConditionally } from '../../lib/log';
+  import { selectedMap } from '../../lib/camera-state';
+  import { clickOutside } from '../../lib/click-outside';
+  import type { StreamManager } from './camera/stream-manager';
 
   export let name: string;
   export let resources: commonApi.ResourceName.AsObject[];
@@ -24,33 +24,33 @@
   export let statusStream: ResponseStream<robotApi.StreamStatusResponse> | null;
 
   const enum Keymap {
-    LEFT = "a",
-    RIGHT = "d",
-    FORWARD = "w",
-    BACKWARD = "s",
+    LEFT = 'a',
+    RIGHT = 'd',
+    FORWARD = 'w',
+    BACKWARD = 's',
   }
 
-  type Tabs = "Keyboard" | "Discrete";
-  type MovementTypes = "Continuous" | "Discrete";
-  type MovementModes = "Straight" | "Spin";
-  type SpinTypes = "Clockwise" | "Counterclockwise";
-  type Directions = "Forwards" | "Backwards";
-  type View = "Stacked" | "Grid";
+  type Tabs = 'Keyboard' | 'Discrete';
+  type MovementTypes = 'Continuous' | 'Discrete';
+  type MovementModes = 'Straight' | 'Spin';
+  type SpinTypes = 'Clockwise' | 'Counterclockwise';
+  type Directions = 'Forwards' | 'Backwards';
+  type View = 'Stacked' | 'Grid';
 
   const baseClient = new BaseClient(client, name, {
     requestLogger: rcLogConditionally,
   });
 
-  let refreshFrequency = "Live";
+  let refreshFrequency = 'Live';
   let triggerRefresh = false;
 
   const openCameras: Record<string, boolean | undefined> = {};
-  let selectedView: View = "Stacked";
-  let selectedMode: Tabs = "Keyboard";
-  let movementMode: MovementModes = "Straight";
-  let movementType: MovementTypes = "Continuous";
-  let direction: Directions = "Forwards";
-  let spinType: SpinTypes = "Clockwise";
+  let selectedView: View = 'Stacked';
+  let selectedMode: Tabs = 'Keyboard';
+  let movementMode: MovementModes = 'Straight';
+  let movementType: MovementTypes = 'Continuous';
+  let direction: Directions = 'Forwards';
+  let spinType: SpinTypes = 'Clockwise';
   let disableRefresh = true;
   let disableViews = true;
 
@@ -69,16 +69,16 @@
 
   $: filteredResources = filterResources(
     resources,
-    "rdk",
-    "component",
-    "camera"
+    'rdk',
+    'component',
+    'camera'
   );
 
   const resetDiscreteState = () => {
-    movementMode = "Straight";
-    movementType = "Continuous";
-    direction = "Forwards";
-    spinType = "Clockwise";
+    movementMode = 'Straight';
+    movementType = 'Continuous';
+    direction = 'Forwards';
+    spinType = 'Clockwise';
   };
 
   const setMovementMode = (mode: MovementModes) => {
@@ -166,7 +166,7 @@
     direction: number;
     movementType: MovementTypes;
   }) => {
-    if (event.movementType === "Continuous") {
+    if (event.movementType === 'Continuous') {
       const linear = { x: 0, y: event.speed * event.direction, z: 0 };
       const angular = { x: 0, y: 0, z: 0 };
 
@@ -188,19 +188,19 @@
   };
 
   const baseRun = async () => {
-    if (movementMode === "Spin") {
+    if (movementMode === 'Spin') {
       try {
         await baseClient.spin(
-          angle * (spinType === "Clockwise" ? -1 : 1),
+          angle * (spinType === 'Clockwise' ? -1 : 1),
           spinSpeed
         );
       } catch (error) {
         displayError(error as ServiceError);
       }
-    } else if (movementMode === "Straight") {
+    } else if (movementMode === 'Straight') {
       handleBaseStraight({
         movementType,
-        direction: direction === "Forwards" ? 1 : -1,
+        direction: direction === 'Forwards' ? 1 : -1,
         speed,
         distance: increment,
       });
@@ -222,14 +222,14 @@
   const handleTabSelect = (controlMode: Tabs) => {
     selectedMode = controlMode;
 
-    if (controlMode === "Discrete") {
+    if (controlMode === 'Discrete') {
       resetDiscreteState();
     }
   };
 
   const handleVisibilityChange = () => {
     // only issue the stop if there are keys pressed as to not interfere with commands issued by scripts/commands
-    if (document.visibilityState === "hidden" && pressed.size > 0) {
+    if (document.visibilityState === 'hidden' && pressed.size > 0) {
       pressed.clear();
       stop();
     }
@@ -266,10 +266,10 @@
   };
 
   onMount(() => {
-    window.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener('visibilitychange', handleVisibilityChange);
 
     // Safety measure for system prompts, etc.
-    window.addEventListener("blur", handleOnBlur);
+    window.addEventListener('blur', handleOnBlur);
 
     for (const camera of filteredResources) {
       openCameras[camera.name] = false;
@@ -279,8 +279,8 @@
   onDestroy(() => {
     handleOnBlur();
 
-    window.removeEventListener("visibilitychange", handleVisibilityChange);
-    window.removeEventListener("blur", handleOnBlur);
+    window.removeEventListener('visibilitychange', handleVisibilityChange);
+    window.removeEventListener('blur', handleOnBlur);
   });
 </script>
 
@@ -314,7 +314,7 @@
           }}
         />
 
-        {#if selectedMode === "Keyboard"}
+        {#if selectedMode === 'Keyboard'}
           <div>
             <KeyboardInput
               isActive={isKeyboardActive}
@@ -338,7 +338,7 @@
           </div>
         {/if}
 
-        {#if selectedMode === "Discrete"}
+        {#if selectedMode === 'Discrete'}
           <div class="flex flex-col gap-4">
             <v-radio
               label="Movement mode"
@@ -348,7 +348,7 @@
                 setMovementMode(event.detail.value);
               }}
             />
-            {#if movementMode === "Straight"}
+            {#if movementMode === 'Straight'}
               <v-radio
                 label="Movement type"
                 options="Continuous, Discrete"
@@ -375,12 +375,12 @@
               />
               <div
                 class="pointer-events-none"
-                class:opacity-50={movementType === "Continuous"}
+                class:opacity-50={movementType === 'Continuous'}
               >
                 <v-input
                   type="number"
                   value={increment}
-                  readonly={movementType === "Continuous" ? true : false}
+                  readonly={movementType === 'Continuous'}
                   label="Distance (mm)"
                   on:input={(event) => {
                     increment = event.detail.value;
@@ -388,7 +388,7 @@
                 />
               </div>
             {/if}
-            {#if movementMode === "Spin"}
+            {#if movementMode === 'Spin'}
               <v-input
                 type="number"
                 value={spinSpeed}
@@ -436,7 +436,7 @@
           label="View"
           options="Stacked, Grid"
           selected={selectedView}
-          disable={disableViews ? "true" : "false"}
+          disable={disableViews ? 'true' : 'false'}
           on:input={(event) => {
             handleViewSelect(event.detail.value);
           }}
@@ -448,7 +448,7 @@
               <v-switch
                 label={camera.name}
                 aria-label={`Refresh frequency for ${camera.name}`}
-                value={openCameras[camera.name] ? "on" : "off"}
+                value={openCameras[camera.name] ? 'on' : 'off'}
                 on:input={() => {
                   handleSwitch(camera.name);
                 }}
@@ -460,18 +460,18 @@
                 value={refreshFrequency}
                 label="Refresh frequency"
                 aria-label="Refresh frequency"
-                options={Object.keys(selectedMap).join(",")}
-                disabled={disableRefresh ? "true" : "false"}
+                options={Object.keys(selectedMap).join(',')}
+                disabled={disableRefresh ? 'true' : 'false'}
                 on:input={(event) => {
                   refreshFrequency = event.detail.value;
                 }}
               />
 
               <v-button
-                class={refreshFrequency === "Live" ? "invisible" : ""}
+                class={refreshFrequency === 'Live' ? 'invisible' : ''}
                 icon="refresh"
                 label="Refresh"
-                disabled={disableRefresh ? "true" : "false"}
+                disabled={disableRefresh ? 'true' : 'false'}
                 on:click={() => {
                   triggerRefresh = !triggerRefresh;
                 }}
