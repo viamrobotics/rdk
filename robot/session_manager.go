@@ -151,9 +151,7 @@ func (m *SessionManager) expireLoop(ctx context.Context) {
 }
 
 const (
-	defaultHeartbeatWindow = 500 * time.Millisecond
-	maxHeartbeatWindow     = time.Minute
-	maxSessions            = 1024
+	maxSessions = 1024
 )
 
 // Start creates a new session that expects at least one heartbeat within the configured window.

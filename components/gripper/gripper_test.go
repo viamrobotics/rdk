@@ -16,8 +16,7 @@ const (
 	testGripperName    = "gripper1"
 	testGripperName2   = "gripper2"
 	failGripperName    = "gripper3"
-	fakeGripperName    = "gripper4"
-	missingGripperName = "gripper5"
+	missingGripperName = "gripper4"
 )
 
 func TestCreateStatus(t *testing.T) {

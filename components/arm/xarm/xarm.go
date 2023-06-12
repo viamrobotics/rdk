@@ -42,10 +42,9 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 }
 
 const (
-	defaultSpeed        = 20. // degrees per second
-	defaultAcceleration = 50. // degrees per second per second.
-	defaultPort         = "502"
-	defaultMoveHz       = 100. // Don't change this
+	defaultSpeed  = 20. // degrees per second
+	defaultPort   = "502"
+	defaultMoveHz = 100. // Don't change this
 )
 
 type xArm struct {

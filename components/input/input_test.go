@@ -16,10 +16,8 @@ import (
 
 const (
 	testInputControllerName    = "inputController1"
-	testInputControllerName2   = "inputController2"
-	failInputControllerName    = "inputController3"
-	fakeInputControllerName    = "inputController4"
-	missingInputControllerName = "inputController5"
+	failInputControllerName    = "inputController2"
+	missingInputControllerName = "inputController3"
 )
 
 func TestCreateStatus(t *testing.T) {
