@@ -11,6 +11,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/mkch/gpio"
+	"github.com/pkg/errors"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
