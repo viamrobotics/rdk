@@ -11,8 +11,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.uber.org/zap"
-	genericpb "go.viam.com/api/component/generic/v1"
-	robotpb "go.viam.com/api/robot/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/testutils"
 	"google.golang.org/grpc"
@@ -50,8 +48,8 @@ func NewRobotClient(tb testing.TB, logger *zap.SugaredLogger, addr string, dur t
 	return robotClient
 }
 
-// Connect creates a new RobotServiceClient pointing to a server running on localhost:port.
-func Connect(port string) (robotpb.RobotServiceClient, genericpb.GenericServiceClient, *grpc.ClientConn, error) {
+// Connect creates a new grpc.ClientConn server running on localhost:port.
+func Connect(port string) (*grpc.ClientConn, error) {
 	ctxTimeout, cancelFunc := context.WithTimeout(context.Background(), time.Minute)
 	defer cancelFunc()
 
@@ -62,13 +60,10 @@ func Connect(port string) (robotpb.RobotServiceClient, genericpb.GenericServiceC
 		grpc.WithBlock(),
 	)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 
-	rc := robotpb.NewRobotServiceClient(conn)
-	gc := genericpb.NewGenericServiceClient(conn)
-
-	return rc, gc, conn, nil
+	return conn, nil
 }
 
 // MakeTempConfig writes a config.Config object to a temporary file for testing.

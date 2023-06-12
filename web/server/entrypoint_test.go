@@ -23,7 +23,7 @@ const numResources = 19
 
 func TestNumResources(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	cfgFilename := "./../../etc/configs/fake.json"
+	cfgFilename := utils.ResolveFile("./") + "/etc/configs/fake.json"
 	cfg, err := config.Read(context.Background(), cfgFilename, logger)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -48,11 +48,12 @@ func TestNumResources(t *testing.T) {
 		test.That(t, server.Stop(), test.ShouldBeNil)
 	}()
 
-	rc, _, conn, err := robottestutils.Connect(port)
+	conn, err := robottestutils.Connect(port)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	}()
+	rc := robotpb.NewRobotServiceClient(conn)
 
 	resourceNames, err := rc.ResourceNames(context.Background(), &robotpb.ResourceNamesRequest{})
 	test.That(t, err, test.ShouldBeNil)

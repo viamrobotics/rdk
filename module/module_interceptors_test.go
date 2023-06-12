@@ -9,6 +9,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/google/uuid"
 	commonpb "go.viam.com/api/common/v1"
+	genericpb "go.viam.com/api/component/generic/v1"
 	robotpb "go.viam.com/api/robot/v1"
 	"go.viam.com/test"
 	goutils "go.viam.com/utils"
@@ -46,11 +47,13 @@ func TestOpID(t *testing.T) {
 		test.That(t, server.Stop(), test.ShouldBeNil)
 	}()
 
-	rc, gc, conn, err := robottestutils.Connect(port)
+	conn, err := robottestutils.Connect(port)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	}()
+	rc := robotpb.NewRobotServiceClient(conn)
+	gc := genericpb.NewGenericServiceClient(conn)
 
 	opIDOutgoing := uuid.New().String()
 	var opIDIncoming string
