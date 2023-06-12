@@ -13,6 +13,7 @@ import (
 )
 
 // adapted from https://github.com/NVIDIA/jetson-gpio (MIT License)
+
 // BoardInformation details pin definitions and device compatibility for a particular board.
 type BoardInformation struct {
 	PinDefinitions []PinDefinition
