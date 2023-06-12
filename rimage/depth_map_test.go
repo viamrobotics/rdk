@@ -163,8 +163,6 @@ func TestToGray16Picture(t *testing.T) {
 	defer file.Close()
 	png.Encode(file, gimg)
 }
-
-//nolint:dupl
 func makeImagesForSubImageTest(ori, crop image.Rectangle) (*Image, *Image) {
 	oriWidth, oriHeight := ori.Max.X-ori.Min.X, ori.Max.Y-ori.Min.Y
 	overlap := ori.Intersect(crop)
@@ -187,7 +185,6 @@ func makeImagesForSubImageTest(ori, crop image.Rectangle) (*Image, *Image) {
 	return &Image{data: oriData, width: oriWidth, height: oriHeight}, &Image{data: cropData, width: cropWidth, height: cropHeight}
 }
 
-//nolint:dupl
 func makeDepthMapsForSubImageTest(ori, crop image.Rectangle) (*DepthMap, *DepthMap) {
 	oriWidth, oriHeight := ori.Max.X-ori.Min.X, ori.Max.Y-ori.Min.Y
 	overlap := ori.Intersect(crop)
