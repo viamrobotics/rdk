@@ -134,6 +134,9 @@ var testNetworkConfig = NetworkConfig{
 		BindAddress: "0.0.0.0:1234",
 		TLSCertFile: "./cert.pub",
 		TLSKeyFile:  "./cert.private",
+		Sessions: SessionsConfig{
+			HeartbeatWindow: 5 * time.Second,
+		},
 	},
 }
 
