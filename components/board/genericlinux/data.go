@@ -16,25 +16,6 @@ import (
 
 // adapted from https://github.com/NVIDIA/jetson-gpio (MIT License)
 
-// BoardInformation details pin definitions and device compatibility for a particular board.
-type BoardInformation struct {
-	PinDefinitions []PinDefinition
-	Compats        []string
-}
-
-// A NoBoardFoundError is returned when no compatible mapping is found for a board during GPIO board mapping.
-type NoBoardFoundError struct {
-	modelName string
-}
-
-func (err NoBoardFoundError) Error() string {
-	return fmt.Sprintf("could not determine %q model", err.modelName)
-}
-
-func noBoardError(modelName string) error {
-	return fmt.Errorf("could not determine %q model", modelName)
-}
-
 // GetGPIOBoardMappings attempts to find a compatible board-pin mapping for the given mappings.
 func GetGPIOBoardMappings(modelName string, boardInfoMappings map[string]BoardInformation) (map[int]GPIOBoardMapping, error) {
 	pinDefs, err := getCompatiblePinDefs(modelName, boardInfoMappings)
