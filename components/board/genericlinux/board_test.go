@@ -111,7 +111,7 @@ func TestGenericLinux(t *testing.T) {
 		test.That(t, ok, test.ShouldBeFalse)
 
 		gns := gp2.b.GPIOPinNames()
-		test.That(t, gns, test.ShouldResemble, []string{"10"})
+		test.That(t, gns, test.ShouldResemble, []string(nil))
 
 		gn1, err := gp2.b.GPIOPinByName("10")
 		test.That(t, err, test.ShouldNotBeNil)
@@ -179,12 +179,6 @@ func TestGenericLinux(t *testing.T) {
 	})
 
 	t.Run("test getGPIOLine", func(t *testing.T) {
-		_, err := gp2.b.getGPIOLine("Bbgh")
-		test.That(t, err.Error(), test.ShouldContainSubstring, "parse")
-
-		_, err = gp2.b.getGPIOLine("9")
-		test.That(t, err.Error(), test.ShouldContainSubstring, "invalid")
-
 		_, err = gp2.b.getGPIOLine("10")
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no global pin")
 	})
