@@ -23,7 +23,7 @@ const numResources = 19
 
 func TestNumResources(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	cfgFilename := utils.ResolveFile("./") + "/etc/configs/fake.json"
+	cfgFilename := utils.ResolveFile("/etc/configs/fake.json")
 	cfg, err := config.Read(context.Background(), cfgFilename, logger)
 	test.That(t, err, test.ShouldBeNil)
 
