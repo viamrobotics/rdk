@@ -17,7 +17,7 @@ const (
 	jetsonOrinNano = "jetson_orin_nano"
 )
 
-// TODO [RSDK-3596]: fix ngpio numbers in pin definitions for the jetsonTX1, jetsonNano
+// TODO [RSDK-3596]: fix ngpio numbers in pin definitions for the jetsonTX1, jetsonNano.
 var claraAGXXavierPins = []genericlinux.PinDefinition{
 	{map[int]int{169: 106}, map[int]string{169: "PQ.06"}, "2200000.gpio", 7, 4, "MCLK05", "SOC_GPIO42", "", -1},
 	{map[int]int{169: 112}, map[int]string{169: "PR.04"}, "2200000.gpio", 11, 17, "UART1_RTS", "UART1_RTS", "", -1},
