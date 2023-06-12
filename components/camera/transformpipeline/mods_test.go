@@ -62,6 +62,12 @@ func TestCrop(t *testing.T) {
 	test.That(t, out.Bounds().Dy(), test.ShouldEqual, 10)
 	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
 	test.That(t, source.Close(context.Background()), test.ShouldBeNil)
+
+	// test error
+	am = utils.AttributeMap{}
+	rs, stream, err = newCropTransform(context.Background(), source, camera.ColorStream, am)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot crop image")
 }
 
 func TestResizeColor(t *testing.T) {
