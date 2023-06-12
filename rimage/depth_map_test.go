@@ -163,6 +163,7 @@ func TestToGray16Picture(t *testing.T) {
 	defer file.Close()
 	png.Encode(file, gimg)
 }
+
 func makeImagesForSubImageTest(ori, crop image.Rectangle) (*Image, *Image) {
 	oriWidth, oriHeight := ori.Max.X-ori.Min.X, ori.Max.Y-ori.Min.Y
 	overlap := ori.Intersect(crop)
