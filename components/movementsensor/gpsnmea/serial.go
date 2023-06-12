@@ -146,6 +146,7 @@ func (g *SerialNMEAMovementSensor) GetCorrectionInfo() (string, uint) {
 	return g.correctionPath, g.correctionBaudRate
 }
 
+//nolint
 // Position position, altitide.
 func (g *SerialNMEAMovementSensor) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
 	lastPosition := g.lastposition.GetLastPosition()
@@ -170,7 +171,7 @@ func (g *SerialNMEAMovementSensor) Position(ctx context.Context, extra map[strin
 	}
 
 	// updating the last known valid position if the current position is non-zero
-	if !g.lastposition.IsZeroPosition(currentPosition) {
+	if !g.lastposition.IsZeroPosition(currentPosition) && !g.lastposition.IsPositonNaN(currentPosition) {
 		g.lastposition.SetLastPosition(currentPosition)
 	}
 
