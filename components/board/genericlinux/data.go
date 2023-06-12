@@ -11,7 +11,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/mkch/gpio"
-	"github.com/pkg/errors"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
@@ -102,14 +101,14 @@ func getGpioChipDefs(pinDefs []PinDefinition) (map[int]gpioChipData, error) {
 	}
 
 	// TODO: remove this and base attribute after periph removed
-	const sysfsPrefix := "/sys/class/gpio"
+	const sysfsPrefix = "/sys/class/gpio"
 	sysfsFiles, err := os.ReadDir(sysfsPrefix)
 	if err != nil {
 		return nil, err
 	}
 
 	// for each chip in the board config, find the right gpioChip dir
-	for chipNgpio := range gpioConfigNgpios { 
+	for chipNgpio := range gpioConfigNgpios {
 		var base int
 		for _, file := range sysfsFiles {
 			// code looks through sys/class/gpio to find the base offset of the chip
