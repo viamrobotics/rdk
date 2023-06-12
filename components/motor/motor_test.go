@@ -16,11 +16,9 @@ import (
 )
 
 const (
-	testMotorName    = "motor1"
-	testMotorName2   = "motor2"
-	failMotorName    = "motor3"
-	fakeMotorName    = "motor4"
-	missingMotorName = "motor5"
+	testMotorName = "motor1"
+	failMotorName = "motor2"
+	fakeMotorName = "motor3"
 )
 
 func TestStatusValid(t *testing.T) {
