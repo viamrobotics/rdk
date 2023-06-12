@@ -7,7 +7,6 @@ import "fmt"
 type GPIOBoardMapping struct {
 	GPIOChipDev    string
 	GPIO           int
-	GPIOGlobal     int
 	GPIOName       string
 	PWMSysFsDir    string // Absolute path to the directory, empty string for none
 	PWMID          int
@@ -53,7 +52,6 @@ func noBoardError(modelName string) error {
 // describes a GPIO chip within sysfs.
 type gpioChipData struct {
 	Dir   string // Pseudofile within sysfs to interact with this chip
-	Base  int    // Taken from the /base pseudofile in sysfs: offset to the start of the lines
 	Ngpio int    // Taken from the /ngpio pseudofile in sysfs: number of lines on the chip
 }
 

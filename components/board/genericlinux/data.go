@@ -100,39 +100,8 @@ func getGpioChipDefs(pinDefs []PinDefinition) (map[int]gpioChipData, error) {
 		}
 	}
 
-	// TODO: remove this and base attribute after periph removed
-	const sysfsPrefix = "/sys/class/gpio"
-	sysfsFiles, err := os.ReadDir(sysfsPrefix)
-	if err != nil {
-		return nil, err
-	}
-
 	// for each chip in the board config, find the right gpioChip dir
 	for chipNgpio := range gpioConfigNgpios {
-		var base int
-		for _, file := range sysfsFiles {
-			// code looks through sys/class/gpio to find the base offset of the chip
-			// TODO: remove this once periph is removed
-			if !strings.HasPrefix(file.Name(), "gpiochip") { // files should have format gpioChip#
-				continue
-			}
-
-			ngpio, err := readIntFile(filepath.Join(sysfsPrefix, file.Name(), "ngpio")) // read from /sys/class/gpio/gpiochip#/ngpio
-			if err != nil {
-				return nil, err
-			}
-
-			if ngpio != chipNgpio {
-				continue
-			}
-
-			base, err = readIntFile(filepath.Join(sysfsPrefix, file.Name(), "base")) // read from /sys/class/gpio/gpiochip#/base
-			if err != nil {
-				return nil, err
-			}
-			break
-		}
-
 		dir, ok := gpioChipNgpios[chipNgpio]
 
 		if !ok {
@@ -142,7 +111,6 @@ func getGpioChipDefs(pinDefs []PinDefinition) (map[int]gpioChipData, error) {
 
 		gpioChipsInfo[chipNgpio] = gpioChipData{
 			Dir:   dir,
-			Base:  base,
 			Ngpio: chipNgpio,
 		}
 	}
@@ -265,7 +233,6 @@ func getBoardMapping(pinDefs []PinDefinition, gpioChipsInfo map[int]gpioChipData
 		data[key] = GPIOBoardMapping{
 			GPIOChipDev:    gpioChipInfo.Dir,
 			GPIO:           chipRelativeID,
-			GPIOGlobal:     gpioChipInfo.Base + chipRelativeID,
 			GPIOName:       pinDef.PinNameCVM,
 			PWMSysFsDir:    pwmChipInfo.Dir,
 			PWMID:          pinDef.PWMID,

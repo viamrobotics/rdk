@@ -56,12 +56,10 @@ func TestGenericLinux(t *testing.T) {
 
 	gp2 := &periphGpioPin{
 		b: &sysfsBoard{
-			Named: board.Named("foo").AsNamed(),
-			gpioMappings: map[int]GPIOBoardMapping{
-				10: {GPIOGlobal: 10, HWPWMSupported: false, GPIOName: "10"},
-			},
-			spis:    boardSPIs,
-			analogs: map[string]*wrappedAnalog{"an": {}},
+			Named:        board.Named("foo").AsNamed(),
+			gpioMappings: nil,
+			spis:         boardSPIs,
+			analogs:      map[string]*wrappedAnalog{"an": {}},
 			pwms: map[string]pwmSetting{
 				"10": {dutyCycle: 1, frequency: 1},
 			},
@@ -181,16 +179,13 @@ func TestGenericLinux(t *testing.T) {
 	})
 
 	t.Run("test getGPIOLine", func(t *testing.T) {
-		_, ok, err := gp2.b.getGPIOLine("Bbgh")
-		test.That(t, ok, test.ShouldBeFalse)
+		_, err := gp2.b.getGPIOLine("Bbgh")
 		test.That(t, err.Error(), test.ShouldContainSubstring, "parse")
 
-		_, ok, err = gp2.b.getGPIOLine("9")
-		test.That(t, ok, test.ShouldBeFalse)
+		_, err = gp2.b.getGPIOLine("9")
 		test.That(t, err.Error(), test.ShouldContainSubstring, "invalid")
 
-		_, ok, err = gp2.b.getGPIOLine("10")
-		test.That(t, ok, test.ShouldBeFalse)
+		_, err = gp2.b.getGPIOLine("10")
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no global pin")
 	})
 }
