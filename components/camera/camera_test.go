@@ -5,8 +5,8 @@ import (
 	"image"
 	"testing"
 
-	"github.com/edaniels/gostream"
 	"github.com/pkg/errors"
+	"github.com/viamrobotics/gostream"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 

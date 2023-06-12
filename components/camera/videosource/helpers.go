@@ -9,8 +9,8 @@ import (
 	"strings"
 
 	"github.com/edaniels/golog"
-	"github.com/edaniels/gostream"
 	"github.com/pkg/errors"
+	"github.com/viamrobotics/gostream"
 	viamutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/rimage"
