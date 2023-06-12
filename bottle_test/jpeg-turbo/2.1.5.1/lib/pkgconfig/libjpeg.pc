@@ -1,0 +1,10 @@
+prefix=@@HOMEBREW_CELLAR@@/jpeg-turbo/2.1.5.1
+exec_prefix=@@HOMEBREW_CELLAR@@/jpeg-turbo/2.1.5.1
+libdir=@@HOMEBREW_CELLAR@@/jpeg-turbo/2.1.5.1/lib
+includedir=@@HOMEBREW_CELLAR@@/jpeg-turbo/2.1.5.1/include
+
+Name: libjpeg
+Description: A SIMD-accelerated JPEG codec that provides the libjpeg API
+Version: 2.1.5.1
+Libs: -L${libdir} -ljpeg
+Cflags: -I${includedir}
