@@ -80,9 +80,12 @@ func getGpioChipDefs(pinDefs []PinDefinition) (map[int]gpioChipData, error) {
 	allDevices := gpio.ChipDevices()
 	gpioChipNgpios := make(map[int]string, len(allDevices)) // maps chipNgpio -> string gpiochip#
 	for _, dev := range allDevices {
-		chip, _ := gpio.OpenChip(dev)
-		chipInfo, err := chip.Info()
+		chip, err := gpio.OpenChip(dev)
+		if err != nil {
+			return nil, err
+		}
 
+		chipInfo, err := chip.Info()
 		if err != nil {
 			return nil, err
 		}
@@ -98,23 +101,23 @@ func getGpioChipDefs(pinDefs []PinDefinition) (map[int]gpioChipData, error) {
 	}
 
 	// TODO: remove this and base attribute after periph removed
-	sysPrefix := "/sys/class/gpio"
-	sysFiles, err := os.ReadDir(sysPrefix)
-
+	const sysfsPrefix := "/sys/class/gpio"
+	sysfsFiles, err := os.ReadDir(sysfsPrefix)
 	if err != nil {
 		return nil, err
 	}
 
-	for chipNgpio := range gpioConfigNgpios { // for each chip in the board config, find the right gpioChip dir
+	// for each chip in the board config, find the right gpioChip dir
+	for chipNgpio := range gpioConfigNgpios { 
 		var base int
-		for _, file := range sysFiles {
+		for _, file := range sysfsFiles {
 			// code looks through sys/class/gpio to find the base offset of the chip
 			// TODO: remove this once periph is removed
 			if !strings.HasPrefix(file.Name(), "gpiochip") { // files should have format gpioChip#
 				continue
 			}
 
-			ngpio, err := readIntFile(filepath.Join(sysPrefix, file.Name(), "ngpio")) // read from /sys/class/gpio/gpiochip#/ngpio
+			ngpio, err := readIntFile(filepath.Join(sysfsPrefix, file.Name(), "ngpio")) // read from /sys/class/gpio/gpiochip#/ngpio
 			if err != nil {
 				return nil, err
 			}
@@ -123,7 +126,7 @@ func getGpioChipDefs(pinDefs []PinDefinition) (map[int]gpioChipData, error) {
 				continue
 			}
 
-			base, err = readIntFile(filepath.Join(sysPrefix, file.Name(), "base")) // read from /sys/class/gpio/gpiochip#/base
+			base, err = readIntFile(filepath.Join(sysfsPrefix, file.Name(), "base")) // read from /sys/class/gpio/gpiochip#/base
 			if err != nil {
 				return nil, err
 			}
@@ -233,8 +236,8 @@ func getBoardMapping(pinDefs []PinDefinition, gpioChipsInfo map[int]gpioChipData
 
 		gpioChipInfo, ok := gpioChipsInfo[ngpio]
 		if !ok {
-			return nil, fmt.Errorf("unknown GPIO device for chip with ngpio %d",
-				ngpio)
+			return nil, fmt.Errorf("unknown GPIO device for chip with ngpio %d, pin %d",
+				ngpio, key)
 		}
 
 		pwmChipInfo, ok := pwmChipsInfo[pinDef.PWMChipSysFSDir]
