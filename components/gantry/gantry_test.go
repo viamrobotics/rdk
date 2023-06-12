@@ -19,8 +19,7 @@ const (
 	testGantryName    = "gantry1"
 	testGantryName2   = "gantry2"
 	failGantryName    = "gantry3"
-	fakeGantryName    = "gantry4"
-	missingGantryName = "gantry5"
+	missingGantryName = "gantry4"
 )
 
 func TestStatusValid(t *testing.T) {
