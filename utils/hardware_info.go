@@ -36,7 +36,10 @@ func stringSetFromARM(modelName string) (utils.StringSet, error) {
 		return nil, err
 	}
 
-	return utils.NewStringSet(strings.Split(string(compatiblesRd), "\x00")...), nil
+	compatiblesStr := string(compatiblesRd)
+	// Remove any initial or final null bytes, then split on the rest of them.
+	compatiblesStr = strings.Trim(compatiblesStr, "\x00")
+	return utils.NewStringSet(strings.Split(compatiblesStr, "\x00")...), nil
 }
 
 // A helper function for AMD architecture to process contents of the

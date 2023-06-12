@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 
 	rdkutils "go.viam.com/rdk/utils"
@@ -46,7 +47,10 @@ func GetGPIOBoardMappings(modelName string, boardInfoMappings map[string]BoardIn
 	}
 	pwmChipsInfo, err := getPwmChipDefs(pinDefs)
 	if err != nil {
-		return nil, err
+		// Try continuing on without hardware PWM support. Many boards do not have it enabled by
+		// default, and perhaps this robot doesn't even use it.
+		golog.Global().Debugw("unable to find PWM chips, continuing without them", "error", err)
+		pwmChipsInfo = map[string]pwmChipData{}
 	}
 
 	mapping, err := getBoardMapping(pinDefs, gpioChipsInfo, pwmChipsInfo)
@@ -258,8 +262,9 @@ func getBoardMapping(pinDefs []PinDefinition, gpioChipsInfo map[string]gpioChipD
 				// This pin isn't supposed to have hardware PWM support; all is well.
 				pwmChipInfo = dummyPwmInfo
 			} else {
-				return nil, fmt.Errorf("unknown PWM device %s for pin %d",
-					pinDef.GPIOChipSysFSDir, key)
+				golog.Global().Errorw(
+					"cannot find expected hardware PWM chip, continuing without it", "pin", key)
+				pwmChipInfo = dummyPwmInfo
 			}
 		}
 
