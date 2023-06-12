@@ -46,7 +46,7 @@ func newLeafNodeFilled(p r3.Vector, d Data) basicOctreeNode {
 // getRawVal returns the data param as a probability value.
 func getRawVal(d Data) int {
 	if d.HasColor() {
-		_, _, b :=  d.RGB255()
+		_, _, b := d.RGB255()
 		return int(b)
 	}
 	return emptyProb
