@@ -179,7 +179,7 @@ func TestGenericLinux(t *testing.T) {
 	})
 
 	t.Run("test getGPIOLine", func(t *testing.T) {
-		_, err = gp2.b.getGPIOLine("10")
+		_, err := gp2.b.getGPIOLine("10")
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no global pin")
 	})
 }
