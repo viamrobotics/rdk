@@ -686,7 +686,7 @@ func (g *RTKMovementSensor) Position(ctx context.Context, extra map[string]inter
 	position, alt, err := g.nmeamovementsensor.Position(ctx, extra)
 	if err != nil {
 		// Use the last known valid position if current position is (0,0)
-		if position != nil && g.lastposition.IsZeroPosition(position) && g.lastposition.IsPositonNaN(position) {
+		if position != nil && g.lastposition.IsZeroPosition(position) && g.lastposition.IsPositionNaN(position) {
 			lastPosition := g.lastposition.GetLastPosition()
 			if lastPosition != nil {
 				return lastPosition, alt, nil
