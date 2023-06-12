@@ -26,12 +26,6 @@ type PinDefinition struct {
 	PWMID               int    // -1 for none
 }
 
-// BoardInformation details pin definitions and device compatibility for a particular board.
-type BoardInformation struct {
-	PinDefinitions []PinDefinition
-	Compats        []string
-}
-
 // gpioChipData is a struct used solely within GetGPIOBoardMappings and its sub-pieces. It
 // describes a GPIO chip within sysfs.
 type gpioChipData struct {

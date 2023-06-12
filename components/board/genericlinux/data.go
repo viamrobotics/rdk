@@ -13,6 +13,11 @@ import (
 )
 
 // adapted from https://github.com/NVIDIA/jetson-gpio (MIT License)
+// BoardInformation details pin definitions and device compatibility for a particular board.
+type BoardInformation struct {
+	PinDefinitions []PinDefinition
+	Compats        []string
+}
 
 // A NoBoardFoundError is returned when no compatible mapping is found for a board during GPIO board mapping.
 type NoBoardFoundError struct {
