@@ -149,6 +149,7 @@ type cropConfig struct {
 
 type cropSource struct {
 	originalStream gostream.VideoStream
+	imgType        camera.ImageType
 	cropWindow     image.Rectangle
 }
 
@@ -168,7 +169,7 @@ func newCropTransform(
 	}
 	cropRect := image.Rect(conf.XMin, conf.YMin, conf.XMax, conf.YMax)
 
-	reader := &cropSource{gostream.NewEmbeddedVideoStream(source), cropRect}
+	reader := &cropSource{gostream.NewEmbeddedVideoStream(source), stream, cropRect}
 	src, err := camera.NewVideoSourceFromReader(ctx, reader, nil, stream)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
@@ -184,7 +185,18 @@ func (cs *cropSource) Read(ctx context.Context) (image.Image, func(), error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	return imaging.Crop(orig, cs.cropWindow), release, nil
+	switch cs.imgType {
+	case camera.ColorStream, camera.UnspecifiedStream:
+		return imaging.Crop(orig, cs.cropWindow), release, nil
+	case camera.DepthStream:
+		dm, err := rimage.ConvertImageToDepthMap(ctx, orig)
+		if err != nil {
+			return nil, nil, err
+		}
+		return dm.SubImage(cs.cropWindow), release, nil
+	default:
+		return nil, nil, camera.NewUnsupportedImageTypeError(cs.imgType)
+	}
 }
 
 // Close closes the original stream.

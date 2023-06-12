@@ -43,6 +43,7 @@ func TestCrop(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, out.Bounds().Dx(), test.ShouldEqual, 10)
 	test.That(t, out.Bounds().Dy(), test.ShouldEqual, 10)
+	test.That(t, out, test.ShouldHaveSameTypeAs, &rimage.DepthMap{})
 	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
 	test.That(t, source.Close(context.Background()), test.ShouldBeNil)
 
@@ -60,6 +61,7 @@ func TestCrop(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, out.Bounds().Dx(), test.ShouldEqual, 10)
 	test.That(t, out.Bounds().Dy(), test.ShouldEqual, 10)
+	test.That(t, out, test.ShouldHaveSameTypeAs, &image.NRGBA{})
 	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
 	test.That(t, source.Close(context.Background()), test.ShouldBeNil)
 
