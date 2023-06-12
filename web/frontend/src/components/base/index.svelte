@@ -277,7 +277,10 @@
   });
 
   onDestroy(() => {
+    handleOnBlur();
+
     window.removeEventListener("visibilitychange", handleVisibilityChange);
+    window.removeEventListener("blur", handleOnBlur);
   });
 </script>
 
