@@ -15,9 +15,9 @@ import (
 	"github.com/aler9/gortsplib/v2/pkg/liberrors"
 	"github.com/aler9/gortsplib/v2/pkg/url"
 	"github.com/edaniels/golog"
-	"github.com/edaniels/gostream"
 	"github.com/pion/rtp"
 	"github.com/pkg/errors"
+	"github.com/viamrobotics/gostream"
 	"go.uber.org/multierr"
 	goutils "go.viam.com/utils"
 
@@ -53,11 +53,15 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := conf.IntrinsicParams.CheckValid(); err != nil {
-		return nil, err
+	if conf.IntrinsicParams != nil {
+		if err := conf.IntrinsicParams.CheckValid(); err != nil {
+			return nil, err
+		}
 	}
-	if err := conf.DistortionParams.CheckValid(); err != nil {
-		return nil, err
+	if conf.DistortionParams != nil {
+		if err := conf.DistortionParams.CheckValid(); err != nil {
+			return nil, err
+		}
 	}
 	return nil, nil
 }

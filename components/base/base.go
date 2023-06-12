@@ -12,6 +12,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -56,13 +57,13 @@ type Base interface {
 	// linear is in mmPerSec
 	// angular is in degsPerSec
 	SetVelocity(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error
+
+	Properties(ctx context.Context, extra map[string]interface{}) (Properties, error)
 }
 
-// A LocalBase represents a physical base of a robot that can report the width of itself.
-type LocalBase interface {
-	Base
-	// Width returns the width of the base in millimeters.
-	Width(ctx context.Context) (int, error)
+// KinematicWrappable describes a base that can be wrapped with a kinematic model.
+type KinematicWrappable interface {
+	WrapWithKinematics(context.Context, motion.Localizer, []referenceframe.Limit) (KinematicBase, error)
 }
 
 // KinematicBase is an interface for Bases that also satisfy the ModelFramer and InputEnabled interfaces.
@@ -132,32 +133,4 @@ func CollisionGeometry(cfg *referenceframe.LinkConfig) (spatialmath.Geometry, er
 		return nil, err
 	}
 	return sphere, nil
-}
-
-// A Move describes instructions for a robot to spin followed by moving straight.
-type Move struct {
-	DistanceMm int
-	MmPerSec   float64
-	AngleDeg   float64
-	DegsPerSec float64
-	Extra      map[string]interface{}
-}
-
-// DoMove performs the given move on the given base.
-func DoMove(ctx context.Context, move Move, base Base) error {
-	if move.AngleDeg != 0 {
-		err := base.Spin(ctx, move.AngleDeg, move.DegsPerSec, move.Extra)
-		if err != nil {
-			return err
-		}
-	}
-
-	if move.DistanceMm != 0 {
-		err := base.MoveStraight(ctx, move.DistanceMm, move.MmPerSec, move.Extra)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
 }

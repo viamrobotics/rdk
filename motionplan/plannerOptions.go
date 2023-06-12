@@ -195,6 +195,6 @@ func (p *plannerOptions) addPbOrientationConstraints(from, to spatialmath.Pose, 
 		orientTol = defaultOrientationDeviation
 	}
 	constraint, pathDist := NewSlerpOrientationConstraint(from, to, float64(orientTol))
-	p.AddStateConstraint(defaultLinearConstraintDesc, constraint)
+	p.AddStateConstraint(defaultOrientationConstraintDesc, constraint)
 	p.pathMetric = CombineMetrics(p.pathMetric, pathDist)
 }

@@ -121,7 +121,7 @@ func (wrapper *Arm) MoveToPosition(ctx context.Context, pos spatialmath.Pose, ex
 // MoveToJointPositions sets the joints.
 func (wrapper *Arm) MoveToJointPositions(ctx context.Context, joints *pb.JointPositions, extra map[string]interface{}) error {
 	// check that joint positions are not out of bounds
-	if err := arm.CheckDesiredJointPositions(ctx, wrapper, joints.Values); err != nil {
+	if err := arm.CheckDesiredJointPositions(ctx, wrapper, joints); err != nil {
 		return err
 	}
 	ctx, done := wrapper.opMgr.New(ctx)
@@ -174,8 +174,22 @@ func (wrapper *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, 
 func (wrapper *Arm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
 	// check that joint positions are not out of bounds
 	positionDegs := wrapper.model.ProtobufFromInput(goal)
-	if err := arm.CheckDesiredJointPositions(ctx, wrapper, positionDegs.Values); err != nil {
+	if err := arm.CheckDesiredJointPositions(ctx, wrapper, positionDegs); err != nil {
 		return err
 	}
 	return wrapper.MoveToJointPositions(ctx, positionDegs, nil)
+}
+
+// Geometries returns the list of geometries associated with the resource, in any order. The poses of the geometries reflect their
+// current location relative to the frame of the resource.
+func (wrapper *Arm) Geometries(ctx context.Context) ([]spatialmath.Geometry, error) {
+	inputs, err := wrapper.CurrentInputs(ctx)
+	if err != nil {
+		return nil, err
+	}
+	gif, err := wrapper.model.Geometries(inputs)
+	if err != nil {
+		return nil, err
+	}
+	return gif.Geometries(), nil
 }

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/arm/v1"
@@ -18,16 +19,15 @@ import (
 // errUnsupportedFileType is returned if we try to build a model from an inproper extension.
 var errUnsupportedFileType = errors.New("only files with .json and .urdf file extensions are supported")
 
-// ModelFramer has a method that returns the kinematics information needed to build a dynamic referenceframe.
-type ModelFramer interface {
-	ModelFrame() Model
-}
-
 // A Model represents a frame that can change its name, and can return itself as a ModelConfig struct.
 type Model interface {
 	Frame
 	ModelConfig() *ModelConfig
-	ChangeName(string)
+}
+
+// ModelFramer has a method that returns the kinematics information needed to build a dynamic referenceframe.
+type ModelFramer interface {
+	ModelFrame() Model
 }
 
 // SimpleModel TODO.
@@ -60,11 +60,6 @@ func GenerateRandomConfiguration(m Model, randSeed *rand.Rand) []float64 {
 		jointPos = append(jointPos, newPos)
 	}
 	return jointPos
-}
-
-// ChangeName changes the name of this model - necessary for building frame systems.
-func (m *SimpleModel) ChangeName(name string) {
-	m.name = name
 }
 
 // ModelConfig returns the ModelConfig object used to create this model.
@@ -120,8 +115,7 @@ func (m *SimpleModel) Geometries(inputs []Input) (*GeometriesInFrame, error) {
 	geometries := make([]spatialmath.Geometry, 0, len(frames))
 	for _, frame := range frames {
 		geometriesInFrame, err := frame.Geometries([]Input{})
-		if geometriesInFrame == nil {
-			// only propagate errors that result in nil geometry
+		if err != nil {
 			multierr.AppendInto(&errAll, err)
 			continue
 		}
@@ -228,11 +222,23 @@ func (m *SimpleModel) inputsToFrames(inputs []Input, collectAll bool) ([]*static
 		}
 		multierr.AppendInto(&err, errNew)
 		if collectAll {
-			tf, err := NewStaticFrameFromFrame(transform, composedTransformation)
+			var geometry spatialmath.Geometry
+			gf, err := transform.Geometries(input)
 			if err != nil {
 				return nil, err
 			}
-			poses = append(poses, tf.(*staticFrame))
+			geometries := gf.Geometries()
+			if len(geometries) == 0 {
+				geometry = nil
+			} else {
+				geometry = geometries[0]
+			}
+			// TODO(pl): Part of the implementation for GetGeometries will require removing the single geometry restriction
+			fixedFrame, err := NewStaticFrameWithGeometry(transform.Name(), composedTransformation, geometry)
+			if err != nil {
+				return nil, err
+			}
+			poses = append(poses, fixedFrame.(*staticFrame))
 		}
 		composedTransformation = spatialmath.Compose(composedTransformation, pose)
 	}
@@ -295,4 +301,35 @@ func ModelFromPath(modelPath, name string) (Model, error) {
 		return model, errUnsupportedFileType
 	}
 	return model, err
+}
+
+// New2DMobileModelFrame builds the kinematic model associated with the kinematicWheeledBase
+// This model is intended to be used with a mobile base and has 3DOF corresponding to a state of x, y, and theta
+// where x and y are the positional coordinates the base is located about and theta is the rotation about the z axis.
+func New2DMobileModelFrame(name string, limits []Limit, collisionGeometry spatialmath.Geometry) (Model, error) {
+	if len(limits) != 2 {
+		return nil, errors.Errorf("Must have 2DOF state (x, y) to create 2DMobildModelFrame, have %d dof", len(limits))
+	}
+
+	// build the model - SLAM convention is that the XY plane is the ground plane
+	x, err := NewTranslationalFrame("x", r3.Vector{X: 1}, limits[0])
+	if err != nil {
+		return nil, err
+	}
+	y, err := NewTranslationalFrame("y", r3.Vector{Y: 1}, limits[1])
+	if err != nil {
+		return nil, err
+	}
+	orientationLimit := Limit{Min: -2 * math.Pi, Max: 2 * math.Pi}
+	theta, err := NewRotationalFrame("theta", *spatialmath.NewR4AA(), orientationLimit)
+	if err != nil {
+		return nil, err
+	}
+	geometry, err := NewStaticFrameWithGeometry("geometry", spatialmath.NewZeroPose(), collisionGeometry)
+	if err != nil {
+		return nil, err
+	}
+	model := NewSimpleModel(name)
+	model.OrdTransforms = []Frame{x, y, theta, geometry}
+	return model, nil
 }

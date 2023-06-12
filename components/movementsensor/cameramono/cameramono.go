@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-	"github.com/edaniels/gostream"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
+	"github.com/viamrobotics/gostream"
 	"go.viam.com/utils"
 	"gonum.org/v1/gonum/mat"
 
@@ -125,7 +125,7 @@ func newCameraMono(
 	logger golog.Logger,
 ) (movementsensor.MovementSensor, error) {
 	logger.Info(
-		"visual odometry using one camera implements GetPosition, GetOrientation, GetLinearVelocity and GetAngularVelocity",
+		"visual odometry using one camera implements Position, Orientation, LinearVelocity and AngularVelocity",
 	)
 
 	newConf, err := resource.NativeConfig[*Config](conf)

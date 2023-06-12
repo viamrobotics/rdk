@@ -251,8 +251,10 @@ func createAllCollisionConstraints(
 
 	// create robot collision entities
 	movingGeometries, err := frame.Geometries(frameInputs)
-	if err != nil && len(movingGeometries.Geometries()) == 0 {
-		return nil, err // no geometries defined for frame
+	if err != nil {
+		if len(movingGeometries.Geometries()) == 0 {
+			return nil, err // no geometries defined for frame
+		}
 	}
 
 	// find all geoemetries that are not moving but are in the frame system

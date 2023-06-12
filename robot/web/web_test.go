@@ -13,13 +13,13 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-	"github.com/edaniels/gostream/codec/x264"
-	streampb "github.com/edaniels/gostream/proto/stream/v1"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/golang/geo/r3"
 	"github.com/google/uuid"
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/lestrrat-go/jwx/jwk"
+	"github.com/viamrobotics/gostream/codec/x264"
+	streampb "github.com/viamrobotics/gostream/proto/stream/v1"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	echopb "go.viam.com/api/component/testecho/v1"
 	robotpb "go.viam.com/api/robot/v1"
@@ -818,7 +818,7 @@ func setupRobotCtx(t *testing.T) (context.Context, robot.Robot) {
 		return pos, nil
 	}
 	injectRobot := &inject.Robot{}
-	injectRobot.ConfigFunc = func(ctx context.Context) (*config.Config, error) { return &config.Config{}, nil }
+	injectRobot.ConfigFunc = func() *config.Config { return &config.Config{} }
 	injectRobot.ResourceNamesFunc = func() []resource.Name { return resources }
 	injectRobot.ResourceRPCAPIsFunc = func() []resource.RPCAPI { return nil }
 	injectRobot.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
@@ -880,7 +880,7 @@ func TestForeignResource(t *testing.T) {
 
 	injectRobot := &inject.Robot{}
 	injectRobot.LoggerFunc = func() golog.Logger { return logger }
-	injectRobot.ConfigFunc = func(ctx context.Context) (*config.Config, error) { return &config.Config{}, nil }
+	injectRobot.ConfigFunc = func() *config.Config { return &config.Config{} }
 	injectRobot.ResourceNamesFunc = func() []resource.Name {
 		return []resource.Name{
 			resource.NewName(resourceAPI, "thing1"),

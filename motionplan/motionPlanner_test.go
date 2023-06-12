@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"testing"
 
+	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"go.uber.org/zap"
 	commonpb "go.viam.com/api/common/v1"
@@ -179,7 +180,7 @@ func simple2DMap() (*planConfig, error) {
 		return nil, err
 	}
 	modelName := "mobile-base"
-	model, err := frame.NewMobile2DFrame(modelName, limits, physicalGeometry)
+	model, err := frame.New2DMobileModelFrame(modelName, limits, physicalGeometry)
 	if err != nil {
 		return nil, err
 	}
@@ -206,7 +207,7 @@ func simple2DMap() (*planConfig, error) {
 	// setup planner options
 	opt := newBasicPlannerOptions()
 	startInput := frame.StartPositions(fs)
-	startInput[modelName] = frame.FloatsToInputs([]float64{-90., 90.})
+	startInput[modelName] = frame.FloatsToInputs([]float64{-90., 90., 0})
 	goal := spatialmath.NewPoseFromPoint(r3.Vector{X: 90, Y: 90, Z: 0})
 	opt.SetGoalMetric(NewSquaredNormMetric(goal))
 	sf, err := newSolverFrame(fs, modelName, frame.World, startInput)
@@ -513,6 +514,56 @@ func TestReachOverArm(t *testing.T) {
 	// the plan should no longer be able to interpolate, but it should still be able to get there
 	opts = map[string]interface{}{"max_ik_solutions": 100, "timeout": 150.0}
 	plan, err = PlanMotion(context.Background(), logger.Sugar(), goal, xarm, frame.StartPositions(fs), fs, nil, nil, opts)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(plan), test.ShouldBeGreaterThan, 2)
+}
+
+func TestPlanMapMotion(t *testing.T) {
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+
+	// build kinematic base model
+	sphere, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 10, "base")
+	test.That(t, err, test.ShouldBeNil)
+	model, err := frame.New2DMobileModelFrame(
+		"test",
+		[]frame.Limit{{-100, 100}, {-100, 100}},
+		sphere,
+	)
+	test.That(t, err, test.ShouldBeNil)
+	dst := spatialmath.NewPoseFromPoint(r3.Vector{0, 100, 0})
+	box, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{0, 50, 0}), r3.Vector{25, 25, 25}, "impediment")
+	test.That(t, err, test.ShouldBeNil)
+	worldState, err := frame.NewWorldState(
+		[]*frame.GeometriesInFrame{frame.NewGeometriesInFrame(frame.World, []spatialmath.Geometry{box})},
+		nil,
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	// TODO(RSDK-2314): when MoveOnMap is implemented this will need to change to PlanMapMotion
+	PlanMapMotion := func(
+		ctx context.Context,
+		logger golog.Logger,
+		dst spatialmath.Pose,
+		f frame.Frame,
+		seed []frame.Input,
+		worldState *frame.WorldState,
+	) ([][]frame.Input, error) {
+		// ephemerally create a framesystem containing just the frame for the solve
+		fs := frame.NewEmptyFrameSystem("")
+		if err := fs.AddFrame(f, fs.World()); err != nil {
+			return nil, err
+		}
+		destination := frame.NewPoseInFrame(frame.World, dst)
+		seedMap := map[string][]frame.Input{f.Name(): seed}
+		solutionMap, err := motionPlanInternal(ctx, logger, destination, f, seedMap, fs, worldState, nil, nil)
+		if err != nil {
+			return nil, err
+		}
+		return FrameStepsFromRobotPath(f.Name(), solutionMap)
+	}
+
+	plan, err := PlanMapMotion(ctx, logger, dst, model, make([]frame.Input, 3), worldState)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(plan), test.ShouldBeGreaterThan, 2)
 }

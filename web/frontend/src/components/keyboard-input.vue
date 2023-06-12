@@ -3,7 +3,7 @@
 
 export type Keys = 'w' | 'a' | 's' | 'd'
 
-import { $ref } from 'vue/macros';
+import { $ref } from '@vue-macros/reactivity-transform/macros';
 import { mdiArrowUp as w, mdiRestore as a, mdiReload as d, mdiArrowDown as s } from '@mdi/js';
 import Icon from './icon.vue';
 import { watch, onUnmounted } from 'vue';

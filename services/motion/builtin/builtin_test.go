@@ -23,7 +23,6 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/motion"
-	"go.viam.com/rdk/services/motion/builtin"
 	_ "go.viam.com/rdk/services/register"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/spatialmath"
@@ -170,15 +169,15 @@ func TestMoveWithObstacles(t *testing.T) {
 }
 
 func TestMoveSingleComponent(t *testing.T) {
-	t.Skip()
+	ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
+	defer teardown()
+
+	grabPose := spatialmath.NewPoseFromPoint(r3.Vector{-25, 30, 0})
 	t.Run("succeeds when all frame info in config", func(t *testing.T) {
-		ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
-		defer teardown()
-		grabPose := referenceframe.NewPoseInFrame("c", spatialmath.NewPoseFromPoint(r3.Vector{-25, 30, 0}))
 		_, err := ms.MoveSingleComponent(
 			context.Background(),
 			arm.Named("pieceArm"),
-			grabPose,
+			referenceframe.NewPoseInFrame("c", grabPose),
 			nil,
 			map[string]interface{}{},
 		)
@@ -186,13 +185,10 @@ func TestMoveSingleComponent(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 	})
 	t.Run("fails due to gripper not being an arm", func(t *testing.T) {
-		ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
-		defer teardown()
-		grabPose := referenceframe.NewPoseInFrame("c", spatialmath.NewPoseFromPoint(r3.Vector{-20, -30, -40}))
 		_, err := ms.MoveSingleComponent(
 			context.Background(),
 			gripper.Named("pieceGripper"),
-			grabPose,
+			referenceframe.NewPoseInFrame("c", grabPose),
 			nil,
 			map[string]interface{}{},
 		)
@@ -201,27 +197,18 @@ func TestMoveSingleComponent(t *testing.T) {
 	})
 
 	t.Run("succeeds with supplemental info in world state", func(t *testing.T) {
-		ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
-		defer teardown()
-		homePose, err := ms.GetPose(context.Background(), arm.Named("pieceArm"), "", nil, nil)
-		test.That(t, err, test.ShouldBeNil)
-
-		testPose := spatialmath.NewPose(
-			r3.Vector{homePose.Pose().Point().X + 20, homePose.Pose().Point().Y, homePose.Pose().Point().Z},
-			homePose.Pose().Orientation(),
+		worldState, err := referenceframe.NewWorldState(
+			nil,
+			[]*referenceframe.LinkInFrame{referenceframe.NewLinkInFrame("c", spatialmath.NewZeroPose(), "testFrame2", nil)},
 		)
-		transforms := []*referenceframe.LinkInFrame{
-			referenceframe.NewLinkInFrame(referenceframe.World, testPose, "testFrame2", nil),
-		}
-		worldState, err := referenceframe.NewWorldState(nil, transforms)
 		test.That(t, err, test.ShouldBeNil)
-		poseToGrab := spatialmath.NewPose(
-			r3.Vector{X: 1., Y: 0., Z: 0.},
-			homePose.Pose().Orientation(),
+		_, err = ms.MoveSingleComponent(
+			context.Background(),
+			arm.Named("pieceArm"),
+			referenceframe.NewPoseInFrame("testFrame2", grabPose),
+			worldState,
+			map[string]interface{}{},
 		)
-
-		grabPose := referenceframe.NewPoseInFrame("testFrame2", poseToGrab)
-		_, err = ms.MoveSingleComponent(context.Background(), arm.Named("pieceArm"), grabPose, worldState, map[string]interface{}{})
 		test.That(t, err, test.ShouldBeNil)
 	})
 }
@@ -236,28 +223,79 @@ func TestMoveOnMap(t *testing.T) {
 		slam.Named("test_slam"),
 		nil,
 	)
-	test.That(t, err, test.ShouldBeError, builtin.ErrNotImplemented)
-	test.That(t, success, test.ShouldBeFalse)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, success, test.ShouldBeTrue)
 }
 
-// TODO(RSDK-2926): Revisit after MoveOnGlobe implementation is completed, needs test cases for optional specs, etc.
 func TestMoveOnGlobe(t *testing.T) {
 	ms, closeFn := setupMotionServiceFromConfig(t, "../data/gps_base.json")
 	defer closeFn()
 
-	success, err := ms.MoveOnGlobe(
-		context.Background(),
-		base.Named("test-base"),
-		geo.NewPoint(0.0, 0.0),
-		math.NaN(),
-		movementsensor.Named("test-gps"),
-		nil,
-		math.NaN(),
-		math.NaN(),
-		nil,
-	)
-	test.That(t, err, test.ShouldBeError, builtin.ErrNotImplemented)
-	test.That(t, success, test.ShouldBeFalse)
+	motionCfg := make(map[string]interface{})
+	motionCfg["motion_profile"] = "position_only"
+	motionCfg["timeout"] = 5.
+
+	t.Run("ensure success to a nearby geo point", func(t *testing.T) {
+		success, err := ms.MoveOnGlobe(
+			context.Background(),
+			base.Named("test-base"),
+			geo.NewPoint(40.7, -73.9800009),
+			math.NaN(),
+			movementsensor.Named("test-gps"),
+			nil,
+			math.NaN(),
+			math.NaN(),
+			motionCfg,
+		)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, success, test.ShouldBeTrue)
+	})
+	t.Run("go around an obstacle", func(t *testing.T) {
+		// fake movement sensor returns geoPoint at (40.7, -73.98)
+		// to achieve the destination we must travel in the positive x direction
+
+		boxPose := spatialmath.NewPoseFromPoint(r3.Vector{50, 0, 0})
+		boxDims := r3.Vector{2, 30, 10}
+		geometries, err := spatialmath.NewBox(boxPose, boxDims, "wall")
+		test.That(t, err, test.ShouldBeNil)
+		geoObstacle := spatialmath.NewGeoObstacle(geo.NewPoint(40.7, -73.98), []spatialmath.Geometry{geometries})
+
+		success, err := ms.MoveOnGlobe(
+			context.Background(),
+			base.Named("test-base"),
+			geo.NewPoint(40.7, -73.9800009),
+			math.NaN(),
+			movementsensor.Named("test-gps"),
+			[]*spatialmath.GeoObstacle{geoObstacle},
+			math.NaN(),
+			math.NaN(),
+			motionCfg,
+		)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, success, test.ShouldBeTrue)
+	})
+
+	t.Run("fail because of long wall", func(t *testing.T) {
+		boxPose := spatialmath.NewPoseFromPoint(r3.Vector{50, 0, 0})
+		boxDims := r3.Vector{2, 666, 10}
+		geometries, err := spatialmath.NewBox(boxPose, boxDims, "wall")
+		test.That(t, err, test.ShouldBeNil)
+		geoObstacle := spatialmath.NewGeoObstacle(geo.NewPoint(40.7, -73.98), []spatialmath.Geometry{geometries})
+
+		success, err := ms.MoveOnGlobe(
+			context.Background(),
+			base.Named("test-base"),
+			geo.NewPoint(40.7, -73.9800009),
+			math.NaN(),
+			movementsensor.Named("test-gps"),
+			[]*spatialmath.GeoObstacle{geoObstacle},
+			math.NaN(),
+			math.NaN(),
+			motionCfg,
+		)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, success, test.ShouldBeFalse)
+	})
 }
 
 func TestMultiplePieces(t *testing.T) {

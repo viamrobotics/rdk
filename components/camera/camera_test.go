@@ -5,8 +5,8 @@ import (
 	"image"
 	"testing"
 
-	"github.com/edaniels/gostream"
 	"github.com/pkg/errors"
+	"github.com/viamrobotics/gostream"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
@@ -21,10 +21,8 @@ import (
 const (
 	testCameraName    = "camera1"
 	depthCameraName   = "camera_depth"
-	testCameraName2   = "camera2"
-	failCameraName    = "camera3"
-	fakeCameraName    = "camera4"
-	missingCameraName = "camera5"
+	failCameraName    = "camera2"
+	missingCameraName = "camera3"
 )
 
 type simpleSource struct {

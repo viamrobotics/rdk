@@ -64,6 +64,9 @@ type module struct {
 	addr      string
 	resources map[resource.Name]*addedResource
 
+	// pendingRemoval allows delaying module close until after resources within it are closed
+	pendingRemoval bool
+
 	// inRecovery stores whether or not an OnUnexpectedExit function is trying
 	// to recover a crash of this module; inRecoveryLock guards the execution of
 	// an OnUnexpectedExit function for this module.
@@ -93,6 +96,8 @@ type Manager struct {
 
 // Close terminates module connections and processes.
 func (mgr *Manager) Close(ctx context.Context) error {
+	mgr.mu.Lock()
+	defer mgr.mu.Unlock()
 	var err error
 	for _, mod := range mgr.modules {
 		err = multierr.Combine(err, mgr.remove(mod, false))
@@ -102,6 +107,8 @@ func (mgr *Manager) Close(ctx context.Context) error {
 
 // Add adds and starts a new resource module.
 func (mgr *Manager) Add(ctx context.Context, conf config.Module) error {
+	mgr.mu.Lock()
+	defer mgr.mu.Unlock()
 	return mgr.add(ctx, conf, nil)
 }
 
@@ -109,8 +116,6 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, conn *grpc.Clie
 	if mgr.untrustedEnv {
 		return errModularResourcesDisabled
 	}
-	mgr.mu.Lock()
-	defer mgr.mu.Unlock()
 
 	_, exists := mgr.modules[conf.Name]
 	if exists {
@@ -157,6 +162,8 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, conn *grpc.Clie
 // Reconfigure reconfigures an existing resource module and returns the names of
 // now orphaned resources.
 func (mgr *Manager) Reconfigure(ctx context.Context, conf config.Module) ([]resource.Name, error) {
+	mgr.mu.Lock()
+	defer mgr.mu.Unlock()
 	mod, exists := mgr.modules[conf.Name]
 	if !exists {
 		return nil, errors.Errorf("cannot reconfigure module %s as it does not exist", conf.Name)
@@ -181,7 +188,7 @@ func (mgr *Manager) Reconfigure(ctx context.Context, conf config.Module) ([]reso
 	// handle old resource and consider that resource orphaned.
 	var orphanedResourceNames []resource.Name
 	for name, res := range handledResources {
-		if _, err := mgr.AddResource(ctx, res.conf, res.deps); err != nil {
+		if _, err := mgr.addResource(ctx, res.conf, res.deps); err != nil {
 			mgr.logger.Warnf("error while re-adding resource %s to module %s: %v",
 				name, conf.Name, err)
 			orphanedResourceNames = append(orphanedResourceNames, name)
@@ -193,6 +200,8 @@ func (mgr *Manager) Reconfigure(ctx context.Context, conf config.Module) ([]reso
 // Remove removes and stops an existing resource module and returns the names of
 // now orphaned resources.
 func (mgr *Manager) Remove(modName string) ([]resource.Name, error) {
+	mgr.mu.Lock()
+	defer mgr.mu.Unlock()
 	mod, exists := mgr.modules[modName]
 	if !exists {
 		return nil, errors.Errorf("cannot remove module %s as it does not exist", modName)
@@ -203,12 +212,23 @@ func (mgr *Manager) Remove(modName string) ([]resource.Name, error) {
 	for name := range handledResources {
 		orphanedResourceNames = append(orphanedResourceNames, name)
 	}
-	return orphanedResourceNames, mgr.remove(mod, false)
+	mod.pendingRemoval = true
+	return orphanedResourceNames, nil
 }
 
 func (mgr *Manager) remove(mod *module, reconfigure bool) error {
-	mgr.mu.Lock()
-	defer mgr.mu.Unlock()
+	// resource manager should've removed these cleanly if this isn't a reconfigure
+	if !reconfigure && len(mod.resources) != 0 {
+		mgr.logger.Warnw("forcing removal of module with active resources", "module", mod.name)
+	}
+
+	// need to actually close the resources within the module itself before stopping
+	for res := range mod.resources {
+		_, err := mod.client.RemoveResource(context.Background(), &pb.RemoveResourceRequest{Name: res.String()})
+		if err != nil {
+			mgr.logger.Errorw("error removing resource", "module", mod.name, "resource", res.Name, "error", err)
+		}
+	}
 
 	if err := mod.stopProcess(); err != nil {
 		return errors.WithMessage(err, "error while stopping module "+mod.name)
@@ -238,9 +258,13 @@ func (mgr *Manager) remove(mod *module, reconfigure bool) error {
 func (mgr *Manager) AddResource(ctx context.Context, conf resource.Config, deps []string) (resource.Resource, error) {
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
-	module, ok := mgr.getModule(conf)
+	return mgr.addResource(ctx, conf, deps)
+}
+
+func (mgr *Manager) addResource(ctx context.Context, conf resource.Config, deps []string) (resource.Resource, error) {
+	mod, ok := mgr.getModule(conf)
 	if !ok {
-		return nil, errors.Errorf("no module registered to serve resource api %s and model %s", conf.API, conf.Model)
+		return nil, errors.Errorf("no active module registered to serve resource api %s and model %s", conf.API, conf.Model)
 	}
 
 	confProto, err := config.ComponentConfigToProto(&conf)
@@ -248,26 +272,26 @@ func (mgr *Manager) AddResource(ctx context.Context, conf resource.Config, deps 
 		return nil, err
 	}
 
-	_, err = module.client.AddResource(ctx, &pb.AddResourceRequest{Config: confProto, Dependencies: deps})
+	_, err = mod.client.AddResource(ctx, &pb.AddResourceRequest{Config: confProto, Dependencies: deps})
 	if err != nil {
 		return nil, err
 	}
-	mgr.rMap[conf.ResourceName()] = module
-	module.resources[conf.ResourceName()] = &addedResource{conf, deps}
+	mgr.rMap[conf.ResourceName()] = mod
+	mod.resources[conf.ResourceName()] = &addedResource{conf, deps}
 
 	apiInfo, ok := resource.LookupGenericAPIRegistration(conf.API)
 	if !ok || apiInfo.RPCClient == nil {
 		mgr.logger.Warnf("no built-in grpc client for modular resource %s", conf.ResourceName())
-		return rdkgrpc.NewForeignResource(conf.ResourceName(), module.conn), nil
+		return rdkgrpc.NewForeignResource(conf.ResourceName(), mod.conn), nil
 	}
-	return apiInfo.RPCClient(ctx, module.conn, "", conf.ResourceName(), mgr.logger)
+	return apiInfo.RPCClient(ctx, mod.conn, "", conf.ResourceName(), mgr.logger)
 }
 
 // ReconfigureResource updates/reconfigures a modular component with a new configuration.
 func (mgr *Manager) ReconfigureResource(ctx context.Context, conf resource.Config, deps []string) error {
 	mgr.mu.RLock()
 	defer mgr.mu.RUnlock()
-	module, ok := mgr.getModule(conf)
+	mod, ok := mgr.getModule(conf)
 	if !ok {
 		return errors.Errorf("no module registered to serve resource api %s and model %s", conf.API, conf.Model)
 	}
@@ -276,13 +300,27 @@ func (mgr *Manager) ReconfigureResource(ctx context.Context, conf resource.Confi
 	if err != nil {
 		return err
 	}
-	_, err = module.client.ReconfigureResource(ctx, &pb.ReconfigureResourceRequest{Config: confProto, Dependencies: deps})
+	_, err = mod.client.ReconfigureResource(ctx, &pb.ReconfigureResourceRequest{Config: confProto, Dependencies: deps})
 	if err != nil {
 		return err
 	}
-	module.resources[conf.ResourceName()] = &addedResource{conf, deps}
+	mod.resources[conf.ResourceName()] = &addedResource{conf, deps}
 
 	return nil
+}
+
+// Configs returns a slice of config.Module representing the currently managed
+// modules.
+func (mgr *Manager) Configs() []config.Module {
+	mgr.mu.RLock()
+	defer mgr.mu.RUnlock()
+	var configs []config.Module
+	for _, mod := range mgr.modules {
+		configs = append(configs, config.Module{
+			Name: mod.name, ExePath: mod.exe, LogLevel: mod.logLevel,
+		})
+	}
+	return configs
 }
 
 // Provides returns true if a component/service config WOULD be handled by a module.
@@ -305,13 +343,21 @@ func (mgr *Manager) IsModularResource(name resource.Name) bool {
 func (mgr *Manager) RemoveResource(ctx context.Context, name resource.Name) error {
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
-	module, ok := mgr.rMap[name]
+	mod, ok := mgr.rMap[name]
 	if !ok {
 		return errors.Errorf("resource %+v not found in module", name)
 	}
 	delete(mgr.rMap, name)
-	delete(module.resources, name)
-	_, err := module.client.RemoveResource(ctx, &pb.RemoveResourceRequest{Name: name.String()})
+	delete(mod.resources, name)
+	_, err := mod.client.RemoveResource(ctx, &pb.RemoveResourceRequest{Name: name.String()})
+	if err != nil {
+		return err
+	}
+
+	// if the module is marked for removal, actually remove it when the final resource is closed
+	if mod.pendingRemoval && len(mod.resources) == 0 {
+		err = multierr.Combine(err, mgr.remove(mod, false))
+	}
 	return err
 }
 
@@ -320,7 +366,7 @@ func (mgr *Manager) RemoveResource(ctx context.Context, name resource.Name) erro
 func (mgr *Manager) ValidateConfig(ctx context.Context, conf resource.Config) ([]string, error) {
 	mgr.mu.RLock()
 	defer mgr.mu.RUnlock()
-	module, ok := mgr.getModule(conf)
+	mod, ok := mgr.getModule(conf)
 	if !ok {
 		return nil,
 			errors.Errorf("no module registered to serve resource api %s and model %s",
@@ -337,7 +383,7 @@ func (mgr *Manager) ValidateConfig(ctx context.Context, conf resource.Config) ([
 	ctx, cancel = context.WithTimeout(ctx, validateConfigTimeout)
 	defer cancel()
 
-	resp, err := module.client.ValidateConfig(ctx, &pb.ValidateConfigRequest{Config: confProto})
+	resp, err := mod.client.ValidateConfig(ctx, &pb.ValidateConfigRequest{Config: confProto})
 	// Swallow "Unimplemented" gRPC errors from modules that lack ValidateConfig
 	// receiving logic.
 	if err != nil && status.Code(err) == codes.Unimplemented {
@@ -350,10 +396,10 @@ func (mgr *Manager) ValidateConfig(ctx context.Context, conf resource.Config) ([
 }
 
 func (mgr *Manager) getModule(conf resource.Config) (*module, bool) {
-	for _, module := range mgr.modules {
+	for _, mod := range mgr.modules {
 		var api resource.RPCAPI
 		var ok bool
-		for a := range module.handles {
+		for a := range mod.handles {
 			if a.API == conf.API {
 				api = a
 				ok = true
@@ -363,9 +409,9 @@ func (mgr *Manager) getModule(conf resource.Config) (*module, bool) {
 		if !ok {
 			continue
 		}
-		for _, model := range module.handles[api] {
-			if conf.Model == model {
-				return module, true
+		for _, model := range mod.handles[api] {
+			if conf.Model == model && !mod.pendingRemoval {
+				return mod, true
 			}
 		}
 	}
@@ -421,7 +467,7 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) b
 		// it from mod.resources. Finally, handle orphaned resources.
 		var orphanedResourceNames []resource.Name
 		for name, res := range mod.resources {
-			if _, err := mgr.AddResource(ctx, res.conf, res.deps); err != nil {
+			if _, err := mgr.addResource(ctx, res.conf, res.deps); err != nil {
 				mgr.logger.Warnw("error while re-adding resource to module",
 					"resource", name, "module", mod.name, "error", err)
 				resource.Deregister(res.conf.API, res.conf.Model)

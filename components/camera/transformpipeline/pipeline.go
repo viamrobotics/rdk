@@ -9,10 +9,11 @@ import (
 	"image"
 
 	"github.com/edaniels/golog"
-	"github.com/edaniels/gostream"
 	"github.com/pkg/errors"
+	"github.com/viamrobotics/gostream"
 	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
+	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/resource"
@@ -65,6 +66,16 @@ type transformConfig struct {
 	Debug                bool                               `json:"debug,omitempty"`
 	Source               string                             `json:"source"`
 	Pipeline             []Transformation                   `json:"pipeline"`
+}
+
+// Validate ensures all parts of the config are valid.
+func (cfg *transformConfig) Validate(path string) ([]string, error) {
+	var deps []string
+	if len(cfg.Source) == 0 {
+		return nil, goutils.NewConfigValidationFieldRequiredError(path, "source")
+	}
+	deps = append(deps, cfg.Source)
+	return deps, nil
 }
 
 func newTransformPipeline(

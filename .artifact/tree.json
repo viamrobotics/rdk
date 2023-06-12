@@ -51107,295 +51107,295 @@
       "viam-office-02-22-3": {
         "internal_state": {
           "internal_state_0.pbstream": {
-            "hash": "4e317c3318efbfcf6263576d69ab0cfe",
-            "size": 25587
+            "hash": "1fd02357a0a0a9551ce1116bfd69d4d5",
+            "size": 21836
           },
           "internal_state_1.pbstream": {
-            "hash": "48d89499c61bd8f76650a507e7a3b4cd",
-            "size": 1734264
+            "hash": "cbd1f62074fcb83d5b87fe1452ccfe9c",
+            "size": 1874997
           },
           "internal_state_10.pbstream": {
-            "hash": "5ca494732cc1db2dde22b3ba50c69865",
-            "size": 14785355
+            "hash": "119d214d59a756082875e54f6be490df",
+            "size": 11549626
           },
           "internal_state_11.pbstream": {
-            "hash": "5cfb82e78705ceb50af8a975a7bedd64",
-            "size": 16414381
+            "hash": "b8f0d18956c970e2cb90a3bfe694821a",
+            "size": 12819376
           },
           "internal_state_12.pbstream": {
-            "hash": "c24824d0283752ea564af16c27a18956",
-            "size": 17204237
+            "hash": "fae38220bcc563226ce4438ea4727c03",
+            "size": 14292949
           },
           "internal_state_13.pbstream": {
-            "hash": "34eb19953aa84712dc5fc6d21310a908",
-            "size": 18530440
+            "hash": "5b39cfbd94f701c25391c8d6975d34bb",
+            "size": 15867186
           },
           "internal_state_14.pbstream": {
-            "hash": "17f8c0a90487dd34f5da97f09a90b4e0",
-            "size": 20517391
+            "hash": "8be5dcb04e6b3bacb1ec7833bd5136a0",
+            "size": 17332389
           },
           "internal_state_15.pbstream": {
-            "hash": "233e32227442be90c597033d9c3629e3",
-            "size": 22105695
+            "hash": "f4e5e56562359fa23ec169a36acce727",
+            "size": 18339407
           },
           "internal_state_16.pbstream": {
-            "hash": "ca3fdb9e13e5aab1da88cd1265fabb40",
-            "size": 23564379
+            "hash": "6bea011bbe973ccbca0231dea28a7d1e",
+            "size": 18376209
           },
           "internal_state_17.pbstream": {
-            "hash": "cf82ec0cd5c0f422efe870bd71b2dfa2",
-            "size": 23421652
+            "hash": "55c36aa4be63b1aab31b4d1833457d2b",
+            "size": 20100720
           },
           "internal_state_18.pbstream": {
-            "hash": "c6eead2b36faf0fdd635b31e4e30a3cf",
-            "size": 25595699
+            "hash": "ff2cc37e7cc3085a939eaedb5964f4b0",
+            "size": 21751385
           },
           "internal_state_19.pbstream": {
-            "hash": "0c2a41fa31c52e4bd329d8e9c87322ed",
-            "size": 27326595
+            "hash": "52dc1df0a76123976e6f8e039235de3a",
+            "size": 22779742
           },
           "internal_state_2.pbstream": {
-            "hash": "044299335f4601eee0526258699f3ae8",
-            "size": 3092991
+            "hash": "8e4c92ddabc9a58eae06d69db8e43fdb",
+            "size": 3292975
           },
           "internal_state_20.pbstream": {
-            "hash": "22176dbb25fcb1c604bd16d429bf50f8",
-            "size": 28605187
+            "hash": "276589cc6152ea8a3fbc984fada6d835",
+            "size": 24149290
           },
           "internal_state_21.pbstream": {
-            "hash": "81e6029650f2c4786c34ed370a315b47",
-            "size": 29496163
+            "hash": "b8740515f64b36c1b23a622b32b893b0",
+            "size": 25416052
           },
           "internal_state_22.pbstream": {
-            "hash": "3924406b422d445d2857d1ef44ebbfbf",
-            "size": 30823897
+            "hash": "9de04bca4c9fa1bc991d0c39ee607f56",
+            "size": 25639044
           },
           "internal_state_23.pbstream": {
-            "hash": "8400b254ecb5e01b1d1fed910dd9be68",
-            "size": 31886472
+            "hash": "9de04bca4c9fa1bc991d0c39ee607f56",
+            "size": 25639044
           },
           "internal_state_3.pbstream": {
-            "hash": "7991319dbd9440005fbd59b8718c7770",
-            "size": 4471123
+            "hash": "2d64489d7868c03bc0771fbb9eccde9b",
+            "size": 4533541
           },
           "internal_state_4.pbstream": {
-            "hash": "db2a444867ef121074e273af5070c217",
-            "size": 5898278
+            "hash": "3224466ae16a09bcf6841af8e8a7c8b9",
+            "size": 5840846
           },
           "internal_state_5.pbstream": {
-            "hash": "78d0e83609c6fcb29497a9515e9c9302",
-            "size": 7334930
+            "hash": "e834cf713381a1f54c77abfe3b663800",
+            "size": 5901573
           },
           "internal_state_6.pbstream": {
-            "hash": "99091c95873b82a90db4c16d94e572ba",
-            "size": 7424545
+            "hash": "8a20db0b47e1c8267c5f496627419ac6",
+            "size": 6017494
           },
           "internal_state_7.pbstream": {
-            "hash": "cea159126ab87b732484bf09e21d33ee",
-            "size": 10963795
+            "hash": "6de4c6c649fa0a8962b20cfb36457eaa",
+            "size": 7476247
           },
           "internal_state_8.pbstream": {
-            "hash": "6f07ec93b9a7782babd0a9fc22fbd96f",
-            "size": 12676027
+            "hash": "f6f905ffdacae0bb3c5b7a315334f3be",
+            "size": 9387988
           },
           "internal_state_9.pbstream": {
-            "hash": "c010d29f87022e88028ea10370a17eda",
-            "size": 13865933
+            "hash": "f65e095b9000c5d22aabb97a356e204f",
+            "size": 10519180
           }
         },
         "pointcloud": {
           "pointcloud_0.pcd": {
-            "hash": "2f41517f96ddcbbd838c781204707590",
-            "size": 302266
+            "hash": "077e2f29642cc4744a84f0884e4cdb88",
+            "size": 173690
           },
           "pointcloud_1.pcd": {
-            "hash": "f9a36fd5c329d053678a961ec6f51b40",
-            "size": 2641372
+            "hash": "7d2c682fe75e1cdfe93a5a5fd1dc5b40",
+            "size": 1119194
           },
           "pointcloud_10.pcd": {
-            "hash": "090e0d5c2d8a0214b354ca11df07f9fb",
-            "size": 14087260
+            "hash": "cc639a4c2b6b3d9435e2399e5f4ef508",
+            "size": 5217468
           },
           "pointcloud_11.pcd": {
-            "hash": "80c73e98e6eaab752da6221da8eece67",
-            "size": 16277038
+            "hash": "d672e3058972f081ada7d0b4119dabb5",
+            "size": 5839564
           },
           "pointcloud_12.pcd": {
-            "hash": "7300780bd50d95a42304c3444f20b030",
-            "size": 16236686
+            "hash": "3cb7a73e88bfaf74ba611f306146a3f7",
+            "size": 5879596
           },
           "pointcloud_13.pcd": {
-            "hash": "76700950faf27a9297822f3a1a5d5cb4",
-            "size": 16165550
+            "hash": "f579e62152ad0015da89df85da5a809d",
+            "size": 6361260
           },
           "pointcloud_14.pcd": {
-            "hash": "8e0e900389db448d77c91a99b8bf478c",
-            "size": 17590558
+            "hash": "c6b3c49bc585dda151d7140956410486",
+            "size": 6721148
           },
           "pointcloud_15.pcd": {
-            "hash": "ca8054ef766aa4bd69ddd74d27a8fbaf",
-            "size": 17697534
+            "hash": "abe8fc514b3ccc229dc0b1dab511abbd",
+            "size": 6630844
           },
           "pointcloud_16.pcd": {
-            "hash": "1ee6491f6b18cfb9194a20f352c7b647",
-            "size": 18331774
+            "hash": "0b2f9e6b357fd09456bbf79d36c5391c",
+            "size": 6907420
           },
           "pointcloud_17.pcd": {
-            "hash": "9e1989dfaf47c44aee0fb779085c34a8",
-            "size": 19232718
+            "hash": "d5f4d186a1aeefe11b6a6461db05f8f0",
+            "size": 6898540
           },
           "pointcloud_18.pcd": {
-            "hash": "791b4e8d29df799c9af075079bcfc466",
-            "size": 18491998
+            "hash": "d93b97af730dbc7d13f69c5da5d53930",
+            "size": 6628508
           },
           "pointcloud_19.pcd": {
-            "hash": "af6e9b6cc2dc501fbdc763e271d26a49",
-            "size": 17712062
+            "hash": "be8d19362b400a4563a8664aed242910",
+            "size": 6470668
           },
           "pointcloud_2.pcd": {
-            "hash": "0d5c88ec209d520e9ddfe2003d30c969",
-            "size": 4822460
+            "hash": "061804aab3d412461665c0a141448ccb",
+            "size": 1981596
           },
           "pointcloud_20.pcd": {
-            "hash": "253fbfa8768b90d67224599dbf980d35",
-            "size": 17642990
+            "hash": "03f1800dad3418008598536f12e15ae5",
+            "size": 6206428
           },
           "pointcloud_21.pcd": {
-            "hash": "9425807069558e90b104cc86ddc93bce",
-            "size": 17588862
+            "hash": "6294036423099063cba4fecf3e6513a8",
+            "size": 5917468
           },
           "pointcloud_22.pcd": {
-            "hash": "807d0a0d1e4350533db1d2902fab7281",
-            "size": 17240494
+            "hash": "93677e57c9780f85a36d434af191f926",
+            "size": 5845276
           },
           "pointcloud_23.pcd": {
-            "hash": "bcf8dbab0f3811f06a4231e2c10076c3",
-            "size": 17306606
+            "hash": "93677e57c9780f85a36d434af191f926",
+            "size": 5845276
           },
           "pointcloud_3.pcd": {
-            "hash": "dc62b2a27bf4ee6f2323e801dbcaaf28",
-            "size": 5844492
+            "hash": "7fe0a06ea46461f3ade465c74cd91576",
+            "size": 2720444
           },
           "pointcloud_4.pcd": {
-            "hash": "dd7b9ec745aa1d1f7c4c068a816889b1",
-            "size": 7770492
+            "hash": "810a635d512ed2a01d9bad3c7f91273e",
+            "size": 3371836
           },
           "pointcloud_5.pcd": {
-            "hash": "24b8355c63a7b80b178119e236c73e0e",
-            "size": 9393148
+            "hash": "d794660e025c9db847996a7116c4fac0",
+            "size": 3413660
           },
           "pointcloud_6.pcd": {
-            "hash": "1495a9cef3fe14e3136ad6e3d9f526d7",
-            "size": 9753212
+            "hash": "17b35b59cac61294f02b974fe93acda1",
+            "size": 3428140
           },
           "pointcloud_7.pcd": {
-            "hash": "68a340e862482c60f19d3630768c4794",
-            "size": 12083820
+            "hash": "68bc8648cbf34cd7d69b99afa025e1e7",
+            "size": 4082396
           },
           "pointcloud_8.pcd": {
-            "hash": "d85c560f9c8d59227fee940b794ef4ab",
-            "size": 12726636
+            "hash": "6b9fb900323d07a786a8711365c1b7e0",
+            "size": 3669516
           },
           "pointcloud_9.pcd": {
-            "hash": "b2e77bd6cc0015dfda9e5e7b6418356f",
-            "size": 14269596
+            "hash": "6ec94fe6e774466ff40a4ea0a860ad1d",
+            "size": 4973004
           }
         },
         "position": {
           "position_0.json": {
-            "hash": "e69477a7744bccdecb2b080c552f993b",
-            "size": 255
+            "hash": "baf70b5f31040a85199ed277a9ec0adb",
+            "size": 252
           },
           "position_1.json": {
-            "hash": "25df91a467e83eec4a210e1b3c4ebdcd",
-            "size": 252
-          },
-          "position_10.json": {
-            "hash": "caf428b5ecce6b29e85011e5cc2c6dea",
-            "size": 252
-          },
-          "position_11.json": {
-            "hash": "d413b45c59f10c454c1312af9627e1e2",
-            "size": 247
-          },
-          "position_12.json": {
-            "hash": "132ac3e0da6e2a1f85ba5a07cedf2306",
-            "size": 248
-          },
-          "position_13.json": {
-            "hash": "c2437b79ab4837fa41cfb9f179512da9",
+            "hash": "e0f76267daf7ed0caed25bbe6bfdec22",
             "size": 251
           },
+          "position_10.json": {
+            "hash": "d0471295dfb04052b33b6efe483f3e2a",
+            "size": 249
+          },
+          "position_11.json": {
+            "hash": "a0c1d2bd57d1456b5757dff2433c216a",
+            "size": 251
+          },
+          "position_12.json": {
+            "hash": "529812c6a11ddc1308ceb633dd0ea868",
+            "size": 251
+          },
+          "position_13.json": {
+            "hash": "018f8e6503a55ed172212d495838fbbc",
+            "size": 250
+          },
           "position_14.json": {
-            "hash": "0af257aec5d91a7728ebab01d1dc2d7f",
+            "hash": "e3541ac62797d3472bfea3366383be69",
             "size": 250
           },
           "position_15.json": {
-            "hash": "3f67a370856880ad984cba898b7a72d6",
+            "hash": "d710b1f789ee2ae2c859e5c2bf586866",
             "size": 250
           },
           "position_16.json": {
-            "hash": "b3c912660fb2c4c381d4d6df4eb4d1a2",
+            "hash": "6ce86815da594932b5d0380ccf4a1c00",
             "size": 248
           },
           "position_17.json": {
-            "hash": "d3d2a0624cbb638b0634e224ae00174f",
+            "hash": "9c1c42a62aca22e150f9a5ee5dcd5fa2",
             "size": 252
           },
           "position_18.json": {
-            "hash": "3b781d4dd58455dee513797caa787873",
-            "size": 252
+            "hash": "a0a49795eeabb1ad06b9bb6e2eb1984f",
+            "size": 251
           },
           "position_19.json": {
-            "hash": "f0767e5fd24c024b41e6aba6db6e4e27",
-            "size": 250
-          },
-          "position_2.json": {
-            "hash": "59418a18523ce909a29f996e0c2564f3",
-            "size": 248
-          },
-          "position_20.json": {
-            "hash": "127a1684c3353509a7eb568475678dc2",
-            "size": 251
-          },
-          "position_21.json": {
-            "hash": "8b846c895034492570fedcc9760cf465",
-            "size": 251
-          },
-          "position_22.json": {
-            "hash": "79fa90b30b8047dd2ea7e31f88af4def",
+            "hash": "62ea51e515006d60a277520b881d4c6d",
             "size": 252
           },
+          "position_2.json": {
+            "hash": "a3d41e05c561e0eae66fba6d6d440865",
+            "size": 250
+          },
+          "position_20.json": {
+            "hash": "1fd30b1d669d95cd3a378e23e8e37226",
+            "size": 253
+          },
+          "position_21.json": {
+            "hash": "8a3bb79a296cac0eae163e6f37a021db",
+            "size": 253
+          },
+          "position_22.json": {
+            "hash": "8dd8ed319671e23f13f48a17734c19e8",
+            "size": 253
+          },
           "position_23.json": {
-            "hash": "5cbc8ea8fae8b9042b399619c30a27c1",
-            "size": 248
+            "hash": "8dd8ed319671e23f13f48a17734c19e8",
+            "size": 253
           },
           "position_3.json": {
-            "hash": "65d30762cd09c4c6e7b2861d6639e907",
-            "size": 251
+            "hash": "4f646e848998fefbe84e36cd8dd2d042",
+            "size": 252
           },
           "position_4.json": {
-            "hash": "68b80a90d5f64e98ba2b4435b6936fde",
-            "size": 251
+            "hash": "2bd732ae73e6144569b4fc6416da7eef",
+            "size": 252
           },
           "position_5.json": {
-            "hash": "e99420aca01ab98c885c6a63aba5cc54",
-            "size": 250
+            "hash": "04fd46351bda816d692e15b3c93ea23b",
+            "size": 253
           },
           "position_6.json": {
-            "hash": "bb598418ee2f4e999cfed32a0de01bed",
-            "size": 250
+            "hash": "da6c15ddf9d307ec2d70bafab1666112",
+            "size": 249
           },
           "position_7.json": {
-            "hash": "f281c04276c7977247ea11162978df5d",
-            "size": 250
+            "hash": "f76db0b8d682d95da321b202892ab5da",
+            "size": 254
           },
           "position_8.json": {
-            "hash": "b6efc6160aa25c421a6c5fafc9b516ca",
+            "hash": "d114400728792b84996c38909de1abaa",
             "size": 249
           },
           "position_9.json": {
-            "hash": "ddea37ec6349b6a18d6cbb00b835323a",
+            "hash": "da730dfe625a9aabbacc882512d6a49b",
             "size": 250
           }
         }

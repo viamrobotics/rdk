@@ -2,7 +2,8 @@
     "modules": [
         {
             "name": "my-module",
-            "executable_path": "new/path/to/my-module"
+            "executable_path": "new/path/to/my-module",
+            "log_level": "debug"
         }
     ],
     "remotes": [

@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/edaniels/gostream"
 	"github.com/pion/mediadevices/pkg/prop"
+	"github.com/viamrobotics/gostream"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
@@ -218,4 +218,30 @@ func TestPipeIntoPipe(t *testing.T) {
 	test.That(t, pipe2.Close(context.Background()), test.ShouldBeNil)
 	test.That(t, pipe1.Close(context.Background()), test.ShouldBeNil)
 	test.That(t, source.Close(context.Background()), test.ShouldBeNil)
+}
+
+func TestTransformPipelineValidatePass(t *testing.T) {
+	transformConf := &transformConfig{
+		Source: "source",
+		Pipeline: []Transformation{
+			{Type: "rotate", Attributes: utils.AttributeMap{}},
+			{Type: "resize", Attributes: utils.AttributeMap{"height_px": 20, "width_px": 10}},
+		},
+	}
+	deps, err := transformConf.Validate("path")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, deps, test.ShouldResemble, []string{"source"})
+}
+
+func TestTransformPipelineValidateFail(t *testing.T) {
+	transformConf := &transformConfig{
+		Pipeline: []Transformation{
+			{Type: "rotate", Attributes: utils.AttributeMap{}},
+			{Type: "resize", Attributes: utils.AttributeMap{"height_px": 20, "width_px": 10}},
+		},
+	}
+	path := "path"
+	deps, err := transformConf.Validate(path)
+	test.That(t, err.Error(), test.ShouldResemble, "error validating \"path\": \"source\" is required")
+	test.That(t, deps, test.ShouldBeNil)
 }

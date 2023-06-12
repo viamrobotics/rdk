@@ -295,8 +295,8 @@ func TestConfigRemote(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, convMap, test.ShouldResemble, armStatus)
 
-	cfg2, err := r2.Config(context.Background())
-	test.That(t, err, test.ShouldBeNil)
+	cfg2 := r2.Config()
+	// Components should only include local components.
 	test.That(t, len(cfg2.Components), test.ShouldEqual, 2)
 
 	fsConfig, err := r2.FrameSystemConfig(context.Background())
@@ -1931,29 +1931,38 @@ func TestConfigPackageReferenceReplacement(t *testing.T) {
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 }
 
-// removeBuiltinServices removes services with a "builtin" name for testing
-// purposes.
-func removeBuiltinServices(cfg *config.Config) *config.Config {
+// removeDefaultServices removes default services and returns the removed
+// services for testing purposes.
+func removeDefaultServices(cfg *config.Config) []resource.Config {
 	if cfg == nil {
 		return nil
 	}
 
-	var nonBuiltInSvcs []resource.Config
-	for _, svc := range cfg.Services {
-		if svc.Name != resource.DefaultServiceName {
-			nonBuiltInSvcs = append(nonBuiltInSvcs, svc)
-		}
+	// Make a set of registered default services.
+	registeredDefaultSvcs := make(map[resource.Name]bool)
+	for _, name := range resource.DefaultServices() {
+		registeredDefaultSvcs[name] = true
 	}
-	cfg.Services = nonBuiltInSvcs
-	return cfg
+
+	var defaultSvcs, nonDefaultSvcs []resource.Config
+	for _, svc := range cfg.Services {
+		if registeredDefaultSvcs[svc.ResourceName()] {
+			defaultSvcs = append(defaultSvcs, svc)
+			continue
+		}
+		nonDefaultSvcs = append(nonDefaultSvcs, svc)
+	}
+
+	cfg.Services = nonDefaultSvcs
+	return defaultSvcs
 }
 
 func TestConfigMethod(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 
-	// Precompile modules to avoid timeout issues when building takes too long.
-	err := rtestutils.BuildInDir("examples/customresources/demos/complexmodule")
+	// Precompile complex module to avoid timeout issues when building takes too long.
+	complexPath, err := rtestutils.BuildTempModule(t, "examples/customresources/demos/complexmodule")
 	test.That(t, err, test.ShouldBeNil)
 
 	r, err := robotimpl.New(context.Background(), &config.Config{}, logger)
@@ -1962,18 +1971,16 @@ func TestConfigMethod(t *testing.T) {
 		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	}()
 
-	// Assert that Config method returns only built-in services (data_manager,
-	// motion and sensors).
-	actualCfg, err := r.Config(ctx)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(actualCfg.Services), test.ShouldEqual, 3)
-	for _, comp := range actualCfg.Services {
-		test.That(t, comp.API.SubtypeName, test.ShouldBeIn, datamanager.API.SubtypeName,
+	// Assert that Config method returns the three default services: data_manager,
+	// motion and sensors.
+	actualCfg := r.Config()
+	defaultSvcs := removeDefaultServices(actualCfg)
+	test.That(t, len(defaultSvcs), test.ShouldEqual, 3)
+	for _, svc := range defaultSvcs {
+		test.That(t, svc.API.SubtypeName, test.ShouldBeIn, datamanager.API.SubtypeName,
 			motion.API.SubtypeName, sensors.API.SubtypeName)
 	}
-	// Config() will also initialize Components, so it will not be nil as expected.
-	actualCfg.Components = nil
-	test.That(t, removeBuiltinServices(actualCfg), test.ShouldResemble, &config.Config{})
+	test.That(t, actualCfg, test.ShouldResemble, &config.Config{})
 
 	// Use a remote with components and services to ensure none of its resources
 	// will be returned by Config.
@@ -1992,10 +1999,18 @@ func TestConfigMethod(t *testing.T) {
 	myBaseModel := resource.NewModel("acme", "demo", "mybase")
 
 	cfg := &config.Config{
+		Cloud: &config.Cloud{},
 		Modules: []config.Module{
 			{
-				Name:    "mod",
-				ExePath: rutils.ResolveFile("examples/customresources/demos/complexmodule/run.sh"),
+				Name:     "mod",
+				ExePath:  complexPath,
+				LogLevel: "info",
+			},
+		},
+		Remotes: []config.Remote{
+			{
+				Name:    "foo",
+				Address: addr,
 			},
 		},
 		Components: []resource.Config{
@@ -2013,26 +2028,13 @@ func TestConfigMethod(t *testing.T) {
 				API:                 motor.API,
 				Model:               fakeModel,
 				ConvertedAttributes: &fakemotor.Config{},
+				ImplicitDependsOn:   []string{"builtin:sensors"},
 			},
 			{
 				Name:                "motor2",
 				API:                 motor.API,
 				Model:               fakeModel,
 				ConvertedAttributes: &fakemotor.Config{},
-			},
-		},
-		Services: []resource.Config{
-			{
-				Name:                "fake1",
-				API:                 datamanager.API,
-				Model:               resource.DefaultServiceModel,
-				ConvertedAttributes: &builtin.Config{},
-			},
-		},
-		Remotes: []config.Remote{
-			{
-				Name:    "foo",
-				Address: addr,
 			},
 		},
 		Processes: []pexec.ProcessConfig{
@@ -2044,6 +2046,31 @@ func TestConfigMethod(t *testing.T) {
 				OneShot: true,
 			},
 		},
+		Services: []resource.Config{
+			{
+				Name:                "fake1",
+				API:                 datamanager.API,
+				Model:               resource.DefaultServiceModel,
+				ConvertedAttributes: &builtin.Config{},
+				ImplicitDependsOn:   []string{"foo:builtin:data_manager"},
+			},
+			{
+				Name:  "builtin",
+				API:   navigation.API,
+				Model: resource.DefaultServiceModel,
+			},
+		},
+		Packages: []config.PackageConfig{
+			{
+				Name:    "some-name-1",
+				Package: "package-1",
+				Version: "v1",
+			},
+		},
+		Network:             config.NetworkConfig{},
+		Auth:                config.AuthConfig{},
+		Debug:               true,
+		DisablePartialStart: true,
 	}
 
 	// Create copy of expectedCfg since Reconfigure modifies cfg.
@@ -2051,8 +2078,27 @@ func TestConfigMethod(t *testing.T) {
 	r.Reconfigure(ctx, cfg)
 
 	// Assert that Config method returns expected value.
-	actualCfg, err = r.Config(ctx)
-	test.That(t, err, test.ShouldBeNil)
+	actualCfg = r.Config()
+
+	// Assert that default motion and sensor services are still present, but data
+	// manager default service has been replaced by the "fake1" data manager service.
+	defaultSvcs = removeDefaultServices(actualCfg)
+	test.That(t, len(defaultSvcs), test.ShouldEqual, 2)
+	for _, svc := range defaultSvcs {
+		test.That(t, svc.API.SubtypeName, test.ShouldBeIn, motion.API.SubtypeName,
+			sensors.API.SubtypeName)
+	}
+
+	// Manually inspect remaining service resources as ordering of config is
+	// non-deterministic within slices.
+	test.That(t, len(actualCfg.Services), test.ShouldEqual, 2)
+	for _, svc := range actualCfg.Services {
+		isFake1DM := svc.Equals(expectedCfg.Services[0])
+		isBuiltinNav := svc.Equals(expectedCfg.Services[1])
+		test.That(t, isFake1DM || isBuiltinNav, test.ShouldBeTrue)
+	}
+	actualCfg.Services = nil
+	expectedCfg.Services = nil
 
 	// Manually inspect component resources as ordering of config is
 	// non-deterministic within slices
@@ -2073,7 +2119,7 @@ func TestConfigMethod(t *testing.T) {
 	actualCfg.Remotes = nil
 	expectedCfg.Remotes = nil
 
-	test.That(t, removeBuiltinServices(actualCfg), test.ShouldResemble, &expectedCfg)
+	test.That(t, actualCfg, test.ShouldResemble, &expectedCfg)
 }
 
 func TestReconnectRemote(t *testing.T) {
@@ -2583,11 +2629,11 @@ func TestOrphanedResources(t *testing.T) {
 	logger, logs := golog.NewObservedTestLogger(t)
 
 	// Precompile modules to avoid timeout issues when building takes too long.
-	err := rtestutils.BuildInDir("examples/customresources/demos/complexmodule")
+	complexPath, err := rtestutils.BuildTempModule(t, "examples/customresources/demos/complexmodule")
 	test.That(t, err, test.ShouldBeNil)
-	err = rtestutils.BuildInDir("examples/customresources/demos/simplemodule")
+	simplePath, err := rtestutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
 	test.That(t, err, test.ShouldBeNil)
-	err = rtestutils.BuildInDir("module/testmodule")
+	testPath, err := rtestutils.BuildTempModule(t, "module/testmodule")
 	test.That(t, err, test.ShouldBeNil)
 
 	// Manually define models, as importing them can cause double registration.
@@ -2608,7 +2654,7 @@ func TestOrphanedResources(t *testing.T) {
 			Modules: []config.Module{
 				{
 					Name:    "mod",
-					ExePath: rutils.ResolveFile("examples/customresources/demos/complexmodule/run.sh"),
+					ExePath: complexPath,
 				},
 			},
 			Components: []resource.Config{
@@ -2635,7 +2681,7 @@ func TestOrphanedResources(t *testing.T) {
 			Modules: []config.Module{
 				{
 					Name:    "mod",
-					ExePath: rutils.ResolveFile("examples/customresources/demos/simplemodule/run.sh"),
+					ExePath: simplePath,
 				},
 			},
 			Components: []resource.Config{
@@ -2698,7 +2744,7 @@ func TestOrphanedResources(t *testing.T) {
 			Modules: []config.Module{
 				{
 					Name:    "mod",
-					ExePath: rutils.ResolveFile("module/testmodule/testmodule"),
+					ExePath: testPath,
 				},
 			},
 			Components: []resource.Config{
@@ -2716,7 +2762,7 @@ func TestOrphanedResources(t *testing.T) {
 
 		// Assert that removing testmodule binary and killing testmodule orphans
 		// helper 'h' a couple seconds after third restart attempt.
-		err = os.Remove(rutils.ResolveFile("module/testmodule/testmodule"))
+		err = os.Rename(testPath, testPath+".disabled")
 		test.That(t, err, test.ShouldBeNil)
 		_, err = h.DoCommand(ctx, map[string]interface{}{"command": "kill_module"})
 		test.That(t, err, test.ShouldNotBeNil)
@@ -2736,14 +2782,20 @@ func TestOrphanedResources(t *testing.T) {
 		test.That(t, err, test.ShouldBeError,
 			resource.NewNotFoundError(generic.Named("h")))
 
-		// Assert that recompiling testmodule, removing testmodule and 'h' from
-		// config and adding both back re-adds 'h'.
-		//
-		// TODO(RSDK-2876): assert that we can keep 'h' in the config and it gets
-		// re-added to testmodule.
-		err = rtestutils.BuildInDir("module/testmodule")
+		// Assert that restoring testmodule, removing testmodule from config and
+		// adding it back re-adds 'h'.
+		err = os.Rename(testPath+".disabled", testPath)
 		test.That(t, err, test.ShouldBeNil)
-		r.Reconfigure(ctx, &config.Config{})
+		cfg2 := &config.Config{
+			Components: []resource.Config{
+				{
+					Name:  "h",
+					Model: helperModel,
+					API:   generic.API,
+				},
+			},
+		}
+		r.Reconfigure(ctx, cfg2)
 		r.Reconfigure(ctx, cfg)
 
 		h, err = r.ResourceByName(generic.Named("h"))
@@ -2752,14 +2804,9 @@ func TestOrphanedResources(t *testing.T) {
 		// Assert that replacing testmodule binary with disguised simplemodule
 		// binary and killing testmodule orphans helper 'h' (not reachable), as
 		// simplemodule binary cannot manage helper 'h'.
-		err = os.Remove(rutils.ResolveFile("module/testmodule/testmodule"))
+		tmpPath, err := rtestutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
 		test.That(t, err, test.ShouldBeNil)
-		err = rtestutils.BuildInDir("examples/customresources/demos/simplemodule")
-		test.That(t, err, test.ShouldBeNil)
-		err = os.Rename(
-			rutils.ResolveFile("examples/customresources/demos/simplemodule/simplemodule"),
-			rutils.ResolveFile("module/testmodule/testmodule"),
-		)
+		err = os.Rename(tmpPath, testPath)
 		test.That(t, err, test.ShouldBeNil)
 		_, err = h.DoCommand(ctx, map[string]interface{}{"command": "kill_module"})
 		test.That(t, err, test.ShouldNotBeNil)
@@ -2810,9 +2857,9 @@ func TestDependentAndOrphanedResources(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
 	// Precompile modules to avoid timeout issues when building takes too long.
-	err := rtestutils.BuildInDir("examples/customresources/demos/complexmodule")
+	complexPath, err := rtestutils.BuildTempModule(t, "examples/customresources/demos/complexmodule")
 	test.That(t, err, test.ShouldBeNil)
-	err = rtestutils.BuildInDir("examples/customresources/demos/simplemodule")
+	simplePath, err := rtestutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
 	test.That(t, err, test.ShouldBeNil)
 
 	// Manually define gizmo model, as importing it from mygizmo can cause double
@@ -2853,7 +2900,7 @@ func TestDependentAndOrphanedResources(t *testing.T) {
 		Modules: []config.Module{
 			{
 				Name:    "mod",
-				ExePath: rutils.ResolveFile("examples/customresources/demos/complexmodule/run.sh"),
+				ExePath: complexPath,
 			},
 		},
 		Components: []resource.Config{
@@ -2890,7 +2937,7 @@ func TestDependentAndOrphanedResources(t *testing.T) {
 		Modules: []config.Module{
 			{
 				Name:    "mod",
-				ExePath: rutils.ResolveFile("examples/customresources/demos/simplemodule/run.sh"),
+				ExePath: simplePath,
 			},
 		},
 		Components: []resource.Config{
@@ -2980,7 +3027,7 @@ func TestModuleDebugReconfigure(t *testing.T) {
 	logger, logs := rtestutils.NewInfoObservedTestLogger(t)
 
 	// Precompile module to avoid timeout issues when building takes too long.
-	err := rtestutils.BuildInDir("module/testmodule")
+	testPath, err := rtestutils.BuildTempModule(t, "module/testmodule")
 	test.That(t, err, test.ShouldBeNil)
 
 	// Create robot with testmodule with LogLevel unset and assert that after two
@@ -2989,7 +3036,7 @@ func TestModuleDebugReconfigure(t *testing.T) {
 		Modules: []config.Module{
 			{
 				Name:    "mod",
-				ExePath: rutils.ResolveFile("module/testmodule/testmodule"),
+				ExePath: testPath,
 			},
 		},
 	}
@@ -3009,7 +3056,7 @@ func TestModuleDebugReconfigure(t *testing.T) {
 		Modules: []config.Module{
 			{
 				Name:     "mod",
-				ExePath:  rutils.ResolveFile("module/testmodule/testmodule"),
+				ExePath:  testPath,
 				LogLevel: "debug",
 			},
 		},

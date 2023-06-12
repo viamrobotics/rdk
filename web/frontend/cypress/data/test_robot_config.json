@@ -118,11 +118,8 @@
                 "store": {
                     "type": "memory"
                 },
-                "movement_sensor_name": "test_movement",
-                "motion_service_name": "test_motion",
-                "base_name": "test_base",
-                "degs_per_sec": 1,
-                "meters_per_sec": 1,
+                "movement_sensor": "test_movement",
+                "base": "test_base",
                 "obstacles":[{
                     "geometries": [{
                         "label":"aLabel",

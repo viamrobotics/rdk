@@ -1,16 +1,19 @@
 <script setup lang="ts">
 
 import { onMounted, onUnmounted } from 'vue';
-import { $ref, $computed, $$ } from 'vue/macros';
+import { $ref, $computed, $$ } from '@vue-macros/reactivity-transform/macros';
 import { onClickOutside } from '@vueuse/core';
-import { BaseClient, Client, type ServiceError, commonApi, ResponseStream, robotApi } from '@viamrobotics/sdk';
+import { BaseClient, Client, type ServiceError, commonApi, type ResponseStream, robotApi } from '@viamrobotics/sdk';
 import { filterResources } from '../lib/resource';
 import { displayError } from '../lib/error';
 import KeyboardInput, { type Keys } from './keyboard-input.vue';
-import Camera from './camera/camera.vue';
+import CameraSvelte from './camera/camera.svelte';
 import { rcLogConditionally } from '../lib/log';
 import { selectedMap } from '../lib/camera-state';
 import type { StreamManager } from './camera/stream-manager';
+import { svelteAdapter } from '../lib/svelte-adapter';
+
+const Camera = svelteAdapter(CameraSvelte);
 
 const enum Keymap {
   LEFT = 'a',
@@ -290,11 +293,11 @@ onUnmounted(() => {
         slot="header"
         variant="danger"
         icon="stop-circle"
-        label="STOP"
+        label="Stop"
         @click="stop"
       />
 
-      <div class="border-medium flex flex-wrap gap-4 border border-t-0 sm:flex-nowrap">
+      <div class="flex flex-wrap gap-4 border border-t-0 border-medium sm:flex-nowrap">
         <div class="flex min-w-fit flex-col gap-4 p-4">
           <h2 class="font-bold">
             Motor Controls
@@ -405,7 +408,7 @@ onUnmounted(() => {
             />
           </div>
 
-          <hr class="border-medium my-4 border-t">
+          <hr class="my-4 border-t border-medium">
 
           <h2 class="font-bold">
             Live Feeds
@@ -455,8 +458,7 @@ onUnmounted(() => {
           </div>
         </div>
         <div
-          data-parent="base"
-          class="border-medium justify-start gap-4 p-4 sm:border-l"
+          class="justify-start gap-4 border-medium p-4 sm:border-l"
           :class="selectedView === 'Stacked' ? 'flex flex-col' : 'grid grid-cols-2 gap-4'"
         >
           <!-- ******* CAMERAS *******  -->
@@ -466,16 +468,15 @@ onUnmounted(() => {
           >
             <Camera
               v-if="openCameras[camera.name]"
-              :camera-name="camera.name"
-              parent-name="base"
               :client="client"
+              :streamManager="props.streamManager"
+              :statusStream="props.statusStream"
+              :cameraName="camera.name"
+              :showExportScreenshot="true"
+              :refreshRate="refreshFrequency"
               :resources="resources"
-              :show-refresh="true"
-              :show-export-screenshot="false"
-              :refresh-rate="refreshFrequency"
-              :trigger-refresh="triggerRefresh"
-              :stream-manager="props.streamManager"
-              :status-stream="props.statusStream"
+              :showRefresh="true"
+              :triggerRefresh="triggerRefresh"
             />
           </template>
         </div>

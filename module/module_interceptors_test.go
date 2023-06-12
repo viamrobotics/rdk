@@ -150,7 +150,8 @@ func connect(port string) (robotpb.RobotServiceClient, genericpb.GenericServiceC
 
 func makeConfig(t *testing.T, logger golog.Logger) (string, string, error) {
 	// Precompile module to avoid timeout issues when building takes too long.
-	if err := rtestutils.BuildInDir("module/testmodule"); err != nil {
+	modPath, err := rtestutils.BuildTempModule(t, "module/testmodule")
+	if err != nil {
 		return "", "", err
 	}
 
@@ -163,7 +164,7 @@ func makeConfig(t *testing.T, logger golog.Logger) (string, string, error) {
 	cfg := config.Config{
 		Modules: []config.Module{{
 			Name:    "TestModule",
-			ExePath: utils.ResolveFile("module/testmodule/run.sh"),
+			ExePath: modPath,
 		}},
 		Network: config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{BindAddress: "localhost:" + port}},
 		Components: []resource.Config{{

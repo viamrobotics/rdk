@@ -7,6 +7,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/jhump/protoreflect/desc"
+	"github.com/pkg/errors"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/motor"
@@ -41,6 +42,7 @@ func TestModularResources(t *testing.T) {
 		mod := &dummyModMan{
 			compAPISvc: compAPISvc,
 			svcAPISvc:  svcAPISvc,
+			state:      make(map[resource.Name]bool),
 		}
 
 		r, err := New(context.Background(), &config.Config{}, logger)
@@ -167,6 +169,7 @@ func TestModularResources(t *testing.T) {
 		test.That(t, mod.add, test.ShouldResemble, []resource.Config{cfg, cfg4})
 		test.That(t, mod.remove, test.ShouldResemble, []resource.Name{cfg2.ResourceName()})
 		test.That(t, mod.reconf, test.ShouldResemble, []resource.Config{cfg2})
+		test.That(t, len(mod.state), test.ShouldEqual, 1)
 	})
 
 	t.Run("process service", func(t *testing.T) {
@@ -208,7 +211,7 @@ func TestModularResources(t *testing.T) {
 
 		// Add a modular service
 		r.Reconfigure(context.Background(), &config.Config{
-			Components: []resource.Config{cfg},
+			Services: []resource.Config{cfg},
 		})
 		_, err = r.ResourceByName(cfg.ResourceName())
 		test.That(t, err, test.ShouldBeNil)
@@ -217,7 +220,7 @@ func TestModularResources(t *testing.T) {
 
 		// Reconfigure a modular service
 		r.Reconfigure(context.Background(), &config.Config{
-			Components: []resource.Config{cfg2},
+			Services: []resource.Config{cfg2},
 		})
 		_, err = r.ResourceByName(cfg2.ResourceName())
 		test.That(t, err, test.ShouldBeNil)
@@ -227,7 +230,7 @@ func TestModularResources(t *testing.T) {
 
 		// Add a non-modular service
 		r.Reconfigure(context.Background(), &config.Config{
-			Components: []resource.Config{cfg2, cfg3},
+			Services: []resource.Config{cfg2, cfg3},
 		})
 		_, err = r.ResourceByName(cfg2.ResourceName())
 		test.That(t, err, test.ShouldBeNil)
@@ -378,12 +381,14 @@ type dummyModMan struct {
 	remove     []resource.Name
 	compAPISvc resource.APIResourceCollection[resource.Resource]
 	svcAPISvc  resource.APIResourceCollection[resource.Resource]
+	state      map[resource.Name]bool
 }
 
 func (m *dummyModMan) AddResource(ctx context.Context, conf resource.Config, deps []string) (resource.Resource, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.add = append(m.add, conf)
+	m.state[conf.ResourceName()] = true
 	res := &dummyRes{
 		Named: conf.ResourceName().AsNamed(),
 	}
@@ -410,6 +415,7 @@ func (m *dummyModMan) RemoveResource(ctx context.Context, name resource.Name) er
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.remove = append(m.remove, name)
+	delete(m.state, name)
 	if name.API.IsComponent() {
 		if err := m.compAPISvc.Remove(name); err != nil {
 			return err
@@ -428,6 +434,12 @@ func (m *dummyModMan) IsModularResource(name resource.Name) bool {
 	return name.Name != "builtin"
 }
 
+func (m *dummyModMan) Configs() []config.Module {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return nil
+}
+
 func (m *dummyModMan) Provides(cfg resource.Config) bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -441,5 +453,8 @@ func (m *dummyModMan) ValidateConfig(ctx context.Context, cfg resource.Config) (
 }
 
 func (m *dummyModMan) Close(ctx context.Context) error {
+	if len(m.state) != 0 {
+		return errors.New("attempt to close with active resources in place")
+	}
 	return nil
 }

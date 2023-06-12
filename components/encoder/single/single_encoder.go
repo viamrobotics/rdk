@@ -115,7 +115,7 @@ func NewSingleEncoder(
 	conf resource.Config,
 	logger golog.Logger,
 ) (encoder.Encoder, error) {
-	cancelCtx, cancelFunc := context.WithCancel(ctx)
+	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	e := &Encoder{
 		Named:        conf.ResourceName().AsNamed(),
 		logger:       logger,
@@ -163,7 +163,7 @@ func (e *Encoder) Reconfigure(
 		return nil
 	}
 	utils.UncheckedError(e.Close(ctx))
-	cancelCtx, cancelFunc := context.WithCancel(ctx)
+	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	e.CancelCtx = cancelCtx
 	e.cancelFunc = cancelFunc
 
@@ -215,9 +215,9 @@ func (e *Encoder) Start(ctx context.Context) {
 	}, e.activeBackgroundWorkers.Done)
 }
 
-// GetPosition returns the current position in terms of ticks or
+// Position returns the current position in terms of ticks or
 // degrees, and whether it is a relative or absolute position.
-func (e *Encoder) GetPosition(
+func (e *Encoder) Position(
 	ctx context.Context,
 	positionType encoder.PositionType,
 	extra map[string]interface{},
@@ -236,8 +236,8 @@ func (e *Encoder) ResetPosition(ctx context.Context, extra map[string]interface{
 	return nil
 }
 
-// GetProperties returns a list of all the position types that are supported by a given encoder.
-func (e *Encoder) GetProperties(ctx context.Context, extra map[string]interface{}) (map[encoder.Feature]bool, error) {
+// Properties returns a list of all the position types that are supported by a given encoder.
+func (e *Encoder) Properties(ctx context.Context, extra map[string]interface{}) (map[encoder.Feature]bool, error) {
 	return map[encoder.Feature]bool{
 		encoder.TicksCountSupported:   true,
 		encoder.AngleDegreesSupported: false,

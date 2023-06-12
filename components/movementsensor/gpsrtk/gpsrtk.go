@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 	"sync"
 
 	"github.com/de-bkg/gognss/pkg/ntrip"
@@ -27,8 +28,13 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-// ErrRoverValidation contains the model substring for the available correction source types.
-var ErrRoverValidation = fmt.Errorf("only serial, I2C, and ntrip are supported correction sources for %s", roverModel.Name)
+var (
+	errCorrectionSourceValidation = fmt.Errorf("only serial, i2c, and ntrip are supported correction sources for %s", roverModel.Name)
+	errConnectionTypeValidation   = fmt.Errorf("only serial and i2c are supported connection types for %s", roverModel.Name)
+	errInputProtocolValidation    = fmt.Errorf("only serial and i2c are supported input protocols for %s", roverModel.Name)
+)
+
+var roverModel = resource.DefaultModelFamily.WithModel("gps-rtk")
 
 // Config is used for converting NMEA MovementSensor with RTK capabilities config attributes.
 type Config struct {
@@ -71,6 +77,38 @@ type I2CConfig struct {
 // Validate ensures all parts of the config are valid.
 func (cfg *Config) Validate(path string) ([]string, error) {
 	var deps []string
+
+	dep, err := cfg.validateCorrectionSource(path)
+	if err != nil {
+		return nil, err
+	}
+	if dep != nil {
+		deps = append(deps, dep...)
+	}
+
+	dep, err = cfg.validateConnectionType(path)
+	if err != nil {
+		return nil, err
+	}
+	if dep != nil {
+		deps = append(deps, dep...)
+	}
+
+	if cfg.CorrectionSource == ntripStr {
+		dep, err = cfg.validateNtripInputProtocol(path)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if dep != nil {
+		deps = append(deps, dep...)
+	}
+
+	return deps, nil
+}
+
+func (cfg *Config) validateCorrectionSource(path string) ([]string, error) {
+	var deps []string
 	switch cfg.CorrectionSource {
 	case ntripStr:
 		return nil, cfg.NtripConfig.ValidateNtrip(path)
@@ -85,7 +123,41 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 	case "":
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "correction_source")
 	default:
-		return nil, ErrRoverValidation
+		return nil, errCorrectionSourceValidation
+	}
+}
+
+func (cfg *Config) validateConnectionType(path string) ([]string, error) {
+	var deps []string
+	switch strings.ToLower(cfg.ConnectionType) {
+	case i2cStr:
+		if cfg.Board == "" {
+			return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
+		}
+		deps = append(deps, cfg.Board)
+		return deps, cfg.I2CConfig.ValidateI2C(path)
+	case serialStr:
+		return nil, cfg.SerialConfig.ValidateSerial(path)
+	case "":
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "connection_type")
+	default:
+		return nil, errConnectionTypeValidation
+	}
+}
+
+func (cfg *Config) validateNtripInputProtocol(path string) ([]string, error) {
+	var deps []string
+	switch cfg.NtripInputProtocol {
+	case i2cStr:
+		if cfg.Board == "" {
+			return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
+		}
+		deps = append(deps, cfg.Board)
+		return deps, cfg.I2CConfig.ValidateI2C(path)
+	case serialStr:
+		return nil, cfg.SerialConfig.ValidateSerial(path)
+	default:
+		return nil, errInputProtocolValidation
 	}
 }
 
@@ -97,7 +169,6 @@ func (cfg *I2CConfig) ValidateI2C(path string) error {
 	if cfg.I2cAddr == 0 {
 		return utils.NewConfigValidationFieldRequiredError(path, "i2c_addr")
 	}
-
 	return nil
 }
 
@@ -114,13 +185,11 @@ func (cfg *NtripConfig) ValidateNtrip(path string) error {
 	if cfg.NtripAddr == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "ntrip_addr")
 	}
-	if cfg.NtripPath == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "ntrip_path")
+	if cfg.NtripInputProtocol == "" {
+		return utils.NewConfigValidationFieldRequiredError(path, "ntrip_input_protocol")
 	}
 	return nil
 }
-
-var roverModel = resource.DefaultModelFamily.WithModel("gps-rtk")
 
 func init() {
 	resource.RegisterComponent(
@@ -177,7 +246,11 @@ func newRTKMovementSensor(
 		err:        movementsensor.NewLastError(1, 1),
 	}
 
-	g.inputProtocol = newConf.CorrectionSource
+	if newConf.CorrectionSource == ntripStr {
+		g.inputProtocol = strings.ToLower(newConf.NtripInputProtocol)
+	} else {
+		g.inputProtocol = newConf.CorrectionSource
+	}
 
 	nmeaConf := &gpsnmea.Config{
 		ConnectionType: newConf.ConnectionType,
@@ -186,7 +259,7 @@ func newRTKMovementSensor(
 	}
 
 	// Init NMEAMovementSensor
-	switch g.inputProtocol {
+	switch strings.ToLower(newConf.ConnectionType) {
 	case serialStr:
 		var err error
 		nmeaConf.SerialConfig = (*gpsnmea.SerialConfig)(newConf.SerialConfig)
@@ -203,11 +276,10 @@ func newRTKMovementSensor(
 		}
 	default:
 		// Invalid protocol
-		return nil, fmt.Errorf("%s is not a valid protocol", g.inputProtocol)
+		return nil, fmt.Errorf("%s is not a valid connection type", newConf.ConnectionType)
 	}
 
 	// Init ntripInfo from attributes
-
 	g.ntripClient = &NtripInfo{
 		URL:                newConf.NtripAddr,
 		Username:           newConf.NtripUser,
@@ -217,18 +289,39 @@ func newRTKMovementSensor(
 	}
 
 	// baud rate
-	g.wbaud = newConf.NtripBaud
-	if g.wbaud == 38400 {
+	if newConf.NtripBaud == 0 {
+		newConf.NtripBaud = 38400
 		g.logger.Info("ntrip_baud using default baud rate 38400")
 	}
+	g.wbaud = newConf.NtripBaud
 
-	if g.writepath != "" {
-		g.logger.Info("ntrip_path will use same path for writing RCTM messages to gps")
-		g.writepath = newConf.NtripPath
+	switch g.inputProtocol {
+	case serialStr:
+		switch newConf.NtripPath {
+		case "":
+			g.logger.Info("RTK will use the same serial path as the GPS data to write RCTM messages")
+			g.writepath = newConf.SerialPath
+		default:
+			g.writepath = newConf.NtripPath
+		}
+	case i2cStr:
+		g.addr = byte(newConf.I2cAddr)
+
+		b, err := board.FromDependencies(deps, newConf.Board)
+		if err != nil {
+			return nil, fmt.Errorf("gps init: failed to find board: %w", err)
+		}
+		localB, ok := b.(board.LocalBoard)
+		if !ok {
+			return nil, fmt.Errorf("board %s is not local", newConf.Board)
+		}
+
+		i2cbus, ok := localB.I2CByName(newConf.I2CBus)
+		if !ok {
+			return nil, fmt.Errorf("gps init: failed to find i2c bus %s", newConf.I2CBus)
+		}
+		g.bus = i2cbus
 	}
-
-	// I2C address only, assumes address is correct since this was checked when gps was initialized
-	g.addr = byte(newConf.I2cAddr)
 
 	if err := g.start(); err != nil {
 		return nil, err

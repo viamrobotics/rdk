@@ -1,47 +1,21 @@
 {
+  "extends": "@viamrobotics/typescript-config/base.json",
   "compilerOptions": {
-    "target": "ESNext",
-    "module": "ESNext",
-    "useDefineForClassFields": true,
-    "declaration": true,
-    "strict": true,
-    "jsx": "preserve",
-    "importHelpers": true,
-    "moduleResolution": "Node",
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "skipLibCheck": true,
-    "esModuleInterop": true,
-    "allowSyntheticDefaultImports": true,
-    "noImplicitAny": true,
-    "noImplicitThis": true,
-    "alwaysStrict": true,
-    "strictNullChecks": true,
-    "strictFunctionTypes": true,
-    "strictBindCallApply": true,
-    "strictPropertyInitialization": true,
     "types": [
       "vite/client",
+      "@vue-macros/reactivity-transform/macros-global"
     ],
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noImplicitReturns": true,
-    "noFallthroughCasesInSwitch": true,
-    "noUncheckedIndexedAccess": true,
-    "noImplicitOverride": true,
-    "forceConsistentCasingInFileNames": true,
-    "lib": [
-      "ESNext",
-      "DOM",
-      "DOM.iterable",
-      "scripthost"
-    ],
+  
+    // Export options
+    "declaration": true,
     "outDir": "dist",
     "baseUrl": "./",
     "paths": {
       "@/*": ["src/*"],
     },
+
+    "noPropertyAccessFromIndexSignature": false,
+    "exactOptionalPropertyTypes": false,
   },
-  "include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/.vue"],
-  "references": [{ "path": "./tsconfig.node.json" }]
+  "include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.vue", "src/**/*.svelte"],
 }

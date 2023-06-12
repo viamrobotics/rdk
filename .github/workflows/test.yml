@@ -17,11 +17,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - arch: [buildjet-16vcpu-ubuntu-2204]
+          - arch: [buildjet-8vcpu-ubuntu-2204]
             image: ghcr.io/viamrobotics/canon:amd64-cache
             platform: linux/amd64
             test_cmd: "make cover test-web"
-          - arch: [buildjet-16vcpu-ubuntu-2204-arm]
+          - arch: [buildjet-8vcpu-ubuntu-2204-arm]
             image: ghcr.io/viamrobotics/canon:arm64-cache
             platform: linux/arm64
             test_cmd: "make cover test-web"

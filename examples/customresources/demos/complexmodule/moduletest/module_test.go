@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
-	"os/exec"
 	"strconv"
 	"testing"
 	"time"
@@ -24,6 +23,7 @@ import (
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/services/navigation"
+	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/test"
 	goutils "go.viam.com/utils"
@@ -40,18 +40,6 @@ func TestComplexModule(t *testing.T) {
 
 	// Modify the example config to run directly, without compiling the module first.
 	cfgFilename, port, err := modifyCfg(t, utils.ResolveFile("examples/customresources/demos/complexmodule/module.json"), logger)
-	test.That(t, err, test.ShouldBeNil)
-	defer func() {
-		test.That(t, os.Remove(cfgFilename), test.ShouldBeNil)
-	}()
-
-	// Build a binary server and module. This seperate process avoids having custom APIs (imported above) in the parent server.
-	// Compiling is needed because "go run ..." doesn't pass signals. https://github.com/golang/go/issues/40467
-	// Precompiling also avoids some timeout issues when building takes too long.
-	builder := exec.Command("bash", "-c", "make -s server && cd examples/customresources/demos/complexmodule && go build .")
-	builder.Dir = utils.ResolveFile("")
-	out, err := builder.CombinedOutput()
-	test.That(t, string(out), test.ShouldEqual, "")
 	test.That(t, err, test.ShouldBeNil)
 
 	server := pexec.NewManagedProcess(pexec.ProcessConfig{
@@ -322,6 +310,11 @@ func connect(port string, logger golog.Logger) (robot.Robot, error) {
 }
 
 func modifyCfg(t *testing.T, cfgIn string, logger golog.Logger) (string, string, error) {
+	modPath, err := testutils.BuildTempModule(t, "examples/customresources/demos/complexmodule")
+	if err != nil {
+		return "", "", err
+	}
+
 	p, err := goutils.TryReserveRandomPort()
 	if err != nil {
 		return "", "", err
@@ -339,7 +332,7 @@ func modifyCfg(t *testing.T, cfgIn string, logger golog.Logger) (string, string,
 		return "", "", err
 	}
 	cfg.Network.BindAddress = "localhost:" + port
-	cfg.Modules[0].ExePath = utils.ResolveFile("examples/customresources/demos/complexmodule/run.sh")
+	cfg.Modules[0].ExePath = modPath
 	output, err := json.Marshal(cfg)
 	if err != nil {
 		return "", "", err
@@ -371,15 +364,6 @@ func TestValidationFailure(t *testing.T) {
 	// fail modular Validation due to a missing "motorL" attribute.
 	cfgFilename, port, err := modifyCfg(t,
 		utils.ResolveFile("examples/customresources/demos/complexmodule/moduletest/bad_modular_validation.json"), logger)
-	test.That(t, err, test.ShouldBeNil)
-	defer func() {
-		test.That(t, os.Remove(cfgFilename), test.ShouldBeNil)
-	}()
-
-	builder := exec.Command("bash", "-c", "make -s server && cd examples/customresources/demos/complexmodule && go build .")
-	builder.Dir = utils.ResolveFile("")
-	out, err := builder.CombinedOutput()
-	test.That(t, string(out), test.ShouldEqual, "")
 	test.That(t, err, test.ShouldBeNil)
 
 	server := pexec.NewManagedProcess(pexec.ProcessConfig{
