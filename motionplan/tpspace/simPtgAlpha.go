@@ -18,6 +18,7 @@ type simPtgAlpha struct {
 	maxDps float64
 }
 
+// NewAlphaPTG creates a new PrecomputePTG of type simPtgAlpha.
 func NewAlphaPTG(maxMps, maxDps, k float64) PrecomputePTG {
 	if k <= 0 {
 		return nil
@@ -28,7 +29,7 @@ func NewAlphaPTG(maxMps, maxDps, k float64) PrecomputePTG {
 	}
 }
 
-func (ptg *simPtgAlpha) PtgDiffDriveSteer(alpha, t, x, y, phi float64) (float64, float64, error) {
+func (ptg *simPtgAlpha) PtgVelocities(alpha, t, x, y, phi float64) (float64, float64, error) {
 	// In order to know what to set our angvel at, we need to know how far into the path we are
 	atA := wrapTo2Pi(alpha - phi)
 	if atA > math.Pi {

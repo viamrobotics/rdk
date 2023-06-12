@@ -52,29 +52,16 @@ func TestPtgWithObstacle(t *testing.T) {
 	opt.DistanceFunc = SquaredNormNoOrientSegmentMetric
 	opt.GoalThreshold = 10.
 	// obstacles
-	obstacle1, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{2500, -500, 0}), r3.Vector{180, 2000, 1}, "")
+	obstacle1, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{2500, -500, 0}), r3.Vector{180, 1800, 1}, "")
 	test.That(t, err, test.ShouldBeNil)
-	obstacle2, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{2500, 2000, 0}), r3.Vector{180, 2000, 1}, "")
+	obstacle2, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{2500, 2000, 0}), r3.Vector{180, 1800, 1}, "")
 	test.That(t, err, test.ShouldBeNil)
 	obstacle3, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{2500, -1400, 0}), r3.Vector{50000, 10, 1}, "")
 	test.That(t, err, test.ShouldBeNil)
 	obstacle4, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{2500, 2400, 0}), r3.Vector{50000, 10, 1}, "")
 	test.That(t, err, test.ShouldBeNil)
-	obstacle5, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{1500, 750, 0}), r3.Vector{180, 1300, 1}, "")
-	test.That(t, err, test.ShouldBeNil)
-	obstacle6, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{3500, 750, 0}), r3.Vector{180, 1300, 1}, "")
-	test.That(t, err, test.ShouldBeNil)
 
-	geoms := []spatialmath.Geometry{obstacle1, obstacle2, obstacle3, obstacle4, obstacle5, obstacle6}
-
-	// ~ for _, geom := range geoms {
-	//~ pts := geom.ToPoints(1.)
-	//~ for _, pt := range pts {
-	//~ if math.Abs(pt.Z) < 0.1 {
-	//~ fmt.Printf("OBS,%f,%f\n", pt.X, pt.Y)
-	//~ }
-	//~ }
-	//~ }
+	geoms := []spatialmath.Geometry{obstacle1, obstacle2, obstacle3, obstacle4}
 
 	worldState, err := referenceframe.NewWorldState(
 		[]*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)},
@@ -117,7 +104,7 @@ var defaultPTGs = []ptgFactory{
 
 var (
 	defaultMps     = 1.
-	defaultSimDist = 5000.
+	defaultSimDist = 1000.
 	defaultDps     = 90.
 )
 

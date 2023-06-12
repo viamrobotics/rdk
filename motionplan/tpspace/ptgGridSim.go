@@ -13,16 +13,16 @@ var (
 	defaultAlphaCnt uint = 121
 	defaultTurnRad       = 100. // in mm, an approximate constant for estimating arc distances?
 
+	defaultSearchRadius = 10.
+
 	defaultMaxHeadingChange = 1.95 * math.Pi
 )
 
 // This does something with circles
 // Other ptgs will be based on this ptg somehow.
 type ptgGridSim struct {
-	resolution float64 // mm
-	refDist    float64
-	numPaths   uint
-	alphaCnt   uint
+	refDist  float64
+	alphaCnt uint
 
 	maxTime float64 // secs of robot execution to simulate
 	diffT   float64 // discretize trajectory simulation to this time granularity
@@ -35,20 +35,23 @@ type ptgGridSim struct {
 
 	// Discretized x[y][]node maps for rapid NN lookups
 	trajNodeGrid map[int]map[int][]*TrajNode
+	searchRad    float64 // Distance around a query point to search for precompute in the cached grid
 }
 
+// NewPTGGridSim creates a new PTG by simulating a PrecomputePTG for some distance, then cacheing the results in a grid for fast lookup.
 func NewPTGGridSim(simPTG PrecomputePTG, arcs uint, simDist float64) (PTG, error) {
 	if arcs == 0 {
 		arcs = defaultAlphaCnt
 	}
 
 	ptg := &ptgGridSim{
-		refDist:  simDist,
-		alphaCnt: arcs,
-		maxTime:  defaultMaxTime,
-		diffT:    defaultDiffT,
-		minDist:  defaultMinDist,
-		turnRad:  defaultTurnRad,
+		refDist:   simDist,
+		alphaCnt:  arcs,
+		maxTime:   defaultMaxTime,
+		diffT:     defaultDiffT,
+		minDist:   defaultMinDist,
+		turnRad:   defaultTurnRad,
+		searchRad: defaultSearchRadius,
 
 		trajNodeGrid: map[int]map[int][]*TrajNode{},
 	}
@@ -63,14 +66,14 @@ func NewPTGGridSim(simPTG PrecomputePTG, arcs uint, simDist float64) (PTG, error
 	return ptg, nil
 }
 
-func (ptg *ptgGridSim) WorldSpaceToTP(x, y, r float64) []*TrajNode {
+func (ptg *ptgGridSim) WorldSpaceToTP(x, y float64) []*TrajNode {
 	nearbyNodes := []*TrajNode{}
 
 	// First, try to do a quick grid-based lookup
 	// TODO: an octree should be faster
-	for tx := int(math.Round(x - r)); tx < int(math.Round(x+r)); tx++ {
+	for tx := int(math.Round(x - ptg.searchRad)); tx < int(math.Round(x+ptg.searchRad)); tx++ {
 		if ptg.trajNodeGrid[tx] != nil {
-			for ty := int(math.Round(y - r)); ty < int(math.Round(y+r)); ty++ {
+			for ty := int(math.Round(y - ptg.searchRad)); ty < int(math.Round(y+ptg.searchRad)); ty++ {
 				nearbyNodes = append(nearbyNodes, ptg.trajNodeGrid[tx][ty]...)
 			}
 		}
@@ -139,7 +142,7 @@ func (ptg *ptgGridSim) simulateTrajectories(simPtg PrecomputePTG) ([][]*TrajNode
 	allTraj := make([][]*TrajNode, 0, ptg.alphaCnt)
 
 	for k := uint(0); k < ptg.alphaCnt; k++ {
-		alpha := index2alpha(uint(k), ptg.alphaCnt)
+		alpha := index2alpha(k, ptg.alphaCnt)
 
 		// Initialize trajectory with an all-zero node
 		alphaTraj := []*TrajNode{{Pose: spatialmath.NewZeroPose()}}
@@ -165,7 +168,7 @@ func (ptg *ptgGridSim) simulateTrajectories(simPtg PrecomputePTG) ([][]*TrajNode
 
 		// Step through each time point for this alpha
 		for t < ptg.maxTime && dist < ptg.refDist && accumulatedHeadingChange < defaultMaxHeadingChange {
-			v, w, err = simPtg.PtgDiffDriveSteer(alpha, t, x, y, phi)
+			v, w, err = simPtg.PtgVelocities(alpha, t, x, y, phi)
 			if err != nil {
 				return nil, err
 			}
