@@ -56,7 +56,7 @@ class="gantry"
     variant="danger"
     icon="stop-circle"
     label="Stop"
-    on:click.stop={stop}
+    on:click|stopPropagation={stop}
     />
 </div>
 <div class="overflow-auto border border-t-0 border-medium p-4">
