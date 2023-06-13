@@ -11,8 +11,8 @@ import {
     robotApi,
     type ServiceError,
 } from '@viamrobotics/sdk';
-import { toast } from '../../lib/toast';
-import { rcLogConditionally } from '../../lib/log';
+import { toast } from '@/lib/toast';
+import { rcLogConditionally } from '@/lib/log';
 
 export let name:string;
 export let client:Client;
