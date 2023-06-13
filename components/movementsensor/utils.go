@@ -84,10 +84,36 @@ type LastError struct {
 	count int     // How many items in errs are non-nil
 }
 
+// LastPosition stores the last position seen by the movement sensor.
+type LastPosition struct {
+	lastposition *geo.Point
+	mu           sync.Mutex
+}
+
 // NewLastError creates a LastError object which will let you retrieve the most recent error if at
 // least `threshold` of the most recent `size` items put into it are non-nil.
 func NewLastError(size, threshold int) LastError {
 	return LastError{errs: make([]error, size), threshold: threshold}
+}
+
+// NewLastPosition creates a new point that's (NaN, NaN)
+// go-staticcheck.
+func NewLastPosition() LastPosition {
+	return LastPosition{lastposition: geo.NewPoint(math.NaN(), math.NaN())}
+}
+
+// GetLastPosition returns the last known position.
+func (lp *LastPosition) GetLastPosition() *geo.Point {
+	lp.mu.Lock()
+	defer lp.mu.Unlock()
+	return lp.lastposition
+}
+
+// SetLastPosition updates the last known position.
+func (lp *LastPosition) SetLastPosition(position *geo.Point) {
+	lp.mu.Lock()
+	defer lp.mu.Unlock()
+	lp.lastposition = position
 }
 
 // Set stores an error to be retrieved later.
@@ -133,4 +159,22 @@ func (le *LastError) Get() error {
 	le.errs = make([]error, le.size)
 	le.count = 0
 	return errToReturn
+}
+
+// ArePointsEqual checks if two geo.Point instances are equal.
+func (lp *LastPosition) ArePointsEqual(p1, p2 *geo.Point) bool {
+	if p1 == nil || p2 == nil {
+		return p1 == p2
+	}
+	return p1.Lng() == p2.Lng() && p1.Lat() == p2.Lat()
+}
+
+// IsZeroPosition checks if a geo.Point represents the zero position (0, 0).
+func (lp *LastPosition) IsZeroPosition(p *geo.Point) bool {
+	return p.Lng() == 0 && p.Lat() == 0
+}
+
+// IsPositionNaN checks if a geo.Point in math.NaN().
+func (lp *LastPosition) IsPositionNaN(p *geo.Point) bool {
+	return math.IsNaN(p.Lng()) && math.IsNaN(p.Lat())
 }
