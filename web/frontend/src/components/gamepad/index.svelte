@@ -18,7 +18,7 @@ export let name:string;
 export let client:Client;
 export let statusStream: ResponseStream<robotApi.StreamStatusResponse> | null;
     
-let gamepadIdx = <number | null> (null);
+let gamepadIdx: number | null = null;
 let gamepadConnectedPrev = false;
 let enabled = false;
     
