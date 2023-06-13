@@ -282,7 +282,7 @@ func passTime(ctx context.Context, mc *clk.Mock, interval time.Duration) chan st
 	return done
 }
 
-// testFilesContainSensorData verifies that the files in `dir` contain sensor data, and that there are `expectedUniqueDataValues` num of unique datapoints.
+// testFilesContainSensorData verifies that the files in `dir` contain sensor data, and calls `validateSensorData` on the data.
 func testFilesContainSensorData(t *testing.T, dir string, validateSensorData func(*testing.T, []*v1.SensorData)) {
 	t.Helper()
 	var sd []*v1.SensorData
