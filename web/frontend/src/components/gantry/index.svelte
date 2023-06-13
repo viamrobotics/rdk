@@ -81,32 +81,32 @@ class="gantry"
         {#each status.parts as part}
         <tr>
         <th class="border border-medium p-2">
-            { pp.axis }
+            { part.axis }
         </th>
         <td class="flex gap-2 p-2">
             <v-button
             class="flex-nowrap"
             label="--"
-            on:click={increment(pp.axis, -10)}
+            on:click={increment(part.axis, -10)}
             />
             <v-button
             label="-"
-            on:click={increment(pp.axis, -1)}
+            on:click={increment(part.axis, -1)}
             />
             <v-button
             label="+"
-            on:click={increment(pp.axis, 1)}
+            on:click={increment(part.axis, 1)}
             />
             <v-button
             label="++"
-            on:click={increment(pp.axis, 10)}
+            on:click={increment(part.axis, 10)}
             />
         </td>
         <td class="border border-medium p-2">
-            { pp.pos.toFixed(2) }
+            { part.pos.toFixed(2) }
         </td>
         <td class="border border-medium p-2">
-            { pp.length }
+            { part.length }
         </td>
         </tr>
         {/each}
