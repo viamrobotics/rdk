@@ -27,8 +27,6 @@ type PinDefinition struct {
 	PWMID               int    // -1 for none
 }
 
-// board types have to be below so non-linux devices will compile
-
 // BoardInformation details pin definitions and device compatibility for a particular board.
 type BoardInformation struct {
 	PinDefinitions []PinDefinition

@@ -17,7 +17,7 @@ import (
 
 // adapted from https://github.com/NVIDIA/jetson-gpio (MIT License)
 
-// GetGPIOBoardMappings attempts to find a compatible board-pin mapping for the given mappings.
+// GetGPIOBoardMappings attempts to find a compatible GPIOBoardMapping for the given board.
 func GetGPIOBoardMappings(modelName string, boardInfoMappings map[string]BoardInformation) (map[int]GPIOBoardMapping, error) {
 	pinDefs, err := getCompatiblePinDefs(modelName, boardInfoMappings)
 	if err != nil {
@@ -75,11 +75,12 @@ func readIntFile(filePath string) (int, error) {
 	return int(resultInt64), err
 }
 
-func getGpioChipDefs(pinDefs []PinDefinition) (map[int]gpioChipData, error) {
-	gpioChipsInfo := map[int]gpioChipData{}
+// getGpioChipDefs returns of map of chip ngpio# to the corresponding gpio chip name
+func getGpioChipDefs(pinDefs []PinDefinition) (map[int]string, error) {
+	gpioChipsInfo := map[int]string{}
 
 	allDevices := gpio.ChipDevices()
-	gpioChipNgpios := make(map[int]string, len(allDevices)) // maps chipNgpio -> string gpiochip#
+	ngpioToChipName := make(map[int]string, len(allDevices)) // maps chipNgpio -> string gpiochip#
 	for _, dev := range allDevices {
 		chip, err := gpio.OpenChip(dev)
 		if err != nil {
@@ -91,29 +92,30 @@ func getGpioChipDefs(pinDefs []PinDefinition) (map[int]gpioChipData, error) {
 			return nil, err
 		}
 
-		gpioChipNgpios[int(chipInfo.NumLines)] = chipInfo.Name
+		// should not have two chips with same ngpio #
+		if _, ok := ngpioToChipName[int(chipInfo.NumLines)]; ok {
+			golog.Global().Errorf("Board has multiple GPIO chips with the same ngpio value, %d!", chipInfo.NumLines)
+		}
+		ngpioToChipName[int(chipInfo.NumLines)] = chipInfo.Name
 	}
 
-	gpioConfigNgpios := make(map[int]struct{}, len(pinDefs))
+	expectedNgpios := make(map[int]struct{}, len(pinDefs))
 	for _, pinDef := range pinDefs {
 		for n := range pinDef.GPIOChipRelativeIDs {
-			gpioConfigNgpios[n] = struct{}{} // get a "set" of all ngpio numbers on the board
+			expectedNgpios[n] = struct{}{} // get a "set" of all ngpio numbers on the board
 		}
 	}
 
 	// for each chip in the board config, find the right gpioChip dir
-	for chipNgpio := range gpioConfigNgpios {
-		dir, ok := gpioChipNgpios[chipNgpio]
+	for chipNgpio := range expectedNgpios {
+		dir, ok := ngpioToChipName[chipNgpio]
 
 		if !ok {
 			return nil, fmt.Errorf("unknown GPIO device with ngpio %d",
 				chipNgpio)
 		}
 
-		gpioChipsInfo[chipNgpio] = gpioChipData{
-			Dir:   dir,
-			Ngpio: chipNgpio,
-		}
+		gpioChipsInfo[chipNgpio] = dir
 	}
 
 	return gpioChipsInfo, nil
@@ -186,7 +188,7 @@ func getPwmChipDefs(pinDefs []PinDefinition) (map[string]pwmChipData, error) {
 	return pwmChipsInfo, nil
 }
 
-func getBoardMapping(pinDefs []PinDefinition, gpioChipsInfo map[int]gpioChipData,
+func getBoardMapping(pinDefs []PinDefinition, gpioChipsInfo map[int]string,
 	pwmChipsInfo map[string]pwmChipData,
 ) (map[int]GPIOBoardMapping, error) {
 	data := make(map[int]GPIOBoardMapping, len(pinDefs))
@@ -203,7 +205,7 @@ func getBoardMapping(pinDefs []PinDefinition, gpioChipsInfo map[int]gpioChipData
 			break // each gpio pin should only be associated with one gpiochip in the config
 		}
 
-		gpioChipInfo, ok := gpioChipsInfo[ngpio]
+		gpioChipDir, ok := gpioChipsInfo[ngpio]
 		if !ok {
 			return nil, fmt.Errorf("unknown GPIO device for chip with ngpio %d, pin %d",
 				ngpio, key)
@@ -226,13 +228,13 @@ func getBoardMapping(pinDefs []PinDefinition, gpioChipsInfo map[int]gpioChipData
 			}
 		}
 
-		chipRelativeID, ok := pinDef.GPIOChipRelativeIDs[gpioChipInfo.Ngpio]
+		chipRelativeID, ok := pinDef.GPIOChipRelativeIDs[ngpio]
 		if !ok {
 			chipRelativeID = pinDef.GPIOChipRelativeIDs[-1]
 		}
 
 		data[key] = GPIOBoardMapping{
-			GPIOChipDev:    gpioChipInfo.Dir,
+			GPIOChipDev:    gpioChipDir,
 			GPIO:           chipRelativeID,
 			GPIOName:       pinDef.PinNameCVM,
 			PWMSysFsDir:    pwmChipInfo.Dir,
