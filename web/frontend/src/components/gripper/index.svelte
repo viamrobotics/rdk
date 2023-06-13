@@ -49,7 +49,7 @@ const grab = () => {
     <v-button
       variant="danger"
       icon="stop-circle"
-      label="STOP"
+      label="Stop"
       on:click.stop={stop}
     />
   </div>
