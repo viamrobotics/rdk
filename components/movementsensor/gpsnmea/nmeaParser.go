@@ -1,6 +1,7 @@
 package gpsnmea
 
 import (
+	"math"
 	"strconv"
 	"strings"
 
@@ -123,8 +124,8 @@ func (g *gpsData) parseAndUpdate(line string) error {
 	}
 
 	if g.location == nil {
-		g.location = geo.NewPoint(0, 0)
-		errs = multierr.Combine(errs, errors.New("no location parsed for nmea gps, using default value of lat:0, long: 0"))
+		g.location = geo.NewPoint(math.NaN(), math.NaN())
+		errs = multierr.Combine(errs, errors.New("no location parsed for nmea gps, using default value of lat: NaN, long: NaN"))
 		return errs
 	}
 	return nil
