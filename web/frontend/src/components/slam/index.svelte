@@ -40,7 +40,7 @@ let show2d = false;
 let show3d = false;
 let showAxes = true;
 let destination: THREE.Vector2 | undefined;
-let labelUnits = 'm'
+let labelUnits = 'm';
 
 $: loaded2d = pointcloud !== undefined && pose !== undefined;
 $: moveClicked = operations.find(({ op }) => op.method.includes('MoveOnMap'));
@@ -287,7 +287,7 @@ onDestroy(() => {
           >
             ({labelUnits})
           </button>
-          
+
         </div>
         <div class="flex flex-row items-end gap-2 pb-2">
           <v-input
@@ -322,7 +322,7 @@ onDestroy(() => {
             on:keydown={deleteDestinationMarker}
           />
         </div>
-        
+
         <v-switch
           class="pt-2"
           label="Show grid"
@@ -369,7 +369,7 @@ onDestroy(() => {
             </div>
             <div class="flex flex-col gap-0.5 pl-10">
               <p class="text-xs">
-                Current orientation 
+                Current orientation
               </p>
 
               {#if pose}
