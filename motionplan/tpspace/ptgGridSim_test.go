@@ -24,7 +24,7 @@ func TestSim(t *testing.T) {
 		
 		ptgGen := ptg(defaultMps, defaultDps, 1.)
 		test.That(t, ptgGen, test.ShouldNotBeNil)
-		_, err := NewPTGGridSim(ptgGen, defaultAlphaCnt)
-		test.That(t, err, test.ShouldNotBeNil)
+		_, err := NewPTGGridSim(ptgGen, defaultAlphaCnt, 1000.)
+		test.That(t, err, test.ShouldBeNil)
 	}
 }
