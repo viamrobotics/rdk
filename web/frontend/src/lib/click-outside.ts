@@ -16,7 +16,7 @@ export const clickOutside = (element: HTMLElement) => {
       callback = cb;
     },
     destroy () {
-      document.body.removeEventListener('click', callback);
+      document.body.removeEventListener('click', onClick);
     },
   };
 };

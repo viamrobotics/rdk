@@ -330,7 +330,7 @@
               step={1}
               suffix="%"
               label="Power %"
-              value="power"
+              value={power}
               on:input={(event) => {
                 power = event.detail.value;
               }}
@@ -418,13 +418,13 @@
                   }}
                 />
               </div>
-              <v-button
-                icon="play-circle-filled"
-                variant="success"
-                label="Run"
-                on:click={baseRun}
-              />
             {/if}
+            <v-button
+              icon="play-circle-filled"
+              variant="success"
+              label="Run"
+              on:click={baseRun}
+            />
           </div>
         {/if}
 
@@ -496,6 +496,7 @@
               refreshRate={refreshFrequency}
               {streamManager}
               {statusStream}
+              triggerRefresh={triggerRefresh}
             />
           {/if}
         {/each}
