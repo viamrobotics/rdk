@@ -275,6 +275,7 @@ func passTime(ctx context.Context, mc *clk.Mock, interval time.Duration) chan st
 	return done
 }
 
+// testFilesContainSensorData verifies that the files in `dir` contain sensor data, and that there are `expectedUniqueDataValues` num of unique datapoints.
 func testFilesContainSensorData(t *testing.T, dir string, expectedUniqueDataValues int) {
 	t.Helper()
 	var sd []*v1.SensorData
@@ -305,6 +306,7 @@ func testFilesContainSensorData(t *testing.T, dir string, expectedUniqueDataValu
 	test.That(t, len(valueSet), test.ShouldEqual, expectedUniqueDataValues)
 }
 
+// waitForCaptureFilesToExceedN returns once `captureDir` contains more than `n` files.
 func waitForCaptureFilesToExceedN(captureDir string, n int) {
 	totalWait := time.Second * 2
 	waitPerCheck := time.Millisecond * 10
