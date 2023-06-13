@@ -78,7 +78,7 @@ class="gantry"
         </tr>
     </thead>
     <tbody>
-        {#each status.parts as pp}
+        {#each status.parts as part}
         <tr>
         <th class="border border-medium p-2">
             { pp.axis }
