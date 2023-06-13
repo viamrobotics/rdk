@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"math"
-	"time"
 
 	"github.com/golang/geo/r3"
 
@@ -95,7 +94,6 @@ func (kwb *kinematicWheeledBase) GoToInputs(ctx context.Context, desired []refer
 				return nil
 			}
 		}
-		time.Sleep(time.Millisecond*500)
 	}
 	return err
 }
