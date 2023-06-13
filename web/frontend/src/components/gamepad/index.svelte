@@ -85,9 +85,7 @@ const nextTS = () => {
     return nowTS;
 };
     
-const currentGamepad = () => {
-    return gamepadIdx === null ? null : navigator.getGamepads()[gamepadIdx];
-};
+$: currentGamepad = gamepadIdx === null ? null : navigator.getGamepads()[gamepadIdx];
     
 const connectEvent = (con: boolean) => {
     const gamepad = currentGamepad();
