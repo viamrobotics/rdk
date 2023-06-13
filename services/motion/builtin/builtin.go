@@ -12,7 +12,6 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
-
 	servicepb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/base"
@@ -250,9 +249,24 @@ func (ms *builtIn) MoveOnMap(
 	ms.logger.Debugf("base position: %v", inputs)
 
 	// make call to motionplan
-	dst := spatialmath.NewPoseFromPoint(destination.Point())
-	ms.logger.Debugf("goal position: %v", dst.Point())
-	plan, err := motionplan.PlanFrameMotion(ctx, ms.logger, dst, kb.ModelFrame(), inputs, nil, extra)
+	dst := referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewPoseFromPoint(destination.Point()))
+
+	f := kb.ModelFrame()
+	fs := referenceframe.NewEmptyFrameSystem("")
+	if err := fs.AddFrame(f, fs.World()); err != nil {
+		return false, err
+	}
+
+	fs.AddFrame()
+
+	seedMap := map[string][]referenceframe.Input{f.Name(): inputs}
+
+	solutionMap, err := motionplan.PlanMotion(ctx, ms.logger, dst, f, seedMap, fs, nil, nil, extra)
+	if err != nil {
+		return false, err
+	}
+	plan, err := FrameStepsFromRobotPath(f.Name(), solutionMap)
+
 	ms.logger.Debugf("Planned Path: %+v", plan)
 	if err != nil {
 		return false, err
