@@ -40,7 +40,7 @@ let show2d = false;
 let show3d = false;
 let showAxes = true;
 let destination: THREE.Vector2 | undefined;
-let labelUnits = 'mm'
+let labelUnits = 'm'
 
 $: loaded2d = pointcloud !== undefined && pose !== undefined;
 $: moveClicked = operations.find(({ op }) => op.method.includes('MoveOnMap'));
