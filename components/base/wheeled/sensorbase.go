@@ -110,7 +110,6 @@ func (sb *sensorBase) isPolling() bool {
 
 // Spin commands a base to turn about its center at a angular speed and for a specific angle.
 func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
-	sb.logger.Infof("angleDeg %v, degsPerSec %v", angleDeg, degsPerSec)
 	switch {
 	case int(angleDeg) >= 360:
 		sb.setPolling(false)
@@ -197,14 +196,12 @@ func (sb *sensorBase) stopSpinWithSensor(
 			}
 
 			if err = ctx.Err(); err != nil {
-				sb.logger.Info("context cancelled")
 				ticker.Stop()
 				return
 			}
 
 			select {
 			case <-ctx.Done():
-				sb.logger.Info("context done")
 				ticker.Stop()
 				return
 			case <-ticker.C:
@@ -238,11 +235,11 @@ func (sb *sensorBase) stopSpinWithSensor(
 				// check if we've overshot our target by the errTarget value
 				// check if we've travelled at all
 				if minTravel && (atTarget || overShot) {
-					// if sensorDebug {
-					sb.logger.Infof(
-						"stopping base with errAngle:%.2f, overshot? %t",
-						math.Abs(targetYaw-currYaw), overShot)
-					// }
+					if sensorDebug {
+						sb.logger.Infof(
+							"stopping base with errAngle:%.2f, overshot? %t",
+							math.Abs(targetYaw-currYaw), overShot)
+					}
 
 					if err := sb.Stop(ctx, nil); err != nil {
 						return
@@ -257,11 +254,6 @@ func (sb *sensorBase) stopSpinWithSensor(
 					return
 				}
 			}
-
-			// if utils.SelectContextOrWait(ctx, timeOut) {
-			// 	sb.Stop(ctx, nil)
-			// 	sb.logger.Infof("closing context with time")
-			// }
 		}
 	}, sb.activeBackgroundWorkers.Done)
 	return err
@@ -377,7 +369,6 @@ func (sb *sensorBase) SetPower(
 }
 
 func (sb *sensorBase) Stop(ctx context.Context, extra map[string]interface{}) error {
-	sb.logger.Info("stop called")
 	sb.opMgr.CancelRunning(ctx)
 	sb.setPolling(false)
 	return sb.wBase.Stop(ctx, extra)
