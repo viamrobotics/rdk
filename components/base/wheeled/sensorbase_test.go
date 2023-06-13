@@ -259,12 +259,12 @@ func TestSpinWithMovementSensor(t *testing.T) {
 	ctx := context.Background()
 	sensorCtx, sensorCancel := context.WithCancel(ctx)
 	sensorBase := &sensorBase{
-		logger:      logger,
-		wBase:       wb,
-		sensorLoopMu:    sync.Mutex{},
-		sensorLoopDone:  sensorCancel,
-		allSensors:  []movementsensor.MovementSensor{ms},
-		orientation: ms,
+		logger:         logger,
+		wBase:          wb,
+		sensorLoopMu:   sync.Mutex{},
+		sensorLoopDone: sensorCancel,
+		allSensors:     []movementsensor.MovementSensor{ms},
+		orientation:    ms,
 	}
 
 	err := sensorBase.stopSpinWithSensor(sensorCtx, 10, 50)

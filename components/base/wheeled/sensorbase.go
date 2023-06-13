@@ -110,7 +110,6 @@ func (sb *sensorBase) isPolling() bool {
 
 // Spin commands a base to turn about its center at a angular speed and for a specific angle.
 func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
-
 	sb.logger.Infof("angleDeg %v, degsPerSec %v", angleDeg, degsPerSec)
 	switch {
 	case int(angleDeg) >= 360:
@@ -125,7 +124,6 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 			sb.sensorLoopDone()
 		}
 
-		sb.logger.Infof("staring sensor loop")
 		sb.setPolling(true)
 		// start a sensor context for the sensor loop based on the longstanding base
 		// creator context
@@ -142,11 +140,13 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 
 		wb := sb.wBase.(*wheeledBase)
 		motor := wb.allMotors[0]
-		sb.opMgr.WaitTillNotPowered(ctx, 500*time.Millisecond, motor,
+		if err := sb.opMgr.WaitTillNotPowered(ctx, 500*time.Millisecond, motor,
 			func(context.Context, map[string]interface{}) error {
 				return nil
 			},
-		)
+		); err != nil {
+			return err
+		}
 		return nil
 	}
 }
@@ -158,7 +158,6 @@ func (sb *sensorBase) startRunningMotors(ctx context.Context, angleDeg, degsPerS
 	return sb.wBase.SetVelocity(ctx,
 		r3.Vector{X: 0, Y: 0, Z: 0},
 		r3.Vector{X: 0, Y: 0, Z: degsPerSec}, nil)
-
 }
 
 func (sb *sensorBase) stopSpinWithSensor(
@@ -264,7 +263,6 @@ func (sb *sensorBase) stopSpinWithSensor(
 			// 	sb.logger.Infof("closing context with time")
 			// }
 		}
-
 	}, sb.activeBackgroundWorkers.Done)
 	return err
 }
