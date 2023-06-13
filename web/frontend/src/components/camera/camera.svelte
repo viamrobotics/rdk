@@ -99,7 +99,6 @@ $: {
   updateCameraRefreshRate();
 }
 
-
 // Refresh camera when the trigger changes
 let lastTriggerRefresh = triggerRefresh;
 $: if (lastTriggerRefresh !== triggerRefresh) {
