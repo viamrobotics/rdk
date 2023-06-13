@@ -27,8 +27,7 @@ const (
 	testArmName    = "arm1"
 	testArmName2   = "arm2"
 	failArmName    = "arm3"
-	fakeArmName    = "arm4"
-	missingArmName = "arm5"
+	missingArmName = "arm4"
 )
 
 var pose = spatialmath.NewPoseFromPoint(r3.Vector{X: 1, Y: 2, Z: 3})

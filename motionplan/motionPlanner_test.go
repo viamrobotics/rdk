@@ -174,7 +174,7 @@ func TestPlanningWithGripper(t *testing.T) {
 // ------------------------.
 func simple2DMap() (*planConfig, error) {
 	// build model
-	limits := []frame.Limit{{Min: -100, Max: 100}, {Min: -100, Max: 100}, {Min: -2 * math.Pi, Max: 2 * math.Pi}}
+	limits := []frame.Limit{{Min: -100, Max: 100}, {Min: -100, Max: 100}}
 	physicalGeometry, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{X: 10, Y: 10, Z: 10}, "")
 	if err != nil {
 		return nil, err
@@ -527,7 +527,7 @@ func TestPlanMapMotion(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	model, err := frame.New2DMobileModelFrame(
 		"test",
-		[]frame.Limit{{-100, 100}, {-100, 100}, {-2 * math.Pi, 2 * math.Pi}},
+		[]frame.Limit{{-100, 100}, {-100, 100}},
 		sphere,
 	)
 	test.That(t, err, test.ShouldBeNil)

@@ -3,9 +3,9 @@ package inject
 import (
 	"context"
 
-	"github.com/edaniels/gostream"
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pkg/errors"
+	"github.com/viamrobotics/gostream"
 
 	"go.viam.com/rdk/components/audioinput"
 	"go.viam.com/rdk/resource"

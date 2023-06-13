@@ -74,6 +74,7 @@
     "build-prod": "node ./node_modules/vite/bin/vite.js build --no-sourcemap && npm run copy-prime-assets",
     "build-npm": "node ./node_modules/vite/bin/vite.js build --config vite.lib.config.ts && vue-tsc --project ./tsconfig.lib.json --emitDeclarationOnly",
     "typecheck": "vue-tsc --noEmit",
+    "check": "svelte-check --tsconfig ./tsconfig.json",
     "preview": "vite preview",
     "lint": "eslint 'src/**/*.{ts,vue,svelte}' --fix --ignore-pattern 'gen/'",
     "cypress:ci": "cypress run",

@@ -45,7 +45,7 @@ const move = (amount: number) => {
   <v-breadcrumbs slot="title" crumbs="servo" />
   <v-button
     slot="header"
-    label="STOP"
+    label="Stop"
     icon="stop-circle"
     variant="danger"
     on:click={stop}

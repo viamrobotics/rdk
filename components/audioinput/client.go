@@ -7,10 +7,10 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
-	"github.com/edaniels/gostream"
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pion/mediadevices/pkg/wave"
 	"github.com/pkg/errors"
+	"github.com/viamrobotics/gostream"
 	pb "go.viam.com/api/component/audioinput/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"

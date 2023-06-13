@@ -30,11 +30,11 @@ import {
 import ArmSvelte from './arm/index.svelte';
 import AudioInputSvelte from './audio-input/index.svelte';
 import Base from './base.vue';
-import Board from './board.vue';
+import BoardSvelte from './board/index.svelte';
 import CamerasListSvelte from './camera/index.svelte';
 import OperationsSessionsSvelte from './operations-sessions/index.svelte';
-import DoCommand from './do-command.vue';
-import Encoder from './encoder.vue';
+import DoCommandSvelte from './do-command/index.svelte';
+import EncoderSvelte from './encoder/index.svelte';
 import GantrySvelte from './gantry/index.svelte';
 import GripperSvelte from './gripper/index.svelte';
 import GamepadSvelte from './gamepad/index.svelte';
@@ -49,10 +49,13 @@ import { svelteAdapter } from '../lib/svelte-adapter';
 
 const Arm = svelteAdapter(ArmSvelte);
 const AudioInput = svelteAdapter(AudioInputSvelte);
+const Board = svelteAdapter(BoardSvelte);
 const CamerasList = svelteAdapter(CamerasListSvelte, { display: 'flex', 'flex-direction': 'column', gap: '1rem' });
 const Gantry = svelteAdapter(GantrySvelte);
 const Gripper = svelteAdapter(GripperSvelte);
 const Gamepad = svelteAdapter(GamepadSvelte);
+const DoCommand = svelteAdapter(DoCommandSvelte);
+const Encoder = svelteAdapter(EncoderSvelte);
 const InputController = svelteAdapter(InputControllerSvelte);
 const Motor = svelteAdapter(MotorSvelte);
 const MovementSensor = svelteAdapter(MovementSensorSvelte);
@@ -805,7 +808,7 @@ onUnmounted(() => {
         :key="encoder.name"
         :name="encoder.name"
         :client="client"
-        :status-stream="statusStream"
+        :statusStream="statusStream"
       />
 
       <!-- ******* GANTRY *******  -->
@@ -869,7 +872,6 @@ onUnmounted(() => {
         :key="controller.name"
         :name="controller.name"
         :status="(resourceStatusByName(controller) as any)"
-        class="input"
       />
 
       <!-- ******* WEB CONTROLS *******  -->

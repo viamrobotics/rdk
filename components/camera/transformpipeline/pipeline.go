@@ -9,8 +9,8 @@ import (
 	"image"
 
 	"github.com/edaniels/golog"
-	"github.com/edaniels/gostream"
 	"github.com/pkg/errors"
+	"github.com/viamrobotics/gostream"
 	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
 	goutils "go.viam.com/utils"

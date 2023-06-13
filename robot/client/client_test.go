@@ -16,12 +16,12 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-	"github.com/edaniels/gostream"
 	"github.com/golang/geo/r3"
 	"github.com/google/uuid"
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
+	"github.com/viamrobotics/gostream"
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
 	basepb "go.viam.com/api/component/base/v1"

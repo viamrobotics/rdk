@@ -6,9 +6,9 @@ import (
 	"image"
 	"sync"
 
-	"github.com/edaniels/gostream"
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pkg/errors"
+	"github.com/viamrobotics/gostream"
 	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/camera/v1"

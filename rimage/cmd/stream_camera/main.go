@@ -5,8 +5,8 @@ import (
 	"context"
 
 	"github.com/edaniels/golog"
-	"github.com/edaniels/gostream"
-	"github.com/edaniels/gostream/codec/x264"
+	"github.com/viamrobotics/gostream"
+	"github.com/viamrobotics/gostream/codec/x264"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 

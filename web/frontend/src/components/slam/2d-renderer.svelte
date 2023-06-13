@@ -290,7 +290,8 @@ onMount(() => {
 
 onDestroy(() => {
   stop();
-  scene.traverse((object) => dispose(object));
+  dispose(points);
+  dispose(intersectionPlane);
   removeUpdate?.();
 
   controls.removeEventListener('start', handleUserControl);
