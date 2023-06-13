@@ -44,6 +44,7 @@ let labelUnits = 'm';
 
 $: loaded2d = pointcloud !== undefined && pose !== undefined;
 $: moveClicked = operations.find(({ op }) => op.method.includes('MoveOnMap'));
+$: unitScale = labelUnits === 'm' ? 1 : 1000
 
 // get all resources which are bases
 $: baseResources = filterResources(resources, 'rdk', 'component', 'base');
@@ -294,7 +295,7 @@ onDestroy(() => {
             type="number"
             label="x"
             incrementor="slider"
-            value={destination ? (destination.x * (labelUnits === 'mm' ? 1000 : 1)).toFixed(5) : ''}
+            value={destination ? (destination.x * unitScale).toFixed(5) : ''}
             step={labelUnits === 'mm' ? '10' : '1'}
             on:input={handleUpdateDestX}
           />
@@ -302,7 +303,7 @@ onDestroy(() => {
             type="number"
             label="y"
             incrementor="slider"
-            value={destination ? (destination.y * (labelUnits === 'mm' ? 1000 : 1)).toFixed(5) : ''}
+            value={destination ? (destination.y * unitScale).toFixed(5) : ''}
             step={labelUnits === 'mm' ? '10' : '1'}
             on:input={handleUpdateDestY}
           />
@@ -357,13 +358,13 @@ onDestroy(() => {
               {#if pose}
                 <div class="flex flex-row items-center">
                   <p class="items-end pr-1.5 text-xs text-gray-500">x</p>
-                  <p>{(pose.getX() * (labelUnits === 'mm' ? 1000 : 1)).toFixed(1)}</p>
+                  <p>{(pose.getX() * unitScale).toFixed(1)}</p>
 
                   <p class="pl-6 pr-1.5 text-xs text-gray-500">y</p>
-                  <p>{(pose.getY() * (labelUnits === 'mm' ? 1000 : 1)).toFixed(1)}</p>
+                  <p>{(pose.getY() * unitScale).toFixed(1)}</p>
 
                   <p class="pl-6 pr-1.5 text-xs text-gray-500">z</p>
-                  <p>{(pose.getZ() * (labelUnits === 'mm' ? 1000 : 1)).toFixed(1)}</p>
+                  <p>{(pose.getZ() * unitScale).toFixed(1)}</p>
                 </div>
               {/if}
             </div>
