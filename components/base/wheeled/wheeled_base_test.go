@@ -334,6 +334,66 @@ func TestWheeledBaseConstructor(t *testing.T) {
 	test.That(t, len(wb.allMotors), test.ShouldEqual, 4)
 }
 
+func TestWheeledBaseReconfigure(t *testing.T) {
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+
+	// valid config
+	testCfg := newTestCfg()
+	deps, err := testCfg.Validate("path", resource.APITypeComponentName)
+	test.That(t, err, test.ShouldBeNil)
+	motorDeps := fakeMotorDependencies(t, deps)
+
+	newBase, err := createWheeledBase(ctx, motorDeps, testCfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	wb, ok := newBase.(*wheeledBase)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, len(wb.left), test.ShouldEqual, 2)
+	test.That(t, len(wb.right), test.ShouldEqual, 2)
+	test.That(t, len(wb.allMotors), test.ShouldEqual, 4)
+
+	// invert the motors to confirm that Reconfigure still occurs when array order/naming changes
+	newTestConf := newTestCfg()
+	newTestConf.ConvertedAttributes = &Config{
+		WidthMM:              100,
+		WheelCircumferenceMM: 1000,
+		Left:                 []string{"fr-m", "br-m"},
+		Right:                []string{"fl-m", "bl-m"},
+	}
+	deps, err = newTestConf.Validate("path", resource.APITypeComponentName)
+	test.That(t, err, test.ShouldBeNil)
+	motorDeps = fakeMotorDependencies(t, deps)
+	test.That(t, wb.Reconfigure(ctx, motorDeps, newTestConf), test.ShouldBeNil)
+
+	// Add a new motor to Left only to confirm that Reconfigure is impossible because cfg validation fails
+	newerTestCfg := newTestCfg()
+	newerTestCfg.ConvertedAttributes = &Config{
+		WidthMM:              100,
+		WheelCircumferenceMM: 1000,
+		Left:                 []string{"fl-m", "bl-m", "ml-m"},
+		Right:                []string{"fr-m", "br-m"},
+	}
+
+	deps, err = newerTestCfg.Validate("path", resource.APITypeComponentName)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "left and right need to have the same number of motors")
+	test.That(t, deps, test.ShouldBeNil)
+
+	// Add a motor to Right so Left and Right are now the same size again, confirm that Reconfigure
+	// occurs after the motor array size change
+	newestTestCfg := newTestCfg()
+	newestTestCfg.ConvertedAttributes = &Config{
+		WidthMM:              100,
+		WheelCircumferenceMM: 1000,
+		Left:                 []string{"fl-m", "bl-m", "ml-m"},
+		Right:                []string{"fr-m", "br-m", "mr-m"},
+	}
+
+	deps, err = newestTestCfg.Validate("path", resource.APITypeComponentName)
+	test.That(t, err, test.ShouldBeNil)
+	motorDeps = fakeMotorDependencies(t, deps)
+	test.That(t, wb.Reconfigure(ctx, motorDeps, newestTestCfg), test.ShouldBeNil)
+}
+
 func TestValidate(t *testing.T) {
 	cfg := &Config{}
 	deps, err := cfg.Validate("path")

@@ -694,7 +694,7 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 	for resName, res := range internalResources {
 		configCtx := ctx
 		if shouldTimeout {
-			ctxWithTimeout, timeoutCancel := context.WithTimeout(ctx, r.resourceConfigurationTimeout)
+			ctxWithTimeout, timeoutCancel := context.WithTimeout(configCtx, r.resourceConfigurationTimeout)
 			configCtx = ctxWithTimeout
 			defer timeoutCancel()
 		}

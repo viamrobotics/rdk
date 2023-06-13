@@ -530,7 +530,7 @@ func (manager *resourceManager) completeConfig(
 	for _, resName := range resourceNames {
 		configCtx := ctx
 		if robot.resourceConfigurationTimeout != 0 {
-			ctxWithTimeout, timeoutCancel := context.WithTimeout(ctx, robot.resourceConfigurationTimeout)
+			ctxWithTimeout, timeoutCancel := context.WithTimeout(configCtx, robot.resourceConfigurationTimeout)
 			configCtx = ctxWithTimeout
 			defer timeoutCancel()
 		}
