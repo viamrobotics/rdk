@@ -256,7 +256,7 @@ func helperVisualizeOctree(octree *BasicOctree, img *image.RGBA, pixelOffset r3.
 }
 
 func drawRectOutline(img *image.RGBA, x, y, side int) {
-	for i := 0; i < side; i++ {
+	for i := 0; i <= side; i++ {
 		img.Set(x, y+i, color.RGBA{0, 0, 0, 255})
 		img.Set(x+i, y, color.RGBA{0, 0, 0, 255})
 		img.Set(x+side, y+i, color.RGBA{0, 0, 0, 255})
@@ -265,8 +265,8 @@ func drawRectOutline(img *image.RGBA, x, y, side int) {
 }
 
 func drawRect(img *image.RGBA, x, y, side int, c color.RGBA) {
-	for i := 0; i < side; i++ {
-		for j := 0; j < side; j++ {
+	for i := 0; i <= side; i++ {
+		for j := 0; j <= side; j++ {
 			img.Set(x+i, y+j, c)
 		}
 	}
