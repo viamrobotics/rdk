@@ -144,7 +144,7 @@ func (wb *wheeledBase) Reconfigure(ctx context.Context, deps resource.Dependenci
 
 	wb.spinSlipFactor = newConf.SpinSlipFactor
 
-	updateMotors := func(curr []motor.Motor, fromConfig []string) ([]motor.Motor, error) {
+	updateMotors := func(curr []motor.Motor, fromConfig []string, whichMotor string) ([]motor.Motor, error) {
 		newMotors := make([]motor.Motor, 0)
 		if len(curr) != len(fromConfig) {
 			for _, name := range fromConfig {
@@ -155,7 +155,7 @@ func (wb *wheeledBase) Reconfigure(ctx context.Context, deps resource.Dependenci
 				}
 				m, err := motor.FromDependencies(deps, name)
 				if err != nil {
-					return newMotors, errors.Wrapf(err, "no motor named (%s)", name)
+					return newMotors, errors.Wrapf(err, "no %s motor named (%s)", whichMotor, name)
 				}
 				newMotors = append(newMotors, m)
 			}
@@ -171,7 +171,7 @@ func (wb *wheeledBase) Reconfigure(ctx context.Context, deps resource.Dependenci
 					for _, name := range fromConfig {
 						m, err := motor.FromDependencies(deps, name)
 						if err != nil {
-							return newMotors, errors.Wrapf(err, "no motor named (%s)", name)
+							return newMotors, errors.Wrapf(err, "no %s motor named (%s)", whichMotor, name)
 						}
 						newMotors = append(newMotors, m)
 					}
@@ -182,12 +182,12 @@ func (wb *wheeledBase) Reconfigure(ctx context.Context, deps resource.Dependenci
 		return newMotors, nil
 	}
 
-	left, err := updateMotors(wb.left, newConf.Left)
+	left, err := updateMotors(wb.left, newConf.Left, "left")
 	wb.left = left
 	if err != nil {
 		return err
 	}
-	right, err := updateMotors(wb.right, newConf.Right)
+	right, err := updateMotors(wb.right, newConf.Right, "right")
 	wb.right = right
 	if err != nil {
 		return err
