@@ -1,4 +1,4 @@
-<script lang="ts">
+<script lang='ts'>
 
 import { grpc } from '@improbable-eng/grpc-web';
 import { onMount, onDestroy } from 'svelte';
@@ -18,7 +18,7 @@ export let name:string;
 export let client:Client;
 export let statusStream: ResponseStream<robotApi.StreamStatusResponse> | null;
     
-let gamepadIdx = <number | null>(null);
+let gamepadIdx = <number | null> (null);
 let gamepadConnectedPrev = false;
 let enabled = false;
     

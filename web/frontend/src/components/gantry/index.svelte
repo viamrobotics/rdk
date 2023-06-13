@@ -7,39 +7,39 @@ import { rcLogConditionally } from '../../lib/log';
 
 export let name:string;
 export let status: {
-    parts: {
-        pos:number
-        axis:number
-        length:number
-    }[]
-}
+  parts: {
+    pos:number
+    axis:number
+    length:number
+  }[]
+};
 export let client:Client;
 
 const increment = (axis: number, amount: number) => {
-    const pos: number[] = [];
-    for (let i = 0; i < status.parts.length; i += 1) {
+  const pos: number[] = [];
+  for (let i = 0; i < status.parts.length; i += 1) {
     pos[i] = status.parts[i]!.pos;
-    }
-    pos[axis] += amount;
+  }
+  pos[axis] += amount;
 
-    const req = new gantryApi.MoveToPositionRequest();
-    req.setName(name);
-    req.setPositionsMmList(pos);
+  const req = new gantryApi.MoveToPositionRequest();
+  req.setName(name);
+  req.setPositionsMmList(pos);
 
-    rcLogConditionally(req);
-    client.gantryService.moveToPosition(req, new grpc.Metadata(), displayError);
+  rcLogConditionally(req);
+  client.gantryService.moveToPosition(req, new grpc.Metadata(), displayError);
 };
 
 const stop = () => {
-    const req = new gantryApi.StopRequest();
-    req.setName(name);
+  const req = new gantryApi.StopRequest();
+  req.setName(name);
 
-    rcLogConditionally(req);
-    client.gantryService.stop(req, new grpc.Metadata(), displayError);
+  rcLogConditionally(req);
+  client.gantryService.stop(req, new grpc.Metadata(), displayError);
 };
-    
+
 </script>
-    
+
 <v-collapse
 title={name}
 class="gantry"
