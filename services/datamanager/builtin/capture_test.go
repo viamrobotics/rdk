@@ -31,7 +31,6 @@ var (
 	remoteCollectorConfigPath                   = "services/datamanager/data/fake_robot_with_remote_and_data_manager.json"
 	emptyFileBytesSize                          = 100 // size of leading metadata message
 	captureInterval                             = time.Millisecond * 10
-	uniqueDataValues                            = 1
 )
 
 func TestDataCaptureEnabled(t *testing.T) {
@@ -150,7 +149,7 @@ func TestDataCaptureEnabled(t *testing.T) {
 
 			if !tc.initialServiceDisableStatus && !tc.initialCollectorDisableStatus {
 				waitForCaptureFilesToExceedN(initCaptureDir, 0)
-				testFilesContainSensorData(t, initCaptureDir, uniqueDataValues)
+				testFilesContainSensorData(t, initCaptureDir, nil)
 			} else {
 				initialCaptureFiles := getAllFileInfos(initCaptureDir)
 				test.That(t, len(initialCaptureFiles), test.ShouldEqual, 0)
@@ -183,7 +182,7 @@ func TestDataCaptureEnabled(t *testing.T) {
 
 			if !tc.newServiceDisableStatus && !tc.newCollectorDisableStatus {
 				waitForCaptureFilesToExceedN(updatedCaptureDir, 0)
-				testFilesContainSensorData(t, updatedCaptureDir, uniqueDataValues)
+				testFilesContainSensorData(t, updatedCaptureDir, nil)
 			} else {
 				updatedCaptureFiles := getAllFileInfos(updatedCaptureDir)
 				test.That(t, len(updatedCaptureFiles), test.ShouldEqual, 0)
@@ -226,16 +225,17 @@ func TestSwitchResource(t *testing.T) {
 	donePassingTime1 := passTime(passTimeCtx1, mockClock, captureInterval)
 
 	waitForCaptureFilesToExceedN(captureDir, 0)
-	testFilesContainSensorData(t, captureDir, uniqueDataValues)
+	testFilesContainSensorData(t, captureDir, nil)
 
 	cancelPassTime1()
 	<-donePassingTime1
 
-	// Change resource on robot.
+	// Change the resource named arm1 to show that the data manager recognizes that the collector has changed with no other config changes.
 	for resource := range resources {
 		if resource.Name == "arm1" {
 			newResource := inject.NewArm(resource.Name)
 			newResource.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
+				// Return a different value from the initial arm1 resource.
 				return spatialmath.NewPoseFromPoint(r3.Vector{X: 888, Y: 888, Z: 888}), nil
 			}
 			resources[resource] = newResource
@@ -252,7 +252,14 @@ func TestSwitchResource(t *testing.T) {
 
 	// Test that sensor data is captured from the new collector.
 	waitForCaptureFilesToExceedN(captureDir, len(getAllFileInfos(captureDir)))
-	testFilesContainSensorData(t, captureDir, uniqueDataValues+1)
+	testFilesContainSensorData(t, captureDir, func(t *testing.T, sd []*v1.SensorData) {
+		valueSet := map[float64]struct{}{}
+		for _, d := range sd {
+			valueSet[d.GetStruct().GetFields()["Number"].GetStructValue().GetFields()["Dual"].GetStructValue().GetFields()["Jmag"].GetNumberValue()] = struct{}{}
+		}
+		// Each resource's mocked capture method outputs a different value. Assert that we see data captured by the initial arm1 resource as well as the changed resource.
+		test.That(t, len(valueSet), test.ShouldEqual, 2)
+	})
 
 	cancelPassTime2()
 	<-donePassingTime2
@@ -276,10 +283,9 @@ func passTime(ctx context.Context, mc *clk.Mock, interval time.Duration) chan st
 }
 
 // testFilesContainSensorData verifies that the files in `dir` contain sensor data, and that there are `expectedUniqueDataValues` num of unique datapoints.
-func testFilesContainSensorData(t *testing.T, dir string, expectedUniqueDataValues int) {
+func testFilesContainSensorData(t *testing.T, dir string, validateSensorData func(*testing.T, []*v1.SensorData)) {
 	t.Helper()
 	var sd []*v1.SensorData
-	valueSet := map[float64]struct{}{}
 	filePaths := getAllFilePaths(dir)
 	for _, path := range filePaths {
 		d, err := datacapture.SensorDataFromFilePath(path)
@@ -288,9 +294,6 @@ func testFilesContainSensorData(t *testing.T, dir string, expectedUniqueDataValu
 		if errors.Is(err, os.ErrNotExist) {
 			path = strings.TrimSuffix(path, filepath.Ext(path)) + datacapture.FileExt
 			d, err = datacapture.SensorDataFromFilePath(path)
-		}
-		for _, datapoint := range d {
-			valueSet[datapoint.GetStruct().GetFields()["Number"].GetStructValue().GetFields()["Dual"].GetStructValue().GetFields()["Jmag"].GetNumberValue()] = struct{}{}
 		}
 		test.That(t, err, test.ShouldBeNil)
 		sd = append(sd, d...)
@@ -302,8 +305,9 @@ func testFilesContainSensorData(t *testing.T, dir string, expectedUniqueDataValu
 		test.That(t, d.GetMetadata(), test.ShouldNotBeNil)
 	}
 
-	// Each collector's mocked capture method should output a different value. Assert that we see the expected number of unique data values.
-	test.That(t, len(valueSet), test.ShouldEqual, expectedUniqueDataValues)
+	if validateSensorData != nil {
+		validateSensorData(t, sd)
+	}
 }
 
 // waitForCaptureFilesToExceedN returns once `captureDir` contains more than `n` files.
