@@ -19,11 +19,9 @@ import (
 )
 
 const (
-	testEncoderName    = "encoder1"
-	testEncoderName2   = "encoder2"
-	failEncoderName    = "encoder3"
-	fakeEncoderName    = "encoder4"
-	missingEncoderName = "encoder5"
+	testEncoderName = "encoder1"
+	failEncoderName = "encoder2"
+	fakeEncoderName = "encoder3"
 )
 
 func TestClient(t *testing.T) {
