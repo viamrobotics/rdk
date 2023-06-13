@@ -144,53 +144,39 @@ func getPwmChipDefs(pinDefs []PinDefinition) (map[string]pwmChipData, error) {
 
 	// Now, look for all chips whose names we found.
 	pwmChipsInfo := map[string]pwmChipData{}
-	for chipName := range pwmChipNames {
-		found := false
+	found := false
+	sysPrefix := "/sys/class/pwm"
+	files, err := os.ReadDir(sysPrefix)
 
-		// The boards we support might store their PWM devices in several different locations
-		// within /sys/devices. If it turns out that every board stores its PWM chips in a
-		// different location, we should rethink this. Maybe a breadth-first search over all of
-		// /sys/devices/? but for now, this is good enough.
-		directoriesToSearch := []string{
-			// Example boards which use each location:
-			// Jetson Orin AGX       BeagleBone AI64                     Intel UP 4000
-			"/sys/devices/platform", "/sys/devices/platform/bus@100000", "/sys/devices/pci0000:00",
+	for chipName := range pwmChipNames {
+		if err != nil {
+			return nil, err
 		}
-		for _, baseDir := range directoriesToSearch {
-			// For exactly one baseDir, there should be a directory at <baseDir>/<chipName>/pwm/,
-			// which contains a single sub-directory whose name is mirrored in /sys/class/pwm.
-			// That's the one we want to use.
-			chipDir := fmt.Sprintf("%s/%s/pwm", baseDir, chipName)
-			files, err := os.ReadDir(chipDir)
-			if err != nil {
-				continue // This was the wrong directory; try the next baseDir.
+
+		for _, file := range files {
+			if !strings.HasPrefix(file.Name(), "pwmchip") {
+				continue
 			}
 
-			// We've found what looks like the right place to look for things! Now, find the name
-			// of the chip that should be mirrored in /sys/class/pwm/.
-			for _, file := range files {
-				if !(strings.Contains(file.Name(), "pwmchip") && file.IsDir()) {
-					continue
-				}
-				found = true
-				chipPath := fmt.Sprintf("/sys/class/pwm/%s", file.Name())
+			// look at symlinks to find the correct chip
+			symlink, err := os.Readlink(filepath.Join(sysPrefix, file.Name()))
+			if err != nil {
+				return nil, err
+			}
 
+			var chipPath string
+			if strings.Contains(symlink, chipName) {
+				found = true
+				chipPath = fmt.Sprintf("/sys/class/pwm/%s", file.Name())
 				npwm, err := readIntFile(filepath.Join(chipPath, "npwm"))
 				if err != nil {
 					return nil, err
 				}
 
 				pwmChipsInfo[chipName] = pwmChipData{Dir: chipPath, Npwm: npwm}
-				// Now that we've found the chip info, we need to break out of 2 different for
-				// loops, to go on to the next chip name. This is just the first one so far...
-				break
-			}
-			if found {
-				// ...and this is the second one. We've already found the info for the current
-				// chip name, so move on to the next name.
-				break
 			}
 		}
+
 		if !found {
 			return nil, fmt.Errorf("unable to find PWM device %s", chipName)
 		}
