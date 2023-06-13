@@ -44,7 +44,7 @@ let labelUnits = 'm';
 
 $: loaded2d = pointcloud !== undefined && pose !== undefined;
 $: moveClicked = operations.find(({ op }) => op.method.includes('MoveOnMap'));
-$: unitScale = labelUnits === 'm' ? 1 : 1000
+$: unitScale = labelUnits === 'm' ? 1 : 1000;
 
 // get all resources which are bases
 $: baseResources = filterResources(resources, 'rdk', 'component', 'base');
