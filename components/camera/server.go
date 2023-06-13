@@ -5,7 +5,7 @@ import (
 	"context"
 
 	"github.com/edaniels/golog"
-	"github.com/edaniels/gostream"
+	"github.com/viamrobotics/gostream"
 	"go.opencensus.io/trace"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/camera/v1"

@@ -1,9 +1,9 @@
 <script lang="ts">
 
-import { onMount } from 'svelte';
 import { Client, motorApi, MotorClient, type ServiceError } from '@viamrobotics/sdk';
 import { displayError } from '@/lib/error';
 import { rcLogConditionally } from '@/lib/log';
+import Collapse from '../collapse.svelte';
 
 const motorPosFormat = new Intl.NumberFormat(undefined, {
   maximumFractionDigits: 3,
@@ -36,11 +36,11 @@ const setMovementType = (event: CustomEvent) => {
       type = 'go';
       break;
     }
-    case 'Go For': {
+    case 'Go for': {
       type = 'goFor';
       break;
     }
-    case 'Go To': {
+    case 'Go to': {
       type = 'goTo';
       break;
     }
@@ -48,20 +48,20 @@ const setMovementType = (event: CustomEvent) => {
 };
 
 const setPosition = (event: CustomEvent) => {
-  position = event.detail.value
-}
+  position = event.detail.value;
+};
 
 const setRpm = (event: CustomEvent) => {
-  rpm = event.detail.value
-}
+  rpm = event.detail.value;
+};
 
 const setRevolutions = (event: CustomEvent) => {
-  revolutions = event.detail.value
-}
+  revolutions = event.detail.value;
+};
 
 const setPowerSlider = (event: CustomEvent) => {
-  power = event.detail.value
-}
+  power = event.detail.value;
+};
 
 const setDirection = (event: CustomEvent) => {
   switch (event.detail.value) {
@@ -126,17 +126,21 @@ const motorStop = async () => {
   }
 };
 
-onMount(async () => {
+const handleToggle = async (event: CustomEvent<{ open: boolean }>) => {
+  if (event.detail.open === false) {
+    return;
+  }
+
   try {
     properties = await motorClient.getProperties();
   } catch (error) {
     displayError(error as ServiceError);
   }
-});
+};
 
 </script>
 
-<v-collapse title={name}>
+<Collapse title={name} on:toggle={handleToggle}>
   <v-breadcrumbs crumbs="motor" slot="title" />
   <div class="flex items-center justify-between gap-2" slot="header">
     {#if properties?.positionReporting}
@@ -150,57 +154,58 @@ onMount(async () => {
     <v-button
       variant="danger"
       icon="stop-circle"
-      label="STOP"
+      label="Stop"
       on:click|stopPropagation={motorStop}
     />
   </div>
-  <div>
-    <div class="border border-t-0 border-medium p-4">
+  <div class="border border-t-0 border-medium p-4">
+    <div class='mb-6'>
       <v-radio
-        label="Set Power"
-        options={properties?.positionReporting ? 'Go, Go For, Go To' : 'Go'}
+        label="Set power"
+        options={properties?.positionReporting ? 'Go, Go for, Go to' : 'Go'}
         selected={movementType}
-        class="mb-4"
         on:input={setMovementType}
       />
-      <div class="flex flex-wrap items-end gap-4">
-        {#if movementType === 'Go To'}
-          <div class="flex items-center gap-1">
-            <span>{movementType}</span>
-            <v-tooltip text="Relative to Home">
-              <v-icon name="info-outline" />
-            </v-tooltip>
-          </div>
+      <small class='text-xs text-subtle-2'>
+        {#if movementType === 'Go'}
+          Continuously moves
+        {:else if movementType === 'Go for'}
+          Relative to where the robot is currently
+        {:else if movementType === 'Go to'}
+          Relative to home
+        {/if}
+      </small>
+    </div>
+
+    <div class="flex flex-col gap-2">
+      {#if movementType === 'Go to'}
+        <div class='flex gap-2'>
           <v-input
             type="number"
-            label="Position in Revolutions"
+            label="Position in revolutions"
             value={position}
-            class="w-48 pr-2"
+            class="w-36 pr-2"
             on:input={setPosition}
           />
           <v-input
             type="number"
-            class="w-32 pr-2"
+            class="w-36 pr-2"
             label="RPM"
             value={rpm}
             on:input={setRpm}
           />
-        {:else if movementType === 'Go For'}
-          <div class="flex items-center gap-1">
-            <span>{movementType}</span>
-            <v-tooltip text="Relative to where the robot is currently">
-              <v-icon name="info-outline" />
-            </v-tooltip>
-          </div>
+        </div>
+      {:else if movementType === 'Go for'}
+        <div class='flex gap-4 items-end'>
           <v-input
             type="number"
-            class="w-32"
-            label="# in Revolutions"
+            class="w-36"
+            label="# in revolutions"
             value={revolutions}
             on:input={setRevolutions}
           />
           <v-radio
-            label="Direction of Rotation"
+            label="Direction of rotation"
             options="Forwards, Backwards"
             selected={direction === 1 ? 'Forwards' : 'Backwards'}
             on:input={setDirection}
@@ -208,19 +213,15 @@ onMount(async () => {
           <v-input
             type="number"
             label="RPM"
-            class="w-32"
+            class="w-36"
             value={rpm}
             on:input={setRpm}
           />
-        {:else if movementType === 'Go'}
-          <div class="flex items-center gap-1">
-            <span>{movementType}</span>
-            <v-tooltip text="Continuously moves">
-              <v-icon name="info-outline" />
-            </v-tooltip>
-          </div>
+        </div>
+      {:else if movementType === 'Go'}
+        <div class='flex gap-4'>
           <v-radio
-            label="Direction of Rotation"
+            label="Direction of rotation"
             options="Forwards, Backwards"
             selected="{direction === 1 ? 'Forwards' : 'Backwards'}"
             on:input={setDirection}
@@ -228,7 +229,7 @@ onMount(async () => {
           <div class="w-64">
             <v-slider
               id="power"
-              class="ml-2 max-w-xs pt-2"
+              class="ml-2 max-w-xs"
               min="0"
               max="100"
               step="1"
@@ -238,17 +239,17 @@ onMount(async () => {
               on:input={setPowerSlider}
             />
           </div>
-        {/if}
-      </div>
+        </div>
+      {/if}
+    </div>
 
-      <div class="flex flex-row-reverse flex-wrap">
-        <v-button
-          icon="play-circle-filled"
-          variant="success"
-          label="RUN"
-          on:click={motorRun}
-        />
-      </div>
+    <div class="flex flex-row-reverse flex-wrap">
+      <v-button
+        icon="play-circle-filled"
+        variant="success"
+        label="Run"
+        on:click={motorRun}
+      />
     </div>
   </div>
-</v-collapse>
+</Collapse>

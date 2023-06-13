@@ -19,7 +19,7 @@ let cube: THREE.LineSegments;
 let displayGrid = true;
 let transformEnabled = false;
 
-let click = new THREE.Vector3();
+const click = new THREE.Vector3();
 
 $: distanceFromCamera = Math.round(Math.sqrt((click.x ** 2) + (click.y ** 2) + (click.z ** 2)));
 
@@ -249,12 +249,12 @@ const handlePointsResize = (event: CustomEvent) => {
   mesh.instanceMatrix.needsUpdate = true;
 };
 
-const init = (pointcloud: Uint8Array) => {
-  update(pointcloud);
+const init = (cloud: Uint8Array) => {
+  update(cloud);
 
   // eslint-disable-next-line unicorn/text-encoding-identifier-case
   const decoder = new TextDecoder('utf-8');
-  const file = new File([decoder.decode(pointcloud)], 'pointcloud.txt');
+  const file = new File([decoder.decode(cloud)], 'pointcloud.txt');
   downloadHref = URL.createObjectURL(file);
 };
 
@@ -277,7 +277,7 @@ onDestroy(() => {
 });
 
 $: if (pointcloud) {
-  init(pointcloud)
+  init(pointcloud);
 }
 
 </script>

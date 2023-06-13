@@ -14,16 +14,12 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/jacobsa/go-serial/serial"
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 	utils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
-)
-
-var (
-	globalMu    sync.Mutex
-	controllers map[string]*controller
 )
 
 // default port for limo serial comm.
@@ -57,18 +53,7 @@ func (m steeringMode) String() string {
 var model = resource.DefaultModelFamily.WithModel("agilex-limo")
 
 func init() {
-	controllers = make(map[string]*controller)
-
 	resource.RegisterComponent(base.API, model, resource.Registration[base.Base, *Config]{Constructor: createLimoBase})
-}
-
-// controller is common across all limo instances sharing a controller.
-type controller struct {
-	mu           sync.Mutex
-	port         io.ReadWriteCloser
-	serialDevice string
-	logger       golog.Logger
-	testChan     chan []uint8
 }
 
 type limoFrame struct {
@@ -84,7 +69,6 @@ type limoBase struct {
 	resource.Named
 	resource.AlwaysRebuild
 	driveMode          string
-	controller         *controller
 	opMgr              operation.SingleOperationManager
 	cancel             context.CancelFunc
 	waitGroup          sync.WaitGroup
@@ -94,6 +78,12 @@ type limoBase struct {
 	rightAngleScale    float64
 	maxLinearVelocity  int
 	maxAngularVelocity int
+
+	logger golog.Logger
+
+	serialMutex sync.Mutex
+	serialPort  io.ReadWriteCloser
+	testChan    chan []uint8
 
 	stateMutex sync.Mutex
 	state      limoState
@@ -121,55 +111,55 @@ func createLimoBase(ctx context.Context, _ resource.Dependencies, conf resource.
 		return nil, errors.New("drive mode must be defined and one of differential, ackermann, or omni")
 	}
 
-	globalMu.Lock()
 	sDevice := newConf.SerialDevice
 	if sDevice == "" {
 		sDevice = defaultSerialPath
 	}
-	ctrl, controllerExists := controllers[sDevice]
-	if !controllerExists {
-		logger.Debug("creating controller")
-		newCtrl, err := newController(sDevice, newConf.TestChan, logger)
-		if err != nil {
-			globalMu.Unlock()
-			return nil, err
-		}
-
-		controllers[sDevice] = newCtrl
-		ctrl = newCtrl
-
-		// enable commanded mode
-		frame := new(limoFrame)
-		frame.id = 0x421
-		frame.data = make([]uint8, 8)
-		frame.data[0] = 0x01
-		frame.data[1] = 0
-		frame.data[2] = 0
-		frame.data[3] = 0
-		frame.data[4] = 0
-		frame.data[5] = 0
-		frame.data[6] = 0
-		frame.data[7] = 0
-
-		logger.Debug("Will send init frame")
-		err = ctrl.sendFrame(frame)
-		if err != nil && !strings.HasPrefix(err.Error(), "error enabling commanded mode") {
-			globalMu.Unlock()
-			return nil, err
-		}
-	}
-	globalMu.Unlock()
 
 	lb := &limoBase{
 		Named:              conf.ResourceName().AsNamed(),
 		driveMode:          newConf.DriveMode,
-		controller:         ctrl,
+		testChan:           newConf.TestChan, // for testing only
+		logger:             logger,
 		width:              defaultBaseTreadMm,
 		wheelbase:          200,
 		maxLinearVelocity:  1200,
 		maxAngularVelocity: 180,
 		maxInnerAngle:      .48869, // 28 degrees in radians
 		rightAngleScale:    1.64,
+	}
+
+	if newConf.TestChan == nil {
+		logger.Debugf("creating serial connection to: ", sDevice)
+		lb.serialPort, err = initSerialConnection(sDevice)
+		if err != nil {
+			logger.Error("error creating serial connection", err)
+			return nil, err
+		}
+	}
+
+	// enable commanded mode
+	frame := new(limoFrame)
+	frame.id = 0x421
+	frame.data = make([]uint8, 8)
+	frame.data[0] = 0x01
+	frame.data[1] = 0
+	frame.data[2] = 0
+	frame.data[3] = 0
+	frame.data[4] = 0
+	frame.data[5] = 0
+	frame.data[6] = 0
+	frame.data[7] = 0
+
+	logger.Debug("sending init frame")
+	err = lb.sendFrame(frame)
+	if err != nil && !strings.HasPrefix(err.Error(), "error enabling commanded mode") {
+		sererr := lb.closeSerial()
+		if sererr != nil {
+			return nil, multierr.Combine(err, sererr)
+		}
+
+		return nil, err
 	}
 
 	lb.stateMutex.Lock()
@@ -179,45 +169,34 @@ func createLimoBase(ctx context.Context, _ resource.Dependencies, conf resource.
 	}
 	lb.stateMutex.Unlock()
 
-	logger.Debug("Base initialized")
+	logger.Debug("base initialized")
 
 	return lb, nil
 }
 
-func newController(sDevice string, testChan chan []uint8, logger golog.Logger) (*controller, error) {
-	ctrl := new(controller)
-	ctrl.serialDevice = sDevice
-	ctrl.logger = logger
-
-	if testChan == nil {
-		logger.Debug("opening serial connection")
-		serialOptions := serial.OpenOptions{
-			PortName:          sDevice,
-			BaudRate:          460800,
-			DataBits:          8,
-			StopBits:          1,
-			MinimumReadSize:   1,
-			RTSCTSFlowControl: true,
-		}
-
-		port, err := serial.Open(serialOptions)
-		if err != nil {
-			logger.Errorf("error creating new controller: %v", err)
-			return nil, err
-		}
-		ctrl.port = port
-	} else {
-		ctrl.testChan = testChan
+func initSerialConnection(sDevice string) (io.ReadWriteCloser, error) {
+	serialOptions := serial.OpenOptions{
+		PortName:          sDevice,
+		BaudRate:          460800,
+		DataBits:          8,
+		StopBits:          1,
+		MinimumReadSize:   1,
+		RTSCTSFlowControl: true,
 	}
 
-	return ctrl, nil
+	port, err := serial.Open(serialOptions)
+	if err != nil {
+		return nil, err
+	}
+
+	return port, nil
 }
 
 // this rover requires messages to be sent continuously or the motors will shut down after 100ms.
 func (lb *limoBase) startControlThread() {
 	var ctx context.Context
 	ctx, lb.cancel = context.WithCancel(context.Background())
-	lb.controller.logger.Debug("Starting control thread")
+	lb.logger.Debug("starting control thread")
 
 	lb.waitGroup.Add(1)
 	go func() {
@@ -230,7 +209,7 @@ func (lb *limoBase) startControlThread() {
 				if errors.Is(err, context.Canceled) {
 					return
 				}
-				lb.controller.logger.Warn(err)
+				lb.logger.Warn(err)
 			}
 		}
 	}()
@@ -282,7 +261,7 @@ func (lb *limoBase) controlThreadLoopPass(ctx context.Context) error {
 }
 
 // Sends the serial frame. Must be run inside a lock.
-func (c *controller) sendFrame(frame *limoFrame) error {
+func (lb *limoBase) sendFrame(frame *limoFrame) error {
 	var checksum uint32
 	var frameLen uint8 = 0x0e
 	data := make([]uint8, 14)
@@ -296,11 +275,14 @@ func (c *controller) sendFrame(frame *limoFrame) error {
 	}
 	data[frameLen-1] = uint8(checksum & 0xff)
 
-	if c.testChan != nil {
-		c.logger.Debug("writing to test chan")
-		c.testChan <- data
+	lb.serialMutex.Lock()
+	defer lb.serialMutex.Unlock()
+
+	if lb.testChan != nil {
+		lb.logger.Debug("writing to test chan")
+		lb.testChan <- data
 	} else {
-		_, err := c.port.Write(data)
+		_, err := lb.serialPort.Write(data)
 		if err != nil {
 			return err
 		}
@@ -330,18 +312,17 @@ func (lb *limoBase) setMotionCommand(linearVel float64,
 	frame.data[6] = uint8(steeringCmd >> 8)
 	frame.data[7] = uint8(steeringCmd & 0x00ff)
 
-	lb.controller.mu.Lock()
-	err := lb.controller.sendFrame(frame)
+	err := lb.sendFrame(frame)
 	if err != nil {
-		lb.controller.logger.Error(err)
+		lb.logger.Error(err)
+		return err
 	}
-	lb.controller.mu.Unlock()
 
-	return err
+	return nil
 }
 
 func (lb *limoBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
-	lb.controller.logger.Debugf("Spin(%f, %f)", angleDeg, degsPerSec)
+	lb.logger.Debugf("Spin(%f, %f)", angleDeg, degsPerSec)
 	secsToRun := math.Abs(angleDeg / degsPerSec)
 	var err error
 	if lb.driveMode == DIFFERENTIAL.String() || lb.driveMode == OMNI.String() {
@@ -359,13 +340,13 @@ func (lb *limoBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extr
 	}
 	// stop lb after calculated time
 	timeToRun := time.Millisecond * time.Duration(secsToRun*1000)
-	lb.controller.logger.Debugf("Will run for duration %f", timeToRun)
+	lb.logger.Debugf("Will run for duration %f", timeToRun)
 	utils.SelectContextOrWait(ctx, timeToRun)
 	return lb.Stop(ctx, extra)
 }
 
 func (lb *limoBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error {
-	lb.controller.logger.Debugf("MoveStraight(%d, %f)", distanceMm, mmPerSec)
+	lb.logger.Debugf("MoveStraight(%d, %f)", distanceMm, mmPerSec)
 	err := lb.SetVelocity(ctx, r3.Vector{Y: mmPerSec}, r3.Vector{}, extra)
 	if err != nil {
 		return err
@@ -373,14 +354,14 @@ func (lb *limoBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSec f
 
 	// stop lb after calculated time
 	timeToRun := time.Millisecond * time.Duration(math.Abs(float64(distanceMm)/mmPerSec)*1000)
-	lb.controller.logger.Debugf("Will run for duration %f", timeToRun)
+	lb.logger.Debugf("Will run for duration %f", timeToRun)
 	utils.SelectContextOrWait(ctx, timeToRun)
 	return lb.Stop(ctx, extra)
 }
 
 // linear is in mm/sec, angular in degrees/sec.
 func (lb *limoBase) SetVelocity(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
-	lb.controller.logger.Debugf("Will set linear velocity %f angular velocity %f", linear, angular)
+	lb.logger.Debugf("Will set linear velocity %f angular velocity %f", linear, angular)
 
 	_, done := lb.opMgr.New(ctx)
 	defer done()
@@ -397,7 +378,7 @@ func (lb *limoBase) SetVelocity(ctx context.Context, linear, angular r3.Vector, 
 }
 
 func (lb *limoBase) SetPower(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
-	lb.controller.logger.Debugf("Will set power linear %f angular %f", linear, angular)
+	lb.logger.Debugf("Will set power linear %f angular %f", linear, angular)
 	linY := linear.Y * float64(lb.maxLinearVelocity)
 	angZ := angular.Z * float64(lb.maxAngularVelocity)
 	err := lb.SetVelocity(ctx, r3.Vector{Y: linY}, r3.Vector{Z: -angZ}, extra)
@@ -408,7 +389,7 @@ func (lb *limoBase) SetPower(ctx context.Context, linear, angular r3.Vector, ext
 }
 
 func (lb *limoBase) Stop(ctx context.Context, extra map[string]interface{}) error {
-	lb.controller.logger.Debug("Stop()")
+	lb.logger.Debug("Stop()")
 	err := lb.SetVelocity(ctx, r3.Vector{}, r3.Vector{}, extra)
 	if err != nil {
 		return err
@@ -418,7 +399,7 @@ func (lb *limoBase) Stop(ctx context.Context, extra map[string]interface{}) erro
 }
 
 func (lb *limoBase) IsMoving(ctx context.Context) (bool, error) {
-	lb.controller.logger.Debug("IsMoving()")
+	lb.logger.Debug("IsMoving()")
 	lb.stateMutex.Lock()
 	defer lb.stateMutex.Unlock()
 	if lb.state.velocityLinearGoal.ApproxEqual(r3.Vector{}) && lb.state.velocityAngularGoal.ApproxEqual(r3.Vector{}) {
@@ -471,16 +452,37 @@ func (lb *limoBase) DoCommand(ctx context.Context, cmd map[string]interface{}) (
 }
 
 func (lb *limoBase) Close(ctx context.Context) error {
-	lb.controller.logger.Debug("Close()")
+	lb.logger.Debug("Close()")
 	if err := lb.Stop(ctx, nil); err != nil {
 		return err
 	}
+
 	if lb.cancel != nil {
-		lb.controller.logger.Debug("calling cancel()")
+		lb.logger.Debug("calling cancel() on control thread")
 		lb.cancel()
 		lb.cancel = nil
 		lb.waitGroup.Wait()
-		lb.controller.logger.Debug("done waiting on cancel")
+		lb.logger.Debug("done waiting on cancel on control thread")
 	}
+
+	if err := lb.closeSerial(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (lb *limoBase) closeSerial() error {
+	lb.serialMutex.Lock()
+	defer lb.serialMutex.Unlock()
+
+	if lb.serialPort != nil {
+		if err := lb.serialPort.Close(); err != nil {
+			lb.logger.Warn("failed to close serial", err)
+			return err
+		}
+		lb.serialPort = nil
+	}
+
 	return nil
 }

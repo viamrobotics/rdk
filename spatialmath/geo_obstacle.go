@@ -1,6 +1,7 @@
 package spatialmath
 
 import (
+	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	commonpb "go.viam.com/api/common/v1"
 )
@@ -62,7 +63,7 @@ type GeoObstacleConfig struct {
 }
 
 // NewGeoObstacleConfig takes a GeoObstacle and returns a GeoObstacleConfig.
-func NewGeoObstacleConfig(geo GeoObstacle) (*GeoObstacleConfig, error) {
+func NewGeoObstacleConfig(geo *GeoObstacle) (*GeoObstacleConfig, error) {
 	geomCfgs := []*GeometryConfig{}
 	for _, geom := range geo.geometries {
 		gc, err := NewGeometryConfig(geom)
@@ -109,4 +110,42 @@ func GeoObstaclesFromConfig(config *GeoObstacleConfig) ([]*GeoObstacle, error) {
 		gobs = append(gobs, &gob)
 	}
 	return gobs, nil
+}
+
+// GetCartesianDistance calculates the latitude and longitide displacement between p and q in kilometers.
+func GetCartesianDistance(p, q *geo.Point) (float64, float64) {
+	mod := geo.NewPoint(p.Lat(), q.Lng())
+	// Calculates the Haversine distance between two points in kilometers
+	latDist := p.GreatCircleDistance(mod)
+	lngDist := q.GreatCircleDistance(mod)
+	return latDist, lngDist
+}
+
+// GeoPointToPose converts p into a spatialmath pose relative to lng = 0 = lat.
+func GeoPointToPose(p *geo.Point) Pose {
+	latDist, lngDist := GetCartesianDistance(geo.NewPoint(0, 0), p)
+	// multiply by 1000000 to convert km to mm
+	return NewPoseFromPoint(r3.Vector{latDist * 1e6, lngDist * 1e6, 0})
+}
+
+// GeoObstaclesToGeometries converts a list of GeoObstacles into a list of Geometries.
+func GeoObstaclesToGeometries(obstacles []*GeoObstacle, worldOrigin r3.Vector) []Geometry {
+	// we note that there are two transformations to be accounted for
+	// when converting a GeoObstacle. Namely, the obstacle's pose needs to
+	// transformed by the specified in GPS coordinates.
+	geoms := []Geometry{}
+	for _, v := range obstacles {
+		obstacleOrigin := GeoPointToPose(v.location)
+		relativeDestinationPt := r3.Vector{
+			X: obstacleOrigin.Point().X - worldOrigin.X,
+			Y: obstacleOrigin.Point().Y - worldOrigin.Y,
+			Z: 0,
+		}
+		relativeDstPose := NewPoseFromPoint(relativeDestinationPt)
+		for _, geom := range v.geometries {
+			geo := geom.Transform(relativeDstPose)
+			geoms = append(geoms, geo)
+		}
+	}
+	return geoms
 }

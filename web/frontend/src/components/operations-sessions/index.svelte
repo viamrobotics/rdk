@@ -4,6 +4,7 @@ import { grpc } from '@improbable-eng/grpc-web';
 import { Client, robotApi } from '@viamrobotics/sdk';
 import { displayError } from '@/lib/error';
 import { rcLogConditionally } from '@/lib/log';
+import Collapse from '../collapse.svelte';
 
 export let operations: { op: robotApi.Operation.AsObject; elapsed: number }[];
 export let sessions: robotApi.Session.AsObject[];
@@ -18,7 +19,6 @@ const killOperation = (id: string) => {
   rcLogConditionally(req);
   client.robotService.cancelOperation(req, new grpc.Metadata(), displayError);
 };
-
 
 const peerConnectionType = (info?: robotApi.PeerConnectionInfo.AsObject) => {
   if (!info) {
@@ -40,7 +40,7 @@ const peerConnectionType = (info?: robotApi.PeerConnectionInfo.AsObject) => {
 
 </script>
 
-<v-collapse title={sessionsSupported ? 'Operations & Sessions' : 'Operations'}>
+<Collapse title={sessionsSupported ? 'Operations & Sessions' : 'Operations'}>
   <div class="border border-t-0 border-medium p-4 text-xs">
     <div class="mb-4 flex gap-2 justify-end items-center">
       <label>RTT:</label>
@@ -124,4 +124,4 @@ const peerConnectionType = (info?: robotApi.PeerConnectionInfo.AsObject) => {
       </div>
     {/if}
   </div>
-</v-collapse>
+</Collapse>

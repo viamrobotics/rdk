@@ -58,7 +58,7 @@ const stop = () => {
       <v-button
         variant="danger"
         icon="stop-circle"
-        label="STOP"
+        label="Stop"
         @click.stop="stop"
       />
     </div>
