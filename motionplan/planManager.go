@@ -2,7 +2,6 @@ package motionplan
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -457,14 +456,14 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 	}
 
 	// convert map to json, then to a struct, overwriting present defaults
-	jsonString, err := json.Marshal(planningOpts)
-	if err != nil {
-		return nil, err
-	}
-	err = json.Unmarshal(jsonString, opt)
-	if err != nil {
-		return nil, err
-	}
+	// jsonString, err := json.Marshal(planningOpts)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// err = json.Unmarshal(jsonString, opt)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
 	alg, ok := planningOpts["planning_alg"]
 	if ok {

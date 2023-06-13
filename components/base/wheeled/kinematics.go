@@ -15,7 +15,7 @@ import (
 
 const (
 	distThresholdMM         = 100
-	headingThresholdDegrees = 30
+	headingThresholdDegrees = 15
 	defaultAngularVelocity  = 60  // degrees per second
 	defaultLinearVelocity   = 300 // mm per second
 )
@@ -74,8 +74,8 @@ func (kwb *kinematicWheeledBase) GoToInputs(ctx context.Context, desired []refer
 	// when the base is within the positional threshold of the goal, exit the loop
 	for err = ctx.Err(); err == nil; err = ctx.Err() {
 		current, err := kwb.CurrentInputs(ctx)
-		kwb.logger.Warnf("current inputs: %v", current)
-		kwb.logger.Warnf("desired inputs: %v", desired)
+		kwb.logger.Debugf("current inputs: %v", current)
+		kwb.logger.Debugf("desired inputs: %v", desired)
 		if err != nil {
 			return err
 		}
@@ -108,11 +108,9 @@ func (kwb *kinematicWheeledBase) issueCommand(ctx context.Context, current, desi
 	}
 	if distErr > distThresholdMM && math.Abs(headingErr) > headingThresholdDegrees {
 		// base is headed off course; spin to correct
-		kwb.logger.Warnf("spinning to course correct %v degrees", headingErr)
 		return true, kwb.Spin(ctx, -headingErr, defaultAngularVelocity, nil)
 	} else if distErr > distThresholdMM {
 		// base is pointed the correct direction but not there yet; forge onward
-		kwb.logger.Warnf("driving straight")
 		return true, kwb.MoveStraight(ctx, distErr, defaultLinearVelocity, nil)
 	}
 	return false, nil

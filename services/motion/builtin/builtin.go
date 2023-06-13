@@ -251,17 +251,15 @@ func (ms *builtIn) MoveOnMap(
 
 	// make call to motionplan
 	dst := spatialmath.NewPoseFromPoint(destination.Point())
-	ms.logger.Warnf("goal position: %v", dst.Point())
+	ms.logger.Debugf("goal position: %v", dst.Point())
 	plan, err := motionplan.PlanFrameMotion(ctx, ms.logger, dst, kb.ModelFrame(), inputs, nil, extra)
-	ms.logger.Warnf("Planned Path: %+v", plan)
+	ms.logger.Debugf("Planned Path: %+v", plan)
 	if err != nil {
 		return false, err
 	}
 
 	// execute the plan
 	for i := 1; i < len(plan); i++ {
-		ms.logger.Warnf("length of path is %d", len(plan))
-		ms.logger.Warnf("executing index %d", i)
 		if err := kb.GoToInputs(ctx, plan[i]); err != nil {
 			return false, err
 		}
