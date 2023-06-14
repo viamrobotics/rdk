@@ -491,28 +491,14 @@ func (b *sysfsBoard) GPIOPinNames() []string {
 	return names
 }
 
-func (b *sysfsBoard) getGPIOLine(hwPin string) (gpio.PinIO, bool, error) {
+func (b *sysfsBoard) getGPIOLine(hwPin string) (gpio.PinIO, error) {
 	pinName := hwPin
-	hwPWMSupported := false
-	if b.gpioMappings != nil {
-		pinParsed, err := strconv.ParseInt(hwPin, 10, 32)
-		if err != nil {
-			return nil, false, errors.New("pin cannot be parsed or unset")
-		}
-
-		mapping, ok := b.gpioMappings[int(pinParsed)]
-		if !ok {
-			return nil, false, errors.Errorf("invalid pin \"%d\"", pinParsed)
-		}
-		pinName = fmt.Sprintf("%d", mapping.GPIOGlobal)
-		hwPWMSupported = mapping.HWPWMSupported
-	}
 
 	pin := gpioreg.ByName(pinName)
 	if pin == nil {
-		return nil, false, errors.Errorf("no global pin found for %q", pinName)
+		return nil, errors.Errorf("no global pin found for %q", pinName)
 	}
-	return pin, hwPWMSupported, nil
+	return pin, nil
 }
 
 func (b *sysfsBoard) GPIOPinByName(pinName string) (board.GPIOPin, error) {
@@ -533,7 +519,8 @@ func (b *sysfsBoard) GPIOPinByName(pinName string) (board.GPIOPin, error) {
 }
 
 func (b *sysfsBoard) periphGPIOPinByName(pinName string) (board.GPIOPin, error) {
-	pin, hwPWMSupported, err := b.getGPIOLine(pinName)
+	pin, err := b.getGPIOLine(pinName)
+	hwPWMSupported := false
 	if err != nil {
 		return nil, err
 	}
