@@ -2,7 +2,7 @@
 
 import { ArmClient, Client } from '@viamrobotics/sdk';
 import type { Pose, ServiceError } from '@viamrobotics/sdk';
-import { copyToClipboardWithToast } from '@/lib/copy-to-clipboard';
+import { copyToClipboard } from '@/lib/copy-to-clipboard';
 import { displayError } from '@/lib/error';
 import { roundTo2Decimals } from '@/lib/math';
 import { rcLogConditionally } from '@/lib/log';
@@ -202,7 +202,7 @@ const armModifyAll = () => {
 
 const armCopyPosition = () => {
   // eslint-disable-next-line unicorn/no-array-reduce
-  copyToClipboardWithToast(JSON.stringify(status?.pos_pieces.reduce((acc, cur) => {
+  copyToClipboard(JSON.stringify(status?.pos_pieces.reduce((acc, cur) => {
     return {
       ...acc,
       [`${cur.endPosition[0]}`]: cur.endPositionValue,
@@ -212,7 +212,7 @@ const armCopyPosition = () => {
 
 const armCopyJoints = () => {
   // eslint-disable-next-line unicorn/no-array-reduce
-  copyToClipboardWithToast(JSON.stringify(status?.joint_pieces.reduce((acc, cur) => {
+  copyToClipboard(JSON.stringify(status?.joint_pieces.reduce((acc, cur) => {
     return {
       ...acc,
       [`${cur.joint}`]: cur.jointValue,
