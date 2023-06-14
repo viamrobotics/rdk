@@ -308,7 +308,7 @@ $: if (pointcloud) {
       >
         <v-button
           icon="download"
-          label="Download Raw Data"
+          label="Download raw data"
         />
       </a>
     </div>
@@ -339,7 +339,7 @@ $: if (pointcloud) {
 
     <div class="flex flex-wrap gap-2">
       <div class="w-full text-xs">
-        Selected Point Position
+        Selected point position
       </div>
       <v-input
         class="w-20"
@@ -365,7 +365,7 @@ $: if (pointcloud) {
     </div>
 
     <div class="text-xs">
-      Distance From Camera: {distanceFromCamera}mm
+      Distance from camera: {distanceFromCamera}mm
     </div>
 
     <small class="flex w-20 items-center gap-1">
