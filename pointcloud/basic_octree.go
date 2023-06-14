@@ -1,8 +1,6 @@
 package pointcloud
 
 import (
-	"fmt"
-
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 
@@ -31,7 +29,6 @@ type BasicOctree struct {
 	center     r3.Vector
 	sideLength float64
 	size       int
-	label      string
 	meta       MetaData
 }
 
@@ -186,50 +183,54 @@ func (octree *BasicOctree) CollidesWithGeometry(geom spatialmath.Geometry, thres
 	return false, errors.New("unknown octree node type")
 }
 
-func (octree *BasicOctree) Pose() spatialmath.Pose {
-	// TODO
-	return nil
-}
+// func (octree *BasicOctree) Pose() spatialmath.Pose {
+// 	// TODO
+// 	return nil
+// }
 
-func (octree *BasicOctree) AlmostEqual(spatialmath.Geometry) bool {
-	// basically no scenario where two octrees would be equal
-	return false
-}
+// func (octree *BasicOctree) AlmostEqual(spatialmath.Geometry) bool {
+// 	// basically no scenario where two octrees would be equal
+// 	return false
+// }
 
-func (octree *BasicOctree) Transform(spatialmath.Pose) spatialmath.Geometry {
-	// TODO
-	return nil
-}
+// func (octree *BasicOctree) Transform(spatialmath.Pose) spatialmath.Geometry {
+// 	// TODO
+// 	return nil
+// }
 
-func (octree *BasicOctree) ToProtobuf() *commonpb.Geometry {
-	return nil
-}
+// func (octree *BasicOctree) ToProtobuf() *commonpb.Geometry {
+// 	return nil
+// }
 
-func (octree *BasicOctree) CollidesWith(geom spatialmath.Geometry) (bool, error) {
-	return octree.CollidesWithGeometry(geom, 60, 60.0)
-}
+// func (octree *BasicOctree) CollidesWith(geom spatialmath.Geometry) (bool, error) {
+// 	return octree.CollidesWithGeometry(geom, 60, 60.0)
+// }
 
-func (octree *BasicOctree) DistanceFrom(spatialmath.Geometry) (float64, error) {
-	return 0, errors.Errorf("not implemented")
-}
+// func (octree *BasicOctree) DistanceFrom(spatialmath.Geometry) (float64, error) {
+// 	return 0, errors.Errorf("not implemented")
+// }
 
-func (octree *BasicOctree) EncompassedBy(spatialmath.Geometry) (bool, error) {
-	return false, errors.Errorf("not implemented")
-}
+// func (octree *BasicOctree) EncompassedBy(spatialmath.Geometry) (bool, error) {
+// 	return false, errors.Errorf("not implemented")
+// }
 
-func (octree *BasicOctree) SetLabel(label string) {
-	octree.label = label
-}
+// func (octree *BasicOctree) SetLabel(label string) {
+// 	octree.label = label
+// }
 
-func (octree *BasicOctree) Label() string {
-	return octree.label
-}
+// func (octree *BasicOctree) Label() string {
+// 	return octree.label
+// }
 
-func (octree *BasicOctree) String() string {
-	return fmt.Sprintf("octree with center at %v and side length of %d", octree.center, octree.sideLength)
-}
+// func (octree *BasicOctree) String() string {
+// 	return fmt.Sprintf("octree with center at %v and side length of %v", octree.center, octree.sideLength)
+// }
 
-func (octree *BasicOctree) ToPoints(float64) []r3.Vector {
-	// TODO
-	return nil
-}
+// func (octree *BasicOctree) ToPoints(float64) []r3.Vector {
+// 	// TODO
+// 	return nil
+// }
+
+// func (octree *BasicOctree) MarshalJSON() ([]byte, error) {
+// 	return nil, errors.Errorf("not implemented")
+// }

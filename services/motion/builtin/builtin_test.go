@@ -219,6 +219,68 @@ func TestMoveSingleComponent(t *testing.T) {
 	})
 }
 
+func TestPlanMoveOnMapPath(t *testing.T) {
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+	injectSlam := inject.NewSLAMService("test_slam")
+
+	const chunkSizeBytes = 1 * 1024 * 1024
+
+	injectSlam.GetPointCloudMapFunc = func(ctx context.Context) (func() ([]byte, error), error) {
+		path := "/Users/nandinithakur/Desktop/sample/map/octagonspace.pcd"
+		file, err := os.Open(path)
+		if err != nil {
+			return nil, err
+		}
+		chunk := make([]byte, chunkSizeBytes)
+		f := func() ([]byte, error) {
+			bytesRead, err := file.Read(chunk)
+			if err != nil {
+				defer utils.UncheckedErrorFunc(file.Close)
+				return nil, err
+			}
+			return chunk[:bytesRead], err
+		}
+		return f, nil
+	}
+
+	// TODO: use CurrentPosition from motion service, fix test
+	injectSlam.GetPositionFunc = func(ctx context.Context) (spatialmath.Pose, string, error) {
+		fakePose := spatialmath.NewPoseFromPoint(r3.Vector{X: -0.0345 * 1000, Y: -0.145 * 1000})
+		return fakePose, "", nil
+	}
+
+	cfg := resource.Config{
+		Name:  "test_base",
+		API:   base.API,
+		Frame: &referenceframe.LinkConfig{Geometry: &spatialmath.GeometryConfig{R: 100}},
+	}
+
+	fakeBase, err := fake.NewBase(ctx, nil, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = builtin.NewBuiltIn(
+		ctx,
+		resource.Dependencies{injectSlam.Name(): injectSlam, fakeBase.Name(): fakeBase},
+		resource.Config{
+			ConvertedAttributes: &builtin.Config{},
+		},
+		logger,
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	// path, _, err := ms.(builtin.builtIn).PlanMoveOnMapPath(
+	// 	context.Background(),
+	// 	base.Named("test_base"),
+	// 	spatialmath.NewPoseFromPoint(r3.Vector{X: 1.26 * 1000, Y: 0.1705 * 1000}),
+	// 	slam.Named("test_slam"),
+	// 	nil,
+	// )
+	// test.That(t, err, test.ShouldBeNil)
+	// // path of length 2 indicates a path that goes straight through central obstacle
+	// test.That(t, len(path), test.ShouldBeGreaterThan, 2)
+}
+
 func TestMoveOnMap(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
