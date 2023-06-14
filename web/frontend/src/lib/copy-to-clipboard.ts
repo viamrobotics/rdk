@@ -5,6 +5,6 @@ export const copyToClipboard = async (str: string) => {
     await navigator.clipboard.writeText(str);
     notify.success('Successfully copied to clipboard');
   } catch {
-    notify.error('Unable to copy to clipboard');
+    notify.danger('Unable to copy to clipboard');
   }
 };

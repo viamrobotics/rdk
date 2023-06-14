@@ -52,7 +52,7 @@
         response: sensorsApi.GetReadingsResponse | null
       ) => {
         if (error) {
-          notify.error(error.message);
+          notify.danger(error.message);
           return;
         }
 

@@ -14,7 +14,7 @@ const renderPCD = async () => {
   try {
     pointcloud = await new CameraClient(client, cameraName).getPointCloud();
   } catch (error) {
-    notify.error(`Error getting point cloud: ${error}`);
+    notify.danger(`Error getting point cloud: ${error}`);
   }
 };
 

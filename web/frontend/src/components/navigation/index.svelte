@@ -39,7 +39,7 @@ const setNavigationMode = async (event: CustomEvent) => {
   try {
     await setMode(client, name, pbMode);
   } catch (error) {
-    notify.error((error as ServiceError).message);
+    notify.danger((error as ServiceError).message);
   }
 };
 
@@ -59,7 +59,7 @@ const handleClick = async (event: maplibregl.MapMouseEvent) => {
   try {
     await setWaypoint(client, lat, lng, name);
   } catch (error) {
-    notify.error((error as ServiceError).message);
+    notify.danger((error as ServiceError).message);
   }
 };
 
@@ -104,7 +104,7 @@ const initNavigation = () => {
     try {
       waypoints = await getWaypoints(client, name);
     } catch (error) {
-      notify.error((error as ServiceError).message);
+      notify.danger((error as ServiceError).message);
       updateWaypointsId = window.setTimeout(refresh, 1000);
       return;
     }
@@ -138,7 +138,7 @@ const initNavigation = () => {
         try {
           await removeWaypoint(client, name, waypoint.getId());
         } catch (error) {
-          notify.error((error as ServiceError).message);
+          notify.danger((error as ServiceError).message);
           marker.addTo(map);
         }
       });
@@ -176,7 +176,7 @@ const initNavigation = () => {
 
       updateLocationsId = window.setTimeout(updateLocation, refreshRate);
     } catch (error) {
-      notify.error((error as ServiceError).message);
+      notify.danger((error as ServiceError).message);
       updateLocationsId = window.setTimeout(updateLocation, refreshRate);
     }
   };

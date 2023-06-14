@@ -35,9 +35,9 @@ import CamerasListSvelte from './camera/index.svelte';
 import OperationsSessionsSvelte from './operations-sessions/index.svelte';
 import DoCommandSvelte from './do-command/index.svelte';
 import EncoderSvelte from './encoder/index.svelte';
-import Gantry from './gantry.vue';
-import Gripper from './gripper.vue';
-import Gamepad from './gamepad.vue';
+import GantrySvelte from './gantry/index.svelte';
+import GripperSvelte from './gripper/index.svelte';
+import GamepadSvelte from './gamepad/index.svelte';
 import InputControllerSvelte from './input-controller/index.svelte';
 import MotorSvelte from './motor/index.svelte';
 import MovementSensorSvelte from './movement-sensor/index.svelte';
@@ -52,6 +52,9 @@ const AudioInput = svelteAdapter(AudioInputSvelte);
 const Base = svelteAdapter(BaseSvelte);
 const Board = svelteAdapter(BoardSvelte);
 const CamerasList = svelteAdapter(CamerasListSvelte, { display: 'flex', 'flex-direction': 'column', gap: '1rem' });
+const Gantry = svelteAdapter(GantrySvelte);
+const Gripper = svelteAdapter(GripperSvelte);
+const Gamepad = svelteAdapter(GamepadSvelte);
 const DoCommand = svelteAdapter(DoCommandSvelte);
 const Encoder = svelteAdapter(EncoderSvelte);
 const InputController = svelteAdapter(InputControllerSvelte);
@@ -173,7 +176,7 @@ const handleError = (message: string, error: unknown, onceKey: string) => {
     errors[onceKey] = true;
   }
 
-  notify.error(message);
+  notify.danger(message);
   console.error(message, { error });
 };
 
@@ -286,7 +289,7 @@ const updateStatus = (grpcStatuses: robotApi.Status[]) => {
       rawStatus[name] = statusJs as unknown as robotApi.Status;
       status[name] = fixed as unknown as robotApi.Status;
     } catch {
-      notify.error(`Couldn't fix status for ${resourceNameToString(nameObj)}`);
+      notify.danger(`Couldn't fix status for ${resourceNameToString(nameObj)}`);
     }
   }
 };
@@ -691,7 +694,7 @@ const doConnect = async (authEntity: string, creds: Credentials, onError?: (reas
     if (onError) {
       onError(error);
     } else {
-      notify.error('failed to connect');
+      notify.danger('failed to connect');
     }
   }
 };
@@ -703,14 +706,14 @@ const doLogin = (authType: string) => {
     isConnecting = false;
     disableAuthElements = false;
     console.error(error);
-    notify.error(`failed to connect: ${error}`);
+    notify.danger(`failed to connect: ${error}`);
   });
 };
 
 const initConnect = () => {
   if (supportedAuthTypes.length === 0) {
     doConnect(bakedAuth.authEntity, bakedAuth.creds, () => {
-      notify.error('failed to connect; retrying');
+      notify.danger('failed to connect; retrying');
       setTimeout(initConnect, 1000);
     });
   }

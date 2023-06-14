@@ -27,7 +27,7 @@ const getGPIO = async () => {
     const isHigh = await boardClient.getGPIO(getPin);
     getPinMessage = `Pin: ${getPin} is ${isHigh ? 'high' : 'low'}`;
   } catch (error) {
-    notify.error((error as ServiceError).message);
+    notify.danger((error as ServiceError).message);
   }
 };
 

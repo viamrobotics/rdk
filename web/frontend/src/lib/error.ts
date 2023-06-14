@@ -10,13 +10,13 @@ export const isServiceError = (error: unknown): boolean => {
 export const displayError = (error: ServiceError | string | null) => {
   if (typeof error === 'string') {
     if (!nonUserErrors.has(error)) {
-      notify.error(error);
+      notify.danger(error);
     }
     console.error(error);
   } else if (isServiceError(error)) {
     const serviceError = error as ServiceError;
     if (!nonUserErrors.has(serviceError.message)) {
-      notify.error(serviceError.message);
+      notify.danger(serviceError.message);
     }
     console.error(serviceError);
   }

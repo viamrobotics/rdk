@@ -27,10 +27,10 @@ const handleDoCommand = async (name: string, command: string) => {
     if (outputObject) {
       output = JSON.stringify(outputObject, null, '\t');
     } else {
-      notify.error(`Invalid response when executing command on ${name}`);
+      notify.danger(`Invalid response when executing command on ${name}`);
     }
   } catch (error) {
-    notify.error(`Error executing command on ${name}: ${error}`);
+    notify.danger(`Error executing command on ${name}: ${error}`);
   }
 
   executing = false;

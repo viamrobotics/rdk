@@ -1,8 +1,7 @@
-<!-- eslint-disable id-length -->
-<script setup lang="ts">
+<script lang='ts'>
 
 import { grpc } from '@improbable-eng/grpc-web';
-import { onMounted, onUnmounted, watch } from 'vue';
+import { onMount, onDestroy } from 'svelte';
 import { Timestamp } from 'google-protobuf/google/protobuf/timestamp_pb';
 import { ConnectionClosedError } from '@viamrobotics/rpc';
 import {
@@ -13,20 +12,17 @@ import {
   type ServiceError,
 } from '@viamrobotics/sdk';
 import { notify } from '@viamrobotics/prime';
-import { rcLogConditionally } from '../lib/log';
-import { $ref } from '@vue-macros/reactivity-transform/macros';
+import { rcLogConditionally } from '@/lib/log';
 
-const props = defineProps<{
-  name: string;
-  client: Client;
-  statusStream: ResponseStream<robotApi.StreamStatusResponse> | null
-}>();
+export let name:string;
+export let client:Client;
+export let statusStream: ResponseStream<robotApi.StreamStatusResponse> | null;
 
-let gamepadIdx = $ref<number | null>(null);
-let gamepadConnectedPrev = $ref(false);
-const enabled = $ref(false);
+let gamepadIdx: number | null = null;
+let gamepadConnectedPrev = false;
+let enabled = false;
 
-const curStates = $ref<Record<string, number>>({
+const curStates : Record<string, number> = ({
   X: Number.NaN,
   Y: Number.NaN,
   RX: Number.NaN,
@@ -57,10 +53,10 @@ const sendEvent = (newEvent: InputController.Event) => {
     return;
   }
   const req = new InputController.TriggerEventRequest();
-  req.setController(props.name);
+  req.setController(name);
   req.setEvent(newEvent);
   rcLogConditionally(req);
-  props.client.inputControllerService.triggerEvent(req, new grpc.Metadata(), (error: ServiceError | null) => {
+  client.inputControllerService.triggerEvent(req, new grpc.Metadata(), (error: ServiceError | null) => {
     if (error) {
       if (ConnectionClosedError.isError(error)) {
         return;
@@ -68,7 +64,7 @@ const sendEvent = (newEvent: InputController.Event) => {
       const now = Date.now();
       if (now - lastError > 1000) {
         lastError = now;
-        notify.error(error.message);
+        notify.danger(error.message);
       }
     }
   });
@@ -89,12 +85,10 @@ const nextTS = () => {
   return nowTS;
 };
 
-const currentGamepad = () => {
-  return gamepadIdx === null ? null : navigator.getGamepads()[gamepadIdx];
-};
+$: currentGamepad = gamepadIdx === null ? null : navigator.getGamepads()[gamepadIdx];
 
 const connectEvent = (con: boolean) => {
-  const gamepad = currentGamepad();
+  const gamepad = currentGamepad;
   if (
     (con && (!gamepad || !gamepad.connected)) ||
     (!con && !gamepadConnectedPrev)
@@ -179,7 +173,7 @@ const checkVal = (val?: number): number => {
 };
 
 const tick = () => {
-  const gamepad = currentGamepad();
+  const gamepad = currentGamepad;
   if (!gamepad || !gamepad.connected) {
     if (enabled) {
       processEvents(false);
@@ -234,7 +228,7 @@ const tick = () => {
   handle = window.setTimeout(tick, 10);
 };
 
-onMounted(() => {
+onMount(() => {
   window.addEventListener('gamepadconnected', (event) => {
     if (gamepadIdx) {
       return;
@@ -243,7 +237,7 @@ onMounted(() => {
     tick();
   });
   window.addEventListener('gamepaddisconnected', (event) => {
-    if (gamepadIdx === event.gamepad.index || !currentGamepad()?.connected) {
+    if (gamepadIdx === event.gamepad.index || !currentGamepad?.connected) {
       gamepadIdx = null;
     }
   });
@@ -260,76 +254,73 @@ onMounted(() => {
     return;
   }
   prevStates = { ...prevStates, ...curStates };
-  props.statusStream?.on('end', () => clearTimeout(handle));
+  statusStream?.on('end', () => clearTimeout(handle));
   tick();
 });
 
-onUnmounted(() => {
+onDestroy(() => {
   clearTimeout(handle);
 });
 
-watch(() => enabled, () => {
+$: {
   connectEvent(enabled);
-});
+}
 
 </script>
 
-<template>
-  <v-collapse
-    :title="`${name}`"
-    class="do"
-  >
-    <v-breadcrumbs
-      slot="title"
-      crumbs="input_controller"
-    />
+<v-collapse title={name} class="do">
+
+<v-breadcrumbs
+    slot="title"
+    crumbs="input_controller"/>
+
+{#if currentGamepad?.connected}
+<span slot="title"
+> ({ currentGamepad?.id })</span>
+{/if}
+<div slot="header">
+    {#if currentGamepad?.connected && enabled}
     <span
-      v-if="currentGamepad()?.connected"
-      slot="title"
-    > ({{ currentGamepad()?.id }})</span>
-    <div slot="header">
-      <span
-        v-if="currentGamepad()?.connected && enabled"
-        class="rounded-full bg-green-500 px-3 py-0.5 text-xs text-white"
-      >Enabled</span>
-      <span
-        v-else
-        class="rounded-full bg-gray-200 px-3 py-0.5 text-xs text-gray-800"
-      >Disabled</span>
-    </div>
+    class="rounded-full bg-green-500 px-3 py-0.5 text-xs text-white"
+    >Enabled</span>
+    {:else}
+    <span
+    class="rounded-full bg-gray-200 px-3 py-0.5 text-xs text-gray-800"
+    >Disabled</span>
+    {/if}
+</div>
 
-    <div class="h-full w-full border border-t-0 border-medium p-4">
-      <div class="flex flex-row">
-        <label class="subtitle mr-2">Enabled</label>
-        <v-switch
-          :value="enabled ? 'on' : 'off'"
-          @input="enabled = !enabled"
-        />
-      </div>
-
-      <div
-        v-if="currentGamepad()?.connected"
-        class="flex h-full w-full flex-row justify-between gap-2"
-      >
-        <div
-          v-for="(value, stateName) in curStates"
-          :key="stateName"
-          class="ml-0 flex w-[8ex] flex-col text-center"
-        >
-          <p class="subtitle m-0">
-            {{ stateName }}
-          </p>
-          {{ /X|Y|Z$/.test(stateName.toString()) ? value!.toFixed(4) : value!.toFixed() }}
-        </div>
-      </div>
+<div class="h-full w-full border border-t-0 border-medium p-4">
+    <div class="flex flex-row">
+    <label class="subtitle mr-2">Enabled</label>
+    <v-switch
+        :value="enabled ? 'on' : 'off'"
+        on:input={enabled = !enabled}
+    />
     </div>
-  </v-collapse>
-</template>
+    {#if currentGamepad?.connected}
+    <div
+    class="flex h-full w-full flex-row justify-between gap-2"
+    >
+    {#each Object.keys(curStates) as stateName, value}
+    <div
+        class="ml-0 flex w-[8ex] flex-col text-center"
+    >
+        <p class="subtitle m-0">
+        { stateName }
+        </p>
+        { (/X|Y|Z$/u).test(stateName.toString()) ? value.toFixed(4) : value.toFixed(0) }
+    </div>
+    {/each}
+    </div>
+    {/if}
+</div>
+</v-collapse>
 
 <style scoped>
 
 .subtitle {
-  color: var(--black-70);
+    color: var(--black-70);
 }
 
 </style>

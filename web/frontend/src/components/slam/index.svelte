@@ -175,7 +175,7 @@ const handleMoveClick = async () => {
   try {
     await moveOnMap(client, name, baseResources[0]!.name, destination!.x, destination!.y);
   } catch (error) {
-    notify.error((error as ServiceError).message);
+    notify.danger((error as ServiceError).message);
   }
 };
 
@@ -183,7 +183,7 @@ const handleStopMoveClick = async () => {
   try {
     await stopMoveOnMap(client, operations);
   } catch (error) {
-    notify.error((error as ServiceError).message);
+    notify.danger((error as ServiceError).message);
   }
 };
 
