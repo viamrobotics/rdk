@@ -28,8 +28,9 @@ type PmtkI2CNMEAMovementSensor struct {
 	data                    gpsData
 	activeBackgroundWorkers sync.WaitGroup
 
-	disableNmea bool
-	err         movementsensor.LastError
+	disableNmea  bool
+	err          movementsensor.LastError
+	lastposition movementsensor.LastPosition
 
 	bus   board.I2C
 	addr  byte
@@ -82,7 +83,8 @@ func NewPmtkI2CGPSNMEA(
 		disableNmea: disableNmea,
 		// Overloaded boards can have flaky I2C busses. Only report errors if at least 5 of the
 		// last 10 attempts have failed.
-		err: movementsensor.NewLastError(10, 5),
+		err:          movementsensor.NewLastError(10, 5),
+		lastposition: movementsensor.NewLastPosition(),
 	}
 
 	if err := g.Start(ctx); err != nil {
@@ -187,14 +189,36 @@ func (g *PmtkI2CNMEAMovementSensor) GetBusAddr() (board.I2C, byte) {
 	return g.bus, g.addr
 }
 
+//nolint
 // Position returns the current geographic location of the MovementSensor.
 func (g *PmtkI2CNMEAMovementSensor) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+	lastPosition := g.lastposition.GetLastPosition()
+
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	if g.data.location == nil {
-		return geo.NewPoint(0, 0), 0, errNilLocation
+
+	currentPosition := g.data.location
+
+	if currentPosition == nil {
+		return lastPosition, 0, errNilLocation
 	}
-	return g.data.location, g.data.alt, g.err.Get()
+
+	// if current position is (0,0) we will return the last non zero position
+	if g.lastposition.IsZeroPosition(currentPosition) && !g.lastposition.IsZeroPosition(lastPosition) {
+		return lastPosition, g.data.alt, g.err.Get()
+	}
+
+	// updating lastposition if it is different from the current position
+	if !g.lastposition.ArePointsEqual(currentPosition, lastPosition) {
+		g.lastposition.SetLastPosition(currentPosition)
+	}
+
+	// updating the last known valid position if the current position is non-zero
+	if !g.lastposition.IsZeroPosition(currentPosition) && !g.lastposition.IsPositionNaN(currentPosition) {
+		g.lastposition.SetLastPosition(currentPosition)
+	}
+
+	return currentPosition, g.data.alt, g.err.Get()
 }
 
 // Accuracy returns the accuracy, hDOP and vDOP.

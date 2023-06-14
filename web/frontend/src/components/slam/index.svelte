@@ -9,11 +9,11 @@ import {
   robotApi,
   type ServiceError,
 } from '@viamrobotics/sdk';
-import { copyToClipboardWithToast } from '@/lib/copy-to-clipboard';
+import { copyToClipboard } from '@/lib/copy-to-clipboard';
 import { filterResources } from '@/lib/resource';
 import { getPointCloudMap, getSLAMPosition } from '@/api/slam';
 import { moveOnMap, stopMoveOnMap } from '@/api/motion';
-import { toast } from '@/lib/toast';
+import { notify } from '@viamrobotics/prime';
 import { setAsyncInterval } from '@/lib/schedule';
 import Collapse from '@/components/collapse.svelte';
 import PCD from '@/components/pcd/pcd-view.svelte';
@@ -40,9 +40,11 @@ let show2d = false;
 let show3d = false;
 let showAxes = true;
 let destination: THREE.Vector2 | undefined;
+let labelUnits = 'm';
 
 $: loaded2d = pointcloud !== undefined && pose !== undefined;
 $: moveClicked = operations.find(({ op }) => op.method.includes('MoveOnMap'));
+$: unitScale = labelUnits === 'm' ? 1 : 1000;
 
 // get all resources which are bases
 $: baseResources = filterResources(resources, 'rdk', 'component', 'base');
@@ -145,16 +147,16 @@ const handle2dRenderClick = (event: CustomEvent) => {
 
 const handleUpdateDestX = (event: CustomEvent<{ value: string }>) => {
   destination ??= new THREE.Vector2();
-  destination.x = Number.parseFloat(event.detail.value);
+  destination.x = Number.parseFloat(event.detail.value) * (labelUnits === 'mm' ? 0.001 : 1);
 };
 
 const handleUpdateDestY = (event: CustomEvent<{ value: string }>) => {
   destination ??= new THREE.Vector2();
-  destination.y = Number.parseFloat(event.detail.value);
+  destination.y = Number.parseFloat(event.detail.value) * (labelUnits === 'mm' ? 0.001 : 1);
 };
 
 const baseCopyPosition = () => {
-  copyToClipboardWithToast(JSON.stringify({
+  copyToClipboard(JSON.stringify({
     x: pose?.getX(),
     y: pose?.getY(),
     z: pose?.getZ(),
@@ -173,7 +175,7 @@ const handleMoveClick = async () => {
   try {
     await moveOnMap(client, name, baseResources[0]!.name, destination!.x, destination!.y);
   } catch (error) {
-    toast.error((error as ServiceError).message);
+    notify.danger((error as ServiceError).message);
   }
 };
 
@@ -181,7 +183,7 @@ const handleStopMoveClick = async () => {
   try {
     await stopMoveOnMap(client, operations);
   } catch (error) {
-    toast.error((error as ServiceError).message);
+    notify.danger((error as ServiceError).message);
   }
 };
 
@@ -227,19 +229,19 @@ onDestroy(() => {
   <div class="flex flex-wrap gap-4 border border-t-0 border-medium sm:flex-nowrap">
     <div class="flex min-w-fit flex-col gap-4 p-4">
       <div class="float-left pb-4">
-        <div class="flex">
-          <div class="w-64">
-            <p class="mb-1 font-bold text-gray-800">
-              Map
-            </p>
+        <div>
+          <p class="mb-1 font-bold text-gray-800">
+            Map
+          </p>
+          <div class="flex items-end gap-2 w-64">
             <div class="relative">
-              <p class="mb-1 text-xs text-gray-500 ">
+              <p class="mb-1 text-xs text-gray-500">
                 Refresh frequency
               </p>
               <select
                 bind:value={refresh2dRate}
                 class="
-                    m-0 w-full appearance-none border border-solid border-medium bg-white bg-clip-padding
+                    m-0 w-full min-w-[200px] appearance-none border border-solid border-medium bg-white bg-clip-padding
                     px-3 py-1.5 text-xs font-normal text-default focus:outline-none
                   "
                 aria-label="Default select example"
@@ -261,34 +263,59 @@ onDestroy(() => {
                   Every second
                 </option>
               </select>
-              <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2">
-                <svg
-                  class="h-4 w-4 stroke-2 text-gray-700"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  stroke-linejoin="round"
-                  stroke-linecap="round"
-                  fill="none"
-                >
-                  <path d="M18 16L12 22L6 16" />
-                </svg>
-              </div>
+              <v-icon
+                name='chevron-down'
+                class="pointer-events-none absolute bottom-0 h-[30px] right-0 flex items-center px-2"
+              />
             </div>
-          </div>
-          <div class="px-2 pt-11">
-            <v-button
-              label="Refresh"
-              icon="refresh"
-              on:click={refresh2dMap}
-              on:keydown={refresh2dMap}
-            />
+              <v-button
+                label="Refresh"
+                icon="refresh"
+                on:click={refresh2dMap}
+                on:keydown={refresh2dMap}
+              />
           </div>
         </div>
+
         <hr class="my-4 border-t border-medium">
-        <div class="flex flex-row">
-          <p class="mb-1 pr-52 font-bold text-gray-800">
+        <div class="flex gap-2 mb-1">
+          <p class="font-bold text-gray-800">
             Ending position
           </p>
+          <button
+            class='text-xs hover:underline'
+            on:click={() => (labelUnits = labelUnits === 'mm' ? 'm' : 'mm')}
+          >
+            ({labelUnits})
+          </button>
+
+        </div>
+        <div class="flex flex-row items-end gap-2 pb-2">
+          <v-input
+            type="number"
+            label="x"
+            incrementor="slider"
+            value={destination ? (destination.x * unitScale).toFixed(5) : ''}
+            step={labelUnits === 'mm' ? '10' : '1'}
+            on:input={handleUpdateDestX}
+          />
+          <v-input
+            type="number"
+            label="y"
+            incrementor="slider"
+            value={destination ? (destination.y * unitScale).toFixed(5) : ''}
+            step={labelUnits === 'mm' ? '10' : '1'}
+            on:input={handleUpdateDestY}
+          />
+          <v-button
+            class="pt-1"
+            label="Move"
+            variant="success"
+            icon="play-circle-filled"
+            disabled={allowMove ? 'false' : 'true'}
+            on:click={handleMoveClick}
+            on:keydown={handleMoveClick}
+          />
           <v-button
             variant="icon"
             icon="trash"
@@ -296,37 +323,10 @@ onDestroy(() => {
             on:keydown={deleteDestinationMarker}
           />
         </div>
-        <div class="flex flex-row pb-2">
-          <v-input
-            type="number"
-            label="x"
-            incrementor="slider"
-            value={destination?.x ?? ''}
-            step="1"
-            on:input={handleUpdateDestX}
-          />
-          <v-input
-            class="pl-2"
-            type="number"
-            label="y"
-            incrementor="slider"
-            value={destination?.y ?? ''}
-            step="1"
-            on:input={handleUpdateDestY}
-          />
-        </div>
-        <v-button
-          class="pt-1"
-          label="Move"
-          variant="success"
-          icon="play-circle-filled"
-          disabled={allowMove ? 'false' : 'true'}
-          on:click={handleMoveClick}
-          on:keydown={handleMoveClick}
-        />
+
         <v-switch
           class="pt-2"
-          label="Show Axes"
+          label="Show grid"
           value={showAxes ? 'on' : 'off'}
           on:input={toggleAxes}
         />
@@ -341,48 +341,57 @@ onDestroy(() => {
 
       {#if loaded2d && show2d}
         <div>
-          <div class="flex flex-row pl-5 pt-3">
-            <div class="flex flex-col">
-              <p class="text-xs">
-                Current Position
-              </p>
+          <div class="flex flex-row pl-5 py-2 border-b border-b-light">
+            <div class="flex flex-col gap-0.5">
+              <div class='flex gap-2'>
+                <p class="text-xs">
+                  Current position
+                </p>
+                <button
+                  class='text-xs hover:underline'
+                  on:click={() => (labelUnits = labelUnits === 'mm' ? 'm' : 'mm')}
+                >
+                  ({labelUnits})
+                </button>
+              </div>
 
               {#if pose}
                 <div class="flex flex-row items-center">
-                  <p class="items-end pr-2 text-xs text-gray-500">x</p>
-                  <p>{pose.getX().toFixed(1)}</p>
+                  <p class="items-end pr-1.5 text-xs text-gray-500">x</p>
+                  <p>{(pose.getX() * unitScale).toFixed(1)}</p>
 
-                  <p class="pl-9 pr-2 text-xs text-gray-500">y</p>
-                  <p>{pose.getY().toFixed(1)}</p>
+                  <p class="pl-6 pr-1.5 text-xs text-gray-500">y</p>
+                  <p>{(pose.getY() * unitScale).toFixed(1)}</p>
 
-                  <p class="pl-9 pr-2 text-xs text-gray-500">z</p>
-                  <p>{pose.getZ().toFixed(1)}</p>
+                  <p class="pl-6 pr-1.5 text-xs text-gray-500">z</p>
+                  <p>{(pose.getZ() * unitScale).toFixed(1)}</p>
                 </div>
               {/if}
             </div>
-            <div class="flex flex-col pl-10">
+            <div class="flex flex-col gap-0.5 pl-10">
               <p class="text-xs">
-                Current Orientation
+                Current orientation
               </p>
 
               {#if pose}
                 <div class="flex flex-row items-center">
-                  <p class="pr-2 text-xs text-gray-500">o<sub>x</sub></p>
+                  <p class="pr-1.5 text-xs text-gray-500">o<sub>x</sub></p>
                   <p>{pose.getOX().toFixed(1)}</p>
 
-                  <p class="pl-9 pr-2 text-xs text-gray-500">o<sub>y</sub></p>
+                  <p class="pl-6 pr-1.5 text-xs text-gray-500">o<sub>y</sub></p>
                   <p>{pose.getOY().toFixed(1)}</p>
 
-                  <p class="pl-9 pr-2 text-xs text-gray-500">o<sub>z</sub></p>
+                  <p class="pl-6 pr-1.5 text-xs text-gray-500">o<sub>z</sub></p>
                   <p>{pose.getOZ().toFixed(1)}</p>
 
-                  <p class="pl-9 pr-2 text-xs text-gray-500">&theta;</p>
+                  <p class="pl-6 pr-1.5 text-xs text-gray-500">&theta;</p>
                   <p>{pose.getTheta().toFixed(1)}</p>
                 </div>
               {/if}
             </div>
 
             <v-button
+              tooltip='Copy pose to clipboard'
               class="pl-4 pt-2"
               variant='icon'
               icon='copy'
@@ -417,8 +426,8 @@ onDestroy(() => {
 
     {#if show3d}
       <div class="flex items-end gap-2">
-        <div class="w-56">
-          <p class="font-label mb-1 text-gray-800">
+        <div class="w-56 mt-3">
+          <p class="mb-1 text-xs text-gray-500 ">
             Refresh frequency
           </p>
           <div class="relative">
@@ -447,18 +456,10 @@ onDestroy(() => {
                 Every second
               </option>
             </select>
-            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2">
-              <svg
-                class="h-4 w-4 stroke-2 text-default"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                stroke-linejoin="round"
-                stroke-linecap="round"
-                fill="none"
-              >
-                <path d="M18 16L12 22L6 16" />
-              </svg>
-            </div>
+            <v-icon
+              name='chevron-down'
+              class="pointer-events-none absolute bottom-0 h-[30px] right-0 flex items-center px-2"
+            />
           </div>
         </div>
 

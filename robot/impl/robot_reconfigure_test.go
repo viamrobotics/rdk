@@ -1852,9 +1852,11 @@ func TestRobotReconfigure(t *testing.T) {
 		_, err = robot.ResourceByName(mockNamed("mock5"))
 		test.That(t, err, test.ShouldNotBeNil)
 
+		// `mock6` is configured to be in a "failing" state.
 		_, err = robot.ResourceByName(mockNamed("mock6"))
 		test.That(t, err, test.ShouldNotBeNil)
 
+		// `armFake` depends on `mock6` and is therefore also in an error state.
 		_, err = robot.ResourceByName(arm.Named("armFake"))
 		test.That(t, err, test.ShouldNotBeNil)
 
@@ -1879,6 +1881,8 @@ func TestRobotReconfigure(t *testing.T) {
 					mockNamed("mock6"),
 				},
 			)...))
+
+		// This configuration will put `mock6` into a good state after two calls to "reconfigure".
 		conf9good := ConfigFromFile(t, "data/diff_config_deps9_good.json")
 		robot.Reconfigure(context.Background(), conf9good)
 
@@ -1963,9 +1967,11 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, mock5.(*mockFake).reconfCount, test.ShouldEqual, 1)
 
+		// `mock6` is configured to be in a "failing" state.
 		_, err = robot.ResourceByName(mockNamed("mock6"))
 		test.That(t, err, test.ShouldNotBeNil)
 
+		// `armFake` depends on `mock6` and is therefore also in an error state.
 		_, err = robot.ResourceByName(arm.Named("armFake"))
 		test.That(t, err, test.ShouldNotBeNil)
 
@@ -1979,21 +1985,22 @@ func TestRobotReconfigure(t *testing.T) {
 		rr, ok := robot.(*localRobot)
 		test.That(t, ok, test.ShouldBeTrue)
 
+		// The newly set configuration fixes the `mock6` component. A (second) reconfig should pick
+		// that up and consequently bubble up the working `mock6` change to anything that depended
+		// on `mock6`, notably `armFake`.
 		rr.triggerConfig <- struct{}{}
 
 		testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 30, func(tb testing.TB) {
-			mock6, err := robot.ResourceByName(mockNamed("mock6"))
+			armFake, err := robot.ResourceByName(arm.Named("armFake"))
 			test.That(tb, err, test.ShouldBeNil)
-			test.That(tb, mock6, test.ShouldNotBeNil)
-			// test failures don't abort in helper functions, so have to avoid nil pointer panic manually
-			if mock6 == nil {
-				return
-			}
-			test.That(tb, mock6.(*mockFake).reconfCount, test.ShouldEqual, 1)
+			test.That(tb, armFake, test.ShouldNotBeNil)
 		})
 
-		_, err = robot.ResourceByName(arm.Named("armFake"))
+		// Seeing `armFake` in a working state implies that `mock6` must also be in a working state
+		// with its `reconfCount` bumped.
+		mock6, err = robot.ResourceByName(mockNamed("mock6"))
 		test.That(t, err, test.ShouldBeNil)
+		test.That(t, mock6.(*mockFake).reconfCount, test.ShouldEqual, 1)
 
 		sorted = robot.(*localRobot).manager.resources.TopologicalSort()
 		sorted = rdktestutils.SubtractNames(sorted, robot.(*localRobot).manager.internalResourceNames()...)
