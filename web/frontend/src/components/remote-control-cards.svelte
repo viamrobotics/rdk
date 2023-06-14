@@ -5,8 +5,8 @@ import { onMount, onDestroy } from 'svelte';
 import { grpc } from '@improbable-eng/grpc-web';
 import { Duration } from 'google-protobuf/google/protobuf/duration_pb';
 import { type Credentials, ConnectionClosedError } from '@viamrobotics/rpc';
-import { toast } from '@/lib/toast';
-import { displayError } from '@/lib/error';
+import { notify } from '@viamrobotics/prime';
+import { displayError } from '../lib/error';
 import { StreamManager } from './camera/stream-manager';
 import { fetchCurrentOps } from '@/api/robot';
 import {
@@ -143,7 +143,7 @@ const handleError = (message: string, error: unknown, onceKey: string) => {
     errors[onceKey] = true;
   }
 
-  toast.error(message);
+  notify.danger(message);
   console.error(message, { error });
 };
 
@@ -256,7 +256,7 @@ const updateStatus = (grpcStatuses: robotApi.Status[]) => {
       rawStatus[name] = statusJs as unknown as robotApi.Status;
       status[name] = fixed as unknown as robotApi.Status;
     } catch {
-      toast.error(`Couldn't fix status for ${resourceNameToString(nameObj)}`);
+      notify.danger(`Couldn't fix status for ${resourceNameToString(nameObj)}`);
     }
   }
 };
@@ -517,7 +517,7 @@ const createAppConnectionManager = () => {
 
       if (isConnected()) {
         if (connectionRestablished) {
-          toast.success('Connection established');
+          notify.success('Connection established');
           connectionRestablished = false;
         }
 
@@ -642,7 +642,7 @@ const doConnect = async (authEntity: string, creds: Credentials, onError?: (reas
     if (onError) {
       onError(error);
     } else {
-      toast.error('failed to connect');
+      notify.danger('failed to connect');
     }
   }
 };
@@ -654,14 +654,14 @@ const doLogin = (authType: string) => {
     isConnecting = false;
     disableAuthElements = false;
     console.error(error);
-    toast.error(`failed to connect: ${error}`);
+    notify.danger(`failed to connect: ${error}`);
   });
 };
 
 const initConnect = () => {
   if (supportedAuthTypes.length === 0) {
     doConnect(bakedAuth.authEntity, bakedAuth.creds, () => {
-      toast.error('failed to connect; retrying');
+      notify.danger('failed to connect; retrying');
       setTimeout(initConnect, 1000);
     });
   }
