@@ -15,6 +15,7 @@ import (
 	servicepb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/base"
+	kinematicbase "go.viam.com/rdk/components/base/kinematicWrapper"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/internal"
 	"go.viam.com/rdk/motionplan"
@@ -212,11 +213,11 @@ func (ms *builtIn) MoveOnMap(
 	if !ok {
 		return false, resource.DependencyNotFoundError(componentName)
 	}
-	kw, ok := component.(base.KinematicWrappable)
+	b, ok := component.(base.Base)
 	if !ok {
-		return false, fmt.Errorf("cannot move component of type %T because it is not a KinematicWrappable Base", component)
+		return false, fmt.Errorf("cannot move component of type %T because it is not a Base", component)
 	}
-	kb, err := kw.WrapWithKinematics(ctx, localizer, limits)
+	kb, err := kinematicbase.WrapWithKinematics(ctx, b, localizer, limits)
 	if err != nil {
 		return false, err
 	}
@@ -309,11 +310,11 @@ func (ms *builtIn) MoveOnGlobe(
 	if !ok {
 		return false, fmt.Errorf("only Base components are supported for MoveOnGlobe: could not find an Base named %v", componentName)
 	}
-	kw, ok := baseComponent.(base.KinematicWrappable)
+	b, ok := baseComponent.(base.Base)
 	if !ok {
-		return false, fmt.Errorf("cannot move base of type %T because it is not KinematicWrappable", baseComponent)
+		return false, fmt.Errorf("cannot move base of type %T because it is not a Base", baseComponent)
 	}
-	kb, err := kw.WrapWithKinematics(ctx, localizer, limits)
+	kb, err := kinematicbase.WrapWithKinematics(ctx, b, localizer, limits)
 	if err != nil {
 		return false, err
 	}

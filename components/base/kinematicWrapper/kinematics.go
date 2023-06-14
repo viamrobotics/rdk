@@ -1,4 +1,4 @@
-package wheeled
+package kinematicbase
 
 import (
 	"context"
@@ -20,8 +20,15 @@ const (
 	defaultLinearVelocity   = 300 // mm per second
 )
 
+// KinematicBase is an interface for Bases that also satisfy the ModelFramer and InputEnabled interfaces.
+type KinematicBase interface {
+	base.Base
+	referenceframe.ModelFramer
+	referenceframe.InputEnabled
+}
+
 type kinematicWheeledBase struct {
-	*wheeledBase
+	base.Base
 	localizer motion.Localizer
 	model     referenceframe.Model
 	fs        referenceframe.FrameSystem
@@ -29,16 +36,35 @@ type kinematicWheeledBase struct {
 
 // WrapWithKinematics takes a wheeledBase component and adds a slam service to it
 // It also adds kinematic model so that it can be controlled.
-func (wb *wheeledBase) WrapWithKinematics(
+func WrapWithKinematics(
 	ctx context.Context,
+	b base.Base,
 	localizer motion.Localizer,
 	limits []referenceframe.Limit,
-) (base.KinematicBase, error) {
-	geometry, err := base.CollisionGeometry(wb.frame)
+) (KinematicBase, error) {
+	properties, err := b.Properties(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
-	model, err := referenceframe.New2DMobileModelFrame(wb.name, limits, geometry)
+	if properties.TurningRadiusMeters != 0 {
+		return nil, errors.New("can only wrap with kinematics if Base property TurningRadiusMeters is zero")
+	}
+
+	// TODO(RSDK-3313): after this ticket this will become configurable
+	frame := &referenceframe.LinkConfig{
+		Geometry: &spatialmath.GeometryConfig{
+			Label:             "kwb",
+			Type:              spatialmath.SphereType,
+			R:                 5,
+			TranslationOffset: r3.Vector{X: 3, Y: 4, Z: 0},
+		},
+	}
+
+	geometry, err := collisionGeometry(frame)
+	if err != nil {
+		return nil, err
+	}
+	model, err := referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits, geometry)
 	if err != nil {
 		return nil, err
 	}
@@ -46,11 +72,12 @@ func (wb *wheeledBase) WrapWithKinematics(
 	if err := fs.AddFrame(model, fs.World()); err != nil {
 		return nil, err
 	}
+
 	return &kinematicWheeledBase{
-		wheeledBase: wb,
-		localizer:   localizer,
-		model:       model,
-		fs:          fs,
+		Base:      b,
+		localizer: localizer,
+		model:     model,
+		fs:        fs,
 	}, nil
 }
 
@@ -96,6 +123,43 @@ func (kwb *kinematicWheeledBase) GoToInputs(ctx context.Context, desired []refer
 	return err
 }
 
+// CollisionGeometry returns a spherical geometry that will encompass the base if it were to rotate the geometry specified in the config
+// 360 degrees about the Z axis of the reference frame specified in the config.
+func collisionGeometry(cfg *referenceframe.LinkConfig) (spatialmath.Geometry, error) {
+	// TODO(RSDK-1014): the orientation of this model will matter for collision checking,
+	// and should match the convention of +Y being forward for bases
+	if cfg == nil || cfg.Geometry == nil {
+		return nil, errors.New("base not configured with a geometry on its frame, cannot create collision geometry for it")
+	}
+	geoCfg := cfg.Geometry
+	r := geoCfg.TranslationOffset.Norm()
+	switch geoCfg.Type {
+	case spatialmath.BoxType:
+		r += r3.Vector{X: geoCfg.X, Y: geoCfg.Y, Z: geoCfg.Z}.Norm() / 2
+	case spatialmath.SphereType:
+		r += geoCfg.R
+	case spatialmath.CapsuleType:
+		r += geoCfg.L / 2
+	case spatialmath.UnknownType:
+		// no type specified, iterate through supported types and try to infer intent
+		if norm := (r3.Vector{X: geoCfg.X, Y: geoCfg.Y, Z: geoCfg.Z}).Norm(); norm > 0 {
+			r += norm / 2
+		} else if geoCfg.L != 0 {
+			r += geoCfg.L / 2
+		} else {
+			r += geoCfg.R
+		}
+	case spatialmath.PointType:
+	default:
+		return nil, spatialmath.ErrGeometryTypeUnsupported
+	}
+	sphere, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), r, geoCfg.Label)
+	if err != nil {
+		return nil, err
+	}
+	return sphere, nil
+}
+
 // issueCommand issues a relevant command to move the base to the given desired inputs and returns the boolean describing
 // if it issued a command successfully.  If it is already at the location it will not need to issue another command and can therefore
 // return a false.
@@ -126,7 +190,7 @@ func (kwb *kinematicWheeledBase) errorState(current, desired []referenceframe.In
 	)
 
 	// transform the goal pose such that it is in the base frame
-	tf, err := kwb.fs.Transform(map[string][]referenceframe.Input{kwb.name: current}, goal, kwb.name)
+	tf, err := kwb.fs.Transform(map[string][]referenceframe.Input{kwb.model.Name(): current}, goal, kwb.model.Name())
 	if err != nil {
 		return 0, 0, err
 	}
