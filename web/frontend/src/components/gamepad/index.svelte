@@ -11,7 +11,7 @@ import {
   robotApi,
   type ServiceError,
 } from '@viamrobotics/sdk';
-import { toast } from '@/lib/toast';
+import { notify } from '@viamrobotics/prime';
 import { rcLogConditionally } from '@/lib/log';
 
 export let name:string;
@@ -64,7 +64,7 @@ const sendEvent = (newEvent: InputController.Event) => {
       const now = Date.now();
       if (now - lastError > 1000) {
         lastError = now;
-        toast.error(error.message);
+        notify.danger(error.message);
       }
     }
   });
