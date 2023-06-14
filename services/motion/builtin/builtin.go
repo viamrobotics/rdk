@@ -472,7 +472,7 @@ func (ms *builtIn) PlanMoveOnMap(
 
 	seedMap := map[string][]referenceframe.Input{f.Name(): inputs}
 
-	ms.logger.Debugf("goal position: %v", dst)
+	ms.logger.Debugf("goal position: %v", dst.Pose().Point())
 	solutionMap, err := motionplan.PlanMotion(ctx, ms.logger, dst, f, seedMap, fs, worldState, nil, extra)
 	if err != nil {
 		return nil, nil, err

@@ -1,4 +1,4 @@
-package builtin_test
+package builtin
 
 import (
 	"context"
@@ -28,8 +28,6 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/motion"
-	"go.viam.com/rdk/services/motion/builtin"
-	_ "go.viam.com/rdk/services/register"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -219,7 +217,7 @@ func TestMoveSingleComponent(t *testing.T) {
 	})
 }
 
-func TestPlanMoveOnMapPath(t *testing.T) {
+func TestPlanMoveOnMap(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 	injectSlam := inject.NewSLAMService("test_slam")
@@ -244,7 +242,6 @@ func TestPlanMoveOnMapPath(t *testing.T) {
 		return f, nil
 	}
 
-	// TODO: use CurrentPosition from motion service, fix test
 	injectSlam.GetPositionFunc = func(ctx context.Context) (spatialmath.Pose, string, error) {
 		fakePose := spatialmath.NewPoseFromPoint(r3.Vector{X: -0.0345 * 1000, Y: -0.145 * 1000})
 		return fakePose, "", nil
@@ -259,20 +256,20 @@ func TestPlanMoveOnMapPath(t *testing.T) {
 	fakeBase, err := fake.NewBase(ctx, nil, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	_, err = builtin.NewBuiltIn(
+	ms, err := NewBuiltIn(
 		ctx,
 		resource.Dependencies{injectSlam.Name(): injectSlam, fakeBase.Name(): fakeBase},
 		resource.Config{
-			ConvertedAttributes: &builtin.Config{},
+			ConvertedAttributes: &Config{},
 		},
 		logger,
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	path, _, err := ms.(builtin.builtIn).PlanMoveOnMapPath(
+	path, _, err := ms.(*builtIn).PlanMoveOnMap(
 		context.Background(),
 		base.Named("test_base"),
-		spatialmath.NewPoseFromPoint(r3.Vector{X: 1.26 * 1000, Y: 0.1705 * 1000}),
+		spatialmath.NewPoseFromPoint(r3.Vector{X: 1.32 * 1000, Y: 0}),
 		slam.Named("test_slam"),
 		nil,
 	)
@@ -306,12 +303,6 @@ func TestMoveOnMap(t *testing.T) {
 		return f, nil
 	}
 
-	// TODO: use CurrentPosition from motion service, fix test
-	injectSlam.GetPositionFunc = func(ctx context.Context) (spatialmath.Pose, string, error) {
-		fakePose := spatialmath.NewPoseFromPoint(r3.Vector{X: -0.882 * 1000, Y: -0.646 * 1000})
-		return fakePose, "", nil
-	}
-
 	cfg := resource.Config{
 		Name:  "test_base",
 		API:   base.API,
@@ -321,11 +312,11 @@ func TestMoveOnMap(t *testing.T) {
 	fakeBase, err := fake.NewBase(ctx, nil, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	ms, err := builtin.NewBuiltIn(
+	ms, err := NewBuiltIn(
 		ctx,
 		resource.Dependencies{injectSlam.Name(): injectSlam, fakeBase.Name(): fakeBase},
 		resource.Config{
-			ConvertedAttributes: &builtin.Config{},
+			ConvertedAttributes: &Config{},
 		},
 		logger,
 	)
@@ -334,7 +325,7 @@ func TestMoveOnMap(t *testing.T) {
 	success, err := ms.MoveOnMap(
 		context.Background(),
 		base.Named("test_base"),
-		spatialmath.NewPoseFromPoint(r3.Vector{X: 1.26 * 1000, Y: 0.1705 * 1000}),
+		spatialmath.NewPoseFromPoint(r3.Vector{X: 1.32 * 1000, Y: 0}),
 		slam.Named("test_slam"),
 		nil,
 	)
