@@ -120,7 +120,6 @@ func newSingleAxis(ctx context.Context, deps resource.Dependencies, conf resourc
 }
 
 func (g *singleAxis) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
-	g.logger.Error(time.Now())
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	needsToReHome := false
@@ -198,7 +197,6 @@ func (g *singleAxis) Reconfigure(ctx context.Context, deps resource.Dependencies
 		wg.Wait()
 	}
 
-	g.logger.Error(time.Now())
 	return nil
 }
 

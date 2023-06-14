@@ -6,11 +6,11 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/board"
-	"go.viam.com/rdk/components/gantry"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -22,6 +22,10 @@ const (
 	testGName = "test"
 	boardName = "board"
 )
+
+var fakeFrame = &referenceframe.LinkConfig{
+	Translation: r3.Vector{X: 0, Y: 1.0, Z: 0},
+}
 
 var count = 0
 
@@ -71,6 +75,7 @@ func TestValidate(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "length_mm")
 
 	fakecfg.LengthMm = 1.0
+	fakecfg.MmPerRevolution = 1.0
 	fakecfg.LimitSwitchPins = []string{"1"}
 	deps, err = fakecfg.Validate("path")
 	test.That(t, deps, test.ShouldBeNil)
@@ -94,7 +99,8 @@ func TestNewSingleAxis(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "expected *singleaxis.Config but got <nil>")
 
 	fakecfg = resource.Config{
-		Name: testGName,
+		Name:  testGName,
+		Frame: fakeFrame,
 		ConvertedAttributes: &Config{
 			Motor:           motorName,
 			LimitSwitchPins: []string{"1", "2"},
@@ -110,7 +116,8 @@ func TestNewSingleAxis(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 
 	fakecfg = resource.Config{
-		Name: testGName,
+		Name:  testGName,
+		Frame: fakeFrame,
 		ConvertedAttributes: &Config{
 			Motor:           motorName,
 			LimitSwitchPins: []string{"1"},
@@ -127,7 +134,8 @@ func TestNewSingleAxis(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	fakecfg = resource.Config{
-		Name: testGName,
+		Name:  testGName,
+		Frame: fakeFrame,
 		ConvertedAttributes: &Config{
 			Motor:           motorName,
 			LimitSwitchPins: []string{"1"},
@@ -143,7 +151,8 @@ func TestNewSingleAxis(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "gantry with one limit switch per axis needs a mm_per_length ratio defined")
 
 	fakecfg = resource.Config{
-		Name: testGName,
+		Name:  testGName,
+		Frame: fakeFrame,
 		ConvertedAttributes: &Config{
 			Motor:           motorName,
 			LimitSwitchPins: []string{"1", "2", "3"},
@@ -195,7 +204,8 @@ func TestReconfigure(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	deps := createFakeDepsForTestNewSingleAxis(t)
 	fakecfg := resource.Config{
-		Name: testGName,
+		Name:  testGName,
+		Frame: fakeFrame,
 		ConvertedAttributes: &Config{
 			Motor:           motorName,
 			LimitSwitchPins: []string{"1", "2"},
@@ -210,7 +220,8 @@ func TestReconfigure(t *testing.T) {
 	g := fakegantry.(*singleAxis)
 
 	newconf := resource.Config{
-		Name: testGName,
+		Name:  testGName,
+		Frame: fakeFrame,
 		ConvertedAttributes: &Config{
 			Motor:           motorName,
 			LimitSwitchPins: []string{"1", "3"},
@@ -627,12 +638,22 @@ func TestMoveToPosition(t *testing.T) {
 }
 
 func TestModelFrame(t *testing.T) {
-	fakegantry := &singleAxis{
-		Named:    gantry.Named("foo").AsNamed(),
-		lengthMm: 1.0,
-		model:    nil,
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+	deps := createFakeDepsForTestNewSingleAxis(t)
+	fakecfg := resource.Config{
+		Name:  testGName,
+		Frame: fakeFrame,
+		ConvertedAttributes: &Config{
+			Motor:           motorName,
+			LimitSwitchPins: []string{"1", "2"},
+			LengthMm:        1.0,
+			Board:           boardName,
+			LimitPinEnabled: &setTrue,
+			GantryRPM:       float64(300),
+		},
 	}
-
+	fakegantry, _ := newSingleAxis(ctx, deps, fakecfg, logger)
 	m := fakegantry.ModelFrame()
 	test.That(t, m, test.ShouldNotBeNil)
 }
