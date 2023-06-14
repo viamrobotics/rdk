@@ -37,7 +37,8 @@ type Config struct {
 	LimitSwitchPins []string `json:"limit_pins,omitempty"`
 	LimitPinEnabled *bool    `json:"limit_pin_enabled_high,omitempty"`
 	LengthMm        float64  `json:"length_mm"`
-	MmPerRevolution float64  `json:"mm_per_rev,omitempty"`
+	MmPerRevolution float64  `json:"mm_per_rev"`
+	GantryMmPerSec  float64  `json:"gantry_mm_per_sec,omitempty"`
 	GantryRPM       float64  `json:"gantry_rpm,omitempty"`
 }
 
@@ -53,6 +54,11 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 	if cfg.LengthMm <= 0 {
 		err := utils.NewConfigValidationFieldRequiredError(path, "length_mm")
 		return nil, errors.Wrap(err, "length must be non-zero and positive")
+	}
+
+	if cfg.MmPerRevolution <= 0 {
+		err := utils.NewConfigValidationFieldRequiredError(path, "mm_per_rev")
+		return nil, errors.Wrap(err, "mm_per_rev must be non-zero and positive")
 	}
 
 	if len(cfg.Board) == 0 && len(cfg.LimitSwitchPins) > 0 {

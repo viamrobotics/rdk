@@ -20,7 +20,7 @@ var model = resource.DefaultModelFamily.WithModel("multi-axis")
 // Config is used for converting multiAxis config attributes.
 type Config struct {
 	SubAxes            []string `json:"subaxes_list"`
-	MoveSimultaneously *bool    `json:"move_simultaneously"`
+	MoveSimultaneously *bool    `json:"move_simultaneously,omitempty"`
 }
 
 type multiAxis struct {
@@ -41,10 +41,6 @@ func (conf *Config) Validate(path string) ([]string, error) {
 
 	if len(conf.SubAxes) == 0 {
 		return nil, utils.NewConfigValidationError(path, errors.New("need at least one axis"))
-	}
-
-	if conf.MoveSimultaneously == nil {
-		return nil, utils.NewConfigValidationError(path, errors.New("move_simultaneously is a required config attribute"))
 	}
 
 	deps = append(deps, conf.SubAxes...)
@@ -82,7 +78,10 @@ func newMultiAxis(
 		mAx.subAxes = append(mAx.subAxes, subAx)
 	}
 
-	mAx.moveSimultaneously = *newConf.MoveSimultaneously
+	mAx.moveSimultaneously = false
+	if newConf.MoveSimultaneously != nil {
+		mAx.moveSimultaneously = *newConf.MoveSimultaneously
+	}
 
 	mAx.lengthsMm, err = mAx.Lengths(ctx, nil)
 	if err != nil {
