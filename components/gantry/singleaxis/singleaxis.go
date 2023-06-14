@@ -94,7 +94,7 @@ type singleAxis struct {
 	rpm             float64
 
 	model referenceframe.Model
-	Frame r3.Vector
+	frame r3.Vector
 
 	logger golog.Logger
 	opMgr  operation.SingleOperationManager
@@ -129,7 +129,7 @@ func (g *singleAxis) Reconfigure(ctx context.Context, deps resource.Dependencies
 	if g.mmPerRevolution <= 0 && len(newConf.LimitSwitchPins) == 1 {
 		return errors.New("gantry with one limit switch per axis needs a mm_per_length ratio defined")
 	}
-	g.Frame = conf.Frame.Translation
+	g.frame = conf.Frame.Translation
 	g.rpm = newConf.GantryRPM
 	if g.rpm == 0 {
 		g.rpm = 100
@@ -441,7 +441,7 @@ func (g *singleAxis) ModelFrame() referenceframe.Model {
 		errs = multierr.Combine(errs, err)
 		m.OrdTransforms = append(m.OrdTransforms, f)
 
-		f, err = referenceframe.NewTranslationalFrame(g.Name().ShortName(), g.Frame, referenceframe.Limit{Min: 0, Max: g.lengthMm})
+		f, err = referenceframe.NewTranslationalFrame(g.Name().ShortName(), g.frame, referenceframe.Limit{Min: 0, Max: g.lengthMm})
 		errs = multierr.Combine(errs, err)
 
 		if errs != nil {
