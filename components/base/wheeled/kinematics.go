@@ -74,8 +74,6 @@ func (kwb *kinematicWheeledBase) GoToInputs(ctx context.Context, desired []refer
 	// when the base is within the positional threshold of the goal, exit the loop
 	for err = ctx.Err(); err == nil; err = ctx.Err() {
 		current, err := kwb.CurrentInputs(ctx)
-		kwb.logger.Debugf("current inputs: %v", current)
-		kwb.logger.Debugf("desired inputs: %v", desired)
 		if err != nil {
 			return err
 		}

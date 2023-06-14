@@ -107,19 +107,11 @@ func (b *Base) WrapWithKinematics(
 	if err != nil {
 		return nil, err
 	}
-
-	// initialPose, err := localizer.CurrentPosition(ctx)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// initialPoint := initialPose.Pose().Point()
-
 	return &kinematicBase{
 		Base:      b,
 		model:     model,
 		localizer: localizer,
 		inputs:    make([]referenceframe.Input, len(model.DoF())),
-		// inputs:    referenceframe.FloatsToInputs([]float64{initialPoint.X, initialPoint.Y, initialPose.Pose().Orientation().OrientationVectorRadians().Theta}),
 	}, nil
 }
 

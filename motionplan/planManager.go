@@ -432,15 +432,6 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 		opt.AddStateConstraint(name, constraint)
 	}
 
-	sc, ok := planningOpts["slam_octree_constraint"]
-	if ok {
-		slamConstraint, ok := sc.(StateConstraint)
-		if !ok {
-			return nil, errors.New("could not interpret slam_octree_constraint field as StateConstraint")
-		}
-		opt.AddStateConstraint("slam constraint", slamConstraint)
-	}
-
 	hasTopoConstraint := opt.addPbTopoConstraints(from, to, constraints)
 	if hasTopoConstraint {
 		planAlg = "cbirrt"

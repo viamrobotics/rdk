@@ -2,6 +2,7 @@ package pointcloud
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
@@ -203,6 +204,7 @@ func (octree *BasicOctree) Transform(spatialmath.Pose) spatialmath.Geometry {
 }
 
 func (octree *BasicOctree) ToProtobuf() *commonpb.Geometry {
+	// TODO
 	return nil
 }
 
@@ -211,10 +213,12 @@ func (octree *BasicOctree) CollidesWith(geom spatialmath.Geometry) (bool, error)
 }
 
 func (octree *BasicOctree) DistanceFrom(geom spatialmath.Geometry) (float64, error) {
-	return -1, errors.Errorf("not implemented")
+	// TODO
+	return math.Inf(-1), errors.Errorf("not implemented")
 }
 
 func (octree *BasicOctree) EncompassedBy(spatialmath.Geometry) (bool, error) {
+	// TODO
 	return false, errors.Errorf("not implemented")
 }
 
@@ -236,5 +240,6 @@ func (octree *BasicOctree) ToPoints(float64) []r3.Vector {
 }
 
 func (octree *BasicOctree) MarshalJSON() ([]byte, error) {
+	// TODO
 	return nil, errors.Errorf("not implemented")
 }

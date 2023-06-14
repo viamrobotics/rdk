@@ -199,7 +199,7 @@ func (ms *builtIn) MoveOnMap(
 	for _, point := range plan {
 		planStr += fmt.Sprintf("%v,%v\n", point[0].Value, point[1].Value)
 	}
-	fmt.Println(planStr)
+	ms.logger.Debug("planned path: ", planStr)
 
 	if err != nil {
 		return false, err
@@ -400,6 +400,7 @@ func (ms *builtIn) GetPose(
 	)
 }
 
+// PlanMoveOnMap returns the plan for MoveOnMap to execute
 func (ms *builtIn) PlanMoveOnMap(
 	ctx context.Context,
 	componentName resource.Name,
