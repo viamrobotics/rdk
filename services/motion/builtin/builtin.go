@@ -189,69 +189,7 @@ func (ms *builtIn) MoveOnMap(
 ) (bool, error) {
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
 
-	localizer, ok := ms.localizers[slamName]
-	if !ok {
-		return false, resource.DependencyNotFoundError(slamName)
-	}
-	ms.logger.Warn("This feature is currently experimental and does not support obstacle avoidance with SLAM maps yet")
-
-	// assert localizer as a slam service and get map limits
-	slamSvc, ok := localizer.(slam.Service)
-	if !ok {
-		return false, fmt.Errorf("cannot assert localizer of type %T as slam service", localizer)
-	}
-
-	// gets the extents of the SLAM map
-	limits, err := slam.GetLimits(ctx, slamSvc)
-	if err != nil {
-		return false, err
-	}
-
-	// create a KinematicBase from the componentName
-	component, ok := ms.components[componentName]
-	if !ok {
-		return false, resource.DependencyNotFoundError(componentName)
-	}
-	kw, ok := component.(base.KinematicWrappable)
-	if !ok {
-		return false, fmt.Errorf("cannot move component of type %T because it is not a KinematicWrappable Base", component)
-	}
-	kb, err := kw.WrapWithKinematics(ctx, localizer, limits)
-	if err != nil {
-		return false, err
-	}
-
-	pointCloudData, err := slam.GetPointCloudMapFull(ctx, slamSvc)
-	if err != nil {
-		return false, err
-	}
-	octree, err := pointcloud.ReadPCDToBasicOctree(bytes.NewReader(pointCloudData))
-	if err != nil {
-		return false, err
-	}
-
-	threshold := 60
-	buffer := 60.0
-	constraint := motionplan.NewOctreeCollisionConstraint(octree, threshold, buffer)
-
-	if extra == nil {
-		extra = make(map[string]interface{})
-	}
-	extra["slam_octree_constraint"] = constraint
-	extra["planning_alg"] = "rrtstar"
-
-	// get current position
-	inputs, err := kb.CurrentInputs(ctx)
-	if err != nil {
-		return false, err
-	}
-	ms.logger.Debugf("base position: %v", inputs)
-
-	dst := spatialmath.NewPoseFromPoint(destination.Point())
-	ms.logger.Debugf("goal position: %v", dst.Point())
-	plan, err := motionplan.PlanFrameMotion(ctx, ms.logger, dst, kb.ModelFrame(), inputs, nil, extra)
-	
-	// plan, kb, err := ms.PlanMoveOnMapPath(ctx, componentName, destination, slamName, extra)
+	plan, kb, err := ms.PlanMoveOnMapPath(ctx, componentName, destination, slamName, extra)
 
 	// make call to motionplan
 	// TODO: figure this stuff out
@@ -275,7 +213,12 @@ func (ms *builtIn) MoveOnMap(
 	// }
 	// plan, err := motionplan.FrameStepsFromRobotPath(f.Name(), solutionMap)
 
-	ms.logger.Debugf("Planned Path: %+v", plan)
+	var planStr string
+	for _, point := range plan{
+		planStr += fmt.Sprintf("%v,%v\n", point[0].Value, point[1].Value)
+	}
+	ms.logger.Debug(planStr)
+
 	if err != nil {
 		return false, err
 	}
@@ -475,77 +418,77 @@ func (ms *builtIn) GetPose(
 	)
 }
 
-// func (ms *builtIn) PlanMoveOnMapPath(
-// 	ctx context.Context,
-// 	componentName resource.Name,
-// 	destination spatialmath.Pose,
-// 	slamName resource.Name,
-// 	extra map[string]interface{},
-// ) ([][]referenceframe.Input, base.KinematicBase, error) {
-// 	// get the SLAM Service from the slamName
-// 	localizer, ok := ms.localizers[slamName]
-// 	if !ok {
-// 		return nil, nil, resource.DependencyNotFoundError(slamName)
-// 	}
-// 	ms.logger.Warn("This feature is currently experimental and does not support obstacle avoidance with SLAM maps yet")
+func (ms *builtIn) PlanMoveOnMapPath(
+	ctx context.Context,
+	componentName resource.Name,
+	destination spatialmath.Pose,
+	slamName resource.Name,
+	extra map[string]interface{},
+) ([][]referenceframe.Input, base.KinematicBase, error) {
+	// get the SLAM Service from the slamName
+	localizer, ok := ms.localizers[slamName]
+	if !ok {
+		return nil, nil, resource.DependencyNotFoundError(slamName)
+	}
+	ms.logger.Warn("This feature is currently experimental and does not support obstacle avoidance with SLAM maps yet")
 
-// 	// assert localizer as a slam service and get map limits
-// 	slamSvc, ok := localizer.(slam.Service)
-// 	if !ok {
-// 		return nil, nil, fmt.Errorf("cannot assert localizer of type %T as slam service", localizer)
-// 	}
+	// assert localizer as a slam service and get map limits
+	slamSvc, ok := localizer.(slam.Service)
+	if !ok {
+		return nil, nil, fmt.Errorf("cannot assert localizer of type %T as slam service", localizer)
+	}
 
-// 	// gets the extents of the SLAM map
-// 	limits, err := slam.GetLimits(ctx, slamSvc)
-// 	if err != nil {
-// 		return nil, nil, err
-// 	}
+	// gets the extents of the SLAM map
+	limits, err := slam.GetLimits(ctx, slamSvc)
+	if err != nil {
+		return nil, nil, err
+	}
 
-// 	// create a KinematicBase from the componentName
-// 	component, ok := ms.components[componentName]
-// 	if !ok {
-// 		return nil, nil, resource.DependencyNotFoundError(componentName)
-// 	}
-// 	kw, ok := component.(base.KinematicWrappable)
-// 	if !ok {
-// 		return nil, nil, fmt.Errorf("cannot move component of type %T because it is not a KinematicWrappable Base", component)
-// 	}
-// 	kb, err := kw.WrapWithKinematics(ctx, localizer, limits)
-// 	if err != nil {
-// 		return nil, nil, err
-// 	}
+	// create a KinematicBase from the componentName
+	component, ok := ms.components[componentName]
+	if !ok {
+		return nil, nil, resource.DependencyNotFoundError(componentName)
+	}
+	kw, ok := component.(base.KinematicWrappable)
+	if !ok {
+		return nil, nil, fmt.Errorf("cannot move component of type %T because it is not a KinematicWrappable Base", component)
+	}
+	kb, err := kw.WrapWithKinematics(ctx, localizer, limits)
+	if err != nil {
+		return nil, nil, err
+	}
 
-// 	pointCloudData, err := slam.GetPointCloudMapFull(ctx, slamSvc)
-// 	if err != nil {
-// 		return nil, nil, err
-// 	}
-// 	octree, err := pointcloud.ReadPCDToBasicOctree(bytes.NewReader(pointCloudData))
-// 	if err != nil {
-// 		return nil, nil, err
-// 	}
+	pointCloudData, err := slam.GetPointCloudMapFull(ctx, slamSvc)
+	if err != nil {
+		return nil, nil, err
+	}
+	octree, err := pointcloud.ReadPCDToBasicOctree(bytes.NewReader(pointCloudData))
+	if err != nil {
+		return nil, nil, err
+	}
 
-// 	threshold := 60
-// 	buffer := 60.0
-// 	constraint := motionplan.NewOctreeCollisionConstraint(octree, threshold, buffer)
+	threshold := 60
+	buffer := 60.0
+	constraint := motionplan.NewOctreeCollisionConstraint(octree, threshold, buffer)
 
-// 	if extra == nil {
-// 		extra = make(map[string]interface{})
-// 	}
-// 	extra["slam_octree_constraint"] = constraint
-// 	extra["planning_alg"] = "rrtstar"
+	if extra == nil {
+		extra = make(map[string]interface{})
+	}
+	extra["slam_octree_constraint"] = constraint
+	extra["planning_alg"] = "rrtstar"
 
-// 	// get current position
-// 	inputs, err := kb.CurrentInputs(ctx)
-// 	if err != nil {
-// 		return nil, nil, err
-// 	}
-// 	ms.logger.Debugf("base position: %v", inputs)
+	// get current position
+	inputs, err := kb.CurrentInputs(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	ms.logger.Debugf("base position: %v", inputs)
 
-// 	dst := spatialmath.NewPoseFromPoint(destination.Point())
-// 	ms.logger.Debugf("goal position: %v", dst.Point())
-// 	plan, err := motionplan.PlanFrameMotion(ctx, ms.logger, dst, kb.ModelFrame(), inputs, nil, extra)
-// 	if err != nil {
-// 		return nil, nil, err
-// 	}
-// 	return plan, kb, nil
-// }
+	dst := spatialmath.NewPoseFromPoint(destination.Point())
+	ms.logger.Debugf("goal position: %v", dst.Point())
+	plan, err := motionplan.PlanFrameMotion(ctx, ms.logger, dst, kb.ModelFrame(), inputs, nil, extra)
+	if err != nil {
+		return nil, nil, err
+	}
+	return plan, kb, nil
+}

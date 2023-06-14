@@ -308,7 +308,7 @@ func TestMoveOnMap(t *testing.T) {
 
 	// TODO: use CurrentPosition from motion service, fix test
 	injectSlam.GetPositionFunc = func(ctx context.Context) (spatialmath.Pose, string, error) {
-		fakePose := spatialmath.NewPoseFromPoint(r3.Vector{X: -0.0345 * 1000, Y: -0.145 * 1000})
+		fakePose := spatialmath.NewPoseFromPoint(r3.Vector{X: -0.882 * 1000, Y: -0.646 * 1000})
 		return fakePose, "", nil
 	}
 
