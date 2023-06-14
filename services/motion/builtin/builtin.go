@@ -189,35 +189,17 @@ func (ms *builtIn) MoveOnMap(
 ) (bool, error) {
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
 
-	plan, kb, err := ms.PlanMoveOnMapPath(ctx, componentName, destination, slamName, extra)
-
 	// make call to motionplan
-	// TODO: figure this stuff out
-	// dst := referenceframe.NewPoseInFrame(referenceframe.World, ))
-
-	// f := kb.ModelFrame()
-	// fs := referenceframe.NewEmptyFrameSystem("")
-	// if err := fs.AddFrame(f, fs.World()); err != nil {
-	// 	return false, err
-	// }
-
-	// worldState, err := referenceframe.NewWorldState([]*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(referenceframe.World, []spatialmath.Geometry{octree})}, nil)
-
-	// //TODO make helper function to separate plan and execute
-
-	// seedMap := map[string][]referenceframe.Input{f.Name(): inputs}
-
-	// solutionMap, err := motionplan.PlanMotion(ctx, ms.logger, dst, f, seedMap, fs, worldState, nil, extra)
-	// if err != nil {
-	// 	return false, err
-	// }
-	// plan, err := motionplan.FrameStepsFromRobotPath(f.Name(), solutionMap)
+	plan, kb, err := ms.PlanMoveOnMap(ctx, componentName, destination, slamName, extra)
+	if err != nil {
+		return false, fmt.Errorf("error making plan for MoveOnMap: %v", err)
+	}
 
 	var planStr string
-	for _, point := range plan{
+	for _, point := range plan {
 		planStr += fmt.Sprintf("%v,%v\n", point[0].Value, point[1].Value)
 	}
-	ms.logger.Debug(planStr)
+	fmt.Println(planStr)
 
 	if err != nil {
 		return false, err
@@ -418,7 +400,7 @@ func (ms *builtIn) GetPose(
 	)
 }
 
-func (ms *builtIn) PlanMoveOnMapPath(
+func (ms *builtIn) PlanMoveOnMap(
 	ctx context.Context,
 	componentName resource.Name,
 	destination spatialmath.Pose,
@@ -430,7 +412,6 @@ func (ms *builtIn) PlanMoveOnMapPath(
 	if !ok {
 		return nil, nil, resource.DependencyNotFoundError(slamName)
 	}
-	ms.logger.Warn("This feature is currently experimental and does not support obstacle avoidance with SLAM maps yet")
 
 	// assert localizer as a slam service and get map limits
 	slamSvc, ok := localizer.(slam.Service)
@@ -467,14 +448,9 @@ func (ms *builtIn) PlanMoveOnMapPath(
 		return nil, nil, err
 	}
 
-	threshold := 60
-	buffer := 60.0
-	constraint := motionplan.NewOctreeCollisionConstraint(octree, threshold, buffer)
-
 	if extra == nil {
 		extra = make(map[string]interface{})
 	}
-	extra["slam_octree_constraint"] = constraint
 	extra["planning_alg"] = "rrtstar"
 
 	// get current position
@@ -484,11 +460,23 @@ func (ms *builtIn) PlanMoveOnMapPath(
 	}
 	ms.logger.Debugf("base position: %v", inputs)
 
-	dst := spatialmath.NewPoseFromPoint(destination.Point())
-	ms.logger.Debugf("goal position: %v", dst.Point())
-	plan, err := motionplan.PlanFrameMotion(ctx, ms.logger, dst, kb.ModelFrame(), inputs, nil, extra)
+	dst := referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewPoseFromPoint(destination.Point()))
+
+	f := kb.ModelFrame()
+	fs := referenceframe.NewEmptyFrameSystem("")
+	if err := fs.AddFrame(f, fs.World()); err != nil {
+		return nil, nil, err
+	}
+
+	worldState, err := referenceframe.NewWorldState([]*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(referenceframe.World, []spatialmath.Geometry{octree})}, nil)
+
+	seedMap := map[string][]referenceframe.Input{f.Name(): inputs}
+
+	ms.logger.Debugf("goal position: %v", dst)
+	solutionMap, err := motionplan.PlanMotion(ctx, ms.logger, dst, f, seedMap, fs, worldState, nil, extra)
 	if err != nil {
 		return nil, nil, err
 	}
-	return plan, kb, nil
+	plan, err := motionplan.FrameStepsFromRobotPath(f.Name(), solutionMap)
+	return plan, kb, err
 }

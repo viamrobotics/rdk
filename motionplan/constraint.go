@@ -320,7 +320,7 @@ func newCollisionConstraint(
 	reportDistances bool,
 ) (StateConstraint, error) {
 	// create the reference collisionGraph
-	zeroCG, err := newCollisionGraph(moving, static, nil, true)
+	zeroCG, err := newCollisionGraph(moving, static, nil, false)
 	if err != nil {
 		return nil, err
 	}

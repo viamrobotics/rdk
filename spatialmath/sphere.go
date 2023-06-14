@@ -90,6 +90,7 @@ func (s *sphere) ToProtobuf() *commonpb.Geometry {
 
 // CollidesWith checks if the given sphere collides with the given geometry and returns true if it does.
 func (s *sphere) CollidesWith(g Geometry) (bool, error) {
+
 	if other, ok := g.(*sphere); ok {
 		return sphereVsSphereDistance(s, other) <= CollisionBuffer, nil
 	}
@@ -102,7 +103,7 @@ func (s *sphere) CollidesWith(g Geometry) (bool, error) {
 	if other, ok := g.(*point); ok {
 		return sphereVsPointDistance(s, other.position) <= CollisionBuffer, nil
 	}
-	return true, newCollisionTypeUnsupportedError(s, g)
+	return g.CollidesWith(s)
 }
 
 func (s *sphere) DistanceFrom(g Geometry) (float64, error) {

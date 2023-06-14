@@ -210,8 +210,8 @@ func (octree *BasicOctree) CollidesWith(geom spatialmath.Geometry) (bool, error)
 	return octree.CollidesWithGeometry(geom, 60, 60.0)
 }
 
-func (octree *BasicOctree) DistanceFrom(spatialmath.Geometry) (float64, error) {
-	return 0, errors.Errorf("not implemented")
+func (octree *BasicOctree) DistanceFrom(geom spatialmath.Geometry) (float64, error) {
+	return -1, errors.Errorf("not implemented")
 }
 
 func (octree *BasicOctree) EncompassedBy(spatialmath.Geometry) (bool, error) {

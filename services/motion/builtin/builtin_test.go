@@ -269,16 +269,16 @@ func TestPlanMoveOnMapPath(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	// path, _, err := ms.(builtin.builtIn).PlanMoveOnMapPath(
-	// 	context.Background(),
-	// 	base.Named("test_base"),
-	// 	spatialmath.NewPoseFromPoint(r3.Vector{X: 1.26 * 1000, Y: 0.1705 * 1000}),
-	// 	slam.Named("test_slam"),
-	// 	nil,
-	// )
-	// test.That(t, err, test.ShouldBeNil)
-	// // path of length 2 indicates a path that goes straight through central obstacle
-	// test.That(t, len(path), test.ShouldBeGreaterThan, 2)
+	path, _, err := ms.(builtin.builtIn).PlanMoveOnMapPath(
+		context.Background(),
+		base.Named("test_base"),
+		spatialmath.NewPoseFromPoint(r3.Vector{X: 1.26 * 1000, Y: 0.1705 * 1000}),
+		slam.Named("test_slam"),
+		nil,
+	)
+	test.That(t, err, test.ShouldBeNil)
+	// path of length 2 indicates a path that goes straight through central obstacle
+	test.That(t, len(path), test.ShouldBeGreaterThan, 2)
 }
 
 func TestMoveOnMap(t *testing.T) {
