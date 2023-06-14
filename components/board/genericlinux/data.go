@@ -17,6 +17,17 @@ import (
 
 // adapted from https://github.com/NVIDIA/jetson-gpio (MIT License)
 
+func noBoardError(modelName string) error {
+	return fmt.Errorf("could not determine %q model", modelName)
+}
+
+// pwmChipData is a struct used solely within GetGPIOBoardMappings and its sub-pieces. It
+// describes a PWM chip within sysfs.
+type pwmChipData struct {
+	Dir  string // Absolute path to pseudofile within sysfs to interact with this chip
+	Npwm int    // Taken from the /npwm pseudofile in sysfs: number of lines on the chip
+}
+
 // GetGPIOBoardMappings attempts to find a compatible GPIOBoardMapping for the given board.
 func GetGPIOBoardMappings(modelName string, boardInfoMappings map[string]BoardInformation) (map[int]GPIOBoardMapping, error) {
 	pinDefs, err := getCompatiblePinDefs(modelName, boardInfoMappings)

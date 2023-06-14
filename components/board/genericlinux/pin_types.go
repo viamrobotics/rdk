@@ -41,14 +41,3 @@ type NoBoardFoundError struct {
 func (err NoBoardFoundError) Error() string {
 	return fmt.Sprintf("could not determine %q model", err.modelName)
 }
-
-func noBoardError(modelName string) error {
-	return fmt.Errorf("could not determine %q model", modelName)
-}
-
-// pwmChipData is a struct used solely within GetGPIOBoardMappings and its sub-pieces. It
-// describes a PWM chip within sysfs.
-type pwmChipData struct {
-	Dir  string // Absolute path to pseudofile within sysfs to interact with this chip
-	Npwm int    // Taken from the /npwm pseudofile in sysfs: number of lines on the chip
-}
