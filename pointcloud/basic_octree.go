@@ -218,13 +218,15 @@ func (octree *BasicOctree) DistanceFrom(geom spatialmath.Geometry) (float64, err
 	if err != nil {
 		return -math.Inf(-1), err
 	}
-	if collides {return -1, nil}
+	if collides {
+		return -1, nil
+	}
 	return 1, nil
 }
 
 func (octree *BasicOctree) EncompassedBy(spatialmath.Geometry) (bool, error) {
 	// TODO
-	return false, errors.Errorf("not implemented")
+	return false, errors.New("not implemented")
 }
 
 func (octree *BasicOctree) SetLabel(label string) {
@@ -246,5 +248,5 @@ func (octree *BasicOctree) ToPoints(float64) []r3.Vector {
 
 func (octree *BasicOctree) MarshalJSON() ([]byte, error) {
 	// TODO
-	return nil, errors.Errorf("not implemented")
+	return nil, errors.New("not implemented")
 }

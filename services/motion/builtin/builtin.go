@@ -12,6 +12,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
+	
 	servicepb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/base"
