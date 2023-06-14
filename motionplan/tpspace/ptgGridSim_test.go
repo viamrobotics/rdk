@@ -20,7 +20,6 @@ var (
 )
 
 func TestSim(t *testing.T) {
-	
 	for _, ptg := range defaultPTGs {
 		ptgGen := ptg(defaultMps, defaultDps, 1.)
 		test.That(t, ptgGen, test.ShouldNotBeNil)
