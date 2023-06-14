@@ -3,23 +3,34 @@
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 ROOT_DIR="$DIR/../"
 
+FLAG_OPEN="open"
+FLAG_RUN="run"
+
 cd $ROOT_DIR
 
 helpFunction()
 {
    echo ""
-   echo "Usage: $0 -o <open|run>"
+   echo "Usage: $0 -o <$FLAG_OPEN|$FLAG_RUN> [--no-kill]"
    echo -e "\t-o Whether or not to open the cypress UI or just run the tests"
+   echo -e "\t--no-kill Whether to kill the child test-e2e process or not. Default is false."
    exit 1 # Exit script after printing help
 }
 
-while getopts "o:" opt
+while getopts "o:k:" opt
 do
    case "$opt" in
       o ) OPEN="$OPTARG" ;;
+      k ) KILL_PROCESS=true ;;
       ? ) helpFunction ;; 
    esac
 done
+
+if [ -z "$OPEN" ] ; then
+    helpFunction
+elif [ $OPEN != $FLAG_OPEN ] && [ $OPEN != $FLAG_RUN ] ; then
+    helpFunction
+fi
 
 # Run server with test config
 nohup ./bin/test-e2e/server --config web/frontend/cypress/data/test_robot_config.json &
@@ -34,8 +45,12 @@ if [ $OPEN == "open" ] ; then
     npm run cypress -- -c defaultCommandTimeout=30000
 elif [ $OPEN == "run" ] ; then
     npm run cypress:ci -- -c defaultCommandTimeout=30000
-else
-    helpFunction
 fi
 
+echo "KILL_PROCESS: '$KILL_PROCESS'"
 
+# Explicitly kill the server on exit to prevent a zombie process.
+if [[ -n $KILL_PROCESS ]] ; then
+    echo "killing"
+    pkill -f test-e2e
+fi

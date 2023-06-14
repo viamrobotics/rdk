@@ -152,7 +152,7 @@ jobs:
       - name: Run e2e Tests
         run: |
           chown -R testbot:testbot .
-          sudo -Hu testbot bash -lc 'make build-web test-e2e'
+          sudo -Hu testbot bash -lc 'make build-web test-e2e ARGS="-k false"'
 
   test_passing:
     name: All Tests Passing

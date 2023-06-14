@@ -72,7 +72,7 @@ test-pi:
 
 test-e2e:
 	go build $(LDFLAGS) -o bin/test-e2e/server web/cmd/server/main.go
-	./etc/e2e.sh -o 'run'
+	./etc/e2e.sh -o 'run' $(ARGS)
 
 open-cypress-ui:
 	go build $(LDFLAGS) -o bin/test-e2e/server web/cmd/server/main.go
