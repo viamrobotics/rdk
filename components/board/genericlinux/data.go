@@ -75,10 +75,8 @@ func readIntFile(filePath string) (int, error) {
 	return int(resultInt64), err
 }
 
-// getGpioChipDefs returns of map of chip ngpio# to the corresponding gpio chip name.
+// getGpioChipDefs returns map of chip ngpio# to the corresponding gpio chip name.
 func getGpioChipDefs(pinDefs []PinDefinition) (map[int]string, error) {
-	gpioChipsInfo := map[int]string{}
-
 	allDevices := gpio.ChipDevices()
 	ngpioToChipName := make(map[int]string, len(allDevices)) // maps chipNgpio -> string gpiochip#
 	for _, dev := range allDevices {
@@ -106,6 +104,7 @@ func getGpioChipDefs(pinDefs []PinDefinition) (map[int]string, error) {
 		}
 	}
 
+	gpioChipsInfo := map[int]string{}
 	// for each chip in the board config, find the right gpioChip dir
 	for chipNgpio := range expectedNgpios {
 		dir, ok := ngpioToChipName[chipNgpio]
