@@ -31,6 +31,8 @@ var (
 	remoteCollectorConfigPath                   = "services/datamanager/data/fake_robot_with_remote_and_data_manager.json"
 	emptyFileBytesSize                          = 100 // size of leading metadata message
 	captureInterval                             = time.Millisecond * 10
+	initialJmagValue                            = float64(1)
+	updatedJmagValue                            = float64(444)
 )
 
 func TestDataCaptureEnabled(t *testing.T) {
@@ -148,7 +150,7 @@ func TestDataCaptureEnabled(t *testing.T) {
 			donePassingTime1 := passTime(passTimeCtx1, mockClock, captureInterval)
 
 			if !tc.initialServiceDisableStatus && !tc.initialCollectorDisableStatus {
-				waitForCaptureFilesToExceedN(initCaptureDir, 0)
+				waitForCaptureFilesToExceedNFiles(initCaptureDir, 0)
 				testFilesContainSensorData(t, initCaptureDir, nil)
 			} else {
 				initialCaptureFiles := getAllFileInfos(initCaptureDir)
@@ -181,7 +183,7 @@ func TestDataCaptureEnabled(t *testing.T) {
 			donePassingTime2 := passTime(passTimeCtx2, mockClock, captureInterval)
 
 			if !tc.newServiceDisableStatus && !tc.newCollectorDisableStatus {
-				waitForCaptureFilesToExceedN(updatedCaptureDir, 0)
+				waitForCaptureFilesToExceedNFiles(updatedCaptureDir, 0)
 				testFilesContainSensorData(t, updatedCaptureDir, nil)
 			} else {
 				updatedCaptureFiles := getAllFileInfos(updatedCaptureDir)
@@ -224,7 +226,7 @@ func TestSwitchResource(t *testing.T) {
 	passTimeCtx1, cancelPassTime1 := context.WithCancel(context.Background())
 	donePassingTime1 := passTime(passTimeCtx1, mockClock, captureInterval)
 
-	waitForCaptureFilesToExceedN(captureDir, 0)
+	waitForCaptureFilesToExceedNFiles(captureDir, 0)
 	testFilesContainSensorData(t, captureDir, nil)
 
 	cancelPassTime1()
@@ -247,18 +249,26 @@ func TestSwitchResource(t *testing.T) {
 	})
 	test.That(t, err, test.ShouldBeNil)
 
+	initialData, err := getSensorData(captureDir)
+	test.That(t, err, test.ShouldBeNil)
+
 	passTimeCtx2, cancelPassTime2 := context.WithCancel(context.Background())
 	donePassingTime2 := passTime(passTimeCtx2, mockClock, captureInterval)
 
 	// Test that sensor data is captured from the new collector.
-	waitForCaptureFilesToExceedN(captureDir, len(getAllFileInfos(captureDir)))
+	waitForCaptureFilesToExceedNFiles(captureDir, len(getAllFileInfos(captureDir))+10)
 	testFilesContainSensorData(t, captureDir, func(t *testing.T, sd []*v1.SensorData) {
-		valueSet := map[float64]struct{}{}
+		valueSet := map[float64]int{}
 		for _, d := range sd {
-			valueSet[d.GetStruct().GetFields()["Number"].GetStructValue().GetFields()["Dual"].GetStructValue().GetFields()["Jmag"].GetNumberValue()] = struct{}{}
+			jmag := d.GetStruct().GetFields()["Number"].GetStructValue().GetFields()["Dual"].GetStructValue().GetFields()["Jmag"].GetNumberValue()
+			valueSet[jmag]++
 		}
 		// Each resource's mocked capture method outputs a different value. Assert that we see data captured by the initial arm1 resource as well as the changed resource.
 		test.That(t, len(valueSet), test.ShouldEqual, 2)
+		test.That(t, valueSet[updatedJmagValue], test.ShouldBeGreaterThan, 0)
+
+		// Assert that the initial arm1 resource isn't capturing any more data.
+		test.That(t, valueSet[initialJmagValue], test.ShouldEqual, len(initialData))
 	})
 
 	cancelPassTime2()
@@ -275,6 +285,7 @@ func passTime(ctx context.Context, mc *clk.Mock, interval time.Duration) chan st
 				close(done)
 				return
 			default:
+				time.Sleep(10 * time.Millisecond)
 				mc.Add(interval)
 			}
 		}
@@ -282,9 +293,7 @@ func passTime(ctx context.Context, mc *clk.Mock, interval time.Duration) chan st
 	return done
 }
 
-// testFilesContainSensorData verifies that the files in `dir` contain sensor data, and calls `validateSensorData` on the data.
-func testFilesContainSensorData(t *testing.T, dir string, validateSensorData func(*testing.T, []*v1.SensorData)) {
-	t.Helper()
+func getSensorData(dir string) ([]*v1.SensorData, error) {
 	var sd []*v1.SensorData
 	filePaths := getAllFilePaths(dir)
 	for _, path := range filePaths {
@@ -294,11 +303,24 @@ func testFilesContainSensorData(t *testing.T, dir string, validateSensorData fun
 		if errors.Is(err, os.ErrNotExist) {
 			path = strings.TrimSuffix(path, filepath.Ext(path)) + datacapture.FileExt
 			d, err = datacapture.SensorDataFromFilePath(path)
+			if err != nil {
+				return nil, err
+			}
+		} else if err != nil {
+			return nil, err
 		}
-		test.That(t, err, test.ShouldBeNil)
+
 		sd = append(sd, d...)
 	}
+	return sd, nil
+}
 
+// testFilesContainSensorData verifies that the files in `dir` contain sensor data, and calls `validateSensorData` on the data.
+func testFilesContainSensorData(t *testing.T, dir string, validateSensorData func(*testing.T, []*v1.SensorData)) {
+	t.Helper()
+
+	sd, err := getSensorData(dir)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(sd), test.ShouldBeGreaterThan, 0)
 	for _, d := range sd {
 		test.That(t, d.GetStruct(), test.ShouldNotBeNil)
@@ -310,8 +332,8 @@ func testFilesContainSensorData(t *testing.T, dir string, validateSensorData fun
 	}
 }
 
-// waitForCaptureFilesToExceedN returns once `captureDir` contains more than `n` files.
-func waitForCaptureFilesToExceedN(captureDir string, n int) {
+// waitForCaptureFilesToExceedNFiles returns once `captureDir` contains more than `n` files.
+func waitForCaptureFilesToExceedNFiles(captureDir string, n int) {
 	totalWait := time.Second * 2
 	waitPerCheck := time.Millisecond * 10
 	iterations := int(totalWait / waitPerCheck)
