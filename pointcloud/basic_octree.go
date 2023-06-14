@@ -213,7 +213,7 @@ func (octree *BasicOctree) CollidesWith(geom spatialmath.Geometry) (bool, error)
 }
 
 func (octree *BasicOctree) DistanceFrom(geom spatialmath.Geometry) (float64, error) {
-	// TODO
+	// TODO: currently implemented as the bare minimum but needs to be changed to correct implementation
 	collides, err := octree.CollidesWith(geom)
 	if err != nil {
 		return -math.Inf(-1), err

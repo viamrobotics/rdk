@@ -45,6 +45,7 @@ func newLeafNodeFilled(p r3.Vector, d Data) basicOctreeNode {
 
 // getRawVal returns the data param as a probability value.
 func getRawVal(d Data) int {
+	// TODO: this is a temp fix to make octrees work, will be more generalized by slam team
 	if d.HasColor() {
 		_, _, b := d.RGB255()
 		return int(b)
