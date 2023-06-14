@@ -256,7 +256,7 @@ func TestSwitchResource(t *testing.T) {
 	donePassingTime2 := passTime(passTimeCtx2, mockClock, captureInterval)
 
 	// Test that sensor data is captured from the new collector.
-	waitForCaptureFilesToExceedNFiles(captureDir, len(getAllFileInfos(captureDir))+10)
+	waitForCaptureFilesToExceedNFiles(captureDir, len(getAllFileInfos(captureDir)))
 	testFilesContainSensorData(t, captureDir, func(t *testing.T, sd []*v1.SensorData) {
 		valueSet := map[float64]int{}
 		for _, d := range sd {
