@@ -10,17 +10,17 @@ import {
   type ServiceError,
 } from '@viamrobotics/sdk';
 import { copyToClipboard } from '@/lib/copy-to-clipboard';
-import { filterResources } from '@/lib/resource';
+import { filterSubtype } from '@/lib/resource';
 import { getPointCloudMap, getSLAMPosition } from '@/api/slam';
 import { moveOnMap, stopMoveOnMap } from '@/api/motion';
 import { notify } from '@viamrobotics/prime';
 import { setAsyncInterval } from '@/lib/schedule';
+import { components } from '@/stores/resources';
 import Collapse from '@/components/collapse.svelte';
 import PCD from '@/components/pcd/pcd-view.svelte';
 import Slam2dRenderer from './2d-renderer.svelte';
 
 export let name: string;
-export let resources: commonApi.ResourceName.AsObject[];
 export let client: Client;
 export let statusStream: ResponseStream<robotApi.StreamStatusResponse> | null;
 export let operations: { op: robotApi.Operation.AsObject; elapsed: number }[];
@@ -47,10 +47,10 @@ $: moveClicked = operations.find(({ op }) => op.method.includes('MoveOnMap'));
 $: unitScale = labelUnits === 'm' ? 1 : 1000;
 
 // get all resources which are bases
-$: baseResources = filterResources(resources, 'rdk', 'component', 'base');
+$: bases = filterSubtype($components, 'base');
 
 // allowMove is only true if we have a base, there exists a destination and there is no in-flight MoveOnMap req
-$: allowMove = baseResources.length === 1 && destination && !moveClicked;
+$: allowMove = bases.length === 1 && destination && !moveClicked;
 
 const deleteDestinationMarker = () => {
   destination = undefined;
@@ -173,7 +173,7 @@ const toggleAxes = () => {
 
 const handleMoveClick = async () => {
   try {
-    await moveOnMap(client, name, baseResources[0]!.name, destination!.x, destination!.y);
+    await moveOnMap(client, name, bases[0]!.name, destination!.x, destination!.y);
   } catch (error) {
     notify.danger((error as ServiceError).message);
   }

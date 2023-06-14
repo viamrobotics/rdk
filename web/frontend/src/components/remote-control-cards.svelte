@@ -6,7 +6,8 @@ import { grpc } from '@improbable-eng/grpc-web';
 import { Duration } from 'google-protobuf/google/protobuf/duration_pb';
 import { type Credentials, ConnectionClosedError } from '@viamrobotics/rpc';
 import { notify } from '@viamrobotics/prime';
-import { displayError } from '../lib/error';
+import { displayError } from '@/lib/error';
+import { resources, components, services } from '@/stores/resources';
 import { StreamManager } from './camera/stream-manager';
 import { fetchCurrentOps } from '@/api/robot';
 import {
@@ -21,10 +22,8 @@ import {
 import {
   resourceNameToSubtypeString,
   resourceNameToString,
-  filterResources,
-  filterNonRemoteResources,
-  filterRdkComponentsWithStatus,
-  filterComponentsWithNames,
+  filterWithStatus,
+  filterSubtype,
 } from '@/lib/resource';
 
 import Arm from './arm/index.svelte';
@@ -41,7 +40,7 @@ import Gamepad from './gamepad/index.svelte';
 import InputController from './input-controller/index.svelte';
 import Motor from './motor/index.svelte';
 import MovementSensor from './movement-sensor/index.svelte';
-// import Navigation from './navigation/index.svelte';
+import Navigation from './navigation/index.svelte';
 import Servo from './servo/index.svelte';
 import Sensors from './sensors/index.svelte';
 import Slam from './slam/index.svelte';
@@ -123,7 +122,6 @@ let disableAuthElements = false;
 let currentOps: { op: robotApi.Operation.AsObject; elapsed: number }[] = [];
 let currentSessions: robotApi.Session.AsObject[] = [];
 let sensorNames: commonApi.ResourceName.AsObject[] = [];
-let resources: commonApi.ResourceName.AsObject[] = [];
 let resourcesOnce = false;
 let errorMessage = '';
 let connectedOnce = false;
@@ -133,6 +131,30 @@ let connectedFirstTimeResolve: (value: void) => void;
 const connectedFirstTime = new Promise<void>((resolve) => {
   connectedFirstTimeResolve = resolve;
 });
+
+// TODO (APP-146): replace these with constants
+$: filteredWebGamepads = $components.filter((component) => {
+  const remSplit = component.name.split(':');
+  return (
+    component.subtype === 'input_controller' &&
+    Boolean(component.name) &&
+    remSplit[remSplit.length - 1] === 'WebGamepad'
+  );
+});
+
+/*
+ * TODO (APP-146): replace these with constants
+ * filters out WebGamepad
+ */
+$: filteredInputControllerList = $components.filter((component) => {
+  const remSplit = component.name.split(':');
+  return (
+    component.subtype === 'input_controller' &&
+    Boolean(component.name) &&
+    remSplit[remSplit.length - 1] !== 'WebGamepad' && resourceStatusByName(component)
+  );
+});
+
 
 const handleError = (message: string, error: unknown, onceKey: string) => {
   if (onceKey) {
@@ -197,7 +219,7 @@ const stringToResourceName = (nameStr: string) => {
 };
 
 const querySensors = () => {
-  const sensorsName = filterNonRemoteResources(resources, 'rdk', 'service', 'sensors')[0]?.name;
+  const sensorsName = filterSubtype($resources, 'sensors', { remote: false })[0]?.name;
   if (sensorsName === undefined) {
     return;
   }
@@ -271,7 +293,7 @@ const restartStatusStream = () => {
 
   // get all relevant resources
   for (const subtype of relevantSubtypesForStatus) {
-    newResources = [...newResources, ...filterResources(newResources, 'rdk', 'component', subtype)];
+    newResources = [...newResources, ...filterSubtype($components, subtype)];
   }
 
   const names = newResources.map((name) => {
@@ -329,7 +351,7 @@ const queryMetadata = () => {
         const { resourcesList } = resp.toObject();
 
         const differences: Set<string> = new Set(
-          resources.map((name: commonApi.ResourceName.AsObject) =>
+          $resources.map((name: commonApi.ResourceName.AsObject) =>
             resourceNameToString(name))
         );
         const resourceSet: Set<string> = new Set(
@@ -361,7 +383,8 @@ const queryMetadata = () => {
           }
         }
 
-        resources = resourcesList;
+        $resources = resourcesList;
+
         resourcesOnce = true;
         if (resourcesChanged === true) {
           querySensors();
@@ -595,32 +618,6 @@ const rawResourceStatusByName = (resource: commonApi.ResourceName.AsObject) => {
   return rawStatus[resourceNameToString(resource)];
 };
 
-const filteredWebGamepads = () => {
-  // TODO (APP-146): replace these with constants
-  return filterComponentsWithNames(resources).filter((elem) => {
-    if (!(elem.namespace === 'rdk' && elem.type === 'component' && elem.subtype === 'input_controller')) {
-      return false;
-    }
-    const remSplit = elem.name.split(':');
-    return remSplit[remSplit.length - 1] === 'WebGamepad';
-  });
-};
-
-const filteredInputControllerList = () => {
-
-  /*
-   * TODO (APP-146): replace these with constants
-   * filters out WebGamepad
-   */
-  return filterComponentsWithNames(resources).filter((elem) => {
-    if (!(elem.namespace === 'rdk' && elem.type === 'component' && elem.subtype === 'input_controller')) {
-      return false;
-    }
-    const remSplit = elem.name.split(':');
-    return remSplit[remSplit.length - 1] !== 'WebGamepad' && resourceStatusByName(elem);
-  });
-};
-
 const nonEmpty = (object: object) => {
   return Object.keys(object).length > 0;
 };
@@ -660,7 +657,7 @@ const doLogin = (authType: string) => {
 
 const initConnect = () => {
   if (supportedAuthTypes.length === 0) {
-    doConnect(bakedAuth.authEntity, bakedAuth.creds, () => {
+    doConnect(bakedAuth!.authEntity, bakedAuth!.creds, () => {
       notify.danger('failed to connect; retrying');
       setTimeout(initConnect, 1000);
     });
@@ -735,18 +732,17 @@ onDestroy(() => {
     {/if}
 
     <!-- ******* BASE *******  -->
-    {#each filterResources(resources, 'rdk', 'component', 'base') as { name } (name)}
+    {#each filterSubtype($components, 'base') as { name } (name)}
       <Base
         {name}
         {client}
-        {resources}
         {streamManager}
         {statusStream}
       />
     {/each}
 
     <!-- ******* ENCODER *******  -->
-    {#each filterResources(resources, 'rdk', 'component', 'encoder') as { name } (name)}
+    {#each filterSubtype($components, 'encoder') ?? [] as { name } (name)}
       <Encoder
         {name}
         {client}
@@ -755,7 +751,7 @@ onDestroy(() => {
     {/each}
 
     <!-- ******* GANTRY *******  -->
-    {#each filterRdkComponentsWithStatus(resources, status, 'gantry') as gantry (gantry.name)}
+    {#each filterSubtype($components, 'gantry') as gantry (gantry.name)}
       <Gantry
         name={gantry.name}
         {client}
@@ -764,7 +760,7 @@ onDestroy(() => {
     {/each}
 
     <!-- ******* MOVEMENT SENSOR *******  -->
-    {#each filterResources(resources, 'rdk', 'component', 'movement_sensor') as { name } (name)}
+    {#each filterSubtype($components, 'movement_sensor') as { name } (name)}
       <MovementSensor
         {name}
         {client}
@@ -773,7 +769,7 @@ onDestroy(() => {
     {/each}
 
     <!-- ******* ARM *******  -->
-    {#each filterResources(resources, 'rdk', 'component', 'arm') as arm (arm.name)}
+    {#each filterSubtype($components, 'arm') as arm (arm.name)}
       <Arm
         name={arm.name}
         {client}
@@ -783,7 +779,7 @@ onDestroy(() => {
     {/each}
 
     <!-- ******* GRIPPER *******  -->
-    {#each filterResources(resources, 'rdk', 'component', 'gripper') as { name } (name)}
+    {#each filterSubtype($components, 'gripper') as { name } (name)}
       <Gripper
         {name}
         {client}
@@ -791,7 +787,7 @@ onDestroy(() => {
     {/each}
 
     <!-- ******* SERVO *******  -->
-    {#each filterRdkComponentsWithStatus(resources, status, 'servo') as servo (servo.name)}
+    {#each filterWithStatus($components, status, 'board') as servo (servo.name)}
       <Servo
         name={servo.name}
         {client}
@@ -801,7 +797,7 @@ onDestroy(() => {
     {/each}
 
     <!-- ******* MOTOR *******  -->
-    {#each filterRdkComponentsWithStatus(resources, status, 'motor') as motor (motor.name)}
+    {#each filterWithStatus($components, status, 'motor') as motor (motor.name)}
       <Motor
         name={motor.name}
         {client}
@@ -810,7 +806,7 @@ onDestroy(() => {
     {/each}
 
     <!-- ******* INPUT VIEW *******  -->
-    {#each filteredInputControllerList() as controller (controller.name)}
+    {#each filteredInputControllerList as controller (controller.name)}
       <InputController
         name={controller.name}
         status={resourceStatusByName(controller)}
@@ -818,7 +814,7 @@ onDestroy(() => {
     {/each}
 
     <!-- ******* WEB CONTROLS *******  -->
-    {#each filteredWebGamepads() as { name } (name)}
+    {#each filteredWebGamepads as { name } (name)}
       <Gamepad
         {name}
         {client}
@@ -827,8 +823,9 @@ onDestroy(() => {
     {/each}
 
     <!-- ******* BOARD *******  -->
-    {#each filterRdkComponentsWithStatus(resources, status, 'board') as board (board.name)}
+    {#each filterWithStatus($components, status, 'board') as board (board.name)}
       <Board
+        name={board.name}
         {client}
         status={resourceStatusByName(board)}
       />
@@ -839,29 +836,29 @@ onDestroy(() => {
       {client}
       {streamManager}
       {statusStream}
-      resources={filterResources(resources, 'rdk', 'component', 'camera')}
+      resources={filterSubtype($components, 'camera')}
     />
 
     <!-- ******* NAVIGATION *******  -->
-    <!-- {#each filterResources(resources, 'rdk', 'service', 'navigation') as { name } (name)}
+    {#each filterSubtype($services, 'navigation') as { name } (name)}
       <Navigation
         {name}
         {client}
         {statusStream}
       />
-    {/each} -->
+    {/each}
 
     <!-- ******* SENSOR *******  -->
     {#if nonEmpty(sensorNames)}
       <Sensors
-        name={filterNonRemoteResources(resources, 'rdk', 'service', 'sensors')[0]?.name}
+        name={filterSubtype($resources, 'sensors', { remote: false })[0]?.name ?? ''}
         {client}
         {sensorNames}
       />
     {/if}
 
     <!-- ******* AUDIO *******  -->
-    {#each filterResources(resources, 'rdk', 'component', 'audio_input') as { name } (name)}
+    {#each filterSubtype($components, 'audio_input') as { name } (name)}
       <AudioInput
         {name}
         {client}
@@ -869,21 +866,21 @@ onDestroy(() => {
     {/each}
 
     <!-- ******* SLAM *******  -->
-    {#each filterResources(resources, 'rdk', 'service', 'slam') as { name } (name)}
+    {#each filterSubtype($services, 'slam') as { name } (name)}
       <Slam
         {name}
         {client}
-        {resources}
+        resources={$resources}
         {statusStream}
         operations={currentOps}
       />
     {/each}
 
     <!-- ******* DO *******  -->
-    {#if nonEmpty(filterResources(resources, 'rdk', 'component', 'generic'))}
+    {#if filterSubtype($components, 'generic').length > 0}
       <DoCommand
         {client}
-        resources={filterResources(resources, 'rdk', 'component', 'generic')}
+        resources={filterSubtype($components, 'generic')}
       />
     {/if}
 

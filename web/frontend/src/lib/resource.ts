@@ -1,6 +1,8 @@
-import type { commonApi } from '@viamrobotics/sdk';
+import type { commonApi, robotApi } from '@viamrobotics/sdk';
 
-const sortByName = (item1: commonApi.ResourceName.AsObject, item2: commonApi.ResourceName.AsObject) => {
+type Resource = commonApi.ResourceName.AsObject
+
+export const sortByName = (item1: Resource, item2: Resource) => {
   if (item1.name > item2.name) {
     return 1;
   } else if (item1.name < item2.name) {
@@ -19,7 +21,7 @@ const sortByName = (item1: commonApi.ResourceName.AsObject, item2: commonApi.Res
   return item1.namespace > item2.namespace ? 1 : -1;
 };
 
-export const resourceNameToSubtypeString = (resource: commonApi.ResourceName.AsObject) => {
+export const resourceNameToSubtypeString = (resource: Resource) => {
   if (!resource) {
     return '';
   }
@@ -27,7 +29,7 @@ export const resourceNameToSubtypeString = (resource: commonApi.ResourceName.AsO
   return `${resource.namespace}:${resource.type}:${resource.subtype}`;
 };
 
-export const resourceNameToString = (resource: commonApi.ResourceName.AsObject) => {
+export const resourceNameToString = (resource: Resource) => {
   if (!resource) {
     return '';
   }
@@ -39,51 +41,41 @@ export const resourceNameToString = (resource: commonApi.ResourceName.AsObject) 
   return strName;
 };
 
-export const filterResources = (
-  resources: commonApi.ResourceName.AsObject[],
-  namespace: string,
-  type: string,
-  subtype: string
-): commonApi.ResourceName.AsObject[] => {
-  const results = [];
+export const filterSubtype = (
+  resources: Resource[],
+  subtype: string,
+  options: {
+    remote?: boolean;
+    name?: boolean;
+  } = {}
+) => {
+  const results: Resource[] = [];
+  const { remote = true, name = false } = options;
 
   for (const resource of resources) {
-    if (
-      resource.namespace === namespace &&
-      resource.type === type &&
-      resource.subtype === subtype
-    ) {
+    if (!remote && resource.name.includes(':')) {
+      continue;
+    }
+
+    if (name && !resource.name) {
+      continue;
+    }
+
+    if (resource.subtype === subtype) {
       results.push(resource);
     }
   }
 
-  return results.sort(sortByName);
+  return results;
 };
 
-export const filterNonRemoteResources = (
-  resources: commonApi.ResourceName.AsObject[],
-  namespace: string,
-  type: string,
-  subtype: string
-) => {
-  return filterResources(resources, namespace, type, subtype).filter((resource) => !resource.name.includes(':'));
-};
-
-export const filterRdkComponentsWithStatus = (
-  resources: commonApi.ResourceName.AsObject[],
-  status: Record<string, unknown>,
+export const filterWithStatus = (
+  resources: Resource[],
+  status: Record<string, robotApi.Status>,
   subtype: string
 ) => {
   return resources
     .filter((resource) =>
-      resource.namespace === 'rdk' &&
-      resource.type === 'component' &&
       resource.subtype === subtype &&
-      status[resourceNameToString(resource)]).sort(sortByName);
-};
-
-export const filterComponentsWithNames = (resources: commonApi.ResourceName.AsObject[]) => {
-  return resources
-    .filter((resource) => Boolean(resource.name) && resource.type === 'component')
-    .sort(sortByName);
+      status[resourceNameToString(resource)]);
 };
