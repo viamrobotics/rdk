@@ -31,8 +31,6 @@ var (
 	remoteCollectorConfigPath                   = "services/datamanager/data/fake_robot_with_remote_and_data_manager.json"
 	emptyFileBytesSize                          = 100 // size of leading metadata message
 	captureInterval                             = time.Millisecond * 10
-	initialJmagValue                            = float64(1)
-	updatedJmagValue                            = float64(444)
 )
 
 func TestDataCaptureEnabled(t *testing.T) {
@@ -258,17 +256,17 @@ func TestSwitchResource(t *testing.T) {
 	// Test that sensor data is captured from the new collector.
 	waitForCaptureFilesToExceedNFiles(captureDir, len(getAllFileInfos(captureDir)))
 	testFilesContainSensorData(t, captureDir, func(t *testing.T, sd []*v1.SensorData) {
-		valueSet := map[float64]int{}
+		valueMap := map[float64]int{}
 		for _, d := range sd {
 			jmag := d.GetStruct().GetFields()["Number"].GetStructValue().GetFields()["Dual"].GetStructValue().GetFields()["Jmag"].GetNumberValue()
-			valueSet[jmag]++
+			valueMap[jmag]++
 		}
 		// Each resource's mocked capture method outputs a different value. Assert that we see data captured by the initial arm1 resource as well as the changed resource.
-		test.That(t, len(valueSet), test.ShouldEqual, 2)
-		test.That(t, valueSet[updatedJmagValue], test.ShouldBeGreaterThan, 0)
+		test.That(t, len(valueMap), test.ShouldEqual, 2)
+		test.That(t, valueMap[float64(444)], test.ShouldBeGreaterThan, 0)
 
 		// Assert that the initial arm1 resource isn't capturing any more data.
-		test.That(t, valueSet[initialJmagValue], test.ShouldEqual, len(initialData))
+		test.That(t, valueMap[float64(1)], test.ShouldEqual, len(initialData))
 	})
 
 	cancelPassTime2()
