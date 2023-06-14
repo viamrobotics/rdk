@@ -7,7 +7,7 @@ import { OrbitControlsGizmo, GridHelper } from 'trzy';
 import { PCDLoader } from 'three/examples/jsm/loaders/PCDLoader';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls';
-import { toast } from '@/lib/toast';
+import { notify } from '@viamrobotics/prime';
 
 export let pointcloud: Uint8Array | undefined;
 
@@ -192,7 +192,7 @@ const handleCanvasMouseUp = (event: MouseEvent) => {
   const points = scene.getObjectByName('points') as THREE.InstancedMesh;
 
   if (intersect?.instanceId === undefined) {
-    toast.info('No point intersected.');
+    notify.info('No point intersected.');
     return;
   }
 

@@ -1,10 +1,10 @@
-import { toast } from './toast';
+import { notify } from '@viamrobotics/prime';
 
-export const copyToClipboardWithToast = async (str: string) => {
+export const copyToClipboard = async (str: string) => {
   try {
     await navigator.clipboard.writeText(str);
-    toast.success('Successfully copied to clipboard');
+    notify.success('Successfully copied to clipboard');
   } catch {
-    toast.error('Unable to copy to clipboard');
+    notify.error('Unable to copy to clipboard');
   }
 };

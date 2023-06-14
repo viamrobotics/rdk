@@ -6,7 +6,7 @@
     commonApi,
     type ServiceError,
   } from '@viamrobotics/sdk';
-  import { toast } from '@/lib/toast';
+  import { notify } from '@viamrobotics/prime';
   import { resourceNameToString } from '@/lib/resource';
   import { rcLogConditionally } from '@/lib/log';
   import Collapse from '../collapse.svelte';
@@ -52,7 +52,7 @@
         response: sensorsApi.GetReadingsResponse | null
       ) => {
         if (error) {
-          toast.error(error.message);
+          notify.error(error.message);
           return;
         }
 

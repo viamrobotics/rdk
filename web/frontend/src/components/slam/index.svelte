@@ -9,11 +9,11 @@ import {
   robotApi,
   type ServiceError,
 } from '@viamrobotics/sdk';
-import { copyToClipboardWithToast } from '@/lib/copy-to-clipboard';
+import { copyToClipboard } from '@/lib/copy-to-clipboard';
 import { filterResources } from '@/lib/resource';
 import { getPointCloudMap, getSLAMPosition } from '@/api/slam';
 import { moveOnMap, stopMoveOnMap } from '@/api/motion';
-import { toast } from '@/lib/toast';
+import { notify } from '@viamrobotics/prime';
 import { setAsyncInterval } from '@/lib/schedule';
 import Collapse from '@/components/collapse.svelte';
 import PCD from '@/components/pcd/pcd-view.svelte';
@@ -154,7 +154,7 @@ const handleUpdateDestY = (event: CustomEvent<{ value: string }>) => {
 };
 
 const baseCopyPosition = () => {
-  copyToClipboardWithToast(JSON.stringify({
+  copyToClipboard(JSON.stringify({
     x: pose?.getX(),
     y: pose?.getY(),
     z: pose?.getZ(),
@@ -173,7 +173,7 @@ const handleMoveClick = async () => {
   try {
     await moveOnMap(client, name, baseResources[0]!.name, destination!.x, destination!.y);
   } catch (error) {
-    toast.error((error as ServiceError).message);
+    notify.error((error as ServiceError).message);
   }
 };
 
@@ -181,7 +181,7 @@ const handleStopMoveClick = async () => {
   try {
     await stopMoveOnMap(client, operations);
   } catch (error) {
-    toast.error((error as ServiceError).message);
+    notify.error((error as ServiceError).message);
   }
 };
 

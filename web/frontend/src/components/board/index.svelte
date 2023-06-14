@@ -1,6 +1,6 @@
 <script lang="ts">
 
-import { toast } from '@/lib/toast';
+import { notify } from '@viamrobotics/prime';
 import { displayError } from '@/lib/error';
 import { rcLogConditionally } from '@/lib/log';
 import { Client, BoardClient, type ServiceError } from '@viamrobotics/sdk';
@@ -27,7 +27,7 @@ const getGPIO = async () => {
     const isHigh = await boardClient.getGPIO(getPin);
     getPinMessage = `Pin: ${getPin} is ${isHigh ? 'high' : 'low'}`;
   } catch (error) {
-    toast.error((error as ServiceError).message);
+    notify.error((error as ServiceError).message);
   }
 };
 

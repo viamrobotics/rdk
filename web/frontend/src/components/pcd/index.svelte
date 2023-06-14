@@ -1,7 +1,7 @@
 <script lang="ts">
 
 import { CameraClient, Client } from '@viamrobotics/sdk';
-import { toast } from '@/lib/toast';
+import { notify } from '@viamrobotics/prime';
 import PCD from './pcd-view.svelte';
 
 export let cameraName: string;
@@ -14,7 +14,7 @@ const renderPCD = async () => {
   try {
     pointcloud = await new CameraClient(client, cameraName).getPointCloud();
   } catch (error) {
-    toast.error(`Error getting point cloud: ${error}`);
+    notify.error(`Error getting point cloud: ${error}`);
   }
 };
 

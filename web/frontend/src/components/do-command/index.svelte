@@ -1,7 +1,7 @@
 <script lang="ts">
 
 import { type Client, commonApi } from '@viamrobotics/sdk';
-import { toast } from '@/lib/toast';
+import { notify } from '@viamrobotics/prime';
 import { resourceNameToString } from '@/lib/resource';
 import { doCommand } from '@/api/do-command';
 import Collapse from '@/components/collapse.svelte';
@@ -27,10 +27,10 @@ const handleDoCommand = async (name: string, command: string) => {
     if (outputObject) {
       output = JSON.stringify(outputObject, null, '\t');
     } else {
-      toast.error(`Invalid response when executing command on ${name}`);
+      notify.error(`Invalid response when executing command on ${name}`);
     }
   } catch (error) {
-    toast.error(`Error executing command on ${name}: ${error}`);
+    notify.error(`Error executing command on ${name}: ${error}`);
   }
 
   executing = false;
