@@ -75,7 +75,7 @@ func readIntFile(filePath string) (int, error) {
 	return int(resultInt64), err
 }
 
-// getGpioChipDefs returns of map of chip ngpio# to the corresponding gpio chip name
+// getGpioChipDefs returns of map of chip ngpio# to the corresponding gpio chip name.
 func getGpioChipDefs(pinDefs []PinDefinition) (map[int]string, error) {
 	gpioChipsInfo := map[int]string{}
 

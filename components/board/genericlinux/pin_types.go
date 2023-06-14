@@ -46,13 +46,6 @@ func noBoardError(modelName string) error {
 	return fmt.Errorf("could not determine %q model", modelName)
 }
 
-// gpioChipData is a struct used solely within GetGPIOBoardMappings and its sub-pieces. It
-// describes a GPIO chip within sysfs.
-type gpioChipData struct {
-	Dir   string // Pseudofile within sysfs to interact with this chip
-	Ngpio int    // Taken from the /ngpio pseudofile in sysfs: number of lines on the chip
-}
-
 // pwmChipData is a struct used solely within GetGPIOBoardMappings and its sub-pieces. It
 // describes a PWM chip within sysfs.
 type pwmChipData struct {
