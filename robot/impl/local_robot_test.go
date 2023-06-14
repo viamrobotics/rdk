@@ -3068,3 +3068,35 @@ func TestModuleDebugReconfigure(t *testing.T) {
 			test.ShouldEqual, 1)
 	})
 }
+
+func TestResourcelessModuleRemove(t *testing.T) {
+	ctx := context.Background()
+	logger, logs := golog.NewObservedTestLogger(t)
+
+	// Precompile module to avoid timeout issues when building takes too long.
+	testPath, err := rtestutils.BuildTempModule(t, "module/testmodule")
+	test.That(t, err, test.ShouldBeNil)
+
+	cfg := &config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "mod",
+				ExePath: testPath,
+			},
+		},
+	}
+	r, err := robotimpl.New(ctx, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+	}()
+
+	// Reconfigure to an empty config and assert that the testmodule process
+	// is stopped.
+	r.Reconfigure(ctx, &config.Config{})
+
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		test.That(tb, logs.FilterMessageSnippet("Shutting down gracefully").Len(),
+			test.ShouldEqual, 1)
+	})
+}
