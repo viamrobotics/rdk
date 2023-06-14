@@ -144,11 +144,12 @@ func getPwmChipDefs(pinDefs []PinDefinition) (map[string]pwmChipData, error) {
 
 	// Now, look for all chips whose names we found.
 	pwmChipsInfo := map[string]pwmChipData{}
-	found := false
+	var found bool
 	sysPrefix := "/sys/class/pwm"
 	files, err := os.ReadDir(sysPrefix)
 
 	for chipName := range pwmChipNames {
+		found = false
 		if err != nil {
 			return nil, err
 		}
