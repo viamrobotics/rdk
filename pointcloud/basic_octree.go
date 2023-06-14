@@ -188,30 +188,36 @@ func (octree *BasicOctree) CollidesWithGeometry(geom spatialmath.Geometry, thres
 	return false, errors.New("unknown octree node type")
 }
 
+// Pose returns the pose of the octree.
 func (octree *BasicOctree) Pose() spatialmath.Pose {
 	// TODO
 	return nil
 }
 
-func (octree *BasicOctree) AlmostEqual(spatialmath.Geometry) bool {
+// AlmostEqual compares the octree with another geometry and checks if they are equivalent.
+func (octree *BasicOctree) AlmostEqual(geom spatialmath.Geometry) bool {
 	// basically no scenario where two octrees would be equal
 	return false
 }
 
-func (octree *BasicOctree) Transform(spatialmath.Pose) spatialmath.Geometry {
+// Transform transforms the octree by the given pose.
+func (octree *BasicOctree) Transform(p spatialmath.Pose) spatialmath.Geometry {
 	// TODO
 	return nil
 }
 
+// ToProtobuf converts the octree to a Geometry proto message.
 func (octree *BasicOctree) ToProtobuf() *commonpb.Geometry {
 	// TODO
 	return nil
 }
 
+// CollidesWith checks if the given octree collides with the given geometry and returns true if it does.
 func (octree *BasicOctree) CollidesWith(geom spatialmath.Geometry) (bool, error) {
 	return octree.CollidesWithGeometry(geom, 60, 60.0)
 }
 
+// DistanceFrom returns the distance from the given octree to the given geometry.
 func (octree *BasicOctree) DistanceFrom(geom spatialmath.Geometry) (float64, error) {
 	// TODO: currently implemented as the bare minimum but needs to be changed to correct implementation
 	collides, err := octree.CollidesWith(geom)
@@ -224,28 +230,34 @@ func (octree *BasicOctree) DistanceFrom(geom spatialmath.Geometry) (float64, err
 	return 1, nil
 }
 
-func (octree *BasicOctree) EncompassedBy(spatialmath.Geometry) (bool, error) {
+// EncompassedBy returns true if the given octree is within the given geometry.
+func (octree *BasicOctree) EncompassedBy(geom spatialmath.Geometry) (bool, error) {
 	// TODO
 	return false, errors.New("not implemented")
 }
 
+// SetLabel sets the label of this octree.
 func (octree *BasicOctree) SetLabel(label string) {
-	octree.label = label
+	// Label returns the label of this octree.
 }
 
+// Label returns the label of this octree.
 func (octree *BasicOctree) Label() string {
 	return octree.label
 }
 
+// String returns a human readable string that represents this octree.
 func (octree *BasicOctree) String() string {
 	return fmt.Sprintf("octree with center at %v and side length of %v", octree.center, octree.sideLength)
 }
 
-func (octree *BasicOctree) ToPoints(float64) []r3.Vector {
+// ToPoints converts an octree geometry into []r3.Vector.
+func (octree *BasicOctree) ToPoints(resolution float64) []r3.Vector {
 	// TODO
 	return nil
 }
 
+// MarshalJSON marshals JSON from the octree.
 func (octree *BasicOctree) MarshalJSON() ([]byte, error) {
 	// TODO
 	return nil, errors.New("not implemented")
