@@ -9,8 +9,8 @@ import (
 	"regexp"
 
 	"github.com/edaniels/golog"
-	"github.com/edaniels/gostream"
 	"github.com/pion/mediadevices"
+	"github.com/viamrobotics/gostream"
 
 	"go.viam.com/rdk/components/audioinput"
 	"go.viam.com/rdk/resource"

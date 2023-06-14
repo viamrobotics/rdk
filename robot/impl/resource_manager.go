@@ -436,13 +436,6 @@ func (manager *resourceManager) Close(ctx context.Context) error {
 	if err := manager.processManager.Stop(); err != nil {
 		allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error stopping process manager"))
 	}
-	// moduleManager may be nil if startModuleManager was never called (may be
-	// the case in tests).
-	if manager.moduleManager != nil {
-		if err := manager.moduleManager.Close(ctx); err != nil {
-			allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error closing module manager"))
-		}
-	}
 
 	// our caller will close web
 	excludeWebFromClose := map[resource.Name]struct{}{
@@ -450,6 +443,13 @@ func (manager *resourceManager) Close(ctx context.Context) error {
 	}
 	if err := manager.removeMarkedAndClose(ctx, excludeWebFromClose); err != nil {
 		allErrs = multierr.Combine(allErrs, err)
+	}
+
+	// moduleManager may be nil in tests, and must be closed last, after resources within have been closed properly above
+	if manager.moduleManager != nil {
+		if err := manager.moduleManager.Close(ctx); err != nil {
+			allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error closing module manager"))
+		}
 	}
 
 	return allErrs

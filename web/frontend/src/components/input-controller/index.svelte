@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { inputControllerApi } from '@viamrobotics/sdk';
+  import Collapse from '../collapse.svelte';
 
   export let name: string;
   export let status: inputControllerApi.Status.AsObject;
@@ -61,7 +62,7 @@
   })(status.eventsList);
 </script>
 
-<v-collapse title={name}>
+<Collapse title={name}>
   <v-breadcrumbs slot="title" crumbs="input_controller" />
   <div slot="header" class="flex flex-wrap items-center">
     {#if connected}
@@ -73,16 +74,17 @@
   <div class="border border-t-0 border-medium p-4">
     {#if connected}
       {#each controls as control (control[0])}
-        <div class="ml-0 flex w-[8ex] flex-col">
-          <p class="subtitle m-0">
-            {control[0]}
-          </p>
-          {control[1]}
-        </div>
+        <v-input
+          readonly
+          class='w-20'
+          labelposition='left'
+          label={control[0]}
+          value={control[1]}
+        />
       {/each}
     {/if}
   </div>
-</v-collapse>
+</Collapse>
 
 <style scoped>
   .subtitle {

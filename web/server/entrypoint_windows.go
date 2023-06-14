@@ -3,8 +3,8 @@
 package server
 
 import (
-	"github.com/edaniels/gostream"
-	"github.com/edaniels/gostream/codec/opus"
+	"github.com/viamrobotics/gostream"
+	"github.com/viamrobotics/gostream/codec/opus"
 )
 
 func makeStreamConfig() gostream.StreamConfig {

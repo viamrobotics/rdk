@@ -29,19 +29,19 @@ import {
 
 import Arm from './arm/index.svelte';
 import AudioInput from './audio-input/index.svelte';
-import Base from './base.vue';
-import Board from './board.vue';
+import Base from './base/index.svelte';
+import Board from './board/index.svelte';
 import CamerasList from './camera/index.svelte';
 import OperationsSessions from './operations-sessions/index.svelte';
-import DoCommand from './do-command.vue';
-import Encoder from './encoder.vue';
-import Gantry from './gantry.vue';
-import Gripper from './gripper.vue';
-import Gamepad from './gamepad.vue';
+import DoCommand from './do-command/index.svelte';
+import Encoder from './encoder/index.svelte';
+import Gantry from './gantry/index.svelte';
+import Gripper from './gripper/index.svelte';
+import Gamepad from './gamepad/index.svelte';
 import InputController from './input-controller/index.svelte';
 import Motor from './motor/index.svelte';
 import MovementSensor from './movement-sensor/index.svelte';
-import Navigation from './navigation/index.svelte';
+// import Navigation from './navigation/index.svelte';
 import Servo from './servo/index.svelte';
 import Sensors from './sensors/index.svelte';
 import Slam from './slam/index.svelte';
@@ -843,13 +843,13 @@ onDestroy(() => {
     />
 
     <!-- ******* NAVIGATION *******  -->
-    {#each filterResources(resources, 'rdk', 'service', 'navigation') as { name } (name)}
+    <!-- {#each filterResources(resources, 'rdk', 'service', 'navigation') as { name } (name)}
       <Navigation
         {name}
         {client}
         {statusStream}
       />
-    {/each}
+    {/each} -->
 
     <!-- ******* SENSOR *******  -->
     {#if nonEmpty(sensorNames)}

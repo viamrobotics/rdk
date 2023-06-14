@@ -7,38 +7,13 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 
 	rdkutils "go.viam.com/rdk/utils"
 )
 
 // adapted from https://github.com/NVIDIA/jetson-gpio (MIT License)
-
-// GPIOBoardMapping represents a GPIO pin's location locally within a GPIO chip
-// and globally within sysfs.
-type GPIOBoardMapping struct {
-	GPIOChipDev    string
-	GPIO           int
-	GPIOGlobal     int
-	GPIOName       string
-	PWMSysFsDir    string // Absolute path to the directory, empty string for none
-	PWMID          int
-	HWPWMSupported bool
-}
-
-// PinDefinition describes board specific information on how a particular pin can be accessed
-// via sysfs along with information about its PWM capabilities.
-type PinDefinition struct {
-	GPIOChipRelativeIDs map[int]int    // ngpio -> relative id
-	GPIONames           map[int]string // e.g. ngpio=169=PQ.06 for claraAGXXavier
-	GPIOChipSysFSDir    string
-	PinNumberBoard      int
-	PinNumberBCM        int
-	PinNameCVM          string
-	PinNameTegraSOC     string
-	PWMChipSysFSDir     string // empty for none
-	PWMID               int    // -1 for none
-}
 
 // BoardInformation details pin definitions and device compatibility for a particular board.
 type BoardInformation struct {
@@ -59,21 +34,6 @@ func noBoardError(modelName string) error {
 	return fmt.Errorf("could not determine %q model", modelName)
 }
 
-// gpioChipData is a struct used solely within GetGPIOBoardMappings and its sub-pieces. It
-// describes a GPIO chip within sysfs.
-type gpioChipData struct {
-	Dir   string // Pseudofile within sysfs to interact with this chip
-	Base  int    // Taken from the /base pseudofile in sysfs: offset to the start of the lines
-	Ngpio int    // Taken from the /ngpio pseudofile in sysfs: number of lines on the chip
-}
-
-// pwmChipData is a struct used solely within GetGPIOBoardMappings and its sub-pieces. It
-// describes a PWM chip within sysfs.
-type pwmChipData struct {
-	Dir  string // Absolute path to pseudofile within sysfs to interact with this chip
-	Npwm int    // Taken from the /npwm pseudofile in sysfs: number of lines on the chip
-}
-
 // GetGPIOBoardMappings attempts to find a compatible board-pin mapping for the given mappings.
 func GetGPIOBoardMappings(modelName string, boardInfoMappings map[string]BoardInformation) (map[int]GPIOBoardMapping, error) {
 	pinDefs, err := getCompatiblePinDefs(modelName, boardInfoMappings)
@@ -87,7 +47,10 @@ func GetGPIOBoardMappings(modelName string, boardInfoMappings map[string]BoardIn
 	}
 	pwmChipsInfo, err := getPwmChipDefs(pinDefs)
 	if err != nil {
-		return nil, err
+		// Try continuing on without hardware PWM support. Many boards do not have it enabled by
+		// default, and perhaps this robot doesn't even use it.
+		golog.Global().Debugw("unable to find PWM chips, continuing without them", "error", err)
+		pwmChipsInfo = map[string]pwmChipData{}
 	}
 
 	mapping, err := getBoardMapping(pinDefs, gpioChipsInfo, pwmChipsInfo)
@@ -299,8 +262,9 @@ func getBoardMapping(pinDefs []PinDefinition, gpioChipsInfo map[string]gpioChipD
 				// This pin isn't supposed to have hardware PWM support; all is well.
 				pwmChipInfo = dummyPwmInfo
 			} else {
-				return nil, fmt.Errorf("unknown PWM device %s for pin %d",
-					pinDef.GPIOChipSysFSDir, key)
+				golog.Global().Errorw(
+					"cannot find expected hardware PWM chip, continuing without it", "pin", key)
+				pwmChipInfo = dummyPwmInfo
 			}
 		}
 

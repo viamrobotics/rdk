@@ -543,6 +543,7 @@ func NetworkConfigToProto(network *NetworkConfig) (*pb.NetworkConfig, error) {
 		BindAddress: network.BindAddress,
 		TlsCertFile: network.TLSCertFile,
 		TlsKeyFile:  network.TLSKeyFile,
+		Sessions:    sessionsConfigToProto(network.Sessions),
 	}
 
 	return &proto, nil
@@ -556,6 +557,7 @@ func NetworkConfigFromProto(proto *pb.NetworkConfig) (*NetworkConfig, error) {
 			BindAddress: proto.GetBindAddress(),
 			TLSCertFile: proto.GetTlsCertFile(),
 			TLSKeyFile:  proto.GetTlsKeyFile(),
+			Sessions:    sessionsConfigFromProto(proto.GetSessions()),
 		},
 	}
 
@@ -648,6 +650,18 @@ func CloudConfigFromProto(proto *pb.CloudConfig) (*Cloud, error) {
 		SignalingAddress:  proto.GetSignalingAddress(),
 		SignalingInsecure: proto.GetSignalingInsecure(),
 	}, nil
+}
+
+func sessionsConfigToProto(sessions SessionsConfig) *pb.SessionsConfig {
+	return &pb.SessionsConfig{
+		HeartbeatWindow: durationpb.New(sessions.HeartbeatWindow),
+	}
+}
+
+func sessionsConfigFromProto(proto *pb.SessionsConfig) SessionsConfig {
+	return SessionsConfig{
+		HeartbeatWindow: proto.GetHeartbeatWindow().AsDuration(),
+	}
 }
 
 func locationSecretToProto(secret LocationSecret) (*pb.LocationSecret, error) {

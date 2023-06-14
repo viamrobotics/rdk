@@ -1,8 +1,6 @@
 {
   "extends": "@viamrobotics/typescript-config/base.json",
   "compilerOptions": {
-    "types": ["vite/client"],
-  
     // Export options
     "declaration": true,
     "outDir": "dist",

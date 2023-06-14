@@ -131,7 +131,7 @@
     ],
     "services": [
         {
-            "name": "navigation1",
+            "name": "test_navigation",
             "type": "navigation",
             "attributes": {
                 "store": {

@@ -49,7 +49,7 @@ const handleRefreshInput = (name: string) => {
 
     <div class="flex flex-col gap-4 border border-t-0 border-medium p-4">
       <v-switch
-        label={camera.name}
+        label={`View ${camera.name}`}
         aria-label={openCameras[camera.name] ? `Hide Camera: ${camera.name}` : `View Camera: ${camera.name}`}
         value={openCameras[camera.name] ? 'on' : 'off'}
         on:input={() => setupCamera(camera.name)}
@@ -68,7 +68,6 @@ const handleRefreshInput = (name: string) => {
 
           {#if refreshFrequency[camera.name] !== 'Live'}
             <v-button
-              v-if=""
               icon="refresh"
               label="Refresh"
               on:click={() => {
