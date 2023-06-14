@@ -119,7 +119,7 @@ func (s *sphere) DistanceFrom(g Geometry) (float64, error) {
 	if other, ok := g.(*point); ok {
 		return sphereVsPointDistance(s, other.position), nil
 	}
-	return math.Inf(-1), newCollisionTypeUnsupportedError(s, g)
+	return g.DistanceFrom(s)
 }
 
 func (s *sphere) EncompassedBy(g Geometry) (bool, error) {
