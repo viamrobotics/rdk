@@ -162,7 +162,7 @@ func getPwmChipDefs(pinDefs []PinDefinition) (map[string]pwmChipData, error) {
 			symlink, err := os.Readlink(filepath.Join(sysPrefix, file.Name()))
 			if err != nil {
 				golog.Global().Errorw(
-					"cannot find symlinks for chip", file.Name(), "err:", err)
+					"cannot find symlinks for", "chip", file.Name(), "err:", err)
 				continue
 			}
 
