@@ -154,11 +154,11 @@ func (s *serviceServer) GetProperties(
 }
 
 func (s *serviceServer) Geometries(ctx context.Context, req *commonpb.GetGeometriesRequest) (*commonpb.GetGeometriesResponse, error) {
-	base, err := s.coll.Resource(req.GetName())
+	res, err := s.coll.Resource(req.GetName())
 	if err != nil {
 		return nil, err
 	}
-	geometries, err := base.Geometries(ctx)
+	geometries, err := res.Geometries(ctx)
 	if err != nil {
 		return nil, err
 	}
