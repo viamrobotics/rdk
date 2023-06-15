@@ -38,7 +38,6 @@ type Config struct {
 	LimitPinEnabled *bool    `json:"limit_pin_enabled_high,omitempty"`
 	LengthMm        float64  `json:"length_mm"`
 	MmPerRevolution float64  `json:"mm_per_rev"`
-	GantryMmPerSec  float64  `json:"gantry_mm_per_sec,omitempty"`
 	GantryRPM       float64  `json:"gantry_rpm,omitempty"`
 }
 
