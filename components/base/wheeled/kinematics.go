@@ -18,6 +18,7 @@ const (
 	headingThresholdDegrees = 15
 	defaultAngularVelocity  = 60  // degrees per second
 	defaultLinearVelocity   = 300 // mm per second
+	maxPerpendicularErr = 300 // mm
 )
 
 type kinematicWheeledBase struct {
@@ -72,10 +73,24 @@ func (kwb *kinematicWheeledBase) CurrentInputs(ctx context.Context) ([]reference
 func (kwb *kinematicWheeledBase) GoToInputs(ctx context.Context, desired []referenceframe.Input) (err error) {
 	// this loop polls the error state and issues a corresponding command to move the base to the objective
 	// when the base is within the positional threshold of the goal, exit the loop
+	startingPos, err := kwb.CurrentInputs(ctx)
+	if err != nil {
+		return err
+	}
 	for err = ctx.Err(); err == nil; err = ctx.Err() {
 		current, err := kwb.CurrentInputs(ctx)
 		if err != nil {
 			return err
+		}
+
+		// line from start to destination of format ax+by+c=0
+		a := -(desired[1].Value - startingPos[1].Value)/(desired[0].Value - startingPos[0].Value)
+		b := 1.0
+		c := -(a * startingPos[0].Value + b * startingPos[1].Value)
+		perpendicularErr := math.Abs(a*current[0].Value + b*current[1].Value + c) / math.Sqrt(math.Pow(a, 2.0) + math.Pow(b, 2.0))
+
+		if perpendicularErr > maxPerpendicularErr {
+			return errors.New("base has deviated too far from planned path")
 		}
 
 		// get to the x, y location first - note that from the base's perspective +y is forward
