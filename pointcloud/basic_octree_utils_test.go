@@ -47,7 +47,7 @@ func TestNodeCreation(t *testing.T) {
 // one filled one as well as the splitting of an empty octree node will result in
 // eight empty children nodes.
 func TestSplitIntoOctants(t *testing.T) {
-	center := r3.Vector{X: 0, Y: 0, Z: 0}
+	center := spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 0, Z: 0})
 	side := 1.0
 
 	t.Run("Splitting empty octree node into octants", func(t *testing.T) {
@@ -137,7 +137,7 @@ func TestSplitIntoOctants(t *testing.T) {
 
 // Test the function responsible for checking if the specified point will fit in the octree given its center and side.
 func TestCheckPointPlacement(t *testing.T) {
-	center := r3.Vector{X: 0, Y: 0, Z: 0}
+	center := spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 0, Z: 0})
 	side := 2.0
 
 	basicOct, err := createNewOctree(center, side)
@@ -152,7 +152,7 @@ func TestCheckPointPlacement(t *testing.T) {
 	test.That(t, basicOct.checkPointPlacement(r3.Vector{X: 2, Y: 0, Z: 0}), test.ShouldBeFalse)
 	test.That(t, basicOct.checkPointPlacement(r3.Vector{X: -1000, Y: 0, Z: 0}), test.ShouldBeFalse)
 
-	center = r3.Vector{X: 1000, Y: -1000, Z: 10}
+	center = spatialmath.NewPoseFromPoint(r3.Vector{X: 1000, Y: -1000, Z: 10})
 	side = 24.0
 
 	basicOct, err = createNewOctree(center, side)
@@ -166,7 +166,7 @@ func TestCheckPointPlacement(t *testing.T) {
 }
 
 // Helper function that recursively checks a basic octree's structure and metadata.
-func validateBasicOctree(t *testing.T, bOct *BasicOctree, center r3.Vector, sideLength float64) (int, int) {
+func validateBasicOctree(t *testing.T, bOct *BasicOctree, center spatialmath.Pose, sideLength float64) (int, int) {
 	t.Helper()
 
 	test.That(t, sideLength, test.ShouldEqual, bOct.sideLength)
@@ -211,11 +211,13 @@ func validateBasicOctree(t *testing.T, bOct *BasicOctree, center r3.Vector, side
 				numLeafNodeEmptyNodes++
 			}
 
-			childSize, childMaxProb := validateBasicOctree(t, child, r3.Vector{
-				X: center.X + i*sideLength/4.,
-				Y: center.Y + j*sideLength/4.,
-				Z: center.Z + k*sideLength/4.,
-			}, sideLength/2.)
+			centerPoint := center.Point()
+
+			childSize, childMaxProb := validateBasicOctree(t, child, spatialmath.NewPoseFromPoint(r3.Vector{
+				X: centerPoint.X + i*sideLength/4.,
+				Y: centerPoint.Y + j*sideLength/4.,
+				Z: centerPoint.Z + k*sideLength/4.,
+			}), sideLength/2.)
 			size += childSize
 			maxVal = int(math.Max(float64(maxVal), float64(childMaxProb)))
 		}
@@ -276,12 +278,12 @@ func createLopsidedOctree(oct *BasicOctree, i, max int) *BasicOctree {
 	for _, i := range []float64{-1.0, 1.0} {
 		for _, j := range []float64{-1.0, 1.0} {
 			for _, k := range []float64{-1.0, 1.0} {
-				centerOffset := r3.Vector{
+				centerOffset := spatialmath.NewPoseFromPoint(r3.Vector{
 					X: i * newSideLength / 2.,
 					Y: j * newSideLength / 2.,
 					Z: k * newSideLength / 2.,
-				}
-				newCenter := oct.center.Add(centerOffset)
+				})
+				newCenter := spatialmath.Compose(oct.center, centerOffset)
 
 				// Create a new basic octree child
 				child := &BasicOctree{
@@ -318,7 +320,7 @@ func stringBasicOctreeNodeType(n NodeType) string {
 //nolint:unused
 func printBasicOctree(logger golog.Logger, bOct *BasicOctree, s string) {
 	logger.Infof("%v %e %e %e - %v | Children: %v Side: %v Size: %v MaxVal: %f\n",
-		s, bOct.center.X, bOct.center.Y, bOct.center.Z, stringBasicOctreeNodeType(bOct.node.nodeType),
+		s, bOct.center.Point().X, bOct.center.Point().Y, bOct.center.Point().Z, stringBasicOctreeNodeType(bOct.node.nodeType),
 		len(bOct.node.children), bOct.sideLength, bOct.size, bOct.node.maxVal)
 
 	if bOct.node.nodeType == leafNodeFilled {

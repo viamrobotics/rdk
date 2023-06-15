@@ -5,6 +5,7 @@ import (
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
+
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -47,9 +48,14 @@ func newLeafNodeFilled(p r3.Vector, d Data) basicOctreeNode {
 // getRawVal returns the data param as a probability value.
 func getRawVal(d Data) int {
 	// TODO: this is a temp fix to make octrees work, will be more generalized by slam team
-	if d.HasColor() {
-		_, _, b := d.RGB255()
-		return int(b)
+	// if d.HasColor() {
+	// 	_, _, b := d.RGB255()
+	// 	return int(b)
+	// }
+	// return emptyProb
+	if d.HasValue() {
+		v := d.Value()
+		return v
 	}
 	return emptyProb
 }

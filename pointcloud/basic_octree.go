@@ -17,10 +17,10 @@ const (
 	leafNodeFilled
 	// This value allows for high level of granularity in the octree while still allowing for fast access times
 	// even on a pi.
-	maxRecursionDepth = 1000
-	nodeRegionOverlap = 0.000001
+	maxRecursionDepth   = 1000
+	nodeRegionOverlap   = 0.000001
 	confidenceThreshold = 60
-	buffer = 60.0
+	buffer              = 60.0
 )
 
 // NodeType represents the possible types of nodes in an octree.

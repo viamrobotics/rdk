@@ -193,14 +193,8 @@ func (ms *builtIn) MoveOnMap(
 	// make call to motionplan
 	plan, kb, err := ms.planMoveOnMap(ctx, componentName, destination, slamName, extra)
 	if err != nil {
-		return false, errors.Errorf("error making plan for MoveOnMap: %v", err)
+		return false, fmt.Errorf("error making plan for MoveOnMap: %v", err)
 	}
-
-	var planStr string
-	for _, point := range plan {
-		planStr += fmt.Sprintf("%v,%v\n", point[0].Value, point[1].Value)
-	}
-	ms.logger.Debug("planned path: ", planStr)
 
 	if err != nil {
 		return false, err
@@ -470,7 +464,9 @@ func (ms *builtIn) planMoveOnMap(
 		return nil, nil, err
 	}
 
-	worldState, err := referenceframe.NewWorldState([]*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(referenceframe.World, []spatialmath.Geometry{octree})}, nil)
+	worldState, err := referenceframe.NewWorldState([]*referenceframe.GeometriesInFrame{
+		referenceframe.NewGeometriesInFrame(referenceframe.World, []spatialmath.Geometry{octree}),
+	}, nil)
 
 	seedMap := map[string][]referenceframe.Input{f.Name(): inputs}
 

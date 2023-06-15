@@ -11,10 +11,12 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
+
+	"go.viam.com/rdk/spatialmath"
 )
 
 // Helper function for generating a new empty octree.
-func createNewOctree(center r3.Vector, side float64) (*BasicOctree, error) {
+func createNewOctree(center spatialmath.Pose, side float64) (*BasicOctree, error) {
 	basicOct, err := NewBasicOctree(center, side)
 	if err != nil {
 		return nil, err
@@ -68,7 +70,7 @@ func makeFullPointCloudFromArtifact(t *testing.T, artifactPath string, pcType PC
 
 // Test the creation of new basic octrees.
 func TestBasicOctreeNew(t *testing.T) {
-	center := r3.Vector{X: 0, Y: 0, Z: 0}
+	center := spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 0, Z: 0})
 	sideInvalid := 0.0
 	_, err := createNewOctree(center, sideInvalid)
 	test.That(t, err, test.ShouldBeError, errors.Errorf("invalid side length (%.2f) for octree", sideInvalid))
@@ -83,7 +85,7 @@ func TestBasicOctreeNew(t *testing.T) {
 
 	t.Run("New Octree as basic octree", func(t *testing.T) {
 		test.That(t, basicOct.node, test.ShouldResemble, newLeafNodeEmpty())
-		test.That(t, basicOct.center, test.ShouldResemble, r3.Vector{X: 0, Y: 0, Z: 0})
+		test.That(t, basicOct.center, test.ShouldResemble, spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 0, Z: 0}))
 		test.That(t, basicOct.sideLength, test.ShouldAlmostEqual, sideValid)
 		test.That(t, basicOct.meta, test.ShouldResemble, NewMetaData())
 		test.That(t, basicOct.MetaData(), test.ShouldResemble, NewMetaData())
@@ -94,7 +96,7 @@ func TestBasicOctreeNew(t *testing.T) {
 
 // Test the Set()function which adds points and associated data to an octree.
 func TestBasicOctreeSet(t *testing.T) {
-	center := r3.Vector{X: 0, Y: 0, Z: 0}
+	center := spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 0, Z: 0})
 	side := 2.0
 
 	t.Run("Set point into empty leaf node into basic octree", func(t *testing.T) {
@@ -266,7 +268,7 @@ func TestBasicOctreeSet(t *testing.T) {
 
 // Test the At() function for basic octrees which returns the data at a specific location should it exist.
 func TestBasicOctreeAt(t *testing.T) {
-	center := r3.Vector{X: 0, Y: 0, Z: 0}
+	center := spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 0, Z: 0})
 	side := 2.0
 
 	t.Run("At check of single node basic octree", func(t *testing.T) {
@@ -337,7 +339,7 @@ func TestBasicOctreeAt(t *testing.T) {
 // Test the Iterate() function, which will apply a specified function to every point in a basic octree until
 // the function returns a false value.
 func TestBasicOctreeIterate(t *testing.T) {
-	center := r3.Vector{X: 0, Y: 0, Z: 0}
+	center := spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 0, Z: 0})
 	side := 2.0
 
 	t.Run("Iterate zero batch check of an empty basic octree", func(t *testing.T) {
@@ -632,7 +634,7 @@ func testPCDToBasicOctree(t *testing.T, artifactPath string) {
 }
 
 func TestCachedMaxProbability(t *testing.T) {
-	center := r3.Vector{X: 0, Y: 0, Z: 0}
+	center := spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 0, Z: 0})
 	side := 2.0
 
 	t.Run("get the max val from an octree", func(t *testing.T) {
