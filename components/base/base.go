@@ -10,7 +10,6 @@ import (
 
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/spatialmath"
 )
 
 func init() {
@@ -38,6 +37,7 @@ func Named(name string) resource.Name {
 type Base interface {
 	resource.Resource
 	resource.Actuator
+	resource.Shaped
 
 	// MoveStraight moves the robot straight a given distance at a given speed.
 	// If a distance or speed of zero is given, the base will stop.
@@ -56,8 +56,6 @@ type Base interface {
 	SetVelocity(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error
 
 	Properties(ctx context.Context, extra map[string]interface{}) (Properties, error)
-
-	Geometries(ctx context.Context) ([]spatialmath.Geometry, error)
 }
 
 // FromDependencies is a helper for getting the named base from a collection of
