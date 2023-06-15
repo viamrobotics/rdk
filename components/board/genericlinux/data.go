@@ -145,15 +145,14 @@ func getPwmChipDefs(pinDefs []PinDefinition) (map[string]pwmChipData, error) {
 	// Now, look for all chips whose names we found.
 	pwmChipsInfo := map[string]pwmChipData{}
 	var found bool
-	sysPrefix := "/sys/class/pwm"
+	const sysPrefix = "/sys/class/pwm"
 	files, err := os.ReadDir(sysPrefix)
+	if err != nil {
+		return nil, err
+	}
 
 	for chipName := range pwmChipNames {
 		found = false
-		if err != nil {
-			return nil, err
-		}
-
 		for _, file := range files {
 			if !strings.HasPrefix(file.Name(), "pwmchip") {
 				continue
@@ -162,19 +161,21 @@ func getPwmChipDefs(pinDefs []PinDefinition) (map[string]pwmChipData, error) {
 			// look at symlinks to find the correct chip
 			symlink, err := os.Readlink(filepath.Join(sysPrefix, file.Name()))
 			if err != nil {
-				return nil, err
+				golog.Global().Errorw(
+					"cannot find symlinks for chip", file.Name(), "err:", err)
+				continue
 			}
 
-			var chipPath string
 			if strings.Contains(symlink, chipName) {
 				found = true
-				chipPath = fmt.Sprintf("/sys/class/pwm/%s", file.Name())
+				chipPath := filepath.Join("/sys/class/pwm", file.Name())
 				npwm, err := readIntFile(filepath.Join(chipPath, "npwm"))
 				if err != nil {
 					return nil, err
 				}
 
 				pwmChipsInfo[chipName] = pwmChipData{Dir: chipPath, Npwm: npwm}
+				break
 			}
 		}
 
