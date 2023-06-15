@@ -699,3 +699,46 @@ func TestCachedMaxProbability(t *testing.T) {
 		test.That(t, mp, test.ShouldEqual, -2)
 	})
 }
+
+// Test the Set()function which adds points and associated data to an octree.
+func TestBasicOctreeTransform(t *testing.T) {
+	center := spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 0, Z: 0})
+	side := 2.0
+
+	t.Run("Set point into empty leaf node into basic octree and transform", func(t *testing.T) {
+		basicOct, err := createNewOctree(center, side)
+		test.That(t, err, test.ShouldBeNil)
+
+		point1 := r3.Vector{X: 0.1, Y: 0, Z: 0}
+		data1 := NewValueData(1)
+		err = basicOct.Set(point1, data1)
+		test.That(t, err, test.ShouldBeNil)
+
+		transformedOct := basicOct.Transform(spatialmath.NewPoseFromPoint(r3.Vector{X: 1.0, Y: 2.0, Z: 0}))
+		newCenter := spatialmath.NewPoseFromPoint(r3.Vector{X: 1.0, Y: 2.0, Z: 0})
+		test.That(t, basicOct.MaxVal(), test.ShouldEqual, transformedOct.(*BasicOctree).MaxVal())
+		validateBasicOctree(t, transformedOct.(*BasicOctree), newCenter, side)
+	})
+
+	t.Run("Set point into internal node node into basic octree and transform", func(t *testing.T) {
+		basicOct, err := createNewOctree(center, side)
+		test.That(t, err, test.ShouldBeNil)
+
+		d3 := 3
+		err = basicOct.Set(r3.Vector{X: 0, Y: 0, Z: 0}, NewValueData(d3))
+		test.That(t, err, test.ShouldBeNil)
+
+		d2 := 2
+		err = basicOct.Set(r3.Vector{X: -.5, Y: 0, Z: 0}, NewValueData(d2))
+		test.That(t, err, test.ShouldBeNil)
+
+		d4 := 4
+		err = basicOct.Set(r3.Vector{X: -.4, Y: 0, Z: 0}, NewValueData(d4))
+		test.That(t, err, test.ShouldBeNil)
+
+		transformedOctree := basicOct.Transform(spatialmath.NewPoseFromPoint(r3.Vector{X: 1.0, Y: 2.0, Z: 0}))
+		newCenter := spatialmath.NewPoseFromPoint(r3.Vector{X: 1.0, Y: 2.0, Z: 0})
+
+		validateBasicOctree(t, transformedOctree.(*BasicOctree), newCenter, side)
+	})
+}

@@ -197,14 +197,94 @@ func (octree *BasicOctree) Pose() spatialmath.Pose {
 
 // AlmostEqual compares the octree with another geometry and checks if they are equivalent.
 func (octree *BasicOctree) AlmostEqual(geom spatialmath.Geometry) bool {
-	// basically no scenario where two octrees would be equal
+	// TODO
 	return false
 }
 
-// Transform transforms the octree by the given pose.
+// Transform recursively steps through the octree and transforms it by the given pose.
 func (octree *BasicOctree) Transform(p spatialmath.Pose) spatialmath.Geometry {
-	// TODO
-	return nil
+	var transformedOctree *BasicOctree
+	switch octree.node.nodeType {
+	case internalNode:
+		transformedOctree = &BasicOctree{
+			basicOctreeNode{
+				octree.node.nodeType,
+				make([]*BasicOctree, 0),
+				octree.node.point,
+				octree.node.maxVal,
+			},
+			octree.center,
+			octree.sideLength,
+			octree.size,
+			octree.label,
+			octree.meta,
+		}
+		transformedOctree.center = spatialmath.Compose(octree.center, p)
+		transformPoint := p.Point()
+
+		transformedOctree.meta.MaxX += transformPoint.X
+		transformedOctree.meta.MinX += transformPoint.X
+		transformedOctree.meta.MaxY += transformPoint.Y
+		transformedOctree.meta.MinY += transformPoint.Y
+		transformedOctree.meta.MaxZ += transformPoint.Z
+		transformedOctree.meta.MinZ += transformPoint.Z
+
+		transformedOctree.meta.totalX = 0
+		transformedOctree.meta.totalY = 0
+		transformedOctree.meta.totalZ = 0
+
+		for _, child := range octree.node.children {
+			transformedChild := child.Transform(p).(*BasicOctree)
+			transformedOctree.node.children = append(transformedOctree.node.children, transformedChild)
+
+			transformedOctree.meta.totalX += transformedChild.meta.totalX
+			transformedOctree.meta.totalY += transformedChild.meta.totalY
+			transformedOctree.meta.totalZ += transformedChild.meta.totalZ
+		}
+	case leafNodeEmpty:
+		transformedOctree = &BasicOctree{
+			basicOctreeNode{
+				octree.node.nodeType,
+				octree.node.children,
+				octree.node.point,
+				octree.node.maxVal,
+			},
+			spatialmath.Compose(octree.center, p),
+			octree.sideLength,
+			octree.size,
+			octree.label,
+			octree.meta,
+		}
+	case leafNodeFilled:
+		transformedOctree = &BasicOctree{
+			basicOctreeNode{
+				octree.node.nodeType,
+				octree.node.children,
+				octree.node.point,
+				octree.node.maxVal,
+			},
+			octree.center,
+			octree.sideLength,
+			octree.size,
+			octree.label,
+			octree.meta,
+		}
+		transformPoint := p.Point()
+		transformedOctree.center = spatialmath.Compose(octree.center, p)
+		transformedOctree.node.point = &PointAndData{P: octree.node.point.P.Add(transformPoint), D: octree.node.point.D}
+
+		transformedOctree.meta.MaxX += transformPoint.X
+		transformedOctree.meta.MinX += transformPoint.X
+		transformedOctree.meta.MaxY += transformPoint.Y
+		transformedOctree.meta.MinY += transformPoint.Y
+		transformedOctree.meta.MaxZ += transformPoint.Z
+		transformedOctree.meta.MinZ += transformPoint.Z
+
+		transformedOctree.meta.totalX += transformPoint.X
+		transformedOctree.meta.totalY += transformPoint.Y
+		transformedOctree.meta.totalZ += transformPoint.Z
+	}
+	return transformedOctree
 }
 
 // ToProtobuf converts the octree to a Geometry proto message.
