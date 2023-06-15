@@ -9,6 +9,8 @@ import (
 )
 
 // visualizeOctree creates an image of size resolution x resolution for a given octree.
+//
+//nolint:unused
 func visualizeOctree(octree *BasicOctree, resolution int) *image.RGBA {
 	pixelScalar := float64(resolution) / octree.sideLength
 	pixelOffset := r3.Vector{
@@ -27,6 +29,8 @@ func visualizeOctree(octree *BasicOctree, resolution int) *image.RGBA {
 }
 
 // Recursively iterates through octree, outlining internal nodes and coloring filled nodes based on probability value.
+//
+//nolint:unused
 func helperVisualizeOctree(octree *BasicOctree, img *image.RGBA, pixelOffset r3.Vector, pixelScalar float64) {
 	switch octree.node.nodeType {
 	case internalNode:
@@ -55,6 +59,8 @@ func helperVisualizeOctree(octree *BasicOctree, img *image.RGBA, pixelOffset r3.
 }
 
 // Draw a outline of a square defined by a center and side length using the given color.
+//
+//nolint:unused
 func drawSquareOutline(img *image.RGBA, x, y, side int, c color.RGBA) {
 	for i := 0; i <= side; i++ {
 		img.Set(x, y+i, c)
@@ -65,6 +71,8 @@ func drawSquareOutline(img *image.RGBA, x, y, side int, c color.RGBA) {
 }
 
 // Fill a square defined by a center and side length using the given color.
+//
+//nolint:unused
 func fillSquare(img *image.RGBA, x, y, side int, c color.RGBA) {
 	for i := 0; i <= side; i++ {
 		for j := 0; j <= side; j++ {

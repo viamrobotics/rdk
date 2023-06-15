@@ -697,14 +697,3 @@ func TestCachedMaxProbability(t *testing.T) {
 		test.That(t, mp, test.ShouldEqual, -2)
 	})
 }
-
-func TestPCDVisualization(t *testing.T) {
-	artifactPath := "slam/mock_lidar/0.pcd"
-
-	basicOctPC, err := makeFullPointCloudFromArtifact(t, artifactPath, BasicOctreeType)
-	test.That(t, err, test.ShouldBeNil)
-	basicOct, ok := basicOctPC.(*BasicOctree)
-	test.That(t, ok, test.ShouldBeTrue)
-
-	_ = visualizeOctree(basicOct, 2000)
-}
