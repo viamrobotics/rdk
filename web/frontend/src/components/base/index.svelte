@@ -195,8 +195,8 @@
     }
   };
 
-  const handleViewSelect = (viewMode: View) => {
-    selectedView = viewMode;
+  const handleViewSelect = (event: CustomEvent) => {
+    selectedView = event.detail.value;
 
     let liveCameras = 0;
     for (const camera of cameras) {
@@ -285,6 +285,14 @@
     setSpinType(event.detail.value);
   }
 
+  const handleSetRefreshFrequency = (event: CustomEvent) => {
+    refreshFrequency = event.detail.value;
+  }
+
+  const handleSetAngle = (event: CustomEvent) => {
+    angle = event.detail.value;
+  }
+
   onMount(() => {
     window.addEventListener('visibilitychange', handleVisibilityChange);
 
@@ -304,11 +312,7 @@
   });
 </script>
 
-<div
-  use:clickOutside={() => {
-    isKeyboardActive = false;
-  }}
->
+<div use:clickOutside={() => { isKeyboardActive = false; }}>
   <Collapse title={name}>
     <v-breadcrumbs slot="title" crumbs="base" />
 
@@ -415,9 +419,7 @@
                   suffix="°"
                   label="Angle"
                   value={angle}
-                  on:input={(event) => {
-                    angle = event.detail.value;
-                  }}
+                  on:input={handleSetAngle}
                 />
               </div>
             {/if}
@@ -439,9 +441,7 @@
           options="Stacked, Grid"
           selected={selectedView}
           disable={disableViews ? 'true' : 'false'}
-          on:input={(event) => {
-            handleViewSelect(event.detail.value);
-          }}
+          on:input={handleViewSelect}
         />
 
         {#if cameras}
@@ -464,9 +464,7 @@
                 aria-label="Refresh frequency"
                 options={Object.keys(selectedMap).join(',')}
                 disabled={disableRefresh ? 'true' : 'false'}
-                on:input={(event) => {
-                  refreshFrequency = event.detail.value;
-                }}
+                on:input={handleSetRefreshFrequency}
               />
 
               <v-button

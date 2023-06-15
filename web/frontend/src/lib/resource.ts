@@ -1,4 +1,4 @@
-import type { commonApi, robotApi } from '@viamrobotics/sdk';
+import type { commonApi } from '@viamrobotics/sdk';
 
 type Resource = commonApi.ResourceName.AsObject
 
@@ -71,7 +71,7 @@ export const filterSubtype = (
 
 export const filterWithStatus = (
   resources: Resource[],
-  status: Record<string, robotApi.Status>,
+  status: Record<string, unknown>,
   subtype: string
 ) => {
   return resources

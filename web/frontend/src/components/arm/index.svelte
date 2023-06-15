@@ -20,19 +20,46 @@ interface ArmStatus {
   }[]
 }
 
-interface RawArmStatus extends ArmStatus {
-  joint_positions: {
-    values: number[]
-  }
-  end_position: Record<string, number>
-}
-
 type Field = 'x' | 'y' | 'z' | 'oX' | 'oY' | 'oZ' | 'theta'
 
 export let name: string;
-export let status: ArmStatus | undefined;
-export let rawStatus: RawArmStatus | undefined;
+export let status: {
+  is_moving: boolean
+  end_position: Record<string, number>
+  joint_positions: { values: number[]}
+} | undefined;
 export let client: Client;
+
+console.log(status)
+
+const fieldSetters = [
+  ['x', 'X'],
+  ['y', 'Y'],
+  ['z', 'Z'],
+  ['theta', 'Theta'],
+  ['o_x', 'OX'],
+  ['o_y', 'OY'],
+  ['o_z', 'OZ'],
+] as const;
+
+$: posPieces = fieldSetters.map((setter) => {
+  const [endPositionField] = setter
+  return {
+    endPosition: setter,
+    endPositionValue: status?.end_position[endPositionField!] || 0,
+  }
+})
+
+/*
+ * this conditional is in place so the RC card renders when
+ * the fake arm is not using any kinematics file
+ */
+$: jointPieces = status?.joint_positions.values.map((value, index) => {
+  return {
+    joint: index,
+    jointValue: value ?? 0
+  }
+}) ?? [{ joint: 0, jointValue: 100, }]
 
 const fieldMap = [
   ['x', 'x'],
@@ -98,7 +125,7 @@ const armModifyAllCancel = () => {
 };
 
 const armModifyAllDoJoint = async () => {
-  const arm = rawStatus!;
+  const arm = status!;
   const newList = arm.joint_positions.values;
   const newPieces = toggle[name]!.joint_pieces;
 
@@ -120,7 +147,7 @@ const armEndPositionInc = async (updateField: string | undefined, amount: number
   }
 
   const adjustedAmount = updateField[0] === 'o' || updateField[0] === 'O' ? amount / 100 : amount;
-  const arm = rawStatus!;
+  const arm = status!;
   const old = arm.end_position;
 
   const newPose: Pose = {
@@ -150,7 +177,7 @@ const armEndPositionInc = async (updateField: string | undefined, amount: number
 };
 
 const armJointInc = async (field: number, amount: number) => {
-  const arm = rawStatus!;
+  const arm = status!;
   const newList = arm.joint_positions.values;
   newList[field] += amount;
 
@@ -162,7 +189,7 @@ const armJointInc = async (field: number, amount: number) => {
 };
 
 const armHome = async () => {
-  const arm = rawStatus!;
+  const arm = status!;
   const newList = arm.joint_positions.values;
 
   for (let i = 0; i < newList.length; i += 1) {
@@ -177,23 +204,22 @@ const armHome = async () => {
 };
 
 const armModifyAll = () => {
-  const arm = status!;
   const newStatus: ArmStatus = {
     pos_pieces: [],
     joint_pieces: [],
   };
 
-  for (let i = 0; i < arm.pos_pieces.length; i += 1) {
+  for (let i = 0; i < posPieces.length; i += 1) {
     newStatus.pos_pieces.push({
-      endPosition: arm.pos_pieces[i]!.endPosition,
-      endPositionValue: roundTo2Decimals(arm.pos_pieces[i]!.endPositionValue),
+      endPosition: [...posPieces[i]!.endPosition],
+      endPositionValue: roundTo2Decimals(posPieces[i]!.endPositionValue),
     });
   }
 
-  for (let i = 0; i < arm.joint_pieces.length; i += 1) {
+  for (let i = 0; i < jointPieces.length; i += 1) {
     newStatus.joint_pieces.push({
-      joint: arm.joint_pieces[i]!.joint,
-      jointValue: roundTo2Decimals(arm.joint_pieces[i]!.jointValue),
+      joint: jointPieces[i]!.joint,
+      jointValue: roundTo2Decimals(jointPieces[i]!.jointValue),
     });
   }
 
@@ -202,7 +228,7 @@ const armModifyAll = () => {
 
 const armCopyPosition = () => {
   // eslint-disable-next-line unicorn/no-array-reduce
-  copyToClipboard(JSON.stringify(status?.pos_pieces.reduce((acc, cur) => {
+  copyToClipboard(JSON.stringify(posPieces.reduce((acc, cur) => {
     return {
       ...acc,
       [`${cur.endPosition[0]}`]: cur.endPositionValue,
@@ -212,7 +238,7 @@ const armCopyPosition = () => {
 
 const armCopyJoints = () => {
   // eslint-disable-next-line unicorn/no-array-reduce
-  copyToClipboard(JSON.stringify(status?.joint_pieces.reduce((acc, cur) => {
+  copyToClipboard(JSON.stringify(jointPieces.reduce((acc, cur) => {
     return {
       ...acc,
       [`${cur.joint}`]: cur.jointValue,
@@ -306,7 +332,7 @@ const armCopyJoints = () => {
             End position (mms)
           </h3>
           <div class="inline-grid grid-cols-6 gap-1 pb-1">
-            {#each status.pos_pieces as piece (piece.endPosition[0])}
+            {#each posPieces as piece (piece.endPosition[0])}
               <h4 class="py-1 pr-2 text-right">{piece.endPosition[1]}</h4>
               <v-button
                 label="--"
@@ -353,7 +379,7 @@ const armCopyJoints = () => {
             Joints (degrees)
           </h3>
           <div class="inline-grid grid-cols-6 gap-1 pb-1">
-            {#each status.joint_pieces as piece (piece.joint)}
+            {#each jointPieces as piece (piece.joint)}
               <h4 class="whitespace-nowrap py-1 pr-2 text-right">
                 Joint {piece.joint}
               </h4>

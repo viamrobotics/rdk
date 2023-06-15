@@ -1,9 +1,12 @@
 <script lang="ts">
+
   import type { inputControllerApi } from '@viamrobotics/sdk';
   import Collapse from '../collapse.svelte';
 
   export let name: string;
-  export let status: inputControllerApi.Status.AsObject;
+  export let status: {
+    events?: inputControllerApi.Event.AsObject[] | undefined
+  } = { events: [] }
 
   const controlOrder = [
     'AbsoluteX',
@@ -28,7 +31,8 @@
     'ButtonEStop',
   ];
 
-  $: connected = status.eventsList.some(({ event }) => event !== 'Disconnect');
+  $: events = status.events ?? []
+  $: connected = events.some(({ event }) => event !== 'Disconnect');
 
   const getValue = (
     eventsList: inputControllerApi.Event.AsObject[],
@@ -59,7 +63,7 @@
     }
 
     return pendingControls;
-  })(status.eventsList);
+  })(events);
 </script>
 
 <Collapse title={name}>
@@ -86,7 +90,7 @@
   </div>
 </Collapse>
 
-<style scoped>
+<style>
   .subtitle {
     color: var(--black-70);
   }

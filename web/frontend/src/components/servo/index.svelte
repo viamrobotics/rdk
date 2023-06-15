@@ -4,11 +4,10 @@ import { grpc } from '@improbable-eng/grpc-web';
 import { Client, type ServiceError, servoApi } from '@viamrobotics/sdk';
 import { displayError } from '@/lib/error';
 import { rcLogConditionally } from '@/lib/log';
-import Collapse from '../collapse.svelte';
+import Collapse from '@/components/collapse.svelte';
 
 export let name: string;
-export let status: servoApi.Status.AsObject;
-export let rawStatus: servoApi.Status.AsObject;
+export let status: undefined | { position_deg: number }
 export let client: Client;
 
 const stop = () => {
@@ -20,10 +19,7 @@ const stop = () => {
 };
 
 const move = (amount: number) => {
-  const servo = rawStatus;
-
-  // @ts-expect-error @TODO Proto is incorrectly typing this. It expects servo.positionDeg
-  const oldAngle = servo.position_deg ?? 0;
+  const oldAngle = status?.position_deg ?? 0;
 
   const angle = oldAngle + amount;
 
@@ -51,7 +47,7 @@ const move = (amount: number) => {
     on:click={stop}
   />
   <div class="border border-t-0 border-medium p-4">
-    <h3 class="mb-1 text-sm">Angle: {status.positionDeg}</h3>
+    <h3 class="mb-1 text-sm">Angle: {status?.position_deg ?? 0}</h3>
 
     <div class="flex gap-1.5">
       <v-button label="-10" on:click={() => move(-10)} />

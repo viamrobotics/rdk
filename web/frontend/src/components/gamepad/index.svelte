@@ -15,8 +15,8 @@ import { notify } from '@viamrobotics/prime';
 import { rcLogConditionally } from '@/lib/log';
 import Collapse from '@/components/collapse.svelte'
 
-export let name:string;
-export let client:Client;
+export let name: string;
+export let client: Client;
 export let statusStream: ResponseStream<robotApi.StreamStatusResponse> | null;
 
 let gamepadIdx: number | null = null;
@@ -274,49 +274,44 @@ $: {
     <v-breadcrumbs crumbs="input_controller" />
 
     {#if currentGamepad?.connected}
-      ({ currentGamepad?.id })
+      ({currentGamepad?.id})
     {/if}
   </svelte:fragment>
 
   <div slot="header">
     {#if currentGamepad?.connected && enabled}
-      <span class="rounded-full bg-green-500 px-3 py-0.5 text-xs text-white">Enabled</span>
+      <v-badge variant='green' label='Enabled' />
     {:else}
-      <span class="rounded-full bg-gray-200 px-3 py-0.5 text-xs text-gray-800">Disabled</span>
+      <v-badge variant='gray' label='Disabled' />
     {/if}
   </div>
 
   <div class="h-full w-full border border-t-0 border-medium p-4">
-      <div class="flex flex-row">
-      <label class="subtitle mr-2">Enabled</label>
+    <div class="flex flex-row">
       <v-switch
-          :value="enabled ? 'on' : 'off'"
-          on:input={enabled = !enabled}
+        label='Enable gamepad'
+        value={enabled ? 'on' : 'off'}
+        on:input={() => (enabled = !enabled)}
       />
+    </div>
+
+    {#if currentGamepad?.connected}
+      <div class="flex h-full w-full flex-row justify-between gap-2">
+        {#each Object.keys(curStates) as stateName, value}
+          <div class="ml-0 flex w-[8ex] flex-col text-center">
+            <p class="subtitle m-0">{stateName}</p>
+            {value.toFixed((/X|Y|Z$/u).test(stateName.toString()) ? 4 : 0)}
+          </div>
+        {/each}
       </div>
-      {#if currentGamepad?.connected}
-      <div
-      class="flex h-full w-full flex-row justify-between gap-2"
-      >
-      {#each Object.keys(curStates) as stateName, value}
-      <div
-          class="ml-0 flex w-[8ex] flex-col text-center"
-      >
-          <p class="subtitle m-0">
-          { stateName }
-          </p>
-          { (/X|Y|Z$/u).test(stateName.toString()) ? value.toFixed(4) : value.toFixed(0) }
-      </div>
-      {/each}
-      </div>
-      {/if}
+    {/if}
   </div>
 </Collapse>
 
 <style>
 
 .subtitle {
-    color: var(--black-70);
+  color: var(--black-70);
 }
 
 </style>

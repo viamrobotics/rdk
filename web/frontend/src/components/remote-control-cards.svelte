@@ -7,7 +7,7 @@ import { Duration } from 'google-protobuf/google/protobuf/duration_pb';
 import { type Credentials, ConnectionClosedError } from '@viamrobotics/rpc';
 import { notify } from '@viamrobotics/prime';
 import { displayError } from '@/lib/error';
-import { resources, components, services } from '@/stores/resources';
+import { resources, components, services, statuses } from '@/stores/resources';
 import { StreamManager } from './camera/stream-manager';
 import { fetchCurrentOps } from '@/api/robot';
 import {
@@ -20,7 +20,6 @@ import {
 } from '@viamrobotics/sdk';
 
 import {
-  resourceNameToSubtypeString,
   resourceNameToString,
   filterWithStatus,
   filterSubtype,
@@ -44,15 +43,6 @@ import Navigation from './navigation/index.svelte';
 import Servo from './servo/index.svelte';
 import Sensors from './sensors/index.svelte';
 import Slam from './slam/index.svelte';
-
-import {
-  fixArmStatus,
-  fixBoardStatus,
-  fixGantryStatus,
-  fixInputStatus,
-  fixMotorStatus,
-  fixServoStatus,
-} from '@/lib/fixers';
 
 export let host: string;
 export let bakedAuth: { authEntity: string; creds: Credentials; } | undefined;
@@ -108,8 +98,6 @@ interface ConnectionManager {
   rtt: number;
 }
 
-const rawStatus: Record<string, robotApi.Status> = {};
-const status: Record<string, robotApi.Status> = {};
 const errors: Record<string, boolean> = {};
 
 let appConnectionManager: ConnectionManager | null = null;
@@ -193,6 +181,11 @@ const handleCallErrors = (statuses: { resources: boolean; ops: boolean }, newErr
   );
 };
 
+const getStatus = <T>(statusMap: Record<string, unknown>, resource: commonApi.ResourceName.AsObject): T | undefined => {
+  const key = resourceNameToString(resource)
+  return key ? statusMap[key] as T : undefined;
+}
+
 const stringToResourceName = (nameStr: string) => {
   const [prefix, suffix] = nameStr.split('/');
   let name = '';
@@ -237,49 +230,13 @@ const querySensors = () => {
   );
 };
 
-const fixRawStatus = (resource: commonApi.ResourceName.AsObject, statusToFix: unknown) => {
-  switch (resourceNameToSubtypeString(resource)) {
-
-    /*
-     * TODO (APP-146): generate these using constants
-     * TODO these types need to be fixed.
-     */
-    case 'rdk:component:arm': {
-      return fixArmStatus(statusToFix as never);
-    }
-    case 'rdk:component:board': {
-      return fixBoardStatus(statusToFix as never);
-    }
-    case 'rdk:component:gantry': {
-      return fixGantryStatus(statusToFix as never);
-    }
-    case 'rdk:component:input_controller': {
-      return fixInputStatus(statusToFix as never);
-    }
-    case 'rdk:component:motor': {
-      return fixMotorStatus(statusToFix as never);
-    }
-    case 'rdk:component:servo': {
-      return fixServoStatus(statusToFix as never);
-    }
-  }
-
-  return statusToFix;
-};
-
 const updateStatus = (grpcStatuses: robotApi.Status[]) => {
   for (const grpcStatus of grpcStatuses) {
     const nameObj = grpcStatus.getName()!.toObject();
     const statusJs = grpcStatus.getStatus()!.toJavaScript();
+    const name = resourceNameToString(nameObj);
 
-    try {
-      const fixed = fixRawStatus(nameObj, statusJs);
-      const name = resourceNameToString(nameObj);
-      rawStatus[name] = statusJs as unknown as robotApi.Status;
-      status[name] = fixed as unknown as robotApi.Status;
-    } catch {
-      notify.danger(`Couldn't fix status for ${resourceNameToString(nameObj)}`);
-    }
+    $statuses[name] = statusJs;
   }
 };
 
@@ -312,7 +269,7 @@ const restartStatusStream = () => {
   statusStream = client.robotService.streamStatus(streamReq);
   if (statusStream !== null) {
     statusStream.on('data', (response: { getStatusList(): robotApi.Status[] }) => {
-      updateStatus((response).getStatusList());
+      updateStatus(response.getStatusList());
       lastStatusTS = Date.now();
     });
     statusStream.on('status', (newStatus?: { details: unknown }) => {
@@ -351,8 +308,7 @@ const queryMetadata = () => {
         const { resourcesList } = resp.toObject();
 
         const differences: Set<string> = new Set(
-          $resources.map((name: commonApi.ResourceName.AsObject) =>
-            resourceNameToString(name))
+          $resources.map((name) => resourceNameToString(name))
         );
         const resourceSet: Set<string> = new Set(
           resourcesList.map((name: commonApi.ResourceName.AsObject) => resourceNameToString(name))
@@ -375,7 +331,7 @@ const queryMetadata = () => {
             if (
               resource.namespace === 'rdk' &&
               resource.type === 'component' &&
-              relevantSubtypesForStatus.includes(resource.subtype!)
+              relevantSubtypesForStatus.includes(resource.subtype as typeof relevantSubtypesForStatus[number])
             ) {
               shouldRestartStatusStream = true;
               break;
@@ -392,7 +348,8 @@ const queryMetadata = () => {
         if (shouldRestartStatusStream === true) {
           restartStatusStream();
         }
-        resolve(resources);
+
+        resolve(null);
       }
     );
   });
@@ -611,11 +568,7 @@ const createAppConnectionManager = () => {
 appConnectionManager = createAppConnectionManager();
 
 const resourceStatusByName = (resource: commonApi.ResourceName.AsObject) => {
-  return status[resourceNameToString(resource)];
-};
-
-const rawResourceStatusByName = (resource: commonApi.ResourceName.AsObject) => {
-  return rawStatus[resourceNameToString(resource)];
+  return $statuses[resourceNameToString(resource)];
 };
 
 const nonEmpty = (object: object) => {
@@ -742,7 +695,7 @@ onDestroy(() => {
     {/each}
 
     <!-- ******* ENCODER *******  -->
-    {#each filterSubtype($components, 'encoder') ?? [] as { name } (name)}
+    {#each filterSubtype($components, 'encoder') as { name } (name)}
       <Encoder
         {name}
         {client}
@@ -751,11 +704,11 @@ onDestroy(() => {
     {/each}
 
     <!-- ******* GANTRY *******  -->
-    {#each filterSubtype($components, 'gantry') as gantry (gantry.name)}
+    {#each filterWithStatus($components, $statuses, 'gantry') as gantry (gantry.name)}
       <Gantry
         name={gantry.name}
         {client}
-        status={resourceStatusByName(gantry)}
+        status={getStatus($statuses, gantry)}
       />
     {/each}
 
@@ -773,8 +726,7 @@ onDestroy(() => {
       <Arm
         name={arm.name}
         {client}
-        status={resourceStatusByName(arm)}
-        rawStatus={rawResourceStatusByName(arm)}
+        status={getStatus($statuses, arm)}
       />
     {/each}
 
@@ -787,21 +739,20 @@ onDestroy(() => {
     {/each}
 
     <!-- ******* SERVO *******  -->
-    {#each filterWithStatus($components, status, 'board') as servo (servo.name)}
+    {#each filterWithStatus($components, $statuses, 'servo') as servo (servo.name)}
       <Servo
         name={servo.name}
         {client}
-        status={resourceStatusByName(servo)}
-        rawStatus={rawResourceStatusByName(servo)}
+        status={getStatus($statuses, servo)}
       />
     {/each}
 
     <!-- ******* MOTOR *******  -->
-    {#each filterWithStatus($components, status, 'motor') as motor (motor.name)}
+    {#each filterWithStatus($components, $statuses, 'motor') as motor (motor.name)}
       <Motor
         name={motor.name}
         {client}
-        status={resourceStatusByName(motor)}
+        status={getStatus($statuses, motor)}
       />
     {/each}
 
@@ -809,7 +760,7 @@ onDestroy(() => {
     {#each filteredInputControllerList as controller (controller.name)}
       <InputController
         name={controller.name}
-        status={resourceStatusByName(controller)}
+        status={getStatus($statuses, controller)}
       />
     {/each}
 
@@ -823,11 +774,11 @@ onDestroy(() => {
     {/each}
 
     <!-- ******* BOARD *******  -->
-    {#each filterWithStatus($components, status, 'board') as board (board.name)}
+    {#each filterWithStatus($components, $statuses, 'board') as board (board.name)}
       <Board
         name={board.name}
         {client}
-        status={resourceStatusByName(board)}
+        status={getStatus($statuses, board)}
       />
     {/each}
 
@@ -870,7 +821,6 @@ onDestroy(() => {
       <Slam
         {name}
         {client}
-        resources={$resources}
         {statusStream}
         operations={currentOps}
       />
