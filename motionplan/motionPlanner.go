@@ -29,7 +29,7 @@ type motionPlanner interface {
 	smoothPath(context.Context, []node) []node
 	checkPath([]frame.Input, []frame.Input) bool
 	checkInputs([]frame.Input) bool
-	getSolutions(context.Context, []frame.Input) ([]*costNode, error)
+	getSolutions(context.Context, []frame.Input) ([]node, error)
 	opt() *plannerOptions
 }
 
@@ -237,7 +237,7 @@ func (mp *planner) smoothPath(ctx context.Context, path []node) []node {
 // getSolutions will initiate an IK solver for the given position and seed, collect solutions, and score them by constraints.
 // If maxSolutions is positive, once that many solutions have been collected, the solver will terminate and return that many solutions.
 // If minScore is positive, if a solution scoring below that amount is found, the solver will terminate and return that one solution.
-func (mp *planner) getSolutions(ctx context.Context, seed []frame.Input) ([]*costNode, error) {
+func (mp *planner) getSolutions(ctx context.Context, seed []frame.Input) ([]node, error) {
 	// Linter doesn't properly handle loop labels
 	nSolutions := mp.planOpts.MaxSolutions
 	if nSolutions == 0 {
@@ -349,7 +349,7 @@ IK:
 	}
 	sort.Float64s(keys)
 
-	orderedSolutions := make([]*costNode, 0)
+	orderedSolutions := make([]node, 0)
 	for _, key := range keys {
 		orderedSolutions = append(orderedSolutions, newCostNode(solutions[key], key))
 	}

@@ -345,7 +345,7 @@ func newCollisionConstraint(
 			}
 			internalGeoms = internal.Geometries()
 		} else {
-			// TODO: If we didn't pass a Configuration, but we do have a Position, then get the geometries at the zero state and
+			// If we didn't pass a Configuration, but we do have a Position, then get the geometries at the zero state and
 			// transform them to the Position
 			if state.Position != nil {
 				internal, err := state.Frame.Geometries(make([]referenceframe.Input, len(state.Frame.DoF())))

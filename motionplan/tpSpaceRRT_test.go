@@ -31,7 +31,8 @@ func TestPtgRrt(t *testing.T) {
 	opt.GoalThreshold = 10.
 	mp, err := newTPSpaceMotionPlanner(ackermanFrame, rand.New(rand.NewSource(42)), logger, opt)
 	test.That(t, err, test.ShouldBeNil)
-	tp, _ := mp.(*tpspaceRRTMotionPlanner)
+	tp, ok := mp.(*tpspaceRRTMotionPlanner)
+	test.That(t, ok, test.ShouldBeTrue)
 
 	_, err = tp.plan(context.Background(), goalPos, nil)
 	test.That(t, err, test.ShouldBeNil)
@@ -42,7 +43,7 @@ func TestPtgWithObstacle(t *testing.T) {
 	ackermanFrame, err := NewptgFrame("ackframe")
 	test.That(t, err, test.ShouldBeNil)
 
-	goalPos := spatialmath.NewPoseFromPoint(r3.Vector{X: 5000, Y: 0o00, Z: 0})
+	goalPos := spatialmath.NewPoseFromPoint(r3.Vector{X: 5000, Y: 0, Z: 0})
 
 	fs := referenceframe.NewEmptyFrameSystem("test")
 	fs.AddFrame(ackermanFrame, fs.World())

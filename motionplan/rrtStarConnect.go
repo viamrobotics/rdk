@@ -165,7 +165,7 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 			if nSolved%defaultOptimalityCheckIter == 0 {
 				solution := shortestPath(rrt.maps, shared)
 				solutionCost := EvaluatePlan(solution.toInputs(), mp.planOpts.DistanceFunc)
-				if solutionCost-rrt.maps.optNode.cost < defaultOptimalityThreshold*rrt.maps.optNode.cost {
+				if solutionCost-rrt.maps.optNode.Cost() < defaultOptimalityThreshold*rrt.maps.optNode.Cost() {
 					mp.logger.Debug("RRT* progress: sufficiently optimal path found, exiting")
 					rrt.solutionChan <- solution
 					return
@@ -227,7 +227,7 @@ func (mp *rrtStarConnectMotionPlanner) extend(
 			StartConfiguration: neighborNode.Q(),
 			EndConfiguration:   targetNode.Q(),
 		})
-		cost := connectionCost + targetNode.cost
+		cost := connectionCost + targetNode.Cost()
 		if cost < neighborNode.cost && mp.checkPath(target, neighborNode.Q()) {
 			neighborNode.cost = cost
 			tree[neighborNode] = targetNode

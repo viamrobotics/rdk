@@ -57,16 +57,14 @@ func (nm *neighborManager) nearestNeighbor(
 	planOpts *plannerOptions,
 	seed node,
 	rrtMap map[node]node,
-	returnChan chan node,
-) {
+) node {
 	if nm.parallelNeighbors == 0 {
 		nm.parallelNeighbors = defaultNeighborsBeforeParallelization
 	}
 
 	if len(rrtMap) > nm.parallelNeighbors && nm.nCPU > 1 {
 		// If the map is large, calculate distances in parallel
-		returnChan <- nm.parallelNearestNeighbor(ctx, planOpts, seed, rrtMap)
-		return
+		return nm.parallelNearestNeighbor(ctx, planOpts, seed, rrtMap)
 	}
 	bestDist := math.Inf(1)
 	var best node
@@ -75,11 +73,11 @@ func (nm *neighborManager) nearestNeighbor(
 			StartConfiguration: seed.Q(),
 			EndConfiguration:   k.Q(),
 		}
-		if confNode, ok := seed.(*configurationNode); ok {
-			seg.StartPosition = confNode.endConfig
+		if pose := seed.Pose(); pose != nil {
+			seg.StartPosition = pose
 		}
-		if confNode, ok := k.(*configurationNode); ok {
-			seg.EndPosition = confNode.endConfig
+		if pose := k.Pose(); pose != nil {
+			seg.EndPosition = pose
 		}
 		dist := planOpts.DistanceFunc(seg)
 		if dist < bestDist {
@@ -87,7 +85,7 @@ func (nm *neighborManager) nearestNeighbor(
 			best = k
 		}
 	}
-	returnChan <- best
+	return best
 }
 
 func (nm *neighborManager) parallelNearestNeighbor(
@@ -160,11 +158,11 @@ func (nm *neighborManager) nnWorker(ctx context.Context, planOpts *plannerOption
 					StartConfiguration: nm.seedPos.Q(),
 					EndConfiguration:   k.Q(),
 				}
-				if confNode, ok := nm.seedPos.(*configurationNode); ok {
-					seg.StartPosition = confNode.endConfig
+				if pose := nm.seedPos.Pose(); pose != nil {
+					seg.StartPosition = pose
 				}
-				if confNode, ok := k.(*configurationNode); ok {
-					seg.EndPosition = confNode.endConfig
+				if pose := k.Pose(); pose != nil {
+					seg.EndPosition = pose
 				}
 				dist := planOpts.DistanceFunc(seg)
 				nm.nnLock.RUnlock()

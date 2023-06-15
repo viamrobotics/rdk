@@ -2,6 +2,7 @@ package motionplan
 
 import (
 	"context"
+	"math"
 
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
@@ -57,7 +58,7 @@ func (plan *rrtPlanReturn) err() error {
 type rrtMaps struct {
 	startMap rrtMap
 	goalMap  rrtMap
-	optNode  *costNode // The highest quality IK solution
+	optNode  node // The highest quality IK solution
 }
 
 // initRRTsolutions will create the maps to be used by a RRT-based algorithm. It will generate IK solutions to pre-populate the goal
@@ -123,6 +124,8 @@ func shortestPath(maps *rrtMaps, nodePairs []*nodePair) *rrtPlanReturn {
 type node interface {
 	// return the configuration associated with the node
 	Q() []referenceframe.Input
+	Cost() float64
+	Pose() spatialmath.Pose
 }
 
 type basicNode struct {
@@ -133,27 +136,39 @@ func (n *basicNode) Q() []referenceframe.Input {
 	return n.q
 }
 
+func (n *basicNode) Cost() float64 {
+	return math.NaN()
+}
+
+func (n *basicNode) Pose() spatialmath.Pose {
+	return nil
+}
+
 type costNode struct {
 	node
 	cost float64
 }
 
-func newCostNode(q []referenceframe.Input, cost float64) *costNode {
+func newCostNode(q []referenceframe.Input, cost float64) node {
 	return &costNode{&basicNode{q: q}, cost}
 }
 
-type configurationNode struct {
-	q         []referenceframe.Input
-	endConfig spatialmath.Pose
-	cost      float64
-}
-
-func (n *configurationNode) Q() []referenceframe.Input {
-	return n.q
-}
-
-func (n *configurationNode) Cost() float64 {
+func (n *costNode) Cost() float64 {
 	return n.cost
+}
+
+func newConfigurationCostNode(q []referenceframe.Input, cost float64, pose spatialmath.Pose) node {
+	innerNode := newCostNode(q, cost)
+	return &configurationCostNode{node: innerNode, endConfig: pose}
+}
+
+type configurationCostNode struct {
+	node
+	endConfig spatialmath.Pose
+}
+
+func (n *configurationCostNode) Pose() spatialmath.Pose {
+	return n.endConfig
 }
 
 // nodePair groups together nodes in a tuple
@@ -161,15 +176,15 @@ func (n *configurationNode) Cost() float64 {
 type nodePair struct{ a, b node }
 
 func (np *nodePair) sumCosts() float64 {
-	a, aok := np.a.(*costNode)
-	if !aok {
+	aCost := np.a.Cost()
+	if math.IsNaN(aCost) {
 		return 0
 	}
-	b, bok := np.b.(*costNode)
-	if !bok {
+	bCost := np.b.Cost()
+	if math.IsNaN(bCost) {
 		return 0
 	}
-	return a.cost + b.cost
+	return aCost + bCost
 }
 
 func extractPath(startMap, goalMap map[node]node, pair *nodePair) []node {
