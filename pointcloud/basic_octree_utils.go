@@ -1,12 +1,7 @@
 package pointcloud
 
 import (
-	"image"
-	"image/color"
-	"image/draw"
-	"image/png"
 	"math"
-	"os"
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
@@ -205,69 +200,4 @@ func getCenterFromPcMetaData(meta MetaData) r3.Vector {
 // Helper function for calculating the max side length of a pointcloud based on its metadata.
 func getMaxSideLengthFromPcMetaData(meta MetaData) float64 {
 	return math.Max((meta.MaxX - meta.MinX), math.Max((meta.MaxY-meta.MinY), (meta.MaxZ-meta.MinZ)))
-}
-
-func visualizeOctree(octree *BasicOctree, filename string, scale int) error {
-	pixelScalar := float64(scale) / octree.sideLength
-	pixelOffset := r3.Vector{
-		X: octree.center.X - octree.sideLength/2.,
-		Y: octree.center.Y - octree.sideLength/2.}
-	img := image.NewRGBA(image.Rect(0, 0, scale, scale))
-	draw.Draw(img, img.Bounds(), &image.Uniform{color.RGBA{255, 255, 255, 255}}, image.ZP, draw.Src)
-
-	helperVisualizeOctree(octree, img, pixelOffset, pixelScalar, "")
-
-	octree.Iterate(0, 0, func(p r3.Vector, d Data) bool {
-		img.Set(int((p.X-pixelOffset.X)*pixelScalar), int((p.Y-pixelOffset.Y)*pixelScalar), color.RGBA{255, 0, 0, 255})
-		return true
-	})
-
-	myfile, err := os.Create(filename)
-	if err != nil {
-		panic(err)
-	}
-	defer myfile.Close()
-	png.Encode(myfile, img)
-
-	return nil
-}
-
-func helperVisualizeOctree(octree *BasicOctree, img *image.RGBA, pixelOffset r3.Vector, pixelScalar float64, str string) {
-	switch octree.node.nodeType {
-	case internalNode:
-		for _, childNode := range octree.node.children {
-			x := int((childNode.center.X - childNode.sideLength/2. - pixelOffset.X) * pixelScalar)
-			y := int((childNode.center.Y - childNode.sideLength/2. - pixelOffset.Y) * pixelScalar)
-			side := int(childNode.sideLength * pixelScalar)
-			drawRectOutline(img, x, y, side)
-
-			helperVisualizeOctree(childNode, img, pixelOffset, pixelScalar, str)
-		}
-
-	case leafNodeFilled:
-		x := int((octree.center.X - pixelOffset.X - octree.sideLength/2.) * pixelScalar)
-		y := int((octree.center.Y - pixelOffset.Y - octree.sideLength/2.) * pixelScalar)
-		side := int(octree.sideLength * pixelScalar)
-
-		drawRect(img, x+1, y+1, side-1, color.RGBA{0, uint8(255.0 * octree.node.maxVal / 100), 0, 255})
-
-	case leafNodeEmpty:
-	}
-}
-
-func drawRectOutline(img *image.RGBA, x, y, side int) {
-	for i := 0; i <= side; i++ {
-		img.Set(x, y+i, color.RGBA{0, 0, 0, 255})
-		img.Set(x+i, y, color.RGBA{0, 0, 0, 255})
-		img.Set(x+side, y+i, color.RGBA{0, 0, 0, 255})
-		img.Set(x+i, y+side, color.RGBA{0, 0, 0, 255})
-	}
-}
-
-func drawRect(img *image.RGBA, x, y, side int, c color.RGBA) {
-	for i := 0; i <= side; i++ {
-		for j := 0; j <= side; j++ {
-			img.Set(x+i, y+j, c)
-		}
-	}
 }
