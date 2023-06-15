@@ -26,7 +26,7 @@ func TestNearestNeighbor(t *testing.T) {
 	seed := []referenceframe.Input{{23.1}}
 	// test serial NN
 	opt := newBasicPlannerOptions()
-	nn := nm.nearestNeighbor(ctx, opt, &basicNode{seed}, rrtMap)
+	nn := nm.nearestNeighbor(ctx, opt, &basicNode{q: seed}, rrtMap)
 	test.That(t, nn.Q()[0].Value, test.ShouldAlmostEqual, 23.0)
 
 	for i := 120.0; i < 1100.0; i++ {
@@ -36,6 +36,6 @@ func TestNearestNeighbor(t *testing.T) {
 	}
 	seed = []referenceframe.Input{{723.6}}
 	// test parallel NN
-	nn = nm.nearestNeighbor(ctx, opt, &basicNode{seed}, rrtMap)
+	nn = nm.nearestNeighbor(ctx, opt, &basicNode{q: seed}, rrtMap)
 	test.That(t, nn.Q()[0].Value, test.ShouldAlmostEqual, 724.0)
 }

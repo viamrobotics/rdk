@@ -192,13 +192,12 @@ func (mp *rrtStarConnectMotionPlanner) extend(
 		return
 	}
 	// iterate over the k nearest neighbors and find the minimum cost to connect the target node to the tree
-	neighbors := kNearestNeighbors(mp.planOpts, tree, &basicNode{target}, mp.algOpts.NeighborhoodSize)
+	neighbors := kNearestNeighbors(mp.planOpts, tree, &basicNode{q: target}, mp.algOpts.NeighborhoodSize)
 	minCost := math.Inf(1)
 	minIndex := -1
-	for i, neighbor := range neighbors {
-		neighborNode := neighbor.node.(*costNode)
-		cost := neighborNode.cost + neighbor.dist
-		if mp.checkPath(neighborNode.Q(), target) {
+	for i, thisNeighbor := range neighbors {
+		cost := thisNeighbor.node.Cost() + thisNeighbor.dist
+		if mp.checkPath(thisNeighbor.node.Q(), target) {
 			minIndex = i
 			minCost = cost
 			// Neighbors are returned ordered by their costs. The first valid one we find is best, so break here.
@@ -211,26 +210,29 @@ func (mp *rrtStarConnectMotionPlanner) extend(
 		mchan <- nil
 		return
 	}
-	targetNode := newCostNode(target, minCost)
+	targetNode := &basicNode{q: target, cost: minCost}
 	tree[targetNode] = neighbors[minIndex].node
 
 	// rewire the tree
-	for i, neighbor := range neighbors {
+	for i, thisNeighbor := range neighbors {
 		// dont need to try to rewire minIndex, so skip it
 		if i == minIndex {
 			continue
 		}
 
 		// check to see if a shortcut is possible, and rewire the node if it is
-		neighborNode := neighbor.node.(*costNode)
 		connectionCost := mp.planOpts.DistanceFunc(&Segment{
-			StartConfiguration: neighborNode.Q(),
+			StartConfiguration: thisNeighbor.node.Q(),
 			EndConfiguration:   targetNode.Q(),
 		})
 		cost := connectionCost + targetNode.Cost()
-		if cost < neighborNode.cost && mp.checkPath(target, neighborNode.Q()) {
-			neighborNode.cost = cost
-			tree[neighborNode] = targetNode
+
+		// If 1) we have a lower cost, and 2) the putative updated path is valid
+		if cost < thisNeighbor.node.Cost() && mp.checkPath(target, thisNeighbor.node.Q()) {
+			// Alter the cost of the node
+			// This needs to edit the existing node, rather than make a new one, as there are pointers in the tree
+			thisNeighbor.node.SetCost(cost)
+			tree[thisNeighbor.node] = targetNode
 		}
 	}
 	mchan <- targetNode

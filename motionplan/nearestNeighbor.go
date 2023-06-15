@@ -42,9 +42,9 @@ func kNearestNeighbors(planOpts *plannerOptions, rrtMap map[node]node, target no
 		allCosts = append(allCosts, &neighbor{dist: dist, node: rrtnode})
 	}
 	sort.Slice(allCosts, func(i, j int) bool {
-		if cn1, ok := allCosts[i].node.(*costNode); ok {
-			if cn2, ok := allCosts[j].node.(*costNode); ok {
-				return (allCosts[i].dist + cn1.cost) < (allCosts[j].dist + cn2.cost)
+		if !math.IsNaN(allCosts[i].node.Cost()) {
+			if !math.IsNaN(allCosts[j].node.Cost()) {
+				return (allCosts[i].dist + allCosts[i].node.Cost()) < (allCosts[j].dist + allCosts[j].node.Cost())
 			}
 		}
 		return allCosts[i].dist < allCosts[j].dist

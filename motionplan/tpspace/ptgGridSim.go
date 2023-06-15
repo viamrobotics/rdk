@@ -66,7 +66,7 @@ func NewPTGGridSim(simPTG PrecomputePTG, arcs uint, simDist float64) (PTG, error
 	return ptg, nil
 }
 
-func (ptg *ptgGridSim) WorldSpaceToTP(x, y float64) []*TrajNode {
+func (ptg *ptgGridSim) CToTP(x, y float64) []*TrajNode {
 	nearbyNodes := []*TrajNode{}
 
 	// First, try to do a quick grid-based lookup
@@ -199,7 +199,7 @@ func (ptg *ptgGridSim) simulateTrajectories(simPtg PrecomputePTG) ([][]*TrajNode
 				alphaTraj[len(alphaTraj)-1].W = w
 				alphaTraj[len(alphaTraj)-1].V = v
 
-				pose := xyphiToPose(x, y, phi)
+				pose := xythetaToPose(x, y, phi)
 				alphaTraj = append(alphaTraj, &TrajNode{pose, t, dist, k, v, w, pose.Point().X, pose.Point().Y})
 				wpX = x
 				wpY = y
@@ -216,7 +216,7 @@ func (ptg *ptgGridSim) simulateTrajectories(simPtg PrecomputePTG) ([][]*TrajNode
 		// Add final node
 		alphaTraj[len(alphaTraj)-1].W = w
 		alphaTraj[len(alphaTraj)-1].V = v
-		pose := xyphiToPose(x, y, phi)
+		pose := xythetaToPose(x, y, phi)
 		tNode := &TrajNode{pose, t, dist, k, v, w, pose.Point().X, pose.Point().Y}
 
 		// Discretize into a grid for faster lookups later

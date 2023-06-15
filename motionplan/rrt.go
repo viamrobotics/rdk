@@ -70,7 +70,7 @@ func initRRTSolutions(ctx context.Context, mp motionPlanner, seed []referencefra
 			goalMap:  map[node]node{},
 		},
 	}
-	seedNode := newCostNode(seed, 0)
+	seedNode := &basicNode{q: seed, cost: 0}
 	rrt.maps.startMap[seedNode] = nil
 
 	// get many potential end goals from IK solver
@@ -82,7 +82,7 @@ func initRRTSolutions(ctx context.Context, mp motionPlanner, seed []referencefra
 
 	// the smallest interpolated distance between the start and end input represents a lower bound on cost
 	optimalCost := mp.opt().DistanceFunc(&Segment{StartConfiguration: seed, EndConfiguration: solutions[0].Q()})
-	rrt.maps.optNode = newCostNode(solutions[0].Q(), optimalCost)
+	rrt.maps.optNode = &basicNode{q: solutions[0].Q(), cost: optimalCost}
 
 	// Check for direct interpolation for the subset of IK solutions within some multiple of optimal
 	// Since solutions are returned ordered, we check until one is out of bounds, then skip remaining checks
@@ -100,7 +100,7 @@ func initRRTSolutions(ctx context.Context, mp motionPlanner, seed []referencefra
 				canInterp = false
 			}
 		}
-		rrt.maps.goalMap[newCostNode(solution.Q(), 0)] = nil
+		rrt.maps.goalMap[&basicNode{q: solution.Q(), cost: 0}] = nil
 	}
 	return rrt
 }
@@ -121,15 +121,27 @@ func shortestPath(maps *rrtMaps, nodePairs []*nodePair) *rrtPlanReturn {
 }
 
 // node interface is used to wrap a configuration for planning purposes.
+// TODO: This is somewhat redundant with a State.
 type node interface {
 	// return the configuration associated with the node
 	Q() []referenceframe.Input
 	Cost() float64
+	SetCost(float64)
 	Pose() spatialmath.Pose
 }
 
 type basicNode struct {
-	q []referenceframe.Input
+	q    []referenceframe.Input
+	cost float64
+	pose spatialmath.Pose
+}
+
+// Special case constructors for nodes without costs to return NaN.
+func newConfigurationNode(q []referenceframe.Input) node {
+	return &basicNode{
+		q:    q,
+		cost: math.NaN(),
+	}
 }
 
 func (n *basicNode) Q() []referenceframe.Input {
@@ -137,38 +149,15 @@ func (n *basicNode) Q() []referenceframe.Input {
 }
 
 func (n *basicNode) Cost() float64 {
-	return math.NaN()
-}
-
-func (n *basicNode) Pose() spatialmath.Pose {
-	return nil
-}
-
-type costNode struct {
-	node
-	cost float64
-}
-
-func newCostNode(q []referenceframe.Input, cost float64) node {
-	return &costNode{&basicNode{q: q}, cost}
-}
-
-func (n *costNode) Cost() float64 {
 	return n.cost
 }
 
-func newConfigurationCostNode(q []referenceframe.Input, cost float64, pose spatialmath.Pose) node {
-	innerNode := newCostNode(q, cost)
-	return &configurationCostNode{node: innerNode, endConfig: pose}
+func (n *basicNode) SetCost(cost float64) {
+	n.cost = cost
 }
 
-type configurationCostNode struct {
-	node
-	endConfig spatialmath.Pose
-}
-
-func (n *configurationCostNode) Pose() spatialmath.Pose {
-	return n.endConfig
+func (n *basicNode) Pose() spatialmath.Pose {
+	return n.pose
 }
 
 // nodePair groups together nodes in a tuple

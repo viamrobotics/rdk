@@ -6,11 +6,11 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
-// This does something with circles
-// Other ptgs will be based on this ptg somehow.
+// ptgDiffDriveCCS defines a PTG family combining the CC and CS trajectories, essentially executing the CC trajectory
+// and.
 type ptgDiffDriveCCS struct {
-	maxMps float64
-	maxDps float64
+	maxMps float64 // meters per second velocity to target
+	maxDps float64 // degrees per second of rotation when driving at maxMps and turning at max turning radius
 	k      float64 // k = +1 for forwards, -1 for backwards
 }
 
@@ -27,7 +27,7 @@ func NewCCSPTG(maxMps, maxDps, k float64) PrecomputePTG {
 // Note that this will NOT work as-is for 0-radius turning. Robots capable of turning in place will need to be special-cased
 // because they will have zero linear velocity through their turns, not max.
 func (ptg *ptgDiffDriveCCS) PtgVelocities(alpha, t, x, y, phi float64) (float64, float64, error) {
-	u := math.Abs(alpha) * 0.5 // 0.14758362f;  // u = atan(0.5)* alpha /
+	u := math.Abs(alpha) * 0.5
 
 	r := ptg.maxMps / rutils.DegToRad(ptg.maxDps)
 

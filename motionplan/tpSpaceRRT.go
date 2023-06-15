@@ -50,45 +50,22 @@ func newTPSpaceMotionPlanner(
 		return nil, err
 	}
 
-	return &tpspaceRRTMotionPlanner{
+	tpFrame, ok := mp.frame.(tpspace.PTGProvider)
+	if !ok {
+		return nil, fmt.Errorf("frame %v must be a PTGProvider", mp.frame)
+	}
+
+	tpPlanner := &tpSpaceRRTMotionPlanner{
 		planner: mp,
-		algOpts: newTpspaceOptions(),
-	}, nil
+	}
+	tpPlanner.setupTPSpaceOptions(tpFrame)
+	return tpPlanner, nil
 }
 
-// tpspaceRRTMotionPlanner.
-type tpspaceRRTMotionPlanner struct {
+// tpSpaceRRTMotionPlanner.
+type tpSpaceRRTMotionPlanner struct {
 	*planner
 	algOpts *tpspaceOptions
-}
-
-func newTpspaceOptions() *tpspaceOptions {
-	return &tpspaceOptions{
-		rrtOptions: newRRTOptions(),
-		goalCheck:  defaultGoalCheck,
-		autoBB:     defaultAutoBB,
-
-		addIntermediate: defaultAddInt,
-		addNodeEvery:    defaultAddNodeEvery,
-
-		dupeNodeBuffer: defaultDuplicateNodeBuffer,
-	}
-}
-
-type tpspaceOptions struct {
-	*rrtOptions
-	goalCheck int // Check if goal is reachable every this many iters
-
-	// TODO: base this on frame limits?
-	autoBB float64 // Automatic bounding box on driveable area as a multiple of start-goal distance
-
-	addIntermediate bool // whether to add intermediate waypoints.
-	// Add a subnode every this many mm along a valid trajectory. Large values run faster, small gives better paths
-	// Meaningless if the above is false.
-	addNodeEvery float64
-
-	// Don't add new RRT tree nodes if there is an existing node within this distance
-	dupeNodeBuffer float64
 }
 
 // candidate is putative node which could be added to an RRT tree. It includes a distance score, the new node and its future parent.
@@ -100,7 +77,7 @@ type candidate struct {
 }
 
 // TODO: seed is not immediately useful for TP-space.
-func (mp *tpspaceRRTMotionPlanner) plan(ctx context.Context,
+func (mp *tpSpaceRRTMotionPlanner) plan(ctx context.Context,
 	goal spatialmath.Pose,
 	seed []referenceframe.Input,
 ) ([][]referenceframe.Input, error) {
@@ -108,8 +85,8 @@ func (mp *tpspaceRRTMotionPlanner) plan(ctx context.Context,
 
 	seedPos := spatialmath.NewZeroPose()
 
-	startNode := newConfigurationCostNode(nil, 0, seedPos)
-	goalNode := newConfigurationCostNode(nil, 0, goal)
+	startNode := &basicNode{nil, 0, seedPos}
+	goalNode := &basicNode{nil, 0, goal}
 
 	utils.PanicCapturingGo(func() {
 		mp.rrtBackgroundRunner(ctx, seed, &rrtParallelPlannerShared{
@@ -134,7 +111,7 @@ func (mp *tpspaceRRTMotionPlanner) plan(ctx context.Context,
 
 // rrtBackgroundRunner will execute the plan. Plan() will call rrtBackgroundRunner in a separate thread and wait for results.
 // Separating this allows other things to call rrtBackgroundRunner in parallel allowing the thread-agnostic Plan to be accessible.
-func (mp *tpspaceRRTMotionPlanner) rrtBackgroundRunner(
+func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 	ctx context.Context,
 	_ []referenceframe.Input,
 	rrt *rrtParallelPlannerShared,
@@ -178,10 +155,7 @@ func (mp *tpspaceRRTMotionPlanner) rrtBackgroundRunner(
 
 	earlySuccess := false
 	var successNode node
-	iter := 0
-	// While not at goal:
-	// TODO: context, timeout, etc
-	for i := 0; i < mp.algOpts.PlanIter; i++ {
+	for iter := 0; iter < mp.algOpts.PlanIter; iter++ {
 		if ctx.Err() != nil {
 			mp.logger.Debugf("TP Space RRT timed out after %d iterations", iter)
 			rrt.solutionChan <- &rrtPlanReturn{planerr: fmt.Errorf("TP Space RRT timeout %w", ctx.Err()), maps: rrt.maps}
@@ -205,7 +179,7 @@ func (mp *tpspaceRRTMotionPlanner) rrtBackgroundRunner(
 			randPos = goalPose
 		}
 		iter++
-		randPosNode := newConfigurationCostNode(nil, 0, randPos)
+		randPosNode := &basicNode{nil, 0, randPos}
 
 		candidateNodes := map[float64][2]node{}
 
@@ -222,7 +196,8 @@ func (mp *tpspaceRRTMotionPlanner) rrtBackgroundRunner(
 					}
 					if atGoal {
 						// If we've reached the goal, break out
-						// TODO: do this better
+						// TODO: Currently only the *first* valid goal is considered and returned. It would be more optimal to take
+						// the best valid goal.
 						earlySuccess = true
 						rrt.maps.startMap[cand.newNode] = cand.treeNode
 						successNode = cand.newNode
@@ -244,48 +219,8 @@ func (mp *tpspaceRRTMotionPlanner) rrtBackgroundRunner(
 	rrt.solutionChan <- &rrtPlanReturn{steps: path, maps: rrt.maps}
 }
 
-// closestNode will look through a set of nodes and return the one that is closest to a given pose
-// A minimum distance may be passed beyond which nodes are disregarded.
-func (mp *tpspaceRRTMotionPlanner) closestNode(pose spatialmath.Pose, nodes []*tpspace.TrajNode, min float64) (*tpspace.TrajNode, float64) {
-	var bestNode *tpspace.TrajNode
-	bestDist := math.Inf(1)
-	for _, tNode := range nodes {
-		if tNode.Dist < min {
-			continue
-		}
-		dist := mp.planOpts.DistanceFunc(&Segment{StartPosition: pose, EndPosition: tNode.Pose})
-		if dist < bestDist {
-			bestNode = tNode
-			bestDist = dist
-		}
-	}
-	return bestNode, bestDist
-}
-
-// make2DTPSpaceDistanceOptions will create a plannerOptions object with a custom DistanceFunc constructed such that
-// distances can be computed in TP space using the given PTG.
-func (mp *tpspaceRRTMotionPlanner) make2DTPSpaceDistanceOptions(ptg tpspace.PTG, min float64) *plannerOptions {
-	opts := newBasicPlannerOptions()
-
-	segMet := func(seg *Segment) float64 {
-		if seg.StartPosition == nil || seg.EndPosition == nil {
-			return math.Inf(1)
-		}
-		relPose := spatialmath.Compose(spatialmath.PoseInverse(seg.StartPosition), seg.EndPosition)
-		relPosePt := relPose.Point()
-		nodes := ptg.WorldSpaceToTP(relPosePt.X, relPosePt.Y)
-		closeNode, _ := mp.closestNode(relPose, nodes, min)
-		if closeNode == nil {
-			return math.Inf(1)
-		}
-		return closeNode.Dist
-	}
-	opts.DistanceFunc = segMet
-	return opts
-}
-
 // getExtensionCandidate will return either nil, or the best node on a PTG to reach the desired random node and its RRT tree parent.
-func (mp *tpspaceRRTMotionPlanner) getExtensionCandidate(
+func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 	ctx context.Context,
 	randPosNode node,
 	ptgNum int,
@@ -296,10 +231,8 @@ func (mp *tpspaceRRTMotionPlanner) getExtensionCandidate(
 	nm.parallelNeighbors = 10
 
 	var successNode node
-	acceptableGoal := false
-	// Make the distance function that will find the nearest RRT map node in TP-space of *this* PTG
-	// TODO: cache this
-	ptgDistOpt := mp.make2DTPSpaceDistanceOptions(curPtg, mp.algOpts.dupeNodeBuffer)
+	// Get the distance function that will find the nearest RRT map node in TP-space of *this* PTG
+	ptgDistOpt := mp.algOpts.distOptions[curPtg]
 
 	// Get nearest neighbor to rand config in tree using this PTG
 	nearest := nm.nearestNeighbor(ctx, ptgDistOpt, randPosNode, rrt.maps.startMap)
@@ -312,7 +245,7 @@ func (mp *tpspaceRRTMotionPlanner) getExtensionCandidate(
 	relPosePt := relPose.Point()
 
 	// Convert cartesian distance to tp-space using inverse curPtg, yielding TP-space coordinates goalK and goalD
-	nodes := curPtg.WorldSpaceToTP(relPosePt.X, relPosePt.Y)
+	nodes := curPtg.CToTP(relPosePt.X, relPosePt.Y)
 	bestNode, bestDist := mp.closestNode(relPose, nodes, mp.algOpts.dupeNodeBuffer)
 	if bestNode == nil {
 		return nil
@@ -321,7 +254,6 @@ func (mp *tpspaceRRTMotionPlanner) getExtensionCandidate(
 	goalD := bestNode.Dist
 	// Check collisions along this traj and get the longest distance viable
 	trajK := curPtg.Trajectory(goalK)
-	pass := true
 	var lastNode *tpspace.TrajNode
 	var lastPose spatialmath.Pose
 
@@ -339,38 +271,29 @@ func (mp *tpspaceRRTMotionPlanner) getExtensionCandidate(
 		if sinceLastCollideCheck > mp.planOpts.Resolution {
 			ok, _ := mp.planOpts.CheckStateConstraints(trajState)
 			if !ok {
-				pass = false
-				break
+				return nil
 			}
+			sinceLastCollideCheck = 0.
 		}
 
 		lastPose = trajState.Position
 		lastNode = trajPt
 		lastDist = lastNode.Dist
 	}
-	if pass {
-		// add the last node in trajectory
-		successNode = newConfigurationCostNode(
-			referenceframe.FloatsToInputs([]float64{float64(ptgNum), float64(goalK), lastNode.Dist}),
-			nearest.Cost()+lastNode.Dist,
-			lastPose,
-		)
-	} else {
-		return nil
+	// add the last node in trajectory
+	successNode = &basicNode{
+		referenceframe.FloatsToInputs([]float64{float64(ptgNum), float64(goalK), lastNode.Dist}),
+		nearest.Cost() + lastNode.Dist,
+		lastPose,
 	}
 
 	cand := &candidate{dist: bestDist, treeNode: nearest, newNode: successNode}
 
-	if !acceptableGoal && successNode != nil {
-		// check if this  successNode is too close to nodes already in the tree, and if so, do not add.
-
-		// Get nearest neighbor to new node that's already in the tree
-		nearest := nm.nearestNeighbor(ctx, mp.planOpts, successNode, rrt.maps.startMap)
-		dist := math.Inf(1)
-		if nearest != nil {
-			dist = mp.planOpts.DistanceFunc(&Segment{StartPosition: successNode.Pose(), EndPosition: nearest.Pose()})
-		}
-
+	// check if this  successNode is too close to nodes already in the tree, and if so, do not add.
+	// Get nearest neighbor to new node that's already in the tree
+	nearest = nm.nearestNeighbor(ctx, mp.planOpts, successNode, rrt.maps.startMap)
+	if nearest != nil {
+		dist := mp.planOpts.DistanceFunc(&Segment{StartPosition: successNode.Pose(), EndPosition: nearest.Pose()})
 		// Ensure successNode is sufficiently far from the nearest node already existing in the tree
 		// If too close, don't add a new node
 		if dist < defaultIdenticalNodeDistance {
@@ -381,7 +304,7 @@ func (mp *tpspaceRRTMotionPlanner) getExtensionCandidate(
 }
 
 // extendMap grows the rrt map to the best candidate node if it is valid to do so.
-func (mp *tpspaceRRTMotionPlanner) extendMap(
+func (mp *tpSpaceRRTMotionPlanner) extendMap(
 	ctx context.Context,
 	candidateNodes map[float64][2]node,
 	rrt *rrtParallelPlannerShared,
@@ -421,11 +344,11 @@ func (mp *tpspaceRRTMotionPlanner) extendMap(
 			// Optionally add sub-nodes along the way. Will make the final path a bit better
 			if mp.algOpts.addIntermediate && sinceLastNode > mp.algOpts.addNodeEvery {
 				// add the last node in trajectory
-				addedNode = newConfigurationCostNode(
+				addedNode = &basicNode{
 					referenceframe.FloatsToInputs([]float64{float64(ptgNum), float64(randK), trajPt.Dist}),
-					bestNode[0].Cost()+trajPt.Dist,
+					bestNode[0].Cost() + trajPt.Dist,
 					trajState.Position,
-				)
+				}
 				rrt.maps.startMap[addedNode] = bestNode[0]
 				sinceLastNode = 0.
 			}
@@ -433,4 +356,84 @@ func (mp *tpspaceRRTMotionPlanner) extendMap(
 		}
 		rrt.maps.startMap[bestNode[1]] = bestNode[0]
 	}
+}
+
+func (mp *tpSpaceRRTMotionPlanner) setupTPSpaceOptions(tpFrame tpspace.PTGProvider) {
+	tpOpt := &tpspaceOptions{
+		rrtOptions: newRRTOptions(),
+		goalCheck:  defaultGoalCheck,
+		autoBB:     defaultAutoBB,
+
+		addIntermediate: defaultAddInt,
+		addNodeEvery:    defaultAddNodeEvery,
+
+		dupeNodeBuffer: defaultDuplicateNodeBuffer,
+
+		distOptions: map[tpspace.PTG]*plannerOptions{},
+	}
+
+	for _, curPtg := range tpFrame.PTGs() {
+		tpOpt.distOptions[curPtg] = mp.make2DTPSpaceDistanceOptions(curPtg, tpOpt.dupeNodeBuffer)
+	}
+
+	mp.algOpts = tpOpt
+}
+
+type tpspaceOptions struct {
+	*rrtOptions
+	goalCheck int // Check if goal is reachable every this many iters
+
+	// TODO: base this on frame limits?
+	autoBB float64 // Automatic bounding box on driveable area as a multiple of start-goal distance
+
+	addIntermediate bool // whether to add intermediate waypoints.
+	// Add a subnode every this many mm along a valid trajectory. Large values run faster, small gives better paths
+	// Meaningless if the above is false.
+	addNodeEvery float64
+
+	// Don't add new RRT tree nodes if there is an existing node within this distance
+	dupeNodeBuffer float64
+
+	// Cached functions for calculating TP-space distances for each PTG
+	distOptions map[tpspace.PTG]*plannerOptions
+}
+
+// closestNode will look through a set of nodes and return the one that is closest to a given pose
+// A minimum distance may be passed beyond which nodes are disregarded.
+func (mp *tpSpaceRRTMotionPlanner) closestNode(pose spatialmath.Pose, nodes []*tpspace.TrajNode, min float64) (*tpspace.TrajNode, float64) {
+	var bestNode *tpspace.TrajNode
+	bestDist := math.Inf(1)
+	for _, tNode := range nodes {
+		if tNode.Dist < min {
+			continue
+		}
+		dist := mp.planOpts.DistanceFunc(&Segment{StartPosition: pose, EndPosition: tNode.Pose})
+		if dist < bestDist {
+			bestNode = tNode
+			bestDist = dist
+		}
+	}
+	return bestNode, bestDist
+}
+
+// make2DTPSpaceDistanceOptions will create a plannerOptions object with a custom DistanceFunc constructed such that
+// distances can be computed in TP space using the given PTG.
+func (mp *tpSpaceRRTMotionPlanner) make2DTPSpaceDistanceOptions(ptg tpspace.PTG, min float64) *plannerOptions {
+	opts := newBasicPlannerOptions()
+
+	segMet := func(seg *Segment) float64 {
+		if seg.StartPosition == nil || seg.EndPosition == nil {
+			return math.Inf(1)
+		}
+		relPose := spatialmath.Compose(spatialmath.PoseInverse(seg.StartPosition), seg.EndPosition)
+		relPosePt := relPose.Point()
+		nodes := ptg.CToTP(relPosePt.X, relPosePt.Y)
+		closeNode, _ := mp.closestNode(relPose, nodes, min)
+		if closeNode == nil {
+			return math.Inf(1)
+		}
+		return closeNode.Dist
+	}
+	opts.DistanceFunc = segMet
+	return opts
 }

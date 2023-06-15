@@ -6,11 +6,12 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
-// This does something with circles
-// Other ptgs will be based on this ptg somehow.
+// ptgDiffDriveCC defines a PTG family combined of two stages; first reversing while turning at radius, then moving forwards while turning
+// at radius, resulting in a path that looks like a "3"
+// Alpha determines how far to reverse before moving forwards.
 type ptgDiffDriveCC struct {
-	maxMps float64
-	maxDps float64
+	maxMps float64 // meters per second velocity to target
+	maxDps float64 // degrees per second of rotation when driving at maxMps and turning at max turning radius
 	k      float64 // k = +1 for forwards, -1 for backwards
 }
 

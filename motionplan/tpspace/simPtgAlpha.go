@@ -14,15 +14,13 @@ const quarterPi = 0.78539816339
 // This does something with circles
 // Other ptgs will be based on this ptg somehow.
 type simPtgAlpha struct {
-	maxMps float64
-	maxDps float64
+	maxMps float64 // meters per second velocity to target
+	maxDps float64 // degrees per second of rotation when driving at maxMps and turning at max turning radius
 }
 
 // NewAlphaPTG creates a new PrecomputePTG of type simPtgAlpha.
+// K is unused for alpha PTGs *for now* but we may add in the future.
 func NewAlphaPTG(maxMps, maxDps, k float64) PrecomputePTG {
-	if k <= 0 {
-		return nil
-	}
 	return &simPtgAlpha{
 		maxMps: maxMps,
 		maxDps: maxDps,

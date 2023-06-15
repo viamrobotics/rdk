@@ -225,7 +225,7 @@ func (mp *planner) smoothPath(ctx context.Context, path []node) []node {
 		if mp.checkPath(wayPoint1, wayPoint2) {
 			newpath := []node{}
 			newpath = append(newpath, path[:firstEdge+1]...)
-			newpath = append(newpath, &basicNode{wayPoint1}, &basicNode{wayPoint2})
+			newpath = append(newpath, newConfigurationNode(wayPoint1), newConfigurationNode(wayPoint2))
 			// have to split this up due to go compiler quirk where elipses operator can't be mixed with other vars in append
 			newpath = append(newpath, path[secondEdge+1:]...)
 			path = newpath
@@ -351,7 +351,7 @@ IK:
 
 	orderedSolutions := make([]node, 0)
 	for _, key := range keys {
-		orderedSolutions = append(orderedSolutions, newCostNode(solutions[key], key))
+		orderedSolutions = append(orderedSolutions, &basicNode{q: solutions[key], cost: key})
 	}
 	return orderedSolutions, nil
 }

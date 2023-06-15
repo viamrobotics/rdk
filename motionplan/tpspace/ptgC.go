@@ -6,11 +6,10 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
-// This does something with circles
-// Other ptgs will be based on this ptg somehow.
+// ptgDiffDriveC defines a PTG family composed of circular trajectories with an alpha-dependent radius.
 type ptgDiffDriveC struct {
-	maxMps float64
-	maxDps float64
+	maxMps float64 // meters per second velocity to target
+	maxDps float64 // degrees per second of rotation when driving at maxMps and turning at max turning radius
 	k      float64 // k = +1 for forwards, -1 for backwards
 }
 

@@ -6,11 +6,11 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
-// This does something with circles
-// Other ptgs will be based on this ptg somehow.
+// ptgDiffDriveCS defines a PTG family combined of two stages; first driving forwards while turning at radius, going straight.
+// Alpha determines how far to turn before going straight.
 type ptgDiffDriveCS struct {
-	maxMps float64
-	maxDps float64
+	maxMps float64 // meters per second velocity to target
+	maxDps float64 // degrees per second of rotation when driving at maxMps and turning at max turning radius
 	k      float64 // k = +1 for forwards, -1 for backwards
 }
 
@@ -30,8 +30,7 @@ func (ptg *ptgDiffDriveCS) PtgVelocities(alpha, t, x, y, phi float64) (float64, 
 	r := ptg.maxMps / rutils.DegToRad(ptg.maxDps)
 
 	// Magic number; rotate this much before going straight
-	// More = more rotation
-	// ~ turnStraight := 0.847 * math.Sqrt(math.Abs(alpha)) * r / ptg.maxMps
+	// Bigger value = more rotation
 	turnStraight := 1.2 * math.Sqrt(math.Abs(alpha)) * r / ptg.maxMps
 
 	v := ptg.maxMps
@@ -41,7 +40,6 @@ func (ptg *ptgDiffDriveCS) PtgVelocities(alpha, t, x, y, phi float64) (float64, 
 		// l+
 		v = ptg.maxMps
 		w = rutils.DegToRad(ptg.maxDps) * math.Min(1.0, 1.0-math.Exp(-1*alpha*alpha))
-		// ~ w = rutils.DegToRad(ptg.maxDps) * 1.0 - math.Exp(-1 * alpha * alpha)
 	}
 
 	// Turn in the opposite direction
