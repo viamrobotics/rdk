@@ -3,6 +3,7 @@ package kinematicbase
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math"
 
 	"github.com/golang/geo/r3"
@@ -169,7 +170,7 @@ func CollisionGeometry(cfg *referenceframe.LinkConfig) ([]spatialmath.Geometry, 
 	// TODO(RSDK-1014): the orientation of this model will matter for collision checking,
 	// and should match the convention of +Y being forward for bases
 	if cfg == nil || cfg.Geometry == nil {
-		return nil, errors.New("base not configured with a geometry on its frame, cannot create collision geometry for it")
+		return nil, errors.New("not configured with a geometry use caution if using motion service - collisions will not be accounted for")
 	}
 	geoCfg := cfg.Geometry
 	r := geoCfg.TranslationOffset.Norm()

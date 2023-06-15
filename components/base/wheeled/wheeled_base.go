@@ -122,7 +122,7 @@ func (wb *wheeledBase) Reconfigure(ctx context.Context, deps resource.Dependenci
 
 	geometries, err := kinematicbase.CollisionGeometry(conf.Frame)
 	if err != nil {
-		wb.logger.Warnf("base %v not configured with a geometry, use caution if using motion service", wb.Name())
+		wb.logger.Warnf("base %v %s", wb.Name(), err.Error())
 	}
 	wb.geometries = geometries
 

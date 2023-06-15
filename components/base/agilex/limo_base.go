@@ -134,7 +134,7 @@ func createLimoBase(ctx context.Context, _ resource.Dependencies, conf resource.
 
 	geometries, err := kinematicbase.CollisionGeometry(conf.Frame)
 	if err != nil {
-		logger.Warnf("base %v not configured with a geometry, use caution if using motion service", lb.Name())
+		logger.Warnf("base %v %s", lb.Name(), err.Error())
 	}
 	lb.geometries = geometries
 
