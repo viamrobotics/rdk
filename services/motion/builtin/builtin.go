@@ -15,7 +15,7 @@ import (
 	servicepb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/base"
-	kinematicbase "go.viam.com/rdk/components/base/kinematicWrapper"
+	"go.viam.com/rdk/components/base/kinematicbase"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/internal"
 	"go.viam.com/rdk/motionplan"
@@ -217,7 +217,7 @@ func (ms *builtIn) MoveOnMap(
 	if !ok {
 		return false, fmt.Errorf("cannot move component of type %T because it is not a Base", component)
 	}
-	kb, err := kinematicbase.WrapWithKinematics(ctx, b, localizer, limits)
+	kb, err := kinematicbase.WrapWithDifferentialDriveKinematics(ctx, b, localizer, limits)
 	if err != nil {
 		return false, err
 	}
@@ -314,7 +314,7 @@ func (ms *builtIn) MoveOnGlobe(
 	if !ok {
 		return false, fmt.Errorf("cannot move base of type %T because it is not a Base", baseComponent)
 	}
-	kb, err := kinematicbase.WrapWithKinematics(ctx, b, localizer, limits)
+	kb, err := kinematicbase.WrapWithDifferentialDriveKinematics(ctx, b, localizer, limits)
 	if err != nil {
 		return false, err
 	}

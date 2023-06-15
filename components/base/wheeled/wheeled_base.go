@@ -41,10 +41,11 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/base"
+	"go.viam.com/rdk/components/base/kinematicbase"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/operation"
-	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
@@ -101,6 +102,7 @@ type wheeledBase struct {
 	widthMm              int
 	wheelCircumferenceMm int
 	spinSlipFactor       float64
+	geometries           []spatialmath.Geometry
 
 	left      []motor.Motor
 	right     []motor.Motor
@@ -109,15 +111,20 @@ type wheeledBase struct {
 	opMgr  operation.SingleOperationManager
 	logger golog.Logger
 
-	mu    sync.Mutex
-	name  string
-	frame *referenceframe.LinkConfig
+	mu   sync.Mutex
+	name string
 }
 
 // Reconfigure reconfigures the base atomically and in place.
 func (wb *wheeledBase) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	wb.mu.Lock()
 	defer wb.mu.Unlock()
+
+	geometries, err := kinematicbase.CollisionGeometry(conf.Frame)
+	if err != nil {
+		wb.logger.Warnf("base %v not configured with a geometry, use caution if using motion service", wb.Name())
+	}
+	wb.geometries = geometries
 
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
@@ -223,7 +230,6 @@ func createWheeledBase(
 		spinSlipFactor:       newConf.SpinSlipFactor,
 		logger:               logger,
 		name:                 conf.Name,
-		frame:                conf.Frame,
 	}
 
 	if err := wb.Reconfigure(ctx, deps, conf); err != nil {
@@ -449,4 +455,8 @@ func (wb *wheeledBase) Properties(ctx context.Context, extra map[string]interfac
 		TurningRadiusMeters: 0.0,
 		WidthMeters:         float64(wb.widthMm) * 0.001, // convert to meters from mm
 	}, nil
+}
+
+func (wb *wheeledBase) Geometries(ctx context.Context) ([]spatialmath.Geometry, error) {
+	return wb.geometries, nil
 }

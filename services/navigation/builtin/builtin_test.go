@@ -10,7 +10,7 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/rdk/components/base"
 	fakebase "go.viam.com/rdk/components/base/fake"
-	kinematicbase "go.viam.com/rdk/components/base/kinematicWrapper"
+	"go.viam.com/rdk/components/base/kinematicbase"
 	_ "go.viam.com/rdk/components/movementsensor/fake"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/referenceframe"
@@ -105,7 +105,7 @@ func TestStartWaypoint(t *testing.T) {
 
 	localizer, err := motion.NewLocalizer(ctx, fakeslam.NewSLAM(slam.Named("foo"), logger))
 
-	kinematicBase, err := kinematicbase.WrapWithKinematics(ctx, fakeBase, localizer, limits)
+	kinematicBase, err := kinematicbase.WrapWithDifferentialDriveKinematics(ctx, fakeBase, localizer, limits)
 	test.That(t, err, test.ShouldBeNil)
 
 	injectMovementSensor := inject.NewMovementSensor("test_movement")

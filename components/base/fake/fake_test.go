@@ -7,7 +7,6 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
-	kinematicbase "go.viam.com/rdk/components/base/kinematicWrapper"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
@@ -38,11 +37,11 @@ func TestFakeBase(t *testing.T) {
 	localizer, err := motion.NewLocalizer(ctx, fakeSLAM)
 	test.That(t, err, test.ShouldBeNil)
 
-	kb, err := kinematicbase.WrapWithKinematics(ctx, b, localizer, limits)
+	kb, err := b.(*Base).WrapWithKinematics(ctx, localizer, limits)
 	test.That(t, err, test.ShouldBeNil)
 	expected := referenceframe.FloatsToInputs([]float64{10, 11, 0})
-	test.That(t, kb.GoToInputs(ctx, expected), test.ShouldBeNil)
-	inputs, err := kb.CurrentInputs(ctx)
+	test.That(t, kb.(*kinematicBase).GoToInputs(ctx, expected), test.ShouldBeNil)
+	inputs, err := kb.(*kinematicBase).CurrentInputs(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, inputs, test.ShouldResemble, expected)
 }

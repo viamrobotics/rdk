@@ -169,6 +169,14 @@ func NewGeometriesFromProto(proto []*commonpb.Geometry) ([]Geometry, error) {
 	return geometries, nil
 }
 
+func NewGeometriesToProto(geometries []Geometry) []*commonpb.Geometry {
+	var proto []*commonpb.Geometry
+	for _, geometry := range geometries {
+		proto = append(proto, geometry.ToProtobuf())
+	}
+	return proto
+}
+
 // ToProtobuf converts a GeometryConfig to Protobuf.
 func (config *GeometryConfig) ToProtobuf() (*commonpb.Geometry, error) {
 	creator, err := config.ParseConfig()

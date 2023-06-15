@@ -20,23 +20,26 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-var testCfg = resource.Config{
-	Name: "test",
-	API:  base.API,
-	Frame: &referenceframe.LinkConfig{
-		Geometry: &spatialmath.GeometryConfig{
-			R:                 5,
-			X:                 8,
-			Y:                 6,
-			L:                 10,
-			TranslationOffset: r3.Vector{X: 3, Y: 4, Z: 0},
-			Label:             "kwb",
+func testConfig() resource.Config {
+	return resource.Config{
+		Name: "test",
+		API:  base.API,
+		Frame: &referenceframe.LinkConfig{
+			Geometry: &spatialmath.GeometryConfig{
+				R:                 5,
+				X:                 8,
+				Y:                 6,
+				L:                 10,
+				TranslationOffset: r3.Vector{X: 3, Y: 4, Z: 0},
+				Label:             "ddk",
+			},
 		},
-	},
+	}
 }
 
-func TestWrapWithKinematics(t *testing.T) {
+func TestWrapWithDifferentialDriveKinematics(t *testing.T) {
 	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
 
 	testCases := []struct {
 		geoType spatialmath.GeometryType
@@ -49,19 +52,24 @@ func TestWrapWithKinematics(t *testing.T) {
 		{spatialmath.GeometryType("bad"), false},
 	}
 
-	expectedSphere, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 200, "")
+	expectedSphere, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 10, "")
 	test.That(t, err, test.ShouldBeNil)
 
 	for _, tc := range testCases {
 		t.Run(string(tc.geoType), func(t *testing.T) {
+			testCfg := testConfig()
 			testCfg.Frame.Geometry.Type = tc.geoType
-			kwb := buildTestKWB(t, ctx, testCfg)
-			limits := kwb.model.DoF()
+			ddk, err := buildTestDDK(ctx, testCfg, logger)
+			test.That(t, err == nil, test.ShouldEqual, tc.success)
+			if err != nil {
+				return
+			}
+			limits := ddk.model.DoF()
 			test.That(t, limits[0].Min, test.ShouldBeLessThan, 0)
 			test.That(t, limits[1].Min, test.ShouldBeLessThan, 0)
 			test.That(t, limits[0].Max, test.ShouldBeGreaterThan, 0)
 			test.That(t, limits[1].Max, test.ShouldBeGreaterThan, 0)
-			geometry, err := kwb.model.(*referenceframe.SimpleModel).Geometries(make([]referenceframe.Input, len(limits)))
+			geometry, err := ddk.model.(*referenceframe.SimpleModel).Geometries(make([]referenceframe.Input, len(limits)))
 			test.That(t, err, test.ShouldBeNil)
 			equivalent := geometry.GeometryByName(testCfg.Name + ":" + testCfg.Frame.Geometry.Label).AlmostEqual(expectedSphere)
 			test.That(t, equivalent, test.ShouldBeTrue)
@@ -71,9 +79,11 @@ func TestWrapWithKinematics(t *testing.T) {
 
 func TestCurrentInputs(t *testing.T) {
 	ctx := context.Background()
-	kwb := buildTestKWB(t, ctx, testCfg)
+	logger := golog.NewTestLogger(t)
+	ddk, err := buildTestDDK(ctx, testConfig(), logger)
+	test.That(t, err, test.ShouldBeNil)
 	for i := 0; i < 10; i++ {
-		_, err := kwb.CurrentInputs(ctx)
+		_, err := ddk.CurrentInputs(ctx)
 		test.That(t, err, test.ShouldBeNil)
 	}
 }
@@ -90,36 +100,51 @@ func TestErrorState(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// build base
-	kwb := buildTestKWB(t, ctx, testCfg)
-	kwb.localizer = localizer
+	logger := golog.NewTestLogger(t)
+	ddk, err := buildTestDDK(ctx, testConfig(), logger)
+	test.That(t, err, test.ShouldBeNil)
+	ddk.localizer = localizer
 
 	desiredInput := []referenceframe.Input{{3}, {4}, {utils.DegToRad(30)}}
-	distErr, headingErr, err := kwb.errorState(make([]referenceframe.Input, 3), desiredInput)
+	distErr, headingErr, err := ddk.errorState(make([]referenceframe.Input, 3), desiredInput)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, distErr, test.ShouldEqual, r3.Vector{desiredInput[0].Value, desiredInput[1].Value, 0}.Norm())
 	test.That(t, headingErr, test.ShouldAlmostEqual, 30)
 }
 
-func buildTestKWB(t *testing.T, ctx context.Context, cfg resource.Config) *kinematicWheeledBase {
-	t.Helper()
-
+func buildTestDDK(ctx context.Context, cfg resource.Config, logger golog.Logger) (*differentialDriveKinematics, error) {
 	// make fake base
-	logger := golog.NewTestLogger(t)
 	b, err := fakebase.NewBase(ctx, resource.Dependencies{}, cfg, logger)
-	test.That(t, err, test.ShouldBeNil)
+	if err != nil {
+		return nil, err
+	}
+	geometries, err := CollisionGeometry(cfg.Frame)
+	if err != nil {
+		return nil, err
+	}
+	b.(*fakebase.Base).Geometry = geometries
 
 	// make a SLAM service and get its limits
 	fakeSLAM := fake.NewSLAM(slam.Named("test"), logger)
 	limits, err := fakeSLAM.GetLimits(ctx)
-	test.That(t, err, test.ShouldBeNil)
+	if err != nil {
+		return nil, err
+	}
 
 	// construct localizer
 	localizer, err := motion.NewLocalizer(ctx, fakeSLAM)
-	test.That(t, err, test.ShouldBeNil)
+	if err != nil {
+		return nil, err
+	}
 
-	kb, err := WrapWithKinematics(ctx, b, localizer, limits)
-	test.That(t, err, test.ShouldBeNil)
-	kwb, ok := kb.(*kinematicWheeledBase)
-	test.That(t, ok, test.ShouldBeTrue)
-	return kwb
+	kb, err := WrapWithDifferentialDriveKinematics(ctx, b, localizer, limits)
+	if err != nil {
+		return nil, err
+	}
+
+	ddk, ok := kb.(*differentialDriveKinematics)
+	if !ok {
+		return nil, err
+	}
+	return ddk, nil
 }

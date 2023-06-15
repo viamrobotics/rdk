@@ -10,6 +10,7 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
 )
 
 // serviceServer implements the BaseService from base.proto.
@@ -150,6 +151,18 @@ func (s *serviceServer) GetProperties(
 		return nil, err
 	}
 	return PropertiesToProtoResponse(features)
+}
+
+func (s *serviceServer) Geometries(ctx context.Context, req *commonpb.GetGeometriesRequest) (*commonpb.GetGeometriesResponse, error) {
+	base, err := s.coll.Resource(req.GetName())
+	if err != nil {
+		return nil, err
+	}
+	geometries, err := base.Geometries(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &commonpb.GetGeometriesResponse{Geometries: spatialmath.NewGeometriesToProto(geometries)}, nil
 }
 
 // DoCommand receives arbitrary commands.

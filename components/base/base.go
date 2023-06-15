@@ -10,6 +10,7 @@ import (
 
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/spatialmath"
 )
 
 func init() {
@@ -55,6 +56,8 @@ type Base interface {
 	SetVelocity(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error
 
 	Properties(ctx context.Context, extra map[string]interface{}) (Properties, error)
+
+	Geometries(ctx context.Context) ([]spatialmath.Geometry, error)
 }
 
 // FromDependencies is a helper for getting the named base from a collection of

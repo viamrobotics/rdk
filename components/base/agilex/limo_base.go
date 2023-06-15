@@ -18,8 +18,10 @@ import (
 	utils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/base"
+	"go.viam.com/rdk/components/base/kinematicbase"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
 )
 
 // default port for limo serial comm.
@@ -78,6 +80,7 @@ type limoBase struct {
 	rightAngleScale    float64
 	maxLinearVelocity  int
 	maxAngularVelocity int
+	geometries         []spatialmath.Geometry
 
 	logger golog.Logger
 
@@ -128,6 +131,12 @@ func createLimoBase(ctx context.Context, _ resource.Dependencies, conf resource.
 		maxInnerAngle:      .48869, // 28 degrees in radians
 		rightAngleScale:    1.64,
 	}
+
+	geometries, err := kinematicbase.CollisionGeometry(conf.Frame)
+	if err != nil {
+		logger.Warnf("base %v not configured with a geometry, use caution if using motion service", lb.Name())
+	}
+	lb.geometries = geometries
 
 	if newConf.TestChan == nil {
 		logger.Debugf("creating serial connection to: ", sDevice)
@@ -422,6 +431,10 @@ func (lb *limoBase) Properties(ctx context.Context, extra map[string]interface{}
 		TurningRadiusMeters: lbTurnRadiusM,
 		WidthMeters:         float64(lb.width) * 0.001, // convert from mm to meters
 	}, nil
+}
+
+func (lb *limoBase) Geometries(ctx context.Context) ([]spatialmath.Geometry, error) {
+	return lb.geometries, nil
 }
 
 // DoCommand executes additional commands beyond the Base{} interface.
