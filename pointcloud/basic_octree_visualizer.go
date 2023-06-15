@@ -8,7 +8,7 @@ import (
 	"github.com/golang/geo/r3"
 )
 
-// visualizeOctree creates an image of size resolution x resolution for a given octree.
+// visualizeOctree is a debugging tool that creates an image of size resolution x resolution for a given octree.
 //
 //nolint:unused
 func visualizeOctree(octree *BasicOctree, resolution int) *image.RGBA {
