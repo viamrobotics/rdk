@@ -7,7 +7,7 @@ import { rcLogConditionally } from '@/lib/log';
 import Collapse from '@/components/collapse.svelte';
 
 export let name: string;
-export let status: undefined | { position_deg: number }
+export let status: undefined | { position_deg: number };
 export let client: Client;
 
 const stop = () => {

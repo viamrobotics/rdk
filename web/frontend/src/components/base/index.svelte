@@ -10,7 +10,7 @@
   import { filterSubtype } from '../../lib/resource';
   import { displayError } from '../../lib/error';
   import KeyboardInput from '../keyboard-input/index.svelte';
-  import type { Keys } from '../keyboard-input/types'
+  import type { Keys } from '../keyboard-input/types';
   import Camera from '../camera/camera.svelte';
   import { rcLogConditionally } from '../../lib/log';
   import { selectedMap } from '../../lib/camera-state';
@@ -68,7 +68,7 @@
 
   let isKeyboardActive = false;
 
-  $: cameras = filterSubtype($components, 'camera') 
+  $: cameras = filterSubtype($components, 'camera');
 
   const resetDiscreteState = () => {
     movementMode = 'Straight';
@@ -247,7 +247,7 @@
 
   const handleSelectMovementMode = (event: CustomEvent) => {
     setMovementMode(event.detail.value);
-  }
+  };
 
   const handleControlModeSelect = (event: CustomEvent) => {
     selectedMode = event.detail.value;
@@ -255,43 +255,43 @@
     if (selectedMode === 'Discrete') {
       resetDiscreteState();
     }
-  }
+  };
 
   const handleSelectMovementType = (event: CustomEvent) => {
     movementType = event.detail.value;
-  }
+  };
 
   const handlePowerSlider = (event: CustomEvent) => {
     power = event.detail.value;
-  }
+  };
 
   const handleSetDirection = (event: CustomEvent) => {
     direction = event.detail.value;
-  }
+  };
 
   const handleSetSpeed = (event: CustomEvent) => {
     speed = event.detail.value;
-  }
+  };
 
   const handleSetIncrement = (event: CustomEvent) => {
     increment = event.detail.value;
-  }
+  };
 
   const handleSetSpinSpeed = (event: CustomEvent) => {
     spinSpeed = event.detail.value;
-  }
+  };
 
   const handleSetSpinType = (event: CustomEvent) => {
     setSpinType(event.detail.value);
-  }
+  };
 
   const handleSetRefreshFrequency = (event: CustomEvent) => {
     refreshFrequency = event.detail.value;
-  }
+  };
 
   const handleSetAngle = (event: CustomEvent) => {
     angle = event.detail.value;
-  }
+  };
 
   onMount(() => {
     window.addEventListener('visibilitychange', handleVisibilityChange);
@@ -312,7 +312,9 @@
   });
 </script>
 
-<div use:clickOutside={() => { isKeyboardActive = false; }}>
+<div use:clickOutside={() => {
+  isKeyboardActive = false;
+}}>
   <Collapse title={name}>
     <v-breadcrumbs slot="title" crumbs="base" />
 

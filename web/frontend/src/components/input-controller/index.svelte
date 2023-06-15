@@ -6,7 +6,7 @@
   export let name: string;
   export let status: {
     events?: inputControllerApi.Event.AsObject[] | undefined
-  } = { events: [] }
+  } = { events: [] };
 
   const controlOrder = [
     'AbsoluteX',
@@ -31,7 +31,7 @@
     'ButtonEStop',
   ];
 
-  $: events = status.events ?? []
+  $: events = status.events ?? [];
   $: connected = events.some(({ event }) => event !== 'Disconnect');
 
   const getValue = (

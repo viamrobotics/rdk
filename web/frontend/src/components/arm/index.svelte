@@ -30,7 +30,7 @@ export let status: {
 } | undefined;
 export let client: Client;
 
-console.log(status)
+console.log(status);
 
 const fieldSetters = [
   ['x', 'X'],
@@ -43,12 +43,12 @@ const fieldSetters = [
 ] as const;
 
 $: posPieces = fieldSetters.map((setter) => {
-  const [endPositionField] = setter
+  const [endPositionField] = setter;
   return {
     endPosition: setter,
     endPositionValue: status?.end_position[endPositionField!] || 0,
-  }
-})
+  };
+});
 
 /*
  * this conditional is in place so the RC card renders when
@@ -57,9 +57,9 @@ $: posPieces = fieldSetters.map((setter) => {
 $: jointPieces = status?.joint_positions.values.map((value, index) => {
   return {
     joint: index,
-    jointValue: value ?? 0
-  }
-}) ?? [{ joint: 0, jointValue: 100, }]
+    jointValue: value ?? 0,
+  };
+}) ?? [{ joint: 0, jointValue: 100 }];
 
 const fieldMap = [
   ['x', 'x'],
@@ -209,17 +209,17 @@ const armModifyAll = () => {
     joint_pieces: [],
   };
 
-  for (let i = 0; i < posPieces.length; i += 1) {
+  for (const posPiece of posPieces) {
     newStatus.pos_pieces.push({
-      endPosition: [...posPieces[i]!.endPosition],
-      endPositionValue: roundTo2Decimals(posPieces[i]!.endPositionValue),
+      endPosition: [...posPiece!.endPosition],
+      endPositionValue: roundTo2Decimals(posPiece!.endPositionValue),
     });
   }
 
-  for (let i = 0; i < jointPieces.length; i += 1) {
+  for (const jointPiece of jointPieces) {
     newStatus.joint_pieces.push({
-      joint: jointPieces[i]!.joint,
-      jointValue: roundTo2Decimals(jointPieces[i]!.jointValue),
+      joint: jointPiece!.joint,
+      jointValue: roundTo2Decimals(jointPiece!.jointValue),
     });
   }
 

@@ -120,6 +120,10 @@ const connectedFirstTime = new Promise<void>((resolve) => {
   connectedFirstTimeResolve = resolve;
 });
 
+const resourceStatusByName = (resource: commonApi.ResourceName.AsObject) => {
+  return $statuses[resourceNameToString(resource)];
+};
+
 // TODO (APP-146): replace these with constants
 $: filteredWebGamepads = $components.filter((component) => {
   const remSplit = component.name.split(':');
@@ -143,6 +147,12 @@ $: filteredInputControllerList = $components.filter((component) => {
   );
 });
 
+const getStatus = (statusMap: Record<string, unknown>, resource: commonApi.ResourceName.AsObject) => {
+  const key = resourceNameToString(resource);
+  // todo(mp) Find a way to fix this type error
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return key ? statusMap[key] as any : undefined;
+};
 
 const handleError = (message: string, error: unknown, onceKey: string) => {
   if (onceKey) {
@@ -157,11 +167,11 @@ const handleError = (message: string, error: unknown, onceKey: string) => {
   console.error(message, { error });
 };
 
-const handleCallErrors = (statuses: { resources: boolean; ops: boolean }, newErrors: unknown) => {
+const handleCallErrors = (list: { resources: boolean; ops: boolean }, newErrors: unknown) => {
   const errorsList = document.createElement('ul');
   errorsList.classList.add('list-disc', 'pl-4');
 
-  for (const key of Object.keys(statuses)) {
+  for (const key of Object.keys(list)) {
     switch (key) {
       case 'resources': {
         errorsList.innerHTML += '<li>Robot Resources</li>';
@@ -180,11 +190,6 @@ const handleCallErrors = (statuses: { resources: boolean; ops: boolean }, newErr
     'connection'
   );
 };
-
-const getStatus = <T>(statusMap: Record<string, unknown>, resource: commonApi.ResourceName.AsObject): T | undefined => {
-  const key = resourceNameToString(resource)
-  return key ? statusMap[key] as T : undefined;
-}
 
 const stringToResourceName = (nameStr: string) => {
   const [prefix, suffix] = nameStr.split('/');
@@ -420,7 +425,7 @@ const fetchCurrentSessions = () => {
 
 const createAppConnectionManager = () => {
   const checkIntervalMillis = 10_000;
-  const statuses = {
+  const connections = {
     resources: false,
     ops: false,
     sessions: false,
@@ -432,8 +437,8 @@ const createAppConnectionManager = () => {
 
   const isConnected = () => {
     return (
-      statuses.resources &&
-      statuses.ops &&
+      connections.resources &&
+      connections.ops &&
       // check status on interval if direct grpc
       (webrtcEnabled || (Date.now() - lastStatusTS! <= checkIntervalMillis))
     );
@@ -446,49 +451,49 @@ const createAppConnectionManager = () => {
       try {
         await queryMetadata();
 
-        if (!statuses.resources) {
+        if (!connections.resources) {
           connectionRestablished = true;
         }
 
-        statuses.resources = true;
+        connections.resources = true;
       } catch (error) {
         if (ConnectionClosedError.isError(error)) {
-          statuses.resources = false;
+          connections.resources = false;
         } else {
           newErrors.push(error);
         }
       }
 
-      if (statuses.resources) {
+      if (connections.resources) {
         try {
           await loadCurrentOps();
 
-          if (!statuses.ops) {
+          if (!connections.ops) {
             connectionRestablished = true;
           }
 
-          statuses.ops = true;
+          connections.ops = true;
         } catch (error) {
           if (ConnectionClosedError.isError(error)) {
-            statuses.ops = false;
+            connections.ops = false;
           } else {
             newErrors.push(error);
           }
         }
       }
 
-      if (statuses.ops) {
+      if (connections.ops) {
         try {
           currentSessions = await fetchCurrentSessions();
 
-          if (!statuses.sessions) {
+          if (!connections.sessions) {
             connectionRestablished = true;
           }
 
-          statuses.sessions = true;
+          connections.sessions = true;
         } catch (error) {
           if (ConnectionClosedError.isError(error)) {
-            statuses.sessions = false;
+            connections.sessions = false;
           } else {
             newErrors.push(error);
           }
@@ -506,7 +511,7 @@ const createAppConnectionManager = () => {
       }
 
       if (newErrors.length > 0) {
-        handleCallErrors(statuses, newErrors);
+        handleCallErrors(connections, newErrors);
       }
       errorMessage = 'Connection lost, attempting to reconnect ...';
 
@@ -556,7 +561,7 @@ const createAppConnectionManager = () => {
   };
 
   return {
-    statuses,
+    statuses: connections,
     timeout,
     stop,
     start,
@@ -566,10 +571,6 @@ const createAppConnectionManager = () => {
 };
 
 appConnectionManager = createAppConnectionManager();
-
-const resourceStatusByName = (resource: commonApi.ResourceName.AsObject) => {
-  return $statuses[resourceNameToString(resource)];
-};
 
 const nonEmpty = (object: object) => {
   return Object.keys(object).length > 0;

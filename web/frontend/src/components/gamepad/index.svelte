@@ -13,7 +13,7 @@ import {
 } from '@viamrobotics/sdk';
 import { notify } from '@viamrobotics/prime';
 import { rcLogConditionally } from '@/lib/log';
-import Collapse from '@/components/collapse.svelte'
+import Collapse from '@/components/collapse.svelte';
 
 export let name: string;
 export let client: Client;

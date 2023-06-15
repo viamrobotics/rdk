@@ -22,7 +22,7 @@ $: parts = status.lengths_mm.map((_, index) => ({
   axis: index,
   pos: status.positions_mm[index]!,
   length: status.lengths_mm[index]!,
-}))
+}));
 
 $: if (status.lengths_mm.length !== status.positions_mm.length) {
   console.error('gantry lists different lengths');
@@ -35,8 +35,8 @@ const increment = (axis: number, amount: number) => {
 
   const pos: number[] = [];
 
-  for (let i = 0; i < parts.length; i += 1) {
-    pos[i] = parts[i]!.pos;
+  for (const [i, part] of parts.entries()) {
+    pos[i] = part!.pos;
   }
 
   pos[axis] += amount;
