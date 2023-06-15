@@ -64,7 +64,7 @@ type Config struct {
 // Validate ensures all parts of the config are valid.
 func (conf *Config) Validate(path string) ([]string, error) {
 	if conf.Channel < 1 || conf.Channel > 2 {
-		return nil, conf.wrongNumberError()
+		return nil, conf.wrongChannelError()
 	}
 	if conf.SerialPath == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "serial_path")
@@ -126,7 +126,7 @@ func (m *roboclawMotor) Reconfigure(ctx context.Context, deps resource.Dependenc
 	return nil
 }
 
-func (conf *Config) wrongNumberError() error {
+func (conf *Config) wrongChannelError() error {
 	return fmt.Errorf("roboclaw motor channel has to be 1 or 2, but is %d", conf.Channel)
 }
 
