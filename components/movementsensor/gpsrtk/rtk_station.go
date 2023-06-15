@@ -47,7 +47,7 @@ var stationModel = resource.DefaultModelFamily.WithModel("rtk-station")
 // ErrStationValidation contains the model substring for the available correction source types.
 var (
 	ErrStationValidation = fmt.Errorf("only serial, I2C are supported for %s", stationModel.Name)
-	errRequiredAccuracy  = errors.New("required Accuracy can be 1-5")
+	errRequiredAccuracy  = errors.New("required accuracy can be a fixed number 1-5, 5 being the highest accuracy")
 )
 
 // Validate ensures all parts of the config are valid.
