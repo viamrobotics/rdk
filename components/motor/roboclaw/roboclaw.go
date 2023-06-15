@@ -180,7 +180,7 @@ func newRoboClaw(conf resource.Config, logger golog.Logger) (motor.Motor, error)
 	}
 
 	if motorConfig.Channel < 1 || motorConfig.Channel > 2 {
-		return nil, motorConfig.wrongNumberError()
+		return nil, motorConfig.wrongChannelError()
 	}
 
 	if motorConfig.Address == 0 {
@@ -234,7 +234,7 @@ func (m *roboclawMotor) SetPower(ctx context.Context, powerPct float64, extra ma
 		m.powerPct = powerPct
 		return m.conn.DutyM2(m.addr, int16(powerPct*32767))
 	default:
-		return m.conf.wrongNumberError()
+		return m.conf.wrongChannelError()
 	}
 }
 
@@ -294,7 +294,7 @@ func (m *roboclawMotor) GoFor(ctx context.Context, rpm, revolutions float64, ext
 	case 2:
 		err = m.conn.SpeedDistanceM2(m.addr, ticksPerSecond, ticks, true)
 	default:
-		return m.conf.wrongNumberError()
+		return m.conf.wrongChannelError()
 	}
 	if err != nil {
 		return err
@@ -321,7 +321,7 @@ func (m *roboclawMotor) ResetZeroPosition(ctx context.Context, offset float64, e
 	case 2:
 		return m.conn.SetEncM2(m.addr, newTicks)
 	default:
-		return m.conf.wrongNumberError()
+		return m.conf.wrongChannelError()
 	}
 }
 
@@ -335,7 +335,7 @@ func (m *roboclawMotor) Position(ctx context.Context, extra map[string]interface
 	case 2:
 		ticks, _, err = m.conn.ReadEncM2(m.addr)
 	default:
-		return 0, m.conf.wrongNumberError()
+		return 0, m.conf.wrongChannelError()
 	}
 	if err != nil {
 		return 0, err
@@ -369,7 +369,7 @@ func (m *roboclawMotor) IsPowered(ctx context.Context, extra map[string]interfac
 	case 2:
 		return pow2 != 0, m.powerPct, nil
 	default:
-		return false, 0.0, m.conf.wrongNumberError()
+		return false, 0.0, m.conf.wrongChannelError()
 	}
 }
 
