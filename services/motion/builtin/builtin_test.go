@@ -266,7 +266,7 @@ func TestPlanMoveOnMap(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	path, _, err := ms.(*builtIn).PlanMoveOnMap(
+	path, _, err := ms.(*builtIn).planMoveOnMap(
 		context.Background(),
 		base.Named("test_base"),
 		spatialmath.NewPoseFromPoint(r3.Vector{X: 1.32 * 1000, Y: 0}),

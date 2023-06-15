@@ -5,6 +5,7 @@ import (
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
+	"go.viam.com/rdk/spatialmath"
 )
 
 // emptyProb is assigned to nodes who have no value specified.
@@ -68,12 +69,12 @@ func (octree *BasicOctree) splitIntoOctants() error {
 		for _, i := range []float64{-1.0, 1.0} {
 			for _, j := range []float64{-1.0, 1.0} {
 				for _, k := range []float64{-1.0, 1.0} {
-					centerOffset := r3.Vector{
+					centerOffset := spatialmath.NewPoseFromPoint(r3.Vector{
 						X: i * newSideLength / 2.,
 						Y: j * newSideLength / 2.,
 						Z: k * newSideLength / 2.,
-					}
-					newCenter := octree.center.Add(centerOffset)
+					})
+					newCenter := spatialmath.Compose(octree.center, centerOffset)
 
 					// Create a new basic octree child
 					child := &BasicOctree{
@@ -101,9 +102,10 @@ func (octree *BasicOctree) splitIntoOctants() error {
 
 // Checks that a point should be inside a basic octree based on its center and defined side length.
 func (octree *BasicOctree) checkPointPlacement(p r3.Vector) bool {
-	return ((math.Abs(octree.center.X-p.X) <= (1+nodeRegionOverlap)*octree.sideLength/2.) &&
-		(math.Abs(octree.center.Y-p.Y) <= (1+nodeRegionOverlap)*octree.sideLength/2.) &&
-		(math.Abs(octree.center.Z-p.Z) <= (1+nodeRegionOverlap)*octree.sideLength/2.))
+	centerPoint := octree.center.Point()
+	return ((math.Abs(centerPoint.X-p.X) <= (1+nodeRegionOverlap)*octree.sideLength/2.) &&
+		(math.Abs(centerPoint.Y-p.Y) <= (1+nodeRegionOverlap)*octree.sideLength/2.) &&
+		(math.Abs(centerPoint.Z-p.Z) <= (1+nodeRegionOverlap)*octree.sideLength/2.))
 }
 
 // helperSet is used by Set to recursive move through a basic octree while tracking recursion depth.
@@ -191,12 +193,12 @@ func (octree *BasicOctree) helperIterate(lowerBound, upperBound, idx int, fn fun
 }
 
 // Helper function for calculating the center of a pointcloud based on its metadata.
-func getCenterFromPcMetaData(meta MetaData) r3.Vector {
-	return r3.Vector{
+func getCenterFromPcMetaData(meta MetaData) spatialmath.Pose {
+	return spatialmath.NewPoseFromPoint(r3.Vector{
 		X: (meta.MaxX + meta.MinX) / 2,
 		Y: (meta.MaxY + meta.MinY) / 2,
 		Z: (meta.MaxZ + meta.MinZ) / 2,
-	}
+	})
 }
 
 // Helper function for calculating the max side length of a pointcloud based on its metadata.

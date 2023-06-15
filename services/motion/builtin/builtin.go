@@ -12,7 +12,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
-	
+
 	servicepb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/base"
@@ -191,9 +191,9 @@ func (ms *builtIn) MoveOnMap(
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
 
 	// make call to motionplan
-	plan, kb, err := ms.PlanMoveOnMap(ctx, componentName, destination, slamName, extra)
+	plan, kb, err := ms.planMoveOnMap(ctx, componentName, destination, slamName, extra)
 	if err != nil {
-		return false, fmt.Errorf("error making plan for MoveOnMap: %v", err)
+		return false, errors.Errorf("error making plan for MoveOnMap: %v", err)
 	}
 
 	var planStr string
@@ -402,7 +402,7 @@ func (ms *builtIn) GetPose(
 }
 
 // PlanMoveOnMap returns the plan for MoveOnMap to execute
-func (ms *builtIn) PlanMoveOnMap(
+func (ms *builtIn) planMoveOnMap(
 	ctx context.Context,
 	componentName resource.Name,
 	destination spatialmath.Pose,

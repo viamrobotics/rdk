@@ -19,6 +19,8 @@ const (
 	// even on a pi.
 	maxRecursionDepth = 1000
 	nodeRegionOverlap = 0.000001
+	confidenceThreshold = 60
+	buffer = 60.0
 )
 
 // NodeType represents the possible types of nodes in an octree.
@@ -30,7 +32,7 @@ type NodeType uint8
 // and serialization.
 type BasicOctree struct {
 	node       basicOctreeNode
-	center     r3.Vector
+	center     spatialmath.Pose
 	sideLength float64
 	size       int
 	label      string
@@ -47,7 +49,7 @@ type basicOctreeNode struct {
 }
 
 // NewBasicOctree creates a new basic octree with specified center, side and metadata.
-func NewBasicOctree(center r3.Vector, sideLength float64) (*BasicOctree, error) {
+func NewBasicOctree(center spatialmath.Pose, sideLength float64) (*BasicOctree, error) {
 	if sideLength <= 0 {
 		return nil, errors.Errorf("invalid side length (%.2f) for octree", sideLength)
 	}
@@ -145,7 +147,7 @@ func (octree *BasicOctree) CollidesWithGeometry(geom spatialmath.Geometry, thres
 	switch octree.node.nodeType {
 	case internalNode:
 		ocbox, err := spatialmath.NewBox(
-			spatialmath.NewPoseFromPoint(octree.center),
+			spatialmath.NewPoseFromPoint(octree.center.Point()),
 			r3.Vector{octree.sideLength + buffer, octree.sideLength + buffer, octree.sideLength + buffer},
 			"",
 		)
@@ -190,8 +192,7 @@ func (octree *BasicOctree) CollidesWithGeometry(geom spatialmath.Geometry, thres
 
 // Pose returns the pose of the octree.
 func (octree *BasicOctree) Pose() spatialmath.Pose {
-	// TODO
-	return nil
+	return octree.center
 }
 
 // AlmostEqual compares the octree with another geometry and checks if they are equivalent.
@@ -214,7 +215,7 @@ func (octree *BasicOctree) ToProtobuf() *commonpb.Geometry {
 
 // CollidesWith checks if the given octree collides with the given geometry and returns true if it does.
 func (octree *BasicOctree) CollidesWith(geom spatialmath.Geometry) (bool, error) {
-	return octree.CollidesWithGeometry(geom, 60, 60.0)
+	return octree.CollidesWithGeometry(geom, confidenceThreshold, buffer)
 }
 
 // DistanceFrom returns the distance from the given octree to the given geometry.
@@ -239,6 +240,7 @@ func (octree *BasicOctree) EncompassedBy(geom spatialmath.Geometry) (bool, error
 // SetLabel sets the label of this octree.
 func (octree *BasicOctree) SetLabel(label string) {
 	// Label returns the label of this octree.
+	octree.label = label
 }
 
 // Label returns the label of this octree.
