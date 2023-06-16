@@ -193,7 +193,7 @@ func (sb *sensorBase) stopSpinWithSensor(
 				ticker.Stop()
 			}
 
-			if err = ctx.Err(); err != nil {
+			if err := ctx.Err(); err != nil {
 				ticker.Stop()
 				return
 			}
