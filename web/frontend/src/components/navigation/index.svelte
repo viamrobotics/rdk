@@ -8,7 +8,7 @@ import { Client, robotApi, navigationApi, type ServiceError, type ResponseStream
 import { setMode, type NavigationModes } from '@/api/navigation';
 
 import Collapse from '@/components/collapse.svelte';
-import Map from './map.svelte'
+import Map from './map.svelte';
 
 export let name: string;
 export let client: Client;
@@ -17,7 +17,7 @@ export let statusStream: ResponseStream<robotApi.StreamStatusResponse> | null;
 const setNavigationMode = async (event: CustomEvent) => {
   const mode = event.detail.value as 'Manual' | 'Waypoint' | 'Unspecified';
 
-  let navigationMode: NavigationModes = {
+  const navigationMode: NavigationModes = {
     Manual: navigationApi.Mode.MODE_MANUAL,
     Waypoint: navigationApi.Mode.MODE_WAYPOINT,
     Unspecified: navigationApi.Mode.MODE_UNSPECIFIED,

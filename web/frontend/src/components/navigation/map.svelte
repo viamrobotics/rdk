@@ -1,5 +1,5 @@
 <script lang='ts'>
-  
+
 import { onMount, onDestroy } from 'svelte';
 import { notify } from '@viamrobotics/prime';
 import { navigationApi, type robotApi, type ServiceError, type Client, type ResponseStream } from '@viamrobotics/sdk';
