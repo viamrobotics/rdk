@@ -83,7 +83,7 @@ const updateFieldMap: Record<string, Field> = {
 let modifyAllStatus: ArmStatus = {
   pos_pieces: [],
   joint_pieces: [],
-}
+};
 
 const armClient = new ArmClient(client, name, { requestLogger: rcLogConditionally });
 
@@ -120,7 +120,7 @@ const armModifyAllDoEndPosition = async () => {
     displayError(error as ServiceError);
   }
 
-  modifyAll = false
+  modifyAll = false;
 };
 
 const armModifyAllDoJoint = async () => {
@@ -137,8 +137,8 @@ const armModifyAllDoJoint = async () => {
   } catch (error) {
     displayError(error as ServiceError);
   }
-  
-  modifyAll = false
+
+  modifyAll = false;
 };
 
 const armEndPositionInc = async (updateField: string | undefined, amount: number) => {
@@ -204,8 +204,8 @@ const armHome = async () => {
 };
 
 const armModifyAll = () => {
-  const nextPos = []
-  const nextJoint = []
+  const nextPos = [];
+  const nextJoint = [];
 
   for (const posPiece of posPieces) {
     nextPos.push({
@@ -224,8 +224,8 @@ const armModifyAll = () => {
   modifyAllStatus = {
     pos_pieces: nextPos,
     joint_pieces: nextJoint,
-  }
-  modifyAll = true
+  };
+  modifyAll = true;
 };
 
 const armCopyPosition = () => {
@@ -285,7 +285,10 @@ const armCopyJoints = () => {
                   <input
                     type='number'
                     bind:value={piece.endPositionValue}
-                    class="w-full py-1.5 px-2 leading-tight text-xs h-[30px] border outline-none appearance-none pl-2.5 bg-white border-light hover:border-medium focus:border-gray-9"
+                    class="
+                      w-full py-1.5 px-2 leading-tight text-xs h-[30px] border outline-none appearance-none
+                      pl-2.5 bg-white border-light hover:border-medium focus:border-gray-9
+                    "
                   />
                 </label>
               {/each}
@@ -326,7 +329,7 @@ const armCopyJoints = () => {
             {/if}
           </div>
         </div>
-  
+
         <div>
           <h3 class="mb-2 font-bold flex items-center gap-2">
             Joints (degrees)
@@ -345,7 +348,10 @@ const armCopyJoints = () => {
                   <input
                     type='number'
                     bind:value={piece.jointValue}
-                    class="w-full py-1.5 px-2 leading-tight text-xs h-[30px] border outline-none appearance-none pl-2.5 bg-white border-light hover:border-medium focus:border-gray-9"
+                    class="
+                      w-full py-1.5 px-2 leading-tight text-xs h-[30px] border outline-none appearance-none
+                      pl-2.5 bg-white border-light hover:border-medium focus:border-gray-9
+                    "
                   />
                 </label>
               {/each}
@@ -395,7 +401,9 @@ const armCopyJoints = () => {
         {#if modifyAll}
           <v-button
             label="Cancel"
-            on:click={() => { modifyAll = false }}
+            on:click={() => {
+              modifyAll = false;
+            }}
           />
         {:else}
           <v-button
