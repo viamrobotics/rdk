@@ -29,7 +29,7 @@ const pointsRenderOrder = 3;
 const axesHelperRenderOrder = 2;
 const gridHelperRenderOrder = 1;
 
-const cameraScale = 12.5;
+const defaultPointScale = 13.2;
 const aspectInverse = 4;
 const initialPointSize = 4;
 const baseSpriteSize = 0.05;
@@ -255,7 +255,7 @@ const scaleObjects = () => {
   const { zoom } = camera;
 
   if (pointsMaterial) {
-    pointsMaterial.size = zoom * cameraScale * window.devicePixelRatio;
+    pointsMaterial.size = zoom * defaultPointScale * window.devicePixelRatio;
   }
 
   const spriteSize = baseSpriteSize / zoom;
@@ -339,9 +339,12 @@ $: {
   bind:this={container}
   class="relative w-full"
 >
-  <p class="absolute left-3 top-3 bg-white text-xs">
-    Grid set to 1 meter
-  </p>
+  {#if axesVisible}
+    <p class="absolute left-3 top-3 bg-white text-xs">
+      Grid set to 1 meter
+    </p>
+  {/if}
+
   <div class="absolute right-3 top-3">
     <Legend />
   </div>
