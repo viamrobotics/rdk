@@ -13,9 +13,10 @@ import {
 } from '@viamrobotics/sdk';
 import { notify } from '@viamrobotics/prime';
 import { rcLogConditionally } from '@/lib/log';
+import Collapse from '@/components/collapse.svelte';
 
-export let name:string;
-export let client:Client;
+export let name: string;
+export let client: Client;
 export let statusStream: ResponseStream<robotApi.StreamStatusResponse> | null;
 
 let gamepadIdx: number | null = null;
@@ -268,59 +269,49 @@ $: {
 
 </script>
 
-<v-collapse title={name} class="do">
+<Collapse title={name}>
+  <svelte:fragment slot='title'>
+    <v-breadcrumbs crumbs="input_controller" />
 
-<v-breadcrumbs
-    slot="title"
-    crumbs="input_controller"/>
-
-{#if currentGamepad?.connected}
-<span slot="title"
-> ({ currentGamepad?.id })</span>
-{/if}
-<div slot="header">
-    {#if currentGamepad?.connected && enabled}
-    <span
-    class="rounded-full bg-green-500 px-3 py-0.5 text-xs text-white"
-    >Enabled</span>
-    {:else}
-    <span
-    class="rounded-full bg-gray-200 px-3 py-0.5 text-xs text-gray-800"
-    >Disabled</span>
-    {/if}
-</div>
-
-<div class="h-full w-full border border-t-0 border-medium p-4">
-    <div class="flex flex-row">
-    <label class="subtitle mr-2">Enabled</label>
-    <v-switch
-        :value="enabled ? 'on' : 'off'"
-        on:input={enabled = !enabled}
-    />
-    </div>
     {#if currentGamepad?.connected}
-    <div
-    class="flex h-full w-full flex-row justify-between gap-2"
-    >
-    {#each Object.keys(curStates) as stateName, value}
-    <div
-        class="ml-0 flex w-[8ex] flex-col text-center"
-    >
-        <p class="subtitle m-0">
-        { stateName }
-        </p>
-        { (/X|Y|Z$/u).test(stateName.toString()) ? value.toFixed(4) : value.toFixed(0) }
-    </div>
-    {/each}
-    </div>
+      ({currentGamepad?.id})
     {/if}
-</div>
-</v-collapse>
+  </svelte:fragment>
 
-<style scoped>
+  <div slot="header">
+    {#if currentGamepad?.connected && enabled}
+      <v-badge variant='green' label='Enabled' />
+    {:else}
+      <v-badge variant='gray' label='Disabled' />
+    {/if}
+  </div>
+
+  <div class="h-full w-full border border-t-0 border-medium p-4">
+    <div class="flex flex-row">
+      <v-switch
+        label='Enable gamepad'
+        value={enabled ? 'on' : 'off'}
+        on:input={() => (enabled = !enabled)}
+      />
+    </div>
+
+    {#if currentGamepad?.connected}
+      <div class="flex h-full w-full flex-row justify-between gap-2">
+        {#each Object.keys(curStates) as stateName, value}
+          <div class="ml-0 flex w-[8ex] flex-col text-center">
+            <p class="subtitle m-0">{stateName}</p>
+            {value.toFixed((/X|Y|Z$/u).test(stateName.toString()) ? 4 : 0)}
+          </div>
+        {/each}
+      </div>
+    {/if}
+  </div>
+</Collapse>
+
+<style>
 
 .subtitle {
-    color: var(--black-70);
+  color: var(--black-70);
 }
 
 </style>

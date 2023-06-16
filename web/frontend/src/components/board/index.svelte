@@ -7,11 +7,11 @@ import { Client, BoardClient, type ServiceError } from '@viamrobotics/sdk';
 import Collapse from '@/components/collapse.svelte';
 
 export let name: string;
-export let status: {
-  analogsMap: Record<string, { value: number }>
-  digitalInterruptsMap: Record<string, { value: number }>
-};
 export let client: Client;
+export let status: undefined | {
+  analogs: Record<string, { value: number }>
+  digital_interrupts: Record<string, { value: number }>
+};
 
 const boardClient = new BoardClient(client, name, { requestLogger: rcLogConditionally });
 
@@ -101,7 +101,7 @@ const handlePwmFrequencyInput = (event: CustomEvent) => {
       Analogs
     </h3>
     <table class="mb-4 table-auto border border-medium">
-      {#each Object.entries(status.analogsMap) as [analogName, analog] (analogName)}
+      {#each Object.entries(status?.analogs ?? {}) as [analogName, analog] (analogName)}
         <tr>
           <th class="border border-medium p-2">
             {analogName}
@@ -117,7 +117,7 @@ const handlePwmFrequencyInput = (event: CustomEvent) => {
       Digital Interrupts
     </h3>
     <table class="mb-4 w-full table-auto border border-medium">
-      {#each Object.entries(status.digitalInterruptsMap) as [interruptName, interrupt] (interruptName)}
+      {#each Object.entries(status?.digital_interrupts ?? {}) as [interruptName, interrupt] (interruptName)}
         <tr>
           <th class="border border-medium p-2">
             {interruptName}
