@@ -700,7 +700,7 @@ func TestCachedMaxProbability(t *testing.T) {
 	})
 }
 
-// Test the Set()function which adds points and associated data to an octree.
+// Test the Transform()function which adds transforms an octree by a pose.
 func TestBasicOctreeTransform(t *testing.T) {
 	center := spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 0, Z: 0})
 	side := 2.0

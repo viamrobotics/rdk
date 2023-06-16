@@ -19,8 +19,8 @@ const (
 	// even on a pi.
 	maxRecursionDepth   = 1000
 	nodeRegionOverlap   = 0.000001
-	confidenceThreshold = 60
-	buffer              = 60.0
+	confidenceThreshold = 60   // value between 0-100, threshold sets the confidence level required for a point to be considered a collision
+	buffer              = 60.0 // max distance from base to point for it to be considered a collision in mm
 )
 
 // NodeType represents the possible types of nodes in an octree.
@@ -35,7 +35,6 @@ type BasicOctree struct {
 	center     spatialmath.Pose
 	sideLength float64
 	size       int
-	label      string
 	meta       MetaData
 }
 
@@ -46,6 +45,7 @@ type basicOctreeNode struct {
 	children []*BasicOctree
 	point    *PointAndData
 	maxVal   int
+	label    string
 }
 
 // NewBasicOctree creates a new basic octree with specified center, side and metadata.
@@ -147,7 +147,7 @@ func (octree *BasicOctree) CollidesWithGeometry(geom spatialmath.Geometry, thres
 	switch octree.node.nodeType {
 	case internalNode:
 		ocbox, err := spatialmath.NewBox(
-			spatialmath.NewPoseFromPoint(octree.center.Point()),
+			octree.center,
 			r3.Vector{octree.sideLength + buffer, octree.sideLength + buffer, octree.sideLength + buffer},
 			"",
 		)
@@ -206,85 +206,81 @@ func (octree *BasicOctree) Transform(p spatialmath.Pose) spatialmath.Geometry {
 	var transformedOctree *BasicOctree
 	switch octree.node.nodeType {
 	case internalNode:
-		transformedOctree = &BasicOctree{
-			basicOctreeNode{
-				octree.node.nodeType,
-				make([]*BasicOctree, 0),
-				octree.node.point,
-				octree.node.maxVal,
-			},
-			octree.center,
-			octree.sideLength,
-			octree.size,
-			octree.label,
-			octree.meta,
-		}
-		transformedOctree.center = spatialmath.Compose(octree.center, p)
-		transformPoint := p.Point()
+		newCenter := spatialmath.Compose(octree.center, p)
 
-		transformedOctree.meta.MaxX += transformPoint.X
-		transformedOctree.meta.MinX += transformPoint.X
-		transformedOctree.meta.MaxY += transformPoint.Y
-		transformedOctree.meta.MinY += transformPoint.Y
-		transformedOctree.meta.MaxZ += transformPoint.Z
-		transformedOctree.meta.MinZ += transformPoint.Z
+		newTotalX := 0.0
+		newTotalY := 0.0
+		newTotalZ := 0.0
 
-		transformedOctree.meta.totalX = 0
-		transformedOctree.meta.totalY = 0
-		transformedOctree.meta.totalZ = 0
+		newChildren := make([]*BasicOctree, 0)
 
 		for _, child := range octree.node.children {
 			transformedChild := child.Transform(p).(*BasicOctree)
-			transformedOctree.node.children = append(transformedOctree.node.children, transformedChild)
+			newChildren = append(newChildren, transformedChild)
 
-			transformedOctree.meta.totalX += transformedChild.meta.totalX
-			transformedOctree.meta.totalY += transformedChild.meta.totalY
-			transformedOctree.meta.totalZ += transformedChild.meta.totalZ
+			newTotalX += transformedChild.meta.totalX
+			newTotalY += transformedChild.meta.totalY
+			newTotalZ += transformedChild.meta.totalZ
+		}
+
+		transformPoint := p.Point()
+		newMetaData := newTransformedMetaData(octree.meta, transformPoint)
+
+		newMetaData.totalX = newTotalX
+		newMetaData.totalY = newTotalY
+		newMetaData.totalZ = newTotalZ
+
+		transformedOctree = &BasicOctree{
+			newInternalNode(newChildren),
+			newCenter,
+			octree.sideLength,
+			octree.size,
+			newMetaData,
+		}
+	case leafNodeFilled:
+		transformPoint := p.Point()
+		newCenter := spatialmath.Compose(octree.center, p)
+		newPoint := &PointAndData{P: octree.node.point.P.Add(transformPoint), D: octree.node.point.D}
+
+		newMetaData := newTransformedMetaData(octree.meta, transformPoint)
+
+		newMetaData.totalX = octree.meta.totalX + transformPoint.X
+		newMetaData.totalY = octree.meta.totalY + transformPoint.Y
+		newMetaData.totalZ = octree.meta.totalZ + transformPoint.Z
+
+		transformedOctree = &BasicOctree{
+			newLeafNodeFilled(newPoint.P, newPoint.D),
+			newCenter,
+			octree.sideLength,
+			octree.size,
+			newMetaData,
 		}
 	case leafNodeEmpty:
 		transformedOctree = &BasicOctree{
-			basicOctreeNode{
-				octree.node.nodeType,
-				octree.node.children,
-				octree.node.point,
-				octree.node.maxVal,
-			},
+			newLeafNodeEmpty(),
 			spatialmath.Compose(octree.center, p),
 			octree.sideLength,
 			octree.size,
-			octree.label,
 			octree.meta,
 		}
-	case leafNodeFilled:
-		transformedOctree = &BasicOctree{
-			basicOctreeNode{
-				octree.node.nodeType,
-				octree.node.children,
-				octree.node.point,
-				octree.node.maxVal,
-			},
-			octree.center,
-			octree.sideLength,
-			octree.size,
-			octree.label,
-			octree.meta,
-		}
-		transformPoint := p.Point()
-		transformedOctree.center = spatialmath.Compose(octree.center, p)
-		transformedOctree.node.point = &PointAndData{P: octree.node.point.P.Add(transformPoint), D: octree.node.point.D}
-
-		transformedOctree.meta.MaxX += transformPoint.X
-		transformedOctree.meta.MinX += transformPoint.X
-		transformedOctree.meta.MaxY += transformPoint.Y
-		transformedOctree.meta.MinY += transformPoint.Y
-		transformedOctree.meta.MaxZ += transformPoint.Z
-		transformedOctree.meta.MinZ += transformPoint.Z
-
-		transformedOctree.meta.totalX += transformPoint.X
-		transformedOctree.meta.totalY += transformPoint.Y
-		transformedOctree.meta.totalZ += transformPoint.Z
 	}
 	return transformedOctree
+}
+
+// newTransformedMetaData returns a new MetaData with min and max values of originalMeta transformed by transformPoint
+func newTransformedMetaData(originalMeta MetaData, transformPoint r3.Vector) MetaData {
+	newMetaData := NewMetaData()
+	newMetaData.MaxX = originalMeta.MaxX + transformPoint.X
+	newMetaData.MinX = originalMeta.MinX + transformPoint.X
+	newMetaData.MaxY = originalMeta.MaxY + transformPoint.Y
+	newMetaData.MinY = originalMeta.MinY + transformPoint.Y
+	newMetaData.MaxZ = originalMeta.MaxZ + transformPoint.Z
+	newMetaData.MinZ = originalMeta.MinZ + transformPoint.Z
+
+	newMetaData.HasColor = originalMeta.HasColor
+	newMetaData.HasValue = originalMeta.HasValue
+
+	return newMetaData
 }
 
 // ToProtobuf converts the octree to a Geometry proto message.
@@ -320,12 +316,12 @@ func (octree *BasicOctree) EncompassedBy(geom spatialmath.Geometry) (bool, error
 // SetLabel sets the label of this octree.
 func (octree *BasicOctree) SetLabel(label string) {
 	// Label returns the label of this octree.
-	octree.label = label
+	octree.node.label = label
 }
 
 // Label returns the label of this octree.
 func (octree *BasicOctree) Label() string {
-	return octree.label
+	return octree.node.label
 }
 
 // String returns a human readable string that represents this octree.
