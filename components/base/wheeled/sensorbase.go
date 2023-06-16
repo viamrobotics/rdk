@@ -131,7 +131,7 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 		return err
 	}
 
-	// // starts a goroutine from within wheeled base's runAll function to run motors in the background
+	// starts a goroutine from within wheeled base's runAll function to run motors in the background
 	if err := sb.startRunningMotors(ctx, angleDeg, degsPerSec); err != nil {
 		return err
 	}
@@ -193,7 +193,7 @@ func (sb *sensorBase) stopSpinWithSensor(
 				ticker.Stop()
 			}
 
-			if err = ctx.Err(); err != nil {
+			if err := ctx.Err(); err != nil {
 				ticker.Stop()
 				return
 			}
@@ -254,7 +254,7 @@ func (sb *sensorBase) stopSpinWithSensor(
 			}
 		}
 	}, sb.activeBackgroundWorkers.Done)
-	return err
+	return nil
 }
 
 func getTurnState(currYaw, startYaw, targetYaw, dir, angleDeg, errorBound float64) (atTarget, overShot, minTravel bool) {
