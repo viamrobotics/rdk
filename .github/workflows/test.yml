@@ -135,9 +135,11 @@ jobs:
       image: ghcr.io/viamrobotics/canon:amd64-cache
       options: --platform linux/amd64
     steps:
-      - name: Check out main branch code
+      - name: Check out APP-2044-update-workflow branch code
         if: github.event_name != 'pull_request_target'
         uses: actions/checkout@v3
+        with:
+          ref: APP-2044-update-workflow
 
       - name: Check out PR branch code
         if: github.event_name == 'pull_request_target'
