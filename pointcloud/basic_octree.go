@@ -203,6 +203,11 @@ func (octree *BasicOctree) AlmostEqual(geom spatialmath.Geometry) bool {
 
 // Transform recursively steps through the octree and transforms it by the given pose.
 func (octree *BasicOctree) Transform(p spatialmath.Pose) spatialmath.Geometry {
+	if spatialmath.PoseAlmostEqual(p, spatialmath.NewZeroPose()){
+		return octree
+	}
+
+
 	var transformedOctree *BasicOctree
 	switch octree.node.nodeType {
 	case internalNode:
