@@ -280,7 +280,7 @@ onDestroy(() => {
         <hr class="my-4 border-t border-medium">
         <div class="flex gap-2 mb-1">
           <p class="font-bold text-gray-800">
-            Ending position
+            End position
           </p>
           <button
             class='text-xs hover:underline'
