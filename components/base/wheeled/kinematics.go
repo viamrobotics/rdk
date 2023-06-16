@@ -89,6 +89,8 @@ func (kwb *kinematicWheeledBase) GoToInputs(ctx context.Context, desired []refer
 		c := -(a * startingPos[0].Value + b * startingPos[1].Value)
 		perpendicularErr := math.Abs(a*current[0].Value + b*current[1].Value + c) / math.Sqrt(math.Pow(a, 2.0) + math.Pow(b, 2.0))
 
+		// TODO: edge cases
+
 		if perpendicularErr > maxPerpendicularErr {
 			return errors.New("base has deviated too far from planned path")
 		}
