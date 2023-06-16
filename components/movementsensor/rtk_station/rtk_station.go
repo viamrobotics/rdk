@@ -1,7 +1,6 @@
-// Package gpsrtk defines a gps and an rtk correction source
-// which sends rtcm data to a child gps
+// Package rtkstation defines a gps rtk correction source
 // This is an Experimental package
-package gpsrtk
+package rtkstation
 
 import (
 	"context"

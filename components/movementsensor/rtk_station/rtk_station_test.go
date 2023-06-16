@@ -1,4 +1,4 @@
-package gpsrtk
+package rtkstation
 
 import (
 	"context"
