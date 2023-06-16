@@ -11,7 +11,7 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
-	"github.com/edaniels/gostream"
+	"github.com/viamrobotics/gostream"
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"

@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-	"github.com/edaniels/gostream"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
+	"github.com/viamrobotics/gostream"
 	"go.viam.com/utils"
 	"gonum.org/v1/gonum/mat"
 

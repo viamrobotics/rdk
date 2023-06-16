@@ -4,8 +4,8 @@ import (
 	"context"
 	"image"
 
-	"github.com/edaniels/gostream"
 	"github.com/pkg/errors"
+	"github.com/viamrobotics/gostream"
 	"go.opencensus.io/trace"
 
 	"go.viam.com/rdk/components/camera"

@@ -8,7 +8,7 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
-	"github.com/edaniels/gostream"
+	"github.com/viamrobotics/gostream"
 	"go.opencensus.io/trace"
 	pb "go.viam.com/api/component/camera/v1"
 	goutils "go.viam.com/utils"

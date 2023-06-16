@@ -18,6 +18,7 @@ export let showExportScreenshot: boolean;
 export let refreshRate: string | undefined;
 export let streamManager: StreamManager;
 export let statusStream: ResponseStream<robotApi.StreamStatusResponse> | null;
+export let triggerRefresh: boolean;
 
 let imgEl: HTMLImageElement;
 let videoEl: HTMLVideoElement;
@@ -98,8 +99,12 @@ $: {
   updateCameraRefreshRate();
 }
 
-// on prop change refresh camera
-$: updateCameraRefreshRate();
+// Refresh camera when the trigger changes
+let lastTriggerRefresh = triggerRefresh;
+$: if (lastTriggerRefresh !== triggerRefresh) {
+  lastTriggerRefresh = triggerRefresh;
+  updateCameraRefreshRate();
+}
 
 </script>
 
@@ -107,9 +112,9 @@ $: updateCameraRefreshRate();
   {#if showExportScreenshot}
     <v-button
       class="mb-4"
-      aria-label={`View Camera: ${cameraName}`}
+      aria-label={`View camera: ${cameraName}`}
       icon="camera"
-      label="Export Screenshot"
+      label="Export screenshot"
       on:click={exportScreenshot}
     />
   {/if}

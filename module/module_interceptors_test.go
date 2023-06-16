@@ -2,11 +2,9 @@ package module_test
 
 import (
 	"context"
-	"encoding/json"
 	"os"
 	"strconv"
 	"testing"
-	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/google/uuid"
@@ -18,7 +16,6 @@ import (
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/testutils"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/known/structpb"
 
@@ -26,6 +23,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/resource"
 	rtestutils "go.viam.com/rdk/testutils"
+	"go.viam.com/rdk/testutils/robottestutils"
 	"go.viam.com/rdk/utils"
 )
 
@@ -49,11 +47,13 @@ func TestOpID(t *testing.T) {
 		test.That(t, server.Stop(), test.ShouldBeNil)
 	}()
 
-	rc, gc, conn, err := connect(port)
+	conn, err := robottestutils.Connect(port)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	}()
+	rc := robotpb.NewRobotServiceClient(conn)
+	gc := genericpb.NewGenericServiceClient(conn)
 
 	opIDOutgoing := uuid.New().String()
 	var opIDIncoming string
@@ -128,26 +128,6 @@ func TestOpID(t *testing.T) {
 	}
 }
 
-func connect(port string) (robotpb.RobotServiceClient, genericpb.GenericServiceClient, *grpc.ClientConn, error) {
-	ctxTimeout, cancelFunc := context.WithTimeout(ctx, time.Minute)
-	defer cancelFunc()
-
-	var conn *grpc.ClientConn
-	conn, err := grpc.DialContext(ctxTimeout,
-		"dns:///localhost:"+port,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithBlock(),
-	)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-
-	rc := robotpb.NewRobotServiceClient(conn)
-	gc := genericpb.NewGenericServiceClient(conn)
-
-	return rc, gc, conn, nil
-}
-
 func makeConfig(t *testing.T, logger golog.Logger) (string, string, error) {
 	// Precompile module to avoid timeout issues when building takes too long.
 	modPath, err := rtestutils.BuildTempModule(t, "module/testmodule")
@@ -173,22 +153,6 @@ func makeConfig(t *testing.T, logger golog.Logger) (string, string, error) {
 			Name:  "helper1",
 		}},
 	}
-	if err := cfg.Ensure(false, logger); err != nil {
-		return "", "", err
-	}
-
-	output, err := json.Marshal(cfg)
-	if err != nil {
-		return "", "", err
-	}
-	file, err := os.CreateTemp(t.TempDir(), "viam-test-config-*")
-	if err != nil {
-		return "", "", err
-	}
-	cfgFilename := file.Name()
-	_, err = file.Write(output)
-	if err != nil {
-		return "", "", err
-	}
-	return cfgFilename, port, file.Close()
+	cfgFilename, err := robottestutils.MakeTempConfig(t, &cfg, logger)
+	return cfgFilename, port, err
 }

@@ -7,8 +7,11 @@ const tiTDA4VM = "ti_tda4vm"
 var boardInfoMappings = map[string]genericlinux.BoardInformation{
 	tiTDA4VM: {
 		[]genericlinux.PinDefinition{
+			// Pins 3 and 5 don't work as GPIO by default; you might need to disable the I2C bus to
+			// use them.
 			{map[int]int{128: 84}, map[int]string{}, "600000.gpio", 3, 2, "GPIO0_84", "", "", -1},
 			{map[int]int{128: 83}, map[int]string{}, "600000.gpio", 5, 3, "GPIO0_83", "", "", -1},
+			// Pin 7 appears to be input-only, due to some sort of hardware limitation.
 			{map[int]int{128: 7}, map[int]string{}, "600000.gpio", 7, 4, "GPIO0_7", "", "", -1},
 			{map[int]int{128: 70}, map[int]string{}, "600000.gpio", 8, 14, "GPIO0_70", "", "", -1},
 			{map[int]int{128: 81}, map[int]string{}, "600000.gpio", 10, 15, "GPIO0_81", "", "", -1},

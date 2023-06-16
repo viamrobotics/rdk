@@ -4,9 +4,11 @@ Viam provides an open source remote control (RC) page as part of the RDK that al
 ## Running Locally
 
 ### Development Mode
-To start the client development environment, first run the `go run` with the environmental variable `ENV=development` (e.g. `ENV=development go run web/cmd/server/main.go -debug -config etc/configs/fake.json`). 
+To start the client development environment, navigate to `web/frontend`. After `npm install`, Run `npm run build` to copy [PRIME](https://github.com/viamrobotics/prime) static assets to the `web/frontend/runtime-shared/static` folder, including font icons. Finally run `npm start`.
 
-Then navigate to `web/frontend` and run `npm start` in a new terminal tab. Visit `localhost:8080` to view the app, not `localhost:5173`. The latter is a hot module replacement server that rebuilds frontend asset changes.
+In a new terminal tab, `go run` with the environmental variable `ENV=development` (e.g. `ENV=development go run web/cmd/server/main.go -debug -config etc/configs/fake.json`). 
+
+Visit `localhost:8080` to view the app, not `localhost:5173`. The latter is a hot module replacement server that rebuilds frontend asset changes.
 
 ### Production Mode
 Remote Control can be run locally in production mode, which is useful in some situations, such as testing changes to the build or AppImage packaging process.

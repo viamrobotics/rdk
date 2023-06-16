@@ -6,9 +6,10 @@
     commonApi,
     type ServiceError,
   } from '@viamrobotics/sdk';
-  import { toast } from '@/lib/toast';
+  import { notify } from '@viamrobotics/prime';
   import { resourceNameToString } from '@/lib/resource';
   import { rcLogConditionally } from '@/lib/log';
+  import Collapse from '../collapse.svelte';
 
   interface SensorName {
     name: string;
@@ -51,7 +52,7 @@
         response: sensorsApi.GetReadingsResponse | null
       ) => {
         if (error) {
-          toast.error(error.message);
+          notify.danger(error.message);
           return;
         }
 
@@ -75,8 +76,8 @@
   };
 </script>
 
-<v-collapse title="Sensors" class="sensors">
-  <div class="overflow-auto border border-t-0 border-medium p-4">
+<Collapse title="Sensors">
+  <div class="overflow-auto border border-t-0 border-medium p-4 text-sm">
     <table class="w-full table-auto border border-medium">
       <tr>
         <th class="border border-medium p-2"> Name </th>
@@ -84,7 +85,6 @@
         <th class="border border-medium p-2"> Readings </th>
         <th class="border border-medium p-2 text-center">
           <v-button
-            group
             label="Get All Readings"
             on:click|stopPropagation={() => {
               getReadings(sensorNames);
@@ -121,7 +121,6 @@
           </td>
           <td class="border border-medium p-2 text-center">
             <v-button
-              group
               label="Get Readings"
               on:click|stopPropagation={() => {
                 getReadings([sensorName]);
@@ -132,4 +131,4 @@
       {/each}
     </table>
   </div>
-</v-collapse>
+</Collapse>
