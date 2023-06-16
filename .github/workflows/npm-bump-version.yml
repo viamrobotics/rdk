@@ -1,0 +1,40 @@
+name: Bump Remote Control NPM
+
+concurrency: 
+  group: ${{ github.workflow }}-${{ github.ref }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      sdk_version:
+        required: false
+        type: string
+        default: rc
+  push:
+    branches: [ bumpworkflow ]
+
+jobs:
+  bump:
+    name: Bump remote-control Version
+    runs-on: [ubuntu-latest]
+    container:
+      image: ghcr.io/viamrobotics/canon:amd64
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v3
+    - name: Bump Version
+      run: |
+        cd web/frontend
+        npm install --save --save-exact @viamrobotics/sdk@${{ inputs.sdk_version }}
+        npm version patch
+    - name: Add + Commit + Open PR
+      uses: peter-evans/create-pull-request@v3
+      with:
+        commit-message: '[WORKFLOW] Updating remote-control from ${{ github.event.client_payload.repo_name }}, commit: ${{ github.event.client_payload.sha }}'
+        branch: 'workflow/bump-remote-control'
+        delete-branch: true
+        base: main
+        title: Automated remote-control Version Update
+        body: This is an auto-generated PR to update remote-control package versions. Check the commits to see which repos and commits are responsible for the changes.
+        assignees: ${{ github.actor }}
+        reviewers: ${{ github.actor }}
