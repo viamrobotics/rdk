@@ -6,7 +6,7 @@ import { $ref, $computed } from '@vue-macros/reactivity-transform/macros';
 import { grpc } from '@improbable-eng/grpc-web';
 import { Duration } from 'google-protobuf/google/protobuf/duration_pb';
 import { type Credentials, ConnectionClosedError } from '@viamrobotics/rpc';
-import { toast } from '../lib/toast';
+import { notify } from '@viamrobotics/prime';
 import { displayError } from '../lib/error';
 import { StreamManager } from './camera/stream-manager';
 import {
@@ -29,15 +29,15 @@ import {
 
 import ArmSvelte from './arm/index.svelte';
 import AudioInputSvelte from './audio-input/index.svelte';
-import Base from './base.vue';
+import BaseSvelte from './base/index.svelte';
 import BoardSvelte from './board/index.svelte';
 import CamerasListSvelte from './camera/index.svelte';
 import OperationsSessionsSvelte from './operations-sessions/index.svelte';
 import DoCommandSvelte from './do-command/index.svelte';
 import EncoderSvelte from './encoder/index.svelte';
-import Gantry from './gantry.vue';
-import Gripper from './gripper.vue';
-import Gamepad from './gamepad.vue';
+import GantrySvelte from './gantry/index.svelte';
+import GripperSvelte from './gripper/index.svelte';
+import GamepadSvelte from './gamepad/index.svelte';
 import InputControllerSvelte from './input-controller/index.svelte';
 import MotorSvelte from './motor/index.svelte';
 import MovementSensorSvelte from './movement-sensor/index.svelte';
@@ -49,8 +49,12 @@ import { svelteAdapter } from '../lib/svelte-adapter';
 
 const Arm = svelteAdapter(ArmSvelte);
 const AudioInput = svelteAdapter(AudioInputSvelte);
+const Base = svelteAdapter(BaseSvelte);
 const Board = svelteAdapter(BoardSvelte);
 const CamerasList = svelteAdapter(CamerasListSvelte, { display: 'flex', 'flex-direction': 'column', gap: '1rem' });
+const Gantry = svelteAdapter(GantrySvelte);
+const Gripper = svelteAdapter(GripperSvelte);
+const Gamepad = svelteAdapter(GamepadSvelte);
 const DoCommand = svelteAdapter(DoCommandSvelte);
 const Encoder = svelteAdapter(EncoderSvelte);
 const InputController = svelteAdapter(InputControllerSvelte);
@@ -172,7 +176,7 @@ const handleError = (message: string, error: unknown, onceKey: string) => {
     errors[onceKey] = true;
   }
 
-  toast.error(message);
+  notify.danger(message);
   console.error(message, { error });
 };
 
@@ -285,7 +289,7 @@ const updateStatus = (grpcStatuses: robotApi.Status[]) => {
       rawStatus[name] = statusJs as unknown as robotApi.Status;
       status[name] = fixed as unknown as robotApi.Status;
     } catch {
-      toast.error(`Couldn't fix status for ${resourceNameToString(nameObj)}`);
+      notify.danger(`Couldn't fix status for ${resourceNameToString(nameObj)}`);
     }
   }
 };
@@ -570,7 +574,7 @@ const createAppConnectionManager = () => {
 
       if (isConnected()) {
         if (connectionRestablished) {
-          toast.success('Connection established');
+          notify.success('Connection established');
           connectionRestablished = false;
         }
 
@@ -690,7 +694,7 @@ const doConnect = async (authEntity: string, creds: Credentials, onError?: (reas
     if (onError) {
       onError(error);
     } else {
-      toast.error('failed to connect');
+      notify.danger('failed to connect');
     }
   }
 };
@@ -702,14 +706,14 @@ const doLogin = (authType: string) => {
     isConnecting = false;
     disableAuthElements = false;
     console.error(error);
-    toast.error(`failed to connect: ${error}`);
+    notify.danger(`failed to connect: ${error}`);
   });
 };
 
 const initConnect = () => {
   if (supportedAuthTypes.length === 0) {
     doConnect(bakedAuth.authEntity, bakedAuth.creds, () => {
-      toast.error('failed to connect; retrying');
+      notify.danger('failed to connect; retrying');
       setTimeout(initConnect, 1000);
     });
   }
@@ -795,8 +799,8 @@ onUnmounted(() => {
         :name="base.name"
         :client="client"
         :resources="resources"
-        :stream-manager="streamManager"
-        :status-stream="statusStream"
+        :streamManager="streamManager"
+        :statusStream="statusStream"
       />
 
       <!-- ******* ENCODER *******  -->

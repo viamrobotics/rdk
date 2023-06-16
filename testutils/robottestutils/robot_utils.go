@@ -3,14 +3,20 @@ package robottestutils
 
 import (
 	"context"
+	"encoding/json"
 	"net"
+	"os"
 	"testing"
 	"time"
 
+	"github.com/edaniels/golog"
 	"go.uber.org/zap"
 	"go.viam.com/test"
 	"go.viam.com/utils/testutils"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 
+	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/robot/client"
 	weboptions "go.viam.com/rdk/robot/web/options"
 )
@@ -40,4 +46,42 @@ func NewRobotClient(tb testing.TB, logger *zap.SugaredLogger, addr string, dur t
 	)
 	test.That(tb, err, test.ShouldBeNil)
 	return robotClient
+}
+
+// Connect creates a new grpc.ClientConn server running on localhost:port.
+func Connect(port string) (*grpc.ClientConn, error) {
+	ctxTimeout, cancelFunc := context.WithTimeout(context.Background(), time.Minute)
+	defer cancelFunc()
+
+	var conn *grpc.ClientConn
+	conn, err := grpc.DialContext(ctxTimeout,
+		"dns:///localhost:"+port,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithBlock(),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return conn, nil
+}
+
+// MakeTempConfig writes a config.Config object to a temporary file for testing.
+func MakeTempConfig(t *testing.T, cfg *config.Config, logger golog.Logger) (string, error) {
+	if err := cfg.Ensure(false, logger); err != nil {
+		return "", err
+	}
+	output, err := json.Marshal(cfg)
+	if err != nil {
+		return "", err
+	}
+	file, err := os.CreateTemp(t.TempDir(), "fake-*")
+	if err != nil {
+		return "", err
+	}
+	_, err = file.Write(output)
+	if err != nil {
+		return "", err
+	}
+	return file.Name(), file.Close()
 }
