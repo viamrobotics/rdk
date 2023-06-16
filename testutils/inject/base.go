@@ -20,6 +20,7 @@ type Base struct {
 	IsMovingFunc     func(context.Context) (bool, error)
 	CloseFunc        func(ctx context.Context) error
 	SetPowerFunc     func(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error
+	SetVelocityFunc  func(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error
 	PropertiesFunc   func(ctx context.Context, extra map[string]interface{}) (base.Properties, error)
 }
 
@@ -90,6 +91,14 @@ func (b *Base) SetPower(ctx context.Context, linear, angular r3.Vector, extra ma
 		return b.Base.SetPower(ctx, linear, angular, extra)
 	}
 	return b.SetPowerFunc(ctx, linear, angular, extra)
+}
+
+// SetVelocty calls the injected SetVelocity or the real version
+func (b *Base) SetVelocity(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
+	if b.SetVelocityFunc == nil {
+		return b.Base.SetVelocity(ctx, linear, angular, extra)
+	}
+	return b.SetVelocityFunc(ctx, linear, angular, extra)
 }
 
 // Properties returns the base's properties.

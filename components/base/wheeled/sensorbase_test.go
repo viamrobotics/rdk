@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/base"
@@ -252,7 +253,13 @@ func TestHasOverShot(t *testing.T) {
 
 func TestSpinWithMovementSensor(t *testing.T) {
 	ms := inject.NewMovementSensor("spinny")
+	ms.OrientationFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
+		return spatialmath.NewZeroOrientation(), nil
+	}
 	wb := inject.NewBase("fakey-basey")
+	wb.SetVelocityFunc = func(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
+		return nil
+	}
 
 	logger := golog.NewDebugLogger("loggie")
 
@@ -271,7 +278,6 @@ func TestSpinWithMovementSensor(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	// we have no way of stopping the sensor loop in this little test
 	// so we stop running goroutines manually and test our function
-	// sensorBase.stopSensors()
 	sensorBase.setPolling(false)
 	sensorBase.sensorLoopDone()
 }
