@@ -217,6 +217,8 @@ func TestValidate(t *testing.T) {
 				test.That(t, err, test.ShouldBeError, tc.expectedErr)
 				test.That(t, len(deps), test.ShouldEqual, 0)
 			} else if tc.stationConfig.CorrectionSource == i2cStr {
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, deps, test.ShouldNotBeNil)
 				test.That(t, deps[0], test.ShouldEqual, testBoardName)
 			}
 		})
