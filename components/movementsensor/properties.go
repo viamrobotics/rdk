@@ -2,6 +2,8 @@ package movementsensor
 
 import pb "go.viam.com/api/component/movementsensor/v1"
 
+// Properties is a structure representing features
+// of a movementsensor.
 type Properties struct {
 	LinearVelocitySupported     bool
 	AngularVelocitySupported    bool
