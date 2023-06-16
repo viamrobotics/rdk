@@ -50,7 +50,7 @@ type Base interface {
 	// Spin spins the robot by a given angle in degrees at a given speed.
 	// If a speed of 0 the base will stop.
 	// A positive angle is measured in degrees to the left.
-	// A positive speed is to the left.
+	// A positive speed turns to the left.
 	// This method blocks until completed or cancelled
 	Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error
 
