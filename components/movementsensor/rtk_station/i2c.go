@@ -192,21 +192,3 @@ func (s *i2cCorrectionSource) Close(ctx context.Context) error {
 	}
 	return nil
 }
-
-// PMTK checksums commands by XORing together each byte.
-func addChk(data []byte) []byte {
-	chk := checksum(data)
-	newCmd := []byte("$")
-	newCmd = append(newCmd, data...)
-	newCmd = append(newCmd, []byte("*")...)
-	newCmd = append(newCmd, chk)
-	return newCmd
-}
-
-func checksum(data []byte) byte {
-	var chk byte
-	for _, b := range data {
-		chk ^= b
-	}
-	return chk
-}

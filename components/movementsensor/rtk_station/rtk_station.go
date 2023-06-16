@@ -18,6 +18,7 @@ import (
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/movementsensor"
+	gpsrtk "go.viam.com/rdk/components/movementsensor/gpsrtk"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -33,6 +34,25 @@ type StationConfig struct {
 
 	*SerialConfig `json:"serial_attributes,omitempty"`
 	*I2CConfig    `json:"i2c_attributes,omitempty"`
+}
+
+// SerialConfig is used for converting attributes for a correction source.
+type SerialConfig struct {
+	SerialPath               string `json:"serial_path"`
+	SerialBaudRate           int    `json:"serial_baud_rate,omitempty"`
+	SerialCorrectionPath     string `json:"serial_correction_path,omitempty"`
+	SerialCorrectionBaudRate int    `json:"serial_correction_baud_rate,omitempty"`
+
+	// TestChan is a fake "serial" path for test use only
+	TestChan chan []uint8 `json:"-"`
+}
+
+// I2CConfig is used for converting attributes for a correction source.
+type I2CConfig struct {
+	Board       string `json:"board"`
+	I2CBus      string `json:"i2c_bus"`
+	I2cAddr     int    `json:"i2c_addr"`
+	I2CBaudRate int    `json:"i2c_baud_rate,omitempty"`
 }
 
 const (
@@ -82,6 +102,26 @@ func (cfg *StationConfig) Validate(path string) ([]string, error) {
 
 	deps = append(deps, cfg.Children...)
 	return deps, nil
+}
+
+// ValidateI2C ensures all parts of the config are valid.
+func (cfg *I2CConfig) ValidateI2C(path string) error {
+	if cfg.I2CBus == "" {
+		return utils.NewConfigValidationFieldRequiredError(path, "i2c_bus")
+	}
+	if cfg.I2cAddr == 0 {
+		return utils.NewConfigValidationFieldRequiredError(path, "i2c_addr")
+	}
+
+	return nil
+}
+
+// ValidateSerial ensures all parts of the config are valid.
+func (cfg *SerialConfig) ValidateSerial(path string) error {
+	if cfg.SerialPath == "" {
+		return utils.NewConfigValidationFieldRequiredError(path, "serial_path")
+	}
+	return nil
 }
 
 func init() {
@@ -180,13 +220,13 @@ func newRTKStation(
 		if err != nil {
 			return nil, err
 		}
-		rtkgps := movementSensor.(*RTKMovementSensor)
+		rtkgps := movementSensor.(*gpsrtk.RTKMovementSensor)
 
-		switch rtkgps.inputProtocol {
+		switch rtkgps.InputProtocol {
 		case serialStr:
 			r.serialPorts = make([]io.Writer, 0)
-			path := rtkgps.writepath
-			baudRate := rtkgps.wbaud
+			path := rtkgps.Writepath
+			baudRate := rtkgps.Wbaud
 			if newConf.SerialConfig.TestChan != nil {
 				r.testChan = newConf.SerialConfig.TestChan
 			} else {
@@ -210,8 +250,8 @@ func newRTKStation(
 			}
 
 		case i2cStr:
-			bus := rtkgps.bus
-			addr := rtkgps.addr
+			bus := rtkgps.Bus
+			addr := rtkgps.Addr
 			busAddr := i2cBusAddr{bus: bus, addr: addr}
 
 			r.i2cPaths = append(r.i2cPaths, busAddr)

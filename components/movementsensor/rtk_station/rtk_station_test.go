@@ -13,15 +13,17 @@ import (
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/components/movementsensor/gpsnmea"
+	"go.viam.com/rdk/components/movementsensor/gpsrtk"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 )
 
 const (
-	testBoardName  = "board1"
-	testBusName    = "i2c1"
-	testi2cAddr    = 44
-	testSerialPath = "some-path"
+	testBoardName   = "board1"
+	testBusName     = "i2c1"
+	testi2cAddr     = 44
+	testSerialPath  = "some-path"
+	testStationName = "testStation"
 )
 
 var c = make(chan []byte, 1024)
@@ -83,12 +85,12 @@ func setupDependencies(t *testing.T) resource.Dependencies {
 	conf.Name = "rtk-sensor2"
 	i2cNMEA, _ := gpsnmea.NewPmtkI2CGPSNMEA(ctx, deps, conf.ResourceName(), i2cnmeaConf, logger)
 
-	rtkSensor1 := &RTKMovementSensor{
-		nmeamovementsensor: serialNMEA, inputProtocol: serialStr,
+	rtkSensor1 := &gpsrtk.RTKMovementSensor{
+		Nmeamovementsensor: serialNMEA, InputProtocol: serialStr,
 	}
 
-	rtkSensor2 := &RTKMovementSensor{
-		nmeamovementsensor: i2cNMEA, inputProtocol: i2cStr,
+	rtkSensor2 := &gpsrtk.RTKMovementSensor{
+		Nmeamovementsensor: i2cNMEA, InputProtocol: i2cStr,
 	}
 
 	deps[movementsensor.Named("rtk-sensor1")] = rtkSensor1

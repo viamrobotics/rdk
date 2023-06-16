@@ -9,8 +9,10 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/components/movementsensor/fake"
+	gpsnmea "go.viam.com/rdk/components/movementsensor/gpsnmea"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
@@ -20,12 +22,87 @@ var (
 	alt   = 50.5
 	speed = 5.4
 	fix   = 1
+	c     = make(chan []byte, 1024)
 )
 
 const (
 	testRoverName   = "testRover"
 	testStationName = "testStation"
+	testBoardName   = "board1"
+	testBusName     = "bus1"
+	testi2cAddr     = 44
 )
+
+func setupDependencies(t *testing.T) resource.Dependencies {
+	t.Helper()
+
+	deps := make(resource.Dependencies)
+
+	actualBoard := inject.NewBoard(testBoardName)
+	i2c1 := &inject.I2C{}
+	handle1 := &inject.I2CHandle{}
+	handle1.WriteFunc = func(ctx context.Context, b []byte) error {
+		return nil
+	}
+	handle1.ReadFunc = func(ctx context.Context, count int) ([]byte, error) {
+		return nil, nil
+	}
+	handle1.CloseFunc = func() error {
+		return nil
+	}
+	i2c1.OpenHandleFunc = func(addr byte) (board.I2CHandle, error) {
+		return handle1, nil
+	}
+	actualBoard.I2CByNameFunc = func(name string) (board.I2C, bool) {
+		return i2c1, true
+	}
+
+	deps[board.Named(testBoardName)] = actualBoard
+
+	conf := resource.Config{
+		Name:  "rtk-sensor1",
+		Model: resource.DefaultModelFamily.WithModel("gps-nmea"),
+		API:   movementsensor.API,
+	}
+
+	serialnmeaConf := &gpsnmea.Config{
+		ConnectionType: serialStr,
+		SerialConfig: &gpsnmea.SerialConfig{
+			SerialPath: "some-path",
+			TestChan:   c,
+		},
+	}
+
+	i2cnmeaConf := &gpsnmea.Config{
+		ConnectionType: i2cStr,
+		Board:          testBoardName,
+		I2CConfig: &gpsnmea.I2CConfig{
+			I2CBus:  testBusName,
+			I2cAddr: testi2cAddr,
+		},
+	}
+
+	logger := golog.NewTestLogger(t)
+	ctx := context.Background()
+
+	serialNMEA, _ := gpsnmea.NewSerialGPSNMEA(ctx, conf.ResourceName(), serialnmeaConf, logger)
+
+	conf.Name = "rtk-sensor2"
+	i2cNMEA, _ := gpsnmea.NewPmtkI2CGPSNMEA(ctx, deps, conf.ResourceName(), i2cnmeaConf, logger)
+
+	rtkSensor1 := &RTKMovementSensor{
+		Nmeamovementsensor: serialNMEA, InputProtocol: serialStr,
+	}
+
+	rtkSensor2 := &RTKMovementSensor{
+		Nmeamovementsensor: i2cNMEA, InputProtocol: i2cStr,
+	}
+
+	deps[movementsensor.Named("rtk-sensor1")] = rtkSensor1
+	deps[movementsensor.Named("rtk-sensor2")] = rtkSensor2
+
+	return deps
+}
 
 func setupInjectRobotWithGPS() *inject.Robot {
 	r := &inject.Robot{}
@@ -34,8 +111,6 @@ func setupInjectRobotWithGPS() *inject.Robot {
 		switch name {
 		case movementsensor.Named(testRoverName):
 			return &RTKMovementSensor{}, nil
-		case movementsensor.Named(testStationName):
-			return &rtkStation{}, nil
 		default:
 			return nil, resource.NewNotFoundError(name)
 		}
@@ -50,9 +125,6 @@ func TestModelTypeCreators(t *testing.T) {
 	r := setupInjectRobotWithGPS()
 	gps1, err := movementsensor.FromRobot(r, testRoverName)
 	test.That(t, gps1, test.ShouldResemble, &RTKMovementSensor{})
-	test.That(t, err, test.ShouldBeNil)
-	gps2, err := movementsensor.FromRobot(r, testStationName)
-	test.That(t, gps2, test.ShouldResemble, &rtkStation{})
 	test.That(t, err, test.ShouldBeNil)
 }
 
@@ -257,7 +329,7 @@ func TestReadingsRTK(t *testing.T) {
 		logger:     logger,
 	}
 
-	g.nmeamovementsensor = &fake.MovementSensor{}
+	g.Nmeamovementsensor = &fake.MovementSensor{}
 
 	status, err := g.NtripStatus()
 	test.That(t, err, test.ShouldBeNil)
@@ -287,7 +359,7 @@ func TestCloseRTK(t *testing.T) {
 		logger:      logger,
 		ntripClient: &NtripInfo{},
 	}
-	g.nmeamovementsensor = &fake.MovementSensor{}
+	g.Nmeamovementsensor = &fake.MovementSensor{}
 
 	err := g.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)

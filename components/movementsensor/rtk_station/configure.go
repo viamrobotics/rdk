@@ -125,47 +125,6 @@ func ConfigureBaseRTKStation(conf resource.Config) error {
 	return nil
 }
 
-// ConfigureRoverDefault sets up an RTK chip to act as a rover and receive correction data.
-func ConfigureRoverDefault(conf resource.Config) error {
-	newConf, err := resource.NativeConfig[*Config](conf)
-	if err != nil {
-		return err
-	}
-	correctionType := newConf.CorrectionSource
-
-	c := &configCommand{
-		correctionType: correctionType,
-		msgsToEnable:   nmeaMsgs, // defaults
-		msgsToDisable:  rtcmMsgs, // defaults
-	}
-
-	switch correctionType {
-	case serialStr:
-		err := c.serialConfigure(conf)
-		if err != nil {
-			return err
-		}
-	default:
-		return errors.Errorf("configuration not supported for %s", correctionType)
-	}
-
-	if err := c.enableAll(ubxNmeaMsb); err != nil {
-		return err
-	}
-
-	err = c.disableAll(ubxRtcmMsb)
-	if err != nil {
-		return err
-	}
-
-	err = c.disableSVIN()
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func (c *configCommand) serialConfigure(conf resource.Config) error {
 	newConf, err := resource.NativeConfig[*StationConfig](conf)
 	if err != nil {
@@ -286,19 +245,6 @@ func (c *configCommand) getSurveyMode() error {
 
 func (c *configCommand) enableSVIN() error {
 	err := c.setSurveyMode(svinModeEnable, c.requiredAcc, c.observationTime)
-	if err != nil {
-		return err
-	}
-
-	err = c.saveAllConfigs()
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (c *configCommand) disableSVIN() error {
-	err := c.setSurveyMode(svinModeDisable, 0, 0)
 	if err != nil {
 		return err
 	}

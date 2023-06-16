@@ -36,6 +36,12 @@ var (
 
 var roverModel = resource.DefaultModelFamily.WithModel("gps-rtk")
 
+const (
+	i2cStr    = "i2c"
+	serialStr = "serial"
+	ntripStr  = "ntrip"
+)
+
 // Config is used for converting NMEA MovementSensor with RTK capabilities config attributes.
 type Config struct {
 	CorrectionSource string `json:"correction_source"`
@@ -219,14 +225,14 @@ type RTKMovementSensor struct {
 
 	err movementsensor.LastError
 
-	nmeamovementsensor gpsnmea.NmeaMovementSensor
-	inputProtocol      string
-	correctionWriter   io.ReadWriteCloser
+	Nmeamovementsensor gpsnmea.NmeaMovementSensor
+	InputProtocol      string
+	CorrectionWriter   io.ReadWriteCloser
 
-	bus       board.I2C
-	wbaud     int
-	addr      byte // for i2c only
-	writepath string
+	Bus       board.I2C
+	Wbaud     int
+	Addr      byte // for i2c only
+	Writepath string
 }
 
 func newRTKMovementSensor(
@@ -250,9 +256,9 @@ func newRTKMovementSensor(
 	}
 
 	if newConf.CorrectionSource == ntripStr {
-		g.inputProtocol = strings.ToLower(newConf.NtripInputProtocol)
+		g.InputProtocol = strings.ToLower(newConf.NtripInputProtocol)
 	} else {
-		g.inputProtocol = newConf.CorrectionSource
+		g.InputProtocol = newConf.CorrectionSource
 	}
 
 	nmeaConf := &gpsnmea.Config{
@@ -265,7 +271,7 @@ func newRTKMovementSensor(
 	case serialStr:
 		var err error
 		nmeaConf.SerialConfig = (*gpsnmea.SerialConfig)(newConf.SerialConfig)
-		g.nmeamovementsensor, err = gpsnmea.NewSerialGPSNMEA(ctx, conf.ResourceName(), nmeaConf, logger)
+		g.Nmeamovementsensor, err = gpsnmea.NewSerialGPSNMEA(ctx, conf.ResourceName(), nmeaConf, logger)
 		if err != nil {
 			return nil, err
 		}
@@ -273,7 +279,7 @@ func newRTKMovementSensor(
 		var err error
 		nmeaConf.Board = newConf.I2CConfig.Board
 		nmeaConf.I2CConfig = &gpsnmea.I2CConfig{I2CBus: newConf.I2CBus, I2CBaudRate: newConf.I2CBaudRate, I2cAddr: newConf.I2cAddr}
-		g.nmeamovementsensor, err = gpsnmea.NewPmtkI2CGPSNMEA(ctx, deps, conf.ResourceName(), nmeaConf, logger)
+		g.Nmeamovementsensor, err = gpsnmea.NewPmtkI2CGPSNMEA(ctx, deps, conf.ResourceName(), nmeaConf, logger)
 		if err != nil {
 			return nil, err
 		}
@@ -293,19 +299,19 @@ func newRTKMovementSensor(
 		newConf.NtripBaud = 38400
 		g.logger.Info("ntrip_baud using default baud rate 38400")
 	}
-	g.wbaud = newConf.NtripBaud
+	g.Wbaud = newConf.NtripBaud
 
-	switch g.inputProtocol {
+	switch g.InputProtocol {
 	case serialStr:
 		switch newConf.NtripPath {
 		case "":
 			g.logger.Info("RTK will use the same serial path as the GPS data to write RCTM messages")
-			g.writepath = newConf.SerialPath
+			g.Writepath = newConf.SerialPath
 		default:
-			g.writepath = newConf.NtripPath
+			g.Writepath = newConf.NtripPath
 		}
 	case i2cStr:
-		g.addr = byte(newConf.I2cAddr)
+		g.Addr = byte(newConf.I2cAddr)
 
 		b, err := board.FromDependencies(deps, newConf.Board)
 		if err != nil {
@@ -320,7 +326,7 @@ func newRTKMovementSensor(
 		if !ok {
 			return nil, fmt.Errorf("gps init: failed to find i2c bus %s", newConf.I2CBus)
 		}
-		g.bus = i2cbus
+		g.Bus = i2cbus
 	}
 
 	if err := g.start(); err != nil {
@@ -333,11 +339,11 @@ func newRTKMovementSensor(
 func (g *RTKMovementSensor) start() error {
 	// TODO(RDK-1639): Test out what happens if we call this line and then the ReceiveAndWrite*
 	// correction data goes wrong. Could anything worse than uncorrected data occur?
-	if err := g.nmeamovementsensor.Start(g.cancelCtx); err != nil {
+	if err := g.Nmeamovementsensor.Start(g.cancelCtx); err != nil {
 		return err
 	}
 
-	switch g.inputProtocol {
+	switch g.InputProtocol {
 	case serialStr:
 		g.activeBackgroundWorkers.Add(1)
 		utils.PanicCapturingGo(g.receiveAndWriteSerial)
@@ -442,14 +448,14 @@ func (g *RTKMovementSensor) receiveAndWriteI2C(ctx context.Context) {
 	}
 
 	// establish I2C connection
-	handle, err := g.bus.OpenHandle(g.addr)
+	handle, err := g.Bus.OpenHandle(g.Addr)
 	if err != nil {
 		g.logger.Errorf("can't open gps i2c %s", err)
 		g.err.Set(err)
 		return
 	}
 	// Send GLL, RMC, VTG, GGA, GSA, and GSV sentences each 1000ms
-	baudcmd := fmt.Sprintf("PMTK251,%d", g.wbaud)
+	baudcmd := fmt.Sprintf("PMTK251,%d", g.Wbaud)
 	cmd251 := addChk([]byte(baudcmd))
 	cmd314 := addChk([]byte("PMTK314,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0"))
 	cmd220 := addChk([]byte("PMTK220,1000"))
@@ -514,7 +520,7 @@ func (g *RTKMovementSensor) receiveAndWriteI2C(ctx context.Context) {
 		}
 
 		// establish I2C connection
-		handle, err := g.bus.OpenHandle(g.addr)
+		handle, err := g.Bus.OpenHandle(g.Addr)
 		if err != nil {
 			g.logger.Errorf("can't open gps i2c %s", err)
 			g.err.Set(err)
@@ -588,8 +594,8 @@ func (g *RTKMovementSensor) receiveAndWriteSerial() {
 	}
 
 	options := slib.OpenOptions{
-		PortName:        g.writepath,
-		BaudRate:        uint(g.wbaud),
+		PortName:        g.Writepath,
+		BaudRate:        uint(g.Wbaud),
 		DataBits:        8,
 		StopBits:        1,
 		MinimumReadSize: 1,
@@ -601,7 +607,7 @@ func (g *RTKMovementSensor) receiveAndWriteSerial() {
 		g.ntripMu.Unlock()
 		return
 	}
-	g.correctionWriter, err = slib.Open(options)
+	g.CorrectionWriter, err = slib.Open(options)
 	g.ntripMu.Unlock()
 	if err != nil {
 		g.logger.Errorf("serial.Open: %v", err)
@@ -609,7 +615,7 @@ func (g *RTKMovementSensor) receiveAndWriteSerial() {
 		return
 	}
 
-	w := bufio.NewWriter(g.correctionWriter)
+	w := bufio.NewWriter(g.CorrectionWriter)
 
 	err = g.GetStream(g.ntripClient.MountPoint, g.ntripClient.MaxConnectAttempts)
 	if err != nil {
@@ -675,7 +681,7 @@ func (g *RTKMovementSensor) Position(ctx context.Context, extra map[string]inter
 	}
 	g.ntripMu.Unlock()
 
-	return g.nmeamovementsensor.Position(ctx, extra)
+	return g.Nmeamovementsensor.Position(ctx, extra)
 }
 
 // LinearVelocity passthrough.
@@ -688,7 +694,7 @@ func (g *RTKMovementSensor) LinearVelocity(ctx context.Context, extra map[string
 	}
 	g.ntripMu.Unlock()
 
-	return g.nmeamovementsensor.LinearVelocity(ctx, extra)
+	return g.Nmeamovementsensor.LinearVelocity(ctx, extra)
 }
 
 // LinearAcceleration passthrough.
@@ -697,7 +703,7 @@ func (g *RTKMovementSensor) LinearAcceleration(ctx context.Context, extra map[st
 	if lastError != nil {
 		return r3.Vector{}, lastError
 	}
-	return g.nmeamovementsensor.LinearAcceleration(ctx, extra)
+	return g.Nmeamovementsensor.LinearAcceleration(ctx, extra)
 }
 
 // AngularVelocity passthrough.
@@ -710,7 +716,7 @@ func (g *RTKMovementSensor) AngularVelocity(ctx context.Context, extra map[strin
 	}
 	g.ntripMu.Unlock()
 
-	return g.nmeamovementsensor.AngularVelocity(ctx, extra)
+	return g.Nmeamovementsensor.AngularVelocity(ctx, extra)
 }
 
 // CompassHeading passthrough.
@@ -723,7 +729,7 @@ func (g *RTKMovementSensor) CompassHeading(ctx context.Context, extra map[string
 	}
 	g.ntripMu.Unlock()
 
-	return g.nmeamovementsensor.CompassHeading(ctx, extra)
+	return g.Nmeamovementsensor.CompassHeading(ctx, extra)
 }
 
 // Orientation passthrough.
@@ -736,7 +742,7 @@ func (g *RTKMovementSensor) Orientation(ctx context.Context, extra map[string]in
 	}
 	g.ntripMu.Unlock()
 
-	return g.nmeamovementsensor.Orientation(ctx, extra)
+	return g.Nmeamovementsensor.Orientation(ctx, extra)
 }
 
 // ReadFix passthrough.
@@ -749,7 +755,7 @@ func (g *RTKMovementSensor) ReadFix(ctx context.Context) (int, error) {
 	}
 	g.ntripMu.Unlock()
 
-	return g.nmeamovementsensor.ReadFix(ctx)
+	return g.Nmeamovementsensor.ReadFix(ctx)
 }
 
 // Properties passthrough.
@@ -759,7 +765,7 @@ func (g *RTKMovementSensor) Properties(ctx context.Context, extra map[string]int
 		return &movementsensor.Properties{}, lastError
 	}
 
-	return g.nmeamovementsensor.Properties(ctx, extra)
+	return g.Nmeamovementsensor.Properties(ctx, extra)
 }
 
 // Accuracy passthrough.
@@ -769,7 +775,7 @@ func (g *RTKMovementSensor) Accuracy(ctx context.Context, extra map[string]inter
 		return map[string]float32{}, lastError
 	}
 
-	return g.nmeamovementsensor.Accuracy(ctx, extra)
+	return g.Nmeamovementsensor.Accuracy(ctx, extra)
 }
 
 // Readings will use the default MovementSensor Readings if not provided.
@@ -794,18 +800,18 @@ func (g *RTKMovementSensor) Close(ctx context.Context) error {
 	g.ntripMu.Lock()
 	g.cancelFunc()
 
-	if err := g.nmeamovementsensor.Close(ctx); err != nil {
+	if err := g.Nmeamovementsensor.Close(ctx); err != nil {
 		g.ntripMu.Unlock()
 		return err
 	}
 
 	// close ntrip writer
-	if g.correctionWriter != nil {
-		if err := g.correctionWriter.Close(); err != nil {
+	if g.CorrectionWriter != nil {
+		if err := g.CorrectionWriter.Close(); err != nil {
 			g.ntripMu.Unlock()
 			return err
 		}
-		g.correctionWriter = nil
+		g.CorrectionWriter = nil
 	}
 
 	// close ntrip client and stream
@@ -829,4 +835,23 @@ func (g *RTKMovementSensor) Close(ctx context.Context) error {
 		return err
 	}
 	return nil
+}
+
+// TODO: move these to utils
+// PMTK checksums commands by XORing together each byte.
+func addChk(data []byte) []byte {
+	chk := checksum(data)
+	newCmd := []byte("$")
+	newCmd = append(newCmd, data...)
+	newCmd = append(newCmd, []byte("*")...)
+	newCmd = append(newCmd, chk)
+	return newCmd
+}
+
+func checksum(data []byte) byte {
+	var chk byte
+	for _, b := range data {
+		chk ^= b
+	}
+	return chk
 }
