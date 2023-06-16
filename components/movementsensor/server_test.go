@@ -59,7 +59,7 @@ func TestServer(t *testing.T) {
 
 		_, err = gpsServer.GetPosition(context.Background(), &pb.GetPositionRequest{Name: missingMovementSensorName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err, test.ShouldBeError, errLocation)
+		test.That(t, resource.IsNotFoundError(err), test.ShouldBeTrue)
 	})
 
 	t.Run("GetLinearVelocity", func(t *testing.T) {
