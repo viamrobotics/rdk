@@ -27,7 +27,7 @@ jobs:
     - name: Add + Commit + Open PR
       uses: peter-evans/create-pull-request@v3
       with:
-        commit-message: '[WORKFLOW] Updating remote-control from ${{ github.event.client_payload.repo_name }}, commit: ${{ github.event.client_payload.sha }}'
+        commit-message: '[WORKFLOW] Updating remote-control'
         branch: 'workflow/bump-remote-control'
         delete-branch: true
         base: main
