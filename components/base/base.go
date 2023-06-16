@@ -49,13 +49,15 @@ type Base interface {
 
 	// Spin spins the robot by a given angle in degrees at a given speed.
 	// If a speed of 0 the base will stop.
-	// Given a positive speed and a positive angle, the base turns to the left.
+	// Given a positive speed and a positive angle, the base turns to the left (for built-in RDK drivers)
 	// This method blocks until completed or cancelled
 	Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error
 
+	// For linear power, positive Y moves forwards for built-in RDK drivers
+	// For angular power, positive Z turns to the left for built-in RDK drivers
 	SetPower(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error
 
-	// linear is in mmPerSec (positive Y moves forwards)
+	// linear is in mmPerSec (positive Y moves forwards for built-in RDK drivers)
 	// angular is in degsPerSec (positive Z turns to the left for built-in RDK drivers)
 	SetVelocity(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error
 
