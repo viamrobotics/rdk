@@ -54,6 +54,7 @@ func TestCrop(t *testing.T) {
 	test.That(t, out.Bounds().Dx(), test.ShouldEqual, 128)
 	test.That(t, out.Bounds().Dy(), test.ShouldEqual, 72)
 
+	// crop within bounds
 	rs, stream, err = newCropTransform(context.Background(), source, camera.ColorStream, am)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, stream, test.ShouldEqual, camera.ColorStream)
@@ -63,13 +64,39 @@ func TestCrop(t *testing.T) {
 	test.That(t, out.Bounds().Dy(), test.ShouldEqual, 10)
 	test.That(t, out, test.ShouldHaveSameTypeAs, &image.NRGBA{})
 	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
-	test.That(t, source.Close(context.Background()), test.ShouldBeNil)
+	// crop has limits bigger than the image dimensions, but just takes the window
+	am = utils.AttributeMap{"x_min_px": 127, "x_max_px": 150, "y_min_px": 71, "y_max_px": 110}
+	rs, stream, err = newCropTransform(context.Background(), source, camera.ColorStream, am)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, stream, test.ShouldEqual, camera.ColorStream)
+	out, _, err = camera.ReadImage(context.Background(), rs)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, out.Bounds().Dx(), test.ShouldEqual, 1)
+	test.That(t, out.Bounds().Dy(), test.ShouldEqual, 1)
+	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
 
-	// test error
+	//  error - crop limits are outside of original image
+	am = utils.AttributeMap{"x_min_px": 1000, "x_max_px": 2000, "y_min_px": 300, "y_max_px": 400}
+	rs, stream, err = newCropTransform(context.Background(), source, camera.ColorStream, am)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, stream, test.ShouldEqual, camera.ColorStream)
+	_, _, err = camera.ReadImage(context.Background(), rs)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "cropped image to 0 pixels")
+	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
+	// error - empty attribute
 	am = utils.AttributeMap{}
 	_, _, err = newCropTransform(context.Background(), source, camera.ColorStream, am)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot crop image")
+	// error - negative attributes
+	am = utils.AttributeMap{"x_min_px": -4}
+	_, _, err = newCropTransform(context.Background(), source, camera.ColorStream, am)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "negative number")
+
+	// close the source
+	test.That(t, source.Close(context.Background()), test.ShouldBeNil)
 }
 
 func TestResizeColor(t *testing.T) {
