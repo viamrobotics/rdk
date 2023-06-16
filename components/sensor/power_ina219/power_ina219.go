@@ -221,5 +221,5 @@ func (d *ina219) Readings(ctx context.Context, extra map[string]interface{}) (ma
 		"volts": pm.Voltage,
 		"amps":  pm.Current,
 		"watts": pm.Power,
-	}, handle.Close()
+	}, nil
 }
