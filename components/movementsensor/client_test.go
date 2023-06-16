@@ -203,18 +203,23 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		_, _, err = client2.Position(context.Background(), make(map[string]interface{}))
+		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errLocation.Error())
 
 		_, err = client2.LinearVelocity(context.Background(), make(map[string]interface{}))
+		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errLinearVelocity.Error())
 
 		_, err = client2.LinearAcceleration(context.Background(), make(map[string]interface{}))
+		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errLinearAcceleration.Error())
 
 		_, err = client2.AngularVelocity(context.Background(), make(map[string]interface{}))
+		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errAngularVelocity.Error())
 
 		_, err = client2.(sensor.Sensor).Readings(context.Background(), make(map[string]interface{}))
+		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errLocation.Error())
 
 		test.That(t, client2.Close(context.Background()), test.ShouldBeNil)
