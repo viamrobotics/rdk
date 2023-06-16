@@ -369,12 +369,10 @@ const armCopyJoints = () => {
                     Joint {piece.joint}
                   </h4>
                   <v-button
-                    class='place-self-center'
                     label="--"
                     on:click={() => armJointInc(piece.joint, -10)}
                   />
                   <v-button
-                    class='place-self-center'
                     label="-"
                     on:click={() => armJointInc(piece.joint, -1)}
                   />
@@ -382,12 +380,10 @@ const armCopyJoints = () => {
                     {piece.jointValue.toFixed(2)}
                   </p>
                   <v-button
-                    class='place-self-center'
                     label="+"
                     on:click={() => armJointInc(piece.joint, 1)}
                   />
                   <v-button
-                    class='place-self-center'
                     label="++"
                     on:click={() => armJointInc(piece.joint, 10)}
                   />
