@@ -272,6 +272,7 @@ const armCopyJoints = () => {
             End position (mms)
             <v-button
               variant='icon'
+              tooltip='Copy to clipboard'
               icon='copy'
               on:click={armCopyPosition}
             />
@@ -335,6 +336,7 @@ const armCopyJoints = () => {
             Joints (degrees)
             <v-button
               variant='icon'
+              tooltip='Copy to clipboard'
               icon='copy'
               on:click={armCopyJoints}
             />
