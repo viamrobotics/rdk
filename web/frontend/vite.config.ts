@@ -1,5 +1,3 @@
-import vue from '@vitejs/plugin-vue';
-import reactivityTransform from '@vue-macros/reactivity-transform/dist/vite';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import Hashes from 'jshashes';
 import { defineConfig } from 'vite';
@@ -9,15 +7,6 @@ import url from 'node:url';
 const MD5 = new Hashes.MD5();
 
 export const plugins = [
-  vue({
-    template: {
-      compilerOptions: {
-        // treat all tags with a dash as custom elements
-        isCustomElement: (tag) => tag.includes('-'),
-      },
-    },
-  }),
-  reactivityTransform(),
   svelte(),
 ];
 

@@ -2,7 +2,7 @@ import type { Config } from 'tailwindcss';
 
 export default {
   content: [
-    './src/**/*.{html,vue,svelte,js,ts}',
+    './src/**/*.{html,svelte,js,ts}',
     './node_modules/@viamrobotics/prime/dist/prime.js',
   ],
   theme: {
