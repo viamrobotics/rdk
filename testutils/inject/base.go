@@ -93,7 +93,7 @@ func (b *Base) SetPower(ctx context.Context, linear, angular r3.Vector, extra ma
 	return b.SetPowerFunc(ctx, linear, angular, extra)
 }
 
-// SetVelocty calls the injected SetVelocity or the real version
+// SetVelocty calls the injected SetVelocity or the real version.
 func (b *Base) SetVelocity(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
 	if b.SetVelocityFunc == nil {
 		return b.Base.SetVelocity(ctx, linear, angular, extra)
