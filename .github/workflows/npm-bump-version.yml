@@ -1,4 +1,4 @@
-name: Bump Remote Control NPM
+name: Bump remote-control Version
 
 concurrency: 
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -9,24 +9,20 @@ on:
       sdk_version:
         required: false
         type: string
-        default: rc
+        default: "rc"
         description: "Typescript SDK Version. Default: rc"
-  push:
-    branches: [ bumpworkflow ]
 
 jobs:
   bump:
     name: Bump remote-control Version
     runs-on: [ubuntu-latest]
-    # container:
-    #   image: ghcr.io/viamrobotics/canon:amd64
     steps:
     - name: Check out code
       uses: actions/checkout@v3
     - name: Bump Version
       run: |
         cd web/frontend
-        npm install --save --save-exact @viamrobotics/sdk@rc # ${{ inputs.sdk_version }}
+        npm install --save --save-exact @viamrobotics/sdk@${{ inputs.sdk_version }}
         npm version patch
     - name: Add + Commit + Open PR
       uses: peter-evans/create-pull-request@v3
