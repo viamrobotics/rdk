@@ -87,6 +87,7 @@ func (b *Base) Properties(ctx context.Context, extra map[string]interface{}) (ba
 	}, nil
 }
 
+// Geometries returns the geometries associated with the fake base.
 func (b *Base) Geometries(ctx context.Context) ([]spatialmath.Geometry, error) {
 	return b.Geometry, nil
 }

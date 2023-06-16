@@ -157,6 +157,7 @@ func NewGeometryFromProto(geometry *commonpb.Geometry) (Geometry, error) {
 	return nil, ErrGeometryTypeUnsupported
 }
 
+// NewGeometriesFromProto converts a list of Geometries from protobuf.
 func NewGeometriesFromProto(proto []*commonpb.Geometry) ([]Geometry, error) {
 	geometries := []Geometry{}
 	for _, geometry := range proto {
@@ -169,6 +170,7 @@ func NewGeometriesFromProto(proto []*commonpb.Geometry) ([]Geometry, error) {
 	return geometries, nil
 }
 
+// NewGeometriesToProto converts a list of Geometries to profobuf.
 func NewGeometriesToProto(geometries []Geometry) []*commonpb.Geometry {
 	var proto []*commonpb.Geometry
 	for _, geometry := range geometries {

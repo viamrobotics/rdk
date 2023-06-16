@@ -1,9 +1,10 @@
+// Package kinematicbase contains wrappers that augment bases with information needed for higher level
+// control over the base
 package kinematicbase
 
 import (
 	"context"
 	"errors"
-	"fmt"
 	"math"
 
 	"github.com/golang/geo/r3"
@@ -35,7 +36,7 @@ type differentialDriveKinematics struct {
 	fs        referenceframe.FrameSystem
 }
 
-// WrapWithKinematics takes a wheeledBase component and adds a slam service to it
+// WrapWithDifferentialDriveKinematics takes a wheeledBase component and adds a slam service to it
 // It also adds kinematic model so that it can be controlled.
 func WrapWithDifferentialDriveKinematics(
 	ctx context.Context,
