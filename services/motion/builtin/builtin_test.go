@@ -277,7 +277,7 @@ func TestMoveOnGlobe(t *testing.T) {
 
 	t.Run("fail because of long wall", func(t *testing.T) {
 		boxPose := spatialmath.NewPoseFromPoint(r3.Vector{50, 0, 0})
-		boxDims := r3.Vector{2, 666666, 10}
+		boxDims := r3.Vector{2, 666, 10}
 		geometries, err := spatialmath.NewBox(boxPose, boxDims, "wall")
 		test.That(t, err, test.ShouldBeNil)
 		geoObstacle := spatialmath.NewGeoObstacle(geo.NewPoint(40.7, -73.98), []spatialmath.Geometry{geometries})

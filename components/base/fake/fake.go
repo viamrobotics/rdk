@@ -8,9 +8,7 @@ import (
 	"github.com/golang/geo/r3"
 
 	"go.viam.com/rdk/components/base"
-	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -37,10 +35,18 @@ type Base struct {
 
 // NewBase instantiates a new base of the fake model type.
 func NewBase(_ context.Context, _ resource.Dependencies, conf resource.Config, _ golog.Logger) (base.Base, error) {
-	// TODO(RSDK-3316): read the config to get the geometries and set them here
-	return &Base{
-		Named: conf.ResourceName().AsNamed(),
-	}, nil
+	b := &Base{
+		Named:    conf.ResourceName().AsNamed(),
+		Geometry: []spatialmath.Geometry{},
+	}
+	if conf.Frame != nil && conf.Frame.Geometry != nil {
+		geometry, err := conf.Frame.Geometry.ParseConfig()
+		if err != nil {
+			return nil, err
+		}
+		b.Geometry = []spatialmath.Geometry{geometry}
+	}
+	return b, nil
 }
 
 // MoveStraight does nothing.
@@ -90,47 +96,4 @@ func (b *Base) Properties(ctx context.Context, extra map[string]interface{}) (ba
 // Geometries returns the geometries associated with the fake base.
 func (b *Base) Geometries(ctx context.Context) ([]spatialmath.Geometry, error) {
 	return b.Geometry, nil
-}
-
-type KinematicBase struct {
-	*Base
-	model     referenceframe.Model
-	localizer motion.Localizer
-	inputs    []referenceframe.Input
-}
-
-// WrapWithKinematics creates a KinematicBase from the fake Base so that it satisfies the ModelFramer and InputEnabled interfaces.
-func (b *Base) WrapWithKinematics(
-	ctx context.Context,
-	localizer motion.Localizer,
-	limits []referenceframe.Limit,
-) (*KinematicBase, error) {
-	var geometry spatialmath.Geometry
-	if b.Geometry != nil {
-		geometry = b.Geometry[0]
-	}
-	model, err := referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits, geometry)
-	if err != nil {
-		return nil, err
-	}
-	return &KinematicBase{
-		Base:      b,
-		model:     model,
-		localizer: localizer,
-		inputs:    make([]referenceframe.Input, len(model.DoF())),
-	}, nil
-}
-
-func (kb *KinematicBase) ModelFrame() referenceframe.Model {
-	return kb.model
-}
-
-func (kb *KinematicBase) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	return kb.inputs, nil
-}
-
-func (kb *KinematicBase) GoToInputs(ctx context.Context, inputs []referenceframe.Input) error {
-	_, err := kb.model.Transform(inputs)
-	kb.inputs = inputs
-	return err
 }

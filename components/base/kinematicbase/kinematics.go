@@ -1,3 +1,5 @@
+// Package kinematicbase contains wrappers that augment bases with information needed for higher level
+// control over the base
 package kinematicbase
 
 import (
@@ -19,11 +21,6 @@ const (
 	defaultAngularVelocity  = 60  // degrees per second
 	defaultLinearVelocity   = 300 // mm per second
 )
-
-// KinematicWrappble is an interface for Bases that write their own kinematic drivers
-type KinematicWrappable interface {
-	WrapWithKinematics(context.Context, motion.Localizer, []referenceframe.Limit) (KinematicBase, error)
-}
 
 // KinematicBase is an interface for Bases that also satisfy the ModelFramer and InputEnabled interfaces.
 type KinematicBase interface {
