@@ -43,11 +43,11 @@ lint-go: tool-install
 	export pkgs="`go list -f '{{.Dir}}' ./... | grep -v /proto/`" && echo "$$pkgs" | xargs go vet -vettool=$(TOOL_BIN)/combined
 	GOGC=50 $(TOOL_BIN)/golangci-lint run -v --fix --config=./etc/.golangci.yaml
 
-lint-web: typecheck-web
+lint-web: check-web
 	npm run lint --prefix web/frontend
 
-typecheck-web:
-	npm run typecheck --prefix web/frontend
+check-web:
+	npm run check --prefix web/frontend
 
 cover: tool-install
 	PATH=$(PATH_WITH_TOOLS) ./etc/test.sh cover-with-race

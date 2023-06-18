@@ -1,8 +1,7 @@
 <script lang="ts">
   /* eslint-disable id-length */
   import { onDestroy } from 'svelte';
-
-  export type Keys = 'w' | 'a' | 's' | 'd';
+  import type { Keys } from './types';
 
   import {
     mdiArrowUp as w,

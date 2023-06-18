@@ -10,8 +10,11 @@ package wheeled
    Any motors can be used for the base motors (encoded, un-encoded, steppers, servos) as long as they update their position
    continuously (not limited to 0-360 or any other domain).
 
+   Adding a movementsensor that supports Orientation provides feedback to a Spin command to correct the heading. As of
+   June 2023, this feature is experimental.
+
    Configuring a base with a frame will create a kinematic base that can be used by Viam's motion service to plan paths
-   when a SLAM service is also present. This feature is experimental.
+   when a SLAM service is also present. As of June 2023 This feature is experimental.
    Example Config:
    {
      "name": "myBase",
@@ -59,6 +62,7 @@ type Config struct {
 	SpinSlipFactor       float64  `json:"spin_slip_factor,omitempty"`
 	Left                 []string `json:"left"`
 	Right                []string `json:"right"`
+	MovementSensor       []string `json:"movement_sensor,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -89,6 +93,10 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 	deps = append(deps, cfg.Left...)
 	deps = append(deps, cfg.Right...)
 
+	if len(cfg.MovementSensor) != 0 {
+		deps = append(deps, cfg.MovementSensor...)
+	}
+
 	return deps, nil
 }
 
@@ -98,7 +106,6 @@ func init() {
 
 type wheeledBase struct {
 	resource.Named
-	resource.AlwaysRebuild
 	widthMm              int
 	wheelCircumferenceMm int
 	spinSlipFactor       float64
@@ -234,6 +241,15 @@ func createWheeledBase(
 
 	if err := wb.Reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
+	}
+
+	if len(newConf.MovementSensor) != 0 {
+		sb := sensorBase{wBase: &wb, logger: logger, Named: conf.ResourceName().AsNamed()}
+
+		if err := sb.Reconfigure(ctx, deps, conf); err != nil {
+			return nil, err
+		}
+		return &sb, nil
 	}
 
 	return &wb, nil

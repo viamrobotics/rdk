@@ -4,21 +4,22 @@
     BaseClient,
     Client,
     type ServiceError,
-    commonApi,
     type ResponseStream,
     robotApi,
   } from '@viamrobotics/sdk';
-  import { filterResources } from '../../lib/resource';
+  import { filterSubtype } from '../../lib/resource';
   import { displayError } from '../../lib/error';
-  import KeyboardInput, { type Keys } from '../keyboard-input/index.svelte';
+  import KeyboardInput from '../keyboard-input/index.svelte';
+  import type { Keys } from '../keyboard-input/types';
   import Camera from '../camera/camera.svelte';
   import { rcLogConditionally } from '../../lib/log';
   import { selectedMap } from '../../lib/camera-state';
   import { clickOutside } from '../../lib/click-outside';
-  import type { StreamManager } from './camera/stream-manager';
+  import type { StreamManager } from '../camera/stream-manager';
+  import Collapse from '@/components/collapse.svelte';
+  import { components } from '@/stores/resources';
 
   export let name: string;
-  export let resources: commonApi.ResourceName.AsObject[];
   export let client: Client;
   export let streamManager: StreamManager;
   export let statusStream: ResponseStream<robotApi.StreamStatusResponse> | null;
@@ -67,12 +68,7 @@
 
   let isKeyboardActive = false;
 
-  $: filteredResources = filterResources(
-    resources,
-    'rdk',
-    'component',
-    'camera'
-  );
+  $: cameras = filterSubtype($components, 'camera');
 
   const resetDiscreteState = () => {
     movementMode = 'Straight';
@@ -85,16 +81,8 @@
     movementMode = mode;
   };
 
-  const setMovementType = (type: MovementTypes) => {
-    movementType = type;
-  };
-
   const setSpinType = (type: SpinTypes) => {
     spinType = type;
-  };
-
-  const setDirection = (dir: Directions) => {
-    direction = dir;
   };
 
   const stop = async () => {
@@ -207,24 +195,16 @@
     }
   };
 
-  const handleViewSelect = (viewMode: View) => {
-    selectedView = viewMode;
+  const handleViewSelect = (event: CustomEvent) => {
+    selectedView = event.detail.value;
 
     let liveCameras = 0;
-    for (const camera of filteredResources) {
+    for (const camera of cameras) {
       if (openCameras[camera.name]) {
         liveCameras += 1;
       }
     }
     disableViews = liveCameras > 1;
-  };
-
-  const handleTabSelect = (controlMode: Tabs) => {
-    selectedMode = controlMode;
-
-    if (controlMode === 'Discrete') {
-      resetDiscreteState();
-    }
   };
 
   const handleVisibilityChange = () => {
@@ -256,7 +236,7 @@
   const handleSwitch = (cameraName: string) => {
     openCameras[cameraName] = !openCameras[cameraName];
 
-    for (const camera of filteredResources) {
+    for (const camera of cameras) {
       if (openCameras[camera.name]) {
         disableRefresh = false;
         return;
@@ -265,13 +245,61 @@
     disableRefresh = true;
   };
 
+  const handleSelectMovementMode = (event: CustomEvent) => {
+    setMovementMode(event.detail.value);
+  };
+
+  const handleControlModeSelect = (event: CustomEvent) => {
+    selectedMode = event.detail.value;
+
+    if (selectedMode === 'Discrete') {
+      resetDiscreteState();
+    }
+  };
+
+  const handleSelectMovementType = (event: CustomEvent) => {
+    movementType = event.detail.value;
+  };
+
+  const handlePowerSlider = (event: CustomEvent) => {
+    power = event.detail.value;
+  };
+
+  const handleSetDirection = (event: CustomEvent) => {
+    direction = event.detail.value;
+  };
+
+  const handleSetSpeed = (event: CustomEvent) => {
+    speed = event.detail.value;
+  };
+
+  const handleSetIncrement = (event: CustomEvent) => {
+    increment = event.detail.value;
+  };
+
+  const handleSetSpinSpeed = (event: CustomEvent) => {
+    spinSpeed = event.detail.value;
+  };
+
+  const handleSetSpinType = (event: CustomEvent) => {
+    setSpinType(event.detail.value);
+  };
+
+  const handleSetRefreshFrequency = (event: CustomEvent) => {
+    refreshFrequency = event.detail.value;
+  };
+
+  const handleSetAngle = (event: CustomEvent) => {
+    angle = event.detail.value;
+  };
+
   onMount(() => {
     window.addEventListener('visibilitychange', handleVisibilityChange);
 
     // Safety measure for system prompts, etc.
     window.addEventListener('blur', handleOnBlur);
 
-    for (const camera of filteredResources) {
+    for (const camera of cameras) {
       openCameras[camera.name] = false;
     }
   });
@@ -284,12 +312,10 @@
   });
 </script>
 
-<div
-  use:clickOutside={() => {
-    isKeyboardActive = false;
-  }}
->
-  <v-collapse title={name} class="base">
+<div use:clickOutside={() => {
+  isKeyboardActive = false;
+}}>
+  <Collapse title={name}>
     <v-breadcrumbs slot="title" crumbs="base" />
 
     <v-button
@@ -309,9 +335,7 @@
           label="Control mode"
           options="Keyboard, Discrete"
           selected={selectedMode}
-          on:input={(event) => {
-            handleTabSelect(event.detail.value);
-          }}
+          on:input={handleControlModeSelect}
         />
 
         {#if selectedMode === 'Keyboard'}
@@ -331,9 +355,7 @@
               suffix="%"
               label="Power %"
               value={power}
-              on:input={(event) => {
-                power = event.detail.value;
-              }}
+              on:input={handlePowerSlider}
             />
           </div>
         {/if}
@@ -344,34 +366,26 @@
               label="Movement mode"
               options="Straight, Spin"
               selected={movementMode}
-              on:input={(event) => {
-                setMovementMode(event.detail.value);
-              }}
+              on:input={handleSelectMovementMode}
             />
             {#if movementMode === 'Straight'}
               <v-radio
                 label="Movement type"
                 options="Continuous, Discrete"
                 selected={movementType}
-                on:input={(event) => {
-                  setMovementType(event.detail.value);
-                }}
+                on:input={handleSelectMovementType}
               />
               <v-radio
                 label="Direction"
                 options="Forwards, Backwards"
                 selected={direction}
-                on:input={(event) => {
-                  setDirection(event.detail.value);
-                }}
+                on:input={handleSetDirection}
               />
               <v-input
                 type="number"
                 value={speed}
                 label="Speed (mm/sec)"
-                on:input={(event) => {
-                  speed = event.detail.value;
-                }}
+                on:input={handleSetSpeed}
               />
               <div
                 class="pointer-events-none"
@@ -382,9 +396,7 @@
                   value={increment}
                   readonly={movementType === 'Continuous'}
                   label="Distance (mm)"
-                  on:input={(event) => {
-                    increment = event.detail.value;
-                  }}
+                  on:input={handleSetIncrement}
                 />
               </div>
             {/if}
@@ -393,17 +405,13 @@
                 type="number"
                 value={spinSpeed}
                 label="Speed (deg/sec)"
-                on:input={(event) => {
-                  spinSpeed = event.detail.value;
-                }}
+                on:input={handleSetSpinSpeed}
               />
               <v-radio
                 label="Movement Type"
                 options="Clockwise, Counterclockwise"
                 selected={spinType}
-                on:input={(event) => {
-                  setSpinType(event.detail.value);
-                }}
+                on:input={handleSetSpinType}
               />
               <div>
                 <v-slider
@@ -413,9 +421,7 @@
                   suffix="°"
                   label="Angle"
                   value={angle}
-                  on:input={(event) => {
-                    angle = event.detail.value;
-                  }}
+                  on:input={handleSetAngle}
                 />
               </div>
             {/if}
@@ -437,14 +443,12 @@
           options="Stacked, Grid"
           selected={selectedView}
           disable={disableViews ? 'true' : 'false'}
-          on:input={(event) => {
-            handleViewSelect(event.detail.value);
-          }}
+          on:input={handleViewSelect}
         />
 
-        {#if filteredResources}
+        {#if cameras}
           <div class="flex flex-col gap-2">
-            {#each filteredResources as camera (camera.name)}
+            {#each cameras as camera (camera.name)}
               <v-switch
                 label={camera.name}
                 aria-label={`Refresh frequency for ${camera.name}`}
@@ -462,9 +466,7 @@
                 aria-label="Refresh frequency"
                 options={Object.keys(selectedMap).join(',')}
                 disabled={disableRefresh ? 'true' : 'false'}
-                on:input={(event) => {
-                  refreshFrequency = event.detail.value;
-                }}
+                on:input={handleSetRefreshFrequency}
               />
 
               <v-button
@@ -487,7 +489,7 @@
           : 'grid grid-cols-2 gap-4'}"
       >
         <!-- ******* CAMERAS *******  -->
-        {#each filteredResources as camera (`base ${camera.name}`)}
+        {#each cameras as camera (`base ${camera.name}`)}
           {#if openCameras[camera.name]}
             <Camera
               cameraName={camera.name}
@@ -502,5 +504,5 @@
         {/each}
       </div>
     </div>
-  </v-collapse>
+  </Collapse>
 </div>
