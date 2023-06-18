@@ -314,17 +314,17 @@ func (ms *builtIn) MoveOnGlobe(
 	if !ok {
 		return false, fmt.Errorf("cannot move base of type %T because it is not a Base", baseComponent)
 	}
-	kb, err := kinematicbase.WrapWithDifferentialDriveKinematics(ctx, b, localizer, limits)
+	var kb kinematicbase.KinematicBase
+	if kw, ok := b.(kinematicbase.KinematicWrappable); ok {
+		kb, err = kw.WrapWithKinematics(ctx, localizer, limits)
+	} else {
+		kb, err = kinematicbase.WrapWithDifferentialDriveKinematics(ctx, b, localizer, limits)
+	}
 	if err != nil {
 		return false, err
 	}
 
-	// get current position
-	inputs, err := kb.CurrentInputs(ctx)
-	if err != nil {
-		return false, err
-	}
-	inputMap := map[string][]referenceframe.Input{componentName.Name: inputs}
+	inputMap := map[string][]referenceframe.Input{componentName.Name: make([]referenceframe.Input, 3)}
 
 	// Add the kinematic wheeled base to the framesystem
 	if err := fs.AddFrame(kb.ModelFrame(), fs.World()); err != nil {

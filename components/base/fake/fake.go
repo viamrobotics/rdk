@@ -92,7 +92,7 @@ func (b *Base) Geometries(ctx context.Context) ([]spatialmath.Geometry, error) {
 	return b.Geometry, nil
 }
 
-type kinematicBase struct {
+type KinematicBase struct {
 	*Base
 	model     referenceframe.Model
 	localizer motion.Localizer
@@ -104,7 +104,7 @@ func (b *Base) WrapWithKinematics(
 	ctx context.Context,
 	localizer motion.Localizer,
 	limits []referenceframe.Limit,
-) (base.Base, error) {
+) (*KinematicBase, error) {
 	var geometry spatialmath.Geometry
 	if b.Geometry != nil {
 		geometry = b.Geometry[0]
@@ -113,7 +113,7 @@ func (b *Base) WrapWithKinematics(
 	if err != nil {
 		return nil, err
 	}
-	return &kinematicBase{
+	return &KinematicBase{
 		Base:      b,
 		model:     model,
 		localizer: localizer,
@@ -121,15 +121,15 @@ func (b *Base) WrapWithKinematics(
 	}, nil
 }
 
-func (kb *kinematicBase) ModelFrame() referenceframe.Model {
+func (kb *KinematicBase) ModelFrame() referenceframe.Model {
 	return kb.model
 }
 
-func (kb *kinematicBase) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
+func (kb *KinematicBase) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
 	return kb.inputs, nil
 }
 
-func (kb *kinematicBase) GoToInputs(ctx context.Context, inputs []referenceframe.Input) error {
+func (kb *KinematicBase) GoToInputs(ctx context.Context, inputs []referenceframe.Input) error {
 	_, err := kb.model.Transform(inputs)
 	kb.inputs = inputs
 	return err

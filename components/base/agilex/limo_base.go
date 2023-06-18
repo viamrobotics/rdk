@@ -15,13 +15,12 @@ import (
 	"github.com/jacobsa/go-serial/serial"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-	utils "go.viam.com/utils"
-
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/base/kinematicbase"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
+	utils "go.viam.com/utils"
 )
 
 // default port for limo serial comm.

@@ -40,8 +40,8 @@ func TestFakeBase(t *testing.T) {
 	kb, err := b.(*Base).WrapWithKinematics(ctx, localizer, limits)
 	test.That(t, err, test.ShouldBeNil)
 	expected := referenceframe.FloatsToInputs([]float64{10, 11, 0})
-	test.That(t, kb.(*kinematicBase).GoToInputs(ctx, expected), test.ShouldBeNil)
-	inputs, err := kb.(*kinematicBase).CurrentInputs(ctx)
+	test.That(t, kb.GoToInputs(ctx, expected), test.ShouldBeNil)
+	inputs, err := kb.CurrentInputs(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, inputs, test.ShouldResemble, expected)
 }
