@@ -104,7 +104,7 @@ func NewFrameSystem(name string, parts []*FrameSystemPart, additionalTransforms 
 		return nil, err
 	}
 
-	// Build the frame sytem from the parts
+	// Build the frame system from the parts
 	fs := NewEmptyFrameSystem(name)
 	for _, part := range sortedParts {
 		// make the frames from the configs

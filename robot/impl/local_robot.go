@@ -703,11 +703,10 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 					r.Logger().Errorw("failed to reconfigure internal service", "service", resName, "error", err)
 				}
 			case framesystem.InternalServiceName:
-
 				fsCfg, err := r.buildFrameSystemConfig(ctx)
 				if err != nil {
 					r.Logger().Errorw("failed to reconfigure internal service", "service", resName, "error", err)
-					continue
+					return
 				}
 				if err := res.Reconfigure(ctx, components, resource.Config{ConvertedAttributes: fsCfg}); err != nil {
 					r.Logger().Errorw("failed to reconfigure internal service", "service", resName, "error", err)
@@ -787,29 +786,25 @@ func (r *localRobot) buildFrameSystemConfig(ctx context.Context) (*framesystem.C
 	if err != nil {
 		return nil, err
 	}
-
 	return &framesystem.Config{PartConfigs: append(r.getLocalFrameSystemConfig(), remoteParts...)}, nil
 }
 
 // getLocalFrameSystemConfig collects and returns the physical parts of the robot that may have frame info,
 // excluding remote robots and services, etc from the robot's config.Config.
-func (r *localRobot) getLocalFrameSystemConfig(ctx context.Context) ([]*framesystem.FrameSystemPartConfig, error) {
-	cfg := r.Config(ctx)
-
+func (r *localRobot) getLocalFrameSystemConfig() []*framesystem.PartConfig {
+	cfg := r.Config()
 	parts := make([]*framesystem.PartConfig, 0, len(cfg.Components))
 	for _, component := range cfg.Components {
 		if component.Frame == nil { // no Frame means dont include in frame system.
 			continue
 		}
-
 		parts = append(parts, &framesystem.PartConfig{Name: component.Name, FrameConfig: component.Frame})
 	}
-	return parts, nil
+	return parts
 }
 
-func (r *localRobot) getRemoteFrameSystemConfig(ctx context.Context) ([]*framesystem.FrameSystemPartConfig, error) {
-	cfg := r.Config(ctx)
-
+func (r *localRobot) getRemoteFrameSystemConfig(ctx context.Context) ([]*framesystem.PartConfig, error) {
+	cfg := r.Config()
 	remoteParts := make([]*framesystem.PartConfig, 0)
 	for _, remoteCfg := range cfg.Remotes {
 		// build the frame system part that connects remote world to base world
@@ -818,18 +813,24 @@ func (r *localRobot) getRemoteFrameSystemConfig(ctx context.Context) ([]*framesy
 			continue
 		}
 		parentName := remoteCfg.Name + "_" + referenceframe.World
-		remoteParts = append(remoteParts, &framesystem.PartConfig{FrameConfig: remoteCfg.Frame.Rename(parentName)})
+		preprocessed, err := remoteCfg.Frame.Rename(parentName).ParseConfig()
+		if err != nil {
+			return nil, err
+		}
+		remoteParts = append(remoteParts, &framesystem.PartConfig{
+			PreprocessedPart: &referenceframe.FrameSystemPart{FrameConfig: preprocessed},
+		})
 
 		// get the parts from the remote itself
 		remote, ok := r.RemoteByName(remoteCfg.Name)
 		if !ok {
 			return nil, errors.Errorf("cannot find remote robot %q", remoteCfg.Name)
 		}
-		remoteFSParts, err := remote.FrameSystemConfig(ctx)
+		remoteFSParts, err := remote.FrameSystemParts(ctx)
 		if err != nil {
 			return nil, errors.Wrapf(err, "error from remote %q", remoteCfg.Name)
 		}
-		remoteParts = append(remoteParts, framesystem.ProcessRemoteFrameSystem(remoteFSParts, remoteCfg.Name, parentName)...)
+		remoteParts = append(remoteParts, framesystem.PrefixRemoteParts(remoteFSParts, remoteCfg.Name, parentName)...)
 	}
 	return remoteParts, nil
 }

@@ -75,14 +75,17 @@ func (svc *frameSystemService) Name() resource.Name {
 // Config is a slice of *config.FrameSystemPart.
 type Config struct {
 	resource.TriviallyValidateConfig
-	PartConfigs []*FrameSystemPartConfig
+	PartConfigs []*PartConfig
 }
 
-type FrameSystemPartConfig struct {
+// PartConfig is the structure that encodes all the information needed for a frame system part.
+// Only one of the two fields between FrameConfig and PreprossedPart should be non-nil as they each provide the same
+// information in different formats.
+type PartConfig struct {
 	Name        string
 	FrameConfig *referenceframe.LinkConfig
 
-	// Preprocessed is a field that if filled means that no further processing of the config is necessary
+	// PreprocessedPart is a field that if filled means that no further processing of the config is necessary
 	// This is efficient because parts that are returned from remotes should not have to be turned into configs only
 	// to be converted back into FrameSystemConfig once in the framesystem service
 	PreprocessedPart *referenceframe.FrameSystemPart
@@ -104,10 +107,10 @@ type frameSystemService struct {
 
 func (svc *frameSystemService) ConfigToParts(cfg *Config) (parts []*referenceframe.FrameSystemPart, err error) {
 	for _, component := range cfg.PartConfigs {
-		var part *referenceframe.FrameSystemPart
+		// remote parts will be preprocessed since their own frame system needed to parse them
 		if component.PreprocessedPart != nil {
-			part = component.PreprocessedPart
-		} else {
+			parts = append(parts, component.PreprocessedPart)
+		} else { // part is local to the robot and needs to be parsed
 			frame := component.FrameConfig
 			if frame.ID == "" {
 				frame = frame.Rename(component.Name)
@@ -120,13 +123,11 @@ func (svc *frameSystemService) ConfigToParts(cfg *Config) (parts []*referencefra
 			model, err := svc.extractModelFrameJSON(component.Name)
 			if err != nil && !errors.Is(err, referenceframe.ErrNoModelInformation) {
 				// When we have non-nil errors here, it is because the resource is not yet available.
-				// In this case, we will exclude it from the FS.
-				// When it becomes available, it will be included.
+				// In this case, we will exclude it from the FS and when it becomes available, it will be included.
 				continue
 			}
-			part = &referenceframe.FrameSystemPart{FrameConfig: link, ModelFrame: model}
+			parts = append(parts, &referenceframe.FrameSystemPart{FrameConfig: link, ModelFrame: model})
 		}
-		parts = append(parts, part)
 	}
 	return parts, nil
 }
@@ -317,8 +318,8 @@ func (svc *frameSystemService) TransformPointCloud(ctx context.Context, srcpc po
 }
 
 // PrefixRemoteParts applies prefixes to a list of FrameSystemConfig appropriate to the remote they originate from.
-func ProcessRemoteFrameSystem(parts []*referenceframe.FrameSystemPart, remoteName, remoteParent string) []*FrameSystemPartConfig {
-	partConfigs := make([]*FrameSystemPartConfig, 0, len(parts))
+func PrefixRemoteParts(parts []*referenceframe.FrameSystemPart, remoteName, remoteParent string) []*PartConfig {
+	partConfigs := make([]*PartConfig, 0, len(parts))
 	for _, part := range parts {
 		if part.FrameConfig.Parent() == referenceframe.World { // rename World of remote parts
 			part.FrameConfig.SetParent(remoteParent)
@@ -328,7 +329,7 @@ func ProcessRemoteFrameSystem(parts []*referenceframe.FrameSystemPart, remoteNam
 		if part.FrameConfig.Parent() != remoteParent {
 			part.FrameConfig.SetParent(remoteName + ":" + part.FrameConfig.Parent())
 		}
-		partConfigs = append(partConfigs, &FrameSystemPartConfig{PreprocessedPart: part})
+		partConfigs = append(partConfigs, &PartConfig{PreprocessedPart: part})
 	}
 	return partConfigs
 }
