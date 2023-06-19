@@ -53,7 +53,6 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/client"
-	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/robot/packages"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/shell"
@@ -1800,7 +1799,7 @@ func (rr *dummyRobot) ResourceByName(name resource.Name) (resource.Resource, err
 }
 
 // FrameSystemConfig returns a remote robot's FrameSystem Config.
-func (rr *dummyRobot) FrameSystemConfig(ctx context.Context) (*framesystem.Config, error) {
+func (rr *dummyRobot) FrameSystemConfig(ctx context.Context) ([]*referenceframe.FrameSystemPart, error) {
 	panic("change to return nil")
 }
 

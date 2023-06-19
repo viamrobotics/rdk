@@ -69,22 +69,31 @@ func makeFakeRobot(t *testing.T) resource.Dependencies {
 	}
 	base1 := &inject.Base{}
 
-	fsParts := []*referenceframe.FrameSystemPart{
+	fsParts := []*framesystem.FrameSystemPartConfig{
 		{
-			FrameConfig: referenceframe.NewLinkInFrame(referenceframe.World, spatialmath.NewZeroPose(), "base1", nil),
+			PreprocessedPart: &referenceframe.FrameSystemPart{
+				FrameConfig: referenceframe.NewLinkInFrame(referenceframe.World, spatialmath.NewZeroPose(), "base1", nil),
+			},
 		},
 		{
-			FrameConfig: referenceframe.NewLinkInFrame(
-				referenceframe.World,
-				spatialmath.NewPoseFromPoint(r3.Vector{100, 0, 0}),
-				"cam1",
-				nil),
+			PreprocessedPart: &referenceframe.FrameSystemPart{
+				FrameConfig: referenceframe.NewLinkInFrame(
+					referenceframe.World,
+					spatialmath.NewPoseFromPoint(r3.Vector{X: 100}),
+					"cam1",
+					nil,
+				),
+			},
 		},
 		{
-			FrameConfig: referenceframe.NewLinkInFrame("cam1", spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 100}), "cam2", nil),
+			PreprocessedPart: &referenceframe.FrameSystemPart{
+				FrameConfig: referenceframe.NewLinkInFrame("cam1", spatialmath.NewPoseFromPoint(r3.Vector{Z: 100}), "cam2", nil),
+			},
 		},
 		{
-			FrameConfig: referenceframe.NewLinkInFrame("cam2", spatialmath.NewPoseFromPoint(r3.Vector{0, 100, 0}), "cam3", nil),
+			PreprocessedPart: &referenceframe.FrameSystemPart{
+				FrameConfig: referenceframe.NewLinkInFrame("cam2", spatialmath.NewPoseFromPoint(r3.Vector{Y: 100}), "cam3", nil),
+			},
 		},
 	}
 	deps := make(resource.Dependencies)
@@ -94,7 +103,7 @@ func makeFakeRobot(t *testing.T) resource.Dependencies {
 	deps[base.Named("base1")] = base1
 	fsSvc, err := framesystem.New(context.Background(), resource.Dependencies{}, logger)
 	test.That(t, err, test.ShouldBeNil)
-	err = fsSvc.Reconfigure(context.Background(), deps, resource.Config{ConvertedAttributes: &framesystem.Config{Parts: fsParts}})
+	err = fsSvc.Reconfigure(context.Background(), deps, resource.Config{ConvertedAttributes: &framesystem.Config{PartConfigs: fsParts}})
 	test.That(t, err, test.ShouldBeNil)
 	deps[framesystem.InternalServiceName] = fsSvc
 	return deps
@@ -297,34 +306,36 @@ func makeFakeRobotICP(t *testing.T) resource.Dependencies {
 	o1 := &spatialmath.EulerAngles{Roll: 0, Pitch: 0.6, Yaw: 0}
 	o2 := &spatialmath.EulerAngles{Roll: 0, Pitch: 0.6, Yaw: -0.3}
 
-	fsParts := []*referenceframe.FrameSystemPart{
+	fsParts := []*framesystem.FrameSystemPartConfig{
 		{
-			FrameConfig: referenceframe.NewLinkInFrame(referenceframe.World, spatialmath.NewZeroPose(), "base1", nil),
+			PreprocessedPart: &referenceframe.FrameSystemPart{
+				FrameConfig: referenceframe.NewLinkInFrame(referenceframe.World, spatialmath.NewZeroPose(), "base1", nil),
+			},
 		},
 		{
-			FrameConfig: referenceframe.NewLinkInFrame(referenceframe.World, spatialmath.NewZeroPose(), "cam1", nil),
+			PreprocessedPart: &referenceframe.FrameSystemPart{
+				FrameConfig: referenceframe.NewLinkInFrame(referenceframe.World, spatialmath.NewZeroPose(), "cam1", nil),
+			},
 		},
 		{
-			FrameConfig: referenceframe.NewLinkInFrame("cam1", spatialmath.NewPoseFromPoint(r3.Vector{0, 0, -100}), "cam2", nil),
+			PreprocessedPart: &referenceframe.FrameSystemPart{
+				FrameConfig: referenceframe.NewLinkInFrame("cam1", spatialmath.NewPoseFromPoint(r3.Vector{0, 0, -100}), "cam2", nil),
+			},
 		},
 		{
-			FrameConfig: referenceframe.NewLinkInFrame(referenceframe.World, spatialmath.NewZeroPose(), "cam3", nil),
+			PreprocessedPart: &referenceframe.FrameSystemPart{
+				FrameConfig: referenceframe.NewLinkInFrame(referenceframe.World, spatialmath.NewZeroPose(), "cam3", nil),
+			},
 		},
 		{
-			FrameConfig: referenceframe.NewLinkInFrame(
-				"cam3",
-				spatialmath.NewPose(r3.Vector{-60, 0, -10}, o1),
-				"cam4",
-				nil,
-			),
+			PreprocessedPart: &referenceframe.FrameSystemPart{
+				FrameConfig: referenceframe.NewLinkInFrame("cam3", spatialmath.NewPose(r3.Vector{-60, 0, -10}, o1), "cam4", nil),
+			},
 		},
 		{
-			FrameConfig: referenceframe.NewLinkInFrame(
-				"cam4",
-				spatialmath.NewPose(r3.Vector{-60, 0, -10}, o2),
-				"cam5",
-				nil,
-			),
+			PreprocessedPart: &referenceframe.FrameSystemPart{
+				FrameConfig: referenceframe.NewLinkInFrame("cam4", spatialmath.NewPose(r3.Vector{-60, 0, -10}, o2), "cam5", nil),
+			},
 		},
 	}
 
@@ -337,7 +348,7 @@ func makeFakeRobotICP(t *testing.T) resource.Dependencies {
 	deps[base.Named("base1")] = base1
 	fsSvc, err := framesystem.New(context.Background(), resource.Dependencies{}, logger)
 	test.That(t, err, test.ShouldBeNil)
-	err = fsSvc.Reconfigure(context.Background(), deps, resource.Config{ConvertedAttributes: &framesystem.Config{Parts: fsParts}})
+	err = fsSvc.Reconfigure(context.Background(), deps, resource.Config{ConvertedAttributes: &framesystem.Config{PartConfigs: fsParts}})
 	test.That(t, err, test.ShouldBeNil)
 	deps[framesystem.InternalServiceName] = fsSvc
 	return deps

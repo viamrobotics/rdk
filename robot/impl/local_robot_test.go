@@ -19,6 +19,7 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -299,9 +300,9 @@ func TestConfigRemote(t *testing.T) {
 	// Components should only include local components.
 	test.That(t, len(cfg2.Components), test.ShouldEqual, 2)
 
-	fsConfig, err := r2.FrameSystemConfig(context.Background())
+	fsParts, err := r2.FrameSystemConfig(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, fsConfig.Parts, test.ShouldHaveLength, 12)
+	test.That(t, fsParts, test.ShouldHaveLength, 12)
 
 	test.That(t, r2.Close(context.Background()), test.ShouldBeNil)
 }
@@ -1222,8 +1223,8 @@ func TestStatusRemote(t *testing.T) {
 	statusCallCount := 0
 
 	// TODO: RSDK-882 will update this so that this is not necessary
-	frameSystemConfigFunc := func(ctx context.Context) (*framesystem.Config, error) {
-		return &framesystem.Config{Parts: []*referenceframe.FrameSystemPart{
+	frameSystemConfigFunc := func(ctx context.Context) ([]*referenceframe.FrameSystemPart, error) {
+		return []*referenceframe.FrameSystemPart{
 			{
 				FrameConfig: referenceframe.NewLinkInFrame(referenceframe.World, nil, "arm1", nil),
 				ModelFrame:  referenceframe.NewSimpleModel("arm1"),
@@ -1232,7 +1233,7 @@ func TestStatusRemote(t *testing.T) {
 				FrameConfig: referenceframe.NewLinkInFrame(referenceframe.World, nil, "arm2", nil),
 				ModelFrame:  referenceframe.NewSimpleModel("arm2"),
 			},
-		}}, nil
+		}, nil
 	}
 
 	injectRobot1 := &inject.Robot{
