@@ -243,14 +243,13 @@ func createWheeledBase(
 		return nil, err
 	}
 
-	// if len(newConf.MovementSensor) != 0 {
-	// 	sb := sensorBase{wBase: &wb, logger: logger, Named: conf.ResourceName().AsNamed()}
-
-	// 	if err := sb.Reconfigure(ctx, deps, conf); err != nil {
-	// 		return nil, err
-	// 	}
-	// 	return &sb, nil
-	// }
+	if len(newConf.MovementSensor) != 0 {
+		sb := sensorBase{wBase: &wb, logger: logger, Named: conf.ResourceName().AsNamed()}
+		if err := sb.Reconfigure(ctx, deps, conf); err != nil {
+			return nil, err
+		}
+		return &sb, nil
+	}
 
 	return &wb, nil
 }

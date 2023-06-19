@@ -15,6 +15,7 @@ import (
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
@@ -378,6 +379,10 @@ func (sb *sensorBase) IsMoving(ctx context.Context) (bool, error) {
 
 func (sb *sensorBase) Properties(ctx context.Context, extra map[string]interface{}) (base.Properties, error) {
 	return sb.wBase.Properties(ctx, extra)
+}
+
+func (sb *sensorBase) Geometries(ctx context.Context) ([]spatialmath.Geometry, error) {
+	return sb.wBase.Geometries(ctx)
 }
 
 func (sb *sensorBase) Close(ctx context.Context) error {
