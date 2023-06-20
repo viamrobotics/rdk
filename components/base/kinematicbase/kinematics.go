@@ -97,10 +97,39 @@ func (ddk *differentialDriveKinematics) CurrentInputs(ctx context.Context) ([]re
 func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired []referenceframe.Input) (err error) {
 	// this loop polls the error state and issues a corresponding command to move the base to the objective
 	// when the base is within the positional threshold of the goal, exit the loop
+	startingPos, err := ddk.CurrentInputs(ctx)
+	pt := r3.Vector{X: desired[0].Value - startingPos[0].Value, Y: desired[1].Value - startingPos[1].Value}
+	o := &spatialmath.R4AA{
+		Theta: math.Pi/2,
+		RX: 1,
+		RY: 0,
+		RZ: 0,
+	}
+
+	// rotate around z by heading of destination relative to starting
+	center := spatialmath.NewPose(pt, o)
+	deviationTolerance := 300.0 // mm
+	capsule, err := spatialmath.NewCapsule(
+		center, 
+		deviationTolerance, 
+		2*deviationTolerance + math.Sqrt(math.Pow(desired[0].Value - startingPos[0].Value, 2) + math.Pow(desired[1].Value - startingPos[1].Value, 2)),
+		"")
+	if err != nil {
+		return err
+	}
+
 	for err = ctx.Err(); err == nil; err = ctx.Err() {
 		current, err := ddk.CurrentInputs(ctx)
 		if err != nil {
 			return err
+		}
+
+		col, err := capsule.CollidesWith(spatialmath.NewPoint(r3.Vector{X: current[0].Value, Y: current[1].Value}, ""))
+		if err != nil {
+			return err
+		}
+		if !col {
+			return errors.New("base has deviated too far from path")
 		}
 
 		// get to the x, y location first - note that from the base's perspective +y is forward
