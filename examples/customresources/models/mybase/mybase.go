@@ -12,8 +12,10 @@ import (
 	"go.uber.org/multierr"
 
 	"go.viam.com/rdk/components/base"
+	"go.viam.com/rdk/components/base/kinematicbase"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
 )
 
 var (
@@ -61,6 +63,12 @@ func (base *MyBase) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		return errors.Wrapf(err, "unable to get motor %v for mybase", baseConfig.RightMotor)
 	}
 
+	geometries, err := kinematicbase.CollisionGeometry(conf.Frame)
+	if err != nil {
+		base.logger.Warnf("base %v %s", base.Name(), err.Error())
+	}
+	base.geometries = geometries
+
 	// Good practice to stop motors, but also this effectively tests https://viam.atlassian.net/browse/RSDK-2496
 	return multierr.Combine(base.left.Stop(context.Background(), nil), base.right.Stop(context.Background(), nil))
 }
@@ -87,9 +95,10 @@ func (cfg *MyBaseConfig) Validate(path string) ([]string, error) {
 
 type MyBase struct {
 	resource.Named
-	left   motor.Motor
-	right  motor.Motor
-	logger golog.Logger
+	left       motor.Motor
+	right      motor.Motor
+	logger     golog.Logger
+	geometries []spatialmath.Geometry
 }
 
 func (myBase *MyBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error {
@@ -140,6 +149,10 @@ func (myBase *MyBase) Properties(ctx context.Context, extra map[string]interface
 		TurningRadiusMeters: myBaseTurningRadiusM,
 		WidthMeters:         myBaseWidthMm * 0.001, // converting millimeters to meters
 	}, nil
+}
+
+func (myBase *MyBase) Geometries(ctx context.Context) ([]spatialmath.Geometry, error) {
+	return myBase.geometries, nil
 }
 
 func (myBase *MyBase) Close(ctx context.Context) error {

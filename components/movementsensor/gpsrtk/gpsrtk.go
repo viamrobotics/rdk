@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"strings"
 	"sync"
 
@@ -223,7 +224,8 @@ type RTKMovementSensor struct {
 	ntripClient *NtripInfo
 	ntripStatus bool
 
-	err movementsensor.LastError
+	err          movementsensor.LastError
+	lastposition movementsensor.LastPosition
 
 	Nmeamovementsensor gpsnmea.NmeaMovementSensor
 	InputProtocol      string
@@ -248,11 +250,12 @@ func newRTKMovementSensor(
 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	g := &RTKMovementSensor{
-		Named:      conf.ResourceName().AsNamed(),
-		cancelCtx:  cancelCtx,
-		cancelFunc: cancelFunc,
-		logger:     logger,
-		err:        movementsensor.NewLastError(1, 1),
+		Named:        conf.ResourceName().AsNamed(),
+		cancelCtx:    cancelCtx,
+		cancelFunc:   cancelFunc,
+		logger:       logger,
+		err:          movementsensor.NewLastError(1, 1),
+		lastposition: movementsensor.NewLastPosition(),
 	}
 
 	if newConf.CorrectionSource == ntripStr {
@@ -340,6 +343,7 @@ func (g *RTKMovementSensor) start() error {
 	// TODO(RDK-1639): Test out what happens if we call this line and then the ReceiveAndWrite*
 	// correction data goes wrong. Could anything worse than uncorrected data occur?
 	if err := g.Nmeamovementsensor.Start(g.cancelCtx); err != nil {
+		g.lastposition.GetLastPosition()
 		return err
 	}
 
@@ -676,12 +680,39 @@ func (g *RTKMovementSensor) Position(ctx context.Context, extra map[string]inter
 	g.ntripMu.Lock()
 	lastError := g.err.Get()
 	if lastError != nil {
-		defer g.ntripMu.Unlock()
-		return geo.NewPoint(0, 0), 0, lastError
+		lastPosition := g.lastposition.GetLastPosition()
+		g.ntripMu.Unlock()
+		if lastPosition != nil {
+			return lastPosition, 0, nil
+		}
+		return geo.NewPoint(math.NaN(), math.NaN()), math.NaN(), lastError
 	}
 	g.ntripMu.Unlock()
 
-	return g.Nmeamovementsensor.Position(ctx, extra)
+	position, alt, err := g.Nmeamovementsensor.Position(ctx, extra)
+	if err != nil {
+		// Use the last known valid position if current position is (0,0)/ NaN.
+		if position != nil && (g.lastposition.IsZeroPosition(position) || g.lastposition.IsPositionNaN(position)) {
+			lastPosition := g.lastposition.GetLastPosition()
+			if lastPosition != nil {
+				return lastPosition, alt, nil
+			}
+		}
+		return geo.NewPoint(math.NaN(), math.NaN()), math.NaN(), err
+	}
+
+	// Check if the current position is different from the last position and non-zero
+	lastPosition := g.lastposition.GetLastPosition()
+	if !g.lastposition.ArePointsEqual(position, lastPosition) {
+		g.lastposition.SetLastPosition(position)
+	}
+
+	// Update the last known valid position if the current position is non-zero
+	if position != nil && !g.lastposition.IsZeroPosition(position) {
+		g.lastposition.SetLastPosition(position)
+	}
+
+	return position, alt, nil
 }
 
 // LinearVelocity passthrough.

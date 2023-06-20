@@ -10,8 +10,12 @@ const motorPosFormat = new Intl.NumberFormat(undefined, {
 });
 
 export let name: string;
-export let status: motorApi.Status.AsObject;
 export let client: Client;
+export let status: undefined | {
+  is_powered?: boolean
+  position?: number
+  is_moving?: boolean
+};
 
 type MovementTypes = 'go' | 'goFor' | 'goTo';
 
@@ -144,11 +148,11 @@ const handleToggle = async (event: CustomEvent<{ open: boolean }>) => {
   <v-breadcrumbs crumbs="motor" slot="title" />
   <div class="flex items-center justify-between gap-2" slot="header">
     {#if properties?.positionReporting}
-      <v-badge label="Position {motorPosFormat.format(status.position)}" />
+      <v-badge label="Position {motorPosFormat.format(status?.position ?? 0)}" />
     {/if}
-    {#if status.isPowered}
+    {#if status?.is_powered}
       <v-badge variant="green" label="Running" />
-    {:else if !status.isPowered}
+    {:else}
       <v-badge variant="gray" label="Idle" />
     {/if}
     <v-button

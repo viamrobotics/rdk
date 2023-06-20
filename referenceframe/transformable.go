@@ -252,25 +252,17 @@ func NewGeometriesInFrame(frame string, geometries []spatialmath.Geometry) *Geom
 
 // GeometriesInFrameToProtobuf converts a GeometriesInFrame struct to a GeometriesInFrame message as specified in common.proto.
 func GeometriesInFrameToProtobuf(framedGeometries *GeometriesInFrame) *commonpb.GeometriesInFrame {
-	var geometries []*commonpb.Geometry
-	for _, geometry := range framedGeometries.geometries {
-		geometries = append(geometries, geometry.ToProtobuf())
-	}
 	return &commonpb.GeometriesInFrame{
 		ReferenceFrame: framedGeometries.frame,
-		Geometries:     geometries,
+		Geometries:     spatialmath.NewGeometriesToProto(framedGeometries.Geometries()),
 	}
 }
 
 // ProtobufToGeometriesInFrame converts a GeometriesInFrame message as specified in common.proto to a GeometriesInFrame struct.
 func ProtobufToGeometriesInFrame(proto *commonpb.GeometriesInFrame) (*GeometriesInFrame, error) {
-	geometries := []spatialmath.Geometry{}
-	for _, geometry := range proto.GetGeometries() {
-		g, err := spatialmath.NewGeometryFromProto(geometry)
-		if err != nil {
-			return nil, err
-		}
-		geometries = append(geometries, g)
+	geometries, err := spatialmath.NewGeometriesFromProto(proto.GetGeometries())
+	if err != nil {
+		return nil, err
 	}
 	return NewGeometriesInFrame(proto.GetReferenceFrame(), geometries), nil
 }

@@ -2,18 +2,18 @@
 module.exports = {
   root: true,
   env: {
+    browser: true,
     es2021: true,
-    node: true,
   },
   parser: "@typescript-eslint/parser",
   parserOptions: {
     ecmaVersion: 'latest',
     sourceType: 'module',
     project: './tsconfig.json',
-    extraFileExtensions: ['.svelte', '.vue'],
+    extraFileExtensions: ['.svelte'],
+    tsconfigRootDir: __dirname,
   },
   plugins: [
-    'vue',
     '@typescript-eslint',
     'unicorn',
     'tailwindcss',
@@ -25,9 +25,6 @@ module.exports = {
     'eslint:all',
     'plugin:unicorn/recommended',
     'plugin:tailwindcss/recommended',
-    'plugin:vue/vue3-essential',
-    'plugin:vue/vue3-strongly-recommended',
-    'plugin:vue/vue3-recommended',
     'plugin:svelte/recommended',
     'plugin:svelte/prettier',
     'plugin:promise/recommended',
@@ -43,16 +40,10 @@ module.exports = {
       parserOptions: {
         parser: '@typescript-eslint/parser',
       },
-    }, {
-      files: ['*.vue'],
-      parser: 'vue-eslint-parser',
-      parserOptions: {
-        parser: '@typescript-eslint/parser',
-      },
     }
   ],
   settings: {
-    'import/extensions': ['.vue'],
+    'import/extensions': ['.svelte'],
     'import/parsers': {
       '@typescript-eslint/parser': ['.ts', '.js'],
     },
@@ -65,7 +56,7 @@ module.exports = {
         alias: {
           '@': './frontend/src',
         },
-        extensions: ['.ts', '.js', '.vue'],
+        extensions: ['.ts', '.js', '.svelte'],
       },
     },
   },
@@ -133,7 +124,6 @@ module.exports = {
     // Eventually we want to re-enable, so that people comment jira tickets instead of TODO.
     'no-warning-comments': 'off',
     'padded-blocks': 'off',
-    'vue/no-deprecated-slot-attribute': 'off',
     quotes: ['error', 'single', { avoidEscape: true }],
     semi: ['error', 'always'],
     'comma-dangle': [
@@ -147,12 +137,6 @@ module.exports = {
       },
     ],
 
-    /**
-     * Typescript catches these issues, and ESLint isn't smart enough to understand
-     * Vue's macros like 'defineProps()', so we'll turn these off for now
-     */
-    'no-undef': 'off',
-    'no-unused-vars': 'off',
     'quote-props': ['error', 'as-needed'],
     'no-console': process.env.NODE_ENV === 'production' ? 'error' : 'off',
     'no-debugger': process.env.NODE_ENV === 'production' ? 'error' : 'off',
@@ -182,12 +166,6 @@ module.exports = {
     'object-shorthand': ['error', 'properties'],
     'prefer-arrow-callback': 'error',
     'prefer-const': 'error',
-
-    // Vue
-    'vue/multi-word-component-names': 'off',
-    'vue/no-undef-components': ['error', { ignorePatterns: ['-'] }],
-    'vue/require-default-prop': 'off',
-    'vue/attribute-hyphenation': 'off',
 
     // Unicorn
     'unicorn/no-empty-file': 'off',
