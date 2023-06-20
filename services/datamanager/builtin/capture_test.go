@@ -149,7 +149,7 @@ func TestDataCaptureEnabled(t *testing.T) {
 
 			if !tc.initialServiceDisableStatus && !tc.initialCollectorDisableStatus {
 				waitForCaptureFilesToExceedNFiles(initCaptureDir, 0)
-				testFilesContainSensorData(t, initCaptureDir, nil)
+				testFilesContainSensorData(t, initCaptureDir)
 			} else {
 				initialCaptureFiles := getAllFileInfos(initCaptureDir)
 				test.That(t, len(initialCaptureFiles), test.ShouldEqual, 0)
@@ -182,7 +182,7 @@ func TestDataCaptureEnabled(t *testing.T) {
 
 			if !tc.newServiceDisableStatus && !tc.newCollectorDisableStatus {
 				waitForCaptureFilesToExceedNFiles(updatedCaptureDir, 0)
-				testFilesContainSensorData(t, updatedCaptureDir, nil)
+				testFilesContainSensorData(t, updatedCaptureDir)
 			} else {
 				updatedCaptureFiles := getAllFileInfos(updatedCaptureDir)
 				test.That(t, len(updatedCaptureFiles), test.ShouldEqual, 0)
@@ -225,7 +225,7 @@ func TestSwitchResource(t *testing.T) {
 	donePassingTime1 := passTime(passTimeCtx1, mockClock, captureInterval)
 
 	waitForCaptureFilesToExceedNFiles(captureDir, 0)
-	testFilesContainSensorData(t, captureDir, nil)
+	testFilesContainSensorData(t, captureDir)
 
 	cancelPassTime1()
 	<-donePassingTime1
@@ -247,7 +247,7 @@ func TestSwitchResource(t *testing.T) {
 	})
 	test.That(t, err, test.ShouldBeNil)
 
-	initialData, err := getSensorData(captureDir)
+	dataBeforeSwitch, err := getSensorData(captureDir)
 	test.That(t, err, test.ShouldBeNil)
 
 	passTimeCtx2, cancelPassTime2 := context.WithCancel(context.Background())
@@ -255,19 +255,28 @@ func TestSwitchResource(t *testing.T) {
 
 	// Test that sensor data is captured from the new collector.
 	waitForCaptureFilesToExceedNFiles(captureDir, len(getAllFileInfos(captureDir)))
-	testFilesContainSensorData(t, captureDir, func(t *testing.T, sd []*v1.SensorData) {
-		valueMap := map[float64]int{}
-		for _, d := range sd {
-			jmag := d.GetStruct().GetFields()["Number"].GetStructValue().GetFields()["Dual"].GetStructValue().GetFields()["Jmag"].GetNumberValue()
-			valueMap[jmag]++
-		}
-		// Each resource's mocked capture method outputs a different value. Assert that we see data captured by the initial arm1 resource as well as the changed resource.
-		test.That(t, len(valueMap), test.ShouldEqual, 2)
-		test.That(t, valueMap[float64(444)], test.ShouldBeGreaterThan, 0)
+	testFilesContainSensorData(t, captureDir)
 
-		// Assert that the initial arm1 resource isn't capturing any more data.
-		test.That(t, valueMap[float64(1)], test.ShouldEqual, len(initialData))
-	})
+	filePaths := getAllFilePaths(captureDir)
+	test.That(t, len(filePaths), test.ShouldEqual, 2)
+
+	initialData, err := datacapture.SensorDataFromFilePath(filePaths[0])
+	test.That(t, err, test.ShouldBeNil)
+	// Assert that the initial arm1 resource isn't capturing any more data.
+	test.That(t, len(initialData), test.ShouldEqual, len(dataBeforeSwitch))
+	for _, d := range initialData {
+		// Each resource's mocked capture method outputs a different value. Assert that we see the expected data captured by the initial arm1 resource.
+		test.That(t, d.GetStruct().GetFields()["Number"].GetStructValue().GetFields()["Dual"].GetStructValue().GetFields()["Jmag"].GetNumberValue(), test.ShouldEqual, float64(1))
+	}
+
+	newData, err := datacapture.SensorDataFromFilePath(filePaths[1])
+	test.That(t, err, test.ShouldBeNil)
+	// Assert that the updated arm1 resource is capturing data.
+	test.That(t, len(newData), test.ShouldBeGreaterThan, 0)
+	for _, d := range newData {
+		// Assert that we see the expected data captured by the updated arm1 resource.
+		test.That(t, d.GetStruct().GetFields()["Number"].GetStructValue().GetFields()["Dual"].GetStructValue().GetFields()["Jmag"].GetNumberValue(), test.ShouldEqual, float64(444))
+	}
 
 	cancelPassTime2()
 	<-donePassingTime2
@@ -313,8 +322,8 @@ func getSensorData(dir string) ([]*v1.SensorData, error) {
 	return sd, nil
 }
 
-// testFilesContainSensorData verifies that the files in `dir` contain sensor data, and calls `validateSensorData` on the data.
-func testFilesContainSensorData(t *testing.T, dir string, validateSensorData func(*testing.T, []*v1.SensorData)) {
+// testFilesContainSensorData verifies that the files in `dir` contain sensor data.
+func testFilesContainSensorData(t *testing.T, dir string) {
 	t.Helper()
 
 	sd, err := getSensorData(dir)
@@ -323,10 +332,6 @@ func testFilesContainSensorData(t *testing.T, dir string, validateSensorData fun
 	for _, d := range sd {
 		test.That(t, d.GetStruct(), test.ShouldNotBeNil)
 		test.That(t, d.GetMetadata(), test.ShouldNotBeNil)
-	}
-
-	if validateSensorData != nil {
-		validateSensorData(t, sd)
 	}
 }
 
