@@ -281,23 +281,20 @@ func (ms *builtIn) MoveOnGlobe(
 	if err != nil {
 		return false, err
 	}
+
+	// build maps of relevant components and inputs from initial inputs
+	fsInputs, _, err := ms.fsService.CurrentInputs(ctx)
+	if err != nil {
+		return false, err
+	}
+
 	localizerFrame := robotFS.Frame(movementSensorName.ShortName())
 	if localizerFrame != nil {
-		localizerParent, err := robotFS.Parent(localizerFrame)
+		tf, err := robotFS.Transform(fsInputs, &currentPIF, movementSensorName.Name)
 		if err != nil {
 			return false, err
 		}
-
-		relativeBasePose, err := localizerParent.Transform(localizerFrame.InputFromProtobuf(nil))
-		if err != nil {
-			return false, err
-		}
-
-		currentPosition = r3.Vector{
-			X: currentPosition.X - relativeBasePose.Point().X,
-			Y: currentPosition.Y - relativeBasePose.Point().Y,
-			Z: currentPosition.Z - relativeBasePose.Point().Z,
-		}
+		currentPosition = tf.(*referenceframe.PoseInFrame).Pose().Point()
 	}
 
 	// convert destination into spatialmath.Pose with respect to lat = 0 = lng
