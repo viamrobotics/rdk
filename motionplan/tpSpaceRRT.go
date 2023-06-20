@@ -116,7 +116,7 @@ func (mp *tpSpaceRRTMotionPlanner) plan(ctx context.Context,
 // Separating this allows other things to call rrtBackgroundRunner in parallel allowing the thread-agnostic Plan to be accessible.
 func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 	ctx context.Context,
-	_ []referenceframe.Input,
+	_ []referenceframe.Input, // TODO: this may be needed for smoothing
 	rrt *rrtParallelPlannerShared,
 ) {
 	defer close(rrt.solutionChan)
