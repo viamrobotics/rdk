@@ -443,6 +443,10 @@ func (ms *builtIn) planMoveOnMap(
 	if err != nil {
 		return nil, nil, err
 	}
+	collisionOctree, err := pointcloud.NewCollisionOctreeFromBasicOctree(octree, 60, 60.0)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	if extra == nil {
 		extra = make(map[string]interface{})
@@ -465,7 +469,7 @@ func (ms *builtIn) planMoveOnMap(
 	}
 
 	worldState, err := referenceframe.NewWorldState([]*referenceframe.GeometriesInFrame{
-		referenceframe.NewGeometriesInFrame(referenceframe.World, []spatialmath.Geometry{octree}),
+		referenceframe.NewGeometriesInFrame(referenceframe.World, []spatialmath.Geometry{collisionOctree}),
 	}, nil)
 
 	seedMap := map[string][]referenceframe.Input{f.Name(): inputs}
