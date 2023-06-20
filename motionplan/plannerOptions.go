@@ -39,6 +39,9 @@ const (
 	// default number of times to try to smooth the path.
 	defaultSmoothIter = 20
 
+	// default amount of closeness to get to the goal.
+	defaultGoalThreshold = defaultEpsilon * defaultEpsilon
+
 	// descriptions of constraints.
 	defaultLinearConstraintDesc         = "Constraint to follow linear path"
 	defaultPseudolinearConstraintDesc   = "Constraint to follow pseudolinear path, with tolerance scaled to path length"
@@ -78,6 +81,7 @@ func newBasicPlannerOptions() *plannerOptions {
 	opt.MinScore = defaultMinIkScore
 	opt.Resolution = defaultResolution
 	opt.Timeout = defaultTimeout
+	opt.GoalThreshold = defaultGoalThreshold
 
 	// Note the direct reference to a default here.
 	// This is due to a Go compiler issue where it will incorrectly refuse to compile with a circular reference error if this
@@ -121,6 +125,9 @@ type plannerOptions struct {
 
 	// Number of cpu cores to use
 	NumThreads int `json:"num_threads"`
+
+	// How close to get to the goal
+	GoalThreshold float64 `json:"goal_threshold"`
 
 	// DistanceFunc is the function that the planner will use to measure the degree of "closeness" between two states of the robot
 	DistanceFunc SegmentMetric

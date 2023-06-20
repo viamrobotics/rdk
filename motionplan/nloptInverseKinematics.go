@@ -43,7 +43,7 @@ type NloptIK struct {
 // CreateNloptIKSolver creates an nloptIK object that can perform gradient descent on metrics for Frames. The parameters are the Frame on
 // which Transform() will be called, a logger, and the number of iterations to run. If the iteration count is less than 1, it will be set
 // to the default of 5000.
-func CreateNloptIKSolver(mdl referenceframe.Frame, logger golog.Logger, iter int) (*NloptIK, error) {
+func CreateNloptIKSolver(mdl referenceframe.Frame, logger golog.Logger, iter int, solveEpsilon float64) (*NloptIK, error) {
 	ik := &NloptIK{logger: logger}
 
 	ik.model = mdl
@@ -51,7 +51,7 @@ func CreateNloptIKSolver(mdl referenceframe.Frame, logger golog.Logger, iter int
 	// How close we want to get to the goal
 	ik.epsilon = defaultEpsilon
 	// Stop optimizing when iterations change by less than this much
-	ik.solveEpsilon = math.Pow(ik.epsilon, 4)
+	ik.solveEpsilon = solveEpsilon
 	if iter < 1 {
 		// default value
 		iter = 5000
