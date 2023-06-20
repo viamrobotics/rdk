@@ -14,7 +14,7 @@ import (
 	"go.viam.com/rdk/session"
 )
 
-// NewSessionManager creates a new manager for holding sessions.
+// NewSessionManager creates a new manager for holding sessions. Edit this comment.
 func NewSessionManager(robot Robot, heartbeatWindow time.Duration) *SessionManager {
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	m := &SessionManager{
