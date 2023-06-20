@@ -79,7 +79,7 @@ type Config struct {
 }
 
 // PartConfig is the structure that encodes all the information needed for a frame system part.
-// Only one of the two fields between FrameConfig and PreprossedPart should be non-nil as they each provide the same
+// Only one of the two fields between FrameConfig and PreprocessedPart should be non-nil as they each provide the same
 // information in different formats.
 type PartConfig struct {
 	Name        string

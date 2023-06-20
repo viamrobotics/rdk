@@ -11,7 +11,7 @@
         {
             "name": "cameraOver",
             "type": "camera",
-            "model": "fake",
+            "model": "image_file",
             "attributes": {
                 "color": "artifact_data/vision/chess/board3.png",
                 "depth": "artifact_data/vision/chess/board3.dat.gz",

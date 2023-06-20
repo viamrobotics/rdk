@@ -774,7 +774,7 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 	}
 }
 
-// config returns the info of each individual part that makes up the frame system
+// FrameSystemParts returns the info of each individual part that makes up the frame system
 // The output of this function is to be sent over GRPC to the client, so the client
 // can build its frame system. requests the remote components from the remote's frame system service.
 func (r *localRobot) FrameSystemParts(ctx context.Context) ([]*referenceframe.FrameSystemPart, error) {
