@@ -6,7 +6,6 @@ package robotimpl
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -486,7 +485,7 @@ func newWithResources(
 	r.Reconfigure(ctx, cfg)
 
 	for name, res := range resources {
-		fmt.Printf("Adding node. Name: %v Res:% v\n", name, res)
+		// fmt.Printf("Adding node. Name: %v Res:% v\n", name, res)
 		if err := r.manager.resources.AddNode(
 			name, resource.NewConfiguredGraphNode(resource.Config{}, res, unknownModel)); err != nil {
 			return nil, err
