@@ -9,10 +9,8 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils"
 
-	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/components/movementsensor/fake"
-	gpsnmea "go.viam.com/rdk/components/movementsensor/gpsnmea"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -21,7 +19,6 @@ var (
 	alt   = 50.5
 	speed = 5.4
 	fix   = 1
-	c     = make(chan []byte, 1024)
 )
 
 const (
@@ -32,7 +29,8 @@ const (
 	testi2cAddr     = 44
 )
 
-func setupDependencies(t *testing.T) resource.Dependencies {
+// TODO: RSDK-3264, This needs to be cleaned up as we stablize gpsrtk
+/* func setupDependencies(t *testing.T) resource.Dependencies {
 	t.Helper()
 
 	deps := make(resource.Dependencies)
@@ -63,6 +61,8 @@ func setupDependencies(t *testing.T) resource.Dependencies {
 		Model: resource.DefaultModelFamily.WithModel("gps-nmea"),
 		API:   movementsensor.API,
 	}
+
+	c := make(chan []byte, 1024)
 
 	serialnmeaConf := &gpsnmea.Config{
 		ConnectionType: serialStr,
@@ -101,7 +101,7 @@ func setupDependencies(t *testing.T) resource.Dependencies {
 	deps[movementsensor.Named("rtk-sensor2")] = rtkSensor2
 
 	return deps
-}
+} */
 
 func setupInjectRobotWithGPS() *inject.Robot {
 	r := &inject.Robot{}
