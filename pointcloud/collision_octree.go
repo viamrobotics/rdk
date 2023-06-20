@@ -12,7 +12,7 @@ import (
 )
 
 // CollisionOctree is a data structure that represents a collision octree structure with a BasicOctree as its
-// backbone. CollisionOctree is for the specific case of using an octree to detect collisions during motion 
+// backbone. CollisionOctree is for the specific case of using an octree to detect collisions during motion
 // planning. confidenceThreshold defines the minimum value a point should have to be considered a collision.
 // buffer defines the maximum distance a point can be for it to be considered a collision.
 type CollisionOctree struct {
@@ -147,7 +147,6 @@ func (cOct *CollisionOctree) Transform(p spatialmath.Pose) spatialmath.Geometry 
 			confidenceThreshold: cOct.confidenceThreshold,
 			buffer:              cOct.buffer,
 		}
-
 	}
 	return transformedOctree
 }
