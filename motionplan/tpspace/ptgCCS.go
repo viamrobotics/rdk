@@ -7,7 +7,7 @@ import (
 )
 
 // ptgDiffDriveCCS defines a PTG family combining the CC and CS trajectories, essentially executing the CC trajectory
-// and.
+// followed by a straight line.
 type ptgDiffDriveCCS struct {
 	maxMps float64 // meters per second velocity to target
 	maxDps float64 // degrees per second of rotation when driving at maxMps and turning at max turning radius

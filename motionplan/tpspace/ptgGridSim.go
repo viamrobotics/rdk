@@ -11,6 +11,8 @@ var (
 	defaultDiffT         = 0.005
 	defaultMinDist       = 3.
 	defaultAlphaCnt uint = 121
+	
+	// TODO: this should be unnecessary
 	defaultTurnRad       = 100. // in mm, an approximate constant for estimating arc distances?
 
 	defaultSearchRadius = 10.
@@ -183,7 +185,7 @@ func (ptg *ptgGridSim) simulateTrajectories(simPtg PrecomputePTG) ([][]*TrajNode
 			phi += w * ptg.diffT
 			accumulatedHeadingChange += w * ptg.diffT
 
-			vInTPSpace := math.Sqrt(v*v + math.Pow(w*defaultTurnRad, 2))
+			vInTPSpace := math.Sqrt(v*v + math.Pow(w*ptg.turnRad, 2))
 
 			dist += vInTPSpace * ptg.diffT
 			t += ptg.diffT
