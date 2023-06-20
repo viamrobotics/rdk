@@ -2,8 +2,10 @@ package motionplan
 
 import (
 	"context"
+	"math"
 
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/spatialmath"
 )
 
 const (
@@ -56,7 +58,7 @@ func (plan *rrtPlanReturn) err() error {
 type rrtMaps struct {
 	startMap rrtMap
 	goalMap  rrtMap
-	optNode  *costNode // The highest quality IK solution
+	optNode  node // The highest quality IK solution
 }
 
 // initRRTsolutions will create the maps to be used by a RRT-based algorithm. It will generate IK solutions to pre-populate the goal
@@ -68,7 +70,7 @@ func initRRTSolutions(ctx context.Context, mp motionPlanner, seed []referencefra
 			goalMap:  map[node]node{},
 		},
 	}
-	seedNode := newCostNode(seed, 0)
+	seedNode := &basicNode{q: seed, cost: 0}
 	rrt.maps.startMap[seedNode] = nil
 
 	// get many potential end goals from IK solver
@@ -80,7 +82,7 @@ func initRRTSolutions(ctx context.Context, mp motionPlanner, seed []referencefra
 
 	// the smallest interpolated distance between the start and end input represents a lower bound on cost
 	optimalCost := mp.opt().DistanceFunc(&Segment{StartConfiguration: seed, EndConfiguration: solutions[0].Q()})
-	rrt.maps.optNode = newCostNode(solutions[0].Q(), optimalCost)
+	rrt.maps.optNode = &basicNode{q: solutions[0].Q(), cost: optimalCost}
 
 	// Check for direct interpolation for the subset of IK solutions within some multiple of optimal
 	// Since solutions are returned ordered, we check until one is out of bounds, then skip remaining checks
@@ -98,7 +100,7 @@ func initRRTSolutions(ctx context.Context, mp motionPlanner, seed []referencefra
 				canInterp = false
 			}
 		}
-		rrt.maps.goalMap[newCostNode(solution.Q(), 0)] = nil
+		rrt.maps.goalMap[&basicNode{q: solution.Q(), cost: 0}] = nil
 	}
 	return rrt
 }
@@ -119,26 +121,43 @@ func shortestPath(maps *rrtMaps, nodePairs []*nodePair) *rrtPlanReturn {
 }
 
 // node interface is used to wrap a configuration for planning purposes.
+// TODO: This is somewhat redundant with a State.
 type node interface {
 	// return the configuration associated with the node
 	Q() []referenceframe.Input
+	Cost() float64
+	SetCost(float64)
+	Pose() spatialmath.Pose
 }
 
 type basicNode struct {
-	q []referenceframe.Input
+	q    []referenceframe.Input
+	cost float64
+	pose spatialmath.Pose
+}
+
+// Special case constructors for nodes without costs to return NaN.
+func newConfigurationNode(q []referenceframe.Input) node {
+	return &basicNode{
+		q:    q,
+		cost: math.NaN(),
+	}
 }
 
 func (n *basicNode) Q() []referenceframe.Input {
 	return n.q
 }
 
-type costNode struct {
-	node
-	cost float64
+func (n *basicNode) Cost() float64 {
+	return n.cost
 }
 
-func newCostNode(q []referenceframe.Input, cost float64) *costNode {
-	return &costNode{&basicNode{q: q}, cost}
+func (n *basicNode) SetCost(cost float64) {
+	n.cost = cost
+}
+
+func (n *basicNode) Pose() spatialmath.Pose {
+	return n.pose
 }
 
 // nodePair groups together nodes in a tuple
@@ -146,15 +165,15 @@ func newCostNode(q []referenceframe.Input, cost float64) *costNode {
 type nodePair struct{ a, b node }
 
 func (np *nodePair) sumCosts() float64 {
-	a, aok := np.a.(*costNode)
-	if !aok {
+	aCost := np.a.Cost()
+	if math.IsNaN(aCost) {
 		return 0
 	}
-	b, bok := np.b.(*costNode)
-	if !bok {
+	bCost := np.b.Cost()
+	if math.IsNaN(bCost) {
 		return 0
 	}
-	return a.cost + b.cost
+	return aCost + bCost
 }
 
 func extractPath(startMap, goalMap map[node]node, pair *nodePair) []node {
@@ -178,13 +197,15 @@ func extractPath(startMap, goalMap map[node]node, pair *nodePair) []node {
 		path[i], path[j] = path[j], path[i]
 	}
 
-	// skip goalReached node and go directly to its parent in order to not repeat this node
-	goalReached = goalMap[goalReached]
-
-	// extract the path to the goal
-	for goalReached != nil {
-		path = append(path, goalReached)
+	if goalReached != nil {
+		// skip goalReached node and go directly to its parent in order to not repeat this node
 		goalReached = goalMap[goalReached]
+
+		// extract the path to the goal
+		for goalReached != nil {
+			path = append(path, goalReached)
+			goalReached = goalMap[goalReached]
+		}
 	}
 	return path
 }

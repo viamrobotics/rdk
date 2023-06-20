@@ -23,14 +23,14 @@ type CombinedIK struct {
 // CreateCombinedIKSolver creates a combined parallel IK solver with a number of nlopt solvers equal to the nCPU
 // passed in. Each will be given a different random seed. When asked to solve, all solvers will be run in parallel
 // and the first valid found solution will be returned.
-func CreateCombinedIKSolver(model referenceframe.Frame, logger golog.Logger, nCPU int) (*CombinedIK, error) {
+func CreateCombinedIKSolver(model referenceframe.Frame, logger golog.Logger, nCPU int, goalThreshold float64) (*CombinedIK, error) {
 	ik := &CombinedIK{}
 	ik.model = model
 	if nCPU == 0 {
 		nCPU = 1
 	}
 	for i := 1; i <= nCPU; i++ {
-		nlopt, err := CreateNloptIKSolver(model, logger, -1)
+		nlopt, err := CreateNloptIKSolver(model, logger, -1, goalThreshold)
 		nlopt.id = i
 		if err != nil {
 			return nil, err

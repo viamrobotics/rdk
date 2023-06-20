@@ -241,6 +241,8 @@ func createAllCollisionConstraints(
 	inputs map[string][]referenceframe.Input,
 	pbConstraint []*pb.CollisionSpecification,
 ) (map[string]StateConstraint, error) {
+	constraintMap := map[string]StateConstraint{}
+
 	// extract inputs corresponding to the frame
 	frameInputs, err := frame.mapToSlice(inputs)
 	if err != nil {
@@ -280,34 +282,39 @@ func createAllCollisionConstraints(
 		return nil, err
 	}
 
-	// create constraint to keep moving geometries from hitting world state obstacles
-	// can use zeroth element of worldState.Obstacles because ToWorldFrame returns only one GeometriesInFrame
-	obstacleConstraint, err := newCollisionConstraint(
-		movingGeometries.Geometries(),
-		obstacles.Geometries(),
-		allowedCollisions,
-		false,
-	)
-	if err != nil {
-		return nil, err
+	if len(obstacles.Geometries()) > 0 {
+		// create constraint to keep moving geometries from hitting world state obstacles
+		// can use zeroth element of worldState.Obstacles because ToWorldFrame returns only one GeometriesInFrame
+		obstacleConstraint, err := newCollisionConstraint(
+			movingGeometries.Geometries(),
+			obstacles.Geometries(),
+			allowedCollisions,
+			false,
+		)
+		if err != nil {
+			return nil, err
+		}
+		constraintMap[defaultObstacleConstraintDesc] = obstacleConstraint
 	}
 
-	// create constraint to keep moving geometries from hitting other geometries on robot that are not moving
-	robotConstraint, err := newCollisionConstraint(movingGeometries.Geometries(), staticGeometries, allowedCollisions, false)
-	if err != nil {
-		return nil, err
+	if len(staticGeometries) > 0 {
+		// create constraint to keep moving geometries from hitting other geometries on robot that are not moving
+		robotConstraint, err := newCollisionConstraint(movingGeometries.Geometries(), staticGeometries, allowedCollisions, false)
+		if err != nil {
+			return nil, err
+		}
+		constraintMap[defaultRobotCollisionConstraintDesc] = robotConstraint
 	}
 
 	// create constraint to keep moving geometries from hitting themselves
-	selfCollisionConstraint, err := newCollisionConstraint(movingGeometries.Geometries(), nil, allowedCollisions, false)
-	if err != nil {
-		return nil, err
+	if len(movingGeometries.Geometries()) > 1 {
+		selfCollisionConstraint, err := newCollisionConstraint(movingGeometries.Geometries(), nil, allowedCollisions, false)
+		if err != nil {
+			return nil, err
+		}
+		constraintMap[defaultSelfCollisionConstraintDesc] = selfCollisionConstraint
 	}
-	return map[string]StateConstraint{
-		defaultObstacleConstraintDesc:       obstacleConstraint,
-		defaultSelfCollisionConstraintDesc:  selfCollisionConstraint,
-		defaultRobotCollisionConstraintDesc: robotConstraint,
-	}, nil
+	return constraintMap, nil
 }
 
 // newCollisionConstraint is the most general method to create a collision constraint, which will be violated if geometries constituting
@@ -330,12 +337,30 @@ func newCollisionConstraint(
 
 	// create constraint from reference collision graph
 	constraint := func(state *State) bool {
-		internal, err := state.Frame.Geometries(state.Configuration)
-		if err != nil && internal == nil {
+		var internalGeoms []spatial.Geometry
+		switch {
+		case state.Configuration != nil:
+			internal, err := state.Frame.Geometries(state.Configuration)
+			if err != nil {
+				return false
+			}
+			internalGeoms = internal.Geometries()
+		case state.Position != nil:
+			// If we didn't pass a Configuration, but we do have a Position, then get the geometries at the zero state and
+			// transform them to the Position
+			internal, err := state.Frame.Geometries(make([]referenceframe.Input, len(state.Frame.DoF())))
+			if err != nil {
+				return false
+			}
+			movedGeoms := internal.Geometries()
+			for _, geom := range movedGeoms {
+				internalGeoms = append(internalGeoms, geom.Transform(state.Position))
+			}
+		default:
 			return false
 		}
 
-		cg, err := newCollisionGraph(internal.Geometries(), static, zeroCG, reportDistances)
+		cg, err := newCollisionGraph(internalGeoms, static, zeroCG, reportDistances)
 		if err != nil {
 			return false
 		}
