@@ -6,17 +6,22 @@ import (
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
-
 	commonpb "go.viam.com/api/common/v1"
+
 	"go.viam.com/rdk/spatialmath"
 )
 
+// CollisionOctree is a data structure that represents a collision octree structure with a BasicOctree as its
+// backbone. CollisionOctree is for the specific case of using an octree to detect collisions during motion 
+// planning. confidenceThreshold defines the minimum value a point should have to be considered a collision.
+// buffer defines the maximum distance a point can be for it to be considered a collision.
 type CollisionOctree struct {
 	*BasicOctree
 	confidenceThreshold int
 	buffer              float64
 }
 
+// NewCollisionOctree creates a new empty collision octree with specified center, side, confidenceThreshold, and buffer distance.
 func NewCollisionOctree(center r3.Vector, sideLength float64, confidenceThreshold int, buffer float64) (*CollisionOctree, error) {
 	if sideLength <= 0 {
 		return nil, errors.Errorf("invalid side length (%.2f) for octree", sideLength)
@@ -36,6 +41,7 @@ func NewCollisionOctree(center r3.Vector, sideLength float64, confidenceThreshol
 	return collisionOct, nil
 }
 
+// NewCollisionOctreeFromBasicOctree creates a new collision octree from basicOct with a specified confidenceThreshold and buffer distance.
 func NewCollisionOctreeFromBasicOctree(basicOct *BasicOctree, confidenceThreshold int, buffer float64) (*CollisionOctree, error) {
 	collisionOct := &CollisionOctree{
 		BasicOctree:         basicOct,
@@ -99,11 +105,11 @@ func (cOct *CollisionOctree) Transform(p spatialmath.Pose) spatialmath.Geometry 
 				newMetaData,
 			},
 			confidenceThreshold: cOct.confidenceThreshold,
-			buffer: cOct.buffer,
+			buffer:              cOct.buffer,
 		}
 
 		transformedOctree.node.maxVal = cOct.node.maxVal
-		
+
 	case leafNodeFilled:
 		transformPoint := p.Point()
 		newCenter := cOct.center.Add(p.Point())
@@ -124,11 +130,11 @@ func (cOct *CollisionOctree) Transform(p spatialmath.Pose) spatialmath.Geometry 
 				newMetaData,
 			},
 			confidenceThreshold: cOct.confidenceThreshold,
-			buffer: cOct.buffer,
+			buffer:              cOct.buffer,
 		}
 
 		transformedOctree.node.maxVal = cOct.node.maxVal
-		
+
 	case leafNodeEmpty:
 		transformedOctree = &CollisionOctree{
 			BasicOctree: &BasicOctree{
@@ -139,9 +145,9 @@ func (cOct *CollisionOctree) Transform(p spatialmath.Pose) spatialmath.Geometry 
 				cOct.meta,
 			},
 			confidenceThreshold: cOct.confidenceThreshold,
-			buffer: cOct.buffer,
+			buffer:              cOct.buffer,
 		}
-		
+
 	}
 	return transformedOctree
 }

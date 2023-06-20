@@ -3,6 +3,7 @@ package pointcloud
 import (
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
+
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -200,18 +201,17 @@ func (octree *BasicOctree) Transform(p spatialmath.Pose) *BasicOctree {
 
 	case leafNodeEmpty:
 		transformedOctree = &BasicOctree{
-				newLeafNodeEmpty(),
-				octree.center.Add(p.Point()),
-				octree.sideLength,
-				octree.size,
-				octree.meta,
-			}
-
+			newLeafNodeEmpty(),
+			octree.center.Add(p.Point()),
+			octree.sideLength,
+			octree.size,
+			octree.meta,
+		}
 	}
 	return transformedOctree
 }
 
-// CollidesWith checks if the given octree collides with the given geometry and returns true if it does.
+// CollidesWithGeometry checks if the given octree collides with the given geometry and returns true if it does.
 func (octree *BasicOctree) CollidesWithGeometry(geom spatialmath.Geometry, confidenceThreshold int, buffer float64) (bool, error) {
 	if octree.MaxVal() < confidenceThreshold {
 		return false, nil
@@ -262,7 +262,7 @@ func (octree *BasicOctree) CollidesWithGeometry(geom spatialmath.Geometry, confi
 	return false, errors.New("unknown octree node type")
 }
 
-// newTransformedMetaData returns a new MetaData with min and max values of originalMeta transformed by transformPoint
+// newTransformedMetaData returns a new MetaData with min and max values of originalMeta transformed by transformPoint.
 func newTransformedMetaData(originalMeta MetaData, transformPoint r3.Vector) MetaData {
 	newMetaData := NewMetaData()
 	newMetaData.MaxX = originalMeta.MaxX + transformPoint.X
