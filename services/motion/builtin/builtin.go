@@ -274,14 +274,39 @@ func (ms *builtIn) MoveOnGlobe(
 	if err != nil {
 		return false, err
 	}
+	currentPosition := currentPIF.Pose().Point()
+
+	// get position of localizer relative to base
+	robotFS, err := ms.fsService.FrameSystem(ctx, nil)
+	if err != nil {
+		return false, err
+	}
+	localizerFrame := robotFS.Frame(movementSensorName.ShortName())
+	if localizerFrame != nil {
+		localizerParent, err := robotFS.Parent(localizerFrame)
+		if err != nil {
+			return false, err
+		}
+
+		relativeBasePose, err := localizerParent.Transform(localizerFrame.InputFromProtobuf(nil))
+		if err != nil {
+			return false, err
+		}
+
+		currentPosition = r3.Vector{
+			X: currentPosition.X - relativeBasePose.Point().X,
+			Y: currentPosition.Y - relativeBasePose.Point().Y,
+			Z: currentPosition.Z - relativeBasePose.Point().Z,
+		}
+	}
 
 	// convert destination into spatialmath.Pose with respect to lat = 0 = lng
 	dstPose := spatialmath.GeoPointToPose(destination)
 
-	// convert the destination to be relative to the currentPIF
+	// convert the destination to be relative to the currentPosition
 	relativeDestinationPt := r3.Vector{
-		X: dstPose.Point().X - currentPIF.Pose().Point().X,
-		Y: dstPose.Point().Y - currentPIF.Pose().Point().Y,
+		X: dstPose.Point().X - currentPosition.X,
+		Y: dstPose.Point().Y - currentPosition.Y,
 		Z: 0,
 	}
 
@@ -289,7 +314,7 @@ func (ms *builtIn) MoveOnGlobe(
 	dstPIF := referenceframe.NewPoseInFrame(referenceframe.World, relativeDstPose)
 
 	// convert GeoObstacles into GeometriesInFrame with respect to the base's starting point
-	geoms := spatialmath.GeoObstaclesToGeometries(obstacles, currentPIF.Pose().Point())
+	geoms := spatialmath.GeoObstaclesToGeometries(obstacles, currentPosition)
 
 	gif := referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)
 	wrldst, err := referenceframe.NewWorldState([]*referenceframe.GeometriesInFrame{gif}, nil)
@@ -298,7 +323,7 @@ func (ms *builtIn) MoveOnGlobe(
 	}
 
 	// construct limits
-	straightlineDistance := math.Abs(dstPose.Point().Distance(currentPIF.Pose().Point()))
+	straightlineDistance := math.Abs(dstPose.Point().Distance(currentPosition))
 	limits := []referenceframe.Limit{
 		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
 		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
