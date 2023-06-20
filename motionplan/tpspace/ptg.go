@@ -35,8 +35,8 @@ type PTGProvider interface {
 
 // PrecomputePTG is a precomputable PTG.
 type PrecomputePTG interface {
-	// PtgVelocities returns the linear and angular velocity at a specific point along a trajectory
-	PtgVelocities(alpha, t, x, y, phi float64) (float64, float64, error)
+	// PTGVelocities returns the linear and angular velocity at a specific point along a trajectory
+	PTGVelocities(alpha, t, x, y, phi float64) (float64, float64, error)
 }
 
 // TrajNode is a snapshot of a single point in time along a PTG trajectory, including the distance along that trajectory,

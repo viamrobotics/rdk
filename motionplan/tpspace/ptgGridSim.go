@@ -20,8 +20,8 @@ const (
 	defaultMaxHeadingChange = 1.95 * math.Pi
 )
 
-// This does something with circles
-// Other ptgs will be based on this ptg somehow.
+// ptgGridSim will take a PrecomputePTG, and simulate out a number of trajectories through some requested time/distance for speed of lookup
+// later. It will store the trajectories in a grid data structure allowing relatively fast lookups.
 type ptgGridSim struct {
 	refDist  float64
 	alphaCnt uint
@@ -170,7 +170,7 @@ func (ptg *ptgGridSim) simulateTrajectories(simPtg PrecomputePTG) ([][]*TrajNode
 
 		// Step through each time point for this alpha
 		for t < ptg.maxTime && dist < ptg.refDist && accumulatedHeadingChange < defaultMaxHeadingChange {
-			v, w, err = simPtg.PtgVelocities(alpha, t, x, y, phi)
+			v, w, err = simPtg.PTGVelocities(alpha, t, x, y, phi)
 			if err != nil {
 				return nil, err
 			}

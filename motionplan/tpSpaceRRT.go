@@ -156,7 +156,6 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 	dist := math.Sqrt(mp.planOpts.DistanceFunc(&Segment{StartPosition: startPose, EndPosition: goalPose}))
 	midPt := goalPose.Point().Sub(startPose.Point())
 
-	earlySuccess := false
 	var successNode node
 	for iter := 0; iter < mp.algOpts.PlanIter; iter++ {
 		if ctx.Err() != nil {
@@ -181,7 +180,6 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 		} else {
 			randPos = goalPose
 		}
-		iter++
 		randPosNode := &basicNode{nil, 0, randPos}
 
 		candidateNodes := map[float64][2]node{}
@@ -201,17 +199,15 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 						// If we've reached the goal, break out
 						// TODO: Currently only the *first* valid goal is considered and returned. It would be more optimal to take
 						// the best valid goal.
-						earlySuccess = true
 						rrt.maps.startMap[cand.newNode] = cand.treeNode
 						successNode = cand.newNode
-						break
+						path := extractPath(rrt.maps.startMap, rrt.maps.goalMap, &nodePair{a: successNode})
+						rrt.solutionChan <- &rrtPlanReturn{steps: path, maps: rrt.maps}
+						return
 					}
 					candidateNodes[cand.dist] = [2]node{cand.treeNode, cand.newNode}
 				}
 			}
-		}
-		if earlySuccess {
-			break
 		}
 		mp.extendMap(ctx, candidateNodes, rrt, tpFrame)
 	}

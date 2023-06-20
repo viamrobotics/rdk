@@ -11,9 +11,8 @@ import (
 // 57 degrees is also sometimes used by the reference.
 const quarterPi = 0.78539816339
 
-// This does something with circles
-// Other ptgs will be based on this ptg somehow.
-type simPtgAlpha struct {
+// simPtgAlpha defines a PTG family which follows a parabolic path.
+type simPTGAlpha struct {
 	maxMps float64 // meters per second velocity to target
 	maxDps float64 // degrees per second of rotation when driving at maxMps and turning at max turning radius
 }
@@ -21,13 +20,13 @@ type simPtgAlpha struct {
 // NewAlphaPTG creates a new PrecomputePTG of type simPtgAlpha.
 // K is unused for alpha PTGs *for now* but we may add in the future.
 func NewAlphaPTG(maxMps, maxDps, k float64) PrecomputePTG {
-	return &simPtgAlpha{
+	return &simPTGAlpha{
 		maxMps: maxMps,
 		maxDps: maxDps,
 	}
 }
 
-func (ptg *simPtgAlpha) PtgVelocities(alpha, t, x, y, phi float64) (float64, float64, error) {
+func (ptg *simPTGAlpha) PTGVelocities(alpha, t, x, y, phi float64) (float64, float64, error) {
 	// In order to know what to set our angvel at, we need to know how far into the path we are
 	atA := wrapTo2Pi(alpha - phi)
 	if atA > math.Pi {
