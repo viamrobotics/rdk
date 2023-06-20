@@ -2,6 +2,7 @@ package encoder
 
 import pb "go.viam.com/api/component/encoder/v1"
 
+// Properties holds the properties of the encoder
 type Properties struct {
 	TicksCountSupported   bool
 	AngleDegreesSupported bool
@@ -11,12 +12,7 @@ type Properties struct {
 // an equivalent Properties struct.
 func ProtoFeaturesToProperties(resp *pb.GetPropertiesResponse) Properties {
 	return Properties{
-		// A base's truning radius is the minimum radius it can turn around.
-		// This can be zero for bases that use differential, omni, mecanum
-		// and zero-turn steering bases.
-		// Usually non-zero for ackerman, crab and four wheel steered bases
-		TicksCountSupported: resp.TicksCountSupported,
-		// the width of the base's wheelbase
+		TicksCountSupported:   resp.TicksCountSupported,
 		AngleDegreesSupported: resp.AngleDegreesSupported,
 	}
 }

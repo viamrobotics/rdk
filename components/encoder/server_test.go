@@ -14,6 +14,13 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
+var (
+	errPositionUnavailable = errors.New("position unavailable")
+	errSetToZeroFailed     = errors.New("set to zero failed")
+	errPropertiesNotFound  = errors.New("properties not found")
+	errGetPropertiesFailed = errors.New("get properties failed")
+)
+
 func newServer() (pb.EncoderServiceServer, *inject.Encoder, *inject.Encoder, error) {
 	injectEncoder1 := &inject.Encoder{}
 	injectEncoder2 := &inject.Encoder{}
@@ -38,18 +45,21 @@ func TestServerGetPosition(t *testing.T) {
 	resp, err := encoderServer.GetPosition(context.Background(), &req)
 	test.That(t, resp, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, resource.IsNotFoundError(err), test.ShouldBeTrue)
 
 	failingEncoder.PositionFunc = func(
 		ctx context.Context,
 		positionType encoder.PositionType,
 		extra map[string]interface{},
 	) (float64, encoder.PositionType, error) {
-		return 0, encoder.PositionTypeUnspecified, errors.New("position unavailable")
+		return 0, encoder.PositionTypeUnspecified, errPositionUnavailable
 	}
+
+	// Position unavailable test
 	req = pb.GetPositionRequest{Name: failEncoderName}
 	resp, err = encoderServer.GetPosition(context.Background(), &req)
-	test.That(t, resp, test.ShouldBeNil)
-	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, resp, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeError, errPositionUnavailable)
 
 	workingEncoder.PositionFunc = func(
 		ctx context.Context,
@@ -74,12 +84,13 @@ func TestServerResetPosition(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 
 	failingEncoder.ResetPositionFunc = func(ctx context.Context, extra map[string]interface{}) error {
-		return errors.New("set to zero failed")
+		return errSetToZeroFailed
 	}
 	req = pb.ResetPositionRequest{Name: failEncoderName}
 	resp, err = encoderServer.ResetPosition(context.Background(), &req)
 	test.That(t, resp, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeError, errSetToZeroFailed)
 
 	workingEncoder.ResetPositionFunc = func(ctx context.Context, extra map[string]interface{}) error {
 		return nil
@@ -99,18 +110,19 @@ func TestServerGetProperties(t *testing.T) {
 	test.That(t, resp, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	failingEncoder.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (map[encoder.Feature]bool, error) {
-		return nil, errors.New("properties not found")
+	failingEncoder.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (encoder.Properties, error) {
+		return encoder.Properties{}, errPropertiesNotFound
 	}
 	req = pb.GetPropertiesRequest{Name: failEncoderName}
 	resp, err = encoderServer.GetProperties(context.Background(), &req)
 	test.That(t, resp, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeError, errPropertiesNotFound)
 
-	workingEncoder.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (map[encoder.Feature]bool, error) {
-		return map[encoder.Feature]bool{
-			encoder.TicksCountSupported:   true,
-			encoder.AngleDegreesSupported: false,
+	workingEncoder.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (encoder.Properties, error) {
+		return encoder.Properties{
+			TicksCountSupported:   true,
+			AngleDegreesSupported: false,
 		}, nil
 	}
 	req = pb.GetPropertiesRequest{Name: testEncoderName}

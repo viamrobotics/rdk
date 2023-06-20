@@ -127,7 +127,7 @@ func newEncodedMotor(
 	if err != nil {
 		return nil, errors.New("cannot get encoder properties")
 	}
-	if !props[encoder.TicksCountSupported] {
+	if !props.TicksCountSupported {
 		return nil,
 			encoder.NewEncodedMotorPositionTypeUnsupportedError(props)
 	}
