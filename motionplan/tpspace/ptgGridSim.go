@@ -6,14 +6,14 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-var (
+const (
 	defaultMaxTime       = 15.
 	defaultDiffT         = 0.005
 	defaultMinDist       = 3.
 	defaultAlphaCnt uint = 121
-	
-	// TODO: this should be unnecessary
-	defaultTurnRad       = 100. // in mm, an approximate constant for estimating arc distances?
+
+	// TODO: this should be unnecessary.
+	defaultTurnRad = 100. // in mm, an approximate constant for estimating arc distances?
 
 	defaultSearchRadius = 10.
 

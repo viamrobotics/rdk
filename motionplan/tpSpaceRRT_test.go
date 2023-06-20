@@ -34,8 +34,9 @@ func TestPtgRrt(t *testing.T) {
 	tp, ok := mp.(*tpSpaceRRTMotionPlanner)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	_, err = tp.plan(context.Background(), goalPos, nil)
+	plan, err := tp.plan(context.Background(), goalPos, nil)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(plan), test.ShouldBeGreaterThan, 2)
 }
 
 func TestPtgWithObstacle(t *testing.T) {
@@ -82,8 +83,9 @@ func TestPtgWithObstacle(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	tp, _ := mp.(*tpSpaceRRTMotionPlanner)
 
-	_, err = tp.plan(context.Background(), goalPos, nil)
+	plan, err := tp.plan(context.Background(), goalPos, nil)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(plan), test.ShouldBeGreaterThan, 2)
 }
 
 type ptgFrame struct {

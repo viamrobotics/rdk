@@ -40,7 +40,7 @@ const (
 	defaultSmoothIter = 20
 
 	// default amount of closeness to get to the goal.
-	defaultGoalThreshold = defaultEpsilon * defaultEpsilon * defaultEpsilon * defaultEpsilon
+	defaultGoalThreshold = defaultEpsilon * defaultEpsilon
 
 	// descriptions of constraints.
 	defaultLinearConstraintDesc         = "Constraint to follow linear path"
