@@ -2,9 +2,16 @@
 package gpsrtkserial
 
 import (
+	"context"
 	"fmt"
+	"io"
 	"strings"
+	"sync"
 
+	"github.com/edaniels/golog"
+	"go.viam.com/rdk/components/movementsensor"
+	gpsnmea "go.viam.com/rdk/components/movementsensor/gpsnmea"
+	ntripClient "go.viam.com/rdk/components/movementsensor/gpsrtk"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/utils"
 )
@@ -105,4 +112,33 @@ func (cfg *NtripConfig) ValidateNtrip(path string) error {
 		return utils.NewConfigValidationFieldRequiredError(path, "ntrip_input_protocol")
 	}
 	return nil
+}
+
+func init() {
+	resource.RegisterComponent(
+		movementsensor.API,
+		rtkmodel,
+		resource.Registration[movementsensor.MovementSensor, *Config]{})
+}
+
+// RTKSerial is an nmea movementsensor model that can intake RTK correction data
+type RTKSerial struct {
+	resource.Named
+	resource.AlwaysRebuild
+	logger     golog.Logger
+	cancelCtx  context.Context
+	cancelFunc func()
+
+	activeBackgroundWorkers sync.WaitGroup
+
+	ntripMu     sync.Mutex
+	ntripClient *ntripClient.NtripInfo
+	ntripStatus bool
+
+	err          movementsensor.LastError
+	lastposition movementsensor.LastPosition
+
+	Nmeamovementsensor gpsnmea.NmeaMovementSensor
+	InputProtocol      string
+	CorrectionWriter   io.ReadWriteCloser
 }
