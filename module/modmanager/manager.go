@@ -208,6 +208,13 @@ func (mgr *Manager) Remove(modName string) ([]resource.Name, error) {
 	}
 	handledResources := mod.resources
 
+	// If module handles no resources, remove it now. Otherwise mark it
+	// pendingRemoval for eventual removal after last handled resource has been
+	// closed.
+	if len(handledResources) == 0 {
+		return nil, mgr.remove(mod, false)
+	}
+
 	var orphanedResourceNames []resource.Name
 	for name := range handledResources {
 		orphanedResourceNames = append(orphanedResourceNames, name)

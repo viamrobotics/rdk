@@ -108,21 +108,16 @@ func (s *serviceServer) IsMoving(ctx context.Context, req *pb.IsMovingRequest) (
 	return &pb.IsMovingResponse{IsMoving: moving}, nil
 }
 
-// GetGeometries returns the geometries associated with the arm.
-func (s *serviceServer) GetGeometries(ctx context.Context, req *commonpb.GetGeometriesRequest) (*commonpb.GetGeometriesResponse, error) {
-	arm, err := s.coll.Resource(req.GetName())
+func (s *serviceServer) Geometries(ctx context.Context, req *commonpb.GetGeometriesRequest) (*commonpb.GetGeometriesResponse, error) {
+	res, err := s.coll.Resource(req.GetName())
 	if err != nil {
 		return nil, err
 	}
-	geometries, err := arm.Geometries(ctx)
+	geometries, err := res.Geometries(ctx)
 	if err != nil {
 		return nil, err
 	}
-	pbGeoms := make([]*commonpb.Geometry, 0, len(geometries))
-	for _, geom := range geometries {
-		pbGeoms = append(pbGeoms, geom.ToProtobuf())
-	}
-	return &commonpb.GetGeometriesResponse{Geometries: pbGeoms}, nil
+	return &commonpb.GetGeometriesResponse{Geometries: spatialmath.NewGeometriesToProto(geometries)}, nil
 }
 
 // GetKinematics returns the kinematics information associated with the arm.

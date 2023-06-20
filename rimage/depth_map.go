@@ -99,23 +99,17 @@ func (dm *DepthMap) At(x, y int) color.Color {
 func (dm *DepthMap) ColorModel() color.Model { return color.Gray16Model }
 
 // SubImage returns a cropped image of the original DepthMap from the given rectangle.
-func (dm *DepthMap) SubImage(r image.Rectangle) *DepthMap {
+func (dm *DepthMap) SubImage(rect image.Rectangle) *DepthMap {
+	r := rect.Intersect(dm.Bounds()).Sub(dm.Bounds().Min)
 	if r.Empty() {
-		return &DepthMap{}
+		return NewEmptyDepthMap(0, 0)
 	}
-	xmin, xmax := utils.MinInt(dm.width, r.Min.X), utils.MinInt(dm.width, r.Max.X)
-	ymin, ymax := utils.MinInt(dm.height, r.Min.Y), utils.MinInt(dm.height, r.Max.Y)
-	if xmin == xmax || ymin == ymax { // return empty DepthMap
-		return &DepthMap{width: utils.MaxInt(0, xmax-xmin), height: utils.MaxInt(0, ymax-ymin), data: []Depth{}}
-	}
-	width := xmax - xmin
-	height := ymax - ymin
-	newData := make([]Depth, 0, width*height)
-	for y := ymin; y < ymax; y++ {
-		begin, end := (y*dm.width)+xmin, (y*dm.width)+xmax
+	newData := make([]Depth, 0, r.Dx()*r.Dy())
+	for y := r.Min.Y; y < r.Max.Y; y++ {
+		begin, end := (y*dm.width)+r.Min.X, (y*dm.width)+r.Max.X
 		newData = append(newData, dm.data[begin:end]...)
 	}
-	return &DepthMap{width: width, height: height, data: newData}
+	return &DepthMap{width: r.Dx(), height: r.Dy(), data: newData}
 }
 
 // ConvertImageToDepthMap takes an image and figures out if it's already a DepthMap

@@ -7,6 +7,7 @@ import (
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
 )
 
 // Base is an injected base.
@@ -20,7 +21,9 @@ type Base struct {
 	IsMovingFunc     func(context.Context) (bool, error)
 	CloseFunc        func(ctx context.Context) error
 	SetPowerFunc     func(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error
+	SetVelocityFunc  func(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error
 	PropertiesFunc   func(ctx context.Context, extra map[string]interface{}) (base.Properties, error)
+	GeometriesFunc   func(ctx context.Context) ([]spatialmath.Geometry, error)
 }
 
 // NewBase returns a new injected base.
@@ -92,10 +95,26 @@ func (b *Base) SetPower(ctx context.Context, linear, angular r3.Vector, extra ma
 	return b.SetPowerFunc(ctx, linear, angular, extra)
 }
 
+// SetVelocity calls the injected SetVelocity or the real version.
+func (b *Base) SetVelocity(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
+	if b.SetVelocityFunc == nil {
+		return b.Base.SetVelocity(ctx, linear, angular, extra)
+	}
+	return b.SetVelocityFunc(ctx, linear, angular, extra)
+}
+
 // Properties returns the base's properties.
 func (b *Base) Properties(ctx context.Context, extra map[string]interface{}) (base.Properties, error) {
 	if b.PropertiesFunc == nil {
 		return b.Base.Properties(ctx, extra)
 	}
 	return b.PropertiesFunc(ctx, extra)
+}
+
+// Geometries returns the base's geometries.
+func (b *Base) Geometries(ctx context.Context) ([]spatialmath.Geometry, error) {
+	if b.DoFunc == nil {
+		return b.Base.Geometries(ctx)
+	}
+	return b.GeometriesFunc(ctx)
 }

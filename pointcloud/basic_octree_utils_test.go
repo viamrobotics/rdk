@@ -4,7 +4,6 @@ import (
 	"math"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
@@ -298,37 +297,6 @@ func createLopsidedOctree(oct *BasicOctree, i, max int) *BasicOctree {
 	oct.node = newInternalNode(children)
 	oct.node.children[0] = createLopsidedOctree(oct.node.children[0], i+1, max)
 	return oct
-}
-
-// Helper functions for visualizing octree during testing
-//
-//nolint:unused
-func stringBasicOctreeNodeType(n NodeType) string {
-	switch n {
-	case internalNode:
-		return "InternalNode"
-	case leafNodeEmpty:
-		return "LeafNodeEmpty"
-	case leafNodeFilled:
-		return "LeafNodeFilled"
-	}
-	return ""
-}
-
-//nolint:unused
-func printBasicOctree(logger golog.Logger, bOct *BasicOctree, s string) {
-	logger.Infof("%v %e %e %e - %v | Children: %v Side: %v Size: %v MaxVal: %f\n",
-		s, bOct.center.X, bOct.center.Y, bOct.center.Z, stringBasicOctreeNodeType(bOct.node.nodeType),
-		len(bOct.node.children), bOct.sideLength, bOct.size, bOct.node.maxVal)
-
-	if bOct.node.nodeType == leafNodeFilled {
-		logger.Infof("%s (%e %e %e) - Val: %v | MaxVal: %f\n",
-			s, bOct.node.point.P.X, bOct.node.point.P.Y, bOct.node.point.P.Z,
-			bOct.node.point.D.Value(), bOct.node.maxVal)
-	}
-	for _, v := range bOct.node.children {
-		printBasicOctree(logger, v, s+"-+-")
-	}
 }
 
 // Test the functionalities involved with converting a pointcloud into a basic octree.

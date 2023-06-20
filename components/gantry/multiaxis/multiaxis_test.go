@@ -17,26 +17,26 @@ import (
 )
 
 func createFakeOneaAxis(length float64, positions []float64) *inject.Gantry {
-	fakeoneaxis := inject.NewGantry("fake")
-	fakeoneaxis.PositionFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+	fakesingleaxis := inject.NewGantry("fake")
+	fakesingleaxis.PositionFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 		return positions, nil
 	}
-	fakeoneaxis.MoveToPositionFunc = func(ctx context.Context, pos []float64, extra map[string]interface{}) error {
+	fakesingleaxis.MoveToPositionFunc = func(ctx context.Context, pos []float64, extra map[string]interface{}) error {
 		return nil
 	}
-	fakeoneaxis.LengthsFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+	fakesingleaxis.LengthsFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 		return []float64{length}, nil
 	}
-	fakeoneaxis.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
+	fakesingleaxis.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
 		return nil
 	}
-	fakeoneaxis.CloseFunc = func(ctx context.Context) error {
+	fakesingleaxis.CloseFunc = func(ctx context.Context) error {
 		return nil
 	}
-	fakeoneaxis.ModelFrameFunc = func() referenceframe.Model {
+	fakesingleaxis.ModelFrameFunc = func() referenceframe.Model {
 		return nil
 	}
-	return fakeoneaxis
+	return fakesingleaxis
 }
 
 func createFakeDeps() resource.Dependencies {

@@ -5,15 +5,11 @@ import (
 	"context"
 
 	"github.com/golang/geo/r3"
-	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/base/v1"
 
-	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/services/motion"
-	"go.viam.com/rdk/spatialmath"
 )
 
 func init() {
@@ -41,6 +37,7 @@ func Named(name string) resource.Name {
 type Base interface {
 	resource.Resource
 	resource.Actuator
+	resource.Shaped
 
 	// MoveStraight moves the robot straight a given distance at a given speed.
 	// If a distance or speed of zero is given, the base will stop.
@@ -49,28 +46,19 @@ type Base interface {
 
 	// Spin spins the robot by a given angle in degrees at a given speed.
 	// If a speed of 0 the base will stop.
+	// Given a positive speed and a positive angle, the base turns to the left (for built-in RDK drivers)
 	// This method blocks until completed or cancelled
 	Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error
 
+	// For linear power, positive Y moves forwards for built-in RDK drivers
+	// For angular power, positive Z turns to the left for built-in RDK drivers
 	SetPower(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error
 
-	// linear is in mmPerSec
-	// angular is in degsPerSec
+	// linear is in mmPerSec (positive Y moves forwards for built-in RDK drivers)
+	// angular is in degsPerSec (positive Z turns to the left for built-in RDK drivers)
 	SetVelocity(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error
 
 	Properties(ctx context.Context, extra map[string]interface{}) (Properties, error)
-}
-
-// KinematicWrappable describes a base that can be wrapped with a kinematic model.
-type KinematicWrappable interface {
-	WrapWithKinematics(context.Context, motion.Localizer, []referenceframe.Limit) (KinematicBase, error)
-}
-
-// KinematicBase is an interface for Bases that also satisfy the ModelFramer and InputEnabled interfaces.
-type KinematicBase interface {
-	Base
-	referenceframe.ModelFramer
-	referenceframe.InputEnabled
 }
 
 // FromDependencies is a helper for getting the named base from a collection of
@@ -96,41 +84,4 @@ func CreateStatus(ctx context.Context, b Base) (*commonpb.ActuatorStatus, error)
 		return nil, err
 	}
 	return &commonpb.ActuatorStatus{IsMoving: isMoving}, nil
-}
-
-// CollisionGeometry returns a spherical geometry that will encompass the base if it were to rotate the geometry specified in the config
-// 360 degrees about the Z axis of the reference frame specified in the config.
-func CollisionGeometry(cfg *referenceframe.LinkConfig) (spatialmath.Geometry, error) {
-	// TODO(RSDK-1014): the orientation of this model will matter for collision checking,
-	// and should match the convention of +Y being forward for bases
-	if cfg == nil || cfg.Geometry == nil {
-		return nil, errors.New("base not configured with a geometry on its frame, cannot create collision geometry for it")
-	}
-	geoCfg := cfg.Geometry
-	r := geoCfg.TranslationOffset.Norm()
-	switch geoCfg.Type {
-	case spatialmath.BoxType:
-		r += r3.Vector{X: geoCfg.X, Y: geoCfg.Y, Z: geoCfg.Z}.Norm() / 2
-	case spatialmath.SphereType:
-		r += geoCfg.R
-	case spatialmath.CapsuleType:
-		r += geoCfg.L / 2
-	case spatialmath.UnknownType:
-		// no type specified, iterate through supported types and try to infer intent
-		if norm := (r3.Vector{X: geoCfg.X, Y: geoCfg.Y, Z: geoCfg.Z}).Norm(); norm > 0 {
-			r += norm / 2
-		} else if geoCfg.L != 0 {
-			r += geoCfg.L / 2
-		} else {
-			r += geoCfg.R
-		}
-	case spatialmath.PointType:
-	default:
-		return nil, spatialmath.ErrGeometryTypeUnsupported
-	}
-	sphere, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), r, geoCfg.Label)
-	if err != nil {
-		return nil, err
-	}
-	return sphere, nil
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"math"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -11,6 +12,7 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/test"
 	"go.viam.com/utils"
+	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/base"
@@ -225,7 +227,7 @@ func TestPlanMoveOnMap(t *testing.T) {
 	const chunkSizeBytes = 1 * 1024 * 1024
 
 	injectSlam.GetPointCloudMapFunc = func(ctx context.Context) (func() ([]byte, error), error) {
-		path := "/Users/nandinithakur/Desktop/sample/map/octagonspace.pcd"
+		path := filepath.Clean(artifact.MustPath("pointcloud/octagonspace.pcd"))
 		file, err := os.Open(path)
 		if err != nil {
 			return nil, err
@@ -240,11 +242,6 @@ func TestPlanMoveOnMap(t *testing.T) {
 			return chunk[:bytesRead], err
 		}
 		return f, nil
-	}
-
-	injectSlam.GetPositionFunc = func(ctx context.Context) (spatialmath.Pose, string, error) {
-		fakePose := spatialmath.NewPoseFromPoint(r3.Vector{X: -0.0345 * 1000, Y: -0.145 * 1000})
-		return fakePose, "", nil
 	}
 
 	cfg := resource.Config{
@@ -286,7 +283,7 @@ func TestMoveOnMap(t *testing.T) {
 	const chunkSizeBytes = 1 * 1024 * 1024
 
 	injectSlam.GetPointCloudMapFunc = func(ctx context.Context) (func() ([]byte, error), error) {
-		path := "/Users/nandinithakur/Desktop/sample/map/octagonspace.pcd"
+		path := filepath.Clean(artifact.MustPath("pointcloud/octagonspace.pcd"))
 		file, err := os.Open(path)
 		if err != nil {
 			return nil, err
