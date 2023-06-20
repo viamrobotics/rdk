@@ -163,6 +163,42 @@ func (s *robotServer) runServer(ctx context.Context) error {
 	}
 	cancel()
 
+	err = s.serveWeb(ctx, cfg)
+	if err != nil {
+		s.logger.Errorw("error serving web", "error", err)
+	}
+
+	return err
+}
+
+func (s *robotServer) createWebOptions(cfg *config.Config) (weboptions.Options, error) {
+	options, err := weboptions.FromConfig(cfg)
+	if err != nil {
+		return weboptions.Options{}, err
+	}
+	options.Pprof = s.args.WebProfile
+	options.SharedDir = s.args.SharedDir
+	options.Debug = s.args.Debug || cfg.Debug
+	options.WebRTC = s.args.WebRTC
+	if cfg.Cloud != nil && s.args.AllowInsecureCreds {
+		options.SignalingDialOpts = append(options.SignalingDialOpts, rpc.WithAllowInsecureWithCredentialsDowngrade())
+	}
+
+	if len(options.Auth.Handlers) == 0 {
+		host, _, err := net.SplitHostPort(cfg.Network.BindAddress)
+		if err != nil {
+			return weboptions.Options{}, err
+		}
+		if host == "" || host == "0.0.0.0" || host == "::" {
+			s.logger.Warn("binding to all interfaces without authentication")
+		}
+	}
+	return options, nil
+}
+
+func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err error) {
+	ctx, cancel := context.WithCancel(ctx)
+
 	hungShutdownDeadline := 90 * time.Second
 	slowWatcher, slowWatcherCancel := utils.SlowGoroutineWatcherAfterContext(
 		ctx, hungShutdownDeadline, "server is taking a while to shutdown", s.logger)
@@ -218,44 +254,11 @@ func (s *robotServer) runServer(ctx context.Context) error {
 		}
 	})
 
-	err = s.serveWeb(ctx, cfg)
-	if err != nil {
-		s.logger.Errorw("error serving web", "error", err)
-	}
-	close(doneServing)
-	slowWatcherCancel()
-	<-slowWatcher
-
-	return err
-}
-
-func (s *robotServer) createWebOptions(cfg *config.Config) (weboptions.Options, error) {
-	options, err := weboptions.FromConfig(cfg)
-	if err != nil {
-		return weboptions.Options{}, err
-	}
-	options.Pprof = s.args.WebProfile
-	options.SharedDir = s.args.SharedDir
-	options.Debug = s.args.Debug || cfg.Debug
-	options.WebRTC = s.args.WebRTC
-	if cfg.Cloud != nil && s.args.AllowInsecureCreds {
-		options.SignalingDialOpts = append(options.SignalingDialOpts, rpc.WithAllowInsecureWithCredentialsDowngrade())
-	}
-
-	if len(options.Auth.Handlers) == 0 {
-		host, _, err := net.SplitHostPort(cfg.Network.BindAddress)
-		if err != nil {
-			return weboptions.Options{}, err
-		}
-		if host == "" || host == "0.0.0.0" || host == "::" {
-			s.logger.Warn("binding to all interfaces without authentication")
-		}
-	}
-	return options, nil
-}
-
-func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err error) {
-	ctx, cancel := context.WithCancel(ctx)
+	defer func() {
+		close(doneServing)
+		slowWatcherCancel()
+		<-slowWatcher
+	}()
 
 	var cloudRestartCheckerActive chan struct{}
 	rpcDialer := rpc.NewCachedDialer()
