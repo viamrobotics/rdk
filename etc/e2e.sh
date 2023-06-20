@@ -17,8 +17,7 @@ helpFunction()
    exit 1 # Exit script after printing help
 }
 
-# TODO(APP-2044): Flip default to true
-KILL_CHILD=false
+KILL_CHILD=true
 
 while getopts "o:k" opt
 do
