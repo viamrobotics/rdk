@@ -16,7 +16,7 @@ Encoders can be attached to the roboclaw controller using the EN1 and EN2 pins. 
 update the ticks_per_rotation field in the config.
 
 Configuration:
-Number of motors: specfies the channel the motor is connected to on the controller (1 or 2)
+Motor Channel: specfies the channel the motor is connected to on the controller (1 or 2)
 Serial baud rate: default of the roboclaw is 38400
 Serial path: path to serial file
 */
@@ -56,15 +56,15 @@ const (
 type Config struct {
 	SerialPath       string `json:"serial_path"`
 	SerialBaud       int    `json:"serial_baud_rate"`
-	Number           int    `json:"number_of_motors"` // this is 1 or 2
+	Channel          int    `json:"motor_channel"` // this is 1 or 2
 	Address          int    `json:"address,omitempty"`
 	TicksPerRotation int    `json:"ticks_per_rotation,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
 func (conf *Config) Validate(path string) ([]string, error) {
-	if conf.Number < 1 || conf.Number > 2 {
-		return nil, conf.wrongNumberError()
+	if conf.Channel < 1 || conf.Channel > 2 {
+		return nil, conf.wrongChannelError()
 	}
 	if conf.SerialPath == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "serial_path")
@@ -105,8 +105,8 @@ func (m *roboclawMotor) Reconfigure(ctx context.Context, deps resource.Dependenc
 		newConnectionNeeded = true
 	}
 
-	if m.conf.Number != newConfig.Number {
-		m.conf.Number = newConfig.Number
+	if m.conf.Channel != newConfig.Channel {
+		m.conf.Channel = newConfig.Channel
 	}
 
 	if newConfig.Address != 0 && m.conf.Address != newConfig.Address {
@@ -126,8 +126,8 @@ func (m *roboclawMotor) Reconfigure(ctx context.Context, deps resource.Dependenc
 	return nil
 }
 
-func (conf *Config) wrongNumberError() error {
-	return fmt.Errorf("roboclawConfig Number has to be 1 or 2, but is %d", conf.Number)
+func (conf *Config) wrongChannelError() error {
+	return fmt.Errorf("roboclaw motor channel has to be 1 or 2, but is %d", conf.Channel)
 }
 
 func init() {
@@ -179,8 +179,8 @@ func newRoboClaw(conf resource.Config, logger golog.Logger) (motor.Motor, error)
 		return nil, err
 	}
 
-	if motorConfig.Number < 1 || motorConfig.Number > 2 {
-		return nil, motorConfig.wrongNumberError()
+	if motorConfig.Channel < 1 || motorConfig.Channel > 2 {
+		return nil, motorConfig.wrongChannelError()
 	}
 
 	if motorConfig.Address == 0 {
@@ -226,7 +226,7 @@ func (m *roboclawMotor) SetPower(ctx context.Context, powerPct float64, extra ma
 		powerPct = -1
 	}
 
-	switch m.conf.Number {
+	switch m.conf.Channel {
 	case 1:
 		m.powerPct = powerPct
 		return m.conn.DutyM1(m.addr, int16(powerPct*32767))
@@ -234,7 +234,7 @@ func (m *roboclawMotor) SetPower(ctx context.Context, powerPct float64, extra ma
 		m.powerPct = powerPct
 		return m.conn.DutyM2(m.addr, int16(powerPct*32767))
 	default:
-		return m.conf.wrongNumberError()
+		return m.conf.wrongChannelError()
 	}
 }
 
@@ -288,13 +288,13 @@ func (m *roboclawMotor) GoFor(ctx context.Context, rpm, revolutions float64, ext
 
 	var err error
 
-	switch m.conf.Number {
+	switch m.conf.Channel {
 	case 1:
 		err = m.conn.SpeedDistanceM1(m.addr, ticksPerSecond, ticks, true)
 	case 2:
 		err = m.conn.SpeedDistanceM2(m.addr, ticksPerSecond, ticks, true)
 	default:
-		return m.conf.wrongNumberError()
+		return m.conf.wrongChannelError()
 	}
 	if err != nil {
 		return err
@@ -315,13 +315,13 @@ func (m *roboclawMotor) GoTo(ctx context.Context, rpm, positionRevolutions float
 
 func (m *roboclawMotor) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
 	newTicks := int32(offset * float64(m.conf.TicksPerRotation))
-	switch m.conf.Number {
+	switch m.conf.Channel {
 	case 1:
 		return m.conn.SetEncM1(m.addr, newTicks)
 	case 2:
 		return m.conn.SetEncM2(m.addr, newTicks)
 	default:
-		return m.conf.wrongNumberError()
+		return m.conf.wrongChannelError()
 	}
 }
 
@@ -329,13 +329,13 @@ func (m *roboclawMotor) Position(ctx context.Context, extra map[string]interface
 	var ticks uint32
 	var err error
 
-	switch m.conf.Number {
+	switch m.conf.Channel {
 	case 1:
 		ticks, _, err = m.conn.ReadEncM1(m.addr)
 	case 2:
 		ticks, _, err = m.conn.ReadEncM2(m.addr)
 	default:
-		return 0, m.conf.wrongNumberError()
+		return 0, m.conf.wrongChannelError()
 	}
 	if err != nil {
 		return 0, err
@@ -363,13 +363,13 @@ func (m *roboclawMotor) IsPowered(ctx context.Context, extra map[string]interfac
 	if err != nil {
 		return false, 0.0, err
 	}
-	switch m.conf.Number {
+	switch m.conf.Channel {
 	case 1:
 		return pow1 != 0, m.powerPct, nil
 	case 2:
 		return pow2 != 0, m.powerPct, nil
 	default:
-		return false, 0.0, m.conf.wrongNumberError()
+		return false, 0.0, m.conf.wrongChannelError()
 	}
 }
 

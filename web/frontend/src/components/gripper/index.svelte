@@ -4,6 +4,7 @@ import { grpc } from '@improbable-eng/grpc-web';
 import { Client, gripperApi } from '@viamrobotics/sdk';
 import { displayError } from '../../lib/error';
 import { rcLogConditionally } from '../../lib/log';
+import Collapse from '@/components/collapse.svelte';
 
 export let name: string;
 export let client: Client;
@@ -34,10 +35,7 @@ const grab = () => {
 
 </script>
 
-<v-collapse
-  title={name}
-  class="gripper"
->
+<Collapse title={name}>
   <v-breadcrumbs
     slot="title"
     crumbs="gripper"
@@ -63,4 +61,4 @@ const grab = () => {
       on:click={grab}
     />
   </div>
-</v-collapse>
+</Collapse>

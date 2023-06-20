@@ -162,15 +162,7 @@ func (c *client) Geometries(ctx context.Context) ([]spatialmath.Geometry, error)
 	if err != nil {
 		return nil, err
 	}
-	geometries := make([]spatialmath.Geometry, 0, len(resp.Geometries))
-	for _, pbGeom := range resp.Geometries {
-		geom, err := spatialmath.NewGeometryFromProto(pbGeom)
-		if err != nil {
-			return nil, err
-		}
-		geometries = append(geometries, geom)
-	}
-	return geometries, nil
+	return spatialmath.NewGeometriesFromProto(resp.GetGeometries())
 }
 
 func (c *client) updateKinematics(ctx context.Context) (referenceframe.Model, error) {

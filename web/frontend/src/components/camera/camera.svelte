@@ -18,7 +18,7 @@ export let showExportScreenshot: boolean;
 export let refreshRate: string | undefined;
 export let streamManager: StreamManager;
 export let statusStream: ResponseStream<robotApi.StreamStatusResponse> | null;
-export let triggerRefresh: boolean;
+export let triggerRefresh = false;
 
 let imgEl: HTMLImageElement;
 let videoEl: HTMLVideoElement;

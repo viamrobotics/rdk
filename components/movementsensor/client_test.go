@@ -25,6 +25,14 @@ var (
 	testMovementSensorName    = "ms1"
 	failMovementSensorName    = "ms2"
 	missingMovementSensorName = "ms4"
+	errLocation               = errors.New("can't get location")
+	errLinearVelocity         = errors.New("can't get linear velocity")
+	errLinearAcceleration     = errors.New("can't get linear acceleration")
+	errAngularVelocity        = errors.New("can't get angular velocity")
+	errOrientation            = errors.New("can't get orientation")
+	errCompassHeading         = errors.New("can't get compass heading")
+	errProperties             = errors.New("can't get properties")
+	errAccuracy               = errors.New("can't get accuracy")
 )
 
 func TestClient(t *testing.T) {
@@ -78,22 +86,22 @@ func TestClient(t *testing.T) {
 
 	injectMovementSensor2 := &inject.MovementSensor{}
 	injectMovementSensor2.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
-		return nil, 0, errors.New("can't get location")
+		return nil, 0, errLocation
 	}
 	injectMovementSensor2.LinearVelocityFunc = func(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
-		return r3.Vector{}, errors.New("can't get linear velocity")
+		return r3.Vector{}, errLinearVelocity
 	}
 	injectMovementSensor2.LinearAccelerationFunc = func(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
-		return r3.Vector{}, errors.New("can't get linear acceleration")
+		return r3.Vector{}, errLinearAcceleration
 	}
 	injectMovementSensor2.AngularVelocityFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
-		return spatialmath.AngularVelocity{}, errors.New("can't get angular velocity")
+		return spatialmath.AngularVelocity{}, errAngularVelocity
 	}
 	injectMovementSensor2.OrientationFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
-		return nil, errors.New("can't get orientation")
+		return nil, errOrientation
 	}
 	injectMovementSensor2.CompassHeadingFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
-		return 0, errors.New("can't get compass heading")
+		return 0, errCompassHeading
 	}
 
 	gpsSvc, err := resource.NewAPIResourceCollection(movementsensor.API, map[resource.Name]movementsensor.MovementSensor{
@@ -116,8 +124,7 @@ func TestClient(t *testing.T) {
 		cancelCtx, cancel := context.WithCancel(context.Background())
 		cancel()
 		_, err := viamgrpc.Dial(cancelCtx, listener1.Addr().String(), logger)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
+		test.That(t, err, test.ShouldBeError, context.Canceled)
 	})
 
 	t.Run("MovementSensor client 1", func(t *testing.T) {
@@ -197,23 +204,23 @@ func TestClient(t *testing.T) {
 
 		_, _, err = client2.Position(context.Background(), make(map[string]interface{}))
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get location")
+		test.That(t, err.Error(), test.ShouldContainSubstring, errLocation.Error())
 
 		_, err = client2.LinearVelocity(context.Background(), make(map[string]interface{}))
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get linear velocity")
+		test.That(t, err.Error(), test.ShouldContainSubstring, errLinearVelocity.Error())
 
 		_, err = client2.LinearAcceleration(context.Background(), make(map[string]interface{}))
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get linear acceleration")
+		test.That(t, err.Error(), test.ShouldContainSubstring, errLinearAcceleration.Error())
 
 		_, err = client2.AngularVelocity(context.Background(), make(map[string]interface{}))
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get angular velocity")
+		test.That(t, err.Error(), test.ShouldContainSubstring, errAngularVelocity.Error())
 
 		_, err = client2.(sensor.Sensor).Readings(context.Background(), make(map[string]interface{}))
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get location")
+		test.That(t, err.Error(), test.ShouldContainSubstring, errLocation.Error())
 
 		test.That(t, client2.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)

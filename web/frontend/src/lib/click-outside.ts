@@ -2,7 +2,9 @@ let callback: () => void = () => {
   // do nothing
 };
 
-export const clickOutside = (element: HTMLElement) => {
+export const clickOutside = (element: HTMLElement, cb: () => void) => {
+  callback = cb;
+
   const onClick = (event: MouseEvent) => {
     if (event.target instanceof Node && !element.contains(event.target)) {
       callback();
@@ -12,8 +14,8 @@ export const clickOutside = (element: HTMLElement) => {
   document.body.addEventListener('click', onClick);
 
   return {
-    update (cb: () => void) {
-      callback = cb;
+    update (updatedCb: () => void) {
+      callback = updatedCb;
     },
     destroy () {
       document.body.removeEventListener('click', onClick);

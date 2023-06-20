@@ -14,6 +14,7 @@ import (
 
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
 )
 
 // client implements BaseServiceClient.
@@ -147,4 +148,12 @@ func (c *client) Properties(ctx context.Context, extra map[string]interface{}) (
 		return Properties{}, err
 	}
 	return ProtoFeaturesToProperties(resp), nil
+}
+
+func (c *client) Geometries(ctx context.Context) ([]spatialmath.Geometry, error) {
+	resp, err := c.client.GetGeometries(ctx, &commonpb.GetGeometriesRequest{Name: c.name})
+	if err != nil {
+		return nil, err
+	}
+	return spatialmath.NewGeometriesFromProto(resp.GetGeometries())
 }
