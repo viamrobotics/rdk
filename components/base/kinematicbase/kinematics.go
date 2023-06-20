@@ -36,7 +36,7 @@ type differentialDriveKinematics struct {
 	fs        referenceframe.FrameSystem
 }
 
-// WrapWithDifferentialDriveKinematics takes a wheeledBase component and adds a slam service to it
+// WrapWithDifferentialDriveKinematics takes a Base component and adds a slam service to it
 // It also adds kinematic model so that it can be controlled.
 func WrapWithDifferentialDriveKinematics(
 	ctx context.Context,
@@ -95,36 +95,24 @@ func (ddk *differentialDriveKinematics) CurrentInputs(ctx context.Context) ([]re
 }
 
 func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired []referenceframe.Input) (err error) {
-	// this loop polls the error state and issues a corresponding command to move the base to the objective
-	// when the base is within the positional threshold of the goal, exit the loop
+	// create capsule which defines the valid region for a base to be when driving to desired waypoint
+	// deviationThreshold defines max distance base can be from path without error being thrown
 	startingPos, err := ddk.CurrentInputs(ctx)
-	pt := r3.Vector{X: desired[0].Value - startingPos[0].Value, Y: desired[1].Value - startingPos[1].Value}
-	o := &spatialmath.R4AA{
-		Theta: math.Pi/2,
-		RX: 1,
-		RY: 0,
-		RZ: 0,
-	}
-
-	// rotate around z by heading of destination relative to starting
-	center := spatialmath.NewPose(pt, o)
-	deviationTolerance := 300.0 // mm
-	capsule, err := spatialmath.NewCapsule(
-		center, 
-		deviationTolerance, 
-		2*deviationTolerance + math.Sqrt(math.Pow(desired[0].Value - startingPos[0].Value, 2) + math.Pow(desired[1].Value - startingPos[1].Value, 2)),
-		"")
+	deviationThreshold := 300.0
+	validRegion, err := newValidRegionCapsule(startingPos, desired, deviationThreshold)
 	if err != nil {
 		return err
 	}
 
+	// this loop polls the error state and issues a corresponding command to move the base to the objective
+	// when the base is within the positional threshold of the goal, exit the loop
 	for err = ctx.Err(); err == nil; err = ctx.Err() {
 		current, err := ddk.CurrentInputs(ctx)
 		if err != nil {
 			return err
 		}
 
-		col, err := capsule.CollidesWith(spatialmath.NewPoint(r3.Vector{X: current[0].Value, Y: current[1].Value}, ""))
+		col, err := validRegion.CollidesWith(spatialmath.NewPoint(r3.Vector{X: current[0].Value, Y: current[1].Value}, ""))
 		if err != nil {
 			return err
 		}
@@ -230,4 +218,39 @@ func CollisionGeometry(cfg *referenceframe.LinkConfig) ([]spatialmath.Geometry, 
 		return nil, err
 	}
 	return []spatialmath.Geometry{sphere}, nil
+}
+
+// newValidRegionCapsule returns a capsule which defines the valid regions for a base to be when moving to a waypoint.
+// The valid region is all points that are deviationTolerance (mm) distance away from the line segment between the
+// starting and ending waypoints. This capsule is used to detect whether a base leaves this region and has thus deviated
+// too far from its path.
+func newValidRegionCapsule(starting []referenceframe.Input, desired []referenceframe.Input, deviationTolerance float64) (spatialmath.Geometry, error) {
+	pt := r3.Vector{X: desired[0].Value - starting[0].Value, Y: desired[1].Value - starting[1].Value}
+	// rotate such that y is forward direction to match the frame for movement of a base
+	o := &spatialmath.R4AA{
+		Theta: math.Pi / 2,
+		RX:    1,
+		RY:    0,
+		RZ:    0,
+	}
+	center := spatialmath.NewPose(pt, o)
+	capsule, err := spatialmath.NewCapsule(
+		center,
+		deviationTolerance,
+		2*deviationTolerance+math.Sqrt(math.Pow(desired[0].Value-starting[0].Value, 2)+math.Pow(desired[1].Value-starting[1].Value, 2)),
+		"")
+	if err != nil {
+		return nil, err
+	}
+
+	// rotate around the z-axis such that the capsule points in the direction of the end waypoint
+	desiredHeading := math.Atan2(starting[1].Value-desired[1].Value, starting[0].Value-desired[0].Value)
+	headingRotation := &spatialmath.R4AA{
+		Theta: desiredHeading,
+		RX:    0,
+		RY:    0,
+		RZ:    1,
+	}
+	transformedCapsule := capsule.Transform(spatialmath.NewPoseFromOrientation(headingRotation))
+	return transformedCapsule, nil
 }
