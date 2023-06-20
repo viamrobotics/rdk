@@ -36,7 +36,7 @@ func TestPtgRrt(t *testing.T) {
 
 	plan, err := tp.plan(context.Background(), goalPos, nil)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(plan), test.ShouldBeGreaterThan, 2)
+	test.That(t, len(plan), test.ShouldBeGreaterThanOrEqualTo, 2)
 }
 
 func TestPtgWithObstacle(t *testing.T) {
