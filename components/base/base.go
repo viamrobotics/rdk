@@ -63,6 +63,7 @@ type Base interface {
 	Properties(ctx context.Context, extra map[string]interface{}) (Properties, error)
 }
 
+// Exposes the `ReadMotors` API.
 type IBase interface {
 	Base
 	ReadMotors(ctx context.Context) (int, int)

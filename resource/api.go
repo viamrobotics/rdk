@@ -144,6 +144,7 @@ func (a *API) UnmarshalJSON(data []byte) error {
 	return a.Validate()
 }
 
+// Create a Name from an existing API.
 func (a API) NewName(name string) Name {
 	return NewName(a, name)
 }
