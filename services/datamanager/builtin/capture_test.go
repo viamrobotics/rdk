@@ -262,21 +262,21 @@ func TestSwitchResource(t *testing.T) {
 
 	initialData, err := datacapture.SensorDataFromFilePath(filePaths[0])
 	test.That(t, err, test.ShouldBeNil)
-	// Assert that the initial arm1 resource isn't capturing any more data.
-	test.That(t, len(initialData), test.ShouldEqual, len(dataBeforeSwitch))
 	for _, d := range initialData {
 		// Each resource's mocked capture method outputs a different value. Assert that we see the expected data captured by the initial arm1 resource.
 		test.That(t, d.GetStruct().GetFields()["Number"].GetStructValue().GetFields()["Dual"].GetStructValue().GetFields()["Jmag"].GetNumberValue(), test.ShouldEqual, float64(1))
 	}
+	// Assert that the initial arm1 resource isn't capturing any more data.
+	test.That(t, len(initialData), test.ShouldEqual, len(dataBeforeSwitch))
 
 	newData, err := datacapture.SensorDataFromFilePath(filePaths[1])
 	test.That(t, err, test.ShouldBeNil)
-	// Assert that the updated arm1 resource is capturing data.
-	test.That(t, len(newData), test.ShouldBeGreaterThan, 0)
 	for _, d := range newData {
 		// Assert that we see the expected data captured by the updated arm1 resource.
 		test.That(t, d.GetStruct().GetFields()["Number"].GetStructValue().GetFields()["Dual"].GetStructValue().GetFields()["Jmag"].GetNumberValue(), test.ShouldEqual, float64(444))
 	}
+	// Assert that the updated arm1 resource is capturing data.
+	test.That(t, len(newData), test.ShouldBeGreaterThan, 0)
 
 	cancelPassTime2()
 	<-donePassingTime2
