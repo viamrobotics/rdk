@@ -36,6 +36,7 @@ import (
 	"fmt"
 	"math"
 	"sync"
+	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
@@ -46,6 +47,7 @@ import (
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/base/kinematicbase"
 	"go.viam.com/rdk/components/motor"
+	"go.viam.com/rdk/components/motor/fake"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
@@ -120,6 +122,16 @@ type wheeledBase struct {
 
 	mu   sync.Mutex
 	name string
+}
+
+func (wb *wheeledBase) ReadMotors(ctx context.Context) (left, right int) {
+	wb.mu.Lock()
+	defer wb.mu.Unlock()
+
+	left = wb.left[0].(*fake.Motor).Direction()
+	right = wb.right[0].(*fake.Motor).Direction()
+
+	return
 }
 
 // Reconfigure reconfigures the base atomically and in place.
@@ -305,6 +317,9 @@ func (wb *wheeledBase) runAll(ctx context.Context, leftRPM, leftRotations, right
 		fs = append(fs, func(ctx context.Context) error { return m.GoFor(ctx, leftRPM, leftRotations, nil) })
 	}
 
+	if leftRPM < 0 {
+		time.Sleep(time.Millisecond)
+	}
 	for _, m := range wb.right {
 		fs = append(fs, func(ctx context.Context) error { return m.GoFor(ctx, rightRPM, rightRotations, nil) })
 	}

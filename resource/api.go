@@ -144,6 +144,10 @@ func (a *API) UnmarshalJSON(data []byte) error {
 	return a.Validate()
 }
 
+func (a API) NewName(name string) Name {
+	return NewName(a, name)
+}
+
 // NewAPI return a new API from a triplet like acme:component:gizmo.
 func NewAPI(namespace, typeName, subtypeName string) API {
 	return APINamespace(namespace).WithType(typeName).WithSubtype(subtypeName)

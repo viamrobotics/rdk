@@ -297,6 +297,9 @@ func (manager *resourceManager) internalResourceNames() []resource.Name {
 
 // ResourceNames returns the names of all resources in the manager.
 func (manager *resourceManager) ResourceNames() []resource.Name {
+	//if gNode, ok := manager.resources.Node(name); ok {
+	//}
+
 	names := []resource.Name{}
 	for _, k := range manager.resources.Names() {
 		if k.API == client.RemoteAPI ||

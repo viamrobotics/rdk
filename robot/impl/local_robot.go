@@ -6,6 +6,7 @@ package robotimpl
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -13,6 +14,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	"go.uber.org/zap"
 	pb "go.viam.com/api/app/packages/v1"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/pexec"
@@ -344,6 +346,7 @@ func newWithResources(
 		opt.apply(&rOpts)
 	}
 
+	logger = logger.Named("robot")
 	closeCtx, cancel := context.WithCancel(ctx)
 	r := &localRobot{
 		manager: newResourceManager(
@@ -409,7 +412,9 @@ func newWithResources(
 	// we assume these never appear in our configs and as such will not be removed from the
 	// resource graph
 	r.webSvc = web.New(r, logger, rOpts.webOptions...)
-	r.frameSvc, err = framesystem.New(ctx, resource.Dependencies{}, logger)
+	r.frameSvc, err = framesystem.New(ctx, resource.Dependencies{},
+		logger.Named("framesystem").
+			WithOptions(zap.IncreaseLevel(zap.InfoLevel)))
 	if err != nil {
 		return nil, err
 	}
@@ -481,6 +486,7 @@ func newWithResources(
 	r.Reconfigure(ctx, cfg)
 
 	for name, res := range resources {
+		fmt.Printf("Adding node. Name: %v Res:% v\n", name, res)
 		if err := r.manager.resources.AddNode(
 			name, resource.NewConfiguredGraphNode(resource.Config{}, res, unknownModel)); err != nil {
 			return nil, err

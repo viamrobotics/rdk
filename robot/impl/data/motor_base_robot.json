@@ -1,0 +1,31 @@
+{
+    "components": [
+        {
+            "name": "base1",
+            "type": "base",
+            "model": "wheeled",
+            "attributes": {
+                "width_mm": 10,
+                "wheel_circumference_mm": 20,
+                "left": ["m1"],
+                "right": ["m2"]
+            }
+        },
+        {
+            "name": "m1",
+            "type": "motor",
+            "model": "fake",
+            "attributes": {
+                "max_rpm": 100
+            }
+        },
+        {
+            "name": "m2",
+            "type": "motor",
+            "model": "fake",
+            "attributes": {
+                "max_rpm": 100
+            }
+        }
+    ]
+}

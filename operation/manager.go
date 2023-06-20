@@ -3,6 +3,7 @@ package operation
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -64,6 +65,7 @@ func (sm *SingleOperationManager) New(ctx context.Context) (context.Context, fun
 			theOp.closed = true
 		}
 		sm.mu.Lock()
+		fmt.Println("Calling op cancel function")
 		if theOp == sm.currentOp {
 			sm.currentOp = nil
 		}
@@ -147,6 +149,7 @@ func (sm *SingleOperationManager) cancelInLock(ctx context.Context) {
 		return
 	}
 
+	fmt.Println("Calling cancelFunc from cancelInLock")
 	op.cancelFunc()
 
 	sm.currentOp = nil

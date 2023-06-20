@@ -3,6 +3,7 @@ package operation
 import (
 	"context"
 	"errors"
+	"math/rand"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -188,4 +189,35 @@ func (m *mock) stopFail(ctx context.Context, extra map[string]interface{}) error
 
 func (m *mock) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
 	return true, 1, nil
+}
+
+func TestNewRace(t *testing.T) {
+	som := SingleOperationManager{}
+	var wg sync.WaitGroup
+
+	someSharedPinState := 0
+	doSomeWork := func() {
+		defer wg.Done()
+
+		// expected behavior: New does not return until the old operation has completed
+		ctx := context.Background()
+		oldctx, done := som.New(context.Background())
+		defer done()
+
+		// make sure it's not a nested op
+		test.That(t, oldctx, test.ShouldNotEqual, ctx)
+
+		someSharedPinState = 1
+		time.Sleep(time.Duration(rand.Intn(20)) * time.Millisecond) //jitter
+		someSharedPinState = 0
+	}
+
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go doSomeWork()
+	}
+	wg.Wait()
+
+	test.That(t, someSharedPinState, test.ShouldBeZeroValue)
+
 }

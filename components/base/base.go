@@ -8,8 +8,10 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/base/v1"
 
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/services/motion"
 )
 
 func init() {
@@ -59,6 +61,23 @@ type Base interface {
 	SetVelocity(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error
 
 	Properties(ctx context.Context, extra map[string]interface{}) (Properties, error)
+}
+
+type IBase interface {
+	Base
+	ReadMotors(ctx context.Context) (int, int)
+}
+
+// KinematicWrappable describes a base that can be wrapped with a kinematic model.
+type KinematicWrappable interface {
+	WrapWithKinematics(context.Context, motion.Localizer, []referenceframe.Limit) (KinematicBase, error)
+}
+
+// KinematicBase is an interface for Bases that also satisfy the ModelFramer and InputEnabled interfaces.
+type KinematicBase interface {
+	Base
+	referenceframe.ModelFramer
+	referenceframe.InputEnabled
 }
 
 // FromDependencies is a helper for getting the named base from a collection of
