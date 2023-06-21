@@ -102,7 +102,7 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 	if err != nil {
 		return err
 	}
-	validRegion, err := newValidRegionCapsule(current, desired, deviationThreshold)
+	validRegion, err := ddk.newValidRegionCapsule(current, desired)
 	if err != nil {
 		return err
 	}
@@ -227,37 +227,37 @@ func CollisionGeometry(cfg *referenceframe.LinkConfig) ([]spatialmath.Geometry, 
 // The valid region is all points that are deviationThreshold (mm) distance away from the line segment between the
 // starting and ending waypoints. This capsule is used to detect whether a base leaves this region and has thus deviated
 // too far from its path.
-func newValidRegionCapsule(starting, desired []referenceframe.Input, deviationThreshold float64) (spatialmath.Geometry, error) {
+func (ddk *differentialDriveKinematics) newValidRegionCapsule(starting, desired []referenceframe.Input) (spatialmath.Geometry, error) {
 	pt := r3.Vector{X: (desired[0].Value + starting[0].Value) / 2, Y: (desired[1].Value + starting[1].Value) / 2}
-
-	capsule, err := spatialmath.NewCapsule(
-		spatialmath.NewZeroPose(),
-		deviationThreshold,
-		2*deviationThreshold+math.Sqrt(math.Pow(desired[0].Value-starting[0].Value, 2)+math.Pow(desired[1].Value-starting[1].Value, 2)),
-		"")
-	if err != nil {
-		return nil, err
-	}
+	positionErr, _, _ := ddk.errorState(starting, desired)
+	
 	// rotate such that y is forward direction to match the frame for movement of a base
-	o := &spatialmath.R4AA{
+	o := spatialmath.NewPoseFromOrientation(&spatialmath.R4AA{
 		Theta: math.Pi / 2,
 		RX:    1,
 		RY:    0,
 		RZ:    0,
-	}
-	transformedCapsule := capsule.Transform(spatialmath.NewPoseFromOrientation(o))
+	})
 
 	// rotate around the z-axis such that the capsule points in the direction of the end waypoint
 	desiredHeading := math.Atan2(starting[0].Value-desired[0].Value, starting[1].Value-desired[1].Value)
-	headingRotation := &spatialmath.R4AA{
+	headingRotation := spatialmath.NewPoseFromOrientation(&spatialmath.R4AA{
 		Theta: -desiredHeading,
 		RX:    0,
 		RY:    0,
 		RZ:    1,
-	}
-	transformedCapsule = transformedCapsule.Transform(spatialmath.NewPoseFromOrientation(headingRotation))
+	})
 
-	transformedCapsule = transformedCapsule.Transform(spatialmath.NewPoseFromPoint(pt))
+	capsule, err := spatialmath.NewCapsule(
+		spatialmath.Compose(o, headingRotation),
+		deviationThreshold,
+		2*deviationThreshold+float64(positionErr),
+		"")
+	if err != nil {
+		return nil, err
+	}
+
+	transformedCapsule := capsule.Transform(spatialmath.NewPoseFromPoint(pt))
 
 	return transformedCapsule, nil
 }

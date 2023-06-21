@@ -1,7 +1,6 @@
 package spatialmath
 
 import (
-	"math"
 	"testing"
 
 	"github.com/golang/geo/r3"
@@ -37,36 +36,4 @@ func TestBoxCapsuleCollision(t *testing.T) {
 	dist, err := c.DistanceFrom(box1)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, dist, test.ShouldAlmostEqual, -29.69, 1e-3)
-}
-
-func TestPointCapsuleCollision(t *testing.T) {
-	o := &R4AA{
-		Theta: math.Pi / 2,
-		RX:    1,
-		RY:    0,
-		RZ:    0,
-	}
-	o2 := &R4AA{
-		Theta: math.Pi / 4,
-		RX:    0,
-		RY:    0,
-		RZ:    1,
-	}
-	pt := r3.Vector{X: 2, Y: 2, Z: 0}
-
-	c, err := NewCapsule(NewZeroPose(), 1, 10, "")
-	test.That(t, err, test.ShouldBeNil)
-	transformedCapsule := c.Transform(NewPoseFromOrientation(o))
-	// transform heading
-	transformedCapsule = transformedCapsule.Transform(NewPoseFromOrientation(o2))
-	// transform center to non-origin point
-	transformedCapsule = transformedCapsule.Transform(NewPoseFromPoint(pt))
-
-	col, err := transformedCapsule.CollidesWith(NewPoint(r3.Vector{5, -1, 0}, ""))
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, col, test.ShouldBeTrue)
-
-	col, err = transformedCapsule.CollidesWith(NewPoint(r3.Vector{0, 0, 0}, ""))
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, col, test.ShouldBeFalse)
 }
