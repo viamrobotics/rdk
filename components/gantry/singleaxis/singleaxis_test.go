@@ -27,6 +27,8 @@ var fakeFrame = &referenceframe.LinkConfig{
 	Translation: r3.Vector{X: 0, Y: 1.0, Z: 0},
 }
 
+var badFrame = &referenceframe.LinkConfig{}
+
 var count = 0
 
 func createFakeMotor() motor.Motor {
@@ -116,7 +118,7 @@ func TestNewSingleAxis(t *testing.T) {
 	deps = createFakeDepsForTestNewSingleAxis(t)
 	fakecfg = resource.Config{
 		Name:  testGName,
-		Frame: fakeFrame,
+		Frame: badFrame,
 		ConvertedAttributes: &Config{
 			Motor:           motorName,
 			LimitSwitchPins: []string{"1", "2"},

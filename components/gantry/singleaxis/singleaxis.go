@@ -69,7 +69,6 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 	if len(cfg.LimitSwitchPins) > 0 && cfg.LimitPinEnabled == nil {
 		return nil, errors.New("limit pin enabled must be set to true or false")
 	}
-
 	return deps, nil
 }
 
@@ -144,7 +143,8 @@ func (g *singleAxis) Reconfigure(ctx context.Context, deps resource.Dependencies
 	if g.mmPerRevolution <= 0 && len(newConf.LimitSwitchPins) == 1 {
 		return errors.New("gantry with one limit switch per axis needs a mm_per_length ratio defined")
 	}
-	g.frame = conf.Frame.Translation
+	g.frame = r3.Vector{X: 1.0, Y: 0, Z: 0}
+	// TODO: check if frame exists from the config
 	g.rpm = newConf.GantryRPM
 	if g.rpm == 0 {
 		g.rpm = 100
