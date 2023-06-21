@@ -247,7 +247,7 @@ func makeExampleSlice(length int) []int32 {
 }
 
 func TestTFLiteConfigWalker(t *testing.T) {
-	makeVisionAttributes := func(modelPath string, labelPath *string) *TFLiteConfig {
+	makeVisionAttributes := func(modelPath string, labelPath string) *TFLiteConfig {
 		return &TFLiteConfig{
 			ModelPath:  modelPath,
 			LabelPath:  labelPath,
@@ -256,13 +256,13 @@ func TestTFLiteConfigWalker(t *testing.T) {
 	}
 
 	labelPath := "/other/path/on/robot/textFile.txt"
-	visionAttrs := makeVisionAttributes("/some/path/on/robot/model.tflite", &labelPath)
+	visionAttrs := makeVisionAttributes("/some/path/on/robot/model.tflite", labelPath)
 
 	labelPathWithRefs := "${packages.test_model}/textFile.txt"
-	visionAttrsWithRefs := makeVisionAttributes("${packages.test_model}/model.tflite", &labelPathWithRefs)
+	visionAttrsWithRefs := makeVisionAttributes("${packages.test_model}/model.tflite", labelPathWithRefs)
 
 	labelPathOneRef := "${packages.test_model}/textFile.txt"
-	visionAttrsOneRef := makeVisionAttributes("/some/path/on/robot/model.tflite", &labelPathOneRef)
+	visionAttrsOneRef := makeVisionAttributes("/some/path/on/robot/model.tflite", labelPathOneRef)
 
 	packageManager := packages.NewNoopManager()
 	testAttributesWalker := func(t *testing.T, attrs *TFLiteConfig, expectedModelPath, expectedLabelPath string) {
@@ -270,7 +270,7 @@ func TestTFLiteConfigWalker(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		test.That(t, newAttrs.(*TFLiteConfig).ModelPath, test.ShouldEqual, expectedModelPath)
-		test.That(t, *newAttrs.(*TFLiteConfig).LabelPath, test.ShouldEqual, expectedLabelPath)
+		test.That(t, newAttrs.(*TFLiteConfig).LabelPath, test.ShouldEqual, expectedLabelPath)
 		test.That(t, newAttrs.(*TFLiteConfig).NumThreads, test.ShouldEqual, 1)
 	}
 
