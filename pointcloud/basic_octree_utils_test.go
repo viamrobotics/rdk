@@ -220,7 +220,7 @@ func validateBasicOctree(t *testing.T, bOct *BasicOctree, center r3.Vector, side
 		}
 		test.That(t, size, test.ShouldEqual, bOct.size)
 		test.That(t, bOct.node.maxVal, test.ShouldEqual, maxVal)
-		test.That(t, bOct.node.maxVal, test.ShouldEqual, bOct.MaxVal()) // TODO throwing error
+		test.That(t, bOct.node.maxVal, test.ShouldEqual, bOct.MaxVal())
 		test.That(t, numInternalNodes+numLeafNodeEmptyNodes+numLeafNodeFilledNodes, test.ShouldEqual, 8)
 	case leafNodeFilled:
 		test.That(t, len(bOct.node.children), test.ShouldEqual, 0)

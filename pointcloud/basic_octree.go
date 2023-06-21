@@ -18,7 +18,7 @@ const (
 	// This value allows for high level of granularity in the octree while still allowing for fast access times
 	// even on a pi.
 	maxRecursionDepth   = 1000
-	nodeRegionOverlap   = 0.000001
+	nodeRegionOverlap   = 1e-6
 	// TODO: pass these in a diff way
 	confidenceThreshold = 60   // value between 0-100, threshold sets the confidence level required for a point to be considered a collision
 	buffer              = 60.0 // max distance from base to point for it to be considered a collision in mm
@@ -37,6 +37,7 @@ type BasicOctree struct {
 	sideLength float64
 	size       int
 	meta       MetaData
+	label    string
 }
 
 // basicOctreeNode is a struct comprised of the type of node, children nodes (should they exist) and the pointcloud's
@@ -46,7 +47,6 @@ type basicOctreeNode struct {
 	children []*BasicOctree
 	point    *PointAndData
 	maxVal   int
-	label    string
 }
 
 // NewBasicOctree creates a new basic octree with specified center, side and metadata.
@@ -190,6 +190,7 @@ func (octree *BasicOctree) Transform(p spatialmath.Pose) spatialmath.Geometry {
 				octree.sideLength,
 				octree.size,
 				newMetaData,
+				octree.label,
 			}
 
 		transformedOctree.node.maxVal = octree.node.maxVal
@@ -211,6 +212,7 @@ func (octree *BasicOctree) Transform(p spatialmath.Pose) spatialmath.Geometry {
 				octree.sideLength,
 				octree.size,
 				newMetaData,
+				octree.label,
 			}
 
 		transformedOctree.node.maxVal = octree.node.maxVal
@@ -222,6 +224,7 @@ func (octree *BasicOctree) Transform(p spatialmath.Pose) spatialmath.Geometry {
 				octree.sideLength,
 				octree.size,
 				octree.meta,
+				octree.label,
 			}
 	}
 	return transformedOctree
@@ -312,12 +315,12 @@ func (octree *BasicOctree) EncompassedBy(geom spatialmath.Geometry) (bool, error
 // SetLabel sets the label of this octree.
 func (octree *BasicOctree) SetLabel(label string) {
 	// Label returns the label of this octree.
-	octree.node.label = label
+	octree.label = label
 }
 
 // Label returns the label of this octree.
 func (octree *BasicOctree) Label() string {
-	return octree.node.label
+	return octree.label
 }
 
 // String returns a human readable string that represents this octree.

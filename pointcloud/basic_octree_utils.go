@@ -17,7 +17,6 @@ func newLeafNodeEmpty() basicOctreeNode {
 		nodeType: leafNodeEmpty,
 		point:    nil,
 		maxVal:   emptyProb,
-		label:    "",
 	}
 	return octNode
 }
@@ -29,7 +28,6 @@ func newInternalNode(tree []*BasicOctree) basicOctreeNode {
 		nodeType: internalNode,
 		point:    nil,
 		maxVal:   emptyProb,
-		label:    "",
 	}
 	return octNode
 }
@@ -41,7 +39,6 @@ func newLeafNodeFilled(p r3.Vector, d Data) basicOctreeNode {
 		nodeType: leafNodeFilled,
 		point:    &PointAndData{P: p, D: d},
 		maxVal:   getRawVal(d),
-		label:    "",
 	}
 	return octNode
 }
@@ -54,10 +51,6 @@ func getRawVal(d Data) int {
 		return int(b)
 	}
 	return emptyProb
-	// if d.HasValue() {
-	// 	return d.Value()
-	// }
-	// return emptyProb
 }
 
 // Splits a basic octree into multiple octants and will place any stored point in appropriate child
