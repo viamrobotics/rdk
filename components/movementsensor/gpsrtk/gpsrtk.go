@@ -55,13 +55,11 @@ type Config struct {
 
 // NtripConfig is used for converting attributes for a correction source.
 type NtripConfig struct {
-	NtripAddr            string `json:"ntrip_addr"`
+	NtripURL             string `json:"ntrip_url"`
 	NtripConnectAttempts int    `json:"ntrip_connect_attempts,omitempty"`
 	NtripMountpoint      string `json:"ntrip_mountpoint,omitempty"`
 	NtripPass            string `json:"ntrip_password,omitempty"`
 	NtripUser            string `json:"ntrip_username,omitempty"`
-	NtripPath            string `json:"ntrip_path,omitempty"`
-	NtripBaud            int    `json:"ntrip_baud,omitempty"`
 	NtripInputProtocol   string `json:"ntrip_input_protocol,omitempty"`
 }
 
@@ -192,7 +190,7 @@ func (cfg *SerialConfig) ValidateSerial(path string) error {
 
 // ValidateNtrip ensures all parts of the config are valid.
 func (cfg *NtripConfig) ValidateNtrip(path string) error {
-	if cfg.NtripAddr == "" {
+	if cfg.NtripURL == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "ntrip_addr")
 	}
 	if cfg.NtripInputProtocol == "" {
@@ -292,27 +290,20 @@ func newRTKMovementSensor(
 	}
 
 	// Init ntripInfo from attributes
-	g.ntripClient, err = newNtripInfo(newConf.NtripConfig, g.logger)
+	g.ntripClient, err = NewNtripInfo(newConf.NtripConfig, g.logger)
 	if err != nil {
 		return nil, err
 	}
 
-	// baud rate
-	if newConf.NtripBaud == 0 {
-		newConf.NtripBaud = 38400
-		g.logger.Info("ntrip_baud using default baud rate 38400")
-	}
-	g.Wbaud = newConf.NtripBaud
-
 	switch g.InputProtocol {
-	case serialStr:
-		switch newConf.NtripPath {
-		case "":
-			g.logger.Info("RTK will use the same serial path as the GPS data to write RCTM messages")
-			g.Writepath = newConf.SerialPath
-		default:
-			g.Writepath = newConf.NtripPath
-		}
+	// case serialStr:
+	// 	switch newConf.NtripPath {
+	// 	case "":
+	// 		g.logger.Info("RTK will use the same serial path as the GPS data to write RCTM messages")
+	// 		g.Writepath = newConf.SerialPath
+	// 	default:
+	// 		g.Writepath = newConf.NtripPath
+	// 	}
 	case i2cStr:
 		g.Addr = byte(newConf.I2cAddr)
 

@@ -19,13 +19,13 @@ type NtripInfo struct {
 	MaxConnectAttempts int
 }
 
-func newNtripInfo(cfg *NtripConfig, logger golog.Logger) (*NtripInfo, error) {
+func NewNtripInfo(cfg *NtripConfig, logger golog.Logger) (*NtripInfo, error) {
 	n := &NtripInfo{}
 
 	// Init NtripInfo from attributes
-	n.URL = cfg.NtripAddr
+	n.URL = cfg.NtripURL
 	if n.URL == "" {
-		return nil, fmt.Errorf("NTRIP expected non-empty string for %q", cfg.NtripAddr)
+		return nil, fmt.Errorf("NTRIP expected non-empty string for %q", cfg.NtripURL)
 	}
 	n.Username = cfg.NtripUser
 	if n.Username == "" {

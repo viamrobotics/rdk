@@ -139,7 +139,7 @@ func TestValidateRTK(t *testing.T) {
 	_, err = fakecfg.Validate(path)
 	test.That(t, err, test.ShouldBeError, utils.NewConfigValidationFieldRequiredError(path, "ntrip_addr"))
 
-	fakecfg.NtripConfig.NtripAddr = "http://fakeurl"
+	fakecfg.NtripConfig.NtripURL = "http://fakeurl"
 	_, err = fakecfg.Validate(path)
 	test.That(
 		t,
@@ -208,7 +208,7 @@ func TestConnect(t *testing.T) {
 					SerialCorrectionBaudRate: 0,
 				},
 				NtripConfig: &NtripConfig{
-					NtripAddr:            "some_ntrip_address",
+					NtripURL:            "some_ntrip_address",
 					NtripConnectAttempts: 10,
 					NtripMountpoint:      "",
 					NtripPass:            "",
@@ -257,7 +257,7 @@ func TestConnect(t *testing.T) {
 					I2CBaudRate: 115200,
 				},
 				NtripConfig: &NtripConfig{
-					NtripAddr: "http://some_ntrip_address",
+					NtripURL: "http://some_ntrip_address",
 				},
 			},
 		}
