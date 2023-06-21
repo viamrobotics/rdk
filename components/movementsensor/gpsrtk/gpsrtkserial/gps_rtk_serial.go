@@ -17,12 +17,13 @@ import (
 	"github.com/golang/geo/r3"
 	slib "github.com/jacobsa/go-serial/serial"
 	geo "github.com/kellydunn/golang-geo"
+	"go.viam.com/utils"
+
 	"go.viam.com/rdk/components/movementsensor"
 	gpsnmea "go.viam.com/rdk/components/movementsensor/gpsnmea"
 	rtk "go.viam.com/rdk/components/movementsensor/gpsrtk"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/utils"
 )
 
 var rtkmodel = resource.DefaultModelFamily.WithModel("gps-rtk-serial")
@@ -92,9 +93,8 @@ func (cfg *Config) validateNmeaDataSource(path string) ([]string, error) {
 	}
 }
 
-// validateNtripInputProtocol validates protocols accepted by this package
+// validateNtripInputProtocol validates protocols accepted by this package.
 func (cfg *Config) validateNtripInputProtocol(path string) ([]string, error) {
-
 	switch cfg.NtripInputProtocol {
 	case serialStr:
 		return nil, cfg.ValidateSerialPath(path)
@@ -129,7 +129,7 @@ func init() {
 		resource.Registration[movementsensor.MovementSensor, *Config]{})
 }
 
-// RTKSerial is an nmea movementsensor model that can intake RTK correction data
+// RTKSerial is an nmea movementsensor model that can intake RTK correction data.
 type RTKSerial struct {
 	resource.Named
 	resource.AlwaysRebuild
@@ -181,7 +181,8 @@ func newRTKSerial(
 	switch strings.ToLower(newConf.NmeaDataSource) {
 	case serialStr:
 		var err error
-		nmeaConf.SerialConfig = &gpsnmea.SerialConfig{SerialPath: newConf.SerialPath,
+		nmeaConf.SerialConfig = &gpsnmea.SerialConfig{
+			SerialPath:               newConf.SerialPath,
 			SerialBaudRate:           newConf.SerialBaudRate,
 			SerialCorrectionPath:     newConf.SerialCorrectionPath,
 			SerialCorrectionBaudRate: newConf.SerialCorrectionBaudRate,
@@ -231,7 +232,6 @@ func (g *RTKSerial) Connect(casterAddr, user, pwd string, maxAttempts int) error
 	}
 
 	errMsg := fmt.Sprintf("Can't connect to NTRIP caster after %d attempts", maxAttempts)
-	g.logger.Errorf(errMsg)
 	return errors.New(errMsg)
 }
 
@@ -254,7 +254,6 @@ func (g *RTKSerial) GetStream(mountPoint string, maxAttempts int) error {
 	}
 
 	errMsg := fmt.Sprintf("Can't connect to NTRIP stream after %d attempts", maxAttempts)
-	g.logger.Errorf(errMsg)
 	return errors.New(errMsg)
 }
 
@@ -508,7 +507,7 @@ func (g *RTKSerial) Readings(ctx context.Context, extra map[string]interface{}) 
 	return readings, nil
 }
 
-// Close shuts down the RTKSerial
+// Close shuts down the RTKSerial.
 func (g *RTKSerial) Close(ctx context.Context) error {
 	g.ntripMu.Lock()
 	g.cancelFunc()
