@@ -813,7 +813,7 @@ func (r *localRobot) getRemoteFrameSystemConfig(ctx context.Context) ([]*framesy
 			continue
 		}
 		parentName := remoteCfg.Name + "_" + referenceframe.World
-		preprocessed, err := remoteCfg.Frame.Rename(parentName).ParseConfig()
+		preprocessed, err := remoteCfg.Frame.CopyWithNewName(parentName).ParseConfig()
 		if err != nil {
 			return nil, err
 		}

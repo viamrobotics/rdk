@@ -113,7 +113,7 @@ func (svc *frameSystemService) ConfigToParts(cfg *Config) (parts []*referencefra
 		} else { // part is local to the robot and needs to be parsed
 			frame := component.Origin
 			if frame.ID == "" {
-				frame = frame.Rename(component.Name)
+				frame = frame.CopyWithNewName(component.Name)
 			}
 			link, err := frame.ParseConfig()
 			if err != nil {

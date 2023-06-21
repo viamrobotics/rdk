@@ -94,8 +94,8 @@ func (cfg *LinkConfig) ParseConfig() (*LinkInFrame, error) {
 	return NewLinkInFrame(cfg.Parent, pose, cfg.ID, geom), nil
 }
 
-// Rename makes a deep copy of the config with an ID corresponding to the given name.
-func (cfg *LinkConfig) Rename(name string) *LinkConfig {
+// CopyWithNewName makes a deep copy of the config with an ID corresponding to the given name.
+func (cfg *LinkConfig) CopyWithNewName(name string) *LinkConfig {
 	cfgCopy := &LinkConfig{
 		ID:          name,
 		Translation: cfg.Translation,
