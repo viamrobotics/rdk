@@ -277,7 +277,7 @@ func (c *AppClient) TabularData(dst string, filter *datapb.Filter) error {
 		if len(mds) == 0 {
 			break
 		}
-		// Map the current response's metadata indexes to the combined indexes.
+		// Map the current response's metadata indexes to those combined across all responses.
 		localToGlobalMDIndex := make(map[int]int)
 		for i, md := range mds {
 			currMDIndex, ok := mdIndexes[md.String()]
