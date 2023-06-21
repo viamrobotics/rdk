@@ -283,7 +283,7 @@ func (c *AppClient) TabularData(dst string, filter *datapb.Filter) error {
 			currMDIndex, ok := mdIndexes[md.String()]
 			if ok {
 				localToGlobalMDIndex[i] = currMDIndex
-				continue // Already have this metadata file.
+				continue // Already have this metadata file, so skip creating it again.
 			}
 			mdIndexes[md.String()] = mdIndex
 			localToGlobalMDIndex[i] = mdIndex
