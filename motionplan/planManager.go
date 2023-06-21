@@ -337,10 +337,10 @@ func (pm *planManager) planParallelRRTMotion(
 		if finalSteps.err() == nil {
 			if fallbackPlanner != nil {
 				if ok, score := goodPlan(finalSteps, pm.opt()); ok {
-					pm.logger.Debugf("got path with score %f, close enough to optimal %f", score, maps.optNode.cost)
+					pm.logger.Debugf("got path with score %f, close enough to optimal %f", score, maps.optNode.Cost())
 					fallbackPlanner = nil
 				} else {
-					pm.logger.Debugf("path with score %f not close enough to optimal %f, falling back", score, maps.optNode.cost)
+					pm.logger.Debugf("path with score %f not close enough to optimal %f, falling back", score, maps.optNode.Cost())
 
 					// If we have a connected but bad path, we recreate new IK solutions and start from scratch
 					// rather than seeding with a completed, known-bad tree
@@ -541,11 +541,11 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 func goodPlan(pr *rrtPlanReturn, opt *plannerOptions) (bool, float64) {
 	solutionCost := math.Inf(1)
 	if pr.steps != nil {
-		if pr.maps.optNode.cost <= 0 {
+		if pr.maps.optNode.Cost() <= 0 {
 			return true, solutionCost
 		}
 		solutionCost = EvaluatePlan(pr.toInputs(), opt.DistanceFunc)
-		if solutionCost < pr.maps.optNode.cost*defaultOptimalityMultiple {
+		if solutionCost < pr.maps.optNode.Cost()*defaultOptimalityMultiple {
 			return true, solutionCost
 		}
 	}
