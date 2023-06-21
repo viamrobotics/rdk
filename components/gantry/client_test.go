@@ -34,8 +34,9 @@ func TestClient(t *testing.T) {
 		extra1 = extra
 		return pos1, nil
 	}
-	injectGantry.MoveToPositionFunc = func(ctx context.Context, pos []float64, extra map[string]interface{}) error {
+	injectGantry.MoveToPositionFunc = func(ctx context.Context, pos []float64, speed []float64, extra map[string]interface{}) error {
 		gantryPos = pos
+		gantrySpeed = speed
 		extra1 = extra
 		return nil
 	}
@@ -49,6 +50,7 @@ func TestClient(t *testing.T) {
 	}
 
 	pos2 := []float64{4.0, 5.0, 6.0}
+	speed2 := []float64{100.0, 80.0, 120.0}
 	len2 := []float64{5.0, 6.0, 7.0}
 	var extra2 map[string]interface{}
 	injectGantry2 := &inject.Gantry{}
@@ -56,8 +58,9 @@ func TestClient(t *testing.T) {
 		extra2 = extra
 		return pos2, nil
 	}
-	injectGantry2.MoveToPositionFunc = func(ctx context.Context, pos []float64, extra map[string]interface{}) error {
+	injectGantry2.MoveToPositionFunc = func(ctx context.Context, pos []float64, speed []float64, extra map[string]interface{}) error {
 		gantryPos = pos
+		gantrySpeed = speed
 		extra2 = extra
 		return nil
 	}
@@ -112,7 +115,7 @@ func TestClient(t *testing.T) {
 		test.That(t, pos, test.ShouldResemble, pos1)
 		test.That(t, extra1, test.ShouldResemble, map[string]interface{}{"foo": 123., "bar": "234"})
 
-		err = gantry1Client.MoveToPosition(context.Background(), pos2, map[string]interface{}{"foo": 234, "bar": "345"})
+		err = gantry1Client.MoveToPosition(context.Background(), pos2, speed2, map[string]interface{}{"foo": 234, "bar": "345"})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, gantryPos, test.ShouldResemble, pos2)
 		test.That(t, extra1, test.ShouldResemble, map[string]interface{}{"foo": 234., "bar": "345"})

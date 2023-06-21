@@ -92,7 +92,7 @@ func newMultiAxis(
 }
 
 // MoveToPosition moves along an axis using inputs in millimeters.
-func (g *multiAxis) MoveToPosition(ctx context.Context, positions []float64, extra map[string]interface{}) error {
+func (g *multiAxis) MoveToPosition(ctx context.Context, positions []float64, speeds []float64, extra map[string]interface{}) error {
 	ctx, done := g.opMgr.New(ctx)
 	defer done()
 
@@ -115,9 +115,10 @@ func (g *multiAxis) MoveToPosition(ctx context.Context, positions []float64, ext
 		}
 
 		pos := positions[idx : idx+len(subAxNum)]
+		speed := speeds[idx : idx+len(subAxNum)]
 		idx += len(subAxNum)
 
-		err = subAx.MoveToPosition(ctx, pos, extra)
+		err = subAx.MoveToPosition(ctx, pos, speed, extra)
 		if err != nil && !errors.Is(err, context.Canceled) {
 			return err
 		}
@@ -126,14 +127,14 @@ func (g *multiAxis) MoveToPosition(ctx context.Context, positions []float64, ext
 }
 
 // GoToInputs moves the gantry to a goal position in the Gantry frame.
-func (g *multiAxis) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
+func (g *multiAxis) GoToInputs(ctx context.Context, goal []referenceframe.Input, speeds []float64) error {
 	if len(g.subAxes) == 0 {
 		return errors.New("no subaxes found for inputs")
 	}
 	ctx, done := g.opMgr.New(ctx)
 	defer done()
 
-	return g.MoveToPosition(ctx, referenceframe.InputsToFloats(goal), nil)
+	return g.MoveToPosition(ctx, referenceframe.InputsToFloats(goal), speeds, nil)
 }
 
 // Position returns the position in millimeters.

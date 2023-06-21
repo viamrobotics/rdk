@@ -66,7 +66,7 @@ func (s *serviceServer) MoveToPosition(
 	if err != nil {
 		return nil, err
 	}
-	return &pb.MoveToPositionResponse{}, gantry.MoveToPosition(ctx, req.PositionsMm, req.Extra.AsMap())
+	return &pb.MoveToPositionResponse{}, gantry.MoveToPosition(ctx, req.PositionsMm, req.SpeedsMmPerSec, req.Extra.AsMap())
 }
 
 // Stop stops the gantry specified.

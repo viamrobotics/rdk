@@ -444,7 +444,7 @@ func (g *singleAxis) Lengths(ctx context.Context, extra map[string]interface{}) 
 }
 
 // MoveToPosition moves along an axis using inputs in millimeters.
-func (g *singleAxis) MoveToPosition(ctx context.Context, positions []float64, extra map[string]interface{}) error {
+func (g *singleAxis) MoveToPosition(ctx context.Context, positions []float64, speeds []float64, extra map[string]interface{}) error {
 	ctx, done := g.opMgr.New(ctx)
 	defer done()
 
@@ -548,8 +548,8 @@ func (g *singleAxis) CurrentInputs(ctx context.Context) ([]referenceframe.Input,
 }
 
 // GoToInputs moves the gantry to a goal position in the Gantry frame.
-func (g *singleAxis) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
+func (g *singleAxis) GoToInputs(ctx context.Context, goal []referenceframe.Input, speeds []float64) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	return g.MoveToPosition(ctx, referenceframe.InputsToFloats(goal), nil)
+	return g.MoveToPosition(ctx, referenceframe.InputsToFloats(goal), speeds, nil)
 }

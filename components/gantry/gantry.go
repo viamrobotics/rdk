@@ -52,7 +52,7 @@ type Gantry interface {
 
 	// MoveToPosition is in meters
 	// This will block until done or a new operation cancels this one
-	MoveToPosition(ctx context.Context, positionsMm []float64, extra map[string]interface{}) error
+	MoveToPosition(ctx context.Context, positionsMm []float64, speedsMmPerSec []float64, extra map[string]interface{}) error
 
 	// Lengths is the length of gantries in meters
 	Lengths(ctx context.Context, extra map[string]interface{}) ([]float64, error)
