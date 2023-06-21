@@ -61,10 +61,10 @@ func TestNewFrameSystemFromConfig(t *testing.T) {
 
 	parts := []*referenceframe.FrameSystemPart{
 		{
-			FrameConfig: lif1,
+			Origin: lif1,
 		},
 		{
-			FrameConfig: lif2,
+			Origin: lif2,
 		},
 	}
 	frameSys, err := referenceframe.NewFrameSystem("test", parts, []*referenceframe.LinkInFrame{})

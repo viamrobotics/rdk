@@ -31,16 +31,16 @@ func TestFrameModelPart(t *testing.T) {
 
 	// minimally specified part
 	part := &FrameSystemPart{
-		FrameConfig: &LinkInFrame{PoseInFrame: &PoseInFrame{name: "test"}},
-		ModelFrame:  nil,
+		Origin:     &LinkInFrame{PoseInFrame: &PoseInFrame{name: "test"}},
+		ModelFrame: nil,
 	}
 	_, err = part.ToProtobuf()
 	test.That(t, err, test.ShouldBeNil)
 
 	// slightly specified part
 	part = &FrameSystemPart{
-		FrameConfig: &LinkInFrame{PoseInFrame: &PoseInFrame{name: "test", parent: "world"}},
-		ModelFrame:  nil,
+		Origin:     &LinkInFrame{PoseInFrame: &PoseInFrame{name: "test", parent: "world"}},
+		ModelFrame: nil,
 	}
 	result, err := part.ToProtobuf()
 	test.That(t, err, test.ShouldBeNil)
@@ -63,11 +63,11 @@ func TestFrameModelPart(t *testing.T) {
 	// return to FrameSystemPart
 	partAgain, err := ProtobufToFrameSystemPart(result)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, partAgain.FrameConfig.name, test.ShouldEqual, part.FrameConfig.name)
-	test.That(t, partAgain.FrameConfig.parent, test.ShouldEqual, part.FrameConfig.parent)
-	test.That(t, partAgain.FrameConfig.pose, test.ShouldResemble, spatial.NewZeroPose())
+	test.That(t, partAgain.Origin.name, test.ShouldEqual, part.Origin.name)
+	test.That(t, partAgain.Origin.parent, test.ShouldEqual, part.Origin.parent)
+	test.That(t, partAgain.Origin.pose, test.ShouldResemble, spatial.NewZeroPose())
 	// nil orientations become specified as zero orientations
-	test.That(t, partAgain.FrameConfig.pose.Orientation(), test.ShouldResemble, spatial.NewZeroOrientation())
+	test.That(t, partAgain.Origin.pose.Orientation(), test.ShouldResemble, spatial.NewZeroOrientation())
 	test.That(t, partAgain.ModelFrame, test.ShouldResemble, part.ModelFrame)
 
 	orientConf, err := spatial.NewOrientationConfig(spatial.NewZeroOrientation())
@@ -83,8 +83,8 @@ func TestFrameModelPart(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	// fully specified part
 	part = &FrameSystemPart{
-		FrameConfig: lif,
-		ModelFrame:  model,
+		Origin:     lif,
+		ModelFrame: model,
 	}
 	result, err = part.ToProtobuf()
 	test.That(t, err, test.ShouldBeNil)
@@ -104,9 +104,9 @@ func TestFrameModelPart(t *testing.T) {
 	// return to FrameSystemPart
 	partAgain, err = ProtobufToFrameSystemPart(result)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, partAgain.FrameConfig.name, test.ShouldEqual, part.FrameConfig.name)
-	test.That(t, partAgain.FrameConfig.parent, test.ShouldEqual, part.FrameConfig.parent)
-	test.That(t, partAgain.FrameConfig.pose, test.ShouldResemble, part.FrameConfig.pose)
+	test.That(t, partAgain.Origin.name, test.ShouldEqual, part.Origin.name)
+	test.That(t, partAgain.Origin.parent, test.ShouldEqual, part.Origin.parent)
+	test.That(t, partAgain.Origin.pose, test.ShouldResemble, part.Origin.pose)
 	test.That(t, partAgain.ModelFrame.Name, test.ShouldEqual, part.ModelFrame.Name)
 	test.That(t,
 		len(partAgain.ModelFrame.(*SimpleModel).OrdTransforms),
@@ -122,21 +122,21 @@ func TestFramesFromPart(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	// minimally specified part
 	part := &FrameSystemPart{
-		FrameConfig: &LinkInFrame{PoseInFrame: &PoseInFrame{name: "test"}},
-		ModelFrame:  nil,
+		Origin:     &LinkInFrame{PoseInFrame: &PoseInFrame{name: "test"}},
+		ModelFrame: nil,
 	}
 	_, _, err = createFramesFromPart(part)
 	test.That(t, err, test.ShouldBeNil)
 
 	// slightly specified part
 	part = &FrameSystemPart{
-		FrameConfig: &LinkInFrame{PoseInFrame: &PoseInFrame{name: "test", parent: "world"}},
-		ModelFrame:  nil,
+		Origin:     &LinkInFrame{PoseInFrame: &PoseInFrame{name: "test", parent: "world"}},
+		ModelFrame: nil,
 	}
 	modelFrame, originFrame, err := createFramesFromPart(part)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, modelFrame, test.ShouldResemble, NewZeroStaticFrame(part.FrameConfig.name))
-	originTailFrame, ok := NewZeroStaticFrame(part.FrameConfig.name + "_origin").(*staticFrame)
+	test.That(t, modelFrame, test.ShouldResemble, NewZeroStaticFrame(part.Origin.name))
+	originTailFrame, ok := NewZeroStaticFrame(part.Origin.name + "_origin").(*staticFrame)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, originFrame, test.ShouldResemble, &tailGeometryStaticFrame{originTailFrame})
 	orientConf, err := spatial.NewOrientationConfig(spatial.NewZeroOrientation())
@@ -153,14 +153,14 @@ func TestFramesFromPart(t *testing.T) {
 
 	// fully specified part
 	part = &FrameSystemPart{
-		FrameConfig: lif,
-		ModelFrame:  model,
+		Origin:     lif,
+		ModelFrame: model,
 	}
 	modelFrame, originFrame, err = createFramesFromPart(part)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, modelFrame.Name(), test.ShouldEqual, part.FrameConfig.name)
+	test.That(t, modelFrame.Name(), test.ShouldEqual, part.Origin.name)
 	test.That(t, modelFrame.DoF(), test.ShouldResemble, part.ModelFrame.DoF())
-	test.That(t, originFrame.Name(), test.ShouldEqual, part.FrameConfig.name+"_origin")
+	test.That(t, originFrame.Name(), test.ShouldEqual, part.Origin.name+"_origin")
 	test.That(t, originFrame.DoF(), test.ShouldHaveLength, 0)
 
 	// Test geometries are not overwritten for non-zero DOF frames
@@ -174,8 +174,8 @@ func TestFramesFromPart(t *testing.T) {
 	lif, err = lc.ParseConfig()
 	test.That(t, err, test.ShouldBeNil)
 	part = &FrameSystemPart{
-		FrameConfig: lif,
-		ModelFrame:  model,
+		Origin:     lif,
+		ModelFrame: model,
 	}
 	modelFrame, originFrame, err = createFramesFromPart(part)
 	test.That(t, err, test.ShouldBeNil)
@@ -201,8 +201,8 @@ func TestFramesFromPart(t *testing.T) {
 	lif, err = lc.ParseConfig()
 	test.That(t, err, test.ShouldBeNil)
 	part = &FrameSystemPart{
-		FrameConfig: lif,
-		ModelFrame:  model,
+		Origin:     lif,
+		ModelFrame: model,
 	}
 	modelFrame, originFrame, err = createFramesFromPart(part)
 	test.That(t, err, test.ShouldBeNil)
@@ -231,10 +231,10 @@ func TestConvertTransformProtobufToFrameSystemPart(t *testing.T) {
 		transform := NewLinkInFrame("parent", testPose, "child", nil)
 		part, err := LinkInFrameToFrameSystemPart(transform)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, part.FrameConfig.name, test.ShouldEqual, transform.Name())
-		test.That(t, part.FrameConfig.parent, test.ShouldEqual, transform.Parent())
-		test.That(t, spatial.R3VectorAlmostEqual(part.FrameConfig.pose.Point(), testPose.Point(), 1e-8), test.ShouldBeTrue)
-		test.That(t, spatial.OrientationAlmostEqual(part.FrameConfig.pose.Orientation(), testPose.Orientation()), test.ShouldBeTrue)
+		test.That(t, part.Origin.name, test.ShouldEqual, transform.Name())
+		test.That(t, part.Origin.parent, test.ShouldEqual, transform.Parent())
+		test.That(t, spatial.R3VectorAlmostEqual(part.Origin.pose.Point(), testPose.Point(), 1e-8), test.ShouldBeTrue)
+		test.That(t, spatial.OrientationAlmostEqual(part.Origin.pose.Orientation(), testPose.Orientation()), test.ShouldBeTrue)
 	})
 }
 
@@ -422,8 +422,8 @@ func TestFrameSystemToPCD(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		// fully specified part
 		part := &FrameSystemPart{
-			FrameConfig: lif,
-			ModelFrame:  model,
+			Origin:     lif,
+			ModelFrame: model,
 		}
 		armFrame, _, err := createFramesFromPart(part)
 		test.That(t, err, test.ShouldBeNil)
@@ -452,8 +452,8 @@ func TestFrameSystemToPCD(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		// fully specified part
 		part := &FrameSystemPart{
-			FrameConfig: lif,
-			ModelFrame:  model,
+			Origin:     lif,
+			ModelFrame: model,
 		}
 		armFrame, _, err := createFramesFromPart(part)
 		test.That(t, err, test.ShouldBeNil)
@@ -503,8 +503,8 @@ func TestFrameSystemToPCD(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		// fully specified part
 		part := &FrameSystemPart{
-			FrameConfig: lif,
-			ModelFrame:  model,
+			Origin:     lif,
+			ModelFrame: model,
 		}
 		armFrame, _, err := createFramesFromPart(part)
 		test.That(t, err, test.ShouldBeNil)

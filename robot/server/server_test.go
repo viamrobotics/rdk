@@ -311,10 +311,10 @@ func TestServerFrameSystemConfig(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		fsConfigs := []*referenceframe.FrameSystemPart{
 			{
-				FrameConfig: lif1,
+				Origin: lif1,
 			},
 			{
-				FrameConfig: lif2,
+				Origin: lif2,
 			},
 		}
 
@@ -326,29 +326,29 @@ func TestServerFrameSystemConfig(t *testing.T) {
 		resp, err := server.FrameSystemConfig(context.Background(), req)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(resp.FrameSystemConfigs), test.ShouldEqual, len(fsConfigs))
-		test.That(t, resp.FrameSystemConfigs[0].Frame.ReferenceFrame, test.ShouldEqual, fsConfigs[0].FrameConfig.Name())
+		test.That(t, resp.FrameSystemConfigs[0].Frame.ReferenceFrame, test.ShouldEqual, fsConfigs[0].Origin.Name())
 		test.That(
 			t,
 			resp.FrameSystemConfigs[0].Frame.PoseInObserverFrame.ReferenceFrame,
 			test.ShouldEqual,
-			fsConfigs[0].FrameConfig.Parent(),
+			fsConfigs[0].Origin.Parent(),
 		)
 		test.That(t,
 			resp.FrameSystemConfigs[0].Frame.PoseInObserverFrame.Pose.X,
 			test.ShouldAlmostEqual,
-			fsConfigs[0].FrameConfig.Pose().Point().X,
+			fsConfigs[0].Origin.Pose().Point().X,
 		)
 		test.That(t,
 			resp.FrameSystemConfigs[0].Frame.PoseInObserverFrame.Pose.Y,
 			test.ShouldAlmostEqual,
-			fsConfigs[0].FrameConfig.Pose().Point().Y,
+			fsConfigs[0].Origin.Pose().Point().Y,
 		)
 		test.That(t,
 			resp.FrameSystemConfigs[0].Frame.PoseInObserverFrame.Pose.Z,
 			test.ShouldAlmostEqual,
-			fsConfigs[0].FrameConfig.Pose().Point().Z,
+			fsConfigs[0].Origin.Pose().Point().Z,
 		)
-		pose := fsConfigs[0].FrameConfig.Pose()
+		pose := fsConfigs[0].Origin.Pose()
 		test.That(t,
 			resp.FrameSystemConfigs[0].Frame.PoseInObserverFrame.Pose.OX,
 			test.ShouldAlmostEqual,

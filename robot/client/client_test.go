@@ -1169,11 +1169,11 @@ func TestClientDiscovery(t *testing.T) {
 }
 
 func ensurePartsAreEqual(part, otherPart *referenceframe.FrameSystemPart) error {
-	if part.FrameConfig.Name() != otherPart.FrameConfig.Name() {
-		return errors.Errorf("part had name %s while other part had name %s", part.FrameConfig.Name(), otherPart.FrameConfig.Name())
+	if part.Origin.Name() != otherPart.Origin.Name() {
+		return errors.Errorf("part had name %s while other part had name %s", part.Origin.Name(), otherPart.Origin.Name())
 	}
-	frameConfig := part.FrameConfig
-	otherFrameConfig := otherPart.FrameConfig
+	frameConfig := part.Origin
+	otherFrameConfig := otherPart.Origin
 	if frameConfig.Parent() != otherFrameConfig.Parent() {
 		return errors.Errorf("part had parent %s while other part had parent %s", frameConfig.Parent(), otherFrameConfig.Parent())
 	}
@@ -1240,10 +1240,10 @@ func TestClientConfig(t *testing.T) {
 
 	fsParts := []*referenceframe.FrameSystemPart{
 		{
-			FrameConfig: lif1,
+			Origin: lif1,
 		},
 		{
-			FrameConfig: lif2,
+			Origin: lif2,
 		},
 	}
 

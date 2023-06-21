@@ -65,11 +65,11 @@ type FrameSystem interface {
 }
 
 // FrameSystemPart is used to collect all the info need from a named robot part to build the frame node in a frame system.
-// FrameConfig gives the frame's location relative to parent,
+// Origin gives the frame's location relative to parent,
 // and ModelFrame is an optional ModelJSON that describes the internal kinematics of the robot part.
 type FrameSystemPart struct {
-	FrameConfig *LinkInFrame
-	ModelFrame  Model
+	Origin     *LinkInFrame
+	ModelFrame Model
 }
 
 // simpleFrameSystem implements FrameSystem. It is a simple tree graph.
@@ -113,7 +113,7 @@ func NewFrameSystem(name string, parts []*FrameSystemPart, additionalTransforms 
 			return nil, err
 		}
 		// attach static offset frame to parent, attach model frame to static offset frame
-		if err = fs.AddFrame(staticOffsetFrame, fs.Frame(part.FrameConfig.Parent())); err != nil {
+		if err = fs.AddFrame(staticOffsetFrame, fs.Frame(part.Origin.Parent())); err != nil {
 			return nil, err
 		}
 		if err = fs.AddFrame(modelFrame, staticOffsetFrame); err != nil {
@@ -469,10 +469,10 @@ func FrameSystemGeometries(fs FrameSystem, inputMap map[string][]Input) (map[str
 
 // ToProtobuf turns all the interfaces into serializable types.
 func (part *FrameSystemPart) ToProtobuf() (*pb.FrameSystemConfig, error) {
-	if part.FrameConfig == nil {
+	if part.Origin == nil {
 		return nil, ErrNoModelInformation
 	}
-	linkFrame, err := LinkInFrameToTransformProtobuf(part.FrameConfig)
+	linkFrame, err := LinkInFrameToTransformProtobuf(part.Origin)
 	if err != nil {
 		return nil, err
 	}
@@ -504,7 +504,7 @@ func ProtobufToFrameSystemPart(fsc *pb.FrameSystemConfig) (*FrameSystemPart, err
 		return nil, err
 	}
 	part := &FrameSystemPart{
-		FrameConfig: frameConfig,
+		Origin: frameConfig,
 	}
 
 	if len(fsc.Kinematics.AsMap()) > 0 {
@@ -530,33 +530,33 @@ func LinkInFrameToFrameSystemPart(transform *LinkInFrame) (*FrameSystemPart, err
 		return nil, ErrEmptyStringFrameName
 	}
 	part := &FrameSystemPart{
-		FrameConfig: transform,
+		Origin: transform,
 	}
 	return part, nil
 }
 
 // createFramesFromPart will gather the frame information and build the frames from the given robot part.
 func createFramesFromPart(part *FrameSystemPart) (Frame, Frame, error) {
-	if part == nil || part.FrameConfig == nil {
+	if part == nil || part.Origin == nil {
 		return nil, nil, errors.New("config for FrameSystemPart is nil")
 	}
 	var modelFrame Frame
 	var err error
 	// use identity frame if no model frame defined
 	if part.ModelFrame == nil {
-		modelFrame = NewZeroStaticFrame(part.FrameConfig.Name())
+		modelFrame = NewZeroStaticFrame(part.Origin.Name())
 	} else {
-		if part.ModelFrame.Name() != part.FrameConfig.Name() {
-			modelFrame = NewNamedFrame(part.ModelFrame, part.FrameConfig.Name())
+		if part.ModelFrame.Name() != part.Origin.Name() {
+			modelFrame = NewNamedFrame(part.ModelFrame, part.Origin.Name())
 		} else {
 			modelFrame = part.ModelFrame
 		}
 	}
 	// staticOriginFrame defines a change in origin from the parent part.
 	// If it is empty, the new frame will have the same origin as the parent.
-	staticOriginName := part.FrameConfig.Name() + "_origin"
+	staticOriginName := part.Origin.Name() + "_origin"
 	// By default, this
-	originFrame, err := part.FrameConfig.ToStaticFrame(staticOriginName)
+	originFrame, err := part.Origin.ToStaticFrame(staticOriginName)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -594,7 +594,7 @@ func createFramesFromPart(part *FrameSystemPart) (Frame, Frame, error) {
 func getPartNames(parts []*FrameSystemPart) []string {
 	names := make([]string, len(parts))
 	for i, p := range parts {
-		names[i] = p.FrameConfig.Name()
+		names[i] = p.Origin.Name()
 	}
 	return names
 }
@@ -606,7 +606,7 @@ func TopologicallySortParts(parts []*FrameSystemPart) ([]*FrameSystemPart, error
 	if len(parts) != 0 {
 		hasWorld := false
 		for _, part := range parts {
-			if part.FrameConfig.Parent() == World {
+			if part.Origin.Parent() == World {
 				hasWorld = true
 				break
 			}
@@ -620,16 +620,16 @@ func TopologicallySortParts(parts []*FrameSystemPart) ([]*FrameSystemPart, error
 	existingParts := make(map[string]bool, len(parts))
 	existingParts[World] = true
 	for _, part := range parts {
-		existingParts[part.FrameConfig.Name()] = true
+		existingParts[part.Origin.Name()] = true
 	}
 	// make map of children
 	children := make(map[string][]*FrameSystemPart)
 	for _, part := range parts {
-		parent := part.FrameConfig.Parent()
+		parent := part.Origin.Parent()
 		if !existingParts[parent] {
-			return nil, NewParentFrameMissingError(part.FrameConfig.Name(), parent)
+			return nil, NewParentFrameMissingError(part.Origin.Name(), parent)
 		}
-		children[part.FrameConfig.Parent()] = append(children[part.FrameConfig.Parent()], part)
+		children[part.Origin.Parent()] = append(children[part.Origin.Parent()], part)
 	}
 	topoSortedParts := []*FrameSystemPart{} // keep track of tree structure
 	// If there are no frames, return the empty list
@@ -651,10 +651,10 @@ func TopologicallySortParts(parts []*FrameSystemPart) ([]*FrameSystemPart, error
 		}
 		visited[parent] = true
 		sort.Slice(children[parent], func(i, j int) bool {
-			return children[parent][i].FrameConfig.Name() < children[parent][j].FrameConfig.Name()
+			return children[parent][i].Origin.Name() < children[parent][j].Origin.Name()
 		}) // sort alphabetically within the topological sort
 		for _, part := range children[parent] { // add all the children to the frame system, and to the stack as new parents
-			stack = append(stack, part.FrameConfig.Name())
+			stack = append(stack, part.Origin.Name())
 			topoSortedParts = append(topoSortedParts, part)
 		}
 	}

@@ -19,6 +19,7 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -1225,12 +1226,12 @@ func TestStatusRemote(t *testing.T) {
 	frameSystemConfigFunc := func(ctx context.Context) ([]*referenceframe.FrameSystemPart, error) {
 		return []*referenceframe.FrameSystemPart{
 			{
-				FrameConfig: referenceframe.NewLinkInFrame(referenceframe.World, nil, "arm1", nil),
-				ModelFrame:  referenceframe.NewSimpleModel("arm1"),
+				Origin:     referenceframe.NewLinkInFrame(referenceframe.World, nil, "arm1", nil),
+				ModelFrame: referenceframe.NewSimpleModel("arm1"),
 			},
 			{
-				FrameConfig: referenceframe.NewLinkInFrame(referenceframe.World, nil, "arm2", nil),
-				ModelFrame:  referenceframe.NewSimpleModel("arm2"),
+				Origin:     referenceframe.NewLinkInFrame(referenceframe.World, nil, "arm2", nil),
+				ModelFrame: referenceframe.NewSimpleModel("arm2"),
 			},
 		}, nil
 	}

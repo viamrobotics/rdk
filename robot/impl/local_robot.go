@@ -798,7 +798,7 @@ func (r *localRobot) getLocalFrameSystemConfig() []*framesystem.PartConfig {
 		if component.Frame == nil { // no Frame means dont include in frame system.
 			continue
 		}
-		parts = append(parts, &framesystem.PartConfig{Name: component.Name, FrameConfig: component.Frame})
+		parts = append(parts, &framesystem.PartConfig{Name: component.Name, Origin: component.Frame})
 	}
 	return parts
 }
@@ -818,7 +818,7 @@ func (r *localRobot) getRemoteFrameSystemConfig(ctx context.Context) ([]*framesy
 			return nil, err
 		}
 		remoteParts = append(remoteParts, &framesystem.PartConfig{
-			PreprocessedPart: &referenceframe.FrameSystemPart{FrameConfig: preprocessed},
+			PreprocessedPart: &referenceframe.FrameSystemPart{Origin: preprocessed},
 		})
 
 		// get the parts from the remote itself

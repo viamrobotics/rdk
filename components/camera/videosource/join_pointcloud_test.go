@@ -72,12 +72,12 @@ func makeFakeRobot(t *testing.T) resource.Dependencies {
 	fsParts := []*framesystem.PartConfig{
 		{
 			PreprocessedPart: &referenceframe.FrameSystemPart{
-				FrameConfig: referenceframe.NewLinkInFrame(referenceframe.World, spatialmath.NewZeroPose(), "base1", nil),
+				Origin: referenceframe.NewLinkInFrame(referenceframe.World, spatialmath.NewZeroPose(), "base1", nil),
 			},
 		},
 		{
 			PreprocessedPart: &referenceframe.FrameSystemPart{
-				FrameConfig: referenceframe.NewLinkInFrame(
+				Origin: referenceframe.NewLinkInFrame(
 					referenceframe.World,
 					spatialmath.NewPoseFromPoint(r3.Vector{X: 100}),
 					"cam1",
@@ -87,12 +87,12 @@ func makeFakeRobot(t *testing.T) resource.Dependencies {
 		},
 		{
 			PreprocessedPart: &referenceframe.FrameSystemPart{
-				FrameConfig: referenceframe.NewLinkInFrame("cam1", spatialmath.NewPoseFromPoint(r3.Vector{Z: 100}), "cam2", nil),
+				Origin: referenceframe.NewLinkInFrame("cam1", spatialmath.NewPoseFromPoint(r3.Vector{Z: 100}), "cam2", nil),
 			},
 		},
 		{
 			PreprocessedPart: &referenceframe.FrameSystemPart{
-				FrameConfig: referenceframe.NewLinkInFrame("cam2", spatialmath.NewPoseFromPoint(r3.Vector{Y: 100}), "cam3", nil),
+				Origin: referenceframe.NewLinkInFrame("cam2", spatialmath.NewPoseFromPoint(r3.Vector{Y: 100}), "cam3", nil),
 			},
 		},
 	}
@@ -309,32 +309,32 @@ func makeFakeRobotICP(t *testing.T) resource.Dependencies {
 	fsParts := []*framesystem.PartConfig{
 		{
 			PreprocessedPart: &referenceframe.FrameSystemPart{
-				FrameConfig: referenceframe.NewLinkInFrame(referenceframe.World, spatialmath.NewZeroPose(), "base1", nil),
+				Origin: referenceframe.NewLinkInFrame(referenceframe.World, spatialmath.NewZeroPose(), "base1", nil),
 			},
 		},
 		{
 			PreprocessedPart: &referenceframe.FrameSystemPart{
-				FrameConfig: referenceframe.NewLinkInFrame(referenceframe.World, spatialmath.NewZeroPose(), "cam1", nil),
+				Origin: referenceframe.NewLinkInFrame(referenceframe.World, spatialmath.NewZeroPose(), "cam1", nil),
 			},
 		},
 		{
 			PreprocessedPart: &referenceframe.FrameSystemPart{
-				FrameConfig: referenceframe.NewLinkInFrame("cam1", spatialmath.NewPoseFromPoint(r3.Vector{0, 0, -100}), "cam2", nil),
+				Origin: referenceframe.NewLinkInFrame("cam1", spatialmath.NewPoseFromPoint(r3.Vector{0, 0, -100}), "cam2", nil),
 			},
 		},
 		{
 			PreprocessedPart: &referenceframe.FrameSystemPart{
-				FrameConfig: referenceframe.NewLinkInFrame(referenceframe.World, spatialmath.NewZeroPose(), "cam3", nil),
+				Origin: referenceframe.NewLinkInFrame(referenceframe.World, spatialmath.NewZeroPose(), "cam3", nil),
 			},
 		},
 		{
 			PreprocessedPart: &referenceframe.FrameSystemPart{
-				FrameConfig: referenceframe.NewLinkInFrame("cam3", spatialmath.NewPose(r3.Vector{-60, 0, -10}, o1), "cam4", nil),
+				Origin: referenceframe.NewLinkInFrame("cam3", spatialmath.NewPose(r3.Vector{-60, 0, -10}, o1), "cam4", nil),
 			},
 		},
 		{
 			PreprocessedPart: &referenceframe.FrameSystemPart{
-				FrameConfig: referenceframe.NewLinkInFrame("cam4", spatialmath.NewPose(r3.Vector{-60, 0, -10}, o2), "cam5", nil),
+				Origin: referenceframe.NewLinkInFrame("cam4", spatialmath.NewPose(r3.Vector{-60, 0, -10}, o2), "cam5", nil),
 			},
 		},
 	}

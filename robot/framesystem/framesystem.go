@@ -79,11 +79,11 @@ type Config struct {
 }
 
 // PartConfig is the structure that encodes all the information needed for a frame system part.
-// Only one of the two fields between FrameConfig and PreprocessedPart should be non-nil as they each provide the same
+// Only one of the two fields between Origin and PreprocessedPart should be non-nil as they each provide the same
 // information in different formats.
 type PartConfig struct {
-	Name        string
-	FrameConfig *referenceframe.LinkConfig
+	Name   string
+	Origin *referenceframe.LinkConfig
 
 	// PreprocessedPart is a field that if filled means that no further processing of the config is necessary
 	// This is efficient because parts that are returned from remotes should not have to be turned into configs only
@@ -111,7 +111,7 @@ func (svc *frameSystemService) ConfigToParts(cfg *Config) (parts []*referencefra
 		if component.PreprocessedPart != nil {
 			parts = append(parts, component.PreprocessedPart)
 		} else { // part is local to the robot and needs to be parsed
-			frame := component.FrameConfig
+			frame := component.Origin
 			if frame.ID == "" {
 				frame = frame.Rename(component.Name)
 			}
@@ -126,7 +126,7 @@ func (svc *frameSystemService) ConfigToParts(cfg *Config) (parts []*referencefra
 				// In this case, we will exclude it from the FS and when it becomes available, it will be included.
 				continue
 			}
-			parts = append(parts, &referenceframe.FrameSystemPart{FrameConfig: link, ModelFrame: model})
+			parts = append(parts, &referenceframe.FrameSystemPart{Origin: link, ModelFrame: model})
 		}
 	}
 	return parts, nil
@@ -321,13 +321,13 @@ func (svc *frameSystemService) TransformPointCloud(ctx context.Context, srcpc po
 func PrefixRemoteParts(parts []*referenceframe.FrameSystemPart, remoteName, remoteParent string) []*PartConfig {
 	partConfigs := make([]*PartConfig, 0, len(parts))
 	for _, part := range parts {
-		if part.FrameConfig.Parent() == referenceframe.World { // rename World of remote parts
-			part.FrameConfig.SetParent(remoteParent)
+		if part.Origin.Parent() == referenceframe.World { // rename World of remote parts
+			part.Origin.SetParent(remoteParent)
 		}
 		// rename each non-world part with prefix
-		part.FrameConfig.SetName(remoteName + ":" + part.FrameConfig.Name())
-		if part.FrameConfig.Parent() != remoteParent {
-			part.FrameConfig.SetParent(remoteName + ":" + part.FrameConfig.Parent())
+		part.Origin.SetName(remoteName + ":" + part.Origin.Name())
+		if part.Origin.Parent() != remoteParent {
+			part.Origin.SetParent(remoteName + ":" + part.Origin.Parent())
 		}
 		partConfigs = append(partConfigs, &PartConfig{PreprocessedPart: part})
 	}
@@ -340,17 +340,17 @@ func (svc *frameSystemService) String() string {
 	t.AppendHeader(table.Row{"#", "Name", "Parent", "Translation", "Orientation", "Geometry"})
 	t.AppendRow([]interface{}{"0", referenceframe.World, "", "", "", ""})
 	for i, part := range svc.parts {
-		pose := part.FrameConfig.Pose()
+		pose := part.Origin.Pose()
 		tra := pose.Point()
 		ori := pose.Orientation().EulerAngles()
 		geomString := ""
-		if gc := part.FrameConfig.Geometry(); gc != nil {
+		if gc := part.Origin.Geometry(); gc != nil {
 			geomString = gc.String()
 		}
 		t.AppendRow([]interface{}{
 			fmt.Sprintf("%d", i+1),
-			part.FrameConfig.Name(),
-			part.FrameConfig.Parent(),
+			part.Origin.Name(),
+			part.Origin.Parent(),
 			fmt.Sprintf("X:%.0f, Y:%.0f, Z:%.0f", tra.X, tra.Y, tra.Z),
 			fmt.Sprintf(
 				"Roll:%.2f, Pitch:%.2f, Yaw:%.2f",
