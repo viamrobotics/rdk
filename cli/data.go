@@ -243,7 +243,7 @@ func (c *AppClient) TabularData(dst string, filter *datapb.Filter) error {
 	var resp *datapb.TabularDataByFilterResponse
 	// TODO: [DATA-640] Support export in additional formats.
 	//nolint:gosec
-	dataFile, err := os.Create(filepath.Join(dst, dataDir, "data"+".ndjson"))
+	dataFile, err := os.Create(filepath.Join(dst, dataDir, "data.ndjson"))
 	if err != nil {
 		return errors.Wrapf(err, "error creating data file")
 	}
@@ -251,7 +251,8 @@ func (c *AppClient) TabularData(dst string, filter *datapb.Filter) error {
 
 	fmt.Fprintf(c.c.App.Writer, "Downloading..")
 	var last string
-	var metadataIdx int
+	mdIndexes := make(map[string]int)
+	mdIndex := 0
 	for {
 		for count := 0; count < maxRetryCount; count++ {
 			resp, err = c.dataClient.TabularDataByFilter(context.Background(), &datapb.TabularDataByFilterRequest{
@@ -276,15 +277,25 @@ func (c *AppClient) TabularData(dst string, filter *datapb.Filter) error {
 		if len(mds) == 0 {
 			break
 		}
-		for _, md := range mds {
+		// Map the current response's metadata indexes to the combined indexes.
+		localToGlobalMDIndex := make(map[int]int)
+		for i, md := range mds {
+			currMDIndex, ok := mdIndexes[md.String()]
+			if ok {
+				localToGlobalMDIndex[i] = currMDIndex
+				continue // Already have this metadata file.
+			}
+			mdIndexes[md.String()] = mdIndex
+			localToGlobalMDIndex[i] = mdIndex
+
 			mdJSONBytes, err := protojson.Marshal(md)
 			if err != nil {
 				return errors.Wrap(err, "error marshaling metadata")
 			}
 			//nolint:gosec
-			mdFile, err := os.Create(filepath.Join(dst, metadataDir, strconv.Itoa(metadataIdx)+".json"))
+			mdFile, err := os.Create(filepath.Join(dst, metadataDir, strconv.Itoa(mdIndex)+".json"))
 			if err != nil {
-				return errors.Wrapf(err, fmt.Sprintf("error creating metadata file for metadata index %d", metadataIdx))
+				return errors.Wrapf(err, fmt.Sprintf("error creating metadata file for metadata index %d", mdIndex))
 			}
 			if _, err := mdFile.Write(mdJSONBytes); err != nil {
 				return errors.Wrapf(err, "error writing metadata file %s", mdFile.Name())
@@ -292,8 +303,7 @@ func (c *AppClient) TabularData(dst string, filter *datapb.Filter) error {
 			if err := mdFile.Close(); err != nil {
 				return errors.Wrapf(err, "error closing metadata file %s", mdFile.Name())
 			}
-
-			metadataIdx++
+			mdIndex++
 		}
 
 		data := resp.GetData()
@@ -306,7 +316,7 @@ func (c *AppClient) TabularData(dst string, filter *datapb.Filter) error {
 			m := d.AsMap()
 			m["TimeRequested"] = datum.GetTimeRequested()
 			m["TimeReceived"] = datum.GetTimeReceived()
-			m["MetadataIndex"] = datum.GetMetadataIndex()
+			m["MetadataIndex"] = localToGlobalMDIndex[int(datum.GetMetadataIndex())]
 			j, err := json.Marshal(m)
 			if err != nil {
 				return errors.Wrap(err, "error marshaling json response")
