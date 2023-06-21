@@ -98,11 +98,11 @@ func (ddk *differentialDriveKinematics) CurrentInputs(ctx context.Context) ([]re
 func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired []referenceframe.Input) (err error) {
 	// create capsule which defines the valid region for a base to be when driving to desired waypoint
 	// deviationThreshold defines max distance base can be from path without error being thrown
-	startingPos, err := ddk.CurrentInputs(ctx)
+	current, err := ddk.CurrentInputs(ctx)
 	if err != nil {
 		return err
 	}
-	validRegion, err := newValidRegionCapsule(startingPos, desired, deviationThreshold)
+	validRegion, err := newValidRegionCapsule(current, desired, deviationThreshold)
 	if err != nil {
 		return err
 	}
@@ -110,11 +110,6 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 	// this loop polls the error state and issues a corresponding command to move the base to the objective
 	// when the base is within the positional threshold of the goal, exit the loop
 	for err = ctx.Err(); err == nil; err = ctx.Err() {
-		current, err := ddk.CurrentInputs(ctx)
-		if err != nil {
-			return err
-		}
-
 		col, err := validRegion.CollidesWith(spatialmath.NewPoint(r3.Vector{X: current[0].Value, Y: current[1].Value}, ""))
 		if err != nil {
 			return err
@@ -136,6 +131,11 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 			if !commanded {
 				return nil
 			}
+		}
+
+		current, err = ddk.CurrentInputs(ctx)
+		if err != nil {
+			return err
 		}
 	}
 	return err
