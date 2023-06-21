@@ -31,7 +31,6 @@ func WrapWithFakeKinematics(
 	if err != nil {
 		return nil, err
 	}
-
 	return &fakeKinematics{
 		Base:      b,
 		model:     model,
