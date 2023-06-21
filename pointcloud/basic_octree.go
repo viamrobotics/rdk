@@ -6,8 +6,8 @@ import (
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
-
 	commonpb "go.viam.com/api/common/v1"
+
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -19,7 +19,7 @@ const (
 	// even on a pi.
 	maxRecursionDepth = 1000
 	nodeRegionOverlap = 1e-6
-	// TODO: pass these in a diff way
+	// TODO: pass these in a diff way.
 	confidenceThreshold = 60   // value between 0-100, threshold sets the confidence level required for a point to be considered a collision
 	buffer              = 60.0 // max distance from base to point for it to be considered a collision in mm
 )
@@ -164,7 +164,7 @@ func (octree *BasicOctree) ToProtobuf() *commonpb.Geometry {
 }
 
 // CollidesWithGeometry will return whether a given geometry is in collision with a given point.
-// A point is in collision if its stored probability is >= confidenceThreshold and if it is at most buffer distance away
+// A point is in collision if its stored probability is >= confidenceThreshold and if it is at most buffer distance away.
 func (octree *BasicOctree) CollidesWithGeometry(geom spatialmath.Geometry, confidenceThreshold int, buffer float64) (bool, error) {
 	if octree.MaxVal() < confidenceThreshold {
 		return false, nil

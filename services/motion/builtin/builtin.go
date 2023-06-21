@@ -479,12 +479,5 @@ func (ms *builtIn) planMoveOnMap(
 		return nil, nil, err
 	}
 	plan, err := motionplan.FrameStepsFromRobotPath(f.Name(), solutionMap)
-	
-	var planStr string
-	for _, point := range plan {
-		planStr += fmt.Sprintf("%v,%v\n", point[0].Value, point[1].Value)
-	}
-	ms.logger.Debug(planStr)
-
 	return plan, kb, err
 }
