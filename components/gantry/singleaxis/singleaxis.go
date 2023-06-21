@@ -199,15 +199,9 @@ func (g *singleAxis) Reconfigure(ctx context.Context, deps resource.Dependencies
 	}
 
 	if needsToReHome {
-		wg.Add(1)
-		go func() {
-			// Decrement the counter when the go routine completes
-			defer wg.Done()
-			if err = g.home(ctx, len(newConf.LimitSwitchPins)); err != nil {
-				g.logger.Error(err)
-			}
-		}()
-		wg.Wait()
+		if err = g.home(ctx, len(newConf.LimitSwitchPins)); err != nil {
+			g.logger.Error(err)
+		}
 	}
 
 	ctx, cancelFunc := context.WithCancel(context.Background())

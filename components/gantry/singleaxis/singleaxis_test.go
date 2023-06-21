@@ -4,7 +4,6 @@ import (
 	"context"
 	"math"
 	"testing"
-	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
@@ -55,9 +54,10 @@ func createLimitBoard() board.Board {
 }
 
 func createFakeBoard() board.Board {
+	pinCount := 0
 	injectGPIOPin := &inject.GPIOPin{
 		GetFunc: func(ctx context.Context, extra map[string]interface{}) (bool, error) {
-			pinCount := time.Now().Unix()
+			pinCount += 1
 			if pinCount%2 == 0 {
 				return false, nil
 			}
