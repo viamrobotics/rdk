@@ -1222,24 +1222,9 @@ func TestStatusRemote(t *testing.T) {
 	resourcesFunc := func() []resource.Name { return []resource.Name{arm.Named("arm1"), arm.Named("arm2")} }
 	statusCallCount := 0
 
-	// TODO: RSDK-882 will update this so that this is not necessary
-	frameSystemConfigFunc := func(ctx context.Context) ([]*referenceframe.FrameSystemPart, error) {
-		return []*referenceframe.FrameSystemPart{
-			{
-				Origin:     referenceframe.NewLinkInFrame(referenceframe.World, nil, "arm1", nil),
-				ModelFrame: referenceframe.NewSimpleModel("arm1"),
-			},
-			{
-				Origin:     referenceframe.NewLinkInFrame(referenceframe.World, nil, "arm2", nil),
-				ModelFrame: referenceframe.NewSimpleModel("arm2"),
-			},
-		}, nil
-	}
-
 	injectRobot1 := &inject.Robot{
-		FrameSystemPartsFunc: frameSystemConfigFunc,
-		ResourceNamesFunc:    resourcesFunc,
-		ResourceRPCAPIsFunc:  func() []resource.RPCAPI { return nil },
+		ResourceNamesFunc:   resourcesFunc,
+		ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
 	}
 	armStatus := &armpb.Status{
 		EndPosition:    &commonpb.Pose{},
@@ -1254,9 +1239,8 @@ func TestStatusRemote(t *testing.T) {
 		return statuses, nil
 	}
 	injectRobot2 := &inject.Robot{
-		FrameSystemPartsFunc: frameSystemConfigFunc,
-		ResourceNamesFunc:    resourcesFunc,
-		ResourceRPCAPIsFunc:  func() []resource.RPCAPI { return nil },
+		ResourceNamesFunc:   resourcesFunc,
+		ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
 	}
 	injectRobot2.StatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
 		statusCallCount++

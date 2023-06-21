@@ -119,20 +119,13 @@ func TestStatusClient(t *testing.T) {
 		}
 	}
 
-	// TODO(RSDK-882): will update this so that this is not necessary
-	FrameSystemPartsFunc := func(ctx context.Context) ([]*referenceframe.FrameSystemPart, error) {
-		return make([]*referenceframe.FrameSystemPart, 0), nil
-	}
-
 	injectRobot1 := &inject.Robot{
-		FrameSystemPartsFunc: FrameSystemPartsFunc,
-		ResourceNamesFunc:    resourcesFunc,
-		ResourceRPCAPIsFunc:  func() []resource.RPCAPI { return nil },
+		ResourceNamesFunc:   resourcesFunc,
+		ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
 	}
 	injectRobot2 := &inject.Robot{
-		FrameSystemPartsFunc: FrameSystemPartsFunc,
-		ResourceNamesFunc:    resourcesFunc,
-		ResourceRPCAPIsFunc:  func() []resource.RPCAPI { return nil },
+		ResourceNamesFunc:   resourcesFunc,
+		ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
 	}
 	pb.RegisterRobotServiceServer(gServer1, server.New(injectRobot1))
 	pb.RegisterRobotServiceServer(gServer2, server.New(injectRobot2))
@@ -665,11 +658,6 @@ func TestClientDisconnect(t *testing.T) {
 		return []resource.Name{arm.Named("arm1")}
 	}
 
-	// TODO(RSDK-882): will update this so that this is not necessary
-	injectRobot.FrameSystemPartsFunc = func(ctx context.Context) ([]*referenceframe.FrameSystemPart, error) {
-		return make([]*referenceframe.FrameSystemPart, 0), nil
-	}
-
 	go gServer.Serve(listener)
 
 	start := time.Now()
@@ -895,11 +883,6 @@ func TestClientReconnect(t *testing.T) {
 	thing1Name := resource.NewName(someAPI, "thing1")
 	injectRobot.ResourceNamesFunc = func() []resource.Name {
 		return []resource.Name{arm.Named("arm1"), thing1Name}
-	}
-
-	// TODO(RSDK-882): will update this so that this is not necessary
-	injectRobot.FrameSystemPartsFunc = func(ctx context.Context) ([]*referenceframe.FrameSystemPart, error) {
-		return make([]*referenceframe.FrameSystemPart, 0), nil
 	}
 
 	injectArm := &inject.Arm{}
@@ -1453,10 +1436,6 @@ func TestForeignResource(t *testing.T) {
 
 	injectRobot.ResourceRPCAPIsFunc = func() []resource.RPCAPI { return respWith }
 	injectRobot.ResourceNamesFunc = func() []resource.Name { return respWithResources }
-	// TODO(RSDK-882): will update this so that this is not necessary
-	injectRobot.FrameSystemPartsFunc = func(ctx context.Context) ([]*referenceframe.FrameSystemPart, error) {
-		return make([]*referenceframe.FrameSystemPart, 0), nil
-	}
 
 	gServer := grpc.NewServer()
 	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
@@ -1587,10 +1566,6 @@ func TestRemoteClientMatch(t *testing.T) {
 		ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
 	}
 
-	// TODO(RSDK-882): will update this so that this is not necessary
-	injectRobot1.FrameSystemPartsFunc = func(ctx context.Context) ([]*referenceframe.FrameSystemPart, error) {
-		return make([]*referenceframe.FrameSystemPart, 0), nil
-	}
 	pb.RegisterRobotServiceServer(gServer1, server.New(injectRobot1))
 
 	injectArm := &inject.Arm{}
@@ -1722,11 +1697,6 @@ func TestGetUnknownResource(t *testing.T) {
 	injectRobot := &inject.Robot{
 		ResourceNamesFunc:   func() []resource.Name { return []resource.Name{arm.Named("myArm")} },
 		ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
-	}
-
-	// TODO(RSDK-882): will update this so that this is not necessary
-	injectRobot.FrameSystemPartsFunc = func(ctx context.Context) ([]*referenceframe.FrameSystemPart, error) {
-		return make([]*referenceframe.FrameSystemPart, 0), nil
 	}
 
 	gServer := grpc.NewServer()
