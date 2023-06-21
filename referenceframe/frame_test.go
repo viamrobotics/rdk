@@ -154,7 +154,7 @@ func TestSerializationStatic(t *testing.T) {
 	data, err := f.MarshalJSON()
 	test.That(t, err, test.ShouldBeNil)
 
-	f2Cfg := &LinkConfig{}
+	f2Cfg := &LinkConfig{Parent: "bar"}
 	err = json.Unmarshal(data, f2Cfg)
 	test.That(t, err, test.ShouldBeNil)
 
