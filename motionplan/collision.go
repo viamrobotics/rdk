@@ -245,9 +245,19 @@ func (cg *collisionGraph) checkCollision(x, y spatial.Geometry) (float64, error)
 	// x is the robot geometries and therefore must be primitives in spatialmath
 	// y could potentially be a geometry type that lives outside spatialmath and therefore knows more so we defer to it for collisions
 	if cg.reportDistances {
-		return y.DistanceFrom(x)
+		dist, err := x.DistanceFrom(y)
+		if err != nil {
+			return y.DistanceFrom(x)
+		}
+		return dist, err
 	}
-	col, err := y.CollidesWith(x)
+	col, err := x.CollidesWith(y)
+	if err != nil {
+		col, err = y.CollidesWith(x)
+		if err != nil {
+			return math.Inf(-1), err
+		}
+	}
 	if col {
 		return math.Inf(-1), err
 	}
