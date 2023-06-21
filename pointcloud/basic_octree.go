@@ -17,8 +17,8 @@ const (
 	leafNodeFilled
 	// This value allows for high level of granularity in the octree while still allowing for fast access times
 	// even on a pi.
-	maxRecursionDepth   = 1000
-	nodeRegionOverlap   = 1e-6
+	maxRecursionDepth = 1000
+	nodeRegionOverlap = 1e-6
 	// TODO: pass these in a diff way
 	confidenceThreshold = 60   // value between 0-100, threshold sets the confidence level required for a point to be considered a collision
 	buffer              = 60.0 // max distance from base to point for it to be considered a collision in mm
@@ -37,7 +37,7 @@ type BasicOctree struct {
 	sideLength float64
 	size       int
 	meta       MetaData
-	label    string
+	label      string
 }
 
 // basicOctreeNode is a struct comprised of the type of node, children nodes (should they exist) and the pointcloud's
@@ -153,81 +153,8 @@ func (octree *BasicOctree) AlmostEqual(geom spatialmath.Geometry) bool {
 
 // Transform recursively steps through the octree and transforms it by the given pose.
 func (octree *BasicOctree) Transform(p spatialmath.Pose) spatialmath.Geometry {
-	if spatialmath.PoseAlmostEqual(p, spatialmath.NewZeroPose()) {
-		return octree
-	}
-
-	var transformedOctree *BasicOctree
-	switch octree.node.nodeType {
-	case internalNode:
-		newCenter := octree.center.Add(p.Point())
-
-		newTotalX := 0.0
-		newTotalY := 0.0
-		newTotalZ := 0.0
-
-		newChildren := make([]*BasicOctree, 0)
-
-		for _, child := range octree.node.children {
-			transformedChild := child.Transform(p)
-			newChildren = append(newChildren, transformedChild.(*BasicOctree))
-
-			newTotalX += transformedChild.(*BasicOctree).meta.totalX
-			newTotalY += transformedChild.(*BasicOctree).meta.totalY
-			newTotalZ += transformedChild.(*BasicOctree).meta.totalZ
-		}
-
-		transformPoint := p.Point()
-		newMetaData := newTransformedMetaData(octree.meta, transformPoint)
-
-		newMetaData.totalX = newTotalX
-		newMetaData.totalY = newTotalY
-		newMetaData.totalZ = newTotalZ
-
-		transformedOctree = &BasicOctree{
-				newInternalNode(newChildren),
-				newCenter,
-				octree.sideLength,
-				octree.size,
-				newMetaData,
-				octree.label,
-			}
-
-		transformedOctree.node.maxVal = octree.node.maxVal
-
-	case leafNodeFilled:
-		transformPoint := p.Point()
-		newCenter := octree.center.Add(p.Point())
-		newPoint := &PointAndData{P: octree.node.point.P.Add(transformPoint), D: octree.node.point.D}
-
-		newMetaData := newTransformedMetaData(octree.meta, transformPoint)
-
-		newMetaData.totalX = octree.meta.totalX + transformPoint.X
-		newMetaData.totalY = octree.meta.totalY + transformPoint.Y
-		newMetaData.totalZ = octree.meta.totalZ + transformPoint.Z
-
-		transformedOctree = &BasicOctree{
-				newLeafNodeFilled(newPoint.P, newPoint.D),
-				newCenter,
-				octree.sideLength,
-				octree.size,
-				newMetaData,
-				octree.label,
-			}
-
-		transformedOctree.node.maxVal = octree.node.maxVal
-
-	case leafNodeEmpty:
-		transformedOctree = &BasicOctree{
-				newLeafNodeEmpty(),
-				octree.center.Add(p.Point()),
-				octree.sideLength,
-				octree.size,
-				octree.meta,
-				octree.label,
-			}
-	}
-	return transformedOctree
+	// TODO
+	return nil
 }
 
 // ToProtobuf converts the octree to a Geometry proto message.
@@ -338,20 +265,4 @@ func (octree *BasicOctree) ToPoints(resolution float64) []r3.Vector {
 func (octree *BasicOctree) MarshalJSON() ([]byte, error) {
 	// TODO
 	return nil, errors.New("not implemented")
-}
-
-// newTransformedMetaData returns a new MetaData with min and max values of originalMeta transformed by transformPoint.
-func newTransformedMetaData(originalMeta MetaData, transformPoint r3.Vector) MetaData {
-	newMetaData := NewMetaData()
-	newMetaData.MaxX = originalMeta.MaxX + transformPoint.X
-	newMetaData.MinX = originalMeta.MinX + transformPoint.X
-	newMetaData.MaxY = originalMeta.MaxY + transformPoint.Y
-	newMetaData.MinY = originalMeta.MinY + transformPoint.Y
-	newMetaData.MaxZ = originalMeta.MaxZ + transformPoint.Z
-	newMetaData.MinZ = originalMeta.MinZ + transformPoint.Z
-
-	newMetaData.HasColor = originalMeta.HasColor
-	newMetaData.HasValue = originalMeta.HasValue
-
-	return newMetaData
 }
