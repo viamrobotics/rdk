@@ -98,7 +98,7 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 	// create capsule which defines the valid region for a base to be when driving to desired waypoint
 	// deviationThreshold defines max distance base can be from path without error being thrown
 	startingPos, err := ddk.CurrentInputs(ctx)
-	deviationThreshold := 300.0
+	deviationThreshold := 300.0 // mm
 	validRegion, err := newValidRegionCapsule(startingPos, desired, deviationThreshold)
 	if err != nil {
 		return err
@@ -221,11 +221,20 @@ func CollisionGeometry(cfg *referenceframe.LinkConfig) ([]spatialmath.Geometry, 
 }
 
 // newValidRegionCapsule returns a capsule which defines the valid regions for a base to be when moving to a waypoint.
-// The valid region is all points that are deviationTolerance (mm) distance away from the line segment between the
+// The valid region is all points that are deviationThreshold (mm) distance away from the line segment between the
 // starting and ending waypoints. This capsule is used to detect whether a base leaves this region and has thus deviated
 // too far from its path.
-func newValidRegionCapsule(starting []referenceframe.Input, desired []referenceframe.Input, deviationTolerance float64) (spatialmath.Geometry, error) {
-	pt := r3.Vector{X: desired[0].Value - starting[0].Value, Y: desired[1].Value - starting[1].Value}
+func newValidRegionCapsule(starting []referenceframe.Input, desired []referenceframe.Input, deviationThreshold float64) (spatialmath.Geometry, error) {
+	pt := r3.Vector{X: (desired[0].Value + starting[0].Value) / 2, Y: (desired[1].Value + starting[1].Value) / 2}
+
+	capsule, err := spatialmath.NewCapsule(
+		spatialmath.NewZeroPose(),
+		deviationThreshold,
+		2*deviationThreshold+math.Sqrt(math.Pow(desired[0].Value-starting[0].Value, 2)+math.Pow(desired[1].Value-starting[1].Value, 2)),
+		"")
+	if err != nil {
+		return nil, err
+	}
 	// rotate such that y is forward direction to match the frame for movement of a base
 	o := &spatialmath.R4AA{
 		Theta: math.Pi / 2,
@@ -233,24 +242,19 @@ func newValidRegionCapsule(starting []referenceframe.Input, desired []referencef
 		RY:    0,
 		RZ:    0,
 	}
-	center := spatialmath.NewPose(pt, o)
-	capsule, err := spatialmath.NewCapsule(
-		center,
-		deviationTolerance,
-		2*deviationTolerance+math.Sqrt(math.Pow(desired[0].Value-starting[0].Value, 2)+math.Pow(desired[1].Value-starting[1].Value, 2)),
-		"")
-	if err != nil {
-		return nil, err
-	}
+	transformedCapsule := capsule.Transform(spatialmath.NewPoseFromOrientation(o))
 
 	// rotate around the z-axis such that the capsule points in the direction of the end waypoint
-	desiredHeading := math.Atan2(starting[1].Value-desired[1].Value, starting[0].Value-desired[0].Value)
+	desiredHeading := math.Atan2(starting[0].Value-desired[0].Value, starting[1].Value-desired[1].Value)
 	headingRotation := &spatialmath.R4AA{
-		Theta: desiredHeading,
+		Theta: -desiredHeading,
 		RX:    0,
 		RY:    0,
 		RZ:    1,
 	}
-	transformedCapsule := capsule.Transform(spatialmath.NewPoseFromOrientation(headingRotation))
+	transformedCapsule = transformedCapsule.Transform(spatialmath.NewPoseFromOrientation(headingRotation))
+
+	transformedCapsule = transformedCapsule.Transform(spatialmath.NewPoseFromPoint(pt))
+
 	return transformedCapsule, nil
 }
