@@ -2,6 +2,7 @@
 package gpsrtk
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"fmt"
@@ -10,8 +11,11 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/de-bkg/gognss/pkg/ntrip"
 	"github.com/edaniels/golog"
+	"github.com/go-gnss/rtcm/rtcm3"
 	"github.com/golang/geo/r3"
+	slib "github.com/jacobsa/go-serial/serial"
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/rdk/components/movementsensor"
 	gpsnmea "go.viam.com/rdk/components/movementsensor/gpsnmea"
@@ -24,9 +28,8 @@ import (
 var rtkmodel = resource.DefaultModelFamily.WithModel("gps-rtk-serial")
 
 var (
-	errCorrectionSourceValidation = fmt.Errorf("only serial is supported correction sources for %s", rtkmodel.Name)
-	errConnectionTypeValidation   = fmt.Errorf("only serial is supported connection types for %s", rtkmodel.Name)
-	errInputProtocolValidation    = fmt.Errorf("only serial is supported input protocols for %s", rtkmodel.Name)
+	errConnectionTypeValidation = fmt.Errorf("only serial is supported connection types for %s", rtkmodel.Name)
+	errInputProtocolValidation  = fmt.Errorf("only serial is supported input protocols for %s", rtkmodel.Name)
 )
 
 const (
@@ -145,6 +148,8 @@ type RTKSerial struct {
 
 	Nmeamovementsensor gpsnmea.NmeaMovementSensor
 	CorrectionWriter   io.ReadWriteCloser
+	Writepath          string
+	Wbaud              int
 }
 
 func newRTKSerial(
@@ -203,8 +208,153 @@ func newRTKSerial(
 }
 
 func (g *RTKSerial) start() error {
-
+	if err := g.Nmeamovementsensor.Start(g.cancelCtx); err != nil {
+		g.lastposition.GetLastPosition()
+		return err
+	}
+	g.activeBackgroundWorkers.Add(1)
+	utils.PanicCapturingGo(g.receiveAndWriteSerial)
 	return g.err.Get()
+}
+
+// Connect attempts to connect to ntrip client until successful connection or timeout.
+func (g *RTKSerial) Connect(casterAddr, user, pwd string, maxAttempts int) error {
+	for attempts := 0; attempts < maxAttempts; attempts++ {
+		ntrip_client, err := ntrip.NewClient(casterAddr, ntrip.Options{Username: user, Password: pwd})
+		if err == nil {
+			g.logger.Debug("Connected to NTRIP caster")
+			g.ntripMu.Lock()
+			g.ntripClient.Client = ntrip_client
+			g.ntripMu.Unlock()
+			return g.err.Get()
+		}
+	}
+
+	errMsg := fmt.Sprintf("Can't connect to NTRIP caster after %d attempts", maxAttempts)
+	g.logger.Errorf(errMsg)
+	return errors.New(errMsg)
+}
+
+// GetStream attempts to connect to ntrip streak until successful connection or timeout.
+func (g *RTKSerial) GetStream(mountPoint string, maxAttempts int) error {
+	for attempts := 0; attempts < maxAttempts; attempts++ {
+		rc, err := func() (io.ReadCloser, error) {
+			g.ntripMu.Lock()
+			defer g.ntripMu.Unlock()
+			return g.ntripClient.Client.GetStream(mountPoint)
+		}()
+
+		if err == nil {
+			g.logger.Debug("Connected to stream")
+			g.ntripMu.Lock()
+			g.ntripClient.Stream = rc
+			g.ntripMu.Unlock()
+			return g.err.Get()
+		}
+	}
+
+	errMsg := fmt.Sprintf("Can't connect to NTRIP stream after %d attempts", maxAttempts)
+	g.logger.Errorf(errMsg)
+	return errors.New(errMsg)
+}
+
+// receiveAndWriteSerial connects to NTRIP receiver and sends correction stream to the MovementSensor through serial.
+func (g *RTKSerial) receiveAndWriteSerial() {
+	defer g.activeBackgroundWorkers.Done()
+
+	if err := g.cancelCtx.Err(); err != nil {
+		return
+	}
+
+	err := g.Connect(g.ntripClient.URL, g.ntripClient.Username, g.ntripClient.Password, g.ntripClient.MaxConnectAttempts)
+	if err != nil {
+		g.err.Set(err)
+		return
+	}
+
+	if !g.ntripClient.Client.IsCasterAlive() {
+		g.logger.Infof("caster %s seems to be down", g.ntripClient.URL)
+	}
+
+	options := slib.OpenOptions{
+		PortName:        g.Writepath,
+		BaudRate:        uint(g.Wbaud),
+		DataBits:        8,
+		StopBits:        1,
+		MinimumReadSize: 1,
+	}
+
+	// Open the port.
+	g.ntripMu.Lock()
+	defer g.ntripMu.Unlock()
+
+	if err := g.cancelCtx.Err(); err != nil {
+		return
+	}
+
+	g.CorrectionWriter, err = slib.Open(options)
+	if err != nil {
+		g.logger.Errorf("serial.Open: %v", err)
+		g.err.Set(err)
+		return
+	}
+
+	w := bufio.NewWriter(g.CorrectionWriter)
+
+	err = g.GetStream(g.ntripClient.MountPoint, g.ntripClient.MaxConnectAttempts)
+	if err != nil {
+		g.err.Set(err)
+		return
+	}
+
+	r := io.TeeReader(g.ntripClient.Stream, w)
+	scanner := rtcm3.NewScanner(r)
+
+	g.ntripMu.Lock()
+	g.ntripStatus = true
+	g.ntripMu.Unlock()
+
+	for {
+		select {
+		case <-g.cancelCtx.Done():
+			return
+		default:
+			msg, err := scanner.NextMessage()
+			if err != nil {
+				g.ntripMu.Lock()
+				g.ntripStatus = false
+				g.ntripMu.Unlock()
+
+				if msg == nil {
+					g.logger.Debug("No message... reconnecting to stream...")
+					g.reconnectToStream(w, scanner)
+				}
+			}
+		}
+	}
+}
+
+func (g *RTKSerial) reconnectToStream(w *bufio.Writer, scanner rtcm3.Scanner) {
+	g.ntripMu.Lock()
+	defer g.ntripMu.Unlock()
+
+	err := g.GetStream(g.ntripClient.MountPoint, g.ntripClient.MaxConnectAttempts)
+	if err != nil {
+		g.err.Set(err)
+		return
+	}
+
+	r := io.TeeReader(g.ntripClient.Stream, w)
+	scanner.Reader.Reset(r)
+
+	g.ntripStatus = true
+}
+
+// NtripStatus returns true if connection to NTRIP stream is OK, false if not.
+func (g *RTKSerial) NtripStatus() (bool, error) {
+	g.ntripMu.Lock()
+	defer g.ntripMu.Unlock()
+	return g.ntripStatus, g.err.Get()
 }
 
 // Position returns the current geographic location of the MOVEMENTSENSOR.
