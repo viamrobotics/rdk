@@ -1,9 +1,13 @@
 package pointcloud
 
 import (
+	"fmt"
+	"math"
+
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 
+	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -15,6 +19,7 @@ const (
 	// even on a pi.
 	maxRecursionDepth   = 1000
 	nodeRegionOverlap   = 0.000001
+	// TODO: pass these in a diff way
 	confidenceThreshold = 60   // value between 0-100, threshold sets the confidence level required for a point to be considered a collision
 	buffer              = 60.0 // max distance from base to point for it to be considered a collision in mm
 )
@@ -135,8 +140,19 @@ func (octree *BasicOctree) MetaData() MetaData {
 	return octree.meta
 }
 
+// Pose returns the pose of the octree.
+func (octree *BasicOctree) Pose() spatialmath.Pose {
+	return spatialmath.NewPoseFromPoint(octree.center)
+}
+
+// AlmostEqual compares the octree with another geometry and checks if they are equivalent.
+func (octree *BasicOctree) AlmostEqual(geom spatialmath.Geometry) bool {
+	// TODO
+	return false
+}
+
 // Transform recursively steps through the octree and transforms it by the given pose.
-func (octree *BasicOctree) Transform(p spatialmath.Pose) *BasicOctree {
+func (octree *BasicOctree) Transform(p spatialmath.Pose) spatialmath.Geometry {
 	if spatialmath.PoseAlmostEqual(p, spatialmath.NewZeroPose()) {
 		return octree
 	}
@@ -154,11 +170,11 @@ func (octree *BasicOctree) Transform(p spatialmath.Pose) *BasicOctree {
 
 		for _, child := range octree.node.children {
 			transformedChild := child.Transform(p)
-			newChildren = append(newChildren, transformedChild)
+			newChildren = append(newChildren, transformedChild.(*BasicOctree))
 
-			newTotalX += transformedChild.meta.totalX
-			newTotalY += transformedChild.meta.totalY
-			newTotalZ += transformedChild.meta.totalZ
+			newTotalX += transformedChild.(*BasicOctree).meta.totalX
+			newTotalY += transformedChild.(*BasicOctree).meta.totalY
+			newTotalZ += transformedChild.(*BasicOctree).meta.totalZ
 		}
 
 		transformPoint := p.Point()
@@ -169,12 +185,12 @@ func (octree *BasicOctree) Transform(p spatialmath.Pose) *BasicOctree {
 		newMetaData.totalZ = newTotalZ
 
 		transformedOctree = &BasicOctree{
-			newInternalNode(newChildren),
-			newCenter,
-			octree.sideLength,
-			octree.size,
-			newMetaData,
-		}
+				newInternalNode(newChildren),
+				newCenter,
+				octree.sideLength,
+				octree.size,
+				newMetaData,
+			}
 
 		transformedOctree.node.maxVal = octree.node.maxVal
 
@@ -190,28 +206,35 @@ func (octree *BasicOctree) Transform(p spatialmath.Pose) *BasicOctree {
 		newMetaData.totalZ = octree.meta.totalZ + transformPoint.Z
 
 		transformedOctree = &BasicOctree{
-			newLeafNodeFilled(newPoint.P, newPoint.D),
-			newCenter,
-			octree.sideLength,
-			octree.size,
-			newMetaData,
-		}
+				newLeafNodeFilled(newPoint.P, newPoint.D),
+				newCenter,
+				octree.sideLength,
+				octree.size,
+				newMetaData,
+			}
 
 		transformedOctree.node.maxVal = octree.node.maxVal
 
 	case leafNodeEmpty:
 		transformedOctree = &BasicOctree{
-			newLeafNodeEmpty(),
-			octree.center.Add(p.Point()),
-			octree.sideLength,
-			octree.size,
-			octree.meta,
-		}
+				newLeafNodeEmpty(),
+				octree.center.Add(p.Point()),
+				octree.sideLength,
+				octree.size,
+				octree.meta,
+			}
 	}
 	return transformedOctree
 }
 
-// CollidesWithGeometry checks if the given octree collides with the given geometry and returns true if it does.
+// ToProtobuf converts the octree to a Geometry proto message.
+func (octree *BasicOctree) ToProtobuf() *commonpb.Geometry {
+	// TODO
+	return nil
+}
+
+// CollidesWithGeometry will return whether a given geometry is in collision with a given point.
+// A point is in collision if its stored probability is >= confidenceThreshold and if it is at most buffer distance away
 func (octree *BasicOctree) CollidesWithGeometry(geom spatialmath.Geometry, confidenceThreshold int, buffer float64) (bool, error) {
 	if octree.MaxVal() < confidenceThreshold {
 		return false, nil
@@ -260,6 +283,58 @@ func (octree *BasicOctree) CollidesWithGeometry(geom spatialmath.Geometry, confi
 		return ptCollide, nil
 	}
 	return false, errors.New("unknown octree node type")
+}
+
+// CollidesWith checks if the given octree collides with the given geometry and returns true if it does.
+func (octree *BasicOctree) CollidesWith(geom spatialmath.Geometry) (bool, error) {
+	return octree.CollidesWithGeometry(geom, confidenceThreshold, buffer)
+}
+
+// DistanceFrom returns the distance from the given octree to the given geometry.
+func (octree *BasicOctree) DistanceFrom(geom spatialmath.Geometry) (float64, error) {
+	// TODO: currently implemented as the bare minimum but needs to be changed to correct implementation
+	collides, err := octree.CollidesWith(geom)
+	if err != nil {
+		return -math.Inf(-1), err
+	}
+	if collides {
+		return -1, nil
+	}
+	return 1, nil
+}
+
+// EncompassedBy returns true if the given octree is within the given geometry.
+func (octree *BasicOctree) EncompassedBy(geom spatialmath.Geometry) (bool, error) {
+	// TODO
+	return false, errors.New("not implemented")
+}
+
+// SetLabel sets the label of this octree.
+func (octree *BasicOctree) SetLabel(label string) {
+	// Label returns the label of this octree.
+	octree.node.label = label
+}
+
+// Label returns the label of this octree.
+func (octree *BasicOctree) Label() string {
+	return octree.node.label
+}
+
+// String returns a human readable string that represents this octree.
+func (octree *BasicOctree) String() string {
+	return fmt.Sprintf("octree with center at %v and side length of %v", octree.center, octree.sideLength)
+}
+
+// ToPoints converts an octree geometry into []r3.Vector.
+func (octree *BasicOctree) ToPoints(resolution float64) []r3.Vector {
+	// TODO
+	return nil
+}
+
+// MarshalJSON marshals JSON from the octree.
+func (octree *BasicOctree) MarshalJSON() ([]byte, error) {
+	// TODO
+	return nil, errors.New("not implemented")
 }
 
 // newTransformedMetaData returns a new MetaData with min and max values of originalMeta transformed by transformPoint.
