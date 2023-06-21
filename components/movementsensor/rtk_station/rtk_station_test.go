@@ -304,6 +304,7 @@ func TestNewRTKStation(t *testing.T) {
 			g, err := newRTKStation(ctx, deps, tc.config, logger)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, g.Name(), test.ShouldResemble, tc.config.ResourceName())
+			g.Close(context.Background())
 		})
 	}
 }
