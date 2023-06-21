@@ -295,16 +295,16 @@ func newRTKMovementSensor(
 		return nil, err
 	}
 
-	switch g.InputProtocol {
-	// case serialStr:
-	// 	switch newConf.NtripPath {
-	// 	case "":
-	// 		g.logger.Info("RTK will use the same serial path as the GPS data to write RCTM messages")
-	// 		g.Writepath = newConf.SerialPath
-	// 	default:
-	// 		g.Writepath = newConf.NtripPath
-	// 	}
-	case i2cStr:
+	if g.InputProtocol == i2cStr {
+		// case serialStr:
+		// 	switch newConf.NtripPath {
+		// 	case "":
+		// 		g.logger.Info("RTK will use the same serial path as the GPS data to write RCTM messages")
+		// 		g.Writepath = newConf.SerialPath
+		// 	default:
+		// 		g.Writepath = newConf.NtripPath
+		// 	}
+
 		g.Addr = byte(newConf.I2cAddr)
 
 		b, err := board.FromDependencies(deps, newConf.Board)
