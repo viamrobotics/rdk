@@ -18,8 +18,9 @@ import (
 const (
 	distThresholdMM         = 100
 	headingThresholdDegrees = 15
-	defaultAngularVelocity  = 60  // degrees per second
-	defaultLinearVelocity   = 300 // mm per second
+	defaultAngularVelocity  = 60    // degrees per second
+	defaultLinearVelocity   = 300   // mm per second
+	deviationThreshold      = 300.0 // mm
 )
 
 // KinematicBase is an interface for Bases that also satisfy the ModelFramer and InputEnabled interfaces.
@@ -98,7 +99,9 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 	// create capsule which defines the valid region for a base to be when driving to desired waypoint
 	// deviationThreshold defines max distance base can be from path without error being thrown
 	startingPos, err := ddk.CurrentInputs(ctx)
-	deviationThreshold := 300.0 // mm
+	if err != nil {
+		return err
+	}
 	validRegion, err := newValidRegionCapsule(startingPos, desired, deviationThreshold)
 	if err != nil {
 		return err
@@ -224,7 +227,7 @@ func CollisionGeometry(cfg *referenceframe.LinkConfig) ([]spatialmath.Geometry, 
 // The valid region is all points that are deviationThreshold (mm) distance away from the line segment between the
 // starting and ending waypoints. This capsule is used to detect whether a base leaves this region and has thus deviated
 // too far from its path.
-func newValidRegionCapsule(starting []referenceframe.Input, desired []referenceframe.Input, deviationThreshold float64) (spatialmath.Geometry, error) {
+func newValidRegionCapsule(starting, desired []referenceframe.Input, deviationThreshold float64) (spatialmath.Geometry, error) {
 	pt := r3.Vector{X: (desired[0].Value + starting[0].Value) / 2, Y: (desired[1].Value + starting[1].Value) / 2}
 
 	capsule, err := spatialmath.NewCapsule(
