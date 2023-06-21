@@ -247,7 +247,7 @@ func makeExampleSlice(length int) []int32 {
 }
 
 func TestTFLiteConfigWalker(t *testing.T) {
-	makeVisionAttributes := func(modelPath string, labelPath string) *TFLiteConfig {
+	makeVisionAttributes := func(modelPath, labelPath string) *TFLiteConfig {
 		return &TFLiteConfig{
 			ModelPath:  modelPath,
 			LabelPath:  labelPath,
