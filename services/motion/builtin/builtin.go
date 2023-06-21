@@ -51,7 +51,11 @@ func init() {
 		})
 }
 
-const builtinOpLabel = "motion-service"
+const (
+	builtinOpLabel         = "motion-service"
+	defaultAngularVelocity = 60  // degrees per second
+	defaultLinearVelocity  = 300 // mm per second
+)
 
 // ErrNotImplemented is thrown when an unreleased function is called
 var ErrNotImplemented = errors.New("function coming soon but not yet implemented")
@@ -279,7 +283,7 @@ func (ms *builtIn) MoveOnGlobe(
 	if fake, ok := b.(*fake.Base); ok {
 		kb, err = kinematicbase.WrapWithFakeKinematics(ctx, fake, localizer, limits)
 	} else {
-		kb, err = kinematicbase.WrapWithDifferentialDriveKinematics(ctx, b, localizer, limits)
+		kb, err = kinematicbase.WrapWithDifferentialDriveKinematics(ctx, b, localizer, limits, linearVelocity, angularVelocity)
 	}
 	if err != nil {
 		return false, err
@@ -432,7 +436,7 @@ func (ms *builtIn) planMoveOnMap(
 	if fake, ok := b.(*fake.Base); ok {
 		kb, err = kinematicbase.WrapWithFakeKinematics(ctx, fake, localizer, limits)
 	} else {
-		kb, err = kinematicbase.WrapWithDifferentialDriveKinematics(ctx, b, localizer, limits)
+		kb, err = kinematicbase.WrapWithDifferentialDriveKinematics(ctx, b, localizer, limits, defaultLinearVelocity, defaultAngularVelocity)
 	}
 	if err != nil {
 		return nil, nil, err
