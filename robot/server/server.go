@@ -217,9 +217,9 @@ func (s *Server) DiscoverComponents(ctx context.Context, req *pb.DiscoverCompone
 	return &pb.DiscoverComponentsResponse{Discovery: pbDiscoveries}, nil
 }
 
-// FrameSystemConfig returns the info of each individual part that makes up the frame system.
-func (s *Server) FrameSystemConfig(ctx context.Context, req *pb.FrameSystemConfigRequest) (*pb.FrameSystemConfigResponse, error) {
-	parts, err := s.r.FrameSystemConfig(ctx)
+// FrameSystemParts returns the info of each individual part that makes up the frame system.
+func (s *Server) FrameSystemParts(ctx context.Context, req *pb.FrameSystemConfigRequest) (*pb.FrameSystemConfigResponse, error) {
+	parts, err := s.r.FrameSystemParts(ctx)
 	if err != nil {
 		return nil, err
 	}

@@ -300,7 +300,7 @@ func TestConfigRemote(t *testing.T) {
 	// Components should only include local components.
 	test.That(t, len(cfg2.Components), test.ShouldEqual, 2)
 
-	fsParts, err := r2.FrameSystemConfig(context.Background())
+	fsParts, err := r2.FrameSystemParts(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fsParts, test.ShouldHaveLength, 12)
 
@@ -1237,9 +1237,9 @@ func TestStatusRemote(t *testing.T) {
 	}
 
 	injectRobot1 := &inject.Robot{
-		FrameSystemConfigFunc: frameSystemConfigFunc,
-		ResourceNamesFunc:     resourcesFunc,
-		ResourceRPCAPIsFunc:   func() []resource.RPCAPI { return nil },
+		FrameSystemPartsFunc: frameSystemConfigFunc,
+		ResourceNamesFunc:    resourcesFunc,
+		ResourceRPCAPIsFunc:  func() []resource.RPCAPI { return nil },
 	}
 	armStatus := &armpb.Status{
 		EndPosition:    &commonpb.Pose{},
@@ -1254,9 +1254,9 @@ func TestStatusRemote(t *testing.T) {
 		return statuses, nil
 	}
 	injectRobot2 := &inject.Robot{
-		FrameSystemConfigFunc: frameSystemConfigFunc,
-		ResourceNamesFunc:     resourcesFunc,
-		ResourceRPCAPIsFunc:   func() []resource.RPCAPI { return nil },
+		FrameSystemPartsFunc: frameSystemConfigFunc,
+		ResourceNamesFunc:    resourcesFunc,
+		ResourceRPCAPIsFunc:  func() []resource.RPCAPI { return nil },
 	}
 	injectRobot2.StatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
 		statusCallCount++
