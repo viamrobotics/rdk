@@ -47,23 +47,26 @@ func TestPointCapsuleCollision(t *testing.T) {
 		RZ:    0,
 	}
 	o2 := &R4AA{
-		Theta: -math.Pi/4,
+		Theta: math.Pi/4,
 		RX: 0,
 		RY: 0,
 		RZ: 1,
 	}
+	pt := r3.Vector{X:2, Y:2, Z:0}
 	
-	
-	pose := NewPoseFromOrientation(o)
-	c, err := NewCapsule(pose, 1, 10, "")
+	c, err := NewCapsule(NewZeroPose(), 1, 10, "")
 	test.That(t, err, test.ShouldBeNil)
-	transformedCapsule := c.Transform(NewPoseFromOrientation(o2))
+	transformedCapsule := c.Transform(NewPoseFromOrientation(o))
+	// transform heading
+	transformedCapsule = transformedCapsule.Transform(NewPoseFromOrientation(o2))
+	// transform center to non-origin point
+	transformedCapsule = transformedCapsule.Transform(NewPoseFromPoint(pt))
 
-	col, err := transformedCapsule.CollidesWith(NewPoint(r3.Vector{4/math.Sqrt(2), 4/math.Sqrt(2), 0}, ""))
+	col, err := transformedCapsule.CollidesWith(NewPoint(r3.Vector{5, -1, 0}, ""))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, col, test.ShouldBeTrue)
 
-	col, err = transformedCapsule.CollidesWith(NewPoint(r3.Vector{0, 3, 0}, ""))
+	col, err = transformedCapsule.CollidesWith(NewPoint(r3.Vector{0, 0, 0}, ""))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, col, test.ShouldBeFalse)
 }
