@@ -57,7 +57,7 @@ func createFakeBoard() board.Board {
 	pinCount := 0
 	injectGPIOPin := &inject.GPIOPin{
 		GetFunc: func(ctx context.Context, extra map[string]interface{}) (bool, error) {
-			pinCount += 1
+			pinCount++
 			if pinCount%2 == 0 {
 				return false, nil
 			}

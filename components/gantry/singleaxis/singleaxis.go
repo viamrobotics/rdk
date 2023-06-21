@@ -22,10 +22,7 @@ import (
 	spatial "go.viam.com/rdk/spatialmath"
 )
 
-var (
-	model = resource.DefaultModelFamily.WithModel("single-axis")
-	wg    sync.WaitGroup
-)
+var model = resource.DefaultModelFamily.WithModel("single-axis")
 
 // limitErrorMargin is added or subtracted from the location of the limit switch to ensure the switch is not passed.
 const limitErrorMargin = 0.25
