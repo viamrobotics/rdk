@@ -1,5 +1,5 @@
 // Package gpsrtkserial implements a gps using serial connection
-package gpsrtk
+package gpsrtkserial
 
 import (
 	"bufio"
@@ -38,6 +38,7 @@ const (
 	ntripStr  = "ntrip"
 )
 
+// Config is used for converting NMEA MovementSensor with RTK capabilities config attributes.
 type Config struct {
 	NmeaDataSource           string `json:"nmea_data_source"`
 	SerialPath               string `json:"serial_path"`
@@ -58,52 +59,45 @@ type NtripConfig struct {
 	NtripInputProtocol   string `json:"ntrip_input_protocol,omitempty"`
 }
 
+// Validate ensures all parts of the config are valid.
 func (cfg *Config) Validate(path string) ([]string, error) {
-	var deps []string
-
-	dep, err := cfg.validateNmeaDataSource(path)
+	err := cfg.validateNmeaDataSource(path)
 	if err != nil {
 		return nil, err
 	}
-	if dep != nil {
-		deps = append(deps, dep...)
-	}
 
 	if cfg.NmeaDataSource == ntripStr {
-		dep, err = cfg.validateNtripInputProtocol(path)
+		err = cfg.validateNtripInputProtocol(path)
 		if err != nil {
 			return nil, err
 		}
 	}
-	if dep != nil {
-		deps = append(deps, dep...)
-	}
 
-	return deps, nil
+	return nil, nil
 }
 
-func (cfg *Config) validateNmeaDataSource(path string) ([]string, error) {
+func (cfg *Config) validateNmeaDataSource(path string) error {
 	switch strings.ToLower(cfg.NmeaDataSource) {
 	case serialStr:
-		return nil, cfg.ValidateSerialPath(path)
+		return cfg.ValidateSerialPath(path)
 	case "":
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "connection_type")
+		return utils.NewConfigValidationFieldRequiredError(path, "connection_type")
 	default:
-		return nil, errConnectionTypeValidation
+		return errConnectionTypeValidation
 	}
 }
 
 // validateNtripInputProtocol validates protocols accepted by this package.
-func (cfg *Config) validateNtripInputProtocol(path string) ([]string, error) {
+func (cfg *Config) validateNtripInputProtocol(path string) error {
 	switch cfg.NtripInputProtocol {
 	case serialStr:
-		return nil, cfg.ValidateSerialPath(path)
+		return cfg.ValidateSerialPath(path)
 	default:
-		return nil, errInputProtocolValidation
+		return errInputProtocolValidation
 	}
 }
 
-// ValidateSerial ensures all parts of the config are valid.
+// ValidateSerialPath ensures all parts of the config are valid.
 func (cfg *Config) ValidateSerialPath(path string) error {
 	if cfg.SerialPath == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "serial_path")
@@ -126,7 +120,9 @@ func init() {
 	resource.RegisterComponent(
 		movementsensor.API,
 		rtkmodel,
-		resource.Registration[movementsensor.MovementSensor, *Config]{})
+		resource.Registration[movementsensor.MovementSensor, *Config]{
+			Constructor: newRTKSerial,
+		})
 }
 
 // RTKSerial is an nmea movementsensor model that can intake RTK correction data.
@@ -221,11 +217,11 @@ func (g *RTKSerial) start() error {
 // Connect attempts to connect to ntrip client until successful connection or timeout.
 func (g *RTKSerial) Connect(casterAddr, user, pwd string, maxAttempts int) error {
 	for attempts := 0; attempts < maxAttempts; attempts++ {
-		ntrip_client, err := ntrip.NewClient(casterAddr, ntrip.Options{Username: user, Password: pwd})
+		ntripclient, err := ntrip.NewClient(casterAddr, ntrip.Options{Username: user, Password: pwd})
 		if err == nil {
 			g.logger.Debug("Connected to NTRIP caster")
 			g.ntripMu.Lock()
-			g.ntripClient.Client = ntrip_client
+			g.ntripClient.Client = ntripclient
 			g.ntripMu.Unlock()
 			return g.err.Get()
 		}

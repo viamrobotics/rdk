@@ -19,6 +19,7 @@ type NtripInfo struct {
 	MaxConnectAttempts int
 }
 
+// NewNtripInfo function validates and sets NtripConfig arributes and returns NtripInfo.
 func NewNtripInfo(cfg *NtripConfig, logger golog.Logger) (*NtripInfo, error) {
 	n := &NtripInfo{}
 
