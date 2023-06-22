@@ -233,7 +233,7 @@ func (ms *builtIn) MoveOnMap(
 	// make call to motionplan
 	dst := spatialmath.NewPoseFromPoint(destination.Point())
 	ms.logger.Debugf("goal position: %v", dst)
-	plan, err := motionplan.PlanFrameMotion(ctx, ms.logger, dst, kb.ModelFrame(), inputs, nil, extra)
+	plan, err := motionplan.PlanFrameMotion(ctx, ms.logger, dst, kb.Kinematics(), inputs, nil, extra)
 	if err != nil {
 		return false, err
 	}
@@ -328,12 +328,12 @@ func (ms *builtIn) MoveOnGlobe(
 	inputMap := map[string][]referenceframe.Input{componentName.Name: make([]referenceframe.Input, 3)}
 
 	// Add the kinematic wheeled base to the framesystem
-	if err := fs.AddFrame(kb.ModelFrame(), fs.World()); err != nil {
+	if err := fs.AddFrame(kb.Kinematics(), fs.World()); err != nil {
 		return false, err
 	}
 
 	// make call to motionplan
-	plan, err := motionplan.PlanMotion(ctx, ms.logger, dstPIF, kb.ModelFrame(), inputMap, fs, wrldst, nil, extra)
+	plan, err := motionplan.PlanMotion(ctx, ms.logger, dstPIF, kb.Kinematics(), inputMap, fs, wrldst, nil, extra)
 	if err != nil {
 		return false, err
 	}

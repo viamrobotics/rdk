@@ -25,7 +25,7 @@ const (
 // KinematicBase is an interface for Bases that also satisfy the ModelFramer and InputEnabled interfaces.
 type KinematicBase interface {
 	base.Base
-	referenceframe.ModelFramer
+	Kinematics() referenceframe.Frame
 	referenceframe.InputEnabled
 }
 
@@ -79,7 +79,7 @@ func WrapWithDifferentialDriveKinematics(
 	}, nil
 }
 
-func (ddk *differentialDriveKinematics) ModelFrame() referenceframe.Model {
+func (ddk *differentialDriveKinematics) Kinematics() referenceframe.Frame {
 	return ddk.model
 }
 
