@@ -117,9 +117,6 @@ func newSingleAxis(ctx context.Context, deps resource.Dependencies, conf resourc
 }
 
 func (g *singleAxis) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-
 	if g.motor != nil {
 		if err := g.motor.Stop(ctx, nil); err != nil {
 			return err
@@ -130,6 +127,9 @@ func (g *singleAxis) Reconfigure(ctx context.Context, deps resource.Dependencies
 		g.cancelFunc()
 		g.activeBackgroundWorkers.Wait()
 	}
+
+	g.mu.Lock()
+	defer g.mu.Unlock()
 
 	needsToReHome := false
 	newConf, err := resource.NativeConfig[*Config](conf)
