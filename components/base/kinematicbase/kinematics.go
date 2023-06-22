@@ -237,19 +237,22 @@ func (ddk *differentialDriveKinematics) newValidRegionCapsule(starting, desired 
 		return nil, err
 	}
 
+	desiredHeading := math.Atan2(starting[0].Value-desired[0].Value, starting[1].Value-desired[1].Value)
+
 	// rotate such that y is forward direction to match the frame for movement of a base
 	// rotate around the z-axis such that the capsule points in the direction of the end waypoint
-	desiredHeading := math.Atan2(starting[0].Value-desired[0].Value, starting[1].Value-desired[1].Value)
-	// desiredHeading := math.Pi/4
+	r, err := spatialmath.NewRotationMatrix([]float64{
+		math.Cos(desiredHeading), -math.Sin(desiredHeading), 0,
+		0, 0, -1,
+		math.Sin(desiredHeading), math.Cos(desiredHeading), 0,
+	})
+	if err != nil {
+		return nil, err
+	}
 
-	r, err := spatialmath.NewRotationMatrix([]float64{math.Cos(desiredHeading), -math.Sin(desiredHeading), 0,
-											0, 0, -1,
-											math.Sin(desiredHeading), math.Cos(desiredHeading), 0})
-
-	p := spatialmath.NewPose(pt, r)
-
+	center := spatialmath.NewPose(pt, r)
 	capsule, err := spatialmath.NewCapsule(
-		p,
+		center,
 		deviationThreshold,
 		2*deviationThreshold+float64(positionErr),
 		"")
