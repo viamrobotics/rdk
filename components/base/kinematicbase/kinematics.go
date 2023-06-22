@@ -229,8 +229,11 @@ func CollisionGeometry(cfg *referenceframe.LinkConfig) ([]spatialmath.Geometry, 
 // too far from its path.
 func (ddk *differentialDriveKinematics) newValidRegionCapsule(starting, desired []referenceframe.Input) (spatialmath.Geometry, error) {
 	pt := r3.Vector{X: (desired[0].Value + starting[0].Value) / 2, Y: (desired[1].Value + starting[1].Value) / 2}
-	positionErr, _, _ := ddk.errorState(starting, desired)
-	
+	positionErr, _, err := ddk.errorState(starting, desired)
+	if err != nil {
+		return nil, err
+	}
+
 	// rotate such that y is forward direction to match the frame for movement of a base
 	axesRotation := spatialmath.NewPoseFromOrientation(&spatialmath.R4AA{
 		Theta: math.Pi / 2,
