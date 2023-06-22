@@ -387,7 +387,7 @@ func (g *singleAxis) gantryToMotorPosition(positions float64) float64 {
 }
 
 func (g *singleAxis) gantryToMotorSpeeds(speeds float64) float64 {
-  r := (speeds / g.mmPerRevolution) * 60
+	r := (speeds / g.mmPerRevolution) * 60
 	return r
 }
 
