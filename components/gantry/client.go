@@ -86,7 +86,7 @@ func (c *client) Home(ctx context.Context, extra map[string]interface{}) (bool, 
 	return homed.Homed, nil
 }
 
-func (c *client) MoveToPosition(ctx context.Context, positionsMm, speeds []float64, extra map[string]interface{}) error {
+func (c *client) MoveToPosition(ctx context.Context, positionsMm, speedsMmPerSec []float64, extra map[string]interface{}) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err
@@ -94,7 +94,7 @@ func (c *client) MoveToPosition(ctx context.Context, positionsMm, speeds []float
 	_, err = c.client.MoveToPosition(ctx, &pb.MoveToPositionRequest{
 		Name:           c.name,
 		PositionsMm:    positionsMm,
-		SpeedsMmPerSec: speeds,
+		SpeedsMmPerSec: speedsMmPerSec,
 		Extra:          ext,
 	})
 	return err
