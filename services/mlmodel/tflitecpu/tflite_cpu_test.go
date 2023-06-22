@@ -278,3 +278,26 @@ func TestTFLiteConfigWalker(t *testing.T) {
 	testAttributesWalker(t, visionAttrsWithRefs, "test_model/model.tflite", "test_model/textFile.txt")
 	testAttributesWalker(t, visionAttrsOneRef, "/some/path/on/robot/model.tflite", "test_model/textFile.txt")
 }
+
+func TestLabelPathWalkFail(t *testing.T) {
+	labelPath := "/blah/blah/mylabels.txt"
+	var oldLabelPath *string
+
+	packageManager := packages.NewNoopManager()
+	visitor := packages.NewPackagePathVisitor(packageManager)
+
+	outNew, err := visitor.Visit(labelPath)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, outNew, test.ShouldResemble, labelPath)
+	func() {
+		defer func() {
+			if r := recover(); r == nil {
+				// If we're here, the old approach "Visit(nil)" did not panic
+				test.That(t, 3, test.ShouldResemble, 5)
+			}
+		}()
+
+		// This should cause a panic
+		visitor.Visit(oldLabelPath)
+	}()
+}
