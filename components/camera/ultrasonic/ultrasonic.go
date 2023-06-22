@@ -1,3 +1,4 @@
+// Package ultrasonic provides an implementation for an ultrasonic sensor wrapped as a camera
 package ultrasonic
 
 import (
@@ -5,14 +6,14 @@ import (
 	"errors"
 	"image"
 
+	"github.com/edaniels/golog"
+	"github.com/viamrobotics/gostream"
+
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/sensor"
 	ultrasense "go.viam.com/rdk/components/sensor/ultrasonic"
 	pointCloud "go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
-
-	"github.com/edaniels/golog"
-	"github.com/viamrobotics/gostream"
 )
 
 var model = resource.DefaultModelFamily.WithModel("ultrasonic")
@@ -36,13 +37,14 @@ func init() {
 				if err != nil {
 					return nil, err
 				}
-				return newCamera(ctx, deps, conf.ResourceName(), newConf, logger)
+				return newCamera(ctx, deps, conf.ResourceName(), newConf)
 			},
 		})
 }
 
-func newCamera(ctx context.Context, deps resource.Dependencies, name resource.Name, newConf *ultrasense.Config, logger golog.Logger) (camera.Camera, error) {
-
+func newCamera(ctx context.Context, deps resource.Dependencies, name resource.Name,
+	newConf *ultrasense.Config,
+) (camera.Camera, error) {
 	// sns, err := sensor.FromDependencies(deps, conf.Name)
 	// if err != nil {
 	// 	return nil, err
@@ -64,11 +66,10 @@ func newCamera(ctx context.Context, deps resource.Dependencies, name resource.Na
 }
 
 func (usvs *ultrasonicWrapper) Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
-	return nil, errors.New("Not yet implemented")
+	return nil, errors.New("not yet implemented")
 }
 
 func (usvs *ultrasonicWrapper) NextPointCloud(ctx context.Context) (pointCloud.PointCloud, error) {
-
 	readings, err := usvs.usSensor.Readings(ctx, make(map[string]interface{}))
 	if err != nil {
 		return nil, err
@@ -80,7 +81,10 @@ func (usvs *ultrasonicWrapper) NextPointCloud(ctx context.Context) (pointCloud.P
 	}
 	basicData := pointCloud.NewBasicData()
 	distVector := pointCloud.NewVector(0, 0, distFloat)
-	pcToReturn.Set(distVector, basicData)
+	err = pcToReturn.Set(distVector, basicData)
+	if err != nil {
+		return nil, err
+	}
 
 	return pcToReturn, nil
 }
@@ -90,8 +94,8 @@ func (usvs *ultrasonicWrapper) Properties(ctx context.Context) (camera.Propertie
 }
 
 func (usvs *ultrasonicWrapper) Close(ctx context.Context) error {
-	usvs.usSensor.Close(ctx)
-	return nil
+	err := usvs.usSensor.Close(ctx)
+	return err
 }
 
 func (usvs *ultrasonicWrapper) Read(ctx context.Context) (image.Image, func(), error) {

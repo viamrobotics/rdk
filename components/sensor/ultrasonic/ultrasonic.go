@@ -62,6 +62,7 @@ func init() {
 		})
 }
 
+// NewSensor creates a new ultrasonic sensor.
 func NewSensor(ctx context.Context, deps resource.Dependencies, name resource.Name, config *Config) (sensor.Sensor, error) {
 	s := &Sensor{
 		Named:  name.AsNamed(),

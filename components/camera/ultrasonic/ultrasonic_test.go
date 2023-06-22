@@ -4,12 +4,13 @@ import (
 	"context"
 	"testing"
 
+	"go.viam.com/test"
+
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/sensor/ultrasonic"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
-	"go.viam.com/test"
 )
 
 const (
@@ -43,11 +44,12 @@ func setupDependencies(t *testing.T) resource.Dependencies {
 
 	return deps
 }
+
 func TestNewCamera(t *testing.T) {
 	fakecfg := &ultrasonic.Config{TriggerPin: triggerPin, EchoInterrupt: echoInterrupt, Board: board1}
 	name := resource.Name{API: camera.API}
 	ctx := context.Background()
 	deps := setupDependencies(t)
-	_, err := newCamera(ctx, deps, name, fakecfg, nil)
+	_, err := newCamera(ctx, deps, name, fakecfg)
 	test.That(t, err, test.ShouldBeNil)
 }
