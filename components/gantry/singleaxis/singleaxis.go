@@ -153,7 +153,6 @@ func (g *singleAxis) Reconfigure(ctx context.Context, deps resource.Dependencies
 		g.frame = conf.Frame.Translation
 	}
 
-	// TODO: check if frame exists from the config
 	g.rpm = newConf.GantryRPM
 	if g.rpm == 0 {
 		g.rpm = 100
