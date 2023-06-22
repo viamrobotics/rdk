@@ -67,6 +67,6 @@ func TestNewSensor(t *testing.T) {
 	ctx := context.Background()
 	deps := setupDependencies(t)
 
-	_, err := newSensor(ctx, deps, sensor.Named(testSensorName), fakecfg)
+	_, err := NewSensor(ctx, deps, sensor.Named(testSensorName), fakecfg)
 	test.That(t, err, test.ShouldBeNil)
 }
