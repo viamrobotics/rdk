@@ -120,16 +120,19 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 
 		// get to the x, y location first - note that from the base's perspective +y is forward
 		desiredHeading := math.Atan2(current[1].Value-desired[1].Value, current[0].Value-desired[0].Value)
-		if commanded, err := ddk.issueCommand(ctx, current, []referenceframe.Input{desired[0], desired[1], {desiredHeading}}); err == nil {
-			if commanded {
-				continue
-			}
+		commanded, err := ddk.issueCommand(ctx, current, []referenceframe.Input{desired[0], desired[1], {desiredHeading}})
+		if err != nil {
+			return err
 		}
 
-		// no command to move to the x, y location was issued, correct the heading and then exit
-		if commanded, err := ddk.issueCommand(ctx, current, []referenceframe.Input{current[0], current[1], desired[2]}); err == nil {
-			if !commanded {
-				return nil
+		if !commanded {
+			// no command to move to the x, y location was issued, correct the heading and then exit
+			if commanded, err := ddk.issueCommand(ctx, current, []referenceframe.Input{current[0], current[1], desired[2]}); err == nil {
+				if !commanded {
+					return nil
+				}
+			} else {
+				return err
 			}
 		}
 
