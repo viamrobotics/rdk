@@ -30,6 +30,9 @@ func createFakeOneaAxis(length float64, positions []float64) *inject.Gantry {
 	fakesingleaxis.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
 		return nil
 	}
+	fakesingleaxis.HomeFunc = func(ctx context.Context, extra map[string]interface{}) (bool, error) {
+		return true, nil
+	}
 	fakesingleaxis.CloseFunc = func(ctx context.Context) error {
 		return nil
 	}
