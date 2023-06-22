@@ -249,7 +249,7 @@ func (cg *collisionGraph) checkCollision(x, y spatial.Geometry) (float64, error)
 		if err != nil {
 			return y.DistanceFrom(x)
 		}
-		return dist, err
+		return dist, nil
 	}
 	col, err := x.CollidesWith(y)
 	if err != nil {
