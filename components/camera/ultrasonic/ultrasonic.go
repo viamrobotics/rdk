@@ -3,7 +3,6 @@ package ultrasonic
 import (
 	"context"
 	"errors"
-	"fmt"
 	"image"
 
 	"go.viam.com/rdk/components/camera"
@@ -49,9 +48,6 @@ func newCamera(ctx context.Context, deps resource.Dependencies, name resource.Na
 	// 	return nil, err
 	// }
 	// usWrapper := ultrasonicWrapper{usSensor: sns}
-	fmt.Print("resource.Name:", name.API)
-	fmt.Print("resource.Name:", name.Name)
-	fmt.Print("resource.Name:", name.Remote)
 
 	usSensor, err := ultrasense.NewSensor(ctx, deps, name, newConf)
 	if err != nil {
