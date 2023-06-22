@@ -232,7 +232,7 @@ func (ddk *differentialDriveKinematics) newValidRegionCapsule(starting, desired 
 	positionErr, _, _ := ddk.errorState(starting, desired)
 	
 	// rotate such that y is forward direction to match the frame for movement of a base
-	o := spatialmath.NewPoseFromOrientation(&spatialmath.R4AA{
+	axesRotation := spatialmath.NewPoseFromOrientation(&spatialmath.R4AA{
 		Theta: math.Pi / 2,
 		RX:    1,
 		RY:    0,
@@ -249,7 +249,7 @@ func (ddk *differentialDriveKinematics) newValidRegionCapsule(starting, desired 
 	})
 
 	capsule, err := spatialmath.NewCapsule(
-		spatialmath.Compose(o, headingRotation),
+		spatialmath.Compose(headingRotation, axesRotation),
 		deviationThreshold,
 		2*deviationThreshold+float64(positionErr),
 		"")
