@@ -33,33 +33,36 @@ func init() {
 				conf resource.Config,
 				logger golog.Logger,
 			) (camera.Camera, error) {
-				// newConf, err := resource.NativeConfig[*ultrasense.Config](conf)
-				// if err != nil {
-				// 	return nil, err
-				// }
-
-				fmt.Println("Deps:", deps)
-
-				sns, err := sensor.FromDependencies(deps, conf.Name)
+				newConf, err := resource.NativeConfig[*ultrasense.Config](conf)
 				if err != nil {
 					return nil, err
 				}
-				usWrapper := ultrasonicWrapper{usSensor: sns}
-
-				// usSensor, err := ultrasense.NewSensor(ctx, deps, conf.ResourceName(), newConf)
-				// if err != nil {
-				// 	return nil, err
-				// }
-				// usWrapper := ultrasonicWrapper{usSensor: usSensor}
-
-				usVideoSource, err := camera.NewVideoSourceFromReader(ctx, &usWrapper, nil, camera.UnspecifiedStream)
-				if err != nil {
-					return nil, err
-				}
-
-				return camera.FromVideoSource(conf.ResourceName(), usVideoSource), nil
+				return newCamera(ctx, deps, conf.ResourceName(), newConf, logger)
 			},
 		})
+}
+
+func newCamera(ctx context.Context, deps resource.Dependencies, name resource.Name, newConf *ultrasense.Config, logger golog.Logger) (camera.Camera, error) {
+
+	// sns, err := sensor.FromDependencies(deps, conf.Name)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// usWrapper := ultrasonicWrapper{usSensor: sns}
+	fmt.Print("resource.Name:", name)
+
+	usSensor, err := ultrasense.NewSensor(ctx, deps, name, newConf)
+	if err != nil {
+		return nil, err
+	}
+	usWrapper := ultrasonicWrapper{usSensor: usSensor}
+
+	usVideoSource, err := camera.NewVideoSourceFromReader(ctx, &usWrapper, nil, camera.UnspecifiedStream)
+	if err != nil {
+		return nil, err
+	}
+
+	return camera.FromVideoSource(name, usVideoSource), nil
 }
 
 func (usvs *ultrasonicWrapper) Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
