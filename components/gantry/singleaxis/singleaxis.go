@@ -57,10 +57,13 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 		return nil, errors.Wrap(err, "mm_per_rev must be non-zero and positive")
 	}
 
-	if len(cfg.Board) == 0 && len(cfg.LimitSwitchPins) > 0 {
+	if cfg.Board == "" && len(cfg.LimitSwitchPins) > 0 {
 		return nil, errors.New("gantries with limit_pins require a board to sense limit hits")
 	}
-	deps = append(deps, cfg.Board)
+
+	if cfg.Board != "" {
+		deps = append(deps, cfg.Board)
+	}
 
 	if len(cfg.LimitSwitchPins) == 1 && cfg.MmPerRevolution == 0 {
 		return nil, errors.New("the single-axis gantry has one limit switch axis, needs pulley radius to set position limits")
@@ -143,7 +146,13 @@ func (g *singleAxis) Reconfigure(ctx context.Context, deps resource.Dependencies
 	if g.mmPerRevolution <= 0 && len(newConf.LimitSwitchPins) == 1 {
 		return errors.New("gantry with one limit switch per axis needs a mm_per_length ratio defined")
 	}
+
+	// Add a default frame, then overwrite with the config frame if that is supplied
 	g.frame = r3.Vector{X: 1.0, Y: 0, Z: 0}
+	if conf.Frame != nil {
+		g.frame = conf.Frame.Translation
+	}
+
 	// TODO: check if frame exists from the config
 	g.rpm = newConf.GantryRPM
 	if g.rpm == 0 {
@@ -151,13 +160,15 @@ func (g *singleAxis) Reconfigure(ctx context.Context, deps resource.Dependencies
 	}
 
 	// Rerun homing if the board has changed
-	if g.board == nil || g.board.Name().ShortName() != newConf.Board {
-		board, err := board.FromDependencies(deps, newConf.Board)
-		if err != nil {
-			return err
+	if newConf.Board != "" {
+		if g.board == nil || g.board.Name().ShortName() != newConf.Board {
+			board, err := board.FromDependencies(deps, newConf.Board)
+			if err != nil {
+				return err
+			}
+			g.board = board
+			needsToReHome = true
 		}
-		g.board = board
-		needsToReHome = true
 	}
 
 	// Rerun homing if the motor changes
@@ -179,15 +190,17 @@ func (g *singleAxis) Reconfigure(ctx context.Context, deps resource.Dependencies
 	}
 
 	// Rerun homing if anything with the limit switch pins changes
-	if (len(g.limitSwitchPins) != len(newConf.LimitSwitchPins)) || (g.limitHigh != *newConf.LimitPinEnabled) {
-		g.limitHigh = *newConf.LimitPinEnabled
-		needsToReHome = true
-		g.limitSwitchPins = newConf.LimitSwitchPins
-	} else {
-		for i, pin := range newConf.LimitSwitchPins {
-			if pin != g.limitSwitchPins[i] {
-				g.limitSwitchPins[i] = pin
-				needsToReHome = true
+	if newConf.LimitPinEnabled != nil && len(newConf.LimitSwitchPins) != 0 {
+		if (len(g.limitSwitchPins) != len(newConf.LimitSwitchPins)) || (g.limitHigh != *newConf.LimitPinEnabled) {
+			g.limitHigh = *newConf.LimitPinEnabled
+			needsToReHome = true
+			g.limitSwitchPins = newConf.LimitSwitchPins
+		} else {
+			for i, pin := range newConf.LimitSwitchPins {
+				if pin != g.limitSwitchPins[i] {
+					g.limitSwitchPins[i] = pin
+					needsToReHome = true
+				}
 			}
 		}
 	}
