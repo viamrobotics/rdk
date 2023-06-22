@@ -15,11 +15,8 @@ import (
 )
 
 const (
-	testBaseName    = "base1"
-	testBaseName2   = "base2"
-	failBaseName    = "base3"
-	fakeBaseName    = "base4"
-	missingBaseName = "base5"
+	testBaseName = "base1"
+	failBaseName = "base2"
 )
 
 func TestStatusValid(t *testing.T) {

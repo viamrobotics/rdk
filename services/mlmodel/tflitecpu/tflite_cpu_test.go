@@ -127,18 +127,16 @@ func TestTFLiteCPUClassifier(t *testing.T) {
 }
 
 func TestTFLiteCPUTextModel(t *testing.T) {
-	// TODO(RSDK-2735): remove skip when complete
-	t.Skip("remove skip once RSDK-2735 is complete")
 	// Setup
 	ctx := context.Background()
-	modelLoc := artifact.MustPath("vision/tflite/mobileBERT.tflite")
+	modelLoc := artifact.MustPath("vision/tflite/mobilebert_1_default_1.tflite")
 
 	cfg := TFLiteConfig{ // text classifier config
 		ModelPath:  modelLoc,
 		NumThreads: 1,
 	}
 
-	// Test that even a text classifier gives an output with good input
+	// Test that a text classifier gives an output with good input
 	out, err := NewTFLiteCPUModel(ctx, &cfg, mlmodel.Named("myTextModel"))
 	got := out.(*Model)
 	test.That(t, err, test.ShouldBeNil)
@@ -162,7 +160,6 @@ func TestTFLiteCPUTextModel(t *testing.T) {
 	test.That(t, len(gotOutput), test.ShouldEqual, 2)
 	test.That(t, gotOutput["output0"], test.ShouldNotBeNil)
 	test.That(t, gotOutput["output1"], test.ShouldNotBeNil)
-	test.That(t, gotOutput["output2"], test.ShouldBeNil)
 	test.That(t, len(gotOutput["output0"].([]float32)), test.ShouldEqual, 384)
 	test.That(t, len(gotOutput["output1"].([]float32)), test.ShouldEqual, 384)
 }

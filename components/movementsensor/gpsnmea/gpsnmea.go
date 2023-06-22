@@ -36,6 +36,9 @@ type SerialConfig struct {
 	SerialBaudRate           int    `json:"serial_baud_rate,omitempty"`
 	SerialCorrectionPath     string `json:"serial_correction_path,omitempty"`
 	SerialCorrectionBaudRate int    `json:"serial_correction_baud_rate,omitempty"`
+
+	// TestChan is a fake "serial" path for test use only
+	TestChan chan []uint8 `json:"-"`
 }
 
 // I2CConfig is used for converting Serial NMEA MovementSensor config attributes.

@@ -15,22 +15,24 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-var model = resource.DefaultModelFamily.WithModel("multiaxis")
+var model = resource.DefaultModelFamily.WithModel("multi-axis")
 
 // Config is used for converting multiAxis config attributes.
 type Config struct {
-	SubAxes []string `json:"subaxes_list"`
+	SubAxes            []string `json:"subaxes_list"`
+	MoveSimultaneously *bool    `json:"move_simultaneously,omitempty"`
 }
 
 type multiAxis struct {
 	resource.Named
 	resource.AlwaysRebuild
-	subAxes   []gantry.Gantry
-	lengthsMm []float64
-	logger    golog.Logger
-	model     referenceframe.Model
-	opMgr     operation.SingleOperationManager
-	workers   sync.WaitGroup
+	subAxes            []gantry.Gantry
+	lengthsMm          []float64
+	logger             golog.Logger
+	moveSimultaneously bool
+	model              referenceframe.Model
+	opMgr              operation.SingleOperationManager
+	workers            sync.WaitGroup
 }
 
 // Validate ensures all parts of the config are valid.
@@ -74,6 +76,11 @@ func newMultiAxis(
 			return nil, errors.Wrapf(err, "no axes named [%s]", s)
 		}
 		mAx.subAxes = append(mAx.subAxes, subAx)
+	}
+
+	mAx.moveSimultaneously = false
+	if newConf.MoveSimultaneously != nil {
+		mAx.moveSimultaneously = *newConf.MoveSimultaneously
 	}
 
 	mAx.lengthsMm, err = mAx.Lengths(ctx, nil)

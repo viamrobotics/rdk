@@ -2,7 +2,6 @@ package movementsensor_test
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	"github.com/golang/geo/r3"
@@ -43,7 +42,7 @@ func TestServer(t *testing.T) {
 			return loc, alt, nil
 		}
 		injectMovementSensor2.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
-			return nil, 0, errors.New("can't get location")
+			return nil, 0, errLocation
 		}
 
 		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "bar"})
@@ -56,11 +55,11 @@ func TestServer(t *testing.T) {
 
 		_, err = gpsServer.GetPosition(context.Background(), &pb.GetPositionRequest{Name: failMovementSensorName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get location")
+		test.That(t, err, test.ShouldBeError, errLocation)
 
 		_, err = gpsServer.GetPosition(context.Background(), &pb.GetPositionRequest{Name: missingMovementSensorName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+		test.That(t, resource.IsNotFoundError(err), test.ShouldBeTrue)
 	})
 
 	t.Run("GetLinearVelocity", func(t *testing.T) {
@@ -70,7 +69,7 @@ func TestServer(t *testing.T) {
 		}
 
 		injectMovementSensor2.LinearVelocityFunc = func(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
-			return r3.Vector{}, errors.New("can't get speed")
+			return r3.Vector{}, errLinearVelocity
 		}
 
 		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "bar"})
@@ -82,11 +81,11 @@ func TestServer(t *testing.T) {
 
 		_, err = gpsServer.GetLinearVelocity(context.Background(), &pb.GetLinearVelocityRequest{Name: failMovementSensorName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get speed")
+		test.That(t, err, test.ShouldBeError, errLinearVelocity)
 
 		_, err = gpsServer.GetLinearVelocity(context.Background(), &pb.GetLinearVelocityRequest{Name: missingMovementSensorName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+		test.That(t, resource.IsNotFoundError(err), test.ShouldBeTrue)
 	})
 
 	t.Run("GetAngularVelocity", func(t *testing.T) {
@@ -95,7 +94,7 @@ func TestServer(t *testing.T) {
 			return spatialmath.AngularVelocity{0, 0, angZ}, nil
 		}
 		injectMovementSensor2.AngularVelocityFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
-			return spatialmath.AngularVelocity{}, errors.New("can't get angular velocity")
+			return spatialmath.AngularVelocity{}, errAngularVelocity
 		}
 
 		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "bar"})
@@ -107,11 +106,11 @@ func TestServer(t *testing.T) {
 
 		_, err = gpsServer.GetAngularVelocity(context.Background(), &pb.GetAngularVelocityRequest{Name: failMovementSensorName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get angular velocity")
+		test.That(t, err, test.ShouldBeError, errAngularVelocity)
 
 		_, err = gpsServer.GetAngularVelocity(context.Background(), &pb.GetAngularVelocityRequest{Name: missingMovementSensorName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+		test.That(t, resource.IsNotFoundError(err), test.ShouldBeTrue)
 	})
 
 	t.Run("GetOrientation", func(t *testing.T) {
@@ -121,7 +120,7 @@ func TestServer(t *testing.T) {
 			return ori, nil
 		}
 		injectMovementSensor2.OrientationFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
-			return nil, errors.New("can't get orientation")
+			return nil, errOrientation
 		}
 
 		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "bar"})
@@ -133,18 +132,18 @@ func TestServer(t *testing.T) {
 
 		_, err = gpsServer.GetOrientation(context.Background(), &pb.GetOrientationRequest{Name: failMovementSensorName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get orientation")
+		test.That(t, err, test.ShouldBeError, errOrientation)
 
 		_, err = gpsServer.GetOrientation(context.Background(), &pb.GetOrientationRequest{Name: missingMovementSensorName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+		test.That(t, resource.IsNotFoundError(err), test.ShouldBeTrue)
 	})
 
 	t.Run("GetCompassHeading", func(t *testing.T) {
 		heading := 202.
 		injectMovementSensor.CompassHeadingFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) { return heading, nil }
 		injectMovementSensor2.CompassHeadingFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
-			return 0.0, errors.New("can't get compass heading")
+			return 0.0, errCompassHeading
 		}
 
 		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "bar"})
@@ -156,11 +155,11 @@ func TestServer(t *testing.T) {
 
 		_, err = gpsServer.GetCompassHeading(context.Background(), &pb.GetCompassHeadingRequest{Name: failMovementSensorName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get compass heading")
+		test.That(t, err, test.ShouldBeError, errCompassHeading)
 
 		_, err = gpsServer.GetCompassHeading(context.Background(), &pb.GetCompassHeadingRequest{Name: missingMovementSensorName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+		test.That(t, resource.IsNotFoundError(err), test.ShouldBeTrue)
 	})
 
 	t.Run("GetProperties", func(t *testing.T) {
@@ -169,7 +168,7 @@ func TestServer(t *testing.T) {
 			return props, nil
 		}
 		injectMovementSensor2.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
-			return nil, errors.New("can't get properties")
+			return nil, errProperties
 		}
 
 		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "bar"})
@@ -181,11 +180,11 @@ func TestServer(t *testing.T) {
 
 		_, err = gpsServer.GetProperties(context.Background(), &pb.GetPropertiesRequest{Name: failMovementSensorName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get properties")
+		test.That(t, err, test.ShouldBeError, errProperties)
 
 		_, err = gpsServer.GetProperties(context.Background(), &pb.GetPropertiesRequest{Name: missingMovementSensorName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+		test.That(t, resource.IsNotFoundError(err), test.ShouldBeTrue)
 	})
 
 	t.Run("GetAccuracy", func(t *testing.T) {
@@ -194,7 +193,7 @@ func TestServer(t *testing.T) {
 			return acc, nil
 		}
 		injectMovementSensor2.AccuracyFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]float32, error) {
-			return nil, errors.New("can't get accuracy")
+			return nil, errAccuracy
 		}
 
 		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "bar"})
@@ -206,10 +205,10 @@ func TestServer(t *testing.T) {
 
 		_, err = gpsServer.GetAccuracy(context.Background(), &pb.GetAccuracyRequest{Name: failMovementSensorName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get accuracy")
+		test.That(t, err, test.ShouldBeError, errAccuracy)
 
 		_, err = gpsServer.GetAccuracy(context.Background(), &pb.GetAccuracyRequest{Name: missingMovementSensorName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+		test.That(t, resource.IsNotFoundError(err), test.ShouldBeTrue)
 	})
 }

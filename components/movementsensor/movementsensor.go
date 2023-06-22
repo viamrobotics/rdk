@@ -15,9 +15,6 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-// Properties tells you what a MovementSensor supports.
-type Properties pb.GetPropertiesResponse
-
 func init() {
 	resource.RegisterAPI(API, resource.APIRegistration[MovementSensor]{
 		RPCServiceServerConstructor: NewRPCServiceServer,

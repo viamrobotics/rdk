@@ -32,22 +32,4 @@ func TestGPSModels(t *testing.T) {
 		_, err := config.FromReader(ctx, "", strings.NewReader(cfg1), logger)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
-
-	t.Run("station", func(t *testing.T) {
-		cfg2 := `{
-			"disable_partial_start": true,
-			"components": [ 
-				{
-				"model": "rtk-station",
-				"name": "station",
-				"type": "movement_sensor",
-				"attributes": {
-					"correction_source": "something"
-				}
-			}
-		]
-		}`
-		_, err := config.FromReader(ctx, "", strings.NewReader(cfg2), logger)
-		test.That(t, err, test.ShouldNotBeNil)
-	})
 }

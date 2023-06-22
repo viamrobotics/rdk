@@ -11,7 +11,6 @@ const (
 	internalNode = NodeType(iota)
 	leafNodeEmpty
 	leafNodeFilled
-	octreeVersion = 1.0
 	// This value allows for high level of granularity in the octree while still allowing for fast access times
 	// even on a pi.
 	maxRecursionDepth = 1000

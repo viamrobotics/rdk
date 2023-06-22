@@ -116,7 +116,10 @@ func (s *serviceServer) GetProperties(
 		return nil, err
 	}
 	prop, err := msDevice.Properties(ctx, req.Extra.AsMap())
-	return (*pb.GetPropertiesResponse)(prop), err
+	if err != nil {
+		return nil, err
+	}
+	return PropertiesToProtoResponse(prop)
 }
 
 func (s *serviceServer) GetAccuracy(

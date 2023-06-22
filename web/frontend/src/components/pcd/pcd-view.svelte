@@ -7,7 +7,7 @@ import { OrbitControlsGizmo, GridHelper } from 'trzy';
 import { PCDLoader } from 'three/examples/jsm/loaders/PCDLoader';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls';
-import { toast } from '@/lib/toast';
+import { notify } from '@viamrobotics/prime';
 
 export let pointcloud: Uint8Array | undefined;
 
@@ -192,7 +192,7 @@ const handleCanvasMouseUp = (event: MouseEvent) => {
   const points = scene.getObjectByName('points') as THREE.InstancedMesh;
 
   if (intersect?.instanceId === undefined) {
-    toast.info('No point intersected.');
+    notify.info('No point intersected.');
     return;
   }
 
@@ -308,7 +308,7 @@ $: if (pointcloud) {
       >
         <v-button
           icon="download"
-          label="Download Raw Data"
+          label="Download raw data"
         />
       </a>
     </div>
@@ -339,7 +339,7 @@ $: if (pointcloud) {
 
     <div class="flex flex-wrap gap-2">
       <div class="w-full text-xs">
-        Selected Point Position
+        Selected point position
       </div>
       <v-input
         class="w-20"
@@ -365,7 +365,7 @@ $: if (pointcloud) {
     </div>
 
     <div class="text-xs">
-      Distance From Camera: {distanceFromCamera}mm
+      Distance from camera: {distanceFromCamera}mm
     </div>
 
     <small class="flex w-20 items-center gap-1">

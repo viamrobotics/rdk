@@ -105,7 +105,7 @@ func newCBiRRTMotionPlanner(
 		return nil, err
 	}
 	// nlopt should try only once
-	nlopt, err := CreateNloptIKSolver(frame, logger, 1)
+	nlopt, err := CreateNloptIKSolver(frame, logger, 1, opt.GoalThreshold)
 	if err != nil {
 		return nil, err
 	}
@@ -202,10 +202,10 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 		tryExtend := func(target []referenceframe.Input) (node, node, error) {
 			// attempt to extend maps 1 and 2 towards the target
 			utils.PanicCapturingGo(func() {
-				nm1.nearestNeighbor(nmContext, mp.planOpts, target, map1, m1chan)
+				m1chan <- nm1.nearestNeighbor(nmContext, mp.planOpts, newConfigurationNode(target), map1)
 			})
 			utils.PanicCapturingGo(func() {
-				nm2.nearestNeighbor(nmContext, mp.planOpts, target, map2, m2chan)
+				m2chan <- nm2.nearestNeighbor(nmContext, mp.planOpts, newConfigurationNode(target), map2)
 			})
 			nearest1 := <-m1chan
 			nearest2 := <-m2chan
@@ -222,10 +222,10 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 			rseed2 := rand.New(rand.NewSource(int64(mp.randseed.Int())))
 
 			utils.PanicCapturingGo(func() {
-				mp.constrainedExtend(ctx, rseed1, map1, nearest1, &basicNode{q: target}, m1chan)
+				mp.constrainedExtend(ctx, rseed1, map1, nearest1, newConfigurationNode(target), m1chan)
 			})
 			utils.PanicCapturingGo(func() {
-				mp.constrainedExtend(ctx, rseed2, map2, nearest2, &basicNode{q: target}, m2chan)
+				mp.constrainedExtend(ctx, rseed2, map2, nearest2, newConfigurationNode(target), m2chan)
 			})
 			map1reached := <-m1chan
 			map2reached := <-m2chan

@@ -19,7 +19,6 @@ import (
 const (
 	workingPTName = "workingPT"
 	failingPTName = "failingPT"
-	notPTName     = "notAPT"
 	bodyName      = "body1"
 	bodyFrame     = "bodyFrame"
 )
