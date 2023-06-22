@@ -18,8 +18,9 @@ import (
 const (
 	distThresholdMM         = 100
 	headingThresholdDegrees = 15
-	defaultAngularVelocity  = 60  // degrees per second
-	defaultLinearVelocity   = 300 // mm per second
+	defaultAngularVelocity  = 60    // degrees per second
+	defaultLinearVelocity   = 300   // mm per second
+	deviationThreshold      = 300.0 // mm
 )
 
 // KinematicBase is an interface for Bases that also satisfy the ModelFramer and InputEnabled interfaces.
@@ -36,7 +37,7 @@ type differentialDriveKinematics struct {
 	fs        referenceframe.FrameSystem
 }
 
-// WrapWithDifferentialDriveKinematics takes a wheeledBase component and adds a slam service to it
+// WrapWithDifferentialDriveKinematics takes a Base component and adds a slam service to it
 // It also adds kinematic model so that it can be controlled.
 func WrapWithDifferentialDriveKinematics(
 	ctx context.Context,
@@ -95,27 +96,49 @@ func (ddk *differentialDriveKinematics) CurrentInputs(ctx context.Context) ([]re
 }
 
 func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired []referenceframe.Input) (err error) {
+	// create capsule which defines the valid region for a base to be when driving to desired waypoint
+	// deviationThreshold defines max distance base can be from path without error being thrown
+	current, err := ddk.CurrentInputs(ctx)
+	if err != nil {
+		return err
+	}
+	validRegion, err := ddk.newValidRegionCapsule(current, desired)
+	if err != nil {
+		return err
+	}
+
 	// this loop polls the error state and issues a corresponding command to move the base to the objective
 	// when the base is within the positional threshold of the goal, exit the loop
 	for err = ctx.Err(); err == nil; err = ctx.Err() {
-		current, err := ddk.CurrentInputs(ctx)
+		col, err := validRegion.CollidesWith(spatialmath.NewPoint(r3.Vector{X: current[0].Value, Y: current[1].Value}, ""))
 		if err != nil {
 			return err
+		}
+		if !col {
+			return errors.New("base has deviated too far from path")
 		}
 
 		// get to the x, y location first - note that from the base's perspective +y is forward
 		desiredHeading := math.Atan2(current[1].Value-desired[1].Value, current[0].Value-desired[0].Value)
-		if commanded, err := ddk.issueCommand(ctx, current, []referenceframe.Input{desired[0], desired[1], {desiredHeading}}); err == nil {
-			if commanded {
-				continue
+		commanded, err := ddk.issueCommand(ctx, current, []referenceframe.Input{desired[0], desired[1], {desiredHeading}})
+		if err != nil {
+			return err
+		}
+
+		if !commanded {
+			// no command to move to the x, y location was issued, correct the heading and then exit
+			if commanded, err := ddk.issueCommand(ctx, current, []referenceframe.Input{current[0], current[1], desired[2]}); err == nil {
+				if !commanded {
+					return nil
+				}
+			} else {
+				return err
 			}
 		}
 
-		// no command to move to the x, y location was issued, correct the heading and then exit
-		if commanded, err := ddk.issueCommand(ctx, current, []referenceframe.Input{current[0], current[1], desired[2]}); err == nil {
-			if !commanded {
-				return nil
-			}
+		current, err = ddk.CurrentInputs(ctx)
+		if err != nil {
+			return err
 		}
 	}
 	return err
@@ -201,4 +224,41 @@ func CollisionGeometry(cfg *referenceframe.LinkConfig) ([]spatialmath.Geometry, 
 		return nil, err
 	}
 	return []spatialmath.Geometry{sphere}, nil
+}
+
+// newValidRegionCapsule returns a capsule which defines the valid regions for a base to be when moving to a waypoint.
+// The valid region is all points that are deviationThreshold (mm) distance away from the line segment between the
+// starting and ending waypoints. This capsule is used to detect whether a base leaves this region and has thus deviated
+// too far from its path.
+func (ddk *differentialDriveKinematics) newValidRegionCapsule(starting, desired []referenceframe.Input) (spatialmath.Geometry, error) {
+	pt := r3.Vector{X: (desired[0].Value + starting[0].Value) / 2, Y: (desired[1].Value + starting[1].Value) / 2}
+	positionErr, _, err := ddk.errorState(starting, desired)
+	if err != nil {
+		return nil, err
+	}
+
+	desiredHeading := math.Atan2(starting[0].Value-desired[0].Value, starting[1].Value-desired[1].Value)
+
+	// rotate such that y is forward direction to match the frame for movement of a base
+	// rotate around the z-axis such that the capsule points in the direction of the end waypoint
+	r, err := spatialmath.NewRotationMatrix([]float64{
+		math.Cos(desiredHeading), -math.Sin(desiredHeading), 0,
+		0, 0, -1,
+		math.Sin(desiredHeading), math.Cos(desiredHeading), 0,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	center := spatialmath.NewPose(pt, r)
+	capsule, err := spatialmath.NewCapsule(
+		center,
+		deviationThreshold,
+		2*deviationThreshold+float64(positionErr),
+		"")
+	if err != nil {
+		return nil, err
+	}
+
+	return capsule, nil
 }

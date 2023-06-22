@@ -87,7 +87,7 @@ func TestSyncEnabled(t *testing.T) {
 			})
 			test.That(t, err, test.ShouldBeNil)
 			mockClock.Add(captureInterval)
-			waitForCaptureFiles(tmpDir)
+			waitForCaptureFilesToExceedNFiles(tmpDir, 0)
 			mockClock.Add(syncInterval)
 			var sentReq bool
 			wait := time.After(time.Second)
@@ -121,7 +121,7 @@ func TestSyncEnabled(t *testing.T) {
 			}
 			var sentReqAfterUpdate bool
 			mockClock.Add(captureInterval)
-			waitForCaptureFiles(tmpDir)
+			waitForCaptureFilesToExceedNFiles(tmpDir, 0)
 			mockClock.Add(syncInterval)
 			wait = time.After(time.Second)
 			select {
