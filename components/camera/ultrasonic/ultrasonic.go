@@ -3,6 +3,7 @@ package ultrasonic
 import (
 	"context"
 	"errors"
+	"fmt"
 	"image"
 
 	"go.viam.com/rdk/components/camera"
@@ -85,6 +86,7 @@ func (usvs *ultrasonicWrapper) NextPointCloud(ctx context.Context) (pointCloud.P
 	basicData := pointCloud.NewBasicData()
 	basicData.SetValue(1)
 	distVector := pointCloud.NewVector(0, 0, distFloat)
+	fmt.Println("Added point at ", distVector)
 	pcToReturn.Set(distVector, basicData)
 
 	return pcToReturn, nil
