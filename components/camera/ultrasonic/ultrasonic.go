@@ -3,6 +3,7 @@ package ultrasonic
 import (
 	"context"
 	"errors"
+	"fmt"
 	"image"
 
 	"go.viam.com/rdk/components/camera"
@@ -32,16 +33,24 @@ func init() {
 				conf resource.Config,
 				logger golog.Logger,
 			) (camera.Camera, error) {
-				newConf, err := resource.NativeConfig[*ultrasense.Config](conf)
-				if err != nil {
-					return nil, err
-				}
+				// newConf, err := resource.NativeConfig[*ultrasense.Config](conf)
+				// if err != nil {
+				// 	return nil, err
+				// }
 
-				usSensor, err := ultrasense.NewSensor(ctx, deps, conf.ResourceName(), newConf)
+				fmt.Println("Deps:", deps)
+
+				sns, err := sensor.FromDependencies(deps, conf.Name)
 				if err != nil {
 					return nil, err
 				}
-				usWrapper := ultrasonicWrapper{usSensor: usSensor}
+				usWrapper := ultrasonicWrapper{usSensor: sns}
+
+				// usSensor, err := ultrasense.NewSensor(ctx, deps, conf.ResourceName(), newConf)
+				// if err != nil {
+				// 	return nil, err
+				// }
+				// usWrapper := ultrasonicWrapper{usSensor: usSensor}
 
 				usVideoSource, err := camera.NewVideoSourceFromReader(ctx, &usWrapper, nil, camera.UnspecifiedStream)
 				if err != nil {
