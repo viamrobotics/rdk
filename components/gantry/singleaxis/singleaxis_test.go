@@ -27,6 +27,8 @@ var fakeFrame = &referenceframe.LinkConfig{
 	Translation: r3.Vector{X: 0, Y: 1.0, Z: 0},
 }
 
+var badFrame = &referenceframe.LinkConfig{}
+
 var count = 0
 
 func createFakeMotor() motor.Motor {
@@ -45,9 +47,24 @@ func createFakeMotor() motor.Motor {
 	}
 }
 
-func createFakeBoard() board.Board {
+func createLimitBoard() board.Board {
 	injectGPIOPin := &inject.GPIOPin{
 		GetFunc: func(ctx context.Context, extra map[string]interface{}) (bool, error) { return true, nil },
+		SetFunc: func(ctx context.Context, high bool, extra map[string]interface{}) error { return nil },
+	}
+	return &inject.Board{GPIOPinByNameFunc: func(pin string) (board.GPIOPin, error) { return injectGPIOPin, nil }}
+}
+
+func createFakeBoard() board.Board {
+	pinCount := 0
+	injectGPIOPin := &inject.GPIOPin{
+		GetFunc: func(ctx context.Context, extra map[string]interface{}) (bool, error) {
+			pinCount++
+			if pinCount%2 == 0 {
+				return false, nil
+			}
+			return true, nil
+		},
 		SetFunc: func(ctx context.Context, high bool, extra map[string]interface{}) error { return nil },
 	}
 	return &inject.Board{GPIOPinByNameFunc: func(pin string) (board.GPIOPin, error) { return injectGPIOPin, nil }}
@@ -98,9 +115,10 @@ func TestNewSingleAxis(t *testing.T) {
 	_, err := newSingleAxis(ctx, deps, fakecfg, logger)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "expected *singleaxis.Config but got <nil>")
 
+	deps = createFakeDepsForTestNewSingleAxis(t)
 	fakecfg = resource.Config{
 		Name:  testGName,
-		Frame: fakeFrame,
+		Frame: badFrame,
 		ConvertedAttributes: &Config{
 			Motor:           motorName,
 			LimitSwitchPins: []string{"1", "2"},
@@ -115,6 +133,7 @@ func TestNewSingleAxis(t *testing.T) {
 	_, ok := fakegantry.(*singleAxis)
 	test.That(t, ok, test.ShouldBeTrue)
 
+	deps = createFakeDepsForTestNewSingleAxis(t)
 	fakecfg = resource.Config{
 		Name:  testGName,
 		Frame: fakeFrame,
@@ -133,6 +152,7 @@ func TestNewSingleAxis(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, err, test.ShouldBeNil)
 
+	deps = createFakeDepsForTestNewSingleAxis(t)
 	fakecfg = resource.Config{
 		Name:  testGName,
 		Frame: fakeFrame,
@@ -150,6 +170,7 @@ func TestNewSingleAxis(t *testing.T) {
 	test.That(t, ok, test.ShouldBeFalse)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "gantry with one limit switch per axis needs a mm_per_length ratio defined")
 
+	deps = createFakeDepsForTestNewSingleAxis(t)
 	fakecfg = resource.Config{
 		Name:  testGName,
 		Frame: fakeFrame,
@@ -219,6 +240,7 @@ func TestReconfigure(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	g := fakegantry.(*singleAxis)
 
+	deps = createFakeDepsForTestNewSingleAxis(t)
 	newconf := resource.Config{
 		Name:  testGName,
 		Frame: fakeFrame,
@@ -494,11 +516,11 @@ func TestTestLimit(t *testing.T) {
 	fakegantry := &singleAxis{
 		limitSwitchPins: []string{"1", "2"},
 		motor:           createFakeMotor(),
-		board:           createFakeBoard(),
+		board:           createLimitBoard(),
 		rpm:             float64(300),
 		limitHigh:       true,
 	}
-	pos, err := fakegantry.testLimit(ctx, true)
+	pos, err := fakegantry.testLimit(ctx, 0)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pos, test.ShouldEqual, float64(1))
 }
@@ -507,11 +529,11 @@ func TestLimitHit(t *testing.T) {
 	ctx := context.Background()
 	fakegantry := &singleAxis{
 		limitSwitchPins: []string{"1", "2", "3"},
-		board:           createFakeBoard(),
+		board:           createLimitBoard(),
 		limitHigh:       true,
 	}
 
-	hit, err := fakegantry.limitHit(ctx, true)
+	hit, err := fakegantry.limitHit(ctx, 0)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, hit, test.ShouldEqual, true)
 }
