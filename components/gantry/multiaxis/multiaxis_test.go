@@ -21,7 +21,7 @@ func createFakeOneaAxis(length float64, positions []float64) *inject.Gantry {
 	fakesingleaxis.PositionFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 		return positions, nil
 	}
-	fakesingleaxis.MoveToPositionFunc = func(ctx context.Context, pos []float64, speed []float64, extra map[string]interface{}) error {
+	fakesingleaxis.MoveToPositionFunc = func(ctx context.Context, pos, speed []float64, extra map[string]interface{}) error {
 		return nil
 	}
 	fakesingleaxis.LengthsFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
@@ -140,22 +140,19 @@ func TestMoveToPosition(t *testing.T) {
 func TestGoToInputs(t *testing.T) {
 	ctx := context.Background()
 	inputs := []referenceframe.Input{}
-	speeds := []float64{}
 
 	fakemultiaxis := &multiAxis{}
-	err := fakemultiaxis.GoToInputs(ctx, inputs, speeds)
+	err := fakemultiaxis.GoToInputs(ctx, inputs)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	fakemultiaxis = &multiAxis{subAxes: threeAxes, lengthsMm: []float64{1, 2, 3}}
 	inputs = []referenceframe.Input{{Value: 1}, {Value: 2}, {Value: 3}}
-	speeds = []float64{100, 200, 300}
-	err = fakemultiaxis.GoToInputs(ctx, inputs, speeds)
+	err = fakemultiaxis.GoToInputs(ctx, inputs)
 	test.That(t, err, test.ShouldBeNil)
 
 	fakemultiaxis = &multiAxis{subAxes: twoAxes, lengthsMm: []float64{1, 2}}
 	inputs = []referenceframe.Input{{Value: 1}, {Value: 2}}
-	speeds = []float64{100, 200}
-	err = fakemultiaxis.GoToInputs(ctx, inputs, speeds)
+	err = fakemultiaxis.GoToInputs(ctx, inputs)
 	test.That(t, err, test.ShouldBeNil)
 }
 
@@ -190,6 +187,25 @@ func TestLengths(t *testing.T) {
 	lengths, err = fakemultiaxis.Lengths(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, lengths, test.ShouldResemble, []float64{5, 6})
+}
+
+func TestHome(t *testing.T) {
+	ctx := context.Background()
+	fakemultiaxis := &multiAxis{}
+	homed, err := fakemultiaxis.Home(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, homed, test.ShouldBeTrue)
+
+	fakemultiaxis = &multiAxis{subAxes: threeAxes}
+	homed, err = fakemultiaxis.Home(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, homed, test.ShouldBeTrue)
+
+	fakemultiaxis = &multiAxis{subAxes: twoAxes}
+
+	homed, err = fakemultiaxis.Home(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, homed, test.ShouldBeTrue)
 }
 
 func TestStop(t *testing.T) {
@@ -246,7 +262,7 @@ func createComplexDeps() resource.Dependencies {
 	mAx1.PositionFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 		return position1, nil
 	}
-	mAx1.MoveToPositionFunc = func(ctx context.Context, pos []float64, speeds []float64, extra map[string]interface{}) error {
+	mAx1.MoveToPositionFunc = func(ctx context.Context, pos, speeds []float64, extra map[string]interface{}) error {
 		if move, _ := extra["move"].(bool); move {
 			position1[0] += pos[0]
 			position1[1] += pos[1]
@@ -266,7 +282,7 @@ func createComplexDeps() resource.Dependencies {
 	mAx2.PositionFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 		return position2, nil
 	}
-	mAx2.MoveToPositionFunc = func(ctx context.Context, pos []float64, speeds []float64, extra map[string]interface{}) error {
+	mAx2.MoveToPositionFunc = func(ctx context.Context, pos, speeds []float64, extra map[string]interface{}) error {
 		if move, _ := extra["move"].(bool); move {
 			position2[0] += pos[0]
 			position2[1] += pos[1]

@@ -71,7 +71,22 @@ func (c *client) Lengths(ctx context.Context, extra map[string]interface{}) ([]f
 	return lengths.LengthsMm, nil
 }
 
-func (c *client) MoveToPosition(ctx context.Context, positionsMm []float64, speeds []float64, extra map[string]interface{}) error {
+func (c *client) Home(ctx context.Context, extra map[string]interface{}) (bool, error) {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return false, err
+	}
+	homed, err := c.client.Home(ctx, &pb.HomeRequest{
+		Name:  c.name,
+		Extra: ext,
+	})
+	if err != nil {
+		return false, err
+	}
+	return homed.Homed, nil
+}
+
+func (c *client) MoveToPosition(ctx context.Context, positionsMm, speeds []float64, extra map[string]interface{}) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err
@@ -107,7 +122,8 @@ func (c *client) CurrentInputs(ctx context.Context) ([]referenceframe.Input, err
 	return referenceframe.FloatsToInputs(res), nil
 }
 
-func (c *client) GoToInputs(ctx context.Context, goal []referenceframe.Input, speeds []float64) error {
+func (c *client) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
+	speeds := []float64{}
 	return c.MoveToPosition(ctx, referenceframe.InputsToFloats(goal), speeds, nil)
 }
 

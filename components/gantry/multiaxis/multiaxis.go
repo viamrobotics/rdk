@@ -91,8 +91,20 @@ func newMultiAxis(
 	return mAx, nil
 }
 
+// Home runs the homing sequence of the gantry and returns true once completed.
+func (g *multiAxis) Home(ctx context.Context, extra map[string]interface{}) (bool, error) {
+	homed := false
+	for _, subAx := range g.subAxes {
+		homed, err := subAx.Home(ctx, nil)
+		if err != nil {
+			return homed, err
+		}
+	}
+	return homed, nil
+}
+
 // MoveToPosition moves along an axis using inputs in millimeters.
-func (g *multiAxis) MoveToPosition(ctx context.Context, positions []float64, speeds []float64, extra map[string]interface{}) error {
+func (g *multiAxis) MoveToPosition(ctx context.Context, positions, speeds []float64, extra map[string]interface{}) error {
 	ctx, done := g.opMgr.New(ctx)
 	defer done()
 
@@ -115,7 +127,13 @@ func (g *multiAxis) MoveToPosition(ctx context.Context, positions []float64, spe
 		}
 
 		pos := positions[idx : idx+len(subAxNum)]
-		speed := speeds[idx : idx+len(subAxNum)]
+		var speed []float64
+		// if speeds is an empty list, speed will be set to the default in the subAx MoveToPosition call
+		if len(speeds) == 0 {
+			speed = []float64{-1}
+		} else {
+			speed = speeds[idx : idx+len(subAxNum)]
+		}
 		idx += len(subAxNum)
 
 		err = subAx.MoveToPosition(ctx, pos, speed, extra)
@@ -127,13 +145,14 @@ func (g *multiAxis) MoveToPosition(ctx context.Context, positions []float64, spe
 }
 
 // GoToInputs moves the gantry to a goal position in the Gantry frame.
-func (g *multiAxis) GoToInputs(ctx context.Context, goal []referenceframe.Input, speeds []float64) error {
+func (g *multiAxis) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
 	if len(g.subAxes) == 0 {
 		return errors.New("no subaxes found for inputs")
 	}
 	ctx, done := g.opMgr.New(ctx)
 	defer done()
 
+	speeds := []float64{}
 	return g.MoveToPosition(ctx, referenceframe.InputsToFloats(goal), speeds, nil)
 }
 

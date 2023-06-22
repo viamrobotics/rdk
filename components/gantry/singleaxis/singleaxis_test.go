@@ -274,8 +274,9 @@ func TestHome(t *testing.T) {
 		rpm:             float64(300),
 		limitSwitchPins: []string{"1"},
 	}
-	err := fakegantry.home(ctx, len(fakegantry.limitSwitchPins))
+	homed, err := fakegantry.Home(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, homed, test.ShouldBeTrue)
 
 	goForErr := errors.New("GoFor failed")
 	posErr := errors.New("Position fail")
@@ -299,8 +300,9 @@ func TestHome(t *testing.T) {
 		motor:  fakeMotor,
 		logger: logger,
 	}
-	err = fakegantry.home(ctx, len(fakegantry.limitSwitchPins))
+	homed, err = fakegantry.Home(ctx, nil)
 	test.That(t, err, test.ShouldBeError, posErr)
+	test.That(t, homed, test.ShouldBeFalse)
 
 	fakegantry = &singleAxis{
 		motor:           createFakeMotor(),
@@ -310,14 +312,16 @@ func TestHome(t *testing.T) {
 		rpm:             float64(300),
 		limitSwitchPins: []string{"1", "2"},
 	}
-	err = fakegantry.home(ctx, len(fakegantry.limitSwitchPins))
+	homed, err = fakegantry.Home(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, homed, test.ShouldBeTrue)
 
 	fakegantry = &singleAxis{
 		motor: fakeMotor,
 	}
-	err = fakegantry.home(ctx, len(fakegantry.limitSwitchPins))
+	homed, err = fakegantry.Home(ctx, nil)
 	test.That(t, err, test.ShouldBeError, posErr)
+	test.That(t, homed, test.ShouldBeFalse)
 
 	fakegantry = &singleAxis{
 		motor:           createFakeMotor(),
@@ -327,8 +331,9 @@ func TestHome(t *testing.T) {
 		rpm:             float64(300),
 		limitSwitchPins: []string{"1", "2"},
 	}
-	err = fakegantry.home(ctx, len(fakegantry.limitSwitchPins))
+	homed, err = fakegantry.Home(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, homed, test.ShouldBeTrue)
 }
 
 func TestHomeLimitSwitch(t *testing.T) {
