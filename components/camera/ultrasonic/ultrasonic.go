@@ -1,23 +1,18 @@
 package ultrasonic
 
 import (
+	"context"
 	"errors"
 	"image"
 
-	"github.com/edaniels/gostream"
-
-	pointCloud "go.viam.com/rdk/pointcloud"
-
-	"context"
-
+	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/sensor"
-
 	ultrasense "go.viam.com/rdk/components/sensor/ultrasonic"
+	pointCloud "go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/resource"
 
 	"github.com/edaniels/golog"
-
-	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/resource"
+	"github.com/viamrobotics/gostream"
 )
 
 var model = resource.DefaultModelFamily.WithModel("ultrasonic")

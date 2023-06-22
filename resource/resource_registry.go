@@ -243,6 +243,7 @@ func Register[ResourceT Resource, ConfigT ConfigValidator](
 	if reg.Constructor != nil && reg.DeprecatedRobotConstructor != nil {
 		panic(errors.Errorf("can only register one kind of constructor for api: %q, model: %q", api, model))
 	}
+	fmt.Printf("registered api: %q, model: %q \n", api, model)
 	var zero ConfigT
 	zeroT := reflect.TypeOf(zero)
 	if reg.AttributeMapConverter == nil {
