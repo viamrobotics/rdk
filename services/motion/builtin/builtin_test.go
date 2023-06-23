@@ -32,7 +32,6 @@ import (
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/motion"
 
-	// _ "go.viam.com/rdk/services/register"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -270,6 +269,7 @@ func TestMoveOnMap(t *testing.T) {
 	goal := spatialmath.NewPoseFromPoint(r3.Vector{X: 1.32 * 1000, Y: 0})
 
 	t.Run("check that path is planned around obstacle", func(t *testing.T) {
+		t.Parallel()
 		path, _, err := ms.(*builtIn).planMoveOnMap(
 			context.Background(),
 			base.Named("test_base"),
@@ -283,6 +283,7 @@ func TestMoveOnMap(t *testing.T) {
 	})
 
 	t.Run("ensure success of movement around obstacle", func(t *testing.T) {
+		t.Parallel()
 		success, err := ms.MoveOnMap(
 			context.Background(),
 			base.Named("test_base"),
@@ -295,6 +296,7 @@ func TestMoveOnMap(t *testing.T) {
 	})
 
 	t.Run("check that straight line path executes", func(t *testing.T) {
+		t.Parallel()
 		goal = spatialmath.NewPoseFromPoint(r3.Vector{X: 0.277 * 1000, Y: 0.593 * 1000})
 		success, err := ms.MoveOnMap(
 			context.Background(),
