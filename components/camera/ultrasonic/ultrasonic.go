@@ -63,7 +63,7 @@ func cameraFromSensor(ctx context.Context, name resource.Name, usSensor sensor.S
 }
 
 // NextPointCloud queries the ultrasonic sensor then returns the result as a pointcloud,
-// with a single point at (0, 0, distance)
+// with a single point at (0, 0, distance).
 func (usvs *ultrasonicWrapper) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
 	readings, err := usvs.usSensor.Readings(ctx, nil)
 	if err != nil {
@@ -84,18 +84,18 @@ func (usvs *ultrasonicWrapper) NextPointCloud(ctx context.Context) (pointcloud.P
 	return pcToReturn, nil
 }
 
-// Properties returns the properties of the ultrasonic camera
+// Properties returns the properties of the ultrasonic camera.
 func (usvs *ultrasonicWrapper) Properties(ctx context.Context) (camera.Properties, error) {
 	return camera.Properties{SupportsPCD: true, ImageType: camera.UnspecifiedStream}, nil
 }
 
-// Close closes the underlying ultrasonic sensor and the camera itself
+// Close closes the underlying ultrasonic sensor and the camera itself.
 func (usvs *ultrasonicWrapper) Close(ctx context.Context) error {
 	err := usvs.usSensor.Close(ctx)
 	return err
 }
 
-// Read returns a not yet implemented error, as it is not needed for the ultrasonic camera
+// Read returns a not yet implemented error, as it is not needed for the ultrasonic camera.
 func (usvs *ultrasonicWrapper) Read(ctx context.Context) (image.Image, func(), error) {
 	return nil, nil, errors.New("not yet implemented")
 }
