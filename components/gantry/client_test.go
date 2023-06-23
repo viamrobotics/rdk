@@ -161,7 +161,7 @@ func TestClient(t *testing.T) {
 		test.That(t, extra2, test.ShouldResemble, map[string]interface{}{"foo": "123", "bar": 234.})
 
 		homed, err := client2.Home(context.Background(), map[string]interface{}{"foo": 345, "bar": "456"})
-		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "Home error")
 		test.That(t, homed, test.ShouldBeFalse)
 		test.That(t, extra2, test.ShouldResemble, map[string]interface{}{"foo": 345., "bar": "456"})
 

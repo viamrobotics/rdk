@@ -129,7 +129,7 @@ func (g *multiAxis) MoveToPosition(ctx context.Context, positions, speeds []floa
 		var speed []float64
 		// if speeds is an empty list, speed will be set to the default in the subAx MoveToPosition call
 		if len(speeds) == 0 {
-			speed = []float64{-1}
+			speed = []float64{}
 		} else {
 			speed = speeds[idx : idx+len(subAxNum)]
 		}
@@ -151,6 +151,7 @@ func (g *multiAxis) GoToInputs(ctx context.Context, goal []referenceframe.Input)
 	ctx, done := g.opMgr.New(ctx)
 	defer done()
 
+	// MoveToPosition will use the default gantry speed when an empty float is passed in
 	speeds := []float64{}
 	return g.MoveToPosition(ctx, referenceframe.InputsToFloats(goal), speeds, nil)
 }

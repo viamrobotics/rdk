@@ -46,7 +46,6 @@ type mockDataServiceServer struct {
 func (mDServer *mockDataServiceServer) BinaryDataByIDs(ctx context.Context, req *datapb.BinaryDataByIDsRequest,
 ) (*datapb.BinaryDataByIDsResponse, error) {
 	// Parse request
-	//nolint:staticcheck
 	fileID := req.FileIds[0]
 
 	data, err := getCompressedBytesFromArtifact(fileID)
