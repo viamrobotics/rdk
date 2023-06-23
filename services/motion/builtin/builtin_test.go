@@ -263,10 +263,13 @@ func TestMoveOnMap(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
+	// goal x-position of 1.32m is scaled to be in mm
+	goal := spatialmath.NewPoseFromPoint(r3.Vector{X: 1.32 * 1000, Y: 0})
+	
 	path, _, err := ms.(*builtIn).planMoveOnMap(
 		context.Background(),
 		base.Named("test_base"),
-		spatialmath.NewPoseFromPoint(r3.Vector{X: 1.32 * 1000, Y: 0}),
+		goal,
 		slam.Named("test_slam"),
 		nil,
 	)
@@ -277,7 +280,7 @@ func TestMoveOnMap(t *testing.T) {
 	success, err := ms.MoveOnMap(
 		context.Background(),
 		base.Named("test_base"),
-		spatialmath.NewPoseFromPoint(r3.Vector{X: 1.32 * 1000, Y: 0}),
+		goal,
 		slam.Named("test_slam"),
 		nil,
 	)

@@ -146,20 +146,20 @@ func (octree *BasicOctree) Pose() spatialmath.Pose {
 }
 
 // AlmostEqual compares the octree with another geometry and checks if they are equivalent.
+// TODO (RSDK-3743): Implement BasicOctree Geometry functions.
 func (octree *BasicOctree) AlmostEqual(geom spatialmath.Geometry) bool {
-	// TODO (RSDK-3743)
 	return false
 }
 
 // Transform recursively steps through the octree and transforms it by the given pose.
+// TODO (RSDK-3743): Implement BasicOctree Geometry functions.
 func (octree *BasicOctree) Transform(p spatialmath.Pose) spatialmath.Geometry {
-	// TODO (RSDK-3743)
 	return nil
 }
 
 // ToProtobuf converts the octree to a Geometry proto message.
+// TODO (RSDK-3743): Implement BasicOctree Geometry functions.
 func (octree *BasicOctree) ToProtobuf() *commonpb.Geometry {
-	// TODO (RSDK-3743)
 	return nil
 }
 
@@ -221,8 +221,8 @@ func (octree *BasicOctree) CollidesWith(geom spatialmath.Geometry) (bool, error)
 }
 
 // DistanceFrom returns the distance from the given octree to the given geometry.
+// TODO (RSDK-3743): Implement BasicOctree Geometry functions.
 func (octree *BasicOctree) DistanceFrom(geom spatialmath.Geometry) (float64, error) {
-	// TODO (RSDK-3743): currently implemented as the bare minimum but needs to be changed to correct implementation
 	collides, err := octree.CollidesWith(geom)
 	if err != nil {
 		return math.Inf(1), err
@@ -234,8 +234,8 @@ func (octree *BasicOctree) DistanceFrom(geom spatialmath.Geometry) (float64, err
 }
 
 // EncompassedBy returns true if the given octree is within the given geometry.
+// TODO (RSDK-3743): Implement BasicOctree Geometry functions.
 func (octree *BasicOctree) EncompassedBy(geom spatialmath.Geometry) (bool, error) {
-	// TODO (RSDK-3743)
 	return false, errors.New("not implemented")
 }
 
@@ -250,6 +250,7 @@ func (octree *BasicOctree) Label() string {
 }
 
 // String returns a human readable string that represents this octree.
+// octree's children will not be represented in the string.
 func (octree *BasicOctree) String() string {
 	template := "octree of node type %s. center: %v, side length: %v, size: %v"
 	switch octree.node.nodeType {
@@ -270,7 +271,7 @@ func (octree *BasicOctree) ToPoints(resolution float64) []r3.Vector {
 }
 
 // MarshalJSON marshals JSON from the octree.
+// TODO (RSDK-3743): Implement BasicOctree Geometry functions.
 func (octree *BasicOctree) MarshalJSON() ([]byte, error) {
-	// TODO (RSDK-3743)
 	return nil, errors.New("not implemented")
 }

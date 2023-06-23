@@ -44,11 +44,13 @@ func newLeafNodeFilled(p r3.Vector, d Data) basicOctreeNode {
 }
 
 // getRawVal returns the data param as a probability value.
+// TODO (RSDK-3773): Implement accessing either color or value from data based on where data is stored in the octree.
 func getRawVal(d Data) int {
-	// TODO (RSDK-3773): this is a temp fix to make octrees work, will be more generalized by slam team
 	if d.HasColor() {
 		_, _, b := d.RGB255()
 		return int(b)
+	} else if d.HasValue() {
+		return d.Value()
 	}
 	return emptyProb
 }
