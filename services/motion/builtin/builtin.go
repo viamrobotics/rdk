@@ -438,10 +438,12 @@ func (ms *builtIn) planMoveOnMap(
 		return nil, nil, err
 	}
 
+	// get point cloud data in the form of bytes from pcd
 	pointCloudData, err := slam.GetPointCloudMapFull(ctx, slamSvc)
 	if err != nil {
 		return nil, nil, err
 	}
+	// store slam point cloud data  in the form of a recursive octree for collision checking
 	octree, err := pointcloud.ReadPCDToBasicOctree(bytes.NewReader(pointCloudData))
 	if err != nil {
 		return nil, nil, err

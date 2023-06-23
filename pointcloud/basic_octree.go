@@ -19,7 +19,7 @@ const (
 	// even on a pi.
 	maxRecursionDepth = 1000
 	nodeRegionOverlap = 1e-6
-	// TODO: pass these in a diff way.
+	// TODO (RSDK-3767): pass these in a different way.
 	confidenceThreshold = 60   // value between 0-100, threshold sets the confidence level required for a point to be considered a collision
 	buffer              = 60.0 // max distance from base to point for it to be considered a collision in mm
 )
@@ -147,19 +147,19 @@ func (octree *BasicOctree) Pose() spatialmath.Pose {
 
 // AlmostEqual compares the octree with another geometry and checks if they are equivalent.
 func (octree *BasicOctree) AlmostEqual(geom spatialmath.Geometry) bool {
-	// TODO
+	// TODO (RSDK-3743)
 	return false
 }
 
 // Transform recursively steps through the octree and transforms it by the given pose.
 func (octree *BasicOctree) Transform(p spatialmath.Pose) spatialmath.Geometry {
-	// TODO
+	// TODO (RSDK-3743)
 	return nil
 }
 
 // ToProtobuf converts the octree to a Geometry proto message.
 func (octree *BasicOctree) ToProtobuf() *commonpb.Geometry {
-	// TODO
+	// TODO (RSDK-3743)
 	return nil
 }
 
@@ -222,10 +222,10 @@ func (octree *BasicOctree) CollidesWith(geom spatialmath.Geometry) (bool, error)
 
 // DistanceFrom returns the distance from the given octree to the given geometry.
 func (octree *BasicOctree) DistanceFrom(geom spatialmath.Geometry) (float64, error) {
-	// TODO: currently implemented as the bare minimum but needs to be changed to correct implementation
+	// TODO (RSDK-3743): currently implemented as the bare minimum but needs to be changed to correct implementation
 	collides, err := octree.CollidesWith(geom)
 	if err != nil {
-		return -math.Inf(-1), err
+		return math.Inf(1), err
 	}
 	if collides {
 		return -1, nil
@@ -235,13 +235,12 @@ func (octree *BasicOctree) DistanceFrom(geom spatialmath.Geometry) (float64, err
 
 // EncompassedBy returns true if the given octree is within the given geometry.
 func (octree *BasicOctree) EncompassedBy(geom spatialmath.Geometry) (bool, error) {
-	// TODO
+	// TODO (RSDK-3743)
 	return false, errors.New("not implemented")
 }
 
 // SetLabel sets the label of this octree.
 func (octree *BasicOctree) SetLabel(label string) {
-	// Label returns the label of this octree.
 	octree.label = label
 }
 
@@ -252,17 +251,26 @@ func (octree *BasicOctree) Label() string {
 
 // String returns a human readable string that represents this octree.
 func (octree *BasicOctree) String() string {
-	return fmt.Sprintf("octree with center at %v and side length of %v", octree.center, octree.sideLength)
+	template := "octree of node type %s. center: %v, side length: %v, size: %v"
+	switch octree.node.nodeType {
+	case internalNode:
+		return fmt.Sprintf(template, "internalNode", octree.center, octree.sideLength, octree.size)
+	case leafNodeEmpty:
+		return fmt.Sprintf(template, "leafNodeEmpty", octree.center, octree.sideLength, octree.size)
+	case leafNodeFilled:
+		return fmt.Sprintf(template, "leafNodeFilled", octree.center, octree.sideLength, octree.size)
+	}
+	return ""
 }
 
 // ToPoints converts an octree geometry into []r3.Vector.
 func (octree *BasicOctree) ToPoints(resolution float64) []r3.Vector {
-	// TODO
+	// TODO (RSDK-3743)
 	return nil
 }
 
 // MarshalJSON marshals JSON from the octree.
 func (octree *BasicOctree) MarshalJSON() ([]byte, error) {
-	// TODO
+	// TODO (RSDK-3743)
 	return nil, errors.New("not implemented")
 }
