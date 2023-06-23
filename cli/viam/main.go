@@ -28,7 +28,6 @@ const (
 	dataFlagRobotName         = "robot_name"
 	dataFlagPartName          = "part_name"
 	dataFlagComponentType     = "component_type"
-	dataFlagComponentModel    = "component_model"
 	dataFlagComponentName     = "component_name"
 	dataFlagMethod            = "method"
 	dataFlagMimeTypes         = "mime_types"
@@ -236,9 +235,9 @@ func main() {
 					{
 						Name:  "export",
 						Usage: "download data from Viam cloud",
-						UsageText: fmt.Sprintf("viam data export <%s> <%s> [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s]",
+						UsageText: fmt.Sprintf("viam data export <%s> <%s> [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s]",
 							dataFlagDestination, dataFlagDataType, dataFlagOrgIDs, dataFlagLocationIDs, dataFlagRobotID, dataFlagRobotName,
-							dataFlagPartID, dataFlagPartName, dataFlagComponentType, dataFlagComponentModel, dataFlagComponentName,
+							dataFlagPartID, dataFlagPartName, dataFlagComponentType, dataFlagComponentName,
 							dataFlagStart, dataFlagEnd, dataFlagMethod, dataFlagMimeTypes, dataFlagParallelDownloads, dataFlagTags),
 						Flags: []cli.Flag{
 							&cli.PathFlag{
@@ -285,11 +284,6 @@ func main() {
 								Name:     dataFlagComponentType,
 								Required: false,
 								Usage:    "component_type filter",
-							},
-							&cli.StringFlag{
-								Name:     dataFlagComponentModel,
-								Required: false,
-								Usage:    "component_model filter",
 							},
 							&cli.StringFlag{
 								Name:     dataFlagComponentName,
@@ -339,9 +333,9 @@ func main() {
 					{
 						Name:  "delete",
 						Usage: "delete data from Viam cloud",
-						UsageText: fmt.Sprintf("viam data delete [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s]",
+						UsageText: fmt.Sprintf("viam data delete [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s]",
 							dataFlagDataType, dataFlagOrgIDs, dataFlagLocationIDs, dataFlagRobotID, dataFlagRobotName,
-							dataFlagPartID, dataFlagPartName, dataFlagComponentType, dataFlagComponentModel, dataFlagComponentName,
+							dataFlagPartID, dataFlagPartName, dataFlagComponentType, dataFlagComponentName,
 							dataFlagStart, dataFlagEnd, dataFlagMethod, dataFlagMimeTypes),
 						Flags: []cli.Flag{
 							&cli.StringFlag{
@@ -383,11 +377,6 @@ func main() {
 								Name:     dataFlagComponentType,
 								Required: false,
 								Usage:    "component_type filter",
-							},
-							&cli.StringFlag{
-								Name:     dataFlagComponentModel,
-								Required: false,
-								Usage:    "component_model filter",
 							},
 							&cli.StringFlag{
 								Name:     dataFlagComponentName,
@@ -900,9 +889,6 @@ func createDataFilter(c *cli.Context) (*datapb.Filter, error) {
 	}
 	if c.String(dataFlagComponentType) != "" {
 		filter.ComponentType = c.String(dataFlagComponentType)
-	}
-	if c.String(dataFlagComponentModel) != "" {
-		filter.ComponentModel = c.String(dataFlagComponentModel)
 	}
 	if c.String(dataFlagComponentName) != "" {
 		filter.ComponentName = c.String(dataFlagComponentName)
