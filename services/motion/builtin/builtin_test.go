@@ -17,6 +17,7 @@ import (
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/base/fake"
+
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/gripper"
 	"go.viam.com/rdk/components/movementsensor"
@@ -30,6 +31,8 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/motion"
+
+	// _ "go.viam.com/rdk/services/register"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -265,27 +268,44 @@ func TestMoveOnMap(t *testing.T) {
 
 	// goal x-position of 1.32m is scaled to be in mm
 	goal := spatialmath.NewPoseFromPoint(r3.Vector{X: 1.32 * 1000, Y: 0})
-	
-	path, _, err := ms.(*builtIn).planMoveOnMap(
-		context.Background(),
-		base.Named("test_base"),
-		goal,
-		slam.Named("test_slam"),
-		nil,
-	)
-	test.That(t, err, test.ShouldBeNil)
-	// path of length 2 indicates a path that goes straight through central obstacle
-	test.That(t, len(path), test.ShouldBeGreaterThan, 2)
 
-	success, err := ms.MoveOnMap(
-		context.Background(),
-		base.Named("test_base"),
-		goal,
-		slam.Named("test_slam"),
-		nil,
-	)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, success, test.ShouldBeTrue)
+	t.Run("check that path is planned around obstacle", func(t *testing.T) {
+		path, _, err := ms.(*builtIn).planMoveOnMap(
+			context.Background(),
+			base.Named("test_base"),
+			goal,
+			slam.Named("test_slam"),
+			nil,
+		)
+		test.That(t, err, test.ShouldBeNil)
+		// path of length 2 indicates a path that goes straight through central obstacle
+		test.That(t, len(path), test.ShouldBeGreaterThan, 2)
+	})
+
+	t.Run("ensure success of movement around obstacle", func(t *testing.T) {
+		success, err := ms.MoveOnMap(
+			context.Background(),
+			base.Named("test_base"),
+			goal,
+			slam.Named("test_slam"),
+			nil,
+		)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, success, test.ShouldBeTrue)
+	})
+
+	t.Run("check that straight line path executes", func(t *testing.T) {
+		goal = spatialmath.NewPoseFromPoint(r3.Vector{X: 0.277 * 1000, Y: 0.593 * 1000})
+		success, err := ms.MoveOnMap(
+			context.Background(),
+			base.Named("test_base"),
+			goal,
+			slam.Named("test_slam"),
+			nil,
+		)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, success, test.ShouldBeTrue)
+	})
 }
 
 func TestMoveOnGlobe(t *testing.T) {
