@@ -284,14 +284,15 @@ func (ms *builtIn) MoveOnGlobe(
 		return false, err
 	}
 
-	// build maps of relevant components and inputs from initial inputs
-	fsInputs, _, err := ms.fsService.CurrentInputs(ctx)
-	if err != nil {
-		return false, err
-	}
-
 	localizerFrame := robotFS.Frame(movementSensorName.ShortName())
 	if localizerFrame != nil {
+		// build maps of relevant components and inputs from initial inputs
+		fsInputs, _, err := ms.fsService.CurrentInputs(ctx)
+		if err != nil {
+			return false, err
+		}
+
+		// transform currentPIF by the movementsensor translation specified for its frame
 		tf, err := robotFS.Transform(fsInputs, &currentPIF, movementSensorName.Name)
 		if err != nil {
 			return false, err
