@@ -297,11 +297,11 @@ func TestMoveOnMap(t *testing.T) {
 
 	t.Run("check that straight line path executes", func(t *testing.T) {
 		t.Parallel()
-		goal = spatialmath.NewPoseFromPoint(r3.Vector{X: 0.277 * 1000, Y: 0.593 * 1000})
+		easyGoal := spatialmath.NewPoseFromPoint(r3.Vector{X: 0.277 * 1000, Y: 0.593 * 1000})
 		success, err := ms.MoveOnMap(
 			context.Background(),
 			base.Named("test_base"),
-			goal,
+			easyGoal,
 			slam.Named("test_slam"),
 			nil,
 		)
