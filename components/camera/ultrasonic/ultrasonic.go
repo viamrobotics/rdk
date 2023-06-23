@@ -42,16 +42,16 @@ func init() {
 }
 
 func newCamera(ctx context.Context, deps resource.Dependencies, name resource.Name,
-	newConf *ultrasense.Config) (camera.Camera, error) {
+	newConf *ultrasense.Config,
+) (camera.Camera, error) {
 	usSensor, err := ultrasense.NewSensor(ctx, deps, name, newConf)
 	if err != nil {
 		return nil, err
 	}
-	return cameraFromSensor(ctx, deps, name, usSensor)
+	return cameraFromSensor(ctx, name, usSensor)
 }
 
-func cameraFromSensor(ctx context.Context, deps resource.Dependencies, name resource.Name,
-	usSensor sensor.Sensor) (camera.Camera, error) {
+func cameraFromSensor(ctx context.Context, name resource.Name, usSensor sensor.Sensor) (camera.Camera, error) {
 	usWrapper := ultrasonicWrapper{usSensor: usSensor}
 
 	usVideoSource, err := camera.NewVideoSourceFromReader(ctx, &usWrapper, nil, camera.UnspecifiedStream)

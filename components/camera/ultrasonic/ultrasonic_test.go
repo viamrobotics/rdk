@@ -59,13 +59,12 @@ func TestNewCamera(t *testing.T) {
 func TestUnderlyingSensor(t *testing.T) {
 	name := resource.Name{API: camera.API}
 	ctx := context.Background()
-	deps := setupDependencies(t)
 
 	fakeUS := inject.NewSensor("mySensor")
 	fakeUS.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 		return map[string]interface{}{"distance": 3.2}, nil
 	}
-	cam, err := cameraFromSensor(ctx, deps, name, fakeUS)
+	cam, err := cameraFromSensor(ctx, name, fakeUS)
 	test.That(t, err, test.ShouldBeNil)
 
 	pc, err := cam.NextPointCloud(ctx)
