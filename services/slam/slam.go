@@ -51,7 +51,7 @@ type Service interface {
 	GetPosition(context.Context) (spatialmath.Pose, string, error)
 	GetPointCloudMap(ctx context.Context) (func() ([]byte, error), error)
 	GetInternalState(ctx context.Context) (func() ([]byte, error), error)
-	GetLatestMapInfo(context.Context) (time.Time, error) // comment
+	GetLatestMapInfo(context.Context) (time.Time, error)
 }
 
 // HelperConcatenateChunksToFull concatenates the chunks from a streamed grpc endpoint.
