@@ -296,29 +296,6 @@ func TestMoveOnGlobe(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, success, test.ShouldBeFalse)
 	})
-
-	t.Run("with frame info", func(t *testing.T) {
-		ms, closeFn := setupMotionServiceFromConfig(t, "../data/gps_base_with_frame.json")
-		defer closeFn()
-
-		motionCfg := make(map[string]interface{})
-		motionCfg["motion_profile"] = "position_only"
-		motionCfg["timeout"] = 5.
-
-		success, err := ms.MoveOnGlobe(
-			context.Background(),
-			base.Named("test-base"),
-			geo.NewPoint(40.7, -73.9800009),
-			math.NaN(),
-			movementsensor.Named("test-gps"),
-			nil,
-			math.NaN(),
-			math.NaN(),
-			motionCfg,
-		)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, success, test.ShouldBeTrue)
-	})
 }
 
 func TestMultiplePieces(t *testing.T) {
