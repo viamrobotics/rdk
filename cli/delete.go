@@ -18,8 +18,7 @@ func (c *AppClient) DeleteBinaryData(filter *datapb.Filter) error {
 	if err != nil {
 		return errors.Wrapf(err, "received error from server")
 	}
-	deletedCount := resp.GetDeletedCount()
-	fmt.Fprintf(c.c.App.Writer, "deleted %d files\n", deletedCount)
+	fmt.Fprintf(c.c.App.Writer, "deleted %d files\n", resp.GetDeletedCount())
 	return nil
 }
 
@@ -33,7 +32,6 @@ func (c *AppClient) DeleteTabularData(filter *datapb.Filter) error {
 	if err != nil {
 		return errors.Wrapf(err, "received error from server")
 	}
-	deletedCount := resp.GetDeletedCount()
-	fmt.Fprintf(c.c.App.Writer, "deleted %d datapoints\n", deletedCount)
+	fmt.Fprintf(c.c.App.Writer, "deleted %d datapoints\n", resp.GetDeletedCount())
 	return nil
 }
