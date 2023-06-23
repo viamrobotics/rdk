@@ -7,12 +7,11 @@ import (
 	"image"
 
 	"github.com/edaniels/golog"
-	"github.com/viamrobotics/gostream"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/sensor"
 	ultrasense "go.viam.com/rdk/components/sensor/ultrasonic"
-	pointCloud "go.viam.com/rdk/pointcloud"
+	pointcloud "go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 )
 
@@ -43,18 +42,16 @@ func init() {
 }
 
 func newCamera(ctx context.Context, deps resource.Dependencies, name resource.Name,
-	newConf *ultrasense.Config,
-) (camera.Camera, error) {
-	// sns, err := sensor.FromDependencies(deps, conf.Name)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// usWrapper := ultrasonicWrapper{usSensor: sns}
-
+	newConf *ultrasense.Config) (camera.Camera, error) {
 	usSensor, err := ultrasense.NewSensor(ctx, deps, name, newConf)
 	if err != nil {
 		return nil, err
 	}
+	return cameraFromSensor(ctx, deps, name, usSensor)
+}
+
+func cameraFromSensor(ctx context.Context, deps resource.Dependencies, name resource.Name,
+	usSensor sensor.Sensor) (camera.Camera, error) {
 	usWrapper := ultrasonicWrapper{usSensor: usSensor}
 
 	usVideoSource, err := camera.NewVideoSourceFromReader(ctx, &usWrapper, nil, camera.UnspecifiedStream)
@@ -65,22 +62,18 @@ func newCamera(ctx context.Context, deps resource.Dependencies, name resource.Na
 	return camera.FromVideoSource(name, usVideoSource), nil
 }
 
-func (usvs *ultrasonicWrapper) Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
-	return nil, errors.New("not yet implemented")
-}
-
-func (usvs *ultrasonicWrapper) NextPointCloud(ctx context.Context) (pointCloud.PointCloud, error) {
-	readings, err := usvs.usSensor.Readings(ctx, make(map[string]interface{}))
+func (usvs *ultrasonicWrapper) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+	readings, err := usvs.usSensor.Readings(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
-	pcToReturn := pointCloud.New()
+	pcToReturn := pointcloud.New()
 	distFloat, ok := readings["distance"].(float64)
 	if !ok {
 		return nil, errors.New("unable to convert distance to float64")
 	}
-	basicData := pointCloud.NewBasicData()
-	distVector := pointCloud.NewVector(0, 0, distFloat)
+	basicData := pointcloud.NewBasicData()
+	distVector := pointcloud.NewVector(0, 0, distFloat)
 	err = pcToReturn.Set(distVector, basicData)
 	if err != nil {
 		return nil, err
