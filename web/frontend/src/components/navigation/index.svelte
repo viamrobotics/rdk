@@ -16,17 +16,17 @@ export let name: string;
 let inputInteracting = false;
 let dragging = false;
 
-const decimalFormat = new Intl.NumberFormat(undefined, { maximumFractionDigits: 7 })
+const decimalFormat = new Intl.NumberFormat(undefined, { maximumFractionDigits: 7 });
 
 const handleLng = (event: CustomEvent) => {
-  const lng = Number.parseFloat(event.detail.value)
-  setLngLat({ lng, lat: lngLat.current.lat }, { center: true })
-}
+  const lng = Number.parseFloat(event.detail.value);
+  setLngLat({ lng, lat: lngLat.current.lat }, { center: true });
+};
 
 const handleLat = (event: CustomEvent) => {
-  const lat = Number.parseFloat(event.detail.value)
-  setLngLat({ lat, lng: lngLat.current.lng }, { center: true })
-}
+  const lat = Number.parseFloat(event.detail.value);
+  setLngLat({ lat, lng: lngLat.current.lng }, { center: true });
+};
 
 const setNavigationMode = async (event: CustomEvent) => {
   const mode = event.detail.value as 'Manual' | 'Waypoint';
@@ -63,7 +63,7 @@ const setNavigationMode = async (event: CustomEvent) => {
             on:click={() => $robotPosition && setLngLat($robotPosition, { flyTo: {} })}
           />
         </div>
-      
+
         <v-radio
           label="Navigation mode"
           options="Manual, Waypoint"
@@ -104,14 +104,14 @@ const setNavigationMode = async (event: CustomEvent) => {
         <Map
           {name}
           on:dragstart={() => {
-            dragging = true
-            $followRobot = false
+            dragging = true;
+            $followRobot = false;
           }}
           on:drag={(event) => setLngLat(event.detail)}
           on:dragend={() => (dragging = false)}
         />
-      </div> 
-      
+      </div>
+
     </div>
   </div>
 </Collapse>

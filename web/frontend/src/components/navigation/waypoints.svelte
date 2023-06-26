@@ -7,10 +7,10 @@ import { setWaypoint, getWaypoints } from '@/api/navigation';
 import { setAsyncInterval } from '@/lib/schedule';
 import { waypoints } from './stores';
 import { useDisconnect } from '@/hooks/use-disconnect';
-import MapMarker from './components/marker.svelte'
+import MapMarker from './components/marker.svelte';
 
-export let map: Map
-export let name: string
+export let map: Map;
+export let name: string;
 
 const handleAddMarker = async (event: MapMouseEvent) => {
   if (event.originalEvent.button > 0) {
@@ -18,14 +18,14 @@ const handleAddMarker = async (event: MapMouseEvent) => {
   }
 
   const { lat, lng } = event.lngLat;
-  const temp = { lng, lat, id: crypto.randomUUID() }
+  const temp = { lng, lat, id: crypto.randomUUID() };
 
   try {
-    $waypoints = [...$waypoints, temp]
+    $waypoints = [...$waypoints, temp];
     await setWaypoint(lat, lng, name);
   } catch (error) {
     notify.danger((error as ServiceError).message);
-    $waypoints = $waypoints.filter((item) => item.id !== temp.id)
+    $waypoints = $waypoints.filter((item) => item.id !== temp.id);
   }
 };
 
@@ -40,7 +40,7 @@ const updateWaypoints = async () => {
 const clearUpdateWaypointInterval = setAsyncInterval(updateWaypoints, 1000);
 updateWaypoints();
 
-useDisconnect(() => clearUpdateWaypointInterval())
+useDisconnect(() => clearUpdateWaypointInterval());
 
 map.on('click', handleAddMarker);
 

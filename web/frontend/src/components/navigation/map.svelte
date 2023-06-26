@@ -3,17 +3,17 @@
 import { onMount, createEventDispatcher } from 'svelte';
 import { Map } from 'maplibre-gl';
 import { type LngLat } from '@/api/navigation';
-import { map } from './stores'
-import { style } from './style'
-import ThreeLayer from './layer-three.svelte'
-import Waypoints from './waypoints.svelte'
-import RobotMarker from './robot-marker.svelte'
+import { map } from './stores';
+import { style } from './style';
+import ThreeLayer from './layer-three.svelte';
+import Waypoints from './waypoints.svelte';
+import RobotMarker from './robot-marker.svelte';
 
 const dispatch = createEventDispatcher<{
   drag: LngLat
   dragstart: LngLat
   dragend: LngLat
-}>()
+}>();
 
 export let name: string;
 
@@ -28,12 +28,12 @@ onMount(() => {
     pitchWithRotate: false,
   });
 
-  mapInstance.on('drag', () => dispatch('drag', mapInstance.getCenter()))
-  mapInstance.on('dragstart', () => dispatch('dragstart', mapInstance.getCenter()))
-  mapInstance.on('dragend', () => dispatch('dragend', mapInstance.getCenter()))
-  
-  $map = mapInstance
-})
+  mapInstance.on('drag', () => dispatch('drag', mapInstance.getCenter()));
+  mapInstance.on('dragstart', () => dispatch('dragstart', mapInstance.getCenter()));
+  mapInstance.on('dragend', () => dispatch('dragend', mapInstance.getCenter()));
+
+  $map = mapInstance;
+});
 
 </script>
 

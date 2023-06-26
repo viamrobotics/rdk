@@ -4,14 +4,14 @@ import { Marker } from 'maplibre-gl';
 import { notify } from '@viamrobotics/prime';
 import { getLocation } from '@/api/navigation';
 import type { ServiceError } from '@viamrobotics/sdk';
-import { robotPosition, setLngLat } from './stores'
+import { robotPosition, setLngLat } from './stores';
 import { setAsyncInterval } from '@/lib/schedule';
 import { useDisconnect } from '@/hooks/use-disconnect';
-import MapMarker from './components/marker.svelte'
+import MapMarker from './components/marker.svelte';
 
-export let name: string
+export let name: string;
 
-let centered = false
+let centered = false;
 
 const robotMarker = new Marker({ color: 'red' });
 
@@ -20,14 +20,14 @@ const updateLocation = async () => {
     const position = await getLocation(name);
 
     if (!centered) {
-      setLngLat(position, { center: true })
-      centered = true
+      setLngLat(position, { center: true });
+      centered = true;
     }
 
-    $robotPosition = position
+    $robotPosition = position;
   } catch (error) {
     notify.danger((error as ServiceError).message);
-    $robotPosition = null
+    $robotPosition = null;
     robotMarker.remove();
   }
 };
@@ -35,7 +35,7 @@ const updateLocation = async () => {
 updateLocation();
 const clearUpdateLocationInterval = setAsyncInterval(updateLocation, 300);
 
-useDisconnect(() => clearUpdateLocationInterval())
+useDisconnect(() => clearUpdateLocationInterval());
 
 </script>
 

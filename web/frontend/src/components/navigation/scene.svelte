@@ -1,47 +1,47 @@
 <script lang='ts'>
 
-import * as THREE from 'three'
+import * as THREE from 'three';
 import { T, useThrelte, useRender, type CurrentWritable } from '@threlte/core';
 import { type Map } from 'maplibre-gl';
 import { obstacles, zoomLevels } from './stores';
-import { cameraPerspectiveToOrtho, createCameraTransform } from './utils'
+import { cameraPerspectiveToOrtho, createCameraTransform } from './utils';
 import type { Obstacle } from './types';
 
 export let map: Map;
-export let viewProjectionMatrix: CurrentWritable<Float32Array | [number, number, number, number, number, number, number, number, number, number, number, number, number, number, number, number]>
+export let viewProjectionMatrix: CurrentWritable<Float32Array | [number, number, number, number, number, number, number, number, number, number, number, number, number, number, number, number]>;
 
-let view: 'orthographic' | 'perspective' = 'perspective'
+const view: 'orthographic' | 'perspective' = 'perspective';
 
 const { renderer, scene, camera } = useThrelte();
 
 renderer!.autoClear = false;
 
 // This clips against the map so that interesecting objects will not render over the map
-renderer!.clippingPlanes = [new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.1)]
+renderer!.clippingPlanes = [new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.1)];
 
-const perspective = camera.current as THREE.PerspectiveCamera
-const orthographic = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 100_000)
-perspective.far = 100_000
+const perspective = camera.current as THREE.PerspectiveCamera;
+const orthographic = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 100_000);
+perspective.far = 100_000;
 
 const cameraTransform = createCameraTransform(map);
 
 const setZoomLevel = (lngLat: Obstacle['location'], geometry: THREE.BufferGeometry) => {
-  geometry.computeBoundingSphere()
-  $zoomLevels[`${lngLat.longitude},${lngLat.latitude}`] = 100 / geometry.boundingSphere!.radius
-}
+  geometry.computeBoundingSphere();
+  $zoomLevels[`${lngLat.longitude},${lngLat.latitude}`] = 100 / geometry.boundingSphere!.radius;
+};
 
 useRender(() => {
   perspective.projectionMatrix
     .fromArray(viewProjectionMatrix.current)
-    .multiply(cameraTransform)
+    .multiply(cameraTransform);
 
-  cameraPerspectiveToOrtho(perspective, orthographic)
+  cameraPerspectiveToOrtho(perspective, orthographic);
 
   renderer!.resetState();
   renderer!.render(scene, camera.current);
-  
+
   map.triggerRepaint();
-})
+});
 
 </script>
 
@@ -55,7 +55,7 @@ useRender(() => {
 {#each $obstacles as obstacle}
   <T.Group lnglat={{
     lng: obstacle.location.longitude,
-    lat: obstacle.location.latitude
+    lat: obstacle.location.latitude,
   }}>
     {#each obstacle.geometries as geometry}
       <T.Mesh
@@ -77,8 +77,8 @@ useRender(() => {
           <T.CapsuleGeometry
             args={[geometry.r, geometry.l, 4, 8]}
             on:create={({ ref }) => {
-              ref.computeBoundingSphere()
-              ref.rotateX(Math.PI / 2)
+              ref.computeBoundingSphere();
+              ref.rotateX(Math.PI / 2);
             }}
           />
         {/if}

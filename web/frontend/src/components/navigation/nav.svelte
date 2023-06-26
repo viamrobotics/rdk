@@ -5,26 +5,30 @@ import { obstacles, waypoints, setLngLat } from './stores';
 import { removeWaypoint } from '@/api/navigation';
 import { notify } from '@viamrobotics/prime';
 
-export let name: string
+export let name: string;
 
 const handleClick = (lng: number, lat: number) => {
-  setLngLat({ lng, lat }, { flyTo: {} })
-}
+  setLngLat({ lng, lat }, { flyTo: {} });
+};
 
 const handleRemoveWaypoint = async (id: string) => {
   try {
-    $waypoints = $waypoints.filter(item => item.id !== id)
-    await removeWaypoint(name, id)
+    $waypoints = $waypoints.filter((item) => item.id !== id);
+    await removeWaypoint(name, id);
   } catch (error) {
-    notify.danger((error as ServiceError).message)
+    notify.danger((error as ServiceError).message);
   }
-}
+};
 
 </script>
 
-<nav class='min-w-[8rem]'>
-  <h3 class='text-xs my-2'>Obstacles</h3>
+<nav class='min-w-[8rem] mr-2'>
+  <h3 class='text-xs py-1.5 mb-1.5 border-b border-light'>Obstacles</h3>
   <ul class='mb-4 font-mono'>
+    {#if $obstacles.length === 0}
+      <li class='text-xs text-subtle-2 font-sans py-2'>None</li>
+    {/if}
+
     {#each $obstacles as { location } (`${location.longitude},${location.latitude}`)}
       <li class='flex group'>
         <v-button
@@ -43,8 +47,12 @@ const handleRemoveWaypoint = async (id: string) => {
     {/each}
   </ul>
 
-  <h3 class='text-xs my-2'>Waypoints</h3>
+  <h3 class='text-xs py-1.5 mb-1.5 border-b border-light'>Waypoints</h3>
   <ul class='font-mono'>
+    {#if $waypoints.length === 0}
+      <li class='text-xs text-subtle-2 font-sans py-2'>None</li>
+    {/if}
+
     {#each $waypoints as waypoint (waypoint.id)}
       <li class='flex group'>
         <v-button
