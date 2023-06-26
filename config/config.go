@@ -576,11 +576,6 @@ type NetworkConfigData struct {
 
 	// Sessions configures session management.
 	Sessions SessionsConfig `json:"sessions"`
-
-	// ResourceConfigurationTimeout determines the duration after which resource
-	// constructor/reconfiguration calls should timeout. Defaults to one minute;
-	// no timeout is applied if set to 0.
-	ResourceConfigurationTimeout *time.Duration `json:"resource_configuration_timeout,omitempty"`
 }
 
 // MarshalJSON marshals out this config.
@@ -610,9 +605,6 @@ func (nc *NetworkConfig) Validate(path string) error {
 	}
 	if (nc.TLSCertFile == "") != (nc.TLSKeyFile == "") {
 		return utils.NewConfigValidationError(path, errors.New("must provide both tls_cert_file and tls_key_file"))
-	}
-	if nc.ResourceConfigurationTimeout != nil && *nc.ResourceConfigurationTimeout < 0 {
-		return utils.NewConfigValidationError(path, errors.New("cannot provide a negative duration for resource configuration timeout"))
 	}
 
 	return nc.Sessions.Validate(path + ".sessions")

@@ -20,6 +20,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -3166,51 +3167,11 @@ func TestResourceConstructTimeout(t *testing.T) {
 		test.That(tb, timeOutErrorCount(), test.ShouldEqual, 0)
 	})
 
-	// new cfg with timeout window set to nil, wheeled base modified to ensure reconfigure
-	var infiniteDuration time.Duration
-	newerCfg := &config.Config{
-		Components: []resource.Config{
-			{
-				Name:  "fakewheel",
-				API:   base.API,
-				Model: wheeled.Model,
-				ConvertedAttributes: &wheeled.Config{
-					Right:                []string{"left"},
-					Left:                 []string{"right"},
-					WheelCircumferenceMM: 1,
-					WidthMM:              2,
-				},
-				DependsOn: []string{"left", "right"},
-			},
-			{
-				Name:                "left",
-				API:                 motor.API,
-				Model:               fakeModel,
-				ConvertedAttributes: &fakemotor.Config{},
-			},
-			{
-				Name:                "right",
-				API:                 motor.API,
-				Model:               fakeModel,
-				ConvertedAttributes: &fakemotor.Config{},
-			},
-		},
-		Network: config.NetworkConfig{
-			NetworkConfigData: config.NetworkConfigData{
-				ResourceConfigurationTimeout: &infiniteDuration,
-			},
-		},
-	}
-
-	r.Reconfigure(ctx, newerCfg)
-	// test no error logged when Timeout is nil
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		test.That(tb, timeOutErrorCount(), test.ShouldEqual, 0)
-	})
-
-	// create new cfg with wheeled base modified to trigger Reconfigure, and timeout
-	// set to the shortest possible window to ensure timeout
-	ns := time.Nanosecond
+	// create new cfg with wheeled base modified to trigger Reconfigure, set timeout
+	// to the shortest possible window to ensure timeout
+	currTimeout := robotimpl.ResourceConfigurationTimeout
+	robotimpl.ResourceConfigurationTimeout = time.Nanosecond
+	defer func() { robotimpl.ResourceConfigurationTimeout = currTimeout }()
 	newestCfg := &config.Config{
 		Components: []resource.Config{
 			{
@@ -3236,11 +3197,6 @@ func TestResourceConstructTimeout(t *testing.T) {
 				API:                 motor.API,
 				Model:               fakeModel,
 				ConvertedAttributes: &fakemotor.Config{},
-			},
-		},
-		Network: config.NetworkConfig{
-			NetworkConfigData: config.NetworkConfigData{
-				ResourceConfigurationTimeout: &ns,
 			},
 		},
 	}

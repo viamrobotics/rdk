@@ -539,12 +539,11 @@ func RemoteConfigFromProto(proto *pb.RemoteConfig) (*Remote, error) {
 // NetworkConfigToProto converts NetworkConfig from the proto equivalent.
 func NetworkConfigToProto(network *NetworkConfig) (*pb.NetworkConfig, error) {
 	proto := pb.NetworkConfig{
-		Fqdn:                         network.FQDN,
-		BindAddress:                  network.BindAddress,
-		TlsCertFile:                  network.TLSCertFile,
-		TlsKeyFile:                   network.TLSKeyFile,
-		Sessions:                     sessionsConfigToProto(network.Sessions),
-		ResourceConfigurationTimeout: network.ResourceConfigurationTimeout,
+		Fqdn:        network.FQDN,
+		BindAddress: network.BindAddress,
+		TlsCertFile: network.TLSCertFile,
+		TlsKeyFile:  network.TLSKeyFile,
+		Sessions:    sessionsConfigToProto(network.Sessions),
 	}
 
 	return &proto, nil
@@ -554,12 +553,11 @@ func NetworkConfigToProto(network *NetworkConfig) (*pb.NetworkConfig, error) {
 func NetworkConfigFromProto(proto *pb.NetworkConfig) (*NetworkConfig, error) {
 	network := NetworkConfig{
 		NetworkConfigData: NetworkConfigData{
-			FQDN:                         proto.GetFqdn(),
-			BindAddress:                  proto.GetBindAddress(),
-			TLSCertFile:                  proto.GetTlsCertFile(),
-			TLSKeyFile:                   proto.GetTlsKeyFile(),
-			Sessions:                     sessionsConfigFromProto(proto.GetSessions()),
-			ResourceConfigurationTimeout: proto.GetResourceConfigurationTimeout().AsDuration(),
+			FQDN:        proto.GetFqdn(),
+			BindAddress: proto.GetBindAddress(),
+			TLSCertFile: proto.GetTlsCertFile(),
+			TLSKeyFile:  proto.GetTlsKeyFile(),
+			Sessions:    sessionsConfigFromProto(proto.GetSessions()),
 		},
 	}
 
