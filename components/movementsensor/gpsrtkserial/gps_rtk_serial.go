@@ -46,11 +46,6 @@ type Config struct {
 	SerialCorrectionPath     string `json:"serial_correction_path,omitempty"`
 	SerialCorrectionBaudRate int    `json:"serial_correction_baud_rate,omitempty"`
 
-	*NtripConfig `json:"ntrip_attributes,omitempty"`
-}
-
-// NtripConfig is used for converting attributes for a correction source.
-type NtripConfig struct {
 	NtripURL             string `json:"ntrip_url"`
 	NtripConnectAttempts int    `json:"ntrip_connect_attempts,omitempty"`
 	NtripMountpoint      string `json:"ntrip_mountpoint,omitempty"`
@@ -66,11 +61,14 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 		return nil, err
 	}
 
-	if cfg.NmeaDataSource == ntripStr {
-		err = cfg.validateNtripInputProtocol(path)
-		if err != nil {
-			return nil, err
-		}
+	err = cfg.validateNtripInputProtocol(path)
+	if err != nil {
+		return nil, err
+	}
+
+	err = cfg.ValidateNtrip(path)
+	if err != nil {
+		return nil, err
 	}
 
 	return nil, nil
@@ -79,9 +77,9 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 func (cfg *Config) validateNmeaDataSource(path string) error {
 	switch strings.ToLower(cfg.NmeaDataSource) {
 	case serialStr:
-		return cfg.ValidateSerialPath(path)
+		return cfg.validateSerialPath(path)
 	case "":
-		return utils.NewConfigValidationFieldRequiredError(path, "connection_type")
+		return utils.NewConfigValidationFieldRequiredError(path, "nmea_data_source")
 	default:
 		return errConnectionTypeValidation
 	}
@@ -89,16 +87,14 @@ func (cfg *Config) validateNmeaDataSource(path string) error {
 
 // validateNtripInputProtocol validates protocols accepted by this package.
 func (cfg *Config) validateNtripInputProtocol(path string) error {
-	switch cfg.NtripInputProtocol {
-	case serialStr:
-		return cfg.ValidateSerialPath(path)
-	default:
-		return errInputProtocolValidation
+	if cfg.NtripInputProtocol == serialStr {
+		return nil
 	}
+	return errInputProtocolValidation
 }
 
-// ValidateSerialPath ensures all parts of the config are valid.
-func (cfg *Config) ValidateSerialPath(path string) error {
+// validateSerialPath ensures all parts of the config are valid.
+func (cfg *Config) validateSerialPath(path string) error {
 	if cfg.SerialPath == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "serial_path")
 	}
@@ -106,7 +102,7 @@ func (cfg *Config) ValidateSerialPath(path string) error {
 }
 
 // ValidateNtrip ensures all parts of the config are valid.
-func (cfg *NtripConfig) ValidateNtrip(path string) error {
+func (cfg *Config) ValidateNtrip(path string) error {
 	if cfg.NtripURL == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "ntrip_url")
 	}
@@ -139,8 +135,9 @@ type RTKSerial struct {
 	ntripClient *rtk.NtripInfo
 	ntripStatus bool
 
-	err          movementsensor.LastError
-	lastposition movementsensor.LastPosition
+	err           movementsensor.LastError
+	lastposition  movementsensor.LastPosition
+	InputProtocol string
 
 	Nmeamovementsensor gpsnmea.NmeaMovementSensor
 	CorrectionWriter   io.ReadWriteCloser
@@ -169,6 +166,16 @@ func newRTKSerial(
 		lastposition: movementsensor.NewLastPosition(),
 	}
 
+	ntripConfig := &rtk.NtripConfig{
+		NtripURL:             newConf.NtripURL,
+		NtripUser:            newConf.NtripUser,
+		NtripPass:            newConf.NtripPass,
+		NtripMountpoint:      newConf.NtripMountpoint,
+		NtripConnectAttempts: newConf.NtripConnectAttempts,
+	}
+
+	g.InputProtocol = strings.ToLower(newConf.NtripInputProtocol)
+
 	nmeaConf := &gpsnmea.Config{
 		ConnectionType: newConf.NmeaDataSource,
 	}
@@ -192,11 +199,19 @@ func newRTKSerial(
 		return nil, fmt.Errorf("%s is not a valid connection type", newConf.NmeaDataSource)
 	}
 
-	// Init ntripInfo from attibutes
-	g.ntripClient, err = rtk.NewNtripInfo((*rtk.NtripConfig)(newConf.NtripConfig), g.logger)
+	//Init ntripInfo from attibutes
+	g.ntripClient, err = rtk.NewNtripInfo(ntripConfig, g.logger)
 	if err != nil {
 		return nil, err
 	}
+
+	// baud rate
+	if newConf.SerialBaudRate == 0 {
+		newConf.SerialBaudRate = 38400
+		g.logger.Info("serial_baud_rate using default baud rate 38400")
+	}
+	g.Wbaud = newConf.SerialBaudRate
+	g.Writepath = newConf.SerialPath
 
 	if err := g.start(); err != nil {
 		return nil, err
