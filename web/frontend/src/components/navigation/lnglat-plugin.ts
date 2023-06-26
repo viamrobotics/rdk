@@ -24,7 +24,7 @@ export const injectLngLatPlugin = () => injectPlugin<{
 
     latLngToVector3Relative(currentProps.lnglat, undefined, vec3);
 
-    currentRef.position.set(-vec3.x, 0, vec3.y);
+    currentRef.position.set(vec3.y, -vec3.x, 0);
 
     invalidate();
   };

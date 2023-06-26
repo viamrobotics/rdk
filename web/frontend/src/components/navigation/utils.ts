@@ -12,7 +12,7 @@ export const latLngToXY = (
 ): [lng: number, lat: number, alt?: number] => {
   return [
     EARTH_RADIUS_METERS * THREE.MathUtils.degToRad(position.lng),
-    EARTH_RADIUS_METERS * Math.log(Math.tan(0.25 * Math.PI + 0.5 * THREE.MathUtils.degToRad(position.lat))),
+    EARTH_RADIUS_METERS * Math.log(Math.tan((0.25 * Math.PI) + (0.5 * THREE.MathUtils.degToRad(position.lat)))),
   ];
 };
 
@@ -52,51 +52,4 @@ export const createCameraTransform = (map: Map) => {
   return new THREE.Matrix4()
     .multiplyMatrices(scale, rotation)
     .setPosition(center.x, center.y, center.z);
-};
-
-export const cameraPerspectiveToOrtho = (
-  perspective: THREE.PerspectiveCamera,
-  orthographic: THREE.OrthographicCamera
-) => {
-  const perspectiveMatrix = perspective.projectionMatrix;
-
-  // Create a new orthographic projection matrix
-  const orthographicMatrix = new THREE.Matrix4();
-
-  // Get the inverse of the perspective matrix
-  const inversePerspectiveMatrix = new THREE.Matrix4()
-    .copy(perspectiveMatrix)
-    .invert();
-
-  // Extract the orthographic parameters
-  const left = -1;
-  const right = 1;
-  const top = 1;
-  const bottom = -1;
-  const near = 1;
-  const far = 1000;
-
-  // Transform the orthographic parameters using the inverse perspective matrix
-  const transformedLeft = left * inversePerspectiveMatrix.elements[0]!;
-  const transformedRight = right * inversePerspectiveMatrix.elements[0]!;
-  const transformedTop = top * inversePerspectiveMatrix.elements[5]!;
-  const transformedBottom = bottom * inversePerspectiveMatrix.elements[5]!;
-  const transformedNear = near - inversePerspectiveMatrix.elements[14]! / inversePerspectiveMatrix.elements[10]!;
-  const transformedFar = far - inversePerspectiveMatrix.elements[14]! / inversePerspectiveMatrix.elements[10]!;
-
-  // Set the orthographic projection matrix parameters
-  orthographicMatrix.makeOrthographic(
-    transformedLeft,
-    transformedRight,
-    transformedTop,
-    transformedBottom,
-    transformedNear,
-    transformedFar
-  );
-
-  /*
-   * Apply the transformation to your objects or camera
-   * For example, if you have a camera, you can set its projection matrix
-   */
-  orthographic.projectionMatrix.copy(orthographicMatrix);
 };

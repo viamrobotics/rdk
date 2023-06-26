@@ -1,5 +1,5 @@
 import { get } from 'svelte/store';
-import { Client, commonApi, navigationApi } from '@viamrobotics/sdk';
+import { commonApi, navigationApi } from '@viamrobotics/sdk';
 import { grpc } from '@improbable-eng/grpc-web';
 import { rcLogConditionally } from '@/lib/log';
 import { client } from '@/stores/client';

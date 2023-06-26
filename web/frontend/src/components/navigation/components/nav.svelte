@@ -1,7 +1,7 @@
 <script lang='ts'>
 
 import type { ServiceError } from '@viamrobotics/sdk';
-import { obstacles, waypoints, setLngLat } from './stores';
+import { obstacles, waypoints, setLngLat } from '../stores';
 import { removeWaypoint } from '@/api/navigation';
 import { notify } from '@viamrobotics/prime';
 
@@ -38,10 +38,10 @@ const handleRemoveWaypoint = async (id: string) => {
           label='{location.longitude.toFixed(2)}, {location.latitude.toFixed(2)}'
         />
         <v-button
-          class='invisible group-hover:visible text-subtle-2'
+          class='invisible text-subtle-2'
           variant='icon'
           icon='trash'
-          on:click={() => {}}
+          on:click={() => null}
         />
       </li>
     {/each}

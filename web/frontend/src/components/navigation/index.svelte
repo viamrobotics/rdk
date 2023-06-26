@@ -6,15 +6,12 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { notify } from '@viamrobotics/prime';
 import { navigationApi, type ServiceError } from '@viamrobotics/sdk';
 import { setMode, type NavigationModes } from '@/api/navigation';
-import { followRobot, lngLat, setLngLat, robotPosition } from './stores';
+import { lngLat, setLngLat, robotPosition } from './stores';
 import Collapse from '@/components/collapse.svelte';
-import Map from './map.svelte';
-import Nav from './nav.svelte';
+import Map from './components/map.svelte';
+import Nav from './components/nav.svelte';
 
 export let name: string;
-
-let inputInteracting = false;
-let dragging = false;
 
 const decimalFormat = new Intl.NumberFormat(undefined, { maximumFractionDigits: 7 });
 
@@ -81,8 +78,6 @@ const setNavigationMode = async (event: CustomEvent) => {
           step='0.5'
           class='max-w-[6rem]'
           on:input={handleLng}
-          on:mousedown={() => (inputInteracting = true)}
-          on:mouseup={() => (inputInteracting = false)}
         />
         <v-input
           type='number'
@@ -103,12 +98,7 @@ const setNavigationMode = async (event: CustomEvent) => {
       <div class='grow'>
         <Map
           {name}
-          on:dragstart={() => {
-            dragging = true;
-            $followRobot = false;
-          }}
           on:drag={(event) => setLngLat(event.detail)}
-          on:dragend={() => (dragging = false)}
         />
       </div>
 

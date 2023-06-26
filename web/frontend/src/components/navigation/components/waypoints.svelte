@@ -5,9 +5,9 @@ import type { ServiceError } from '@viamrobotics/sdk';
 import { notify } from '@viamrobotics/prime';
 import { setWaypoint, getWaypoints } from '@/api/navigation';
 import { setAsyncInterval } from '@/lib/schedule';
-import { waypoints } from './stores';
+import { waypoints } from '../stores';
 import { useDisconnect } from '@/hooks/use-disconnect';
-import MapMarker from './components/marker.svelte';
+import MapMarker from './marker.svelte';
 
 export let map: Map;
 export let name: string;

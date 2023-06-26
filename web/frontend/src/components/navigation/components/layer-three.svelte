@@ -3,39 +3,39 @@
 import { type Map } from 'maplibre-gl';
 import { Canvas, currentWritable } from '@threlte/core';
 import Scene from './scene.svelte';
-import { injectLngLatPlugin } from './lnglat-plugin';
-
-injectLngLatPlugin();
+import { injectLngLatPlugin } from '../lnglat-plugin';
+import type { Mat4 } from '../types';
 
 export let map: Map;
 
-const viewProjectionMatrix = currentWritable<Float32Array | [number, number, number, number, number, number, number, number, number, number, number, number, number, number, number, number]>(null!);
+const viewProjectionMatrix = currentWritable<Float32Array | Mat4>(null!);
+const canvas = map.getCanvas();
 
-let canvas: HTMLCanvasElement | undefined;
 let context: WebGLRenderingContext | undefined;
+let width = 0;
+let height = 0;
 
-let width = map.getCanvas().clientWidth;
-let height = map.getCanvas().clientHeight;
-
-const onAdd = (map: Map, newContext: WebGLRenderingContext) => {
-  canvas = map.getCanvas();
-  context = newContext;
+const handleResize = () => {
+  width = canvas.clientWidth;
+  height = canvas.clientHeight;
 };
+
+injectLngLatPlugin();
+handleResize();
 
 map.on('style.load', () => map.addLayer({
   id: 'obstacle-layer',
   type: 'custom',
   renderingMode: '3d',
-  onAdd,
+  onAdd (_: Map, newContext: WebGLRenderingContext) {
+    context = newContext;
+  },
   render (_ctx, nextViewProjectionMatrix) {
     viewProjectionMatrix.set(nextViewProjectionMatrix);
   },
 }));
 
-map.on('resize', () => {
-  width = map.getCanvas().clientWidth;
-  height = map.getCanvas().clientHeight;
-});
+map.on('resize', handleResize);
 
 </script>
 

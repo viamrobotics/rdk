@@ -1,19 +1,16 @@
 <script lang='ts'>
 
-import { Marker } from 'maplibre-gl';
 import { notify } from '@viamrobotics/prime';
 import { getLocation } from '@/api/navigation';
 import type { ServiceError } from '@viamrobotics/sdk';
-import { robotPosition, setLngLat } from './stores';
+import { robotPosition, setLngLat } from '../stores';
 import { setAsyncInterval } from '@/lib/schedule';
 import { useDisconnect } from '@/hooks/use-disconnect';
-import MapMarker from './components/marker.svelte';
+import MapMarker from './marker.svelte';
 
 export let name: string;
 
 let centered = false;
-
-const robotMarker = new Marker({ color: 'red' });
 
 const updateLocation = async () => {
   try {
@@ -28,7 +25,6 @@ const updateLocation = async () => {
   } catch (error) {
     notify.danger((error as ServiceError).message);
     $robotPosition = null;
-    robotMarker.remove();
   }
 };
 
