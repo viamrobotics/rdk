@@ -104,7 +104,7 @@ func TestValidate(t *testing.T) {
 	deps, err = fakecfg.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, deps, test.ShouldResemble, []string{fakecfg.Motor, fakecfg.Board})
-	test.That(t, fakecfg.GantryRPM, test.ShouldEqual, float64(0))
+	test.That(t, fakecfg.GantryMmPerSec, test.ShouldEqual, float64(0))
 }
 
 func TestNewSingleAxis(t *testing.T) {
@@ -125,7 +125,7 @@ func TestNewSingleAxis(t *testing.T) {
 			LengthMm:        1.0,
 			Board:           boardName,
 			LimitPinEnabled: &setTrue,
-			GantryRPM:       float64(300),
+			GantryMmPerSec:  float64(300),
 		},
 	}
 	fakegantry, err := newSingleAxis(ctx, deps, fakecfg, logger)
@@ -144,7 +144,7 @@ func TestNewSingleAxis(t *testing.T) {
 			Board:           boardName,
 			LimitPinEnabled: &setTrue,
 			MmPerRevolution: 0.1,
-			GantryRPM:       float64(300),
+			GantryMmPerSec:  float64(300),
 		},
 	}
 	fakegantry, err = newSingleAxis(ctx, deps, fakecfg, logger)
@@ -162,7 +162,7 @@ func TestNewSingleAxis(t *testing.T) {
 			LengthMm:        1.0,
 			Board:           boardName,
 			LimitPinEnabled: &setTrue,
-			GantryRPM:       float64(300),
+			GantryMmPerSec:  float64(300),
 		},
 	}
 	fakegantry, err = newSingleAxis(ctx, deps, fakecfg, logger)
@@ -233,7 +233,7 @@ func TestReconfigure(t *testing.T) {
 			LengthMm:        1.0,
 			Board:           boardName,
 			LimitPinEnabled: &setTrue,
-			GantryRPM:       float64(300),
+			GantryMmPerSec:  float64(300),
 		},
 	}
 	fakegantry, err := newSingleAxis(ctx, deps, fakecfg, logger)
@@ -250,7 +250,7 @@ func TestReconfigure(t *testing.T) {
 			LengthMm:        5.0,
 			Board:           boardName,
 			LimitPinEnabled: &setTrue,
-			GantryRPM:       float64(400),
+			GantryMmPerSec:  float64(400),
 			MmPerRevolution: 10,
 		},
 	}
@@ -679,7 +679,7 @@ func TestModelFrame(t *testing.T) {
 			LengthMm:        1.0,
 			Board:           boardName,
 			LimitPinEnabled: &setTrue,
-			GantryRPM:       float64(300),
+			GantryMmPerSec:  float64(300),
 		},
 	}
 	fakegantry, _ := newSingleAxis(ctx, deps, fakecfg, logger)

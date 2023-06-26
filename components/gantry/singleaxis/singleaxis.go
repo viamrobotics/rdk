@@ -35,7 +35,7 @@ type Config struct {
 	LimitPinEnabled *bool    `json:"limit_pin_enabled_high,omitempty"`
 	LengthMm        float64  `json:"length_mm"`
 	MmPerRevolution float64  `json:"mm_per_rev"`
-	GantryRPM       float64  `json:"gantry_rpm,omitempty"`
+	GantryMmPerSec  float64  `json:"gantry_mm_per_sec,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -153,8 +153,10 @@ func (g *singleAxis) Reconfigure(ctx context.Context, deps resource.Dependencies
 		g.frame = conf.Frame.Translation
 	}
 
-	g.rpm = newConf.GantryRPM
+	rpm := g.gantryToMotorSpeeds(newConf.GantryMmPerSec)
+	g.rpm = rpm
 	if g.rpm == 0 {
+		g.logger.Warn("gantry_mm_per_sec not provided, defaulting to 100 motor rpm")
 		g.rpm = 100
 	}
 
