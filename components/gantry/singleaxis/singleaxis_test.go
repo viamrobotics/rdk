@@ -259,7 +259,7 @@ func TestReconfigure(t *testing.T) {
 
 	test.That(t, g.limitSwitchPins, test.ShouldResemble, []string{"1", "3"})
 	test.That(t, g.lengthMm, test.ShouldEqual, 5.0)
-	test.That(t, g.rpm, test.ShouldEqual, float64(400))
+	test.That(t, g.rpm, test.ShouldEqual, float64(2400))
 	test.That(t, g.mmPerRevolution, test.ShouldEqual, 10)
 }
 
