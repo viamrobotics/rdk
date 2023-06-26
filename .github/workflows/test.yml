@@ -79,6 +79,7 @@ jobs:
 
 
     - name: Upload test.json
+      if: always()
       uses: actions/upload-artifact@v3
       with:
         name: test.json
