@@ -1,4 +1,4 @@
-package builtin_test
+package builtin
 
 import (
 	"context"
@@ -12,9 +12,12 @@ import (
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/base"
+	"go.viam.com/rdk/components/base/fake"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/gripper"
 	"go.viam.com/rdk/components/movementsensor"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/testutils/inject"
 
 	// register.
 	commonpb "go.viam.com/api/common/v1"
@@ -23,7 +26,8 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/motion"
-	_ "go.viam.com/rdk/services/register"
+
+	// _ "go.viam.com/rdk/services/register"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -296,6 +300,94 @@ func TestMoveOnGlobe(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, success, test.ShouldBeFalse)
 	})
+}
+
+func TestInjectedMoveOnGlobe(t *testing.T) {
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+
+	// create motion config
+	motionCfg := make(map[string]interface{})
+	motionCfg["motion_profile"] = "position_only"
+	motionCfg["timeout"] = 5.
+
+	// create fake base
+	baseCfg := resource.Config{
+		Name:  "test-base",
+		API:   base.API,
+		Frame: &referenceframe.LinkConfig{Geometry: &spatialmath.GeometryConfig{R: 100}},
+	}
+	fakeBase, err := fake.NewBase(ctx, nil, baseCfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	// create base frame
+	basePose := spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0})
+	baseSphere, err := spatialmath.NewSphere(basePose, 20, "base-sphere")
+	test.That(t, err, test.ShouldBeNil)
+	baseFrame, err := referenceframe.NewStaticFrameWithGeometry(
+		"test-base",
+		basePose,
+		baseSphere,
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	// create injected MovementSensor
+	injectedMovementSensor := inject.NewMovementSensor("test-gps")
+	injectedMovementSensor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+		return geo.NewPoint(0, 0), 0, nil
+	}
+
+	// create MovementSensor frame
+	movementSensorFrame, err := referenceframe.NewStaticFrame(
+		"test-gps",
+		spatialmath.NewPoseFromPoint(r3.Vector{-10, 0, 0}),
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	// create a framesystem
+	newFS := referenceframe.NewEmptyFrameSystem("test-FS")
+	worldFrame, err := referenceframe.NewStaticFrame("world", spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0}))
+	test.That(t, err, test.ShouldBeNil)
+	newFS.AddFrame(baseFrame, worldFrame)
+	newFS.AddFrame(movementSensorFrame, baseFrame)
+
+	// need to create an injected framesystem service
+	injectedFS := inject.NewFrameSystemService("fake-FS")
+	injectedFS.FrameSystemFunc = func(ctx context.Context, additionalTransforms []*referenceframe.LinkInFrame) (referenceframe.FrameSystem, error) {
+		return newFS, nil
+	}
+	injectedFS.CurrentInputsFunc = func(ctx context.Context) (map[string][]referenceframe.Input, map[string]referenceframe.InputEnabled, error) {
+		return referenceframe.StartPositions(newFS), nil, nil
+	}
+
+	// create the motion service
+	ms, err := NewBuiltIn(
+		ctx,
+		resource.Dependencies{
+			fakeBase.Name():               fakeBase,
+			injectedMovementSensor.Name(): injectedMovementSensor,
+			injectedFS.Name():             injectedFS,
+		},
+		resource.Config{
+			ConvertedAttributes: &Config{},
+		},
+		logger,
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	success, err := ms.MoveOnGlobe(
+		context.Background(),
+		fakeBase.Name(),
+		geo.NewPoint(0, 0.0000009),
+		math.NaN(),
+		injectedMovementSensor.Name(),
+		nil,
+		math.NaN(),
+		math.NaN(),
+		motionCfg,
+	)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, success, test.ShouldBeTrue)
 }
 
 func TestMultiplePieces(t *testing.T) {

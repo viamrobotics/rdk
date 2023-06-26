@@ -1,0 +1,91 @@
+package inject
+
+import (
+	"context"
+
+	"go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot/framesystem"
+)
+
+// FrameSystem represents a fake instance of a framesystem service.
+type FrameSystemService struct {
+	framesystem.Service
+	name                    resource.Name
+	TransformPoseFunc       func(ctx context.Context, pose *referenceframe.PoseInFrame, dst string, additionalTransforms []*referenceframe.LinkInFrame) (*referenceframe.PoseInFrame, error)
+	TransformPointCloudFunc func(ctx context.Context, srcpc pointcloud.PointCloud, srcName, dstName string) (pointcloud.PointCloud, error)
+	CurrentInputsFunc       func(ctx context.Context) (map[string][]referenceframe.Input, map[string]referenceframe.InputEnabled, error)
+	FrameSystemFunc         func(ctx context.Context, additionalTransforms []*referenceframe.LinkInFrame) (referenceframe.FrameSystem, error)
+	DoCommandFunc           func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+	CloseFunc               func(ctx context.Context) error
+}
+
+func NewFrameSystemService(name string) *FrameSystemService {
+	resourceName := resource.NewName(
+		resource.APINamespaceRDKInternal.WithServiceType("framesystem"),
+		name,
+	)
+	return &FrameSystemService{name: resourceName}
+}
+
+func (fs *FrameSystemService) Name() resource.Name {
+	return fs.name
+}
+
+func (fs *FrameSystemService) TransformPose(
+	ctx context.Context,
+	pose *referenceframe.PoseInFrame,
+	dst string,
+	additionalTransforms []*referenceframe.LinkInFrame,
+) (*referenceframe.PoseInFrame, error) {
+	if fs.TransformPoseFunc == nil {
+		return fs.Service.TransformPose(ctx, pose, dst, additionalTransforms)
+	}
+	return fs.TransformPoseFunc(ctx, pose, dst, additionalTransforms)
+}
+
+func (fs *FrameSystemService) TransformPointCloud(
+	ctx context.Context,
+	srcpc pointcloud.PointCloud,
+	srcName, dstName string) (pointcloud.PointCloud, error) {
+	if fs.TransformPointCloudFunc == nil {
+		return fs.Service.TransformPointCloud(ctx, srcpc, srcName, dstName)
+	}
+	return fs.TransformPointCloudFunc(ctx, srcpc, srcName, dstName)
+}
+
+func (fs *FrameSystemService) CurrentInputs(ctx context.Context) (map[string][]referenceframe.Input, map[string]referenceframe.InputEnabled, error) {
+	if fs.CurrentInputsFunc == nil {
+		return fs.Service.CurrentInputs(ctx)
+	}
+	return fs.CurrentInputsFunc(ctx)
+}
+
+func (fs *FrameSystemService) FrameSystem(ctx context.Context, additionalTransforms []*referenceframe.LinkInFrame) (referenceframe.FrameSystem, error) {
+	if fs.FrameSystemFunc == nil {
+		return fs.Service.FrameSystem(ctx, additionalTransforms)
+	}
+	return fs.FrameSystemFunc(ctx, additionalTransforms)
+}
+
+// DoCommand calls the injected DoCommand or the real variant.
+func (fs *FrameSystemService) DoCommand(ctx context.Context,
+	cmd map[string]interface{},
+) (map[string]interface{}, error) {
+	if fs.DoCommandFunc == nil {
+		return fs.Service.DoCommand(ctx, cmd)
+	}
+	return fs.DoCommandFunc(ctx, cmd)
+}
+
+// Close calls the injected Close or the real version.
+func (fs *FrameSystemService) Close(ctx context.Context) error {
+	if fs.CloseFunc == nil {
+		if fs.Service == nil {
+			return nil
+		}
+		return fs.Service.Close(ctx)
+	}
+	return fs.CloseFunc(ctx)
+}

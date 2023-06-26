@@ -262,101 +262,7 @@ func (ms *builtIn) MoveOnGlobe(
 ) (bool, error) {
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
 
-	// create a new empty framesystem which we add our base to
-	fs := referenceframe.NewEmptyFrameSystem("")
-
-	// get the localizer from the componentName
-	localizer, ok := ms.localizers[movementSensorName]
-	if !ok {
-		return false, resource.DependencyNotFoundError(movementSensorName)
-	}
-
-	// get localizer current pose in frame
-	currentPIF, err := localizer.CurrentPosition(ctx)
-	if err != nil {
-		return false, err
-	}
-	currentPosition := currentPIF.Pose().Point()
-
-	// get position of localizer relative to base
-	robotFS, err := ms.fsService.FrameSystem(ctx, nil)
-	if err != nil {
-		return false, err
-	}
-
-	localizerFrame := robotFS.Frame(movementSensorName.ShortName())
-	if localizerFrame != nil {
-		// build maps of relevant components and inputs from initial inputs
-		fsInputs, _, err := ms.fsService.CurrentInputs(ctx)
-		if err != nil {
-			return false, err
-		}
-
-		// transform currentPIF by the movementsensor translation specified for its frame
-		tf, err := robotFS.Transform(fsInputs, &currentPIF, movementSensorName.Name)
-		if err != nil {
-			return false, err
-		}
-		currentPosition = tf.(*referenceframe.PoseInFrame).Pose().Point()
-	}
-
-	// convert destination into spatialmath.Pose with respect to lat = 0 = lng
-	dstPose := spatialmath.GeoPointToPose(destination)
-
-	// convert the destination to be relative to the currentPosition
-	relativeDestinationPt := r3.Vector{
-		X: dstPose.Point().X - currentPosition.X,
-		Y: dstPose.Point().Y - currentPosition.Y,
-		Z: 0,
-	}
-
-	relativeDstPose := spatialmath.NewPoseFromPoint(relativeDestinationPt)
-	dstPIF := referenceframe.NewPoseInFrame(referenceframe.World, relativeDstPose)
-
-	// convert GeoObstacles into GeometriesInFrame with respect to the base's starting point
-	geoms := spatialmath.GeoObstaclesToGeometries(obstacles, currentPosition)
-
-	gif := referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)
-	wrldst, err := referenceframe.NewWorldState([]*referenceframe.GeometriesInFrame{gif}, nil)
-	if err != nil {
-		return false, err
-	}
-
-	// construct limits
-	straightlineDistance := math.Abs(dstPose.Point().Distance(currentPosition))
-	limits := []referenceframe.Limit{
-		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
-		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
-	}
-
-	// create a KinematicBase from the componentName
-	baseComponent, ok := ms.components[componentName]
-	if !ok {
-		return false, fmt.Errorf("only Base components are supported for MoveOnGlobe: could not find an Base named %v", componentName)
-	}
-	b, ok := baseComponent.(base.Base)
-	if !ok {
-		return false, fmt.Errorf("cannot move base of type %T because it is not a Base", baseComponent)
-	}
-	var kb kinematicbase.KinematicBase
-	if fake, ok := b.(*fake.Base); ok {
-		kb, err = kinematicbase.WrapWithFakeKinematics(ctx, fake, localizer, limits)
-	} else {
-		kb, err = kinematicbase.WrapWithDifferentialDriveKinematics(ctx, b, localizer, limits)
-	}
-	if err != nil {
-		return false, err
-	}
-
-	inputMap := map[string][]referenceframe.Input{componentName.Name: make([]referenceframe.Input, 3)}
-
-	// Add the kinematic wheeled base to the framesystem
-	if err := fs.AddFrame(kb.ModelFrame(), fs.World()); err != nil {
-		return false, err
-	}
-
-	// make call to motionplan
-	plan, err := motionplan.PlanMotion(ctx, ms.logger, dstPIF, kb.ModelFrame(), inputMap, fs, wrldst, nil, extra)
+	plan, kb, err := ms.planMoveOnGlobe(ctx, componentName, *destination, movementSensorName, obstacles, extra)
 	if err != nil {
 		return false, err
 	}
@@ -377,6 +283,125 @@ func (ms *builtIn) MoveOnGlobe(
 	}
 
 	return true, nil
+}
+
+func (ms *builtIn) planMoveOnGlobe(
+	ctx context.Context,
+	componentName resource.Name,
+	destination geo.Point,
+	movementSensorName resource.Name,
+	obstacles []*spatialmath.GeoObstacle,
+	extra map[string]interface{},
+) ([]map[string][]referenceframe.Input, kinematicbase.KinematicBase, error) {
+	// create a new empty framesystem which we add our base to
+	fs := referenceframe.NewEmptyFrameSystem("")
+
+	// get the localizer from the componentName
+	localizer, ok := ms.localizers[movementSensorName]
+	if !ok {
+		return nil, nil, resource.DependencyNotFoundError(movementSensorName)
+	}
+
+	// get localizer current pose in frame
+	currentPIF, err := localizer.CurrentPosition(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	fmt.Println("currentPIF.Parent(): ", currentPIF.Parent())
+
+	currentPosition := currentPIF.Pose().Point()
+	fmt.Println("currentPosition: ", currentPosition)
+
+	// get position of localizer relative to base
+	robotFS, err := ms.fsService.FrameSystem(ctx, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	localizerFrame := robotFS.Frame(movementSensorName.ShortName())
+	if localizerFrame != nil {
+		// build maps of relevant components and inputs from initial inputs
+		fsInputs, _, err := ms.fsService.CurrentInputs(ctx)
+		if err != nil {
+			return nil, nil, err
+		}
+		fmt.Println("fsInputs: ", fsInputs)
+
+		// transform currentPIF by the movementsensor translation specified for its frame
+		// destinationFrameName := movementSensorName.Name
+		destinationFrameName := componentName.Name
+		tf, err := robotFS.Transform(fsInputs, &currentPIF, destinationFrameName)
+		if err != nil {
+			return nil, nil, err
+		}
+		currentPosition = tf.(*referenceframe.PoseInFrame).Pose().Point()
+		fmt.Println("TRANSFORMED currentPosition: ", currentPosition)
+	}
+
+	// convert destination into spatialmath.Pose with respect to lat = 0 = lng
+	dstPose := spatialmath.GeoPointToPose(&destination)
+	fmt.Println("dstPose: ", dstPose.Point())
+
+	// convert the destination to be relative to the currentPosition
+	relativeDestinationPt := r3.Vector{
+		X: dstPose.Point().X - currentPosition.X,
+		Y: dstPose.Point().Y - currentPosition.Y,
+		Z: 0,
+	}
+	fmt.Println("relativeDestinationPt: ", relativeDestinationPt)
+
+	relativeDstPose := spatialmath.NewPoseFromPoint(relativeDestinationPt)
+	dstPIF := referenceframe.NewPoseInFrame(referenceframe.World, relativeDstPose)
+
+	// convert GeoObstacles into GeometriesInFrame with respect to the base's starting point
+	geoms := spatialmath.GeoObstaclesToGeometries(obstacles, currentPosition)
+
+	gif := referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)
+	wrldst, err := referenceframe.NewWorldState([]*referenceframe.GeometriesInFrame{gif}, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// construct limits
+	straightlineDistance := math.Abs(dstPose.Point().Distance(currentPosition))
+	fmt.Println("straightlineDistance: ", straightlineDistance)
+	limits := []referenceframe.Limit{
+		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
+		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
+	}
+
+	// create a KinematicBase from the componentName
+	baseComponent, ok := ms.components[componentName]
+	if !ok {
+		return nil, nil, fmt.Errorf("only Base components are supported for MoveOnGlobe: could not find an Base named %v", componentName)
+	}
+	b, ok := baseComponent.(base.Base)
+	if !ok {
+		return nil, nil, fmt.Errorf("cannot move base of type %T because it is not a Base", baseComponent)
+	}
+	var kb kinematicbase.KinematicBase
+	if fake, ok := b.(*fake.Base); ok {
+		kb, err = kinematicbase.WrapWithFakeKinematics(ctx, fake, localizer, limits)
+	} else {
+		kb, err = kinematicbase.WrapWithDifferentialDriveKinematics(ctx, b, localizer, limits)
+	}
+	if err != nil {
+		return nil, nil, err
+	}
+
+	inputMap := map[string][]referenceframe.Input{componentName.Name: make([]referenceframe.Input, 3)}
+
+	// Add the kinematic wheeled base to the framesystem
+	if err := fs.AddFrame(kb.ModelFrame(), fs.World()); err != nil {
+		return nil, nil, err
+	}
+
+	// make call to motionplan
+	plan, err := motionplan.PlanMotion(ctx, ms.logger, dstPIF, kb.ModelFrame(), inputMap, fs, wrldst, nil, extra)
+	if err != nil {
+		return nil, nil, err
+	}
+	return plan, kb, nil
 }
 
 // MoveSingleComponent will pass through a move command to a component with a MoveToPosition method that takes a pose. Arms are the only
