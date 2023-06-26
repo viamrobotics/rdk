@@ -57,12 +57,13 @@ func init() {
 				if err != nil {
 					return nil, err
 				}
-				return newSensor(ctx, deps, conf.ResourceName(), newConf)
+				return NewSensor(ctx, deps, conf.ResourceName(), newConf)
 			},
 		})
 }
 
-func newSensor(ctx context.Context, deps resource.Dependencies, name resource.Name, config *Config) (sensor.Sensor, error) {
+// NewSensor creates and configures a new ultrasonic sensor.
+func NewSensor(ctx context.Context, deps resource.Dependencies, name resource.Name, config *Config) (sensor.Sensor, error) {
 	s := &Sensor{
 		Named:  name.AsNamed(),
 		config: config,
