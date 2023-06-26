@@ -27,9 +27,7 @@ import (
 
 var rtkmodel = resource.DefaultModelFamily.WithModel("gps-rtk-i2c")
 
-var (
-	errInputProtocolValidation = fmt.Errorf("only i2c is supported input protocols for %s", rtkmodel.Name)
-)
+var errInputProtocolValidation = fmt.Errorf("only i2c is supported input protocols for %s", rtkmodel.Name)
 
 const (
 	i2cStr   = "i2c"

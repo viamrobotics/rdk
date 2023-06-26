@@ -199,7 +199,7 @@ func newRTKSerial(
 		return nil, fmt.Errorf("%s is not a valid connection type", newConf.NmeaDataSource)
 	}
 
-	//Init ntripInfo from attibutes
+
 	g.ntripClient, err = rtk.NewNtripInfo(ntripConfig, g.logger)
 	if err != nil {
 		return nil, err
