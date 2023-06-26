@@ -113,9 +113,9 @@ func createEnvironment(ctx context.Context, t *testing.T, gpsPoint *geo.Point) (
 	)
 
 	// create the frame system
-	fsParts := []*referenceframe.FrameSystemPart{
-		{FrameConfig: movementSensorLink},
-		{FrameConfig: baseLink},
+	fsParts := []*framesystem.PartConfig{
+		{Origin: movementSensorLink},
+		{Origin: baseLink},
 	}
 	deps := resource.Dependencies{
 		fakeBase.Name():               fakeBase,
@@ -123,7 +123,7 @@ func createEnvironment(ctx context.Context, t *testing.T, gpsPoint *geo.Point) (
 	}
 	fsSvc, err := framesystem.New(context.Background(), deps, logger)
 	test.That(t, err, test.ShouldBeNil)
-	err = fsSvc.Reconfigure(context.Background(), deps, resource.Config{ConvertedAttributes: &framesystem.Config{Parts: fsParts}})
+	err = fsSvc.Reconfigure(context.Background(), deps, resource.Config{ConvertedAttributes: &framesystem.Config{PartConfigs: fsParts}})
 	test.That(t, err, test.ShouldBeNil)
 
 	// create the motion service

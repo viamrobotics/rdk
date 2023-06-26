@@ -5,13 +5,13 @@
             "type": "gripper",
             "model": "fake",
             "frame": {
-                "parent": ""
+                "parent": "pieceArm"
             }
         },
         {
             "name": "cameraOver",
             "type": "camera",
-            "model": "file",
+            "model": "image_file",
             "attributes": {
                 "color": "artifact_data/vision/chess/board3.png",
                 "depth": "artifact_data/vision/chess/board3.dat.gz",
@@ -22,8 +22,8 @@
             "model": "fake",
             "name": "pieceArm",
             "type": "arm",
-            "attributes": {
-                "model-path": "../../components/arm/fake/fake_model.json"
+            "frame": {
+                "parent": "world"
             }
         }
     ],
@@ -36,7 +36,7 @@
         {
             "name": "data_manager1",
             "type": "data_manager",
-            "model": "fake"
+            "model": "builtin"
         }
     ]
 }
