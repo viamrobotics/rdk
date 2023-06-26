@@ -474,11 +474,11 @@ func (g *singleAxis) MoveToPosition(ctx context.Context, positions, speeds []flo
 	defer done()
 
 	if len(positions) != 1 {
-		return fmt.Errorf("MoveToPosition needs 1 position to move, got: %v", len(positions))
+		return fmt.Errorf("single-axis MoveToPosition needs 1 position to move, got: %v", len(positions))
 	}
 
 	if len(speeds) != 1 {
-		return fmt.Errorf("MoveToPosition needs 1 speed to move, got: %v", len(speeds))
+		return fmt.Errorf("single-axis MoveToPosition needs 1 speed to move, got: %v", len(speeds))
 	}
 
 	if positions[0] < 0 || positions[0] > g.lengthMm {
