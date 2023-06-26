@@ -49,6 +49,7 @@ const handleRemoveWaypoint = async (id: string) => {
       <li class='flex group'>
         <v-button
           variant='ghost'
+          tooltip='{waypoint.lng.toFixed(7)}, {waypoint.lat.toFixed(7)}'
           label='{waypoint.lng.toFixed(2)}, {waypoint.lat.toFixed(2)}'
           on:click={() => handleClick(waypoint.lng, waypoint.lat)}
         />

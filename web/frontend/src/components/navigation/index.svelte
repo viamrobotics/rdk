@@ -53,10 +53,15 @@ const setNavigationMode = async (event: CustomEvent) => {
 
   <div class="flex flex-col gap-2 border border-t-0 border-medium p-4">
     <div class='flex items-end justify-between'>
-      <div class='flex gap-2'>
+      <div class='flex gap-6'>
         <div class='flex gap-1 items-end'>
           <v-input class='w-16' label='Base' tooltip='Specified in lng, lat' readonly value={$robotPosition?.lng} />
           <v-input class='w-16' readonly value={$robotPosition?.lat} />
+          <v-button
+            variant='icon'
+            icon='center'
+            on:click={() => $robotPosition && setLngLat($robotPosition, { flyTo: {} })}
+          />
         </div>
       
         <v-radio
@@ -73,7 +78,7 @@ const setNavigationMode = async (event: CustomEvent) => {
           placeholder='0'
           incrementor='slider'
           value={$lngLat.lng ? decimalFormat.format($lngLat.lng) : ''}
-          step='1'
+          step='0.5'
           class='max-w-[6rem]'
           on:input={handleLng}
           on:mousedown={() => (inputInteracting = true)}
@@ -85,7 +90,7 @@ const setNavigationMode = async (event: CustomEvent) => {
           placeholder='0'
           incrementor='slider'
           value={$lngLat.lat ? decimalFormat.format($lngLat.lat) : ''}
-          step='1'
+          step='0.25'
           class='max-w-[6rem]'
           on:input={handleLat}
         />

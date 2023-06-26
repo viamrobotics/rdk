@@ -795,10 +795,7 @@ onDestroy(() => {
 
     <!-- ******* NAVIGATION *******  -->
     {#each filterSubtype($services, 'navigation') as { name } (name)}
-      <Navigation
-        {name}
-        {client}
-      />
+      <Navigation {name} />
     {/each}
 
     <!-- ******* SENSOR *******  -->
