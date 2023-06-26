@@ -211,11 +211,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 		}
 		mp.extendMap(ctx, candidateNodes, rrt, tpFrame)
 	}
-
-	// Rebuild the path from the goal node to the start
-	path := extractPath(rrt.maps.startMap, rrt.maps.goalMap, &nodePair{a: successNode})
-
-	rrt.solutionChan <- &rrtPlanReturn{steps: path, maps: rrt.maps}
+	rrt.solutionChan <- &rrtPlanReturn{maps: rrt.maps, planerr: errors.New("tpspace RRT unable to create valid path")}
 }
 
 // getExtensionCandidate will return either nil, or the best node on a PTG to reach the desired random node and its RRT tree parent.

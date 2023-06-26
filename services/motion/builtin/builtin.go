@@ -319,7 +319,18 @@ func (ms *builtIn) MoveOnGlobe(
 	if fake, ok := b.(*fake.Base); ok {
 		kb, err = kinematicbase.WrapWithFakeKinematics(ctx, fake, localizer, limits)
 	} else {
-		kb, err = kinematicbase.WrapWithDifferentialDriveKinematics(ctx, b, localizer, limits)
+		properties, err := b.Properties(ctx, nil)
+		if err != nil {
+			return false, err
+		}
+		if properties.TurningRadiusMeters == 0 {
+			kb, err = kinematicbase.WrapWithDifferentialDriveKinematics(ctx, b, localizer, limits)
+		} else {
+			kb, err = kinematicbase.WrapWithPTGKinematics(ctx, b)
+		}
+		if err != nil {
+			return false, err
+		}
 	}
 	if err != nil {
 		return false, err

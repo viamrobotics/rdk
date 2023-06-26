@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	defaultSimDist       = 1000.
+	defaultSimDist       = 1100.
 	defaultAlphaCnt uint = 121
 )
 
@@ -35,6 +35,9 @@ type ptgGridSimFrame struct {
 // NewPTGFrameFromTurningRadius will create a new Frame which is also a tpspace.PTGProvider. It will precompute the default set of
 // trajectories out to a given distance, or a default distance if the given distance is <= 0.
 func NewPTGFrameFromTurningRadius(name string, velocityMps, turnRadMeters, simDist float64, geoms []spatialmath.Geometry) (Frame, error) {
+	if velocityMps <= 0 {
+		return nil, fmt.Errorf("cannot create ptg frame, movement velocity %f must be >0", velocityMps)
+	}
 	if turnRadMeters <= 0 {
 		return nil, fmt.Errorf("cannot create ptg frame, turning radius %f must be >0", turnRadMeters)
 	}

@@ -7,10 +7,12 @@ import (
 	"errors"
 	"math"
 	"time"
+	//~ "fmt"
 
 	"github.com/golang/geo/r3"
 	"go.uber.org/multierr"
 	utils "go.viam.com/utils"
+	rdkutils "go.viam.com/rdk/utils"
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/motionplan/tpspace"
@@ -18,7 +20,7 @@ import (
 )
 
 // Define a default speed to target for the base in the case where one is not provided.
-const defaultBaseMps = 0.3
+const defaultBaseMps = 0.6
 
 type ptgBaseKinematics struct {
 	base.Base
@@ -30,7 +32,6 @@ type ptgBaseKinematics struct {
 func WrapWithPTGKinematics(
 	ctx context.Context,
 	b base.Base,
-	limits []referenceframe.Limit,
 ) (KinematicBase, error) {
 	properties, err := b.Properties(ctx, nil)
 	if err != nil {
@@ -98,15 +99,19 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 		}
 		timestep := time.Duration(1e6*(trajNode.Time-lastTime)) * time.Microsecond
 		lastTime = trajNode.Time
+		linVel := r3.Vector{0, trajNode.Linvel * 1, 0}
+		angVel := r3.Vector{0, 0, rdkutils.RadToDeg(trajNode.Angvel)}
 		err := ptgk.Base.SetVelocity(
 			ctx,
-			r3.Vector{0, trajNode.Linvel, 0},
-			r3.Vector{0, 0, trajNode.Angvel},
+			linVel,
+			angVel,
 			nil,
 		)
+		
 		if err != nil {
 			return multierr.Combine(err, ptgk.Base.Stop(ctx, nil))
 		}
+		//~ fmt.Println("waiting", timestep, linVel, angVel)
 		utils.SelectContextOrWait(ctx, timestep)
 	}
 

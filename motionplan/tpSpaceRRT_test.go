@@ -4,8 +4,10 @@ package motionplan
 
 import (
 	"context"
+	"math"
 	"math/rand"
 	"testing"
+	"fmt"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
@@ -13,9 +15,10 @@ import (
 
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/motionplan/tpspace"
 )
 
-const testTurnRad = 1.
+const testTurnRad = 0.3
 
 func TestPtgRrt(t *testing.T) {
 	logger := golog.NewTestLogger(t)
@@ -24,8 +27,8 @@ func TestPtgRrt(t *testing.T) {
 	geometries := []spatialmath.Geometry{roverGeom}
 
 	ackermanFrame, err := referenceframe.NewPTGFrameFromTurningRadius(
-		"test",
-		0,
+		"ackframe",
+		0.3,
 		testTurnRad,
 		0,
 		geometries,
@@ -53,17 +56,16 @@ func TestPtgWithObstacle(t *testing.T) {
 	roverGeom, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{10, 10, 10}, "")
 	test.That(t, err, test.ShouldBeNil)
 	geometries := []spatialmath.Geometry{roverGeom}
-
 	ackermanFrame, err := referenceframe.NewPTGFrameFromTurningRadius(
-		"test",
-		0,
+		"ackframe",
+		0.3,
 		testTurnRad,
 		0,
 		geometries,
 	)
-	test.That(t, err, test.ShouldBeNil)
+	ctx := context.Background()
 
-	goalPos := spatialmath.NewPoseFromPoint(r3.Vector{X: 5000, Y: 0, Z: 0})
+	goalPos := spatialmath.NewPoseFromPoint(r3.Vector{X: 2000, Y: 0, Z: 0})
 
 	fs := referenceframe.NewEmptyFrameSystem("test")
 	fs.AddFrame(ackermanFrame, fs.World())
@@ -89,7 +91,7 @@ func TestPtgWithObstacle(t *testing.T) {
 		nil,
 	)
 	test.That(t, err, test.ShouldBeNil)
-	sf, err := newSolverFrame(fs, "ackframe", referenceframe.World, nil)
+	sf, err := newSolverFrame(fs, ackermanFrame.Name(), referenceframe.World, nil)
 	test.That(t, err, test.ShouldBeNil)
 	collisionConstraints, err := createAllCollisionConstraints(sf, fs, worldState, referenceframe.StartPositions(fs), nil)
 	test.That(t, err, test.ShouldBeNil)
@@ -102,7 +104,7 @@ func TestPtgWithObstacle(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	tp, _ := mp.(*tpSpaceRRTMotionPlanner)
 
-	plan, err := tp.plan(context.Background(), goalPos, nil)
+	plan, err := tp.plan(ctx, goalPos, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(plan), test.ShouldBeGreaterThan, 2)
 }
