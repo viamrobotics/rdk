@@ -178,3 +178,21 @@ func (lp *LastPosition) IsZeroPosition(p *geo.Point) bool {
 func (lp *LastPosition) IsPositionNaN(p *geo.Point) bool {
 	return math.IsNaN(p.Lng()) && math.IsNaN(p.Lat())
 }
+
+// PMTK checksums commands by XORing together each byte.
+func AddChk(data []byte) []byte {
+	chk := Checksum(data)
+	newCmd := []byte("$")
+	newCmd = append(newCmd, data...)
+	newCmd = append(newCmd, []byte("*")...)
+	newCmd = append(newCmd, chk)
+	return newCmd
+}
+
+func Checksum(data []byte) byte {
+	var chk byte
+	for _, b := range data {
+		chk ^= b
+	}
+	return chk
+}
