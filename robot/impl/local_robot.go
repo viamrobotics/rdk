@@ -38,6 +38,9 @@ import (
 )
 
 var _ = robot.LocalRobot(&localRobot{})
+
+// ResourceConfigurationTimeout sets how long a constructor or reconfigure call should
+// wait before timing out.
 var ResourceConfigurationTimeout = time.Minute
 
 // localRobot satisfies robot.LocalRobot and defers most
@@ -763,7 +766,6 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 		case <-resChan:
 		case <-ctxWithTimeout.Done():
 			r.logger.Warn(resource.NewBuildTimeoutError(conf.ResourceName()))
-
 		}
 	}
 }
