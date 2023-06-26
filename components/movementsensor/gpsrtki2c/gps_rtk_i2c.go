@@ -28,9 +28,7 @@ import (
 var rtkmodel = resource.DefaultModelFamily.WithModel("gps-rtk-i2c")
 
 var (
-	errCorrectionSourceValidation = fmt.Errorf("only i2c is supported correction sources for %s", rtkmodel.Name)
-	errConnectionTypeValidation   = fmt.Errorf("only i2c is supported connection types for %s", rtkmodel.Name)
-	errInputProtocolValidation    = fmt.Errorf("only i2c is supported input protocols for %s", rtkmodel.Name)
+	errInputProtocolValidation = fmt.Errorf("only i2c is supported input protocols for %s", rtkmodel.Name)
 )
 
 const (
@@ -53,6 +51,7 @@ type Config struct {
 	NtripInputProtocol   string `json:"ntrip_input_protocol,omitempty"`
 }
 
+// Validate ensures all parts of the config are valid.
 func (cfg *Config) Validate(path string) ([]string, error) {
 	var deps []string
 
@@ -105,6 +104,7 @@ func init() {
 		})
 }
 
+// RTKI2C is an nmea movementsensor model that can intake RTK correction data via I2C.
 type RTKI2C struct {
 	resource.Named
 	resource.AlwaysRebuild
