@@ -8,11 +8,12 @@ import { type Credentials, ConnectionClosedError } from '@viamrobotics/rpc';
 import { notify } from '@viamrobotics/prime';
 import { displayError } from '@/lib/error';
 import { resources, components, services, statuses } from '@/stores/resources';
+import { statusStream } from '@/stores/streams';
+import { client as clientStore } from '@/stores/client';
 import { StreamManager } from './camera/stream-manager';
 import { fetchCurrentOps } from '@/api/robot';
 import {
   Client,
-  type ResponseStream,
   type ServiceError,
   commonApi,
   robotApi,
@@ -84,6 +85,8 @@ const client = new Client(impliedURL, {
   noReconnect: true,
 });
 
+clientStore.set(client);
+
 const streamManager = new StreamManager(client);
 
 interface ConnectionManager {
@@ -104,7 +107,6 @@ let appConnectionManager: ConnectionManager | null = null;
 let password = '';
 let showAuth = true;
 let isConnecting = false;
-let statusStream: ResponseStream<robotApi.StreamStatusResponse> | null = null;
 let lastStatusTS: number | null = null;
 let disableAuthElements = false;
 let currentOps: { op: robotApi.Operation.AsObject; elapsed: number }[] = [];
@@ -246,9 +248,9 @@ const updateStatus = (grpcStatuses: robotApi.Status[]) => {
 };
 
 const restartStatusStream = () => {
-  if (statusStream) {
-    statusStream.cancel();
-    statusStream = null;
+  if ($statusStream) {
+    $statusStream.cancel();
+    $statusStream = null;
   }
 
   let newResources: commonApi.ResourceName.AsObject[] = [];
@@ -271,21 +273,21 @@ const restartStatusStream = () => {
   streamReq.setResourceNamesList(names);
   streamReq.setEvery(new Duration().setNanos(500_000_000));
 
-  statusStream = client.robotService.streamStatus(streamReq);
-  if (statusStream !== null) {
-    statusStream.on('data', (response: { getStatusList(): robotApi.Status[] }) => {
+  $statusStream = client.robotService.streamStatus(streamReq);
+  if ($statusStream !== null) {
+    $statusStream.on('data', (response: { getStatusList(): robotApi.Status[] }) => {
       updateStatus(response.getStatusList());
       lastStatusTS = Date.now();
     });
-    statusStream.on('status', (newStatus?: { details: unknown }) => {
+    $statusStream.on('status', (newStatus?: { details: unknown }) => {
       if (!ConnectionClosedError.isError(newStatus!.details)) {
         console.error('error streaming robot status', newStatus);
       }
-      statusStream = null;
+      $statusStream = null;
     });
-    statusStream.on('end', () => {
+    $statusStream.on('end', () => {
       console.error('done streaming robot status');
-      statusStream = null;
+      $statusStream = null;
     });
   }
 };
@@ -294,7 +296,7 @@ const restartStatusStream = () => {
 const queryMetadata = () => {
   return new Promise((resolve, reject) => {
     let resourcesChanged = false;
-    let shouldRestartStatusStream = !(resourcesOnce && statusStream);
+    let shouldRestartStatusStream = !(resourcesOnce && $statusStream);
 
     client.robotService.resourceNames(
       new robotApi.ResourceNamesRequest(),
@@ -519,9 +521,9 @@ const createAppConnectionManager = () => {
         console.debug('reconnecting');
 
         // reset status/stream state
-        if (statusStream) {
-          statusStream.cancel();
-          statusStream = null;
+        if ($statusStream) {
+          $statusStream.cancel();
+          $statusStream = null;
         }
         resourcesOnce = false;
 
@@ -550,8 +552,8 @@ const createAppConnectionManager = () => {
 
   const stop = () => {
     window.clearTimeout(timeout);
-    statusStream?.cancel();
-    statusStream = null;
+    $statusStream?.cancel();
+    $statusStream = null;
   };
 
   const start = () => {
@@ -691,7 +693,7 @@ onDestroy(() => {
         {name}
         {client}
         {streamManager}
-        {statusStream}
+        statusStream={$statusStream}
       />
     {/each}
 
@@ -700,7 +702,7 @@ onDestroy(() => {
       <Encoder
         {name}
         {client}
-        {statusStream}
+        statusStream={$statusStream}
       />
     {/each}
 
@@ -718,7 +720,7 @@ onDestroy(() => {
       <MovementSensor
         {name}
         {client}
-        {statusStream}
+        statusStream={$statusStream}
       />
     {/each}
 
@@ -770,7 +772,7 @@ onDestroy(() => {
       <Gamepad
         {name}
         {client}
-        {statusStream}
+        statusStream={$statusStream}
       />
     {/each}
 
@@ -787,7 +789,7 @@ onDestroy(() => {
     <CamerasList
       {client}
       {streamManager}
-      {statusStream}
+      statusStream={$statusStream}
       resources={filterSubtype($components, 'camera')}
     />
 
@@ -796,7 +798,6 @@ onDestroy(() => {
       <Navigation
         {name}
         {client}
-        {statusStream}
       />
     {/each}
 
@@ -822,7 +823,7 @@ onDestroy(() => {
       <Slam
         {name}
         {client}
-        {statusStream}
+        statusStream={$statusStream}
         operations={currentOps}
       />
     {/each}

@@ -1,82 +1,89 @@
 <script lang='ts'>
 
 import * as THREE from 'three'
-import { T, useThrelte, useRender, type CurrentWritable, useFrame } from '@threlte/core';
-import { MercatorCoordinate, type Map } from 'maplibre-gl';
-import { onMount } from 'svelte';
+import { T, useThrelte, useRender, type CurrentWritable } from '@threlte/core';
+import { type Map } from 'maplibre-gl';
+import { obstacles, zoomLevels } from './stores';
+import { cameraPerspectiveToOrtho, createCameraTransform } from './utils'
+import type { Obstacle } from './types';
 
 export let map: Map;
-export let matrix4: CurrentWritable<THREE.Matrix4>
+export let viewProjectionMatrix: CurrentWritable<Float32Array | [number, number, number, number, number, number, number, number, number, number, number, number, number, number, number, number]>
 
-const { renderer, scene, advance } = useThrelte();
+let view: 'orthographic' | 'perspective' = 'perspective'
+
+const { renderer, scene, camera } = useThrelte();
 
 renderer!.autoClear = false;
 
-const camera = new THREE.OrthographicCamera();
+// This clips against the map so that interesecting objects will not render over the map
+renderer!.clippingPlanes = [new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.1)]
 
-const vec3 = new THREE.Vector3();
-const rotationX = new THREE.Matrix4();
-const rotationY = new THREE.Matrix4();
-const rotationZ = new THREE.Matrix4();
-const l = new THREE.Matrix4();
+const perspective = camera.current as THREE.PerspectiveCamera
+const orthographic = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 100_000)
+perspective.far = 100_000
 
-// parameters to ensure the model is georeferenced correctly on the map
-const modelRotate = [Math.PI / 2, 0, 0] as const;
-const modelAsMercatorCoordinate = MercatorCoordinate.fromLngLat([-74.5, 40], 0);
+const cameraTransform = createCameraTransform(map);
 
-const modelTransform = {
-  x: modelAsMercatorCoordinate.x,
-  y: modelAsMercatorCoordinate.y,
-  z: modelAsMercatorCoordinate.z,
-  rx: modelRotate[0],
-  ry: modelRotate[1],
-  rz: modelRotate[2],
-
-  /*
-   * Since our 3D model is in real world meters, a scale transform needs to be
-   * applied since the CustomLayerInterface expects units in MercatorCoordinates.
-   */
-  scale: modelAsMercatorCoordinate.meterInMercatorCoordinateUnits(),
-} as const;
+const setZoomLevel = (lngLat: Obstacle['location'], geometry: THREE.BufferGeometry) => {
+  geometry.computeBoundingSphere()
+  $zoomLevels[`${lngLat.longitude},${lngLat.latitude}`] = 100 / geometry.boundingSphere!.radius
+}
 
 useRender(() => {
-  console.log('render')
-  rotationX.makeRotationAxis(vec3.set(1, 0, 0), modelTransform.rx);
-  rotationY.makeRotationAxis(vec3.set(0, 1, 0), modelTransform.ry);
-  rotationZ.makeRotationAxis(vec3.set(0, 0, 1), modelTransform.rz);
+  perspective.projectionMatrix
+    .fromArray(viewProjectionMatrix.current)
+    .multiply(cameraTransform)
 
-  l
-    .makeTranslation(modelTransform.x, modelTransform.y, modelTransform.z)
-    .scale(vec3.set(modelTransform.scale, -modelTransform.scale, modelTransform.scale))
-    .multiply(rotationX)
-    .multiply(rotationY)
-    .multiply(rotationZ);
+  cameraPerspectiveToOrtho(perspective, orthographic)
 
-  camera.projectionMatrix = matrix4.current.multiply(l);
   renderer!.resetState();
-  renderer!.render(scene, camera);
+  renderer!.render(scene, camera.current);
+  
   map.triggerRepaint();
-})
-
-// map.on('drag', () => advance())
-// map.on('zoom', () => advance())
-
-const size = 10_000;
-
-useFrame(() => {
-  advance()
-})
-
-onMount(() => {
-  advance();
 })
 
 </script>
 
 <T.AmbientLight />
-<T.DirectionalLight position={[1, 1, 1]} />
 
-<T.Mesh>
-  <T.BoxGeometry args={[size, size * 10, size]} />
-  <T.MeshStandardMaterial color='red' />
-</T.Mesh>
+<T
+  is={orthographic}
+  makeDefault={view === 'orthographic'}
+/>
+
+{#each $obstacles as obstacle}
+  <T.Group lnglat={{
+    lng: obstacle.location.longitude,
+    lat: obstacle.location.latitude
+  }}>
+    {#each obstacle.geometries as geometry}
+      <T.Mesh
+        position.x={geometry.translation.x}
+        position.y={geometry.translation.y}
+        position.z={geometry.translation.z}
+      >
+        {#if geometry.type === 'box'}
+          <T.BoxGeometry
+            args={[geometry.x, geometry.y, geometry.z]}
+            on:create={({ ref }) => setZoomLevel(obstacle.location, ref)}
+          />
+        {:else if geometry.type === 'sphere'}
+          <T.SphereGeometry
+            args={[geometry.r]}
+            on:create={({ ref }) => ref.computeBoundingSphere()}
+          />
+        {:else if geometry.type === 'capsule'}
+          <T.CapsuleGeometry
+            args={[geometry.r, geometry.l, 4, 8]}
+            on:create={({ ref }) => {
+              ref.computeBoundingSphere()
+              ref.rotateX(Math.PI / 2)
+            }}
+          />
+        {/if}
+        <T.MeshBasicMaterial color='red' />
+      </T.Mesh>
+    {/each}
+  </T.Group>
+{/each}

@@ -30,8 +30,6 @@ export let status: {
 } | undefined;
 export let client: Client;
 
-console.log(status);
-
 const fieldSetters = [
   ['x', 'X'],
   ['y', 'Y'],

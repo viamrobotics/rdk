@@ -4,27 +4,40 @@
 
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { notify } from '@viamrobotics/prime';
-import { Client, robotApi, navigationApi, type ServiceError, type ResponseStream } from '@viamrobotics/sdk';
+import { navigationApi, type ServiceError } from '@viamrobotics/sdk';
 import { setMode, type NavigationModes } from '@/api/navigation';
-
+import { followRobot, lngLat, setLngLat, robotPosition } from './stores';
 import Collapse from '@/components/collapse.svelte';
 import Map from './map.svelte';
+import Nav from './nav.svelte';
 
 export let name: string;
-export let client: Client;
-export let statusStream: ResponseStream<robotApi.StreamStatusResponse> | null;
+
+let inputInteracting = false;
+let dragging = false;
+
+const decimalFormat = new Intl.NumberFormat(undefined, { maximumFractionDigits: 7 })
+
+const handleLng = (event: CustomEvent) => {
+  const lng = Number.parseFloat(event.detail.value)
+  setLngLat({ lng, lat: lngLat.current.lat }, { center: true })
+}
+
+const handleLat = (event: CustomEvent) => {
+  const lat = Number.parseFloat(event.detail.value)
+  setLngLat({ lat, lng: lngLat.current.lng }, { center: true })
+}
 
 const setNavigationMode = async (event: CustomEvent) => {
-  const mode = event.detail.value as 'Manual' | 'Waypoint' | 'Unspecified';
+  const mode = event.detail.value as 'Manual' | 'Waypoint';
 
   const navigationMode: NavigationModes = {
     Manual: navigationApi.Mode.MODE_MANUAL,
     Waypoint: navigationApi.Mode.MODE_WAYPOINT,
-    Unspecified: navigationApi.Mode.MODE_UNSPECIFIED,
   }[mode];
 
   try {
-    await setMode(client, name, navigationMode);
+    await setMode(name, navigationMode);
   } catch (error) {
     notify.danger((error as ServiceError).message);
   }
@@ -39,17 +52,61 @@ const setNavigationMode = async (event: CustomEvent) => {
   />
 
   <div class="flex flex-col gap-2 border border-t-0 border-medium p-4">
-    <v-radio
-      label="Navigation mode"
-      options="Manual, Waypoint, Unspecified"
-      selected="Unspecified"
-      on:input={setNavigationMode}
-    />
+    <div class='flex items-end justify-between'>
+      <div class='flex gap-2'>
+        <div class='flex gap-1 items-end'>
+          <v-input class='w-16' label='Base' tooltip='Specified in lng, lat' readonly value={$robotPosition?.lng} />
+          <v-input class='w-16' readonly value={$robotPosition?.lat} />
+        </div>
+      
+        <v-radio
+          label="Navigation mode"
+          options="Manual, Waypoint"
+          on:input={setNavigationMode}
+        />
+      </div>
 
-    <Map
-      {name}
-      {client}
-      {statusStream}
-    />
+      <div class='flex gap-1.5'>
+        <v-input
+          type='number'
+          label='Longitude'
+          placeholder='0'
+          incrementor='slider'
+          value={$lngLat.lng ? decimalFormat.format($lngLat.lng) : ''}
+          step='1'
+          class='max-w-[6rem]'
+          on:input={handleLng}
+          on:mousedown={() => (inputInteracting = true)}
+          on:mouseup={() => (inputInteracting = false)}
+        />
+        <v-input
+          type='number'
+          label='Latitude'
+          placeholder='0'
+          incrementor='slider'
+          value={$lngLat.lat ? decimalFormat.format($lngLat.lat) : ''}
+          step='1'
+          class='max-w-[6rem]'
+          on:input={handleLat}
+        />
+      </div>
+    </div>
+
+    <div class='flex w-full items-stretch gap-2'>
+      <Nav {name} />
+
+      <div class='grow'>
+        <Map
+          {name}
+          on:dragstart={() => {
+            dragging = true
+            $followRobot = false
+          }}
+          on:drag={(event) => setLngLat(event.detail)}
+          on:dragend={() => (dragging = false)}
+        />
+      </div> 
+      
+    </div>
   </div>
 </Collapse>
