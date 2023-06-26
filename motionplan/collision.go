@@ -242,10 +242,22 @@ func newCollisionGraph(x, y []spatial.Geometry, reference *collisionGraph, repor
 // checkCollision takes a pair of geometries and returns the distance between them.
 // If this number is less than the CollisionBuffer they can be considered to be in collision.
 func (cg *collisionGraph) checkCollision(x, y spatial.Geometry) (float64, error) {
+	// x is the robot geometries and therefore must use the primitives from spatialmath
+	// y is a geometry type that could potentially live outside spatialmath and therefore knows more so we defer to it for collisions
 	if cg.reportDistances {
-		return x.DistanceFrom(y)
+		dist, err := x.DistanceFrom(y)
+		if err != nil {
+			return y.DistanceFrom(x)
+		}
+		return dist, nil
 	}
 	col, err := x.CollidesWith(y)
+	if err != nil {
+		col, err = y.CollidesWith(x)
+		if err != nil {
+			return math.Inf(-1), err
+		}
+	}
 	if col {
 		return math.Inf(-1), err
 	}

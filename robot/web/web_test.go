@@ -893,11 +893,12 @@ func TestForeignResource(t *testing.T) {
 	listener := testutils.ReserveRandomListener(t)
 	addr = listener.Addr().String()
 	options.Network.Listener = listener
+	options.Debug = true
 	svc = web.New(injectRobot, logger)
 	err = svc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
-	conn, err = rgrpc.Dial(context.Background(), addr, logger)
+	conn, err = rgrpc.Dial(context.Background(), addr, logger, rpc.WithDialDebug())
 	test.That(t, err, test.ShouldBeNil)
 
 	myCompClient = gizmopb.NewGizmoServiceClient(conn)
