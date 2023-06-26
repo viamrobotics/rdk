@@ -79,12 +79,11 @@ func TestUnderlyingSensor(t *testing.T) {
 		return true
 	})
 
-	test.ShouldEqual(count, 1)
-	test.ShouldEqual(values[0], 3.2)
-
+	test.That(t, count, test.ShouldEqual, 1)
+	test.That(t, values[0], test.ShouldEqual, 3.2)
 	stream, err := cam.Stream(ctx)
 	test.That(t, err, test.ShouldBeNil)
 
 	_, _, err = stream.Next(ctx)
-	test.ShouldEqual(err.Error(), "not yet implemented")
+	test.That(t, err.Error(), test.ShouldEqual, "not yet implemented")
 }
