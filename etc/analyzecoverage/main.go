@@ -238,7 +238,10 @@ func generateMarkdownOutput(
 ) string {
 	var builder strings.Builder
 
+	// The details/summary tags will auto-collapse the code coverage results. We keep the badge with
+	// a percentage of coverage visible without needing to expand.
 	builder.WriteString(fmt.Sprintf("![Code Coverage](%s)\n\n", badgeURL))
+	builder.WriteString("<details>\n<summary>Code Coverage</summary>\n\n")
 
 	if closestPastResultsErr != nil {
 		builder.WriteString(fmt.Sprintf("**Note: %s**\n", closestPastResultsErr))
@@ -305,6 +308,9 @@ func generateMarkdownOutput(
 		builder.WriteString(fmt.Sprintf(" | %s", getDelta(results.summary, closestPastResults.results.summary)))
 	}
 	builder.WriteString(fmt.Sprintf(" | %s\n", generateHealthIndicator(results.summary.LineCoveragePct)))
+
+	// Close the detail tag from the beginning.
+	builder.WriteString("</details>\n")
 
 	return builder.String()
 }

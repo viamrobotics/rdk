@@ -73,11 +73,8 @@ useRender(() => {
             />
           {:else if geometry.type === 'capsule'}
             <T.CapsuleGeometry
-              args={[geometry.r, geometry.l, 4, 8]}
-              on:create={({ ref }) => {
-                ref.rotateX(Math.PI / 2);
-                createZoomForObstacle(obstacle.location, ref);
-              }}
+              args={[geometry.r, geometry.l, 16, 32]}
+              on:create={({ ref }) => createZoomForObstacle(obstacle.location, ref)}
             />
           {/if}
           <T.MeshBasicMaterial color='red' />

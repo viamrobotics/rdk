@@ -113,5 +113,19 @@ func L2InputMetric(segment *Segment) float64 {
 	return referenceframe.InputsL2Distance(segment.StartConfiguration, segment.EndConfiguration)
 }
 
+// SquaredNormSegmentMetric is a metric which will return the cartesian distance between the two positions.
+func SquaredNormSegmentMetric(segment *Segment) float64 {
+	delta := spatial.PoseDelta(segment.StartPosition, segment.EndPosition)
+	// Increase weight for orientation since it's a small number
+	return delta.Point().Norm2() + spatial.QuatToR3AA(delta.Orientation().Quaternion()).Mul(orientationDistanceScaling).Norm2()
+}
+
+// SquaredNormNoOrientSegmentMetric is a metric which will return the cartesian distance between the two positions.
+func SquaredNormNoOrientSegmentMetric(segment *Segment) float64 {
+	delta := spatial.PoseDelta(segment.StartPosition, segment.EndPosition)
+	// Increase weight for orientation since it's a small number
+	return delta.Point().Norm2()
+}
+
 // TODO(RSDK-2557): Writing a PenetrationDepthMetric will allow cbirrt to path along the sides of obstacles rather than terminating
 // the RRT tree when an obstacle is hit

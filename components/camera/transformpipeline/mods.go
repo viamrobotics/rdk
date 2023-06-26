@@ -45,7 +45,7 @@ func newRotateTransform(ctx context.Context, source gostream.VideoSource, stream
 	return src, stream, err
 }
 
-// Next rotates the 2D image depending on the stream type.
+// Read rotates the 2D image depending on the stream type.
 func (rs *rotateSource) Read(ctx context.Context) (image.Image, func(), error) {
 	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::rotate::Read")
 	defer span.End()
@@ -108,7 +108,7 @@ func newResizeTransform(
 	return src, stream, err
 }
 
-// Next resizes the 2D image depending on the stream type.
+// Read resizes the 2D image depending on the stream type.
 func (rs *resizeSource) Read(ctx context.Context) (image.Image, func(), error) {
 	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::resize::Read")
 	defer span.End()
@@ -137,4 +137,80 @@ func (rs *resizeSource) Read(ctx context.Context) (image.Image, func(), error) {
 // Close closes the original stream.
 func (rs *resizeSource) Close(ctx context.Context) error {
 	return rs.originalStream.Close(ctx)
+}
+
+// cropConfig are the attributes for a crop transform.
+type cropConfig struct {
+	XMin int `json:"x_min_px"`
+	YMin int `json:"y_min_px"`
+	XMax int `json:"x_max_px"`
+	YMax int `json:"y_max_px"`
+}
+
+type cropSource struct {
+	originalStream gostream.VideoStream
+	imgType        camera.ImageType
+	cropWindow     image.Rectangle
+}
+
+// newCropTransform creates a new crop transform.
+func newCropTransform(
+	ctx context.Context, source gostream.VideoSource, stream camera.ImageType, am utils.AttributeMap,
+) (gostream.VideoSource, camera.ImageType, error) {
+	conf, err := resource.TransformAttributeMap[*cropConfig](am)
+	if err != nil {
+		return nil, camera.UnspecifiedStream, err
+	}
+	if conf.XMin < 0 || conf.YMin < 0 {
+		return nil, camera.UnspecifiedStream, errors.New("cannot set x_min or y_min to a negative number")
+	}
+	if conf.XMin >= conf.XMax {
+		return nil, camera.UnspecifiedStream, errors.New("cannot crop image to 0 width (x_min is >= x_max)")
+	}
+	if conf.YMin >= conf.YMax {
+		return nil, camera.UnspecifiedStream, errors.New("cannot crop image to 0 height (y_min is >= y_max)")
+	}
+	cropRect := image.Rect(conf.XMin, conf.YMin, conf.XMax, conf.YMax)
+
+	reader := &cropSource{gostream.NewEmbeddedVideoStream(source), stream, cropRect}
+	src, err := camera.NewVideoSourceFromReader(ctx, reader, nil, stream)
+	if err != nil {
+		return nil, camera.UnspecifiedStream, err
+	}
+	return src, stream, err
+}
+
+// Read crops the 2D image depending on the crop window.
+func (cs *cropSource) Read(ctx context.Context) (image.Image, func(), error) {
+	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::crop::Read")
+	defer span.End()
+	orig, release, err := cs.originalStream.Next(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	switch cs.imgType {
+	case camera.ColorStream, camera.UnspecifiedStream:
+		newImg := imaging.Crop(orig, cs.cropWindow)
+		if newImg.Bounds().Empty() {
+			return nil, nil, errors.New("crop transform cropped image to 0 pixels")
+		}
+		return newImg, release, nil
+	case camera.DepthStream:
+		dm, err := rimage.ConvertImageToDepthMap(ctx, orig)
+		if err != nil {
+			return nil, nil, err
+		}
+		newImg := dm.SubImage(cs.cropWindow)
+		if newImg.Bounds().Empty() {
+			return nil, nil, errors.New("crop transform cropped image to 0 pixels")
+		}
+		return newImg, release, nil
+	default:
+		return nil, nil, camera.NewUnsupportedImageTypeError(cs.imgType)
+	}
+}
+
+// Close closes the original stream.
+func (cs *cropSource) Close(ctx context.Context) error {
+	return cs.originalStream.Close(ctx)
 }

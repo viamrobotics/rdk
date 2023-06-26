@@ -136,7 +136,7 @@ func TestNewMLDetector(t *testing.T) {
 	cfg := tflitecpu.TFLiteConfig{ // detector config
 		ModelPath:  modelLoc,
 		NumThreads: 2,
-		LabelPath:  &labelLoc,
+		LabelPath:  labelLoc,
 	}
 	noLabelCfg := tflitecpu.TFLiteConfig{ // detector config
 		ModelPath:  modelLoc,
@@ -211,7 +211,7 @@ func TestNewMLClassifier(t *testing.T) {
 	cfg := tflitecpu.TFLiteConfig{ // detector config
 		ModelPath:  modelLoc,
 		NumThreads: 2,
-		LabelPath:  &labelLoc,
+		LabelPath:  labelLoc,
 	}
 	noLabelCfg := tflitecpu.TFLiteConfig{ // detector config
 		ModelPath:  modelLoc,
@@ -277,7 +277,7 @@ func TestMoreMLDetectors(t *testing.T) {
 	cfg := tflitecpu.TFLiteConfig{
 		ModelPath:  modelLoc,
 		NumThreads: 2,
-		LabelPath:  &labelLoc,
+		LabelPath:  labelLoc,
 	}
 
 	// Test that a detector would give the expected output on the dog image
@@ -367,7 +367,7 @@ func TestLabelReader(t *testing.T) {
 	cfg := tflitecpu.TFLiteConfig{ // detector config
 		ModelPath:  modelLoc,
 		NumThreads: 2,
-		LabelPath:  &labelLoc,
+		LabelPath:  labelLoc,
 	}
 	out, err := tflitecpu.NewTFLiteCPUModel(ctx, &cfg, mlmodel.Named("fakeLabels"))
 	test.That(t, err, test.ShouldBeNil)
@@ -390,7 +390,7 @@ func TestSpaceDelineatedLabels(t *testing.T) {
 	cfg := tflitecpu.TFLiteConfig{ // detector config
 		ModelPath:  modelLoc,
 		NumThreads: 2,
-		LabelPath:  &labelLoc,
+		LabelPath:  labelLoc,
 	}
 	out, err := tflitecpu.NewTFLiteCPUModel(ctx, &cfg, mlmodel.Named("spacedLabels"))
 	test.That(t, err, test.ShouldBeNil)

@@ -180,7 +180,6 @@ type collectorAndConfig struct {
 // method parameters, and method name.
 type componentMethodMetadata struct {
 	ComponentName  string
-	ComponentModel resource.Model
 	MethodParams   string
 	MethodMetadata data.MethodMetadata
 }

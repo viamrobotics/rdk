@@ -15,6 +15,7 @@ import (
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
@@ -131,7 +132,7 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 		return err
 	}
 
-	// // starts a goroutine from within wheeled base's runAll function to run motors in the background
+	// starts a goroutine from within wheeled base's runAll function to run motors in the background
 	if err := sb.startRunningMotors(ctx, angleDeg, degsPerSec); err != nil {
 		return err
 	}
@@ -193,7 +194,7 @@ func (sb *sensorBase) stopSpinWithSensor(
 				ticker.Stop()
 			}
 
-			if err = ctx.Err(); err != nil {
+			if err := ctx.Err(); err != nil {
 				ticker.Stop()
 				return
 			}
@@ -254,7 +255,7 @@ func (sb *sensorBase) stopSpinWithSensor(
 			}
 		}
 	}, sb.activeBackgroundWorkers.Done)
-	return err
+	return nil
 }
 
 func getTurnState(currYaw, startYaw, targetYaw, dir, angleDeg, errorBound float64) (atTarget, overShot, minTravel bool) {
@@ -378,6 +379,10 @@ func (sb *sensorBase) IsMoving(ctx context.Context) (bool, error) {
 
 func (sb *sensorBase) Properties(ctx context.Context, extra map[string]interface{}) (base.Properties, error) {
 	return sb.wBase.Properties(ctx, extra)
+}
+
+func (sb *sensorBase) Geometries(ctx context.Context) ([]spatialmath.Geometry, error) {
+	return sb.wBase.Geometries(ctx)
 }
 
 func (sb *sensorBase) Close(ctx context.Context) error {

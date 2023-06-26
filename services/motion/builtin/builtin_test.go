@@ -1,20 +1,28 @@
-package builtin_test
+package builtin
 
 import (
 	"context"
 	"math"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/test"
+	"go.viam.com/utils"
+	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/base"
+	"go.viam.com/rdk/components/base/fake"
+
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/gripper"
 	"go.viam.com/rdk/components/movementsensor"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/testutils/inject"
 
 	// register.
 	commonpb "go.viam.com/api/common/v1"
@@ -23,7 +31,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/motion"
-	_ "go.viam.com/rdk/services/register"
+
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -214,17 +222,92 @@ func TestMoveSingleComponent(t *testing.T) {
 }
 
 func TestMoveOnMap(t *testing.T) {
-	ms, closeFn := setupMotionServiceFromConfig(t, "../data/wheeled_base.json")
-	defer closeFn()
-	success, err := ms.MoveOnMap(
-		context.Background(),
-		base.Named("test_base"),
-		spatialmath.NewPoseFromPoint(r3.Vector{Y: 10}),
-		slam.Named("test_slam"),
-		nil,
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+	injectSlam := inject.NewSLAMService("test_slam")
+
+	const chunkSizeBytes = 1 * 1024 * 1024
+
+	injectSlam.GetPointCloudMapFunc = func(ctx context.Context) (func() ([]byte, error), error) {
+		path := filepath.Clean(artifact.MustPath("pointcloud/octagonspace.pcd"))
+		file, err := os.Open(path)
+		if err != nil {
+			return nil, err
+		}
+		chunk := make([]byte, chunkSizeBytes)
+		f := func() ([]byte, error) {
+			bytesRead, err := file.Read(chunk)
+			if err != nil {
+				defer utils.UncheckedErrorFunc(file.Close)
+				return nil, err
+			}
+			return chunk[:bytesRead], err
+		}
+		return f, nil
+	}
+
+	cfg := resource.Config{
+		Name:  "test_base",
+		API:   base.API,
+		Frame: &referenceframe.LinkConfig{Geometry: &spatialmath.GeometryConfig{R: 100}},
+	}
+
+	fakeBase, err := fake.NewBase(ctx, nil, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	ms, err := NewBuiltIn(
+		ctx,
+		resource.Dependencies{injectSlam.Name(): injectSlam, fakeBase.Name(): fakeBase},
+		resource.Config{
+			ConvertedAttributes: &Config{},
+		},
+		logger,
 	)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, success, test.ShouldBeTrue)
+
+	// goal x-position of 1.32m is scaled to be in mm
+	goal := spatialmath.NewPoseFromPoint(r3.Vector{X: 1.32 * 1000, Y: 0})
+
+	t.Run("check that path is planned around obstacle", func(t *testing.T) {
+		t.Parallel()
+		path, _, err := ms.(*builtIn).planMoveOnMap(
+			context.Background(),
+			base.Named("test_base"),
+			goal,
+			slam.Named("test_slam"),
+			nil,
+		)
+		test.That(t, err, test.ShouldBeNil)
+		// path of length 2 indicates a path that goes straight through central obstacle
+		test.That(t, len(path), test.ShouldBeGreaterThan, 2)
+	})
+
+	t.Run("ensure success of movement around obstacle", func(t *testing.T) {
+		t.Parallel()
+		success, err := ms.MoveOnMap(
+			context.Background(),
+			base.Named("test_base"),
+			goal,
+			slam.Named("test_slam"),
+			nil,
+		)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, success, test.ShouldBeTrue)
+	})
+
+	t.Run("check that straight line path executes", func(t *testing.T) {
+		t.Parallel()
+		easyGoal := spatialmath.NewPoseFromPoint(r3.Vector{X: 0.277 * 1000, Y: 0.593 * 1000})
+		success, err := ms.MoveOnMap(
+			context.Background(),
+			base.Named("test_base"),
+			easyGoal,
+			slam.Named("test_slam"),
+			nil,
+		)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, success, test.ShouldBeTrue)
+	})
 }
 
 func TestMoveOnGlobe(t *testing.T) {

@@ -38,104 +38,104 @@ export const setLngLat = (value: LngLat, options: Options = {}) => {
 };
 
 // todo(MP) - For mocking, remove once an endpoint exists to fetch obstacles
-// obstacles.set([
-//   {
-//     location: {
-//       latitude: 0,
-//       longitude: 0,
-//     },
-//     geometries: [
-//       {
-//         type: 'box',
-//         x: 10_000,
-//         y: 10_000,
-//         z: 10_000,
-//         translation: { x: 0, y: 0, z: 0 },
-//       },
-//     ],
-//   },
-//   {
-//     location: {
-//       latitude: 40.6759,
-//       longitude: -73.958_847,
-//     },
-//     geometries: [
-//       {
-//         type: 'capsule',
-//         r: 10,
-//         l: 30,
-//         translation: { x: 0, y: 0, z: 0 },
-//       },
-//     ],
-//   },
-//   {
-//     location: {
-//       latitude: 40.744_25,
-//       longitude: -73.998_58,
-//     },
-//     geometries: [
-//       {
-//         type: 'capsule',
-//         r: 10,
-//         l: 30,
-//         translation: { x: 0, y: 0, z: 0 },
-//       },
-//     ],
-//   },
-//   {
-//     location: {
-//       latitude: 40.689_95,
-//       longitude: -73.919_41,
-//     },
-//     geometries: [
-//       {
-//         type: 'capsule',
-//         r: 10,
-//         l: 30,
-//         translation: { x: 0, y: 0, z: 0 },
-//       },
-//     ],
-//   },
-//   {
-//     location: {
-//       latitude: 40,
-//       longitude: -74.6,
-//     },
-//     geometries: [
-//       {
-//         type: 'sphere',
-//         r: 1000,
-//         translation: { x: 0, y: 0, z: 0 },
-//       },
-//     ],
-//   },
-//   {
-//     location: {
-//       latitude: 41.461_05,
-//       longitude: -73.913_92,
-//     },
-//     geometries: [
-//       {
-//         type: 'capsule',
-//         r: 10,
-//         l: 30,
-//         translation: { x: 0, y: 0, z: 0 },
-//       },
-//     ],
-//   },
-//   {
-//     location: {
-//       latitude: 40,
-//       longitude: -74.7,
-//     },
-//     geometries: [
-//       {
-//         type: 'box',
-//         x: 100,
-//         y: 100,
-//         z: 100,
-//         translation: { x: 0, y: 0, z: 0 },
-//       },
-//     ],
-//   },
-// ]);
+obstacles.set([
+  {
+    location: {
+      latitude: 0,
+      longitude: 0,
+    },
+    geometries: [
+      {
+        type: 'box',
+        x: 10_000,
+        y: 10_000,
+        z: 10_000,
+        translation: { x: 0, y: 0, z: 0 },
+      },
+    ],
+  },
+  {
+    location: {
+      latitude: 40.6759,
+      longitude: -73.958_847,
+    },
+    geometries: [
+      {
+        type: 'capsule',
+        r: 10,
+        l: 30,
+        translation: { x: 0, y: 0, z: 0 },
+      },
+    ],
+  },
+  {
+    location: {
+      latitude: 40.744_25,
+      longitude: -73.998_58,
+    },
+    geometries: [
+      {
+        type: 'capsule',
+        r: 10,
+        l: 30,
+        translation: { x: 0, y: 0, z: 0 },
+      },
+    ],
+  },
+  {
+    location: {
+      latitude: 40.689_95,
+      longitude: -73.919_41,
+    },
+    geometries: [
+      {
+        type: 'capsule',
+        r: 10,
+        l: 30,
+        translation: { x: 0, y: 0, z: 0 },
+      },
+    ],
+  },
+  {
+    location: {
+      latitude: 40,
+      longitude: -74.6,
+    },
+    geometries: [
+      {
+        type: 'sphere',
+        r: 1000,
+        translation: { x: 0, y: 0, z: 0 },
+      },
+    ],
+  },
+  {
+    location: {
+      latitude: 41.461_05,
+      longitude: -73.913_92,
+    },
+    geometries: [
+      {
+        type: 'capsule',
+        r: 10,
+        l: 30,
+        translation: { x: 0, y: 0, z: 0 },
+      },
+    ],
+  },
+  {
+    location: {
+      latitude: 40,
+      longitude: -74.7,
+    },
+    geometries: [
+      {
+        type: 'box',
+        x: 100,
+        y: 100,
+        z: 100,
+        translation: { x: 0, y: 0, z: 0 },
+      },
+    ],
+  },
+]);

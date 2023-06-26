@@ -1917,7 +1917,7 @@ func TestConfigPackageReferenceReplacement(t *testing.T) {
 				Model: resource.DefaultModelFamily.WithModel("tflite_cpu"),
 				ConvertedAttributes: &tflitecpu.TFLiteConfig{
 					ModelPath:  "${packages.package-1}/model.tflite",
-					LabelPath:  &labelPath,
+					LabelPath:  labelPath,
 					NumThreads: 1,
 				},
 			},
