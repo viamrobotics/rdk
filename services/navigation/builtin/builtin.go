@@ -406,8 +406,6 @@ func (svc *builtIn) startWaypointExperimental(extra map[string]interface{}) erro
 				extra["motion_profile"] = "position_only"
 			}
 
-			// have ability to define destination heading here, but waypoint structure
-			// doesn't allow for that so using bearingToGoal as heading
 			goal := wp.ToPoint()
 			_, err := svc.motion.MoveOnGlobe(
 				ctx,
