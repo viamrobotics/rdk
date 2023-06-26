@@ -158,21 +158,18 @@ func newRTKI2C(
 		NtripConnectAttempts: newConf.NtripConnectAttempts,
 	}
 
+	nmeaConf := &gpsnmea.Config{
+		ConnectionType: i2cStr,
+	}
+
 	// Init NMEAMovementSensor
-	// switch strings.ToLower(newConf.ConnectionType) {
-	// if
-	// case i2cStr:
-	// 	var err error
-	// 	nmeaConf.Board = newConf.Board
-	// 	nmeaConf.I2CConfig = &gpsnmea.I2CConfig{I2CBus: newConf.I2CBus, I2CBaudRate: newConf.I2CBaudRate, I2cAddr: newConf.I2cAddr}
-	// 	g.Nmeamovementsensor, err = gpsnmea.NewPmtkI2CGPSNMEA(ctx, deps, conf.ResourceName(), nmeaConf, logger)
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// default:
-	// 	// Invalid protocol
-	// 	return nil, fmt.Errorf("%s is not a valid connection type", newConf.ConnectionType)
-	// }
+
+	nmeaConf.Board = newConf.Board
+	nmeaConf.I2CConfig = &gpsnmea.I2CConfig{I2CBus: newConf.I2CBus, I2CBaudRate: newConf.I2CBaudRate, I2cAddr: newConf.I2cAddr}
+	g.Nmeamovementsensor, err = gpsnmea.NewPmtkI2CGPSNMEA(ctx, deps, conf.ResourceName(), nmeaConf, logger)
+	if err != nil {
+		return nil, err
+	}
 
 	// Init ntripInfo from attributes
 	g.ntripClient, err = rtk.NewNtripInfo(ntripConfig, g.logger)
