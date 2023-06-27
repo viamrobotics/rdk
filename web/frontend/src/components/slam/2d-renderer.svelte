@@ -229,6 +229,7 @@ const updatePointCloud = (cloud: Uint8Array) => {
   raycaster.objects = [intersectionPlane];
 
   const colors = points.geometry.attributes.color;
+
   // if the PCD has a color attribute defined, convert those colors using the colorMap
   if (colors instanceof THREE.BufferAttribute) {
     for (let i = 0; i < colors.count; i += 1) {
