@@ -31,7 +31,7 @@
     "@types/three": "0.152.1",
     "@typescript-eslint/eslint-plugin": "^5.60.1",
     "@typescript-eslint/parser": "^5.60.1",
-    "@viamrobotics/prime": "0.2.16",
+    "@viamrobotics/prime": "0.2.10",
     "@viamrobotics/rpc": "0.1.37",
     "@viamrobotics/sdk": "0.2.2",
     "@viamrobotics/typescript-config": "^0.0.3",
