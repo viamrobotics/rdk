@@ -121,7 +121,12 @@ func TestErrorState(t *testing.T) {
 	test.That(t, headingErr, test.ShouldAlmostEqual, 30)
 }
 
-func buildTestDDK(ctx context.Context, cfg resource.Config, linVel, angVel float64, logger golog.Logger) (*differentialDriveKinematics, error) {
+func buildTestDDK(
+	ctx context.Context,
+	cfg resource.Config,
+	linVel, angVel float64,
+	logger golog.Logger,
+) (*differentialDriveKinematics, error) {
 	// make fake base
 	b, err := fakebase.NewBase(ctx, resource.Dependencies{}, cfg, logger)
 	if err != nil {
