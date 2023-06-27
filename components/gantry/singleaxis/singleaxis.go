@@ -4,6 +4,7 @@ package singleaxis
 import (
 	"context"
 	"fmt"
+	"math"
 	"sync"
 	"time"
 
@@ -20,6 +21,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	spatial "go.viam.com/rdk/spatialmath"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 var model = resource.DefaultModelFamily.WithModel("single-axis")
@@ -487,10 +489,10 @@ func (g *singleAxis) MoveToPosition(ctx context.Context, positions, speeds []flo
 
 	switch s := speeds[0]; {
 	case s < 0:
-                speeds[0] = g.rpm
-                g.logger.Debug("single-axis received zero or negative speed, using default gantry rpm")
 		speeds[0] = g.rpm
-	case rdkutils.Float64AlmostEqual(math.Abs(s), 0.0,0.1):
+		g.logger.Debug("single-axis received zero or negative speed, using default gantry rpm")
+		speeds[0] = g.rpm
+	case rdkutils.Float64AlmostEqual(math.Abs(s), 0.0, 0.1):
 		if err := g.motor.Stop(ctx, nil); err != nil {
 			return err
 		}
