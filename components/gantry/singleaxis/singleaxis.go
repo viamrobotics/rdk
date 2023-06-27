@@ -490,7 +490,7 @@ func (g *singleAxis) MoveToPosition(ctx context.Context, positions, speeds []flo
                 speeds[0] = g.rpm
                 g.logger.Debug("single-axis received zero or negative speed, using default gantry rpm")
 		speeds[0] = g.rpm
-	case s == 0:
+	case rdkutils.Float64AlmostEqual(math.Abs(s), 0.0,0.1):
 		if err := g.motor.Stop(ctx, nil); err != nil {
 			return err
 		}
