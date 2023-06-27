@@ -595,6 +595,6 @@ func (g *singleAxis) CurrentInputs(ctx context.Context) ([]referenceframe.Input,
 func (g *singleAxis) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	speed := []float64{g.rpm}
+	speed := []float64{}
 	return g.MoveToPosition(ctx, referenceframe.InputsToFloats(goal), speed, nil)
 }

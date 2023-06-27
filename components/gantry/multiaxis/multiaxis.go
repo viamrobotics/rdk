@@ -93,14 +93,16 @@ func newMultiAxis(
 
 // Home runs the homing sequence of the gantry and returns true once completed.
 func (g *multiAxis) Home(ctx context.Context, extra map[string]interface{}) (bool, error) {
-	homed := true
 	for _, subAx := range g.subAxes {
 		homed, err := subAx.Home(ctx, nil)
 		if err != nil {
-			return homed, err
+			return false, err
+		}
+		if !homed {
+			return false, nil
 		}
 	}
-	return homed, nil
+	return true, nil
 }
 
 // MoveToPosition moves along an axis using inputs in millimeters.
