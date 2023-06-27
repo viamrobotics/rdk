@@ -200,8 +200,8 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 			}
 		}
 	})
-	err = <-movementErr // waits on error value to be returned from either timer or movement code
-	return err
+	goToInputsErr := <-movementErr // waits on error value to be returned from either timer or movement code
+	return goToInputsErr
 }
 
 // issueCommand issues a relevant command to move the base to the given desired inputs and returns the boolean describing
