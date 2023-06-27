@@ -105,7 +105,7 @@ func TestStartWaypoint(t *testing.T) {
 
 	localizer, err := motion.NewLocalizer(ctx, fakeSlam)
 
-	kinematicBase, err := kinematicbase.WrapWithDifferentialDriveKinematics(ctx, fakeBase, localizer, limits)
+	kinematicBase, err := kinematicbase.WrapWithDifferentialDriveKinematics(ctx, fakeBase, localizer, limits, false)
 	test.That(t, err, test.ShouldBeNil)
 
 	injectMovementSensor := inject.NewMovementSensor("test_movement")

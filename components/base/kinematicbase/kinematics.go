@@ -32,9 +32,10 @@ type KinematicBase interface {
 
 type differentialDriveKinematics struct {
 	base.Base
-	localizer motion.Localizer
-	model     referenceframe.Model
-	fs        referenceframe.FrameSystem
+	localizer    motion.Localizer
+	model        referenceframe.Model
+	fs           referenceframe.FrameSystem
+	positionOnly bool
 }
 
 // WrapWithDifferentialDriveKinematics takes a Base component and adds a slam service to it
@@ -44,6 +45,7 @@ func WrapWithDifferentialDriveKinematics(
 	b base.Base,
 	localizer motion.Localizer,
 	limits []referenceframe.Limit,
+	positionOnly bool,
 ) (KinematicBase, error) {
 	properties, err := b.Properties(ctx, nil)
 	if err != nil {
@@ -73,10 +75,11 @@ func WrapWithDifferentialDriveKinematics(
 	}
 
 	return &differentialDriveKinematics{
-		Base:      b,
-		localizer: localizer,
-		model:     model,
-		fs:        fs,
+		Base:         b,
+		localizer:    localizer,
+		model:        model,
+		fs:           fs,
+		positionOnly: positionOnly,
 	}, nil
 }
 
@@ -126,6 +129,9 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 		}
 
 		if !commanded {
+			if ddk.positionOnly {
+				return nil
+			}
 			// no command to move to the x, y location was issued, correct the heading and then exit
 			if commanded, err := ddk.issueCommand(ctx, current, []referenceframe.Input{current[0], current[1], desired[2]}); err == nil {
 				if !commanded {
