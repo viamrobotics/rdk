@@ -25,20 +25,14 @@ const (
 // KinematicBase is an interface for Bases that also satisfy the ModelFramer and InputEnabled interfaces.
 type KinematicBase interface {
 	base.Base
-	Kinematics() referenceframe.Frame
 	referenceframe.InputEnabled
+
+	Kinematics() referenceframe.Frame
 }
 
-type differentialDriveKinematics struct {
-	base.Base
-	localizer motion.Localizer
-	model     referenceframe.Model
-	fs        referenceframe.FrameSystem
-}
-
-// WrapWithDifferentialDriveKinematics takes a wheeledBase component and adds a slam service to it
-// It also adds kinematic model so that it can be controlled.
-func WrapWithDifferentialDriveKinematics(
+// WrapWithKinematics will wrap a Base with the appropriate type of kinematics, allowing it to provide a Frame which can be planned with
+// and making it InputEnabled.
+func WrapWithKinematics(
 	ctx context.Context,
 	b base.Base,
 	localizer motion.Localizer,
@@ -48,10 +42,22 @@ func WrapWithDifferentialDriveKinematics(
 	if err != nil {
 		return nil, err
 	}
-	if properties.TurningRadiusMeters != 0 {
-		return nil, errors.New("can only wrap with differential drive kinematics if Base property TurningRadiusMeters is zero")
-	}
 
+	// TP-space PTG planning does not yet support 0 turning radius
+	if properties.TurningRadiusMeters == 0 {
+		return wrapWithDifferentialDriveKinematics(ctx, b, localizer, limits)
+	}
+	return WrapWithPTGKinematics(ctx, b)
+}
+
+// wrapWithDifferentialDriveKinematics takes a wheeledBase component and adds a slam service to it
+// It also adds kinematic model so that it can be controlled.
+func wrapWithDifferentialDriveKinematics(
+	ctx context.Context,
+	b base.Base,
+	localizer motion.Localizer,
+	limits []referenceframe.Limit,
+) (KinematicBase, error) {
 	geometries, err := b.Geometries(ctx)
 	if err != nil {
 		return nil, err
@@ -77,6 +83,13 @@ func WrapWithDifferentialDriveKinematics(
 		model:     model,
 		fs:        fs,
 	}, nil
+}
+
+type differentialDriveKinematics struct {
+	base.Base
+	localizer motion.Localizer
+	model     referenceframe.Model
+	fs        referenceframe.FrameSystem
 }
 
 func (ddk *differentialDriveKinematics) Kinematics() referenceframe.Frame {

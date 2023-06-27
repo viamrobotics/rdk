@@ -4,10 +4,8 @@ package motionplan
 
 import (
 	"context"
-	"math"
 	"math/rand"
 	"testing"
-	"fmt"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
@@ -15,7 +13,6 @@ import (
 
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/motionplan/tpspace"
 )
 
 const testTurnRad = 0.3
@@ -63,6 +60,8 @@ func TestPtgWithObstacle(t *testing.T) {
 		0,
 		geometries,
 	)
+	test.That(t, err, test.ShouldBeNil)
+
 	ctx := context.Background()
 
 	goalPos := spatialmath.NewPoseFromPoint(r3.Vector{X: 2000, Y: 0, Z: 0})

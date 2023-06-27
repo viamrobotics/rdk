@@ -218,7 +218,7 @@ func (ms *builtIn) MoveOnMap(
 	if !ok {
 		return false, fmt.Errorf("cannot move component of type %T because it is not a Base", component)
 	}
-	kb, err := kinematicbase.WrapWithDifferentialDriveKinematics(ctx, b, localizer, limits)
+	kb, err := kinematicbase.WrapWithKinematics(ctx, b, localizer, limits)
 	if err != nil {
 		return false, err
 	}
@@ -319,15 +319,7 @@ func (ms *builtIn) MoveOnGlobe(
 	if fake, ok := b.(*fake.Base); ok {
 		kb, err = kinematicbase.WrapWithFakeKinematics(ctx, fake, localizer, limits)
 	} else {
-		properties, err := b.Properties(ctx, nil)
-		if err != nil {
-			return false, err
-		}
-		if properties.TurningRadiusMeters == 0 {
-			kb, err = kinematicbase.WrapWithDifferentialDriveKinematics(ctx, b, localizer, limits)
-		} else {
-			kb, err = kinematicbase.WrapWithPTGKinematics(ctx, b)
-		}
+		kb, err = kinematicbase.WrapWithKinematics(ctx, b, localizer, limits)
 		if err != nil {
 			return false, err
 		}

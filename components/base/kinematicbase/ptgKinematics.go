@@ -7,16 +7,15 @@ import (
 	"errors"
 	"math"
 	"time"
-	//~ "fmt"
 
 	"github.com/golang/geo/r3"
 	"go.uber.org/multierr"
 	utils "go.viam.com/utils"
-	rdkutils "go.viam.com/rdk/utils"
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 // Define a default speed to target for the base in the case where one is not provided.
@@ -107,11 +106,9 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 			angVel,
 			nil,
 		)
-		
 		if err != nil {
 			return multierr.Combine(err, ptgk.Base.Stop(ctx, nil))
 		}
-		//~ fmt.Println("waiting", timestep, linVel, angVel)
 		utils.SelectContextOrWait(ctx, timestep)
 	}
 

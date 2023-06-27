@@ -137,7 +137,7 @@ func buildTestDDK(ctx context.Context, cfg resource.Config, logger golog.Logger)
 		return nil, err
 	}
 
-	kb, err := WrapWithDifferentialDriveKinematics(ctx, b, localizer, limits)
+	kb, err := wrapWithDifferentialDriveKinematics(ctx, b, localizer, limits)
 	if err != nil {
 		return nil, err
 	}

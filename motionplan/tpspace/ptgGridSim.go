@@ -26,7 +26,7 @@ type ptgGridSim struct {
 	maxTime float64 // secs of robot execution to simulate
 	diffT   float64 // discretize trajectory simulation to this time granularity
 	minDist float64 // Save traj points at this arc distance granularity
-	//~ turnRad float64 // robot turning radius
+	// ~ turnRad float64 // robot turning radius
 
 	simPTG PrecomputePTG
 
@@ -44,12 +44,12 @@ func NewPTGGridSim(simPTG PrecomputePTG, arcs uint, simDist float64) (PTG, error
 	}
 
 	ptg := &ptgGridSim{
-		refDist:   simDist,
-		alphaCnt:  arcs,
-		maxTime:   defaultMaxTime,
-		diffT:     defaultDiffT,
-		minDist:   defaultMinDist,
-		//~ turnRad:   turnRad,
+		refDist:  simDist,
+		alphaCnt: arcs,
+		maxTime:  defaultMaxTime,
+		diffT:    defaultDiffT,
+		minDist:  defaultMinDist,
+		// ~ turnRad:   turnRad,
 		searchRad: defaultSearchRadius,
 
 		trajNodeGrid: map[int]map[int][]*TrajNode{},
