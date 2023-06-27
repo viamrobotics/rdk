@@ -91,7 +91,7 @@ func (m *merged) Reconfigure(ctx context.Context, deps resource.Dependencies, co
 
 	firstGoodSensorWithProperties := func(
 		deps resource.Dependencies, names []string, logger golog.Logger,
-		mprops *movementsensor.Properties, propname string,
+		want *movementsensor.Properties, propname string,
 	) (movementsensor.MovementSensor, error) {
 		// check if the config names and dependencies have been passed at all
 		if len(names) == 0 || deps == nil {
@@ -111,33 +111,33 @@ func (m *merged) Reconfigure(ctx context.Context, deps resource.Dependencies, co
 				continue
 			}
 
-			// found check that the sensor matches the properties that  want
+			// check that the sensor matches the properties passed in
 			// if it doesn't, skip it and go on to the next sensor in the list
-			if mprops.OrientationSupported && !props.OrientationSupported {
+			if want.OrientationSupported && !props.OrientationSupported {
 				continue
 			}
 
-			if mprops.PositionSupported && !props.PositionSupported {
+			if want.PositionSupported && !props.PositionSupported {
 				continue
 			}
 
-			if mprops.CompassHeadingSupported && !props.CompassHeadingSupported {
+			if want.CompassHeadingSupported && !props.CompassHeadingSupported {
 				continue
 			}
 
-			if mprops.LinearVelocitySupported && !props.LinearVelocitySupported {
+			if want.LinearVelocitySupported && !props.LinearVelocitySupported {
 				continue
 			}
 
-			if mprops.AngularVelocitySupported && !props.AngularVelocitySupported {
+			if want.AngularVelocitySupported && !props.AngularVelocitySupported {
 				continue
 			}
 
-			if mprops.LinearAccelerationSupported && !props.LinearAccelerationSupported {
+			if want.LinearAccelerationSupported && !props.LinearAccelerationSupported {
 				continue
 			}
 
-			// we've found the sensor that does everythign we want
+			// we've found the sensor that reports everything we want
 			return ms, nil
 		}
 
