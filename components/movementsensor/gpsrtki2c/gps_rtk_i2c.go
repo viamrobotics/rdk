@@ -120,13 +120,11 @@ type RTKI2C struct {
 	lastposition movementsensor.LastPosition
 
 	Nmeamovementsensor gpsnmea.NmeaMovementSensor
-	InputProtocol      string
 	CorrectionWriter   io.ReadWriteCloser
 
-	Bus       board.I2C
-	Wbaud     int
-	Addr      byte // for i2c only
-	Writepath string
+	Bus   board.I2C
+	Wbaud int
+	Addr  byte // for i2c only
 }
 
 func newRTKI2C(
@@ -156,6 +154,7 @@ func newRTKI2C(
 		NtripPass:            newConf.NtripPass,
 		NtripMountpoint:      newConf.NtripMountpoint,
 		NtripConnectAttempts: newConf.NtripConnectAttempts,
+		NtripInputProtocol:   i2cStr,
 	}
 
 	nmeaConf := &gpsnmea.Config{
@@ -177,28 +176,27 @@ func newRTKI2C(
 		return nil, err
 	}
 
-	if g.InputProtocol == i2cStr {
-		g.Addr = byte(newConf.I2cAddr)
+	g.Addr = byte(newConf.I2cAddr)
 
-		b, err := board.FromDependencies(deps, newConf.Board)
-		if err != nil {
-			return nil, fmt.Errorf("gps init: failed to find board: %w", err)
-		}
-		localB, ok := b.(board.LocalBoard)
-		if !ok {
-			return nil, fmt.Errorf("board %s is not local", newConf.Board)
-		}
-
-		i2cbus, ok := localB.I2CByName(newConf.I2CBus)
-		if !ok {
-			return nil, fmt.Errorf("gps init: failed to find i2c bus %s", newConf.I2CBus)
-		}
-		g.Bus = i2cbus
+	b, err := board.FromDependencies(deps, newConf.Board)
+	if err != nil {
+		return nil, fmt.Errorf("gps init: failed to find board: %w", err)
 	}
+	localB, ok := b.(board.LocalBoard)
+	if !ok {
+		return nil, fmt.Errorf("board %s is not local", newConf.Board)
+	}
+
+	i2cbus, ok := localB.I2CByName(newConf.I2CBus)
+	if !ok {
+		return nil, fmt.Errorf("gps init: failed to find i2c bus %s", newConf.I2CBus)
+	}
+	g.Bus = i2cbus
 
 	if err := g.start(); err != nil {
 		return nil, err
 	}
+
 	return g, g.err.Get()
 }
 
@@ -206,15 +204,16 @@ func newRTKI2C(
 func (g *RTKI2C) start() error {
 	// TODO(RDK-1639): Test out what happens if we call this line and then the ReceiveAndWrite*
 	// correction data goes wrong. Could anything worse than uncorrected data occur?
+
 	if err := g.Nmeamovementsensor.Start(g.cancelCtx); err != nil {
 		g.lastposition.GetLastPosition()
 		return err
 	}
 
-	if g.InputProtocol == i2cStr {
-		g.activeBackgroundWorkers.Add(1)
-		utils.PanicCapturingGo(func() { g.receiveAndWriteI2C(g.cancelCtx) })
-	}
+	fmt.Println("initiating read write")
+
+	g.activeBackgroundWorkers.Add(1)
+	utils.PanicCapturingGo(func() { g.receiveAndWriteI2C(g.cancelCtx) })
 
 	return g.err.Get()
 }
@@ -238,24 +237,44 @@ func (g *RTKI2C) Connect(casterAddr, user, pwd string, maxAttempts int) error {
 
 // GetStream attempts to connect to ntrip streak until successful connection or timeout.
 func (g *RTKI2C) GetStream(mountPoint string, maxAttempts int) error {
-	for attempts := 0; attempts < maxAttempts; attempts++ {
-		rc, err := func() (io.ReadCloser, error) {
+
+	success := false
+	attempts := 0
+
+	var rc io.ReadCloser
+	var err error
+
+	g.logger.Debug("Getting NTRIP stream")
+
+	for !success && attempts < maxAttempts {
+		select {
+		case <-g.cancelCtx.Done():
+			return errors.New("Canceled")
+		default:
+		}
+
+		rc, err = func() (io.ReadCloser, error) {
 			g.ntripMu.Lock()
 			defer g.ntripMu.Unlock()
 			return g.ntripClient.Client.GetStream(mountPoint)
 		}()
-
 		if err == nil {
-			g.logger.Debug("Connected to stream")
-			g.ntripMu.Lock()
-			g.ntripClient.Stream = rc
-			g.ntripMu.Unlock()
-			return g.err.Get()
+			success = true
 		}
+		attempts++
 	}
 
-	errMsg := fmt.Sprintf("Can't connect to NTRIP stream after %d attempts", maxAttempts)
-	return errors.New(errMsg)
+	if err != nil {
+		g.logger.Errorf("Can't connect to NTRIP stream: %s", err)
+		return err
+	}
+
+	g.logger.Debug("Connected to stream")
+	g.ntripMu.Lock()
+	defer g.ntripMu.Unlock()
+
+	g.ntripClient.Stream = rc
+	return g.err.Get()
 }
 
 // receiveAndWriteI2C connects to NTRIP receiver and sends correction stream to the MovementSensor through I2C protocol.
@@ -281,6 +300,7 @@ func (g *RTKI2C) receiveAndWriteI2C(ctx context.Context) {
 		g.err.Set(err)
 		return
 	}
+
 	// Send GLL, RMC, VTG, GGA, GSA, and GSV sentences each 1000ms
 	baudcmd := fmt.Sprintf("PMTK251,%d", g.Wbaud)
 	cmd251 := movementsensor.AddChk([]byte(baudcmd))
@@ -291,12 +311,14 @@ func (g *RTKI2C) receiveAndWriteI2C(ctx context.Context) {
 	if err != nil {
 		g.logger.Debug("Failed to set baud rate")
 	}
+
 	err = handle.Write(ctx, cmd314)
 	if err != nil {
 		g.logger.Debug("failed to set NMEA output")
 		g.err.Set(err)
 		return
 	}
+
 	err = handle.Write(ctx, cmd220)
 	if err != nil {
 		g.logger.Debug("failed to set NMEA update rate")
@@ -316,10 +338,12 @@ func (g *RTKI2C) receiveAndWriteI2C(ctx context.Context) {
 
 	buf := make([]byte, 1100)
 	n, err := g.ntripClient.Stream.Read(buf)
+
 	if err != nil {
 		g.err.Set(err)
 		return
 	}
+
 	wI2C := movementsensor.AddChk(buf[:n])
 
 	// port still open
@@ -601,5 +625,6 @@ func (g *RTKI2C) Close(ctx context.Context) error {
 	if err := g.err.Get(); err != nil && !errors.Is(err, context.Canceled) {
 		return err
 	}
+
 	return nil
 }
