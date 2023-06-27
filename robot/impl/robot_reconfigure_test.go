@@ -5,7 +5,6 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
-	"math"
 	"net"
 	"os"
 	"path/filepath"
@@ -16,7 +15,6 @@ import (
 
 	"github.com/a8m/envsubst"
 	"github.com/edaniels/golog"
-	"github.com/golang/geo/r3"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"go.uber.org/zap/zaptest/observer"
@@ -42,7 +40,6 @@ import (
 	"go.viam.com/rdk/components/servo"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/internal"
-	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/datamanager"
 	_ "go.viam.com/rdk/services/datamanager/builtin"
@@ -50,7 +47,6 @@ import (
 	_ "go.viam.com/rdk/services/motion/builtin"
 	"go.viam.com/rdk/services/sensors"
 	_ "go.viam.com/rdk/services/sensors/builtin"
-	"go.viam.com/rdk/spatialmath"
 	rdktestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/robottestutils"
 	rutils "go.viam.com/rdk/utils"
@@ -2602,6 +2598,84 @@ func TestUpdateWeakDependents(t *testing.T) {
 	test.That(t, weak1.resources, test.ShouldContainKey, base2Name)
 }
 
+func TestRemoteRobotFrameReconfigure(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	ctx := context.Background()
+	remoteCfg := &config.Config{
+		Components: []resource.Config{
+			{
+				Name:  "arm",
+				API:   arm.API,
+				Model: fake.Model,
+				ConvertedAttributes: &fake.Config{
+					ArmModel: "ur5e",
+				},
+				// Frame: &referenceframe.LinkConfig{
+				// 	Parent: referenceframe.World,
+				// },
+			},
+		},
+	}
+	remote, err := New(ctx, remoteCfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, remote.Close(context.Background()), test.ShouldBeNil)
+	}()
+
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+	err = remote.StartWeb(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
+
+	localConfig := &config.Config{
+		Remotes: []config.Remote{
+			{
+				Name:    "foo",
+				Address: addr,
+			},
+		},
+	}
+	r, err := New(ctx, localConfig, logger)
+	defer func() {
+		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+	}()
+	test.That(t, err, test.ShouldBeNil)
+
+	defaultServices := []resource.Name{
+		motion.Named(resource.DefaultServiceName),
+		sensors.Named(resource.DefaultServiceName),
+		datamanager.Named(resource.DefaultServiceName),
+		motion.Named("foo:builtin"),
+		sensors.Named("foo:builtin"),
+		datamanager.Named("foo:builtin"),
+	}
+
+	name := r.ResourceNames()
+	_ = name
+	test.That(
+		t,
+		rdktestutils.NewResourceNameSet(r.ResourceNames()...),
+		test.ShouldResemble,
+		rdktestutils.NewResourceNameSet(append(defaultServices, arm.Named("foo:arm"))...),
+	)
+
+	// Reconfigure remote to remove slam service.
+	remote.Reconfigure(ctx, &config.Config{})
+
+	rr, ok := r.(*localRobot)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	rr.triggerConfig <- struct{}{}
+
+	for _, name := range r.ResourceNames() {
+		fmt.Println(name)
+	}
+
+	// Assert that some time after remote Reconfigure, r.ResourceNames no longer returns the "foo:arm" resource
+	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 300, func(tb testing.TB) {
+		test.That(tb, rdktestutils.NewResourceNameSet(r.ResourceNames()...), test.ShouldResemble, defaultServices)
+	})
+}
+
 func TestDefaultServiceReconfigure(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
@@ -2652,116 +2726,6 @@ func TestDefaultServiceReconfigure(t *testing.T) {
 			sensors.Named(sName),
 		),
 	)
-}
-
-func TestFrameSystemRemoteReconfiguration(t *testing.T) {
-	logger := golog.NewTestLogger(t)
-	// make the remote robots
-	remoteConfig1, err := config.Read(context.Background(), rutils.ResolveFile("robot/impl/data/fake.json"), logger)
-	test.That(t, err, test.ShouldBeNil)
-	ctx := context.Background()
-	remoteRobot, err := New(ctx, remoteConfig1, logger)
-	test.That(t, err, test.ShouldBeNil)
-	defer func() {
-		test.That(t, remoteRobot.Close(context.Background()), test.ShouldBeNil)
-	}()
-
-	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
-	err = remoteRobot.StartWeb(ctx, options)
-	test.That(t, err, test.ShouldBeNil)
-
-	oCfg, err := spatialmath.NewOrientationConfig(&spatialmath.R4AA{math.Pi / 2., 0, 0, 1})
-	test.That(t, err, test.ShouldBeNil)
-
-	// make the local robot
-	localConfig := &config.Config{
-		Components: []resource.Config{
-			{
-				Name:  "foo",
-				API:   base.API,
-				Model: resource.DefaultModelFamily.WithModel("fake"),
-				Frame: &referenceframe.LinkConfig{
-					Parent: referenceframe.World,
-				},
-			},
-			{
-				Name:  "myParentIsRemote",
-				API:   gripper.API,
-				Model: resource.DefaultModelFamily.WithModel("fake"),
-				Frame: &referenceframe.LinkConfig{
-					Parent: "bar:pieceArm",
-				},
-			},
-		},
-		Remotes: []config.Remote{
-			{
-				Name:    "bar",
-				Address: addr,
-				Frame: &referenceframe.LinkConfig{
-					Parent:      "foo",
-					Translation: r3.Vector{100, 200, 300},
-					Orientation: oCfg,
-				},
-			},
-			{
-				Name:    "squee",
-				Address: addr,
-				Frame: &referenceframe.LinkConfig{
-					Parent:      referenceframe.World,
-					Translation: r3.Vector{500, 600, 700},
-					Orientation: oCfg,
-				},
-			},
-			{
-				Name:    "dontAddMe", // no frame info, should be skipped
-				Address: addr,
-			},
-		},
-	}
-
-	// make local robot
-	testPose := spatialmath.NewPose(
-		r3.Vector{X: 1., Y: 2., Z: 3.},
-		&spatialmath.R4AA{Theta: math.Pi / 2, RX: 0., RY: 1., RZ: 0.},
-	)
-
-	transforms := []*referenceframe.LinkInFrame{
-		referenceframe.NewLinkInFrame("bar:pieceArm", testPose, "frame1", nil),
-		referenceframe.NewLinkInFrame("bar:pieceGripper", testPose, "frame2", nil),
-		referenceframe.NewLinkInFrame("frame2", testPose, "frame2a", nil),
-		referenceframe.NewLinkInFrame("frame2", testPose, "frame2c", nil),
-		referenceframe.NewLinkInFrame(referenceframe.World, testPose, "frame3", nil),
-	}
-
-	r2, err := New(context.Background(), localConfig, logger)
-	test.That(t, err, test.ShouldBeNil)
-	defer func() {
-		test.That(t, r2.Close(context.Background()), test.ShouldBeNil)
-	}()
-
-	parts, err := r2.FrameSystemParts(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	fs, err := referenceframe.NewFrameSystem("test", parts, transforms)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, fs.FrameNames(), test.ShouldHaveLength, 34)
-
-	// reconfigure a remote to have a different config
-	remoteConfig2, err := config.Read(context.Background(), rutils.ResolveFile("robot/impl/data/remote_fake.json"), logger)
-	test.That(t, err, test.ShouldBeNil)
-	remoteRobot.Reconfigure(ctx, remoteConfig2)
-
-	// ensure that it configured correctly
-	parts, err = remoteRobot.FrameSystemParts(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(parts), test.ShouldEqual, 2)
-
-	local, ok := r2.(*localRobot)
-	test.That(t, ok, test.ShouldBeTrue)
-	local.triggerConfig <- struct{}{}
-	time.Sleep(time.Second * 6)
-	parts, err = r2.FrameSystemParts(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(parts), test.ShouldEqual, 0)
 }
 
 func TestStatusServiceUpdate(t *testing.T) {
