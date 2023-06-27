@@ -5,7 +5,7 @@ import { Map } from 'maplibre-gl';
 import { type LngLat } from '@/api/navigation';
 import { map } from '../stores';
 import { style } from '../style';
-import ThreeLayer from './layer-three.svelte';
+import ObstacleLayer from './obstacle-layer.svelte';
 import Waypoints from './waypoints.svelte';
 import RobotMarker from './robot-marker.svelte';
 
@@ -45,7 +45,7 @@ onMount(() => {
 {#if $map}
   <RobotMarker {name} />
   <Waypoints {name} map={$map} />
-  <ThreeLayer map={$map} />
+  <ObstacleLayer map={$map} />
 {/if}
 
 <style>
