@@ -20,6 +20,11 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+const (
+	defaultAngularVelocity = 60  // degrees per second
+	defaultLinearVelocity  = 300 // mm per second
+)
+
 func testConfig() resource.Config {
 	return resource.Config{
 		Name: "test",
@@ -44,12 +49,14 @@ func TestWrapWithDifferentialDriveKinematics(t *testing.T) {
 	testCases := []struct {
 		geoType spatialmath.GeometryType
 		success bool
+		linVel  float64
+		angVel  float64
 	}{
-		{spatialmath.SphereType, true},
-		{spatialmath.BoxType, true},
-		{spatialmath.CapsuleType, true},
-		{spatialmath.UnknownType, true},
-		{spatialmath.GeometryType("bad"), false},
+		{spatialmath.SphereType, true, 10.1, 20.2},
+		{spatialmath.BoxType, true, 1, 2},
+		{spatialmath.CapsuleType, true, 0, -10.5},
+		{spatialmath.UnknownType, true, -10.9, 0},
+		{spatialmath.GeometryType("bad"), false, 99.9, 88.8},
 	}
 
 	expectedSphere, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 10, "")
@@ -59,7 +66,7 @@ func TestWrapWithDifferentialDriveKinematics(t *testing.T) {
 		t.Run(string(tc.geoType), func(t *testing.T) {
 			testCfg := testConfig()
 			testCfg.Frame.Geometry.Type = tc.geoType
-			ddk, err := buildTestDDK(ctx, testCfg, logger)
+			ddk, err := buildTestDDK(ctx, testCfg, tc.linVel, tc.angVel, logger)
 			test.That(t, err == nil, test.ShouldEqual, tc.success)
 			if err != nil {
 				return
@@ -73,6 +80,8 @@ func TestWrapWithDifferentialDriveKinematics(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			equivalent := geometry.GeometryByName(testCfg.Name + ":" + testCfg.Frame.Geometry.Label).AlmostEqual(expectedSphere)
 			test.That(t, equivalent, test.ShouldBeTrue)
+			test.That(t, ddk.maxLinearVelocity, test.ShouldAlmostEqual, tc.linVel)
+			test.That(t, ddk.maxAngularVelocity, test.ShouldAlmostEqual, tc.angVel)
 		})
 	}
 }
@@ -80,7 +89,7 @@ func TestWrapWithDifferentialDriveKinematics(t *testing.T) {
 func TestCurrentInputs(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
-	ddk, err := buildTestDDK(ctx, testConfig(), logger)
+	ddk, err := buildTestDDK(ctx, testConfig(), defaultLinearVelocity, defaultAngularVelocity, logger)
 	test.That(t, err, test.ShouldBeNil)
 	for i := 0; i < 10; i++ {
 		_, err := ddk.CurrentInputs(ctx)
@@ -101,7 +110,7 @@ func TestErrorState(t *testing.T) {
 
 	// build base
 	logger := golog.NewTestLogger(t)
-	ddk, err := buildTestDDK(ctx, testConfig(), logger)
+	ddk, err := buildTestDDK(ctx, testConfig(), defaultLinearVelocity, defaultAngularVelocity, logger)
 	test.That(t, err, test.ShouldBeNil)
 	ddk.localizer = localizer
 
@@ -112,7 +121,7 @@ func TestErrorState(t *testing.T) {
 	test.That(t, headingErr, test.ShouldAlmostEqual, 30)
 }
 
-func buildTestDDK(ctx context.Context, cfg resource.Config, logger golog.Logger) (*differentialDriveKinematics, error) {
+func buildTestDDK(ctx context.Context, cfg resource.Config, linVel, angVel float64, logger golog.Logger) (*differentialDriveKinematics, error) {
 	// make fake base
 	b, err := fakebase.NewBase(ctx, resource.Dependencies{}, cfg, logger)
 	if err != nil {
@@ -137,7 +146,7 @@ func buildTestDDK(ctx context.Context, cfg resource.Config, logger golog.Logger)
 		return nil, err
 	}
 
-	kb, err := WrapWithDifferentialDriveKinematics(ctx, b, localizer, limits)
+	kb, err := WrapWithDifferentialDriveKinematics(ctx, b, localizer, limits, linVel, angVel)
 	if err != nil {
 		return nil, err
 	}
@@ -152,7 +161,7 @@ func buildTestDDK(ctx context.Context, cfg resource.Config, logger golog.Logger)
 func TestNewValidRegionCapsule(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
-	ddk, err := buildTestDDK(ctx, testConfig(), logger)
+	ddk, err := buildTestDDK(ctx, testConfig(), defaultLinearVelocity, defaultAngularVelocity, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	starting := referenceframe.FloatsToInputs([]float64{400, 0, 0})
