@@ -8,7 +8,6 @@ import (
 	"math"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 
 	"go.viam.com/rdk/components/base"
@@ -116,10 +115,7 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 		return err
 	}
 
-	logger := golog.NewDebugLogger("kinematics")
-
 	t := time.NewTimer(timeout)
-
 	positionChange := make(chan bool)
 	movementErr := make(chan error)
 
@@ -132,7 +128,6 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 			if prevDistErr != -1 &&
 				(math.Abs(float64(prevDistErr)-float64(distErr)) > distEpsilon ||
 					math.Abs(prevHeadingErr-headingErr) > headingEpsilon) {
-				logger.Warnf("POSITION CHANGED: prevDistErr %v, distErr %v, prevHeadingErr %v, headingErr %v", prevDistErr, distErr, prevHeadingErr, headingErr)
 				positionChange <- true
 			}
 

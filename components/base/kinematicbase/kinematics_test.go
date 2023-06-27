@@ -157,7 +157,9 @@ func TestNewValidRegionCapsule(t *testing.T) {
 
 	starting := referenceframe.FloatsToInputs([]float64{400, 0, 0})
 	desired := referenceframe.FloatsToInputs([]float64{0, 400, 0})
-	c, err := ddk.newValidRegionCapsule(starting, desired)
+	distErr, _, err := ddk.errorState(starting, desired)
+	test.That(t, err, test.ShouldBeNil)
+	c, err := ddk.newValidRegionCapsule(starting, desired, distErr)
 	test.That(t, err, test.ShouldBeNil)
 
 	col, err := c.CollidesWith(spatialmath.NewPoint(r3.Vector{-176, 576, 0}, ""))
