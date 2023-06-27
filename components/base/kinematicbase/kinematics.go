@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/golang/geo/r3"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/referenceframe"
@@ -121,7 +122,7 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 
 	// this loop polls the error state and issues a corresponding command to move the base to the objective
 	// when the base is within the positional threshold of the goal, exit the loop
-	go func() {
+	utils.PanicCapturingGo(func() {
 		prevDistErr := -1
 		prevHeadingErr := math.Inf(-1)
 		for err = ctx.Err(); err == nil; err = ctx.Err() {
@@ -146,6 +147,10 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 			prevDistErr = distErr
 			prevHeadingErr = headingErr
 			distErr, headingErr, err = ddk.errorState(current, []referenceframe.Input{desired[0], desired[1], {desiredHeading}})
+			if err != nil {
+				movementErr <- err
+				return
+			}
 			commanded, err := ddk.issueCommand(ctx, distErr, headingErr)
 			if err != nil {
 				movementErr <- err
@@ -155,6 +160,10 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 			if !commanded {
 				// no command to move to the x, y location was issued, correct the heading and then exit
 				distErr, headingErr, err = ddk.errorState(current, []referenceframe.Input{current[0], current[1], desired[2]})
+				if err != nil {
+					movementErr <- err
+					return
+				}
 				if commanded, err := ddk.issueCommand(ctx, distErr, headingErr); err == nil {
 					if !commanded {
 						movementErr <- nil
@@ -173,10 +182,9 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 			}
 		}
 		movementErr <- err
-		return
-	}()
+	})
 
-	go func() {
+	utils.PanicCapturingGo(func() {
 		for {
 			select {
 			case <-positionChange:
@@ -191,11 +199,9 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 				movementErr <- errors.New("movement timeout")
 			}
 		}
-	}()
-	select {
-	case err = <-movementErr: // waits on error value to be returned from either timer or movement code
-		return err
-	}
+	})
+	err = <-movementErr // waits on error value to be returned from either timer or movement code
+	return err
 }
 
 // issueCommand issues a relevant command to move the base to the given desired inputs and returns the boolean describing
@@ -280,7 +286,10 @@ func CollisionGeometry(cfg *referenceframe.LinkConfig) ([]spatialmath.Geometry, 
 // The valid region is all points that are deviationThreshold (mm) distance away from the line segment between the
 // starting and ending waypoints. This capsule is used to detect whether a base leaves this region and has thus deviated
 // too far from its path.
-func (ddk *differentialDriveKinematics) newValidRegionCapsule(starting, desired []referenceframe.Input, positionErr int) (spatialmath.Geometry, error) {
+func (ddk *differentialDriveKinematics) newValidRegionCapsule(starting,
+	desired []referenceframe.Input,
+	positionErr int,
+) (spatialmath.Geometry, error) {
 	pt := r3.Vector{X: (desired[0].Value + starting[0].Value) / 2, Y: (desired[1].Value + starting[1].Value) / 2}
 	desiredHeading := math.Atan2(starting[0].Value-desired[0].Value, starting[1].Value-desired[1].Value)
 
