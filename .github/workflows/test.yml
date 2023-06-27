@@ -82,9 +82,8 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v3
       with:
-        name: test.json
-        path: |
-         json.log
+        name: test-${{ matrix.arch }}.json
+        path: json.log
         retention-days: 30
 
     # Now that RDK is public, can't directly comment without token having full read/write access
