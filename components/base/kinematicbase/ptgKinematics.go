@@ -27,8 +27,8 @@ type ptgBaseKinematics struct {
 	fs    referenceframe.FrameSystem
 }
 
-// WrapWithPTGKinematics takes a Base component and adds a PTG kinematic model so that it can be controlled.
-func WrapWithPTGKinematics(
+// wrapWithPTGKinematics takes a Base component and adds a PTG kinematic model so that it can be controlled.
+func wrapWithPTGKinematics(
 	ctx context.Context,
 	b base.Base,
 ) (KinematicBase, error) {

@@ -48,7 +48,7 @@ func WrapWithKinematics(
 	if properties.TurningRadiusMeters == 0 {
 		return wrapWithDifferentialDriveKinematics(ctx, b, localizer, limits)
 	}
-	return WrapWithPTGKinematics(ctx, b)
+	return wrapWithPTGKinematics(ctx, b)
 }
 
 // wrapWithDifferentialDriveKinematics takes a wheeledBase component and adds a slam service to it
