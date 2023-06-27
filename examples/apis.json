@@ -1,38 +1,68 @@
 {
-    "functions": {
-        "base": "IsMoving",
-        "board": "GPIOPinByName",
-        "camera": "Properties",
-        "encoder": "Properties", 
-        "motor": "IsMoving",
-        "sensor": "Readings",
-        "servo": "Position",
-        "arm": "EndPosition",
-        "audio": "MediaProperties",
-        "gantry": "Lengths",
-        "gripper": "IsMoving",
-        "input_controller": "Controls",
-        "movement_sensor": "LinearAcceleration",
-        "pose_tracker": "Poses",
-        "motion": "GetPose",
-        "vision": "DetectorNames"
-    },
-    "args": {
-        "base": "context.Background()",
-        "board": "\"16\"",
-        "camera": "context.Background()",
-        "encoder": "context.Background(), map[string]interface{}{}",
-        "motor": "context.Background()",
-        "sensor": "context.Background(), map[string]interface{}{}",
-        "servo": "context.Background(), map[string]interface{}{}",
-        "arm": "context.Background(), map[string]interface{}{}",
-        "audio": "MediaProperties",
-        "gantry": "context.Background(), map[string]interface{}{}",
-        "gripper": "context.Background()",
-        "input_controller": "context.Background(), map[string]interface{}{}",
-        "movement_sensor": "context.Background(), map[string]interface{}{}",
-        "pose_tracker": "",
-        "motion": "",
-        "vision": "context.Background(), map[string]interface{}{}"
-    }
+  "base": {
+    "func": "IsMoving",
+    "args": ["context.Background()"]
+  },
+  "board": {
+    "func": "GPIOPinByName",
+    "args": ["\"16\""],
+    "comment": "Note that the pin supplied is a placeholder. Please change this to a valid pin."
+  },
+  "camera": {
+    "func": "Properties",
+    "args": ["context.Background()"]
+  },
+  "encoder": {
+    "func": "Properties",
+    "args": ["context.Background()", "map[string]interface{}{}"]
+  },
+  "motor": {
+    "func": "IsMoving",
+    "args": ["context.Background()"]
+  },
+  "sensor": {
+    "func": "Readings",
+    "args": ["context.Background()", "map[string]interface{}{}"]
+  },
+  "servo": {
+    "func": "Position",
+    "args": ["context.Background()", "map[string]interface{}{}"]
+  },
+  "arm": {
+    "func": "EndPosition",
+    "args": ["context.Background()", "map[string]interface{}{}"]
+  },
+  "audio": {
+    "func": "MediaProperties",
+    "args": ["context.Background()"]
+  },
+  "gantry": {
+    "func": "Lengths",
+    "args": ["context.Background()", "map[string]interface{}{}"]
+  },
+  "gripper": {
+    "func": "IsMoving",
+    "args": ["context.Background()"]
+  },
+  "input_controller": {
+    "func": "Controls",
+    "args": ["context.Background()", "map[string]interface{}{}"]
+  },
+  "movement_sensor": {
+    "func": "LinearAcceleration",
+    "args": ["context.Background()", "map[string]interface{}{}"]
+  },
+  "pose_tracker": {
+    "func": "Poses",
+    "args": []
+  },
+  "motion": {
+    "func": "GetPose",
+    "args": []
+  },
+  "vision": {
+    "func": "ClassificationsFromCamera",
+    "args": ["context.Background()", "YOURCAMERANAME", "1", "map[string]interface{}{}"],
+    "comment": "Note that the Camera supplied is a placeholder. Please change this to a valid Camera."
+  }
 }

@@ -43,6 +43,12 @@ type Sensor interface {
 	Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error)
 }
 
+// FromDependencies is a helper for getting the named sensor from a collection of
+// dependencies.
+func FromDependencies(deps resource.Dependencies, name string) (Sensor, error) {
+	return resource.FromDependencies[Sensor](deps, Named(name))
+}
+
 // FromRobot is a helper for getting the named Sensor from the given Robot.
 func FromRobot(r robot.Robot, name string) (Sensor, error) {
 	return robot.ResourceFromRobot[Sensor](r, Named(name))

@@ -43,9 +43,9 @@ func init() {
 type TFLiteConfig struct {
 	resource.TriviallyValidateConfig
 	// this should come from the attributes of the tflite_cpu instance of the MLMS
-	ModelPath  string  `json:"model_path"`
-	NumThreads int     `json:"num_threads"`
-	LabelPath  *string `json:"label_path"`
+	ModelPath  string `json:"model_path"`
+	NumThreads int    `json:"num_threads"`
+	LabelPath  string `json:"label_path"`
 }
 
 // Walk implements the Walker interface and correctly replaces model and label paths.
@@ -60,7 +60,7 @@ func (cfg *TFLiteConfig) Walk(visitor utils.Visitor) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	cfg.LabelPath = labelPath.(*string)
+	cfg.LabelPath = labelPath.(string)
 
 	return cfg, nil
 }
@@ -225,8 +225,8 @@ func (m *Model) Metadata(ctx context.Context) (mlmodel.MLMetadata, error) {
 		outputT := md.SubgraphMetadata[0].OutputTensorMetadata[i]
 		td := getTensorInfo(outputT)
 		td.DataType = strings.ToLower(m.model.Info.OutputTensorTypes[i]) // grab from model info, not metadata
-		if i == 0 && m.conf.LabelPath != nil {
-			td.Extra = map[string]interface{}{"labels": *m.conf.LabelPath}
+		if i == 0 && m.conf.LabelPath != "" {
+			td.Extra = map[string]interface{}{"labels": m.conf.LabelPath}
 		}
 		outputList = append(outputList, td)
 	}
@@ -298,8 +298,8 @@ func (m *Model) blindFillMetadata() mlmodel.MLMetadata {
 	for i := 0; i < numOut; i++ {
 		var td mlmodel.TensorInfo
 		td.DataType = strings.ToLower(m.model.Info.OutputTensorTypes[i])
-		if i == 0 && m.conf.LabelPath != nil {
-			td.Extra = map[string]interface{}{"labels": *m.conf.LabelPath}
+		if i == 0 && m.conf.LabelPath != "" {
+			td.Extra = map[string]interface{}{"labels": m.conf.LabelPath}
 		}
 		outputList = append(outputList, td)
 	}
