@@ -207,8 +207,6 @@ func (g *RTKI2C) start() error {
 		return err
 	}
 
-	fmt.Println("initiating read write")
-
 	g.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() { g.receiveAndWriteI2C(g.cancelCtx) })
 
@@ -234,7 +232,6 @@ func (g *RTKI2C) Connect(casterAddr, user, pwd string, maxAttempts int) error {
 
 // GetStream attempts to connect to ntrip streak until successful connection or timeout.
 func (g *RTKI2C) GetStream(mountPoint string, maxAttempts int) error {
-
 	success := false
 	attempts := 0
 
@@ -335,7 +332,6 @@ func (g *RTKI2C) receiveAndWriteI2C(ctx context.Context) {
 
 	buf := make([]byte, 1100)
 	n, err := g.ntripClient.Stream.Read(buf)
-
 	if err != nil {
 		g.err.Set(err)
 		return
