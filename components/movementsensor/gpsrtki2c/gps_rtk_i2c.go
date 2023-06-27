@@ -63,7 +63,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 		return nil, err
 	}
 
-	if cfg.NtripInputProtocol != ntripStr {
+	if cfg.NtripInputProtocol != i2cStr {
 		return nil, errInputProtocolValidation
 	}
 
