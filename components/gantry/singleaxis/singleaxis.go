@@ -479,7 +479,7 @@ func (g *singleAxis) MoveToPosition(ctx context.Context, positions, speeds []flo
 		return fmt.Errorf("single-axis MoveToPosition needs 1 position to move, got: %v", len(positions))
 	}
 
-	if len(speeds) != 1 {
+	if len(speeds) > 1 {
 		return fmt.Errorf("single-axis MoveToPosition needs 1 speed to move, got: %v", len(speeds))
 	}
 
@@ -487,16 +487,14 @@ func (g *singleAxis) MoveToPosition(ctx context.Context, positions, speeds []flo
 		return fmt.Errorf("out of range (%.2f) min: 0 max: %.2f", positions[0], g.lengthMm)
 	}
 
-	switch s := speeds[0]; {
-	case s < 0:
-		speeds[0] = g.rpm
-		g.logger.Debug("single-axis received zero or negative speed, using default gantry rpm")
-		speeds[0] = g.rpm
-	case rdkutils.Float64AlmostEqual(math.Abs(s), 0.0, 0.1):
+	if len(speeds) == 0 {
+		speeds = append(speeds, g.rpm)
+		g.logger.Debug("single-axis received invalid speed, using default gantry speed")
+	} else if rdkutils.Float64AlmostEqual(math.Abs(speeds[0]), 0.0, 0.1) {
 		if err := g.motor.Stop(ctx, nil); err != nil {
 			return err
 		}
-		return fmt.Errorf("speed (%.2f) is too slow, stopping gantry", s)
+		return fmt.Errorf("speed (%.2f) is too slow, stopping gantry", speeds[0])
 	}
 
 	x := g.gantryToMotorPosition(positions[0])
