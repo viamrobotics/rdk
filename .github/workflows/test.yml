@@ -82,7 +82,7 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v3
       with:
-        name: test-${{ matrix.arch }}.json
+        name: test-${{ matrix.platform }}.json
         path: json.log
         retention-days: 30
 
