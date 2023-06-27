@@ -310,6 +310,64 @@ func TestMoveOnMap(t *testing.T) {
 	})
 }
 
+func TestMoveOnMapTimeout(t *testing.T) {
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+	cfg, err := config.Read(ctx, "../data/real_wheeled_base.json", logger)
+	test.That(t, err, test.ShouldBeNil)
+	myRobot, err := robotimpl.New(ctx, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer myRobot.Close(ctx)
+
+	injectSlam := inject.NewSLAMService("test_slam")
+	const chunkSizeBytes = 1 * 1024 * 1024
+
+	injectSlam.GetPointCloudMapFunc = func(ctx context.Context) (func() ([]byte, error), error) {
+		path := filepath.Clean(artifact.MustPath("pointcloud/octagonspace.pcd"))
+		file, err := os.Open(path)
+		if err != nil {
+			return nil, err
+		}
+		chunk := make([]byte, chunkSizeBytes)
+		f := func() ([]byte, error) {
+			bytesRead, err := file.Read(chunk)
+			if err != nil {
+				defer utils.UncheckedErrorFunc(file.Close)
+				return nil, err
+			}
+			return chunk[:bytesRead], err
+		}
+		return f, nil
+	}
+
+	injectSlam.GetPositionFunc = func(ctx context.Context) (spatialmath.Pose, string, error) {
+		return spatialmath.NewZeroPose(), "", nil
+	}
+
+	realBase, err := base.FromRobot(myRobot, "test_base")
+	test.That(t, err, test.ShouldBeNil)
+
+	ms, err := NewBuiltIn(
+		ctx,
+		resource.Dependencies{injectSlam.Name(): injectSlam, realBase.Name(): realBase},
+		resource.Config{
+			ConvertedAttributes: &Config{},
+		},
+		logger,
+	)
+
+	easyGoal := spatialmath.NewPoseFromPoint(r3.Vector{X: 0.277 * 1000, Y: 0.593 * 1000})
+	success, err := ms.MoveOnMap(
+		context.Background(),
+		base.Named("test_base"),
+		easyGoal,
+		slam.Named("test_slam"),
+		nil,
+	)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, success, test.ShouldBeFalse)
+}
+
 func TestMoveOnGlobe(t *testing.T) {
 	ms, closeFn := setupMotionServiceFromConfig(t, "../data/gps_base.json")
 	defer closeFn()

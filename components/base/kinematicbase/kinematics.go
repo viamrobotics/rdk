@@ -6,7 +6,9 @@ import (
 	"context"
 	"errors"
 	"math"
+	"time"
 
+	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 
 	"go.viam.com/rdk/components/base"
@@ -21,6 +23,9 @@ const (
 	defaultAngularVelocity  = 60    // degrees per second
 	defaultLinearVelocity   = 300   // mm per second
 	deviationThreshold      = 300.0 // mm
+	timeout                 = time.Second * 10
+	distEpsilon             = 20 // mm
+	headingEpsilon          = 15 // degrees
 )
 
 // KinematicBase is an interface for Bases that also satisfy the ModelFramer and InputEnabled interfaces.
@@ -102,56 +107,106 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 	if err != nil {
 		return err
 	}
-	validRegion, err := ddk.newValidRegionCapsule(current, desired)
+	distErr, headingErr, err := ddk.errorState(current, desired)
+	if err != nil {
+		return err
+	}
+	validRegion, err := ddk.newValidRegionCapsule(current, desired, distErr)
 	if err != nil {
 		return err
 	}
 
+	logger := golog.NewDebugLogger("kinematics")
+
+	t := time.NewTimer(timeout)
+
+	positionChange := make(chan bool)
+	movementErr := make(chan error)
+
 	// this loop polls the error state and issues a corresponding command to move the base to the objective
 	// when the base is within the positional threshold of the goal, exit the loop
-	for err = ctx.Err(); err == nil; err = ctx.Err() {
-		col, err := validRegion.CollidesWith(spatialmath.NewPoint(r3.Vector{X: current[0].Value, Y: current[1].Value}, ""))
-		if err != nil {
-			return err
-		}
-		if !col {
-			return errors.New("base has deviated too far from path")
-		}
+	go func() {
+		prevDistErr := -1
+		prevHeadingErr := math.Inf(-1)
+		for err = ctx.Err(); err == nil; err = ctx.Err() {
+			if prevDistErr != -1 &&
+				(math.Abs(float64(prevDistErr)-float64(distErr)) > distEpsilon ||
+					math.Abs(prevHeadingErr-headingErr) > headingEpsilon) {
+				logger.Warnf("POSITION CHANGED: prevDistErr %v, distErr %v, prevHeadingErr %v, headingErr %v", prevDistErr, distErr, prevHeadingErr, headingErr)
+				positionChange <- true
+			}
 
-		// get to the x, y location first - note that from the base's perspective +y is forward
-		desiredHeading := math.Atan2(current[1].Value-desired[1].Value, current[0].Value-desired[0].Value)
-		commanded, err := ddk.issueCommand(ctx, current, []referenceframe.Input{desired[0], desired[1], {desiredHeading}})
-		if err != nil {
-			return err
-		}
+			col, err := validRegion.CollidesWith(spatialmath.NewPoint(r3.Vector{X: current[0].Value, Y: current[1].Value}, ""))
+			if err != nil {
+				movementErr <- err
+				return
+			}
+			if !col {
+				movementErr <- errors.New("base has deviated too far from path")
+				return
+			}
 
-		if !commanded {
-			// no command to move to the x, y location was issued, correct the heading and then exit
-			if commanded, err := ddk.issueCommand(ctx, current, []referenceframe.Input{current[0], current[1], desired[2]}); err == nil {
-				if !commanded {
-					return nil
+			// get to the x, y location first - note that from the base's perspective +y is forward
+			desiredHeading := math.Atan2(current[1].Value-desired[1].Value, current[0].Value-desired[0].Value)
+			prevDistErr = distErr
+			prevHeadingErr = headingErr
+			distErr, headingErr, err = ddk.errorState(current, []referenceframe.Input{desired[0], desired[1], {desiredHeading}})
+			commanded, err := ddk.issueCommand(ctx, distErr, headingErr)
+			if err != nil {
+				movementErr <- err
+				return
+			}
+
+			if !commanded {
+				// no command to move to the x, y location was issued, correct the heading and then exit
+				distErr, headingErr, err = ddk.errorState(current, []referenceframe.Input{current[0], current[1], desired[2]})
+				if commanded, err := ddk.issueCommand(ctx, distErr, headingErr); err == nil {
+					if !commanded {
+						movementErr <- nil
+						return
+					}
+				} else {
+					movementErr <- err
+					return
 				}
-			} else {
-				return err
+			}
+
+			current, err = ddk.CurrentInputs(ctx)
+			if err != nil {
+				movementErr <- err
+				return
 			}
 		}
+		movementErr <- err
+		return
+	}()
 
-		current, err = ddk.CurrentInputs(ctx)
-		if err != nil {
-			return err
+	go func() {
+		for {
+			select {
+			case <-positionChange:
+				// restart timer if a position change occurs before the timer expires
+				// have to stop timer and empty channel if there's anything in it before resetting
+				if !t.Stop() {
+					<-t.C
+				}
+				t.Reset(timeout)
+
+			case <-t.C: // timer expired before a position change occurred
+				movementErr <- errors.New("movement timeout")
+			}
 		}
+	}()
+	select {
+	case err = <-movementErr: // waits on error value to be returned from either timer or movement code
+		return err
 	}
-	return err
 }
 
 // issueCommand issues a relevant command to move the base to the given desired inputs and returns the boolean describing
 // if it issued a command successfully.  If it is already at the location it will not need to issue another command and can therefore
 // return a false.
-func (ddk *differentialDriveKinematics) issueCommand(ctx context.Context, current, desired []referenceframe.Input) (bool, error) {
-	distErr, headingErr, err := ddk.errorState(current, desired)
-	if err != nil {
-		return false, err
-	}
+func (ddk *differentialDriveKinematics) issueCommand(ctx context.Context, distErr int, headingErr float64) (bool, error) {
 	if distErr > distThresholdMM && math.Abs(headingErr) > headingThresholdDegrees {
 		// base is headed off course; spin to correct
 		return true, ddk.Spin(ctx, -headingErr, defaultAngularVelocity, nil)
@@ -230,13 +285,8 @@ func CollisionGeometry(cfg *referenceframe.LinkConfig) ([]spatialmath.Geometry, 
 // The valid region is all points that are deviationThreshold (mm) distance away from the line segment between the
 // starting and ending waypoints. This capsule is used to detect whether a base leaves this region and has thus deviated
 // too far from its path.
-func (ddk *differentialDriveKinematics) newValidRegionCapsule(starting, desired []referenceframe.Input) (spatialmath.Geometry, error) {
+func (ddk *differentialDriveKinematics) newValidRegionCapsule(starting, desired []referenceframe.Input, positionErr int) (spatialmath.Geometry, error) {
 	pt := r3.Vector{X: (desired[0].Value + starting[0].Value) / 2, Y: (desired[1].Value + starting[1].Value) / 2}
-	positionErr, _, err := ddk.errorState(starting, desired)
-	if err != nil {
-		return nil, err
-	}
-
 	desiredHeading := math.Atan2(starting[0].Value-desired[0].Value, starting[1].Value-desired[1].Value)
 
 	// rotate such that y is forward direction to match the frame for movement of a base
