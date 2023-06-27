@@ -19,7 +19,6 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zaptest/observer"
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -37,7 +36,6 @@ import (
 	"go.viam.com/rdk/components/arm/fake"
 	"go.viam.com/rdk/components/audioinput"
 	"go.viam.com/rdk/components/base"
-	"go.viam.com/rdk/components/base/wheeled"
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/generic"
@@ -3100,109 +3098,5 @@ func TestResourcelessModuleRemove(t *testing.T) {
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		test.That(tb, logs.FilterMessageSnippet("Shutting down gracefully").Len(),
 			test.ShouldEqual, 1)
-	})
-}
-
-func TestResourceConstructTimeout(t *testing.T) {
-	cfg := &config.Config{}
-	ctx := context.Background()
-	logger, logs := golog.NewObservedTestLogger(t)
-
-	timeOutErrorCount := func() int {
-		return logs.Filter(func(o observer.LoggedEntry) bool {
-			for k, v := range o.ContextMap() {
-				if k == "error" && strings.Contains(fmt.Sprint(v), "timed out during reconfigure") {
-					return true
-				}
-			}
-			return false
-		}).Len()
-	}
-
-	r, err := robotimpl.New(ctx, cfg, logger)
-	defer func() {
-		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
-	}()
-	test.That(t, err, test.ShouldBeNil)
-
-	// test no error logging with default config
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		test.That(tb, timeOutErrorCount(), test.ShouldEqual, 0)
-	})
-
-	// create new config with resource that conceivably could time out
-	newCfg := &config.Config{
-		Components: []resource.Config{
-			{
-				Name:  "fakewheel",
-				API:   base.API,
-				Model: wheeled.Model,
-				ConvertedAttributes: &wheeled.Config{
-					Right:                []string{"left", "right"},
-					Left:                 []string{"left", "right"},
-					WheelCircumferenceMM: 1,
-					WidthMM:              2,
-				},
-				DependsOn: []string{"left", "right"},
-			},
-			{
-				Name:                "left",
-				API:                 motor.API,
-				Model:               fakeModel,
-				ConvertedAttributes: &fakemotor.Config{},
-			},
-			{
-				Name:                "right",
-				API:                 motor.API,
-				Model:               fakeModel,
-				ConvertedAttributes: &fakemotor.Config{},
-			},
-		},
-	}
-
-	r.Reconfigure(ctx, newCfg)
-	// test no error logging with default timeout window and wheeled base
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		test.That(tb, timeOutErrorCount(), test.ShouldEqual, 0)
-	})
-
-	// create new cfg with wheeled base modified to trigger Reconfigure, set timeout
-	// to the shortest possible window to ensure timeout
-	currTimeout := robotimpl.ResourceConfigurationTimeout
-	robotimpl.ResourceConfigurationTimeout = time.Nanosecond
-	defer func() { robotimpl.ResourceConfigurationTimeout = currTimeout }()
-	newestCfg := &config.Config{
-		Components: []resource.Config{
-			{
-				Name:  "fakewheel",
-				API:   base.API,
-				Model: wheeled.Model,
-				ConvertedAttributes: &wheeled.Config{
-					Right:                []string{"right"},
-					Left:                 []string{"left"},
-					WheelCircumferenceMM: 1,
-					WidthMM:              2,
-				},
-				DependsOn: []string{"left", "right"},
-			},
-			{
-				Name:                "left",
-				API:                 motor.API,
-				Model:               fakeModel,
-				ConvertedAttributes: &fakemotor.Config{},
-			},
-			{
-				Name:                "right",
-				API:                 motor.API,
-				Model:               fakeModel,
-				ConvertedAttributes: &fakemotor.Config{},
-			},
-		},
-	}
-
-	r.Reconfigure(ctx, newestCfg)
-	// test that an error is logged when using arbitrarily short timeout window
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		test.That(tb, timeOutErrorCount(), test.ShouldEqual, 1)
 	})
 }

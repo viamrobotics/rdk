@@ -6,6 +6,7 @@ package robotimpl
 
 import (
 	"context"
+	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -39,9 +40,7 @@ import (
 
 var _ = robot.LocalRobot(&localRobot{})
 
-// ResourceConfigurationTimeout sets how long a constructor or reconfigure call should
-// wait before timing out.
-var ResourceConfigurationTimeout = time.Minute
+var resourceConfigurationTimeout = time.Minute
 
 // localRobot satisfies robot.LocalRobot and defers most
 // logic to its manager.
@@ -654,6 +653,18 @@ func (r *localRobot) newResource(
 	return resInfo.DeprecatedRobotConstructor(ctx, r, conf, resLogger)
 }
 
+func (r *localRobot) getTimeout() time.Duration {
+	if newTimeout := os.Getenv("VIAM_RESOURCE_CONFIGURATION_TIMEOUT"); newTimeout != "" {
+		timeOut, err := time.ParseDuration(newTimeout)
+		if err != nil {
+			r.logger.Warn("Failed to parse VIAM_RESOURCE_CONFIGURATION_TIMEOUT env var, falling back to default 1 minute timeout")
+			return resourceConfigurationTimeout
+		}
+		return timeOut
+	}
+	return resourceConfigurationTimeout
+}
+
 func (r *localRobot) updateWeakDependents(ctx context.Context) {
 	// track that we are current in resources up to the latest update time. This will
 	// be used to determine if this method should be called while completing a config.
@@ -682,6 +693,7 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 		}
 	}
 
+	timeout := r.getTimeout()
 	// NOTE(erd): this is intentionally hard coded since these services are treated specially with
 	// how they request dependencies or consume the robot's config. We should make an effort to
 	// formalize these as servcices that while internal, obey the reconfigure lifecycle.
@@ -692,7 +704,7 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 		resChan := make(chan struct{}, 1)
 		resName := resName
 		res := res
-		ctxWithTimeout, timeoutCancel := context.WithTimeout(ctx, ResourceConfigurationTimeout)
+		ctxWithTimeout, timeoutCancel := context.WithTimeout(ctx, timeout)
 		defer timeoutCancel()
 		goutils.PanicCapturingGo(func() {
 			defer func() {
@@ -753,7 +765,7 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 	for _, conf := range append(cfg.Components, cfg.Services...) {
 		resChan := make(chan struct{}, 1)
 		conf := conf
-		ctxWithTimeout, timeoutCancel := context.WithTimeout(ctx, ResourceConfigurationTimeout)
+		ctxWithTimeout, timeoutCancel := context.WithTimeout(ctx, timeout)
 		defer timeoutCancel()
 		goutils.PanicCapturingGo(func() {
 			defer func() {

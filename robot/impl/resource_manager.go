@@ -528,10 +528,11 @@ func (manager *resourceManager) completeConfig(
 	}
 
 	resourceNames := manager.resources.ReverseTopologicalSort()
+	timeout := robot.getTimeout()
 	for _, resName := range resourceNames {
 		resChan := make(chan struct{}, 1)
 		resName := resName
-		ctxWithTimeout, timeoutCancel := context.WithTimeout(ctx, ResourceConfigurationTimeout)
+		ctxWithTimeout, timeoutCancel := context.WithTimeout(ctx, timeout)
 		defer timeoutCancel()
 		goutils.PanicCapturingGo(func() {
 			defer func() {
