@@ -487,6 +487,8 @@ func (g *singleAxis) MoveToPosition(ctx context.Context, positions, speeds []flo
 
 	switch s := speeds[0]; {
 	case s < 0:
+                speeds[0] = g.rpm
+                g.logger.Debug("single-axis received zero or negative speed, using default gantry rpm")
 		speeds[0] = g.rpm
 	case s == 0:
 		if err := g.motor.Stop(ctx, nil); err != nil {
