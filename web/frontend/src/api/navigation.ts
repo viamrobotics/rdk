@@ -43,7 +43,7 @@ export const setWaypoint = (lat: number, lng: number, name: string) => {
   });
 };
 
-const transformWaypoints = (list: navigationApi.Waypoint[]) => {
+const formatWaypoints = (list: navigationApi.Waypoint[]) => {
   return list.map((item) => {
     const location = item.getLocation();
     return {
@@ -62,7 +62,7 @@ export const getWaypoints = (name: string) => {
 
   return new Promise<Waypoint[]>((resolve, reject) => {
     get(client).navigationService.getWaypoints(req, new grpc.Metadata(), (error, response) =>
-      (error ? reject(error) : resolve(transformWaypoints(response?.getWaypointsList() ?? []))));
+      (error ? reject(error) : resolve(formatWaypoints(response?.getWaypointsList() ?? []))));
   });
 };
 
