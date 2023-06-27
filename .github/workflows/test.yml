@@ -20,10 +20,12 @@ jobs:
           - arch: [buildjet-8vcpu-ubuntu-2204]
             image: ghcr.io/viamrobotics/canon:amd64-cache
             platform: linux/amd64
+            platform_name: linux-amd64
             test_cmd: "make cover test-web"
           - arch: [buildjet-8vcpu-ubuntu-2204-arm]
             image: ghcr.io/viamrobotics/canon:arm64-cache
             platform: linux/arm64
+            platform_name: linux-arm64
             test_cmd: "make cover test-web"
     runs-on: ${{ matrix.arch }}
     container:
@@ -82,7 +84,7 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v3
       with:
-        name: test-${{ matrix.platform }}.json
+        name: test-${{ matrix.platform_name }}.json
         path: json.log
         retention-days: 30
 
