@@ -52,9 +52,9 @@ func init() {
 }
 
 const (
-	builtinOpLabel         = "motion-service"
-	defaultAngularVelocity = 60  // degrees per second
-	defaultLinearVelocity  = 300 // mm per second
+	builtinOpLabel                    = "motion-service"
+	defaultAngularVelocityDegsPerSec  = 60  // degrees per second; used for bases only
+	defaultLinearVelocityMillisPerSec = 300 // mm per second; used for bases only
 )
 
 // ErrNotImplemented is thrown when an unreleased function is called
@@ -436,7 +436,8 @@ func (ms *builtIn) planMoveOnMap(
 	if fake, ok := b.(*fake.Base); ok {
 		kb, err = kinematicbase.WrapWithFakeKinematics(ctx, fake, localizer, limits)
 	} else {
-		kb, err = kinematicbase.WrapWithDifferentialDriveKinematics(ctx, b, localizer, limits, defaultLinearVelocity, defaultAngularVelocity)
+		kb, err = kinematicbase.WrapWithDifferentialDriveKinematics(ctx, b, localizer, limits,
+			defaultLinearVelocityMillisPerSec, defaultAngularVelocityDegsPerSec)
 	}
 	if err != nil {
 		return nil, nil, err
