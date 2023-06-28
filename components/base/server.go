@@ -153,7 +153,7 @@ func (s *serviceServer) GetProperties(
 	return PropertiesToProtoResponse(features)
 }
 
-func (s *serviceServer) Geometries(ctx context.Context, req *commonpb.GetGeometriesRequest) (*commonpb.GetGeometriesResponse, error) {
+func (s *serviceServer) GetGeometries(ctx context.Context, req *commonpb.GetGeometriesRequest) (*commonpb.GetGeometriesResponse, error) {
 	res, err := s.coll.Resource(req.GetName())
 	if err != nil {
 		return nil, err

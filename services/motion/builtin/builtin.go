@@ -2,6 +2,7 @@
 package builtin
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -21,6 +22,7 @@ import (
 	"go.viam.com/rdk/internal"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/operation"
+	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/framesystem"
@@ -190,52 +192,10 @@ func (ms *builtIn) MoveOnMap(
 ) (bool, error) {
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
 
-	// get the SLAM Service from the slamName
-	localizer, ok := ms.localizers[slamName]
-	if !ok {
-		return false, resource.DependencyNotFoundError(slamName)
-	}
-	ms.logger.Warn("This feature is currently experimental and does not support obstacle avoidance with SLAM maps yet")
-
-	// assert localizer as a slam service and get map limits
-	slamSvc, ok := localizer.(slam.Service)
-	if !ok {
-		return false, fmt.Errorf("cannot assert localizer of type %T as slam service", localizer)
-	}
-
-	// gets the extents of the SLAM map
-	limits, err := slam.GetLimits(ctx, slamSvc)
-	if err != nil {
-		return false, err
-	}
-
-	// create a KinematicBase from the componentName
-	component, ok := ms.components[componentName]
-	if !ok {
-		return false, resource.DependencyNotFoundError(componentName)
-	}
-	b, ok := component.(base.Base)
-	if !ok {
-		return false, fmt.Errorf("cannot move component of type %T because it is not a Base", component)
-	}
-	kb, err := kinematicbase.WrapWithDifferentialDriveKinematics(ctx, b, localizer, limits)
-	if err != nil {
-		return false, err
-	}
-
-	// get current position
-	inputs, err := kb.CurrentInputs(ctx)
-	if err != nil {
-		return false, err
-	}
-	ms.logger.Debugf("base position: %v", inputs)
-
 	// make call to motionplan
-	dst := spatialmath.NewPoseFromPoint(destination.Point())
-	ms.logger.Debugf("goal position: %v", dst)
-	plan, err := motionplan.PlanFrameMotion(ctx, ms.logger, dst, kb.ModelFrame(), inputs, nil, extra)
+	plan, kb, err := ms.planMoveOnMap(ctx, componentName, destination, slamName, extra)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("error making plan for MoveOnMap: %v", err)
 	}
 
 	// execute the plan
@@ -454,4 +414,95 @@ func (ms *builtIn) GetPose(
 		destinationFrame,
 		supplementalTransforms,
 	)
+}
+
+// PlanMoveOnMap returns the plan for MoveOnMap to execute
+func (ms *builtIn) planMoveOnMap(
+	ctx context.Context,
+	componentName resource.Name,
+	destination spatialmath.Pose,
+	slamName resource.Name,
+	extra map[string]interface{},
+) ([][]referenceframe.Input, kinematicbase.KinematicBase, error) {
+	// get the SLAM Service from the slamName
+	localizer, ok := ms.localizers[slamName]
+	if !ok {
+		return nil, nil, resource.DependencyNotFoundError(slamName)
+	}
+
+	// assert localizer as a slam service and get map limits
+	slamSvc, ok := localizer.(slam.Service)
+	if !ok {
+		return nil, nil, fmt.Errorf("cannot assert localizer of type %T as slam service", localizer)
+	}
+
+	// gets the extents of the SLAM map
+	limits, err := slam.GetLimits(ctx, slamSvc)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// create a KinematicBase from the componentName
+	component, ok := ms.components[componentName]
+	if !ok {
+		return nil, nil, resource.DependencyNotFoundError(componentName)
+	}
+	b, ok := component.(base.Base)
+	if !ok {
+		return nil, nil, fmt.Errorf("cannot move component of type %T because it is not a Base", component)
+	}
+	var kb kinematicbase.KinematicBase
+	if fake, ok := b.(*fake.Base); ok {
+		kb, err = kinematicbase.WrapWithFakeKinematics(ctx, fake, localizer, limits)
+	} else {
+		kb, err = kinematicbase.WrapWithDifferentialDriveKinematics(ctx, b, localizer, limits)
+	}
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// get point cloud data in the form of bytes from pcd
+	pointCloudData, err := slam.GetPointCloudMapFull(ctx, slamSvc)
+	if err != nil {
+		return nil, nil, err
+	}
+	// store slam point cloud data  in the form of a recursive octree for collision checking
+	octree, err := pointcloud.ReadPCDToBasicOctree(bytes.NewReader(pointCloudData))
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if extra == nil {
+		extra = make(map[string]interface{})
+	}
+	extra["planning_alg"] = "rrtstar"
+
+	// get current position
+	inputs, err := kb.CurrentInputs(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	ms.logger.Debugf("base position: %v", inputs)
+
+	dst := referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewPoseFromPoint(destination.Point()))
+
+	f := kb.ModelFrame()
+	fs := referenceframe.NewEmptyFrameSystem("")
+	if err := fs.AddFrame(f, fs.World()); err != nil {
+		return nil, nil, err
+	}
+
+	worldState, err := referenceframe.NewWorldState([]*referenceframe.GeometriesInFrame{
+		referenceframe.NewGeometriesInFrame(referenceframe.World, []spatialmath.Geometry{octree}),
+	}, nil)
+
+	seedMap := map[string][]referenceframe.Input{f.Name(): inputs}
+
+	ms.logger.Debugf("goal position: %v", dst.Pose().Point())
+	solutionMap, err := motionplan.PlanMotion(ctx, ms.logger, dst, f, seedMap, fs, worldState, nil, extra)
+	if err != nil {
+		return nil, nil, err
+	}
+	plan, err := motionplan.FrameStepsFromRobotPath(f.Name(), solutionMap)
+	return plan, kb, err
 }
