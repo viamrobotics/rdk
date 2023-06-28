@@ -46,6 +46,8 @@ type mockDataServiceServer struct {
 func (mDServer *mockDataServiceServer) BinaryDataByIDs(ctx context.Context, req *datapb.BinaryDataByIDsRequest,
 ) (*datapb.BinaryDataByIDsResponse, error) {
 	// Parse request
+	// TODO(RSDK-3795): Update BinaryDataByIDs test to match newest API
+	//nolint: staticcheck
 	fileID := req.FileIds[0]
 
 	data, err := getCompressedBytesFromArtifact(fileID)
