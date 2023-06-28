@@ -261,15 +261,11 @@ func (m *merged) LinearAcceleration(ctx context.Context, extra map[string]interf
 }
 
 func mapWithSensorName(name string, accMap map[string]float32) map[string]float32 {
+	result := map[string]float32{}
 	for k, v := range accMap {
-		// if map key hasn't been appended, delete
-		delete(accMap, k)
-		// if map key has already been appended, delete
-		delete(accMap, name+"_"+k)
-		// append map with the senosr name and accuracy field
-		accMap[name+"_"+k] = v
+		result[name+"_"+k] = v
 	}
-	return accMap
+	return result
 }
 
 func (m *merged) Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32, error) {
