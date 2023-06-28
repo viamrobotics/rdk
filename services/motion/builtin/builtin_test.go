@@ -51,6 +51,24 @@ func setupMotionServiceFromConfig(t *testing.T, configFilename string) (motion.S
 	}
 }
 
+func getPointCloudMap(path string) (func() ([]byte, error), error) {
+	const chunkSizeBytes = 1 * 1024 * 1024
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	chunk := make([]byte, chunkSizeBytes)
+	f := func() ([]byte, error) {
+		bytesRead, err := file.Read(chunk)
+		if err != nil {
+			defer utils.UncheckedErrorFunc(file.Close)
+			return nil, err
+		}
+		return chunk[:bytesRead], err
+	}
+	return f, nil
+}
+
 func TestMoveFailures(t *testing.T) {
 	var err error
 	ms, teardown := setupMotionServiceFromConfig(t, "../data/arm_gantry.json")
@@ -230,20 +248,7 @@ func TestMoveOnMap(t *testing.T) {
 
 	injectSlam.GetPointCloudMapFunc = func(ctx context.Context) (func() ([]byte, error), error) {
 		path := filepath.Clean(artifact.MustPath("pointcloud/octagonspace.pcd"))
-		file, err := os.Open(path)
-		if err != nil {
-			return nil, err
-		}
-		chunk := make([]byte, chunkSizeBytes)
-		f := func() ([]byte, error) {
-			bytesRead, err := file.Read(chunk)
-			if err != nil {
-				defer utils.UncheckedErrorFunc(file.Close)
-				return nil, err
-			}
-			return chunk[:bytesRead], err
-		}
-		return f, nil
+		return getPointCloudMap(path)
 	}
 
 	cfg := resource.Config{
@@ -322,26 +327,11 @@ func TestMoveOnMapTimeout(t *testing.T) {
 	}()
 
 	injectSlam := inject.NewSLAMService("test_slam")
-	const chunkSizeBytes = 1 * 1024 * 1024
-
 	injectSlam.GetPointCloudMapFunc = func(ctx context.Context) (func() ([]byte, error), error) {
 		path := filepath.Clean(artifact.MustPath("pointcloud/octagonspace.pcd"))
-		file, err := os.Open(path)
-		if err != nil {
-			return nil, err
-		}
-		chunk := make([]byte, chunkSizeBytes)
-		f := func() ([]byte, error) {
-			bytesRead, err := file.Read(chunk)
-			if err != nil {
-				defer utils.UncheckedErrorFunc(file.Close)
-				return nil, err
-			}
-			return chunk[:bytesRead], err
-		}
-		return f, nil
-	}
+		return getPointCloudMap(path)
 
+	}
 	injectSlam.GetPositionFunc = func(ctx context.Context) (spatialmath.Pose, string, error) {
 		return spatialmath.NewZeroPose(), "", nil
 	}
