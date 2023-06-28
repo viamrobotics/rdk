@@ -766,19 +766,36 @@ func TestGoToInputs(t *testing.T) {
 	inputs := []referenceframe.Input{}
 	logger := golog.NewTestLogger(t)
 
-	fakegantry := &singleAxis{
-		board:           createFakeBoard(),
-		limitSwitchPins: []string{"1", "2"},
-		limitHigh:       true,
-		motor:           createFakeMotor(),
-		lengthMm:        1.0,
-		mmPerRevolution: 0.1,
-		rpm:             10,
-		positionLimits:  []float64{1, 2},
-		model:           nil,
-		logger:          logger,
+	fakecfg := resource.Config{
+		Name:  "fake",
+		Frame: fakeFrame,
+		ConvertedAttributes: &Config{
+			Motor:          motorName,
+			LengthMm:       1.0,
+			GantryMmPerSec: float64(300),
+		},
 	}
-	err := fakegantry.GoToInputs(ctx, inputs)
+	deps := createFakeDepsForTestNewSingleAxis(t)
+	fakegantry, err := newSingleAxis(ctx, deps, fakecfg, logger)
+
+	g := fakegantry.(*singleAxis)
+
+	g.board = createFakeBoard()
+	g.limitSwitchPins = []string{"1", "2"}
+	g.limitHigh = true
+	g.motor = createFakeMotor()
+	g.lengthMm = 1.0
+	g.mmPerRevolution = 0.1
+	g.rpm = 10
+	g.positionLimits = []float64{1, 2}
+	g.model = nil
+	g.logger = logger
+
+	err = fakegantry.GoToInputs(ctx, inputs)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "is homed")
+
+	g.positionRange = 10
+	err = fakegantry.GoToInputs(ctx, inputs)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "needs 1 position to move")
 
 	inputs = []referenceframe.Input{{Value: 1.0}, {Value: 2.0}}
