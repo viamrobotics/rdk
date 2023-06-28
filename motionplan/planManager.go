@@ -62,7 +62,7 @@ func newPlanManager(
 	if err != nil {
 		return nil, err
 	}
-	return &planManager{p, frame, fs, true}, nil
+	return &planManager{p, frame, fs, anyPTG}, nil
 }
 
 // PlanSingleWaypoint will solve the solver frame to one individual pose. If you have multiple waypoints to hit, call this multiple times.
