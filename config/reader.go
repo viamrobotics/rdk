@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"runtime"
 
@@ -50,6 +51,12 @@ func getAgentInfo() (*apppb.AgentInfo, error) {
 }
 
 var viamDotDir = filepath.Join(os.Getenv("HOME"), ".viam")
+
+var packagesDir = filepath.Join(viamDotDir, "packages")
+
+var mlModelsDir = filepath.Join(viamDotDir, "ml_models")
+
+var modulesDir = filepath.Join(viamDotDir, "modules")
 
 func getCloudCacheFilePath(id string) string {
 	return filepath.Join(viamDotDir, fmt.Sprintf("cached_cloud_config_%s.json", id))
@@ -317,6 +324,54 @@ func FromReader(
 	return fromReader(ctx, originalPath, r, logger, true)
 }
 
+// func GenerateDefaultPackagesDirectory(logger golog.Logger) error {
+// 	if err := os.MkdirAll(, 0o700); err != nil {
+// 		return nil, err
+// 	}
+
+// }
+
+func localNamedPath(packageName string) string {
+	return filepath.Join(packagesDir, packageName)
+}
+
+func RefPath(refPath string) string {
+	ref := GetPackageReference(refPath)
+	// If no reference just return original path.
+	if ref == nil {
+		return refPath
+	}
+
+	packagePath := localNamedPath(ref.Package)
+
+	return path.Join(packagePath, path.Clean(ref.PathInPackage))
+}
+
+func ReplacePathPlaceholders(logger golog.Logger, buf []byte) []byte {
+	// find all referances that have $ at the start
+	// we first have to generate the default packages directory so that we can then
+	// get the package root from the base path
+
+	// this works just for package.name syntax
+	output := packageReferenceAllRegex.ReplaceAllFunc(buf, func(b []byte) []byte {
+		matchedString := string(b)
+		matchedString = matchedString[1 : len(matchedString)-1]
+		packageRef := RefPath(matchedString)
+		logger.Info("\n\n\n package ref: ", packageRef)
+		return b
+	})
+	// output := packageReferenceAllRegex.ReplaceAll(buf, []byte(packagesDir))
+	// output = mlModelsReferenceRegex.ReplaceAll(output, []byte(mlModelsDir))
+	// output = modulesReferenceRegex.ReplaceAll(output, []byte(modulesDir))
+
+	// this will replace all the package names by default here
+	// this assumes that they will always be in these locations
+	// we can make this modular by matching on placholders, and then finding the root.
+	// if te
+
+	return output
+}
+
 // FromReader reads a config from the given reader and specifies
 // where, if applicable, the file the reader originated from.
 func fromReader(
@@ -327,9 +382,11 @@ func fromReader(
 	shouldReadFromCloud bool,
 ) (*Config, error) {
 	// First read and processes config from disk
+	logger.Info("Should be reading from the cloud", shouldReadFromCloud)
 	unprocessedConfig := Config{
 		ConfigFilePath: originalPath,
 	}
+
 	err := json.NewDecoder(r).Decode(&unprocessedConfig)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to decode Config from json")
@@ -510,6 +567,7 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger golog.Logge
 func getFromCloudOrCache(ctx context.Context, cloudCfg *Cloud, shouldReadFromCache bool, logger golog.Logger) (*Config, bool, error) {
 	var cached bool
 	cfg, errorShouldCheckCache, err := getFromCloudGRPC(ctx, cloudCfg, logger)
+
 	if err != nil {
 		if shouldReadFromCache && errorShouldCheckCache {
 			logger.Warnw("failed to read config from cloud, checking cache", "error", err)
@@ -556,10 +614,19 @@ func getFromCloudGRPC(ctx context.Context, cloudCfg *Cloud, logger golog.Logger)
 	}
 
 	cfg, err := FromProto(res.Config, logger)
+
 	if err != nil {
 		// Check cache?
 		return nil, shouldCheckCacheOnFailure, err
 	}
+
+	bytes, err := cfg.MarshalJSON()
+	if err != nil {
+		logger.Error("Cannot parse config from the cloud", err)
+		return cfg, false, nil
+	}
+
+	ReplacePathPlaceholders(logger, bytes)
 
 	return cfg, false, nil
 }

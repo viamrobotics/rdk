@@ -857,6 +857,9 @@ func ProcessConfig(in *Config, tlsCfg *TLSConfig) (*Config, error) {
 
 // Regex to match if a config is referencing a Package. Group is the package name.
 var packageReferenceRegex = regexp.MustCompile(`^\$\{packages\.([A-Za-z0-9_\/-]+)}(.*)`)
+var packageReferenceAllRegex = regexp.MustCompile(`\"\$\{packages\.([A-Za-z0-9_\/-]+)}([A-Za-z0-9\._\/-]+)\"`)
+var mlModelsReferenceRegex = regexp.MustCompile(`\$\{packages\.ml_models.([A-Za-z0-9_\/-]+)}`)
+var modulesReferenceRegex = regexp.MustCompile(`\$\{packages\.modules.([A-Za-z0-9_\/-]+)}`)
 
 // DefaultPackageVersionValue default value of the package version used when empty.
 const DefaultPackageVersionValue = "latest"
@@ -888,7 +891,7 @@ func (p *PackageConfig) Validate(path string) error {
 	return nil
 }
 
-// GetPackageReference a PackageReference if the given path has a Package reference eg. ${packages.some-package}/path.
+// ckageReference a PackageReference if the given path has a Package reference eg. ${packages.some-package}/path.
 // Returns nil if no package reference is found.
 func GetPackageReference(path string) *PackageReference {
 	// return early before regex match
@@ -910,6 +913,7 @@ func GetPackageReference(path string) *PackageReference {
 
 // PackageReference contains the deconstructed parts of a package reference in the config.
 // Eg: ${packages.some-package}/path/a/b/c -> {"some-package", "/path/a/b/c"}.
+// packages.ml-test/effdet0.tfflite-> package: ml_test and pathInPackage is effdet0.tfflite
 type PackageReference struct {
 	Package       string
 	PathInPackage string

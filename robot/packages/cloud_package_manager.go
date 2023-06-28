@@ -69,8 +69,19 @@ var InternalServiceName = resource.NewName(API, "builtin")
 // NewCloudManager creates a new manager with the given package service client and directory to sync to.
 func NewCloudManager(client pb.PackageServiceClient, packagesDir string, logger golog.Logger) (ManagerSyncer, error) {
 	packagesDataDir := filepath.Join(packagesDir, ".data")
-
+	mlModelsDir := filepath.Join(packagesDir, "ml_models")
+	modules := filepath.Join(packagesDir, "modules")
+	// packagesDir : ~/.viam/packages
 	if err := os.MkdirAll(packagesDir, 0o700); err != nil {
+		return nil, err
+	}
+
+	// package manager can still ensure that these
+	if err := os.MkdirAll(modules, 0o700); err != nil {
+		return nil, err
+	}
+
+	if err := os.MkdirAll(mlModelsDir, 0o700); err != nil {
 		return nil, err
 	}
 
@@ -104,7 +115,6 @@ func (m *cloudManager) PackagePath(name PackageName) (string, error) {
 
 func (m *cloudManager) RefPath(refPath string) (string, error) {
 	ref := config.GetPackageReference(refPath)
-
 	// If no reference just return original path.
 	if ref == nil {
 		return refPath, nil
@@ -137,6 +147,10 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 	defer m.mu.Unlock()
 
 	newManagedPackages := make(map[PackageName]*managedPackage, len(packages))
+	// if a package is cached between runs then this is what is populated in managedPackages
+	// we will probably want to keep this but we need to change the way that we look for packages given that we have
+	// the filepath from the root once the config is passed in
+	// we can probably just check for that exact package but we we will not longer have the same packageName
 
 	for idx, p := range packages {
 		select {

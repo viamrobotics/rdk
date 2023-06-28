@@ -281,6 +281,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 		out.FromCommand = true
 		out.AllowInsecureCreds = s.args.AllowInsecureCreds
 		out.UntrustedEnv = s.args.UntrustedEnv
+		// this is now copied and set in the GetLocalPackagesPath() function
 		out.PackagePath = path.Join(viamDotDir, "packages")
 		return out, nil
 	}

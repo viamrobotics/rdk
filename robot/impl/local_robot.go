@@ -1005,12 +1005,18 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	// TODO(RSDK-1849): Make this non-blocking so other resources that do not require packages can run before package sync finishes.
 	// TODO(RSDK-2710) this should really use Reconfigure for the package and should allow itself to check
 	// if anything has changed.
-	err := r.packageManager.Sync(ctx, newConfig.Packages)
-	if err != nil {
-		allErrs = multierr.Combine(allErrs, err)
-	}
 
-	err = r.replacePackageReferencesWithPaths(newConfig)
+	// At this point we have the new file paths in the actual bytes -- sync nees to look at that
+
+	// err := r.packageManager.Sync(ctx, newConfig.Packages)
+	// if err != nil {
+	// 	allErrs = multierr.Combine(allErrs, err)
+	// }
+
+	// at this point we have replaced the package paths with default values through a JSON Reader
+	// Sync is then going to try and download the packages into the correct name space
+
+	err := r.replacePackageReferencesWithPaths(newConfig)
 	if err != nil {
 		allErrs = multierr.Combine(allErrs, err)
 	}
