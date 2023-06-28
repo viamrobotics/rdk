@@ -287,9 +287,8 @@ func (m *merged) Accuracy(ctx context.Context, extra map[string]interface{}) (ma
 				m.ori.Name().ShortName() + errStrAccuracy: float32(math.NaN()),
 			}
 			errs = multierr.Combine(errs, err)
-		} else {
-			maps.Copy(accMap, mapWithSensorName(m.ori.Name().ShortName(), oriAcc))
 		}
+		maps.Copy(accMap, mapWithSensorName(m.ori.Name().ShortName(), oriAcc))
 	}
 
 	if m.pos != nil {
@@ -299,9 +298,8 @@ func (m *merged) Accuracy(ctx context.Context, extra map[string]interface{}) (ma
 				m.pos.Name().ShortName() + errStrAccuracy: float32(math.NaN()),
 			}
 			errs = multierr.Combine(errs, err)
-		} else {
-			maps.Copy(accMap, mapWithSensorName(m.pos.Name().ShortName(), posAcc))
 		}
+		maps.Copy(accMap, mapWithSensorName(m.pos.Name().ShortName(), posAcc))
 	}
 
 	if m.compass != nil {
