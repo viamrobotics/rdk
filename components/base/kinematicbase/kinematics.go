@@ -117,7 +117,7 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 	}
 
 	t := time.NewTimer(timeout)
-	positionChange := make(chan bool)
+	poseChange := make(chan bool)
 	movementErr := make(chan error)
 
 	// this loop polls the error state and issues a corresponding command to move the base to the objective
@@ -127,10 +127,8 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 		prevHeadingErr := math.Inf(-1)
 		var contextErr error
 		for contextErr = ctx.Err(); contextErr == nil; contextErr = ctx.Err() {
-			if prevDistErr != -1 &&
-				(math.Abs(float64(prevDistErr)-float64(distErr)) > distEpsilon ||
-					math.Abs(prevHeadingErr-headingErr) > headingEpsilon) {
-				positionChange <- true
+			if poseChanged(prevDistErr, prevHeadingErr, distErr, headingErr) {
+				poseChange <- true
 			}
 
 			col, err := validRegion.CollidesWith(spatialmath.NewPoint(r3.Vector{X: current[0].Value, Y: current[1].Value}, ""))
@@ -188,7 +186,7 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 	utils.PanicCapturingGo(func() {
 		for {
 			select {
-			case <-positionChange:
+			case <-poseChange:
 				// restart timer if a position change occurs before the timer expires
 				// have to stop timer and empty channel if there's anything in it before resetting
 				if !t.Stop() {
@@ -316,4 +314,10 @@ func (ddk *differentialDriveKinematics) newValidRegionCapsule(starting,
 	}
 
 	return capsule, nil
+}
+
+func poseChanged(prevDistErr int, prevHeadingErr float64, distErr int, headingErr float64) bool {
+	return prevDistErr != -1 &&
+		(math.Abs(float64(prevDistErr)-float64(distErr)) > distEpsilon ||
+			math.Abs(prevHeadingErr-headingErr) > headingEpsilon)
 }
