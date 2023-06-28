@@ -336,14 +336,14 @@ func (m *merged) Accuracy(ctx context.Context, extra map[string]interface{}) (ma
 	}
 
 	if m.linAcc != nil {
-		linAccAcc, err := m.linAcc.Accuracy(ctx, extra)
+		linaccAcc, err := m.linAcc.Accuracy(ctx, extra)
 		if err != nil {
-			linAccAcc = map[string]float32{
+			linaccAcc = map[string]float32{
 				m.linAcc.Name().ShortName() + errStrAccuracy: float32(math.NaN()),
 			}
 			errs = multierr.Combine(errs, err)
 		}
-		maps.Copy(accMap, mapWithSensorName(m.linAcc.Name().ShortName(), linAccAcc))
+		maps.Copy(accMap, mapWithSensorName(m.linAcc.Name().ShortName(), linaccAcc))
 	}
 
 	return accMap, errs
