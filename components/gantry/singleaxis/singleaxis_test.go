@@ -777,6 +777,7 @@ func TestGoToInputs(t *testing.T) {
 	}
 	deps := createFakeDepsForTestNewSingleAxis(t)
 	fakegantry, err := newSingleAxis(ctx, deps, fakecfg, logger)
+	test.That(t, err, test.ShouldBeNil)
 
 	g := fakegantry.(*singleAxis)
 
