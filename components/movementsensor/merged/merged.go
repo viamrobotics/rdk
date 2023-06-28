@@ -350,8 +350,8 @@ func (m *merged) Properties(ctx context.Context, extra map[string]interface{}) (
 	defer m.mu.Unlock()
 
 	return &movementsensor.Properties{
-		OrientationSupported:        m.ori != nil,
 		PositionSupported:           m.pos != nil,
+		OrientationSupported:        m.ori != nil,
 		CompassHeadingSupported:     m.compass != nil,
 		LinearVelocitySupported:     m.linVel != nil,
 		AngularVelocitySupported:    m.angVel != nil,
