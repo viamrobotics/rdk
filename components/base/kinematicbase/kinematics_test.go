@@ -21,8 +21,8 @@ import (
 )
 
 const (
-	defaultAngularVelocity = 60  // degrees per second
-	defaultLinearVelocity  = 300 // mm per second
+	defaultAngularVelocityDegsPerSec  = 60  // degrees per second
+	defaultLinearVelocityMillisPerSec = 300 // mm per second
 )
 
 func testConfig() resource.Config {
@@ -64,7 +64,7 @@ func TestWrapWithDifferentialDriveKinematics(t *testing.T) {
 		t.Run(string(tc.geoType), func(t *testing.T) {
 			testCfg := testConfig()
 			testCfg.Frame.Geometry.Type = tc.geoType
-			ddk, err := buildTestDDK(ctx, testCfg, defaultLinearVelocity, defaultAngularVelocity, logger)
+			ddk, err := buildTestDDK(ctx, testCfg, defaultLinearVelocityMillisPerSec, defaultAngularVelocityDegsPerSec, logger)
 			test.That(t, err == nil, test.ShouldEqual, tc.success)
 			if err != nil {
 				return
@@ -104,7 +104,8 @@ func TestWrapWithDifferentialDriveKinematics(t *testing.T) {
 func TestCurrentInputs(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
-	ddk, err := buildTestDDK(ctx, testConfig(), defaultLinearVelocity, defaultAngularVelocity, logger)
+	ddk, err := buildTestDDK(ctx, testConfig(),
+		defaultLinearVelocityMillisPerSec, defaultAngularVelocityDegsPerSec, logger)
 	test.That(t, err, test.ShouldBeNil)
 	for i := 0; i < 10; i++ {
 		_, err := ddk.CurrentInputs(ctx)
@@ -125,7 +126,8 @@ func TestErrorState(t *testing.T) {
 
 	// build base
 	logger := golog.NewTestLogger(t)
-	ddk, err := buildTestDDK(ctx, testConfig(), defaultLinearVelocity, defaultAngularVelocity, logger)
+	ddk, err := buildTestDDK(ctx, testConfig(),
+		defaultLinearVelocityMillisPerSec, defaultAngularVelocityDegsPerSec, logger)
 	test.That(t, err, test.ShouldBeNil)
 	ddk.localizer = localizer
 
@@ -181,7 +183,8 @@ func buildTestDDK(
 func TestNewValidRegionCapsule(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
-	ddk, err := buildTestDDK(ctx, testConfig(), defaultLinearVelocity, defaultAngularVelocity, logger)
+	ddk, err := buildTestDDK(ctx, testConfig(),
+		defaultLinearVelocityMillisPerSec, defaultAngularVelocityDegsPerSec, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	starting := referenceframe.FloatsToInputs([]float64{400, 0, 0})
