@@ -212,20 +212,32 @@ func (g *singleAxis) Reconfigure(ctx context.Context, deps resource.Dependencies
 	}
 
 	if needsToReHome {
-		homed, err := g.Home(ctx, nil)
-		if err != nil {
-			g.logger.Error(err)
-		}
-		if !homed {
-			g.logger.Error("homing was unsucesssful")
-		}
+		g.logger.Infof("single-axis gantry '%v' needs to re-home", g.Named.Name().ShortName())
+		g.positionRange = 0
+		g.positionLimits = []float64{0, 0}
 	}
-
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	g.cancelFunc = cancelFunc
 	g.checkHit(ctx)
 
 	return nil
+}
+
+func (g *singleAxis) Home(ctx context.Context, extra map[string]interface{}) (bool, error) {
+	if g.cancelFunc != nil {
+		g.cancelFunc()
+		g.activeBackgroundWorkers.Wait()
+	}
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	homed, err := g.doHome(ctx)
+	if err != nil {
+		return homed, err
+	}
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	g.cancelFunc = cancelFunc
+	g.checkHit(ctx)
+	return true, nil
 }
 
 func (g *singleAxis) checkHit(ctx context.Context) {
@@ -296,7 +308,7 @@ func (g *singleAxis) moveAway(ctx context.Context, pin int) error {
 }
 
 // Home runs the homing sequence of the gantry and returns true once completed.
-func (g *singleAxis) Home(ctx context.Context, extra map[string]interface{}) (bool, error) {
+func (g *singleAxis) doHome(ctx context.Context) (bool, error) {
 	np := len(g.limitSwitchPins)
 	ctx, done := g.opMgr.New(ctx)
 	defer done()
@@ -472,6 +484,9 @@ func (g *singleAxis) Lengths(ctx context.Context, extra map[string]interface{}) 
 
 // MoveToPosition moves along an axis using inputs in millimeters.
 func (g *singleAxis) MoveToPosition(ctx context.Context, positions, speeds []float64, extra map[string]interface{}) error {
+	if g.positionRange == 0 {
+		return errors.Errorf("cannot move to position until gantry '%v' is homed", g.Named.Name().ShortName())
+	}
 	ctx, done := g.opMgr.New(ctx)
 	defer done()
 
