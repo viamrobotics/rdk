@@ -49,14 +49,12 @@ func TestWrapWithDifferentialDriveKinematics(t *testing.T) {
 	testCases := []struct {
 		geoType spatialmath.GeometryType
 		success bool
-		linVel  float64
-		angVel  float64
 	}{
-		{spatialmath.SphereType, true, 10.1, 20.2},
-		{spatialmath.BoxType, true, 1, 2},
-		{spatialmath.CapsuleType, true, 0, -10.5},
-		{spatialmath.UnknownType, true, -10.9, 0},
-		{spatialmath.GeometryType("bad"), false, 99.9, 88.8},
+		{spatialmath.SphereType, true},
+		{spatialmath.BoxType, true},
+		{spatialmath.CapsuleType, true},
+		{spatialmath.UnknownType, true},
+		{spatialmath.GeometryType("bad"), false},
 	}
 
 	expectedSphere, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 10, "")
@@ -66,7 +64,7 @@ func TestWrapWithDifferentialDriveKinematics(t *testing.T) {
 		t.Run(string(tc.geoType), func(t *testing.T) {
 			testCfg := testConfig()
 			testCfg.Frame.Geometry.Type = tc.geoType
-			ddk, err := buildTestDDK(ctx, testCfg, tc.linVel, tc.angVel, logger)
+			ddk, err := buildTestDDK(ctx, testCfg, defaultLinearVelocity, defaultAngularVelocity, logger)
 			test.That(t, err == nil, test.ShouldEqual, tc.success)
 			if err != nil {
 				return
@@ -80,10 +78,27 @@ func TestWrapWithDifferentialDriveKinematics(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			equivalent := geometry.GeometryByName(testCfg.Name + ":" + testCfg.Frame.Geometry.Label).AlmostEqual(expectedSphere)
 			test.That(t, equivalent, test.ShouldBeTrue)
-			test.That(t, ddk.maxLinearVelocity, test.ShouldAlmostEqual, tc.linVel)
-			test.That(t, ddk.maxAngularVelocity, test.ShouldAlmostEqual, tc.angVel)
 		})
 	}
+
+	t.Run("Successful setting of velocities", func(t *testing.T) {
+		velocities := []struct {
+			linear  float64
+			angular float64
+		}{
+			{10.1, 20.2},
+			{0, -1.5},
+			{-1.9, 0},
+			{-1, 2},
+			{3, -4},
+		}
+		for _, vels := range velocities {
+			ddk, err := buildTestDDK(ctx, testConfig(), vels.linear, vels.angular, logger)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, ddk.maxLinearVelocity, test.ShouldAlmostEqual, vels.linear)
+			test.That(t, ddk.maxAngularVelocity, test.ShouldAlmostEqual, vels.angular)
+		}
+	})
 }
 
 func TestCurrentInputs(t *testing.T) {
