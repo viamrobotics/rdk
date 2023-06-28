@@ -18,7 +18,7 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-var (
+const (
 	defaultGoalCheck = 5  // Check if the goal is reachable every this many iterations
 	defaultAutoBB    = 1. // Automatic bounding box on driveable area as a multiple of start-goal distance
 	// Note: while fully holonomic planners can use the limits of the frame as implicit boundaries, with non-holonomic motion
@@ -36,6 +36,9 @@ var (
 
 	// Don't add new RRT tree nodes if there is an existing node within this distance.
 	defaultIdenticalNodeDistance = 5.
+
+	// Default distance in mm to get within for tp-space trajectories.
+	defaultTpspaceGoalDist = 10.
 )
 
 // newTPSpaceMotionPlanner creates a newTPSpaceMotionPlanner object with a user specified random seed.
@@ -53,6 +56,7 @@ func newTPSpaceMotionPlanner(
 		return nil, err
 	}
 
+	// either the passed in frame,
 	tpFrame, ok := mp.frame.(tpspace.PTGProvider)
 	if !ok {
 		return nil, fmt.Errorf("frame %v must be a PTGProvider", mp.frame)
@@ -88,11 +92,11 @@ func (mp *tpSpaceRRTMotionPlanner) plan(ctx context.Context,
 
 	seedPos := spatialmath.NewZeroPose()
 
-	startNode := &basicNode{nil, 0, seedPos}
+	startNode := &basicNode{make([]referenceframe.Input, len(mp.frame.DoF())), 0, seedPos}
 	goalNode := &basicNode{nil, 0, goal}
 
 	utils.PanicCapturingGo(func() {
-		mp.rrtBackgroundRunner(ctx, seed, &rrtParallelPlannerShared{
+		mp.planRunner(ctx, seed, &rrtParallelPlannerShared{
 			&rrtMaps{
 				startMap: map[node]node{startNode: nil},
 				goalMap:  map[node]node{goalNode: nil},
@@ -112,9 +116,9 @@ func (mp *tpSpaceRRTMotionPlanner) plan(ctx context.Context,
 	}
 }
 
-// rrtBackgroundRunner will execute the plan. Plan() will call rrtBackgroundRunner in a separate thread and wait for results.
-// Separating this allows other things to call rrtBackgroundRunner in parallel allowing the thread-agnostic Plan to be accessible.
-func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
+// planRunner will execute the plan. Plan() will call planRunner in a separate thread and wait for results.
+// Separating this allows other things to call planRunner in parallel allowing the thread-agnostic Plan to be accessible.
+func (mp *tpSpaceRRTMotionPlanner) planRunner(
 	ctx context.Context,
 	_ []referenceframe.Input, // TODO: this may be needed for smoothing
 	rrt *rrtParallelPlannerShared,

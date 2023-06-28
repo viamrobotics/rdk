@@ -21,6 +21,12 @@ import (
 // Define a default speed to target for the base in the case where one is not provided.
 const defaultBaseMps = 0.6
 
+const (
+	ptgIndex int = iota
+	trajectoryIndexWithinPTG
+	distanceAlongTrajectoryIndex
+)
+
 type ptgBaseKinematics struct {
 	base.Base
 	frame referenceframe.Frame
@@ -88,12 +94,12 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 		return errors.New("unable to cast ptgk frame to a PTG Provider")
 	}
 	ptgs := ptgProv.PTGs()
-	selectedPTG := ptgs[int(math.Round(inputs[0].Value))]
-	selectedTraj := selectedPTG.Trajectory(uint(math.Round(inputs[1].Value)))
+	selectedPTG := ptgs[int(math.Round(inputs[ptgIndex].Value))]
+	selectedTraj := selectedPTG.Trajectory(uint(math.Round(inputs[trajectoryIndexWithinPTG].Value)))
 
 	lastTime := 0.
 	for _, trajNode := range selectedTraj {
-		if trajNode.Dist > inputs[2].Value {
+		if trajNode.Dist > inputs[distanceAlongTrajectoryIndex].Value {
 			break
 		}
 		timestep := time.Duration(1e6*(trajNode.Time-lastTime)) * time.Microsecond

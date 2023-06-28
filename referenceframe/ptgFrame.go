@@ -58,7 +58,7 @@ func NewPTGFrameFromTurningRadius(name string, velocityMps, turnRadMeters, simDi
 
 	// This is meaningless but needs to be len > 0
 	pf.limits = []Limit{
-		{Min: 0, Max: float64(len(pf.ptgs))},
+		{Min: 0, Max: float64(len(pf.ptgs) - 1)},
 		{Min: 0, Max: float64(defaultAlphaCnt)},
 		{Min: 0},
 	}

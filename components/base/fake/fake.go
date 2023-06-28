@@ -29,8 +29,10 @@ const (
 type Base struct {
 	resource.Named
 	resource.TriviallyReconfigurable
-	CloseCount int
-	Geometry   []spatialmath.Geometry
+	CloseCount    int
+	WidthMeters   float64
+	TurningRadius float64
+	Geometry      []spatialmath.Geometry
 }
 
 // NewBase instantiates a new base of the fake model type.
@@ -46,6 +48,8 @@ func NewBase(_ context.Context, _ resource.Dependencies, conf resource.Config, _
 		}
 		b.Geometry = []spatialmath.Geometry{geometry}
 	}
+	b.WidthMeters = defaultWidthMm * 0.001
+	b.TurningRadius = defaultMinimumTurningRadiusM
 	return b, nil
 }
 
@@ -88,8 +92,8 @@ func (b *Base) Close(ctx context.Context) error {
 // Properties returns the base's properties.
 func (b *Base) Properties(ctx context.Context, extra map[string]interface{}) (base.Properties, error) {
 	return base.Properties{
-		TurningRadiusMeters: defaultMinimumTurningRadiusM,
-		WidthMeters:         defaultWidthMm * 0.001, // convert to meters
+		TurningRadiusMeters: b.TurningRadius,
+		WidthMeters:         b.WidthMeters, // convert to meters
 	}, nil
 }
 
