@@ -117,17 +117,21 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 	}
 
 	t := time.NewTimer(timeout)
-	poseChange := make(chan bool)
-	movementErr := make(chan error)
+	poseChange := make(chan bool, 1)
+	movementErr := make(chan error, 1)
+	defer close(poseChange)
+	defer close(movementErr)
 
 	// this loop polls the error state and issues a corresponding command to move the base to the objective
 	// when the base is within the positional threshold of the goal, exit the loop
 	utils.PanicCapturingGo(func() {
-		prevDistErr := -1
-		prevHeadingErr := math.Inf(-1)
-		var contextErr error
-		for contextErr = ctx.Err(); contextErr == nil; contextErr = ctx.Err() {
+		prevDistErr := distErr
+		prevHeadingErr := headingErr
+		for contextErr := ctx.Err(); contextErr == nil; contextErr = ctx.Err() {
+			utils.SelectContextOrWait(ctx, 100*time.Millisecond)
 			if poseChanged(prevDistErr, prevHeadingErr, distErr, headingErr) {
+				prevDistErr = distErr
+				prevHeadingErr = headingErr
 				poseChange <- true
 			}
 
@@ -143,8 +147,6 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 
 			// get to the x, y location first - note that from the base's perspective +y is forward
 			desiredHeading := math.Atan2(current[1].Value-desired[1].Value, current[0].Value-desired[0].Value)
-			prevDistErr = distErr
-			prevHeadingErr = headingErr
 			distErr, headingErr, err = ddk.errorState(current, []referenceframe.Input{desired[0], desired[1], {desiredHeading}})
 			if err != nil {
 				movementErr <- err
@@ -180,7 +182,7 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 				return
 			}
 		}
-		movementErr <- contextErr
+		movementErr <- ctx.Err()
 	})
 
 	utils.PanicCapturingGo(func() {
