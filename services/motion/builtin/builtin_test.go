@@ -317,7 +317,9 @@ func TestMoveOnMapTimeout(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	myRobot, err := robotimpl.New(ctx, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
-	defer myRobot.Close(ctx)
+	defer func() {
+		test.That(t, myRobot.Close(context.Background()), test.ShouldBeNil)
+	}()
 
 	injectSlam := inject.NewSLAMService("test_slam")
 	const chunkSizeBytes = 1 * 1024 * 1024
