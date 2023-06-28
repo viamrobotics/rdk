@@ -220,8 +220,8 @@ func (ms *builtIn) MoveOnGlobe(
 	heading float64,
 	movementSensorName resource.Name,
 	obstacles []*spatialmath.GeoObstacle,
-	linearVelocity float64,
-	angularVelocity float64,
+	linearVelocityMillisPerSec float64,
+	angularVelocityDegsPerSec float64,
 	extra map[string]interface{},
 ) (bool, error) {
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
@@ -283,7 +283,8 @@ func (ms *builtIn) MoveOnGlobe(
 	if fake, ok := b.(*fake.Base); ok {
 		kb, err = kinematicbase.WrapWithFakeKinematics(ctx, fake, localizer, limits)
 	} else {
-		kb, err = kinematicbase.WrapWithDifferentialDriveKinematics(ctx, b, localizer, limits, linearVelocity, angularVelocity)
+		kb, err = kinematicbase.WrapWithDifferentialDriveKinematics(ctx, b, localizer, limits,
+			linearVelocityMillisPerSec, angularVelocityDegsPerSec)
 	}
 	if err != nil {
 		return false, err
