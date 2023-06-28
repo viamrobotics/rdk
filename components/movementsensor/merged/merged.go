@@ -286,7 +286,6 @@ func (m *merged) Accuracy(ctx context.Context, extra map[string]interface{}) (ma
 			oriAcc = map[string]float32{
 				m.ori.Name().ShortName() + errStrAccuracy: float32(math.NaN()),
 			}
-			maps.Copy(accMap, oriAcc)
 			errs = multierr.Combine(errs, err)
 		} else {
 			maps.Copy(accMap, mapWithSensorName(m.ori.Name().ShortName(), oriAcc))
@@ -299,7 +298,6 @@ func (m *merged) Accuracy(ctx context.Context, extra map[string]interface{}) (ma
 			posAcc = map[string]float32{
 				m.pos.Name().ShortName() + errStrAccuracy: float32(math.NaN()),
 			}
-			maps.Copy(accMap, posAcc)
 			errs = multierr.Combine(errs, err)
 		} else {
 			maps.Copy(accMap, mapWithSensorName(m.pos.Name().ShortName(), posAcc))
