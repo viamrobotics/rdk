@@ -193,10 +193,6 @@ func (ms *builtIn) MoveOnMap(
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
 
 	// make call to motionplan
-	if extra == nil {
-		extra = make(map[string]interface{})
-	}
-	extra["motion_profile"] = "position_only"
 	plan, kb, err := ms.planMoveOnMap(ctx, componentName, destination, slamName, extra)
 	if err != nil {
 		return false, fmt.Errorf("error making plan for MoveOnMap: %v", err)
