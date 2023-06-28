@@ -215,9 +215,10 @@ func (svc *builtIn) SetMode(ctx context.Context, mode navigation.Mode, extra map
 			if err := svc.startWaypointExperimental(extra); err != nil {
 				return err
 			}
-		}
-		if err := svc.startWaypoint(extra); err != nil {
-			return err
+		} else {
+			if err := svc.startWaypoint(extra); err != nil {
+				return err
+			}
 		}
 		svc.mode = mode
 	}
