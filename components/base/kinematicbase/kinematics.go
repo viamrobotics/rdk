@@ -125,7 +125,8 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 	utils.PanicCapturingGo(func() {
 		prevDistErr := -1
 		prevHeadingErr := math.Inf(-1)
-		for err = ctx.Err(); err == nil; err = ctx.Err() {
+		var contextErr error
+		for contextErr = ctx.Err(); contextErr == nil; contextErr = ctx.Err() {
 			if prevDistErr != -1 &&
 				(math.Abs(float64(prevDistErr)-float64(distErr)) > distEpsilon ||
 					math.Abs(prevHeadingErr-headingErr) > headingEpsilon) {
@@ -181,7 +182,7 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 				return
 			}
 		}
-		movementErr <- err
+		movementErr <- contextErr
 	})
 
 	utils.PanicCapturingGo(func() {
