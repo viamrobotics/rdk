@@ -53,8 +53,8 @@ func init() {
 
 const (
 	builtinOpLabel                    = "motion-service"
-	defaultAngularVelocityDegsPerSec  = 60  // degrees per second; used for bases only
 	defaultLinearVelocityMillisPerSec = 300 // mm per second; used for bases only
+	defaultAngularVelocityDegsPerSec  = 60  // degrees per second; used for bases only
 )
 
 // ErrNotImplemented is thrown when an unreleased function is called

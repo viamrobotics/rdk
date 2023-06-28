@@ -95,8 +95,8 @@ func TestWrapWithDifferentialDriveKinematics(t *testing.T) {
 		for _, vels := range velocities {
 			ddk, err := buildTestDDK(ctx, testConfig(), vels.linear, vels.angular, logger)
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, ddk.maxLinearVelocity, test.ShouldAlmostEqual, vels.linear)
-			test.That(t, ddk.maxAngularVelocity, test.ShouldAlmostEqual, vels.angular)
+			test.That(t, ddk.maxLinearVelocityMillisPerSec, test.ShouldAlmostEqual, vels.linear)
+			test.That(t, ddk.maxAngularVelocityDegsPerSec, test.ShouldAlmostEqual, vels.angular)
 		}
 	})
 }
