@@ -43,11 +43,11 @@ func NewPTGGridSim(simPTG PrecomputePTG, arcs uint, simDist float64) (PTG, error
 	}
 
 	ptg := &ptgGridSim{
-		refDist:  simDist,
-		alphaCnt: arcs,
-		maxTime:  defaultMaxTime,
-		diffT:    defaultDiffT,
-		minDist:  defaultMinDist,
+		refDist:   simDist,
+		alphaCnt:  arcs,
+		maxTime:   defaultMaxTime,
+		diffT:     defaultDiffT,
+		minDist:   defaultMinDist,
 		searchRad: defaultSearchRadius,
 
 		trajNodeGrid: map[int]map[int][]*TrajNode{},
