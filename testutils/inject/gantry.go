@@ -14,9 +14,10 @@ type Gantry struct {
 	name               resource.Name
 	DoFunc             func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	PositionFunc       func(ctx context.Context, extra map[string]interface{}) ([]float64, error)
-	MoveToPositionFunc func(ctx context.Context, pos []float64, extra map[string]interface{}) error
+	MoveToPositionFunc func(ctx context.Context, pos, speed []float64, extra map[string]interface{}) error
 	LengthsFunc        func(ctx context.Context, extra map[string]interface{}) ([]float64, error)
 	StopFunc           func(ctx context.Context, extra map[string]interface{}) error
+	HomeFunc           func(ctx context.Context, extra map[string]interface{}) (bool, error)
 	IsMovingFunc       func(context.Context) (bool, error)
 	CloseFunc          func(ctx context.Context) error
 	ModelFrameFunc     func() referenceframe.Model
@@ -41,11 +42,11 @@ func (g *Gantry) Position(ctx context.Context, extra map[string]interface{}) ([]
 }
 
 // MoveToPosition calls the injected MoveToPosition or the real version.
-func (g *Gantry) MoveToPosition(ctx context.Context, positions []float64, extra map[string]interface{}) error {
+func (g *Gantry) MoveToPosition(ctx context.Context, positions, speeds []float64, extra map[string]interface{}) error {
 	if g.MoveToPositionFunc == nil {
-		return g.Gantry.MoveToPosition(ctx, positions, extra)
+		return g.Gantry.MoveToPosition(ctx, positions, speeds, extra)
 	}
-	return g.MoveToPositionFunc(ctx, positions, extra)
+	return g.MoveToPositionFunc(ctx, positions, speeds, extra)
 }
 
 // Lengths calls the injected Lengths or the real version.
@@ -62,6 +63,14 @@ func (g *Gantry) Stop(ctx context.Context, extra map[string]interface{}) error {
 		return g.Gantry.Stop(ctx, extra)
 	}
 	return g.StopFunc(ctx, extra)
+}
+
+// Home calls the injected Home or the real version.
+func (g *Gantry) Home(ctx context.Context, extra map[string]interface{}) (bool, error) {
+	if g.HomeFunc == nil {
+		return g.Gantry.Home(ctx, extra)
+	}
+	return g.HomeFunc(ctx, extra)
 }
 
 // IsMoving calls the injected IsMoving or the real version.
