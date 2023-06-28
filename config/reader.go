@@ -73,6 +73,8 @@ func readFromCache(id string) (*Config, error) {
 		ConfigFilePath: "",
 	}
 
+	// TODO: we want to make a new function that takes in an unprocessed config and replaces
+	// it in line
 	if err := json.NewDecoder(r).Decode(unprocessedConfig); err != nil {
 		// clear the cache if we cannot parse the file.
 		clearCache(id)
@@ -336,40 +338,37 @@ func localNamedPath(packageName string) string {
 }
 
 func RefPath(refPath string) string {
-	ref := GetPackageReference(refPath)
+
+	// right now ${packages.ml_model.ml_test} /Users/roxy/.viam/packages/ml_model.ml-test/effdetlabels.txt
+
+	ref := GetRecursivePackageReference(refPath)
 	// If no reference just return original path.
 	if ref == nil {
 		return refPath
 	}
-
 	packagePath := localNamedPath(ref.Package)
 
 	return path.Join(packagePath, path.Clean(ref.PathInPackage))
 }
 
-func ReplacePathPlaceholders(logger golog.Logger, buf []byte) []byte {
-	// find all referances that have $ at the start
-	// we first have to generate the default packages directory so that we can then
-	// get the package root from the base path
+func ReplacePathPlaceholders(buf []byte) ([]byte, bool) {
+	// this takes the byte version of the config and does a match on all "${package...}..."
+	// file paths that exist and transforms them to be a file root as defined by the HOME base of the
+	// the robot
 
-	// this works just for package.name syntax
+	var didUpdate bool
+
 	output := packageReferenceAllRegex.ReplaceAllFunc(buf, func(b []byte) []byte {
 		matchedString := string(b)
+		// this removes the quotations from the matched string
 		matchedString = matchedString[1 : len(matchedString)-1]
 		packageRef := RefPath(matchedString)
-		logger.Info("\n\n\n package ref: ", packageRef)
-		return b
+		byteRef := fmt.Sprintf("\"%s\"", packageRef)
+		didUpdate = true
+		return []byte(byteRef)
 	})
-	// output := packageReferenceAllRegex.ReplaceAll(buf, []byte(packagesDir))
-	// output = mlModelsReferenceRegex.ReplaceAll(output, []byte(mlModelsDir))
-	// output = modulesReferenceRegex.ReplaceAll(output, []byte(modulesDir))
 
-	// this will replace all the package names by default here
-	// this assumes that they will always be in these locations
-	// we can make this modular by matching on placholders, and then finding the root.
-	// if te
-
-	return output
+	return output, didUpdate
 }
 
 // FromReader reads a config from the given reader and specifies
@@ -387,6 +386,7 @@ func fromReader(
 		ConfigFilePath: originalPath,
 	}
 
+	// have to try the same thing
 	err := json.NewDecoder(r).Decode(&unprocessedConfig)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to decode Config from json")
@@ -626,8 +626,17 @@ func getFromCloudGRPC(ctx context.Context, cloudCfg *Cloud, logger golog.Logger)
 		return cfg, false, nil
 	}
 
-	ReplacePathPlaceholders(logger, bytes)
-
+	updatedConfig := &Config{}
+	updatedBytes, didUpdate := ReplacePathPlaceholders(bytes)
+	if didUpdate {
+		// then we need to set the config to be the new updatedBytes
+		err := updatedConfig.UnmarshalJSON(updatedBytes)
+		if err != nil {
+			logger.Error("Cannot unmarshall config with pathplaceholders")
+			return cfg, false, nil
+		}
+		return updatedConfig, false, nil
+	}
 	return cfg, false, nil
 }
 

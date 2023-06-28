@@ -856,10 +856,13 @@ func ProcessConfig(in *Config, tlsCfg *TLSConfig) (*Config, error) {
 }
 
 // Regex to match if a config is referencing a Package. Group is the package name.
-var packageReferenceRegex = regexp.MustCompile(`^\$\{packages\.([A-Za-z0-9_\/-]+)}(.*)`)
-var packageReferenceAllRegex = regexp.MustCompile(`\"\$\{packages\.([A-Za-z0-9_\/-]+)}([A-Za-z0-9\._\/-]+)\"`)
-var mlModelsReferenceRegex = regexp.MustCompile(`\$\{packages\.ml_models.([A-Za-z0-9_\/-]+)}`)
-var modulesReferenceRegex = regexp.MustCompile(`\$\{packages\.modules.([A-Za-z0-9_\/-]+)}`)
+var packageReferenceRegex = regexp.MustCompile(`^\$\{packages\.([A-Za-z0-9_.\/-]+)}(.*)`)
+
+// this should match on any string with the "${packages" as the beginning of the string
+var packageReferenceAllRegex = regexp.MustCompile(`\"\$\{packages\.([A-Za-z0-9_.\/-]+)}([A-Za-z0-9\._\/-]+)\"`)
+
+// var mlModelsReferenceRegex = regexp.MustCompile(`\$\{packages\.ml_models.([A-Za-z0-9_\/-]+)}`)
+// var modulesReferenceRegex = regexp.MustCompile(`\$\{packages\.modules.([A-Za-z0-9_\/-]+)}`)
 
 // DefaultPackageVersionValue default value of the package version used when empty.
 const DefaultPackageVersionValue = "latest"
@@ -889,6 +892,42 @@ func (p *PackageConfig) Validate(path string) error {
 	}
 
 	return nil
+}
+
+func GetRecursivePackageReference(path string) *PackageReference {
+	// for any string in ${x.y.z} -> we need to transform the dots into x/y/z
+	// this takes the assumption that x == "packages", y == type and x == packageName
+	// in theory we could do ${x.y.z.a} for now but that isn't a use case yet
+
+	if len(path) == 0 || path[0] != '$' {
+		return nil
+	}
+
+	match := packageReferenceRegex.FindStringSubmatch(path)
+	if match == nil {
+		return nil
+	}
+
+	// in this case match[0] is going to the string that matches, which is the entire string
+	// match[1] is going to return the part between packages. and the final }
+	// match 2 is the actual filename after the end of the placeholder
+
+	// if we want to recursively find all the .. in the placeholders we can use submatching
+	// to then replace all the intermediary dots with the /
+
+	// there is probably a better way to do this but this is how i am going to do it for now
+
+	if len(match) != 3 {
+		return nil
+	}
+
+	period := regexp.MustCompile(`\.`)
+	nestedDirectory := period.ReplaceAllString(match[1], "/")
+
+	return &PackageReference{
+		Package:       nestedDirectory,
+		PathInPackage: match[2],
+	}
 }
 
 // ckageReference a PackageReference if the given path has a Package reference eg. ${packages.some-package}/path.
