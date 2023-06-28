@@ -25,7 +25,7 @@ func TestPtgRrt(t *testing.T) {
 
 	ackermanFrame, err := referenceframe.NewPTGFrameFromTurningRadius(
 		"ackframe",
-		0.3,
+		300.,
 		testTurnRad,
 		0,
 		geometries,
@@ -55,7 +55,7 @@ func TestPtgWithObstacle(t *testing.T) {
 	geometries := []spatialmath.Geometry{roverGeom}
 	ackermanFrame, err := referenceframe.NewPTGFrameFromTurningRadius(
 		"ackframe",
-		0.3,
+		300.,
 		testTurnRad,
 		0,
 		geometries,
