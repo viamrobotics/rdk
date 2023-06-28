@@ -56,6 +56,22 @@ func (s *serviceServer) GetLengths(
 	return &pb.GetLengthsResponse{LengthsMm: lengthsMm}, nil
 }
 
+// Home runs the homing sequence of the gantry and returns true once completed.
+func (s *serviceServer) Home(
+	ctx context.Context,
+	req *pb.HomeRequest,
+) (*pb.HomeResponse, error) {
+	gantry, err := s.coll.Resource(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	homed, err := gantry.Home(ctx, req.Extra.AsMap())
+	if err != nil {
+		return &pb.HomeResponse{Homed: homed}, err
+	}
+	return &pb.HomeResponse{Homed: homed}, nil
+}
+
 // MoveToPosition moves the gantry to the position specified.
 func (s *serviceServer) MoveToPosition(
 	ctx context.Context,
@@ -66,7 +82,7 @@ func (s *serviceServer) MoveToPosition(
 	if err != nil {
 		return nil, err
 	}
-	return &pb.MoveToPositionResponse{}, gantry.MoveToPosition(ctx, req.PositionsMm, req.Extra.AsMap())
+	return &pb.MoveToPositionResponse{}, gantry.MoveToPosition(ctx, req.PositionsMm, req.SpeedsMmPerSec, req.Extra.AsMap())
 }
 
 // Stop stops the gantry specified.
