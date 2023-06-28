@@ -93,7 +93,7 @@ func (b *Base) Close(ctx context.Context) error {
 func (b *Base) Properties(ctx context.Context, extra map[string]interface{}) (base.Properties, error) {
 	return base.Properties{
 		TurningRadiusMeters: b.TurningRadius,
-		WidthMeters:         b.WidthMeters, // convert to meters
+		WidthMeters:         b.WidthMeters,
 	}, nil
 }
 

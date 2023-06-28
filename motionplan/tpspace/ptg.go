@@ -43,12 +43,12 @@ type PrecomputePTG interface {
 // the elapsed time along the trajectory, and the linear and angular velocity at that point.
 type TrajNode struct {
 	// TODO: cache pose point and orientation so that we don't recompute every time we need it
-	Pose   spatialmath.Pose // for 2d, we only use x, y, and OV theta
-	Time   float64          // elapsed time on trajectory
-	Dist   float64          // distance travelled down trajectory
-	K      uint             // alpha k-value at this node
-	Linvel float64          // linvel at this node
-	Angvel float64          // angvel at this node
+	Pose       spatialmath.Pose // for 2d, we only use x, y, and OV theta
+	Time       float64          // elapsed time on trajectory
+	Dist       float64          // distance travelled down trajectory
+	K          uint             // alpha k-value at this node
+	LinvelMMps float64          // linvel at this node
+	AngvelRps  float64          // angvel at this node
 
 	ptX float64
 	ptY float64

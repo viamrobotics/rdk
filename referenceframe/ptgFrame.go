@@ -11,8 +11,8 @@ import (
 )
 
 const (
-	defaultSimDist       = 1100.
-	defaultAlphaCnt uint = 121
+	defaultSimDistMM      = 1100.
+	defaultAlphaCnt  uint = 121
 )
 
 type ptgFactory func(float64, float64, float64) tpspace.PrecomputePTG
@@ -34,22 +34,22 @@ type ptgGridSimFrame struct {
 
 // NewPTGFrameFromTurningRadius will create a new Frame which is also a tpspace.PTGProvider. It will precompute the default set of
 // trajectories out to a given distance, or a default distance if the given distance is <= 0.
-func NewPTGFrameFromTurningRadius(name string, velocityMps, turnRadMeters, simDist float64, geoms []spatialmath.Geometry) (Frame, error) {
-	if velocityMps <= 0 {
-		return nil, fmt.Errorf("cannot create ptg frame, movement velocity %f must be >0", velocityMps)
+func NewPTGFrameFromTurningRadius(name string, velocityMMps, turnRadMeters, simDist float64, geoms []spatialmath.Geometry) (Frame, error) {
+	if velocityMMps <= 0 {
+		return nil, fmt.Errorf("cannot create ptg frame, movement velocity %f must be >0", velocityMMps)
 	}
 	if turnRadMeters <= 0 {
 		return nil, fmt.Errorf("cannot create ptg frame, turning radius %f must be >0", turnRadMeters)
 	}
 
 	if simDist <= 0 {
-		simDist = defaultSimDist
+		simDist = defaultSimDistMM
 	}
 
 	// Get max angular velocity in radians per second
-	maxRadps := velocityMps / turnRadMeters
+	maxRadps := velocityMMps / (1000. * turnRadMeters)
 	pf := &ptgGridSimFrame{name: name}
-	err := pf.initPTGs(velocityMps, maxRadps, simDist)
+	err := pf.initPTGs(velocityMMps, maxRadps, simDist)
 	if err != nil {
 		return nil, err
 	}

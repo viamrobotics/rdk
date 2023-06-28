@@ -8,15 +8,15 @@ import (
 // at radius, resulting in a path that looks like a "3"
 // Alpha determines how far to reverse before moving forwards.
 type ptgDiffDriveCC struct {
-	maxMps   float64 // meters per second velocity to target
-	maxRadps float64 // degrees per second of rotation when driving at maxMps and turning at max turning radius
+	maxMmps  float64 // millimeters per second velocity to target
+	maxRadps float64 // radians per second of rotation when driving at maxMmps and turning at max turning radius
 	k        float64 // k = +1 for forwards, -1 for backwards
 }
 
 // NewCCPTG creates a new PrecomputePTG of type ptgDiffDriveCC.
-func NewCCPTG(maxMps, maxRadps, k float64) PrecomputePTG {
+func NewCCPTG(maxMmps, maxRadps, k float64) PrecomputePTG {
 	return &ptgDiffDriveCC{
-		maxMps:   maxMps,
+		maxMmps:  maxMmps,
 		maxRadps: maxRadps,
 		k:        k,
 	}
@@ -26,20 +26,20 @@ func NewCCPTG(maxMps, maxRadps, k float64) PrecomputePTG {
 // Note that this will NOT work as-is for 0-radius turning. Robots capable of turning in place will need to be special-cased
 // because they will have zero linear velocity through their turns, not max.
 func (ptg *ptgDiffDriveCC) PTGVelocities(alpha, t, x, y, phi float64) (float64, float64, error) {
-	r := ptg.maxMps / ptg.maxRadps
+	r := ptg.maxMmps / ptg.maxRadps
 
 	u := math.Abs(alpha) * 0.5
 
 	v := 0.
 	w := 0.
 
-	if t < u*r/ptg.maxMps {
+	if t < u*r/ptg.maxMmps {
 		// l-
-		v = -ptg.maxMps
+		v = -ptg.maxMmps
 		w = ptg.maxRadps
-	} else if t < (u+math.Pi*0.5)*r/ptg.maxMps {
+	} else if t < (u+math.Pi*0.5)*r/ptg.maxMmps {
 		// l+
-		v = ptg.maxMps
+		v = ptg.maxMmps
 		w = ptg.maxRadps
 	}
 
@@ -50,8 +50,6 @@ func (ptg *ptgDiffDriveCC) PTGVelocities(alpha, t, x, y, phi float64) (float64, 
 
 	v *= ptg.k
 	w *= ptg.k
-	// m to mm
-	v *= 1000
 
 	return v, w, nil
 }

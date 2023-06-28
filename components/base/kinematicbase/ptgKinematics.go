@@ -19,7 +19,7 @@ import (
 )
 
 // Define a default speed to target for the base in the case where one is not provided.
-const defaultBaseMps = 0.6
+const defaultBaseMMps = 600.
 
 const (
 	ptgIndex int = iota
@@ -42,11 +42,11 @@ func wrapWithPTGKinematics(
 	if err != nil {
 		return nil, err
 	}
-	if properties.TurningRadiusMeters == 0 {
-		return nil, errors.New("can only wrap with PTG kinematics if Base property TurningRadiusMeters is nonzero")
+	if properties.TurningRadiusMeters <= 0 {
+		return nil, errors.New("can only wrap with PTG kinematics if Base property TurningRadiusMeters is greater than zero")
 	}
 
-	baseMetersPerSecond := defaultBaseMps // Currently no way to get this out of properties
+	baseMillimetersPerSecond := defaultBaseMMps // Currently no way to get this out of properties
 
 	geometries, err := b.Geometries(ctx)
 	if err != nil {
@@ -55,7 +55,7 @@ func wrapWithPTGKinematics(
 
 	frame, err := referenceframe.NewPTGFrameFromTurningRadius(
 		b.Name().ShortName(),
-		baseMetersPerSecond,
+		baseMillimetersPerSecond,
 		properties.TurningRadiusMeters,
 		0,
 		geometries,
@@ -100,12 +100,13 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 	lastTime := 0.
 	for _, trajNode := range selectedTraj {
 		if trajNode.Dist > inputs[distanceAlongTrajectoryIndex].Value {
+			// We have reached the desired distance along the given trajectory
 			break
 		}
 		timestep := time.Duration(1e6*(trajNode.Time-lastTime)) * time.Microsecond
 		lastTime = trajNode.Time
-		linVel := r3.Vector{0, trajNode.Linvel * 1, 0}
-		angVel := r3.Vector{0, 0, rdkutils.RadToDeg(trajNode.Angvel)}
+		linVel := r3.Vector{0, trajNode.LinvelMMps, 0}
+		angVel := r3.Vector{0, 0, rdkutils.RadToDeg(trajNode.AngvelRps)}
 		err := ptgk.Base.SetVelocity(
 			ctx,
 			linVel,

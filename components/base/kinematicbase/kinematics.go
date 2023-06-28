@@ -51,7 +51,7 @@ func WrapWithKinematics(
 	return wrapWithPTGKinematics(ctx, b)
 }
 
-// wrapWithDifferentialDriveKinematics takes a wheeledBase component and adds a slam service to it
+// wrapWithDifferentialDriveKinematics takes a wheeledBase component and adds a localizer to it
 // It also adds kinematic model so that it can be controlled.
 func wrapWithDifferentialDriveKinematics(
 	ctx context.Context,
