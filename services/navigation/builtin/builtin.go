@@ -430,7 +430,7 @@ func (svc *builtIn) startWaypointExperimental(extra map[string]interface{}) erro
 		for wp, err := svc.nextWaypoint(svc.cancelCtx); err == nil; wp, err = svc.nextWaypoint(svc.cancelCtx) {
 			svc.logger.Infof("navigating to waypoint: %+v", wp)
 			if err := navOnce(svc.cancelCtx, wp); err != nil {
-				svc.logger.Infof("skipping waypoint %+v due to error navigating: %s", wp, err)
+				svc.logger.Infof("skipping waypoint %+v due to error while navigating towards it: %s", wp, err)
 			}
 		}
 
