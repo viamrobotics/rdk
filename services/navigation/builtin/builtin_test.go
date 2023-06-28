@@ -3,7 +3,7 @@ package builtin
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -82,10 +82,6 @@ func TestNavSetup(t *testing.T) {
 }
 
 func TestStartWaypoint(t *testing.T) {
-	// there is a race condition in this test
-	// remove this skip when we are ready to introduce this
-	t.Skip()
-
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 
@@ -104,8 +100,13 @@ func TestStartWaypoint(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	localizer, err := motion.NewLocalizer(ctx, fakeslam.NewSLAM(slam.Named("foo"), logger))
+	test.That(t, err, test.ShouldBeNil)
 
-	kinematicBase, err := kinematicbase.WrapWithDifferentialDriveKinematics(ctx, fakeBase, localizer, limits)
+	// cast fakeBase
+	fake, ok := fakeBase.(*fakebase.Base)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	kinematicBase, err := kinematicbase.WrapWithFakeKinematics(ctx, fake, localizer, limits)
 	test.That(t, err, test.ShouldBeNil)
 
 	injectMovementSensor := inject.NewMovementSensor("test_movement")
@@ -126,7 +127,6 @@ func TestStartWaypoint(t *testing.T) {
 		extra map[string]interface{},
 	) (bool, error) {
 		err := kinematicBase.GoToInputs(ctx, referenceframe.FloatsToInputs([]float64{destination.Lat(), destination.Lng(), 0}))
-		fmt.Println(kinematicBase.CurrentInputs(ctx))
 		return true, err
 	}
 
@@ -166,4 +166,39 @@ func TestStartWaypoint(t *testing.T) {
 	actualPt := geo.NewPoint(inputs[0].Value, inputs[1].Value)
 	test.That(t, actualPt.Lat(), test.ShouldEqual, pt.Lat())
 	test.That(t, actualPt.Lng(), test.ShouldEqual, pt.Lng())
+
+	// setup injected MoveOnGlobe to test what extra defaults to from startWaypointExperimental function
+	injectMS.MoveOnGlobeFunc = func(
+		ctx context.Context,
+		componentName resource.Name,
+		destination *geo.Point,
+		heading float64,
+		movementSensorName resource.Name,
+		obstacles []*spatialmath.GeoObstacle,
+		linearVelocity float64,
+		angularVelocity float64,
+		extra map[string]interface{},
+	) (bool, error) {
+		if extra != nil && extra["motion_profile"] != nil {
+			return true, nil
+		}
+		return false, errors.New("no motion_profile exist")
+	}
+
+	// construct new point to navigate to
+	pt = geo.NewPoint(0, 0)
+	err = ns.AddWaypoint(ctx, pt, nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	err = ns.(*builtIn).startWaypointExperimental(map[string]interface{}{})
+	test.That(t, err, test.ShouldBeNil)
+	ns.(*builtIn).activeBackgroundWorkers.Wait()
+
+	// go to same point again
+	err = ns.AddWaypoint(ctx, pt, nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	err = ns.(*builtIn).startWaypointExperimental(nil)
+	test.That(t, err, test.ShouldBeNil)
+	ns.(*builtIn).activeBackgroundWorkers.Wait()
 }
