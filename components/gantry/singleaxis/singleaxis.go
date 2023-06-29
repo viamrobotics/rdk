@@ -223,6 +223,7 @@ func (g *singleAxis) Reconfigure(ctx context.Context, deps resource.Dependencies
 	return nil
 }
 
+// Home runs the homing sequence of the gantry, starts checkHit in the background, and returns true once completed.
 func (g *singleAxis) Home(ctx context.Context, extra map[string]interface{}) (bool, error) {
 	if g.cancelFunc != nil {
 		g.cancelFunc()
@@ -307,7 +308,7 @@ func (g *singleAxis) moveAway(ctx context.Context, pin int) error {
 	}
 }
 
-// Home runs the homing sequence of the gantry and returns true once completed.
+// doHome is a helper function that runs the actual homing sequence
 func (g *singleAxis) doHome(ctx context.Context) (bool, error) {
 	np := len(g.limitSwitchPins)
 	ctx, done := g.opMgr.New(ctx)
