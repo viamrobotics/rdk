@@ -162,7 +162,8 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 		}
 
 		// Lookup the packages http url
-		resp, err := m.client.GetPackage(ctx, &pb.GetPackageRequest{Id: p.Package, Version: p.Version, IncludeUrl: true})
+		boolTrue := true
+		resp, err := m.client.GetPackage(ctx, &pb.GetPackageRequest{Id: p.Package, Version: p.Version, IncludeUrl: &boolTrue})
 		if err != nil {
 			m.logger.Errorf("Failed fetching package details for package %s:%s, %s", p.Package, p.Version, err)
 			outErr = multierr.Append(outErr, errors.Wrapf(err, "failed loading package url for %s:%s", p.Package, p.Version))

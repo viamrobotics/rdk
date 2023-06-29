@@ -304,7 +304,7 @@ func (c *FakePackagesClientAndGCSServer) GetPackage(ctx context.Context, in *pb.
 		return nil, errPackageMissng
 	}
 
-	if in.IncludeUrl {
+	if in.IncludeUrl != nil && *in.IncludeUrl {
 		p.Url = fmt.Sprintf("http://%s/download-file?id=%s&version=%s", c.httplistener.Addr().String(), p.Info.Name, p.Info.Version)
 	}
 
