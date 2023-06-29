@@ -63,7 +63,6 @@ type TimeInterval struct {
 // to the caller.
 type cacheEntry struct {
 	id            *datapb.BinaryID
-	id            *datapb.BinaryID
 	pc            pointcloud.PointCloud
 	timeRequested *timestamppb.Timestamp
 	timeReceived  *timestamppb.Timestamp
