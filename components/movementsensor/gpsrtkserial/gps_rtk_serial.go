@@ -26,7 +26,7 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-var rtkmodel = resource.DefaultModelFamily.WithModel("gps-ublox-ZED-F9p-serial")
+var rtkmodel = resource.DefaultModelFamily.WithModel("gps-nmea-rtk-serial")
 
 var (
 	errConnectionTypeValidation = fmt.Errorf("only serial is supported connection types for %s", rtkmodel.Name)
