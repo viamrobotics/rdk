@@ -54,13 +54,15 @@ var viamDotDir = filepath.Join(os.Getenv("HOME"), ".viam")
 
 var packagesDir = filepath.Join(viamDotDir, "packages")
 
-var mlModelsDir = filepath.Join(viamDotDir, "ml_models")
+var mlModelsDir = filepath.Join(packagesDir, "ml_models")
 
-var modulesDir = filepath.Join(viamDotDir, "modules")
+var modulesDir = filepath.Join(packagesDir, "modules")
 
 func getCloudCacheFilePath(id string) string {
 	return filepath.Join(viamDotDir, fmt.Sprintf("cached_cloud_config_%s.json", id))
 }
+
+func ConvertReadStreamToConfig(r io.Reader)
 
 func readFromCache(id string) (*Config, error) {
 	r, err := os.Open(getCloudCacheFilePath(id))
