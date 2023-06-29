@@ -280,7 +280,7 @@ func TestMoveOnMap(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		// path of length 2 indicates a path that goes straight through central obstacle
 		test.That(t, len(path), test.ShouldBeGreaterThan, 2)
-		// every waypoint should hvae the form [x,y,theta]
+		// every waypoint should have the form [x,y,theta]
 		test.That(t, len(path[0]), test.ShouldEqual, 3)
 	})
 

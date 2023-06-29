@@ -275,7 +275,6 @@ func (ms *builtIn) MoveOnGlobe(
 	if !ok {
 		return false, fmt.Errorf("cannot move base of type %T because it is not a Base", baseComponent)
 	}
-
 	var kb kinematicbase.KinematicBase
 	if fake, ok := b.(*fake.Base); ok {
 		kb, err = kinematicbase.WrapWithFakeKinematics(ctx, fake, localizer, limits)
@@ -431,14 +430,16 @@ func (ms *builtIn) planMoveOnMap(
 		return nil, nil, fmt.Errorf("cannot move component of type %T because it is not a Base", component)
 	}
 
-	profile, ok := extra["motion_profile"]
-	if ok {
-		motionProfile, ok := profile.(string)
-		if !ok {
-			return nil, nil, errors.New("could not interpret motion_profile field as string")
-		}
-		if motionProfile == motionplan.PositionOnlyMotionProfile {
-			limits = limits[0:2] // remove theta limit if in position only mode
+	if extra != nil {	
+		profile, ok := extra["motion_profile"]
+		if ok {
+			motionProfile, ok := profile.(string)
+			if !ok {
+				return nil, nil, errors.New("could not interpret motion_profile field as string")
+			}
+			if motionProfile == motionplan.PositionOnlyMotionProfile {
+				limits = limits[0:2] // remove theta limit if in position only mode
+			}
 		}
 	}
 
