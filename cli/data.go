@@ -44,7 +44,7 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter, parallelDownlo
 		parallelDownloads = defaultParallelDownloads
 	}
 
-	ids := make(chan string, parallelDownloads)
+	ids := make(chan *datapb.BinaryID, parallelDownloads)
 	// Give channel buffer of 1+parallelDownloads because that is the number of goroutines that may be passing an
 	// error into this channel (1 get ids routine + parallelDownloads download routines).
 	errs := make(chan error, 1+parallelDownloads)
@@ -73,7 +73,7 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter, parallelDownlo
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		var nextID string
+		var nextID *datapb.BinaryID
 		var done bool
 		var numFilesDownloaded atomic.Int32
 		var downloadWG sync.WaitGroup
@@ -88,14 +88,14 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter, parallelDownlo
 
 				nextID = <-ids
 
-				// If nextID is zero value, the channel has been closed and there are no more IDs to be read.
-				if nextID == "" {
+				// If nextID is nil, the channel has been closed and there are no more IDs to be read.
+				if nextID == nil {
 					done = true
 					break
 				}
 
 				downloadWG.Add(1)
-				go func(id string) {
+				go func(id *datapb.BinaryID) {
 					defer downloadWG.Done()
 					err := downloadBinary(ctx, c.dataClient, dst, id)
 					if err != nil {
@@ -130,7 +130,7 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter, parallelDownlo
 
 // getMatchingIDs queries client for all BinaryData matching filter, and passes each of their ids into ids.
 func getMatchingBinaryIDs(ctx context.Context, client datapb.DataServiceClient, filter *datapb.Filter,
-	ids chan string, limit uint,
+	ids chan *datapb.BinaryID, limit uint,
 ) error {
 	var last string
 	defer close(ids)
@@ -158,17 +158,22 @@ func getMatchingBinaryIDs(ctx context.Context, client datapb.DataServiceClient, 
 		last = resp.GetLast()
 
 		for _, bd := range resp.GetData() {
-			ids <- bd.GetMetadata().GetId()
+			md := bd.GetMetadata()
+			ids <- &datapb.BinaryID{
+				FileId:         md.GetId(),
+				OrganizationId: md.GetCaptureMetadata().GetOrgId(),
+				LocationId:     md.GetCaptureMetadata().GetLocationId(),
+			}
 		}
 	}
 }
 
-func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst, id string) error {
+func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst string, id *datapb.BinaryID) error {
 	var resp *datapb.BinaryDataByIDsResponse
 	var err error
 	for count := 0; count < maxRetryCount; count++ {
 		resp, err = client.BinaryDataByIDs(ctx, &datapb.BinaryDataByIDsRequest{
-			FileIds:       []string{id},
+			BinaryIds:     []*datapb.BinaryID{id},
 			IncludeBinary: true,
 		})
 		if err == nil {
