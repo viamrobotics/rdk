@@ -50,7 +50,7 @@ type mockDataServiceServer struct {
 func (mDServer *mockDataServiceServer) BinaryDataByIDs(ctx context.Context, req *datapb.BinaryDataByIDsRequest,
 ) (*datapb.BinaryDataByIDsResponse, error) {
 	// Parse request
-	fileID := req.FileIds[0]
+	fileID := req.BinaryIds[0].GetFileId()
 
 	data, err := getCompressedBytesFromArtifact(fileID)
 	if err != nil {
