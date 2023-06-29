@@ -15,6 +15,12 @@ const (
 	defaultAlphaCnt  uint = 121
 )
 
+const (
+	ptgIndex int = iota
+	trajectoryIndexWithinPTG
+	distanceAlongTrajectoryIndex
+)
+
 type ptgFactory func(float64, float64, float64) tpspace.PrecomputePTG
 
 var defaultPTGs = []ptgFactory{
@@ -78,14 +84,15 @@ func (pf *ptgGridSimFrame) MarshalJSON() ([]byte, error) {
 	return nil, nil
 }
 
+// Inputs are: [0] index of PTG to use, [1] index of the trajectory within that PTG, and [2] distance to travel along that trajectory.
 func (pf *ptgGridSimFrame) Transform(inputs []Input) (spatialmath.Pose, error) {
-	ptgIdx := int(math.Round(inputs[0].Value))
-	trajIdx := uint(math.Round(inputs[1].Value))
+	ptgIdx := int(math.Round(inputs[ptgIndex].Value))
+	trajIdx := uint(math.Round(inputs[trajectoryIndexWithinPTG].Value))
 	traj := pf.ptgs[ptgIdx].Trajectory(trajIdx)
 	lastPose := spatialmath.NewZeroPose()
 	for _, trajNode := range traj {
 		// Walk the trajectory until we pass the specified distance
-		if trajNode.Dist > inputs[2].Value {
+		if trajNode.Dist > inputs[distanceAlongTrajectoryIndex].Value {
 			lastPose = trajNode.Pose
 		} else {
 			break
