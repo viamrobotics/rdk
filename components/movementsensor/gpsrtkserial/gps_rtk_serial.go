@@ -61,7 +61,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 		return nil, err
 	}
 
-	err = cfg.validateNtripInputProtocol()
+	err = cfg.validateNtripInputProtocol(path)
 	if err != nil {
 		return nil, err
 	}
@@ -86,7 +86,7 @@ func (cfg *Config) validateNmeaDataSource(path string) error {
 }
 
 // validateNtripInputProtocol validates protocols accepted by this package.
-func (cfg *Config) validateNtripInputProtocol() error {
+func (cfg *Config) validateNtripInputProtocol(path string) error {
 	if cfg.NtripInputProtocol == serialStr {
 		return nil
 	}
@@ -198,7 +198,10 @@ func newRTKSerial(
 		// Invalid protocol
 		return nil, fmt.Errorf("%s is not a valid connection type", newConf.NmeaDataSource)
 	}
+
+	//Init ntripInfo from attibutes
 	g.ntripClient, err = rtk.NewNtripInfo(ntripConfig, g.logger)
+	fmt.Printf("ntripClient is %v\n", g.ntripClient)
 	if err != nil {
 		return nil, err
 	}
@@ -229,51 +232,86 @@ func (g *RTKSerial) start() error {
 
 // Connect attempts to connect to ntrip client until successful connection or timeout.
 func (g *RTKSerial) Connect(casterAddr, user, pwd string, maxAttempts int) error {
-	for attempts := 0; attempts < maxAttempts; attempts++ {
-		ntripclient, err := ntrip.NewClient(casterAddr, ntrip.Options{Username: user, Password: pwd})
-		if err == nil {
-			g.logger.Debug("Connected to NTRIP caster")
-			g.ntripMu.Lock()
-			g.ntripClient.Client = ntripclient
-			g.ntripMu.Unlock()
-			return g.err.Get()
+	attempts := 0
+
+	var c *ntrip.Client
+	var err error
+
+	g.logger.Debug("Connecting to NTRIP caster")
+	for attempts < maxAttempts {
+		select {
+		case <-g.cancelCtx.Done():
+			return g.cancelCtx.Err()
+		default:
 		}
+
+		c, err = ntrip.NewClient(casterAddr, ntrip.Options{Username: user, Password: pwd})
+		if err == nil {
+			break
+		}
+
+		attempts++
 	}
 
-	errMsg := fmt.Sprintf("Can't connect to NTRIP caster after %d attempts", maxAttempts)
-	return errors.New(errMsg)
+	if err != nil {
+		g.logger.Errorf("Can't connect to NTRIP caster: %s", err)
+		return err
+	}
+
+	g.logger.Debug("Connected to NTRIP caster")
+	g.ntripMu.Lock()
+	g.ntripClient.Client = c
+	g.ntripMu.Unlock()
+	return g.err.Get()
 }
 
 // GetStream attempts to connect to ntrip streak until successful connection or timeout.
 func (g *RTKSerial) GetStream(mountPoint string, maxAttempts int) error {
-	for attempts := 0; attempts < maxAttempts; attempts++ {
-		rc, err := func() (io.ReadCloser, error) {
+	success := false
+	attempts := 0
+
+	var rc io.ReadCloser
+	var err error
+
+	g.logger.Debug("Getting NTRIP stream")
+
+	for !success && attempts < maxAttempts {
+		select {
+		case <-g.cancelCtx.Done():
+			return errors.New("Canceled")
+		default:
+		}
+
+		rc, err = func() (io.ReadCloser, error) {
 			g.ntripMu.Lock()
 			defer g.ntripMu.Unlock()
 			return g.ntripClient.Client.GetStream(mountPoint)
 		}()
-
 		if err == nil {
-			g.logger.Debug("Connected to stream")
-			g.ntripMu.Lock()
-			g.ntripClient.Stream = rc
-			g.ntripMu.Unlock()
-			return g.err.Get()
+			success = true
 		}
+		attempts++
 	}
 
-	errMsg := fmt.Sprintf("Can't connect to NTRIP stream after %d attempts", maxAttempts)
-	return errors.New(errMsg)
+	if err != nil {
+		g.logger.Errorf("Can't connect to NTRIP stream: %s", err)
+		return err
+	}
+
+	g.logger.Debug("Connected to stream")
+	g.ntripMu.Lock()
+	defer g.ntripMu.Unlock()
+
+	g.ntripClient.Stream = rc
+	return g.err.Get()
 }
 
 // receiveAndWriteSerial connects to NTRIP receiver and sends correction stream to the MovementSensor through serial.
 func (g *RTKSerial) receiveAndWriteSerial() {
 	defer g.activeBackgroundWorkers.Done()
-
 	if err := g.cancelCtx.Err(); err != nil {
 		return
 	}
-
 	err := g.Connect(g.ntripClient.URL, g.ntripClient.Username, g.ntripClient.Password, g.ntripClient.MaxConnectAttempts)
 	if err != nil {
 		g.err.Set(err)
@@ -294,13 +332,12 @@ func (g *RTKSerial) receiveAndWriteSerial() {
 
 	// Open the port.
 	g.ntripMu.Lock()
-	defer g.ntripMu.Unlock()
-
 	if err := g.cancelCtx.Err(); err != nil {
+		g.ntripMu.Unlock()
 		return
 	}
-
 	g.CorrectionWriter, err = slib.Open(options)
+	g.ntripMu.Unlock()
 	if err != nil {
 		g.logger.Errorf("serial.Open: %v", err)
 		g.err.Set(err)
@@ -322,40 +359,38 @@ func (g *RTKSerial) receiveAndWriteSerial() {
 	g.ntripStatus = true
 	g.ntripMu.Unlock()
 
-	for {
+	// It's okay to skip the mutex on this next line: g.ntripStatus can only be mutated by this
+	// goroutine itself.
+	for g.ntripStatus {
 		select {
 		case <-g.cancelCtx.Done():
 			return
 		default:
-			msg, err := scanner.NextMessage()
-			if err != nil {
-				g.ntripMu.Lock()
-				g.ntripStatus = false
-				g.ntripMu.Unlock()
+		}
 
-				if msg == nil {
-					g.logger.Debug("No message... reconnecting to stream...")
-					g.reconnectToStream(w, scanner)
+		msg, err := scanner.NextMessage()
+		if err != nil {
+			g.ntripMu.Lock()
+			g.ntripStatus = false
+			g.ntripMu.Unlock()
+
+			if msg == nil {
+				g.logger.Debug("No message... reconnecting to stream...")
+				err = g.GetStream(g.ntripClient.MountPoint, g.ntripClient.MaxConnectAttempts)
+				if err != nil {
+					g.err.Set(err)
+					return
 				}
+
+				r = io.TeeReader(g.ntripClient.Stream, w)
+				scanner = rtcm3.NewScanner(r)
+				g.ntripMu.Lock()
+				g.ntripStatus = true
+				g.ntripMu.Unlock()
+				continue
 			}
 		}
 	}
-}
-
-func (g *RTKSerial) reconnectToStream(w *bufio.Writer, scanner rtcm3.Scanner) {
-	g.ntripMu.Lock()
-	defer g.ntripMu.Unlock()
-
-	err := g.GetStream(g.ntripClient.MountPoint, g.ntripClient.MaxConnectAttempts)
-	if err != nil {
-		g.err.Set(err)
-		return
-	}
-
-	r := io.TeeReader(g.ntripClient.Stream, w)
-	scanner.Reader.Reset(r)
-
-	g.ntripStatus = true
 }
 
 // NtripStatus returns true if connection to NTRIP stream is OK, false if not.
