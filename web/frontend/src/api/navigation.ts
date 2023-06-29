@@ -1,4 +1,3 @@
-import { get } from 'svelte/store';
 import { commonApi, navigationApi } from '@viamrobotics/sdk';
 import { grpc } from '@improbable-eng/grpc-web';
 import { rcLogConditionally } from '@/lib/log';
@@ -20,9 +19,13 @@ export const setMode = (name: string, mode: NavigationModes) => {
   rcLogConditionally(request);
 
   return new Promise((resolve, reject) => {
-    get(client).navigationService.setMode(request, new grpc.Metadata(), (error) => (
-      error ? reject(error) : resolve(null)
-    ));
+    client.current.navigationService.setMode(request, new grpc.Metadata(), (error) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(null);
+      }
+    });
   });
 };
 
@@ -38,8 +41,13 @@ export const setWaypoint = (lat: number, lng: number, name: string) => {
   rcLogConditionally(request);
 
   return new Promise((resolve, reject) => {
-    get(client).navigationService.addWaypoint(request, new grpc.Metadata(), (error, response) =>
-      (error ? reject(error) : resolve(response)));
+    client.current.navigationService.addWaypoint(request, new grpc.Metadata(), (error, response) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(response);
+      }
+    });
   });
 };
 
@@ -54,16 +62,23 @@ const formatWaypoints = (list: navigationApi.Waypoint[]) => {
   });
 };
 
-export const getWaypoints = (name: string) => {
+export const getWaypoints = async (name: string): Promise<Waypoint[]> => {
   const req = new navigationApi.GetWaypointsRequest();
   req.setName(name);
 
   rcLogConditionally(req);
 
-  return new Promise<Waypoint[]>((resolve, reject) => {
-    get(client).navigationService.getWaypoints(req, new grpc.Metadata(), (error, response) =>
-      (error ? reject(error) : resolve(formatWaypoints(response?.getWaypointsList() ?? []))));
+  const response = await new Promise<{ getWaypointsList(): navigationApi.Waypoint[] }>((resolve, reject) => {
+    client.current.navigationService.getWaypoints(req, new grpc.Metadata(), (error, resp) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(resp);
+      }
+    });
   });
+
+  return formatWaypoints(response.getWaypointsList() ?? []);
 };
 
 export const removeWaypoint = (name: string, id: string) => {
@@ -74,8 +89,13 @@ export const removeWaypoint = (name: string, id: string) => {
   rcLogConditionally(request);
 
   return new Promise((resolve, reject) => {
-    get(client).navigationService.removeWaypoint(request, new grpc.Metadata(), (error) =>
-      (error ? reject(error) : resolve(null)));
+    client.current.navigationService.removeWaypoint(request, new grpc.Metadata(), (error) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(null);
+      }
+    });
   });
 };
 
@@ -86,13 +106,15 @@ export const getLocation = (name: string) => {
   rcLogConditionally(request);
 
   return new Promise<{ lat: number, lng: number }>((resolve, reject) => {
-    get(client).navigationService.getLocation(request, new grpc.Metadata(), (error, response) => (
-      error
-        ? reject(error)
-        : resolve({
-          lat: response?.getLocation()?.getLatitude() ?? 0,
-          lng: response?.getLocation()?.getLongitude() ?? 0,
-        })
-    ));
+    client.current.navigationService.getLocation(request, new grpc.Metadata(), (error, response) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve({
+          lat: response.getLocation()?.getLatitude() ?? 0,
+          lng: response.getLocation()?.getLongitude() ?? 0,
+        });
+      }
+    });
   });
 };

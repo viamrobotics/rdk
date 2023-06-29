@@ -14,7 +14,7 @@ const { renderer, scene, camera } = useThrelte();
 
 renderer!.autoClear = false;
 
-// This clips against the map so that interesecting objects will not render over the map
+// This clips against the map so that intersecting objects will not render over the map
 renderer!.clippingPlanes = [new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.1)];
 
 const perspective = camera.current as THREE.PerspectiveCamera;

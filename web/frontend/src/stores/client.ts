@@ -1,4 +1,4 @@
 import type { Client } from '@viamrobotics/sdk';
-import { writable } from 'svelte/store';
+import { currentWritable } from '@threlte/core';
 
-export const client = writable<Client>();
+export const client = currentWritable<Client>(null!);
