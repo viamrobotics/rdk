@@ -107,89 +107,112 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 	if err != nil {
 		return err
 	}
-	distErr, headingErr, err := ddk.errorState(current, desired)
+	validRegion, err := ddk.newValidRegionCapsule(current, desired)
 	if err != nil {
 		return err
 	}
-	validRegion, err := ddk.newValidRegionCapsule(current, desired, distErr)
-	if err != nil {
-		return err
-	}
+	movementErr := make(chan error, 1)
+	defer close(movementErr)
 
-	prevDistErr := distErr
-	prevHeadingErr := headingErr
-	contextTimeout, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
+	cancelContext, cancel := context.WithCancel(ctx)
 
-	// this loop polls the error state and issues a corresponding command to move the base to the objective
-	// when the base is within the positional threshold of the goal, exit the loop
-	for err = ctx.Err(); err == nil; err = ctx.Err() {
-		utils.SelectContextOrWait(ctx, 100*time.Millisecond)
-		if poseChanged(prevDistErr, prevHeadingErr, distErr, headingErr) {
-			prevDistErr = distErr
-			prevHeadingErr = headingErr
-			contextTimeout, cancel = context.WithTimeout(ctx, timeout)
-			defer cancel()
-		}
-
-		col, err := validRegion.CollidesWith(spatialmath.NewPoint(r3.Vector{X: current[0].Value, Y: current[1].Value}, ""))
-		if err != nil {
-			return err
-		}
-		if !col {
-			return errors.New("base has deviated too far from path")
-		}
-
-		// get to the x, y location first - note that from the base's perspective +y is forward
-		desiredHeading := math.Atan2(current[1].Value-desired[1].Value, current[0].Value-desired[0].Value)
-		distErr, headingErr, err = ddk.errorState(current, []referenceframe.Input{desired[0], desired[1], {desiredHeading}})
-		if err != nil {
-			return err
-		}
-		commanded, err := ddk.issueCommand(contextTimeout, distErr, headingErr)
-		if err != nil {
-			return err
-		}
-
-		if !commanded {
-			// no command to move to the x, y location was issued, correct the heading and then exit
-			distErr, headingErr, err = ddk.errorState(current, []referenceframe.Input{current[0], current[1], desired[2]})
+	utils.PanicCapturingGo(func() {
+		// this loop polls the error state and issues a corresponding command to move the base to the objective
+		// when the base is within the positional threshold of the goal, exit the loop
+		for err = ctx.Err(); err == nil; err = ctx.Err() {
+			utils.SelectContextOrWait(ctx, 100*time.Millisecond)
+			col, err := validRegion.CollidesWith(spatialmath.NewPoint(r3.Vector{X: current[0].Value, Y: current[1].Value}, ""))
 			if err != nil {
-				return err
+				movementErr <- err
 			}
-			if commanded, err := ddk.issueCommand(contextTimeout, distErr, headingErr); err == nil {
-				if !commanded {
-					return nil
-				}
-			} else {
-				return err
+			if !col {
+				movementErr <- errors.New("base has deviated too far from path")
 			}
-		}
 
-		current, err = ddk.CurrentInputs(contextTimeout)
-		if err != nil {
-			return err
+			// get to the x, y location first - note that from the base's perspective +y is forward
+			desiredHeading := math.Atan2(current[1].Value-desired[1].Value, current[0].Value-desired[0].Value)
+			commanded, err := ddk.issueCommand(cancelContext, current, []referenceframe.Input{desired[0], desired[1], {desiredHeading}})
+			if err != nil {
+				movementErr <- err
+			}
+
+			if !commanded {
+				// no command to move to the x, y location was issued, correct the heading and then exit
+				if commanded, err := ddk.issueCommand(cancelContext, current, []referenceframe.Input{current[0], current[1], desired[2]}); err == nil {
+					if !commanded {
+						movementErr <- nil
+					}
+				} else {
+					movementErr <- err
+				}
+			}
+
+			current, err = ddk.CurrentInputs(cancelContext)
+			if err != nil {
+				movementErr <- err
+			}
 		}
-	}
-	return err
+		movementErr <- ctx.Err()
+	})
+
+	// goroutine for watching for movement timeout
+	utils.PanicCapturingGo(func() {
+		lastUpdate := time.Now()
+		currentPose, err := ddk.CurrentInputs(ctx)
+		if err != nil {
+			movementErr <- err
+		}
+		distErr, headingErr, err := ddk.errorState(currentPose, desired)
+		if err != nil {
+			movementErr <- err
+		}
+		prevDistErr := distErr
+		prevHeadingErr := headingErr
+
+		for {
+			currentPose, err = ddk.CurrentInputs(ctx)
+			if err != nil {
+				movementErr <- err
+			}
+			distErr, headingErr, err = ddk.errorState(currentPose, desired)
+			if err != nil {
+				movementErr <- err
+			}
+			if poseChanged(prevDistErr, prevHeadingErr, distErr, headingErr) {
+				lastUpdate = time.Now()
+				prevDistErr = distErr
+				prevHeadingErr = headingErr
+			} else if time.Since(lastUpdate) > timeout {
+				cancel()
+				movementErr <- errors.New("movement error")
+				return
+			}
+		}
+	})
+
+	return <-movementErr
 }
 
 // issueCommand issues a relevant command to move the base to the given desired inputs and returns the boolean describing
 // if it issued a command successfully.  If it is already at the location it will not need to issue another command and can therefore
 // return a false.
-func (ddk *differentialDriveKinematics) issueCommand(ctx context.Context, distErr int, headingErr float64) (bool, error) {
+func (ddk *differentialDriveKinematics) issueCommand(ctx context.Context, current, desired []referenceframe.Input) (bool, error) {
+	distErr, headingErr, err := ddk.errorState(current, desired)
+	if err != nil {
+		return false, err
+	}
 	if distErr > distThresholdMM && math.Abs(headingErr) > headingThresholdDegrees {
 		// base is headed off course; spin to correct
 		return true, ddk.Spin(ctx, -headingErr, defaultAngularVelocity, nil)
 	} else if distErr > distThresholdMM {
 		// base is pointed the correct direction but not there yet; forge onward
-		return true, ddk.MoveStraight(ctx, distErr, defaultLinearVelocity, nil)
+		return true, ddk.MoveStraight(ctx, int(distErr), defaultLinearVelocity, nil)
 	}
 	return false, nil
 }
 
 // create a function for the error state, which is defined as [positional error, heading error].
-func (ddk *differentialDriveKinematics) errorState(current, desired []referenceframe.Input) (int, float64, error) {
+func (ddk *differentialDriveKinematics) errorState(current, desired []referenceframe.Input) (float64, float64, error) {
 	// create a goal pose in the world frame
 	goal := referenceframe.NewPoseInFrame(
 		referenceframe.World,
@@ -211,7 +234,7 @@ func (ddk *differentialDriveKinematics) errorState(current, desired []referencef
 
 	// calculate the error state
 	headingErr := math.Mod(delta.Pose().Orientation().OrientationVectorDegrees().Theta, 360)
-	positionErr := int(delta.Pose().Point().Norm())
+	positionErr := delta.Pose().Point().Norm()
 	return positionErr, headingErr, nil
 }
 
@@ -256,11 +279,13 @@ func CollisionGeometry(cfg *referenceframe.LinkConfig) ([]spatialmath.Geometry, 
 // The valid region is all points that are deviationThreshold (mm) distance away from the line segment between the
 // starting and ending waypoints. This capsule is used to detect whether a base leaves this region and has thus deviated
 // too far from its path.
-func (ddk *differentialDriveKinematics) newValidRegionCapsule(starting,
-	desired []referenceframe.Input,
-	positionErr int,
-) (spatialmath.Geometry, error) {
+func (ddk *differentialDriveKinematics) newValidRegionCapsule(starting, desired []referenceframe.Input) (spatialmath.Geometry, error) {
 	pt := r3.Vector{X: (desired[0].Value + starting[0].Value) / 2, Y: (desired[1].Value + starting[1].Value) / 2}
+	positionErr, _, err := ddk.errorState(starting, desired)
+	if err != nil {
+		return nil, err
+	}
+
 	desiredHeading := math.Atan2(starting[0].Value-desired[0].Value, starting[1].Value-desired[1].Value)
 
 	// rotate such that y is forward direction to match the frame for movement of a base
@@ -278,7 +303,7 @@ func (ddk *differentialDriveKinematics) newValidRegionCapsule(starting,
 	capsule, err := spatialmath.NewCapsule(
 		center,
 		deviationThreshold,
-		2*deviationThreshold+float64(positionErr),
+		2*deviationThreshold+positionErr,
 		"")
 	if err != nil {
 		return nil, err
@@ -287,7 +312,7 @@ func (ddk *differentialDriveKinematics) newValidRegionCapsule(starting,
 	return capsule, nil
 }
 
-func poseChanged(prevDistErr int, prevHeadingErr float64, distErr int, headingErr float64) bool {
-	return math.Abs(float64(prevDistErr)-float64(distErr)) > distEpsilon ||
-			math.Abs(prevHeadingErr-headingErr) > headingEpsilon
+func poseChanged(prevDistErr, prevHeadingErr, distErr, headingErr float64) bool {
+	return math.Abs(prevDistErr-distErr) > distEpsilon ||
+		math.Abs(prevHeadingErr-headingErr) > headingEpsilon
 }
