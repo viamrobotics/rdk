@@ -33,7 +33,11 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
-const testTime = "2000-01-01T12:00:%02dZ"
+const (
+	testTime   = "2000-01-01T12:00:%02dZ"
+	orgID      = "slam_org_id"
+	locationID = "slam_location_id"
+)
 
 // mockDataServiceServer is a struct that includes unimplemented versions of all the Data Service endpoints. These
 // can be overwritten to allow developers to trigger desired behaviors during testing.
@@ -46,9 +50,7 @@ type mockDataServiceServer struct {
 func (mDServer *mockDataServiceServer) BinaryDataByIDs(ctx context.Context, req *datapb.BinaryDataByIDsRequest,
 ) (*datapb.BinaryDataByIDsResponse, error) {
 	// Parse request
-	// TODO(RSDK-3795): Update BinaryDataByIDs test to match newest API
-	//nolint: staticcheck
-	fileID := req.FileIds[0]
+	fileID := req.BinaryIds[0].GetFileId()
 
 	data, err := getCompressedBytesFromArtifact(fileID)
 	if err != nil {
@@ -71,6 +73,10 @@ func (mDServer *mockDataServiceServer) BinaryDataByIDs(ctx context.Context, req 
 			Id:            fileID,
 			TimeRequested: timeReq,
 			TimeReceived:  timeRec,
+			CaptureMetadata: &datapb.CaptureMetadata{
+				OrgId:      orgID,
+				LocationId: locationID,
+			},
 		},
 	}
 	resp := &datapb.BinaryDataByIDsResponse{
@@ -113,6 +119,10 @@ func (mDServer *mockDataServiceServer) BinaryDataByFilter(ctx context.Context, r
 				Id:            fmt.Sprintf(datasetDirectory, newFileNum),
 				TimeRequested: timeReq,
 				TimeReceived:  timeRec,
+				CaptureMetadata: &datapb.CaptureMetadata{
+					OrgId:      orgID,
+					LocationId: locationID,
+				},
 			},
 		}
 
@@ -133,6 +143,10 @@ func (mDServer *mockDataServiceServer) BinaryDataByFilter(ctx context.Context, r
 					Id:            fmt.Sprintf(datasetDirectory, newFileNum+i),
 					TimeRequested: timeReq,
 					TimeReceived:  timeRec,
+					CaptureMetadata: &datapb.CaptureMetadata{
+						OrgId:      orgID,
+						LocationId: locationID,
+					},
 				},
 			}
 			resp.Data = append(resp.Data, &binaryData)
