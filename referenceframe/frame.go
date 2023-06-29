@@ -29,22 +29,6 @@ type Limit struct {
 	Max float64
 }
 
-func limitsAlmostEqual(a, b []Limit) bool {
-	if len(a) != len(b) {
-		return false
-	}
-
-	const epsilon = 1e-5
-	for idx, x := range a {
-		if !utils.Float64AlmostEqual(x.Min, b[idx].Min, epsilon) ||
-			!utils.Float64AlmostEqual(x.Max, b[idx].Max, epsilon) {
-			return false
-		}
-	}
-
-	return true
-}
-
 // RestrictedRandomFrameInputs will produce a list of valid, in-bounds inputs for the frame, restricting the range to
 // `lim` percent of the limits.
 func RestrictedRandomFrameInputs(m Frame, rSeed *rand.Rand, lim float64) []Input {
@@ -111,10 +95,6 @@ type Frame interface {
 	// For robot parts that don't move, it returns an empty slice.
 	DoF() []Limit
 
-	// AlmostEquals returns if the otherFrame is close to the referenceframe.
-	// differences should just be things like floating point inprecision
-	AlmostEquals(otherFrame Frame) bool
-
 	// InputFromProtobuf does there correct thing for this frame to convert protobuf units (degrees/mm) to input units (radians/mm)
 	InputFromProtobuf(*pb.JointPositions) []Input
 
@@ -154,10 +134,6 @@ func (bf *baseFrame) validInputs(inputs []Input) error {
 		}
 	}
 	return errAll
-}
-
-func (bf *baseFrame) AlmostEquals(other *baseFrame) bool {
-	return bf.name == other.name && limitsAlmostEqual(bf.limits, other.limits)
 }
 
 // a static Frame is a simple corrdinate system that encodes a fixed translation and rotation
@@ -290,11 +266,6 @@ func (sf staticFrame) MarshalJSON() ([]byte, error) {
 	return json.Marshal(temp)
 }
 
-func (sf *staticFrame) AlmostEquals(otherFrame Frame) bool {
-	other, ok := otherFrame.(*staticFrame)
-	return ok && sf.baseFrame.AlmostEquals(other.baseFrame) && spatial.PoseAlmostEqual(sf.transform, other.transform)
-}
-
 // a prismatic Frame is a frame that can translate without rotation in any/all of the X, Y, and Z directions.
 type translationalFrame struct {
 	*baseFrame
@@ -382,11 +353,6 @@ func (pf translationalFrame) MarshalJSON() ([]byte, error) {
 	return json.Marshal(temp)
 }
 
-func (pf *translationalFrame) AlmostEquals(otherFrame Frame) bool {
-	other, ok := otherFrame.(*translationalFrame)
-	return ok && pf.baseFrame.AlmostEquals(other.baseFrame) && spatial.R3VectorAlmostEqual(pf.transAxis, other.transAxis, 1e-8)
-}
-
 type rotationalFrame struct {
 	*baseFrame
 	rotAxis r3.Vector
@@ -451,9 +417,4 @@ func (rf rotationalFrame) MarshalJSON() ([]byte, error) {
 	}
 
 	return json.Marshal(temp)
-}
-
-func (rf *rotationalFrame) AlmostEquals(otherFrame Frame) bool {
-	other, ok := otherFrame.(*rotationalFrame)
-	return ok && rf.baseFrame.AlmostEquals(other.baseFrame) && spatial.R3VectorAlmostEqual(rf.rotAxis, other.rotAxis, 1e-8)
 }

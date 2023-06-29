@@ -31,6 +31,7 @@ type ptgBaseKinematics struct {
 	base.Base
 	frame referenceframe.Frame
 	fs    referenceframe.FrameSystem
+	ptgs  []tpspace.PTG
 }
 
 // wrapWithPTGKinematics takes a Base component and adds a PTG kinematic model so that it can be controlled.
@@ -69,10 +70,17 @@ func wrapWithPTGKinematics(
 		return nil, err
 	}
 
+	ptgProv, ok := frame.(tpspace.PTGProvider)
+	if !ok {
+		return nil, errors.New("unable to cast ptgk frame to a PTG Provider")
+	}
+	ptgs := ptgProv.PTGs()
+
 	return &ptgBaseKinematics{
 		Base:  b,
 		frame: frame,
 		fs:    fs,
+		ptgs:  ptgs,
 	}, nil
 }
 
@@ -89,12 +97,8 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 	if len(inputs) != 3 {
 		return errors.New("inputs to ptg kinematic base must be length 3")
 	}
-	ptgProv, ok := ptgk.frame.(tpspace.PTGProvider)
-	if !ok {
-		return errors.New("unable to cast ptgk frame to a PTG Provider")
-	}
-	ptgs := ptgProv.PTGs()
-	selectedPTG := ptgs[int(math.Round(inputs[ptgIndex].Value))]
+
+	selectedPTG := ptgk.ptgs[int(math.Round(inputs[ptgIndex].Value))]
 	selectedTraj := selectedPTG.Trajectory(uint(math.Round(inputs[trajectoryIndexWithinPTG].Value)))
 
 	lastTime := 0.
@@ -103,10 +107,10 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 			// We have reached the desired distance along the given trajectory
 			break
 		}
-		timestep := time.Duration(1e6*(trajNode.Time-lastTime)) * time.Microsecond
+		timestep := time.Duration(trajNode.Time-lastTime) * time.Second
 		lastTime = trajNode.Time
-		linVel := r3.Vector{0, trajNode.LinvelMMps, 0}
-		angVel := r3.Vector{0, 0, rdkutils.RadToDeg(trajNode.AngvelRps)}
+		linVel := r3.Vector{0, trajNode.LinVelMMPS, 0}
+		angVel := r3.Vector{0, 0, rdkutils.RadToDeg(trajNode.AngVelRPS)}
 		err := ptgk.Base.SetVelocity(
 			ctx,
 			linVel,

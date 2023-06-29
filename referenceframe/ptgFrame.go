@@ -56,7 +56,6 @@ func NewPTGFrameFromTurningRadius(name string, velocityMMps, turnRadMeters, simD
 
 	pf.geometries = geoms
 
-	// This is meaningless but needs to be len > 0
 	pf.limits = []Limit{
 		{Min: 0, Max: float64(len(pf.ptgs) - 1)},
 		{Min: 0, Max: float64(defaultAlphaCnt)},
@@ -113,7 +112,19 @@ func (pf *ptgGridSimFrame) ProtobufFromInput(input []Input) *pb.JointPositions {
 }
 
 func (pf *ptgGridSimFrame) Geometries(inputs []Input) (*GeometriesInFrame, error) {
-	return NewGeometriesInFrame(pf.name, pf.geometries), nil
+	if len(pf.geometries) == 0 {
+		return NewGeometriesInFrame(pf.Name(), nil), nil
+	}
+
+	transformedPose, err := pf.Transform(inputs)
+	if err != nil {
+		return nil, err
+	}
+	geoms := make([]spatialmath.Geometry, 0, len(pf.geometries))
+	for _, geom := range pf.geometries {
+		geoms = append(geoms, geom.Transform(transformedPose))
+	}
+	return NewGeometriesInFrame(pf.name, geoms), nil
 }
 
 // TODO: make this work.
@@ -130,15 +141,18 @@ func (pf *ptgGridSimFrame) initPTGs(maxMps, maxRadps, simDist float64) error {
 	for _, ptg := range defaultPTGs {
 		// Forwards version of grid sim
 		ptgGen := ptg(maxMps, maxRadps, 1.)
-		newptg, err := tpspace.NewPTGGridSim(ptgGen, defaultAlphaCnt, simDist)
-		if err != nil {
-			return err
+		if ptgGen != nil {
+			newptg, err := tpspace.NewPTGGridSim(ptgGen, defaultAlphaCnt, simDist)
+			if err != nil {
+				return err
+			}
+			ptgs = append(ptgs, newptg)
 		}
-		ptgs = append(ptgs, newptg)
+		// backwards pass of grid sim
 		ptgGen = ptg(maxMps, maxRadps, -1.)
 		if ptgGen != nil {
 			// irreversible trajectories, e.g. alpha, will return nil
-			newptg, err = tpspace.NewPTGGridSim(ptgGen, defaultAlphaCnt, simDist)
+			newptg, err := tpspace.NewPTGGridSim(ptgGen, defaultAlphaCnt, simDist)
 			if err != nil {
 				return err
 			}

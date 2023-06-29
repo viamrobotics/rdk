@@ -38,7 +38,7 @@ const (
 	defaultIdenticalNodeDistance = 5.
 
 	// Default distance in mm to get within for tp-space trajectories.
-	defaultTpspaceGoalDist = 10.
+	defaultTPSpaceGoalDist = 10.
 )
 
 // newTPSpaceMotionPlanner creates a newTPSpaceMotionPlanner object with a user specified random seed.

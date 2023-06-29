@@ -507,7 +507,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 
 		// TODO: instead of using a default this should be set from the TP frame as a function of the resolution of
 		// the simulated trajectories
-		opt.GoalThreshold = defaultTpspaceGoalDist
+		opt.GoalThreshold = defaultTPSpaceGoalDist
 		planAlg = "tpspace"
 	}
 

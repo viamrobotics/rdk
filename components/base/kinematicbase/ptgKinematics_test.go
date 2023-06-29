@@ -35,6 +35,9 @@ func TestPTGKinematics(t *testing.T) {
 	kb, err := WrapWithKinematics(ctx, b, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, kb, test.ShouldNotBeNil)
+	ptgBase, ok := kb.(*ptgBaseKinematics)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, ptgBase, test.ShouldNotBeNil)
 
 	dstPIF := referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewPoseFromPoint(r3.Vector{X: 999, Y: 0, Z: 0}))
 

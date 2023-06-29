@@ -191,8 +191,8 @@ func (ptg *ptgGridSim) simulateTrajectories(simPtg PrecomputePTG) ([][]*TrajNode
 				// If our waypoint is farther along than our minimum, update
 
 				// Update velocities of last node because reasons
-				alphaTraj[len(alphaTraj)-1].LinvelMMps = v
-				alphaTraj[len(alphaTraj)-1].AngvelRps = w
+				alphaTraj[len(alphaTraj)-1].LinVelMMPS = v
+				alphaTraj[len(alphaTraj)-1].AngVelRPS = w
 
 				pose := xythetaToPose(x, y, phi)
 				alphaTraj = append(alphaTraj, &TrajNode{pose, t, dist, k, v, w, pose.Point().X, pose.Point().Y})
@@ -209,8 +209,8 @@ func (ptg *ptgGridSim) simulateTrajectories(simPtg PrecomputePTG) ([][]*TrajNode
 		}
 
 		// Add final node
-		alphaTraj[len(alphaTraj)-1].LinvelMMps = v
-		alphaTraj[len(alphaTraj)-1].AngvelRps = w
+		alphaTraj[len(alphaTraj)-1].LinVelMMPS = v
+		alphaTraj[len(alphaTraj)-1].AngVelRPS = w
 		pose := xythetaToPose(x, y, phi)
 		tNode := &TrajNode{pose, t, dist, k, v, w, pose.Point().X, pose.Point().Y}
 

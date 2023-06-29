@@ -47,8 +47,8 @@ type TrajNode struct {
 	Time       float64          // elapsed time on trajectory
 	Dist       float64          // distance travelled down trajectory
 	K          uint             // alpha k-value at this node
-	LinvelMMps float64          // linvel at this node
-	AngvelRps  float64          // angvel at this node
+	LinVelMMPS float64          // linvel in millimeters per second at this node
+	AngVelRPS  float64          // angvel in radians per second at this node
 
 	ptX float64
 	ptY float64
