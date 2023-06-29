@@ -308,7 +308,7 @@ func (g *singleAxis) moveAway(ctx context.Context, pin int) error {
 	}
 }
 
-// doHome is a helper function that runs the actual homing sequence
+// doHome is a helper function that runs the actual homing sequence.
 func (g *singleAxis) doHome(ctx context.Context) (bool, error) {
 	np := len(g.limitSwitchPins)
 	ctx, done := g.opMgr.New(ctx)
