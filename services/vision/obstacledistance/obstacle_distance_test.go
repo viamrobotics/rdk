@@ -40,7 +40,7 @@ func TestObstacleDistDetector(t *testing.T) {
 			return nil, resource.NewNotFoundError(n)
 		}
 	}
-	name := vision.Named("test_odd") // what should this line be
+	name := vision.Named("test_odd")
 	srv, err := registerObstacleDistanceDetector(ctx, name, &inp, r)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, srv.Name(), test.ShouldResemble, name)
