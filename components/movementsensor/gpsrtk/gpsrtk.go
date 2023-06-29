@@ -60,6 +60,8 @@ type NtripConfig struct {
 	NtripMountpoint      string `json:"ntrip_mountpoint,omitempty"`
 	NtripPass            string `json:"ntrip_password,omitempty"`
 	NtripUser            string `json:"ntrip_username,omitempty"`
+	NtripPath            string `json:"ntrip_path,omitempty"`
+	NtripBaud            int    `json:"ntrip_baud,omitempty"`
 	NtripInputProtocol   string `json:"ntrip_input_protocol,omitempty"`
 }
 
@@ -295,16 +297,23 @@ func newRTKMovementSensor(
 		return nil, err
 	}
 
-	if g.InputProtocol == i2cStr {
-		// case serialStr:
-		// 	switch newConf.NtripPath {
-		// 	case "":
-		// 		g.logger.Info("RTK will use the same serial path as the GPS data to write RCTM messages")
-		// 		g.Writepath = newConf.SerialPath
-		// 	default:
-		// 		g.Writepath = newConf.NtripPath
-		// 	}
+	// baud rate
+	if newConf.NtripBaud == 0 {
+		newConf.NtripBaud = 38400
+		g.logger.Info("ntrip_baud using default baud rate 38400")
+	}
+	g.Wbaud = newConf.NtripBaud
 
+	switch g.InputProtocol {
+	case serialStr:
+		switch newConf.NtripPath {
+		case "":
+			g.logger.Info("RTK will use the same serial path as the GPS data to write RCTM messages")
+			g.Writepath = newConf.SerialPath
+		default:
+			g.Writepath = newConf.NtripPath
+		}
+	case i2cStr:
 		g.Addr = byte(newConf.I2cAddr)
 
 		b, err := board.FromDependencies(deps, newConf.Board)
