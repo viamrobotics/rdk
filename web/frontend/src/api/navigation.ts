@@ -68,7 +68,7 @@ export const getWaypoints = async (name: string): Promise<Waypoint[]> => {
 
   rcLogConditionally(req);
 
-  const response = await new Promise<{ getWaypointsList(): navigationApi.Waypoint[] }>((resolve, reject) => {
+  const response = await new Promise<{ getWaypointsList(): navigationApi.Waypoint[] } | null>((resolve, reject) => {
     client.current.navigationService.getWaypoints(req, new grpc.Metadata(), (error, resp) => {
       if (error) {
         reject(error);
@@ -78,7 +78,7 @@ export const getWaypoints = async (name: string): Promise<Waypoint[]> => {
     });
   });
 
-  return formatWaypoints(response.getWaypointsList() ?? []);
+  return formatWaypoints(response?.getWaypointsList() ?? []);
 };
 
 export const removeWaypoint = (name: string, id: string) => {
@@ -111,8 +111,8 @@ export const getLocation = (name: string) => {
         reject(error);
       } else {
         resolve({
-          lat: response.getLocation()?.getLatitude() ?? 0,
-          lng: response.getLocation()?.getLongitude() ?? 0,
+          lat: response?.getLocation()?.getLatitude() ?? 0,
+          lng: response?.getLocation()?.getLongitude() ?? 0,
         });
       }
     });

@@ -1,7 +1,7 @@
 /* eslint-disable multiline-comment-style */
 /* eslint-disable id-length */
 import { currentWritable } from '@threlte/core';
-import { JumpToOptions, type FlyToOptions, type Map } from 'maplibre-gl';
+import { type JumpToOptions, type FlyToOptions, type Map } from 'maplibre-gl';
 import type { Obstacle } from './types';
 import type { LngLat, Waypoint } from '@/api/navigation';
 
