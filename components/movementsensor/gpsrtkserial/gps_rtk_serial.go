@@ -40,11 +40,9 @@ const (
 
 // Config is used for converting NMEA MovementSensor with RTK capabilities config attributes.
 type Config struct {
-	NmeaDataSource           string `json:"nmea_data_source"`
-	SerialPath               string `json:"serial_path"`
-	SerialBaudRate           int    `json:"serial_baud_rate,omitempty"`
-	SerialCorrectionPath     string `json:"serial_correction_path,omitempty"`
-	SerialCorrectionBaudRate int    `json:"serial_correction_baud_rate,omitempty"`
+	NmeaDataSource string `json:"nmea_data_source"`
+	SerialPath     string `json:"serial_path"`
+	SerialBaudRate int    `json:"serial_baud_rate,omitempty"`
 
 	NtripURL             string `json:"ntrip_url"`
 	NtripConnectAttempts int    `json:"ntrip_connect_attempts,omitempty"`
@@ -185,10 +183,8 @@ func newRTKSerial(
 	case serialStr:
 		var err error
 		nmeaConf.SerialConfig = &gpsnmea.SerialConfig{
-			SerialPath:               newConf.SerialPath,
-			SerialBaudRate:           newConf.SerialBaudRate,
-			SerialCorrectionPath:     newConf.SerialCorrectionPath,
-			SerialCorrectionBaudRate: newConf.SerialCorrectionBaudRate,
+			SerialPath:     newConf.SerialPath,
+			SerialBaudRate: newConf.SerialBaudRate,
 		}
 		g.Nmeamovementsensor, err = gpsnmea.NewSerialGPSNMEA(ctx, conf.ResourceName(), nmeaConf, logger)
 		if err != nil {
