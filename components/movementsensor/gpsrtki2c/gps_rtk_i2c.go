@@ -25,7 +25,7 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-var rtkmodel = resource.DefaultModelFamily.WithModel("gps-rtk-i2c")
+var rtkmodel = resource.DefaultModelFamily.WithModel("gps-ublox-ZED-F9p-i2c")
 
 var errInputProtocolValidation = fmt.Errorf("only i2c is supported input protocols for %s", rtkmodel.Name)
 
