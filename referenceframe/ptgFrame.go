@@ -134,11 +134,6 @@ func (pf *ptgGridSimFrame) Geometries(inputs []Input) (*GeometriesInFrame, error
 	return NewGeometriesInFrame(pf.name, geoms), nil
 }
 
-// TODO: make this work.
-func (pf *ptgGridSimFrame) AlmostEquals(otherFrame Frame) bool {
-	return false
-}
-
 func (pf *ptgGridSimFrame) PTGs() []tpspace.PTG {
 	return pf.ptgs
 }
