@@ -1,14 +1,14 @@
 <script lang='ts'>
 
 import type { ServiceError } from '@viamrobotics/sdk';
-import { obstacles, waypoints, setLngLat } from '../stores';
+import { obstacles, waypoints, setMapCenter } from '../stores';
 import { removeWaypoint } from '@/api/navigation';
 import { notify } from '@viamrobotics/prime';
 
 export let name: string;
 
 const handleClick = (lng: number, lat: number) => {
-  setLngLat({ lng, lat }, { flyTo: {} });
+  setMapCenter({ lng, lat }, { flyTo: true });
 };
 
 const handleRemoveWaypoint = async (id: string) => {

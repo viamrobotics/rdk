@@ -6,7 +6,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { notify } from '@viamrobotics/prime';
 import { navigationApi, type ServiceError } from '@viamrobotics/sdk';
 import { setMode, type NavigationModes } from '@/api/navigation';
-import { lngLat, setLngLat, robotPosition } from './stores';
+import { mapCenter, setMapCenter, robotPosition } from './stores';
 import Collapse from '@/components/collapse.svelte';
 import Map from './components/map.svelte';
 import Nav from './components/nav.svelte';
@@ -17,12 +17,12 @@ const decimalFormat = new Intl.NumberFormat(undefined, { maximumFractionDigits: 
 
 const handleLng = (event: CustomEvent) => {
   const lng = Number.parseFloat(event.detail.value);
-  setLngLat({ lng, lat: lngLat.current.lat }, { center: true });
+  setMapCenter({ lng, lat: mapCenter.current.lat }, { center: true });
 };
 
 const handleLat = (event: CustomEvent) => {
   const lat = Number.parseFloat(event.detail.value);
-  setLngLat({ lat, lng: lngLat.current.lng }, { center: true });
+  setMapCenter({ lat, lng: mapCenter.current.lng }, { center: true });
 };
 
 const setNavigationMode = async (event: CustomEvent) => {
@@ -57,7 +57,7 @@ const setNavigationMode = async (event: CustomEvent) => {
           <v-button
             variant='icon'
             icon='center'
-            on:click={() => $robotPosition && setLngLat($robotPosition, { flyTo: {} })}
+            on:click={() => $robotPosition && setMapCenter($robotPosition, { flyTo: true })}
           />
         </div>
 
@@ -74,7 +74,7 @@ const setNavigationMode = async (event: CustomEvent) => {
           label='Longitude'
           placeholder='0'
           incrementor='slider'
-          value={$lngLat.lng ? decimalFormat.format($lngLat.lng) : ''}
+          value={$mapCenter.lng ? decimalFormat.format($mapCenter.lng) : ''}
           step='0.5'
           class='max-w-[6rem]'
           on:input={handleLng}
@@ -84,7 +84,7 @@ const setNavigationMode = async (event: CustomEvent) => {
           label='Latitude'
           placeholder='0'
           incrementor='slider'
-          value={$lngLat.lat ? decimalFormat.format($lngLat.lat) : ''}
+          value={$mapCenter.lat ? decimalFormat.format($mapCenter.lat) : ''}
           step='0.25'
           class='max-w-[6rem]'
           on:input={handleLat}
@@ -98,7 +98,7 @@ const setNavigationMode = async (event: CustomEvent) => {
       <div class='grow'>
         <Map
           {name}
-          on:drag={(event) => setLngLat(event.detail)}
+          on:drag={(event) => setMapCenter(event.detail)}
         />
       </div>
 

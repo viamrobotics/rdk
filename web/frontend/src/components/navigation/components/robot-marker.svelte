@@ -3,7 +3,7 @@
 import { notify } from '@viamrobotics/prime';
 import { getLocation } from '@/api/navigation';
 import type { ServiceError } from '@viamrobotics/sdk';
-import { robotPosition, setLngLat } from '../stores';
+import { robotPosition, setMapCenter } from '../stores';
 import { setAsyncInterval } from '@/lib/schedule';
 import { useDisconnect } from '@/hooks/use-disconnect';
 import MapMarker from './marker.svelte';
@@ -17,7 +17,7 @@ const updateLocation = async () => {
     const position = await getLocation(name);
 
     if (!centered) {
-      setLngLat(position, { center: true });
+      setMapCenter(position, { center: true });
       centered = true;
     }
 
