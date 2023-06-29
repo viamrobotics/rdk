@@ -6,7 +6,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { notify } from '@viamrobotics/prime';
 import { navigationApi, type ServiceError } from '@viamrobotics/sdk';
 import { setMode, type NavigationModes } from '@/api/navigation';
-import { mapCenter, setMapCenter, robotPosition } from './stores';
+import { mapCenter, centerMap, robotPosition, flyToMap } from './stores';
 import Collapse from '@/components/collapse.svelte';
 import Map from './components/map.svelte';
 import Nav from './components/nav.svelte';
@@ -17,12 +17,12 @@ const decimalFormat = new Intl.NumberFormat(undefined, { maximumFractionDigits: 
 
 const handleLng = (event: CustomEvent) => {
   const lng = Number.parseFloat(event.detail.value);
-  setMapCenter({ lng, lat: mapCenter.current.lat }, { center: true });
+  centerMap({ lng, lat: mapCenter.current.lat });
 };
 
 const handleLat = (event: CustomEvent) => {
   const lat = Number.parseFloat(event.detail.value);
-  setMapCenter({ lat, lng: mapCenter.current.lng }, { center: true });
+  centerMap({ lat, lng: mapCenter.current.lng });
 };
 
 const setNavigationMode = async (event: CustomEvent) => {
@@ -57,7 +57,7 @@ const setNavigationMode = async (event: CustomEvent) => {
           <v-button
             variant='icon'
             icon='center'
-            on:click={() => $robotPosition && setMapCenter($robotPosition, { flyTo: true })}
+            on:click={() => $robotPosition && flyToMap($robotPosition)}
           />
         </div>
 
@@ -98,7 +98,7 @@ const setNavigationMode = async (event: CustomEvent) => {
       <div class='grow'>
         <Map
           {name}
-          on:drag={(event) => setMapCenter(event.detail)}
+          on:drag={(event) => centerMap(event.detail, false)}
         />
       </div>
 
