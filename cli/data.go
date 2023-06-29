@@ -174,7 +174,6 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst st
 	for count := 0; count < maxRetryCount; count++ {
 		resp, err = client.BinaryDataByIDs(ctx, &datapb.BinaryDataByIDsRequest{
 			BinaryIds:     []*datapb.BinaryID{id},
-			BinaryIds:     []*datapb.BinaryID{id},
 			IncludeBinary: true,
 		})
 		if err == nil {

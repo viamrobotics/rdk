@@ -38,11 +38,6 @@ const (
 	orgID      = "slam_org_id"
 	locationID = "slam_location_id"
 )
-const (
-	testTime   = "2000-01-01T12:00:%02dZ"
-	orgID      = "slam_org_id"
-	locationID = "slam_location_id"
-)
 
 // mockDataServiceServer is a struct that includes unimplemented versions of all the Data Service endpoints. These
 // can be overwritten to allow developers to trigger desired behaviors during testing.
@@ -55,7 +50,6 @@ type mockDataServiceServer struct {
 func (mDServer *mockDataServiceServer) BinaryDataByIDs(ctx context.Context, req *datapb.BinaryDataByIDsRequest,
 ) (*datapb.BinaryDataByIDsResponse, error) {
 	// Parse request
-	fileID := req.BinaryIds[0].GetFileId()
 	fileID := req.BinaryIds[0].GetFileId()
 
 	data, err := getCompressedBytesFromArtifact(fileID)
