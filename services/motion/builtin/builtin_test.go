@@ -280,6 +280,8 @@ func TestMoveOnMap(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		// path of length 2 indicates a path that goes straight through central obstacle
 		test.That(t, len(path), test.ShouldBeGreaterThan, 2)
+		// every waypoint should hvae the form [x,y,theta]
+		test.That(t, len(path[0]), test.ShouldEqual, 3)
 	})
 
 	t.Run("ensure success of movement around obstacle", func(t *testing.T) {
@@ -307,6 +309,22 @@ func TestMoveOnMap(t *testing.T) {
 		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, success, test.ShouldBeTrue)
+	})
+
+	t.Run("check that position-only mode returns 2D plan", func(t *testing.T) {
+		t.Parallel()
+		extra := make(map[string]interface{})
+		extra["motion_profile"] = "position_only"
+		path, _, err := ms.(*builtIn).planMoveOnMap(
+			context.Background(),
+			base.Named("test_base"),
+			goal,
+			slam.Named("test_slam"),
+			extra,
+		)
+		test.That(t, err, test.ShouldBeNil)
+		// every waypoint should have the form [x,y]
+		test.That(t, len(path[0]), test.ShouldEqual, 2)
 	})
 }
 

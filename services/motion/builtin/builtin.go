@@ -275,22 +275,12 @@ func (ms *builtIn) MoveOnGlobe(
 	if !ok {
 		return false, fmt.Errorf("cannot move base of type %T because it is not a Base", baseComponent)
 	}
-	positionOnly := false
-	profile, ok := extra["motion_profile"]
-	if ok {
-		motionProfile, ok := profile.(string)
-		if !ok {
-			return false, errors.New("could not interpret motion_profile field as string")
-		}
-		if motionProfile == motionplan.PositionOnlyMotionProfile {
-			positionOnly = true
-		}
-	}
+
 	var kb kinematicbase.KinematicBase
 	if fake, ok := b.(*fake.Base); ok {
 		kb, err = kinematicbase.WrapWithFakeKinematics(ctx, fake, localizer, limits)
 	} else {
-		kb, err = kinematicbase.WrapWithDifferentialDriveKinematics(ctx, b, localizer, limits, positionOnly)
+		kb, err = kinematicbase.WrapWithDifferentialDriveKinematics(ctx, b, localizer, limits)
 	}
 	if err != nil {
 		return false, err
@@ -429,6 +419,7 @@ func (ms *builtIn) planMoveOnMap(
 	if err != nil {
 		return nil, nil, err
 	}
+	limits = append(limits, referenceframe.Limit{Min: -2 * math.Pi, Max: 2 * math.Pi})
 
 	// create a KinematicBase from the componentName
 	component, ok := ms.components[componentName]
@@ -439,7 +430,7 @@ func (ms *builtIn) planMoveOnMap(
 	if !ok {
 		return nil, nil, fmt.Errorf("cannot move component of type %T because it is not a Base", component)
 	}
-	positionOnly := false
+
 	profile, ok := extra["motion_profile"]
 	if ok {
 		motionProfile, ok := profile.(string)
@@ -447,15 +438,15 @@ func (ms *builtIn) planMoveOnMap(
 			return nil, nil, errors.New("could not interpret motion_profile field as string")
 		}
 		if motionProfile == motionplan.PositionOnlyMotionProfile {
-			positionOnly = true
+			limits = limits[0:2] // remove theta limit if in position only mode
 		}
 	}
-	
+
 	var kb kinematicbase.KinematicBase
 	if fake, ok := b.(*fake.Base); ok {
 		kb, err = kinematicbase.WrapWithFakeKinematics(ctx, fake, localizer, limits)
 	} else {
-		kb, err = kinematicbase.WrapWithDifferentialDriveKinematics(ctx, b, localizer, limits, positionOnly)
+		kb, err = kinematicbase.WrapWithDifferentialDriveKinematics(ctx, b, localizer, limits)
 	}
 	if err != nil {
 		return nil, nil, err

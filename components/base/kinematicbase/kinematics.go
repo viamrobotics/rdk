@@ -35,7 +35,6 @@ type differentialDriveKinematics struct {
 	localizer    motion.Localizer
 	model        referenceframe.Model
 	fs           referenceframe.FrameSystem
-	positionOnly bool
 }
 
 // WrapWithDifferentialDriveKinematics takes a Base component and adds a slam service to it
@@ -45,7 +44,6 @@ func WrapWithDifferentialDriveKinematics(
 	b base.Base,
 	localizer motion.Localizer,
 	limits []referenceframe.Limit,
-	positionOnly bool,
 ) (KinematicBase, error) {
 	properties, err := b.Properties(ctx, nil)
 	if err != nil {
@@ -79,7 +77,6 @@ func WrapWithDifferentialDriveKinematics(
 		localizer:    localizer,
 		model:        model,
 		fs:           fs,
-		positionOnly: positionOnly,
 	}, nil
 }
 
@@ -129,7 +126,7 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 		}
 
 		if !commanded {
-			if ddk.positionOnly {
+			if len(ddk.model.DoF()) == 2 { // 2DOF -> position only mode
 				return nil
 			}
 			// no command to move to the x, y location was issued, correct the heading and then exit
