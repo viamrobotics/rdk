@@ -116,93 +116,62 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 		return err
 	}
 
-	t := time.NewTimer(timeout)
-	poseChange := make(chan bool, 1)
-	movementErr := make(chan error, 1)
-	defer close(poseChange)
-	defer close(movementErr)
+	prevDistErr := distErr
+	prevHeadingErr := headingErr
+	contextTimeout, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
 
 	// this loop polls the error state and issues a corresponding command to move the base to the objective
 	// when the base is within the positional threshold of the goal, exit the loop
-	utils.PanicCapturingGo(func() {
-		prevDistErr := distErr
-		prevHeadingErr := headingErr
-		for contextErr := ctx.Err(); contextErr == nil; contextErr = ctx.Err() {
-			utils.SelectContextOrWait(ctx, 100*time.Millisecond)
-			if poseChanged(prevDistErr, prevHeadingErr, distErr, headingErr) {
-				prevDistErr = distErr
-				prevHeadingErr = headingErr
-				poseChange <- true
-			}
+	for err = ctx.Err(); err == nil; err = ctx.Err() {
+		utils.SelectContextOrWait(ctx, 100*time.Millisecond)
+		if poseChanged(prevDistErr, prevHeadingErr, distErr, headingErr) {
+			prevDistErr = distErr
+			prevHeadingErr = headingErr
+			contextTimeout, cancel = context.WithTimeout(ctx, timeout)
+			defer cancel()
+		}
 
-			col, err := validRegion.CollidesWith(spatialmath.NewPoint(r3.Vector{X: current[0].Value, Y: current[1].Value}, ""))
-			if err != nil {
-				movementErr <- err
-				return
-			}
-			if !col {
-				movementErr <- errors.New("base has deviated too far from path")
-				return
-			}
+		col, err := validRegion.CollidesWith(spatialmath.NewPoint(r3.Vector{X: current[0].Value, Y: current[1].Value}, ""))
+		if err != nil {
+			return err
+		}
+		if !col {
+			return errors.New("base has deviated too far from path")
+		}
 
-			// get to the x, y location first - note that from the base's perspective +y is forward
-			desiredHeading := math.Atan2(current[1].Value-desired[1].Value, current[0].Value-desired[0].Value)
-			distErr, headingErr, err = ddk.errorState(current, []referenceframe.Input{desired[0], desired[1], {desiredHeading}})
-			if err != nil {
-				movementErr <- err
-				return
-			}
-			commanded, err := ddk.issueCommand(ctx, distErr, headingErr)
-			if err != nil {
-				movementErr <- err
-				return
-			}
+		// get to the x, y location first - note that from the base's perspective +y is forward
+		desiredHeading := math.Atan2(current[1].Value-desired[1].Value, current[0].Value-desired[0].Value)
+		distErr, headingErr, err = ddk.errorState(current, []referenceframe.Input{desired[0], desired[1], {desiredHeading}})
+		if err != nil {
+			return err
+		}
+		commanded, err := ddk.issueCommand(contextTimeout, distErr, headingErr)
+		if err != nil {
+			return err
+		}
 
-			if !commanded {
-				// no command to move to the x, y location was issued, correct the heading and then exit
-				distErr, headingErr, err = ddk.errorState(current, []referenceframe.Input{current[0], current[1], desired[2]})
-				if err != nil {
-					movementErr <- err
-					return
+		if !commanded {
+			// no command to move to the x, y location was issued, correct the heading and then exit
+			distErr, headingErr, err = ddk.errorState(current, []referenceframe.Input{current[0], current[1], desired[2]})
+			if err != nil {
+				return err
+			}
+			if commanded, err := ddk.issueCommand(contextTimeout, distErr, headingErr); err == nil {
+				if !commanded {
+					return nil
 				}
-				if commanded, err := ddk.issueCommand(ctx, distErr, headingErr); err == nil {
-					if !commanded {
-						movementErr <- nil
-						return
-					}
-				} else {
-					movementErr <- err
-					return
-				}
-			}
-
-			current, err = ddk.CurrentInputs(ctx)
-			if err != nil {
-				movementErr <- err
-				return
+			} else {
+				return err
 			}
 		}
-		movementErr <- ctx.Err()
-	})
 
-	utils.PanicCapturingGo(func() {
-		for {
-			select {
-			case <-poseChange:
-				// restart timer if a position change occurs before the timer expires
-				// have to stop timer and empty channel if there's anything in it before resetting
-				if !t.Stop() {
-					<-t.C
-				}
-				t.Reset(timeout)
-
-			case <-t.C: // timer expired before a position change occurred
-				movementErr <- errors.New("movement timeout")
-			}
+		current, err = ddk.CurrentInputs(contextTimeout)
+		if err != nil {
+			return err
 		}
-	})
-	goToInputsErr := <-movementErr // waits on error value to be returned from either timer or movement code
-	return goToInputsErr
+	}
+	return err
 }
 
 // issueCommand issues a relevant command to move the base to the given desired inputs and returns the boolean describing
