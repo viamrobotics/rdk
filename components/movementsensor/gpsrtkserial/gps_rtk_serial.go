@@ -201,7 +201,6 @@ func newRTKSerial(
 
 	//Init ntripInfo from attibutes
 	g.ntripClient, err = rtk.NewNtripInfo(ntripConfig, g.logger)
-	fmt.Printf("ntripClient is %v\n", g.ntripClient)
 	if err != nil {
 		return nil, err
 	}
