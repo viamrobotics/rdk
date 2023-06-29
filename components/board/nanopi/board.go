@@ -17,5 +17,5 @@ func init() {
 	if _, err := host.Init(); err != nil {
 		golog.Global().Debugw("error initializing host", "error", err)
 	}
-	genericlinux.RegisterBoard(modelName, nil, true)
+	genericlinux.RegisterBoard(modelName, nil)
 }
