@@ -61,7 +61,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 		return nil, err
 	}
 
-	err = cfg.validateNtripInputProtocol(path)
+	err = cfg.validateNtripInputProtocol()
 	if err != nil {
 		return nil, err
 	}
@@ -86,7 +86,7 @@ func (cfg *Config) validateNmeaDataSource(path string) error {
 }
 
 // validateNtripInputProtocol validates protocols accepted by this package.
-func (cfg *Config) validateNtripInputProtocol(path string) error {
+func (cfg *Config) validateNtripInputProtocol() error {
 	if cfg.NtripInputProtocol == serialStr {
 		return nil
 	}
@@ -199,7 +199,6 @@ func newRTKSerial(
 		return nil, fmt.Errorf("%s is not a valid connection type", newConf.NmeaDataSource)
 	}
 
-	//Init ntripInfo from attibutes
 	g.ntripClient, err = rtk.NewNtripInfo(ntripConfig, g.logger)
 	if err != nil {
 		return nil, err
