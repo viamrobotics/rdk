@@ -25,6 +25,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	var gantryPos []float64
+	var gantrySpeed []float64
 
 	pos1 := []float64{1.0, 2.0, 3.0}
 	len1 := []float64{2.0, 3.0, 4.0}
@@ -34,8 +35,9 @@ func TestClient(t *testing.T) {
 		extra1 = extra
 		return pos1, nil
 	}
-	injectGantry.MoveToPositionFunc = func(ctx context.Context, pos []float64, extra map[string]interface{}) error {
+	injectGantry.MoveToPositionFunc = func(ctx context.Context, pos, speed []float64, extra map[string]interface{}) error {
 		gantryPos = pos
+		gantrySpeed = speed
 		extra1 = extra
 		return nil
 	}
@@ -47,8 +49,13 @@ func TestClient(t *testing.T) {
 		extra1 = extra
 		return errors.New("no stop")
 	}
+	injectGantry.HomeFunc = func(ctx context.Context, extra map[string]interface{}) (bool, error) {
+		extra1 = extra
+		return true, nil
+	}
 
 	pos2 := []float64{4.0, 5.0, 6.0}
+	speed2 := []float64{100.0, 80.0, 120.0}
 	len2 := []float64{5.0, 6.0, 7.0}
 	var extra2 map[string]interface{}
 	injectGantry2 := &inject.Gantry{}
@@ -56,8 +63,9 @@ func TestClient(t *testing.T) {
 		extra2 = extra
 		return pos2, nil
 	}
-	injectGantry2.MoveToPositionFunc = func(ctx context.Context, pos []float64, extra map[string]interface{}) error {
+	injectGantry2.MoveToPositionFunc = func(ctx context.Context, pos, speed []float64, extra map[string]interface{}) error {
 		gantryPos = pos
+		gantrySpeed = speed
 		extra2 = extra
 		return nil
 	}
@@ -68,6 +76,10 @@ func TestClient(t *testing.T) {
 	injectGantry2.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
 		extra2 = extra
 		return nil
+	}
+	injectGantry2.HomeFunc = func(ctx context.Context, extra map[string]interface{}) (bool, error) {
+		extra2 = extra
+		return false, errors.New("Home error")
 	}
 
 	gantrySvc, err := resource.NewAPIResourceCollection(
@@ -112,14 +124,20 @@ func TestClient(t *testing.T) {
 		test.That(t, pos, test.ShouldResemble, pos1)
 		test.That(t, extra1, test.ShouldResemble, map[string]interface{}{"foo": 123., "bar": "234"})
 
-		err = gantry1Client.MoveToPosition(context.Background(), pos2, map[string]interface{}{"foo": 234, "bar": "345"})
+		err = gantry1Client.MoveToPosition(context.Background(), pos2, speed2, map[string]interface{}{"foo": 234, "bar": "345"})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, gantryPos, test.ShouldResemble, pos2)
+		test.That(t, gantrySpeed, test.ShouldResemble, speed2)
 		test.That(t, extra1, test.ShouldResemble, map[string]interface{}{"foo": 234., "bar": "345"})
 
 		lens, err := gantry1Client.Lengths(context.Background(), map[string]interface{}{"foo": 345, "bar": "456"})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, lens, test.ShouldResemble, len1)
+		test.That(t, extra1, test.ShouldResemble, map[string]interface{}{"foo": 345., "bar": "456"})
+
+		homed, err := gantry1Client.Home(context.Background(), map[string]interface{}{"foo": 345, "bar": "456"})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, homed, test.ShouldBeTrue)
 		test.That(t, extra1, test.ShouldResemble, map[string]interface{}{"foo": 345., "bar": "456"})
 
 		err = gantry1Client.Stop(context.Background(), map[string]interface{}{"foo": 456, "bar": "567"})
@@ -141,6 +159,11 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldResemble, pos2)
 		test.That(t, extra2, test.ShouldResemble, map[string]interface{}{"foo": "123", "bar": 234.})
+
+		homed, err := client2.Home(context.Background(), map[string]interface{}{"foo": 345, "bar": "456"})
+		test.That(t, err.Error(), test.ShouldContainSubstring, "Home error")
+		test.That(t, homed, test.ShouldBeFalse)
+		test.That(t, extra2, test.ShouldResemble, map[string]interface{}{"foo": 345., "bar": "456"})
 
 		err = client2.Stop(context.Background(), map[string]interface{}{"foo": "234", "bar": 345})
 		test.That(t, err, test.ShouldBeNil)

@@ -18,8 +18,6 @@ import (
 const (
 	distThresholdMM         = 100
 	headingThresholdDegrees = 15
-	defaultAngularVelocity  = 60    // degrees per second
-	defaultLinearVelocity   = 300   // mm per second
 	deviationThreshold      = 300.0 // mm
 )
 
@@ -32,9 +30,11 @@ type KinematicBase interface {
 
 type differentialDriveKinematics struct {
 	base.Base
-	localizer motion.Localizer
-	model     referenceframe.Model
-	fs        referenceframe.FrameSystem
+	localizer                     motion.Localizer
+	model                         referenceframe.Model
+	fs                            referenceframe.FrameSystem
+	maxLinearVelocityMillisPerSec float64
+	maxAngularVelocityDegsPerSec  float64
 }
 
 // WrapWithDifferentialDriveKinematics takes a Base component and adds a slam service to it
@@ -44,6 +44,8 @@ func WrapWithDifferentialDriveKinematics(
 	b base.Base,
 	localizer motion.Localizer,
 	limits []referenceframe.Limit,
+	maxLinearVelocityMillisPerSec float64,
+	maxAngularVelocityDegsPerSec float64,
 ) (KinematicBase, error) {
 	properties, err := b.Properties(ctx, nil)
 	if err != nil {
@@ -73,10 +75,12 @@ func WrapWithDifferentialDriveKinematics(
 	}
 
 	return &differentialDriveKinematics{
-		Base:      b,
-		localizer: localizer,
-		model:     model,
-		fs:        fs,
+		Base:                          b,
+		localizer:                     localizer,
+		model:                         model,
+		fs:                            fs,
+		maxLinearVelocityMillisPerSec: maxLinearVelocityMillisPerSec,
+		maxAngularVelocityDegsPerSec:  maxAngularVelocityDegsPerSec,
 	}, nil
 }
 
@@ -154,10 +158,10 @@ func (ddk *differentialDriveKinematics) issueCommand(ctx context.Context, curren
 	}
 	if distErr > distThresholdMM && math.Abs(headingErr) > headingThresholdDegrees {
 		// base is headed off course; spin to correct
-		return true, ddk.Spin(ctx, -headingErr, defaultAngularVelocity, nil)
+		return true, ddk.Spin(ctx, -headingErr, ddk.maxAngularVelocityDegsPerSec, nil)
 	} else if distErr > distThresholdMM {
 		// base is pointed the correct direction but not there yet; forge onward
-		return true, ddk.MoveStraight(ctx, distErr, defaultLinearVelocity, nil)
+		return true, ddk.MoveStraight(ctx, distErr, ddk.maxLinearVelocityMillisPerSec, nil)
 	}
 	return false, nil
 }
