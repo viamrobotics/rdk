@@ -158,23 +158,15 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 	// goroutine for watching for movement timeout
 	utils.PanicCapturingGo(func() {
 		lastUpdate := time.Now()
-		currentPose, err := ddk.CurrentInputs(ctx)
-		if err != nil {
-			movementErr <- err
-		}
-		distErr, headingErr, err := ddk.errorState(currentPose, desired)
-		if err != nil {
-			movementErr <- err
-		}
-		prevDistErr := distErr
-		prevHeadingErr := headingErr
+		prevDistErr := math.Inf(-1)
+		prevHeadingErr := math.Inf(-1)
 
 		for {
-			currentPose, err = ddk.CurrentInputs(ctx)
+			currentPose, err := ddk.CurrentInputs(ctx)
 			if err != nil {
 				movementErr <- err
 			}
-			distErr, headingErr, err = ddk.errorState(currentPose, desired)
+			distErr, headingErr, err := ddk.errorState(currentPose, desired)
 			if err != nil {
 				movementErr <- err
 			}
@@ -186,6 +178,11 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 				cancel()
 				movementErr <- errors.New("movement error")
 				return
+			}
+
+			if prevDistErr == math.Inf(-1) {
+				prevDistErr = distErr
+				prevHeadingErr = headingErr
 			}
 		}
 	})
@@ -313,6 +310,7 @@ func (ddk *differentialDriveKinematics) newValidRegionCapsule(starting, desired 
 }
 
 func poseChanged(prevDistErr, prevHeadingErr, distErr, headingErr float64) bool {
-	return math.Abs(prevDistErr-distErr) > distEpsilon ||
-		math.Abs(prevHeadingErr-headingErr) > headingEpsilon
+	return prevDistErr != math.Inf(-1) &&
+		(math.Abs(prevDistErr-distErr) > distEpsilon ||
+			math.Abs(prevHeadingErr-headingErr) > headingEpsilon)
 }
