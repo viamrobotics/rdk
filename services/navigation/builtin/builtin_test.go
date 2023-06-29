@@ -26,6 +26,11 @@ import (
 	"go.viam.com/test"
 )
 
+const (
+	defaultAngularVelocityDegsPerSec  = 60  // degrees per second
+	defaultLinearVelocityMillisPerSec = 300 // mm per second
+)
+
 func setupNavigationServiceFromConfig(t *testing.T, configFilename string) (navigation.Service, func()) {
 	t.Helper()
 	ctx := context.Background()
@@ -105,7 +110,8 @@ func TestStartWaypoint(t *testing.T) {
 
 	localizer, err := motion.NewLocalizer(ctx, fakeSlam)
 
-	kinematicBase, err := kinematicbase.WrapWithDifferentialDriveKinematics(ctx, fakeBase, localizer, limits)
+	kinematicBase, err := kinematicbase.WrapWithDifferentialDriveKinematics(ctx, fakeBase, localizer, limits,
+		defaultLinearVelocityMillisPerSec, defaultAngularVelocityDegsPerSec)
 	test.That(t, err, test.ShouldBeNil)
 
 	injectMovementSensor := inject.NewMovementSensor("test_movement")
@@ -121,8 +127,8 @@ func TestStartWaypoint(t *testing.T) {
 		heading float64,
 		movementSensorName resource.Name,
 		obstacles []*spatialmath.GeoObstacle,
-		linearVelocity float64,
-		angularVelocity float64,
+		linearVelocityMillisPerSec float64,
+		angularVelocityDegsPerSec float64,
 		extra map[string]interface{},
 	) (bool, error) {
 		err := kinematicBase.GoToInputs(ctx, referenceframe.FloatsToInputs([]float64{destination.Lat(), destination.Lng(), 0}))
