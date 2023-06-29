@@ -27,8 +27,6 @@ import (
 
 var rtkmodel = resource.DefaultModelFamily.WithModel("gps-rtk-nmea-pmtk")
 
-var errInputProtocolValidation = fmt.Errorf("only i2c is supported input protocols for %s", rtkmodel.Name)
-
 const i2cStr = "i2c"
 
 // Config is used for converting NMEA MovementSensor with RTK capabilities config attributes.
@@ -43,7 +41,6 @@ type Config struct {
 	NtripMountpoint      string `json:"ntrip_mountpoint,omitempty"`
 	NtripPass            string `json:"ntrip_password,omitempty"`
 	NtripUser            string `json:"ntrip_username,omitempty"`
-	NtripInputProtocol   string `json:"ntrip_input_protocol,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -58,10 +55,6 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 	err = cfg.validateNtrip(path)
 	if err != nil {
 		return nil, err
-	}
-
-	if cfg.NtripInputProtocol != i2cStr {
-		return nil, errInputProtocolValidation
 	}
 
 	deps = append(deps, cfg.Board)
@@ -83,9 +76,6 @@ func (cfg *Config) validateI2C(path string) error {
 func (cfg *Config) validateNtrip(path string) error {
 	if cfg.NtripURL == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "ntrip_addr")
-	}
-	if cfg.NtripInputProtocol == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "ntrip_input_protocol")
 	}
 	return nil
 }
@@ -121,7 +111,7 @@ type RTKI2C struct {
 
 	Bus   board.I2C
 	Wbaud int
-	Addr  byte // for i2c only
+	Addr  byte
 }
 
 func newRTKI2C(
@@ -197,7 +187,7 @@ func newRTKI2C(
 	return g, g.err.Get()
 }
 
-// Start begins NTRIP receiver with specified protocol and begins reading/updating MovementSensor measurements.
+// Start begins NTRIP receiver with i2c protocol and begins reading/updating MovementSensor measurements.
 func (g *RTKI2C) start() error {
 	// TODO(RDK-1639): Test out what happens if we call this line and then the ReceiveAndWrite*
 	// correction data goes wrong. Could anything worse than uncorrected data occur?
