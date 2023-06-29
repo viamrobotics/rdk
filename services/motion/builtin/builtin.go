@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math"
 	"sync"
+	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
@@ -197,10 +198,10 @@ func (ms *builtIn) MoveOnMap(
 	if err != nil {
 		return false, fmt.Errorf("error making plan for MoveOnMap: %v", err)
 	}
-
+	inputsCtx, _ := context.WithTimeout(ctx, 5*time.Second)
 	// execute the plan
 	for i := 1; i < len(plan); i++ {
-		if err := kb.GoToInputs(ctx, plan[i]); err != nil {
+		if err := kb.GoToInputs(inputsCtx, plan[i]); err != nil {
 			return false, err
 		}
 	}

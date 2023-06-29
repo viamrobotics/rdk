@@ -288,7 +288,6 @@ func (ddk *differentialDriveKinematics) newValidRegionCapsule(starting,
 }
 
 func poseChanged(prevDistErr int, prevHeadingErr float64, distErr int, headingErr float64) bool {
-	return prevDistErr != -1 &&
-		(math.Abs(float64(prevDistErr)-float64(distErr)) > distEpsilon ||
-			math.Abs(prevHeadingErr-headingErr) > headingEpsilon)
+	return math.Abs(float64(prevDistErr)-float64(distErr)) > distEpsilon ||
+			math.Abs(prevHeadingErr-headingErr) > headingEpsilon
 }
