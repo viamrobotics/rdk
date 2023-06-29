@@ -161,7 +161,7 @@ func getMatchingBinaryIDs(ctx context.Context, client datapb.DataServiceClient, 
 			md := bd.GetMetadata()
 			ids <- &datapb.BinaryID{
 				FileId:         md.GetId(),
-				OrganizationId: md.GetCaptureMetadata().GetOrgId(),
+				OrganizationId: md.GetCaptureMetadata().GetOrganizationId(),
 				LocationId:     md.GetCaptureMetadata().GetLocationId(),
 			}
 		}
