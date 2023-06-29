@@ -69,3 +69,14 @@ export const getSLAMPosition = (client: Client, name: string) => {
     ));
   });
 };
+
+export const getLatestMapInfo = (client: Client, name: string) => {
+  const request = new slamApi.GetLatestMapInfoRequest();
+  request.setName(name);
+
+  return new Promise<commonApi.Pose | undefined>((resolve, reject) => {
+    client.slamService.getPosition(request, new grpc.Metadata(), (error, response) => (
+      error ? reject(error) : resolve(response?.getPose())
+    ));
+  });
+};

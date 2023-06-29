@@ -144,6 +144,7 @@ func (server *serviceServer) GetLatestMapInfo(ctx context.Context, req *pb.GetLa
 		return nil, err
 	}
 	protoTimestamp := timestamppb.New(mapTimestamp)
+
 	return &pb.GetLatestMapInfoResponse{
 		LastMapUpdate: protoTimestamp,
 	}, nil

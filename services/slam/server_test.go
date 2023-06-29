@@ -5,9 +5,11 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"math"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
@@ -16,6 +18,7 @@ import (
 	"go.viam.com/utils/artifact"
 	"go.viam.com/utils/protoutils"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/slam"
@@ -84,6 +87,7 @@ func TestWorkingServer(t *testing.T) {
 		reqPos := &pb.GetPositionRequest{
 			Name: testSlamServiceName,
 		}
+		fmt.Println(reqPos)
 		respPos, err := slamServer.GetPosition(context.Background(), reqPos)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, spatial.PoseAlmostEqual(poseSucc, spatial.NewPoseFromProtobuf(respPos.Pose)), test.ShouldBeTrue)
@@ -141,6 +145,24 @@ func TestWorkingServer(t *testing.T) {
 		err := slamServer.GetInternalState(req, mockServer)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, mockServer.rawBytes, test.ShouldResemble, internalStateSucc)
+	})
+
+	t.Run("working GetLatestMapInfo", func(t *testing.T) {
+		someProtoTime := timestamppb.Now()
+		someTimeTime := someProtoTime.AsTime()
+		injectSvc.GetLatestMapInfoFunc = func(ctx context.Context) (time.Time, error) {
+			return someTimeTime, nil
+		}
+
+		reqInfo := &pb.GetLatestMapInfoRequest{
+			Name: testSlamServiceName,
+		}
+
+		respInfo, err := slamServer.GetLatestMapInfo(context.Background(), reqInfo)
+		test.That(t, err, test.ShouldBeNil)
+
+		test.That(t, respInfo.LastMapUpdate, test.ShouldResemble, someProtoTime)
+
 	})
 
 	t.Run("Multiple services Valid", func(t *testing.T) {
@@ -273,6 +295,18 @@ func TestFailingServer(t *testing.T) {
 
 		err = slamServer.GetInternalState(req, mockServer)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "callback error")
+	})
+
+	t.Run("failing GetLatestMapInfo", func(t *testing.T) {
+
+		injectSvc.GetLatestMapInfoFunc = func(ctx context.Context) (time.Time, error) {
+			return time.Time{}, errors.New("failure to get latest map info")
+		}
+		reqInfo := &pb.GetLatestMapInfoRequest{Name: testSlamServiceName}
+
+		respInfo, err := slamServer.GetLatestMapInfo(context.Background(), reqInfo)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "failure to get latest map info")
+		test.That(t, respInfo, test.ShouldBeNil)
 	})
 
 	injectAPISvc, _ = resource.NewAPIResourceCollection(slam.API, map[resource.Name]slam.Service{})
