@@ -179,9 +179,9 @@ func (lp *LastPosition) IsPositionNaN(p *geo.Point) bool {
 	return math.IsNaN(p.Lng()) && math.IsNaN(p.Lat())
 }
 
-// AddChk adds PMTK checksums to commands by XORing the bytes together.
-func AddChk(data []byte) []byte {
-	chk := Checksum(data)
+// PMTKAddChk adds PMTK checksums to commands by XORing the bytes together.
+func PMTKAddChk(data []byte) []byte {
+	chk := PMTKChecksum(data)
 	newCmd := []byte("$")
 	newCmd = append(newCmd, data...)
 	newCmd = append(newCmd, []byte("*")...)
@@ -189,8 +189,8 @@ func AddChk(data []byte) []byte {
 	return newCmd
 }
 
-// Checksum calculates the checksum of a byte array by performing an XOR operation on each byte.
-func Checksum(data []byte) byte {
+// PMTKChecksum calculates the checksum of a byte array by performing an XOR operation on each byte.
+func PMTKChecksum(data []byte) byte {
 	var chk byte
 	for _, b := range data {
 		chk ^= b

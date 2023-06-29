@@ -287,9 +287,9 @@ func (g *RTKI2C) receiveAndWriteI2C(ctx context.Context) {
 
 	// Send GLL, RMC, VTG, GGA, GSA, and GSV sentences each 1000ms
 	baudcmd := fmt.Sprintf("PMTK251,%d", g.Wbaud)
-	cmd251 := movementsensor.AddChk([]byte(baudcmd))
-	cmd314 := movementsensor.AddChk([]byte("PMTK314,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0"))
-	cmd220 := movementsensor.AddChk([]byte("PMTK220,1000"))
+	cmd251 := movementsensor.PMTKAddChk([]byte(baudcmd))
+	cmd314 := movementsensor.PMTKAddChk([]byte("PMTK314,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0"))
+	cmd220 := movementsensor.PMTKAddChk([]byte("PMTK220,1000"))
 
 	err = handle.Write(ctx, cmd251)
 	if err != nil {
@@ -327,7 +327,7 @@ func (g *RTKI2C) receiveAndWriteI2C(ctx context.Context) {
 		return
 	}
 
-	wI2C := movementsensor.AddChk(buf[:n])
+	wI2C := movementsensor.PMTKAddChk(buf[:n])
 
 	// port still open
 	err = handle.Write(ctx, wI2C)
@@ -384,7 +384,7 @@ func (g *RTKI2C) receiveAndWriteI2C(ctx context.Context) {
 					g.err.Set(err)
 					return
 				}
-				wI2C := movementsensor.AddChk(buf[:n])
+				wI2C := movementsensor.PMTKAddChk(buf[:n])
 
 				err = handle.Write(ctx, wI2C)
 
