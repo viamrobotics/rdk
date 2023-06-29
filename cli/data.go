@@ -45,6 +45,7 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter, parallelDownlo
 	}
 
 	ids := make(chan *datapb.BinaryID, parallelDownloads)
+	ids := make(chan *datapb.BinaryID, parallelDownloads)
 	// Give channel buffer of 1+parallelDownloads because that is the number of goroutines that may be passing an
 	// error into this channel (1 get ids routine + parallelDownloads download routines).
 	errs := make(chan error, 1+parallelDownloads)
@@ -74,6 +75,7 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter, parallelDownlo
 	go func() {
 		defer wg.Done()
 		var nextID *datapb.BinaryID
+		var nextID *datapb.BinaryID
 		var done bool
 		var numFilesDownloaded atomic.Int32
 		var downloadWG sync.WaitGroup
@@ -90,11 +92,14 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter, parallelDownlo
 
 				// If nextID is nil, the channel has been closed and there are no more IDs to be read.
 				if nextID == nil {
+				// If nextID is nil, the channel has been closed and there are no more IDs to be read.
+				if nextID == nil {
 					done = true
 					break
 				}
 
 				downloadWG.Add(1)
+				go func(id *datapb.BinaryID) {
 				go func(id *datapb.BinaryID) {
 					defer downloadWG.Done()
 					err := downloadBinary(ctx, c.dataClient, dst, id)
@@ -130,6 +135,7 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter, parallelDownlo
 
 // getMatchingIDs queries client for all BinaryData matching filter, and passes each of their ids into ids.
 func getMatchingBinaryIDs(ctx context.Context, client datapb.DataServiceClient, filter *datapb.Filter,
+	ids chan *datapb.BinaryID, limit uint,
 	ids chan *datapb.BinaryID, limit uint,
 ) error {
 	var last string
@@ -173,6 +179,7 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst st
 	var err error
 	for count := 0; count < maxRetryCount; count++ {
 		resp, err = client.BinaryDataByIDs(ctx, &datapb.BinaryDataByIDsRequest{
+			BinaryIds:     []*datapb.BinaryID{id},
 			BinaryIds:     []*datapb.BinaryID{id},
 			IncludeBinary: true,
 		})
