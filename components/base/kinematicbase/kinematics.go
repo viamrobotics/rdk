@@ -32,9 +32,9 @@ type KinematicBase interface {
 
 type differentialDriveKinematics struct {
 	base.Base
-	localizer    motion.Localizer
-	model        referenceframe.Model
-	fs           referenceframe.FrameSystem
+	localizer motion.Localizer
+	model     referenceframe.Model
+	fs        referenceframe.FrameSystem
 }
 
 // WrapWithDifferentialDriveKinematics takes a Base component and adds a slam service to it
@@ -73,10 +73,10 @@ func WrapWithDifferentialDriveKinematics(
 	}
 
 	return &differentialDriveKinematics{
-		Base:         b,
-		localizer:    localizer,
-		model:        model,
-		fs:           fs,
+		Base:      b,
+		localizer: localizer,
+		model:     model,
+		fs:        fs,
 	}, nil
 }
 
