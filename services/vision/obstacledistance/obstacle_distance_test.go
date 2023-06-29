@@ -2,22 +2,44 @@ package obstacledistance
 
 import (
 	"context"
+	"image/color"
 	"testing"
 
+	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
+	"go.viam.com/rdk/components/camera"
+	pc "go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/testutils/inject"
 )
 
 func TestObstacleDistDetector(t *testing.T) {
-	inp := ObstacleDistanceDetectorConfig{
-		NumQueries: 10,
+	inp := DistanceDetectorConfig{
+		DetectorName: "fakeCamera",
+		NumQueries:   10,
 	}
 	ctx := context.Background()
 	r := &inject.Robot{}
+	cam := &inject.Camera{}
+
+	cam.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
+		return nil, errors.New("no pointcloud")
+	}
+	r.ResourceNamesFunc = func() []resource.Name {
+		return []resource.Name{camera.Named("fakeCamera")}
+	}
+	r.ResourceByNameFunc = func(n resource.Name) (resource.Resource, error) {
+		switch n.Name {
+		case "fakeCamera":
+			return cam, nil
+		default:
+			return nil, resource.NewNotFoundError(n)
+		}
+	}
 	name := vision.Named("test_odd") // what should this line be
 	srv, err := registerObstacleDistanceDetector(ctx, name, &inp, r)
 	test.That(t, err, test.ShouldBeNil)
@@ -35,11 +57,41 @@ func TestObstacleDistDetector(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "does not implement")
 
-	// fakeCam := inject.NewCamera("myCam") // needs some work
+	cam.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
+		cloud := pc.New()
+		err = cloud.Set(pc.NewVector(0, 0, 1), pc.NewColoredData(color.NRGBA{255, 0, 0, 255}))
+		test.That(t, err, test.ShouldBeNil)
+		return cloud, err
+	}
+	objects, err := srv.GetObjectPointClouds(ctx, "fakeCamera", nil)
+	test.That(t, err, test.ShouldBeNil)
 
-	// visObj, err := srv.GetObjectPointClouds(ctx, "usSensor", nil)
+	test.That(t, len(objects), test.ShouldEqual, 1)
+	_, isPoint := objects[0].PointCloud.At(0, 0, 1)
+	test.That(t, isPoint, test.ShouldBeTrue)
 
-	// with error - bad parameters
+	point := objects[0].Geometry.Pose().Point()
+	test.That(t, point.X, test.ShouldEqual, 0)
+	test.That(t, point.Y, test.ShouldEqual, 0)
+	test.That(t, point.Z, test.ShouldEqual, 1)
+
+	count := 0
+	nums := []float64{10, 9, 4, 5, 3, 1, 2, 6, 7, 8}
+	cam.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
+		cloud := pc.New()
+		err = cloud.Set(pc.NewVector(0, 0, nums[count]), pc.NewColoredData(color.NRGBA{255, 0, 0, 255}))
+		test.That(t, err, test.ShouldBeNil)
+		count++
+		return cloud, err
+	}
+	objects, err = srv.GetObjectPointClouds(ctx, "fakeCamera", nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, len(objects), test.ShouldEqual, 1)
+
+	_, isPoint = objects[0].PointCloud.At(0, 0, 5.5)
+	test.That(t, isPoint, test.ShouldBeTrue)
+
 	inp.NumQueries = 0 // value out of range
 	_, err = registerObstacleDistanceDetector(ctx, name, &inp, r)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid number of queries")

@@ -1,3 +1,5 @@
+// Package obstacledistance uses an underlying camera to fulfill vision service methods, specifically
+// GetObjectPointClouds, which performs several queries of NextPointCloud and returns a median point.
 package obstacledistance
 
 import (
@@ -16,24 +18,23 @@ import (
 	svision "go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
-
 	vision "go.viam.com/rdk/vision"
 )
 
 var model = resource.DefaultModelFamily.WithModel("obstacle_distance_detector")
 
-type ObstacleDistanceDetectorConfig struct {
+// DistanceDetectorConfig specifies the parameters for the camera to be used
+// for the obstacle distance detection service.
+type DistanceDetectorConfig struct {
 	resource.TriviallyValidateConfig
 	DetectorName string `json:"detector_name"`
-	// ConfidenceThresh float64 `json:"confidence_threshold_pct"`
-	NumQueries int `json:"num_queries"`
-	// add field for number of queries
+	NumQueries   int    `json:"num_queries"`
 }
 
 func init() {
-	resource.RegisterService(svision.API, model, resource.Registration[svision.Service, *ObstacleDistanceDetectorConfig]{
+	resource.RegisterService(svision.API, model, resource.Registration[svision.Service, *DistanceDetectorConfig]{
 		DeprecatedRobotConstructor: func(ctx context.Context, r any, c resource.Config, logger golog.Logger) (svision.Service, error) {
-			attrs, err := resource.NativeConfig[*ObstacleDistanceDetectorConfig](c)
+			attrs, err := resource.NativeConfig[*DistanceDetectorConfig](c)
 			if err != nil {
 				return nil, err
 			}
@@ -49,7 +50,7 @@ func init() {
 func registerObstacleDistanceDetector(
 	ctx context.Context,
 	name resource.Name,
-	conf *ObstacleDistanceDetectorConfig,
+	conf *DistanceDetectorConfig,
 	r robot.Robot,
 ) (svision.Service, error) {
 	_, span := trace.StartSpan(ctx, "service::vision::registerObstacleDistanceDetector")
@@ -66,7 +67,7 @@ func registerObstacleDistanceDetector(
 	}
 
 	segmenter := func(ctx context.Context, src camera.VideoSource) ([]*vision.Object, error) {
-		clouds := []pointcloud.PointCloud{}
+		clouds := make([]pointcloud.PointCloud, conf.NumQueries)
 
 		for i := 0; i < conf.NumQueries; i++ {
 			nxtPC, err := usSensor.NextPointCloud(ctx)
@@ -93,6 +94,9 @@ func registerObstacleDistanceDetector(
 		count := 0
 
 		mergedCloud.Iterate(0, 0, func(p r3.Vector, d pointcloud.Data) bool {
+			// if p.X != 0 || p.Y != 0 {
+			// Should this be an error case?
+			// }
 			values = append(values, p.Z)
 			count++
 			return true
@@ -110,7 +114,7 @@ func registerObstacleDistanceDetector(
 
 		pt := spatialmath.NewPoint(vector, "obstacle").Pose()
 
-		sphere, err := spatialmath.NewSphere(pt, 0, "obstacle")
+		sphere, err := spatialmath.NewSphere(pt, 0.1, "obstacle") // can't make it zero because of error case in newsphere
 		if err != nil {
 			return nil, err
 		}
@@ -122,12 +126,9 @@ func registerObstacleDistanceDetector(
 			return nil, err
 		}
 
-		// when iterating if more than one point, return error
-		// query nextpointcloud multiple times, take median?
 		// implementation of kalman filter (smart smoothing average function) over readings from nextpointcloud
-		// return pointcloud and geometry
 
-		toReturn := make([]*vision.Object, 0)
+		toReturn := make([]*vision.Object, 1)
 		toReturn[0] = &vision.Object{PointCloud: pcToReturn, Geometry: sphere}
 
 		return toReturn, nil
