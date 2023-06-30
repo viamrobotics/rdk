@@ -126,7 +126,7 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 		}
 
 		if !commanded {
-			// no command to move to the x, y location was issued so base is at correct x, y position
+			// no command to move to the x, y location was issued so base is at the correct x, y position
 			// 2DOF model indicates position-only mode so heading doesn't need to be corrected, exit function
 			if len(ddk.model.DoF()) == 2 {
 				return nil
