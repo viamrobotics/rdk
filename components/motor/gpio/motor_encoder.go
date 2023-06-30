@@ -59,6 +59,8 @@ func WrapMotorWithEncoder(
 	if e == nil {
 		return m, nil
 	}
+
+	logger.Info("meow")
 	if mc.TicksPerRotation < 0 {
 		return nil, utils.NewConfigValidationError("", errors.New("ticks_per_rotation should be positive or zero"))
 	}
@@ -90,7 +92,7 @@ func NewEncodedMotor(
 	realMotor motor.Motor,
 	encoder encoder.Encoder,
 	logger golog.Logger,
-) (motor.LocalMotor, error) {
+) (motor.Motor, error) {
 	return newEncodedMotor(conf.ResourceName(), motorConfig, realMotor, encoder, logger)
 }
 
@@ -101,7 +103,7 @@ func newEncodedMotor(
 	realEncoder encoder.Encoder,
 	logger golog.Logger,
 ) (*EncodedMotor, error) {
-	localReal, err := resource.AsType[motor.LocalMotor](realMotor)
+	localReal, err := resource.AsType[motor.Motor](realMotor)
 	if err != nil {
 		return nil, err
 	}
@@ -176,7 +178,7 @@ type EncodedMotor struct {
 
 	activeBackgroundWorkers sync.WaitGroup
 	cfg                     Config
-	real                    motor.LocalMotor
+	real                    motor.Motor
 	encoder                 encoder.Encoder
 
 	stateMu sync.RWMutex
@@ -662,78 +664,6 @@ func (m *EncodedMotor) GoTo(ctx context.Context, rpm, targetPosition float64, ex
 		return nil
 	}
 	return m.GoFor(ctx, rpm, moveDistance, extra)
-}
-
-// GoTillStop moves until physically stopped (though with a ten second timeout) or stopFunc() returns true.
-func (m *EncodedMotor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
-	ctx, done := m.opMgr.New(ctx)
-	defer done()
-
-	if err := m.goForInternal(ctx, rpm, 0); err != nil {
-		return err
-	}
-	defer func() {
-		if err := m.Stop(ctx, nil); err != nil {
-			m.logger.Error("failed to turn off motor")
-		}
-	}()
-	var tries, rpmCount uint
-
-	for {
-		if !utils.SelectContextOrWait(ctx, 10*time.Millisecond) {
-			return errors.New("context cancelled during GoTillStop")
-		}
-		if stopFunc != nil && stopFunc(ctx) {
-			return nil
-		}
-
-		// If we start moving OR just try for too long, good for next phase
-		m.stateMu.RLock()
-		curRPM := m.state.currentRPM
-		m.stateMu.RUnlock()
-		if math.Abs(curRPM) >= math.Abs(rpm)/10 {
-			rpmCount++
-		} else {
-			rpmCount = 0
-		}
-		if rpmCount >= 50 || tries > 200 {
-			tries = 0
-			rpmCount = 0
-			break
-		}
-		tries++
-	}
-
-	for {
-		if !utils.SelectContextOrWait(ctx, 10*time.Millisecond) {
-			return errors.New("context cancelled during GoTillStop")
-		}
-
-		if stopFunc != nil && stopFunc(ctx) {
-			return nil
-		}
-
-		m.stateMu.RLock()
-		curRPM := m.state.currentRPM
-		m.stateMu.RUnlock()
-
-		if math.Abs(curRPM) <= math.Abs(rpm)/10 {
-			rpmCount++
-		} else {
-			rpmCount = 0
-		}
-
-		if rpmCount >= 50 {
-			break
-		}
-
-		if tries >= 1000 {
-			return errors.New("timed out during GoTillStop")
-		}
-
-		tries++
-	}
-	return nil
 }
 
 // ResetZeroPosition sets the current position of the motor specified by the request

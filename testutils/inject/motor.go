@@ -20,6 +20,7 @@ type Motor struct {
 	PropertiesFunc        func(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error)
 	StopFunc              func(ctx context.Context, extra map[string]interface{}) error
 	IsPoweredFunc         func(ctx context.Context, extra map[string]interface{}) (bool, float64, error)
+	IsMovingFunc          func(context.Context) (bool, error)
 }
 
 // NewMotor returns a new injected motor.
@@ -104,33 +105,10 @@ func (m *Motor) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[
 	return m.DoFunc(ctx, cmd)
 }
 
-// LocalMotor is an injected motor that supports additional features provided by RDK
-// (e.g. GoTillStop).
-type LocalMotor struct {
-	Motor
-	GoTillStopFunc func(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error
-	IsMovingFunc   func(context.Context) (bool, error)
-}
-
-// GoTillStop calls the injected GoTillStop or the real version.
-func (m *LocalMotor) GoTillStop(
-	ctx context.Context, rpm float64,
-	stopFunc func(ctx context.Context) bool,
-) error {
-	if m.GoTillStopFunc == nil {
-		stoppableMotor, ok := m.Motor.Motor.(motor.LocalMotor)
-		if !ok {
-			return motor.NewGoTillStopUnsupportedError("(name unavailable)")
-		}
-		return stoppableMotor.GoTillStop(ctx, rpm, stopFunc)
-	}
-	return m.GoTillStopFunc(ctx, rpm, stopFunc)
-}
-
 // IsMoving calls the injected IsMoving or the real version.
-func (m *LocalMotor) IsMoving(ctx context.Context) (bool, error) {
+func (m *Motor) IsMoving(ctx context.Context) (bool, error) {
 	if m.IsMovingFunc == nil {
-		return m.Motor.Motor.(motor.LocalMotor).IsMoving(ctx)
+		return m.Motor.IsMoving(ctx)
 	}
 	return m.IsMovingFunc(ctx)
 }

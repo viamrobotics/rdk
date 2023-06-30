@@ -146,7 +146,7 @@ const (
 // NewMotor returns a TMC5072 driven motor.
 func NewMotor(ctx context.Context, deps resource.Dependencies, c TMC5072Config, name resource.Name,
 	logger golog.Logger,
-) (motor.LocalMotor, error) {
+) (motor.Motor, error) {
 	b, err := board.FromDependencies(deps, c.BoardName)
 	if err != nil {
 		return nil, errors.Errorf("%q is not a board", c.BoardName)
@@ -560,9 +560,9 @@ func (m *Motor) IsMoving(ctx context.Context) (bool, error) {
 	return !stop, err
 }
 
-// Home homes the motor using stallguard.
-func (m *Motor) Home(ctx context.Context) error {
-	err := m.GoTillStop(ctx, m.homeRPM, nil)
+// home homes the motor using stallguard.
+func (m *Motor) home(ctx context.Context) error {
+	err := m.goTillStop(ctx, m.homeRPM, nil)
 	if err != nil {
 		return err
 	}
@@ -579,8 +579,8 @@ func (m *Motor) Home(ctx context.Context) error {
 	return m.ResetZeroPosition(ctx, 0, nil)
 }
 
-// GoTillStop enables StallGuard detection, then moves in the direction/speed given until resistance (endstop) is detected.
-func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
+// goTillStop enables StallGuard detection, then moves in the direction/speed given until resistance (endstop) is detected.
+func (m *Motor) goTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
 	if err := m.Jog(ctx, rpm); err != nil {
 		return err
 	}
@@ -688,7 +688,7 @@ func (m *Motor) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[
 	}
 	switch name {
 	case Home:
-		return nil, m.Home(ctx)
+		return nil, m.home(ctx)
 	case Jog:
 		rpmRaw, ok := cmd[RPMVal]
 		if !ok {

@@ -77,8 +77,6 @@ func init() {
 	})
 }
 
-var _ motor.LocalMotor = &Motor{}
-
 // A Motor allows setting and reading a set power percentage and
 // direction.
 type Motor struct {
@@ -347,29 +345,6 @@ func (m *Motor) GoTo(ctx context.Context, rpm, pos float64, extra map[string]int
 	return nil
 }
 
-// GoTillStop always returns an error.
-func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
-	return motor.NewGoTillStopUnsupportedError(m.Name().ShortName())
-}
-
-// ResetZeroPosition resets the zero position.
-func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
-	if m.Encoder == nil {
-		return errors.New("encoder is not defined")
-	}
-
-	if m.TicksPerRotation == 0 {
-		return errors.New("need nonzero TicksPerRotation for motor")
-	}
-
-	err := m.Encoder.ResetPosition(ctx, extra)
-	if err != nil {
-		return errors.Wrapf(err, "error in ResetZeroPosition from motor (%s)", m.Name())
-	}
-
-	return nil
-}
-
 // Stop has the motor pretend to be off.
 func (m *Motor) Stop(ctx context.Context, extra map[string]interface{}) error {
 	m.mu.Lock()
@@ -384,6 +359,11 @@ func (m *Motor) Stop(ctx context.Context, extra map[string]interface{}) error {
 		}
 	}
 	return nil
+}
+
+// ResetZeroPosition resets the zero position of the motor.
+func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
+	return m.Encoder.ResetPosition(ctx, extra)
 }
 
 // IsPowered returns if the motor is pretending to be on or not, and its power level.
