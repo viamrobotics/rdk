@@ -21,7 +21,7 @@ func init() {
 	}
 }
 
-type i2cBus struct {
+type I2cBus struct {
 	// Despite the type name BusCloser, this is the I2C bus itself (plus a way to close itself when
 	// it's done, though we never use that because we want to keep it open until the entire process
 	// exits)!
@@ -30,19 +30,17 @@ type i2cBus struct {
 	deviceName   string
 }
 
-func newI2cBus(deviceName string) (*i2cBus, error) {
-	// We return a pointer to an i2cBus instead of an i2cBus itself so that we can return nil if
+func NewI2cBus(deviceName string) (*I2cBus, error) {
+	// We return a pointer to an I2cBus instead of an I2cBus itself so that we can return nil if
 	// something goes wrong.
-	b := &i2cBus{}
+	b := &I2cBus{}
 	if err := b.reset(deviceName); err != nil {
 		return nil, err
 	}
 	return b, nil
 }
 
-func (bus *i2cBus) reset(deviceName string) error {
-	// We return a pointer to an i2cBus instead of an i2cBus itself so that we can return nil if
-	// something goes wrong.
+func (bus *I2cBus) reset(deviceName string) error {
 	newBus, err := i2creg.Open(deviceName)
 	if err != nil {
 		return err
@@ -51,22 +49,22 @@ func (bus *i2cBus) reset(deviceName string) error {
 	return nil
 }
 
-// This lets the i2cBus type implement the board.I2C interface.
-func (bus *i2cBus) OpenHandle(addr byte) (board.I2CHandle, error) {
+// This lets the I2cBus type implement the board.I2C interface.
+func (bus *I2cBus) OpenHandle(addr byte) (board.I2CHandle, error) {
 	bus.mu.Lock() // Lock the bus so no other handle can use it until this one is closed.
-	return &i2cHandle{device: &i2c.Dev{Bus: bus.closeableBus, Addr: uint16(addr)}, parentBus: bus}, nil
+	return &I2cHandle{device: &i2c.Dev{Bus: bus.closeableBus, Addr: uint16(addr)}, parentBus: bus}, nil
 }
 
-type i2cHandle struct { // Implements the board.I2CHandle interface
+type I2cHandle struct { // Implements the board.I2CHandle interface
 	device    *i2c.Dev // Will become nil if we Close() the handle
-	parentBus *i2cBus
+	parentBus *I2cBus
 }
 
-func (h *i2cHandle) Write(ctx context.Context, tx []byte) error {
+func (h *I2cHandle) Write(ctx context.Context, tx []byte) error {
 	return h.device.Tx(tx, nil)
 }
 
-func (h *i2cHandle) Read(ctx context.Context, count int) ([]byte, error) {
+func (h *I2cHandle) Read(ctx context.Context, count int) ([]byte, error) {
 	buffer := make([]byte, count)
 	err := h.device.Tx(nil, buffer)
 	if err != nil {
@@ -76,7 +74,7 @@ func (h *i2cHandle) Read(ctx context.Context, count int) ([]byte, error) {
 }
 
 // This is a private helper function, used to implement the rest of the board.I2CHandle interface.
-func (h *i2cHandle) transactAtRegister(register byte, w, r []byte) error {
+func (h *I2cHandle) transactAtRegister(register byte, w, r []byte) error {
 	if w == nil {
 		w = []byte{}
 	}
@@ -86,7 +84,7 @@ func (h *i2cHandle) transactAtRegister(register byte, w, r []byte) error {
 	return h.device.Tx(fullW, r)
 }
 
-func (h *i2cHandle) ReadByteData(ctx context.Context, register byte) (byte, error) {
+func (h *I2cHandle) ReadByteData(ctx context.Context, register byte) (byte, error) {
 	result := make([]byte, 1)
 	err := h.transactAtRegister(register, nil, result)
 	if err != nil {
@@ -95,11 +93,11 @@ func (h *i2cHandle) ReadByteData(ctx context.Context, register byte) (byte, erro
 	return result[0], nil
 }
 
-func (h *i2cHandle) WriteByteData(ctx context.Context, register, data byte) error {
+func (h *I2cHandle) WriteByteData(ctx context.Context, register, data byte) error {
 	return h.transactAtRegister(register, []byte{data}, nil)
 }
 
-func (h *i2cHandle) ReadBlockData(ctx context.Context, register byte, numBytes uint8) ([]byte, error) {
+func (h *I2cHandle) ReadBlockData(ctx context.Context, register byte, numBytes uint8) ([]byte, error) {
 	result := make([]byte, numBytes)
 	err := h.transactAtRegister(register, nil, result)
 	if err != nil {
@@ -108,11 +106,11 @@ func (h *i2cHandle) ReadBlockData(ctx context.Context, register byte, numBytes u
 	return result, nil
 }
 
-func (h *i2cHandle) WriteBlockData(ctx context.Context, register byte, data []byte) error {
+func (h *I2cHandle) WriteBlockData(ctx context.Context, register byte, data []byte) error {
 	return h.transactAtRegister(register, data, nil)
 }
 
-func (h *i2cHandle) Close() error {
+func (h *I2cHandle) Close() error {
 	defer h.parentBus.mu.Unlock() // Unlock the entire bus so someone else can use it
 	h.device = nil
 	// Don't close the bus itself: it should remain open for other handles to use
