@@ -128,7 +128,7 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 		// this loop polls the error state and issues a corresponding command to move the base to the objective
 		// when the base is within the positional threshold of the goal, exit the loop
 		for err := cancelContext.Err(); err == nil; err = cancelContext.Err() {
-			utils.SelectContextOrWait(ctx, 100*time.Millisecond)
+			utils.SelectContextOrWait(ctx, 10*time.Millisecond)
 			col, err := validRegion.CollidesWith(spatialmath.NewPoint(r3.Vector{X: current[0].Value, Y: current[1].Value}, ""))
 			if err != nil {
 				movementErr <- err
@@ -183,7 +183,7 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 		currentInputs, err := ddk.CurrentInputs(ctx)
 		if err != nil {
 			cancel()
-			<- movementErr
+			<-movementErr
 			return err
 		}
 		if prevInputs == nil {
@@ -198,7 +198,7 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 			prevInputs = currentInputs
 		} else if time.Since(lastUpdate) > timeout {
 			cancel()
-			<- movementErr
+			<-movementErr
 			return ErrMovementTimeout
 		}
 	}
