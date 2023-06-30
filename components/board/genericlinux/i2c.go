@@ -21,6 +21,9 @@ func init() {
 	}
 }
 
+// This struct represents an I2C bus. You can use it to create handles for devices at specific
+// addresses on the bus. Creating a handle locks the bus, and closing the handle unlocks the bus
+// again, so that you can only communicate with 1 device on the bus at a time.
 type I2cBus struct {
 	// Despite the type name BusCloser, this is the I2C bus itself (plus a way to close itself when
 	// it's done, though we never use that because we want to keep it open until the entire process
@@ -30,6 +33,7 @@ type I2cBus struct {
 	deviceName   string
 }
 
+// This function creates a new I2cBus object.
 func NewI2cBus(deviceName string) (*I2cBus, error) {
 	// We return a pointer to an I2cBus instead of an I2cBus itself so that we can return nil if
 	// something goes wrong.
@@ -49,21 +53,29 @@ func (bus *I2cBus) reset(deviceName string) error {
 	return nil
 }
 
-// This lets the I2cBus type implement the board.I2C interface.
+// This lets the I2cBus type implement the board.I2C interface. It returns a handle for
+// communicating with a device at a specific I2C handle. Opening a handle locks the I2C bus so
+// nothing else can use it, and closing the handle unlocks the bus again.
 func (bus *I2cBus) OpenHandle(addr byte) (board.I2CHandle, error) {
 	bus.mu.Lock() // Lock the bus so no other handle can use it until this one is closed.
 	return &I2cHandle{device: &i2c.Dev{Bus: bus.closeableBus, Addr: uint16(addr)}, parentBus: bus}, nil
 }
 
+// The I2cHadle struct represents a way to talk to a specific device on the I2C bus. Creating a
+// handle locks the bus so nothing else can use it, and closing the handle unlocks it again.
 type I2cHandle struct { // Implements the board.I2CHandle interface
 	device    *i2c.Dev // Will become nil if we Close() the handle
 	parentBus *I2cBus
 }
 
+// This writes the given bytes to the handle. For I2C devices that organize their data into
+// registers, prefer using WriteBlockData instead.
 func (h *I2cHandle) Write(ctx context.Context, tx []byte) error {
 	return h.device.Tx(tx, nil)
 }
 
+// This reads the given number of bytes from the handle. For I2C devices that organize their data
+// into registers, prefer using ReadBlockData instead.
 func (h *I2cHandle) Read(ctx context.Context, count int) ([]byte, error) {
 	buffer := make([]byte, count)
 	err := h.device.Tx(nil, buffer)
@@ -84,6 +96,7 @@ func (h *I2cHandle) transactAtRegister(register byte, w, r []byte) error {
 	return h.device.Tx(fullW, r)
 }
 
+// This reads a single byte from the given register on this I2C device.
 func (h *I2cHandle) ReadByteData(ctx context.Context, register byte) (byte, error) {
 	result := make([]byte, 1)
 	err := h.transactAtRegister(register, nil, result)
@@ -93,10 +106,12 @@ func (h *I2cHandle) ReadByteData(ctx context.Context, register byte) (byte, erro
 	return result[0], nil
 }
 
+// This writes a single byte to the given register on this I2C device.
 func (h *I2cHandle) WriteByteData(ctx context.Context, register, data byte) error {
 	return h.transactAtRegister(register, []byte{data}, nil)
 }
 
+// This reads the given number of bytes from the I2C device, starting at the given register.
 func (h *I2cHandle) ReadBlockData(ctx context.Context, register byte, numBytes uint8) ([]byte, error) {
 	result := make([]byte, numBytes)
 	err := h.transactAtRegister(register, nil, result)
@@ -106,10 +121,12 @@ func (h *I2cHandle) ReadBlockData(ctx context.Context, register byte, numBytes u
 	return result, nil
 }
 
+// This writes the given bytes into the given register on the I2C device.
 func (h *I2cHandle) WriteBlockData(ctx context.Context, register byte, data []byte) error {
 	return h.transactAtRegister(register, data, nil)
 }
 
+// This closes the handle to the device, and unlocks the I2C device.
 func (h *I2cHandle) Close() error {
 	defer h.parentBus.mu.Unlock() // Unlock the entire bus so someone else can use it
 	h.device = nil
