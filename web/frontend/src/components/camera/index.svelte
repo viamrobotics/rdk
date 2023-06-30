@@ -3,7 +3,7 @@
 import type { commonApi } from '@viamrobotics/sdk';
 import Camera from './camera.svelte';
 import PCD from '../pcd/index.svelte';
-import Collapse from '../../lib/components/collapse.svelte';
+import Collapse from '@/lib/components/collapse.svelte';
 import { selectedMap } from '@/lib/camera-state';
 
 export let resources: commonApi.ResourceName.AsObject[];

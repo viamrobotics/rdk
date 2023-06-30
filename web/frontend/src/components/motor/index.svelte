@@ -3,7 +3,7 @@
 import { motorApi, MotorClient, type ServiceError } from '@viamrobotics/sdk';
 import { displayError } from '@/lib/error';
 import { rcLogConditionally } from '@/lib/log';
-import Collapse from '../../lib/components/collapse.svelte';
+import Collapse from '@/lib/components/collapse.svelte';
 import { useClient } from '@/hooks/use-client';
 
 export let name: string;

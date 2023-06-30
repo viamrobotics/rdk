@@ -4,7 +4,7 @@
   import { notify } from '@viamrobotics/prime';
   import { resourceNameToString } from '@/lib/resource';
   import { rcLogConditionally } from '@/lib/log';
-  import Collapse from '../../lib/components/collapse.svelte';
+  import Collapse from '@/lib/components/collapse.svelte';
   import { useClient } from '@/hooks/use-client';
 
   interface SensorName {

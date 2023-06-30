@@ -4,7 +4,7 @@ import { onMount, onDestroy } from 'svelte';
 import { movementSensorApi as movementsensorApi, type ServiceError } from '@viamrobotics/sdk';
 import type { commonApi } from '@viamrobotics/sdk';
 import { displayError } from '@/lib/error';
-import Collapse from '../../lib/components/collapse.svelte';
+import Collapse from '@/lib/components/collapse.svelte';
 import { setAsyncInterval } from '@/lib/schedule';
 import {
   getProperties,

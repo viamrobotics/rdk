@@ -4,7 +4,7 @@ import { grpc } from '@improbable-eng/grpc-web';
 import { robotApi } from '@viamrobotics/sdk';
 import { displayError } from '@/lib/error';
 import { rcLogConditionally } from '@/lib/log';
-import Collapse from '../../lib/components/collapse.svelte';
+import Collapse from '@/lib/components/collapse.svelte';
 import { useClient } from '@/hooks/use-client';
 
 const { client, operations, sessions, sessionsSupported, rtt } = useClient();
