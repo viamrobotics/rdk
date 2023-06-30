@@ -12,6 +12,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/base"
+	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/spatialmath"
@@ -22,8 +23,7 @@ const (
 	headingThresholdDegrees = 15
 	deviationThreshold      = 300.0 // mm
 	timeout                 = time.Second * 10
-	distEpsilon             = 20 // mm
-	headingEpsilon          = 15 // degrees
+	epsilon                 = 20 // mm
 )
 
 // ErrMovementTimeout is used for when a movement call times out after no movement for some time.
@@ -171,8 +171,7 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 
 	// watching for movement timeout
 	lastUpdate := time.Now()
-	prevDistErr := math.Inf(-1)
-	prevHeadingErr := math.Inf(-1)
+	var prevInputs []referenceframe.Input
 
 	for {
 		utils.SelectContextOrWait(ctx, 100*time.Millisecond)
@@ -185,21 +184,19 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 		if err != nil {
 			return err
 		}
-		distErr, headingErr, err := ddk.errorState(currentInputs, desired)
-		if err != nil {
-			return err
-		}
-		if poseChanged(prevDistErr, prevHeadingErr, distErr, headingErr) {
+		positionChange := motionplan.L2InputMetric(&motionplan.Segment{
+			StartConfiguration: prevInputs,
+			EndConfiguration:   currentInputs,
+		})
+		if positionChange > epsilon {
 			lastUpdate = time.Now()
-			prevDistErr = distErr
-			prevHeadingErr = headingErr
+			prevInputs = currentInputs
 		} else if time.Since(lastUpdate) > timeout {
 			return ErrMovementTimeout
 		}
 
-		if prevDistErr == math.Inf(-1) {
-			prevDistErr = distErr
-			prevHeadingErr = headingErr
+		if prevInputs == nil {
+			prevInputs = currentInputs
 		}
 	}
 }
@@ -321,10 +318,4 @@ func (ddk *differentialDriveKinematics) newValidRegionCapsule(starting, desired 
 	}
 
 	return capsule, nil
-}
-
-func poseChanged(prevDistErr, prevHeadingErr, distErr, headingErr float64) bool {
-	return prevDistErr != math.Inf(-1) &&
-		(math.Abs(prevDistErr-distErr) > distEpsilon ||
-			math.Abs(prevHeadingErr-headingErr) > headingEpsilon)
 }
