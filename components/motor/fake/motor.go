@@ -361,9 +361,22 @@ func (m *Motor) Stop(ctx context.Context, extra map[string]interface{}) error {
 	return nil
 }
 
-// ResetZeroPosition resets the zero position of the motor.
+// ResetZeroPosition resets the zero position.
 func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
-	return m.Encoder.ResetPosition(ctx, extra)
+	if m.Encoder == nil {
+		return errors.New("encoder is not defined")
+	}
+
+	if m.TicksPerRotation == 0 {
+		return errors.New("need nonzero TicksPerRotation for motor")
+	}
+
+	err := m.Encoder.ResetPosition(ctx, extra)
+	if err != nil {
+		return errors.Wrapf(err, "error in ResetZeroPosition from motor (%s)", m.Name())
+	}
+
+	return nil
 }
 
 // IsPowered returns if the motor is pretending to be on or not, and its power level.
