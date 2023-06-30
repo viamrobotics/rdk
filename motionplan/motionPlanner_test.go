@@ -527,7 +527,7 @@ func TestPlanMapMotion(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	model, err := frame.New2DMobileModelFrame(
 		"test",
-		[]frame.Limit{{-100, 100}, {-100, 100}, { -2 * math.Pi, 2 * math.Pi}},
+		[]frame.Limit{{-100, 100}, {-100, 100}, {-2 * math.Pi, 2 * math.Pi}},
 		sphere,
 	)
 	test.That(t, err, test.ShouldBeNil)
