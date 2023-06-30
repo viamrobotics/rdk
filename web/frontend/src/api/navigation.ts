@@ -1,7 +1,7 @@
+import type { Client } from '@viamrobotics/sdk';
 import { commonApi, navigationApi } from '@viamrobotics/sdk';
 import { grpc } from '@improbable-eng/grpc-web';
 import { rcLogConditionally } from '@/lib/log';
-import { client } from '@/stores/client';
 
 export type NavigationModes =
   | typeof navigationApi.Mode.MODE_MANUAL
@@ -11,7 +11,7 @@ export type NavigationModes =
 export type LngLat = { lng: number, lat: number }
 export type Waypoint = LngLat & { id: string }
 
-export const setMode = (name: string, mode: NavigationModes) => {
+export const setMode = (client: Client, name: string, mode: NavigationModes) => {
   const request = new navigationApi.SetModeRequest();
   request.setName(name);
   request.setMode(mode);
@@ -19,7 +19,7 @@ export const setMode = (name: string, mode: NavigationModes) => {
   rcLogConditionally(request);
 
   return new Promise((resolve, reject) => {
-    client.current.navigationService.setMode(request, new grpc.Metadata(), (error) => {
+    client.navigationService.setMode(request, new grpc.Metadata(), (error) => {
       if (error) {
         reject(error);
       } else {
@@ -29,7 +29,7 @@ export const setMode = (name: string, mode: NavigationModes) => {
   });
 };
 
-export const setWaypoint = (lat: number, lng: number, name: string) => {
+export const setWaypoint = (client: Client, lat: number, lng: number, name: string) => {
   const request = new navigationApi.AddWaypointRequest();
   const point = new commonApi.GeoPoint();
 
@@ -41,7 +41,7 @@ export const setWaypoint = (lat: number, lng: number, name: string) => {
   rcLogConditionally(request);
 
   return new Promise((resolve, reject) => {
-    client.current.navigationService.addWaypoint(request, new grpc.Metadata(), (error, response) => {
+    client.navigationService.addWaypoint(request, new grpc.Metadata(), (error, response) => {
       if (error) {
         reject(error);
       } else {
@@ -62,14 +62,14 @@ const formatWaypoints = (list: navigationApi.Waypoint[]) => {
   });
 };
 
-export const getWaypoints = async (name: string): Promise<Waypoint[]> => {
+export const getWaypoints = async (client: Client, name: string): Promise<Waypoint[]> => {
   const req = new navigationApi.GetWaypointsRequest();
   req.setName(name);
 
   rcLogConditionally(req);
 
   const response = await new Promise<{ getWaypointsList(): navigationApi.Waypoint[] } | null>((resolve, reject) => {
-    client.current.navigationService.getWaypoints(req, new grpc.Metadata(), (error, resp) => {
+    client.navigationService.getWaypoints(req, new grpc.Metadata(), (error, resp) => {
       if (error) {
         reject(error);
       } else {
@@ -81,7 +81,7 @@ export const getWaypoints = async (name: string): Promise<Waypoint[]> => {
   return formatWaypoints(response?.getWaypointsList() ?? []);
 };
 
-export const removeWaypoint = (name: string, id: string) => {
+export const removeWaypoint = (client: Client, name: string, id: string) => {
   const request = new navigationApi.RemoveWaypointRequest();
   request.setName(name);
   request.setId(id);
@@ -89,7 +89,7 @@ export const removeWaypoint = (name: string, id: string) => {
   rcLogConditionally(request);
 
   return new Promise((resolve, reject) => {
-    client.current.navigationService.removeWaypoint(request, new grpc.Metadata(), (error) => {
+    client.navigationService.removeWaypoint(request, new grpc.Metadata(), (error) => {
       if (error) {
         reject(error);
       } else {
@@ -99,14 +99,14 @@ export const removeWaypoint = (name: string, id: string) => {
   });
 };
 
-export const getLocation = (name: string) => {
+export const getLocation = (client: Client, name: string) => {
   const request = new navigationApi.GetLocationRequest();
   request.setName(name);
 
   rcLogConditionally(request);
 
   return new Promise<{ lat: number, lng: number }>((resolve, reject) => {
-    client.current.navigationService.getLocation(request, new grpc.Metadata(), (error, response) => {
+    client.navigationService.getLocation(request, new grpc.Metadata(), (error, response) => {
       if (error) {
         reject(error);
       } else {

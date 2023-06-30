@@ -1,6 +1,6 @@
 <script lang='ts'>
 
-// eslint-disable require-atomic-updates
+/* eslint-disable require-atomic-updates */
 import { grpc } from '@improbable-eng/grpc-web';
 import { Duration } from 'google-protobuf/google/protobuf/duration_pb';
 import { onMount, onDestroy, createEventDispatcher } from 'svelte';
