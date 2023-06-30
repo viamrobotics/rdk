@@ -62,6 +62,7 @@ const refresh = async () => {
 
 const handleToggle = (event: CustomEvent<{ open: boolean }>) => {
   if (event.detail.open) {
+    refresh();
     clearInterval = setAsyncInterval(refresh, 500);
   } else {
     clearInterval?.();
