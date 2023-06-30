@@ -60,7 +60,6 @@ func WrapMotorWithEncoder(
 		return m, nil
 	}
 
-	logger.Info("meow")
 	if mc.TicksPerRotation < 0 {
 		return nil, utils.NewConfigValidationError("", errors.New("ticks_per_rotation should be positive or zero"))
 	}
