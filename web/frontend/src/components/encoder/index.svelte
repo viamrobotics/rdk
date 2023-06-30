@@ -6,11 +6,11 @@ import { displayError } from '@/lib/error';
 import { setAsyncInterval } from '@/lib/schedule';
 import { getProperties, getPosition, getPositionDegrees, reset } from '@/api/encoder';
 import Collapse from '@/lib/components/collapse.svelte';
-import { useClient } from '@/hooks/use-client';
+import { useClient, useConnect, useDisconnect } from '@/hooks/client';
 
 export let name: string;
 
-const { client, statusStream } = useClient();
+const { client } = useClient();
 
 let properties: encoderApi.GetPropertiesResponse.AsObject | undefined;
 let positionTicks: number | undefined;
@@ -54,13 +54,7 @@ const handleToggle = async (event: CustomEvent<{ open: boolean }>) => {
   }
 };
 
-onMount(() => {
-  $statusStream?.on('end', () => cancelInterval?.());
-});
-
-onDestroy(() => {
-  cancelInterval?.();
-});
+useDisconnect(() => cancelInterval?.())
 
 </script>
 

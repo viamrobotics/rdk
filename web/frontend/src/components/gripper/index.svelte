@@ -5,7 +5,7 @@ import { gripperApi } from '@viamrobotics/sdk';
 import { displayError } from '../../lib/error';
 import { rcLogConditionally } from '../../lib/log';
 import Collapse from '@/lib/components/collapse.svelte';
-import { useClient } from '@/hooks/use-client';
+import { useClient } from '@/hooks/client';
 
 export let name: string;
 

@@ -8,11 +8,11 @@ import { inputControllerApi as InputController, type ServiceError } from '@viamr
 import { notify } from '@viamrobotics/prime';
 import { rcLogConditionally } from '@/lib/log';
 import Collapse from '@/lib/components/collapse.svelte';
-import { useClient } from '@/hooks/use-client';
+import { useClient, useDisconnect } from '@/hooks/client';
 
 export let name: string;
 
-const { client, statusStream } = useClient();
+const { client } = useClient();
 
 let gamepadIdx: number | null = null;
 let gamepadConnectedPrev = false;
@@ -250,13 +250,10 @@ onMount(() => {
     return;
   }
   prevStates = { ...prevStates, ...curStates };
-  $statusStream?.on('end', () => clearTimeout(handle));
   tick();
 });
 
-onDestroy(() => {
-  clearTimeout(handle);
-});
+useDisconnect(() => clearTimeout(handle))
 
 $: {
   connectEvent(enabled);

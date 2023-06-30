@@ -15,11 +15,11 @@ import {
   getCompassHeading,
   getPosition,
 } from '@/api/movement-sensor';
-import { useClient } from '@/hooks/use-client';
+import { useClient, useDisconnect } from '@/hooks/client';
 
 export let name: string;
 
-const { client, statusStream } = useClient();
+const { client } = useClient();
 
 let orientation: commonApi.Orientation.AsObject | undefined;
 let angularVelocity: commonApi.Vector3.AsObject | undefined;
@@ -69,13 +69,7 @@ const handleToggle = (event: CustomEvent<{ open: boolean }>) => {
   }
 };
 
-onMount(() => {
-  $statusStream?.on('end', () => clearInterval?.());
-});
-
-onDestroy(() => {
-  clearInterval?.();
-});
+useDisconnect(() => clearInterval?.())
 
 </script>
 

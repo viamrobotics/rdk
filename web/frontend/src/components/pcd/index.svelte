@@ -3,7 +3,7 @@
 import { CameraClient } from '@viamrobotics/sdk';
 import { notify } from '@viamrobotics/prime';
 import PCD from './pcd-view.svelte';
-import { useClient } from '@/hooks/use-client';
+import { useClient } from '@/hooks/client';
 
 export let cameraName: string;
 

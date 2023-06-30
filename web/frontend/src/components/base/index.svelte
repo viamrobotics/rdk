@@ -11,7 +11,7 @@
   import { clickOutside } from '../../lib/click-outside';
   import Collapse from '@/lib/components/collapse.svelte';
   import { components } from '@/stores/resources';
-  import { useClient } from '@/hooks/use-client';
+  import { useClient } from '@/hooks/client';
 
   export let name: string;
 

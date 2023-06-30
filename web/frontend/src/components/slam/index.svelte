@@ -13,11 +13,11 @@ import { components } from '@/stores/resources';
 import Collapse from '@/lib/components/collapse.svelte';
 import PCD from '@/components/pcd/pcd-view.svelte';
 import Slam2dRenderer from './2d-renderer.svelte';
-import { useClient } from '@/hooks/use-client';
+import { useClient, useDisconnect } from '@/hooks/client';
 
 export let name: string;
 
-const { client, operations, statusStream } = useClient();
+const { client, operations } = useClient();
 
 const refreshErrorMessage = 'Error refreshing map. The map shown may be stale.';
 
@@ -192,17 +192,10 @@ const toggleExpand = (event: CustomEvent<{ open: boolean }>) => {
   }
 };
 
-onMount(() => {
-  $statusStream?.on('end', () => {
-    clear2dRefresh?.();
-    clear3dRefresh?.();
-  });
-});
-
-onDestroy(() => {
+useDisconnect(() => {
   clear2dRefresh?.();
   clear3dRefresh?.();
-});
+})
 
 </script>
 

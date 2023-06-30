@@ -4,14 +4,14 @@ import { onMount, onDestroy } from 'svelte';
 import { displayError } from '@/lib/error';
 import { CameraClient, type ServiceError } from '@viamrobotics/sdk';
 import { selectedMap } from '@/lib/camera-state';
-import { useClient } from '@/hooks/use-client';
+import { useClient, useDisconnect } from '@/hooks/client';
 
 export let cameraName: string;
 export let showExportScreenshot: boolean;
 export let refreshRate: string | undefined;
 export let triggerRefresh = false;
 
-const { client, statusStream, streamManager } = useClient();
+const { client, streamManager } = useClient();
 
 let imgEl: HTMLImageElement;
 let videoEl: HTMLVideoElement;
@@ -56,8 +56,6 @@ const exportScreenshot = async () => {
 };
 
 onMount(() => {
-  $statusStream?.on('end', () => clearFrameInterval());
-
   videoEl.srcObject = cameraManager.videoStream;
 
   cameraManager.onOpen = () => {
@@ -65,7 +63,7 @@ onMount(() => {
   };
 });
 
-onDestroy(() => {
+useDisconnect(() => {
   if (isLive) {
     cameraManager.removeStream();
   }
@@ -75,7 +73,7 @@ onDestroy(() => {
   isLive = false;
 
   clearFrameInterval();
-});
+})
 
 // on refreshRate change update camera and manage live connections
 $: {

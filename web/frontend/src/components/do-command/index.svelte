@@ -5,7 +5,7 @@ import { notify } from '@viamrobotics/prime';
 import { resourceNameToString } from '@/lib/resource';
 import { doCommand } from '@/api/do-command';
 import Collapse from '@/lib/components/collapse.svelte';
-import { useClient } from '@/hooks/use-client';
+import { useClient } from '@/hooks/client';
 
 export let resources: commonApi.ResourceName.AsObject[];
 

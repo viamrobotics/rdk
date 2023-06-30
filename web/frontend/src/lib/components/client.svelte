@@ -10,7 +10,7 @@ import { notify } from '@viamrobotics/prime';
 import { StreamManager } from '@/lib/stream-manager';
 import { getOperations, getResourceNames, getSessions } from '@/api/robot';
 import { getSensors } from '@/api/sensors';
-import { useClient } from '@/hooks/use-client';
+import { useClient } from '@/hooks/client';
 import { setAsyncInterval } from '@/lib/schedule';
 import { resourceNameToString, filterSubtype } from '@/lib/resource';
 

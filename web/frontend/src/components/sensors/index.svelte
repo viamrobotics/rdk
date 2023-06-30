@@ -5,7 +5,7 @@
   import { resourceNameToString } from '@/lib/resource';
   import { rcLogConditionally } from '@/lib/log';
   import Collapse from '@/lib/components/collapse.svelte';
-  import { useClient } from '@/hooks/use-client';
+  import { useClient } from '@/hooks/client';
 
   interface SensorName {
     name: string;

@@ -4,7 +4,7 @@ import type { ServiceError } from '@viamrobotics/sdk';
 import { notify } from '@viamrobotics/prime';
 import { obstacles, waypoints, flyToMap } from '../stores';
 import { removeWaypoint } from '@/api/navigation';
-import { useClient } from '@/hooks/use-client';
+import { useClient } from '@/hooks/client';
 
 export let name: string;
 

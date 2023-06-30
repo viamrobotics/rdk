@@ -3,7 +3,7 @@
 import { type Credentials } from '@viamrobotics/rpc';
 import { commonApi } from '@viamrobotics/sdk';
 import { resourceNameToString, filterWithStatus, filterSubtype } from '@/lib/resource';
-import { useClient } from '@/hooks/use-client';
+import { useClient } from '@/hooks/client';
 import Arm from './arm/index.svelte';
 import AudioInput from './audio-input/index.svelte';
 import Base from './base/index.svelte';
