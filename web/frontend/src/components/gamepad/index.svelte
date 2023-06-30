@@ -12,7 +12,7 @@ import { useClient } from '@/hooks/use-client';
 
 export let name: string;
 
-const { client, statusStream } = useClient()
+const { client, statusStream } = useClient();
 
 let gamepadIdx: number | null = null;
 let gamepadConnectedPrev = false;

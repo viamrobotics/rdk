@@ -1,11 +1,6 @@
 <script lang="ts">
   import { grpc } from '@improbable-eng/grpc-web';
-  import {
-    Client,
-    sensorsApi,
-    commonApi,
-    type ServiceError,
-  } from '@viamrobotics/sdk';
+  import { sensorsApi, commonApi, type ServiceError } from '@viamrobotics/sdk';
   import { notify } from '@viamrobotics/prime';
   import { resourceNameToString } from '@/lib/resource';
   import { rcLogConditionally } from '@/lib/log';

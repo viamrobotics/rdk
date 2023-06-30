@@ -7,7 +7,7 @@ import { rcLogConditionally } from '@/lib/log';
 import Collapse from '../../lib/components/collapse.svelte';
 import { useClient } from '@/hooks/use-client';
 
-const { client, operations, sessions, sessionsSupported, rtt } = useClient()
+const { client, operations, sessions, sessionsSupported, rtt } = useClient();
 
 const killOperation = (id: string) => {
   const req = new robotApi.CancelOperationRequest();

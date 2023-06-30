@@ -1,4 +1,3 @@
-<!-- eslint-disable require-atomic-updates -->
 <script lang="ts">
 
 import { type Credentials } from '@viamrobotics/rpc';
@@ -23,7 +22,7 @@ import Navigation from './navigation/index.svelte';
 import Servo from './servo/index.svelte';
 import Sensors from './sensors/index.svelte';
 import Slam from './slam/index.svelte';
-import Client from '@/lib/components/client.svelte'
+import Client from '@/lib/components/client.svelte';
 
 const { resources, components, services, statuses, sensorNames } = useClient();
 

@@ -1,22 +1,12 @@
 import { grpc } from '@improbable-eng/grpc-web';
-import { sensorsApi, type ResourceName } from '@viamrobotics/sdk';
-import { filterSubtype } from '@/lib/resource';
-import { useClient } from '@/hooks/use-client';
+import { sensorsApi, type ResourceName, Client } from '@viamrobotics/sdk';
 
-const { client, resources } = useClient();
-
-export const getSensors = () => {
-  const sensorsName = filterSubtype(resources.current, 'sensors', { remote: false })[0]?.name;
-
-  if (sensorsName === undefined) {
-    return Promise.resolve<ResourceName[]>([]);
-  }
-
+export const getSensors = (client: Client, name: string) => {
   const request = new sensorsApi.GetSensorsRequest();
-  request.setName(sensorsName);
+  request.setName(name);
 
   return new Promise<ResourceName[]>((resolve, reject) => {
-    client.current.sensorsService.getSensors(request, new grpc.Metadata(), (error, response) => {
+    client.sensorsService.getSensors(request, new grpc.Metadata(), (error, response) => {
       if (error) {
         reject(error);
       }

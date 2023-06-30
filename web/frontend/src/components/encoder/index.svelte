@@ -1,7 +1,7 @@
 <script lang="ts">
 
 import { onMount, onDestroy } from 'svelte';
-import { encoderApi,  type ServiceError } from '@viamrobotics/sdk';
+import { encoderApi, type ServiceError } from '@viamrobotics/sdk';
 import { displayError } from '@/lib/error';
 import { setAsyncInterval } from '@/lib/schedule';
 import { getProperties, getPosition, getPositionDegrees, reset } from '@/api/encoder';

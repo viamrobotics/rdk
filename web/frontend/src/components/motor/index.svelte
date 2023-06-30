@@ -1,6 +1,6 @@
 <script lang="ts">
 
-import { Client, motorApi, MotorClient, type ServiceError } from '@viamrobotics/sdk';
+import { motorApi, MotorClient, type ServiceError } from '@viamrobotics/sdk';
 import { displayError } from '@/lib/error';
 import { rcLogConditionally } from '@/lib/log';
 import Collapse from '../../lib/components/collapse.svelte';

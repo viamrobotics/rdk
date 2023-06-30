@@ -1,5 +1,6 @@
 <script lang='ts'>
 
+// eslint-disable require-atomic-updates
 import { grpc } from '@improbable-eng/grpc-web';
 import { Duration } from 'google-protobuf/google/protobuf/duration_pb';
 import { onMount, onDestroy, createEventDispatcher } from 'svelte';
@@ -14,9 +15,9 @@ import { useClient } from '@/hooks/use-client';
 import { setAsyncInterval } from '@/lib/schedule';
 import { resourceNameToString, filterSubtype } from '@/lib/resource';
 
-export let webrtcEnabled: boolean
-export let host: string
-export let signalingAddress: string
+export let webrtcEnabled: boolean;
+export let host: string;
+export let signalingAddress: string;
 export let bakedAuth: { authEntity?: string; creds?: Credentials; } = {};
 export let supportedAuthTypes: string[];
 
@@ -32,11 +33,11 @@ const {
   rtt,
   connectionStatus,
   components,
-} = useClient()
+} = useClient();
 
 const dispatch = createEventDispatcher<{
   'connection-error': unknown
-}>()
+}>();
 
 const relevantSubtypesForStatus = [
   'arm',
@@ -144,7 +145,7 @@ const stringToResourceName = (nameStr: string) => {
 };
 
 const loadCurrentOps = async () => {
-  let now = Date.now();
+  const now = Date.now();
   const list = await getOperations($client);
   const ops = [];
 
@@ -174,16 +175,16 @@ const fetchCurrentSessions = async () => {
   }
 
   try {
-    const list = await getSessions($client)
+    const list = await getSessions($client);
     list.sort((sess1, sess2) => (sess1.id < sess2.id ? -1 : 1));
     return list;
   } catch (error) {
-    const serviceError = error as ServiceError
+    const serviceError = error as ServiceError;
     if (serviceError.code === grpc.Code.Unimplemented) {
       $sessionsSupported = false;
     }
 
-    return []
+    return [];
   }
 };
 
@@ -242,13 +243,12 @@ const restartStatusStream = () => {
   }
 };
 
-
 // query metadata service every 0.5s
 const queryMetadata = async () => {
   let resourcesChanged = false;
   let shouldRestartStatusStream = !(resourcesOnce && $statusStream);
 
-  const resourcesList = await getResourceNames($client)
+  const resourcesList = await getResourceNames($client);
 
   const differences: Set<string> = new Set(
     $resources.map((name) => resourceNameToString(name))
@@ -286,7 +286,10 @@ const queryMetadata = async () => {
 
   resourcesOnce = true;
   if (resourcesChanged === true) {
-    $sensorNames = await getSensors();
+    const sensorsName = filterSubtype(resources.current, 'sensors', { remote: false })[0]?.name;
+
+    $sensorNames = sensorsName === undefined ? [] : (await getSensors($client, sensorsName));
+
   }
 
   if (shouldRestartStatusStream === true) {
@@ -302,7 +305,7 @@ const connections = {
   sessions: false,
 };
 
-let cancelTick: undefined | (() => void)
+let cancelTick: undefined | (() => void);
 
 const isConnected = () => {
   return (
@@ -354,7 +357,7 @@ const tick = async () => {
   }
 
   if (isConnected()) {
-    $connectionStatus = 'connected'
+    $connectionStatus = 'connected';
     return;
   }
 
@@ -362,7 +365,7 @@ const tick = async () => {
     handleCallErrors(connections, newErrors);
   }
 
-  $connectionStatus = 'reconnecting'
+  $connectionStatus = 'reconnecting';
 
   try {
     console.debug('reconnecting');
@@ -393,7 +396,7 @@ const tick = async () => {
 };
 
 const stop = () => {
-  cancelTick?.()
+  cancelTick?.();
   $statusStream?.cancel();
   $statusStream = null;
 };
@@ -402,15 +405,15 @@ const start = () => {
   stop();
   lastStatusTS = Date.now();
   tick();
-  cancelTick = setAsyncInterval(tick, 500)
+  cancelTick = setAsyncInterval(tick, 500);
 };
 
 const connect = async (creds?: Credentials) => {
-  $connectionStatus = 'connecting'
+  $connectionStatus = 'connecting';
 
   await $client.connect(bakedAuth.authEntity, creds ?? bakedAuth.creds);
 
-  $connectionStatus = 'connected'
+  $connectionStatus = 'connected';
   start();
 };
 
@@ -421,18 +424,18 @@ const login = async (authType: string) => {
     await connect(creds);
   } catch (error) {
     notify.danger(`failed to connect: ${(error as ServiceError).message}`);
-    $connectionStatus = 'idle'
+    $connectionStatus = 'idle';
   }
 };
 
 const init = async () => {
   try {
-    await connect()
+    await connect();
   } catch (error) {
-    dispatch('connection-error', error)
+    dispatch('connection-error', error);
     setTimeout(init);
   }
-}
+};
 
 const handleUnload = () => {
   stop();
@@ -440,7 +443,7 @@ const handleUnload = () => {
   $client.disconnect();
 };
 
-onMount(async () => {
+onMount(() => {
   window.addEventListener('beforeunload', handleUnload);
 });
 
@@ -450,7 +453,7 @@ onDestroy(() => {
 });
 
 if (supportedAuthTypes.length === 0) {
-  init()
+  init();
 }
 
 </script>
