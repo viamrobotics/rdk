@@ -182,7 +182,12 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 		}
 		currentInputs, err := ddk.CurrentInputs(ctx)
 		if err != nil {
+			cancel()
+			<- movementErr
 			return err
+		}
+		if prevInputs == nil {
+			prevInputs = currentInputs
 		}
 		positionChange := motionplan.L2InputMetric(&motionplan.Segment{
 			StartConfiguration: prevInputs,
@@ -192,11 +197,9 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 			lastUpdate = time.Now()
 			prevInputs = currentInputs
 		} else if time.Since(lastUpdate) > timeout {
+			cancel()
+			<- movementErr
 			return ErrMovementTimeout
-		}
-
-		if prevInputs == nil {
-			prevInputs = currentInputs
 		}
 	}
 }
