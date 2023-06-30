@@ -174,7 +174,9 @@ const fetchCurrentSessions = async () => {
   }
 
   try {
-    return await getSessions($client)
+    const list = await getSessions($client)
+    list.sort((sess1, sess2) => (sess1.id < sess2.id ? -1 : 1));
+    return list;
   } catch (error) {
     const serviceError = error as ServiceError
     if (serviceError.code === grpc.Code.Unimplemented) {

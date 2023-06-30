@@ -57,9 +57,7 @@ export const getSessions = (client: Client) => {
         return;
       }
 
-      const list = response.toObject().sessionsList;
-      list.sort((sess1, sess2) => (sess1.id < sess2.id ? -1 : 1));
-      resolve(list);
+      resolve(response.toObject().sessionsList);
     });
   });
 };
