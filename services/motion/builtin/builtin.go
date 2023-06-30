@@ -268,8 +268,7 @@ func (ms *builtIn) MoveOnGlobe(
 	}
 
 	if extra != nil {	
-		profile, ok := extra["motion_profile"]
-		if ok {
+		if profile, ok := extra["motion_profile"]; ok {
 			motionProfile, ok := profile.(string)
 			if !ok {
 				return false, errors.New("could not interpret motion_profile field as string")
@@ -449,8 +448,7 @@ func (ms *builtIn) planMoveOnMap(
 	}
 
 	if extra != nil {	
-		profile, ok := extra["motion_profile"]
-		if ok {
+		if profile, ok := extra["motion_profile"]; ok {
 			motionProfile, ok := profile.(string)
 			if !ok {
 				return nil, nil, errors.New("could not interpret motion_profile field as string")
