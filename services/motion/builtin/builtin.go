@@ -264,6 +264,20 @@ func (ms *builtIn) MoveOnGlobe(
 	limits := []referenceframe.Limit{
 		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
 		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
+		{Min: -2 * math.Pi, Max: 2 * math.Pi},
+	}
+
+	if extra != nil {	
+		profile, ok := extra["motion_profile"]
+		if ok {
+			motionProfile, ok := profile.(string)
+			if !ok {
+				return false, errors.New("could not interpret motion_profile field as string")
+			}
+			if motionProfile == motionplan.PositionOnlyMotionProfile {
+				limits = limits[0:2] // remove theta limit if in position only mode
+			}
+		}
 	}
 
 	// create a KinematicBase from the componentName
@@ -285,7 +299,11 @@ func (ms *builtIn) MoveOnGlobe(
 		return false, err
 	}
 
-	inputMap := map[string][]referenceframe.Input{componentName.Name: make([]referenceframe.Input, 3)}
+	inputs, err := kb.CurrentInputs(ctx)
+	if err != nil {
+		return false, err
+	}
+	inputMap := map[string][]referenceframe.Input{componentName.Name: inputs}
 
 	// Add the kinematic wheeled base to the framesystem
 	if err := fs.AddFrame(kb.ModelFrame(), fs.World()); err != nil {
