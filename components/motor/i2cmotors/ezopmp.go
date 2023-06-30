@@ -98,7 +98,7 @@ const (
 // NewMotor returns a motor(Ezopmp) with I2C protocol.
 func NewMotor(ctx context.Context, deps resource.Dependencies, c *Config, name resource.Name,
 	logger golog.Logger,
-) (motor.LocalMotor, error) {
+) (motor.Motor, error) {
 	b, err := board.FromDependencies(deps, c.BoardName)
 	if err != nil {
 		return nil, err
@@ -375,9 +375,4 @@ func (m *Ezopmp) IsPowered(ctx context.Context, extra map[string]interface{}) (b
 		return true, m.powerPct, nil
 	}
 	return false, 0.0, nil
-}
-
-// GoTillStop is unimplemented.
-func (m *Ezopmp) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
-	return motor.NewGoTillStopUnsupportedError(m.Name().ShortName())
 }
