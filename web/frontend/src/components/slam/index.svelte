@@ -1,6 +1,5 @@
 <script lang="ts">
 
-import { onMount, onDestroy } from 'svelte';
 import * as THREE from 'three';
 import { commonApi, type ServiceError } from '@viamrobotics/sdk';
 import { copyToClipboard } from '@/lib/copy-to-clipboard';
@@ -195,7 +194,7 @@ const toggleExpand = (event: CustomEvent<{ open: boolean }>) => {
 useDisconnect(() => {
   clear2dRefresh?.();
   clear3dRefresh?.();
-})
+});
 
 </script>
 

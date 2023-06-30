@@ -1,6 +1,5 @@
 <script lang="ts">
 
-import { onMount, onDestroy } from 'svelte';
 import { movementSensorApi as movementsensorApi, type ServiceError } from '@viamrobotics/sdk';
 import type { commonApi } from '@viamrobotics/sdk';
 import { displayError } from '@/lib/error';
@@ -69,7 +68,7 @@ const handleToggle = (event: CustomEvent<{ open: boolean }>) => {
   }
 };
 
-useDisconnect(() => clearInterval?.())
+useDisconnect(() => clearInterval?.());
 
 </script>
 

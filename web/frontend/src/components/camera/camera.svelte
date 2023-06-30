@@ -1,6 +1,6 @@
 <script lang="ts">
 
-import { onMount, onDestroy } from 'svelte';
+import { onMount } from 'svelte';
 import { displayError } from '@/lib/error';
 import { CameraClient, type ServiceError } from '@viamrobotics/sdk';
 import { selectedMap } from '@/lib/camera-state';
@@ -73,7 +73,7 @@ useDisconnect(() => {
   isLive = false;
 
   clearFrameInterval();
-})
+});
 
 // on refreshRate change update camera and manage live connections
 $: {

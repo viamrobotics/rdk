@@ -1,12 +1,11 @@
 <script lang="ts">
 
-import { onMount, onDestroy } from 'svelte';
 import { encoderApi, type ServiceError } from '@viamrobotics/sdk';
 import { displayError } from '@/lib/error';
 import { setAsyncInterval } from '@/lib/schedule';
 import { getProperties, getPosition, getPositionDegrees, reset } from '@/api/encoder';
 import Collapse from '@/lib/components/collapse.svelte';
-import { useClient, useConnect, useDisconnect } from '@/hooks/client';
+import { useClient, useDisconnect } from '@/hooks/client';
 
 export let name: string;
 
@@ -54,7 +53,7 @@ const handleToggle = async (event: CustomEvent<{ open: boolean }>) => {
   }
 };
 
-useDisconnect(() => cancelInterval?.())
+useDisconnect(() => cancelInterval?.());
 
 </script>
 

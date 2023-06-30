@@ -1,7 +1,7 @@
 <script lang='ts'>
 
 import { grpc } from '@improbable-eng/grpc-web';
-import { onMount, onDestroy } from 'svelte';
+import { onMount } from 'svelte';
 import { Timestamp } from 'google-protobuf/google/protobuf/timestamp_pb';
 import { ConnectionClosedError } from '@viamrobotics/rpc';
 import { inputControllerApi as InputController, type ServiceError } from '@viamrobotics/sdk';
@@ -253,7 +253,7 @@ onMount(() => {
   tick();
 });
 
-useDisconnect(() => clearTimeout(handle))
+useDisconnect(() => clearTimeout(handle));
 
 $: {
   connectEvent(enabled);
