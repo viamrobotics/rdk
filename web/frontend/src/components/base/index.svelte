@@ -9,13 +9,11 @@
   import { rcLogConditionally } from '../../lib/log';
   import { selectedMap } from '../../lib/camera-state';
   import { clickOutside } from '../../lib/click-outside';
-  import type { StreamManager } from '../camera/stream-manager';
   import Collapse from '@/lib/components/collapse.svelte';
   import { components } from '@/stores/resources';
   import { useClient } from '@/hooks/use-client';
 
   export let name: string;
-  export let streamManager: StreamManager;
 
   const enum Keymap {
     LEFT = 'a',
@@ -490,7 +488,6 @@
               cameraName={camera.name}
               showExportScreenshot
               refreshRate={refreshFrequency}
-              {streamManager}
               triggerRefresh={triggerRefresh}
             />
           {/if}

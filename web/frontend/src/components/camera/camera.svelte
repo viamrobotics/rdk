@@ -4,16 +4,14 @@ import { onMount, onDestroy } from 'svelte';
 import { displayError } from '@/lib/error';
 import { CameraClient, type ServiceError } from '@viamrobotics/sdk';
 import { selectedMap } from '@/lib/camera-state';
-import type { StreamManager } from './stream-manager';
 import { useClient } from '@/hooks/use-client';
 
 export let cameraName: string;
 export let showExportScreenshot: boolean;
 export let refreshRate: string | undefined;
-export let streamManager: StreamManager;
 export let triggerRefresh = false;
 
-const { client, statusStream } = useClient();
+const { client, statusStream, streamManager } = useClient();
 
 let imgEl: HTMLImageElement;
 let videoEl: HTMLVideoElement;
@@ -21,7 +19,7 @@ let videoEl: HTMLVideoElement;
 let cameraFrameIntervalId = -1;
 let isLive = false;
 
-const cameraManager = streamManager.setCameraManager(cameraName);
+const cameraManager = $streamManager.setCameraManager(cameraName);
 
 const clearFrameInterval = () => {
   window.clearInterval(cameraFrameIntervalId);

@@ -9,7 +9,7 @@ export const getSensors = () => {
   const sensorsName = filterSubtype(resources.current, 'sensors', { remote: false })[0]?.name;
 
   if (sensorsName === undefined) {
-    return;
+    return Promise.resolve<ResourceName[]>([]);
   }
 
   const request = new sensorsApi.GetSensorsRequest();
@@ -20,7 +20,8 @@ export const getSensors = () => {
       if (error) {
         reject(error);
       }
-      resolve(response?.toObject().sensorNamesList ?? []);
+
+      resolve((response?.toObject().sensorNamesList) ?? []);
     });
   });
 };

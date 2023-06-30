@@ -3,20 +3,35 @@
 import { Duration } from 'google-protobuf/google/protobuf/duration_pb';
 import { onMount, onDestroy, createEventDispatcher } from 'svelte';
 import { type Credentials, ConnectionClosedError } from '@viamrobotics/rpc';
-import { Client, type ServiceError } from '@viamrobotics/sdk';
+import { Client, robotApi, commonApi, type ServiceError } from '@viamrobotics/sdk';
 import { notify } from '@viamrobotics/prime';
 import { client } from '@/stores/client';
-import { StreamManager } from '@/components/camera/stream-manager';
+import { StreamManager } from '@/lib/stream-manager';
 import { getOperations, getResourceNames, getSessions } from '@/api/robot';
-import { useClient } from '@/hooks/use-client';
 import { getSensors } from '@/api/sensors';
+import { useClient } from '@/hooks/use-client';
+import { setAsyncInterval } from '@/lib/schedule';
+import { resourceNameToString, filterSubtype } from '@/lib/resource';
 
 export let webrtcEnabled: boolean
 export let host: string
 export let signalingAddress: string
 export let bakedAuth: { authEntity?: string; creds?: Credentials; } = {};
+export let supportedAuthTypes: string[];
 
-const { operations, sessions, resources, statusStream, rtt, connectionStatus } = useClient()
+const {
+  operations,
+  sessions,
+  sessionsSupported,
+  resources,
+  sensorNames,
+  statuses,
+  statusStream,
+  streamManager,
+  rtt,
+  connectionStatus,
+  components,
+} = useClient()
 
 const dispatch = createEventDispatcher<{
   'connection-error': unknown
@@ -61,7 +76,7 @@ let password = '';
 let lastStatusTS: number | null = null;
 let resourcesOnce = false;
 
-const streamManager = new StreamManager($client);
+$streamManager = new StreamManager($client);
 
 const errors: Record<string, boolean> = {};
 
@@ -134,12 +149,10 @@ const loadCurrentOps = async () => {
 
   $rtt = Math.max(Date.now() - now, 0);
 
-  now = Date.now();
-
   for (const op of list) {
     ops.push({
       op,
-      elapsed: op.started ? now - (op.started.seconds * 1000) : -1,
+      elapsed: op.started ? Date.now() - (op.started.seconds * 1000) : -1,
     });
   }
 
@@ -155,7 +168,7 @@ const loadCurrentOps = async () => {
 };
 
 const fetchCurrentSessions = async () => {
-  if (!sessionsSupported) {
+  if (!$sessionsSupported) {
     return [];
   }
 
@@ -164,7 +177,7 @@ const fetchCurrentSessions = async () => {
   } catch (error) {
     const serviceError = error as ServiceError
     if (serviceError.code === serviceError.Code.Unimplemented) {
-      sessionsSupported = false;
+      $sessionsSupported = false;
     }
 
     return []
@@ -174,10 +187,10 @@ const fetchCurrentSessions = async () => {
 const updateStatus = (grpcStatuses: robotApi.Status[]) => {
   for (const grpcStatus of grpcStatuses) {
     const nameObj = grpcStatus.getName()!.toObject();
-    const statusJs = grpcStatus.getStatus()!.toJavaScript();
+    const status = grpcStatus.getStatus()!.toJavaScript();
     const name = resourceNameToString(nameObj);
 
-    $statuses[name] = statusJs;
+    $statuses[name] = status;
   }
 };
 
@@ -270,7 +283,7 @@ const queryMetadata = async () => {
 
   resourcesOnce = true;
   if (resourcesChanged === true) {
-    sensorNames = getSensors();
+    $sensorNames = await getSensors();
   }
 
   if (shouldRestartStatusStream === true) {
@@ -278,164 +291,124 @@ const queryMetadata = async () => {
   }
 };
 
-const createAppConnectionManager = () => {
-  const checkIntervalMillis = 10_000;
-  const connections = {
-    resources: false,
-    ops: false,
-    sessions: false,
-  };
+const checkIntervalMillis = 10_000;
 
-  let timeout = -1;
-  let connectionRestablished = false;
-
-  const isConnected = () => {
-    return (
-      connections.resources &&
-      connections.ops &&
-      // check status on interval if direct grpc
-      (webrtcEnabled || (Date.now() - lastStatusTS! <= checkIntervalMillis))
-    );
-  };
-
-  const manageLoop = async () => {
-    try {
-      const newErrors: unknown[] = [];
-
-      try {
-        await queryMetadata();
-
-        if (!connections.resources) {
-          connectionRestablished = true;
-        }
-
-        connections.resources = true;
-      } catch (error) {
-        if (ConnectionClosedError.isError(error)) {
-          connections.resources = false;
-        } else {
-          newErrors.push(error);
-        }
-      }
-
-      if (connections.resources) {
-        try {
-          $operations = await loadCurrentOps();
-
-          if (!connections.ops) {
-            connectionRestablished = true;
-          }
-
-          connections.ops = true;
-        } catch (error) {
-          if (ConnectionClosedError.isError(error)) {
-            connections.ops = false;
-          } else {
-            newErrors.push(error);
-          }
-        }
-      }
-
-      if (connections.ops) {
-        try {
-          $sessions = await fetchCurrentSessions();
-
-          if (!connections.sessions) {
-            connectionRestablished = true;
-          }
-
-          connections.sessions = true;
-        } catch (error) {
-          if (ConnectionClosedError.isError(error)) {
-            connections.sessions = false;
-          } else {
-            newErrors.push(error);
-          }
-        }
-      }
-
-      if (isConnected()) {
-        if (connectionRestablished) {
-          notify.success('Connection established');
-          connectionRestablished = false;
-        }
-
-        errorMessage = '';
-        return;
-      }
-
-      if (newErrors.length > 0) {
-        handleCallErrors(connections, newErrors);
-      }
-      errorMessage = 'Connection lost, attempting to reconnect ...';
-
-      try {
-        console.debug('reconnecting');
-
-        // reset status/stream state
-        if ($statusStream) {
-          $statusStream.cancel();
-          $statusStream = null;
-        }
-        resourcesOnce = false;
-
-        await $client.connect();
-
-        const now = Date.now();
-        await getOperations();
-        
-        $rtt = Math.max(Date.now() - now, 0);
-
-        lastStatusTS = Date.now();
-        console.debug('reconnected');
-        streamManager.refreshStreams();
-      } catch (error) {
-        if (ConnectionClosedError.isError(error)) {
-          console.error('failed to reconnect; retrying');
-        } else {
-          console.error('failed to reconnect; retrying:', error);
-        }
-      }
-    } finally {
-      timeout = window.setTimeout(manageLoop, 500);
-    }
-  };
-
-  const stop = () => {
-    window.clearTimeout(timeout);
-    $statusStream?.cancel();
-    $statusStream = null;
-  };
-
-  const start = () => {
-    stop();
-    lastStatusTS = Date.now();
-    manageLoop();
-  };
-
-  return {
-    statuses: connections,
-    timeout,
-    stop,
-    start,
-    isConnected,
-  };
+const connections = {
+  resources: false,
+  ops: false,
+  sessions: false,
 };
 
-const appConnectionManager = createAppConnectionManager();
+let cancelTick: undefined | (() => void)
+
+const isConnected = () => {
+  return (
+    connections.resources &&
+    connections.ops &&
+    // check status on interval if direct grpc
+    (webrtcEnabled || (Date.now() - lastStatusTS! <= checkIntervalMillis))
+  );
+};
+
+const tick = async () => {
+  const newErrors: unknown[] = [];
+
+  try {
+    await queryMetadata();
+    connections.resources = true;
+  } catch (error) {
+    if (ConnectionClosedError.isError(error)) {
+      connections.resources = false;
+    } else {
+      newErrors.push(error);
+    }
+  }
+
+  if (connections.resources) {
+    try {
+      $operations = await loadCurrentOps();
+      connections.ops = true;
+    } catch (error) {
+      if (ConnectionClosedError.isError(error)) {
+        connections.ops = false;
+      } else {
+        newErrors.push(error);
+      }
+    }
+  }
+
+  if (connections.ops) {
+    try {
+      $sessions = await fetchCurrentSessions();
+      connections.sessions = true;
+    } catch (error) {
+      if (ConnectionClosedError.isError(error)) {
+        connections.sessions = false;
+      } else {
+        newErrors.push(error);
+      }
+    }
+  }
+
+  if (isConnected()) {
+    $connectionStatus = 'connected'
+    return;
+  }
+
+  if (newErrors.length > 0) {
+    handleCallErrors(connections, newErrors);
+  }
+
+  $connectionStatus = 'reconnecting'
+
+  try {
+    console.debug('reconnecting');
+
+    // reset status/stream state
+    if ($statusStream) {
+      $statusStream.cancel();
+      $statusStream = null;
+    }
+    resourcesOnce = false;
+
+    await $client.connect();
+
+    const now = Date.now();
+
+    $rtt = Math.max(Date.now() - now, 0);
+
+    lastStatusTS = Date.now();
+    console.debug('reconnected');
+    $streamManager.refreshStreams();
+  } catch (error) {
+    if (ConnectionClosedError.isError(error)) {
+      console.error('failed to reconnect; retrying');
+    } else {
+      console.error('failed to reconnect; retrying:', error);
+    }
+  }
+};
+
+const stop = () => {
+  cancelTick?.()
+  $statusStream?.cancel();
+  $statusStream = null;
+};
+
+const start = () => {
+  stop();
+  lastStatusTS = Date.now();
+  tick();
+  cancelTick = setAsyncInterval(tick, 500)
+};
 
 const connect = async (creds?: Credentials) => {
   $connectionStatus = 'connecting'
 
-  try {
-    await $client.connect(bakedAuth.authEntity, creds ?? bakedAuth.creds);
-  } catch (error) {
-    $connectionStatus = 'disconnected'
-    throw error;
-  }
+  await $client.connect(bakedAuth.authEntity, creds ?? bakedAuth.creds);
 
   $connectionStatus = 'connected'
-  connectedOnce = true;
+  start();
 };
 
 const login = async (authType: string) => {
@@ -444,13 +417,12 @@ const login = async (authType: string) => {
   try {
     await connect(creds);
   } catch (error) {
-    notify.danger(`failed to connect: ${error.message}`);
+    notify.danger(`failed to connect: ${(error as ServiceError).message}`);
+    $connectionStatus = 'idle'
   }
 };
 
 const init = async () => {
-  if (supportedAuthTypes.length > 0) return
-
   try {
     await connect()
   } catch (error) {
@@ -460,8 +432,8 @@ const init = async () => {
 }
 
 const handleUnload = () => {
-  appConnectionManager?.stop();
-  streamManager?.close();
+  stop();
+  $streamManager?.close();
   $client.disconnect();
 };
 
@@ -474,45 +446,42 @@ onDestroy(() => {
   window.removeEventListener('beforeunload', handleUnload);
 });
 
-init()
+if (supportedAuthTypes.length === 0) {
+  init()
+}
 
 </script>
 
-{#if $connectionStatus !== 'connected'}
-  <div>
-    {#each supportedAuthTypes as authType (authType)}
-      <div class="px-4 py-3">
-        <span>{authType}: </span>
-        <div class="w-96">
-          <input
-            bind:value={password}
-            disabled={$connectionStatus === 'connecting'}
-            class="
-              mb-2 block w-full appearance-none border p-2 text-gray-700
-              transition-colors duration-150 ease-in-out placeholder:text-gray-400 focus:outline-none
-            "
-            type="password"
-            autocomplete="off"
-            on:keyup={(event) => event.key === 'Enter' && login(authType)}
-          >
-          <v-button
-            disabled={$connectionStatus === 'connecting'}
-            label="Login"
-            on:click={$connectionStatus === 'connecting' ? undefined : () => login(authType)}
-          />
-        </div>
-      </div>
-    {/each}
-  </div>
-{/if}
-
 {#if $connectionStatus === 'connecting'}
-  <v-notify
-    variant='info'
-    title={`Connecting via ${webrtcEnabled ? 'WebRTC' : 'gRPC'}...`}
-  />
+  <slot name='connecting' />
+{:else if $connectionStatus === 'reconnecting'}
+  <slot name='reconnecting' />
 {/if}
 
-{#if $connectionStatus === 'connected'}
+{#if $connectionStatus === 'connected' || $connectionStatus === 'reconnecting'}
   <slot />
+{:else}
+  {#each supportedAuthTypes as authType (authType)}
+    <div class="px-4 py-3">
+      <span>{authType}: </span>
+      <div class="w-96">
+        <input
+          bind:value={password}
+          disabled={$connectionStatus === 'connecting'}
+          class="
+            mb-2 block w-full appearance-none border p-2 text-gray-700
+            transition-colors duration-150 ease-in-out placeholder:text-gray-400 focus:outline-none
+          "
+          type="password"
+          autocomplete="off"
+          on:keyup={(event) => event.key === 'Enter' && login(authType)}
+        >
+        <v-button
+          disabled={$connectionStatus === 'connecting'}
+          label="Login"
+          on:click={$connectionStatus === 'connecting' ? undefined : () => login(authType)}
+        />
+      </div>
+    </div>
+  {/each}
 {/if}

@@ -2,9 +2,9 @@
 <script lang="ts">
 
 import { type Credentials } from '@viamrobotics/rpc';
-import { resources, components, services, statuses } from '@/stores/resources';
-import { commonApi, robotApi } from '@viamrobotics/sdk';
+import { commonApi } from '@viamrobotics/sdk';
 import { resourceNameToString, filterWithStatus, filterSubtype } from '@/lib/resource';
+import { useClient } from '@/hooks/use-client';
 import Arm from './arm/index.svelte';
 import AudioInput from './audio-input/index.svelte';
 import Base from './base/index.svelte';
@@ -25,17 +25,13 @@ import Sensors from './sensors/index.svelte';
 import Slam from './slam/index.svelte';
 import Client from '@/lib/components/client.svelte'
 
+const { resources, components, services, statuses, sensorNames } = useClient();
+
 export let host: string;
 export let bakedAuth: { authEntity: string; creds: Credentials; } | undefined;
 export let supportedAuthTypes: string[];
 export let webrtcEnabled: boolean;
 export let signalingAddress: string;
-
-let sensorNames: commonApi.ResourceName.AsObject[] = [];
-
-let errorMessage = '';
-let connectedOnce = false;
-let sessionsSupported = true;
 
 const resourceStatusByName = (resource: commonApi.ResourceName.AsObject) => {
   return $statuses[resourceNameToString(resource)];
@@ -77,18 +73,26 @@ const getStatus = (statusMap: Record<string, unknown>, resource: commonApi.Resou
   {webrtcEnabled}
   {host}
   {signalingAddress}
+  {bakedAuth}
+  {supportedAuthTypes}
 >
-  <div class="flex flex-col gap-4 p-3">
-    {#if errorMessage}
-      <v-notify
-        variant='danger'
-        title={errorMessage}
-      />
-    {/if}
+  <v-notify
+    slot='connecting'
+    class='p-3'
+    variant='info'
+    title={`Connecting via ${webrtcEnabled ? 'WebRTC' : 'gRPC'}...`}
+  />
 
+  <v-notify
+    slot='reconnecting'
+    variant='danger'
+    title='Connection lost, attempting to reconnect ...'
+  />
+
+  <div class="flex flex-col gap-4 p-3">
     <!-- ******* BASE *******  -->
     {#each filterSubtype($components, 'base') as { name } (name)}
-      <Base {name} {streamManager} />
+      <Base {name} />
     {/each}
 
     <!-- ******* ENCODER *******  -->
@@ -160,10 +164,7 @@ const getStatus = (statusMap: Record<string, unknown>, resource: commonApi.Resou
     {/each}
 
     <!-- ******* CAMERA *******  -->
-    <CamerasList
-      {streamManager}
-      resources={filterSubtype($components, 'camera')}
-    />
+    <CamerasList resources={filterSubtype($components, 'camera')} />
 
     <!-- ******* NAVIGATION *******  -->
     {#each filterSubtype($services, 'navigation') as { name } (name)}
@@ -171,10 +172,10 @@ const getStatus = (statusMap: Record<string, unknown>, resource: commonApi.Resou
     {/each}
 
     <!-- ******* SENSOR *******  -->
-    {#if Object.keys(sensorNames).length > 0}
+    {#if Object.keys($sensorNames).length > 0}
       <Sensors
         name={filterSubtype($resources, 'sensors', { remote: false })[0]?.name ?? ''}
-        {sensorNames}
+        sensorNames={$sensorNames}
       />
     {/if}
 
@@ -194,8 +195,6 @@ const getStatus = (statusMap: Record<string, unknown>, resource: commonApi.Resou
     {/if}
 
     <!-- ******* OPERATIONS AND SESSIONS *******  -->
-    {#if connectedOnce}
-      <OperationsSessions {sessionsSupported} />
-    {/if}
+    <OperationsSessions />
   </div>
 </Client>

@@ -7,9 +7,7 @@ import { rcLogConditionally } from '@/lib/log';
 import Collapse from '../../lib/components/collapse.svelte';
 import { useClient } from '@/hooks/use-client';
 
-export let sessionsSupported: boolean;
-
-const { client, operations, sessions, rtt } = useClient()
+const { client, operations, sessions, sessionsSupported, rtt } = useClient()
 
 const killOperation = (id: string) => {
   const req = new robotApi.CancelOperationRequest();
@@ -39,7 +37,7 @@ const peerConnectionType = (info?: robotApi.PeerConnectionInfo.AsObject) => {
 
 </script>
 
-<Collapse title={sessionsSupported ? 'Operations & Sessions' : 'Operations'}>
+<Collapse title={$sessionsSupported ? 'Operations & Sessions' : 'Operations'}>
   <div class="border border-t-0 border-medium p-4 text-xs">
     <div class="mb-4 flex gap-2 justify-end items-center">
       <label>RTT:</label>
@@ -90,7 +88,7 @@ const peerConnectionType = (info?: robotApi.PeerConnectionInfo.AsObject) => {
       </table>
     </div>
 
-    {#if sessionsSupported}
+    {#if $sessionsSupported}
       <div class="overflow-auto">
         <div class="p-2 font-bold">Sessions</div>
         <table class="w-full table-auto border border-medium">

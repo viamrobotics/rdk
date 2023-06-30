@@ -5,10 +5,8 @@ import Camera from './camera.svelte';
 import PCD from '../pcd/index.svelte';
 import Collapse from '../../lib/components/collapse.svelte';
 import { selectedMap } from '@/lib/camera-state';
-import type { StreamManager } from './stream-manager';
 
 export let resources: commonApi.ResourceName.AsObject[];
-export let streamManager: StreamManager;
 
 const openCameras: Record<string, boolean | undefined> = {};
 const refreshFrequency: Record<string, string | undefined> = {};
@@ -73,7 +71,6 @@ const handleRefreshInput = (name: string) => {
 
       {#if openCameras[camera.name]}
         <Camera
-          {streamManager}
           cameraName={camera.name}
           showExportScreenshot={true}
           refreshRate={refreshFrequency[camera.name]}

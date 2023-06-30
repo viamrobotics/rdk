@@ -1,17 +1,27 @@
+import type { commonApi, robotApi } from '@viamrobotics/sdk';
 import { client } from '@/stores/client';
-import { resources } from '@/stores/resources';
+import { components, resources, services, statuses } from '@/stores/resources';
 import { statusStream } from '@/stores/streams';
 import { currentWritable } from '@threlte/core';
+import { StreamManager } from '@/lib/stream-manager';
 
-const stores = {
+const clientStores = {
   client,
-  connectionStatus: currentWritable<'idle' | 'connecting' | 'connected' | 'disconnected'>('idle'),
-  operations: currentWritable<any[]>([]),
+  components,
+  connectionStatus: currentWritable<'idle' | 'connecting' | 'connected' | 'reconnecting'>('idle'),
+  operations: currentWritable<{
+    op: robotApi.Operation.AsObject;
+    elapsed: number;
+  }[]>([]),
   resources,
   rtt: currentWritable(0),
-  sessions: currentWritable<any[]>([]),
+  sessions: currentWritable<robotApi.Session.AsObject[]>([]),
   sessionsSupported: currentWritable(true),
+  sensorNames: currentWritable<commonApi.ResourceName.AsObject[]>([]),
+  services,
+  statuses,
   statusStream,
-};
+  streamManager: currentWritable<StreamManager>(null!),
+} as const;
 
-export const useClient = () => stores;
+export const useClient = () => clientStores;
