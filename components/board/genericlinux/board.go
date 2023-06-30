@@ -464,16 +464,6 @@ func (b *sysfsBoard) GPIOPinNames() []string {
 	return names
 }
 
-func (b *sysfsBoard) getGPIOLine(hwPin string) (gpio.PinIO, error) {
-	pinName := hwPin
-
-	pin := gpioreg.ByName(pinName)
-	if pin == nil {
-		return nil, errors.Errorf("no global pin found for %q", pinName)
-	}
-	return pin, nil
-}
-
 func (b *sysfsBoard) GPIOPinByName(pinName string) (board.GPIOPin, error) {
 	if pin, ok := b.gpios[pinName]; ok {
 		return pin, nil
