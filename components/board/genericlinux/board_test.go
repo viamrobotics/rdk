@@ -9,7 +9,6 @@ package genericlinux
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/edaniels/golog"
 	commonpb "go.viam.com/api/common/v1"
@@ -32,7 +31,7 @@ func TestGenericLinux(t *testing.T) {
 	t.Run("test empty sysfs board", func(t *testing.T) {
 		test.That(t, b.GPIOPinNames(), test.ShouldBeNil)
 		test.That(t, b.SPINames(), test.ShouldBeNil)
-		_, err = b.GPIOPinByName("10")
+		_, err := b.GPIOPinByName("10")
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
@@ -51,14 +50,11 @@ func TestGenericLinux(t *testing.T) {
 	boardSPIs["open"].bus.Store(&twoStr)
 	boardSPIs["open"].openHandle.bus.bus.Store(&twoStr)
 
-	b := &sysfsBoard{
+	b = &sysfsBoard{
 		Named:        board.Named("foo").AsNamed(),
 		gpioMappings: nil,
 		spis:         boardSPIs,
 		analogs:      map[string]*wrappedAnalog{"an": {}},
-		pwms: map[string]pwmSetting{
-			"10": {dutyCycle: 1, frequency: 1},
-		},
 		logger:    golog.NewTestLogger(t),
 		cancelCtx: ctx,
 		cancelFunc: func() {
@@ -134,11 +130,6 @@ func TestGenericLinux(t *testing.T) {
 		rx, err := sph2.Xfer(ctx, 1, "1", 1, []byte{})
 		test.That(t, err.Error(), test.ShouldContainSubstring, "closed")
 		test.That(t, rx, test.ShouldBeNil)
-	})
-
-	t.Run("test getGPIOLine", func(t *testing.T) {
-		_, err := b.getGPIOLine("10")
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no global pin")
 	})
 }
 
