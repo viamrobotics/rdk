@@ -126,10 +126,12 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 		}
 
 		if !commanded {
-			if len(ddk.model.DoF()) == 2 { // 2DOF -> position only mode
+			// no command to move to the x, y location was issued so base is at correct x, y position
+			// 2DOF model indicates position-only mode so heading doesn't need to be corrected, exit function
+			if len(ddk.model.DoF()) == 2 {
 				return nil
 			}
-			// no command to move to the x, y location was issued, correct the heading and then exit
+			// no command to move to the x, y location was issued and not in position-only mode, correct the heading and then exit
 			if commanded, err := ddk.issueCommand(ctx, current, []referenceframe.Input{current[0], current[1], desired[2]}); err == nil {
 				if !commanded {
 					return nil

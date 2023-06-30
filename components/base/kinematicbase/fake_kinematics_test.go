@@ -2,6 +2,7 @@ package kinematicbase
 
 import (
 	"context"
+	"math"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -34,6 +35,7 @@ func TestNewFakeKinematics(t *testing.T) {
 	fakeSLAM := fake.NewSLAM(slam.Named("test"), logger)
 	limits, err := fakeSLAM.GetLimits(ctx)
 	test.That(t, err, test.ShouldBeNil)
+	limits = append(limits, referenceframe.Limit{-2 * math.Pi, 2 * math.Pi})
 
 	localizer, err := motion.NewLocalizer(ctx, fakeSLAM)
 	test.That(t, err, test.ShouldBeNil)

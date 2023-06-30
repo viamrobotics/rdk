@@ -2,6 +2,7 @@ package kinematicbase
 
 import (
 	"context"
+	"math"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -130,6 +131,7 @@ func buildTestDDK(ctx context.Context, cfg resource.Config, logger golog.Logger)
 	if err != nil {
 		return nil, err
 	}
+	limits = append(limits, referenceframe.Limit{-2 * math.Pi, 2 * math.Pi})
 
 	// construct localizer
 	localizer, err := motion.NewLocalizer(ctx, fakeSLAM)
