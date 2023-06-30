@@ -1,12 +1,6 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
-  import {
-    BaseClient,
-    Client,
-    type ServiceError,
-    type ResponseStream,
-    robotApi,
-  } from '@viamrobotics/sdk';
+  import { BaseClient, type ServiceError } from '@viamrobotics/sdk';
   import { filterSubtype } from '../../lib/resource';
   import { displayError } from '../../lib/error';
   import KeyboardInput from '../keyboard-input/index.svelte';
@@ -16,13 +10,12 @@
   import { selectedMap } from '../../lib/camera-state';
   import { clickOutside } from '../../lib/click-outside';
   import type { StreamManager } from '../camera/stream-manager';
-  import Collapse from '@/components/collapse.svelte';
+  import Collapse from '@/lib/components/collapse.svelte';
   import { components } from '@/stores/resources';
+  import { useClient } from '@/hooks/use-client';
 
   export let name: string;
-  export let client: Client;
   export let streamManager: StreamManager;
-  export let statusStream: ResponseStream<robotApi.StreamStatusResponse> | null;
 
   const enum Keymap {
     LEFT = 'a',
@@ -38,7 +31,9 @@
   type Directions = 'Forwards' | 'Backwards';
   type View = 'Stacked' | 'Grid';
 
-  const baseClient = new BaseClient(client, name, {
+  const { client } = useClient();
+
+  const baseClient = new BaseClient($client, name, {
     requestLogger: rcLogConditionally,
   });
 
@@ -493,11 +488,9 @@
           {#if openCameras[camera.name]}
             <Camera
               cameraName={camera.name}
-              {client}
               showExportScreenshot
               refreshRate={refreshFrequency}
               {streamManager}
-              {statusStream}
               triggerRefresh={triggerRefresh}
             />
           {/if}

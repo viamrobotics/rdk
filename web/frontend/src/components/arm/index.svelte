@@ -1,12 +1,13 @@
 <script lang="ts">
 
-import { ArmClient, Client } from '@viamrobotics/sdk';
+import { ArmClient } from '@viamrobotics/sdk';
 import type { Pose, ServiceError } from '@viamrobotics/sdk';
 import { copyToClipboard } from '@/lib/copy-to-clipboard';
 import { displayError } from '@/lib/error';
 import { roundTo2Decimals } from '@/lib/math';
 import { rcLogConditionally } from '@/lib/log';
-import Collapse from '@/components/collapse.svelte';
+import Collapse from '@/lib/components/collapse.svelte';
+import { useClient } from '@/hooks/use-client';
 
 interface ArmStatus {
   pos_pieces: {
@@ -27,7 +28,8 @@ export let status: {
   end_position: Record<string, number>
   joint_positions: { values: number[]}
 } | undefined;
-export let client: Client;
+
+const { client } = useClient();
 
 let modifyAll = false;
 
@@ -85,7 +87,7 @@ let modifyAllStatus: ArmStatus = {
   joint_pieces: [],
 };
 
-const armClient = new ArmClient(client, name, { requestLogger: rcLogConditionally });
+$: armClient = new ArmClient($client, name, { requestLogger: rcLogConditionally });
 
 const stop = async () => {
   try {

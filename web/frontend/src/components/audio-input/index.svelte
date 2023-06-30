@@ -1,12 +1,14 @@
 <script lang='ts'>
 
 import { StreamClient } from '@viamrobotics/sdk';
-import type { Client, ServiceError } from '@viamrobotics/sdk';
+import type { ServiceError } from '@viamrobotics/sdk';
 import { displayError } from '@/lib/error';
-import Collapse from '@/components/collapse.svelte';
+import Collapse from '@/lib/components/collapse.svelte';
+import { useClient } from '@/hooks/use-client';
 
 export let name: string;
-export let client: Client;
+
+const { client } = useClient();
 
 let audio: HTMLAudioElement;
 
@@ -15,7 +17,7 @@ let isOn = false;
 const toggleExpand = async () => {
   isOn = !isOn;
 
-  const streams = new StreamClient(client);
+  const streams = new StreamClient($client);
 
   streams.on('track', (event) => {
     const [eventStream] = (event as { streams: MediaStream[] }).streams;

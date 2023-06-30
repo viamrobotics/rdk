@@ -7,7 +7,7 @@ import { notify } from '@viamrobotics/prime';
 import { navigationApi, type ServiceError } from '@viamrobotics/sdk';
 import { setMode, type NavigationModes } from '@/api/navigation';
 import { mapCenter, centerMap, robotPosition, flyToMap } from './stores';
-import Collapse from '@/components/collapse.svelte';
+import Collapse from '@/lib/components/collapse.svelte';
 import Map from './components/map.svelte';
 import Nav from './components/nav.svelte';
 

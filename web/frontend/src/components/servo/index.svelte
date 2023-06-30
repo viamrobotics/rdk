@@ -1,21 +1,23 @@
 <script lang="ts">
 
 import { grpc } from '@improbable-eng/grpc-web';
-import { Client, type ServiceError, servoApi } from '@viamrobotics/sdk';
+import { type ServiceError, servoApi } from '@viamrobotics/sdk';
 import { displayError } from '@/lib/error';
 import { rcLogConditionally } from '@/lib/log';
-import Collapse from '@/components/collapse.svelte';
+import Collapse from '@/lib/components/collapse.svelte';
+import { useClient } from '@/hooks/use-client';
 
 export let name: string;
 export let status: undefined | { position_deg: number };
-export let client: Client;
+
+const { client } = useClient();
 
 const stop = () => {
   const req = new servoApi.StopRequest();
   req.setName(name);
 
   rcLogConditionally(req);
-  client.servoService.stop(req, new grpc.Metadata(), displayError);
+  $client.servoService.stop(req, new grpc.Metadata(), displayError);
 };
 
 const move = (amount: number) => {
@@ -28,7 +30,7 @@ const move = (amount: number) => {
   req.setAngleDeg(angle);
 
   rcLogConditionally(req);
-  client.servoService.move(req, new grpc.Metadata(), (error: ServiceError | null) => {
+  $client.servoService.move(req, new grpc.Metadata(), (error: ServiceError | null) => {
     if (error) {
       return displayError(error);
     }

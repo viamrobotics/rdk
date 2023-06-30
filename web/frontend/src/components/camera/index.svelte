@@ -1,21 +1,14 @@
 <script lang="ts">
-import type {
-  commonApi,
-  Client,
-  ResponseStream,
-  robotApi,
-} from '@viamrobotics/sdk';
 
+import type { commonApi } from '@viamrobotics/sdk';
 import Camera from './camera.svelte';
 import PCD from '../pcd/index.svelte';
-import Collapse from '../collapse.svelte';
+import Collapse from '../../lib/components/collapse.svelte';
 import { selectedMap } from '@/lib/camera-state';
 import type { StreamManager } from './stream-manager';
 
 export let resources: commonApi.ResourceName.AsObject[];
 export let streamManager: StreamManager;
-export let client: Client;
-export let statusStream: ResponseStream<robotApi.StreamStatusResponse> | null;
 
 const openCameras: Record<string, boolean | undefined> = {};
 const refreshFrequency: Record<string, string | undefined> = {};
@@ -80,19 +73,14 @@ const handleRefreshInput = (name: string) => {
 
       {#if openCameras[camera.name]}
         <Camera
-          {client}
           {streamManager}
-          {statusStream}
           cameraName={camera.name}
           showExportScreenshot={true}
           refreshRate={refreshFrequency[camera.name]}
         />
       {/if}
 
-      <PCD
-        {client}
-        cameraName={camera.name}
-      />
+      <PCD cameraName={camera.name} />
     </div>
   </Collapse>
 {/each}

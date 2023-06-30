@@ -3,17 +3,19 @@
 import { notify } from '@viamrobotics/prime';
 import { displayError } from '@/lib/error';
 import { rcLogConditionally } from '@/lib/log';
-import { Client, BoardClient, type ServiceError } from '@viamrobotics/sdk';
-import Collapse from '@/components/collapse.svelte';
+import { BoardClient, type ServiceError } from '@viamrobotics/sdk';
+import Collapse from '@/lib/components/collapse.svelte';
+import { useClient } from '@/hooks/use-client';
 
 export let name: string;
-export let client: Client;
 export let status: undefined | {
   analogs: Record<string, { value: number }>
   digital_interrupts: Record<string, { value: number }>
 };
 
-const boardClient = new BoardClient(client, name, { requestLogger: rcLogConditionally });
+const { client } = useClient();
+
+const boardClient = new BoardClient($client, name, { requestLogger: rcLogConditionally });
 
 let getPin = '';
 let setPin = '';
