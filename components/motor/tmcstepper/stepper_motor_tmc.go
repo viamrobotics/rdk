@@ -146,7 +146,7 @@ const (
 // NewMotor returns a TMC5072 driven motor.
 func NewMotor(ctx context.Context, deps resource.Dependencies, c TMC5072Config, name resource.Name,
 	logger golog.Logger,
-) (motor.LocalMotor, error) {
+) (motor.Motor, error) {
 	b, err := board.FromDependencies(deps, c.BoardName)
 	if err != nil {
 		return nil, errors.Errorf("%q is not a board", c.BoardName)
@@ -560,9 +560,9 @@ func (m *Motor) IsMoving(ctx context.Context) (bool, error) {
 	return !stop, err
 }
 
-// Home homes the motor using stallguard.
-func (m *Motor) Home(ctx context.Context) error {
-	err := m.GoTillStop(ctx, m.homeRPM, nil)
+// home homes the motor using stallguard.
+func (m *Motor) home(ctx context.Context) error {
+	err := m.goTillStop(ctx, m.homeRPM, nil)
 	if err != nil {
 		return err
 	}
@@ -579,8 +579,8 @@ func (m *Motor) Home(ctx context.Context) error {
 	return m.ResetZeroPosition(ctx, 0, nil)
 }
 
-// GoTillStop enables StallGuard detection, then moves in the direction/speed given until resistance (endstop) is detected.
-func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
+// goTillStop enables StallGuard detection, then moves in the direction/speed given until resistance (endstop) is detected.
+func (m *Motor) goTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
 	if err := m.Jog(ctx, rpm); err != nil {
 		return err
 	}
@@ -601,7 +601,7 @@ func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx c
 	var fails int
 	for {
 		if !utils.SelectContextOrWait(ctx, 10*time.Millisecond) {
-			return errors.New("context cancelled during GoTillStop")
+			return errors.New("context cancelled: duration timeout trying to get up to speed while homing")
 		}
 
 		if stopFunc != nil && stopFunc(ctx) {
@@ -618,7 +618,7 @@ func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx c
 		}
 
 		if fails >= 500 {
-			return errors.New("timed out during GoTillStop acceleration")
+			return errors.New("over 500 failures trying to get up to speed while homing")
 		}
 		fails++
 	}
@@ -632,7 +632,7 @@ func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx c
 	fails = 0
 	for {
 		if !utils.SelectContextOrWait(ctx, 10*time.Millisecond) {
-			return errors.New("context cancelled during GoTillStop")
+			return errors.New("context cancelled: duration timeout trying to stop at the endstop while homing")
 		}
 
 		if stopFunc != nil && stopFunc(ctx) {
@@ -648,7 +648,7 @@ func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx c
 		}
 
 		if fails >= 10000 {
-			return errors.New("timed out during GoTillStop")
+			return errors.New("over 1000 failures trying to stop at endstop while homing")
 		}
 		fails++
 	}
@@ -688,7 +688,7 @@ func (m *Motor) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[
 	}
 	switch name {
 	case Home:
-		return nil, m.Home(ctx)
+		return nil, m.home(ctx)
 	case Jog:
 		rpmRaw, ok := cmd[RPMVal]
 		if !ok {
