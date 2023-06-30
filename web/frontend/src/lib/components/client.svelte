@@ -7,7 +7,6 @@ import { onMount, onDestroy, createEventDispatcher } from 'svelte';
 import { type Credentials, ConnectionClosedError } from '@viamrobotics/rpc';
 import { Client, robotApi, commonApi, type ServiceError } from '@viamrobotics/sdk';
 import { notify } from '@viamrobotics/prime';
-import { client } from '@/stores/client';
 import { StreamManager } from '@/lib/stream-manager';
 import { getOperations, getResourceNames, getSessions } from '@/api/robot';
 import { getSensors } from '@/api/sensors';
@@ -22,6 +21,7 @@ export let bakedAuth: { authEntity?: string; creds?: Credentials; } = {};
 export let supportedAuthTypes: string[];
 
 const {
+  client,
   operations,
   sessions,
   sessionsSupported,
