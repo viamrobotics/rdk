@@ -123,14 +123,16 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 	utils.PanicCapturingGo(func() {
 		// this loop polls the error state and issues a corresponding command to move the base to the objective
 		// when the base is within the positional threshold of the goal, exit the loop
-		for contextErr := ctx.Err(); contextErr == nil; contextErr = ctx.Err() {
+		for err := ctx.Err(); err == nil; err = ctx.Err() {
 			utils.SelectContextOrWait(ctx, 100*time.Millisecond)
 			col, err := validRegion.CollidesWith(spatialmath.NewPoint(r3.Vector{X: current[0].Value, Y: current[1].Value}, ""))
 			if err != nil {
 				movementErr <- err
+				return
 			}
 			if !col {
 				movementErr <- errors.New("base has deviated too far from path")
+				return
 			}
 
 			// get to the x, y location first - note that from the base's perspective +y is forward
@@ -138,6 +140,7 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 			commanded, err := ddk.issueCommand(cancelContext, current, []referenceframe.Input{desired[0], desired[1], {desiredHeading}})
 			if err != nil {
 				movementErr <- err
+				return
 			}
 
 			if !commanded {
@@ -145,18 +148,21 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 				if commanded, err := ddk.issueCommand(cancelContext, current, []referenceframe.Input{current[0], current[1], desired[2]}); err == nil {
 					if !commanded {
 						movementErr <- nil
+						return
 					}
 				} else {
 					movementErr <- err
+					return
 				}
 			}
 
 			current, err = ddk.CurrentInputs(cancelContext)
 			if err != nil {
 				movementErr <- err
+				return
 			}
 		}
-		movementErr <- ctx.Err()
+		movementErr <- err
 	})
 
 	// goroutine for watching for movement timeout
@@ -166,13 +172,16 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 		prevHeadingErr := math.Inf(-1)
 
 		for {
-			currentPose, err := ddk.CurrentInputs(ctx)
+			utils.SelectContextOrWait(ctx, 100*time.Millisecond)
+			currentInputs, err := ddk.CurrentInputs(ctx)
 			if err != nil {
 				movementErr <- err
+				return
 			}
-			distErr, headingErr, err := ddk.errorState(currentPose, desired)
+			distErr, headingErr, err := ddk.errorState(currentInputs, desired)
 			if err != nil {
 				movementErr <- err
+				return
 			}
 			if poseChanged(prevDistErr, prevHeadingErr, distErr, headingErr) {
 				lastUpdate = time.Now()

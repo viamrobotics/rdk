@@ -247,8 +247,7 @@ func TestMoveOnMap(t *testing.T) {
 	const chunkSizeBytes = 1 * 1024 * 1024
 
 	injectSlam.GetPointCloudMapFunc = func(ctx context.Context) (func() ([]byte, error), error) {
-		path := filepath.Clean(artifact.MustPath("pointcloud/octagonspace.pcd"))
-		return getPointCloudMap(path)
+		return getPointCloudMap(filepath.Clean(artifact.MustPath("pointcloud/octagonspace.pcd")))
 	}
 
 	cfg := resource.Config{
@@ -328,8 +327,7 @@ func TestMoveOnMapTimeout(t *testing.T) {
 
 	injectSlam := inject.NewSLAMService("test_slam")
 	injectSlam.GetPointCloudMapFunc = func(ctx context.Context) (func() ([]byte, error), error) {
-		path := filepath.Clean(artifact.MustPath("pointcloud/octagonspace.pcd"))
-		return getPointCloudMap(path)
+		return getPointCloudMap(filepath.Clean(artifact.MustPath("pointcloud/octagonspace.pcd")))
 
 	}
 	injectSlam.GetPositionFunc = func(ctx context.Context) (spatialmath.Pose, string, error) {
@@ -357,6 +355,7 @@ func TestMoveOnMapTimeout(t *testing.T) {
 		nil,
 	)
 	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldResemble, "movement has timed out") //change to an error within kinematics
 	test.That(t, success, test.ShouldBeFalse)
 }
 
