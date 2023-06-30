@@ -26,8 +26,8 @@ const (
 	headingEpsilon          = 15 // degrees
 )
 
-// ErrMovementTimeout is used for when a movement call times out after no movement for some time
-var ErrMovementTimeout = errors.New("Movement has timed out")
+// ErrMovementTimeout is used for when a movement call times out after no movement for some time.
+var ErrMovementTimeout = errors.New("movement has timed out")
 
 // KinematicBase is an interface for Bases that also satisfy the ModelFramer and InputEnabled interfaces.
 type KinematicBase interface {
@@ -122,11 +122,12 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 	defer close(movementErr)
 
 	cancelContext, cancel := context.WithCancel(ctx)
+	defer cancel()
 
 	utils.PanicCapturingGo(func() {
 		// this loop polls the error state and issues a corresponding command to move the base to the objective
 		// when the base is within the positional threshold of the goal, exit the loop
-		for err := ctx.Err(); err == nil; err = ctx.Err() {
+		for err := cancelContext.Err(); err == nil; err = cancelContext.Err() {
 			utils.SelectContextOrWait(ctx, 100*time.Millisecond)
 			col, err := validRegion.CollidesWith(spatialmath.NewPoint(r3.Vector{X: current[0].Value, Y: current[1].Value}, ""))
 			if err != nil {
@@ -168,42 +169,37 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 		movementErr <- err
 	})
 
-	// goroutine for watching for movement timeout
-	utils.PanicCapturingGo(func() {
-		lastUpdate := time.Now()
-		prevDistErr := math.Inf(-1)
-		prevHeadingErr := math.Inf(-1)
+	// watching for movement timeout
+	lastUpdate := time.Now()
+	prevDistErr := math.Inf(-1)
+	prevHeadingErr := math.Inf(-1)
 
-		for {
-			utils.SelectContextOrWait(ctx, 100*time.Millisecond)
-			currentInputs, err := ddk.CurrentInputs(ctx)
-			if err != nil {
-				movementErr <- err
-				return
-			}
-			distErr, headingErr, err := ddk.errorState(currentInputs, desired)
-			if err != nil {
-				movementErr <- err
-				return
-			}
-			if poseChanged(prevDistErr, prevHeadingErr, distErr, headingErr) {
-				lastUpdate = time.Now()
-				prevDistErr = distErr
-				prevHeadingErr = headingErr
-			} else if time.Since(lastUpdate) > timeout {
-				cancel()
-				movementErr <- ErrMovementTimeout
-				return
-			}
-
-			if prevDistErr == math.Inf(-1) {
-				prevDistErr = distErr
-				prevHeadingErr = headingErr
-			}
+	for {
+		utils.SelectContextOrWait(ctx, 100*time.Millisecond)
+		if len(movementErr) > 0 {
+			return <-movementErr
 		}
-	})
+		currentInputs, err := ddk.CurrentInputs(ctx)
+		if err != nil {
+			return err
+		}
+		distErr, headingErr, err := ddk.errorState(currentInputs, desired)
+		if err != nil {
+			return err
+		}
+		if poseChanged(prevDistErr, prevHeadingErr, distErr, headingErr) {
+			lastUpdate = time.Now()
+			prevDistErr = distErr
+			prevHeadingErr = headingErr
+		} else if time.Since(lastUpdate) > timeout {
+			return ErrMovementTimeout
+		}
 
-	return <-movementErr
+		if prevDistErr == math.Inf(-1) {
+			prevDistErr = distErr
+			prevHeadingErr = headingErr
+		}
+	}
 }
 
 // issueCommand issues a relevant command to move the base to the given desired inputs and returns the boolean describing
