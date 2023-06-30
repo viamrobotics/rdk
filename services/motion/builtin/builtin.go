@@ -201,6 +201,7 @@ func (ms *builtIn) MoveOnMap(
 	if err != nil {
 		return false, fmt.Errorf("error making plan for MoveOnMap: %v", err)
 	}
+	
 	// execute the plan
 	for i := 1; i < len(plan); i++ {
 		if err := kb.GoToInputs(ctx, plan[i]); err != nil {

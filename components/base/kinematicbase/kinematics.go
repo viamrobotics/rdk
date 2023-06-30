@@ -107,13 +107,13 @@ func (ddk *differentialDriveKinematics) CurrentInputs(ctx context.Context) ([]re
 func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired []referenceframe.Input) (err error) {
 	// create capsule which defines the valid region for a base to be when driving to desired waypoint
 	// deviationThreshold defines max distance base can be from path without error being thrown
-	current, err := ddk.CurrentInputs(ctx)
-	if err != nil {
-		return err
+	current, inputsErr := ddk.CurrentInputs(ctx)
+	if inputsErr != nil {
+		return inputsErr
 	}
-	validRegion, err := ddk.newValidRegionCapsule(current, desired)
-	if err != nil {
-		return err
+	validRegion, capsuleErr := ddk.newValidRegionCapsule(current, desired)
+	if capsuleErr != nil {
+		return capsuleErr
 	}
 	movementErr := make(chan error, 1)
 	defer close(movementErr)
@@ -123,7 +123,7 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 	utils.PanicCapturingGo(func() {
 		// this loop polls the error state and issues a corresponding command to move the base to the objective
 		// when the base is within the positional threshold of the goal, exit the loop
-		for err = ctx.Err(); err == nil; err = ctx.Err() {
+		for contextErr := ctx.Err(); contextErr == nil; contextErr = ctx.Err() {
 			utils.SelectContextOrWait(ctx, 100*time.Millisecond)
 			col, err := validRegion.CollidesWith(spatialmath.NewPoint(r3.Vector{X: current[0].Value, Y: current[1].Value}, ""))
 			if err != nil {
@@ -180,7 +180,7 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 				prevHeadingErr = headingErr
 			} else if time.Since(lastUpdate) > timeout {
 				cancel()
-				movementErr <- errors.New("movement error")
+				movementErr <- errors.New("movement has timed out")
 				return
 			}
 
