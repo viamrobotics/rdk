@@ -25,6 +25,9 @@ const clientStores = {
 
 export const useClient = () => clientStores;
 
+/**
+ * This hook will fire whenever a connection occurs.
+ */
 export const useConnect = (callback: () => void) => {
   const { connectionStatus } = useClient();
 
@@ -37,6 +40,9 @@ export const useConnect = (callback: () => void) => {
   onDestroy(() => unsub());
 };
 
+/**
+ * This hook will fire whenever a disconnect occurs or when a component unmounts.
+ */
 export const useDisconnect = (callback: () => void) => {
   const { statusStream } = useClient();
 

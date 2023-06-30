@@ -5,8 +5,7 @@ import { getLocation } from '@/api/navigation';
 import type { ServiceError } from '@viamrobotics/sdk';
 import { robotPosition, centerMap } from '../stores';
 import { setAsyncInterval } from '@/lib/schedule';
-import { useClient } from '@/hooks/client';
-import { useDisconnect } from '@/hooks/use-disconnect';
+import { useClient, useDisconnect } from '@/hooks/client';
 import MapMarker from './marker.svelte';
 
 export let name: string;
