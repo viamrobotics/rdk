@@ -55,8 +55,8 @@ func TestGenericLinux(t *testing.T) {
 		gpioMappings: nil,
 		spis:         boardSPIs,
 		analogs:      map[string]*wrappedAnalog{"an": {}},
-		logger:    golog.NewTestLogger(t),
-		cancelCtx: ctx,
+		logger:       golog.NewTestLogger(t),
+		cancelCtx:    ctx,
 		cancelFunc: func() {
 		},
 	}

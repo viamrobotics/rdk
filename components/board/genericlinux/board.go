@@ -49,14 +49,14 @@ func newBoard(
 ) (board.Board, error) {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	b := sysfsBoard{
-		Named:         conf.ResourceName().AsNamed(),
-		gpioMappings:  gpioMappings,
-		logger:        logger,
-		cancelCtx:     cancelCtx,
-		cancelFunc:    cancelFunc,
+		Named:        conf.ResourceName().AsNamed(),
+		gpioMappings: gpioMappings,
+		logger:       logger,
+		cancelCtx:    cancelCtx,
+		cancelFunc:   cancelFunc,
 
-		spis:    map[string]*spiBus{},
-		analogs: map[string]*wrappedAnalog{},
+		spis:       map[string]*spiBus{},
+		analogs:    map[string]*wrappedAnalog{},
 		i2cs:       map[string]*I2cBus{},
 		gpios:      map[string]*gpioPin{},
 		interrupts: map[string]*digitalInterrupt{},
