@@ -87,7 +87,7 @@ let modifyAllStatus: ArmStatus = {
   joint_pieces: [],
 };
 
-$: armClient = new ArmClient($client, name, { requestLogger: rcLogConditionally });
+const armClient = new ArmClient($client, name, { requestLogger: rcLogConditionally });
 
 const stop = async () => {
   try {
