@@ -41,20 +41,20 @@ const peerConnectionType = (info?: robotApi.PeerConnectionInfo.AsObject) => {
   <div class="border border-t-0 border-medium p-4 text-xs">
     <div class="mb-4 flex gap-2 justify-end items-center">
       <label>RTT:</label>
-      {#if rtt.current < 50}
+      {#if $rtt < 50}
         <v-badge
           variant="green"
           label={`${$rtt} ms`}
         />
-      {:else if rtt.current < 500}
+      {:else if $rtt < 500}
         <v-badge
           variant="orange"
-          label={`${rtt.current} ms`}
+          label={`${$rtt} ms`}
         />
       {:else}
         <v-badge
           variant="red"
-          label={`${rtt.current} ms`}
+          label={`${$rtt} ms`}
         />
       {/if}
     </div>
