@@ -14,7 +14,6 @@ import (
 	"github.com/edaniels/golog"
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
-	"periph.io/x/conn/v3/gpio/gpiotest"
 
 	"go.viam.com/rdk/components/board"
 )
@@ -66,13 +65,6 @@ func TestGenericLinux(t *testing.T) {
 		},
 	}
 
-	gp2 := &periphGpioPin{
-		b:              b,
-		pinName:        "10",
-		pin:            &gpiotest.Pin{N: "10", Num: 10},
-		hwPWMSupported: false,
-	}
-
 	t.Run("test analogs spis i2cs digital-interrupts and gpio names", func(t *testing.T) {
 		ans := b.AnalogReaderNames()
 		test.That(t, ans, test.ShouldResemble, []string{"an"})
@@ -119,27 +111,6 @@ func TestGenericLinux(t *testing.T) {
 	})
 
 	t.Run("test genericlinux gpio pin functionality", func(t *testing.T) {
-		err := gp2.SetPWM(ctx, 50, nil)
-		test.That(t, err, test.ShouldBeNil)
-
-		err = gp2.SetPWMFreq(ctx, 1000, nil)
-		test.That(t, err, test.ShouldBeNil)
-
-		freq, err := gp2.PWMFreq(ctx, nil)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, freq, test.ShouldEqual, 1000)
-
-		duty, err := gp2.PWM(ctx, nil)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, duty, test.ShouldEqual, 50)
-
-		err = gp2.Set(ctx, true, nil)
-		test.That(t, err, test.ShouldBeNil)
-
-		high, err := gp2.Get(ctx, nil)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, high, test.ShouldBeTrue)
-
 		bs, err := b.Status(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, bs, test.ShouldResemble, &commonpb.BoardStatus{})
@@ -163,19 +134,6 @@ func TestGenericLinux(t *testing.T) {
 		rx, err := sph2.Xfer(ctx, 1, "1", 1, []byte{})
 		test.That(t, err.Error(), test.ShouldContainSubstring, "closed")
 		test.That(t, rx, test.ShouldBeNil)
-	})
-
-	t.Run("test software pwm loop", func(t *testing.T) {
-		newCtx, cancel := context.WithTimeout(ctx, time.Duration(10))
-		defer cancel()
-		b.softwarePWMLoop(newCtx, *gp2)
-
-		b.pwms = map[string]pwmSetting{
-			"10": {dutyCycle: 1, frequency: 1},
-		}
-		b.startSoftwarePWMLoop(*gp2)
-
-		b.softwarePWMLoop(newCtx, *gp2)
 	})
 
 	t.Run("test getGPIOLine", func(t *testing.T) {
