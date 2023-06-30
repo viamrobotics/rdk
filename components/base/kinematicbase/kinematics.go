@@ -26,6 +26,9 @@ const (
 	headingEpsilon          = 15 // degrees
 )
 
+// ErrMovementTimeout is used for when a movement call times out after no movement for some time
+var ErrMovementTimeout = errors.New("Movement has timed out")
+
 // KinematicBase is an interface for Bases that also satisfy the ModelFramer and InputEnabled interfaces.
 type KinematicBase interface {
 	base.Base
@@ -189,7 +192,7 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 				prevHeadingErr = headingErr
 			} else if time.Since(lastUpdate) > timeout {
 				cancel()
-				movementErr <- errors.New("movement has timed out")
+				movementErr <- ErrMovementTimeout
 				return
 			}
 

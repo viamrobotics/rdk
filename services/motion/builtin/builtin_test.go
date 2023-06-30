@@ -17,6 +17,7 @@ import (
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/base/fake"
+	"go.viam.com/rdk/components/base/kinematicbase"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/gripper"
@@ -355,7 +356,7 @@ func TestMoveOnMapTimeout(t *testing.T) {
 		nil,
 	)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldResemble, "movement has timed out") //change to an error within kinematics
+	test.That(t, err.Error(), test.ShouldResemble, kinematicbase.ErrMovementTimeout.Error()) //change to an error within kinematics
 	test.That(t, success, test.ShouldBeFalse)
 }
 
