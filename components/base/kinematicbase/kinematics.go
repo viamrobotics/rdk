@@ -176,8 +176,10 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 
 	for {
 		utils.SelectContextOrWait(ctx, 100*time.Millisecond)
-		if len(movementErr) > 0 {
-			return <-movementErr
+		select {
+		case err := <-movementErr:
+			return err
+		default:
 		}
 		currentInputs, err := ddk.CurrentInputs(ctx)
 		if err != nil {
