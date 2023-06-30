@@ -601,7 +601,7 @@ func (m *Motor) goTillStop(ctx context.Context, rpm float64, stopFunc func(ctx c
 	var fails int
 	for {
 		if !utils.SelectContextOrWait(ctx, 10*time.Millisecond) {
-			return errors.New("context cancelled during GoTillStop")
+			return errors.New("context cancelled: duration timeout trying to get up to speed while homing")
 		}
 
 		if stopFunc != nil && stopFunc(ctx) {
@@ -618,7 +618,7 @@ func (m *Motor) goTillStop(ctx context.Context, rpm float64, stopFunc func(ctx c
 		}
 
 		if fails >= 500 {
-			return errors.New("timed out during GoTillStop acceleration")
+			return errors.New("over 500 failures trying to get up to speed while homing")
 		}
 		fails++
 	}
@@ -632,7 +632,7 @@ func (m *Motor) goTillStop(ctx context.Context, rpm float64, stopFunc func(ctx c
 	fails = 0
 	for {
 		if !utils.SelectContextOrWait(ctx, 10*time.Millisecond) {
-			return errors.New("context cancelled during GoTillStop")
+			return errors.New("context cancelled: duration timeout trying to stop at the endstop while homing")
 		}
 
 		if stopFunc != nil && stopFunc(ctx) {
@@ -648,7 +648,7 @@ func (m *Motor) goTillStop(ctx context.Context, rpm float64, stopFunc func(ctx c
 		}
 
 		if fails >= 10000 {
-			return errors.New("timed out during GoTillStop")
+			return errors.New("over 1000 failures trying to stop at endstop while homing")
 		}
 		fails++
 	}
