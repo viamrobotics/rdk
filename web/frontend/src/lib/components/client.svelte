@@ -1,5 +1,6 @@
 <script lang='ts'>
 
+import { grpc } from '@improbable-eng/grpc-web';
 import { Duration } from 'google-protobuf/google/protobuf/duration_pb';
 import { onMount, onDestroy, createEventDispatcher } from 'svelte';
 import { type Credentials, ConnectionClosedError } from '@viamrobotics/rpc';
@@ -144,7 +145,7 @@ const stringToResourceName = (nameStr: string) => {
 
 const loadCurrentOps = async () => {
   let now = Date.now();
-  const list = await getOperations();
+  const list = await getOperations($client);
   const ops = [];
 
   $rtt = Math.max(Date.now() - now, 0);
@@ -173,10 +174,10 @@ const fetchCurrentSessions = async () => {
   }
 
   try {
-    return await getSessions()
+    return await getSessions($client)
   } catch (error) {
     const serviceError = error as ServiceError
-    if (serviceError.code === serviceError.Code.Unimplemented) {
+    if (serviceError.code === grpc.Code.Unimplemented) {
       $sessionsSupported = false;
     }
 
@@ -245,7 +246,7 @@ const queryMetadata = async () => {
   let resourcesChanged = false;
   let shouldRestartStatusStream = !(resourcesOnce && $statusStream);
 
-  const resourcesList = await getResourceNames()
+  const resourcesList = await getResourceNames($client)
 
   const differences: Set<string> = new Set(
     $resources.map((name) => resourceNameToString(name))
