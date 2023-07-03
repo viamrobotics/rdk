@@ -4,6 +4,7 @@ package fake
 import (
 	"bytes"
 	"context"
+	"time"
 
 	"github.com/edaniels/golog"
 	"go.opencensus.io/trace"
@@ -83,6 +84,13 @@ func (slamSvc *SLAM) GetInternalState(ctx context.Context) (func() ([]byte, erro
 	ctx, span := trace.StartSpan(ctx, "slam::fake::GetInternalState")
 	defer span.End()
 	return fakeGetInternalState(ctx, datasetDirectory, slamSvc)
+}
+
+// GetLatestMapInfo returns a message indicating details regarding the latest map returned to the system.
+func (slamSvc *SLAM) GetLatestMapInfo(ctx context.Context) (time.Time, error) {
+	ctx, span := trace.StartSpan(ctx, "slam::fake::GetLatestMapInfo")
+	defer span.End()
+	return fakeGetLatestMapInfo(ctx, datasetDirectory, slamSvc)
 }
 
 // incrementDataCount is not thread safe but that is ok as we only intend a single user to be interacting

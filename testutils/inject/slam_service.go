@@ -55,6 +55,14 @@ func (slamSvc *SLAMService) GetInternalState(ctx context.Context) (func() ([]byt
 	return slamSvc.GetInternalStateFunc(ctx)
 }
 
+// GetLatestMapInfo calls the injected GetLatestMapInfoFunc or the real version.
+func (slamSvc *SLAMService) GetLatestMapInfo(ctx context.Context) (time.Time, error) {
+	if slamSvc.GetLatestMapInfoFunc == nil {
+		return slamSvc.Service.GetLatestMapInfo(ctx)
+	}
+	return slamSvc.GetLatestMapInfoFunc(ctx)
+}
+
 // DoCommand calls the injected DoCommand or the real variant.
 func (slamSvc *SLAMService) DoCommand(ctx context.Context,
 	cmd map[string]interface{},

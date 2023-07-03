@@ -2,6 +2,7 @@ package slam
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/edaniels/golog"
@@ -92,7 +93,11 @@ func (c *client) GetLatestMapInfo(ctx context.Context) (time.Time, error) {
 	}
 
 	resp, err := c.client.GetLatestMapInfo(ctx, req)
+	if resp == nil { // catch nil return from API (since time default is set to be time.Time{}.UTC())
+		return time.Time{}.UTC(), errors.New("failure to get latest map info")
+	}
 	LastMapUpdate := resp.LastMapUpdate.AsTime()
+
 	return LastMapUpdate, err
 }
 

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/golang/geo/r3"
 	"go.viam.com/utils"
@@ -83,6 +84,11 @@ func fakeGetInternalState(_ context.Context, datasetDir string, slamSvc *SLAM) (
 		return chunk[:bytesRead], err
 	}
 	return f, nil
+}
+
+func fakeGetLatestMapInfo(_ context.Context, datasetDir string, slamSvc *SLAM) (time.Time, error) {
+	fakeTime := time.Date(2003, 7, 8, 10, 0, 0, 0, time.UTC)
+	return fakeTime.UTC(), nil
 }
 
 func fakeGetPosition(_ context.Context, datasetDir string, slamSvc *SLAM) (spatialmath.Pose, string, error) {
