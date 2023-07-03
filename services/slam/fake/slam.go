@@ -91,7 +91,7 @@ func (slamSvc *SLAM) GetInternalState(ctx context.Context) (func() ([]byte, erro
 
 // GetLatestMapInfo returns a message indicating details regarding the latest map returned to the system.
 func (slamSvc *SLAM) GetLatestMapInfo(ctx context.Context) (time.Time, error) {
-	ctx, span := trace.StartSpan(ctx, "slam::fake::GetLatestMapInfo")
+	_, span := trace.StartSpan(ctx, "slam::fake::GetLatestMapInfo")
 	defer span.End()
 	return slamSvc.mapTimestamp, nil
 }

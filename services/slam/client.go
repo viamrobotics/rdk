@@ -93,11 +93,11 @@ func (c *client) GetLatestMapInfo(ctx context.Context) (time.Time, error) {
 	}
 
 	resp, err := c.client.GetLatestMapInfo(ctx, req)
-	if err != nil { // catch error from api
+	if err != nil {
 		return time.Time{}, errors.New("failure to get latest map info")
 	}
-	LastMapUpdate := resp.LastMapUpdate.AsTime()
-	return LastMapUpdate, err
+	lastMapUpdate := resp.LastMapUpdate.AsTime()
+	return lastMapUpdate, err
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {

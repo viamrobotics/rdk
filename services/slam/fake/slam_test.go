@@ -56,7 +56,6 @@ func TestFakeSLAMGetLatestMapInfo(t *testing.T) {
 	timestamp3, err := slamSvc.GetLatestMapInfo(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, timestamp3.After(timestamp2), test.ShouldBeTrue)
-
 }
 
 func TestFakeSLAMStateful(t *testing.T) {

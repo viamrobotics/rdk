@@ -85,7 +85,6 @@ func TestWorkingServer(t *testing.T) {
 		reqPos := &pb.GetPositionRequest{
 			Name: testSlamServiceName,
 		}
-
 		respPos, err := slamServer.GetPosition(context.Background(), reqPos)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, spatial.PoseAlmostEqual(poseSucc, spatial.NewPoseFromProtobuf(respPos.Pose)), test.ShouldBeTrue)
