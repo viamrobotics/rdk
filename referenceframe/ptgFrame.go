@@ -53,9 +53,9 @@ func NewPTGFrameFromTurningRadius(name string, velocityMMps, turnRadMeters, simD
 	}
 
 	// Get max angular velocity in radians per second
-	maxRadps := velocityMMps / (1000. * turnRadMeters)
+	maxRPS := velocityMMps / (1000. * turnRadMeters)
 	pf := &ptgGridSimFrame{name: name}
-	err := pf.initPTGs(velocityMMps, maxRadps, simDist)
+	err := pf.initPTGs(velocityMMps, maxRPS, simDist)
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +65,7 @@ func NewPTGFrameFromTurningRadius(name string, velocityMMps, turnRadMeters, simD
 	pf.limits = []Limit{
 		{Min: 0, Max: float64(len(pf.ptgs) - 1)},
 		{Min: 0, Max: float64(defaultAlphaCnt)},
-		{Min: 0},
+		{Min: 0, Max: simDist},
 	}
 
 	return pf, nil
@@ -138,27 +138,20 @@ func (pf *ptgGridSimFrame) PTGs() []tpspace.PTG {
 	return pf.ptgs
 }
 
-func (pf *ptgGridSimFrame) initPTGs(maxMps, maxRadps, simDist float64) error {
+func (pf *ptgGridSimFrame) initPTGs(maxMps, maxRPS, simDist float64) error {
 	ptgs := []tpspace.PTG{}
 	for _, ptg := range defaultPTGs {
-		// Forwards version of grid sim
-		ptgGen := ptg(maxMps, maxRadps, 1.)
-		if ptgGen != nil {
-			newptg, err := tpspace.NewPTGGridSim(ptgGen, defaultAlphaCnt, simDist)
-			if err != nil {
-				return err
+		for _, k := range []float64{1., -1.} {
+			// Positive K calculates trajectories forwards, negative k calculates trajectories backwards
+			ptgGen := ptg(maxMps, maxRPS, k)
+			if ptgGen != nil {
+				// irreversible trajectories, e.g. alpha, will return nil for negative k
+				newptg, err := tpspace.NewPTGGridSim(ptgGen, defaultAlphaCnt, simDist)
+				if err != nil {
+					return err
+				}
+				ptgs = append(ptgs, newptg)
 			}
-			ptgs = append(ptgs, newptg)
-		}
-		// backwards pass of grid sim
-		ptgGen = ptg(maxMps, maxRadps, -1.)
-		if ptgGen != nil {
-			// irreversible trajectories, e.g. alpha, will return nil
-			newptg, err := tpspace.NewPTGGridSim(ptgGen, defaultAlphaCnt, simDist)
-			if err != nil {
-				return err
-			}
-			ptgs = append(ptgs, newptg)
 		}
 	}
 	pf.ptgs = ptgs

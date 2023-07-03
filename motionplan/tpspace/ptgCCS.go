@@ -7,17 +7,17 @@ import (
 // ptgDiffDriveCCS defines a PTG family combining the CC and CS trajectories, essentially executing the CC trajectory
 // followed by a straight line.
 type ptgDiffDriveCCS struct {
-	maxMmps  float64 // millimeters per second velocity to target
-	maxRadps float64 // radians per second of rotation when driving at maxMmps and turning at max turning radius
-	k        float64 // k = +1 for forwards, -1 for backwards
+	maxMMPS float64 // millimeters per second velocity to target
+	maxRPS  float64 // radians per second of rotation when driving at maxMMPS and turning at max turning radius
+	k       float64 // k = +1 for forwards, -1 for backwards
 }
 
 // NewCCSPTG creates a new PrecomputePTG of type ptgDiffDriveCCS.
-func NewCCSPTG(maxMmps, maxRadps, k float64) PrecomputePTG {
+func NewCCSPTG(maxMMPS, maxRPS, k float64) PrecomputePTG {
 	return &ptgDiffDriveCCS{
-		maxMmps:  maxMmps,
-		maxRadps: maxRadps,
-		k:        k,
+		maxMMPS: maxMMPS,
+		maxRPS:  maxRPS,
+		k:       k,
 	}
 }
 
@@ -27,19 +27,19 @@ func NewCCSPTG(maxMmps, maxRadps, k float64) PrecomputePTG {
 func (ptg *ptgDiffDriveCCS) PTGVelocities(alpha, t, x, y, phi float64) (float64, float64, error) {
 	u := math.Abs(alpha) * 0.5
 
-	r := ptg.maxMmps / ptg.maxRadps
+	r := ptg.maxMMPS / ptg.maxRPS
 
-	v := ptg.maxMmps
+	v := ptg.maxMMPS
 	w := 0.
 
-	if t < u*r/ptg.maxMmps {
+	if t < u*r/ptg.maxMMPS {
 		// l-
-		v = -ptg.maxMmps
-		w = ptg.maxRadps
-	} else if t < (u+math.Pi/2)*r/ptg.maxMmps {
+		v = -ptg.maxMMPS
+		w = ptg.maxRPS
+	} else if t < (u+math.Pi/2)*r/ptg.maxMMPS {
 		// l+ pi/2
-		v = ptg.maxMmps
-		w = ptg.maxRadps
+		v = ptg.maxMMPS
+		w = ptg.maxRPS
 	}
 
 	// Turn in the opposite direction??
