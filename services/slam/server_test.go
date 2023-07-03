@@ -292,7 +292,6 @@ func TestFailingServer(t *testing.T) {
 	})
 
 	t.Run("failing GetLatestMapInfo", func(t *testing.T) {
-
 		injectSvc.GetLatestMapInfoFunc = func(ctx context.Context) (time.Time, error) {
 			return time.Time{}, errors.New("failure to get latest map info")
 		}
