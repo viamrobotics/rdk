@@ -402,7 +402,7 @@ func (svc *builtIn) startWaypointExperimental(extra map[string]interface{}) erro
 		navOnce := func(ctx context.Context, wp navigation.Waypoint) error {
 			if extra == nil {
 				extra = map[string]interface{}{"motion_profile": "position_only"}
-			} else if extra["motion_profile"] == nil {
+			} else if _, ok := extra["motion_profile"]; !ok {
 				extra["motion_profile"] = "position_only"
 			}
 
