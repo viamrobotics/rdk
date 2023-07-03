@@ -1,47 +1,51 @@
 import type { Client } from '@viamrobotics/sdk';
-import { robotApi, type ResourceName } from '@viamrobotics/sdk';
+import { robotApi } from '@viamrobotics/sdk';
 
-export const getOperations = (client: Client) => {
+export const getOperations = async (client: Client) => {
   const request = new robotApi.GetOperationsRequest();
 
-  return new Promise<robotApi.Operation.AsObject[]>((resolve, reject) => {
-    client.robotService.getOperations(request, (error, response) => {
+  const response = await new Promise<robotApi.GetOperationsResponse | null>((resolve, reject) => {
+    client.robotService.getOperations(request, (error, res) => {
       if (error) {
         reject(error);
-        return;
+      } else {
+        resolve(res);
       }
-
-      resolve(response?.toObject().operationsList ?? []);
     });
   });
+
+  return response?.toObject().operationsList ?? [];
 };
 
-export const getResourceNames = (client: Client) => {
+export const getResourceNames = async (client: Client) => {
   const request = new robotApi.ResourceNamesRequest();
 
-  return new Promise<ResourceName[]>((resolve, reject) => {
-    client.robotService.resourceNames(request, (error, response) => {
+  const response = await new Promise<robotApi.ResourceNamesResponse | null>((resolve, reject) => {
+    client.robotService.resourceNames(request, (error, res) => {
       if (error) {
         reject(error);
-        return;
+      } else {
+        resolve(res);
       }
-
-      resolve(response?.toObject().resourcesList ?? []);
     });
   });
+
+  return response?.toObject().resourcesList ?? [];
 };
 
-export const getSessions = (client: Client) => {
+export const getSessions = async (client: Client) => {
   const request = new robotApi.GetSessionsRequest();
 
-  return new Promise<robotApi.Session.AsObject[]>((resolve, reject) => {
-    client.robotService.getSessions(request, (error, response) => {
+  const response = await new Promise<robotApi.GetSessionsResponse | null>((resolve, reject) => {
+    client.robotService.getSessions(request, (error, res) => {
       if (error) {
         reject(error);
         return;
       }
 
-      resolve(response?.toObject().sessionsList ?? []);
+      resolve(res);
     });
   });
+
+  return response?.toObject().sessionsList ?? [];
 };

@@ -1,3 +1,5 @@
+/* eslint-disable promise/prefer-await-to-then */
+
 import { type Client, commonApi, motionApi, robotApi } from '@viamrobotics/sdk';
 import { Struct } from 'google-protobuf/google/protobuf/struct_pb';
 import { getSLAMPosition } from './slam';
@@ -47,14 +49,20 @@ export const moveOnMap = async (client: Client, name: string, componentName: str
     })
   );
 
-  return new Promise((resolve, reject) => {
-    client.motionService.moveOnMap(request, (error, response) => (
-      error ? reject(error) : resolve(response?.getSuccess())
-    ));
+  const response = await new Promise<motionApi.MoveOnMapResponse | null>((resolve, reject) => {
+    client.motionService.moveOnMap(request, (error, res) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(res);
+      }
+    });
   });
+
+  return response?.getSuccess();
 };
 
-export const stopMoveOnMap = (client: Client, operations: { op: robotApi.Operation.AsObject }[]) => {
+export const stopMoveOnMap = async (client: Client, operations: { op: robotApi.Operation.AsObject }[]) => {
   const match = operations.find(({ op }) => op.method.includes('MoveOnMap'));
 
   if (!match) {
@@ -65,9 +73,15 @@ export const stopMoveOnMap = (client: Client, operations: { op: robotApi.Operati
   req.setId(match.op.id);
   rcLogConditionally(req);
 
-  return new Promise((resolve, reject) => {
-    client.robotService.cancelOperation(req, (error, response) => (
-      error ? reject(error) : resolve(response)
-    ));
+  const response = await new Promise<robotApi.CancelOperationResponse | null>((resolve, reject) => {
+    client.robotService.cancelOperation(req, (error, res) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(res);
+      }
+    });
   });
+
+  return response?.toObject();
 };

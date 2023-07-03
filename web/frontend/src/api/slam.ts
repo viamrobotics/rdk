@@ -1,4 +1,4 @@
-import { type Client, commonApi, slamApi } from '@viamrobotics/sdk';
+import { type Client, slamApi } from '@viamrobotics/sdk';
 import { rcLogConditionally } from '@/lib/log';
 
 const concatArrayU8 = (arrays: Uint8Array[]) => {
@@ -58,13 +58,19 @@ export const getPointCloudMap = (client: Client, name: string) => {
   });
 };
 
-export const getSLAMPosition = (client: Client, name: string) => {
+export const getSLAMPosition = async (client: Client, name: string) => {
   const request = new slamApi.GetPositionRequest();
   request.setName(name);
 
-  return new Promise<commonApi.Pose | undefined>((resolve, reject) => {
-    client.slamService.getPosition(request, (error, response) => (
-      error ? reject(error) : resolve(response?.getPose())
-    ));
+  const response = await new Promise<slamApi.GetPositionResponse | null>((resolve, reject) => {
+    client.slamService.getPosition(request, (error, res) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(res);
+      }
+    });
   });
+
+  return response?.getPose();
 };

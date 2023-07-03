@@ -1,3 +1,5 @@
+/* eslint-disable promise/prefer-await-to-then */
+
 import type { Client } from '@viamrobotics/sdk';
 import { commonApi, navigationApi } from '@viamrobotics/sdk';
 import { rcLogConditionally } from '@/lib/log';
@@ -10,25 +12,27 @@ export type NavigationModes =
 export type LngLat = { lng: number, lat: number }
 export type Waypoint = LngLat & { id: string }
 
-export const setMode = (client: Client, name: string, mode: NavigationModes) => {
+export const setMode = async (client: Client, name: string, mode: NavigationModes) => {
   const request = new navigationApi.SetModeRequest();
   request.setName(name);
   request.setMode(mode);
 
   rcLogConditionally(request);
 
-  return new Promise((resolve, reject) => {
-    client.navigationService.setMode(request, (error) => {
+  const response = await new Promise<navigationApi.SetModeResponse | null>((resolve, reject) => {
+    client.navigationService.setMode(request, (error, res) => {
       if (error) {
         reject(error);
       } else {
-        resolve(null);
+        resolve(res);
       }
     });
   });
+
+  return response?.toObject();
 };
 
-export const setWaypoint = (client: Client, lat: number, lng: number, name: string) => {
+export const setWaypoint = async (client: Client, lat: number, lng: number, name: string) => {
   const request = new navigationApi.AddWaypointRequest();
   const point = new commonApi.GeoPoint();
 
@@ -39,15 +43,17 @@ export const setWaypoint = (client: Client, lat: number, lng: number, name: stri
 
   rcLogConditionally(request);
 
-  return new Promise((resolve, reject) => {
-    client.navigationService.addWaypoint(request, (error, response) => {
+  const response = await new Promise<navigationApi.AddWaypointResponse | null>((resolve, reject) => {
+    client.navigationService.addWaypoint(request, (error, res) => {
       if (error) {
         reject(error);
       } else {
-        resolve(response);
+        resolve(res);
       }
     });
   });
+
+  return response?.toObject();
 };
 
 const formatWaypoints = (list: navigationApi.Waypoint[]) => {
@@ -68,11 +74,11 @@ export const getWaypoints = async (client: Client, name: string): Promise<Waypoi
   rcLogConditionally(req);
 
   const response = await new Promise<{ getWaypointsList(): navigationApi.Waypoint[] } | null>((resolve, reject) => {
-    client.navigationService.getWaypoints(req, (error, resp) => {
+    client.navigationService.getWaypoints(req, (error, res) => {
       if (error) {
         reject(error);
       } else {
-        resolve(resp);
+        resolve(res);
       }
     });
   });
@@ -80,40 +86,44 @@ export const getWaypoints = async (client: Client, name: string): Promise<Waypoi
   return formatWaypoints(response?.getWaypointsList() ?? []);
 };
 
-export const removeWaypoint = (client: Client, name: string, id: string) => {
+export const removeWaypoint = async (client: Client, name: string, id: string) => {
   const request = new navigationApi.RemoveWaypointRequest();
   request.setName(name);
   request.setId(id);
 
   rcLogConditionally(request);
 
-  return new Promise((resolve, reject) => {
-    client.navigationService.removeWaypoint(request, (error) => {
+  const response = await new Promise<navigationApi.RemoveWaypointResponse | null>((resolve, reject) => {
+    client.navigationService.removeWaypoint(request, (error, res) => {
       if (error) {
         reject(error);
       } else {
-        resolve(null);
+        resolve(res);
       }
     });
   });
+
+  return response?.toObject();
 };
 
-export const getLocation = (client: Client, name: string) => {
+export const getLocation = async (client: Client, name: string) => {
   const request = new navigationApi.GetLocationRequest();
   request.setName(name);
 
   rcLogConditionally(request);
 
-  return new Promise<{ lat: number, lng: number }>((resolve, reject) => {
-    client.navigationService.getLocation(request, (error, response) => {
+  const response = await new Promise<navigationApi.GetLocationResponse | null>((resolve, reject) => {
+    client.navigationService.getLocation(request, (error, res) => {
       if (error) {
         reject(error);
       } else {
-        resolve({
-          lat: response?.getLocation()?.getLatitude() ?? 0,
-          lng: response?.getLocation()?.getLongitude() ?? 0,
-        });
+        resolve(res);
       }
     });
   });
+
+  return {
+    lat: response?.getLocation()?.getLatitude() ?? 0,
+    lng: response?.getLocation()?.getLongitude() ?? 0,
+  };
 };
