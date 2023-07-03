@@ -385,6 +385,3 @@ require (
 	golang.org/x/exp v0.0.0-20230321023759-10a507213a29
 )
 
-replace go.viam.com/api => /Users/patriciastrutz/Development/api
-
-replace go.viam.com/rdk => /Users/patriciastrutz/Development/rdk

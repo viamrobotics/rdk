@@ -127,7 +127,7 @@ func (server *serviceServer) GetInternalState(req *pb.GetInternalStateRequest,
 	}
 }
 
-// GetLatestMapInfo returns the timestamp of the last map to be updated.
+// GetLatestMapInfo returns the timestamp of when the map was last updated.
 func (server *serviceServer) GetLatestMapInfo(ctx context.Context, req *pb.GetLatestMapInfoRequest) (
 	*pb.GetLatestMapInfoResponse, error,
 ) {
