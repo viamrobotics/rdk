@@ -74,8 +74,8 @@ func (mDServer *mockDataServiceServer) BinaryDataByIDs(ctx context.Context, req 
 			TimeRequested: timeReq,
 			TimeReceived:  timeRec,
 			CaptureMetadata: &datapb.CaptureMetadata{
-				OrgId:      orgID,
-				LocationId: locationID,
+				OrganizationId: orgID,
+				LocationId:     locationID,
 			},
 		},
 	}
@@ -120,8 +120,8 @@ func (mDServer *mockDataServiceServer) BinaryDataByFilter(ctx context.Context, r
 				TimeRequested: timeReq,
 				TimeReceived:  timeRec,
 				CaptureMetadata: &datapb.CaptureMetadata{
-					OrgId:      orgID,
-					LocationId: locationID,
+					OrganizationId: orgID,
+					LocationId:     locationID,
 				},
 			},
 		}
@@ -144,8 +144,8 @@ func (mDServer *mockDataServiceServer) BinaryDataByFilter(ctx context.Context, r
 					TimeRequested: timeReq,
 					TimeReceived:  timeRec,
 					CaptureMetadata: &datapb.CaptureMetadata{
-						OrgId:      orgID,
-						LocationId: locationID,
+						OrganizationId: orgID,
+						LocationId:     locationID,
 					},
 				},
 			}

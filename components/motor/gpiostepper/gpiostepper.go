@@ -359,32 +359,6 @@ func (m *gpioStepper) GoTo(ctx context.Context, rpm, positionRevolutions float64
 	return m.GoFor(ctx, math.Abs(rpm), moveDistance, extra)
 }
 
-// GoTillStop moves a motor until stopped. The "stop" mechanism is up to the underlying motor implementation.
-// Ex: EncodedMotor goes until physically stopped/stalled (detected by change in position being very small over a fixed time.)
-// Ex: TMCStepperMotor has "StallGuard" which detects the current increase when obstructed and stops when that reaches a threshold.
-// Ex: Other motors may use an endstop switch (such as via a DigitalInterrupt) or be configured with other sensors.
-func (m *gpioStepper) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
-	ctx, done := m.opMgr.New(ctx)
-	defer done()
-
-	if err := m.GoFor(ctx, rpm, 0, nil); err != nil {
-		return err
-	}
-	defer func() {
-		if err := m.Stop(ctx, nil); err != nil {
-			m.logger.Errorw("failed to turn off motor", "name", m.motorName, "error", err)
-		}
-	}()
-	for {
-		if !utils.SelectContextOrWait(ctx, 10*time.Millisecond) {
-			return errors.Wrap(ctx.Err(), "stopped via context")
-		}
-		if stopFunc != nil && stopFunc(ctx) {
-			return ctx.Err()
-		}
-	}
-}
-
 // Set the current position (+/- offset) to be the new zero (home) position.
 func (m *gpioStepper) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
 	m.lock.Lock()
