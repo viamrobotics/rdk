@@ -4,7 +4,7 @@ import { StreamClient } from '@viamrobotics/sdk';
 import type { ServiceError } from '@viamrobotics/sdk';
 import { displayError } from '@/lib/error';
 import Collapse from '@/lib/components/collapse.svelte';
-import { useClient } from '@/hooks/client';
+import { useClient, useDisconnect } from '@/hooks/client';
 
 export let name: string;
 
@@ -14,28 +14,30 @@ let audio: HTMLAudioElement;
 
 let isOn = false;
 
+const streamClient = new StreamClient($client);
+
+const handleTrack = (event: unknown) => {
+  const [eventStream] = (event as { streams: MediaStream[] }).streams;
+
+  if (!eventStream) {
+    throw new Error('expected event stream to exist');
+  }
+
+  if (eventStream.id !== name) {
+    return;
+  }
+
+  audio.srcObject = eventStream;
+}
+
 const toggleExpand = async () => {
   isOn = !isOn;
 
-  const streams = new StreamClient($client);
-
-  streams.on('track', (event) => {
-    const [eventStream] = (event as { streams: MediaStream[] }).streams;
-
-    if (!eventStream) {
-      throw new Error('expected event stream to exist');
-    }
-
-    if (eventStream.id !== name) {
-      return;
-    }
-
-    audio.srcObject = eventStream;
-  });
+  streamClient.on('track', handleTrack);
 
   if (isOn) {
     try {
-      await streams.add(name);
+      await streamClient.add(name);
     } catch (error) {
       displayError(error as ServiceError);
     }
@@ -43,11 +45,15 @@ const toggleExpand = async () => {
   }
 
   try {
-    await streams.remove(name);
+    await streamClient.remove(name);
   } catch (error) {
     displayError(error as ServiceError);
   }
 };
+
+useDisconnect(() => {
+  streamClient.off('track', handleTrack)
+})
 
 </script>
 
