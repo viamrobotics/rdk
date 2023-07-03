@@ -400,10 +400,10 @@ func (svc *builtIn) startWaypointExperimental(extra map[string]interface{}) erro
 		defer svc.activeBackgroundWorkers.Done()
 
 		navOnce := func(ctx context.Context, wp navigation.Waypoint) error {
-			if extra != nil && extra["motion_profile"] == nil {
-				extra["motion_profile"] = "position_only"
-			} else {
+			if extra == nil {
 				extra = map[string]interface{}{"motion_profile": "position_only"}
+			} else if extra["motion_profile"] == nil {
+				extra["motion_profile"] = "position_only"
 			}
 
 			goal := wp.ToPoint()
