@@ -268,16 +268,18 @@ func (ms *builtIn) planMoveOnGlobe(
 	if fake, ok := b.(*fake.Base); ok {
 		kb, err = kinematicbase.WrapWithFakeKinematics(ctx, fake, localizer, limits)
 	} else {
-		kb, err = kinematicbase.WrapWithDifferentialDriveKinematics(ctx, b, localizer, limits,
-			defaultLinearVelocityMillisPerSec, defaultAngularVelocityDegsPerSec)
+		kb, err = kinematicbase.WrapWithKinematics(ctx, b, localizer, limits,
+			linearVelocityMillisPerSec, angularVelocityDegsPerSec)
 	}
 	if err != nil {
 		return nil, nil, err
 	}
 
-	// create a frame system and add the kinematic wheeled base to it
+	inputMap := map[string][]referenceframe.Input{componentName.Name: make([]referenceframe.Input, 3)}
+
+	// Add the kinematic wheeled base to the framesystem
 	fs := referenceframe.NewEmptyFrameSystem("")
-	if err := fs.AddFrame(kb.ModelFrame(), fs.World()); err != nil {
+	if err := fs.AddFrame(kb.Kinematics(), fs.World()); err != nil {
 		return nil, nil, err
 	}
 
@@ -286,8 +288,8 @@ func (ms *builtIn) planMoveOnGlobe(
 		ctx,
 		ms.logger,
 		referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewPoseFromPoint(relativeDst)),
-		kb.ModelFrame(),
-		referenceframe.StartPositions(fs),
+		kb.Kinematics(),
+		inputMap,
 		fs,
 		wrldst,
 		nil,
@@ -297,7 +299,7 @@ func (ms *builtIn) planMoveOnGlobe(
 		return nil, nil, err
 	}
 
-	plan, err := motionplan.FrameStepsFromRobotPath(kb.ModelFrame().Name(), solutionMap)
+	plan, err := motionplan.FrameStepsFromRobotPath(kb.Kinematics().Name(), solutionMap)
 	return plan, kb, err
 }
 
@@ -445,7 +447,7 @@ func (ms *builtIn) planMoveOnMap(
 	if fake, ok := b.(*fake.Base); ok {
 		kb, err = kinematicbase.WrapWithFakeKinematics(ctx, fake, localizer, limits)
 	} else {
-		kb, err = kinematicbase.WrapWithDifferentialDriveKinematics(ctx, b, localizer, limits,
+		kb, err = kinematicbase.WrapWithKinematics(ctx, b, localizer, limits,
 			defaultLinearVelocityMillisPerSec, defaultAngularVelocityDegsPerSec)
 	}
 	if err != nil {
@@ -477,7 +479,7 @@ func (ms *builtIn) planMoveOnMap(
 
 	dst := referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewPoseFromPoint(destination.Point()))
 
-	f := kb.ModelFrame()
+	f := kb.Kinematics()
 	fs := referenceframe.NewEmptyFrameSystem("")
 	if err := fs.AddFrame(f, fs.World()); err != nil {
 		return nil, nil, err

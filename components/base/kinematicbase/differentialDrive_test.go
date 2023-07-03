@@ -168,7 +168,7 @@ func buildTestDDK(
 		return nil, err
 	}
 
-	kb, err := WrapWithDifferentialDriveKinematics(ctx, b, localizer, limits, linVel, angVel)
+	kb, err := wrapWithDifferentialDriveKinematics(ctx, b, localizer, limits, linVel, angVel)
 	if err != nil {
 		return nil, err
 	}
