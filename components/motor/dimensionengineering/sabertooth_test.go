@@ -57,8 +57,6 @@ func TestSabertoothMotor(t *testing.T) {
 
 	motor1, ok := m1.(motor.Motor)
 	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = motor1.(motor.LocalMotor)
-	test.That(t, ok, test.ShouldBeTrue)
 
 	t.Run("motor supports position reporting", func(t *testing.T) {
 		features, err := motor1.Properties(ctx, nil)
@@ -113,8 +111,6 @@ func TestSabertoothMotor(t *testing.T) {
 	checkTx(t, resChan, c, []byte{0x80, 0x04, 0x00, 0x04})
 
 	motor2, ok := m2.(motor.Motor)
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = motor2.(motor.LocalMotor)
 	test.That(t, ok, test.ShouldBeTrue)
 
 	t.Run("motor supports position reporting", func(t *testing.T) {
@@ -185,8 +181,6 @@ func TestSabertoothMotorDirectionFlip(t *testing.T) {
 
 	motor1, ok := m1.(motor.Motor)
 	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = motor1.(motor.LocalMotor)
-	test.That(t, ok, test.ShouldBeTrue)
 
 	t.Run("motor SetPower testing", func(t *testing.T) {
 		// Test 0 (aka "stop")
@@ -235,8 +229,6 @@ func TestSabertoothMotorDirectionFlip(t *testing.T) {
 	checkTx(t, resChan, c, []byte{0x80, 0x04, 0x00, 0x04})
 
 	motor2, ok := m2.(motor.Motor)
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = motor2.(motor.LocalMotor)
 	test.That(t, ok, test.ShouldBeTrue)
 
 	t.Run("motor supports position reporting", func(t *testing.T) {
@@ -305,9 +297,7 @@ func TestSabertoothRampConfig(t *testing.T) {
 	checkTx(t, resChan, c, []byte{0x80, 0x00, 0x00, 0x00})
 	checkTx(t, resChan, c, []byte{0x80, 0x10, 0x64, 0x74})
 
-	motor1, ok := m1.(motor.Motor)
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = motor1.(motor.LocalMotor)
+	_, ok = m1.(motor.Motor)
 	test.That(t, ok, test.ShouldBeTrue)
 }
 

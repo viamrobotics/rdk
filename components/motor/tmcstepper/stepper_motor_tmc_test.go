@@ -192,7 +192,6 @@ func TestTMCStepperMotor(t *testing.T) {
 	}()
 	motorDep, ok := m.(motor.Motor)
 	test.That(t, ok, test.ShouldBeTrue)
-	stoppableMotor, ok := motorDep.(motor.LocalMotor)
 	test.That(t, ok, test.ShouldBeTrue)
 
 	t.Run("motor supports position reporting", func(t *testing.T) {
@@ -615,123 +614,6 @@ func TestTMCStepperMotor(t *testing.T) {
 			},
 		)
 		test.That(t, motorDep.ResetZeroPosition(ctx, 3.1, nil), test.ShouldBeNil)
-	})
-
-	t.Run("motor gotillstop testing", func(t *testing.T) {
-		go func() {
-			// Jog
-			checkTx(t, c,
-				[][]byte{
-					{160, 0, 0, 0, 2},
-					{167, 0, 0, 105, 234},
-				},
-			)
-
-			// RampStat (for velocity reached)
-			checkRx(t, c,
-				[][]byte{
-					{53, 0, 0, 0, 0},
-					{53, 0, 0, 0, 0},
-				},
-				[][]byte{
-					{0, 0, 0, 1, 0},
-					{0, 0, 0, 1, 0},
-				},
-			)
-
-			// Enable SG
-			checkTx(t, c, [][]byte{
-				{180, 0, 0, 4, 0},
-			})
-
-			// RampStat (for velocity zero reached)
-			checkRx(t, c,
-				[][]byte{
-					{53, 0, 0, 0, 0},
-					{53, 0, 0, 0, 0},
-				},
-				[][]byte{
-					{0, 0, 0, 4, 0},
-					{0, 0, 0, 4, 0},
-				},
-			)
-
-			// Deferred SG disable
-			checkTx(t, c, [][]byte{
-				{180, 0, 0, 0, 0},
-				{160, 0, 0, 0, 1},
-				{167, 0, 0, 0, 0},
-			})
-		}()
-		// No stop func
-		test.That(t, stoppableMotor.GoTillStop(ctx, -25.0, nil), test.ShouldBeNil)
-
-		go func() {
-			// Jog
-			checkTx(t, c,
-				[][]byte{
-					{160, 0, 0, 0, 2},
-					{167, 0, 0, 105, 234},
-				},
-			)
-
-			// RampStat (for velocity reached)
-			checkRx(t, c,
-				[][]byte{
-					{53, 0, 0, 0, 0},
-					{53, 0, 0, 0, 0},
-				},
-				[][]byte{
-					{0, 0, 0, 1, 0},
-					{0, 0, 0, 1, 0},
-				},
-			)
-
-			// Enable SG
-			checkTx(t, c, [][]byte{
-				{180, 0, 0, 4, 0},
-			})
-
-			// RampStat (for velocity zero reached)
-			checkRx(t, c,
-				[][]byte{
-					{53, 0, 0, 0, 0},
-					{53, 0, 0, 0, 0},
-				},
-				[][]byte{
-					{0, 0, 0, 4, 0},
-					{0, 0, 0, 4, 0},
-				},
-			)
-
-			// Deferred off and SG disable
-			checkTx(t, c, [][]byte{
-				{180, 0, 0, 0, 0},
-				{160, 0, 0, 0, 1},
-				{167, 0, 0, 0, 0},
-			})
-		}()
-		// Always-false stopFunc
-		test.That(t, stoppableMotor.GoTillStop(ctx, -25.0, func(ctx context.Context) bool { return false }), test.ShouldBeNil)
-
-		go func() {
-			// Jog
-			checkTx(t, c,
-				[][]byte{
-					{160, 0, 0, 0, 2},
-					{167, 0, 0, 105, 234},
-				},
-			)
-
-			// Deferred off and SG disable
-			checkTx(t, c, [][]byte{
-				{180, 0, 0, 0, 0},
-				{160, 0, 0, 0, 1},
-				{167, 0, 0, 0, 0},
-			})
-		}()
-		// Always true stopFunc
-		test.That(t, stoppableMotor.GoTillStop(ctx, -25.0, func(ctx context.Context) bool { return true }), test.ShouldBeNil)
 	})
 
 	//nolint:dupl
