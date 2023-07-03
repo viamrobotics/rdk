@@ -11,12 +11,7 @@ export const getOperations = (client: Client) => {
         return;
       }
 
-      if (!response) {
-        reject(new Error('An unexpected issue occurred.'));
-        return;
-      }
-
-      resolve(response.toObject().operationsList ?? []);
+      resolve(response?.toObject().operationsList ?? []);
     });
   });
 };
@@ -31,12 +26,7 @@ export const getResourceNames = (client: Client) => {
         return;
       }
 
-      if (!response) {
-        reject(new Error('An unexpected issue occured.'));
-        return;
-      }
-
-      resolve(response.toObject().resourcesList);
+      resolve(response?.toObject().resourcesList ?? []);
     });
   });
 };
@@ -51,12 +41,7 @@ export const getSessions = (client: Client) => {
         return;
       }
 
-      if (!response) {
-        reject(new Error('An unexpected issue occurred.'));
-        return;
-      }
-
-      resolve(response.toObject().sessionsList);
+      resolve(response?.toObject().sessionsList ?? []);
     });
   });
 };
