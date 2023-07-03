@@ -1,6 +1,5 @@
 <script lang="ts">
 
-import { grpc } from '@improbable-eng/grpc-web';
 import { type ServiceError, servoApi } from '@viamrobotics/sdk';
 import { displayError } from '@/lib/error';
 import { rcLogConditionally } from '@/lib/log';
@@ -18,7 +17,7 @@ const stop = () => {
   req.setName(name);
 
   rcLogConditionally(req);
-  $client.servoService.stop(req, new grpc.Metadata(), displayError);
+  $client.servoService.stop(req, displayError);
 };
 
 const handleMove = async (amount: number) => {

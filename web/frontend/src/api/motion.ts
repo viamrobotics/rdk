@@ -1,5 +1,4 @@
 import { type Client, commonApi, motionApi, robotApi } from '@viamrobotics/sdk';
-import { grpc } from '@improbable-eng/grpc-web';
 import { Struct } from 'google-protobuf/google/protobuf/struct_pb';
 import { getSLAMPosition } from './slam';
 import { rcLogConditionally } from '@/lib/log';
@@ -49,7 +48,7 @@ export const moveOnMap = async (client: Client, name: string, componentName: str
   );
 
   return new Promise((resolve, reject) => {
-    client.motionService.moveOnMap(request, new grpc.Metadata(), (error, response) => (
+    client.motionService.moveOnMap(request, (error, response) => (
       error ? reject(error) : resolve(response?.getSuccess())
     ));
   });
@@ -67,7 +66,7 @@ export const stopMoveOnMap = (client: Client, operations: { op: robotApi.Operati
   rcLogConditionally(req);
 
   return new Promise((resolve, reject) => {
-    client.robotService.cancelOperation(req, new grpc.Metadata(), (error, response) => (
+    client.robotService.cancelOperation(req, (error, response) => (
       error ? reject(error) : resolve(response)
     ));
   });

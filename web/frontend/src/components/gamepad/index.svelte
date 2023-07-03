@@ -1,6 +1,5 @@
 <script lang='ts'>
 
-import { grpc } from '@improbable-eng/grpc-web';
 import { onMount } from 'svelte';
 import { Timestamp } from 'google-protobuf/google/protobuf/timestamp_pb';
 import { ConnectionClosedError } from '@viamrobotics/rpc';
@@ -52,7 +51,7 @@ const sendEvent = (newEvent: InputController.Event) => {
   req.setController(name);
   req.setEvent(newEvent);
   rcLogConditionally(req);
-  $client.inputControllerService.triggerEvent(req, new grpc.Metadata(), (error: ServiceError | null) => {
+  $client.inputControllerService.triggerEvent(req, (error: ServiceError | null) => {
     if (error) {
       if (ConnectionClosedError.isError(error)) {
         return;

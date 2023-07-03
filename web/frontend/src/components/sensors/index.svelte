@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { grpc } from '@improbable-eng/grpc-web';
   import { sensorsApi, commonApi, type ServiceError } from '@viamrobotics/sdk';
   import { notify } from '@viamrobotics/prime';
   import { resourceNameToString } from '@/lib/resource';
@@ -43,7 +42,6 @@
     rcLogConditionally(req);
     $client.sensorsService.getReadings(
       req,
-      new grpc.Metadata(),
       (
         error: ServiceError | null,
         response: sensorsApi.GetReadingsResponse | null

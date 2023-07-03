@@ -1,5 +1,4 @@
 import { type Client, commonApi, slamApi } from '@viamrobotics/sdk';
-import { grpc } from '@improbable-eng/grpc-web';
 import { rcLogConditionally } from '@/lib/log';
 
 const concatArrayU8 = (arrays: Uint8Array[]) => {
@@ -64,7 +63,7 @@ export const getSLAMPosition = (client: Client, name: string) => {
   request.setName(name);
 
   return new Promise<commonApi.Pose | undefined>((resolve, reject) => {
-    client.slamService.getPosition(request, new grpc.Metadata(), (error, response) => (
+    client.slamService.getPosition(request, (error, response) => (
       error ? reject(error) : resolve(response?.getPose())
     ));
   });

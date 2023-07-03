@@ -1,6 +1,5 @@
 import { type Client, encoderApi } from '@viamrobotics/sdk';
 import { rcLogConditionally } from '@/lib/log';
-import { grpc } from '@improbable-eng/grpc-web';
 
 export const getProperties = (client: Client, name: string) => {
   const request = new encoderApi.GetPropertiesRequest();
@@ -9,7 +8,7 @@ export const getProperties = (client: Client, name: string) => {
   rcLogConditionally(request);
 
   return new Promise<encoderApi.GetPropertiesResponse.AsObject | undefined>((resolve, reject) => {
-    client.encoderService.getProperties(request, new grpc.Metadata(), (error, response) => (
+    client.encoderService.getProperties(request, (error, response) => (
       error ? reject(error) : resolve(response?.toObject())
     ));
   });
@@ -22,7 +21,7 @@ export const getPosition = (client: Client, name: string) => {
   rcLogConditionally(request);
 
   return new Promise<number | undefined>((resolve, reject) => {
-    client.encoderService.getPosition(request, new grpc.Metadata(), (error, response) => (
+    client.encoderService.getPosition(request, (error, response) => (
       error ? reject(error) : resolve(response?.toObject().value)
     ));
   });
@@ -36,7 +35,7 @@ export const getPositionDegrees = (client: Client, name: string) => {
   rcLogConditionally(request);
 
   return new Promise<number | undefined>((resolve, reject) => {
-    client.encoderService.getPosition(request, new grpc.Metadata(), (error, response) => (
+    client.encoderService.getPosition(request, (error, response) => (
       error ? reject(error) : resolve(response?.toObject().value)
     ));
   });
@@ -49,7 +48,7 @@ export const reset = (client: Client, name: string) => {
   rcLogConditionally(request);
 
   return new Promise((resolve, reject) => {
-    client.encoderService.resetPosition(request, new grpc.Metadata(), (error) => (
+    client.encoderService.resetPosition(request, (error) => (
       error ? reject(error) : resolve(null)
     ));
   });

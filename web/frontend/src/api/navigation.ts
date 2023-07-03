@@ -1,6 +1,5 @@
 import type { Client } from '@viamrobotics/sdk';
 import { commonApi, navigationApi } from '@viamrobotics/sdk';
-import { grpc } from '@improbable-eng/grpc-web';
 import { rcLogConditionally } from '@/lib/log';
 
 export type NavigationModes =
@@ -19,7 +18,7 @@ export const setMode = (client: Client, name: string, mode: NavigationModes) => 
   rcLogConditionally(request);
 
   return new Promise((resolve, reject) => {
-    client.navigationService.setMode(request, new grpc.Metadata(), (error) => {
+    client.navigationService.setMode(request, (error) => {
       if (error) {
         reject(error);
       } else {
@@ -41,7 +40,7 @@ export const setWaypoint = (client: Client, lat: number, lng: number, name: stri
   rcLogConditionally(request);
 
   return new Promise((resolve, reject) => {
-    client.navigationService.addWaypoint(request, new grpc.Metadata(), (error, response) => {
+    client.navigationService.addWaypoint(request, (error, response) => {
       if (error) {
         reject(error);
       } else {
@@ -69,7 +68,7 @@ export const getWaypoints = async (client: Client, name: string): Promise<Waypoi
   rcLogConditionally(req);
 
   const response = await new Promise<{ getWaypointsList(): navigationApi.Waypoint[] } | null>((resolve, reject) => {
-    client.navigationService.getWaypoints(req, new grpc.Metadata(), (error, resp) => {
+    client.navigationService.getWaypoints(req, (error, resp) => {
       if (error) {
         reject(error);
       } else {
@@ -89,7 +88,7 @@ export const removeWaypoint = (client: Client, name: string, id: string) => {
   rcLogConditionally(request);
 
   return new Promise((resolve, reject) => {
-    client.navigationService.removeWaypoint(request, new grpc.Metadata(), (error) => {
+    client.navigationService.removeWaypoint(request, (error) => {
       if (error) {
         reject(error);
       } else {
@@ -106,7 +105,7 @@ export const getLocation = (client: Client, name: string) => {
   rcLogConditionally(request);
 
   return new Promise<{ lat: number, lng: number }>((resolve, reject) => {
-    client.navigationService.getLocation(request, new grpc.Metadata(), (error, response) => {
+    client.navigationService.getLocation(request, (error, response) => {
       if (error) {
         reject(error);
       } else {

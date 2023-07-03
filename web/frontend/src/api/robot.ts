@@ -1,12 +1,11 @@
 import type { Client } from '@viamrobotics/sdk';
 import { robotApi, type ResourceName } from '@viamrobotics/sdk';
-import { grpc } from '@improbable-eng/grpc-web';
 
 export const getOperations = (client: Client) => {
   const request = new robotApi.GetOperationsRequest();
 
   return new Promise<robotApi.Operation.AsObject[]>((resolve, reject) => {
-    client.robotService.getOperations(request, new grpc.Metadata(), (error, response) => {
+    client.robotService.getOperations(request, (error, response) => {
       if (error) {
         reject(error);
         return;
@@ -26,7 +25,7 @@ export const getResourceNames = (client: Client) => {
   const request = new robotApi.ResourceNamesRequest();
 
   return new Promise<ResourceName[]>((resolve, reject) => {
-    client.robotService.resourceNames(request, new grpc.Metadata(), (error, response) => {
+    client.robotService.resourceNames(request, (error, response) => {
       if (error) {
         reject(error);
         return;
@@ -46,7 +45,7 @@ export const getSessions = (client: Client) => {
   const request = new robotApi.GetSessionsRequest();
 
   return new Promise<robotApi.Session.AsObject[]>((resolve, reject) => {
-    client.robotService.getSessions(request, new grpc.Metadata(), (error, response) => {
+    client.robotService.getSessions(request, (error, response) => {
       if (error) {
         reject(error);
         return;

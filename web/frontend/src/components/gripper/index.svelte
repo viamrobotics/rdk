@@ -1,6 +1,5 @@
 <script lang="ts">
 
-import { grpc } from '@improbable-eng/grpc-web';
 import { gripperApi } from '@viamrobotics/sdk';
 import { displayError } from '../../lib/error';
 import { rcLogConditionally } from '../../lib/log';
@@ -16,7 +15,7 @@ const stop = () => {
   request.setName(name);
 
   rcLogConditionally(request);
-  $client.gripperService.stop(request, new grpc.Metadata(), displayError);
+  $client.gripperService.stop(request, displayError);
 };
 
 const open = () => {
@@ -24,7 +23,7 @@ const open = () => {
   request.setName(name);
 
   rcLogConditionally(request);
-  $client.gripperService.open(request, new grpc.Metadata(), displayError);
+  $client.gripperService.open(request, displayError);
 };
 
 const grab = () => {
@@ -32,7 +31,7 @@ const grab = () => {
   request.setName(name);
 
   rcLogConditionally(request);
-  $client.gripperService.grab(request, new grpc.Metadata(), displayError);
+  $client.gripperService.grab(request, displayError);
 };
 
 </script>

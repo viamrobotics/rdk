@@ -1,6 +1,5 @@
 <script lang="ts">
 
-import { grpc } from '@improbable-eng/grpc-web';
 import { robotApi } from '@viamrobotics/sdk';
 import { displayError } from '@/lib/error';
 import { rcLogConditionally } from '@/lib/log';
@@ -14,7 +13,7 @@ const killOperation = (id: string) => {
   req.setId(id);
 
   rcLogConditionally(req);
-  $client.robotService.cancelOperation(req, new grpc.Metadata(), displayError);
+  $client.robotService.cancelOperation(req, displayError);
 };
 
 const peerConnectionType = (info?: robotApi.PeerConnectionInfo.AsObject) => {

@@ -1,4 +1,3 @@
-import { grpc } from '@improbable-eng/grpc-web';
 import { sensorsApi, type ResourceName, Client } from '@viamrobotics/sdk';
 
 export const getSensors = (client: Client, name: string) => {
@@ -6,7 +5,7 @@ export const getSensors = (client: Client, name: string) => {
   request.setName(name);
 
   return new Promise<ResourceName[]>((resolve, reject) => {
-    client.sensorsService.getSensors(request, new grpc.Metadata(), (error, response) => {
+    client.sensorsService.getSensors(request, (error, response) => {
       if (error) {
         reject(error);
       }

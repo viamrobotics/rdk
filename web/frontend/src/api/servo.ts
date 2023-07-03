@@ -1,4 +1,3 @@
-import { grpc } from '@improbable-eng/grpc-web';
 import { type Client, servoApi } from '@viamrobotics/sdk';
 import { rcLogConditionally } from '@/lib/log';
 
@@ -10,7 +9,7 @@ export const move = (client: Client, name: string, angle: number) => {
   rcLogConditionally(request);
 
   return new Promise((resolve, reject) => {
-    client.servoService.move(request, new grpc.Metadata(), (error) => {
+    client.servoService.move(request, (error) => {
       if (error) {
         return reject(error);
       }

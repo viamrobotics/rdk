@@ -1,6 +1,5 @@
 <script lang="ts">
 
-import { grpc } from '@improbable-eng/grpc-web';
 import { gantryApi } from '@viamrobotics/sdk';
 import { displayError } from '@/lib/error';
 import { rcLogConditionally } from '@/lib/log';
@@ -48,7 +47,7 @@ const increment = (axis: number, amount: number) => {
   req.setPositionsMmList(pos);
 
   rcLogConditionally(req);
-  $client.gantryService.moveToPosition(req, new grpc.Metadata(), displayError);
+  $client.gantryService.moveToPosition(req, displayError);
 };
 
 const stop = () => {
@@ -56,7 +55,7 @@ const stop = () => {
   req.setName(name);
 
   rcLogConditionally(req);
-  $client.gantryService.stop(req, new grpc.Metadata(), displayError);
+  $client.gantryService.stop(req, displayError);
 };
 
 </script>
