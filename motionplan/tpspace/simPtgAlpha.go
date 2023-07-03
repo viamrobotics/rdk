@@ -2,8 +2,6 @@ package tpspace
 
 import (
 	"math"
-
-	rutils "go.viam.com/rdk/utils"
 )
 
 // Pi / 4 (45 degrees), used as a default alpha constant
@@ -13,16 +11,16 @@ const quarterPi = 0.78539816339
 
 // simPtgAlpha defines a PTG family which follows a parabolic path.
 type simPTGAlpha struct {
-	maxMps float64 // meters per second velocity to target
-	maxDps float64 // degrees per second of rotation when driving at maxMps and turning at max turning radius
+	maxMMPS float64 // millimeters per second velocity to target
+	maxRPS  float64 // radians per second of rotation when driving at maxMMPS and turning at max turning radius
 }
 
 // NewAlphaPTG creates a new PrecomputePTG of type simPtgAlpha.
 // K is unused for alpha PTGs *for now* but we may add in the future.
-func NewAlphaPTG(maxMps, maxDps, k float64) PrecomputePTG {
+func NewAlphaPTG(maxMMPS, maxRPS, k float64) PrecomputePTG {
 	return &simPTGAlpha{
-		maxMps: maxMps,
-		maxDps: maxDps,
+		maxMMPS: maxMMPS,
+		maxRPS:  maxRPS,
 	}
 }
 
@@ -33,8 +31,8 @@ func (ptg *simPTGAlpha) PTGVelocities(alpha, t, x, y, phi float64) (float64, flo
 		atA -= 2 * math.Pi
 	}
 
-	v := ptg.maxMps * math.Exp(-1.*math.Pow(atA/quarterPi, 2)) * 1000
-	w := rutils.DegToRad(ptg.maxDps) * (-0.5 + (1. / (1. + math.Exp(-atA/quarterPi))))
+	v := ptg.maxMMPS * math.Exp(-1.*math.Pow(atA/quarterPi, 2))
+	w := ptg.maxRPS * (-0.5 + (1. / (1. + math.Exp(-atA/quarterPi))))
 
 	return v, w, nil
 }
