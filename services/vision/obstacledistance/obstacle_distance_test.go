@@ -19,8 +19,7 @@ import (
 
 func TestObstacleDistDetector(t *testing.T) {
 	inp := DistanceDetectorConfig{
-		DetectorName: "fakeCamera",
-		NumQueries:   10,
+		NumQueries: 10,
 	}
 	ctx := context.Background()
 	r := &inject.Robot{}
