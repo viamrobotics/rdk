@@ -107,13 +107,11 @@ func TestStartWaypoint(t *testing.T) {
 	localizer, err := motion.NewLocalizer(ctx, fakeSlam)
 	test.That(t, err, test.ShouldBeNil)
 
-
 	// cast fakeBase
 	fake, ok := fakeBase.(*fakebase.Base)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	kinematicBase, err := kinematicbase.WrapWithDifferentialDriveKinematics(ctx, fakeBase, localizer, limits,
-		defaultLinearVelocityMillisPerSec, defaultAngularVelocityDegsPerSec)
+	kinematicBase, err := kinematicbase.WrapWithFakeKinematics(ctx, fake, localizer, limits)
 
 	test.That(t, err, test.ShouldBeNil)
 
