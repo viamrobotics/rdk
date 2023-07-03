@@ -222,7 +222,18 @@ func (ms *builtIn) MoveOnGlobe(
 ) (bool, error) {
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
 
-	plan, kb, err := ms.planMoveOnGlobe(ctx, componentName, *destination, movementSensorName, obstacles, extra)
+	// get the localizer from the componentName
+	localizer, ok := ms.localizers[movementSensorName]
+	if !ok {
+		return false, resource.DependencyNotFoundError(movementSensorName)
+	}
+
+	currentPosition, dstPIF, err := ms.getRelativePositionAndDestination(ctx, localizer, componentName, movementSensorName, *destination)
+	if err != nil {
+		return false, err
+	}
+
+	plan, kb, err := ms.planMoveOnGlobe(ctx, componentName, currentPosition, dstPIF, localizer, obstacles, extra)
 	if err != nil {
 		return false, err
 	}
@@ -248,70 +259,14 @@ func (ms *builtIn) MoveOnGlobe(
 func (ms *builtIn) planMoveOnGlobe(
 	ctx context.Context,
 	componentName resource.Name,
-	destination geo.Point,
-	movementSensorName resource.Name,
+	currentPosition r3.Vector,
+	dstPIF *referenceframe.PoseInFrame,
+	localizer motion.Localizer,
 	obstacles []*spatialmath.GeoObstacle,
 	extra map[string]interface{},
 ) ([]map[string][]referenceframe.Input, kinematicbase.KinematicBase, error) {
 	// create a new empty framesystem which we add our base to
 	fs := referenceframe.NewEmptyFrameSystem("")
-
-	// get the localizer from the componentName
-	localizer, ok := ms.localizers[movementSensorName]
-	if !ok {
-		return nil, nil, resource.DependencyNotFoundError(movementSensorName)
-	}
-
-	// get localizer current pose in frame
-	currentPIF, err := localizer.CurrentPosition(ctx)
-	if err != nil {
-		return nil, nil, err
-	}
-	fmt.Println("currentPIF.Parent(): ", currentPIF.Parent())
-
-	currentPosition := currentPIF.Pose().Point()
-	fmt.Println("currentPosition: ", currentPosition)
-
-	// get position of localizer relative to base
-	robotFS, err := ms.fsService.FrameSystem(ctx, nil)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	localizerFrame := robotFS.Frame(movementSensorName.ShortName())
-	if localizerFrame != nil {
-		// build maps of relevant components and inputs from initial inputs
-		fsInputs, _, err := ms.fsService.CurrentInputs(ctx)
-		if err != nil {
-			return nil, nil, err
-		}
-		fmt.Println("fsInputs: ", fsInputs)
-
-		// transform currentPIF by the movementsensor translation specified for its frame
-		// destinationFrameName := movementSensorName.Name
-		destinationFrameName := componentName.Name
-		tf, err := robotFS.Transform(fsInputs, &currentPIF, destinationFrameName)
-		if err != nil {
-			return nil, nil, err
-		}
-		currentPosition = tf.(*referenceframe.PoseInFrame).Pose().Point()
-		fmt.Println("TRANSFORMED currentPosition: ", currentPosition)
-	}
-
-	// convert destination into spatialmath.Pose with respect to lat = 0 = lng
-	dstPose := spatialmath.GeoPointToPose(&destination)
-	fmt.Println("dstPose: ", dstPose.Point())
-
-	// convert the destination to be relative to the currentPosition
-	relativeDestinationPt := r3.Vector{
-		X: dstPose.Point().X - currentPosition.X,
-		Y: dstPose.Point().Y - currentPosition.Y,
-		Z: 0,
-	}
-	fmt.Println("relativeDestinationPt: ", relativeDestinationPt)
-
-	relativeDstPose := spatialmath.NewPoseFromPoint(relativeDestinationPt)
-	dstPIF := referenceframe.NewPoseInFrame(referenceframe.World, relativeDstPose)
 
 	// convert GeoObstacles into GeometriesInFrame with respect to the base's starting point
 	geoms := spatialmath.GeoObstaclesToGeometries(obstacles, currentPosition)
@@ -323,12 +278,14 @@ func (ms *builtIn) planMoveOnGlobe(
 	}
 
 	// construct limits
-	straightlineDistance := math.Abs(dstPose.Point().Distance(currentPosition))
+	// straightlineDistance := math.Abs(dstPose.Point().Distance(currentPosition))
+	straightlineDistance := dstPIF.Pose().Point().Norm()
 	fmt.Println("straightlineDistance: ", straightlineDistance)
 	limits := []referenceframe.Limit{
 		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
 		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
 	}
+	fmt.Println("limits: ", limits)
 
 	// create a KinematicBase from the componentName
 	baseComponent, ok := ms.components[componentName]
@@ -362,6 +319,73 @@ func (ms *builtIn) planMoveOnGlobe(
 		return nil, nil, err
 	}
 	return plan, kb, nil
+}
+
+// getRelativePositionAndDestination returns the position of the base relative to the localizer only if there is
+// information about their spatial relationship within the framesystem and the resulting pose in frame
+// as the destination relative to the base to plan for.
+func (ms *builtIn) getRelativePositionAndDestination(
+	ctx context.Context,
+	localizer motion.Localizer,
+	componentName resource.Name,
+	movementSensorName resource.Name,
+	destination geo.Point,
+) (r3.Vector, *referenceframe.PoseInFrame, error) {
+	var currentPosition r3.Vector
+
+	// get localizer current pose in frame
+	currentPIF, err := localizer.CurrentPosition(ctx)
+	if err != nil {
+		return currentPosition, nil, err
+	}
+
+	currentPosition = currentPIF.Pose().Point()
+	fmt.Println("currentPosition: ", currentPosition)
+
+	// get position of localizer relative to base
+	robotFS, err := ms.fsService.FrameSystem(ctx, nil)
+	if err != nil {
+		return currentPosition, nil, err
+	}
+
+	localizerFrame := robotFS.Frame(movementSensorName.ShortName())
+	if localizerFrame != nil {
+		// build maps of relevant components and inputs from initial inputs
+		fsInputs, _, err := ms.fsService.CurrentInputs(ctx)
+		if err != nil {
+			return currentPosition, nil, err
+		}
+
+		// transform currentPIF by the movementsensor translation specified for its frame
+		destinationFrameName := componentName.Name
+		tf, err := robotFS.Transform(fsInputs, &currentPIF, destinationFrameName)
+		if err != nil {
+			return currentPosition, nil, err
+		}
+		currentPosition = tf.(*referenceframe.PoseInFrame).Pose().Point()
+		fmt.Println("TRANSFORMED currentPosition: ", currentPosition)
+	}
+
+	// convert destination into spatialmath.Pose with respect to lat = 0 = lng
+	dstPose := spatialmath.GeoPointToPose(&destination)
+	fmt.Println("dstPose: ", dstPose.Point())
+
+	// convert the destination to be relative to the currentPosition
+	relativeDestinationPt := r3.Vector{
+		X: dstPose.Point().X - currentPosition.X,
+		Y: dstPose.Point().Y - currentPosition.Y,
+		Z: 0,
+	}
+	fmt.Println("relativeDestinationPt: ", relativeDestinationPt)
+
+	relativeDstPose := spatialmath.NewPoseFromPoint(relativeDestinationPt)
+	dstPIF := referenceframe.NewPoseInFrame(referenceframe.World, relativeDstPose)
+
+	// construct limits
+	straightlineDistance := math.Abs(dstPose.Point().Distance(currentPosition))
+	fmt.Println("straightlineDistance: ", straightlineDistance)
+
+	return currentPosition, dstPIF, nil
 }
 
 // MoveSingleComponent will pass through a move command to a component with a MoveToPosition method that takes a pose. Arms are the only
