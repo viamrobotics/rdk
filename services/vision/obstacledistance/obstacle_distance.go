@@ -27,8 +27,7 @@ var model = resource.DefaultModelFamily.WithModel("obstacle_distance_detector")
 // for the obstacle distance detection service.
 type DistanceDetectorConfig struct {
 	resource.TriviallyValidateConfig
-	DetectorName string `json:"detector_name"`
-	NumQueries   int    `json:"num_queries"`
+	NumQueries int `json:"num_queries"`
 }
 
 func init() {
@@ -58,10 +57,6 @@ func registerObstacleDistanceDetector(
 	if conf == nil {
 		return nil, errors.New("object detection config for distance detector cannot be nil")
 	}
-	usSensor, err := camera.FromRobot(r, conf.DetectorName)
-	if err != nil {
-		return nil, errors.Wrapf(err, "could not find necessary dependency, detector %q", conf.DetectorName)
-	}
 	if conf.NumQueries < 1 || conf.NumQueries > 20 {
 		return nil, errors.New("invalid number of queries, pick a number between 1 and 20")
 	}
@@ -70,7 +65,7 @@ func registerObstacleDistanceDetector(
 		clouds := make([]pointcloud.PointCloud, conf.NumQueries)
 
 		for i := 0; i < conf.NumQueries; i++ {
-			nxtPC, err := usSensor.NextPointCloud(ctx)
+			nxtPC, err := src.NextPointCloud(ctx)
 			if err != nil {
 				return nil, err
 			}
