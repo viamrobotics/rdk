@@ -160,9 +160,7 @@ func TestSerializationStatic(t *testing.T) {
 	f2, err := f2if.ToStaticFrame("")
 	test.That(t, err, test.ShouldBeNil)
 
-	data2, err := f2.MarshalJSON()
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, data, test.ShouldResemble, data2)
+	test.That(t, f2, test.ShouldResemble, f)
 }
 
 func TestSerializationTranslation(t *testing.T) {
