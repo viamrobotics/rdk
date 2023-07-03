@@ -283,7 +283,7 @@ func (ms *builtIn) MoveOnGlobe(
 	if fake, ok := b.(*fake.Base); ok {
 		kb, err = kinematicbase.WrapWithFakeKinematics(ctx, fake, localizer, limits)
 	} else {
-		kb, err = kinematicbase.WrapWithDifferentialDriveKinematics(ctx, b, localizer, limits,
+		kb, err = kinematicbase.WrapWithKinematics(ctx, b, localizer, limits,
 			linearVelocityMillisPerSec, angularVelocityDegsPerSec)
 	}
 	if err != nil {
@@ -293,12 +293,12 @@ func (ms *builtIn) MoveOnGlobe(
 	inputMap := map[string][]referenceframe.Input{componentName.Name: make([]referenceframe.Input, 3)}
 
 	// Add the kinematic wheeled base to the framesystem
-	if err := fs.AddFrame(kb.ModelFrame(), fs.World()); err != nil {
+	if err := fs.AddFrame(kb.Kinematics(), fs.World()); err != nil {
 		return false, err
 	}
 
 	// make call to motionplan
-	plan, err := motionplan.PlanMotion(ctx, ms.logger, dstPIF, kb.ModelFrame(), inputMap, fs, wrldst, nil, extra)
+	plan, err := motionplan.PlanMotion(ctx, ms.logger, dstPIF, kb.Kinematics(), inputMap, fs, wrldst, nil, extra)
 	if err != nil {
 		return false, err
 	}
@@ -437,7 +437,7 @@ func (ms *builtIn) planMoveOnMap(
 	if fake, ok := b.(*fake.Base); ok {
 		kb, err = kinematicbase.WrapWithFakeKinematics(ctx, fake, localizer, limits)
 	} else {
-		kb, err = kinematicbase.WrapWithDifferentialDriveKinematics(ctx, b, localizer, limits,
+		kb, err = kinematicbase.WrapWithKinematics(ctx, b, localizer, limits,
 			defaultLinearVelocityMillisPerSec, defaultAngularVelocityDegsPerSec)
 	}
 	if err != nil {
@@ -469,7 +469,7 @@ func (ms *builtIn) planMoveOnMap(
 
 	dst := referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewPoseFromPoint(destination.Point()))
 
-	f := kb.ModelFrame()
+	f := kb.Kinematics()
 	fs := referenceframe.NewEmptyFrameSystem("")
 	if err := fs.AddFrame(f, fs.World()); err != nil {
 		return nil, nil, err

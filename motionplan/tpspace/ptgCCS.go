@@ -2,24 +2,22 @@ package tpspace
 
 import (
 	"math"
-
-	rutils "go.viam.com/rdk/utils"
 )
 
 // ptgDiffDriveCCS defines a PTG family combining the CC and CS trajectories, essentially executing the CC trajectory
 // followed by a straight line.
 type ptgDiffDriveCCS struct {
-	maxMps float64 // meters per second velocity to target
-	maxDps float64 // degrees per second of rotation when driving at maxMps and turning at max turning radius
-	k      float64 // k = +1 for forwards, -1 for backwards
+	maxMMPS float64 // millimeters per second velocity to target
+	maxRPS  float64 // radians per second of rotation when driving at maxMMPS and turning at max turning radius
+	k       float64 // k = +1 for forwards, -1 for backwards
 }
 
 // NewCCSPTG creates a new PrecomputePTG of type ptgDiffDriveCCS.
-func NewCCSPTG(maxMps, maxDps, k float64) PrecomputePTG {
+func NewCCSPTG(maxMMPS, maxRPS, k float64) PrecomputePTG {
 	return &ptgDiffDriveCCS{
-		maxMps: maxMps,
-		maxDps: maxDps,
-		k:      k,
+		maxMMPS: maxMMPS,
+		maxRPS:  maxRPS,
+		k:       k,
 	}
 }
 
@@ -29,19 +27,19 @@ func NewCCSPTG(maxMps, maxDps, k float64) PrecomputePTG {
 func (ptg *ptgDiffDriveCCS) PTGVelocities(alpha, t, x, y, phi float64) (float64, float64, error) {
 	u := math.Abs(alpha) * 0.5
 
-	r := ptg.maxMps / rutils.DegToRad(ptg.maxDps)
+	r := ptg.maxMMPS / ptg.maxRPS
 
-	v := ptg.maxMps
+	v := ptg.maxMMPS
 	w := 0.
 
-	if t < u*r/ptg.maxMps {
+	if t < u*r/ptg.maxMMPS {
 		// l-
-		v = -ptg.maxMps
-		w = rutils.DegToRad(ptg.maxDps)
-	} else if t < (u+math.Pi/2)*r/ptg.maxMps {
+		v = -ptg.maxMMPS
+		w = ptg.maxRPS
+	} else if t < (u+math.Pi/2)*r/ptg.maxMMPS {
 		// l+ pi/2
-		v = ptg.maxMps
-		w = rutils.DegToRad(ptg.maxDps)
+		v = ptg.maxMMPS
+		w = ptg.maxRPS
 	}
 
 	// Turn in the opposite direction??
@@ -51,9 +49,6 @@ func (ptg *ptgDiffDriveCCS) PTGVelocities(alpha, t, x, y, phi float64) (float64,
 
 	v *= ptg.k
 	w *= ptg.k
-
-	// m to mm
-	v *= 1000
 
 	return v, w, nil
 }
