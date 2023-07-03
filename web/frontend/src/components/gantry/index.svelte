@@ -5,7 +5,6 @@
   import type { ServiceError } from '@viamrobotics/sdk';
   import { displayError } from '@/lib/error';
   import { rcLogConditionally } from '@/lib/log';
-  import { roundTo2Decimals } from '@/lib/math';
   import Collapse from '@/components/collapse.svelte';
   
   export let name: string;
@@ -22,9 +21,8 @@
   
   interface GantryStatus {
     pieces: {
-      axis: string,
+      axis: number,
       pos: number,
-      goal: number,
       length: number,
     }[]
   }
@@ -35,15 +33,20 @@
   
   const gantryModifyAllDoMoveToPosition = async () => {
     const gantry = status!;
-    const newList = gantry.positions_mm.values;
+    let newList = new Array<number>(gantry.positions_mm.values.length); 
     const newPieces = modifyAllStatus.pieces;
-  
-    for (let i = 0; i < newPieces.length && i < newList.length; i += 1) {
-      newList[newPieces[i]!.goal] = newPieces[i]!.goal;
+
+    for (let i = 0; i < newPieces.length; i += 1) {
+      newList[i] = newPieces[i]!.pos
     }
   
     try {
-      await client.gantryService.moveToPosition(newList);
+      let req = new gantryApi.MoveToPositionRequest();
+      req.setName(name);
+      req.setPositionsMmList(newList);
+    
+      rcLogConditionally(req);
+      client.gantryService.moveToPosition(req, new grpc.Metadata(), displayError);
     } catch (error) {
       displayError(error as ServiceError);
     }
@@ -53,7 +56,11 @@
   
   const gantryHome = async () => {
     try {
-      await client.gantryService.home();
+      let req = new gantryApi.HomeRequest();
+      req.setName(name);
+    
+      rcLogConditionally(req);
+      client.gantryService.home(req, new grpc.Metadata(), displayError);
     } catch (error) {
       displayError(error as ServiceError);
     }
@@ -76,8 +83,8 @@
 
     for (const part of parts) {
       nextPiece.push({
-        pos: part!.pos,
         axis: part!.axis,
+        pos: part!.pos,
         length: part!.length,
       });
     }
