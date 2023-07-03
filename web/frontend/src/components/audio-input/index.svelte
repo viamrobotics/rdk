@@ -28,7 +28,7 @@ const handleTrack = (event: unknown) => {
   }
 
   audio.srcObject = eventStream;
-}
+};
 
 const toggleExpand = async () => {
   isOn = !isOn;
@@ -52,8 +52,8 @@ const toggleExpand = async () => {
 };
 
 useDisconnect(() => {
-  streamClient.off('track', handleTrack)
-})
+  streamClient.off('track', handleTrack);
+});
 
 </script>
 
