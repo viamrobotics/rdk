@@ -69,4 +69,3 @@ export const getSLAMPosition = (client: Client, name: string) => {
     ));
   });
 };
-
