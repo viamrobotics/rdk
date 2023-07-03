@@ -17,7 +17,6 @@ import (
 	"go.viam.com/utils/artifact"
 	"go.viam.com/utils/protoutils"
 	"google.golang.org/grpc"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/slam"
@@ -147,10 +146,9 @@ func TestWorkingServer(t *testing.T) {
 	})
 
 	t.Run("working GetLatestMapInfo", func(t *testing.T) {
-		someProtoTime := timestamppb.Now()
-		someTimeTime := someProtoTime.AsTime()
+		timestamp := time.Now().UTC()
 		injectSvc.GetLatestMapInfoFunc = func(ctx context.Context) (time.Time, error) {
-			return someTimeTime, nil
+			return timestamp, nil
 		}
 
 		reqInfo := &pb.GetLatestMapInfoRequest{
@@ -159,9 +157,7 @@ func TestWorkingServer(t *testing.T) {
 
 		respInfo, err := slamServer.GetLatestMapInfo(context.Background(), reqInfo)
 		test.That(t, err, test.ShouldBeNil)
-
-		test.That(t, respInfo.LastMapUpdate, test.ShouldResemble, someProtoTime)
-
+		test.That(t, respInfo.LastMapUpdate.AsTime(), test.ShouldResemble, timestamp)
 	})
 
 	t.Run("Multiple services Valid", func(t *testing.T) {
