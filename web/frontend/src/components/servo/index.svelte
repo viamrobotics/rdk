@@ -26,9 +26,9 @@ const handleMove = async (amount: number) => {
   const angle = oldAngle + amount;
 
   try {
-    await move($client, name, angle)
+    await move($client, name, angle);
   } catch (error) {
-    displayError(error as ServiceError)
+    displayError(error as ServiceError);
   }
 };
 
