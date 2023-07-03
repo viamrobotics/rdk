@@ -38,9 +38,9 @@ func TestEulerAnglesConversion(t *testing.T) {
 	// 	t.Skip()
 	// }
 
-	// gimbal lock edge case: pitch is π / 2
-	expectedEA := EulerAngles{math.Pi / 4.0, math.Pi / 2.0, math.Pi}
-	q := quat.Number{Real: 0.2705980500730985, Imag: -0.6532814824381882, Jmag: 0.27059805007309856, Kmag: 0.6532814824381883}
+	// roll pitch and yaw are not near edge cases
+	expectedEA := EulerAngles{math.Pi / 4.0, math.Pi / 4.0, 3.0 * math.Pi / 4.0}
+	q := quat.Number{Real: 0.4619397662556435, Imag: -0.19134171618254486, Jmag: 0.4619397662556434, Kmag: 0.7325378163287418}
 	endEa := QuatToEulerAngles(q)
 	test.That(t, expectedEA.Roll, test.ShouldAlmostEqual, endEa.Roll)
 	test.That(t, expectedEA.Pitch, test.ShouldAlmostEqual, endEa.Pitch)
@@ -48,8 +48,29 @@ func TestEulerAnglesConversion(t *testing.T) {
 	q2 := endEa.Quaternion()
 	quatCompare(t, q, q2)
 
-	expectedEA = EulerAngles{math.Pi / 4.0, math.Pi / 4.0, 3.0 * math.Pi / 4.0}
-	q = quat.Number{Real: 0.4619397662556435, Imag: -0.19134171618254486, Jmag: 0.4619397662556434, Kmag: 0.7325378163287418}
+	// another vanilla angles test
+	expectedEA = EulerAngles{-math.Pi / 4.0, -math.Pi / 4.0, math.Pi/4}
+	q = quat.Number{Real: 1, Imag: 0, Jmag: 0, Kmag: 0}
+	endEa = QuatToEulerAngles(q)
+	test.That(t, expectedEA.Roll, test.ShouldAlmostEqual, endEa.Roll)
+	test.That(t, expectedEA.Pitch, test.ShouldAlmostEqual, endEa.Pitch)
+	test.That(t, expectedEA.Yaw, test.ShouldAlmostEqual, endEa.Yaw)
+	q2 = endEa.Quaternion()
+	quatCompare(t, q, q2)
+
+	// gimbal lock edge case1: pitch is π / 2
+	expectedEA = EulerAngles{-3 * math.Pi / 4.0, math.Pi / 2.0, 0}
+	q = quat.Number{Real: 0.2705980500730985, Imag: -0.6532814824381882, Jmag: 0.27059805007309856, Kmag: 0.6532814824381883}
+	endEa = QuatToEulerAngles(q)
+	test.That(t, expectedEA.Roll, test.ShouldAlmostEqual, endEa.Roll)
+	test.That(t, expectedEA.Pitch, test.ShouldAlmostEqual, endEa.Pitch)
+	test.That(t, expectedEA.Yaw, test.ShouldAlmostEqual, endEa.Yaw)
+	q2 = endEa.Quaternion()
+	quatCompare(t, q, q2)
+
+	// gimbal lock edge case: pitch is π / 2
+	expectedEA = EulerAngles{math.Pi / 4.0, math.Pi / 2.0, math.Pi}
+	q = quat.Number{Real: 0.2705980500730985, Imag: -0.6532814824381882, Jmag: 0.27059805007309856, Kmag: 0.6532814824381883}
 	endEa = QuatToEulerAngles(q)
 	test.That(t, expectedEA.Roll, test.ShouldAlmostEqual, endEa.Roll)
 	test.That(t, expectedEA.Pitch, test.ShouldAlmostEqual, endEa.Pitch)
