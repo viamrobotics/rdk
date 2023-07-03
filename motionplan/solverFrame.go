@@ -6,6 +6,7 @@ import (
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/arm/v1"
 
+	"go.viam.com/rdk/motionplan/tpspace"
 	frame "go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 )
@@ -26,6 +27,8 @@ type solverFrame struct {
 	// TODO(pl): explore allowing this to be frames other than world
 	worldRooted bool
 	origSeed    map[string][]frame.Input // stores starting locations of all frames in fss that are NOT in `frames`
+
+	ptgs []tpspace.PTG
 }
 
 func newSolverFrame(fs frame.FrameSystem, solveFrameName, goalFrameName string, seedMap map[string][]frame.Input) (*solverFrame, error) {
@@ -245,6 +248,11 @@ func (sf *solverFrame) DoF() []frame.Limit {
 		limits = append(limits, frame.DoF()...)
 	}
 	return limits
+}
+
+// PTGs passes through the PTGs of the solving tp-space frame if it exists, otherwise nil.
+func (sf *solverFrame) PTGs() []tpspace.PTG {
+	return sf.ptgs
 }
 
 func (sf *solverFrame) movingFrame(name string) bool {
