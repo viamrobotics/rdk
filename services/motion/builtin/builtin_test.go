@@ -325,6 +325,8 @@ func TestMoveOnGlobe(t *testing.T) {
 			geo.NewPoint(40.7, -73.9800009),
 			movementsensor.Named("test-gps"),
 			nil,
+			math.NaN(),
+			math.NaN(),
 			motionCfg,
 		)
 		test.That(t, err, test.ShouldBeNil)
@@ -346,6 +348,8 @@ func TestMoveOnGlobe(t *testing.T) {
 			geo.NewPoint(40.7, -73.9800009),
 			movementsensor.Named("test-gps"),
 			[]*spatialmath.GeoObstacle{geoObstacle},
+			math.NaN(),
+			math.NaN(),
 			motionCfg,
 		)
 		test.That(t, err, test.ShouldBeNil)
@@ -365,6 +369,8 @@ func TestMoveOnGlobe(t *testing.T) {
 			geo.NewPoint(40.7, -73.9800009),
 			movementsensor.Named("test-gps"),
 			[]*spatialmath.GeoObstacle{geoObstacle},
+			math.NaN(),
+			math.NaN(),
 			motionCfg,
 		)
 		test.That(t, err, test.ShouldNotBeNil)

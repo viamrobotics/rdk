@@ -217,6 +217,8 @@ func (ms *builtIn) planMoveOnGlobe(
 	destination *geo.Point,
 	movementSensorName resource.Name,
 	obstacles []*spatialmath.GeoObstacle,
+	linearVelocityMillisPerSec float64,
+	angularVelocityDegsPerSec float64,
 	extra map[string]interface{},
 ) ([][]referenceframe.Input, kinematicbase.KinematicBase, error) {
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
@@ -268,8 +270,14 @@ func (ms *builtIn) planMoveOnGlobe(
 	if fake, ok := b.(*fake.Base); ok {
 		kb, err = kinematicbase.WrapWithFakeKinematics(ctx, fake, localizer, limits)
 	} else {
-		kb, err = kinematicbase.WrapWithKinematics(ctx, b, localizer, limits,
-			linearVelocityMillisPerSec, angularVelocityDegsPerSec)
+		kb, err = kinematicbase.WrapWithKinematics(
+			ctx,
+			b,
+			localizer,
+			limits,
+			linearVelocityMillisPerSec,
+			angularVelocityDegsPerSec,
+		)
 	}
 	if err != nil {
 		return nil, nil, err
@@ -317,7 +325,16 @@ func (ms *builtIn) MoveOnGlobe(
 	extra map[string]interface{},
 ) (bool, error) {
 	// make call to motionplan
-	plan, kb, err := ms.planMoveOnGlobe(ctx, componentName, destination, movementSensorName, obstacles, extra)
+	plan, kb, err := ms.planMoveOnGlobe(
+		ctx,
+		componentName,
+		destination,
+		movementSensorName,
+		obstacles,
+		linearVelocityMillisPerSec,
+		angularVelocityDegsPerSec,
+		extra,
+	)
 	if err != nil {
 		return false, fmt.Errorf("error making plan for MoveOnMap: %v", err)
 	}
