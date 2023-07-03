@@ -412,7 +412,7 @@ func TestInjectedMoveOnGlobe(t *testing.T) {
 	// create injected MovementSensor
 	injectedMovementSensor := inject.NewMovementSensor("test-gps")
 	injectedMovementSensor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
-		return geo.NewPoint(0, 0), 0, nil
+		return geo.NewPoint(0, -0.00000009), 0, nil
 	}
 
 	// create MovementSensor frame

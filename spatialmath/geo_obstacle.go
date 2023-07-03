@@ -123,9 +123,20 @@ func GetCartesianDistance(p, q *geo.Point) (float64, float64) {
 
 // GeoPointToPose converts p into a spatialmath pose relative to lng = 0 = lat.
 func GeoPointToPose(p *geo.Point) Pose {
-	latDist, lngDist := GetCartesianDistance(geo.NewPoint(0, 0), p)
-	// multiply by 1000000 to convert km to mm
-	return NewPoseFromPoint(r3.Vector{latDist * 1e6, lngDist * 1e6, 0})
+	origin := geo.NewPoint(0, 0)
+	latDist, lngDist := GetCartesianDistance(origin, p)
+	azimuth := origin.BearingTo(p)
+
+	switch {
+	case azimuth >= 0 && azimuth <= 90:
+		return NewPoseFromPoint(r3.Vector{latDist * 1e6, lngDist * 1e6, 0})
+	case azimuth > 90 && azimuth <= 180:
+		return NewPoseFromPoint(r3.Vector{latDist * 1e6, -lngDist * 1e6, 0})
+	case azimuth >= -90 && azimuth < 0:
+		return NewPoseFromPoint(r3.Vector{-latDist * 1e6, lngDist * 1e6, 0})
+	default:
+		return NewPoseFromPoint(r3.Vector{-latDist * 1e6, -lngDist * 1e6, 0})
+	}
 }
 
 // GeoObstaclesToGeometries converts a list of GeoObstacles into a list of Geometries.
