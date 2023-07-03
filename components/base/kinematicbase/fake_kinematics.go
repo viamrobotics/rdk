@@ -31,11 +31,16 @@ func WrapWithFakeKinematics(
 	if err != nil {
 		return nil, err
 	}
+	position, err := localizer.CurrentPosition(ctx)
+	if err != nil {
+		return nil, err
+	}
+	pt := position.Pose().Point()
 	return &fakeKinematics{
 		Base:      b,
 		model:     model,
 		localizer: localizer,
-		inputs:    make([]referenceframe.Input, len(model.DoF())),
+		inputs:    []referenceframe.Input{{pt.X}, {pt.Y}, {0}},
 	}, nil
 }
 

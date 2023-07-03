@@ -6,7 +6,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -211,6 +210,97 @@ func (ms *builtIn) MoveOnMap(
 	return true, nil
 }
 
+// PlanMoveOnMap returns the plan for MoveOnMap to execute
+func (ms *builtIn) planMoveOnGlobe(
+	ctx context.Context,
+	componentName resource.Name,
+	destination *geo.Point,
+	movementSensorName resource.Name,
+	obstacles []*spatialmath.GeoObstacle,
+	extra map[string]interface{},
+) ([][]referenceframe.Input, kinematicbase.KinematicBase, error) {
+	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
+
+	// get the localizer and current inputs from the componentName
+	localizer, ok := ms.localizers[movementSensorName]
+	if !ok {
+		return nil, nil, resource.DependencyNotFoundError(movementSensorName)
+	}
+	currentPose, err := localizer.CurrentPosition(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	currentPoint := currentPose.Pose().Point()
+
+	// convert destination into spatialmath.Pose with respect to lat = 0 = lng
+	dst := spatialmath.GeoPointToPose(destination)
+	relativeDst := r3.Vector{
+		X: dst.Point().X - currentPoint.X,
+		Y: dst.Point().Y - currentPoint.Y,
+		Z: 0,
+	}
+
+	// convert GeoObstacles into GeometriesInFrame with respect to the base's starting point
+	geoms := spatialmath.GeoObstaclesToGeometries(obstacles, currentPoint)
+	gif := referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)
+	wrldst, err := referenceframe.NewWorldState([]*referenceframe.GeometriesInFrame{gif}, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// construct limits
+	straightlineDistance := relativeDst.Norm()
+	limits := []referenceframe.Limit{
+		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
+		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
+	}
+
+	// create a KinematicBase from the componentName
+	baseComponent, ok := ms.components[componentName]
+	if !ok {
+		return nil, nil, fmt.Errorf("only Base components are supported for MoveOnGlobe: could not find an Base named %v", componentName)
+	}
+	b, ok := baseComponent.(base.Base)
+	if !ok {
+		return nil, nil, fmt.Errorf("cannot move base of type %T because it is not a Base", baseComponent)
+	}
+	var kb kinematicbase.KinematicBase
+	if fake, ok := b.(*fake.Base); ok {
+		kb, err = kinematicbase.WrapWithFakeKinematics(ctx, fake, localizer, limits)
+	} else {
+		kb, err = kinematicbase.WrapWithDifferentialDriveKinematics(ctx, b, localizer, limits,
+			defaultLinearVelocityMillisPerSec, defaultAngularVelocityDegsPerSec)
+	}
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// create a frame system and add the kinematic wheeled base to it
+	fs := referenceframe.NewEmptyFrameSystem("")
+	if err := fs.AddFrame(kb.ModelFrame(), fs.World()); err != nil {
+		return nil, nil, err
+	}
+
+	// make call to motionplan
+	solutionMap, err := motionplan.PlanMotion(
+		ctx,
+		ms.logger,
+		referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewPoseFromPoint(relativeDst)),
+		kb.ModelFrame(),
+		referenceframe.StartPositions(fs),
+		fs,
+		wrldst,
+		nil,
+		extra,
+	)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	plan, err := motionplan.FrameStepsFromRobotPath(kb.ModelFrame().Name(), solutionMap)
+	return plan, kb, err
+}
+
 // MoveOnGlobe will move the given component to the given destination on the globe.
 // Bases are the only component that supports this.
 func (ms *builtIn) MoveOnGlobe(
@@ -224,100 +314,18 @@ func (ms *builtIn) MoveOnGlobe(
 	angularVelocityDegsPerSec float64,
 	extra map[string]interface{},
 ) (bool, error) {
-	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
-
-	// create a new empty framesystem which we add our base to
-	fs := referenceframe.NewEmptyFrameSystem("")
-
-	// get the localizer from the componentName
-	localizer, ok := ms.localizers[movementSensorName]
-	if !ok {
-		return false, resource.DependencyNotFoundError(movementSensorName)
-	}
-
-	// get localizer current pose in frame
-	currentPIF, err := localizer.CurrentPosition(ctx)
-	if err != nil {
-		return false, err
-	}
-
-	// convert destination into spatialmath.Pose with respect to lat = 0 = lng
-	dstPose := spatialmath.GeoPointToPose(destination)
-
-	// convert the destination to be relative to the currentPIF
-	relativeDestinationPt := r3.Vector{
-		X: dstPose.Point().X - currentPIF.Pose().Point().X,
-		Y: dstPose.Point().Y - currentPIF.Pose().Point().Y,
-		Z: 0,
-	}
-
-	relativeDstPose := spatialmath.NewPoseFromPoint(relativeDestinationPt)
-	dstPIF := referenceframe.NewPoseInFrame(referenceframe.World, relativeDstPose)
-
-	// convert GeoObstacles into GeometriesInFrame with respect to the base's starting point
-	geoms := spatialmath.GeoObstaclesToGeometries(obstacles, currentPIF.Pose().Point())
-
-	gif := referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)
-	wrldst, err := referenceframe.NewWorldState([]*referenceframe.GeometriesInFrame{gif}, nil)
-	if err != nil {
-		return false, err
-	}
-
-	// construct limits
-	straightlineDistance := math.Abs(dstPose.Point().Distance(currentPIF.Pose().Point()))
-	limits := []referenceframe.Limit{
-		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
-		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
-	}
-
-	// create a KinematicBase from the componentName
-	baseComponent, ok := ms.components[componentName]
-	if !ok {
-		return false, fmt.Errorf("only Base components are supported for MoveOnGlobe: could not find an Base named %v", componentName)
-	}
-	b, ok := baseComponent.(base.Base)
-	if !ok {
-		return false, fmt.Errorf("cannot move base of type %T because it is not a Base", baseComponent)
-	}
-	var kb kinematicbase.KinematicBase
-	if fake, ok := b.(*fake.Base); ok {
-		kb, err = kinematicbase.WrapWithFakeKinematics(ctx, fake, localizer, limits)
-	} else {
-		kb, err = kinematicbase.WrapWithDifferentialDriveKinematics(ctx, b, localizer, limits,
-			linearVelocityMillisPerSec, angularVelocityDegsPerSec)
-	}
-	if err != nil {
-		return false, err
-	}
-
-	inputMap := map[string][]referenceframe.Input{componentName.Name: make([]referenceframe.Input, 3)}
-
-	// Add the kinematic wheeled base to the framesystem
-	if err := fs.AddFrame(kb.ModelFrame(), fs.World()); err != nil {
-		return false, err
-	}
-
 	// make call to motionplan
-	plan, err := motionplan.PlanMotion(ctx, ms.logger, dstPIF, kb.ModelFrame(), inputMap, fs, wrldst, nil, extra)
+	plan, kb, err := ms.planMoveOnGlobe(ctx, componentName, destination, movementSensorName, obstacles, extra)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("error making plan for MoveOnMap: %v", err)
 	}
 
 	// execute the plan
-	for _, step := range plan {
-		for _, inputs := range step {
-			if ctx.Err() != nil {
-				return false, ctx.Err()
-			}
-			if len(inputs) == 0 {
-				continue
-			}
-			if err := kb.GoToInputs(ctx, inputs); err != nil {
-				return false, err
-			}
+	for i := 1; i < len(plan); i++ {
+		if err := kb.GoToInputs(ctx, plan[i]); err != nil {
+			return false, err
 		}
 	}
-
 	return true, nil
 }
 

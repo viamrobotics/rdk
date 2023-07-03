@@ -319,19 +319,16 @@ func TestMoveOnGlobe(t *testing.T) {
 	motionCfg["timeout"] = 5.
 
 	t.Run("ensure success to a nearby geo point", func(t *testing.T) {
-		success, err := ms.MoveOnGlobe(
+		plan, _, err := ms.(*builtIn).planMoveOnGlobe(
 			context.Background(),
 			base.Named("test-base"),
 			geo.NewPoint(40.7, -73.9800009),
-			math.NaN(),
 			movementsensor.Named("test-gps"),
 			nil,
-			math.NaN(),
-			math.NaN(),
 			motionCfg,
 		)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, success, test.ShouldBeTrue)
+		test.That(t, len(plan), test.ShouldEqual, 2)
 	})
 	t.Run("go around an obstacle", func(t *testing.T) {
 		// fake movement sensor returns geoPoint at (40.7, -73.98)
@@ -343,19 +340,16 @@ func TestMoveOnGlobe(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		geoObstacle := spatialmath.NewGeoObstacle(geo.NewPoint(40.7, -73.98), []spatialmath.Geometry{geometries})
 
-		success, err := ms.MoveOnGlobe(
+		plan, _, err := ms.(*builtIn).planMoveOnGlobe(
 			context.Background(),
 			base.Named("test-base"),
 			geo.NewPoint(40.7, -73.9800009),
-			math.NaN(),
 			movementsensor.Named("test-gps"),
 			[]*spatialmath.GeoObstacle{geoObstacle},
-			math.NaN(),
-			math.NaN(),
 			motionCfg,
 		)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, success, test.ShouldBeTrue)
+		test.That(t, len(plan), test.ShouldBeGreaterThan, 2)
 	})
 
 	t.Run("fail because of long wall", func(t *testing.T) {
@@ -365,19 +359,15 @@ func TestMoveOnGlobe(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		geoObstacle := spatialmath.NewGeoObstacle(geo.NewPoint(40.7, -73.98), []spatialmath.Geometry{geometries})
 
-		success, err := ms.MoveOnGlobe(
+		_, _, err = ms.(*builtIn).planMoveOnGlobe(
 			context.Background(),
 			base.Named("test-base"),
 			geo.NewPoint(40.7, -73.9800009),
-			math.NaN(),
 			movementsensor.Named("test-gps"),
 			[]*spatialmath.GeoObstacle{geoObstacle},
-			math.NaN(),
-			math.NaN(),
 			motionCfg,
 		)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, success, test.ShouldBeFalse)
 	})
 }
 

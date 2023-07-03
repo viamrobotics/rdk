@@ -7,6 +7,7 @@ import (
 	"errors"
 	"math"
 
+	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 
 	"go.viam.com/rdk/components/base"
@@ -18,7 +19,7 @@ import (
 const (
 	distThresholdMM         = 100
 	headingThresholdDegrees = 15
-	deviationThreshold      = 300.0 // mm
+	deviationThreshold      = 3000000.0 // mm
 )
 
 // KinematicBase is an interface for Bases that also satisfy the ModelFramer and InputEnabled interfaces.
@@ -35,6 +36,7 @@ type differentialDriveKinematics struct {
 	fs                            referenceframe.FrameSystem
 	maxLinearVelocityMillisPerSec float64
 	maxAngularVelocityDegsPerSec  float64
+	logger                        golog.Logger
 }
 
 // WrapWithDifferentialDriveKinematics takes a Base component and adds a slam service to it
@@ -81,6 +83,7 @@ func WrapWithDifferentialDriveKinematics(
 		fs:                            fs,
 		maxLinearVelocityMillisPerSec: maxLinearVelocityMillisPerSec,
 		maxAngularVelocityDegsPerSec:  maxAngularVelocityDegsPerSec,
+		logger:                        golog.NewLogger("ddk"),
 	}, nil
 }
 
@@ -156,6 +159,7 @@ func (ddk *differentialDriveKinematics) issueCommand(ctx context.Context, curren
 	if err != nil {
 		return false, err
 	}
+	ddk.logger.Warnf("distErr: %f, headingErr %f\n", distErr, headingErr)
 	if distErr > distThresholdMM && math.Abs(headingErr) > headingThresholdDegrees {
 		// base is headed off course; spin to correct
 		return true, ddk.Spin(ctx, -headingErr, ddk.maxAngularVelocityDegsPerSec, nil)
