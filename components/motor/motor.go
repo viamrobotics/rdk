@@ -73,17 +73,6 @@ type Motor interface {
 	IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error)
 }
 
-// A LocalMotor is a motor that supports additional features provided by RDK
-// (e.g. GoTillStop).
-type LocalMotor interface {
-	Motor
-	// GoTillStop moves a motor until stopped. The "stop" mechanism is up to the underlying motor implementation.
-	// Ex: EncodedMotor goes until physically stopped/stalled (detected by change in position being very small over a fixed time.)
-	// Ex: TMCStepperMotor has "StallGuard" which detects the current increase when obstructed and stops when that reaches a threshold.
-	// Ex: Other motors may use an endstop switch (such as via a DigitalInterrupt) or be configured with other sensors.
-	GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error
-}
-
 // Named is a helper for getting the named Motor's typed resource name.
 func Named(name string) resource.Name {
 	return resource.NewName(API, name)

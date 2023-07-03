@@ -203,7 +203,7 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCl
 		md := dataResponse.GetMetadata()
 		replay.cache[i] = &cacheEntry{id: &datapb.BinaryID{
 			FileId:         md.GetId(),
-			OrganizationId: md.GetCaptureMetadata().GetOrgId(),
+			OrganizationId: md.GetCaptureMetadata().GetOrganizationId(),
 			LocationId:     md.GetCaptureMetadata().GetLocationId(),
 		}}
 	}
