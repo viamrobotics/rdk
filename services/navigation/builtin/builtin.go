@@ -215,10 +215,10 @@ func (svc *builtIn) SetMode(ctx context.Context, mode navigation.Mode, extra map
 			if err := svc.startWaypointExperimental(extra); err != nil {
 				return err
 			}
-		}
-		if err := svc.startWaypoint(extra); err != nil {
+		} else if err := svc.startWaypoint(extra); err != nil {
 			return err
 		}
+
 		svc.mode = mode
 	}
 	return nil
@@ -400,19 +400,18 @@ func (svc *builtIn) startWaypointExperimental(extra map[string]interface{}) erro
 		defer svc.activeBackgroundWorkers.Done()
 
 		navOnce := func(ctx context.Context, wp navigation.Waypoint) error {
-			currentLoc, err := svc.Location(svc.cancelCtx, extra)
-			if err != nil {
-				return err
+			if extra == nil {
+				extra = map[string]interface{}{"motion_profile": "position_only"}
+			} else if _, ok := extra["motion_profile"]; !ok {
+				extra["motion_profile"] = "position_only"
 			}
 
-			// have ability to define destination heading here, but waypoint structure
-			// doesn't allow for that so using bearingToGoal as heading
 			goal := wp.ToPoint()
-			_, err = svc.motion.MoveOnGlobe(
+			_, err := svc.motion.MoveOnGlobe(
 				ctx,
 				svc.base.Name(),
 				goal,
-				currentLoc.BearingTo(goal),
+				math.NaN(),
 				svc.movementSensor.Name(),
 				svc.obstacles,
 				svc.metersPerSec*1000,
