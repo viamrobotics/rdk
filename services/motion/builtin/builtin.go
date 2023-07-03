@@ -51,7 +51,11 @@ func init() {
 		})
 }
 
-const builtinOpLabel = "motion-service"
+const (
+	builtinOpLabel                    = "motion-service"
+	defaultLinearVelocityMillisPerSec = 300 // mm per second; used for bases only
+	defaultAngularVelocityDegsPerSec  = 60  // degrees per second; used for bases only
+)
 
 // ErrNotImplemented is thrown when an unreleased function is called
 var ErrNotImplemented = errors.New("function coming soon but not yet implemented")
@@ -216,8 +220,8 @@ func (ms *builtIn) MoveOnGlobe(
 	heading float64,
 	movementSensorName resource.Name,
 	obstacles []*spatialmath.GeoObstacle,
-	linearVelocity float64,
-	angularVelocity float64,
+	linearVelocityMillisPerSec float64,
+	angularVelocityDegsPerSec float64,
 	extra map[string]interface{},
 ) (bool, error) {
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
@@ -279,10 +283,8 @@ func (ms *builtIn) MoveOnGlobe(
 	if fake, ok := b.(*fake.Base); ok {
 		kb, err = kinematicbase.WrapWithFakeKinematics(ctx, fake, localizer, limits)
 	} else {
-		kb, err = kinematicbase.WrapWithKinematics(ctx, b, localizer, limits)
-		if err != nil {
-			return false, err
-		}
+		kb, err = kinematicbase.WrapWithKinematics(ctx, b, localizer, limits,
+			linearVelocityMillisPerSec, angularVelocityDegsPerSec)
 	}
 	if err != nil {
 		return false, err
@@ -435,7 +437,8 @@ func (ms *builtIn) planMoveOnMap(
 	if fake, ok := b.(*fake.Base); ok {
 		kb, err = kinematicbase.WrapWithFakeKinematics(ctx, fake, localizer, limits)
 	} else {
-		kb, err = kinematicbase.WrapWithKinematics(ctx, b, localizer, limits)
+		kb, err = kinematicbase.WrapWithKinematics(ctx, b, localizer, limits,
+			defaultLinearVelocityMillisPerSec, defaultAngularVelocityDegsPerSec)
 	}
 	if err != nil {
 		return nil, nil, err

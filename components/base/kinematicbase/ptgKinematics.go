@@ -38,16 +38,29 @@ type ptgBaseKinematics struct {
 func wrapWithPTGKinematics(
 	ctx context.Context,
 	b base.Base,
+	maxLinearVelocityMillisPerSec float64,
+	maxAngularVelocityDegsPerSec float64,
 ) (KinematicBase, error) {
 	properties, err := b.Properties(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
-	if properties.TurningRadiusMeters <= 0 {
-		return nil, errors.New("can only wrap with PTG kinematics if Base property TurningRadiusMeters is greater than zero")
+
+	baseMillimetersPerSecond := defaultBaseMMps
+	if maxLinearVelocityMillisPerSec > 0 {
+		baseMillimetersPerSecond = maxLinearVelocityMillisPerSec
 	}
 
-	baseMillimetersPerSecond := defaultBaseMMps // Currently no way to get this out of properties
+	baseTurningRadius := properties.TurningRadiusMeters
+	if maxAngularVelocityDegsPerSec > 0 {
+		// Compute smallest allowable turning radius permitted by the given speeds. Use the greater of the two.
+		calcTurnRadius := (baseMillimetersPerSecond / rdkutils.DegToRad(maxAngularVelocityDegsPerSec)) / 1000.
+		baseTurningRadius = math.Max(baseTurningRadius, calcTurnRadius)
+	}
+
+	if baseTurningRadius <= 0 {
+		return nil, errors.New("can only wrap with PTG kinematics if turning radius is greater than zero")
+	}
 
 	geometries, err := b.Geometries(ctx)
 	if err != nil {
@@ -57,8 +70,8 @@ func wrapWithPTGKinematics(
 	frame, err := referenceframe.NewPTGFrameFromTurningRadius(
 		b.Name().ShortName(),
 		baseMillimetersPerSecond,
-		properties.TurningRadiusMeters,
-		0,
+		baseTurningRadius,
+		0, // pass 0 to use the default
 		geometries,
 	)
 	if err != nil {

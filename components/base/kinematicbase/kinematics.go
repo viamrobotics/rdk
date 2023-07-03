@@ -25,6 +25,8 @@ func WrapWithKinematics(
 	b base.Base,
 	localizer motion.Localizer,
 	limits []referenceframe.Limit,
+	maxLinearVelocityMillisPerSec float64,
+	maxAngularVelocityDegsPerSec float64,
 ) (KinematicBase, error) {
 	properties, err := b.Properties(ctx, nil)
 	if err != nil {
@@ -33,7 +35,7 @@ func WrapWithKinematics(
 
 	// TP-space PTG planning does not yet support 0 turning radius
 	if properties.TurningRadiusMeters == 0 {
-		return wrapWithDifferentialDriveKinematics(ctx, b, localizer, limits)
+		return wrapWithDifferentialDriveKinematics(ctx, b, localizer, limits, maxLinearVelocityMillisPerSec, maxAngularVelocityDegsPerSec)
 	}
-	return wrapWithPTGKinematics(ctx, b)
+	return wrapWithPTGKinematics(ctx, b, maxLinearVelocityMillisPerSec, maxAngularVelocityDegsPerSec)
 }

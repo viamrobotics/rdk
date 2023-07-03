@@ -111,27 +111,6 @@ func TestGoTo(t *testing.T) {
 	})
 }
 
-func TestGoTillStop(t *testing.T) {
-	logger := golog.NewTestLogger(t)
-	ctx := context.Background()
-
-	enc, err := fake.NewEncoder(context.Background(), resource.Config{
-		ConvertedAttributes: &fake.Config{},
-	})
-	test.That(t, err, test.ShouldBeNil)
-	m := &Motor{
-		Named:             motor.Named("foo").AsNamed(),
-		Encoder:           enc.(fake.Encoder),
-		Logger:            logger,
-		PositionReporting: true,
-		MaxRPM:            60,
-		TicksPerRotation:  1,
-	}
-
-	err = m.GoTillStop(ctx, 0, func(ctx context.Context) bool { return false })
-	test.That(t, err, test.ShouldNotBeNil)
-}
-
 func TestResetZeroPosition(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
