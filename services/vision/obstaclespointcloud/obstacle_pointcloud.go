@@ -1,6 +1,6 @@
-// Package radiusclustering uses the 3D radius clustering algorithm as defined in the
-// RDK vision/segmentation package as vision model.
-package radiusclustering
+// Package obstaclespointcloud uses the 3D radius clustering algorithm as defined in the
+// RDK vision/segmentation package as vision model
+package obstaclespointcloud
 
 import (
 	"context"
@@ -16,7 +16,7 @@ import (
 	"go.viam.com/rdk/vision/segmentation"
 )
 
-var model = resource.DefaultModelFamily.WithModel("radius_clustering_segmenter")
+var model = resource.DefaultModelFamily.WithModel("obstacles_pointcloud")
 
 func init() {
 	resource.RegisterService(vision.API, model, resource.Registration[vision.Service, *segmentation.RadiusClusteringConfig]{
@@ -29,22 +29,22 @@ func init() {
 			if err != nil {
 				return nil, err
 			}
-			return registerRCSegmenter(ctx, c.ResourceName(), attrs, actualR)
+			return registerObstaclePointCloud(ctx, c.ResourceName(), attrs, actualR)
 		},
 	})
 }
 
-// registerRCSegmenter creates a new 3D radius clustering segmenter from the config.
-func registerRCSegmenter(
+// registerObstaclePointCloud creates a new 3D radius clustering segmenter from the config.
+func registerObstaclePointCloud(
 	ctx context.Context,
 	name resource.Name,
 	conf *segmentation.RadiusClusteringConfig,
 	r robot.Robot,
 ) (vision.Service, error) {
-	_, span := trace.StartSpan(ctx, "service::vision::registerRadiusClustering")
+	_, span := trace.StartSpan(ctx, "service::vision::registerObstaclePointCloud")
 	defer span.End()
 	if conf == nil {
-		return nil, errors.New("config for radius clustering segmenter cannot be nil")
+		return nil, errors.New("config for obstacle point cloud detector cannot be nil")
 	}
 	err := conf.CheckValid()
 	if err != nil {
