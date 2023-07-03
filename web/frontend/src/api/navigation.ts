@@ -1,5 +1,3 @@
-/* eslint-disable promise/prefer-await-to-then */
-
 import type { Client } from '@viamrobotics/sdk';
 import { commonApi, navigationApi } from '@viamrobotics/sdk';
 import { rcLogConditionally } from '@/lib/log';

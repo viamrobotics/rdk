@@ -1,5 +1,3 @@
-/* eslint-disable promise/prefer-await-to-then */
-
 import { type Client, commonApi, motionApi, robotApi } from '@viamrobotics/sdk';
 import { Struct } from 'google-protobuf/google/protobuf/struct_pb';
 import { getSLAMPosition } from './slam';
