@@ -28,6 +28,9 @@ const (
 	epsilon                 = 20 // mm
 )
 
+// ErrMovementTimeout is used for when a movement call times out after no movement for some time.
+var ErrMovementTimeout = errors.New("movement has timed out")
+
 // wrapWithDifferentialDriveKinematics takes a wheeledBase component and adds a localizer to it
 // It also adds kinematic model so that it can be controlled.
 func wrapWithDifferentialDriveKinematics(
