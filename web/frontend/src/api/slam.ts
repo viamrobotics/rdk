@@ -1,8 +1,7 @@
 import { type Client, commonApi, slamApi } from '@viamrobotics/sdk';
 import { grpc } from '@improbable-eng/grpc-web';
 import { rcLogConditionally } from '@/lib/log';
-import "com.google.protobuf";
-import { Timestamp } from 'google-protobuf/google/protobuf/timestamp_pb';
+
 
 const concatArrayU8 = (arrays: Uint8Array[]) => {
   const totalLength = arrays.reduce((acc, value) => acc + value.length, 0);
