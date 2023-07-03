@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
@@ -44,12 +43,20 @@ func TestFakeSLAMGetPosition(t *testing.T) {
 }
 
 func TestFakeSLAMGetLatestMapInfo(t *testing.T) {
-	expectedTime := time.Date(2003, 7, 8, 10, 0, 0, 0, time.UTC)
 	slamSvc := NewSLAM(slam.Named("test"), golog.NewTestLogger(t))
 
-	mapTimestamp, err := slamSvc.GetLatestMapInfo(context.Background())
+	timestamp1, err := slamSvc.GetLatestMapInfo(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, mapTimestamp, test.ShouldResemble, expectedTime)
+	timestamp2, err := slamSvc.GetLatestMapInfo(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, timestamp1, test.ShouldResemble, timestamp2)
+
+	_, err = slamSvc.GetPointCloudMap(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	timestamp3, err := slamSvc.GetLatestMapInfo(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, timestamp3.After(timestamp2), test.ShouldBeTrue)
+
 }
 
 func TestFakeSLAMStateful(t *testing.T) {
