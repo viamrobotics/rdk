@@ -2,7 +2,6 @@ import { type Client, commonApi, slamApi } from '@viamrobotics/sdk';
 import { grpc } from '@improbable-eng/grpc-web';
 import { rcLogConditionally } from '@/lib/log';
 
-
 const concatArrayU8 = (arrays: Uint8Array[]) => {
   const totalLength = arrays.reduce((acc, value) => acc + value.length, 0);
   const result = new Uint8Array(totalLength);

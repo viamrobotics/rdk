@@ -297,7 +297,7 @@ func TestFailingClient(t *testing.T) {
 		// test get latest map info
 		timestamp, err := failingSLAMClient.GetLatestMapInfo(context.Background())
 		test.That(t, err.Error(), test.ShouldContainSubstring, "failure to get latest map info")
-		test.That(t, timestamp == time.Time{}, test.ShouldBeTrue)
+		test.That(t, timestamp, test.ShouldResemble, time.Time{})
 
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
