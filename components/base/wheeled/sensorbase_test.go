@@ -2,6 +2,7 @@ package wheeled
 
 import (
 	"context"
+	"errors"
 	"math"
 	"strconv"
 	"sync"
@@ -316,4 +317,77 @@ func TestSensorBase(t *testing.T) {
 	wheeled, err := createWheeledBase(ctx, msDeps, testCfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, wheeled, test.ShouldNotBeNil)
+}
+
+func sBaseTestConfig(msNames []string) resource.Config {
+	return resource.Config{
+		Name:  "test",
+		API:   base.API,
+		Model: resource.Model{Name: "wheeled_base"},
+		ConvertedAttributes: &Config{
+			WidthMM:              100,
+			WheelCircumferenceMM: 1000,
+			Left:                 []string{"fl-m", "bl-m"},
+			Right:                []string{"fr-m", "br-m"},
+			MovementSensor:       msNames,
+		},
+	}
+}
+
+func msDependencies(t *testing.T, motorNames, msNames []string) resource.Dependencies {
+	t.Helper()
+	deps := fakeMotorDependencies(t, motorNames)
+
+	for _, msName := range msNames {
+		ms := inject.NewMovementSensor(msName)
+		switch msName {
+		case "orientation":
+			ms.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
+				return &movementsensor.Properties{
+					OrientationSupported: true,
+				}, nil
+			}
+			deps[movementsensor.Named(msName)] = ms
+		case "vel":
+			ms.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
+				return &movementsensor.Properties{
+					AngularVelocitySupported: true,
+					LinearVelocitySupported:  true,
+				}, nil
+			}
+			deps[movementsensor.Named(msName)] = ms
+
+		case "Bad":
+			ms.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
+				return &movementsensor.Properties{
+					AngularVelocitySupported: true,
+					LinearVelocitySupported:  true,
+				}, errors.New("bad sesnor")
+			}
+			deps[movementsensor.Named(msName)] = ms
+		}
+	}
+	return deps
+}
+
+func TestReconfig(t *testing.T) {
+	motorNames := []string{}
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+	cfg := sBaseTestConfig([]string{"orientation1"})
+	deps := msDependencies(t, motorNames, []string{"orientation1"})
+
+	b, err := createWheeledBase(ctx, deps, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	sb, ok := b.(*sensorBase)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, sb.orientation.Name(), test.ShouldResemble, "orientation1")
+
+	cfg = sBaseTestConfig([]string{"orientation2"})
+	cfg = sBaseTestConfig([]string{"setVel2"})
+	cfg = sBaseTestConfig([]string{"orientation1", "setVel1", "orientation2", "setVel2"})
+	cfg = sBaseTestConfig([]string{"orientation2", "setVel2", "orientation2", "setVel2"})
+	cfg = sBaseTestConfig([]string{"orientationBad", "setVelBad", "orientation2", "setVel2"})
+	cfg = sBaseTestConfig([]string{"setVel1"})
+
 }
