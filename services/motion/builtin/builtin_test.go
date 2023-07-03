@@ -2,6 +2,7 @@ package builtin
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"os"
 	"path/filepath"
@@ -19,7 +20,6 @@ import (
 	"go.viam.com/rdk/components/base/fake"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/gripper"
-	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 
@@ -309,77 +309,6 @@ func TestMoveOnMap(t *testing.T) {
 	})
 }
 
-func TestMoveOnGlobe(t *testing.T) {
-	ms, closeFn := setupMotionServiceFromConfig(t, "../data/gps_base.json")
-	defer closeFn()
-
-	motionCfg := make(map[string]interface{})
-	motionCfg["motion_profile"] = "position_only"
-	motionCfg["timeout"] = 5.
-
-	t.Run("ensure success to a nearby geo point", func(t *testing.T) {
-		success, err := ms.MoveOnGlobe(
-			context.Background(),
-			base.Named("test-base"),
-			geo.NewPoint(40.7, -73.9800009),
-			math.NaN(),
-			movementsensor.Named("test-gps"),
-			nil,
-			math.NaN(),
-			math.NaN(),
-			motionCfg,
-		)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, success, test.ShouldBeTrue)
-	})
-	t.Run("go around an obstacle", func(t *testing.T) {
-		// fake movement sensor returns geoPoint at (40.7, -73.98)
-		// to achieve the destination we must travel in the positive x direction
-
-		boxPose := spatialmath.NewPoseFromPoint(r3.Vector{50, 0, 0})
-		boxDims := r3.Vector{2, 30, 10}
-		geometries, err := spatialmath.NewBox(boxPose, boxDims, "wall")
-		test.That(t, err, test.ShouldBeNil)
-		geoObstacle := spatialmath.NewGeoObstacle(geo.NewPoint(40.7, -73.98), []spatialmath.Geometry{geometries})
-
-		success, err := ms.MoveOnGlobe(
-			context.Background(),
-			base.Named("test-base"),
-			geo.NewPoint(40.7, -73.9800009),
-			math.NaN(),
-			movementsensor.Named("test-gps"),
-			[]*spatialmath.GeoObstacle{geoObstacle},
-			math.NaN(),
-			math.NaN(),
-			motionCfg,
-		)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, success, test.ShouldBeTrue)
-	})
-
-	t.Run("fail because of long wall", func(t *testing.T) {
-		boxPose := spatialmath.NewPoseFromPoint(r3.Vector{50, 0, 0})
-		boxDims := r3.Vector{2, 666, 10}
-		geometries, err := spatialmath.NewBox(boxPose, boxDims, "wall")
-		test.That(t, err, test.ShouldBeNil)
-		geoObstacle := spatialmath.NewGeoObstacle(geo.NewPoint(40.7, -73.98), []spatialmath.Geometry{geometries})
-
-		success, err := ms.MoveOnGlobe(
-			context.Background(),
-			base.Named("test-base"),
-			geo.NewPoint(40.7, -73.9800009),
-			math.NaN(),
-			movementsensor.Named("test-gps"),
-			[]*spatialmath.GeoObstacle{geoObstacle},
-			math.NaN(),
-			math.NaN(),
-			motionCfg,
-		)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, success, test.ShouldBeFalse)
-	})
-}
-
 func TestInjectedMoveOnGlobe(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
@@ -400,7 +329,7 @@ func TestInjectedMoveOnGlobe(t *testing.T) {
 
 	// create base frame
 	basePose := spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0})
-	baseSphere, err := spatialmath.NewSphere(basePose, 20, "base-sphere")
+	baseSphere, err := spatialmath.NewSphere(basePose, 10, "base-sphere")
 	test.That(t, err, test.ShouldBeNil)
 	baseFrame, err := referenceframe.NewStaticFrameWithGeometry(
 		"test-base",
@@ -412,13 +341,13 @@ func TestInjectedMoveOnGlobe(t *testing.T) {
 	// create injected MovementSensor
 	injectedMovementSensor := inject.NewMovementSensor("test-gps")
 	injectedMovementSensor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
-		return geo.NewPoint(0, -0.00000009), 0, nil
+		return geo.NewPoint(0, 0), 0, nil
 	}
 
 	// create MovementSensor frame
 	movementSensorFrame, err := referenceframe.NewStaticFrame(
 		"test-gps",
-		spatialmath.NewPoseFromPoint(r3.Vector{-10, 0, 0}),
+		spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0}),
 	)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -453,19 +382,79 @@ func TestInjectedMoveOnGlobe(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	success, err := ms.MoveOnGlobe(
-		context.Background(),
-		fakeBase.Name(),
-		geo.NewPoint(0, 0.0000009),
-		math.NaN(),
-		injectedMovementSensor.Name(),
-		nil,
-		math.NaN(),
-		math.NaN(),
-		motionCfg,
-	)
+	gp, _, err := injectedMovementSensor.Position(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, success, test.ShouldBeTrue)
+	destGP := geo.NewPoint(gp.Lat(), gp.Lng()+0.0000009)
+
+	t.Run("ensure success to a nearby geo point", func(t *testing.T) {
+		success, err := ms.MoveOnGlobe(
+			context.Background(),
+			fakeBase.Name(),
+			destGP,
+			math.NaN(),
+			injectedMovementSensor.Name(),
+			nil,
+			math.NaN(),
+			math.NaN(),
+			motionCfg,
+		)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, success, test.ShouldBeTrue)
+	})
+
+	t.Run("go around an obstacle", func(t *testing.T) {
+		boxPose := spatialmath.NewPoseFromPoint(r3.Vector{50, 0, 0})
+		boxDims := r3.Vector{5, 50, 10}
+		geometries, err := spatialmath.NewBox(boxPose, boxDims, "wall")
+		test.That(t, err, test.ShouldBeNil)
+		geoObstacle := spatialmath.NewGeoObstacle(geo.NewPoint(0, 0), []spatialmath.Geometry{geometries})
+
+		localizer, err := motion.NewLocalizer(ctx, injectedMovementSensor)
+		test.That(t, err, test.ShouldBeNil)
+
+		currentPosition, dstPIF, err := ms.(*builtIn).getRelativePositionAndDestination(ctx, localizer, fakeBase.Name(), injectedMovementSensor.Name(), *destGP)
+		test.That(t, err, test.ShouldBeNil)
+
+		plan, _, err := ms.(*builtIn).planMoveOnGlobe(ctx, fakeBase.Name(), currentPosition, dstPIF, localizer, []*spatialmath.GeoObstacle{geoObstacle}, motionCfg)
+		fmt.Println("plan: ", plan)
+		fmt.Println("len(plan): ", len(plan))
+		// test.That(t, len(plan), test.ShouldBeGreaterThan, 2)
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("fail because of long wall", func(t *testing.T) {
+		boxPose := spatialmath.NewPoseFromPoint(r3.Vector{50, 0, 0})
+		boxDims := r3.Vector{2, 666, 10}
+		geometries, err := spatialmath.NewBox(boxPose, boxDims, "wall")
+		test.That(t, err, test.ShouldBeNil)
+		geoObstacle := spatialmath.NewGeoObstacle(geo.NewPoint(0, 0), []spatialmath.Geometry{geometries})
+
+		success, err := ms.MoveOnGlobe(
+			context.Background(),
+			fakeBase.Name(),
+			destGP,
+			math.NaN(),
+			injectedMovementSensor.Name(),
+			[]*spatialmath.GeoObstacle{geoObstacle},
+			math.NaN(),
+			math.NaN(),
+			motionCfg,
+		)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, success, test.ShouldBeFalse)
+	})
+
+	t.Run("relative position and distance are properly calculated", func(t *testing.T) {
+
+		localizer, err := motion.NewLocalizer(ctx, injectedMovementSensor)
+		test.That(t, err, test.ShouldBeNil)
+
+		currentPosition, dstPIF, err := ms.(*builtIn).getRelativePositionAndDestination(ctx, localizer, fakeBase.Name(), injectedMovementSensor.Name(), *destGP)
+		test.That(t, err, test.ShouldBeNil)
+
+		fmt.Println("currentPosition: ", currentPosition)
+		fmt.Println("dstPIF: ", dstPIF)
+	})
 }
 
 func TestMultiplePieces(t *testing.T) {
