@@ -29,6 +29,8 @@ const (
 	sensorDebug        = true
 )
 
+var errNoGoodSensor = errors.New("no appropriate sensor for orientaiton or velocity feedback")
+
 type sensorBase struct {
 	resource.Named
 	logger golog.Logger
@@ -57,44 +59,41 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 	sb.mu.Lock()
 	defer sb.mu.Unlock()
 
-	if len(sb.allSensors) != len(newConf.MovementSensor) {
-		for _, name := range newConf.MovementSensor {
-			ms, err := movementsensor.FromDependencies(deps, name)
-			if err != nil {
-				return errors.Wrapf(err, "no movement sensor named (%s)", name)
-			}
-			sb.allSensors = append(sb.allSensors, ms)
+	// reset all sensors
+	sb.allSensors = nil
+	sb.velocitiesSensor = nil
+	sb.orientation = nil
+
+	for _, name := range newConf.MovementSensor {
+		ms, err := movementsensor.FromDependencies(deps, name)
+		if err != nil {
+			return errors.Wrapf(err, "no movement sensor named (%s)", name)
 		}
-	} else {
-		// Compare each element of the slices
-		for i := range sb.allSensors {
-			if sb.allSensors[i].Name().String() != newConf.MovementSensor[i] {
-				for _, name := range newConf.MovementSensor {
-					ms, err := movementsensor.FromDependencies(deps, name)
-					if err != nil {
-						return errors.Wrapf(err, "no movement sensor named (%s)", name)
-					}
-					sb.allSensors[i] = ms
-				}
-				break
-			}
-		}
+		sb.allSensors = append(sb.allSensors, ms)
 	}
 
 	for _, ms := range sb.allSensors {
 		props, err := ms.Properties(context.Background(), nil)
 		if props.OrientationSupported && err == nil {
+			// return first sensor that does not error that satisfies the properties wanted
 			sb.orientation = ms
 			sb.logger.Infof("using sensor %s as orientation sensor for base", sb.orientation.Name().ShortName())
+			break
 		}
 	}
 
 	for _, ms := range sb.allSensors {
 		props, err := ms.Properties(context.Background(), nil)
 		if props.AngularVelocitySupported && props.LinearVelocitySupported && err == nil {
+			// return first sensor that does not error that satisfies the properties wanted
 			sb.velocitiesSensor = ms
 			sb.logger.Infof("using sensor %s as velocity sensor for base", sb.velocitiesSensor.Name().ShortName())
+			break
 		}
+	}
+
+	if sb.orientation == nil && sb.velocitiesSensor == nil {
+		return errNoGoodSensor
 	}
 
 	return nil
