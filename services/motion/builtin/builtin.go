@@ -259,6 +259,7 @@ func (ms *builtIn) MoveOnGlobe(
 	return true, nil
 }
 
+// planMoveOnGlobe returns the plan for MoveOnGlobe to execute
 func (ms *builtIn) planMoveOnGlobe(
 	ctx context.Context,
 	componentName resource.Name,
