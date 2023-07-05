@@ -1,5 +1,6 @@
 import { type Client, slamApi } from '@viamrobotics/sdk';
 import { rcLogConditionally } from '@/lib/log';
+import { Timestamp } from 'google-protobuf/google/protobuf/timestamp_pb';
 
 const concatArrayU8 = (arrays: Uint8Array[]) => {
   const totalLength = arrays.reduce((acc, value) => acc + value.length, 0);
@@ -74,3 +75,15 @@ export const getSLAMPosition = async (robotClient: Client, name: string) => {
 
   return response?.getPose();
 };
+
+export const getSLAMMapInfo = (client: Client, name: string) => {
+  const request = new slamApi.GetLatestMapInfoRequest();
+  request.setName(name);
+
+  return new Promise<Timestamp>((resolve, reject) => {
+    client.slamService.getLatestMapInfo(request, new grpc.Metadata(), (error, response) => (
+      error ? reject(error) : resolve(response?.latest_map_timestamp)
+    ));
+  });
+};
+
