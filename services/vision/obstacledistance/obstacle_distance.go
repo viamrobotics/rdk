@@ -21,12 +21,11 @@ import (
 	vision "go.viam.com/rdk/vision"
 )
 
-var model = resource.DefaultModelFamily.WithModel("obstacle_distance_detector")
+var model = resource.DefaultModelFamily.WithModel("obstacle_distance")
 
 // DistanceDetectorConfig specifies the parameters for the camera to be used
 // for the obstacle distance detection service.
 type DistanceDetectorConfig struct {
-	resource.TriviallyValidateConfig
 	NumQueries int `json:"num_queries"`
 }
 
@@ -46,6 +45,15 @@ func init() {
 	})
 }
 
+// Validate ensures all parts of the config are valid.
+func (config *DistanceDetectorConfig) Validate(path string) ([]string, error) {
+	var deps []string
+	if config.NumQueries < 1 || config.NumQueries > 20 {
+		return nil, errors.New("invalid number of queries, pick a number between 1 and 20")
+	}
+	return deps, nil
+}
+
 func registerObstacleDistanceDetector(
 	ctx context.Context,
 	name resource.Name,
@@ -56,9 +64,6 @@ func registerObstacleDistanceDetector(
 	defer span.End()
 	if conf == nil {
 		return nil, errors.New("object detection config for distance detector cannot be nil")
-	}
-	if conf.NumQueries < 1 || conf.NumQueries > 20 {
-		return nil, errors.New("invalid number of queries, pick a number between 1 and 20")
 	}
 
 	segmenter := func(ctx context.Context, src camera.VideoSource) ([]*vision.Object, error) {
@@ -72,44 +77,14 @@ func registerObstacleDistanceDetector(
 			clouds[i] = nxtPC
 		}
 
-		cloudsWithOffset := make([]pointcloud.CloudAndOffsetFunc, 0, len(clouds))
-		for _, cloud := range clouds {
-			cloudCopy := cloud
-			cloudFunc := func(ctx context.Context) (pointcloud.PointCloud, spatialmath.Pose, error) {
-				return cloudCopy, nil, nil
-			}
-			cloudsWithOffset = append(cloudsWithOffset, cloudFunc)
-		}
-		mergedCloud, err := pointcloud.MergePointClouds(context.Background(), cloudsWithOffset, nil)
-		if err != nil {
-			return nil, err
-		}
-
-		values := []float64{}
-		count := 0
-
-		mergedCloud.Iterate(0, 0, func(p r3.Vector, d pointcloud.Data) bool {
-			values = append(values, p.Z)
-			count++
-			return true
-		})
-		if count > conf.NumQueries {
-			return nil, errors.New("more than one point from one of the readings, expected one")
-		}
-
-		median, err := stats.Median(values)
+		median, err := medianFromPointClouds(clouds)
 		if err != nil {
 			return nil, err
 		}
 
 		vector := pointcloud.NewVector(0, 0, median)
 
-		pt := spatialmath.NewPoint(vector, "obstacle").Pose()
-
-		sphere, err := spatialmath.NewSphere(pt, 0.1, "obstacle") // can't make it zero because of error case in newsphere
-		if err != nil {
-			return nil, err
-		}
+		pt := spatialmath.NewPoint(vector, "obstacle")
 
 		pcToReturn := pointcloud.New()
 		basicData := pointcloud.NewBasicData()
@@ -121,9 +96,44 @@ func registerObstacleDistanceDetector(
 		// implementation of kalman filter (smart smoothing average function) over readings from nextpointcloud
 
 		toReturn := make([]*vision.Object, 1)
-		toReturn[0] = &vision.Object{PointCloud: pcToReturn, Geometry: sphere}
+		toReturn[0] = &vision.Object{PointCloud: pcToReturn, Geometry: pt}
 
 		return toReturn, nil
 	}
 	return svision.NewService(name, r, nil, nil, nil, segmenter)
+}
+
+func medianFromPointClouds(clouds []pointcloud.PointCloud) (float64, error) {
+	cloudsWithOffset := make([]pointcloud.CloudAndOffsetFunc, 0, len(clouds))
+	numPoints := 0
+	for _, cloud := range clouds {
+		cloudCopy := cloud
+		cloudFunc := func(ctx context.Context) (pointcloud.PointCloud, spatialmath.Pose, error) {
+			return cloudCopy, nil, nil
+		}
+		numPoints += cloudCopy.Size()
+		cloudsWithOffset = append(cloudsWithOffset, cloudFunc)
+	}
+	if numPoints > len(clouds) {
+		return -1, errors.New("obstacles_distance expects only one point in the point cloud from the camera." +
+			" Underlying camera generates more than 1 point in its point cloud")
+	}
+	mergedCloud, err := pointcloud.MergePointClouds(context.Background(), cloudsWithOffset, nil)
+	if err != nil {
+		return -1, err
+	}
+
+	values := []float64{}
+
+	mergedCloud.Iterate(0, 0, func(p r3.Vector, d pointcloud.Data) bool {
+		values = append(values, p.Z)
+		return true
+	})
+
+	median, err := stats.Median(values)
+	if err != nil {
+		return -1, err
+	}
+
+	return median, err
 }

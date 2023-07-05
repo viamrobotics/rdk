@@ -92,10 +92,19 @@ func TestObstacleDistDetector(t *testing.T) {
 	test.That(t, isPoint, test.ShouldBeTrue)
 
 	inp.NumQueries = 0 // value out of range
-	_, err = registerObstacleDistanceDetector(ctx, name, &inp, r)
+	_, err = inp.Validate("path")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid number of queries")
 
 	// with error - nil parameters
 	_, err = registerObstacleDistanceDetector(ctx, name, nil, r)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot be nil")
+
+	// error more than one point in cloud
+	cloud1 := pc.New()
+	err = cloud1.Set(pc.NewVector(0, 0, 6.0), pc.NewColoredData(color.NRGBA{255, 0, 0, 255}))
+	cloud2 := pc.New()
+	err = cloud2.Set(pc.NewVector(0, 0, 2.0), pc.NewColoredData(color.NRGBA{255, 0, 0, 255}))
+	err = cloud2.Set(pc.NewVector(0, 0, 5.0), pc.NewColoredData(color.NRGBA{255, 0, 0, 255}))
+	_, err = medianFromPointClouds([]pc.PointCloud{cloud1, cloud2})
+	test.That(t, err.Error(), test.ShouldContainSubstring, "obstacles_distance expects only one point in the point cloud")
 }
