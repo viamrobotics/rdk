@@ -11,7 +11,7 @@ import (
 
 type fakeKinematics struct {
 	*fake.Base
-	model     referenceframe.Model
+	model     referenceframe.Frame
 	localizer motion.Localizer
 	inputs    []referenceframe.Input
 }
@@ -23,29 +23,29 @@ func WrapWithFakeKinematics(
 	localizer motion.Localizer,
 	limits []referenceframe.Limit,
 ) (KinematicBase, error) {
-	var geometry spatialmath.Geometry
-	if b.Geometry != nil {
-		geometry = b.Geometry[0]
-	}
-	model, err := referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits, geometry)
-	if err != nil {
-		return nil, err
-	}
 	position, err := localizer.CurrentPosition(ctx)
 	if err != nil {
 		return nil, err
 	}
 	pt := position.Pose().Point()
-	return &fakeKinematics{
+	fk := &fakeKinematics{
 		Base:      b,
-		model:     model,
 		localizer: localizer,
 		inputs:    []referenceframe.Input{{pt.X}, {pt.Y}, {0}},
-	}, nil
+	}
+	fk.model, err = fk.Kinematics(limits)
+	if err != nil {
+		return nil, err
+	}
+	return fk, nil
 }
 
-func (fk *fakeKinematics) Kinematics() referenceframe.Frame {
-	return fk.model
+func (fk *fakeKinematics) Kinematics(limits []referenceframe.Limit) (referenceframe.Frame, error) {
+	var geometry spatialmath.Geometry
+	if fk.Base.Geometry != nil {
+		geometry = fk.Base.Geometry[0]
+	}
+	return referenceframe.New2DMobileModelFrame(fk.Base.Name().ShortName(), limits, geometry)
 }
 
 func (fk *fakeKinematics) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {

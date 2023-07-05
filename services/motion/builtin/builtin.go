@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -223,41 +224,11 @@ func (ms *builtIn) planMoveOnGlobe(
 ) ([][]referenceframe.Input, kinematicbase.KinematicBase, error) {
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
 
-	// get the localizer and current inputs from the componentName
+	// get relevant components
 	localizer, ok := ms.localizers[movementSensorName]
 	if !ok {
 		return nil, nil, resource.DependencyNotFoundError(movementSensorName)
 	}
-	currentPose, err := localizer.CurrentPosition(ctx)
-	if err != nil {
-		return nil, nil, err
-	}
-	currentPoint := currentPose.Pose().Point()
-
-	// convert destination into spatialmath.Pose with respect to lat = 0 = lng
-	dst := spatialmath.GeoPointToPose(destination)
-	relativeDst := r3.Vector{
-		X: dst.Point().X - currentPoint.X,
-		Y: dst.Point().Y - currentPoint.Y,
-		Z: 0,
-	}
-
-	// convert GeoObstacles into GeometriesInFrame with respect to the base's starting point
-	geoms := spatialmath.GeoObstaclesToGeometries(obstacles, currentPoint)
-	gif := referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)
-	wrldst, err := referenceframe.NewWorldState([]*referenceframe.GeometriesInFrame{gif}, nil)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// construct limits
-	straightlineDistance := relativeDst.Norm()
-	limits := []referenceframe.Limit{
-		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
-		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
-	}
-
-	// create a KinematicBase from the componentName
 	baseComponent, ok := ms.components[componentName]
 	if !ok {
 		return nil, nil, fmt.Errorf("only Base components are supported for MoveOnGlobe: could not find an Base named %v", componentName)
@@ -266,28 +237,48 @@ func (ms *builtIn) planMoveOnGlobe(
 	if !ok {
 		return nil, nil, fmt.Errorf("cannot move base of type %T because it is not a Base", baseComponent)
 	}
+
+	// make a kinematic base by wrapping the original base, limits of this base's frame are unrestricted
 	var kb kinematicbase.KinematicBase
+	var err error
+	limits := []referenceframe.Limit{{Min: math.Inf(-1), Max: math.Inf(1)}, {Min: math.Inf(-1), Max: math.Inf(1)}}
 	if fake, ok := b.(*fake.Base); ok {
 		kb, err = kinematicbase.WrapWithFakeKinematics(ctx, fake, localizer, limits)
 	} else {
-		kb, err = kinematicbase.WrapWithKinematics(
-			ctx,
-			b,
-			localizer,
-			limits,
-			linearVelocityMillisPerSec,
-			angularVelocityDegsPerSec,
-		)
+		kb, err = kinematicbase.WrapWithKinematics(ctx, b, localizer, limits, linearVelocityMillisPerSec, angularVelocityDegsPerSec)
 	}
 	if err != nil {
 		return nil, nil, err
 	}
 
-	inputMap := map[string][]referenceframe.Input{componentName.Name: make([]referenceframe.Input, 3)}
+	// get current location of the base
+	currentInputs, err := kb.CurrentInputs(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	currentPoint := r3.Vector{X: currentInputs[0].Value, Y: currentInputs[1].Value}
 
-	// Add the kinematic wheeled base to the framesystem
+	// convert destination into spatialmath.Pose with respect to lat = 0 = lng
+	relativeDst := spatialmath.GeoPointToPose(destination).Point().Sub(currentPoint)
+	distance := relativeDst.Norm()
+
+	// convert GeoObstacles into GeometriesInFrame with respect to the base's starting point
+	geoms := spatialmath.GeoObstaclesToGeometries(obstacles, currentPoint)
+	gif := referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)
+	wrldst, err := referenceframe.NewWorldState([]*referenceframe.GeometriesInFrame{gif}, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+	// Add the kinematic wheeled base frame to the framesystem, use smaller limits to make planning easier
 	fs := referenceframe.NewEmptyFrameSystem("")
-	if err := fs.AddFrame(kb.Kinematics(), fs.World()); err != nil {
+	f, err := kb.Kinematics([]referenceframe.Limit{
+		{Min: -3 * distance, Max: 3 * distance},
+		{Min: -3 * distance, Max: 3 * distance},
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	if err := fs.AddFrame(f, fs.World()); err != nil {
 		return nil, nil, err
 	}
 
@@ -296,8 +287,8 @@ func (ms *builtIn) planMoveOnGlobe(
 		ctx,
 		ms.logger,
 		referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewPoseFromPoint(relativeDst)),
-		kb.Kinematics(),
-		inputMap,
+		f,
+		referenceframe.StartPositions(fs),
 		fs,
 		wrldst,
 		nil,
@@ -307,7 +298,7 @@ func (ms *builtIn) planMoveOnGlobe(
 		return nil, nil, err
 	}
 
-	plan, err := motionplan.FrameStepsFromRobotPath(kb.Kinematics().Name(), solutionMap)
+	plan, err := motionplan.FrameStepsFromRobotPath(f.Name(), solutionMap)
 	return plan, kb, err
 }
 
@@ -496,7 +487,10 @@ func (ms *builtIn) planMoveOnMap(
 
 	dst := referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewPoseFromPoint(destination.Point()))
 
-	f := kb.Kinematics()
+	f, err := kb.Kinematics(limits)
+	if err != nil {
+		return nil, nil, err
+	}
 	fs := referenceframe.NewEmptyFrameSystem("")
 	if err := fs.AddFrame(f, fs.World()); err != nil {
 		return nil, nil, err

@@ -97,8 +97,8 @@ func wrapWithPTGKinematics(
 	}, nil
 }
 
-func (ptgk *ptgBaseKinematics) Kinematics() referenceframe.Frame {
-	return ptgk.frame
+func (ptgk *ptgBaseKinematics) Kinematics(_ []referenceframe.Limit) (referenceframe.Frame, error) {
+	return ptgk.frame, nil
 }
 
 func (ptgk *ptgBaseKinematics) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {

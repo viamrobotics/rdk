@@ -245,6 +245,9 @@ func TestMoveOnMap(t *testing.T) {
 		}
 		return f, nil
 	}
+	injectSlam.GetPositionFunc = func(ctx context.Context) (spatialmath.Pose, string, error) {
+		return spatialmath.NewZeroPose(), "", nil
+	}
 
 	cfg := resource.Config{
 		Name:  "test_base",

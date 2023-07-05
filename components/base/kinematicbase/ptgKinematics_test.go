@@ -42,10 +42,12 @@ func TestPTGKinematics(t *testing.T) {
 	dstPIF := referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewPoseFromPoint(r3.Vector{X: 999, Y: 0, Z: 0}))
 
 	fs := referenceframe.NewEmptyFrameSystem("test")
-	fs.AddFrame(kb.Kinematics(), fs.World())
+	f, err := kb.Kinematics(nil)
+	test.That(t, err, test.ShouldBeNil)
+	fs.AddFrame(f, fs.World())
 	inputMap := referenceframe.StartPositions(fs)
 
-	plan, err := motionplan.PlanMotion(ctx, logger, dstPIF, kb.Kinematics(), inputMap, fs, nil, nil, nil)
+	plan, err := motionplan.PlanMotion(ctx, logger, dstPIF, f, inputMap, fs, nil, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, plan, test.ShouldNotBeNil)
 }

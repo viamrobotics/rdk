@@ -33,46 +33,41 @@ func wrapWithDifferentialDriveKinematics(
 	maxLinearVelocityMillisPerSec float64,
 	maxAngularVelocityDegsPerSec float64,
 ) (KinematicBase, error) {
+	ddk := &differentialDriveKinematics{
+		Base:                          b,
+		localizer:                     localizer,
+		maxLinearVelocityMillisPerSec: maxLinearVelocityMillisPerSec,
+		maxAngularVelocityDegsPerSec:  maxAngularVelocityDegsPerSec,
+	}
+
 	geometries, err := b.Geometries(ctx)
 	if err != nil {
 		return nil, err
 	}
-
-	var geometry spatialmath.Geometry
 	if len(geometries) > 0 {
-		geometry = geometries[0]
-	}
-	model, err := referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits, geometry)
-	if err != nil {
-		return nil, err
+		ddk.geometry = geometries[0]
 	}
 
-	fs := referenceframe.NewEmptyFrameSystem("")
-	if err := fs.AddFrame(model, fs.World()); err != nil {
+	ddk.model, err = ddk.Kinematics(limits)
+	ddk.fs = referenceframe.NewEmptyFrameSystem("")
+	if err := ddk.fs.AddFrame(ddk.model, ddk.fs.World()); err != nil {
 		return nil, err
 	}
-
-	return &differentialDriveKinematics{
-		Base:                          b,
-		localizer:                     localizer,
-		model:                         model,
-		fs:                            fs,
-		maxLinearVelocityMillisPerSec: maxLinearVelocityMillisPerSec,
-		maxAngularVelocityDegsPerSec:  maxAngularVelocityDegsPerSec,
-	}, nil
+	return ddk, nil
 }
 
 type differentialDriveKinematics struct {
 	base.Base
 	localizer                     motion.Localizer
-	model                         referenceframe.Model
+	model                         referenceframe.Frame
+	geometry                      spatialmath.Geometry
 	fs                            referenceframe.FrameSystem
 	maxLinearVelocityMillisPerSec float64
 	maxAngularVelocityDegsPerSec  float64
 }
 
-func (ddk *differentialDriveKinematics) Kinematics() referenceframe.Frame {
-	return ddk.model
+func (ddk *differentialDriveKinematics) Kinematics(limits []referenceframe.Limit) (referenceframe.Frame, error) {
+	return referenceframe.New2DMobileModelFrame(ddk.Base.Name().ShortName(), limits, ddk.geometry)
 }
 
 func (ddk *differentialDriveKinematics) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
