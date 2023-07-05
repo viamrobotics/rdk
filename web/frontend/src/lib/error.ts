@@ -4,7 +4,7 @@ import { notify } from '@viamrobotics/prime';
 const nonUserErrors = new Set(['Response closed without headers']);
 
 export const isServiceError = (error: unknown): boolean => {
-  return error instanceof Object && error && 'message' in error && 'code' in error && 'metadata' in error;
+  return error instanceof Object && error && 'message' in error;
 };
 
 export const displayError = (error: ServiceError | string | null) => {

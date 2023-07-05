@@ -1,13 +1,15 @@
 <script lang="ts">
 
-import { type Client, commonApi } from '@viamrobotics/sdk';
+import { commonApi } from '@viamrobotics/sdk';
 import { notify } from '@viamrobotics/prime';
 import { resourceNameToString } from '@/lib/resource';
 import { doCommand } from '@/api/do-command';
-import Collapse from '@/components/collapse.svelte';
+import Collapse from '@/lib/components/collapse.svelte';
+import { useRobotClient } from '@/hooks/robot-client';
 
 export let resources: commonApi.ResourceName.AsObject[];
-export let client: Client;
+
+const { robotClient } = useRobotClient();
 
 let selectedComponent = '';
 let input = '';
@@ -22,7 +24,7 @@ const handleDoCommand = async (name: string, command: string) => {
   executing = true;
 
   try {
-    const outputObject = await doCommand(client, name, command);
+    const outputObject = await doCommand($robotClient, name, command);
 
     if (outputObject) {
       output = JSON.stringify(outputObject, null, '\t');
