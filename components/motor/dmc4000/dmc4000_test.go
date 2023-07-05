@@ -123,8 +123,6 @@ func TestDMC4000Motor(t *testing.T) {
 	}()
 	motorDep, ok := m.(motor.Motor)
 	test.That(t, ok, test.ShouldBeTrue)
-	stoppableMotor, ok := motorDep.(motor.LocalMotor)
-	test.That(t, ok, test.ShouldBeTrue)
 	waitTx(t, resChan)
 
 	t.Run("motor supports position reporting", func(t *testing.T) {
@@ -656,101 +654,6 @@ func TestDMC4000Motor(t *testing.T) {
 		txMu.Lock()
 		go checkTx(resChan, c, []string{"DPA=39680"})
 		test.That(t, motorDep.ResetZeroPosition(ctx, 3.1, nil), test.ShouldBeNil)
-		waitTx(t, resChan)
-	})
-
-	t.Run("motor gotillstop testing", func(t *testing.T) {
-		// No stop func
-		txMu.Lock()
-		go checkRx(resChan, c,
-			[]string{
-				"JGA=32000",
-				"BGA",
-				"SCA",
-				"SCA",
-				"SCA",
-				"SCA",
-				"SCA",
-				"SCA",
-				"SCA",
-				"TEA",
-				"STA",
-				"SCA",
-				"TEA",
-			},
-			[]string{
-				":",
-				":",
-				" 0\r\n:",
-				" 0\r\n:",
-				" 0\r\n:",
-				" 0\r\n:",
-				" 0\r\n:",
-				" 0\r\n:",
-				" 4\r\n:",
-				" 0\r\n:",
-				":",
-				" 4\r\n:",
-				" 0\r\n:",
-			},
-		)
-		test.That(t, stoppableMotor.GoTillStop(ctx, -25.0, nil), test.ShouldBeNil)
-
-		// Always-false stopFunc
-		txMu.Lock()
-		go checkRx(resChan, c,
-			[]string{
-				"JGA=5333",
-				"BGA",
-				"SCA",
-				"SCA",
-				"SCA",
-				"SCA",
-				"SCA",
-				"SCA",
-				"SCA",
-				"TEA",
-				"STA",
-				"SCA",
-				"TEA",
-			},
-			[]string{
-				":",
-				":",
-				" 0\r\n:",
-				" 0\r\n:",
-				" 0\r\n:",
-				" 0\r\n:",
-				" 0\r\n:",
-				" 0\r\n:",
-				" 4\r\n:",
-				" 0\r\n:",
-				":",
-				" 4\r\n:",
-				" 0\r\n:",
-			},
-		)
-		test.That(t, stoppableMotor.GoTillStop(ctx, -25.0, func(ctx context.Context) bool { return false }), test.ShouldBeNil)
-
-		// Always true stopFunc
-		txMu.Lock()
-		go checkRx(resChan, c,
-			[]string{
-				"JGA=32000",
-				"BGA",
-				"STA",
-				"SCA",
-				"TEA",
-			},
-			[]string{
-				":",
-				":",
-				":",
-				" 4\r\n:",
-				" 0\r\n:",
-			},
-		)
-		test.That(t, stoppableMotor.GoTillStop(ctx, -25.0, func(ctx context.Context) bool { return true }), test.ShouldBeNil)
 		waitTx(t, resChan)
 	})
 

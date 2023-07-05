@@ -64,7 +64,7 @@ func newBoard(
 		analogs: map[string]*wrappedAnalog{},
 		// this is not yet modified during reconfiguration but maybe should be
 		pwms:       map[string]pwmSetting{},
-		i2cs:       map[string]*i2cBus{},
+		i2cs:       map[string]*I2cBus{},
 		gpios:      map[string]*gpioPin{},
 		interrupts: map[string]*digitalInterrupt{},
 	}
@@ -152,7 +152,7 @@ func (b *sysfsBoard) reconfigureI2cs(newConf *Config) error {
 			}
 			continue
 		}
-		bus, err := newI2cBus(c.Bus)
+		bus, err := NewI2cBus(c.Bus)
 		if err != nil {
 			return err
 		}
@@ -363,7 +363,7 @@ type sysfsBoard struct {
 	spis         map[string]*spiBus
 	analogs      map[string]*wrappedAnalog
 	pwms         map[string]pwmSetting
-	i2cs         map[string]*i2cBus
+	i2cs         map[string]*I2cBus
 	logger       golog.Logger
 
 	usePeriphGpio bool

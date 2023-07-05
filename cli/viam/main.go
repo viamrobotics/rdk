@@ -870,7 +870,7 @@ func createDataFilter(c *cli.Context) (*datapb.Filter, error) {
 	filter := &datapb.Filter{}
 
 	if c.StringSlice(dataFlagOrgIDs) != nil {
-		filter.OrgIds = c.StringSlice(dataFlagOrgIDs)
+		filter.OrganizationIds = c.StringSlice(dataFlagOrgIDs)
 	}
 	if c.StringSlice(dataFlagLocationIDs) != nil {
 		filter.LocationIds = c.StringSlice(dataFlagLocationIDs)
