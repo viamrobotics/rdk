@@ -9,7 +9,9 @@ import (
 	"go.viam.com/rdk/robot/framesystem"
 )
 
-// FrameSystem represents a fake instance of a framesystem service.
+// FrameSystemService represents a fake instance of a framesystem service.
+// Due to the nature of the framesystem service, there should never be more than one on a robot.
+// If you use an injected frame system, do not also create the system's default frame system as well.
 type FrameSystemService struct {
 	framesystem.Service
 	name              resource.Name
@@ -76,7 +78,9 @@ func (fs *FrameSystemService) TransformPointCloud(
 }
 
 // CurrentInputs calls the injected method or the real variant.
-func (fs *FrameSystemService) CurrentInputs(ctx context.Context) (map[string][]referenceframe.Input, map[string]referenceframe.InputEnabled, error) {
+func (fs *FrameSystemService) CurrentInputs(
+	ctx context.Context,
+) (map[string][]referenceframe.Input, map[string]referenceframe.InputEnabled, error) {
 	if fs.CurrentInputsFunc == nil {
 		return fs.Service.CurrentInputs(ctx)
 	}
@@ -84,7 +88,10 @@ func (fs *FrameSystemService) CurrentInputs(ctx context.Context) (map[string][]r
 }
 
 // FrameSystem calls the injected method of the real variant.
-func (fs *FrameSystemService) FrameSystem(ctx context.Context, additionalTransforms []*referenceframe.LinkInFrame) (referenceframe.FrameSystem, error) {
+func (fs *FrameSystemService) FrameSystem(
+	ctx context.Context,
+	additionalTransforms []*referenceframe.LinkInFrame,
+) (referenceframe.FrameSystem, error) {
 	if fs.FrameSystemFunc == nil {
 		return fs.Service.FrameSystem(ctx, additionalTransforms)
 	}
