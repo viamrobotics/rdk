@@ -369,7 +369,7 @@ func (sb *sensorBase) SetVelocity(
 	sb.setPolling(true)
 	// start a sensor context for the sensor loop based on the longstanding base
 	// creator context, and add a timeout for the context
-	timeOut := time.Duration(10 * time.Second)
+	timeOut := 10 * time.Second
 	var sensorCtx context.Context
 	sensorCtx, sb.sensorLoopDone = context.WithTimeout(context.Background(), timeOut)
 
@@ -377,14 +377,13 @@ func (sb *sensorBase) SetVelocity(
 		sb.logger.Warn("not using sensor for SetVelocityfeedback, this feature will be implemented soon")
 		// TODO RSDK-3695 implement control loop here instead of placeholder sensor pllling function
 		sb.pollsensors(sensorCtx, extra)
-		return errors.New("setvelocity with sensor feedback not currently implemented, remove movement sensor reporting linear and angular velocity ")
-
+		return errors.New(
+			"setvelocity with sensor feedback not currently implemented, remove movement sensor reporting linear and angular velocity ")
 	}
 	return sb.wBase.SetVelocity(ctx, linear, angular, extra)
 }
 
 func (sb *sensorBase) pollsensors(ctx context.Context, extra map[string]interface{}) {
-
 	sb.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
 		ticker := time.NewTicker(velocitiesPollTime)
@@ -417,14 +416,10 @@ func (sb *sensorBase) pollsensors(ctx context.Context, extra map[string]interfac
 
 				if sensorDebug == true {
 					sb.logger.Infof("sensor readings: linear: %#v, angular %#v", linvel, angvel)
-
 				}
-
 			}
-
 		}
 	}, sb.activeBackgroundWorkers.Done)
-
 }
 
 func (sb *sensorBase) SetPower(

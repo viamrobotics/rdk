@@ -455,5 +455,4 @@ func TestReconfig(t *testing.T) {
 	test.That(t, sb.orientation, test.ShouldBeNil)
 	test.That(t, sb.orientation, test.ShouldBeNil)
 	test.That(t, err, test.ShouldBeError, errNoGoodSensor)
-
 }
