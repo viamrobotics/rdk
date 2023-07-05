@@ -89,9 +89,6 @@ func registerObstacleDistanceDetector(
 		count := 0
 
 		mergedCloud.Iterate(0, 0, func(p r3.Vector, d pointcloud.Data) bool {
-			// if p.X != 0 || p.Y != 0 {
-			// Should this be an error case?
-			// }
 			values = append(values, p.Z)
 			count++
 			return true
