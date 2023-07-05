@@ -589,7 +589,7 @@ func createFramesFromPart(part *FrameSystemPart) (Frame, Frame, error) {
 		if err != nil {
 			return nil, nil, err
 		}
-		pose, err := staticOriginFrame.Transform([]Input{})
+		pose, err := modelFrame.Transform([]Input{})
 		if err != nil {
 			return nil, nil, err
 		}

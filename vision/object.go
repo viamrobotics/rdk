@@ -40,9 +40,6 @@ func NewEmptyObject() *Object {
 
 // Distance calculates and returns the distance from the center point of the object to the origin.
 func (o *Object) Distance() (float64, error) {
-	if o.PointCloud == nil {
-		return -1, errors.New("no pointcloud object defined for distance formula to be applied")
-	}
 	if o.Geometry == nil {
 		return -1, errors.New("no geometry object defined for distance formula to be applied")
 	}
