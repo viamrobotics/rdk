@@ -1,7 +1,7 @@
 <script lang="ts">
 
   import type { inputControllerApi } from '@viamrobotics/sdk';
-  import Collapse from '../collapse.svelte';
+  import Collapse from '@/lib/components/collapse.svelte';
 
   export let name: string;
   export let status: {

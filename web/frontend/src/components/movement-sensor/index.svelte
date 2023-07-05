@@ -1,10 +1,9 @@
 <script lang="ts">
 
-import { onMount, onDestroy } from 'svelte';
-import { Client, movementSensorApi as movementsensorApi, type ServiceError } from '@viamrobotics/sdk';
-import type { ResponseStream, commonApi, robotApi } from '@viamrobotics/sdk';
+import { movementSensorApi as movementsensorApi, type ServiceError } from '@viamrobotics/sdk';
+import type { commonApi } from '@viamrobotics/sdk';
 import { displayError } from '@/lib/error';
-import Collapse from '../collapse.svelte';
+import Collapse from '@/lib/components/collapse.svelte';
 import { setAsyncInterval } from '@/lib/schedule';
 import {
   getProperties,
@@ -15,10 +14,11 @@ import {
   getCompassHeading,
   getPosition,
 } from '@/api/movement-sensor';
+import { useRobotClient, useDisconnect } from '@/hooks/robot-client';
 
 export let name: string;
-export let client: Client;
-export let statusStream: ResponseStream<robotApi.StreamStatusResponse> | null;
+
+const { robotClient } = useRobotClient();
 
 let orientation: commonApi.Orientation.AsObject | undefined;
 let angularVelocity: commonApi.Vector3.AsObject | undefined;
@@ -32,7 +32,7 @@ let properties: movementsensorApi.GetPropertiesResponse.AsObject | undefined;
 let clearInterval: (() => void) | undefined;
 
 const refresh = async () => {
-  properties = await getProperties(client, name);
+  properties = await getProperties($robotClient, name);
 
   if (!properties) {
     return;
@@ -40,12 +40,12 @@ const refresh = async () => {
 
   try {
     const results = await Promise.all([
-      properties.orientationSupported ? getOrientation(client, name) : undefined,
-      properties.angularVelocitySupported ? getAngularVelocity(client, name) : undefined,
-      properties.linearAccelerationSupported ? getLinearAcceleration(client, name) : undefined,
-      properties.linearVelocitySupported ? getLinearVelocity(client, name) : undefined,
-      properties.compassHeadingSupported ? getCompassHeading(client, name) : undefined,
-      properties.positionSupported ? getPosition(client, name) : undefined,
+      properties.orientationSupported ? getOrientation($robotClient, name) : undefined,
+      properties.angularVelocitySupported ? getAngularVelocity($robotClient, name) : undefined,
+      properties.linearAccelerationSupported ? getLinearAcceleration($robotClient, name) : undefined,
+      properties.linearVelocitySupported ? getLinearVelocity($robotClient, name) : undefined,
+      properties.compassHeadingSupported ? getCompassHeading($robotClient, name) : undefined,
+      properties.positionSupported ? getPosition($robotClient, name) : undefined,
     ] as const);
 
     orientation = results[0];
@@ -62,19 +62,14 @@ const refresh = async () => {
 
 const handleToggle = (event: CustomEvent<{ open: boolean }>) => {
   if (event.detail.open) {
+    refresh();
     clearInterval = setAsyncInterval(refresh, 500);
   } else {
     clearInterval?.();
   }
 };
 
-onMount(() => {
-  statusStream?.on('end', () => clearInterval?.());
-});
-
-onDestroy(() => {
-  clearInterval?.();
-});
+useDisconnect(() => clearInterval?.());
 
 </script>
 

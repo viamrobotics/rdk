@@ -2,6 +2,8 @@ package slam
 
 import (
 	"context"
+	"errors"
+	"time"
 
 	"github.com/edaniels/golog"
 	"go.opencensus.io/trace"
@@ -78,6 +80,24 @@ func (c *client) GetInternalState(ctx context.Context) (func() ([]byte, error), 
 	defer span.End()
 
 	return grpchelper.GetInternalStateCallback(ctx, c.name, c.client)
+}
+
+// GetLatestMapInfo creates a request, calls the slam service GetLatestMapInfo, and
+// returns the timestamp of the last update to the map.
+func (c *client) GetLatestMapInfo(ctx context.Context) (time.Time, error) {
+	ctx, span := trace.StartSpan(ctx, "slam::client::GetLatestMapInfo")
+	defer span.End()
+
+	req := &pb.GetLatestMapInfoRequest{
+		Name: c.name,
+	}
+
+	resp, err := c.client.GetLatestMapInfo(ctx, req)
+	if err != nil {
+		return time.Time{}, errors.New("failure to get latest map info")
+	}
+	lastMapUpdate := resp.LastMapUpdate.AsTime()
+	return lastMapUpdate, err
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
