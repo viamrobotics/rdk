@@ -129,6 +129,7 @@ func GeoPointToPose(p *geo.Point) Pose {
 
 	switch {
 	case azimuth >= 0 && azimuth <= 90:
+		// multiply to convert km to mm
 		return NewPoseFromPoint(r3.Vector{latDist * 1e6, lngDist * 1e6, 0})
 	case azimuth > 90 && azimuth <= 180:
 		return NewPoseFromPoint(r3.Vector{latDist * 1e6, -lngDist * 1e6, 0})
