@@ -39,7 +39,7 @@ func WrapWithFakeKinematics(
 	}, nil
 }
 
-func (fk *fakeKinematics) ModelFrame() referenceframe.Model {
+func (fk *fakeKinematics) Kinematics() referenceframe.Frame {
 	return fk.model
 }
 
