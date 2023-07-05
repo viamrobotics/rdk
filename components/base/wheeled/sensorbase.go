@@ -26,7 +26,7 @@ const (
 	boundCheckTarget   = 5.0
 	oneTurn            = 360.0
 	increment          = 0.01
-	sensorDebug        = true
+	sensorDebug        = false
 )
 
 var errNoGoodSensor = errors.New("no appropriate sensor for orientaiton or velocity feedback")
@@ -74,7 +74,7 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 
 	for _, ms := range sb.allSensors {
 		props, err := ms.Properties(context.Background(), nil)
-		if props.OrientationSupported && err == nil {
+		if err == nil && props.OrientationSupported {
 			// return first sensor that does not error that satisfies the properties wanted
 			sb.orientation = ms
 			sb.logger.Infof("using sensor %s as orientation sensor for base", sb.orientation.Name().ShortName())
@@ -84,7 +84,7 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 
 	for _, ms := range sb.allSensors {
 		props, err := ms.Properties(context.Background(), nil)
-		if props.AngularVelocitySupported && props.LinearVelocitySupported && err == nil {
+		if err == nil && props.AngularVelocitySupported && props.LinearVelocitySupported {
 			// return first sensor that does not error that satisfies the properties wanted
 			sb.velocitiesSensor = ms
 			sb.logger.Infof("using sensor %s as velocity sensor for base", sb.velocitiesSensor.Name().ShortName())
@@ -375,7 +375,7 @@ func (sb *sensorBase) SetVelocity(
 
 	if sb.velocitiesSensor != nil {
 		sb.logger.Warn("not using sensor for SetVelocityfeedback, this feature will be implemented soon")
-		// TODO implement control loop here instead of placeholder sensor pllling function
+		// TODO RSDK-3695 implement control loop here instead of placeholder sensor pllling function
 		sb.pollsensors(sensorCtx, extra)
 		return errors.New("setvelocity with sensor feedback not currently implemented, remove movement sensor reporting linear and angular velocity ")
 
