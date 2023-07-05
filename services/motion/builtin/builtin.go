@@ -289,6 +289,7 @@ func (ms *builtIn) planMoveOnGlobe(
 		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
 		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
 	}
+	ms.logger.Debugf("base limits: %v", limits)
 
 	// create a KinematicBase from the componentName
 	baseComponent, ok := ms.components[componentName]
@@ -344,6 +345,7 @@ func (ms *builtIn) getRelativePositionAndDestination(
 	}
 
 	currentPosition = currentPIF.Pose().Point()
+	ms.logger.Debugf("current position: %v", currentPosition)
 
 	// get position of localizer relative to base
 	robotFS, err := ms.fsService.FrameSystem(ctx, nil)
@@ -366,10 +368,12 @@ func (ms *builtIn) getRelativePositionAndDestination(
 			return currentPosition, nil, err
 		}
 		currentPosition = tf.(*referenceframe.PoseInFrame).Pose().Point()
+		ms.logger.Debugf("corrected current position: %v", currentPosition)
 	}
 
 	// convert destination into spatialmath.Pose with respect to lat = 0 = lng
 	dstPose := spatialmath.GeoPointToPose(&destination)
+	ms.logger.Debugf("destination as geo point and pose: %v, %v", destination, dstPose.Point())
 
 	// convert the destination to be relative to the currentPosition
 	relativeDestinationPt := r3.Vector{
@@ -377,6 +381,7 @@ func (ms *builtIn) getRelativePositionAndDestination(
 		Y: dstPose.Point().Y - currentPosition.Y,
 		Z: 0,
 	}
+	ms.logger.Debugf("destination pose relative to current position: %v", relativeDestinationPt)
 
 	relativeDstPose := spatialmath.NewPoseFromPoint(relativeDestinationPt)
 	dstPIF := referenceframe.NewPoseInFrame(referenceframe.World, relativeDstPose)
