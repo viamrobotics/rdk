@@ -6,7 +6,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -51,7 +50,11 @@ func init() {
 		})
 }
 
-const builtinOpLabel = "motion-service"
+const (
+	builtinOpLabel                    = "motion-service"
+	defaultLinearVelocityMillisPerSec = 300 // mm per second; used for bases only
+	defaultAngularVelocityDegsPerSec  = 60  // degrees per second; used for bases only
+)
 
 // ErrNotImplemented is thrown when an unreleased function is called
 var ErrNotImplemented = errors.New("function coming soon but not yet implemented")
@@ -278,14 +281,11 @@ func (ms *builtIn) planMoveOnGlobe(
 	}
 
 	// construct limits
-	// straightlineDistance := math.Abs(dstPose.Point().Distance(currentPosition))
 	straightlineDistance := dstPIF.Pose().Point().Norm()
-	fmt.Println("straightlineDistance: ", straightlineDistance)
 	limits := []referenceframe.Limit{
 		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
 		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
 	}
-	fmt.Println("limits: ", limits)
 
 	// create a KinematicBase from the componentName
 	baseComponent, ok := ms.components[componentName]
@@ -340,7 +340,6 @@ func (ms *builtIn) getRelativePositionAndDestination(
 	}
 
 	currentPosition = currentPIF.Pose().Point()
-	fmt.Println("currentPosition: ", currentPosition)
 
 	// get position of localizer relative to base
 	robotFS, err := ms.fsService.FrameSystem(ctx, nil)
@@ -363,7 +362,6 @@ func (ms *builtIn) getRelativePositionAndDestination(
 			return currentPosition, nil, err
 		}
 		currentPosition = tf.(*referenceframe.PoseInFrame).Pose().Point()
-		fmt.Println("TRANSFORMED currentPosition: ", currentPosition)
 	}
 
 	// convert destination into spatialmath.Pose with respect to lat = 0 = lng
@@ -376,14 +374,9 @@ func (ms *builtIn) getRelativePositionAndDestination(
 		Y: dstPose.Point().Y - currentPosition.Y,
 		Z: 0,
 	}
-	fmt.Println("relativeDestinationPt: ", relativeDestinationPt)
 
 	relativeDstPose := spatialmath.NewPoseFromPoint(relativeDestinationPt)
 	dstPIF := referenceframe.NewPoseInFrame(referenceframe.World, relativeDstPose)
-
-	// construct limits
-	straightlineDistance := math.Abs(dstPose.Point().Distance(currentPosition))
-	fmt.Println("straightlineDistance: ", straightlineDistance)
 
 	return currentPosition, dstPIF, nil
 }
