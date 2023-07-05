@@ -107,4 +107,10 @@ func TestObstacleDistDetector(t *testing.T) {
 	err = cloud2.Set(pc.NewVector(0, 0, 5.0), pc.NewColoredData(color.NRGBA{255, 0, 0, 255}))
 	_, err = medianFromPointClouds([]pc.PointCloud{cloud1, cloud2})
 	test.That(t, err.Error(), test.ShouldContainSubstring, "obstacles_distance expects only one point in the point cloud")
+
+	cloud2 = pc.New()
+	err = cloud2.Set(pc.NewVector(0, 0, 6.0), pc.NewColoredData(color.NRGBA{255, 0, 0, 255}))
+	err = cloud2.Set(pc.NewVector(0, 0, 5.0), pc.NewColoredData(color.NRGBA{255, 0, 0, 255}))
+	_, err = medianFromPointClouds([]pc.PointCloud{cloud1, cloud2})
+	test.That(t, err.Error(), test.ShouldContainSubstring, "obstacles_distance expects only one point in the point cloud")
 }
