@@ -45,9 +45,9 @@ type sensorBase struct {
 
 	opMgr operation.SingleOperationManager
 
-	allSensors       []movementsensor.MovementSensor
-	orientation      movementsensor.MovementSensor
-	velocitiesSensor movementsensor.MovementSensor
+	allSensors  []movementsensor.MovementSensor
+	orientation movementsensor.MovementSensor
+	velocities  movementsensor.MovementSensor
 }
 
 func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
@@ -61,7 +61,7 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 
 	// reset all sensors
 	sb.allSensors = nil
-	sb.velocitiesSensor = nil
+	sb.velocities = nil
 	sb.orientation = nil
 
 	for _, name := range newConf.MovementSensor {
@@ -86,13 +86,13 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 		props, err := ms.Properties(context.Background(), nil)
 		if err == nil && props.AngularVelocitySupported && props.LinearVelocitySupported {
 			// return first sensor that does not error that satisfies the properties wanted
-			sb.velocitiesSensor = ms
-			sb.logger.Infof("using sensor %s as velocity sensor for base", sb.velocitiesSensor.Name().ShortName())
+			sb.velocities = ms
+			sb.logger.Infof("using sensor %s as velocity sensor for base", sb.velocities.Name().ShortName())
 			break
 		}
 	}
 
-	if sb.orientation == nil && sb.velocitiesSensor == nil {
+	if sb.orientation == nil && sb.velocities == nil {
 		return errNoGoodSensor
 	}
 
@@ -373,7 +373,7 @@ func (sb *sensorBase) SetVelocity(
 	var sensorCtx context.Context
 	sensorCtx, sb.sensorLoopDone = context.WithTimeout(context.Background(), timeOut)
 
-	if sb.velocitiesSensor != nil {
+	if sb.velocities != nil {
 		sb.logger.Warn("not using sensor for SetVelocityfeedback, this feature will be implemented soon")
 		// TODO RSDK-3695 implement control loop here instead of placeholder sensor pllling function
 		sb.pollsensors(sensorCtx, extra)
@@ -404,17 +404,17 @@ func (sb *sensorBase) pollsensors(ctx context.Context, extra map[string]interfac
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				linvel, err := sb.velocitiesSensor.LinearVelocity(ctx, extra)
+				linvel, err := sb.velocities.LinearVelocity(ctx, extra)
 				if err != nil {
 					sb.logger.Error(err)
 				}
 
-				angvel, err := sb.velocitiesSensor.AngularVelocity(ctx, extra)
+				angvel, err := sb.velocities.AngularVelocity(ctx, extra)
 				if err != nil {
 					sb.logger.Error(err)
 				}
 
-				if sensorDebug == true {
+				if sensorDebug {
 					sb.logger.Infof("sensor readings: linear: %#v, angular %#v", linvel, angvel)
 				}
 			}

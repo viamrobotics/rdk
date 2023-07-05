@@ -386,7 +386,7 @@ func msDependencies(t *testing.T, lmotors, rmotors, msNames []string, logger gol
 					OrientationSupported:     true,
 					AngularVelocitySupported: true,
 					LinearVelocitySupported:  true,
-				}, errors.New("bad sesnor")
+				}, errors.New("bad sensor")
 			}
 			deps[movementsensor.Named(msName)] = ms
 		default:
@@ -425,14 +425,14 @@ func TestReconfig(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	sb, ok = b.(*sensorBase)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, sb.velocitiesSensor.Name().ShortName(), test.ShouldResemble, "setvel1")
+	test.That(t, sb.velocities.Name().ShortName(), test.ShouldResemble, "setvel1")
 
 	deps, cfg = msDependencies(t, lmNames, rmNames, []string{"setvel2"}, logger)
 	err = b.Reconfigure(ctx, deps, cfg)
 	test.That(t, err, test.ShouldBeNil)
 	sb, ok = b.(*sensorBase)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, sb.velocitiesSensor.Name().ShortName(), test.ShouldResemble, "setvel2")
+	test.That(t, sb.velocities.Name().ShortName(), test.ShouldResemble, "setvel2")
 
 	deps, cfg = msDependencies(t, lmNames, rmNames, []string{"orientation3", "setvel3", "Bad"}, logger)
 	err = b.Reconfigure(ctx, deps, cfg)
@@ -440,7 +440,7 @@ func TestReconfig(t *testing.T) {
 	sb, ok = b.(*sensorBase)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, sb.orientation.Name().ShortName(), test.ShouldResemble, "orientation3")
-	test.That(t, sb.velocitiesSensor.Name().ShortName(), test.ShouldResemble, "setvel3")
+	test.That(t, sb.velocities.Name().ShortName(), test.ShouldResemble, "setvel3")
 
 	deps, cfg = msDependencies(t, lmNames, rmNames, []string{"Bad", "orientation4", "setvel4"}, logger)
 	err = b.Reconfigure(ctx, deps, cfg)
@@ -448,11 +448,11 @@ func TestReconfig(t *testing.T) {
 	sb, ok = b.(*sensorBase)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, sb.orientation.Name().ShortName(), test.ShouldResemble, "orientation4")
-	test.That(t, sb.velocitiesSensor.Name().ShortName(), test.ShouldResemble, "setvel4")
+	test.That(t, sb.velocities.Name().ShortName(), test.ShouldResemble, "setvel4")
 
 	deps, cfg = msDependencies(t, lmNames, rmNames, []string{"Bad"}, logger)
 	err = b.Reconfigure(ctx, deps, cfg)
 	test.That(t, sb.orientation, test.ShouldBeNil)
-	test.That(t, sb.orientation, test.ShouldBeNil)
+	test.That(t, sb.velocities, test.ShouldBeNil)
 	test.That(t, err, test.ShouldBeError, errNoGoodSensor)
 }
