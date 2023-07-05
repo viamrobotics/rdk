@@ -64,7 +64,7 @@ $client = new Client(impliedURL, {
 
   /*
    * TODO(RSDK-3183): Opt out of reconnection management in the Typescript
-   * SDK because the Remote Control implements it's own reconnection management.
+   * SDK because the Remote Control implements its own reconnection management.
    *
    * The Typescript SDK only manages reconnections for WebRTC connections - once
    * it can manage reconnections for direct gRPC connections, then we remove
