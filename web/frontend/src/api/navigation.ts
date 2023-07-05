@@ -10,7 +10,7 @@ export type NavigationModes =
 export type LngLat = { lng: number, lat: number }
 export type Waypoint = LngLat & { id: string }
 
-export const setMode = async (client: Client, name: string, mode: NavigationModes) => {
+export const setMode = async (robotClient: Client, name: string, mode: NavigationModes) => {
   const request = new navigationApi.SetModeRequest();
   request.setName(name);
   request.setMode(mode);
@@ -18,7 +18,7 @@ export const setMode = async (client: Client, name: string, mode: NavigationMode
   rcLogConditionally(request);
 
   const response = await new Promise<navigationApi.SetModeResponse | null>((resolve, reject) => {
-    client.navigationService.setMode(request, (error, res) => {
+    robotClient.navigationService.setMode(request, (error, res) => {
       if (error) {
         reject(error);
       } else {
@@ -30,7 +30,7 @@ export const setMode = async (client: Client, name: string, mode: NavigationMode
   return response?.toObject();
 };
 
-export const setWaypoint = async (client: Client, lat: number, lng: number, name: string) => {
+export const setWaypoint = async (robotClient: Client, lat: number, lng: number, name: string) => {
   const request = new navigationApi.AddWaypointRequest();
   const point = new commonApi.GeoPoint();
 
@@ -42,7 +42,7 @@ export const setWaypoint = async (client: Client, lat: number, lng: number, name
   rcLogConditionally(request);
 
   const response = await new Promise<navigationApi.AddWaypointResponse | null>((resolve, reject) => {
-    client.navigationService.addWaypoint(request, (error, res) => {
+    robotClient.navigationService.addWaypoint(request, (error, res) => {
       if (error) {
         reject(error);
       } else {
@@ -65,14 +65,14 @@ const formatWaypoints = (list: navigationApi.Waypoint[]) => {
   });
 };
 
-export const getWaypoints = async (client: Client, name: string): Promise<Waypoint[]> => {
+export const getWaypoints = async (robotClient: Client, name: string): Promise<Waypoint[]> => {
   const req = new navigationApi.GetWaypointsRequest();
   req.setName(name);
 
   rcLogConditionally(req);
 
   const response = await new Promise<{ getWaypointsList(): navigationApi.Waypoint[] } | null>((resolve, reject) => {
-    client.navigationService.getWaypoints(req, (error, res) => {
+    robotClient.navigationService.getWaypoints(req, (error, res) => {
       if (error) {
         reject(error);
       } else {
@@ -84,7 +84,7 @@ export const getWaypoints = async (client: Client, name: string): Promise<Waypoi
   return formatWaypoints(response?.getWaypointsList() ?? []);
 };
 
-export const removeWaypoint = async (client: Client, name: string, id: string) => {
+export const removeWaypoint = async (robotClient: Client, name: string, id: string) => {
   const request = new navigationApi.RemoveWaypointRequest();
   request.setName(name);
   request.setId(id);
@@ -92,7 +92,7 @@ export const removeWaypoint = async (client: Client, name: string, id: string) =
   rcLogConditionally(request);
 
   const response = await new Promise<navigationApi.RemoveWaypointResponse | null>((resolve, reject) => {
-    client.navigationService.removeWaypoint(request, (error, res) => {
+    robotClient.navigationService.removeWaypoint(request, (error, res) => {
       if (error) {
         reject(error);
       } else {
@@ -104,14 +104,14 @@ export const removeWaypoint = async (client: Client, name: string, id: string) =
   return response?.toObject();
 };
 
-export const getLocation = async (client: Client, name: string) => {
+export const getLocation = async (robotClient: Client, name: string) => {
   const request = new navigationApi.GetLocationRequest();
   request.setName(name);
 
   rcLogConditionally(request);
 
   const response = await new Promise<navigationApi.GetLocationResponse | null>((resolve, reject) => {
-    client.navigationService.getLocation(request, (error, res) => {
+    robotClient.navigationService.getLocation(request, (error, res) => {
       if (error) {
         reject(error);
       } else {

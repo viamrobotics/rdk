@@ -10,7 +10,7 @@ import { notify } from '@viamrobotics/prime';
 import { StreamManager } from '@/lib/stream-manager';
 import { getOperations, getResourceNames, getSessions } from '@/api/robot';
 import { getSensors } from '@/api/sensors';
-import { useClient } from '@/hooks/client';
+import { useRobotClient } from '@/hooks/robot-client';
 import { setAsyncInterval } from '@/lib/schedule';
 import { resourceNameToString, filterSubtype } from '@/lib/resource';
 
@@ -21,7 +21,7 @@ export let bakedAuth: { authEntity?: string; creds?: Credentials; } = {};
 export let supportedAuthTypes: string[];
 
 const {
-  client,
+  robotClient,
   operations,
   sessions,
   sessionsSupported,
@@ -33,7 +33,7 @@ const {
   rtt,
   connectionStatus,
   components,
-} = useClient();
+} = useRobotClient();
 
 const dispatch = createEventDispatcher<{
   'connection-error': unknown
@@ -50,7 +50,7 @@ const relevantSubtypesForStatus = [
 
 const impliedURL = `${location.protocol}//${location.hostname}${location.port ? `:${location.port}` : ''}`;
 
-$client = new Client(impliedURL, {
+$robotClient = new Client(impliedURL, {
   enabled: webrtcEnabled,
   host,
   signalingAddress,
@@ -78,7 +78,7 @@ let password = '';
 let lastStatusTS: number | null = null;
 let resourcesOnce = false;
 
-$streamManager = new StreamManager($client);
+$streamManager = new StreamManager($robotClient);
 
 const errors: Record<string, boolean> = {};
 
@@ -146,7 +146,7 @@ const stringToResourceName = (nameStr: string) => {
 
 const loadCurrentOps = async () => {
   const now = Date.now();
-  const list = await getOperations($client);
+  const list = await getOperations($robotClient);
   const ops = [];
 
   $rtt = Math.max(Date.now() - now, 0);
@@ -175,7 +175,7 @@ const fetchCurrentSessions = async () => {
   }
 
   try {
-    const list = await getSessions($client);
+    const list = await getSessions($robotClient);
     list.sort((sess1, sess2) => (sess1.id < sess2.id ? -1 : 1));
     return list;
   } catch (error) {
@@ -224,7 +224,7 @@ const restartStatusStream = () => {
   streamReq.setResourceNamesList(names);
   streamReq.setEvery(new Duration().setNanos(500_000_000));
 
-  $statusStream = $client.robotService.streamStatus(streamReq);
+  $statusStream = $robotClient.robotService.streamStatus(streamReq);
   if ($statusStream !== null) {
     $statusStream.on('data', (response: { getStatusList(): robotApi.Status[] }) => {
       updateStatus(response.getStatusList());
@@ -248,7 +248,7 @@ const queryMetadata = async () => {
   let resourcesChanged = false;
   let shouldRestartStatusStream = !(resourcesOnce && $statusStream);
 
-  const resourcesList = await getResourceNames($client);
+  const resourcesList = await getResourceNames($robotClient);
 
   const differences: Set<string> = new Set(
     $resources.map((name) => resourceNameToString(name))
@@ -288,7 +288,7 @@ const queryMetadata = async () => {
   if (resourcesChanged === true) {
     const sensorsName = filterSubtype(resources.current, 'sensors', { remote: false })[0]?.name;
 
-    $sensorNames = sensorsName === undefined ? [] : (await getSensors($client, sensorsName));
+    $sensorNames = sensorsName === undefined ? [] : (await getSensors($robotClient, sensorsName));
 
   }
 
@@ -377,7 +377,7 @@ const tick = async () => {
     }
     resourcesOnce = false;
 
-    await $client.connect();
+    await $robotClient.connect();
 
     const now = Date.now();
 
@@ -411,7 +411,7 @@ const start = () => {
 const connect = async (creds?: Credentials) => {
   $connectionStatus = 'connecting';
 
-  await $client.connect(bakedAuth.authEntity, creds ?? bakedAuth.creds);
+  await $robotClient.connect(bakedAuth.authEntity, creds ?? bakedAuth.creds);
 
   $connectionStatus = 'connected';
   start();
@@ -440,7 +440,7 @@ const init = async () => {
 const handleUnload = () => {
   stop();
   $streamManager?.close();
-  $client.disconnect();
+  $robotClient.disconnect();
 };
 
 onMount(() => {

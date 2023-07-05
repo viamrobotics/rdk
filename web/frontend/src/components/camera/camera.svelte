@@ -4,14 +4,14 @@ import { onMount } from 'svelte';
 import { displayError } from '@/lib/error';
 import { CameraClient, type ServiceError } from '@viamrobotics/sdk';
 import { selectedMap } from '@/lib/camera-state';
-import { useClient, useDisconnect } from '@/hooks/client';
+import { useRobotClient, useDisconnect } from '@/hooks/robot-client';
 
 export let cameraName: string;
 export let showExportScreenshot: boolean;
 export let refreshRate: string | undefined;
 export let triggerRefresh = false;
 
-const { client, streamManager } = useClient();
+const { robotClient, streamManager } = useRobotClient();
 
 let imgEl: HTMLImageElement;
 let videoEl: HTMLVideoElement;
@@ -44,7 +44,7 @@ const updateCameraRefreshRate = () => {
 const exportScreenshot = async () => {
   let blob;
   try {
-    blob = await new CameraClient($client, cameraName).renderFrame(
+    blob = await new CameraClient($robotClient, cameraName).renderFrame(
       'image/jpeg'
     );
   } catch (error) {

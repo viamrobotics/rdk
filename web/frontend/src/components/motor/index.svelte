@@ -4,7 +4,7 @@ import { motorApi, MotorClient, type ServiceError } from '@viamrobotics/sdk';
 import { displayError } from '@/lib/error';
 import { rcLogConditionally } from '@/lib/log';
 import Collapse from '@/lib/components/collapse.svelte';
-import { useClient } from '@/hooks/client';
+import { useRobotClient } from '@/hooks/robot-client';
 
 export let name: string;
 export let status: undefined | {
@@ -17,11 +17,11 @@ const motorPosFormat = new Intl.NumberFormat(undefined, {
   maximumFractionDigits: 3,
 });
 
-const { client } = useClient();
+const { robotClient } = useRobotClient();
 
 type MovementTypes = 'go' | 'goFor' | 'goTo';
 
-const motorClient = new MotorClient($client, name, {
+const motorClient = new MotorClient($robotClient, name, {
   requestLogger: rcLogConditionally,
 });
 

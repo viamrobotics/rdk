@@ -3,18 +3,18 @@
 import { CameraClient } from '@viamrobotics/sdk';
 import { notify } from '@viamrobotics/prime';
 import PCD from './pcd-view.svelte';
-import { useClient } from '@/hooks/client';
+import { useRobotClient } from '@/hooks/robot-client';
 
 export let cameraName: string;
 
-const { client } = useClient();
+const { robotClient } = useRobotClient();
 
 let pcdExpanded = false;
 let pointcloud: Uint8Array | undefined;
 
 const renderPCD = async () => {
   try {
-    pointcloud = await new CameraClient($client, cameraName).getPointCloud();
+    pointcloud = await new CameraClient($robotClient, cameraName).getPointCloud();
   } catch (error) {
     notify.danger(`Error getting point cloud: ${error}`);
   }

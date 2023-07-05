@@ -4,7 +4,7 @@
   import { resourceNameToString } from '@/lib/resource';
   import { rcLogConditionally } from '@/lib/log';
   import Collapse from '@/lib/components/collapse.svelte';
-  import { useClient } from '@/hooks/client';
+  import { useRobotClient } from '@/hooks/robot-client';
 
   interface SensorName {
     name: string;
@@ -16,7 +16,7 @@
   export let name: string;
   export let sensorNames: SensorName[];
 
-  const { client } = useClient();
+  const { robotClient } = useRobotClient();
 
   interface Reading {
     _type: string;
@@ -40,7 +40,7 @@
     req.setSensorNamesList(names);
 
     rcLogConditionally(req);
-    $client.sensorsService.getReadings(
+    $robotClient.sensorsService.getReadings(
       req,
       (
         error: ServiceError | null,

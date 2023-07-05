@@ -4,17 +4,17 @@ import { StreamClient } from '@viamrobotics/sdk';
 import type { ServiceError } from '@viamrobotics/sdk';
 import { displayError } from '@/lib/error';
 import Collapse from '@/lib/components/collapse.svelte';
-import { useClient, useDisconnect } from '@/hooks/client';
+import { useRobotClient, useDisconnect } from '@/hooks/robot-client';
 
 export let name: string;
 
-const { client } = useClient();
+const { robotClient } = useRobotClient();
 
 let audio: HTMLAudioElement;
 
 let isOn = false;
 
-const streamClient = new StreamClient($client);
+const streamClient = new StreamClient($robotClient);
 
 const handleTrack = (event: unknown) => {
   const [eventStream] = (event as { streams: MediaStream[] }).streams;

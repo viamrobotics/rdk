@@ -5,7 +5,7 @@ import { displayError } from '@/lib/error';
 import { rcLogConditionally } from '@/lib/log';
 import { BoardClient, type ServiceError } from '@viamrobotics/sdk';
 import Collapse from '@/lib/components/collapse.svelte';
-import { useClient } from '@/hooks/client';
+import { useRobotClient } from '@/hooks/robot-client';
 
 export let name: string;
 export let status: undefined | {
@@ -13,9 +13,9 @@ export let status: undefined | {
   digital_interrupts: Record<string, { value: number }>
 };
 
-const { client } = useClient();
+const { robotClient } = useRobotClient();
 
-const boardClient = new BoardClient($client, name, { requestLogger: rcLogConditionally });
+const boardClient = new BoardClient($robotClient, name, { requestLogger: rcLogConditionally });
 
 let getPin = '';
 let setPin = '';

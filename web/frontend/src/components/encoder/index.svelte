@@ -5,11 +5,11 @@ import { displayError } from '@/lib/error';
 import { setAsyncInterval } from '@/lib/schedule';
 import { getProperties, getPosition, getPositionDegrees, reset } from '@/api/encoder';
 import Collapse from '@/lib/components/collapse.svelte';
-import { useClient, useDisconnect } from '@/hooks/client';
+import { useRobotClient, useDisconnect } from '@/hooks/robot-client';
 
 export let name: string;
 
-const { client } = useClient();
+const { robotClient } = useRobotClient();
 
 let properties: encoderApi.GetPropertiesResponse.AsObject | undefined;
 let positionTicks: number | undefined;
@@ -20,8 +20,8 @@ let cancelInterval: (() => void) | undefined;
 const refresh = async () => {
   try {
     const results = await Promise.all([
-      getPosition($client, name),
-      properties?.angleDegreesSupported ? getPositionDegrees($client, name) : undefined,
+      getPosition($robotClient, name),
+      properties?.angleDegreesSupported ? getPositionDegrees($robotClient, name) : undefined,
     ] as const);
 
     positionTicks = results[0];
@@ -33,7 +33,7 @@ const refresh = async () => {
 
 const handleResetClick = async () => {
   try {
-    await reset($client, name);
+    await reset($robotClient, name);
   } catch (error) {
     displayError(error as ServiceError);
   }
@@ -42,7 +42,7 @@ const handleResetClick = async () => {
 const handleToggle = async (event: CustomEvent<{ open: boolean }>) => {
   if (event.detail.open) {
     try {
-      properties = await getProperties($client, name);
+      properties = await getProperties($robotClient, name);
       refresh();
       cancelInterval = setAsyncInterval(refresh, 500);
     } catch (error) {

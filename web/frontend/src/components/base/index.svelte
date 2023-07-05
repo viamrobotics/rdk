@@ -11,7 +11,7 @@
   import { clickOutside } from '../../lib/click-outside';
   import Collapse from '@/lib/components/collapse.svelte';
   import { components } from '@/stores/resources';
-  import { useClient } from '@/hooks/client';
+  import { useRobotClient } from '@/hooks/robot-client';
 
   export let name: string;
 
@@ -29,9 +29,9 @@
   type Directions = 'Forwards' | 'Backwards';
   type View = 'Stacked' | 'Grid';
 
-  const { client } = useClient();
+  const { robotClient } = useRobotClient();
 
-  const baseClient = new BaseClient($client, name, {
+  const baseClient = new BaseClient($robotClient, name, {
     requestLogger: rcLogConditionally,
   });
 

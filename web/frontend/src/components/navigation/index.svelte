@@ -10,11 +10,11 @@ import { mapCenter, centerMap, robotPosition, flyToMap } from './stores';
 import Collapse from '@/lib/components/collapse.svelte';
 import Map from './components/map.svelte';
 import Nav from './components/nav.svelte';
-import { useClient } from '@/hooks/client';
+import { useRobotClient } from '@/hooks/robot-client';
 
 export let name: string;
 
-const { client } = useClient();
+const { robotClient } = useRobotClient();
 
 const decimalFormat = new Intl.NumberFormat(undefined, { maximumFractionDigits: 7 });
 
@@ -37,7 +37,7 @@ const setNavigationMode = async (event: CustomEvent) => {
   }[mode];
 
   try {
-    await setMode($client, name, navigationMode);
+    await setMode($robotClient, name, navigationMode);
   } catch (error) {
     notify.danger((error as ServiceError).message);
   }

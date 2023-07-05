@@ -15,13 +15,13 @@ const concatArrayU8 = (arrays: Uint8Array[]) => {
   return result;
 };
 
-export const getPointCloudMap = (client: Client, name: string) => {
+export const getPointCloudMap = (robotClient: Client, name: string) => {
   const request = new slamApi.GetPointCloudMapRequest();
   request.setName(name);
   rcLogConditionally(request);
 
   const chunks: Uint8Array[] = [];
-  const stream = client.slamService.getPointCloudMap(request);
+  const stream = robotClient.slamService.getPointCloudMap(request);
 
   stream.on('data', (response) => {
     const chunk = response.getPointCloudPcdChunk_asU8();
@@ -58,12 +58,12 @@ export const getPointCloudMap = (client: Client, name: string) => {
   });
 };
 
-export const getSLAMPosition = async (client: Client, name: string) => {
+export const getSLAMPosition = async (robotClient: Client, name: string) => {
   const request = new slamApi.GetPositionRequest();
   request.setName(name);
 
   const response = await new Promise<slamApi.GetPositionResponse | null>((resolve, reject) => {
-    client.slamService.getPosition(request, (error, res) => {
+    robotClient.slamService.getPosition(request, (error, res) => {
       if (error) {
         reject(error);
       } else {

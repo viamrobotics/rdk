@@ -4,7 +4,7 @@ import { gantryApi } from '@viamrobotics/sdk';
 import { displayError } from '@/lib/error';
 import { rcLogConditionally } from '@/lib/log';
 import Collapse from '@/lib/components/collapse.svelte';
-import { useClient } from '@/hooks/client';
+import { useRobotClient } from '@/hooks/robot-client';
 
 export let name: string;
 export let status: {
@@ -17,7 +17,7 @@ export let status: {
   positions_mm: [],
 };
 
-const { client } = useClient();
+const { robotClient } = useRobotClient();
 
 $: parts = status.lengths_mm.map((_, index) => ({
   axis: index,
@@ -47,7 +47,7 @@ const increment = (axis: number, amount: number) => {
   req.setPositionsMmList(pos);
 
   rcLogConditionally(req);
-  $client.gantryService.moveToPosition(req, displayError);
+  $robotClient.gantryService.moveToPosition(req, displayError);
 };
 
 const stop = () => {
@@ -55,7 +55,7 @@ const stop = () => {
   req.setName(name);
 
   rcLogConditionally(req);
-  $client.gantryService.stop(req, displayError);
+  $robotClient.gantryService.stop(req, displayError);
 };
 
 </script>

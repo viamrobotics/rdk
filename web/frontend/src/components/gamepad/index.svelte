@@ -7,11 +7,11 @@ import { inputControllerApi as InputController, type ServiceError } from '@viamr
 import { notify } from '@viamrobotics/prime';
 import { rcLogConditionally } from '@/lib/log';
 import Collapse from '@/lib/components/collapse.svelte';
-import { useClient, useDisconnect } from '@/hooks/client';
+import { useRobotClient, useDisconnect } from '@/hooks/robot-client';
 
 export let name: string;
 
-const { client } = useClient();
+const { robotClient } = useRobotClient();
 
 let gamepadIdx: number | null = null;
 let gamepadConnectedPrev = false;
@@ -51,7 +51,7 @@ const sendEvent = (newEvent: InputController.Event) => {
   req.setController(name);
   req.setEvent(newEvent);
   rcLogConditionally(req);
-  $client.inputControllerService.triggerEvent(req, (error: ServiceError | null) => {
+  $robotClient.inputControllerService.triggerEvent(req, (error: ServiceError | null) => {
     if (error) {
       if (ConnectionClosedError.isError(error)) {
         return;

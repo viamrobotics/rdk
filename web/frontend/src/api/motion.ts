@@ -3,7 +3,7 @@ import { Struct } from 'google-protobuf/google/protobuf/struct_pb';
 import { getSLAMPosition } from './slam';
 import { rcLogConditionally } from '@/lib/log';
 
-export const moveOnMap = async (client: Client, name: string, componentName: string, x: number, y: number) => {
+export const moveOnMap = async (robotClient: Client, name: string, componentName: string, x: number, y: number) => {
   const request = new motionApi.MoveOnMapRequest();
 
   /*
@@ -12,7 +12,7 @@ export const moveOnMap = async (client: Client, name: string, componentName: str
   request.setName('builtin');
 
   // set pose in frame
-  const lastPose = await getSLAMPosition(client, name);
+  const lastPose = await getSLAMPosition(robotClient, name);
 
   const destination = new commonApi.Pose();
   destination.setX(x * 1000);
@@ -48,7 +48,7 @@ export const moveOnMap = async (client: Client, name: string, componentName: str
   );
 
   const response = await new Promise<motionApi.MoveOnMapResponse | null>((resolve, reject) => {
-    client.motionService.moveOnMap(request, (error, res) => {
+    robotClient.motionService.moveOnMap(request, (error, res) => {
       if (error) {
         reject(error);
       } else {
@@ -60,7 +60,7 @@ export const moveOnMap = async (client: Client, name: string, componentName: str
   return response?.getSuccess();
 };
 
-export const stopMoveOnMap = async (client: Client, operations: { op: robotApi.Operation.AsObject }[]) => {
+export const stopMoveOnMap = async (robotClient: Client, operations: { op: robotApi.Operation.AsObject }[]) => {
   const match = operations.find(({ op }) => op.method.includes('MoveOnMap'));
 
   if (!match) {
@@ -72,7 +72,7 @@ export const stopMoveOnMap = async (client: Client, operations: { op: robotApi.O
   rcLogConditionally(req);
 
   const response = await new Promise<robotApi.CancelOperationResponse | null>((resolve, reject) => {
-    client.robotService.cancelOperation(req, (error, res) => {
+    robotClient.robotService.cancelOperation(req, (error, res) => {
       if (error) {
         reject(error);
       } else {

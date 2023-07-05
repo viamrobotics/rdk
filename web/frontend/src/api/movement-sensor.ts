@@ -1,14 +1,14 @@
 import { type Client, movementSensorApi } from '@viamrobotics/sdk';
 import { rcLogConditionally } from '@/lib/log';
 
-export const getProperties = async (client: Client, name: string) => {
+export const getProperties = async (robotClient: Client, name: string) => {
   const req = new movementSensorApi.GetPropertiesRequest();
   req.setName(name);
 
   rcLogConditionally(req);
 
   const response = await new Promise<movementSensorApi.GetPropertiesResponse | null>((resolve, reject) => {
-    client.movementSensorService.getProperties(req, (error, res) => {
+    robotClient.movementSensorService.getProperties(req, (error, res) => {
       if (error) {
         reject(error);
       } else {
@@ -20,14 +20,14 @@ export const getProperties = async (client: Client, name: string) => {
   return response?.toObject();
 };
 
-export const getOrientation = async (client: Client, name: string) => {
+export const getOrientation = async (robotClient: Client, name: string) => {
   const req = new movementSensorApi.GetOrientationRequest();
   req.setName(name);
 
   rcLogConditionally(req);
 
   const response = await new Promise<movementSensorApi.GetOrientationResponse | null>((resolve, reject) => {
-    client.movementSensorService.getOrientation(req, (error, res) => {
+    robotClient.movementSensorService.getOrientation(req, (error, res) => {
       if (error) {
         reject(error);
       } else {
@@ -39,14 +39,14 @@ export const getOrientation = async (client: Client, name: string) => {
   return response?.toObject().orientation;
 };
 
-export const getAngularVelocity = async (client: Client, name: string) => {
+export const getAngularVelocity = async (robotClient: Client, name: string) => {
   const req = new movementSensorApi.GetAngularVelocityRequest();
   req.setName(name);
 
   rcLogConditionally(req);
 
   const response = await new Promise<movementSensorApi.GetAngularVelocityResponse | null>((resolve, reject) => {
-    client.movementSensorService.getAngularVelocity(req, (error, res) => {
+    robotClient.movementSensorService.getAngularVelocity(req, (error, res) => {
       if (error) {
         reject(error);
       } else {
@@ -58,14 +58,14 @@ export const getAngularVelocity = async (client: Client, name: string) => {
   return response?.toObject().angularVelocity;
 };
 
-export const getLinearAcceleration = async (client: Client, name: string) => {
+export const getLinearAcceleration = async (robotClient: Client, name: string) => {
   const req = new movementSensorApi.GetLinearAccelerationRequest();
   req.setName(name);
 
   rcLogConditionally(req);
 
   const response = await new Promise<movementSensorApi.GetLinearAccelerationResponse | null>((resolve, reject) => {
-    client.movementSensorService.getLinearAcceleration(req, (error, res) => {
+    robotClient.movementSensorService.getLinearAcceleration(req, (error, res) => {
       if (error) {
         reject(error);
       } else {
@@ -77,14 +77,14 @@ export const getLinearAcceleration = async (client: Client, name: string) => {
   return response?.toObject().linearAcceleration;
 };
 
-export const getLinearVelocity = async (client: Client, name: string) => {
+export const getLinearVelocity = async (robotClient: Client, name: string) => {
   const req = new movementSensorApi.GetLinearVelocityRequest();
   req.setName(name);
 
   rcLogConditionally(req);
 
   const response = await new Promise<movementSensorApi.GetLinearVelocityResponse | null>((resolve, reject) => {
-    client.movementSensorService.getLinearVelocity(req, (error, res) => {
+    robotClient.movementSensorService.getLinearVelocity(req, (error, res) => {
       if (error) {
         reject(error);
       } else {
@@ -96,14 +96,14 @@ export const getLinearVelocity = async (client: Client, name: string) => {
   return response?.toObject().linearVelocity;
 };
 
-export const getCompassHeading = async (client: Client, name: string) => {
+export const getCompassHeading = async (robotClient: Client, name: string) => {
   const req = new movementSensorApi.GetCompassHeadingRequest();
   req.setName(name);
 
   rcLogConditionally(req);
 
   const response = await new Promise<movementSensorApi.GetCompassHeadingResponse | null>((resolve, reject) => {
-    client.movementSensorService.getCompassHeading(req, (error, res) => {
+    robotClient.movementSensorService.getCompassHeading(req, (error, res) => {
       if (error) {
         reject(error);
       } else {
@@ -115,14 +115,14 @@ export const getCompassHeading = async (client: Client, name: string) => {
   return response?.toObject().value;
 };
 
-export const getPosition = async (client: Client, name: string) => {
+export const getPosition = async (robotClient: Client, name: string) => {
   const req = new movementSensorApi.GetPositionRequest();
   req.setName(name);
 
   rcLogConditionally(req);
 
   const response = await new Promise<movementSensorApi.GetPositionResponse | null>((resolve, reject) => {
-    client.movementSensorService.getPosition(req, (error, res) => {
+    robotClient.movementSensorService.getPosition(req, (error, res) => {
       if (error) {
         reject(error);
       } else {

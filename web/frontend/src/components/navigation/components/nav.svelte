@@ -4,11 +4,11 @@ import type { ServiceError } from '@viamrobotics/sdk';
 import { notify } from '@viamrobotics/prime';
 import { obstacles, waypoints, flyToMap } from '../stores';
 import { removeWaypoint } from '@/api/navigation';
-import { useClient } from '@/hooks/client';
+import { useRobotClient } from '@/hooks/robot-client';
 
 export let name: string;
 
-const { client } = useClient();
+const { robotClient } = useRobotClient();
 
 const handleClick = (lng: number, lat: number) => {
   flyToMap({ lng, lat });
@@ -17,7 +17,7 @@ const handleClick = (lng: number, lat: number) => {
 const handleRemoveWaypoint = async (id: string) => {
   try {
     $waypoints = $waypoints.filter((item) => item.id !== id);
-    await removeWaypoint($client, name, id);
+    await removeWaypoint($robotClient, name, id);
   } catch (error) {
     notify.danger((error as ServiceError).message);
   }

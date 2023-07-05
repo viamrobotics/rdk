@@ -12,11 +12,11 @@ import { components } from '@/stores/resources';
 import Collapse from '@/lib/components/collapse.svelte';
 import PCD from '@/components/pcd/pcd-view.svelte';
 import Slam2dRenderer from './2d-renderer.svelte';
-import { useClient, useDisconnect } from '@/hooks/client';
+import { useRobotClient, useDisconnect } from '@/hooks/robot-client';
 
 export let name: string;
 
-const { client, operations } = useClient();
+const { robotClient, operations } = useRobotClient();
 
 const refreshErrorMessage = 'Error refreshing map. The map shown may be stale.';
 
@@ -52,8 +52,8 @@ const deleteDestinationMarker = () => {
 const refresh2d = async () => {
   try {
     const [map, nextPose] = await Promise.all([
-      getPointCloudMap($client, name),
-      getSLAMPosition($client, name),
+      getPointCloudMap($robotClient, name),
+      getSLAMPosition($robotClient, name),
     ]);
 
     /*
@@ -75,7 +75,7 @@ const refresh2d = async () => {
 
 const refresh3d = async () => {
   try {
-    pointcloud = await getPointCloudMap($client, name);
+    pointcloud = await getPointCloudMap($robotClient, name);
   } catch (error) {
     refreshErrorMessage3d = error !== null && typeof error === 'object' && 'message' in error
       ? `${refreshErrorMessage} ${error.message}`
@@ -166,7 +166,7 @@ const toggleAxes = () => {
 
 const handleMoveClick = async () => {
   try {
-    await moveOnMap($client, name, bases[0]!.name, destination!.x, destination!.y);
+    await moveOnMap($robotClient, name, bases[0]!.name, destination!.x, destination!.y);
   } catch (error) {
     notify.danger((error as ServiceError).message);
   }
@@ -174,7 +174,7 @@ const handleMoveClick = async () => {
 
 const handleStopMoveClick = async () => {
   try {
-    await stopMoveOnMap($client, $operations);
+    await stopMoveOnMap($robotClient, $operations);
   } catch (error) {
     notify.danger((error as ServiceError).message);
   }

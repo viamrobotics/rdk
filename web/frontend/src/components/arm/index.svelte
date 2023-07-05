@@ -7,7 +7,7 @@ import { displayError } from '@/lib/error';
 import { roundTo2Decimals } from '@/lib/math';
 import { rcLogConditionally } from '@/lib/log';
 import Collapse from '@/lib/components/collapse.svelte';
-import { useClient } from '@/hooks/client';
+import { useRobotClient } from '@/hooks/robot-client';
 
 interface ArmStatus {
   pos_pieces: {
@@ -29,7 +29,7 @@ export let status: {
   joint_positions: { values: number[]}
 } | undefined;
 
-const { client } = useClient();
+const { robotClient } = useRobotClient();
 
 let modifyAll = false;
 
@@ -87,7 +87,7 @@ let modifyAllStatus: ArmStatus = {
   joint_pieces: [],
 };
 
-const armClient = new ArmClient($client, name, { requestLogger: rcLogConditionally });
+const armClient = new ArmClient($robotClient, name, { requestLogger: rcLogConditionally });
 
 const stop = async () => {
   try {

@@ -4,8 +4,8 @@ import { currentWritable } from '@threlte/core';
 import { StreamManager } from '@/lib/stream-manager';
 import { onDestroy } from 'svelte';
 
-const clientStores = {
-  client: currentWritable<Client>(null!),
+const context = {
+  robotClient: currentWritable<Client>(null!),
   components,
   connectionStatus: currentWritable<'idle' | 'connecting' | 'connected' | 'reconnecting'>('idle'),
   operations: currentWritable<{
@@ -23,13 +23,13 @@ const clientStores = {
   streamManager: currentWritable<StreamManager>(null!),
 } as const;
 
-export const useClient = () => clientStores;
+export const useRobotClient = () => context;
 
 /**
  * This hook will fire whenever a connection occurs.
  */
 export const useConnect = (callback: () => void) => {
-  const { connectionStatus } = useClient();
+  const { connectionStatus } = useRobotClient();
 
   const unsub = connectionStatus.subscribe((value) => {
     if (value === 'connected') {
@@ -44,7 +44,7 @@ export const useConnect = (callback: () => void) => {
  * This hook will fire whenever a disconnect occurs or when a component unmounts.
  */
 export const useDisconnect = (callback: () => void) => {
-  const { statusStream } = useClient();
+  const { statusStream } = useRobotClient();
 
   statusStream.subscribe((update) => update?.on('end', callback));
 

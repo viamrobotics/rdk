@@ -5,19 +5,19 @@ import { displayError } from '@/lib/error';
 import { rcLogConditionally } from '@/lib/log';
 import Collapse from '@/lib/components/collapse.svelte';
 import { move } from '@/api/servo';
-import { useClient } from '@/hooks/client';
+import { useRobotClient } from '@/hooks/robot-client';
 
 export let name: string;
 export let status: undefined | { position_deg: number };
 
-const { client } = useClient();
+const { robotClient } = useRobotClient();
 
 const stop = () => {
   const req = new servoApi.StopRequest();
   req.setName(name);
 
   rcLogConditionally(req);
-  $client.servoService.stop(req, displayError);
+  $robotClient.servoService.stop(req, displayError);
 };
 
 const handleMove = async (amount: number) => {
@@ -25,7 +25,7 @@ const handleMove = async (amount: number) => {
   const angle = oldAngle + amount;
 
   try {
-    await move($client, name, angle);
+    await move($robotClient, name, angle);
   } catch (error) {
     displayError(error as ServiceError);
   }

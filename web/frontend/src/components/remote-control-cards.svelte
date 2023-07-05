@@ -3,7 +3,7 @@
 import { type Credentials } from '@viamrobotics/rpc';
 import { commonApi } from '@viamrobotics/sdk';
 import { resourceNameToString, filterWithStatus, filterSubtype } from '@/lib/resource';
-import { useClient } from '@/hooks/client';
+import { useRobotClient } from '@/hooks/robot-client';
 import Arm from './arm/index.svelte';
 import AudioInput from './audio-input/index.svelte';
 import Base from './base/index.svelte';
@@ -22,9 +22,9 @@ import Navigation from './navigation/index.svelte';
 import Servo from './servo/index.svelte';
 import Sensors from './sensors/index.svelte';
 import Slam from './slam/index.svelte';
-import Client from '@/lib/components/client.svelte';
+import Client from '@/lib/components/robot-client.svelte';
 
-const { resources, components, services, statuses, sensorNames } = useClient();
+const { resources, components, services, statuses, sensorNames } = useRobotClient();
 
 export let host: string;
 export let bakedAuth: { authEntity: string; creds: Credentials; } | undefined;

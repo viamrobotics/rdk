@@ -14,11 +14,11 @@ import {
   getCompassHeading,
   getPosition,
 } from '@/api/movement-sensor';
-import { useClient, useDisconnect } from '@/hooks/client';
+import { useRobotClient, useDisconnect } from '@/hooks/robot-client';
 
 export let name: string;
 
-const { client } = useClient();
+const { robotClient } = useRobotClient();
 
 let orientation: commonApi.Orientation.AsObject | undefined;
 let angularVelocity: commonApi.Vector3.AsObject | undefined;
@@ -32,7 +32,7 @@ let properties: movementsensorApi.GetPropertiesResponse.AsObject | undefined;
 let clearInterval: (() => void) | undefined;
 
 const refresh = async () => {
-  properties = await getProperties($client, name);
+  properties = await getProperties($robotClient, name);
 
   if (!properties) {
     return;
@@ -40,12 +40,12 @@ const refresh = async () => {
 
   try {
     const results = await Promise.all([
-      properties.orientationSupported ? getOrientation($client, name) : undefined,
-      properties.angularVelocitySupported ? getAngularVelocity($client, name) : undefined,
-      properties.linearAccelerationSupported ? getLinearAcceleration($client, name) : undefined,
-      properties.linearVelocitySupported ? getLinearVelocity($client, name) : undefined,
-      properties.compassHeadingSupported ? getCompassHeading($client, name) : undefined,
-      properties.positionSupported ? getPosition($client, name) : undefined,
+      properties.orientationSupported ? getOrientation($robotClient, name) : undefined,
+      properties.angularVelocitySupported ? getAngularVelocity($robotClient, name) : undefined,
+      properties.linearAccelerationSupported ? getLinearAcceleration($robotClient, name) : undefined,
+      properties.linearVelocitySupported ? getLinearVelocity($robotClient, name) : undefined,
+      properties.compassHeadingSupported ? getCompassHeading($robotClient, name) : undefined,
+      properties.positionSupported ? getPosition($robotClient, name) : undefined,
     ] as const);
 
     orientation = results[0];

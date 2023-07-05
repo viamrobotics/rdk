@@ -4,16 +4,16 @@ import { robotApi } from '@viamrobotics/sdk';
 import { displayError } from '@/lib/error';
 import { rcLogConditionally } from '@/lib/log';
 import Collapse from '@/lib/components/collapse.svelte';
-import { useClient } from '@/hooks/client';
+import { useRobotClient } from '@/hooks/robot-client';
 
-const { client, operations, sessions, sessionsSupported, rtt } = useClient();
+const { robotClient, operations, sessions, sessionsSupported, rtt } = useRobotClient();
 
 const killOperation = (id: string) => {
   const req = new robotApi.CancelOperationRequest();
   req.setId(id);
 
   rcLogConditionally(req);
-  $client.robotService.cancelOperation(req, displayError);
+  $robotClient.robotService.cancelOperation(req, displayError);
 };
 
 const peerConnectionType = (info?: robotApi.PeerConnectionInfo.AsObject) => {
@@ -72,7 +72,7 @@ const peerConnectionType = (info?: robotApi.PeerConnectionInfo.AsObject) => {
           <tr>
             <td class="border border-medium p-2">
               {op.id}
-              {#if $client.sessionId === op.sessionId}
+              {#if $robotClient.sessionId === op.sessionId}
                 <span class="font-bold">(this session)</span>
               {/if}
             </td>
@@ -101,7 +101,7 @@ const peerConnectionType = (info?: robotApi.PeerConnectionInfo.AsObject) => {
             <tr>
               <td class="border border-medium p-2">
                 {session.id}
-                {#if session.id === $client.sessionId}
+                {#if session.id === $robotClient.sessionId}
                   <span class="font-bold">(ours)</span>
                 {/if}
               </td>
