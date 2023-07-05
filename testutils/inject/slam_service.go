@@ -2,6 +2,7 @@ package inject
 
 import (
 	"context"
+	"time"
 
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/slam"
@@ -15,6 +16,7 @@ type SLAMService struct {
 	GetPositionFunc      func(ctx context.Context) (spatialmath.Pose, string, error)
 	GetPointCloudMapFunc func(ctx context.Context) (func() ([]byte, error), error)
 	GetInternalStateFunc func(ctx context.Context) (func() ([]byte, error), error)
+	GetLatestMapInfoFunc func(ctx context.Context) (time.Time, error)
 	DoCommandFunc        func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	CloseFunc            func(ctx context.Context) error
 }
@@ -51,6 +53,14 @@ func (slamSvc *SLAMService) GetInternalState(ctx context.Context) (func() ([]byt
 		return slamSvc.Service.GetInternalState(ctx)
 	}
 	return slamSvc.GetInternalStateFunc(ctx)
+}
+
+// GetLatestMapInfo calls the injected GetLatestMapInfoFunc or the real version.
+func (slamSvc *SLAMService) GetLatestMapInfo(ctx context.Context) (time.Time, error) {
+	if slamSvc.GetLatestMapInfoFunc == nil {
+		return slamSvc.Service.GetLatestMapInfo(ctx)
+	}
+	return slamSvc.GetLatestMapInfoFunc(ctx)
 }
 
 // DoCommand calls the injected DoCommand or the real variant.
