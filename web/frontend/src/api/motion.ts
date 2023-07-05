@@ -1,10 +1,9 @@
 import { type Client, commonApi, motionApi, robotApi } from '@viamrobotics/sdk';
-import { grpc } from '@improbable-eng/grpc-web';
 import { Struct } from 'google-protobuf/google/protobuf/struct_pb';
 import { getSLAMPosition } from './slam';
 import { rcLogConditionally } from '@/lib/log';
 
-export const moveOnMap = async (client: Client, name: string, componentName: string, x: number, y: number) => {
+export const moveOnMap = async (robotClient: Client, name: string, componentName: string, x: number, y: number) => {
   const request = new motionApi.MoveOnMapRequest();
 
   /*
@@ -13,7 +12,7 @@ export const moveOnMap = async (client: Client, name: string, componentName: str
   request.setName('builtin');
 
   // set pose in frame
-  const lastPose = await getSLAMPosition(client, name);
+  const lastPose = await getSLAMPosition(robotClient, name);
 
   const destination = new commonApi.Pose();
   destination.setX(x * 1000);
@@ -48,14 +47,20 @@ export const moveOnMap = async (client: Client, name: string, componentName: str
     })
   );
 
-  return new Promise((resolve, reject) => {
-    client.motionService.moveOnMap(request, new grpc.Metadata(), (error, response) => (
-      error ? reject(error) : resolve(response?.getSuccess())
-    ));
+  const response = await new Promise<motionApi.MoveOnMapResponse | null>((resolve, reject) => {
+    robotClient.motionService.moveOnMap(request, (error, res) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(res);
+      }
+    });
   });
+
+  return response?.getSuccess();
 };
 
-export const stopMoveOnMap = (client: Client, operations: { op: robotApi.Operation.AsObject }[]) => {
+export const stopMoveOnMap = async (robotClient: Client, operations: { op: robotApi.Operation.AsObject }[]) => {
   const match = operations.find(({ op }) => op.method.includes('MoveOnMap'));
 
   if (!match) {
@@ -66,9 +71,15 @@ export const stopMoveOnMap = (client: Client, operations: { op: robotApi.Operati
   req.setId(match.op.id);
   rcLogConditionally(req);
 
-  return new Promise((resolve, reject) => {
-    client.robotService.cancelOperation(req, new grpc.Metadata(), (error, response) => (
-      error ? reject(error) : resolve(response)
-    ));
+  const response = await new Promise<robotApi.CancelOperationResponse | null>((resolve, reject) => {
+    robotClient.robotService.cancelOperation(req, (error, res) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(res);
+      }
+    });
   });
+
+  return response?.toObject();
 };

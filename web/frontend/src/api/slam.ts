@@ -1,5 +1,4 @@
-import { type Client, commonApi, slamApi } from '@viamrobotics/sdk';
-import { grpc } from '@improbable-eng/grpc-web';
+import { type Client, slamApi } from '@viamrobotics/sdk';
 import { rcLogConditionally } from '@/lib/log';
 
 const concatArrayU8 = (arrays: Uint8Array[]) => {
@@ -16,13 +15,13 @@ const concatArrayU8 = (arrays: Uint8Array[]) => {
   return result;
 };
 
-export const getPointCloudMap = (client: Client, name: string) => {
+export const getPointCloudMap = (robotClient: Client, name: string) => {
   const request = new slamApi.GetPointCloudMapRequest();
   request.setName(name);
   rcLogConditionally(request);
 
   const chunks: Uint8Array[] = [];
-  const stream = client.slamService.getPointCloudMap(request);
+  const stream = robotClient.slamService.getPointCloudMap(request);
 
   stream.on('data', (response) => {
     const chunk = response.getPointCloudPcdChunk_asU8();
@@ -59,13 +58,19 @@ export const getPointCloudMap = (client: Client, name: string) => {
   });
 };
 
-export const getSLAMPosition = (client: Client, name: string) => {
+export const getSLAMPosition = async (robotClient: Client, name: string) => {
   const request = new slamApi.GetPositionRequest();
   request.setName(name);
 
-  return new Promise<commonApi.Pose | undefined>((resolve, reject) => {
-    client.slamService.getPosition(request, new grpc.Metadata(), (error, response) => (
-      error ? reject(error) : resolve(response?.getPose())
-    ));
+  const response = await new Promise<slamApi.GetPositionResponse | null>((resolve, reject) => {
+    robotClient.slamService.getPosition(request, (error, res) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(res);
+      }
+    });
   });
+
+  return response?.getPose();
 };
