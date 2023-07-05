@@ -12,15 +12,31 @@ import (
 // FrameSystem represents a fake instance of a framesystem service.
 type FrameSystemService struct {
 	framesystem.Service
-	name                    resource.Name
-	TransformPoseFunc       func(ctx context.Context, pose *referenceframe.PoseInFrame, dst string, additionalTransforms []*referenceframe.LinkInFrame) (*referenceframe.PoseInFrame, error)
-	TransformPointCloudFunc func(ctx context.Context, srcpc pointcloud.PointCloud, srcName, dstName string) (pointcloud.PointCloud, error)
-	CurrentInputsFunc       func(ctx context.Context) (map[string][]referenceframe.Input, map[string]referenceframe.InputEnabled, error)
-	FrameSystemFunc         func(ctx context.Context, additionalTransforms []*referenceframe.LinkInFrame) (referenceframe.FrameSystem, error)
-	DoCommandFunc           func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
-	CloseFunc               func(ctx context.Context) error
+	name              resource.Name
+	TransformPoseFunc func(
+		ctx context.Context,
+		pose *referenceframe.PoseInFrame,
+		dst string,
+		additionalTransforms []*referenceframe.LinkInFrame,
+	) (*referenceframe.PoseInFrame, error)
+	TransformPointCloudFunc func(
+		ctx context.Context,
+		srcpc pointcloud.PointCloud,
+		srcName, dstName string,
+	) (pointcloud.PointCloud, error)
+	CurrentInputsFunc func(ctx context.Context) (map[string][]referenceframe.Input, map[string]referenceframe.InputEnabled, error)
+	FrameSystemFunc   func(
+		ctx context.Context,
+		additionalTransforms []*referenceframe.LinkInFrame,
+	) (referenceframe.FrameSystem, error)
+	DoCommandFunc func(
+		ctx context.Context,
+		cmd map[string]interface{},
+	) (map[string]interface{}, error)
+	CloseFunc func(ctx context.Context) error
 }
 
+// NewFrameSystemService returns a new injected framesystem service.
 func NewFrameSystemService(name string) *FrameSystemService {
 	resourceName := resource.NewName(
 		resource.APINamespaceRDKInternal.WithServiceType("framesystem"),
@@ -29,10 +45,12 @@ func NewFrameSystemService(name string) *FrameSystemService {
 	return &FrameSystemService{name: resourceName}
 }
 
+// Name returns the name of the resource.
 func (fs *FrameSystemService) Name() resource.Name {
 	return fs.name
 }
 
+// TransformPose calls the injected method or the real variant.
 func (fs *FrameSystemService) TransformPose(
 	ctx context.Context,
 	pose *referenceframe.PoseInFrame,
@@ -45,16 +63,19 @@ func (fs *FrameSystemService) TransformPose(
 	return fs.TransformPoseFunc(ctx, pose, dst, additionalTransforms)
 }
 
+// TransformPointCloud calls the injected method or the real variant.
 func (fs *FrameSystemService) TransformPointCloud(
 	ctx context.Context,
 	srcpc pointcloud.PointCloud,
-	srcName, dstName string) (pointcloud.PointCloud, error) {
+	srcName, dstName string,
+) (pointcloud.PointCloud, error) {
 	if fs.TransformPointCloudFunc == nil {
 		return fs.Service.TransformPointCloud(ctx, srcpc, srcName, dstName)
 	}
 	return fs.TransformPointCloudFunc(ctx, srcpc, srcName, dstName)
 }
 
+// CurrentInputs calls the injected method or the real variant.
 func (fs *FrameSystemService) CurrentInputs(ctx context.Context) (map[string][]referenceframe.Input, map[string]referenceframe.InputEnabled, error) {
 	if fs.CurrentInputsFunc == nil {
 		return fs.Service.CurrentInputs(ctx)
@@ -62,6 +83,7 @@ func (fs *FrameSystemService) CurrentInputs(ctx context.Context) (map[string][]r
 	return fs.CurrentInputsFunc(ctx)
 }
 
+// FrameSystem calls the injected method of the real variant.
 func (fs *FrameSystemService) FrameSystem(ctx context.Context, additionalTransforms []*referenceframe.LinkInFrame) (referenceframe.FrameSystem, error) {
 	if fs.FrameSystemFunc == nil {
 		return fs.Service.FrameSystem(ctx, additionalTransforms)
