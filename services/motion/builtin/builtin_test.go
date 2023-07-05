@@ -2,7 +2,6 @@ package builtin
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"os"
 	"path/filepath"
@@ -322,7 +321,7 @@ func TestInjectedMoveOnGlobe(t *testing.T) {
 	baseCfg := resource.Config{
 		Name:  "test-base",
 		API:   base.API,
-		Frame: &referenceframe.LinkConfig{Geometry: &spatialmath.GeometryConfig{R: 100}},
+		Frame: &referenceframe.LinkConfig{Geometry: &spatialmath.GeometryConfig{R: 20}},
 	}
 	fakeBase, err := fake.NewBase(ctx, nil, baseCfg, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -347,7 +346,7 @@ func TestInjectedMoveOnGlobe(t *testing.T) {
 	// create MovementSensor frame
 	movementSensorFrame, err := referenceframe.NewStaticFrame(
 		"test-gps",
-		spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0}),
+		spatialmath.NewPoseFromPoint(r3.Vector{-10, 0, 0}),
 	)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -387,6 +386,8 @@ func TestInjectedMoveOnGlobe(t *testing.T) {
 	destGP := geo.NewPoint(gp.Lat(), gp.Lng()+0.0000009)
 
 	t.Run("ensure success to a nearby geo point", func(t *testing.T) {
+		t.Parallel()
+
 		success, err := ms.MoveOnGlobe(
 			context.Background(),
 			fakeBase.Name(),
@@ -403,6 +404,8 @@ func TestInjectedMoveOnGlobe(t *testing.T) {
 	})
 
 	t.Run("go around an obstacle", func(t *testing.T) {
+		t.Parallel()
+
 		boxPose := spatialmath.NewPoseFromPoint(r3.Vector{50, 0, 0})
 		boxDims := r3.Vector{5, 50, 10}
 		geometries, err := spatialmath.NewBox(boxPose, boxDims, "wall")
@@ -416,13 +419,13 @@ func TestInjectedMoveOnGlobe(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		plan, _, err := ms.(*builtIn).planMoveOnGlobe(ctx, fakeBase.Name(), currentPosition, dstPIF, localizer, []*spatialmath.GeoObstacle{geoObstacle}, motionCfg)
-		fmt.Println("plan: ", plan)
-		fmt.Println("len(plan): ", len(plan))
-		// test.That(t, len(plan), test.ShouldBeGreaterThan, 2)
+		test.That(t, len(plan), test.ShouldBeGreaterThan, 2)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
 	t.Run("fail because of long wall", func(t *testing.T) {
+		t.Parallel()
+
 		boxPose := spatialmath.NewPoseFromPoint(r3.Vector{50, 0, 0})
 		boxDims := r3.Vector{2, 666, 10}
 		geometries, err := spatialmath.NewBox(boxPose, boxDims, "wall")
@@ -445,15 +448,15 @@ func TestInjectedMoveOnGlobe(t *testing.T) {
 	})
 
 	t.Run("relative position and distance are properly calculated", func(t *testing.T) {
+		t.Parallel()
 
 		localizer, err := motion.NewLocalizer(ctx, injectedMovementSensor)
 		test.That(t, err, test.ShouldBeNil)
-
 		currentPosition, dstPIF, err := ms.(*builtIn).getRelativePositionAndDestination(ctx, localizer, fakeBase.Name(), injectedMovementSensor.Name(), *destGP)
 		test.That(t, err, test.ShouldBeNil)
-
-		fmt.Println("currentPosition: ", currentPosition)
-		fmt.Println("dstPIF: ", dstPIF)
+		test.That(t, currentPosition, test.ShouldResemble, r3.Vector{-10, 0, 0})
+		test.That(t, spatialmath.R3VectorAlmostEqual(dstPIF.Pose().Point(), r3.Vector{110, 0, 0}, 0.1), test.ShouldBeTrue)
+		test.That(t, dstPIF.Parent(), test.ShouldEqual, referenceframe.World)
 	})
 }
 
