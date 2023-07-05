@@ -418,7 +418,7 @@ func TestInjectedMoveOnGlobe(t *testing.T) {
 		currentPosition, dstPIF, err := ms.(*builtIn).getRelativePositionAndDestination(ctx, localizer, fakeBase.Name(), injectedMovementSensor.Name(), *destGP)
 		test.That(t, err, test.ShouldBeNil)
 
-		plan, _, err := ms.(*builtIn).planMoveOnGlobe(ctx, fakeBase.Name(), currentPosition, dstPIF, localizer, []*spatialmath.GeoObstacle{geoObstacle}, motionCfg)
+		plan, _, err := ms.(*builtIn).planMoveOnGlobe(ctx, fakeBase.Name(), currentPosition, dstPIF, localizer, []*spatialmath.GeoObstacle{geoObstacle}, defaultLinearVelocityMillisPerSec, defaultAngularVelocityDegsPerSec, motionCfg)
 		test.That(t, len(plan), test.ShouldBeGreaterThan, 2)
 		test.That(t, err, test.ShouldBeNil)
 	})
