@@ -1,6 +1,7 @@
 import { type Client, commonApi, slamApi } from '@viamrobotics/sdk';
 import { grpc } from '@improbable-eng/grpc-web';
 import { rcLogConditionally } from '@/lib/log';
+import { Timestamp } from 'google-protobuf/google/protobuf/timestamp_pb';
 
 const concatArrayU8 = (arrays: Uint8Array[]) => {
   const totalLength = arrays.reduce((acc, value) => acc + value.length, 0);
@@ -69,3 +70,15 @@ export const getSLAMPosition = (client: Client, name: string) => {
     ));
   });
 };
+
+export const getSLAMMapInfo = (client: Client, name: string) => {
+  const request = new slamApi.GetLatestMapInfoRequest();
+  request.setName(name);
+
+  return new Promise<Timestamp>((resolve, reject) => {
+    client.slamService.getLatestMapInfo(request, new grpc.Metadata(), (error, response) => (
+      error ? reject(error) : resolve(response?.latest_map_timestamp)
+    ));
+  });
+};
+
