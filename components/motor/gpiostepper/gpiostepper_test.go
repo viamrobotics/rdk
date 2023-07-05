@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
@@ -15,6 +16,9 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
+// Warning: Tests that run goForInternal are racy. Conditions evaluated after the call
+// rely on the timing of the worker thread in the fake gpiostepper. Larger runtimes (>1s)
+// and more test retries compensate for this at the cost of test runtime.
 func Test1(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	logger, obs := golog.NewObservedTestLogger(t)
@@ -77,7 +81,7 @@ func Test1(t *testing.T) {
 		test.That(t, on, test.ShouldEqual, true)
 		test.That(t, powerPct, test.ShouldEqual, 1.0)
 
-		testutils.WaitForAssertion(t, func(tb testing.TB) {
+		testutils.WaitForAssertionWithSleep(t, 100*time.Millisecond, 100, func(tb testing.TB) {
 			tb.Helper()
 			on, powerPct, err = m.IsPowered(ctx, nil)
 			test.That(tb, err, test.ShouldBeNil)
@@ -88,6 +92,7 @@ func Test1(t *testing.T) {
 		pos, err := m.Position(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, 2)
+		test.That(t, m.targetStepPosition, test.ShouldEqual, 400)
 	})
 
 	t.Run("motor testing with negative rpm and positive revolutions", func(t *testing.T) {
@@ -99,7 +104,7 @@ func Test1(t *testing.T) {
 		test.That(t, on, test.ShouldEqual, true)
 		test.That(t, powerPct, test.ShouldEqual, 1.0)
 
-		testutils.WaitForAssertion(t, func(tb testing.TB) {
+		testutils.WaitForAssertionWithSleep(t, 100*time.Millisecond, 100, func(tb testing.TB) {
 			tb.Helper()
 			on, powerPct, err = m.IsPowered(ctx, nil)
 			test.That(tb, err, test.ShouldBeNil)
@@ -110,6 +115,7 @@ func Test1(t *testing.T) {
 		pos, err := m.Position(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, 0)
+		test.That(t, m.targetStepPosition, test.ShouldEqual, 0)
 	})
 
 	t.Run("motor testing with positive rpm and negative revolutions", func(t *testing.T) {
@@ -121,7 +127,7 @@ func Test1(t *testing.T) {
 		test.That(t, on, test.ShouldEqual, true)
 		test.That(t, powerPct, test.ShouldEqual, 1.0)
 
-		testutils.WaitForAssertion(t, func(tb testing.TB) {
+		testutils.WaitForAssertionWithSleep(t, 100*time.Millisecond, 100, func(tb testing.TB) {
 			tb.Helper()
 			on, powerPct, err = m.IsPowered(ctx, nil)
 			test.That(tb, err, test.ShouldBeNil)
@@ -132,6 +138,7 @@ func Test1(t *testing.T) {
 		pos, err := m.Position(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, -2)
+		test.That(t, m.targetStepPosition, test.ShouldEqual, -400)
 	})
 
 	t.Run("motor testing with negative rpm and negative revolutions", func(t *testing.T) {
@@ -143,7 +150,7 @@ func Test1(t *testing.T) {
 		test.That(t, on, test.ShouldEqual, true)
 		test.That(t, powerPct, test.ShouldEqual, 1.0)
 
-		testutils.WaitForAssertion(t, func(tb testing.TB) {
+		testutils.WaitForAssertionWithSleep(t, 100*time.Millisecond, 100, func(tb testing.TB) {
 			tb.Helper()
 			on, powerPct, err = m.IsPowered(ctx, nil)
 			test.That(tb, err, test.ShouldBeNil)
@@ -154,6 +161,7 @@ func Test1(t *testing.T) {
 		pos, err := m.Position(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, 0)
+		test.That(t, m.targetStepPosition, test.ShouldEqual, 0)
 	})
 	t.Run("Ensure stop called when gofor is interrupted", func(t *testing.T) {
 		ctx := context.Background()
@@ -179,7 +187,7 @@ func Test1(t *testing.T) {
 		test.That(t, on, test.ShouldEqual, true)
 		test.That(t, powerPct, test.ShouldEqual, 1.0)
 
-		testutils.WaitForAssertion(t, func(tb testing.TB) {
+		testutils.WaitForAssertionWithSleep(t, 100*time.Millisecond, 100, func(tb testing.TB) {
 			tb.Helper()
 			pos, err := m.Position(ctx, nil)
 			test.That(tb, err, test.ShouldBeNil)
