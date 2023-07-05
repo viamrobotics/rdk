@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"time"
 
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
@@ -50,6 +51,7 @@ type Service interface {
 	GetPosition(context.Context) (spatialmath.Pose, string, error)
 	GetPointCloudMap(ctx context.Context) (func() ([]byte, error), error)
 	GetInternalState(ctx context.Context) (func() ([]byte, error), error)
+	GetLatestMapInfo(ctx context.Context) (time.Time, error)
 }
 
 // HelperConcatenateChunksToFull concatenates the chunks from a streamed grpc endpoint.
