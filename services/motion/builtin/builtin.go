@@ -256,6 +256,7 @@ func (ms *builtIn) planMoveOnGlobe(
 	if err != nil {
 		return nil, nil, err
 	}
+	// TODO: better practice to get this from frame.Transform(input)
 	currentPoint := r3.Vector{X: currentInputs[0].Value, Y: currentInputs[1].Value}
 
 	// convert destination into spatialmath.Pose with respect to lat = 0 = lng
@@ -282,7 +283,7 @@ func (ms *builtIn) planMoveOnGlobe(
 		return nil, nil, err
 	}
 
-	// make call to motionplan
+	// make call to motionplan to get the plan
 	solutionMap, err := motionplan.PlanMotion(
 		ctx,
 		ms.logger,
@@ -297,8 +298,13 @@ func (ms *builtIn) planMoveOnGlobe(
 	if err != nil {
 		return nil, nil, err
 	}
-
 	plan, err := motionplan.FrameStepsFromRobotPath(f.Name(), solutionMap)
+
+	// return plan in terms of gps coordinates
+	for _, step := range plan {
+		step[0].Value += currentPoint.X
+		step[1].Value += currentPoint.Y
+	}
 	return plan, kb, err
 }
 
@@ -332,6 +338,7 @@ func (ms *builtIn) MoveOnGlobe(
 
 	// execute the plan
 	for i := 1; i < len(plan); i++ {
+		ms.logger.Info(plan[i])
 		if err := kb.GoToInputs(ctx, plan[i]); err != nil {
 			return false, err
 		}

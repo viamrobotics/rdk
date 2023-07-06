@@ -114,7 +114,7 @@ func TestMove(t *testing.T) {
 			&spatialmath.R4AA{Theta: math.Pi / 2, RX: 0., RY: 1., RZ: 0.},
 		)
 
-		transforms := []*referenceframe.LinkInFrame{
+		transforms := []*referenceframe.LinkInFrame{	
 			referenceframe.NewLinkInFrame(referenceframe.World, testPose, "testFrame2", nil),
 			referenceframe.NewLinkInFrame("pieceArm", testPose, "testFrame", nil),
 		}

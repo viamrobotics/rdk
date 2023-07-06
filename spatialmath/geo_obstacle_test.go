@@ -1,6 +1,7 @@
 package spatialmath
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/golang/geo/r3"
@@ -8,6 +9,43 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
 )
+
+func TestGeoPose(t *testing.T) {
+	gp := geo.NewPoint(0, 0)
+	pose := GeoPointToPose(gp)
+	fmt.Println(pose.Point())
+	test.That(t, R3VectorAlmostEqual(pose.Point(), r3.Vector{0, 0, 0}, 0.1), test.ShouldBeTrue)
+
+	gp = geo.NewPoint(0.0000009, 0.0000009)
+	pose = GeoPointToPose(gp)
+	fmt.Println(pose.Point())
+	test.That(t, R3VectorAlmostEqual(pose.Point(), r3.Vector{100, 100, 0}, 0.1), test.ShouldBeTrue)
+
+	gp = geo.NewPoint(0, 0.0000009)
+	pose = GeoPointToPose(gp)
+	fmt.Println(pose.Point())
+	test.That(t, R3VectorAlmostEqual(pose.Point(), r3.Vector{100, 0, 0}, 0.1), test.ShouldBeTrue)
+
+	gp = geo.NewPoint(-0.0000009, 0.0000009)
+	pose = GeoPointToPose(gp)
+	fmt.Println(pose.Point())
+	test.That(t, R3VectorAlmostEqual(pose.Point(), r3.Vector{100, -100, 0}, 0.1), test.ShouldBeTrue)
+
+	gp = geo.NewPoint(-0.0000009, 0)
+	pose = GeoPointToPose(gp)
+	fmt.Println(pose.Point())
+	test.That(t, R3VectorAlmostEqual(pose.Point(), r3.Vector{0, -100, 0}, 0.1), test.ShouldBeTrue)
+
+	gp = geo.NewPoint(-0.0000009, -0.0000009)
+	pose = GeoPointToPose(gp)
+	fmt.Println(pose.Point())
+	test.That(t, R3VectorAlmostEqual(pose.Point(), r3.Vector{-100, -100, 0}, 0.1), test.ShouldBeTrue)
+
+	gp = geo.NewPoint(0, -0.0000009)
+	pose = GeoPointToPose(gp)
+	fmt.Println(pose.Point())
+	test.That(t, R3VectorAlmostEqual(pose.Point(), r3.Vector{-100, 0, 0}, 0.1), test.ShouldBeTrue)
+}
 
 func TestGeoObstacles(t *testing.T) {
 	testLatitude := 39.58836

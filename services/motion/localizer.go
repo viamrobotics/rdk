@@ -13,7 +13,7 @@ import (
 
 // Localizer is an interface which both slam and movementsensor can satisfy when wrapped respectively.
 type Localizer interface {
-	CurrentPosition(context.Context) (referenceframe.PoseInFrame, error)
+	CurrentPosition(context.Context) (*referenceframe.PoseInFrame, error)
 }
 
 // NewLocalizer constructs either a slamLocalizer or movementSensorLocalizer from the given resource.
@@ -34,13 +34,12 @@ type slamLocalizer struct {
 }
 
 // CurrentPosition returns slam's current position.
-func (s slamLocalizer) CurrentPosition(ctx context.Context) (referenceframe.PoseInFrame, error) {
-	var pif referenceframe.PoseInFrame
+func (s slamLocalizer) CurrentPosition(ctx context.Context) (*referenceframe.PoseInFrame, error) {
 	pose, _, err := s.GetPosition(ctx)
 	if err != nil {
-		return pif, err
+		return nil, err
 	}
-	return *referenceframe.NewPoseInFrame(referenceframe.World, pose), err
+	return referenceframe.NewPoseInFrame(referenceframe.World, pose), err
 }
 
 // movementSensorLocalizer is a struct which only wraps an existing movementsensor.
@@ -49,12 +48,11 @@ type movementSensorLocalizer struct {
 }
 
 // CurrentPosition returns a movementsensor's current position.
-func (m movementSensorLocalizer) CurrentPosition(ctx context.Context) (referenceframe.PoseInFrame, error) {
-	var pif referenceframe.PoseInFrame
+func (m movementSensorLocalizer) CurrentPosition(ctx context.Context) (*referenceframe.PoseInFrame, error) {
 	gp, _, err := m.Position(ctx, nil)
 	if err != nil {
-		return pif, err
+		return nil, err
 	}
 	pose := spatialmath.GeoPointToPose(gp)
-	return *referenceframe.NewPoseInFrame(referenceframe.World, pose), nil
+	return referenceframe.NewPoseInFrame(m.Name().Name, pose), nil
 }
