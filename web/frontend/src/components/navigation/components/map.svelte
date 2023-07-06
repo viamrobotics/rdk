@@ -3,7 +3,7 @@
 import { onMount, createEventDispatcher } from 'svelte';
 import { Map } from 'maplibre-gl';
 import { type LngLat } from '@/api/navigation';
-import { map } from '../stores';
+import { map, mapZoom } from '../stores';
 import { style } from '../style';
 import ObstacleLayer from './obstacle-layer.svelte';
 import Waypoints from './waypoints.svelte';
@@ -28,10 +28,16 @@ onMount(() => {
     pitchWithRotate: false,
   });
 
+  const setZoom = () => {
+    $mapZoom = mapInstance.getZoom() / mapInstance.getMaxZoom();
+  }
+
   mapInstance.on('drag', () => dispatch('drag', mapInstance.getCenter()));
   mapInstance.on('dragstart', () => dispatch('dragstart', mapInstance.getCenter()));
   mapInstance.on('dragend', () => dispatch('dragend', mapInstance.getCenter()));
-
+  mapInstance.on('zoom', () => setZoom());
+  setZoom();
+  
   $map = mapInstance;
 });
 

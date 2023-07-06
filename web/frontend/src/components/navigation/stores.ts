@@ -1,13 +1,13 @@
-/* eslint-disable multiline-comment-style */
-/* eslint-disable id-length */
 import { currentWritable } from '@threlte/core';
 import { type JumpToOptions, type FlyToOptions, type Map } from 'maplibre-gl';
-import type { Obstacle } from './types';
+import type { Modes, Obstacle } from './types';
 import type { LngLat, Waypoint } from '@/api/navigation';
 
 type ZoomLevel = Record<string, number>;
 
+export const mode = currentWritable<Modes>('readonly');
 export const mapCenter = currentWritable<LngLat>({ lng: 0, lat: 0 });
+export const mapZoom = currentWritable<number>(0);
 export const robotPosition = currentWritable<LngLat | null>(null);
 export const map = currentWritable<Map | null>(null);
 export const obstacles = currentWritable<Obstacle[]>([]);
