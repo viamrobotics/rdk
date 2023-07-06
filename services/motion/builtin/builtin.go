@@ -11,8 +11,8 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
-
 	servicepb "go.viam.com/api/service/motion/v1"
+
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/base/fake"
@@ -35,14 +35,7 @@ func init() {
 		motion.API,
 		resource.DefaultServiceModel,
 		resource.Registration[motion.Service, *Config]{
-			Constructor: func(
-				ctx context.Context,
-				deps resource.Dependencies,
-				conf resource.Config,
-				logger golog.Logger,
-			) (motion.Service, error) {
-				return NewBuiltIn(ctx, deps, conf, logger)
-			},
+			Constructor: NewBuiltIn,
 			WeakDependencies: []internal.ResourceMatcher{
 				internal.SLAMDependencyWildcardMatcher,
 				internal.ComponentDependencyWildcardMatcher,
@@ -56,14 +49,13 @@ const (
 	defaultAngularVelocityDegsPerSec  = 60  // degrees per second; used for bases only
 )
 
-// ErrNotImplemented is thrown when an unreleased function is called
+// ErrNotImplemented is thrown when an unreleased function is called.
 var ErrNotImplemented = errors.New("function coming soon but not yet implemented")
 
-// Config describes how to configure the service; currently only used for specifying dependency on framesystem service
-type Config struct {
-}
+// Config describes how to configure the service; currently only used for specifying dependency on framesystem service.
+type Config struct{}
 
-// Validate here adds a dependency on the internal framesystem service
+// Validate here adds a dependency on the internal framesystem service.
 func (c *Config) Validate(path string) ([]string, error) {
 	return []string{framesystem.InternalServiceName.String()}, nil
 }
@@ -198,7 +190,7 @@ func (ms *builtIn) MoveOnMap(
 	// make call to motionplan
 	plan, kb, err := ms.planMoveOnMap(ctx, componentName, destination, slamName, extra)
 	if err != nil {
-		return false, fmt.Errorf("error making plan for MoveOnMap: %v", err)
+		return false, fmt.Errorf("error making plan for MoveOnMap: %w", err)
 	}
 
 	// execute the plan
@@ -236,7 +228,16 @@ func (ms *builtIn) MoveOnGlobe(
 		return false, err
 	}
 
-	plan, kb, err := ms.planMoveOnGlobe(ctx, componentName, currentPosition, dstPIF, localizer, obstacles, linearVelocityMillisPerSec, angularVelocityDegsPerSec, extra)
+	plan, kb, err := ms.planMoveOnGlobe(ctx,
+		componentName,
+		currentPosition,
+		dstPIF,
+		localizer,
+		obstacles,
+		linearVelocityMillisPerSec,
+		angularVelocityDegsPerSec,
+		extra,
+	)
 	if err != nil {
 		return false, err
 	}
@@ -259,7 +260,7 @@ func (ms *builtIn) MoveOnGlobe(
 	return true, nil
 }
 
-// planMoveOnGlobe returns the plan for MoveOnGlobe to execute
+// planMoveOnGlobe returns the plan for MoveOnGlobe to execute.
 func (ms *builtIn) planMoveOnGlobe(
 	ctx context.Context,
 	componentName resource.Name,
@@ -466,7 +467,7 @@ func (ms *builtIn) GetPose(
 	)
 }
 
-// PlanMoveOnMap returns the plan for MoveOnMap to execute
+// PlanMoveOnMap returns the plan for MoveOnMap to execute.
 func (ms *builtIn) planMoveOnMap(
 	ctx context.Context,
 	componentName resource.Name,
@@ -546,6 +547,9 @@ func (ms *builtIn) planMoveOnMap(
 	worldState, err := referenceframe.NewWorldState([]*referenceframe.GeometriesInFrame{
 		referenceframe.NewGeometriesInFrame(referenceframe.World, []spatialmath.Geometry{octree}),
 	}, nil)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	seedMap := map[string][]referenceframe.Input{f.Name(): inputs}
 

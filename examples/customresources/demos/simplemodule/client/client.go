@@ -58,5 +58,4 @@ func main() {
 			logger.Infof("+%d\t=%.0f", val, ret["total"])
 		}
 	}
-
 }

@@ -62,5 +62,4 @@ func main() {
 		logger.Fatal(err)
 	}
 	logger.Info(ret3)
-
 }

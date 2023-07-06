@@ -32,7 +32,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	}
 
 	if argsParsed.ConfigFile == "" {
-		return errors.New("please specify a config file through the -config parameter.")
+		return errors.New("please specify a config file through the -config parameter")
 	}
 
 	cfg, err := config.Read(ctx, argsParsed.ConfigFile, logger)
