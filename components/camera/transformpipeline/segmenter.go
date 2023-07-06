@@ -86,6 +86,7 @@ func (ss *segmenterSource) NextPointCloud(ctx context.Context) (pointcloud.Point
 	fmt.Println("applying service")
 	clouds, err := srv.GetObjectPointClouds(ctx, ss.cameraName, map[string]interface{}{})
 	if err != nil {
+		fmt.Println("could not get point clouds")
 		return nil, fmt.Errorf("could not get point clouds: %w", err)
 	}
 	// merge pointclouds
