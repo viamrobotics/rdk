@@ -111,5 +111,4 @@ func TestObstacleDistDetector(t *testing.T) {
 	// with error - nil parameters
 	_, err = registerObstacleDistanceDetector(ctx, name, nil, r)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot be nil")
-
 }
