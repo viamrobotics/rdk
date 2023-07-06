@@ -48,6 +48,8 @@ func newSegmentationsTransform(
 		return nil, camera.UnspecifiedStream, err
 	}
 
+	fmt.Println("Props:", props)
+
 	var cameraModel transform.PinholeCameraModel
 	cameraModel.PinholeCameraIntrinsics = props.IntrinsicParams
 
