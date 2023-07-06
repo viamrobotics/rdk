@@ -11,6 +11,7 @@ import (
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
@@ -19,8 +20,8 @@ import (
 
 // segmenterConfig is the attribute struct for segementers (their name as found in the vision service).
 type segmenterConfig struct {
-	SegementerName string `json:"segementer_name"`
-	CameraName     string `json:"camera_name"`
+	SegmenterName string `json:"segementer_name"`
+	CameraName    string `json:"camera_name"`
 }
 
 // segmenterSource takes an image from the camera, and idk overlays?
@@ -47,13 +48,20 @@ func newSegmentationsTransform(
 		return nil, camera.UnspecifiedStream, err
 	}
 
+	var cameraModel transform.PinholeCameraModel
+	cameraModel.PinholeCameraIntrinsics = props.IntrinsicParams
+
+	if props.DistortionParams != nil {
+		cameraModel.Distortion = props.DistortionParams
+	}
+
 	segmenter := &segmenterSource{
 		gostream.NewEmbeddedVideoStream(source),
 		conf.CameraName,
-		conf.SegementerName,
+		conf.SegmenterName,
 		r,
 	}
-	src, err := camera.NewVideoSourceFromReader(ctx, segmenter, nil, props.ImageType)
+	src, err := camera.NewVideoSourceFromReader(ctx, segmenter, &cameraModel, props.ImageType)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
 	}
