@@ -16,6 +16,7 @@ import (
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
@@ -136,6 +137,17 @@ func (tp transformPipeline) Read(ctx context.Context) (image.Image, func(), erro
 	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::Read")
 	defer span.End()
 	return tp.stream.Next(ctx)
+}
+
+func (tp transformPipeline) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::NextPointCloud")
+	defer span.End()
+	// lastElem := tp.pipeline[len(tp.pipeline)-1]
+	// return tp.pipeline[-1].
+	if lastElem, ok := tp.pipeline[len(tp.pipeline)-1].(camera.PointCloudSource); ok {
+		return lastElem.NextPointCloud(ctx)
+	}
+	return nil, nil
 }
 
 func (tp transformPipeline) Close(ctx context.Context) error {
