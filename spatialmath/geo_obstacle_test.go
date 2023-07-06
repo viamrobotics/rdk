@@ -68,3 +68,33 @@ func TestGeoObstacles(t *testing.T) {
 		test.That(t, conv[0].geometries, test.ShouldResemble, testGeoObst.geometries)
 	})
 }
+
+func TestConvertGeoPointToPose(t *testing.T) {
+	gp := geo.NewPoint(0, 0)
+	pose := GeoPointToPose(gp)
+	test.That(t, R3VectorAlmostEqual(pose.Point(), r3.Vector{0, 0, 0}, 0.1), test.ShouldBeTrue)
+
+	gp = geo.NewPoint(0.0000009, 0.0000009)
+	pose = GeoPointToPose(gp)
+	test.That(t, R3VectorAlmostEqual(pose.Point(), r3.Vector{100, 100, 0}, 0.1), test.ShouldBeTrue)
+
+	gp = geo.NewPoint(0, 0.0000009)
+	pose = GeoPointToPose(gp)
+	test.That(t, R3VectorAlmostEqual(pose.Point(), r3.Vector{100, 0, 0}, 0.1), test.ShouldBeTrue)
+
+	gp = geo.NewPoint(-0.0000009, 0.0000009)
+	pose = GeoPointToPose(gp)
+	test.That(t, R3VectorAlmostEqual(pose.Point(), r3.Vector{100, -100, 0}, 0.1), test.ShouldBeTrue)
+
+	gp = geo.NewPoint(-0.0000009, 0)
+	pose = GeoPointToPose(gp)
+	test.That(t, R3VectorAlmostEqual(pose.Point(), r3.Vector{0, -100, 0}, 0.1), test.ShouldBeTrue)
+
+	gp = geo.NewPoint(-0.0000009, -0.0000009)
+	pose = GeoPointToPose(gp)
+	test.That(t, R3VectorAlmostEqual(pose.Point(), r3.Vector{-100, -100, 0}, 0.1), test.ShouldBeTrue)
+
+	gp = geo.NewPoint(0, -0.0000009)
+	pose = GeoPointToPose(gp)
+	test.That(t, R3VectorAlmostEqual(pose.Point(), r3.Vector{-100, 0, 0}, 0.1), test.ShouldBeTrue)
+}
