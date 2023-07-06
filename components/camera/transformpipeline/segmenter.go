@@ -46,13 +46,7 @@ func newSegmentationsTransform(
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
 	}
-	// var cameraModel transform.PinholeCameraModel
-	// cameraModel.PinholeCameraIntrinsics = props.IntrinsicParams
 
-	// if props.DistortionParams != nil {
-	// 	cameraModel.Distortion = props.DistortionParams
-	// }
-	// confFilter := objectdetection.NewScoreFilter(conf.ConfidenceThreshold)
 	segmenter := &segmenterSource{
 		gostream.NewEmbeddedVideoStream(source),
 		conf.CameraName,
@@ -89,38 +83,14 @@ func (ss *segmenterSource) NextPointCloud(ctx context.Context) (pointcloud.Point
 		cloudsWithOffset = append(cloudsWithOffset, cloudFunc)
 	}
 	mergedCloud, err := pointcloud.MergePointClouds(context.Background(), cloudsWithOffset, nil)
-
+	if err != nil {
+		return nil, fmt.Errorf("could not get point clouds: %w", err)
+	}
 	return mergedCloud, nil
 }
 
-// Read returns the image idk
+// Read returns the image idk.
 func (ss *segmenterSource) Read(ctx context.Context) (image.Image, func(), error) {
-	// ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::segmenter::Read")
-	// defer span.End()
-	// // get the service
-	// srv, err := vision.FromRobot(ss.r, ss.segmenterName)
-	// if err != nil {
-	// 	return nil, nil, fmt.Errorf("source_segmenter cant find vision service: %w", err)
-	// }
-	// // get image from source camera
-	// img, release, err := ss.stream.Next(ctx)
-	// if err != nil {
-	// 	return nil, nil, fmt.Errorf("could not get next source image: %w", err)
-	// }
-	// dets, err := srv.GetObjectPointClouds(ctx, ss.cameraName, map[string]interface{}{})
-	// if err != nil {
-	// 	return nil, nil, fmt.Errorf("could not get point clouds: %w", err)
-	// }
-
-	// // overlay detections of the source image
-	// dets = ds.confFilter(dets)
-	// res, err := objectdetection.Overlay(img, dets)
-	// if err != nil {
-	// 	return nil, nil, fmt.Errorf("could not overlay bounding boxes: %w", err)
-	// }
-
-	// return res, release, nil
-
 	img, release, err := ss.stream.Next(ctx)
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not get next source image: %w", err)
