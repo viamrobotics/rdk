@@ -309,16 +309,47 @@ func TestSensorBase(t *testing.T) {
 	deps, err := conf.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
 	msDeps := fakeMotorDependencies(t, deps)
+
+	counter := 0
+
 	msDeps[movementsensor.Named("ms")] = &inject.MovementSensor{
 		PropertiesFuncExtraCap: map[string]interface{}{},
 		PropertiesFunc: func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
 			return &movementsensor.Properties{OrientationSupported: true}, nil
+		},
+		OrientationFunc: func(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
+			counter++
+			return &spatialmath.EulerAngles{Roll: 0, Pitch: 0, Yaw: float64(counter)}, nil
 		},
 	}
 
 	wheeled, err := createWheeledBase(ctx, msDeps, testCfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, wheeled, test.ShouldNotBeNil)
+
+	sb, ok := wheeled.(*sensorBase)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	moving, err := sb.IsMoving(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, moving, test.ShouldBeFalse)
+
+	props, err := sb.Properties(ctx, nil)
+	test.That(t, props.WidthMeters, test.ShouldResemble, 0.1)
+	test.That(t, err, test.ShouldBeNil)
+
+	geometries, err := sb.Geometries(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, geometries, test.ShouldBeNil)
+
+	test.That(t, sb.SetPower(ctx, r3.Vector{X: 0, Y: 10, Z: 0}, r3.Vector{X: 0, Y: 0, Z: 0}, nil), test.ShouldBeNil)
+	test.That(t, sb.SetVelocity(ctx, r3.Vector{X: 0, Y: 100, Z: 0}, r3.Vector{X: 0, Y: 100, Z: 0}, nil), test.ShouldBeNil)
+	test.That(t, sb.MoveStraight(ctx, 10, 10, nil), test.ShouldBeNil)
+	// our fake motor code should immediately cancel the base context in this test
+	test.That(t, sb.Spin(ctx, 2, 10, nil), test.ShouldBeError, context.Canceled)
+	test.That(t, sb.Stop(ctx, nil), test.ShouldBeNil)
+
+	test.That(t, sb.Close(ctx), test.ShouldBeNil)
 }
 
 func sBaseTestConfig(msNames, lmotors, rmotors []string) resource.Config {
@@ -428,7 +459,7 @@ func TestReconfig(t *testing.T) {
 	test.That(t, sb.orientation.Name().ShortName(), test.ShouldResemble, "orientation3")
 	test.That(t, sb.velocities.Name().ShortName(), test.ShouldResemble, "setvel3")
 
-	deps, cfg = msDependencies(t, lmNames, rmNames, []string{"Bad", "orientation4", "setvel4"})
+	deps, cfg = msDependencies(t, lmNames, rmNames, []string{"Bad", "orientation4", "setvel4", "orientation5", "setvel5"})
 	err = b.Reconfigure(ctx, deps, cfg)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, sb.orientation.Name().ShortName(), test.ShouldResemble, "orientation4")

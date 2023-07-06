@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 
@@ -63,6 +64,29 @@ func TestWheelBaseMath(t *testing.T) {
 		props, err := wb.Properties(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, props.WidthMeters, test.ShouldEqual, 100*0.001)
+
+		geometries, err := wb.Geometries(ctx)
+		test.That(t, geometries, test.ShouldBeNil)
+		test.That(t, err, test.ShouldBeNil)
+
+		err = wb.SetVelocity(ctx, r3.Vector{X: 0, Y: 10, Z: 0}, r3.Vector{X: 0, Y: 0, Z: 10}, nil)
+		test.That(t, err.Error(), test.ShouldNotContainSubstring, "0 rpm")
+
+		err = wb.SetVelocity(ctx, r3.Vector{X: 0, Y: 100, Z: 0}, r3.Vector{X: 0, Y: 0, Z: 100}, nil)
+		test.That(t, err, test.ShouldBeNil)
+
+		moving, err := wb.IsMoving(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, moving, test.ShouldBeTrue)
+
+		err = wb.SetPower(ctx, r3.Vector{X: 0, Y: 10, Z: 0}, r3.Vector{X: 0, Y: 0, Z: 10}, nil)
+		test.That(t, err, test.ShouldBeNil)
+
+		test.That(t, wb.Stop(ctx, nil), test.ShouldBeNil)
+
+		moving, err = wb.IsMoving(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, moving, test.ShouldBeFalse)
 	})
 
 	t.Run("math_straight", func(t *testing.T) {
