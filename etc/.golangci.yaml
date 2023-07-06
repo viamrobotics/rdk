@@ -67,19 +67,15 @@ linters-settings:
   gofumpt:
     lang-version: "1.19"
     extra-rules: true
-  gosec:
-    excludes:
-      - G601
   govet:
     enable-all: true
     disable:
       - fieldalignment
       - shadow
+      - composites
   lll:
     line-length: 140
 issues:
-  exclude:
-    - composites
   exclude-rules:
     - path: _test\.go$
       linters:
