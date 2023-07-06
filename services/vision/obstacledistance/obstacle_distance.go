@@ -4,6 +4,7 @@ package obstacledistance
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
@@ -47,7 +48,7 @@ func init() {
 
 // Validate ensures all parts of the config are valid.
 func (config *DistanceDetectorConfig) Validate(path string) ([]string, error) {
-	var deps []string
+	deps := []string{}
 	if config.NumQueries < 1 || config.NumQueries > 20 {
 		return nil, errors.New("invalid number of queries, pick a number between 1 and 20")
 	}
@@ -63,7 +64,7 @@ func registerObstacleDistanceDetector(
 	_, span := trace.StartSpan(ctx, "service::vision::registerObstacleDistanceDetector")
 	defer span.End()
 	if conf == nil {
-		return nil, errors.New("object detection config for distance detector cannot be nil")
+		return nil, errors.New("config for obstacle_distance cannot be nil")
 	}
 
 	segmenter := func(ctx context.Context, src camera.VideoSource) ([]*vision.Object, error) {
@@ -75,6 +76,10 @@ func registerObstacleDistanceDetector(
 				return nil, err
 			}
 			clouds[i] = nxtPC
+			if nxtPC.Size() != 1 {
+				return nil, errors.New("obstacles_distance expects one point in the point cloud from the camera." +
+					fmt.Sprintf(" Underlying camera generates %d point(s) in its point cloud", nxtPC.Size()))
+			}
 		}
 
 		median, err := medianFromPointClouds(clouds)
@@ -105,19 +110,14 @@ func registerObstacleDistanceDetector(
 
 func medianFromPointClouds(clouds []pointcloud.PointCloud) (float64, error) {
 	cloudsWithOffset := make([]pointcloud.CloudAndOffsetFunc, 0, len(clouds))
-	numPoints := 0
 	for _, cloud := range clouds {
 		cloudCopy := cloud
 		cloudFunc := func(ctx context.Context) (pointcloud.PointCloud, spatialmath.Pose, error) {
 			return cloudCopy, nil, nil
 		}
-		numPoints += cloudCopy.Size()
 		cloudsWithOffset = append(cloudsWithOffset, cloudFunc)
 	}
-	if numPoints > len(clouds) {
-		return -1, errors.New("obstacles_distance expects only one point in the point cloud from the camera." +
-			" Underlying camera generates more than 1 point in its point cloud")
-	}
+
 	mergedCloud, err := pointcloud.MergePointClouds(context.Background(), cloudsWithOffset, nil)
 	if err != nil {
 		return -1, err

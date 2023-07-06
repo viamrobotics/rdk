@@ -91,6 +91,19 @@ func TestObstacleDistDetector(t *testing.T) {
 	_, isPoint = objects[0].PointCloud.At(0, 0, 5.5)
 	test.That(t, isPoint, test.ShouldBeTrue)
 
+	// error more than one point in cloud
+	cam.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
+		cloud := pc.New()
+		err = cloud.Set(pc.NewVector(0, 0, nums[count]), pc.NewColoredData(color.NRGBA{255, 0, 0, 255}))
+		test.That(t, err, test.ShouldBeNil)
+		err = cloud.Set(pc.NewVector(0, 0, 6.0), pc.NewColoredData(color.NRGBA{255, 0, 0, 255}))
+		test.That(t, err, test.ShouldBeNil)
+		count++
+		return cloud, err
+	}
+	_, err = srv.GetObjectPointClouds(ctx, "fakeCamera", nil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "obstacles_distance expects only one point in the point cloud")
+
 	inp.NumQueries = 0 // value out of range
 	_, err = inp.Validate("path")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid number of queries")
@@ -99,18 +112,4 @@ func TestObstacleDistDetector(t *testing.T) {
 	_, err = registerObstacleDistanceDetector(ctx, name, nil, r)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot be nil")
 
-	// error more than one point in cloud
-	cloud1 := pc.New()
-	err = cloud1.Set(pc.NewVector(0, 0, 6.0), pc.NewColoredData(color.NRGBA{255, 0, 0, 255}))
-	cloud2 := pc.New()
-	err = cloud2.Set(pc.NewVector(0, 0, 2.0), pc.NewColoredData(color.NRGBA{255, 0, 0, 255}))
-	err = cloud2.Set(pc.NewVector(0, 0, 5.0), pc.NewColoredData(color.NRGBA{255, 0, 0, 255}))
-	_, err = medianFromPointClouds([]pc.PointCloud{cloud1, cloud2})
-	test.That(t, err.Error(), test.ShouldContainSubstring, "obstacles_distance expects only one point in the point cloud")
-
-	cloud2 = pc.New()
-	err = cloud2.Set(pc.NewVector(0, 0, 6.0), pc.NewColoredData(color.NRGBA{255, 0, 0, 255}))
-	err = cloud2.Set(pc.NewVector(0, 0, 5.0), pc.NewColoredData(color.NRGBA{255, 0, 0, 255}))
-	_, err = medianFromPointClouds([]pc.PointCloud{cloud1, cloud2})
-	test.That(t, err.Error(), test.ShouldContainSubstring, "obstacles_distance expects only one point in the point cloud")
 }
