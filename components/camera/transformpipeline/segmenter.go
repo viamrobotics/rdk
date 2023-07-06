@@ -76,6 +76,7 @@ func newSegmentationsTransform(
 
 func (ss *segmenterSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
 	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::segmenter::NextPointCloud")
+	fmt.Println("Trying to get nextpointcloud!")
 	defer span.End()
 	// get the service
 	srv, err := vision.FromRobot(ss.r, ss.segmenterName)
