@@ -11,7 +11,6 @@ import (
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
@@ -50,12 +49,12 @@ func newSegmentationsTransform(
 
 	fmt.Println("Props:", props)
 
-	var cameraModel transform.PinholeCameraModel
-	cameraModel.PinholeCameraIntrinsics = props.IntrinsicParams
+	// var cameraModel transform.PinholeCameraModel
+	// cameraModel.PinholeCameraIntrinsics = props.IntrinsicParams
 
-	if props.DistortionParams != nil {
-		cameraModel.Distortion = props.DistortionParams
-	}
+	// if props.DistortionParams != nil {
+	// 	cameraModel.Distortion = props.DistortionParams
+	// }
 
 	segmenter := &segmenterSource{
 		gostream.NewEmbeddedVideoStream(source),
@@ -63,7 +62,7 @@ func newSegmentationsTransform(
 		conf.SegmenterName,
 		r,
 	}
-	src, err := camera.NewVideoSourceFromReader(ctx, segmenter, &cameraModel, props.ImageType)
+	src, err := camera.NewVideoSourceFromReader(ctx, segmenter, nil, props.ImageType)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
 	}
